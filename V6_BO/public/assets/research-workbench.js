@@ -13,7 +13,7 @@ function renderScan(r){
  const grouped=Object.entries(pools);
  $('patternPools').innerHTML=grouped.length?'<p class="muted">研究股票池与原正式精选池分开：同股可进入多个池，风险池不抵消看涨信号。历史数据仅供回测，不代表可实时交易。</p>'+
  grouped.map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary><div class="scroller"><table><thead><tr><th>代码 / 名称</th><th>看涨命中</th><th>风险</th><th>研究共振分</th><th>触发战法</th></tr></thead><tbody>'+
- rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.positiveCount)+'</td><td>'+esc(x.riskCount)+'</td><td>'+esc(x.confluencePoints)+'/50（非正式评分）</td><td>'+esc((x.matched||[]).join('、'))+'</td></tr>').join('')+
+ rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.positiveCount)+'</td><td>'+esc(x.riskCount)+'</td><td>'+esc(x.confluencePoints)+'/100（非正式评分）</td><td>'+esc((x.matched||[]).join('、'))+'</td></tr>').join('')+
  '</tbody></table></div></details>').join(''):'<p class="muted">本次有效行情中暂无命中战法的股票；不为凑池虚构候选。</p>';
  $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
  items.map(x=>{
@@ -21,7 +21,7 @@ function renderScan(r){
   const checks=x.patterns?.checks||[];
   const positive=x.patterns?.positiveCount||0;
   const risk=x.patterns?.riskCount||0;
-  const detail='<details><summary>看涨'+positive+'项 / 看跌'+risk+'项 · 研究共振'+(x.patterns?.confluencePoints||0)+'/50</summary>'+
+  const detail='<details><summary>看涨'+positive+'项 / 看跌'+risk+'项 · 研究共振'+(x.patterns?.confluencePoints||0)+'/100</summary>'+
     (matched.length?'<div><b>已命中：</b>'+esc(matched.map(y=>y.label).join('、'))+'</div>':'<div class="muted">暂无命中</div>')+
     '<ul>'+checks.map(y=>'<li><b>'+esc(y.status==='matched'?'✓':y.status==='insufficient_data'?'?':'—')+' '+esc(y.label)+'</b> · '+esc(y.side==='bearish'?'看跌/风险':'看涨')+' · '+esc(y.status==='matched'?'已命中':y.status==='insufficient_data'?'数据不足':'未命中')+' · '+esc(y.detail)+'</li>').join('')+'</ul>'+
     (x.patterns?.rps120==null?'':'<div>RPS120排名：'+esc(x.patterns.rps120)+'（样本横截面百分位）</div>')+
