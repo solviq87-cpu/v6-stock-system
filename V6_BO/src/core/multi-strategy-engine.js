@@ -1,5 +1,5 @@
 'use strict';
-const { evaluateStrategy } = require('./strategy-engine');
+const { evaluateStrategy, validMinScore } = require('./strategy-engine');
 const { classifyMarket } = require('./market-regime');
 
 const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
@@ -9,7 +9,9 @@ function scoreStrategy(snapshot, strategy, regimeWeights) {
   const base=evaluateStrategy(snapshot,strategy);
   const family=strategy.family||strategy.name||'default';
   const multiplier=n(regimeWeights[family],1);
-  const normalized=base.minScore>0?clamp(base.score/base.minScore*100):clamp(base.score);
+  // Invalid configuration cannot inflate the aggregate score of another passing strategy.
+  const normalized=validMinScore(strategy.minScore)
+    ? (base.minScore>0?clamp(base.score/base.minScore*100):clamp(base.score)) : 0;
   return {...base,family,strategyWeight:n(strategy.strategyWeight,1),multiplier,normalized:+normalized.toFixed(2),
     adjusted:+clamp(normalized*multiplier).toFixed(2)};
 }
