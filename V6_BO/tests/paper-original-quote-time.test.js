@@ -54,6 +54,22 @@ test('full-A fallback accepts only its own fresh provider timestamp', () => {
   assert.equal(c.paperPxFresh('000001'), 0);
 });
 
+test('late responses cannot replace a newer cached observation or extend its lifetime', () => {
+  const { c, clock } = functions();
+  const t = 1_800_000_000_000;
+  const row = { code: '600519', price: 10, quoteSource: 'tencent', quoteAt: t - 1000 };
+  c.ingestPx([row]);
+  const original = c.S.lastPx.get(row.code);
+  clock(t + 1000);
+  c.ingestPx([{ ...row, price: 9, quoteSource: 'eastmoney', quoteAt: t - 2000 }]);
+  assert.equal(c.S.lastPx.get(row.code), original);
+  assert.equal(c.paperPxFresh(row.code), 10);
+  c.ingestPx([{ ...row, price: 11, quoteAt: t + 500 }]);
+  assert.equal(c.paperPxFresh(row.code), 11);
+  clock(t + 15501);
+  assert.equal(c.paperPxFresh(row.code), 0);
+});
+
 test('monitoring includes a held stock after it leaves the candidate pool', async () => {
   const start = source.indexOf('const _mon = new Set();', source.indexOf('async function tick()'));
   const end = source.indexOf('monitorCodes = codes;', start);
