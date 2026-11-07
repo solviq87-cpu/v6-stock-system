@@ -1,0 +1,42 @@
+name: V6 public quote diagnostic (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      stock_code:
+        description: 'Shanghai/Shenzhen A-share six-digit code'
+        required: true
+        default: '600519'
+        type: string
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: V6_BO
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate code
+        env:
+          STOCK_CODE: ${{ inputs.stock_code }}
+        run: |
+          node -e "if(!/^(60|68|00|30)[0-9]{4}$/.test(process.env.STOCK_CODE||''))process.exit(1)"
+      - name: Bounded public-source diagnostic (not realtime certification)
+        env:
+          STOCK_CODE: ${{ inputs.stock_code }}
+        run: |
+          mkdir -p /tmp/v6-quote-diagnostic
+          node scripts/public-quote-probe.js "$STOCK_CODE" /tmp/v6-quote-diagnostic/result.json tencent,eastmoney,sina
+          node - <<'NODE'
+          const fs=require('fs');
+          const p=JSON.parse(fs.readFileSync('/tmp/v6-quote-diagnostic/result.json','utf8'));
+          console.log(JSON.stringify({mode:'one-shot-diagnostic',verifiedLive:false,canTrade:false,paidServicesUsed:false,code:p.code,sources:p.sources.map(s=>({id:s.id,status:s.status}))},null,2));
+          NODE
+      - name: Delete diagnostic file
+        if: always()
+        run: rm -f /tmp/v6-quote-diagnostic/result.json
