@@ -7,7 +7,8 @@ const {detectPatterns,attachRps,buildPatternPools}=require('./a-share-patterns')
 const {linkIssuerEvents,buildIssuerLinkage,buildIssuerPools}=require('./issuer-event-linkage');
 const {optionalResearchView}=require('../core/optional-research-view');
 const {evaluateLinkage,buildLinkagePools}=require('./market-sector-pattern-linkage');
-function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requireReal=false}={}){
+const {updateLifecycle}=require('./signal-pool-lifecycle');
+function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requireReal=false,previousStates=[]}={}){
  if(!Array.isArray(stocks))throw TypeError('stocks必须为数组');
  const seen=new Set(),items=[];
  // One bounded read of the optional CNINFO source, never a trusted sentiment feed.
@@ -40,7 +41,7 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
   // Never use guessed market/sector values as evidence.
   const linkageResearch=evaluateLinkage({symbol,patterns,issuerEvidence,quality,bars:stock.bars,
     linkage:market?.linkage,asOf:now});
-  items.push({patterns,blockedBySafety,issuerEvidence,issuerLinkage,linkageResearch,symbol,name:stock.name||'',quality,tradable,researchFeatures:quality.usable?featuresAt(stock.bars,stock.bars.length-1):null,score:evaluated?evaluated.finalScore:null,
+  items.push({patterns,patternDate:Array.isArray(stock.bars)?stock.bars.at(-1)?.date:null,blockedBySafety,issuerEvidence,issuerLinkage,linkageResearch,symbol,name:stock.name||'',quality,tradable,researchFeatures:quality.usable?featuresAt(stock.bars,stock.bars.length-1):null,score:evaluated?evaluated.finalScore:null,
    strategy:evaluated?{pass:evaluated.pass,regime:evaluated.regime,legacyScore:evaluated.legacyScore,
     extendedFactors:evaluated.extendedFactors,playbookAnalysis:evaluated.playbookAnalysis,riskFilter:evaluated.riskFilter}:null,
    ladder:ladder?{stage:ladder.stage,next:ladder.next,streak:ladder.streak,score:ladder.score,warnings:ladder.warnings}:null});
@@ -49,10 +50,11 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
  const patternPools=buildPatternPools(items);
  const issuerPools=buildIssuerPools(items);
  const linkagePools=buildLinkagePools(items);
+ const lifecycle=updateLifecycle({items,previous:previousStates,now});
  items.sort((a,b)=>Number(b.tradable)-Number(a.tradable)||Number(b.quality.usable)-Number(a.quality.usable)||(b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol));
  return {asOf:now,total:items.length,eligible:items.filter(x=>x.tradable).length,rejected:items.filter(x=>!x.quality.usable).length,
   simulated:items.filter(x=>x.quality.simulated).length,
   patternPoolCount:Object.values(patternPools).reduce((a,p)=>a+p.length,0),patternPools,
-  issuerPools,linkagePools,issuerEvidenceSource:optional.status,items,disclaimer:'候选研究排行，不提供自动下单；模拟/导入/过期行情须显著标注'};
+  issuerPools,linkagePools,lifecycle,issuerEvidenceSource:optional.status,items,disclaimer:'候选研究排行，不提供自动下单；模拟/导入/过期行情须显著标注'};
 }
 module.exports={scanUniverse};
