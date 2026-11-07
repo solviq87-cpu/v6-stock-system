@@ -3,6 +3,7 @@
 // NO auto-weight changes, brokerage orders or live alerts.
 const crypto=require('node:crypto');
 const {validateHistoricalBars}=require('./feed-quality');
+const {assessDailyBarFinality}=require('../core/a-share-calendar');
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 function dateOk(d){return typeof d==='string'&&DATE.test(d)&&Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(Date.parse(d+'T00:00:00Z')).toISOString().slice(0,10)===d;}
@@ -22,6 +23,7 @@ function freezeSignals({items=[],stocks=[],journal=[],now=Date.now(),strategyVer
   if(!checked.usable)continue;
   const end=bars.at(-1),date=end.date;
   if(!dateOk(date)||date>today||!Number.isFinite(end.close)||end.close<=0||!item.quality?.usable)continue;
+  if(!assessDailyBarFinality(date,{observedAt:item.quality.timestamp,now}).usable)continue;
   const names=(item.patterns?.matched||[]).filter(x=>x?.status==='matched'&&x.side==='bullish')
     .map(x=>String(x.id||'')).filter(Boolean).sort();
   if(!names.length)continue;
@@ -59,7 +61,7 @@ function evaluateForwardOutcomes({journal=[],stocks=[],now=Date.now(),maxSignals
   if(at<0)continue;
   for(const days of horizons){
    const future=rows[at+days];
-   if(!future||future.date<=e.date)continue;
+   if(!future||future.date<=e.date||!assessDailyBarFinality(future.date,{observedAt:now,now}).usable)continue;
    const window=rows.slice(at+1,at+days+1);
    const low=Math.min(...window.map(x=>x.low)),high=Math.max(...window.map(x=>x.high));
    outcomes.push({signalId:e.id,code:e.code,date:e.date,exitDate:future.date,horizon:days,
