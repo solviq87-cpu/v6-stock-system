@@ -12,6 +12,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: V6_BO
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +33,6 @@ jobs:
           OPENBLAS_NUM_THREADS: '1'
           MKL_NUM_THREADS: '1'
         run: |
-          test -f package.json || { echo 'V6 source not imported yet'; exit 1; }
+          test -f package.json || { echo 'V6_BO/package.json missing'; exit 1; }
           npm run check
           npm test
