@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {evaluateCandidate,rankCandidates}=require('../src/strategy/strategy-service');
 const factors=require('../strategies/extended-factor-pack.json').factors;
 const now=Date.parse('2026-11-04T10:00:00Z');
-const bars=Array.from({length:35},(_,i)=>({date:`2026-09-${String(i+1).padStart(2,'0')}`,open:10,high:11,low:9,close:10,volume:100000+i*1000}));
+const bars=Array.from({length:35},(_,i)=>({date:new Date(Date.UTC(2026,8,1+i)).toISOString().slice(0,10),open:10,high:11,low:9,close:10,volume:100000+i*1000}));
 const stock={code:'000001',close:10,bars,feed:{source:'eastmoney',timestamp:now}};
 for(const f of factors)stock[f.field]=80;
 const evidence=Object.fromEntries(factors.map(f=>[f.field,{source:'eastmoney',timestamp:now}]));
