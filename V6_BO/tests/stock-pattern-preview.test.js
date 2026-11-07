@@ -51,6 +51,10 @@ test('invalid, duplicate or absent dates do not become confident technical evide
   assert.equal(preview.evaluate(duplicate).usable,false);
   const invalid=bars();invalid.at(-1).high=1;
   assert.equal(preview.evaluate(invalid).usable,false);
+  const impossible=bars();impossible.at(-1).date='2026-02-31';
+  assert.equal(preview.evaluate(impossible).usable,false);
+  const fractional=bars();fractional.at(-1).volume=100.2;
+  assert.equal(preview.evaluate(fractional).usable,false);
   assert.equal(preview.evaluate([{open:10,close:11}]).usable,false);
 });
 test('risk and bullish evidence remain separate; displayed provenance is escaped',()=>{
