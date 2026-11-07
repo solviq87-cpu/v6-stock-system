@@ -1,0 +1,14 @@
+{
+  "name": "v6-browser-research",
+  "version": "2026.11.7",
+  "private": true,
+  "description": "V6 browser research terminal: causal screening, evidence and factor analysis",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node tests/analysis.test.mjs && node tests/ui.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "jsdom": "27.0.0"
+  }
+}
