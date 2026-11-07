@@ -2,6 +2,7 @@
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 $('file').addEventListener('change',async e=>{const f=e.target.files[0];if(f){if(f.size>7e6){$('status').textContent='文件过大';return;}$('payload').value=await f.text();}});
+let priorResearchStates=[];
 const card=(label,value)=>`<div class="card"><div class="muted">${esc(label)}</div><h2>${esc(value)}</h2></div>`;
 function renderScan(r){
  const items=Array.isArray(r.items)?r.items:[];
@@ -80,13 +81,14 @@ async function run(mode){
  $('results').hidden=true;$('status').textContent='正在分析…';
  try{
   const payload=JSON.parse($('payload').value);
+  if(mode==='scan'&&priorResearchStates.length&&!Object.hasOwn(payload,'previousStates'))payload.previousStates=priorResearchStates;
   const token=$('token').value.trim();
   const response=await fetch('/api/research/'+mode,{
    method:'POST',headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},body:JSON.stringify(payload)});
   const data=await response.json();
   if(!data.ok)throw Error(data.error||data.msg||'无权限或数据格式错误');
   $('status').textContent='研究分析完成。注意：用户上传的数据未经过真实性验证，不是实时行情，也不代表实盘收益。';
-  if(mode==='scan')renderScan(data.result);else renderLedger(data.result);
+  if(mode==='scan'){if(Array.isArray(data.result?.lifecycle?.states))priorResearchStates=data.result.lifecycle.states;renderScan(data.result);}else renderLedger(data.result);
   $('results').hidden=false;
  }catch(e){$('status').textContent='分析失败：'+e.message;}
  finally{buttons.forEach(b=>b.disabled=false);}
