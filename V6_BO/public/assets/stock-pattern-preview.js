@@ -9,7 +9,8 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const hasNumber=n=>typeof n==='number'&&Number.isFinite(n);
   const validBar=b=>b&&['open','high','low','close','volume'].every(k=>hasNumber(b[k]))&&
-    b.low>0&&b.volume>=0&&b.high>=Math.max(b.open,b.close,b.low)&&b.low<=Math.min(b.open,b.close);
+    b.low>0&&Number.isSafeInteger(b.volume)&&b.volume>=0&&b.high>=Math.max(b.open,b.close,b.low)&&b.low<=Math.min(b.open,b.close)&&
+    (b.amount===undefined||(hasNumber(b.amount)&&b.amount>=0));
   const body=b=>Math.abs(b.close-b.open),range=b=>b.high-b.low;
   const up=b=>b.close>b.open&&range(b)>0,down=b=>b.close<b.open&&range(b)>0;
   const bodyFraction=b=>range(b)>0?body(b)/range(b):0;
@@ -17,8 +18,10 @@
   function evaluate(rows){
     const empty={usable:false,reason:'K线数据不足或字段不完整',checks:[],positive:[],risks:[]};
     if(!Array.isArray(rows)||rows.length<3||rows.length>5000||!rows.every(validBar))return empty;
-    if(!rows.every((b,i)=>/^\d{4}-\d{2}-\d{2}$/.test(String(b.date||''))&&
-      (i===0||b.date>rows[i-1].date)))return {...empty,reason:'交易日期缺失、重复或排序异常'};
+    if(!rows.every((b,i)=>{const d=String(b.date||'');const millis=/^\d{4}-\d{2}-\d{2}$/.test(d)?Date.parse(d+'T00:00:00Z'):NaN;
+      return Number.isFinite(millis)&&new Date(millis).toISOString().slice(0,10)===d&&
+        (i===0||d>rows[i-1].date);
+    }))return {...empty,reason:'交易日期缺失、重复或排序异常'};
     const n=rows.length,a=rows[n-3],b=rows[n-2],c=rows[n-1];
     const checks=[];
     function record(id,label,side,needed,hit,detail){
