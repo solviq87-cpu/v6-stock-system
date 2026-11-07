@@ -47,3 +47,29 @@ test('future original quote time is marked abnormal on both quote displays',()=>
  const h=setup(),m=model();m.rows[0].quoteAt=Date.now()+60000;m.rows[0].quoteSource='tencent';
  h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-rows').innerHTML,/报价时点异常/);assert.match(h.nodes.get('vx-selected-price').textContent,/报价时点异常/);
 });
+
+
+test('selected stock displays issuer PDF evidence with escaped titles and never opens untrusted links',()=>{
+ const h=setup(),m=model();
+ m.rows[0].issuerEvidence={
+  events:[
+   {title:'<img src=x onerror=alert(1)> 收到立案调查通知书',publishedAt:'2026-11-06T08:00:00.000Z',
+    category:'risk-clue',reason:'公告标题线索，未核实正文',url:'https://static.cninfo.com.cn/finalpage/2026-11-06/123.pdf'},
+   {title:'伪造PDF',publishedAt:'2026-11-06T08:00:00.000Z',category:'neutral-review',url:'javascript:alert(1)'}
+  ],riskClues:[{}],strengthClues:[],conflicts:[]};
+ h.events['v6-dashboard-data']({detail:m});
+ const html=h.nodes.get('vx-issuer-evidence').innerHTML;
+ assert.match(html,/static\.cninfo\.com\.cn/);
+ assert.match(html,/&lt;img/);
+ assert.ok(!html.includes('<img'));
+ assert.ok(!html.includes('href="javascript:'));
+ assert.match(html,/风险线索 1 项/);
+ h.events['v6-dashboard-offline']();
+ assert.match(h.nodes.get('vx-issuer-evidence').textContent,/证据需重新获取/);
+ h.events['v6-dashboard-data']({detail:null});
+ assert.match(h.nodes.get('vx-issuer-evidence').textContent,/已清除/);
+});
+test('no issuer evidence is explicitly unknown rather than labelled risk-free',()=>{
+ const h=setup();h.events['v6-dashboard-data']({detail:model()});
+ assert.match(h.nodes.get('vx-issuer-evidence').textContent,/不代表这家公司没有风险/);
+});
