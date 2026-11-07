@@ -1,6 +1,7 @@
 'use strict';
 const {barsToIndicators}=require('./historical-indicators');
-const {limitPct:inferLimitPct}=require('./historical-session');
+const {limitPct:inferLimitPct,atLockedLimit}=require('./historical-session');
+const {corporateAction}=require('../core/corporate-actions');
 const round=x=>+x.toFixed(2);
 function classifyLimitLadder({bars=[],name='',isST=false,limitPct,market='main'}={}){
  const ind=barsToIndicators(bars);
@@ -11,8 +12,13 @@ function classifyLimitLadder({bars=[],name='',isST=false,limitPct,market='main'}
  if(bars.length<27)return {eligible:false,reason:'历史K线不足27根',indicators:ind};
  const flags=[];
  for(let i=1;i<bars.length;i++){
-  const prev=Number(bars[i-1].close),close=Number(bars[i].close),high=Number(bars[i].high);
-  const upper=bars[i].upperLimit??(Math.round(prev*(100+limit)+1e-9)/100);
+  const bar=bars[i],close=Number(bar.close),high=Number(bar.high);
+  // Share the execution model's daily limit and ex-rights reference instead of
+  // interpreting a corporate-action price gap as an ordinary price move.
+  try{corporateAction(bar);}catch(e){return {eligible:false,reason:e.message,indicators:ind};}
+  const boundary=atLockedLimit(bar,bars[i-1],{isST,market,limitPct},'buy');
+  if(!Number.isFinite(boundary.boundary)||boundary.boundary<=0)return {eligible:false,reason:boundary.reason,indicators:ind};
+  const upper=boundary.boundary;
   // Compare at tick precision, allowing sub-cent rounding in imported bars.
   flags.push(Number.isFinite(upper)&&Math.round(close*100)===Math.round(upper*100)&&Math.round(high*100)===Math.round(close*100));
  }
