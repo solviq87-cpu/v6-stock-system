@@ -13,6 +13,10 @@ function validNumber(v) {
   return v !== null && v !== undefined && !(typeof v === 'string' && v.trim() === '') && typeof v !== 'boolean' && Number.isFinite(Number(v));
 }
 
+function validMinScore(value) {
+  return validNumber(value) && Number(value) >= 0;
+}
+
 function evaluateRule(snapshot, rule) {
   if (!snapshot || !rule || !rule.field || !validNumber(snapshot[rule.field])) return false;
   const value = Number(snapshot[rule.field]);
@@ -47,9 +51,9 @@ function evaluateStrategy(snapshot, strategy) {
   }
   // A missing/invalid threshold or zero-hit strategy must not silently select a stock.
   const configuredMinScore = strategy && strategy.minScore;
-  const thresholdValid = validNumber(configuredMinScore) && Number(configuredMinScore) >= 0;
+  const thresholdValid = validMinScore(configuredMinScore);
   const minScore = thresholdValid ? Number(configuredMinScore) : 0;
   return { pass: thresholdValid && rules.length > 0 && hits.length > 0 && score > 0 && score >= minScore, score, minScore, hits, hitRate: rules.length ? hits.length / rules.length : 0 };
 }
 
-module.exports = { evaluateRule, evaluateStrategy };
+module.exports = { evaluateRule, evaluateStrategy, validMinScore };
