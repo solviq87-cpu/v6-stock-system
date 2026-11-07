@@ -5,7 +5,7 @@ const {scanUniverse}=require('../src/strategy/universe-scanner');
 const {freezeSignals,evaluateForwardOutcomes}=require('../src/strategy/signal-outcome-journal');
 const {createSixLinkageRunner}=require('../src/core/six-linkage-research-runner');
 const {main}=require('../scripts/run-six-linkages');
-const asOf=d=>Date.parse(d+'T07:00:00Z');
+const asOf=d=>Date.parse(d+'T07:15:00Z');
 function bars(last='2026-02-04',n=35){
  const end=Date.parse(last+'T00:00:00Z');
  const a=Array.from({length:n},(_,i)=>({date:new Date(end-(n-1-i)*86400000).toISOString().slice(0,10),
