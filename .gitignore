@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+.DS_Store
+__pycache__/
+.pytest_cache/
+coverage/
+.tmp/
+tmp/
+# Local historical objects and operational data must be reviewed before import
+history/objects/
