@@ -5,6 +5,11 @@ const crypto=require('node:crypto');
 const {validateImport}=require('./market-data-center');
 const ENDPOINT='https://push2his.eastmoney.com/api/qt/stock/kline/get';
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const validDate=x=>{
+ if(typeof x!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(x))return false;
+ const d=new Date(x+'T00:00:00Z');
+ return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===x;
+};
 function secId(symbol){
  if(typeof symbol!=='string'||!/^(?:0[0-9]{5}|3[0-9]{5}|6[0-9]{5})$/.test(symbol))throw Error('只支持有效的沪深A股6位代码，不臆测北交所市场映射');
  return (symbol.startsWith('6')?'1.':'0.')+symbol;
@@ -17,7 +22,7 @@ function parseKlines(payload,expected){
   if(typeof row!=='string')throw Error('公开日K线必须是逗号分隔文本');
   const cells=row.split(',');if(cells.length<6)throw Error('公开日K线缺失OHLCV字段');
   const [date,open,close,high,low,volume]=cells;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||seen.has(date))throw Error('公开日K线日期无效或重复');seen.add(date);
+  if(!validDate(date)||seen.has(date))throw Error('公开日K线日期无效或重复');seen.add(date);
   const b={date,open:Number(open),high:Number(high),low:Number(low),close:Number(close),volume:Number(volume)};
   if([open,close,high,low,volume].some(x=>x.trim()==='')||!Object.values(b).slice(1).every(x=>Number.isFinite(x))||b.open<=0||b.close<=0||b.high<Math.max(b.open,b.close,b.low)||b.low<=0||b.low>Math.min(b.open,b.close)||b.volume<0)throw Error('公开日K线OHLCV异常: '+expected);
   bars.push(b);
@@ -37,7 +42,6 @@ async function boundedJson(response,maxBytes){
 async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fetch,timeoutMs=10000,maxBytes=2*1024*1024,now=Date.now()}={}){
  if(!Array.isArray(symbols)||symbols.length<1||symbols.length>100||new Set(symbols).size!==symbols.length)throw Error('沪深A股股票池需要1到100只互异代码');
  for(const s of symbols)secId(s);
- const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(String(x)))return false;const d=new Date(x+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===x;};
  if(!validDate(start)||!validDate(end)||start>=end||end>new Date(now).toISOString().slice(0,10))throw Error('历史行情起止日期无效或位于未来');
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000||!Number.isSafeInteger(maxBytes)||maxBytes<1024||maxBytes>8*1024*1024)throw Error('历史接口请求参数无效');
  const stocks=[];
