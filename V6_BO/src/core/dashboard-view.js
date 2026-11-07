@@ -2,6 +2,7 @@
 // Display-only projection of existing observed state. No orders, ranking changes or invented scores.
 const number=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const {quoteObservationView}=require('./quote-observation-view');
+const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const text=v=>typeof v==='string'?v.slice(0,200):'';
 function dashboardView(state,mood=null,now=Date.now()){
  const riskEvidence=require('./risk-evidence-view').riskEvidenceView(state,now);
@@ -11,7 +12,9 @@ function dashboardView(state,mood=null,now=Date.now()){
  const rows=pool.slice(0,50).map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
    fourteen:fourteenCodes.has(c.code),focused:c.focused===true||c.focused===1,signals:Array.isArray(c.paths)?c.paths.filter(x=>typeof x==='string').slice(0,5):[],
    explanation:Array.isArray(c.pathWhy)?c.pathWhy.filter(x=>typeof x==='string').slice(0,5):typeof c.pathWhy==='string'?[c.pathWhy]:[],
-   news:riskEvidence.news.filter(n=>n.codes.includes(c.code)).slice(0,6),probabilityLabel:riskEvidence.probabilityLabel,bad:!!state.news?.badCodes?.has?.(c.code),bazi:c.bazi?{score:number(c.bazi.total),verdict:text(c.bazi.verdict),line:text(c.bazi.line)}:null}));
+   news:riskEvidence.news.filter(n=>n.codes.includes(c.code)).slice(0,6),
+   issuerEvidence:linkIssuerEvents({symbol:c.code,now,announcements:riskEvidence.news.filter(n=>n.codes.includes(c.code))}),
+   probabilityLabel:riskEvidence.probabilityLabel,bad:!!state.news?.badCodes?.has?.(c.code),bazi:c.bazi?{score:number(c.bazi.total),verdict:text(c.bazi.verdict),line:text(c.bazi.line)}:null}));
  const up=number(mood?.upN),down=number(mood?.downN),flat=number(mood?.flatN);
  const total=up!==null&&down!==null?up+down+(flat??0):0;
  const rules=state.myrules;
