@@ -1,0 +1,30 @@
+{
+  "added": [
+    "integration/catalog-live-result.json",
+    "integration/catalog-full.tap",
+    "integration/catalog-targeted.tap",
+    "integration/catalog-first-targeted-failure.tap",
+    "integration/DATA_CATALOG_OPERATIONS_20261106bd.md",
+    "integration/catalog-live-probe.log",
+    "integration/catalog-full.exit",
+    "integration/catalog-targeted.exit",
+    "config/data-source-catalog.json",
+    "tests/data-source-catalog.test.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "requirements-research-sources.txt",
+    "scripts/optional-research-sources.py",
+    "scripts/parallel-market.js",
+    "server.js",
+    "src/core/optional-research-view.js",
+    "src/core/risk-evidence-view.js",
+    "tests/optional-research-sources.test.js"
+  ],
+  "deleted": []
+}

@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const {buildSession,saveSession}=require('../src/core/paper-session');
+const {auditPaperAccount}=require('../src/core/paper-audit');
+const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+function fixture(n=65){return {source:'fixture',asOf:'2026-05-01',stocks:[{code:'000001',name:'测试',market:'main',bars:Array.from({length:n},(_,i)=>{const p=10+i*.03;return {date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),open:p,high:p+.3,low:p-.2,close:p+.1,volume:100000};})}]};}
+function withFile(fn){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-paper-audit-'));try{return fn(path.join(dir,'account.json'));}finally{fs.rmSync(dir,{recursive:true,force:true});}}
+test('independent paper audit verifies a persisted account and its previous revision',()=>withFile(file=>{const a=buildSession(fixture());saveSession(file,a.session);assert.equal(auditPaperAccount(file).ok,true);const b=buildSession(fixture(66),{},a.session);saveSession(file,b.session);const result=auditPaperAccount(file);assert.equal(result.ok,true);assert.equal(result.revision,2);assert.deepEqual(result.failures,[]);}));
+test('independent replay catches a self-consistently rehashed forged report',()=>withFile(file=>{const a=buildSession(fixture());saveSession(file,a.session);const s=JSON.parse(fs.readFileSync(file,'utf8'));s.report.metrics.finalEquity+=999;s.reportHash=sha(s.report);fs.writeFileSync(file,JSON.stringify(s));const r=auditPaperAccount(file);assert.equal(r.ok,false);assert.match(r.failures.join(' '),/重新撮合|完整性校验失败/);}));
+test('independent audit catches corrupted backups',()=>withFile(file=>{const a=buildSession(fixture());saveSession(file,a.session);saveSession(file,buildSession(fixture(66),{},a.session).session);fs.writeFileSync(file+'.bak','{broken');const r=auditPaperAccount(file);assert.equal(r.ok,false);assert.match(r.failures.join(' '),/备份文件/);}));

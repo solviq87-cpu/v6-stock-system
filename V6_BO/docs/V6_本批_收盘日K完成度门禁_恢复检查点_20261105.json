@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-05",
+  "phase": "A股日K收盘完成度门禁（缓存、历史刷新、上传研究）",
+  "parentArchive": "V6_统一主线_行情时点与K线完整性_最新完整工程_20261105.zip",
+  "parentSha256": "8d5a7042c51259b99303fce22e9bd2854aafd6a812f0498e6da6d5e7b3b1a586",
+  "modifiedFileHashes": {
+    "src/core/a-share-calendar.js": "61bb20c723a89714ebc6dd86f9aabf4b0456a52cfef93845c3ffff38222e9a29",
+    "src/strategy/cached-kline-adapter.js": "2f71d92a7eaaab0f3b6329949fdeb4c0b7c859177616dee5115931921ccf6967",
+    "src/strategy/research-v2-cached-kline-adapter.js": "aab146da3bf304024286003c0a150030eaf7c4061b841814cfb2f95abd8b9ab5",
+    "src/strategy/historical-refresh.js": "7bc23946ec896e7a66b624b61128ad751a72bb882628c755efcafc2de5eb83dd",
+    "src/strategy/research-upload-validator.js": "274578a6557802d280acd1f22f0e941ccc3494e845cfc39f0889f4a13b806eb1",
+    "tests/a-share-calendar-boundary.test.js": "8762454b727644ea9dbdf8665d6acc02abc6bf4a3515efcbbc503c61b17e9721",
+    "tests/market-temporal-integrity.test.js": "cb6764a4473575174fa8248856830bf2086f817bb8936f6b4513bb8f6f03669e",
+    "tests/daily-bar-finality.test.js": "444566efbcf33d037e949d16f327145e95bcc9d2b06ae19cec71e77360235192"
+  },
+  "testResult": {
+    "pass": 399,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "total": 399
+  },
+  "testLog": "docs/V6_本批_399项全量测试原始输出_20261105.txt",
+  "audit": {
+    "offlineOk": true,
+    "liveHttpSmokeSkipped": true
+  },
+  "localFixes": [
+    "C03/C04 same-day daily bar gate",
+    "E01 upload research gate",
+    "history refresh atomic observation clock"
+  ],
+  "acceptanceTotal": 24,
+  "productionAccepted": 0,
+  "liveMarketVerified": false,
+  "providerDailyBarFinalityVerified": false,
+  "strategyRulesModified": false,
+  "requiredNext": [
+    "official exchange calendar",
+    "authorized real-world provider EOD bar finality",
+    "real OOS strategy validation",
+    "paper account persistent multi-day trial",
+    "HTTPS/OTP/device field test",
+    "offsite DR/RPO/RTO",
+    "mobile and desktop device acceptance"
+  ]
+}

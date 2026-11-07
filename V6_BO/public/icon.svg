@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d1117"/>
+  <!-- 柱状图 -->
+  <rect x="112" y="328" width="56" height="112" rx="12" fill="#2a3142"/>
+  <rect x="200" y="288" width="56" height="152" rx="12" fill="#2a3142"/>
+  <rect x="288" y="248" width="56" height="192" rx="12" fill="#2a3142"/>
+  <rect x="376" y="208" width="56" height="232" rx="12" fill="#f0b90b"/>
+  <!-- 上升折线 -->
+  <path d="M96 320 L192 224 L256 288 L416 128" stroke="#4a9eff" stroke-width="32" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- 终点高光 -->
+  <circle cx="416" cy="128" r="28" fill="#f0b90b"/>
+  <circle cx="416" cy="128" r="12" fill="#0d1117"/>
+</svg>

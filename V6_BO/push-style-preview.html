@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>推送样式方案预览</title>
+<style>
+  :root{ --bg:#f5f6f8; --card:#fff; --line:#e5e8ec; --txt:#1c2333; --sub:#6b7688; --up:#f6465d; --down:#2ebd85; --gold:#f0b90b; --blue:#4a9eff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;padding:20px}
+  h1{font-size:20px;margin-bottom:6px}
+  .intro{color:var(--sub);font-size:13px;margin-bottom:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  .style-block{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px}
+  .style-block h2{font-size:16px;margin-bottom:4px}
+  .style-block .desc{font-size:12px;color:var(--sub);margin-bottom:14px}
+  .phone{width:320px;background:#0d1117;border:8px solid #1a1f2e;border-radius:28px;padding:14px 12px;margin:0 auto;color:#e6edf3;font-size:13px}
+  .phone .msg{background:#1a1f2e;border:1px solid #2a3142;border-radius:12px;padding:12px;margin-bottom:10px;white-space:pre-wrap;font-family:inherit}
+  .phone .msg-title{font-weight:700;font-size:14px;margin-bottom:6px}
+  .phone .muted{color:#9aa5b5}
+  .phone .up{color:var(--up)}
+  .phone .down{color:var(--down)}
+  .phone .gold{color:var(--gold)}
+  .phone .blue{color:var(--blue)}
+  /* 方案 A 风格 */
+  .style-a .phone .msg{border-left:3px solid var(--blue)}
+  /* 方案 B 风格 */
+  .style-b .phone .msg{border-radius:0;border:none;border-bottom:1px solid #2a3142;background:transparent;padding:12px 0}
+  .style-b .phone .msg-title{border-bottom:1px solid #2a3142;padding-bottom:6px}
+  /* 方案 C 风格 */
+  .style-c .phone .msg{background:#0f1b2d;border:1px solid #1f3a5f}
+  .style-c .phone .big{font-size:22px;font-weight:800}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;background:#212736;color:#9aa5b5;margin-right:4px}
+  .row{display:flex;justify-content:space-between;padding:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📬 推送样式方案对比</h1>
+  <div class="intro">下面给出 3 种主推文案风格，都以「早盘摘要」为例。你告诉我倾向哪个，我按那个风格统改所有推送模板。</div>
+
+  <div class="style-block style-a">
+    <h2>方案 A：紧凑卡片 · 标题色块</h2>
+    <div class="desc">保留标题突出，正文用 emoji 分段，去掉老式 ═══ 边框。信息密度中等，适合快速扫读。</div>
+    <div class="phone">
+      <div class="msg">
+        <div class="msg-title blue">📊 早盘摘要 · 10月17日</div>
+        <div>🌡 情绪：<span class="up">偏暖</span> · 建议【加仓】</div>
+        <div>全A 5576只：涨3301 / 跌2127 / 平148</div>
+        <div>🔥 涨停 <span class="up">72</span> 家 · 跌停 26 家</div>
+        <div>💰 主力净流入 +437.9亿</div>
+        <div>📌 一句话：涨多跌少，资金净流入，涨停72家</div>
+      </div>
+      <div class="msg">
+        <div class="msg-title gold">🎯 竞价异动 · 09:25</div>
+        <div>① 万丰奥威 <span class="up">+9.8%</span> <span class="tag">低空经济</span></div>
+        <div>② 长城军工 <span class="up">+8.5%</span> <span class="tag">军工</span></div>
+        <div>③ 新华传媒 <span class="up">+7.2%</span> <span class="tag">传媒</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="style-block style-b">
+    <h2>方案 B：极简列表 · 无框线</h2>
+    <div class="desc">去掉所有装饰边框，纯靠留白和 emoji 分隔。最省屏幕高度，适合消息很多时不刷屏。</div>
+    <div class="phone">
+      <div class="msg">
+        <div class="msg-title">📊 早盘摘要 10-17</div>
+        <div>偏暖 · 加仓</div>
+        <div>5576只 涨3301 跌2127</div>
+        <div>涨停72 跌停26 · 主力+437.9亿</div>
+      </div>
+      <div class="msg">
+        <div class="msg-title">🎯 竞价异动 09:25</div>
+        <div>万丰奥威 +9.8% 低空经济</div>
+        <div>长城军工 +8.5% 军工</div>
+        <div>新华传媒 +7.2% 传媒</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="style-block style-c">
+    <h2>方案 C：数字大屏 · 核心数据放大</h2>
+    <div class="desc">把最关键的数字放大到一眼能看清，文字解释缩小。适合只想看结论、不想读长句子的场景。</div>
+    <div class="phone">
+      <div class="msg">
+        <div class="msg-title">📊 早盘摘要 · 10月17日</div>
+        <div style="display:flex;gap:12px;margin:10px 0">
+          <div style="text-align:center"><div class="big up">72</div><div class="muted">涨停</div></div>
+          <div style="text-align:center"><div class="big down">26</div><div class="muted">跌停</div></div>
+          <div style="text-align:center"><div class="big up">+437</div><div class="muted">主力亿</div></div>
+        </div>
+        <div>情绪 <span class="up">偏暖</span> · 建议 <span class="up">加仓</span></div>
+        <div class="muted">涨3301 / 跌2127 / 平148</div>
+      </div>
+      <div class="msg">
+        <div class="msg-title">🎯 竞价异动</div>
+        <div class="row"><span>万丰奥威</span><span class="up">+9.8%</span></div>
+        <div class="row"><span>长城军工</span><span class="up">+8.5%</span></div>
+        <div class="row"><span>新华传媒</span><span class="up">+7.2%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="style-block">
+    <h2>我的建议</h2>
+    <div class="desc">如果每天推送条数多（竞价+盘中+复盘+风控可能一二十条），首选 <b>方案 B</b>，占屏最少；如果想让关键结论一眼抓住，选 <b>方案 C</b>；<b>方案 A</b> 是折中。</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1648 @@
+TAP version 13
+# PASS 13 T+1 / limits / walk-forward checks
+# Subtest: tests/ashare-t1-backtest.test.js
+ok 1 - tests/ashare-t1-backtest.test.js
+  ---
+  duration_ms: 63.449543
+  type: 'test'
+  ...
+# PASS 12 cache integration assertions
+# Subtest: tests/cache-workbench.test.js
+ok 2 - tests/cache-workbench.test.js
+  ---
+  duration_ms: 39.23896
+  type: 'test'
+  ...
+# PASS 20 cross-module security and research assertions
+# Subtest: tests/concentrated-security-research.test.js
+ok 3 - tests/concentrated-security-research.test.js
+  ---
+  duration_ms: 46.76398
+  type: 'test'
+  ...
+# Subtest: 滑点后的买卖成交价都在逐日限价范围内
+ok 4 - 滑点后的买卖成交价都在逐日限价范围内
+  ---
+  duration_ms: 2.553852
+  type: 'test'
+  ...
+# Subtest: 卖出日不可交易时继续持仓并于恢复后卖出
+ok 5 - 卖出日不可交易时继续持仓并于恢复后卖出
+  ---
+  duration_ms: 0.57318
+  type: 'test'
+  ...
+# Subtest: 执行日缺省的标的级限制仍生效；逐日状态优先
+ok 6 - 执行日缺省的标的级限制仍生效；逐日状态优先
+  ---
+  duration_ms: 0.495403
+  type: 'test'
+  ...
+# Subtest: 候选重复时仍可填满两个不同标的的名额
+ok 7 - 候选重复时仍可填满两个不同标的的名额
+  ---
+  duration_ms: 0.789384
+  type: 'test'
+  ...
+# Subtest: 缓存保留逐日限价和风险标志，扫描使用最后一日风险状态
+ok 8 - 缓存保留逐日限价和风险标志，扫描使用最后一日风险状态
+  ---
+  duration_ms: 5.210227
+  type: 'test'
+  ...
+# Subtest: end-to-end research preserves legacy order and scores; no trading
+ok 9 - end-to-end research preserves legacy order and scores; no trading
+  ---
+  duration_ms: 3.896406
+  type: 'test'
+  ...
+# Subtest: no fabricated backtest success when provenance missing
+ok 10 - no fabricated backtest success when provenance missing
+  ---
+  duration_ms: 0.732769
+  type: 'test'
+  ...
+# Subtest: invalid historical bars are reported, not silently passed
+ok 11 - invalid historical bars are reported, not silently passed
+  ---
+  duration_ms: 0.150325
+  type: 'test'
+  ...
+# Subtest: invalid candidate input rejected before fetching network
+ok 12 - invalid candidate input rejected before fetching network
+  ---
+  duration_ms: 0.389635
+  type: 'test'
+  ...
+# Subtest: 决策工作台可见且包含手机版响应式样式
+ok 13 - 决策工作台可见且包含手机版响应式样式
+  ---
+  duration_ms: 1.049524
+  type: 'test'
+  ...
+# Subtest: 真实点击触发只读研究路由且渲染风险门禁
+ok 14 - 真实点击触发只读研究路由且渲染风险门禁
+  ---
+  duration_ms: 4.037978
+  type: 'test'
+  ...
+# Subtest: 不渲染服务端返回的 HTML 注入
+ok 15 - 不渲染服务端返回的 HTML 注入
+  ---
+  duration_ms: 1.894753
+  type: 'test'
+  ...
+# Subtest: parses two complete pages and produces sourced breadth
+ok 16 - parses two complete pages and produces sourced breadth
+  ---
+  duration_ms: 2.001713
+  type: 'test'
+  ...
+# Subtest: rejects incomplete pagination without inventing breadth
+ok 17 - rejects incomplete pagination without inventing breadth
+  ---
+  duration_ms: 0.545869
+  type: 'test'
+  ...
+# Subtest: rejects changing universe size across pages
+ok 18 - rejects changing universe size across pages
+  ---
+  duration_ms: 1.512459
+  type: 'test'
+  ...
+# Subtest: rejects malformed gateway payload and invalid prices
+ok 19 - rejects malformed gateway payload and invalid prices
+  ---
+  duration_ms: 0.268383
+  type: 'test'
+  ...
+# Subtest: rejects gateway HTTP errors
+ok 20 - rejects gateway HTTP errors
+  ---
+  duration_ms: 0.32635
+  type: 'test'
+  ...
+# Subtest: rejects duplicate codes across pages instead of overstating completeness
+ok 21 - rejects duplicate codes across pages instead of overstating completeness
+  ---
+  duration_ms: 0.491067
+  type: 'test'
+  ...
+# Subtest: rejects short intermediate page even when later pages might compensate
+ok 22 - rejects short intermediate page even when later pages might compensate
+  ---
+  duration_ms: 0.298909
+  type: 'test'
+  ...
+# Subtest: does not interpret missing percent change as zero
+ok 23 - does not interpret missing percent change as zero
+  ---
+  duration_ms: 0.104567
+  type: 'test'
+  ...
+# Subtest: research workbench exposes on-demand public quote action and status
+ok 24 - research workbench exposes on-demand public quote action and status
+  ---
+  duration_ms: 0.77319
+  type: 'test'
+  ...
+# Subtest: fetch action uses authenticated developer-only POST
+ok 25 - fetch action uses authenticated developer-only POST
+  ---
+  duration_ms: 0.185649
+  type: 'test'
+  ...
+# Subtest: feed failure and incomplete breadth cannot be shown as successful market conclusion
+ok 26 - feed failure and incomplete breadth cannot be shown as successful market conclusion
+  ---
+  duration_ms: 0.148203
+  type: 'test'
+  ...
+# Subtest: research UI labels public quote source and does not claim exchange-certified real-time
+ok 27 - research UI labels public quote source and does not claim exchange-certified real-time
+  ---
+  duration_ms: 0.092419
+  type: 'test'
+  ...
+# PASS 18 legacy preservation / factor fusion assertions
+# Subtest: tests/extended-factor-fusion.test.js
+ok 9 - tests/extended-factor-fusion.test.js
+  ---
+  duration_ms: 64.562144
+  type: 'test'
+  ...
+# Subtest: single-stock evidence remains supported
+ok 29 - single-stock evidence remains supported
+  ---
+  duration_ms: 5.890703
+  type: 'test'
+  ...
+# Subtest: batch shared evidence cannot leak across candidates
+ok 30 - batch shared evidence cannot leak across candidates
+  ---
+  duration_ms: 1.075273
+  type: 'test'
+  ...
+# Subtest: batch per-stock evidence remains independent
+ok 31 - batch per-stock evidence remains independent
+  ---
+  duration_ms: 0.871357
+  type: 'test'
+  ...
+# Subtest: strict feed rejects evidence tagged with another stock
+ok 32 - strict feed rejects evidence tagged with another stock
+  ---
+  duration_ms: 3.283055
+  type: 'test'
+  ...
+# Subtest: 旧策略评分默认不变
+ok 33 - 旧策略评分默认不变
+  ---
+  duration_ms: 1.186981
+  type: 'test'
+  ...
+# Subtest: 严格模式拒绝没有来源的竞价和板块数据
+ok 34 - 严格模式拒绝没有来源的竞价和板块数据
+  ---
+  duration_ms: 0.312008
+  type: 'test'
+  ...
+# Subtest: 严格模式拒绝模拟数据、过期数据及未来时间戳
+ok 35 - 严格模式拒绝模拟数据、过期数据及未来时间戳
+  ---
+  duration_ms: 0.221833
+  type: 'test'
+  ...
+# Subtest: 严格模式只使用有证据的因子，不虚构缺失分数
+ok 36 - 严格模式只使用有证据的因子，不虚构缺失分数
+  ---
+  duration_ms: 0.236134
+  type: 'test'
+  ...
+# Subtest: 覆盖率不足时融合保持旧分数
+ok 37 - 覆盖率不足时融合保持旧分数
+  ---
+  duration_ms: 0.323976
+  type: 'test'
+  ...
+# Subtest: 默认评分保持原行为，严格开关不影响默认值
+ok 38 - 默认评分保持原行为，严格开关不影响默认值
+  ---
+  duration_ms: 3.5325
+  type: 'test'
+  ...
+# Subtest: 实际候选股评分入口严格拒绝缺失证据
+ok 39 - 实际候选股评分入口严格拒绝缺失证据
+  ---
+  duration_ms: 0.372208
+  type: 'test'
+  ...
+# Subtest: 实际候选股评分入口接受可追溯且未过期证据
+ok 40 - 实际候选股评分入口接受可追溯且未过期证据
+  ---
+  duration_ms: 0.337446
+  type: 'test'
+  ...
+# Subtest: 批量排名透传严格模式，不使用缺证据扩展因子
+ok 41 - 批量排名透传严格模式，不使用缺证据扩展因子
+  ---
+  duration_ms: 0.700942
+  type: 'test'
+  ...
+# Subtest: 严格模式允许股票自身携带因子证据
+ok 42 - 严格模式允许股票自身携带因子证据
+  ---
+  duration_ms: 0.303475
+  type: 'test'
+  ...
+# Subtest: 默认评分不受行情门禁影响
+ok 43 - 默认评分不受行情门禁影响
+  ---
+  duration_ms: 5.525089
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝无行情元信息的扩展因子
+ok 44 - 行情门禁拒绝无行情元信息的扩展因子
+  ---
+  duration_ms: 2.178849
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝模拟行情与伪造来源证据
+ok 45 - 行情门禁拒绝模拟行情与伪造来源证据
+  ---
+  duration_ms: 1.715013
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝过期行情与超前因子证据
+ok 46 - 行情门禁拒绝过期行情与超前因子证据
+  ---
+  duration_ms: 1.640411
+  type: 'test'
+  ...
+# Subtest: 批量评分隔离每只股票的行情证据
+ok 47 - 批量评分隔离每只股票的行情证据
+  ---
+  duration_ms: 1.619619
+  type: 'test'
+  ...
+# Subtest: 过期因子证据不得复用新鲜行情通过校验
+ok 48 - 过期因子证据不得复用新鲜行情通过校验
+  ---
+  duration_ms: 1.194942
+  type: 'test'
+  ...
+# Subtest: 严格阻断开关拒绝模拟行情但默认兼容不变
+ok 49 - 严格阻断开关拒绝模拟行情但默认兼容不变
+  ---
+  duration_ms: 1.261032
+  type: 'test'
+  ...
+# Subtest: 批量评分严格阻断仅针对不可信股票
+ok 50 - 批量评分严格阻断仅针对不可信股票
+  ---
+  duration_ms: 1.25369
+  type: 'test'
+  ...
+# PASS 22 feed/scan/backtest assertions
+# Subtest: tests/feed-scan-backtest.test.js
+ok 14 - tests/feed-scan-backtest.test.js
+  ---
+  duration_ms: 89.418309
+  type: 'test'
+  ...
+# Subtest: failed persistence restores public and private bot addresses
+ok 52 - failed persistence restores public and private bot addresses
+  ---
+  duration_ms: 2.185429
+  type: 'test'
+  ...
+# Subtest: failed persistence restores all edited fields and removes newly added fields
+ok 53 - failed persistence restores all edited fields and removes newly added fields
+  ---
+  duration_ms: 0.690156
+  type: 'test'
+  ...
+# Subtest: successful persistence commits both channels and other fields
+ok 54 - successful persistence commits both channels and other fields
+  ---
+  duration_ms: 0.69954
+  type: 'test'
+  ...
+# Subtest: private/public webhook environment overrides are wired
+ok 55 - private/public webhook environment overrides are wired
+  ---
+  duration_ms: 1.27325
+  type: 'test'
+  ...
+# Subtest: OTP never uses public fallback
+ok 56 - OTP never uses public fallback
+  ---
+  duration_ms: 0.834482
+  type: 'test'
+  ...
+# Subtest: correct OTP on third attempt succeeds
+ok 57 - correct OTP on third attempt succeeds
+  ---
+  duration_ms: 6.313342
+  type: 'test'
+  ...
+# Subtest: third incorrect OTP attempt invalidates ticket
+ok 58 - third incorrect OTP attempt invalidates ticket
+  ---
+  duration_ms: 0.624958
+  type: 'test'
+  ...
+# Subtest: wrong OTP increments only failed attempts
+ok 59 - wrong OTP increments only failed attempts
+  ---
+  duration_ms: 0.633931
+  type: 'test'
+  ...
+# Subtest: generated reset password uses cryptographic randomInt
+ok 60 - generated reset password uses cryptographic randomInt
+  ---
+  duration_ms: 0.196766
+  type: 'test'
+  ...
+# Subtest: forgot-password requires private Feishu readiness instead of public or email
+ok 61 - forgot-password requires private Feishu readiness instead of public or email
+  ---
+  duration_ms: 1.110276
+  type: 'test'
+  ...
+# Subtest: OTP dispatch is not falsely reported as confirmed delivery
+ok 62 - OTP dispatch is not falsely reported as confirmed delivery
+  ---
+  duration_ms: 0.168583
+  type: 'test'
+  ...
+# Subtest: local OTP echo is gated behind explicit replica-only development setting
+ok 63 - local OTP echo is gated behind explicit replica-only development setting
+  ---
+  duration_ms: 0.212219
+  type: 'test'
+  ...
+# Subtest: private webhook disable message never claims public OTP fallback
+ok 64 - private webhook disable message never claims public OTP fallback
+  ---
+  duration_ms: 1.782905
+  type: 'test'
+  ...
+# Subtest: both webhook config inputs require exact Feishu HTTPS endpoint
+ok 65 - both webhook config inputs require exact Feishu HTTPS endpoint
+  ---
+  duration_ms: 1.647953
+  type: 'test'
+  ...
+# Subtest: private push remains isolated regardless of mustDeliver
+ok 66 - private push remains isolated regardless of mustDeliver
+  ---
+  duration_ms: 0.388613
+  type: 'test'
+  ...
+# Subtest: rejects mismatched provider symbol before invoking adapter
+ok 67 - rejects mismatched provider symbol before invoking adapter
+  ---
+  duration_ms: 1.367532
+  type: 'test'
+  ...
+# Subtest: mismatched primary data falls back to authorized matching provider
+ok 68 - mismatched primary data falls back to authorized matching provider
+  ---
+  duration_ms: 1.581663
+  type: 'test'
+  ...
+# Subtest: rejects tomorrow date bar even if under 24 hours ahead
+ok 69 - rejects tomorrow date bar even if under 24 hours ahead
+  ---
+  duration_ms: 1.078809
+  type: 'test'
+  ...
+# Subtest: accepts current UTC date bar when ordered
+ok 70 - accepts current UTC date bar when ordered
+  ---
+  duration_ms: 0.631267
+  type: 'test'
+  ...
+# Subtest: rejects impossible calendar dates, including leap-day errors
+ok 71 - rejects impossible calendar dates, including leap-day errors
+  ---
+  duration_ms: 1.620441
+  type: 'test'
+  ...
+# Subtest: rejects OHLC with high below low
+ok 72 - rejects OHLC with high below low
+  ---
+  duration_ms: 0.293541
+  type: 'test'
+  ...
+# Subtest: historical refresh audits fallback attempts and source
+ok 73 - historical refresh audits fallback attempts and source
+  ---
+  duration_ms: 2.023966
+  type: 'test'
+  ...
+# Subtest: historical refresh records all failed attempts
+ok 74 - historical refresh records all failed attempts
+  ---
+  duration_ms: 1.682985
+  type: 'test'
+  ...
+# PASS 22 refresh bounded concurrency and timeout assertions
+# Subtest: tests/historical-refresh-bounds.test.js
+ok 22 - tests/historical-refresh-bounds.test.js
+  ---
+  duration_ms: 187.008048
+  type: 'test'
+  ...
+# PASS 15 historical refresh assertions
+# Subtest: tests/historical-refresh.test.js
+ok 23 - tests/historical-refresh.test.js
+  ---
+  duration_ms: 47.118499
+  type: 'test'
+  ...
+# {"status":"insufficient","metrics":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"closedTrades":0,"winRatePct":null},"holdout":{"status":"evaluated","splitDay":35,"method":"预先指定分割点，同一配置分别从空仓启动。测试段指标可预热使用分割前历史，训练段持仓和订单不跨段。","inSample":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"closedTrades":0,"winRatePct":null},"outOfSample":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"closedTrades":0,"winRatePct":null}},"dataset":{"stocks":1,"barsPerStock":48,"firstDate":null,"lastDate":null,"source":"fixture","asOf":"2026-10-31","verifiedExternal":false}}
+# Subtest: 完整历史研究包含每日净值、交易成本、分割样本和禁止实盘标志
+ok 77 - 完整历史研究包含每日净值、交易成本、分割样本和禁止实盘标志
+  ---
+  duration_ms: 10.021565
+  type: 'test'
+  ...
+# Subtest: 不同股票的日历缺口和错误OHLCV被拒绝
+ok 78 - 不同股票的日历缺口和错误OHLCV被拒绝
+  ---
+  duration_ms: 1.05976
+  type: 'test'
+  ...
+# Subtest: 缺少可追溯来源时禁止声明验证成功
+ok 79 - 缺少可追溯来源时禁止声明验证成功
+  ---
+  duration_ms: 0.468002
+  type: 'test'
+  ...
+# Subtest: 离线CLI写出完整JSON报告并阻止覆盖数据
+ok 80 - 离线CLI写出完整JSON报告并阻止覆盖数据
+  ---
+  duration_ms: 6.317418
+  type: 'test'
+  ...
+# Subtest: GET 实际请求
+ok 81 - GET 实际请求
+  ---
+  duration_ms: 19.449089
+  type: 'test'
+  ...
+# Subtest: POST 请求体传递
+ok 82 - POST 请求体传递
+  ---
+  duration_ms: 5.601062
+  type: 'test'
+  ...
+# Subtest: POST 超限返回 413
+ok 83 - POST 超限返回 413
+  ---
+  duration_ms: 2.864547
+  type: 'test'
+  ...
+# Subtest: 跨站 API 返回 403
+ok 84 - 跨站 API 返回 403
+  ---
+  duration_ms: 2.16595
+  type: 'test'
+  ...
+# [http handler] Error: test sync
+#     at /mnt/data/v6_batch48/v6_release/tests/http-bootstrap.test.js:29:83
+#     at /mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 同步路由异常返回 500
+ok 85 - 同步路由异常返回 500
+  ---
+  duration_ms: 3.152119
+  type: 'test'
+  ...
+# [http handler] Error: test async
+#     at /mnt/data/v6_batch48/v6_release/tests/http-bootstrap.test.js:30:88
+#     at /mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 异步路由异常返回 500
+ok 86 - 异步路由异常返回 500
+  ---
+  duration_ms: 2.518098
+  type: 'test'
+  ...
+# Subtest: GET 路由
+ok 87 - GET 路由
+  ---
+  duration_ms: 21.900917
+  type: 'test'
+  ...
+# Subtest: POST 请求体
+ok 88 - POST 请求体
+  ---
+  duration_ms: 4.881684
+  type: 'test'
+  ...
+# Subtest: POST 超限
+ok 89 - POST 超限
+  ---
+  duration_ms: 3.194022
+  type: 'test'
+  ...
+# Subtest: 拒绝跨站 API
+ok 90 - 拒绝跨站 API
+  ---
+  duration_ms: 2.625299
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/mnt/data/v6_batch48/v6_release/tests/http-preflight-regression.test.js:24:66)
+#     at /mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 同步异常返回 500
+ok 91 - 同步异常返回 500
+  ---
+  duration_ms: 4.530657
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/mnt/data/v6_batch48/v6_release/tests/http-preflight-regression.test.js:25:71)
+#     at /mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 异步异常返回 500
+ok 92 - 异步异常返回 500
+  ---
+  duration_ms: 2.680541
+  type: 'test'
+  ...
+# [http preflight] Error: test
+#     at sourceCheck (/mnt/data/v6_batch48/v6_release/tests/http-preflight-regression.test.js:26:78)
+#     at Server.<anonymous> (/mnt/data/v6_batch48/v6_release/src/server/bootstrap.js:22:18)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 来源校验抛错返回 400 而非崩溃
+ok 93 - 来源校验抛错返回 400 而非崩溃
+  ---
+  duration_ms: 2.50613
+  type: 'test'
+  ...
+# Subtest: 配置非法请求体限制立即拒绝
+ok 94 - 配置非法请求体限制立即拒绝
+  ---
+  duration_ms: 0.537366
+  type: 'test'
+  ...
+# Subtest: POST 正好达到请求体上限仍放行
+ok 95 - POST 正好达到请求体上限仍放行
+  ---
+  duration_ms: 6.406691
+  type: 'test'
+  ...
+# Subtest: 跨站非 API 静态路径不被 API 拦截误伤
+ok 96 - 跨站非 API 静态路径不被 API 拦截误伤
+  ---
+  duration_ms: 3.922555
+  type: 'test'
+  ...
+# Subtest: 跨站 POST API 在分发前被拒绝
+ok 97 - 跨站 POST API 在分发前被拒绝
+  ---
+  duration_ms: 2.812169
+  type: 'test'
+  ...
+# Subtest: 来源校验拒绝时不返回允许跨站头
+ok 98 - 来源校验拒绝时不返回允许跨站头
+  ---
+  duration_ms: 2.271027
+  type: 'test'
+  ...
+# Subtest: 缺失处理函数直接拒绝启动
+ok 99 - 缺失处理函数直接拒绝启动
+  ---
+  duration_ms: 0.296505
+  type: 'test'
+  ...
+# Subtest: 缺失来源校验函数直接拒绝启动
+ok 100 - 缺失来源校验函数直接拒绝启动
+  ---
+  duration_ms: 0.171918
+  type: 'test'
+  ...
+# Subtest: HTTP 请求头/请求体接收超时和头部数量均受限制
+ok 101 - HTTP 请求头/请求体接收超时和头部数量均受限制
+  ---
+  duration_ms: 33.040619
+  type: 'test'
+  ...
+# Subtest: 请求体超限返回413，不分发给业务处理器
+ok 102 - 请求体超限返回413，不分发给业务处理器
+  ---
+  duration_ms: 5.733462
+  type: 'test'
+  ...
+# Subtest: Content-Length 已超限时无需上传请求体就立即返回 413
+ok 103 - Content-Length 已超限时无需上传请求体就立即返回 413
+  ---
+  duration_ms: 3.227462
+  type: 'test'
+  ...
+# Subtest: chunked 流式请求超限立即 413，不等待上传结束
+ok 104 - chunked 流式请求超限立即 413，不等待上传结束
+  ---
+  duration_ms: 3.454963
+  type: 'test'
+  ...
+# Subtest: POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝
+ok 105 - POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝
+  ---
+  duration_ms: 5.466742
+  type: 'test'
+  ...
+# Subtest: 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理
+ok 106 - 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理
+  ---
+  duration_ms: 2.145308
+  type: 'test'
+  ...
+# PASS 15 historical indicators and limit ladder assertions
+# Subtest: tests/indicators-ladder.test.js
+ok 28 - tests/indicators-ladder.test.js
+  ---
+  duration_ms: 40.434277
+  type: 'test'
+  ...
+# PASS 4: 旧只读有效访问刷新、24小时到期拒绝、无授权拒绝、开发者不受影响
+# Subtest: tests/legacy-view-activity.test.js
+ok 29 - tests/legacy-view-activity.test.js
+  ---
+  duration_ms: 59.573579
+  type: 'test'
+  ...
+# Subtest: candidate bridge only joins exact observed codes without changing ranks
+ok 109 - candidate bridge only joins exact observed codes without changing ranks
+  ---
+  duration_ms: 1.09299
+  type: 'test'
+  ...
+# Subtest: incomplete breadth fails closed and never exposes misleading candidate intersections
+ok 110 - incomplete breadth fails closed and never exposes misleading candidate intersections
+  ---
+  duration_ms: 0.685609
+  type: 'test'
+  ...
+# Subtest: live market pipeline fetches once and joins original candidates independently
+ok 111 - live market pipeline fetches once and joins original candidates independently
+  ---
+  duration_ms: 1.98676
+  type: 'test'
+  ...
+# Subtest: live market HTTP endpoint passes existing candidate pool without mutating rank
+ok 112 - live market HTTP endpoint passes existing candidate pool without mutating rank
+  ---
+  duration_ms: 7.45874
+  type: 'test'
+  ...
+# Subtest: one fetch returns observed breadth without fabricating independent regime scores
+ok 113 - one fetch returns observed breadth without fabricating independent regime scores
+  ---
+  duration_ms: 1.88638
+  type: 'test'
+  ...
+# Subtest: one fetch classifies regime only with dated, sourced independent scores
+ok 114 - one fetch classifies regime only with dated, sourced independent scores
+  ---
+  duration_ms: 0.607912
+  type: 'test'
+  ...
+# Subtest: mismatched independent score date never produces a regime
+ok 115 - mismatched independent score date never produces a regime
+  ---
+  duration_ms: 1.538799
+  type: 'test'
+  ...
+# Subtest: incomplete market universe blocks classification even with scores
+ok 116 - incomplete market universe blocks classification even with scores
+  ---
+  duration_ms: 0.247422
+  type: 'test'
+  ...
+# Subtest: new HTTP route requires developer role, limits input, and leaves ranking untouched
+ok 117 - new HTTP route requires developer role, limits input, and leaves ranking untouched
+  ---
+  duration_ms: 10.982486
+  type: 'test'
+  ...
+# Subtest: single-request research control and result surfaces exist
+ok 118 - single-request research control and result surfaces exist
+  ---
+  duration_ms: 0.711347
+  type: 'test'
+  ...
+# Subtest: client invokes authenticated research endpoint and preserves source labels
+ok 119 - client invokes authenticated research endpoint and preserves source labels
+  ---
+  duration_ms: 0.276975
+  type: 'test'
+  ...
+# Subtest: server joins only server-side candidates and enforces editor access
+ok 120 - server joins only server-side candidates and enforces editor access
+  ---
+  duration_ms: 0.349444
+  type: 'test'
+  ...
+# Subtest: client rejects failures and escapes table cells
+ok 121 - client rejects failures and escapes table cells
+  ---
+  duration_ms: 0.114702
+  type: 'test'
+  ...
+# Subtest: counts observed market breadth without fabricated values
+ok 122 - counts observed market breadth without fabricated values
+  ---
+  duration_ms: 1.319469
+  type: 'test'
+  ...
+# Subtest: rejects low coverage instead of reporting misleading market regime
+ok 123 - rejects low coverage instead of reporting misleading market regime
+  ---
+  duration_ms: 0.274722
+  type: 'test'
+  ...
+# Subtest: does not double count duplicates or suspended quotes
+ok 124 - does not double count duplicates or suspended quotes
+  ---
+  duration_ms: 0.227882
+  type: 'test'
+  ...
+# Subtest: rejects future snapshot and missing provenance
+ok 125 - rejects future snapshot and missing provenance
+  ---
+  duration_ms: 0.131577
+  type: 'test'
+  ...
+# Subtest: never guesses daily price limits from percent change alone
+ok 126 - never guesses daily price limits from percent change alone
+  ---
+  duration_ms: 0.158277
+  type: 'test'
+  ...
+# Subtest: 手机卡片标题允许换行且不再被挤成竖排
+ok 127 - 手机卡片标题允许换行且不再被挤成竖排
+  ---
+  duration_ms: 0.985869
+  type: 'test'
+  ...
+# Subtest: 手机表格保持局部横向滚动，整页不横向溢出
+ok 128 - 手机表格保持局部横向滚动，整页不横向溢出
+  ---
+  duration_ms: 0.220721
+  type: 'test'
+  ...
+# Subtest: 保留现有页面脚本与面板操作，更新CSS缓存版本
+ok 129 - 保留现有页面脚本与面板操作，更新CSS缓存版本
+  ---
+  duration_ms: 0.164587
+  type: 'test'
+  ...
+# Subtest: mobile links to actual decision research workspace without synthetic scores
+ok 130 - mobile links to actual decision research workspace without synthetic scores
+  ---
+  duration_ms: 1.005769
+  type: 'test'
+  ...
+# Subtest: mobile covers small phones, tablet, touch and safe area
+ok 131 - mobile covers small phones, tablet, touch and safe area
+  ---
+  duration_ms: 0.2937
+  type: 'test'
+  ...
+# Subtest: mobile tabs expose selected and hidden state to assistive technology
+ok 132 - mobile tabs expose selected and hidden state to assistive technology
+  ---
+  duration_ms: 1.598769
+  type: 'test'
+  ...
+# Subtest: research screen handles narrow widths, scrollable tables and readable inputs
+ok 133 - research screen handles narrow widths, scrollable tables and readable inputs
+  ---
+  duration_ms: 0.207301
+  type: 'test'
+  ...
+# Subtest: 模型特征仅取历史窗口并通过扫描入口暴露
+ok 134 - 模型特征仅取历史窗口并通过扫描入口暴露
+  ---
+  duration_ms: 6.698669
+  type: 'test'
+  ...
+# Subtest: 价值筛选过滤小市值、未披露和缺报财务
+ok 135 - 价值筛选过滤小市值、未披露和缺报财务
+  ---
+  duration_ms: 0.354542
+  type: 'test'
+  ...
+# Subtest: 真实 CLI 加载三类估计器并使用同一留出账本
+ok 136 - 真实 CLI 加载三类估计器并使用同一留出账本
+  ---
+  duration_ms: 2108.289907
+  type: 'test'
+  ...
+# Subtest: 延长样本外数据不改变已产生的预测
+ok 137 - 延长样本外数据不改变已产生的预测
+  ---
+  duration_ms: 4544.2231
+  type: 'test'
+  ...
+# Subtest: 留出首日价格不会进入训练标签；风险否决不参与排序
+ok 138 - 留出首日价格不会进入训练标签；风险否决不参与排序
+  ---
+  duration_ms: 4164.401405
+  type: 'test'
+  ...
+# Subtest: classifies sourced observed breadth with independently dated scores
+ok 139 - classifies sourced observed breadth with independently dated scores
+  ---
+  duration_ms: 1.487481
+  type: 'test'
+  ...
+# Subtest: insufficient coverage blocks regime and weights
+ok 140 - insufficient coverage blocks regime and weights
+  ---
+  duration_ms: 0.175763
+  type: 'test'
+  ...
+# Subtest: missing scores do not silently default to neutral
+ok 141 - missing scores do not silently default to neutral
+  ---
+  duration_ms: 0.279269
+  type: 'test'
+  ...
+# Subtest: rejects score source or trading-date mismatch
+ok 142 - rejects score source or trading-date mismatch
+  ---
+  duration_ms: 0.228282
+  type: 'test'
+  ...
+# Subtest: rejects out-of-range score rather than clipping it silently
+ok 143 - rejects out-of-range score rather than clipping it silently
+  ---
+  duration_ms: 0.138618
+  type: 'test'
+  ...
+# Subtest: observed regime research endpoint requires POST and editor access
+ok 144 - observed regime research endpoint requires POST and editor access
+  ---
+  duration_ms: 1.34627
+  type: 'test'
+  ...
+# Subtest: observed regime endpoint bounds payload and uses source-bound classification
+ok 145 - observed regime endpoint bounds payload and uses source-bound classification
+  ---
+  duration_ms: 0.443034
+  type: 'test'
+  ...
+# Subtest: original strategy dashboard remains separate from research classification
+ok 146 - original strategy dashboard remains separate from research classification
+  ---
+  duration_ms: 0.750546
+  type: 'test'
+  ...
+# Subtest: market research has accessible independent input, action and status
+ok 147 - market research has accessible independent input, action and status
+  ---
+  duration_ms: 0.769124
+  type: 'test'
+  ...
+# Subtest: workbench posts explicit snapshot to editor-only observed regime endpoint
+ok 148 - workbench posts explicit snapshot to editor-only observed regime endpoint
+  ---
+  duration_ms: 0.176064
+  type: 'test'
+  ...
+# Subtest: unusable classification does not display fabricated regime
+ok 149 - unusable classification does not display fabricated regime
+  ---
+  duration_ms: 0.156976
+  type: 'test'
+  ...
+# Subtest: research panel labels data as not verified live and not altering selection
+ok 150 - research panel labels data as not verified live and not altering selection
+  ---
+  duration_ms: 0.094702
+  type: 'test'
+  ...
+# Subtest: offline end-to-end creates ranked research and ledger metrics without trading authorization
+ok 151 - offline end-to-end creates ranked research and ledger metrics without trading authorization
+  ---
+  duration_ms: 18.36381
+  type: 'test'
+  ...
+# Subtest: identical dataset produces identical fingerprint and research rank
+ok 152 - identical dataset produces identical fingerprint and research rank
+  ---
+  duration_ms: 27.573497
+  type: 'test'
+  ...
+# Subtest: bad OHLCV cannot enter the research pipeline
+ok 153 - bad OHLCV cannot enter the research pipeline
+  ---
+  duration_ms: 0.758007
+  type: 'test'
+  ...
+# Subtest: missing source cannot be presented as verified live
+ok 154 - missing source cannot be presented as verified live
+  ---
+  duration_ms: 0.450156
+  type: 'test'
+  ...
+# Subtest: private bot accepts OTP without public delivery, and only reports accepted
+ok 155 - private bot accepts OTP without public delivery, and only reports accepted
+  ---
+  duration_ms: 5.558078
+  type: 'test'
+  ...
+# Subtest: rejected private delivery reports failed without public fallback
+ok 156 - rejected private delivery reports failed without public fallback
+  ---
+  duration_ms: 1.592118
+  type: 'test'
+  ...
+# Subtest: network error is unknown, never silently requeued to public bot
+ok 157 - network error is unknown, never silently requeued to public bot
+  ---
+  duration_ms: 1.300821
+  type: 'test'
+  ...
+# Subtest: unavailable and replica paths do not send a private or public request
+ok 158 - unavailable and replica paths do not send a private or public request
+  ---
+  duration_ms: 0.968313
+  type: 'test'
+  ...
+# Subtest: forgot flow marks pending before dispatch and preserves synchronous rejection
+ok 159 - forgot flow marks pending before dispatch and preserves synchronous rejection
+  ---
+  duration_ms: 0.630225
+  type: 'test'
+  ...
+# Subtest: OTP private delivery reports pending/accepted/failed/unknown without public fallback
+ok 160 - OTP private delivery reports pending/accepted/failed/unknown without public fallback
+  ---
+  duration_ms: 0.897326
+  type: 'test'
+  ...
+# Subtest: OTP delivery state follows live ticket and is exposed without OTP code
+ok 161 - OTP delivery state follows live ticket and is exposed without OTP code
+  ---
+  duration_ms: 0.380531
+  type: 'test'
+  ...
+# Subtest: OTP delivery route included in authentication request handling
+ok 162 - OTP delivery route included in authentication request handling
+  ---
+  duration_ms: 0.234321
+  type: 'test'
+  ...
+# Subtest: reused OTP ticket response reflects remaining validity, not a fresh 300 seconds
+ok 163 - reused OTP ticket response reflects remaining validity, not a fresh 300 seconds
+  ---
+  duration_ms: 1.591358
+  type: 'test'
+  ...
+# Subtest: the original ticket expiry is not extended when reusing it
+ok 164 - the original ticket expiry is not extended when reusing it
+  ---
+  duration_ms: 0.170827
+  type: 'test'
+  ...
+# Subtest: reuse requires active unexpired ticket and matching origin
+ok 165 - reuse requires active unexpired ticket and matching origin
+  ---
+  duration_ms: 0.75962
+  type: 'test'
+  ...
+# Subtest: invalid ticket creates a fresh secure code without inheriting lastPush
+ok 166 - invalid ticket creates a fresh secure code without inheriting lastPush
+  ---
+  duration_ms: 0.140812
+  type: 'test'
+  ...
+# Subtest: OTP reuse slot is namespaced by hashed request origin
+ok 167 - OTP reuse slot is namespaced by hashed request origin
+  ---
+  duration_ms: 1.075894
+  type: 'test'
+  ...
+# Subtest: OTP verification consumes only the matching origin reuse slot
+ok 168 - OTP verification consumes only the matching origin reuse slot
+  ---
+  duration_ms: 0.219038
+  type: 'test'
+  ...
+# Subtest: OTP slots never store raw request origin as map key
+ok 169 - OTP slots never store raw request origin as map key
+  ---
+  duration_ms: 0.1069
+  type: 'test'
+  ...
+# Subtest: OTP reuse is restricted to same request origin
+ok 170 - OTP reuse is restricted to same request origin
+  ---
+  duration_ms: 1.221092
+  type: 'test'
+  ...
+# Subtest: OTP ticket is bound to issuing request IP
+ok 171 - OTP ticket is bound to issuing request IP
+  ---
+  duration_ms: 0.531327
+  type: 'test'
+  ...
+# Subtest: password reset token is bound to issuing request IP
+ok 172 - password reset token is bound to issuing request IP
+  ---
+  duration_ms: 0.536715
+  type: 'test'
+  ...
+# Subtest: repeated forgot calls reuse ticket and do not reset tries
+ok 173 - repeated forgot calls reuse ticket and do not reset tries
+  ---
+  duration_ms: 1.056896
+  type: 'test'
+  ...
+# Subtest: reused ticket retains original expiry
+ok 174 - reused ticket retains original expiry
+  ---
+  duration_ms: 0.429695
+  type: 'test'
+  ...
+# Subtest: three failed guesses invalidate ticket and its reuse slot
+ok 175 - three failed guesses invalidate ticket and its reuse slot
+  ---
+  duration_ms: 0.22653
+  type: 'test'
+  ...
+# Subtest: 历史信号只读取信号日及以前的数据
+ok 176 - 历史信号只读取信号日及以前的数据
+  ---
+  duration_ms: 2.137927
+  type: 'test'
+  ...
+# Subtest: 当日开板不能倒推开盘成交，精确到分
+ok 177 - 当日开板不能倒推开盘成交，精确到分
+  ---
+  duration_ms: 0.515273
+  type: 'test'
+  ...
+# Subtest: 旧回测保留卖出受阻头寸，收盘盯市
+ok 178 - 旧回测保留卖出受阻头寸，收盘盯市
+  ---
+  duration_ms: 4.854904
+  type: 'test'
+  ...
+# Subtest: 限仓、收盘止损、T+1及回撤预警
+ok 179 - 限仓、收盘止损、T+1及回撤预警
+  ---
+  duration_ms: 0.55315
+  type: 'test'
+  ...
+# Subtest: 独立样本外区间默认空仓，训练结果不随样本外变化
+ok 180 - 独立样本外区间默认空仓，训练结果不随样本外变化
+  ---
+  duration_ms: 1.132078
+  type: 'test'
+  ...
+# Subtest: 不同日期不能作为同一次横截面扫描
+ok 181 - 不同日期不能作为同一次横截面扫描
+  ---
+  duration_ms: 0.442674
+  type: 'test'
+  ...
+# Subtest: 缓存拒绝空成交量、非法日期
+ok 182 - 缓存拒绝空成交量、非法日期
+  ---
+  duration_ms: 2.109785
+  type: 'test'
+  ...
+# Subtest: 行情提供者失败后重试，保持未核验来源标记
+ok 183 - 行情提供者失败后重试，保持未核验来源标记
+  ---
+  duration_ms: 0.909494
+  type: 'test'
+  ...
+# Subtest: first_board_quality 自身条件及风险否决
+ok 184 - first_board_quality 自身条件及风险否决
+  ---
+  duration_ms: 0.964497
+  type: 'test'
+  ...
+# Subtest: first_to_second 自身条件及风险否决
+ok 185 - first_to_second 自身条件及风险否决
+  ---
+  duration_ms: 1.212118
+  type: 'test'
+  ...
+# Subtest: second_to_third 自身条件及风险否决
+ok 186 - second_to_third 自身条件及风险否决
+  ---
+  duration_ms: 1.306831
+  type: 'test'
+  ...
+# Subtest: leader_sector 自身条件及风险否决
+ok 187 - leader_sector 自身条件及风险否决
+  ---
+  duration_ms: 1.183906
+  type: 'test'
+  ...
+# Subtest: trend_pullback 自身条件及风险否决
+ok 188 - trend_pullback 自身条件及风险否决
+  ---
+  duration_ms: 1.341913
+  type: 'test'
+  ...
+# Subtest: platform_breakout 自身条件及风险否决
+ok 189 - platform_breakout 自身条件及风险否决
+  ---
+  duration_ms: 0.520321
+  type: 'test'
+  ...
+# Subtest: 回退源需显式授权，主源成功时无需回退
+ok 190 - 回退源需显式授权，主源成功时无需回退
+  ---
+  duration_ms: 0.645338
+  type: 'test'
+  ...
+# Subtest: 输入交易日历要求覆盖并逐日匹配
+ok 191 - 输入交易日历要求覆盖并逐日匹配
+  ---
+  duration_ms: 0.509334
+  type: 'test'
+  ...
+# Subtest: 接近涨停但相差一档不计首板
+ok 192 - 接近涨停但相差一档不计首板
+  ---
+  duration_ms: 0.31975
+  type: 'test'
+  ...
+# Subtest: password reset snapshots previous access state before mutation
+ok 193 - password reset snapshots previous access state before mutation
+  ---
+  duration_ms: 0.823085
+  type: 'test'
+  ...
+# Subtest: password reset restores previous access state on failed save
+ok 194 - password reset restores previous access state on failed save
+  ---
+  duration_ms: 0.144227
+  type: 'test'
+  ...
+# Subtest: reset token is consumed only after durable save
+ok 195 - reset token is consumed only after durable save
+  ---
+  duration_ms: 0.148112
+  type: 'test'
+  ...
+# Subtest: session invalidation follows durable save
+ok 196 - session invalidation follows durable save
+  ---
+  duration_ms: 0.162323
+  type: 'test'
+  ...
+# PASS 18 persistent cache and integration assertions
+# Subtest: tests/persistent-research-cache.test.js
+ok 50 - tests/persistent-research-cache.test.js
+  ---
+  duration_ms: 90.89535
+  type: 'test'
+  ...
+# PASS 13 ledger assertions
+# Subtest: tests/position-ledger-backtest.test.js
+ok 51 - tests/position-ledger-backtest.test.js
+  ---
+  duration_ms: 39.681792
+  type: 'test'
+  ...
+# Subtest: 盘前名单命中且仅用上个交易日收盘资料
+ok 199 - 盘前名单命中且仅用上个交易日收盘资料
+  ---
+  duration_ms: 7.789537
+  type: 'test'
+  ...
+# Subtest: 已封首板不混入下一日首板发掘，日历缺席拒绝
+ok 200 - 已封首板不混入下一日首板发掘，日历缺席拒绝
+  ---
+  duration_ms: 1.419389
+  type: 'test'
+  ...
+# Subtest: 固定持仓交易的成本冲击及胜负统计可核对
+ok 201 - 固定持仓交易的成本冲击及胜负统计可核对
+  ---
+  duration_ms: 24.513857
+  type: 'test'
+  ...
+# Subtest: 连续两日跌停、再停牌，未平仓损失计入净值而非胜率
+ok 202 - 连续两日跌停、再停牌，未平仓损失计入净值而非胜率
+  ---
+  duration_ms: 10.982516
+  type: 'test'
+  ...
+# Subtest: 损坏行情和跨股票错位日期拒绝生成报告
+ok 203 - 损坏行情和跨股票错位日期拒绝生成报告
+  ---
+  duration_ms: 1.04706
+  type: 'test'
+  ...
+# Subtest: 盘后披露的资金流因子不能用于当天策略排序
+ok 204 - 盘后披露的资金流因子不能用于当天策略排序
+  ---
+  duration_ms: 0.570606
+  type: 'test'
+  ...
+# Subtest: 单策略压力测试只接收该战法的候选
+ok 205 - 单策略压力测试只接收该战法的候选
+  ---
+  duration_ms: 46.953182
+  type: 'test'
+  ...
+# Subtest: 已标注复权价和公司行为不生成失真的成交报告
+ok 206 - 已标注复权价和公司行为不生成失真的成交报告
+  ---
+  duration_ms: 0.419088
+  type: 'test'
+  ...
+# Subtest: 三轮本机 HTTP 刷新：主源正常、重试后切备用、双源中断后保留可校验缓存
+ok 207 - 三轮本机 HTTP 刷新：主源正常、重试后切备用、双源中断后保留可校验缓存
+  ---
+  duration_ms: 80.683085
+  type: 'test'
+  ...
+# PASS 16 cache audit and research safety assertions
+# Subtest: tests/research-cache-audit.test.js
+ok 54 - tests/research-cache-audit.test.js
+  ---
+  duration_ms: 47.605094
+  type: 'test'
+  ...
+# PASS 23 integration assertions
+# Subtest: tests/research-integration.test.js
+ok 55 - tests/research-integration.test.js
+  ---
+  duration_ms: 57.242107
+  type: 'test'
+  ...
+# PASS 38 real HTTP checks in isolated QD_CLOUD mode
+# Subtest: tests/research-live-http-isolated.test.js
+ok 56 - tests/research-live-http-isolated.test.js
+  ---
+  duration_ms: 29866.156646
+  type: 'test'
+  ...
+# PASS 12 research playbook assertions
+# Subtest: tests/research-playbooks.test.js
+ok 57 - tests/research-playbooks.test.js
+  ---
+  duration_ms: 43.326906
+  type: 'test'
+  ...
+# Subtest: missing independent regime and missing quote remain unknown and non-tradable
+ok 212 - missing independent regime and missing quote remain unknown and non-tradable
+  ---
+  duration_ms: 1.409494
+  type: 'test'
+  ...
+# Subtest: explicit ST risk remains blocked even with complete research evidence
+ok 213 - explicit ST risk remains blocked even with complete research evidence
+  ---
+  duration_ms: 0.457957
+  type: 'test'
+  ...
+# Subtest: complete research evidence is not a buy signal
+ok 214 - complete research evidence is not a buy signal
+  ---
+  duration_ms: 0.165919
+  type: 'test'
+  ...
+# Subtest: live market research integrates risk evidence without altering candidate rank
+ok 215 - live market research integrates risk evidence without altering candidate rank
+  ---
+  duration_ms: 4.038129
+  type: 'test'
+  ...
+# Subtest: research page exposes read-only evidence table
+ok 216 - research page exposes read-only evidence table
+  ---
+  duration_ms: 0.848012
+  type: 'test'
+  ...
+# PASS 21 route-level authorization and input checks
+# Subtest: tests/research-route-authorization.test.js
+ok 59 - tests/research-route-authorization.test.js
+  ---
+  duration_ms: 64.611499
+  type: 'test'
+  ...
+# Subtest: 多窗口样本外回测输出可复现，交易门禁关闭
+ok 218 - 多窗口样本外回测输出可复现，交易门禁关闭
+  ---
+  duration_ms: 459.160619
+  type: 'test'
+  ...
+# Subtest: 历史数据不足拒绝滚动窗口
+ok 219 - 历史数据不足拒绝滚动窗口
+  ---
+  duration_ms: 0.772088
+  type: 'test'
+  ...
+# Subtest: 禁止未对账公司行为与复权成交价
+ok 220 - 禁止未对账公司行为与复权成交价
+  ---
+  duration_ms: 0.937136
+  type: 'test'
+  ...
+# Subtest: 缺失或错误来源与 OHLCV 必须拒绝
+ok 221 - 缺失或错误来源与 OHLCV 必须拒绝
+  ---
+  duration_ms: 0.348883
+  type: 'test'
+  ...
+# Subtest: 禁止无效滚动配置
+ok 222 - 禁止无效滚动配置
+  ---
+  duration_ms: 0.392819
+  type: 'test'
+  ...
+# PASS 17 workbench integration assertions
+# Subtest: tests/research-workbench.test.js
+ok 61 - tests/research-workbench.test.js
+  ---
+  duration_ms: 72.106537
+  type: 'test'
+  ...
+# Subtest: rule comparison workbench has explicit input, button, status and details
+ok 224 - rule comparison workbench has explicit input, button, status and details
+  ---
+  duration_ms: 0.807933
+  type: 'test'
+  ...
+# Subtest: UI sends authorized independent comparison request and escapes table values
+ok 225 - UI sends authorized independent comparison request and escapes table values
+  ---
+  duration_ms: 0.248773
+  type: 'test'
+  ...
+# Subtest: comparison route requires developer and size bound and keeps original ranking separate
+ok 226 - comparison route requires developer and size bound and keeps original ranking separate
+  ---
+  duration_ms: 0.677997
+  type: 'test'
+  ...
+# Subtest: rule coverage separates unknown from failure and computes known pass rate
+ok 227 - rule coverage separates unknown from failure and computes known pass rate
+  ---
+  duration_ms: 1.990847
+  type: 'test'
+  ...
+# Subtest: GPT pack preserves five independent strategies, weights and original thresholds
+ok 228 - GPT pack preserves five independent strategies, weights and original thresholds
+  ---
+  duration_ms: 0.747461
+  type: 'test'
+  ...
+# Subtest: missing Python provenance and absent native contexts are explicitly unavailable
+ok 229 - missing Python provenance and absent native contexts are explicitly unavailable
+  ---
+  duration_ms: 0.532599
+  type: 'test'
+  ...
+# Subtest: bazi keeps four insufficient dimensions and neutral baseline distinct from evidence
+ok 230 - bazi keeps four insufficient dimensions and neutral baseline distinct from evidence
+  ---
+  duration_ms: 1.504767
+  type: 'test'
+  ...
+# Subtest: optional comparison does not change existing candidate ranking or pass result
+ok 231 - optional comparison does not change existing candidate ranking or pass result
+  ---
+  duration_ms: 3.53947
+  type: 'test'
+  ...
+# Subtest: 撤权后广播前复验并主动断流，合法用户仍收消息
+ok 232 - 撤权后广播前复验并主动断流，合法用户仍收消息
+  ---
+  duration_ms: 1.968223
+  type: 'test'
+  ...
+# Subtest: 开发者角色降级时立即断开私密推送
+ok 233 - 开发者角色降级时立即断开私密推送
+  ---
+  duration_ms: 0.573911
+  type: 'test'
+  ...
+# Subtest: 私密推送集合误混入只读会话时仍禁止泄露
+ok 234 - 私密推送集合误混入只读会话时仍禁止泄露
+  ---
+  duration_ms: 1.100732
+  type: 'test'
+  ...
+# Subtest: 本地只读会话混入私密集合也必须拒绝
+ok 235 - 本地只读会话混入私密集合也必须拒绝
+  ---
+  duration_ms: 0.526019
+  type: 'test'
+  ...
+# PASS 12 integrated playbook ranking assertions
+# Subtest: tests/strategy-playbook-integration.test.js
+ok 65 - tests/strategy-playbook-integration.test.js
+  ---
+  duration_ms: 48.580577
+  type: 'test'
+  ...
+# Subtest: developer research shortcut is governed by existing data-eo visibility
+ok 237 - developer research shortcut is governed by existing data-eo visibility
+  ---
+  duration_ms: 1.044217
+  type: 'test'
+  ...
+# Subtest: keyboard skip link and visible focus are present
+ok 238 - keyboard skip link and visible focus are present
+  ---
+  duration_ms: 0.241802
+  type: 'test'
+  ...
+# Subtest: navigation highlights sections without altering market calculations
+ok 239 - navigation highlights sections without altering market calculations
+  ---
+  duration_ms: 0.338698
+  type: 'test'
+  ...
+# Subtest: navigation script is loaded defer and reduced-motion preference respected
+ok 240 - navigation script is loaded defer and reduced-motion preference respected
+  ---
+  duration_ms: 1.161653
+  type: 'test'
+  ...
+# Subtest: 8 个快捷导航均指向唯一且存在的分区
+ok 241 - 8 个快捷导航均指向唯一且存在的分区
+  ---
+  duration_ms: 1.205448
+  type: 'test'
+  ...
+# Subtest: 保留手机速览与开发者研究工作台入口
+ok 242 - 保留手机速览与开发者研究工作台入口
+  ---
+  duration_ms: 0.414041
+  type: 'test'
+  ...
+# Subtest: 手机导航可横向滚动且不影响原有面板按钮
+ok 243 - 手机导航可横向滚动且不影响原有面板按钮
+  ---
+  duration_ms: 0.122534
+  type: 'test'
+  ...
+# Subtest: desktop theme is loaded without removing original app entrypoint
+ok 244 - desktop theme is loaded without removing original app entrypoint
+  ---
+  duration_ms: 4.356646
+  type: 'test'
+  ...
+# Subtest: mobile preserves original runtime and introduces larger tap targets
+ok 245 - mobile preserves original runtime and introduces larger tap targets
+  ---
+  duration_ms: 1.639219
+  type: 'test'
+  ...
+# Subtest: desktop design theme includes responsive and accessibility treatment
+ok 246 - desktop design theme includes responsive and accessibility treatment
+  ---
+  duration_ms: 0.36642
+  type: 'test'
+  ...
+# Subtest: 23h59m59s 不过期
+ok 247 - 23h59m59s 不过期
+  ---
+  duration_ms: 1.51942
+  type: 'test'
+  ...
+# Subtest: 恰好24h过期
+ok 248 - 恰好24h过期
+  ---
+  duration_ms: 0.177256
+  type: 'test'
+  ...
+# Subtest: 跨周末同样按24h清理
+ok 249 - 跨周末同样按24h清理
+  ---
+  duration_ms: 0.313861
+  type: 'test'
+  ...
+# Subtest: 有效访问刷新后不清理
+ok 250 - 有效访问刷新后不清理
+  ---
+  duration_ms: 0.214001
+  type: 'test'
+  ...
+# Subtest: 非法时间戳跳过，多个设备分别判断
+ok 251 - 非法时间戳跳过，多个设备分别判断
+  ---
+  duration_ms: 0.189885
+  type: 'test'
+  ...
+# Subtest: 服务端统计和前端均使用小时而非交易日
+ok 252 - 服务端统计和前端均使用小时而非交易日
+  ---
+  duration_ms: 4.137267
+  type: 'test'
+  ...
+# Subtest: 周末也连续计时
+ok 253 - 周末也连续计时
+  ---
+  duration_ms: 1.790866
+  type: 'test'
+  ...
+# Subtest: 未满24小时不清理
+ok 254 - 未满24小时不清理
+  ---
+  duration_ms: 0.171908
+  type: 'test'
+  ...
+# Subtest: 清理定时器不依赖交易日
+ok 255 - 清理定时器不依赖交易日
+  ---
+  duration_ms: 0.803405
+  type: 'test'
+  ...
+# Subtest: 自证只读令牌在 touchDevice 前检查过期
+ok 256 - 自证只读令牌在 touchDevice 前检查过期
+  ---
+  duration_ms: 0.936575
+  type: 'test'
+  ...
+# Subtest: 旧版只读令牌也检查过期
+ok 257 - 旧版只读令牌也检查过期
+  ---
+  duration_ms: 0.905979
+  type: 'test'
+  ...
+# PASS 5: trust/redeem设备绑定及无绑定拒绝回归
+# Subtest: tests/view-session-entrypoints.test.js
+ok 71 - tests/view-session-entrypoints.test.js
+  ---
+  duration_ms: 48.004434
+  type: 'test'
+  ...
+# PASS 14 view session expiry/revocation assertions
+# Subtest: tests/view-session-revocation.test.js
+ok 72 - tests/view-session-revocation.test.js
+  ---
+  duration_ms: 47.745074
+  type: 'test'
+  ...
+# PASS: 指定设备会话精准撤销，其他绑定会话保留，旧无绑定会话保守撤销，访问时核对台账
+# Subtest: tests/view-session-targeted-revoke.test.js
+ok 73 - tests/view-session-targeted-revoke.test.js
+  ---
+  duration_ms: 48.622105
+  type: 'test'
+  ...
+# PASS 6: 有效绑定、旧无绑定、撤销、离线24小时、会话过期、开发者不受影响
+# Subtest: tests/view-session-unbound-guard.test.js
+ok 74 - tests/view-session-unbound-guard.test.js
+  ---
+  duration_ms: 42.071153
+  type: 'test'
+  ...
+# PASS 6 cases: missing view ledger rejected, valid/expired/grace/revoked, developer unchanged
+# Subtest: tests/view-token-ledger-regression.test.js
+ok 75 - tests/view-token-ledger-regression.test.js
+  ---
+  duration_ms: 53.231013
+  type: 'test'
+  ...
+1..262
+# tests 262
+# suites 0
+# pass 262
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32184.929826

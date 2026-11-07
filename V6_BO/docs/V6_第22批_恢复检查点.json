@@ -1,0 +1,8 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-22-EASTMONEY-BREADTH",
+  "base": "V6_Unified_Market_Research_Workbench_20261105.zip",
+  "tests": 162,
+  "passed": 162,
+  "liveVerified": false,
+  "next": "真实联网验证、全市场日期对齐、页面联动、策略只读试验"
+}

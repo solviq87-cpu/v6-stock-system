@@ -1,0 +1,30 @@
+{
+  "baselineSha256": "f5fa0209f6b2045933cd3662600ab08b880c35ac3f3da8fae88619bc72ac8e78",
+  "modified": [
+    "AGENTS.md",
+    "integration/CHAT_HANDOFF.md",
+    "integration/TEST_REPORT.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js",
+    "src/core/quote-observation-view.js"
+  ],
+  "added": [
+    "integration/pool-quote-full-20261107bo.exit",
+    "integration/pool-quote-clean-20261107bo.tap",
+    "integration/POOL_QUOTE_HANDOFF_20261107bo.md",
+    "integration/POOL_QUOTE_OPERATIONS_20261107bo.md",
+    "integration/pool-quote-clean-20261107bo.exit",
+    "integration/POOL_QUOTE_DIFF_20261107bo.json",
+    "integration/pool-quote-targeted-final-20261107bo.tap",
+    "integration/pool-quote-full-20261107bo.tap",
+    "integration/pool-quote-targeted-20261107bo.tap",
+    "integration/POOL_QUOTE_SOURCE_COMPARISON_20261107bo.json",
+    "tests/pool-quote-provenance.test.js"
+  ],
+  "deleted": [],
+  "sourceCount": 1093
+}

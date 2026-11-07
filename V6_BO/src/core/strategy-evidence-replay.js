@@ -1,0 +1,63 @@
+'use strict';
+/** Audited, time-ordered strategy evidence replay. Never synthesizes native decisions. */
+const crypto=require('node:crypto');
+const {validateDataset}=require('./historical-validation');
+const {attributeIndependentStrategies,SYSTEMS}=require('./independent-strategy-attribution');
+const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+function replayStrategyEvidence(history, evidenceBundle, options={}){
+ const ds=validateDataset(history);
+ if(!evidenceBundle||!Array.isArray(evidenceBundle.signals)||!evidenceBundle.generatedAt||!evidenceBundle.source)throw Error('需要带来源、生成时间和 signals 的策略证据包');
+ if(evidenceBundle.signals.length>ds.stocks*ds.barsPerStock*4)throw Error('策略证据过多');
+ const dates=history.stocks[0].bars.map(x=>x.date);
+ if(dates.some(x=>!x))throw Error('逐日策略回放要求交易日期');
+ const split=options.splitDay??history.splitDay;
+ if(split!==undefined&&(!Number.isInteger(split)||split<2||split>=dates.length-2))throw Error('样本外分割位置无效');
+ const symbols=new Set(history.stocks.map(s=>String(s.symbol||s.code)));
+ const signals=evidenceBundle.signals.map((s,i)=>{
+  if(!s||!SYSTEMS.includes(s.system)||!symbols.has(s.symbol)||!dates.includes(s.date))throw Error(`第${i}条策略信号无效`);
+  if(!['pass','fail','unknown'].includes(s.verdict)||typeof s.provenance!=='string'||!s.provenance.trim())throw Error('策略结论或来源无效');
+  if(typeof s.observedThrough!=='string'||s.observedThrough>s.date)throw Error('策略信号包含未来数据或缺少观察截止日期');
+  if(!s.evaluatorVersion||typeof s.evaluatorVersion!=='string')throw Error('必须记录原生评估器版本');
+  return {system:s.system,symbol:s.symbol,date:s.date,verdict:s.verdict,provenance:s.provenance,
+   observedThrough:s.observedThrough,evaluatorVersion:s.evaluatorVersion};
+ });
+ const base=attributeIndependentStrategies(history,{...options,evidence:signals});
+ const windows={inSample:[],outOfSample:[],unassigned:[]};
+ for(const r of base.records){
+  const idx=dates.indexOf(r.signalDate);
+  const entry=idx+1,exit=idx+2;
+  const group=split===undefined?'unassigned':exit<split?'inSample':entry>=split?'outOfSample':'unassigned';
+  windows[group].push(r);
+ }
+ const stats=records=>Object.fromEntries(SYSTEMS.map(system=>{
+  const items=records.filter(x=>x.system===system),done=items.filter(x=>x.outcome.status==='paper-estimate');
+  const returns=done.map(x=>x.outcome.netReturnPct);
+  // Trades can overlap across symbols. Do not compound them in input/file order;
+  // form an equal-weight daily paper portfolio by exit date, then calculate drawdown.
+  const byExitDate=new Map();
+  for(const trade of done){const day=trade.outcome.exitDate;const bucket=byExitDate.get(day)||[];bucket.push(trade.outcome.netReturnPct);byExitDate.set(day,bucket);}
+  const dailyReturns=[...byExitDate.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,values])=>({
+   date,returnPct:values.reduce((a,b)=>a+b,0)/values.length,tradeCount:values.length
+  }));
+  let equity=1,peak=1,maxDrawdownPct=0;
+  for(const day of dailyReturns){equity*=1+day.returnPct/100;peak=Math.max(peak,equity);maxDrawdownPct=Math.max(maxDrawdownPct,(peak-equity)/peak*100);}
+  const gains=returns.filter(x=>x>0).reduce((a,b)=>a+b,0);
+  const losses=Math.abs(returns.filter(x=>x<0).reduce((a,b)=>a+b,0));
+  return [system,{status:returns.length>=30?'sample-observed':returns.length?'insufficient-sample':'not-evaluated',
+   evidenceCount:items.length,paperTrades:done.length,blocked:items.filter(x=>x.outcome.status==='blocked').length,
+   winRatePct:returns.length?+(100*returns.filter(x=>x>0).length/returns.length).toFixed(4):null,
+   meanNetReturnPct:returns.length?+(returns.reduce((a,b)=>a+b,0)/returns.length).toFixed(4):null,
+   profitFactor:losses?+(gains/losses).toFixed(4):null,
+   maxDrawdownPct:dailyReturns.length?+maxDrawdownPct.toFixed(4):null,
+   drawdownMethod:'按退出交易日聚合的等权纸面组合日收益；非真实资金曲线',
+   dailyPortfolioReturns:dailyReturns,
+   metricsNote:returns.length<30?'样本不足30笔，仅展示描述性统计，不作策略有效性结论':'纸面估计统计，不代表真实可成交收益'}];
+ }));
+ return {schemaVersion:1,mode:'audited-strategy-evidence-replay',canTrade:false,verifiedLive:false,
+  datasetFingerprint:base.datasetFingerprint,evidenceBundleFingerprint:hash(evidenceBundle),
+  generatedAt:evidenceBundle.generatedAt,source:evidenceBundle.source,splitDay:split??null,
+  splitDate:split===undefined?null:dates[split],systems:base.systems,
+  windows:Object.fromEntries(Object.entries(windows).map(([k,v])=>[k,{systems:stats(v),records:v}])),
+  limitations:['信号必须由原生策略评估器产生并提供独立来源','样本外仅按信号及成交日期严格划分','纸面估计不等于可成交或实盘有效性']};
+}
+module.exports={replayStrategyEvidence};

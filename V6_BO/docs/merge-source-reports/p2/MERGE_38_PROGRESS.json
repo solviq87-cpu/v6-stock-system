@@ -1,0 +1,252 @@
+{
+  "scope": "38 previously outstanding same-name differences",
+  "integrated_paths": [
+    "scripts/disaster-recovery.js",
+    "tests/disaster-recovery.test.js",
+    "tests/market-data-quality-gates.test.js",
+    "tests/factor-feed-integration.test.js",
+    "src/strategy/strategy-service.js"
+  ],
+  "integrated_count": 5,
+  "remaining_semantic_review": 34,
+  "note": "No automatic overwrite of conflicting security, UI, trading or data files. This is not a completed 38/38 semantic integration.",
+  "focused_tests": "29 passed",
+  "syntax_checks": "npm run check and npm run check:strategy passed",
+  "full_regression": "started but did not finish in available execution window",
+  "paths": [
+    {
+      "path": "CHANGELOG.md",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "f5aad7dbcf7b41b316ea8daf4d03b2ab92007d3ecc686786d4f7dc8218463016",
+      "candidate_sha256": "1a03e9522d242ff7d780717a78d854315869864724a2d39a43688a7f8c88f4d6"
+    },
+    {
+      "path": "docs/V6_σÉÄτ╗¡σ╝ÇσÅæΣ╗╗σèíσñºτ║▓.md",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "7a7e7cc4460cccde88934247171b9942b418a6e2e08087179d879a8fa7dc2030",
+      "candidate_sha256": "0ee34a7e67a2eb59433c4b1a2bc4c2e26b33d556486105df4f97aa51eae76575"
+    },
+    {
+      "path": "docs/V6_σö»Σ╕Çτ╗ƒΣ╕ÇµÇ╗Σ╗╗σèíσñºτ║▓.md",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "a1fb72a4a2837e7ecdb31dc89989b91f93fdb04e7b523dac61c52aee812418ab",
+      "candidate_sha256": "8f330e7595467d9009112ee82ac1513163f4008f0da49402300fcbdbb74b5a0c"
+    },
+    {
+      "path": "external_data.json",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "f61deed2cf51a49cb20e4219cfd12af0dab3b37a4c3565a8892a24148e2555c4",
+      "candidate_sha256": "32d264ed68957990d755e5e4adad894d75dde350958c68d055902d71f63d1659"
+    },
+    {
+      "path": "package.json",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "a55be213c206a66e587bf359887df90eb1241bff967cac042dbff479a5c4aef6",
+      "candidate_sha256": "84ac2825d9ba473b71abfd74b247fdf86cf7c6635780274058b9ec726761c21c"
+    },
+    {
+      "path": "public/assets/app.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "2edce3075c189e0f714874389f9d1d1eb238f9fae95af286ce8a88f63a635e5b",
+      "candidate_sha256": "6e7c7327ce2d036a506b0958463012aa2908b1396d2ba701346a50e4bdbee37d"
+    },
+    {
+      "path": "public/assets/v6-design.css",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "0111f5b9b5790d3ae752c2918f791beff110575911af8912c44c29a1e490e3bb",
+      "candidate_sha256": "0c4271bb91a80ad0686bd2f6946b863270bda11a57c63a47bdb1936356e9c8c1"
+    },
+    {
+      "path": "public/index.html",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "d2c9fdb4133a40f83361b09e5075f00f87f56d7819c37b4b204d930e8c77cb2a",
+      "candidate_sha256": "7be9488ad030ecb499effde7f3a518a86ed00313f15f7564d97abe372de88c57"
+    },
+    {
+      "path": "public/mobile.html",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "c26fd502fec95ee74847bb402707b2282c0daa1bcd63f8d18d8c233312657109",
+      "candidate_sha256": "729bd16679c8394e8f2713c8e8a06e985ad47fc7de44df47d14c14ccc2ad1997"
+    },
+    {
+      "path": "public/sw.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "482989bcfd15dfd9b5c67864671eed0cda3f6926e2d9319b37a79d85616ff069",
+      "candidate_sha256": "ebeed978a9e8ba3c83eacd7e0ec47333604a6d1971f4615e76b972c69e5354df"
+    },
+    {
+      "path": "scripts/disaster-recovery.js",
+      "status": "integrated_and_focused_tested",
+      "base_sha256": "d3eb369a72593aa7798294c8f7addeeda40886c02a86c3895ecc637b66bb9ced",
+      "candidate_sha256": "d3eb369a72593aa7798294c8f7addeeda40886c02a86c3895ecc637b66bb9ced"
+    },
+    {
+      "path": "scripts/native-strategy-daily.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "d3e9039f1cacb13a34dd55fe7a6081cf85ed3afcae71042eae1941bf0626392e",
+      "candidate_sha256": "8a0665aa9dbbeacf3b538134257e9b6595c58c67ec76fad18e9444df3624f767"
+    },
+    {
+      "path": "server.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "e7cf67cf96771dfd1b650ce6c5d12a7a82c37ec14de508610c760ec6ae11ca7f",
+      "candidate_sha256": "1234ce9c74f850cad2ef7c80780e0c7c41b19ea0faae3a30e3611dcf0ec68eae"
+    },
+    {
+      "path": "src/core/a-share-calendar.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "6aa87e27337bf71a62f0c4548e87e9490cadea11bd64eba835634d6ca8c67092",
+      "candidate_sha256": "229e606833627acbf6900c9ffebcf69cf70a13aeea784ae2a5d96d7ebd8679de"
+    },
+    {
+      "path": "src/core/historical-validation.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "080c05fe79cab3a8a3c27d07c9535bbe6b8cf314efbdbb2ebde3f16deb22077c",
+      "candidate_sha256": "53e1c83de75b92766d8fa5611ad1336600173b965c8646bee6482c069b1791a1"
+    },
+    {
+      "path": "src/core/integrated-run-bundle.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "deee663cbc01ed4fbefd8808b6fd422b2681413eb38c60fafdaec7dbc36d1a58",
+      "candidate_sha256": "1a0b65a874af0e13891d94b0f46027b110fa2adf915c5bca5d53c3f08e4e0e48"
+    },
+    {
+      "path": "src/core/market-data-center.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "17271e4d54664d81b83f91511644167fbbc5ae21e3e9c5f00f3544ec6ab91e48",
+      "candidate_sha256": "c86a9b60592ef3c84e2f6014016c27be03ad3f764ce6023521f7bd3127426c20"
+    },
+    {
+      "path": "src/core/paper-replay.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "6e755e8c03363d14296de8f34fba7edd5d2b515eb1b0299883a295143451c5f5",
+      "candidate_sha256": "d6016a1b38cc2fe7083da2c309f78ee2c2ccea34b32bebf09a0a08f59b7fc479"
+    },
+    {
+      "path": "src/core/paper-service.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "e20970856de52ac6ccbb006a281b073b2e1f192f7e86f22350fb48dfcc56966a",
+      "candidate_sha256": "48a9fb08b5d0b01fb08e2ef6299597511231367a4e6ce98c61d459d353ff47e8"
+    },
+    {
+      "path": "src/core/paper-session.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "fef4619f32f684b7fade580bd3ed9537cb40322f409e967a0780f92e7acbabcc",
+      "candidate_sha256": "2888caae73d98c566d0143d7447625859fbd60dbbca39702e8d819a63ccd092a"
+    },
+    {
+      "path": "src/core/strategy-evidence-replay.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "82ed720aa44280ff9fb50c57658694a03ccf99489ab6131e9e14b4516b3ea2da",
+      "candidate_sha256": "00a126f1baebb46af7b6e6f70f7e54089a474078999ef858ee0f6dc5e3111fb4"
+    },
+    {
+      "path": "src/strategy/cached-kline-adapter.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "2f71d92a7eaaab0f3b6329949fdeb4c0b7c859177616dee5115931921ccf6967",
+      "candidate_sha256": "88e10d62a554d496ee884bab86dcf74e279f0acb49743bd26eb326114f344577"
+    },
+    {
+      "path": "src/strategy/historical-indicators.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "5044ccaf932fa6c7784f5d1fdc2f0f45cda100eb7041fe4a6464b75ca8837eaf",
+      "candidate_sha256": "90cda8b1fbf32a08a8e5a30513195232402a7f15778cabe7dd738cdfd0abb3c0"
+    },
+    {
+      "path": "src/strategy/historical-refresh.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "7bc23946ec896e7a66b624b61128ad751a72bb882628c755efcafc2de5eb83dd",
+      "candidate_sha256": "cc2a3b699fc48e6b9b2c27824e01fa52e0e9e026d581f712e636c78083e2455d"
+    },
+    {
+      "path": "src/strategy/research-upload-validator.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "7a697025c7b90e51d104a29e404dc75daead519dec0046a07d3c8f01c5884257",
+      "candidate_sha256": "bdfc3a99a1edcd8e1f64b51d5dd7e6ad747e08871d7fb57132e773b2d114fb3b"
+    },
+    {
+      "path": "src/strategy/research-v2-cached-kline-adapter.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "aab146da3bf304024286003c0a150030eaf7c4061b841814cfb2f95abd8b9ab5",
+      "candidate_sha256": "efbfe8a90e508c016158bec80abc154327d6c75e3a6fe56598fba0a8b54a5459"
+    },
+    {
+      "path": "src/strategy/strategy-service.js",
+      "status": "integrated_and_focused_tested",
+      "base_sha256": "ee3a0193f7de1a79eacc04ee1d2ad2bc6de36f5240790fb75727e185268f3e23",
+      "candidate_sha256": "ee3a0193f7de1a79eacc04ee1d2ad2bc6de36f5240790fb75727e185268f3e23"
+    },
+    {
+      "path": "tests/a-share-calendar-boundary.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "8762454b727644ea9dbdf8665d6acc02abc6bf4a3515efcbbc503c61b17e9721",
+      "candidate_sha256": "225ca3538bee7d026192eaaec9c8b03067d04b688ce33d4b7897c346e435f7f1"
+    },
+    {
+      "path": "tests/disaster-recovery.test.js",
+      "status": "integrated_and_focused_tested",
+      "base_sha256": "a59f1f3f42391fe5f44aa04966ab1a49c6e6078472265f2eeb43d02e2c11991a",
+      "candidate_sha256": "a59f1f3f42391fe5f44aa04966ab1a49c6e6078472265f2eeb43d02e2c11991a"
+    },
+    {
+      "path": "tests/factor-feed-integration.test.js",
+      "status": "integrated_and_focused_tested",
+      "base_sha256": "af4a75ff02e353f08377b92ffa52c01a513d4fe9e0756b7a2e908dfc48c1ee43",
+      "candidate_sha256": "af4a75ff02e353f08377b92ffa52c01a513d4fe9e0756b7a2e908dfc48c1ee43"
+    },
+    {
+      "path": "tests/integrated-run-bundle.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "38ea0d961932f9408ff67678a8c1b301c0f092324e030c2cec9730efe80e8bea",
+      "candidate_sha256": "8247e3cfc7a410d421fa63712a8e92a0e4de284ae3634070951e272c8f964f55"
+    },
+    {
+      "path": "tests/market-data-center-e2e.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "df1ed4dfc5dbbe1e61292d6a159dc3bcce3b55e6a2e204f650303f5aba01dba0",
+      "candidate_sha256": "2d3d99733a81e21ba02267a1b3f586ed427c26bff65fa8baa2b7e9b41a53ec4b"
+    },
+    {
+      "path": "tests/market-data-quality-gates.test.js",
+      "status": "integrated_and_focused_tested",
+      "base_sha256": "cdb3292d6bc660622c056e6d096140aa6644cbb32175bb4a33d60d4d9e5835bb",
+      "candidate_sha256": "cdb3292d6bc660622c056e6d096140aa6644cbb32175bb4a33d60d4d9e5835bb"
+    },
+    {
+      "path": "tests/market-temporal-integrity.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "cb6764a4473575174fa8248856830bf2086f817bb8936f6b4513bb8f6f03669e",
+      "candidate_sha256": "88c1261e81ab374869019940129f42415a600150e8f89391d176beebf279ecfb"
+    },
+    {
+      "path": "tests/paper-replay.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "613bbe3ba3ca39e359bc8e7c42f7de8ff7aed2a87ec4ee743028cd2444bea111",
+      "candidate_sha256": "b681d7cb13f9be7d489832203d5175a7c1a15ffcc8a69de4675d367f21a738d5"
+    },
+    {
+      "path": "tests/paper-service-http.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "9363cc986cd71b5f4f2ce5692101c057f29ecb2fda37b4b1efa945cd2c616784",
+      "candidate_sha256": "2788cc157af14cf5f26ac6d6fa1b2bbb103e27e4bb6d79cda4c0241c4da2c9d1"
+    },
+    {
+      "path": "tests/paper-session.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "d4f8ca3cec7272d9310fa9eff830f80c36c5058d907c2e57b2fd9861d221bf5b",
+      "candidate_sha256": "dac6a320dc76b389dcadcc909058afa05698269bbb7b89b179d5ab341cffdb94"
+    },
+    {
+      "path": "tests/research-integration.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "73cd32f7cbb5de919a3d2c1b9775f2d0f51aa2cd7f9112c6937366b4bbac5461",
+      "candidate_sha256": "ca0aeb919a968da6c6e67930309e67b997ccac599c483e8b2bf54d3c1e5fef4f"
+    },
+    {
+      "path": "tests/strategy-evidence-replay.test.js",
+      "status": "baseline_retained_requires_semantic_review",
+      "base_sha256": "d49dd0283656540a17d5a084b4f630c9eeb969e9fd7d66144cadf17df85fdfa9",
+      "candidate_sha256": "4dce348f6dad995e0c7bfb1d80b6d23aab0afbf517c4644fff27b0bf9ff00a4e"
+    }
+  ]
+}

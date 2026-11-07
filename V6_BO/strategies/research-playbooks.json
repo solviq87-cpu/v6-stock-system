@@ -1,0 +1,138 @@
+{
+  "version": "2026-11-04",
+  "note": "候选规则均需样本外回测；盘中竞价、封单、题材需合法授权实时数据，缺失不得推断",
+  "sources": [
+    {
+      "title": "A股量化动态因子筛选研究",
+      "url": "https://www.mdpi.com/2071-1050/12/10/3978",
+      "use": "质量、基本面、情绪、成长、风险、动量多类因子"
+    },
+    {
+      "title": "价值盈利动量多因子研究",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8531567/",
+      "use": "价值+盈利质量+动量"
+    },
+    {
+      "title": "方正证券高频量价因子研究",
+      "url": "https://www.foundersc.com/infoResearchMacro/19000606.jhtml",
+      "use": "分钟级量价与降频，需分钟数据"
+    },
+    {
+      "title": "涨停板数据深度分析",
+      "url": "https://developer.cloud.tencent.com.cn/article/2730535",
+      "use": "首板时间、封板质量、换手、回封"
+    },
+    {
+      "title": "低波动策略研究",
+      "url": "https://m.hibor.com.cn/wap_detail.aspx?id=b7a8498df0b84b343a506cc6ba74eb7d",
+      "use": "低波与质量复合"
+    },
+    {
+      "title": "A股多因子回测方法案例",
+      "url": "https://github.com/Mxk-zhongqiu/a-share-multi-factor-strategy/blob/main/reports/STRATEGY_REPORT.md",
+      "use": "复权校验、样本外与流动性约束"
+    }
+  ],
+  "playbooks": [
+    {
+      "id": "platform_breakout",
+      "label": "平台放量突破",
+      "inputs": [
+        "bars"
+      ],
+      "dataFrequency": "daily",
+      "risk": "假突破"
+    },
+    {
+      "id": "trend_pullback",
+      "label": "多头趋势缩量回踩",
+      "inputs": [
+        "bars"
+      ],
+      "dataFrequency": "daily",
+      "risk": "趋势反转"
+    },
+    {
+      "id": "momentum_acceleration",
+      "label": "动量加速",
+      "inputs": [
+        "bars"
+      ],
+      "dataFrequency": "daily",
+      "risk": "追高回撤"
+    },
+    {
+      "id": "low_vol_quality",
+      "label": "低波动与质量共振",
+      "inputs": [
+        "bars",
+        "roeQualityScore"
+      ],
+      "dataFrequency": "daily+fundamental",
+      "risk": "财报滞后"
+    },
+    {
+      "id": "first_board_quality",
+      "label": "首板质量",
+      "inputs": [
+        "bars",
+        "firstSealTime",
+        "sealQualityScore"
+      ],
+      "dataFrequency": "daily+intraday",
+      "risk": "涨停判定需交易所原始价与封板数据"
+    },
+    {
+      "id": "first_to_second",
+      "label": "一进二承接",
+      "inputs": [
+        "bars",
+        "auctionQualityScore",
+        "sectorHeatScore"
+      ],
+      "dataFrequency": "daily+auction",
+      "risk": "隔夜跳空及不可成交"
+    },
+    {
+      "id": "second_to_third",
+      "label": "二进三强弱",
+      "inputs": [
+        "bars",
+        "auctionQualityScore",
+        "promotionScore"
+      ],
+      "dataFrequency": "daily+auction",
+      "risk": "连板高波动"
+    },
+    {
+      "id": "reseal_strength",
+      "label": "炸板回封",
+      "inputs": [
+        "resealScore",
+        "sealQualityScore"
+      ],
+      "dataFrequency": "intraday",
+      "risk": "分时数据缺失"
+    },
+    {
+      "id": "leader_sector",
+      "label": "板块龙头共振",
+      "inputs": [
+        "leaderStrengthScore",
+        "sectorHeatScore"
+      ],
+      "dataFrequency": "intraday",
+      "risk": "题材快速退潮"
+    },
+    {
+      "id": "money_flow_continuation",
+      "label": "资金持续性",
+      "inputs": [
+        "moneyPersistenceScore",
+        "fundFlowScore"
+      ],
+      "dataFrequency": "daily+flow",
+      "risk": "资金统计口径差异"
+    }
+  ]
+}

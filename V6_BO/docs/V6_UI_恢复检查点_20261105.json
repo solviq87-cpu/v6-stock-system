@@ -1,0 +1,15 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-UI-NAV-ACCESSIBILITY",
+  "base": "V6_Merged_Parallel_Preopen_Risk_20261105.zip",
+  "changed": [
+    "v6_release/public/index.html",
+    "v6_release/public/assets/app.css",
+    "v6_release/public/assets/ui-navigation.js",
+    "v6_release/tests/ui-navigation-accessibility.test.js"
+  ],
+  "tests": {
+    "passed": 132,
+    "failed": 0
+  },
+  "protected_selection_logic": "unchanged"
+}

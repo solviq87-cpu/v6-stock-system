@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K线内嵌功能 · 需求对齐决策表（2026-10-14）</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --line: #e3e6ea; --txt: #1f2329; --sub: #646a73;
+    --accent: #3370ff; --accent-bg: #eef3ff; --warn: #d96900; --warn-bg: #fff4e6;
+    --ok: #0e8a4d; --changed: #fff7e6; --changed-line: #f0b450;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 14px; line-height: 1.65; padding: 20px 14px 60px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .meta { color: var(--sub); font-size: 12.5px; margin-bottom: 16px; }
+  .banner { background: var(--accent-bg); border: 1px solid #c9d9ff; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 13px; }
+  .banner b { color: var(--accent); }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; transition: border-color .15s, background .15s; }
+  .item.changed { background: var(--changed); border-color: var(--changed-line); }
+  .item .q { font-weight: 600; font-size: 14.5px; margin-bottom: 2px; }
+  .item .q .no { color: var(--accent); margin-right: 6px; }
+  .item .why { color: var(--sub); font-size: 12.5px; margin-bottom: 10px; }
+  .item .why b { color: var(--txt); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  select, textarea { font-family: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--txt); }
+  select { padding: 6px 8px; min-width: 300px; flex: 1 1 320px; }
+  textarea { padding: 6px 8px; width: 100%; min-height: 34px; resize: vertical; margin-top: 8px; }
+  textarea::placeholder { color: #a8adb5; }
+  .rec { font-size: 12px; color: var(--ok); margin-top: 6px; }
+  .chg-flag { display: none; font-size: 11.5px; color: var(--warn); background: var(--warn-bg); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+  .item.changed .chg-flag { display: inline-block; }
+  .bar { position: sticky; bottom: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 18px; box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
+  .bar .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  button { font-family: inherit; font-size: 13.5px; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; }
+  .b-primary { background: var(--accent); color: #fff; }
+  .b-ghost { background: #eef0f3; color: var(--txt); }
+  .stat { font-size: 12.5px; color: var(--sub); margin-top: 8px; }
+  #reply { width: 100%; min-height: 150px; margin-top: 10px; font-family: inherit; font-size: 12.5px; line-height: 1.7; }
+  .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: #1f2329; color: #fff; font-size: 13px; padding: 8px 16px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9; }
+  .sec { font-size: 13px; font-weight: 600; color: var(--sub); margin: 20px 0 10px; }
+  .facts { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 12.8px; color: var(--sub); }
+  .facts li { margin-left: 18px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>K线内嵌功能 · 需求对齐决策表</h1>
+  <div class="meta">2026-10-14 · 阶段一（需求对齐）——填完点「生成回发文案」整段发我即可，不用逐条解释。下拉默认值就是我的推荐；你改过的项会高亮并标记。</div>
+
+  <div class="banner">
+    你的原话：<b>「我在想就我可不可以在应用内打开你推送的个股的K线 其中你把买入卖出做T 直接显示在内让我不用跨软件查看 你显示的我点开个股可以直接查看」</b>＋<b>「你根据你的算法直接把买卖T点锁仓啥的直接标出来」</b>。我已核实：全A 5913 只日线缓存已在本机（.kline_cache），竞价分时也有缓存——数据是现成的，缺的是前端图表与标注层。这张表定完口径我就开工。
+  </div>
+
+  <div class="facts">
+    <b>已核实的家底（不用你决策，供参考）：</b>
+    <li>.kline_cache：全A 5913 只近 60 个交易日日K（开高低收/量），本地磁盘已有，随发布包走</li>
+    <li>竞价分时缓存（fetchAuctionTicks）已有，9:15-9:25 分时数据可取</li>
+    <li>算法信号家底：精选池五路径、大单流入、竞价异动、一进二/连板、趋势启动、补涨龙、埋伏，均有 code+日期+依据</li>
+    <li>模拟盘成交流水在 paper.json（线上权威），买卖点可真实标注</li>
+    <li>前端当前零第三方依赖（自绘 SVG 惯例），手机端已适配横滑</li>
+  </div>
+
+  <div class="sec">一、图表与数据</div>
+  <div id="list"></div>
+
+  <div class="sec">二、生成回发</div>
+  <div class="bar">
+    <div class="btns">
+      <button class="b-primary" onclick="genReply()">📋 生成回发文案</button>
+      <button class="b-ghost" onclick="resetAll()">↩️ 全部恢复推荐默认</button>
+    </div>
+    <div class="stat" id="stat"></div>
+    <textarea id="reply" placeholder="点上面按钮生成；也可以直接在这里手改。生成后复制整段发我。"></textarea>
+    <div class="btns" style="margin-top:8px">
+      <button class="b-primary" onclick="copyReply()">复制到剪贴板</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ITEMS = [
+  { id: 'src', q: 'K线数据从哪来？', why: '决定打开速度与稳定性。缓存已在本地磁盘；实时抓取受出网波动影响（项目踩过限频坑）。',
+    opts: [
+      { v: 'cache_first', t: '缓存优先，缺的才实时补（推荐）', rec: true },
+      { v: 'cache_only', t: '只用本地缓存，没有就显示"暂无K线"' },
+      { v: 'realtime', t: '每次打开实时抓东财/腾讯（最新但慢、怕限频）' } ] },
+  { id: 'tf', q: '要不要分时（1分钟）线？', why: '分时能让做T标注更直观，但数据量和渲染复杂度上一档。',
+    opts: [
+      { v: 'daily_first', t: '先只上日K，分时二期（推荐：先解决"能看到"）', rec: true },
+      { v: 'both', t: '日K/分时可切换（含竞价 9:15-9:25 分时）' },
+      { v: 'intraday_only', t: '只要分时不要日K' } ] },
+  { id: 'lib', q: '图表用什么画？', why: '项目前端现在零第三方依赖，自绘 SVG 是既有惯例；引库会增加包体与兼容风险。',
+    opts: [
+      { v: 'selfsvg', t: '自绘 SVG/Canvas，零依赖（推荐，与项目惯例一致）', rec: true },
+      { v: 'echarts', t: '引入 ECharts（功能全但包体约 1MB）' },
+      { v: 'lwc', t: '引入轻量库 lightweight-charts' } ] },
+  { id: 'annotate', q: '图上标哪些点？（你说的"买卖T点锁仓"）', why: '这是核心。我的建议口径：<b>买点</b>=算法信号命中当天的收盘/竞价位（精选入池/大单/竞价异动/一进二/趋势启动）；<b>卖点</b>=止盈止损线（项目已有 ATR 2× 动态止损，gq 轮实证：胜率 35%→53%）；<b>T点</b>=持仓股日内高抛低吸区间（按 ATR/均线标注，不是精确到分的点位承诺）；<b>锁仓</b>=趋势未破且无风控信号时标"建议锁仓"。若你对"锁仓"理解不同（比如=锁定利润/止盈），请在备注说。',
+    opts: [
+      { v: 'all_four', t: '四种全标：买/卖/T/锁仓（推荐）', rec: true },
+      { v: 'buysell', t: '只标买/卖，T和锁仓以后再说' },
+      { v: 'buy_only', t: '先只标买点（信号）' } ] },
+  { id: 'layer', q: '标"算法信号"还是"模拟盘实际成交"？', why: '两层意义不同：算法信号是"当时认为该买"，模拟盘成交是"真的买了"。混在一张图容易看混。',
+    opts: [
+      { v: 'both_layers', t: '两层都画，可切换显示（推荐）', rec: true },
+      { v: 'algo_only', t: '只画算法信号层' },
+      { v: 'paper_only', t: '只画模拟盘实际成交' } ] },
+  { id: 'entry', q: '哪些地方的股票名能点开K线？', why: '决定改造面。全部可点体验最好，工作量也最大。',
+    opts: [
+      { v: 'all', t: '全部可点：精选/一进二/连板/大单/趋势/补涨/复盘/持仓/相似/埋伏（推荐）', rec: true },
+      { v: 'signal_only', t: '只信号类可点，持仓不可点' },
+      { v: 'core', t: '只精选池+持仓可点（最小面）' } ] },
+  { id: 'readonly', q: '只读设备（观看口令登录）能看到什么？', why: '项目铁律：持仓/模拟盘明细只读不可见（账户敏感）；一进二/连板卡片对只读也已不可见。',
+    opts: [
+      { v: 'sig_only', t: '持仓K线只读不可见，信号类K线可见（推荐，与现有边界一致）', rec: true },
+      { v: 'all_visible', t: '全部可见（含持仓K线）' },
+      { v: 'none', t: '只读设备完全不能看K线' } ] },
+  { id: 'mobile', q: '手机端手势？', why: '你在手机上看盘时间多，K线必须能横滑看历史、缩放看细节。',
+    opts: [
+      { v: 'full', t: '横滑平移+双指缩放+十字光标（推荐）', rec: true },
+      { v: 'pan', t: '只支持横滑' },
+      { v: 'btn', t: '按钮缩放（无手势）' } ] },
+  { id: 'pushlink', q: '推送消息里的股票名，以后能不能也点开？', why: '飞书私信现在是纯文本，点不动。要做成可点必须改卡片消息形态（链接带 token 鉴权），是另一个工程。',
+    opts: [
+      { v: 'later', t: '二期再说，先做面板内可点（推荐）', rec: true },
+      { v: 'now', t: '现在就改推送为卡片消息带链接' },
+      { v: 'no', t: '不需要，面板内就够了' } ] },
+  { id: 'scope', q: '第一版范围？', why: 'MVP 先让你今天就能用上，标注细节逐步加。',
+    opts: [
+      { v: 'mvp', t: 'MVP：日K+均线/量+四类标注，入口先上"精选池+持仓+一进二"（推荐）', rec: true },
+      { v: 'full', t: '一步到位：全入口+分时+全部标注' },
+      { v: 'kline_only', t: '只要K线裸图，标注一期后补' } ] },
+];
+
+const LS_KEY = 'kline_req_20261014';
+const list = document.getElementById('list');
+const state = {};
+try { Object.assign(state, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch (e) {}
+
+ITEMS.forEach((it, i) => {
+  const def = (it.opts.find(o => o.rec) || it.opts[0]).v;
+  const cur = state[it.id] && state[it.id].v ? state[it.id].v : def;
+  const note = (state[it.id] && state[it.id].note) || '';
+  const div = document.createElement('div');
+  div.className = 'item'; div.id = 'item-' + it.id;
+  div.innerHTML =
+    '<div class="q"><span class="no">' + (i + 1) + '.</span>' + it.q + '<span class="chg-flag">已修改</span></div>' +
+    '<div class="why">' + it.why + '</div>' +
+    '<div class="row"><select id="sel-' + it.id + '">' +
+      it.opts.map(o => '<option value="' + o.v + '"' + (o.v === cur ? ' selected' : '') + '>' + o.t + '</option>').join('') +
+    '</select></div>' +
+    '<div class="rec">💡 推荐：' + (it.opts.find(o => o.rec) || it.opts[0]).t + '</div>' +
+    '<textarea id="note-' + it.id + '" placeholder="备注（可选）：你对这项的具体想法，比如锁仓你指的是…">' + note.replace(/</g, '&lt;') + '</textarea>';
+  list.appendChild(div);
+  div.querySelector('select').addEventListener('change', () => save());
+  div.querySelector('textarea').addEventListener('input', () => save());
+});
+
+function collect() {
+  const out = {};
+  ITEMS.forEach(it => {
+    out[it.id] = { v: document.getElementById('sel-' + it.id).value, note: document.getElementById('note-' + it.id).value.trim() };
+  });
+  return out;
+}
+function save() {
+  const c = collect();
+  localStorage.setItem(LS_KEY, JSON.stringify(c));
+  let changed = 0;
+  ITEMS.forEach(it => {
+    const def = (it.opts.find(o => o.rec) || it.opts[0]).v;
+    const isChg = c[it.id].v !== def || !!c[it.id].note;
+    document.getElementById('item-' + it.id).classList.toggle('changed', isChg);
+    if (isChg) changed++;
+  });
+  document.getElementById('stat').textContent = changed === 0
+    ? '当前全部使用推荐默认值（' + ITEMS.length + ' 项）。草稿已自动存在本机。'
+    : '已修改 ' + changed + ' / ' + ITEMS.length + ' 项（黄底=与推荐不同或有备注）。草稿已自动存在本机。';
+}
+function optText(id, v) { const it = ITEMS.find(x => x.id === id); const o = it.opts.find(x => x.v === v); return o ? o.t : v; }
+function genReply() {
+  const c = collect(); save();
+  const lines = ['【K线功能 · 我的决定】'];
+  ITEMS.forEach((it, i) => {
+    const def = (it.opts.find(o => o.rec) || it.opts[0]).v;
+    const mark = (c[it.id].v !== def) ? '（改过推荐）' : '';
+    lines.push((i + 1) + '. ' + it.q + ' → ' + optText(it.id, c[it.id].v) + mark);
+    if (c[it.id].note) lines.push('   备注：' + c[it.id].note);
+  });
+  const notes = ITEMS.filter(it => c[it.id].note).length;
+  lines.push('');
+  lines.push(notes === 0 ? '（无备注，按默认推荐口径执行）' : '以上备注请一并遵守。');
+  document.getElementById('reply').value = lines.join('\n');
+  document.getElementById('reply').select();
+}
+function copyReply() {
+  const ta = document.getElementById('reply');
+  if (!ta.value) genReply();
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => toast('已复制，整段发我即可')).catch(() => toast('复制失败，请手动全选复制'));
+}
+function resetAll() {
+  ITEMS.forEach(it => {
+    const def = (it.opts.find(o => o.rec) || it.opts[0]).v;
+    document.getElementById('sel-' + it.id).value = def;
+    document.getElementById('note-' + it.id).value = '';
+  });
+  save(); toast('已恢复全部推荐默认');
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = 1;
+  setTimeout(() => t.style.opacity = 0, 1800);
+}
+save();
+</script>
+</body>
+</html>

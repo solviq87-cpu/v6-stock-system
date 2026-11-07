@@ -1,0 +1,31 @@
+{
+  "task": "V6-ONE-MASTER-TASK",
+  "version": "20261106be",
+  "fullTests": 1015,
+  "cleanTests": 1015,
+  "auditRotation": "immutable archive, atomic index, auto threshold and consistent account backup/restore",
+  "cloudDeployed": false,
+  "productionAccepted": false,
+  "sourceLibraryFileId": "libfile_c87ec6000eac819181d612c84158b00f",
+  "crossAccountSharing": "invitation recipient invalid; no grant; user accepts manual ZIP and handoff transfer",
+  "historicalPreviousLedger": {
+    "task": "V6-ONE-MASTER-TASK",
+    "version": "20261106am",
+    "fullTests": 746,
+    "cleanTests": 746,
+    "auditRotation": "immutable archive, atomic index, auto threshold and consistent account backup/restore",
+    "cloudDeployed": false,
+    "productionAccepted": false,
+    "handoffLibraryFileId": "libfile_81232e8f7dd48191a234e56f9653531b",
+    "sourceLibraryFileId": "libfile_112ca80c2570819197164b4d67a9c20b",
+    "crossAccountSharing": "invitation recipient invalid; no grant; user accepts manual ZIP and handoff transfer"
+  },
+  "baselineTests": 1006,
+  "monitorHistoryArchive": "byte preserving, 1000 entries / 128MiB; no rollover/reset",
+  "riskUI": "read-only observe; provider certification and new requirements remain pending",
+  "parallelMarket": "normalized authorized gateways; vendor-native adapters and live authorizations pending",
+  "publicMarket": "three public parsers and direct requests; actual Node Tencent stale and other two unavailable",
+  "optionalSources": "efinance and CNINFO observed; mootdx installed but TCP inaccessible; raw research only",
+  "sourceCatalog": "14 registered, five optional SDK adapters; only BaoStock private-research attempt, login failed; legacy server access audit pending",
+  "forwardSignals": "frozen cohort and 1/5/20/60-session gross price observations; CLI only; not execution or production acceptance"
+}

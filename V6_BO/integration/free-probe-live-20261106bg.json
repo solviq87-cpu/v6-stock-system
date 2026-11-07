@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "mode": "public-quote-probe",
+  "code": "600519",
+  "generatedAt": 1793963710326,
+  "probeOnly": true,
+  "canTrade": false,
+  "verifiedLive": false,
+  "paidServicesUsed": false,
+  "sources": [
+    {
+      "id": "tencent",
+      "status": "stale-or-invalid",
+      "lastQuote": {
+        "exchange": "SH",
+        "code": "600519",
+        "currency": "CNY",
+        "adjustment": "unadjusted",
+        "volumeUnit": "share",
+        "status": "normal",
+        "timestamp": 1793952898000,
+        "price": 1453,
+        "previousClose": 1452,
+        "volume": 4284800
+      }
+    },
+    {
+      "id": "eastmoney",
+      "status": "unavailable",
+      "error": "网络、超时或格式校验失败"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "tencent",
+      "firstStatus": "stale-or-invalid",
+      "retried": false
+    },
+    {
+      "id": "eastmoney",
+      "firstStatus": "unavailable",
+      "retried": true
+    }
+  ],
+  "warning": "一次性公开地址连通检查；非付费API、持续采集、交易所认证或商业转发许可。旧价格只作带日期快照。"
+}

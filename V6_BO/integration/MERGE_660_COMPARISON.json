@@ -1,0 +1,34 @@
+{
+  "baseline": "libfile_11d4c7e7e36881918ea13750e0f22ed4",
+  "baselineSha256": "e6d9911bd7864aac7bef9348567601c91a73e890e38da634e40feaad2b289cff",
+  "missing": [],
+  "changed": [
+    "server.js",
+    "integration/DEPLOYMENT.md",
+    "integration/dependency-install-state.json",
+    "integration/REMAINING.md",
+    "integration/START_HERE.md",
+    "integration/syntax-check.json",
+    "integration/offline-audit.json",
+    "integration/TEST_REPORT.md",
+    "integration/RECOVERY.json",
+    "integration/BUG_FIX_RECORD.md",
+    "integration/full-tests.tap",
+    "integration/clean-extract-tests.tap",
+    "tests/research-live-http-isolated.test.js",
+    "scripts/paper-account.js",
+    "src/core/historical-validation.js",
+    "src/core/paper-application-service.js",
+    "src/strategy/research-v2-position-ledger-backtest.js"
+  ],
+  "added": [
+    "integration/FEE_RISK_CONFIGURATION.md",
+    "integration/MERGE_660_COMPARISON.json",
+    "integration/CURRENT_MERGE.md",
+    "integration/continuation-merge.json",
+    "tests/dated-fees-common-risk.test.js",
+    "src/core/trading-fees.js",
+    "src/core/common-entry-risk.js"
+  ],
+  "strategyRulesUnchanged": true
+}

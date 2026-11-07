@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "mode": "parallel-public-quotes",
+  "generatedAt": 1793963417023,
+  "validUntil": 1793963432023,
+  "canTrade": false,
+  "verifiedLive": false,
+  "sources": [
+    {
+      "id": "tencent",
+      "status": "unavailable",
+      "error": "网络、超时或格式校验失败"
+    },
+    {
+      "id": "eastmoney",
+      "status": "unavailable",
+      "error": "网络、超时或格式校验失败"
+    },
+    {
+      "id": "sina",
+      "status": "unavailable",
+      "error": "网络、超时或格式校验失败"
+    }
+  ],
+  "analysis": [],
+  "warning": "公开网页报价，非授权稳定API；无商业转发权限声明。停牌状态未独立核验，不用于下单",
+  "probeOnly": true,
+  "paidServicesUsed": false
+}

@@ -1,0 +1,9 @@
+{
+  "probeOnly": true,
+  "observedAt": 1793963410455,
+  "result": {
+    "provider": "baostock",
+    "status": "unavailable",
+    "error": "依赖缺失、网络不可达或返回校验失败"
+  }
+}

@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+const start=src.indexOf('function revokeViewSessionsForDevices('),end=src.indexOf('function issueToken(',start);
+assert.ok(start>=0&&end>start);
+const ctx={_vtokens:new Map([['a',100],['b',100],['old',100]]),_viewSessionDevices:new Map([['a','device-a'],['b','device-b']]),Set};
+vm.createContext(ctx);vm.runInContext(src.slice(start,end)+';globalThis.revoke=revokeViewSessionsForDevices;',ctx);
+ctx.revoke(['device-a']);
+assert.equal(ctx._vtokens.has('a'),false);assert.equal(ctx._vtokens.has('old'),false);assert.equal(ctx._vtokens.has('b'),true);
+assert.equal(ctx._viewSessionDevices.has('a'),false);assert.equal(ctx._viewSessionDevices.get('b'),'device-b');
+ctx.revoke(['device-b']);assert.equal(ctx._vtokens.size,0);
+assert.match(src,/issueToken\('view', dtV\)/);assert.match(src,/issueToken\('view', dtV2\)/);
+assert.match(src,/const record = viewStore\(\)\.devices\[digest\]/);
+console.log('PASS: 指定设备会话精准撤销，其他绑定会话保留，旧无绑定会话保守撤销，访问时核对台账');

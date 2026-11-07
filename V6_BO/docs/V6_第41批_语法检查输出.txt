@@ -1,0 +1,4 @@
+
+> stock-dashboard@1.0.0 check
+> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js
+

@@ -1,0 +1,25 @@
+{
+  "batch": 41,
+  "baseline": "V6_Unified_OTP_Invalid_Ticket_Recovery_20261105.zip",
+  "baseline_sha256": "fbbbd50a04e49ae4efc7cac70b0415aacbc6c38236ae19bdb898fcf05453e2d1",
+  "automated_tests": {
+    "total": 235,
+    "passed": 235,
+    "failed": 0,
+    "command": "node --test tests/*.test.js"
+  },
+  "syntax_check": "npm run check: PASS",
+  "targeted_tests": 5,
+  "real_feishu_verified": false,
+  "real_quotes_verified": false,
+  "mobile_device_verified": false,
+  "changes": {
+    "src/core/research-risk-gate.js": "8f08211a57a97c57e2290731943ba83b6a256384655ef669dad709dfd620253f",
+    "src/core/live-market-research.js": "ac36f0d3fe4661c076502f5883dfe0b376f3602f0ed586a0e8187b7d9df2a44f",
+    "public/research.html": "7d7153e0bbddc79dc331c914cb74acd8cc8c3788017b17369999fa79c218cf12",
+    "public/assets/research-workbench.js": "0cc469f43ea3caacc7be08e45fddd9a55b927c46bd90df39c8c5c63cf41234f0",
+    "tests/research-risk-gate.test.js": "c9ec60a014281d88059a9240bf4db3745e1dbfd4d556318a8288586834100c77",
+    "docs/V6_52项统一验收台账.json": "7e133261f0284b418e0f07a155101888f3f2e76c8f9c88f4efae5326a84a84a2",
+    "docs/V6_第41批_开发记录与接口交接.md": "aae7f08a1a01a3de39eb7d88b9264b165778ec21c1ed62ff8d4e54a26230c91b"
+  }
+}

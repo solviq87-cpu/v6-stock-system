@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>jc 轮需求确认表：板块资金滞后 + 盘中强势票模块</title>
+  <style>
+    :root { --bg:#f7f9fc; --panel:#fff; --acc:#1971c2; --bor:#dee2e6; --muted:#868e96; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); margin: 0; padding: 24px; color: #212529; }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .sec { background: var(--panel); border: 1px solid var(--bor); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .sec h2 { font-size: 15px; margin: 0 0 12px; color: var(--acc); }
+    .row { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .hint { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    select, input[type="text"], textarea { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid var(--bor); border-radius: 6px; box-sizing: border-box; }
+    textarea { min-height: 48px; resize: vertical; }
+    .btns { display: flex; gap: 10px; margin-top: 8px; }
+    button { padding: 10px 18px; font-size: 13px; border: 0; border-radius: 6px; cursor: pointer; }
+    .primary { background: var(--acc); color: #fff; }
+    .secondary { background: #e9ecef; color: #212529; }
+    #output { width: 100%; min-height: 140px; padding: 12px; font-size: 13px; border: 1px solid var(--bor); border-radius: 6px; box-sizing: border-box; background: #f8f9fa; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>jc 轮需求确认表</h1>
+    <div class="sub">板块资金滞后问题 + 手机端「盘中强势票」模块</div>
+
+    <div class="sec">
+      <h2>A. 板块资金滞后问题</h2>
+      <div class="row">
+        <label for="a1">A1 你观察到的滞后具体是？</label>
+        <div class="hint">可多描述；我的初步排查：当前面板 sectors 每 30s 从东财拉一次，本地副本最新一次约 40s 前，数据源本身可能有分钟级延迟。</div>
+        <select id="a1">
+          <option value="">请选择最贴近的一项</option>
+          <option value="手机面板板块排名/资金数字不更新">手机面板板块排名/资金数字不更新</option>
+          <option value="推送用的板块不是最新（导致漏票/错票）">推送用的板块不是最新（导致漏票/错票）</option>
+          <option value="资金净流入数值与同花顺/通达信差很多">资金净流入数值与同花顺/通达信差很多</option>
+          <option value="涨停池板块归属旧">涨停池板块归属旧</option>
+          <option value="其他">其他（备注说明）</option>
+        </select>
+        <textarea id="a1_note" placeholder="补充描述，例如：哪个页面、哪个字段、对比的是哪个软件"></textarea>
+      </div>
+      <div class="row">
+        <label for="a2">A2 期望的刷新频率？</label>
+        <select id="a2">
+          <option value="5s">5 秒（可能更快触发东财限流）</option>
+          <option value="10s" selected>10 秒</option>
+          <option value="15s">15 秒</option>
+          <option value="30s">保持 30 秒，但面板显示「数据刷新于 X 秒前」</option>
+          <option value="other">其他（备注）</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="a3">A3 是否接受更换/增加数据源？</label>
+        <select id="a3">
+          <option value="可加腾讯/同花顺作为辅助校验" selected>可加腾讯/同花顺作为辅助校验（不替换东财主源）</option>
+          <option value="优先保稳定，不改数据源">优先保稳定，不改数据源，只缩短间隔</option>
+          <option value="其他">其他（备注）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>B. 手机端「盘中强势票」模块</h2>
+      <div class="row">
+        <label for="b1">B1 模块名称</label>
+        <input type="text" id="b1" value="竞价共振">
+      </div>
+      <div class="row">
+        <label for="b2">B2 触发/更新时间</label>
+        <select id="b2">
+          <option value="09:25竞价结束后立即" selected>09:25 竞价结束后立即（只跑一次，盘中不变）</option>
+          <option value="09:30开盘后">09:30 开盘后（用开盘价+开盘板块）</option>
+          <option value="09:35开盘后稳定">09:35 开盘后稳定（过滤开盘噪声）</option>
+          <option value="全时段实时">全时段实时（每 1-5 分钟刷新，类似竞价实时）</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="b3">B3 选股范围</label>
+        <select id="b3">
+          <option value="仅今日竞价强势池" selected>仅今日竞价强势池（已算好分，再叠加板块强度）</option>
+          <option value="全A + 竞价/开盘涨幅 filter">全 A + 竞价/开盘涨幅 filter（更广但更慢）</option>
+          <option value="当前涨停池 + 炸板池">当前涨停池 + 炸板池</option>
+          <option value="其他">其他（备注）</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="b4">B4 评分维度（可多选/备注权重）</label>
+        <textarea id="b4">1) 竞价得分（已有时点）
+2) 所属板块强度（板块净流入排名/涨停数）
+3) 近 N 日板块资金流入（默认 5 日）
+4) 近 N 日板块资金回撤（默认 3 日最大回撤）
+5) 个股开盘涨幅/竞价额排名
+6) 题材梯队/连板惯性</textarea>
+      </div>
+      <div class="row">
+        <label for="b5">B5 展示字段（保持和竞价卡片同款）</label>
+        <textarea id="b5">股票名 + 代码
+所属板块
+竞价涨幅/开盘涨幅
+评分
+推断依据（逐条，如：①竞价额居前 ②板块热前 3 ③近 5 日资金流入 +X 亿 ④近 3 日最大回撤 -Y%）</textarea>
+      </div>
+      <div class="row">
+        <label for="b6">B6 是否推送？</label>
+        <select id="b6">
+          <option value="不推送，仅面板展示" selected>不推送，仅面板展示（开发者自用）</option>
+          <option value="私密推送 Top 3">私密推送 Top 3</option>
+          <option value="盘面摘要卡片展示">放入盘面摘要，不单独推</option>
+          <option value="其他">其他（备注）</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="b7">B7 模块位置</label>
+        <select id="b7">
+          <option value="量化选股下方" selected>量化选股下方</option>
+          <option value="竞价卡片下方">竞价卡片下方</option>
+          <option value="新 Tab">新增底部 Tab</option>
+          <option value="其他">其他（备注）</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="b8">B8 是否加入学习/回测？</label>
+        <select id="b8">
+          <option value="先不上学习，只展示" selected>先不上学习，只展示，观察一阵后再说</option>
+          <option value="登记为盘中型信号，按当日收盘结果学习">登记为盘中型信号，按当日收盘结果学习</option>
+          <option value="按次日结果学习">按次日结果学习</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>C. 生成回发文案</h2>
+      <div class="btns">
+        <button class="primary" onclick="generate()">生成回发文案</button>
+        <button class="secondary" onclick="saveDraft()">保存草稿</button>
+        <button class="secondary" onclick="loadDraft()">读取草稿</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <label>生成的确认文案（可复制回发）</label>
+        <textarea id="output" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ids = ['a1','a1_note','a2','a3','b1','b2','b3','b4','b5','b6','b7','b8'];
+    function collect() {
+      const d = {};
+      ids.forEach(id => d[id] = document.getElementById(id).value);
+      return d;
+    }
+    function generate() {
+      const d = collect();
+      const lines = [
+        '=== jc 轮需求确认 ===',
+        '',
+        'A. 板块资金滞后',
+        'A1 滞后现象：' + (d.a1 || '未选') + (d.a1_note ? '；备注：' + d.a1_note : ''),
+        'A2 期望刷新频率：' + d.a2,
+        'A3 数据源策略：' + d.a3,
+        '',
+        'B. 盘中强势票模块',
+        'B1 模块名称：' + d.b1,
+        'B2 触发时间：' + d.b2,
+        'B3 选股范围：' + d.b3,
+        'B4 评分维度：\n' + d.b4,
+        'B5 展示字段：\n' + d.b5,
+        'B6 推送策略：' + d.b6,
+        'B7 模块位置：' + d.b7,
+        'B8 学习回测：' + d.b8,
+        '',
+        '确认以上方案可行，进入实现。'
+      ];
+      document.getElementById('output').value = lines.join('\n');
+    }
+    function saveDraft() {
+      localStorage.setItem('jc_sector_intraday_draft', JSON.stringify(collect()));
+      alert('已保存草稿');
+    }
+    function loadDraft() {
+      const s = localStorage.getItem('jc_sector_intraday_draft');
+      if (!s) { alert('无草稿'); return; }
+      const d = JSON.parse(s);
+      ids.forEach(id => { const el = document.getElementById(id); if (el && d[id] != null) el.value = d[id]; });
+      alert('已读取草稿');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "task": "V6-ONE-MASTER-TASK",
+  "core_sha256": "f9343f62085c1976759909bfc58cf37260d7e73be2cd0bc06ad959f3260d6551",
+  "ui_baseline": "20261105ag-reference-layout-443",
+  "deployment_version": "20261106am",
+  "productionAccepted": false,
+  "next": "AUDIT_ROTATION_OPERATIONS.md; risk evidence sources and cloud deployment once access supplied",
+  "fullTests": 746,
+  "passed": 746,
+  "failed": 0,
+  "cleanExtractTests": 746,
+  "authoritativeLegacyBridge": true,
+  "baselineLibraryFileId": "libfile_b91034de6d8c8191986901f46a45f531",
+  "libraryPackages": 248
+}

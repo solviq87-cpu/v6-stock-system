@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EV 实测翻车 · 决策表 v4（2026-10-16）</title>
+<style>
+  :root { --red:#c0392b; --green:#1e8449; --ink:#1a1a1a; --sub:#666; --line:#e3e6ea; --bg:#f7f8fa; --card:#fff; --accent:#8e44ad; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 24px; line-height: 1.65; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .meta { color: var(--sub); font-size: 13px; margin-bottom: 18px; }
+  .banner { background: #fdf2f2; border: 1px solid #f5c6c6; border-radius: 10px; padding: 14px 16px; margin: 14px 0; font-size: 14px; }
+  .banner.gray { background: #f4f4f6; border-color: var(--line); }
+  .banner b.red { color: var(--red); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 10px 0; background: var(--card); }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; }
+  th { background: #eef0f3; font-weight: 600; }
+  .neg { color: var(--green); font-weight: 600; }   /* 跌/负 EV → 绿（A股惯例：绿=跌） */
+  .pos { color: var(--red); font-weight: 600; }     /* 涨/正 EV → 红 */
+  .warn { color: #b9770e; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card .why { font-size: 13px; color: var(--sub); margin: 6px 0 10px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; margin: 8px 0; }
+  .opts label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
+  .opts input { margin-top: 4px; }
+  .rec { font-size: 12px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+  textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 13px; font-family: inherit; min-height: 40px; resize: vertical; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 22px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+  button:hover { opacity: .92; }
+  #out { margin-top: 14px; }
+  .tag { display: inline-block; background: #eef0f3; border-radius: 4px; padding: 0 6px; font-size: 12px; color: #555; margin-right: 6px; }
+  code { background: #eef0f3; border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+  .small { font-size: 12.5px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>EV 实测翻车 · 决策表 v4</h1>
+<div class="meta">2026-10-16 · ig 轮 · 主线「数字可信 + EV 第一指标」· 回表请改选项后点底部一键生成，复制文案回发</div>
+
+<div class="banner">
+  <b>元问题的最新答案（第 N+1 个「看起来在工作、其实在冒充」的部分）</b>：if 轮我实测 EV 后告诉你「55-59 桶 +1.42%，全场唯一强正，闸门 55 恰好卡在 EV 最优带下沿」——<b class="red">这个数字是假的</b>。1938 条样本里混进了 600 条 histzt 历史回填（先知道涨停才倒推登记的事后样本），剔掉后 55-59 实际 <span class="neg">−1.14%</span>、50-54 <span class="neg">−0.64%</span>，<b>live 信号所有 prob 桶、所有类型、所有市场环境层，费用后 EV 全为负</b>。抓bug的守门不是别人，正是为「EV 成为日常指标」新写的 _ev_daily.js 自己。<br>
+  <span class="small">这不是「下一个沉默冒充」的预告失效，而是它的实证：连「已经审过一遍的数字」都会假——所以每日自动重检（#266）不是可选项，是唯一解。</span>
+</div>
+
+<h2>一、事实：两轮口径对比（同一份 stats.json，两种命运）</h2>
+<table>
+  <tr><th style="width:22%"></th><th>if 轮口径（已作废）</th><th>ig 轮口径（现行）</th></tr>
+  <tr><td>样本</td><td>1938 条「纯净样本」<span class="warn">（含 histzt 600）</span></td><td><b>1338 条 live</b>（剔 histzt 事后回填）</td></tr>
+  <tr><td>55-59 桶</td><td class="pos">+1.42%（n=216）「全场唯一强正」</td><td class="neg">−1.14%（费后 −1.34%，n=54）</td></tr>
+  <tr><td>50-54 桶</td><td class="pos">+0.91%（n=380）</td><td class="neg">−0.64%（费后 −0.84%，n=44）</td></tr>
+  <tr><td>60+ 合计</td><td class="neg">−0.41%（n=808）</td><td class="neg">−1.05%（费后，n=706）</td></tr>
+  <tr><td>全体</td><td>+0.04%「≈0 EV」</td><td class="neg">−0.76%（费后 −0.96%）</td></tr>
+  <tr><td>环境分层</td><td>未测</td><td>普跌 <span class="neg">−1.31%</span>（t=−2.41 边际，仅3天）/ 退潮 <span class="neg">−1.07%</span>（<b>249条全来自单日，无效</b>）/ 普涨 <span class="neg">−1.05%</span>（t=−0.83 不显著，仅2天）→ <b>「三层全负」证据链不成立</b>（ig+1 轮聚类审计后修正，见第六节）</td></tr>
+  <tr><td>真正统计稳的负 EV</td><td>（没算过显著性）</td><td><b>universe（t=−3.0）、pool（t=−4.9）、auczt（t=−2.9）</b>——主推品类亏钱是铁证；70+/55-59/similar/zt 的 EV 点数跌出显著，<b>只是点估计不是结论</b></td></tr>
+  <tr><td>唯一费后正 EV 的充分类</td><td>（被 histzt 掩护，没发现）</td><td>zt 类 <span class="pos">+1.11%</span>（n=44，跨 7 天，涨停率 20.5%）但 <b>聚类 t=+1.33 = 噪声</b>（ig+1 轮审计修正：上轮说它「唯一为正」是拿噪声当结论）；yier 类 +3.54% 且 t=2.73 但仅 3 个交易日、n=27，同样不可作结论</td></tr>
+</table>
+<p class="small">histzt 是什么：server.js L1944 生成的「历史涨停回填」——遍历历史K线，<b>先知道涨停才倒推登记</b>（resolved.mode:"历史回测"）。项目自己的铁律早就排除它：hj 轮 K 线买点「histzt 不进买点，拿它当买点等于伪造信号」；dv 轮 SKIP_RULE 单列「历史回测 600」。if 轮算 EV 时这两条家规都被我自己绕过了——选择偏差 + 绕过既存铁律，双罪，已在 _ev_daily.js 文件头注释立案。</p>
+
+<h2>二、诚实 EV 全表（_ev_daily.js 实测，剔 histzt 后的 live 口径）</h2>
+<table>
+  <tr><th>prob 桶</th><th>n</th><th>跨天</th><th>次日涨停率</th><th>收盘EV</th><th>+3%规则EV</th><th>费后收盘EV</th><th>费后+3%EV</th></tr>
+  <tr><td>&lt;50</td><td>211</td><td>8</td><td>4.7%</td><td class="neg">−0.635%</td><td class="neg">−0.499%</td><td class="neg">−0.835%</td><td class="neg">−0.699%</td></tr>
+  <tr><td>50-54</td><td>44</td><td>7</td><td>6.8%</td><td class="neg">−0.636%</td><td class="neg">−0.613%</td><td class="neg">−0.836%</td><td class="neg">−0.813%</td></tr>
+  <tr><td>55-59</td><td>54</td><td>7</td><td>7.4%</td><td class="neg">−1.141%</td><td class="neg">−1.348%</td><td class="neg">−1.341%</td><td class="neg">−1.548%</td></tr>
+  <tr><td>60-69</td><td>245</td><td>8</td><td>6.1%</td><td class="neg">−1.148%</td><td class="neg">−1.149%</td><td class="neg">−1.348%</td><td class="neg">−1.349%</td></tr>
+  <tr><td>70+</td><td>461</td><td>8</td><td>3.9%</td><td class="neg">−0.841%</td><td class="neg">−0.855%</td><td class="neg">−1.041%</td><td class="neg">−1.055%</td></tr>
+  <tr><td>noprob（prob 为 null：zt/pool/trend/sector）</td><td>323</td><td>7</td><td>5.3%</td><td class="neg">−0.380%</td><td class="neg">−0.464%</td><td class="neg">−0.580%</td><td class="neg">−0.664%</td></tr>
+</table>
+<table>
+  <tr><th>信号类型（按 n 排序）</th><th>n</th><th>跨天</th><th>次日涨停率</th><th>费后收盘EV</th><th>充分性</th></tr>
+  <tr><td>pool（精选池，主推品类）</td><td>372</td><td>8</td><td>3.8%</td><td class="neg">−1.64%</td><td>✓充分</td></tr>
+  <tr><td>fastin（快速流入）</td><td>189</td><td>8</td><td>5.8%</td><td class="neg">−0.27%</td><td>✓充分（最接近打平）</td></tr>
+  <tr><td>auczt（竞价）</td><td>171</td><td>6</td><td>4.7%</td><td class="neg">−1.33%</td><td>✓充分</td></tr>
+  <tr><td>buzhang（补涨）</td><td>103</td><td>4</td><td>3.9%</td><td class="neg">−0.83%</td><td class="warn">⚠ 跨天&lt;5</td></tr>
+  <tr><td>trend（趋势）</td><td>94</td><td>7</td><td>2.1%</td><td class="neg">−0.66%</td><td>✓充分</td></tr>
+  <tr><td>bigmoney（大单）</td><td>93</td><td>8</td><td>3.2%</td><td class="neg">−0.71%</td><td>✓充分</td></tr>
+  <tr><td>similar（相似走势）</td><td>83</td><td>8</td><td>1.2%</td><td class="neg">−1.38%</td><td>✓充分</td></tr>
+  <tr><td>ztprob</td><td>66</td><td>4</td><td>3.0%</td><td class="neg">−1.50%</td><td class="warn">⚠ 跨天&lt;5</td></tr>
+  <tr><td><b>zt（涨停）</b></td><td>44</td><td>7</td><td><b>20.5%</b></td><td class="pos">+1.11%</td><td>✓充分 <b>← 点数唯一为正</b>，但聚类 t=+1.33 <b>= 噪声</b></td></tr>
+  <tr><td>trendsig</td><td>44</td><td>8</td><td>6.8%</td><td class="neg">−1.36%</td><td>✓充分</td></tr>
+  <tr><td>pre（埋伏）</td><td>33</td><td>4</td><td>3.0%</td><td class="neg">−0.37%</td><td class="warn">⚠ 跨天&lt;5</td></tr>
+  <tr><td>yier（一进二）</td><td>27</td><td>3</td><td>29.6%</td><td class="pos">+3.54%</td><td class="warn">⚠ n&lt;30</td></tr>
+  <tr><td>lianban / bigmoney_repeat / sector / bigmoney-B</td><td>9/5/3/2</td><td>—</td><td>—</td><td class="neg">−2.52%/−2.76%/−0.79%/−0.80%</td><td class="warn">⚠ 全不充分</td></tr>
+</table>
+<p class="small">口径：收盘EV=信号日收盘买→次日收盘卖；+3%规则EV=次日最高涨幅≥3% 按 +3% 止盈、否则收盘卖（跳空高开保守取下界，<b>不含止损</b>）；费后=−0.2%（RT 佣金+印花+过户的保守上界；实际 ≈0.10-0.12%，见第五节）；充分性=n≥30 且跨交易日≥5。⚠️ <b>显著性</b>：同日信号相关，t=按信号日聚类的标准误；<b>|t|&lt;2 的数字只是点估计，禁作结论</b>（ig 轮就是拿 ns 的 zt 当「唯一为正」）。样本仅 8 个信号日（2026-09-28~10-14 节后）。breadth 缺 09-28/29 两天记录 → 556 条进「未知」环境层（EV −0.21%，即那两天的混合，已单列）。histzt 600 条单列展示（收盘EV +1.81%，选择偏差样本，禁并入）。</p>
+
+<h2>三、如果按原设计全上 EV 闸门，会发生什么（已量化，非估算）</h2>
+<div class="banner gray">
+  已推送的 343 条 live 信号按「充分且费后 EV≤0 即拦」的原设计过闸：<b class="red">拦 299 条（87%），只剩 zt 类 44 条通过</b>；全 live 1338 条里 1243 条（93%）会被拦。<br>
+  改「硬拦档（费后 EV≤−1% 才拦）」：拦 110 条（32%），233 条通过。<b>这就是 D1 的决策对象。</b>
+</div>
+
+<h2>四、我的三项自我反对（新契约：不一味服从，包括不服从我自己）</h2>
+<div class="card">
+  <b>① 反对我 if 轮的结论本身。</b>「闸门 55 卡在 EV 最优带下沿」作废——它不是卡在最优带，是卡在「回填样本制造的假最优带」上。已立案进 _ev_daily.js 文件头，防止下一个人（包括下一个我）再犯。<br>
+  <b>② 反对「EV 全负 = 系统无用」的过度推论，也反对拿它给系统贴金。</b>数据就是全负（universe t=−3.0 是统计稳的），先承认：按信号收盘买，近 8 个信号日大概率亏钱。但 8 天节后样本 + 执行层从未测量 + fastin 接近打平（t=−0.19），说明问题可能在「入口时点与执行」而非「选股逻辑全错」——注意 zt/yier 的正 EV 是噪声或样本不足（t=1.33 / 3天），<b>不许拿它们当「系统有亮点」的证据</b>，这句话是假设不是结论，要靠 #264 执行层测量证/证。<br>
+  <b>③ 反对「立即按原设计全上 EV 闸门」。</b>项目自己的证据标准（≥20条且跨≥5交易日才许改系统行为）就是防这个：8 天样本的 EV 估值噪声很大，全闸会把可能打平的 fastin（−0.27%）也冤杀，还可能把「入场时点偏差」误判成「选股不行」。但完全不拦也不行——pool −1.64%、auczt −1.33% 是实测深度负 EV 的主推品类，继续全量推是拿你的钱验证已知亏钱的策略。所以我推荐「硬拦档」这个中间档，见 D1。
+</div>
+
+<h2>五、风险与未验证假设清单（ig+1 轮审计，规矩 5/6 的落实）</h2>
+<table>
+  <tr><th style="width:16%">状态</th><th>条目</th></tr>
+  <tr><td class="warn">已修</td><td><b>统计显著性缺失</b>（ig 轮报告最大缺陷）：同日信号高度相关，朴素 SE 低估噪声。按 8 个信号日聚类后，上轮多个「事实」降级——70+（t=−1.93）、zt（+1.33）、similar（−1.31）跌出显著；「三层全负」中退潮层 249 条全来自单日、普涨层仅 2 天。已在 _ev_daily.js 补聚类 t 与 sig 字段（|t|≥2 才记 ✓sig，ns=禁作结论），守门 62 断言。</td></tr>
+  <tr><td class="warn">已核实</td><td><b>费用偏悲观</b>：模块用 0.2% RT，实际 ≈0.10-0.12%（佣金 0.025%×2 + 印花税 0.05%[卖出端] + 过户费 0.001%×2；印花税 2023-08-28 起减半至 0.05% 未再变，财政部 2026 年上半年数据确认）。「费后」数字系统性偏悲观约 0.1pp → fastin/trend/bigmoney 等「小负」类在真实费用下更接近 0。最低 5 元佣金未计（小额实扣更高）。</td></tr>
+  <tr><td>未验证</td><td><b>收盘可成交假设</b>：竞价信号 9:25 发出、大单盘中发出，「按信号日收盘价买入」对盘中信号可能不可实现，偏差方向未知——这正是 #264 执行层要测的。</td></tr>
+  <tr><td>未验证</td><td><b>滑点</b>：小盘股显著，全部未计。</td></tr>
+  <tr><td>未验证</td><td><b>信号相关性与容量</b>：同日多信号常同板块，组合 EV ≠ 信号 EV 之和；EV 是「每次信号独立可全额投」的上界口径，实盘受资金/配额/精力约束。</td></tr>
+  <tr><td>未验证</td><td><b>持有期口径</b>：EV 假设「次日收盘卖」，你的实际持有期未知；换持有期 EV 会变（+3% 止盈口径只是其中一个替代，且实测没救场）。</td></tr>
+  <tr><td>未验证</td><td><b>样本期代表性</b>：8 个信号日全是节后（09-28~10-14），无法代表其他行情状态。</td></tr>
+  <tr><td>未验证</td><td><b>void 剔除的随机性</b>：414 条 void 被假设与 live 随机混合；若 void 系统性集中在某模块（如数据源故障日），该类 EV 有偏。</td></tr>
+  <tr><td>未验证</td><td><b>hist 标记可靠性</b>：histzt 排除依赖 <code>hist:true</code> 标记本身正确——本次审计范围外，列为下轮待查。</td></tr>
+</table>
+
+<h2>六、决策卡（下拉即改，默认=我的推荐）</h2>
+
+<div class="card">
+  <h3>D1 · EV 准入闸门（#261）启用方式</h3>
+  <div class="why">闸门代码 _ev_daily.js 的 evCell 取数接口已就绪（层级回退 type×bucket→type→bucket，判不出→unknown→拦）。问题只是「拦多宽」。</div>
+  <div class="opts">
+    <label><input type="radio" name="d1" value="1"> ① 诊断模式：每日 EV 日报照出，闸门不拦任何推送（先看四周再说）</label>
+    <label><input type="radio" name="d1" value="2" checked> ② 硬拦档<span class="rec">推荐</span>：充分（n≥30且跨天≥5）<b>且聚类显著</b>（|t|≥2）且费后 EV ≤ −1% 的类型/桶 → 拦截，每日诊断报出；其余只标注不拦</label>
+    <label><input type="radio" name="d1" value="3"> ③ 原设计全上：充分且费后 EV ≤ 0 即拦（已知代价：87% 已推送信号会被拦）</label>
+  </div>
+  <textarea data-note="d1" placeholder="备注（可选）"></textarea>
+</div>
+
+<div class="card">
+  <h3>D2 · 观察级日报②（#265，原计划「prob∈[50,55) 且 EV 正，≤3条/天」）</h3>
+  <div class="why">原计划挂 50-54 带——但 50-54 的诚实费后 EV 是 −0.84%，不是回表时以为的 +0.91%。</div>
+  <div class="opts">
+    <label><input type="radio" name="d2" value="1" checked> ① 取消②：当前无任何「充分且正 EV」的 prob 带可挂；等每日 EV 累积出正 EV 带再开（家规不变：宁缺毋滥）<span class="rec">推荐</span></label>
+    <label><input type="radio" name="d2" value="2"> ② 改挂 zt 类：点估计 +1.11% 是唯一为正，但<b>聚类 t=+1.33 纯噪声</b>（且 zt 无 prob 字段、「已涨停追高」与观察级初衷相反）</label>
+    <label><input type="radio" name="d2" value="3"> ③ 维持 50-54 带，标签诚实写「EV≈−0.8%」：观察级变定点亏损演示</label>
+  </div>
+  <textarea data-note="d2" placeholder="备注（可选）"></textarea>
+</div>
+
+<div class="card">
+  <h3>D3 · 执行层测量（#264）优先级</h3>
+  <div class="why">EV 口径假设「按信号日收盘价可成交」，但竞价信号 9:25 发出、大单信号盘中发出——用户看到推送时价格已异动。负 EV 是选股的错，还是入场时点的错？只有执行层能回答。</div>
+  <div class="opts">
+    <label><input type="radio" name="d3" value="1" checked> ① 立即升 P0，排在 #262/#263/#266 之前做（模拟盘成交对照 + .kline_cache 次日最低价补退出规则回测，诚实报覆盖率）<span class="rec">推荐</span></label>
+    <label><input type="radio" name="d3" value="2"> ② 按原依赖序，等 D1/D2 定了再做</label>
+    <label><input type="radio" name="d3" value="3"> ③ 先攒样本，执行层以后再说</label>
+  </div>
+  <textarea data-note="d3" placeholder="备注（可选）"></textarea>
+</div>
+
+<div class="card">
+  <h3>D4 · 不受 EV 发现影响的项是否继续推进（#262 盖戳 / #263 声明层 / #266 每日自检）</h3>
+  <div class="why">这三项是「下一个沉默冒充」的防线：盖戳问题（每个交易日 00:00-9:25 把昨日涨停池盖成「今日」36只）此刻正在每天发作；声明层（板块行 at、prob 未校准标注、命中率带 n）与自检行与 EV 数字无关。</div>
+  <div class="opts">
+    <label><input type="radio" name="d4" value="1" checked> ① 全部继续推进（推荐；诚实化基础设施不应被 EV 议题阻塞）<span class="rec">推荐</span></label>
+    <label><input type="radio" name="d4" value="2"> ② 全部暂停，等 EV 议题尘埃落定</label>
+    <label><input type="radio" name="d4" value="3"> ③ 只做 #262 盖戳（最紧急），#263/#266 押后</label>
+  </div>
+  <textarea data-note="d4" placeholder="备注（可选）"></textarea>
+</div>
+
+<div class="card">
+  <h3>D5 · histzt 600 条历史回填怎么处理</h3>
+  <div class="why">数据不动 = 零风险；物理移动 = 断根但动学习库结构（stats.json 是所有校准/回测的数据源）。</div>
+  <div class="opts">
+    <label><input type="radio" name="d5" value="1" checked> ① 维持口径隔离：数据不动（守库存），所有统计口径排除（_ev_daily.js 已实现），日报单列展示<span class="rec">推荐</span></label>
+    <label><input type="radio" name="d5" value="2"> ② 物理移出 stats.json 到单独文件（断根，但 empTable/learnall 等所有读取方都要跟着改，风险高）</label>
+    <label><input type="radio" name="d5" value="3"> ③ 继续混用（⛔ 即 if 轮翻车根因，列出仅为反证）</label>
+  </div>
+  <textarea data-note="d5" placeholder="备注（可选）"></textarea>
+</div>
+
+<div class="card">
+  <h3>D6 · 发布安排（维持原议还是调整）</h3>
+  <div class="why">铁律不变：只有你显式说「发布上线」才走发布闭环；回表选「统一发」只是方案，不是触发。</div>
+  <div class="opts">
+    <label><input type="radio" name="d6" value="1" checked> ① 仍统一发：本轮全部实现完成后等你显式口令，一次性发布<span class="rec">推荐</span></label>
+    <label><input type="radio" name="d6" value="2"> ② 拆分发布：_ev_daily.js + 守门先发（让 21:05 automation 先在云端跑起来攒 EV 日报），server.js 改动后发</label>
+    <label><input type="radio" name="d6" value="3"> ③ 本轮不发布，继续攒改动</label>
+  </div>
+  <textarea data-note="d6" placeholder="备注（可选）"></textarea>
+</div>
+
+<button onclick="gen()">一键生成回发文案</button>
+<div id="out"></div>
+
+<div class="banner gray" style="margin-top:22px">
+  <b>已完成（不受本表影响，随时可查）：</b>_ev_daily.js（EV 日报模块 + evCell 闸门取数接口 + <b>聚类显著性 t/sig 字段</b>）+ _test_ev_daily.js（<b>62 断言全绿</b>，两轮各抓到一个真 bug：参数被静默忽略、显著性缺失）+ 发布清单登记。抓 bug 过程本身证明了这套守门的价值：不是「审过了」，是每次真跑。<br>
+  <b>下一轮角度（无论你选什么）：</b>EV 日报从发布日起每天 21:05 随回测 automation 积累——样本跨过 ~20 个信号日那天，多数 cell 的显著性会自己给出答案（sig 的才配进闸门判据，ns 的只配进诊断）；在那之前，任何基于这 8 天的 EV 结论（包括我的）都该被当作初诊，不是确诊。另外第九节清单里「hist 标记可靠性」是下轮该审的——本次审计的范围之外。
+</div>
+
+</div>
+<script>
+function gen() {
+  const names = { d1: 'D1 EV闸门', d2: 'D2 观察级②', d3: 'D3 执行层优先级', d4: 'D4 不受影响项', d5: 'D5 histzt 处理', d6: 'D6 发布安排' };
+  const lines = ['EV 翻车决策表回发（2026-10-16 v4）：'];
+  const notes = [];
+  for (const k of Object.keys(names)) {
+    const sel = document.querySelector('input[name="' + k + '"]:checked');
+    lines.push(k + ' → ' + (sel ? '选项' + sel.value : '（未选）'));
+    const ta = document.querySelector('textarea[data-note="' + k + '"]');
+    if (ta && ta.value.trim()) notes.push(k + '：' + ta.value.trim());
+  }
+  if (notes.length) { lines.push(''); lines.push('备注：'); notes.forEach(n => lines.push('· ' + n)); }
+  const text = lines.join('\n');
+  document.getElementById('out').innerHTML = '<textarea style="min-height:180px" readonly>' + text.replace(/</g, '&lt;') + '</textarea><p class="small">已全选，直接复制回发即可。</p>';
+  const ta = document.querySelector('#out textarea');
+  ta.select();
+}
+// localStorage 草稿（防误刷新丢选择）
+document.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', () => {
+  const draft = {};
+  document.querySelectorAll('input[type=radio]').forEach(x => { if (x.checked) draft[x.name] = x.value; });
+  document.querySelectorAll('textarea[data-note]').forEach(t => { if (t.value.trim()) draft['note_' + t.dataset.note] = t.value; });
+  localStorage.setItem('ev_v4_draft', JSON.stringify(draft));
+}));
+document.querySelectorAll('textarea[data-note]').forEach(t => t.addEventListener('input', () => {
+  const draft = JSON.parse(localStorage.getItem('ev_v4_draft') || '{}');
+  draft['note_' + t.dataset.note] = t.value;
+  localStorage.setItem('ev_v4_draft', JSON.stringify(draft));
+}));
+try {
+  const draft = JSON.parse(localStorage.getItem('ev_v4_draft') || '{}');
+  for (const k of Object.keys(draft)) {
+    if (k.startsWith('note_')) {
+      const t = document.querySelector('textarea[data-note="' + k.slice(5) + '"]');
+      if (t) t.value = draft[k];
+    } else {
+      const r = document.querySelector('input[name="' + k + '"][value="' + draft[k] + '"]');
+      if (r) r.checked = true;
+    }
+  }
+} catch (e) {}
+</script>
+</body>
+</html>

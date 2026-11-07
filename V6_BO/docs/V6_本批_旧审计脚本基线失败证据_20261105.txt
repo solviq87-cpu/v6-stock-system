@@ -1,0 +1,34 @@
+
+=== A. 私密分支两条失败路径都要过 mustDeliver 门 ===
+  ❌ 抓到私密分支代码段  ← 长度=0
+  ❌ 明确拒绝分支有 mustDeliver 门
+  ❌ 门出现两次（拒绝 + 异常路径）  ← 实际=0
+
+=== B. 旧写法反证（不加门就退回群 → 失守）===
+  ✅ 不存在「无条件退回群」的 feishuSend 直通写法
+  ❌ 非 mustDeliver 分支会 _release（避免当天永久丢条）
+  ❌ 非 mustDeliver 分支记流水「私密未送达·不外发」
+
+=== C. mustDeliver 只用在验证码类（防滥用）===
+  ❌ mustDeliver:true 调用点恰好 4 处（3 处找回验证码 + 1 处登录授权码）  ← 实际=0
+  ❌ 登录授权码带 mustDeliver
+  ❌ 找回验证码 secText 带 mustDeliver
+  ✅ 行情类「封板哨兵」不带 mustDeliver
+  ✅ 行情类「板块暴动」不带 mustDeliver
+  ✅ 行情类「竞价共振」不带 mustDeliver
+  ✅ 行情类「冲板预警」不带 mustDeliver
+  ✅ 行情类「起涨哨兵」不带 mustDeliver
+  ✅ 行情类「每日复盘」不带 mustDeliver
+  ✅ 行情类「模拟盘动态」不带 mustDeliver
+
+=== D. 私密永远优先于群（原有语义不许被改坏）===
+  ❌ 私密分支结尾仍 return true（绝不再往下走群+邮箱）
+
+=== E. push-note 不再默认穿透夜间静默（半夜骚扰防线）===
+  ✅ 抓到 push-note 代码段
+  ✅ force 取自请求体（b.force === true）
+  ✅ 旧写法反证：pushAll 的 force 不再是写死 true
+  ✅ pushAll 的 force 参数用 nForce
+  ✅ 响应体回报 force 实况（可排障）
+
+❌ 私密不外泄守门：13 通过 / 9 失败

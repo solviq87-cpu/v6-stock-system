@@ -1,0 +1,238 @@
+[
+  {
+    "file": "package.json",
+    "decision": "keep-core"
+  },
+  {
+    "file": "external_data.json",
+    "decision": "keep-core"
+  },
+  {
+    "file": "server.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "CHANGELOG.md",
+    "decision": "keep-core"
+  },
+  {
+    "file": "deploy/market-sources.example.json",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "deploy/environment.example",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "deploy/v6.service",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "deploy/nginx.conf.example",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "docs/V6_后续开发任务大纲.md",
+    "decision": "keep-core"
+  },
+  {
+    "file": "docs/V6_唯一统一总任务大纲.md",
+    "decision": "keep-core"
+  },
+  {
+    "file": "docs/V6_第68批_完整回归原始日志.log",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "docs/V6_本轮完整回归_20261105.log",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "docs/V6_第61批_全量测试原始输出.log",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "tests/feishu-otp-private-readiness.test.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "tests/paper-session.test.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "tests/complete-development.test.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "tests/strategy-evidence-replay.test.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "tests/paper-session-consistency.test.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "tests/paper-service-http.test.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "tests/terminal-dashboard.test.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "tests/research-live-http-isolated.test.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "tests/dashboard-view.test.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "public/manifest.json",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/mobile.html",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/research.html",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/index.html",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/icon.svg",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/sw.js",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "scripts/market-failover-sync.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "scripts/native-strategy-daily.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "scripts/run-full-regression.sh",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/core/strategy-evidence-replay.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "src/core/execution-risk.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/account-reconciliation.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/research-validation-suite.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/core/historical-validation.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/core/paper-service.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "src/core/trading-calendar.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/complete-workbench.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/dashboard-view.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/corporate-actions.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/market-failover.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/core/paper-session.js",
+    "decision": "keep-core"
+  },
+  {
+    "file": "src/core/paper-replay.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/core/market-data-center.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/core/performance-statistics.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/server/research-worker.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/server/sms-otp.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/server/research-job.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "src/strategy/research-v2-position-ledger-backtest.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "src/strategy/historical-session.js",
+    "decision": "merge-reviewed-extension"
+  },
+  {
+    "file": "public/assets/research-workbench.js",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/assets/terminal-theme.css",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "public/assets/complete-workbench.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "public/assets/ui-navigation.js",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/assets/v6-design.css",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/assets/app.css",
+    "decision": "merge-UI"
+  },
+  {
+    "file": "public/assets/terminal-dashboard.js",
+    "decision": "add-ui-unique"
+  },
+  {
+    "file": "public/assets/app.js",
+    "decision": "merge-UI"
+  }
+]

@@ -1,0 +1,54 @@
+[
+  {
+    "path": "public/assets/app.js",
+    "result": "merged"
+  },
+  {
+    "path": "public/index.html",
+    "result": "merged"
+  },
+  {
+    "path": "public/mobile.html",
+    "result": "merged"
+  },
+  {
+    "path": "public/sw.js",
+    "result": "merged"
+  },
+  {
+    "path": "scripts/paper-account.js",
+    "result": "applied"
+  },
+  {
+    "path": "server.js",
+    "result": "merged"
+  },
+  {
+    "path": "src/core/common-entry-risk.js",
+    "result": "applied"
+  },
+  {
+    "path": "src/core/historical-validation.js",
+    "result": "merged"
+  },
+  {
+    "path": "src/core/paper-application-service.js",
+    "result": "applied"
+  },
+  {
+    "path": "src/core/trading-fees.js",
+    "result": "applied"
+  },
+  {
+    "path": "src/strategy/research-v2-position-ledger-backtest.js",
+    "result": "applied"
+  },
+  {
+    "path": "tests/dated-fees-common-risk.test.js",
+    "result": "applied"
+  },
+  {
+    "path": "tests/research-live-http-isolated.test.js",
+    "result": "applied"
+  }
+]

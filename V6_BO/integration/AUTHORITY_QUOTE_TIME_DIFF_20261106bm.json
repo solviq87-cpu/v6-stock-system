@@ -1,0 +1,28 @@
+{
+  "baseline": "V6_1069_full_20261106bl.zip",
+  "baselineSha256": "60fc9ae84b3744275f4ccb899e97576475905ea68e885403d4ab3767055ee414",
+  "changed": [
+    "AGENTS.md",
+    "integration/CHAT_HANDOFF.md",
+    "integration/HANDOFF_NEXT.md",
+    "integration/TEST_REPORT.md",
+    "public/assets/app.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js"
+  ],
+  "deleted": [],
+  "added": [
+    "integration/AUTHORITY_QUOTE_TIME_DIFF_20261106bm.json",
+    "integration/AUTHORITY_QUOTE_TIME_OPERATIONS_20261106bm.md",
+    "integration/SHA256_FILES_20261106bm.json",
+    "integration/authority-quote-time-check-20261106bm.log",
+    "integration/authority-quote-time-clean-20261106bm.exit",
+    "integration/authority-quote-time-clean-20261106bm.tap",
+    "integration/authority-quote-time-full-20261106bm.exit",
+    "integration/authority-quote-time-full-20261106bm.tap",
+    "integration/authority-quote-time-targeted-20261106bm.tap",
+    "tests/paper-authority-quote-time.test.js"
+  ]
+}

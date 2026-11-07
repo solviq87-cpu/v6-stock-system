@@ -1,0 +1,19 @@
+# Copy to /etc/v6.env with mode 0600; fill values privately, never commit real credentials.
+TZ=Asia/Shanghai
+HOST=127.0.0.1
+PORT=8787
+QD_CLOUD=1
+V6_SMS_URL=
+V6_SMS_TOKEN=
+V6_SMS_TEMPLATE=
+QD_BOUND_PHONE=
+V6_TRADING_CALENDAR_FILE=
+V6_PAPER_ACCOUNTS_DIR=/opt/v6/data/paper-accounts
+V6_RESEARCH_CACHE_DIR=/opt/v6/data/research-kline-cache
+V6_NATIVE_PYTHON=/usr/bin/python3
+# Optional ML Python with requirements-models.txt installed:
+V6_MODEL_PYTHON=
+
+V6_ORDER_ACCOUNTS_DIR=/opt/v6/data/order-accounts
+# Password for offline encrypted backups only; supply privately when invoking CLI:
+# V6_BACKUP_PASSWORD=

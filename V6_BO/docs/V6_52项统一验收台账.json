@@ -1,0 +1,478 @@
+{
+  "schema": 1,
+  "baseline": "第40批ZIP",
+  "batch": "第41批",
+  "total": 52,
+  "accepted": 0,
+  "note": "仅根据代码存在性初步归类，绝不等同验收",
+  "tasks": [
+    {
+      "id": "V6-01",
+      "group": "底层架构",
+      "task": "模块化架构",
+      "status": "已有代码待完整验收",
+      "evidence": "src/core/; src/strategy/",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-02",
+      "group": "底层架构",
+      "task": "数据管理",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/snapshot-normalizer.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-03",
+      "group": "底层架构",
+      "task": "启动机制",
+      "status": "已有代码待完整验收",
+      "evidence": "src/server/bootstrap.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-04",
+      "group": "底层架构",
+      "task": "HTTP全路由实测",
+      "status": "已有代码待完整验收",
+      "evidence": "tests/research-live-http-isolated.test.js（关键路由样本，非全路由）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-05",
+      "group": "底层架构",
+      "task": "统一异常日志",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-06",
+      "group": "底层架构",
+      "task": "缓存机制",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/persistent-research-cache.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-07",
+      "group": "底层架构",
+      "task": "性能优化",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-08",
+      "group": "AI量化策略",
+      "task": "多策略融合",
+      "status": "已有代码待完整验收",
+      "evidence": "src/core/multi-strategy-engine.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-09",
+      "group": "AI量化策略",
+      "task": "AI评分模型",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/strategy-service.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-10",
+      "group": "AI量化策略",
+      "task": "市场状态识别",
+      "status": "已有代码待完整验收",
+      "evidence": "src/core/live-market-research.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-11",
+      "group": "AI量化策略",
+      "task": "信号过滤",
+      "status": "已有代码待完整验收",
+      "evidence": "src/core/research-risk-gate.js（只读研究门禁）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-12",
+      "group": "AI量化策略",
+      "task": "动态权重",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-13",
+      "group": "AI量化策略",
+      "task": "历史回测",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/walk-forward-backtest.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-14",
+      "group": "AI量化策略",
+      "task": "策略自适应",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-15",
+      "group": "风险控制",
+      "task": "动态止损",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-16",
+      "group": "风险控制",
+      "task": "分批及移动止盈",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-17",
+      "group": "风险控制",
+      "task": "仓位管理",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-18",
+      "group": "风险控制",
+      "task": "最大回撤预警",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-19",
+      "group": "风险控制",
+      "task": "高风险股票过滤",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/risk-filter.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-20",
+      "group": "风险控制",
+      "task": "重复买入及过度交易限制",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-21",
+      "group": "UI深度优化",
+      "task": "首页仪表盘",
+      "status": "已有代码待完整验收",
+      "evidence": "public/index.html",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-22",
+      "group": "UI深度优化",
+      "task": "行情卡片",
+      "status": "已有代码待完整验收",
+      "evidence": "public/assets/app.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-23",
+      "group": "UI深度优化",
+      "task": "策略评分解释",
+      "status": "已有代码待完整验收",
+      "evidence": "public/research.html",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-24",
+      "group": "UI深度优化",
+      "task": "K线图表",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-25",
+      "group": "UI深度优化",
+      "task": "交互体验",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-26",
+      "group": "UI深度优化",
+      "task": "深色主题",
+      "status": "已有代码待完整验收",
+      "evidence": "public/research.html",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-27",
+      "group": "UI深度优化",
+      "task": "实时提醒",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-28",
+      "group": "手机端",
+      "task": "手机屏幕自适应",
+      "status": "已有代码待完整验收",
+      "evidence": "public/assets/app.css",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-29",
+      "group": "手机端",
+      "task": "股票卡片布局",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-30",
+      "group": "手机端",
+      "task": "表格横向滑动",
+      "status": "已有代码待完整验收",
+      "evidence": "public/research.html",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-31",
+      "group": "手机端",
+      "task": "图表小屏适配",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-32",
+      "group": "手机端",
+      "task": "按钮操作区域",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-33",
+      "group": "手机端",
+      "task": "手机加载速度",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-34",
+      "group": "行情与实战",
+      "task": "模拟行情",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/position-ledger-backtest.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-35",
+      "group": "行情与实战",
+      "task": "真实行情接口",
+      "status": "已有代码待完整验收",
+      "evidence": "src/core/eastmoney-market-snapshot.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-36",
+      "group": "行情与实战",
+      "task": "统一行情格式",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/snapshot-normalizer.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-37",
+      "group": "行情与实战",
+      "task": "断线重连",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-38",
+      "group": "行情与实战",
+      "task": "异常检测",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/feed-quality.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-39",
+      "group": "行情与实战",
+      "task": "延迟提示",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/feed-quality.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-40",
+      "group": "行情与实战",
+      "task": "模拟真实切换及降级",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-41",
+      "group": "最终验收",
+      "task": "前后端语法",
+      "status": "已有代码待完整验收",
+      "evidence": "package.json scripts.check",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-42",
+      "group": "最终验收",
+      "task": "策略文件运行",
+      "status": "已有代码待完整验收",
+      "evidence": "tests/strategy-service.smoke.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-43",
+      "group": "最终验收",
+      "task": "关键HTTP路由",
+      "status": "已有代码待完整验收",
+      "evidence": "tests/research-live-http-isolated.test.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-44",
+      "group": "最终验收",
+      "task": "模块关联",
+      "status": "已有代码待完整验收",
+      "evidence": "tests/live-market-research.test.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-45",
+      "group": "最终验收",
+      "task": "风控测试",
+      "status": "已有代码待完整验收",
+      "evidence": "tests/research-risk-gate.test.js",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-46",
+      "group": "最终验收",
+      "task": "桌面UI验收",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-47",
+      "group": "最终验收",
+      "task": "手机尺寸回归",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-48",
+      "group": "最终验收",
+      "task": "模拟行情端到端",
+      "status": "待实现或待证据核实",
+      "evidence": "",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-49",
+      "group": "最终验收",
+      "task": "ZIP完整性及启动",
+      "status": "已有代码待完整验收",
+      "evidence": "本批打包脚本、node --check（未独立安装验收）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-50",
+      "group": "附加能力",
+      "task": "每日AI排行榜",
+      "status": "已有代码待完整验收",
+      "evidence": "server.js /api/strategy/dashboard（非自动每日）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-51",
+      "group": "附加能力",
+      "task": "买卖信号解释",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/rule-comparison.js（研究解释）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    },
+    {
+      "id": "V6-52",
+      "group": "附加能力",
+      "task": "策略历史表现追踪",
+      "status": "已有代码待完整验收",
+      "evidence": "src/strategy/holdout-backtest.js（非持续表现数据库）",
+      "accepted": false,
+      "acceptance": "必须提供可复现测试记录及所需的真实环境验收；未验证不得标记完成"
+    }
+  ]
+}

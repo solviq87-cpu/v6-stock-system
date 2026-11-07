@@ -1,0 +1,16 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-16-HISTORY-QUALITY",
+  "base": "V6_UI_Accessibility_Parallel_20261105.zip",
+  "owner": "single-window",
+  "changed": [
+    "v6_release/src/strategy/cached-kline-adapter.js",
+    "v6_release/src/strategy/historical-refresh.js",
+    "v6_release/tests/historical-quality-hardening.test.js"
+  ],
+  "tests": {
+    "files": 42,
+    "passed": 136,
+    "failed": 0
+  },
+  "stock_selection_conditions": "unchanged"
+}

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "mode": "offline-seven-module-integration",
+  "canTrade": false,
+  "verifiedLive": false,
+  "productionAccepted": false,
+  "startedAt": "2026-11-05T03:41:49.960Z",
+  "modules": {
+    "market": {
+      "passed": true,
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "market-data-center-e2e.test.js",
+          "sha256": "2d3d99733a81e21ba02267a1b3f586ed427c26bff65fa8baa2b7e9b41a53ec4b"
+        },
+        {
+          "name": "market-data-quality-gates.test.js",
+          "sha256": "787a962f8a367c31166ae5879dcfb2f2b4b548b13bd2dff39655327a2271ff04"
+        },
+        {
+          "name": "market-temporal-integrity.test.js",
+          "sha256": "cb6764a4473575174fa8248856830bf2086f817bb8936f6b4513bb8f6f03669e"
+        }
+      ]
+    },
+    "strategies": {
+      "passed": true,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "native-strategy-daily.test.js",
+          "sha256": "5643cf21d07cb5c7b7cd7e6d90257f0c6a5eac218f938eaf3a0e78593f989f94"
+        },
+        {
+          "name": "independent-strategy-attribution.test.js",
+          "sha256": "2c9dc57d13cac1f5a933123fa1484db7c4951e48ed326972b9b419ac2ffa5f5e"
+        },
+        {
+          "name": "unified-strategy-project.test.js",
+          "sha256": "590c7dc0a8c11bf6c006c3b9cc07c5fe080dcf2b3608904f1cebe35026755a2c"
+        }
+      ]
+    },
+    "backtest": {
+      "passed": true,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "ashare-t1-backtest.test.js",
+          "sha256": "208a0db3e383d9aabd49f81272bc7ade11c1c3adf07c74aef7e482876e47591f"
+        },
+        {
+          "name": "position-ledger-backtest.test.js",
+          "sha256": "7fc38d77bd3942044a6f125be7465e4365d41d7846c32e2e2a029667d5dafc3a"
+        },
+        {
+          "name": "integrated-run-bundle.test.js",
+          "sha256": "8247e3cfc7a410d421fa63712a8e92a0e4de284ae3634070951e272c8f964f55"
+        }
+      ]
+    },
+    "paper": {
+      "passed": true,
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "paper-replay.test.js",
+          "sha256": "613bbe3ba3ca39e359bc8e7c42f7de8ff7aed2a87ec4ee743028cd2444bea111"
+        },
+        {
+          "name": "paper-monitor-e2e.test.js",
+          "sha256": "3bc17d558655506292c39de3c028cf1b8121889e95fee2d19ee859e53e23a5fe"
+        },
+        {
+          "name": "paper-session.test.js",
+          "sha256": "dac6a320dc76b389dcadcc909058afa05698269bbb7b89b179d5ab341cffdb94"
+        }
+      ]
+    },
+    "risk": {
+      "passed": true,
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "portfolio-risk-linkage.test.js",
+          "sha256": "f5baa8f4f9e72fe2ec29286c41ee1181e0b4bd60351241f7313c7c54bd34dfcc"
+        },
+        {
+          "name": "parallel-market-risk.test.js",
+          "sha256": "2bb3d49557e5b780a6fb5232db87157787e8468fd7159e98bfb02b4e02a4d169"
+        },
+        {
+          "name": "research-risk-gate.test.js",
+          "sha256": "09c5dc31d640f118214538f840733b8a0020af7a6fc5f816b4c6074f435ce521"
+        }
+      ]
+    },
+    "accounts": {
+      "passed": true,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "device-access-persistence.test.js",
+          "sha256": "6cf3ffeb9b6634374c97f88b1d8f82492ee2a05c9591b2bd337305beb6cde63a"
+        },
+        {
+          "name": "concentrated-security-research.test.js",
+          "sha256": "3218050f95670fb9f424e774899b9ee5298e42b17dd775a2dd5061cdb5ed0243"
+        }
+      ]
+    },
+    "interfaces": {
+      "passed": true,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "error": null,
+      "files": [
+        {
+          "name": "decision-workspace-ui.test.js",
+          "sha256": "7e147b62148f0f06e8259a87171d244b262b9f11a9bb6c3e9dce56436b183ce5"
+        },
+        {
+          "name": "live-market-ui-integration.test.js",
+          "sha256": "064b2a7a487c2257e36e08e986f62eff1d73069967e7a7a958d90f5eee1c14fe"
+        },
+        {
+          "name": "ui-navigation-accessibility.test.js",
+          "sha256": "223b032fa4c09c449cd8db32a3daa54e63111c9e61cc726d0dd6b6acf5f252fe"
+        }
+      ]
+    }
+  },
+  "externalBlockers": [
+    "授权A股行情与交易日历未实地认证",
+    "四套策略真实独立样本外效果未验收",
+    "模拟盘多日实盘数据驱动未验收",
+    "真实短信OTP和生产HTTPS未验收",
+    "异地灾备与电脑手机真机验收未完成"
+  ],
+  "offlineIntegrationPassed": true,
+  "finishedAt": "2026-11-05T03:41:52.116Z"
+}

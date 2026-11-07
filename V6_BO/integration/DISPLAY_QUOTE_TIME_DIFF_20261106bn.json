@@ -1,0 +1,40 @@
+{
+  "baseline": "V6_1075_full_20261106bm.zip",
+  "baselineSha256": "232c27ba263655c88c24bbaede7dd0457a0f032c4cd22a55ae9cab4583a2af65",
+  "changed": [
+    "AGENTS.md",
+    "integration/CHAT_HANDOFF.md",
+    "integration/HANDOFF_NEXT.md",
+    "integration/TEST_REPORT.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js",
+    "src/core/dashboard-view.js",
+    "src/core/risk-evidence-view.js",
+    "tests/stock-provider-links.test.js",
+    "tests/terminal-dashboard.test.js"
+  ],
+  "deleted": [],
+  "added": [
+    "integration/DISPLAY_QUOTE_TIME_DIFF_20261106bn.json",
+    "integration/DISPLAY_QUOTE_TIME_OPERATIONS_20261106bn.md",
+    "integration/SHA256_FILES_20261106bn.json",
+    "integration/display-quote-time-check-20261106bn.log",
+    "integration/display-quote-time-clean-20261106bn.exit",
+    "integration/display-quote-time-clean-20261106bn.tap",
+    "integration/display-quote-time-final-full-20261106bn.exit",
+    "integration/display-quote-time-final-full-20261106bn.tap",
+    "integration/display-quote-time-full-20261106bn.exit",
+    "integration/display-quote-time-full-20261106bn.tap",
+    "integration/display-quote-time-release-clean-20261106bn.exit",
+    "integration/display-quote-time-release-clean-20261106bn.tap",
+    "integration/display-quote-time-release-full-20261106bn.exit",
+    "integration/display-quote-time-release-full-20261106bn.tap",
+    "integration/display-quote-time-targeted-20261106bn.tap",
+    "src/core/quote-observation-view.js",
+    "tests/quote-observation-view.test.js"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "batch": 41,
+  "baseline_archive": "V6_Unified_OTP_Invalid_Ticket_Recovery_20261105.zip",
+  "test_report": "docs/V6_第41批_测试报告.json",
+  "audit": "docs/V6_52项统一验收台账.json",
+  "changes": [
+    "src/core/research-risk-gate.js",
+    "src/core/live-market-research.js",
+    "public/research.html",
+    "public/assets/research-workbench.js",
+    "tests/research-risk-gate.test.js",
+    "docs/V6_52项统一验收台账.json",
+    "docs/V6_第41批_开发记录与接口交接.md",
+    "docs/V6_第41批_测试报告.json",
+    "docs/V6_第41批_完整回归输出.txt",
+    "docs/V6_第41批_语法检查输出.txt"
+  ],
+  "accepted_52": 0,
+  "pending": "全路由实测、真实行情/飞书、策略样本外和模拟盘、双端真机、独立部署"
+}

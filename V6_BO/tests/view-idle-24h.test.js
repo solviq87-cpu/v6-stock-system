@@ -1,0 +1,13 @@
+'use strict';
+const {test}=require('node:test'); const assert=require('node:assert/strict');
+const fs=require('node:fs');const vm=require('node:vm');const path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+const m=src.match(/function viewIdleKeys\(devs, now, idleMs, opts\) \{[\s\S]*?\n\}/);
+assert.ok(m,'must find idle logic');
+const fn=vm.runInNewContext('('+m[0]+')');const H=3600000;
+test('23h59m59s 不过期',()=>assert.deepEqual(Array.from(fn({a:{ts:1000}},1000+24*H-1000,24*H)),[]));
+test('恰好24h过期',()=>assert.deepEqual(Array.from(fn({a:{ts:1000}},1000+24*H,24*H)),['a']));
+test('跨周末同样按24h清理',()=>{const fri=Date.parse('2026-11-06T18:00:00+08:00');assert.deepEqual(Array.from(fn({a:{ts:fri}},fri+24*H,24*H)),['a']);});
+test('有效访问刷新后不清理',()=>assert.deepEqual(Array.from(fn({a:{ts:1000+23*H}},1000+24*H,24*H)),[]));
+test('非法时间戳跳过，多个设备分别判断',()=>assert.deepEqual(Array.from(fn({bad:{ts:0},old:{ts:1000},new:{ts:1000+23*H}},1000+24*H,24*H)),['old']));
+test('服务端统计和前端均使用小时而非交易日',()=>{assert.match(src,/idleLeftHours = Math\.max/);assert.match(src,/Date\.now\(\) - v\.ts/);const app=fs.readFileSync(path.join(__dirname,'../public/assets/app.js'),'utf8');assert.match(app,/idleLeftHours/);assert.match(app,/小时后自动清理/);});

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>§9 收尾 · 待决策表（2026-10-16）</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--bd:#e2e5ea;--tx:#1f2329;--sub:#646a73;--acc:#3370ff;--ok:#00b42a;--warn:#ff7d00;--chg:#fff7e8;--chgbd:#ffd591}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:24px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .lead{color:var(--sub);font-size:13px;margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin:0 0 16px;transition:border-color .2s}
+  .card.changed{border-color:var(--chgbd);background:var(--chg)}
+  .card h2{font-size:16px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#eef2ff;color:var(--acc);font-weight:600}
+  .tag.done{background:#e8ffea;color:var(--ok)}
+  .tag.ask{background:#fff3e8;color:var(--warn)}
+  .ctx{color:var(--sub);font-size:13px;margin:0 0 10px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  select,textarea{font:inherit;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:#fff}
+  select{min-width:280px;flex:1}
+  textarea{width:100%;min-height:52px;margin-top:10px;resize:vertical}
+  label{font-size:12px;color:var(--sub);display:block;margin:10px 0 4px}
+  .rec{font-size:12px;color:var(--sub);margin-top:6px}
+  .rec b{color:var(--ok)}
+  .bar{position:sticky;bottom:0;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-weight:600;border:none;border-radius:8px;padding:10px 16px;cursor:pointer}
+  .primary{background:var(--acc);color:#fff}
+  .ghost{background:#f0f1f3;color:var(--tx)}
+  .stat{font-size:12px;color:var(--sub);margin-left:auto}
+  #out{width:100%;min-height:120px;margin-top:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;display:none}
+  .note{font-size:12px;color:var(--sub);margin-top:14px;padding:10px;background:#f0f1f3;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>§9 收尾 · 待决策表</h1>
+  <p class="lead">b/c/d/e 已完成（报告见同目录 md）。以下是需要你拍板的 3 项——改过的项会高亮，默认项=我的推荐。填完点「生成回发文案」复制给我即可；草稿自动存本地。</p>
+
+  <div class="card" data-key="e">
+    <h2>① e) auczt 概率诚实化 · 是否发布上线 <span class="tag done">代码已验证</span></h2>
+    <p class="ctx">server.js 已加 <code>aucztHonestProb</code>（raw&lt;45→9% / 45-54→20% / 55+→20 封顶，实测当日封板），⛔ 闸门 55 不变、auczt 不滥推。新守门 16/16，_runall 通过 6116→6132、失败仍 19(基线)。<b>未发布</b>——发布需你显式点头。</p>
+    <div class="row">
+      <select id="sel_e">
+        <option value="now">现在发布上线（走全闭环 sync→apply→deploy→restore→post_publish→实证）</option>
+        <option value="bundle">暂不单独发，与 ②N8 决策后打包成下一轮一起发</option>
+        <option value="more">先积累更多纯净样本再发（本地继续验证）</option>
+        <option value="hold">先不发，我要先看报告</option>
+      </select>
+    </div>
+    <div class="rec">推荐：<b>现在发布上线</b>（纯诚实化改进，闸门不动，已验证无回归）</div>
+    <label>备注（可选）</label><textarea data-note="e" placeholder="例如：发布时顺便把 _test_auczt_calib.js 加进 CODE_FILES…"></textarea>
+  </div>
+
+  <div class="card" data-key="b">
+    <h2>② b) N8「地量见地价」是否接模型 <span class="tag ask">需决策</span></h2>
+    <p class="ctx">gs 实证：量能最低分位&lt;20% → 次日触板 +21.6pp、方向单调。⚠️ <b>但强档仅 116 条且时间集中、半窗一致性检查=n&lt;30（无法确认跨时间稳定，疑 regime-specific）</b>——未过项目「两半窗同向」稳健闸。其余候选：J11 月初早已接入、I4/P1 幅度小或与既有规则重叠。</p>
+    <div class="row">
+      <select id="sel_b">
+        <option value="later">暂缓，样本跨多个低量 regime 复测稳了再接（推荐）</option>
+        <option value="adopt">仍要接入 nextDayLimitProb（自带 edge 复测 + 守门）</option>
+        <option value="no">彻底不接入，维持现状</option>
+        <option value="more">把 I4 板位分层 / P1 顾比均线 也一起复测</option>
+      </select>
+    </div>
+    <div class="rec">推荐：<b>暂缓 N8</b>——把未过稳健闸的样本内 edge 接进模型=用样本外准确率下降换样本内漂亮数；宁可不加</div>
+    <label>备注（可选）</label><textarea data-note="b" placeholder="例如：攒够样本后自动复测 N8…"></textarea>
+  </div>
+
+  <div class="card" data-key="d">
+    <h2>③ d) 降级外部源（两融/解禁/增减持/机构调研/舆情/汇率）<span class="tag ask">需决策</span></h2>
+    <p class="ctx">这些因子上游接口失效，项目已<b>诚实挂起</b>（不造假）。要启用需换可达源。其余外部源（北向/南向/商品/财报/龙虎榜/新闻/涨停题材）已接。</p>
+    <div class="row">
+      <select id="sel_d">
+        <option value="free">换免费端点，先做 舆情 / 两融（其余继续挂起）</option>
+        <option value="freeAll">换免费端点，六个降级源全做</option>
+        <option value="paid">破例接付费 Connector（tdx-connector / westock，需你确认付费口径）</option>
+        <option value="keep">维持挂起，先不碰</option>
+      </select>
+    </div>
+    <div class="rec">推荐：<b>换免费端点（先舆情/两融）</b>——守住「付费不要」，启用前小样本验覆盖</div>
+    <label>备注（可选）</label><textarea data-note="d" placeholder="例如：舆情优先，能说清『因为什么涨/跌』"></textarea>
+  </div>
+
+  <div class="bar">
+    <button class="primary" id="gen">生成回发文案</button>
+    <button class="ghost" id="reset">清空草稿</button>
+    <span class="stat" id="stat">默认项 0 处改动</span>
+  </div>
+  <textarea id="out" readonly placeholder="点上面按钮生成，复制发我"></textarea>
+  <div class="note">说明：①的「现在发布」会触发 _test_auczt_calib.js 入 CODE_FILES + server.js 升版 + 全发布闭环；②接入 N8 是新的独立一轮（自带验证+守门，跑绿再合）；③无论选哪项，缺数据一律标「缺数据」≠「不符合」，付费口径以你为准。</div>
+</div>
+<script>
+var DEFAULTS={e:'now',b:'later',d:'free'};
+var LABELS={e:{now:'现在发布上线',bundle:'与②打包下一轮发',more:'先攒样本再发',hold:'先看报告不发'},
+            b:{adopt:'接入 N8',later:'暂缓复测',no:'不接入',more:'N8+I4+J11 一起评估'},
+            d:{free:'换免费端点(先舆情/两融)',freeAll:'换免费端点(全六源)',paid:'接付费Connector',keep:'维持挂起'}};
+var TITLES={e:'① e) auczt 诚实化',b:'② b) N8 地量见地价',d:'③ d) 降级外部源'};
+function load(){try{return JSON.parse(localStorage.getItem('qd9dec')||'{}')}catch(e){return{}}}
+function save(v){localStorage.setItem('qd9dec',JSON.stringify(v))}
+function render(){
+  var v=load(),changed=0;
+  ['e','b','d'].forEach(function(k){
+    var sel=document.getElementById('sel_'+k), card=document.querySelector('.card[data-key="'+k+'"]');
+    var val=(v[k]&&v[k].sel)||DEFAULTS[k]; sel.value=val;
+    var note=document.querySelector('[data-note="'+k+'"]'); note.value=(v[k]&&v[k].note)||'';
+    var isChg=(val!==DEFAULTS[k])||((v[k]&&v[k].note||'').trim().length>0);
+    card.classList.toggle('changed',isChg); if(val!==DEFAULTS[k])changed++;
+  });
+  document.getElementById('stat').textContent='默认项 '+changed+' 处改动';
+}
+['e','b','d'].forEach(function(k){
+  document.getElementById('sel_'+k).addEventListener('change',function(){var v=load();v[k]=v[k]||{};v[k].sel=this.value;save(v);render();});
+  document.querySelector('[data-note="'+k+'"]').addEventListener('input',function(){var v=load();v[k]=v[k]||{};v[k].note=this.value;save(v);render();});
+});
+document.getElementById('gen').addEventListener('click',function(){
+  var v=load(),lines=['§9 收尾决策回填（2026-10-16）',''];
+  ['e','b','d'].forEach(function(k){
+    var sel=(v[k]&&v[k].sel)||DEFAULTS[k], note=(v[k]&&v[k].note||'').trim();
+    var def=sel===DEFAULTS[k]?'（默认）':'（已改）';
+    lines.push(TITLES[k]+' → '+LABELS[k][sel]+' '+def);
+    if(note)lines.push('  备注：'+note);
+  });
+  var out=document.getElementById('out'); out.value=lines.join('\n'); out.style.display='block'; out.select();
+  try{navigator.clipboard.writeText(out.value);}catch(e){}
+});
+document.getElementById('reset').addEventListener('click',function(){localStorage.removeItem('qd9dec');document.getElementById('out').style.display='none';render();});
+render();
+</script>
+</body>
+</html>

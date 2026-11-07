@@ -1,0 +1,47 @@
+{
+  "ok": false,
+  "results": [
+    {
+      "name": "核心语法",
+      "pass": true,
+      "exitCode": 0,
+      "output": "> stock-dashboard@1.0.0 check\n> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js"
+    },
+    {
+      "name": "策略语法",
+      "pass": true,
+      "exitCode": 0,
+      "output": "> stock-dashboard@1.0.0 check:strategy\n> node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js"
+    },
+    {
+      "name": "策略冒烟",
+      "pass": true,
+      "exitCode": 0,
+      "output": "> stock-dashboard@1.0.0 smoke:strategy\n> node scripts/strategy-smoke.js\n\n{\"ok\":true,\"finalScore\":80.08,\"regime\":\"trend\",\"topDrivers\":[\"trend\",\"momentum\",\"breakout\"]}"
+    },
+    {
+      "name": "权限矩阵",
+      "pass": false,
+      "exitCode": 1,
+      "output": "rn 并带 readOnly:true\n✅ RO_MODS 与 ED_MODS 无交集（一个模块不能既是只读可刷又是写类）\n\n── [3] 真的跑一遍 _want：只读身份下写类模块一律不成立 ──\n✅ 切到 _want 定义\n✅ 开发者身份下，每个写类模块都能跑\n✅ 开发者身份下，每个只读模块都能跑\n✅ 只读身份下，写类模块全部被拒\n✅ 只读身份下 mod=paper 被拒（模拟盘不会被看盘的人下单）\n✅ 只读身份下 mod=review 被拒\n✅ 只读身份下 mod=news 被拒\n✅ 只读身份下，行情类模块照旧能刷\n✅ 开发者 mod=all 时 pre 参与\n✅ 只读 mod=all 时 pre 被降级剔除\n✅ 只读 mod=all 时 global / sectors / auction 仍在\n✅ 只读 mod=all 时 paper / review / news 全部剔除\n\n── [4] 只读身份不能靠「全部刷新」绕过去：all 分支里的补跑也带身份门 ──\n✅ mod=all 的复盘补跑带 _rfEdit 判据\n\n── [5] /api/backtest：跑回测归开发者，取结果对只读放行 ──\n✅ 跑回测要求开发者身份\n✅ 取回测结果不要求开发者（只读也要能看）\n✅ /api/backtest 仍保留防重入（S.backtestPending）\n\n── [6] 自证入口必须在门禁白名单里（它们是「手头没令牌」时的唯一通路） ──\n✅ /api/lock/unlock 已在门禁白名单（否则外网永远走不通）\n✅ /api/lock/forgot 已在门禁白名单（否则外网永远走不通）\n✅ /api/lock/verify-code 已在门禁白名单（否则外网永远走不通）\n✅ /api/lock/reset-pwd 已在门禁白名单（否则外网永远走不通）\n✅ /api/auth/redeem 已在门禁白名单（否则外网永远走不通）\n✅ /api/lock/pending-status 已在门禁白名单（否则外网永远走不通）\n✅ /api/heartbeat 已在门禁白名单（否则外网永远走不通）\n✅ /api/heartbeat 反证：去掉白名单项后本断言会红（证明它真的在守这条）\n✅ /api/heartbeat 路由体只记心跳、不外发数据\n\n── [7] 敏感接口双保险：8124 的统一收口仍在 ──\n✅ 统一收口含 /api/source + /api/sync/export + /api/config\n✅ 统一收口用 isEditorReq 判身份\n\n── [8] token 取值通道：前端有两套传法，路由漏读一套也不能把开发者判成只读 ──\n✅ handle 里统一解析凭证并挂在 req 上\n✅ 取值是 query 优先\n✅ query 为空时回落到 body\n✅ req.__tok 的赋值在路由分发之前\n✅ isEditorReq 在实参为空时回落到 req.__tok\n✅ 路由只读 body 时（实参为空），URL 上的 edit 令牌仍能生效\n✅ 回落后的只读令牌不会被抬成开发者\n✅ 没有凭证就是只读（回落不会凭空放行）\n✅ 路由显式传的实参优先于回落\n✅ 实参为空且回落也是只读令牌 → 仍判只读\n\n── [9] 只读身份的可见性边界：私密数据不能从「一锅端」接口漏出去 ──\n✅ /api/state 里有身份判据\n✅ 模拟盘按身份裁剪（非开发者不回明细）\n✅ 只读分支不调用 mkPaper（不返回现金/持仓/成交）\n✅ 开发者分支仍返回完整两个账户\n✅ /api/holdings 的 GET 挡住了只读（真实持仓）\n❌ 前端对 hidden 有兜底展示（不是空白区块）\n\n── [10] 私密推送不许广播给只读连接 ──\n✅ SSE 分流两处都认 sseEdit\n✅ 模拟盘动态推送打了 sseEdit\n✅ 模拟盘动态走私密通道（含账户金额，不许发群）\n✅ 不打标记 → 广播给所有连接（含只读）\n✅ private → 只发开发者连接\n✅ sseEdit → 只发开发者连接\n✅ 空对象不打标记 → 仍是广播（防手滑）\n✅ 持仓事件全部走私密通道（sseSendEdit 没有漏到 sseSend）\n\n65 通过 / 1 失败"
+    },
+    {
+      "name": "私密信息隔离",
+      "pass": true,
+      "exitCode": 0,
+      "output": "=== A. 私密分支两条失败路径都要过 mustDeliver 门 ===\n  ✅ 抓到私密分支代码段\n  ✅ 明确拒绝分支有 mustDeliver 门\n  ✅ 门出现两次（拒绝 + 异常路径）\n\n=== B. 旧写法反证（不加门就退回群 → 失守）===\n  ✅ 不存在「无条件退回群」的 feishuSend 直通写法\n  ✅ 非 mustDeliver 分支会 _release（避免当天永久丢条）\n  ✅ 非 mustDeliver 分支记流水「私密未送达·不外发」\n\n=== C. mustDeliver 只用在验证码类（防滥用）===\n  ✅ mustDeliver:true 调用点恰好 4 处（3 处找回验证码 + 1 处登录授权码）\n  ✅ 登录授权码带 mustDeliver\n  ✅ 找回验证码 secText 带 mustDeliver\n  ✅ 行情类「封板哨兵」不带 mustDeliver\n  ✅ 行情类「板块暴动」不带 mustDeliver\n  ✅ 行情类「竞价共振」不带 mustDeliver\n  ✅ 行情类「冲板预警」不带 mustDeliver\n  ✅ 行情类「起涨哨兵」不带 mustDeliver\n  ✅ 行情类「每日复盘」不带 mustDeliver\n  ✅ 行情类「模拟盘动态」不带 mustDeliver\n\n=== D. 私密永远优先于群（原有语义不许被改坏）===\n  ✅ 私密分支结尾仍 return true（绝不再往下走群+邮箱）\n\n=== E. push-note 不再默认穿透夜间静默（半夜骚扰防线）===\n  ✅ 抓到 push-note 代码段\n  ✅ force 取自请求体（b.force === true）\n  ✅ 旧写法反证：pushAll 的 force 不再是写死 true\n  ✅ pushAll 的 force 参数用 nForce\n  ✅ 响应体回报 force 实况（可排障）\n\n✅ 私密不外泄守门：22 通过 / 0 失败"
+    },
+    {
+      "name": "只读设备与密码回归",
+      "pass": false,
+      "exitCode": 1,
+      "output": "0 秒先扫一遍（新实例不会空窗半小时）\n  ✅ 之后每 30 分钟扫一次\n  ✅ 启动补跑写在定时轮询之前\n\n④ 只读密码：面板能看见当前口令与失效策略\n  ✅ status 给回当前只读密码明文\n  ✅ ⛔ 只对开发者本人返回，匿名/只读拿不到\n  ✅ status 同时给出失效时长（小时）\n  ✅ 设备列表接口也带上，便于面板提示\n  ✅ 还能看出\"快到期了\"的台数\n  ❌ 显示口令的请求必须带上令牌（否则远程开发者读到假话）\n  ❌ 前端有「显示当前口令」的渲染函数\n  ✅ 面板上有入口按钮\n  ✅ 按钮改成明确的\"设置 / 修改只读密码\"\n  ❌ 切到「观看」标签自动显示，不用先点一下\n  ❌ 没设置和\"设置过但看不到明文\"要区分开\n  ❌ 重启后看不到明文时要说清原因（不是丢了，是重新覆盖即可）\n\n④b 开发者密码：面板也能看见自己这把钥匙\n  ✅ status 也给回开发者密码明文\n  ✅ 有独立的开发者密码内存容器（与只读密码互不干扰）\n  ✅ 切到 trust 路由本体（1403 字符）\n  ✅ ⛔ trust 也必须回填开发者明文（否则长期令牌的设备永远看不到密码）\n  ✅ trust 对只读密码的回填行为保持原样\n  ✅ unlock（自动识别身份）分支回填\n  ✅ unlock（显式开发者）分支回填\n  ✅ 切到 reset-pwd 路由本体（4000 字符）\n  ✅ 手机找回后当场能回显新密码\n  ❌ 前端有开发者密码渲染函数\n  ✅ 切到 change 路由本体（4000 字符）\n  ✅ ⛔ 观看密码「未变更」早退前也要补回显（否则重启后永远显示不出来）\n  ✅ 未变更分支仍保持原语义：不动设备台账、不 bump 世代\n  ✅ 面板上有入口按钮\n  ❌ ⛔ 取开发者明文同样必须带令牌\n  ✅ 看不到时要解释清楚：只存加盐哈希、无法反推\n\n⑤ 修改只读密码是有代价的：必须先确认再动手\n  ❌ 已经设过密码时，修改前弹确认框（原生 confirm 或页内 uiConfirm 均可）\n  ❌ 确认框里说清代价：已授权的只读设备会全部失效\n  ❌ 密码没变时明确提示\"未改动、已授权设备不受影响\"\n  ❌ 二次校验的提示语写明是修改只读密码\n\n⑥ 版本号一致 + 行尾\n\n/mnt/data/v6_batch6_work/v6_release/_test_view_idle.js:269\nconst vH = HTML.match(/APP_VER = '([^']+)'/)[1];\n                                            ^\n\nTypeError: Cannot read properties of null (reading '1')\n    at Object.<anonymous> (/mnt/data/v6_batch6_work/v6_release/_test_view_idle.js:269:45)\n    at Module._compile (node:internal/modules/cjs/loader:1730:14)\n    at Object..js (node:internal/modules/cjs/loader:1895:10)\n    at Module.load (node:internal/modules/cjs/loader:1465:32)\n    at Function._load (node:internal/modules/cjs/loader:1282:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49\n\nNode.js v22.16.0"
+    },
+    {
+      "name": "HTTP路由静态检查",
+      "pass": true,
+      "exitCode": 0,
+      "output": "【A】requireEditor 令牌变量作用域检查\n  ✓ 解析到路由分支 92 个（应 ≥30）\n  ✓ 检查了 35 处 requireEditor 调用（应 ≥20）\n  ✓ 所有 requireEditor 的令牌变量都在本路由分支内声明\n  ✓ /api/ztpre POST 已改为本分支声明 zpTok（回归锁，勿改回 tok）\n  ✓ 超时(timeout)与连接被关闭(error)分开记 —— 服务端忙不等于路由崩（判不出不硬判）\n\n【B】GET /api 路由实跑冒烟（空响应=线上\"点了没反应\"）\n  · 本地 8787 未启动（status=-1，ECONNREFUSED），跳过实跑部分\n\n────── 结果：5 通过 / 0 失败 ──────"
+    }
+  ]
+}

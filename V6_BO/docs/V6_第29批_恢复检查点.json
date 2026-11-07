@@ -1,0 +1,13 @@
+{
+  "checkpoint": "V6-UNIFIED-20261105-29-LIVE-CANDIDATE-BRIDGE",
+  "baseline": "V6_Unified_Live_Market_Research_20261105.zip",
+  "tests": 186,
+  "failed": 0,
+  "remaining": [
+    "公网真实行情验收",
+    "全市场行情时效",
+    "生产选股完整链路",
+    "手机真机",
+    "短信和云端部署"
+  ]
+}

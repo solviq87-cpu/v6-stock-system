@@ -1,0 +1,11 @@
+'use strict';
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+const fnSrc=src.match(/function viewIdleKeys\(devs, now, idleMs, opts\) \{[\s\S]*?\n\}/);
+assert.ok(fnSrc);const fn=vm.runInNewContext('('+fnSrc[0]+')');const H=3600000;
+test('周末也连续计时',()=>{const t=Date.parse('2026-11-06T20:00:00+08:00');assert.deepEqual(Array.from(fn({phone:{ts:t}},t+24*H,24*H)),['phone']);});
+test('未满24小时不清理',()=>assert.deepEqual(Array.from(fn({phone:{ts:1000}},1000+24*H-1,24*H)),[]));
+test('清理定时器不依赖交易日',()=>{const section=src.slice(src.indexOf('const runViewIdleSweep'),src.indexOf('setTimeout(runViewIdleSweep'));assert.doesNotMatch(section,/isTradeDay/);assert.match(section,/expireIdleViewDevices\(\)/);});
+test('自证只读令牌在 touchDevice 前检查过期',()=>{const section=src.slice(src.indexOf('function roleOf('),src.indexOf('function checkToken('));const a=section.indexOf('if (selfRole === \'view\')');const b=section.indexOf('touchDevice(t, selfRole');assert.ok(a>=0&&b>a);assert.match(section,/expireIdleViewDevices\(Date\.now\(\)\)/);});
+test('旧版只读令牌也检查过期',()=>{const section=src.slice(src.indexOf('function roleOf('),src.indexOf('function checkToken('));assert.match(section,/accessSecret\.view\.devices\[digest\]/);assert.match(section,/viewIdleKeys\(\{ \[digest\]: accessSecret\.view\.devices\[digest\] \}/);});

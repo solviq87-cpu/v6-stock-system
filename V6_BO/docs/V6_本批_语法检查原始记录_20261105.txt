@@ -1,0 +1,8 @@
+
+> stock-dashboard@1.0.0 check
+> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js
+
+
+> stock-dashboard@1.0.0 check:strategy
+> node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js
+

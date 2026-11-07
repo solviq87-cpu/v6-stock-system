@@ -1,0 +1,14 @@
+{
+  "baseline": "V6_续开发_日K日期防绕过_400项回归_完整工程_20261105.zip",
+  "changes": [
+    "src/strategy/research-upload-validator.js",
+    "tests/research-upload-limits.test.js"
+  ],
+  "focusedTests": {
+    "pass": 15,
+    "fail": 0
+  },
+  "fullRegression": "timed out after 180 seconds; no final summary",
+  "productionAccepted": 0,
+  "next": "isolate full-suite hang and rerun"
+}

@@ -1,0 +1,45 @@
+{
+  "date": "20261105",
+  "phase": "行情分页时间一致性、K线字段完整性与市场日龄审计",
+  "prior_archive": "V6_统一主线_行情日期与质量门禁_完整工程_20261105.zip",
+  "prior_sha256": "9e1cd8d4ed61d2389cf281361e2035883fe4a920450d0d716a1626b8faa7a5ad",
+  "preserved_later_work": [
+    "20261105ac 前后端四端版本同步",
+    "tests/app-version-consistency.test.js",
+    "前一并行回归/审计记录"
+  ],
+  "modified_files": {
+    "src/core/a-share-calendar.js": "229e606833627acbf6900c9ffebcf69cf70a13aeea784ae2a5d96d7ebd8679de",
+    "src/core/eastmoney-market-snapshot.js": "d0eeb475bf94f94485591c82b39cb3f81d0b1520d1682ce8a5922de0d6ff361d",
+    "src/core/live-market-research.js": "6ec94d7496863ab100c9f48da6cb6331b0f2ac776f531705dfec04c6730bd51b",
+    "src/strategy/kline-bar-validation.js": "5dab4d1b1c9792b4f50ed5e5dfc56122959f8bd744c7f40e1f99d9d9fe349235",
+    "src/strategy/cached-kline-adapter.js": "88e10d62a554d496ee884bab86dcf74e279f0acb49743bd26eb326114f344577",
+    "src/strategy/research-v2-cached-kline-adapter.js": "efbfe8a90e508c016158bec80abc154327d6c75e3a6fe56598fba0a8b54a5459",
+    "tests/market-temporal-integrity.test.js": "88c1261e81ab374869019940129f42415a600150e8f89391d176beebf279ecfb"
+  },
+  "full_regression": {
+    "tests": 388,
+    "pass": 388,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "targeted_tests": 7,
+  "commands": [
+    "npm run check",
+    "npm run check:strategy",
+    "node --check (six changed JavaScript modules)",
+    "V6_MODEL_PYTHON=/opt/pyvenv/bin/python3 PATH=/usr/bin:/bin:/opt/nvm/versions/node/v22.16.0/bin node --test --test-concurrency=6 --test-force-exit tests/*.test.js"
+  ],
+  "strategy_rules_modified": false,
+  "real_live_market_verified": false,
+  "production_accepted": false,
+  "remaining_items": "docs/V6_本批_十一大工程真实未完成项_20261105.md",
+  "offline_audit": {
+    "command": "npm run audit:offline",
+    "exit_code": 0,
+    "internal_ok": true,
+    "live_http_smoke_skipped": true,
+    "raw_tap": "docs/V6_本批_离线审计原始记录_20261105.txt"
+  }
+}

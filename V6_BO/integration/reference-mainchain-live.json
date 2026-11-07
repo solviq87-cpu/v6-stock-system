@@ -1,0 +1,31 @@
+{
+  "probeOnly": true,
+  "receivedAt": 1793969663816,
+  "source": "existing-em-fetchBatchSnapshotTx",
+  "rows": [
+    {
+      "quoteSource": "tencent",
+      "quoteAt": 1793952898000,
+      "receivedAt": 1793969663792,
+      "quoteFreshness": "stale",
+      "code": "600519",
+      "name": "贵州茅台",
+      "price": 1453,
+      "pct": 0.07,
+      "volume": 42848,
+      "amount": 6199530000,
+      "turnover": 0.34,
+      "high": 1457.72,
+      "low": 1436,
+      "open": 1450,
+      "preClose": 1452,
+      "mktcap": 1816368999999.9998,
+      "floatCap": 1816368999999.9998,
+      "speed": 0,
+      "listedDate": 0,
+      "mainInflow": 0,
+      "mainPct": 0
+    }
+  ],
+  "verifiedLive": false
+}

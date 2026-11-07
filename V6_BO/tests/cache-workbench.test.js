@@ -1,0 +1,15 @@
+ 'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {adaptCachedKline}=require('../src/strategy/cached-kline-adapter');
+const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+let n=0;const ok=x=>{assert.ok(x);n++};
+const rows=Array.from({length:40},(_,i)=>({date:`2026-${String(Math.floor(i/28)+1).padStart(2,'0')}-${String(i%28+1).padStart(2,'0')}`,open:10+i*.1,high:10.3+i*.1,low:9.9+i*.1,close:10.1+i*.1,volume:100000}));
+const t=Date.now(),r=adaptCachedKline('000001',{name:'测试',rows},{cachedAt:t,now:t});
+ok(r.error===null);ok(r.stock.bars.length===40);ok(r.stock.feed.source==='imported');ok(r.stock.dataAudit.verifiedLive===false);
+ok(adaptCachedKline('BAD',{rows}).stock===null);ok(adaptCachedKline('000001',{rows:rows.slice(0,10)}).stock===null);
+const dup=rows.map(x=>({...x}));dup[20].date=dup[19].date;
+ok(adaptCachedKline('000001',{rows:dup}).stock===null);
+ok(server.includes("'/api/research/cache-scan'"));ok(server.includes("'/api/research/cache-ledger'"));
+ok(server.includes('if (!requireEditor(res, req.__tok, req)) return;'));
+ok(server.includes('S.klines.get(code)'));ok(server.includes('verifiedLive:false'));
+console.log('PASS '+n+' cache integration assertions');

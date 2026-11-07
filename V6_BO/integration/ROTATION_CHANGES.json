@@ -1,0 +1,19 @@
+{
+  "baseline": "20261106al-733",
+  "version": "20261106am",
+  "changed": [
+    "server.js",
+    "public/index.html",
+    "public/sw.js",
+    "public/mobile.html",
+    "public/research.html",
+    "tests/rejection-audit-rotation.test.js",
+    "scripts/rejection-audit.js",
+    "public/assets/app.js",
+    "src/core/authority-audit-backup.js",
+    "src/core/rejection-audit.js",
+    "src/core/segmented-audit-store.js"
+  ],
+  "deleted": [],
+  "nativeRulesUnchanged": true
+}

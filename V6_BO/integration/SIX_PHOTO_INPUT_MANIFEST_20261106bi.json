@@ -1,0 +1,37 @@
+{
+  "scope": "exact-six-user-attachments",
+  "photoSections": [
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08"
+  ],
+  "attachments": [
+    {
+      "filename": "IMG_2856(3).jpeg",
+      "sha256": "59b0b0b18bcf6df0e3776310615f607d6408b56f3107b8b47055b3c863eb07cc"
+    },
+    {
+      "filename": "IMG_2859(3).jpeg",
+      "sha256": "ad79c76ce8eceb0ee263c0892f7f9ce015ccc55dc389263aea9d6d964259b253"
+    },
+    {
+      "filename": "IMG_2857(3).jpeg",
+      "sha256": "358029081a3f7604a52f7030bafce6b401d87d1ac6b7972052ed18389bb1a95f"
+    },
+    {
+      "filename": "IMG_2861(3).jpeg",
+      "sha256": "f4a8ab0d2f046b6e30a34106496a0ff74d44e914720deb43bedb2ab9caa005c1"
+    },
+    {
+      "filename": "IMG_2858(3).jpeg",
+      "sha256": "f4feb7b95126fc0dc88879f4d8967d889f8429c0adbbcaee0335ea73085de474"
+    },
+    {
+      "filename": "IMG_2860(3).jpeg",
+      "sha256": "386df4ad27c1be590ac449aa28cee9b35c645fa119cd62d1abb58e878ccea15c"
+    }
+  ]
+}

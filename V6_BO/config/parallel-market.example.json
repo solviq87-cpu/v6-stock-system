@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "id": "ifind",
+      "url": "https://ifind.example.com/authorized-normalized-quotes",
+      "tokenEnv": "V6_IFIND_TOKEN"
+    },
+    {
+      "id": "choice",
+      "url": "https://choice.example.com/authorized-normalized-quotes",
+      "tokenEnv": "V6_CHOICE_TOKEN"
+    },
+    {
+      "id": "sina",
+      "url": "https://sina.example.com/authorized-normalized-quotes",
+      "tokenEnv": "V6_SINA_TOKEN"
+    }
+  ],
+  "outputFile": "/safe/parallel-result.json",
+  "intervalMs": 5000,
+  "timeoutMs": 5000
+}

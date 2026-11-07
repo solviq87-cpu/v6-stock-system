@@ -1,0 +1,7 @@
+# bd修改与Bug记录
+
+新增14源目录及访问状态，五源SDK采集支持BaoStock/Ashare，新增公开CLI及可选SDK门禁，schema2/旧schema1兼容和双端清单，四策略/资金规则保留，文件未删除。
+
+定向首次1失败：旧“不得泄漏private”断言使用通用字符串private，新增enabled-private-research合法目录标签触发误报；将隐私夹具与断言改为唯一SDK_PRIVATE_SENTINEL后验证原SDK数据不泄漏。首轮日志保留。该修正没有取消隐私断言。
+
+保护：许可待核实的源在网络及子进程前停止，禁止把SDK数目当独立上游；BaoStock登录/查询错误不生成伪记录，SDK stdout隔离避免污染JSON，输出不覆盖旧证据。没有已知最终测试失败，不保证无潜在Bug或法律风险。新门禁不涵盖原server所有历史采集路径，必须明确这一未完成项。

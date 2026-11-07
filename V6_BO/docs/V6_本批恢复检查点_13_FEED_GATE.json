@@ -1,0 +1,17 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261104-13-FEED-GATE",
+  "base_zip": "V6_Latest_Full_Project_Factor_Integration_20261104.zip",
+  "changes": [
+    "v6_release/src/strategy/strategy-service.js",
+    "v6_release/tests/factor-feed-integration.test.js",
+    "v6_release/docs/V6_行情真实性门禁集成报告_20261104.md",
+    "v6_release/docs/V6_行情真实性门禁_测试输出.txt"
+  ],
+  "test_summary": {
+    "passed": 85,
+    "failed": 0,
+    "files": 34
+  },
+  "protected_strategy_files_unchanged": true,
+  "source_sha256": "4bad8d84a62f3947756da9506015cab04f6af55e8d1969fc47010582aef15bbf"
+}

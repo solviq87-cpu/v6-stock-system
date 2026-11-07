@@ -1,0 +1,30 @@
+{
+  "baseline": "V6_1065_full_20261106bk.zip",
+  "baselineSha256": "169fe12926c8b1d916ba63e68a2db8e7eb46e51f78cc831d3c101c97e6203560",
+  "deleted": [],
+  "changed": [
+    "AGENTS.md",
+    "integration/CHAT_HANDOFF.md",
+    "integration/HANDOFF_NEXT.md",
+    "integration/TEST_REPORT.md",
+    "public/assets/app.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js",
+    "tests/six-photo-backups.test.js"
+  ],
+  "added": [
+    "integration/PAPER_ORIGINAL_QUOTE_BUGS_20261106bl.md",
+    "integration/PAPER_ORIGINAL_QUOTE_OPERATIONS_20261106bl.md",
+    "integration/paper-original-time-check-20261106bl.log",
+    "integration/paper-original-time-clean-20261106bl.exit",
+    "integration/paper-original-time-clean-20261106bl.tap",
+    "integration/paper-original-time-final-full-20261106bl.exit",
+    "integration/paper-original-time-final-full-20261106bl.tap",
+    "integration/paper-original-time-full-20261106bl.exit",
+    "integration/paper-original-time-full-20261106bl.tap",
+    "integration/paper-original-time-targeted-20261106bl.tap",
+    "tests/paper-original-quote-time.test.js"
+  ]
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "path": "package.json",
+    "action": "add-cli"
+  },
+  {
+    "path": "scripts/market-data-sync.js",
+    "action": "merged"
+  },
+  {
+    "path": "src/core/integrated-run-bundle.js",
+    "action": "resolved-preserve-security-and-recover-research"
+  },
+  {
+    "path": "src/core/market-data-center.js",
+    "action": "resolved-preserve-security-and-recover-research"
+  },
+  {
+    "path": "src/core/native-strategy-daily-runner.js",
+    "action": "merged"
+  },
+  {
+    "path": "src/core/unified-strategy-project.js",
+    "action": "merged"
+  },
+  {
+    "path": "tests/eastmoney-historical-feed.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/paper-simulate-cli.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/continuous-research-ops.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/market-feed-consensus.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/strategy-portfolio-lab.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/v6-release-preflight.test.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "scripts/v6-release-preflight.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "scripts/market-feed-consensus.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "scripts/continuous-research.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "scripts/eastmoney-historical-import.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/fixtures/V6_仅供测试_统一研究样本.json",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "tests/fixtures/README_非真实行情.txt",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/strategy-health-monitor.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/strategy-portfolio-lab.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/market-feed-consensus.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/continuous-research-ops.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/eastmoney-historical-feed.js",
+    "action": "recovered-active-module-or-test"
+  },
+  {
+    "path": "src/core/market-data-quality.js",
+    "action": "recovered-active-module-or-test"
+  }
+]

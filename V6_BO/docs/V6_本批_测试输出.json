@@ -1,0 +1,26 @@
+[
+  {
+    "name": "HTTP请求体与超时回归",
+    "passed": true,
+    "exit": 0,
+    "output_tail": "TAP version 13\n# Subtest: HTTP 请求头/请求体接收超时和头部数量均受限制\nok 1 - HTTP 请求头/请求体接收超时和头部数量均受限制\n  ---\n  duration_ms: 24.354355\n  type: 'test'\n  ...\n# Subtest: 请求体超限返回413，不分发给业务处理器\nok 2 - 请求体超限返回413，不分发给业务处理器\n  ---\n  duration_ms: 13.04163\n  type: 'test'\n  ...\n# Subtest: Content-Length 已超限时无需上传请求体就立即返回 413\nok 3 - Content-Length 已超限时无需上传请求体就立即返回 413\n  ---\n  duration_ms: 9.179732\n  type: 'test'\n  ...\n# Subtest: chunked 流式请求超限立即 413，不等待上传结束\nok 4 - chunked 流式请求超限立即 413，不等待上传结束\n  ---\n  duration_ms: 5.720208\n  type: 'test'\n  ...\n# Subtest: POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝\nok 5 - POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝\n  ---\n  duration_ms: 4.619986\n  type: 'test'\n  ...\n# Subtest: 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理\nok 6 - 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理\n  ---\n  duration_ms: 2.498761\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2110.58392\n"
+  },
+  {
+    "name": "核心语法",
+    "passed": true,
+    "exit": 0,
+    "output_tail": "\n> stock-dashboard@1.0.0 check\n> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js\n\n"
+  },
+  {
+    "name": "策略语法",
+    "passed": true,
+    "exit": 0,
+    "output_tail": "\n> stock-dashboard@1.0.0 check:strategy\n> node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js\n\n"
+  },
+  {
+    "name": "策略冒烟",
+    "passed": true,
+    "exit": 0,
+    "output_tail": "\n> stock-dashboard@1.0.0 smoke:strategy\n> node scripts/strategy-smoke.js\n\n{\"ok\":true,\"finalScore\":80.08,\"regime\":\"trend\",\"topDrivers\":[\"trend\",\"momentum\",\"breakout\"]}\n"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "checkpoint": "V6-UNIFIED-RECOVERY-20261105-26-RULE-COMPARISON",
+  "base": "V6_Unified_Eastmoney_Pagination_Hardening_20261105.zip",
+  "tests": 174,
+  "failed": 0,
+  "changes": [
+    "src/strategy/rule-comparison.js",
+    "src/strategy/strategy-service.js",
+    "tests/rule-comparison.test.js"
+  ]
+}

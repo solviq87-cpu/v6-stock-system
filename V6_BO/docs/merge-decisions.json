@@ -1,0 +1,182 @@
+[
+  [
+    "MERGE_README_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_回放账务一致性联动_开发记录_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_模拟盘三方账务只读对账_本轮报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_模拟盘回放证据图完整性审计开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "PAPER_ORDER_LIFECYCLE_20261105.md",
+    "add p0"
+  ],
+  [
+    "MERGE_MANIFEST_20261105.json",
+    "add p0"
+  ],
+  [
+    "RECONCILIATION_HARDENING_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_模拟盘三方账务只读对账加固开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs_V6_策略信号证据链开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_模拟盘影子对账自动审计开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "V6_模拟盘回放订单证据追溯开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_策略统一行情严格门禁报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_行情跨数据源连续性审计开发报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_行情历史数据质量门禁加固报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_历史行情质量门禁与回测联动报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_本轮订单生命周期修复_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_模拟盘账务时间戳严格校验续批报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_灾备恢复原子发布与持久化加固报告_20261105.md",
+    "add p0"
+  ],
+  [
+    "docs/V6_模拟盘生命周期本轮修复_20261105.md",
+    "add p0"
+  ],
+  [
+    "tests/paper-account-reconciliation.test.js",
+    "add p0"
+  ],
+  [
+    "tests/paper-order-lifecycle.test.js",
+    "add p0"
+  ],
+  [
+    "tests/paper-shadow-reconciliation.test.js",
+    "add p0"
+  ],
+  [
+    "tests/signal-evidence-chain.test.js",
+    "add p0"
+  ],
+  [
+    "tests/kline-source-continuity.test.js",
+    "add p0"
+  ],
+  [
+    "tests/backtest-historical-quality-gate.test.js",
+    "add p0"
+  ],
+  [
+    "src/core/paper-account-reconciliation.js",
+    "add p0"
+  ],
+  [
+    "src/core/kline-source-continuity.js",
+    "add p0"
+  ],
+  [
+    "src/core/paper-shadow-reconciliation.js",
+    "add p0"
+  ],
+  [
+    "src/core/signal-evidence-chain.js",
+    "add p0"
+  ],
+  [
+    "src/core/paper-order-lifecycle.js",
+    "add p0"
+  ],
+  [
+    "docs/V6_历史数据校验融合与测试报告_20261105.md",
+    "add p2"
+  ],
+  [
+    "tests/paper-unified-view.test.js",
+    "add p2"
+  ],
+  [
+    "tests/historical-validation-merge-hardening.test.js",
+    "add p2"
+  ],
+  [
+    "src/core/paper-unified-view.js",
+    "add p2"
+  ],
+  [
+    "tests/paper-durable-order-service.test.js",
+    "add p3"
+  ],
+  [
+    "tests/paper-authority-write-rollback.test.js",
+    "add p3"
+  ],
+  [
+    "src/core/paper-durable-order-service.js",
+    "add p3"
+  ],
+  [
+    "scripts/disaster-recovery.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "src/strategy/feed-quality.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "src/strategy/position-ledger-backtest.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "src/strategy/strategy-service.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "src/strategy/walk-forward-backtest.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "tests/disaster-recovery.test.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "tests/factor-feed-integration.test.js",
+    "p3 additive validation/hardening"
+  ],
+  [
+    "tests/market-data-quality-gates.test.js",
+    "p3 additive validation/hardening"
+  ]
+]

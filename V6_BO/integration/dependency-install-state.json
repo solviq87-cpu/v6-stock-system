@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "name": "stock-dashboard",
+  "dependencies": {
+    "@tencent-ai/workbuddy-cloud-sdk": {}
+  }
+}

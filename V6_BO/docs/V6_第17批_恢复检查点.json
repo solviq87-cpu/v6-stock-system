@@ -1,0 +1,14 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-17-PROVIDER-IDENTITY",
+  "base": "V6_Unified_History_Quality_20261105.zip",
+  "changes": [
+    "v6_release/src/strategy/historical-refresh.js",
+    "v6_release/src/strategy/cached-kline-adapter.js",
+    "v6_release/tests/historical-provider-identity.test.js"
+  ],
+  "tests": {
+    "files": 43,
+    "passed": 140,
+    "failed": 0
+  }
+}

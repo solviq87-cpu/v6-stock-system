@@ -1,0 +1,39 @@
+{
+  "checkpoint": "V6-PAPER-MULTIPROCESS-CRASH-MULTIDAY-20261105",
+  "createdAt": "2026-11-05",
+  "baseArchive": "V6_660底包与现有工程完整合并_667项通过_20261105(1).zip",
+  "baseArchiveSha256": "ee328a1ab45cff8900f68df74c22233b69ef7f174b6e0d196db28cdbbeccf4c2",
+  "scope": "offline paper account ledger only; no broker connectivity",
+  "regression": {
+    "command": "V6_TEST_CONCURRENCY=4 bash scripts/run-full-regression.sh",
+    "tests": 675,
+    "passed": 675,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specialized": {
+    "command": "node --test tests/paper-account-ledger.test.js tests/paper-transaction-coordinator.test.js tests/paper-account-multiprocess.test.js tests/paper-crash-recovery.test.js tests/paper-multiday-reconciliation.test.js tests/paper-order-lifecycle.test.js tests/paper-account-reconciliation.test.js",
+    "tests": 52,
+    "passed": 52,
+    "failed": 0
+  },
+  "modifiedFiles": {
+    "src/core/process-file-lock.js": "865a3b3cfee99a43001f2ff158c65bac8218a1e65261dbb6fde7d33d448d3733",
+    "src/core/paper-account-ledger.js": "1313eb174ad4578deedac40498a42a2d6486a721a4ee270cb3cb733358a7660d",
+    "src/core/paper-transaction-coordinator.js": "a840ed3cfc22146d8bca83d7d2a85ef097c32d92e52e40f47f27fae12fc104ad",
+    "tests/paper-account-multiprocess.test.js": "eac305202cd949c81ffe1847c9d779f5c47da8e8415460595799b4df1211861a",
+    "tests/paper-crash-recovery.test.js": "c8c765b13a240918e3b1c4d717b0701c9f398e4fad40de3ddac8561b15fbc6dd",
+    "tests/paper-multiday-reconciliation.test.js": "7d193eeebfd28c46234803c5bc980536156dce99e5cafe636d0e307d5421681b",
+    "tests/paper-account-ledger.test.js": "9b0477d29c863121ff3046ac7cb66d03aa2389a0a69b6c48018cd3ee5546f9cb",
+    "docs/V6_并发故障恢复多日对账修改与测试报告_20261105.md": "59e1ddfb56fa105b840de745363d7bc2445763bc959bb0afd76f4e1615da647a",
+    "docs/V6_合并后续开发任务大纲_20261105.md": "58f5f8d1f2e71d0557ef737ea73b9b7a2a4b5f5b2e9ddee6493703ecc9beb73b",
+    "docs/V6_本轮并发故障恢复多日对账全量回归.tap": "c743c2a079ac3bcc85b3a129a62e48163163c844a31e8cafd736b32fab5fd33b",
+    "docs/V6_本轮账户专项回归.tap": "08b8d3ad5ef80d886b5af65f5a7a158c5c3d2762309ad83c8844af6446db1ad9",
+    "docs/V6_本轮修改清单_20261105.md": "553389e8cd254597953b31355feaed0ddfbe165ed1f8f4aa109640698b5a1fd0"
+  },
+  "limitations": [
+    "paper-order-lifecycle state remains in-memory and is not yet integrated with every HTTP/strategy order entrypoint",
+    "local synthetic tests do not certify production, live market data, broker trading, desktop browser, or mobile devices",
+    "cross-platform and network filesystem locking require separate validation"
+  ]
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=V6 research dashboard
+After=network-online.target
+[Service]
+Type=simple
+User=v6
+WorkingDirectory=/opt/v6
+Environment=NODE_ENV=production
+Environment=TZ=Asia/Shanghai
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+EnvironmentFile=/etc/v6.env
+ExecStart=/usr/bin/node /opt/v6/server.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

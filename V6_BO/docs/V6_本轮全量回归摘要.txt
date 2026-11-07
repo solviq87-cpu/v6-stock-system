@@ -1,0 +1,11 @@
+Full regression before CLI wrapper addition:
+Command: node --test tests/*.test.js
+Result: 483 tests, 483 passed, 0 failed, 0 skipped
+Duration: 32851.319 ms
+Exit code: 0
+
+After adding the read-only CLI wrapper:
+- node --check scripts/reconcile-strategy-paper.js: passed
+- node --test tests/strategy-paper-reconciliation.test.js: 4/4 passed
+- package.json command registration: passed
+- A second full-suite rerun was interrupted by execution timeout at test 329; it is not reported as a completed second run.

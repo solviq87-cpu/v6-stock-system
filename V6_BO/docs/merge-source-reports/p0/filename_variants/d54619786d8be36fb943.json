@@ -1,0 +1,1 @@
+{"date":"2026-11-05","baseline":"V6_集中初稿_全量Bug修复_419项通过_完整工程_20261105.zip","changes":["external market same-day bar finality gate","deterministic market clock injection","immutable research bundle symlink ancestor guard"],"test":{"pass":423,"fail":0,"skip":0},"productionAccepted":false,"strategyRulesChanged":false}

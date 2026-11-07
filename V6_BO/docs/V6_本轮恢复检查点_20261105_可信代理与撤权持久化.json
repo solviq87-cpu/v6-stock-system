@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-05",
+  "baseline_zip": "V6_统一主线_SSE即时撤权_完整工程_20261105.zip",
+  "baseline_sha256": "7e5bf04f29e8daa3180e08f418492c1800496f4870b49f4226483bae5a0e2f68",
+  "scope": [
+    "trust-boundary authentication throttle",
+    "manual revoke and prune transaction rollback",
+    "prune real-time SSE invalidation",
+    "integration timer cleanup"
+  ],
+  "tests": {
+    "command": "V6_MODEL_PYTHON=<installed-model-python> PATH=<system-python-and-node> node --test --test-concurrency=6 --test-force-exit tests/*.test.js",
+    "pass": 371,
+    "fail": 0,
+    "skip": 0,
+    "runtime_ms": 30672.948559,
+    "raw_tap": "docs/V6_本轮_371项全量回归原始TAP_20261105.txt",
+    "non_root_http_checks": 53
+  },
+  "production_accepted": false,
+  "remaining_document": "docs/V6_十一大工程_最新进度与真实未完成项_20261105.md",
+  "modified_code": [
+    "server.js",
+    "src/server/trusted-proxy-ip.js"
+  ],
+  "modified_tests": [
+    "tests/research-live-http-isolated.test.js",
+    "tests/trusted-proxy-client-ip.test.js",
+    "tests/device-access-persistence.test.js"
+  ]
+}

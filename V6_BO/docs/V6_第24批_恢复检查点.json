@@ -1,0 +1,10 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-24-AUDIT-HTTP",
+  "baseline": "V6_Unified_Eastmoney_Research_UI_20261105.zip",
+  "nodeTests": 166,
+  "nodeFailures": 0,
+  "offlineAuditGroupsPassed": 7,
+  "httpLocalStatus": 200,
+  "productionLiveVerified": false,
+  "outstanding": "live quote, real SMS, cloud HTTPS, strategy E2E, backtest data, mobile acceptance"
+}

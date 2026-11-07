@@ -1,0 +1,11 @@
+{
+  "directory": "data/provider-history",
+  "outputFile": "data/active-history.json",
+  "intervalMs": 60000,
+  "retries": 1,
+  "maxCacheAgeMs": 86400000,
+  "sources": [
+    {"id":"primary","url":"https://primary.example.com/history","provider":"licensed-primary","datasetId":"a-share-history"},
+    {"id":"backup","url":"https://backup.example.com/history","provider":"licensed-backup","datasetId":"a-share-history"}
+  ]
+}

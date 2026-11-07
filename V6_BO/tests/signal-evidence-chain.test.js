@@ -1,0 +1,13 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createSignalEvidence, validateSignalEvidence, bindPaperIntent } = require('../src/core/signal-evidence-chain');
+const base = () => ({ system: 'fourteen-stock-pick', symbol: '600000.SH', signalDate: '2026-11-04', observedThrough: '2026-11-04', generatedAt: '2026-11-04T07:00:00.000Z', evaluatorVersion: 'native-v1', source: 'eastmoney', feedGate: { mode: 'strict', status: 'pass', qualityFingerprint: 'q1' }, riskCheck: { status: 'pass', ruleSetVersion: 'risk-v1' }, signal: { verdict: 'pass', score: 82 } });
+test('creates verifiable immutable evidence', () => { const e=createSignalEvidence(base()); assert.equal(validateSignalEvidence(e).ok,true); assert.equal(Object.isFrozen(e),true); });
+test('rejects missing or simulated feed evidence', () => { for (const f of [{mode:'strict',status:'fail'},{mode:'strict',status:'pass',simulated:true},{mode:'soft',status:'pass'}]) assert.throws(()=>createSignalEvidence({...base(),feedGate:f})); });
+test('rejects stale signal provenance beyond signal date', () => assert.throws(()=>createSignalEvidence({...base(),observedThrough:'2026-11-05'})));
+test('rejects invalid calendar dates', () => assert.throws(()=>createSignalEvidence({...base(),signalDate:'2026-02-30'})));
+test('rejects failed risk checks', () => assert.throws(()=>createSignalEvidence({...base(),riskCheck:{status:'blocked'}})));
+test('detects evidence tampering', () => { const e=createSignalEvidence(base()); assert.equal(validateSignalEvidence({...e,source:'tencent'}).ok,false); });
+test('binds matching paper intent without enabling live trading', () => { const e=createSignalEvidence(base()); const p=bindPaperIntent(e,{symbol:'600000.SH',signalDate:'2026-11-04',side:'buy',quantity:100,limitPrice:10.25}); assert.equal(p.evidenceFingerprint,e.signalFingerprint); assert.equal(p.canTrade,false); });
+test('rejects intent for a different symbol or invalid quantity', () => { const e=createSignalEvidence(base()); assert.throws(()=>bindPaperIntent(e,{symbol:'000001.SZ',signalDate:e.signalDate,side:'buy',quantity:100,limitPrice:10})); assert.throws(()=>bindPaperIntent(e,{symbol:e.symbol,signalDate:e.signalDate,side:'buy',quantity:0,limitPrice:10})); });

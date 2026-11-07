@@ -1,0 +1,14 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-19-OBSERVED-REGIME",
+  "base": "V6_Unified_Market_Breadth_20261105.zip",
+  "changed": [
+    "v6_release/src/core/observed-market-regime.js",
+    "v6_release/tests/observed-market-regime.test.js"
+  ],
+  "tests": {
+    "passed": 150,
+    "failed": 0,
+    "files": 45
+  },
+  "selection_rules": "unchanged"
+}

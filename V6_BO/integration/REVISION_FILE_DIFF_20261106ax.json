@@ -1,0 +1,21 @@
+{
+  "added": [
+    "integration/revision-full.exit",
+    "integration/revision-targeted.tap",
+    "integration/revision-full.tap",
+    "integration/REVISION_CONSUMPTION_OPERATIONS.md",
+    "integration/revision-targeted.exit"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "server.js",
+    "scripts/adaptive-research.js",
+    "public/index.html",
+    "public/sw.js",
+    "public/mobile.html",
+    "tests/learning-profile.test.js",
+    "public/assets/app.js",
+    "src/core/learning-profile-registry.js"
+  ],
+  "deleted": []
+}

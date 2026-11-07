@@ -1,0 +1,83 @@
+TAP version 13
+# Subtest: GET 路由
+ok 1 - GET 路由
+  ---
+  duration_ms: 29.42007
+  type: 'test'
+  ...
+# Subtest: POST 请求体
+ok 2 - POST 请求体
+  ---
+  duration_ms: 5.614624
+  type: 'test'
+  ...
+# Subtest: POST 超限
+ok 3 - POST 超限
+  ---
+  duration_ms: 2.474502
+  type: 'test'
+  ...
+# Subtest: 拒绝跨站 API
+ok 4 - 拒绝跨站 API
+  ---
+  duration_ms: 2.745059
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/tmp/tmpkla3qc00/v6_release/tests/http-preflight-regression.test.js:24:66)
+#     at /tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 同步异常返回 500
+ok 5 - 同步异常返回 500
+  ---
+  duration_ms: 5.904358
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/tmp/tmpkla3qc00/v6_release/tests/http-preflight-regression.test.js:25:71)
+#     at /tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 异步异常返回 500
+ok 6 - 异步异常返回 500
+  ---
+  duration_ms: 2.944908
+  type: 'test'
+  ...
+# [http preflight] Error: test
+#     at sourceCheck (/tmp/tmpkla3qc00/v6_release/tests/http-preflight-regression.test.js:26:78)
+#     at Server.<anonymous> (/tmp/tmpkla3qc00/v6_release/src/server/bootstrap.js:22:18)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 来源校验抛错返回 400 而非崩溃
+ok 7 - 来源校验抛错返回 400 而非崩溃
+  ---
+  duration_ms: 2.86618
+  type: 'test'
+  ...
+# Subtest: 配置非法请求体限制立即拒绝
+ok 8 - 配置非法请求体限制立即拒绝
+  ---
+  duration_ms: 0.596445
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 152.328922
+

@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "fixtureOnly": true,
+  "report": [
+    {
+      "width": 1536,
+      "viewport": 1536,
+      "bodyWidth": 1536,
+      "previewReadOnly": true,
+      "importAtomic": true,
+      "cashUnchanged": true,
+      "noOrders": true,
+      "readiness": true,
+      "accountSwitchInvalidates": true,
+      "uncaughtErrors": 0
+    },
+    {
+      "width": 390,
+      "viewport": 390,
+      "bodyWidth": 390,
+      "previewReadOnly": true,
+      "importAtomic": true,
+      "cashUnchanged": true,
+      "noOrders": true,
+      "readiness": true,
+      "accountSwitchInvalidates": true,
+      "uncaughtErrors": 0
+    }
+  ]
+}

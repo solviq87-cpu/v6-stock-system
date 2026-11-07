@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>推送样式偏好收集</title>
+<style>
+  :root{ --bg:#f5f6f8; --card:#fff; --line:#e5e8ec; --txt:#1c2333; --sub:#6b7688; --blue:#4a9eff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;padding:20px}
+  h1{font-size:20px;margin-bottom:6px}
+  .intro{color:var(--sub);font-size:13px;margin-bottom:20px}
+  .wrap{max-width:720px;margin:0 auto}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .q h3{font-size:15px;margin-bottom:12px}
+  .opts{display:flex;flex-wrap:wrap;gap:10px}
+  .opt{flex:1;min-width:120px;border:2px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;transition:.15s}
+  .opt:hover{border-color:#c9d0d8}
+  .opt input{display:none}
+  .opt.checked{border-color:var(--blue);background:#f0f7ff}
+  .opt .t{font-weight:700;font-size:14px}
+  .opt .d{font-size:12px;color:var(--sub);margin-top:4px}
+  textarea{width:100%;min-height:80px;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px;resize:vertical;font-family:inherit}
+  .btns{display:flex;gap:10px;margin-top:20px}
+  button{flex:1;background:var(--blue);color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer}
+  .secondary{background:#fff;color:var(--txt);border:1px solid var(--line)}
+  #result{background:#0d1117;color:#e6edf3;padding:16px;border-radius:12px;font-size:13px;white-space:pre-wrap;margin-top:16px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📬 推送样式偏好收集</h1>
+  <div class="intro">上轮 3 个方案不太对味，这里把决策拆成 7 个具体维度。你勾完/填完，我按这个重做一版。</div>
+
+  <form id="survey">
+    <div class="q">
+      <h3>1. 你最讨厌现在推送的哪一点？（多选）</h3>
+      <div class="opts">
+        <label class="opt"><input type="checkbox" name="hate" value="border"><div class="t">═══ 边框老气</div></label>
+        <label class="opt"><input type="checkbox" name="hate" value="long"><div class="t">正文太长</div></label>
+        <label class="opt"><input type="checkbox" name="hate" value="messy"><div class="t">信息太乱</div></label>
+        <label class="opt"><input type="checkbox" name="hate" value="plain"><div class="t">纯文本没重点</div></label>
+        <label class="opt"><input type="checkbox" name="hate" value="numbers"><div class="t">数字不够突出</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>2. 标题希望怎么呈现？</h3>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="title" value="big" checked><div class="t">大标题 + emoji</div><div class="d">例：📊 早盘摘要</div></label>
+        <label class="opt"><input type="radio" name="title" value="small"><div class="t">小标签式</div><div class="d">例：[早盘] 10-17</div></label>
+        <label class="opt"><input type="radio" name="title" value="none"><div class="t">不要标题</div><div class="d">直接上数据</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>3. 正文信息密度？</h3>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="density" value="min"><div class="t">极简</div><div class="d">只留数字和结论</div></label>
+        <label class="opt"><input type="radio" name="density" value="mid" checked><div class="t">中等</div><div class="d">数字 + 一句话解释</div></label>
+        <label class="opt"><input type="radio" name="density" value="full"><div class="t">详细</div><div class="d">涨跌家数/主力/板块都列</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>4. 关键数字怎么展示？</h3>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="numbers" value="huge"><div class="t">放大居中</div><div class="d">涨停 72 最显眼</div></label>
+        <label class="opt"><input type="radio" name="numbers" value="inline" checked><div class="t">跟在文字里</div><div class="d">涨停 72 家</div></label>
+        <label class="opt"><input type="radio" name="numbers" value="table"><div class="t">表格对齐</div><div class="d">多数字并排</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>5. 颜色使用？</h3>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="color" value="full" checked><div class="t">涨跌分色</div><div class="d">红涨绿跌</div></label>
+        <label class="opt"><input type="radio" name="color" value="tone"><div class="t">整体色调</div><div class="d">根据情绪给一色</div></label>
+        <label class="opt"><input type="radio" name="color" value="mono"><div class="t">单色</div><div class="d">纯文字，不强调颜色</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>6. 分隔方式？</h3>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="sep" value="emoji" checked><div class="t">emoji</div><div class="d">🔥 📊 💰</div></label>
+        <label class="opt"><input type="radio" name="sep" value="bullet"><div class="t">项目符号</div><div class="d">· -</div></label>
+        <label class="opt"><input type="radio" name="sep" value="blank"><div class="t">空行</div><div class="d">靠留白分隔</div></label>
+      </div>
+    </div>
+
+    <div class="q">
+      <h3>7. 参考样例</h3>
+      <p class="intro" style="margin-bottom:8px">可以贴一段你手机里收到的、觉得好看的推送文案；或者手写一段你想要的样式。</p>
+      <textarea name="example" placeholder="例：\n📈 早盘 09:30\n情绪：偏暖 | 加仓\n涨停 72 跌停 26\n主力 +437亿\n——\n竞价前三：万丰奥威 +9.8% / 长城军工 +8.5% / 新华传媒 +7.2%"></textarea>
+    </div>
+
+    <div class="btns">
+      <button type="button" class="secondary" onclick="loadDraft()">加载上次草稿</button>
+      <button type="button" onclick="submitForm()">生成回发文案</button>
+    </div>
+  </form>
+
+  <div id="result"></div>
+</div>
+
+<script>
+const KEY = 'qd_push_style_survey';
+function $(s){ return document.querySelector(s); }
+function $all(s){ return document.querySelectorAll(s); }
+$all('.opt').forEach(el => {
+  el.addEventListener('click', function(e){
+    const inp = this.querySelector('input');
+    if (inp.type === 'radio') {
+      $all('input[name="' + inp.name + '"]').forEach(i => i.closest('.opt').classList.remove('checked'));
+      this.classList.add('checked');
+      inp.checked = true;
+    } else if (inp.type === 'checkbox') {
+      inp.checked = !inp.checked;
+      this.classList.toggle('checked', inp.checked);
+    }
+    saveDraft();
+  });
+});
+function saveDraft(){
+  try {
+    const data = new FormData($('#survey'));
+    const obj = {};
+    data.forEach((v,k)=>{ if(!obj[k]) obj[k]=[]; obj[k].push(v); });
+    localStorage.setItem(KEY, JSON.stringify(obj));
+  } catch(e){}
+}
+function loadDraft(){
+  try {
+    const obj = JSON.parse(localStorage.getItem(KEY) || '{}');
+    for (const [k,arr] of Object.entries(obj)) {
+      $all('input[name="' + k + '"]').forEach(i => {
+        i.checked = arr.includes(i.value);
+        i.closest('.opt').classList.toggle('checked', i.checked);
+      });
+      if (k === 'example') $('textarea[name="example"]').value = (arr || []).join('\n');
+    }
+  } catch(e){}
+}
+function submitForm(){
+  const data = new FormData($('#survey'));
+  const obj = {};
+  data.forEach((v,k)=>{ if(!obj[k]) obj[k]=[]; obj[k].push(v); });
+  obj.example = [$('textarea[name="example"]').value];
+  const text = `我要的推送样式：
+1. 最反感：${(obj.hate||[]).join('、') || '无'}
+2. 标题：${obj.title?.[0] || 'big'}
+3. 密度：${obj.density?.[0] || 'mid'}
+4. 数字：${obj.numbers?.[0] || 'inline'}
+5. 颜色：${obj.color?.[0] || 'full'}
+6. 分隔：${obj.sep?.[0] || 'emoji'}
+7. 参考样例：
+${obj.example?.[0] || '无'}
+
+请按这个重做一版推送样式。`;
+  const res = $('#result');
+  res.style.display = '';
+  res.textContent = text;
+  try { localStorage.setItem(KEY + '_text', text); } catch(e){}
+}
+loadDraft();
+</script>
+</body>
+</html>

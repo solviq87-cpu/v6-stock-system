@@ -1,0 +1,14 @@
+[
+  {
+    "sdk": "mootdx",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "n connect\n    sock.connect((proxy.get('addr'), int(proxy.get('port'))))\nOSError: [Errno 101] Network is unreachable\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/workspace/scratch/51e0593ab52a/feed-probe-env/lib/python3.12/site-packages/mootdx/quotes.py\", line 44, in factory\n    return StdQuotes(**kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/51e0593ab52a/feed-probe-env/lib/python3.12/site-packages/mootdx/quotes.py\", line 154, in __init__\n    ip, port = self.server\n    ^^^^^^^^\nValueError: not enough values to unpack (expected 2, got 0)\n"
+  },
+  {
+    "sdk": "efinance",
+    "exit": 0,
+    "stdout": "[{\"股票名称\":\"贵州茅台\",\"股票代码\":\"600519\",\"日期\":\"2026-11-05\",\"开盘\":1446.7,\"收盘\":1452.0,\"最高\":1466.0,\"最低\":1430.0,\"成交量\":46712,\"成交额\":6752970915.0,\"振幅\":2.49,\"涨跌幅\":0.38,\"涨跌额\":5.56,\"换手率\":0.37},{\"股票名称\":\"贵州茅台\",\"股票代码\":\"600519\",\"日期\":\"2026-11-06\",\"开盘\":1450.0,\"收盘\":1453.0,\"最高\":1457.72,\"最低\":1436.0,\"成交量\":42848,\"成交额\":6199528289.0,\"振幅\":1.5,\"涨跌幅\":0.07,\"涨跌额\":1.0,\"换手率\":0.34}]\n",
+    "stderr": "/workspace/scratch/51e0593ab52a/feed-probe-env/lib/python3.12/site-packages/efinance/stock/getter.py:311: Pandas4Warning: The inplace keyword in DataFrame.rename is deprecated and will be removed in a future version (PDEP-8).\nSee https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.\n  df.rename(columns={\"代码\": \"股票代码\", \"名称\": \"股票名称\"}, inplace=True)\n"
+  }
+]

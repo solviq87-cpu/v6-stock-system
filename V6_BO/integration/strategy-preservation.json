@@ -1,0 +1,9 @@
+{
+  "native_rules": {
+    "myrules.js": "8787249c37d0c8add9b9f0b9d9f53cc465bddc80eefa45828e7b1354aa08307e",
+    "bazi.js": "859700b05e063284de93682022187896b135434039d349b90c8826833c3307e9",
+    "strategies/a-share-strategy-pack.json": "f9feecd40bfdc21a647fb2252672eb677887ebf928c4be6178860d0b7a4cf534"
+  },
+  "historical_protection_list_changes": [],
+  "core_protected_count": 23
+}

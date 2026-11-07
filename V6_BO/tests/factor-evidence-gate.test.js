@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test');const assert=require('node:assert/strict');
+const {scoreExtendedFactors,mergeLegacyAndExtended,verifyFactorEvidence}=require('../src/strategy/extended-factor-engine');
+const config={factors:[{id:'a',field:'auctionQualityScore',group:'auction',weight:1,label:'竞价'},{id:'b',field:'sectorHeatScore',group:'theme',weight:1,label:'板块'}]};
+const now=Date.parse('2026-11-04T10:00:00Z');
+test('旧策略评分默认不变',()=>{const r=scoreExtendedFactors({auctionQualityScore:80,sectorHeatScore:60},config);assert.equal(r.score,70);assert.equal(r.coverage,1)});
+test('严格模式拒绝没有来源的竞价和板块数据',()=>{const r=scoreExtendedFactors({auctionQualityScore:80,sectorHeatScore:60},config,{requireEvidence:true,asOf:now});assert.equal(r.score,null);assert.equal(r.coverage,0);assert.equal(r.missing.length,2)});
+test('严格模式拒绝模拟数据、过期数据及未来时间戳',()=>{for(const e of [{source:'x',timestamp:now,simulated:true},{source:'x',timestamp:now-1000000},{source:'x',timestamp:now+120000}])assert.equal(verifyFactorEvidence('x',{x:e},{asOf:now}).valid,false)});
+test('严格模式只使用有证据的因子，不虚构缺失分数',()=>{const r=scoreExtendedFactors({auctionQualityScore:80,sectorHeatScore:60},config,{requireEvidence:true,asOf:now,evidence:{auctionQualityScore:{source:'licensed-feed',timestamp:now}}});assert.equal(r.score,80);assert.equal(r.coverage,.5);assert.equal(r.missing.length,1)});
+test('覆盖率不足时融合保持旧分数',()=>{const e=scoreExtendedFactors({auctionQualityScore:80,sectorHeatScore:60},config,{requireEvidence:true,asOf:now});const r=mergeLegacyAndExtended({finalScore:72},e);assert.equal(r.finalScore,72);assert.equal(r.factorFusion.applied,false)});

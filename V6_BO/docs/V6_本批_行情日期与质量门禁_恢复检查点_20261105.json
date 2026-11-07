@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-05",
+  "batch": "A-share market-date, quote-quality and fail-closed privacy-audit synchronization",
+  "baseline_zip": "V6_统一主线_可信代理与设备持久化_完整工程_20261105.zip",
+  "baseline_sha256": "4073dfe0704988c28f5e46dcdae2f1896e02148d9679f32e763bca35ec8d5d9c",
+  "modified_source_and_tests": [
+    "src/core/a-share-calendar.js",
+    "src/core/eastmoney-market-snapshot.js",
+    "src/core/market-breadth.js",
+    "src/core/market-data-center.js",
+    "src/strategy/cached-kline-adapter.js",
+    "src/strategy/research-v2-cached-kline-adapter.js",
+    "tests/a-share-calendar-boundary.test.js",
+    "_test_priv_no_leak.js",
+    "tests/private-send-audit-consistency.test.js",
+    "server.js",
+    "public/assets/app.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "tests/app-version-consistency.test.js"
+  ],
+  "file_sha256": {
+    "src/core/a-share-calendar.js": "2263ed0b9bfe618bd3f155a827ded3bf6c21c0000f6401885d07a624fea97749",
+    "src/core/eastmoney-market-snapshot.js": "c721d1b3b932d6ecb6fa0b226036914d394da527b2656166c01035d03dcec458",
+    "src/core/market-breadth.js": "9c72bf1daec91c5e3940cc5f10672fdb1a89330ac312a38e87b481fed2366aae",
+    "src/core/market-data-center.js": "c86a9b60592ef3c84e2f6014016c27be03ad3f764ce6023521f7bd3127426c20",
+    "src/strategy/cached-kline-adapter.js": "941ef2d0946731c878c42a4b951ef545c9f5b6b6b2a91bb8b74b2f1d034e8582",
+    "src/strategy/research-v2-cached-kline-adapter.js": "c3498af929f9ab5a1c5d703f1efa82a4ad0a3a9fe3f00f4bbaaf07a6c7d4ea0c",
+    "tests/a-share-calendar-boundary.test.js": "225ca3538bee7d026192eaaec9c8b03067d04b688ce33d4b7897c346e435f7f1",
+    "_test_priv_no_leak.js": "c1a2c51dc50a0f85f946bd3ddd93585139230e5a6be80370f44c24c53189c460",
+    "tests/private-send-audit-consistency.test.js": "14234379abeb54c15ebe5f3bbc5c06c0bee115a530726a7b57acb88f036e044d",
+    "server.js": "1234ce9c74f850cad2ef7c80780e0c7c41b19ea0faae3a30e3611dcf0ec68eae",
+    "public/assets/app.js": "6e7c7327ce2d036a506b0958463012aa2908b1396d2ba701346a50e4bdbee37d",
+    "public/index.html": "7be9488ad030ecb499effde7f3a518a86ed00313f15f7564d97abe372de88c57",
+    "public/mobile.html": "729bd16679c8394e8f2713c8e8a06e985ad47fc7de44df47d14c14ccc2ad1997",
+    "public/sw.js": "ebeed978a9e8ba3c83eacd7e0ec47333604a6d1971f4615e76b972c69e5354df",
+    "tests/app-version-consistency.test.js": "d6ae8d5255ec285dee250f6ac2cb0b2bba8d9db4b4fdf0fd2217060d12eac972"
+  },
+  "automated_tests": {
+    "tests": 381,
+    "pass": 381,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "duration_ms": 18867.195706
+  },
+  "test_command": "V6_MODEL_PYTHON=/opt/pyvenv/bin/python3 PATH=/usr/bin:/bin:/opt/nvm/versions/node/v22.16.0/bin node --test --test-concurrency=6 --test-force-exit tests/*.test.js",
+  "raw_tap": "docs/V6_本批_381项全量回归原始TAP_20261105.txt",
+  "syntax_check": "npm run check && npm run check:strategy",
+  "rules_changed": false,
+  "real_market_data_verified": false,
+  "production_accepted": false,
+  "outstanding": "docs/V6_本批_十一大工程真实未完成项_20261105.md",
+  "next_priorities": [
+    "market timestamp freshness and trading-session gate",
+    "licensed real historical data and four-strategy independent OOS audit",
+    "HTTPS/OTP/device long-run and disaster recovery live validation",
+    "desktop/mobile real device acceptance"
+  ],
+  "offline_audit": {
+    "command": "npm run audit:offline",
+    "groups_pass": 7,
+    "groups_total": 7,
+    "previous_script_obsolete": true,
+    "raw_log": "docs/V6_本批_离线审计原始记录_20261105.txt"
+  },
+  "version_bump": {
+    "from_server": "20261105ab",
+    "from_ui": "20261104aa",
+    "to": "20261105ac",
+    "verified_by": "tests/app-version-consistency.test.js"
+  }
+}

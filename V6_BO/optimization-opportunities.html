@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>量化看盘 · 当前程序优化机会清单</title>
+<style>
+  :root{ --bg:#f5f6f8; --card:#fff; --line:#e5e8ec; --txt:#1c2333; --sub:#6b7688; --blue:#4a9eff; --green:#2ebd85; --red:#f6465d; --orange:#f0b90b; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;padding:20px}
+  h1{font-size:20px;margin-bottom:6px}
+  .intro{color:var(--sub);font-size:13px;margin-bottom:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  .filter{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .filter button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .filter button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th{background:#f8f9fb;padding:12px;text-align:left;font-weight:700;border-bottom:1px solid var(--line)}
+  td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover{background:#fafbfc}
+  .check{width:40px;text-align:center}
+  .check input{width:18px;height:18px;cursor:pointer}
+  .priority{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+  .p0{background:#ffeaea;color:var(--red)}
+  .p1{background:#fff4d9;color:#b86e00}
+  .p2{background:#e8f4ff;color:#0066cc}
+  .p3{background:#eafaf0;color:#008040}
+  .area{font-size:11px;color:var(--sub)}
+  .risk{font-size:12px;color:var(--sub);margin-top:6px}
+  .note{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px;font-size:12px;font-family:inherit}
+  .sticky-foot{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 0;margin-top:20px;display:flex;gap:10px;justify-content:space-between;align-items:center}
+  .sticky-foot button{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer}
+  #output{background:#0d1117;color:#e6edf3;padding:16px;border-radius:12px;font-size:13px;white-space:pre-wrap;margin-top:16px;display:none}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 量化看盘 · 当前程序优化机会清单</h1>
+  <div class="intro">基于项目长期约定、待办事项和最近几轮问题，扫描出的可优化点。重点：<b>准确性</b> + <b>智能化</b>。你睡醒后勾选想做的，点底部「生成回发文案」复制给我。</div>
+
+  <div class="filter">
+    <button class="active" onclick="filter(event,'all')">全部</button>
+    <button onclick="filter(event,'accuracy')">准确性</button>
+    <button onclick="filter(event,'intelligence')">智能化</button>
+    <button onclick="filter(event,'engineering')">工程可靠</button>
+    <button onclick="filter(event,'ux')">体验</button>
+    <button onclick="toggleSelectAll(this)">全选</button>
+  </div>
+
+  <table id="oppTable">
+    <thead>
+      <tr>
+        <th class="check">选</th>
+        <th style="width:70px">优先级</th>
+        <th style="width:90px">领域</th>
+        <th>优化点</th>
+        <th style="width:160px">预期收益 / 风险</th>
+        <th style="width:120px">你的备注</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p0">P0</span></td>
+        <td class="area">竞价信号</td>
+        <td><b>auczt 校准口径修正</b><br>auczt prob 预测的是「当日封板」，但学习库用次日 nd 回验。改只对该类用 <code>resolved</code> 当日口径，并按实测重标定 prob。</td>
+        <td class="risk">解决命中率虚高 2~3 倍、校准被算歪的问题。风险：需重新跑全库回验。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="intelligence">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p0">P0</span></td>
+        <td class="area">因子权重</td>
+        <td><b>常数因子退场 + 权重重构</b><br>「竞价涨幅黄金区」覆盖率 88%、命中率≈基线，零信息量却占主要打分。提升题材梯队类因子（连板惯性、板块龙头、板块中军）权重。</td>
+        <td class="risk">auczt 排序质量可能大幅提升。风险：需样本外验证，避免过拟合。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p0">P0</span></td>
+        <td class="area">涨停池</td>
+        <td><b>漏票修复决策</b><br>_audit_zt_pool 已发现 EM 池真漏票（000678/002531）。决策：K 线派生 ZT 并入池，还是仅报告不修复？</td>
+        <td class="risk">涨停池完整性提升。风险：并入池可能引入 K 线缓存覆盖范围外误差。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">一字板</td>
+        <td><b>一字板剔除进校准</b><br>B2 轮 nd 已补 openGap/oneLine，但 auczt/yier/lianban 的一字板样本尚未剔除进校准。</td>
+        <td class="risk">避免「买不进」的票污染命中率和 prob 标定。风险：先看覆盖率再决定剔除策略。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="intelligence">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">题材梯队</td>
+        <td><b>J1 auczt 题材梯队因子</b><br>有梯队时 hit 29.6%(n71) vs 无梯队 9.4%(n127)。提升 score 对梯队的表达，复检触发条件 H2 n≥30。</td>
+        <td class="risk">智能化识别龙头/跟风。风险：梯队定义需稳定，避免日内漂移。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="intelligence">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">信号口径</td>
+        <td><b>auczt 日内型信号两口径并列</b><br>当前学习库用 nd（次日），但竞价真预测的是当日。两口径并列展示，避免决策口径错配。</td>
+        <td class="risk">更准确评估信号价值。风险：增加报告复杂度。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">推送/学习</td>
+        <td><b>pushlog 跨回收耐久化</b><br>线上容器一天回收多次 → pushlog 清零。cap 500 裁早期证据，保留送达证据。</td>
+        <td class="risk">避免推送重复/漏记。风险：存储增长，需压实策略。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="engineering">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">补检重放</td>
+        <td><b>C2 错过窗口补检重放 + 标注「补检」</b><br>定时任务因容器回收错过窗口时，自动补跑并标注来源为补检。</td>
+        <td class="risk">数据完整性提升。风险：补检逻辑需防止重复落库。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="engineering">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p1">P1</span></td>
+        <td class="area">监控</td>
+        <td><b>C3 邮件独立心跳</b><br>当前邮件通道无独立健康检查，增加独立心跳避免静默失效。</td>
+        <td class="risk">提前发现推送通道故障。风险：需配置邮件服务。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p2">P2</span></td>
+        <td class="area">标定</td>
+        <td><b>B4 标定有效期 + 市场状态切换检测</b><br>因子权重/概率标定需带有效期，市场状态（普涨/普跌/震荡）切换时自动重标。</td>
+        <td class="risk">防止用过期标定做决策。风险：状态切换定义需明确。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p2">P2</span></td>
+        <td class="area">数据</td>
+        <td><b>#286 9/25 单日 K 线补钉</b><br>2026-09-25 单日 K 线缺失，影响部分回验和面板展示。需决策是否补钉。</td>
+        <td class="risk">消除历史数据缺口。风险：补钉来源需可靠。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="accuracy">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p2">P2</span></td>
+        <td class="area">signals</td>
+        <td><b>#287 扫 signals.date 双轨漏网比较点</b><br>检查 signals.date 是否存在新旧口径不一致导致的漏比较。</td>
+        <td class="risk">消除信号日比较 bug。风险：需全量扫描，可能有历史兼容问题。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="ux">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p2">P2</span></td>
+        <td class="area">面板</td>
+        <td><b>#281 H1 面板展示候选 prob 分布 vs 生效闸门</b><br>面板增加 prob 分布图，直观显示候选、生效闸门、实际推送的差异。</td>
+        <td class="risk">提升推送可解释性。风险：前端渲染增加。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="ux">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p3">P3</span></td>
+        <td class="area">推送样式</td>
+        <td><b>飞书/微信推送文案排版重构</b><br>当前推送样式较老，需按专业、结构化、信息密度适中的方向重做。</td>
+        <td class="risk">提升移动端阅读体验。风险：需你确认风格。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="intelligence">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p3">P3</span></td>
+        <td class="area"> empTable</td>
+        <td><b>empTable 样本外验证</b><br>当前 empTable 是否过拟合需独立样本外验证。</td>
+        <td class="risk">确认经验表稳健性。风险：样本外数据可能不足。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+      <tr data-area="ux">
+        <td class="check"><input type="checkbox"></td>
+        <td><span class="priority p3">P3</span></td>
+        <td class="area">K线面板</td>
+        <td><b>K 线面板后续</b><br>hj 轮已上线基础 K 线，后续可扩展更多指标、标记和交互。</td>
+        <td class="risk">增强个股分析能力。风险：前端工作量大。</td>
+        <td><textarea class="note" rows="2"></textarea></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sticky-foot">
+    <span id="count">已选 0 项</span>
+    <button onclick="generate()">生成回发文案</button>
+  </div>
+
+  <div id="output"></div>
+</div>
+
+<script>
+function filter(ev,area){
+  if(ev && ev.target){
+    document.querySelectorAll('.filter button').forEach(b=>b.classList.remove('active'));
+    ev.target.classList.add('active');
+  }
+  document.querySelectorAll('#oppTable tbody tr').forEach(tr=>{
+    if(area==='all' || tr.dataset.area===area) tr.classList.remove('hidden');
+    else tr.classList.add('hidden');
+  });
+}
+function updateCount(){
+  const all = document.querySelectorAll('#oppTable tbody input[type="checkbox"]');
+  const checked = document.querySelectorAll('#oppTable tbody input[type="checkbox"]:checked');
+  document.getElementById('count').textContent = '已选 ' + checked.length + ' / ' + all.length + ' 项';
+  const btn = document.querySelector('.filter button[onclick^="toggleSelectAll"]');
+  if(btn) btn.textContent = all.length === checked.length ? '取消全选' : '全选';
+}
+document.querySelectorAll('#oppTable tbody input').forEach(i=>i.addEventListener('change', updateCount));
+function toggleSelectAll(btn){
+  const boxes = document.querySelectorAll('#oppTable tbody tr:not(.hidden) input[type="checkbox"]');
+  const allChecked = Array.from(boxes).every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+  updateCount();
+  btn.textContent = allChecked ? '全选' : '取消全选';
+}
+function generate(){
+  const rows = [];
+  document.querySelectorAll('#oppTable tbody tr').forEach((tr,idx)=>{
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if(!cb || !cb.checked) return;
+    const tds = tr.querySelectorAll('td');
+    if(tds.length < 6) return;
+    const title = (tds[3].innerText || tds[3].textContent || '').replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+    const note = (tds[5].querySelector('textarea') || {}).value || '';
+    rows.push((idx+1)+'. '+title);
+    if(note.trim()) rows.push('   备注：'+note.trim());
+  });
+  const text = rows.length ? '想做以下优化项：\n'+rows.join('\n') : '暂不处理任何优化项。';
+  const out = document.getElementById('output');
+  out.style.display = 'block';
+  out.textContent = text;
+  // 自动滚动到输出区
+  out.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+</script>
+</body>
+</html>

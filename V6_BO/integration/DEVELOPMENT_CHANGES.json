@@ -1,0 +1,102 @@
+{
+  "baseline": "20261106au-911",
+  "baselineZipSHA256": "4c6122e0ff1518c2a37e88587050484fefccc21a5206db3640b6876eda096a36",
+  "version": "20261106av",
+  "changed": [
+    "integration/CHAT_HANDOFF.md",
+    "integration/DEVELOPMENT_CHANGES.json",
+    "integration/DEVELOPMENT_STATUS.md",
+    "integration/HANDOFF_NEXT.md",
+    "integration/POLICY_SETTLEMENT_OPERATIONS.md",
+    "integration/REMAINING.md",
+    "integration/TEST_REPORT.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/research.html",
+    "public/sw.js",
+    "scripts/adaptive-research.js",
+    "server.js",
+    "src/core/adaptive-market-lab.js"
+  ],
+  "added": [
+    "integration/CHAT_HANDOFF_HISTORY_20261106au.md",
+    "integration/LEARNING_PROFILE_OPERATIONS.md",
+    "integration/profile-check.log",
+    "integration/profile-clean-tests.exit",
+    "integration/profile-clean-tests.tap",
+    "integration/profile-full-tests.exit",
+    "integration/profile-full-tests.tap",
+    "integration/profile-offline.log",
+    "integration/profile-password.log",
+    "integration/profile-targeted.tap",
+    "scripts/learning-profile.js",
+    "src/core/learning-profile-registry.js",
+    "tests/learning-profile.test.js"
+  ],
+  "removed": [],
+  "previousCheckpoint": {
+    "baseline": "20261106at-894",
+    "baselineZipSHA256": "3bc029416d7445010b7cac8a75b891e73a079e7a185b83ba6ccfb1e71acac4c3",
+    "version": "20261106au",
+    "storageEngineVersion": "20261106as",
+    "changed": [
+      "integration/CHAT_HANDOFF.md",
+      "integration/DEVELOPMENT_CHANGES.json",
+      "integration/DEVELOPMENT_STATUS.md",
+      "integration/HANDOFF_NEXT.md",
+      "integration/REMAINING.md",
+      "integration/TEST_REPORT.md",
+      "public/assets/app.js",
+      "public/assets/terminal-dashboard.js",
+      "public/index.html",
+      "public/mobile.html",
+      "public/research.html",
+      "public/sw.js",
+      "server.js",
+      "src/core/adaptive-market-lab.js"
+    ],
+    "added": [
+      "integration/NATIVE_ADAPTIVE_OPERATIONS.md",
+      "integration/native-adaptive-check.log",
+      "integration/native-adaptive-clean-tests.exit",
+      "integration/native-adaptive-clean-tests.tap",
+      "integration/native-adaptive-full-tests.exit",
+      "integration/native-adaptive-full-tests.tap",
+      "integration/native-adaptive-offline.log",
+      "integration/native-adaptive-password.log",
+      "integration/native-adaptive-targeted.tap",
+      "scripts/native-adaptive-bundle.js",
+      "src/core/native-adaptive-adapter.js",
+      "tests/native-adaptive-adapter.test.js",
+      "tests/native-adaptive-bundle.test.js"
+    ],
+    "deleted": [],
+    "tests": {
+      "main": 911,
+      "clean": 911,
+      "new": 17,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    "scope": "Native automatic adaptation plus single-run offline export and deterministic replay; no production promotion/deployment"
+  },
+  "validation": {
+    "main": {
+      "passed": 935,
+      "failed": 0,
+      "exit": 0,
+      "tapComplete": true
+    },
+    "targeted": 24,
+    "clean": {
+      "passed": 935,
+      "failed": 0,
+      "exit": 0,
+      "tapComplete": true
+    },
+    "byteIdenticalSourceFiles": 1057
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "checkpoint": "V6-UNIFIED-20261105-21-MARKET-WORKBENCH",
+  "baseline": "V6_Unified_Observed_Regime_HTTP_20261105.zip",
+  "tests": 157,
+  "passed": 157,
+  "failed": 0,
+  "next": "C01 real data ingestion and end-to-end UI authorization verification"
+}

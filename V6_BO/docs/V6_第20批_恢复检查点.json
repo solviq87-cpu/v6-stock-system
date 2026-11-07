@@ -1,0 +1,14 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-20-OBSERVED-REGIME-HTTP",
+  "base": "V6_Unified_Observed_Regime_20261105.zip",
+  "changed": [
+    "v6_release/server.js",
+    "v6_release/tests/observed-regime-http-route.test.js"
+  ],
+  "tests": {
+    "files": 46,
+    "passed": 153,
+    "failed": 0
+  },
+  "liveProviderVerified": false
+}

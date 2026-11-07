@@ -1,0 +1,94 @@
+{
+  "20261027-220000-测试.md": {
+    "file": "20261027-220000-测试.md",
+    "events": [
+      {
+        "stage": "verifying",
+        "detail": "自动复核中",
+        "at": "2026-11-04T08:46:49.588Z"
+      },
+      {
+        "stage": "verify_failed",
+        "detail": "[{\"name\":\"lock/status\",\"ok\":false,\"error\":\"getaddrinfo EAI_AGAIN quant-dashboard-77614.app.workbuddy.host\"}]",
+        "at": "2026-11-04T08:46:59.703Z"
+      },
+      {
+        "stage": "verifying",
+        "detail": "自动复核中",
+        "at": "2026-11-04T08:47:08.192Z"
+      },
+      {
+        "stage": "verify_failed",
+        "detail": "[{\"name\":\"lock/status\",\"ok\":false,\"error\":\"getaddrinfo EAI_AGAIN quant-dashboard-77614.app.workbuddy.host\"}]",
+        "at": "2026-11-04T08:47:08.477Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:08.477Z"
+  },
+  "20261104-084703-守门测试.md": {
+    "file": "20261104-084703-守门测试.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "",
+        "at": "2026-11-04T08:47:03.752Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:03.752Z"
+  },
+  "20261104-084703-守门测试急修.md": {
+    "file": "20261104-084703-守门测试急修.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "急修",
+        "at": "2026-11-04T08:47:03.819Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:03.819Z"
+  },
+  "20261104-084703-选_股_体_系.md": {
+    "file": "20261104-084703-选_股_体_系.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "",
+        "at": "2026-11-04T08:47:04.000Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:04.000Z"
+  },
+  "20261104-084712-守门测试.md": {
+    "file": "20261104-084712-守门测试.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "",
+        "at": "2026-11-04T08:47:12.665Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:12.665Z"
+  },
+  "20261104-084712-守门测试急修.md": {
+    "file": "20261104-084712-守门测试急修.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "急修",
+        "at": "2026-11-04T08:47:12.722Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:12.722Z"
+  },
+  "20261104-084712-选_股_体_系.md": {
+    "file": "20261104-084712-选_股_体_系.md",
+    "events": [
+      {
+        "stage": "submitted",
+        "detail": "",
+        "at": "2026-11-04T08:47:12.782Z"
+      }
+    ],
+    "updatedAt": "2026-11-04T08:47:12.782Z"
+  }
+}

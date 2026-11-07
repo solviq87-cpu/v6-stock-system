@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "scope": "six-user-photos-03-to-08",
+  "entries": [
+    {
+      "photo": "03",
+      "id": "akshare.daily",
+      "provider": "akshare",
+      "interface": "stock_zh_a_hist",
+      "kind": "daily",
+      "upstream": "eastmoney",
+      "requires": "public"
+    },
+    {
+      "photo": "03",
+      "id": "baostock.daily",
+      "provider": "baostock",
+      "interface": "query_history_k_data_plus",
+      "kind": "daily",
+      "upstream": "baostock",
+      "requires": "public"
+    },
+    {
+      "photo": "03",
+      "id": "efinance.daily",
+      "provider": "efinance",
+      "interface": "stock.get_quote_history",
+      "kind": "daily",
+      "upstream": "eastmoney",
+      "requires": "public"
+    },
+    {
+      "photo": "03",
+      "id": "tushare.daily",
+      "provider": "tushare",
+      "interface": "daily",
+      "kind": "daily",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "03",
+      "id": "ifind.daily",
+      "provider": "ifind",
+      "interface": "THS_HQ",
+      "kind": "daily",
+      "upstream": "ifind",
+      "requires": "credentials"
+    },
+    {
+      "photo": "03",
+      "id": "rqdata.daily",
+      "provider": "rqdata",
+      "interface": "get_price",
+      "kind": "daily",
+      "upstream": "rqdata",
+      "requires": "credentials"
+    },
+    {
+      "photo": "04",
+      "id": "akshare.minute.em",
+      "provider": "akshare",
+      "interface": "stock_zh_a_hist_min_em",
+      "kind": "minute",
+      "upstream": "eastmoney",
+      "requires": "public"
+    },
+    {
+      "photo": "04",
+      "id": "akshare.minute.sina",
+      "provider": "akshare",
+      "interface": "stock_zh_a_minute",
+      "kind": "minute",
+      "upstream": "sina",
+      "requires": "public"
+    },
+    {
+      "photo": "04",
+      "id": "baostock.minute",
+      "provider": "baostock",
+      "interface": "query_history_k_data_plus",
+      "kind": "minute",
+      "upstream": "baostock",
+      "requires": "public"
+    },
+    {
+      "photo": "04",
+      "id": "ifind.minute",
+      "provider": "ifind",
+      "interface": "THS_HF",
+      "kind": "minute",
+      "upstream": "ifind",
+      "requires": "credentials"
+    },
+    {
+      "photo": "04",
+      "id": "tushare.minute",
+      "provider": "tushare",
+      "interface": "stk_mins",
+      "kind": "minute",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "04",
+      "id": "rqdata.minute",
+      "provider": "rqdata",
+      "interface": "get_price",
+      "kind": "minute",
+      "upstream": "rqdata",
+      "requires": "credentials"
+    },
+    {
+      "photo": "05",
+      "id": "tushare.statements",
+      "provider": "tushare",
+      "interface": "income/balancesheet/cashflow",
+      "kind": "financial",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "05",
+      "id": "tushare.valuation",
+      "provider": "tushare",
+      "interface": "daily_basic",
+      "kind": "valuation",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "05",
+      "id": "efinance.fund.nav",
+      "provider": "efinance",
+      "interface": "fund.get_quote_history",
+      "kind": "fund-nav",
+      "upstream": "eastmoney",
+      "requires": "public"
+    },
+    {
+      "photo": "05",
+      "id": "tushare.etf",
+      "provider": "tushare",
+      "interface": "fund_daily",
+      "kind": "etf-daily",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "05",
+      "id": "tushare.cb",
+      "provider": "tushare",
+      "interface": "cb_daily/cb_call",
+      "kind": "convertible",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "05",
+      "id": "cninfo.announcements",
+      "provider": "cninfo",
+      "interface": "公告查询/结构化API目录",
+      "kind": "announcements",
+      "upstream": "cninfo",
+      "requires": "public"
+    },
+    {
+      "photo": "06",
+      "id": "easyquotation.realtime",
+      "provider": "easyquotation",
+      "interface": "use('sina').real",
+      "kind": "quote",
+      "upstream": "sina",
+      "requires": "public"
+    },
+    {
+      "photo": "06",
+      "id": "efinance.realtime",
+      "provider": "efinance",
+      "interface": "stock.get_realtime_quotes",
+      "kind": "quote",
+      "upstream": "eastmoney",
+      "requires": "public"
+    },
+    {
+      "photo": "06",
+      "id": "ifind.realtime",
+      "provider": "ifind",
+      "interface": "THS_RQ",
+      "kind": "quote",
+      "upstream": "ifind",
+      "requires": "credentials"
+    },
+    {
+      "photo": "06",
+      "id": "miniqmt.l1",
+      "provider": "miniqmt",
+      "interface": "subscribe_quote/get_market_data_ex",
+      "kind": "quote",
+      "upstream": "miniqmt",
+      "requires": "client"
+    },
+    {
+      "photo": "06",
+      "id": "miniqmt.l2",
+      "provider": "miniqmt",
+      "interface": "subscribe_*/get_l2_*",
+      "kind": "level2",
+      "upstream": "miniqmt",
+      "requires": "client"
+    },
+    {
+      "photo": "06",
+      "id": "tushare.realtime",
+      "provider": "tushare",
+      "interface": "rt_k",
+      "kind": "quote",
+      "upstream": "tushare",
+      "requires": "credentials"
+    },
+    {
+      "photo": "07",
+      "id": "ctp.realtime",
+      "provider": "ctp",
+      "interface": "行情前置/行情回调",
+      "kind": "futures-quote",
+      "upstream": "ctp",
+      "requires": "client"
+    },
+    {
+      "photo": "07",
+      "id": "tqsdk.realtime",
+      "provider": "tqsdk",
+      "interface": "get_quote/get_kline_serial",
+      "kind": "futures-quote",
+      "upstream": "tqsdk",
+      "requires": "credentials"
+    },
+    {
+      "photo": "07",
+      "id": "jqdata.cross",
+      "provider": "jqdata",
+      "interface": "get_price",
+      "kind": "cross-market",
+      "upstream": "jqdata",
+      "requires": "credentials"
+    },
+    {
+      "photo": "07",
+      "id": "rqdata.cross",
+      "provider": "rqdata",
+      "interface": "get_price",
+      "kind": "cross-market",
+      "upstream": "rqdata",
+      "requires": "credentials"
+    },
+    {
+      "photo": "07",
+      "id": "alltick.realtime",
+      "provider": "alltick",
+      "interface": "REST/WebSocket",
+      "kind": "cross-market",
+      "upstream": "alltick",
+      "requires": "credentials"
+    },
+    {
+      "photo": "07",
+      "id": "itick.realtime",
+      "provider": "itick",
+      "interface": "REST/WebSocket",
+      "kind": "cross-market",
+      "upstream": "itick",
+      "requires": "credentials"
+    }
+  ],
+  "photo08Checks": [
+    "free-quota",
+    "history-window",
+    "api-entitlement",
+    "runtime-client-ip",
+    "data-basis-time-unit",
+    "usage-terms"
+  ]
+}

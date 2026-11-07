@@ -1,0 +1,27 @@
+{
+  "权限矩阵66项": {
+    "pass": true,
+    "exit": 0,
+    "tail": "（否则外网永远走不通）\n✅ /api/heartbeat 反证：去掉白名单项后本断言会红（证明它真的在守这条）\n✅ /api/heartbeat 路由体只记心跳、不外发数据\n\n── [7] 敏感接口双保险：8124 的统一收口仍在 ──\n✅ 统一收口含 /api/source + /api/sync/export + /api/config\n✅ 统一收口用 isEditorReq 判身份\n\n── [8] token 取值通道：前端有两套传法，路由漏读一套也不能把开发者判成只读 ──\n✅ handle 里统一解析凭证并挂在 req 上\n✅ 取值是 query 优先\n✅ query 为空时回落到 body\n✅ req.__tok 的赋值在路由分发之前\n✅ isEditorReq 在实参为空时回落到 req.__tok\n✅ 路由只读 body 时（实参为空），URL 上的 edit 令牌仍能生效\n✅ 回落后的只读令牌不会被抬成开发者\n✅ 没有凭证就是只读（回落不会凭空放行）\n✅ 路由显式传的实参优先于回落\n✅ 实参为空且回落也是只读令牌 → 仍判只读\n\n── [9] 只读身份的可见性边界：私密数据不能从「一锅端」接口漏出去 ──\n✅ /api/state 里有身份判据\n✅ 模拟盘按身份裁剪（非开发者不回明细）\n✅ 只读分支不调用 mkPaper（不返回现金/持仓/成交）\n✅ 开发者分支仍返回完整两个账户\n✅ /api/holdings 的 GET 挡住了只读（真实持仓）\n✅ 前端对 hidden 有兜底展示（不是空白区块）\n\n── [10] 私密推送不许广播给只读连接 ──\n✅ SSE 分流两处都认 sseEdit\n✅ 模拟盘动态推送打了 sseEdit\n✅ 模拟盘动态走私密通道（含账户金额，不许发群）\n✅ 不打标记 → 广播给所有连接（含只读）\n✅ private → 只发开发者连接\n✅ sseEdit → 只发开发者连接\n✅ 空对象不打标记 → 仍是广播（防手滑）\n✅ 持仓事件全部走私密通道（sseSendEdit 没有漏到 sseSend）\n\n66 通过 / 0 失败\n"
+  },
+  "密码状态审计": {
+    "pass": true,
+    "exit": 0,
+    "tail": "\n> stock-dashboard@1.0.0 audit:password\n> node scripts/audit-password-visibility.js\n\nPASS: 密码状态路由与前端均无明文回显\n"
+  },
+  "核心语法": {
+    "pass": true,
+    "exit": 0,
+    "tail": "\n> stock-dashboard@1.0.0 check\n> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js\n\n"
+  },
+  "策略语法": {
+    "pass": true,
+    "exit": 0,
+    "tail": "\n> stock-dashboard@1.0.0 check:strategy\n> node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js\n\n"
+  },
+  "策略冒烟": {
+    "pass": true,
+    "exit": 0,
+    "tail": "\n> stock-dashboard@1.0.0 smoke:strategy\n> node scripts/strategy-smoke.js\n\n{\"ok\":true,\"finalScore\":80.08,\"regime\":\"trend\",\"topDrivers\":[\"trend\",\"momentum\",\"breakout\"]}\n"
+  }
+}

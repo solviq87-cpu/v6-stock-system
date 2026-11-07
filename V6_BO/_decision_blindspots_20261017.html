@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>盲点决策表 + 今日改动对照 · 2026-10-17</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--line:#e5e8ec;--txt:#1c2333;--sub:#697386;--acc:#3b5bdb;--up:#e03131;--down:#0ca678;--warn:#b45309;--warnbg:#fff7e6}
+  *{box-sizing:border-box}
+  body{margin:0;padding:18px 14px 60px;background:var(--bg);color:var(--txt);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:22px 0 10px}
+  .sub{color:var(--sub);font-size:12.5px;margin:0}
+  .hint{margin-top:8px;font-size:12.5px;background:#eef2ff;border:1px solid #dbe4ff;color:#2b4acb;border-radius:8px;padding:7px 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;transition:border-color .15s,box-shadow .15s}
+  .card.changed{border-color:#f08c00;box-shadow:0 0 0 3px #fff4e6}
+  .chd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .cid{font-weight:700;color:var(--acc);font-size:13px}
+  .ct{font-weight:700;font-size:14.5px}
+  .tag{display:inline-block;font-size:11px;border-radius:5px;padding:1px 7px;margin-left:4px}
+  .tag.rec{background:#ebfbee;color:#2b8a3e}
+  .tag.mod{background:#fff4e6;color:#b45309}
+  .tag.risk{background:#fff0f0;color:#c92a2a}
+  .facts{margin:8px 0;font-size:13px;color:#39424f}
+  .facts li{margin:2px 0}
+  .opt{width:100%;max-width:560px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font:13.5px/1.4 inherit;background:#fff;margin:6px 0 8px}
+  table.opts{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 2px}
+  table.opts th{text-align:left;font-weight:600;color:var(--sub);border-bottom:1px solid var(--line);padding:5px 6px}
+  table.opts td{border-bottom:1px solid #f1f3f5;padding:6px;vertical-align:top}
+  table.opts td.k{white-space:nowrap;font-weight:700;color:var(--acc)}
+  .good{color:#2b8a3e}
+  .bad{color:#c92a2a}
+  .why{font-size:12.5px;color:var(--sub);margin:6px 0 0}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:13px/1.5 inherit;background:#fff;resize:vertical}
+  .note{min-height:44px;margin-top:6px}
+  table.chg{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:12.8px}
+  table.chg th{background:#f8f9fb;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:12.5px;color:#39424f;white-space:nowrap}
+  table.chg td{padding:9px 10px;border-bottom:1px solid #f1f3f5;vertical-align:top}
+  table.chg tr:last-child td{border-bottom:none}
+  table.chg td.n{color:var(--sub);white-space:nowrap}
+  table.chg td.f{color:var(--sub);font-size:12px;white-space:nowrap}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0 8px}
+  button{padding:8px 14px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;font:13.5px inherit;cursor:pointer}
+  button.ghost{background:#fff;color:var(--acc)}
+  #out{min-height:110px;margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+  .small{font-size:12px;color:var(--sub);margin-top:10px}
+  .riskbox{background:var(--warnbg);border:1px solid #ffe0b2;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-top:10px}
+  .riskbox b{color:var(--warn)}
+  @media (max-width:760px){
+    table.chg,table.chg tbody,table.chg tr,table.chg td{display:block;width:100%}
+    table.chg thead{display:none}
+    table.chg tr{border-bottom:1px solid var(--line);padding:8px 2px}
+    table.chg td{border:none;padding:4px 10px}
+    table.chg td::before{content:attr(data-k);display:block;font-size:11px;color:var(--sub);margin-bottom:1px}
+    table.opts td{padding:5px 4px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>盲点决策表 + 今日改动对照</h1>
+  <p class="sub">2026-10-17 · dy 轮：#289 大单推送收尾 / 模拟盘对账真红修复 / #290 竞价复盘双口径聚合头 · 磁盘版本 <b>20261017dy</b>（<b>未发布</b>）</p>
+  <div class="hint">默认值＝我的推荐项。改过的项会变橙并标「已改」。填完点最下方「生成回发文案」，复制发我即可——没改的项按推荐执行。</div>
+</header>
+
+<section>
+  <h2>一、盲点决策表（9 项）</h2>
+  <div id="cards"></div>
+</section>
+
+<section>
+  <h2>二、今日改动对照表（好处 / 坏处都写在里面）</h2>
+  <table class="chg">
+    <thead><tr><th>#</th><th>改动</th><th>文件</th><th>好处</th><th>坏处 · 风险</th><th>验证证据</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="n" data-k="#">1</td>
+        <td data-k="改动"><b>paper 流水 side 修复链</b>（repairTradeSide / 回填改走它 / 归并入口即修复 / basisGap 跳过 / audit 新增 badSide / 启动回填落盘）</td>
+        <td class="f" data-k="文件">server.js</td>
+        <td class="good" data-k="好处">「卖」整字损坏（只剩「出」）能自动修复（dx 轮盲区）；堵住「回拉→再污染」死循环；判不出方向不再被当卖出（原来现金双计 +38167.35、幽灵 -1800 股）；修复落盘不反复</td>
+        <td class="bad" data-k="坏处·风险">推断只在「出/入」幸存时成立，全损不猜 → 整账红字常驻直到人工处理（有意为之）；启动多一次磁盘写</td>
+        <td data-k="验证">_test_paper_reconcile 60/0（含 002733 现场复刻）；本地重启日志「对账通过」；paper.json mtime 05:12、pool 35→34 / pre 43→42</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">2</td>
+        <td data-k="改动"><b>守门⑥段「活数据依赖」修掉</b>：原断言「回填前至少一个账户对不上」在本机账被修好后恒红，改为「重复回填幂等」</td>
+        <td class="f" data-k="文件">_test_paper_reconcile.js</td>
+        <td class="good" data-k="好处">修好数据不再反过来弄红守门（MEMORY §11 同款坑）；新增幂等断言（第二遍 0 改动，防「每次启动都动账」）</td>
+        <td class="bad" data-k="坏处·风险">「这轮修的是真问题」的依据改为 ③b 合成复刻（不再依赖本机文件坏不坏），真问题证明从「现场」变「复刻」</td>
+        <td data-k="验证">60/0（断言数没降，幂等断言补位）</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">3</td>
+        <td data-k="改动"><b>两个守门沙箱注入 repairTradeSide</b></td>
+        <td class="f" data-k="文件">_test_data_cap.js / _test_two_instance_parity.js</td>
+        <td class="good" data-k="好处">防「漏注入＝整段崩、被 catch 吞成一条没记」的静默失败</td>
+        <td class="bad" data-k="坏处·风险">测试文件与生产符号耦合度 +1（生产加新符号要同步注入）</td>
+        <td data-k="验证">43/0、47/0</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">4</td>
+        <td data-k="改动"><b>竞价复盘双口径聚合头</b>（arMedian / arPctFmt / arOutcomeBadges / arAggregate + loadAuctionReview 接线）</td>
+        <td class="f" data-k="文件">public/index.html</td>
+        <td class="good" data-k="好处">风险首次被量化并列两口径：日内最高≥3% 39.9%/触板 7.1% vs 持股收盘≥3% 17.7%/收跌 64.1%/中位 -1.42%；pending 剔除不冒充 0；样本数、窗口、噪声全部显式</td>
+        <td class="bad" data-k="坏处·风险">单日样本弱（D1）；手机端可能看不到历史（D2）；面板变长（D5）；prob 表语义仍错位（D3）</td>
+        <td data-k="验证">_test_auction_review 77/0（合成数据真跑）；script 块 node --check 通过</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">5</td>
+        <td data-k="改动"><b>徽章拆高/收双列</b> + 弹窗复用同一 helper + 次日归因块「nd 涨停」改「次日最高触板」</td>
+        <td class="f" data-k="文件">public/index.html</td>
+        <td class="good" data-k="好处">每条记录同时看到日内/持股两个口径；删掉「次日涨停 ✓」这个名不副实标签（最高触板≠收盘封板）；一处实现防两把尺子</td>
+        <td class="bad" data-k="坏处·风险">chip 变长（40 条列表更占屏）</td>
+        <td data-k="验证">徽章单测 9 条 + 「nd 涨停」已移除断言</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">6</td>
+        <td data-k="改动"><b>arMedian 的 null→0 bug</b>（守门第一次跑就抓到：先 map(Number) 再过滤，缺数据变 0 混进中位数）</td>
+        <td class="f" data-k="文件">public/index.html</td>
+        <td class="good" data-k="好处">缺数据的票不再被当成 0% 收益参与中位数</td>
+        <td class="bad" data-k="坏处·风险">无（纯修正）</td>
+        <td data-k="验证">arMedian([null,'x',3])===3；首跑 3 红之一，修后转绿</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">7</td>
+        <td data-k="改动"><b>APP_VER 20261017ip → 20261017dy</b>（两端同时）+ 注释链补 #290</td>
+        <td class="f" data-k="文件">server.js / public/index.html</td>
+        <td class="good" data-k="好处">版本与注释自洽（原来 ip 行里写着 dy 轮，「说的和做的不一样」）；发布脚本第⑤步显示的待发布版本正确</td>
+        <td class="bad" data-k="坏处·风险">本机重启后与线上版本不一致，两端同时开会提示更新（正常机制）；发布前不能忘</td>
+        <td data-k="验证">格式 ^\d{8}[a-z]{2}$、两端一致（多套守门）</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">8</td>
+        <td data-k="改动"><b>发布清单注释更新</b>（_test_auction_review 24→77 断言、内容说明）</td>
+        <td class="f" data-k="文件">_publish.py</td>
+        <td class="good" data-k="好处">清单描述与实际断言一致</td>
+        <td class="bad" data-k="坏处·风险">无功能影响</td>
+        <td data-k="验证">注释数=实跑数（77）</td>
+      </tr>
+      <tr>
+        <td class="n" data-k="#">9</td>
+        <td data-k="改动"><b>全量回归</b></td>
+        <td class="f" data-k="文件">—</td>
+        <td class="good" data-k="好处">复跑 <b>6615 通过 / 17 失败</b>，红灯正好是基线 7 套件（auth_matrix / datasource_fallback / datekey / learn / prevsnap / return_contract / sort_slice），<b>0 新增红</b>；比上轮基线的 6563 条多 52 条（新守门 +53、⑥段换幂等断言 −0）</td>
+        <td class="bad" data-k="坏处·风险">批跑约 6 分钟；learnall_valid 首次 180s 超时误杀（单跑 37s、24/0，复跑 36s 通过）——数据量继续长大会更容易撞上限，可单独抬超时</td>
+        <td data-k="验证">6615/17 复跑 + 单跑对照 + 9 个红灯套件逐个对基线</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="small">注：以上全部只在本机生效，<b>尚未发布</b>；线上仍是旧版。发布需要你明确说「发布上线」。</div>
+</section>
+
+<section>
+  <h2>三、其他补充（可选）</h2>
+  <textarea id="freeNote" class="note" placeholder="比如：某项想换个做法、优先级调整、或者你发现我漏了什么"></textarea>
+</section>
+
+<div class="bar">
+  <button id="gen">生成回发文案</button>
+  <button id="copy" class="ghost">复制文案</button>
+  <button id="reset" class="ghost">全部重置为推荐</button>
+</div>
+<textarea id="out" readonly placeholder="点「生成回发文案」后这里出现可复制的内容"></textarea>
+
+<div class="riskbox">
+  <b>风险与未验证假设（如实列出）</b><br>
+  1. 线上 auction_log 现状<b>未核实</b>：/api/auction-log 需设备令牌，只用口令查不到（返回 needPassword）。D2 的结论来自代码事实（DATA_FILES 不含该文件＋容器回收），运行后果是推断。<br>
+  2. 线上 paper.json 的乱码是否已清<b>未核实</b>（/api/paper 同样需编辑器身份）。副本已修复并对账通过，线上靠发布后启动回填自动修。<br>
+  3. 10-16 缺档原因＝本机当天白天没运行（server.log 从 10-16 05:47 直接跳到 10-17 01:40），<b>不是代码 bug</b>，但也补不回来（历史竞价分时没有留存）。<br>
+  4. 聚合头的比率是「每日 9:25 强势池」样本，<b>不是全市场基线</b>——目前面板没声明这一点（D9）。<br>
+  5. 大单推送改动的实盘效果（iq 轮）<b>尚无线上样本</b>，发布后才有。
+</div>
+
+</div>
+<script>
+const D = [
+  {
+    id:'D1',
+    title:'聚合头样本窗口：现在的 40 条 = 单日 40 条',
+    facts:[
+      '接口只回最近 <b>40 条</b>（上限 80）。本机 auction_log.json 共 <b>108 条</b>：10-14 33 条、10-15 75 条；<b>10-16（周五）0 条</b>——本机服务当天白天没运行。',
+      '所以聚合头现在实际是「<b>10-15 单日 40 只</b>」，比率受当天行情影响极大，容易被当成长期水平。'
+    ],
+    opt:[
+      {k:'A', t:'保持 n=40（现状）', good:'列表与聚合同一批、口径一致；面板不长', bad:'单日样本，噪声大（头部已写明窗口起止）'},
+      {k:'B', t:'抬到 n=80（接口上限）', good:'窗口变 2 天（10-14 尾 5 条＋10-15 75 条），样本翻倍，只改一个数字', bad:'chip 从 40 涨到 80，手机要滑更久；仍只有 2 天'},
+      {k:'C', t:'聚合改「按日一行」小表', good:'单日 vs 多日一眼看清、缺档日自然暴露；不受 n 限制', bad:'多一块表、手机更长；每天样本仍只有 30~75'},
+      {k:'D', t:'聚合用 80、列表仍显 40', good:'聚合更稳、列表不变长', bad:'看到的 40 条与统计的 80 条不是同一批，口径会打架（不推荐）'}
+    ],
+    rec:'B',
+    why:'推荐 B：最便宜的样本翻倍，列表与聚合仍是同一批；「按日一行」留到数据有 3 天以上再做。'
+  },
+  {
+    id:'D2',
+    title:'线上竞价留档是易失的：手机端可能看不到历史（甚至为空）',
+    facts:[
+      '代码事实：<code>_publish.py</code> 的 DATA_FILES 只带 holdings/config/paper/stats/learnall/news/pushlog/ztpre，<b>不含 auction_log.json</b>；<code>loadAuctionLog()</code> 只读进程目录下的文件。',
+      '线上容器一天回收多次 → 文件消失 → 手机端读的线上副本可能「只有本容器启动后 9:25 写的当天几条」，<b>本机 108 条历史从未上云</b>。',
+      '线上实际状态未核实（接口需设备令牌）。'
+    ],
+    opt:[
+      {k:'A', t:'加进 DATA_FILES ＋ durable 镜像＋启动合并（与 pushlog 同款）', good:'手机端第一次能看到多日真实样本；回收不再清零；发布用合并去重，不会旧覆新', bad:'发布包多约 200KB；loadAuctionLog 要加合并逻辑（新守门）；线上当天新增但未发布的记录仍会随回收丢'},
+      {k:'B', t:'只加进 DATA_FILES（一行）', good:'最小改动，发布后手机立刻有历史', bad:'本地覆盖线上（线上当天更新更全时会丢）；回收仍清零当天新记录'},
+      {k:'C', t:'不改', good:'零风险', bad:'#290 在手机上可能长期空着/只有单日，等于白做'}
+    ],
+    rec:'A',
+    why:'推荐 A：pushlog 已经用这套 durable＋启动合并验证过，竞价留档照抄即可；这一步决定聚合头在手机上有没有意义。'
+  },
+  {
+    id:'D3',
+    title:'prob 档小表的语义缺口：prob 是「当日封板」，表里并排的是「次日结果」',
+    facts:[
+      'prob 预测的是<b>信号日当天封板</b>（§8bis 实证绝对值虚高 2~3 倍），而表里列的是「次日最高≥3% / 收盘中位」——两个不同语义并排，虽已注明，仍容易被读成「prob 准不准」。',
+      '当前 40 条里 36 条落在 &lt;40 档，表的信息量本来就低。'
+    ],
+    opt:[
+      {k:'A', t:'维持现状（只呈现分布＋注明）', good:'零改动、零风险', bad:'回答不了「prob 到底准不准」；表价值低'},
+      {k:'B', t:'后端 outcome 补 sameDayLimit（信号日收盘=涨停价），prob 表改成「prob 档 vs 当日封板率」', good:'prob 第一次有对应检验、数字可信；与 §8bis「竞价只用当日口径」一致', bad:'改接口契约（加字段，向后兼容）；要读信号日K线（已缓存）；涨停判定要按 ST/科创/北交所分版，必须复用同一把 limitPct 尺子'},
+      {k:'C', t:'删掉 prob 表', good:'面板更简洁、不误导', bad:'失去「模型自评 vs 实际」的唯一入口'}
+    ],
+    rec:'B',
+    why:'推荐 B：这是把「模型说自己多准」和「实际多准」第一次放同一张表，符合「每个数字可信」。'
+  },
+  {
+    id:'D4',
+    title:'「次日收盘封板」第三口径：补不补',
+    facts:['面板现在只有「次日最高触板」和「次日收盘涨跌/中位」，没有「次日收盘封板」（收盘＝涨停价）。'],
+    opt:[
+      {k:'A', t:'不补（两口径够用）', good:'口径不爆炸；日内/持股两条已覆盖「冲高兑现 vs 过夜持股」', bad:'想看「打板成功率」还得去涨停池/一进二'},
+      {k:'B', t:'补 closeLimit 进 outcome，聚合头加第三列', good:'三口径完整', bad:'聚合头更挤；与 D3 是同一批契约改动，建议合并做'}
+    ],
+    rec:'A',
+    why:'推荐 A：先把 D3 做好；第三口径等真有人要「打板成功率」再加，避免一屏三套数字。'
+  },
+  {
+    id:'D5',
+    title:'聚合头长度与位置（手机端）',
+    facts:['竞价复盘是折叠区，展开后＝聚合头（约 200px）＋ 40 个 chip。'],
+    opt:[
+      {k:'A', t:'保持（聚合头在上、chip 在下）', good:'先结论后明细，风险先亮出来', bad:'手机展开后要多滑 1~2 屏才到明细'},
+      {k:'B', t:'聚合头默认折叠（点「展开统计」）', good:'回到旧长度，只看明细的人不受打扰', bad:'风险提示默认不可见——跟这次改动的目的相反'},
+      {k:'C', t:'chip 默认只显前 10 ＋「显示全部」', good:'首屏短', bad:'多一个交互状态要记；你对折叠类改动的历史反应是「看不习惯，改回原本」'}
+    ],
+    rec:'A',
+    why:'推荐 A：这块本来就是按需展开的折叠区，信息优先；真嫌长就选 C 而不是把统计藏起来。'
+  },
+  {
+    id:'D6',
+    title:'发布批次：现在发，还是等 #291/#292 一起',
+    facts:[
+      '磁盘 20261017dy 已含三块：iq 轮（大单推送精准化）＋ dy 轮 paper 修复 ＋ #290 竞价聚合头；全部通过守门与回归。',
+      '线上仍是旧版（未核实具体版本；本机与线上版本不一致是正常的未发布状态）。'
+    ],
+    opt:[
+      {k:'A', t:'现在发布 20261017dy', good:'账本修复与聚合头尽快生效；三块都已过守门/回归；paper 修复已在本地端到端验证', bad:'一次上三类改动（推送策略/账本/面板），出问题定位面变大；大单推送的实盘效果仍无线上样本'},
+      {k:'B', t:'等 #291/#292 做完一起发', good:'少一次版本跳变', bad:'账本修复与聚合头上线更晚；批次更大、风险更集中'},
+      {k:'C', t:'拆两批（先 dy 两件，iq 另议）', good:'风险隔离', bad:'同一磁盘状态拆不干净（要回退 iq 代码），成本高、易出错'}
+    ],
+    rec:'A',
+    why:'推荐 A：paper 修复的价值在线上账本（本机已修好，线上还没），聚合头的价值在你手机上看；越晚发，这两块越等于没做。'
+  },
+  {
+    id:'D7',
+    title:'#291 设备重登宽限 / #292 面板时段药丸：继续还是暂停',
+    facts:[
+      '你批准的顺序是 4→1→2→3（#289 完成 → #290 完成 → #291 → #292）。',
+      '历史：面板结构改动曾被你回退过一次（in 轮「看不习惯，改回原本」）。'
+    ],
+    opt:[
+      {k:'A', t:'继续按顺序：先 #291 再 #292', good:'兑现批准计划；#291 以设备令牌/台账为主，风险低', bad:'#292 有被回退的历史，可能白做；药丸会改变首屏卡片'},
+      {k:'B', t:'暂停面板改动，先发 dy 观察几天', good:'降低返工；先拿到 paper/聚合头/大单的实盘反馈', bad:'批准的计划停摆'},
+      {k:'C', t:'只做 #291，跳过 #292', good:'设备互踢问题解决', bad:'面板精简的诉求不落地'}
+    ],
+    rec:'A',
+    why:'推荐 A：#291 是你说过两次的痛点（频繁踢设备下线），风险低；#292 只在显示层做「默认当前时段＋localStorage＋一键显示全部」，不动 DOM 结构，随时可回退。'
+  },
+  {
+    id:'D8',
+    title:'paper 修复的线上残留（未验证假设）',
+    facts:[
+      '线上 paper.json 是否有乱码<b>未直接核实</b>（/api/paper 需编辑器身份，口令查不到）。',
+      '副本已修复并通过对账；新代码在线上启动时会自动回填并落盘。'
+    ],
+    opt:[
+      {k:'A', t:'随发布自动修复，发布后我核实', good:'不用你操作；修复逻辑已在副本端到端验证', bad:'发布后才知道线上是否真修好；若线上还有「出/入」以外的损坏形态，仍会红着等人工'},
+      {k:'B', t:'发布前先拿编辑器身份核实线上', good:'提前知道线上账本状态', bad:'要扫码或给设备令牌；副本已证，核实价值有限'},
+      {k:'C', t:'不管（等出问题再说）', good:'零成本', bad:'可能又看到「账目对不上」红字'}
+    ],
+    rec:'A',
+    why:'推荐 A：修复是自动的（启动回填），发布后我用新代码路径核实线上即可，不需要你提前准备令牌。'
+  },
+  {
+    id:'D9',
+    title:'聚合头缺一句「样本来源」声明',
+    facts:['聚合头的比率来自「每日 9:25 强势池」（每天几十只），<b>不是全市场基线</b>。现在面板只写了窗口和样本数，没写样本来源。'],
+    opt:[
+      {k:'A', t:'加一行声明（1 行文案＋1 条守门断言）', good:'避免把「强势池命中率」误读成「全市场竞价命中率」；与「每个数字可信」一致', bad:'聚合头再多一行字'},
+      {k:'B', t:'不加', good:'版面干净', bad:'口径容易被误读放大'}
+    ],
+    rec:'A',
+    why:'推荐 A：一行字的事，但直接决定数字被怎么理解。'
+  }
+];
+
+const KEY = 'qd_blind_dec_20261017';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e) { state = {}; }
+if (!state.pick) state.pick = {};
+if (typeof state.note !== 'string') state.note = '';
+if (!state.notes) state.notes = {};
+
+const cards = document.getElementById('cards');
+D.forEach(d => {
+  const cur = state.pick[d.id] || d.rec;
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.id = d.id;
+  el.innerHTML =
+    '<div class="chd"><span class="cid">' + d.id + '</span><span class="ct">' + d.title + '</span>' +
+      '<span class="tag rec">推荐 ' + d.rec + '</span><span class="tag mod" style="display:none">已改</span>' +
+    '</div>' +
+    '<ul class="facts">' + d.facts.map(f => '<li>' + f + '</li>').join('') + '</ul>' +
+    '<select class="opt">' + d.opt.map(o => '<option value="' + o.k + '">' + o.k + ' · ' + o.t + '</option>').join('') + '</select>' +
+    '<table class="opts"><thead><tr><th style="width:56px">选项</th><th>做法</th><th>好处</th><th>坏处 / 风险</th></tr></thead><tbody>' +
+      d.opt.map(o => '<tr><td class="k">' + o.k + '</td><td>' + o.t + '</td><td class="good">' + o.good + '</td><td class="bad">' + o.bad + '</td></tr>').join('') +
+    '</tbody></table>' +
+    '<div class="why">我的推荐理由：' + d.why + '</div>' +
+    '<textarea class="note" placeholder="这一项备注（可选）"></textarea>';
+  cards.appendChild(el);
+  const sel = el.querySelector('select');
+  sel.value = cur;
+  const note = el.querySelector('.note');
+  note.value = state.notes[d.id] || '';
+  const refresh = () => {
+    const changed = sel.value !== d.rec;
+    el.classList.toggle('changed', changed);
+    el.querySelector('.tag.mod').style.display = changed ? '' : 'none';
+    state.pick[d.id] = sel.value;
+    state.notes[d.id] = note.value;
+    save();
+  };
+  sel.onchange = refresh;
+  note.oninput = refresh;
+  refresh();
+});
+
+function save() {
+  state.note = document.getElementById('freeNote').value;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+}
+document.getElementById('freeNote').value = state.note || '';
+document.getElementById('freeNote').oninput = save;
+
+document.getElementById('reset').onclick = () => {
+  if (!confirm('把所有选项恢复成推荐值？备注会保留。')) return;
+  state.pick = {};
+  D.forEach(d => { state.pick[d.id] = d.rec; });
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {}
+  location.reload();
+};
+
+document.getElementById('gen').onclick = () => {
+  save();
+  const lines = ['【2026-10-17 盲点决策回发】'];
+  let changed = 0;
+  D.forEach(d => {
+    const v = state.pick[d.id] || d.rec;
+    const mark = v === d.rec ? '' : '（改）';
+    if (v !== d.rec) changed++;
+    const nt = (state.notes[d.id] || '').trim();
+    lines.push(d.id + '=' + v + mark + (nt ? '｜备注：' + nt : ''));
+  });
+  lines.push('——');
+  lines.push(changed ? ('共 ' + changed + ' 项改动，其余按推荐。') : '全部按推荐。');
+  const free = (document.getElementById('freeNote').value || '').trim();
+  if (free) lines.push('补充：' + free);
+  document.getElementById('out').value = lines.join('\n');
+};
+
+document.getElementById('copy').onclick = async () => {
+  const out = document.getElementById('out');
+  if (!out.value) { document.getElementById('gen').click(); }
+  try { await navigator.clipboard.writeText(out.value); document.getElementById('copy').textContent = '已复制'; setTimeout(() => document.getElementById('copy').textContent = '复制文案', 1500); }
+  catch(e) { out.select(); document.execCommand('copy'); }
+};
+</script>
+</body>
+</html>

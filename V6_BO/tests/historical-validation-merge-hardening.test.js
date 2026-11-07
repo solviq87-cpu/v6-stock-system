@@ -1,0 +1,10 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {validateDataset}=require('../src/core/historical-validation');
+const bars=()=>Array.from({length:32},(_,i)=>({open:10,high:11,low:9,close:10,volume:1000,date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10)}));
+const dataset=()=>({source:'imported',asOf:'2026-02-01',stocks:[{symbol:'600000',code:'600000',bars:bars()}]});
+test('consistent symbol and code accepted',()=>assert.equal(validateDataset(dataset()).stocks,1));
+test('conflicting symbol and code rejected',()=>{const d=dataset();d.stocks[0].code='000001';assert.throws(()=>validateDataset(d),/symbol 与 code 不一致/);});
+test('fractional or unsafe volume rejected',()=>{for(const value of [0.5,Number.MAX_SAFE_INTEGER+1]){const d=dataset();d.stocks[0].bars[0].volume=value;assert.throws(()=>validateDataset(d),/OHLCV无效/);}});
+test('invalid optional turnover amount rejected',()=>{for(const value of [-1,Infinity,'100']){const d=dataset();d.stocks[0].bars[0].amount=value;assert.throws(()=>validateDataset(d),/OHLCV无效/);}});

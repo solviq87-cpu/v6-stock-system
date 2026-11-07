@@ -1,0 +1,14 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261105-18-MARKET-BREADTH",
+  "base": "V6_Unified_Provider_Identity_20261105.zip",
+  "changed": [
+    "v6_release/src/core/market-breadth.js",
+    "v6_release/tests/market-breadth-observed.test.js"
+  ],
+  "tests": {
+    "passed": 145,
+    "failed": 0,
+    "test_files": 44
+  },
+  "status": "independent research module; not yet wired to live market feed"
+}

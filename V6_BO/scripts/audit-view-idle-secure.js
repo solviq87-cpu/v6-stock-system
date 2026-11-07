@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const sv=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const ui=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+const extract=name=>{
+ const at=sv.indexOf('function '+name+'(');assert.ok(at>=0,name+' exists');
+ let level=0,start=sv.indexOf('{',at);for(let i=start;i<sv.length;i++){
+  if(sv[i]==='{')level++;if(sv[i]==='}'&&!--level)return sv.slice(at,i+1);
+ }throw Error('unclosed '+name);
+};
+const viewIdleKeys=new Function(extract('viewIdleKeys')+';return viewIdleKeys;')();
+const H=3600000,now=Date.UTC(2026,10,5,12);
+const devs={recent:{ts:now-23*H},boundary:{ts:now-24*H},old:{ts:now-25*H},unknown:{}};
+assert.deepEqual(viewIdleKeys(devs,now,24*H).sort(),['boundary','old']);
+assert.deepEqual(viewIdleKeys(devs,now+H,24*H).sort(),['boundary','old','recent']);
+assert.match(extract('expireIdleViewDevices'),/revokeViewSessionsForDevices\(keys\)/);
+assert.match(extract('revokeViewSessionsForDevices'),/_vtokens\.delete\(token\)/);
+assert.match(sv,/setTimeout\(runViewIdleSweep, 60000\)/);
+assert.match(sv,/setInterval\(guard\('view-idle', runViewIdleSweep\), 30 \* 60 \* 1000\)/);
+assert.match(ui,/async function renderViewPwdState\(/);
+assert.match(ui,/async function setViewPwd\(/);
+assert.match(ui,/GATE\.hasViewPassword && !\(await uiConfirm\(/);
+assert.match(ui,/安全起见不显示原密码/);
+assert.match(html,/id="viewPwd"/);
+const a=sv.match(/const APP_VER = '([^']+)'/),b=ui.match(/const APP_VER = '([^']+)'/);
+assert.ok(a&&b);assert.equal(a[1],b[1]);
+console.log('PASS secure idle/device revocation/password visibility/version audit');

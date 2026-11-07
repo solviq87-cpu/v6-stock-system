@@ -1,0 +1,18 @@
+{
+  "checkpoint": "V6-UNIFIED-20261105-30-LIVE-CANDIDATE-WORKBENCH",
+  "baseline": "V6_Unified_Live_Candidate_Bridge_20261105.zip",
+  "tests": 190,
+  "passed": 190,
+  "failed": 0,
+  "changes": [
+    "live-market research UI",
+    "candidate intersection table",
+    "coverage and regime status",
+    "safe HTML rendering"
+  ],
+  "pending": [
+    "public live-feed validation",
+    "mobile device acceptance",
+    "full production deployment"
+  ]
+}

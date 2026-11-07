@@ -1,0 +1,38 @@
+/* V6 reference UI: desktop quant terminal + mobile trading companion.
+   Visual layer only: existing data IDs, APIs, roles and strategy rules remain unchanged. */
+:root{color-scheme:dark;--v6-bg:#06101f;--v6-panel:#0b1b31;--v6-panel2:#102440;--v6-line:#1d4169;--v6-blue:#168cff;--v6-cyan:#49d7ff;--v6-text:#e8f2ff;--v6-muted:#91a9c8;--v6-red:#ff5368;--v6-green:#19d58a;--v6-gold:#f4bd42}
+html,body{background:radial-gradient(ellipse at 55% -20%,#173a68 0,transparent 48%),linear-gradient(145deg,#050d1a,#08172a 60%,#071326)!important;color:var(--v6-text)!important}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif!important}
+.wrap{max-width:none!important;width:100%;padding:12px 18px 28px 218px!important}
+.v6-design-nav{position:sticky;top:0;z-index:80;margin:-12px -18px 14px -218px!important;padding:9px 18px 9px 22px!important;min-height:66px;border:0!important;border-bottom:1px solid #24466d!important;border-radius:0!important;background:rgba(5,15,30,.96)!important;backdrop-filter:blur(18px);box-shadow:0 8px 28px #0006}
+.v6-design-nav:before{content:"📈 V6 量化看盘系统";font-size:21px;font-weight:900;letter-spacing:.04em;color:#f1f7ff;margin-right:22px;white-space:nowrap}
+.v6-design-nav a{font-size:14px;padding:10px 13px!important;color:#c8dcf5!important;border-radius:9px!important}
+.v6-design-nav a[aria-current=page],.v6-design-nav a:hover{background:linear-gradient(130deg,#1254a6,#087bd4)!important;border:1px solid #49a9ff!important;box-shadow:0 0 18px #168cff55}
+.v6-design-note{font-size:11px!important;color:#8da9ca!important}
+.v6-quick-nav{position:fixed;z-index:70;left:0;top:66px;bottom:0;width:202px;overflow:auto;display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:18px 12px 22px;background:linear-gradient(180deg,#091a30,#071326);border-right:1px solid #1c4169;box-shadow:8px 0 30px #0003}
+.v6-quick-nav .v6-nav-label{font-size:11px;letter-spacing:.12em;color:#6487b2;padding:4px 10px 10px}
+.v6-quick-nav a{display:block;padding:11px 12px;border:1px solid transparent;border-radius:9px;color:#c3d7f1;text-decoration:none;font-size:13px;white-space:nowrap}
+.v6-quick-nav a:hover,.v6-quick-nav a:focus-visible{background:#10345d;border-color:#247bc4;color:#fff;box-shadow:0 0 16px #168cff35}
+.v6-quick-nav .v6-nav-primary{background:#0d2b4e;border-color:#205c91;color:#7dd7ff;font-weight:750}
+.v6-skip-link{left:8px;top:8px}
+header{position:relative!important;top:auto!important;display:flex;gap:9px!important;padding:12px 16px!important;border:1px solid #24466d!important;border-radius:13px!important;background:linear-gradient(110deg,#0d2039,#0a172a)!important;box-shadow:0 8px 28px #0005!important}
+header h1{font-size:22px!important;color:#f1f7ff!important}
+.card,.v6-ui-health{background:linear-gradient(145deg,rgba(16,39,67,.98),rgba(8,23,42,.98))!important;border:1px solid #234a74!important;border-radius:13px!important;box-shadow:0 7px 24px #0004,inset 0 1px #ffffff0a!important;color:#e8f2ff!important}
+.card h2{color:#eaf5ff!important;border-bottom:1px solid #1c3b5d;padding-bottom:8px}
+.card h2 small,.muted{color:#92a9c7!important}
+.sec{color:#76c9ff!important;border-color:#168cff!important;text-shadow:0 0 14px #168cff55}
+.badge{background:#173252!important;color:#c9e4ff!important;border:1px solid #28547e}
+.badge.ok{background:#0b3b34!important;color:#52e7ad!important}.badge.on{background:#492333!important;color:#ff8194!important}
+button,.btn,.fbtn{background:linear-gradient(135deg,#164b82,#10345d)!important;border:1px solid #367bb6!important;color:#e7f5ff!important;box-shadow:0 2px 10px #0002}
+button:hover,.btn:hover,.fbtn:hover{background:linear-gradient(135deg,#1769b5,#124678)!important}
+input,select,textarea{background:#07172b!important;color:#e9f5ff!important;border:1px solid #31577e!important}
+table{color:#deebfb}th{color:#91b6dc!important;border-color:#244568!important}td{border-color:#1c3552!important}tr:hover td{background:#123052!important}
+.tag{background:#14375b!important;color:#91d9ff!important}.score.s-h,.s-h{background:#70263a!important;color:#ffb4c0!important}.score.s-m,.s-m{background:#624719!important;color:#ffda83!important}.score.s-l,.s-l{background:#1c3855!important;color:#b5cbe4!important}
+.rvc,.hcard,.hgrp{background:#0d2038!important;border-color:#25496e!important;color:#e8f2ff!important}.hgrp-h{background:#122c4a!important;color:#e7f2ff!important}
+.sig{background:#102a48!important;color:#d9ecff!important}.sig.zt{background:#3b1d32!important}
+.v6-research-entry{background:#0d2948!important;border-color:#2875b4!important;color:#9cdeff!important}
+#hdrTools,#panelPicker,#lockPanel{background:#0b1c31!important;border-color:#28496d!important;color:#e8f2ff!important}
+#klWrap{background:#020914dd!important}#klPanel{background:#091a2d!important;color:#e8f2ff!important;border-color:#2a4d73!important}
+@media(max-width:900px){.wrap{padding:10px 12px 26px!important}.v6-design-nav{margin:-10px -12px 12px!important;overflow-x:auto;flex-wrap:nowrap}.v6-design-nav:before{font-size:17px;margin-right:8px}.v6-quick-nav{display:none}.v6-design-note{display:none}}
+@media(min-width:901px){.grid.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.g3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

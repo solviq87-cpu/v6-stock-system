@@ -1,0 +1,528 @@
+{
+  "inputs": [
+    {
+      "name": "V6_%E5%A4%A7%E5%B7%A5%E7%A8%8B_%E5%9B%9E%E6%94%BE%E9%A3%8E%E9%99%A9%E4%B8%8E%E8%B4%A6%E5%8A%A1%E8%AF%81%E6%8D%AE%E8%9E%8D%E5%90%88_12%E9%A1%B9%E9%AA%8C%E8%AF%81_20261105.zip",
+      "sha256": "9726a901f044ef209189153b5232b91763fb9f3a09fcd819e42b85a5665f6c4b"
+    },
+    {
+      "name": "V6_%E7%BB%9F%E4%B8%80%E5%A4%A7%E5%B7%A5%E7%A8%8B_%E5%AE%89%E5%85%A8%E5%A2%9E%E9%87%8F%E5%90%88%E5%B9%B6_%E5%BE%85%E5%86%B2%E7%AA%81%E9%AA%8C%E8%AF%81_20261105.zip",
+      "sha256": "0f6e704cc6cca2499bdb16de5021ec8a73af52d66307c3d63ed67b76ef6cde63"
+    },
+    {
+      "name": "V6_%E7%BB%9F%E4%B8%80%E5%B7%A5%E7%A8%8B_%E4%B8%BB%E6%9C%8D%E5%8A%A1%E8%B4%A6%E5%8A%A1%E4%BA%8B%E4%BB%B6%E5%8F%AA%E8%AF%BB%E5%85%A5%E5%8F%A3_36%E9%A1%B9%E6%B5%8B%E8%AF%95%E9%80%9A%E8%BF%87_20261105.zip",
+      "sha256": "d60c122660bebd2565fde1fc6e002cd0515da24352513c77044c054348374733"
+    },
+    {
+      "name": "V6_%E7%BB%9F%E4%B8%80%E5%B7%A5%E7%A8%8B_%E6%9D%83%E5%A8%81%E8%B4%A6%E6%88%B7%E5%86%99%E5%85%A5%E5%9B%9E%E6%BB%9A%E4%BF%9D%E6%8A%A4_23%E9%A1%B9%E4%B8%93%E9%A1%B9%E9%80%9A%E8%BF%87_20261105.zip",
+      "sha256": "9614cdb5714953ed6ca8a14b84e5c614bf4a4433acd2bbf3e81a89a807c3ca1a"
+    }
+  ],
+  "base": "V6_统一主线_双端UI与权威账户联动_571项通过_完整工程_20261105.zip",
+  "changes": [
+    {
+      "path": "MERGE_MANIFEST_20261105.json",
+      "status": "added",
+      "sha256": "3616b9ea0f4e8ff33d2723ff81131988bc6533c4aee9979d657294ef4b16cb9c"
+    },
+    {
+      "path": "MERGE_README_20261105.md",
+      "status": "added",
+      "sha256": "c76db4b98c19fefffd754a1759869e09dfe23683df3096455129b57f14332f97"
+    },
+    {
+      "path": "PAPER_ORDER_LIFECYCLE_20261105.md",
+      "status": "added",
+      "sha256": "914fcbfe431faa9b15f4a3b8be65d39ebd012acc5e757c1e2c19787473bc4631"
+    },
+    {
+      "path": "RECONCILIATION_HARDENING_20261105.md",
+      "status": "added",
+      "sha256": "973e03992a88e8269a5ba571cb2cf89131b29093ad486d4ccf8bef4eb33d763c"
+    },
+    {
+      "path": "V6_回放账务一致性联动_开发记录_20261105.md",
+      "status": "added",
+      "sha256": "5ca9db56313718ee2224a0bdb8a7fac1d3dbd6780f07251d25b56bf7f58a50e3"
+    },
+    {
+      "path": "V6_模拟盘三方账务只读对账_本轮报告_20261105.md",
+      "status": "added",
+      "sha256": "15bc3f588d04d69c141675b984ed1e5604d686530e76686ec5fbb300ce1b899a"
+    },
+    {
+      "path": "V6_模拟盘三方账务只读对账加固开发报告_20261105.md",
+      "status": "added",
+      "sha256": "3bbdc31350d8f9d7c09b6e7f0a95c4d036d991aba663804df716626d78b20071"
+    },
+    {
+      "path": "V6_模拟盘回放订单证据追溯开发报告_20261105.md",
+      "status": "added",
+      "sha256": "eee893dd3ac380e900bcff2b0f85aa2a374481cc869b7b280d0569448d2af4fa"
+    },
+    {
+      "path": "V6_模拟盘回放证据图完整性审计开发报告_20261105.md",
+      "status": "added",
+      "sha256": "6678afbc88ce6fa329dd86d40f534cd4843bd654d289e82456f1b325692abf51"
+    },
+    {
+      "path": "V6_模拟盘影子对账自动审计开发报告_20261105.md",
+      "status": "added",
+      "sha256": "d8d4302add7c12e17a518dd17e6cfe211a776ffa4d568d0d63b4124fe73c715e"
+    },
+    {
+      "path": "docs/V6_历史数据校验融合与测试报告_20261105.md",
+      "status": "added",
+      "sha256": "ee499b0f1f564aba6a70b69e8aeeeeb97c446eeb546acceb025c8e404bfc22e7"
+    },
+    {
+      "path": "docs/V6_历史行情质量门禁与回测联动报告_20261105.md",
+      "status": "added",
+      "sha256": "f479ad3f2e1da5b856e627f0fce78a8189e0d3a1079738e2f3ea8a76ea4d07e4"
+    },
+    {
+      "path": "docs/V6_合并修改与测试报告_20261105.md",
+      "status": "added",
+      "sha256": "a09202d1c295bb971f542eb415a859a6068763a1ae562db5a4c3019f9f57de17"
+    },
+    {
+      "path": "docs/V6_合并后续开发任务大纲_20261105.md",
+      "status": "added",
+      "sha256": "13e5740de4cdcf97c4cb0b0175117ef0b19d714017294c052e274d5eb7a1b663"
+    },
+    {
+      "path": "docs/V6_本轮订单生命周期修复_20261105.md",
+      "status": "added",
+      "sha256": "aee97594424afff89b905859147320cffd78fe39a132c164faddd31661030f6c"
+    },
+    {
+      "path": "docs/V6_模拟盘生命周期本轮修复_20261105.md",
+      "status": "added",
+      "sha256": "f30e4e3bcc2717c2260b6d238cfc818cec59325469b2202ca0914c8893daba5b"
+    },
+    {
+      "path": "docs/V6_模拟盘账务时间戳严格校验续批报告_20261105.md",
+      "status": "added",
+      "sha256": "e7703461c26395ed137661b0bbdf20eba17fb4df37f3396db354c89f7a661bee"
+    },
+    {
+      "path": "docs/V6_灾备恢复原子发布与持久化加固报告_20261105.md",
+      "status": "added",
+      "sha256": "6a8aa9e0e5f857aedd787ef4d2e53f26d3bac717a5f11cdb383ea2e9340f35b4"
+    },
+    {
+      "path": "docs/V6_策略统一行情严格门禁报告_20261105.md",
+      "status": "added",
+      "sha256": "044985538e9f81fd96c13dd446ed0c6d7d9d8e59af435c50d8e8aee6dac9ea41"
+    },
+    {
+      "path": "docs/V6_行情历史数据质量门禁加固报告_20261105.md",
+      "status": "added",
+      "sha256": "f0f9402e11eed7641a69f1ae3345e18a57cc2da1e128b951255e769340169494"
+    },
+    {
+      "path": "docs/V6_行情跨数据源连续性审计开发报告_20261105.md",
+      "status": "added",
+      "sha256": "57e73ee2b304e7f857904d2341aa96c8a680e4c340a0938d787f325d901b37f7"
+    },
+    {
+      "path": "docs/merge-decisions.json",
+      "status": "added",
+      "sha256": "56f5b2d679636f66f8207aa50c599a8ceef48468e7920ce9af91e89cc01c793d"
+    },
+    {
+      "path": "docs/merge-full-regression.tap",
+      "status": "added",
+      "sha256": "39c92c2dcc6a52a6fdd635b5c10383bd4716284779553b88d754cc28a5fe1038"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/MERGE_PROGRESS_20261105.json",
+      "status": "added",
+      "sha256": "d6d028ba1297cd1b143513431105fad1398cb28484b107b3240098bfbd545b3a"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/MERGE_REPORT.json",
+      "status": "added",
+      "sha256": "fdf7ea739a260d774a3b0891b86e26732f653c7be1ea4276c0c775d711487b07"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/docs/V6_后续开发任务大纲.md",
+      "status": "added",
+      "sha256": "0ee34a7e67a2eb59433c4b1a2bc4c2e26b33d556486105df4f97aa51eae76575"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/docs/V6_唯一统一总任务大纲.md",
+      "status": "added",
+      "sha256": "8f330e7595467d9009112ee82ac1513163f4008f0da49402300fcbdbb74b5a0c"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/docs/V6_本轮恢复检查点_20261105.json",
+      "status": "added",
+      "sha256": "0fa9b0df85bf6dfc406a4f6e6ce6d1afef08328f1ed8f19bc715ed1db97b87af"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/filename-map.json",
+      "status": "added",
+      "sha256": "b6a78a7da2bf62633c22a711ac8bf164dc06c1b89462986ffc83cbc7fffb83c5"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/filename_variants/6585a78cc1646cf1e946.md",
+      "status": "added",
+      "sha256": "1c1b314aba5e344099dce91cd71c6b87cdf214f083099ea44ec954a5960faa23"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/filename_variants/85d75edb7b3a8fa08e12.md",
+      "status": "added",
+      "sha256": "7a7e7cc4460cccde88934247171b9942b418a6e2e08087179d879a8fa7dc2030"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/filename_variants/8933567c93d3f13cb411.md",
+      "status": "added",
+      "sha256": "a1fb72a4a2837e7ecdb31dc89989b91f93fdb04e7b523dac61c52aee812418ab"
+    },
+    {
+      "path": "docs/merge-source-reports/p0/filename_variants/d54619786d8be36fb943.json",
+      "status": "added",
+      "sha256": "d86865995e458e12f953ac0cf93b9dc8f9438b34881a56201d164e638a7176c4"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/MERGE_REPORT.json",
+      "status": "added",
+      "sha256": "fdf7ea739a260d774a3b0891b86e26732f653c7be1ea4276c0c775d711487b07"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/docs/V6_后续开发任务大纲.md",
+      "status": "added",
+      "sha256": "0ee34a7e67a2eb59433c4b1a2bc4c2e26b33d556486105df4f97aa51eae76575"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/docs/V6_唯一统一总任务大纲.md",
+      "status": "added",
+      "sha256": "8f330e7595467d9009112ee82ac1513163f4008f0da49402300fcbdbb74b5a0c"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/docs/V6_本轮恢复检查点_20261105.json",
+      "status": "added",
+      "sha256": "0fa9b0df85bf6dfc406a4f6e6ce6d1afef08328f1ed8f19bc715ed1db97b87af"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/filename-map.json",
+      "status": "added",
+      "sha256": "2af126b319798b6a4e83fb273a859fac86e547289963bc48f4f6683ec12bcae5"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/filename_variants/6585a78cc1646cf1e946.md",
+      "status": "added",
+      "sha256": "1c1b314aba5e344099dce91cd71c6b87cdf214f083099ea44ec954a5960faa23"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/filename_variants/85d75edb7b3a8fa08e12.md",
+      "status": "added",
+      "sha256": "7a7e7cc4460cccde88934247171b9942b418a6e2e08087179d879a8fa7dc2030"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/filename_variants/8933567c93d3f13cb411.md",
+      "status": "added",
+      "sha256": "a1fb72a4a2837e7ecdb31dc89989b91f93fdb04e7b523dac61c52aee812418ab"
+    },
+    {
+      "path": "docs/merge-source-reports/p1/filename_variants/d54619786d8be36fb943.json",
+      "status": "added",
+      "sha256": "d86865995e458e12f953ac0cf93b9dc8f9438b34881a56201d164e638a7176c4"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/MERGE_38_PROGRESS.json",
+      "status": "added",
+      "sha256": "e31bf056c92c41177702ecd7c5a21c9f9493ea67e2860db96fb5eb5527727784"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/MERGE_REPORT_CURRENT.md",
+      "status": "added",
+      "sha256": "9adda9737bee6e368bc2fd7700d2e9a6a5131390ebbc151ff407ace66a5cdaf6"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/UNIFIED_LEDGER_STAGE_REPORT.md",
+      "status": "added",
+      "sha256": "12b4752dbbb33b04612de11c20a9fc30bf2bf56ab604a631a2c82ead8193f439"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/docs/V6_后续开发任务大纲.md",
+      "status": "added",
+      "sha256": "0ee34a7e67a2eb59433c4b1a2bc4c2e26b33d556486105df4f97aa51eae76575"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/docs/V6_唯一统一总任务大纲.md",
+      "status": "added",
+      "sha256": "8f330e7595467d9009112ee82ac1513163f4008f0da49402300fcbdbb74b5a0c"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/docs/V6_本轮恢复检查点_20261105.json",
+      "status": "added",
+      "sha256": "0fa9b0df85bf6dfc406a4f6e6ce6d1afef08328f1ed8f19bc715ed1db97b87af"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/filename-map.json",
+      "status": "added",
+      "sha256": "c532f18032bb12392db622222752a98d6ea289e86b5fc61c3a77749df09fe46c"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/filename_variants/6585a78cc1646cf1e946.md",
+      "status": "added",
+      "sha256": "1c1b314aba5e344099dce91cd71c6b87cdf214f083099ea44ec954a5960faa23"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/filename_variants/85d75edb7b3a8fa08e12.md",
+      "status": "added",
+      "sha256": "7a7e7cc4460cccde88934247171b9942b418a6e2e08087179d879a8fa7dc2030"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/filename_variants/8933567c93d3f13cb411.md",
+      "status": "added",
+      "sha256": "a1fb72a4a2837e7ecdb31dc89989b91f93fdb04e7b523dac61c52aee812418ab"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/filename_variants/d54619786d8be36fb943.json",
+      "status": "added",
+      "sha256": "d86865995e458e12f953ac0cf93b9dc8f9438b34881a56201d164e638a7176c4"
+    },
+    {
+      "path": "docs/merge-source-reports/p2/unified_tests.log",
+      "status": "added",
+      "sha256": "92eac39cf33731c5f1455c5fe46673a72fdc7ba33d3da7ba04927d6ed780765d"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/AUTHORITY_MIGRATION_STATUS.md",
+      "status": "added",
+      "sha256": "a4d7d996ea06d6c8f576ae021b330e0aeda6d11f7f82a7fb0c3c79e57adcea21"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/MERGE_REPORT_CURRENT.md",
+      "status": "added",
+      "sha256": "9adda9737bee6e368bc2fd7700d2e9a6a5131390ebbc151ff407ace66a5cdaf6"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/authority_test.log",
+      "status": "added",
+      "sha256": "54cb3dbc79a2c8612e7bc3f2d7ead26049ce7428c607c34cf3ce37f1cd684e77"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/docs/V6_后续开发任务大纲.md",
+      "status": "added",
+      "sha256": "0ee34a7e67a2eb59433c4b1a2bc4c2e26b33d556486105df4f97aa51eae76575"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/docs/V6_唯一统一总任务大纲.md",
+      "status": "added",
+      "sha256": "8f330e7595467d9009112ee82ac1513163f4008f0da49402300fcbdbb74b5a0c"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/docs/V6_本轮恢复检查点_20261105.json",
+      "status": "added",
+      "sha256": "0fa9b0df85bf6dfc406a4f6e6ce6d1afef08328f1ed8f19bc715ed1db97b87af"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/filename-map.json",
+      "status": "added",
+      "sha256": "9b35fe82176a115ee2395ff00f9f4841fdb6c569f4685294c6e33e27e95c3f84"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/filename_variants/6585a78cc1646cf1e946.md",
+      "status": "added",
+      "sha256": "1c1b314aba5e344099dce91cd71c6b87cdf214f083099ea44ec954a5960faa23"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/filename_variants/85d75edb7b3a8fa08e12.md",
+      "status": "added",
+      "sha256": "7a7e7cc4460cccde88934247171b9942b418a6e2e08087179d879a8fa7dc2030"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/filename_variants/8933567c93d3f13cb411.md",
+      "status": "added",
+      "sha256": "a1fb72a4a2837e7ecdb31dc89989b91f93fdb04e7b523dac61c52aee812418ab"
+    },
+    {
+      "path": "docs/merge-source-reports/p3/filename_variants/d54619786d8be36fb943.json",
+      "status": "added",
+      "sha256": "d86865995e458e12f953ac0cf93b9dc8f9438b34881a56201d164e638a7176c4"
+    },
+    {
+      "path": "docs_V6_策略信号证据链开发报告_20261105.md",
+      "status": "added",
+      "sha256": "55831a22fb6e38e0877c3dcbb0ffb8048afd9387b4adebfd7e22ad2568b847fe"
+    },
+    {
+      "path": "public/assets/app.js",
+      "status": "modified",
+      "sha256": "6b774cd1aee3620e4dbe6a4eb6093b7eba7dc01a542e15414de50cfc55b2104e"
+    },
+    {
+      "path": "public/index.html",
+      "status": "modified",
+      "sha256": "8b08cc6ec1c7364e688fec92bc0ac813599a182b99d50dc915e69becd778cd76"
+    },
+    {
+      "path": "public/mobile.html",
+      "status": "modified",
+      "sha256": "fbeb82ae0f8dec38264ec9645a8dfd1984bdd95dbd7b2a24da55de269f8d27d6"
+    },
+    {
+      "path": "public/sw.js",
+      "status": "modified",
+      "sha256": "c6b663929b88f72416d3312095986fa286f3a93eb0b94a824e16e346de56ee5e"
+    },
+    {
+      "path": "scripts/disaster-recovery.js",
+      "status": "modified",
+      "sha256": "d3eb369a72593aa7798294c8f7addeeda40886c02a86c3895ecc637b66bb9ced"
+    },
+    {
+      "path": "server.js",
+      "status": "modified",
+      "sha256": "8c704bb62032cde7560adbab3b570e2c6df2bdd6ab0eec3c88da9c8567f1e801"
+    },
+    {
+      "path": "src/core/historical-validation.js",
+      "status": "modified",
+      "sha256": "aa16c2badefd4ba5f89a5838bcf2d2a68b11b4fc55306c44ec35c7acb4555784"
+    },
+    {
+      "path": "src/core/kline-source-continuity.js",
+      "status": "added",
+      "sha256": "56a14994ab2d06c131f1fd9f463b8b700e3361bee29016cf732b70af2e91859c"
+    },
+    {
+      "path": "src/core/paper-account-reconciliation.js",
+      "status": "added",
+      "sha256": "e6bd561023ce2637b4776e50d2aefb8a17d5a410b57669955c98a4fde2495f95"
+    },
+    {
+      "path": "src/core/paper-durable-order-service.js",
+      "status": "added",
+      "sha256": "5b6895260cc31c9096efc3c961f92aa9562138d040a17a23032872f16309625b"
+    },
+    {
+      "path": "src/core/paper-order-lifecycle.js",
+      "status": "added",
+      "sha256": "d0c09d997f1b35eb19c2b343fa71c25de03d89d40d253920f823139daf904e31"
+    },
+    {
+      "path": "src/core/paper-replay.js",
+      "status": "modified",
+      "sha256": "81c3f079acaf6287c13c2b98ea55a12110131203a21b9d24c51da82acc1b9a9f"
+    },
+    {
+      "path": "src/core/paper-shadow-reconciliation.js",
+      "status": "added",
+      "sha256": "1c5ea018969bc58f26946f50b274aafde1834e8805f118a878d876a8906253de"
+    },
+    {
+      "path": "src/core/paper-unified-view.js",
+      "status": "added",
+      "sha256": "e7a1854e1524443cda496ccf9854d125ec5495b4a6d5da5b38934be3251926f0"
+    },
+    {
+      "path": "src/core/signal-evidence-chain.js",
+      "status": "added",
+      "sha256": "a320204ccd5c5d1d22bfd7d85cf6754650e68225a00757616e5ca91b0d1d77c6"
+    },
+    {
+      "path": "src/strategy/feed-quality.js",
+      "status": "modified",
+      "sha256": "566257c5a2931acca5d57fe8bd01ebf4c54045980f6a02da79f6e380d9c1f4ba"
+    },
+    {
+      "path": "src/strategy/position-ledger-backtest.js",
+      "status": "modified",
+      "sha256": "c9a2ed9ecc30e5655d0023ee57ae2db2fe3e945ac979b4b2b517a7209679aeaf"
+    },
+    {
+      "path": "src/strategy/strategy-service.js",
+      "status": "modified",
+      "sha256": "ee3a0193f7de1a79eacc04ee1d2ad2bc6de36f5240790fb75727e185268f3e23"
+    },
+    {
+      "path": "src/strategy/walk-forward-backtest.js",
+      "status": "modified",
+      "sha256": "01fb5b8b4883ee1950574038e0c22e1d341e16fde20bb5cce650d74927afb4fb"
+    },
+    {
+      "path": "tests/backtest-historical-quality-gate.test.js",
+      "status": "added",
+      "sha256": "15f84cd41e7cd6d911df1cc79a7ebaf6213c9d8cc384a990e936ebefe217eece"
+    },
+    {
+      "path": "tests/disaster-recovery.test.js",
+      "status": "modified",
+      "sha256": "a59f1f3f42391fe5f44aa04966ab1a49c6e6078472265f2eeb43d02e2c11991a"
+    },
+    {
+      "path": "tests/factor-feed-integration.test.js",
+      "status": "modified",
+      "sha256": "af4a75ff02e353f08377b92ffa52c01a513d4fe9e0756b7a2e908dfc48c1ee43"
+    },
+    {
+      "path": "tests/historical-validation-merge-hardening.test.js",
+      "status": "added",
+      "sha256": "f4ccd35f8f47eb2875befd8dfe7cfd6f31aa38e821dbe4984f751c49f140e82a"
+    },
+    {
+      "path": "tests/kline-source-continuity.test.js",
+      "status": "added",
+      "sha256": "866a96326fad5d19a2618c20d29de725ff1a7e2cbfa9cb32768a9be2bc6161f5"
+    },
+    {
+      "path": "tests/market-data-quality-gates.test.js",
+      "status": "modified",
+      "sha256": "cdb3292d6bc660622c056e6d096140aa6644cbb32175bb4a33d60d4d9e5835bb"
+    },
+    {
+      "path": "tests/merged-authority-restart.test.js",
+      "status": "added",
+      "sha256": "30e1f1ac062e60a5416c8ed1944811a90d0a298de09c46d9a4d3e09ffe799c4f"
+    },
+    {
+      "path": "tests/merged-replay-provenance.test.js",
+      "status": "added",
+      "sha256": "2d42753b5b7a2f5b9904efcb1e711d16ccba5dab0414452c31badb1d4de5cf31"
+    },
+    {
+      "path": "tests/paper-account-reconciliation.test.js",
+      "status": "added",
+      "sha256": "8f2b98d157fc4138361f9124f199770e3a42b08589ef1de8a9e951e6111753aa"
+    },
+    {
+      "path": "tests/paper-authority-write-rollback.test.js",
+      "status": "added",
+      "sha256": "283980b5261c9b96861d41a157517ef33e04caa5122ba7c26f05782bb7dba619"
+    },
+    {
+      "path": "tests/paper-durable-order-service.test.js",
+      "status": "added",
+      "sha256": "90d3b83d2b16f06ba8f4b06f357514748cf6829118402246e2961dfe84803f41"
+    },
+    {
+      "path": "tests/paper-order-lifecycle.test.js",
+      "status": "added",
+      "sha256": "ad4f17451b761f12fd12c144932e319bf20a837c36aefb756993287647b02ebc"
+    },
+    {
+      "path": "tests/paper-shadow-reconciliation.test.js",
+      "status": "added",
+      "sha256": "df7d3be05666e15ea34d5073d12cf3e90c8155dfe240b12957ab4aaff034df2b"
+    },
+    {
+      "path": "tests/paper-unified-view.test.js",
+      "status": "added",
+      "sha256": "9e84d1a8b7fad0ed816fed9d4405e6b2e54164dc2923461d738057a8f196882d"
+    },
+    {
+      "path": "tests/research-integration.test.js",
+      "status": "modified",
+      "sha256": "d760c17696b935774119c6e04ad41c5ac8372a7de9d32f3f78c682fe95dd704c"
+    },
+    {
+      "path": "tests/signal-evidence-chain.test.js",
+      "status": "added",
+      "sha256": "80d294a2ad897de9c5fb97db479ea7e64e92f5bad87952d5e6c77c5f8066ff20"
+    }
+  ]
+}

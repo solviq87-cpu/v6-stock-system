@@ -1,0 +1,14 @@
+{
+  "name": "量化看盘",
+  "short_name": "看盘",
+  "description": "量化看盘手机速览页：一句话明确结论 + 竞价/涨停/板块/明日计划",
+  "start_url": "/m",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

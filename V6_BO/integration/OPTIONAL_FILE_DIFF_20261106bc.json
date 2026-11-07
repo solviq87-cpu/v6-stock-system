@@ -1,0 +1,36 @@
+{
+  "added": [
+    "requirements-research-sources.txt",
+    "scripts/optional-research-sources.py",
+    "integration/OPTIONAL_BUG_RECORD_20261106bc.md",
+    "integration/optional-targeted.exit",
+    "integration/OPTIONAL_SOURCES_OPERATIONS_20261106bc.md",
+    "integration/optional-final-live-probe.log",
+    "integration/optional-final-full.tap",
+    "integration/optional-live-probe.log",
+    "integration/optional-targeted.tap",
+    "integration/optional-first-clean-failure.tap",
+    "integration/optional-final-full.exit",
+    "integration/public-endpoint-audit-20261106.json",
+    "integration/optional-live-result.json",
+    "integration/optional-final-live-result.json",
+    "integration/sdk-real-probes.json",
+    "integration/optional-full.exit",
+    "integration/optional-full.tap",
+    "tests/optional-research-sources.test.js",
+    "src/core/optional-research-view.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "integration/CHAT_HANDOFF.md",
+    "integration/HANDOFF_NEXT.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js",
+    "src/core/risk-evidence-view.js"
+  ],
+  "deleted": []
+}

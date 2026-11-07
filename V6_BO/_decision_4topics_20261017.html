@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>四议题决策表 · 2026-10-17（竞价复盘 / 设备下线 / 面板精简 / 大单推送）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --line:#e5e8ec; --txt:#212529; --muted:#868e96;
+    --acc:#1971c2; --acc-bg:#e7f5ff; --ok:#2b8a3e; --ok-bg:#ebfbee;
+    --warn:#e8590c; --warn-bg:#fff4e6; --bad:#c92a2a; --bad-bg:#ffe3e3;
+    --rec:#7048e8; --rec-bg:#f3f0ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 120px}
+  header.top{background:linear-gradient(135deg,#1c3d5a,#2b6cb0);color:#fff;border-radius:14px;padding:20px 22px;margin-bottom:16px}
+  header.top h1{margin:0 0 6px;font-size:20px}
+  header.top p{margin:4px 0;opacity:.92;font-size:13px}
+  .badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:600;vertical-align:middle}
+  .b-rec{background:var(--rec-bg);color:var(--rec)}
+  .b-changed{background:var(--warn-bg);color:var(--warn)}
+  .b-def{background:#f1f3f5;color:var(--muted)}
+  .topic{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:18px;overflow:hidden}
+  .topic > .th{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .topic > .th .no{background:var(--acc);color:#fff;border-radius:8px;font-weight:700;padding:2px 10px;font-size:13px}
+  .topic > .th h2{margin:0;font-size:16px;flex:1}
+  .topic > .th .quote{font-size:12px;color:var(--muted);width:100%}
+  .topic > .th .quote b{color:#495057}
+  .body{padding:14px 18px}
+  .evi{background:#f8f9fa;border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+  .evi b{color:#495057}
+  .evi ul{margin:6px 0 2px;padding-left:20px}
+  .evi li{margin:2px 0}
+  .evi .num{font-variant-numeric:tabular-nums;font-weight:600}
+  .evi .good{color:var(--ok)} .evi .bad{color:var(--bad)} .evi .warn{color:var(--warn)}
+  .cause{font-size:13px;margin-bottom:12px;color:#495057}
+  .cause b{color:var(--bad)}
+  .opts{display:grid;gap:10px}
+  .opt{border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .12s,background .12s;position:relative}
+  .opt:hover{border-color:#adb5bd}
+  .opt.sel{border-color:var(--acc);background:var(--acc-bg)}
+  .opt.sel.default{border-color:var(--rec);background:var(--rec-bg)}
+  .opt .tag{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700}
+  .opt h3{margin:0 0 4px;font-size:14px;padding-right:70px}
+  .opt p{margin:0;font-size:13px;color:#495057}
+  .opt input{position:absolute;opacity:0}
+  .note{margin-top:10px}
+  .note label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  .note textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:13px/1.5 inherit;resize:vertical;background:#fffbfb}
+  .note textarea:focus{outline:2px solid var(--acc-bg);border-color:var(--acc)}
+  .global{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:18px}
+  .global h2{margin:0 0 10px;font-size:16px}
+  .global .row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  select{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:13px inherit;background:#fff;color:var(--txt)}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+  .chk input{width:16px;height:16px;accent-color:var(--acc)}
+  footer.bar{position:fixed;left:0;right:0;bottom:0;background:#ffffffee;backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;z-index:10}
+  .btn{border:none;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn.primary{background:var(--acc);color:#fff}
+  .btn.primary:hover{background:#1864ab}
+  .btn.ghost{background:#f1f3f5;color:#495057}
+  .btn.ghost:hover{background:#e9ecef}
+  #saveTip{font-size:12px;color:var(--muted)}
+  #replyBox{display:none;margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+  #replyBox h2{margin:0 0 8px;font-size:15px}
+  #replyText{width:100%;min-height:220px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f8f9fa;resize:vertical}
+  .legend{font-size:12px;color:var(--muted);margin:6px 0 0}
+  .warnbox{background:var(--warn-bg);border:1px solid #ffd8a8;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px;color:#7f4f15}
+  @media (max-width:640px){ .wrap{padding:12px 10px 140px} .topic > .th h2{font-size:15px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>🧭 四议题决策表 <span class="badge" style="background:#ffffff22;color:#fff">阶段一 · 需求对齐</span></h1>
+  <p>议题来自你的原话：「竞价复盘感觉风险大于机会」·「不要频繁踢设备下线」·「面板精简你出个方案」·「大单推送要精准推动，不要一直做无用功」。</p>
+  <p>每项已附<b>数据证据 / 代码实证</b>与 2~3 个改法选项；<b>默认 = 我的推荐项（紫色「推荐」标）</b>。改选项或填备注后，底部一键生成回发文案。</p>
+  <p>⛔ 回表之前不动生产代码；H1（概率分布诊断 #281）代码同样暂缓，已备份待命。</p>
+</header>
+
+<div class="warnbox">
+  ⚠️ 全局纪律不变：⛔ 不放宽 <b>ZT_INFER_PUSH_PROB=55</b> 主闸门；⛔ 不提高推送条数（「提高准确率」≠ 推更多）；⛔ 缺数据跳过绝不冒充；每个改动配守门 + <b>node --check</b> + <b>_runall.js</b> 0 新增红；APP_VER 两处同升。
+</div>
+
+<!-- ═══════════ 议题一 · 竞价复盘 ═══════════ -->
+<section class="topic" id="t1">
+  <div class="th">
+    <span class="no">1</span><h2>竞价复盘：「风险大于机会」怎么改</h2>
+    <span class="badge b-def" id="t1-state">默认推荐</span>
+    <div class="quote">你的原话：<b>「我刚刚看了一下竞价复盘 感觉风险大于机会，你觉得怎么改合适」</b></div>
+  </div>
+  <div class="body">
+    <div class="evi">
+      <b>📊 数据证据</b>（auczt 198 个非 void 样本，本地 stats.json 回验）：
+      <ul>
+        <li>次日<b>盘中最高</b>≥+3%：<span class="num good">39.9%</span> —— 冲高能力不差；</li>
+        <li>次日<b>收盘</b>≥+3%：仅 <span class="num bad">17.7%</span>；收盘中位 <span class="num bad">-1.42%</span>；<b>收跌占比 64.1%</b>；次日涨停仅 7.1%；</li>
+        <li>结论：竞价信号是<b>日内型</b>——「冲高兑现」有戏，「拿着过夜」大概率挨跌。<b>你的观感在持股口径下被数据证实，在冲高口径下并不成立</b>，问题是两个口径被混在一起读。</li>
+      </ul>
+    </div>
+    <div class="cause"><b>根因（UI 侧）</b>：竞价复盘只有逐条 badge（次日涨停✓ / 最高+3%✓ / 收涨 / 收跌），<b>没有聚合统计头</b>——你逐条翻凭感觉，看不到全局；且「最高+3%」与「收涨/收跌」并列，读者自然按「次日持股」理解。</div>
+    <div class="opts">
+      <label class="opt sel default" data-t="1" data-v="A"><input type="radio" name="t1" value="A" checked>
+        <span class="tag badge b-rec">推荐</span>
+        <h3>A · 双口径聚合头 + 定位文案改写（纯前端）</h3>
+        <p>复盘区顶部加聚合统计：<b>日内口径</b>（最高≥3% 率、最高触板率）与<b>持股口径</b>（收盘≥3% 率、收跌占比、中位收益）并列 + 分 prob 档小表；定位改为「日内型信号 · 冲高兑现，非次日持股依据」；条目 badge 拆「高 / 收」双列。/api/auction-log 已返回完整 outcome 字段，<b>零后端改动、零守门风险</b>。</p>
+      </label>
+      <label class="opt" data-t="1" data-v="B"><input type="radio" name="t1" value="B">
+        <h3>B · A + 推送文案同步改口径</h3>
+        <p>在 A 基础上，竞价 / 一进二推送正文也注明两口径历史胜率——让手机端看到真实口径，而不只是面板。（改动面扩大到 5 处推送注入点，需过 _test_auction_frontrun 守门。）</p>
+      </label>
+      <label class="opt" data-t="1" data-v="C"><input type="radio" name="t1" value="C">
+        <h3>C · 只加定位文案，不加统计头</h3>
+        <p>最小改动：只在复盘区加一句「日内型信号·冲高兑现」。「风险大于机会是否成立」仍然不可自查——不推荐。</p>
+      </label>
+    </div>
+    <div class="note"><label>备注（可选）：对选项的补充要求 / 你想要的展示形式</label>
+      <textarea data-n="1" placeholder="例如：聚合头要能按「近20条 / 全部」切换；prob 档表要显示样本数…"></textarea></div>
+  </div>
+</section>
+
+<!-- ═══════════ 议题二 · 设备下线 ═══════════ -->
+<section class="topic" id="t2">
+  <div class="th">
+    <span class="no">2</span><h2>设备「频繁踢下线」根因与改法</h2>
+    <span class="badge b-def" id="t2-state">默认推荐</span>
+    <div class="quote">你的原话：<b>「还有不要频繁踢设备下线」</b></div>
+  </div>
+  <div class="body">
+    <div class="evi">
+      <b>🔍 代码实证</b>（逐条排查了 5 个嫌疑，2 个已排除）：
+      <ul>
+        <li><b>① 同设备重新登录 → 旧令牌当场作废</b>（server.js issueDevice 同 fp 作废旧记录写 revoked + 启动 compactDeviceRegistry 同 fp 去重也写 revoked）：同一浏览器任何一次重登（logout 后重登、被清理后重登、发布后启动去重）都会让<b>其他标签页 / 其他入口</b>手里旧令牌下次请求就失效——<span class="bad">这是「踢设备」最直接的机制</span>。</li>
+        <li><b>② 只读设备 24 交易小时闲置清理</b>（runViewIdleSweep 每 30 分钟）：约 6 个交易日不露面 → 删台账 + 写 revoked + <b>需重新走你审批</b>。这是 10-03 你自己要求的「要再次向开发者申请」，设计没错，但体感就是「又被登出了」。</li>
+        <li><b>③ 改密码 → 世代 bump → 该角色全部令牌作废</b>：设计正确（换密码就该全踢）。</li>
+        <li>④ view 12h / edit 60min 会话令牌 TTL：<span class="good">已排除</span>——unlock/trust 现在都签发长期设备令牌（qd_device 持久化），正常路径不受影响。</li>
+        <li>⑤ 发布覆盖 access.json：<span class="good">已排除</span>——access.json 不进发布包，线上 machineKey 与授权台账每轮回铺。</li>
+      </ul>
+    </div>
+    <div class="opts">
+      <label class="opt sel default" data-t="2" data-v="A"><input type="radio" name="t2" value="A" checked>
+        <span class="tag badge b-rec">推荐</span>
+        <h3>A · 重登不再互踢 + 清理提前量</h3>
+        <p>同 fp 再登录时，旧令牌进 <b>24 小时宽限名单</b>（仍可用、不续期、下次使用时静默换新）→ 多标签 / 多入口不再互相踢；24h 闲置清理<b>保留</b>（安全设计不动），但面板设备卡显示「距自动清理还有 N 个交易日」（viewIdleSoon 数据已有、前端还没用）。</p>
+      </label>
+      <label class="opt" data-t="2" data-v="B"><input type="radio" name="t2" value="B">
+        <h3>B · A + 闲置阈值放宽</h3>
+        <p>在 A 基础上把只读闲置清理从 24 交易小时放宽到更长（如 7 个交易日，面板可配）。<b>仅当你的实际体感是「几天不看就被登出」时选</b>——天天看的人本来就不会被 ② 命中。</p>
+      </label>
+      <label class="opt" data-t="2" data-v="C"><input type="radio" name="t2" value="C">
+        <h3>C · 只加提前量提示</h3>
+        <p>令牌逻辑一行不动，只在设备卡显示清理倒计时。互踢根因未除——不推荐。</p>
+      </label>
+    </div>
+    <div class="note"><label>备注（可选）：你被踢的具体场景（哪台设备 / 什么操作之后 / 大概几天没开）</label>
+      <textarea data-n="2" placeholder="例如：手机看完再开电脑就被登出；发布之后必被登出一次…"></textarea></div>
+  </div>
+</section>
+
+<!-- ═══════════ 议题三 · 面板精简 ═══════════ -->
+<section class="topic" id="t3">
+  <div class="th">
+    <span class="no">3</span><h2>面板精简方案（你点名「你出个方案」）</h2>
+    <span class="badge b-def" id="t3-state">默认推荐</span>
+    <div class="quote">你的原话：<b>「面板精简你出个方案看看怎么改合适」</b></div>
+  </div>
+  <div class="body">
+    <div class="evi">
+      <b>📦 现状盘点</b>（index.html 实测）：<b>9 个 sec / 32 张卡</b>。
+      <ul>
+        <li>首屏「📊 盘面总览」8 卡：市场情绪一行 / 竞价异动(+📊复盘) / 板块资金流 / 一进二 / 连板接力 / 涨停板·板块分类 / 市场主线 / 信号推送记录；</li>
+        <li>「🌏 外围市场·选股核心」10 卡：10国指数 / 外围联动预选 / 外部数据源 / 当日涨停预选 / 趋势票池 / 涨停前形态 / 全市场趋势扫描 / 连续收涨 / 市场温度 / 主力大单；</li>
+        <li>其余：持仓+精选池 / 模拟盘×2 / 消息面×2 / 明日计划 / 十四条 / 复盘学习×4 / 工具×2。</li>
+        <li>手机端已有折叠（ij 轮只留竞价区常显）；<b>历史教训</b>：if 轮 D7 瘦身过一轮，in 轮又被你「面板改的看不习惯，改回原本」回退——⛔ 不能推倒重来。</li>
+      </ul>
+    </div>
+    <div class="opts">
+      <label class="opt sel default" data-t="3" data-v="A"><input type="radio" name="t3" value="A" checked>
+        <span class="tag badge b-rec">推荐</span>
+        <h3>A · 时段药丸切换 + 首屏 4 卡</h3>
+        <p>盘面总览按<b>盯盘时段</b>分三组药丸（早盘竞价 09:15-10:00 / 盘中 10:00-14:00 / 尾盘·明日 14:00 后），默认只显示当前时段相关 4 卡（市场情绪行 + 竞价异动 + 一进二/连板接力 + 推送记录），其余进药丸按需切；显示状态 localStorage 持久化；桌面 / 手机同一套逻辑（替代 ij 轮关键词折叠）。⛔ <b>不删 DOM 只切显示，一键可回退</b>。</p>
+      </label>
+      <label class="opt" data-t="3" data-v="B"><input type="radio" name="t3" value="B">
+        <h3>B · 保守合并（外围区 10 卡 → 3 组）</h3>
+        <p>结构完全不动，只把外围区 10 卡合并成 3 个可展开组（指数与外部数据 / 选股池类 / 温度与大单），盘面总览原样。改动面最小、最稳。</p>
+      </label>
+      <label class="opt" data-t="3" data-v="C"><input type="radio" name="t3" value="C">
+        <h3>C · 先 B 观察一周，再 A</h3>
+        <p>两轮走：先做保守合并让你适应，下一轮再上时段药丸。慢但每一步都可回退。</p>
+      </label>
+    </div>
+    <div class="note"><label>备注（可选）：你希望首屏一定要看到的卡 / 一定不想看到的卡</label>
+      <textarea data-n="3" placeholder="例如：精选池要上首屏；外围10国指数折叠；复盘区放工具里…"></textarea></div>
+  </div>
+</section>
+
+<!-- ═══════════ 议题四 · 大单推送 ═══════════ -->
+<section class="topic" id="t4">
+  <div class="th">
+    <span class="no">4</span><h2>大单推送：怎么才能「精准推动」</h2>
+    <span class="badge b-def" id="t4-state">默认推荐</span>
+    <div class="quote">你的原话：<b>「大单推送问题，你觉得怎么改他才能精准推动，而不是一直在做无用功推送困难」</b></div>
+  </div>
+  <div class="body">
+    <div class="evi">
+      <b>📊 数据证据</b>（stats.json bigmoney 150 样本）：
+      <ul>
+        <li>收≥3% <span class="num">12.0%</span>、收跌 <span class="num bad">59.3%</span>、均收幅 <span class="num bad">-0.65%</span>——与全场选股引擎基线（13.7% / -1.22%）同量级，<b>没有超额</b>；</li>
+        <li><b>prob 无预测力且反噬</b>：prob 90-99 档 收≥3% <span class="num bad">0%</span>、均 <span class="num bad">-2.94%</span>；&lt;55 档（-0.26%）反而优于 ≥55 档（-1.98%）；</li>
+        <li><b>时段分化</b>：9 点推 15.2% / 均 +0.02% → 11 点 9.1% / -2.79% → <span class="num bad">12 点 0% / -3.80%</span>（上午尾盘最差）。</li>
+      </ul>
+    </div>
+    <div class="cause">
+      <b>机制根因</b>（「做无用功 + 推送困难」的真相）：bigMoneyProbGate 自学习可把门槛顶到 55-60，而<b>实时大单 prob 最高只有 ~44</b> →「prob &gt; 门槛」恒零候选 → D3 回退每 60 分钟才退一档（下限 45）→ <b>热门路径结构性饿死</b>（推送困难）；偶尔放行的是 prob 最高那批——数据证明恰好是最差的（做无用功）。另有 normalCand 注释写「至少满足 2 个正向因子」而代码是 <b>score &gt;= 1</b>（2026-10-08 只改了一半）。
+    </div>
+    <div class="opts">
+      <label class="opt sel default" data-t="4" data-v="A"><input type="radio" name="t4" value="A" checked>
+        <span class="tag badge b-rec">推荐</span>
+        <h3>A · 停用 prob 主选择器，改多因子门槛</h3>
+        <p>热门路径从「prob &gt; 门槛」改为<b>因子组合 ≥2</b>（位置=趋势中加仓/回踩承接 · 板块热 · 启动信号 · 早盘时段窗口）；normalCand 的 ≥1 修成 ≥2（注释代码对齐）；<b>11:00 后大单只上面板不推送</b>（数据：11-12 点最差）；卡片脚注诚实标注「该类历史：收≥3% 12% · 收跌 59%」，不拿概率冒充。⛔ 不放宽 55 闸门、不增加推送条数。</p>
+      </label>
+      <label class="opt" data-t="4" data-v="B"><input type="radio" name="t4" value="B">
+        <h3>B · A + 收敛 A/B 对照实验</h3>
+        <p>在 A 基础上，A/B 两组都改按因子 / 实证命中率排序（B 组数据已证模型 prob 排序无效），A/B 分组只留作记录不再抽签——少一层哈希分组复杂度。</p>
+      </label>
+      <label class="opt" data-t="4" data-v="C"><input type="radio" name="t4" value="C">
+        <h3>C · 只修注释不一致 + 11-12 点禁推</h3>
+        <p>prob 门槛体系不动。最小改动，但「结构性饿死 + 放行最差批」的根因没除——不推荐。</p>
+      </label>
+    </div>
+    <div class="note"><label>备注（可选）：例如接受「一天 0 条也如实说」还是希望保底 1 条 / 时段窗口调整</label>
+      <textarea data-n="4" placeholder="例如：热门路径可以整天不推，但面板要说清为什么；保底线保留 D3 的偏冷 2 条…"></textarea></div>
+  </div>
+</section>
+
+<!-- ═══════════ 全局项 ═══════════ -->
+<section class="global">
+  <h2>🌐 全局项</h2>
+  <div class="row">
+    <label style="font-size:13px;color:#495057">执行顺序：</label>
+    <select id="order">
+      <option value="4-1-2-3" selected>推荐：先 4 大单 → 1 竞价复盘 → 2 设备 → 3 面板（先修做无用功的，再修看得见的，布局最后动）</option>
+      <option value="1-4-2-3">1 竞价复盘 → 4 大单 → 2 设备 → 3 面板</option>
+      <option value="2-1-4-3">2 设备 → 1 竞价复盘 → 4 大单 → 3 面板</option>
+      <option value="3-4-1-2">3 面板 → 4 大单 → 1 竞价复盘 → 2 设备</option>
+      <option value="all">四个议题合成一轮全做（我按依赖排序，一次性发布）</option>
+    </select>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label class="chk"><input type="checkbox" id="h1"> 连带做 <b>H1</b>（#281 概率分布诊断：govTake 记 fused 分布直方图 + 推送流水弹窗展示「模型 X% → 融合 Y% · 门槛 Z%」被拦明细；设计已定稿、备份已做、代码未动）</label>
+  </div>
+  <p class="legend">💡 草稿自动存在本机浏览器（localStorage），换设备不互通；「生成回发文案」后复制发我即可。</p>
+</section>
+
+<footer class="bar">
+  <button class="btn primary" id="gen">📋 一键生成回发文案</button>
+  <button class="btn ghost" id="reset">恢复默认推荐</button>
+  <span id="saveTip">草稿自动保存中</span>
+</footer>
+
+<div class="wrap" style="padding:0 16px 24px">
+<div id="replyBox">
+  <h2>📋 回发文案（复制以下内容发我）</h2>
+  <textarea id="replyText" readonly></textarea>
+  <div style="margin-top:8px;display:flex;gap:10px">
+    <button class="btn primary" id="copy">复制到剪贴板</button>
+    <button class="btn ghost" id="closeReply">收起</button>
+  </div>
+</div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+(function(){
+  var KEY = 'qd_dec4t_20261017';
+  var DEFAULTS = { t1:'A', t2:'A', t3:'A', t4:'A', order:'4-1-2-3', h1:false };
+  var NAMES = { t1:'竞价复盘', t2:'设备下线', t3:'面板精简', t4:'大单推送' };
+  var state = JSON.parse(JSON.stringify(DEFAULTS));
+  var notes = { 1:'', 2:'', 3:'', 4:'' };
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var d = JSON.parse(raw); if(d && d.sel) { state = Object.assign({}, DEFAULTS, d.sel); notes = Object.assign(notes, d.notes||{}); } }
+    }catch(e){}
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify({ sel:state, notes:notes, at:Date.now() })); }catch(e){}
+    var tip = document.getElementById('saveTip');
+    tip.textContent = '已自动保存 ' + new Date().toLocaleTimeString('zh-CN');
+  }
+
+  function paint(){
+    ['1','2','3','4'].forEach(function(t){
+      var v = state['t'+t];
+      document.querySelectorAll('.opt[data-t="'+t+'"]').forEach(function(el){
+        var on = el.getAttribute('data-v') === v;
+        el.classList.toggle('sel', on);
+        el.classList.toggle('default', on && v === DEFAULTS['t'+t]);
+        el.querySelector('input').checked = on;
+      });
+      var st = document.getElementById('t'+t+'-state');
+      if(v === DEFAULTS['t'+t]){ st.textContent = '默认推荐'; st.className = 'badge b-def'; }
+      else { st.textContent = '已改为 ' + v; st.className = 'badge b-changed'; }
+      var ta = document.querySelector('textarea[data-n="'+t+'"]');
+      if(ta && document.activeElement !== ta) ta.value = notes[t] || '';
+    });
+    document.getElementById('order').value = state.order;
+    document.getElementById('h1').checked = !!state.h1;
+  }
+
+  document.querySelectorAll('.opt input').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      state['t'+inp.name] = inp.value; paint(); save();
+    });
+  });
+  document.querySelectorAll('textarea[data-n]').forEach(function(ta){
+    ta.addEventListener('input', function(){ notes[ta.getAttribute('data-n')] = ta.value; save(); });
+  });
+  document.getElementById('order').addEventListener('change', function(){ state.order = this.value; save(); });
+  document.getElementById('h1').addEventListener('change', function(){ state.h1 = this.checked; save(); });
+
+  document.getElementById('gen').addEventListener('click', function(){
+    var L = [];
+    L.push('【四议题决策回填】' + new Date().toLocaleDateString('zh-CN'));
+    ['1','2','3','4'].forEach(function(t){
+      var line = t + ') ' + NAMES['t'+t] + '：选 ' + state['t'+t] + (state['t'+t]===DEFAULTS['t'+t] ? '（默认推荐）' : '');
+      var n = (notes[t]||'').trim();
+      if(n) line += '\n   备注：' + n;
+      L.push(line);
+    });
+    var ord = document.getElementById('order');
+    L.push('执行顺序：' + ord.options[ord.selectedIndex].text);
+    L.push('H1（概率分布诊断 #281）：' + (state.h1 ? '本轮连带做' : '本轮不做，继续暂缓'));
+    L.push('');
+    L.push('（以上为决策表回填；未填备注的项即按默认推荐执行，请确认后开工）');
+    var txt = L.join('\n');
+    document.getElementById('replyText').value = txt;
+    document.getElementById('replyBox').style.display = 'block';
+    document.getElementById('replyBox').scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+  document.getElementById('copy').addEventListener('click', function(){
+    var ta = document.getElementById('replyText');
+    ta.select(); ta.setSelectionRange(0, ta.value.length);
+    var done = function(){ var b=document.getElementById('copy'); b.textContent='✅ 已复制'; setTimeout(function(){ b.textContent='复制到剪贴板'; },1600); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value).then(done, function(){ document.execCommand('copy'); done(); }); }
+    else { document.execCommand('copy'); done(); }
+  });
+  document.getElementById('closeReply').addEventListener('click', function(){ document.getElementById('replyBox').style.display='none'; });
+  document.getElementById('reset').addEventListener('click', function(){
+    state = JSON.parse(JSON.stringify(DEFAULTS)); notes = {1:'',2:'',3:'',4:''};
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    paint(); save();
+  });
+
+  load(); paint(); save();
+})();
+</script>
+</body>
+</html>

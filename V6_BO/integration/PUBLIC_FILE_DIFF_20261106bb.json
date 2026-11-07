@@ -1,0 +1,26 @@
+{
+  "added": [
+    "integration/public-targeted.tap",
+    "integration/public-full.tap",
+    "integration/public-full.exit",
+    "integration/PUBLIC_MARKET_OPERATIONS_20261106bb.md",
+    "integration/public-targeted.exit",
+    "integration/public-live-probe.log",
+    "integration/public-live-result.json",
+    "config/public-market.example.json",
+    "tests/public-market.test.js",
+    "src/core/public-market.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "scripts/parallel-market.js",
+    "server.js",
+    "src/core/parallel-market.js"
+  ],
+  "deleted": []
+}

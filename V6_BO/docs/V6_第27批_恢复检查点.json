@@ -1,0 +1,13 @@
+{
+  "batch": 27,
+  "baseline": "V6_Unified_Rule_Comparison_Coverage_20261105.zip",
+  "checkpoint": "V6-UNIFIED-20261105-27-RULE-COMPARISON-UI",
+  "tests": 177,
+  "passed": 177,
+  "failed": 0,
+  "next": [
+    "真实行情端到端",
+    "选股策略链路",
+    "云端与短信验收"
+  ]
+}

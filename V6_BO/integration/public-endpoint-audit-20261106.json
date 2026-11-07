@@ -1,0 +1,181 @@
+[
+  {
+    "name": "全A分页",
+    "error": "<urlopen error timed out>"
+  },
+  {
+    "name": "批量资金",
+    "error": "<urlopen error timed out>"
+  },
+  {
+    "name": "北向",
+    "error": "<urlopen error timed out>"
+  },
+  {
+    "name": "日K",
+    "http": 200,
+    "bytes": 618,
+    "type": "application/json; charset=UTF-8",
+    "keys": [
+      "rc",
+      "rt",
+      "svr",
+      "lt",
+      "full",
+      "dlmkts",
+      "dsc",
+      "data"
+    ],
+    "rc": 0,
+    "dataKeys": [
+      "code",
+      "market",
+      "name",
+      "decimal",
+      "dktotal",
+      "preKPrice",
+      "klines"
+    ],
+    "sample": "{'code': '600519', 'market': 1, 'name': '贵州茅台', 'decimal': 2, 'dktotal': 6037, 'preKPrice': 1392.05, 'klines': ['2026-11-02,1410.00,1439.10,1447.00,1395.02,8269"
+  },
+  {
+    "name": "分时",
+    "http": 200,
+    "bytes": 19310,
+    "type": "application/json; charset=UTF-8",
+    "keys": [
+      "rc",
+      "rt",
+      "svr",
+      "lt",
+      "full",
+      "dlmkts",
+      "dsc",
+      "data"
+    ],
+    "rc": 0,
+    "dataKeys": [
+      "code",
+      "market",
+      "type",
+      "trends"
+    ],
+    "sample": "{'code': '600519', 'market': 1, 'type': 2, 'trends': ['2026-11-06 09:15,1452.00,1452.00,1452.00,1452.00,0,0.00,1452.000', '2026-11-06 09:16,1452.00,1480.00,1480"
+  },
+  {
+    "name": "资金流日线",
+    "http": 200,
+    "bytes": 370,
+    "type": "application/json; charset=UTF-8",
+    "keys": [
+      "rc",
+      "rt",
+      "svr",
+      "lt",
+      "full",
+      "dlmkts",
+      "dsc",
+      "data"
+    ],
+    "rc": 0,
+    "dataKeys": [
+      "code",
+      "market",
+      "name",
+      "klines"
+    ],
+    "sample": "{'code': '600519', 'market': 1, 'name': '贵州茅台', 'klines': ['2026-11-05,-370850048.0,-137461.0,370987504.0,-35608384.0,-335241664.0,-5.49,-0.00,5.49,-0.53,-4.96,"
+  },
+  {
+    "name": "涨停池",
+    "http": 200,
+    "bytes": 61,
+    "type": "text/plain",
+    "keys": [
+      "rc",
+      "rt",
+      "svr",
+      "lt",
+      "full",
+      "data"
+    ],
+    "rc": 102,
+    "dataKeys": "NoneType",
+    "sample": "None"
+  },
+  {
+    "name": "跌停池",
+    "http": 200,
+    "bytes": 61,
+    "type": "text/plain",
+    "keys": [
+      "rc",
+      "rt",
+      "svr",
+      "lt",
+      "full",
+      "data"
+    ],
+    "rc": 102,
+    "dataKeys": "NoneType",
+    "sample": "None"
+  },
+  {
+    "name": "龙虎榜",
+    "http": 200,
+    "bytes": 756,
+    "type": "text/plain;charset=UTF-8",
+    "keys": [
+      "version",
+      "result",
+      "success",
+      "message",
+      "code"
+    ],
+    "rc": null,
+    "dataKeys": [
+      "pages",
+      "data",
+      "count"
+    ],
+    "sample": "{'pages': 1328644, 'data': [{'SECURITY_CODE': '000571', 'SECUCODE': '000571.SZ', 'TRADE_DATE': '2006-07-17 00:00:00', 'OPERATEDEPT_CODE': '10023498', 'OPERATEDE"
+  },
+  {
+    "name": "财报",
+    "http": 200,
+    "bytes": 1032,
+    "type": "text/plain;charset=UTF-8",
+    "keys": [
+      "version",
+      "result",
+      "success",
+      "message",
+      "code"
+    ],
+    "rc": null,
+    "dataKeys": [
+      "pages",
+      "data",
+      "count"
+    ],
+    "sample": "{'pages': 499898, 'data': [{'SECURITY_CODE': '000001', 'SECURITY_NAME_ABBR': '平安银行', 'TRADE_MARKET_CODE': '069001002001', 'TRADE_MARKET': '深交所主板', 'SECURITY_TYP"
+  },
+  {
+    "name": "同花顺池",
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "name": "同花顺日K",
+    "http": 200,
+    "bytes": 11771,
+    "type": "application/javascript",
+    "sample": "quotebridge_v6_line_hs_600519_01_last({\"num\":140,\"year\":{\"2001\":86,\"2002\":234,\"2003\":239,\"2004\":242,\"2005\":241,\"2006\":187,\"2007\":237,\"2008\":"
+  },
+  {
+    "name": "同花顺头",
+    "http": 200,
+    "bytes": 1381,
+    "type": "application/javascript",
+    "sample": "quotebridge_v6_realhead_hs_600519_last({\"items\":{\"402\":\"1250081601.00\",\"407\":\"1250081601.00\",\"527198\":\"2164006.000\",\"127\":\"\",\"10\":\"1453.00\","
+  }
+]

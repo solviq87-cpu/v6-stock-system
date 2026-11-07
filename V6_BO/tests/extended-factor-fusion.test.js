@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {scoreExtendedFactors,mergeLegacyAndExtended}=require('../src/strategy/extended-factor-engine');
+const {evaluateCandidate,loadPack}=require('../src/strategy/strategy-service');
+let n=0;function check(v){assert.ok(v);n++;}
+const p=loadPack();check(p.strategies.length===5);check(p.strategies.reduce((a,x)=>a+x.rules.length,0)===14);
+const empty=scoreExtendedFactors({});check(empty.score===null);check(empty.coverage===0);check(empty.missing.length===15);
+const fake={};for(const f of require('../strategies/extended-factor-pack.json').factors)fake[f.field]=80;
+const full=scoreExtendedFactors(fake);check(full.score===80);check(full.coverage===1);check(full.available===15);
+fake.sectorHeatScore=NaN;check(scoreExtendedFactors(fake).available===14);
+fake.sectorHeatScore='80';check(scoreExtendedFactors(fake).available===14);
+fake.sectorHeatScore=101;check(scoreExtendedFactors(fake).available===14);
+fake.sectorHeatScore=80;
+const base={finalScore:50,pass:true};
+check(mergeLegacyAndExtended(base,empty).finalScore===50);
+check(mergeLegacyAndExtended(base,full).finalScore===56);
+check(mergeLegacyAndExtended(base,full).factorFusion.weight===0.2);
+const original=evaluateCandidate({stock:{code:'000001'}});check(original.extendedFactors.coverage===0);
+check(original.finalScore===original.legacyScore);
+const enriched=evaluateCandidate({stock:{code:'000001',...fake}});
+check(enriched.extendedFactors.coverage===1);
+check(enriched.finalScore>=original.finalScore);
+console.log('PASS '+n+' legacy preservation / factor fusion assertions');

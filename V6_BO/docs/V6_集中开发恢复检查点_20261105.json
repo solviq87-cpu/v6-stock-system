@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-05",
+  "baseline": "V6_七大模块统一集成核验_414项全量通过_完整工程_20261105.zip",
+  "phase": "集中初稿与行情输入缺陷批量修复",
+  "changedModules": ["src/strategy/historical-indicators.js", "src/strategy/feed-quality.js"],
+  "newTests": ["tests/market-feed-input-integrity.test.js"],
+  "fullRegression": {"passed": 419, "failed": 0, "skipped": 0, "cancelled": 0},
+  "productionAcceptanceComplete": false,
+  "originalStrategyRulesChanged": false,
+  "report": "docs/V6_集中初稿与全量Bug审计_20261105.md"
+}

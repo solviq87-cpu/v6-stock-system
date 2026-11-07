@@ -1,0 +1,158 @@
+{
+  "version": "1.0.0",
+  "description": "A股短线/趋势候选策略包。仅产生候选评分，实际交易前仍应经过流动性、涨跌停、ST等可交易性过滤与历史回测。",
+  "strategies": [
+    {
+      "name": "trend",
+      "family": "trend",
+      "strategyWeight": 1.25,
+      "minScore": 55,
+      "rules": [
+        {
+          "id": "short_trend",
+          "field": "trendScore",
+          "op": ">=",
+          "value": 60,
+          "weight": 25,
+          "label": "短中期趋势"
+        },
+        {
+          "id": "relative_strength",
+          "field": "relativeStrengthScore",
+          "op": ">=",
+          "value": 60,
+          "weight": 25,
+          "label": "相对强度"
+        },
+        {
+          "id": "ma_alignment",
+          "field": "maAlignmentScore",
+          "op": ">=",
+          "value": 55,
+          "weight": 20,
+          "label": "均线结构"
+        }
+      ]
+    },
+    {
+      "name": "momentum",
+      "family": "momentum",
+      "strategyWeight": 1.1,
+      "minScore": 50,
+      "rules": [
+        {
+          "id": "momentum",
+          "field": "momentumScore",
+          "op": ">=",
+          "value": 60,
+          "weight": 30,
+          "label": "动量强度"
+        },
+        {
+          "id": "close_strength",
+          "field": "closeStrengthScore",
+          "op": ">=",
+          "value": 55,
+          "weight": 20,
+          "label": "收盘强度"
+        },
+        {
+          "id": "turnover_quality",
+          "field": "turnoverQualityScore",
+          "op": ">=",
+          "value": 50,
+          "weight": 15,
+          "label": "换手质量"
+        }
+      ]
+    },
+    {
+      "name": "breakout",
+      "family": "breakout",
+      "strategyWeight": 1.2,
+      "minScore": 55,
+      "rules": [
+        {
+          "id": "breakout",
+          "field": "breakoutScore",
+          "op": ">=",
+          "value": 65,
+          "weight": 30,
+          "label": "有效突破"
+        },
+        {
+          "id": "volume_confirm",
+          "field": "volumeScore",
+          "op": ">=",
+          "value": 55,
+          "weight": 20,
+          "label": "量能确认"
+        },
+        {
+          "id": "position",
+          "field": "positionScore",
+          "op": ">=",
+          "value": 50,
+          "weight": 15,
+          "label": "位置安全"
+        }
+      ]
+    },
+    {
+      "name": "quality",
+      "family": "quality",
+      "strategyWeight": 0.9,
+      "minScore": 50,
+      "rules": [
+        {
+          "id": "fund_flow",
+          "field": "fundFlowScore",
+          "op": ">=",
+          "value": 55,
+          "weight": 25,
+          "label": "资金强度"
+        },
+        {
+          "id": "liquidity",
+          "field": "liquidityScore",
+          "op": ">=",
+          "value": 50,
+          "weight": 15,
+          "label": "流动性"
+        },
+        {
+          "id": "risk",
+          "field": "riskScore",
+          "op": "<=",
+          "value": 45,
+          "weight": 20,
+          "label": "风险可控"
+        }
+      ]
+    },
+    {
+      "name": "reversal",
+      "family": "reversal",
+      "strategyWeight": 0.75,
+      "minScore": 45,
+      "rules": [
+        {
+          "id": "oversold",
+          "field": "oversoldScore",
+          "op": ">=",
+          "value": 60,
+          "weight": 25,
+          "label": "超跌修复"
+        },
+        {
+          "id": "reversal",
+          "field": "reversalScore",
+          "op": ">=",
+          "value": 55,
+          "weight": 25,
+          "label": "反转确认"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-05",
+  "baseline": "V6_集中联动_模拟盘与专业回测共享风控_412项通过_完整工程_20261105.zip",
+  "fullTests": {
+    "pass": 414,
+    "fail": 0,
+    "skipped": 0
+  },
+  "sevenModuleIntegration": {
+    "pass": 102,
+    "fail": 0,
+    "skipped": 0
+  },
+  "productionAccepted": false,
+  "files": {
+    "scripts/verify-seven-modules.js": "44ba7d203ee2a3046f7ff704bbf7afd6a25f38d0f7dad4f0071cfb733b384942",
+    "tests/seven-modules-verification.test.js": "4e4c3b71be36ffc7285530a74946ae447e62d506ba0f3a9804f44f3136afc2ba",
+    "package.json": "71796adcc65036abe572029ae1407922442e117e5f2f9ddb079371b936c58b5d"
+  }
+}

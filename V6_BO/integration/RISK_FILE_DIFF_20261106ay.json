@@ -1,0 +1,27 @@
+{
+  "added": [
+    "integration/risk-full.tap",
+    "integration/risk-final-full.tap",
+    "integration/risk-targeted.exit",
+    "integration/RISK_UI_OPERATIONS_20261106ay.md",
+    "integration/RISK_UI_REQUIREMENTS_20261106.md",
+    "integration/risk-targeted.tap",
+    "integration/risk-final-full.exit",
+    "integration/risk-full.exit",
+    "tests/risk-evidence-view.test.js",
+    "src/core/risk-evidence-view.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "server.js",
+    "public/index.html",
+    "public/sw.js",
+    "public/mobile.html",
+    "tests/terminal-dashboard.test.js",
+    "public/assets/terminal-theme.css",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "src/core/dashboard-view.js"
+  ],
+  "deleted": []
+}

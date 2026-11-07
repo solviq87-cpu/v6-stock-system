@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化看盘 · 盲点审计决策表（2026-10-17）</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --ink: #1f2329; --sub: #646a73; --line: #dee0e3;
+    --accent: #3370ff; --warn: #f53f3f; --ok: #00b42a; --hl: #fff7e0; --hlb: #f7ba1e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.65 "PingFang SC","Microsoft YaHei",system-ui,sans-serif; padding: 24px 16px 60px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header h1 { font-size: 20px; margin-bottom: 6px; }
+  header p { color: var(--sub); font-size: 13px; }
+  .summary { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 14px 0; font-size: 13px; }
+  .summary b { color: var(--accent); }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 16px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+  .stat b { font-size: 18px; margin-right: 4px; }
+  .s-do b { color: var(--ok); } .s-next b { color: var(--accent); } .s-no b { color: var(--warn); } .s-tbd b { color: #ff7d00; }
+  .grp { background: #e8eaf0; border-radius: 8px; padding: 7px 14px; font-weight: 600; font-size: 14px; margin: 18px 0 8px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { background: #f0f1f5; font-size: 12px; color: var(--sub); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  tr.changed { background: var(--hl); box-shadow: inset 3px 0 0 var(--hlb); }
+  .id { font-family: ui-monospace,Consolas,monospace; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .name { font-weight: 600; }
+  .why { color: var(--sub); font-size: 12px; margin-top: 3px; }
+  .def { font-size: 12px; color: var(--sub); white-space: nowrap; }
+  select, input[type=text], textarea { font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 100%; }
+  select { width: 110px; }
+  input[type=text] { min-width: 180px; }
+  td.ctrl { white-space: nowrap; }
+  .actions { display: flex; gap: 10px; margin: 18px 0 10px; flex-wrap: wrap; }
+  button { font: inherit; border: none; border-radius: 8px; padding: 9px 18px; cursor: pointer; }
+  .b-main { background: var(--accent); color: #fff; font-weight: 600; }
+  .b-ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+  #replyBox { width: 100%; height: 220px; margin-top: 10px; font-size: 13px; }
+  .tip { font-size: 12px; color: var(--sub); margin-top: 8px; }
+  .legend { font-size: 12px; color: var(--sub); margin-top: 4px; }
+  .legend span { display: inline-block; margin-right: 14px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>量化看盘 · 盲点审计决策表</h1>
+    <p>2026-10-17 凌晨独立审计（数字均现场跑数核实）· 默认值 = 我的推荐项 · 改过的项会高亮 · 草稿自动存在本机浏览器</p>
+  </header>
+
+  <div class="summary">
+    审计结论：除你已指出的问题外，还有 <b>5 个结构性盲点</b>——① prob 闸门与回验口径脱节（prob≥52 仅占候选 9.1%、≥60 全库 0 条）；② 回测零成交假设（一字板不可检测）；③ 信号收益结构与使用方式错配（盘中 35.4% vs 收盘 14.8%）；④ 监控与业务共用飞书命脉；⑤ 所有标定 = 7 个信号日且无有效期。另有 2 项<b>未测出</b>（K 线缺柱率、涨停数据源质量），已如实标注。
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div id="tables"></div>
+
+  <div class="actions">
+    <button class="b-main" onclick="genReply(true)">一键生成回发文案（并复制）</button>
+    <button class="b-ghost" onclick="genReply(false)">只看文案</button>
+    <button class="b-ghost" onclick="resetAll()">恢复默认</button>
+    <button class="b-ghost" onclick="clearAll()">清空我的填写</button>
+  </div>
+  <textarea id="replyBox" placeholder="点上方按钮生成回发文案，复制后发我即可"></textarea>
+  <div class="tip">回发文案包含每项决定 + 备注 + 偏离默认的标记（★）。草稿保存在 localStorage（键 qd_audit_picks_v1），关掉页面再打开不丢。</div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--hl)"></i>高亮行 = 改过默认值</span>
+    <span>决定含义：本轮做 = 下一轮开发即接；下轮做 = 排入后续；不做 = 明确否决；待讨论 = 需要更多信息或你决策</span>
+  </div>
+</div>
+
+<script>
+var KEY = 'qd_audit_picks_v1';
+var DECISIONS = ['本轮做', '下轮做', '不做', '待讨论'];
+var GROUPS = [
+  { g: '🔴 P0 · 立即修复', items: [
+    { id: 'A1', name: '发布 io 轮 20261016io', why: '修两个真 bug（sectorInflow null 前端渲染 + isLocalReq 云端误判本地源）；守门 _runall.js 6422/20 零新增红、node --check 全绿；线上仍跑旧码 20261016in，bug 还活着', def: '本轮做' }
+  ]},
+  { g: '🟠 盲点1 · prob 闸门与口径', items: [
+    { id: 'B1', name: 'prob 闸门口径修正（当日/次日钉死一个）', why: '198 条候选 prob≥52 仅 18 条(9.1%)、≥60 全库 0 条；prob 次日口径非单调(4.9/1.3/12.5/50)、当日口径单调(5.9/14.1/31.3/50)；偏冷日 +8=60 时主闸 100% 拦截', def: '本轮做' },
+    { id: 'H1', name: '面板展示「今日候选 prob 分布 vs 生效闸门」', why: '让「数量驱动」可见：现在推送量由兜底额度决定，但面板上看不出来', def: '下轮做' },
+    { id: 'H2', name: 'auczt prob 诚实化大修（重标定）', why: '纯净样本 prob 中位 40 vs 次日涨停 4.9%，prob 说假话；需两半窗同向 + 不与 score 共线；⛔ 不放宽闸门', def: '下轮做' },
+    { id: 'H3', name: '常数因子退场（打分权重重构）', why: '「竞价涨幅黄金区」覆盖 88.4% 样本、命中 12.6% ≈ 全A基线 12.8% = 零信息量却占主要打分；应让题材梯队类因子上位', def: '下轮做' }
+  ]},
+  { g: '🟠 盲点2 · 成交建模', items: [
+    { id: 'B2', name: '回测补「次日开盘价」字段', why: 'nd 对象只有 {nextPct,maxGain,limitUp,hit}，无开盘价 → 一字板（次日开在涨停=买不到）不可检测；_backtest_nd.js 全文零成交假设；这是胜率→实盘收益的最大未建模桥', def: '本轮做' }
+  ]},
+  { g: '🟡 盲点3 · 使用方式对齐', items: [
+    { id: 'D1', name: '确认你的实际使用时段（盘中 or 盘后）', why: 'auczt 盘中高≥3% 命中 35.4% vs 收盘≥3% 14.8%、均涨幅 -1.09%——口径直接决定优化方向；备注里写：你一般几点看推送、能否盘中操作', def: '待讨论' }
+  ]},
+  { g: '🟡 盲点4 · 监控与可用性', items: [
+    { id: 'C1', name: '外置 Always-on uptime 监控（每 5 分钟 ping /api/lock/status）', why: '10-15/16 上午连续 0 推送：容器回收后自 ping 救不回已死进程，唯一外置叫醒器=本机副本（会休眠/被杀）；禁休眠只是缓解，这才是根治；与电脑无关、零 token', def: '本轮做' },
+    { id: 'C2', name: '错过窗口补检重放（冷启动补扫+标注「补检」）', why: '上午竞价/大单窗口错过=信号永久丢失；现在冷启动只补「当下池」，heal 只告警不补扫', def: '下轮做' },
+    { id: 'C3', name: '邮件独立心跳（监控不与被监控同命脉）', why: '漏发自愈告警与业务推送都走飞书 → 飞书故障两者同死、外表仍是「静默」；健康告警日配额 5 条，坏 6 次第 6 次无声', def: '下轮做' }
+  ]},
+  { g: '🟡 盲点5 · 样本与标定', items: [
+    { id: 'B3', name: '一进二薄样本保守接入（小仓位+持续样本外监测）', why: 'lift +37~44pp 全系统最高却仅 31 样本；等 n≥30 分层验证 = 永不接入；否决门槛远高于接入门槛，系统天然保守', def: '待讨论' },
+    { id: 'B4', name: '标定有效期 / 市场状态切换检测', why: '198 条 auczt = 7 个信号日；退潮层 n=0 从未验证；无标定过期机制——风格一换旧系数静默失效', def: '下轮做' }
+  ]},
+  { g: '⚪ 未测出 · 待补查（诚实标注：没测出来 ≠ 没问题）', items: [
+    { id: 'G1', name: '涨停数据源质量抽查机制', why: '全链只有窗口守门、没有数据质量守门；接口错一天，所有统计静默污染；建议抽 N 天与第三方交叉核对', def: '待讨论' },
+    { id: 'G2', name: 'K 线缓存缺柱率测量', why: '5918 个缓存文件，本次审计解析脚本不适配其结构，缺柱率未测出；缺柱会让 MA/趋势判定静默出错', def: '待讨论' }
+  ]}
+];
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
+}
+function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+
+function allItems() {
+  var out = [];
+  for (var i = 0; i < GROUPS.length; i++) for (var j = 0; j < GROUPS[i].items.length; j++) out.push(GROUPS[i].items[j]);
+  return out;
+}
+
+function render() {
+  var st = load();
+  var host = document.getElementById('tables');
+  var html = '';
+  for (var i = 0; i < GROUPS.length; i++) {
+    var G = GROUPS[i];
+    html += '<div class="grp">' + G.g + '</div><table><tr><th style="width:44px">编号</th><th>项目与依据</th><th style="width:150px">默认（推荐）</th><th class="ctrl" style="width:120px">你的决定</th><th class="ctrl" style="width:220px">备注</th></tr>';
+    for (var j = 0; j < G.items.length; j++) {
+      var it = G.items[j];
+      var cur = st[it.id] || { d: it.def, n: '' };
+      var changed = (cur.d !== it.def) || (cur.n && cur.n.trim());
+      html += '<tr class="' + (changed ? 'changed' : '') + '" id="row-' + it.id + '">'
+        + '<td class="id">' + it.id + '</td>'
+        + '<td><div class="name">' + it.name + '</div><div class="why">' + it.why + '</div></td>'
+        + '<td class="def">' + it.def + '</td>'
+        + '<td class="ctrl"><select onchange="setD(\'' + it.id + '\', this.value)">'
+        + DECISIONS.map(function (d) { return '<option ' + (cur.d === d ? 'selected' : '') + '>' + d + '</option>'; }).join('')
+        + '</select></td>'
+        + '<td class="ctrl"><input type="text" value="' + (cur.n || '').replace(/"/g, '&quot;') + '" placeholder="（可选）" onchange="setN(\'' + it.id + '\', this.value)"></td>'
+        + '</tr>';
+    }
+    html += '</table>';
+  }
+  host.innerHTML = html;
+  renderStats();
+}
+
+function setD(id, v) { var st = load(); st[id] = st[id] || { d: '', n: '' }; st[id].d = v; save(st); render(); }
+function setN(id, v) { var st = load(); st[id] = st[id] || { d: '', n: '' }; st[id].n = v; save(st); render(); }
+
+function renderStats() {
+  var st = load(), c = { '本轮做': 0, '下轮做': 0, '不做': 0, '待讨论': 0 };
+  allItems().forEach(function (it) { var cur = st[it.id]; c[(cur && cur.d) || it.def]++; });
+  document.getElementById('stats').innerHTML =
+    '<div class="stat s-do"><b>' + c['本轮做'] + '</b>本轮做</div>'
+    + '<div class="stat s-next"><b>' + c['下轮做'] + '</b>下轮做</div>'
+    + '<div class="stat s-no"><b>' + c['不做'] + '</b>不做</div>'
+    + '<div class="stat s-tbd"><b>' + c['待讨论'] + '</b>待讨论</div>'
+    + '<div class="stat">共 <b>' + allItems().length + '</b> 项</div>';
+}
+
+function genReply(copy) {
+  var st = load();
+  var lines = ['【量化看盘 · 盲点审计回填】（2026-10-17）'];
+  var any = false;
+  DECISIONS.forEach(function (d) {
+    var rows = [];
+    allItems().forEach(function (it) {
+      var cur = st[it.id], dec = (cur && cur.d) || it.def, note = (cur && cur.n) || '';
+      if (dec !== d) return;
+      var mark = (dec !== it.def) ? ' ★偏离默认(' + it.def + ')' : '';
+      rows.push('· ' + it.id + ' ' + it.name + mark + (note.trim() ? '\n    备注：' + note.trim() : ''));
+    });
+    if (rows.length) { any = true; lines.push('■ ' + d + '：'); lines.push(rows.join('\n')); }
+  });
+  if (!any) lines.push('（未填写）');
+  var text = lines.join('\n');
+  var box = document.getElementById('replyBox');
+  box.value = text;
+  box.select();
+  if (copy) {
+    var done = function () { box.value = text + '\n\n—— 已复制到剪贴板，直接发我即可 ——'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { document.execCommand('copy'); done(); });
+    } else { document.execCommand('copy'); done(); }
+  }
+}
+
+function resetAll() { localStorage.removeItem(KEY); render(); document.getElementById('replyBox').value = ''; }
+function clearAll() {
+  var st = load();
+  allItems().forEach(function (it) { st[it.id] = { d: it.def, n: '' }; });
+  save(st); render(); document.getElementById('replyBox').value = '';
+}
+
+render();
+</script>
+</body>
+</html>

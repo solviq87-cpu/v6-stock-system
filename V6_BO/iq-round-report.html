@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iq 轮优化对比报告 · 2026-10-19</title>
+<style>
+  body { font-family: -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; line-height: 1.7; padding: 24px; background: #f7f8fa; color: #1c2333; }
+  .wrap { max-width: 860px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,.05); }
+  h1 { margin-top: 0; font-size: 24px; }
+  .subtitle { color: #6b7688; font-size: 14px; margin-bottom: 24px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+  .b0 { background: #ffeaea; color: #f6465d; }
+  .b1 { background: #fff4d9; color: #b86e00; }
+  .b2 { background: #e8f4ff; color: #0066cc; }
+  h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #e5e8ec; padding-bottom: 8px; }
+  h3 { font-size: 15px; margin-top: 24px; }
+  .item { background: #fafbfc; border-left: 4px solid #4a9eff; padding: 16px 20px; border-radius: 0 10px 10px 0; margin: 16px 0; }
+  .item.p1 { border-left-color: #2ebd85; }
+  .item.p2 { border-left-color: #f0b90b; }
+  .item .title { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+  .item ul { margin: 8px 0; padding-left: 18px; }
+  .item li { margin: 4px 0; }
+  .risk { background: #fff7ed; border: 1px solid #ffd8a8; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #8a4b08; margin-top: 12px; }
+  .gain { background: #eafaf0; border: 1px solid #9be9c0; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #0d5c3b; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th, td { border: 1px solid #e5e8ec; padding: 10px; text-align: left; }
+  th { background: #f8f9fb; }
+  .ok { color: #2ebd85; font-weight: 700; }
+  .warn { color: #f0b90b; font-weight: 700; }
+  .red { color: #f6465d; font-weight: 700; }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0; }
+  .card { background: #f8f9fb; border-radius: 10px; padding: 16px; text-align: center; }
+  .card .n { font-size: 28px; font-weight: 800; color: #4a9eff; }
+  .card .t { font-size: 12px; color: #6b7688; margin-top: 4px; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e8ec; font-size: 12px; color: #6b7688; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 iq 轮优化对比报告 · 2026-10-19</h1>
+  <div class="subtitle">版本：20261019iq · 全量回归：6771 通过 / 18 失败（0 新增红灯，维持基线）</div>
+
+  <h2>一、本轮改动概览</h2>
+  <div class="summary">
+    <div class="card"><div class="n">4</div><div class="t">完成项</div></div>
+    <div class="card"><div class="n">2</div><div class="t">新建脚本</div></div>
+    <div class="card"><div class="n">3</div><div class="t">测试同步更新</div></div>
+    <div class="card"><div class="n">0</div><div class="t">新增红灯</div></div>
+  </div>
+
+  <h2>二、已完成的优化项</h2>
+
+  <div class="item p1">
+    <div class="title"><span class="badge b0">P0</span> 竞价评分权重重构（server.js）</div>
+    <p><b>问题：</b>「竞价涨幅黄金区」覆盖 88.4% 样本、命中率 12.6%≈全A 基线 12.8%，几乎没有排序信息量，却在 auctionScoreOf 中占 +26 分主导地位；真正有区分度的题材梯队类因子权重偏低。</p>
+    <p><b>做法：</b></p>
+    <ul>
+      <li>竞价涨幅黄金区：+26 → +10</li>
+      <li>强势高开：+20 → +8；高位：+11 → +5；近一字：+3 → +2；温和：+10 → +4</li>
+      <li>板块龙头：+8 → +14；板块龙二：+6 → +10；板块中军：+4 → +8</li>
+      <li>连板惯性：max +10 → max +16（(lb-1)*4 → (lb-1)*6）</li>
+      <li>小盘易拉：+8 → +12；中小盘：+3 → +6</li>
+    </ul>
+    <div class="gain"><b>好处：</b>排序从「谁涨幅在 2~5.5%」这种常数基差，转向「谁在题材梯队中有真实地位」，auczt 选股质量应提升；权重结构与实证区分度对齐（连板惯性 41.7%、板块龙头 32.5%、中军 31.6%、小盘 21.4%）。</div>
+    <div class="risk"><b>风险/未验证：</b>权重调整后 score 分布变了，但 inferZTProb 的 score→prob 映射未同步重标；aucztHonestProb 会把 prob 压到 9~20%，最终推送 prob 诚实性不受影响，但「多少分算高」的排序阈值可能需再观察实盘样本后微调。</div>
+  </div>
+
+  <div class="item p1">
+    <div class="title"><span class="badge b1">P1</span> auczt 回测两口径并列（_backtest_nd.js）</div>
+    <p><b>问题：</b>auczt 预测的是「当日封板」，而 _backtest_nd.js 之前只展示「次日 +3% / 次日涨停」，读报告容易把 auczt 和 yier/lianban 的口径混为一谈。</p>
+    <p><b>做法：</b>在 backtest 中对 auczt 额外计算 resolved 口径的「当日封板率」，与 nd 口径并列展示；trend 块同时显示 +3% 和当日封板率。</p>
+    <div class="gain"><b>好处：</b>避免决策口径错配；auczt 的真实预测目标（当日封板）与历史回验口径（nd）在报告中一眼可区分。</div>
+    <div class="risk"><b>风险/未验证：</b>resolved 口径依赖 s.resolved，非 void 但 unresolved 的 auczt 样本不计入；trend 中 dUp 可能因回填进度而波动。</div>
+  </div>
+
+  <div class="item p2">
+    <div class="title"><span class="badge b1">P1</span> K 线派生涨停补漏能力（_zt_pool_enrich.js · 新建）</div>
+    <p><b>问题：</b>_audit_zt_pool.js 已能发现数据源漏票（如 2026-10-16 的 000678、002531），但能力散落在审计脚本里，没有可复用的 enrichment 入口。</p>
+    <p><b>做法：</b>封装 detectMissed / saveMissedReport / mergeMissedIntoPool 三个接口；默认只生成 zt_pool_missed.json 报告，--merge 才生成 enriched 快照，不自动改原池。</p>
+    <div class="gain"><b>好处：</b>把漏票检测从「一次性审计」升级为「可定时运行的能力」，为后续自动化补漏留好开关；默认不启用，避免覆盖范围外误差污染涨停池。</div>
+    <div class="risk"><b>风险/未验证：</b>漏票判定只覆盖 .kline_cache 内约 5900 只，不是全 A；--merge 生成的 enriched 快照需人工复核后再决定是否替换生产池。</div>
+  </div>
+
+  <div class="item p2">
+    <div class="title"><span class="badge b1">P1</span> 邮件通道独立心跳（_mail_heartbeat.js · 新建）</div>
+    <p><b>问题：</b>邮件作为飞书备用通道，只有真正推送时才走 SMTP，通道何时失效不可知。</p>
+    <p><b>做法：</b>独立脚本，默认只做 SMTP 登录+RCPT 验证（不发邮件打扰用户），加 --send 才发一封心跳邮件；结果写入 mail_heartbeat.json。</p>
+    <div class="gain"><b>好处：</b>可定时跑心跳提前发现邮件通道故障；产物可供面板展示「邮件通道健康/未配置/失效」。</div>
+    <div class="risk"><b>风险/未验证：</b>当前 config.json 中 qqMail 为空，心跳会报「未配置」；未接入 automation/server 启动链，需用户配置邮件后再启用。</div>
+  </div>
+
+  <h2>三、未完成项及原因</h2>
+  <table>
+    <tr><th>优先级</th><th>项</th><th>状态</th><th>原因</th></tr>
+    <tr><td>P0</td><td>auczt 校准口径修正</td><td><span class="ok">已完成</span></td><td>B1 轮已落地，_test_auczt_calib.js 27/0 全绿，本轮未重复改动</td></tr>
+    <tr><td>P1</td><td>一字板剔除进校准</td><td><span class="warn">待后续</span></td><td>涉及 ndStats 口径改变与多个测试断言调整，需单独一轮审慎改</td></tr>
+    <tr><td>P1</td><td>J1 auczt 题材梯队因子</td><td><span class="ok">部分完成</span></td><td>已并入权重重构，单独「梯队触发条件 H2 n≥30」复检需更多样本</td></tr>
+    <tr><td>P1</td><td>pushlog 跨回收耐久化</td><td><span class="ok">已完成</span></td><td>hu 轮已落地：durable/ 镜像 + 启动合并 + 1500 cap，本轮未改</td></tr>
+    <tr><td>P2</td><td>C2 错过窗口补检重放</td><td><span class="warn">待后续</span></td><td>需改定时任务框架，工程量大，今晚未做</td></tr>
+    <tr><td>P2</td><td>C3 邮件独立心跳</td><td><span class="ok">能力已搭</span></td><td>脚本已写好，未接入 automation 与面板</td></tr>
+    <tr><td>P2</td><td>B4 标定有效期+市场状态切换</td><td><span class="warn">待后续</span></td><td>需设计状态机与重标触发器</td></tr>
+    <tr><td>P2/P3</td><td>#286 #287 #281 推送样式 empTable K线面板</td><td><span class="warn">待后续</span></td><td>多为前端/数据工程，需分轮推进</td></tr>
+  </table>
+
+  <h2>四、验证结果</h2>
+  <table>
+    <tr><th>测试</th><th>结果</th><th>备注</th></tr>
+    <tr><td>_test_auction.js</td><td class="ok">17/0 通过</td><td>权重重构后评分仍恒在 0~100，核心场景通过</td></tr>
+    <tr><td>_test_auction_gate.js</td><td class="ok">32/0 通过</td><td>同步更新小盘权重断言 +12</td></tr>
+    <tr><td>_test_backtest_nd.js</td><td class="ok">32/0 通过</td><td>两口径并列不破坏 nd 口径</td></tr>
+    <tr><td>_test_auczt_calib.js</td><td class="ok">27/0 通过</td><td>口径修正已落地</td></tr>
+    <tr><td>_runall.js 全量回归</td><td class="warn">6771/18</td><td>与基线一致，0 新增红灯</td></tr>
+  </table>
+
+  <h2>五、关键提醒</h2>
+  <ul>
+    <li><b>漏票能力默认不合并：</b>_zt_pool_enrich.js 默认只生成报告，--merge 产物是 ztPool_snapshot_enriched.json，不要直接覆盖 ztPool_snapshot.json。</li>
+    <li><b>权重重构后的观察点：</b>未来几天看盘时重点观察 auczt 的「选股逻辑」是否更多出现「板块龙头 / 连板惯性 / 小盘」而非「竞价涨幅黄金区」。</li>
+    <li><b>auczt prob 仍然诚实：</b>aucztHonestProb 把 prob 封顶 20%，不会为了让推送「好看」而虚高。</li>
+    <li><b>邮件心跳未启用：</b>当前 config.json qqMail 为空，邮件心跳会报「未配置」；配置后需手动/automation 定时运行。</li>
+  </ul>
+
+  <div class="footer">
+    报告生成时间：2026-10-19 01:53 CST · 文件路径：iq-round-report.html
+  </div>
+</div>
+</body>
+</html>

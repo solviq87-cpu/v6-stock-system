@@ -1,0 +1,26 @@
+{
+  "added": [
+    "scripts/parallel-market.js",
+    "integration/PARALLEL_MARKET_OPERATIONS_20261106ba.md",
+    "integration/parallel-targeted.exit",
+    "integration/parallel-full.exit",
+    "integration/parallel-full.tap",
+    "integration/parallel-targeted.tap",
+    "integration/parallel-final-full.exit",
+    "integration/parallel-final-full.tap",
+    "config/parallel-market.example.json",
+    "tests/parallel-market.test.js",
+    "src/core/parallel-market.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js",
+    "src/core/dashboard-view.js"
+  ],
+  "deleted": []
+}

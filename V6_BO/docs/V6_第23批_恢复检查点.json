@@ -1,0 +1,8 @@
+{
+  "checkpoint": "V6-UNIFIED-RECOVERY-20261105-23-EASTMONEY-RESEARCH-UI",
+  "base": "V6_Unified_Eastmoney_Breadth_20261105.zip",
+  "tests": 166,
+  "passed": 166,
+  "failed": 0,
+  "status": "web UI wired; external live connectivity unverified"
+}

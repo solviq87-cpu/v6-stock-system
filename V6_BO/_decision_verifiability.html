@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可信度声明 · 决策表（2026-10-16 v3 · 含 EV 实证与三项自我反对）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #212529; line-height: 1.65; padding: 24px 16px 80px; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .sub { color: #868e96; font-size: 13px; margin-bottom: 20px; }
+  .banner { background: #fff; border: 1px solid #dee2e6; border-left: 4px solid #845ef7; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; }
+  .banner b { color: #5f3dc4; }
+  .banner.pushback { border-left-color: #e8590c; }
+  .banner.pushback b { color: #e8590c; }
+  .audit { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; }
+  .audit h2 { font-size: 15px; margin-bottom: 8px; }
+  .audit .good { color: #2b8a3e; }
+  .audit .bad { color: #c92a2a; font-weight: 600; }
+  .audit .warn { color: #866600; font-weight: 600; }
+  .audit ul { padding-left: 20px; }
+  .audit li { margin: 4px 0; }
+  table.ev { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0; }
+  table.ev th, table.ev td { border: 1px solid #dee2e6; padding: 4px 8px; text-align: right; }
+  table.ev th { background: #f1f3f5; }
+  table.ev td:first-child, table.ev th:first-child { text-align: left; }
+  .pos { color: #2b8a3e; font-weight: 700; }
+  .neg { color: #c92a2a; font-weight: 700; }
+  .card { background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .card.changed { border-color: #845ef7; box-shadow: 0 0 0 3px rgba(132,94,247,.12); }
+  .card h3 { font-size: 15px; margin-bottom: 8px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-left: 8px; vertical-align: 2px; }
+  .tag.p0 { background: #ffe3e3; color: #c92a2a; }
+  .tag.p1 { background: #fff3bf; color: #866600; }
+  .tag.p2 { background: #e7f5ff; color: #1864ab; }
+  .tag.rule { background: #ebfbee; color: #2b8a3e; }
+  .tag.pick { background: #d3f9d8; color: #2b8a3e; }
+  .now { font-size: 13px; color: #495057; background: #f8f9fa; border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+  .rec { font-size: 13px; color: #1864ab; margin: 6px 0 10px; }
+  .rec b { color: #0b4f8a; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  select, input[type=text] { font-size: 13px; padding: 6px 10px; border: 1px solid #ced4da; border-radius: 6px; background: #fff; }
+  input[type=text] { flex: 1; min-width: 220px; }
+  select:focus, input:focus { outline: 2px solid #b197fc; }
+  .foot { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #dee2e6; padding: 14px 16px; margin: 24px -16px -80px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font-size: 14px; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; }
+  .btn-main { background: #845ef7; color: #fff; font-weight: 600; }
+  .btn-main:hover { background: #7048e8; }
+  .btn-ghost { background: #f1f3f5; color: #495057; }
+  textarea { width: 100%; min-height: 200px; font-size: 12.5px; font-family: inherit; border: 1px solid #ced4da; border-radius: 8px; padding: 10px; margin-top: 12px; background: #f8f9fa; }
+  .hint { font-size: 12px; color: #868e96; }
+  .saved { color: #2b8a3e; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>面板数字可信度声明 · 决策表 <span style="font-size:13px;color:#868e96">v3</span></h1>
+  <div class="sub">2026-10-16 · v3 更新：加入 EV 实证（系统三周来第一次算「钱」）+ 对你我双方的修正 · 默认项=我的推荐，改动会高亮 · 草稿自动存在本机</div>
+
+  <div class="banner pushback">
+    <b>新契约（你 03:20 的话）</b>：「我不一定是全对的，希望你提供合理化建议而不是一味服从，多替我想更深层的。」——接下。并且立刻用行动证明，<b>这一版我反对我自己上一轮给你的三个判断</b>：<br>
+    ① <b>P0 标错了</b>：盖戳问题显眼但只影响盘前一眼；真正影响你每一笔钱的是概率/EV 层——它才是 P0（见议题 1，已换序）。<br>
+    ② <b>我原来的「观察级日报」推荐是亏钱设计</b>：低概率区（30-49）实测全是负 EV，照我原来的写法做出来就是个稳定亏钱通道。已改写（议题 7）。<br>
+    ③ <b>你的「机会流」需要按数据修正口径</b>：不是「更多信号」，是「更多诚实地落在 50-59 的信号」——60+ 是旧系统主推的亏钱区，&lt;50 也是负 EV。闸门 55 恰好卡在 EV 最优带下沿，它不是在压制机会，是在排雷。
+  </div>
+
+  <div class="audit">
+    <h2>📋 全盘审计（/api/state 80 字段→25 数字组）+ EV 首次实测（stats.json 纯净样本 1938 条）</h2>
+    <ul>
+      <li><span class="good">✅ 诚实声明 16 组</span>（情绪卡三时刻/四个 Basis/breadth 全要素/bigMoney 源标注/probKind/empSkip/skipStat/outN/needRule/asOf×2/staleState 等，略）。</li>
+      <li><span class="bad">⛔ 冒充类 4 处</span>：ztDay 盖戳（交易日 00:00-9:25 昨日池子显「今日」·已发作）；sectorsDay 同源（潜伏，通道一恢复就踩）；拉取时刻≠归属日成族（stocks/bigMoney/mood.snapAt 挂今天、数据是昨日）；统计层虚高（auczt 2~3 倍已修待发布、empTable 声称虚高 13-57 点）。</li>
+      <li><span class="bad">💰 EV 首次实测（收盘买→次日收盘卖，无费用）</span>：</li>
+    </ul>
+    <table class="ev">
+      <tr><th>prob 桶</th><th>n</th><th>次日涨停率</th><th>收盘 EV</th><th>+3%止盈规则 EV</th></tr>
+      <tr><td>&lt;30</td><td>37</td><td>5.4%</td><td class="pos">+1.24%</td><td>—</td></tr>
+      <tr><td>30-39</td><td>86</td><td>4.7%</td><td class="neg">−1.27%</td><td>—</td></tr>
+      <tr><td>40-49</td><td>88</td><td>4.5%</td><td class="neg">−0.80%</td><td>—</td></tr>
+      <tr><td>50-54</td><td>380</td><td>16.3%</td><td class="pos">+0.91%</td><td class="pos">+0.80%</td></tr>
+      <tr><td><b>55-59（闸门带）</b></td><td><b>216</b></td><td><b>20.4%</b></td><td class="pos"><b>+1.42%</b></td><td class="pos"><b>+0.70%</b></td></tr>
+      <tr><td>60-69</td><td>318</td><td>15.4%</td><td class="neg">−0.02%</td><td>—</td></tr>
+      <tr><td>70+（旧虚高 prob 主推区）</td><td>490</td><td>5.9%</td><td class="neg">−0.65%</td><td>—</td></tr>
+      <tr><td>60+ 合计</td><td>808</td><td>9.7%</td><td class="neg">−0.41%</td><td class="neg">−0.67%</td></tr>
+      <tr><td><b>全部信号</b></td><td><b>1938</b></td><td><b>10.9%</b></td><td><b>+0.04%</b></td><td>—</td></tr>
+      <tr><td>auczt 竞价类（n=171）</td><td>171</td><td>4.7%</td><td class="neg">−1.13%</td><td class="neg">−0.88%</td></tr>
+    </table>
+    <ul>
+      <li><b>三个要看清的事实</b>：① 全宇宙 ≈ 0 EV——系统整体不赚钱，edge 全在 50-59 一条带里；② <b>旧系统主推的 60+（n=808）是负 EV</b>——概率虚高那几年，推的是亏钱货；诚实化不是「变诚实但变没用」，是「停止推亏钱货」；③ auczt 竞价类整体亏钱（−1.13%），它 4.7% 的真实涨停率比诚实化标定的 9-20% 还低。</li>
+      <li><span class="warn">⚠️ 诚实的口径边界</span>：混合信号类型、prob 有校准前/后两代、无费用无滑点、收盘口径（你的实盘买入多在盘中）、maxGain 只有最高价看不到次日后半段——所以「+3% 止盈规则 EV 反而更低」只能算「止盈在吃 edge 的迹象」，不能定案（它可能防了看不见的反转）。这正是议题 1 要日常化的原因。</li>
+      <li><span class="warn">⚠️ 更深一层（你说想象不到的）</span>：信号与你的盈亏之间隔着<b>执行层</b>——入场时点、费用（约 0.2% 来回）、退出规则、仓位。系统三周只测了「信号准不准」，从未测过「你按信号操作后赚不赚」。模拟盘就是执行层的测量仪，它一直在跑，但没人把它的盈亏和信号 EV 对照过。</li>
+    </ul>
+  </div>
+
+  <div class="card" data-key="q0">
+    <h3>0｜主线 <span class="tag rule">方向 · 已定并修正</span></h3>
+    <div class="now">原定主线「自报健康/诚实度」保留，但 v3 补上真正的主轴：<b>EV（期望值）成为系统的第一指标</b>——命中率是代理指标，钱才是真的。议题 1-7 全部围绕「每个数字可信 + 每次推送可赌」。</div>
+    <div class="rec">推荐：<b>① 按此主线</b></div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">① 按此主线（推荐）</option>
+        <option value="ev_only">② 只做 EV 线（议题 1），可信度声明缓议</option>
+        <option value="redo">③ 重新讨论</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q1">
+    <h3>1｜EV 成为日常指标（真 P0） <span class="tag p0">P0 · 影响每一笔钱</span></h3>
+    <div class="now">现状：系统算了三周「涨停命中率」，没算过一次「按信号买到底赚不赚」。今天的首次实测已经改变两个判断（见顶部 banner）。每日回测 automation（21:05）已存在，加 EV 口径即可日常化。</div>
+    <div class="rec">推荐：<b>做</b>——每日回测产出：分 prob 桶 × 分信号类型的收盘 EV / 规则 EV / 费用后 EV（费用按 0.2% 来回扣）+ 与模拟盘实际盈亏对照。<b>面板/日报展示 EV 优先于命中率</b>；⛔ 不以任何理由放宽闸门换 EV。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">做（推荐）</option>
+        <option value="ev_only">只做分桶 EV，模拟盘对照缓</option>
+        <option value="no">暂缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q2">
+    <h3>2｜执行层测量（更深一层） <span class="tag p1">P1</span></h3>
+    <div class="now">现状：信号 EV ≠ 你的盈亏，中间隔着入场时点（盘中买 vs 收盘口径）、退出规则（+3% 止盈疑似在吃 edge）、仓位。模拟盘在跑但没人把它的盈亏和信号 EV 对照。</div>
+    <div class="rec">推荐：<b>做</b>——① 模拟盘每笔成交回填「对应信号的 EV 预测 vs 实际」② 用次日最低价数据补全退出规则回测（+3% 止盈 / 止损 / 持到收盘 三规则对比，定案止盈是不是在吃 edge）③ 出「执行质量分」（你的实盘/模拟 vs 信号理论 EV 的差距）。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">做（推荐，①②③）</option>
+        <option value="only2">只做② 退出规则定案</option>
+        <option value="no">暂缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q3">
+    <h3>3｜盖戳改数据日期 + 拉取/归属分离 <span class="tag p1">P1 · 降级</span></h3>
+    <div class="now">现状（不变）：ztDay/sectorsDay 机器日期盖章；累计型数字挂拉取时刻。v3 修正：它从 P0 降为 P1——影响的是你看盘前的一眼，不是钱。</div>
+    <div class="rec">推荐：<b>修</b>——① ztDay/sectorsDay 改 dataTradeDay() 探测值 ② 累计型数字双标（归属日+拉取时刻，推广 breadth 样板）③ ⛔ 不放宽闸门。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">修（推荐）</option>
+        <option value="zt_only">只修盖戳</option>
+        <option value="no">暂缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q4">
+    <h3>4｜板块流行级时刻 + prob 标定状态 + 命中率样本量 <span class="tag p2">P2 · 三项合并</span></h3>
+    <div class="now">现状：板块资金流 20 行无行级 at；精选池 prob 无校准状态/桶样本；学习命中率面板不带 n。</div>
+    <div class="rec">推荐：<b>做</b>——行 title 带 at + 口径脚注；prob 旁 tooltip（校准状态+日期+桶 n，未校准如实写「未校准」）；命中率旁带 n 与纯净样本口径。三项都是「声明层」，一次做完。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">做（推荐）</option>
+        <option value="part">只做 prob 标定状态</option>
+        <option value="no">暂缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q5">
+    <h3>5｜「可信度自检」每日一行 <span class="tag p2">P2</span></h3>
+    <div class="now">现状：D5 报「为什么没推」；但「哪个数字在冒充/缺失、盖戳与数据日是否一致」无自报——且我的人肉审计出过假阳性（读错键把 5575 只读成 0）。</div>
+    <div class="rec">推荐：<b>做</b>——每日自检行进 push-log：① 盖戳日 vs 数据日不一致清单 ② 各数字组实测/兜底/缺失计数 ③ 校准不足的桶。<b>「没有下一个」从此每天自动回答，不靠我每轮审。</b></div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">做（推荐）</option>
+        <option value="only1">只做①</option>
+        <option value="no">暂缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q6">
+    <h3>6｜机会流从哪来（你已选「持续给机会」·v3 按 EV 数据修正） <span class="tag pick">你的选择 · 已修正</span></h3>
+    <div class="now">EV 实测把这个问题整个翻新：50-54 是 +0.91%（闸门下方一点），55-59 是 +1.42%，30-49 全负，60+ 全负。<b>「更多机会」的唯一诚实解 = 把更多信号校准进 50-59，而不是动闸门。</b>闸门 55 已在 EV 最优带下沿——放松它=走进负 EV 区，抬高它=砍掉唯一正 EV 的下半带。</div>
+    <div class="rec">
+      ① <b>提校准精度</b>（让 prob 更准 → 更多信号诚实地落在 50-59；数据源加码/因子验证服务这一条）<br>
+      ② <b>观察级日报</b>（⛔ 修正：只能从 <b>50-54</b> 出，带「EV≈+0.9%/次·薄利」标签，≤3 条/天，性质是「值得盯」不是「值得买」）<br>
+      ③ <b>修执行层</b>（议题 2：退出规则如果在吃 edge，修好它等于白捡 EV）<br>
+      ④ <b>样本积累</b>（校准桶满 5 日收锐，免费最慢）<br>
+      <b>⛔ 永久排除</b>：放宽闸门、概率美颜、「高胜率+多信号+零成本」——那就是 mainInflow:0。
+    </div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="all">①②③④ 全做（推荐）</option>
+        <option value="only2">只做② 观察级日报（限 50-54）</option>
+        <option value="only13">只做①③（提精度+修执行）</option>
+        <option value="discuss">先讨论</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q7">
+    <h3>7｜家规 <span class="tag rule">原则</span></h3>
+    <div class="now">把这次学到的固化成裁决规则，免得每轮现争。</div>
+    <div class="rec">推荐：<b>立规矩</b>——① 任何推送候选必须过 EV 口径（费用后 EV≤0 不推，不论 prob 多高）② 累计型数字必须带归属日、概率型必须带标定状态 ③ ⛔ 绝不放宽 ZT_INFER_PUSH_PROB=55 换推送量 ④ 「今天推得少」若是诚实结果，面板说原因（D5），不当 bug 修 ⑤ 用户要「更多机会」时，先问是 EV 口径还是 prob 口径——默认按 EV 答。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="y">立此规矩（推荐）</option>
+        <option value="discuss">再讨论</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="card" data-key="q8">
+    <h3>8｜发布安排 <span class="tag rule">发布</span></h3>
+    <div class="now">现状：if 轮（D1-D8 + #251）已完成待发；本表批准项（尤其议题 1-3）建议同包。⛔ 按约定不自动发布。</div>
+    <div class="rec">推荐：<b>统一发</b>——你一句「发布上线」，一个包带走。</div>
+    <div class="row">
+      <select data-role="sel">
+        <option value="together">统一发（推荐）</option>
+        <option value="if_first">if 轮先发，EV/可信度下一轮</option>
+        <option value="hold">都先缓</option>
+      </select>
+      <input type="text" data-role="note" placeholder="备注（可选）">
+    </div>
+  </div>
+
+  <div class="foot">
+    <button class="btn-main" onclick="genText()">📋 一键生成回发文案</button>
+    <button class="btn-ghost" onclick="copyText()">复制</button>
+    <button class="btn-ghost" onclick="clearDraft()">清空草稿</button>
+    <span class="saved" id="savedTip"></span>
+  </div>
+  <textarea id="out" placeholder="点上面按钮生成回发文案；也可以直接在这里补充。"></textarea>
+  <div class="hint" style="margin-top:8px">回表之前不动生产代码（你的老规矩）。文案格式：题号 + 选项 + 备注，我按它执行。</div>
+</div>
+
+<script>
+const LABELS = {
+  q0: ['0 主线', { y: '按「数字可信 + EV 第一指标」主线', ev_only: '只做 EV 线', redo: '重新讨论' }],
+  q1: ['1 EV 成为日常指标', { y: '做（分桶×分类型 EV + 费用后 + 模拟盘对照）', ev_only: '只做分桶 EV', no: '暂缓' }],
+  q2: ['2 执行层测量', { y: '做（模拟盘对照+退出规则定案+执行质量分）', only2: '只做退出规则定案', no: '暂缓' }],
+  q3: ['3 盖戳改数据日期+拉取/归属分离', { y: '修', zt_only: '只修盖戳', no: '暂缓' }],
+  q4: ['4 声明层三项', { y: '做（板块行 at + prob 标定 + 命中率 n）', part: '只做 prob 标定', no: '暂缓' }],
+  q5: ['5 每日可信度自检行', { y: '做（①+②+③）', only1: '只做①盖戳一致性', no: '暂缓' }],
+  q6: ['6 机会流四路', { all: '①②③④ 全做', only2: '只做②观察级（限50-54）', only13: '只做①③', discuss: '先讨论' }],
+  q7: ['7 家规', { y: '立规矩（EV 口径准入 + 归属日/标定状态 + ⛔不放宽55）', discuss: '再讨论' }],
+  q8: ['8 发布安排', { together: '统一发', if_first: 'if 轮先发', hold: '都先缓' }],
+};
+const DRAFT = 'qd_verifiability_draft_v3';
+function cards() { return [...document.querySelectorAll('.card')]; }
+function loadDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT) || '{}');
+    cards().forEach(c => {
+      const k = c.dataset.key, v = d[k];
+      if (!v) return;
+      const sel = c.querySelector('[data-role=sel]');
+      if (v.sel != null && [...sel.options].some(o => o.value === v.sel)) sel.value = v.sel;
+      if (v.note != null) c.querySelector('[data-role=note]').value = v.note;
+      if (v.sel != null || v.note) c.classList.add('changed');
+    });
+  } catch {}
+}
+function saveDraft() {
+  const d = {};
+  cards().forEach(c => {
+    d[c.dataset.key] = { sel: c.querySelector('[data-role=sel]').value, note: c.querySelector('[data-role=note]').value };
+  });
+  localStorage.setItem(DRAFT, JSON.stringify(d));
+  const tip = document.getElementById('savedTip');
+  tip.textContent = '已存草稿 ' + new Date().toLocaleTimeString('zh-CN');
+  setTimeout(() => tip.textContent = '', 2000);
+}
+function clearDraft() { localStorage.removeItem(DRAFT); cards().forEach(c => { c.classList.remove('changed'); c.querySelector('[data-role=note]').value = ''; }); document.getElementById('out').value = ''; }
+function genText() {
+  const lines = ['可信度声明决策表回发（2026-10-16 v3）：'];
+  let changed = 0;
+  cards().forEach(c => {
+    const k = c.dataset.key, sel = c.querySelector('[data-role=sel]').value, note = c.querySelector('[data-role=note]').value.trim();
+    const [name, map] = LABELS[k];
+    const def = c.querySelector('[data-role=sel] option').value;
+    if (sel !== def) changed++;
+    lines.push(`${name} → ${map[sel] || sel}${note ? '｜备注：' + note : ''}`);
+  });
+  lines.push(changed === 0 ? '（全部按推荐项）' : `（${changed} 项与默认不同）`);
+  document.getElementById('out').value = lines.join('\n');
+  saveDraft();
+}
+function copyText() {
+  const t = document.getElementById('out');
+  if (!t.value) genText();
+  t.select(); document.execCommand('copy');
+  const tip = document.getElementById('savedTip');
+  tip.textContent = '已复制 ✓'; setTimeout(() => tip.textContent = '', 2000);
+}
+document.querySelectorAll('[data-role=sel],[data-role=note]').forEach(el => {
+  el.addEventListener('change', () => { el.closest('.card').classList.add('changed'); saveDraft(); });
+});
+loadDraft();
+</script>
+</body>
+</html>

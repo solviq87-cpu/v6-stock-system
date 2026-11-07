@@ -1,0 +1,11 @@
+'use strict';
+const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const s=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+const trust=s.slice(s.indexOf("if (p === '/api/lock/trust'"),s.indexOf("if (p === '/api/lock/devices'"));
+const redeem=s.slice(s.indexOf("_dt = issueDevice("),s.indexOf("AUTH_CODES.delete(code);"));
+assert.match(trust,/token: issueToken\(role, dt\)/);
+assert.match(redeem,/_tk = issueToken\(hit\.role, _dt\)/);
+assert.doesNotMatch(trust,/token: issueToken\(role\)/);
+assert.doesNotMatch(redeem,/_tk = issueToken\(hit\.role\)/);
+assert.match(s,/if \(!digest\) \{ _vtokens\.delete\(t\)/);
+console.log('PASS 5: trust/redeem设备绑定及无绑定拒绝回归');

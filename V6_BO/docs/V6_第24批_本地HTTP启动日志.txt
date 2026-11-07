@@ -1,0 +1,13 @@
+[gov] 恢复当日推送额度：已推 0 条 / 0 只票有记录（重启不重新计数）
+[pushlog] 已载入历史推送流水 0 条
+[paper] 账户与流水对账通过
+[holdings] 风控去重状态载入失败（按空表启动，可能重启后重推一次）: ENOENT: no such file or directory, open '/mnt/data/v6_batch23/v6_release/.holdings_push.json'
+[phone] ⚠️ 未配置找回手机号（环境变量 QD_BOUND_PHONE 或 config.boundPhone）——「忘记密码」通道不可用。号码不写死在源码里是刻意的：源码包一旦外发就等于交出找回通道。
+量化看盘平台: http://127.0.0.1:18977
+[cloud-pushlog] 加载异常（已降级到本地）: Cannot find module '@tencent-ai/workbuddy-cloud-sdk'
+Require stack:
+- /mnt/data/v6_batch23/v6_release/cloud.js
+- /mnt/data/v6_batch23/v6_release/server.js
+[init] 云端推送流水恢复 完成 0ms
+[init] 第1次尝试：拉取全A列表...
+[em] 新浪全A：0 只

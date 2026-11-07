@@ -1,0 +1,147 @@
+{
+  "changed": [
+    {
+      "file": "_test_auth_matrix.js",
+      "core_sha256": "fc5230d2a24e077a5923ba5db414c74715be39f89eba3ea75349fb9710e6cd06",
+      "merged_sha256": "8246a80726d6327e7b556f59a1e33b814385901ac994c2d1ffe6b0ee0ffca4c6"
+    },
+    {
+      "file": "cloud.js",
+      "core_sha256": "f6b26f4242bdbd4304b472205cab90b493da2710b6359ed0b2b1664e1865006c",
+      "merged_sha256": "ee58a6e7fa975c6cb61998f67ca149c5ba9d4bb8faeae33baf0b20a7d1db27e4"
+    },
+    {
+      "file": "package.json",
+      "core_sha256": "a55be213c206a66e587bf359887df90eb1241bff967cac042dbff479a5c4aef6",
+      "merged_sha256": "7acdfc5a4d185fdef1f8c93f88286835472757d415e8458db4be55b244a682ac"
+    },
+    {
+      "file": "server.js",
+      "core_sha256": "e7cf67cf96771dfd1b650ce6c5d12a7a82c37ec14de508610c760ec6ae11ca7f",
+      "merged_sha256": "b6d1436369608498477da829c4e586ffc46ce2b7d34c6657d94ad9dd1b496b02"
+    },
+    {
+      "file": "tests/paper-audit.test.js",
+      "core_sha256": "f1b4a631cf7276e560f70a09a34d027324c1b6cae81d1239d9afa42838e7db9d",
+      "merged_sha256": "db775d14332bf7e519145f6dcd7bb886d4edda9e91e829bf0c195a0d22307699"
+    },
+    {
+      "file": "tests/feishu-otp-private-readiness.test.js",
+      "core_sha256": "ca4df8e892c97ed9051d8a7058f1477228dbcdabe5168904efe41a77ea808651",
+      "merged_sha256": "161c6e1dba2230a4c0c6778e2db8beb1537817d5dbc0a71d3925bbd24d538656"
+    },
+    {
+      "file": "tests/research-live-http-isolated.test.js",
+      "core_sha256": "292802a565b13064ca4d2e2f7a8ce90f88c324610e4dc6a586bf03a5997e95d1",
+      "merged_sha256": "65ff663debfb769b71cab08923318627c2e1850b0fea4a4da91e7f483b54bd76"
+    },
+    {
+      "file": "public/sw.js",
+      "core_sha256": "482989bcfd15dfd9b5c67864671eed0cda3f6926e2d9319b37a79d85616ff069",
+      "merged_sha256": "3d998dff58d1f454d0964e8f89d7ddbdf408159268b9d3ca52515f15401546e6"
+    },
+    {
+      "file": "public/research.html",
+      "core_sha256": "04ddeb3e2cde21bbb1deb80ddd84ad08b98460edfbb447b7b09c0e8710eb87d9",
+      "merged_sha256": "64dfd9f21bf48bac83c7fcc468c6f8b5a051afc17e4f5b33a1b21932db5967b9"
+    },
+    {
+      "file": "public/index.html",
+      "core_sha256": "d2c9fdb4133a40f83361b09e5075f00f87f56d7819c37b4b204d930e8c77cb2a",
+      "merged_sha256": "2aad506d24290640ea34b15d9e62ae4f70a8e86c3502ca3ca136b3d3bfd18310"
+    },
+    {
+      "file": "public/mobile.html",
+      "core_sha256": "c26fd502fec95ee74847bb402707b2282c0daa1bcd63f8d18d8c233312657109",
+      "merged_sha256": "e2d6c2cca897b779ea7655106b7855b83be5f6b468aac35b032fdd432d9d2dca"
+    },
+    {
+      "file": "scripts/run-full-regression.sh",
+      "core_sha256": "4768f40372e7ac57fb283b8ae97a1df57c30bf9d7aff9492dd2a0dfbf41f2c94",
+      "merged_sha256": "889cb06d8a9656a6b5dc4a41ecbc5ead1c0268083008ebfa806ea2691fbe06af"
+    },
+    {
+      "file": "public/assets/app.js",
+      "core_sha256": "2edce3075c189e0f714874389f9d1d1eb238f9fae95af286ce8a88f63a635e5b",
+      "merged_sha256": "70a53ca0c43bdd139fa5c06c72391def9c8f8deb3663b3d41871633a4a68fe5c"
+    },
+    {
+      "file": "src/core/paper-account-ledger.js",
+      "core_sha256": "42bd72f0306d6f98f6e3a6ed9202ed9d51eb33dfb840e4dc2f7b130e0c98d342",
+      "merged_sha256": "64e74691cd1bfb9b68b80879d8857992289abb9dd713527186267f68c841a8fb"
+    },
+    {
+      "file": "src/core/historical-validation.js",
+      "core_sha256": "d0e3d440005e017c67c244387e8255142af246cedde0ce0bd713530e2460ce77",
+      "merged_sha256": "3234a9869443936ff59fc5ee672dd3bc541a7a3a83c5464d05210c41cb36655a"
+    },
+    {
+      "file": "src/core/market-data-center.js",
+      "core_sha256": "17271e4d54664d81b83f91511644167fbbc5ae21e3e9c5f00f3544ec6ab91e48",
+      "merged_sha256": "f98d251af31ef1580cea64733e9b8beb6cf72910a7b708a9370152d810abc2a8"
+    },
+    {
+      "file": "src/core/paper-session.js",
+      "core_sha256": "fef4619f32f684b7fade580bd3ed9537cb40322f409e967a0780f92e7acbabcc",
+      "merged_sha256": "5158dab86fb51f289187cc206c1a477feb1b53376020d841f86c7c42c8693710"
+    },
+    {
+      "file": "src/core/paper-replay.js",
+      "core_sha256": "aebc0edb9f16b39d6729a4bf2dbcd7c3fb68fafe23a7511d0cd90e399da97327",
+      "merged_sha256": "412afe5db2472316b3638a76c1080b5f87749dc5680a0c47e69bdde1e637c7dd"
+    },
+    {
+      "file": "src/core/research-validation-suite.js",
+      "core_sha256": "d337606c2c9c74805612c796a42fe1ab8a493e28ca4875c122f76f6789621b21",
+      "merged_sha256": "9fd4cc7a7d18bfb3d28f4c7035ca205af4be84b4aea6f0f45f6d5e91a49a0340"
+    },
+    {
+      "file": "src/strategy/historical-session.js",
+      "core_sha256": "01d2f84466df66fc999dfb250af2efd26ba6eadb2a110907bddd3ae59bd5e010",
+      "merged_sha256": "c811b5dfcb094bf1da73fe1d72b58aaddf8f78f8e208b9be060b25f655f7011a"
+    },
+    {
+      "file": "src/strategy/research-v2-position-ledger-backtest.js",
+      "core_sha256": "25879b6d88bf4a35f560d2154dfd3057caaa85e40608398be7ee1dd70b19dede",
+      "merged_sha256": "a0d1e44faf15dc501bb3b7f0e7b19340f6a6ff86b7bbfe1b4e6940676e938fce"
+    }
+  ],
+  "added": [
+    "docs/V6_第68批_完整回归原始日志.log",
+    "docs/V6_本轮完整回归_20261105.log",
+    "docs/V6_第61批_全量测试原始输出.log",
+    "tests/complete-development.test.js",
+    "tests/paper-session-consistency.test.js",
+    "tests/terminal-dashboard.test.js",
+    "tests/dashboard-view.test.js",
+    "tests/mainline-backup-model.test.js",
+    "tests/paper-application-service.test.js",
+    "tests/legacy-authority-integration.test.js",
+    "scripts/paper-account.js",
+    "scripts/secure-backup.js",
+    "scripts/market-failover-sync.js",
+    "deploy/environment.example",
+    "deploy/market-sources.example.json",
+    "deploy/v6.service",
+    "deploy/nginx.conf.example",
+    "public/assets/complete-workbench.js",
+    "public/assets/terminal-theme.css",
+    "public/assets/terminal-dashboard.js",
+    "src/core/complete-workbench.js",
+    "src/core/dashboard-view.js",
+    "src/core/legacy-paper-projection.js",
+    "src/core/corporate-actions.js",
+    "src/core/execution-risk.js",
+    "src/core/single-model-interface.js",
+    "src/core/account-reconciliation.js",
+    "src/core/trading-calendar.js",
+    "src/core/paper-application-service.js",
+    "src/core/performance-statistics.js",
+    "src/core/market-failover.js",
+    "src/core/account-process-lock.js",
+    "src/server/research-worker.js",
+    "src/server/research-job.js",
+    "src/server/sms-otp.js"
+  ],
+  "missing": []
+}

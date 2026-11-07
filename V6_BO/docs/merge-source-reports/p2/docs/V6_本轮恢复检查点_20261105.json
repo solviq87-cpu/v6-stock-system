@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-05",
+  "baseline": "V6_最新完整工程_重新下载.zip",
+  "scope": "SSE immediate revocation",
+  "tests": {
+    "baseline_pass": 361,
+    "final_pass": 363,
+    "final_fail": 0
+  },
+  "production_accepted": false,
+  "remaining_document": "docs/V6_十一大工程_最新进度与真实未完成项_20261105.md"
+}

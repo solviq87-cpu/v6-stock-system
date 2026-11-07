@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推送送达修复 · 决策表（2026-10-16）</title>
+<style>
+  :root { --bd:#d9dee5; --bg:#f5f7fa; --card:#ffffff; --txt:#1f2733; --sub:#5b6675; --acc:#0b5fff; --warn:#b3541e; --ok:#0f7b3d; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px; background:var(--bg); color:var(--txt); font:14px/1.65 "Segoe UI","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:26px 0 10px; padding-left:9px; border-left:4px solid var(--acc); }
+  .sub { color:var(--sub); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .evi { font-size:13px; }
+  .evi li { margin:3px 0; }
+  .tl { font-family:Consolas,monospace; font-size:12.5px; background:#f0f3f7; border-radius:6px; padding:8px 10px; margin:6px 0; }
+  .tl b { color:var(--warn); }
+  .tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:9px; background:#e8eefc; color:var(--acc); margin-left:6px; vertical-align:middle; }
+  .tag.risk { background:#fdeee2; color:var(--warn); }
+  .tag.safe { background:#e6f5ec; color:var(--ok); }
+  table.dec { width:100%; border-collapse:collapse; }
+  table.dec th { text-align:left; font-size:12px; color:var(--sub); padding:6px 8px; border-bottom:2px solid var(--bd); }
+  table.dec td { padding:10px 8px; border-bottom:1px solid #eef1f5; vertical-align:top; }
+  tr.changed { background:#fff8e6; }
+  select, textarea, input { font:13px/1.5 inherit; color:var(--txt); }
+  select { padding:5px 8px; border:1px solid var(--bd); border-radius:6px; background:#fff; min-width:220px; }
+  textarea { width:100%; min-height:52px; padding:6px 8px; border:1px solid var(--bd); border-radius:6px; resize:vertical; }
+  .why { color:var(--sub); font-size:12.5px; margin-top:4px; }
+  .foot { font-size:12px; color:var(--sub); margin-top:8px; }
+  button { font:14px inherit; padding:9px 18px; border:none; border-radius:8px; background:var(--acc); color:#fff; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--acc); border:1px solid var(--acc); }
+  #out { width:100%; min-height:260px; margin-top:10px; font-family:Consolas,monospace; font-size:12.5px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .pill { font-size:12px; background:#eef1f5; border-radius:20px; padding:3px 12px; color:var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>推送送达修复 · 决策表</h1>
+  <div class="sub">2026-10-16 · 基于 10-14/10-15 两日线上推送流水 + 两端实例状态实证 · 默认值=推荐项，改过的行会黄底标明</div>
+
+  <h2>一、实锤证据（不是推测，全部可从流水/接口复核）</h2>
+  <div class="card evi">
+    <b>1）10-15 全天：用户收到的第一条推送在 13:09:35</b>（之前是 00:47 的源码包链接）。9:15–11:21 线上实例零送达：
+    <div class="tl">09:15 开盘自检/盘中推送/连板梯队 → 无线上记录<br>09:20:30 <b>竞价预览</b> → 无线上记录（连副本尝试都没有，两侧都在 pushAll 之前就返回了）<br>09:25:20 <b>竞价异动·定稿</b> → 无线上记录（readyCount&lt;200 的路径只 console.warn、不写流水）<br>09:26 竞价强势票 / 09:30 大单 / 09:31 模拟盘 / 09:35 相似 / 09:45 外围 → 均无线上记录<br>17:33:34 健康告警 ×2（竞价预览 9:20 + 竞价异动 9:25 定稿「至今未收到送达记录」）← 系统自己发现了</div>
+    <b>2）大单为 0 的根因是门槛高过候选分布一整档</b>：线上实时大单榜单 12 只，模型 prob 分别为 21/11/15/44/10/20/10/12/17/16/12/21，<b>最高 44</b>；而 bigMoneyProbGate 已被自学习从默认 45 顶到 <b>60</b>（`if (st.luRate < 12 && cur < 70) nv = cur + 5`）。热门路径 `prob > 60` → 恒零候选；普通路径虽已豁免胜率门（gs 轮），但偏冷天「大单」类条数帽 2→1，一天最多 1 张卡。
+    <div class="tl">10-15 16:09 流水实录：「今日已推 7 条，上限 7 条（偏冷环境·额度减半）」→ 趋势两条被拦<br>10-14 14:07 / 10-15 11:21 流水实录：「大单流入 | 模块日上限拦截（A/B 两组共享额度）」</div>
+    <b>3）偏冷环境双重收紧</b>（go 轮 C2，用户 10-12 决策）：胜率门 52→60、总条数 15→7、各类减半（持仓/外围/模拟盘/大单/竞价全部腰斩）。
+    <b>4）竞价 40 秒窗口的固有脆弱性</b>：9:25:20–9:26:00 内要全量重拉（东财一限流就退避 30–120 秒），gb 轮又定过「9:26 后不自动补」→ 窗口一过当天静默，只剩面板手动补发。而 9:26–9:29:59 这个时段抓到的 open 价就是法定开盘价（auctionPhase=3、amtReliable=true），<b>是纯竞价结果、不是盘中价</b>——现行「不补」把「迟到但真实」和「拿盘中价冒充」一刀切了。
+  </div>
+
+  <h2>二、修订方案（⛔ 铁律不动：ZT_INFER_PUSH_PROB=55、D5=35、pushMinProb 一律不放宽）</h2>
+  <div class="card">
+    <table class="dec" id="tbl">
+      <tr><th style="width:30%">决策项</th><th style="width:26%">你的决定</th><th>说明 / 风险</th></tr>
+      <tr data-k="D1">
+        <td><b>D1 竞价定稿补发窗</b><span class="tag">治「竞价一定要及时」</span><div class="why">9:26:00–9:29:59 若定稿未发，每 10 秒重试；仅当快照为 phase 3（开盘价口径、成交额≈竞价额）才发，标题/正文如实标注真实快照时间；9:30 后不自动补（手动补发口子不变）。</div></td>
+        <td><select data-k="D1">
+          <option value="go">做（推荐）</option>
+          <option value="go30">做，且窗口延到 9:35（9:30 后标的「累计额」诚实标注）</option>
+          <option value="no">不做，维持 9:26 后静默</option>
+        </select><br><textarea data-k="D1" placeholder="备注（可选）"></textarea></td>
+        <td class="why">改 server.js 竞价定稿定时器 + buildAuctionAlertMessage 标题分支。不新增冒充路径：phase 3 之外一律不发。守门：_test_auction_window 扩断言。</td>
+      </tr>
+      <tr data-k="D2">
+        <td><b>D2 偏冷天「竞价」类保底 2 条</b><span class="tag">治竞价半套</span><div class="why">MSG_CAP['竞价']=2，偏冷减半成 1 → 定稿发出后 4 秒的「竞价强势票」必被条数闸门吞掉。定稿+强势票是 hg 轮定性的「一套」，冷天也应保底 2。</div></td>
+        <td><select data-k="D2">
+          <option value="go">做（推荐）</option>
+          <option value="no">不做，冷天只发定稿</option>
+        </select><br><textarea data-k="D2" placeholder="备注（可选）"></textarea></td>
+        <td class="why">msgGate 加一张冷天保底表（竞价/大单两类 floor=2），其余类减半逻辑一字不动。</td>
+      </tr>
+      <tr data-k="D3">
+        <td><b>D3 大单门槛防憋死</b><span class="tag">治「大单还是没有推」</span><div class="why">bigMoneySelfOptimize 上调无硬顶（可到 70）且加码后不检查模块是否还有输出。修法：① 上调硬顶 70→55；② 热门路径在数据窗口内连续 ≥60 分钟零候选时，门槛自动回退一档（最低回到默认 45）并写学习日志。</div></td>
+        <td><select data-k="D3">
+          <option value="go">做（推荐）</option>
+          <option value="go50">做，硬顶改 50（更贴默认值 45）</option>
+          <option value="rb">只做②零候选回退，不动硬顶</option>
+          <option value="no">不做</option>
+        </select><br><textarea data-k="D3" placeholder="备注（可选）"></textarea></td>
+        <td class="why">⛔ 不放宽 ZT_INFER_PUSH_PROB / D5 / pushMinProb；这里是防自学习把模块顶到永久静默（adjReview 只防重复加码，没防加码后归零）。</td>
+      </tr>
+      <tr data-k="D4">
+        <td><b>D4 偏冷天「大单」类保底 2 条</b><span class="tag">治大单量</span><div class="why">同 D2：大单是客观资金行为类（gs 轮已豁免胜率门），冷天帽 1 使模块几近无声。</div></td>
+        <td><select data-k="D4">
+          <option value="go">做（推荐）</option>
+          <option value="no">不做，维持冷天 1 条</option>
+        </select><br><textarea data-k="D4" placeholder="备注（可选）"></textarea></td>
+        <td class="why">与 D2 同一处改动（一张冷天保底表），模块日配额 12 与每票冷却不变。</td>
+      </tr>
+      <tr data-k="D5">
+        <td><b>D5 每模块每日一行「为什么没推」</b><span class="tag">可观测性</span><div class="why">现在「0 候选」和「被闸门拦」在流水里长得一样（都没有记录）。改为：数据窗口结束时，每个机会模块写一行摘要——候选 N 只、热门路径 M 只（门槛 X%）、普通路径被拦原因分布。直接回答「今天为什么没推」。</div></td>
+        <td><select data-k="D5">
+          <option value="go">做（推荐）</option>
+          <option value="no">不做</option>
+        </select><br><textarea data-k="D5" placeholder="备注（可选）"></textarea></td>
+        <td class="why">只进推送流水/面板，不外发（pushLog 不 pushAll），零噪音；复用现有 govBlocked 统计。</td>
+      </tr>
+      <tr data-k="D6">
+        <td><b>D6 e) 竞价概率诚实化随轮发布</b><span class="tag">已写好未发布</span><div class="why">aucztHonestProb：raw&lt;45→9%、45–54→20%、55+→20%（实测当日封板 9%/20%，原声称 40/50 虚高 2~3 倍）。已过守门 16/16 + 回归 0 新增红。<b>注意：竞价强势票里展示的「涨停概率」将变成 9–20% 的真实值</b>，数字会明显变小——这是说真话的代价。</div></td>
+        <td><select data-k="D6">
+          <option value="go">发布（推荐）</option>
+          <option value="later">暂不发布，继续观察</option>
+        </select><br><textarea data-k="D6" placeholder="备注（可选）"></textarea></td>
+        <td class="why">⛔ 不放宽 55 闸门；prob>55 的竞价推送通道本样本内几乎无票可过，属预期内变哑。</td>
+      </tr>
+      <tr data-k="D7">
+        <td><b>D7 面板精简范围</b><span class="tag">「设备显示页面精简点」</span><div class="why">当前面板卡片多（情绪/涨停/精选/趋势/一进二/连板/大单/补涨龙/埋伏/相似/新闻/持仓/模拟盘/K线…），手机上一屏放不下。</div></td>
+        <td><select data-k="D7">
+          <option value="a">A 首屏瘦身（推荐）：首屏只留 市场情绪+涨停池+精选池+推送状态，其余默认折叠、状态记忆</option>
+          <option value="b">B 全页面逐一审查，出一份精简清单再定</option>
+          <option value="c">C 暂缓，先只修推送</option>
+        </select><br><textarea data-k="D7" placeholder="备注（可选）：哪个页面/哪块最想精简？"></textarea></td>
+        <td class="why">改 public/index.html + 两端 APP_VER 同步；gj 轮已有渲染防御，折叠不改数据契约。</td>
+      </tr>
+      <tr data-k="D8">
+        <td><b>D8 源码汉字注释精简</b><span class="tag">「源代码少些汉字注释」</span><div class="why">⛔ 版本注释链与 ⛔ 安全注释被守门断言引用、不能大删。可做的是：本轮起新注释从简；对确无守门引用的纯叙述段做有限压缩（先扫描出清单给你确认）。</div></td>
+        <td><select data-k="D8">
+          <option value="a">A 本轮起从简 + 先出压缩清单再动手（推荐）</option>
+          <option value="b">B 只保证本轮新增注释精简</option>
+          <option value="c">C 暂不动</option>
+        </select><br><textarea data-k="D8" placeholder="备注（可选）"></textarea></td>
+        <td class="why">压缩=删字不删语义，守门关键词（历史轮次名/铁律标记）原样保留；每处压缩后跑 _runall.js 验证。</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>三、回发</h2>
+  <div class="card">
+    <div class="row">
+      <span class="pill">草稿自动存在本机 localStorage</span>
+      <button class="ghost" id="btnGen">生成回发文案</button>
+      <button id="btnCopy">复制到剪贴板</button>
+      <button class="ghost" id="btnReset">恢复默认</button>
+    </div>
+    <textarea id="out" placeholder="点「生成回发文案」"></textarea>
+    <div class="foot">流程：你回表 → 我按决定实施（每个改动配守门 + node --check + _runall.js 0 新增红）→ 你验证后说「发布上线」才发布。</div>
+  </div>
+</div>
+
+<script>
+var DEF = {D1:'go',D2:'go',D3:'go',D4:'go',D5:'go',D6:'go',D7:'a',D8:'a'};
+var OPT = {
+  D1:{go:'做',go30:'做且延到9:35',no:'不做'},
+  D2:{go:'做',no:'不做'},
+  D3:{go:'做(硬顶55)',go50:'做(硬顶50)',rb:'只做零候选回退',no:'不做'},
+  D4:{go:'做',no:'不做'},
+  D5:{go:'做',no:'不做'},
+  D6:{go:'发布',later:'暂不发布'},
+  D7:{a:'A 首屏瘦身',b:'B 全页面审查',c:'C 暂缓'},
+  D8:{a:'A 从简+先出清单',b:'B 只保本轮新增',c:'C 暂不动'}
+};
+function mark(){
+  document.querySelectorAll('#tbl tr[data-k]').forEach(function(tr){
+    var k = tr.getAttribute('data-k');
+    var sel = tr.querySelector('select');
+    tr.classList.toggle('changed', sel.value !== DEF[k]);
+  });
+}
+function load(){
+  var s = {};
+  try { s = JSON.parse(localStorage.getItem('pushFixDec') || '{}'); } catch(e){}
+  document.querySelectorAll('#tbl select').forEach(function(sel){
+    var k = sel.getAttribute('data-k');
+    sel.value = (s[k] && OPT[k][s[k]]) ? s[k] : DEF[k];
+  });
+  document.querySelectorAll('#tbl textarea').forEach(function(ta){
+    var k = ta.getAttribute('data-k');
+    ta.value = (s['n_'+k]) || '';
+  });
+  mark();
+}
+function save(){
+  var s = {};
+  document.querySelectorAll('#tbl select').forEach(function(sel){ s[sel.getAttribute('data-k')] = sel.value; });
+  document.querySelectorAll('#tbl textarea').forEach(function(ta){ s['n_'+ta.getAttribute('data-k')] = ta.value; });
+  localStorage.setItem('pushFixDec', JSON.stringify(s));
+  mark();
+}
+document.querySelectorAll('#tbl select, #tbl textarea').forEach(function(el){ el.addEventListener('change', save); el.addEventListener('input', save); });
+document.getElementById('btnGen').onclick = function(){
+  var lines = ['推送修复决策（2026-10-16）：'];
+  document.querySelectorAll('#tbl tr[data-k]').forEach(function(tr){
+    var k = tr.getAttribute('data-k');
+    var sel = tr.querySelector('select');
+    var ta = tr.querySelector('textarea');
+    var name = tr.querySelector('td b').textContent;
+    var v = OPT[k][sel.value];
+    lines.push(k + ' ' + name + ' → ' + v + (ta.value.trim() ? '（备注：' + ta.value.trim() + '）' : ''));
+  });
+  document.getElementById('out').value = lines.join('\n');
+};
+document.getElementById('btnCopy').onclick = function(){
+  var t = document.getElementById('out');
+  if (!t.value) document.getElementById('btnGen').onclick();
+  t.select(); document.execCommand('copy');
+  this.textContent = '已复制 ✓'; var b = this; setTimeout(function(){ b.textContent = '复制到剪贴板'; }, 1500);
+};
+document.getElementById('btnReset').onclick = function(){
+  localStorage.removeItem('pushFixDec'); load();
+};
+load();
+</script>
+</body>
+</html>

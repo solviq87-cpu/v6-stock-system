@@ -1,0 +1,15 @@
+{
+  "baseline": "408项通过版本",
+  "tests": {
+    "pass": 412,
+    "fail": 0,
+    "skip": 0
+  },
+  "changes": [
+    "shared portfolio risk gate",
+    "paper replay linkage",
+    "ledger backtest linkage"
+  ],
+  "productionAccepted": false,
+  "realMarketVerified": false
+}

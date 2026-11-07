@@ -1,0 +1,137 @@
+{
+  "baseline_source": "V6_集中开发_联网历史行情刷新_设备权限与回测综合联测_完整工程_20261104.zip",
+  "archives_audited": 43,
+  "common_paths_with_historical_differences": 31,
+  "unique_legacy_files_archived": [
+    "v6_release/src/strategy/cache-bridge.js",
+    "v6_release/src/strategy/system-kline-bridge.js",
+    "v6_release/tests/system-kline-bridge.test.js"
+  ],
+  "resolution_policy": "最新完整工程为主线；旧版独有且未接入主线的桥接源码放入legacy_sources，不自动启用过时API；冲突文件不按时间戳覆盖，保留审计记录。",
+  "shared_conflicts": [
+    {
+      "path": "v6_release/_test_auth_matrix.js",
+      "historical_versions": 9
+    },
+    {
+      "path": "v6_release/cloud.js",
+      "historical_versions": 21
+    },
+    {
+      "path": "v6_release/docs/V6_后续开发任务大纲.md",
+      "historical_versions": 35
+    },
+    {
+      "path": "v6_release/docs/V6_第三十一批_修改清单.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/docs/V6_第三十一批_测试报告.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/docs/V6_集中开发_修改清单.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/docs/V6_集中开发_本轮修改清单.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/docs/V6_集中开发阶段_修改清单.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/docs/V6_集中开发阶段_测试报告.md",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/package.json",
+      "historical_versions": 11
+    },
+    {
+      "path": "v6_release/public/assets/app.js",
+      "historical_versions": 13
+    },
+    {
+      "path": "v6_release/public/assets/research-workbench.js",
+      "historical_versions": 10
+    },
+    {
+      "path": "v6_release/public/index.html",
+      "historical_versions": 32
+    },
+    {
+      "path": "v6_release/public/research.html",
+      "historical_versions": 10
+    },
+    {
+      "path": "v6_release/scripts/audit-password-visibility.js",
+      "historical_versions": 2
+    },
+    {
+      "path": "v6_release/server.js",
+      "historical_versions": 42
+    },
+    {
+      "path": "v6_release/src/server/bootstrap.js",
+      "historical_versions": 7
+    },
+    {
+      "path": "v6_release/src/strategy/cached-kline-adapter.js",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/src/strategy/feed-quality.js",
+      "historical_versions": 3
+    },
+    {
+      "path": "v6_release/src/strategy/persistent-research-cache.js",
+      "historical_versions": 2
+    },
+    {
+      "path": "v6_release/src/strategy/position-ledger-backtest.js",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/src/strategy/strategy-service.js",
+      "historical_versions": 27
+    },
+    {
+      "path": "v6_release/src/strategy/walk-forward-backtest.js",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/tests/cache-workbench.test.js",
+      "historical_versions": 1
+    },
+    {
+      "path": "v6_release/tests/full-server-isolated-smoke.js",
+      "historical_versions": 3
+    },
+    {
+      "path": "v6_release/tests/http-preflight-regression.test.js",
+      "historical_versions": 5
+    },
+    {
+      "path": "v6_release/tests/research-cache-audit.test.js",
+      "historical_versions": 4
+    },
+    {
+      "path": "v6_release/tests/research-live-http-isolated.test.js",
+      "historical_versions": 2
+    },
+    {
+      "path": "v6_release/tests/research-route-authorization.test.js",
+      "historical_versions": 2
+    },
+    {
+      "path": "v6_release/tests/research-workbench.test.js",
+      "historical_versions": 8
+    },
+    {
+      "path": "v6_release/tests/view-session-revocation.test.js",
+      "historical_versions": 25
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "V6-UNIFIED-RECOVERY-20261104-14-EVIDENCE-TTL",
+  "base": "V6_Latest_Full_Project_Feed_Gate_20261104.zip",
+  "changes": [
+    "src/strategy/strategy-service.js",
+    "tests/factor-feed-integration.test.js"
+  ],
+  "sha256": {
+    "src/strategy/strategy-service.js": "c72588da1e85d0667f2677fe0eaa96cc654a02728a6b3a41db432a8c42296156",
+    "tests/factor-feed-integration.test.js": "7f18fa246e3b573bcaf059e696c5d53178e0e23304c335bbc235ea1f9ca3633e"
+  }
+}

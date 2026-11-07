@@ -1,0 +1,30 @@
+{
+  "baseline": "43版历史审计合并与全量回归",
+  "protected_file_count": 23,
+  "protected_files": {
+    "v6_release/_test_good_conditions.js": "7269b9c214900641952e47b13cd0539f92774bbb46cbd5c0f131ff4bef0a954f",
+    "v6_release/src/core/multi-strategy-engine.js": "7900a9aee7b9531d33f185330fcec91ebd017b2ee9b7f7e50d1d295d4f74a2b3",
+    "v6_release/src/core/risk-filter.js": "dbc9d84d9b28393b6ca753a89c176d9818b6a53ea4177500d8ebc92e268b9bd8",
+    "v6_release/src/core/strategy-engine.js": "7f5f28997fa17879b6f73929c3d7d2d778d052526d8dea050df11fe5fafbd5c2",
+    "v6_release/src/core/strategy-report.js": "d5eb69cf699bfb4a661d72af191d47b054f29c3c04f38909296b9ad217a28310",
+    "v6_release/src/strategy/README.md": "11b67537f59513f95f4812d99c83b71c2cde50b9550b542c9a73cdd7bce9f761",
+    "v6_release/src/strategy/cached-kline-adapter.js": "36f36927b5263f618d501fe8ecc336cde41d8951a269372e5f8ddae3ae925589",
+    "v6_release/src/strategy/extended-factor-engine.js": "3ad84e4c9ee27e03e884936de280f7a0cc431366e3a899b1cbdab9beeacae9a0",
+    "v6_release/src/strategy/feed-quality.js": "d2997f0246a52122e047595bfb84f9b1f79ea463cd714633610e3316ed60fb41",
+    "v6_release/src/strategy/historical-indicators.js": "90cda8b1fbf32a08a8e5a30513195232402a7f15778cabe7dd738cdfd0abb3c0",
+    "v6_release/src/strategy/limit-ladder-engine.js": "7850061b12260dbd82e2631254bf7f535d72a9dbe6fedd3736b39223e9bcbfb6",
+    "v6_release/src/strategy/persistent-research-cache.js": "5f3ad60850c202787dcbc90eaf6715de1f2bf9cd5996632fd5384772dbd39bd8",
+    "v6_release/src/strategy/position-ledger-backtest.js": "49b98a1687d31b592ce81e873062819d0f0a1c8a315216a320259f748c250f0b",
+    "v6_release/src/strategy/research-playbook-engine.js": "8799e49684eda355384d68d2b4ff0d71fd9568788253d7a8c5e10cee86cec8bf",
+    "v6_release/src/strategy/research-upload-validator.js": "bdfc3a99a1edcd8e1f64b51d5dd7e6ad747e08871d7fb57132e773b2d114fb3b",
+    "v6_release/src/strategy/risk-filter.js": "1716eb5582294ed96f21fb23aa706df932261c9d7ac373be4d28fc797176af61",
+    "v6_release/src/strategy/snapshot-normalizer.js": "025493cb19a60a1ba3b86ca765255b18e50c01005f825ddae6a3fca2d3169659",
+    "v6_release/src/strategy/strategy-service.js": "6cea31fc23558cfc1ceb98b261630f598b41ca940a1a46d843be7c44982dbbe8",
+    "v6_release/src/strategy/universe-scanner.js": "96c9e97cb6723aefa963a4f41f4c5fcce0f669c92b190e5086b7eb9ca76753c9",
+    "v6_release/src/strategy/walk-forward-backtest.js": "d6ff08a772074fde85216a2c1c9dd6d58888b9b6ba0e9827b6d3bef1bba0c3f8",
+    "v6_release/strategies/a-share-strategy-pack.json": "f9feecd40bfdc21a647fb2252672eb677887ebf928c4be6178860d0b7a4cf534",
+    "v6_release/strategies/extended-factor-pack.json": "2b0859d98244678dbef202be1f0badbd8cec17c100c22a57bd52d823ec27703e",
+    "v6_release/strategies/research-playbooks.json": "7e86fdcd7dd0c4aadb8bcb0b2ccbebb225d721b370759ddc423ea201d9a1b751"
+  },
+  "policy": "Existing stock selection conditions must not be silently removed or altered."
+}

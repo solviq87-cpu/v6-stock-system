@@ -1,0 +1,18 @@
+{
+  "deleted": [],
+  "changed": [
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js"
+  ],
+  "added": [
+    "integration/PROVIDER_LINKS_OPERATIONS_20261106az.md",
+    "integration/provider-links-full-tests.tap",
+    "integration/CHAT_HANDOFF_20261106az.md",
+    "tests/stock-provider-links.test.js",
+    "public/assets/stock-provider-links.js"
+  ]
+}

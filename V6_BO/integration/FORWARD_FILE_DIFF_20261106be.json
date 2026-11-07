@@ -1,0 +1,27 @@
+{
+  "added": [
+    "scripts/forward-signals.js",
+    "integration/forward-final-full.exit",
+    "integration/FORWARD_SIGNALS_OPERATIONS_20261106be.md",
+    "integration/forward-targeted.exit",
+    "integration/HARNESS_REFERENCE_AUDIT_20261106.md",
+    "integration/forward-targeted.tap",
+    "integration/forward-full.tap",
+    "integration/forward-final-full.tap",
+    "integration/forward-full.exit",
+    "tests/forward-signal-observer.test.js",
+    "third_party/reference_harness/LICENSE",
+    "third_party/reference_harness/NOTICE.md",
+    "src/core/forward-signal-observer.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "public/assets/app.js",
+    "public/assets/terminal-dashboard.js",
+    "public/index.html",
+    "public/mobile.html",
+    "public/sw.js",
+    "server.js"
+  ],
+  "deleted": []
+}

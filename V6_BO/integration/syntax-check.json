@@ -1,0 +1,767 @@
+[
+  {
+    "file": "server.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "cloud.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/server/sms-otp.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/server/research-worker.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/server/trusted-proxy-ip.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/server/research-job.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/server/bootstrap.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-replay.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/dashboard-view.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-health-monitor.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/corporate-actions.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/account-reconciliation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-audit.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/process-file-lock.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/eastmoney-market-snapshot.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-order-state-machine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-order-lifecycle.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/independent-strategy-attribution.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-portfolio-lab.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/trading-calendar.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-paper-reconciliation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/unified-run-audit.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/decision-research-pipeline.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-feed-consensus.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-application-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/multi-strategy-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/daily-research.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-data-center.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/execution-risk.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-account-ledger.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-failover.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/research-validation-suite.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/risk-filter.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/authority-audit-backup.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/legacy-paper-projection.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-ledger-reconciliation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/historical-universe.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/complete-workbench.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-regime.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/signal-evidence-chain.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-paper-intent-plan.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-breadth.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-report.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/corporate-settlements.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/continuous-research-ops.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-shadow-reconciliation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/historical-validation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/unified-strategy-project.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/portfolio-risk-gate.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/live-market-research.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/eastmoney-historical-feed.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/common-entry-risk.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/integrated-run-bundle.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-durable-order-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/trading-fees.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-unified-view.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-account-reconciliation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/market-data-quality.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-transaction-coordinator.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/a-share-calendar.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/rejection-audit.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-order-store.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/python-native-bridge.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/strategy-evidence-replay.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/performance-statistics.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-intent-simulator.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-session.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/account-process-lock.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/observed-market-regime.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/kline-source-continuity.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/live-candidate-bridge.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-execution-preflight.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/python-three-round-evidence.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/segmented-audit-store.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/research-risk-gate.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/native-strategy-daily-runner.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/single-model-interface.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/offline-research-closure.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/core/paper-monitor.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/ui/reference-strategy-stats.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/preopen-watch.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-position-ledger-backtest.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-research-playbook-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/china-value.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/extended-factor-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-limit-ladder-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/kline-bar-validation.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/walk-forward-backtest.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/holdout-backtest.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/walk-forward-policy-adapter.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/historical-indicators.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/feed-quality.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/strategy-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/cost-stress.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/rule-comparison.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/risk-filter.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/cached-kline-adapter.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/model-features.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-persistent-research-cache.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/historical-refresh.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-strategy-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/limit-ladder-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/model-experiment.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-walk-forward-backtest.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/snapshot-normalizer.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-universe-scanner.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-playbook-engine.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/position-ledger-backtest.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/persistent-research-cache.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-v2-cached-kline-adapter.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/universe-scanner.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/historical-session.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "src/strategy/research-upload-validator.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-replay.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/v6-release-preflight.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/market-failover-sync.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-audit.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/market-feed-consensus.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/validate-history.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/reconcile-paper-ledger.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/continuous-research.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/offline-regression.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/audit-view-idle-secure.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/native-strategy-daily.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/python-native-evidence.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-service.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/unified-strategy-project.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/unified-acceptance-gate.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/integrated-run-bundle.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/eastmoney-historical-import.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-account.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-simulate-intents.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/plan-strategy-paper.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-recover.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/strategy-smoke.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/rejection-audit.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/secure-backup.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/strategy-evidence-replay.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-transaction-recover.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-session.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/reconcile-strategy-paper.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/http-error-regression.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/market-data-sync.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/verify-seven-modules.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-execution-preflight.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/workstream-evidence.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/offline-research-closure.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/disaster-recovery.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/audit-password-visibility.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "scripts/paper-monitor.js",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "file": "public/assets/authority-workbench.js",
+    "exit": 0,
+    "error": ""
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "batch": "V6-UNIFIED-20261104-11-FACTOR-EVIDENCE",
+  "base_zip": "V6_Latest_Full_Project_20261104.zip",
+  "changed_files": {
+    "v6_release/src/strategy/extended-factor-engine.js": "849f76dabb0921f24a0235065f70797fb80dffc54d16b34e1aade03c70a80dbf",
+    "v6_release/tests/factor-evidence-gate.test.js": "67526b83e071ae94fd8be051aca72532493b63ed7973ab3183936f546670f0c9",
+    "v6_release/docs/V6_本批扩展因子来源校验与回归.md": "a87dbf373ef6628e3de14a0242b6f98c33967e2fca3c65700736e85a3c551c37",
+    "v6_release/docs/V6_本批75项测试输出.txt": "c93bc81133e068709f2f49317005909e222ca4bfb37e3fe2bbc1bb8b52689115"
+  },
+  "test_command": "node --test tests/*.test.js",
+  "tests_passed": 75,
+  "tests_failed": 0,
+  "strict_mode_default": false
+}

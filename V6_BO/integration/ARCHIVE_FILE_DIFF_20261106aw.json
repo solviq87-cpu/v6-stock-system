@@ -1,0 +1,26 @@
+{
+  "added": [
+    "scripts/adaptive-monitor-archive.js",
+    "integration/archive-full-tests.tap",
+    "integration/MONITOR_HISTORY_ARCHIVE_OPERATIONS.md",
+    "integration/ARCHIVE_CHANGES_20261106aw.md",
+    "integration/monitor-archive-targeted.tap",
+    "integration/monitor-archive-targeted.exit",
+    "integration/archive-full-tests.exit",
+    "integration/monitor-archive-first-targeted.tap",
+    "tests/adaptive-monitor-archive.test.js",
+    "src/core/adaptive-monitor-archive.js"
+  ],
+  "changed": [
+    "AGENTS.md",
+    "server.js",
+    "package.json",
+    "public/index.html",
+    "public/sw.js",
+    "public/mobile.html",
+    "integration/CHAT_HANDOFF.md",
+    "integration/HANDOFF_NEXT.md",
+    "public/assets/app.js"
+  ],
+  "deleted": []
+}

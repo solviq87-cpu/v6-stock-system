@@ -1,0 +1,13 @@
+{
+  "status": "partial_verified_merge",
+  "integrated": [
+    "src/core/paper-replay.js: provenance audit + read-only account reconciliation while retaining base risk gates"
+  ],
+  "remaining_conflict_files": 41,
+  "focused_tests": "12/12 passed",
+  "full_regression": "not run",
+  "known_limitations": [
+    "other 41 differing files are retained as review candidates",
+    "not certified deployable"
+  ]
+}

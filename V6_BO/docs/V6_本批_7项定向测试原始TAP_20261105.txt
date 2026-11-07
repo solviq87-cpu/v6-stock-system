@@ -1,0 +1,52 @@
+TAP version 13
+# Subtest: two research K-line adapters reject empty, null, boolean or object OHLCV instead of coercing a false zero
+ok 1 - two research K-line adapters reject empty, null, boolean or object OHLCV instead of coercing a false zero
+  ---
+  duration_ms: 7.354744
+  type: 'test'
+  ...
+# Subtest: numeric-string quote fields remain compatible when complete and finite
+ok 2 - numeric-string quote fields remain compatible when complete and finite
+  ---
+  duration_ms: 2.828595
+  type: 'test'
+  ...
+# Subtest: paginated quote collection rejects crossing China-market midnight
+ok 3 - paginated quote collection rejects crossing China-market midnight
+  ---
+  duration_ms: 1.55879
+  type: 'test'
+  ...
+# Subtest: paginated quote collection keeps completed sampling time separately from request start
+ok 4 - paginated quote collection keeps completed sampling time separately from request start
+  ---
+  duration_ms: 1.434248
+  type: 'test'
+  ...
+# Subtest: paginated quote collection rejects excessively long sampling even within same market day
+ok 5 - paginated quote collection rejects excessively long sampling even within same market day
+  ---
+  duration_ms: 0.342057
+  type: 'test'
+  ...
+# Subtest: market breadth does not certify unverified public quotes
+ok 6 - market breadth does not certify unverified public quotes
+  ---
+  duration_ms: 0.952378
+  type: 'test'
+  ...
+# Subtest: K-line calendar age is zero on the current China-market date even when UTC is yesterday
+ok 7 - K-line calendar age is zero on the current China-market date even when UTC is yesterday
+  ---
+  duration_ms: 0.685985
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 135.885717

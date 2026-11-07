@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "project": "V6 智能选股系统",
+  "checkpoint": "V6-UNIFIED-RECOVERY-20261104-12-FACTOR-INTEGRATION",
+  "parent_archive": "V6_Latest_Full_Project_Factor_Evidence_20261104.zip",
+  "parent_sha256": "b8f13953384658518646264d63d0207fedc0ab45ee89697a4e02c3344799f80d",
+  "baseline": "统一主线 29 套回归 -> HTTP 超时 -> 预声明超限 -> chunked 流式超限 -> POST 大小上限边界与跨 chunk 回归 -> 云端SSE鉴权拒绝匿名订阅与真实HTTP验证",
+  "code_sha256": {
+    "v6_release/server.js": "c764084965c0c2b1779830a54b0416527e7d0bf63d062ad981260b93b0dea34f",
+    "v6_release/src/server/bootstrap.js": "8bdcd94067839568ac69d799068ad726a7ecd20a5d552fcf1e39b8322f90e233",
+    "v6_release/tests/http-timeouts.test.js": "54d7a673b65d1cef42e826282e5cac30bb5cd9ebbdb7acca4c326a3862b04af2",
+    "v6_release/public/assets/app.js": "2fd45077f7c490fc8a73a10b49b37dc8fd5fb8f1ad696f4c57340ee5a44b4180",
+    "v6_release/package.json": "84ac2825d9ba473b71abfd74b247fdf86cf7c6635780274058b9ec726761c21c",
+    "v6_release/docs/V6_后续开发任务大纲.md": "945ae547edfab9bacf64b6c1847687105fbb4f8a0a17e4fe27c02b5abc0d179e",
+    "v6_release/src/strategy/strategy-service.js": "2046d217e9b40ae43429d4279d16871391d5b2d48ec0cd69fb039a8826e11ecd"
+  },
+  "verified_scope": "扩展因子严格证据模式贯通候选股评估和批量排名；未接入真实数据源、未生产验收",
+  "next_priority": [
+    "F01 深浅双端完整 UI 视觉重构与真机验收",
+    "并行行情策略回测成果三方合并",
+    "设备/只读权限真实浏览器回归",
+    "云端部署与备份恢复及最终验收"
+  ],
+  "no_auto_trading": true,
+  "current_test_results": [
+    {
+      "name": "node --test tests/*.test.js",
+      "pass": true,
+      "detail": "80/80; 33 test files"
+    }
+  ],
+  "ui_batch": "手机完整面板卡片排版防竖排与横向溢出，保持原业务逻辑",
+  "roadmap_canonical": "v6_release/docs/V6_唯一统一总任务大纲.md",
+  "roadmap_count": 24,
+  "roadmap_note": "对齐七阶段、24项验收清单、UI截图及并行分工；本批只做文档整合，未执行代码测试",
+  "checkpoint_id": "V6-UNIFIED-RECOVERY-20261104-15-BATCH-EVIDENCE-ISOLATION",
+  "latest_batch": "批量因子证据隔离",
+  "latestBatch": 46,
+  "latestRegression": "220/220 passed",
+  "latestBatchNote": "OTP复用票据返回实际剩余有效期",
+  "latestDelivery": "V6_Unified_Batch46_Decision_Workspace_20261105.zip",
+  "latestTests": "254/254 passed"
+}

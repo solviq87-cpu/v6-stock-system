@@ -1,0 +1,585 @@
+TAP version 13
+# PASS 13 T+1 / limits / walk-forward checks
+# Subtest: tests/ashare-t1-backtest.test.js
+ok 1 - tests/ashare-t1-backtest.test.js
+  ---
+  duration_ms: 190.065202
+  type: 'test'
+  ...
+# PASS 12 cache integration assertions
+# Subtest: tests/cache-workbench.test.js
+ok 2 - tests/cache-workbench.test.js
+  ---
+  duration_ms: 86.809111
+  type: 'test'
+  ...
+# PASS 20 cross-module security and research assertions
+# Subtest: tests/concentrated-security-research.test.js
+ok 3 - tests/concentrated-security-research.test.js
+  ---
+  duration_ms: 149.486202
+  type: 'test'
+  ...
+# PASS 18 legacy preservation / factor fusion assertions
+# Subtest: tests/extended-factor-fusion.test.js
+ok 4 - tests/extended-factor-fusion.test.js
+  ---
+  duration_ms: 131.705774
+  type: 'test'
+  ...
+# Subtest: 旧策略评分默认不变
+ok 5 - 旧策略评分默认不变
+  ---
+  duration_ms: 1.311655
+  type: 'test'
+  ...
+# Subtest: 严格模式拒绝没有来源的竞价和板块数据
+ok 6 - 严格模式拒绝没有来源的竞价和板块数据
+  ---
+  duration_ms: 0.253006
+  type: 'test'
+  ...
+# Subtest: 严格模式拒绝模拟数据、过期数据及未来时间戳
+ok 7 - 严格模式拒绝模拟数据、过期数据及未来时间戳
+  ---
+  duration_ms: 0.179893
+  type: 'test'
+  ...
+# Subtest: 严格模式只使用有证据的因子，不虚构缺失分数
+ok 8 - 严格模式只使用有证据的因子，不虚构缺失分数
+  ---
+  duration_ms: 0.454049
+  type: 'test'
+  ...
+# Subtest: 覆盖率不足时融合保持旧分数
+ok 9 - 覆盖率不足时融合保持旧分数
+  ---
+  duration_ms: 0.365334
+  type: 'test'
+  ...
+# Subtest: 默认评分保持原行为，严格开关不影响默认值
+ok 10 - 默认评分保持原行为，严格开关不影响默认值
+  ---
+  duration_ms: 10.15293
+  type: 'test'
+  ...
+# Subtest: 实际候选股评分入口严格拒绝缺失证据
+ok 11 - 实际候选股评分入口严格拒绝缺失证据
+  ---
+  duration_ms: 1.826238
+  type: 'test'
+  ...
+# Subtest: 实际候选股评分入口接受可追溯且未过期证据
+ok 12 - 实际候选股评分入口接受可追溯且未过期证据
+  ---
+  duration_ms: 0.702337
+  type: 'test'
+  ...
+# Subtest: 批量排名透传严格模式，不使用缺证据扩展因子
+ok 13 - 批量排名透传严格模式，不使用缺证据扩展因子
+  ---
+  duration_ms: 0.886968
+  type: 'test'
+  ...
+# Subtest: 严格模式允许股票自身携带因子证据
+ok 14 - 严格模式允许股票自身携带因子证据
+  ---
+  duration_ms: 3.990042
+  type: 'test'
+  ...
+# Subtest: 默认评分不受行情门禁影响
+ok 15 - 默认评分不受行情门禁影响
+  ---
+  duration_ms: 4.284867
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝无行情元信息的扩展因子
+ok 16 - 行情门禁拒绝无行情元信息的扩展因子
+  ---
+  duration_ms: 1.590217
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝模拟行情与伪造来源证据
+ok 17 - 行情门禁拒绝模拟行情与伪造来源证据
+  ---
+  duration_ms: 1.730925
+  type: 'test'
+  ...
+# Subtest: 行情门禁拒绝过期行情与超前因子证据
+ok 18 - 行情门禁拒绝过期行情与超前因子证据
+  ---
+  duration_ms: 1.306358
+  type: 'test'
+  ...
+# Subtest: 批量评分隔离每只股票的行情证据
+ok 19 - 批量评分隔离每只股票的行情证据
+  ---
+  duration_ms: 1.438063
+  type: 'test'
+  ...
+# PASS 22 feed/scan/backtest assertions
+# Subtest: tests/feed-scan-backtest.test.js
+ok 8 - tests/feed-scan-backtest.test.js
+  ---
+  duration_ms: 124.557747
+  type: 'test'
+  ...
+# PASS 22 refresh bounded concurrency and timeout assertions
+# Subtest: tests/historical-refresh-bounds.test.js
+ok 9 - tests/historical-refresh-bounds.test.js
+  ---
+  duration_ms: 213.562799
+  type: 'test'
+  ...
+# PASS 15 historical refresh assertions
+# Subtest: tests/historical-refresh.test.js
+ok 10 - tests/historical-refresh.test.js
+  ---
+  duration_ms: 67.590834
+  type: 'test'
+  ...
+# Subtest: GET 实际请求
+ok 23 - GET 实际请求
+  ---
+  duration_ms: 28.494841
+  type: 'test'
+  ...
+# Subtest: POST 请求体传递
+ok 24 - POST 请求体传递
+  ---
+  duration_ms: 10.973727
+  type: 'test'
+  ...
+# Subtest: POST 超限返回 413
+ok 25 - POST 超限返回 413
+  ---
+  duration_ms: 4.83461
+  type: 'test'
+  ...
+# Subtest: 跨站 API 返回 403
+ok 26 - 跨站 API 返回 403
+  ---
+  duration_ms: 3.076827
+  type: 'test'
+  ...
+# [http handler] Error: test sync
+#     at /tmp/v6_feed_ss40n73z/v6_release/tests/http-bootstrap.test.js:29:83
+#     at /tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 同步路由异常返回 500
+ok 27 - 同步路由异常返回 500
+  ---
+  duration_ms: 10.203898
+  type: 'test'
+  ...
+# [http handler] Error: test async
+#     at /tmp/v6_feed_ss40n73z/v6_release/tests/http-bootstrap.test.js:30:88
+#     at /tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 异步路由异常返回 500
+ok 28 - 异步路由异常返回 500
+  ---
+  duration_ms: 6.190378
+  type: 'test'
+  ...
+# Subtest: GET 路由
+ok 29 - GET 路由
+  ---
+  duration_ms: 41.409882
+  type: 'test'
+  ...
+# Subtest: POST 请求体
+ok 30 - POST 请求体
+  ---
+  duration_ms: 10.829643
+  type: 'test'
+  ...
+# Subtest: POST 超限
+ok 31 - POST 超限
+  ---
+  duration_ms: 3.402536
+  type: 'test'
+  ...
+# Subtest: 拒绝跨站 API
+ok 32 - 拒绝跨站 API
+  ---
+  duration_ms: 6.833673
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/tmp/v6_feed_ss40n73z/v6_release/tests/http-preflight-regression.test.js:24:66)
+#     at /tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 同步异常返回 500
+ok 33 - 同步异常返回 500
+  ---
+  duration_ms: 9.425598
+  type: 'test'
+  ...
+# [http handler] Error: test
+#     at handle (/tmp/v6_feed_ss40n73z/v6_release/tests/http-preflight-regression.test.js:25:71)
+#     at /tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:65
+#     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+#     at dispatch (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:50:37)
+#     at Server.<anonymous> (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:55:39)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: 异步异常返回 500
+ok 34 - 异步异常返回 500
+  ---
+  duration_ms: 3.556833
+  type: 'test'
+  ...
+# Subtest: 来源校验抛错返回 400 而非崩溃
+ok 35 - 来源校验抛错返回 400 而非崩溃
+  ---
+  duration_ms: 7.630933
+  type: 'test'
+  ...
+# Subtest: 配置非法请求体限制立即拒绝
+ok 36 - 配置非法请求体限制立即拒绝
+  ---
+  duration_ms: 1.556639
+  type: 'test'
+  ...
+# [http preflight] Error: test
+#     at sourceCheck (/tmp/v6_feed_ss40n73z/v6_release/tests/http-preflight-regression.test.js:26:78)
+#     at Server.<anonymous> (/tmp/v6_feed_ss40n73z/v6_release/src/server/bootstrap.js:22:18)
+#     at Server.emit (node:events:518:28)
+#     at parserOnIncoming (node:_http_server:1153:12)
+#     at HTTPParser.parserOnHeadersComplete (node:_http_common:117:17)
+# Subtest: POST 正好达到请求体上限仍放行
+ok 37 - POST 正好达到请求体上限仍放行
+  ---
+  duration_ms: 10.314318
+  type: 'test'
+  ...
+# Subtest: 跨站非 API 静态路径不被 API 拦截误伤
+ok 38 - 跨站非 API 静态路径不被 API 拦截误伤
+  ---
+  duration_ms: 6.757195
+  type: 'test'
+  ...
+# Subtest: 跨站 POST API 在分发前被拒绝
+ok 39 - 跨站 POST API 在分发前被拒绝
+  ---
+  duration_ms: 3.216434
+  type: 'test'
+  ...
+# Subtest: 来源校验拒绝时不返回允许跨站头
+ok 40 - 来源校验拒绝时不返回允许跨站头
+  ---
+  duration_ms: 2.897596
+  type: 'test'
+  ...
+# Subtest: 缺失处理函数直接拒绝启动
+ok 41 - 缺失处理函数直接拒绝启动
+  ---
+  duration_ms: 0.272474
+  type: 'test'
+  ...
+# Subtest: 缺失来源校验函数直接拒绝启动
+ok 42 - 缺失来源校验函数直接拒绝启动
+  ---
+  duration_ms: 0.558025
+  type: 'test'
+  ...
+# Subtest: HTTP 请求头/请求体接收超时和头部数量均受限制
+ok 43 - HTTP 请求头/请求体接收超时和头部数量均受限制
+  ---
+  duration_ms: 33.633509
+  type: 'test'
+  ...
+# Subtest: 请求体超限返回413，不分发给业务处理器
+ok 44 - 请求体超限返回413，不分发给业务处理器
+  ---
+  duration_ms: 11.320453
+  type: 'test'
+  ...
+# Subtest: Content-Length 已超限时无需上传请求体就立即返回 413
+ok 45 - Content-Length 已超限时无需上传请求体就立即返回 413
+  ---
+  duration_ms: 4.410895
+  type: 'test'
+  ...
+# Subtest: chunked 流式请求超限立即 413，不等待上传结束
+ok 46 - chunked 流式请求超限立即 413，不等待上传结束
+  ---
+  duration_ms: 3.779836
+  type: 'test'
+  ...
+# Subtest: POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝
+ok 47 - POST 请求体恰好等于上限时正常分发，超出 1 字节立即拒绝
+  ---
+  duration_ms: 5.339631
+  type: 'test'
+  ...
+# Subtest: 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理
+ok 48 - 请求体拆成多个 chunk，累计超限时拒绝且不进入业务处理
+  ---
+  duration_ms: 3.977705
+  type: 'test'
+  ...
+# PASS 15 historical indicators and limit ladder assertions
+# Subtest: tests/indicators-ladder.test.js
+ok 14 - tests/indicators-ladder.test.js
+  ---
+  duration_ms: 81.368829
+  type: 'test'
+  ...
+# PASS 4: 旧只读有效访问刷新、24小时到期拒绝、无授权拒绝、开发者不受影响
+# Subtest: tests/legacy-view-activity.test.js
+ok 15 - tests/legacy-view-activity.test.js
+  ---
+  duration_ms: 76.53192
+  type: 'test'
+  ...
+# Subtest: 手机卡片标题允许换行且不再被挤成竖排
+ok 51 - 手机卡片标题允许换行且不再被挤成竖排
+  ---
+  duration_ms: 1.57121
+  type: 'test'
+  ...
+# Subtest: 手机表格保持局部横向滚动，整页不横向溢出
+ok 52 - 手机表格保持局部横向滚动，整页不横向溢出
+  ---
+  duration_ms: 0.175397
+  type: 'test'
+  ...
+# Subtest: 保留现有页面脚本与面板操作，更新CSS缓存版本
+ok 53 - 保留现有页面脚本与面板操作，更新CSS缓存版本
+  ---
+  duration_ms: 0.171191
+  type: 'test'
+  ...
+# PASS 18 persistent cache and integration assertions
+# Subtest: tests/persistent-research-cache.test.js
+ok 17 - tests/persistent-research-cache.test.js
+  ---
+  duration_ms: 82.03107
+  type: 'test'
+  ...
+# PASS 13 ledger assertions
+# Subtest: tests/position-ledger-backtest.test.js
+ok 18 - tests/position-ledger-backtest.test.js
+  ---
+  duration_ms: 44.446449
+  type: 'test'
+  ...
+# PASS 16 cache audit and research safety assertions
+# Subtest: tests/research-cache-audit.test.js
+ok 19 - tests/research-cache-audit.test.js
+  ---
+  duration_ms: 50.514674
+  type: 'test'
+  ...
+# PASS 23 integration assertions
+# Subtest: tests/research-integration.test.js
+ok 20 - tests/research-integration.test.js
+  ---
+  duration_ms: 48.702656
+  type: 'test'
+  ...
+# PASS 38 real HTTP checks in isolated QD_CLOUD mode
+# Subtest: tests/research-live-http-isolated.test.js
+ok 21 - tests/research-live-http-isolated.test.js
+  ---
+  duration_ms: 29723.66335
+  type: 'test'
+  ...
+# PASS 12 research playbook assertions
+# Subtest: tests/research-playbooks.test.js
+ok 22 - tests/research-playbooks.test.js
+  ---
+  duration_ms: 35.116714
+  type: 'test'
+  ...
+# PASS 21 route-level authorization and input checks
+# Subtest: tests/research-route-authorization.test.js
+ok 23 - tests/research-route-authorization.test.js
+  ---
+  duration_ms: 54.054834
+  type: 'test'
+  ...
+# PASS 17 workbench integration assertions
+# Subtest: tests/research-workbench.test.js
+ok 24 - tests/research-workbench.test.js
+  ---
+  duration_ms: 81.46538
+  type: 'test'
+  ...
+# Subtest: 撤权后广播前复验并主动断流，合法用户仍收消息
+ok 62 - 撤权后广播前复验并主动断流，合法用户仍收消息
+  ---
+  duration_ms: 2.101055
+  type: 'test'
+  ...
+# Subtest: 开发者角色降级时立即断开私密推送
+ok 63 - 开发者角色降级时立即断开私密推送
+  ---
+  duration_ms: 0.637837
+  type: 'test'
+  ...
+# Subtest: 私密推送集合误混入只读会话时仍禁止泄露
+ok 64 - 私密推送集合误混入只读会话时仍禁止泄露
+  ---
+  duration_ms: 0.576812
+  type: 'test'
+  ...
+# Subtest: 本地只读会话混入私密集合也必须拒绝
+ok 65 - 本地只读会话混入私密集合也必须拒绝
+  ---
+  duration_ms: 0.506352
+  type: 'test'
+  ...
+# PASS 12 integrated playbook ranking assertions
+# Subtest: tests/strategy-playbook-integration.test.js
+ok 26 - tests/strategy-playbook-integration.test.js
+  ---
+  duration_ms: 55.475658
+  type: 'test'
+  ...
+# Subtest: 8 个快捷导航均指向唯一且存在的分区
+ok 67 - 8 个快捷导航均指向唯一且存在的分区
+  ---
+  duration_ms: 1.438964
+  type: 'test'
+  ...
+# Subtest: 保留手机速览与开发者研究工作台入口
+ok 68 - 保留手机速览与开发者研究工作台入口
+  ---
+  duration_ms: 0.393003
+  type: 'test'
+  ...
+# Subtest: 手机导航可横向滚动且不影响原有面板按钮
+ok 69 - 手机导航可横向滚动且不影响原有面板按钮
+  ---
+  duration_ms: 0.132307
+  type: 'test'
+  ...
+# Subtest: 23h59m59s 不过期
+ok 70 - 23h59m59s 不过期
+  ---
+  duration_ms: 1.095691
+  type: 'test'
+  ...
+# Subtest: 恰好24h过期
+ok 71 - 恰好24h过期
+  ---
+  duration_ms: 0.192721
+  type: 'test'
+  ...
+# Subtest: 跨周末同样按24h清理
+ok 72 - 跨周末同样按24h清理
+  ---
+  duration_ms: 0.207132
+  type: 'test'
+  ...
+# Subtest: 有效访问刷新后不清理
+ok 73 - 有效访问刷新后不清理
+  ---
+  duration_ms: 0.114742
+  type: 'test'
+  ...
+# Subtest: 非法时间戳跳过，多个设备分别判断
+ok 74 - 非法时间戳跳过，多个设备分别判断
+  ---
+  duration_ms: 0.250372
+  type: 'test'
+  ...
+# Subtest: 服务端统计和前端均使用小时而非交易日
+ok 75 - 服务端统计和前端均使用小时而非交易日
+  ---
+  duration_ms: 3.830949
+  type: 'test'
+  ...
+# Subtest: 周末也连续计时
+ok 76 - 周末也连续计时
+  ---
+  duration_ms: 1.534448
+  type: 'test'
+  ...
+# Subtest: 未满24小时不清理
+ok 77 - 未满24小时不清理
+  ---
+  duration_ms: 0.187153
+  type: 'test'
+  ...
+# Subtest: 清理定时器不依赖交易日
+ok 78 - 清理定时器不依赖交易日
+  ---
+  duration_ms: 0.773378
+  type: 'test'
+  ...
+# Subtest: 自证只读令牌在 touchDevice 前检查过期
+ok 79 - 自证只读令牌在 touchDevice 前检查过期
+  ---
+  duration_ms: 0.912153
+  type: 'test'
+  ...
+# Subtest: 旧版只读令牌也检查过期
+ok 80 - 旧版只读令牌也检查过期
+  ---
+  duration_ms: 0.8742
+  type: 'test'
+  ...
+# PASS 5: trust/redeem设备绑定及无绑定拒绝回归
+# Subtest: tests/view-session-entrypoints.test.js
+ok 30 - tests/view-session-entrypoints.test.js
+  ---
+  duration_ms: 54.743457
+  type: 'test'
+  ...
+# PASS 14 view session expiry/revocation assertions
+# Subtest: tests/view-session-revocation.test.js
+ok 31 - tests/view-session-revocation.test.js
+  ---
+  duration_ms: 59.473637
+  type: 'test'
+  ...
+# PASS: 指定设备会话精准撤销，其他绑定会话保留，旧无绑定会话保守撤销，访问时核对台账
+# Subtest: tests/view-session-targeted-revoke.test.js
+ok 32 - tests/view-session-targeted-revoke.test.js
+  ---
+  duration_ms: 56.645382
+  type: 'test'
+  ...
+# PASS 6: 有效绑定、旧无绑定、撤销、离线24小时、会话过期、开发者不受影响
+# Subtest: tests/view-session-unbound-guard.test.js
+ok 33 - tests/view-session-unbound-guard.test.js
+  ---
+  duration_ms: 59.608771
+  type: 'test'
+  ...
+# PASS 6 cases: missing view ledger rejected, valid/expired/grace/revoked, developer unchanged
+# Subtest: tests/view-token-ledger-regression.test.js
+ok 34 - tests/view-token-ledger-regression.test.js
+  ---
+  duration_ms: 55.197576
+  type: 'test'
+  ...
+1..85
+# tests 85
+# suites 0
+# pass 85
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 30543.979107

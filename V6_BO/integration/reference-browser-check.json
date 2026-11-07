@@ -1,0 +1,175 @@
+[
+  {
+    "label": "desktop",
+    "offenders": [],
+    "bodyWidth": 1536,
+    "viewport": 1536,
+    "dashboard": {
+      "x": 225,
+      "y": 76,
+      "width": 1297,
+      "height": 774.5,
+      "top": 76,
+      "right": 1522,
+      "bottom": 850.5,
+      "left": 225
+    },
+    "panelCount": 2,
+    "nav": {
+      "x": 0,
+      "y": 0,
+      "width": 1536,
+      "height": 64,
+      "top": 0,
+      "right": 1536,
+      "bottom": 64,
+      "left": 0
+    },
+    "table": {
+      "x": 225,
+      "y": 389,
+      "width": 850.203125,
+      "height": 461.5,
+      "top": 389,
+      "right": 1075.203125,
+      "bottom": 850.5,
+      "left": 225
+    },
+    "detail": {
+      "x": 1088.203125,
+      "y": 389,
+      "width": 433.796875,
+      "height": 461,
+      "top": 389,
+      "right": 1522,
+      "bottom": 850,
+      "left": 1088.203125
+    },
+    "errors": []
+  },
+  {
+    "label": "mobile-reference",
+    "offenders": [],
+    "bodyWidth": 1024,
+    "viewport": 1024,
+    "dashboard": {
+      "x": 21,
+      "y": 217.25,
+      "width": 982,
+      "height": 1170.5,
+      "top": 217.25,
+      "right": 1003,
+      "bottom": 1387.75,
+      "left": 21
+    },
+    "panelCount": 3,
+    "nav": {
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 201.25,
+      "top": 0,
+      "right": 1024,
+      "bottom": 201.25,
+      "left": 0
+    },
+    "table": {
+      "x": 21,
+      "y": 703.25,
+      "width": 982,
+      "height": 341,
+      "top": 703.25,
+      "right": 1003,
+      "bottom": 1044.25,
+      "left": 21
+    },
+    "detail": {
+      "x": 21,
+      "y": 1060.25,
+      "width": 982,
+      "height": 327.5,
+      "top": 1060.25,
+      "right": 1003,
+      "bottom": 1387.75,
+      "left": 21
+    },
+    "errors": []
+  },
+  {
+    "label": "phone",
+    "offenders": [
+      {
+        "cls": "",
+        "right": 438
+      },
+      {
+        "cls": "",
+        "right": 429
+      },
+      {
+        "cls": "vx-nav-more",
+        "right": 505
+      },
+      {
+        "cls": {},
+        "right": 467
+      },
+      {
+        "cls": {},
+        "right": 464.75
+      },
+      {
+        "cls": "",
+        "right": 496
+      },
+      {
+        "cls": "",
+        "right": 459.5625
+      }
+    ],
+    "bodyWidth": 390,
+    "viewport": 390,
+    "dashboard": {
+      "x": 10,
+      "y": 136.5,
+      "width": 370,
+      "height": 927,
+      "top": 136.5,
+      "right": 380,
+      "bottom": 1063.5,
+      "left": 10
+    },
+    "panelCount": 3,
+    "nav": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 126.5,
+      "top": 0,
+      "right": 390,
+      "bottom": 126.5,
+      "left": 0
+    },
+    "table": {
+      "x": 10,
+      "y": 479.5,
+      "width": 370,
+      "height": 310,
+      "top": 479.5,
+      "right": 380,
+      "bottom": 789.5,
+      "left": 10
+    },
+    "detail": {
+      "x": 10,
+      "y": 805.5,
+      "width": 370,
+      "height": 258,
+      "top": 805.5,
+      "right": 380,
+      "bottom": 1063.5,
+      "left": 10
+    },
+    "errors": []
+  }
+]
