@@ -30,7 +30,14 @@ function renderScan(r){
  rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.contextSupport)+'/2</td><td>'+esc((x.risks||[]).join('；')||'暂无已观察风险，不等于无风险')+'</td></tr>').join('')+
  '</tbody></table></div>':'<p class="muted">本次暂无有充分联动证据的股票。</p>')+'</details>').join('');
 
- $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>公告与经营线索</th><th>市场板块联动</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
+ const lifecycle=r.lifecycle?.pools||{};
+ $('lifecyclePools').innerHTML='<h3>股票池自动流转 · 研究状态</h3><p class="muted">任意一套完整战法命中就先进入观察池；连续两个有交易数据的不同日期确认才进入重点池。风险信号独立核对；历史导入缺少可靠时点时不升级。跨次运行需提供已保存的上轮池状态。</p>'+
+ Object.entries(lifecycle).map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary>'+
+ (rows.length?'<div class="scroller"><table><thead><tr><th>代码/名称</th><th>确认次数</th><th>最新日期</th><th>状态依据</th></tr></thead><tbody>'+
+ rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.streak)+'</td><td>'+esc(x.lastSeen)+'</td><td>'+esc(x.reason)+'</td></tr>').join('')+
+ '</tbody></table></div>':'<p class="muted">暂无此状态的有效候选。</p>')+'</details>').join('');
+
+ $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>公告与经营线索</th><th>市场板块联动</th><th>观察池状态</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
  items.map(x=>{
   const matched=x.patterns?.matched||[];
   const checks=x.patterns?.checks||[];
@@ -58,7 +65,7 @@ function renderScan(r){
    '<p>支持：'+esc((cross.support||[]).join('；')||'尚无足够证据')+'</p>'+
    '<p>风险：'+esc((cross.risks||[]).join('；')||'尚无明确观察风险，不代表安全')+'</p>'+
    '<small>研究只读、未经独立核实，不改变正式评分、股票池或实盘委托。</small></details>';
-  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+issuerDetails+'</td><td>'+linkageDetails+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
+  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+issuerDetails+'</td><td>'+linkageDetails+'</td><td>'+esc(x.lifecycle?.stage||'无有效研究状态')+' · '+esc(x.lifecycle?.reason||'暂无证据')+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
  }).join('')+'</tbody></table>';
 }
 function renderLedger(r){
