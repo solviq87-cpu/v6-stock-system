@@ -1,0 +1,49 @@
+{
+  "name": "stock-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "量化看盘平台 - 精选池/涨停归因/题材分类/资金监控/双通道推送",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js",
+    "start:legacy": "node server.js",
+    "check:strategy": "node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js",
+    "smoke:strategy": "node scripts/strategy-smoke.js",
+    "audit:offline": "node scripts/offline-regression.js",
+    "audit:password": "node scripts/audit-password-visibility.js",
+    "test:http-timeouts": "node --test tests/http-timeouts.test.js",
+    "verify:seven-modules": "node scripts/verify-seven-modules.js",
+    "test": "bash scripts/run-full-regression.sh",
+    "market:failover": "node scripts/market-failover-sync.js",
+    "paper:monitor": "node scripts/paper-monitor.js",
+    "paper:recover": "node scripts/paper-recover.js",
+    "paper:audit": "node scripts/paper-audit.js",
+    "reconcile:strategy-paper": "node scripts/reconcile-strategy-paper.js",
+    "plan:strategy-paper": "node scripts/plan-strategy-paper.js",
+    "paper:preflight": "node scripts/paper-execution-preflight.js",
+    "paper:simulate-intents": "node scripts/paper-simulate-intents.js",
+    "test:paper-order-state": "node --test tests/paper-order-state-machine.test.js",
+    "paper:order-store:test": "node --test tests/paper-order-store.test.js tests/paper-order-state-machine.test.js",
+    "paper:account-ledger:test": "node --test tests/paper-account-ledger.test.js tests/paper-order-store.test.js tests/paper-order-state-machine.test.js tests/paper-recovery.test.js",
+    "reconcile:paper-ledger": "node scripts/reconcile-paper-ledger.js",
+    "test:paper-ledger-reconciliation": "node --test tests/paper-ledger-reconciliation.test.js tests/paper-order-state-machine.test.js tests/paper-order-store.test.js tests/paper-account-ledger.test.js tests/paper-recovery.test.js",
+    "paper:transaction:recover": "node scripts/paper-transaction-recover.js",
+    "test:paper-transaction": "node --test tests/paper-transaction-coordinator.test.js tests/paper-account-ledger.test.js tests/paper-ledger-reconciliation.test.js tests/paper-order-store.test.js tests/paper-order-state-machine.test.js",
+    "backup:encrypt": "node scripts/secure-backup.js encrypt",
+    "backup:decrypt": "node scripts/secure-backup.js decrypt",
+    "research:once": "node scripts/continuous-research.js",
+    "research:monitor": "node scripts/continuous-research.js",
+    "audit:release": "node scripts/v6-release-preflight.js --json",
+    "audit:feeds": "node scripts/market-feed-consensus.js",
+    "market:history": "node scripts/eastmoney-historical-import.js",
+    "research:history": "node scripts/adaptive-monitor-archive.js"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "dependencies": {},
+  "optionalDependencies": {
+    "@tencent-ai/workbuddy-cloud-sdk": "^0.1.4-dev.ca27990.202610161713"
+  }
+}
