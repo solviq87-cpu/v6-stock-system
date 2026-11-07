@@ -76,10 +76,10 @@
     const a = node('a', { href: url, download: filename }); document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  function rawStock(symbol) { return state.input?.stocks?.find(s => String(s.symbol || s.code) === symbol); }
-  function lastBar(symbol) { return rawStock(symbol)?.bars?.at(-1) || {}; }
+  function priceHistory(symbol) { return state.result?.items.find(s => s.symbol === symbol)?.priceHistory || []; }
+  function lastBar(symbol) { return priceHistory(symbol).at(-1) || {}; }
   function selectedItem() { return state.result?.items.find(s => s.symbol === state.selected) || state.result?.items[0]; }
-  function dailyChange(symbol) { const bars = rawStock(symbol)?.bars || []; return bars.length > 1 && bars.at(-2).close > 0 ? bars.at(-1).close / bars.at(-2).close - 1 : null; }
+  function dailyChange(symbol) { const bars = priceHistory(symbol); return bars.length > 1 && bars.at(-2).close > 0 ? bars.at(-1).close / bars.at(-2).close - 1 : null; }
   function isWatched(symbol) { return state.watch.some(s => s.symbol === symbol); }
   function watchButton(item) {
     const active = isWatched(item.symbol);
@@ -132,7 +132,7 @@
     $('filterResultCount').textContent = filtered.length + ' / ' + state.result.total + ' 只';
   }
   function candleChart(symbol) {
-    const source = rawStock(symbol)?.bars || [];
+    const source = priceHistory(symbol);
     const bars = source.slice(-state.chartDays);
     if (bars.length < 2) return empty('K 线数据不足', '至少需要两条完整的历史日 K 线。');
     const W = 500, H = 250, L = 12, R = 47, T = 14, B = 190, volumeTop = 204, volumeBottom = 231;

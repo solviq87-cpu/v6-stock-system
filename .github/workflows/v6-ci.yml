@@ -7,6 +7,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: V6_WEB
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned web build and test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build and verify causal browser research
+        run: |
+          npm run build
+          npm test
+          git diff --exit-code -- dist
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

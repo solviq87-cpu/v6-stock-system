@@ -120,6 +120,7 @@ export function analyzeSnapshot(input,filters={}){
   const quality={usable:!!features&&observable&&universe.eligible,fresh:false,simulated:source==='simulated',source,warnings};
   const patternStock={...stock,bars};
   const item={symbol:stock.symbol,name:stock.name,date:last?.date||null,source,quality,features,universe,
+   priceHistory:bars,
    conditions:{pass:reasons.length===0,reasons},patterns:detectPatterns(patternStock),blockedBySafety:safety,
    eligible:reasons.length===0,averageTurnover20:bars.length>=20&&bars.slice(-20).every(b=>finite(b.amount))?
     bars.slice(-20).reduce((sum,b)=>sum+b.amount/20,0):null};

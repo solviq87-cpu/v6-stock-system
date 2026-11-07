@@ -25,7 +25,7 @@ npm test
 npm run build
 ```
 
-实际通过：13项因果/数据/统计测试、构建、前端语法检查，以及模拟DOM中的初始化、六路导航、因子表、SVG图和筛选提交。真实浏览器与手机视觉验收尚未完成：当前托管环境启用了桌面能力，但未提供 `cua_repl.js`（环境 `ccarenv_b64_Y2NhcmVudl9lNzI1NTdhYWY4NjQ4MTkxYmRjMDc4ZDgzZGYzNmQwZA`，desktop state unknown），按 Sites 流程没有另起预览服务器或替代浏览器控制路径。
+实际通过：13项因果/数据/统计测试、2项界面时点一致性测试、构建、前端语法检查，以及模拟DOM中的初始化、六路导航、因子表、SVG图和筛选提交。价格、涨跌、K线与观察价格统一使用引擎筛过的完整日线，覆盖未完成末根和当日收盘前两种场景。真实浏览器与手机视觉验收尚未完成：当前托管环境启用了桌面能力，但未提供 `cua_repl.js`（环境 `ccarenv_b64_Y2NhcmVudl9lNzI1NTdhYWY4NjQ4MTkxYmRjMDc4ZDgzZGYzNmQwZA`，desktop state unknown），按 Sites 流程没有另起预览服务器或替代浏览器控制路径。
 
 构建输出为 `dist/`，可由静态服务器提供。默认是明确标识的确定性模拟样本；没有实时采集、后台模型训练、推送或真实下单。LightGBM/XGBoost须在原工程的Python环境训练后导入报告。这里的毛收益不能替代原工程含交易成本、T+1和可成交性约束的账本结果。
 
