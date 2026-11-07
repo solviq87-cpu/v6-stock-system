@@ -10,7 +10,12 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
  if(!Array.isArray(stocks))throw TypeError('stocks必须为数组');
  const seen=new Set(),items=[];
  // One bounded read of the optional CNINFO source, never a trusted sentiment feed.
- const optional=optionalResearchView(process.env.V6_OPTIONAL_RESEARCH_FILE,now);
+ // Missing optional data must never break legacy scanning or test-only deployments.
+ let optional={status:'unconfigured',announcements:[]};
+ if(process.env.V6_OPTIONAL_RESEARCH_FILE){
+  try{optional=optionalResearchView(process.env.V6_OPTIONAL_RESEARCH_FILE,now);}
+  catch{optional={status:'source-unavailable',announcements:[]};}
+ }
  const issuerDocs=optional.status==='research-only'?optional.announcements:[];
  for(const input of stocks){
   const bar=Array.isArray(input.bars)?input.bars.at(-1):null;
