@@ -27,3 +27,13 @@ test('响应代码冒用、异常高低价、请求未来日期、超长响应�
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['000001'],start:dates[0],end:'2099-01-01',fetchImpl:async()=>response(payload('000001'))}),/未来/);
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['000001'],start:dates[0],end:dates.at(-1),maxBytes:1024,fetchImpl:async()=>response(payload('000001'))}),/超过大小/);
 });
+
+
+test('reject impossible calendar dates instead of normalizing them',()=>{
+ for(const invalidDate of ['2025-02-29','2025-02-30','2025-13-01']){
+  const broken=payload('000001');
+  const i=broken.data.klines.length-1;
+  broken.data.klines[i]=broken.data.klines[i].replace(/^\\d{4}-\\d{2}-\\d{2}/,invalidDate);
+  assert.throws(()=>parseKlines(broken,'000001'),/日期无效/);
+ }
+});
