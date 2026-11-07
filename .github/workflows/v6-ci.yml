@@ -36,5 +36,7 @@ jobs:
           test -f package.json || { echo 'V6_BO/package.json missing'; exit 1; }
           npm run check
           npm test
+      - name: Audit fourteen market-source registrations (offline only)
+        run: node scripts/audit-market-source-catalog.js
       - name: Isolated full-server HTTP startup smoke
         run: node tests/full-server-isolated-smoke.js
