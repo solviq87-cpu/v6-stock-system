@@ -83,7 +83,7 @@ test('command-line entry saves research output without private portfolio, and in
  assert.equal(reply.canNotify,false);
  const saved=fs.readFileSync(path.join(dir,'six-linkages-state.json'),'utf8');
  assert.ok(!saved.includes('"holdings"'));
- assert.throws(()=>main(['/relative/file.json',dir]),/用法/);
+ assert.throws(()=>main(['relative/file.json',dir]),/用法/);
  const invalidPath=path.join(folder,'broken.json');fs.writeFileSync(invalidPath,'{}');
  assert.throws(()=>main([invalidPath,dir]),/研究快照/);
 });
