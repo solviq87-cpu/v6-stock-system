@@ -10,7 +10,7 @@ function toNumber(v, fallback = 0) {
 }
 
 function validNumber(v) {
-  return v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v));
+  return v !== null && v !== undefined && !(typeof v === 'string' && v.trim() === '') && typeof v !== 'boolean' && Number.isFinite(Number(v));
 }
 
 function evaluateRule(snapshot, rule) {
@@ -45,8 +45,11 @@ function evaluateStrategy(snapshot, strategy) {
       hits.push({ id: rule.id || rule.field, weight, label: rule.label || rule.field });
     }
   }
-  const minScore = toNumber(strategy && strategy.minScore, 0);
-  return { pass: rules.length > 0 && score >= minScore, score, minScore, hits, hitRate: rules.length ? hits.length / rules.length : 0 };
+  // A missing/invalid threshold or zero-hit strategy must not silently select a stock.
+  const configuredMinScore = strategy && strategy.minScore;
+  const thresholdValid = validNumber(configuredMinScore) && Number(configuredMinScore) >= 0;
+  const minScore = thresholdValid ? Number(configuredMinScore) : 0;
+  return { pass: thresholdValid && rules.length > 0 && hits.length > 0 && score > 0 && score >= minScore, score, minScore, hits, hitRate: rules.length ? hits.length / rules.length : 0 };
 }
 
 module.exports = { evaluateRule, evaluateStrategy };
