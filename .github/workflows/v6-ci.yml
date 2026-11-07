@@ -36,3 +36,5 @@ jobs:
           test -f package.json || { echo 'V6_BO/package.json missing'; exit 1; }
           npm run check
           npm test
+      - name: Isolated full-server HTTP startup smoke
+        run: node tests/full-server-isolated-smoke.js
