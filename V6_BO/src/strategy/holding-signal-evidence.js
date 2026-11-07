@@ -1,6 +1,7 @@
 'use strict';
 const {detectPatterns}=require('./a-share-patterns');
 const {linkIssuerEvents}=require('./issuer-event-linkage');
+const {assessDailyBarFinality}=require('../core/a-share-calendar');
 const CODE=/^\d{6}$/;
 const important=new Set(['three_black_crows','bearish_engulfing','breakdown20_volume','heavy_distribution','ma5_ma20_death_cross']);
 function holdingEvidence({code,bars=[],quote={},announcements=[],now=Date.now()}={}){
@@ -27,7 +28,7 @@ function holdingEvidence({code,bars=[],quote={},announcements=[],now=Date.now()}
    typeof quote?.price==='number'&&Number.isFinite(quote.price)&&quote.price>0&&
    Boolean(quoteSource.trim())&&!/simulat|import|test|mock/i.test(quoteSource)&&!quote.proxy&&
    !quote.suspended&&quote.tradable!==false;
- const sameSession=last.date===today;
+ const sameSession=last.date===today&&quoteAt!==null&&assessDailyBarFinality(last.date,{observedAt:quoteAt,now}).usable;
  // A historical alert is not evidence for a same-day real-time mobile push.
  // Only source-dated same-session patterns with a fresh quote can be considered
  // by the existing user-private, mute-aware push channel.
