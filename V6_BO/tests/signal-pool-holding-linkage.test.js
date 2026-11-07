@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {updateLifecycle}=require('../src/strategy/signal-pool-lifecycle');
 const {holdingEvidence,asHoldingsAct}=require('../src/strategy/holding-signal-evidence');
-const ts=date=>Date.parse(date+'T07:00:00Z');
+const ts=date=>Date.parse(date+'T07:15:00Z');
 const baseDate='2026-02-04';
 function pattern(id='red_three_soldiers',side='bullish'){
  return {id,side,label:id,pool:side==='bullish'?'K线看涨池':'形态风险池',status:'matched'};
