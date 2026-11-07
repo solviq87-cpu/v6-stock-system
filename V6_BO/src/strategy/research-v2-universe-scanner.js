@@ -51,6 +51,8 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
  const issuerPools=buildIssuerPools(items);
  const linkagePools=buildLinkagePools(items);
  const lifecycle=updateLifecycle({items,previous:previousStates,now});
+ const lifecycleBySymbol=new Map(lifecycle.states.map(x=>[x.symbol,x]));
+ for(const item of items)item.lifecycle=lifecycleBySymbol.get(item.symbol)||null;
  items.sort((a,b)=>Number(b.tradable)-Number(a.tradable)||Number(b.quality.usable)-Number(a.quality.usable)||(b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol));
  return {asOf:now,total:items.length,eligible:items.filter(x=>x.tradable).length,rejected:items.filter(x=>!x.quality.usable).length,
   simulated:items.filter(x=>x.quality.simulated).length,
