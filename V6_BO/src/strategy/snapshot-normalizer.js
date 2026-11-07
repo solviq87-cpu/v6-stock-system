@@ -12,7 +12,11 @@ function normalizeStock(raw={}) {
   const rsScore=clamp(n(pick('relativeStrength','relativeStrengthScore','相对强度'),50));
   const capitalScore=clamp(n(pick('capitalScore','资金评分','moneyFlowScore'),50));
   const positionScore=clamp(n(pick('positionScore','位置评分'),50));
-  const riskScore=clamp(n(pick('riskScore','风险评分'),0));
+  // Missing risk evidence is not a verified zero-risk observation.
+  // Preserve genuine 0; otherwise fall back to neutral risk (50).
+  const riskInput=pick('riskScore','风险评分');
+  const riskScore=clamp((typeof riskInput==='number'||
+    (typeof riskInput==='string'&&riskInput.trim()!==''))?n(riskInput,50):50);
   const volumeScore=clamp(n(pick('volumeScore','量能评分'), Math.min(100, Math.max(0, volumeRatio*40))));
   const momentumScore=clamp(n(pick('momentumScore','动量评分'), 50+pct*6));
   const closeStrengthScore=clamp(n(pick('closeStrengthScore','收盘强度'), 50+pct*5));
