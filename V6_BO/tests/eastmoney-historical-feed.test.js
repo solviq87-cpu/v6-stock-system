@@ -33,7 +33,7 @@ test('reject impossible calendar dates instead of normalizing them',()=>{
  for(const invalidDate of ['2025-02-29','2025-02-30','2025-13-01']){
   const broken=payload('000001');
   const i=broken.data.klines.length-1;
-  broken.data.klines[i]=broken.data.klines[i].replace(/^\\d{4}-\\d{2}-\\d{2}/,invalidDate);
+  broken.data.klines[i]=broken.data.klines[i].replace(/^\d{4}-\d{2}-\d{2}/,invalidDate);
   assert.throws(()=>parseKlines(broken,'000001'),/日期无效/);
  }
 });
