@@ -8,14 +8,22 @@ function renderScan(r){
  const positives=items.filter(x=>(x.patterns?.positiveCount||0)>0);
  const risks=items.filter(x=>(x.patterns?.riskCount||0)>0);
  const pools=r.patternPools||{};
- $('summary').innerHTML=card('扫描总数',r.total)+card('原有风险过滤后候选',r.eligible)+card('看涨战法命中',positives.length)+card('看跌形态预警',risks.length)+card('行情质量拒绝',r.rejected)+card('模拟来源',r.simulated);
+ $('summary').innerHTML=card('扫描总数',r.total)+card('原有风险过滤后候选',r.eligible)+card('看涨战法命中',positives.length)+card('看跌形态预警',risks.length)+card('行情质量拒绝',r.rejected)+card('模拟来源',r.simulated)+card('公告风险线索',items.filter(x=>(x.issuerEvidence?.riskClues?.length||0)>0).length);
  $('resultTitle').textContent='A股战法研究池 · 任意一套完整战法命中即可入观察池';
  const grouped=Object.entries(pools);
  $('patternPools').innerHTML=grouped.length?'<p class="muted">研究股票池与原正式精选池分开：同股可进入多个池，风险池不抵消看涨信号。历史数据仅供回测，不代表可实时交易。</p>'+
  grouped.map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary><div class="scroller"><table><thead><tr><th>代码 / 名称</th><th>看涨命中</th><th>风险</th><th>研究共振分</th><th>触发战法</th></tr></thead><tbody>'+
  rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.positiveCount)+'</td><td>'+esc(x.riskCount)+'</td><td>'+esc(x.confluencePoints)+'/100（非正式评分）</td><td>'+esc((x.matched||[]).join('、'))+'</td></tr>').join('')+
  '</tbody></table></div></details>').join(''):'<p class="muted">本次有效行情中暂无命中战法的股票；不为凑池虚构候选。</p>';
- $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
+
+ const issuer=r.issuerPools||{};
+ $('issuerPools').innerHTML='<h3>上市公司公告联动 · 风险与优势线索</h3><p class="muted">从公告标题提取待核查线索，未解析原文，不改变正式选股评分。没有公告资料不能断言没有风险。</p>'+
+ Object.entries(issuer).map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary>'+
+ (rows.length?'<div class="scroller"><table><thead><tr><th>代码/名称</th><th>风险</th><th>优势</th><th>冲突</th></tr></thead><tbody>'+
+ rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.riskClues)+'</td><td>'+esc(x.strengthClues)+'</td><td>'+esc(x.riskConflict?'技术看涨与公告风险并存':'待核实')+'</td></tr>').join('')+'</tbody></table></div>':
+ '<p class="muted">暂无可用公告证据。</p>')+'</details>').join('');
+
+ $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>公告与经营线索</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
  items.map(x=>{
   const matched=x.patterns?.matched||[];
   const checks=x.patterns?.checks||[];
@@ -26,7 +34,14 @@ function renderScan(r){
     '<ul>'+checks.map(y=>'<li><b>'+esc(y.status==='matched'?'✓':y.status==='insufficient_data'?'?':'—')+' '+esc(y.label)+'</b> · '+esc(y.side==='bearish'?'看跌/风险':'看涨')+' · '+esc(y.status==='matched'?'已命中':y.status==='insufficient_data'?'数据不足':'未命中')+' · '+esc(y.detail)+'</li>').join('')+'</ul>'+
     (x.patterns?.rps120==null?'':'<div>RPS120排名：'+esc(x.patterns.rps120)+'（样本横截面百分位）</div>')+
     '</details>';
-  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
+  const docs=x.issuerEvidence||{},docRows=Array.isArray(docs.events)?docs.events:[];
+  const issuerDetails='<details><summary>风险'+(docs.riskClues?.length||0)+'项 · 优势'+(docs.strengthClues?.length||0)+'项 · 冲突'+(docs.conflicts?.length||0)+'项</summary>'+
+   (x.issuerLinkage?.riskConflict?'<p class="bad">技术看涨与公告风险线索并存，先核对公告正文。</p>':'')+
+   (docRows.length?'<ul>'+docRows.map(d=>'<li><b>'+esc(d.category==='risk-clue'?'风险线索':d.category==='strength-clue'?'优势线索':'中性/待核实')+'</b> · '+esc(d.publishedAt)+' · '+
+     '<a href="'+esc(d.url)+'" target="_blank" rel="noopener noreferrer">'+esc(d.title)+'</a> · '+esc(d.reason)+' · '+esc(d.source)+'</li>').join('')+'</ul>':
+     '<p class="muted">暂无可用的公告原文链接；不能据此断言无风险。</p>')+
+   '<small>公告标题未经正文核实，不等于实际经营优势或确定利好。</small></details>';
+  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+issuerDetails+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
  }).join('')+'</tbody></table>';
 }
 function renderLedger(r){
