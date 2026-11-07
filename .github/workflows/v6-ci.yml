@@ -38,5 +38,7 @@ jobs:
           npm test
       - name: Audit fourteen market-source registrations (offline only)
         run: node scripts/audit-market-source-catalog.js
+      - name: Eleven-workstream release structure preflight (not production approval)
+        run: node scripts/v6-release-preflight.js
       - name: Isolated full-server HTTP startup smoke
         run: node tests/full-server-isolated-smoke.js
