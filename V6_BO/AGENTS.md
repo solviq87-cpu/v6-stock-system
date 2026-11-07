@@ -62,3 +62,5 @@
 > bn：共用仪表盘逐票快照原时点展示与风险覆盖统计，列表接收不替代报价时点；见integration/DISPLAY_QUOTE_TIME_OPERATIONS_20261106bn.md。
 
 > bo：精选/趋势/连阳三类池保留同一价格行的来源和原始报价时点，不借其他快照补时间；见integration/POOL_QUOTE_OPERATIONS_20261107bo.md。
+
+> bp：仓库根npm命令转发V6_BO，容器补Python/curl/flock基础依赖；见docs/GITHUB_UPDATE_20261107bp.md。

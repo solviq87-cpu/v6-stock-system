@@ -1,14 +1,9 @@
-# V6 BO import status
+# V6 source import status
 
-Source baseline: V6_1090_full_20261107bo.zip (70,795,284 bytes; 4,355 ZIP entries).
+The `dev` branch contains the runnable project under `V6_BO/`. On 2026-11-07, every one of the 1,093 JS/HTML/CSS/Python source files in the BO archive was found in this branch. Local reconstruction was checked against every existing GitHub blob SHA before editing.
 
-**Status: source import pending.** This repository does not yet contain the complete runnable V6 project. The workflow is scaffolded but cannot pass until the source is imported.
+Archive baseline: `V6_1090_full_20261107bo.zip`, SHA-256 `28e73e364a846339bd9394ef7210dcdab8a0ae6aacfde4ad92c0a9f19cde22cb`.
 
-Safety gate before import:
-- Scan source and historical objects for credentials, tokens, private account data and operational logs.
-- Exclude history/objects and other generated/private data unless separately reviewed.
-- Preserve original archive unchanged and verify its SHA-256.
-- Import the working source tree, then run npm run check and npm test.
-- Deploy only after test and production configuration review.
+GitHub contains the source and selected documentation, not the complete archive's runtime/private data or operational history. Preserve runtime credentials, accounts and state separately. No archive data files were imported by this update.
 
-Do not use this partial repository as a production deployment.
+BP corrects repository-root npm entrypoints and supplies Python/curl/flock in the Dockerfile. Test evidence and remaining limitations are in `V6_BO/docs/GITHUB_UPDATE_20261107bp.md`. Successful CI is not server deployment or continuous live-feed certification.

@@ -25,3 +25,10 @@ docker build -t v6-preview:dev .
 ## 下一步
 
 选择部署平台、绑定持久化卷与私有配置、设置 HTTPS 域名，然后进行网页可访问性与认证测试。CI 通过不等于已经上线。
+
+
+## BP runtime prerequisites
+
+The Dockerfile now installs Python 3, curl, util-linux (`flock`) and CA certificates. These support the existing native bridge, HTTP fallback and file locking. The base image does not include optional machine-learning or research-source SDK dependencies; configure those separately if needed. A Dockerfile edit alone is not a successful image build or deployment.
+
+From the repository root, `npm start`, `npm run check` and `npm test` now dispatch to `V6_BO/`. Keep the existing deployment root at `V6_BO` if a host already uses it.
