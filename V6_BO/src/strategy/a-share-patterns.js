@@ -117,7 +117,7 @@ function detectPatterns(stock={}){
  const matched=checks.filter(x=>x.status==='matched');
  const positives=matched.filter(x=>x.side==='bullish'),risks=matched.filter(x=>x.side==='bearish');
  return {symbol,usable:true,positiveCount:positives.length,riskCount:risks.length,
-  confluencePoints:Math.min(50,positives.length*10),matched,checks,
+  confluencePoints:Math.min(100,positives.length*5),matched,checks,
   note:'独立研究分，仅表示匹配条件数；未经收益率校准，不加入V6正式总分'};
 }
 function attachRps(stocks,items,{period=120,minUniverse=10}={}){
@@ -145,7 +145,7 @@ function attachRps(stocks,items,{period=120,minUniverse=10}={}){
     status:'matched',detail:'120日涨幅横向排名前10%，收盘价≥120日最高价的90%，RPS='+pct,
     requiredBars:121};
    row.item.patterns.checks.push(signal);row.item.patterns.matched.push(signal);
-   row.item.patterns.positiveCount++;row.item.patterns.confluencePoints=Math.min(50,row.item.patterns.positiveCount*10);
+   row.item.patterns.positiveCount++;row.item.patterns.confluencePoints=Math.min(100,row.item.patterns.positiveCount*5);
   }
  }
 }
