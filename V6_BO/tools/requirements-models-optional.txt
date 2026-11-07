@@ -1,0 +1,4 @@
+# Offline research challengers only; the default three models need only requirements-models.txt.
+-r requirements-models.txt
+lightgbm==4.6.0
+xgboost==3.1.3
