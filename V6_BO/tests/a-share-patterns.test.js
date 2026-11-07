@@ -28,7 +28,7 @@ test('three red soldiers detected with actual increasing candles',()=>{
  assert.equal(r.usable,true);
  assert.ok(ids(r).includes('red_three_soldiers'));
  assert.ok(r.positiveCount>=1);
- assert.equal(r.confluencePoints,Math.min(50,r.positiveCount*10));
+ assert.equal(r.confluencePoints,Math.min(100,r.positiveCount*5));
 });
 test('three black crows are independent bearish alerts, not bullish bonuses',()=>{
  const bars=makeBars();
@@ -51,7 +51,7 @@ test('one complete strategy is enough; multiple independent strategies boost res
  assert.ok(ids(r).includes('breakout20_liquid'));
  assert.ok(ids(r).includes('momentum20_above_ma50'));
  assert.ok(r.positiveCount>=3);
- assert.equal(r.confluencePoints,Math.min(50,r.positiveCount*10));
+ assert.equal(r.confluencePoints,Math.min(100,r.positiveCount*5));
  assert.ok(!('finalScore' in r),'research bonus must not rewrite legacy finalScore');
 });
 test('bad K-line data cannot create pattern signals',()=>{
@@ -82,9 +82,9 @@ test('research pools accept any positive hit but never promote blocked or simula
  const risk={id:'r',label:'测试风险',side:'bearish',pool:'形态风险池'};
  const quality={usable:true,fresh:true,simulated:false,source:'imported'};
  const items=[
-  {symbol:'600001',name:'甲',quality,blockedBySafety:false,patterns:{usable:true,positiveCount:1,riskCount:1,confluencePoints:10,matched:[one,risk]}},
-  {symbol:'600002',name:'乙',quality,blockedBySafety:true,patterns:{usable:true,positiveCount:1,riskCount:1,confluencePoints:10,matched:[one,risk]}},
-  {symbol:'600003',name:'丙',quality:{...quality,simulated:true},blockedBySafety:false,patterns:{usable:true,positiveCount:1,riskCount:0,confluencePoints:10,matched:[one]}}
+  {symbol:'600001',name:'甲',quality,blockedBySafety:false,patterns:{usable:true,positiveCount:1,riskCount:1,confluencePoints:5,matched:[one,risk]}},
+  {symbol:'600002',name:'乙',quality,blockedBySafety:true,patterns:{usable:true,positiveCount:1,riskCount:1,confluencePoints:5,matched:[one,risk]}},
+  {symbol:'600003',name:'丙',quality:{...quality,simulated:true},blockedBySafety:false,patterns:{usable:true,positiveCount:1,riskCount:0,confluencePoints:5,matched:[one]}}
  ];
  const pools=buildPatternPools(items);
  assert.deepEqual(pools['强势启动池'].map(x=>x.symbol),['600001']);
