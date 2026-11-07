@@ -4,10 +4,30 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 $('file').addEventListener('change',async e=>{const f=e.target.files[0];if(f){if(f.size>7e6){$('status').textContent='文件过大';return;}$('payload').value=await f.text();}});
 const card=(label,value)=>`<div class="card"><div class="muted">${esc(label)}</div><h2>${esc(value)}</h2></div>`;
 function renderScan(r){
- $('summary').innerHTML=card('扫描总数',r.total)+card('风险过滤后候选',r.eligible)+card('数据质量拒绝',r.rejected)+card('模拟来源',r.simulated);
- $('resultTitle').textContent='选股排行榜 · 风险过滤优先';
- $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>评分</th><th>可交易</th><th>连板阶段</th><th>战法匹配</th><th>行情/原因</th></tr></thead><tbody>'+
- r.items.map(x=>`<tr><td>${esc(x.symbol)} ${esc(x.name)}</td><td>${esc(x.score??'—')}</td><td class="${x.tradable?'good':'bad'}">${x.tradable?'候选':'不满足'}</td><td>${esc(x.ladder?.stage||'未知')}</td><td>${esc((x.strategy?.playbookAnalysis?.playbooks||[]).filter(p=>p.status==='candidate').map(p=>p.label).join('、')||'暂无')}</td><td>${esc(x.quality.source||'未知')} · ${esc([...x.quality.errors,...x.quality.warnings].join('；')||'通过')}</td></tr>`).join('')+'</tbody></table>';
+ const items=Array.isArray(r.items)?r.items:[];
+ const positives=items.filter(x=>(x.patterns?.positiveCount||0)>0);
+ const risks=items.filter(x=>(x.patterns?.riskCount||0)>0);
+ const pools=r.patternPools||{};
+ $('summary').innerHTML=card('扫描总数',r.total)+card('原有风险过滤后候选',r.eligible)+card('看涨战法命中',positives.length)+card('看跌形态预警',risks.length)+card('行情质量拒绝',r.rejected)+card('模拟来源',r.simulated);
+ $('resultTitle').textContent='A股战法研究池 · 任意一套完整战法命中即可入观察池';
+ const grouped=Object.entries(pools);
+ $('patternPools').innerHTML=grouped.length?'<p class="muted">研究股票池与原正式精选池分开：同股可进入多个池，风险池不抵消看涨信号。历史数据仅供回测，不代表可实时交易。</p>'+
+ grouped.map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary><div class="scroller"><table><thead><tr><th>代码 / 名称</th><th>看涨命中</th><th>风险</th><th>研究共振分</th><th>触发战法</th></tr></thead><tbody>'+
+ rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.positiveCount)+'</td><td>'+esc(x.riskCount)+'</td><td>'+esc(x.confluencePoints)+'/50（非正式评分）</td><td>'+esc((x.matched||[]).join('、'))+'</td></tr>').join('')+
+ '</tbody></table></div></details>').join(''):'<p class="muted">本次有效行情中暂无命中战法的股票；不为凑池虚构候选。</p>';
+ $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
+ items.map(x=>{
+  const matched=x.patterns?.matched||[];
+  const checks=x.patterns?.checks||[];
+  const positive=x.patterns?.positiveCount||0;
+  const risk=x.patterns?.riskCount||0;
+  const detail='<details><summary>看涨'+positive+'项 / 看跌'+risk+'项 · 研究共振'+(x.patterns?.confluencePoints||0)+'/50</summary>'+
+    (matched.length?'<div><b>已命中：</b>'+esc(matched.map(y=>y.label).join('、'))+'</div>':'<div class="muted">暂无命中</div>')+
+    '<ul>'+checks.map(y=>'<li><b>'+esc(y.status==='matched'?'✓':y.status==='insufficient_data'?'?':'—')+' '+esc(y.label)+'</b> · '+esc(y.side==='bearish'?'看跌/风险':'看涨')+' · '+esc(y.status==='matched'?'已命中':y.status==='insufficient_data'?'数据不足':'未命中')+' · '+esc(y.detail)+'</li>').join('')+'</ul>'+
+    (x.patterns?.rps120==null?'':'<div>RPS120排名：'+esc(x.patterns.rps120)+'（样本横截面百分位）</div>')+
+    '</details>';
+  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
+ }).join('')+'</tbody></table>';
 }
 function renderLedger(r){
  $('summary').innerHTML=card('期末资产',r.metrics.finalEquity)+card('研究收益率',r.metrics.returnPct+'%')+card('最大回撤',r.metrics.maxDrawdownPct+'%')+card('平仓笔数',r.metrics.closedTrades);
