@@ -19,7 +19,7 @@ test('provider selection follows current stock immediately even if candles fail 
  const src=fs.readFileSync(require.resolve('../public/assets/terminal-dashboard.js'),'utf8');
  const elements={},el=id=>elements[id]||(elements[id]={});const pending=[];
  const context={V6StockProviders:providers,el,model:{rows:[{code:'000001',name:'A',signals:[]},{code:'600000',name:'B',signals:[]}]},selected:null,epoch:0,controller:null,AbortController,renderRows(){},format(){return '—';},finite:Number.isFinite,esc:x=>x,token:()=>'',plot:()=>'<svg/>',fetch:()=>new Promise(resolve=>pending.push(resolve))};
- vm.createContext(context);vm.runInContext(src.slice(src.indexOf('function quoteDescription(row)'),src.indexOf('function renderRows()')),context);vm.runInContext(src.slice(src.indexOf('async function select(code)'),src.indexOf("document.addEventListener('click'")),context);
+ vm.createContext(context);vm.runInContext(src.slice(src.indexOf('function quoteDescription(row)'),src.indexOf('function renderRows()')),context);vm.runInContext(src.slice(src.indexOf('function renderIssuer(row'),src.indexOf('function token()')),context);vm.runInContext(src.slice(src.indexOf('async function select(code)'),src.indexOf("document.addEventListener('click'")),context);
  const a=context.select('000001'),b=context.select('600000');
  assert.ok(el('vx-provider-links').innerHTML.includes('/sh600000.html'));assert.ok(!el('vx-provider-links').innerHTML.includes('000001'));
  pending[1]({ok:false,json:async()=>({error:'offline'})});await b;assert.ok(el('vx-chart').textContent.includes('offline'));assert.ok(el('vx-provider-links').innerHTML.includes('/sh600000.html'));
