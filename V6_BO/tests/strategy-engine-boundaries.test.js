@@ -28,3 +28,23 @@ test('empty strategy cannot pass; normal weighted score still passes', () => {
   assert.equal(result.pass,true);
   assert.equal(result.score,2);
 });
+
+
+test('whitespace-only data is not interpreted as zero', () => {
+  assert.equal(evaluateRule({price:'  '},{field:'price',op:'<',value:10}),false);
+  assert.equal(evaluateRule({price:5},{field:'price',op:'>',value:'   '}),false);
+});
+test('no matching rules or zero-weight matches cannot select at a zero threshold', () => {
+  const missing={rules:[{field:'price',op:'>',value:10,weight:25}],minScore:0};
+  assert.equal(evaluateStrategy({price:5},missing).pass,false);
+  const zeroWeight={rules:[{field:'price',op:'>',value:10,weight:0}],minScore:0};
+  assert.equal(evaluateStrategy({price:11},zeroWeight).pass,false);
+  assert.equal(evaluateStrategy({price:11},{rules:[{field:'price',op:'>',value:10,weight:20}],minScore:0}).pass,true);
+});
+test('absent, invalid or negative minimum scores fail closed', () => {
+  const rule={field:'price',op:'>',value:10,weight:20};
+  for(const minScore of [undefined,null,'',' ',NaN,-1]) {
+    assert.equal(evaluateStrategy({price:11},{rules:[rule],minScore}).pass,false);
+  }
+  assert.equal(evaluateStrategy({price:11},{rules:[rule],minScore:'20'}).pass,true);
+});
