@@ -1,5 +1,6 @@
 // 引入统一涨停口径；analysis.js 是纯函数模块、自身无任何 require，不会形成循环依赖
 const A = require('./analysis');
+const {holdingEvidence,asHoldingsAct}=require('./src/strategy/holding-signal-evidence');
 
 // 取某只票的利空标题（与 goodTitles 对称，用于综合判断）
 function badTitlesJoin(news, code) {
@@ -866,6 +867,14 @@ module.exports = function createHoldings(dep) {
       const snap = q.get(h.code) || {};
       const rows = rowMap.get(h.code) || [];
       const v = verdict(h.code, snap, rows, { positionPct });
+      const researchRisk=holdingEvidence({code:h.code,bars:rows,quote:snap,
+        announcements:[...(Array.isArray(S.news?.badAll)?S.news.badAll:[]),
+          ...(Array.isArray(S.news?.goodAll)?S.news.goodAll:[])],
+        now:_nowDate().getTime()});
+      const patternAct=asHoldingsAct(researchRisk,{locked:!!h.locked});
+      // Unlike the established price-based rules, invalid/stale pattern signals
+      // remain visible ONLY, never enter the notification stream.
+      const acts=patternAct?[...v.acts,patternAct]:v.acts;
       const cost = num(h.cost), shares = num(h.shares);
       const price = num(snap.price);
       const prevClose = rows.length ? rows[rows.length - 1].close : null;
@@ -895,7 +904,7 @@ module.exports = function createHoldings(dep) {
         drawdown: v.drawdown, hiRef: v.hiRef,
         // 事实面：当日存在针对该股的利好/停牌，参与上面的建议判定（不是只看 K 线）
         goodNews: !!v.goodNews, goodNote: v.goodNote || '', suspended: !!v.suspended,
-        level: v.level, acts: v.acts
+        level: v.level, researchRisk, acts: v.acts
       };
     });
     if (_nameDirty) { try { saveHold(); } catch {} }   // 补到的真实名称立刻落盘
