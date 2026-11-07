@@ -23,7 +23,14 @@ function renderScan(r){
  rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.riskClues)+'</td><td>'+esc(x.strengthClues)+'</td><td>'+esc(x.riskConflict?'技术看涨与公告风险并存':'待核实')+'</td></tr>').join('')+'</tbody></table></div>':
  '<p class="muted">暂无可用公告证据。</p>')+'</details>').join('');
 
- $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>公告与经营线索</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
+ const linkPools=r.linkagePools||{};
+ $('linkagePools').innerHTML='<h3>市场＋板块＋个股联动（研究）</h3><p class="muted">市场、行业证据必须同日且时效有效。导入数据未经独立认证，不代表实时行情；看涨信号仍按任一套战法命中入观察池。</p>'+
+ Object.entries(linkPools).map(([name,rows])=>'<details class="card"><summary><b>'+esc(name)+'</b> · '+rows.length+' 只</summary>'+
+ (rows.length?'<div class="scroller"><table><thead><tr><th>股票</th><th>市场/板块支持</th><th>待核查风险</th></tr></thead><tbody>'+
+ rows.map(x=>'<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.contextSupport)+'/2</td><td>'+esc((x.risks||[]).join('；')||'暂无已观察风险，不等于无风险')+'</td></tr>').join('')+
+ '</tbody></table></div>':'<p class="muted">本次暂无有充分联动证据的股票。</p>')+'</details>').join('');
+
+ $('table').innerHTML='<table><thead><tr><th>代码/名称</th><th>原评分</th><th>原候选</th><th>战法研究命中详情</th><th>公告与经营线索</th><th>市场板块联动</th><th>连板</th><th>行情/风险</th></tr></thead><tbody>'+
  items.map(x=>{
   const matched=x.patterns?.matched||[];
   const checks=x.patterns?.checks||[];
@@ -41,7 +48,17 @@ function renderScan(r){
      '<a href="'+esc(d.url)+'" target="_blank" rel="noopener noreferrer">'+esc(d.title)+'</a> · '+esc(d.reason)+' · '+esc(d.source)+'</li>').join('')+'</ul>':
      '<p class="muted">暂无可用的公告原文链接；不能据此断言无风险。</p>')+
    '<small>公告标题未经正文核实，不等于实际经营优势或确定利好。</small></details>';
-  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+issuerDetails+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
+  const cross=x.linkageResearch||{};
+  const linkageDetails='<details><summary>市场 '+esc(cross.marketStatus||'unknown')+' / 板块 '+esc(cross.sectorStatus||'unknown')+
+   ' · 证据 '+esc(cross.positiveContextCount||0)+'/2</summary>'+
+   '<p>市场广度 '+esc(cross.marketBreadth??'未知')+' · '+esc(cross.marketSource||'来源缺失')+
+   '；板块 '+esc(cross.sector||'未知')+' · 相对强度 '+esc(cross.sectorStrength??'未知')+
+   ' · '+esc(cross.sectorSource||'来源缺失')+'</p>'+
+   (cross.riskConflict?'<p class="bad">存在多维风险冲突，不能被看涨形态数量抵消。</p>':'')+
+   '<p>支持：'+esc((cross.support||[]).join('；')||'尚无足够证据')+'</p>'+
+   '<p>风险：'+esc((cross.risks||[]).join('；')||'尚无明确观察风险，不代表安全')+'</p>'+
+   '<small>研究只读、未经独立核实，不改变正式评分、股票池或实盘委托。</small></details>';
+  return '<tr><td>'+esc(x.symbol)+' '+esc(x.name)+'</td><td>'+esc(x.score??'—')+'</td><td class="'+(x.tradable?'good':'bad')+'">'+(x.tradable?'候选':'不满足')+'</td><td>'+detail+'</td><td>'+issuerDetails+'</td><td>'+linkageDetails+'</td><td>'+esc(x.ladder?.stage||'未知')+'</td><td>'+esc(x.quality.source||'未知')+' · '+esc([...(x.quality.errors||[]),...(x.quality.warnings||[])].join('；')||'通过')+'</td></tr>';
  }).join('')+'</tbody></table>';
 }
 function renderLedger(r){
