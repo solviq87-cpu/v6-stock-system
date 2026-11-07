@@ -4,7 +4,14 @@
  * 市场环境识别：把“什么时候适合趋势/突破/反转”统一成一个可解释输出。
  * 输入为已归一化的市场快照；缺失字段采用保守中性值。
  */
-const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+function n(v,d=0) {
+  // Number(null), Number('') and Number(false) all equal zero; those are
+  // missing observations, not observed market scores of zero.
+  if (v === null || v === undefined || typeof v === 'boolean' ||
+      (typeof v === 'string' && v.trim() === '')) return d;
+  const value = Number(v);
+  return Number.isFinite(value) ? value : d;
+}
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 
 function classifyMarket(snapshot={}) {
