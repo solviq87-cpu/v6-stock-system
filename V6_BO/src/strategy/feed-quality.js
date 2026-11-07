@@ -37,14 +37,28 @@ function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={
  const ind=barsToIndicators(bars);
  if(!ind.valid)errors.push(ind.reason);
  if(ind.valid&&bars.length>=2){
-  const last=bars.at(-1),prior=bars.at(-2);
+  const last=bars.at(-1);
   if(safeStock.close!==undefined){
    if(safeStock.close===null||safeStock.close===''||typeof safeStock.close==='boolean'||!Number.isFinite(Number(safeStock.close))||Number(safeStock.close)<=0)errors.push('快照价格无效');
    else if(Math.abs(Number(safeStock.close)-Number(last.close))>Math.max(.02,Number(last.close)*.001))errors.push('快照价格与最后K线不一致');
   }
-  if(last.date&&prior.date&&String(last.date)<=String(prior.date))errors.push('K线日期未严格递增');
-  if(bars.every(b=>b.date!==undefined))for(let i=1;i<bars.length;i++){
-   if(String(bars[i].date)<=String(bars[i-1].date)){errors.push('历史K线日期重复或倒序');break;}
+  // Preserve fully undated legacy series. If dates are provided, they must be
+  // complete, actual calendar days and strictly increasing; string order alone
+  // can incorrectly accept an impossible date (e.g. September 31).
+  const dated=bars.filter(b=>b.date!==undefined&&b.date!==null&&b.date!=='').length;
+  if(dated>0&&dated!==bars.length)errors.push('历史K线日期字段不一致');
+  if(dated>0){
+   let previous=null;
+   for(let i=0;i<bars.length;i++){
+    const date=bars[i].date;
+    if(date===undefined||date===null||date==='')continue;
+    const millis=typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)?Date.parse(date+'T00:00:00Z'):NaN;
+    if(!Number.isFinite(millis)||new Date(millis).toISOString().slice(0,10)!==date){
+     errors.push('历史K线日期无效');break;
+    }
+    if(previous!==null&&date<=previous){errors.push('历史K线日期重复或倒序');break;}
+    previous=date;
+   }
   }
  }
  if(safeStock.isST||safeStock.suspended||safeStock.tradable===false)warnings.push('风险或不可交易标的');
