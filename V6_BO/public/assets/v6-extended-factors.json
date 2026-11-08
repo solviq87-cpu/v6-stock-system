@@ -1,0 +1,111 @@
+{
+  "version": "1.0.0",
+  "description": "原五族策略不变；扩展因子仅在存在有效实测数据时评分，缺失不以默认中性值冒充有效信号。",
+  "factors": [
+    {
+      "id": "sector_heat",
+      "field": "sectorHeatScore",
+      "group": "theme",
+      "weight": 1.3,
+      "label": "板块热度"
+    },
+    {
+      "id": "leader_strength",
+      "field": "leaderStrengthScore",
+      "group": "theme",
+      "weight": 1.3,
+      "label": "龙头辨识度"
+    },
+    {
+      "id": "auction_quality",
+      "field": "auctionQualityScore",
+      "group": "auction",
+      "weight": 1.2,
+      "label": "竞价质量"
+    },
+    {
+      "id": "seal_quality",
+      "field": "sealQualityScore",
+      "group": "ladder",
+      "weight": 1.2,
+      "label": "封板质量"
+    },
+    {
+      "id": "reopen_reseal",
+      "field": "resealScore",
+      "group": "ladder",
+      "weight": 0.9,
+      "label": "炸板回封"
+    },
+    {
+      "id": "limit_promotion",
+      "field": "promotionScore",
+      "group": "ladder",
+      "weight": 1.1,
+      "label": "连板晋级质量"
+    },
+    {
+      "id": "money_persistence",
+      "field": "moneyPersistenceScore",
+      "group": "flow",
+      "weight": 1.2,
+      "label": "资金持续性"
+    },
+    {
+      "id": "chip_concentration",
+      "field": "chipConcentrationScore",
+      "group": "chips",
+      "weight": 0.8,
+      "label": "筹码集中度"
+    },
+    {
+      "id": "overhead_supply",
+      "field": "overheadSupplyScore",
+      "group": "chips",
+      "weight": 0.8,
+      "label": "上方抛压安全度"
+    },
+    {
+      "id": "roe_quality",
+      "field": "roeQualityScore",
+      "group": "fundamental",
+      "weight": 1.0,
+      "label": "盈利质量"
+    },
+    {
+      "id": "cashflow_quality",
+      "field": "cashflowQualityScore",
+      "group": "fundamental",
+      "weight": 1.0,
+      "label": "现金流质量"
+    },
+    {
+      "id": "valuation_safety",
+      "field": "valuationSafetyScore",
+      "group": "fundamental",
+      "weight": 0.8,
+      "label": "估值安全度"
+    },
+    {
+      "id": "market_breadth",
+      "field": "marketBreadthScore",
+      "group": "sentiment",
+      "weight": 1.0,
+      "label": "市场广度"
+    },
+    {
+      "id": "sentiment_cycle",
+      "field": "sentimentCycleScore",
+      "group": "sentiment",
+      "weight": 1.0,
+      "label": "情绪周期"
+    },
+    {
+      "id": "low_volatility",
+      "field": "lowVolatilityScore",
+      "group": "risk",
+      "weight": 0.8,
+      "label": "低波动稳健度"
+    }
+  ]
+}
