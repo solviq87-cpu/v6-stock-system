@@ -65,6 +65,7 @@ test('future, mismatched, simulated, stale and invalid index inputs fail closed'
   x=>x.market.indices.shenzhen.source='inconsistent-provider',
   x=>x.market.indices.shenzhen.changePct='-3',
   x=>x.market.indices.shenzhen.simulated=true,
+  x=>{x.market.source='simulated';x.market.indices.shanghai.source='simulated';x.market.indices.shenzhen.source='simulated';x.market.indices.chinext.source='simulated';x.market.indices.a50.source='simulated';},
   x=>x.market.indices.shenzhen.observedAt=asOf-3600000,
   x=>x.market.breadthScore=undefined,
   x=>x.market.coverage=.79
