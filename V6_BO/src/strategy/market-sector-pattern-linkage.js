@@ -1,4 +1,5 @@
 'use strict';
+const {evaluateMarketSectorResilience}=require('./market-sector-resilience');
 // All market/sector context is imported, time-scoped and unverified.
 // This module never alters official stock selection, position alerts or paper orders.
 const dateOk=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&
@@ -27,6 +28,10 @@ function evaluateLinkage({symbol,patterns,issuerEvidence,quality,bars,linkage,as
  const date=last.date,now=asOf;
  const m=linkage?.market,sector=linkage?.sectors?.[empty.symbol];
  const out={...empty,tradeDate:date};
+ // Extra imported index/sector percent-change research is strictly optional.
+ // Existing breadth/sector score rules and official candidate scoring remain unchanged.
+ if(m?.indices!==undefined||sector?.changePct!==undefined)
+  out.resilienceResearch=evaluateMarketSectorResilience({market:m,sector,tradeDate:date,asOf:now});
  const marketValid=validObserved(m,{asOf:now,date})&&
    scoreOk(m.breadthScore)&&typeof m.coverage==='number'&&Number.isFinite(m.coverage)&&m.coverage>=.8&&m.coverage<=1;
  if(marketValid){

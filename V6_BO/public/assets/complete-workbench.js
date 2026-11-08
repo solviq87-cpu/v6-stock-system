@@ -43,6 +43,18 @@ function renderSelection(report){
   const market=rationale.market||{},sector=rationale.sector||{};
   add(d,'p','大盘：'+(market.status==='imported-unverified'?('宽度分数 '+(market.breadthScore??'未知')):'证据不足')+
    '；板块：'+(sector.name||'未知')+'｜'+(sector.relativeStrength??'未知'));
+  const resilience=rationale.marketSectorResilience||{};
+  if(resilience.status==='market-sector-observed-unverified'){
+    add(d,'p','大盘状态：'+resilience.marketRegime+
+      '｜指数均值 '+(resilience.coreBenchmarkChangePct??'未知')+
+      '%｜板块涨跌 '+(resilience.sectorChangePct??'未知')+
+      '%｜相对超额 '+(resilience.relativeToCorePct??'未知')+
+      '%｜'+resilience.sectorRegime,'muted');
+    if((resilience.support||[]).length)
+      add(d,'p','逆势/抗跌观察：'+resilience.support.join('；'),'muted');
+  }else if(resilience.status==='market-observed-sector-unverified'){
+    add(d,'p','已导入大盘指数，但缺少可核实的同日板块涨跌幅，暂不判断逆势强弱','muted');
+  }
   const factors=rationale.factors||[];
   if(factors.length)add(d,'p','扩展因子（未经逐项核验）：'+factors.map(f=>f.label+' '+(f.score??'未知')).join('；'),'muted');
   const price=rationale.price||{},rise=rationale.whyUp||{};
