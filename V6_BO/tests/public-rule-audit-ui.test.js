@@ -26,7 +26,10 @@ function harness(){
    configuration:{horizons:[1,5,20,60]},rules:[{id:'vnpy_boll_cci_atr',label:'布林CCI ATR',
    byHorizon:{1:{signals:3,modeled:2,averageNetReturnPct:-0.5,winRatePct:25},
     5:{signals:3,modeled:0,averageNetReturnPct:null,winRatePct:null}}}]}}};
- const fetch=async(url,options)=>{calls.push({url,options});return {json:async()=>result};};
+ const fetch=async(url,options)=>{calls.push({url,options});
+  const requested=JSON.parse(options.body).validatePublicRules===true;
+  return {json:async()=>requested?result:{ok:true,result:{selectionEvidence:{status:'not-evaluated',candidates:[]}}}};
+ };
  vm.runInNewContext(script,{document,fetch,JSON,Array,Error,String,Number});
  return {ids,created,document,calls};
 }
