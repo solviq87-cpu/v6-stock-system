@@ -3,6 +3,7 @@
 // Read-only cross-sectional diagnostics. These states never alter strategy weights.
 const crypto = require('node:crypto');
 const pack = require('../../strategies/extended-factor-pack.json');
+const { assessMarketShock } = require('./market-shock-learning-gate');
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const text = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 200;
@@ -107,7 +108,7 @@ function verifyBaseline(frozen, now) {
   if (hash(again) !== hash(frozen)) throw Error('因子基线结构或版本变化');
   return payload;
 }
-function evaluateFactorHealth(frozen, input, { now = Date.now() } = {}) {
+function evaluateFactorHealth(frozen, input, { now = Date.now(), marketContext } = {}) {
   clock(now);
   const baseline = verifyBaseline(frozen, now);
   const current = normalizeSnapshot(input, baseline.factors, baseline.feed, now);
@@ -123,12 +124,15 @@ function evaluateFactorHealth(frozen, input, { now = Date.now() } = {}) {
     return { ...s, baselineMeanScore: b.meanScore, meanShift,
       status: !sufficient ? 'insufficient-data' : reasons.length ? 'watch' : 'within-thresholds', reasons };
   });
-  return {
+  const report = {
     schemaVersion: 1, mode: 'factor-health-diagnostic', asOf: current.asOf, generatedAt: now,
     baselineFingerprint: frozen.fingerprint, snapshotFingerprint: hash(current), feed: baseline.feed,
     packVersion: baseline.packVersion, packFingerprint: baseline.packFingerprint, policy: baseline.policy, factors,
     canTrade: false, verifiedLive: false, prospectiveCertified: false, weightsChanged: false,
     warning: '仅分数分布与输入质量诊断；不是收益衰减、IC、因果、晋级或交易认证。股票池变动也会造成均值变化。'
   };
+  // Market context is optional and cannot edit frozen baselines, factor watch statuses or weights.
+  if (marketContext !== undefined) report.learningGate = assessMarketShock(marketContext, { asOf: current.asOf });
+  return report;
 }
 module.exports = { freezeHealthBaseline, evaluateFactorHealth };
