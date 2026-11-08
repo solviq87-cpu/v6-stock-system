@@ -42,7 +42,7 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
   const linkageResearch=evaluateLinkage({symbol,patterns,issuerEvidence,quality,bars:stock.bars,
     linkage:market?.linkage,asOf:now});
   items.push({patterns,patternDate:Array.isArray(stock.bars)?stock.bars.at(-1)?.date:null,blockedBySafety,issuerEvidence,issuerLinkage,linkageResearch,symbol,name:stock.name||'',quality,tradable,researchFeatures:quality.usable?featuresAt(stock.bars,stock.bars.length-1):null,score:evaluated?evaluated.finalScore:null,
-   strategy:evaluated?{pass:evaluated.pass,regime:evaluated.regime,legacyScore:evaluated.legacyScore,
+   strategy:evaluated?{pass:evaluated.pass,regime:evaluated.regime,legacyScore:evaluated.legacyScore,topDrivers:evaluated.topDrivers,
     extendedFactors:evaluated.extendedFactors,playbookAnalysis:evaluated.playbookAnalysis,riskFilter:evaluated.riskFilter}:null,
    ladder:ladder?{stage:ladder.stage,next:ladder.next,streak:ladder.streak,score:ladder.score,warnings:ladder.warnings}:null});
  }
