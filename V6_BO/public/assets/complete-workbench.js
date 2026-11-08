@@ -82,11 +82,42 @@ function renderSelection(report){
  refilter();
 }
 
+function renderForwardAudit(report){
+ const existing=el('publicRuleAuditSummary');if(existing)existing.remove();
+ if(!report)return;
+ const root=document.createElement('section');root.id='publicRuleAuditSummary';root.className='card';
+ el('completeSummary').after(root);
+ const add=(tag,value)=>{
+  const child=document.createElement(tag);child.textContent=String(value??'—');root.append(child);return child;
+ };
+ add('h3','新增公开战法 · 独立未来表现验证');
+ add('p','历史研究，不是实盘收益；区分无法成交、公司行为未核对与有效模型样本。');
+ if(report.status==='unavailable'){
+  add('p','无法验证：'+(report.reason||'历史证据不足'));return;
+ }
+ const horizon=report.configuration?.horizons||[];
+ for(const rule of report.rules||[]){
+  const detail=document.createElement('details');detail.className='card';root.append(detail);
+  const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);
+  for(const days of horizon){
+   const stats=rule.byHorizon?.[days]||{};
+   const row=document.createElement('p');
+   row.textContent='未来 '+days+' 日：信号 '+(stats.signals??0)+
+    ' ｜可建模 '+(stats.modeled??0)+' ｜无法建模 '+((stats.signals??0)-(stats.modeled??0))+
+    ' ｜净收益均值 '+(stats.averageNetReturnPct==null?'未验证':stats.averageNetReturnPct+'%')+
+    ' ｜胜率 '+(stats.winRatePct==null?'未验证':stats.winRatePct+'%');
+   detail.append(row);
+  }
+ }
+ add('p','未经独立行情与成交对账；未完成模型训练及统计有效性认证，且弱市/暴跌亏损样本不能删除。');
+}
+
 async function run(action){
  buttons.forEach(id=>el(id).disabled=true);el('completeStatus').textContent='正在处理…';el('completeOutput').textContent='';el('completeSummary').replaceChildren();
  try{
   let input=action==='read'?{}:JSON.parse(el('payload').value),payload;
   if(action==='complete')payload=input.history?input:{history:input};
+  if(action==='complete'&&el('publicRuleAuditEnabled')?.checked===true)payload.validatePublicRules=true;
   else payload={accountId:el('paperAccountId').value,action,...(action==='append'?{history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})}:{})};
   const token=el('token').value.trim();
   const response=await fetch('/api/research/'+(action==='complete'?'complete-run':'paper-account'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(payload)});
@@ -95,8 +126,13 @@ async function run(action){
   if(metrics)for(const [label,value] of [['期末资产',metrics.finalEquity],['研究收益率 (%)',metrics.returnPct],['最大回撤 (%)',metrics.maxDrawdownPct],['已平仓笔数',metrics.closedTrades]]){
    const card=document.createElement('article');card.className='card';const heading=document.createElement('div'),number=document.createElement('h3');heading.textContent=label;number.textContent=value??'—';card.append(heading,number);el('completeSummary').append(card);
   }
-  if(action==='complete')renderSelection(result.selectionEvidence);
-  else {const old=el('historicalSelection');if(old)old.remove();}
+  if(action==='complete'){
+    renderSelection(result.selectionEvidence);
+    renderForwardAudit(result.publicRuleForwardAudit);
+  }else {
+    const old=el('historicalSelection');if(old)old.remove();
+    const audit=el('publicRuleAuditSummary');if(audit)audit.remove();
+  }
   el('completeOutput').textContent=JSON.stringify(result,null,2);
   el('completeStatus').textContent=action==='read'?'账户已恢复':action==='append'?(data.updated?'账户已保存':'历史未变化，无重复记账'):'研究完成；外部数据与实盘成交未验收';
  }catch(e){el('completeStatus').textContent='处理失败：'+e.message;}
