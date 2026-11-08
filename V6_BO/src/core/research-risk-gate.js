@@ -1,8 +1,9 @@
 'use strict';
 /** Read-only evidence gate. No orders, no rewriting legacy scores. */
 const codeOf=x=>String(x?.code??x?.symbol??'');
-function assessCandidateEvidence(snapshot, breadth, regime, candidates=[], intersection={}) {
+function assessCandidateEvidence(snapshot, breadth, regime, candidates=[], intersection={}, {requireOriginalQuoteTime=false}={}) {
  const matched=new Set((Array.isArray(intersection?.items)?intersection.items:[]).filter(x=>x&&/^\d{6}$/.test(String(x.code||''))).map(x=>String(x.code)));
+ const quoteTimes=new Map((Array.isArray(intersection?.items)?intersection.items:[]).filter(x=>x&&/^\d{6}$/.test(String(x.code||''))).map(x=>[String(x.code),x.quoteTimeStatus||'unknown']));
  const seen=new Set(),items=[];
  for(const c of (Array.isArray(candidates)?candidates:[])) {
   if(items.length>=50)break;
@@ -15,12 +16,17 @@ function assessCandidateEvidence(snapshot, breadth, regime, candidates=[], inter
   if(!breadth?.usable)reasons.push('市场宽度覆盖不足');
   if(!matched.has(code))reasons.push('未匹配到公开行情');
   if(!regime?.usable)reasons.push('缺少独立且同日期的市场环境评分');
+  const timeStatus=quoteTimes.get(code)||'unknown';
+  const quoteTimeReady=!requireOriginalQuoteTime||timeStatus==='recent-source-unverified';
+  if(!quoteTimeReady)reasons.push('缺少该股可核对的近期供应商自报报价时点；请求日期不能冒充报价时间');
   if(!Number.isFinite(c.finalScore))reasons.push('原候选评分未知');
   if(knownRisk)reasons.push('风险拦截优先于研究证据完整性');
-  const evidenceReady=Boolean(!knownRisk&&breadth?.usable&&matched.has(code)&&regime?.usable&&Number.isFinite(c.finalScore));
+  const evidenceReady=Boolean(!knownRisk&&breadth?.usable&&matched.has(code)&&regime?.usable&&
+   quoteTimeReady&&Number.isFinite(c.finalScore));
   items.push({code,name:String(c.name||code).slice(0,64),originalScore:Number.isFinite(c.finalScore)?c.finalScore:null,
    riskStatus:knownRisk?'blocked':evidenceReady?'research-only':'unknown',
-   evidenceReady,canTrade:false,reason:reasons.length?reasons.join('；'):'仅研究候选；尚未验证可交易性、K线与实时性'});
+   evidenceReady,quoteTimeStatus:timeStatus,canTrade:false,
+   reason:reasons.length?reasons.join('；'):'仅研究候选；原始报价时点仍未获得交易所独立认证及交易放行'});
  }
  return {mode:'read-only',rankingModified:false,canTrade:false,items,
   counts:{total:items.length,blocked:items.filter(x=>x.riskStatus==='blocked').length,
