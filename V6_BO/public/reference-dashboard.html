@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#061326"><title>V6 量化看盘系统 · 参考图布局</title>
-<link rel="stylesheet" href="/assets/v6-reference-dashboard.css?v=20261105r5">
+<link rel="stylesheet" href="/assets/v6-reference-dashboard.css?v=20261108f1">
 </head>
 <body>
 <header class="topbar">
@@ -42,10 +42,12 @@
   </article>
   <aside class="right-stack">
    <article class="panel chart-panel"><div class="chart-tabs"><b>K线走势</b><a href="/#v6-market">资金流向</a><a href="/#v6-market">技术指标</a><a href="/research.html">诊断分析</a></div><div class="chart-head"><b id="chart-stock">等待选择股票</b><span id="chart-state">行情未载入</span></div><div class="chart-grid" id="chart-canvas"><div class="empty-chart">等待真实 K 线数据</div></div><div class="volume" id="chart-volume"></div></article>
-   <article class="panel diagnosis"><h2>▣ AI 信号解释 <a href="/research.html">详细分析 ›</a></h2><strong id="diagnosis-status">研究信号说明（非交易指令）</strong><ul id="diagnosis-list"><li>趋势：等待已验证的行情数据。</li><li>资金：等待资金流数据源确认。</li><li>基本面：需核验最新财报与公告。</li><li>策略共振：等待四套策略计算结果。</li><li>风险提示：数据未齐全前不提供交易结论。</li></ul></article>
+   <article class="panel diagnosis"><h2>▣ AI 信号解释 <span class="diagnosis-actions"><button type="button" id="factor-catalog-toggle" aria-haspopup="dialog" aria-controls="factor-catalog-dialog">15项因子</button><a href="/research.html">详细分析 ›</a></span></h2><strong id="diagnosis-status">研究信号说明（非交易指令）</strong><ul id="diagnosis-list"><li>趋势：等待已验证的行情数据。</li><li>资金：等待资金流数据源确认。</li><li>基本面：需核验最新财报与公告。</li><li>策略共振：等待四套策略计算结果。</li><li>风险提示：数据未齐全前不提供交易结论。</li></ul></article>
   </aside>
  </section>
+<dialog id="factor-catalog-dialog" class="factor-dialog" aria-labelledby="factor-dialog-title"><header><h2 id="factor-dialog-title">V6 扩展因子 · 15 项</h2><button type="button" id="factor-catalog-close" aria-label="关闭因子目录">×</button></header><p id="factor-stock-state">请选择排行榜中的股票，核对因子证据。</p><div id="factor-catalog-items" class="factor-grid" role="list">正在读取因子清单</div><p class="factor-disclaimer">仅展示仓库注册的因子和后端实际返回的证据；缺少来源、时间或有效分数时不补默认值。历史证据不代表当前实时有效。</p></dialog>
 </main>
 <nav class="mobile-dock"><a href="/" class="on"><b>⌂</b><small>首页</small></a><a href="/research.html"><b>☆</b><small>自选股</small></a><a href="/#v6-market"><b>▥</b><small>行情</small></a><a class="ai" href="/research.html"><b>✦</b><small>AI</small></a><a href="/#v6-paper"><b>⇄</b><small>模拟交易</small></a><a href="/#holdSec1"><b>⬡</b><small>风控</small></a><a href="/#lockPanel"><b>♙</b><small>我的</small></a></nav>
-<script src="/assets/v6-reference-dashboard.js?v=20261105r6" defer></script>
+<script src="/assets/v6-factor-evidence.js?v=20261108f1" defer></script>
+<script src="/assets/v6-reference-dashboard.js?v=20261108f1" defer></script>
 </body></html>

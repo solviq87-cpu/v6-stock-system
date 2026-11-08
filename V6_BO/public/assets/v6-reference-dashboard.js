@@ -9,15 +9,15 @@
   let klineRequestId = 0;
   let refreshRunning = false;
   let lastSuccessfulRefresh = 0;
-  const num = (v, digits=2) => Number.isFinite(Number(v)) ? Number(v).toLocaleString('zh-CN',{minimumFractionDigits:digits,maximumFractionDigits:digits}) : '--';
-  const pct = (v) => Number.isFinite(Number(v)) ? `${Number(v)>0?'+':''}${Number(v).toFixed(2)}%` : '暂无';
+  const num = (v, digits=2) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v).toLocaleString('zh-CN',{minimumFractionDigits:digits,maximumFractionDigits:digits}) : '--';
+  const pct = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? `${Number(v)>0?'+':''}${Number(v).toFixed(2)}%` : '暂无';
   const date = $('#trade-date');
   const updateClock = () => { if(date) date.textContent = new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date())+' · A股行情'; };
   updateClock(); window.setInterval(updateClock,1000);
   async function get(url) { const r=await fetch(url,{credentials:'same-origin',headers:{accept:'application/json'},cache:'no-store'}); if(!r.ok) throw new Error(`${url} HTTP ${r.status}`); return r.json(); }
   function pickNum(obj, keys) { for(const k of keys){ const v=obj?.[k]; if(v!==undefined && v!==null && Number.isFinite(Number(v))) return Number(v); } return null; }
   function renderMood(d) {
-    const m=d?.mood||{}; const score=pickNum(m,['score','value','moodScore']);
+    const m=d?.isMock===true || d?.simulated===true ? {} : (d?.mood||{}); const score=pickNum(m,['score','value','moodScore']);
     text('#mood-score',score===null?'--':Math.round(score));
     text('#mood-label',m.verdict||m.advice||m.mood||'情绪数据已载入');
     text('#market-verdict',m.verdict||m.advice||'市场状态待判断');
@@ -26,7 +26,7 @@
     text('#risk-asof',d?.ready?'行情服务已就绪':d?.isSnapshot?`历史快照 ${d.snapshotDay||''}`:'行情服务未就绪');
   }
   function renderPicks(d) {
-    rankingItems = Array.isArray(d?.items) ? d.items.slice() : [];
+    rankingItems = d?.isMock !== true && d?.simulated !== true && Array.isArray(d?.items) ? d.items.slice() : [];
     text('#pick-count', d?.count ?? rankingItems.length);
     text('#focus-count', rankingItems.filter(x => Number(x.score ?? x.finalScore) >= 80).length);
     text('#research-count', rankingItems.filter(x => x.pass === true || x.status === 'research').length);
@@ -81,6 +81,7 @@
   async function loadKline(code) {
     const requestId = ++klineRequestId;
     text('#chart-stock',`${code} · K线走势`); text('#chart-state','正在读取历史K线');
+    window.dispatchEvent(new CustomEvent('v6:stock-selected',{detail:rankingItems.find(x=>String(x.code||x.symbol||'').replace(/[^0-9]/g,'').slice(0,6)===code)||null}));
     try {
       const d=await get(`/api/kline?code=${encodeURIComponent(code)}&n=60`);
       if (requestId !== klineRequestId) return;
@@ -103,13 +104,14 @@
       const d = await get('/api/reference-indexes');
       const labels = { sh:'上证指数', sz:'深证成指', cyb:'创业板指', kc50:'科创50' };
       for (const key of Object.keys(labels)) {
-        const quote = d?.items?.[key];
+        const item = d?.ok === true && d?.isMock !== true && d?.simulated !== true ? d?.items?.[key] : null;
+        const quote = item && Number.isFinite(Number(item.price)) && Number(item.price)>0 && Number.isFinite(Number(item.changePct)) ? item : null;
         const value = document.querySelector(`[data-index="${key}"]`);
         const change = document.querySelector(`[data-index-pct="${key}"]`);
         if (value) value.textContent = quote ? num(quote.price) : '--';
         if (change) change.textContent = quote ? pct(quote.changePct) : '指数数据暂不可用';
         const card = value?.closest('.index');
-        if (card) card.dataset.quoteState = quote ? 'live' : 'unavailable';
+        if (card) { card.dataset.quoteState = quote ? 'observed' : 'unavailable'; card.title = quote ? `来源：${String(quote.source || d.source || '未注明')}；时间：${String(quote.asOf || quote.timestamp || d.asOf || '未注明')}；未经交易所实时性认证` : '当前指数源无有效报价'; }
       }
       return d;
     } catch (error) {
@@ -131,10 +133,10 @@
     try {
       const jobs=await Promise.allSettled([get('/api/mobile-digest'),get('/api/quant-picks?max=12'),get('/api/reference-strategy-stats'),loadReferenceIndexes()]);
       if(jobs[0].status==='fulfilled')renderMood(jobs[0].value);
-      if(jobs[1].status==='fulfilled')renderPicks(jobs[1].value);else {const b=$('#ranking-body');if(b)b.innerHTML='<tr><td colspan="10">选股数据接口暂不可用，请进入智能选股页检查服务状态</td></tr>';}
+      if(jobs[1].status==='fulfilled')renderPicks(jobs[1].value);else { rankingItems = []; const b=$('#ranking-body');if(b)b.innerHTML='<tr><td colspan="10">选股数据接口暂不可用，请进入智能选股页检查服务状态</td></tr>'; for(const id of ['#pick-count','#focus-count','#research-count','#blocked-count','#risk-candidates','#risk-candidates-desktop'])text(id,'--'); }
       if(jobs[2].status==='fulfilled')renderStrategy(jobs[2].value);
       
-      const states = jobs.map(x=>x.status==='fulfilled' && (x.value?.ok !== false) ? '已连接' : '未连接');
+      const states = jobs.map((x,i)=>{ if(x.status!=='fulfilled'||x.value?.ok===false||x.value?.isMock===true||x.value?.simulated===true)return '未连接'; if(i===0 && x.value?.isSnapshot)return '历史快照'; if(i===0 && x.value?.ready===false)return '无实时数据'; if(i===1 && !Array.isArray(x.value?.items))return '数据格式异常'; if(i===3 && !Object.values(x.value?.items||{}).some(q=>q&&Number(q.price)>0))return '无有效报价'; return '接口已响应'; });
       const failures = jobs.filter(x=>x.status==='rejected').length;
       if (failures < jobs.length) lastSuccessfulRefresh = Date.now();
       const stamp = lastSuccessfulRefresh ? new Date(lastSuccessfulRefresh).toLocaleTimeString('zh-CN',{hour12:false}) : '尚无成功刷新';
