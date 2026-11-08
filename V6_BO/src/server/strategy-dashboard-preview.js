@@ -16,7 +16,10 @@ function catalogueFromSnapshot(snapshot={},deps={}){
     const original=bySymbol.get(String(item.symbol));
     let results=null;
     if(item.quality?.usable && original)results=evaluateCandidate({stock:original,market});
-    const evidence={...item,strategy:{...(item.strategy||{}),strategies:results?.strategies||[],
+    const explicitLegacy=typeof original?.strategy==='string'?original.strategy:
+      (typeof original?.strategyName==='string'?original.strategyName:
+      typeof original?.strategyKey==='string'?original.strategyKey:typeof original?.source==='string'?original.source:'');
+    const evidence={...item,legacyAttribution:explicitLegacy,strategy:{...(item.strategy||{}),strategies:results?.strategies||[],
       playbookAnalysis:results?.playbookAnalysis||item.strategy?.playbookAnalysis}};
     return {symbol:String(item.symbol),name:String(item.name||''),score:Number.isFinite(item.score)?item.score:null,
       asOf:item.patternDate||null,tradable:item.tradable===true,
