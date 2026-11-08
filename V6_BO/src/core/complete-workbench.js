@@ -6,6 +6,7 @@ const {buildSession}=require('./paper-session');
 const {reconcileAccount}=require('./account-reconciliation');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {historicalExplanations}=require('./research-explanation-projection');
+const {evaluatePublicRuleForwardAudit}=require('../strategy/public-rule-forward-audit');
 function runCompleteWorkbench(payload){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
   const history=payload.history,ds=validateDataset(history);
@@ -26,9 +27,24 @@ function runCompleteWorkbench(payload){
       source:history.source,reason:String(e?.message||'研究解释不可用').slice(0,180),
       candidates:[],researchWatchlist:[]};
   }
+  // Optional fixed-rule forward audit: report unavailable evidence without
+  // silently changing the already validated backtest, paper or original strategies.
+  let publicRuleForwardAudit;
+  if(payload.validatePublicRules===true){
+    try{
+      const options=payload.publicRuleAuditOptions===undefined?{}:payload.publicRuleAuditOptions;
+      publicRuleForwardAudit=evaluatePublicRuleForwardAudit(history,options);
+    }catch(e){
+      publicRuleForwardAudit={schemaVersion:1,mode:'frozen-public-rule-forward-audit',
+        status:'unavailable',historicalOnly:true,canTrade:false,verifiedLive:false,
+        weightsChanged:false,autoPromotion:false,rules:[],events:[],
+        reason:String(e?.message||'无法完成样本外评估').slice(0,180)};
+    }
+  }
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
     backtest,paper:session.report,reconciliation:{backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)},
     strategies:{coverage:native.coverage,details:native.details,replay:native.replay},selectionEvidence,
+    ...(payload.validatePublicRules===true?{publicRuleForwardAudit}:{}),
     externalAcceptance:['供应商行情授权及对账','真实短信送达','生产HTTPS和跨机恢复','电脑手机真机验收']};
 }
 module.exports={runCompleteWorkbench};
