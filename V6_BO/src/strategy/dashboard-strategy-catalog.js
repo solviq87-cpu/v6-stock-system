@@ -3,8 +3,11 @@
 // A strategy with no matched stock returns []; never reuse another strategy's picks.
 const pack=require('../../strategies/a-share-strategy-pack.json');
 const books=require('../../strategies/research-playbooks.json');
+const {DEFINITIONS}=require('../ui/reference-strategy-stats');
+const original=[['rule14','十四条选股'],['bazi','八字口诀'],['gpt','GPT 五策略'],['python','Python 三轮筛选']];
 const patterns=[['red_three_soldiers','红三兵'],['three_black_crows','三只乌鸦'],['bullish_engulfing','看涨吞没'],['bearish_engulfing','看跌吞没'],['hammer_rebound','下跌后锤头线'],['shooting_star','上涨后射击之星'],['morning_star','早晨之星'],['evening_star','黄昏之星'],['ma5_ma20_volume','MA5/MA20金叉放量'],['breakout20_liquid','20日新高放量突破'],['high_tight_flag','高位旗形缩量整理'],['momentum20_above_ma50','20日动量强于50日线'],['breakdown20_volume','20日低点放量破位'],['heavy_distribution','放量长阴'],['ma5_ma20_death_cross','MA5/MA20死叉'],['limit_up_shakeout_main','主板涨停后洗盘候选'],['support_stabilization','缩量支撑企稳候选'],['rps120_breakout','RPS120强势接近新高']];
 const catalog=[
+ ...original.map(([id,label])=>({id:'legacy:'+id,label,group:'原有四套选股体系',status:'attribution-required'})),
  ...pack.strategies.map(x=>({id:'base:'+x.name,label:x.name,group:'基础评分策略',status:'active'})),
  ...books.playbooks.map(x=>({id:'playbook:'+x.id,label:x.label,group:'研究战法',status:'active'})),
  ...patterns.map(([id,label])=>({id:'pattern:'+id,label,group:'K线形态',status:'active'})),
@@ -14,6 +17,8 @@ const catalog=[
 const known=new Set(catalog.map(x=>x.id));
 function matchedIds(item={}){
  const out=new Set();
+ const label=String(item.legacyAttribution||'').trim().toLowerCase().replace(/[\\s_-]+/g,'');
+ if(label){for(const [key,aliases] of Object.entries(DEFINITIONS))if(aliases.some(a=>String(a).trim().toLowerCase().replace(/[\\s_-]+/g,'')===label))out.add('legacy:'+key);}
  for(const s of item.strategy?.strategies||item.strategies||[])if(s?.pass&&s.name)out.add('base:'+s.name);
  for(const s of item.strategy?.playbookAnalysis?.playbooks||item.playbookAnalysis?.playbooks||[])if(s?.status==='candidate')out.add('playbook:'+s.id);
  for(const s of item.patterns?.checks||[])if(s?.status==='matched')out.add('pattern:'+s.id);
