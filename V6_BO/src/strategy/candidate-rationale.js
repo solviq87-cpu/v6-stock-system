@@ -57,8 +57,9 @@ function priceObservation(stock, quality) {
 function candidateRationale(item = {}, {stock = null, evaluated = null, asOf = Date.now()} = {}) {
   const symbol = String(item.symbol || ''), safe = item.quality || {}, l = item.linkageResearch || {};
   const rules = matchedRules(item, evaluated);
-  const officialPass = !!item.tradable;
+  const scannerPassed = !!item.tradable;
   const safetyBlock = !!item.blockedBySafety || !safe.usable || !safe.fresh || safe.simulated;
+  const officialPass = scannerPassed && !safetyBlock;
   const watchEligible = !safetyBlock && rules.length > 0;
   const risks = [];
   if (!safe.usable) risks.push('行情或历史K线校验不通过');
@@ -106,7 +107,7 @@ function candidateRationale(item = {}, {stock = null, evaluated = null, asOf = D
   if (marketKnown) facts.push('导入市场广度分数 ' + market.breadthScore + '（未独立核验）');
   if (sectorKnown) facts.push('导入板块强度分数 ' + sector.relativeStrength + '（未独立核验）');
   return {mode: 'research-only', symbol, name: text(item.name, 80), asOf,
-    selection: {officialCandidate: officialPass, watchEligible,
+    selection: {originalScannerPassed: scannerPassed, officialCandidate: officialPass, watchEligible,
       status: officialPass ? 'official-candidate' : watchEligible ? 'research-watch' : 'not-eligible',
       ruleCount: rules.length, independentFamilyCount: new Set(rules.map(r => r.family)).size, rules,
       explanation: rules.length ? '命中规则见 rules；研究候选与正式可交易资格分离' : '未找到可追溯的完整规则命中证据'},
