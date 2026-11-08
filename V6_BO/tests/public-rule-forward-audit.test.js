@@ -66,7 +66,8 @@ test('unknown limit regime blocks net-return claims even for matched rules',()=>
 test('risk of future ST and halt on entry session cannot be counted as fills',()=>{
  const input=dataset();
  const barIndex=input.stocks[0].bars.length-100;
- for(let i=0;i<25;i++)input.stocks[0].bars[barIndex+i].suspended=true;
+ // Signal day remains valid; only the NEXT trading session is halted.
+ input.stocks[0].bars[barIndex+1].suspended=true;
  const r=evaluate(input,setup);
  assert.ok(r.events.some(e=>e.status==='blocked-session'));
  assert.ok(r.events.some(e=>e.status==='modeled'));
