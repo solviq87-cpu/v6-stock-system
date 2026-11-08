@@ -2,6 +2,7 @@
 // Only dated historical research inputs can supply a dated explanation.
 // Reuse existing strategy/linkage engines; never grant a live/official trading status.
 const {scanUniverseWithRationale}=require('../strategy/scan-with-rationale');
+const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/open-source-research-signals');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={}}={}){
  const empty={schemaVersion:1,mode:'historical-selection-evidence',source:history?.source||null,
@@ -18,22 +19,49 @@ function historicalExplanations(history,{market={}}={}){
      volume:latest.volume,bars:s.bars,feed:{source,timestamp}};
  });
  const scan=scanUniverseWithRationale({stocks,market,now:timestamp,maxAgeMs:0,requireReal:false});
- const candidates=scan.items.map(item=>({
+ const stocksByCode=new Map(),ambiguous=new Set();
+ for(const row of stocks){
+  if(stocksByCode.has(row.symbol)){stocksByCode.delete(row.symbol);ambiguous.add(row.symbol);}
+  else if(!ambiguous.has(row.symbol))stocksByCode.set(row.symbol,row);
+ }
+ const candidates=scan.items.map(item=>{
+  const research=evaluateOpenSourceRules(stocksByCode.get(item.symbol)||{},
+    {marketRisk:market?.regime==='risk_off'?'risk_off':'unknown'});
+  const newRules=research.strategies.filter(x=>x.status==='candidate').map(x=>({
+   id:'opensource:'+x.id,name:x.label,family:'open-source-adaptation',
+   status:'matched',type:'research-candidate',evidence:x.reasons,source:x.source}));
+  const oldRules=item.rationale.selection.rules||[],rules=[...oldRules,...newRules];
+  const studyBlocked=research.strategies.some(x=>x.status==='risk_blocked');
+  const watchEligible=!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
+    item.quality?.fresh===true&&item.quality?.simulated!==true&&rules.length>0;
+  const rationale={...item.rationale,openSourceResearch:research,
+   risks:studyBlocked?[...item.rationale.risks,'公开策略研究因交易风险被阻断']:item.rationale.risks,
+   selection:{...item.rationale.selection,rules,ruleCount:rules.length,
+    independentFamilyCount:new Set(rules.map(r=>r.family)).size,
+    watchEligible,officialCandidate:false,status:'historical-research-only',historicalOnly:true}};
+  return {
    symbol:item.symbol,name:item.name,score:item.score,
    historicalModelPassed:item.tradable===true,
    historicalOnly:true,dataStatus:source==='imported'?'imported-unverified':'simulated',
-   rationale:{...item.rationale,
-     selection:{...item.rationale.selection,officialCandidate:false,
-       status:'historical-research-only',historicalOnly:true}},
+   rationale,
    quality:{usable:item.quality.usable,source:item.quality.source,errors:item.quality.errors}
- }));
+ };});
  return {schemaVersion:1,mode:'historical-selection-evidence',status:'evaluated',
    asOf:date,source:history.source,provider:history.provider||null,
    dataStatus:source==='imported'?'imported-unverified':'simulated',
    verifiedLive:false,canTrade:false,officialCandidates:0,
    total:scan.total,modelPassedCount:scan.eligible,rejected:scan.rejected,
-   candidates,researchWatchlist:scan.researchWatchlist.map(row=>({...row,
-     historicalOnly:true,officialCandidate:false})),
+   candidates,openSourceCatalog,
+   researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
+    .sort((a,b)=>b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
+      b.rationale.selection.ruleCount-a.rationale.selection.ruleCount||
+      (b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol))
+    .map(x=>({symbol:x.symbol,name:x.name,officialCandidate:false,historicalOnly:true,
+      matchedRuleCount:x.rationale.selection.ruleCount,
+      independentFamilyCount:x.rationale.selection.independentFamilyCount,
+      matchedRules:x.rationale.selection.rules.map(r=>({id:r.id,name:r.name})),
+      riskCount:x.rationale.risks.length,asOf:date,dataStatus:x.dataStatus,
+      note:'研究观察池，不构成实时行情或交易指令'})),
    assumptions:['解释基于提供的历史K线和可选导入市场/板块数据',
      '以最近一根历史K线15:00（北京时间）作为历史评估时点，不视为当前市场行情',
      '原有评分、回测、模拟账本、风控门槛和持仓状态均不修改',
