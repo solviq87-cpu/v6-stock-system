@@ -34,7 +34,7 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 </section>
 <section class="card" aria-labelledby="completeHeading"><h2 id="completeHeading">完整研究与模拟账户</h2>
 <p class="muted">下方输入完整历史数据。日历和四套策略所需的额外证据可一并提供；缺失证据保留为未知。</p>
-<div class="decision-actions"><button id="completeRun" type="button">回测、策略与资金对账</button><label>账户ID <input id="paperAccountId" value="research" maxlength="40" autocomplete="off"></label><button id="paperAppend" type="button">保存 / 追加模拟账户</button><button id="paperRead" type="button">恢复账户</button></div>
+<div class="decision-actions"><button id="completeRun" type="button">回测、策略与资金对账</button><label style="display:inline-flex;align-items:center;gap:8px"><input id="publicRuleAuditEnabled" type="checkbox">验证公开战法未来1/5/20/60日表现（需未复权历史及公司行为凭据）</label><label>账户ID <input id="paperAccountId" value="research" maxlength="40" autocomplete="off"></label><button id="paperAppend" type="button">保存 / 追加模拟账户</button><button id="paperRead" type="button">恢复账户</button></div>
 <p id="completeStatus" role="status" aria-live="polite">尚未运行</p><div id="completeSummary" class="cards"></div><details><summary>完整结果与流水</summary><pre id="completeOutput" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:600px;overflow:auto"></pre></details>
 </section>
 <section class="card" aria-labelledby="adaptiveHeading"><h2 id="adaptiveHeading">市场预测与自适应选股研究</h2>
@@ -87,4 +87,4 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="ruleSummary" class="cards" aria-live="polite"></div>
 <div id="ruleDetails" class="scroller"></div></section>
 <div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="patternPools" aria-live="polite"></div><div id="issuerPools" aria-live="polite"></div><div id="linkagePools" aria-live="polite"></div><div id="lifecyclePools" aria-live="polite"></div><div id="table" class="scroller"></div></section>
-</main><script src="/assets/research-workbench.js?v=20261108lifecycle1"></script><script src="/assets/complete-workbench.js?v=20261109resilience2"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script></body></html>
+</main><script src="/assets/research-workbench.js?v=20261108lifecycle1"></script><script src="/assets/complete-workbench.js?v=20261109forwardaudit1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script></body></html>
