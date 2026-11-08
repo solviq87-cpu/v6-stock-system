@@ -13,6 +13,7 @@ function valid(e,{date,asOf,maxAgeMs,provider}){
    dateOK(e.tradeDate)&&e.tradeDate===date&&
    typeof e.source==='string'&&e.source.trim()&&e.source.length<=120&&
    (provider===undefined||e.source===provider)&&
+   !['simulated','fixture','synthetic','mock'].includes(e.source.trim().toLowerCase())&&
    e.simulated!==true&&e.mode!=='simulation'&&
    finite(e.observedAt)&&e.observedAt>0&&e.observedAt<=asOf&&
    asOf-e.observedAt<=maxAgeMs&&chinaDay(e.observedAt)===date);
