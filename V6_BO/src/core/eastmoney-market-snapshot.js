@@ -1,8 +1,9 @@
 'use strict';
 const {analyzeMarketBreadth}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
-const FIELDS='f12,f14,f3,f6,f13,f2';
+const FIELDS='f12,f14,f3,f6,f13,f2,f124';
 function parsePage(payload){
  const d=payload?.data;
  if(!d||!Number.isInteger(d.total)||d.total<1||!Array.isArray(d.diff))throw Error('东方财富响应缺少有效总数或行情列表');
@@ -13,7 +14,8 @@ function toStock(item){
  const pct=Number(item?.f3),amount=Number(item?.f6);
  if(!/^\d{6}$/.test(code)||item?.f13===null||item?.f13===undefined||String(item.f13).trim()===''||![0,1].includes(market)||!Number.isFinite(pct)||pct < -100||pct>100||item.f3==='-'||item.f3===null||item.f3===undefined||String(item.f3).trim()==='')
   return null;
- return {code,pctChange:pct,amount:Number.isFinite(amount)&&amount>=0?amount:undefined};
+ return {code,pctChange:pct,amount:Number.isFinite(amount)&&amount>=0?amount:undefined,
+  vendorQuoteAt:sourceQuoteTimeSeconds(item?.f124)};
 }
 async function fetchEastmoneySnapshot(options={}){
  const {fetchImpl=globalThis.fetch,now=Date.now(),pageSize=500,maxPages=15,timeoutMs=7000,maxSamplingMs=120000}=options;
