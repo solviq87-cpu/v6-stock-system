@@ -1,7 +1,7 @@
 {
   "app": "V6 browser research",
-  "version": "20261107web2",
-  "engineSource": "solviq87-cpu/v6-stock-system@e3be4ceff9ff90408a0a1ebf4ebfb8b4baf19e31",
+  "version": "20261108strategy1",
+  "engineSource": "solviq87-cpu/v6-stock-system@6bead0b78792323848a16806f2d3115171127095",
   "mode": "local-browser-research",
   "liveMarket": false,
   "serverModelTraining": false
