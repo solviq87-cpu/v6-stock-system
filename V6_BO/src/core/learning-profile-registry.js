@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {withAccountLock}=require('./account-process-lock'),{atomicWrite}=require('./market-data-center');
 const {runAdaptiveResearch}=require('./adaptive-market-lab');
+const {assessMarketShock}=require('./market-shock-learning-gate');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const clone=x=>JSON.parse(JSON.stringify(x));
 const seal=p=>({...p,fingerprint:hash(p)});
@@ -18,7 +19,8 @@ function config(value={}){
  if(!Number.isSafeInteger(out.learningConfig.minimumSamples)||out.learningConfig.minimumSamples<20||out.learningConfig.minimumSamples>200||!Number.isFinite(out.learningConfig.priorStrength)||out.learningConfig.priorStrength<2||out.learningConfig.priorStrength>100||!Number.isFinite(out.selectionPolicy.minUpProbability)||out.selectionPolicy.minUpProbability<.5||out.selectionPolicy.minUpProbability>.9||!Number.isFinite(out.selectionPolicy.maxIndexWeightPct)||out.selectionPolicy.maxIndexWeightPct<=0||out.selectionPolicy.maxIndexWeightPct>3)throw Error('候选参数超出研究安全范围');return out;
 }
 function validatePlan(input,plan){
- if(!plan||plan.schemaVersion!==1||typeof plan.version!=='string'||!/^[A-Za-z0-9_.:-]{1,80}$/.test(plan.version)||Object.keys(plan).some(k=>!['schemaVersion','version','trainEnd','validationEnd','holdoutEnd','gates','candidates'].includes(k)))throw Error('冻结协议格式无效');
+ if(!plan||plan.schemaVersion!==1||typeof plan.version!=='string'||!/^[A-Za-z0-9_.:-]{1,80}$/.test(plan.version)||Object.keys(plan).some(k=>!['schemaVersion','version','trainEnd','validationEnd','holdoutEnd','gates','candidates','marketGateMode'].includes(k)))throw Error('冻结协议格式无效');
+ if(plan.marketGateMode!==undefined&&plan.marketGateMode!=='required-on-promote')throw Error('市场学习晋级门禁模式无效');
  const dates=input.stocks?.[0]?.bars?.map(b=>b.date)||[];
  if(!dates.length||dates.length>400||input.stocks.length>20||input.stocks.length*dates.length>5000||!dates.every(validDate)||input.asOf!==dates.at(-1))throw Error('冻结研究需要对齐的限额内历史');
  const a=dates.indexOf(plan.trainEnd),b=dates.indexOf(plan.validationEnd),c=dates.indexOf(plan.holdoutEnd);
@@ -65,7 +67,29 @@ function createRegistry(root){
  function evaluate(expected){return mutate(expected,(s,input,plan)=>{if(s.evaluation)return null;s.evaluation=validation(input,plan);s.stage='validated';return s;});}
  function testHoldout(expected){return mutate(expected,(s,input,plan)=>{if(!s.evaluation)throw Error('先完成训练与验证');if(s.holdout)return null;if(hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');s.holdout=holdout(input,plan,s.evaluation);s.stage='holdout-tested';return s;});}
  function verify({replay=false}={}){const {s,input,plan}=load();if(replay){if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');if(s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('样本外结果复算不一致');}return {verified:true,replayed:replay,revision:s.revision,stage:s.stage,active:s.active,canTrade:false};}
- function promote(expected){return mutate(expected,(s,input,plan)=>{if(!s.holdout?.eligible||!s.evaluation?.selectedId)throw Error('验证/冻结样本外门禁未通过');if(hash(validation(input,plan))!==hash(s.evaluation)||hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('晋级前复算不一致');if(s.active===s.evaluation.selectedId)return null;const from=s.active;s.active=s.evaluation.selectedId;s.events.push({type:'promote',from,to:s.active,revision:s.revision+1});return s;});}
+ function promote(expected,{marketContext}={}){return mutate(expected,(s,input,plan)=>{
+  if(!s.holdout?.eligible||!s.evaluation?.selectedId)throw Error('验证/冻结样本外门禁未通过');
+  if(hash(validation(input,plan))!==hash(s.evaluation)||hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('晋级前复算不一致');
+  // An already promoted profile is a no-op; market evidence is required only
+  // when an actual immutable registry pointer would change.
+  if(s.active===s.evaluation.selectedId)return null;
+  let marketGate=null;
+  if(plan.marketGateMode==='required-on-promote'){
+   const report=assessMarketShock(marketContext,{asOf:Date.now()});
+   if(report.status!=='observed-unverified')
+    throw Error('市场证据缺失、过期或不可核实，拒绝学习参数晋级');
+   if(report.deferLearningUpdate)
+    throw Error('大盘系统性急跌阶段暂缓学习参数晋级，风控与亏损样本继续保留');
+   marketGate={mode:plan.marketGateMode,marketRegime:report.regime,
+    marketEvidenceStatus:report.evidenceStatus,tradeDate:report.tradeDate,
+    observedAt:report.observedAt,provider:report.provider,
+    evidenceFingerprint:hash(marketContext),weightsChanged:false,
+    riskMonitoringRequired:true,returnSamplesPreserved:true};
+  }
+  const from=s.active;s.active=s.evaluation.selectedId;
+  s.events.push({type:'promote',from,to:s.active,revision:s.revision+1,
+    ...(marketGate?{marketGate}:{})});return s;
+ });}
  function rollback(expected){return mutate(expected,s=>{if(s.active==='baseline')return null;const from=s.active;s.active='baseline';s.events.push({type:'rollback',from,to:'baseline',revision:s.revision+1});return s;});}
  function activeProfile(expectedRevision){if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<1))throw Error("预期修订无效");return withAccountLock(file,()=>{const {s,input,plan}=load();if(expectedRevision!==undefined&&s.revision!==expectedRevision)throw Error("研究参数修订冲突");if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation)||s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('激活参数证据复算不一致');const parameters=s.active==='baseline'?baseline(input):s.evaluation.candidates.find(c=>c.id===s.active)?.parameters;if(!parameters)throw Error('激活参数不存在');return {id:s.active,parameters,registryRevision:s.revision,fingerprint:hash({input:s.inputFingerprint,plan:s.planFingerprint,id:s.active,parameters}),source:input.source,provider:input.provider,holdoutEnd:plan.holdoutEnd,executionContract:executionContract(input),learningCostBps:input.learningCostBps??41,costs:{feeBps:input.simulation.feeBps??8,slippageBps:input.simulation.slippageBps??10,sellTaxBps:input.simulation.sellTaxBps??5},canTrade:false};});}
 
