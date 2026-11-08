@@ -236,7 +236,9 @@ $('fetchLiveMarket').onclick=async()=>{
   riskBox.innerHTML='<p class="muted">'+esc(risk.warning||'风险证据不可用')+'</p>'+
     '<table><thead><tr><th>股票</th><th>原评分</th><th>风险状态</th><th>缺失证据 / 说明</th></tr></thead><tbody>'+
     (risk.items||[]).map(x=>`<tr><td>${esc(x.code)} ${esc(x.name)}</td><td>${esc(x.originalScore??'未知')}</td><td>${esc(x.riskStatus)}</td><td>${esc(x.reason)}</td></tr>`).join('')+'</tbody></table>';
-  status.textContent=`行情来源 ${meta.source||'未知'} · 请求日期 ${meta.date||'未知'}。未认证为交易所实时行情；候选评分未修改。`;
+  status.textContent=`行情来源 ${meta.source||'未知'} · 请求日期 ${meta.date||'未知'}（不是逐股报价日期）。`+
+   `报价时点：供应商自报近期 ${r.quoteTimeAudit?.recentSourceTimeCount??0} 只 / 无时点 ${r.quoteTimeAudit?.unknownSourceTimeCount??0} 只；`+
+   `未经交易所认证，不替代K线、公告和可成交性验证，候选评分未修改。`;
   summary.innerHTML=card('市场覆盖率',Number.isFinite(b.coverage)?(b.coverage*100).toFixed(1)+'%':'不可用')+
    card('上涨 / 下跌 / 平盘',b.usable?`${b.up} / ${b.down} / ${b.flat}`:'不可用')+
    card('市场环境',regime.usable?regime.regime:'不可判定')+
@@ -245,8 +247,8 @@ $('fetchLiveMarket').onclick=async()=>{
   if(!regime.usable)status.textContent+=' 市场环境：'+(regime.reason||'缺少独立评分');
   if(!join.usable){table.textContent=join.reason||'候选交集不可用';return;}
   const items=join.items||[];
-  table.innerHTML='<table><thead><tr><th>代码</th><th>名称</th><th>原候选评分</th><th>公开行情涨跌幅</th><th>成交额</th><th>来源日期</th></tr></thead><tbody>'+
-   items.map(x=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.candidateScore??'—')}</td><td>${esc(x.pctChange)}%</td><td>${esc(x.observedAmount??'—')}</td><td>${esc(x.source)} / ${esc(x.quoteDate)}</td></tr>`).join('')+'</tbody></table>';
+  table.innerHTML='<table><thead><tr><th>代码</th><th>名称</th><th>原候选评分</th><th>公开行情涨跌幅</th><th>成交额</th><th>请求日期（非报价日）</th><th>供应商自报时点</th><th>时点状态</th></tr></thead><tbody>'+
+   items.map(x=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.candidateScore??'—')}</td><td>${esc(x.pctChange)}%</td><td>${esc(x.observedAmount??'—')}</td><td>${esc(x.requestDate||'未知')}</td><td>${esc(x.quoteDate||'未知')} ${esc(x.quoteAt==null?'':new Date(x.quoteAt).toISOString())}</td><td>${esc(x.quoteTimeStatus||'unknown')}</td></tr>`).join('')+'</tbody></table>';
   if(!items.length)table.textContent='没有匹配到已有候选股票；不会自动创建候选。';
  }catch(e){status.textContent='研究失败：'+e.message;}
  finally{button.disabled=false;}
