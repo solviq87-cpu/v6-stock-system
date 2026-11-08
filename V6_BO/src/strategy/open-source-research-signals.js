@@ -84,7 +84,9 @@ function evaluateOpenSourceRules(stock={}, {marketRisk='unknown'}={}){
   eligibleForResearch:false,validatedPerformance:false}))});
  if(error)return fail('insufficient_data',error);
  if(stock.isST===true||stock.suspended===true||stock.tradable===false||
-    stock.isDelisting===true||stock.noPriceLimit===true||bars.at(-1).volume===0)
+    stock.isDelisting===true||stock.noPriceLimit===true||
+    bars.at(-1).isST===true||bars.at(-1).suspended===true||bars.at(-1).tradable===false||
+    bars.at(-1).isDelisting===true||bars.at(-1).noPriceLimit===true||bars.at(-1).volume===0)
   return fail('risk_blocked','停牌、ST、退市风险、无价格限制或零成交禁止生成新增研究信号');
  const last=bars.at(-1),prior=bars.slice(-21,-1);
  const closes=prior.map(b=>b.close),average20=mean(closes),upper=bollUpper(closes);
