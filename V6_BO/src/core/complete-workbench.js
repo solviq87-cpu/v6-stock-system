@@ -5,6 +5,7 @@ const {runNativeDaily}=require('./native-strategy-daily-runner');
 const {buildSession}=require('./paper-session');
 const {reconcileAccount}=require('./account-reconciliation');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {historicalExplanations}=require('./research-explanation-projection');
 function runCompleteWorkbench(payload){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
   const history=payload.history,ds=validateDataset(history);
@@ -14,9 +15,20 @@ function runCompleteWorkbench(payload){
   const backtest=runValidatedBacktest(history);
   const session=buildSession(history,payload.paperConfig||{}).session;
   const native=runNativeDaily(history,{snapshots:payload.snapshots||{},pythonEvidence:payload.pythonEvidence||{},splitDay:history.splitDay});
+  // Additional research explanation is isolated so unsupported optional market
+  // evidence cannot break the existing ledger, strategy or replay results.
+  let selectionEvidence;
+  try {
+    selectionEvidence=historicalExplanations(history,{market:payload.market&&typeof payload.market==='object'&&!Array.isArray(payload.market)?payload.market:{}});
+  } catch(e) {
+    selectionEvidence={schemaVersion:1,mode:'historical-selection-evidence',
+      status:'unavailable',verifiedLive:false,canTrade:false,officialCandidates:0,
+      source:history.source,reason:String(e?.message||'研究解释不可用').slice(0,180),
+      candidates:[],researchWatchlist:[]};
+  }
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
     backtest,paper:session.report,reconciliation:{backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)},
-    strategies:{coverage:native.coverage,details:native.details,replay:native.replay},
+    strategies:{coverage:native.coverage,details:native.details,replay:native.replay},selectionEvidence,
     externalAcceptance:['供应商行情授权及对账','真实短信送达','生产HTTPS和跨机恢复','电脑手机真机验收']};
 }
 module.exports={runCompleteWorkbench};
