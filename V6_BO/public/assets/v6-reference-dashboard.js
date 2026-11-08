@@ -3,6 +3,7 @@
   const $ = (s) => document.querySelector(s);
   const text = (s, v) => { const el=$(s); if(el) el.textContent = v == null || v === '' ? '--' : String(v); };
   const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+  const requestedStock = (()=>{const code=new URLSearchParams(location.search).get('code');return /^\d{6}$/.test(code||'')?code:null;})();
   let rankingItems = [];
   let rankFilter = 'all';
   let rankSort = 'score';
@@ -35,7 +36,7 @@
     text('#risk-candidates-desktop', rankingItems.length);
     renderRanking();
     const first = rankingItems.find(x => /^\d{6}$/.test(String(x.code || x.symbol || '')));
-    if (first) loadKline(String(first.code || first.symbol));
+    if (first && !requestedStock) loadKline(String(first.code || first.symbol));
   }
   function renderRanking() {
     const body = $('#ranking-body'); if (!body) return;
@@ -148,5 +149,6 @@
   if (refreshButton) refreshButton.addEventListener('click', refresh);
   document.querySelectorAll('[data-rank-filter]').forEach(btn => btn.addEventListener('click', () => { rankFilter = btn.dataset.rankFilter; document.querySelectorAll('[data-rank-filter]').forEach(x => { const active=x===btn; x.classList.toggle('on',active); x.setAttribute('aria-pressed',String(active)); }); renderRanking(); }));
   const sort = $('#rank-sort'); if (sort) sort.addEventListener('change', () => { rankSort = sort.value; renderRanking(); });
+  if (requestedStock) loadKline(requestedStock);
   refresh(); window.setInterval(refresh,60000);
 })();
