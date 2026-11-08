@@ -11,6 +11,7 @@ const dayMs=86400000;
 const chinaDate=ms=>new Date(ms+8*3600000).toISOString().slice(0,10);
 const closeAt=date=>Date.parse(date+'T15:10:00+08:00');
 const openAt=date=>Date.parse(date+'T09:30:00+08:00');
+export {dataset as prepareResearchDataset,closeAt,openAt,knownAt,barOK};
 const labels=['5日收益','20日收益','60日动量（跳过5日）','20日波动','20日量比','实体幅度','日内振幅','收盘位置'];
 const warning='仅对提供的历史数据做研究；模拟及导入来源未经实时认证，结果不构成胜率、收益承诺或交易指令。';
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
@@ -52,7 +53,7 @@ function dataset(input,{strictBars=false}={}){
 
 export function demoDataset(){
  const dates=[];
- for(let d=Date.parse('2026-03-02T00:00:00Z');dates.length<140;d+=dayMs){
+ for(let d=Date.parse('2025-10-01T00:00:00Z');dates.length<260;d+=dayMs){
   const date=new Date(d);if(date.getUTCDay()>0&&date.getUTCDay()<6)dates.push(date.toISOString().slice(0,10));
  }
  const asOf=closeAt(dates.at(-1));
@@ -63,7 +64,7 @@ export function demoDataset(){
    const move=.002*Math.cos(i/(4+j*.5)+j)+.00035*(j-3)+.001*Math.sin(i*.3+j);
    const close=open*(1+move),volume=Math.round(800000+j*100000+120000*Math.sin(i*.2+j));
    previous=close;
-   return {date,open,close,high:Math.max(open,close)*1.006,low:Math.min(open,close)*.994,
+   return {date,open,close,high:Math.max(open,close)*1.002,low:Math.min(open,close)*.998,
     volume,amount:volume*(open+close)/2};
   });
   return {symbol:String(600001+j),name:'研究示例'+String(j+1).padStart(2,'0'),market:'main',limitPct:10,

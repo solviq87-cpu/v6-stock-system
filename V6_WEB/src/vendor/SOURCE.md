@@ -8,3 +8,6 @@ They retain OHLCV validation, historical feature definitions, optional screening
 conditions and the existing research pattern library. The browser wrapper adds
 input limits, evidence grouping and factor diagnostics; it does not grant trade
 permissions or copy account state. This directory contains no credentials.
+
+`historical-session.js` reuses the existing board-limit/opening execution
+checks from the same repository for the standalone strategy simulator.

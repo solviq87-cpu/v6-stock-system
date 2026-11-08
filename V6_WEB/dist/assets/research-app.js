@@ -6,6 +6,7 @@
   const WATCH_KEY = 'v6.research.watchlist.v1';
   const BACKUP_KEY = WATCH_KEY + '.backup';
   const views = {
+    strategies: ['策略研究', '先明确入场、退出与风险，再看历史结果。'],
     overview: ['研究总览', '筛选机会，核对证据，持续观察。'],
     filters: ['选股筛选', '用明确的条件，缩小研究范围。'],
     linkage: ['联动分析', '保留完整战法，核对同源重叠与独立风险。'],
@@ -29,7 +30,7 @@
     document: ['M5 3h10l4 4v14H5z', 'M14 3v5h5M8 12h8M8 16h6'],
     warning: ['M12 3 2 21h20L12 3z', 'M12 9v5M12 17v1']
   };
-  const state = { input: null, result: null, factors: null, filters: {}, selected: '', page: 'overview', query: '', resultTab: 'all', chartDays: 40, watch: [], modelReport: null, factorName: 'return5', filename: '', isDemo: true };
+  const state = { input: null, result: null, factors: null, filters: {}, selected: '', page: 'strategies', query: '', resultTab: 'all', chartDays: 40, watch: [], modelReport: null, factorName: 'return5', filename: '', isDemo: true, strategyPlans: null, strategyId: '', strategyRuns: {}, strategyErrors: {}, strategyBusy: false, simulationToken: 0 };
   function node(tag, attrs, ...children) {
     const n = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs || {})) {
@@ -205,12 +206,169 @@
     clear('factorChart', node('div', { class: 'factor-chart' }, node('div', { class: 'quantile-bars', role: 'img', 'aria-label': '按因子值由低到高分为五组的平均毛收益' }, qs.map(q => node('div', { class: 'quantile-col', title: '第' + q.quantile + '组，' + q.samples + '个样本' }, node('span', { class: 'quantile-value number ' + signClass(q.meanReturn) }, signed(q.meanReturn, true)), node('div', { class: 'quantile-bar' + (q.meanReturn < 0 ? ' negative' : ''), style: 'height:' + (finite(q.meanReturn) ? Math.max(3, Math.abs(q.meanReturn) / maxAbs * 135) : 0) + 'px' })))), node('div', { class: 'quantile-labels' }, qs.map(q => node('span', {}, 'Q' + q.quantile))), node('p', { class: 'chart-caption' }, '因子值由 Q1 低组到 Q5 高组。柱高表示收益绝对幅度，蓝色柱为正、绿色柱为负。有效样本 ' + (f.sampleCount || 0) + ' 个；数据缺口保留为空。')));
   }
   const modelNames = { v6Original: '原 V6 基线', ridge: 'Ridge', extraTrees: 'Extra Trees', histBoost: 'HistGradientBoosting', lightgbm: 'LightGBM', xgboost: 'XGBoost', momentum: '动量对照', lowVol: '低波动对照', chinaValue: '中国价值对照' };
+  function strategyCatalog() { return Array.isArray(window.V6Research?.strategyCatalog) ? window.V6Research.strategyCatalog : []; }
+  function chosenStrategy() { return strategyCatalog().find(s => s.id === state.strategyId) || strategyCatalog()[0]; }
+  function safeSourceLink(source) {
+    try {
+      const url = new URL(source.url);
+      if (url.protocol !== 'https:') return null;
+      return node('a', { href: url.href, target: '_blank', rel: 'noopener noreferrer' }, text(source.title, '参考来源') + ' ↗');
+    } catch { return null; }
+  }
+  function chooseStrategy(id) { state.strategyId = id; renderStrategies(); }
+  function renderStrategies() {
+    const catalog = strategyCatalog();
+    if (!catalog.length) {
+      clear('strategyCatalog', empty('策略模块尚未加载', '刷新页面后重试，其他研究页面仍可使用。'));
+      clear('strategyRules'); clear('strategyCandidates'); renderStrategyComparison(); return;
+    }
+    if (!catalog.some(s => s.id === state.strategyId)) state.strategyId = catalog[0].id;
+    $('strategySelect').replaceChildren(...catalog.map(s => node('option', { value: s.id }, s.label)));
+    $('strategySelect').value = state.strategyId;
+    clear('strategyCatalog', ...catalog.map((s, i) => node('button', {
+      type: 'button', class: 'strategy-card' + (s.id === state.strategyId ? ' selected' : ''), 'aria-pressed': s.id === state.strategyId,
+      'data-strategy-id': s.id, onclick: () => chooseStrategy(s.id)
+    }, node('div', { class: 'strategy-card-top' }, node('span', { class: 'strategy-number' }, '0' + (i + 1)), pill('未核验实盘', 'gold')),
+    node('h2', {}, s.label), node('p', {}, text(s.thesis)), node('div', { class: 'strategy-card-foot' }, node('span', {}, '至少 ' + s.minBars + ' 条日 K 线'), node('span', {}, s.id === state.strategyId ? '已选择 · 查看规则 ↓' : '查看完整规则 →')))));
+    const current = chosenStrategy();
+    $('strategyRuleTitle').textContent = current.label;
+    clear('strategySources', ...(current.sources || []).map(safeSourceLink).filter(Boolean));
+    const ruleGroups = [
+      ['数据要求', ['至少 ' + current.minBars + ' 条完整历史日 K 线；保留真实交易日、来源与点时资格。']],
+      ['入场条件', current.entryRules || []],
+      ['仓位与风控', current.riskRules || []],
+      ['退出与失效', current.exitRules || []]
+    ];
+    clear('strategyRules', node('div', { class: 'strategy-evidence-note' }, pill('未核验实盘', 'gold'), node('p', {}, text(current.evidence?.evidenceNote, '依据公开规则实现的研究变体。尚无经核验的实盘准确率或收益证据。'))),
+      node('div', { class: 'strategy-rule-grid' }, ruleGroups.map(([label, rules]) => node('div', { class: 'strategy-rule-group' }, node('h3', {}, label), node('ul', {}, rules.map(rule => node('li', {}, rule)))))), (current.limitations || []).length ? node('div', { class: 'strategy-limitations' }, icon('shield'), node('p', {}, current.limitations.join('；'))) : null);
+    const plan = state.strategyPlans?.strategies?.find(s => s.id === current.id);
+    const candidates = plan?.candidates || [];
+    const matched = candidates.filter(c => c.status === 'candidate').length;
+    $('strategyCandidateCount').textContent = matched + ' 只命中 / ' + candidates.length + ' 只';
+    if (!candidates.length) clear('strategyCandidates', empty('暂无可核对股票', state.strategyPlans?.warnings?.join('；') || '导入历史数据后，按策略完整规则检查。'));
+    else {
+      const statusLabels = { candidate: ['条件命中', 'blue'], not_matched: ['暂未命中', 'neutral'], insufficient_data: ['历史不足', 'gold'], risk_blocked: ['风险拦截', 'red'] };
+      const body = node('tbody', {}, candidates.map(c => {
+        const status = statusLabels[c.status] || ['待核对', 'neutral'];
+        const reasons = Array.isArray(c.reasons) ? c.reasons : [];
+        const indicators = c.indicators || {};
+        const indicatorText = [['RSI2', indicators.rsi2], ['SMA200', indicators.sma200], ['前20日高点', indicators.priorHigh20], ['ATR20', c.atr]].filter(x => finite(x[1])).map(([label, value]) => label + ' ' + num(value, 2)).join(' · ');
+        const currentItem = state.result?.items.find(i => i.symbol === c.symbol);
+        return node('tr', {}, node('td', {}, stockButton({ symbol: c.symbol, name: c.name || c.symbol }, true)), node('td', { class: 'number mini-label' }, c.date || '—'),
+          node('td', {}, pill(status[0], status[1])), node('td', { class: 'number' }, num(c.referencePrice, 2)), node('td', { class: 'number' }, num(c.stopReference, 2)),
+          node('td', { class: 'strategy-reasons' }, reasons.map(r => node('div', {}, text(r))), indicatorText ? node('small', {}, indicatorText) : null),
+          node('td', {}, currentItem ? watchButton(currentItem) : null));
+      }));
+      clear('strategyCandidates', node('div', { class: 'table-scroll' }, node('table', { class: 'strategy-candidate-table' }, node('thead', {}, node('tr', {}, ['股票', '信号日期', '状态', '信号收盘', '止损参考', '条件核对', '观察'].map(t => node('th', { scope: 'col' }, t)))), body)));
+    }
+    renderStrategyComparison(); renderStrategyTradeHistory();
+  }
+  function renderStrategyComparison() {
+    const catalog = strategyCatalog(), hasRuns = Object.keys(state.strategyRuns).length > 0 || Object.keys(state.strategyErrors).length > 0;
+    $('exportStrategyReport').disabled = !hasRuns || state.strategyBusy;
+    if (!hasRuns) { clear('strategyResults', empty('先核对规则，再运行历史模拟', '所有策略独立使用相同资金与费用设置。不会把筛选页的四个条件混入策略，也不会生成未来交易。')); return; }
+    const body = node('tbody', {}, catalog.map(s => {
+      const report = state.strategyRuns[s.id], error = state.strategyErrors[s.id];
+      const usable = report?.status === 'completed', m = usable ? report.metrics || {} : {};
+      const status = error ? pill('无法运行', 'red') : !report ? pill('待运行', 'neutral') : usable ? pill('已计算', 'blue') : pill('历史不足', 'gold');
+      return node('tr', { class: s.id === state.strategyId ? 'selected-row' : '' }, node('td', {}, node('button', { class: 'stock-button', onclick: () => chooseStrategy(s.id) }, s.label)), node('td', { title: error || (report?.warnings || []).join('；') }, status),
+        node('td', { class: 'number ' + signClass(m.returnPct) }, signed(m.returnPct, false)), node('td', { class: 'number' }, percent(m.maxDrawdownPct, false)),
+        node('td', { class: 'number' }, finite(m.closedTrades) ? num(m.closedTrades, 0) : '—'), node('td', { class: 'number', title: '仅统计本次历史模拟已平仓交易，不是实盘准确率' }, percent(m.winRatePct, false)), node('td', { class: 'number' }, finite(m.fees) ? num(m.fees, 2) : '—'),
+        node('td', { class: 'number' }, finite(m.finalEquity) ? num(m.finalEquity, 2) : '—'));
+    }));
+    const errors = Object.entries(state.strategyErrors).map(([id, message]) => node('p', { class: 'strategy-error' }, (catalog.find(s => s.id === id)?.label || id) + '：' + message));
+    clear('strategyResults', node('div', { class: 'table-scroll' }, node('table', { class: 'strategy-comparison-table' }, node('thead', {}, node('tr', {}, ['策略', '计算状态', '累计收益', '最大回撤', '已平仓样本', '模拟胜率', '费用合计 / 元', '期末权益 / 元'].map(t => node('th', { scope: 'col' }, t)))), body)), node('p', { class: 'strategy-warning' }, '模拟胜率只对应本次已平仓样本，不是实盘准确率。样本量、市场阶段与费用变化都可能影响结果。'), ...errors);
+  }
+  function renderStrategyTradeHistory() {
+    const current = chosenStrategy(), report = state.strategyRuns[current?.id];
+    $('strategyTradeTitle').textContent = current?.label || '';
+    clear('strategyReportMeta');
+    if (!report) { clear('strategyTrades', empty('尚无模拟记录', '运行后可查看成交、受阻订单与当前剩余持仓。')); return; }
+    const through = text(report.evaluatedThrough, '未知日期');
+    const sourceLabel = text(report.sourceLabel, state.result?.simulated ? '合成数据' : '导入历史');
+    clear('strategyReportMeta', node('div', { class: 'report-meta' }, pill(sourceLabel, state.result?.simulated ? 'gold' : 'blue'), node('span', {}, '评估至 ' + through), node('span', {}, '研究模拟 · 不下单')),
+      ...(report.warnings || []).map(w => node('p', { class: 'strategy-warning' }, w)));
+    if (report.status === 'insufficient_data') { clear('strategyTrades', empty('历史数据不足，未形成有效评估', '请导入满足策略预热期、并含后续完整交易日的数据。初始资金不计作策略收益。')); return; }
+    const closed = Array.isArray(report.trades) ? report.trades : [];
+    const orders = Array.isArray(report.orders) ? report.orders : [];
+    const openPositions = Array.isArray(report.openPositions) ? report.openPositions : [];
+    const content = [];
+    if (report.equity?.length > 1) content.push(strategyEquityChart(report.equity));
+    content.push(node('div', { class: 'strategy-history-heading' }, node('h3', {}, '已平仓交易'), node('span', { class: 'muted' }, closed.length + ' 笔')));
+    if (!closed.length) content.push(empty('没有已平仓交易', '当前样本未触发完整买卖，或仓位仍持有；这不代表策略没有风险。'));
+    else content.push(node('div', { class: 'table-scroll' }, node('table', { class: 'strategy-trade-table' }, node('thead', {}, node('tr', {}, ['股票', '买入日期', '卖出日期', '股数', '买入价', '卖出价', '净盈亏 / 元', '退出原因'].map(t => node('th', { scope: 'col' }, t)))), node('tbody', {}, closed.map(t => node('tr', {}, node('td', { class: 'number' }, t.symbol), node('td', { class: 'number' }, t.buyDate), node('td', { class: 'number' }, t.sellDate), node('td', { class: 'number' }, num(t.quantity, 0)), node('td', { class: 'number' }, num(t.entry, 2)), node('td', { class: 'number' }, num(t.exit, 2)), node('td', { class: 'number ' + signClass(t.netPnl) }, num(t.netPnl, 2)), node('td', { class: 'mini-label' }, text(t.reason))))))));
+    if (openPositions.length) content.push(node('div', { class: 'strategy-open-positions' }, node('h3', {}, '期末仍持有 · ' + openPositions.length + ' 只'), node('div', { class: 'tags' }, openPositions.map(p => pill(p.symbol + ' · ' + num(p.quantity, 0) + ' 股', 'neutral'))), node('p', {}, '未实现损益计入权益，未伪造成已卖出收益。')));
+    const statusLabels = { filled: '已成交', blocked: '受阻', rejected: '未执行', pending: '待处理', cancelled: '已取消' };
+    content.push(node('details', { class: 'strategy-order-details' }, node('summary', {}, '查看订单事件 · ' + orders.length + ' 条'),
+      orders.length ? node('div', { class: 'table-scroll' }, node('table', { class: 'strategy-order-table' }, node('thead', {}, node('tr', {}, ['日期', '股票', '方向', '状态', '原因'].map(t => node('th', { scope: 'col' }, t)))), node('tbody', {}, orders.map(o => node('tr', {}, node('td', { class: 'number' }, o.date || '—'), node('td', { class: 'number' }, o.symbol || '—'), node('td', {}, o.side === 'buy' ? '买入' : o.side === 'sell' ? '卖出' : text(o.side)), node('td', {}, pill(statusLabels[o.status] || text(o.status), o.status === 'filled' ? 'blue' : 'gold')), node('td', { class: 'mini-label' }, text(o.reason))))))) : empty('没有订单事件', '策略未在这段历史内形成订单。')));
+    if (report.assumptions?.length) content.push(node('details', { class: 'strategy-assumptions' }, node('summary', {}, '模拟假设与边界'), node('ul', {}, report.assumptions.map(a => node('li', {}, a)))));
+    clear('strategyTrades', ...content);
+  }
+  function strategyEquityChart(rows) {
+    const valid = rows.filter(r => finite(r.value));
+    if (valid.length < 2) return node('div');
+    const W = 850, H = 140, L = 65, R = 15, T = 15, B = 110;
+    const low = Math.min(...valid.map(r => r.value)), high = Math.max(...valid.map(r => r.value)), spread = Math.max(1, high - low), min = low - spread * .1, max = high + spread * .1;
+    const x = i => L + i / (valid.length - 1) * (W - L - R), y = value => T + (max - value) / (max - min) * (B - T);
+    const svg = svgNode('svg', { class: 'strategy-equity-chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': '历史模拟权益曲线，单位元' });
+    for (let i = 0; i < 3; i++) {
+      const value = min + i * (max - min) / 2, gy = y(value);
+      svg.append(svgNode('line', { x1: L, x2: W - R, y1: gy, y2: gy, stroke: '#23354e', 'stroke-dasharray': '3 5' }), svgNode('text', { x: L - 10, y: gy + 3, fill: '#7992b0', 'font-size': 9, 'text-anchor': 'end' }, num(value, 0)));
+    }
+    svg.append(svgNode('polyline', { points: valid.map((r, i) => x(i) + ',' + y(r.value)).join(' '), stroke: '#79a8ed', 'stroke-width': 1.6, fill: 'none' }));
+    svg.append(svgNode('text', { x: L, y: 132, fill: '#7992b0', 'font-size': 9 }, text(valid[0].date)), svgNode('text', { x: W - R, y: 132, fill: '#7992b0', 'font-size': 9, 'text-anchor': 'end' }, text(valid.at(-1).date)));
+    return node('div', { class: 'strategy-equity-wrap' }, node('div', { class: 'strategy-chart-label' }, '模拟权益 / 元'), svg);
+  }
+  function simulationConfig() {
+    const entries = [['strategyInitialCash', 'initialCash', 1000, 1e9], ['strategyFeeBps', 'feeBps', 0, 1000], ['strategySlippageBps', 'slippageBps', 0, 1000], ['strategySellTaxBps', 'sellTaxBps', 0, 1000], ['strategyRiskPct', 'riskPct', .01, 10], ['strategyMaxPositionPct', 'maxPositionPct', .1, 100], ['strategyMaxPositions', 'maxPositions', 1, 50]];
+    const config = {};
+    for (const [id, key, min, max] of entries) {
+      const raw = $(id).value.trim(), value = Number(raw);
+      if (!raw || !finite(value) || value < min || value > max || (key === 'maxPositions' && !Number.isInteger(value))) throw Error('请检查资金、费用和仓位设置，使用范围内的有效数字。');
+      config[key] = value;
+    }
+    return config;
+  }
+  function setSimulationBusy(busy) {
+    state.strategyBusy = busy;
+    $('strategyRunButton').disabled = busy;
+    $('strategyRunButton').replaceChildren(icon('chart'), busy ? '正在计算…' : '运行历史模拟');
+    $('strategySimForm').setAttribute('aria-busy', String(busy));
+    $('exportStrategyReport').disabled = busy || (!Object.keys(state.strategyRuns).length && !Object.keys(state.strategyErrors).length);
+  }
+  async function runStrategySimulation(event) {
+    event.preventDefault();
+    if (state.strategyBusy) return;
+    let config;
+    try { config = simulationConfig(); if (!state.input) throw Error('请先导入历史数据。'); } catch (e) { showError(e.message); return; }
+    const token = ++state.simulationToken, input = state.input, catalog = strategyCatalog();
+    if (!catalog.length || typeof window.V6Research.runStrategyResearch !== 'function') { showError('策略计算模块未加载，请刷新重试。'); return; }
+    resetError(); setSimulationBusy(true);
+    state.strategyRuns = {}; state.strategyErrors = {};
+    $('strategySimulationStatus').textContent = '正在按相同资金与费用设置计算 ' + catalog.length + ' 套策略…';
+    renderStrategyComparison(); renderStrategyTradeHistory();
+    try {
+      for (const strategy of catalog) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        if (token !== state.simulationToken) return;
+        $('strategySimulationStatus').textContent = '正在计算：' + strategy.label;
+        try {
+          const result = await window.V6Research.runStrategyResearch(input, { ...config, strategyId: strategy.id });
+          if (token !== state.simulationToken) return;
+          state.strategyRuns[strategy.id] = result;
+        } catch (e) { if (token !== state.simulationToken) return; state.strategyErrors[strategy.id] = e.message || '计算失败'; }
+        if (token !== state.simulationToken) return;
+        renderStrategyComparison(); renderStrategyTradeHistory();
+      }
+      $('strategySimulationStatus').textContent = '计算结束。选择策略查看实际事件；历史不足或计算失败的策略不展示收益结论。';
+    } finally { if (token === state.simulationToken) setSimulationBusy(false); }
+  }
   function renderModelCards() {
     const cards = [
       ['LightGBM / XGBoost', '离线可选', 'CPU 树模型对照已支持离线实验。需要单独安装依赖，再用相同数据和账本参数比较。', 'https://github.com/microsoft/LightGBM', 'gold'],
       ['Qlib', '研究参考', '研究流程、时间切分与样本外评价。适合建立统一的实验协议。', 'https://github.com/microsoft/qlib', 'blue'],
       ['Alphalens', '分析参考', '因子 IC、分组收益与换手诊断。本页为本地计算，尚未连接外部分析包。', 'https://github.com/stefan-jansen/alphalens-reloaded', 'blue'],
-      ['HIST', '未接入', '显式与隐含概念关联模型。需要可追溯的历史概念关系和统一样本外比较。', 'https://github.com/zhangchuheng123/HIST', 'neutral'],
+      ['HIST', '未接入', '显式与隐含概念关联模型。需要可追溯的历史概念关系和统一样本外比较。', 'https://github.com/microsoft/qlib/tree/main/examples/benchmarks/HIST', 'neutral'],
       ['MASTER', '未接入', '市场引导的股票关系建模。需更完整的点时数据、训练资源与独立验证。', 'https://github.com/SJTU-DMTai/MASTER', 'neutral']
     ];
     clear('modelCards', ...cards.map(([name, status, description, url, style]) => node('article', { class: 'model-card' }, node('div', { class: 'model-card-top' }, node('h3', {}, name), pill(status, style)), node('p', {}, description), node('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, '官方项目 ↗'))));
@@ -288,7 +446,13 @@
   function applyDataset(input, filename, demo) {
     const result = window.V6Research.analyzeSnapshot(input, state.filters);
     const factors = window.V6Research.analyzeFactors(input);
+    let strategyPlans;
+    try { strategyPlans = window.V6Research.analyzeStrategyPlans(input); }
+    catch (e) { strategyPlans = { strategies: [], warnings: [e.message || '策略所需历史数据无效'] }; }
     state.input = input; state.result = result; state.factors = factors; state.filename = filename; state.isDemo = demo;
+    state.strategyPlans = strategyPlans; state.strategyRuns = {}; state.strategyErrors = {}; state.simulationToken++;
+    setSimulationBusy(false);
+    $('strategySimulationStatus').textContent = '历史模拟尚未运行。参数为研究假设，未经优化或实盘核验。';
     if (!result.items.some(i => i.symbol === state.selected)) state.selected = result.items[0]?.symbol || '';
     resetError(); renderAll();
   }
@@ -296,11 +460,11 @@
     $('datasetLabel').textContent = state.isDemo ? '合成示例 · 用于体验，非真实行情' : (state.result.simulated ? '已导入合成数据 · ' : '已导入历史数据 · ') + state.filename;
     $('datasetDate').textContent = '截至 ' + dateOf(state.result.asOf);
     $('datasetStrip').classList.toggle('imported', !state.isDemo);
-    renderOverview(); renderTables(); renderDetail(); renderLinkage(); renderFactors(); renderModels(); renderWatchlist();
+    renderStrategies(); renderOverview(); renderTables(); renderDetail(); renderLinkage(); renderFactors(); renderModels(); renderWatchlist();
   }
   function navigate() {
     const page = location.hash.slice(1);
-    state.page = Object.hasOwn(views, page) ? page : 'overview';
+    state.page = Object.hasOwn(views, page) ? page : 'strategies';
     for (const el of document.querySelectorAll('[data-page]')) el.hidden = el.dataset.page !== state.page;
     for (const el of document.querySelectorAll('[data-nav]')) { const active = el.dataset.nav === state.page; el.classList.toggle('active', active); if (active) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); }
     $('pageTitle').textContent = views[state.page][0]; $('breadcrumbTitle').textContent = views[state.page][0]; $('pageDescription').textContent = views[state.page][1];
@@ -314,6 +478,9 @@
     try { return JSON.parse(await file.text()); } catch { throw Error('文件不是有效的 JSON，请下载示例核对格式。'); }
   }
   function bind() {
+    $('strategySelect').onchange = event => chooseStrategy(event.target.value);
+    $('strategySimForm').onsubmit = runStrategySimulation;
+    $('exportStrategyReport').onclick = () => download('v6-strategies-' + dateOf(state.result?.asOf) + '.json', { schemaVersion: 1, asOf: state.strategyPlans?.asOf, source: state.input?.source, mode: 'research-only', autoTrade: false, reports: state.strategyRuns, errors: state.strategyErrors });
     $('importButton').onclick = () => $('datasetFile').click();
     $('modelImportButton').onclick = () => $('modelFile').click();
     $('exampleButton').onclick = $('dialogExample').onclick = () => download('v6-history-example.json', window.V6Research.demoDataset());
@@ -342,7 +509,7 @@
     $('resetFilters').onclick = () => { $('filterForm').reset(); state.filters = {}; state.query = ''; $('stockSearch').value = ''; state.resultTab = 'all'; document.querySelectorAll('[data-result]').forEach(n => n.classList.toggle('active', n.dataset.result === 'all')); state.result = window.V6Research.analyzeSnapshot(state.input, {}); renderAll(); resetError(); toast('已重置筛选。'); };
     $('stockSearch').oninput = event => { state.query = event.target.value; renderTables(); };
     document.querySelectorAll('[data-result]').forEach(button => button.addEventListener('click', () => { state.resultTab = button.dataset.result; document.querySelectorAll('[data-result]').forEach(n => n.classList.toggle('active', n === button)); renderTables(); }));
-    $('exportAnalysisButton').onclick = () => { if (!state.result) return; download('v6-research-' + dateOf(state.result.asOf) + '.json', { schemaVersion: 1, snapshot: state.result, factors: state.factors, modelReport: state.modelReport }); };
+    $('exportAnalysisButton').onclick = () => { if (!state.result) return; download('v6-research-' + dateOf(state.result.asOf) + '.json', { schemaVersion: 1, snapshot: state.result, factors: state.factors, modelReport: state.modelReport, strategyPlans: state.strategyPlans, strategyReports: state.strategyRuns }); };
     $('exportWatchlist').onclick = () => download('v6-watchlist.json', { schemaVersion: 1, rows: state.watch });
     $('clearWatchlist').onclick = () => { if (!state.watch.length) { toast('观察列表已经为空。'); return; } if (confirm('清空当前观察列表？清空后可以恢复上次列表。')) { saveWatchlist([]); toast('已清空，可恢复上次列表。'); } };
     $('recoverWatchlist').onclick = () => { try { const backup = localStorage.getItem(BACKUP_KEY); if (!backup) { toast('暂无可恢复的上次列表。'); return; } const rows = parseWatchlist(backup); saveWatchlist(rows); toast('已恢复上次列表。'); } catch { toast('备份不可用，当前列表已保留。'); } };
