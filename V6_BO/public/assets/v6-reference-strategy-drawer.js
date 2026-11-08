@@ -63,7 +63,7 @@
     const groups=new Map();
     for(const [id,label] of legacy){if(!groups.has('原有四套体系'))groups.set('原有四套体系',[]);
       groups.get('原有四套体系').push({id,label,status:'provenance-required'});}
-    for(const c of catalog){if(!groups.has(c.group))groups.set(c.group,[]);groups.get(c.group).push(c);}
+    for(const c of catalog){if(c.id.startsWith('legacy:'))continue;if(!groups.has(c.group))groups.set(c.group,[]);groups.get(c.group).push(c);}
     drawer.querySelector('#v6-drawer-groups').innerHTML=[...groups].map(([g,arr])=>
       '<div class="v6-drawer-group"><strong>'+esc(g)+'</strong><div>'+
       arr.filter(s=>!search||s.label.toLowerCase().includes(search)||s.id.toLowerCase().includes(search)).map(s=>
