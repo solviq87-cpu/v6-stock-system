@@ -71,6 +71,7 @@ function candidateRationale(item = {}, {stock = null, evaluated = null, asOf = D
     if (check?.status === 'matched' && check?.side === 'bearish') risks.push('看跌形态：' + text(check.label, 80));
   }
   for (const risk of l.risks || []) risks.push(text(risk));
+  for (const risk of l.resilienceResearch?.risks || []) risks.push(text(risk));
   for (const news of item?.issuerEvidence?.riskClues || []) risks.push('公告风险标题待核对：' + text(news.title, 100));
   if ((item?.issuerEvidence?.conflicts || []).length) risks.push('公告标题存在正负面冲突，需核对原文');
   const price = priceObservation(stock, safe);
@@ -89,6 +90,8 @@ function candidateRationale(item = {}, {stock = null, evaluated = null, asOf = D
       observations.push('同日市场上涨家数占比较高，与个股上涨同向，不证明因果关系');
     if (sectorKnown && sector.relativeStrength >= 70)
       observations.push('所属板块相对强度较高，与个股上涨同期出现，不等于资金驱动已证实');
+    if (l.resilienceResearch?.sectorRegime === 'countertrend-observed')
+      observations.push('大盘指数普跌时所属板块相对逆势上涨，同期出现不构成上涨因果证明');
     if (rules.some(r => r.family === 'technical-pattern'))
       observations.push('K线出现看涨形态，仅说明走势特征，不构成上涨原因认证');
     if ((item?.issuerEvidence?.strengthClues || []).length)
@@ -111,7 +114,8 @@ function candidateRationale(item = {}, {stock = null, evaluated = null, asOf = D
       status: officialPass ? 'official-candidate' : watchEligible ? 'research-watch' : 'not-eligible',
       ruleCount: rules.length, independentFamilyCount: new Set(rules.map(r => r.family)).size, rules,
       explanation: rules.length ? '命中规则见 rules；研究候选与正式可交易资格分离' : '未找到可追溯的完整规则命中证据'},
-    factors: factorObservations(item), market, sector, price,
+    factors: factorObservations(item), market, sector,
+    marketSectorResilience:l.resilienceResearch||{status:'unverified',marketRegime:'unknown',sectorRegime:'unknown'}, price,
     facts: unique(facts), whyUp, risks: unique(risks).slice(0, 24),
     issuerEvidenceStatus: text(item?.issuerEvidence?.status, 80) || 'unknown',
     limitations: ['研究解释不修改原策略、权重、风险状态或模拟交易指令',
