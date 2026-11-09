@@ -10970,6 +10970,7 @@ async function auctionResonanceScan(opts = {}) {
     const topSectorNames = new Set((S.sectors || []).slice(0, 20).map(s => s.name));
     const auctionEvidence = require('./src/core/auction-resonance-basis').auditAuctionResonanceBasis({
       auction:S.auction,stockSnapshotAt:S.stocksAt,now,
+      calendarDay:require('./src/core/news-china-clock').newsChinaClock(now).dayKey,
       expectedDay:quoteDayOf(now),stockSnapshotDay:S.stocksAt?quoteDayOf(S.stocksAt):''
     });
     const aucMap = new Map();
@@ -11140,7 +11141,7 @@ async function auctionResonanceScan(opts = {}) {
       asOf: now, // computation time; never a market provider quote time
       board,
       auctionEvidence,
-      isSnapshot: !isTradeDay(new Date(now)) || auctionEvidence.stale,
+      isSnapshot: !isTradingTime() || auctionEvidence.stale,
       totalScanned: stocks.length,
       candidateCount: candidates.length,
       count: top.length,
@@ -16852,6 +16853,7 @@ async function init() {
     if (minute < 9 * 60 + 20 || minute >= 9 * 60 + 30) return;
     const basis = require('./src/core/auction-resonance-basis').auditAuctionResonanceBasis({
       auction:S.auction,stockSnapshotAt:S.stocksAt,now:Date.now(),
+      calendarDay:require('./src/core/news-china-clock').newsChinaClock().dayKey,
       expectedDay:quoteDayOf(Date.now()),
       stockSnapshotDay:S.stocksAt?quoteDayOf(S.stocksAt):''
     });
