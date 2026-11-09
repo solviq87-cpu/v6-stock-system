@@ -34,6 +34,17 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const picksScript=await get(p,'/assets/picks-page.js');
   assert.equal(picksScript.status,200,'picks viewer script must be served');
   assert.match(picksScript.body,/clearProtectedResults/);
+  // A fixture-only UI can hide a deployment 404 of newly introduced chart assets.
+  // Verify the REAL server exposes the existing periods, period controller and CSS.
+  for(const [url,expected] of [
+    ['/assets/picks-periods.js','aggregate'],
+    ['/assets/picks-three-k.js','loadOlder'],
+    ['/assets/picks-three-k.css','.period-chart'],
+  ]){
+    const asset=await get(p,url);
+    assert.equal(asset.status,200,'V6 service must serve '+url);
+    assert.ok(asset.body.includes(expected),'Kline asset has unexpected or missing content '+url);
+  }
   const auction=await get(p,'/auction-picks.html');
   assert.equal(auction.status,200,'new auction research shell must be reachable through actual server');
   assert.match(auction.body,/竞价研究观察池/);
