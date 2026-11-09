@@ -9,6 +9,7 @@ const pack=require('../../strategies/extended-factor-pack.json');
 const {freezeCohort}=require('./forward-signal-observer');
 const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
+const {assessFactorReliability,pairedStability}=require('./factor-learning-reliability');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -48,7 +49,7 @@ function validCohort(cohort,now){
  * Call only when the original cohort has just been frozen. The five-minute
  * cut-off blocks retrospective creation of "predictive" factor features.
  */
-function freezeFeatureEpisode({cohort,factorIds,rows,feed}={}, {now=Date.now()}={}){
+function freezeFeatureEpisode({cohort,factorIds,rows,feed,marketContext}={}, {now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0)throw Error('因子冻结时钟无效');
  const signalDay=validCohort(cohort,now),defs=factorsFor(factorIds);
  if(now<cohort.frozenAt||now-cohort.frozenAt>300000||
@@ -79,11 +80,20 @@ function freezeFeatureEpisode({cohort,factorIds,rows,feed}={}, {now=Date.now()}=
   return {signalId:s.signalId,symbol:s.symbol,signalDate:s.signalDate,
    signalAt:s.signalAt,baselineClose:s.baselineClose,values};
  });
+ // Classify regime using only evidence already observed when the signal was
+ // frozen. Future shocks must never retroactively label historic features.
+ const marketGate=marketContext===undefined?null:
+  assessMarketShock(marketContext,{asOf:cohort.frozenAt});
+ const marketRegime=marketGate?.status==='observed-unverified'?
+  {status:'observed-unverified',regime:marketGate.regime,
+   tradeDate:marketGate.tradeDate,observedAt:marketGate.observedAt,
+   provider:marketGate.provider}:
+  {status:'unavailable',regime:'unknown'};
  const payload={schemaVersion:1,mode:'frozen-factor-feature-episode',signalDay,
   capturedAt:now,originalCohortFrozenAt:cohort.frozenAt,cohortFingerprint:cohort.fingerprint,
   feed:{source:feed.source,provider:feed.provider,datasetId:feed.datasetId},
   priceFeed:cohort.feed,packFingerprint:PACK_HASH,packVersion:pack.version,
-  factors:defs,features,canTrade:false,prospectiveCertified:false};
+  factors:defs,features,marketRegime,canTrade:false,prospectiveCertified:false};
  return {...payload,fingerprint:hash(payload)};
 }
 function verifyEpisode(frozen,now){
@@ -100,6 +110,15 @@ function verifyEpisode(frozen,now){
   throw Error('因子特征冻结指纹、版本或时点失效');
  const defs=factorsFor(data.factors?.map(x=>x.id));
  if(hash(defs)!==hash(data.factors))throw Error('扩展因子绑定结构变化');
+ if(data.marketRegime!==undefined&&(
+    !data.marketRegime||!['unknown','systemic-selloff','not-systemic-selloff'].includes(data.marketRegime.regime)||
+    !['unavailable','observed-unverified'].includes(data.marketRegime.status)||
+    (data.marketRegime.status==='unavailable'&&data.marketRegime.regime!=='unknown')||
+    (data.marketRegime.status==='observed-unverified'&&(
+     data.marketRegime.regime==='unknown'||data.marketRegime.tradeDate!==data.signalDay||
+     !Number.isSafeInteger(data.marketRegime.observedAt)||
+     data.marketRegime.observedAt>data.originalCohortFrozenAt))))
+  throw Error('因子所属市场环境证据无效');
  if(data.feed?.source!=='imported'||!text(data.feed.provider)||!text(data.feed.datasetId)||
     !text(data.priceFeed?.provider)||!text(data.priceFeed?.datasetId)||
     data.priceFeed?.source!=='imported'||
@@ -235,7 +254,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   if(symbols.size>=5){
    const target=new Set(rows.map(r=>r.targetDate));
    // Different target days are not a comparable single daily cross-section.
-   if(target.size===1){observed.push({day:e.day,rows,targetDate:rows[0].targetDate});used.add(e.day);}
+   if(target.size===1){observed.push({day:e.day,rows,targetDate:rows[0].targetDate,
+    regime:e.features.marketRegime?.regime||'unknown'});used.add(e.day);}
   }
  }
  const n=sorted.length,trainEnd=Math.floor(n*.56),validStart=trainEnd+5,
@@ -244,8 +264,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
  const valid=sorted.slice(validStart,validEnd).filter(e=>used.has(e.day)).map(e=>observed.find(x=>x.day===e.day));
  const test=sorted.slice(testStart).filter(e=>used.has(e.day)).map(e=>observed.find(x=>x.day===e.day));
  if(testStart>=n||train.length<15||valid.length<5||test.length<5||
-    train[train.length-1].targetDate>=valid[0].day||
-    valid[valid.length-1].targetDate>=test[0].day)
+    train.some(x=>x.targetDate>=valid[0].day)||
+    valid.some(x=>x.targetDate>=test[0].day))
   throw Error('样本不足或未来收益窗口重叠，拒绝训练');
  const trainingEnd=train.at(-1).day;
  let oldWeights=Object.fromEntries(defs.map(f=>[f.id,f.baseWeight]));
@@ -257,10 +277,17 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
      hash(contents.factorIds)!==hash(ids)||hash(contents.feed)!==hash(feed)||
      !Number.isSafeInteger(contents.version)||contents.version<1||
      !day(contents.trainingEnd)||contents.trainingEnd>=trainingEnd||
+     !day(contents.lastObservationDay)||contents.lastObservationDay>=sorted.at(-1).day||
      contents.productionWeightsChanged!==false||contents.canTrade!==false)
    throw Error('上一个沙盒模型不可用或未增加新的训练时间窗');
   if(!contents.shadowWeights||ids.some(id=>!finite(contents.shadowWeights[id])))
    throw Error('历史研究权重无效');
+  // Earlier data used to accept a shadow version must remain unchanged.
+  if(!Array.isArray(contents.observedFingerprints)||
+     contents.observedFingerprints.length>sorted.length||
+     contents.observedFingerprints.some((pair,i)=>
+      hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint])))
+   throw Error('已有因子模型的历史冻结证据被替换或回写');
   oldWeights=Object.fromEntries(ids.map(id=>[id,previous.shadowWeights[id]]));
   for(const f of defs)if(oldWeights[f.id]<f.baseWeight*.5||oldWeights[f.id]>f.baseWeight*1.5)
    throw Error('旧研究权重越过边界');
