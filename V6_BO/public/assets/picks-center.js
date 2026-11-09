@@ -137,7 +137,7 @@ function applyResponse(d){
  const chosen=prior&&entries.find(r=>r.code===prior.code&&r.name===prior.name)||entries.find(r=>r.code===requestedCode)||entries[0];
  if(chosen){
   // Quiet background refresh must preserve selected stock and scroll position.
-  const changed=selectedKey!==chosen.key||!prior||prior.code!==chosen.code;
+  const changed=!prior||prior.code!==chosen.code;
   showDetail(chosen,{loadChart:changed});
  }else{selectedKey=null;renderList();clearDetail('云端返回空选股池。没有命中股票可展示。');}
 }
@@ -146,7 +146,7 @@ async function refresh(){
  busy=true;el('refreshPicks').disabled=true;el('cloudStatus').textContent='正在读取云端已缓存的选股结果（不会强制扫描）…';
  try{
   const r=await fetch('/api/quant-picks?max=100',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-  if(r.status===401||r.status===403){entries=[];selectedKey=null;hadResponse=false;renderList();clearDetail('访问权限已失效，请回到首页重新验证');throw new Error('没有查看候选池的权限');}
+  if(r.status===401||r.status===403){entries=[];selectedKey=null;hadResponse=false;el('totalVisible').textContent='—';el('totalReported').textContent='需要授权';el('hitCount').textContent='—';el('riskCount').textContent='—';el('snapshotDay').textContent='不可用';el('snapshotHint').textContent='权限失效';renderList();clearDetail('访问权限已失效，请回到首页重新验证');throw new Error('没有查看候选池的权限');}
   if(!r.ok)throw new Error('云端选股接口不可用 · HTTP '+r.status);
   const d=await r.json();applyResponse(d);
   el('cloudStatus').textContent='选股结果已同步 · 获取时间 '+new Date().toLocaleTimeString('zh-CN',{hour12:false})+'（不代表行情实时）';
