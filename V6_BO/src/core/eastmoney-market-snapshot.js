@@ -108,7 +108,7 @@ async function fetchEastmoneySnapshot(options={}){
 async function fetchEastmoneyBreadth(options={}){
  const snapshot=await fetchEastmoneySnapshot(options);
  return {snapshotMetadata:{date:snapshot.date,source:snapshot.source,universeSize:snapshot.universeSize,pages:snapshot.pages,
-  verifiedLive:snapshot.verifiedLive,startedAt:snapshot.startedAt,retrievedAt:snapshot.retrievedAt,samplingDurationMs:snapshot.samplingDurationMs,warning:snapshot.warning},
+  verifiedLive:snapshot.verifiedLive,startedAt:snapshot.startedAt,retrievedAt:snapshot.retrievedAt,samplingDurationMs:snapshot.samplingDurationMs,sourceCoverage:snapshot.sourceCoverage,warning:snapshot.warning},
   breadth:analyzeMarketBreadth(snapshot,{asOf:options.now??Date.now(),minCoverage:options.minCoverage??0.8})};
 }
 module.exports={parsePage,toStock,fetchEastmoneySnapshot,fetchEastmoneyBreadth};
