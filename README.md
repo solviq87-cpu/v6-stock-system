@@ -1,5 +1,7 @@
 # v6-stock-system
 
+> **选股结果在这里看**：上线后访问 `/picks.html`，手机版和电脑版均能查看同一云端候选池、命中理由、个股风险和K线联动。没有后端真实选股结果时不显示虚构推荐；公开战法仅在研究目录，不自动改正式策略。[实现和验收说明](V6_BO/docs/PICKS_RESULTS_HUB_AND_RULES_20261109.md)。
+
 > **手机/电脑同时刷新与周末新闻规则**：两端分别从同一云端读取数据，任意一端可用，不依赖另一端开机。周末新闻继续刷新、盘面保留最后交易日的快照日期。云端持久化部署仍需现场验证。详见 [双端云端与休市运行规则](V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md)。
 
 > **国内写入/部署交接入口**：用户指定 `https://acd98a1c1a46e6ce4.app.workbuddy.host`（文档 `/api/ai/doc?id=ai`）。下一位 AI 开工先读 [国内 WorkBuddy 写入目标及鉴权现状](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 与 [AGENTS.md](AGENTS.md)。此目标与下方历史研究预览站不是一回事；实际写入 API 和生产部署尚未认证，分享码/令牌禁止提交。
