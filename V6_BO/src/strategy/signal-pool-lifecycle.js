@@ -43,7 +43,7 @@ function updateLifecycle({items=[],previous=[],now=Date.now(),expiryDays=7,archi
   let streak=carry?.streak||0,misses=carry?.misses||0,stage='archived';
   if(had){
    // Multiple checks in the same session never count as consecutive-day confirmation.
-   streak=dayChanged?(carry&&dayDiff(sourceDate,prevDate)<=7&&carry.misses===0?streak+1:1):Math.max(1,streak);
+   streak=dayChanged?(carry&&carry.dataStatus==='observed-research-only'&&dayDiff(sourceDate,prevDate)<=7&&carry.misses===0?streak+1:1):Math.max(1,streak);
    misses=0;
    stage=blocked||hasRisk?'risk-review':streak>=2?'focus':'observe';
   }else{
