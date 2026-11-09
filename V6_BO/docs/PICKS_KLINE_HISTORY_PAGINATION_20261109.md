@@ -15,6 +15,7 @@
 - `node --test tests/kline-history-pagination.test.js tests/picks-three-k.test.js`
 - `npm run check && npm test` + `tests/full-server-isolated-smoke.js` + 独立浏览器几何检查，由 Github Actions 验证。
 - 多端浏览器及工作机/WorkBuddy真实部署、交易时段报价延迟、源站对5年以上日K覆盖均未现场验证。
+- **追加审计（2026-11-09）**：即使接口已能正确翻页，当 `hasMore=true` 时，当前最左侧自然月/年分组只是截断的周期，不能画成完整K柱。现在在年/月视图隐藏首个不完整分组，加载完整后才展示；历史补读因断网/异常失败，不再把 `hasMore` 错误设成 `false` 冒充“已经读到底”；即使收到空页也检查结果是否真的空。浏览器测试真实模拟240根分页并检查首个未完整K柱隐藏。完整服务启动冒烟检查 `picks-periods.js`、`picks-three-k.js` 和 `picks-three-k.css` 三个真实HTTP地址是否返回200。
 - 回滚：将此PR对应修改按文件恢复到基线 SHA `efed5d0705a4abddd61d6c5c6e2c5f878eec5ac1`。
 
 ## 后续功能建议（不在本PR擅自开启）
