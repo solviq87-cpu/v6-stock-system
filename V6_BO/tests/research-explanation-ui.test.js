@@ -66,3 +66,29 @@ test('sector cohort percentile is disclosed only as a historical limited-univers
  assert.ok(details.some(d=>d.children.some(x=>String(x.textContent).includes('板块横向研究分位：设备'))));
  assert.ok(details.some(d=>d.children.some(x=>String(x.textContent).includes('不代表全市场强度或资金流'))));
 });
+
+test('weak-market preference is visible, moves only historical display order, and never hides signal hits',async()=>{
+ const selected=all[0];
+ selected.rationale.selection.researchDeprioritized=true;
+ selected.rationale.weakMarketPreference={researchDeprioritized:true,
+  reason:'弱市按用户偏好降低银行研究顺序'};
+ const before=created.length;
+ try{
+  await ids.completeRun.fire('click');
+  const details=created.slice(before).filter(x=>x.tag==='details');
+  assert.equal(details.length,30);
+  assert.match(details[0].children[0].textContent,/^600002 /,
+   'ordinary research sample should display ahead of deprioritized sector');
+  const selectedDetails=details.filter(x=>x.children[0]?.textContent.startsWith('600001 '));
+  assert.equal(selectedDetails.length,0,'deprioritized last row can be outside initial page');
+  const more=created.slice(before).find(x=>x.tag==='button'&&x.textContent==='显示更多历史股票');
+  assert.ok(more);more.fire('click');
+  const allDetails=created.slice(before).filter(x=>x.tag==='details');
+  assert.ok(allDetails.some(d=>d.children.some(x=>String(x.textContent).includes('弱市板块偏好：观察次序降低'))));
+  assert.ok(allDetails.some(d=>d.children.some(x=>String(x.textContent).includes('放量突破'))),
+   'original matched rule details must remain visible');
+ }finally{
+  delete selected.rationale.selection.researchDeprioritized;
+  delete selected.rationale.weakMarketPreference;
+ }
+});
