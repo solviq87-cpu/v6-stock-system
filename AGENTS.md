@@ -6,6 +6,8 @@
 
 > **国内写入/部署目标（用户已指定，所有接手 AI 先看）**：`https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档入口 `/api/ai/doc?id=ai`。详细操作与 401 鉴权现状：`V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md`。用户提供的分享码、token 均不得入库；文档入口不是已验证的写入 API，未经官方文档授权与目标核验不得部署或改写到其他主机。
 
+> **选股结果固定入口与联动（2026-11-09）**：唯一展示页 `/picks.html`，已在 dev 建立，后续改动必须在该页面增量演进，不再建立/覆盖第二套同名实现。候选源 `/api/quant-picks`，明确命中条件、风险、股票详情与同股K线只读联动；公开规则只能研究，绝不能反向修改四套正式策略。详见 `V6_BO/docs/PICKS_LINKED_DETAIL_AND_RULE_CATALOG_20261109.md`。
+
 > **UI 原图验收红线**：手机原图 `7165.jpeg`、电脑原图 `E419BE1D-AB04-4D50-A482-8676AE7FB869(1).jpeg`；正式品牌“天枢智策”，原有所有功能不可删。每次页面改动先读 `V6_BO/docs/ORIGINAL_UI_REFERENCE_ACCEPTANCE_20261109.md`，对真实 CSS 视口和真机逐图验收；CI 通过不代表视觉 1:1 已完成。
 
 ## 核心原则：允许进化，禁止未经验证的负优化
