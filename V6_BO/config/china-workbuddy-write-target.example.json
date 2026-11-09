@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "mode": "user-designated-china-write-target-reference",
+  "origin": "https://acd98a1c1a46e6ce4.app.workbuddy.host",
+  "documentation": {
+    "pathname": "/api/ai/doc",
+    "query": {
+      "id": "ai"
+    },
+    "accessStatus": "http-401-invalid-or-missing-token"
+  },
+  "writeEndpoint": null,
+  "writeMethod": null,
+  "deployTargetResource": null,
+  "providerAuthorized": false,
+  "productionDeployed": false,
+  "credentialNames": {
+    "docShareCode": "V6_CN_WRITE_SHARECODE",
+    "writeToken": "V6_CN_WRITE_TOKEN"
+  },
+  "instructions": "Read docs/CHINA_WORKBUDDY_WRITE_TARGET.md. Never infer writing URL from docs pathname, use live private credentials or commit private holdings."
+}
