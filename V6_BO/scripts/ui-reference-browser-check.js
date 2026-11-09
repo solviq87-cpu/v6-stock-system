@@ -30,6 +30,8 @@ if(label==='mobile-reference-1024'){
   assert.ok(Math.abs(b.chart.top-b.explanation.top)<=2,label+' original chart and explanation must start on same row');
   assert.ok(Math.abs(b.chart.bottom-b.explanation.bottom)<=2,label+' original chart and explanation must share one outer card');
   assert.ok(b.chart.bottom<=b.dock.top-12,label+' reference 1024 screenshot: stock detail is concealed behind the fixed dock: '+JSON.stringify({chart:b.chart,dock:b.dock}));
+  assert.ok(b.chartCanvas&&b.chartSvg,label+' missing K-line plot');
+  assert.ok(b.chartCanvas.height>=175&&b.chartSvg.height>=167,label+' visible K-line too small compared with original photo: '+JSON.stringify({canvas:b.chartCanvas,svg:b.chartSvg}));
 }
 if(width<=430){
   assert.equal(metrics.dockCount,7,label+' dock must have exactly seven real links');
