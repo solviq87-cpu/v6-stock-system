@@ -64,6 +64,21 @@
     const date = new Date(stamp);
     return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
   };
+  // A single evidence projection feeds both list clicks and cloud refreshes.
+  // Never let a previously selected stock keep outdated risk or hit labels.
+  const detailPayload = item => {
+    const code = String(item.code || item.symbol || '');
+    const quoteTime = formatAt(item.vendorQuoteAt || item.quoteAt);
+    return {
+      code, name: String(item.name || code).slice(0, 80),
+      followup: item.forwardTracking || state.forwardTracking,
+      reasons: reasonRows(item),
+      risk: String(item.riskStatus || item.risk?.status || item.risk?.level || item.riskLevel ||
+        (item.blocked === true || item.risk?.blocked === true ? '存在风险阻断' : '风险未评估')).slice(0, 130),
+      quoteProof: quoteTime ? '第三方自报报价时点：' + quoteTime + ' · 未认证实时' :
+        '逐票原始报价时点未知 · 非实时认证'
+    };
+  };
   const showItem = item => {
     const card = node('article', 'pick');
     const head = node('div', 'pickhead');
@@ -105,8 +120,8 @@
     link.textContent = '深入策略研究（可选）';
     const rawCode=String(item.code||item.symbol||'');
     const code=/^\d{6}$/.test(rawCode)?rawCode:null;
-    const tracking = item.forwardTracking || state.forwardTracking;
-    const projected = code && window.V6PicksFollowup?.project(tracking, code);
+    const tracking=item.forwardTracking||state.forwardTracking;
+    const projected=code&&window.V6PicksFollowup?.project(tracking,code);
     card.append(node('p','pick-followup-summary',projected?.state==='available'
       ? '后续价格观察：'+projected.observed+' 项已观察 · '+projected.unresolved+' 项未核实'
       : '后续跟踪：'+(projected?.state==='invalid'?'证据协议无效':'尚无冻结信号记录')));
@@ -116,13 +131,7 @@
       open.setAttribute('aria-label','查看'+String(item.name||code)+'的日K月K年K和命中条件');
       open.addEventListener('click',()=>{
         state.selectedCode=code;
-        document.dispatchEvent(new CustomEvent('v6:picks-select',{detail:{
-          code,name:String(item.name||code).slice(0,80),
-          followup:tracking,reasons,risk:String(item.riskStatus||item.risk?.status||item.risk?.level||item.riskLevel||
-            (item.blocked===true||item.risk?.blocked===true?'存在风险阻断':'风险未评估')).slice(0,130),
-          quoteProof:quoteTime?'第三方自报报价时点：'+quoteTime+' · 未认证实时':
-            '逐票原始报价时点未知 · 非实时认证'
-        }}));
+        document.dispatchEvent(new CustomEvent('v6:picks-select',{detail:detailPayload(item)}));
       });
       card.append(open);
     }
@@ -197,9 +206,15 @@
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
       state.items = data.items.filter(x => x && typeof x === 'object').slice(0, 100);
       state.forwardTracking = data.forwardTracking && typeof data.forwardTracking === 'object' ? data.forwardTracking : null;
-      if(state.selectedCode && !state.items.some(x=>String(x.code||x.symbol||'')===state.selectedCode)){
-        state.selectedCode=null;
+      const active = state.selectedCode
+        ? state.items.find(x => String(x.code || x.symbol || '') === state.selectedCode)
+        : null;
+      if (state.selectedCode && !active) {
+        state.selectedCode = null;
         document.dispatchEvent(new Event('v6:picks-reset'));
+      } else if (active) {
+        // Update only evidence, not historical K-bars; no redundant market fetch.
+        document.dispatchEvent(new CustomEvent('v6:picks-detail-refresh', {detail:detailPayload(active)}));
       }
       state.hasData = true;
       state.lastRefresh = Date.now();
