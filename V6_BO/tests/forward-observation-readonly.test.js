@@ -87,7 +87,7 @@ test('server retains same cached candidate data for viewer; report only attaches
  const route=s.slice(s.indexOf("if (p === '/api/quant-picks')"),s.indexOf("if (p === '/api/auction-resonance')"));
  assert.match(route,/req\.method === 'GET' && isEditorReq\(req\)/);
  assert.match(route,/process\.env\.V6_FORWARD_OBSERVATION_FILE/);
- assert.match(route,/readForwardObservation/);
+ assert.match(route,/V6ReadForwardObservation/);
  assert.match(route,/forwardTracking/);
  assert.match(route,/\{\.\.\.d, forwardTracking:/);
  assert.doesNotMatch(route,/d\.forwardTracking\s*=/,'no cache mutation which can leak editor report to viewers');
