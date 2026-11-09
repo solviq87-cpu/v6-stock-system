@@ -19,7 +19,7 @@ function assessWeakMarketSectorPreference(rationale){
  if(m?.status!=='market-sector-observed-unverified'||
     !['systemic-selloff-observed','broad-selloff-observed',
       'broad-advance-observed','mixed-observed'].includes(m.marketRegime)||
-    !m.tradeDate||m.tradeDate!==p?.date||
+    p?.status!=='imported-unverified'||!m.tradeDate||m.tradeDate!==p?.date||
     s?.status!=='imported-unverified'||!s.name||
     m.sectorName!==s.name||m.sectorSource!==s.source)
   return base;
