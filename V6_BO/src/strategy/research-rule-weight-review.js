@@ -86,6 +86,10 @@ function evaluateRuleWeightReview(audit){
   const mean=totalModeled?
    modeledRows.reduce((sum,r)=>sum+r.netReturnPct,0)/totalModeled:null;
   const win=totalModeled?100*modeledRows.filter(r=>r.netReturnPct>0).length/totalModeled:null;
+  if(mean!==null&&m&&finite(m.averageNetReturnPct)&&Math.abs(mean-m.averageNetReturnPct)>.05)
+   blockers.push('历史净收益汇总与原始事件不一致');
+  if(win!==null&&m&&finite(m.winRatePct)&&Math.abs(win-m.winRatePct)>.05)
+   blockers.push('历史胜率汇总与原始事件不一致');
   let review='insufficient-evidence',reason='证据门禁未满足，保持现有研究权重';
   if(!blockers.length){
    if(mean>=.8&&win>=56&&foldMeans.every(x=>x>0)){
