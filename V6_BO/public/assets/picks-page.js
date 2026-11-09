@@ -64,6 +64,20 @@
     const date = new Date(stamp);
     return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
   };
+  // A single evidence projection feeds both list clicks and cloud refreshes.
+  // Never let a previously selected stock keep outdated risk or hit labels.
+  const detailPayload = item => {
+    const code = String(item.code || item.symbol || '');
+    const quoteTime = formatAt(item.vendorQuoteAt || item.quoteAt);
+    return {
+      code, name: String(item.name || code).slice(0, 80),
+      reasons: reasonRows(item),
+      risk: String(item.riskStatus || item.risk?.status || item.risk?.level || item.riskLevel ||
+        (item.blocked === true || item.risk?.blocked === true ? '存在风险阻断' : '风险未评估')).slice(0, 130),
+      quoteProof: quoteTime ? '第三方自报报价时点：' + quoteTime + ' · 未认证实时' :
+        '逐票原始报价时点未知 · 非实时认证'
+    };
+  };
   const showItem = item => {
     const card = node('article', 'pick');
     const head = node('div', 'pickhead');
@@ -111,13 +125,7 @@
       open.setAttribute('aria-label','查看'+String(item.name||code)+'的日K月K年K和命中条件');
       open.addEventListener('click',()=>{
         state.selectedCode=code;
-        document.dispatchEvent(new CustomEvent('v6:picks-select',{detail:{
-          code,name:String(item.name||code).slice(0,80),
-          reasons,risk:String(item.riskStatus||item.risk?.status||item.risk?.level||item.riskLevel||
-            (item.blocked===true||item.risk?.blocked===true?'存在风险阻断':'风险未评估')).slice(0,130),
-          quoteProof:quoteTime?'第三方自报报价时点：'+quoteTime+' · 未认证实时':
-            '逐票原始报价时点未知 · 非实时认证'
-        }}));
+        document.dispatchEvent(new CustomEvent('v6:picks-select',{detail:detailPayload(item)}));
       });
       card.append(open);
     }
@@ -190,9 +198,15 @@
       if (data?.isMock === true || data?.simulated === true) throw new Error('服务端返回演示数据，已拒绝展示为真实选股');
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
       state.items = data.items.filter(x => x && typeof x === 'object').slice(0, 100);
-      if(state.selectedCode && !state.items.some(x=>String(x.code||x.symbol||'')===state.selectedCode)){
-        state.selectedCode=null;
+      const active = state.selectedCode
+        ? state.items.find(x => String(x.code || x.symbol || '') === state.selectedCode)
+        : null;
+      if (state.selectedCode && !active) {
+        state.selectedCode = null;
         document.dispatchEvent(new Event('v6:picks-reset'));
+      } else if (active) {
+        // Update only evidence, not historical K-bars; no redundant market fetch.
+        document.dispatchEvent(new CustomEvent('v6:picks-detail-refresh', {detail:detailPayload(active)}));
       }
       state.hasData = true;
       state.lastRefresh = Date.now();
