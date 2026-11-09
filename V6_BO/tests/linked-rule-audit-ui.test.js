@@ -74,3 +74,19 @@ test('historical audit renders distinct rule families and no automatic weight ch
  assert.ok(detail.children.some(e=>e.textContent.includes('同家族重叠 1')));
  assert.ok(detail.children.some(e=>e.textContent.includes('本次未改权重')));
 });
+
+test('weight review labels are plainly visible yet cannot edit production strategy weights',async()=>{
+ const report={configuration:{horizons:[5]},rules:[{id:'rule-a',label:'候选研究战法',
+  byHorizon:{5:{signals:48,modeled:48,averageNetReturnPct:1.05,winRatePct:75}}}],
+  weightReviewDiagnostics:{status:'descriptive-only',
+   byRule:{'rule-a':{review:'manual-up-review',modeledEvents:48,
+    nonoverlapEpisodes:24,blockedEvents:0,blockers:[],
+    reason:'多个冻结窗口方向一致，仅供人工复核'}}}};
+ const page=ui(report);await page.ids.completeRun.handlers.click();
+ const section=page.found.find(x=>x.id==='publicRuleAuditSummary');
+ assert.ok(section.children.some(x=>String(x.textContent).includes('从不自动修改')));
+ const detail=section.children.find(x=>x.tag==='details');
+ assert.ok(detail.children.some(x=>String(x.textContent).includes('可人工复核升权假设')));
+ assert.ok(detail.children.some(x=>String(x.textContent).includes('只读，不改权重')));
+ assert.ok(!js.includes('innerHTML'));
+});
