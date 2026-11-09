@@ -19431,7 +19431,7 @@ function handle(req, res, u, body) {
         if (!rows.length) return json(res, { ok: false, error: '暂无K线数据（本地缓存与行情接口都没取到）', code });
         const cursorRaw = u.searchParams.get('end') || '';
         const cursor = cursorRaw.replace(/-/g, '');
-        if (cursorRaw && !/^\\d{8}$/.test(cursor)) {
+        if (cursorRaw && !/^\d{8}$/.test(cursor)) {
           return json(res, { ok: false, error: 'K线历史游标格式无效（YYYYMMDD）' });
         }
         // Existing n cap (240) and public route stay unchanged. Historical
