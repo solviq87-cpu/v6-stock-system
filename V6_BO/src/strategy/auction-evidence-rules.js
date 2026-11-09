@@ -73,17 +73,21 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
  if(stock.isST===true||stock.suspended===true||stock.isDelisting===true||
     stock.noPriceLimit===true||stock.tradable===false||stock.ipoNoLimit===true)
   risks.push('ST、停牌、退市风险、无涨跌幅限制或不可交易状态，禁止生成看涨研究命中');
- const riskBlocked=risks.length>0;
  const earlyPeak=pre.length?Math.max(...pre.map(t=>100*(t.indicativePrice/stock.previousClose-1))):null;
- if(earlyPeak!==null&&earlyPeak>=6&&(final?gap:noncancel.length?
-   100*(last.indicativePrice/stock.previousClose-1):null)<1)
+ const laterGap=final?gap:last?100*(last.indicativePrice/stock.previousClose-1):null;
+ const suspiciousFade=earlyPeak!==null&&earlyPeak>=6&&laterGap!==null&&laterGap<1;
+ if(suspiciousFade)
   risks.push('9:20前高幅虚拟报价随后明显回落；可能存在撤单/报价诱导风险，不能推定主力资金行为');
- if(final&&finite(stock.limitPct)&&stock.limitPct>0&&gap>=stock.limitPct*.9)
-  risks.push('高开接近涨幅上限，无法据此证明9:30后可成交或有流动性');
+ const atLimit=!!final&&finite(stock.limitPct)&&stock.limitPct>0&&gap>=stock.limitPct*.9;
+ if(atLimit)risks.push('高开接近涨幅上限，无法据此证明9:30后可成交或有流动性');
  if(final&&gap>=8)risks.push('大幅高开：追高回撤及开盘后承接不足风险');
+ // Severe fade / near-limit opening overrides bullish research matches.
+ const riskBlocked=risks.length>0&&(stock.isST===true||stock.suspended===true||
+  stock.isDelisting===true||stock.noPriceLimit===true||stock.tradable===false||
+  stock.ipoNoLimit===true||suspiciousFade||atLimit);
  const evaluate=(rule,inputs,pass,evidence)=>({
-  ...rule,status:riskBlocked?'risk_blocked':inputs?'not_matched'===pass?'not_matched':
-  pass?'candidate':'not_matched':'insufficient_data',
+  ...rule,status:riskBlocked?'risk_blocked':!inputs?'insufficient_data':
+    pass?'candidate':'not_matched',
   evidence:inputs?evidence:[],reason:riskBlocked?risks[0]:inputs?
    (pass?'完整研究条件命中，尚无样本外收益证明':'部分必要条件未通过'):'缺少该战法必需的原始竞价证据'
  });
