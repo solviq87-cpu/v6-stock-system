@@ -293,17 +293,27 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    throw Error('旧研究权重越过边界');
   version=previous.version+1;previousFingerprint=previous.fingerprint;
  }
- const icByFactor=Object.fromEntries(ids.map(id=>[id,factorIC(train,id)]));
+ const icByFactor=Object.fromEntries(ids.map(id=>{
+  const daily=train.map(d=>({day:d.day,regime:d.regime,
+   ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
+   .filter(x=>x.ic!==null);
+  return [id,assessFactorReliability(daily)];
+ }));
  const proposal={};
  for(const f of defs){
-  const x=icByFactor[f.id];
-  const adjustment=x.days>=10?clamp(x.meanIC*.2,-.08,.08):0;
+  const adjustment=icByFactor[f.id].suggestedWeightMultiplier;
   proposal[f.id]=+clamp(oldWeights[f.id]*(1+adjustment),f.baseWeight*.5,f.baseWeight*1.5).toFixed(8);
  }
+ // Previous model's test days are no longer untouched. Require five NEW
+ // chronologically later mature holdout days for a later self-upgrade.
+ const freshTest=previous?test.filter(d=>d.day>previous.lastObservationDay):test;
+ if(freshTest.length<5)throw Error('新增独立样本外交易日不足，不能重复优化已看过的测试集');
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
-   baselineTest=dailyIC(test,ids,oldWeights),
-   evolvedTest=dailyIC(test,ids,proposal);
+   baselineTest=dailyIC(freshTest,ids,oldWeights),
+   evolvedTest=dailyIC(freshTest,ids,proposal);
+ const validStability=pairedStability(valid,ids,oldWeights,proposal,dailyIC),
+   testStability=pairedStability(freshTest,ids,oldWeights,proposal,dailyIC);
  const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
    testDelta=evolvedTest.meanIC-baselineTest.meanIC;
  const shock=marketContext===undefined?null:assessMarketShock(marketContext,{asOf:now});
@@ -311,6 +321,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
  const candidateChanged=ids.some(id=>proposal[id]!==oldWeights[id]);
  const accepted=candidateChanged&&!paused&&
    validationDelta>0.002&&testDelta>0.002&&
+   validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
    evolvedValidation.meanIC>0&&evolvedTest.meanIC>0;
  const weights=accepted?proposal:oldWeights;
  return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':'shadow-retained',{
@@ -318,17 +329,24 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
   lastObservationDay:sorted.at(-1).day,previousFingerprint:accepted?previousFingerprint:
    previous?.fingerprint||null,
-  trainDays:train.length,validationDays:valid.length,testDays:test.length,
+  trainDays:train.length,validationDays:valid.length,testDays:freshTest.length,
+  freshHoldoutOnly:previous!==null,
+  marketRegimeDays:Object.fromEntries(['systemic-selloff','not-systemic-selloff','unknown']
+   .map(label=>[label,train.filter(x=>x.regime===label).length])),
   excludedOrUnmaturedDays:sorted.length-observed.length,
   horizonTradingDays:HORIZON,purgeSessions:5,
-  factorLearning:icByFactor,validation:{baseline:baselineValidation,evolved:evolvedValidation,deltaIC:validationDelta},
-  holdout:{baseline:baselineTest,evolved:evolvedTest,deltaIC:testDelta},
+  factorLearning:icByFactor,validation:{baseline:baselineValidation,evolved:evolvedValidation,
+   deltaIC:validationDelta,stability:validStability},
+  holdout:{baseline:baselineTest,evolved:evolvedTest,deltaIC:testDelta,
+   stability:testStability,firstFreshDay:freshTest[0].day},
   shadowWeights:weights,proposedShadowWeights:proposal,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
    '在持有期重叠、幸存者偏差、股票相关性和多重检验未消除前不代表因果收益',
    '前瞻冻结、逐期样本外和实际交易费用/滑点仍须独立审计',
+   '市场状态只使用信号发生时输入的未认证指数广度证据，无法证明宏观因果关系',
+   '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
