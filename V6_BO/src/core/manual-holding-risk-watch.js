@@ -95,7 +95,8 @@ function readManualHoldingWatchFile(file,{now=Date.now()}={}){
  if(!file)return empty;
  let fd;
  try{
-  if(typeof file!=='string'||file.length>2048||file.includes('\\0'))throw Error('path');
+  if(typeof file!=='string'||file.length>2048||file.includes(String.fromCharCode(0)))throw Error('path');
+  if(fs.lstatSync(file).isSymbolicLink())throw Error('symlink');
   const flags=fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0);
   fd=fs.openSync(file,flags);
   const stat=fs.fstatSync(fd);
