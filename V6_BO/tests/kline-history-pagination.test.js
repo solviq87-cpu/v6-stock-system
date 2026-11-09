@@ -17,7 +17,7 @@ const dataset=[
 ];
 test('real Kline server paginates strictly before end date, never repeats boundary',()=>{
  assert.deepEqual(paginate(dataset,2,''),dataset.slice(-2));
- assert.deepEqual(paginate(dataset,2,'20260304'),dataset.slice(1,3));
+ assert.deepEqual(paginate(dataset,2,'20260304'),dataset.slice(2,4));
  assert.deepEqual(paginate(dataset,2,'20260302'),dataset.slice(0,2));
  assert.deepEqual(paginate(dataset,2,'20260226'),[]);
  assert.deepEqual(paginate(dataset,2,'20271231'),dataset.slice(-2));
