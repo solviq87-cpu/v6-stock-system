@@ -10,7 +10,7 @@ function freezeCohort(input,{now=Date.now()}={}){
  if(!finite(now)||now<=0)throw Error('冻结时钟无效');
  if(!input||input.schemaVersion!==1||!Array.isArray(input.signals)||!input.signals.length||input.signals.length>500)throw Error('需要1至500条独立信号');
  const feed=contract(input.feed),ids=new Set();const signals=input.signals.map(s=>{
- if(!s||!text(s.signalId)||ids.has(s.signalId)||!/^\d{6}$/.test(s.symbol)||!['fourteen','bazi','gpt','python','manual'].includes(s.system)||!text(s.cohort)||!text(s.provenance)||!finite(s.signalAt)||s.signalAt<cutoff(s.signalDate)||s.signalAt>now||!finite(s.baselineClose)||s.baselineClose<=0)throw Error('信号ID/时间/来源或基准收盘无效');ids.add(s.signalId);
+ if(!s||!text(s.signalId)||ids.has(s.signalId)||!/^\d{6}$/.test(s.symbol)||!['fourteen','bazi','gpt','python','manual','research'].includes(s.system)||!text(s.cohort)||!text(s.provenance)||!finite(s.signalAt)||s.signalAt<cutoff(s.signalDate)||s.signalAt>now||!finite(s.baselineClose)||s.baselineClose<=0)throw Error('信号ID/时间/来源或基准收盘无效');ids.add(s.signalId);
  return {signalId:s.signalId,symbol:s.symbol,system:s.system,cohort:s.cohort,provenance:s.provenance,signalDate:s.signalDate,signalAt:s.signalAt,baselineClose:s.baselineClose};});
  const payload={schemaVersion:1,mode:'frozen-forward-signal-cohort',feed,signals,frozenAt:now,canTrade:false,prospectiveCertified:false};return {...payload,fingerprint:hash(payload)};
 }
