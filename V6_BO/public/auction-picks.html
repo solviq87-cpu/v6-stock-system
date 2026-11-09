@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071120">
+<title>V6 · 竞价研究观察池</title>
+<style>
+:root{color-scheme:dark;--bg:#071120;--card:#11233d;--line:#2b4769;--txt:#f0f6ff;--muted:#a0b7d2;--accent:#56a8ff;--warn:#f4c76c}
+*{box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:radial-gradient(ellipse at 50% -20%,#1b3d64,transparent 52%),var(--bg);color:var(--txt);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+a{color:#a9d4ff;text-decoration:none}button,input,select{font:inherit;touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #83c9ff;outline-offset:3px}
+main{max-width:1250px;margin:auto;padding:20px 24px 85px}
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px}
+.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;width:45px;height:45px;border-radius:13px;background:linear-gradient(140deg,#247ad2,#10508b);font-weight:800}
+h1,h2{margin:0}h1{font-size:24px}h2{font-size:18px}.muted,.sub{color:var(--muted)}.sub{font-size:13px}
+.top-links{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}.refresh{min-height:44px;border:1px solid #478dd5;border-radius:10px;background:#2265ae;color:white;padding:9px 16px;cursor:pointer}.refresh:disabled{opacity:.55}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}.metric{border:1px solid var(--line);background:#142a48;border-radius:14px;padding:14px;min-width:0}.metric span{font-size:12px;color:var(--muted)}.metric strong{display:block;font-size:24px;margin-top:4px;font-variant-numeric:tabular-nums}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px;margin:13px 0}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.controls input,.controls select{min-height:44px;border:1px solid #355779;border-radius:9px;background:#0b1a2d;color:var(--txt);padding:9px 12px;max-width:100%}.controls input{min-width:170px;flex:1}.controls label{display:flex;align-items:center;gap:7px;color:var(--muted)}
+#status{min-height:23px;margin:12px 0 3px;color:#c3dfff}#status.warn{color:var(--warn)}#status.error{color:#ff9fa9}
+.notice{border:1px solid #50496b;background:#1c2940;border-radius:10px;padding:11px 13px;color:#d8d2f7;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pick{min-width:0;border:1px solid #305174;background:#152d4c;border-radius:14px;padding:15px}
+.pickhead{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}.pickhead strong{font-size:18px}.code{color:var(--muted);font-size:12px;margin-left:7px}
+.score{font-size:22px;font-weight:800}.score small{font-weight:400;color:var(--muted);font-size:11px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.tag{border:1px solid #3a5878;border-radius:7px;background:#233d5b;font-size:12px;padding:3px 8px}.up{color:#f78190}.down{color:#52d4a0}
+.reasons{margin:7px 0;padding-left:21px;overflow-wrap:anywhere}.reasons li{margin:6px 0}
+details{margin-top:9px;color:#c6d7ec}summary{cursor:pointer;min-height:36px}.footnote{font-size:12px;color:var(--muted);margin-top:12px}.empty{padding:28px;text-align:center;color:var(--muted)}
+.bottom{display:none}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.top-links{display:none}}
+@media(max-width:550px){main{padding:13px 12px calc(env(safe-area-inset-bottom) + 95px)}.metric{padding:11px}.metric strong{font-size:21px}.panel,.pick{padding:12px}h1{font-size:19px}.sub{font-size:12px}.controls label{flex:1}.controls select{width:100%}.bottom{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;padding:9px 3px calc(9px + env(safe-area-inset-bottom));background:#0b1a2cf5;border-top:1px solid #385577;backdrop-filter:blur(12px)}.bottom a{min-width:0;text-align:center;font-size:10px;color:#c4d8f2}.bottom a b{display:block;font-size:17px}.bottom a.active{color:#62b7ff}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.01ms!important}}
+</style></head><body>
+<main>
+<header><div class="brand"><span class="logo">V6</span><div><h1>竞价研究观察池</h1><div class="sub">竞价共振 · 板块 · 原始依据 · 风险待核验</div></div></div>
+<nav class="top-links" aria-label="页面切换"><a href="/">⌂ 总览</a><a href="/picks.html">☆ 智能选股</a><a href="/research.html#decisionWorkspace">✦ 策略研究</a><a href="/m">▣ 手机速览</a></nav>
+<button class="refresh" id="reload" type="button">↻ 读取云端结果</button></header>
+<div class="metrics" aria-label="竞价研究汇总">
+<div class="metric"><span>已有共振候选</span><strong id="total">—</strong></div>
+<div class="metric"><span>当前显示</span><strong id="visible">—</strong></div>
+<div class="metric"><span>已有理由</span><strong id="explained">—</strong></div>
+<div class="metric"><span>源报价已认证</span><strong style="font-size:18px">否</strong></div>
+</div>
+<section class="panel" aria-labelledby="filterTitle">
+<h2 id="filterTitle">筛选已有竞价候选</h2>
+<div class="controls">
+<input id="search" type="search" placeholder="搜索股票名或代码" aria-label="股票搜索">
+<label>板块<select id="board"><option value="all">全部</option><option value="main">沪深主板</option><option value="gem">创业板</option></select></label>
+<label>排序<select id="sort"><option value="original">原榜单</option><option value="score">共振评分</option><option value="auctionPct">竞价涨幅</option></select></label>
+</div>
+<p id="status" role="status" aria-live="polite">等待读取已有服务端共振结果</p>
+<p id="synced" class="footnote">尚无成功读取</p>
+<div class="notice">本页展示 V6 已有竞价共振接口的观察结果，不是新增研究战法的实盘命中。9:20 后匹配量、9:25 实际成交及首板证据三套新规则已独立实现，但需各自真实原始数据才能判定；逐票原始报价时点仍待认证，不把此页的计算时刻、旧报价或模型分数当作成交证据。</div>
+</section>
+<section aria-labelledby="listTitle"><h2 id="listTitle">竞价共振观察名单</h2><div id="results" class="grid" aria-live="polite"><div class="empty">正在读取…</div></div></section>
+<p class="footnote">仅读取同源服务器结果，不从浏览器启动全市场行情采集、模拟成交或飞书推送。休市、网络异常、权限撤销时严格区分旧快照与不可访问；任何风险提示均不构成买卖指令。</p>
+<nav class="bottom" aria-label="手机七项导航">
+<a href="/m"><b>⌂</b>首页</a><a href="/picks.html" class="active"><b>☆</b>选股</a><a href="/#v6-market"><b>▥</b>行情</a><a href="/research.html#decisionWorkspace"><b>✦</b>AI</a><a href="/#v6-paper"><b>◉</b>模拟</a><a href="/#holdSec1"><b>⬡</b>风控</a><a href="/#v6-release"><b>⚙</b>设置</a>
+</nav>
+</main>
+<script src="/assets/auction-picks-page.js?v=20261109a" defer></script>
+</body></html>
