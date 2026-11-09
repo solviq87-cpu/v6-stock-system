@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#061326">
+<title>天枢智策 · 智能选股池</title>
+<meta name="description" content="查看V6真实选股候选、原始命中战法、风险与独立公开战法研究。">
+<link rel="stylesheet" href="/assets/picks-workbench.css?v=20261109a">
+<script defer src="/assets/public-research-patterns.js?v=20261109a"></script>
+<script defer src="/assets/picks-workbench.js?v=20261109a"></script>
+</head>
+<body>
+<a class="skip" href="#picksList">跳转到股票结果</a>
+<header class="top">
+  <a class="brand" href="/" aria-label="回到天枢智策首页"><span class="brandmark" aria-hidden="true">✦</span><span><strong>天枢智策</strong><small>V6 · 智能选股与研究</small></span></a>
+  <nav class="top-links" aria-label="主要页面">
+    <a href="/">行情首页</a><a class="active" aria-current="page" href="/picks.html">智能选股池</a>
+    <a href="/research.html#decisionWorkspace">完整研究</a><a href="/m">手机总览</a>
+  </nav>
+  <button type="button" class="refresh" id="refreshPicks" aria-label="只读刷新云端候选">↻ <span>云端刷新</span></button>
+</header>
+<main>
+  <section class="page-heading">
+    <div><p class="eyebrow">DISCOVERY / RESEARCH</p><h1>智能选股池<span class="accent">.</span></h1><p class="lead">看到 V6 真实选中的股票，也看清为什么入池、风险在哪里。</p></div>
+    <div class="sync"><span id="syncLight" class="sync-light"></span><span id="syncState" role="status" aria-live="polite">尚未读取云端候选</span><small id="dataTime">数据日期待核对 · 不是实时认证</small></div>
+  </section>
+  <section class="metrics" aria-label="候选池概况">
+    <div class="metric"><span>服务端候选总数</span><strong id="totalCount">—</strong><small>不以页面截取数量代替总数</small></div>
+    <div class="metric"><span>已载入候选</span><strong id="visibleCount">—</strong><small>只读，共用同一云端</small></div>
+    <div class="metric"><span>有明确命中理由</span><strong id="reasonCount">—</strong><small>以服务器提供的原始证据为准</small></div>
+    <div class="metric"><span>风险阻断 / 待核</span><strong id="riskCount">—</strong><small>未知不等于安全</small></div>
+  </section>
+  <div class="workspace-tabs" role="tablist" aria-label="选股工作区">
+    <button type="button" id="tabCandidates" role="tab" aria-controls="panelCandidates" aria-selected="true">✦ V6 真实候选</button>
+    <button type="button" id="tabPatterns" role="tab" aria-controls="panelPatterns" aria-selected="false">◇ 公开战法研究库</button>
+  </div>
+  <section id="panelCandidates" role="tabpanel" aria-labelledby="tabCandidates" class="workspace">
+    <section class="list-panel" aria-label="选股列表">
+      <div class="section-title"><div><h2>今日候选</h2><p>原四套策略保持不变 · 有命中才显示理由</p></div><span class="read-only">只读</span></div>
+      <div class="filters"><label class="search"><span aria-hidden="true">⌕</span><input id="pickSearch" inputmode="search" type="search" autocomplete="off" placeholder="搜索股票代码或名称" aria-label="搜索候选股票"></label>
+        <label class="sort-label">排序<select id="pickSort" aria-label="排序方式"><option value="original">原始评分</option><option value="reason">命中理由数</option><option value="price">价格</option></select></label>
+      </div>
+      <div class="filter-rail" role="group" aria-label="候选筛选">
+        <button type="button" data-filter="all" aria-pressed="true">全部候选</button>
+        <button type="button" data-filter="reason" aria-pressed="false">已命中</button>
+        <button type="button" data-filter="focus" aria-pressed="false">高分关注</button>
+        <button type="button" data-filter="blocked" aria-pressed="false">风险提示</button>
+      </div>
+      <div class="list-scroll" id="picksList" tabindex="0" role="list" aria-label="候选股票滚动列表"><p class="loading">尚未取得服务器选股结果。</p></div>
+      <p class="list-footer" id="listFooter">仅显示有实际来源的候选；非投资建议。</p>
+    </section>
+    <aside class="detail-panel" id="stockDetails" aria-label="选中股票详情">
+      <div class="detail-title"><span>个股研究 · 原始证据</span><span class="asof-badge" id="detailFreshness">时点待核对</span></div>
+      <div class="stock-head"><div><h2 id="selectedName">选择一只股票</h2><p id="selectedCode">从左侧结果进入</p></div><div class="stock-price"><strong id="selectedPrice">—</strong><span id="selectedChange">—</span></div></div>
+      <div id="selectionWarning" class="warning">目前只展示云端返回的真实候选，不制造演示选股结果。</div>
+      <div class="evidence">
+        <div><h3>实际命中条件</h3><div id="selectedReasons" class="reason-list"><span>尚未选择候选。</span></div></div>
+        <div><h3>所属策略与风险</h3><p id="selectedStrategy">—</p><p id="selectedRisk" class="risk-line">—</p></div>
+      </div>
+      <div class="details-action"><button id="checkPatterns" type="button">核对该股历史战法</button><a id="completeResearch" href="/research.html#decisionWorkspace">打开完整研究 <span aria-hidden="true">›</span></a></div>
+      <section id="researchResults" class="pattern-results" aria-label="该股历史形态研究" hidden>
+        <div class="section-title"><div><h3>公开战法匹配</h3><p>只读日 K 研究，不改变正式四策略的分数和入池决定</p></div></div>
+        <p id="researchStatus" role="status" aria-live="polite">等待读取已确认的历史 K 线</p>
+        <div id="researchMatches"></div>
+      </section>
+    </aside>
+  </section>
+  <section id="panelPatterns" class="patterns-workspace" role="tabpanel" aria-labelledby="tabPatterns" hidden>
+    <div class="section-title"><div><h2>公开战法灵感库</h2><p>基于公开技术分析资料整理，先研究、回测、再考虑采用；不是已证实的高胜率策略。</p></div><a href="/research.html#decisionWorkspace" class="secondary-link">进入回测工作台 ›</a></div>
+    <div id="patternCatalog" class="catalog"></div>
+    <div class="caveat"><strong>反负优化守门：</strong>这些外部规则不能直接写入正式四套策略、不能直接驱动模拟盘，更不能因“任意一条条件命中”绕过原有风控。样本外收益、停牌、复权、涨跌停和成本均须单独验证。</div>
+  </section>
+</main>
+<nav class="mobile-dock" aria-label="手机主要功能">
+  <a href="/m"><span aria-hidden="true">⌂</span><small>首页</small></a>
+  <a href="/#v6-stock"><span aria-hidden="true">☆</span><small>自选股</small></a>
+  <a href="/#v6-market"><span aria-hidden="true">▥</span><small>行情</small></a>
+  <a href="/picks.html" aria-current="page"><span aria-hidden="true">✦</span><small>选股</small></a>
+  <a href="/#v6-paper"><span aria-hidden="true">◎</span><small>模拟盘</small></a>
+  <a href="/#holdSec1"><span aria-hidden="true">⬡</span><small>风控</small></a>
+  <a href="/#lockPanel"><span aria-hidden="true">◉</span><small>我的</small></a>
+</nav>
+</body>
+</html>
