@@ -99,7 +99,7 @@ test('cloud refresh updates existing selected-stock reasons, risk and quote proo
  assert.match(allText(ids.detailReasons),/新条件/);
  assert.doesNotMatch(allText(ids.detailReasons),/旧条件/);
  assert.equal(ids.detailRisk.textContent,'高风险');
- assert.match(ids.detailQuote.textContent,/原始报价时点未知/);
+ assert.match(ids.detailQuote.textContent,/逐票报价原始时点：未知/);
  assert.equal(ids.pickDetailCode.textContent,'000001');
  assert.equal(klineCount(),1,'metadata refresh must not refetch or rebuild historical OHLC');
  assert.ok(ids.periodChart.children.some(x=>x.tag==='svg'));
