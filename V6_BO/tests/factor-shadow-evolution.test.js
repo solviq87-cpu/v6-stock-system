@@ -4,6 +4,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
 const {freezeFeatureEpisode,evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
+const {runOnce:runShadowWorker,parse:parseShadowWorker}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -140,4 +141,53 @@ test('explicit CLI writes immutable private 0600 factor evidence and refuses pat
   {now:at(dates[0],'16:02:00')}),/符号链接/);
  assert.throws(()=>execute(['freeze',cohortPath,inputPath,path.join(dir,'public','file.json')],
   {now:at(dates[0],'16:02:00')}),/公开/);
+});
+
+test('unattended research worker appends immutable model versions only when new evidence can change training',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-worker-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private','models');
+ const records=[];
+ const append=(from,until)=>{
+  for(let i=from;i<until;i++){
+   const e=episode(i),featuresFile=path.join(dir,'factor-'+i+'.json'),
+    reportFile=path.join(dir,'report-'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   records.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:records}));
+ };
+ append(0,56);
+ const options={manifestFile,outputDir,now:finalClock};
+ const first=runShadowWorker(options);
+ assert.equal(first.status,'shadow-updated');
+ assert.equal(first.version,1);
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ assert.equal(fs.statSync(path.join(outputDir,fs.readdirSync(outputDir)[0])).mode&0o777,0o600);
+ const same=runShadowWorker(options);
+ assert.equal(same.status,'skipped-no-new-training');
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ append(56,61);
+ const second=runShadowWorker(options);
+ assert.equal(second.status,'shadow-updated');
+ assert.equal(second.version,2);
+ assert.equal(fs.readdirSync(outputDir).length,2);
+ const names=fs.readdirSync(outputDir);
+ assert.ok(names.every(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x)));
+ const latest=names.map(n=>JSON.parse(fs.readFileSync(path.join(outputDir,n),'utf8')))
+  .find(x=>x.version===2);
+ assert.ok(latest.previousFingerprint);
+ assert.equal(latest.productionWeightsChanged,false);
+ assert.equal(parseShadowWorker(['watch',manifestFile,outputDir,'--interval','60000']).interval,60000);
+ assert.throws(()=>parseShadowWorker(['watch',manifestFile,outputDir,'--interval','100']),/轮询/);
+});
+test('corrupt research model archive stops unattended learning instead of silently resetting version',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-bad-model-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ fs.mkdirSync(outputDir,{recursive:true});
+ fs.writeFileSync(path.join(outputDir,'shadow-2026-07-01-aaaaaaaaaaaa.json'),'{"bad":"content"}');
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
+ assert.throws(()=>require('../scripts/factor-shadow-worker').latestAccepted(outputDir),/结构无效/);
 });
