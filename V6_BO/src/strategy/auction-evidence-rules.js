@@ -28,7 +28,7 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
  const unavailable=why=>({...base,reason:why,rules:RULES.map(r=>({...r,
   status:'insufficient_data',evidence:[],reason:why}))});
  if(!validCode(stock?.code)||!validDay(tradeDate)||!Number.isSafeInteger(asOf)||
-    asOf<=0||dayOf(asOf)!==tradeDate) return unavailable('证券、交易日或评估时刻无效');
+    asOf<=0||asOf>8640000000000000-CN_OFFSET||dayOf(asOf)!==tradeDate) return unavailable('证券、交易日或评估时刻无效');
  const input=stock.snapshots;
  if(!Array.isArray(input)||input.length<1||input.length>MAX_ROWS)
   return unavailable('需提供不超过250条同日竞价快照');
@@ -43,7 +43,7 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
   const at=t?.quoteAt,received=t?.receivedAt,price=t?.indicativePrice,
     volume=t?.indicativeMatchedVolume;
   if(!Number.isSafeInteger(at)||!Number.isSafeInteger(received)||
-     at<=0||received<at||received>asOf||at>asOf||received-at>60000||
+     at<=0||at>8640000000000000-CN_OFFSET||received<at||received>asOf||at>asOf||received-at>60000||
      dayOf(at)!==tradeDate||!finite(price)||price<=0||
      !Number.isSafeInteger(volume)||volume<0||
      !finite(minuteOf(at))||minuteOf(at)<555||minuteOf(at)>=566||
@@ -69,6 +69,16 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
   last.quoteAt-first.quoteAt>=60000&&first.indicativeMatchedVolume>0;
  const volumeGrowth=stable?last.indicativeMatchedVolume/first.indicativeMatchedVolume:null;
  const priceRetreat=stable?100*(last.indicativePrice/first.indicativePrice-1):null;
+ let maxDrawdownPct=null,monotoneVolume=false;
+ if(stable){
+  let peak=0,deepest=0;
+  monotoneVolume=noncancel.every((t,i)=>i===0||t.indicativeMatchedVolume>=noncancel[i-1].indicativeMatchedVolume);
+  for(const tick of noncancel){
+   peak=Math.max(peak,tick.indicativePrice);
+   deepest=Math.min(deepest,100*(tick.indicativePrice/peak-1));
+  }
+  maxDrawdownPct=deepest;
+ }
  const risks=[];
  if(stock.isST===true||stock.suspended===true||stock.isDelisting===true||
     stock.noPriceLimit===true||stock.tradable===false||stock.ipoNoLimit===true)
@@ -93,11 +103,11 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
  });
  const rules=[
   evaluate(RULES[0],stable,
-   stable&&priceRetreat>=-1&&volumeGrowth>=1.1&&
+   stable&&monotoneVolume&&maxDrawdownPct>=-1&&volumeGrowth>=1.1&&
     last.indicativePrice/stock.previousClose>=1.005&&last.indicativePrice/stock.previousClose<=1.06,
    stable?['不可撤单时段至少两次报价，间隔≥60秒',
     '虚拟匹配量后/前='+round(volumeGrowth)+'（非真实成交量）',
-    '虚拟价格变化='+round(priceRetreat)+'%，前收涨幅='+round(100*(last.indicativePrice/stock.previousClose-1))+'%']:[]),
+    '虚拟价全段最大回撤='+round(maxDrawdownPct)+'%，匹配量未下降='+monotoneVolume+', 前收涨幅='+round(100*(last.indicativePrice/stock.previousClose-1))+'%']:[]),
   evaluate(RULES[1],!!final&&validAmount&&finite(final.executedAmount),
    !!final&&validAmount&&final.executedAmount>=3000000&&amountRatio>=.03&&gap>=.5&&gap<=3,
    final?['9:25撮合标记已提供','高开='+round(gap)+'%',
@@ -120,6 +130,7 @@ function evaluateAuctionEvidence(stock={}, {asOf,tradeDate}={}){
   provider:source,sourceCertification:'declared-unverified',
   factors:{earlyIndicativePeakPct:round(earlyPeak),openGapPct:round(gap),
    matchedVolumeGrowth:round(volumeGrowth),indicativePriceChangePct:round(priceRetreat),
+   indicativeMaxDrawdownPct:round(maxDrawdownPct),
    executedAuctionAmount:final?.executedAmount??null,
    openingAmountRatio20:round(amountRatio),sectorRank:stock.sectorRank??null,
    finalQuoteAt:final?.quoteAt??null,
