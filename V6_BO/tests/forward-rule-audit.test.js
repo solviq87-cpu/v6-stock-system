@@ -9,7 +9,8 @@ function result(n=2){return {schemaVersion:1,mode:'forward-signal-price-observat
      {tradingDays:20,status:'pending',priceReturnPct:null},
      {tradingDays:60,status:'corporate-action-unresolved',priceReturnPct:null}]}))};}
 test('sample audit never proves a winning rule even if returns are positive',()=>{
- const r=auditForwardRules(result(40));const h=r.groups[0].windows[0];
+ const p=result(40);p.records.forEach((r,i)=>r.symbol=String(600001+i));
+ const r=auditForwardRules(p);const h=r.groups[0].windows[0];
  assert.equal(h.status,'descriptive-only');assert.equal(h.ruleEffectiveness,'not-proven');
  assert.equal(r.causalEffectProven,false);assert.equal(r.weightsUpdated,false);
  assert.equal(h.positiveFractionPct,50);assert.equal(h.medianPriceReturnPct,1);
