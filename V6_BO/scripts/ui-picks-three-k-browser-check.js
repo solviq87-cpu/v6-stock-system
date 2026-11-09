@@ -9,9 +9,18 @@ const {aggregate}=require('../public/assets/picks-periods');
 const root=path.resolve(__dirname,'../public');
 const out=process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'v6-three-k-'));
 fs.mkdirSync(out,{recursive:true});
-const files=new Set(['/picks.html','/assets/picks-page.js','/assets/picks-periods.js',
+const files=new Set(['/picks.html','/assets/picks-page.js','/assets/picks-followup.js','/assets/picks-periods.js',
  '/assets/picks-three-k.js','/assets/picks-three-k.css']);
-const candidates={snapshotDay:'2026-11-06',items:[
+const tracking={schemaVersion:1,mode:'forward-signal-price-observation',
+ canTrade:false,verifiedLive:false,prospectiveCertified:false,executionSimulated:false,
+ asOf:'2026-11-09',cohortFingerprint:'a'.repeat(64),marketFingerprint:'b'.repeat(64),
+ records:[{signalId:'fixture-1',symbol:'600519',system:'fourteen',cohort:'突破',
+  signalDate:'2026-11-02',baselineClose:10,
+  windows:[{tradingDays:1,targetDate:'2026-11-03',status:'observed',priceReturnPct:0},
+   {tradingDays:5,targetDate:'2026-11-09',status:'observed',priceReturnPct:2.5},
+   {tradingDays:20,targetDate:null,status:'pending',priceReturnPct:null},
+   {tradingDays:60,targetDate:null,status:'calendar-incomplete',priceReturnPct:null}]}]};
+const candidates={snapshotDay:'2026-11-06',forwardTracking:tracking,items:[
  {code:'600519',name:'测试股票甲',price:11.4,pct:1.4,score:82,sector:'专用设备',
   hit:[{text:'放量突破'},{text:'红三兵'}],riskLevel:'待评估'},
  {code:'000001',name:'测试股票乙',price:18,pct:-1.1,score:69,hit:[],risk:{blocked:true}}
@@ -61,6 +70,9 @@ const server=http.createServer((req,res)=>{
    await page.locator('.pick-open').first().click();
    await page.waitForFunction(()=>document.querySelector('#periodChart svg'));
    assert.match(await page.locator('#pickDetailCaption').textContent(),/测试股票甲/);
+   assert.match(await page.locator('#pickFollowup').textContent(),/\+2\.50%/);
+   assert.match(await page.locator('#pickFollowup').textContent(),/待成熟/);
+   assert.match(await page.locator('.pick').first().textContent(),/2 项已观察/);
    await page.locator('[data-period="month"]').click();
    const completeFirstPage=aggregate(series.slice(-240),'month').length-1;
    // The loading spinner can replace the intermediate caption in the same
@@ -92,11 +104,13 @@ const server=http.createServer((req,res)=>{
    await page.locator('.pick-open').nth(1).click();
    await page.waitForFunction(()=>document.querySelector('#pickDetailCode')?.textContent==='000001');
    assert.match(await page.locator('#detailReasons').textContent(),/不能视作已命中/);
+   assert.match(await page.locator('#pickFollowup').textContent(),/没有与这只股票代码匹配/);
    revoked=true;
    await page.locator('#reload').click();
    await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('没有只读查看权限'));
    assert.equal(await page.locator('.pick').count(),0,'revocation must erase old picks');
    assert.equal(await page.locator('#pickDetailCode').textContent(),'尚未选择');
+   assert.doesNotMatch(await page.locator('#pickFollowup').textContent(),/2\.50%/);
    assert.ok(calls.every(c=>c.method==='GET'),'must not write to stock scanners or Feishu');
    assert.deepEqual(errors,[],'browser errors '+label);
    if(process.env.V6_UI_SCREENSHOTS==='1'){

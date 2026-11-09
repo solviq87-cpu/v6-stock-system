@@ -6,6 +6,7 @@ const $=id=>document.getElementById(id);
 const validCode=x=>typeof x==='string'&&/^\d{6}$/.test(x);
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const source=window.V6PicksPeriods;
+const followup=window.V6PicksFollowup;
 const PAGE_SIZE=240,MAX_PAGES=6;
 const TARGET_BARS={day:2,month:36,year:5};
 let selected=null,period='day',daily=[],generation=0,controller=null;
@@ -25,6 +26,7 @@ function clear(reason='尚未选择股票'){
  $('detailReasons').replaceChildren(document.createTextNode('选择股票后显示服务器实际返回的命中条件。'));
  $('detailRisk').textContent='风险状态待核对';
  $('detailQuote').textContent='历史价格与报价独立，不认证实时';
+ const followHost=$('pickFollowup');if(followHost)followHost.textContent='选择股票后查看冻结信号的后续观察。';
  message(reason);emptyChart('没有已选择的股票');
 }
 function draw(){
@@ -173,6 +175,40 @@ async function load(code){
   message('历史K线暂不可用');emptyChart(String(err?.message||'网络读取失败'));
  }
 }
+function showFollowup(payload,code){
+ const host=$('pickFollowup');if(!host)return;
+ const report=followup?.project(payload,code);
+ host.replaceChildren();
+ if(!report||report.state!=='available'){
+  host.textContent=report?.note||'暂无冻结信号的后续观察记录，不能把当天涨跌当作验证结果。';
+  return;
+ }
+ const summary=document.createElement('p');summary.className='muted follow-summary';
+ summary.textContent='观察截止 '+report.asOf+' · '+report.totalSignals+' 条冻结信号 · '+
+   report.observed+' 个周期已观察，'+report.unresolved+' 个周期待核验';
+ host.append(summary);
+ for(const signal of report.entries){
+  const box=document.createElement('div');box.className='follow-signal';
+  const title=document.createElement('div');title.className='follow-signal-title';
+  title.textContent=signal.date+' · '+signal.system+' · '+signal.cohort;
+  box.append(title);
+  const windows=document.createElement('div');windows.className='follow-windows';
+  for(const w of signal.windows){
+   const item=document.createElement('div');item.className='follow-window';
+   const name=document.createElement('span');name.textContent=w.days+'交易日';
+   const value=document.createElement('strong');
+   value.className=w.pct===null?'flat':w.pct>0?'gain':w.pct<0?'loss':'flat';
+   value.textContent=w.pct===null?w.label:(w.pct>0?'+':'')+w.pct.toFixed(2)+'%';
+   item.append(name,value);windows.append(item);
+  }
+  box.append(windows);host.append(box);
+ }
+ if(report.totalSignals>report.entries.length){
+  const more=document.createElement('p');more.className='muted';
+  more.textContent='另有 '+(report.totalSignals-report.entries.length)+' 条记录未展开';host.append(more);
+ }
+ const note=document.createElement('p');note.className='footnote';note.textContent=report.note;host.append(note);
+}
 function updateDetailEvidence(stock){
  if(!selected||!stock||stock.code!==selected.code)return;
  selected.name=String(stock.name||stock.code).slice(0,64);
@@ -186,6 +222,7 @@ function updateDetailEvidence(stock){
  }else host.textContent='后端未返回可核实命中条件，不能视作已命中。';
  $('detailRisk').textContent=String(stock.risk||'风险尚未评估').slice(0,130);
  $('detailQuote').textContent=String(stock.quoteProof||'报价原始时点未知，不是实时价').slice(0,200);
+ showFollowup(stock.followup,stock.code);
 }
 function show(stock){
  if(!stock||!validCode(stock.code))return;

@@ -3,7 +3,7 @@
   // A client-side projection of the EXISTING cached selection endpoint. No orders,
   // scanning "force", persistence, or browser-owned portfolio authority.
   const $ = id => document.getElementById(id);
-  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null, selectedCode: null };
+  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null, selectedCode: null, forwardTracking: null };
   const number = value => {
     if (value === null || value === undefined || value === '' ||
         typeof value === 'boolean' || typeof value === 'object') return null;
@@ -71,6 +71,7 @@
     const quoteTime = formatAt(item.vendorQuoteAt || item.quoteAt);
     return {
       code, name: String(item.name || code).slice(0, 80),
+      followup: item.forwardTracking || state.forwardTracking,
       reasons: reasonRows(item),
       risk: String(item.riskStatus || item.risk?.status || item.risk?.level || item.riskLevel ||
         (item.blocked === true || item.risk?.blocked === true ? '存在风险阻断' : '风险未评估')).slice(0, 130),
@@ -119,6 +120,11 @@
     link.textContent = '深入策略研究（可选）';
     const rawCode=String(item.code||item.symbol||'');
     const code=/^\d{6}$/.test(rawCode)?rawCode:null;
+    const tracking=item.forwardTracking||state.forwardTracking;
+    const projected=code&&window.V6PicksFollowup?.project(tracking,code);
+    card.append(node('p','pick-followup-summary',projected?.state==='available'
+      ? '后续价格观察：'+projected.observed+' 项已观察 · '+projected.unresolved+' 项未核实'
+      : '后续跟踪：'+(projected?.state==='invalid'?'证据协议无效':'尚无冻结信号记录')));
     if(code){
       const open=node('button','pick-open','查看日K / 月K / 年K');
       open.type='button';
@@ -161,6 +167,7 @@
     state.hasData = false;
     state.lastRefresh = 0;
     state.selectedCode = null;
+    state.forwardTracking = null;
     document.dispatchEvent(new Event('v6:picks-unauthorized'));
     $('day').textContent = '未知';
     $('cloudSync').textContent = '访问权限需要重新确认；已清空之前的候选画面';
@@ -198,6 +205,7 @@
       if (data?.isMock === true || data?.simulated === true) throw new Error('服务端返回演示数据，已拒绝展示为真实选股');
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
       state.items = data.items.filter(x => x && typeof x === 'object').slice(0, 100);
+      state.forwardTracking = data.forwardTracking && typeof data.forwardTracking === 'object' ? data.forwardTracking : null;
       const active = state.selectedCode
         ? state.items.find(x => String(x.code || x.symbol || '') === state.selectedCode)
         : null;
