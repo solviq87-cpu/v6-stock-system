@@ -3,19 +3,34 @@ const {analyzeMarketBreadth}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
-const FIELDS='f12,f14,f3,f6,f13,f2,f124';
+const FIELDS='f12,f14,f3,f5,f6,f8,f13,f2,f20,f62,f124,f184';
 function parsePage(payload){
  const d=payload?.data;
  if(!d||!Number.isInteger(d.total)||d.total<1||!Array.isArray(d.diff))throw Error('东方财富响应缺少有效总数或行情列表');
  return {total:d.total,items:d.diff};
 }
+// Optional vendor numbers must be actual finite numbers: null, '-' and '' are
+// unavailable, NOT a zero-valued stock signal. This is read-only research data.
+const vendorNumber=(raw,{min=-Infinity,max=Infinity,integer=false}={})=>
+ typeof raw==='number'&&Number.isFinite(raw)&&raw>=min&&raw<=max&&
+ (!integer||Number.isSafeInteger(raw))?raw:undefined;
 function toStock(item){
  const code=String(item?.f12??'');const market=Number(item?.f13);
  const pct=Number(item?.f3),amount=Number(item?.f6);
  if(!/^\d{6}$/.test(code)||item?.f13===null||item?.f13===undefined||String(item.f13).trim()===''||![0,1].includes(market)||!Number.isFinite(pct)||pct < -100||pct>100||item.f3==='-'||item.f3===null||item.f3===undefined||String(item.f3).trim()==='')
   return null;
- return {code,pctChange:pct,amount:Number.isFinite(amount)&&amount>=0?amount:undefined,
-  vendorQuoteAt:sourceQuoteTimeSeconds(item?.f124)};
+ // Keep a stock's f124 time separate from the batch's startedAt/retrievedAt.
+ // f2 is already in yuan when this request uses fltt=2; do not use f43
+ // (different response/scale) to reconstruct an assumed live price here.
+ const lastPrice=vendorNumber(item?.f2,{min:0});
+ return {code,pctChange:pct,amount:vendorNumber(item?.f6,{min:0}),
+  vendorQuoteAt:sourceQuoteTimeSeconds(item?.f124),
+  lastPriceYuan:lastPrice>0?lastPrice:undefined,
+  volumeHands:vendorNumber(item?.f5,{min:0,integer:true}),
+  turnoverPct:vendorNumber(item?.f8,{min:0,max:1000}),
+  totalMarketCapYuan:vendorNumber(item?.f20,{min:0}),
+  mainNetInflowYuan:vendorNumber(item?.f62),
+  mainNetInflowPct:vendorNumber(item?.f184,{min:-1000,max:1000})};
 }
 async function fetchEastmoneySnapshot(options={}){
  const {fetchImpl=globalThis.fetch,now=Date.now(),pageSize=500,maxPages=15,timeoutMs=7000,maxSamplingMs=120000}=options;
