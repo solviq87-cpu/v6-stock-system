@@ -46,6 +46,8 @@
     "research:history": "node scripts/adaptive-monitor-archive.js",
     "tracking:freeze:picks": "node scripts/freeze-quant-picks.js",
     "factor:shadow": "node scripts/factor-shadow-evolution.js",
+    "factor:neutral:once": "node scripts/factor-horizon-neutral.js once",
+    "factor:neutral:watch": "node scripts/factor-horizon-neutral.js watch",
     "factor:maturity:once": "node scripts/factor-maturity-link.js once",
     "factor:maturity:watch": "node scripts/factor-maturity-link.js watch",
     "factor:capture:once": "node scripts/factor-eod-capture.js once",
