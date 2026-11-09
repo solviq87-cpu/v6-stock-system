@@ -61,11 +61,12 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
   const peerSource=typeof peer?.quoteSource==='string'?peer.quoteSource.trim():'';
   const peerUsable=usable(peer,peerView);
   const distinct=valid&&peerUsable&&source.toLowerCase()!==peerSource.toLowerCase();
-  const differenceBps=distinct?Number(
-   (10000*Math.abs(q.price-peer.price)/Math.max(q.price,peer.price)).toFixed(2)):null;
-  // Report a disagreement, never substitute the second provider's price.
+  const rawDifferenceBps=distinct?
+   10000*Math.abs(q.price-peer.price)/Math.max(q.price,peer.price):null;
+  const differenceBps=rawDifferenceBps===null?null:Number(rawDifferenceBps.toFixed(2));
+  // Compare the unrounded value: 50.004 bps is still outside the safety threshold.
   // Sources are self-declared, so agreement also cannot certify truth.
-  const conflict=differenceBps!==null&&differenceBps>50;
+  const conflict=rawDifferenceBps!==null&&rawDifferenceBps>50;
   const finalValid=valid&&!conflict;
   const crossCheckStatus=!peer?'not-provided':!valid?'primary-unusable':
    !peerUsable?'secondary-unusable':
