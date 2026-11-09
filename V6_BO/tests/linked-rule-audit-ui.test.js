@@ -11,7 +11,7 @@ class Element{
  after(el){this.attached=el;}
  remove(){this.removed=true;}
 }
-function ui(){
+function ui(auditReport){
  const ids=Object.fromEntries(['completeRun','paperAppend','paperRead','completeStatus',
   'completeOutput','completeSummary','payload','paperAccountId','token',
   'publicRuleAuditEnabled','linkedRulesAuditEnabled'].map(x=>[x,new Element()]));
@@ -24,7 +24,7 @@ function ui(){
  const fetch=async(url,options)=>{
   calls.push({url,options});
   return {json:async()=>({ok:true,result:{selectionEvidence:{status:'not-evaluated',candidates:[]},
-    publicRuleForwardAudit:{configuration:{horizons:[]},rules:[]}}})};
+    publicRuleForwardAudit:auditReport||{configuration:{horizons:[]},rules:[]}}})};
  };
  vm.runInNewContext(js,{document,fetch,JSON,Array,String,Number,Error});
  return {ids,calls,found};
@@ -55,4 +55,19 @@ test('unchecked linked rules never introduce the extra audit flag or a fake stra
  assert.equal(payload.validatePublicRules,true);
  assert.equal(payload.publicRuleAuditOptions.includeLinkedRules,undefined);
  assert.match(js,/averageNetReturnPct==null\?'未验证'/);
+});
+
+test('historical audit renders distinct rule families and no automatic weight change',async()=>{
+ const report={configuration:{horizons:[1]},rules:[{id:'donchian20_liquidity',label:'唐奇安',
+   byHorizon:{1:{signals:2,modeled:1,averageNetReturnPct:null,winRatePct:null}}}],
+  overlapDiagnostics:{status:'descriptive-only',rawRuleSignals:3,uniqueStockDays:2,
+   independentFamilyExposures:2,sameFamilyDuplicateSignals:1,
+   byRule:{donchian20_liquidity:{signalDays:2,sameFamilyOverlapDays:1,otherFamilyOverlapDays:0,
+    reviewNote:'存在同家族重叠，先去相关及扩充独立样本，不建议据此升权'}}}};
+ const h=ui(report);await h.ids.completeRun.handlers.click();
+ const section=h.found.find(e=>e.id==='publicRuleAuditSummary');
+ assert.ok(section.children.some(e=>e.textContent.includes('同家族重复命中 1')));
+ const detail=section.children.find(e=>e.tag==='details');
+ assert.ok(detail.children.some(e=>e.textContent.includes('同家族重叠 1')));
+ assert.ok(detail.children.some(e=>e.textContent.includes('本次未改权重')));
 });
