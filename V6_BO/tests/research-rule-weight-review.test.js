@@ -34,7 +34,9 @@ function mock(mode='up',opts={}){
   configuration:{windows:foldCount,gapDays:2,horizons:[5],feeBps:8,slippageBps:10,sellTaxBps:5},
   folds,events,sampleIntegrity:{eventsRetained:events.length},
   rules:[{id:'rule-a',label:'研究规则A',byHorizon:{
-   5:{signals:events.length,modeled:modeled.length}}}],
+   5:{signals:events.length,modeled:modeled.length,
+    averageNetReturnPct:modeled.reduce((sum,e)=>sum+e.netReturnPct,0)/modeled.length,
+    winRatePct:100*modeled.filter(e=>e.netReturnPct>0).length/modeled.length}}}],
   overlapDiagnostics:{byRule:{'rule-a':{sameFamilyOverlapDays:opts.overlap??0}}},
   temporalOverlapDiagnostics:{byHorizon:{5:{byRule:{'rule-a':{
    nonoverlapEpisodes:opts.episodes??24,signalDays:events.length
