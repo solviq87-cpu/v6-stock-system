@@ -80,7 +80,7 @@ function freezeFeatureEpisode({cohort,factorIds,rows,feed}={}, {now=Date.now()}=
    signalAt:s.signalAt,baselineClose:s.baselineClose,values};
  });
  const payload={schemaVersion:1,mode:'frozen-factor-feature-episode',signalDay,
-  capturedAt:now,cohortFingerprint:cohort.fingerprint,
+  capturedAt:now,originalCohortFrozenAt:cohort.frozenAt,cohortFingerprint:cohort.fingerprint,
   feed:{source:feed.source,provider:feed.provider,datasetId:feed.datasetId},
   priceFeed:cohort.feed,packFingerprint:PACK_HASH,packVersion:pack.version,
   factors:defs,features,canTrade:false,prospectiveCertified:false};
@@ -90,6 +90,9 @@ function verifyEpisode(frozen,now){
  const {fingerprint,...data}=frozen||{};
  if(!text(fingerprint)||fingerprint!==hash(data)||data?.mode!=='frozen-factor-feature-episode'||
     !Number.isSafeInteger(data.capturedAt)||data.capturedAt>now||
+    !Number.isSafeInteger(data.originalCohortFrozenAt)||
+    data.originalCohortFrozenAt>data.capturedAt||
+    data.capturedAt-data.originalCohortFrozenAt>300000||
     data.canTrade!==false||data.prospectiveCertified!==false||
     data.packFingerprint!==PACK_HASH||data.packVersion!==pack.version||
     !day(data.signalDay)||chinaDay(data.capturedAt)!==data.signalDay||
@@ -97,7 +100,9 @@ function verifyEpisode(frozen,now){
   throw Error('因子特征冻结指纹、版本或时点失效');
  const defs=factorsFor(data.factors?.map(x=>x.id));
  if(hash(defs)!==hash(data.factors))throw Error('扩展因子绑定结构变化');
- if(data.feed?.source!=='imported'||data.priceFeed?.source!=='imported'||
+ if(data.feed?.source!=='imported'||!text(data.feed.provider)||!text(data.feed.datasetId)||
+    !text(data.priceFeed?.provider)||!text(data.priceFeed?.datasetId)||
+    data.priceFeed?.source!=='imported'||
     data.priceFeed.priceBasis!=='unadjusted')throw Error('未授权或模拟来源禁止自学习');
  const ids=new Set();
  for(const row of data.features){
@@ -120,8 +125,9 @@ function verifyAndJoin(frozen,report,now){
     report.canTrade!==false||report.verifiedLive!==false||
     report.prospectiveCertified!==false||report.executionSimulated!==false||
     !day(report.asOf)||report.asOf<data.signalDay||
+    !/^[a-f0-9]{64}$/.test(report.marketFingerprint)||
     !Number.isSafeInteger(report.observedAt)||report.observedAt>now||
-    chinaDay(report.observedAt)<report.asOf||
+    report.observedAt<Date.parse(report.asOf+'T16:00:00+08:00')||
     !Array.isArray(report.records)||report.records.length!==data.features.length)
   throw Error('远期观察与冻结因子来源或时间不一致');
  auditForwardRules(report); // Revalidate the source record count and 1/5/20/60 protocol.
