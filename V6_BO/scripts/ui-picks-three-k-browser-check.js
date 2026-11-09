@@ -44,8 +44,16 @@ const server=http.createServer((req,res)=>{
    page.on('request',r=>{if(r.url().includes('/api/'))calls.push({method:r.method(),url:r.url()});});
    await page.route('**/api/quant-picks?**',r=>r.fulfill({status:revoked?401:200,
     contentType:'application/json',body:JSON.stringify(revoked?{locked:true}:candidates)}));
-   await page.route('**/api/kline?**',r=>r.fulfill({status:200,
-    contentType:'application/json',body:JSON.stringify({ok:true,rows:series,asOf:'2025-11-30'})}));
+   await page.route('**/api/kline?**',r=>{
+    const url=new URL(r.request().url());
+    const code=url.searchParams.get('code');
+    const limit=Math.max(20,Math.min(240,Number(url.searchParams.get('n'))||60));
+    const end=url.searchParams.get('end');
+    const eligible=end?series.filter(bar=>bar.date.replace(/-/g,'')<end):series;
+    const rows=eligible.slice(-limit);
+    return r.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({ok:true,code,rows,asOf:rows.at(-1)?.date||null,n:rows.length})});
+   });
    await page.goto('http://127.0.0.1:'+server.address().port+'/picks.html');
    await page.waitForFunction(()=>document.querySelectorAll('.pick').length===2);
    assert.match(await page.locator('.pick').first().textContent(),/放量突破/);
@@ -60,7 +68,12 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('[data-period="'+period+'"]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('#periodChart svg').count(),1);
    }
-   assert.equal(calls.filter(c=>c.url.includes('/api/kline')).length,1,'Kline tabs must aggregate fetched history without repeated GETs');
+   await page.waitForFunction(()=>document.getElementById('periodStatus')?.textContent?.includes('已取得 500 根真实日K'),null,{timeout:10000});
+   const historyRequests=calls.filter(c=>c.url.includes('/api/kline'));
+   assert.equal(historyRequests.length,3,'240-bar API pagination should load 240+240+20 on month/year tabs');
+   assert.ok(historyRequests.every(c=>new URL(c.url).searchParams.get('n')==='240'));
+   assert.equal(new URL(historyRequests[0].url).searchParams.has('end'),false);
+   assert.ok(historyRequests.slice(1).every(c=>/^\d{8}$/.test(new URL(c.url).searchParams.get('end')||'')),'older queries must carry explicit exclusive date');
    const sizes=await page.evaluate(()=>{
     const rect=q=>document.querySelector(q).getBoundingClientRect().toJSON();
     return {bodyWidth:document.body.scrollWidth,viewport:innerWidth,
