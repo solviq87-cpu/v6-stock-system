@@ -202,6 +202,48 @@ function renderForwardAudit(report){
  add('p','未经独立行情与成交对账；未完成模型训练及统计有效性认证，且弱市/暴跌亏损样本不能删除。');
 }
 
+function renderEightPointFlow(report){
+ const old=el('eightPointSummary');if(old)old.remove();
+ if(!report||!Array.isArray(report.workstreams))return;
+ const root=document.createElement('section');root.id='eightPointSummary';root.className='card';
+ el('completeSummary').after(root);
+ const add=(parent,tag,value,cls)=>{
+  const x=document.createElement(tag);x.textContent=String(value??'—');
+  if(cls)x.className=cls;parent.append(x);return x;
+ };
+ add(root,'h3','V6 八项整体联动 · 单次研究证据');
+ add(root,'p','本报告同时覆盖八项代码链路。代码接通不等于已真实验收或部署，'+
+  '原四套策略、权重与模拟盘资金均不被此报告修改。','muted');
+ add(root,'p','历史样本日期 '+(report.asOf||'缺少统一日期')+
+  '｜代码链路 '+(report.coverage?.codeConnected??0)+'/8'+
+  '｜外部已验收 '+(report.coverage?.externalAccepted??0)+'/8','muted');
+ const descriptors={
+  market:x=>'上证/深证/创业板/A50证据：'+(Object.keys(x.indices||{}).join('、')||'未知')+
+   '｜广度 '+(x.breadthPct??'未知')+'｜市场状态 '+(x.regime||'未知'),
+  sector:x=>'有效板块 '+(x.sectors?.length||0)+'｜个股关联 '+(x.stockSectorLinks||0)+
+   '｜弱市研究降序 '+(x.weakMarketDeprioritizedCount||0),
+  stock:x=>'历史候选 '+(x.candidates||0)+'｜观察池本轮 '+(x.watch?.length||0)+
+   '｜跨日状态未自动保存',
+  explanation:x=>'逐股解释 '+(x.stocks?.length||0)+'｜上涨直接因果：未认证',
+  risk:x=>'模拟盘账本核对 '+(x.paperLedgerBalanced?'通过':'未通过')+
+   '｜历史回测核对 '+(x.backtestBalanced?'通过':'未通过')+
+   '｜持仓提醒需通过本机私有接口核验',
+  learning:x=>'5日冻结研究战法评审 '+(x.perRule?.length||0)+'｜实际权重不变',
+  publicRules:x=>'原有策略入口 '+(x.originalStrategyKeys?.length||0)+
+   '｜新增研究战法目录 '+(x.researchCatalogCount||0)+'｜研究战法不直接晋级正式策略',
+  testing:x=>'历史数据检查 '+(x.dataQualityChecked?'已执行':'未执行')+
+   '｜CI/实际部署：必须使用独立日志验证'
+ };
+ for(const line of report.workstreams){
+  const info=report.dimensions?.[line.id]||{},card=document.createElement('details');
+  card.className='card';root.append(card);
+  add(card,'summary',line.label+'｜'+line.status);
+  add(card,'p',descriptors[line.id]?.(info)||'证据待核对');
+  for(const missing of line.unresolved||[])add(card,'p','待验收：'+missing,'muted');
+ }
+ add(root,'p',(report.externalBlockers||[]).join('；'),'muted');
+}
+
 async function run(action){
  buttons.forEach(id=>el(id).disabled=true);el('completeStatus').textContent='正在处理…';el('completeOutput').textContent='';el('completeSummary').replaceChildren();
  try{
@@ -236,9 +278,11 @@ async function run(action){
   if(action==='complete'){
     renderSelection(result.selectionEvidence);
     renderForwardAudit(result.publicRuleForwardAudit);
+    renderEightPointFlow(result.eightPointFlow);
   }else {
     const old=el('historicalSelection');if(old)old.remove();
     const audit=el('publicRuleAuditSummary');if(audit)audit.remove();
+    const integrated=el('eightPointSummary');if(integrated)integrated.remove();
   }
   el('completeOutput').textContent=JSON.stringify(result,null,2);
   el('completeStatus').textContent=action==='read'?'账户已恢复':action==='append'?(data.updated?'账户已保存':'历史未变化，无重复记账'):'研究完成；外部数据与实盘成交未验收';
