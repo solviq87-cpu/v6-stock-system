@@ -6,7 +6,7 @@ const match=/async function auctionResonanceScan\(opts = \{\}\) \{[\s\S]*?\n\}\n
 const now=Date.parse('2026-11-09T09:25:45+08:00');
 function engine(){
  assert.ok(match,'missing real scan function');
- const events={pushed:0,logged:0,computed:0,klineFetches:0,smoothPreviews:0,smoothWrites:0};
+ const events={pushed:0,logged:0,computed:0,klineFetches:0,smoothPreviews:0,smoothWrites:0,errors:[]};
  const S={
   stocks:[
    {code:'000001',name:'A1',price:10.2,pct:2.2},
@@ -48,7 +48,7 @@ function engine(){
   klineRows:async()=>{events.klineFetches++;return [];},
   pushAuctionResonanceTop3:()=>{events.pushed++;},
   logSignal:()=>{events.logged++;},
-  console:{error:()=>{}}
+  console:{error:(...args)=>events.errors.push(args.map(String).join(' '))}
  };
  const scan=vm.runInNewContext(match[0]+'\nauctionResonanceScan;',context);
  return {scan,S,events};
@@ -56,7 +56,7 @@ function engine(){
 test('viewer GET recomputes market research without push, learning writes or trading commands',async()=>{
  const {scan,events}=engine();
  const r=await scan({board:'all',max:2,force:false});
- assert.equal(r.items.length,2);
+ assert.equal(r.items.length,2,JSON.stringify({result:r,events}));
  assert.equal(r.auctionEvidence.status,'same-day-capture-unverified');
  assert.equal(r.items[0].auctionInputStatus,'auction-snapshot-unverified');
  assert.equal(r.items[0].auctionQuoteAt,null);
@@ -71,7 +71,7 @@ test('viewer GET recomputes market research without push, learning writes or tra
 test('different page max counts do not poison 30 second board cache',async()=>{
  const {scan,events}=engine();
  const first=await scan({board:'all',max:1});
- assert.equal(first.items.length,1);
+ assert.equal(first.items.length,1,JSON.stringify({result:first,events}));
  const computed=events.computed;
  const larger=await scan({board:'all',max:2});
  assert.equal(larger.items.length,2,'max=2 must not be truncated by prior max=1 reader');
@@ -86,7 +86,7 @@ test('only internal scheduled scan may emit existing legacy learning/Feishu even
  await scan({board:'all',max:2,force:true});
  assert.equal(events.logged,0);assert.equal(events.pushed,0,'editor force is not authorization for broadcast');
  await scan({board:'all',max:2,force:true,internal:true});
- assert.equal(events.logged,2);
+ assert.equal(events.logged,2,JSON.stringify(events));
  assert.equal(events.pushed,1);
  assert.ok(events.klineFetches>=2,'server scheduled scan retains normal internal Kline ability');
  assert.ok(events.smoothWrites>=2,'server owned scan may record actual smoothing observations');
@@ -95,6 +95,7 @@ test('Friday recovered auction and Monday stock quotes never mix; internal tick 
  const {scan,S,events}=engine();
  S.auction.date='20261106';
  const r=await scan({board:'all',max:2,internal:true,force:true});
+ assert.ok(r.auctionEvidence,JSON.stringify({result:r,events}));
  assert.equal(r.auctionEvidence.status,'stale-auction-snapshot');
  assert.equal(r.auctionEvidence.eligibleForAuctionEvidence,false);
  assert.equal(r.items.length,2,'sector-only read-only observations can remain visible');
