@@ -32,8 +32,9 @@ test('auction research view retains stale snapshot on outage, clears on 403/lock
  ids.board.value='all';ids.sort.value='original';
  const replies=[
   {ok:true,json:async()=>({asOf:Date.parse('2026-11-09T09:25:20+08:00'),
+   auctionEvidence:{status:'stale-auction-snapshot',reason:'竞价日与北京时间当前日期不一致',eligibleForAuctionEvidence:false},
    items:[{code:'000001',name:'Test',score:'0x10',auctionPct:'   ',pct:null,
-     reasons:['本接口原有共振条件'],sector:'设备'}]})},
+     auctionInputStatus:'sector-only',reasons:['本接口原有共振条件'],sector:'设备'}]})},
   Error('offline'),
   {ok:false,status:403},
   {ok:true,json:async()=>({items:[{code:'000002',name:'Resumed',score:72,reasons:[]}],asOf:Date.now()})},
@@ -49,6 +50,7 @@ test('auction research view retains stale snapshot on outage, clears on 403/lock
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(ids.total.textContent,1);
  assert.match(ids.status.textContent,/9:20\/9:25新战法仍需原始时点/);
+ assert.match(ids.status.textContent,/竞价日与北京时间当前日期不一致/);
  assert.match(ids.synced.textContent,/不是逐票原始报价时点/);
  const texts=[];
  function walk(el){if(typeof el?.textContent==='string')texts.push(el.textContent);
@@ -57,6 +59,7 @@ test('auction research view retains stale snapshot on outage, clears on 403/lock
  assert.ok(texts.some(x=>x.includes('竞价涨幅 未知')));
  assert.ok(texts.includes('—'));
  assert.ok(texts.some(x=>x.includes('逐票竞价原始报价时间：未知')));
+ assert.ok(texts.some(x=>x.includes('板块观察 · 没有有效竞价证据')));
  await ids.reload.listeners.click();
  assert.equal(ids.total.textContent,1);
  assert.match(ids.status.textContent,/保留上次结果（非实时）/);
