@@ -14,7 +14,8 @@ const validDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
 const closingCutoff=d=>Date.parse(d+'T16:00:00+08:00');
 function adaptAuthorizedHistory(history,{now=Date.now()}={}){
- if(!Number.isSafeInteger(now)||now<=0||!history||history.source!=='imported'||
+ if(!Number.isSafeInteger(now)||now<=0||!history||history.schemaVersion!==1||
+    history.source!=='imported'||
     typeof history.provider!=='string'||!history.provider.trim()||
     typeof history.datasetId!=='string'||!history.datasetId.trim()||
     history.priceBasis!=='unadjusted'||!validDay(history.asOf)||
