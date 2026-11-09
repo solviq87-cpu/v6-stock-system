@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'../..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const host='https://acd98a1c1a46e6ce4.app.workbuddy.host';
 const doc='V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md';
-const refs=['AGENTS.md','README.md','V6_BO/AGENTS.md','V6_BO/RESTORE.md','V6_BO/integration/CHAT_HANDOFF.md',doc];
+const refs=['AGENTS.md','README.md','V6_BO/README.md','V6_BO/AGENTS.md','V6_BO/RESTORE.md','V6_BO/integration/CHAT_HANDOFF.md',doc];
 test('future V6 maintainers can discover exact user-specified China write target without chat memory',()=>{
  for(const file of refs)
   assert.ok(read(file).includes(host),'missing WorkBuddy target in '+file);
