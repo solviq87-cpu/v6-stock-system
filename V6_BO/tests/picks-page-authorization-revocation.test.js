@@ -24,7 +24,7 @@ test('cloud timeout retains a labeled stale view; permission revocation clears c
   ids.board.value = 'all';
   ids.sort.value = 'original';
   const results = [
-    {ok:true, json:async()=>({items:[{code:'000001',name:'Test candidate',hit:['valid signal']}],snapshotDay:'2026-11-06'})},
+    {ok:true, json:async()=>({items:[{code:'000001',name:'Test candidate',score:'0x10',pct:'   ',hit:['valid signal']}],snapshotDay:'2026-11-06'})},
     Error('network offline'),
     {ok:false,status:403},
     {ok:true,json:async()=>({items:[{code:'000002',name:'Fresh candidate'}],snapshotDay:'2026-11-09'})},
@@ -55,6 +55,14 @@ test('cloud timeout retains a labeled stale view; permission revocation clears c
   assert.equal(ids.total.textContent,1);
   assert.equal(ids.day.textContent,'2026-11-06');
   assert.equal(ids.explained.textContent,1);
+  const texts = [];
+  function collect(el) {
+    if (typeof el?.textContent === 'string') texts.push(el.textContent);
+    for (const child of el?.children || []) collect(child);
+  }
+  collect(ids.candidates);
+  assert.ok(texts.includes('涨跌未知'), 'blank percent cannot be coerced to 0%');
+  assert.ok(texts.includes('—'), 'hex score cannot be coerced to 16');
 
   await ids.reload.listeners.click();
   assert.equal(ids.total.textContent,1,'keep previous result on transport failure');
