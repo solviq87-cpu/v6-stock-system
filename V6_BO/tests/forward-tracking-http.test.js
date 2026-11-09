@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),zlib=require('node:zlib');
 const {createDashboardServer}=require('../src/server/bootstrap');
 const {freezeCohort}=require('../src/core/forward-signal-observer');
 const {runOnce}=require('../src/core/forward-tracking-store');
@@ -36,6 +36,21 @@ async function request({forwardTrackingFile,mode='ok',target='/api/quant-picks?m
    const value=JSON.stringify({items:[{code:'600001'}]});
    res.setHeader('Content-Length',Buffer.byteLength(value));res.end(value);return;
   }
+  if(mode==='gzip'||mode==='gzip-mock'||mode==='gzip-length'||mode==='gzip-denied'){
+   // Production json() sends larger candidate lists via asynchronous gzip and
+   // writeHead(), not plaintext res.end(). Test the actual wire encoding.
+   const payload=JSON.stringify({ok:mode!=='gzip-denied',isMock:mode==='gzip-mock',
+    items:[{code:'600001',name:'Visible'.repeat(1000)}]});
+   // Force the writeHead-only case; Node getHeader() cannot see these fields.
+   res.removeHeader('Content-Type');
+   const headers={'Content-Type':'application/json; charset=utf-8',
+    'Content-Encoding':'gzip','Vary':'Accept-Encoding'};
+   const bytes=zlib.gzipSync(Buffer.from(payload,'utf8'));
+   if(mode==='gzip-length')headers['Content-Length']=bytes.length;
+   res.writeHead(mode==='gzip-denied'?403:200,headers);
+   res.end(bytes);
+   return;
+  }
   res.end(JSON.stringify({ok:true,items:[{code:'600001',name:'Visible'}]}));
  };
  const {server}=createDashboardServer({handle,forwardTrackingFile,
@@ -44,8 +59,13 @@ async function request({forwardTrackingFile,mode='ok',target='/api/quant-picks?m
  try{
   return await new Promise((resolve,reject)=>{
    http.get({hostname:'127.0.0.1',port:server.address().port,path:target},res=>{
-    let body='';res.on('data',chunk=>body+=chunk);
-    res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(body)}));
+    const chunks=[];res.on('data',chunk=>chunks.push(chunk));
+    res.on('end',()=>{
+     const bytes=Buffer.concat(chunks);
+     const raw=res.headers['content-encoding']==='gzip'?
+      zlib.gunzipSync(bytes).toString('utf8'):bytes.toString('utf8');
+     resolve({status:res.statusCode,headers:res.headers,body:JSON.parse(raw)});
+    });
    }).on('error',reject);
   });
  }finally{await new Promise(resolve=>server.close(resolve));}
@@ -86,9 +106,35 @@ test('HTTP health, already-streaming and fixed content-length requests remain un
  assert.equal((await request({forwardTrackingFile:file,mode:'write'})).body.forwardTracking,undefined);
  assert.equal((await request({forwardTrackingFile:file,mode:'length'})).body.forwardTracking,undefined);
 });
+test('gzip-compressed candidate lists also receive only permitted frozen tracking evidence',async t=>{
+ const file=prep(t),r=await request({forwardTrackingFile:file,mode:'gzip'});
+ assert.equal(r.status,200);
+ assert.equal(r.headers['content-encoding'],'gzip','do not break client compression');
+ assert.equal(r.headers.vary,'Accept-Encoding');
+ assert.ok(r.body.items[0].name.length>1000);
+ assert.equal(r.body.forwardTracking.records.length,1);
+ assert.equal(r.body.forwardTracking.records[0].symbol,'600001');
+ assert.ok(!JSON.stringify(r.body).includes('000002'));
+ const mock=await request({forwardTrackingFile:file,mode:'gzip-mock'});
+ assert.equal(mock.headers['content-encoding'],'gzip');
+ assert.equal(mock.body.forwardTracking,undefined,'do not promote mocked candidates to observations');
+});
 test('no projection from response without granted visible candidates or invalid metadata',()=>{
  const report={report:{feed:{source:'imported'},records:[{symbol:'600001'}]}};
  assert.equal(joinAuthorizedFollowup({items:[]},report),null);
  assert.equal(joinAuthorizedFollowup({items:[{code:'000002'}]},report),null);
  assert.equal(joinAuthorizedFollowup({locked:true,items:[{code:'600001'}]},report),null);
+});
+
+test('production writeHead-only gzip response rejects fixed-length changes and non-200 exposure',async t=>{
+ const file=prep(t);
+ const fixed=await request({forwardTrackingFile:file,mode:'gzip-length'});
+ assert.equal(fixed.status,200);
+ assert.equal(fixed.headers['content-encoding'],'gzip');
+ assert.ok(Number(fixed.headers['content-length'])>0);
+ assert.equal(fixed.body.forwardTracking,undefined,'do not rewrite Content-Length');
+ const denied=await request({forwardTrackingFile:file,mode:'gzip-denied'});
+ assert.equal(denied.status,403);
+ assert.equal(denied.headers['content-encoding'],'gzip');
+ assert.equal(denied.body.forwardTracking,undefined);
 });
