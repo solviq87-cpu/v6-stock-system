@@ -26,6 +26,8 @@ function engine(){
   require:name=>{
    if(name==='./src/core/auction-resonance-basis')
     return require('../src/core/auction-resonance-basis');
+   if(name==='./src/core/news-china-clock')
+    return require('../src/core/news-china-clock');
    throw Error('unexpected import '+name);
   },
   A:{isMainBoard:()=>true,isGEM:()=>false,isMainOrGEM:()=>true,
@@ -98,6 +100,22 @@ test('Friday recovered auction and Monday stock quotes never mix; internal tick 
  assert.ok(r2.items.every(x=>x.auctionPct===null));
  assert.equal(events.pushed,0);
  assert.equal(events.logged,0);
+});
+test('Monday 09:00 with Friday old snapshot cannot be treated as current auction even when quoteBasis is Friday',async()=>{
+ const {scan,S,events}=engine();
+ const origDate=S.auction.date,origAt=S.stocksAt;
+ S.auction.date='20261106';
+ S.stocksAt=Date.parse('2026-11-06T15:00:00+08:00');
+ // Even in a preopen integration the pure guard must reject old-Friday evidence.
+ const basis=require('../src/core/auction-resonance-basis').auditAuctionResonanceBasis({
+  auction:S.auction,stockSnapshotAt:S.stocksAt,
+  now:Date.parse('2026-11-09T09:00:00+08:00'),
+  calendarDay:'20261109',expectedDay:'20261106',stockSnapshotDay:'20261106'
+ });
+ assert.equal(basis.eligibleForAuctionEvidence,false);
+ assert.equal(basis.status,'stale-auction-snapshot');
+ S.auction.date=origDate;S.stocksAt=origAt;
+ assert.equal(events.logged,0);assert.equal(events.pushed,0);
 });
 test('public browser route does not pass hidden internal flag; server scheduler is guarded',()=>{
  assert.match(server,/await auctionResonanceScan\(\{ force, max, board \}\)/);
