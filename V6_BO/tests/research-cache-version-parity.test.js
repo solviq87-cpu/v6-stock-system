@@ -14,7 +14,7 @@ test('service, phone and service worker use a single release cache version',()=>
  const sw=version(read('public/sw.js'));
  assert.equal(server,mobile);
  assert.equal(server,sw);
- assert.equal(server,'20261109cr1');
+ assert.equal(server,'20261109cr');
  assert.ok(read('public/index.html').includes('/assets/app.js?v='+server));
  assert.ok(read('public/index.html').includes('/assets/stock-provider-links.js?v='+server));
 });
