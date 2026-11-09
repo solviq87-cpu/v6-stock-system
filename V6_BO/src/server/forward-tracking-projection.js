@@ -4,6 +4,7 @@
  * Never creates a separate unauthenticated endpoint and never performs scanning.
  */
 const {readSnapshot}=require('../core/forward-tracking-store');
+const zlib=require('node:zlib');
 const MAX_RESPONSE=2*1024*1024;
 function joinAuthorizedFollowup(candidateBody,stored){
  if(!candidateBody||typeof candidateBody!=='object'||candidateBody.locked===true||
@@ -31,11 +32,22 @@ function decorateQuantPicksResponse(res,{stateFile}={}){
   res.end=end;res.write=write;
   if(wrote||res.statusCode!==200||res.writableEnded||res.destroyed||
     res.getHeader('content-length')!==undefined||
-    res.getHeader('content-encoding')!==undefined||
     !/application\/json/i.test(String(res.getHeader('content-type')||''))||
     (typeof chunk!=='string'&&!Buffer.isBuffer(chunk)))
    return end.call(this,chunk,encoding,callback);
-  const raw=Buffer.isBuffer(chunk)?chunk.toString('utf8'):chunk;
+  // The production json() helper compresses larger candidate lists before
+  // res.end(). Unwrap bounded gzip data, join the report, then restore gzip
+  // rather than silently dropping forwardTracking on ordinary browsers.
+  const contentEncoding=String(res.getHeader('content-encoding')||'').toLowerCase();
+  if(contentEncoding&&contentEncoding!=='gzip')
+   return end.call(this,chunk,encoding,callback);
+  let raw;
+  if(contentEncoding==='gzip'){
+   if(!Buffer.isBuffer(chunk)||chunk.length>MAX_RESPONSE)
+    return end.call(this,chunk,encoding,callback);
+   try{raw=zlib.gunzipSync(chunk,{maxOutputLength:MAX_RESPONSE+1}).toString('utf8');}
+   catch{return end.call(this,chunk,encoding,callback);}
+  }else raw=Buffer.isBuffer(chunk)?chunk.toString('utf8'):chunk;
   if(Buffer.byteLength(raw)>MAX_RESPONSE)return end.call(this,chunk,encoding,callback);
   try{
    const original=JSON.parse(raw);
@@ -45,6 +57,10 @@ function decorateQuantPicksResponse(res,{stateFile}={}){
     const updated=JSON.stringify(joined);
     if(Buffer.byteLength(updated)<=MAX_RESPONSE){
      const cb=typeof encoding==='function'?encoding:callback;
+     if(contentEncoding==='gzip'){
+      const zipped=zlib.gzipSync(Buffer.from(updated,'utf8'));
+      return end.call(this,zipped,cb);
+     }
      return end.call(this,updated,'utf8',cb);
     }
    }
