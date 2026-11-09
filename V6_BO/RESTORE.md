@@ -1,5 +1,8 @@
 # 出问题了怎么办（不依赖任何聊天记录）
 
+> **2026-11-09 新交接标记：国内写入/部署接口**由用户指定为 `https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档入口 `/api/ai/doc?id=ai`。**接手必须先读 [国内 WorkBuddy 写入目标](docs/CHINA_WORKBUDDY_WRITE_TARGET.md)**：文档接口目前 401，实际写入 API、鉴权和生产部署尚未验证。下文的旧 WorkBuddy 在线地址 `quant-dashboard-77614.app.workbuddy.host` 只是历史恢复记录，**不是本次指定的新写入接口**，不可未经核实互换，也不能将旧机器的 `pushRole` 原样上传到新目标。源码最新基线请查 GitHub `solviq87-cpu/v6-stock-system` 的 `dev` 分支。
+
+
 > 这份文件在 Gitee 仓库里，**不含任何密码、密钥、持仓**。  
 > 就算这台电脑没了、聊天记录删了，只要有这份文件 + 你的开发者口令，就能把系统救回来。
 
