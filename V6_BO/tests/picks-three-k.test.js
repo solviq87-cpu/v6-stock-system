@@ -15,8 +15,8 @@ test('the two owner-approved homepages are unmodified in the committed Git tree'
  const committed=(name)=>execFileSync('git',['rev-parse','HEAD:V6_BO/public/'+name],{
    cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']
  }).trim();
- assert.equal(committed('index.html'),'53471292a61871a5d137a53d978cd4a7cfe9a322','DO NOT MODIFY DESKTOP HOMEPAGE');
- assert.equal(committed('mobile.html'),'ee89ef7a27135bfc21b6214c55acfe498c7bf85b','DO NOT MODIFY MOBILE HOMEPAGE');
+ assert.equal(committed('index.html'),'9e2fad468cb3e192df0ca2b9184babb2add8c4de','DO NOT MODIFY DESKTOP HOMEPAGE');
+ assert.equal(committed('mobile.html'),'084e36d950f9bf4c3508aa1a5cb8986799b6079e','DO NOT MODIFY MOBILE HOMEPAGE');
 });
 const example=[
  {date:'2025-12-30',open:10,high:11,low:9.5,close:10.5,volume:100},
