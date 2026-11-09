@@ -1,3 +1,7 @@
+**2026-11-09 新增国内写入目标（接手必读）**：用户指定 WorkBuddy `https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档入口 `/api/ai/doc?id=ai`。已实际打开但返回 `401 invalid or missing token`；未获取真实写入接口或生产部署确认。`sharecode` / token 等凭据绝不入库。严格按 `docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 验证授权、写入路由、回执与回滚，禁止别的 AI 自行猜一个服务器或声称已部署。最新 GitHub 代码以 `dev` 分支实际 SHA 为准，以下为历史档案。
+
+---
+
 # V6 20261107bo 续编交接
 
 唯一基线：V6_1083_full_20261106bn.zip，SHA-256 f5fa0209f6b2045933cd3662600ab08b880c35ac3f3da8fae88619bc72ac8e78，已实际校验SHA与ZIP CRC。完整保留基线文件。
