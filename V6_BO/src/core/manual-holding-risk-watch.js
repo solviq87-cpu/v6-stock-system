@@ -41,7 +41,7 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
  }
  const crossChecks=new Map();
  for(const q of input.crossCheckQuotes||[]){
-  if(!q||typeof q.symbol!=='string'||!/^\\d{6}$/.test(q.symbol)||
+  if(!q||typeof q.symbol!=='string'||!/^\d{6}$/.test(q.symbol)||
     crossChecks.has(q.symbol))throw Error('第二来源报价证券代码无效或重复');
   crossChecks.set(q.symbol,q);
  }
