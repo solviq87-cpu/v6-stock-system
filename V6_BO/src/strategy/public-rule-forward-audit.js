@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const {validateDataset}=require('../core/historical-validation');
 const {atLockedLimit}=require('./walk-forward-backtest');
 const {catalog,evaluateOpenSourceRules}=require('./open-source-research-signals');
+const {catalog:linkedCatalog,evaluateLinkedResearch}=require('./linked-factor-research');
 const {assessMarketShock}=require('../core/market-shock-learning-gate');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=x=>Number(x.toFixed(4));
@@ -27,6 +28,13 @@ function policy(input={}){
     throw Error('研究交易成本参数无效');
  if(o.feeBps<8||o.slippageBps<10||o.sellTaxBps<5)
   throw Error('研究成本不能低于统一基线');
+ if(o.includeLinkedRules!==undefined&&typeof o.includeLinkedRules!=='boolean')
+  throw Error('附加战法验证开关必须为布尔值');
+ if(o.linkedSeries!==undefined&&
+    (!o.linkedSeries||typeof o.linkedSeries!=='object'||Array.isArray(o.linkedSeries)||
+     Object.keys(o.linkedSeries).length>20||
+     Object.keys(o.linkedSeries).some(code=>!/^\d{6}$/.test(code))))
+   throw Error('相对动量来源序列需要最多20只证券的代码映射');
  if(o.marketContexts!==undefined&&
     (!o.marketContexts||typeof o.marketContexts!=='object'||Array.isArray(o.marketContexts)||
      Object.keys(o.marketContexts).length>400||Object.keys(o.marketContexts).some(d=>!dateOK(d))))
@@ -41,6 +49,16 @@ function marketAt(date,marketContexts){
   const gate=assessMarketShock(context,{asOf});
   return gate.status==='observed-unverified'?gate.regime:'unknown';
  }catch{return 'unknown';}
+}
+function linkedContextOnDate(series,day,tradeDate){
+ if(!series||typeof series!=='object')return undefined;
+ // Slicing by signal index is a strict anti-lookahead boundary; data supplied
+ // for days after the signal date is never passed to the strategy evaluator.
+ const marketBars=Array.isArray(series.market?.bars)?series.market.bars.slice(day-20,day+1):[];
+ const sectorBars=Array.isArray(series.sector?.bars)?series.sector.bars.slice(day-20,day+1):[];
+ return {schemaVersion:1,source:series.source,provider:series.provider,asOf:tradeDate,
+  market:{id:series.market?.id,source:series.market?.source,bars:marketBars},
+  sector:{name:series.sector?.name,source:series.sector?.source,bars:sectorBars}};
 }
 function attemptTrade(stock,index,horizon,config){
  const bars=stock.bars,entryIndex=index+1,exitIndex=entryIndex+horizon;
@@ -95,6 +113,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
  if(history.priceAdjustment?.mode!=='unadjusted'||
     !history.priceAdjustment?.provider)
   throw Error('需明确未复权价格及提供者出处才能进行次日开盘价格审计');
+ const activeCatalog=p.includeLinkedRules===true?[...catalog,...linkedCatalog]:catalog;
  const n=ds.barsPerStock,maxH=Math.max(...p.horizons);
  const first=n-maxH-p.windows*p.testDays-1;
  if(first<40+p.gapDays)throw Error('历史样本不足：需完整预热、隔离窗口和未来持有期');
@@ -109,7 +128,12 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    for(let day=start;day<=end;day++){
     const rows=stock.bars.slice(0,day+1);
     const signals=evaluateOpenSourceRules({...stock,bars:rows});
-    for(const candidate of signals.strategies){
+    const extra=p.includeLinkedRules===true?
+     evaluateLinkedResearch({...stock,bars:rows},{
+      marketContext:linkedContextOnDate(p.linkedSeries?.[code],day,rows.at(-1).date),
+      marketRisk:marketAt(rows.at(-1).date,p.marketContexts)==='systemic-selloff'?'risk_off':'unknown'
+     }).strategies:[];
+    for(const candidate of [...signals.strategies,...extra]){
      if(candidate.status!=='candidate')continue;
      const tradeDate=rows.at(-1).date;
      const marketRegime=marketAt(tradeDate,p.marketContexts);
@@ -125,14 +149,14 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
   }
   const horizonRows={};
   for(const h of p.horizons)horizonRows[h]={};
-  for(const rule of catalog)
+  for(const rule of activeCatalog)
    for(const h of p.horizons)horizonRows[h][rule.id]=summarise(foldEvents.filter(x=>x.horizon===h&&x.ruleId===rule.id));
   folds.push({fold:k+1,frozenRuleParameters:true,optimizedOnTraining:false,
    trainEndDate:dateList[start-p.gapDays-1],embargoSessions:p.gapDays,
    testStartDate:dateList[start],testEndDate:dateList[end],
    statistics:horizonRows});
  }
- const rules=catalog.map(rule=>({
+ const rules=activeCatalog.map(rule=>({
   id:rule.id,label:rule.label,source:rule.source,parameterTuning:'none',
   byHorizon:Object.fromEntries(p.horizons.map(h=>[h,summarise(events.filter(e=>e.ruleId===rule.id&&e.horizon===h))])),
   byMarketRegime:Object.fromEntries(
@@ -146,7 +170,8 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
   provider:history.provider||null,datasetFingerprint:inputFingerprint,
   dataset:{stocks:ds.stocks,barsPerStock:ds.barsPerStock,lastDate:ds.lastDate},
   configuration:{windows:p.windows,testDays:p.testDays,gapDays:p.gapDays,horizons:p.horizons.slice(),
-   feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps},
+   feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps,
+   ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {})},
   folds,rules,events,
   sampleIntegrity:{eventsRetained:events.length,
    blockedEventsRetained:events.filter(e=>e.status!=='modeled').length,
@@ -156,6 +181,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    '买卖受阻及公司行为未验收的样本保留且不计成胜率；卖出受阻不得视为无风险退出',
    '同股连续命中和多个规则可能高度相关，统计样本不等于独立观察',
    '进口数据来源、停复牌、涨跌停参数、公司行为核验未经过外部独立对账；无足够证据时净收益为空',
-   '行情暴跌样本继续保留，不据一次回撤自动淘汰策略、修改因子权重或生成实盘委托']};
+   '行情暴跌样本继续保留，不据一次回撤自动淘汰策略、修改因子权重或生成实盘委托',
+   '额外战法仅在显式includeLinkedRules时评价；指数/板块序列按信号日切片，缺少21日对齐记录时相对动量不命中，未证实收益不得晋级']};
 }
 module.exports={evaluatePublicRuleForwardAudit};
