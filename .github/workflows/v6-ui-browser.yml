@@ -1,0 +1,68 @@
+# Actual headless Chrome geometry on isolated fixture pages. Not a production deployment.
+# Runs only for UI work so Python/backend updates do not spend browser minutes.
+name: V6 UI Browser Geometry
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'V6_BO/public/**'
+      - 'V6_BO/scripts/ui-reference-browser-check.js'
+      - '.github/workflows/v6-ui-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-geometry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: V6_BO
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Find pre-installed Chromium/Google Chrome
+        id: browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$CHROME" || { echo 'No Chrome on runner; cannot claim layout is verified'; exit 1; }
+          "$CHROME" --version
+          echo "binary=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Playwright driver (no browser download, no app dependencies)
+        run: |
+          mkdir -p "$RUNNER_TEMP/v6-ui-driver"
+          npm install --prefix "$RUNNER_TEMP/v6-ui-driver" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.56.1
+      - name: Check actual DOM rectangles and visual screenshots on 9 CSS viewports
+        env:
+          NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules
+          V6_UI_BROWSER: ${{ steps.browser.outputs.binary }}
+          V6_UI_QA_DIR: ${{ runner.temp }}/v6-ui-report
+          V6_UI_SCREENSHOTS: '1'
+        run: |
+          set -euo pipefail
+          node scripts/ui-reference-browser-check.js
+      - name: Save temporary fixture screenshots and geometry for reviewers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-isolated-ui-geometry-${{ github.run_number }}
+          path: ${{ runner.temp }}/v6-ui-report
+          if-no-files-found: warn
+          retention-days: 7
+      - name: State QA boundaries
+        if: always()
+        run: |
+          {
+            echo '## V6 UI 浏览器几何验收'
+            echo ''
+            echo 'Chrome 真实排版 + 隔离本地测试数据；320/375/390/393/430/1024 手机及 1366/1536/1920 电脑 CSS 视口。'
+            echo '检查无横向溢出、三指数、风险卡宽度、排行、K线与解释上下结构、七项底栏、桌面左右分栏；截图见本次 Artifacts（7天保留）。'
+            echo ''
+            echo '**未做**：线上 WorkBuddy 实际部署，iOS Safari/Android 真机触摸体验，股票报价真实性、飞书送达，原图的逐像素相似度认证。'
+          } >> "$GITHUB_STEP_SUMMARY"
