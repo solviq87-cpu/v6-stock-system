@@ -170,6 +170,13 @@ async function run(action){
          Array.isArray(payload.publicRuleAuditOptions)))throw Error('公开战法回测配置必须为对象');
       payload.publicRuleAuditOptions={...(payload.publicRuleAuditOptions||{}),includeLinkedRules:true};
     }
+    if(el('qualityRulesAuditEnabled')?.checked===true){
+      payload.validatePublicRules=true;
+      if(payload.publicRuleAuditOptions!==undefined&&
+        (!payload.publicRuleAuditOptions||typeof payload.publicRuleAuditOptions!=='object'||
+         Array.isArray(payload.publicRuleAuditOptions)))throw Error('公开战法回测配置必须为对象');
+      payload.publicRuleAuditOptions={...(payload.publicRuleAuditOptions||{}),includeQualityRules:true};
+    }
   }else{
     payload={accountId:el('paperAccountId').value,action,...(action==='append'?{history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})}:{})};
   }
