@@ -44,12 +44,19 @@
     }).filter(Boolean);
   };
   const formatAt = at => {
-    if (typeof at !== 'string' && typeof at !== 'number') return '';
-    // The provider may supply 10-digit Unix seconds, unlike existing ms date fields.
-    // Reject short/ambiguous numbers instead of displaying a fictitious 1970 quote.
-    const numeric = typeof at === 'number' ? at : /^\\d{10,13}$/.test(at) ? Number(at) : null;
-    const stamp = numeric !== null ? (numeric >= 1000000000 && numeric < 10000000000 ? numeric * 1000 :
-      numeric >= 1000000000000 && numeric < 10000000000000 ? numeric : NaN) : at;
+    // Provider Unix seconds (10 digits) and JS milliseconds (13 digits) differ.
+    // A short/ambiguous numeric value must not turn into a fake 1970 quote.
+    let stamp;
+    if (typeof at === 'number' && Number.isInteger(at)) {
+      if (at >= 1000000000 && at < 10000000000) stamp = at * 1000;
+      else if (at >= 1000000000000 && at < 10000000000000) stamp = at;
+      else return '';
+    } else if (typeof at === 'string') {
+      if (/^\d{10}$/.test(at)) stamp = Number(at) * 1000;
+      else if (/^\d{13}$/.test(at)) stamp = Number(at);
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(at)) stamp = at;
+      else return '';
+    } else return '';
     const date = new Date(stamp);
     return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
   };
