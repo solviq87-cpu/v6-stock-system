@@ -7,3 +7,44 @@ test('desktop and mobile responsive monitor loads same-origin read-only account'
 test('new bars persist once and unchanged polls do not repeat account revision',()=>withMonitor(async({svc,inputFile,base,token})=>{fs.writeFileSync(inputFile,JSON.stringify(fixture(67)));assert.equal(svc.update().revision,2);assert.equal(svc.update().updated,false);const r=await fetch(base+'/api/paper/status',{headers:{Authorization:'Bearer '+token}});assert.equal((await r.json()).data.revision,2);}));
 test('corrupt or rewritten market input does not overwrite the last valid account',()=>withMonitor(async({svc,inputFile,base,token})=>{const edited=fixture(67);edited.stocks[0].bars[0].close=999;fs.writeFileSync(inputFile,JSON.stringify(edited));assert.ok(svc.update().error);fs.writeFileSync(inputFile,'{bad');assert.ok(svc.update().error);const headers={Authorization:'Bearer '+token};const status=await fetch(base+'/api/paper/status',{headers});assert.equal((await status.json()).data.revision,1);const health=await fetch(base+'/api/paper/health',{headers});assert.equal((await health.json()).verifiedLive,false);}));
 test('monitor cannot bind publicly or accept short token',()=>{assert.throws(()=>createPaperMonitor({accountFile:'a',inputFile:'b',token:'x'}),/令牌/);assert.throws(()=>createPaperMonitor({accountFile:'a',inputFile:'b',token:'x'.repeat(32),host:'0.0.0.0'}),/本机/);});
+
+test('local private holding watch is authenticated, read-only and does not change paper account',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-holding-monitor-'));
+ const inputFile=path.join(dir,'market.json'),accountFile=path.join(dir,'paper.json'),
+  holdingWatchFile=path.join(dir,'user-holdings-private.json');
+ fs.writeFileSync(inputFile,JSON.stringify(fixture()));
+ const now=Date.now(),token='test-token-at-least-24-characters';
+ const holding=()=>({schemaVersion:1,mode:'manual-holding-watch',
+  positions:[{symbol:'600001',cost:10,shares:100,weightPct:31}],
+  quotes:[{symbol:'600001',price:8.9,quoteAt:Date.now()-1000,quoteSource:'tencent'}]});
+ fs.writeFileSync(holdingWatchFile,JSON.stringify(holding()),{mode:0o600});
+ const svc=createPaperMonitor({inputFile,accountFile,holdingWatchFile,token,pollMs:1000});
+ const addr=await svc.listen(),base='http://127.0.0.1:'+addr.port;
+ try{
+  const page=await (await fetch(base+'/')).text();
+  assert.match(page,/自选持仓风险观察/);
+  assert.match(page,/holdingRiskRows/);
+  assert.equal((await fetch(base+'/api/paper/holding-risks')).status,401);
+  assert.equal((await fetch(base+'/api/paper/holding-risks',{method:'POST',
+   headers:{Authorization:'Bearer '+token}})).status,405);
+  const before=fs.readFileSync(accountFile,'utf8');
+  const headers={Authorization:'Bearer '+token};
+  const response=await fetch(base+'/api/paper/holding-risks',{headers});
+  assert.equal(response.status,200);
+  const r=(await response.json()).data;
+  assert.equal(r.status,'evaluated');
+  assert.equal(r.positions[0].drawdownFromCostPct,-11);
+  assert.ok(r.alerts.some(a=>a.code==='loss-warning'));
+  assert.ok(r.alerts.some(a=>a.code==='weight-warning'));
+  assert.equal(r.canTrade,false);assert.equal(r.canNotify,false);
+  assert.equal(fs.readFileSync(accountFile,'utf8'),before,
+   'private manual holdings risk cannot alter authoritative simulation');
+  fs.writeFileSync(holdingWatchFile,'{bad');
+  const stale=(await (await fetch(base+'/api/paper/holding-risks',{headers})).json()).data;
+  assert.equal(stale.status,'unavailable');
+  assert.deepEqual(stale.alerts,[]);
+  assert.deepEqual(stale.positions,[]);
+  assert.equal(fs.readFileSync(accountFile,'utf8'),before);
+  assert.equal((await (await fetch(base+'/api/paper/report',{headers})).json()).ok,true);
+ }finally{await svc.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
