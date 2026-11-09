@@ -148,4 +148,4 @@ function runOnce({cohort,market,stateFile,now=Date.now()}){
   if(lockFd!==undefined){fs.closeSync(lockFd);fs.unlinkSync(lock);}
  }
 }
-module.exports={runOnce,readSnapshot,readJson};
+module.exports={runOnce,readSnapshot,readJson,localPath,writeImmutable,writeAtomic,seal};
