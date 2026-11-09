@@ -41,7 +41,7 @@ function auditForwardRules(report,{minimumObserved=30,minimumCoverage=.8}={}){
     const coverage=matured?n/matured:null;
     const sorted=[...w.observed].sort((a,b)=>a-b);
     const median=n?(sorted[Math.floor((n-1)/2)]+sorted[Math.floor(n/2)])/2:null;
-    const ready=n>=minimumObserved&&coverage>=minimumCoverage;
+    const ready=n>=minimumObserved&&coverage>=minimumCoverage&&g.symbols.size>=10;
     return {tradingDays:w.tradingDays,observedCount:n,awaitingCount:w.pending,
      missingOrSuspendedCount:w.missing,corporateActionUnresolvedCount:w.corporateAction,
      maturedCount:matured,observedCoveragePct:coverage===null?null:+(coverage*100).toFixed(2),
