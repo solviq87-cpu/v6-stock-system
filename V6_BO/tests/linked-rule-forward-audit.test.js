@@ -114,3 +114,28 @@ test('rejected linked audit configuration does not silently fall back to legacy 
   assert.throws(()=>evaluate(history,{...opts,...extra}));
  }
 });
+
+test('correlated signals are grouped by stock/day and family, not inflated by horizons or cherry-picked fills',()=>{
+ const {history,linkedSeries}=dataset();
+ const r=evaluate(history,{...opts,includeLinkedRules:true,linkedSeries});
+ const d=r.overlapDiagnostics;
+ assert.equal(d.status,'descriptive-only');
+ assert.equal(d.rawRuleSignals,r.events.filter(e=>e.horizon===1).length);
+ assert.equal(d.uniqueStockDays,new Set(r.events.filter(e=>e.horizon===1)
+  .map(e=>e.symbol+'|'+e.signalDate)).size);
+ assert.equal(d.sameFamilyDuplicateSignals,d.rawRuleSignals-d.independentFamilyExposures);
+ assert.ok(d.sameFamilyDuplicateSignals>0,'two breakout variants should overlap on genuine signals');
+ assert.ok(d.sameFamilyOverlapStockDays>0);
+ assert.ok(d.byRule.donchian20_liquidity.sameFamilyOverlapDays>0);
+ assert.ok(d.byRule.narrow_range_expansion.sameFamilyOverlapDays>0);
+ assert.equal(d.byRule.sector_market_relative20.suggestedWeightAction,'unchanged');
+ assert.equal(d.weightsChanged,false);assert.equal(d.autoPromotion,false);
+ const oneHorizon=evaluate(history,{...opts,includeLinkedRules:true,linkedSeries,horizons:[1]});
+ assert.deepEqual(d,oneHorizon.overlapDiagnostics,
+  'one signal day must count once even when simulated over several exit horizons');
+ history.stocks[0].corporateActionsVerified=false;
+ const blocked=evaluate(history,{...opts,includeLinkedRules:true,linkedSeries});
+ assert.deepEqual(blocked.overlapDiagnostics,d,
+  'missing company-action evidence blocks returns but does not erase observed signal overlaps');
+ assert.ok(blocked.events.every(e=>e.status==='unverified-corporate-actions'));
+});
