@@ -239,3 +239,37 @@ test('private local CLI reports only holding risk counts and preserves journal a
   assert.equal(next.verifiedLive,false);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('missing imported session cannot be counted as a consecutive confirmation',()=>{
+ const {updateLifecycle}=require('../src/strategy/signal-pool-lifecycle');
+ const row=date=>({symbol:'600001',name:'研究样本',patternDate:date,
+  quality:{usable:true,fresh:true,simulated:false},
+  patterns:{matched:[{id:'rule-a',side:'bullish',status:'matched'}]}});
+ const at=date=>Date.parse(date+'T15:00:00+08:00');
+ const first=updateLifecycle({items:[row('2026-11-04')],now:at('2026-11-04')}).states;
+ const missing={...row('2026-11-05'),quality:{usable:false,fresh:false,simulated:false}};
+ const unavailable=updateLifecycle({items:[missing],previous:first,now:at('2026-11-05')}).states;
+ assert.equal(unavailable[0].dataStatus,'unavailable');
+ const today=updateLifecycle({items:[row('2026-11-06')],previous:unavailable,
+  now:at('2026-11-06')});
+ assert.equal(today.states[0].stage,'observe');
+ assert.equal(today.states[0].streak,1);
+ assert.equal(today.canTrade,false);
+});
+test('local eight-part daily CLI automatically attempts complete frozen research unless disabled',()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const {run}=require('../scripts/eight-point-closure');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-eight-audit-'));
+ try{
+  const file=path.join(dir,'run.json'),h=history('imported',65);
+  fs.writeFileSync(file,JSON.stringify({history:h}));
+  const auto=run([file]);
+  assert.equal(auto.dimensions.learning.forwardAuditStatus,'unavailable',
+   '65 bars cannot satisfy 60-day horizon and three frozen folds');
+  assert.equal(auto.dimensions.learning.autoPromotion,false);
+  assert.equal(auto.dimensions.publicRules.researchCatalogCount,8);
+  fs.writeFileSync(file,JSON.stringify({history:h,validatePublicRules:false}));
+  const disabled=run([file]);
+  assert.equal(disabled.dimensions.learning.forwardAuditStatus,'not-requested');
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
