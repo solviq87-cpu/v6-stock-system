@@ -170,15 +170,20 @@ test('unattended research worker appends immutable model versions only when new 
  assert.equal(fs.readdirSync(outputDir).length,1);
  append(56,61);
  const second=runShadowWorker(options);
- assert.equal(second.status,'shadow-updated');
- assert.equal(second.version,2);
+ assert.ok(['shadow-updated','shadow-retained'].includes(second.status),
+  'new evidence is evaluated, but not forced into a new active version');
  assert.equal(fs.readdirSync(outputDir).length,2);
  const names=fs.readdirSync(outputDir);
  assert.ok(names.every(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x)));
- const latest=names.map(n=>JSON.parse(fs.readFileSync(path.join(outputDir,n),'utf8')))
-  .find(x=>x.version===2);
+ const reports=names.map(n=>JSON.parse(fs.readFileSync(path.join(outputDir,n),'utf8')));
+ const latest=reports.find(x=>x.fingerprint===second.fingerprint);
  assert.ok(latest.previousFingerprint);
  assert.equal(latest.productionWeightsChanged,false);
+ assert.equal(second.version,second.status==='shadow-updated'?2:1,
+  'holdout failure retains the last accepted shadow version');
+ const replay=runShadowWorker(options);
+ assert.ok(['skipped-no-new-training','skipped-identical-evidence'].includes(replay.status));
+ assert.equal(fs.readdirSync(outputDir).length,2);
  assert.equal(parseShadowWorker(['watch',manifestFile,outputDir,'--interval','60000']).interval,60000);
  assert.throws(()=>parseShadowWorker(['watch',manifestFile,outputDir,'--interval','100']),/轮询/);
 });
