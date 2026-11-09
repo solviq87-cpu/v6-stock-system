@@ -3,7 +3,7 @@
   // A client-side projection of the EXISTING cached selection endpoint. No orders,
   // scanning "force", persistence, or browser-owned portfolio authority.
   const $ = id => document.getElementById(id);
-  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null, selectedCode: null, forwardTracking: null };
+  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null, selectedCode: null, forwardTracking: null, snapshotDay: '未知' };
   const number = value => {
     if (value === null || value === undefined || value === '' ||
         typeof value === 'boolean' || typeof value === 'object') return null;
@@ -47,36 +47,53 @@
       return (id + String(detail).slice(0, 220)).trim();
     }).filter(Boolean);
   };
-  const formatAt = at => {
-    // Provider Unix seconds (10 digits) and JS milliseconds (13 digits) differ.
-    // A short/ambiguous numeric value must not turn into a fake 1970 quote.
-    let stamp;
-    if (typeof at === 'number' && Number.isInteger(at)) {
-      if (at >= 1000000000 && at < 10000000000) stamp = at * 1000;
-      else if (at >= 1000000000000 && at < 10000000000000) stamp = at;
-      else return '';
-    } else if (typeof at === 'string') {
-      if (/^\d{10}$/.test(at)) stamp = Number(at) * 1000;
-      else if (/^\d{13}$/.test(at)) stamp = Number(at);
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(at)) stamp = at;
-      else return '';
-    } else return '';
-    const date = new Date(stamp);
-    return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+  // A provider's original time is the only admissible quote clock.
+  // Selection/snapshot/update times cannot silently stand in for it.
+  const providerEpochMs = raw => {
+    let ms = null;
+    if (typeof raw === 'number' && Number.isSafeInteger(raw)) {
+      if (raw >= 1000000000 && raw < 10000000000) ms = raw * 1000;
+      else if (raw >= 1000000000000 && raw < 10000000000000) ms = raw;
+    } else if (typeof raw === 'string') {
+      if (/^\d{10}$/.test(raw)) ms = Number(raw) * 1000;
+      else if (/^\d{13}$/.test(raw)) ms = Number(raw);
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw))
+        ms = Date.parse(raw);
+    }
+    return Number.isSafeInteger(ms) && ms >= 946684800000 && ms < 4102444800000 ? ms : null;
+  };
+  const quoteProof = item => {
+    // quoteAt alone may be a server/cache timestamp; never promote it.
+    const ms = providerEpochMs(item?.vendorQuoteAt);
+    if (ms === null) return '逐票报价原始时点：未知（不能当实时价）';
+    const shown = new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+    const origin = typeof item.quoteSource === 'string' && item.quoteSource.trim() &&
+      !/[\x00-\x1f<>]/.test(item.quoteSource)
+      ? ' · 来源标记：' + item.quoteSource.trim().slice(0, 40) + '（未认证）' : '';
+    const prefix = '第三方自报报价时点：' + shown + origin;
+    const now = Date.now();
+    if (ms > now + 60000)
+      return prefix + ' · 未来时间异常（请检查本机时钟或上游数据，不能当实时价）';
+    // China market has a fixed UTC+8 offset; this date does not certify a trading session.
+    const quoteDay = new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(state.snapshotDay) && quoteDay !== state.snapshotDay)
+      return prefix + ' · 与候选快照交易日不一致（异期数据，非实时）';
+    if (now - ms > 90000)
+      return prefix + ' · 原始报价已超过90秒（按本机时钟估算，非实时）';
+    return prefix + ' · 原始时间接近本机当前时刻（仍未经实时认证）';
   };
   // A single evidence projection feeds both list clicks and cloud refreshes.
   // Never let a previously selected stock keep outdated risk or hit labels.
   const detailPayload = item => {
     const code = String(item.code || item.symbol || '');
-    const quoteTime = formatAt(item.vendorQuoteAt || item.quoteAt);
+    const quoteTime = quoteProof(item);
     return {
       code, name: String(item.name || code).slice(0, 80),
       followup: item.forwardTracking || state.forwardTracking,
       reasons: reasonRows(item),
       risk: String(item.riskStatus || item.risk?.status || item.risk?.level || item.riskLevel ||
         (item.blocked === true || item.risk?.blocked === true ? '存在风险阻断' : '风险未评估')).slice(0, 130),
-      quoteProof: quoteTime ? '第三方自报报价时点：' + quoteTime + ' · 未认证实时' :
-        '逐票原始报价时点未知 · 非实时认证'
+      quoteProof: quoteTime
     };
   };
   const showItem = item => {
@@ -110,11 +127,7 @@
       if(reasons.length>3)badges.append(node('span','hit-tag','另有 '+(reasons.length-3)+' 条'));
     }
     card.append(badges);
-    const quoteAt = item.vendorQuoteAt || item.quoteAt;
-    const quoteTime = formatAt(quoteAt);
-    card.append(node('p', 'footnote', quoteTime ?
-      '第三方自报报价时点：' + quoteTime + ' · 未经交易所实时性认证' :
-      '逐票报价原始时点：未知（不能当实时价）'));
+    card.append(node('p', 'footnote', quoteProof(item)));
     const link = node('a', '', '查看策略研究与详细风控');
     link.href = '/research.html#decisionWorkspace';
     link.textContent = '深入策略研究（可选）';
@@ -168,6 +181,7 @@
     state.lastRefresh = 0;
     state.selectedCode = null;
     state.forwardTracking = null;
+    state.snapshotDay = '未知';
     document.dispatchEvent(new Event('v6:picks-unauthorized'));
     $('day').textContent = '未知';
     $('cloudSync').textContent = '访问权限需要重新确认；已清空之前的候选画面';
@@ -206,6 +220,7 @@
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
       state.items = data.items.filter(x => x && typeof x === 'object').slice(0, 100);
       state.forwardTracking = data.forwardTracking && typeof data.forwardTracking === 'object' ? data.forwardTracking : null;
+      state.snapshotDay = displayDay(data);
       const active = state.selectedCode
         ? state.items.find(x => String(x.code || x.symbol || '') === state.selectedCode)
         : null;
