@@ -3,7 +3,7 @@
 // Operator-enabled unattended research worker. Reads only private imported
 // evidence, emits immutable shadow-model revisions, NEVER production weights.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {readJson}=require('../src/core/forward-tracking-store');
+const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
@@ -39,9 +39,27 @@ function latestAccepted(dir){
   throw Error('存在重复研究版本编号，禁止自动选择');
  return accepted[0]||null;
 }
+function readEpisodeReport(file){
+ const original=readJson(file);
+ if(original?.mode==='v6-forward-tracking-snapshot'){
+  // Immutable tracking history is a sealed wrapper. Audit its SHA and
+  // recomputed rule statistics before using the embedded H5 price report.
+  const archived=readSnapshot(file);
+  if(!archived)throw Error('缺少成熟观察归档');
+  return archived.report;
+ }
+ return original; // Legacy explicit offline plain observer report.
+}
 function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  const conf=parse(['once',manifestFile,outputDir]);
  const manifest=readJson(conf.manifestFile);
+ if(manifest?.mode==='v6-forward-training-manifest'){
+  const {integrity,...body}=manifest;
+  if(integrity!==hash(body)||manifest.canTrade!==false||
+     manifest.productionWeightsChanged!==false||
+     manifest.evidenceBasis!=='first-matured-sealed-5-trading-day')
+   throw Error('自动学习manifest完整性或来源协议无效');
+ }
  if(manifest?.schemaVersion!==1||!Array.isArray(manifest.episodes)||
     manifest.episodes.length<36||manifest.episodes.length>400)
   throw Error('需要完整时间排序研究批次目录');
@@ -49,7 +67,7 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  const episodes=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
-  return {features:readJson(x.featuresFile),report:readJson(x.reportFile)};
+  return {features:readJson(x.featuresFile),report:readEpisodeReport(x.reportFile)};
  });
  let result;
  try{
@@ -97,4 +115,4 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,main};
+module.exports={parse,runOnce,latestAccepted,main,readEpisodeReport};
