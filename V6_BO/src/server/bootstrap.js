@@ -2,12 +2,13 @@
 
 const http = require('http');
 const { AsyncLocalStorage } = require('async_hooks');
+const { decorateQuantPicksResponse } = require('./forward-tracking-projection');
 
 /**
  * HTTP 基础设施层：统一处理 CORS、请求体上限和手动请求上下文。
  * 业务路由仍由 server.js 的 handle() 负责，避免一次性大拆导致行为变化。
  */
-function createDashboardServer({ handle, sameOriginOk, bodyLimit, onListen, port, host }) {
+function createDashboardServer({ handle, sameOriginOk, bodyLimit, onListen, port, host, forwardTrackingFile=process.env.V6_FORWARD_TRACKING_REPORT_FILE }) {
   if (typeof handle !== 'function') throw new TypeError('handle 必须是函数');
   if (typeof sameOriginOk !== 'function') throw new TypeError('sameOriginOk 必须是函数');
   if (!Number.isSafeInteger(bodyLimit) || bodyLimit <= 0) throw new RangeError('bodyLimit 必须为正整数');
@@ -47,6 +48,10 @@ function createDashboardServer({ handle, sameOriginOk, bodyLimit, onListen, port
     };
     const dispatch = (body) => {
       try {
+        // Only decorate the existing authorized, successful stock result response.
+        // No new route or write access; disabled unless explicitly configured.
+        if (req.method === 'GET' && u.pathname === '/api/quant-picks' && forwardTrackingFile)
+          decorateQuantPicksResponse(res, {stateFile:forwardTrackingFile});
         Promise.resolve(pushContext.run({ manual: true }, () => handle(req, res, u, body))).catch(fail);
       } catch (err) {
         fail(err);

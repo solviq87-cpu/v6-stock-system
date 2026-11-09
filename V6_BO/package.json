@@ -43,7 +43,9 @@
     "audit:release": "node scripts/v6-release-preflight.js --json",
     "audit:feeds": "node scripts/market-feed-consensus.js",
     "market:history": "node scripts/eastmoney-historical-import.js",
-    "research:history": "node scripts/adaptive-monitor-archive.js"
+    "research:history": "node scripts/adaptive-monitor-archive.js",
+    "tracking:once": "node scripts/forward-tracking-cloud.js once",
+    "tracking:watch": "node scripts/forward-tracking-cloud.js watch"
   },
   "engines": {
     "node": ">=22.6"
