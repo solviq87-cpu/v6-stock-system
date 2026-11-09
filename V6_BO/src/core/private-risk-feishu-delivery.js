@@ -45,10 +45,11 @@ function prepareRiskSummary(report,{now=Date.now()}={}){
  const privateEventIds=alerts.filter(a=>a.severity!=='unknown').map(a=>a.id).sort();
  if(privateEventIds.some(id=>typeof id!=='string'||id.length>128))throw Error('风险事件ID无效');
  const fingerprint=sha({day,counts,codes,privateEventIds});
+ const legacyFingerprint=sha({day,counts,codes});
  const message='V6 本机只读风险观察（'+day+'）\n高风险 '+counts.critical+
    ' 条，普通风险 '+counts.warning+' 条，未知/待核验 '+counts.unknown+
    ' 条；观察持仓 '+count+' 只。\n数据来源与报价未经独立认证，消息不代表券商持仓或交易指令。请到自己的本机页面核对。';
- return {day,counts,fingerprint,message,actionable:counts.critical+counts.warning>0,
+ return {day,counts,fingerprint,legacyFingerprint,message,actionable:counts.critical+counts.warning>0,
    containsPositions:false,canTrade:false,sourceVerified:false};
 }
 function checkUrl(value){
@@ -79,7 +80,7 @@ function validateEvent(x){
   /^[a-f0-9]{64}$/.test(x.fingerprint||'')&&
   ['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)&&
   Number.isSafeInteger(x.at)&&x.at>0&&Number.isSafeInteger(x.critical)&&
-  x.critical>=0&&x.critical<=100;
+  x.critical>=0&&x.critical<=100&&(x.legacy===undefined||x.legacy===true);
 }
 function readState(file){
  if(!fs.existsSync(file))return null;
@@ -92,7 +93,7 @@ function readState(file){
    !/^[a-f0-9]{64}$/.test(x.fingerprint||'')||
    !['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)||
    !Number.isSafeInteger(x.at)||x.at<=0)throw Error('持久化提醒记录损坏');
-  return {history:[{day:x.day,fingerprint:x.fingerprint,status:x.status,at:x.at,critical:0}]};
+  return {history:[{day:x.day,fingerprint:x.fingerprint,status:x.status,at:x.at,critical:0,legacy:true}]};
  }
  if(x.schemaVersion!==2||!Array.isArray(x.history)||!x.history.length||
    x.history.length>MAX_HISTORY||x.history.some(e=>!validateEvent(e))||
@@ -134,7 +135,8 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
  try{
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
   const prior=readState(file)?.history||[];
-  const matching=prior.find(x=>x.day===summary.day&&x.fingerprint===summary.fingerprint);
+  const matching=prior.find(x=>x.day===summary.day&&
+   (x.fingerprint===summary.fingerprint||(x.legacy===true&&x.fingerprint===summary.legacyFingerprint)));
   if(matching)
    return {status:'deduplicated-'+matching.status,canTrade:false,
     gatewayAccepted:matching.status==='gateway-accepted',deliveredToDevice:false,
