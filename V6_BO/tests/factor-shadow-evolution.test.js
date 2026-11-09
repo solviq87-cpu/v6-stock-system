@@ -86,6 +86,11 @@ test('autonomous shadow update uses training + purged validation + untouched hol
  assert.equal(r.shadowWeights.sector_heat>1.3,true);
  assert.equal(r.shadowWeights.leader_strength<1.3,true);
  assert.equal(r.purgeSessions,5);
+ assert.equal(r.factorLearning.sector_heat.reliable,true);
+ assert.equal(r.factorLearning.leader_strength.reliable,true);
+ assert.equal(r.marketRegimeDays.unknown,r.trainDays);
+ assert.equal(r.freshHoldoutOnly,false);
+ assert.ok(r.holdout.stability.halfPeriodsConsistent);
  assert.ok(r.validation.deltaIC>0);
  assert.ok(r.holdout.deltaIC>0);
  assert.ok(r.trainDays>=15&&r.validationDays>=5&&r.testDays>=5);
@@ -200,4 +205,52 @@ test('corrupt research model archive stops unattended learning instead of silent
  fs.writeFileSync(path.join(outputDir,'shadow-2026-07-01-aaaaaaaaaaaa.json'),'{"bad":"content"}');
  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
  assert.throws(()=>require('../scripts/factor-shadow-worker').latestAccepted(outputDir),/结构无效/);
+});
+
+test('market regime is frozen using contemporaneous multi-index evidence, never a future label',()=>{
+ const e=episode(0),d=dates[0],marketTime=at(d);
+ const context={
+  schemaVersion:1,source:'imported',simulated:false,
+  provider:'unverified-regime-unit-only',tradeDate:d,observedAt:marketTime,
+  coverage:1,breadth:{source:'unverified-regime-unit-only',
+   observedAt:marketTime,upPct:10},
+  indices:{
+   shanghai:{source:'unverified-regime-unit-only',
+    observedAt:marketTime,changePct:-3.5},
+   chinext:{source:'unverified-regime-unit-only',
+    observedAt:marketTime,changePct:-3.9}
+  }
+ };
+ const input={cohort:e.cohort,factorIds,rows:e.rows,feed:featureFeed,
+  marketContext:context};
+ const frozen=freezeFeatureEpisode(input,{now:at(d,'16:02:00')});
+ assert.equal(frozen.marketRegime.regime,'systemic-selloff');
+ assert.equal(frozen.marketRegime.status,'observed-unverified');
+ const wrong=structuredClone(context);
+ wrong.observedAt=at(d,'16:03:00');
+ const unknown=freezeFeatureEpisode({...input,marketContext:wrong},
+  {now:at(d,'16:02:00')});
+ assert.equal(unknown.marketRegime.regime,'unknown');
+ assert.equal(unknown.marketRegime.status,'unavailable');
+});
+test('future shadow upgrades require at least five genuinely unseen holdout days',()=>{
+ const original=Array.from({length:56},(_,i)=>episode(i));
+ const old=evolveShadowFactors(original,{now:finalClock});
+ assert.equal(old.status,'shadow-updated');
+ assert.throws(()=>evolveShadowFactors(Array.from({length:60},(_,i)=>episode(i)),
+  {now:finalClock,previous:old}),/新增独立样本外交易日不足/);
+ const next=evolveShadowFactors(Array.from({length:61},(_,i)=>episode(i)),
+  {now:finalClock,previous:old});
+ assert.equal(next.freshHoldoutOnly,true);
+ assert.equal(next.testDays,5);
+ assert.ok(next.holdout.firstFreshDay>old.lastObservationDay);
+ assert.equal(next.productionWeightsChanged,false);
+});
+test('already reviewed historic episode fingerprints cannot be changed during self-learning',()=>{
+ const original=Array.from({length:56},(_,i)=>episode(i));
+ const old=evolveShadowFactors(original,{now:finalClock});
+ const next=Array.from({length:61},(_,i)=>episode(i));
+ next[1].report.marketFingerprint='a'.repeat(64);
+ assert.throws(()=>evolveShadowFactors(next,{now:finalClock,previous:old}),
+  /历史冻结证据被替换或回写/);
 });
