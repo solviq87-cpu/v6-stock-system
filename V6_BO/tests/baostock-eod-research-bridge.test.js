@@ -125,7 +125,7 @@ test('private normalized history is immutable, idempotent and never stores upstr
  assert.equal(fs.statSync(out).mode&0o777,0o600);
  assert.ok(!fs.readFileSync(out,'utf8').includes('never-write-this'));
  assert.equal(publishOnce({file:src,out,now}).status,'unchanged');
- const changed=bundle();changed.stocks[0].kline.rows[0].close='11.00';
+ const changed=bundle();changed.stocks[0].kline.rows[0].close='10.01';
  fs.writeFileSync(src,JSON.stringify(changed));
  assert.throws(()=>publishOnce({file:src,out,now}));
  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).stocks[0].bars[0].close,10);
