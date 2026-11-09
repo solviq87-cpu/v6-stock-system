@@ -95,10 +95,20 @@ async function fetchHistoryPage(code,end,turn){
   headers:{Accept:'application/json'}
  });
  if(turn!==generation)return null;
+ // The result list and K-line detail share one read authorization boundary.
+ // Fail closed when K-line access is revoked; a stale chart must not survive.
+ if(response.status===401||response.status===403){
+  document.dispatchEvent(new Event('v6:picks-kline-unauthorized'));
+  return null;
+ }
  if(!response.ok)throw Error('K线接口暂不可用（HTTP '+response.status+'）');
  const result=await response.json();
  if(turn!==generation)return null;
- if(!result||result.ok===false||result.locked===true||result.simulated===true||
+ if(result?.locked===true){
+  document.dispatchEvent(new Event('v6:picks-kline-unauthorized'));
+  return null;
+ }
+ if(!result||result.ok===false||result.simulated===true||
    result.isMock===true||!Array.isArray(result.rows)||
    (result.code!=null&&String(result.code)!==code))
   throw Error('没有可核实的历史日K数据');
