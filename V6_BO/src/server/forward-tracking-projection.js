@@ -25,20 +25,37 @@ function joinAuthorizedFollowup(candidateBody,stored){
 }
 function decorateQuantPicksResponse(res,{stateFile}={}){
  if(typeof stateFile!=='string'||!stateFile)return;
- const end=res.end,write=res.write;
+ const end=res.end,write=res.write,writeHead=res.writeHead;
+ let lastExplicitHeaders=null;
+ // server.js json() uses writeHead(headers) instead of setHeader(); Node does
+ // NOT expose writeHead-only fields via getHeader(). Capture, never alter them.
+ res.writeHead=function(...args){
+  const headers=typeof args[1]==='string'?args[2]:args[1];
+  const captured=new Map();
+  if(Array.isArray(headers)){
+   for(let i=0;i+1<headers.length;i+=2)
+    captured.set(String(headers[i]).toLowerCase(),headers[i+1]);
+  }else if(headers&&typeof headers==='object'){
+   for(const [name,value] of Object.entries(headers))
+    captured.set(name.toLowerCase(),value);
+  }
+  lastExplicitHeaders=captured;
+  return writeHead.apply(this,args);
+ };
+ const header=name=>lastExplicitHeaders?.get(name)??res.getHeader(name);
  let wrote=false;
  res.write=function(...args){wrote=true;return write.apply(this,args);};
  res.end=function(chunk,encoding,callback){
-  res.end=end;res.write=write;
+  res.end=end;res.write=write;res.writeHead=writeHead;
   if(wrote||res.statusCode!==200||res.writableEnded||res.destroyed||
-    res.getHeader('content-length')!==undefined||
-    !/application\/json/i.test(String(res.getHeader('content-type')||''))||
+    header('content-length')!==undefined||
+    !/application\/json/i.test(String(header('content-type')||''))||
     (typeof chunk!=='string'&&!Buffer.isBuffer(chunk)))
    return end.call(this,chunk,encoding,callback);
   // The production json() helper compresses larger candidate lists before
   // res.end(). Unwrap bounded gzip data, join the report, then restore gzip
   // rather than silently dropping forwardTracking on ordinary browsers.
-  const contentEncoding=String(res.getHeader('content-encoding')||'').toLowerCase();
+  const contentEncoding=String(header('content-encoding')||'').toLowerCase();
   if(contentEncoding&&contentEncoding!=='gzip')
    return end.call(this,chunk,encoding,callback);
   let raw;
