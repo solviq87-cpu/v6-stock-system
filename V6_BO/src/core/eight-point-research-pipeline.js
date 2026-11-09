@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const {auditMarketData}=require('./market-data-quality');
 const {updateLifecycle}=require('../strategy/signal-pool-lifecycle');
 const {assessMarketShock}=require('./market-shock-learning-gate');
+const {proposeSandboxPriorities}=require('./sandbox-rule-priority-learning');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const isoDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  Number.isFinite(Date.parse(x+'T00:00:00Z'))&&
@@ -156,7 +157,9 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
     note:'私有手动持仓仅由独立本机鉴权接口读取，不会进入研究报告或GitHub'},
    missing:['真实行情逐票时间、推送送达、风险拒单与实机验收尚未独立完成']},
   learning:{status:perRule.length?'manual-review-only':'needs-opt-in-forward-audit',
-   horizonDays:5,perRule,weightsChanged:false,
+   horizonDays:5,perRule,
+   sandboxPriorities:proposeSandboxPriorities(forward,{marketShock:shock}),
+   weightsChanged:false,
    marketShock:{status:shock.status,regime:shock.regime,
     deferLearningUpdate:shock.deferLearningUpdate,reason:shock.reason,
     forceMajeureVerified:false,lossSamplesRetained:true},

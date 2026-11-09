@@ -223,6 +223,21 @@ function renderEightPointFlow(report){
  add(root,'p','历史样本日期 '+(report.asOf||'缺少统一日期')+
   '｜代码链路 '+(report.coverage?.codeConnected??0)+'/8'+
   '｜外部已验收 '+(report.coverage?.externalAccepted??0)+'/8','muted');
+ const four=document.createElement('div');four.className='cards';root.append(four);
+ const learning=report.dimensions?.learning?.sandboxPriorities;
+ const gates=[
+  ['行情双源','公开来源检查工具已接入；行情许可与连续盘中核验待完成'],
+  ['盯盘提醒','可在自己设备启用飞书风险摘要；手机实际接收待验收'],
+  ['自动学习',learning?.status==='research-preview-only'?
+   '研究升权假设 '+(learning.proposedUp||0)+' 条／降权假设 '+(learning.proposedDown||0)+' 条；正式权重不变':
+   '冻结样本或市场风险门禁未满足；不自动调权'],
+  ['电脑与手机','研究结果响应式展示；真实设备逐项操作尚未验收']
+ ];
+ for(const [name,detail] of gates){
+  const card=document.createElement('article');card.className='card';four.append(card);
+  add(card,'strong',name+' · 待外部验收');
+  add(card,'p',detail,'muted');
+ }
  const descriptors={
   market:x=>'上证/深证/创业板/A50证据：'+(Object.keys(x.indices||{}).join('、')||'未知')+
    '｜广度 '+(x.breadthPct??'未知')+'｜市场状态 '+(x.regime||'未知'),
