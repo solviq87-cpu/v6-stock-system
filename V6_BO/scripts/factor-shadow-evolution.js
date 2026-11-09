@@ -66,4 +66,4 @@ if(require.main===module){
  try{console.log(JSON.stringify(execute(process.argv.slice(2))));}
  catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={execute};
+module.exports={execute,writeNew,safeNew};
