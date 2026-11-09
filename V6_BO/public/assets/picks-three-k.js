@@ -30,10 +30,13 @@ function clear(reason='尚未选择股票'){
 function draw(){
  if(!selected)return;
  const bars=source.aggregate(daily,period);
- const shown=bars.slice(-({day:55,month:36,year:16}[period]));
+ // While a prior page remains available, the oldest monthly/yearly candle
+ // is only a partial prefix of that period. Don't present it as a full bar.
+ const hiddenFirst=period!=='day'&&hasMore&&bars.length>0;
+ const shown=(hiddenFirst?bars.slice(1):bars).slice(-({day:55,month:36,year:16}[period]));
  const tag={day:'日K',month:'月K',year:'年K'}[period];
  if(shown.length<2){
-  message(tag+'：历史日线覆盖期不足，无法形成可核实的走势');
+  message(tag+'：历史日线覆盖期不足，无法形成可核实的走势'+(hasMore?'；更早历史尚未完整载入':'') );
   emptyChart('当前数据不足，不能凭空生成'+tag);
   return;
  }
@@ -68,7 +71,11 @@ function draw(){
  }
  $('periodChart').replaceChildren(svg);
  const last=shown[shown.length-1];
- message(tag+' · '+shown.length+' 根 · 已取得日线截止 '+last.date+' · 月/年K由真实日K聚合（最新周期可能未结束）');
+ message(tag+' · '+shown.length+' 根 · 已取得日线截止 '+last.date+
+   (period==='day'?'':' · 月/年K由真实日K聚合（最新周期可能未结束）')+
+   (hiddenFirst?' · 最早未完整周期已隐藏':'')+
+   (period!=='day'&&!hasMore?' · 历史起点可能从上市日开始，首周期未必完整':'')+
+   (hasMore&&pages>=MAX_PAGES?' · 已达到分批读取上限':'') );
 }
 function setPeriod(next){
  if(!['day','month','year'].includes(next))return;
@@ -103,7 +110,7 @@ async function loadOlder(turn){
  const task=(async()=>{
   try{
    while(turn===generation&&hasMore&&pages<MAX_PAGES&&
-     source.aggregate(daily,period).length<TARGET_BARS[period]){
+     (source.aggregate(daily,period).length-(period!=='day'?1:0))<TARGET_BARS[period]){
     if(!oldest||!/^\d{4}-\d{2}-\d{2}$/.test(oldest))break;
     const requested=oldest.replace(/-/g,'');
     message('正在补读更早历史K线（已读取'+pages+'页）…');
@@ -111,7 +118,10 @@ async function loadOlder(turn){
     if(turn!==generation||!result)return;
     const older=source.normalize(result.rows).filter(bar=>bar.date<oldest);
     // A repeated, empty, or non-retreating page cannot make progress.
-    if(!older.length){hasMore=false;break;}
+    if(!older.length){
+     if(result.rows.length)throw Error('更早历史未向前推进，已停止以防重复K线');
+     hasMore=false;break;
+    }
     daily=source.normalize([...older,...daily]);
     oldest=daily[0].date;
     hasMore=result.hasMore===true;
@@ -120,9 +130,12 @@ async function loadOlder(turn){
    if(turn===generation)draw();
   }catch(error){
    if(turn!==generation||error?.name==='AbortError')return;
-   hasMore=false;
+   // A transport failure cannot certify that no older bars exist.
+   // Keep hasMore so the oldest partial month/year stays hidden; user may
+   // retry by reselecting a period without reloading the whole page.
+   hasMore=true;
    draw();
-   message('历史补读中断，暂显示已取得的'+daily.length+'根日K；'+String(error?.message||'网络错误'));
+   message('历史补读中断，较早月/年K未完整，最早周期不展示；已取得'+daily.length+'根日K。'+String(error?.message||'网络错误'));
   }
  })();
  olderTask=task;
