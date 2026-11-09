@@ -7,7 +7,11 @@
   const number = value => {
     if (value === null || value === undefined || value === '' ||
         typeof value === 'boolean' || typeof value === 'object') return null;
-    const n = Number(value);
+    // Whitespace, hexadecimal and other coerced strings are not stock prices/scores.
+    // Preserve real numeric zero; do not convert a missing field into 0.00%.
+    const v = typeof value === 'string' ? value.trim() : value;
+    if (typeof v === 'string' && !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v)) return null;
+    const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
   const node = (tag, className, value) => {
@@ -131,6 +135,16 @@
     for (const x of items.slice(0, 100)) fragment.append(showItem(x));
     root.append(fragment);
   };
+  // Lost authorization must revoke previously rendered data. A network timeout may
+  // keep a visibly stale snapshot, but a 401/403/locked response may not.
+  const clearProtectedResults = () => {
+    state.items = [];
+    state.hasData = false;
+    state.lastRefresh = 0;
+    $('day').textContent = '未知';
+    $('cloudSync').textContent = '访问权限需要重新确认；已清空之前的候选画面';
+    render();
+  };
   const load = async () => {
     const id = ++state.requestId;
     if (state.controller) state.controller.abort();
@@ -147,12 +161,18 @@
         headers: { Accept: 'application/json' }
       });
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) throw new Error('没有只读查看权限，请先到手机速览页登录。');
+        if (response.status === 401 || response.status === 403) {
+          clearProtectedResults();
+          throw new Error('没有只读查看权限，请先到手机速览页登录。');
+        }
         throw new Error('接口 HTTP ' + response.status);
       }
       const data = await response.json();
       if (id !== state.requestId) return;
-      if (data?.locked === true) throw new Error('当前身份无权查看候选池，请先登录。');
+      if (data?.locked === true) {
+        clearProtectedResults();
+        throw new Error('当前身份无权查看候选池，请先登录。');
+      }
       if (data?.ok === false) throw new Error(String(data.error || data.note || '云端候选数据不可用'));
       if (data?.isMock === true || data?.simulated === true) throw new Error('服务端返回演示数据，已拒绝展示为真实选股');
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');

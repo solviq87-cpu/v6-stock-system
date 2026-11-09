@@ -23,6 +23,17 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
+  // Dedicated result page must be reachable through the REAL server routes, not
+  // merely pass an offline DOM test while silently returning the home fallback.
+  const picks=await get(p,'/picks.html');
+  assert.equal(picks.status,200,'/picks.html must be served by V6');
+  assert.match(picks.body,/智能选股结果/);
+  const reference=await get(p,'/reference-dashboard.html');
+  assert.equal(reference.status,200,'reference dashboard shell must remain reachable');
+  assert.match(reference.body,/AI 综合选股信号/);
+  const picksScript=await get(p,'/assets/picks-page.js');
+  assert.equal(picksScript.status,200,'picks viewer script must be served');
+  assert.match(picksScript.body,/clearProtectedResults/);
   // 真实 HTTP 越权回归：无开发者凭证不可列设备或撤权。
   const devices=await get(p,'/api/lock/devices');
   assert.equal(devices.status,200);
@@ -37,6 +48,6 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const revoke=await post('/api/lock/revoke',{id:'nonexistent',token:''});
   assert.notEqual(JSON.parse(revoke.body).ok,true);
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
-  console.log('PASS: 完整服务启动、状态接口、首页、404、无凭证设备列表与撤权拒绝');
+  console.log('PASS: 完整服务、首页、选股/参考图页面、脚本、404与无凭证拒绝');
  } finally {child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null||child.signalCode!==null)return r();child.once('exit',r);setTimeout(r,1000);});}
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

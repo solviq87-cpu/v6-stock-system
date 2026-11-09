@@ -18616,7 +18616,7 @@ function handle(req, res, u, body) {
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
-  const isAsset = p === '/research.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
+  const isAsset = p === '/research.html' || p === '/picks.html' || p === '/reference-dashboard.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
   // 找回密码三步聚 allowlist：忘记密码时手头没有任何凭证，必须在门禁之前放行，否则永远走不下去
   const isAuth = p === '/api/lock/status' || p === '/api/lock/setup' || p === '/api/lock/unlock' || p === '/api/lock/change' || p === '/api/lock/trust'
