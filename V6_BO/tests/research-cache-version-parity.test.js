@@ -22,7 +22,8 @@ test('service, phone and service worker use a single release cache version',()=>
 });
 test('research UI script URL is bumped after explanation and episode changes',()=>{
  const html=read('public/research.html');
- assert.ok(html.includes('/assets/complete-workbench.js?v=20261109daily1'));
+ assert.ok(html.includes('/assets/complete-workbench.js?v=20261109yellowfour1'));
+ assert.ok(!html.includes('complete-workbench.js?v=20261109daily1'));
  assert.ok(!html.includes('complete-workbench.js?v=20261109qualityaudit4'));
  const js=read('public/assets/complete-workbench.js');
  assert.ok(js.includes('temporalOverlapDiagnostics'));
