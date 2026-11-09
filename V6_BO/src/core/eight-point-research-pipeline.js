@@ -80,7 +80,9 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
  }
  // Same-day historical snapshots are a single observation, not continuing
  // multi-day watch-state persistence. Missing or simulated quotes never focus.
- const clock=sameDate?Date.parse(date+'T15:00:00+08:00'):Date.now();
+ // An offline report cannot depend on wall-clock time: missing dates never become fresh.
+ const clock=isoDay(quality.lastDate)?Date.parse(quality.lastDate+'T15:00:00+08:00'):
+  Date.parse('2000-01-01T15:00:00+08:00');
  const watch=updateLifecycle({items:watchItems,now:clock});
  const officialWatch=new Set((selectionEvidence.researchWatchlist||[]).map(x=>x.symbol));
  const researchWatch=watch.states.filter(x=>officialWatch.has(x.symbol)&&

@@ -234,10 +234,18 @@ function renderEightPointFlow(report){
   testing:x=>'历史数据检查 '+(x.dataQualityChecked?'已执行':'未执行')+
    '｜CI/实际部署：必须使用独立日志验证'
  };
+ const phaseLabels={'imported-observed-unverified':'已导入历史证据，待外部核验',
+  'unavailable':'证据不足','historical-research-only':'历史研究已接入',
+  'existing-guards-reconciled':'离线账本已核对',
+  'reconciliation-unavailable':'账本核对未通过',
+  'manual-review-only':'仅供人工复核',
+  'needs-opt-in-forward-audit':'尚未启用历史前瞻审计',
+  'research-layer-attached':'研究规则已接入',
+  'local-evidence-constructed-ci-not-self-attested':'离线证据已汇总，CI另验收'};
  for(const line of report.workstreams){
   const info=report.dimensions?.[line.id]||{},card=document.createElement('details');
   card.className='card';root.append(card);
-  add(card,'summary',line.label+'｜'+line.status);
+  add(card,'summary',line.label+'｜'+(phaseLabels[line.status]||'待核验'));
   add(card,'p',descriptors[line.id]?.(info)||'证据待核对');
   for(const missing of line.unresolved||[])add(card,'p','待验收：'+missing,'muted');
  }
@@ -246,6 +254,7 @@ function renderEightPointFlow(report){
 
 async function run(action){
  buttons.forEach(id=>el(id).disabled=true);el('completeStatus').textContent='正在处理…';el('completeOutput').textContent='';el('completeSummary').replaceChildren();
+ for(const id of ['historicalSelection','publicRuleAuditSummary','eightPointSummary']){const old=el(id);if(old)old.remove();}
  try{
   let input=action==='read'?{}:JSON.parse(el('payload').value),payload;
   if(action==='complete'){
