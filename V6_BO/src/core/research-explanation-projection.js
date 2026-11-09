@@ -42,8 +42,14 @@ function historicalExplanations(history,{market={}}={}){
     linked.strategies.some(x=>x.status==='risk_blocked');
   const watchEligible=!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
     item.quality?.fresh===true&&item.quality?.simulated!==true&&rules.length>0;
+  const relative=linked.contextEvidence?.metrics;
+  const relativeNote=relative&&relative.stockExcessOverSectorPct>=2&&
+    relative.sectorExcessOverMarketPct>=2&&item.rationale.whyUp?.observedRise===true?
+    ['同期20日个股、所属板块和境内指数呈现逐级相对强势；仅为相关现象，尚不能证明上涨驱动']: [];
   const rationale={...item.rationale,openSourceResearch:research,
    linkedFactorResearch:linked,linkedFactors:linked.factors,
+   whyUp:{...item.rationale.whyUp,possibleContributors:[
+    ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
    risks:studyBlocked?[...item.rationale.risks,'公开策略研究因交易风险被阻断']:item.rationale.risks,
    selection:{...item.rationale.selection,rules,ruleCount:rules.length,
     independentFamilyCount:new Set(rules.map(r=>r.family)).size,
