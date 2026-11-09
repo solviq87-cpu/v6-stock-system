@@ -5,7 +5,7 @@ const {auditAuctionResonanceBasis:judge}=require('../src/core/auction-resonance-
 const now=Date.parse('2026-11-09T09:26:00+08:00');
 const stockSnapshotAt=now-20000;
 const valid=()=>({auction:{date:'20261109',time:'09:25:06',phase:3,strong:[{code:'000001'}]},
-  stockSnapshotAt,stockSnapshotDay:'20261109',expectedDay:'20261109',now});
+  stockSnapshotAt,stockSnapshotDay:'20261109',expectedDay:'20261109',calendarDay:'20261109',now});
 test('same-day time/phase aligns only as unverified snapshot, never certified provider quote',()=>{
  const r=judge(valid());
  assert.equal(r.status,'same-day-capture-unverified');
@@ -25,6 +25,18 @@ test('prior-day auction cannot be combined with current-day stock/sector feed',(
  assert.match(r.reason,/跨日拼接/);
  const s=judge({...valid(),stockSnapshotDay:'20261106'});
  assert.equal(s.status,'stale-auction-snapshot');
+});
+test('Monday 09:00 before auction never treats Friday as Monday just because quoteBasis uses previous trading day',()=>{
+ const r=judge({
+  auction:{date:'20261106',time:'09:25:06',phase:3},
+  stockSnapshotAt:Date.parse('2026-11-06T15:00:00+08:00'),
+  now:Date.parse('2026-11-09T09:00:00+08:00'),
+  calendarDay:'20261109',expectedDay:'20261106',
+  stockSnapshotDay:'20261106'
+ });
+ assert.equal(r.status,'stale-auction-snapshot');
+ assert.equal(r.eligibleForAuctionEvidence,false);
+ assert.equal(r.verifiedLive,false);
 });
 test('missing source/day/capture timestamp or future receipt does not invent current auction',()=>{
  for(const input of [
