@@ -69,7 +69,8 @@ test('viewer switches day/month/year without creating historical prices or order
  assert.ok(js.includes("'/api/kline?code='"));
  assert.ok(js.includes('AbortController'));
  assert.ok(js.includes('if(turn!==generation)return'));
- assert.ok(js.includes('n=1200'));
+ assert.ok(js.includes('PAGE_SIZE=240'));
+ assert.ok(js.includes("'&end='"),'monthly/yearly history loads use an exclusive older-date cursor');
  assert.ok(js.includes('数据不足'));
  assert.ok(js.includes('最新周期可能未结束'));
  assert.ok(js.includes('v6:picks-unauthorized'));
