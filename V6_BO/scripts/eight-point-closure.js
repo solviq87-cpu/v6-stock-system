@@ -5,6 +5,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {runCompleteWorkbench}=require('../src/core/complete-workbench');
 const crypto=require('node:crypto');
 const {readWatchJournal,commitWatchJournal}=require('../src/core/research-watch-journal');
+const {readManualHoldingWatchFile}=require('../src/core/manual-holding-risk-watch');
 function readPrivateJson(filename){
  if(typeof filename!=='string'||!filename.trim())throw Error('需要本地输入JSON文件');
  const file=path.resolve(filename),info=fs.lstatSync(file);
@@ -13,17 +14,37 @@ function readPrivateJson(filename){
  return JSON.parse(fs.readFileSync(file,'utf8'));
 }
 function run(argv){
- if(argv.length!==1&&!(argv.length===3&&argv[1]==='--watch-state'))
-  throw Error('用法: node scripts/eight-point-closure.js <本机研究输入.json> [--watch-state /private/watch.json]');
+ if(argv.length<1||argv.length>5||argv.length%2!==1)
+  throw Error('用法: eight-point-closure.js input.json [--watch-state /private/watch.json] [--holding-watch /private/holdings.json]');
+ const options={};
+ for(let i=1;i<argv.length;i+=2){
+  const key=argv[i],file=argv[i+1];
+  if(!['--watch-state','--holding-watch'].includes(key)||options[key]||!file)
+   throw Error('研究整体运行参数不存在或重复');
+  options[key]=file;
+ }
  const input=readPrivateJson(argv[0]),payload=input?.history?input:{history:input};
  if(payload.manualHoldings||payload.holdingWatchFile||payload.token||
   payload.apiKey||payload.brokerAccount||payload.holdings||payload.password)
   throw Error('研究离线报告不得上传私有持仓、令牌或券商资料');
- const statePath=argv.length===3?argv[2]:null;
+ const statePath=options['--watch-state']||null;
  const previous=statePath?readWatchJournal(statePath):null;
  const report=runCompleteWorkbench(payload,
   {previousWatchStates:previous?.states||[]});
  const flow=report.eightPointFlow;
+ if(options['--holding-watch']){
+  const local=readManualHoldingWatchFile(options['--holding-watch']);
+  if(local.status!=='evaluated')throw Error('本地私有持仓风险文件不合格；不输出过期或无权限的风险数据');
+  flow.dimensions.risk.manualHoldingWatch={
+   status:'local-private-evaluated',canNotify:false,verifiedLive:false,
+   positionsCount:local.counts.positions,
+   recentQuoteCount:local.counts.withRecentSourceQuote,
+   unknownOrQuarantinedCount:local.counts.missingOrUnusableQuotes,
+   quoteConflicts:local.counts.conflictingQuotes,
+   warningsCount:local.counts.warningAlerts,
+   privacy:'只显示汇总数量，不输出个人股票、成本、数量、报价及账户信息',
+   notificationDelivered:false};
+ }
  if(statePath){
   if(payload.history?.source!=='imported'||!payload.history.provider||
      !payload.history.datasetId||flow.asOf!==payload.history.asOf||
