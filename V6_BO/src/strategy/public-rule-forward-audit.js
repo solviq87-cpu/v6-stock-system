@@ -120,6 +120,9 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
  const dateList=history.stocks[0].bars.map(b=>b.date);
  const firstIndex={};
  const events=[],folds=[];
+ const ruleInputDiagnostics=p.includeLinkedRules===true?
+  Object.fromEntries(linkedCatalog.map(rule=>[rule.id,
+   {candidateDays:0,notMatchedDays:0,unverifiedInputDays:0,blockedDays:0}])):null;
  for(let k=0;k<p.windows;k++){
   const start=first+k*p.testDays,end=start+p.testDays-1;
   const foldEvents=[];
@@ -133,6 +136,11 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
       marketContext:linkedContextOnDate(p.linkedSeries?.[code],day,rows.at(-1).date),
       marketRisk:marketAt(rows.at(-1).date,p.marketContexts)==='systemic-selloff'?'risk_off':'unknown'
      }).strategies:[];
+    if(ruleInputDiagnostics)for(const x of extra){
+      const field={candidate:'candidateDays',not_matched:'notMatchedDays',
+       insufficient_data:'unverifiedInputDays',risk_blocked:'blockedDays'}[x.status];
+      if(field)ruleInputDiagnostics[x.id][field]++;
+    }
     for(const candidate of [...signals.strategies,...extra]){
      if(candidate.status!=='candidate')continue;
      const tradeDate=rows.at(-1).date;
@@ -173,6 +181,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps,
    ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {})},
   folds,rules,events,
+  ...(ruleInputDiagnostics?{ruleInputDiagnostics}:{}),
   sampleIntegrity:{eventsRetained:events.length,
    blockedEventsRetained:events.filter(e=>e.status!=='modeled').length,
    marketUnknownCount:events.filter(e=>e.marketRegime==='unknown').length},
