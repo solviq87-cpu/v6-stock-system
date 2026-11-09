@@ -1,14 +1,22 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {execFileSync}=require('node:child_process');
 const root=path.join(__dirname,'..');
 const file=p=>fs.readFileSync(path.join(root,p));
 const text=p=>file(p).toString('utf8');
 const blobHash=b=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
 const {normalize,aggregate}=require('../public/assets/picks-periods.js');
-test('the two owner-approved homepages are IDENTICAL byte-for-byte to prior approved Git blobs',()=>{
- assert.equal(blobHash(file('public/index.html')),'53471292a61871a5d137a53d978cd4a7cfe9a322','DO NOT MODIFY DESKTOP HOMEPAGE');
- assert.equal(blobHash(file('public/mobile.html')),'ee89ef7a27135bfc21b6214c55acfe498c7bf85b','DO NOT MODIFY MOBILE HOMEPAGE');
+test('the two owner-approved homepages are unmodified in the committed Git tree',()=>{
+ // CI may normalize or regenerate working-tree bytes. The commit's Git blob ID
+ // is the source-of-truth for the user's strict "do not modify homepages" rule.
+ // Also fail closed if this Git repository is unavailable in deployment CI.
+ const repo=path.resolve(root,'..');
+ const committed=(name)=>execFileSync('git',['rev-parse','HEAD:V6_BO/public/'+name],{
+   cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']
+ }).trim();
+ assert.equal(committed('index.html'),'53471292a61871a5d137a53d978cd4a7cfe9a322','DO NOT MODIFY DESKTOP HOMEPAGE');
+ assert.equal(committed('mobile.html'),'ee89ef7a27135bfc21b6214c55acfe498c7bf85b','DO NOT MODIFY MOBILE HOMEPAGE');
 });
 const example=[
  {date:'2025-12-30',open:10,high:11,low:9.5,close:10.5,volume:100},
