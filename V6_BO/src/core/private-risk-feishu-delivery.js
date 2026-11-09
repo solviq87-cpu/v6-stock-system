@@ -63,11 +63,11 @@ function checkState(file){
  const dir=path.dirname(file);
  if(!fs.statSync(dir).isDirectory()||fs.lstatSync(dir).isSymbolicLink())
   throw Error('去重目录无效');
- if(fs.existsSync(file)){
-  const stat=fs.lstatSync(file);
-  if(!stat.isFile()||stat.isSymbolicLink()||stat.size>8192)
-   throw Error('去重记录不安全');
- }
+ let stat=null;
+ try{stat=fs.lstatSync(file);}
+ catch(e){if(e.code!=='ENOENT')throw e;}
+ if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>8192))
+  throw Error('去重记录不安全');
  return file;
 }
 function readState(file){
