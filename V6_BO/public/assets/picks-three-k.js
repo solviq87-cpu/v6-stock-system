@@ -6,7 +6,10 @@ const $=id=>document.getElementById(id);
 const validCode=x=>typeof x==='string'&&/^\d{6}$/.test(x);
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const source=window.V6PicksPeriods;
+const PAGE_SIZE=240,MAX_PAGES=6;
+const TARGET_BARS={day:2,month:36,year:5};
 let selected=null,period='day',daily=[],generation=0,controller=null;
+let pages=0,hasMore=false,oldest=null,olderTask=null;
 function message(text){
  $('periodStatus').textContent=text;
 }
@@ -16,7 +19,7 @@ function emptyChart(text){
 function clear(reason='尚未选择股票'){
  generation++;
  if(controller)controller.abort();controller=null;
- selected=null;daily=[];
+ selected=null;daily=[];pages=0;hasMore=false;oldest=null;olderTask=null;
  $('pickDetailCode').textContent='尚未选择';
  $('pickDetailCaption').textContent='点击候选股票查看日K、月K、年K';
  $('detailReasons').replaceChildren(document.createTextNode('选择股票后显示服务器实际返回的命中条件。'));
@@ -75,29 +78,73 @@ function setPeriod(next){
   btn.classList.toggle('active',on);
   btn.setAttribute('aria-pressed',String(on));
  });
- if(selected)draw();
+ if(selected){draw();if(next!=='day')void loadOlder(generation);}
+}
+async function fetchHistoryPage(code,end,turn){
+ const url='/api/kline?code='+encodeURIComponent(code)+'&n='+PAGE_SIZE+
+  (end?'&end='+encodeURIComponent(end):'');
+ const response=await fetch(url,{
+  method:'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,
+  headers:{Accept:'application/json'}
+ });
+ if(turn!==generation)return null;
+ if(!response.ok)throw Error('K线接口暂不可用（HTTP '+response.status+'）');
+ const result=await response.json();
+ if(turn!==generation)return null;
+ if(!result||result.ok===false||result.locked===true||result.simulated===true||
+   result.isMock===true||!Array.isArray(result.rows)||
+   (result.code!=null&&String(result.code)!==code))
+  throw Error('没有可核实的历史日K数据');
+ return result;
+}
+async function loadOlder(turn){
+ if(turn!==generation||!selected||!hasMore||pages>=MAX_PAGES)return;
+ if(olderTask)return olderTask;
+ const task=(async()=>{
+  try{
+   while(turn===generation&&hasMore&&pages<MAX_PAGES&&
+     source.aggregate(daily,period).length<TARGET_BARS[period]){
+    if(!oldest||!/^\\d{4}-\\d{2}-\\d{2}$/.test(oldest))break;
+    const requested=oldest.replace(/-/g,'');
+    message('正在补读更早历史K线（已读取'+pages+'页）…');
+    const result=await fetchHistoryPage(selected.code,requested,turn);
+    if(turn!==generation||!result)return;
+    const older=source.normalize(result.rows).filter(bar=>bar.date<oldest);
+    // A repeated, empty, or non-retreating page cannot make progress.
+    if(!older.length){hasMore=false;break;}
+    daily=source.normalize([...older,...daily]);
+    oldest=daily[0].date;
+    hasMore=result.hasMore===true;
+    pages++;
+   }
+   if(turn===generation)draw();
+  }catch(error){
+   if(turn!==generation||error?.name==='AbortError')return;
+   hasMore=false;
+   draw();
+   message('历史补读中断，暂显示已取得的'+daily.length+'根日K；'+String(error?.message||'网络错误'));
+  }
+ })();
+ olderTask=task;
+ try{return await task;}finally{if(olderTask===task)olderTask=null;}
 }
 async function load(code){
  const turn=++generation;
  if(controller)controller.abort();
  controller=new AbortController();
- daily=[];message('正在读取历史日K，以便生成日/月/年K…');
+ olderTask=null;daily=[];pages=0;hasMore=false;oldest=null;
+ message('正在读取最近的历史日K…');
  emptyChart('读取中…');
  try{
-  // Ask for enough genuine daily history for yearly bars. The existing server
-  // may cap n: never infer missing months or years from fewer returned rows.
-  const response=await fetch('/api/kline?code='+encodeURIComponent(code)+'&n=1200',{
-   method:'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}
-  });
-  if(turn!==generation)return;
-  if(!response.ok)throw Error('K线接口暂不可用（HTTP '+response.status+'）');
-  const result=await response.json();
-  if(turn!==generation)return;
-  if(!result||result.ok===false||result.simulated===true||result.isMock===true||!Array.isArray(result.rows))
-    throw Error('没有可核实的历史日K数据');
+  const result=await fetchHistoryPage(code,'',turn);
+  if(turn!==generation||!result)return;
   daily=source.normalize(result.rows);
   if(daily.length<2)throw Error('有效历史日K不足');
+  pages=1;oldest=daily[0].date;
+  hasMore=result.hasMore===true;
   draw();
+  // Only month/year need more than the latest 240 real daily candles.
+  if(period!=='day')void loadOlder(turn);
  }catch(err){
   if(turn!==generation||err?.name==='AbortError')return;
   message('历史K线暂不可用');emptyChart(String(err?.message||'网络读取失败'));
