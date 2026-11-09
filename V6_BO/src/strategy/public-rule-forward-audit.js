@@ -6,6 +6,7 @@ const {validateDataset}=require('../core/historical-validation');
 const {atLockedLimit}=require('./walk-forward-backtest');
 const {catalog,evaluateOpenSourceRules}=require('./open-source-research-signals');
 const {catalog:linkedCatalog,evaluateLinkedResearch}=require('./linked-factor-research');
+const {catalog:qualityCatalog,evaluateQualityMomentumResearch}=require('./quality-volume-reversal-research');
 const {assessMarketShock}=require('../core/market-shock-learning-gate');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=x=>Number(x.toFixed(4));
@@ -30,6 +31,8 @@ function policy(input={}){
   throw Error('研究成本不能低于统一基线');
  if(o.includeLinkedRules!==undefined&&typeof o.includeLinkedRules!=='boolean')
   throw Error('附加战法验证开关必须为布尔值');
+ if(o.includeQualityRules!==undefined&&typeof o.includeQualityRules!=='boolean')
+  throw Error('质量量价战法验证开关必须为布尔值');
  if(o.linkedSeries!==undefined&&
     (!o.linkedSeries||typeof o.linkedSeries!=='object'||Array.isArray(o.linkedSeries)||
      Object.keys(o.linkedSeries).length>20||
@@ -165,15 +168,21 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
  if(history.priceAdjustment?.mode!=='unadjusted'||
     !history.priceAdjustment?.provider)
   throw Error('需明确未复权价格及提供者出处才能进行次日开盘价格审计');
- const activeCatalog=p.includeLinkedRules===true?[...catalog,...linkedCatalog]:catalog;
+ const activeCatalog=[...catalog,
+  ...(p.includeLinkedRules===true?linkedCatalog:[]),
+  ...(p.includeQualityRules===true?qualityCatalog:[])];
  const n=ds.barsPerStock,maxH=Math.max(...p.horizons);
  const first=n-maxH-p.windows*p.testDays-1;
  if(first<40+p.gapDays)throw Error('历史样本不足：需完整预热、隔离窗口和未来持有期');
  const dateList=history.stocks[0].bars.map(b=>b.date);
  const firstIndex={};
  const events=[],folds=[];
- const ruleInputDiagnostics=p.includeLinkedRules===true?
-  Object.fromEntries(linkedCatalog.map(rule=>[rule.id,
+ const diagnosticRules=[
+  ...(p.includeLinkedRules===true?linkedCatalog:[]),
+  ...(p.includeQualityRules===true?qualityCatalog:[])
+ ];
+ const ruleInputDiagnostics=diagnosticRules.length?
+  Object.fromEntries(diagnosticRules.map(rule=>[rule.id,
    {candidateDays:0,notMatchedDays:0,unverifiedInputDays:0,blockedDays:0}])):null;
  for(let k=0;k<p.windows;k++){
   const start=first+k*p.testDays,end=start+p.testDays-1;
@@ -188,12 +197,16 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
       marketContext:linkedContextOnDate(p.linkedSeries?.[code],day,rows.at(-1).date),
       marketRisk:marketAt(rows.at(-1).date,p.marketContexts)==='systemic-selloff'?'risk_off':'unknown'
      }).strategies:[];
-    if(ruleInputDiagnostics)for(const x of extra){
+    const quality=p.includeQualityRules===true?
+     evaluateQualityMomentumResearch({...stock,bars:rows},{
+      marketRisk:marketAt(rows.at(-1).date,p.marketContexts)==='systemic-selloff'?'risk_off':'unknown'
+     }).strategies:[];
+    if(ruleInputDiagnostics)for(const x of [...extra,...quality]){
       const field={candidate:'candidateDays',not_matched:'notMatchedDays',
        insufficient_data:'unverifiedInputDays',risk_blocked:'blockedDays'}[x.status];
       if(field)ruleInputDiagnostics[x.id][field]++;
     }
-    for(const candidate of [...signals.strategies,...extra]){
+    for(const candidate of [...signals.strategies,...extra,...quality]){
      if(candidate.status!=='candidate')continue;
      const tradeDate=rows.at(-1).date;
      const marketRegime=marketAt(tradeDate,p.marketContexts);
@@ -231,9 +244,11 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
   dataset:{stocks:ds.stocks,barsPerStock:ds.barsPerStock,lastDate:ds.lastDate},
   configuration:{windows:p.windows,testDays:p.testDays,gapDays:p.gapDays,horizons:p.horizons.slice(),
    feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps,
-   ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {})},
+   ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {}),
+   ...(p.includeQualityRules===true?{includeQualityRules:true}: {})}, 
   folds,rules,events,
-  ...(p.includeLinkedRules===true?{overlapDiagnostics:summarizeSignalOverlap(events,activeCatalog,p.horizons)}:{}),
+  ...(p.includeLinkedRules===true||p.includeQualityRules===true?
+    {overlapDiagnostics:summarizeSignalOverlap(events,activeCatalog,p.horizons)}:{}),
   ...(ruleInputDiagnostics?{ruleInputDiagnostics}:{}),
   sampleIntegrity:{eventsRetained:events.length,
    blockedEventsRetained:events.filter(e=>e.status!=='modeled').length,
