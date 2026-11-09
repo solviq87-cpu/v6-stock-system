@@ -69,7 +69,9 @@ test('viewer switches day/month/year without creating historical prices or order
  assert.ok(js.includes("'/api/kline?code='"));
  assert.ok(js.includes('AbortController'));
  assert.ok(js.includes('if(turn!==generation)return'));
- assert.ok(js.includes('n=1200'));
+ assert.ok(js.includes('const PAGE=240,MAX_PAGES=10'));
+ assert.ok(js.includes('fetchOlder(turn,code)'));
+ assert.ok(js.includes("'&end='+encodeURIComponent(end)"));
  assert.ok(js.includes('数据不足'));
  assert.ok(js.includes('最新周期可能未结束'));
  assert.ok(js.includes('v6:picks-unauthorized'));
