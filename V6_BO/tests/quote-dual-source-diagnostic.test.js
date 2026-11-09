@@ -55,5 +55,5 @@ test('weekend and out-of-session times never hit external networks',async()=>{
   probe:async()=>{used=true;throw Error('network forbidden')}});
  assert.equal(used,false);
  assert.equal(r.status,'outside-weekday-session-window');
- assert.throws(()=>checkTwoPublicSources({code:'__bad__',now}),/代码/);
+ await assert.rejects(()=>checkTwoPublicSources({code:'__bad__',now}),/代码/);
 });
