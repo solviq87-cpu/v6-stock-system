@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071120">
-<title>V6 · 智能选股结果</title>
+<title>天枢智策 · 智能选股</title>
 <style>
 :root{color-scheme:dark;--bg:#071120;--card:#11233d;--line:#2b4769;--txt:#f0f6ff;--muted:#a0b7d2;--up:#f36b80;--down:#3bc99b;--accent:#4da3ff}
 *{box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#193a63,transparent 55%),var(--bg);color:var(--txt);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
@@ -24,6 +24,7 @@ h1{font-size:24px;letter-spacing:.02em;margin:0}h2{font-size:18px;margin:0}p{mar
 @media(max-width:550px){.wrap{padding:14px 12px calc(env(safe-area-inset-bottom) + 100px)}h1{font-size:19px}.subtitle{font-size:12px}.logo{width:40px;height:40px}.panel{padding:13px}.metric{padding:12px}.metric strong{font-size:23px}.controls input{flex:1;width:160px}.controls label{flex:1}.controls select{width:100%}.pick{padding:13px}.bottom{position:fixed;z-index:9;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;left:0;right:0;bottom:0;background:#0b1a2cf5;border-top:1px solid #385577;padding:10px 3px calc(9px + env(safe-area-inset-bottom));backdrop-filter:blur(12px)}.bottom a{font-size:10px;text-align:center;min-width:0;color:#c4d8f2}.bottom a b{display:block;font-size:17px}.bottom a.active{color:#62b7ff}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
+<link rel="stylesheet" href="/assets/picks-three-k.css?v=20261109c">
 </head>
 <body>
 <main class="wrap">
@@ -48,9 +49,28 @@ h1{font-size:24px;letter-spacing:.02em;margin:0}h2{font-size:18px;margin:0}p{mar
 <div id="status" class="status" role="status" aria-live="polite">正在连接同一 V6 云端…</div>
 <div id="cloudSync" aria-live="polite">尚无成功同步</div>
 </section>
-<section aria-labelledby="listTitle"><h2 id="listTitle">候选清单</h2><div id="candidates" class="grid" aria-live="polite"><div class="empty">等待读取服务端结果</div></div></section>
+<div class="picks-layout">
+<section id="selectionList" aria-labelledby="listTitle"><h2 id="listTitle">候选清单</h2><p class="muted picks-hint">每只股票直接显示命中条件，点击查看K线</p><div id="candidates" class="grid" aria-live="polite"><div class="empty">等待读取服务端结果</div></div></section>
+<section class="panel picks-detail" id="pickDetail" aria-labelledby="pickDetailTitle" tabindex="-1">
+  <div class="picks-detail-head"><h2 id="pickDetailTitle">股票K线</h2><span id="pickDetailCode" class="muted">尚未选择</span></div>
+  <p id="pickDetailCaption" class="muted">点击左边或上方候选股票查看K线与条件</p>
+  <div class="period-tabs" role="group" aria-label="选择K线周期">
+    <button type="button" class="period active" data-period="day" aria-pressed="true">日K</button>
+    <button type="button" class="period" data-period="month" aria-pressed="false">月K</button>
+    <button type="button" class="period" data-period="year" aria-pressed="false">年K</button>
+  </div>
+  <div id="periodStatus" role="status" aria-live="polite" class="muted period-status">等待股票</div>
+  <div id="periodChart" aria-label="历史K线走势" class="period-chart"><span class="muted">没有已选择的股票</span></div>
+  <h3 class="reason-title">命中条件</h3>
+  <div id="detailReasons" class="reason-detail muted">选择股票后显示服务器实际返回的命中条件。</div>
+  <p id="detailRisk" class="muted">风险状态待核对</p>
+  <p id="detailQuote" class="muted">历史价格与当前报价独立，不认证实时。</p>
+</section>
+</div>
 <p class="footnote">只读研究页，不自动买卖或推送。服务器未提供的报价时点、命中条件、板块、风险会如实显示未知；休市不把刷新时间当作报价时间。</p>
 <nav class="bottom" aria-label="手机七项导航"><a href="/m"><b>⌂</b>首页</a><a href="/picks.html" class="active" aria-current="page"><b>☆</b>选股</a><a href="/#v6-market"><b>▥</b>行情</a><a href="/research.html#decisionWorkspace"><b>✦</b>AI</a><a href="/#v6-paper"><b>◉</b>模拟</a><a href="/#holdSec1"><b>⬡</b>风控</a><a href="/#v6-release"><b>⚙</b>设置</a></nav>
 </main>
-<script src="/assets/picks-page.js?v=20261109a" defer></script>
+<script src="/assets/picks-periods.js?v=20261109c" defer></script>
+<script src="/assets/picks-three-k.js?v=20261109c" defer></script>
+<script src="/assets/picks-page.js?v=20261109c" defer></script>
 </body></html>
