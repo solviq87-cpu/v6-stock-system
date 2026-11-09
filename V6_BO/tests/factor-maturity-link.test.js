@@ -98,7 +98,7 @@ test('pending H5 is never trained; first sealed mature history is pinned despite
  assert.equal(fs.readdirSync(path.join(f.trackingDir,dates[0],'forward-tracking-history')).length,3);
  assert.equal(fs.statSync(f.manifestFile).mode&0o777,0o600);
  assert.throws(()=>shadowOnce({manifestFile:f.manifestFile,
-  outputDir:path.join(f.dir,'private','models'),now:at(dates[6])}),/36至400/);
+  outputDir:path.join(f.dir,'private','models'),now:at(dates[6])}),/完整时间排序研究批次目录/);
 });
 test('missing authorized symbol or source mismatch blocks manifest refresh and preserves previous version',t=>{
  const f=fixture(t),args=f.args;
