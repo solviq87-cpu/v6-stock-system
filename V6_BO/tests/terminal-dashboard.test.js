@@ -34,18 +34,18 @@ test('public free snapshot displays dated prices separately from risk evidence a
 test('terminal identifies unknown quote provenance rather than presenting list receive time as quote time',()=>{
  const h=setup(),m=model();h.events['v6-dashboard-data']({detail:m});
  assert.match(h.nodes.get('vx-rows').innerHTML,/报价时点或来源未知/);
- assert.match(h.nodes.get('vx-selected-price').textContent,/报价时点或来源未知/);
+ assert.match(h.nodes.get('vx-selected-price').title,/报价时点或来源未知/);assert.doesNotMatch(h.nodes.get('vx-selected-price').textContent,/报价时点或来源未知/);
  assert.match(h.nodes.get('vx-time').textContent,/列表接收/);
 });
 test('dated selected snapshot follows incoming candidate prices without refetching candles',()=>{
  const h=setup(),m=model();m.rows[0].quoteAt=Date.parse('2026-01-02T02:00:00Z');m.rows[0].quoteSource='tencent';
- h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-selected-price').textContent,/2026/);assert.match(h.nodes.get('vx-selected-price').textContent,/快照/);
+ h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-selected-price').title,/2026/);assert.match(h.nodes.get('vx-selected-price').title,/快照/);assert.match(h.nodes.get('vx-selected-price')['aria-label'],/快照/);
  m.rows[0].price=15;m.rows[0].pct=-1;h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-selected-price').textContent,/15\.00/);assert.equal(h.requests.length,1);assert.equal(h.nodes.get('vx-selected-price').className,'vx-down');
  m.rows=[];h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-selected-price').textContent,/当前候选池无报价/);
 });
 test('future original quote time is marked abnormal on both quote displays',()=>{
  const h=setup(),m=model();m.rows[0].quoteAt=Date.now()+60000;m.rows[0].quoteSource='tencent';
- h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-rows').innerHTML,/报价时点异常/);assert.match(h.nodes.get('vx-selected-price').textContent,/报价时点异常/);
+ h.events['v6-dashboard-data']({detail:m});assert.match(h.nodes.get('vx-rows').innerHTML,/报价时点异常/);assert.match(h.nodes.get('vx-selected-price').title,/报价时点异常/);assert.match(h.nodes.get('vx-selected-price')['aria-label'],/报价时点异常/);
 });
 
 
