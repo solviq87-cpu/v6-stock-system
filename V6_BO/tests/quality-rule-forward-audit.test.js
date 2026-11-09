@@ -100,3 +100,26 @@ test('quality audit option rejects malformed flags instead of silently turning o
  assert.throws(()=>evaluate(dataset(),{...windows,includeQualityRules:'true'}),/布尔值/);
  assert.throws(()=>evaluate(dataset(),{...windows,includeQualityRules:0}),/布尔值/);
 });
+
+test('quality rule audit reports serial overlap without changing modeled outcomes',()=>{
+ const data=dataset();
+ const report=evaluate(data,{...windows,includeQualityRules:true});
+ const diag=report.temporalOverlapDiagnostics;
+ assert.equal(diag.status,'descriptive-only');
+ assert.deepEqual(Object.keys(diag.byHorizon),['1','5','20','60']);
+ for(const h of [1,5,20,60]){
+  const x=diag.byHorizon[h];
+  assert.equal(x.rawRuleEvents,report.events.filter(e=>e.horizon===h).length);
+  assert.ok(x.nonoverlapFamilyEpisodes<=x.familyExposureDays);
+  assert.ok(x.familyExposureDays<=x.rawRuleEvents);
+  assert.equal(x.serialRepeatFamilyDays,x.familyExposureDays-x.nonoverlapFamilyEpisodes);
+  assert.equal(x.sameDayFamilyDuplicates,x.rawRuleEvents-x.familyExposureDays);
+ }
+ const same=evaluate(data,{...windows,includeQualityRules:true,horizons:[1]});
+ assert.deepEqual(same.temporalOverlapDiagnostics.byHorizon[1],diag.byHorizon[1]);
+ data.stocks.forEach(stock=>{stock.corporateActionsVerified=false;});
+ const blocked=evaluate(data,{...windows,includeQualityRules:true});
+ assert.deepEqual(blocked.temporalOverlapDiagnostics,diag);
+ assert.ok(blocked.events.every(e=>e.status==='unverified-corporate-actions'));
+ assert.equal(blocked.weightsChanged,false);assert.equal(blocked.canTrade,false);
+});
