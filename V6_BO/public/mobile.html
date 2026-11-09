@@ -131,8 +131,8 @@
 <link rel="stylesheet" href="/assets/v6-design.css?v=20261105ui47">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon.svg">
-<link rel="stylesheet" href="/assets/terminal-theme.css?v=20261109ct">
-<link rel="stylesheet" href="/assets/reference-match.css?v=20261109ct">
+<link rel="stylesheet" href="/assets/terminal-theme.css?v=20261109cu">
+<link rel="stylesheet" href="/assets/reference-match.css?v=20261109cu">
 </head>
 <body>
 <div class="wrap" id="app" style="display:none">
@@ -486,7 +486,7 @@ async function relPublishMobile() {
 //    不一致 → 注销 SW + 带 _v/_r 双随机参数 location.replace，强制绕过缓存取新页。
 // ⛔ 两条护栏：① 用户正在口令框输入时不刷新（不冲掉人家打的字）；
 //    ② 30 秒内不重复强制刷新（防浏览器/SW 竞态下无限 reload）。
-const APP_VER = '20261109ct';
+const APP_VER = '20261109cu';
 let _verChkAt = 0;
 function forceRefreshToLatest() {
   const u = new URL(location.href);
@@ -1254,7 +1254,7 @@ setInterval(() => {
 }, 1000);
 </script>
 <script src="/assets/ui-health.js?v=20261105ui46" defer></script>
-<script src="/assets/stock-provider-links.js?v=20261109ct"></script>
+<script src="/assets/stock-provider-links.js?v=20261109cu"></script>
 <script src="/assets/stock-pattern-preview.js?v=20261108p1"></script>
 <script src="/assets/terminal-dashboard.js?v=20261108issuer1"></script>
 </body>
