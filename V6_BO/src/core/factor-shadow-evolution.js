@@ -9,6 +9,7 @@ const pack=require('../../strategies/extended-factor-pack.json');
 const {freezeCohort}=require('./forward-signal-observer');
 const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
+const {assessFactorReliability,pairedStability}=require('./factor-learning-reliability');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -48,7 +49,7 @@ function validCohort(cohort,now){
  * Call only when the original cohort has just been frozen. The five-minute
  * cut-off blocks retrospective creation of "predictive" factor features.
  */
-function freezeFeatureEpisode({cohort,factorIds,rows,feed}={}, {now=Date.now()}={}){
+function freezeFeatureEpisode({cohort,factorIds,rows,feed,marketContext}={}, {now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0)throw Error('因子冻结时钟无效');
  const signalDay=validCohort(cohort,now),defs=factorsFor(factorIds);
  if(now<cohort.frozenAt||now-cohort.frozenAt>300000||
@@ -79,11 +80,20 @@ function freezeFeatureEpisode({cohort,factorIds,rows,feed}={}, {now=Date.now()}=
   return {signalId:s.signalId,symbol:s.symbol,signalDate:s.signalDate,
    signalAt:s.signalAt,baselineClose:s.baselineClose,values};
  });
+ // Classify regime using only evidence already observed when the signal was
+ // frozen. Future shocks must never retroactively label historic features.
+ const marketGate=marketContext===undefined?null:
+  assessMarketShock(marketContext,{asOf:cohort.frozenAt});
+ const marketRegime=marketGate?.status==='observed-unverified'?
+  {status:'observed-unverified',regime:marketGate.regime,
+   tradeDate:marketGate.tradeDate,observedAt:marketGate.observedAt,
+   provider:marketGate.provider}:
+  {status:'unavailable',regime:'unknown'};
  const payload={schemaVersion:1,mode:'frozen-factor-feature-episode',signalDay,
   capturedAt:now,originalCohortFrozenAt:cohort.frozenAt,cohortFingerprint:cohort.fingerprint,
   feed:{source:feed.source,provider:feed.provider,datasetId:feed.datasetId},
   priceFeed:cohort.feed,packFingerprint:PACK_HASH,packVersion:pack.version,
-  factors:defs,features,canTrade:false,prospectiveCertified:false};
+  factors:defs,features,marketRegime,canTrade:false,prospectiveCertified:false};
  return {...payload,fingerprint:hash(payload)};
 }
 function verifyEpisode(frozen,now){
@@ -100,6 +110,15 @@ function verifyEpisode(frozen,now){
   throw Error('因子特征冻结指纹、版本或时点失效');
  const defs=factorsFor(data.factors?.map(x=>x.id));
  if(hash(defs)!==hash(data.factors))throw Error('扩展因子绑定结构变化');
+ if(data.marketRegime!==undefined&&(
+    !data.marketRegime||!['unknown','systemic-selloff','not-systemic-selloff'].includes(data.marketRegime.regime)||
+    !['unavailable','observed-unverified'].includes(data.marketRegime.status)||
+    (data.marketRegime.status==='unavailable'&&data.marketRegime.regime!=='unknown')||
+    (data.marketRegime.status==='observed-unverified'&&(
+     data.marketRegime.regime==='unknown'||data.marketRegime.tradeDate!==data.signalDay||
+     !Number.isSafeInteger(data.marketRegime.observedAt)||
+     data.marketRegime.observedAt>data.originalCohortFrozenAt))))
+  throw Error('因子所属市场环境证据无效');
  if(data.feed?.source!=='imported'||!text(data.feed.provider)||!text(data.feed.datasetId)||
     !text(data.priceFeed?.provider)||!text(data.priceFeed?.datasetId)||
     data.priceFeed?.source!=='imported'||
@@ -235,7 +254,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   if(symbols.size>=5){
    const target=new Set(rows.map(r=>r.targetDate));
    // Different target days are not a comparable single daily cross-section.
-   if(target.size===1){observed.push({day:e.day,rows,targetDate:rows[0].targetDate});used.add(e.day);}
+   if(target.size===1){observed.push({day:e.day,rows,targetDate:rows[0].targetDate,
+    regime:e.features.marketRegime?.regime||'unknown'});used.add(e.day);}
   }
  }
  const n=sorted.length,trainEnd=Math.floor(n*.56),validStart=trainEnd+5,
@@ -244,8 +264,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
  const valid=sorted.slice(validStart,validEnd).filter(e=>used.has(e.day)).map(e=>observed.find(x=>x.day===e.day));
  const test=sorted.slice(testStart).filter(e=>used.has(e.day)).map(e=>observed.find(x=>x.day===e.day));
  if(testStart>=n||train.length<15||valid.length<5||test.length<5||
-    train[train.length-1].targetDate>=valid[0].day||
-    valid[valid.length-1].targetDate>=test[0].day)
+    train.some(x=>x.targetDate>=valid[0].day)||
+    valid.some(x=>x.targetDate>=test[0].day))
   throw Error('样本不足或未来收益窗口重叠，拒绝训练');
  const trainingEnd=train.at(-1).day;
  let oldWeights=Object.fromEntries(defs.map(f=>[f.id,f.baseWeight]));
@@ -257,26 +277,43 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
      hash(contents.factorIds)!==hash(ids)||hash(contents.feed)!==hash(feed)||
      !Number.isSafeInteger(contents.version)||contents.version<1||
      !day(contents.trainingEnd)||contents.trainingEnd>=trainingEnd||
+     !day(contents.lastObservationDay)||contents.lastObservationDay>=sorted.at(-1).day||
      contents.productionWeightsChanged!==false||contents.canTrade!==false)
    throw Error('上一个沙盒模型不可用或未增加新的训练时间窗');
   if(!contents.shadowWeights||ids.some(id=>!finite(contents.shadowWeights[id])))
    throw Error('历史研究权重无效');
+  // Earlier data used to accept a shadow version must remain unchanged.
+  if(!Array.isArray(contents.observedFingerprints)||
+     contents.observedFingerprints.length>sorted.length||
+     contents.observedFingerprints.some((pair,i)=>
+      hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint])))
+   throw Error('已有因子模型的历史冻结证据被替换或回写');
   oldWeights=Object.fromEntries(ids.map(id=>[id,previous.shadowWeights[id]]));
   for(const f of defs)if(oldWeights[f.id]<f.baseWeight*.5||oldWeights[f.id]>f.baseWeight*1.5)
    throw Error('旧研究权重越过边界');
   version=previous.version+1;previousFingerprint=previous.fingerprint;
  }
- const icByFactor=Object.fromEntries(ids.map(id=>[id,factorIC(train,id)]));
+ const icByFactor=Object.fromEntries(ids.map(id=>{
+  const daily=train.map(d=>({day:d.day,regime:d.regime,
+   ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
+   .filter(x=>x.ic!==null);
+  return [id,assessFactorReliability(daily)];
+ }));
  const proposal={};
  for(const f of defs){
-  const x=icByFactor[f.id];
-  const adjustment=x.days>=10?clamp(x.meanIC*.2,-.08,.08):0;
+  const adjustment=icByFactor[f.id].suggestedWeightMultiplier;
   proposal[f.id]=+clamp(oldWeights[f.id]*(1+adjustment),f.baseWeight*.5,f.baseWeight*1.5).toFixed(8);
  }
+ // Previous model's test days are no longer untouched. Require five NEW
+ // chronologically later mature holdout days for a later self-upgrade.
+ const freshTest=previous?test.filter(d=>d.day>previous.lastObservationDay):test;
+ if(freshTest.length<5)throw Error('新增独立样本外交易日不足，不能重复优化已看过的测试集');
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
-   baselineTest=dailyIC(test,ids,oldWeights),
-   evolvedTest=dailyIC(test,ids,proposal);
+   baselineTest=dailyIC(freshTest,ids,oldWeights),
+   evolvedTest=dailyIC(freshTest,ids,proposal);
+ const validStability=pairedStability(valid,ids,oldWeights,proposal,dailyIC),
+   testStability=pairedStability(freshTest,ids,oldWeights,proposal,dailyIC);
  const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
    testDelta=evolvedTest.meanIC-baselineTest.meanIC;
  const shock=marketContext===undefined?null:assessMarketShock(marketContext,{asOf:now});
@@ -284,6 +321,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
  const candidateChanged=ids.some(id=>proposal[id]!==oldWeights[id]);
  const accepted=candidateChanged&&!paused&&
    validationDelta>0.002&&testDelta>0.002&&
+   validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
    evolvedValidation.meanIC>0&&evolvedTest.meanIC>0;
  const weights=accepted?proposal:oldWeights;
  return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':'shadow-retained',{
@@ -291,17 +329,24 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
   lastObservationDay:sorted.at(-1).day,previousFingerprint:accepted?previousFingerprint:
    previous?.fingerprint||null,
-  trainDays:train.length,validationDays:valid.length,testDays:test.length,
+  trainDays:train.length,validationDays:valid.length,testDays:freshTest.length,
+  freshHoldoutOnly:previous!==null,
+  marketRegimeDays:Object.fromEntries(['systemic-selloff','not-systemic-selloff','unknown']
+   .map(label=>[label,train.filter(x=>x.regime===label).length])),
   excludedOrUnmaturedDays:sorted.length-observed.length,
   horizonTradingDays:HORIZON,purgeSessions:5,
-  factorLearning:icByFactor,validation:{baseline:baselineValidation,evolved:evolvedValidation,deltaIC:validationDelta},
-  holdout:{baseline:baselineTest,evolved:evolvedTest,deltaIC:testDelta},
+  factorLearning:icByFactor,validation:{baseline:baselineValidation,evolved:evolvedValidation,
+   deltaIC:validationDelta,stability:validStability},
+  holdout:{baseline:baselineTest,evolved:evolvedTest,deltaIC:testDelta,
+   stability:testStability,firstFreshDay:freshTest[0].day},
   shadowWeights:weights,proposedShadowWeights:proposal,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
    '在持有期重叠、幸存者偏差、股票相关性和多重检验未消除前不代表因果收益',
    '前瞻冻结、逐期样本外和实际交易费用/滑点仍须独立审计',
+   '市场状态只使用信号发生时输入的未认证指数广度证据，无法证明宏观因果关系',
+   '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
