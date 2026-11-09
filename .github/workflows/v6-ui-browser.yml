@@ -7,6 +7,7 @@ on:
     paths:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
+      - 'V6_BO/scripts/ui-picks-extended-browser-check.js'
       - '.github/workflows/v6-ui-browser.yml'
   workflow_dispatch:
 
@@ -55,6 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/ui-reference-browser-check.js
+          node scripts/ui-picks-extended-browser-check.js
       - name: Save temporary fixture screenshots and geometry for reviewers
         if: always()
         uses: actions/upload-artifact@v4
@@ -70,7 +72,7 @@ jobs:
             echo '## V6 UI 浏览器几何验收'
             echo ''
             echo 'Chrome 真实排版 + 隔离本地测试数据；320/375/390/393/430/1024 手机及 1366/1536/1920 电脑 CSS 视口。'
-            echo '检查无横向溢出、三指数、风险卡宽度、排行、K线与解释上下结构、七项底栏、桌面左右分栏；截图见本次 Artifacts（7天保留）。'
+            echo '检查原首页9档视口、选股结果6档视口，覆盖滚动、候选切股K线、风险与命中理由、权限401清屏、七项底栏；截图见本次Artifacts（7天保留）。'
             echo ''
             echo '**未做**：线上 WorkBuddy 实际部署，iOS Safari/Android 真机触摸体验，股票报价真实性、飞书送达，原图的逐像素相似度认证。'
           } >> "$GITHUB_STEP_SUMMARY"
