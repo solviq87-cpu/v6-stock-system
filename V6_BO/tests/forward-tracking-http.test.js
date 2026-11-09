@@ -1,0 +1,94 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const http=require('node:http'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {createDashboardServer}=require('../src/server/bootstrap');
+const {freezeCohort}=require('../src/core/forward-signal-observer');
+const {runOnce}=require('../src/core/forward-tracking-store');
+const {joinAuthorizedFollowup}=require('../src/server/forward-tracking-projection');
+const at=d=>Date.parse(d+'T16:00:00+08:00');
+function prep(t){
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'v6-forward-auth-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const file=path.join(root,'protected','forward.json');
+ const feed={source:'imported',provider:'unit-fixture',datasetId:'unit-case',priceBasis:'unadjusted'};
+ const signals=['600001','000002'].map((symbol,i)=>({
+  signalId:'frozen-'+i,symbol,system:'fourteen',cohort:'研究候选',
+  provenance:'test-only',signalDate:'2026-11-02',signalAt:at('2026-11-02'),baselineClose:10
+ }));
+ const cohort=freezeCohort({schemaVersion:1,feed,signals},{now:at('2026-11-02')+1000});
+ const calendar=['2026-11-02','2026-11-03','2026-11-04','2026-11-05','2026-11-06','2026-11-09'];
+ const market={schemaVersion:1,feed,asOf:'2026-11-09',observedAt:at('2026-11-09'),
+  calendar,stocks:signals.map(s=>({symbol:s.symbol,corporateActions:[],bars:calendar.map((date,i)=>({
+   date,close:10+i,volume:100,suspended:false}))}))};
+ runOnce({cohort,market,stateFile:file,now:at('2026-11-09')+1000});
+ return file;
+}
+async function request({forwardTrackingFile,mode='ok',target='/api/quant-picks?max=12',sourceOk=()=>true}){
+ const handle=(_req,res,u)=>{
+  res.setHeader('Content-Type','application/json; charset=utf-8');
+  if(u.pathname==='/api/health'){res.end(JSON.stringify({ok:true,health:true}));return;}
+  if(mode==='denied'){res.statusCode=403;res.end(JSON.stringify({ok:false,error:'denied'}));return;}
+  if(mode==='locked'){res.end(JSON.stringify({ok:false,locked:true,items:[]}));return;}
+  if(mode==='write'){
+   res.write(JSON.stringify({items:[{code:'600001'}]}));res.end();return;
+  }
+  if(mode==='length'){
+   const value=JSON.stringify({items:[{code:'600001'}]});
+   res.setHeader('Content-Length',Buffer.byteLength(value));res.end(value);return;
+  }
+  res.end(JSON.stringify({ok:true,items:[{code:'600001',name:'Visible'}]}));
+ };
+ const {server}=createDashboardServer({handle,forwardTrackingFile,
+  sameOriginOk:sourceOk,bodyLimit:1024,port:0,host:'127.0.0.1'});
+ await new Promise(resolve=>server.listening?resolve():server.once('listening',resolve));
+ try{
+  return await new Promise((resolve,reject)=>{
+   http.get({hostname:'127.0.0.1',port:server.address().port,path:target},res=>{
+    let body='';res.on('data',chunk=>body+=chunk);
+    res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(body)}));
+   }).on('error',reject);
+  });
+ }finally{await new Promise(resolve=>server.close(resolve));}
+}
+test('only authorized quant-picks candidates receive matching frozen observations',async t=>{
+ const file=prep(t),r=await request({forwardTrackingFile:file});
+ assert.equal(r.status,200);assert.equal(r.body.items.length,1);
+ assert.equal(r.body.forwardTracking.records.length,1);
+ assert.equal(r.body.forwardTracking.records[0].symbol,'600001');
+ assert.equal(r.body.forwardTracking.records[0].windows[0].status,'observed');
+ assert.equal(r.body.forwardTracking.canTrade,false);
+ assert.ok(!JSON.stringify(r.body).includes('000002'));
+});
+test('no auth or no matching result cannot expose private research data',async t=>{
+ const file=prep(t);
+ const denied=await request({forwardTrackingFile:file,mode:'denied'});
+ assert.equal(denied.status,403);
+ assert.equal(denied.body.forwardTracking,undefined);
+ const locked=await request({forwardTrackingFile:file,mode:'locked'});
+ assert.equal(locked.body.forwardTracking,undefined);
+ const csrf=await request({forwardTrackingFile:file,sourceOk:()=>false});
+ assert.equal(csrf.status,403);
+ assert.equal(csrf.body.forwardTracking,undefined);
+});
+test('no opt-in file or corrupted report falls back to original authorized response',async t=>{
+ const file=prep(t);
+ const absent=await request({});
+ assert.equal(absent.body.forwardTracking,undefined);
+ fs.appendFileSync(file,'changed'); // JSON syntax and seal corrupted
+ const bad=await request({forwardTrackingFile:file});
+ assert.equal(bad.status,200);
+ assert.equal(bad.body.items[0].code,'600001');
+ assert.equal(bad.body.forwardTracking,undefined);
+});
+test('HTTP health, already-streaming and fixed content-length requests remain untouched',async t=>{
+ const file=prep(t);
+ assert.equal((await request({forwardTrackingFile:file,target:'/api/health'})).body.forwardTracking,undefined);
+ assert.equal((await request({forwardTrackingFile:file,mode:'write'})).body.forwardTracking,undefined);
+ assert.equal((await request({forwardTrackingFile:file,mode:'length'})).body.forwardTracking,undefined);
+});
+test('no projection from response without granted visible candidates or invalid metadata',()=>{
+ const report={report:{feed:{source:'imported'},records:[{symbol:'600001'}]}};
+ assert.equal(joinAuthorizedFollowup({items:[]},report),null);
+ assert.equal(joinAuthorizedFollowup({items:[{code:'000002'}]},report),null);
+ assert.equal(joinAuthorizedFollowup({locked:true,items:[{code:'600001'}]},report),null);
+});
