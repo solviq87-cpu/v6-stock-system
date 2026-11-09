@@ -7,7 +7,11 @@
   const number = value => {
     if (value === null || value === undefined || value === '' ||
         typeof value === 'boolean' || typeof value === 'object') return null;
-    const n = Number(value);
+    // Whitespace, hexadecimal and other coerced strings are not stock prices/scores.
+    // Preserve real numeric zero; do not convert a missing field into 0.00%.
+    const v = typeof value === 'string' ? value.trim() : value;
+    if (typeof v === 'string' && !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(v)) return null;
+    const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
   const node = (tag, className, value) => {
