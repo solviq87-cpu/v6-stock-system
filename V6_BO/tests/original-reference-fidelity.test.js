@@ -18,7 +18,7 @@ test('new fidelity CSS loaded LAST on both real dashboards, after old override l
   assert.ok(html.includes(href),name+' missing final fidelity CSS');
   const i=html.indexOf('reference-match.css?v='),j=html.indexOf(href);
   assert.ok(i>=0&&j>i,name+' fidelity CSS lost cascade precedence');
-  assert.ok(html.includes('/assets/terminal-dashboard.js?v=20261109fidelity4'),name+' JS cache not invalidated');
+  assert.ok(html.includes('/assets/terminal-dashboard.js?v=20261109picks1'),name+' JS cache not invalidated');
  }
 });
 test('mobile narrow landscape: 3 index tiles then readable mood/environment/risk, not vertically squeezed',()=>{
