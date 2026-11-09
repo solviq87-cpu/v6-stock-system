@@ -29,7 +29,7 @@ function freezeCurrentPicks(candidates,market,{now=Date.now()}={}){
  if(!market||market.schemaVersion!==1||!validDay(market.asOf)||
     market.asOf!==snapshotDay||!market.feed||market.feed.source!=='imported'||
     market.feed.priceBasis!=='unadjusted'||!Number.isSafeInteger(market.observedAt)||
-    market.observedAt<closedAt(snapshotDay)||market.observedAt>now)
+    market.observedAt<closedAt(snapshotDay)||market.observedAt<candidates.asOf||market.observedAt>now)
   throw Error('需要同日收盘后授权导入的未复权行情快照');
  if(!Array.isArray(market.stocks)||!Array.isArray(market.calendar)||
     !market.calendar.includes(snapshotDay))
@@ -67,7 +67,7 @@ function freezeCurrentPicks(candidates,market,{now=Date.now()}={}){
    signals.push({
     signalId,symbol:item.code,system:'manual',cohort:'量化选股条件'+hit.id,
     provenance:('quant-picks '+snapshotDay+' '+candidates.asOf+'：'+hit.text).slice(0,200),
-    signalDate:snapshotDay,signalAt:now,baselineClose:baseline.close
+    signalDate:snapshotDay,signalAt:candidates.asOf,baselineClose:baseline.close
    });
   }
   if(item.hitIds!==undefined&&(!Array.isArray(item.hitIds)||
