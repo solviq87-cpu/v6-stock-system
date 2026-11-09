@@ -28,6 +28,9 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const picks=await get(p,'/picks.html');
   assert.equal(picks.status,200,'/picks.html must be served by V6');
   assert.match(picks.body,/智能选股结果/);
+  const reference=await get(p,'/reference-dashboard.html');
+  assert.equal(reference.status,200,'reference dashboard shell must remain reachable');
+  assert.match(reference.body,/AI 综合选股信号/);
   const picksScript=await get(p,'/assets/picks-page.js');
   assert.equal(picksScript.status,200,'picks viewer script must be served');
   assert.match(picksScript.body,/clearProtectedResults/);
@@ -45,6 +48,6 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const revoke=await post('/api/lock/revoke',{id:'nonexistent',token:''});
   assert.notEqual(JSON.parse(revoke.body).ok,true);
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
-  console.log('PASS: 完整服务启动、状态接口、首页、404、无凭证设备列表与撤权拒绝');
+  console.log('PASS: 完整服务、首页、选股/参考图页面、脚本、404与无凭证拒绝');
  } finally {child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null||child.signalCode!==null)return r();child.once('exit',r);setTimeout(r,1000);});}
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});
