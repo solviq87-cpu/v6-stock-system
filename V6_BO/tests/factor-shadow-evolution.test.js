@@ -1,0 +1,203 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
+const {freezeFeatureEpisode,evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
+const {execute}=require('../scripts/factor-shadow-evolution');
+const {runOnce:runShadowWorker,parse:parseShadowWorker}=require('../scripts/factor-shadow-worker');
+const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
+const factorIds=['sector_heat','leader_strength'];
+const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
+const featureFeed={source:'imported',provider:'unverified-unit-only-factors',datasetId:'test-factors'};
+const aScores=[10,25,40,55,70,85],jitter=[6,-4,3,-2,5,-1];
+function weekdays(n){
+ const result=[];let day=Date.parse('2026-05-04T00:00:00Z');
+ while(result.length<n){
+  const d=new Date(day),w=d.getUTCDay();
+  if(w>0&&w<6)result.push(d.toISOString().slice(0,10));
+  day+=86400000;
+ }
+ return result;
+}
+const dates=weekdays(70);
+function episode(index){
+ const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
+ for(let j=0;j<6;j++){
+  const symbol='60000'+j,id=d+'-'+symbol,score=aScores[j],
+   reverse=100-score+jitter[j];
+  signals.push({signalId:id,symbol,system:'manual',cohort:'research',
+   provenance:'synthetic-protocol-test-not-market',signalDate:d,signalAt:at(d),
+   baselineClose:10});
+  rows.push({signalId:id,symbol,signalDate:d,values:{
+   sector_heat:score,leader_strength:reverse
+  },evidence:{
+   sector_heat:{source:featureFeed.provider,observedAt:at(d)},
+   leader_strength:{source:featureFeed.provider,observedAt:at(d)}
+  }});
+  const pct=(j-2.5)*2;
+  stocks.push({symbol,corporateActions:[],bars:[
+   {date:d,close:10,volume:100,suspended:false},
+   {date:future[5],close:10*(1+pct/100),volume:100,suspended:false}
+  ]});
+ }
+ const cohort=freezeCohort({schemaVersion:1,feed:priceFeed,signals},
+  {now:at(d,'16:01:00')});
+ const features=freezeFeatureEpisode({cohort,feed:featureFeed,factorIds,rows},
+  {now:at(d,'16:02:00')});
+ const market={schemaVersion:1,feed:priceFeed,
+  asOf:future[5],observedAt:at(future[5],'16:00:00'),
+  calendar:future,stocks};
+ const report=evaluateForward(cohort,market,{now:at(future[5],'16:01:00')});
+ return {features,report,cohort,rows};
+}
+const finalClock=at('2026-11-10');
+test('at signal time, feature snapshot stays frozen and its returns are not included',()=>{
+ const r=episode(0);
+ assert.equal(r.features.mode,'frozen-factor-feature-episode');
+ assert.equal(r.features.features.length,6);
+ assert.equal(r.features.prospectiveCertified,false);
+ assert.equal(r.features.canTrade,false);
+ assert.equal(r.features.factors.length,2);
+ assert.ok(!JSON.stringify(r.features).includes('priceReturnPct'));
+ assert.equal(r.report.records[0].windows[1].status,'observed');
+});
+test('no retrospective feature capture, simulated feed, future features or mismatched signals',()=>{
+ const r=episode(0),input={cohort:r.cohort,feed:featureFeed,factorIds,rows:r.rows};
+ assert.throws(()=>freezeFeatureEpisode(input,{now:at(dates[0],'16:07:00')}),/五分钟/);
+ const spoof=structuredClone(input);
+ spoof.rows[0].evidence.sector_heat.observedAt+=1000;
+ assert.throws(()=>freezeFeatureEpisode(spoof,{now:at(dates[0],'16:02:00')}),/证据/);
+ const sim=structuredClone(input);sim.feed.source='simulated';
+ assert.throws(()=>freezeFeatureEpisode(sim,{now:at(dates[0],'16:02:00')}),/导入来源/);
+ const duplicate=structuredClone(input);duplicate.rows[1].signalId=duplicate.rows[0].signalId;
+ assert.throws(()=>freezeFeatureEpisode(duplicate,{now:at(dates[0],'16:02:00')}),/重复/);
+});
+test('autonomous shadow update uses training + purged validation + untouched holdout',()=>{
+ const source=Array.from({length:56},(_,i)=>episode(i));
+ const r=evolveShadowFactors(source,{now:finalClock});
+ assert.equal(r.mode,'v6-factor-shadow-evolution-v1');
+ assert.equal(r.status,'shadow-updated');
+ assert.equal(r.version,1);
+ assert.equal(r.productionWeightsChanged,false);
+ assert.equal(r.productionStrategyChanged,false);
+ assert.equal(r.canTrade,false);
+ assert.equal(r.autoPromotion,false);
+ assert.equal(r.shadowWeightsChanged,true);
+ assert.equal(r.shadowWeights.sector_heat>1.3,true);
+ assert.equal(r.shadowWeights.leader_strength<1.3,true);
+ assert.equal(r.purgeSessions,5);
+ assert.ok(r.validation.deltaIC>0);
+ assert.ok(r.holdout.deltaIC>0);
+ assert.ok(r.trainDays>=15&&r.validationDays>=5&&r.testDays>=5);
+ assert.notEqual(r.shadowWeights.sector_heat,r.proposedShadowWeights.leader_strength);
+ // The same historical dataset must not endlessly manufacture new versions.
+ assert.throws(()=>evolveShadowFactors(source,{now:finalClock,previous:r}),
+  /未增加新的训练时间窗/);
+});
+test('modified market outcome, broken feature fingerprint and missing evidence are rejected',()=>{
+ const source=Array.from({length:56},(_,i)=>episode(i));
+ const corrupt=structuredClone(source);corrupt[0].features.features[0].values.sector_heat=99;
+ assert.throws(()=>evolveShadowFactors(corrupt,{now:finalClock}),/指纹/);
+ const lateCapture=structuredClone(source);lateCapture[0].features.originalCohortFrozenAt-=(6*60*1000);
+ assert.throws(()=>evolveShadowFactors(lateCapture,{now:finalClock}),/指纹|时点/);
+ const beforeClose=structuredClone(source);
+ beforeClose[0].report.observedAt=at(beforeClose[0].report.asOf,'15:00:00');
+ assert.throws(()=>evolveShadowFactors(beforeClose,{now:finalClock}),/来源或时间/);
+ const changed=structuredClone(source);changed[0].report.cohortFingerprint='x'.repeat(64);
+ assert.throws(()=>evolveShadowFactors(changed,{now:finalClock}),/来源/);
+ const missing=structuredClone(source);
+ missing[0].report.records[0].signalId='wrong';
+ assert.throws(()=>evolveShadowFactors(missing,{now:finalClock}),/不一致/);
+ const shorter=source.slice(0,20);
+ assert.throws(()=>evolveShadowFactors(shorter,{now:finalClock}),/至少需要36/);
+});
+test('a crash or bad-market regime can retain the previous shadow model without formal promotion',()=>{
+ const source=Array.from({length:56},(_,i)=>episode(i));
+ const r=evolveShadowFactors(source,{now:finalClock,marketContext:{
+  schemaVersion:1,source:'imported',simulated:false,provider:'market-test',tradeDate:'2026-11-10',
+  observedAt:finalClock-30000,coverage:1,breadth:{
+   source:'market-test',observedAt:finalClock-30000,upPct:10
+  },indices:{
+   shanghai:{source:'market-test',observedAt:finalClock-30000,changePct:-3.8},
+   shenzhen:{source:'market-test',observedAt:finalClock-30000,changePct:-4.1}
+  }
+ }});
+ assert.equal(r.status,'paused-market-shock');
+ assert.equal(r.shadowWeightsChanged,false);
+ assert.equal(r.shadowWeights.sector_heat,1.3);
+ assert.equal(r.productionWeightsChanged,false);
+});
+test('explicit CLI writes immutable private 0600 factor evidence and refuses path aliases',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-factor-evolve-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const e=episode(0),cohortPath=path.join(dir,'cohort.json'),
+  inputPath=path.join(dir,'input.json'),out=path.join(dir,'private','frozen.json');
+ fs.writeFileSync(cohortPath,JSON.stringify(e.cohort));
+ fs.writeFileSync(inputPath,JSON.stringify({factorIds,rows:e.rows,feed:featureFeed,
+  token:'SECRET_DO_NOT_PERSIST'}));
+ const r=execute(['freeze',cohortPath,inputPath,out],{now:at(dates[0],'16:02:00')});
+ assert.equal(r.ok,true);assert.equal(r.features,6);
+ assert.equal(fs.statSync(out).mode&0o777,0o600);
+ assert.ok(!fs.readFileSync(out,'utf8').includes('SECRET_DO_NOT_PERSIST'));
+ assert.throws(()=>execute(['freeze',cohortPath,inputPath,out],
+  {now:at(dates[0],'16:02:00')}),/EEXIST/);
+ const alias=path.join(dir,'alias');fs.symlinkSync(path.join(dir,'private'),alias);
+ assert.throws(()=>execute(['freeze',cohortPath,inputPath,path.join(alias,'other.json')],
+  {now:at(dates[0],'16:02:00')}),/符号链接/);
+ assert.throws(()=>execute(['freeze',cohortPath,inputPath,path.join(dir,'public','file.json')],
+  {now:at(dates[0],'16:02:00')}),/公开/);
+});
+
+test('unattended research worker appends immutable model versions only when new evidence can change training',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-worker-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private','models');
+ const records=[];
+ const append=(from,until)=>{
+  for(let i=from;i<until;i++){
+   const e=episode(i),featuresFile=path.join(dir,'factor-'+i+'.json'),
+    reportFile=path.join(dir,'report-'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   records.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:records}));
+ };
+ append(0,56);
+ const options={manifestFile,outputDir,now:finalClock};
+ const first=runShadowWorker(options);
+ assert.equal(first.status,'shadow-updated');
+ assert.equal(first.version,1);
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ assert.equal(fs.statSync(path.join(outputDir,fs.readdirSync(outputDir)[0])).mode&0o777,0o600);
+ const same=runShadowWorker(options);
+ assert.equal(same.status,'skipped-no-new-training');
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ append(56,61);
+ const second=runShadowWorker(options);
+ assert.ok(['shadow-updated','shadow-retained'].includes(second.status),
+  'new evidence is evaluated, but not forced into a new active version');
+ assert.equal(fs.readdirSync(outputDir).length,2);
+ const names=fs.readdirSync(outputDir);
+ assert.ok(names.every(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x)));
+ const reports=names.map(n=>JSON.parse(fs.readFileSync(path.join(outputDir,n),'utf8')));
+ const latest=reports.find(x=>x.fingerprint===second.fingerprint);
+ assert.ok(latest.previousFingerprint);
+ assert.equal(latest.productionWeightsChanged,false);
+ assert.equal(second.version,second.status==='shadow-updated'?2:1,
+  'holdout failure retains the last accepted shadow version');
+ const replay=runShadowWorker(options);
+ assert.ok(['skipped-no-new-training','skipped-identical-evidence'].includes(replay.status));
+ assert.equal(fs.readdirSync(outputDir).length,2);
+ assert.equal(parseShadowWorker(['watch',manifestFile,outputDir,'--interval','60000']).interval,60000);
+ assert.throws(()=>parseShadowWorker(['watch',manifestFile,outputDir,'--interval','100']),/轮询/);
+});
+test('corrupt research model archive stops unattended learning instead of silently resetting version',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-bad-model-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ fs.mkdirSync(outputDir,{recursive:true});
+ fs.writeFileSync(path.join(outputDir,'shadow-2026-07-01-aaaaaaaaaaaa.json'),'{"bad":"content"}');
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
+ assert.throws(()=>require('../scripts/factor-shadow-worker').latestAccepted(outputDir),/结构无效/);
+});
