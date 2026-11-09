@@ -9,6 +9,7 @@ const {catalog:linkedCatalog,evaluateLinkedResearch}=require('./linked-factor-re
 const {catalog:qualityCatalog,evaluateQualityMomentumResearch}=require('./quality-volume-reversal-research');
 const {assessMarketShock}=require('../core/market-shock-learning-gate');
 const {summarizeTemporalSignalEpisodes}=require('./research-signal-episodes');
+const {evaluateRuleWeightReview}=require('./research-rule-weight-review');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=x=>Number(x.toFixed(4));
 const horizonsDefault=[1,5,20,60];
@@ -238,7 +239,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
     .map(regime=>[regime,Object.fromEntries(p.horizons.map(h=>[h,summarise(events.filter(e=>e.ruleId===rule.id&&e.marketRegime===regime&&e.horizon===h))]))])
   )}));
  const inputFingerprint=crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex');
- return {schemaVersion:1,mode:'frozen-public-rule-forward-audit',
+ const report={schemaVersion:1,mode:'frozen-public-rule-forward-audit',
   historicalOnly:true,verifiedLive:false,canTrade:false,
   weightsChanged:false,autoPromotion:false,source:history.source,
   provider:history.provider||null,datasetFingerprint:inputFingerprint,
@@ -263,5 +264,8 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    '进口数据来源、停复牌、涨跌停参数、公司行为核验未经过外部独立对账；无足够证据时净收益为空',
    '行情暴跌样本继续保留，不据一次回撤自动淘汰策略、修改因子权重或生成实盘委托',
    '额外战法仅在显式includeLinkedRules时评价；指数/板块序列按信号日切片，缺少21日对齐记录时相对动量不命中，未证实收益不得晋级']};
+ if(p.includeLinkedRules===true||p.includeQualityRules===true)
+  report.weightReviewDiagnostics=evaluateRuleWeightReview(report);
+ return report;
 }
 module.exports={evaluatePublicRuleForwardAudit};
