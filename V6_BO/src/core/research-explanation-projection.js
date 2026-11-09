@@ -6,9 +6,11 @@ const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/o
 const {catalog:linkedResearchCatalog,evaluateLinkedResearch}=require('../strategy/linked-factor-research');
 const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('../strategy/quality-volume-reversal-research');
 const {assessWeakMarketSectorPreference}=require('../strategy/weak-market-sector-preference');
+const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
-function historicalExplanations(history,{market={}}={}){
+function historicalExplanations(history,{market={},announcements=[]}={}){
+ if(!Array.isArray(announcements)||announcements.length>500)throw Error('上市公司公告研究输入数量无效');
  const empty={schemaVersion:1,mode:'historical-selection-evidence',source:history?.source||null,
    verifiedLive:false,canTrade:false,officialCandidates:0,asOf:null,status:'not-evaluated',
    candidates:[],researchWatchlist:[],reason:'缺少可验证交易日期，不生成当期选股解释'};
@@ -57,6 +59,8 @@ function historicalExplanations(history,{market={}}={}){
     relative.sectorExcessOverMarketPct>=2&&item.rationale.whyUp?.observedRise===true?
     ['同期20日个股、所属板块和境内指数呈现逐级相对强势；仅为相关现象，尚不能证明上涨驱动']: [];
   const preference=assessWeakMarketSectorPreference(item.rationale);
+  const issuer=linkIssuerEvents({symbol:item.symbol,announcements,now:timestamp});
+  const issuerRiskNotes=[...issuer.riskClues,...issuer.conflicts].map(x=>'公告标题风险待核对：'+x.title);
   const cohortEvidence=cohort.bySymbol[item.symbol]||{status:'unknown',
    reason:cohort.reason||'个股所属板块不在本次可比横向研究集合中'};
   const rationale={...item.rationale,openSourceResearch:research,
@@ -65,8 +69,8 @@ function historicalExplanations(history,{market={}}={}){
    sectorCohortRps:cohortEvidence,
    whyUp:{...item.rationale.whyUp,possibleContributors:[
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
-   weakMarketPreference:preference,
-   risks:[...item.rationale.risks,
+   weakMarketPreference:preference,issuerEvidence:issuer,
+   risks:[...item.rationale.risks,...issuerRiskNotes,
     ...(studyBlocked?['公开策略研究因交易风险被阻断']:[]),
     ...(preference.researchDeprioritized?[preference.reason]:[])],
    selection:{...item.rationale.selection,rules,ruleCount:rules.length,

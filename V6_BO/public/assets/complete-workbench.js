@@ -89,6 +89,12 @@ function renderSelection(report){
    '；'+(rise.conclusion||'无法核实上涨原因'));
   if((rise.possibleContributors||[]).length)
     add(d,'p','可能相关、未经证实：'+rise.possibleContributors.join('；'));
+  const bulletin=rationale.issuerEvidence;
+  if(bulletin?.status==='headline-research-only'){
+   const summary=(bulletin.events||[]).slice(0,6).map(x=>
+    x.title+'（'+x.publishedAt+'；'+x.category+'；标题未核实正文）');
+   add(d,'p','上市公司公告研究：'+summary.join('；'),'muted');
+  }
   const risks=rationale.risks||[];
   add(d,'p','风险：'+(risks.length?risks.join('；'):'暂未发现可核实的风险线索，不代表没有风险'),'muted');
   return d;
@@ -223,12 +229,17 @@ function renderEightPointFlow(report){
   sector:x=>'有效板块 '+(x.sectors?.length||0)+'｜个股关联 '+(x.stockSectorLinks||0)+
    '｜弱市研究降序 '+(x.weakMarketDeprioritizedCount||0),
   stock:x=>'历史候选 '+(x.candidates||0)+'｜观察池本轮 '+(x.watch?.length||0)+
-   '｜跨日状态未自动保存',
-  explanation:x=>'逐股解释 '+(x.stocks?.length||0)+'｜上涨直接因果：未认证',
+   '｜上期观察 '+(x.previousStateCount||0)+
+   '｜缺价保留 '+(x.retainedUnavailableCount||0)+
+   (x.notPersistedAcrossDates?'｜此入口不写跨日状态':'｜本机状态单独持久化'),
+  explanation:x=>'逐股解释 '+(x.stocks?.length||0)+
+   '｜公告标题 '+(x.issuerHeadlinesUnverified||0)+'｜上涨直接因果：未认证',
   risk:x=>'模拟盘账本核对 '+(x.paperLedgerBalanced?'通过':'未通过')+
    '｜历史回测核对 '+(x.backtestBalanced?'通过':'未通过')+
    '｜持仓提醒需通过本机私有接口核验',
-  learning:x=>'5日冻结研究战法评审 '+(x.perRule?.length||0)+'｜实际权重不变',
+  learning:x=>'5日冻结研究战法评审 '+(x.perRule?.length||0)+
+   '｜大跌保护 '+(x.marketShock?.status==='observed-unverified'?
+    (x.manualReviewPausedForShock?'暂缓人工调权复核':'未触发'):'数据未知')+'｜实际权重不变',
   publicRules:x=>'原有策略入口 '+(x.originalStrategyKeys?.length||0)+
    '｜新增研究战法目录 '+(x.researchCatalogCount||0)+'｜研究战法不直接晋级正式策略',
   testing:x=>'历史数据检查 '+(x.dataQualityChecked?'已执行':'未执行')+

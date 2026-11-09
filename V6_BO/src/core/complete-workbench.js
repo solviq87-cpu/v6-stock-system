@@ -8,7 +8,7 @@ const {aShareCalendarDate}=require('./a-share-calendar');
 const {historicalExplanations}=require('./research-explanation-projection');
 const {evaluatePublicRuleForwardAudit}=require('../strategy/public-rule-forward-audit');
 const {buildEightPointEvidence}=require('./eight-point-research-pipeline');
-function runCompleteWorkbench(payload){
+function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
   const history=payload.history,ds=validateDataset(history);
   if(ds.stocks*ds.barsPerStock>20000||ds.barsPerStock>1000)throw Error('交互研究限制总K线20000条、每只1000条；更大任务使用离线CLI');
@@ -21,7 +21,8 @@ function runCompleteWorkbench(payload){
   // evidence cannot break the existing ledger, strategy or replay results.
   let selectionEvidence;
   try {
-    selectionEvidence=historicalExplanations(history,{market:payload.market&&typeof payload.market==='object'&&!Array.isArray(payload.market)?payload.market:{}});
+    selectionEvidence=historicalExplanations(history,{market:payload.market&&typeof payload.market==='object'&&!Array.isArray(payload.market)?payload.market:{},
+      announcements:payload.announcements||[]});
   } catch(e) {
     selectionEvidence={schemaVersion:1,mode:'historical-selection-evidence',
       status:'unavailable',verifiedLive:false,canTrade:false,officialCandidates:0,
@@ -45,7 +46,8 @@ function runCompleteWorkbench(payload){
   const reconciliation={backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)};
   const strategies={coverage:native.coverage,details:native.details,replay:native.replay};
   const eightPointFlow=buildEightPointEvidence({history,selectionEvidence,
-    publicRuleForwardAudit,reconciliation,strategies,calendar});
+    publicRuleForwardAudit,reconciliation,strategies,calendar,previousWatchStates,
+    marketShockContext:payload.marketShockContext});
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
     backtest,paper:session.report,reconciliation,
     strategies,selectionEvidence,eightPointFlow,

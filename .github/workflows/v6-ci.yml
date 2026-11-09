@@ -76,7 +76,7 @@ jobs:
           npm test
       - name: Eight-point integration regression (offline evidence only)
         id: eightpointcheck
-        run: node --test tests/eight-point-flow.test.js tests/research-explanation-ui.test.js
+        run: node --test tests/eight-point-flow.test.js tests/research-watch-journal.test.js tests/research-explanation-ui.test.js tests/manual-holding-risk-watch.test.js tests/research-rule-weight-review.test.js
       - name: Audit fourteen market-source registrations (offline only)
         id: feedcheck
         run: node scripts/audit-market-source-catalog.js

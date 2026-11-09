@@ -7,6 +7,7 @@
 const crypto=require('node:crypto');
 const {auditMarketData}=require('./market-data-quality');
 const {updateLifecycle}=require('../strategy/signal-pool-lifecycle');
+const {assessMarketShock}=require('./market-shock-learning-gate');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const isoDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  Number.isFinite(Date.parse(x+'T00:00:00Z'))&&
@@ -19,7 +20,7 @@ const keys=Object.freeze([
 ]);
 const note='仅为统一的历史研究证据摘要。数据来源自报、行情许可、真实提醒与实际部署均未验收；不产生下单或自动调权指令。';
 function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAudit,
- reconciliation,strategies,calendar}={}){
+ reconciliation,strategies,calendar,previousWatchStates=[],marketShockContext}={}){
  if(!history||!Array.isArray(history.stocks)||!selectionEvidence||
    !reconciliation||!strategies||!calendar)throw Error('八项联动缺少已有完整研究输出');
  const quality=auditMarketData(history);
@@ -58,13 +59,15 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    cohortRps:r.sectorCohortRps?.status==='imported-unverified'&&
     finite(r.sectorCohortRps.rpsPct)?r.sectorCohortRps.rpsPct:null});
   const watchEligible=datedPrice&&selection.watchEligible===true&&safeRules.length>0;
-  const danger=risks.some(x=>/停牌|ST|安全|看跌|拦截|风险公告|风险标题|冲突|弱于|未知/.test(x));
+  const issuer=r.issuerEvidence||{};
+  const noticeRisk=(issuer.riskClues?.length||0)+(issuer.conflicts?.length||0)>0;
+  const danger=noticeRisk||risks.some(x=>/停牌|ST|安全|看跌|拦截|公告标题风险|风险公告|风险标题|冲突|弱于|未知/.test(x));
   watchItems.push({symbol,name:safeString(candidate.name,80),patternDate:price.date||date,
    quality:{usable:candidate.quality?.usable===true,fresh:datedPrice,
     simulated:!imported},blockedBySafety:danger,
    patterns:{matched:watchEligible?safeRules.map(rule=>({id:rule.id,status:'matched',
     side:'bullish'})):[]},
-   issuerEvidence:{riskClues:risks.filter(x=>/公告风险/.test(x)).map(x=>({title:x}))},
+   issuerEvidence:{riskClues:issuer.riskClues||[],conflicts:issuer.conflicts||[]},
    linkageResearch:{riskConflict:danger}});
   explanations.push({symbol,name:safeString(candidate.name,80),
    sourceDate:isoDay(price.date)?price.date:null,priceStatus:safeString(price.status,60),
@@ -73,6 +76,13 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    confirmedUpsideCauses:[],
    possibleContributors:Array.isArray(r.whyUp?.possibleContributors)&&datedPrice?
     r.whyUp.possibleContributors.slice(0,6).map(x=>safeString(x,180)):[],
+   issuerDocuments:(issuer.events||[]).slice(0,12).map(x=>({
+    id:safeString(x.id,30),title:safeString(x.title,200),
+    source:safeString(x.source,120),publishedAt:safeString(x.publishedAt,50),
+    url:safeString(x.url,360),category:safeString(x.category,50),
+    evidenceLevel:'headline-unverified',verified:false})),
+   issuerRiskCount:(issuer.riskClues?.length||0)+(issuer.conflicts?.length||0),
+   issuerStrengthCount:issuer.strengthClues?.length||0,
    whySelected:safeString(selection.explanation,250),
    whyUp:safeString(r.whyUp?.conclusion,250),risks,
    weakMarketDeprioritized:r.weakMarketPreference?.researchDeprioritized===true,
@@ -83,7 +93,18 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
  // An offline report cannot depend on wall-clock time: missing dates never become fresh.
  const clock=isoDay(quality.lastDate)?Date.parse(quality.lastDate+'T15:00:00+08:00'):
   Date.parse('2000-01-01T15:00:00+08:00');
- const watch=updateLifecycle({items:watchItems,now:clock});
+ // Retain previously observed symbols missing from the latest imported sample.
+ // They remain unavailable, never silently archived or considered fresh.
+ const seenSymbols=new Set(watchItems.map(x=>x.symbol));
+ for(const p of previousWatchStates){
+  if(p&&/^\d{6}$/.test(p.symbol)&&!seenSymbols.has(p.symbol)){
+   watchItems.push({symbol:p.symbol,name:p.name||p.symbol,patternDate:date,
+    quality:{usable:false,fresh:false,simulated:true},patterns:{matched:[]}});
+   seenSymbols.add(p.symbol);
+  }
+ }
+ const watch=updateLifecycle({items:watchItems,previous:previousWatchStates,now:clock});
+ const shock=assessMarketShock(marketShockContext,{asOf:clock});
  const officialWatch=new Set((selectionEvidence.researchWatchlist||[]).map(x=>x.symbol));
  const researchWatch=watch.states.filter(x=>officialWatch.has(x.symbol)&&
   x.dataStatus==='observed-research-only'&&['observe','focus','risk-review'].includes(x.stage));
@@ -114,10 +135,15 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    missing:sectorRows.length?['板块成分、覆盖率和实际资金流未经独立对账']:['缺少同日有效板块涨跌及行业映射']},
   stock:{status:selectionEvidence.status==='evaluated'?'historical-research-only':'unavailable',
    candidates:candidates.length,watch:researchWatch,
-   watchPools:watch.pools,notPersistedAcrossDates:true,
+   watchPools:watch.pools,watchStates:watch.states,
+   previousStateCount:previousWatchStates.length,
+   retainedUnavailableCount:watch.states.filter(x=>x.dataStatus==='unavailable').length,
+   notPersistedAcrossDates:true,
    missing:['连续跨交易日观察池状态尚未由本次一键研究持久化；未验证券商行情和企业行为']},
   explanation:{status:explanations.length?'historical-research-only':'unavailable',
-   stocks:explanations,causalAttributionVerified:false,
+   stocks:explanations,
+   issuerHeadlinesUnverified:explanations.reduce((n,x)=>n+(x.issuerDocuments?.length||0),0),
+   causalAttributionVerified:false,
    missing:['个股公告原文、原因等级与电脑/手机真机点击尚需对账']},
   risk:{status:safetyBalanced?'existing-guards-reconciled':'reconciliation-unavailable',
    paperLedgerBalanced:reconciliation.paper?.balanced===true,
@@ -131,6 +157,10 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    missing:['真实行情逐票时间、推送送达、风险拒单与实机验收尚未独立完成']},
   learning:{status:perRule.length?'manual-review-only':'needs-opt-in-forward-audit',
    horizonDays:5,perRule,weightsChanged:false,
+   marketShock:{status:shock.status,regime:shock.regime,
+    deferLearningUpdate:shock.deferLearningUpdate,reason:shock.reason,
+    forceMajeureVerified:false,lossSamplesRetained:true},
+   manualReviewPausedForShock:shock.deferLearningUpdate===true,
    autoPromotion:false,forwardAuditStatus:forward?.status||'not-requested',
    missing:['独立样本外显著性、来源许可、实盘成本与正式因子参数晋级均未验收']},
   publicRules:{status:selectionEvidence.status==='evaluated'?'research-layer-attached':'unavailable',
@@ -142,7 +172,7 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    missing:['公开策略版权/许可、交易数据适用权与正式晋级证据仍需人工核查']},
   testing:{status:'local-evidence-constructed-ci-not-self-attested',
    datasetFingerprint:sha(history),inputSourceStatus:sources,
-   dataQualityChecked:true,
+   dataQualityChecked:true,marketDataReviewReady:quality.reviewReady===true,
    accountReconciled:safetyBalanced,
    calendarStatus:calendar.valid===true?'explicit-calendar-checked':'not-externally-verified',
    ciVerifiedByThisReport:false,
