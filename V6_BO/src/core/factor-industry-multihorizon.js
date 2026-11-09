@@ -93,7 +93,15 @@ function auditOneDay(features,report,{now=Date.now()}={}){
  if(records.size!==joined.length)
   throw Error('多周期信号ID与冻结因子数不一致');
  const counts=new Map();
- for(const x of joined)counts.set(x.symbol,(counts.get(x.symbol)||0)+1);
+ for(const x of joined){
+  counts.set(x.symbol,(counts.get(x.symbol)||0)+1);
+  const original=records.get(x.signalId);
+  if(!original)throw Error('多周期信号源不存在');
+  // Validate even repeated signal IDs excluded from IC statistics:
+  // corrupted duplicate events must not bypass the evidence gate.
+  for(let i=0;i<HORIZONS.length;i++)
+   checkWindow(original.windows?.[i],x.signalDate,report.asOf,HORIZONS[i]);
+ }
  const unique=joined.filter(x=>counts.get(x.symbol)===1);
  const duplicateExcluded=joined.length-unique.length;
  const byId=features.factors.map(f=>f.id);
@@ -150,7 +158,7 @@ function auditFactorHorizonSeries(episodes,{now=Date.now(),
     !Number.isSafeInteger(minimumDays)||minimumDays<5||minimumDays>200)
   throw Error('多周期因子研究批次或时钟协议无效');
  const seen=new Set(),audits=[],feedFingerprint=new Set(),
-  factorFingerprint=new Set(),packFingerprints=new Set();
+  priceFeedFingerprint=new Set(),factorFingerprint=new Set(),packFingerprints=new Set();
  for(const entry of episodes){
   if(!entry?.features||!entry?.report)
    throw Error('多周期需要成对的冻结因子与价格观察');
@@ -158,10 +166,12 @@ function auditFactorHorizonSeries(episodes,{now=Date.now(),
   if(seen.has(audit.signalDay))throw Error('同日因子重复计算');
   seen.add(audit.signalDay);audits.push(audit);
   feedFingerprint.add(sha(entry.features.feed));
+  priceFeedFingerprint.add(sha(entry.features.priceFeed));
   factorFingerprint.add(sha(entry.features.factors));
   packFingerprints.add(entry.features.packFingerprint);
  }
- if(feedFingerprint.size>1||factorFingerprint.size>1||packFingerprints.size>1)
+ if(feedFingerprint.size>1||priceFeedFingerprint.size>1||
+    factorFingerprint.size>1||packFingerprints.size>1)
   throw Error('不能混合因子集合、版本或来源的数据集');
  audits.sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
  const factorIds=episodes.length?episodes[0].features.factors.map(x=>x.id):[];
@@ -202,9 +212,10 @@ function auditFactorHorizonSeries(episodes,{now=Date.now(),
    safeForAutomaticProductionPromotion:false}];
  }));
  const payload={schemaVersion:1,mode:'v6-factor-industry-multihorizon-audit',
-  asOf:audits.length?audits.at(-1).reportAsOf:null,
+  asOf:audits.length?audits.map(a=>a.reportAsOf).sort().at(-1):null,
   batchCount:audits.length,minimumDays,sourceStatus:'imported-unverified',
   factorIds,feedFingerprint:feedFingerprint.values().next().value||null,
+  priceFeedFingerprint:priceFeedFingerprint.values().next().value||null,
   packFingerprint:packFingerprints.values().next().value||null,
   windows,consistency,
   evidenceFingerprints:audits.map(x=>[
@@ -232,7 +243,10 @@ function auditStoredFactorHorizonSeries({captureDir,trackingDir,now=Date.now()}=
   episodes.push({features:e.features,report:snapshot.report});
  }
  const report=auditFactorHorizonSeries(episodes,{now});
- return {...report,pendingCaptureDays:pending,sourceCaptureDays:captures.length};
+ const {fingerprint,...payload}=report;
+ const full={...payload,pendingCaptureDays:pending,
+  sourceCaptureDays:captures.length};
+ return {...full,fingerprint:sha(full)};
 }
 module.exports={auditOneDay,auditFactorHorizonSeries,auditStoredFactorHorizonSeries,
  spearman,neutralRows,checkWindow};
