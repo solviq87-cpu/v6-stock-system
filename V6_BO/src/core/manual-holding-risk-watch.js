@@ -5,6 +5,7 @@
  * receive time with its provider-reported quoteAt.
  */
 const {quoteObservationView}=require('./quote-observation-view');
+const fs=require('node:fs');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const chinaDay=ms=>new Date(ms+8*3600000).toISOString().slice(0,10);
 const pct=x=>Number(x.toFixed(2));
@@ -86,4 +87,23 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
    warningAlerts:alerts.filter(x=>x.severity==='warning'||x.severity==='critical').length},
   note:'仅对用户手动输入的成本和仓位以及带逐票原时点的报价做只读风险提示；未校验实际持仓、价格供应商、真实盈利或送达渠道。固定研究阈值：成本浮亏8%/15%，用户申报仓位30%/50%。不替代原账户风控。'};
 }
-module.exports={evaluateManualHoldingRisks};
+function readManualHoldingWatchFile(file,{now=Date.now()}={}){
+ const empty={schemaVersion:1,mode:'manual-holding-risk-readonly',
+  status:file?'unavailable':'unconfigured',canTrade:false,canNotify:false,
+  verifiedLive:false,writesAccount:false,positions:[],alerts:[],
+  reason:file?'独立持仓资料不可读取或输入未通过校验':'未配置本机持仓观察文件'};
+ if(!file)return empty;
+ let fd;
+ try{
+  if(typeof file!=='string'||file.length>2048||file.includes('\\0'))throw Error('path');
+  const flags=fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0);
+  fd=fs.openSync(file,flags);
+  const stat=fs.fstatSync(fd);
+  if(!stat.isFile()||stat.size<1||stat.size>1024*1024)throw Error('size');
+  const text=fs.readFileSync(fd,'utf8');
+  if(Buffer.byteLength(text)>1024*1024)throw Error('size');
+  return evaluateManualHoldingRisks(JSON.parse(text),{now});
+ }catch{return empty;}
+ finally{if(fd!==undefined)fs.closeSync(fd);}
+}
+module.exports={evaluateManualHoldingRisks,readManualHoldingWatchFile};
