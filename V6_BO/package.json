@@ -18,6 +18,7 @@
     "test": "bash scripts/run-full-regression.sh",
     "market:failover": "node scripts/market-failover-sync.js",
     "paper:monitor": "node scripts/paper-monitor.js",
+    "research:eight": "node scripts/eight-point-closure.js",
     "paper:recover": "node scripts/paper-recover.js",
     "paper:audit": "node scripts/paper-audit.js",
     "reconcile:strategy-paper": "node scripts/reconcile-strategy-paper.js",

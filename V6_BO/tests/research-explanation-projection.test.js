@@ -83,7 +83,8 @@ test('complete workbench integrates additional explanation into existing route r
  const src=fs.readFileSync(path.join(__dirname,'../src/core/complete-workbench.js'),'utf8');
  const route=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  assert.ok(src.includes('selectionEvidence=historicalExplanations'));
- assert.ok(src.includes('strategies:{coverage:native.coverage,details:native.details,replay:native.replay},selectionEvidence'));
+ assert.ok(src.includes('const strategies={coverage:native.coverage,details:native.details,replay:native.replay}'));
+ assert.ok(src.includes('strategies,selectionEvidence,eightPointFlow'));
  assert.ok(route.includes("if (p === '/api/research/complete-run')"));
  assert.ok(route.includes("if(!requireEditor(res,req.__tok,req))return;"));
 });

@@ -1,7 +1,7 @@
 // 量化看盘 /m PWA Service Worker（eg 轮）
 // 只缓存静态资源；API 和动态数据走 network-first，避免展示 stale 行情。
 // ja 轮修正：APP_VER 原硬编码 20261017eo，与 server.js 长期不同步，导致 iz 轮改了 mobile.html 后 PWA 仍返回旧缓存，手机上看不见「所属板块」。_publish.py 已改为 sync 阶段自动同步此处 APP_VER = server.js APP_VER。
-const APP_VER = '20261109ct';
+const APP_VER = '20261109cu';
 const CACHE_NAME = 'quant-dashboard-m-' + APP_VER;
 
 const PRECACHE = [

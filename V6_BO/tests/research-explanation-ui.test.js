@@ -92,3 +92,35 @@ test('weak-market preference is visible, moves only historical display order, an
   delete selected.rationale.weakMarketPreference;
  }
 });
+
+test('eight linked areas display from one authenticated complete-run without asserting real deployment',async()=>{
+ const idsList=['market','sector','stock','explanation','risk','learning','publicRules','testing'];
+ const labels=['大盘','板块','个股联动','入选解释','风控','学习规则','公开策略分层','自动测试'];
+ result.result.eightPointFlow={
+  asOf:'2026-03-09',coverage:{codeConnected:8,externalAccepted:0},
+  workstreams:idsList.map((id,i)=>({id,label:labels[i],status:'historical-research-only',
+   unresolved:['需要独立外部验收']})),
+  dimensions:{
+   market:{indices:{shanghai:-2,shenzhen:-1},breadthPct:18,regime:'broad-selloff-observed'},
+   sector:{sectors:[],stockSectorLinks:1,weakMarketDeprioritizedCount:0},
+   stock:{candidates:31,watch:[]},
+   explanation:{stocks:all},
+   risk:{paperLedgerBalanced:true,backtestBalanced:true},
+   learning:{perRule:[]},
+   publicRules:{originalStrategyKeys:['fourteen','bazi','gpt','python'],
+    researchCatalogCount:8},
+   testing:{dataQualityChecked:true}
+  },externalBlockers:['中国大陆服务器HTTPS尚未验收']};
+ try{
+  await ids.completeRun.fire('click');
+  const root=document.getElementById('eightPointSummary');
+  assert.ok(root);
+  const sections=root.children.filter(x=>x.tag==='details');
+  assert.equal(sections.length,8);
+  assert.ok(root.children.some(x=>String(x.textContent).includes('外部已验收 0/8')));
+  assert.ok(sections.some(x=>x.children.some(y=>String(y.textContent).includes('实际权重不变'))));
+  assert.ok(sections.every(x=>x.children.some(y=>String(y.textContent).includes('待验收'))));
+  assert.ok(root.children.some(x=>String(x.textContent).includes('HTTPS尚未验收')));
+  assert.ok(!script.includes('innerHTML'));
+ }finally{delete result.result.eightPointFlow;}
+});
