@@ -46,6 +46,8 @@
     "research:history": "node scripts/adaptive-monitor-archive.js",
     "tracking:freeze:picks": "node scripts/freeze-quant-picks.js",
     "factor:shadow": "node scripts/factor-shadow-evolution.js",
+    "factor:capture:once": "node scripts/factor-eod-capture.js once",
+    "factor:capture:watch": "node scripts/factor-eod-capture.js watch",
     "factor:shadow:once": "node scripts/factor-shadow-worker.js once",
     "factor:shadow:watch": "node scripts/factor-shadow-worker.js watch",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
