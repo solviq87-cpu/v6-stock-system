@@ -14,7 +14,9 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0)throw Error('持仓评估时钟无效');
  if(!input||input.schemaVersion!==1||input.mode!=='manual-holding-watch'||
    !Array.isArray(input.positions)||!Array.isArray(input.quotes)||
-   input.positions.length>100||input.quotes.length>100)
+   (input.crossCheckQuotes!==undefined&&!Array.isArray(input.crossCheckQuotes))||
+   input.positions.length>100||input.quotes.length>100||
+   (input.crossCheckQuotes?.length||0)>100)
   throw Error('持仓观察文件协议无效');
  const seen=new Set();
  let declaredWeight=0;
@@ -37,17 +39,42 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
      byQuote.has(q.symbol))throw Error('报价证券代码无效或重复');
   byQuote.set(q.symbol,q);
  }
+ const crossChecks=new Map();
+ for(const q of input.crossCheckQuotes||[]){
+  if(!q||typeof q.symbol!=='string'||!/^\\d{6}$/.test(q.symbol)||
+    crossChecks.has(q.symbol))throw Error('第二来源报价证券代码无效或重复');
+  crossChecks.set(q.symbol,q);
+ }
+ const usable=(q,view)=>{
+  const source=typeof q?.quoteSource==='string'?q.quoteSource.trim():'';
+  return view.quoteStatus==='recent-unverified'&&
+   chinaDay(view.quoteAt)===chinaDay(now)&&
+   !fakeSource.test(source)&&q?.proxy!==true&&q?.simulated!==true&&
+   q?.suspended!==true&&q?.tradable!==false&&q?.readOnlyBackup!==true;
+ };
  const alerts=[],out=[];
  for(const p of positions){
   const q=byQuote.get(p.symbol),view=quoteObservationView(q,now);
   const source=typeof q?.quoteSource==='string'?q.quoteSource.trim():'';
-  const valid=view.quoteStatus==='recent-unverified'&&
-    chinaDay(view.quoteAt)===chinaDay(now)&&
-    !fakeSource.test(source)&&q?.proxy!==true&&q?.simulated!==true&&
-    q?.suspended!==true&&q?.tradable!==false&&q?.readOnlyBackup!==true;
-  const price=valid?q.price:null;
-  const change=valid?pct(100*(price-p.cost)/p.cost):null;
-  const status=valid?'recent-provider-unverified':q?'quote-unusable':'quote-missing';
+  const valid=usable(q,view);
+  const peer=crossChecks.get(p.symbol),peerView=quoteObservationView(peer,now);
+  const peerSource=typeof peer?.quoteSource==='string'?peer.quoteSource.trim():'';
+  const peerUsable=usable(peer,peerView);
+  const distinct=valid&&peerUsable&&source.toLowerCase()!==peerSource.toLowerCase();
+  const differenceBps=distinct?Number(
+   (10000*Math.abs(q.price-peer.price)/Math.max(q.price,peer.price)).toFixed(2)):null;
+  // Report a disagreement, never substitute the second provider's price.
+  // Sources are self-declared, so agreement also cannot certify truth.
+  const conflict=differenceBps!==null&&differenceBps>50;
+  const finalValid=valid&&!conflict;
+  const crossCheckStatus=!peer?'not-provided':!valid?'primary-unusable':
+   !peerUsable?'secondary-unusable':
+   !distinct?'same-source-not-independent':
+   conflict?'price-conflict':'agree-unverified';
+  const price=finalValid?q.price:null;
+  const change=finalValid?pct(100*(price-p.cost)/p.cost):null;
+  const status=conflict?'source-conflict':
+   finalValid?'recent-provider-unverified':q?'quote-unusable':'quote-missing';
   const details=[];
   if(change!==null&&change<=-8){
    const severe=change<=-15;
@@ -66,6 +93,14 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
     evidence:'user-declared-weight',canNotify:false});
    details.push(key);
   }
+  if(conflict){
+   const key=p.symbol+':cross-source-conflict';
+   alerts.push({id:key,symbol:p.symbol,code:'cross-source-conflict',
+    severity:'unknown',message:'两家声明来源的当前报价差异 '+differenceBps+
+     ' 基点（超过固定50基点观察阈值），停止浮亏计算并等待核对',
+    evidence:'conflicting-provider-declarations',canNotify:false});
+   details.push(key);
+  }
   if(!valid){
    const key=p.symbol+':quote-gap';
    alerts.push({id:key,symbol:p.symbol,code:'quote-gap',severity:'unknown',
@@ -74,18 +109,22 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
    details.push(key);
   }
   out.push({...p,price,drawdownFromCostPct:change,
-   quoteAt:valid?view.quoteAt:null,quoteSource:valid?view.quoteSource:null,
-   quoteAgeMs:valid?view.quoteAgeMs:null,quoteStatus:status,alertIds:details});
+   quoteAt:finalValid?view.quoteAt:null,quoteSource:finalValid?view.quoteSource:null,
+   quoteAgeMs:finalValid?view.quoteAgeMs:null,quoteStatus:status,
+   crossCheckStatus,crossSourceDifferenceBps:differenceBps,
+   alertIds:details});
  }
  return {schemaVersion:1,mode:'manual-holding-risk-readonly',status:'evaluated',
   asOf:new Date(now).toISOString(),priceFreshnessLimitMs:15000,
+  crossSourceDisagreementThresholdBps:50,
   quoteTimeType:'per-symbol-source-quote-time',providerVerified:false,
   exchangeVerified:false,verifiedLive:false,canTrade:false,canNotify:false,
   writesAccount:false,autoOrders:false,
   positions:out,alerts,counts:{positions:out.length,withRecentSourceQuote:out.filter(p=>p.price!==null).length,
    missingOrUnusableQuotes:out.filter(p=>p.price===null).length,
+   conflictingQuotes:out.filter(p=>p.crossCheckStatus==='price-conflict').length,
    warningAlerts:alerts.filter(x=>x.severity==='warning'||x.severity==='critical').length},
-  note:'仅对用户手动输入的成本和仓位以及带逐票原时点的报价做只读风险提示；未校验实际持仓、价格供应商、真实盈利或送达渠道。固定研究阈值：成本浮亏8%/15%，用户申报仓位30%/50%。不替代原账户风控。'};
+  note:'仅对用户手动输入的成本和仓位以及带逐票原时点的报价做只读风险提示；未校验实际持仓、价格供应商、真实盈利或送达渠道。固定研究阈值：成本浮亏8%/15%，用户申报仓位30%/50%，双源价差50基点（均未经历史校准）。相符不代表真实行情认证，不替代原账户风控。'};
 }
 function readManualHoldingWatchFile(file,{now=Date.now()}={}){
  const empty={schemaVersion:1,mode:'manual-holding-risk-readonly',
