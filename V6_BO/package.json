@@ -45,6 +45,7 @@
     "market:history": "node scripts/eastmoney-historical-import.js",
     "research:history": "node scripts/adaptive-monitor-archive.js",
     "tracking:freeze:picks": "node scripts/freeze-quant-picks.js",
+    "factor:shadow": "node scripts/factor-shadow-evolution.js",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
     "tracking:watch": "node scripts/forward-tracking-cloud.js watch"
   },
