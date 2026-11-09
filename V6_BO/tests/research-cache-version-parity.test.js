@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const version=s=>{
- const m=s.match(/const APP_VER = '([^']+)'/);
+ const m=s.match(/const APP_VER = '([0-9]{8}[a-z]{2})'/);
  assert.ok(m,'APP_VER declaration missing');
  return m[1];
 };
@@ -12,6 +12,8 @@ test('service, phone and service worker use a single release cache version',()=>
  const server=version(read('server.js'));
  const mobile=version(read('public/mobile.html'));
  const sw=version(read('public/sw.js'));
+ const desktop=version(read('public/assets/app.js'));
+ assert.equal(server,desktop);
  assert.equal(server,mobile);
  assert.equal(server,sw);
  assert.equal(server,'20261109cr');
