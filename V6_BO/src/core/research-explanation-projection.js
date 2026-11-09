@@ -5,6 +5,7 @@ const {scanUniverseWithRationale}=require('../strategy/scan-with-rationale');
 const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/open-source-research-signals');
 const {catalog:linkedResearchCatalog,evaluateLinkedResearch}=require('../strategy/linked-factor-research');
 const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('../strategy/quality-volume-reversal-research');
+const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={}}={}){
  const empty={schemaVersion:1,mode:'historical-selection-evidence',source:history?.source||null,
@@ -26,6 +27,7 @@ function historicalExplanations(history,{market={}}={}){
   if(stocksByCode.has(row.symbol)){stocksByCode.delete(row.symbol);ambiguous.add(row.symbol);}
   else if(!ambiguous.has(row.symbol))stocksByCode.set(row.symbol,row);
  }
+ const cohort=evaluateSectorCohortRps(history,{factorContexts:market?.factorContexts});
  const candidates=scan.items.map(item=>{
   const research=evaluateOpenSourceRules(stocksByCode.get(item.symbol)||{},
     {marketRisk:market?.regime==='risk_off'?'risk_off':'unknown'});
@@ -53,9 +55,12 @@ function historicalExplanations(history,{market={}}={}){
   const relativeNote=relative&&relative.stockExcessOverSectorPct>=2&&
     relative.sectorExcessOverMarketPct>=2&&item.rationale.whyUp?.observedRise===true?
     ['同期20日个股、所属板块和境内指数呈现逐级相对强势；仅为相关现象，尚不能证明上涨驱动']: [];
+  const cohortEvidence=cohort.bySymbol[item.symbol]||{status:'unknown',
+   reason:cohort.reason||'个股所属板块不在本次可比横向研究集合中'};
   const rationale={...item.rationale,openSourceResearch:research,
    linkedFactorResearch:linked,linkedFactors:linked.factors,
    qualityResearch:quality,qualityFactors:quality.factors,
+   sectorCohortRps:cohortEvidence,
    whyUp:{...item.rationale.whyUp,possibleContributors:[
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
    risks:studyBlocked?[...item.rationale.risks,'公开策略研究因交易风险被阻断']:item.rationale.risks,
@@ -75,6 +80,7 @@ function historicalExplanations(history,{market={}}={}){
    verifiedLive:false,canTrade:false,officialCandidates:0,
    total:scan.total,modelPassedCount:scan.eligible,rejected:scan.rejected,
    candidates,openSourceCatalog,linkedResearchCatalog,qualityResearchCatalog,
+   sectorCohortStudy:cohort,
    researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
     .sort((a,b)=>b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
       b.rationale.selection.ruleCount-a.rationale.selection.ruleCount||
