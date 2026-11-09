@@ -3,7 +3,7 @@
   // A client-side projection of the EXISTING cached selection endpoint. No orders,
   // scanning "force", persistence, or browser-owned portfolio authority.
   const $ = id => document.getElementById(id);
-  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null };
+  const state = { items: [], hasData: false, lastRefresh: 0, requestId: 0, controller: null, selectedCode: null };
   const number = value => {
     if (value === null || value === undefined || value === '' ||
         typeof value === 'boolean' || typeof value === 'object') return null;
@@ -87,22 +87,14 @@
     card.append(tags);
 
     const reasons = reasonRows(item);
-    card.append(node('div', 'muted', '命中条件（原接口返回）'));
-    if (!reasons.length) {
-      card.append(node('p', 'muted', '暂无可核实的条件解释，不能视作已命中。'));
-    } else {
-      const first = node('ul', 'reason');
-      for (const reason of reasons.slice(0, 2)) first.append(node('li', '', reason));
-      card.append(first);
-      if (reasons.length > 2) {
-        const more = document.createElement('details');
-        more.append(node('summary', 'muted', '展开剩余 ' + (reasons.length - 2) + ' 条条件'));
-        const list = node('ul', 'reason');
-        for (const reason of reasons.slice(2)) list.append(node('li', '', reason));
-        more.append(list);
-        card.append(more);
-      }
+    const badges = node('div','hit-tags');
+    if(!reasons.length){
+      badges.append(node('span','hit-tag unknown','条件待核验'));
+    }else{
+      for(const reason of reasons.slice(0,3))badges.append(node('span','hit-tag',reason.slice(0,45)));
+      if(reasons.length>3)badges.append(node('span','hit-tag','另有 '+(reasons.length-3)+' 条'));
     }
+    card.append(badges);
     const quoteAt = item.vendorQuoteAt || item.quoteAt;
     const quoteTime = formatAt(quoteAt);
     card.append(node('p', 'footnote', quoteTime ?
@@ -110,6 +102,25 @@
       '逐票报价原始时点：未知（不能当实时价）'));
     const link = node('a', '', '查看策略研究与详细风控');
     link.href = '/research.html#decisionWorkspace';
+    link.textContent = '深入策略研究（可选）';
+    const rawCode=String(item.code||item.symbol||'');
+    const code=/^\d{6}$/.test(rawCode)?rawCode:null;
+    if(code){
+      const open=node('button','pick-open','查看日K / 月K / 年K');
+      open.type='button';
+      open.setAttribute('aria-label','查看'+String(item.name||code)+'的日K月K年K和命中条件');
+      open.addEventListener('click',()=>{
+        state.selectedCode=code;
+        document.dispatchEvent(new CustomEvent('v6:picks-select',{detail:{
+          code,name:String(item.name||code).slice(0,80),
+          reasons,risk:String(item.riskStatus||item.risk?.status||item.risk?.level||item.riskLevel||
+            (item.blocked===true||item.risk?.blocked===true?'存在风险阻断':'风险未评估')).slice(0,130),
+          quoteProof:quoteTime?'第三方自报报价时点：'+quoteTime+' · 未认证实时':
+            '逐票原始报价时点未知 · 非实时认证'
+        }}));
+      });
+      card.append(open);
+    }
     card.append(link);
     return card;
   };
@@ -141,6 +152,8 @@
     state.items = [];
     state.hasData = false;
     state.lastRefresh = 0;
+    state.selectedCode = null;
+    document.dispatchEvent(new Event('v6:picks-unauthorized'));
     $('day').textContent = '未知';
     $('cloudSync').textContent = '访问权限需要重新确认；已清空之前的候选画面';
     render();
@@ -177,6 +190,10 @@
       if (data?.isMock === true || data?.simulated === true) throw new Error('服务端返回演示数据，已拒绝展示为真实选股');
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
       state.items = data.items.filter(x => x && typeof x === 'object').slice(0, 100);
+      if(state.selectedCode && !state.items.some(x=>String(x.code||x.symbol||'')===state.selectedCode)){
+        state.selectedCode=null;
+        document.dispatchEvent(new Event('v6:picks-reset'));
+      }
       state.hasData = true;
       state.lastRefresh = Date.now();
       $('day').textContent = displayDay(data);
