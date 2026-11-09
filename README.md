@@ -1,4 +1,6 @@
 # v6-stock-system
+
+> **国内写入/部署交接入口**：用户指定 `https://acd98a1c1a46e6ce4.app.workbuddy.host`（文档 `/api/ai/doc?id=ai`）。下一位 AI 开工先读 [国内 WorkBuddy 写入目标及鉴权现状](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 与 [AGENTS.md](AGENTS.md)。此目标与下方历史研究预览站不是一回事；实际写入 API 和生产部署尚未认证，分享码/令牌禁止提交。
 V6 智能选股系统｜实时行情、智能选股、涨停复盘、风险控制
 
 
