@@ -54,7 +54,7 @@
     } else if (typeof at === 'string') {
       if (/^\d{10}$/.test(at)) stamp = Number(at) * 1000;
       else if (/^\d{13}$/.test(at)) stamp = Number(at);
-      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(at)) stamp = at;
+      else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(at)) stamp = at;
       else return '';
     } else return '';
     const date = new Date(stamp);
