@@ -5,6 +5,7 @@ const {scanUniverseWithRationale}=require('../strategy/scan-with-rationale');
 const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/open-source-research-signals');
 const {catalog:linkedResearchCatalog,evaluateLinkedResearch}=require('../strategy/linked-factor-research');
 const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('../strategy/quality-volume-reversal-research');
+const {assessWeakMarketSectorPreference}=require('../strategy/weak-market-sector-preference');
 const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={}}={}){
@@ -55,6 +56,7 @@ function historicalExplanations(history,{market={}}={}){
   const relativeNote=relative&&relative.stockExcessOverSectorPct>=2&&
     relative.sectorExcessOverMarketPct>=2&&item.rationale.whyUp?.observedRise===true?
     ['同期20日个股、所属板块和境内指数呈现逐级相对强势；仅为相关现象，尚不能证明上涨驱动']: [];
+  const preference=assessWeakMarketSectorPreference(item.rationale);
   const cohortEvidence=cohort.bySymbol[item.symbol]||{status:'unknown',
    reason:cohort.reason||'个股所属板块不在本次可比横向研究集合中'};
   const rationale={...item.rationale,openSourceResearch:research,
@@ -63,10 +65,15 @@ function historicalExplanations(history,{market={}}={}){
    sectorCohortRps:cohortEvidence,
    whyUp:{...item.rationale.whyUp,possibleContributors:[
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
-   risks:studyBlocked?[...item.rationale.risks,'公开策略研究因交易风险被阻断']:item.rationale.risks,
+   weakMarketPreference:preference,
+   risks:[...item.rationale.risks,
+    ...(studyBlocked?['公开策略研究因交易风险被阻断']:[]),
+    ...(preference.researchDeprioritized?[preference.reason]:[])],
    selection:{...item.rationale.selection,rules,ruleCount:rules.length,
     independentFamilyCount:new Set(rules.map(r=>r.family)).size,
-    watchEligible,officialCandidate:false,status:'historical-research-only',historicalOnly:true}};
+    watchEligible,officialCandidate:false,status:'historical-research-only',historicalOnly:true,
+    researchDeprioritized:preference.researchDeprioritized,
+    preferenceReason:preference.researchDeprioritized?preference.reason:null}};
   return {
    symbol:item.symbol,name:item.name,score:item.score,
    historicalModelPassed:item.tradable===true,
@@ -82,7 +89,9 @@ function historicalExplanations(history,{market={}}={}){
    candidates,openSourceCatalog,linkedResearchCatalog,qualityResearchCatalog,
    sectorCohortStudy:cohort,
    researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
-    .sort((a,b)=>b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
+    .sort((a,b)=>Number(a.rationale.selection.researchDeprioritized)-
+      Number(b.rationale.selection.researchDeprioritized)||
+      b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
       b.rationale.selection.ruleCount-a.rationale.selection.ruleCount||
       (b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol))
     .map(x=>({symbol:x.symbol,name:x.name,officialCandidate:false,historicalOnly:true,
@@ -90,7 +99,10 @@ function historicalExplanations(history,{market={}}={}){
       independentFamilyCount:x.rationale.selection.independentFamilyCount,
       matchedRules:x.rationale.selection.rules.map(r=>({id:r.id,name:r.name})),
       riskCount:x.rationale.risks.length,asOf:date,dataStatus:x.dataStatus,
-      note:'研究观察池，不构成实时行情或交易指令'})),
+      researchDeprioritized:x.rationale.selection.researchDeprioritized,
+      note:x.rationale.selection.researchDeprioritized?
+       '用户弱市板块偏好：观察顺序降低；保留全部规则及历史信号，不构成交易指令':
+       '研究观察池，不构成实时行情或交易指令'})),
    assumptions:['解释基于提供的历史K线和可选导入市场/板块数据',
      '以最近一根历史K线15:00（北京时间）作为历史评估时点，不视为当前市场行情',
      '原有评分、回测、模拟账本、风控门槛和持仓状态均不修改',
