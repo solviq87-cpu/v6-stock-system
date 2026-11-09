@@ -19433,14 +19433,16 @@ function handle(req, res, u, body) {
         const end = (u.searchParams.get('end') || '').replace(/[^0-9]/g, '');
         let tail;
         if (end) {
-          // 懒加载：取 end 之前最近的 n 根（蜡烛图左滑看更早数据）
-          let idx = rows.findIndex(r => String(r.date).replace(/-/g, '') < end);
-          if (idx < 0) idx = 0;
-          tail = rows.slice(Math.max(0, idx - n), idx);
+          // 排序为由旧到新：定位首根 >= end 的K线，向左读取更早数据；
+          // 旧写法 findIndex(date < end) 永远命中最早一根，返回空页。
+          // end 为独占上界，可在月/年K里安全连续翻页，不重复计入边界日。
+          const idx = rows.findIndex(r => String(r.date).replace(/-/g, '') >= end);
+          const cut = idx < 0 ? rows.length : idx;
+          tail = rows.slice(Math.max(0, cut - n), cut);
         } else tail = rows.slice(-n);
         json(res, {
-          ok: true, code, name: stockNameOf(code), asOf: tail[tail.length - 1].date, n: tail.length,
-          rows: tail, ma: klineMaOf(tail),
+          ok: true, code, name: stockNameOf(code), asOf: tail.length ? tail[tail.length - 1].date : null, n: tail.length,
+          rows: tail, ma: tail.length ? klineMaOf(tail) : [],
         });
       } catch (e) { json(res, { ok: false, error: (e && e.message) || String(e), code }); }
     })();
