@@ -66,3 +66,54 @@ test('single extreme point and invalid IC values are rejected or conservatively 
  assert.equal(oneHit.reliable,false);
  assert.equal(oneHit.suggestedWeightMultiplier,0);
 });
+
+// Rolling 5-session outcomes can overlap in time even when each daily IC is
+// valid. Strong earlier weeks must not hide a recent block reversal.
+test('late five-session block reversal pauses automatic research reweighting despite positive overall and recent-half IC',()=>{
+ const ic=[...Array(20).fill(.4),...Array(10).fill(-.1)];
+ const r=assessFactorReliability(rows(ic));
+ assert.ok(r.meanIC>.03);
+ assert.ok(r.recentMeanIC>.05);
+ assert.ok(r.directionConsistencyPct>=60);
+ assert.equal(r.completeBlockCount,6);
+ assert.equal(r.blockDirectionConsistencyPct,66.67);
+ assert.equal(r.latestBlockMeanIC,-.1);
+ assert.equal(r.reliable,false);
+ assert.equal(r.suggestedWeightMultiplier,0);
+ assert.ok(r.reasons.includes('unstable-five-session-block-direction'));
+ assert.ok(r.reasons.includes('latest-five-session-block-reversal'));
+ assert.equal(r.productionWeightsChanged,false);
+});
+test('one extraordinary day cannot create a reliable learned factor when remaining days are weak',()=>{
+ const ic=[...Array(17).fill(.025),...Array(12).fill(-.002),1];
+ const r=assessFactorReliability(rows(ic));
+ assert.ok(r.meanIC>.03);
+ assert.ok(r.recentMeanIC>.05);
+ assert.ok(r.directionConsistencyPct>=60);
+ assert.ok(r.outlierRemovedMeanIC<.02);
+ assert.ok(r.reasons.includes('single-day-influence-dominates'));
+ assert.equal(r.reliable,false);
+ assert.equal(r.confidence,0);
+ assert.equal(r.suggestedWeightMultiplier,0);
+});
+test('steady positive and negative learning have full horizon-block evidence and nonzero bounded shadow-only adjustment',()=>{
+ for(const ic of [.32,-.32]){
+  const r=assessFactorReliability(rows(Array(30).fill(ic)));
+  assert.equal(r.completeBlockCount,6);
+  assert.equal(r.blockDirectionConsistencyPct,100);
+  assert.equal(r.latestBlockMeanIC,ic);
+  assert.equal(r.outlierRemovedMeanIC,ic);
+  assert.equal(r.reliable,true);
+  assert.equal(Math.sign(r.suggestedWeightMultiplier),Math.sign(ic));
+  assert.equal(r.canTrade,false);
+  assert.equal(r.productionWeightsChanged,false);
+ }
+});
+test('incomplete last block cannot inflate the complete five-session confirmation count',()=>{
+ const r=assessFactorReliability(rows([...Array(15).fill(.3),.9,.9]));
+ assert.equal(r.days,17);
+ assert.equal(r.completeBlockCount,3);
+ assert.equal(r.latestBlockMeanIC,.3);
+ assert.ok(r.blockDirectionConsistencyPct<=100);
+ assert.equal(r.productionWeightsChanged,false);
+});
