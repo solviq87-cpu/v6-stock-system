@@ -1,5 +1,7 @@
 # AGENTS.md — 量化看盘项目 AI 协作规则
 
+> **交接绝对不要忘国内目标**：用户指定 WorkBuddy 主机 `https://acd98a1c1a46e6ce4.app.workbuddy.host`；文档入口 `/api/ai/doc?id=ai`。先读 `docs/CHINA_WORKBUDDY_WRITE_TARGET.md`；当前文档读取报401，实际写入路由及鉴权未核实，禁止猜路径、硬编码分享码或自行更换部署地址。
+
 > 本文件对 AI Agent（Claude Code / WorkBuddy / 任何 AI 编程助手）生效。
 > 每次修改代码前必读。用户已确认（2026-10-28）。
 
