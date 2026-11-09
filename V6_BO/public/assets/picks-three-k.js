@@ -104,7 +104,7 @@ async function loadOlder(turn){
   try{
    while(turn===generation&&hasMore&&pages<MAX_PAGES&&
      source.aggregate(daily,period).length<TARGET_BARS[period]){
-    if(!oldest||!/^\\d{4}-\\d{2}-\\d{2}$/.test(oldest))break;
+    if(!oldest||!/^\d{4}-\d{2}-\d{2}$/.test(oldest))break;
     const requested=oldest.replace(/-/g,'');
     message('正在补读更早历史K线（已读取'+pages+'页）…');
     const result=await fetchHistoryPage(selected.code,requested,turn);
