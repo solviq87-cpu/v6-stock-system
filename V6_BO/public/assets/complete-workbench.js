@@ -57,6 +57,11 @@ function renderSelection(report){
   }
   const factors=rationale.factors||[];
   if(factors.length)add(d,'p','扩展因子（未经逐项核验）：'+factors.map(f=>f.label+' '+(f.score??'未知')).join('；'),'muted');
+  const qualityFactors=rationale.qualityFactors||[];
+  if(qualityFactors.length)
+    add(d,'p','趋势/量价/恢复因子：'+qualityFactors.map(f=>
+      f.label+' '+(f.value===null||f.value===undefined?'未知':f.value+f.unit)+
+      '（'+f.status+'）').join('；'),'muted');
   const linkedFactors=rationale.linkedFactors||[];
   if(linkedFactors.length)
     add(d,'p','新增研究因子：'+linkedFactors.map(f=>
