@@ -49,6 +49,7 @@ function run(argv){
   if(payload.history?.source!=='imported'||!payload.history.provider||
      !payload.history.datasetId||flow.asOf!==payload.history.asOf||
      flow.dimensions.testing.marketDataReviewReady!==true||
+     flow.dimensions.testing.accountReconciled!==true||
      flow.dimensions.stock.status!=='historical-research-only')
    throw Error('本地跨日观察池需要来源明确、公司行为核对声明及同日的导入历史证据；本轮不保存');
   const fingerprint=crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
