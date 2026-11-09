@@ -63,10 +63,13 @@ test('historical audit renders distinct rule families and no automatic weight ch
   overlapDiagnostics:{status:'descriptive-only',rawRuleSignals:3,uniqueStockDays:2,
    independentFamilyExposures:2,sameFamilyDuplicateSignals:1,
    byRule:{donchian20_liquidity:{signalDays:2,sameFamilyOverlapDays:1,otherFamilyOverlapDays:0,
-    reviewNote:'存在同家族重叠，先去相关及扩充独立样本，不建议据此升权'}}}};
+    reviewNote:'存在同家族重叠，先去相关及扩充独立样本，不建议据此升权'}}},
+  temporalOverlapDiagnostics:{status:'descriptive-only',byHorizon:{1:{rawRuleEvents:3,
+   familyExposureDays:2,nonoverlapFamilyEpisodes:1}}}};
  const h=ui(report);await h.ids.completeRun.handlers.click();
  const section=h.found.find(e=>e.id==='publicRuleAuditSummary');
  assert.ok(section.children.some(e=>e.textContent.includes('同家族重复命中 1')));
+ assert.ok(section.children.some(e=>e.textContent.includes('非重叠分段 1')));
  const detail=section.children.find(e=>e.tag==='details');
  assert.ok(detail.children.some(e=>e.textContent.includes('同家族重叠 1')));
  assert.ok(detail.children.some(e=>e.textContent.includes('本次未改权重')));

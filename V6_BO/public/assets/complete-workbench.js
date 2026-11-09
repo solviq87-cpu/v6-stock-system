@@ -121,6 +121,18 @@ function renderForwardAudit(report){
    '。同日共振不是独立回测样本，自动权重保持不变。');
  }
  const horizon=report.configuration?.horizons||[];
+ const episodes=report.temporalOverlapDiagnostics;
+ if(episodes?.status==='descriptive-only'){
+  const summary=horizon.map(days=>{
+   const x=episodes.byHorizon?.[days];
+   if(!x)return null;
+   return days+'日：原始 '+x.rawRuleEvents+
+     ' / 同家族股票日 '+x.familyExposureDays+
+     ' / 非重叠分段 '+x.nonoverlapFamilyEpisodes;
+  }).filter(Boolean);
+  if(summary.length)add('p','连续信号去重（只读研究）：'+summary.join('；')+
+   '。分段数不等于统计独立样本量，不用于自动升降权。');
+ }
  for(const rule of report.rules||[]){
   const detail=document.createElement('details');detail.className='card';root.append(detail);
   const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);

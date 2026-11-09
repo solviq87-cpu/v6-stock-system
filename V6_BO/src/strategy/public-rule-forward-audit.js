@@ -8,6 +8,7 @@ const {catalog,evaluateOpenSourceRules}=require('./open-source-research-signals'
 const {catalog:linkedCatalog,evaluateLinkedResearch}=require('./linked-factor-research');
 const {catalog:qualityCatalog,evaluateQualityMomentumResearch}=require('./quality-volume-reversal-research');
 const {assessMarketShock}=require('../core/market-shock-learning-gate');
+const {summarizeTemporalSignalEpisodes}=require('./research-signal-episodes');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=x=>Number(x.toFixed(4));
 const horizonsDefault=[1,5,20,60];
@@ -249,6 +250,8 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
   folds,rules,events,
   ...(p.includeLinkedRules===true||p.includeQualityRules===true?
     {overlapDiagnostics:summarizeSignalOverlap(events,activeCatalog,p.horizons)}:{}),
+  ...(p.includeLinkedRules===true||p.includeQualityRules===true?
+    {temporalOverlapDiagnostics:summarizeTemporalSignalEpisodes(events,activeCatalog,p.horizons,dateList)}:{}),
   ...(ruleInputDiagnostics?{ruleInputDiagnostics}:{}),
   sampleIntegrity:{eventsRetained:events.length,
    blockedEventsRetained:events.filter(e=>e.status!=='modeled').length,
