@@ -127,6 +127,33 @@ test('pure research batch de-duplicates each symbol and keeps blocked stocks out
  assert.throws(()=>evaluateAuctionBatch({...input,stocks:[a,a]}),/重复证券/);
  assert.throws(()=>evaluateAuctionBatch({...input,stocks:[]}),/1-100/);
 });
+test('a severe intermediate quote dip must not be hidden by a later last-point rebound',()=>{
+ const r=evaluateAuctionEvidence(stock({snapshots:[
+  q('09:20:30',10.15,20000),
+  q('09:21:20',9.9,22000),
+  q('09:23:30',10.25,30000)
+ ]}),{asOf:stamp('09:24:00'),tradeDate});
+ assert.equal(r.rules[0].status,'not_matched');
+ assert.ok(r.factors.indicativeMaxDrawdownPct<-1);
+ assert.equal(r.matchedRuleCount,0);
+});
+test('virtual matched volume falling inside 9:20-9:25 is not stable auction support',()=>{
+ const r=evaluateAuctionEvidence(stock({snapshots:[
+  q('09:20:30',10.15,25000),
+  q('09:21:30',10.16,17000),
+  q('09:23:30',10.20,45000)
+ ]}),{asOf:stamp('09:24:00'),tradeDate});
+ assert.equal(r.rules[0].status,'not_matched');
+ assert.equal(r.matchedRuleCount,0);
+});
+test('invalid far-future clocks and quote timestamps cannot bypass the date validation',()=>{
+ const r=evaluateAuctionEvidence(stock(),{asOf:8640000000000000,tradeDate});
+ assert.equal(r.status,'insufficient_data');
+ const broken=stock({snapshots:[q('09:25:05',10.2,30000,{quoteAt:8640000000000000})]});
+ const r2=evaluateAuctionEvidence(broken,{asOf,tradeDate});
+ assert.equal(r2.status,'insufficient_data');
+});
+
 test('offline CLI never opens a remote network or writes over an existing file',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-auction-research-'));
  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
