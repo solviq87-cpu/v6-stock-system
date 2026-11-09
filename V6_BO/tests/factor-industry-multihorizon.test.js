@@ -132,7 +132,7 @@ test('future price evidence and invalid status are rejected rather than used for
  const zero=structuredClone(x.report);
  zero.records[0].windows[1].status='missing-or-suspended';
  zero.records[0].windows[1].priceReturnPct=0;
- assert.throws(()=>auditOneDay(x.features,zero,{now}),/不能填零|缺少/);
+ assert.throws(()=>auditOneDay(x.features,zero,{now}),/未成熟记录|不能填零|缺少/);
  const target=structuredClone(x.report);
  target.records[1].windows[0].targetDate=dates[0];
  assert.throws(()=>auditOneDay(x.features,target,{now}),/目标日期/);
