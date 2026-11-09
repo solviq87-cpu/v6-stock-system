@@ -36,6 +36,7 @@ function engine(){
   sectorOfStock:()=> '半导体',
   loadSectorHistory:()=>{events.computed++;return {};},
   quoteDayOf:()=> '20261109',
+  todayStr:()=> '20261109', // legacy sector-history day label; not market quote provenance
   buildZTRoleMap:()=>new Map(),
   maxDrawdown:()=>null,
   scoreSmoothOf:(code,score,dryRun=false)=>{
