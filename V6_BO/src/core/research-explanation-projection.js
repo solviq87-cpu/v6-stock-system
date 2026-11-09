@@ -4,6 +4,7 @@
 const {scanUniverseWithRationale}=require('../strategy/scan-with-rationale');
 const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/open-source-research-signals');
 const {catalog:linkedResearchCatalog,evaluateLinkedResearch}=require('../strategy/linked-factor-research');
+const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('../strategy/quality-volume-reversal-research');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={}}={}){
  const empty={schemaVersion:1,mode:'historical-selection-evidence',source:history?.source||null,
@@ -31,15 +32,21 @@ function historicalExplanations(history,{market={}}={}){
   const linked=evaluateLinkedResearch(stocksByCode.get(item.symbol)||{},
     {marketContext:market?.factorContexts?.[item.symbol],
      marketRisk:market?.regime==='risk_off'?'risk_off':'unknown'});
+  const quality=evaluateQualityMomentumResearch(stocksByCode.get(item.symbol)||{},
+   {marketRisk:market?.regime==='risk_off'?'risk_off':'unknown'});
   const newRules=research.strategies.filter(x=>x.status==='candidate').map(x=>({
    id:'opensource:'+x.id,name:x.label,family:'open-source-adaptation',
    status:'matched',type:'research-candidate',evidence:x.reasons,source:x.source}));
   const linkedRules=linked.strategies.filter(x=>x.status==='candidate').map(x=>({
    id:'linked:'+x.id,name:x.label,family:x.family,
    status:'matched',type:'research-candidate',evidence:x.reasons,source:x.source}));
-  const oldRules=item.rationale.selection.rules||[],rules=[...oldRules,...newRules,...linkedRules];
+  const qualityRules=quality.strategies.filter(x=>x.status==='candidate').map(x=>({
+   id:'quality:'+x.id,name:x.label,family:x.family,
+   status:'matched',type:'research-candidate',evidence:x.reasons,source:x.source}));
+  const oldRules=item.rationale.selection.rules||[],rules=[...oldRules,...newRules,...linkedRules,...qualityRules];
   const studyBlocked=research.strategies.some(x=>x.status==='risk_blocked')||
-    linked.strategies.some(x=>x.status==='risk_blocked');
+    linked.strategies.some(x=>x.status==='risk_blocked')||
+    quality.strategies.some(x=>x.status==='risk_blocked');
   const watchEligible=!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
     item.quality?.fresh===true&&item.quality?.simulated!==true&&rules.length>0;
   const relative=linked.contextEvidence?.metrics;
@@ -48,6 +55,7 @@ function historicalExplanations(history,{market={}}={}){
     ['同期20日个股、所属板块和境内指数呈现逐级相对强势；仅为相关现象，尚不能证明上涨驱动']: [];
   const rationale={...item.rationale,openSourceResearch:research,
    linkedFactorResearch:linked,linkedFactors:linked.factors,
+   qualityResearch:quality,qualityFactors:quality.factors,
    whyUp:{...item.rationale.whyUp,possibleContributors:[
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
    risks:studyBlocked?[...item.rationale.risks,'公开策略研究因交易风险被阻断']:item.rationale.risks,
@@ -66,7 +74,7 @@ function historicalExplanations(history,{market={}}={}){
    dataStatus:source==='imported'?'imported-unverified':'simulated',
    verifiedLive:false,canTrade:false,officialCandidates:0,
    total:scan.total,modelPassedCount:scan.eligible,rejected:scan.rejected,
-   candidates,openSourceCatalog,linkedResearchCatalog,
+   candidates,openSourceCatalog,linkedResearchCatalog,qualityResearchCatalog,
    researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
     .sort((a,b)=>b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
       b.rationale.selection.ruleCount-a.rationale.selection.ruleCount||
