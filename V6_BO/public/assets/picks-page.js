@@ -45,7 +45,12 @@
   };
   const formatAt = at => {
     if (typeof at !== 'string' && typeof at !== 'number') return '';
-    const date = new Date(at);
+    // The provider may supply 10-digit Unix seconds, unlike existing ms date fields.
+    // Reject short/ambiguous numbers instead of displaying a fictitious 1970 quote.
+    const numeric = typeof at === 'number' ? at : /^\\d{10,13}$/.test(at) ? Number(at) : null;
+    const stamp = numeric !== null ? (numeric >= 1000000000 && numeric < 10000000000 ? numeric * 1000 :
+      numeric >= 1000000000000 && numeric < 10000000000000 ? numeric : NaN) : at;
+    const date = new Date(stamp);
     return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
   };
   const showItem = item => {
