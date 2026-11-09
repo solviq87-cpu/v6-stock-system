@@ -57,3 +57,12 @@ test('historical stock evidence uses textContent rather than untrusted HTML',()=
  assert.ok(script.includes('textContent=String(value'));
  assert.ok(!script.includes('innerHTML'));
 });
+
+test('sector cohort percentile is disclosed only as a historical limited-universe comparison',async()=>{
+ all[0].rationale.sectorCohortRps={status:'imported-unverified',sector:'设备',
+  return20Pct:9.5,rpsPct:100,cohortSectors:3};
+ await ids.completeRun.fire('click');
+ const details=created.filter(e=>e.tag==='details');
+ assert.ok(details.some(d=>d.children.some(x=>String(x.textContent).includes('板块横向研究分位：设备'))));
+ assert.ok(details.some(d=>d.children.some(x=>String(x.textContent).includes('不代表全市场强度或资金流'))));
+});

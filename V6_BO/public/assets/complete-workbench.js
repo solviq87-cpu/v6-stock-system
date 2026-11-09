@@ -74,6 +74,12 @@ function renderSelection(report){
       '%｜个股 '+linkedContext.metrics.stockReturn20Pct+
       '%（导入历史数据，未经独立核验）','muted');
   else add(d,'p','20日大盘—板块—个股联动：缺少同日对齐的独立指数/板块历史数据，暂不判断','muted');
+  const cohort=rationale.sectorCohortRps;
+  if(cohort?.status==='imported-unverified')
+    add(d,'p','板块横向研究分位：'+cohort.sector+
+     '｜20日收益 '+cohort.return20Pct+
+     '%｜样本内分位 '+cohort.rpsPct+
+     '/100（仅比较本批'+cohort.cohortSectors+'个板块；不代表全市场强度或资金流）','muted');
   const price=rationale.price||{},rise=rationale.whyUp||{};
   add(d,'p','历史收盘涨跌：'+(typeof price.changePct==='number'?price.changePct+'%':'不可核实')+
    '；'+(rise.conclusion||'无法核实上涨原因'));
