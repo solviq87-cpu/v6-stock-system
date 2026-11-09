@@ -1,5 +1,7 @@
 # 量化看盘平台
 
+> **国内写入/部署目标（2026-11-09 用户指定）**：`https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档 `/api/ai/doc?id=ai`。下一位 AI 必须先读 [`docs/CHINA_WORKBUDDY_WRITE_TARGET.md`](docs/CHINA_WORKBUDDY_WRITE_TARGET.md)，不要照抄下文旧部署地址或在 401 未授权时猜测写入接口。
+
 A 股量化盯盘与选股系统：多数据源行情采集 → 四维度选股打分 → 飞书/邮件推送 → Web 面板可视化。
 
 > 🆘 **接手/恢复先看 `RESTORE.md`**（下载、重建、忘口令、一键脚本都在里面）。
