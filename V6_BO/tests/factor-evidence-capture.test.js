@@ -148,3 +148,38 @@ test('operator must repair partial/corrupt archive, no overwrite or public/symli
  assert.throws(()=>parse(['watch',candidatesFile,marketFile,factorFile,outputDir,
   '--interval','500']),/轮询/);
 });
+
+
+test('industry membership freezes only from the same stock and signal-time source/version',()=>{
+ const x=inputs(),stamp=at(day,'15:00:00');
+ for(let i=0;i<x.factorSnapshot.rows.length;i++){
+  const r=x.factorSnapshot.rows[i];
+  r.industryCode=i<3?'SW_A':'SW_B';
+  r.industryEvidence={source:x.factorSnapshot.feed.provider,
+   timestamp:stamp,classificationVersion:'synthetic-industry-v1',code:r.code};
+ }
+ const frozen=captureFactorEpisode({...x,now});
+ assert.equal(frozen.features.features[0].industry.code,'SW_A');
+ assert.equal(frozen.features.features[4].industry.code,'SW_B');
+ assert.equal(frozen.features.features[4].industry.observedAt,stamp);
+ assert.equal(frozen.features.features[4].industry.classificationVersion,
+  'synthetic-industry-v1');
+ const invalid=[
+  y=>{y.factorSnapshot.rows[0].industryEvidence.timestamp=now+1000;},
+  y=>{y.factorSnapshot.rows[0].industryEvidence.source='unknown-late-feed';},
+  y=>{y.factorSnapshot.rows[0].industryEvidence.code='000001';},
+  y=>{y.factorSnapshot.rows[0].industryEvidence.classificationVersion='';},
+  y=>{delete y.factorSnapshot.rows[0].industryEvidence;}
+ ];
+ for(const change of invalid){
+  const bad=structuredClone(x);change(bad);
+  assert.throws(()=>captureFactorEpisode({...bad,now}),/行业归属/,
+   'invalid industry must be rejected, not replaced with a modern classification');
+ }
+ const missing=structuredClone(x);
+ delete missing.factorSnapshot.rows[0].industryCode;
+ delete missing.factorSnapshot.rows[0].industryEvidence;
+ const partial=captureFactorEpisode({...missing,now});
+ assert.equal(partial.features.features[0].industry,undefined);
+ assert.equal(partial.features.features[4].industry.code,'SW_B');
+});
