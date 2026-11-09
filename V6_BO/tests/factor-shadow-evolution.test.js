@@ -98,6 +98,11 @@ test('modified market outcome, broken feature fingerprint and missing evidence a
  const source=Array.from({length:56},(_,i)=>episode(i));
  const corrupt=structuredClone(source);corrupt[0].features.features[0].values.sector_heat=99;
  assert.throws(()=>evolveShadowFactors(corrupt,{now:finalClock}),/指纹/);
+ const lateCapture=structuredClone(source);lateCapture[0].features.originalCohortFrozenAt-=(6*60*1000);
+ assert.throws(()=>evolveShadowFactors(lateCapture,{now:finalClock}),/指纹|时点/);
+ const beforeClose=structuredClone(source);
+ beforeClose[0].report.observedAt=at(beforeClose[0].report.asOf,'15:00:00');
+ assert.throws(()=>evolveShadowFactors(beforeClose,{now:finalClock}),/来源或时间/);
  const changed=structuredClone(source);changed[0].report.cohortFingerprint='x'.repeat(64);
  assert.throws(()=>evolveShadowFactors(changed,{now:finalClock}),/来源/);
  const missing=structuredClone(source);
