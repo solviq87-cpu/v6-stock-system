@@ -3,7 +3,17 @@ const {analyzeMarketBreadth}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
-const FIELDS='f12,f14,f3,f6,f13,f2,f124';
+// Each row is one provider quote. f5 is provider-native lots (手), NOT shares.
+const FIELDS='f12,f14,f3,f6,f13,f2,f124,f5,f8,f20,f62,f184';
+function sourceNumber(value,{min=-Infinity,max=Infinity}={}){
+ if(typeof value!=='number'&&
+    !(typeof value==='string'&&/^-?(?:\d+)(?:\.\d+)?$/.test(value)))
+  return undefined;
+ const n=Number(value);
+ return Number.isFinite(n)&&n>=min&&n<=max?n:undefined;
+}
+const textValue=value=>typeof value==='string'&&value.length>0&&
+ value.length<=64&&!/[\u0000-\u001f<>]/.test(value)?value:undefined;
 function parsePage(payload){
  const d=payload?.data;
  if(!d||!Number.isInteger(d.total)||d.total<1||!Array.isArray(d.diff))throw Error('东方财富响应缺少有效总数或行情列表');
@@ -11,10 +21,24 @@ function parsePage(payload){
 }
 function toStock(item){
  const code=String(item?.f12??'');const market=Number(item?.f13);
- const pct=Number(item?.f3),amount=Number(item?.f6);
- if(!/^\d{6}$/.test(code)||item?.f13===null||item?.f13===undefined||String(item.f13).trim()===''||![0,1].includes(market)||!Number.isFinite(pct)||pct < -100||pct>100||item.f3==='-'||item.f3===null||item.f3===undefined||String(item.f3).trim()==='')
+ const pct=sourceNumber(item?.f3,{min:-100,max:100});
+ if(!/^\d{6}$/.test(code)||item?.f13===null||item?.f13===undefined||
+    String(item.f13).trim()===''||![0,1].includes(market)||pct===undefined)
   return null;
- return {code,pctChange:pct,amount:Number.isFinite(amount)&&amount>=0?amount:undefined,
+ // Optional fields are never silently filled with 0 when the remote
+ // service returns '-', null or a malformed numeric value.
+ const extra={
+  name:textValue(item?.f14),
+  latestPrice:sourceNumber(item?.f2,{min:0.000001}),
+  amount:sourceNumber(item?.f6,{min:0}),
+  volumeLots:sourceNumber(item?.f5,{min:0}),
+  turnoverPct:sourceNumber(item?.f8,{min:0,max:100}),
+  totalMarketValue:sourceNumber(item?.f20,{min:0}),
+  mainNetInflow:sourceNumber(item?.f62),
+  mainNetInflowPct:sourceNumber(item?.f184,{min:-100,max:100})
+ };
+ return {code,pctChange:pct,
+  ...Object.fromEntries(Object.entries(extra).filter(([,v])=>v!==undefined)),
   vendorQuoteAt:sourceQuoteTimeSeconds(item?.f124)};
 }
 async function fetchEastmoneySnapshot(options={}){
@@ -64,7 +88,21 @@ async function fetchEastmoneySnapshot(options={}){
  }
  if(pages*pageSize<total)throw Error('行情分页未完整抓取');
  const completedAt=verifyClock();
+ const quoteTimes=stocks.map(s=>s.vendorQuoteAt).filter(Number.isSafeInteger);
+ const quotedDays=new Set(quoteTimes.map(t=>aShareCalendarDate(t)));
+ const sourceCoverage={
+  present:quoteTimes.length,missing:stocks.length-quoteTimes.length,
+  minVendorQuoteAt:quoteTimes.length?Math.min(...quoteTimes):null,
+  maxVendorQuoteAt:quoteTimes.length?Math.max(...quoteTimes):null,
+  // Request clock and per-stock quote timestamps are independent. A group
+  // covering multiple quote dates is usable only as explicitly marked data,
+  // never as one unified live quote time.
+  supplierQuoteDates:[...quotedDays].sort(),
+  vendorTimeCertified:false,volumeUnit:'provider-lots-not-shares',
+  monetaryUnit:'provider-CNY-unverified'
+ };
  return {date,source:'eastmoney-clist-unverified-live',universeSize:total,stocks,pages,verifiedLive:false,
+  sourceCoverage,
   startedAt:new Date(now).toISOString(),retrievedAt:new Date(completedAt).toISOString(),samplingDurationMs:completedAt-now,warning:'来源为东方财富公开接口，未认证交易所实时性；行情日期为请求日，非逐笔交易日期；不推断涨跌停'};
 }
 async function fetchEastmoneyBreadth(options={}){
