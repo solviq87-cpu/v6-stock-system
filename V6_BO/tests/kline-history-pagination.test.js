@@ -52,7 +52,7 @@ test('server Kline route uses real cursor helper; protected API and both homepag
  const a=server.indexOf("if (p === '/api/kline'");
  const route=server.slice(a,a+1750);
  assert.match(route,/paginateKlineRows/);
- assert.match(route,/hasMore/); // included from spread of page object
+ assert.match(route,/\.\.\.page/); // cursor, hasMore and date come from the page object
  assert.doesNotMatch(route,/findIndex\(r => String\(r\.date\).*< end/);
  assert.match(client,/PAGE_SIZE=240,MAX_PAGES=6/);
  assert.match(client,/\&end=/);
