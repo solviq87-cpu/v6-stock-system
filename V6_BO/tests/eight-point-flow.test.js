@@ -140,3 +140,102 @@ test('full imported workbench links market, sector and individual research witho
  assert.equal(flow.dimensions.testing.ciVerifiedByThisReport,false);
  assert.equal(r.canTrade,false);
 });
+
+test('previous-day imported signal is recognized as successive observation, missing prior stock stays unknown',()=>{
+ const h=history(),params=fakeOutputs(h,fakeProjection(h.asOf));
+ const yesterday=new Date(Date.parse(h.asOf+'T00:00:00Z')-86400000).toISOString().slice(0,10);
+ params.previousWatchStates=[
+  {symbol:'600001',name:'银行观察样本',stage:'observe',lastSeen:yesterday,
+   streak:1,misses:0,matched:['quality:trend'],riskIds:[],confirmed:false,
+   dataStatus:'observed-research-only',reason:'上次历史研究命中'},
+  {symbol:'600002',name:'已缺失样本',stage:'focus',lastSeen:yesterday,
+   streak:3,misses:0,matched:['quality:trend'],riskIds:[],confirmed:true,
+   dataStatus:'observed-research-only',reason:'上次关注'}];
+ const r=buildEightPointEvidence(params),rows=r.dimensions.stock.watchStates;
+ assert.equal(rows.length,2);assert.equal(r.dimensions.stock.previousStateCount,2);
+ assert.equal(rows.find(x=>x.symbol==='600001').stage,'focus');
+ assert.equal(rows.find(x=>x.symbol==='600001').streak,2);
+ const missing=rows.find(x=>x.symbol==='600002');
+ assert.equal(missing.dataStatus,'unavailable');
+ assert.equal(missing.stage,'focus');
+ assert.equal(r.dimensions.stock.watch.length,1,'missing old stock cannot look newly verified');
+ assert.equal(r.dimensions.stock.notPersistedAcrossDates,true,
+  'pure report never claims it saved user private state');
+});
+test('same-day official issuer headline risks and timed market shock are linked without inferred cause',()=>{
+ const h=history('imported',65),date=h.asOf,at=Date.parse(date+'T14:50:00+08:00');
+ const row={source:'declared-index',observedAt:at};
+ const shock={schemaVersion:1,source:'imported',provider:'declared-index',
+  tradeDate:date,observedAt:at,coverage:.91,
+  breadth:{...row,upPct:15},
+  indices:{shanghai:{...row,changePct:-3.5},shenzhen:{...row,changePct:-4.0},
+   chinext:{...row,changePct:-4.2}}};
+ const announcements=[
+  {code:'600001',title:'公司收到立案调查通知书',source:'巨潮资讯',
+   publishedAt:date+'T14:30:00+08:00',
+   url:'https://static.cninfo.com.cn/finalpage/'+date+'/123456.pdf'},
+  {code:'600001',title:'未来时点公告不可使用',source:'巨潮资讯',
+   publishedAt:date+'T16:30:00+08:00',
+   url:'https://static.cninfo.com.cn/finalpage/'+date+'/123457.pdf'}
+ ];
+ const before=structuredClone({h,announcements,shock});
+ const out=runCompleteWorkbench({history:h,market:context(date),
+  announcements,marketShockContext:shock});
+ const rationale=out.selectionEvidence.candidates[0].rationale;
+ assert.equal(rationale.issuerEvidence.count,1);
+ assert.equal(rationale.issuerEvidence.riskClues.length,1);
+ assert.equal(rationale.issuerEvidence.events[0].verified,false);
+ assert.equal(rationale.whyUp.confirmedCauses.length,0);
+ assert.equal(out.eightPointFlow.dimensions.explanation.issuerHeadlinesUnverified,1);
+ assert.equal(out.eightPointFlow.dimensions.explanation.stocks[0].issuerRiskCount,1);
+ assert.equal(out.eightPointFlow.dimensions.learning.marketShock.deferLearningUpdate,true);
+ assert.equal(out.eightPointFlow.dimensions.learning.marketShock.forceMajeureVerified,false);
+ assert.equal(out.eightPointFlow.dimensions.learning.manualReviewPausedForShock,true);
+ assert.equal(out.eightPointFlow.dimensions.learning.weightsChanged,false);
+ assert.deepEqual({h,announcements,shock},before);
+ const stale=runCompleteWorkbench({history:h,marketShockContext:{...shock,
+  observedAt:at-7200000}});
+ assert.equal(stale.eightPointFlow.dimensions.learning.marketShock.status,'unverified');
+ assert.equal(stale.eightPointFlow.dimensions.learning.manualReviewPausedForShock,false);
+});
+test('private local CLI reports only holding risk counts and preserves journal across identical runs',()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const {run}=require('../scripts/eight-point-closure');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-eight-complete-'));
+ try{
+  const input=path.join(dir,'input.json'),holdings=path.join(dir,'holdings.json'),
+   watch=path.join(dir,'watch-private.json');
+  const h=history('imported',65);
+  fs.writeFileSync(input,JSON.stringify({history:h}));
+  fs.writeFileSync(holdings,JSON.stringify({schemaVersion:1,mode:'manual-holding-watch',
+   positions:[{symbol:'600001',cost:10,shares:100,weightPct:55}],
+   quotes:[{symbol:'600001',price:9.0,quoteAt:Date.now()-1500,
+    quoteSource:'declared-public-source'}]}),{mode:0o600});
+  const first=run([input,'--watch-state',watch,'--holding-watch',holdings]);
+  assert.equal(first.coverage.codeConnected,8);
+  assert.equal(first.dimensions.stock.journal.status,'local-private-saved');
+  assert.equal(first.dimensions.stock.journal.revision,1);
+  assert.equal(first.dimensions.stock.notPersistedAcrossDates,false);
+  const risks=first.dimensions.risk.manualHoldingWatch;
+  assert.equal(risks.status,'local-private-evaluated');
+  assert.equal(risks.positionsCount,1);
+  assert.equal(risks.recentQuoteCount,1);
+  assert.equal(risks.warningsCount,2);
+  assert.equal(risks.canNotify,false);
+  assert.equal(risks.notificationDelivered,false);
+  assert.ok(!JSON.stringify(risks).includes('600001'));
+  assert.ok(!JSON.stringify(risks).includes('55'));
+  const again=run([input,'--watch-state',watch,'--holding-watch',holdings]);
+  assert.equal(again.dimensions.stock.journal.status,'same-day-reused');
+  assert.equal(again.dimensions.stock.journal.revision,1);
+  assert.equal(again.dimensions.stock.journal.digest,first.dimensions.stock.journal.digest);
+  assert.equal(JSON.parse(fs.readFileSync(watch,'utf8')).canTrade,false);
+  const tomorrow=history('imported',66);
+  fs.writeFileSync(input,JSON.stringify({history:tomorrow}));
+  const next=run([input,'--watch-state',watch]);
+  assert.equal(next.dimensions.stock.journal.revision,2);
+  assert.equal(next.dimensions.stock.previousStateCount,
+   first.dimensions.stock.watchStates.length);
+  assert.equal(next.verifiedLive,false);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
