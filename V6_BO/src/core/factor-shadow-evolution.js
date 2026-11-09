@@ -77,8 +77,24 @@ function freezeFeatureEpisode({cohort,factorIds,rows,feed,marketContext}={}, {no
     throw Error('因子分数缺失或证据时点晚于信号、来源不符');
    values[f.id]=score;
   }
+  // Industry classification is frozen at the signal date, never reconstructed
+  // using a later industry index or current-day constituents.
+  let industry;
+  if(row.industry!==undefined){
+   const e=row.industry;
+   if(!e||typeof e!=='object'||Array.isArray(e)||
+      typeof e.code!=='string'||!/^[A-Za-z0-9_.-]{2,32}$/.test(e.code)||
+      e.source!==feed.provider||!text(e.classificationVersion)||
+      !Number.isSafeInteger(e.observedAt)||e.observedAt<=0||
+      e.observedAt>s.signalAt||s.signalAt-e.observedAt>86400000||
+      chinaDay(e.observedAt)!==s.signalDate)
+    throw Error('行业分类缺少信号当时来源、版本或有效时间戳');
+   industry={code:e.code,source:e.source,
+    classificationVersion:e.classificationVersion,observedAt:e.observedAt};
+  }
   return {signalId:s.signalId,symbol:s.symbol,signalDate:s.signalDate,
-   signalAt:s.signalAt,baselineClose:s.baselineClose,values};
+   signalAt:s.signalAt,baselineClose:s.baselineClose,values,
+   ...(industry?{industry}:{})};
  });
  // Classify regime using only evidence already observed when the signal was
  // frozen. Future shocks must never retroactively label historic features.
@@ -130,6 +146,16 @@ function verifyEpisode(frozen,now){
     !Number.isSafeInteger(row.signalAt)||row.signalAt>data.capturedAt||
     !finite(row.baselineClose)||row.baselineClose<=0)throw Error('因子冻结样本无效');
   ids.add(row.signalId);
+  if(row.industry!==undefined){
+   const industry=row.industry;
+   if(!industry||typeof industry!=='object'||Array.isArray(industry)||
+      typeof industry.code!=='string'||!/^[A-Za-z0-9_.-]{2,32}$/.test(industry.code)||
+      industry.source!==data.feed.provider||!text(industry.classificationVersion)||
+      !Number.isSafeInteger(industry.observedAt)||industry.observedAt<=0||
+      industry.observedAt>row.signalAt||row.signalAt-industry.observedAt>86400000||
+      chinaDay(industry.observedAt)!==data.signalDay)
+    throw Error('冻结行业分类来源或信号时间无效');
+  }
   for(const f of defs)
    if(!finite(row.values?.[f.id])||row.values[f.id]<0||row.values[f.id]>100)
     throw Error('因子冻结样本分数无效');
