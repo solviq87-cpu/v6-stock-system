@@ -23,6 +23,7 @@ function evaluateSectorCohortRps(history,{factorContexts={}}={}){
   if(!/^\d{6}$/.test(symbol)||!Array.isArray(bars)||bars.length<21||
      !c||c.schemaVersion!==1||c.source!=='imported'||
      typeof c.provider!=='string'||!c.provider.trim()||c.provider.length>120||
+     ['simulated','synthetic','fixture','mock','test'].includes(c.provider.trim().toLowerCase())||
      !c.market||!c.sector||!['shanghai','shenzhen','chinext'].includes(c.market.id)||
      c.market.source!==c.provider||c.sector.source!==c.provider||
      c.market.simulated===true||c.sector.simulated===true||
