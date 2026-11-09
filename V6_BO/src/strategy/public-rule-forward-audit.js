@@ -104,6 +104,58 @@ function summarise(events){
   worstNetReturnPct:count?Math.min(...entries.map(r=>r.netReturnPct)):null,
   realizedTradingReturn:false,statisticallyCertified:false};
 }
+/**
+ * A horizon is one modeled outcome, not another independent signal.
+ * Count co-hits only once per security + signal date, before any outcome filtering.
+ * Family labels are conservative research groupings, not proof of independence.
+ */
+function summarizeSignalOverlap(events,activeCatalog,horizons){
+ const ruleFamily=new Map(activeCatalog.map(r=>[r.id,r.family||'public-technical']));
+ const daily=new Map();
+ for(const event of events){
+  if(event.horizon!==horizons[0])continue;
+  const key=event.symbol+'|'+event.signalDate;
+  if(!daily.has(key))daily.set(key,new Map());
+  daily.get(key).set(event.ruleId,ruleFamily.get(event.ruleId)||'unclassified');
+ }
+ const byRule=Object.fromEntries(activeCatalog.map(r=>[r.id,{
+  signalDays:0,isolatedDays:0,sameFamilyOverlapDays:0,otherFamilyOverlapDays:0,
+  suggestedWeightAction:'unchanged'
+ }]));
+ let rawRuleSignals=0,independentFamilyExposures=0,multiRuleStockDays=0;
+ let sameFamilyOverlapStockDays=0,crossFamilyOverlapStockDays=0;
+ for(const rules of daily.values()){
+  const entries=[...rules.entries()],families=new Set(entries.map(x=>x[1]));
+  rawRuleSignals+=entries.length;
+  independentFamilyExposures+=families.size;
+  if(entries.length>1)multiRuleStockDays++;
+  if(entries.length>families.size)sameFamilyOverlapStockDays++;
+  if(families.size>1)crossFamilyOverlapStockDays++;
+  for(const [id,family] of entries){
+   const row=byRule[id];
+   if(!row)continue;
+   row.signalDays++;
+   const same=entries.some(([other,f])=>other!==id&&f===family);
+   const other=entries.some(([,f])=>f!==family);
+   if(same)row.sameFamilyOverlapDays++;
+   if(other)row.otherFamilyOverlapDays++;
+   if(entries.length===1)row.isolatedDays++;
+  }
+ }
+ for(const row of Object.values(byRule)){
+  row.reviewNote=row.signalDays===0?'未获得可评估信号，不做升降权建议':
+   row.sameFamilyOverlapDays>0?'存在同家族重叠，先去相关及扩充独立样本，不建议据此升权':
+   '仅统计信号共现，须另做样本外、成本及数据真实性验证后才可评审权重';
+ }
+ return {schemaVersion:1,status:'descriptive-only',horizonDeduped:true,
+  unit:'unique-symbol-trading-day',rawRuleSignals,uniqueStockDays:daily.size,
+  independentFamilyExposures,
+  sameFamilyDuplicateSignals:rawRuleSignals-independentFamilyExposures,
+  multiRuleStockDays,sameFamilyOverlapStockDays,crossFamilyOverlapStockDays,
+  byRule,weightsChanged:false,autoPromotion:false,
+  caveat:'同日不同策略家族仅为不同证据类别，不代表统计独立；亏损和无法成交的信号不删去。'};
+}
+
 function evaluatePublicRuleForwardAudit(history,opts={}){
  const p=policy(opts),ds=validateDataset(history);
  if(!['imported','fixture','simulated'].includes(history.source))
@@ -181,6 +233,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps,
    ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {})},
   folds,rules,events,
+  ...(p.includeLinkedRules===true?{overlapDiagnostics:summarizeSignalOverlap(events,activeCatalog,p.horizons)}:{}),
   ...(ruleInputDiagnostics?{ruleInputDiagnostics}:{}),
   sampleIntegrity:{eventsRetained:events.length,
    blockedEventsRetained:events.filter(e=>e.status!=='modeled').length,
