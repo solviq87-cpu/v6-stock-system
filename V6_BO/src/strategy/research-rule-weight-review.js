@@ -17,7 +17,7 @@ function evaluateRuleWeightReview(audit){
  if(audit?.mode!=='frozen-public-rule-forward-audit'||audit.historicalOnly!==true||
    audit.weightsChanged!==false||audit.autoPromotion!==false||
    !config||!Array.isArray(folds)||folds.length!==config.windows||
-   folds.length<3||!Array.isArray(config.horizons)||!config.horizons.includes(5)||
+   folds.length<1||!Array.isArray(config.horizons)||!config.horizons.includes(5)||
    !safeInt(config.gapDays)||config.gapDays<1||
    !finite(config.feeBps)||config.feeBps<8||
    !finite(config.slippageBps)||config.slippageBps<10||
@@ -44,13 +44,10 @@ function evaluateRuleWeightReview(audit){
    if(!r||!/^[0-9]{6}$/.test(r.symbol||'')||
       !/^\d{4}-\d{2}-\d{2}$/.test(r.signalDate||'')||
       !safeInt(r.fold)||r.fold<1||r.fold>folds.length||
-      !['modeled','blocked-entry','blocked-exit','unverified-corporate-actions',
-        'unverified-limit','missing-forward-price','suspended','blocked-session'].includes(r.status)&&r.status!=='modeled'){
-    // Unknown or new non-modeled statuses still count as blocked; only a
-    // structurally invalid row is rejected. No cherry-picking by status.
-    if(!r||!/^[0-9]{6}$/.test(r.symbol||'')||
-       !/^\d{4}-\d{2}-\d{2}$/.test(r.signalDate||'')||
-       !safeInt(r.fold)||r.fold<1||r.fold>folds.length){invalid=true;break;}
+      typeof r.status!=='string'||!r.status||
+      r.signalDate<folds[r.fold-1]?.testStartDate||
+      r.signalDate>folds[r.fold-1]?.testEndDate){
+    invalid=true;break;
    }
    const key=r.symbol+'|'+r.signalDate;
    if(matched.has(key)){invalid=true;break;}
@@ -65,6 +62,7 @@ function evaluateRuleWeightReview(audit){
   const m=rule.byHorizon?.[5],serial=audit.temporalOverlapDiagnostics.byHorizon[5].byRule?.[rule.id];
   const overlap=audit.overlapDiagnostics.byRule[rule.id];
   const blockers=[];
+  if(folds.length<3)blockers.push('冻结样本外窗口不足3个');
   if(invalid||!m||m.signals!==all.length||m.modeled!==totalModeled||
      !serial||!overlap||!safeInt(serial.nonoverlapEpisodes)||
      !safeInt(serial.signalDays)||!safeInt(overlap.sameFamilyOverlapDays)||
