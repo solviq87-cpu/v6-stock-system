@@ -228,6 +228,16 @@
     clearProtectedResults();
     status('K线查看权限已失效，候选和详情均已清空；请重新登录。', 'error');
   });
+  // Revocation from a detail K-line fetch must clear both the detail and its
+  // previously authorized selection list; cancel any in-flight older list GET.
+  document.addEventListener('v6:picks-kline-unauthorized', () => {
+    state.requestId++;
+    if (state.controller) state.controller.abort();
+    state.controller = null;
+    $('reload').disabled = false;
+    clearProtectedResults();
+    status('K线查看权限已失效，候选和详情均已清空；请重新登录。', 'error');
+  });
   $('reload').addEventListener('click', load);
   $('board').addEventListener('change', load);
   $('search').addEventListener('input', render);
