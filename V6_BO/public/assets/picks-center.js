@@ -74,7 +74,7 @@ function clearDetail(message){
  el('chartCanvas').innerHTML='<span class="tiny">未取得真实历史 K 线</span>';
  el('chartAsOf').textContent='未载入';
 }
-function showDetail(r,{scroll=false}={}){
+function showDetail(r,{scroll=false,loadChart=true}={}){
  selectedKey=r.key;
  el('detailStatus').textContent='当前股票 · '+r.code;
  const risks=r.risk.blocked?'此记录存在明确的风险或阻断标识，禁止将其当成可以买入的信号':r.risk.text;
@@ -87,7 +87,7 @@ function showDetail(r,{scroll=false}={}){
   '<div class="reasons risks"><h3>风险与数据时点</h3><ul><li>'+escape(risks)+'</li><li>'+escape(r.proof)+'</li><li>命中条目可能属于同一研究家族，不自动重复加权。</li></ul></div>';
  renderList();
  if(scroll){el('stockDetail').scrollIntoView({behavior:root.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
- loadKline(r.code);
+ if(loadChart)loadKline(r.code);
 }
 function renderChart(rows){
  const bars=rows.filter(r=>r&&[r.open,r.high,r.low,r.close].every(finite)&&r.low>0&&r.high>=Math.max(r.open,r.close,r.low)&&r.low<=Math.min(r.open,r.close)).slice(-45);
@@ -133,11 +133,12 @@ function applyResponse(d){
  el('snapshotDay').textContent=at?at.slice(0,10):'时点未知';
  el('snapshotHint').textContent='选股扫描日期 · 非行情原始时点';
  el('listSource').textContent='只读云端结果';
- const chosen=prior&&entries.find(r=>r.code===prior.code&&r.name===prior.name)||entries[0];
+ const requestedCode=typeof root.location?.search==='string'?new URLSearchParams(root.location.search).get('code'):null;
+ const chosen=prior&&entries.find(r=>r.code===prior.code&&r.name===prior.name)||entries.find(r=>r.code===requestedCode)||entries[0];
  if(chosen){
   // Quiet background refresh must preserve selected stock and scroll position.
   const changed=selectedKey!==chosen.key||!prior||prior.code!==chosen.code;
-  if(changed)showDetail(chosen);else{selectedKey=chosen.key;renderList();}
+  showDetail(chosen,{loadChart:changed});
  }else{selectedKey=null;renderList();clearDetail('云端返回空选股池。没有命中股票可展示。');}
 }
 async function refresh(){
