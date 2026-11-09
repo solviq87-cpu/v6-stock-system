@@ -27,7 +27,8 @@ test('mobile loads reference theme and keeps original mobile runtime', () => {
 });
 test('mobile bottom navigation uses real page destinations', () => {
   const foot = mobile.slice(mobile.indexOf('<div class="foot"'), mobile.indexOf('</div>\n\n<script>', mobile.indexOf('<div class="foot"')));
-  for (const href of ['/m', '/research.html', './#v6-market', './']) assert.ok(foot.includes(`href="${href}"`), href);
+  for (const href of ['/m', '/picks.html', './#v6-market', './']) assert.ok(foot.includes(`href="${href}"`), href);
+  assert.match(mobile, /href="\/research\.html#decisionWorkspace"/); // Original developer workbench remains reachable.
   assert.match(foot, /onclick="manualMobileRefresh\(\)"/);
   assert.match(mobile, /function manualMobileRefresh\(\)/);
 });

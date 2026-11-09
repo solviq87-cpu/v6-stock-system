@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071120">
+<title>V6 · 智能选股结果</title>
+<style>
+:root{color-scheme:dark;--bg:#071120;--card:#11233d;--line:#2b4769;--txt:#f0f6ff;--muted:#a0b7d2;--up:#f36b80;--down:#3bc99b;--accent:#4da3ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#193a63,transparent 55%),var(--bg);color:var(--txt);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+a{color:#a9d4ff;text-decoration:none}button,input,select{font:inherit}button,a,input,select{touch-action:manipulation}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #83c9ff;outline-offset:3px}
+.wrap{max-width:1240px;margin:auto;padding:22px 24px 90px}.top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:linear-gradient(140deg,#2779d5,#0d4c99);font-weight:800;font-size:19px}
+h1{font-size:24px;letter-spacing:.02em;margin:0}h2{font-size:18px;margin:0}p{margin:6px 0}.subtitle,.muted{color:var(--muted)}.top nav{display:flex;gap:14px;flex-wrap:wrap;align-items:center}.top nav a{font-size:14px}
+.button{border:1px solid #478dd5;border-radius:10px;background:#2167b6;color:#fff;padding:10px 17px;min-height:44px;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}.metric{background:#142a48;border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}.metric strong{display:block;font-size:26px;line-height:1.3;margin-top:6px;font-variant-numeric:tabular-nums}.metric span{color:var(--muted);font-size:13px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 12px 30px #0002}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.controls label{color:var(--muted);font-size:13px}.controls input,.controls select{min-height:44px;border:1px solid #355779;border-radius:10px;background:#0b1a2d;color:var(--txt);padding:9px 12px;max-width:100%}.controls input{width:245px}.controls select{min-width:120px}
+.status{margin:12px 0;min-height:23px;color:#bad3ee}.status.warn{color:#f4c76c}.status.error{color:#ff9fa9}.note{padding:12px 14px;border:1px solid #3b5070;background:#132338;border-radius:11px;font-size:13px;color:#bdd1ea}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pick{min-width:0;background:#152d4c;border:1px solid #2f5074;border-radius:14px;padding:16px}.pickhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.picktitle{font-size:18px;font-weight:700}.code{font-size:12px;color:#9ab4d3;margin-left:7px}.score{font-size:22px;font-weight:800;white-space:nowrap}.score small{font-size:11px;color:var(--muted);font-weight:400}.rowmeta{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.tag{display:inline-block;background:#243e5e;color:#ccddf0;border:1px solid #345577;padding:2px 8px;border-radius:7px;font-size:12px}
+.gain{color:var(--up)}.loss{color:var(--down)}.flat{color:var(--muted)}.reason{margin:10px 0 0;padding-left:20px;color:#dbe7f8;overflow-wrap:anywhere}.reason li{margin:5px 0}.empty{padding:35px 15px;text-align:center;color:var(--muted)}.footnote{font-size:12px;color:var(--muted);margin-top:18px}
+.bottom{display:none}#cloudSync{font-size:12px;color:var(--muted)}
+@media(max-width:850px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}.top nav{display:none}}
+@media(max-width:550px){.wrap{padding:14px 12px calc(env(safe-area-inset-bottom) + 100px)}h1{font-size:19px}.subtitle{font-size:12px}.logo{width:40px;height:40px}.panel{padding:13px}.metric{padding:12px}.metric strong{font-size:23px}.controls input{flex:1;width:160px}.controls label{flex:1}.controls select{width:100%}.pick{padding:13px}.bottom{position:fixed;z-index:9;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;left:0;right:0;bottom:0;background:#0b1a2cf5;border-top:1px solid #385577;padding:10px 3px calc(9px + env(safe-area-inset-bottom));backdrop-filter:blur(12px)}.bottom a{font-size:10px;text-align:center;min-width:0;color:#c4d8f2}.bottom a b{display:block;font-size:17px}.bottom a.active{color:#62b7ff}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header class="top">
+  <div class="brand"><span class="logo">V6</span><div><h1>智能选股结果</h1><div class="subtitle">候选池 · 命中条件 · 板块 · 风险证据</div></div></div>
+  <nav aria-label="页面切换"><a href="/">⌂ 总览</a><a href="/reference-dashboard.html">▥ 看盘大屏</a><a href="/research.html#decisionWorkspace">✦ 策略研究</a><a href="/m">▣ 手机速览</a></nav>
+  <button class="button" type="button" id="reload">↻ 云端刷新</button>
+</header>
+<div class="metrics" aria-label="本次选股汇总">
+  <div class="metric"><span>已返回候选</span><strong id="total">—</strong></div>
+  <div class="metric"><span>显示股票</span><strong id="visible">—</strong></div>
+  <div class="metric"><span>有条件说明</span><strong id="explained">—</strong></div>
+  <div class="metric"><span>快照交易日</span><strong id="day" style="font-size:17px">未知</strong></div>
+</div>
+<section class="panel" aria-labelledby="filterTitle">
+<h2 id="filterTitle">查找候选</h2>
+<div class="controls" style="margin-top:12px">
+  <input id="search" type="search" placeholder="输入股票名称或六位代码" aria-label="搜索股票">
+  <label>市场<select id="board"><option value="all">全部</option><option value="main">主板</option><option value="gem">创业板</option></select></label>
+  <label>排序<select id="sort"><option value="original">原始顺序</option><option value="score">评分高到低</option><option value="pct">涨跌幅高到低</option></select></label>
+</div>
+<div id="status" class="status" role="status" aria-live="polite">正在连接同一 V6 云端…</div>
+<div id="cloudSync" aria-live="polite">尚无成功同步</div>
+</section>
+<section aria-labelledby="listTitle"><h2 id="listTitle">候选清单</h2><div id="candidates" class="grid" aria-live="polite"><div class="empty">等待读取服务端结果</div></div></section>
+<p class="footnote">只读研究页，不自动买卖或推送。服务器未提供的报价时点、命中条件、板块、风险会如实显示未知；休市不把刷新时间当作报价时间。</p>
+<nav class="bottom" aria-label="手机七项导航"><a href="/m"><b>⌂</b>首页</a><a href="/picks.html" class="active" aria-current="page"><b>☆</b>选股</a><a href="/#v6-market"><b>▥</b>行情</a><a href="/research.html#decisionWorkspace"><b>✦</b>AI</a><a href="/#v6-paper"><b>◉</b>模拟</a><a href="/#holdSec1"><b>⬡</b>风控</a><a href="/#v6-release"><b>⚙</b>设置</a></nav>
+</main>
+<script src="/assets/picks-page.js?v=20261109a" defer></script>
+</body></html>
