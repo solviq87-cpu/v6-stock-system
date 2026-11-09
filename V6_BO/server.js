@@ -10932,6 +10932,9 @@ function maxDrawdown(values) {
 async function auctionResonanceScan(opts = {}) {
   const max = Math.min(50, Math.max(1, opts.max || 20));
   const force = opts.force || false;
+  // Browser GET/POST may refresh a view, but only the internal clock can send
+  // Feishu or insert learning samples. Side effects are not tied to read count.
+  const internal = opts.internal === true;
   const board = ['main', 'gem'].includes(opts.board) ? opts.board : 'all';
   const now = Date.now();
   const fmtYuan = v => {
@@ -10940,9 +10943,9 @@ async function auctionResonanceScan(opts = {}) {
     if (Math.abs(n) >= 1e4) return Math.round(n / 1e4) + '万';
     return Math.round(n) + '';
   };
-  const cache = _auctionResonanceCache.get(board) || { ts: 0, data: null, busy: false };
-  if (!force && cache.data && (now - cache.ts) < AUCTION_RESONANCE_CACHE_MS) {
-    return cache.data;
+  const cache = _auctionResonanceCache.get(board) || { ts: 0, data: null, busy: false, max: 0 };
+  if (!force && cache.data && cache.max >= max && (now - cache.ts) < AUCTION_RESONANCE_CACHE_MS) {
+    return {...cache.data,items:cache.data.items.slice(0,max),count:Math.min(cache.data.items.length,max)};
   }
   if (cache.busy) {
     return cache.data || { asOf: now, count: 0, items: [], note: '正在计算...' };
@@ -10965,8 +10968,15 @@ async function auctionResonanceScan(opts = {}) {
 
     const sectorRank = new Map((S.sectors || []).map((s, i) => [s.name, i + 1]));
     const topSectorNames = new Set((S.sectors || []).slice(0, 20).map(s => s.name));
+    const auctionEvidence = require('./src/core/auction-resonance-basis').auditAuctionResonanceBasis({
+      auction:S.auction,stockSnapshotAt:S.stocksAt,now,
+      calendarDay:require('./src/core/news-china-clock').newsChinaClock(now).dayKey,
+      expectedDay:quoteDayOf(now),stockSnapshotDay:S.stocksAt?quoteDayOf(S.stocksAt):''
+    });
     const aucMap = new Map();
-    for (const x of (S.auction && S.auction.strong) || []) aucMap.set(x.code, x);
+    // Do not join yesterday's recovered auction to today's stock/sector feed.
+    if (auctionEvidence.eligibleForAuctionEvidence)
+      for (const x of (S.auction && S.auction.strong) || []) aucMap.set(x.code, x);
     const roleOf = buildZTRoleMap();
 
     const candidates = [];
@@ -11040,7 +11050,7 @@ async function auctionResonanceScan(opts = {}) {
 
       score = Math.max(0, Math.min(100, Math.round(score)));
       // ln：磁滞平滑+持续性趋势（rawScore=本秒原始分，score=EMA 平滑分，trend=惯性方向）
-      const _sm = scoreSmoothOf(code, score);
+      const _sm = scoreSmoothOf(code, score, !internal);
 
       // jy 轮：auczt 双口径并列——当日封板概率 + 次日+3%命中率。
       const probToday = (auc && S.auction && S.auction.ztProbMap && S.auction.ztProbMap[code])
@@ -11051,6 +11061,9 @@ async function auctionResonanceScan(opts = {}) {
         code, name,
         sector,
         auctionPct: auc ? auc.auctionPct : null,
+        auctionInputStatus: auc ? 'auction-snapshot-unverified' : 'sector-only',
+        auctionEvidenceStatus: auc ? auctionEvidence.status : 'no-matching-auction-evidence',
+        auctionQuoteAt: null, // Historical cache has no provider quote time.
         pct: +stock.pct || 0,
         price: +stock.price || 0,
         score: _sm.score,
@@ -11072,7 +11085,10 @@ async function auctionResonanceScan(opts = {}) {
     // ls/ny：所有选中票强制过筹码+十日量能+K线形态（用户硬要求，全页面统一）——top 内逐只 K线判定后微调分并重排
     for (const it of top) {
       try {
-        const rows = await klineRows(it.code);
+        // Read-only clients use the existing Kline cache only; they cannot
+        // cause historical provider refreshes or disk writes.
+        const cached = S.klines?.get?.(it.code);
+        const rows = internal ? await klineRows(it.code) : (cached?.rows || []);
         if (!rows || rows.length < 15) continue;
         const chip = (typeof A.chipPeakOf === 'function') ? A.chipPeakOf(rows) : null;
         const vol = (typeof A.volTenOf === 'function') ? A.volTenOf(rows) : null;
@@ -11125,8 +11141,10 @@ async function auctionResonanceScan(opts = {}) {
 
     const boardLabel = { all: '主板+创业板', main: '仅主板', gem: '仅创业板' }[board];
     const data = {
-      asOf: now,
+      asOf: now, // computation time; never a market provider quote time
       board,
+      auctionEvidence,
+      isSnapshot: !isTradingTime() || auctionEvidence.stale,
       totalScanned: stocks.length,
       candidateCount: candidates.length,
       count: top.length,
@@ -11134,12 +11152,16 @@ async function auctionResonanceScan(opts = {}) {
       sectorView,
       note: `【${boardLabel}】扫描 ${stocks.length} 只，候选 ${candidates.length} 只，展示 TOP ${top.length}；竞价分+板块强度+近5日净流入+近3日回撤综合评分。板块视图（lf）：先看板块竞价强度，再取板块内未封板可买票。`
     };
-    cache.ts = now; cache.data = data;
-    // jc 轮：交易时段内 Top3 变化时私密推送（默认口径才推，避免按板块切换时重复刷屏）
-    if (board === 'all' && top.length && isTradingTime()) pushAuctionResonanceTop3(top);
-    // jf 轮：竞价共振信号入库，按次日结果学习（去重键 type|code|date）
-    for (const x of top) {
-      try { logSignal('aucres', x.code, x.name, x.price, x.score, { score: x.score, paths: x.reasons.slice(0, 3) }); } catch (e) {}
+    cache.ts = now; cache.data = data; cache.max = max;
+    // Viewer reads can never send private messages or mutate the learning log.
+    // The server-owned schedule below retains eligible legacy automation.
+    const evidenceRows = top.filter(x => x.auctionInputStatus === 'auction-snapshot-unverified');
+    if (internal && auctionEvidence.eligibleForAuctionEvidence) {
+      if (board === 'all' && top.length && isTradingTime() && evidenceRows.length)
+        pushAuctionResonanceTop3(evidenceRows);
+      for (const x of evidenceRows) {
+        try { logSignal('aucres', x.code, x.name, x.price, x.score, { score: x.score, paths: x.reasons.slice(0, 3) }); } catch (e) {}
+      }
     }
     return data;
   } catch (e) {
@@ -11753,16 +11775,19 @@ function aKillOf(rows) {
 // scoreSmoothOf：EMA 平滑（新分 = 0.55×当前 + 0.45×历史 EMA，分钟级噪声被 damping；30 分钟未见重置）；
 // trendOf：近 5 次 EMA 的斜率 → 走强/走平/转弱 ——「下一秒还行不行」由惯性是否在回答，而非单秒快照。
 const _scoreHist = new Map();
-function scoreSmoothOf(code, raw) {
+function scoreSmoothOf(code, raw, dryRun = false) {
   const now = Date.now();
   let e = _scoreHist.get(code);
+  // A page view is not a new observation: preview from a copy, not the
+  // shared trend history used by the internal scheduled scan.
+  if (dryRun && e) e = {...e,hist:Array.isArray(e.hist)?e.hist.slice():[]};
   if (!e || now - e.at > 30 * 60 * 1000) e = { ema: raw, hist: [raw], at: now };
   else {
     e.ema = +(0.55 * raw + 0.45 * e.ema).toFixed(1);
     e.hist.push(e.ema); if (e.hist.length > 5) e.hist.shift();
     e.at = now;
   }
-  _scoreHist.set(code, e);
+  if (!dryRun) _scoreHist.set(code, e);
   const h = e.hist;
   let trend = 'flat', trendText = '持续性：样本积累中';
   if (h.length >= 3) {
@@ -16823,6 +16848,25 @@ async function init() {
       finally { auctionLiveBusy = false; }
     })();
   }, 3000);
+
+  // Moving the previous reader-triggered Feishu/learn side effects behind the
+  // singleton cloud schedule preserves automatic work without browser triggers.
+  setInterval(guard('auction-resonance-internal', async () => {
+    if (isReplica()) return;
+    const clock = new Date();
+    if (!isTradeDay(clock)) return;
+    const minute = clock.getHours() * 60 + clock.getMinutes();
+    if (minute < 9 * 60 + 20 || minute >= 9 * 60 + 30) return;
+    const basis = require('./src/core/auction-resonance-basis').auditAuctionResonanceBasis({
+      auction:S.auction,stockSnapshotAt:S.stocksAt,now:Date.now(),
+      calendarDay:require('./src/core/news-china-clock').newsChinaClock().dayKey,
+      expectedDay:quoteDayOf(Date.now()),
+      stockSnapshotDay:S.stocksAt?quoteDayOf(S.stocksAt):''
+    });
+    if (!basis.eligibleForAuctionEvidence || !S.stocksAt ||
+        Date.now()-S.stocksAt > 120000 || !(S.auction?.strong?.length)) return;
+    await auctionResonanceScan({force:true,max:40,board:'all',internal:true});
+  }), 60 * 1000);
 
   // ── 竞价「早班车」预览：9:20:30 起先推一份（2026-10-06 用户要求"竞价能不能早点推送"）──
   // 9:15-9:20 是【可撤单】阶段，虚拟匹配价会被撤单随时打回，拿它推等于骗人；

@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
-const state={items:[],hasData:false,lastRefresh:0,requestId:0,controller:null};
+const state={items:[],hasData:false,lastRefresh:0,requestId:0,controller:null,evidence:null};
 const number=value=>{
  if(value===null||value===undefined||typeof value==='boolean'||typeof value==='object')return null;
  const v=typeof value==='string'?value.trim():value;
@@ -48,6 +48,9 @@ const card=item=>{
  tags.append(node('span','tag '+(auctionPct===null?'':auctionPct>0?'up':'down'),
   '竞价涨幅 '+(auctionPct===null?'未知':(auctionPct>0?'+':'')+auctionPct.toFixed(2)+'%')));
  tags.append(node('span','tag','板块 '+String(item.sector||'未知').slice(0,40)));
+ const evidenceTag=item.auctionInputStatus==='auction-snapshot-unverified'?
+  '当日竞价快照 · 未验原始时间':'板块观察 · 没有有效竞价证据';
+ tags.append(node('span','tag',evidenceTag));
  const sectorRank=number(item.rank);
  tags.append(node('span','tag',sectorRank!==null&&sectorRank>=1&&sectorRank<=1000?
   '板块名次 '+sectorRank:'板块名次未知'));
@@ -92,7 +95,7 @@ const render=()=>{
  root.append(fragment);
 };
 const revoke=()=>{
- state.items=[];state.hasData=false;state.lastRefresh=0;
+ state.items=[];state.hasData=false;state.lastRefresh=0;state.evidence=null;
  $('synced').textContent='查看权限已撤销；之前返回的研究内容已清空';render();
 };
 const load=async()=>{
@@ -121,11 +124,17 @@ const load=async()=>{
   if(!Array.isArray(data?.items))throw Error('服务端尚无有效竞价候选列表');
   state.items=data.items.filter(x=>x&&typeof x==='object').slice(0,100);
   state.hasData=true;state.lastRefresh=Date.now();
+  state.evidence=data.auctionEvidence&&typeof data.auctionEvidence==='object'?data.auctionEvidence:null;
   const computed=atChina(data.asOf);
   $('synced').textContent='本机成功读取：'+new Date(state.lastRefresh).toLocaleTimeString('zh-CN',{hour12:false})+
     (computed?' · 服务端共振结果计算于 '+computed:' · 服务端计算时点未知')+
     ' · 均不是逐票原始报价时点';
-  status('已读取 '+state.items.length+' 只已有共振观察候选；9:20/9:25新战法仍需原始时点与实际成交证据。','warn');
+  const basis=state.evidence;
+  const explanation=basis?.eligibleForAuctionEvidence===true?
+   '竞价归属日一致，但供应商逐票报价时点和实际成交仍未认证。':
+   (basis?.reason||'未能核验竞价归属日与阶段；可能仅为板块观察。');
+  status('已读取 '+state.items.length+' 只已有共振观察候选。'+
+   explanation+' 9:20/9:25新战法仍需原始时点与实际成交证据。','warn');
   render();
  }catch(e){
   if(id!==state.requestId||e.name==='AbortError')return;
