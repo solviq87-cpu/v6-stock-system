@@ -21,7 +21,8 @@ function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   // evidence cannot break the existing ledger, strategy or replay results.
   let selectionEvidence;
   try {
-    selectionEvidence=historicalExplanations(history,{market:payload.market&&typeof payload.market==='object'&&!Array.isArray(payload.market)?payload.market:{}});
+    selectionEvidence=historicalExplanations(history,{market:payload.market&&typeof payload.market==='object'&&!Array.isArray(payload.market)?payload.market:{},
+      announcements:payload.announcements||[]});
   } catch(e) {
     selectionEvidence={schemaVersion:1,mode:'historical-selection-evidence',
       status:'unavailable',verifiedLive:false,canTrade:false,officialCandidates:0,
@@ -45,7 +46,8 @@ function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   const reconciliation={backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)};
   const strategies={coverage:native.coverage,details:native.details,replay:native.replay};
   const eightPointFlow=buildEightPointEvidence({history,selectionEvidence,
-    publicRuleForwardAudit,reconciliation,strategies,calendar,previousWatchStates});
+    publicRuleForwardAudit,reconciliation,strategies,calendar,previousWatchStates,
+    marketShockContext:payload.marketShockContext});
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
     backtest,paper:session.report,reconciliation,
     strategies,selectionEvidence,eightPointFlow,
