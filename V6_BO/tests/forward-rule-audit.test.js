@@ -25,6 +25,7 @@ test('pending, missing and corporate action are not zeros and do not count as lo
 test('many correlated events on one stock cannot be called independent stocks',()=>{
  const r=auditForwardRules(result(40));assert.equal(r.groups[0].signalCount,40);
  assert.equal(r.groups[0].distinctSymbols,1);
+ assert.equal(r.groups[0].windows[0].status,'insufficient-matured-sample');
 });
 test('duplicate events, invalid statuses and unsafe mode fail closed',()=>{
  const p=result(2);p.records[1].signalId='id0';assert.throws(()=>auditForwardRules(p),/重复/);
