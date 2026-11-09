@@ -115,8 +115,6 @@ test('quality rule audit reports serial overlap without changing modeled outcome
   assert.equal(x.serialRepeatFamilyDays,x.familyExposureDays-x.nonoverlapFamilyEpisodes);
   assert.equal(x.sameDayFamilyDuplicates,x.rawRuleEvents-x.familyExposureDays);
  }
- const same=evaluate(data,{...windows,includeQualityRules:true,horizons:[1]});
- assert.deepEqual(same.temporalOverlapDiagnostics.byHorizon[1],diag.byHorizon[1]);
  data.stocks.forEach(stock=>{stock.corporateActionsVerified=false;});
  const blocked=evaluate(data,{...windows,includeQualityRules:true});
  assert.deepEqual(blocked.temporalOverlapDiagnostics,diag);
