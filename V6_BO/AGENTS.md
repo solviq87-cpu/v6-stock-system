@@ -7,6 +7,8 @@
 > 本文件对 AI Agent（Claude Code / WorkBuddy / 任何 AI 编程助手）生效。
 > 每次修改代码前必读。用户已确认（2026-10-28）。
 
+> **两张主页强制保持完全不变（2026-11-09）**：`public/index.html`、`public/mobile.html` 不许因选股优化修改，且 `tests/picks-three-k.test.js` 对两份主页执行原字节 Git Blob 锁定。只改已存在的 `/picks.html` 选股内页：电脑左右栏、手机单列可滑动，命中条件在股票卡片上，点股票展示日K/月K/年K三按钮，无多余策略库堆砌。详见 `docs/HOMEPAGES_LOCKED_SINGLE_PICKS_20261109.md`。
+
 > **最高优先级 UI 参考图（用户一再强调）**：手机 `7165.jpeg`、电脑 `E419BE1D-AB04-4D50-A482-8676AE7FB869(1).jpeg`。实际页面必须按图还原；手机可读性、桌面多栏比例、七项底栏、K线与解释都要实测。切勿把静态参考截图冒充线上实机验收，见 `docs/ORIGINAL_UI_REFERENCE_ACCEPTANCE_20261109.md`。不得为了视觉相似删除四套策略、云端刷新、模拟盘、风控、飞书与研究入口。
 
 ## 一、界面简洁铁律

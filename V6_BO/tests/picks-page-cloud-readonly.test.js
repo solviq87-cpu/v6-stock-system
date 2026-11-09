@@ -38,6 +38,7 @@ test('real candidate fields display safely; missing prices or original quote tim
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children = nodes; }
     addEventListener(type, fn) { this.listeners[type] = fn; }
+    setAttribute(name, value) { this[name] = String(value); }
   }
   const ids = Object.fromEntries(['reload','board','sort','search','candidates','status','cloudSync','total','visible','explained','day']
     .map(x => [x, new Element('div')]));
@@ -45,10 +46,10 @@ test('real candidate fields display safely; missing prices or original quote tim
   const calls = [];
   const context = {
     document: { hidden: false, getElementById: x => ids[x], createElement: x => new Element(x),
-      createDocumentFragment: () => new Element('fragment'), addEventListener() {} },
+      createDocumentFragment: () => new Element('fragment'), addEventListener() {}, dispatchEvent() {} },
     window: { addEventListener() {}, setInterval() {} },
     localStorage: { getItem: () => '' },
-    URLSearchParams, AbortController, Date, Number, String, Array, RegExp, Error,
+    URLSearchParams, AbortController, Date, Number, String, Array, RegExp, Error, Event:class Event{constructor(type){this.type=type;}},
     fetch: async (url, options) => {
       calls.push({url, options});
       return { ok: true, json: async () => ({

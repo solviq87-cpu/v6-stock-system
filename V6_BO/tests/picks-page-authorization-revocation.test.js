@@ -16,6 +16,7 @@ test('cloud timeout retains a labeled stale view; permission revocation clears c
     append(...elements) { this.children.push(...elements); }
     replaceChildren(...elements) { this.children = elements; }
     addEventListener(eventName, listener) { this.listeners[eventName] = listener; }
+    setAttribute(name, value) { this[name] = String(value); }
   }
   const ids = Object.fromEntries(
     ['reload','board','sort','search','candidates','status','cloudSync','total','visible','explained','day']
@@ -43,12 +44,12 @@ test('cloud timeout retains a labeled stale view; permission revocation clears c
       getElementById:id=>ids[id],
       createElement:tag=>new Element(tag),
       createDocumentFragment:()=>new Element('fragment'),
-      addEventListener(){}
+      addEventListener(){}, dispatchEvent(){}
     },
     window:{addEventListener(){},setInterval(){}},
     localStorage:{getItem:()=>''},
     fetch:fakeFetch,
-    URLSearchParams,AbortController,Date,Number,String,Array,RegExp,Error
+    URLSearchParams,AbortController,Date,Number,String,Array,RegExp,Error, Event:class Event{constructor(type){this.type=type;}}
   };
   vm.runInNewContext(script,context);
   await new Promise(resolve=>setImmediate(resolve));
