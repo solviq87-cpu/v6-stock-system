@@ -70,16 +70,14 @@ function firstMaturedArchive(stateFile,features,{now=Date.now()}={}){
  for(const name of names){
   const filename=path.join(dir,name),saved=readSnapshot(filename),report=saved?.report;
   if(!report)throw Error('历史观察归档不存在或无效');
-  const observations=verifyAndJoin(features,report,now);
-  const mature=observations.length>0&&observations.every(r=>r.targetDate!==null||
-   // Missing/suspended and corporate action cases may have no valid return,
-   // but targetDate must still be a known reached trading day.
-   false);
+  verifyAndJoin(features,report,now); // Cohort, symbols, source and timing.
+  // Every window must have reached an explicit calendar day, but missing
+  // prices and corporate actions remain unobserved, not fabricated zeros.
   const windows=report.records.map(r=>r.windows?.[1]);
   const fullyMature=windows.length===features.features.length&&
    windows.every(w=>w&&typeof w.targetDate==='string'&&w.targetDate<=report.asOf&&
     ['observed','missing-or-suspended','corporate-action-unresolved'].includes(w.status));
-  if(mature&&fullyMature&&!earliest)earliest=filename;
+  if(fullyMature&&!earliest)earliest=filename;
  }
  return earliest;
 }
