@@ -36,14 +36,19 @@ async function request({forwardTrackingFile,mode='ok',target='/api/quant-picks?m
    const value=JSON.stringify({items:[{code:'600001'}]});
    res.setHeader('Content-Length',Buffer.byteLength(value));res.end(value);return;
   }
-  if(mode==='gzip'||mode==='gzip-mock'){
+  if(mode==='gzip'||mode==='gzip-mock'||mode==='gzip-length'||mode==='gzip-denied'){
    // Production json() sends larger candidate lists via asynchronous gzip and
    // writeHead(), not plaintext res.end(). Test the actual wire encoding.
-   const payload=JSON.stringify({ok:true,isMock:mode==='gzip-mock',
+   const payload=JSON.stringify({ok:mode!=='gzip-denied',isMock:mode==='gzip-mock',
     items:[{code:'600001',name:'Visible'.repeat(1000)}]});
-   res.writeHead(200,{'Content-Type':'application/json; charset=utf-8',
-    'Content-Encoding':'gzip','Vary':'Accept-Encoding'});
-   res.end(zlib.gzipSync(Buffer.from(payload,'utf8')));
+   // Force the writeHead-only case; Node getHeader() cannot see these fields.
+   res.removeHeader('Content-Type');
+   const headers={'Content-Type':'application/json; charset=utf-8',
+    'Content-Encoding':'gzip','Vary':'Accept-Encoding'};
+   const bytes=zlib.gzipSync(Buffer.from(payload,'utf8'));
+   if(mode==='gzip-length')headers['Content-Length']=bytes.length;
+   res.writeHead(mode==='gzip-denied'?403:200,headers);
+   res.end(bytes);
    return;
   }
   res.end(JSON.stringify({ok:true,items:[{code:'600001',name:'Visible'}]}));
@@ -119,4 +124,17 @@ test('no projection from response without granted visible candidates or invalid 
  assert.equal(joinAuthorizedFollowup({items:[]},report),null);
  assert.equal(joinAuthorizedFollowup({items:[{code:'000002'}]},report),null);
  assert.equal(joinAuthorizedFollowup({locked:true,items:[{code:'600001'}]},report),null);
+});
+
+test('production writeHead-only gzip response rejects fixed-length changes and non-200 exposure',async t=>{
+ const file=prep(t);
+ const fixed=await request({forwardTrackingFile:file,mode:'gzip-length'});
+ assert.equal(fixed.status,200);
+ assert.equal(fixed.headers['content-encoding'],'gzip');
+ assert.ok(Number(fixed.headers['content-length'])>0);
+ assert.equal(fixed.body.forwardTracking,undefined,'do not rewrite Content-Length');
+ const denied=await request({forwardTrackingFile:file,mode:'gzip-denied'});
+ assert.equal(denied.status,403);
+ assert.equal(denied.headers['content-encoding'],'gzip');
+ assert.equal(denied.body.forwardTracking,undefined);
 });
