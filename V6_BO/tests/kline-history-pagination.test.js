@@ -55,6 +55,12 @@ test('server Kline route uses real cursor helper; protected API and both homepag
  assert.match(route,/\.\.\.page/); // cursor, hasMore and date come from the page object
  assert.doesNotMatch(route,/findIndex\(r => String\(r\.date\).*< end/);
  assert.match(client,/PAGE_SIZE=240,MAX_PAGES=6/);
+ assert.match(client,/const hiddenFirst=period!=='day'&&hasMore&&bars.length>0/);
+ assert.match(client,/hiddenFirst\?bars\.slice\(1\):bars/);
+ assert.match(client,/最早未完整周期已隐藏/);
+ assert.match(client,/更早历史未向前推进/);
+ assert.match(client,/hasMore=true;/);
+ assert.match(client,/最早周期不展示/);
  assert.match(client,/\&end=/);
  assert.doesNotMatch(client,/force=1|method:'POST'/);
 });
