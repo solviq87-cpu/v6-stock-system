@@ -131,3 +131,6 @@
  body.vx-mobile .vx-dashboard table th,body.vx-mobile .vx-dashboard table td{font-size:10px!important;padding:7px 2px!important}
 }
 @media(prefers-reduced-motion:reduce){.vx-shell *,.vx-dashboard *,.vx-mobile-dock *{transition:none!important;animation:none!important}}
+
+/* The 1024px reference mobile composition must not print a long quote timestamp inside price cells. The row retains it in a title and selected stock details. */
+body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}
