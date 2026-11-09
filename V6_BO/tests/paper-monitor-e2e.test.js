@@ -39,6 +39,19 @@ test('local private holding watch is authenticated, read-only and does not chang
   assert.equal(r.canTrade,false);assert.equal(r.canNotify,false);
   assert.equal(fs.readFileSync(accountFile,'utf8'),before,
    'private manual holdings risk cannot alter authoritative simulation');
+  const disputed=holding();
+  disputed.crossCheckQuotes=[{symbol:'600001',price:9.9,
+   quoteAt:Date.now()-1000,quoteSource:'eastmoney'}];
+  fs.writeFileSync(holdingWatchFile,JSON.stringify(disputed));
+  const conflict=(await (await fetch(base+'/api/paper/holding-risks',{headers})).json()).data;
+  assert.equal(conflict.status,'evaluated');
+  assert.equal(conflict.positions[0].quoteStatus,'source-conflict');
+  assert.equal(conflict.positions[0].drawdownFromCostPct,null);
+  assert.ok(conflict.alerts.some(a=>a.code==='cross-source-conflict'));
+  assert.ok(!conflict.alerts.some(a=>a.code==='loss-warning'));
+  assert.ok(conflict.alerts.some(a=>a.code==='weight-warning'));
+  assert.equal(fs.readFileSync(accountFile,'utf8'),before);
+  assert.match(page,/双源对账/);
   fs.writeFileSync(holdingWatchFile,'{bad');
   const stale=(await (await fetch(base+'/api/paper/holding-risks',{headers})).json()).data;
   assert.equal(stale.status,'unavailable');
