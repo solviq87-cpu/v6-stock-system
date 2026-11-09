@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const {readForwardObservation: V6ReadForwardObservation} = require('./src/core/forward-observation-readonly');
 const em = require('./em');
 const { analyzeShortline } = require('./_shortline');
 const { rankCandidates } = require('./src/strategy/strategy-service');
@@ -21647,7 +21648,11 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     (async () => {
       // lo：哨兵动态随量化选股卡一并下发（与竞价共振卡同款可见）
       try { const d = await quantPicksScan({ force, max, board }); if (d && !d.locked) d.sentinel = (S.ztSentLog || []).filter(x => isMainBoardCode(x.code)).slice(0, 12);  // 哨兵动态只留主板（60/000/001/002/003）
-        json(res, d); }
+        // Explicit imported offline report only; editor GET only. Never mutate
+        // quantPicksScan's shared cache or expose a private cohort to viewers.
+        const observation = req.method === 'GET' && isEditorReq(req) && d && !d.locked
+          ? V6ReadForwardObservation({file:process.env.V6_FORWARD_OBSERVATION_FILE}) : null;
+        json(res, observation ? {...d, forwardTracking:observation} : d); }
       catch (e) { json(res, { count: 0, items: [], note: '计算失败：' + (e && e.message) }); }
     })();
     return;
