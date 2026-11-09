@@ -84,6 +84,13 @@ test('cross-source price difference uses symmetric basis points without rounding
  const bad=evaluate(base,{now});
  assert.equal(bad.positions[0].crossCheckStatus,'price-conflict');
  assert.ok(bad.positions[0].crossSourceDifferenceBps>50);
+ // At the threshold, the displayed 2-decimal BPS may read 50.00,
+ // but the unrounded comparison must still quarantine a 50.004 BPS difference.
+ base.crossCheckQuotes[0].price=p/(1-50.004/10000);
+ const edge=evaluate(base,{now});
+ assert.equal(edge.positions[0].crossCheckStatus,'price-conflict');
+ assert.equal(edge.positions[0].crossSourceDifferenceBps,50);
+ assert.equal(edge.positions[0].price,null);
 });
 test('duplicate or malformed crosscheck rows fail closed instead of picking favorable evidence',()=>{
  for(const change of [
