@@ -74,7 +74,7 @@ function evaluateRuleWeightReview(audit){
   if(all.length&&overlap?.sameFamilyOverlapDays/all.length>.3)
    blockers.push('同家族共振过多，不能当独立增量证据');
   if(totalModeled&&unknown/totalModeled>.2)blockers.push('市场环境缺失太多');
-  const modeledRows=all.filter(r=>r.status==='modeled');
+  const modeledRows=all.filter(r=>r.status==='modeled'&&finite(r.netReturnPct));
   const regimes=new Set(modeledRows.map(r=>r.marketRegime).filter(x=>x&&x!=='unknown'));
   if(regimes.size<2)blockers.push('未覆盖至少两种已说明的市场环境');
   const foldMeans=[...foldRows.values()].map(values=>values.length?
@@ -83,9 +83,9 @@ function evaluateRuleWeightReview(audit){
    blockers.push('至少一个冻结样本外窗口的有效观察不足');
   if(m&&(m.averageNetReturnPct!==null&&!finite(m.averageNetReturnPct)||
     m.winRatePct!==null&&!finite(m.winRatePct)))blockers.push('净收益或胜率无效');
-  const mean=totalModeled?
+  const mean=!invalid&&totalModeled?
    modeledRows.reduce((sum,r)=>sum+r.netReturnPct,0)/totalModeled:null;
-  const win=totalModeled?100*modeledRows.filter(r=>r.netReturnPct>0).length/totalModeled:null;
+  const win=!invalid&&totalModeled?100*modeledRows.filter(r=>r.netReturnPct>0).length/totalModeled:null;
   if(mean!==null&&m&&finite(m.averageNetReturnPct)&&Math.abs(mean-m.averageNetReturnPct)>.05)
    blockers.push('历史净收益汇总与原始事件不一致');
   if(win!==null&&m&&finite(m.winRatePct)&&Math.abs(win-m.winRatePct)>.05)
