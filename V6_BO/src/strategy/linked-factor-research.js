@@ -86,8 +86,9 @@ function evaluateLinkedResearch(stock={}, {marketContext,marketRisk='unknown'}={
  const volumeRatio20=volAvg20>0?last.volume/volAvg20:null;
  const volumeRatio10=volAvg10>0?last.volume/volAvg10:null;
  const compressionPct=100*(priorHigh10-priorLow10)/Math.max(priorLow10,1e-9);
- const daily=p20.map((b,i)=>i?p20[i].close/p20[i-1].close-1:null).filter(x=>x!==null);
- const variance=avg(daily.map(x=>(x-avg(daily))**2));
+ const closing21=bars.slice(-21).map(b=>b.close);
+ const daily=closing21.slice(1).map((price,i)=>price/closing21[i]-1);
+ const dailyAvg=avg(daily),variance=avg(daily.map(x=>(x-dailyAvg)**2));
  const realizedVolatility20Pct=100*Math.sqrt(variance);
  const stockReturn20Pct=100*(last.close/bars.at(-21).close-1);
  const linked=contextReturns(marketContext,bars);
