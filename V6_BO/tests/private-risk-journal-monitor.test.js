@@ -43,11 +43,13 @@ test('v1 receipt remains reserved even after a different risk upgrades file to v
  fs.writeFileSync(stateFile,JSON.stringify(old));
  let requests=0;
  const fetchImpl=async()=>{requests++;return sender();};
- const send=(id,now)=>sendPrivateRiskSummary({report:report(id,now),
-  stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
+ const send=(id,now,severity='warning')=>sendPrivateRiskSummary({
+  report:report(id,now,severity),stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
  assert.equal((await send('a-one',epoch)).status,'deduplicated-pending-unknown');
  assert.equal(requests,0);
- assert.equal((await send('b-two',epoch+121000)).status,'gateway-accepted');
+ // Legacy v1 had no per-stock IDs; it can only distinguish a different
+ // category/severity. A new critical event migrates the old reserved record.
+ assert.equal((await send('b-two',epoch+121000,'critical')).status,'gateway-accepted');
  assert.equal((await send('a-one',epoch+242000)).status,'deduplicated-pending-unknown');
  assert.equal(requests,1);
 }));
