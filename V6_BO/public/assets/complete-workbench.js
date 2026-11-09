@@ -111,6 +111,16 @@ function renderForwardAudit(report){
  for(const rule of report.rules||[]){
   const detail=document.createElement('details');detail.className='card';root.append(detail);
   const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);
+  const diagnostic=report.ruleInputDiagnostics?.[rule.id];
+  if(diagnostic){
+    const note=document.createElement('p');
+    note.textContent='信号日证据：命中 '+diagnostic.candidateDays+
+      ' ｜未命中 '+diagnostic.notMatchedDays+
+      ' ｜数据不足 '+diagnostic.unverifiedInputDays+
+      ' ｜风险阻断 '+diagnostic.blockedDays+
+      '（数据不足不等于策略失效）';
+    detail.append(note);
+  }
   for(const days of horizon){
    const stats=rule.byHorizon?.[days]||{};
    const row=document.createElement('p');
@@ -128,9 +138,19 @@ async function run(action){
  buttons.forEach(id=>el(id).disabled=true);el('completeStatus').textContent='正在处理…';el('completeOutput').textContent='';el('completeSummary').replaceChildren();
  try{
   let input=action==='read'?{}:JSON.parse(el('payload').value),payload;
-  if(action==='complete')payload=input.history?input:{history:input};
-  if(action==='complete'&&el('publicRuleAuditEnabled')?.checked===true)payload.validatePublicRules=true;
-  else payload={accountId:el('paperAccountId').value,action,...(action==='append'?{history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})}:{})};
+  if(action==='complete'){
+    payload=input.history?input:{history:input};
+    if(el('publicRuleAuditEnabled')?.checked===true)payload.validatePublicRules=true;
+    if(el('linkedRulesAuditEnabled')?.checked===true){
+      payload.validatePublicRules=true;
+      if(payload.publicRuleAuditOptions!==undefined&&
+        (!payload.publicRuleAuditOptions||typeof payload.publicRuleAuditOptions!=='object'||
+         Array.isArray(payload.publicRuleAuditOptions)))throw Error('公开战法回测配置必须为对象');
+      payload.publicRuleAuditOptions={...(payload.publicRuleAuditOptions||{}),includeLinkedRules:true};
+    }
+  }else{
+    payload={accountId:el('paperAccountId').value,action,...(action==='append'?{history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})}:{})};
+  }
   const token=el('token').value.trim();
   const response=await fetch('/api/research/'+(action==='complete'?'complete-run':'paper-account'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(payload)});
   const data=await response.json();if(!data.ok)throw Error(data.error||data.msg||'权限不足或请求失败');
