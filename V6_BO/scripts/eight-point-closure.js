@@ -27,6 +27,16 @@ function run(argv){
  if(payload.manualHoldings||payload.holdingWatchFile||payload.token||
   payload.apiKey||payload.brokerAccount||payload.holdings||payload.password)
   throw Error('研究离线报告不得上传私有持仓、令牌或券商资料');
+ // A full local daily run attempts the frozen public-rule audit.
+ // Too-short historical data returns "unavailable", never an order or invented win rate.
+ if(payload.validatePublicRules===undefined){
+  const o=payload.publicRuleAuditOptions;
+  if(o!==undefined&&(!o||typeof o!=='object'||Array.isArray(o)))
+   throw Error('公开战法复核参数必须为对象');
+  payload.validatePublicRules=true;
+  payload.publicRuleAuditOptions={windows:3,testDays:15,gapDays:2,
+   includeLinkedRules:true,includeQualityRules:true,...(o||{})};
+ }
  const statePath=options['--watch-state']||null;
  const previous=statePath?readWatchJournal(statePath):null;
  const report=runCompleteWorkbench(payload,
