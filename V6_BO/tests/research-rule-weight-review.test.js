@@ -29,7 +29,7 @@ function mock(mode='up',opts={}){
  }
  const modeled=events.filter(e=>e.status==='modeled');
  return {mode:'frozen-public-rule-forward-audit',historicalOnly:true,
-  source:opts.source??'imported',provider:'declared-test-feed',canTrade:false,
+  source:opts.source??'imported',provider:opts.provider??'declared-historical-feed',canTrade:false,
   weightsChanged:false,autoPromotion:false,
   configuration:{windows:foldCount,gapDays:2,horizons:[5],feeBps:8,slippageBps:10,sellTaxBps:5},
   folds,events,sampleIntegrity:{eventsRetained:events.length},
@@ -60,6 +60,7 @@ test('good, weak, mixed and insufficient windows produce only manual-review labe
 test('simulated samples, duplicate family evidence and blocked outcomes stop manual promotion',()=>{
  const cases=[
   mock('up',{source:'fixture'}),
+  mock('up',{provider:'synthetic'}),
   mock('up',{overlap:30}),
   mock('up',{blocked:true}),
   mock('up',{episodes:7})

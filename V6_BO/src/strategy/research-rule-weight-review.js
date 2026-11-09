@@ -32,7 +32,8 @@ function evaluateRuleWeightReview(audit){
     f.trainEndDate>=f.testStartDate))
   return base;
  const genuine=audit.source==='imported'&&typeof audit.provider==='string'&&
-  audit.provider.trim().length>0;
+  audit.provider.trim().length>0&&
+  !/simulat|synthet|fixture|mock|(?:^|[-_])test(?:[-_]|$)/i.test(audit.provider);
  const byRule={};
  for(const rule of audit.rules){
   if(typeof rule?.id!=='string'||!rule.id||Object.hasOwn(byRule,rule.id))
