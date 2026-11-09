@@ -124,5 +124,6 @@ function show(stock){
 document.querySelectorAll('[data-period]').forEach(btn=>btn.addEventListener('click',()=>setPeriod(btn.dataset.period)));
 document.addEventListener('v6:picks-select',e=>show(e.detail));
 document.addEventListener('v6:picks-unauthorized',()=>clear('选股查看权限已失效'));
+document.addEventListener('v6:picks-reset',()=>clear('该股票已不在最新候选池中'));
 clear();
 })();
