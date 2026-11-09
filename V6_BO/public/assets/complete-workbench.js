@@ -111,6 +111,16 @@ function renderForwardAudit(report){
  for(const rule of report.rules||[]){
   const detail=document.createElement('details');detail.className='card';root.append(detail);
   const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);
+  const diagnostic=report.ruleInputDiagnostics?.[rule.id];
+  if(diagnostic){
+    const note=document.createElement('p');
+    note.textContent='信号日证据：命中 '+diagnostic.candidateDays+
+      ' ｜未命中 '+diagnostic.notMatchedDays+
+      ' ｜数据不足 '+diagnostic.unverifiedInputDays+
+      ' ｜风险阻断 '+diagnostic.blockedDays+
+      '（数据不足不等于策略失效）';
+    detail.append(note);
+  }
   for(const days of horizon){
    const stats=rule.byHorizon?.[days]||{};
    const row=document.createElement('p');
