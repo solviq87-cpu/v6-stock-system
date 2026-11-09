@@ -7,6 +7,8 @@ const validCode=x=>typeof x==='string'&&/^\d{6}$/.test(x);
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const source=window.V6PicksPeriods;
 let selected=null,period='day',daily=[],generation=0,controller=null;
+const PAGE=240,MAX_PAGES=10;
+let pages=0,hasOlder=false,pagingTurn=-1,historyIssue='';
 function message(text){
  $('periodStatus').textContent=text;
 }
@@ -16,7 +18,7 @@ function emptyChart(text){
 function clear(reason='尚未选择股票'){
  generation++;
  if(controller)controller.abort();controller=null;
- selected=null;daily=[];
+ selected=null;daily=[];pages=0;hasOlder=false;pagingTurn=-1;historyIssue='';
  $('pickDetailCode').textContent='尚未选择';
  $('pickDetailCaption').textContent='点击候选股票查看日K、月K、年K';
  $('detailReasons').replaceChildren(document.createTextNode('选择股票后显示服务器实际返回的命中条件。'));
@@ -27,7 +29,11 @@ function clear(reason='尚未选择股票'){
 function draw(){
  if(!selected)return;
  const bars=source.aggregate(daily,period);
- const shown=bars.slice(-({day:55,month:36,year:16}[period]));
+ // Server returns newest page first. The oldest displayed month/year may be
+ // incomplete until the older pages are obtained; don't draw that fake candle.
+ const incompleteOldest=period!=='day'&&hasOlder&&bars.length>1;
+ const completeBars=incompleteOldest?bars.slice(1):bars;
+ const shown=completeBars.slice(-({day:55,month:36,year:16}[period]));
  const tag={day:'日K',month:'月K',year:'年K'}[period];
  if(shown.length<2){
   message(tag+'：历史日线覆盖期不足，无法形成可核实的走势');
@@ -65,7 +71,11 @@ function draw(){
  }
  $('periodChart').replaceChildren(svg);
  const last=shown[shown.length-1];
- message(tag+' · '+shown.length+' 根 · 已取得日线截止 '+last.date+' · 月/年K由真实日K聚合（最新周期可能未结束）');
+ message(tag+' · '+shown.length+' 根 · 已取得 '+daily.length+' 根真实日K，截止 '+last.date+
+   (period==='day'?'':' · 月/年K按自然周期聚合，最新周期可能未结束')+
+   (hasOlder?' · 更早历史'+(pagingTurn===generation?'加载中':'尚未完整'):'')+
+   (pages>=MAX_PAGES&&hasOlder?' · 已达10页读取上限':'')+
+   (historyIssue?' · '+historyIssue:''));
 }
 function setPeriod(next){
  if(!['day','month','year'].includes(next))return;
@@ -75,29 +85,65 @@ function setPeriod(next){
   btn.classList.toggle('active',on);
   btn.setAttribute('aria-pressed',String(on));
  });
- if(selected)draw();
+ if(selected){draw();if(next!=='day')fetchOlder(generation,selected.code);}
+}
+async function getPage(code,end,signal){
+ const url='/api/kline?code='+encodeURIComponent(code)+'&n='+PAGE+
+   (end?'&end='+encodeURIComponent(end):'');
+ const response=await fetch(url,{
+   method:'GET',credentials:'same-origin',cache:'no-store',signal,headers:{Accept:'application/json'}
+ });
+ if(!response.ok)throw Error('K线接口暂不可用（HTTP '+response.status+'）');
+ const result=await response.json();
+ if(!result||result.ok!==true||result.simulated===true||result.isMock===true||!Array.isArray(result.rows))
+   throw Error('没有可核实的历史日K数据');
+ if(result.code&&String(result.code)!==code)throw Error('K线响应证券代码不一致，已拒绝显示');
+ return result.rows;
+}
+async function fetchOlder(turn,code){
+ if(pages<1||!hasOlder||pagingTurn===turn||turn!==generation||period==='day')return;
+ pagingTurn=turn;
+ try{
+  while(turn===generation&&period!=='day'&&hasOlder&&pages<MAX_PAGES){
+   const earliest=daily[0]?.date;
+   if(!earliest)break;
+   const page=await getPage(code,earliest.replace(/-/g,''),controller.signal);
+   if(turn!==generation)return;
+   if(!page.length){hasOlder=false;break;}
+   const merged=source.normalize(page.concat(daily));
+   if(merged.length<=daily.length||merged[0].date>=earliest){
+    hasOlder=false;historyIssue='更早数据未正确翻页，停止读取以防重复K线';break;
+   }
+   daily=merged;pages++;
+   hasOlder=page.length===PAGE;
+   draw();
+  }
+ }catch(err){
+  if(turn!==generation||err?.name==='AbortError')return;
+  historyIssue='更早历史载入失败；较早月/年K可能不完整';
+ }finally{
+  if(pagingTurn===turn){
+   pagingTurn=-1;
+   if(turn===generation)draw();
+  }
+ }
 }
 async function load(code){
  const turn=++generation;
  if(controller)controller.abort();
  controller=new AbortController();
- daily=[];message('正在读取历史日K，以便生成日/月/年K…');
+ daily=[];pages=0;hasOlder=false;historyIssue='';pagingTurn=-1;
+ message('正在读取最近240根真实日K…');
  emptyChart('读取中…');
  try{
-  // Ask for enough genuine daily history for yearly bars. The existing server
-  // may cap n: never infer missing months or years from fewer returned rows.
-  const response=await fetch('/api/kline?code='+encodeURIComponent(code)+'&n=1200',{
-   method:'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}
-  });
+  const rows=await getPage(code,null,controller.signal);
   if(turn!==generation)return;
-  if(!response.ok)throw Error('K线接口暂不可用（HTTP '+response.status+'）');
-  const result=await response.json();
-  if(turn!==generation)return;
-  if(!result||result.ok===false||result.simulated===true||result.isMock===true||!Array.isArray(result.rows))
-    throw Error('没有可核实的历史日K数据');
-  daily=source.normalize(result.rows);
+  daily=source.normalize(rows);
   if(daily.length<2)throw Error('有效历史日K不足');
-  draw();
+  pages=1;
+  hasOlder=rows.length===PAGE;
+  draw(); // Show first page promptly: period toggles must never block the UI.
+  if(period!=='day')fetchOlder(turn,code);
  }catch(err){
   if(turn!==generation||err?.name==='AbortError')return;
   message('历史K线暂不可用');emptyChart(String(err?.message||'网络读取失败'));
