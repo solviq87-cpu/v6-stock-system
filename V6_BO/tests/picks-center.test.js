@@ -43,7 +43,8 @@ test('main desktop and mobile screens link directly to one cloud results URL wit
  for(const p of ['public/index.html','public/mobile.html','public/research.html','public/assets/terminal-dashboard.js']){
   const s=read(p);
   assert.ok(s.includes('/picks.html'),'missing results navigation in '+p);
-  assert.ok(s.includes('/research.html'),'original research was removed from '+p);
+  if(p==='public/research.html')assert.ok(s.includes('id="decisionWorkspace"'),'original research workspace was removed');
+  else assert.ok(s.includes('/research.html'),'original research route was removed from '+p);
  }
  const terminal=read('public/assets/terminal-dashboard.js');
  for(const label of ['十四条选股','八字口诀','GPT 五策略','Python 三轮筛选'])
