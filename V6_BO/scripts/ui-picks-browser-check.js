@@ -63,7 +63,7 @@ const server=http.createServer((req,res)=>{
     dockRect:document.querySelector('.bottom').getBoundingClientRect().toJSON()
    }));
    assert.ok(size.bodyWidth<=width+1,label+' horizontal page overflow '+JSON.stringify(size));
-   assert.ok(size.resultRect.width>=width*.72,label+' candidate list too narrow '+JSON.stringify(size));
+   assert.ok(size.resultRect.width>=width*(width<=950?.72:.44),label+' candidate list too narrow for its responsive layout '+JSON.stringify(size));
    if(width<=650){
     assert.ok(size.dockRect.height>40&&size.dockRect.width>=width-1,'mobile dock missing');
     assert.ok(size.detailRect.width>=width*.72,'mobile detail pane too narrow');
