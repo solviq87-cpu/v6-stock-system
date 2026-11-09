@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071529">
+<title>天枢智策 · 选股结果中心</title>
+<link rel="stylesheet" href="/assets/picks-center.css?v=20261109a">
+<script src="/assets/picks-center.js?v=20261109a" defer></script>
+</head>
+<body>
+<a class="skip" href="#pickCards">跳到选股结果</a>
+<header class="top">
+  <a href="/" class="brand" aria-label="返回天枢智策首页"><span class="mark">✦</span><span><b>天枢智策</b><small>AI 选股结果中心</small></span></a>
+  <nav aria-label="主要导航" class="nav">
+    <a href="/">总览</a>
+    <a href="/picks.html" aria-current="page">选股结果</a>
+    <a href="/research.html#decisionWorkspace">策略研究</a>
+    <a href="/research.html#completeHeading">回测分析</a>
+    <a href="/#v6-paper">模拟交易</a>
+  </nav>
+  <button id="refreshPicks" type="button" class="refresh" aria-label="从云端刷新选股结果">⟳ <span>刷新</span></button>
+</header>
+<main>
+<section class="hero" aria-labelledby="screenTitle">
+  <div><p class="overline">SELECTION INTELLIGENCE · READ ONLY</p><h1 id="screenTitle">今日选股结果</h1><p id="cloudStatus" role="status" aria-live="polite">连接云端选股池…</p></div>
+  <div class="hero-mark" aria-hidden="true">◈</div>
+</section>
+<section class="metrics" aria-label="选股池摘要">
+  <article><span>本页候选</span><strong id="totalVisible">—</strong><small id="totalReported">仅统计已返回的记录</small></article>
+  <article><span>明确命中条件</span><strong id="hitCount">—</strong><small>不猜测缺失理由</small></article>
+  <article><span>风险待核对</span><strong id="riskCount">—</strong><small>不将未知等于安全</small></article>
+  <article><span>数据基准</span><strong id="snapshotDay">待连接</strong><small id="snapshotHint">不把刷新时间当行情时点</small></article>
+</section>
+<div class="layout">
+ <section class="panel results" aria-labelledby="listTitle">
+  <div class="panelhead"><div><h2 id="listTitle">候选股票</h2><p>基于云端现有量化选股接口，非买入指令</p></div><span class="state-dot" id="listSource">待加载</span></div>
+  <div class="filterbar" role="group" aria-label="筛选选股结果">
+   <button class="chip on" data-filter="all" type="button" aria-pressed="true">全部</button>
+   <button class="chip" data-filter="hit" type="button" aria-pressed="false">已注明命中</button>
+   <button class="chip" data-filter="risk" type="button" aria-pressed="false">风险核对</button>
+  </div>
+  <div class="searchrow"><label for="stockSearch" class="sr-only">搜索股票代码或名称</label><input id="stockSearch" inputmode="search" placeholder="搜索股票名称 / 代码 / 条件" autocomplete="off"><label class="sortlabel">排序 <select id="sortPicks"><option value="original">原始顺序</option><option value="score">综合评分</option><option value="change">涨跌幅</option></select></label></div>
+  <p id="resultSummary" class="tiny" aria-live="polite">等待云端数据…</p>
+  <div id="pickCards" class="cards" aria-live="polite"><p class="empty">数据加载中，尚未确认任何命中股票。</p></div>
+ </section>
+ <section class="panel details" id="stockDetail" aria-labelledby="detailTitle" tabindex="-1">
+   <div class="panelhead"><div><h2 id="detailTitle">股票详情与命中依据</h2><p>点击左侧或上方股票，查看同一条记录</p></div><span class="state-dot" id="detailStatus">未选中</span></div>
+   <div id="detailBody"><p class="empty">尚未选中股票。没有已验证的数据时，不展示示例股票或假信号。</p></div>
+   <div class="chartwrap" aria-labelledby="chartTitle">
+     <div class="charthead"><h3 id="chartTitle">历史 K 线</h3><span id="chartAsOf">未载入</span></div>
+     <div id="chartCanvas" class="chart" role="img" aria-label="选中股票的历史 K 线"><span class="tiny">选中股票后读取历史数据</span></div>
+   </div>
+   <p class="caution">研究观察 · 不接实盘，不构成交易建议。行情及命中依据以原始来源和时间为准。</p>
+   <div class="detailactions"><a href="/research.html#decisionWorkspace">深入研究四套策略</a><a href="/#v6-paper">查看模拟盘</a></div>
+ </section>
+</div>
+<section class="panel library" id="ruleLibrary" aria-labelledby="researchRuleHeading">
+ <div class="panelhead"><div><h2 id="researchRuleHeading">公开战法 · 研究候选</h2><p>展示已有战法与外部研究思路；不是实时新增的买入信号</p></div><a href="/research.html#completeHeading">去验证回测 ↗</a></div>
+ <div id="ruleCards" class="rulecards" aria-live="polite"><p class="tiny">正在读取规则目录…</p></div>
+</section>
+</main>
+<nav class="bottom" aria-label="手机快捷导航">
+<a href="/"><span>⌂</span>首页</a><a href="/picks.html" aria-current="page"><span>◈</span>选股</a><a href="/research.html#decisionWorkspace"><span>✦</span>研究</a><a href="/#v6-paper"><span>▣</span>模拟</a><a href="/#v6-strategy"><span>◇</span>风控</a>
+</nav>
+</body></html>
