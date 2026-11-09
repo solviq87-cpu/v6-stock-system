@@ -64,3 +64,18 @@
     npm test
 
 严格禁止改写原电脑/手机主页，禁止改15因子原始包权重、原四套策略或模拟盘账本。沙盒只读完整历史证据后生成**新的私有研究模型 JSON**。
+
+## 有新证据自动进化（需要用户部署一个独立研究进程）
+
+日常使用可将上述包含已冻结特征和成熟报告的 manifest.json 放在私有持久卷里，启动**独立沙盒研究工作进程**：
+
+    npm run factor:shadow:once -- /srv/v6-private/factor-manifest.json /srv/v6-private/models
+    npm run factor:shadow:watch -- /srv/v6-private/factor-manifest.json /srv/v6-private/models --interval 60000
+
+一旦文件生产者更新真实成熟观察数据，watch 最快下一轮重新读取**完整**证据、自动训练和验证、将通过门禁的研究权重写成新版本 shadow-YYYY-MM-DD-xxxxxxxxxxxx.json。它默认不启动，需有部署权限的运维人员单独配置进程、服务账户和私有卷。一次运行失败不会默认启用高风险策略或更新旧版本。
+
+- 同一批证据/相同训练截止期：返回 skipped-no-new-training，不生成虚假版本。
+- 验证未提高：只记录 shadow-retained，只要证据相同就不反复生成文件；下一轮仍从最近通过验证的 shadow-updated 版本继续。
+- 更新成功：保留 previousFingerprint、版本号和训练/测试日志供审计；已有档案不覆盖。
+- 发现档案被篡改、同版本冲突、旧因子包不一致：停止进化而不是自动清空版本重新开始。
+- watch 进程**没有**市场行情采集、真实下单、模拟账户读写或自动更改四套正式策略的能力。因子值的实时保存与五日结果产出仍由外部明确授权的数据生产者负责。
