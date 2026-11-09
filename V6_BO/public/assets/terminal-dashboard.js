@@ -35,7 +35,8 @@ if(strip){
 }
 
 if(mobile){document.body.classList.add('vx-mobile');const footer=document.createElement('nav');footer.className='vx-mobile-dock';footer.setAttribute('aria-label','手机主导航');footer.innerHTML=link('#vx-dashboard','首页','home','aria-current="page"')+link('/#v6-stock','自选股','star')+link('/#v6-market','行情','chart')+'<a class="vx-dock-ai" href="/research.html"><span>AI</span><small>研究</small></a>'+link('/#v6-paper','模拟交易','wallet')+link('/#v6-strategy','风控','shield')+link('/','我的','user');host.append(footer);}
-const riskCard=document.createElement('article');riskCard.className='vx-panel vx-evidence-card';riskCard.innerHTML='<h2>今日风险与新闻依据</h2><strong id="vx-risk-status">今日观望</strong><p id="vx-risk-reasons">等待有效证据</p><details><summary>查看资金与新闻依据</summary><div id="vx-risk-evidence"></div></details>';dashboard.prepend(riskCard);
+const riskCard=document.createElement('article');riskCard.className='vx-panel vx-evidence-card';riskCard.innerHTML='<h2>今日风险与新闻依据</h2><strong id="vx-risk-status">今日观望</strong><p id="vx-risk-reasons">等待有效证据</p><details><summary>查看资金与新闻依据</summary><div id="vx-risk-evidence"></div></details>';// Supplemental risk/news evidence belongs after the reference overview and chart, not above the market strip.
+dashboard.append(riskCard);
 const el=id=>document.getElementById(id),finite=v=>typeof v==='number'&&Number.isFinite(v),format=(v,d=2)=>finite(v)?v.toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 let model=null,filter='all',selected=null,epoch=0,controller=null;const observedSeries=new Map();
 function quoteDescription(row){
