@@ -130,6 +130,13 @@ async function run(action){
   let input=action==='read'?{}:JSON.parse(el('payload').value),payload;
   if(action==='complete')payload=input.history?input:{history:input};
   if(action==='complete'&&el('publicRuleAuditEnabled')?.checked===true)payload.validatePublicRules=true;
+  if(action==='complete'&&el('linkedRulesAuditEnabled')?.checked===true){
+    payload.validatePublicRules=true;
+    if(payload.publicRuleAuditOptions!==undefined&&
+      (!payload.publicRuleAuditOptions||typeof payload.publicRuleAuditOptions!=='object'||
+       Array.isArray(payload.publicRuleAuditOptions)))throw Error('公开战法回测配置必须为对象');
+    payload.publicRuleAuditOptions={...(payload.publicRuleAuditOptions||{}),includeLinkedRules:true};
+  }
   else payload={accountId:el('paperAccountId').value,action,...(action==='append'?{history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})}:{})};
   const token=el('token').value.trim();
   const response=await fetch('/api/research/'+(action==='complete'?'complete-run':'paper-account'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(payload)});
