@@ -77,6 +77,9 @@ jobs:
       - name: Eight-point integration regression (offline evidence only)
         id: eightpointcheck
         run: node --test tests/eight-point-flow.test.js tests/research-watch-journal.test.js tests/research-explanation-ui.test.js tests/manual-holding-risk-watch.test.js tests/research-rule-weight-review.test.js
+      - name: Four-yellow remediation regression (network is mocked, never deliver externally)
+        id: yellowfourcheck
+        run: npm run test:yellow-four
       - name: Audit fourteen market-source registrations (offline only)
         id: feedcheck
         run: node scripts/audit-market-source-catalog.js
@@ -91,6 +94,7 @@ jobs:
         env:
           SOURCE_RESULT: ${{ steps.sourcecheck.outcome }}
           EIGHT_RESULT: ${{ steps.eightpointcheck.outcome }}
+          YELLOW_RESULT: ${{ steps.yellowfourcheck.outcome }}
           FEED_RESULT: ${{ steps.feedcheck.outcome }}
           RELEASE_RESULT: ${{ steps.releasecheck.outcome }}
           SMOKE_RESULT: ${{ steps.smokecheck.outcome }}
@@ -102,6 +106,7 @@ jobs:
             echo "| --- | --- |"
             echo "| 语法与完整回归 | $SOURCE_RESULT |"
             echo "| 八项一体化证据、风控与网页显示回归 | $EIGHT_RESULT |"
+            echo "| 黄色四项：行情/风险送达/研究学习与双端展示 | $YELLOW_RESULT |"
             echo "| 14 数据源离线登记核验 | $FEED_RESULT |"
             echo "| 11 主线发布结构预检 | $RELEASE_RESULT |"
             echo "| 独立服务HTTP启动冒烟 | $SMOKE_RESULT |"
