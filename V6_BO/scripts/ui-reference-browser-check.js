@@ -25,6 +25,12 @@ if(url==='/m'){
   assert.ok(b.moodScore&&b.moodCaption,label+' missing sentiment score or caption');
   assert.ok(b.moodScore.bottom<=b.moodCaption.top+2,label+' sentiment percentage overlaps explanation: '+JSON.stringify({score:b.moodScore,caption:b.moodCaption}));
 }
+if(label==='mobile-reference-1024'){
+  assert.ok(b.dock&&b.chart&&b.explanation,label+' missing dock or stock-detail cards');
+  assert.ok(Math.abs(b.chart.top-b.explanation.top)<=2,label+' original chart and explanation must start on same row');
+  assert.ok(Math.abs(b.chart.bottom-b.explanation.bottom)<=2,label+' original chart and explanation must share one outer card');
+  assert.ok(b.chart.bottom<=b.dock.top-12,label+' reference 1024 screenshot: stock detail is concealed behind the fixed dock: '+JSON.stringify({chart:b.chart,dock:b.dock}));
+}
 if(width<=430){
   assert.equal(metrics.dockCount,7,label+' dock must have exactly seven real links');
   within(b.dock,'seven-item dock');within(b.chart,'K-line chart');within(b.explanation,'AI explanation');within(b.risk,'risk card');within(b.brand,'brand');
