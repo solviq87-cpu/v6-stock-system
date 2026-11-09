@@ -121,3 +121,29 @@ test('quality rule audit reports serial overlap without changing modeled outcome
  assert.ok(blocked.events.every(e=>e.status==='unverified-corporate-actions'));
  assert.equal(blocked.weightsChanged,false);assert.equal(blocked.canTrade,false);
 });
+
+test('full opt-in audit reports per-rule manual weight review without ever writing original weights',()=>{
+ const h=dataset(),before=structuredClone(h);
+ const r=evaluate(h,{...windows,includeQualityRules:true});
+ const q=r.weightReviewDiagnostics;
+ assert.equal(q.mode,'rule-weight-manual-review');
+ assert.equal(q.status,'descriptive-only');
+ assert.equal(q.evaluatedHorizon,5);
+ assert.equal(q.weightsChanged,false);
+ assert.equal(q.autoPromotion,false);
+ assert.equal(q.recommendedDeltaPct,null);
+ assert.equal(q.statisticallyCertified,false);
+ assert.equal(Object.keys(q.byRule).length,5);
+ assert.ok(Object.values(q.byRule).every(row=>row.review==='insufficient-evidence'));
+ assert.ok(Object.values(q.byRule).every(row=>row.blockers.some(x=>x.includes('不足3个'))));
+ assert.ok(Object.values(q.byRule).every(row=>row.weightsChanged===false));
+ assert.equal(r.rules.length,5);
+ assert.equal(r.events.length,r.sampleIntegrity.eventsRetained);
+ assert.deepEqual(h,before);
+});
+test('default two-rule historical audit stays backward-compatible without weight-review advice',()=>{
+ const r=evaluate(dataset(),windows);
+ assert.equal(r.weightReviewDiagnostics,undefined);
+ assert.equal(r.rules.length,2);
+ assert.equal(r.weightsChanged,false);
+});

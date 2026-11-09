@@ -146,6 +146,12 @@ function renderForwardAudit(report){
   if(summary.length)add('p','连续信号去重（只读研究）：'+summary.join('；')+
    '。分段数不等于统计独立样本量，不用于自动升降权。');
  }
+ const weightReview=report.weightReviewDiagnostics;
+ if(weightReview){
+  add('p','战法权重人工复核：'+(weightReview.status==='descriptive-only'?
+   '按5日冻结历史窗口评估升权/降权复核优先级':'证据尚不足')+
+   '。从不自动修改原四套策略或15因子的实际权重。');
+ }
  for(const rule of report.rules||[]){
   const detail=document.createElement('details');detail.className='card';root.append(detail);
   const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);
@@ -157,6 +163,21 @@ function renderForwardAudit(report){
     '｜跨家族共振 '+cohit.otherFamilyOverlapDays+
     '｜权重建议：'+cohit.reviewNote+'（本次未改权重）';
    detail.append(note);
+  }
+  const review=weightReview?.byRule?.[rule.id];
+  if(review){
+   const kinds={'manual-up-review':'可人工复核升权假设',
+    'manual-down-review':'可人工复核降权假设',
+    'hold-mixed-evidence':'证据混合，保持观察',
+    'insufficient-evidence':'证据不足，保持不变'};
+   const row=document.createElement('p');
+   row.textContent='权重评审：'+(kinds[review.review]||'未知')+
+    '｜5日有效模拟 '+review.modeledEvents+
+    '｜非重叠分段 '+(review.nonoverlapEpisodes??'未知')+
+    '｜阻断 '+review.blockedEvents+
+    '｜原因 '+(review.blockers?.length?review.blockers.join('、'):review.reason)+
+    '（只读，不改权重）';
+   detail.append(row);
   }
   const diagnostic=report.ruleInputDiagnostics?.[rule.id];
   if(diagnostic){
