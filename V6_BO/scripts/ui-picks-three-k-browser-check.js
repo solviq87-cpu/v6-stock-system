@@ -4,6 +4,8 @@
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
  os=require('node:os'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+const {paginateKlineRows}=require('../src/core/kline-read-pagination');
+const {aggregate}=require('../public/assets/picks-periods');
 const root=path.resolve(__dirname,'../public');
 const out=process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'v6-three-k-'));
 fs.mkdirSync(out,{recursive:true});
@@ -44,8 +46,13 @@ const server=http.createServer((req,res)=>{
    page.on('request',r=>{if(r.url().includes('/api/'))calls.push({method:r.method(),url:r.url()});});
    await page.route('**/api/quant-picks?**',r=>r.fulfill({status:revoked?401:200,
     contentType:'application/json',body:JSON.stringify(revoked?{locked:true}:candidates)}));
-   await page.route('**/api/kline?**',r=>r.fulfill({status:200,
-    contentType:'application/json',body:JSON.stringify({ok:true,rows:series,asOf:'2025-11-30'})}));
+   await page.route('**/api/kline?**',async r=>{
+    const url=new URL(r.request().url()),end=url.searchParams.get('end')||'';
+    const pageData=paginateKlineRows(series,{n:url.searchParams.get('n'),end});
+    if(end)await new Promise(resolve=>setTimeout(resolve,160)); // Inspect partial first period before paging finishes.
+    return r.fulfill({status:200,contentType:'application/json',
+      body:JSON.stringify({ok:true,code:url.searchParams.get('code'),...pageData})});
+   });
    await page.goto('http://127.0.0.1:'+server.address().port+'/picks.html');
    await page.waitForFunction(()=>document.querySelectorAll('.pick').length===2);
    assert.match(await page.locator('.pick').first().textContent(),/放量突破/);
@@ -54,13 +61,26 @@ const server=http.createServer((req,res)=>{
    await page.locator('.pick-open').first().click();
    await page.waitForFunction(()=>document.querySelector('#periodChart svg'));
    assert.match(await page.locator('#pickDetailCaption').textContent(),/测试股票甲/);
-   for(const [name,period] of [['月K','month'],['年K','year'],['日K','day']]){
+   await page.locator('[data-period="month"]').click();
+   const completeFirstPage=aggregate(series.slice(-240),'month').length-1;
+   // The loading spinner can replace the intermediate caption in the same
+   // input event, so assert real visible candles rather than a transient label.
+   await page.waitForFunction(n=>document.querySelectorAll('#periodChart svg g').length===n,
+     completeFirstPage,{timeout:8000});
+   assert.equal(await page.locator('#periodChart svg g').count(),completeFirstPage,
+     'must not render the first, truncated monthly candle while older pages remain');
+   await page.waitForFunction(()=>document.getElementById('periodStatus')?.textContent?.includes('历史起点可能从上市日开始'),null,{timeout:10000});
+   assert.equal(await page.locator('[data-period="month"]').getAttribute('aria-pressed'),'true');
+   for(const [name,period] of [['年K','year'],['日K','day']]){
     await page.locator('[data-period="'+period+'"]').click();
     await page.waitForFunction(p=>document.getElementById('periodStatus')?.textContent?.includes(p),name);
     assert.equal(await page.locator('[data-period="'+period+'"]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('#periodChart svg').count(),1);
    }
-   assert.equal(calls.filter(c=>c.url.includes('/api/kline')).length,1,'Kline tabs must aggregate fetched history without repeated GETs');
+   const historyCalls=calls.filter(c=>c.url.includes('/api/kline'));
+   assert.equal(historyCalls.length,3,'240+240+20 history pages should be fetched; period tabs reuse cached rows');
+   assert.ok(historyCalls.slice(1).every(c=>/^\d{8}$/.test(new URL(c.url).searchParams.get('end')||'')),
+     'older pages must use an exclusive ISO trading-date cursor');
    const sizes=await page.evaluate(()=>{
     const rect=q=>document.querySelector(q).getBoundingClientRect().toJSON();
     return {bodyWidth:document.body.scrollWidth,viewport:innerWidth,
