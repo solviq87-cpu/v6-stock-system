@@ -85,8 +85,29 @@ function captureFactorEpisode({candidates,market,factorSnapshot,now=Date.now()}=
    values[f.id]=stock[f.field];
    evidence[f.id]={source:proof.source,observedAt:proof.timestamp};
   }
+  const industrySupplied=stock.industryCode!==undefined||
+   stock.industryEvidence!==undefined;
+  let industry;
+  if(industrySupplied){
+   const proof=stock.industryEvidence;
+   if(typeof stock.industryCode!=='string'||
+      !/^[A-Za-z0-9_.-]{2,32}$/.test(stock.industryCode)||
+      !proof||typeof proof!=='object'||Array.isArray(proof)||
+      proof.source!==factorSnapshot.feed.provider||
+      proof.simulated===true||proof.mode==='simulation'||
+      !text(proof.classificationVersion)||!isTimestamp(proof.timestamp)||
+      proof.timestamp>factorSnapshot.asOf||
+      proof.timestamp>signal.signalAt||
+      signal.signalAt-proof.timestamp>DAY||
+      chinaDay(proof.timestamp)!==signal.signalDate||
+      proof.code!==undefined&&String(proof.code)!==signal.symbol||
+      proof.symbol!==undefined&&String(proof.symbol)!==signal.symbol)
+    throw Error('行业归属必须来自当时已取得的同票来源和分类版本');
+   industry={code:stock.industryCode,source:proof.source,
+    observedAt:proof.timestamp,classificationVersion:proof.classificationVersion};
+  }
   return {signalId:signal.signalId,symbol:signal.symbol,
-   signalDate:signal.signalDate,values,evidence};
+   signalDate:signal.signalDate,values,evidence,...(industry?{industry}:{})};
  });
  const features=freezeFeatureEpisode({cohort,feed:factorSnapshot.feed,
   factorIds:selected.ids,rows,marketContext:factorSnapshot.marketContext},{now});
