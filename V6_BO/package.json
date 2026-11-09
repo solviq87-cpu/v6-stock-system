@@ -46,6 +46,8 @@
     "research:history": "node scripts/adaptive-monitor-archive.js",
     "tracking:freeze:picks": "node scripts/freeze-quant-picks.js",
     "factor:shadow": "node scripts/factor-shadow-evolution.js",
+    "research:baostock:collect": "python3 scripts/collect-baostock-eod-research.py",
+    "research:baostock:normalize": "node scripts/baostock-eod-research.js",
     "factor:market:once": "node scripts/authorized-factor-market.js once",
     "factor:market:sync": "node scripts/authorized-factor-market.js sync",
     "factor:market:watch": "node scripts/authorized-factor-market.js watch",
