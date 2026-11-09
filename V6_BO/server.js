@@ -17232,11 +17232,12 @@ async function init() {
   //    → 现在改成「除周日外每天都推」（周日由下面的周末汇总合并周六+周日一起发，避免一天两条）。
   //    → 但**依赖当日行情的那些模块**（竞价/复盘/次日计划/趋势扫描/盯盘）休市照旧不推：
   //      那些算出来的数全是节前 K 线，推出来就是"今天能买"的假数据。
-  const dsLabel = () => { const s = todayStr(); return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`; };
+  const newsChinaClock = require('./src/core/news-china-clock').newsChinaClock;
+  const dsLabel = () => newsChinaClock().isoDay;
   // 休市日要把标题标清楚：既保留「每日新闻」字样以走免闸通道，又不谎称「明日开盘」
   const digestLabel = () => {
-    if (isTradeDay(new Date())) return '每日新闻汇总';
-    const tmr = isTradeDay(new Date(Date.now() + 86400000));
+    if (isTradeDay(newsChinaClock())) return '每日新闻汇总';
+    const tmr = isTradeDay(newsChinaClock(Date.now() + 86400000));
     return tmr ? '休市要闻 · 每日新闻汇总（明日开盘）' : '休市要闻 · 每日新闻汇总';
   };
   // ⛔ 2026-10-12 补（本轮角度：定时推送静默漏发必须自己报平安）：
@@ -17255,9 +17256,9 @@ async function init() {
     pushLog('⏳ 汇总未送达诊断', line, { note: '定时推送健康自检' });
   }
   setInterval(() => {
-    const d = new Date();
+    const d = newsChinaClock();
     const t = d.getHours() * 60 + d.getMinutes();
-    const ds = todayStr();
+    const ds = d.dayKey;
     // ⛔ 窗口从 21:00-21:30 放宽到 21:00-23:59（但不越过 00:00，否则日期会标成第二天）。
     //    托管实例闲置就被回收，21:00 那一刻进程可能不在；冷启动后定时器从零开始，
     //    21:00-21:30 已经过去 → 当天汇总永久丢失。放宽后当晚任一时刻被唤醒都能补上。
@@ -17280,9 +17281,9 @@ async function init() {
   //    所以这条更怕"重复"也怕"丢"，用流水恢复闭锁，既不重放也不误判为已发）。
   // ⛔ weekendSentDate 已在模块顶层声明（自动定时器与手动补发共用同一把锁，见上方「今天已推送闭锁集中声明区」）
   setInterval(() => {
-    const d = new Date();
+    const d = newsChinaClock();
     const t = d.getHours() * 60 + d.getMinutes();
-    const ds = todayStr();
+    const ds = d.dayKey;
     // ⛔ 2026-10-05 修：原来无条件 `span>=3 就 return`，把长假里的每个周日（如国庆 10/4）
     //    都让给「假期开盘前汇总」—— 但全景只在【明天开盘】时才发，长假中间的周日
     //    （10/4 明天 10/5 仍休市）两边都不发 → 整晚一条新闻都没有。
@@ -17291,11 +17292,10 @@ async function init() {
     // ⛔ 窗口 21:00-21:45 → 21:00-23:59（2026-10-06 补漏）：周日晚上错过这 45 分钟就再也
     //    补不回来（过了午夜是周一，周一那份是"周一汇总"，周六+周日的内容永久丢失）。
     if (d.getDay() === 0 && t >= 21 * 60 && t < 24 * 60 && !sentToday(weekendSentDate, ds, /周末新闻汇总/, 21 * 60) && newsReady()) {
-      const d2 = new Date(Date.now() - 86400000); // 周六
-      const sat = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, '0')}-${String(d2.getDate()).padStart(2, '0')}`;
-      const sun = `${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)}`;
+      const sat = d.previousIsoDay; // 中国时间周六，不取云主机本地日期
+      const sun = d.isoDay;
       // 长假里的周日（如国庆 10/4）次日并不开盘，写成"开盘前必读"是误导 —— 按次日是否真开市决定措辞
-      const wkLabel = isTradeDay(new Date(Date.now() + 86400000))
+      const wkLabel = isTradeDay(newsChinaClock(Date.now() + 86400000))
         ? '周末新闻汇总 · 开盘前必读' : '周末新闻汇总 · 休市要闻';
       pushWecom(buildNewsDigest([sat, sun], wkLabel, 6), true);
       weekendSentDate = ds;   // 先发后置位：发送被闸门拦下时当天还能重试
