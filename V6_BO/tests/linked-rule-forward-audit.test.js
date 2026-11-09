@@ -35,6 +35,8 @@ test('explicit opt-in evaluates five independent rule IDs at 1/5/20/60 sessions'
  const r=evaluate(history,{...opts,includeLinkedRules:true,linkedSeries});
  assert.equal(r.rules.length,5);
  assert.equal(r.configuration.includeLinkedRules,true);
+ assert.ok(r.ruleInputDiagnostics.sector_market_relative20.candidateDays>0);
+ assert.equal(r.ruleInputDiagnostics.sector_market_relative20.unverifiedInputDays,0);
  assert.equal(r.verifiedLive,false);assert.equal(r.canTrade,false);
  assert.equal(r.autoPromotion,false);assert.equal(r.weightsChanged,false);
  assert.ok(r.events.some(x=>x.ruleId==='donchian20_liquidity'));
@@ -61,6 +63,8 @@ test('without aligned market/sector series, relative momentum produces zero sign
  assert.ok(Object.values(relative.byHorizon).every(x=>x.signals===0&&x.averageNetReturnPct===null));
  assert.ok(r.events.some(x=>x.ruleId==='donchian20_liquidity'||x.ruleId==='narrow_range_expansion'));
  assert.equal(r.configuration.includeLinkedRules,true);
+ assert.ok(r.ruleInputDiagnostics.sector_market_relative20.unverifiedInputDays>0);
+ assert.equal(r.ruleInputDiagnostics.sector_market_relative20.candidateDays,0);
 });
 test('dated linked series are cut off on each signal date; later benchmarks cannot alter earlier signals',()=>{
  const {history,linkedSeries,dates}=dataset();
