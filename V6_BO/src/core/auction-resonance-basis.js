@@ -9,13 +9,13 @@ const MINUTE=(s)=>{
   const h=+m[1],min=+m[2],sec=+(m[3]||0);
   return h<=23&&min<=59&&sec<=59?h*60+min+sec/60:null;
 };
-function auditAuctionResonanceBasis({auction,stockSnapshotAt,now,expectedDay,stockSnapshotDay}={}){
+function auditAuctionResonanceBasis({auction,stockSnapshotAt,now,calendarDay,expectedDay,stockSnapshotDay}={}){
   const base={status:'unknown',reason:'原始竞价来源/日期待核验',auctionDay:null,
     stockSnapshotDay:DAY.test(stockSnapshotDay||'')?stockSnapshotDay:null,
     capturedAt:null,providerQuoteAt:null,verifiedLive:false,
     executedAmountCertified:false,eligibleForAuctionEvidence:false,
     phase:null,stale:true};
-  if(!Number.isSafeInteger(now)||now<=0||!DAY.test(expectedDay||'')||
+  if(!Number.isSafeInteger(now)||now<=0||!DAY.test(calendarDay||'')||!DAY.test(expectedDay||'')||
      !Number.isSafeInteger(stockSnapshotAt)||stockSnapshotAt<=0||
      stockSnapshotAt>now||!base.stockSnapshotDay)
     return {...base,reason:'行情快照接收时点或交易日不可信，不能拼接竞价证据'};
@@ -28,9 +28,9 @@ function auditAuctionResonanceBasis({auction,stockSnapshotAt,now,expectedDay,sto
     phase===2?(tm!==null&&tm>=560&&tm<565):
     phase===3?(tm!==null&&tm>=565&&tm<570):false;
   const common={...base,auctionDay:day,phase,capturedAt:null};
-  if(day!==expectedDay||day!==stockSnapshotDay)
+  if(day!==calendarDay||day!==expectedDay||day!==stockSnapshotDay)
     return {...common,status:'stale-auction-snapshot',
-      reason:'竞价日与目标交易日或全市场快照日不一致；禁止跨日拼接'};
+      reason:'竞价日与北京时间当前日期、目标交易日或全市场快照日不一致；禁止跨日拼接'};
   if(!phaseMatches)
     return {...common,status:'unverifiable-auction-phase',
       reason:'竞价阶段与快照时刻不对应，或由盘中累计行情补算；不能作为竞价证据'};
