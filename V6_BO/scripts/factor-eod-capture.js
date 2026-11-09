@@ -2,7 +2,8 @@
 'use strict';
 // Opt-in local-only daily capture. The authorized market/factor producers are
 // separate; this script does NOT scrape quotes or generate unknown factors.
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const {readJson}=require('../src/core/forward-tracking-store');
 const {captureFactorEpisode}=require('../src/core/factor-evidence-capture');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
@@ -23,7 +24,8 @@ function parse(args){
 function filesFor(outputDir,day){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day))throw Error('文件日期不合法');
  return {cohortFile:safeNew(path.join(outputDir,'cohort-'+day+'.json')),
-  featuresFile:safeNew(path.join(outputDir,'features-'+day+'.json'))};
+  featuresFile:safeNew(path.join(outputDir,'features-'+day+'.json')),
+  receiptFile:safeNew(path.join(outputDir,'receipt-'+day+'.json'))};
 }
 function publish(file,record){
  if(fs.existsSync(file)){
@@ -50,12 +52,44 @@ function runOnce({picksFile,marketFile,factorFile,outputDir,now=Date.now()}={}){
  try{
   fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
   const picks=readJson(picksFile),market=readJson(marketFile),factorSnapshot=readJson(factorFile);
+  if(!Number.isSafeInteger(picks?.asOf)||picks.asOf<=0)
+   throw Error('选股时点无效');
+  const day=chinaDay(picks.asOf),files=filesFor(outputDir,day);
+  const inputFingerprint=hash({picks,market,factorSnapshot});
+  if(fs.existsSync(files.receiptFile)){
+   // The receipt is published last. Same evidence may be retried after the
+   // 5-minute live capture window without re-freezing retrospective signals.
+   const receipt=readJson(files.receiptFile);
+   const {integrity,...payload}=receipt;
+   const cohort=readJson(files.cohortFile),features=readJson(files.featuresFile);
+   const {fingerprint:cohortSeal,...cohortBody}=cohort;
+   const {fingerprint:featureSeal,...featureBody}=features;
+   if(integrity!==hash(payload)||receipt.mode!=='causal-factor-eod-capture-receipt'||
+      receipt.signalDay!==day||receipt.inputFingerprint!==inputFingerprint||
+      receipt.cohortFingerprint!==cohortSeal||
+      receipt.featureFingerprint!==featureSeal||
+      cohortSeal!==hash(cohortBody)||featureSeal!==hash(featureBody)||
+      cohort.mode!=='frozen-forward-signal-cohort'||
+      features.mode!=='frozen-factor-feature-episode'||
+      features.cohortFingerprint!==cohortSeal||features.signalDay!==day||
+      receipt.createdAt>now||cohort.frozenAt>now||features.capturedAt>now)
+    throw Error('同日冻结输入或不可变研究回执发生变化，拒绝重复采集');
+   return {ok:true,mode:'causal-factor-eod-capture',
+    status:'already-frozen-identical',day,
+    signals:cohort.signals.length,selectedFactors:features.factors.map(x=>x.id),
+    withheldFactorCount:15-features.factors.length,
+    cohortFingerprint:cohortSeal,featureFingerprint:featureSeal,
+    canTrade:false,productionWeightsChanged:false};
+  }
   const result=captureFactorEpisode({candidates:picks,market,factorSnapshot,now});
-  const files=filesFor(outputDir,result.features.signalDay);
-  const cohortNew=publish(files.cohortFile,result.cohort);
-  const featuresNew=publish(files.featuresFile,result.features);
-  return {ok:true,mode:'causal-factor-eod-capture',status:cohortNew||featuresNew?
-    'new-frozen-evidence':'already-frozen-identical',
+  publish(files.cohortFile,result.cohort);
+  publish(files.featuresFile,result.features);
+  const receiptBody={schemaVersion:1,mode:'causal-factor-eod-capture-receipt',
+   signalDay:day,createdAt:now,inputFingerprint,
+   cohortFingerprint:result.cohort.fingerprint,
+   featureFingerprint:result.features.fingerprint,canTrade:false};
+  publish(files.receiptFile,{...receiptBody,integrity:hash(receiptBody)});
+  return {ok:true,mode:'causal-factor-eod-capture',status:'new-frozen-evidence',
    day:result.features.signalDay,signals:result.cohort.signals.length,
    selectedFactors:result.features.factors.map(x=>x.id),
    withheldFactorCount:result.withheldFactorCount,
