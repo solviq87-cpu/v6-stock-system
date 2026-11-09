@@ -107,6 +107,28 @@
     const link = node('a', '', '查看策略研究与详细风控');
     link.href = '/research.html#decisionWorkspace';
     card.append(link);
+    // One read-only event per explicit user selection. Keep this controller as
+    // the single owner of the cached candidate pool and risk/quote provenance.
+    const pickedCode = String(item.code || item.symbol || '');
+    if (/^\d{6}$/.test(pickedCode)) {
+      const view = node('button', 'pick-open', '查看K线与命中依据');
+      view.type = 'button';
+      view.setAttribute('aria-label', '查看' + String(item.name || pickedCode) + '的K线与命中依据');
+      view.addEventListener('click', () => {
+        const at = formatAt(item.vendorQuoteAt || item.quoteAt);
+        const risk = item.riskStatus || item.risk?.status || item.risk?.level ||
+          item.riskLevel || (item.blocked === true || item.risk?.blocked === true ? '风险阻断 · 需核对' : '风险未评估');
+        document.dispatchEvent(new CustomEvent('v6:picks-select', { detail: {
+          code: pickedCode, name: String(item.name || pickedCode).slice(0, 80),
+          sector: typeof item.sector === 'string' ? item.sector.slice(0, 70) : null,
+          price: number(item.price ?? item.last ?? item.close),
+          pct: number(item.pct ?? item.changePct),
+          reasons: reasonRows(item), risk: String(risk).slice(0, 160),
+          provenance: at ? '第三方自报报价时间：' + at + ' · 未认证实时' : '逐票原始报价时点未知 · 非实时认证'
+        }}));
+      });
+      card.append(view);
+    }
     return card;
   };
   const render = () => {
@@ -131,6 +153,11 @@
     for (const x of items.slice(0, 100)) fragment.append(showItem(x));
     root.append(fragment);
   };
+  const clearProtectedState = () => {
+    state.items = []; state.hasData = false; state.lastRefresh = 0;
+    $('day').textContent = '未知'; $('cloudSync').textContent = '访问权限已失效';
+    document.dispatchEvent(new Event('v6:picks-unauthorized'));
+  };
   const load = async () => {
     const id = ++state.requestId;
     if (state.controller) state.controller.abort();
@@ -147,12 +174,16 @@
         headers: { Accept: 'application/json' }
       });
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) throw new Error('没有只读查看权限，请先到手机速览页登录。');
+        if (response.status === 401 || response.status === 403) {
+          clearProtectedState(); throw new Error('没有只读查看权限，请先到手机速览页登录。');
+        }
         throw new Error('接口 HTTP ' + response.status);
       }
       const data = await response.json();
       if (id !== state.requestId) return;
-      if (data?.locked === true) throw new Error('当前身份无权查看候选池，请先登录。');
+      if (data?.locked === true) {
+        clearProtectedState(); throw new Error('当前身份无权查看候选池，请先登录。');
+      }
       if (data?.ok === false) throw new Error(String(data.error || data.note || '云端候选数据不可用'));
       if (data?.isMock === true || data?.simulated === true) throw new Error('服务端返回演示数据，已拒绝展示为真实选股');
       if (!Array.isArray(data?.items)) throw new Error('候选接口未返回有效列表');
