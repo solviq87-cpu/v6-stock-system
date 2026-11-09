@@ -10,6 +10,7 @@ const crypto=require('node:crypto');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const chinaDay=now=>new Date(now+8*3600000).toISOString().slice(0,10);
 const HOST='open.feishu.cn';
+const MAX_HISTORY=64,MAX_DAILY_SENDS=12,COOLDOWN_MS=120000;
 
 function prepareRiskSummary(report,{now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0||!report||
@@ -40,7 +41,10 @@ function prepareRiskSummary(report,{now=Date.now()}={}){
    counts.conflicts<0||counts.conflicts>count)throw Error('报价覆盖率无效');
  const day=chinaDay(now),codes=alerts.filter(a=>a.severity!=='unknown')
    .map(a=>a.code).sort();
- const fingerprint=sha({day,counts,codes});
+ // Hash private event IDs without persisting or disclosing securities or positions.
+ const privateEventIds=alerts.filter(a=>a.severity!=='unknown').map(a=>a.id).sort();
+ if(privateEventIds.some(id=>typeof id!=='string'||id.length>128))throw Error('风险事件ID无效');
+ const fingerprint=sha({day,counts,codes,privateEventIds});
  const message='V6 本机只读风险观察（'+day+'）\n高风险 '+counts.critical+
    ' 条，普通风险 '+counts.warning+' 条，未知/待核验 '+counts.unknown+
    ' 条；观察持仓 '+count+' 只。\n数据来源与报价未经独立认证，消息不代表券商持仓或交易指令。请到自己的本机页面核对。';
@@ -66,27 +70,52 @@ function checkState(file){
  let stat=null;
  try{stat=fs.lstatSync(file);}
  catch(e){if(e.code!=='ENOENT')throw e;}
- if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>8192))
+ if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>32768))
   throw Error('去重记录不安全');
  return file;
+}
+function validateEvent(x){
+ return x&&typeof x==='object'&&/^\d{4}-\d{2}-\d{2}$/.test(x.day||'')&&
+  /^[a-f0-9]{64}$/.test(x.fingerprint||'')&&
+  ['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)&&
+  Number.isSafeInteger(x.at)&&x.at>0&&Number.isSafeInteger(x.critical)&&
+  x.critical>=0&&x.critical<=100;
 }
 function readState(file){
  if(!fs.existsSync(file))return null;
  const x=JSON.parse(fs.readFileSync(file,'utf8'));
- if(x?.schemaVersion!==1||x.mode!=='v6-private-feishu-gateway-receipt'||
-   typeof x.day!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(x.day)||
+ const mode='v6-private-feishu-gateway-receipt';
+ if(x?.mode!==mode)throw Error('持久化提醒记录损坏');
+ if(x.schemaVersion===1){
+  // Compatible with earlier one-event records; unknown old delivery stays reserved.
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(x.day||'')||
    !/^[a-f0-9]{64}$/.test(x.fingerprint||'')||
    !['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)||
-   !Number.isSafeInteger(x.at))throw Error('持久化提醒记录损坏');
- return x;
+   !Number.isSafeInteger(x.at)||x.at<=0)throw Error('持久化提醒记录损坏');
+  return {history:[{day:x.day,fingerprint:x.fingerprint,status:x.status,at:x.at,critical:0}]};
+ }
+ if(x.schemaVersion!==2||!Array.isArray(x.history)||!x.history.length||
+   x.history.length>MAX_HISTORY||x.history.some(e=>!validateEvent(e))||
+   typeof x.digest!=='string')throw Error('持久化提醒记录损坏');
+ const keys=x.history.map(e=>e.day+'|'+e.fingerprint);
+ if(new Set(keys).size!==keys.length||
+  sha({schemaVersion:2,mode,history:x.history})!==x.digest)
+  throw Error('持久化提醒记录损坏');
+ return {history:x.history};
 }
-function writeState(file,state){
+function writeState(file,history){
+ const mode='v6-private-feishu-gateway-receipt';
+ if(!Array.isArray(history)||history.length<1||history.length>MAX_HISTORY||
+   history.some(x=>!validateEvent(x)))throw Error('风险去重历史无效');
+ const base={schemaVersion:2,mode,history};
+ const body=JSON.stringify({...base,digest:sha(base)})+'\n';
+ if(Buffer.byteLength(body)>32768)throw Error('风险去重记录超限');
  const tmp=file+'.'+process.pid+'.tmp';
  let fd;
  try{
   fd=fs.openSync(tmp,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
-  fs.writeFileSync(fd,JSON.stringify(state)+'\n','utf8');
-  fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
+  fs.writeFileSync(fd,body,'utf8');fs.fsyncSync(fd);
+  fs.closeSync(fd);fd=undefined;
   fs.renameSync(tmp,file);
  }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(tmp);}catch{}}
 }
@@ -104,15 +133,27 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
  let lockFd;
  try{
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
-  const old=readState(file);
-  // Unknown results never automatically resend; manual inspection is required.
-  if(old&&old.day===summary.day&&old.fingerprint===summary.fingerprint)
-   return {status:'deduplicated-'+old.status,canTrade:false,
-     gatewayAccepted:old.status==='gateway-accepted',deliveredToDevice:false,
-     counts:summary.counts};
-  const record={schemaVersion:1,mode:'v6-private-feishu-gateway-receipt',
-    day:summary.day,fingerprint:summary.fingerprint,status:'pending-unknown',at:now};
-  writeState(file,record);
+  const prior=readState(file)?.history||[];
+  const matching=prior.find(x=>x.day===summary.day&&x.fingerprint===summary.fingerprint);
+  if(matching)
+   return {status:'deduplicated-'+matching.status,canTrade:false,
+    gatewayAccepted:matching.status==='gateway-accepted',deliveredToDevice:false,
+    counts:summary.counts};
+  const today=prior.filter(x=>x.day===summary.day);
+  if(today.length>=MAX_DAILY_SENDS)
+   return {status:'daily-limit',canTrade:false,gatewayAccepted:false,
+    deliveredToDevice:false,counts:summary.counts};
+  const last=today.at(-1);
+  // New critical risk can bypass cooldown, not a repeated digest.
+  if(last&&now-last.at<COOLDOWN_MS&&summary.counts.critical<=last.critical)
+   return {status:'cooldown',canTrade:false,gatewayAccepted:false,
+    deliveredToDevice:false,counts:summary.counts};
+  const record={day:summary.day,fingerprint:summary.fingerprint,
+   status:'pending-unknown',at:now,critical:summary.counts.critical};
+  // Retain today's complete history. Drop only older days when space is needed.
+  const older=prior.filter(x=>x.day!==summary.day).slice(-(MAX_HISTORY-1-today.length));
+  const history=[...older,...today,record];
+  writeState(file,history);
   let status='pending-unknown',accepted=false;
   const controller=new AbortController();
   let timer;
@@ -132,7 +173,7 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
    // 5xx / socket close / invalid JSON are unknown and must not be retried.
   }catch{/* unknown, do not automatically retry */}
   finally{clearTimeout(timer);}
-  writeState(file,{...record,status,at:now});
+  writeState(file,history.map(x=>x===record?{...x,status}:x));
   return {status,canTrade:false,gatewayAccepted:accepted,
     deliveredToDevice:false,counts:summary.counts};
  }finally{
