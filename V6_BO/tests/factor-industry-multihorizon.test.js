@@ -120,7 +120,8 @@ test('same stock repeated signals never masquerade as two independent industry s
  assert.equal(report.windows[1].duplicateSignalsExcluded,2);
  assert.equal(report.windows[1].uniqueSignals,5);
  assert.equal(report.windows[1].observedSignals,5);
- assert.equal(report.windows[1].factorIC.sector_heat.industryNeutralIC,null);
+ assert.equal(report.windows[1].factorIC.sector_heat.neutralSamples,5);
+ assert.equal(report.windows[1].factorIC.sector_heat.industryGroups,2);
 });
 test('future price evidence and invalid status are rejected rather than used for factor evaluation',()=>{
  const x=episode(0,{last:5});
