@@ -65,9 +65,9 @@ test('supplemental risk/news evidence stays available, but no longer displaces t
  assert.match(shell,/const dashboard=document\.createElement\('section'\)/);
 });
 test('phone and 1024px reference-style ranking show a compact price without losing quote provenance',()=>{
- assert.match(css,/body\\.vx-mobile \\.vx-dashboard td:nth-child\\(4\\)>small\\{display:none!important\\}/);
- assert.match(shell,/title="\\$\\{esc\\(quoteDescription\\(r\\)\\)\\}"/);
- assert.match(shell,/quoteDescription\\(row\\)/);
+ assert.ok(css.includes('body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}'));
+ assert.ok(shell.includes('title="${esc(quoteDescription(r))}"'));
+ assert.ok(shell.includes('quoteDescription(row)'));
 });
 test('feature parity and safety: original strategy, charts, permissions and cloud refresh not removed',()=>{
  for(const v of ['id="vx-indices"','id="vx-counts"','id="vx-strategies"','id="vx-rows"','id="vx-chart"','id="vx-explanation"'])assert.ok(shell.includes(v),v);
