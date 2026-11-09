@@ -19429,18 +19429,20 @@ function handle(req, res, u, body) {
         if (isReplica()) { try { await pullKlineDownstream(code); } catch (e) {} } // ho 轮：先向线上拉权威日K，再读（拉到即一致，拉不到静默沿用本地）
         const rows = await klineRows(code);
         if (!rows.length) return json(res, { ok: false, error: '暂无K线数据（本地缓存与行情接口都没取到）', code });
-        const n = Math.max(20, Math.min(240, Number(u.searchParams.get('n')) || 60));
-        const end = (u.searchParams.get('end') || '').replace(/[^0-9]/g, '');
-        let tail;
-        if (end) {
-          // 懒加载：取 end 之前最近的 n 根（蜡烛图左滑看更早数据）
-          let idx = rows.findIndex(r => String(r.date).replace(/-/g, '') < end);
-          if (idx < 0) idx = 0;
-          tail = rows.slice(Math.max(0, idx - n), idx);
-        } else tail = rows.slice(-n);
+        const cursorRaw = u.searchParams.get('end') || '';
+        const cursor = cursorRaw.replace(/-/g, '');
+        if (cursorRaw && !/^\\d{8}$/.test(cursor)) {
+          return json(res, { ok: false, error: 'K线历史游标格式无效（YYYYMMDD）' });
+        }
+        // Existing n cap (240) and public route stay unchanged. Historical
+        // pagination must find the FIRST bar on/after end, not the first
+        // earlier bar (which points at the beginning of an ascending series).
+        const page = require('./src/core/kline-read-pagination').paginateKlineRows(
+          rows, { n: u.searchParams.get('n'), end: cursor }
+        );
         json(res, {
-          ok: true, code, name: stockNameOf(code), asOf: tail[tail.length - 1].date, n: tail.length,
-          rows: tail, ma: klineMaOf(tail),
+          ok: true, code, name: stockNameOf(code), ...page,
+          ma: page.rows.length ? klineMaOf(page.rows) : null,
         });
       } catch (e) { json(res, { ok: false, error: (e && e.message) || String(e), code }); }
     })();
