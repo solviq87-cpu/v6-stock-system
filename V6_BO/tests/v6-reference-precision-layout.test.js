@@ -27,7 +27,8 @@ test('mobile bottom dock has seven real destinations and refresh action', () => 
   const end = mobile.indexOf('</div>\n</div>', start);
   const dock = mobile.slice(start, end);
   assert.equal((dock.match(/<a\s/g)||[]).length, 7);
-  assert.match(dock, /onclick="load\(\)"/);
+  assert.match(dock, /onclick="manualMobileRefresh\\(\\)"/);
+  assert.match(mobile, /function manualMobileRefresh\\(\\)/);
   assert.match(css, /grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
 });
 test('new reference layer is loaded after prior styles without removing legacy runtime', () => {
