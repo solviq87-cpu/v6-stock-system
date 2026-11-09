@@ -28,7 +28,8 @@ test('mobile loads reference theme and keeps original mobile runtime', () => {
 test('mobile bottom navigation uses real page destinations', () => {
   const foot = mobile.slice(mobile.indexOf('<div class="foot"'), mobile.indexOf('</div>\n\n<script>', mobile.indexOf('<div class="foot"')));
   for (const href of ['/m', '/research.html', './#v6-market', './']) assert.ok(foot.includes(`href="${href}"`), href);
-  assert.match(foot, /onclick="load\(\)"/);
+  assert.match(foot, /onclick="manualMobileRefresh\(\)"/);
+  assert.match(mobile, /function manualMobileRefresh\(\)/);
 });
 test('both themes preserve reduced motion and visible focus treatment', () => {
   assert.match(desktopCss, /prefers-reduced-motion/);

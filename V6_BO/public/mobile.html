@@ -143,7 +143,7 @@
       <div class="sub" id="sub">加载中…</div>
       <div class="pushstate" id="pushState" style="display:none"><i class="off"></i><span>推送状态</span></div>
     </div>
-    <div class="v6-mobile-actions"><a href="/research.html" aria-label="搜索与智能选股">⌕</a><a href="./#v6-news" aria-label="消息通知">♧</a><a href="./#lockPanel" aria-label="账户与身份">●</a></div>
+    <div class="v6-mobile-actions"><button type="button" id="mobileCloudRefresh" onclick="manualMobileRefresh()" aria-label="从云端刷新共享数据" title="仅重新读取云端数据，不会下单或重启行情采集" style="min-width:42px;min-height:42px;border-radius:10px;border:1px solid #415a77;background:transparent;color:inherit;cursor:pointer">⟳</button><a href="/research.html" aria-label="搜索与智能选股">⌕</a><a href="./#v6-news" aria-label="消息通知">♧</a><a href="./#lockPanel" aria-label="账户与身份">●</a></div>
   </div>
   <nav class="v6-mobile-reference-nav" aria-label="主要功能导航"><a class="active" href="/m">⌂ 首页</a><a href="/research.html">✦ 智能选股</a><a href="./#v6-strategy">♧ 策略研究</a><a href="./#v6-plan">▥ 回测分析</a><a href="./#v6-market">▤ 行情中心</a><a href="./#v6-paper">◉ 模拟交易</a></nav>
 
@@ -281,7 +281,7 @@
     <a href="./#v6-paper"><b>⇄</b><small>模拟交易</small></a>
     <a href="./#holdSec1"><b>⬡</b><small>风控</small></a>
     <a href="./"><b>♙</b><small>我的</small></a>
-    <button type="button" onclick="load()" class="v6-mobile-refresh-accessible" aria-label="刷新页面数据">刷新</button>
+    <button type="button" onclick="manualMobileRefresh()" class="v6-mobile-refresh-accessible" aria-label="从云端刷新页面数据">刷新</button>
   </div>
 </div>
 
@@ -525,6 +525,9 @@ async function checkMobVer(knownVer) {
 function onPageVisible() {
   if (document.hidden) return;
   if (Date.now() - _verChkAt > 15000) { _verChkAt = Date.now(); checkMobVer(); }
+  // iPhone Safari resumes suspended timers slowly; get shared cloud state now.
+  // Never ask the server to re-run price collection or send orders from a viewer.
+  if (document.getElementById('app').style.display !== 'none') manualMobileRefresh();
 }
 document.addEventListener('visibilitychange', onPageVisible);
 window.addEventListener('focus', onPageVisible);
@@ -1169,20 +1172,37 @@ async function loadWashTrend(force){
   } catch(e) {}
 }
 
+// Mobile and desktop are two read-only clients of ONE cloud state, not
+// independent authorities. Prevent overlapping responses from reverting a newer view.
+let _mobileLoadBusy = false, _mobileHasCloudState = false;
 async function load(){
+  if (_mobileLoadBusy) return false;
+  _mobileLoadBusy = true;
   const t = getToken();
   try {
     const r = await fetch('/api/mobile-digest' + (t ? '?token=' + encodeURIComponent(t) : ''), { cache: 'no-store' });
-    if (r.status === 401 || r.status === 403){ showGate(); return; }
+    if (r.status === 401 || r.status === 403){ _mobileHasCloudState = false; showGate(); return false; }
     if (!r.ok) throw new Error('http ' + r.status);
     const d = await r.json();
     render(d);
+    _mobileHasCloudState = true;
+    return true;
   } catch(e){
-    document.getElementById('err').style.display = '';
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('foot').style.display = 'none';
-    document.getElementById('gate').style.display = 'none';
-  }
+    // Cloud hiccup must not erase last known market snapshot or pretend it's live.
+    if (_mobileHasCloudState) {
+      document.getElementById('sub').textContent = '⚠️ 云端暂时断开 · 上次画面（非实时）';
+    } else {
+      document.getElementById('err').style.display = '';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('foot').style.display = 'none';
+      document.getElementById('gate').style.display = 'none';
+    }
+    return false;
+  } finally { _mobileLoadBusy = false; }
+}
+function manualMobileRefresh(){
+  _lastLoad = Date.now(); // Keep the auto poll from immediately duplicating the tap.
+  return load();
 }
 
 function showGate(){

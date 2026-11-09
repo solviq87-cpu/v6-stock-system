@@ -1,5 +1,7 @@
 # v6-stock-system
 
+> **手机/电脑同时刷新与周末新闻规则**：两端分别从同一云端读取数据，任意一端可用，不依赖另一端开机。周末新闻继续刷新、盘面保留最后交易日的快照日期。云端持久化部署仍需现场验证。详见 [双端云端与休市运行规则](V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md)。
+
 > **国内写入/部署交接入口**：用户指定 `https://acd98a1c1a46e6ce4.app.workbuddy.host`（文档 `/api/ai/doc?id=ai`）。下一位 AI 开工先读 [国内 WorkBuddy 写入目标及鉴权现状](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 与 [AGENTS.md](AGENTS.md)。此目标与下方历史研究预览站不是一回事；实际写入 API 和生产部署尚未认证，分享码/令牌禁止提交。
 V6 智能选股系统｜实时行情、智能选股、涨停复盘、风险控制
 
