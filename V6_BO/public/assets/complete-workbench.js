@@ -107,10 +107,27 @@ function renderForwardAudit(report){
  if(report.status==='unavailable'){
   add('p','无法验证：'+(report.reason||'历史证据不足'));return;
  }
+ const overlap=report.overlapDiagnostics;
+ if(overlap?.status==='descriptive-only'){
+  add('p','信号去重（同股同交易日）：原始命中 '+overlap.rawRuleSignals+
+   '｜股票日 '+overlap.uniqueStockDays+
+   '｜独立家族证据次数 '+overlap.independentFamilyExposures+
+   '｜同家族重复命中 '+overlap.sameFamilyDuplicateSignals+
+   '。同日共振不是独立回测样本，自动权重保持不变。');
+ }
  const horizon=report.configuration?.horizons||[];
  for(const rule of report.rules||[]){
   const detail=document.createElement('details');detail.className='card';root.append(detail);
   const heading=document.createElement('summary');heading.textContent=rule.label||rule.id;detail.append(heading);
+  const cohit=overlap?.byRule?.[rule.id];
+  if(cohit){
+   const note=document.createElement('p');
+   note.textContent='联动去重：命中交易日 '+cohit.signalDays+
+    '｜同家族重叠 '+cohit.sameFamilyOverlapDays+
+    '｜跨家族共振 '+cohit.otherFamilyOverlapDays+
+    '｜权重建议：'+cohit.reviewNote+'（本次未改权重）';
+   detail.append(note);
+  }
   const diagnostic=report.ruleInputDiagnostics?.[rule.id];
   if(diagnostic){
     const note=document.createElement('p');
