@@ -5,6 +5,7 @@
  * No access to production strategy weights or order execution.
  */
 const MIN_DAYS=15,MIN_REGIME_DAYS=8;
+const HORIZON_BLOCK_DAYS=5,MIN_BLOCK_DIRECTION_FRACTION=.75,MIN_ROBUST_IC=.02;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=(x,n=4)=>x===null?null:+x.toFixed(n);
 const mean=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
@@ -26,6 +27,21 @@ function assessFactorReliability(daily){
  const direction=Math.sign(overall||0);
  const agreed=n?ics.filter(x=>x*direction>0).length/n:0;
  const med=median(ics);
+ // Adjacent five-session outcomes can share the same future-price window.
+ // Evaluate non-overlapping COMPLETE horizon blocks rather than treating
+ // every correlated daily IC as independent confirmation. Partial trailing
+ // blocks remain in ordinary daily statistics but cannot certify persistence.
+ const blockMeans=[];
+ for(let i=0;i+HORIZON_BLOCK_DAYS<=n;i+=HORIZON_BLOCK_DAYS)
+  blockMeans.push(mean(ics.slice(i,i+HORIZON_BLOCK_DAYS)));
+ const latestBlockMean=blockMeans.length?blockMeans.at(-1):null;
+ const blockAgreement=blockMeans.length?
+  blockMeans.filter(x=>x*direction>0).length/blockMeans.length:0;
+ // A single exceptional day must not supply the whole training signal.
+ // Removing the strongest absolute IC is an influence check, not a new
+ // optimization objective or a replacement for future holdout testing.
+ const biggest=ics.reduce((best,x,i)=>Math.abs(x)>Math.abs(ics[best])?i:best,0);
+ const outlierRemovedMean=n>1?mean(ics.filter((_,i)=>i!==biggest)):null;
  const byRegime=Object.fromEntries(REGIMES.map(key=>{
   const xs=rows.filter(r=>r.regime===key).map(r=>r.ic);
   return [key,{days:xs.length,meanIC:round(mean(xs))}];
@@ -40,6 +56,14 @@ function assessFactorReliability(daily){
  if(n>=MIN_DAYS&&(!finite(early)||!finite(recent)||
    early*recent<=0||recent*direction<.05))
   reasons.push('recent-factor-decay-or-sign-reversal');
+ if(n>=MIN_DAYS&&blockAgreement<MIN_BLOCK_DIRECTION_FRACTION)
+  reasons.push('unstable-five-session-block-direction');
+ if(n>=MIN_DAYS&&(!finite(latestBlockMean)||
+    latestBlockMean*direction<=0))
+  reasons.push('latest-five-session-block-reversal');
+ if(n>=MIN_DAYS&&(!finite(outlierRemovedMean)||
+    outlierRemovedMean*direction<MIN_ROBUST_IC))
+  reasons.push('single-day-influence-dominates');
  if(contradictory)reasons.push('opposing-market-regime-effects');
  const reliable=reasons.length===0;
  // Shrink toward zero when the number of observed days, directional
@@ -47,12 +71,19 @@ function assessFactorReliability(daily){
  // just because one extreme observation swamps the mean.
  const confidence=reliable?
   clamp(n/30,0,1)*clamp(agreed/.85,0,1)*
-  clamp(Math.abs(recent)/Math.max(Math.abs(overall),.01),0,1):0;
+  clamp(Math.abs(recent)/Math.max(Math.abs(overall),.01),0,1)*
+  clamp(blockAgreement,0,1)*
+  clamp(Math.abs(outlierRemovedMean)/Math.max(Math.abs(overall),.01),0,1):0;
  const multiplier=reliable?clamp(overall*.2*confidence,-.08,.08):0;
  return {
   days:n,meanIC:round(overall),medianIC:round(med),
   earlyMeanIC:round(early),recentMeanIC:round(recent),
   directionConsistencyPct:round(agreed*100,2),
+  fiveSessionBlockDays:HORIZON_BLOCK_DAYS,
+  completeBlockCount:blockMeans.length,
+  blockDirectionConsistencyPct:round(blockAgreement*100,2),
+  latestBlockMeanIC:round(latestBlockMean),
+  outlierRemovedMeanIC:round(outlierRemovedMean),
   assessedRegimes:byRegime,
   regimeCoverageDays:rows.filter(r=>REGIMES.includes(r.regime)).length,
   opposingRegimeEffects:contradictory,
