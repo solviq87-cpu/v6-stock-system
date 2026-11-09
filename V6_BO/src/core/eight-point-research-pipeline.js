@@ -87,7 +87,7 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
  // They remain unavailable, never silently archived or considered fresh.
  const seenSymbols=new Set(watchItems.map(x=>x.symbol));
  for(const p of previousWatchStates){
-  if(p&&/^\\d{6}$/.test(p.symbol)&&!seenSymbols.has(p.symbol)){
+  if(p&&/^\d{6}$/.test(p.symbol)&&!seenSymbols.has(p.symbol)){
    watchItems.push({symbol:p.symbol,name:p.name||p.symbol,patternDate:date,
     quality:{usable:false,fresh:false,simulated:true},patterns:{matched:[]}});
    seenSymbols.add(p.symbol);
@@ -155,7 +155,7 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    missing:['公开策略版权/许可、交易数据适用权与正式晋级证据仍需人工核查']},
   testing:{status:'local-evidence-constructed-ci-not-self-attested',
    datasetFingerprint:sha(history),inputSourceStatus:sources,
-   dataQualityChecked:true,
+   dataQualityChecked:true,marketDataReviewReady:quality.reviewReady===true,
    accountReconciled:safetyBalanced,
    calendarStatus:calendar.valid===true?'explicit-calendar-checked':'not-externally-verified',
    ciVerifiedByThisReport:false,
