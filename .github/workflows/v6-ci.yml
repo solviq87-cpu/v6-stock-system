@@ -23,10 +23,27 @@ jobs:
       - name: Install pinned web build and test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build and verify causal browser research
+        id: webcheck
         run: |
           npm run build
           npm test
           git diff --exit-code -- dist
+      - name: Record web CI evidence in workflow summary
+        if: always()
+        env:
+          WEB_RESULT: ${{ steps.webcheck.outcome }}
+        run: |
+          {
+            echo "## V6 网页构建与测试"
+            echo ""
+            echo "| 门禁 | 结果 |"
+            echo "| --- | --- |"
+            echo "| 构建、浏览器测试及 dist 一致性 | $WEB_RESULT |"
+            echo ""
+            echo "提交：${GITHUB_SHA}"
+            echo ""
+            echo "仅为代码测试，不表示网页已部署或接通实时行情。"
+          } >> "$GITHUB_STEP_SUMMARY"
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -46,6 +63,7 @@ jobs:
       - name: Install Python ML test dependencies
         run: python -m pip install -r tools/requirements-models-optional.txt
       - name: Verify source and run tests
+        id: sourcecheck
         env:
           V6_MODEL_PYTHON: python
           V6_TEST_CONCURRENCY: '2'
@@ -57,8 +75,33 @@ jobs:
           npm run check
           npm test
       - name: Audit fourteen market-source registrations (offline only)
+        id: feedcheck
         run: node scripts/audit-market-source-catalog.js
       - name: Eleven-workstream release structure preflight (not production approval)
+        id: releasecheck
         run: node scripts/v6-release-preflight.js
       - name: Isolated full-server HTTP startup smoke
+        id: smokecheck
         run: node tests/full-server-isolated-smoke.js
+      - name: Record backend CI evidence in workflow summary
+        if: always()
+        env:
+          SOURCE_RESULT: ${{ steps.sourcecheck.outcome }}
+          FEED_RESULT: ${{ steps.feedcheck.outcome }}
+          RELEASE_RESULT: ${{ steps.releasecheck.outcome }}
+          SMOKE_RESULT: ${{ steps.smokecheck.outcome }}
+        run: |
+          {
+            echo "## V6 全链回归验收"
+            echo ""
+            echo "| 门禁 | 结果 |"
+            echo "| --- | --- |"
+            echo "| 语法与完整回归 | $SOURCE_RESULT |"
+            echo "| 14 数据源离线登记核验 | $FEED_RESULT |"
+            echo "| 11 主线发布结构预检 | $RELEASE_RESULT |"
+            echo "| 独立服务HTTP启动冒烟 | $SMOKE_RESULT |"
+            echo ""
+            echo "提交：${GITHUB_SHA}"
+            echo ""
+            echo "上述均为离线/隔离CI；国内网络、数据授权、真实提醒和生产发布另行验收。"
+          } >> "$GITHUB_STEP_SUMMARY"
