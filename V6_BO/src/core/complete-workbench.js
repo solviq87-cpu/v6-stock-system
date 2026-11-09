@@ -7,6 +7,7 @@ const {reconcileAccount}=require('./account-reconciliation');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {historicalExplanations}=require('./research-explanation-projection');
 const {evaluatePublicRuleForwardAudit}=require('../strategy/public-rule-forward-audit');
+const {buildEightPointEvidence}=require('./eight-point-research-pipeline');
 function runCompleteWorkbench(payload){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
   const history=payload.history,ds=validateDataset(history);
@@ -41,9 +42,13 @@ function runCompleteWorkbench(payload){
         reason:String(e?.message||'无法完成样本外评估').slice(0,180)};
     }
   }
+  const reconciliation={backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)};
+  const strategies={coverage:native.coverage,details:native.details,replay:native.replay};
+  const eightPointFlow=buildEightPointEvidence({history,selectionEvidence,
+    publicRuleForwardAudit,reconciliation,strategies,calendar});
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
-    backtest,paper:session.report,reconciliation:{backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)},
-    strategies:{coverage:native.coverage,details:native.details,replay:native.replay},selectionEvidence,
+    backtest,paper:session.report,reconciliation,
+    strategies,selectionEvidence,eightPointFlow,
     ...(payload.validatePublicRules===true?{publicRuleForwardAudit}:{}),
     externalAcceptance:['供应商行情授权及对账','真实短信送达','生产HTTPS和跨机恢复','电脑手机真机验收']};
 }
