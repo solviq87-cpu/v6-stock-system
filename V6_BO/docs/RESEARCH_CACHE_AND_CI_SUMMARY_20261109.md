@@ -5,7 +5,7 @@
 浏览器和手机旧 Service Worker 可能继续显示旧脚本。应用原有 `APP_VER` 服务端、手机、SW仍使用 `20261107bs`。
 
 ## 修复
-- 服务器 `server.js` 的 `APP_VER`、`public/mobile.html`、`public/sw.js` 同步为 `20261109cr1`；
+- 服务器 `server.js` 的 `APP_VER`、`public/mobile.html`、`public/sw.js` 同步为 `20261109cr`；
   `public/index.html` 的核心入口和通用资源版本参数同步，触发浏览器缓存更新。
 - `public/research.html` 的综合研究脚本使用 `20261109rps1`，确保出现新信号分段与横向板块分位展示。
 - 修改仅针对版本标识，不动报价时点、权限、真实/模拟资金、原四套选股规则、回测算法或PWA缓存策略本身。
