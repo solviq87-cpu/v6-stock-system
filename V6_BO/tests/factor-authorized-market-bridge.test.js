@@ -145,10 +145,12 @@ test('bridge sync publishes private 0600 dataset and safely appends later tradin
  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).asOf,dates[33]);
  assert.equal(fs.statSync(out).mode&0o777,0o600);
  const bad=structuredClone(next.history);
- bad.stocks[0].bars[0].close+=1;
+ // Mutate the old close just enough to remain within original OHLC
+ // bounds; the append guard, not a generic malformed-bar check, must reject.
+ bad.stocks[0].bars[0].close+=.001;
  fs.writeFileSync(files.historyFile,JSON.stringify(bad));
  assert.throws(()=>bridgeOnce({sourceFile:files.historyFile,outputFile:out,
-  mode:'sync',now:next.now}),/改价/);
+  mode:'sync',now:next.now}),/回写|改价/);
  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).asOf,dates[33]);
 });
 test('preflight reports readiness without writing, even when a source or signal is invalid',t=>{
