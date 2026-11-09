@@ -6,12 +6,12 @@ const match=/async function auctionResonanceScan\(opts = \{\}\) \{[\s\S]*?\n\}\n
 const now=Date.parse('2026-11-09T09:25:45+08:00');
 function engine(){
  assert.ok(match,'missing real scan function');
- const events={pushed:0,logged:0,computed:0};
+ const events={pushed:0,logged:0,computed:0,klineFetches:0,smoothPreviews:0,smoothWrites:0};
  const S={
   stocks:[
    {code:'000001',name:'A1',price:10.2,pct:2.2},
    {code:'000002',name:'A2',price:10.3,pct:2.3}
-  ],stocksAt:now-20000,
+  ],stocksAt:now-20000,klines:new Map(),
   sectors:[{name:'半导体',mainInflow:100000000,pct:2.5}],
   auction:{date:'20261109',phase:3,time:'09:25:07',
    strong:[
@@ -38,12 +38,14 @@ function engine(){
   quoteDayOf:()=> '20261109',
   buildZTRoleMap:()=>new Map(),
   maxDrawdown:()=>null,
-  scoreSmoothOf:(code,score)=>({score:Math.round(score),rawScore:Math.round(score),
-   trend:0,trendText:'平稳'}),
+  scoreSmoothOf:(code,score,dryRun=false)=>{
+   if(dryRun)events.smoothPreviews++;else events.smoothWrites++;
+   return {score:Math.round(score),rawScore:Math.round(score),trend:0,trendText:'平稳'};
+  },
   empNdProb:()=>null,
   isTradeDay:()=>true,
   isTradingTime:()=>true,
-  klineRows:async()=>[],
+  klineRows:async()=>{events.klineFetches++;return [];},
   pushAuctionResonanceTop3:()=>{events.pushed++;},
   logSignal:()=>{events.logged++;},
   console:{error:()=>{}}
@@ -61,6 +63,9 @@ test('viewer GET recomputes market research without push, learning writes or tra
  assert.equal(r.auctionEvidence.providerQuoteAt,null);
  assert.equal(events.pushed,0);
  assert.equal(events.logged,0);
+ assert.equal(events.klineFetches,0,'viewer must not trigger a historical Kline fetch');
+ assert.equal(events.smoothWrites,0,'viewer must not update EMA state');
+ assert.equal(events.smoothPreviews,2);
  assert.ok(events.computed>=1);
 });
 test('different page max counts do not poison 30 second board cache',async()=>{
@@ -83,6 +88,8 @@ test('only internal scheduled scan may emit existing legacy learning/Feishu even
  await scan({board:'all',max:2,force:true,internal:true});
  assert.equal(events.logged,2);
  assert.equal(events.pushed,1);
+ assert.ok(events.klineFetches>=2,'server scheduled scan retains normal internal Kline ability');
+ assert.ok(events.smoothWrites>=2,'server owned scan may record actual smoothing observations');
 });
 test('Friday recovered auction and Monday stock quotes never mix; internal tick refuses stale send',async()=>{
  const {scan,S,events}=engine();
@@ -116,6 +123,23 @@ test('Monday 09:00 with Friday old snapshot cannot be treated as current auction
  assert.equal(basis.status,'stale-auction-snapshot');
  S.auction.date=origDate;S.stocksAt=origAt;
  assert.equal(events.logged,0);assert.equal(events.pushed,0);
+});
+test('pure EMA preview leaves global trend map unchanged, internal observation still advances',()=>{
+ const match=/function scoreSmoothOf\(code, raw, dryRun = false\) \{[\s\S]*?\n\}/.exec(server);
+ assert.ok(match);
+ const hist=new Map();
+ class Clock extends Date{static now(){return now;}}
+ const fn=vm.runInNewContext(match[0]+'\nscoreSmoothOf;',{Date:Clock,Math,Array,Map,
+  _scoreHist:hist});
+ const initial=fn('000001',80,true);
+ assert.equal(initial.rawScore,80);
+ assert.equal(hist.size,0,'preview without prior observation cannot create EMA state');
+ fn('000001',50);
+ const old=JSON.stringify([...hist.entries()]);
+ fn('000001',95,true);
+ assert.equal(JSON.stringify([...hist.entries()]),old,'preview must not mutate nested history arrays');
+ fn('000001',95);
+ assert.notEqual(JSON.stringify([...hist.entries()]),old,'internal event updates EMA');
 });
 test('public browser route does not pass hidden internal flag; server scheduler is guarded',()=>{
  assert.match(server,/await auctionResonanceScan\(\{ force, max, board \}\)/);
