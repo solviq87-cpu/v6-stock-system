@@ -19,7 +19,7 @@ const keys=Object.freeze([
 ]);
 const note='仅为统一的历史研究证据摘要。数据来源自报、行情许可、真实提醒与实际部署均未验收；不产生下单或自动调权指令。';
 function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAudit,
- reconciliation,strategies,calendar}={}){
+ reconciliation,strategies,calendar,previousWatchStates=[]}={}){
  if(!history||!Array.isArray(history.stocks)||!selectionEvidence||
    !reconciliation||!strategies||!calendar)throw Error('八项联动缺少已有完整研究输出');
  const quality=auditMarketData(history);
@@ -83,7 +83,17 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
  // An offline report cannot depend on wall-clock time: missing dates never become fresh.
  const clock=isoDay(quality.lastDate)?Date.parse(quality.lastDate+'T15:00:00+08:00'):
   Date.parse('2000-01-01T15:00:00+08:00');
- const watch=updateLifecycle({items:watchItems,now:clock});
+ // Retain previously observed symbols missing from the latest imported sample.
+ // They remain unavailable, never silently archived or considered fresh.
+ const seenSymbols=new Set(watchItems.map(x=>x.symbol));
+ for(const p of previousWatchStates){
+  if(p&&/^\\d{6}$/.test(p.symbol)&&!seenSymbols.has(p.symbol)){
+   watchItems.push({symbol:p.symbol,name:p.name||p.symbol,patternDate:date,
+    quality:{usable:false,fresh:false,simulated:true},patterns:{matched:[]}});
+   seenSymbols.add(p.symbol);
+  }
+ }
+ const watch=updateLifecycle({items:watchItems,previous:previousWatchStates,now:clock});
  const officialWatch=new Set((selectionEvidence.researchWatchlist||[]).map(x=>x.symbol));
  const researchWatch=watch.states.filter(x=>officialWatch.has(x.symbol)&&
   x.dataStatus==='observed-research-only'&&['observe','focus','risk-review'].includes(x.stage));
@@ -114,7 +124,10 @@ function buildEightPointEvidence({history,selectionEvidence,publicRuleForwardAud
    missing:sectorRows.length?['板块成分、覆盖率和实际资金流未经独立对账']:['缺少同日有效板块涨跌及行业映射']},
   stock:{status:selectionEvidence.status==='evaluated'?'historical-research-only':'unavailable',
    candidates:candidates.length,watch:researchWatch,
-   watchPools:watch.pools,notPersistedAcrossDates:true,
+   watchPools:watch.pools,watchStates:watch.states,
+   previousStateCount:previousWatchStates.length,
+   retainedUnavailableCount:watch.states.filter(x=>x.dataStatus==='unavailable').length,
+   notPersistedAcrossDates:true,
    missing:['连续跨交易日观察池状态尚未由本次一键研究持久化；未验证券商行情和企业行为']},
   explanation:{status:explanations.length?'historical-research-only':'unavailable',
    stocks:explanations,causalAttributionVerified:false,
