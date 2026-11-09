@@ -11050,7 +11050,7 @@ async function auctionResonanceScan(opts = {}) {
 
       score = Math.max(0, Math.min(100, Math.round(score)));
       // ln：磁滞平滑+持续性趋势（rawScore=本秒原始分，score=EMA 平滑分，trend=惯性方向）
-      const _sm = scoreSmoothOf(code, score);
+      const _sm = scoreSmoothOf(code, score, !internal);
 
       // jy 轮：auczt 双口径并列——当日封板概率 + 次日+3%命中率。
       const probToday = (auc && S.auction && S.auction.ztProbMap && S.auction.ztProbMap[code])
@@ -11085,7 +11085,10 @@ async function auctionResonanceScan(opts = {}) {
     // ls/ny：所有选中票强制过筹码+十日量能+K线形态（用户硬要求，全页面统一）——top 内逐只 K线判定后微调分并重排
     for (const it of top) {
       try {
-        const rows = await klineRows(it.code);
+        // Read-only clients use the existing Kline cache only; they cannot
+        // cause historical provider refreshes or disk writes.
+        const cached = S.klines?.get?.(it.code);
+        const rows = internal ? await klineRows(it.code) : (cached?.rows || []);
         if (!rows || rows.length < 15) continue;
         const chip = (typeof A.chipPeakOf === 'function') ? A.chipPeakOf(rows) : null;
         const vol = (typeof A.volTenOf === 'function') ? A.volTenOf(rows) : null;
@@ -11772,16 +11775,19 @@ function aKillOf(rows) {
 // scoreSmoothOf：EMA 平滑（新分 = 0.55×当前 + 0.45×历史 EMA，分钟级噪声被 damping；30 分钟未见重置）；
 // trendOf：近 5 次 EMA 的斜率 → 走强/走平/转弱 ——「下一秒还行不行」由惯性是否在回答，而非单秒快照。
 const _scoreHist = new Map();
-function scoreSmoothOf(code, raw) {
+function scoreSmoothOf(code, raw, dryRun = false) {
   const now = Date.now();
   let e = _scoreHist.get(code);
+  // A page view is not a new observation: preview from a copy, not the
+  // shared trend history used by the internal scheduled scan.
+  if (dryRun && e) e = {...e,hist:Array.isArray(e.hist)?e.hist.slice():[]};
   if (!e || now - e.at > 30 * 60 * 1000) e = { ema: raw, hist: [raw], at: now };
   else {
     e.ema = +(0.55 * raw + 0.45 * e.ema).toFixed(1);
     e.hist.push(e.ema); if (e.hist.length > 5) e.hist.shift();
     e.at = now;
   }
-  _scoreHist.set(code, e);
+  if (!dryRun) _scoreHist.set(code, e);
   const h = e.hist;
   let trend = 'flat', trendText = '持续性：样本积累中';
   if (h.length >= 3) {
