@@ -62,8 +62,11 @@ const server=http.createServer((req,res)=>{
    await page.waitForFunction(()=>document.querySelector('#periodChart svg'));
    assert.match(await page.locator('#pickDetailCaption').textContent(),/测试股票甲/);
    await page.locator('[data-period="month"]').click();
-   await page.waitForFunction(()=>document.getElementById('periodStatus')?.textContent?.includes('最早未完整周期已隐藏'));
    const completeFirstPage=aggregate(series.slice(-240),'month').length-1;
+   // The loading spinner can replace the intermediate caption in the same
+   // input event, so assert real visible candles rather than a transient label.
+   await page.waitForFunction(n=>document.querySelectorAll('#periodChart svg g').length===n,
+     completeFirstPage,{timeout:8000});
    assert.equal(await page.locator('#periodChart svg g').count(),completeFirstPage,
      'must not render the first, truncated monthly candle while older pages remain');
    await page.waitForFunction(()=>document.getElementById('periodStatus')?.textContent?.includes('历史起点可能从上市日开始'),null,{timeout:10000});
