@@ -131,3 +131,15 @@
  body.vx-mobile .vx-dashboard table th,body.vx-mobile .vx-dashboard table td{font-size:10px!important;padding:7px 2px!important}
 }
 @media(prefers-reduced-motion:reduce){.vx-shell *,.vx-dashboard *,.vx-mobile-dock *{transition:none!important;animation:none!important}}
+
+/* The 1024px reference mobile composition must not print a long quote timestamp inside price cells. The row retains it in a title and selected stock details. */
+body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}
+
+/* 1024px reference composition: the semicircle percentage and subtitle must be distinct text rows. */
+@media(min-width:701px) and (max-width:1100px){
+ body.vx-mobile .vx-market-strip>.vx-mood{display:grid;grid-template-rows:auto minmax(0,1fr) auto;justify-items:center;align-items:center}
+ body.vx-mobile .vx-market-strip .vx-gauge{width:140px;max-width:140px;height:76px;margin:0 auto}
+ body.vx-mobile .vx-market-strip .vx-gauge svg{height:76px}
+ body.vx-mobile .vx-market-strip .vx-gauge strong{font-size:27px;bottom:4px}
+ body.vx-mobile .vx-market-strip .vx-mood>small{position:static;display:block;font-size:12px;line-height:1.2;margin:0}
+}
