@@ -45,7 +45,22 @@ function quoteDescription(row){
  if(at>Date.now())return '报价时点异常';
  return '快照 · '+new Date(at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false});
 }
-function selectedQuote(row){el('vx-selected-price').className=row?.pct<0?'vx-down':'vx-up';el('vx-selected-price').textContent=row?format(row.price)+' '+(finite(row.pct)?(row.pct>0?'+':'')+row.pct.toFixed(2)+'% · ':' · ')+quoteDescription(row):'— · 当前候选池无报价';}
+function selectedQuote(row){
+ const node=el('vx-selected-price');
+ node.className=row?.pct<0?'vx-down':'vx-up';
+ if(!row){
+  node.textContent='— · 当前候选池无报价';
+  node.title='当前候选池无报价';node.setAttribute('aria-label',node.title);
+  return;
+ }
+ const brief=format(row.price)+' '+(finite(row.pct)?(row.pct>0?'+':'')+row.pct.toFixed(2)+'%':'—');
+ const provenance=quoteDescription(row);
+ // Match the owner's single-line original chart title; preserve original quote
+ // source/time for hover and assistive technology, never label it as live.
+ node.textContent=brief;
+ node.title=provenance;
+ node.setAttribute('aria-label',brief+' · '+provenance);
+}
 
 function renderRows(){let rows=model?.rows||[];if(filter==='focused')rows=rows.filter(x=>x.focused);else if(filter==='bazi')rows=rows.filter(x=>x.bazi);else if(filter==='fourteen')rows=rows.filter(x=>x.fourteen);else if(['gpt','python'].includes(filter))rows=[];if(el('vx-sort').value==='score')rows=[...rows].sort((a,b)=>(b.score??-Infinity)-(a.score??-Infinity));
  el('vx-rows').innerHTML=rows.length?rows.slice(0,20).map((r,i)=>`<tr class="${r.code===selected?'vx-row-selected':''}"><td><span class="vx-rank vx-rank-${i+1}">${i+1}</span></td><td class="vx-code-cell">${esc(r.code)}</td><td><b>${esc(r.name||r.code)}</b><small>${esc(r.code)}</small></td><td class="${r.pct<0?'vx-down':'vx-up'}" title="${esc(quoteDescription(r))}">${format(r.price)}<small>${esc(quoteDescription(r))}</small></td><td class="${r.pct<0?'vx-down':'vx-up'}">${finite(r.pct)?(r.pct>0?'+':'')+r.pct.toFixed(2)+'%':'—'}</td><td><span class="vx-score">${format(r.score,1)}</span></td><td class="vx-wide-cell vx-signal-cell">${esc(r.signals?.join(' · ')||'尚无信号')}</td><td class="vx-wide-cell vx-origin">${r.fourteen?'十四条选股':r.bazi?'八字口诀':'候选池'}</td><td class="vx-wide-cell"><span class="vx-risk-tag ${r.bad?'warn':''}">${r.bad?'有提示':'待核验'}</span></td><td><button class="vx-row-open" type="button" data-vx-code="${esc(r.code)}" aria-label="查看${esc(r.name||r.code)}行情">${icon('arrow')}</button></td></tr>`).join(''):'<tr><td colspan="10"><div class="vx-empty"><span>◈</span><strong>暂无可展示的策略证据</strong><p>等待行情或到研究工作台运行独立验证</p></div></td></tr>';

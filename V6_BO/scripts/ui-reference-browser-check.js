@@ -15,7 +15,7 @@ const server=http.createServer((req,res)=>{let f=path.join(root,new URL(req.url,
   regions:(()=>{const box=q=>{const e=document.querySelector(q);if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height,display:getComputedStyle(e).display};};
     return {indices:[...document.querySelectorAll('.vx-index-grid>.vx-index')].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,display:getComputedStyle(e).display};}),
       market:box('.vx-market-strip'),mood:box('.vx-market-strip>.vx-mood'),moodScore:box('.vx-gauge strong'),moodCaption:box('.vx-mood>small'),environment:box('.vx-market-strip>.vx-environment'),risk:box('.vx-market-strip>.vx-risk-panel'),
-      ranking:box('#vx-ranking'),chart:box('.vx-chart-panel'),explanation:box('.vx-explanation'),dock:box('.vx-mobile-dock'),brand:box('.vx-brand'),sidebar:box('.vx-sidebar')};
+      ranking:box('#vx-ranking'),chart:box('.vx-chart-panel'),chartCanvas:box('#vx-chart'),chartSvg:box('#vx-chart>svg'),explanation:box('.vx-explanation'),dock:box('.vx-mobile-dock'),brand:box('.vx-brand'),sidebar:box('.vx-sidebar')};
   })(),dockCount:document.querySelectorAll('.vx-mobile-dock>a').length,brandText:document.querySelector('.vx-brand')?.textContent||''}));if(process.env.V6_UI_SCREENSHOTS==='1')await page.screenshot({path:path.join(output,label+'.png')});console.log(label,JSON.stringify(metrics));assert.deepEqual(errors,[],label+' JS errors');assert.ok(metrics.bodyWidth<=width+1,label+' body overflow '+metrics.bodyWidth);
 assert.match(metrics.brandText,/天枢智策/,label+' must keep the configured brand');
 assert.equal(await page.locator('#vx-rows tr').count(),10);
@@ -24,6 +24,14 @@ within(b.market,'market strip');within(b.ranking,'ranking');
 if(url==='/m'){
   assert.ok(b.moodScore&&b.moodCaption,label+' missing sentiment score or caption');
   assert.ok(b.moodScore.bottom<=b.moodCaption.top+2,label+' sentiment percentage overlaps explanation: '+JSON.stringify({score:b.moodScore,caption:b.moodCaption}));
+}
+if(label==='mobile-reference-1024'){
+  assert.ok(b.dock&&b.chart&&b.explanation,label+' missing dock or stock-detail cards');
+  assert.ok(Math.abs(b.chart.top-b.explanation.top)<=2,label+' original chart and explanation must start on same row');
+  assert.ok(Math.abs(b.chart.bottom-b.explanation.bottom)<=2,label+' original chart and explanation must share one outer card');
+  assert.ok(b.chart.bottom<=b.dock.top-12,label+' reference 1024 screenshot: stock detail is concealed behind the fixed dock: '+JSON.stringify({chart:b.chart,dock:b.dock}));
+  assert.ok(b.chartCanvas&&b.chartSvg,label+' missing K-line plot');
+  assert.ok(b.chartCanvas.height>=175&&b.chartSvg.height>=167,label+' visible K-line too small compared with original photo: '+JSON.stringify({canvas:b.chartCanvas,svg:b.chartSvg}));
 }
 if(width<=430){
   assert.equal(metrics.dockCount,7,label+' dock must have exactly seven real links');

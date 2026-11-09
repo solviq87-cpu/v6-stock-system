@@ -6,7 +6,7 @@ const mobile=read('public/mobile.html'),desktop=read('public/index.html');
 const css=read('public/assets/original-reference-fidelity.css');
 const shell=read('public/assets/terminal-dashboard.js');
 const guide=read('docs/ORIGINAL_UI_REFERENCE_ACCEPTANCE_20261109.md');
-const href='<link rel="stylesheet" href="/assets/original-reference-fidelity.css?v=20261109fidelity2">';
+const href='<link rel="stylesheet" href="/assets/original-reference-fidelity.css?v=20261109fidelity4">';
 test('owner original desktop/mobile photographs, not mockups, are canonical acceptance targets',()=>{
  assert.match(guide,/7165\.jpeg/);
  assert.match(guide,/E419BE1D-AB04-4D50-A482-8676AE7FB869\(1\)\.jpeg/);
@@ -18,7 +18,7 @@ test('new fidelity CSS loaded LAST on both real dashboards, after old override l
   assert.ok(html.includes(href),name+' missing final fidelity CSS');
   const i=html.indexOf('reference-match.css?v='),j=html.indexOf(href);
   assert.ok(i>=0&&j>i,name+' fidelity CSS lost cascade precedence');
-  assert.ok(html.includes('/assets/terminal-dashboard.js?v=20261109fidelity2'),name+' JS cache not invalidated');
+  assert.ok(html.includes('/assets/terminal-dashboard.js?v=20261109fidelity4'),name+' JS cache not invalidated');
  }
 });
 test('mobile narrow landscape: 3 index tiles then readable mood/environment/risk, not vertically squeezed',()=>{
@@ -68,6 +68,20 @@ test('phone and 1024px reference-style ranking show a compact price without losi
  assert.ok(css.includes('body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}'));
  assert.ok(shell.includes('title="${esc(quoteDescription(r))}"'));
  assert.ok(shell.includes('quoteDescription(row)'));
+});
+test('original 1024px reference stock-detail card fits above the mobile dock',()=>{
+ assert.ok(css.includes('@media(min-width:1001px) and (max-width:1100px)'));
+ assert.ok(css.includes('height:328px;'));
+ assert.ok(css.includes('body.vx-mobile .vx-detail-column .vx-explanation'));
+ assert.ok(css.includes('overflow-y:auto;'));
+ const browser=read('scripts/ui-reference-browser-check.js');
+ assert.ok(browser.includes("b.chart.bottom<=b.dock.top-12"));
+});
+test('stock title preserves original quote time without showing a long timestamp above the chart',()=>{
+ assert.ok(shell.includes("node.title=provenance"));
+ assert.ok(shell.includes("node.setAttribute('aria-label',brief+' · '+provenance)"));
+ assert.ok(css.includes('.vx-detail-column .vx-stock-title>span'));
+ assert.ok(css.includes('white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'));
 });
 test('feature parity and safety: original strategy, charts, permissions and cloud refresh not removed',()=>{
  for(const v of ['id="vx-indices"','id="vx-counts"','id="vx-strategies"','id="vx-rows"','id="vx-chart"','id="vx-explanation"'])assert.ok(shell.includes(v),v);
