@@ -55,6 +55,10 @@ function renderSelection(report){
   }else if(resilience.status==='market-observed-sector-unverified'){
     add(d,'p','已导入大盘指数，但缺少可核实的同日板块涨跌幅，暂不判断逆势强弱','muted');
   }
+  const weakPreference=rationale.weakMarketPreference;
+  if(weakPreference?.researchDeprioritized)
+    add(d,'p','弱市板块偏好：观察次序降低｜'+weakPreference.reason+
+      '（保留命中记录；不改正式策略权重）','muted');
   const factors=rationale.factors||[];
   if(factors.length)add(d,'p','扩展因子（未经逐项核验）：'+factors.map(f=>f.label+' '+(f.score??'未知')).join('；'),'muted');
   const qualityFactors=rationale.qualityFactors||[];
@@ -98,6 +102,9 @@ function renderSelection(report){
  function refilter(){
   const id=select.value;
   rows=report.candidates.filter(c=>!id||(c.rationale?.selection?.rules||[]).some(r=>r.id===id));
+  if(rows.some(c=>c.rationale?.selection?.researchDeprioritized))
+    rows.sort((a,b)=>Number(!!a.rationale?.selection?.researchDeprioritized)-
+      Number(!!b.rationale?.selection?.researchDeprioritized));
   visible=Math.min(30,rows.length);draw();
  }
  select.addEventListener('change',refilter);
