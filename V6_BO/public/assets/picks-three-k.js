@@ -173,11 +173,10 @@ async function load(code){
   message('历史K线暂不可用');emptyChart(String(err?.message||'网络读取失败'));
  }
 }
-function show(stock){
- if(!stock||!validCode(stock.code))return;
- selected={code:stock.code,name:String(stock.name||stock.code).slice(0,64)};
- $('pickDetailCode').textContent=stock.code;
- $('pickDetailCaption').textContent=selected.name+' · '+stock.code;
+function updateDetailEvidence(stock){
+ if(!selected||!stock||stock.code!==selected.code)return;
+ selected.name=String(stock.name||stock.code).slice(0,64);
+ $('pickDetailCaption').textContent=selected.name+' · '+selected.code;
  const reasons=Array.isArray(stock.reasons)?stock.reasons.filter(x=>typeof x==='string'&&x.trim()).slice(0,30):[];
  const host=$('detailReasons');host.replaceChildren();
  if(reasons.length){
@@ -187,12 +186,19 @@ function show(stock){
  }else host.textContent='后端未返回可核实命中条件，不能视作已命中。';
  $('detailRisk').textContent=String(stock.risk||'风险尚未评估').slice(0,130);
  $('detailQuote').textContent=String(stock.quoteProof||'报价原始时点未知，不是实时价').slice(0,200);
+}
+function show(stock){
+ if(!stock||!validCode(stock.code))return;
+ selected={code:stock.code,name:String(stock.name||stock.code).slice(0,64)};
+ $('pickDetailCode').textContent=stock.code;
+ updateDetailEvidence(stock);
  load(stock.code);
  if(matchMedia('(max-width:850px)').matches)
   $('pickDetail').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});
 }
 document.querySelectorAll('[data-period]').forEach(btn=>btn.addEventListener('click',()=>setPeriod(btn.dataset.period)));
 document.addEventListener('v6:picks-select',e=>show(e.detail));
+document.addEventListener('v6:picks-detail-refresh',e=>updateDetailEvidence(e.detail));
 document.addEventListener('v6:picks-unauthorized',()=>clear('选股查看权限已失效'));
 document.addEventListener('v6:picks-reset',()=>clear('该股票已不在最新候选池中'));
 clear();
