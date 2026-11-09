@@ -16,13 +16,13 @@ test('service, phone and service worker use a single release cache version',()=>
  assert.equal(server,desktop);
  assert.equal(server,mobile);
  assert.equal(server,sw);
- assert.equal(server,'20261109cu');
+ assert.equal(server,'20261109cv');
  assert.ok(read('public/index.html').includes('/assets/app.js?v='+server));
  assert.ok(read('public/index.html').includes('/assets/stock-provider-links.js?v='+server));
 });
 test('research UI script URL is bumped after explanation and episode changes',()=>{
  const html=read('public/research.html');
- assert.ok(html.includes('/assets/complete-workbench.js?v=20261109eight1'));
+ assert.ok(html.includes('/assets/complete-workbench.js?v=20261109daily1'));
  assert.ok(!html.includes('complete-workbench.js?v=20261109qualityaudit4'));
  const js=read('public/assets/complete-workbench.js');
  assert.ok(js.includes('temporalOverlapDiagnostics'));
