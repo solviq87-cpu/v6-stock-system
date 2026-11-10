@@ -6,6 +6,7 @@
  */
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {evaluateSectorRotation}=require('../strategy/sector-rotation-history');
+const {compareSectorMemberIdentity}=require('./sector-member-identity-proof');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const dayOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  Number.isFinite(Date.parse(x+'T00:00:00Z'))&&
@@ -91,6 +92,9 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
  if(!baseline||!validArchive(baseline,s)||
    baseline.observedAt!==s.observedAt)
   return block('missing-or-mismatched-frozen-baseline-archive');
+ // Older archives without member fingerprints are not comparable evidence.
+ if(baseline.memberIdentity?.status!=='identity-frozen-unverified')
+  return block('missing-frozen-baseline-member-identity');
  const ranked=baseline.data.study.sectors.filter(x=>x?.rank!==null&&x?.rank!==undefined);
  if(ranked.length!==s.sectors.length||
    ranked.some(x=>{
@@ -120,6 +124,9 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
    if(!validArchive(r,s)||r.observedAt<=baseline.observedAt||
      r.observedAt>asOf||Math.abs(minute(r.observedAt)-minute(s.observedAt))>30)
     return rejected('future-archive-provenance-or-time-conflict');
+   const identity=compareSectorMemberIdentity(baseline.memberIdentity,r.memberIdentity);
+   if(identity.status!=='identity-matched-unverified')
+    return rejected('future-sector-member-identity-'+identity.status+':'+identity.reason);
    const follow=new Map(r.data.study.sectors.map(x=>[key(x),x]));
    for(const frozen of s.sectors){
     const row=follow.get(key(frozen));
