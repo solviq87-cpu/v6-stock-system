@@ -52,7 +52,8 @@ function runOnce(argv){
   marketCoveragePct:result.marketCoveragePct,verifiedLive:false,canTrade:false};
 }
 if(require.main===module){
- try{console.log(JSON.stringify(runOnce(process.argv.slice(2))));}
+ try{const result=runOnce(process.argv.slice(2));console.log(JSON.stringify(result));
+  if(result.status==='blocked')process.exitCode=2;}
  catch(e){console.error(JSON.stringify({status:'blocked',reason:String(e.message).slice(0,160),canTrade:false}));process.exitCode=1;}
 }
 module.exports={runOnce,publishNew,readJson};
