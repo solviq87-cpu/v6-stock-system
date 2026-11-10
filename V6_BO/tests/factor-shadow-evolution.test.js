@@ -683,3 +683,41 @@ test('invalid sealed accepted parent fails closed and cannot become normal no-ne
  assert.equal(fs.existsSync(path.join(modelDir,'.shadow-worker.lock')),false);
  assert.deepEqual(fs.readdirSync(modelDir),[archiveName]);
 });
+
+test('unchanged calendar must audit historical accepted evidence before returning a no-op skip',t=>{
+ const original=Array.from({length:56},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(original,{now:finalClock});
+ assert.equal(accepted.status,'shadow-updated');
+ // The new report is separately valid and re-fingerprinted, not a broken
+ // checksum. Only the accepted model's historical chain reveals the drift.
+ const revised=original.slice();
+ revised[1]=episode(1,{reverseReturns:true});
+ assert.notEqual(revised[1].report.marketFingerprint,
+  original[1].report.marketFingerprint);
+ assert.throws(()=>evolveShadowFactors(revised,{now:finalClock,previous:accepted}),
+  /已有因子模型的历史冻结证据被替换或回写/);
+ assert.throws(()=>evolveShadowFactors(original,{now:finalClock,previous:accepted}),
+  /未增加新的训练时间窗/);
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-same-date-replay-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'models');
+ const entries=original.map((e,i)=>{
+  const featuresFile=path.join(dir,'f'+i+'.json');
+  const reportFile=path.join(dir,'r'+i+'.json');
+  fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+  fs.writeFileSync(reportFile,JSON.stringify(e.report));
+  return {featuresFile,reportFile};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:entries}));
+ const initial=runShadowWorker({manifestFile,outputDir,now:finalClock});
+ assert.equal(initial.status,'shadow-updated');
+ const beforeFiles=fs.readdirSync(outputDir);
+ const same=runShadowWorker({manifestFile,outputDir,now:finalClock});
+ assert.equal(same.status,'skipped-no-new-training');
+ assert.deepEqual(fs.readdirSync(outputDir),beforeFiles);
+ fs.writeFileSync(entries[1].reportFile,JSON.stringify(revised[1].report));
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
+  /已有因子模型的历史冻结证据被替换或回写/);
+ assert.deepEqual(fs.readdirSync(outputDir),beforeFiles);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+});
