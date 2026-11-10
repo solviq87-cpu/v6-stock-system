@@ -96,6 +96,18 @@ test('stale retrieval, invalid clock and duplicate quote symbols block the entir
  const z=fixture();z.snapshot.date='2026-11-09';
  assert.equal(evaluate(z).status,'insufficient-evidence');
 });
+test('classification observed after the quote capture is lookahead and cannot join',()=>{
+ const x=fixture();x.classification.observedAt=received+1;
+ assert.equal(evaluate(x).reason,'classification-source-completeness-or-date-invalid');
+});
+test('BaoStock one-shot collector does not initiate a provider session by default',()=>{
+ const cp=require('node:child_process'),os=require('node:os'),path=require('node:path'),fs=require('node:fs');
+ const script=path.join(__dirname,'../scripts/collect-baostock-industry.py');
+ const dest=path.join(os.tmpdir(),'v6-unapproved-industry-'+process.pid+'.json');
+ const result=cp.spawnSync('python3',[script,'--output',dest],{encoding:'utf8',timeout:10000});
+ assert.equal(result.status,1);
+ assert.equal(fs.existsSync(dest),false);
+});
 test('unchanged researchLiveMarket response unless optional classification is supplied; one quote fetch',async()=>{
  const input=fixture(),opts={now:asOf,fetchSnapshot:async()=>input.snapshot};
  let calls=0;
