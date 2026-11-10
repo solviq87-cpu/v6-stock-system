@@ -31,3 +31,21 @@ test('导入时可选多源核对，异常不覆盖已保存数据',async t=>{
  const saved=fs.readFileSync(outputFile,'utf8');other.stocks[0].bars[10].close+=.2;fs.writeFileSync(secondaryFile,JSON.stringify(other));
  assert.match((await center.sync()).error,/不一致/);assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
 });
+
+test('双源观察时钟一致性：时间差过大或只有一方带时间戳均拒绝',()=>{
+ const a=feed('provider-A'),b=feed('provider-B');
+ a.observedAt=Date.parse('2025-02-08T07:00:00Z');
+ assert.throws(()=>compareMarketFeeds(a,b),/时间戳缺失/);
+ b.observedAt=a.observedAt+300001;
+ assert.throws(()=>compareMarketFeeds(a,b),/超过五分钟/);
+ b.observedAt=a.observedAt+300000;
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.timestampComparable,true);
+ assert.equal(r.observationSkewMs,300000);
+ assert.equal(r.releaseReady,false);
+});
+test('双源未提供观察时间时不能误报时间已核对',()=>{
+ const r=compareMarketFeeds(feed('provider-A'),feed('provider-B'));
+ assert.equal(r.timestampComparable,false);
+ assert.equal(r.observationSkewMs,null);
+});
