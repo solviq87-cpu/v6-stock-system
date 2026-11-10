@@ -12,6 +12,7 @@ const {assessMarketShock}=require('./market-shock-learning-gate');
 const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRecovery}=require('./factor-learning-reliability');
 const {compareShadowVersions}=require('./factor-model-comparison');
 const {assessFactorRedundancy}=require('./factor-redundancy');
+const {assessFactorMarginalContribution}=require('./factor-marginal-contribution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -467,6 +468,15 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  // recovery days are not eligible for renewed baseline certification.
  const modelComparison=compareShadowVersions(postRecoveryTest,ids,
   officialWeights,oldWeights,proposal,dailyIC);
+ // Do not infer that a changed factor added independent value merely
+ // because the whole proposed model beat its predecessor. Paired
+ // counterfactuals leave every other proposed weight fixed and revert
+ // ONLY the factor under review to its previously accepted shadow value.
+ // No parameter is retuned after reading validation/holdout outcomes.
+ const factorMarginalContribution=assessFactorMarginalContribution({
+  training:train,validation:valid,holdout:postRecoveryTest,ids,
+  acceptedWeights:oldWeights,proposedWeights:proposal,score:dailyIC
+ });
  const unseenReady=postRecoveryTest.length>=5;
  const postRecoveryStability=existingGate?.phase==='recovered'&&unseenReady?
   pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC):null;
@@ -478,6 +488,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   postRecoveryEvolved.meanIC-postRecoveryBase.meanIC:null;
  const accepted=candidateChanged&&!paused&&!shadowDecay.alert&&
    !activeCooldown&&!recoveredNow&&unseenReady&&
+   !factorMarginalContribution.blocksPromotion&&
    modelComparison.originalGatePassed&&
    validationDelta>0.002&&testDelta>0.002&&
    validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
@@ -512,7 +523,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
-  shadowDecay,cooldown,modelComparison,
+  shadowDecay,cooldown,modelComparison,factorMarginalContribution,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -522,6 +533,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
    '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
    '晋级还需在同一新鲜保留集上显著优于固定原始因子权重，不允许仅相对上一弱版本略有改进',
    '因子冗余门禁只用训练期冻结分数估计相关性，不证明增量因果贡献；仅抑制可靠正向共线因子的研究增权',
+   '每个因子调整须留下单独撤销其调权的反事实IC证据，稳定有害或不可比较时拒绝研究晋级；未证明因果独立性',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
