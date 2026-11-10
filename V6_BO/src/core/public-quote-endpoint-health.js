@@ -6,6 +6,7 @@
  */
 const {performance}=require('node:perf_hooks');
 const {address,parse}=require('./public-market');
+const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const {session}=require('./quote-dual-source-diagnostic');
 const IDS=Object.freeze(['tencent','eastmoney','sina']);
 const SIZE_LIMIT=65536;
@@ -33,14 +34,15 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
  let timer;
  const work=(async()=>{
   try{
-   const response=await fetchImpl(address(id,code),{
+   const requestUrl=address(id,code);
+   const response=await fetchImpl(requestUrl,{
     method:'GET',redirect:'manual',signal:controller.signal
    });
+   if(hasQuoteRedirect(response,requestUrl))
+    return reason('redirect-refused',Number.isInteger(response?.status)&&response.status>=300&&response.status<400?response.status:null);
    if(!response||!Number.isInteger(response.status))
     return reason('transport-error');
    const httpStatus=response.status;
-   if(httpStatus>=300&&httpStatus<=399)
-    return reason('redirect-refused',httpStatus);
    if(httpStatus===401||httpStatus===403)
     return reason('access-denied',httpStatus);
    if(httpStatus===429)
