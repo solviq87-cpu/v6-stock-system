@@ -80,7 +80,7 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
      (bundle.startedAt!==undefined&&q.observedAt<lastQueryAt))
    throw Error('BaoStock逐票查询顺序、日期或本地采集时钟无效');
   lastQueryAt=a.observedAt;
-  if(q.frequency!=='d||q.adjustflag!=='3'||q.rows.length!==dates.length)
+  if(q.frequency!=='d'||q.adjustflag!=='3'||q.rows.length!==dates.length)
    throw Error('BaoStock仅接受完整日线、不复权3及所有已声明交易日');
   const actions=[],actionSet=new Set();
   for(const e of a.rows){
