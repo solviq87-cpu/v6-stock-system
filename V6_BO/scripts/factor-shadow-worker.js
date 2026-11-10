@@ -6,7 +6,8 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
-const {preregisterCandidate}=require('../src/core/factor-candidate-prereg');
+const {preregisterCandidate,verifyPreregisteredCandidate}=
+ require('../src/core/factor-candidate-prereg');
 const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
@@ -290,7 +291,11 @@ function evaluateOnce(conf,now,manifest){
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
  const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
- if(conf.requirePreRegistration&&!preRegistration&&!previousCooldown)
+ const cooldownOnly=previousCooldown&&
+  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+ // A recovered cooldown is NOT an active monitoring exemption. It needs a
+ // freshly committed candidate before any new forward return is opened.
+ if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly)
   throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
  // Audit the total experiment budget using immutable frozen FEATURE dates
  // BEFORE opening any H5 forward-return report. A budget-denied challenger
@@ -304,13 +309,33 @@ function evaluateOnce(conf,now,manifest){
  });
  const trialBudget=globalTrialBudget(conf.outputDir,
   frozen.map(x=>x.signalDay));
- const cooldownOnly=previousCooldown&&
-  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
  if(trialBudget.remainingTrials===0&&!cooldownOnly)
   return {ok:true,status:'skipped-global-trial-budget-exhausted',
    usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
    windowStartDay:trialBudget.windowStartDay,
    canTrade:false,productionWeightsChanged:false};
+ // Validate an already-sealed commitment against frozen FEATURES before
+ // opening any forward-return files. Outcome-based eligibility is checked
+ // again by evolveShadowFactors after the holdout has been loaded.
+ if(preRegistration&&!cooldownOnly){
+  const sorted=[...frozen].sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
+  const prefix=preRegistration.frozenPrefixFingerprints;
+  if(!Array.isArray(prefix)||prefix.length>sorted.length||
+     prefix.some((fp,i)=>fp!==sorted[i].fingerprint))
+   throw Error('候选预注册冻结前缀与当前研究批次不一致，禁止读取远期收益');
+  if(prefix.length<sorted.length){
+   const next=sorted[prefix.length],defs=sorted[0].factors;
+   verifyPreregisteredCandidate(preRegistration,{
+    sorted:sorted.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint})),
+    ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
+    oldWeights:previous?.shadowWeights||
+     Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
+    previousFingerprint:previous?.fingerprint||null,
+    previousTrialFingerprint:previousTrial?.fingerprint||null,
+    freshTest:[{day:next.signalDay,featureCapturedAt:next.capturedAt}]
+   });
+  }
+ }
  const episodes=manifest.episodes.map((x,i)=>({
   features:frozen[i],report:readEpisodeReport(x.reportFile)
  }));
