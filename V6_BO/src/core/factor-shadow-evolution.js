@@ -360,7 +360,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   throw Error('样本不足或未来收益窗口重叠，拒绝训练');
  const trainingEnd=train.at(-1).day;
  let oldWeights=Object.fromEntries(defs.map(f=>[f.id,f.baseWeight]));
- let version=1,previousFingerprint=null;
+ let version=1,previousFingerprint=null,noNewTrainingWindow=false;
  if(previous!==null){
   const {fingerprint,...contents}=previous;
   // A valid unchanged training window is a normal skip; an invalid sealed
@@ -385,14 +385,17 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    throw Error('已有因子模型的历史冻结证据被替换或回写');
   // Audit every sealed historical observation before a no-op same-day
   // skip; otherwise rewritten evidence could hide behind the skip path.
-  if(contents.trainingEnd===trainingEnd||
-     contents.lastObservationDay===sorted.at(-1).day)
-   throw Error('未增加新的训练时间窗');
+  // Preserve the no-op state, but authenticate any previous rejected
+  // trial and cooldown before letting the worker skip this calendar.
+  noNewTrainingWindow=contents.trainingEnd===trainingEnd||
+   contents.lastObservationDay===sorted.at(-1).day;
   oldWeights=Object.fromEntries(ids.map(id=>[id,previous.shadowWeights[id]]));
   for(const f of defs)if(oldWeights[f.id]<f.baseWeight*.5||oldWeights[f.id]>f.baseWeight*1.5)
    throw Error('旧研究权重越过边界');
   version=previous.version+1;previousFingerprint=previous.fingerprint;
  }
+ // Audit the entire spent-holdout lineage before even a harmless no-op.
+ const trialLineage=verifyPreviousTrial(previousTrial,previous,sorted,ids,feed);
  // The newest immutable cooldown report is as important as the latest
  // accepted model. Check its complete historical evidence lineage before
  // trusting a cooldown release or using a previously seen test window.
@@ -429,12 +432,13 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
      previousCooldown.lastObservationDay>sorted.at(-1).day)
    throw Error('历史衰减冷却证据或血缘无效，拒绝恢复学习');
   // Identical evidence must never manufacture a new cooldown transition.
-  if(previousCooldown.lastObservationDay===sorted.at(-1).day)
+  if(previousCooldown.lastObservationDay===sorted.at(-1).day){
+   if(noNewTrainingWindow)throw Error('未增加新的训练时间窗');
    return previousCooldown;
+  }
  }
- // This check is independent from the successful model-version check:
- // a rejected candidate also consumes the unseen test evidence it viewed.
- const trialLineage=verifyPreviousTrial(previousTrial,previous,sorted,ids,feed);
+ if(noNewTrainingWindow)throw Error('未增加新的训练时间窗');
+ // A rejected candidate also consumes its own earlier holdout evidence.
  const icByFactor=Object.fromEntries(ids.map(id=>{
   const daily=train.map(d=>({day:d.day,regime:d.regime,
    ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
