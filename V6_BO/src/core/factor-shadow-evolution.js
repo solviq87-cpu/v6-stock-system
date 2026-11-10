@@ -186,7 +186,7 @@ function validateForwardWindowChronology(record,asOf){
   if(calendarExhausted||!day(w.targetDate)||
      w.targetDate<=record.signalDate||
      (lastTarget!==null&&w.targetDate<=lastTarget))
-   throw Error('远期观察窗口目标日不递增或早于信号日');
+   throw Error('远期观察窗口目标日期不递增或早于信号日');
   lastTarget=w.targetDate;
   if(w.status==='pending'){
    if(w.targetDate<=asOf||w.priceReturnPct!==null)
@@ -197,7 +197,7 @@ function validateForwardWindowChronology(record,asOf){
     if(!finite(w.priceReturnPct)||w.priceReturnPct<=-100)
      throw Error('成熟窗口收益无效');
    }else if(w.priceReturnPct!==null){
-    throw Error('缺价停牌或公司行为未解决不得附带收益');
+    throw Error('未成熟记录缺价停牌或公司行为未解决不得附带收益（不能填零）');
    }
   }else throw Error('未知远期观察窗口状态');
  }
