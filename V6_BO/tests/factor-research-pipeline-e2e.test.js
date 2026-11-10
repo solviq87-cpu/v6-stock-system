@@ -173,9 +173,11 @@ test('real code path: BaoStock source -> normalized history -> preflight -> froz
  assert.equal(fs.existsSync(f.modelDir),false);
  assert.equal(inspectResearchChain(readinessArgs(f),{now:at(matureDay)}).manifestDays,1);
  // No studied outcome can retroactively modify the frozen signal/features.
- const after=captureOnce({picksFile:f.picks,marketFile:path.join(path.dirname(f.market),'market-current.json'),
-  factorFile:f.factors,outputDir:f.captureDir,now:at(matureDay)});
- assert.fail('Expired original freeze must not successfully write a new episode: '+after.status);
+ // A day-old signal cannot be re-frozen using a newer, mismatched market.
+ // The existing immutable receipt also cannot be silently rewritten.
+ assert.throws(()=>captureOnce({picksFile:f.picks,marketFile:f.market,
+  factorFile:f.factors,outputDir:f.captureDir,now:at(matureDay)}),
+  /回执发生变化|冻结研究证据/);
 });
 test('a still-valid OHLCV revision is rejected by the market append guard without losing frozen evidence',t=>{
  const f=setup(t),firstDay=calendar[firstIdx],nextDay=calendar[fiveIdx];
