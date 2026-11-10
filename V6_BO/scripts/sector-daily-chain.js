@@ -5,7 +5,7 @@
  * No network, provider login, paper account, live trading, or notifications.
  * preview => no writes; apply => immutable checkpoints with explicit stages.
  */
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {aShareCalendarDate}=require('../src/core/a-share-calendar');
 const {adaptBaoStockIndustryMembership}=require('../src/core/baostock-industry-membership-adapter');
 const {bridgeExistingMarketSector}=require('../src/core/sector-breadth-market-bridge');
@@ -61,6 +61,7 @@ function preview(conf,{now=Date.now()}={}){
   safePath(conf[k]);
  const snapshot=read(conf.snapshotFile),raw=read(conf.classificationFile,8*1024*1024),
   calendar=read(conf.calendarFile,1024*1024);
+ const inputFingerprint=crypto.createHash('sha256').update(JSON.stringify([raw,snapshot,calendar])).digest('hex');
  const end=Date.parse(snapshot?.retrievedAt||'');
  if(!Number.isSafeInteger(end)||end<=0||end>now||now-end>600000||
   snapshot.date!==aShareCalendarDate(now)||aShareCalendarDate(end)!==snapshot.date)
@@ -97,7 +98,7 @@ function preview(conf,{now=Date.now()}={}){
    return {status:'blocked-conflicting-sector-archive',
     reason:'已有不同的同日同时点板块归档，拒绝覆盖',canTrade:false,applyAllowed:false};
  }
- return {status:'preview-ready',tradeDate:snapshot.date,
+ return {status:'preview-ready',tradeDate:snapshot.date,inputFingerprint,
   classificationVersion:normalized.membership.classificationVersion,
   industryGroups:normalized.sectorCount,rankedSectors:bridge.study.rankedSectorCount,
   sourceQuoteCoveragePct:bridge.marketQuoteCoveragePct,
@@ -130,6 +131,7 @@ function runOnce(conf,{now=Date.now()}={}){
   const again=preview(conf,{now});
   if(again.status!=='preview-ready'||
    again.classificationVersion!==result.classificationVersion||
+   again.inputFingerprint!==result.inputFingerprint||
    again.sourceQuoteCoveragePct!==result.sourceQuoteCoveragePct)
    throw Error('原始输入在预检与执行之间改变，停止发布');
   stage='membership';
