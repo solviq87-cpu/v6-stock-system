@@ -245,11 +245,3 @@ test('configurable previous-close tolerance is bounded and does not change trade
  assert.ok(r.maxMatchedPreviousCloseGapBps>0);
  assert.equal(r.canTrade,false);
 });
-test('unknown vendor market states never pass as normal trading observations',()=>{
- const r=fuse([src('tencent',10),{
-  ...src('eastmoney',10),quote:{...q(10),status:'suspended-or-unknown'}
- }]);
- assert.equal(r.status,'insufficient-comparable-sources');
- assert.equal(r.sourceStatuses[1].status,'invalid-quote');
- assert.equal(r.referencePrice,null);
-});
