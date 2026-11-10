@@ -148,7 +148,7 @@ async function checkMultiPublicPrices(config={}){
  if(!session(now)||allowedDay===false)return fuseMultiSourcePrices({code,now,tradingDates,
   sources:PUBLIC_IDS.map(id=>({id,status:'unavailable'}))
    .concat([{id:'itick',status:'unconfigured'}],extraSources),
-  priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,tradingDates});
+  priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
  // A single optional adapter or public probe exception must not abort the
  // complete research result. Errors are downgraded to explicitly unavailable.
  let projected;
@@ -166,7 +166,7 @@ async function checkMultiPublicPrices(config={}){
  if(!session(publicFinishedAt))
   return fuseMultiSourcePrices({code,now:publicFinishedAt,tradingDates,
    sources:[...sources,{id:'itick',status:'unconfigured'},...extraSources],
-   priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,tradingDates});
+   priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
  // Official iTick is opt-in and needs an operator token, never embedded in code.
  let itick;
  try{itick=await fetchItick({code,token:itickToken,now:currentClock()});}
@@ -174,6 +174,6 @@ async function checkMultiPublicPrices(config={}){
  if(!itick||itick.id!=='itick'||!['fresh-unverified','dated-snapshot','unavailable','unconfigured'].includes(itick.status))
   itick={id:'itick',status:'unavailable'};
  return fuseMultiSourcePrices({code,now:currentClock(),tradingDates,sources:[...sources,itick,...extraSources],
-  priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,tradingDates});
+  priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
 }
 module.exports={fuseMultiSourcePrices,checkMultiPublicPrices};
