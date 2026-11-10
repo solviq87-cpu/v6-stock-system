@@ -13,6 +13,7 @@ const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRec
 const {compareShadowVersions}=require('./factor-model-comparison');
 const {assessFactorRedundancy}=require('./factor-redundancy');
 const {assessFactorMarginalContribution}=require('./factor-marginal-contribution');
+const {verifyPreregisteredCandidate}=require('./factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -270,6 +271,7 @@ function selectNonOverlappingMaturedCrossSections(sorted){
   for(const row of candidates)seenUntil.set(row.symbol,row.targetDate);
   used.add(e.day);
   observed.push({day:e.day,rows:candidates,targetDate:candidates[0].targetDate,
+   featureCapturedAt:e.features.capturedAt,
    regime:e.features.marketRegime?.regime||'unknown'});
  }
  return {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows};
@@ -326,7 +328,8 @@ function baseResult(status,details){
  * by +/-8% of the previous shadow weights and require two positive holdouts.
  */
 function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
- previousCooldown=null,previousTrial=null,trialBudget=null,marketContext}={}){
+ previousCooldown=null,previousTrial=null,trialBudget=null,
+ preRegistration=null,requirePreRegistration=false,marketContext}={}){
  if(!Number.isSafeInteger(now)||now<=0||!Array.isArray(episodes)||
     episodes.length<36||episodes.length>400)throw Error('至少需要36个连续批次的前瞻研究证据');
  const sorted=episodes.map(e=>{
@@ -457,6 +460,33 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  if(freshTest.length<5)
   throw Error(previousTrial?'新增独立试验保留日不足，禁止复用已检验样本外数据':
    '新增独立样本外交易日不足，不能重复优化已看过的测试集');
+ // A true prospective candidate is sealed BEFORE the first future signal
+ // in this holdout. A hash created after inspecting outcomes is NOT proof.
+ // Legacy direct research calls remain explicitly marked as unregistered.
+ const registrationRequired=requirePreRegistration===true;
+ let preregistration={status:'not-preregistered-legacy-research',
+  canTrade:false,productionWeightsChanged:false};
+ if(!cooldownMonitoring&&(preRegistration!==null||registrationRequired)){
+  if(preRegistration===null)throw Error('候选预注册缺失，严格研究模式拒绝查看样本外结果');
+  preregistration=verifyPreregisteredCandidate(preRegistration,{
+   sorted,ids,packFingerprint:PACK_HASH,oldWeights,
+   previousFingerprint:previous?.fingerprint||null,
+   previousTrialFingerprint:previousTrial?.fingerprint||null,
+   freshTest
+  });
+  // This choice was committed before the new signal, not optimized on
+  // heldout outcomes. Its step and absolute ranges remain strictly bounded.
+  for(const f of defs){
+   const w=preRegistration.candidateWeights[f.id],old=oldWeights[f.id];
+   if(!finite(w)||w<f.baseWeight*.5||w>f.baseWeight*1.5||
+      w<old*.92-1e-7||w>old*1.08+1e-7)
+    throw Error('预注册研究候选超出单轮或总权重范围');
+   proposal[f.id]=w;
+  }
+ }else if(cooldownMonitoring&&registrationRequired){
+  preregistration={status:'cooldown-monitoring-no-candidate-promoted',
+   canTrade:false,productionWeightsChanged:false};
+ }
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
    baselineTest=dailyIC(freshTest,ids,oldWeights),
@@ -610,7 +640,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
   shadowDecay,cooldown,modelComparison,factorMarginalContribution,trialAudit,
-  globalTrialBudget,
+  globalTrialBudget,preregistration,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -623,6 +653,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    '每个因子调整须留下单独撤销其调权的反事实IC证据，稳定有害或不可比较时拒绝研究晋级；未证明因果独立性',
    '每次未暂停的候选评估都会占用不可复用的成熟保留日，即使晋级失败也记录试验次数和指纹',
    '启动研究进程时最多允许90个交易日观察窗内6次候选评估，跨旧成功和失败版本累计；本地调用需明确标为未启用全局预算',
+   '事前候选权重承诺须早于新增保留集首日信号冻结；严格模式缺失预注册直接拒绝，旧兼容模式明确标记未预注册',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
