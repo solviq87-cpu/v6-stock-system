@@ -197,3 +197,33 @@ test('invalid interval, excessive budget, public path or symlink fail before net
   assert.throws(()=>parse(['status',link]),/符号链接/);
  }finally{cleanup(x);}
 });
+
+test('unresolved prior-day in-flight batch cannot silently reset on next market day',async()=>{
+ const x=setup();let calls=0;
+ try{
+  const conf=x.once();
+  const first=await tick(conf,{now:start,fetchSnapshot:async()=>{
+   calls++;throw Error('HTTP 502');
+  }});
+  assert.equal(first.status,'research-capture-failed');
+  const saved=readState(conf,start+1000);
+  const unfinished={...saved,inFlight:true,lastOutcome:'started',
+   lastFinishedAt:null,revision:saved.revision+1};
+  fs.writeFileSync(conf.stateFile,JSON.stringify(seal(unfinished))+'\n');
+  const nextDay=Date.parse('2026-11-11T10:02:00+08:00');
+  // Previously this returned a fresh daily budget and lost the in-flight
+  // obligation merely because the calendar date changed.
+  assert.throws(()=>readState(conf,nextDay),/跨日存在未完成采集批次/);
+  assert.equal(calls,1);
+  assert.equal(fs.readFileSync(conf.stateFile,'utf8').includes('"inFlight":true'),true);
+  const reviewed={...unfinished,inFlight:false,lastOutcome:'manual-reviewed',
+   lastFinishedAt:start+1000,revision:unfinished.revision+1};
+  fs.writeFileSync(conf.stateFile,JSON.stringify(seal(reviewed))+'\n');
+  const next=readState(conf,nextDay);
+  assert.equal(next.day,'2026-11-11');
+  assert.equal(next.attempts,0);
+  assert.equal(next.inFlight,false);
+  assert.equal(next.canTrade,false);
+  assert.equal(calls,1);
+ }finally{cleanup(x);}
+});
