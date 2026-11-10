@@ -5,6 +5,7 @@
  */
 const {auditSectorResearchInputs}=require('./sector-research-evidence-audit');
 const {bridgeExistingMarketSector}=require('./sector-breadth-market-bridge');
+const {freezeSectorMemberIdentity}=require('./sector-member-identity-proof');
 function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=300000}={}){
  const audit=auditSectorResearchInputs(snapshot,membership,{asOf,maxQuoteAgeMs});
  const fail=reason=>({schemaVersion:1,status:'blocked',reason,
@@ -17,6 +18,9 @@ function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=
  const version=membership?.classificationVersion;
  if(typeof version!=='string'||!version||version.length>150)
   return fail('missing-frozen-classification-version');
+ const memberIdentity=freezeSectorMemberIdentity(membership);
+ if(memberIdentity.status!=='identity-frozen-unverified')
+  return fail('missing-valid-candidate-member-identity');
  const sectors=bridge.study.sectors.filter(s=>s.rank!==null&&s.rank!==undefined);
  if(sectors.length<3)return fail('insufficient-ranked-sector-groups');
  return {schemaVersion:1,status:'shadow-input-preview-unverified',
@@ -28,6 +32,7 @@ function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=
    quoteSource:bridge.quoteProvider,membershipSource:bridge.membershipProvider,
    marketQuoteCoveragePct:bridge.marketQuoteCoveragePct,
    observedAt:bridge.observedAt,
+   memberIdentity,
    sectors:sectors.map(s=>({category:s.category,code:s.code,
     score:s.score,upPct:s.upPct,coveragePct:s.coveragePct,
     state:s.state,rank:s.rank})),
