@@ -1119,3 +1119,23 @@ test('watch auto-registration requires explicit strict mode, never auto-bootstra
  assert.equal(status.status,'skipped-auto-prereg-needs-sealed-history');
  assert.equal(fs.readdirSync(outputDir).length,0);
 });
+
+test('strict operator watch revalidates canonical manifest after startup on EVERY tick',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-watch-manifest-rotation-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'shadow');
+ const legacy={schemaVersion:1,episodes:Array.from({length:36},(_,i)=>({
+  featuresFile:path.join(dir,'missing-features-'+i+'.json'),
+  reportFile:path.join(dir,'missing-future-price-'+i+'.json')
+ }))};
+ fs.writeFileSync(manifestFile,JSON.stringify(legacy));
+ const options={manifestFile,outputDir,now:finalClock,
+  requirePreRegistration:true,autoRegisterCandidate:true,operatorMode:true};
+ assert.throws(()=>runShadowWorker(options),/仅接受冻结回执与首份成熟H5绑定/);
+ assert.equal(fs.existsSync(outputDir),false);
+ // The direct fixture API is intentionally still capable of exercising its
+ // legacy synthetic research protocol, without claiming operator readiness.
+ const direct=runShadowWorker({...options,operatorMode:false});
+ assert.equal(direct.status,'skipped-auto-prereg-needs-sealed-history');
+ assert.deepEqual(fs.readdirSync(outputDir),[]);
+});
