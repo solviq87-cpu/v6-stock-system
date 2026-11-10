@@ -56,8 +56,8 @@ async function probePublicQuotes({ code, providers = ['tencent', 'eastmoney'], t
   const first = await createPublicMarket({ code, providers, timeoutMs, clock, fetchImpl }).sync();
   const missing = first.sources.filter(s => s.status === 'unavailable').map(s => s.id);
   let retry = null;
-  // Only a transport/format failure is retried once; stale close snapshots and denials are not retried.
-  const retryIds = missing.filter(id => !first.sources.find(s => s.id === id).error?.startsWith('HTTP '));
+  // Only a transport/format failure is retried once; redirects and HTTP denials are not followed or retried.
+  const retryIds = missing.filter(id => {const error=first.sources.find(s => s.id === id).error;return error !== 'redirect-blocked' && !error?.startsWith('HTTP ');});
   if (retryIds.length) retry = await createPublicMarket({ code, providers: retryIds, timeoutMs, clock, fetchImpl }).sync();
   const generatedAt = clock();
   const sources = first.sources.map(initial => {

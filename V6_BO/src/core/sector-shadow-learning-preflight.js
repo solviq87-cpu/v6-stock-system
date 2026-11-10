@@ -5,6 +5,8 @@
  */
 const {auditSectorResearchInputs}=require('./sector-research-evidence-audit');
 const {bridgeExistingMarketSector}=require('./sector-breadth-market-bridge');
+const {freezeSectorMemberIdentity}=require('./sector-member-identity-proof');
+const {fingerprintSectorMembers}=require('./sector-member-identity-proof');
 function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=300000}={}){
  const audit=auditSectorResearchInputs(snapshot,membership,{asOf,maxQuoteAgeMs});
  const fail=reason=>({schemaVersion:1,status:'blocked',reason,
@@ -17,8 +19,23 @@ function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=
  const version=membership?.classificationVersion;
  if(typeof version!=='string'||!version||version.length>150)
   return fail('missing-frozen-classification-version');
+ const memberIdentity=freezeSectorMemberIdentity(membership);
+ if(memberIdentity.status!=='identity-frozen-unverified')return fail('missing-valid-candidate-member-identity');
  const sectors=bridge.study.sectors.filter(s=>s.rank!==null&&s.rank!==undefined);
  if(sectors.length<3)return fail('insufficient-ranked-sector-groups');
+ // Freeze exact sector membership at ranking time, not only a mutable
+ // classification version or headcount. H5 labels must bind to this proof.
+ const frozenSectors=[];
+ for(const s of sectors){
+  const candidates=membership.sectors.filter(m=>
+   m?.category===s.category&&m?.code===s.code);
+  if(candidates.length!==1)return fail('missing-or-duplicate-sector-member-proof');
+  const proof=fingerprintSectorMembers(candidates[0]);
+  if(proof.status!=='identity-frozen-unverified')
+   return fail('invalid-sector-member-proof');
+  frozenSectors.push({...s,memberCount:proof.memberCount,
+   memberSha256:proof.memberSha256});
+ }
  return {schemaVersion:1,status:'shadow-input-preview-unverified',
   tradeDate:bridge.tradeDate,classificationVersion:version,
   quality:audit,canTrain:false,canTrade:false,autoPromotion:false,
@@ -28,9 +45,11 @@ function inspectSectorShadowEligibility(snapshot,membership,{asOf,maxQuoteAgeMs=
    quoteSource:bridge.quoteProvider,membershipSource:bridge.membershipProvider,
    marketQuoteCoveragePct:bridge.marketQuoteCoveragePct,
    observedAt:bridge.observedAt,
-   sectors:sectors.map(s=>({category:s.category,code:s.code,
+   memberIdentity,
+   sectors:frozenSectors.map(s=>({category:s.category,code:s.code,
     score:s.score,upPct:s.upPct,coveragePct:s.coveragePct,
-    state:s.state,rank:s.rank})),
+    state:s.state,rank:s.rank,memberCount:s.memberCount,
+    memberSha256:s.memberSha256})),
    labelsAvailable:false,outOfSampleValidated:false,
    canTrain:false,canTrade:false},
   note:'仅生成可人工核验的影子候选样本；未提供未来收益标签、交易日历或样本外评估，不允许直接训练、改权重或下单'};

@@ -8,6 +8,7 @@
  */
 const {evaluateForward}=require('./forward-signal-observer');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {fingerprintSectorMembers}=require('./sector-member-identity-proof');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const symbolOK=x=>typeof x==='string'&&/^\d{6}$/.test(x);
 const dateOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
@@ -67,6 +68,12 @@ function evaluateSectorShadowH5PriceLabels(preflight,membership,cohort,market,
    matches[0].memberCount!==members.length||
    new Set(members).size!==members.length||members.some(s=>!symbolOK(s)))
   return blocked('invalid-or-over-limit-full-membership');
+ const frozenProof=fingerprintSectorMembers(matches[0]);
+ if(frozenProof.status!=='identity-frozen-unverified'||
+   !/^[a-f0-9]{64}$/.test(selected[0].memberSha256||'')||
+   selected[0].memberSha256!==frozenProof.memberSha256||
+   selected[0].memberCount!==frozenProof.memberCount)
+  return blocked('frozen-sector-member-identity-mismatch');
  const required=new Set(members);
  // Only a complete, unchanged member universe is eligible. A smaller
  // handpicked subset cannot masquerade as the sector's forward outcome.
@@ -118,6 +125,7 @@ function evaluateSectorShadowH5PriceLabels(preflight,membership,cohort,market,
  const base={...common,tradeDate:shadow.tradeDate,sectorCategory,sectorCode,
   classificationVersion:shadow.classificationVersion,
   scoreAtFreeze:selected[0].score,memberCount:required.size,
+  frozenMemberSha256:frozenProof.memberSha256,
   cohortFingerprint:cohort.fingerprint,marketFingerprint:report.marketFingerprint,
   featureQuoteSource:shadow.quoteSource,
   priceFeed:{provider:report.feed.provider,datasetId:report.feed.datasetId,

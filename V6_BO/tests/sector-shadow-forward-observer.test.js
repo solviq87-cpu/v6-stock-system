@@ -193,3 +193,16 @@ test('future proof metadata or study count mismatch cannot pass forward comparis
   assert.equal(r.canTrain,false);
  }
 });
+
+test('candidate member identity tampering or absence is rejected',()=>{
+ for(const change of [
+  x=>{x.shadowSample.memberIdentity.sectors[0].memberSha256='a'.repeat(64);},
+  x=>{delete x.shadowSample.memberIdentity;}
+ ]){
+  const candidate=structuredClone(frozen);change(candidate);
+  const result=observe(candidate,archives,{tradeDates:days,asOf:clock(days.at(-1))});
+  assert.equal(result.status,'blocked');
+  assert.equal(result.reason,'candidate-member-identity-does-not-match-baseline');
+  assert.equal(result.canTrain,false);
+ }
+});
