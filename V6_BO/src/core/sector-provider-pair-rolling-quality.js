@@ -20,6 +20,9 @@ const safe={canTrade:false,canTrain:false,canNotify:false,autoPromotion:false,
 const block=reason=>({schemaVersion:1,mode:'sector-provider-pair-rolling-quality-research',
  status:'blocked',reason,horizons:[],...safe});
 const pct=(n,d)=>d?Number((100*n/d).toFixed(3)):null;
+// A same-day horizon is not mature merely because its calendar date has begun.
+// For research-quality coverage, wait until 15:15 China Standard Time.
+const maturityAt=day=>Date.parse(day+'T15:15:00+08:00');
 function validPolicy(p){
  return p?.schemaVersion===1&&p.mode==='preregistered-sector-provider-pair-quality'&&
   timeOK(p.registeredAt)&&
@@ -81,7 +84,8 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
   const out={sessions:h,expectedSignalDays:expectedSignalDates.length,
    notMaturedSignalDays:0,maturedSignalDays:0,
    missingEpisodeDays:[],pendingAfterMaturityDays:[],
-   unknownOrPartialDays:[],disagreementDays:[],agreeDays:[],
+   unknownOrPartialDays:[],partialDisagreementDays:[],
+   disagreementDays:[],agreeDays:[],
    comparedSectorCount:0,disagreeingSectorCount:0,unknownSectorCount:0,
    maxObservedStockGapBps:null,maxObservedIndexGapBps:null,
    comparableRatePct:null,disagreementRatePct:null,
@@ -89,7 +93,9 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
   let maxStock=null,maxIndex=null;
   for(const date of expectedSignalDates){
    const pos=tradeDates.indexOf(date),target=tradeDates[pos+h]||null;
-   if(!target||target>observedDate){out.notMaturedSignalDays++;continue;}
+   if(!target||target>observedDate||asOf<maturityAt(target)){
+    out.notMaturedSignalDays++;continue;
+   }
    out.maturedSignalDays++;
    const report=episodeByDay.get(date);
    if(!report){out.missingEpisodeDays.push(date);continue;}
@@ -105,6 +111,10 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
    if(row.status!=='disagreement'&&
       row.status!=='supplier-agreement-unverified')
     return {blocked:'unexpected-dual-source-window-status'};
+   if(!Array.isArray(row.sectors)||row.sectors.length===0||
+     row.comparedSectors!==row.agreedSectors+row.disagreeingSectors||
+     row.sectors.length!==row.comparedSectors+row.unknownSectors)
+    return {blocked:'inconsistent-sector-comparison-counts'};
    out.comparedSectorCount+=row.comparedSectors;
    out.disagreeingSectorCount+=row.disagreeingSectors;
    out.unknownSectorCount+=row.unknownSectors;
@@ -116,7 +126,12 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
      maxStock=maxStock===null?s.maxStockReturnDifferenceBps:
       Math.max(maxStock,s.maxStockReturnDifferenceBps);
    }
-   if(row.status==='disagreement')out.disagreementDays.push(date);
+   // Partial comparisons are NOT complete days even if one known sector disagreed.
+   // Preserve that disagreement as an alarm without inflating comparable coverage.
+   if(row.unknownSectors>0){
+    out.unknownOrPartialDays.push(date);
+    if(row.disagreeingSectors>0)out.partialDisagreementDays.push(date);
+   }else if(row.status==='disagreement')out.disagreementDays.push(date);
    else out.agreeDays.push(date);
   }
   const comparable=out.agreeDays.length+out.disagreementDays.length;
@@ -132,6 +147,8 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
    out.status='watch-coverage-or-stale-data';
   else if(out.disagreementRatePct===null)
    out.status='insufficient-comparable-episodes';
+  else if(out.partialDisagreementDays.length>0)
+   out.status='watch-partial-evidence-with-observed-disagreement';
   else if(out.disagreementRatePct>policy.maxDisagreementRatePct)
    out.status='watch-cross-source-disagreement';
   else out.status='descriptive-low-disagreement-unverified';
@@ -151,6 +168,7 @@ function auditSectorPairQuality({episodes,expectedSignalDates,tradeDates,
   minMaturedSessions:policy.minMaturedSessions,
   maxDisagreementRatePct:policy.maxDisagreementRatePct,
   maxNonComparableRatePct:policy.maxNonComparableRatePct,
+  maturityRule:'target-session-15:15-Asia-Shanghai',
   horizons:horizonReports,...safe,
   note:'逐信号日审核双供应商盘中复权数据的相对收益分歧、指数分歧和缺失率；仅评价这一对声明不同的数据源，不判断哪一家有错。逐1/5/20交易日成熟，缺档不作为正常，未成熟不作为失败；无许可、复权真实性、独立性或交易认证'};
 }
