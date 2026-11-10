@@ -7,7 +7,7 @@ const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
 const {runOnce:runShadowWorker,parse:parseShadowWorker,
- latestCooldown}=require('../scripts/factor-shadow-worker');
+ latestCooldown,latestTrial}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -497,4 +497,97 @@ test('truly duplicate positively predictive frozen factor scores shrink the weak
  assert.equal(r.productionWeightsChanged,false);
  assert.equal(r.autoPromotion,false);
  assert.equal(r.canTrade,false);
+});
+
+test('rejected candidate consumes its holdout; a further trial needs five new mature independent days',()=>{
+ const original=Array.from({length:56},(_,i)=>episode(i,{duplicateFactor:true}));
+ const trial1=evolveShadowFactors(original,{now:finalClock});
+ assert.equal(trial1.status,'shadow-retained');
+ assert.equal(trial1.trialAudit.status,'consumed');
+ assert.equal(trial1.trialAudit.trialNumber,1);
+ assert.equal(trial1.trialAudit.firstHoldoutDay,dates[49]);
+ assert.equal(trial1.trialAudit.lastHoldoutDay,dates[55]);
+ assert.equal(trial1.trialAudit.holdoutDays,7);
+ assert.equal(trial1.canTrade,false);
+ assert.equal(trial1.productionWeightsChanged,false);
+ assert.throws(()=>evolveShadowFactors(original,{now:finalClock,previousTrial:trial1}),
+  /新增独立试验保留日不足/);
+ const partial=Array.from({length:60},(_,i)=>episode(i,{duplicateFactor:true}));
+ assert.throws(()=>evolveShadowFactors(partial,{now:finalClock,previousTrial:trial1}),
+  /新增独立试验保留日不足/);
+ const next=Array.from({length:61},(_,i)=>episode(i,{duplicateFactor:true}));
+ const trial2=evolveShadowFactors(next,{now:finalClock,previousTrial:trial1});
+ assert.equal(trial2.trialAudit.status,'consumed');
+ assert.equal(trial2.trialAudit.trialNumber,2);
+ assert.equal(trial2.trialAudit.previousTrialFingerprint,trial1.fingerprint);
+ assert.equal(trial2.trialAudit.firstHoldoutDay,dates[56]);
+ assert.equal(trial2.trialAudit.lastHoldoutDay,dates[60]);
+ assert.equal(trial2.trialAudit.holdoutDays,5);
+ assert.equal(trial2.holdout.firstFreshDay,dates[56]);
+ assert.equal(trial2.testDays,5);
+ assert.equal(trial2.productionWeightsChanged,false);
+ const thirdEvidence=Array.from({length:66},(_,i)=>episode(i,{duplicateFactor:true}));
+ const trial3=evolveShadowFactors(thirdEvidence,{now:finalClock,previousTrial:trial2});
+ assert.equal(trial3.trialAudit.trialNumber,3);
+ assert.equal(trial3.trialAudit.firstHoldoutDay,dates[61]);
+ assert.equal(trial3.trialAudit.previousTrialFingerprint,trial2.fingerprint);
+});
+test('tampered or unrelated rejected model evidence cannot reset a spent-holdout ledger',()=>{
+ const original=Array.from({length:56},(_,i)=>episode(i,{duplicateFactor:true}));
+ const trial=evolveShadowFactors(original,{now:finalClock});
+ const next=Array.from({length:61},(_,i)=>episode(i,{duplicateFactor:true}));
+ assert.throws(()=>evolveShadowFactors(next,{now:finalClock,
+  previousTrial:{...trial,trialAudit:{...trial.trialAudit,trialNumber:999}}}),
+  /历史试验账本完整性或样本血缘无效/);
+ const changed=structuredClone(next);
+ changed[1].features.features[0].values.sector_heat=9;
+ assert.throws(()=>evolveShadowFactors(changed,{now:finalClock,previousTrial:trial}),
+  /指纹|冻结|来源/);
+ const unrelated=evolveShadowFactors(Array.from({length:56},(_,i)=>episode(i)),
+  {now:finalClock});
+ assert.throws(()=>evolveShadowFactors(next,{now:finalClock,previousTrial:unrelated}),
+  /历史试验账本完整性或样本血缘无效/);
+});
+test('worker persists rejected-trial audit across restart and refuses overlapping holdout replay',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-trial-ledger-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ const saved=[];
+ const append=(start,end)=>{
+  for(let i=start;i<end;i++){
+   const e=episode(i,{duplicateFactor:true});
+   const featuresFile=path.join(dir,'f'+i+'.json'),reportFile=path.join(dir,'r'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   saved.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:saved}));
+ };
+ append(0,56);
+ const opts={manifestFile,outputDir,now:finalClock};
+ const first=runShadowWorker(opts);
+ assert.equal(first.status,'shadow-retained');
+ const start=latestTrial(outputDir,null);
+ assert.equal(start.trialAudit.trialNumber,1);
+ assert.equal(start.trialAudit.lastHoldoutDay,dates[55]);
+ assert.equal(fs.statSync(path.join(outputDir,fs.readdirSync(outputDir)[0])).mode&0o777,0o600);
+ const replay=runShadowWorker(opts);
+ assert.equal(replay.status,'skipped-no-new-trial-holdout');
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ append(56,60);
+ const tooSoon=runShadowWorker(opts);
+ assert.equal(tooSoon.status,'skipped-no-new-trial-holdout');
+ assert.equal(fs.readdirSync(outputDir).length,1);
+ append(60,61);
+ const second=runShadowWorker(opts);
+ assert.equal(second.status,'shadow-retained');
+ assert.equal(fs.readdirSync(outputDir).length,2);
+ const latest=latestTrial(outputDir,null);
+ assert.equal(latest.trialAudit.trialNumber,2);
+ assert.equal(latest.trialAudit.previousTrialFingerprint,start.fingerprint);
+ assert.equal(latest.trialAudit.firstHoldoutDay,dates[56]);
+ assert.equal(latest.trialAudit.lastHoldoutDay,dates[60]);
+ const oldFile=fs.readdirSync(outputDir).find(x=>x.includes(start.fingerprint.slice(0,12)));
+ fs.writeFileSync(path.join(outputDir,oldFile),'{"corrupt":true}');
+ assert.throws(()=>latestTrial(outputDir,null),/档案结构无效|被篡改/);
 });
