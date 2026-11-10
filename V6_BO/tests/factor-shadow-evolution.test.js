@@ -591,3 +591,29 @@ test('worker persists rejected-trial audit across restart and refuses overlappin
  fs.writeFileSync(path.join(outputDir,oldFile),'{"corrupt":true}');
  assert.throws(()=>latestTrial(outputDir,null),/档案结构无效|被篡改/);
 });
+
+test('market-shock pause still spends an inspected holdout and a later context toggle cannot replay it',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i));
+ const marketContext={
+  schemaVersion:1,source:'imported',simulated:false,provider:'market-test',
+  tradeDate:'2026-11-10',observedAt:finalClock-30000,coverage:1,
+  breadth:{source:'market-test',observedAt:finalClock-30000,upPct:10},
+  indices:{
+   shanghai:{source:'market-test',observedAt:finalClock-30000,changePct:-3.8},
+   shenzhen:{source:'market-test',observedAt:finalClock-30000,changePct:-4.1}
+  }
+ };
+ const paused=evolveShadowFactors(initial,{now:finalClock,marketContext});
+ assert.equal(paused.status,'paused-market-shock');
+ assert.equal(paused.trialAudit.status,'consumed');
+ assert.equal(paused.trialAudit.trialNumber,1);
+ assert.equal(paused.productionWeightsChanged,false);
+ assert.throws(()=>evolveShadowFactors(initial,{now:finalClock,previousTrial:paused}),
+  /新增独立试验保留日不足/);
+ const later=evolveShadowFactors(Array.from({length:61},(_,i)=>episode(i)),
+  {now:finalClock,previousTrial:paused});
+ assert.equal(later.trialAudit.trialNumber,2);
+ assert.equal(later.trialAudit.previousTrialFingerprint,paused.fingerprint);
+ assert.equal(later.trialAudit.firstHoldoutDay,dates[56]);
+ assert.equal(later.productionWeightsChanged,false);
+});
