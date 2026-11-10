@@ -105,6 +105,8 @@ test('normalization creates one immutable private file and never overwrites a co
   fs.writeFileSync(one,JSON.stringify(classification));
   assert.equal(runOnce([one,two,out]).status,'blocked',
    'one-member modification leaves fewer than 3 valid industries');
+  const rejected=cp.spawnSync(process.execPath,[path.resolve(__dirname,'../scripts/normalize-baostock-industry.js'),one,two,out],{encoding:'utf8',timeout:10000});
+  assert.equal(rejected.status,2,'blocked classification must set nonzero CLI status');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('BaoStock collector refuses network before SDK login unless explicitly authorized',()=>{
