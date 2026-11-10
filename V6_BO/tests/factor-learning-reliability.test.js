@@ -214,3 +214,42 @@ test('recovery rejects mismatched coverage and non-finite IC instead of assuming
  const broken=(_d,_ids,w)=>({days:1,meanIC:w.a===1?.2:NaN});
  assert.throws(()=>assessShadowRecovery(data,['a','b'],{a:1},{a:2},broken),/证据无效/);
 });
+
+
+test('rounded market-regime IC just below 0.08 must not falsely block a reliable factor',()=>{
+ const samples=[
+  ...Array.from({length:8},(_,i)=>({
+   day:'2026-01-'+String(i+1).padStart(2,'0'),
+   ic:-.07996,regime:'systemic-selloff'
+  })),
+  ...Array.from({length:22},(_,i)=>({
+   day:'2026-02-'+String(i+1).padStart(2,'0'),
+   ic:.13,regime:'not-systemic-selloff'
+  }))
+ ];
+ const report=assessFactorReliability(samples);
+ assert.equal(report.assessedRegimes['systemic-selloff'].days,8);
+ assert.equal(report.assessedRegimes['systemic-selloff'].meanIC,-.08);
+ assert.equal(report.assessedRegimes['not-systemic-selloff'].meanIC,.13);
+ assert.equal(report.opposingRegimeEffects,false);
+ assert.equal(report.reasons.includes('opposing-market-regime-effects'),false);
+ assert.equal(report.reliable,true);
+ assert.ok(report.suggestedWeightMultiplier>0);
+ assert.equal(report.productionWeightsChanged,false);
+});
+
+test('a real regime IC beyond 0.08 still blocks opposite-market factor reweighting',()=>{
+ const samples=[
+  ...Array.from({length:8},(_,i)=>({day:'early-'+i,ic:-.08004,
+   regime:'systemic-selloff'})),
+  ...Array.from({length:22},(_,i)=>({day:'late-'+i,ic:.13,
+   regime:'not-systemic-selloff'}))
+ ];
+ const report=assessFactorReliability(samples);
+ assert.equal(report.assessedRegimes['systemic-selloff'].meanIC,-.08);
+ assert.equal(report.opposingRegimeEffects,true);
+ assert.ok(report.reasons.includes('opposing-market-regime-effects'));
+ assert.equal(report.reliable,false);
+ assert.equal(report.suggestedWeightMultiplier,0);
+ assert.equal(report.canTrade,false);
+});
