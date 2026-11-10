@@ -326,7 +326,7 @@ function baseResult(status,details){
  * by +/-8% of the previous shadow weights and require two positive holdouts.
  */
 function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
- previousCooldown=null,previousTrial=null,marketContext}={}){
+ previousCooldown=null,previousTrial=null,trialBudget=null,marketContext}={}){
  if(!Number.isSafeInteger(now)||now<=0||!Array.isArray(episodes)||
     episodes.length<36||episodes.length>400)throw Error('至少需要36个连续批次的前瞻研究证据');
  const sorted=episodes.map(e=>{
@@ -553,6 +553,25 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  // Market-shock deferral does not erase already INSPECTED holdout scores:
  // changing only the market flag cannot buy a free second candidate trial.
  const consumed=!activeCooldown&&!recoveredNow;
+ if(trialBudget!==null&&(
+   !Number.isSafeInteger(trialBudget.maxTrials)||trialBudget.maxTrials!==6||
+   !Number.isSafeInteger(trialBudget.windowTradingDays)||trialBudget.windowTradingDays!==90||
+   !Number.isSafeInteger(trialBudget.usedTrials)||trialBudget.usedTrials<0||
+   !Number.isSafeInteger(trialBudget.remainingTrials)||
+   trialBudget.remainingTrials!==Math.max(0,6-trialBudget.usedTrials)||
+   !day(trialBudget.windowStartDay)||
+   trialBudget.asOfDay!==sorted.at(-1).day||
+   !['budget-available','budget-exhausted'].includes(trialBudget.status)))
+  throw Error('全局研究预算协议或交易日不一致');
+ // A pause-only audit may still record new mature observations even when
+ // all trial slots are exhausted. Do not silently expend a new slot.
+ if(consumed&&trialBudget&&trialBudget.remainingTrials===0)
+  throw Error('全局研究试验预算已耗尽，候选不可再次查看样本外数据');
+ const globalTrialBudget=trialBudget?
+  {...trialBudget,consumedThisRun:consumed,
+   remainingAfterRun:Math.max(0,trialBudget.remainingTrials-(consumed?1:0))}:
+  {status:'not-enforced-direct-research-call',consumedThisRun:consumed,
+   canTrade:false,productionWeightsChanged:false};
  const trialAudit={schemaVersion:1,status:consumed?'consumed':'not-evaluated',
   trialNumber:trialLineage.count+(consumed?1:0),
   previousTrialFingerprint:trialLineage.priorFingerprint,
@@ -591,6 +610,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
   shadowDecay,cooldown,modelComparison,factorMarginalContribution,trialAudit,
+  globalTrialBudget,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -602,6 +622,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    '因子冗余门禁只用训练期冻结分数估计相关性，不证明增量因果贡献；仅抑制可靠正向共线因子的研究增权',
    '每个因子调整须留下单独撤销其调权的反事实IC证据，稳定有害或不可比较时拒绝研究晋级；未证明因果独立性',
    '每次未暂停的候选评估都会占用不可复用的成熟保留日，即使晋级失败也记录试验次数和指纹',
+   '启动研究进程时最多允许90个交易日观察窗内6次候选评估，跨旧成功和失败版本累计；本地调用需明确标为未启用全局预算',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
