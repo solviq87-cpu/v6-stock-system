@@ -192,7 +192,7 @@ function validateForwardWindowChronology(record,asOf){
    if(w.targetDate<=asOf||w.priceReturnPct!==null)
     throw Error('已到期窗口不能伪装待观察，待观察不能带收益');
   }else if(['observed','missing-or-suspended','corporate-action-unresolved'].includes(w.status)){
-   if(w.targetDate>asOf)throw Error('未到期的远期窗口不能伪装成熟');
+   if(w.targetDate>asOf)throw Error('未来交易日未到期的远期窗口不能伪装成熟');
    if(w.status==='observed'){
     if(!finite(w.priceReturnPct)||w.priceReturnPct<=-100)
      throw Error('成熟窗口收益无效');
