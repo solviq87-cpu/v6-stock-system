@@ -34,7 +34,7 @@ function make(day,{hot=4,cold=-2,version='stable-membership-v1',clock='10:03'}={
 const all=()=>dates.map(d=>make(d));
 const end=Date.parse('2026-11-10T10:04:00+08:00');
 test('five explicit sessions classify broad sustained strength, preserve source and no orders',()=>{
- const records=all(),copy=structuredClone(records);
+ const records=all(),before=JSON.stringify(records);
  const r=evaluate(records,{tradeDates:dates,asOf:end});
  assert.equal(r.status,'imported-unverified');
  assert.equal(r.evaluatedThreeSession,3);
@@ -46,7 +46,7 @@ test('five explicit sessions classify broad sustained strength, preserve source 
  assert.equal(s.threeSession.observations.length,3);
  assert.equal(r.canTrade,false);assert.equal(r.weightsChanged,false);
  assert.equal(r.rankingModified,false);assert.equal(r.verifiedLive,false);
- assert.deepEqual(records,copy);
+ assert.equal(JSON.stringify(records),before,'研究函数不得修改任何嵌套输入字段');
 });
 test('warming and cooling labels reflect same-sector breadth, not a prediction',()=>{
  const warm=all();warm[2]=make(dates[2],{hot:-2});
