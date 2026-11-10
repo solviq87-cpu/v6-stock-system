@@ -94,6 +94,11 @@ test('autonomous shadow update uses training + purged validation + untouched hol
  assert.equal(r.marketRegimeDays.unknown,r.trainDays);
  assert.equal(r.freshHoldoutOnly,false);
  assert.ok(r.holdout.stability.halfPeriodsConsistent);
+ assert.equal(r.modelComparison.status,'paired-scorecard-unverified');
+ assert.equal(r.modelComparison.originalGatePassed,true);
+ assert.equal(r.modelComparison.assessedDays,r.testDays);
+ assert.ok(r.modelComparison.proposedVsOriginal.meanDeltaIC>.002);
+ assert.equal(r.modelComparison.canTrade,false);
  assert.ok(r.validation.deltaIC>0);
  assert.ok(r.holdout.deltaIC>0);
  assert.ok(r.trainDays>=15&&r.validationDays>=5&&r.testDays>=5);
@@ -247,6 +252,10 @@ test('future shadow upgrades require at least five genuinely unseen holdout days
  assert.equal(next.freshHoldoutOnly,true);
  assert.equal(next.testDays,5);
  assert.ok(next.holdout.firstFreshDay>old.lastObservationDay);
+ assert.equal(next.modelComparison.status,'paired-scorecard-unverified');
+ assert.equal(next.modelComparison.assessedDays,5);
+ assert.ok(next.modelComparison.firstDay>old.lastObservationDay);
+ assert.equal(next.modelComparison.perDay.length,5);
  assert.equal(next.productionWeightsChanged,false);
 });
 test('already reviewed historic episode fingerprints cannot be changed during self-learning',()=>{
