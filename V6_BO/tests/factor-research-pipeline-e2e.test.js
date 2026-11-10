@@ -10,6 +10,7 @@ const {runOnce:neutralOnce}=require('../scripts/factor-horizon-neutral');
 const {runOnce:shadowOnce}=require('../scripts/factor-shadow-worker');
 const {inspect:sourcePreflight}=require('../scripts/factor-source-preflight');
 const {inspectResearchChain}=require('../src/core/factor-chain-readiness');
+const {verifyCanonicalManifestLineage,hash}=require('../src/core/factor-maturity-manifest');
 const {readSnapshot}=require('../src/core/forward-tracking-store');
 const {verifyAndJoin}=require('../src/core/factor-shadow-evolution');
 const at=(d,time='16:04:00')=>Date.parse(d+'T'+time+'+08:00');
@@ -156,6 +157,11 @@ test('real code path: BaoStock source -> normalized history -> preflight -> froz
  assert.ok(saved.report.records.every(x=>x.windows[1].status==='observed'));
  const features=JSON.parse(fs.readFileSync(archive.episodes[0].featuresFile,'utf8'));
  assert.equal(verifyAndJoin(features,saved.report,at(matureDay)).length,5);
+ const lineage=verifyCanonicalManifestLineage(archive,{now:at(matureDay)});
+ assert.equal(lineage.status,'canonical-lineage-verified-local-only');
+ assert.equal(lineage.verifiedEpisodes,1);
+ assert.equal(lineage.authorizedProviderIndependentlyVerified,false);
+ assert.equal(lineage.canTrade,false);
  const ready=inspectResearchChain(readinessArgs(f),{now:at(matureDay)});
  assert.equal(ready.status,'insufficient-independent-h5-days');
  assert.equal(ready.signalDays,1);
@@ -213,4 +219,47 @@ test('corrupted receipt/manifest and symlink paths never pass the read-only read
  fs.symlinkSync(f.captureDir,alias);
  assert.throws(()=>inspectResearchChain({...readinessArgs(f),captureDir:alias},
   {now:at(d)}),/符号链接/);
+});
+
+test('canonical training manifest cannot select a later valid self-sealed H5 file or bypass receipts',t=>{
+ const f=setup(t),signalDay=calendar[firstIdx],matureDay=calendar[fiveIdx];
+ captureOnce({picksFile:f.picks,marketFile:f.market,
+  factorFile:f.factors,outputDir:f.captureDir,now:at(signalDay)});
+ const laterRaw=dataset(fiveIdx);
+ fs.writeFileSync(f.raw,JSON.stringify(laterRaw));
+ const nextHistory=path.join(path.dirname(f.history),'canonical-later-history.json');
+ normalizeOnce({file:f.raw,out:nextHistory,now:at(matureDay)});
+ marketOnce({sourceFile:nextHistory,outputFile:f.market,mode:'sync',
+  now:at(matureDay)});
+ trackingOnce({captureDir:f.captureDir,marketFile:f.market,
+  trackingDir:f.trackingDir,manifestFile:f.manifestFile,now:at(matureDay)});
+ const manifest=JSON.parse(fs.readFileSync(f.manifestFile,'utf8'));
+ assert.equal(verifyCanonicalManifestLineage(manifest,{now:at(matureDay)}).verifiedEpisodes,1);
+ const signed=episode=>{
+  const copy={...manifest,episodes:[episode]};
+  delete copy.integrity;
+  return {...copy,integrity:hash(copy)};
+ };
+ const original=manifest.episodes[0];
+ const later=path.join(path.dirname(original.reportFile),'99999999-9999-99-99.json');
+ fs.copyFileSync(original.reportFile,later);
+ const swapped=signed({...original,reportFile:later});
+ assert.throws(()=>verifyCanonicalManifestLineage(swapped,{now:at(matureDay)}),
+  /最早封存|归档/);
+ const current=path.join(f.trackingDir,signalDay,'current.json');
+ assert.throws(()=>verifyCanonicalManifestLineage(signed({...original,reportFile:current}),
+  {now:at(matureDay)}),/不可变H5|归档/);
+ const fakeDir=path.join(path.dirname(f.captureDir),'fake-captures');
+ fs.mkdirSync(fakeDir);
+ const forged=path.join(fakeDir,'features-'+signalDay+'.json');
+ fs.copyFileSync(original.featuresFile,forged);
+ assert.throws(()=>verifyCanonicalManifestLineage(signed({...original,featuresFile:forged}),
+  {now:at(matureDay)}),/ENOENT|回执|冻结/);
+ // Re-hashing a manifest does not repair a changed original receipt.
+ const receiptFile=path.join(f.captureDir,'receipt-'+signalDay+'.json');
+ const receipt=JSON.parse(fs.readFileSync(receiptFile,'utf8'));
+ receipt.inputFingerprint='a'.repeat(64);
+ fs.writeFileSync(receiptFile,JSON.stringify(receipt));
+ assert.throws(()=>verifyCanonicalManifestLineage(manifest,{now:at(matureDay)}),
+  /回执无效|回执发生变化/);
 });
