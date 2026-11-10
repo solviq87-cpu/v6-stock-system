@@ -4,6 +4,7 @@
 // "watch" rereads local files only. It never fetches additional quotes or orders.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {bridgeExistingMarketSector}=require('../src/core/sector-breadth-market-bridge');
+const {freezeSectorMemberIdentity}=require('../src/core/sector-member-identity-proof');
 const MAX_BYTES=32*1024*1024;
 function parse(argv){
  const [mode,snapshotFile,membershipFile,output,...rest]=argv;
@@ -61,10 +62,15 @@ function runOnce(conf,{now=Date.now()}={}){
   return {status:'not-current-snapshot',changed:false,canTrade:false,
    reason:'本地输入并非当前交易日10分钟内的新快照，不生成实时研究结论'};
  const result=bridgeExistingMarketSector(market,members,{asOf:end});
+ const identity=result.status==='imported-unverified'?freezeSectorMemberIdentity(members):null;
+ // Never publish an apparently comparable dated study if identity proof fails.
+ if(result.status==='imported-unverified'&&identity?.status!=='identity-frozen-unverified')
+  throw Error('板块成员身份冻结失败，拒绝生成可比归档');
  const record={schemaVersion:1,mode:'dated-sector-research-only',status:result.status,
   reason:result.reason||null,tradeDate:result.tradeDate||market.date||null,
   observedAt:result.observedAt||end||null,
-  data:result,verifiedLive:false,canTrade:false,weightsChanged:false};
+  data:result,memberIdentity:identity,
+  verifiedLive:false,canTrade:false,weightsChanged:false};
  const body=JSON.stringify(record)+'\n';
  if(Buffer.byteLength(body)>MAX_BYTES)throw Error('报告超过32MiB限制');
  const output=conf.mode==='watch'?
