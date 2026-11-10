@@ -21,8 +21,26 @@ async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalT
   const response=await fetchImpl(url.toString(),{redirect:'error',signal:controller.signal,
    headers:{accept:'application/json',token}});
   if(!response?.ok)return empty('unavailable');
-  const body=await response.text();
-  if(body.length>65536)return empty('unavailable');
+  // Bound response bytes *while streaming*, before building a body in memory.
+  // A late length check after response.text() would not cap attacker-sized input.
+  const limit=65536;
+  const declared=response.headers?.get?.('content-length');
+  if(declared!==undefined&&declared!==null&&/^[0-9]+$/.test(declared)&&Number(declared)>limit)
+   return empty('unavailable');
+  let body;
+  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
+   let bytes=0;const chunks=[];
+   for await(const chunk of response.body){
+    const piece=Buffer.from(chunk);bytes+=piece.length;
+    if(bytes>limit)return empty('unavailable');
+    chunks.push(piece);
+   }
+   body=Buffer.concat(chunks).toString('utf8');
+  }else{
+   // Compatibility with injected transport mocks; real Node fetch is streamed.
+   body=await response.text();
+   if(Buffer.byteLength(body,'utf8')>limit)return empty('unavailable');
+  }
   const r=JSON.parse(body),q=r?.data;
   if(r.code!==0||!q||String(q.s)!==code||
      !Number.isFinite(q.ld)||q.ld<=0||
