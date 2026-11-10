@@ -74,6 +74,10 @@ function readJson(file,maxBytes){
 function runOnce(conf,{now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<946684800000||now>=4102444800000)
   return blocked('invalid-local-research-clock');
+ // Reject any forged future research clock BEFORE opening sensitive inputs.
+ const asOf=conf.asOf??now;
+ if(!Number.isSafeInteger(asOf)||asOf>now||asOf<946684800000)
+  return blocked('future-or-invalid-operator-research-clock');
  const raw=readJson(conf.batchFile,MAX_BATCH_BYTES),
   calendar=readJson(conf.calendarFile,MAX_CAL_BYTES);
  if(raw.data?.schemaVersion!==1||
@@ -87,9 +91,6 @@ function runOnce(conf,{now=Date.now()}={}){
    calendar.data.tradeDates.length<150||
    calendar.data.tradeDates.length>1200)
   return blocked('explicit-trading-calendar-contract-invalid');
- const asOf=conf.asOf??now;
- if(!Number.isSafeInteger(asOf)||asOf>now||asOf<946684800000)
-  return blocked('future-or-invalid-operator-research-clock');
  const audited=evaluateReplayedSectorH5WalkForward(raw.data.entries,{
   tradeDates:calendar.data.tradeDates,asOf,
   roundTripCostBps:conf.roundTripCostBps
