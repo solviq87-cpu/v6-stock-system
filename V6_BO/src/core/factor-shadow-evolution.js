@@ -360,14 +360,21 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  let version=1,previousFingerprint=null;
  if(previous!==null){
   const {fingerprint,...contents}=previous;
+  // A valid unchanged training window is a normal skip; an invalid sealed
+  // accepted parent is a hard failure. Never conflate those two conditions.
   if(fingerprint!==hash(contents)||contents.mode!==MODEL||
      contents.status!=='shadow-updated'||contents.packFingerprint!==PACK_HASH||
      hash(contents.factorIds)!==hash(ids)||hash(contents.feed)!==hash(feed)||
      !Number.isSafeInteger(contents.version)||contents.version<1||
-     !day(contents.trainingEnd)||contents.trainingEnd>=trainingEnd||
-     !day(contents.lastObservationDay)||contents.lastObservationDay>=sorted.at(-1).day||
+     !day(contents.trainingEnd)||!day(contents.lastObservationDay)||
      contents.productionWeightsChanged!==false||contents.canTrade!==false)
-   throw Error('上一个沙盒模型不可用或未增加新的训练时间窗');
+   throw Error('上一个沙盒模型完整性或血缘无效，拒绝继续学习');
+  if(contents.trainingEnd>trainingEnd||
+     contents.lastObservationDay>sorted.at(-1).day)
+   throw Error('历史研究证据时间倒退，拒绝继续学习');
+  if(contents.trainingEnd===trainingEnd||
+     contents.lastObservationDay===sorted.at(-1).day)
+   throw Error('未增加新的训练时间窗');
   if(!contents.shadowWeights||ids.some(id=>!finite(contents.shadowWeights[id])))
    throw Error('历史研究权重无效');
   // Earlier data used to accept a shadow version must remain unchanged.
