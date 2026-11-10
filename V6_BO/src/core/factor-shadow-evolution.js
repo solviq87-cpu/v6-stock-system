@@ -238,6 +238,39 @@ function factorIC(days,id){
  return {days:results.length,meanIC:results.length?
    results.reduce((a,b)=>a+b,0)/results.length:null};
 }
+/**
+ * Prevent repeat observations of one symbol from acting like independent
+ * training evidence while an earlier 5-session outcome is still unresolved.
+ * This thins only the research IC sample; the original frozen signals and
+ * forward-observation records remain untouched and auditable.
+ */
+function selectNonOverlappingMaturedCrossSections(sorted){
+ const seenUntil=new Map(),used=new Set(),observed=[];
+ let excludedOverlappingRows=0,excludedDuplicateSameDayRows=0;
+ for(const e of sorted){
+  const counts=new Map();
+  for(const row of e.rows)counts.set(row.symbol,(counts.get(row.symbol)||0)+1);
+  const candidates=[];
+  for(const row of e.rows){
+   if(row.returnPct===null)continue; // Pending is never a zero return.
+   if(counts.get(row.symbol)!==1){excludedDuplicateSameDayRows++;continue;}
+   if(seenUntil.has(row.symbol)&&seenUntil.get(row.symbol)>=e.day){
+    excludedOverlappingRows++;
+    continue;
+   }
+   candidates.push(row);
+  }
+  // An IC cross-section requires 5 independent symbols with the same
+  // matured target date. Otherwise do not consume any symbol's window.
+  if(candidates.length<5||new Set(candidates.map(r=>r.targetDate)).size!==1)
+   continue;
+  for(const row of candidates)seenUntil.set(row.symbol,row.targetDate);
+  used.add(e.day);
+  observed.push({day:e.day,rows:candidates,targetDate:candidates[0].targetDate,
+   regime:e.features.marketRegime?.regime||'unknown'});
+ }
+ return {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows};
+}
 const modelFingerprint=data=>hash(data);
 function baseResult(status,details){
  const payload={schemaVersion:1,mode:MODEL,status,shadowOnly:true,canTrade:false,
@@ -269,21 +302,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
      hash(e.features.priceFeed)!==hash(sorted[0].features.priceFeed))
    throw Error('跨批次因子定义或供应商数据集不一致');
  }
- const used=new Set(),observed=[];
- for(const e of sorted){
-  // Duplicate same-symbol signals remain in evidence, but are excluded from
-  // model fitting to prevent repeated signals from inflating independence.
-  const counts=new Map();
-  for(const row of e.rows)counts.set(row.symbol,(counts.get(row.symbol)||0)+1);
-  const rows=e.rows.filter(r=>r.returnPct!==null&&counts.get(r.symbol)===1);
-  const symbols=new Set(rows.map(r=>r.symbol));
-  if(symbols.size>=5){
-   const target=new Set(rows.map(r=>r.targetDate));
-   // Different target days are not a comparable single daily cross-section.
-   if(target.size===1){observed.push({day:e.day,rows,targetDate:rows[0].targetDate,
-    regime:e.features.marketRegime?.regime||'unknown'});used.add(e.day);}
-  }
- }
+ const {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows}=
+  selectNonOverlappingMaturedCrossSections(sorted);
  const n=sorted.length,trainEnd=Math.floor(n*.56),validStart=trainEnd+5,
    validEnd=validStart+Math.floor(n*.16),testStart=validEnd+5;
  const train=sorted.slice(0,trainEnd).filter(e=>used.has(e.day)).map(e=>observed.find(x=>x.day===e.day));
@@ -360,6 +380,10 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   marketRegimeDays:Object.fromEntries(['systemic-selloff','not-systemic-selloff','unknown']
    .map(label=>[label,train.filter(x=>x.regime===label).length])),
   excludedOrUnmaturedDays:sorted.length-observed.length,
+  sampleIndependence:{eligibleCrossSectionDays:observed.length,
+   excludedOverlappingRows,excludedDuplicateSameDayRows,
+   overlappingOriginalSignalsPreserved:true,
+   rule:'same-symbol-previous-target-before-new-signal'},
   horizonTradingDays:HORIZON,purgeSessions:5,
   factorLearning:icByFactor,validation:{baseline:baselineValidation,evolved:evolvedValidation,
    deltaIC:validationDelta,stability:validStability},
@@ -376,4 +400,5 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
-module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin};
+module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,
+ selectNonOverlappingMaturedCrossSections};
