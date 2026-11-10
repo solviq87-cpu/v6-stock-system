@@ -13,7 +13,8 @@ const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
 const policyFiles=[
  'factor-shadow-evolution.js','factor-learning-reliability.js',
  'factor-redundancy.js','factor-marginal-contribution.js',
- 'factor-model-comparison.js','factor-global-trial-budget.js'
+ 'factor-model-comparison.js','factor-global-trial-budget.js',
+ 'factor-candidate-prereg.js'
 ];
 function currentResearchCodeFingerprint(){
  return hash(policyFiles.map(file=>[file,
@@ -28,7 +29,10 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
     typeof candidateWeights!=='object'||!candidateWeights||
     typeof acceptedWeights!=='object'||!acceptedWeights)
   throw Error('候选预注册输入协议无效');
- const ordered=[...features].sort((a,b)=>a?.signalDay.localeCompare(b?.signalDay));
+ const ordered=[...features];
+ if(ordered.some(x=>!date(x?.signalDay)))
+  throw Error('候选预注册存在无效冻结信号日期');
+ ordered.sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
  const latest=ordered.at(-1);
  const ids=ordered[0]?.factors?.map(x=>x.id);
  if(!Array.isArray(ids)||ids.length<2||new Set(ids).size!==ids.length||
