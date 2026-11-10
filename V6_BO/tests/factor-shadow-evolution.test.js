@@ -777,3 +777,43 @@ test('invalid sealed accepted parent fails closed and cannot become normal no-ne
  assert.equal(fs.existsSync(path.join(modelDir,'.shadow-worker.lock')),false);
  assert.deepEqual(fs.readdirSync(modelDir),[archiveName]);
 });
+
+test('exhausted global budget denies the next challenger before opening absent holdout price reports',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-budget-before-prices-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const outputDir=path.join(dir,'private'),manifestFile=path.join(dir,'manifest.json');
+ fs.mkdirSync(outputDir,{recursive:true});
+ const frozen=Array.from({length:56},(_,i)=>{
+  const e=episode(i),featuresFile=path.join(dir,'f'+i+'.json');
+  fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+  return {featuresFile,reportFile:path.join(dir,'UNAVAILABLE-H5-'+i+'.json')};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:frozen}));
+ const pack=require('../strategies/extended-factor-pack.json');
+ const packFingerprint=crypto.createHash('sha256')
+  .update(JSON.stringify(pack)).digest('hex');
+ for(let i=0;i<6;i++){
+  const payload={mode:'v6-factor-shadow-evolution-v1',
+   packFingerprint,status:'shadow-retained',
+   previousFingerprint:'unrelated-accepted-version-'+i,
+   lastObservationDay:dates[i*5+6],trialAudit:{
+    schemaVersion:1,status:'consumed',trialNumber:i+1,
+    firstHoldoutDay:dates[i*5+2],lastHoldoutDay:dates[i*5+6],
+    holdoutDays:5,candidateFingerprint:'b'.repeat(64)
+   }};
+  const fingerprint=crypto.createHash('sha256')
+   .update(JSON.stringify(payload)).digest('hex');
+  fs.writeFileSync(path.join(outputDir,
+   'shadow-'+dates[i*5+1]+'-'+fingerprint.slice(0,12)+'.json'),
+   JSON.stringify({...payload,fingerprint}));
+ }
+ // Read of ANY forward reportFile above would throw ENOENT. Successful
+ // budget skip therefore proves the gate runs before outcome access.
+ const denied=runShadowWorker({manifestFile,outputDir,now:finalClock});
+ assert.equal(denied.status,'skipped-global-trial-budget-exhausted');
+ assert.equal(denied.usedTrials,6);
+ assert.equal(denied.canTrade,false);
+ assert.equal(denied.productionWeightsChanged,false);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('shadow-')).length,6);
+});
