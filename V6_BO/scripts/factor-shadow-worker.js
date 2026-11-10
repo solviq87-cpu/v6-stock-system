@@ -39,6 +39,37 @@ function latestAccepted(dir){
   throw Error('存在重复研究版本编号，禁止自动选择');
  return accepted[0]||null;
 }
+/**
+ * Restore the latest immutable cooldown decision after a worker restart.
+ * A pause must survive process restarts; missing/invalid archive evidence
+ * cannot silently reset the learned model's decay state.
+ */
+function latestCooldown(dir,accepted){
+ if(!accepted||!fs.existsSync(dir))return null;
+ const names=fs.readdirSync(dir).filter(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x));
+ if(names.length>500)throw Error('冷却归档超出单目录审计上限');
+ const states=[];
+ for(const name of names){
+  const m=readJson(path.join(dir,name));
+  if(m?.mode!=='v6-factor-shadow-evolution-v1'||typeof m.fingerprint!=='string')
+   throw Error('冷却研究档案结构无效');
+  const {fingerprint,...payload}=m;
+  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
+   throw Error('冷却研究档案完整性无效');
+  if(!['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(m.status))
+   continue;
+  if(m.previousFingerprint!==accepted.fingerprint)continue;
+  if(!m.cooldown||m.cooldown.sourceAcceptedFingerprint!==accepted.fingerprint||
+     !/^\d{4}-\d{2}-\d{2}$/.test(m.lastObservationDay))
+   throw Error('冷却状态缺少已接受研究模型血缘');
+  states.push(m);
+ }
+ states.sort((a,b)=>b.lastObservationDay.localeCompare(a.lastObservationDay));
+ if(states.length>1&&states[0].lastObservationDay===states[1].lastObservationDay&&
+    states[0].fingerprint!==states[1].fingerprint)
+  throw Error('同日存在冲突的研究冷却状态');
+ return states[0]||null;
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -64,6 +95,7 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
     manifest.episodes.length<36||manifest.episodes.length>400)
   throw Error('需要完整时间排序研究批次目录');
  const previous=latestAccepted(conf.outputDir);
+ const previousCooldown=latestCooldown(conf.outputDir,previous);
  const episodes=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
@@ -71,7 +103,8 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  });
  let result;
  try{
-  result=evolveShadowFactors(episodes,{now,previous,marketContext:manifest.marketContext});
+  result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
+   marketContext:manifest.marketContext});
  }catch(e){
   if(previous&&/未增加新的训练时间窗/.test(String(e.message)))
    return {ok:true,status:'skipped-no-new-training',version:previous.version,
@@ -115,4 +148,4 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,main,readEpisodeReport};
+module.exports={parse,runOnce,latestAccepted,latestCooldown,main,readEpisodeReport};
