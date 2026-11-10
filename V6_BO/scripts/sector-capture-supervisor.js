@@ -136,7 +136,7 @@ async function tick(conf,{now=Date.now(),clock=Date.now,fetchSnapshot}={}){
  const check=preflight(conf.capture,{now});
  if(check.status!=='preflight-ready')
   return {status:'paused-preflight',preflightStatus:check.status,canTrade:false,
-   verifiedLive:false,changed:false,networkCalls:0};
+   verifiedLive:false,changed:false,captureAttempts:0};
  // No state changes if exchange hours, holiday calendar or frozen members fail.
  let fd,stage='supervisor-lock';
  try{
@@ -144,16 +144,16 @@ async function tick(conf,{now=Date.now(),clock=Date.now,fetchSnapshot}={}){
   safePath(conf.capture.outputRoot);
   try{fd=fs.openSync(conf.lockFile,'wx',0o600);}
   catch(e){if(e.code==='EEXIST')
-   return {status:'blocked-supervisor-lock',canTrade:false,changed:false,networkCalls:0};
+   return {status:'blocked-supervisor-lock',canTrade:false,changed:false,captureAttempts:0};
    throw e;}
   fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
   stage='locked-preflight';
   const again=preflight(conf.capture,{now});
   if(again.status!=='preflight-ready'||again.inputFingerprint!==check.inputFingerprint)
-   return {status:'blocked-input-changed',canTrade:false,changed:false,networkCalls:0};
+   return {status:'blocked-input-changed',canTrade:false,changed:false,captureAttempts:0};
   let state=readState(conf,now);
   const blocked=policy(conf,state,now);
-  if(blocked)return {status:blocked,...publicState(state),changed:false,networkCalls:0};
+  if(blocked)return {status:blocked,...publicState(state),changed:false,captureAttempts:0};
   const pending={...state,revision:state.revision+1,attempts:state.attempts+1,
    lastAttemptAt:now,inFlight:true,lastOutcome:'started'};
   // Persist in-flight BEFORE the network request; a crash requires review
@@ -184,7 +184,7 @@ async function tick(conf,{now=Date.now(),clock=Date.now,fetchSnapshot}={}){
    ...(success?{tradeDate:result.tradeDate,rankedSectors:result.rankedSectors,
     evaluatedThreeSession:result.evaluatedThreeSession,
     evaluatedFiveSession:result.evaluatedFiveSession}:{}),
-   failureCategory:kind,failedStage:errStage,networkCalls:1,
+   failureCategory:kind,failedStage:errStage,captureAttempts:1,
    ...publicState(finished),changed:success?result.changed:false};
  }catch(e){e.stage=stage;throw e;}
  finally{if(fd!==undefined){fs.closeSync(fd);fs.unlinkSync(conf.lockFile);}}
