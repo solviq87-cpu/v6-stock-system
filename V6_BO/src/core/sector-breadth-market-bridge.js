@@ -24,7 +24,8 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
  if(!snapshot||snapshot.source!=='eastmoney-clist-unverified-live'||
    !/^\d{4}-\d{2}-\d{2}$/.test(snapshot.date||'')||
    !Number.isSafeInteger(snapshot.universeSize)||snapshot.universeSize<5||
-   !Array.isArray(snapshot.stocks)||snapshot.stocks.length>10000)
+   !Array.isArray(snapshot.stocks)||snapshot.stocks.length>10000||
+   snapshot.stocks.length>snapshot.universeSize)
   return unknown('existing-market-snapshot-invalid');
  const start=Date.parse(snapshot.startedAt||''),end=Date.parse(snapshot.retrievedAt||'');
  const time=asOf??end;
@@ -74,7 +75,7 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
   // Every member has a frozen mapping. Unavailable quotes stay absent;
   // the underlying study enforces >=80% coverage, no inferred 0% returns.
   const sectorPct=members.length?
-   members.reduce((total,s)=>total+s.changePct,0)/members.length:0;
+   members.reduce((total,s)=>total+s.changePct,0)/members.length:null;
   sectors.push({category:item.category,code:item.code,name:item.name,
    tradeDate:snapshot.date,source:snapshot.source,observedAt:time,
    memberCount:item.memberCount,changePct:sectorPct,stocks:members});
