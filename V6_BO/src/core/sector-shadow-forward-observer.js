@@ -155,6 +155,9 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
    observedSectors:count,sectors};
  }
  const threeSession=horizon(3),fiveSession=horizon(5);
+ if(threeSession.status==='blocked'||fiveSession.status==='blocked')
+  return {...empty,status:'blocked',reason:'one-or-more-future-windows-invalid',
+   tradeDate:s.tradeDate,threeSession,fiveSession};
  return {...empty,status:'research-observation-unverified',
   tradeDate:s.tradeDate,classificationVersion:s.classificationVersion,
   candidateObservedAt:s.observedAt,threeSession,fiveSession,
