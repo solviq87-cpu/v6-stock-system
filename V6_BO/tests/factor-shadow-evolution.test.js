@@ -23,7 +23,7 @@ function weekdays(n){
  return result;
 }
 const dates=weekdays(100);
-function episode(index,{reuseSymbols=false,reverseReturns=false}={}){
+function episode(index,{reuseSymbols=false,reverseReturns=false,duplicateFactor=false}={}){
  const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
   const symbol=String(600000+(reuseSymbols?0:index%6*6)+j),id=d+'-'+symbol,score=aScores[j],
@@ -32,7 +32,7 @@ function episode(index,{reuseSymbols=false,reverseReturns=false}={}){
    provenance:'synthetic-protocol-test-not-market',signalDate:d,signalAt:at(d),
    baselineClose:10});
   rows.push({signalId:id,symbol,signalDate:d,values:{
-   sector_heat:score,leader_strength:reverse
+   sector_heat:score,leader_strength:duplicateFactor?score:reverse
   },evidence:{
    sector_heat:{source:featureFeed.provider,observedAt:at(d)},
    leader_strength:{source:featureFeed.provider,observedAt:at(d)}
@@ -91,6 +91,11 @@ test('autonomous shadow update uses training + purged validation + untouched hol
  assert.equal(r.purgeSessions,5);
  assert.equal(r.factorLearning.sector_heat.reliable,true);
  assert.equal(r.factorLearning.leader_strength.reliable,true);
+ assert.equal(r.factorRedundancy.trainingDays,r.trainDays);
+ assert.equal(r.factorRedundancy.pairs.length,1);
+ assert.equal(r.factorRedundancy.pairs[0].relationship,'strong-inverse');
+ assert.deepEqual(r.factorRedundancy.suppressedFactorIds,[]);
+ assert.equal(r.factorRedundancy.productionWeightsChanged,false);
  assert.equal(r.marketRegimeDays.unknown,r.trainDays);
  assert.equal(r.freshHoldoutOnly,false);
  assert.ok(r.holdout.stability.halfPeriodsConsistent);
@@ -463,4 +468,20 @@ test('sealed historical decay alerts without a cooldown field still force an act
  assert.equal(resumed.cooldown.phase,'active');
  assert.equal(resumed.cooldown.alertDay,dates[60]);
  assert.equal(resumed.shadowWeightsChanged,false);
+});
+
+test('truly duplicate positively predictive frozen factor scores shrink the weaker shadow-only proposal, but cannot invent a promotion',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i,{duplicateFactor:true}));
+ const r=evolveShadowFactors(history,{now:finalClock});
+ assert.equal(r.factorRedundancy.status,'screened');
+ assert.equal(r.factorRedundancy.pairs[0].relationship,'strong-positive');
+ assert.equal(r.factorRedundancy.pairs[0].eligibleForSuppression,true);
+ assert.deepEqual(r.factorRedundancy.suppressedFactorIds,['sector_heat']);
+ assert.ok(r.proposedShadowWeights.sector_heat<1.3);
+ assert.ok(r.proposedShadowWeights.leader_strength>1.3);
+ assert.equal(r.status,'shadow-retained');
+ assert.equal(r.shadowWeightsChanged,false);
+ assert.equal(r.productionWeightsChanged,false);
+ assert.equal(r.autoPromotion,false);
+ assert.equal(r.canTrade,false);
 });
