@@ -38,7 +38,7 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
  if(window.length<MIN_DAYS)return base;
  // Preserve full-precision deltas exclusively for the research promotion gate.
  // The six-decimal scorecard is presentation evidence, not decision input.
- const rows=[],rawOriginalDeltas=[];
+ const rows=[],rawOriginalDeltas=[],rawAcceptedDeltas=[],rawICs=[[],[],[]];
  for(const d of window){
   const values=[originalWeights,acceptedWeights,proposedWeights].map(w=>score([d],ids,w));
   if(values.some(x=>!x||x.days!==1)){
@@ -48,7 +48,9 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   const ics=values.map(x=>x.meanIC);
   if(ics.some(x=>!finite(x)||x < -1||x>1))
    throw Error('三版本对照IC不是有限的相关系数');
+  ics.forEach((ic,i)=>rawICs[i].push(ic));
   rawOriginalDeltas.push(ics[2]-ics[0]);
+  rawAcceptedDeltas.push(ics[2]-ics[1]);
   rows.push({day:d.day,originalIC:round(ics[0]),acceptedIC:round(ics[1]),
    proposedIC:round(ics[2]),
    proposedMinusOriginal:round(ics[2]-ics[0]),
@@ -56,44 +58,47 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
  }
  const summaries=[
   ['original','originalIC'],['accepted','acceptedIC'],['proposed','proposedIC']
- ].map(([name,key])=>{
-  const ic=rows.map(x=>x[key]);
+ ].map(([name],i)=>{
+  const ic=rawICs[i];
   return [name,{meanIC:round(mean(ic)),medianIC:round(median(ic)),
    positiveDayPct:round(ic.filter(x=>x>0).length/ic.length*100,2)}];
  });
- const uplift=(key)=>{
-  const deltas=rows.map(x=>x[key]),split=Math.floor(deltas.length/2);
+ const uplift=deltas=>{
+  const split=Math.floor(deltas.length/2);
   return {meanDeltaIC:round(mean(deltas)),
    firstHalfDeltaIC:round(mean(deltas.slice(0,split))),
    recentHalfDeltaIC:round(mean(deltas.slice(split))),
    betterDayPct:round(deltas.filter(x=>x>0).length/deltas.length*100,2),
    worstDayDeltaIC:round(Math.min(...deltas))};
  };
+ // Evaluate diagnostic booleans on raw paired IC deltas; round solely for output.
  // Descriptive fragility only. Five observed dates are not necessarily
  // independent trading sessions; this must never authorize promotion.
- const pairedFragility=key=>{
-  const deltas=rows.map(row=>row[key]);
+ const pairedFragility=deltas=>{
   const omitMeans=deltas.map((_,i)=>mean(deltas.filter((__,j)=>j!==i)));
-  const worstLeaveOneOut=round(Math.min(...omitMeans));
-  const blocks=[];
+  const rawWorstLeaveOneOut=Math.min(...omitMeans);
+  const worstLeaveOneOut=round(rawWorstLeaveOneOut);
+  const blocks=[],rawBlockMeans=[];
   for(let i=0;i+5<=deltas.length;i+=5){
+   const blockMean=mean(deltas.slice(i,i+5));
+   rawBlockMeans.push(blockMean);
    blocks.push({firstDay:rows[i].day,lastDay:rows[i+4].day,
-    meanDeltaIC:round(mean(deltas.slice(i,i+5)))});
+    meanDeltaIC:round(blockMean)});
   }
   return {status:deltas.length<10?'limited-fresh-observations':'descriptive-unverified',
    assessedDays:deltas.length,
    worstLeaveOneOutMeanDeltaIC:worstLeaveOneOut,
    bestLeaveOneOutMeanDeltaIC:round(Math.max(...omitMeans)),
-   singleDayDependent:mean(deltas)>0&&worstLeaveOneOut<=0,
+   singleDayDependent:mean(deltas)>0&&rawWorstLeaveOneOut<=0,
    completeFiveObservationBlocks:blocks,
    incompleteTailDays:deltas.length%5,
    allCompleteBlocksPositive:blocks.length>=2?
-    blocks.every(block=>block.meanDeltaIC>0):null,
+    rawBlockMeans.every(blockMean=>blockMean>0):null,
    inference:'descriptive-only-not-independent-days-or-statistical-confidence',
    changesPromotionGate:false,canTrade:false};
  };
- const relativeOriginal=uplift('proposedMinusOriginal');
- const relativeAccepted=uplift('proposedMinusAccepted');
+ const relativeOriginal=uplift(rawOriginalDeltas);
+ const relativeAccepted=uplift(rawAcceptedDeltas);
  const split=Math.floor(rawOriginalDeltas.length/2);
  const originalGatePassed=mean(rawOriginalDeltas)>.002&&
   rawOriginalDeltas.filter(x=>x>0).length/rawOriginalDeltas.length*100>=60&&
@@ -101,8 +106,8 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   mean(rawOriginalDeltas.slice(split))>=-.001;
  return {...base,status:'paired-scorecard-unverified',
   assessedDays:rows.length,perDay:rows,...Object.fromEntries(summaries),
-  proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility('proposedMinusOriginal')},
-  proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility('proposedMinusAccepted')},
+  proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility(rawOriginalDeltas)},
+  proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility(rawAcceptedDeltas)},
   originalGatePassed};
 }
 module.exports={compareShadowVersions};
