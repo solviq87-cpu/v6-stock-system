@@ -188,7 +188,7 @@ test('tampered inputs, duplicate/unknown dates, provider drift or changed tolera
   f=>f.tradeDates.splice(3,0,f.tradeDates[2]),
   f=>f.expectedSignalDates.push('2026-08-04'),
   f=>f.episodes[2].asOf=asOf+600000,
-  f=>f.episodes[3].secondary.adjustedFeed.rows[0].rawPrice*=1.1
+  f=>f.episodes[3].secondary.rawSnapshots[0].stocks[0].latestPrice*=1.1
  ];
  for(const modify of cases){
   const f=fixture();modify(f);
