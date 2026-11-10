@@ -166,6 +166,42 @@ function verifyEpisode(frozen,now){
  }
  return data;
 }
+/**
+ * Check each 1/5/20/60-day status against its actual observation date.
+ * A self-signed SHA cannot turn future outcomes or missing prices into H5 data.
+ */
+function validateForwardWindowChronology(record,asOf){
+ if(!Array.isArray(record?.windows)||record.windows.length!==4||
+    !day(record.signalDate))throw Error('远期观察窗口日期或数量无效');
+ let lastTarget=null,calendarExhausted=false;
+ for(const w of record.windows){
+  if(!w||typeof w.status!=='string')
+   throw Error('远期观察窗口状态无效');
+  if(w.status==='calendar-incomplete'){
+   if(w.targetDate!==null||w.priceReturnPct!==null)
+    throw Error('日历未覆盖的远期窗口不得有目标日或收益');
+   calendarExhausted=true;
+   continue;
+  }
+  if(calendarExhausted||!day(w.targetDate)||
+     w.targetDate<=record.signalDate||
+     (lastTarget!==null&&w.targetDate<=lastTarget))
+   throw Error('远期观察窗口目标日期不递增或早于信号日');
+  lastTarget=w.targetDate;
+  if(w.status==='pending'){
+   if(w.targetDate<=asOf||w.priceReturnPct!==null)
+    throw Error('已到期窗口不能伪装待观察，待观察不能带收益');
+  }else if(['observed','missing-or-suspended','corporate-action-unresolved'].includes(w.status)){
+   if(w.targetDate>asOf)throw Error('未来交易日未到期的远期窗口不能伪装成熟');
+   if(w.status==='observed'){
+    if(!finite(w.priceReturnPct)||w.priceReturnPct<=-100)
+     throw Error('成熟窗口收益无效');
+   }else if(w.priceReturnPct!==null){
+    throw Error('未成熟记录缺价停牌或公司行为未解决不得附带收益（不能填零）');
+   }
+  }else throw Error('未知远期观察窗口状态');
+ }
+}
 function verifyAndJoin(frozen,report,now){
  const data=verifyEpisode(frozen,now);
  if(!report||report.mode!=='forward-signal-price-observation'||
@@ -190,13 +226,9 @@ function verifyAndJoin(frozen,report,now){
   if(!r||r.symbol!==x.symbol||r.signalDate!==x.signalDate||
      r.baselineClose!==x.baselineClose||!w||w.tradingDays!==HORIZON)
    throw Error('远期观察记录与原始因子快照不一致');
-  if(w.status==='observed'){
-   if(!day(w.targetDate)||w.targetDate<=x.signalDate||
-      w.targetDate>report.asOf||!finite(w.priceReturnPct)||
-      w.priceReturnPct<=-100)throw Error('成熟窗口证据失效');
+  validateForwardWindowChronology(r,report.asOf);
+  if(w.status==='observed')
    return {...x,targetDate:w.targetDate,returnPct:w.priceReturnPct};
-  }
-  if(w.priceReturnPct!==null)throw Error('未成熟记录不得带有收益');
   return {...x,targetDate:null,returnPct:null};
  });
 }

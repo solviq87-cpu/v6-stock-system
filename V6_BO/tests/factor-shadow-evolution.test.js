@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),
  crypto=require('node:crypto');
 const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
-const {freezeFeatureEpisode,evolveShadowFactors,
+const {freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
 const {runOnce:runShadowWorker,runRegister,runRegisterAuto,
@@ -64,6 +64,34 @@ test('at signal time, feature snapshot stays frozen and its returns are not incl
  assert.equal(r.features.factors.length,2);
  assert.ok(!JSON.stringify(r.features).includes('priceReturnPct'));
  assert.equal(r.report.records[0].windows[1].status,'observed');
+});
+test('all four windows must obey target-date maturity, pending and sequence rules',()=>{
+ const original=episode(0),{features,report}=original;
+ assert.equal(verifyAndJoin(features,report,finalClock).length,6);
+ const changed=(index,patch)=>{const copy=structuredClone(report);
+  Object.assign(copy.records[0].windows[index],patch);
+  return copy;};
+ assert.throws(()=>verifyAndJoin(features,changed(0,{
+  targetDate:'2027-01-01'}),finalClock),/未到期/);
+ assert.throws(()=>verifyAndJoin(features,changed(0,{
+  status:'pending'}),finalClock),/已到期/);
+ assert.throws(()=>verifyAndJoin(features,changed(1,{
+  status:'corporate-action-unresolved',targetDate:'2027-01-01',priceReturnPct:null
+ }),finalClock),/未到期/);
+ assert.throws(()=>verifyAndJoin(features,changed(2,{
+  targetDate:'2026-06-01'}),finalClock),/日历未覆盖/);
+ assert.throws(()=>verifyAndJoin(features,changed(0,{
+  targetDate:report.records[0].windows[1].targetDate
+ }),finalClock),/不递增/);
+ assert.throws(()=>verifyAndJoin(features,changed(0,{
+  priceReturnPct:0}),finalClock),/不得附带收益/);
+});
+test('calendar-incomplete cannot be followed by a fabricated pending later horizon',()=>{
+ const {features,report}=episode(0),bad=structuredClone(report);
+ bad.records[0].windows[3]={
+  tradingDays:60,status:'pending',targetDate:'2027-01-01',priceReturnPct:null
+ };
+ assert.throws(()=>verifyAndJoin(features,bad,finalClock),/不递增|早于信号日/);
 });
 test('no retrospective feature capture, simulated feed, future features or mismatched signals',()=>{
  const r=episode(0),input={cohort:r.cohort,feed:featureFeed,factorIds,rows:r.rows};
