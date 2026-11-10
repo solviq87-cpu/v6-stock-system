@@ -42,7 +42,15 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   // Older immutable reports predate trialAudit; retain their conservative
   // inspected-holdout treatment rather than rewriting those archives.
   const legacy=!hasAudit&&inspected;
-  if(!inspected)continue;
+  if(!inspected){
+   // Monitoring-only reports do not spend trial slots, but they ARE sealed
+   // research history. Reject a future cooldown/recovery before budget skip.
+   if(!finiteDate(report.lastObservationDay))
+    throw Error('全局研究档案最后观察日期无效');
+   if(report.lastObservationDay>asOfDay)
+    throw Error('全局监控档案晚于当前研究清单，历史交易日倒退');
+   continue;
+  }
   const end=legacy?report.lastObservationDay:audit.lastHoldoutDay,
    start=legacy?report.holdout?.firstFreshDay:audit.firstHoldoutDay;
   if(!finiteDate(end)||!finiteDate(start)||start>end||
