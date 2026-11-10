@@ -69,11 +69,20 @@ function freezeSectorH5MemberCloses(candidate,price,{now=Date.now()}={}){
    typeof feed.datasetId!=='string'||feed.datasetId.length<1||
    feed.datasetId.length>200||
    !Array.isArray(price.stocks)||price.stocks.length<15||
-   price.stocks.length>6000)
+   price.stocks.length>6000||
+   // Fail closed on extra payload keys: this entry point must NEVER import
+   // future OHLC bars, corrections, or precomputed returns as EOD baselines.
+   Object.keys(price).some(k=>!['schemaVersion','mode','tradeDate',
+    'observedAt','feed','stocks'].includes(k))||
+   Object.keys(feed).some(k=>!['source','provider','datasetId',
+    'priceBasis'].includes(k)))
   return blocked('imported-eod-price-feed-or-timestamp-invalid');
  const prices=new Map();
  for(const p of price.stocks){
-  if(!sym(p?.symbol)||prices.has(p.symbol)||
+  if(!p||typeof p!=='object'||Array.isArray(p)||
+    Object.keys(p).some(k=>!['symbol','tradeDate','close','volume',
+     'suspended','vendorQuoteAt'].includes(k))||
+    !sym(p.symbol)||prices.has(p.symbol)||
     p.tradeDate!==day||
     !finite(p.close)||p.close<=0||p.close>1000000||
     !Number.isSafeInteger(p.volume)||p.volume<=0||
