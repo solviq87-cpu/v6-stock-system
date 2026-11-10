@@ -10,6 +10,8 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const dateOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  Number.isFinite(Date.parse(x+'T00:00:00Z'))&&new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
 const round=x=>Number(x.toFixed(2));
+const badSource=x=>typeof x!=='string'||!x.trim()||x.length>120||
+ /^(?:simulated|simulation|synthetic|fixture|mock|test)$/i.test(x.trim());
 const clip=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 function median(values){
  const a=[...values].sort((x,y)=>x-y),m=a.length>>1;
@@ -29,8 +31,7 @@ function evaluateSectorBreadthStrength({snapshot,sectorObservations,asOf=Date.no
  if(!validOptions)return empty('invalid-analysis-options');
  const date=snapshot?.date;
  if(!dateOK(date)||date!==sectorObservations?.tradeDate||aShareCalendarDate(asOf)!==date||
-   typeof snapshot?.source!=='string'||!snapshot.source.trim()||
-   typeof sectorObservations?.source!=='string'||!sectorObservations.source.trim()||
+   badSource(snapshot?.source)||badSource(sectorObservations?.source)||
    !observedAtOK(sectorObservations?.observedAt,date,asOf,maxAgeMs)||
    !Number.isInteger(snapshot?.universeSize)||snapshot.universeSize<1||
    !Array.isArray(snapshot?.stocks)||!Array.isArray(sectorObservations?.sectors)||
@@ -63,7 +64,7 @@ function evaluateSectorBreadthStrength({snapshot,sectorObservations,asOf=Date.no
    excluded.push({code,reason:'invalid-or-duplicate-board-identity'});continue;
   }
   ids.add(id);
-  if(board.source!==sectorObservations.source||board.tradeDate!==date||
+  if(badSource(board.source)||board.source!==sectorObservations.source||board.tradeDate!==date||
     !observedAtOK(board.observedAt,date,asOf,maxAgeMs)||
     !finite(board.changePct)||board.changePct< -100||board.changePct>100||
     !Number.isInteger(board.totalMembers)||board.totalMembers<5||board.totalMembers>6000||
@@ -108,7 +109,7 @@ function evaluateSectorBreadthStrength({snapshot,sectorObservations,asOf=Date.no
  }
  for(const list of Object.values(out))list.sort((a,b)=>b.score-a.score||b.changePct-a.changePct||a.code.localeCompare(b.code));
  const validCount=out.industry.length+out.concept.length;
- return {schemaVersion:1,status:validCount>=2?'observed-unverified':'insufficient-comparison',
+ return {schemaVersion:1,status:Math.max(out.industry.length,out.concept.length)>=2?'observed-unverified':'insufficient-comparison',
   tradeDate:date,asOf,stockSource:snapshot.source,sectorSource:sectorObservations.source,
   marketMedianPct:round(marketMedian),marketCoveragePct:round(marketCoverage*100),
   marketObserved:recent.size,validSectors:validCount,excludedSectors:excluded,
