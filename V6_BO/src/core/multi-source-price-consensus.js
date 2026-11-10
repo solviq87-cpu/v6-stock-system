@@ -5,6 +5,7 @@
  */
 const {probePublicQuotes,projectProbe}=require('./public-quote-probe');
 const {session}=require('./quote-dual-source-diagnostic');
+const {fetchItickStockQuote}=require('./itick-stock-quote');
 const PUBLIC_IDS=['tencent','eastmoney','sina'];
 const bps=(a,b)=>10000*Math.abs(a-b)/Math.max(a,b);
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
@@ -81,13 +82,16 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   maxMatchedPriceGapBps:Number(bps(Math.min(...matched.map(x=>x.price)),Math.max(...matched.map(x=>x.price))).toFixed(3))};
 }
 async function checkMultiPublicPrices({code,now=Date.now(),probe=probePublicQuotes,
- extraSources=[],priceToleranceBps=30,timeGapMs=5000,maxAgeMs=15000}={}){
+ extraSources=[],itickToken,fetchItick=fetchItickStockQuote,
+ priceToleranceBps=30,timeGapMs=5000,maxAgeMs=15000}={}){
  if(!validCode(code)||!Number.isSafeInteger(now)||now<=0||
-  typeof probe!=='function'||!Array.isArray(extraSources)||extraSources.length>5)
+  typeof probe!=='function'||typeof fetchItick!=='function'||
+  !Array.isArray(extraSources)||extraSources.length>4)
   throw Error('多源股票诊断参数无效');
  // Never probe a known closed clock window. This is not an exchange holiday calendar.
  if(!session(now))return fuseMultiSourcePrices({code,now,
-  sources:PUBLIC_IDS.map(id=>({id,status:'unavailable'})).concat(extraSources),
+  sources:PUBLIC_IDS.map(id=>({id,status:'unavailable'}))
+   .concat([{id:'itick',status:'unconfigured'}],extraSources),
   priceToleranceBps,timeGapMs,maxAgeMs});
  const raw=await probe({code,providers:PUBLIC_IDS});
  const projected=projectProbe(raw,now);
@@ -95,7 +99,9 @@ async function checkMultiPublicPrices({code,now=Date.now(),probe=probePublicQuot
   const s=projected.sources.find(item=>item.id===id);
   return s?{id,status:s.status,quote:s.quote}: {id,status:'unavailable'};
  });
- return fuseMultiSourcePrices({code,now,sources:[...sources,...extraSources],
+ // Official iTick is opt-in and needs an operator token, never embedded in code.
+ const itick=await fetchItick({code,token:itickToken,now});
+ return fuseMultiSourcePrices({code,now,sources:[...sources,itick,...extraSources],
   priceToleranceBps,timeGapMs,maxAgeMs});
 }
 module.exports={fuseMultiSourcePrices,checkMultiPublicPrices};
