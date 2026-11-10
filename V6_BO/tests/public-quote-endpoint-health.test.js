@@ -54,6 +54,22 @@ test('Eastmoney 302 to delayed host is reported and never followed',async()=>{
  assert.equal(r.providers[0].price,null);
  assert.equal(JSON.stringify(r).includes('private-secret'),false);
 });
+test('opaque redirect is refused without a visible HTTP status or Location access',async()=>{
+ const calls=[];
+ const r=await inspect({code:'600519',clock:()=>now,providers:['eastmoney'],
+  fetchImpl:async(url,opts)=>{
+   calls.push({url,redirect:opts.redirect});
+   return {type:'opaqueredirect',status:0,ok:false,
+    headers:{get(){throw Error('redirect target must stay unread');}}};
+  }});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].redirect,'manual');
+ assert.equal(r.providers[0].status,'redirect-refused');
+ assert.equal(r.providers[0].httpStatus,null);
+ assert.equal(r.providers[0].price,null);
+ assert.equal(r.canTrade,false);
+ assert.equal(r.verifiedLive,false);
+});
 test('403 and 429 remain independent denials and are never retried',async()=>{
  const calls=[];
  const r=await inspect({code:'600519',clock:()=>now,
