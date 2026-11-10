@@ -7,7 +7,7 @@ const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
 const {verifyCanonicalManifestLineage}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
-const {preregisterCandidate,verifyPreregisteredCandidate}=
+const {preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint}=
  require('../src/core/factor-candidate-prereg');
 const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-proposer');
 const factorPack=require('../strategies/extended-factor-pack.json');
@@ -29,15 +29,20 @@ function parse(args){
   return {mode,manifestFile,outputDir};
  }
  const requirePreRegistration=flags.includes('--require-prereg');
- if(flags.filter(x=>x==='--require-prereg').length>1)
-  throw Error('不可重复设置严格预注册门禁');
- const extra=flags.filter(x=>x!=='--require-prereg');
+ const autoRegisterCandidate=flags.includes('--auto-prereg');
+ if(flags.filter(x=>x==='--require-prereg').length>1||
+    flags.filter(x=>x==='--auto-prereg').length>1)
+  throw Error('不可重复设置严格预注册或自动接力门禁');
+ if(autoRegisterCandidate&&(mode!=='watch'||!requirePreRegistration))
+  throw Error('自动接力仅允许 watch 同时明确启用 --require-prereg');
+ const extra=flags.filter(x=>x!=='--require-prereg'&&x!=='--auto-prereg');
  if(extra.length&&(mode!=='watch'||extra.length!==2||extra[0]!=='--interval'))
-  throw Error('轮询仅支持 watch --interval 毫秒及 --require-prereg');
+  throw Error('轮询仅支持 watch --interval 毫秒及 --require-prereg/--auto-prereg');
  const interval=extra.length?Number(extra[1]):60000;
  if(!Number.isSafeInteger(interval)||interval<30000||interval>3600000)
   throw Error('研究轮询间隔必须为30000至3600000毫秒');
- return {mode,manifestFile,outputDir,interval,requirePreRegistration};
+ return {mode,manifestFile,outputDir,interval,requirePreRegistration,
+  autoRegisterCandidate};
 }
 function latestAccepted(dir){
  if(!fs.existsSync(dir))return null;
@@ -192,10 +197,40 @@ function latestCandidateRegistration(dir,accepted,previousTrial){
  return matches[0]||null;
 }
 /**
- * Explicit PRE-outcome registration: verify only frozen features, never read
- * any forward reportFile. Candidate weights come from a separate bounded
- * JSON file and are persisted before future signal snapshots may be created.
+ * Private in-lock candidate registration. It never opens any H5 reportFile.
+ * Called both by explicit register-auto and the opt-in strict watch handoff,
+ * so two workers cannot reserve the same candidate simultaneously.
  */
+function registerCandidateLocked({manifest,outputDir,now,auto=false,
+ candidateWeightsFile,features,accepted,previousTrial}={}){
+ if(!Array.isArray(features)||features.length<36)
+  throw Error('候选注册必须有已冻结的历史特征');
+ if(latestCandidateRegistration(outputDir,accepted,previousTrial))
+  throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
+ const defs=features[0].factors,weights=accepted?.shadowWeights||
+  Object.fromEntries(defs.map(x=>[x.id,x.baseWeight]));
+ const prior=auto?(previousTrial||accepted):null;
+ if(auto&&!prior)
+  throw Error('尚无已封存历史研究报告，自动候选预注册拒绝启动');
+ const proposal=auto?proposeFromSealedResearch({
+  source:prior,definitions:defs,acceptedWeights:weights,
+  packFingerprint:hash(factorPack),
+  latestFrozenDay:features.at(-1).signalDay
+ }):null;
+ const entry=preregisterCandidate({features,
+  candidateWeights:auto?proposal.candidateWeights:readJson(candidateWeightsFile),
+  acceptedWeights:weights,registeredAt:now,
+  parentAcceptedFingerprint:accepted?.fingerprint||null,
+  parentTrialFingerprint:previousTrial?.fingerprint||null,
+  packFingerprint:hash(factorPack),
+  autoSourceFingerprint:auto?proposal.sourceFingerprint:null});
+ const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+ writeNew(file,entry);
+ return {ok:true,status:auto?'candidate-auto-preregistered':'candidate-preregistered',
+  fingerprint:entry.fingerprint,sourceFingerprint:proposal?.sourceFingerprint||null,
+  latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
+  canTrade:false,productionWeightsChanged:false};
+}
 function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
  now=Date.now(),auto=false}={}){
  const args=auto?['register-auto',manifestFile,outputDir]:
@@ -213,31 +248,8 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
   });
   const accepted=latestAccepted(conf.outputDir);
   const previousTrial=latestTrial(conf.outputDir,accepted);
-  if(latestCandidateRegistration(conf.outputDir,accepted,previousTrial))
-   throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
-  const defs=features[0].factors,weights=accepted?.shadowWeights||
-   Object.fromEntries(defs.map(x=>[x.id,x.baseWeight]));
-  const prior=auto?(previousTrial||accepted):null;
-  if(auto&&!prior)
-   throw Error('尚无已封存历史研究报告，自动候选预注册拒绝启动');
-  const proposal=auto?proposeFromSealedResearch({
-   source:prior,definitions:defs,acceptedWeights:weights,
-   packFingerprint:hash(factorPack),
-   latestFrozenDay:features.at(-1).signalDay
-  }):null;
-  const entry=preregisterCandidate({features,
-   candidateWeights:auto?proposal.candidateWeights:readJson(candidateWeightsFile),
-   acceptedWeights:weights,registeredAt:now,
-   parentAcceptedFingerprint:accepted?.fingerprint||null,
-   parentTrialFingerprint:previousTrial?.fingerprint||null,
-   packFingerprint:hash(factorPack),
-   autoSourceFingerprint:auto?proposal.sourceFingerprint:null});
-  const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
-  writeNew(file,entry);
-  return {ok:true,status:auto?'candidate-auto-preregistered':'candidate-preregistered',
-   fingerprint:entry.fingerprint,sourceFingerprint:proposal?.sourceFingerprint||null,
-   latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
-   canTrade:false,productionWeightsChanged:false};
+  return registerCandidateLocked({manifest,outputDir:conf.outputDir,now,auto,
+   candidateWeightsFile,features,accepted,previousTrial});
  });
 }
 function runRegister(args={}){return registerCandidate(args);}
@@ -298,13 +310,20 @@ function validateManifest(manifest){
   throw Error('需要完整时间排序研究批次目录');
 }
 function runOnce({manifestFile,outputDir,now=Date.now(),
- requirePreRegistration=false}={}){
+ requirePreRegistration=false,autoRegisterCandidate=false,
+ operatorMode=false}={}){
+ if(autoRegisterCandidate&&!requirePreRegistration)
+  throw Error('自动接力必须先启用严格预注册');
  const conf=parse(['once',manifestFile,outputDir]);
- // Reject invalid manifests without creating or changing the output directory.
+ // Check the EXACT manifest consumed on this tick: watch must not continue
+ // if a formerly canonical operator manifest was replaced while running.
+ // Direct research tests intentionally retain legacy fixture compatibility.
  const manifest=readJson(conf.manifestFile);
+ if(operatorMode&&manifest?.mode!=='v6-forward-training-manifest')
+  throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>evaluateOnce(
-  {...conf,requirePreRegistration},now,manifest));
+  {...conf,requirePreRegistration,autoRegisterCandidate},now,manifest));
 }
 function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
@@ -315,7 +334,8 @@ function evaluateOnce(conf,now,manifest){
   ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
  // A recovered cooldown is NOT an active monitoring exemption. It needs a
  // freshly committed candidate before any new forward return is opened.
- if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly)
+ if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly&&
+    !conf.autoRegisterCandidate)
   throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
  // Audit the total experiment budget using immutable frozen FEATURE dates
  // BEFORE opening any H5 forward-return report. A budget-denied challenger
@@ -334,6 +354,36 @@ function evaluateOnce(conf,now,manifest){
    usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
    windowStartDay:trialBudget.windowStartDay,
    canTrade:false,productionWeightsChanged:false};
+ // An explicitly enabled strict watch can reserve exactly one candidate
+ // from SEALED OLD research. It will not read ANY forward prices on the
+ // registration tick; candidate must precede a later frozen signal.
+ if(conf.autoRegisterCandidate&&!preRegistration&&!cooldownOnly){
+  if(!previous&&!previousTrial)
+   return {ok:true,status:'skipped-auto-prereg-needs-sealed-history',
+    canTrade:false,productionWeightsChanged:false};
+  return registerCandidateLocked({manifest,outputDir:conf.outputDir,now,
+   auto:true,features:frozen,accepted:previous,previousTrial});
+ }
+ if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly)
+  throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
+ // A newly committed candidate cannot have a future test signal yet.
+ // Do not read old H5 reports while simply waiting for the first new
+ // frozen signal; this also avoids spuriously re-testing the old holdout.
+ if(conf.requirePreRegistration&&preRegistration&&!cooldownOnly&&
+    preRegistration.frozenPrefixFingerprints?.length===frozen.length){
+  const ordered=[...frozen].sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
+  if(preRegistration.algorithmFingerprint!==currentResearchCodeFingerprint()||
+     preRegistration.packFingerprint!==hash(factorPack)||
+     preRegistration.parentAcceptedFingerprint!==(previous?.fingerprint||null)||
+     preRegistration.parentTrialFingerprint!==(previousTrial?.fingerprint||null)||
+     preRegistration.latestFrozenSignalDay!==ordered.at(-1).signalDay||
+     preRegistration.registeredAt<preRegistration.lastFrozenCapturedAt||
+     preRegistration.frozenPrefixFingerprints.some((fp,i)=>fp!==ordered[i].fingerprint))
+   throw Error('待执行候选预注册与冻结证据或研究代码已不一致');
+  return {ok:true,status:'skipped-awaiting-post-prereg-signals',
+   preregistrationFingerprint:preRegistration.fingerprint,
+   canTrade:false,productionWeightsChanged:false};
+ }
  // Validate an already-sealed commitment against frozen FEATURES before
  // opening any forward-return files. Outcome-based eligibility is checked
  // again by evolveShadowFactors after the holdout has been loaded.
@@ -410,12 +460,12 @@ function main(args){
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  if(config.mode==='register')return runRegister(config);
  if(config.mode==='register-auto')return runRegisterAuto(config);
- if(config.mode==='once')return runOnce(config);
+ if(config.mode==='once')return runOnce({...config,operatorMode:true});
  let busy=false,closing=false;
  const tick=()=>{
   if(busy||closing)return;
   busy=true;
-  try{console.log(JSON.stringify(runOnce(config)));}
+  try{console.log(JSON.stringify(runOnce({...config,operatorMode:true})));}
   catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));}
   finally{busy=false;}
  };
