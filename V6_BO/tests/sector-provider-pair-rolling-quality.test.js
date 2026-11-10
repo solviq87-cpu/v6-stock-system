@@ -230,3 +230,42 @@ test('CLI preview is read-only, immutable publication is idempotent, changed rep
   assert.throws(()=>parse(['preview',alias]),/符号链接/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+
+test('partial provider disagreement is an alarm AND non-comparable day, never inflated coverage',()=>{
+ const f=fixture(),e=f.episodes[2];
+ e.secondary.adjustedFeed.rows=e.secondary.adjustedFeed.rows.filter(x=>
+  !(x.symbol==='600001'&&x.date===days[7]));
+ e.secondary.adjustedFeed.rows.find(x=>
+  x.symbol==='600101'&&x.date===days[7]).adjustedLevel*=1.04;
+ const r=audit(f),h=r.horizons[1];
+ assert.equal(r.status,'pair-quality-watch-unverified');
+ assert.equal(h.status,'watch-partial-evidence-with-observed-disagreement');
+ assert.deepEqual(h.partialDisagreementDays,[days[2]]);
+ assert.deepEqual(h.unknownOrPartialDays,[days[2]]);
+ assert.deepEqual(h.disagreementDays,[],'partial day must not inflate fully comparable disagreement cases');
+ assert.equal(h.comparableRatePct,80,'4/5 days are fully comparable');
+ assert.equal(h.nonComparableRatePct,20);
+ assert.equal(h.disagreementRatePct,0,'disagreement rate uses fully comparable days only');
+ assert.equal(h.disagreeingSectorCount,1,'known conflict must be recorded');
+ assert.equal(h.unknownSectorCount,1,'missing member must remain unknown');
+ assert.equal(r.canTrade,false);
+ assert.equal(r.canTrain,false);
+});
+test('same-session target must wait until 15:15 China time before counting missing coverage',()=>{
+ const e=episode(0),policy=fixture().policy;
+ const input={episodes:[e],expectedSignalDates:[days[0]],
+  tradeDates:days.slice(),policy};
+ const morning=audit({...input,asOf:at(20)+3000}).horizons[2];
+ assert.equal(morning.notMaturedSignalDays,1);
+ assert.equal(morning.maturedSignalDays,0);
+ assert.equal(morning.nonComparableRatePct,null);
+ const beforeCutoff=audit({...input,asOf:
+  Date.parse(days[20]+'T15:14:59+08:00')}).horizons[2];
+ assert.equal(beforeCutoff.notMaturedSignalDays,1);
+ const afterCutoff=audit({...input,asOf:
+  Date.parse(days[20]+'T15:15:00+08:00')}).horizons[2];
+ assert.equal(afterCutoff.maturedSignalDays,1);
+ assert.equal(afterCutoff.agreeDays.length,1);
+ assert.equal(afterCutoff.nonComparableRatePct,0);
+});
