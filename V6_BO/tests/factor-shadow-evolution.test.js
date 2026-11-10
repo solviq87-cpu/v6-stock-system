@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),
+ crypto=require('node:crypto');
 const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
 const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
@@ -428,4 +429,29 @@ test('worker rereads private cooldown after restart rather than forgetting the l
  assert.equal(latestCooldown(outputDir,previous).cooldown.phase,'recovered');
  assert.equal(require('../scripts/factor-shadow-worker').latestAccepted(outputDir).fingerprint,
   previous.fingerprint);
+});
+
+test('sealed historical decay alerts without a cooldown field still force an active cooldown after restart',t=>{
+ const historical=Array.from({length:56},(_,i)=>episode(i));
+ const previous=evolveShadowFactors(historical,{now:finalClock});
+ const source=[...historical,
+  ...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(source,{now:finalClock,previous});
+ assert.equal(alert.status,'paused-shadow-decay');
+ const {fingerprint,cooldown,postRecoveryHoldoutDays,postRecoveryGainIC,...payload}=alert;
+ const legacy={...payload,fingerprint:crypto.createHash('sha256')
+  .update(JSON.stringify(payload)).digest('hex')};
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-legacy-cooldown-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file='shadow-'+legacy.trainingEnd+'-'+legacy.fingerprint.slice(0,12)+'.json';
+ fs.writeFileSync(path.join(dir,file),JSON.stringify(legacy));
+ const restored=latestCooldown(dir,previous);
+ assert.equal(restored.fingerprint,legacy.fingerprint);
+ assert.equal(restored.cooldown,undefined);
+ const resumed=evolveShadowFactors([...source,episode(61)],
+  {now:finalClock,previous,previousCooldown:restored});
+ assert.equal(resumed.status,'paused-shadow-cooldown');
+ assert.equal(resumed.cooldown.phase,'active');
+ assert.equal(resumed.cooldown.alertDay,dates[60]);
+ assert.equal(resumed.shadowWeightsChanged,false);
 });
