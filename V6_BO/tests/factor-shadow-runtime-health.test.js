@@ -69,7 +69,7 @@ test('calendar-day age warning is NOT an asserted exchange trading-session outag
  const oldDays=calendar('2026-08-01',36);
  const r=assess({signalDays:oldDays});
  assert.equal(r.status,'research-calendar-age-needs-review');
- assert.ok(r.issues.includes('oldest-visible-manifest-calendar-age-review'));
+ assert.ok(r.issues.includes('latest-manifest-calendar-age-needs-review'));
  assert.equal(r.marketCalendar,
   'Asia/Shanghai-calendar-days-not-trading-session-certified');
 });
