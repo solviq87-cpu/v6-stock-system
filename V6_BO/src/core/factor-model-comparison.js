@@ -76,7 +76,8 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
  // independent trading sessions; this must never authorize promotion.
  const pairedFragility=deltas=>{
   const omitMeans=deltas.map((_,i)=>mean(deltas.filter((__,j)=>j!==i)));
-  const worstLeaveOneOut=round(Math.min(...omitMeans));
+  const rawWorstLeaveOneOut=Math.min(...omitMeans);
+  const worstLeaveOneOut=round(rawWorstLeaveOneOut);
   const blocks=[],rawBlockMeans=[];
   for(let i=0;i+5<=deltas.length;i+=5){
    const blockMean=mean(deltas.slice(i,i+5));
@@ -88,7 +89,7 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
    assessedDays:deltas.length,
    worstLeaveOneOutMeanDeltaIC:worstLeaveOneOut,
    bestLeaveOneOutMeanDeltaIC:round(Math.max(...omitMeans)),
-   singleDayDependent:mean(deltas)>0&&worstLeaveOneOut<=0,
+   singleDayDependent:mean(deltas)>0&&rawWorstLeaveOneOut<=0,
    completeFiveObservationBlocks:blocks,
    incompleteTailDays:deltas.length%5,
    allCompleteBlocksPositive:blocks.length>=2?
