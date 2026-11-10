@@ -41,7 +41,7 @@ const run=(records=archives,asOf=clock(days.at(-1)))=>
  observe(frozen,records,{tradeDates:days,asOf});
 
 test('only exact later trading sessions mature descriptive 3/5 windows, never training or trading',()=>{
- const untouched=structuredClone({frozen,archives,days});
+ const untouched=JSON.stringify({frozen,archives,days});
  const r=run();
  assert.equal(r.status,'research-observation-unverified');
  assert.equal(r.threeSession.status,'descriptive-observed-unverified');
@@ -62,7 +62,7 @@ test('only exact later trading sessions mature descriptive 3/5 windows, never tr
  assert.equal(r.canNotify,false);
  assert.equal(r.weightsChanged,false);
  assert.equal(r.autoPromotion,false);
- assert.deepEqual({frozen,archives,days},untouched,'pure research must not mutate inputs');
+ assert.equal(JSON.stringify({frozen,archives,days}),untouched,'pure research must not mutate inputs');
 });
 test('before a fifth later session occurs, three can be observed while five remains pending',()=>{
  const r=run(archives.slice(0,4),clock(days[3]));
