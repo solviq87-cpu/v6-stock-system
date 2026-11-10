@@ -59,7 +59,12 @@ function latestCooldown(dir,accepted){
   if(!['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(m.status))
    continue;
   if(m.previousFingerprint!==accepted.fingerprint)continue;
-  if(!m.cooldown||m.cooldown.sourceAcceptedFingerprint!==accepted.fingerprint||
+  // Sealed older PR #77 decay alerts predate the cooldown metadata.
+  // Preserve their warning and let the core infer an ACTIVE gate from the
+  // sealed lastObservationDay; never ignore these old alerts on restart.
+  const legacy=m.status==='paused-shadow-decay'&&!m.cooldown;
+  if((!legacy&&(!m.cooldown||
+      m.cooldown.sourceAcceptedFingerprint!==accepted.fingerprint))||
      !/^\d{4}-\d{2}-\d{2}$/.test(m.lastObservationDay))
    throw Error('冷却状态缺少已接受研究模型血缘');
   states.push(m);
