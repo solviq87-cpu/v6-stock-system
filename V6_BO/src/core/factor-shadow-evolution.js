@@ -375,9 +375,6 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   if(contents.trainingEnd>trainingEnd||
      contents.lastObservationDay>sorted.at(-1).day)
    throw Error('历史研究证据时间倒退，拒绝继续学习');
-  if(contents.trainingEnd===trainingEnd||
-     contents.lastObservationDay===sorted.at(-1).day)
-   throw Error('未增加新的训练时间窗');
   if(!contents.shadowWeights||ids.some(id=>!finite(contents.shadowWeights[id])))
    throw Error('历史研究权重无效');
   // Earlier data used to accept a shadow version must remain unchanged.
@@ -386,6 +383,11 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
      contents.observedFingerprints.some((pair,i)=>
       hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint])))
    throw Error('已有因子模型的历史冻结证据被替换或回写');
+  // Audit every sealed historical observation before a no-op same-day
+  // skip; otherwise rewritten evidence could hide behind the skip path.
+  if(contents.trainingEnd===trainingEnd||
+     contents.lastObservationDay===sorted.at(-1).day)
+   throw Error('未增加新的训练时间窗');
   oldWeights=Object.fromEntries(ids.map(id=>[id,previous.shadowWeights[id]]));
   for(const f of defs)if(oldWeights[f.id]<f.baseWeight*.5||oldWeights[f.id]>f.baseWeight*1.5)
    throw Error('旧研究权重越过边界');
