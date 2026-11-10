@@ -9,6 +9,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {aShareCalendarDate}=require('../src/core/a-share-calendar');
 const {adaptBaoStockIndustryMembership}=require('../src/core/baostock-industry-membership-adapter');
 const {bridgeExistingMarketSector}=require('../src/core/sector-breadth-market-bridge');
+const {freezeSectorMemberIdentity}=require('../src/core/sector-member-identity-proof');
 const {runOnce:normalize}=require('./normalize-baostock-industry');
 const {runOnce:sectorRun}=require('./sector-strength-research');
 const {runOnce:rotationRun}=require('./sector-rotation-history');
@@ -75,7 +76,9 @@ function preview(conf,{now=Date.now()}={}){
  if(normalized.status!=='imported-unverified')
   return {status:'blocked-membership',reason:normalized.reason,canTrade:false,applyAllowed:false};
  const bridge=bridgeExistingMarketSector(snapshot,normalized.membership,{asOf:end});
- if(bridge.status!=='imported-unverified'||bridge.study?.rankedSectorCount<3)
+ const memberIdentity=freezeSectorMemberIdentity(normalized.membership);
+ if(bridge.status!=='imported-unverified'||bridge.study?.rankedSectorCount<3||
+  memberIdentity.status!=='identity-frozen-unverified')
   return {status:'blocked-sector-evidence',
    reason:bridge.reason||'可比行业不足3个，不能形成同日行业强弱排名',
    canTrade:false,applyAllowed:false};
@@ -92,6 +95,7 @@ function preview(conf,{now=Date.now()}={}){
    schemaVersion:1,mode:'dated-sector-research-only',status:bridge.status,
    reason:bridge.reason||null,tradeDate:bridge.tradeDate||snapshot.date||null,
    observedAt:bridge.observedAt||end||null,data:bridge,
+   memberIdentity,
    verifiedLive:false,canTrade:false,weightsChanged:false
   })+'\n';
   if(readFileText(sectorFile)!==body)
