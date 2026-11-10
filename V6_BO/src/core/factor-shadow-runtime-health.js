@@ -57,7 +57,7 @@ function assessShadowRuntimeHealth({now=Date.now(),signalDays=[],
  if(missingReportCount)issues.push('missing-research-H5-files');
  // Calendar age is NOT a trading-session count: holidays/closures may be
  // long. Flag for review, never assert a feed outage or fake a trading day.
- if(calendarAgeDays>=7)issues.push('oldest-visible-manifest-calendar-age-review');
+ if(calendarAgeDays>=7)issues.push('latest-manifest-calendar-age-needs-review');
  if(budgetState==='trial-budget-exhausted')issues.push('trial-budget-exhausted');
  if(researchState==='research-decay-cooldown')issues.push('research-decay-cooldown');
  if(!accepted&&!trial)issues.push('no-sealed-research-version');
