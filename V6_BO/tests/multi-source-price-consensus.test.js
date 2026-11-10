@@ -144,7 +144,7 @@ test('a failing optional official provider never cancels healthy public-source c
  const result=await checkMultiPublicPrices({code:'600519',now,probe,
   fetchItick:async()=>{throw Error('provider offline');}});
  assert.equal(result.status,'sources-agree-unverified');
- assert.equal(result.referencePrice,10);
+ assert.equal(result.referencePrice,10.01); // Equal timestamps choose eastmoney by source ID.
  assert.equal(result.sourceStatuses.find(s=>s.provider==='itick').status,'unavailable');
  assert.equal(result.canTrade,false);
 });
