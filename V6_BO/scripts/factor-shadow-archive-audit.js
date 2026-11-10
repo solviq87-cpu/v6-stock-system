@@ -9,6 +9,46 @@ const bytesHash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const SHADOW=/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/;
 const PREREG=/^prereg-[a-f0-9]{12}\.json$/;
 const HEX=/^[a-f0-9]{64}$/;
+// WATCH heartbeat is MUTABLE operational metadata, not an immutable model.
+// Allow this one exact file with full schema/hash verification, but never
+// count it as archived training evidence or silently accept other files.
+const HEARTBEAT_NAME='.shadow-worker-heartbeat.json';
+const HEARTBEAT_FIELDS=['canTrade','integrity','intervalMs','lastStatus','mode',
+ 'observedAt','outcome','pid','productionWeightsChanged','schemaVersion'];
+function verifyOperationalHeartbeat(root,entry){
+ const file=safeNew(path.join(root,HEARTBEAT_NAME));
+ if(!entry.isFile()||entry.isSymbolicLink())
+  throw Error('研究值守心跳不是可信普通文件');
+ const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+ let data;
+ try{
+  const before=fs.fstatSync(fd);
+  if(!before.isFile()||before.size<2||before.size>4096)
+   throw Error('研究值守心跳文件大小无效');
+  data=fs.readFileSync(fd);
+  const after=fs.fstatSync(fd);
+  if(before.dev!==after.dev||before.ino!==after.ino||
+     before.size!==after.size||before.mtimeMs!==after.mtimeMs)
+   throw Error('研究值守心跳扫描期间被更改');
+ }finally{fs.closeSync(fd);}
+ let pulse;
+ try{pulse=JSON.parse(data.toString('utf8'));}
+ catch{throw Error('研究值守心跳JSON无效');}
+ if(!pulse||typeof pulse!=='object'||Array.isArray(pulse)||
+    JSON.stringify(Object.keys(pulse).sort())!==JSON.stringify(HEARTBEAT_FIELDS)||
+    pulse.schemaVersion!==1||pulse.mode!=='v6-shadow-watch-heartbeat-v1'||
+    !Number.isSafeInteger(pulse.observedAt)||pulse.observedAt<=0||
+    !Number.isSafeInteger(pulse.intervalMs)||pulse.intervalMs<30000||
+    pulse.intervalMs>3600000||
+    !Number.isSafeInteger(pulse.pid)||pulse.pid<=0||
+    !['tick-success','tick-error'].includes(pulse.outcome)||
+    typeof pulse.lastStatus!=='string'||pulse.lastStatus.length>90||
+    !/^[a-z0-9-]+$/.test(pulse.lastStatus)||
+    pulse.canTrade!==false||pulse.productionWeightsChanged!==false)
+  throw Error('研究值守心跳字段或不可交易合同无效');
+ const {integrity,...payload}=pulse;
+ if(integrity!==hash(payload))throw Error('研究值守心跳完整性校验失败');
+}
 const STATUSES=new Set(['shadow-updated','shadow-retained','paused-market-shock',
  'paused-shadow-decay','paused-shadow-cooldown','shadow-recovered']);
 const INSPECTED=new Set(['shadow-updated','shadow-retained','paused-market-shock']);
@@ -25,6 +65,13 @@ function scan(dir){
  if(!entries.length||entries.length>1000)throw Error('研究归档目录为空或超出审计上限');
  const files=[],kinds={shadow:0,prereg:0},statuses={},seen=new Set();
  for(const e of entries){
+  // PR #165 writes an operational WATCH pulse to this same private directory.
+  // It may vary between a trusted backup and a stopped restore target; it
+  // must NEVER replace or count as one of the immutable history records.
+  if(e.name===HEARTBEAT_NAME){
+   verifyOperationalHeartbeat(root,e);
+   continue;
+  }
   const name=e.name,kind=SHADOW.test(name)?'shadow':PREREG.test(name)?'prereg':null;
   if(!kind||!e.isFile()||e.isSymbolicLink()||seen.has(name))
    throw Error('研究归档目录存在未识别、重复或非普通文件：'+name.slice(0,110));
@@ -71,6 +118,7 @@ function scan(dir){
   kinds[kind]++;
   files.push({name,sha256:bytesHash(data),fingerprint,kind});
  }
+ if(!files.length)throw Error('研究目录仅有运行状态，无任何不可变模型或预注册归档');
  files.sort((a,b)=>a.name.localeCompare(b.name,'en'));
  const after=fs.lstatSync(root);
  if(d.dev!==after.dev||d.ino!==after.ino||d.mtimeMs!==after.mtimeMs||
