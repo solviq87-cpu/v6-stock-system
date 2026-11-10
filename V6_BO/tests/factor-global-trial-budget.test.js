@@ -57,7 +57,7 @@ test('cross-version overlapping holdout intervals cannot reset budget by accepti
 test('malformed dates and incomplete candidate records fail closed',()=>{
  const ds=days(120),r=record(ds,0);
  assert.throws(()=>assessGlobalTrialBudget([{...r,trialAudit:{...r.trialAudit,
-  candidateFingerprint:'bad'}}],ds,pack),/归档时间或候选血缘/);
+  candidateFingerprint:'bad'}}],ds,pack),/试验预算归档时间或候选血缘无效/);
  assert.throws(()=>assessGlobalTrialBudget([r],[...ds.slice(0,60),ds[59]],pack),
   /交易日缺失、重复或无效/);
  assert.throws(()=>assessGlobalTrialBudget([r],ds,'not-a-pack-hash'),/协议无效/);
