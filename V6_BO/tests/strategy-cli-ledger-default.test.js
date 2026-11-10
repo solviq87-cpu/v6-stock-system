@@ -64,6 +64,10 @@ test('backtest policy explicitly discloses overrides and refuses invalid mode',t
  assert.equal(report.backtestPolicy.sellTaxBps,0);
  assert.equal(report.backtestPolicy.feeBps,12);
  assert.equal(report.backtestPolicy.slippageBps,25);
+ const unsupported=spawnSync(process.execPath,[cli,'backtest-legacy',file],
+  {encoding:'utf8',timeout:10000});
+ assert.notEqual(unsupported.status,0);
+ assert.match(unsupported.stderr,/旧版简化回测不支持/);
  const wrong=spawnSync(process.execPath,[cli,'backtest-unknown',file],{encoding:'utf8',timeout:10000});
  assert.notEqual(wrong.status,0);
  assert.match(wrong.stderr,/backtest-legacy/);
