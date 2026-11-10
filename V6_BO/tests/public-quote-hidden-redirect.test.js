@@ -11,12 +11,15 @@ fields[2]=code;fields[3]='1442.41';fields[4]='1444.99';fields[6]='19701';
 fields[30]='20261110143047';
 const tencent='v_sh600519="'+fields.join('~')+'";';
 function fakeRedirect(kind,url){
- const base={status:200,ok:true,type:'basic',redirected:false,url,
-  get body(){throw Error('redirected body must never be read');}};
- if(kind==='opaque')return {...base,type:'opaqueredirect',status:0,ok:false,url:''};
- if(kind==='flagged')return {...base,redirected:true};
- if(kind==='final-url')return {...base,url:delayed};
- throw Error('unknown fixture');
+ if(!['opaque','flagged','final-url'].includes(kind))throw Error('unknown fixture');
+ const response={status:kind==='opaque'?0:200,ok:kind!=='opaque',
+  type:kind==='opaque'?'opaqueredirect':'basic',
+  redirected:kind==='flagged',
+  url:kind==='opaque'?'':kind==='final-url'?delayed:url};
+ Object.defineProperty(response,'body',{
+  get(){throw Error('redirected body must never be read');}
+ });
+ return response;
 }
 test('policy refuses 3xx, opaque, redirected:true and changed final URLs without reading Location',()=>{
  for(const response of [
