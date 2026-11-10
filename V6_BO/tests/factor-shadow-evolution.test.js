@@ -91,6 +91,15 @@ test('autonomous shadow update uses training + purged validation + untouched hol
  assert.equal(r.purgeSessions,5);
  assert.equal(r.factorLearning.sector_heat.reliable,true);
  assert.equal(r.factorLearning.leader_strength.reliable,true);
+ assert.equal(r.factorMarginalContribution.evidenceBasis,
+  'frozen-factor-training-and-time-isolated-forward-observation');
+ assert.equal(r.factorMarginalContribution.changedFactorCount,2);
+ assert.equal(r.factorMarginalContribution.blocksPromotion,false);
+ assert.equal(r.factorMarginalContribution.harmfulFactorIds.length,0);
+ assert.equal(r.factorMarginalContribution.factors[0].training.comparedDays,r.trainDays);
+ assert.equal(r.factorMarginalContribution.factors[0].validation.comparedDays,r.validationDays);
+ assert.equal(r.factorMarginalContribution.factors[0].holdout.comparedDays,r.testDays);
+ assert.equal(r.factorMarginalContribution.productionWeightsChanged,false);
  assert.equal(r.factorRedundancy.trainingDays,r.trainDays);
  assert.equal(r.factorRedundancy.pairs.length,1);
  assert.equal(r.factorRedundancy.pairs[0].relationship,'strong-inverse');
@@ -257,6 +266,8 @@ test('future shadow upgrades require at least five genuinely unseen holdout days
  assert.equal(next.freshHoldoutOnly,true);
  assert.equal(next.testDays,5);
  assert.ok(next.holdout.firstFreshDay>old.lastObservationDay);
+ assert.equal(next.factorMarginalContribution.factors[0].holdout.firstDay,next.holdout.firstFreshDay);
+ assert.equal(next.factorMarginalContribution.factors[0].holdout.comparedDays,5);
  assert.equal(next.modelComparison.status,'paired-scorecard-unverified');
  assert.equal(next.modelComparison.assessedDays,5);
  assert.ok(next.modelComparison.firstDay>old.lastObservationDay);
@@ -385,6 +396,8 @@ test('decay cooldown persists, needs ten subsequent recovered days, then five un
  const waiting=evolveShadowFactors(four,{now:finalClock,previous,previousCooldown:recovered});
  assert.equal(waiting.status,'paused-shadow-cooldown');
  assert.equal(waiting.postRecoveryHoldoutDays,4);
+ assert.equal(waiting.factorMarginalContribution.factors[0].holdout.status,'insufficient');
+ assert.equal(waiting.factorMarginalContribution.blocksPromotion,true);
  assert.equal(waiting.shadowWeightsChanged,false);
  const five=[...four,episode(75)];
  const tested=evolveShadowFactors(five,{now:finalClock,previous,previousCooldown:waiting});
