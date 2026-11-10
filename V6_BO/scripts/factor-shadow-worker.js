@@ -30,7 +30,9 @@ function latestAccepted(dir){
   if(model?.mode!=='v6-factor-shadow-evolution-v1'||typeof model.fingerprint!=='string')
    throw Error('研究模型归档结构无效');
   const {fingerprint,...payload}=model;
-  if(hash(payload)!==fingerprint)throw Error('研究模型归档完整性无效');
+  if(hash(payload)!==fingerprint||
+     name!==`shadow-${model.trainingEnd}-${fingerprint.slice(0,12)}.json`)
+   throw Error('研究模型归档完整性无效（文件名与指纹/训练日期不一致）');
   if(model.status==='shadow-updated')accepted.push(model);
  }
  accepted.sort((a,b)=>b.version-a.version||b.trainingEnd.localeCompare(a.trainingEnd));
@@ -54,8 +56,9 @@ function latestCooldown(dir,accepted){
   if(m?.mode!=='v6-factor-shadow-evolution-v1'||typeof m.fingerprint!=='string')
    throw Error('冷却研究档案结构无效');
   const {fingerprint,...payload}=m;
-  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
-   throw Error('冷却研究档案完整性无效');
+  if(hash(payload)!==fingerprint||
+     name!==`shadow-${m.trainingEnd}-${fingerprint.slice(0,12)}.json`)
+   throw Error('冷却研究档案完整性无效（文件名与指纹/训练日期不一致）');
   if(!['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(m.status))
    continue;
   if(m.previousFingerprint!==accepted.fingerprint)continue;
@@ -92,8 +95,9 @@ function latestTrial(dir,accepted){
      typeof result.fingerprint!=='string')
    throw Error('影子研究试验档案结构无效');
   const {fingerprint,...payload}=result;
-  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
-   throw Error('研究试验归档被篡改，拒绝读取');
+  if(hash(payload)!==fingerprint||
+     name!==`shadow-${result.trainingEnd}-${fingerprint.slice(0,12)}.json`)
+   throw Error('研究试验归档被篡改或文件名与封存日期不一致，拒绝读取');
   if(result.previousFingerprint!==parent)continue;
   const audit=result.trialAudit;
   // Earlier sealed research reports already exposed their evaluation
