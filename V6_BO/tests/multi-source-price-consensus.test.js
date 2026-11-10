@@ -130,3 +130,32 @@ test('invalid or future provider quote reports age and reason without entering c
  assert.equal(r.sourceStatuses[1].inConsensus,false);
  assert.equal(r.sourceStatuses[2].observedPrice,10);
 });
+
+test('a failing optional official provider never cancels healthy public-source consensus',async()=>{
+ const probe=async({code,providers})=>({
+  schemaVersion:1,mode:'public-quote-probe',code,generatedAt:now,
+  probeOnly:true,canTrade:false,verifiedLive:false,paidServicesUsed:false,
+  sources:providers.map((id,i)=>({id,status:'ok',
+   snapshot:{schemaVersion:1,provider:id,observedAt:now,
+    quotes:[{exchange:'SH',code,currency:'CNY',adjustment:'unadjusted',
+     volumeUnit:'share',status:'normal',timestamp:now-1000,
+     price:10+(i===1?.01:0),previousClose:10,volume:10000}]}}))
+ });
+ const result=await checkMultiPublicPrices({code:'600519',now,probe,
+  fetchItick:async()=>{throw Error('provider offline');}});
+ assert.equal(result.status,'sources-agree-unverified');
+ assert.equal(result.referencePrice,10);
+ assert.equal(result.sourceStatuses.find(s=>s.provider==='itick').status,'unavailable');
+ assert.equal(result.canTrade,false);
+});
+test('public probe failure never permits lone optional source to synthesize a price',async()=>{
+ const result=await checkMultiPublicPrices({code:'600519',now,
+  probe:async()=>{throw Error('all public upstream offline');},
+  fetchItick:async()=>src('itick',10)});
+ assert.equal(result.status,'insufficient-comparable-sources');
+ assert.equal(result.referencePrice,null);
+ assert.deepEqual(result.sourceStatuses.slice(0,3).map(x=>x.status),
+  ['unavailable','unavailable','unavailable']);
+ assert.equal(result.sourceStatuses[3].status,'eligible-for-comparison');
+ assert.equal(result.canTrade,false);
+});
