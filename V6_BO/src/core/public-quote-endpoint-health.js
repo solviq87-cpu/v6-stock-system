@@ -99,13 +99,21 @@ async function inspectPublicQuoteEndpoints({
   inspectOne({id,code,clock,fetchImpl,timeoutMs})));
  const finishedAt=clock();
  if(!safeNow(finishedAt))throw Error('结束时钟无效');
- // A query can cross the lunch or close boundary. Preserve evidence,
- // but never describe that quote as a fresh trading-session observation.
- if(!session(finishedAt)){
-  for(const r of results)if(r.status==='fresh-source-unverified')
+ // A fast peer may have been fresh when its response arrived but expired
+ // while awaiting slower peers. Recompute every reported age at publication;
+ // do not let response-completion time masquerade as report time.
+ for(const r of results){
+  if(Number.isSafeInteger(r.quoteAt)&&r.quoteAt>0)
+   r.quoteAgeMs=finishedAt-r.quoteAt;
+  if(r.status!=='fresh-source-unverified')continue;
+  if(r.quoteAt===null||r.quoteAt>finishedAt){
+   r.status='invalid-quote-time';
+  }else if(finishedAt<startedAt||!session(finishedAt)||
+           r.quoteAgeMs>15000){
    r.status='dated-snapshot';
+  }
  }
- return {...base,status:'completed-unverified',
+ return {...base,status:finishedAt<startedAt?'clock-regressed':'completed-unverified',
   finishedAt:new Date(finishedAt).toISOString(),providers:results};
 }
 module.exports={inspectPublicQuoteEndpoints};
