@@ -17,6 +17,25 @@ function renderSelection(report){
  if(report.status!=='evaluated'){
   add(root,'p',report.reason||'本次历史数据不足，无法生成选股理由','muted');return;
  }
+ // Historical snapshot only; separate industry and concept tables, no live quote claims.
+ const daily=report.dailySectorStudy;
+ if(daily){
+  if(daily.status!=='imported-unverified')
+   add(root,'p','板块强弱研究：证据不足（'+(daily.reason||'无有效数据')+'）','muted');
+  else{
+   add(root,'p','板块涨幅 × 上涨家数 × 成分股中位涨幅 × 龙头集中度（截至 '+daily.tradeDate+
+    '；来源 '+daily.provider+'；导入未核验，非实时行情）','muted');
+   for(const category of ['industry','concept']){
+    const rows=(daily.sectors||[]).filter(s=>s.category===category&&s.rank!==null)
+      .sort((a,b)=>a.rank-b.rank).slice(0,5);
+    if(rows.length)add(root,'p',(category==='industry'?'行业':'概念')+'观察：'+
+      rows.map(s=>s.rank+'.'+s.name+' '+s.score+'/100'+'｜上涨 '+s.upPct+
+       '%｜板块 '+s.changePct+'%｜'+s.state).join('；'),'muted');
+   }
+   if(!daily.rankedSectorCount)
+    add(root,'p','同类有效板块不足3个，暂不生成强弱排名；缺价不补0','muted');
+  }
+ }
  const controls=document.createElement('div');controls.className='decision-actions';root.append(controls);
  const label=add(controls,'label','按命中策略查看：');
  const select=document.createElement('select');label.append(select);
@@ -84,6 +103,11 @@ function renderSelection(report){
      '｜20日收益 '+cohort.return20Pct+
      '%｜样本内分位 '+cohort.rpsPct+
      '/100（仅比较本批'+cohort.cohortSectors+'个板块；不代表全市场强度或资金流）','muted');
+  const dailyStrength=rationale.dailySectorStrength;
+  if(Array.isArray(dailyStrength)&&dailyStrength.length)
+   add(d,'p','当日所属板块参与度：'+dailyStrength.map(x=>
+    x.name+'｜研究分 '+x.score+'｜上涨家数比例 '+x.upPct+
+    '%｜'+x.state).join('；')+'（仅导入样本；不变更正式选股权重）','muted');
   const price=rationale.price||{},rise=rationale.whyUp||{};
   add(d,'p','历史收盘涨跌：'+(typeof price.changePct==='number'?price.changePct+'%':'不可核实')+
    '；'+(rise.conclusion||'无法核实上涨原因'));
