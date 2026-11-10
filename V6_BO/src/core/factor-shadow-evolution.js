@@ -360,7 +360,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
      gate.alertDay>previousCooldown.lastObservationDay||
      (gate.phase==='recovered'&&
       (!day(gate.recoveryDay)||gate.recoveryDay<=gate.alertDay||
-       gate.recoveryDay!==previousCooldown.lastObservationDay))||
+       gate.recoveryDay>previousCooldown.lastObservationDay))||
      !Array.isArray(previousCooldown.observedFingerprints)||
      previousCooldown.observedFingerprints.length>sorted.length||
      previousCooldown.observedFingerprints.some((pair,i)=>
@@ -458,10 +458,9 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
     (postRecoveryGain>.002&&postRecoveryStability.halfPeriodsConsistent&&
      postRecoveryEvolved.meanIC>0));
  const weights=accepted?proposal:oldWeights;
- return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':
-  recoveredNow?'shadow-recovered':activeCooldown?
-  (shadowDecay.alert&&!existingGate?'paused-shadow-decay':'paused-shadow-cooldown'):
-  shadowDecay.alert?'paused-shadow-decay':'shadow-retained',{
+ return baseResult(accepted?'shadow-updated':recoveredNow?'shadow-recovered':
+  activeCooldown?(shadowDecay.alert&&!existingGate?'paused-shadow-decay':'paused-shadow-cooldown'):
+  paused?'paused-market-shock':shadowDecay.alert?'paused-shadow-decay':'shadow-retained',{
   version:accepted?version:previous?.version||0,packVersion:pack.version,
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
   lastObservationDay:sorted.at(-1).day,previousFingerprint:accepted?previousFingerprint:
