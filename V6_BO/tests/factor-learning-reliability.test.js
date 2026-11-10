@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {assessFactorReliability,pairedStability,assessShadowDecay}=require('../src/core/factor-learning-reliability');
+const {assessFactorReliability,pairedStability,assessShadowDecay,
+ assessShadowRecovery}=require('../src/core/factor-learning-reliability');
 const rows=(ics,regime='unknown')=>ics.map((ic,i)=>({day:'d'+i,regime,ic}));
 test('persistent directional information is eligible for bounded, confidence-adjusted shadow learning',()=>{
  const r=assessFactorReliability(rows(Array(30).fill(.36)));
@@ -162,4 +163,54 @@ test('mismatched per-day IC coverage cannot be compared as equal evidence',()=>{
  assert.throws(()=>assessShadowDecay(
   Array.from({length:5},(_,i)=>({day:String(i)})),['x','y'],{x:1},{x:2},score
  ),/覆盖不一致/);
+});
+
+test('cooldown recovery requires ten new mature days in two complete five-day blocks',()=>{
+ const evaluate=(arr,_ids,weights)=>({
+  days:1,meanIC:weights.a===1?arr[0].base:arr[0].shadow
+ });
+ const good=Array.from({length:10},(_,i)=>({day:'d'+i,base:.10,shadow:.25}));
+ const weights={a:1,b:1},shadow={a:2,b:1};
+ const nine=assessShadowRecovery(good.slice(0,9),['a','b'],weights,shadow,evaluate);
+ assert.equal(nine.status,'cooldown-insufficient-fresh-evidence');
+ assert.equal(nine.requiredDays,10);
+ assert.equal(nine.recovered,false);
+ const ten=assessShadowRecovery(good,['a','b'],weights,shadow,evaluate);
+ assert.equal(ten.status,'recovered-unverified');
+ assert.equal(ten.firstBlock.days,5);
+ assert.equal(ten.secondBlock.days,5);
+ assert.equal(ten.firstBlock.passed,true);
+ assert.equal(ten.secondBlock.passed,true);
+ assert.equal(ten.recovered,true);
+ assert.equal(ten.canTrade,false);
+ assert.equal(ten.productionWeightsChanged,false);
+});
+test('a single improving week with a second weak week cannot clear cooldown',()=>{
+ const score=(arr,_ids,w)=>({days:1,meanIC:w.a===1?arr[0].base:arr[0].shadow});
+ const data=Array.from({length:10},(_,i)=>({
+  day:'d'+i,base:.15,shadow:i<5?.3:-.05
+ }));
+ const result=assessShadowRecovery(data,['a','b'],{a:1},{a:2},score);
+ assert.equal(result.status,'cooldown-recovery-unconfirmed');
+ assert.equal(result.firstBlock.passed,true);
+ assert.equal(result.secondBlock.passed,false);
+ assert.equal(result.recovered,false);
+});
+test('positive but persistently weaker shadow than fixed base cannot fake recovery',()=>{
+ const score=(arr,_ids,w)=>({days:1,meanIC:w.a===1?arr[0].base:arr[0].shadow});
+ const data=Array.from({length:10},(_,i)=>({
+  day:'d'+i,base:.35,shadow:.15
+ }));
+ const result=assessShadowRecovery(data,['a','b'],{a:1},{a:2},score);
+ assert.equal(result.firstBlock.passed,false);
+ assert.equal(result.secondBlock.passed,false);
+ assert.equal(result.recovered,false);
+ assert.equal(result.canTrade,false);
+});
+test('recovery rejects mismatched coverage and non-finite IC instead of assuming recovered',()=>{
+ const mismatched=(_d,_ids,w)=>({days:w.a===1?1:0,meanIC:0});
+ const data=Array.from({length:10},(_,i)=>({day:String(i)}));
+ assert.throws(()=>assessShadowRecovery(data,['a','b'],{a:1},{a:2},mismatched),/覆盖不一致/);
+ const broken=(_d,_ids,w)=>({days:1,meanIC:w.a===1?.2:NaN});
+ assert.throws(()=>assessShadowRecovery(data,['a','b'],{a:1},{a:2},broken),/证据无效/);
 });
