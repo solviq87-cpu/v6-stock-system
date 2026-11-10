@@ -10,7 +10,7 @@
 | --- | --- |
 | `fresh-source-unverified` | 供应商时间在 15 秒内且处于工作日常规连续竞价时间窗；**不等于交易所认证实时** |
 | `dated-snapshot` | 过期报价或检查结束时跨过午休/收盘；带原报价日期展示，不得充当最新成交价 |
-| `redirect-refused` | 返回 HTTP 3xx（例如东财主域跳 delay 域名）；**只报告状态，不跟随 Location、不访问新域名，也不把延迟镜像计为独立数据源** |
+| `redirect-refused` | 返回 HTTP 3xx（例如东财主域跳 delay 域名）或 `opaqueredirect` 不透明跳转；**只报告状态，不跟随或读取 Location、不访问新域名，也不把延迟镜像计为独立数据源**。不透明跳转无法获取真实 HTTP 状态时，`httpStatus:null` |
 | `access-denied` / `rate-limited` | HTTP 401/403 / 429；不重试，不绕过 |
 | `timeout` / `transport-error` | 超时或网络层失败；不假设服务本身失效 |
 | `invalid-quote` / `response-too-large` | 字段、原时点或体积不可信；拒绝使用 |
