@@ -10,7 +10,7 @@
 | --- | --- |
 | `fresh-source-unverified` | 供应商时间在 15 秒内且处于工作日常规连续竞价时间窗；**不等于交易所认证实时** |
 | `dated-snapshot` | 过期报价或检查结束时跨过午休/收盘；带原报价日期展示，不得充当最新成交价 |
-| `redirect-refused` | 返回 HTTP 3xx（例如东财主域跳 delay 域名）；**只报告状态，不跟随 Location、不访问新域名，也不把延迟镜像计为独立数据源** |
+| `redirect-refused` | HTTP 3xx、浏览器不透明跳转、`redirected:true` 或最终 URL 与发起 URL 不一致；即使中间层偷偷返回 HTTP 200 也拒绝。**不跟随 Location、不访问跳转目标，也不把延迟镜像计为独立数据源** |
 | `access-denied` / `rate-limited` | HTTP 401/403 / 429；不重试，不绕过 |
 | `timeout` / `transport-error` | 超时或网络层失败；不假设服务本身失效 |
 | `invalid-quote` / `response-too-large` | 字段、原时点或体积不可信；拒绝使用 |
@@ -20,4 +20,6 @@
 
 2026-11-10 的证据分级：早前网页工具调用东财会跳转到 `push2delay.eastmoney.com`；WorkBuddy 云端沙箱约北京时间 14:03 使用 Python urllib 主域直连成功、未重定向，且源时点随交易窗口变化。这是**不同网络环境、不同客户端的观察**，不能证明 V6 目标 Node 服务器正常直连或具有商用数据授权。新浪此前出现过 403 或超时。此命令的作用是**让目标 Node 环境自己提供证据**，未经实际运行不能声称已完成端到端验证。
 
-验收：`node --test tests/public-quote-endpoint-health.test.js`，随后运行仓库既有 `npm run check`、`npm test` 和 GitHub Actions。所有结果不包含 Token、登录信息或 Location URL，不追踪链接，不自动采集第二次。
+2026-11-10 北京时间约 14:30 的另一次单轮公开网页观察：东财 `fltt=2` 返回 `f43=1442.49`、`f60=1444.99`、`f86=1794292253`（北京时间 14:30:53），但网页抓取器最终 URL 是 `push2delay.eastmoney.com`；腾讯返回 1442.41、前收 1444.99、源时点 14:30:47。两家价格差 0.08 元、来源时间差 6 秒，仍不满足 V6 默认 5 秒研究参考价门禁。新浪这次超时。**浏览器已跟随后的 200 不代表目标 Node 主域直连成功**，此单次结果亦不证明授权实时。
+
+验收：`node --test tests/public-quote-endpoint-health.test.js tests/public-quote-publication-freshness.test.js tests/public-quote-hidden-redirect.test.js`，随后运行仓库既有 `npm run check`、`npm test` 和 GitHub Actions。所有结果不包含 Token、登录信息或 Location URL，不追踪链接，不自动采集第二次。

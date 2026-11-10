@@ -77,3 +77,55 @@ test('a new factor pack cannot reset the global inspected-holdout budget',()=>{
   {...earlierPack,packFingerprint:'invalid'}],ds,pack),
   /历史因子包指纹无效/);
 });
+
+test('restoring a shorter manifest cannot silently ignore trials sealed in its future',()=>{
+ const ds=days(130),current=ds.slice(0,42);
+ const archived=record(ds,8); // spent holdout ends at day[45], after manifest day[41]
+ assert.equal(archived.trialAudit.lastHoldoutDay,ds[45]);
+ assert.throws(()=>assessGlobalTrialBudget([archived],current,pack),
+  /全局试验档案晚于当前研究清单，历史交易日倒退/);
+ // Even when the apparent old budget is already full, do not hide a
+ // rollback behind a normal budget-exhausted skip.
+ const older=Array.from({length:6},(_,i)=>record(ds,i));
+ assert.throws(()=>assessGlobalTrialBudget([...older,archived],current,pack),
+  /全局试验档案晚于当前研究清单，历史交易日倒退/);
+ // An archive completed on the latest known signal day remains valid.
+ const atBoundary=record(ds,7);
+ assert.equal(atBoundary.lastObservationDay,ds[40]);
+ const valid=assessGlobalTrialBudget([atBoundary],current,pack);
+ assert.equal(valid.usedTrials,1);
+ assert.equal(valid.asOfDay,ds[41]);
+});
+
+test('an inspected holdout cannot disappear from the global budget through a mislabeled trial status',()=>{
+ const ds=days(100),inspected=record(ds,10);
+ const altered={...inspected,trialAudit:{...inspected.trialAudit,status:'not-evaluated'}};
+ assert.throws(()=>assessGlobalTrialBudget([altered],ds,pack),
+  /全局试验审计状态与报告状态不一致/);
+ assert.throws(()=>assessGlobalTrialBudget([{
+  ...inspected,trialAudit:{...inspected.trialAudit,status:'unexpected-state'}
+ }],ds,pack),/全局试验审计状态与报告状态不一致/);
+ assert.throws(()=>assessGlobalTrialBudget([{
+  ...inspected,trialAudit:null
+ }],ds,pack),/全局试验审计状态与报告状态不一致/);
+ assert.throws(()=>assessGlobalTrialBudget([{
+  ...inspected,status:'unknown-shadow-state'
+ }],ds,pack),/全局试验历史报告状态无效/);
+ assert.throws(()=>assessGlobalTrialBudget([{
+  ...inspected,mode:'another-model'
+ }],ds,pack),/全局试验历史档案模式无效/);
+});
+
+test('valid cooldown-only evidence never spends trial slots but cannot hide an inspected trial',()=>{
+ const ds=days(100);
+ const monitored={...record(ds,0),status:'paused-shadow-cooldown',
+  trialAudit:{schemaVersion:1,status:'not-evaluated'}};
+ const r=assessGlobalTrialBudget([monitored,record(ds,10)],ds,pack);
+ assert.equal(r.usedTrials,1);
+ assert.equal(r.remainingTrials,5);
+ assert.throws(()=>assessGlobalTrialBudget([{
+  ...monitored,trialAudit:{schemaVersion:1,status:'consumed'}
+ }],ds,pack),/全局试验审计状态与报告状态不一致/);
+ const legacyMonitor={...monitored};delete legacyMonitor.trialAudit;
+ assert.equal(assessGlobalTrialBudget([legacyMonitor],ds,pack).usedTrials,0);
+});

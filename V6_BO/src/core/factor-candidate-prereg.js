@@ -14,7 +14,7 @@ const policyFiles=[
  'factor-shadow-evolution.js','factor-learning-reliability.js',
  'factor-redundancy.js','factor-marginal-contribution.js',
  'factor-model-comparison.js','factor-global-trial-budget.js',
- 'factor-candidate-prereg.js'
+ 'factor-candidate-prereg.js','factor-shadow-candidate-proposer.js'
 ];
 function currentResearchCodeFingerprint(){
  return hash(policyFiles.map(file=>[file,
@@ -22,12 +22,14 @@ function currentResearchCodeFingerprint(){
 }
 function preregisterCandidate({features,candidateWeights,acceptedWeights,
  registeredAt,parentAcceptedFingerprint=null,parentTrialFingerprint=null,
- packFingerprint}={}){
+ packFingerprint,autoSourceFingerprint=null}={}){
  if(!Array.isArray(features)||features.length<36||features.length>400||
     !Number.isSafeInteger(registeredAt)||registeredAt<=0||
     !/^[0-9a-f]{64}$/.test(packFingerprint||'')||
     typeof candidateWeights!=='object'||!candidateWeights||
-    typeof acceptedWeights!=='object'||!acceptedWeights)
+    typeof acceptedWeights!=='object'||!acceptedWeights||
+    (autoSourceFingerprint!==null&&
+     !/^[a-f0-9]{64}$/.test(autoSourceFingerprint)))
   throw Error('候选预注册输入协议无效');
  const ordered=[...features];
  if(ordered.some(x=>!date(x?.signalDay)))
@@ -60,6 +62,9 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
   factorIds:ids,packFingerprint,algorithmFingerprint:currentResearchCodeFingerprint(),
   acceptedWeights,candidateWeights,
   parentAcceptedFingerprint,parentTrialFingerprint,
+  ...(autoSourceFingerprint===null?{}:{
+   candidateOrigin:'sealed-historical-training-reliability-v1',
+   autoSourceFingerprint}),
   sealedBeforeFutureSignals:true,
   canTrade:false,productionWeightsChanged:false};
  return {...payload,fingerprint:hash(payload)};
@@ -79,6 +84,10 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
     reg.algorithmFingerprint!==currentResearchCodeFingerprint()||
     reg.parentAcceptedFingerprint!==(previousFingerprint||null)||
     reg.parentTrialFingerprint!==(previousTrialFingerprint||null)||
+    (reg.candidateOrigin!==undefined&&(
+     reg.candidateOrigin!=='sealed-historical-training-reliability-v1'||
+     !/^[a-f0-9]{64}$/.test(reg.autoSourceFingerprint||'')||
+     ![previousTrialFingerprint,previousFingerprint].includes(reg.autoSourceFingerprint)))||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
     !Array.isArray(prefix)||prefix.length<36||prefix.length>=sorted.length||
     prefix.some((f,i)=>f!==sorted[i].featureFingerprint)||

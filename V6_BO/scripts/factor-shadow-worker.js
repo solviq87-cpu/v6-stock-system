@@ -5,21 +5,28 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
+const {verifyCanonicalManifestLineage}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
-const {preregisterCandidate}=require('../src/core/factor-candidate-prereg');
+const {preregisterCandidate,verifyPreregisteredCandidate}=
+ require('../src/core/factor-candidate-prereg');
+const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-proposer');
 const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
- if(!['once','watch','register'].includes(mode)||!manifestFile||!outputDir||
+ if(!['once','watch','register','register-auto'].includes(mode)||!manifestFile||!outputDir||
     !path.isAbsolute(manifestFile)||!path.isAbsolute(outputDir))
-  throw Error('用法: factor-shadow-worker.js once|watch|register <私有manifest绝对路径> <私有模型目录绝对路径>');
+  throw Error('用法: factor-shadow-worker.js once|watch|register|register-auto <私有manifest绝对路径> <私有模型目录绝对路径>');
  safeNew(path.join(outputDir,'shadow-guard.json'));
  if(mode==='register'){
   if(flags.length!==1||!path.isAbsolute(flags[0]))
    throw Error('register 仅接受一个候选权重JSON绝对路径');
   return {mode,manifestFile,outputDir,candidateWeightsFile:flags[0]};
+ }
+ if(mode==='register-auto'){
+  if(flags.length)throw Error('register-auto 不接受外部权重文件或其他参数');
+  return {mode,manifestFile,outputDir};
  }
  const requirePreRegistration=flags.includes('--require-prereg');
  if(flags.filter(x=>x==='--require-prereg').length>1)
@@ -189,38 +196,52 @@ function latestCandidateRegistration(dir,accepted,previousTrial){
  * any forward reportFile. Candidate weights come from a separate bounded
  * JSON file and are persisted before future signal snapshots may be created.
  */
-function runRegister({manifestFile,outputDir,candidateWeightsFile,now=Date.now()}={}){
- const conf=parse(['register',manifestFile,outputDir,candidateWeightsFile]);
- const manifest=readJson(conf.manifestFile);
+function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
+ now=Date.now(),auto=false}={}){
+ const args=auto?['register-auto',manifestFile,outputDir]:
+  ['register',manifestFile,outputDir,candidateWeightsFile];
+ const conf=parse(args),manifest=readJson(conf.manifestFile);
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>{
- const features=manifest.episodes.map(e=>{
-  if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
-   throw Error('预注册必须提供冻结特征绝对路径');
-  // Deliberately DO NOT OPEN e.reportFile in the registration stage.
-  const frozen=readJson(e.featuresFile);
-  verifyEpisode(frozen,now);
-  return frozen;
- });
- const accepted=latestAccepted(conf.outputDir);
- const previousTrial=latestTrial(conf.outputDir,accepted);
- if(latestCandidateRegistration(conf.outputDir,accepted,previousTrial))
-  throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
- const base=features[0].factors;
- const weights=accepted?.shadowWeights||
-  Object.fromEntries(base.map(x=>[x.id,x.baseWeight]));
- const entry=preregisterCandidate({features,candidateWeights:readJson(candidateWeightsFile),
-  acceptedWeights:weights,registeredAt:now,
-  parentAcceptedFingerprint:accepted?.fingerprint||null,
-  parentTrialFingerprint:previousTrial?.fingerprint||null,
-  packFingerprint:hash(factorPack)});
- const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
- writeNew(file,entry);
- return {ok:true,status:'candidate-preregistered',fingerprint:entry.fingerprint,
-  latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
-  canTrade:false,productionWeightsChanged:false};
+  const features=manifest.episodes.map(e=>{
+   if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
+    throw Error('预注册必须提供冻结特征绝对路径');
+   // Neither manual nor automatic registration opens a price reportFile.
+   const frozen=readJson(e.featuresFile);
+   verifyEpisode(frozen,now);
+   return frozen;
+  });
+  const accepted=latestAccepted(conf.outputDir);
+  const previousTrial=latestTrial(conf.outputDir,accepted);
+  if(latestCandidateRegistration(conf.outputDir,accepted,previousTrial))
+   throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
+  const defs=features[0].factors,weights=accepted?.shadowWeights||
+   Object.fromEntries(defs.map(x=>[x.id,x.baseWeight]));
+  const prior=auto?(previousTrial||accepted):null;
+  if(auto&&!prior)
+   throw Error('尚无已封存历史研究报告，自动候选预注册拒绝启动');
+  const proposal=auto?proposeFromSealedResearch({
+   source:prior,definitions:defs,acceptedWeights:weights,
+   packFingerprint:hash(factorPack),
+   latestFrozenDay:features.at(-1).signalDay
+  }):null;
+  const entry=preregisterCandidate({features,
+   candidateWeights:auto?proposal.candidateWeights:readJson(candidateWeightsFile),
+   acceptedWeights:weights,registeredAt:now,
+   parentAcceptedFingerprint:accepted?.fingerprint||null,
+   parentTrialFingerprint:previousTrial?.fingerprint||null,
+   packFingerprint:hash(factorPack),
+   autoSourceFingerprint:auto?proposal.sourceFingerprint:null});
+  const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+  writeNew(file,entry);
+  return {ok:true,status:auto?'candidate-auto-preregistered':'candidate-preregistered',
+   fingerprint:entry.fingerprint,sourceFingerprint:proposal?.sourceFingerprint||null,
+   latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
+   canTrade:false,productionWeightsChanged:false};
  });
 }
+function runRegister(args={}){return registerCandidate(args);}
+function runRegisterAuto(args={}){return registerCandidate({...args,auto:true});}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -290,7 +311,11 @@ function evaluateOnce(conf,now,manifest){
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
  const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
- if(conf.requirePreRegistration&&!preRegistration&&!previousCooldown)
+ const cooldownOnly=previousCooldown&&
+  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+ // A recovered cooldown is NOT an active monitoring exemption. It needs a
+ // freshly committed candidate before any new forward return is opened.
+ if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly)
   throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
  // Audit the total experiment budget using immutable frozen FEATURE dates
  // BEFORE opening any H5 forward-return report. A budget-denied challenger
@@ -304,13 +329,38 @@ function evaluateOnce(conf,now,manifest){
  });
  const trialBudget=globalTrialBudget(conf.outputDir,
   frozen.map(x=>x.signalDay));
- const cooldownOnly=previousCooldown&&
-  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
  if(trialBudget.remainingTrials===0&&!cooldownOnly)
   return {ok:true,status:'skipped-global-trial-budget-exhausted',
    usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
    windowStartDay:trialBudget.windowStartDay,
    canTrade:false,productionWeightsChanged:false};
+ // Validate an already-sealed commitment against frozen FEATURES before
+ // opening any forward-return files. Outcome-based eligibility is checked
+ // again by evolveShadowFactors after the holdout has been loaded.
+ if(preRegistration&&!cooldownOnly){
+  const sorted=[...frozen].sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
+  const prefix=preRegistration.frozenPrefixFingerprints;
+  if(!Array.isArray(prefix)||prefix.length>sorted.length||
+     prefix.some((fp,i)=>fp!==sorted[i].fingerprint))
+   throw Error('候选预注册冻结前缀与当前研究批次不一致，禁止读取远期收益');
+  if(prefix.length<sorted.length){
+   const next=sorted[prefix.length],defs=sorted[0].factors;
+   verifyPreregisteredCandidate(preRegistration,{
+    sorted:sorted.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint})),
+    ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
+    oldWeights:previous?.shadowWeights||
+     Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
+    previousFingerprint:previous?.fingerprint||null,
+    previousTrialFingerprint:previousTrial?.fingerprint||null,
+    freshTest:[{day:next.signalDay,featureCapturedAt:next.capturedAt}]
+   });
+  }
+ }
+ // Strictly recheck the ENTIRE frozen receipt -> first mature H5 archive
+ // lineage for canonical manifests. A valid manifest hash alone is not proof.
+ // Keep preregistration and trial-budget checks ahead of opening any H5 files.
+ if(manifest.mode==='v6-forward-training-manifest')
+  verifyCanonicalManifestLineage(manifest,{now});
  const episodes=manifest.episodes.map((x,i)=>({
   features:frozen[i],report:readEpisodeReport(x.reportFile)
  }));
@@ -352,7 +402,14 @@ function evaluateOnce(conf,now,manifest){
 }
 function main(args){
  const config=parse(args);
+ // The operational CLI MUST consume the receipt-backed canonical manifest.
+ // Legacy minimal manifests remain supported by the direct research test API,
+ // but are not accepted by the unattended operator commands.
+ const operatorManifest=readJson(config.manifestFile);
+ if(operatorManifest?.mode!=='v6-forward-training-manifest')
+  throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  if(config.mode==='register')return runRegister(config);
+ if(config.mode==='register-auto')return runRegisterAuto(config);
  if(config.mode==='once')return runOnce(config);
  let busy=false,closing=false;
  const tick=()=>{
@@ -374,5 +431,5 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,runRegister,latestAccepted,latestCooldown,
+module.exports={parse,runOnce,runRegister,runRegisterAuto,latestAccepted,latestCooldown,
  latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport};
