@@ -46,7 +46,7 @@ function evaluateObservedIndustryParticipation({snapshot,classification,asOf=Dat
   aShareCalendarDate(received)!==tradeDate)
   return insufficient('quote-snapshot-date-source-or-retrieval-invalid');
  if(classification?.schemaVersion!==1||classification.source!=='baostock:query_stock_industry'||
-  classification.completed!==true||classification.standard!=='证监会行业分类'||
+  classification.completed!==true||!['证监会行业分类','申万一级行业'].includes(classification.standard)||
   !validDate(classification.updateDate)||classification.updateDate>tradeDate||
   !milli(classification.observedAt)||classification.observedAt>asOf||
   aShareCalendarDate(classification.observedAt)<classification.updateDate||
