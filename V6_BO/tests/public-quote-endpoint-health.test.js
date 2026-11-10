@@ -123,3 +123,20 @@ test('bad code, duplicate providers, hostile provider names and invalid timeout 
  }
  assert.equal(requests,0);
 });
+
+test('opaque redirect is refused without inspecting Location or treating it as a network failure',async()=>{
+ const calls=[];
+ const r=await inspect({code:'600519',clock:()=>now,providers:['eastmoney'],
+  fetchImpl:async(url,opts)=>{
+   calls.push({url,redirect:opts.redirect});
+   return {type:'opaqueredirect',status:0,ok:false,headers:{
+    get(){throw Error('redirect headers must never be read');}
+   }};
+  }});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].redirect,'manual');
+ assert.equal(r.providers[0].status,'redirect-refused');
+ assert.equal(r.providers[0].httpStatus,null);
+ assert.equal(r.providers[0].price,null);
+ assert.equal(r.canTrade,false);
+});
