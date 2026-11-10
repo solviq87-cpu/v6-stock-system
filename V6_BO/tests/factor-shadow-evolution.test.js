@@ -8,7 +8,9 @@ const {freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,
 const {execute}=require('../scripts/factor-shadow-evolution');
 const {runOnce:runShadowWorker,runRegister,runRegisterAuto,
  parse:parseShadowWorker,latestAccepted,latestCooldown,latestTrial,
- globalTrialBudget,latestCandidateRegistration}=require('../scripts/factor-shadow-worker');
+ globalTrialBudget,latestCandidateRegistration,runHealth,
+ readWatchHeartbeat,writeWatchHeartbeat,main:shadowWorkerMain}
+ =require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -1169,4 +1171,90 @@ test('strict operator watch revalidates canonical manifest after startup on EVER
  const direct=runShadowWorker({...options,operatorMode:false});
  assert.equal(direct.status,'skipped-auto-prereg-needs-sealed-history');
  assert.deepEqual(fs.readdirSync(outputDir),[]);
+});
+
+test('read-only health CLI inspects frozen metadata, not missing H5 outcomes, and never creates research state',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-health-no-h5-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ const entries=Array.from({length:36},(_,i)=>{
+  const e=episode(i),ff=path.join(dir,'features-'+i+'.json');
+  fs.writeFileSync(ff,JSON.stringify(e.features));
+  return {featuresFile:ff,reportFile:path.join(dir,'H5-NOT-YET-MATURE-'+i+'.json')};
+ });
+ const body={schemaVersion:1,mode:'v6-forward-training-manifest',
+  evidenceBasis:'first-matured-sealed-5-trading-day',
+  episodes:entries,canTrade:false,productionWeightsChanged:false};
+ const integrity=crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
+ fs.writeFileSync(manifestFile,JSON.stringify({...body,integrity}));
+ assert.equal(parseShadowWorker(['health',manifestFile,outputDir]).mode,'health');
+ assert.throws(()=>parseShadowWorker(['health',manifestFile,outputDir,'--interval','30000']),
+  /不接受额外参数/);
+ const observed=runHealth({manifestFile,outputDir,now:finalClock});
+ assert.equal(observed.status,'missing-research-evidence');
+ assert.equal(observed.missingReportCount,36);
+ assert.equal(observed.heartbeat.status,'not-observed');
+ assert.equal(observed.verifiedLive,false);
+ assert.equal(fs.existsSync(outputDir),false);
+ const viaCli=shadowWorkerMain(['health',manifestFile,outputDir]);
+ assert.equal(viaCli.missingReportCount,36);
+ assert.equal(fs.existsSync(outputDir),false);
+ // Read-only health should reject a mismatched canonical manifest hash.
+ fs.writeFileSync(manifestFile,JSON.stringify({...body,integrity:'bad'}));
+ assert.throws(()=>runHealth({manifestFile,outputDir,now:finalClock}),
+  /manifest完整性/);
+ assert.equal(fs.existsSync(outputDir),false);
+});
+test('watch pulse records success and errors under research lock, and fails closed on heartbeat tampering',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-watch-health-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'models');
+ const entries=Array.from({length:56},(_,i)=>{
+  const e=episode(i),ff=path.join(dir,'f'+i+'.json'),rf=path.join(dir,'r'+i+'.json');
+  fs.writeFileSync(ff,JSON.stringify(e.features));
+  fs.writeFileSync(rf,JSON.stringify(e.report));
+  return {featuresFile:ff,reportFile:rf};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:entries}));
+ const success=runShadowWorker({manifestFile,outputDir,now:finalClock,
+  watchPulse:true,watchIntervalMs:60000});
+ assert.ok(['shadow-updated','shadow-retained'].includes(success.status));
+ const pulse=readWatchHeartbeat(outputDir);
+ assert.equal(pulse.outcome,'tick-success');
+ assert.equal(pulse.lastStatus,success.status);
+ assert.equal(pulse.observedAt,finalClock);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ // Direct synthetic research mode is intentionally compatible; operator
+ // health checks still insist on a canonical signed manifest.
+ const body={schemaVersion:1,mode:'v6-forward-training-manifest',
+  evidenceBasis:'first-matured-sealed-5-trading-day',
+  episodes:entries,canTrade:false,productionWeightsChanged:false};
+ const integrity=crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
+ fs.writeFileSync(manifestFile,JSON.stringify({...body,integrity}));
+ const before=fs.readdirSync(outputDir).sort();
+ const health=runHealth({manifestFile,outputDir,now:finalClock});
+ assert.equal(health.heartbeat.status,'recent-heartbeat-observed');
+ assert.equal(health.missingReportCount,0);
+ assert.equal(health.verifiedLive,false);
+ assert.equal(health.trainingProgressCertified,false);
+ assert.deepEqual(fs.readdirSync(outputDir).sort(),before);
+ fs.unlinkSync(entries[0].reportFile);
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:entries}));
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock,
+  watchPulse:true,watchIntervalMs:60000}),/ENOENT/);
+ const failed=readWatchHeartbeat(outputDir);
+ assert.equal(failed.outcome,'tick-error');
+ assert.equal(failed.lastStatus,'worker-evaluation-error');
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ // Keep report paths canonical for health's read-only presence check.
+ fs.writeFileSync(manifestFile,JSON.stringify({...body,integrity}));
+ const failureHealth=runHealth({manifestFile,outputDir,now:finalClock});
+ assert.equal(failureHealth.heartbeat.status,'recent-tick-failure');
+ assert.equal(failureHealth.missingReportCount,1);
+ const beatFile=path.join(outputDir,'.shadow-worker-heartbeat.json');
+ const stored=JSON.parse(fs.readFileSync(beatFile,'utf8'));
+ stored.lastStatus='forged-success';
+ fs.writeFileSync(beatFile,JSON.stringify(stored));
+ assert.throws(()=>readWatchHeartbeat(outputDir),/完整性无效/);
+ assert.throws(()=>runHealth({manifestFile,outputDir,now:finalClock}),/完整性无效/);
 });
