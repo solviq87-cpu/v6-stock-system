@@ -1170,3 +1170,49 @@ test('strict operator watch revalidates canonical manifest after startup on EVER
  assert.equal(direct.status,'skipped-auto-prereg-needs-sealed-history');
  assert.deepEqual(fs.readdirSync(outputDir),[]);
 });
+
+
+test('recovered-but-waiting cooldown cannot bypass strict prereg or read unsealed forward prices',t=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i));
+ const previous=evolveShadowFactors(initial,{now:finalClock});
+ assert.equal(previous.status,'shadow-updated');
+ const alerted=[...initial,...Array.from({length:5},(_,i)=>
+  episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(alerted,{now:finalClock,previous});
+ assert.equal(alert.cooldown.phase,'active');
+ const nine=[...alerted,...Array.from({length:9},(_,i)=>episode(61+i))];
+ const cooling=evolveShadowFactors(nine,{now:finalClock,previous,previousCooldown:alert});
+ const recovered=evolveShadowFactors([...nine,episode(70)],
+  {now:finalClock,previous,previousCooldown:cooling});
+ assert.equal(recovered.status,'shadow-recovered');
+ const waitingEpisodes=[...nine,episode(70),
+  ...Array.from({length:4},(_,i)=>episode(71+i))];
+ const waiting=evolveShadowFactors(waitingEpisodes,
+  {now:finalClock,previous,previousCooldown:recovered});
+ assert.equal(waiting.status,'paused-shadow-cooldown');
+ assert.equal(waiting.cooldown.phase,'recovered');
+ assert.equal(waiting.postRecoveryHoldoutDays,4);
+ // This exact report status once falsely qualified as active monitoring.
+ // Strict core must demand a NEW candidate even when the fifth day arrives.
+ assert.throws(()=>evolveShadowFactors([...waitingEpisodes,episode(75)],
+  {now:finalClock,previous,previousCooldown:waiting,
+   requirePreRegistration:true}),/候选预注册缺失/);
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-recovered-wait-strict-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const outputDir=path.join(dir,'shadow'),manifestFile=path.join(dir,'manifest.json');
+ fs.mkdirSync(outputDir,{recursive:true});
+ for(const report of [previous,waiting]){
+  const name='shadow-'+report.trainingEnd+'-'+report.fingerprint.slice(0,12)+'.json';
+  fs.writeFileSync(path.join(outputDir,name),JSON.stringify(report));
+ }
+ const entries=waitingEpisodes.map(({features},i)=>{
+  const featuresFile=path.join(dir,'features-'+i+'.json');
+  fs.writeFileSync(featuresFile,JSON.stringify(features));
+  return {featuresFile,reportFile:path.join(dir,'MUST-NOT-READ-H5-'+i+'.json')};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:entries}));
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock,
+  requirePreRegistration:true}),/候选预注册缺失/);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('shadow-')).length,2);
+});
