@@ -5,6 +5,8 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
+const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
+const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
@@ -125,6 +127,25 @@ function latestTrial(dir,accepted){
  }
  return history.at(-1)?.result||null;
 }
+/**
+ * Count ALL committed holdout inspections, not just trials under the last
+ * accepted model. Validate archive integrity before deriving the budget.
+ */
+function globalTrialBudget(dir,signalDays){
+ const names=fs.existsSync(dir)?fs.readdirSync(dir)
+  .filter(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x)):[];
+ if(names.length>500)throw Error('全局试验预算归档超过500项');
+ const archives=names.map(name=>{
+  const report=readJson(path.join(dir,name));
+  if(report?.mode!=='v6-factor-shadow-evolution-v1'||
+     typeof report.fingerprint!=='string')throw Error('试验预算档案结构无效');
+  const {fingerprint,...payload}=report;
+  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
+   throw Error('试验预算档案完整性无效');
+  return report;
+ });
+ return assessGlobalTrialBudget(archives,signalDays,hash(factorPack));
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -157,10 +178,12 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
    throw Error('批次文件路径无效');
   return {features:readJson(x.featuresFile),report:readEpisodeReport(x.reportFile)};
  });
+ const trialBudget=globalTrialBudget(conf.outputDir,
+  episodes.map(e=>e.features?.signalDay));
  let result;
  try{
   result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
-   previousTrial,marketContext:manifest.marketContext});
+   previousTrial,trialBudget,marketContext:manifest.marketContext});
  }catch(e){
   if(previous&&/未增加新的训练时间窗/.test(String(e.message)))
    return {ok:true,status:'skipped-no-new-training',version:previous.version,
@@ -169,6 +192,11 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
    return {ok:true,status:'skipped-no-new-trial-holdout',
     version:previous?.version||0,
     previousTrialFingerprint:previousTrial.fingerprint,
+    canTrade:false,productionWeightsChanged:false};
+  if(/全局研究试验预算已耗尽/.test(String(e.message)))
+   return {ok:true,status:'skipped-global-trial-budget-exhausted',
+    usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
+    windowStartDay:trialBudget.windowStartDay,
     canTrade:false,productionWeightsChanged:false};
   throw e;
  }
@@ -209,4 +237,4 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,latestCooldown,latestTrial,main,readEpisodeReport};
+module.exports={parse,runOnce,latestAccepted,latestCooldown,latestTrial,globalTrialBudget,main,readEpisodeReport};
