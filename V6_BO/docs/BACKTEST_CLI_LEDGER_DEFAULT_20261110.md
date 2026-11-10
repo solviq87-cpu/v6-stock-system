@@ -15,6 +15,19 @@
 - 默认 `backtestPolicy` 明示 `lotSize=100`、`sellTaxBps=5`、`feeBps=8`、`slippageBps=10`。自定义参数显示实际输入；若有日期费率表，则 `feeMode=dated-fee-schedules`，不冒称固定费率已经使用。
 - 不修改正式四套策略、因子包、自动学习、行情接入、模拟盘账户、主页或资金写入。
 
+## 开盘涨跌停防未来信息补强
+
+进一步审查发现，旧 `position-ledger-backtest.js` 对开盘委托的涨跌停判断曾调用
+`walk-forward-backtest.js` 的 `atLockedLimit`，该旧函数会同时参考**当天最高/最低价**。
+如果开盘处于跌停、盘中后来打开，算法可能用后来才知道的最高价认定开盘已经可卖，制造不真实成交。
+
+本批将此账本的判断改为复用仓库已有的 `historical-session.js` 开盘时点严格门禁：
+只认开盘价、事前可用的涨跌停参考价/前收盘和逐日规则，不依据盘中后续高低价推断开盘排队是否成交。
+新增 `tests/ledger-opening-limit-causality.test.js` 回归：开盘跌停后盘中反弹仍禁止当日开盘卖出且持续持仓估值，开盘涨停后盘中打开仍禁止当天开盘买入，非触板开盘可正常模拟成交。
+
+这会让部分旧回测交易/净值不同，属于明确的防未来信息纠偏，不代表交易所官方订单撮合模拟。
+`research-v2-position-ledger-backtest.js` 已使用同一个严格判断，不在本 PR 改动。
+
 ## 兼容性和风险
 
 **CLI 的 `backtest` 报告结构与历史数值会改变**：原简化周期净值改为账本报告，额外包含 `orders`、`openPositions`、`executionModel` 等。依赖原格式的脚本应显式选择 `backtest-legacy`，但旧版报告不得用于正式效果排名。默认行为改变属于有意的防负优化修复，而非收益保证。
@@ -27,7 +40,7 @@
 
 ```sh
 node --check tools/strategy-cli.js
-node --test tests/strategy-cli-ledger-default.test.js
+node --test tests/strategy-cli-ledger-default.test.js tests/ledger-opening-limit-causality.test.js
 node --test tests/research-integration.test.js tests/ashare-t1-backtest.test.js tests/parallel-market-risk.test.js
 npm run check
 npm test
