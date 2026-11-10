@@ -624,13 +624,24 @@ test('shadow worker single-writer lock refuses competing writers and cleans up a
  const outputDir=path.join(dir,'research-models'),manifestFile=path.join(dir,'manifest.json');
  const lockFile=path.join(outputDir,'.shadow-worker.lock');
  fs.mkdirSync(outputDir,{recursive:true});
- fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,
+  episodes:Array.from({length:36},()=>({
+   featuresFile:path.join(dir,'missing-f.json'),
+   reportFile:path.join(dir,'missing-r.json')
+  }))}));
  fs.writeFileSync(lockFile,'other-worker-still-active', {mode:0o600});
  assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
   /独占锁/);
  assert.equal(fs.readFileSync(lockFile,'utf8'),'other-worker-still-active');
  fs.unlinkSync(lockFile);
  assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
-  /需要完整时间排序研究批次目录/);
+  /ENOENT/);
  assert.equal(fs.existsSync(lockFile),false);
+ // Existing end-to-end regression: a truly invalid manifest must not even
+ // create the research model directory or its lock.
+ fs.rmSync(outputDir,{recursive:true});
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
+  /需要完整时间排序研究批次目录/);
+ assert.equal(fs.existsSync(outputDir),false);
 });
