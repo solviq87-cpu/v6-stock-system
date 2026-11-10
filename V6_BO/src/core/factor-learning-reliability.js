@@ -42,11 +42,16 @@ function assessFactorReliability(daily){
  // optimization objective or a replacement for future holdout testing.
  const biggest=ics.reduce((best,x,i)=>Math.abs(x)>Math.abs(ics[best])?i:best,0);
  const outlierRemovedMean=n>1?mean(ics.filter((_,i)=>i!==biggest)):null;
- const byRegime=Object.fromEntries(REGIMES.map(key=>{
+ // The decision must use raw means. Rounded regime summaries are display-only:
+ // e.g. 0.07996 prints as 0.0800 but has NOT crossed the 0.08 gate.
+ const rawRegimes=Object.fromEntries(REGIMES.map(key=>{
   const xs=rows.filter(r=>r.regime===key).map(r=>r.ic);
-  return [key,{days:xs.length,meanIC:round(mean(xs))}];
+  return [key,{days:xs.length,meanIC:mean(xs)}];
  }));
- const a=byRegime[REGIMES[0]],b=byRegime[REGIMES[1]];
+ const byRegime=Object.fromEntries(REGIMES.map(key=>[key,{
+  days:rawRegimes[key].days,meanIC:round(rawRegimes[key].meanIC)
+ }]));
+ const a=rawRegimes[REGIMES[0]],b=rawRegimes[REGIMES[1]];
  const contradictory=a.days>=MIN_REGIME_DAYS&&b.days>=MIN_REGIME_DAYS&&
   Math.abs(a.meanIC)>=.08&&Math.abs(b.meanIC)>=.08&&a.meanIC*b.meanIC<0;
  const reasons=[];
