@@ -118,8 +118,22 @@ function runOnce(conf,{now=Date.now()}={}){
   }))||[]};
  if(conf.mode==='preview'||report.status==='blocked'||report.status==='insufficient-evidence')
   return summary;
+ const evidenceSha256=digest(evidence);
+ if(fs.existsSync(f3)){
+  const old=read(f3),{integrity,...payload}=old||{};
+  if(old?.schemaVersion!==1||
+   old.mode!=='immutable-locally-registered-quality-review'||
+   integrity!==digest(payload)||
+   old.receiptIntegrity!==receipt.integrity||
+   old.evidenceSha256!==evidenceSha256||
+   digest(old.report)!==digest(report)||
+   !Number.isSafeInteger(old.publishedAt)||old.publishedAt>now||
+   old.canTrade!==false||old.canTrain!==false)
+   throw Error('existing-published-quality-evidence-conflicts');
+  return {...summary,status:report.status,changed:false};
+ }
  const record={schemaVersion:1,mode:'immutable-locally-registered-quality-review',
-  receiptIntegrity:receipt.integrity,evidenceSha256:digest(evidence),
+  receiptIntegrity:receipt.integrity,evidenceSha256,
   publishedAt:now,report,canTrade:false,canTrain:false,
   externallyTimestampCertified:false,prospectiveCertified:false};
  const body=JSON.stringify({...record,integrity:digest(record)})+'\n';
