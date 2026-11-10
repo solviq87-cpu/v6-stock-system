@@ -5,7 +5,8 @@ const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observe
 const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
-const {runOnce:runShadowWorker,parse:parseShadowWorker}=require('../scripts/factor-shadow-worker');
+const {runOnce:runShadowWorker,parse:parseShadowWorker,
+ latestCooldown}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -20,7 +21,7 @@ function weekdays(n){
  }
  return result;
 }
-const dates=weekdays(70);
+const dates=weekdays(100);
 function episode(index,{reuseSymbols=false,reverseReturns=false}={}){
  const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
@@ -332,4 +333,99 @@ test('new mature holdouts without decay cannot trigger false rollback alerts',()
  assert.equal(next.pausedForShadowDecay,false);
  assert.equal(next.rollbackReviewSuggested,false);
  assert.equal(next.productionWeightsChanged,false);
+});
+
+test('decay cooldown persists, needs ten subsequent recovered days, then five unseen days before another promotion attempt',()=>{
+ const previous=evolveShadowFactors(Array.from({length:56},(_,i)=>episode(i)),
+  {now:finalClock});
+ assert.equal(previous.status,'shadow-updated');
+ const history=[
+  ...Array.from({length:56},(_,i)=>episode(i)),
+  ...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))
+ ];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ assert.equal(alert.status,'paused-shadow-decay');
+ assert.equal(alert.cooldown.phase,'active');
+ assert.equal(alert.cooldown.alertDay,dates[60]);
+ assert.equal(alert.productionWeightsChanged,false);
+ const nine=[...history,...Array.from({length:9},(_,i)=>episode(61+i))];
+ const cooling=evolveShadowFactors(nine,{now:finalClock,previous,previousCooldown:alert});
+ assert.equal(cooling.status,'paused-shadow-cooldown');
+ assert.equal(cooling.cooldown.phase,'active');
+ assert.equal(cooling.cooldown.recovery.assessedDays,9);
+ assert.equal(cooling.rollbackReviewSuggested,true);
+ assert.deepEqual(cooling.shadowWeights,previous.shadowWeights);
+ const ten=[...nine,episode(70)];
+ const recovered=evolveShadowFactors(ten,{now:finalClock,previous,previousCooldown:cooling});
+ assert.equal(recovered.status,'shadow-recovered');
+ assert.equal(recovered.cooldown.phase,'recovered');
+ assert.equal(recovered.cooldown.recoveryDay,dates[70]);
+ assert.equal(recovered.shadowWeightsChanged,false);
+ assert.deepEqual(recovered.shadowWeights,previous.shadowWeights);
+ assert.equal(recovered.rollbackReviewSuggested,false);
+ // Exactly the same evidence is not a new evolution iteration.
+ assert.equal(evolveShadowFactors(ten,
+  {now:finalClock,previous,previousCooldown:recovered}).fingerprint,recovered.fingerprint);
+ const four=[...ten,...Array.from({length:4},(_,i)=>episode(71+i))];
+ const waiting=evolveShadowFactors(four,{now:finalClock,previous,previousCooldown:recovered});
+ assert.equal(waiting.status,'paused-shadow-cooldown');
+ assert.equal(waiting.postRecoveryHoldoutDays,4);
+ assert.equal(waiting.shadowWeightsChanged,false);
+ const five=[...four,episode(75)];
+ const tested=evolveShadowFactors(five,{now:finalClock,previous,previousCooldown:waiting});
+ assert.ok(['shadow-updated','shadow-retained'].includes(tested.status));
+ assert.equal(tested.postRecoveryHoldoutDays,5);
+ assert.equal(tested.pausedForShadowDecay,false);
+ assert.equal(tested.productionWeightsChanged,false);
+});
+test('old archived cooldown cannot be replayed with rewritten frozen evidence or another accepted model',()=>{
+ const historical=Array.from({length:56},(_,i)=>episode(i));
+ const previous=evolveShadowFactors(historical,{now:finalClock});
+ const history=[...historical,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ const next=[...history,episode(61)];
+ const changed=structuredClone(next);
+ changed[58].report.marketFingerprint='c'.repeat(64);
+ assert.throws(()=>evolveShadowFactors(changed,{now:finalClock,previous,previousCooldown:alert}),
+  /冷却证据或血缘无效|冻结|来源/);
+ const forged={...alert,previousFingerprint:'wrong'};
+ assert.throws(()=>evolveShadowFactors(next,{now:finalClock,previous,previousCooldown:forged}),
+  /冷却证据或血缘无效/);
+});
+test('worker rereads private cooldown after restart rather than forgetting the last decay warning',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-cooldown-resume-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'models');
+ const saved=[];
+ const append=(from,to,reversed=false)=>{
+  for(let i=from;i<to;i++){
+   const e=episode(i,{reverseReturns:reversed});
+   const featuresFile=path.join(dir,'f'+i+'.json');
+   const reportFile=path.join(dir,'r'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   saved.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:saved}));
+ };
+ append(0,56);
+ const options={manifestFile,outputDir,now:finalClock};
+ const accepted=runShadowWorker(options);
+ assert.equal(accepted.status,'shadow-updated');
+ append(56,61,true);
+ const paused=runShadowWorker(options);
+ assert.equal(paused.status,'paused-shadow-decay');
+ const previous=require('../scripts/factor-shadow-worker').latestAccepted(outputDir);
+ const state=latestCooldown(outputDir,previous);
+ assert.equal(state.cooldown.phase,'active');
+ assert.equal(state.cooldown.alertDay,dates[60]);
+ const again=runShadowWorker(options);
+ assert.equal(again.status,'skipped-identical-evidence');
+ assert.equal(latestCooldown(outputDir,previous).fingerprint,state.fingerprint);
+ append(61,71);
+ const recovered=runShadowWorker(options);
+ assert.equal(recovered.status,'shadow-recovered');
+ assert.equal(latestCooldown(outputDir,previous).cooldown.phase,'recovered');
+ assert.equal(require('../scripts/factor-shadow-worker').latestAccepted(outputDir).fingerprint,
+  previous.fingerprint);
 });
