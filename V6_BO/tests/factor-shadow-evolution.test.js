@@ -723,6 +723,7 @@ test('worker global trial scanner checks hash integrity and sums across differen
   const payload={mode:'v6-factor-shadow-evolution-v1',
    packFingerprint,status:i%2?'shadow-updated':'shadow-retained',
    previousFingerprint:i%2?'unrelated-parent'+i:null,
+   trainingEnd:dates[i*5+1],
    lastObservationDay:dates[i*5+6],trialAudit:{
     schemaVersion:1,status:'consumed',trialNumber:i+1,
     firstHoldoutDay:dates[i*5+2],lastHoldoutDay:dates[i*5+6],
