@@ -64,7 +64,7 @@ test('opted-in one-shot delegates one snapshot and seals daily circuit state',as
   const conf=x.once();
   const out=await tick(conf,{...deps(x),fetchSnapshot:async()=>{calls++;return x.snapshot;}});
   assert.equal(out.status,'research-capture-succeeded-unverified');
-  assert.equal(out.networkCalls,1);assert.equal(calls,1);
+  assert.equal(out.captureAttempts,1);assert.equal(calls,1);
   assert.equal(out.attempts,1);assert.equal(out.consecutiveFailures,0);
   assert.equal(out.verifiedLive,false);assert.equal(out.canTrade,false);
   assert.equal(out.rankedSectors,3);
@@ -76,7 +76,7 @@ test('opted-in one-shot delegates one snapshot and seals daily circuit state',as
   const recheck=await tick(conf,{now:start+120000,
    fetchSnapshot:async()=>{calls++;throw Error('should not request');}});
   assert.equal(recheck.status,'blocked-minimum-interval');
-  assert.equal(recheck.networkCalls,0);assert.equal(calls,1);
+  assert.equal(recheck.captureAttempts,0);assert.equal(calls,1);
   const second=await tick(x.status(),{now:start+120000});
   assert.equal(second.status,'read-only-status');
   assert.equal(second.wouldBlock,'blocked-minimum-interval');
@@ -91,14 +91,14 @@ test('after three provider failures breaker opens for the day, including after p
     fetchSnapshot:async()=>{calls++;throw Error('HTTP 502');}});
    assert.equal(out.consecutiveFailures,i+1);
    assert.equal(out.failureCategory,'provider-unavailable');
-   assert.equal(out.networkCalls,1);
+   assert.equal(out.captureAttempts,1);
    assert.equal(out.status,i===2?'blocked-circuit-open':'research-capture-failed');
   }
   const another=x.once();
   const again=await tick(another,{now:start+3*300000,
    fetchSnapshot:async()=>{calls++;return x.snapshot;}});
   assert.equal(again.status,'blocked-circuit-open');
-  assert.equal(again.networkCalls,0);
+  assert.equal(again.captureAttempts,0);
   assert.equal(calls,3);
   assert.equal(readState(another,start+3*300000).breakerOpen,true);
  }finally{cleanup(x);}
@@ -126,7 +126,7 @@ test('daily budget limits requests independently of the five-minute throttle',as
   const r=await tick(conf,{now:start+300000,
    fetchSnapshot:async()=>{throw Error('daily budget exceeded');}});
   assert.equal(r.status,'blocked-daily-budget');
-  assert.equal(r.networkCalls,0);
+  assert.equal(r.captureAttempts,0);
   assert.equal(readState(conf,start+300000).attempts,1);
  }finally{cleanup(x);}
 });
@@ -136,7 +136,7 @@ test('unknown trading day, weekend, lunch pause and invalid classification never
   const f=async()=>{calls++;throw Error('cannot call');};
   const noon=await tick(x.once(),{now:Date.parse('2026-11-10T12:01:00+08:00'),fetchSnapshot:f});
   assert.equal(noon.status,'paused-preflight');
-  assert.equal(noon.networkCalls,0);
+  assert.equal(noon.captureAttempts,0);
   const dayAfter=await tick(x.once(),{now:Date.parse('2026-11-11T10:02:00+08:00'),fetchSnapshot:f});
   assert.equal(dayAfter.preflightStatus,'blocked-trading-calendar');
   x.raw.observedAt=start+1000;
@@ -176,7 +176,7 @@ test('concurrent writer lock blocks, and lock file is never silently replaced',a
   fs.mkdirSync(x.outputRoot);fs.writeFileSync(conf.lockFile,'other-pid');
   const out=await tick(conf,{...deps(x),fetchSnapshot:async()=>{calls++;return x.snapshot;}});
   assert.equal(out.status,'blocked-supervisor-lock');
-  assert.equal(out.networkCalls,0);assert.equal(calls,0);
+  assert.equal(out.captureAttempts,0);assert.equal(calls,0);
   assert.equal(fs.readFileSync(conf.lockFile,'utf8'),'other-pid');
  }finally{cleanup(x);}
 });
