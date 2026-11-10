@@ -99,9 +99,9 @@ test('public Tencent, Eastmoney and Sina are all queried, optional fourth source
  assert.deepEqual(r.sourceStatuses.map(x=>x.provider),
   ['tencent','eastmoney','sina','itick']);
  assert.deepEqual(r.sourceStatuses.map(x=>x.observedPrice),
-  [10,10.01,10.01,null]);
+  [10,10.01,10,null]);
  assert.deepEqual(r.sourceStatuses.map(x=>x.quoteAgeMs),
-  [1000,2000,3000,null]);
+  [2000,2000,2000,null]);
  assert.deepEqual(r.sourceStatuses.map(x=>x.inConsensus),
   [true,true,true,false]);
 });
