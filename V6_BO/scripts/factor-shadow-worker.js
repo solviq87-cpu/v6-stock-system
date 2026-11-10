@@ -7,6 +7,7 @@ const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
 const {verifyCanonicalManifestLineage}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
+const {assessShadowRuntimeHealth}=require('../src/core/factor-shadow-runtime-health');
 const {preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint}=
  require('../src/core/factor-candidate-prereg');
 const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-proposer');
@@ -15,10 +16,14 @@ const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
- if(!['once','watch','register','register-auto'].includes(mode)||!manifestFile||!outputDir||
+ if(!['once','watch','register','register-auto','health'].includes(mode)||!manifestFile||!outputDir||
     !path.isAbsolute(manifestFile)||!path.isAbsolute(outputDir))
-  throw Error('用法: factor-shadow-worker.js once|watch|register|register-auto <私有manifest绝对路径> <私有模型目录绝对路径>');
+  throw Error('用法: factor-shadow-worker.js once|watch|register|register-auto|health <私有manifest绝对路径> <私有模型目录绝对路径>');
  safeNew(path.join(outputDir,'shadow-guard.json'));
+ if(mode==='health'){
+  if(flags.length)throw Error('只读研究健康检查不接受额外参数');
+  return {mode,manifestFile,outputDir};
+ }
  if(mode==='register'){
   if(flags.length!==1||!path.isAbsolute(flags[0]))
    throw Error('register 仅接受一个候选权重JSON绝对路径');
@@ -270,6 +275,86 @@ function readEpisodeReport(file){
  * An abandoned lock is intentionally NOT stolen: an operator must first
  * inspect the prior worker and its immutable trial archives.
  */
+/**
+ * WATCH only. This mutable operational heartbeat is explicitly separate from
+ * immutable model and prereg archives. It is not a proof that the PID is alive.
+ */
+const HEARTBEAT_NAME='.shadow-worker-heartbeat.json';
+function writeWatchHeartbeat(dir,{now=Date.now(),intervalMs=60000,
+ outcome='tick-success',lastStatus='unknown'}={}){
+ if(!Number.isSafeInteger(now)||now<=0||
+    !Number.isSafeInteger(intervalMs)||intervalMs<30000||intervalMs>3600000||
+    !['tick-success','tick-error'].includes(outcome)||
+    typeof lastStatus!=='string'||lastStatus.length>90||
+    !/^[a-z0-9-]+$/.test(lastStatus))
+  throw Error('研究心跳参数无效');
+ const payload={schemaVersion:1,mode:'v6-shadow-watch-heartbeat-v1',
+  observedAt:now,intervalMs,outcome,lastStatus,
+  pid:process.pid,canTrade:false,productionWeightsChanged:false};
+ const full={...payload,integrity:hash(payload)};
+ const file=path.join(dir,HEARTBEAT_NAME),
+  temp=path.join(dir,'.shadow-heartbeat-'+crypto.randomBytes(12).toString('hex')+'.tmp');
+ safeNew(file);safeNew(temp);
+ if(fs.existsSync(file)){
+  const stat=fs.lstatSync(file);
+  if(!stat.isFile()||stat.isSymbolicLink())
+   throw Error('运行心跳不是普通私有文件');
+ }
+ const fd=fs.openSync(temp,'wx',0o600);
+ try{fs.writeFileSync(fd,JSON.stringify(full)+'\n');fs.fsyncSync(fd);}
+ finally{fs.closeSync(fd);}
+ try{fs.renameSync(temp,file);}
+ catch(e){try{fs.unlinkSync(temp);}catch{}throw e;}
+ return full;
+}
+function readWatchHeartbeat(dir){
+ const file=path.join(dir,HEARTBEAT_NAME);
+ if(!fs.existsSync(file))return null;
+ const stat=fs.lstatSync(file);
+ if(!stat.isFile()||stat.isSymbolicLink()||stat.size>4096)
+  throw Error('研究心跳文件无效或可能被替换');
+ const saved=JSON.parse(fs.readFileSync(file,'utf8')),
+  {integrity,...body}=saved;
+ if(integrity!==hash(body)||saved.canTrade!==false||
+    saved.productionWeightsChanged!==false)
+  throw Error('研究心跳内容完整性无效');
+ return body;
+}
+/**
+ * Read-only operator diagnostic: never creates a lock, report, trial or
+ * candidate. Checking H5 PATH PRESENCE does not consume forward prices and
+ * MUST NOT be marketed as independent H5 maturity/provider certification.
+ */
+function runHealth({manifestFile,outputDir,now=Date.now()}={}){
+ const conf=parse(['health',manifestFile,outputDir]);
+ const manifest=readJson(conf.manifestFile);
+ if(manifest?.mode!=='v6-forward-training-manifest')
+  throw Error('健康诊断仅接受规范研究清单，不接受未认证测试清单');
+ validateManifest(manifest);
+ const frozen=manifest.episodes.map(e=>{
+  if(!e||typeof e.featuresFile!=='string'||!path.isAbsolute(e.featuresFile)||
+     typeof e.reportFile!=='string'||!path.isAbsolute(e.reportFile))
+   throw Error('健康诊断研究文件路径无效');
+  const item=readJson(e.featuresFile);
+  verifyEpisode(item,now);
+  return item;
+ });
+ const days=frozen.map(x=>x.signalDay);
+ const reportFilesPresent=manifest.episodes.map(x=>{
+  try{
+   const stat=fs.lstatSync(x.reportFile);
+   return stat.isFile()&&!stat.isSymbolicLink();
+  }catch(e){if(e.code==='ENOENT')return false;throw e;}
+ });
+ const accepted=latestAccepted(conf.outputDir),
+  trial=latestTrial(conf.outputDir,accepted),
+  cooldown=latestCooldown(conf.outputDir,accepted),
+  registration=latestCandidateRegistration(conf.outputDir,accepted,trial),
+  budget=globalTrialBudget(conf.outputDir,days),
+  pulse=readWatchHeartbeat(conf.outputDir);
+ return assessShadowRuntimeHealth({now,signalDays:days,reportFilesPresent,
+  accepted,trial,cooldown,registration,budget,pulse});
+}
 function withResearchLock(dir,work){
  const lock=safeNew(path.join(dir,'.shadow-worker.lock'));
  fs.mkdirSync(dir,{recursive:true,mode:0o700});
@@ -311,7 +396,7 @@ function validateManifest(manifest){
 }
 function runOnce({manifestFile,outputDir,now=Date.now(),
  requirePreRegistration=false,autoRegisterCandidate=false,
- operatorMode=false}={}){
+ operatorMode=false,watchPulse=false,watchIntervalMs=60000}={}){
  if(autoRegisterCandidate&&!requirePreRegistration)
   throw Error('自动接力必须先启用严格预注册');
  const conf=parse(['once',manifestFile,outputDir]);
@@ -322,8 +407,21 @@ function runOnce({manifestFile,outputDir,now=Date.now(),
  if(operatorMode&&manifest?.mode!=='v6-forward-training-manifest')
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
- return withResearchLock(conf.outputDir,()=>evaluateOnce(
-  {...conf,requirePreRegistration,autoRegisterCandidate},now,manifest));
+ return withResearchLock(conf.outputDir,()=>{
+  let outcome='tick-success',lastStatus='unknown';
+  try{
+   const result=evaluateOnce(
+    {...conf,requirePreRegistration,autoRegisterCandidate},now,manifest);
+   lastStatus=result.status;
+   return result;
+  }catch(e){
+   outcome='tick-error';lastStatus='worker-evaluation-error';
+   throw e;
+  }finally{
+   if(watchPulse)writeWatchHeartbeat(conf.outputDir,
+    {now,intervalMs:watchIntervalMs,outcome,lastStatus});
+  }
+ });
 }
 function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
@@ -458,6 +556,7 @@ function main(args){
  const operatorManifest=readJson(config.manifestFile);
  if(operatorManifest?.mode!=='v6-forward-training-manifest')
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
+ if(config.mode==='health')return runHealth(config);
  if(config.mode==='register')return runRegister(config);
  if(config.mode==='register-auto')return runRegisterAuto(config);
  if(config.mode==='once')return runOnce({...config,operatorMode:true});
@@ -465,7 +564,8 @@ function main(args){
  const tick=()=>{
   if(busy||closing)return;
   busy=true;
-  try{console.log(JSON.stringify(runOnce({...config,operatorMode:true})));}
+  try{console.log(JSON.stringify(runOnce({...config,operatorMode:true,
+   watchPulse:true,watchIntervalMs:config.interval})));}
   catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));}
   finally{busy=false;}
  };
@@ -482,4 +582,5 @@ if(require.main===module){
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
 module.exports={parse,runOnce,runRegister,runRegisterAuto,latestAccepted,latestCooldown,
- latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport};
+ latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport,
+ runHealth,readWatchHeartbeat,writeWatchHeartbeat};
