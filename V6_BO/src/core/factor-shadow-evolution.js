@@ -284,7 +284,7 @@ function verifyPreviousTrial(previousTrial,previous,sorted,ids,feed){
   count:0,priorFingerprint:null};
  const {fingerprint,...contents}=previousTrial||{};
  const audit=contents.trialAudit;
- const legacy=!audit&&contents.status==='shadow-retained';
+ const legacy=!audit&&['shadow-retained','paused-market-shock'].includes(contents.status);
  const cutoff=legacy?contents.lastObservationDay:audit?.lastHoldoutDay;
  const expectedParent=previous?.fingerprint||null;
  const sameEvidence=Array.isArray(contents.observedFingerprints)&&
@@ -293,7 +293,7 @@ function verifyPreviousTrial(previousTrial,previous,sorted,ids,feed){
    hash(pair)===hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]));
  if(typeof fingerprint!=='string'||fingerprint!==hash(contents)||
     contents.mode!==MODEL||contents.previousFingerprint!==expectedParent||
-    !['shadow-retained','shadow-updated'].includes(contents.status)||
+    !['shadow-retained','shadow-updated','paused-market-shock'].includes(contents.status)||
     contents.packFingerprint!==PACK_HASH||
     hash(contents.factorIds)!==hash(ids)||hash(contents.feed)!==hash(feed)||
     contents.canTrade!==false||contents.productionWeightsChanged!==false||
@@ -550,7 +550,9 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  // Even a rejected or unchanged candidate has inspected the whole paired
  // holdout once. Persist its last used trading day and candidate identity in
  // an immutable model report; later trials must see five strictly NEW days.
- const consumed=!paused&&!activeCooldown&&!recoveredNow;
+ // Market-shock deferral does not erase already INSPECTED holdout scores:
+ // changing only the market flag cannot buy a free second candidate trial.
+ const consumed=!activeCooldown&&!recoveredNow;
  const trialAudit={schemaVersion:1,status:consumed?'consumed':'not-evaluated',
   trialNumber:trialLineage.count+(consumed?1:0),
   previousTrialFingerprint:trialLineage.priorFingerprint,
@@ -560,7 +562,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   holdoutDays:consumed?postRecoveryTest.length:0,
   candidateFingerprint:hash({factorIds:ids,oldWeights,proposal,trainingEnd}),
   reason:consumed?'candidate-evaluated-on-fresh-holdout':
-   'paused-or-cooldown-not-a-promotion-trial',
+   'cooldown-monitoring-not-a-promotion-trial',
   canTrade:false,productionWeightsChanged:false};
  return baseResult(accepted?'shadow-updated':recoveredNow?'shadow-recovered':
   activeCooldown?(shadowDecay.alert&&!existingGate?'paused-shadow-decay':'paused-shadow-cooldown'):
