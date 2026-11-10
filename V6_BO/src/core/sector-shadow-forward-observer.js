@@ -43,6 +43,31 @@ function validArchive(r,s){
   safePct(b.marketQuoteCoveragePct)&&b.marketQuoteCoveragePct>=80&&
   Array.isArray(study.sectors)&&study.sectors.length<=300);
 }
+function archiveIdentityBound(r){
+ const p=r?.memberIdentity,b=r?.data,rows=b?.study?.sectors;
+ if(p?.schemaVersion!==1||p.status!=='identity-frozen-unverified'||
+   p.tradeDate!==r.tradeDate||p.observedAt!==b?.membershipFrozenAt||
+   p.membershipProvider!==b?.membershipProvider||
+   p.classificationVersion!==b?.classificationVersion||
+   p.comparable!==false||p.canTrain!==false||p.canTrade!==false||
+   p.weightsChanged!==false||!Array.isArray(p.sectors)||
+   !Array.isArray(rows)||p.sectors.length!==rows.length)return false;
+ const proofs=new Map();
+ for(const x of p.sectors){
+  if(!x||!['industry','concept'].includes(x.category)||
+    typeof x.code!=='string'||!Number.isSafeInteger(x.memberCount)||
+    x.memberCount<5||typeof x.memberSha256!=='string'||
+    !/^[a-f0-9]{64}$/.test(x.memberSha256)||proofs.has(key(x)))return false;
+  proofs.set(key(x),x);
+ }
+ const seen=new Set();
+ for(const x of rows){
+  if(!x||seen.has(key(x))||!proofs.has(key(x))||
+    x.memberCount!==proofs.get(key(x)).memberCount)return false;
+  seen.add(key(x));
+ }
+ return seen.size===proofs.size;
+}
 function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now()}={}){
  const s=preflight?.shadowSample;
  if(preflight?.schemaVersion!==1||
@@ -93,7 +118,7 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
    baseline.observedAt!==s.observedAt)
   return block('missing-or-mismatched-frozen-baseline-archive');
  // Older archives without member fingerprints are not comparable evidence.
- if(baseline.memberIdentity?.status!=='identity-frozen-unverified')
+ if(!archiveIdentityBound(baseline))
   return block('missing-frozen-baseline-member-identity');
  const ranked=baseline.data.study.sectors.filter(x=>x?.rank!==null&&x?.rank!==undefined);
  if(ranked.length!==s.sectors.length||
@@ -124,6 +149,8 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
    if(!validArchive(r,s)||r.observedAt<=baseline.observedAt||
      r.observedAt>asOf||Math.abs(minute(r.observedAt)-minute(s.observedAt))>30)
     return rejected('future-archive-provenance-or-time-conflict');
+   if(!archiveIdentityBound(r))
+    return rejected('future-member-identity-archive-binding-invalid');
    const identity=compareSectorMemberIdentity(baseline.memberIdentity,r.memberIdentity);
    if(identity.status!=='identity-matched-unverified')
     return rejected('future-sector-member-identity-'+identity.status+':'+identity.reason);
