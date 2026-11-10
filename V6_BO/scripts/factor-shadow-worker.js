@@ -330,8 +330,12 @@ function evaluateOnce(conf,now,manifest){
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
  const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
+ // A recovered gate can still carry status "paused-shadow-cooldown"
+ // while awaiting five new days; it must never bypass preregistration.
+ // Legacy sealed decay alerts without phase metadata remain ACTIVE.
  const cooldownOnly=previousCooldown&&
-  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+  (previousCooldown.cooldown?.phase==='active'||
+   (!previousCooldown.cooldown&&previousCooldown.status==='paused-shadow-decay'));
  // A recovered cooldown is NOT an active monitoring exemption. It needs a
  // freshly committed candidate before any new forward return is opened.
  if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly&&
