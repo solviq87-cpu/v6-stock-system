@@ -57,7 +57,7 @@ function validatePaths(config){
 }
 function publicStatus(stage,status,extra={}){
  return {schemaVersion:1,mode:'v6-factor-daily-research-cycle',
-  stage,status,readOnly:status.startsWith('preview')||status.startsWith('skip'),
+  stage,status,readOnly:status!=='research-cycle-completed-not-certified',
   providerRightsIndependentlyVerified:false,liveQuotesVerified:false,
   deploymentVerified:false,canTrade:false,productionWeightsChanged:false,
   ...extra};
