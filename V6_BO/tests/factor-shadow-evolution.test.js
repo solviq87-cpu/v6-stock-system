@@ -21,7 +21,7 @@ function weekdays(n){
  return result;
 }
 const dates=weekdays(70);
-function episode(index,{reuseSymbols=false}={}){
+function episode(index,{reuseSymbols=false,reverseReturns=false}={}){
  const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
   const symbol=String(600000+(reuseSymbols?0:index%6*6)+j),id=d+'-'+symbol,score=aScores[j],
@@ -35,7 +35,7 @@ function episode(index,{reuseSymbols=false}={}){
    sector_heat:{source:featureFeed.provider,observedAt:at(d)},
    leader_strength:{source:featureFeed.provider,observedAt:at(d)}
   }});
-  const pct=(j-2.5)*2;
+  const pct=(j-2.5)*(reverseReturns?-2:2);
   stocks.push({symbol,corporateActions:[],bars:[
    {date:d,close:10,volume:100,suspended:false},
    {date:future[5],close:10*(1+pct/100),volume:100,suspended:false}
@@ -302,4 +302,34 @@ test('rotating symbol cohorts preserve original immutable signals and sufficient
  assert.equal(result.sampleIndependence.overlappingOriginalSignalsPreserved,true);
  assert.equal(result.canTrade,false);
  assert.equal(result.productionWeightsChanged,false);
+});
+
+test('fresh forward reversals mark previously accepted shadow decay without changing formal or accepted research weights',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(history,{now:finalClock});
+ assert.equal(accepted.status,'shadow-updated');
+ const later=[...history,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const result=evolveShadowFactors(later,{now:finalClock,previous:accepted});
+ assert.equal(result.status,'paused-shadow-decay');
+ assert.equal(result.shadowWeightsChanged,false);
+ assert.deepEqual(result.shadowWeights,accepted.shadowWeights);
+ assert.equal(result.pausedForShadowDecay,true);
+ assert.equal(result.rollbackReviewSuggested,true);
+ assert.equal(result.shadowDecay.status,'decay-alert-unverified');
+ assert.equal(result.shadowDecay.assessedDays,5);
+ assert.equal(result.shadowDecay.negativeDeltaPct,100);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.productionWeightsChanged,false);
+ assert.equal(result.productionStrategyChanged,false);
+ assert.equal(result.autoPromotion,false);
+});
+test('new mature holdouts without decay cannot trigger false rollback alerts',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(history,{now:finalClock});
+ const next=evolveShadowFactors(Array.from({length:61},(_,i)=>episode(i)),
+  {now:finalClock,previous:accepted});
+ assert.equal(next.shadowDecay.alert,false);
+ assert.equal(next.pausedForShadowDecay,false);
+ assert.equal(next.rollbackReviewSuggested,false);
+ assert.equal(next.productionWeightsChanged,false);
 });
