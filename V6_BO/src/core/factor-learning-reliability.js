@@ -161,4 +161,45 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
   firstHalfDeltaIC:round(first,6),recentHalfDeltaIC:round(recent,6),
   alert,rollbackReviewSuggested:alert};
 }
-module.exports={assessFactorReliability,pairedStability,assessShadowDecay};
+/**
+ * A decay alert cannot be cleared on the same observations that triggered it.
+ * Two COMPLETE, NEW five-session blocks must each show positive shadow IC,
+ * no relative underperformance to the fixed original weights, and broad
+ * directional consistency. Recovery is a research state, not an upgrade.
+ */
+function assessShadowRecovery(days,ids,baseWeights,acceptedWeights,dailyScore){
+ if(!Array.isArray(days)||!Array.isArray(ids)||ids.length<2||
+    typeof dailyScore!=='function')throw Error('恢复审核输入协议无效');
+ const recent=days.slice(-10),paired=[];
+ for(const d of recent){
+  const original=dailyScore([d],ids,baseWeights);
+  const shadow=dailyScore([d],ids,acceptedWeights);
+  if(original.days!==shadow.days)
+   throw Error('恢复审核基础与沙盒样本覆盖不一致');
+  if(original.days===1){
+   if(!finite(original.meanIC)||!finite(shadow.meanIC)||
+      Math.abs(original.meanIC)>1||Math.abs(shadow.meanIC)>1)
+    throw Error('恢复审核IC证据无效');
+   paired.push({date:d.day,baseline:original.meanIC,shadow:shadow.meanIC,
+    delta:shadow.meanIC-original.meanIC});
+  }
+ }
+ const base={status:'cooldown-insufficient-fresh-evidence',
+  requiredDays:10,assessedDays:paired.length,firstBlock:null,secondBlock:null,
+  recovered:false,canTrade:false,productionWeightsChanged:false};
+ if(paired.length<10)return base;
+ function block(xs){
+  const shadowMeanIC=mean(xs.map(x=>x.shadow));
+  const deltaIC=mean(xs.map(x=>x.delta));
+  const positiveFraction=xs.filter(x=>x.shadow>0).length/xs.length;
+  return {days:xs.length,shadowMeanIC:round(shadowMeanIC,6),
+   deltaIC:round(deltaIC,6),positiveDayPct:round(positiveFraction*100,2),
+   passed:shadowMeanIC>=.03&&deltaIC>=0&&positiveFraction>=.6};
+ }
+ const firstBlock=block(paired.slice(0,5));
+ const secondBlock=block(paired.slice(5));
+ const recovered=firstBlock.passed&&secondBlock.passed;
+ return {...base,status:recovered?'recovered-unverified':'cooldown-recovery-unconfirmed',
+  firstBlock,secondBlock,recovered};
+}
+module.exports={assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRecovery};
