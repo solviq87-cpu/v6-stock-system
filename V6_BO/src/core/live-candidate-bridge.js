@@ -23,12 +23,23 @@ function joinObservedCandidates(snapshot, breadth, candidates=[], {limit=50,asOf
     if (!observed) {missing++;continue;}
     const timing=clockValid?classifyQuoteTime(observed,{requestDate:snapshot.date,retrievedAt:clock}):
       {quoteAt:null,quoteDate:null,quoteTimeStatus:'unknown',quoteAgeMs:null};
+    const observedMetric=(field,{min=-Infinity,max=Infinity}={})=>{
+      const value=observed[field];
+      return typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max?value:null;
+    };
     items.push({code,name:String(candidate.name||code).slice(0,64),pctChange:observed.pctChange,
-      observedAmount:typeof observed.amount==='number'?observed.amount:null,
+      observedAmount:observedMetric('amount',{min:0}),
+      // Raw provider evidence for research only; no inferred source units or trade permission.
+      observedLatestPrice:observedMetric('latestPrice',{min:0.000001}),
+      observedVolumeLots:observedMetric('volumeLots',{min:0}),
+      observedTurnoverPct:observedMetric('turnoverPct',{min:0,max:100}),
+      observedMainNetInflow:observedMetric('mainNetInflow'),
+      observedMainNetInflowPct:observedMetric('mainNetInflowPct',{min:-100,max:100}),
       candidateScore:Number.isFinite(candidate.finalScore)?candidate.finalScore:null,
       source:snapshot.source,requestDate:snapshot.date,quoteDate:timing.quoteDate,
       quoteAt:timing.quoteAt,quoteAgeMs:timing.quoteAgeMs,
-      quoteTimeStatus:timing.quoteTimeStatus,quoteTimeVerified:false});
+      quoteTimeStatus:timing.quoteTimeStatus,quoteTimeVerified:false,
+      providerFieldsVerified:false,canTrade:false});
     if (items.length>=limit)break;
   }
   return {usable:true,source:snapshot.source,date:snapshot.date,items,matched:items.length,missing,
