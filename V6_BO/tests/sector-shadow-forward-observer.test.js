@@ -163,7 +163,7 @@ test('legacy baseline without fingerprint is blocked, later missing proof fails 
  delete later[1].memberIdentity;
  const r=run(later);
  assert.equal(r.status,'blocked');
- assert.match(r.threeSession.reason,/missing-member-identity-proof/);
+ assert.equal(r.threeSession.reason,'future-member-identity-archive-binding-invalid');
 });
 
 test('baseline fingerprint must bind to archive frozen timestamp and provider',()=>{
