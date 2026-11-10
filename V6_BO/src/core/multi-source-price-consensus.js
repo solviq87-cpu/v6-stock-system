@@ -81,9 +81,13 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   matchedCount:matched.length,disagreeingProviders:valid.filter(x=>!ids.has(x.id)).map(x=>x.id).sort(),
   maxMatchedPriceGapBps:Number(bps(Math.min(...matched.map(x=>x.price)),Math.max(...matched.map(x=>x.price))).toFixed(3))};
 }
-async function checkMultiPublicPrices({code,now=Date.now(),probe=probePublicQuotes,
- extraSources=[],itickToken,fetchItick=fetchItickStockQuote,
- priceToleranceBps=30,timeGapMs=5000,maxAgeMs=15000}={}){
+async function checkMultiPublicPrices(config={}){
+ const {code,now=Date.now(),probe=probePublicQuotes,
+  extraSources=[],itickToken,fetchItick=fetchItickStockQuote,
+  priceToleranceBps=30,timeGapMs=5000,maxAgeMs=15000}=config;
+ // An explicitly supplied clock is a deliberate deterministic test/replay clock.
+ // Live diagnostics must evaluate freshness after network work, not at request start.
+ const currentClock=Object.hasOwn(config,'now')?()=>now:Date.now;
  if(!validCode(code)||!Number.isSafeInteger(now)||now<=0||
   typeof probe!=='function'||typeof fetchItick!=='function'||
   !Array.isArray(extraSources)||extraSources.length>4)
@@ -94,14 +98,14 @@ async function checkMultiPublicPrices({code,now=Date.now(),probe=probePublicQuot
    .concat([{id:'itick',status:'unconfigured'}],extraSources),
   priceToleranceBps,timeGapMs,maxAgeMs});
  const raw=await probe({code,providers:PUBLIC_IDS});
- const projected=projectProbe(raw,now);
+ const projected=projectProbe(raw,currentClock());
  const sources=PUBLIC_IDS.map(id=>{
   const s=projected.sources.find(item=>item.id===id);
   return s?{id,status:s.status,quote:s.quote}: {id,status:'unavailable'};
  });
  // Official iTick is opt-in and needs an operator token, never embedded in code.
- const itick=await fetchItick({code,token:itickToken,now});
- return fuseMultiSourcePrices({code,now,sources:[...sources,itick,...extraSources],
+ const itick=await fetchItick({code,token:itickToken,now:currentClock()});
+ return fuseMultiSourcePrices({code,now:currentClock(),sources:[...sources,itick,...extraSources],
   priceToleranceBps,timeGapMs,maxAgeMs});
 }
 module.exports={fuseMultiSourcePrices,checkMultiPublicPrices};
