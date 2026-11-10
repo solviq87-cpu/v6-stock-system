@@ -18,6 +18,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   throw Error('试验预算的研究交易日缺失、重复或无效');
  days.sort();
  const windowStart=days[Math.max(0,days.length-WINDOW_DAYS)];
+ const asOfDay=days.at(-1);
  const counted=[];
  for(const report of reports){
   if(!report||report.mode!=='v6-factor-shadow-evolution-v1')continue;
@@ -37,6 +38,11 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
       !Number.isSafeInteger(audit.holdoutDays)||audit.holdoutDays<5||
       !/^[a-f0-9]{64}$/.test(audit.candidateFingerprint||''))))
    throw Error('试验预算归档时间或候选血缘无效');
+  // A later sealed inspection cannot belong to an earlier restored manifest.
+  // Reject BEFORE returning budget-exhausted: a harmless skip would hide a
+  // research-calendar rollback and let operators miss the broken lineage.
+  if(end>asOfDay||report.lastObservationDay>asOfDay)
+   throw Error('全局试验档案晚于当前研究清单，历史交易日倒退');
   counted.push({firstDay:start,lastDay:end,fingerprint:report.fingerprint,
    parentFingerprint:report.previousFingerprint||null,legacy});
  }
@@ -49,7 +55,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  const recent=counted.filter(x=>x.lastDay>=windowStart);
  return {status:recent.length>=MAX_TRIALS?'budget-exhausted':'budget-available',
   windowTradingDays:WINDOW_DAYS,maxTrials:MAX_TRIALS,
-  windowStartDay:windowStart,asOfDay:days.at(-1),
+  windowStartDay:windowStart,asOfDay,
   allTimeTrialCount:counted.length,usedTrials:recent.length,
   remainingTrials:Math.max(0,MAX_TRIALS-recent.length),
   lastTrialFingerprint:recent.at(-1)?.fingerprint||null,

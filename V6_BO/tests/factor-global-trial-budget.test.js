@@ -77,3 +77,22 @@ test('a new factor pack cannot reset the global inspected-holdout budget',()=>{
   {...earlierPack,packFingerprint:'invalid'}],ds,pack),
   /历史因子包指纹无效/);
 });
+
+test('restoring a shorter manifest cannot silently ignore trials sealed in its future',()=>{
+ const ds=days(130),current=ds.slice(0,42);
+ const archived=record(ds,8); // spent holdout ends at day[45], after manifest day[41]
+ assert.equal(archived.trialAudit.lastHoldoutDay,ds[45]);
+ assert.throws(()=>assessGlobalTrialBudget([archived],current,pack),
+  /全局试验档案晚于当前研究清单，历史交易日倒退/);
+ // Even when the apparent old budget is already full, do not hide a
+ // rollback behind a normal budget-exhausted skip.
+ const older=Array.from({length:6},(_,i)=>record(ds,i));
+ assert.throws(()=>assessGlobalTrialBudget([...older,archived],current,pack),
+  /全局试验档案晚于当前研究清单，历史交易日倒退/);
+ // An archive completed on the latest known signal day remains valid.
+ const atBoundary=record(ds,7);
+ assert.equal(atBoundary.lastObservationDay,ds[40]);
+ const valid=assessGlobalTrialBudget([atBoundary],current,pack);
+ assert.equal(valid.usedTrials,1);
+ assert.equal(valid.asOfDay,ds[41]);
+});
