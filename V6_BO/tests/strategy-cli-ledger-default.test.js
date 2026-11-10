@@ -66,5 +66,5 @@ test('backtest policy explicitly discloses overrides and refuses invalid mode',t
  assert.equal(report.backtestPolicy.slippageBps,25);
  const wrong=spawnSync(process.execPath,[cli,'backtest-unknown',file],{encoding:'utf8',timeout:10000});
  assert.notEqual(wrong.status,0);
- assert.match(wrong.stderr,/scan\\|backtest\\|backtest-legacy/);
+ assert.match(wrong.stderr,/backtest-legacy/);
 });
