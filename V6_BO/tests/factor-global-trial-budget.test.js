@@ -62,3 +62,17 @@ test('malformed dates and incomplete candidate records fail closed',()=>{
   /交易日缺失、重复或无效/);
  assert.throws(()=>assessGlobalTrialBudget([r],ds,'not-a-pack-hash'),/协议无效/);
 });
+
+test('a new factor pack cannot reset the global inspected-holdout budget',()=>{
+ const ds=days(100);
+ const earlierPack=record(ds,0);
+ earlierPack.packFingerprint='c'.repeat(64);
+ const currentPack=record(ds,1);
+ const report=assessGlobalTrialBudget([earlierPack,currentPack],ds,pack);
+ assert.equal(report.usedTrials,2);
+ assert.equal(report.remainingTrials,4);
+ assert.equal(report.allTimeTrialCount,2);
+ assert.throws(()=>assessGlobalTrialBudget([
+  {...earlierPack,packFingerprint:'invalid'}],ds,pack),
+  /历史因子包指纹无效/);
+});
