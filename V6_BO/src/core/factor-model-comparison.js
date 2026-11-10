@@ -36,7 +36,9 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   proposedVsOriginal:null,proposedVsAccepted:null,
   originalGatePassed:false,canTrade:false,productionWeightsChanged:false};
  if(window.length<MIN_DAYS)return base;
- const rows=[];
+ // Preserve full-precision deltas exclusively for the research promotion gate.
+ // The six-decimal scorecard is presentation evidence, not decision input.
+ const rows=[],rawOriginalDeltas=[];
  for(const d of window){
   const values=[originalWeights,acceptedWeights,proposedWeights].map(w=>score([d],ids,w));
   if(values.some(x=>!x||x.days!==1)){
@@ -46,6 +48,7 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   const ics=values.map(x=>x.meanIC);
   if(ics.some(x=>!finite(x)||x < -1||x>1))
    throw Error('三版本对照IC不是有限的相关系数');
+  rawOriginalDeltas.push(ics[2]-ics[0]);
   rows.push({day:d.day,originalIC:round(ics[0]),acceptedIC:round(ics[1]),
    proposedIC:round(ics[2]),
    proposedMinusOriginal:round(ics[2]-ics[0]),
@@ -91,10 +94,11 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
  };
  const relativeOriginal=uplift('proposedMinusOriginal');
  const relativeAccepted=uplift('proposedMinusAccepted');
- const originalGatePassed=relativeOriginal.meanDeltaIC>.002&&
-  relativeOriginal.betterDayPct>=60&&
-  relativeOriginal.firstHalfDeltaIC>=-.001&&
-  relativeOriginal.recentHalfDeltaIC>=-.001;
+ const split=Math.floor(rawOriginalDeltas.length/2);
+ const originalGatePassed=mean(rawOriginalDeltas)>.002&&
+  rawOriginalDeltas.filter(x=>x>0).length/rawOriginalDeltas.length*100>=60&&
+  mean(rawOriginalDeltas.slice(0,split))>=-.001&&
+  mean(rawOriginalDeltas.slice(split))>=-.001;
  return {...base,status:'paired-scorecard-unverified',
   assessedDays:rows.length,perDay:rows,...Object.fromEntries(summaries),
   proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility('proposedMinusOriginal')},
