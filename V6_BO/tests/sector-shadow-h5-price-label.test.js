@@ -217,9 +217,11 @@ test('a legacy preview lacking frozen member identity cannot acquire H5 price la
  assert.equal(r.canTrade,false);
 });
 test('constituent order alone does not change canonical member identity',()=>{
- const g=seed();
+ const g=seed(),market=marketOf(g);
+ // Preserve each symbol's existing baseline when only the membership display
+ // order changes; reassigning closes by the new array order would be invalid.
  g.membership.sectors[0].members.reverse();
- const r=exec(g);
+ const r=exec(g,market);
  assert.equal(r.status,'gross-h5-label-observed-unverified');
  assert.equal(r.frozenMemberSha256,g.preflight.shadowSample.sectors[0].memberSha256);
  assert.equal(r.canTrain,false);
