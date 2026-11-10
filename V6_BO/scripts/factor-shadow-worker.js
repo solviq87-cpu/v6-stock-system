@@ -4,23 +4,33 @@
 // evidence, emits immutable shadow-model revisions, NEVER production weights.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
-const {evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
+const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
+const {preregisterCandidate}=require('../src/core/factor-candidate-prereg');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
 const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
- if(!['once','watch'].includes(mode)||!manifestFile||!outputDir||
+ if(!['once','watch','register'].includes(mode)||!manifestFile||!outputDir||
     !path.isAbsolute(manifestFile)||!path.isAbsolute(outputDir))
-  throw Error('用法: factor-shadow-worker.js once|watch <私有manifest绝对路径> <私有模型目录绝对路径> [--interval 60000]');
- if(flags.length&&(mode!=='watch'||flags.length!==2||flags[0]!=='--interval'))
-  throw Error('轮询仅支持 watch --interval 毫秒');
- const interval=flags.length?Number(flags[1]):60000;
+  throw Error('用法: factor-shadow-worker.js once|watch|register <私有manifest绝对路径> <私有模型目录绝对路径>');
+ safeNew(path.join(outputDir,'shadow-guard.json'));
+ if(mode==='register'){
+  if(flags.length!==1||!path.isAbsolute(flags[0]))
+   throw Error('register 仅接受一个候选权重JSON绝对路径');
+  return {mode,manifestFile,outputDir,candidateWeightsFile:flags[0]};
+ }
+ const requirePreRegistration=flags.includes('--require-prereg');
+ if(flags.filter(x=>x==='--require-prereg').length>1)
+  throw Error('不可重复设置严格预注册门禁');
+ const extra=flags.filter(x=>x!=='--require-prereg');
+ if(extra.length&&(mode!=='watch'||extra.length!==2||extra[0]!=='--interval'))
+  throw Error('轮询仅支持 watch --interval 毫秒及 --require-prereg');
+ const interval=extra.length?Number(extra[1]):60000;
  if(!Number.isSafeInteger(interval)||interval<30000||interval>3600000)
   throw Error('研究轮询间隔必须为30000至3600000毫秒');
- safeNew(path.join(outputDir,'shadow-guard.json'));
- return {mode,manifestFile,outputDir,interval};
+ return {mode,manifestFile,outputDir,interval,requirePreRegistration};
 }
 function latestAccepted(dir){
  if(!fs.existsSync(dir))return null;
@@ -146,6 +156,64 @@ function globalTrialBudget(dir,signalDays){
  });
  return assessGlobalTrialBudget(archives,signalDays,hash(factorPack));
 }
+/**
+ * One pending immutable candidate per active accepted/trial lineage. Multiple
+ * precommitments would let researchers shop alternatives before evaluation.
+ */
+function latestCandidateRegistration(dir,accepted,previousTrial){
+ if(!fs.existsSync(dir))return null;
+ const names=fs.readdirSync(dir).filter(x=>/^prereg-[0-9a-f]{12}\.json$/.test(x));
+ if(names.length>500)throw Error('候选预注册目录超过500项');
+ const parent=accepted?.fingerprint||null,trial=previousTrial?.fingerprint||null;
+ const matches=[];
+ for(const name of names){
+  const r=readJson(path.join(dir,name));
+  if(r?.mode!=='v6-shadow-candidate-prereg-v1'||typeof r.fingerprint!=='string')
+   throw Error('候选预注册档案结构无效');
+  const {fingerprint,...payload}=r;
+  if(hash(payload)!==fingerprint||name!=='prereg-'+fingerprint.slice(0,12)+'.json')
+   throw Error('候选预注册档案完整性无效');
+  if(r.parentAcceptedFingerprint===parent&&r.parentTrialFingerprint===trial)
+   matches.push(r);
+ }
+ if(matches.length>1)throw Error('同一研究血缘存在多个预注册候选，拒绝挑选');
+ return matches[0]||null;
+}
+/**
+ * Explicit PRE-outcome registration: verify only frozen features, never read
+ * any forward reportFile. Candidate weights come from a separate bounded
+ * JSON file and are persisted before future signal snapshots may be created.
+ */
+function runRegister({manifestFile,outputDir,candidateWeightsFile,now=Date.now()}={}){
+ const conf=parse(['register',manifestFile,outputDir,candidateWeightsFile]);
+ const manifest=readJson(conf.manifestFile);
+ if(manifest?.schemaVersion!==1||!Array.isArray(manifest.episodes)||
+    manifest.episodes.length<36||manifest.episodes.length>400)
+  throw Error('候选预注册需完整冻结特征目录');
+ const features=manifest.episodes.map(e=>{
+  if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
+   throw Error('预注册必须提供冻结特征绝对路径');
+  // Deliberately DO NOT OPEN e.reportFile in the registration stage.
+  return verifyEpisode(readJson(e.featuresFile),now);
+ });
+ const accepted=latestAccepted(conf.outputDir);
+ const previousTrial=latestTrial(conf.outputDir,accepted);
+ if(latestCandidateRegistration(conf.outputDir,accepted,previousTrial))
+  throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
+ const base=features[0].factors;
+ const weights=accepted?.shadowWeights||
+  Object.fromEntries(base.map(x=>[x.id,x.baseWeight]));
+ const entry=preregisterCandidate({features,candidateWeights:readJson(candidateWeightsFile),
+  acceptedWeights:weights,registeredAt:now,
+  parentAcceptedFingerprint:accepted?.fingerprint||null,
+  parentTrialFingerprint:previousTrial?.fingerprint||null,
+  packFingerprint:hash(factorPack)});
+ const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+ writeNew(file,entry);
+ return {ok:true,status:'candidate-preregistered',fingerprint:entry.fingerprint,
+  latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
+  canTrade:false,productionWeightsChanged:false};
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -157,7 +225,8 @@ function readEpisodeReport(file){
  }
  return original; // Legacy explicit offline plain observer report.
 }
-function runOnce({manifestFile,outputDir,now=Date.now()}={}){
+function runOnce({manifestFile,outputDir,now=Date.now(),
+ requirePreRegistration=false}={}){
  const conf=parse(['once',manifestFile,outputDir]);
  const manifest=readJson(conf.manifestFile);
  if(manifest?.mode==='v6-forward-training-manifest'){
@@ -173,6 +242,9 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  const previous=latestAccepted(conf.outputDir);
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
+ const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
+ if(requirePreRegistration&&!preRegistration&&!previousCooldown)
+  throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
  const episodes=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
@@ -183,7 +255,8 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  let result;
  try{
   result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
-   previousTrial,trialBudget,marketContext:manifest.marketContext});
+   previousTrial,trialBudget,preRegistration,requirePreRegistration,
+   marketContext:manifest.marketContext});
  }catch(e){
   if(previous&&/未增加新的训练时间窗/.test(String(e.message)))
    return {ok:true,status:'skipped-no-new-training',version:previous.version,
@@ -216,6 +289,7 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
 }
 function main(args){
  const config=parse(args);
+ if(config.mode==='register')return runRegister(config);
  if(config.mode==='once')return runOnce(config);
  let busy=false,closing=false;
  const tick=()=>{
@@ -237,4 +311,4 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,latestCooldown,latestTrial,globalTrialBudget,main,readEpisodeReport};
+module.exports={parse,runOnce,runRegister,latestAccepted,latestCooldown,latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport};
