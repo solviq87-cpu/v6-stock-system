@@ -103,3 +103,35 @@ test('isolated HTTP server serves both actual new pages and required assets', { 
     if(child.exitCode===null)child.kill('SIGKILL');
   }
 });
+
+test('same stock retains all distinct strategy hits and never invents missing bars', () => {
+  const src = read('public/assets/v6-studio.js');
+  const instrumented=src.replace(/\}\)\(\);\s*$/, 'window.__test={combine,reasons,rowsValid,aggregate};})();');
+  assert.notEqual(instrumented,src,'test instrumentation must attach to script');
+  const sandbox={window:{},document:{body:{dataset:{page:'matches'}},readyState:'loading',addEventListener(){}}};
+  vm.runInNewContext(instrumented,sandbox);
+  const {combine,rowsValid,aggregate}=sandbox.window.__test;
+  const stocks=combine([
+    {code:'000001',name:'样例一',strategy:'十四条',hit:[{id:1,text:'规则一'},{id:2,text:'规则二'}]},
+    {code:'000001',name:'样例一',strategy:'八字',hit:[{id:1,text:'规则一'},{id:3,text:'规则三'}]},
+    {code:'300750',name:'样例二',hit:[{id:4,text:'规则四'}]}
+  ]);
+  assert.equal(stocks.length,2);
+  const first=stocks.find(s=>s.code==='000001');
+  assert.equal(first.rawSignals,2);
+  assert.equal(first.reasons.length,3);
+  assert.deepEqual([...first.strategies],['十四条','八字']);
+  const daily=rowsValid([
+    {date:'2026-11-02',open:10,high:11,low:9,close:10.5},
+    {date:'2026-11-03',open:10.5,high:12,low:10,close:11.4},
+    {date:'2026-11-04',open:11.4,high:12,low:11,close:11.8},
+    {date:'2026-11-05',open:0,high:12,low:11,close:11.5}
+  ]);
+  assert.equal(daily.length,3);
+  const monthly=aggregate(daily,'month');
+  assert.equal(monthly.length,1);
+  assert.equal(monthly[0].open,10);
+  assert.equal(monthly[0].high,12);
+  assert.equal(monthly[0].low,9);
+  assert.equal(monthly[0].close,11.8);
+});
