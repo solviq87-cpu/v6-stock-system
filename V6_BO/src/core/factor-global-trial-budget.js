@@ -39,6 +39,13 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
      audit.schemaVersion!==1||
      audit.status!==(inspected?'consumed':'not-evaluated')))
    throw Error('全局试验审计状态与报告状态不一致，拒绝少计试验');
+  // Monitoring-only reports do not spend trial slots, but they ARE sealed
+  // research history. A restored old manifest must not hide future cooldown
+  // or recovery evidence behind a normal exhausted-budget skip.
+  if(!finiteDate(report.lastObservationDay))
+   throw Error('全局研究档案最后观察日期无效');
+  if(report.lastObservationDay>asOfDay)
+   throw Error('全局监控或试验档案晚于当前研究清单，历史交易日倒退');
   // Older immutable reports predate trialAudit; retain their conservative
   // inspected-holdout treatment rather than rewriting those archives.
   const legacy=!hasAudit&&inspected;
@@ -46,7 +53,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   const end=legacy?report.lastObservationDay:audit.lastHoldoutDay,
    start=legacy?report.holdout?.firstFreshDay:audit.firstHoldoutDay;
   if(!finiteDate(end)||!finiteDate(start)||start>end||
-     !finiteDate(report.lastObservationDay)||end>report.lastObservationDay||
+     end>report.lastObservationDay||
      (!legacy&&(audit.schemaVersion!==1||
       !Number.isSafeInteger(audit.holdoutDays)||audit.holdoutDays<5||
       !/^[a-f0-9]{64}$/.test(audit.candidateFingerprint||''))))
@@ -54,7 +61,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   // A later sealed inspection cannot belong to an earlier restored manifest.
   // Reject BEFORE returning budget-exhausted: a harmless skip would hide a
   // research-calendar rollback and let operators miss the broken lineage.
-  if(end>asOfDay||report.lastObservationDay>asOfDay)
+  if(end>asOfDay)
    throw Error('全局试验档案晚于当前研究清单，历史交易日倒退');
   counted.push({firstDay:start,lastDay:end,fingerprint:report.fingerprint,
    parentFingerprint:report.previousFingerprint||null,legacy});
