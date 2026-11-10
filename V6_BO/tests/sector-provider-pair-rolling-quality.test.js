@@ -374,16 +374,17 @@ test('future evidence cannot replace the registered calendar, policy or vendor i
 });
 test('a registered missing signal day remains a coverage loss, not a cherry-picked success',()=>{
  const {receipt,evidence}=registeredFixture();
+ evidence.episodes.splice(4,1);
  evidence.episodes.splice(2,1);
  const r=verifyRegisteredSectorPairEvidence(receipt,{
   schemaVersion:1,mode:'sector-provider-pair-quality-imported-input',
   source:'imported',...evidence},{now:asOf+1000});
  assert.equal(r.status,'pair-quality-watch-unverified');
- assert.deepEqual(r.quality.horizons[2].missingEpisodeDays,[days[2]]);
- assert.equal(r.quality.horizons[2].comparableRatePct,80);
- assert.equal(r.quality.horizons[2].nonComparableRatePct,20);
+ assert.deepEqual(r.quality.horizons[2].missingEpisodeDays,[days[2],days[4]]);
+ assert.equal(r.quality.horizons[2].comparableRatePct,60);
+ assert.equal(r.quality.horizons[2].nonComparableRatePct,40);
  assert.equal(r.expectedSignalDays,5);
- assert.equal(r.receivedEpisodeCount,4);
+ assert.equal(r.receivedEpisodeCount,3);
 });
 test('registration CLI writes one 0600 receipt; registered reports are immutable and reproducible',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-registered-pair-'));
