@@ -136,9 +136,39 @@ function readEpisodeReport(file){
  }
  return original; // Legacy explicit offline plain observer report.
 }
-function runOnce({manifestFile,outputDir,now=Date.now()}={}){
- const conf=parse(['once',manifestFile,outputDir]);
- const manifest=readJson(conf.manifestFile);
+/**
+ * A single private model directory may have only one research writer.
+ * An abandoned lock is intentionally NOT stolen: an operator must first
+ * inspect the prior worker and its immutable trial archives.
+ */
+function withResearchLock(dir,work){
+ const lock=safeNew(path.join(dir,'.shadow-worker.lock'));
+ fs.mkdirSync(dir,{recursive:true,mode:0o700});
+ safeNew(lock);
+ let fd;
+ try{fd=fs.openSync(lock,'wx',0o600);}
+ catch(error){
+  if(error.code==='EEXIST')
+   throw Error('研究模型目录存在独占锁；请人工核对运行进程和试验档案，不得自动清锁');
+  throw error;
+ }
+ try{
+  fs.writeFileSync(fd,JSON.stringify({schemaVersion:1,pid:process.pid,
+   startedAt:new Date().toISOString(),purpose:'shadow-research-only'})+'\n');
+  fs.fsyncSync(fd);
+  return work();
+ }finally{
+  let held;
+  try{held=fs.fstatSync(fd);}finally{fs.closeSync(fd);}
+  let current;
+  try{current=fs.lstatSync(lock);}
+  catch{throw Error('研究独占锁丢失；无法安全确认并发写入状态');}
+  if(current.dev!==held.dev||current.ino!==held.ino)
+   throw Error('研究独占锁身份变化；拒绝清理其他进程的锁');
+  fs.unlinkSync(lock);
+ }
+}
+function validateManifest(manifest){
  if(manifest?.mode==='v6-forward-training-manifest'){
   const {integrity,...body}=manifest;
   if(integrity!==hash(body)||manifest.canTrade!==false||
@@ -149,6 +179,15 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  if(manifest?.schemaVersion!==1||!Array.isArray(manifest.episodes)||
     manifest.episodes.length<36||manifest.episodes.length>400)
   throw Error('需要完整时间排序研究批次目录');
+}
+function runOnce({manifestFile,outputDir,now=Date.now()}={}){
+ const conf=parse(['once',manifestFile,outputDir]);
+ // Reject invalid manifests without creating or changing the output directory.
+ const manifest=readJson(conf.manifestFile);
+ validateManifest(manifest);
+ return withResearchLock(conf.outputDir,()=>evaluateOnce(conf,now,manifest));
+}
+function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
