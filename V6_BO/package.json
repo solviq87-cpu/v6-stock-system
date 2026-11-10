@@ -63,7 +63,10 @@
     "factor:shadow:once": "node scripts/factor-shadow-worker.js once",
     "factor:shadow:watch": "node scripts/factor-shadow-worker.js watch",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
-    "tracking:watch": "node scripts/forward-tracking-cloud.js watch"
+    "tracking:watch": "node scripts/forward-tracking-cloud.js watch",
+    "research:sector:once": "node scripts/sector-strength-research.js once",
+    "research:sector:watch": "node scripts/sector-strength-research.js watch",
+    "test:sector:bridge": "node --test tests/daily-sector-strength.test.js tests/sector-breadth-market-bridge.test.js tests/live-market-research.test.js"
   },
   "engines": {
     "node": ">=22.6"
