@@ -95,6 +95,7 @@ test('changed classification, quote origin, and later mismatched source are not 
  ]){
   const records=structuredClone(archives);mutate(records[2]);
   const r=run(records);
+  assert.equal(r.status,'blocked');
   assert.equal(r.threeSession.status,'blocked');
   assert.equal(r.fiveSession.status,'blocked');
  }
@@ -109,6 +110,7 @@ test('future member-count drift, impossible breadth scores, and wrong observatio
  ]){
   const records=structuredClone(archives);mutate(records[2]);
   const r=run(records);
+  assert.equal(r.status,'blocked');
   assert.equal(r.threeSession.status,'blocked');
   assert.equal(r.fiveSession.status,'blocked');
   assert.equal(r.canTrain,false);
