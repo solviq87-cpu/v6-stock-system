@@ -25,6 +25,9 @@ test('one outlier is excluded rather than averaged into the final reference pric
  assert.equal(r.referencePrice,10.01);
  assert.deepEqual(r.disagreeingProviders,['sina']);
  assert.equal(r.matchedCount,2);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.inConsensus),
+  [true,true,false]);
+ assert.equal(r.sourceStatuses[2].observedPrice,10.60);
 });
 test('overlapping possible pairs are ambiguous, so no arbitrary reference price',()=>{
  const r=fuse([src('tencent',10.00),src('eastmoney',10.02),src('sina',10.04)]);
@@ -93,4 +96,37 @@ test('public Tencent, Eastmoney and Sina are all queried, optional fourth source
  assert.equal(r.sourceCount,4);
  assert.equal(r.eligibleCount,3);
  assert.equal(r.canTrade,false);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.provider),
+  ['tencent','eastmoney','sina','itick']);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.observedPrice),
+  [10,10.01,10.01,null]);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.quoteAgeMs),
+  [1000,2000,3000,null]);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.inConsensus),
+  [true,true,true,false]);
+});
+
+test('100x provider-price anomaly is displayed, not guessed back into CNY units',()=>{
+ const r=fuse([src('tencent',1444.99),src('sina',1445.01),
+  src('eastmoney',144499)]);
+ assert.equal(r.status,'partial-source-agreement-unverified');
+ assert.equal(r.referencePrice,1445.01);
+ assert.equal(r.representativeProvider,'sina');
+ assert.deepEqual(r.disagreeingProviders,['eastmoney']);
+ assert.equal(r.sourceStatuses[2].observedPrice,144499);
+ assert.equal(r.sourceStatuses[2].inConsensus,false);
+ assert.equal(r.providerLicensed,false);
+ assert.equal(r.canTrade,false);
+});
+test('invalid or future provider quote reports age and reason without entering consensus',()=>{
+ const r=fuse([src('tencent',10,now-1000),
+  {...src('eastmoney',10,now+2000)},
+  {...src('sina',10),quote:{...q(10),status:'halted'}}]);
+ assert.equal(r.status,'insufficient-comparable-sources');
+ assert.equal(r.referencePrice,null);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.status),
+  ['eligible-for-comparison','future-quote','invalid-quote']);
+ assert.equal(r.sourceStatuses[1].quoteAgeMs,-2000);
+ assert.equal(r.sourceStatuses[1].inConsensus,false);
+ assert.equal(r.sourceStatuses[2].observedPrice,10);
 });
