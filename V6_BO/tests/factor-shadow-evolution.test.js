@@ -617,3 +617,20 @@ test('market-shock pause still spends an inspected holdout and a later context t
  assert.equal(later.trialAudit.firstHoldoutDay,dates[56]);
  assert.equal(later.productionWeightsChanged,false);
 });
+
+test('shadow worker single-writer lock refuses competing writers and cleans up after errors',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-single-writer-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const outputDir=path.join(dir,'research-models'),manifestFile=path.join(dir,'manifest.json');
+ const lockFile=path.join(outputDir,'.shadow-worker.lock');
+ fs.mkdirSync(outputDir,{recursive:true});
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:[]}));
+ fs.writeFileSync(lockFile,'other-worker-still-active', {mode:0o600});
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
+  /独占锁/);
+ assert.equal(fs.readFileSync(lockFile,'utf8'),'other-worker-still-active');
+ fs.unlinkSync(lockFile);
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
+  /需要完整时间排序研究批次目录/);
+ assert.equal(fs.existsSync(lockFile),false);
+});
