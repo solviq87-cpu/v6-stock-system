@@ -118,7 +118,7 @@ test('late historical input without existing captured record never creates a fau
 });
 test('stale/missing per-stock provider time, mismatched membership or impossible future clock blocks',t=>{
  for(const modify of [
-  s=>{s.snapshot.stocks[0].vendorQuoteAt=null;},
+  s=>{s.snapshot.stocks.slice(0,4).forEach(x=>{x.vendorQuoteAt=null;});},
   s=>{s.snapshot.stocks.forEach(x=>delete x.vendorQuoteAt);},
   s=>{s.membership.tradeDate='2026-11-11';},
   s=>{s.membership.sectors[0].members.push('600999');},
