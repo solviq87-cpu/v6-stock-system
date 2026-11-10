@@ -6,7 +6,7 @@ const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observe
 const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
-const {runOnce:runShadowWorker,runRegister,
+const {runOnce:runShadowWorker,runRegister,runRegisterAuto,
  parse:parseShadowWorker,latestAccepted,latestCooldown,latestTrial,
  globalTrialBudget,latestCandidateRegistration}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
@@ -971,4 +971,69 @@ test('strict worker treats recovered cooldown as requiring a new prereg before r
   requirePreRegistration:true}),/候选预注册缺失/);
  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
  assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('shadow-')).length,2);
+});
+
+test('automatic registration uses only the last sealed research model and truly precedes future H5 holdouts',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-shadow-auto-prereg-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ const saved=[];
+ function append(start,end,{missingReports=false}={}){
+  for(let i=start;i<end;i++){
+   const e=episode(i),ff=path.join(dir,'features-'+i+'.json'),
+    rf=path.join(dir,'report-'+i+'.json');
+   fs.writeFileSync(ff,JSON.stringify(e.features));
+   if(!missingReports)fs.writeFileSync(rf,JSON.stringify(e.report));
+   saved.push({featuresFile:ff,reportFile:rf});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:saved}));
+ }
+ append(0,56);
+ const now=at(dates[60],'16:05:00');
+ assert.equal(parseShadowWorker(['register-auto',manifestFile,outputDir]).mode,'register-auto');
+ assert.throws(()=>parseShadowWorker(['register-auto',manifestFile,outputDir,
+  '--interval','60000']),/不接受外部权重/);
+ assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),
+  /尚无已封存历史研究报告/);
+ assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')).length,0);
+ const prior=runShadowWorker({manifestFile,outputDir,now});
+ assert.equal(prior.status,'shadow-updated');
+ const accepted=latestAccepted(outputDir);
+ assert.equal(accepted.fingerprint,prior.fingerprint);
+ const precommit=runRegisterAuto({manifestFile,outputDir,now});
+ assert.equal(precommit.status,'candidate-auto-preregistered');
+ assert.equal(precommit.sourceFingerprint,prior.fingerprint);
+ const pre=latestCandidateRegistration(outputDir,accepted,null);
+ assert.equal(pre.candidateOrigin,'sealed-historical-training-reliability-v1');
+ assert.equal(pre.autoSourceFingerprint,prior.fingerprint);
+ assert.ok(Object.keys(pre.candidateWeights).every(id=>
+  Math.abs(pre.candidateWeights[id]/pre.acceptedWeights[id]-1)<=.0800001));
+ assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),
+  /已存在预注册候选/);
+ append(61,66);
+ const output=runShadowWorker({manifestFile,outputDir,
+  now:at(dates[70],'16:05:00'),requirePreRegistration:true});
+ assert.ok(['shadow-updated','shadow-retained','paused-shadow-decay'].includes(output.status));
+ const stored=JSON.parse(fs.readFileSync(path.join(outputDir,
+  fs.readdirSync(outputDir).find(x=>x.includes(output.fingerprint.slice(0,12)))), 'utf8'));
+ assert.equal(stored.preregistration.status,'candidate-committed-before-new-signal');
+ assert.equal(stored.preregistration.registrationFingerprint,precommit.fingerprint);
+ assert.deepEqual(stored.proposedShadowWeights,pre.candidateWeights);
+ assert.equal(stored.canTrade,false);
+ assert.equal(stored.productionWeightsChanged,false);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+});
+test('auto registration fails before opening any forward label when prior sealed model is missing',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-auto-prereg-no-price-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'research');
+ const records=Array.from({length:36},(_,i)=>{
+  const e=episode(i),featuresFile=path.join(dir,'f'+i+'.json');
+  fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+  return {featuresFile,reportFile:path.join(dir,'never-created-'+i+'.json')};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:records}));
+ assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now:finalClock}),
+  /尚无已封存历史研究报告/);
+ assert.equal(fs.readdirSync(outputDir).length,0);
 });
