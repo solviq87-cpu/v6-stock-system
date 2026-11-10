@@ -66,6 +66,29 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
    betterDayPct:round(deltas.filter(x=>x>0).length/deltas.length*100,2),
    worstDayDeltaIC:round(Math.min(...deltas))};
  };
+ // Descriptive fragility only. Five observed dates are not necessarily
+ // independent trading sessions; this must never authorize promotion.
+ const pairedFragility=key=>{
+  const deltas=rows.map(row=>row[key]);
+  const omitMeans=deltas.map((_,i)=>mean(deltas.filter((__,j)=>j!==i)));
+  const worstLeaveOneOut=round(Math.min(...omitMeans));
+  const blocks=[];
+  for(let i=0;i+5<=deltas.length;i+=5){
+   blocks.push({firstDay:rows[i].day,lastDay:rows[i+4].day,
+    meanDeltaIC:round(mean(deltas.slice(i,i+5)))});
+  }
+  return {status:deltas.length<10?'limited-fresh-observations':'descriptive-unverified',
+   assessedDays:deltas.length,
+   worstLeaveOneOutMeanDeltaIC:worstLeaveOneOut,
+   bestLeaveOneOutMeanDeltaIC:round(Math.max(...omitMeans)),
+   singleDayDependent:mean(deltas)>0&&worstLeaveOneOut<=0,
+   completeFiveObservationBlocks:blocks,
+   incompleteTailDays:deltas.length%5,
+   allCompleteBlocksPositive:blocks.length>=2?
+    blocks.every(block=>block.meanDeltaIC>0):null,
+   inference:'descriptive-only-not-independent-days-or-statistical-confidence',
+   changesPromotionGate:false,canTrade:false};
+ };
  const relativeOriginal=uplift('proposedMinusOriginal');
  const relativeAccepted=uplift('proposedMinusAccepted');
  const originalGatePassed=relativeOriginal.meanDeltaIC>.002&&
@@ -74,8 +97,8 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   relativeOriginal.recentHalfDeltaIC>=-.001;
  return {...base,status:'paired-scorecard-unverified',
   assessedDays:rows.length,perDay:rows,...Object.fromEntries(summaries),
-  proposedVsOriginal:relativeOriginal,
-  proposedVsAccepted:relativeAccepted,
+  proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility('proposedMinusOriginal')},
+  proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility('proposedMinusAccepted')},
   originalGatePassed};
 }
 module.exports={compareShadowVersions};
