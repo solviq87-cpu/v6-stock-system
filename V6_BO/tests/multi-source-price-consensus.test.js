@@ -210,3 +210,46 @@ test('afternoon market close during optional-source retrieval blocks final quote
  assert.equal(result.referencePrice,null);
  assert.equal(result.canTrade,false);
 });
+
+test('matching latest prices do not override conflicting previous closes',()=>{
+ const r=fuse([
+  src('tencent',10),
+  {...src('eastmoney',10),quote:{...q(10),previousClose:9.75}}
+ ]);
+ assert.equal(r.status,'source-price-or-time-conflict');
+ assert.equal(r.referencePrice,null);
+ assert.deepEqual(r.sourceStatuses.map(x=>x.observedPreviousClose),[10,9.75]);
+ assert.equal(r.canTrade,false);
+});
+test('two sources with aligned prev-close exclude a third with mismatched adjustment base',()=>{
+ const r=fuse([
+  src('tencent',10),
+  src('eastmoney',10.01),
+  {...src('sina',10),quote:{...q(10),previousClose:9.8}}
+ ]);
+ assert.equal(r.status,'partial-source-agreement-unverified');
+ assert.deepEqual(r.supportingProviders,['eastmoney','tencent']);
+ assert.deepEqual(r.disagreeingProviders,['sina']);
+ assert.equal(r.maxMatchedPreviousCloseGapBps,0);
+ assert.equal(r.sourceStatuses[2].inConsensus,false);
+ assert.equal(r.canTrade,false);
+});
+test('configurable previous-close tolerance is bounded and does not change trade gate',()=>{
+ assert.throws(()=>fuseMultiSourcePrices({
+  code:'600519',now,sources:[src('tencent',10)],previousCloseToleranceBps:101
+ }),/阈值/);
+ const slightlyDifferent={...src('eastmoney',10),quote:{...q(10),previousClose:10.001}};
+ const r=fuse([src('tencent',10),slightlyDifferent]);
+ assert.equal(r.status,'sources-agree-unverified');
+ assert.equal(r.referencePrice,10);
+ assert.ok(r.maxMatchedPreviousCloseGapBps>0);
+ assert.equal(r.canTrade,false);
+});
+test('unknown vendor market states never pass as normal trading observations',()=>{
+ const r=fuse([src('tencent',10),{
+  ...src('eastmoney',10),quote:{...q(10),status:'suspended-or-unknown'}
+ }]);
+ assert.equal(r.status,'insufficient-comparable-sources');
+ assert.equal(r.sourceStatuses[1].status,'invalid-quote');
+ assert.equal(r.referencePrice,null);
+});
