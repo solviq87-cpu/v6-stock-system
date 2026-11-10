@@ -88,6 +88,11 @@ function readState(conf,now){
   record.lastFinishedAt!==null&&record.lastFinishedAt>now||
   record.day>day)
   throw Error('熔断状态损坏、时钟回退或配置被更换，拒绝自动重试');
+ // An unfinished batch may already have consumed provider quota or written an
+ // immutable snapshot. Midnight must not erase this recovery obligation.
+ // Only a resolved prior-day journal can roll over to a fresh daily budget.
+ if(record.day!==day&&record.inFlight)
+  throw Error('跨日存在未完成采集批次，请先人工核对归档和供应商请求，禁止自动重试');
  return record.day===day?record:defaultState(conf,day);
 }
 function writeState(conf,state){
