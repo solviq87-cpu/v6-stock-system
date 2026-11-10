@@ -163,5 +163,33 @@ test('legacy baseline without fingerprint is blocked, later missing proof fails 
  delete later[1].memberIdentity;
  const r=run(later);
  assert.equal(r.status,'blocked');
- assert.match(r.threeSession.reason,/missing-member-identity-proof/);
+ assert.equal(r.threeSession.reason,'future-member-identity-archive-binding-invalid');
+});
+
+test('baseline fingerprint must bind to archive frozen timestamp and provider',()=>{
+ for(const mutate of [
+  x=>x.memberIdentity.observedAt+=1000,
+  x=>x.memberIdentity.membershipProvider='different',
+  x=>x.memberIdentity.sectors[0].memberCount=6,
+  x=>x.memberIdentity.sectors.pop()
+ ]){
+  const records=structuredClone(archives);mutate(records[0]);
+  const r=run(records);
+  assert.equal(r.status,'blocked');
+  assert.equal(r.reason,'missing-frozen-baseline-member-identity');
+ }
+});
+test('future proof metadata or study count mismatch cannot pass forward comparison',()=>{
+ for(const mutate of [
+  x=>x.memberIdentity.tradeDate='2026-11-09',
+  x=>x.memberIdentity.observedAt+=1000,
+  x=>x.memberIdentity.sectors[0].memberCount=6,
+  x=>x.memberIdentity.sectors.pop()
+ ]){
+  const records=structuredClone(archives);mutate(records[2]);
+  const r=run(records);
+  assert.equal(r.status,'blocked');
+  assert.equal(r.threeSession.reason,'future-member-identity-archive-binding-invalid');
+  assert.equal(r.canTrain,false);
+ }
 });
