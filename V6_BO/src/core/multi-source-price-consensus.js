@@ -91,9 +91,11 @@ async function checkMultiPublicPrices(config={}){
   priceToleranceBps=30,timeGapMs=5000,maxAgeMs=15000}=config;
  // An explicitly supplied clock is a deliberate deterministic test/replay clock.
  // Live diagnostics must evaluate freshness after network work, not at request start.
- const currentClock=Object.hasOwn(config,'now')?()=>now:Date.now;
+ const currentClock=Object.hasOwn(config,'clock')?config.clock:
+  (Object.hasOwn(config,'now')?()=>now:Date.now);
  if(!validCode(code)||!Number.isSafeInteger(now)||now<=0||
   typeof probe!=='function'||typeof fetchItick!=='function'||
+  typeof currentClock!=='function'||
   !Array.isArray(extraSources)||extraSources.length>4)
   throw Error('多源股票诊断参数无效');
  // Never probe a known closed clock window. This is not an exchange holiday calendar.
@@ -112,6 +114,13 @@ async function checkMultiPublicPrices(config={}){
   const s=projected.sources.find(item=>item.id===id);
   return s?{id,status:s.status,quote:s.quote}: {id,status:'unavailable'};
  });
+ // Public-source work can span an exchange lunch or close boundary.
+ // Do not contact a paid/quota-limited optional provider after the window ends.
+ const publicFinishedAt=currentClock();
+ if(!session(publicFinishedAt))
+  return fuseMultiSourcePrices({code,now:publicFinishedAt,
+   sources:[...sources,{id:'itick',status:'unconfigured'},...extraSources],
+   priceToleranceBps,timeGapMs,maxAgeMs});
  // Official iTick is opt-in and needs an operator token, never embedded in code.
  let itick;
  try{itick=await fetchItick({code,token:itickToken,now:currentClock()});}
