@@ -9,7 +9,7 @@ const pack=require('../../strategies/extended-factor-pack.json');
 const {freezeCohort}=require('./forward-signal-observer');
 const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
-const {assessFactorReliability,pairedStability,assessShadowDecay}=require('./factor-learning-reliability');
+const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRecovery}=require('./factor-learning-reliability');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -284,7 +284,7 @@ function baseResult(status,details){
  * training, validation and final untouched test. Research updates are bounded
  * by +/-8% of the previous shadow weights and require two positive holdouts.
  */
-function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContext}={}){
+function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCooldown=null,marketContext}={}){
  if(!Number.isSafeInteger(now)||now<=0||!Array.isArray(episodes)||
     episodes.length<36||episodes.length>400)throw Error('至少需要36个连续批次的前瞻研究证据');
  const sorted=episodes.map(e=>{
@@ -339,6 +339,39 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    throw Error('旧研究权重越过边界');
   version=previous.version+1;previousFingerprint=previous.fingerprint;
  }
+ // The newest immutable cooldown report is as important as the latest
+ // accepted model. Check its complete historical evidence lineage before
+ // trusting a cooldown release or using a previously seen test window.
+ if(previousCooldown!==null){
+  const {fingerprint,...payload}=previousCooldown||{};
+  const gate=previousCooldown?.cooldown;
+  if(!previous||fingerprint!==hash(payload)||
+     !['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(previousCooldown.status)||
+     previousCooldown.mode!==MODEL||
+     previousCooldown.previousFingerprint!==previous.fingerprint||
+     previousCooldown.packFingerprint!==PACK_HASH||
+     hash(previousCooldown.factorIds)!==hash(ids)||
+     hash(previousCooldown.feed)!==hash(feed)||
+     previousCooldown.canTrade!==false||
+     previousCooldown.productionWeightsChanged!==false||
+     !gate||gate.sourceAcceptedFingerprint!==previous.fingerprint||
+     !['active','recovered'].includes(gate.phase)||
+     !day(gate.alertDay)||gate.alertDay<=previous.lastObservationDay||
+     gate.alertDay>previousCooldown.lastObservationDay||
+     (gate.phase==='recovered'&&
+      (!day(gate.recoveryDay)||gate.recoveryDay<=gate.alertDay||
+       gate.recoveryDay!==previousCooldown.lastObservationDay))||
+     !Array.isArray(previousCooldown.observedFingerprints)||
+     previousCooldown.observedFingerprints.length>sorted.length||
+     previousCooldown.observedFingerprints.some((pair,i)=>
+      hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]))||
+     !day(previousCooldown.lastObservationDay)||
+     previousCooldown.lastObservationDay>sorted.at(-1).day)
+   throw Error('历史衰减冷却证据或血缘无效，拒绝恢复学习');
+  // Identical evidence must never manufacture a new cooldown transition.
+  if(previousCooldown.lastObservationDay===sorted.at(-1).day)
+   return previousCooldown;
+ }
  const icByFactor=Object.fromEntries(ids.map(id=>{
   const daily=train.map(d=>({day:d.day,regime:d.regime,
    ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
@@ -371,15 +404,63 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
   assessShadowDecay(freshTest,ids,officialWeights,oldWeights,dailyIC):
   {status:'not-applicable-first-version',assessedDays:0,alert:false,
    rollbackReviewSuggested:false,canTrade:false,productionWeightsChanged:false};
+ // State machine: alert -> active cooldown -> recovered (no weight
+ // change) -> at least five MORE unseen mature holdout days -> eligible.
+ // The recovery gate is evaluated only on evidence AFTER the alert date.
+ const existingGate=previousCooldown?.cooldown||null;
+ let cooldown=null,postRecoveryHoldoutDays=0;
+ let recovery=null,activeCooldown=false,recoveredNow=false;
+ if(previous&&existingGate?.phase==='active'){
+  const newRecoveryDays=freshTest.filter(d=>d.day>existingGate.alertDay);
+  recovery=assessShadowRecovery(newRecoveryDays,ids,officialWeights,oldWeights,dailyIC);
+  if(recovery.recovered){
+   recoveredNow=true;
+   cooldown={phase:'recovered',alertDay:existingGate.alertDay,
+    recoveryDay:sorted.at(-1).day,sourceAcceptedFingerprint:previous.fingerprint,
+    recovery};
+  }else{
+   activeCooldown=true;
+   cooldown={phase:'active',alertDay:existingGate.alertDay,
+    recoveryDay:null,sourceAcceptedFingerprint:previous.fingerprint,recovery};
+  }
+ }else if(previous&&shadowDecay.alert){
+  activeCooldown=true;
+  cooldown={phase:'active',alertDay:sorted.at(-1).day,
+   recoveryDay:null,sourceAcceptedFingerprint:previous.fingerprint,
+   recovery:null};
+ }else if(previous&&existingGate?.phase==='recovered'){
+  postRecoveryHoldoutDays=freshTest.filter(d=>d.day>existingGate.recoveryDay).length;
+  if(postRecoveryHoldoutDays<5)activeCooldown=true;
+  cooldown={...existingGate};
+ }
  const shock=marketContext===undefined?null:assessMarketShock(marketContext,{asOf:now});
  const paused=shock?.deferLearningUpdate===true;
  const candidateChanged=ids.some(id=>proposal[id]!==oldWeights[id]);
+ // Neither the recovery decision day nor a previous accepted model's holdout
+ // can become "new" evidence for the next promotion.
+ const postRecoveryTest=existingGate?.phase==='recovered'?
+  freshTest.filter(d=>d.day>existingGate.recoveryDay):freshTest;
+ const unseenReady=postRecoveryTest.length>=5;
+ const postRecoveryStability=existingGate?.phase==='recovered'&&unseenReady?
+  pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC):null;
+ const postRecoveryBase=existingGate?.phase==='recovered'&&unseenReady?
+  dailyIC(postRecoveryTest,ids,oldWeights):null;
+ const postRecoveryEvolved=existingGate?.phase==='recovered'&&unseenReady?
+  dailyIC(postRecoveryTest,ids,proposal):null;
+ const postRecoveryGain=postRecoveryBase&&postRecoveryEvolved?
+  postRecoveryEvolved.meanIC-postRecoveryBase.meanIC:null;
  const accepted=candidateChanged&&!paused&&!shadowDecay.alert&&
+   !activeCooldown&&!recoveredNow&&unseenReady&&
    validationDelta>0.002&&testDelta>0.002&&
    validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
-   evolvedValidation.meanIC>0&&evolvedTest.meanIC>0;
+   evolvedValidation.meanIC>0&&evolvedTest.meanIC>0&&
+   (!postRecoveryStability||
+    (postRecoveryGain>.002&&postRecoveryStability.halfPeriodsConsistent&&
+     postRecoveryEvolved.meanIC>0));
  const weights=accepted?proposal:oldWeights;
  return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':
+  recoveredNow?'shadow-recovered':activeCooldown?
+  (shadowDecay.alert&&!existingGate?'paused-shadow-decay':'paused-shadow-cooldown'):
   shadowDecay.alert?'paused-shadow-decay':'shadow-retained',{
   version:accepted?version:previous?.version||0,packVersion:pack.version,
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
@@ -401,9 +482,10 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    stability:testStability,firstFreshDay:freshTest[0].day},
   shadowWeights:weights,proposedShadowWeights:proposal,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
-  pausedForShadowDecay:shadowDecay.alert,
-  rollbackReviewSuggested:shadowDecay.rollbackReviewSuggested,
-  shadowDecay,
+  pausedForShadowDecay:activeCooldown||shadowDecay.alert,
+  rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
+  shadowDecay,cooldown,
+  postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
    '在持有期重叠、幸存者偏差、股票相关性和多重检验未消除前不代表因果收益',
@@ -411,6 +493,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    '市场状态只使用信号发生时输入的未认证指数广度证据，无法证明宏观因果关系',
    '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
+   '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
