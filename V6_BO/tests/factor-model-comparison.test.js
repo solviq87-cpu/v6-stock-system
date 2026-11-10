@@ -138,3 +138,31 @@ test('rounded mean IC must not falsely reject a full-precision shadow uplift',()
  assert.equal(r.originalGatePassed,true);
  assert.equal(r.productionWeightsChanged,false);
 });
+
+test('small genuine positive days do not become zero or false fragility due to display rounding',()=>{
+ const rows=tradingDays(10).map((row,i)=>({...row,
+  original:.10,accepted:.10,proposed:.10+(i===0?.004:.0000004)}));
+ const r=run(rows),frag=r.proposedVsOriginal.fragility;
+ assert.equal(r.perDay[1].proposedMinusOriginal,0); // display-only precision
+ assert.equal(r.proposedVsOriginal.betterDayPct,100);
+ assert.equal(r.proposedVsOriginal.worstDayDeltaIC,0);
+ assert.equal(frag.worstLeaveOneOutMeanDeltaIC,0);
+ assert.equal(frag.singleDayDependent,false); // raw omitted mean remains > 0
+ assert.equal(frag.completeFiveObservationBlocks[1].meanDeltaIC,0);
+ assert.equal(frag.allCompleteBlocksPositive,true); // raw block remains positive
+ assert.equal(frag.changesPromotionGate,false);
+ assert.equal(r.originalGatePassed,false); // insufficient mean uplift; no promotion
+});
+
+test('tiny true IC values remain positive-day observations even if rounded for display',()=>{
+ const rows=tradingDays(10).map(row=>({...row,
+  original:.0000004,accepted:.0000004,proposed:.0000008}));
+ const r=run(rows);
+ assert.equal(r.perDay[0].originalIC,0);
+ assert.equal(r.original.positiveDayPct,100);
+ assert.equal(r.accepted.positiveDayPct,100);
+ assert.equal(r.proposed.positiveDayPct,100);
+ assert.equal(r.proposedVsOriginal.betterDayPct,100);
+ assert.equal(r.originalGatePassed,false);
+ assert.equal(r.canTrade,false);
+});
