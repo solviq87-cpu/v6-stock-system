@@ -105,6 +105,7 @@ function preflight(conf,{now=Date.now()}={}){
     reason:'行业分类记录存在重复、缺失或混合版本'};
   symbols.add(symbol);
  }
+ const inputFingerprint=crypto.createHash('sha256').update(JSON.stringify([raw,cal])).digest('hex');
  const snapshots=safePath(path.join(conf.outputRoot,'snapshots',day));
  if(fs.existsSync(snapshots)){
   if(!fs.lstatSync(snapshots).isDirectory())throw Error('快照目录不是普通目录');
@@ -116,7 +117,7 @@ function preflight(conf,{now=Date.now()}={}){
   if(now-newest<60000)return {status:'blocked-capture-interval',canTrade:false,canFetch:false,
    reason:'上一份快照距当前不足60秒，禁止频繁重复采集'};
  }
- return {status:'preflight-ready',tradeDate:day,classificationDate:raw.updateDate,
+ return {status:'preflight-ready',tradeDate:day,inputFingerprint,classificationDate:raw.updateDate,
   classificationObservedAt:raw.observedAt,calendarSessions:days.length,
   provider:'eastmoney-clist-unverified-live',canTrade:false,canFetch:false,
   verifiedLive:false,providerLicenseIndependentlyVerified:false,
@@ -124,7 +125,7 @@ function preflight(conf,{now=Date.now()}={}){
 }
 async function runOnce(conf,{now=Date.now(),clock=Date.now,
  fetchSnapshot=fetchEastmoneySnapshot}={}){
- let stage='preflight',completedStages=[];
+ let stage='preflight',completedStages=[],lockFd,lockFile;
  try{
   const pre=preflight(conf,{now});
   if(conf.mode==='preview'||pre.status!=='preflight-ready')
@@ -133,6 +134,17 @@ async function runOnce(conf,{now=Date.now(),clock=Date.now,
    throw Error('只有显式许可的 collect 才能进行一次研究网络采集');
   if(typeof fetchSnapshot!=='function'||typeof clock!=='function')
    throw Error('行情采集函数或时钟不合法');
+  stage='single-writer-lock';
+  fs.mkdirSync(conf.outputRoot,{recursive:true,mode:0o700});safePath(conf.outputRoot);
+  lockFile=safePath(path.join(conf.outputRoot,'.sector-capture.lock'));
+  try{lockFd=fs.openSync(lockFile,'wx',0o600);}catch(e){
+   if(e.code==='EEXIST')throw Error('已有研究采集进程，禁止并发重复外部请求');throw e;
+  }
+  fs.writeFileSync(lockFd,String(process.pid));fs.fsyncSync(lockFd);
+  // Recheck input identity after acquiring the lock, BEFORE any provider call.
+  const locked=preflight(conf,{now});
+  if(locked.status!=='preflight-ready'||locked.inputFingerprint!==pre.inputFingerprint)
+   return {status:'blocked-input-changed-before-fetch',changed:false,completedStages,canTrade:false};
   stage='single-market-fetch';
   const snapshot=await fetchSnapshot({now,clock});
   const finish=clock(),start=Date.parse(snapshot?.startedAt||''),
@@ -154,6 +166,7 @@ async function runOnce(conf,{now=Date.now(),clock=Date.now,
   const again=preflight(conf,{now});
   if(again.status!=='preflight-ready'||
    again.classificationObservedAt!==pre.classificationObservedAt||
+   again.inputFingerprint!==pre.inputFingerprint||
    again.classificationDate!==pre.classificationDate)
    return {status:'blocked-input-changed-before-archive',changed:false,completedStages,canTrade:false};
   stage='validate-quote-provenance';
@@ -193,6 +206,7 @@ async function runOnce(conf,{now=Date.now(),clock=Date.now,
    providerLicenseIndependentlyVerified:false,
    note:'仅一次按显式许可的公共接口研究请求，已保存未认证行情；未部署自动调度或真实交易'};
  }catch(e){e.stage=stage;e.completedStages=[...completedStages];throw e;}
+ finally{if(lockFd!==undefined){fs.closeSync(lockFd);fs.unlinkSync(lockFile);}}
 }
 async function main(argv=process.argv.slice(2),options){
  return runOnce(parse(argv),options);
