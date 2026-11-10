@@ -1135,6 +1135,9 @@ test('strict operator watch revalidates canonical manifest after startup on EVER
  assert.equal(fs.existsSync(outputDir),false);
  // The direct fixture API is intentionally still capable of exercising its
  // legacy synthetic research protocol, without claiming operator readiness.
+ // Frozen inputs are real fixtures, but no future price reports exist.
+ legacy.episodes.forEach((entry,i)=>
+  fs.writeFileSync(entry.featuresFile,JSON.stringify(episode(i).features)));
  const direct=runShadowWorker({...options,operatorMode:false});
  assert.equal(direct.status,'skipped-auto-prereg-needs-sealed-history');
  assert.deepEqual(fs.readdirSync(outputDir),[]);
