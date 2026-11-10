@@ -6,8 +6,9 @@ const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observe
 const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
-const {runOnce:runShadowWorker,parse:parseShadowWorker,
- latestCooldown,latestTrial}=require('../scripts/factor-shadow-worker');
+const {runOnce:runShadowWorker,runRegister,
+ parse:parseShadowWorker,latestAccepted,latestCooldown,latestTrial,
+ globalTrialBudget,latestCandidateRegistration}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -644,4 +645,97 @@ test('shadow worker single-writer lock refuses competing writers and cleans up a
  assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock}),
   /需要完整时间排序研究批次目录/);
  assert.equal(fs.existsSync(outputDir),false);
+});
+
+test('strict candidate preregistration seals exact bounded weights before NEXT signal and preserves them in restarted shadow evaluations',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-precommitted-trial-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),
+  outputDir=path.join(dir,'private'),candidateFile=path.join(dir,'candidate.json');
+ const saved=[];
+ const append=(from,to)=>{
+  for(let i=from;i<to;i++){
+   const e=episode(i),featuresFile=path.join(dir,'f'+i+'.json'),
+    reportFile=path.join(dir,'r'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   saved.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:saved}));
+ };
+ append(0,56);
+ const nowAfterPriorMaturity=at(dates[60],'16:05:00');
+ const initial=runShadowWorker({manifestFile,outputDir,now:nowAfterPriorMaturity});
+ assert.equal(initial.status,'shadow-updated');
+ const accepted=latestAccepted(outputDir);
+ assert.ok(accepted&&accepted.fingerprint===initial.fingerprint);
+ const proposed={sector_heat:+(accepted.shadowWeights.sector_heat*1.02).toFixed(8),
+  leader_strength:+(accepted.shadowWeights.leader_strength*.98).toFixed(8)};
+ fs.writeFileSync(candidateFile,JSON.stringify(proposed));
+ const registered=runRegister({manifestFile,outputDir,candidateWeightsFile:candidateFile,
+  now:nowAfterPriorMaturity});
+ assert.equal(registered.status,'candidate-preregistered');
+ assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')).length,1);
+ assert.equal(latestCandidateRegistration(outputDir,accepted,null).fingerprint,
+  registered.fingerprint);
+ assert.throws(()=>runRegister({manifestFile,outputDir,candidateWeightsFile:candidateFile,
+  now:nowAfterPriorMaturity}),/已存在预注册候选/);
+ assert.equal(parseShadowWorker(['once',manifestFile,outputDir,
+  '--require-prereg']).requirePreRegistration,true);
+ append(61,66); // New signal days strictly AFTER registration (days 56-60 are not reused).
+ const checked=runShadowWorker({manifestFile,outputDir,
+  now:at(dates[70],'16:05:00'),requirePreRegistration:true});
+ assert.ok(['shadow-retained','shadow-updated','paused-shadow-decay'].includes(checked.status));
+ const archived=JSON.parse(fs.readFileSync(path.join(outputDir,
+  fs.readdirSync(outputDir).find(x=>x.includes(checked.fingerprint.slice(0,12)))), 'utf8'));
+ assert.equal(archived.preregistration.status,'candidate-committed-before-new-signal');
+ assert.equal(archived.preregistration.registrationFingerprint,registered.fingerprint);
+ assert.equal(archived.preregistration.holdoutFirstDay,dates[61]);
+ assert.deepEqual(archived.proposedShadowWeights,proposed);
+ assert.equal(archived.globalTrialBudget.status,'budget-available');
+ assert.equal(archived.globalTrialBudget.consumedThisRun,true);
+ assert.equal(archived.productionWeightsChanged,false);
+ assert.equal(archived.canTrade,false);
+});
+test('strict worker refuses unregistered candidate before reading its forward reports',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-prereg-required-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ const episodes=Array.from({length:56},(_,i)=>{
+  const e=episode(i),ff=path.join(dir,'f'+i+'.json'),
+   rf=path.join(dir,'missing-unreadable-report-'+i+'.json');
+  fs.writeFileSync(ff,JSON.stringify(e.features));
+  return {featuresFile:ff,reportFile:rf};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes}));
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,now:finalClock,
+  requirePreRegistration:true}),/候选预注册缺失/);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ assert.deepEqual(fs.readdirSync(outputDir),[]);
+});
+test('worker global trial scanner checks hash integrity and sums across different shadow parents',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-global-budget-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const pack=require('../strategies/extended-factor-pack.json');
+ const packFingerprint=crypto.createHash('sha256').update(JSON.stringify(pack)).digest('hex');
+ const signalDays=dates.slice(0,95);
+ for(let i=0;i<6;i++){
+  const payload={mode:'v6-factor-shadow-evolution-v1',
+   packFingerprint,status:i%2?'shadow-updated':'shadow-retained',
+   previousFingerprint:i%2?'unrelated-parent'+i:null,
+   lastObservationDay:dates[i*5+6],trialAudit:{
+    schemaVersion:1,status:'consumed',trialNumber:i+1,
+    firstHoldoutDay:dates[i*5+2],lastHoldoutDay:dates[i*5+6],
+    holdoutDays:5,candidateFingerprint:'a'.repeat(64)
+   }};
+  const fingerprint=crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  fs.writeFileSync(path.join(dir,'shadow-'+dates[i*5+1]+'-'+fingerprint.slice(0,12)+'.json'),
+   JSON.stringify({...payload,fingerprint}));
+ }
+ const budget=globalTrialBudget(dir,signalDays);
+ assert.equal(budget.status,'budget-exhausted');
+ assert.equal(budget.usedTrials,6);
+ assert.equal(budget.remainingTrials,0);
+ const file=fs.readdirSync(dir)[0];fs.writeFileSync(path.join(dir,file),'{"bad":true}');
+ assert.throws(()=>globalTrialBudget(dir,signalDays),/档案结构无效|完整性无效/);
 });
