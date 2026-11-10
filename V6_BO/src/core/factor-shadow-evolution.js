@@ -344,7 +344,13 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  // trusting a cooldown release or using a previously seen test window.
  if(previousCooldown!==null){
   const {fingerprint,...payload}=previousCooldown||{};
-  const gate=previousCooldown?.cooldown;
+  // Older sealed PR #77 alerts had no cooldown field yet. Reconstruct only
+  // the strict ACTIVE state from their authenticated alert day; never treat
+  // the missing field as permission to resume learning.
+  const gate=previousCooldown?.cooldown||
+   (previousCooldown?.status==='paused-shadow-decay'?
+    {phase:'active',alertDay:previousCooldown.lastObservationDay,recoveryDay:null,
+     sourceAcceptedFingerprint:previous.fingerprint}:null);
   if(!previous||fingerprint!==hash(payload)||
      !['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(previousCooldown.status)||
      previousCooldown.mode!==MODEL||
@@ -407,7 +413,10 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  // State machine: alert -> active cooldown -> recovered (no weight
  // change) -> at least five MORE unseen mature holdout days -> eligible.
  // The recovery gate is evaluated only on evidence AFTER the alert date.
- const existingGate=previousCooldown?.cooldown||null;
+ const existingGate=previousCooldown?.cooldown||
+  (previousCooldown?.status==='paused-shadow-decay'?
+   {phase:'active',alertDay:previousCooldown.lastObservationDay,recoveryDay:null,
+    sourceAcceptedFingerprint:previous.fingerprint}:null);
  let cooldown=null,postRecoveryHoldoutDays=0;
  let recovery=null,activeCooldown=false,recoveredNow=false;
  if(previous&&existingGate?.phase==='active'){
