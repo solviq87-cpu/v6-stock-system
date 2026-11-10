@@ -645,3 +645,41 @@ test('shadow worker single-writer lock refuses competing writers and cleans up a
   /需要完整时间排序研究批次目录/);
  assert.equal(fs.existsSync(outputDir),false);
 });
+
+test('invalid sealed accepted parent fails closed and cannot become normal no-new-training skip',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-factor-invalid-parent-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const source=Array.from({length:61},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(source.slice(0,56),{now:finalClock});
+ assert.equal(accepted.status,'shadow-updated');
+ const reseal=change=>{
+  const {fingerprint,...payload}={...accepted,...change};
+  return {...payload,fingerprint:crypto.createHash('sha256')
+   .update(JSON.stringify(payload)).digest('hex')};
+ };
+ const altered=reseal({packFingerprint:'f'.repeat(64)});
+ assert.throws(()=>evolveShadowFactors(source,{now:finalClock,previous:altered}),
+  /血缘无效/);
+ const rewound=reseal({lastObservationDay:dates[72]});
+ assert.throws(()=>evolveShadowFactors(source,{now:finalClock,previous:rewound}),
+  /时间倒退/);
+ assert.throws(()=>evolveShadowFactors(source.slice(0,56),
+  {now:finalClock,previous:accepted}),/未增加新的训练时间窗/);
+ const manifestFile=path.join(dir,'manifest.json');
+ const modelDir=path.join(dir,'models');
+ fs.mkdirSync(modelDir,{recursive:true});
+ const episodes=source.map((e,i)=>{
+  const featuresFile=path.join(dir,'f'+i+'.json');
+  const reportFile=path.join(dir,'r'+i+'.json');
+  fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+  fs.writeFileSync(reportFile,JSON.stringify(e.report));
+  return {featuresFile,reportFile};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes}));
+ const archiveName='shadow-'+altered.trainingEnd+'-'+altered.fingerprint.slice(0,12)+'.json';
+ fs.writeFileSync(path.join(modelDir,archiveName),JSON.stringify(altered));
+ assert.throws(()=>runShadowWorker({
+  manifestFile,outputDir:modelDir,now:finalClock}),/血缘无效/);
+ assert.equal(fs.existsSync(path.join(modelDir,'.shadow-worker.lock')),false);
+ assert.deepEqual(fs.readdirSync(modelDir),[archiveName]);
+});
