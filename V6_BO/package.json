@@ -51,6 +51,8 @@
     "factor:market:once": "node scripts/authorized-factor-market.js once",
     "factor:market:sync": "node scripts/authorized-factor-market.js sync",
     "factor:market:watch": "node scripts/authorized-factor-market.js watch",
+    "factor:chain:status": "node scripts/factor-chain-readiness.js",
+    "test:factor:chain": "node --test tests/factor-research-pipeline-e2e.test.js",
     "factor:source:preflight": "node scripts/factor-source-preflight.js",
     "factor:neutral:once": "node scripts/factor-horizon-neutral.js once",
     "factor:neutral:watch": "node scripts/factor-horizon-neutral.js watch",
