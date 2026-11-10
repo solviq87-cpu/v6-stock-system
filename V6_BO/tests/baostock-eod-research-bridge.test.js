@@ -145,3 +145,27 @@ test('BaoStock collector requires explicit operator opt-in before any network im
  assert.ok(!fs.existsSync(path.join(dir,'private','native.json')));
  assert.match(result.stderr,/无研究包发布/);
 });
+
+
+test('BaoStock original collection-time chronology is bounded even though exchange time is unverified',()=>{
+ const beforeCutoff=bundle();
+ beforeCutoff.calendar.observedAt=at(end,'15:59:59');
+ assert.throws(()=>normalizeBaoStockBundle(beforeCutoff,{now}),/时点/);
+ const oldQuote=bundle();
+ oldQuote.stocks[0].kline.observedAt=at(days.at(-2),'16:02:00');
+ assert.throws(()=>normalizeBaoStockBundle(oldQuote,{now}),/查询顺序/);
+ const overlong=bundle();
+ overlong.observedAt=at(end,'16:12:00');
+ assert.throws(()=>normalizeBaoStockBundle(overlong,{now:at(end,'16:12:00')}),/超限/);
+ const sequential=bundle();
+ sequential.startedAt=at(end,'16:00:00');
+ sequential.stocks.forEach((s,i)=>{
+  s.kline.observedAt=at(end,'16:0'+i+':10');
+  s.adjust.observedAt=at(end,'16:0'+i+':20');
+ });
+ assert.equal(normalizeBaoStockBundle(sequential,{now}).history.provider,'baostock');
+ // The second query must not move behind the previous stock's completed
+ // adjustment query, even if all original fields contain valid numbers.
+ sequential.stocks[1].kline.observedAt=at(end,'16:00:15');
+ assert.throws(()=>normalizeBaoStockBundle(sequential,{now}),/查询顺序/);
+});

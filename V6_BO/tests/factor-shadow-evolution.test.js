@@ -1,11 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),
+ crypto=require('node:crypto');
 const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
 const {freezeFeatureEpisode,evolveShadowFactors,
  selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
-const {runOnce:runShadowWorker,parse:parseShadowWorker}=require('../scripts/factor-shadow-worker');
+const {runOnce:runShadowWorker,parse:parseShadowWorker,
+ latestCooldown}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
 const factorIds=['sector_heat','leader_strength'];
 const priceFeed={source:'imported',provider:'unverified-unit-only-eod',datasetId:'test-unadjusted',priceBasis:'unadjusted'};
@@ -20,8 +22,8 @@ function weekdays(n){
  }
  return result;
 }
-const dates=weekdays(70);
-function episode(index,{reuseSymbols=false}={}){
+const dates=weekdays(100);
+function episode(index,{reuseSymbols=false,reverseReturns=false,duplicateFactor=false}={}){
  const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
   const symbol=String(600000+(reuseSymbols?0:index%6*6)+j),id=d+'-'+symbol,score=aScores[j],
@@ -30,12 +32,12 @@ function episode(index,{reuseSymbols=false}={}){
    provenance:'synthetic-protocol-test-not-market',signalDate:d,signalAt:at(d),
    baselineClose:10});
   rows.push({signalId:id,symbol,signalDate:d,values:{
-   sector_heat:score,leader_strength:reverse
+   sector_heat:score,leader_strength:duplicateFactor?score:reverse
   },evidence:{
    sector_heat:{source:featureFeed.provider,observedAt:at(d)},
    leader_strength:{source:featureFeed.provider,observedAt:at(d)}
   }});
-  const pct=(j-2.5)*2;
+  const pct=(j-2.5)*(reverseReturns?-2:2);
   stocks.push({symbol,corporateActions:[],bars:[
    {date:d,close:10,volume:100,suspended:false},
    {date:future[5],close:10*(1+pct/100),volume:100,suspended:false}
@@ -89,9 +91,28 @@ test('autonomous shadow update uses training + purged validation + untouched hol
  assert.equal(r.purgeSessions,5);
  assert.equal(r.factorLearning.sector_heat.reliable,true);
  assert.equal(r.factorLearning.leader_strength.reliable,true);
+ assert.equal(r.factorMarginalContribution.evidenceBasis,
+  'frozen-factor-training-and-time-isolated-forward-observation');
+ assert.equal(r.factorMarginalContribution.changedFactorCount,2);
+ assert.equal(r.factorMarginalContribution.blocksPromotion,false);
+ assert.equal(r.factorMarginalContribution.harmfulFactorIds.length,0);
+ assert.equal(r.factorMarginalContribution.factors[0].training.comparedDays,r.trainDays);
+ assert.equal(r.factorMarginalContribution.factors[0].validation.comparedDays,r.validationDays);
+ assert.equal(r.factorMarginalContribution.factors[0].holdout.comparedDays,r.testDays);
+ assert.equal(r.factorMarginalContribution.productionWeightsChanged,false);
+ assert.equal(r.factorRedundancy.trainingDays,r.trainDays);
+ assert.equal(r.factorRedundancy.pairs.length,1);
+ assert.equal(r.factorRedundancy.pairs[0].relationship,'strong-inverse');
+ assert.deepEqual(r.factorRedundancy.suppressedFactorIds,[]);
+ assert.equal(r.factorRedundancy.productionWeightsChanged,false);
  assert.equal(r.marketRegimeDays.unknown,r.trainDays);
  assert.equal(r.freshHoldoutOnly,false);
  assert.ok(r.holdout.stability.halfPeriodsConsistent);
+ assert.equal(r.modelComparison.status,'paired-scorecard-unverified');
+ assert.equal(r.modelComparison.originalGatePassed,true);
+ assert.equal(r.modelComparison.assessedDays,r.testDays);
+ assert.ok(r.modelComparison.proposedVsOriginal.meanDeltaIC>.002);
+ assert.equal(r.modelComparison.canTrade,false);
  assert.ok(r.validation.deltaIC>0);
  assert.ok(r.holdout.deltaIC>0);
  assert.ok(r.trainDays>=15&&r.validationDays>=5&&r.testDays>=5);
@@ -245,6 +266,12 @@ test('future shadow upgrades require at least five genuinely unseen holdout days
  assert.equal(next.freshHoldoutOnly,true);
  assert.equal(next.testDays,5);
  assert.ok(next.holdout.firstFreshDay>old.lastObservationDay);
+ assert.equal(next.factorMarginalContribution.factors[0].holdout.firstDay,next.holdout.firstFreshDay);
+ assert.equal(next.factorMarginalContribution.factors[0].holdout.comparedDays,5);
+ assert.equal(next.modelComparison.status,'paired-scorecard-unverified');
+ assert.equal(next.modelComparison.assessedDays,5);
+ assert.ok(next.modelComparison.firstDay>old.lastObservationDay);
+ assert.equal(next.modelComparison.perDay.length,5);
  assert.equal(next.productionWeightsChanged,false);
 });
 test('already reviewed historic episode fingerprints cannot be changed during self-learning',()=>{
@@ -302,4 +329,172 @@ test('rotating symbol cohorts preserve original immutable signals and sufficient
  assert.equal(result.sampleIndependence.overlappingOriginalSignalsPreserved,true);
  assert.equal(result.canTrade,false);
  assert.equal(result.productionWeightsChanged,false);
+});
+
+test('fresh forward reversals mark previously accepted shadow decay without changing formal or accepted research weights',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(history,{now:finalClock});
+ assert.equal(accepted.status,'shadow-updated');
+ const later=[...history,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const result=evolveShadowFactors(later,{now:finalClock,previous:accepted});
+ assert.equal(result.status,'paused-shadow-decay');
+ assert.equal(result.shadowWeightsChanged,false);
+ assert.deepEqual(result.shadowWeights,accepted.shadowWeights);
+ assert.equal(result.pausedForShadowDecay,true);
+ assert.equal(result.rollbackReviewSuggested,true);
+ assert.equal(result.shadowDecay.status,'decay-alert-unverified');
+ assert.equal(result.shadowDecay.assessedDays,5);
+ assert.equal(result.shadowDecay.negativeDeltaPct,100);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.productionWeightsChanged,false);
+ assert.equal(result.productionStrategyChanged,false);
+ assert.equal(result.autoPromotion,false);
+});
+test('new mature holdouts without decay cannot trigger false rollback alerts',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i));
+ const accepted=evolveShadowFactors(history,{now:finalClock});
+ const next=evolveShadowFactors(Array.from({length:61},(_,i)=>episode(i)),
+  {now:finalClock,previous:accepted});
+ assert.equal(next.shadowDecay.alert,false);
+ assert.equal(next.pausedForShadowDecay,false);
+ assert.equal(next.rollbackReviewSuggested,false);
+ assert.equal(next.productionWeightsChanged,false);
+});
+
+test('decay cooldown persists, needs ten subsequent recovered days, then five unseen days before another promotion attempt',()=>{
+ const previous=evolveShadowFactors(Array.from({length:56},(_,i)=>episode(i)),
+  {now:finalClock});
+ assert.equal(previous.status,'shadow-updated');
+ const history=[
+  ...Array.from({length:56},(_,i)=>episode(i)),
+  ...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))
+ ];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ assert.equal(alert.status,'paused-shadow-decay');
+ assert.equal(alert.cooldown.phase,'active');
+ assert.equal(alert.cooldown.alertDay,dates[60]);
+ assert.equal(alert.productionWeightsChanged,false);
+ const nine=[...history,...Array.from({length:9},(_,i)=>episode(61+i))];
+ const cooling=evolveShadowFactors(nine,{now:finalClock,previous,previousCooldown:alert});
+ assert.equal(cooling.status,'paused-shadow-cooldown');
+ assert.equal(cooling.cooldown.phase,'active');
+ assert.equal(cooling.cooldown.recovery.assessedDays,9);
+ assert.equal(cooling.rollbackReviewSuggested,true);
+ assert.deepEqual(cooling.shadowWeights,previous.shadowWeights);
+ const ten=[...nine,episode(70)];
+ const recovered=evolveShadowFactors(ten,{now:finalClock,previous,previousCooldown:cooling});
+ assert.equal(recovered.status,'shadow-recovered');
+ assert.equal(recovered.cooldown.phase,'recovered');
+ assert.equal(recovered.cooldown.recoveryDay,dates[70]);
+ assert.equal(recovered.shadowWeightsChanged,false);
+ assert.deepEqual(recovered.shadowWeights,previous.shadowWeights);
+ assert.equal(recovered.rollbackReviewSuggested,false);
+ // Exactly the same evidence is not a new evolution iteration.
+ assert.equal(evolveShadowFactors(ten,
+  {now:finalClock,previous,previousCooldown:recovered}).fingerprint,recovered.fingerprint);
+ const four=[...ten,...Array.from({length:4},(_,i)=>episode(71+i))];
+ const waiting=evolveShadowFactors(four,{now:finalClock,previous,previousCooldown:recovered});
+ assert.equal(waiting.status,'paused-shadow-cooldown');
+ assert.equal(waiting.postRecoveryHoldoutDays,4);
+ assert.equal(waiting.factorMarginalContribution.factors[0].holdout.status,'insufficient');
+ assert.equal(waiting.factorMarginalContribution.blocksPromotion,true);
+ assert.equal(waiting.shadowWeightsChanged,false);
+ const five=[...four,episode(75)];
+ const tested=evolveShadowFactors(five,{now:finalClock,previous,previousCooldown:waiting});
+ assert.ok(['shadow-updated','shadow-retained'].includes(tested.status));
+ assert.equal(tested.postRecoveryHoldoutDays,5);
+ assert.equal(tested.pausedForShadowDecay,false);
+ assert.equal(tested.productionWeightsChanged,false);
+});
+test('old archived cooldown cannot be replayed with rewritten frozen evidence or another accepted model',()=>{
+ const historical=Array.from({length:56},(_,i)=>episode(i));
+ const previous=evolveShadowFactors(historical,{now:finalClock});
+ const history=[...historical,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ const next=[...history,episode(61)];
+ const changed=structuredClone(next);
+ changed[58].report.marketFingerprint='c'.repeat(64);
+ assert.throws(()=>evolveShadowFactors(changed,{now:finalClock,previous,previousCooldown:alert}),
+  /冷却证据或血缘无效|冻结|来源/);
+ const forged={...alert,previousFingerprint:'wrong'};
+ assert.throws(()=>evolveShadowFactors(next,{now:finalClock,previous,previousCooldown:forged}),
+  /冷却证据或血缘无效/);
+});
+test('worker rereads private cooldown after restart rather than forgetting the last decay warning',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-cooldown-resume-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'models');
+ const saved=[];
+ const append=(from,to,reversed=false)=>{
+  for(let i=from;i<to;i++){
+   const e=episode(i,{reverseReturns:reversed});
+   const featuresFile=path.join(dir,'f'+i+'.json');
+   const reportFile=path.join(dir,'r'+i+'.json');
+   fs.writeFileSync(featuresFile,JSON.stringify(e.features));
+   fs.writeFileSync(reportFile,JSON.stringify(e.report));
+   saved.push({featuresFile,reportFile});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:saved}));
+ };
+ append(0,56);
+ const options={manifestFile,outputDir,now:finalClock};
+ const accepted=runShadowWorker(options);
+ assert.equal(accepted.status,'shadow-updated');
+ append(56,61,true);
+ const paused=runShadowWorker(options);
+ assert.equal(paused.status,'paused-shadow-decay');
+ const previous=require('../scripts/factor-shadow-worker').latestAccepted(outputDir);
+ const state=latestCooldown(outputDir,previous);
+ assert.equal(state.cooldown.phase,'active');
+ assert.equal(state.cooldown.alertDay,dates[60]);
+ const again=runShadowWorker(options);
+ assert.equal(again.status,'skipped-identical-evidence');
+ assert.equal(latestCooldown(outputDir,previous).fingerprint,state.fingerprint);
+ append(61,71);
+ const recovered=runShadowWorker(options);
+ assert.equal(recovered.status,'shadow-recovered');
+ assert.equal(latestCooldown(outputDir,previous).cooldown.phase,'recovered');
+ assert.equal(require('../scripts/factor-shadow-worker').latestAccepted(outputDir).fingerprint,
+  previous.fingerprint);
+});
+
+test('sealed historical decay alerts without a cooldown field still force an active cooldown after restart',t=>{
+ const historical=Array.from({length:56},(_,i)=>episode(i));
+ const previous=evolveShadowFactors(historical,{now:finalClock});
+ const source=[...historical,
+  ...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(source,{now:finalClock,previous});
+ assert.equal(alert.status,'paused-shadow-decay');
+ const {fingerprint,cooldown,postRecoveryHoldoutDays,postRecoveryGainIC,...payload}=alert;
+ const legacy={...payload,fingerprint:crypto.createHash('sha256')
+  .update(JSON.stringify(payload)).digest('hex')};
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-legacy-cooldown-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file='shadow-'+legacy.trainingEnd+'-'+legacy.fingerprint.slice(0,12)+'.json';
+ fs.writeFileSync(path.join(dir,file),JSON.stringify(legacy));
+ const restored=latestCooldown(dir,previous);
+ assert.equal(restored.fingerprint,legacy.fingerprint);
+ assert.equal(restored.cooldown,undefined);
+ const resumed=evolveShadowFactors([...source,episode(61)],
+  {now:finalClock,previous,previousCooldown:restored});
+ assert.equal(resumed.status,'paused-shadow-cooldown');
+ assert.equal(resumed.cooldown.phase,'active');
+ assert.equal(resumed.cooldown.alertDay,dates[60]);
+ assert.equal(resumed.shadowWeightsChanged,false);
+});
+
+test('truly duplicate positively predictive frozen factor scores shrink the weaker shadow-only proposal, but cannot invent a promotion',()=>{
+ const history=Array.from({length:56},(_,i)=>episode(i,{duplicateFactor:true}));
+ const r=evolveShadowFactors(history,{now:finalClock});
+ assert.equal(r.factorRedundancy.status,'screened');
+ assert.equal(r.factorRedundancy.pairs[0].relationship,'strong-positive');
+ assert.equal(r.factorRedundancy.pairs[0].eligibleForSuppression,true);
+ assert.deepEqual(r.factorRedundancy.suppressedFactorIds,['sector_heat']);
+ assert.ok(r.proposedShadowWeights.sector_heat<1.3);
+ assert.ok(r.proposedShadowWeights.leader_strength>1.3);
+ assert.equal(r.status,'shadow-retained');
+ assert.equal(r.shadowWeightsChanged,false);
+ assert.equal(r.productionWeightsChanged,false);
+ assert.equal(r.autoPromotion,false);
+ assert.equal(r.canTrade,false);
 });

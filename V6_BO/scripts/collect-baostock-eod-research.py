@@ -17,8 +17,12 @@ import tempfile
 import time
 
 
+BEIJING = datetime.timezone(datetime.timedelta(hours=8))
+MAX_COLLECTION_SECONDS = 10 * 60
+
+
 def beijing_clock():
-    return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    return datetime.datetime.now(BEIJING)
 
 
 def safe_output(value):
@@ -35,8 +39,9 @@ def rows(query, required, limit):
     if getattr(query, "error_code", None) != "0":
         raise ValueError("BaoStock查询没有成功返回")
     columns = list(getattr(query, "fields", []))
-    if not set(required).issubset(set(columns)) or len(columns) > 64:
-        raise ValueError("BaoStock查询结果缺少关键字段")
+    if not set(required).issubset(set(columns)) or len(columns) > 64 or \
+       len(set(columns)) != len(columns):
+        raise ValueError("BaoStock查询结果缺少关键字段或返回重复列")
     result = []
     while query.next():
         if len(result) >= limit:
@@ -45,18 +50,35 @@ def rows(query, required, limit):
         if len(values) != len(columns):
             raise ValueError("BaoStock返回列数不一致")
         result.append(dict(zip(columns, values)))
+    # Some SDK result streams can report an error after one or more rows.
+    # "next() returned False" alone is NOT a completeness certificate.
+    if getattr(query, "error_code", None) != "0":
+        raise ValueError("BaoStock查询中途失败，拒绝不完整的结果")
     return result
 
 
 def build_bundle(bs, codes, start, end, dataset_id, clock=beijing_clock):
-    stamp = clock()
+    stamp = clock().astimezone(BEIJING)
     if stamp.strftime("%Y-%m-%d") != end or stamp.hour < 16:
         raise ValueError("只允许当日北京时间16点后记录完成收盘数据")
+    started_at = int(stamp.timestamp() * 1000)
+    previous_at = started_at
+
+    def record_observed():
+        nonlocal previous_at
+        stamp = clock().astimezone(BEIJING)
+        observed = int(stamp.timestamp() * 1000)
+        if stamp.strftime("%Y-%m-%d") != end or stamp.hour < 16 or \
+           observed < previous_at or \
+           observed - started_at > MAX_COLLECTION_SECONDS * 1000:
+            raise ValueError("BaoStock采集查询耗时过久、跨日或时钟倒退；拒绝发布")
+        previous_at = observed
+        return observed
     # Do not use today's weekday pattern as a stand-in for the actual exchange
     # calendar. Query the provider's explicit trading dates before stock data.
     calendar_query = bs.query_trade_dates(start_date=start, end_date=end)
     days = rows(calendar_query, ["calendar_date", "is_trading_day"], 500)
-    calendar_observed = int(clock().timestamp() * 1000)
+    calendar_observed = record_observed()
     dates = [r["calendar_date"] for r in days if r["is_trading_day"] == "1"]
     if len(dates) < 32 or dates[-1] != end:
         raise ValueError("真实交易日历不足32日或最后交易日不是今天")
@@ -79,12 +101,12 @@ def build_bundle(bs, codes, start, end, dataset_id, clock=beijing_clock):
              "volume", "amount", "adjustflag", "tradestatus"],
             500,
         )
-        kline_observed = int(clock().timestamp() * 1000)
+        kline_observed = record_observed()
         adjust = bs.query_adjust_factor(
             code=source, start_date=start, end_date=end
         )
         adjust_rows = rows(adjust, ["code", "dividOperateDate"], 500)
-        adjust_observed = int(clock().timestamp() * 1000)
+        adjust_observed = record_observed()
         stocks.append({
             "code": source,
             "kline": {
@@ -100,14 +122,13 @@ def build_bundle(bs, codes, start, end, dataset_id, clock=beijing_clock):
                 "observedAt": adjust_observed, "rows": adjust_rows,
             },
         })
-    end_stamp = clock()
-    if end_stamp.strftime("%Y-%m-%d") != end or end_stamp.hour < 16:
-        raise ValueError("BaoStock采集过程跨日或采集时点无效")
+    completed_at = record_observed()
     return {
         "schemaVersion": 1,
         "mode": "baostock-eod-research-export-v1",
         "source": "baostock", "completed": True,
-        "asOf": end, "observedAt": int(end_stamp.timestamp() * 1000),
+        "asOf": end, "startedAt": started_at,
+        "observedAt": completed_at,
         "datasetId": dataset_id, "canTrade": False,
         "claimedProviderCertified": False,
         "calendar": {
@@ -144,7 +165,7 @@ def publish(output, bundle):
         os.unlink(staging)
 
 
-def parse_args(argv):
+def parse_args(argv, clock=beijing_clock):
     p = argparse.ArgumentParser()
     p.add_argument("--codes", required=True,
                    help="1 to 5 comma-separated A-share stock codes")
@@ -166,12 +187,20 @@ def parse_args(argv):
         raise ValueError("日期范围需为45至365自然日，datasetId必须是显式版本")
     if not a.allow_research_fetch:
         raise ValueError("默认禁止网络请求；仅在操作者审查供应商许可后显式启用")
-    safe_output(a.output)
+    # Preflight BEFORE importing the SDK and calling login (which is itself
+    # a network request). An invalid day or an existing target must never
+    # consume a provider connection.
+    current = clock().astimezone(BEIJING)
+    if current.date() != end or current.hour < 16:
+        raise ValueError("采集日期须等于今日北京时间，且已到16点")
+    dest = safe_output(a.output)
+    if dest.exists():
+        raise ValueError("BaoStock采集输出已存在，拒绝登录及覆盖")
     return codes, start.isoformat(), end.isoformat(), a.dataset_id, a.output
 
 
 def main(argv):
-    codes, start, end, dataset_id, output = parse_args(argv)
+    codes, start, end, dataset_id, output = parse_args(argv, clock=beijing_clock)
     try:
         import baostock as bs
     except ImportError as e:

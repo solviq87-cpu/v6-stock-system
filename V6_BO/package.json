@@ -51,6 +51,8 @@
     "factor:market:once": "node scripts/authorized-factor-market.js once",
     "factor:market:sync": "node scripts/authorized-factor-market.js sync",
     "factor:market:watch": "node scripts/authorized-factor-market.js watch",
+    "factor:daily:cycle": "node scripts/factor-daily-research.js",
+    "test:factor:daily": "node --test tests/factor-daily-research-cycle.test.js",
     "factor:chain:status": "node scripts/factor-chain-readiness.js",
     "test:factor:chain": "node --test tests/factor-research-pipeline-e2e.test.js",
     "factor:source:preflight": "node scripts/factor-source-preflight.js",
@@ -63,7 +65,13 @@
     "factor:shadow:once": "node scripts/factor-shadow-worker.js once",
     "factor:shadow:watch": "node scripts/factor-shadow-worker.js watch",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
-    "tracking:watch": "node scripts/forward-tracking-cloud.js watch"
+    "tracking:watch": "node scripts/forward-tracking-cloud.js watch",
+    "research:sector:once": "node scripts/sector-strength-research.js once",
+    "research:sector:watch": "node scripts/sector-strength-research.js watch",
+    "test:sector:bridge": "node --test tests/daily-sector-strength.test.js tests/sector-breadth-market-bridge.test.js tests/live-market-research.test.js",
+    "research:sector:classify": "python3 scripts/collect-baostock-industry.py",
+    "research:sector:member:freeze": "node scripts/normalize-baostock-industry.js",
+    "test:sector:classify": "node --test tests/baostock-industry-membership-adapter.test.js tests/sector-breadth-market-bridge.test.js"
   },
   "engines": {
     "node": ">=22.6"

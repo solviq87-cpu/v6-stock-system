@@ -8,6 +8,7 @@ const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('
 const {assessWeakMarketSectorPreference}=require('../strategy/weak-market-sector-preference');
 const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
+const {evaluateDailySectorStrength}=require('../strategy/daily-sector-strength');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={},announcements=[]}={}){
  if(!Array.isArray(announcements)||announcements.length>500)throw Error('上市公司公告研究输入数量无效');
@@ -31,6 +32,15 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
   else if(!ambiguous.has(row.symbol))stocksByCode.set(row.symbol,row);
  }
  const cohort=evaluateSectorCohortRps(history,{factorContexts:market?.factorContexts});
+ // Optional same-day imported sector breadth is separate from historical 20-day RPS.
+ // Never accept a simulated study or conflicting stock/sector provider labels.
+ const sectorSnapshot=market?.sectorBreadthSnapshot;
+ const dailySector=sectorSnapshot===undefined?null:
+  (history.source==='imported'&&
+   (!history.provider||history.provider===sectorSnapshot?.provider)?
+   evaluateDailySectorStrength(sectorSnapshot,{asOf:timestamp,tradeDate:date}):
+   {status:'unknown',reason:'historical-source-or-provider-mismatch',sectors:[],bySymbol:{},
+    verifiedLive:false,weightsChanged:false,canTrade:false});
  const candidates=scan.items.map(item=>{
   const research=evaluateOpenSourceRules(stocksByCode.get(item.symbol)||{},
     {marketRisk:market?.regime==='risk_off'?'risk_off':'unknown'});
@@ -67,6 +77,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
    linkedFactorResearch:linked,linkedFactors:linked.factors,
    qualityResearch:quality,qualityFactors:quality.factors,
    sectorCohortRps:cohortEvidence,
+   ...(dailySector?{dailySectorStrength:dailySector.bySymbol?.[item.symbol]||[]}:{}),
    whyUp:{...item.rationale.whyUp,possibleContributors:[
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
    weakMarketPreference:preference,issuerEvidence:issuer,
@@ -92,6 +103,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
    total:scan.total,modelPassedCount:scan.eligible,rejected:scan.rejected,
    candidates,openSourceCatalog,linkedResearchCatalog,qualityResearchCatalog,
    sectorCohortStudy:cohort,
+   ...(dailySector?{dailySectorStudy:dailySector}:{}),
    researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
     .sort((a,b)=>Number(a.rationale.selection.researchDeprioritized)-
       Number(b.rationale.selection.researchDeprioritized)||
