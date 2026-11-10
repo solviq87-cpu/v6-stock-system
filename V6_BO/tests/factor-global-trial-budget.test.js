@@ -65,9 +65,10 @@ test('malformed dates and incomplete candidate records fail closed',()=>{
 
 test('a new factor pack cannot reset the global inspected-holdout budget',()=>{
  const ds=days(100);
- const earlierPack=record(ds,0);
+ // Both experiments must fall INSIDE the newest 90 research signal days.
+ const earlierPack=record(ds,2);
  earlierPack.packFingerprint='c'.repeat(64);
- const currentPack=record(ds,1);
+ const currentPack=record(ds,3);
  const report=assessGlobalTrialBudget([earlierPack,currentPack],ds,pack);
  assert.equal(report.usedTrials,2);
  assert.equal(report.remainingTrials,4);
