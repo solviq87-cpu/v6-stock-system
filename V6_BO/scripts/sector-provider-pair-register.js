@@ -8,7 +8,9 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {prepareSectorPairRegistration,verifySectorPairRegistration,
  verifyRegisteredSectorPairEvidence}=require('../src/core/sector-provider-pair-registration');
 const MAX=32*1024*1024;
-const digest=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const canonical=x=>Array.isArray(x)?x.map(canonical):
+ x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
+const digest=x=>crypto.createHash('sha256').update(JSON.stringify(canonical(x))).digest('hex');
 const safety={canTrade:false,canTrain:false,externallyTimestampCertified:false,
  prospectiveCertified:false,changed:false};
 function safe(p){
@@ -90,10 +92,8 @@ function runOnce(conf,{now=Date.now()}={}){
   const receipt={...registration.receipt,sourcePlanSha256:planDigest};
   // sourcePlanSha256 is calculated canonically in core, and plan input is
   // parsed JSON. Re-serialize consistently without rewriting integrity.
-  const {integrity,...payload}=receipt;
-  const canonicalDigest=crypto.createHash('sha256').update(
-   JSON.stringify(payload)).digest('hex');
-  if(canonicalDigest!==integrity)
+  const check=verifySectorPairRegistration(receipt,{asOf:now});
+  if(check.status==='blocked')
    return {...safety,status:'blocked-unexpected-registration-integrity'};
   const changed=immutable(f2,JSON.stringify(receipt)+'\n');
   return {...safety,status:changed?'locally-registered-unverified':
