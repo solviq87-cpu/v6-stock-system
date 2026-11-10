@@ -20,8 +20,11 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  const windowStart=days[Math.max(0,days.length-WINDOW_DAYS)];
  const counted=[];
  for(const report of reports){
-  if(!report||report.mode!=='v6-factor-shadow-evolution-v1'||
-     report.packFingerprint!==packFingerprint)continue;
+  if(!report||report.mode!=='v6-factor-shadow-evolution-v1')continue;
+  // Budget is GLOBAL, not per pack revision. Replacing factor definitions
+  // must not reset prior candidate inspections or hide malformed archives.
+  if(!/^[0-9a-f]{64}$/.test(report.packFingerprint||''))
+   throw Error('全局试验历史因子包指纹无效');
   const audit=report.trialAudit;
   const legacy=!audit&&['shadow-updated','shadow-retained','paused-market-shock']
    .includes(report.status);
