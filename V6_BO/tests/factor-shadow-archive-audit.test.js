@@ -124,3 +124,50 @@ test('valid additional sealed newer research history is allowed without erasing 
  assert.equal(r.shadowReports,2);
  assert.equal(r.referenceFiles,1);
 });
+
+function watchHeartbeat(dir,{observedAt=1770000000000,pid=1234}={}){
+ const payload={schemaVersion:1,mode:'v6-shadow-watch-heartbeat-v1',
+  observedAt,intervalMs:60000,outcome:'tick-success',
+  lastStatus:'skipped-no-new-training',pid,
+  canTrade:false,productionWeightsChanged:false};
+ const file=path.join(dir,'.shadow-worker-heartbeat.json');
+ fs.writeFileSync(file,JSON.stringify({...payload,integrity:hash(payload)}));
+ return file;
+}
+test('future WATCH heartbeat can coexist with immutable shadow and prereg archives',t=>{
+ const {reference,backup}=dirs(t);
+ const shadow=archive(reference,{status:'shadow-updated'}),
+  registered=archive(reference,{kind:'prereg'});
+ copy(reference,backup,shadow);copy(reference,backup,registered);
+ watchHeartbeat(reference,{pid:101,observedAt:1770000000000});
+ watchHeartbeat(backup,{pid:202,observedAt:1770000060000});
+ const r=compare(reference,backup);
+ assert.equal(r.ok,true);
+ assert.equal(r.referenceFiles,2);
+ assert.equal(r.candidateFiles,2);
+ assert.equal(r.shadowReports,1);
+ assert.equal(r.preregisteredCandidates,1);
+ assert.equal(r.additionalFiles,0);
+ assert.equal(r.referenceDigest,r.candidateDigest);
+ assert.ok(fs.existsSync(path.join(backup,'.shadow-worker-heartbeat.json')));
+});
+test('heartbeat cannot conceal empty archive or bypass the unknown-file gate',t=>{
+ const {reference,backup}=dirs(t);
+ const pulse=watchHeartbeat(reference);
+ assert.throws(()=>scan(reference),/仅有运行状态/);
+ archive(reference);
+ archive(backup);
+ watchHeartbeat(backup);
+ assert.equal(scan(reference).files.length,1);
+ assert.equal(compare(reference,backup).ok,true);
+ const tampered=JSON.parse(fs.readFileSync(pulse,'utf8'));
+ tampered.observedAt+=1;
+ fs.writeFileSync(pulse,JSON.stringify(tampered));
+ assert.throws(()=>scan(reference),/心跳完整性/);
+ fs.unlinkSync(pulse);
+ fs.symlinkSync(path.join(backup,'.shadow-worker-heartbeat.json'),pulse);
+ assert.throws(()=>scan(reference),/心跳不是可信普通文件|符号链接/);
+ fs.unlinkSync(pulse);
+ fs.writeFileSync(path.join(reference,'.shadow-worker-heartbeat.tmp'),'partial');
+ assert.throws(()=>scan(reference),/未识别/);
+});
