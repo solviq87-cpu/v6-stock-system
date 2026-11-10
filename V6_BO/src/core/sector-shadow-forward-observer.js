@@ -113,10 +113,22 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
   const missing=dates.filter(d=>!byDay.has(d));
   if(missing.length)return {...pending('missing-consecutive-daily-archives'),missingTradeDates:missing};
   const records=dates.map(d=>byDay.get(d));
+  // A declared stable classification must not silently change members or
+  // admit nonsensical future scores within the allegedly comparable window.
+  const baselineMembers=new Map(baseline.data.study.sectors.map(x=>[key(x),x.memberCount]));
   for(const r of records){
    if(!validArchive(r,s)||r.observedAt<=baseline.observedAt||
      r.observedAt>asOf||Math.abs(minute(r.observedAt)-minute(s.observedAt))>30)
     return rejected('future-archive-provenance-or-time-conflict');
+   const follow=new Map(r.data.study.sectors.map(x=>[key(x),x]));
+   for(const frozen of s.sectors){
+    const row=follow.get(key(frozen));
+    if(!row||row.memberCount!==baselineMembers.get(key(frozen))||
+      !safeScore(row.score)||!safePct(row.upPct)||
+      !safePct(row.coveragePct)||row.coveragePct<80||
+      !finite(row.changePct)||row.changePct< -100||row.changePct>100)
+     return rejected('future-sector-membership-or-score-invalid');
+   }
   }
   const study=evaluateSectorRotation(records,{tradeDates:dates,asOf});
   if(study.status!=='imported-unverified')
