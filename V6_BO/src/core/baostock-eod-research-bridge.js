@@ -53,6 +53,17 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
  const dates=c.tradeDates;
  if(dates.some((d,i)=>!date(d)||(i&&d<=dates[i-1])))
   throw Error('BaoStock交易日排序、日期或唯一性无效');
+ // Provider request completion time is a LOCAL collection clock, not an
+ // exchange-original quote time. Still require a single bounded, same-day
+ // capture session: a cached old page must not masquerade as a new EOD scan.
+ const sessionStart=bundle.startedAt===undefined?c.observedAt:bundle.startedAt;
+ if(!time(sessionStart)||sessionStart<closeAt(bundle.asOf)||
+    aShareCalendarDate(sessionStart)!==bundle.asOf||
+    c.observedAt<sessionStart||
+    aShareCalendarDate(c.observedAt)!==bundle.asOf||
+    bundle.observedAt-sessionStart>10*60*1000)
+  throw Error('BaoStock源采集时点过期、跨日或单次采集时间超限');
+ let lastQueryAt=c.observedAt;
  const stocks=[],symbols=new Set();
  for(const item of bundle.stocks){
   const code=item?.code;
@@ -63,7 +74,13 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
   const q=item.kline,a=item.adjust;
   validateQuery(q,'baostock:query_history_k_data_plus',dates,bundle.observedAt);
   validateQuery(a,'baostock:query_adjust_factor',dates,bundle.observedAt);
-  if(q.frequency!=='d'||q.adjustflag!=='3'||q.rows.length!==dates.length)
+  if(aShareCalendarDate(q.observedAt)!==bundle.asOf||
+     aShareCalendarDate(a.observedAt)!==bundle.asOf||
+     q.observedAt<c.observedAt||a.observedAt<q.observedAt||
+     (bundle.startedAt!==undefined&&q.observedAt<lastQueryAt))
+   throw Error('BaoStock逐票查询顺序、日期或本地采集时钟无效');
+  lastQueryAt=a.observedAt;
+  if(q.frequency!=='d||q.adjustflag!=='3'||q.rows.length!==dates.length)
    throw Error('BaoStock仅接受完整日线、不复权3及所有已声明交易日');
   const actions=[],actionSet=new Set();
   for(const e of a.rows){
