@@ -40,14 +40,15 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
    else if(q.quoteAt>now)reason='future-quote';
    else if(now-q.quoteAt>maxAgeMs)reason='stale-quote';
    else if(chinaDay(q.quoteAt)!==chinaDay(now))reason='different-market-day';
-   else {reason='eligible-for-comparison';valid.push({id:s.id,price:q.price,quoteAt:q.quoteAt});}
+   else {reason='eligible-for-comparison';valid.push({id:s.id,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});}
   }else if(s.status==='unavailable')reason='unavailable';
   else reason='invalid-status';
   const quoteAt=Number.isSafeInteger(q?.quoteAt)&&q.quoteAt>0?q.quoteAt:null;
   const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   sourceStatuses.push({provider:s.id,status:reason,
    quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
-   observedPrice,inConsensus:false});
+   observedPrice,observedPreviousClose:Number.isFinite(q?.previousClose)&&q.previousClose>0?q.previousClose:null,
+   inConsensus:false});
  }
  const base={schemaVersion:1,mode:'multi-source-price-consensus-research',
   code,checkedAt:new Date(now).toISOString(),referencePrice:null,representativeProvider:null,
@@ -55,7 +56,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   sourceStatuses,priceToleranceBps,timeGapMs,maxAgeMs,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
   canTrade:false,canNotify:false,
-  note:'仅比较逐股、同交易日且时间接近的供应商报价；逐源原始价格/时点保留，异常价格不自动乘除比例或取平均；缺失/冲突不输出统一价格，不认证独立性或许可。'};
+  note:'仅比较逐股、同交易日且时间接近的供应商报价；现价与昨收价均须同口径一致。逐源价格/昨收/原时点保留，异常价格不自动乘除比例或取平均；缺失/冲突不输出统一价格，不认证独立性或许可。'};
  // This checks weekday clocks only; a statutory holiday can look like a session.
  if(!session(now))return {...base,status:'outside-weekday-session-window'};
  if(valid.length<2)return {...base,status:'insufficient-comparable-sources'};
@@ -64,9 +65,14 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
  for(let mask=1;mask<(1<<valid.length);mask++){
   const group=valid.filter((_,i)=>(mask&(1<<i))!==0);
   if(group.length<quorum)continue;
-  const times=group.map(x=>x.quoteAt),prices=group.map(x=>x.price);
+  const times=group.map(x=>x.quoteAt),prices=group.map(x=>x.price),
+   previousCloses=group.map(x=>x.previousClose);
+  // The same apparent current price can represent different returns when
+  // sources disagree about yesterday's close (e.g. a corporate action).
+  // Do not "fix" the mismatch by guessing which close is authoritative.
   if(Math.max(...times)-Math.min(...times)>timeGapMs||
-     bps(Math.min(...prices),Math.max(...prices))>priceToleranceBps)continue;
+     bps(Math.min(...prices),Math.max(...prices))>priceToleranceBps||
+     bps(Math.min(...previousCloses),Math.max(...previousCloses))>priceToleranceBps)continue;
   groups.push(group);
  }
  if(!groups.length)return {...base,status:'source-price-or-time-conflict'};
@@ -83,7 +89,9 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   quoteAt:representative.quoteAt,
   supportingProviders:[...ids].sort(),
   matchedCount:matched.length,disagreeingProviders:valid.filter(x=>!ids.has(x.id)).map(x=>x.id).sort(),
-  maxMatchedPriceGapBps:Number(bps(Math.min(...matched.map(x=>x.price)),Math.max(...matched.map(x=>x.price))).toFixed(3))};
+  maxMatchedPriceGapBps:Number(bps(Math.min(...matched.map(x=>x.price)),Math.max(...matched.map(x=>x.price))).toFixed(3)),
+  maxMatchedPreviousCloseGapBps:Number(bps(Math.min(...matched.map(x=>x.previousClose)),
+   Math.max(...matched.map(x=>x.previousClose))).toFixed(3))};
 }
 async function checkMultiPublicPrices(config={}){
  const {code,now=Date.now(),probe=probePublicQuotes,
