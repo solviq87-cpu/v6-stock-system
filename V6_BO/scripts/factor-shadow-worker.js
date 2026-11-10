@@ -194,7 +194,9 @@ function runRegister({manifestFile,outputDir,candidateWeightsFile,now=Date.now()
   if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
    throw Error('预注册必须提供冻结特征绝对路径');
   // Deliberately DO NOT OPEN e.reportFile in the registration stage.
-  return verifyEpisode(readJson(e.featuresFile),now);
+  const frozen=readJson(e.featuresFile);
+  verifyEpisode(frozen,now);
+  return frozen;
  });
  const accepted=latestAccepted(conf.outputDir);
  const previousTrial=latestTrial(conf.outputDir,accepted);
