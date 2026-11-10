@@ -66,7 +66,12 @@ test('apply publishes each checkpoint once, rerun is idempotent and never trades
   assert.equal(membership.provenance.providerLicenseIndependentlyVerified,false);
   const sectorPath=path.join(x.args[5],tradeDate,String(end)+'.json');
   const rotationPath=path.join(x.args[6],tradeDate,String(end)+'.json');
-  assert.equal(JSON.parse(fs.readFileSync(sectorPath,'utf8')).data.study.rankedSectorCount,3);
+  const dated=JSON.parse(fs.readFileSync(sectorPath,'utf8'));
+  assert.equal(dated.data.study.rankedSectorCount,3);
+  assert.equal(dated.memberIdentity.status,'identity-frozen-unverified');
+  assert.equal(dated.memberIdentity.sectors.length,3);
+  assert.equal(dated.memberIdentity.sectors.every(x=>/^[a-f0-9]{64}$/.test(x.memberSha256)),true);
+  assert.equal(dated.memberIdentity.canTrain,false);
   assert.equal(JSON.parse(fs.readFileSync(rotationPath,'utf8')).report.canTrade,false);
   for(const p of [x.args[4],sectorPath,rotationPath])
    assert.equal(fs.statSync(p).mode&0o777,0o600);
