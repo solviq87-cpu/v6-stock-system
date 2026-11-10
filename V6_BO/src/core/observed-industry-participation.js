@@ -48,7 +48,7 @@ function evaluateObservedIndustryParticipation({snapshot,classification,asOf=Dat
  if(classification?.schemaVersion!==1||classification.source!=='baostock:query_stock_industry'||
   classification.completed!==true||!['证监会行业分类','申万一级行业'].includes(classification.standard)||
   !validDate(classification.updateDate)||classification.updateDate>tradeDate||
-  !milli(classification.observedAt)||classification.observedAt>asOf||
+  !milli(classification.observedAt)||classification.observedAt>received||
   aShareCalendarDate(classification.observedAt)<classification.updateDate||
   !Array.isArray(classification.rows)||classification.rows.length>10000||
   !Number.isInteger(classification.declaredRows)||
