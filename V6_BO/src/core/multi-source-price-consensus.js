@@ -10,6 +10,22 @@ const PUBLIC_IDS=['tencent','eastmoney','sina'];
 const bps=(a,b)=>10000*Math.abs(a-b)/Math.max(a,b);
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const validCode=code=>typeof code==='string'&&/^(?:60|68|00|30)\d{4}$/.test(code);
+// The calendar is explicit operator-provided evidence, never inferred from weekdays.
+function operatorTradingDay(now,tradingDates){
+ if(tradingDates===undefined)return null;
+ if(!Array.isArray(tradingDates)||tradingDates.length<1||tradingDates.length>4096)
+  throw Error('导入交易日历格式或覆盖范围无效');
+ let previous=null;
+ for(const d of tradingDates){
+  if(typeof d!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)||
+   !Number.isFinite(Date.parse(d+'T00:00:00Z'))||
+   new Date(d+'T00:00:00Z').toISOString().slice(0,10)!==d||
+   (previous!==null&&d<=previous))
+   throw Error('导入交易日历存在非法、重复或倒序日期');
+  previous=d;
+ }
+ return tradingDates.includes(chinaDay(now));
+}
 function options({priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs}){
  if(!Number.isFinite(priceToleranceBps)||priceToleranceBps<0||priceToleranceBps>100||
   !Number.isFinite(previousCloseToleranceBps)||previousCloseToleranceBps<0||previousCloseToleranceBps>100||
@@ -17,11 +33,12 @@ function options({priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs
   !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1000||maxAgeMs>30000)
   throw Error('多源报价核对阈值无效');
 }
-function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCloseToleranceBps=5,timeGapMs=5000,maxAgeMs=15000}={}){
+function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCloseToleranceBps=5,timeGapMs=5000,maxAgeMs=15000,tradingDates}={}){
  if(!validCode(code)||!Number.isSafeInteger(now)||now<=0||
   !Array.isArray(sources)||sources.length<1||sources.length>8)
   throw Error('股票代码、时间或来源列表无效');
  options({priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
+ const operatorDay=operatorTradingDay(now,tradingDates);
  const providers=new Set(),valid=[],sourceStatuses=[];
  const expectedExchange=code.startsWith('6')?'SH':'SZ';
  for(const s of sources){
@@ -60,11 +77,14 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   code,checkedAt:new Date(now).toISOString(),referencePrice:null,representativeProvider:null,
   supportingProviders:[],sourceCount:sources.length,eligibleCount:valid.length,
   sourceStatuses,priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,
+  operatorCalendarProvided:operatorDay!==null,operatorCalendarMatch:operatorDay,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
   canTrade:false,canNotify:false,
   note:'仅比较逐股、同交易日且时间接近的供应商报价；最新价与前收盘价均需跨源一致，逐源保留原价/原时点；异常价格不自动乘除比例或取平均；冲突时不输出统一价格，不认证独立性或许可。'};
  // This checks weekday clocks only; a statutory holiday can look like a session.
  if(!session(now))return {...base,status:'outside-weekday-session-window'};
+ if(operatorDay===false)return {...base,status:'outside-provided-trading-calendar',
+  note:base.note+'；操作者导入的日期列表不包含当前北京时间日期，禁止发布参考价，不能据此推断法定休市'};
  // Count independent declared upstream identities, not merely distinct labels.
  // Fail closed rather than arbitrarily picking one of multiple aliases.
  const byUpstream=new Map();
@@ -111,7 +131,8 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
 async function checkMultiPublicPrices(config={}){
  const {code,now=Date.now(),probe=probePublicQuotes,
   extraSources=[],itickToken,fetchItick=fetchItickStockQuote,
-  priceToleranceBps=30,previousCloseToleranceBps=5,timeGapMs=5000,maxAgeMs=15000}=config;
+  priceToleranceBps=30,previousCloseToleranceBps=5,timeGapMs=5000,maxAgeMs=15000,
+  tradingDates}=config;
  // An explicitly supplied clock is a deliberate deterministic test/replay clock.
  // Live diagnostics must evaluate freshness after network work, not at request start.
  const currentClock=Object.hasOwn(config,'clock')?config.clock:
@@ -121,8 +142,10 @@ async function checkMultiPublicPrices(config={}){
   typeof currentClock!=='function'||
   !Array.isArray(extraSources)||extraSources.length>4)
   throw Error('多源股票诊断参数无效');
- // Never probe a known closed clock window. This is not an exchange holiday calendar.
- if(!session(now))return fuseMultiSourcePrices({code,now,
+ // Never probe outside a weekday session or a supplied operator trading day.
+ // This calendar is operator-entered and never independently exchange-certified.
+ const allowedDay=operatorTradingDay(now,tradingDates);
+ if(!session(now)||allowedDay===false)return fuseMultiSourcePrices({code,now,tradingDates,
   sources:PUBLIC_IDS.map(id=>({id,status:'unavailable'}))
    .concat([{id:'itick',status:'unconfigured'}],extraSources),
   priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
@@ -141,7 +164,7 @@ async function checkMultiPublicPrices(config={}){
  // Do not contact a paid/quota-limited optional provider after the window ends.
  const publicFinishedAt=currentClock();
  if(!session(publicFinishedAt))
-  return fuseMultiSourcePrices({code,now:publicFinishedAt,
+  return fuseMultiSourcePrices({code,now:publicFinishedAt,tradingDates,
    sources:[...sources,{id:'itick',status:'unconfigured'},...extraSources],
    priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
  // Official iTick is opt-in and needs an operator token, never embedded in code.
@@ -150,7 +173,7 @@ async function checkMultiPublicPrices(config={}){
  catch{itick=null;}
  if(!itick||itick.id!=='itick'||!['fresh-unverified','dated-snapshot','unavailable','unconfigured'].includes(itick.status))
   itick={id:'itick',status:'unavailable'};
- return fuseMultiSourcePrices({code,now:currentClock(),sources:[...sources,itick,...extraSources],
+ return fuseMultiSourcePrices({code,now:currentClock(),tradingDates,sources:[...sources,itick,...extraSources],
   priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs});
 }
 module.exports={fuseMultiSourcePrices,checkMultiPublicPrices};
