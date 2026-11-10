@@ -13,6 +13,7 @@ const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRec
 const {compareShadowVersions}=require('./factor-model-comparison');
 const {assessFactorRedundancy}=require('./factor-redundancy');
 const {assessFactorMarginalContribution}=require('./factor-marginal-contribution');
+const {verifyPreregisteredCandidate}=require('./factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -270,6 +271,7 @@ function selectNonOverlappingMaturedCrossSections(sorted){
   for(const row of candidates)seenUntil.set(row.symbol,row.targetDate);
   used.add(e.day);
   observed.push({day:e.day,rows:candidates,targetDate:candidates[0].targetDate,
+   featureCapturedAt:e.features.capturedAt,
    regime:e.features.marketRegime?.regime||'unknown'});
  }
  return {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows};
@@ -326,7 +328,8 @@ function baseResult(status,details){
  * by +/-8% of the previous shadow weights and require two positive holdouts.
  */
 function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
- previousCooldown=null,previousTrial=null,marketContext}={}){
+ previousCooldown=null,previousTrial=null,trialBudget=null,
+ preRegistration=null,requirePreRegistration=false,marketContext}={}){
  if(!Number.isSafeInteger(now)||now<=0||!Array.isArray(episodes)||
     episodes.length<36||episodes.length>400)throw Error('至少需要36个连续批次的前瞻研究证据');
  const sorted=episodes.map(e=>{
@@ -380,10 +383,10 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
      contents.observedFingerprints.some((pair,i)=>
       hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint])))
    throw Error('已有因子模型的历史冻结证据被替换或回写');
-  // Even when the calendar has not advanced, check the complete accepted
-  // historical evidence before allowing the worker's harmless no-op skip.
-  // A same-day report replacement must fail closed rather than be hidden.
-  // Still authenticate rejected trials/cooldown before a no-op return.
+  // Audit every sealed historical observation before a no-op same-day
+  // skip; otherwise rewritten evidence could hide behind the skip path.
+  // Preserve the no-op state, but authenticate any previous rejected
+  // trial and cooldown before letting the worker skip this calendar.
   noNewTrainingWindow=contents.trainingEnd===trainingEnd||
    contents.lastObservationDay===sorted.at(-1).day;
   oldWeights=Object.fromEntries(ids.map(id=>[id,previous.shadowWeights[id]]));
@@ -391,8 +394,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    throw Error('旧研究权重越过边界');
   version=previous.version+1;previousFingerprint=previous.fingerprint;
  }
- // Audit spent holdout first, even when this run cannot advance training or
- // a same-day cooldown report would otherwise be reused unchanged.
+ // Audit the entire spent-holdout lineage before even a harmless no-op.
  const trialLineage=verifyPreviousTrial(previousTrial,previous,sorted,ids,feed);
  // The newest immutable cooldown report is as important as the latest
  // accepted model. Check its complete historical evidence lineage before
@@ -436,8 +438,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   }
  }
  if(noNewTrainingWindow)throw Error('未增加新的训练时间窗');
- // This check is independent from the successful model-version check:
- // a rejected candidate also consumes the unseen test evidence it viewed.
+ // A rejected candidate also consumes its own earlier holdout evidence.
  const icByFactor=Object.fromEntries(ids.map(id=>{
   const daily=train.map(d=>({day:d.day,regime:d.regime,
    ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
@@ -472,6 +473,37 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  if(freshTest.length<5)
   throw Error(previousTrial?'新增独立试验保留日不足，禁止复用已检验样本外数据':
    '新增独立样本外交易日不足，不能重复优化已看过的测试集');
+ // A true prospective candidate is sealed BEFORE the first future signal
+ // in this holdout. A hash created after inspecting outcomes is NOT proof.
+ // Legacy direct research calls remain explicitly marked as unregistered.
+ const registrationRequired=requirePreRegistration===true;
+ let preregistration={status:'not-preregistered-legacy-research',
+  canTrade:false,productionWeightsChanged:false};
+ if(!cooldownMonitoring&&(preRegistration!==null||registrationRequired)){
+  if(preRegistration===null)throw Error('候选预注册缺失，严格研究模式拒绝查看样本外结果');
+  const preregFreshTest=previousCooldown?.cooldown?.phase==='recovered'?
+   freshTest.filter(d=>d.day>previousCooldown.cooldown.recoveryDay):freshTest;
+  if(preregFreshTest.length<5)
+   throw Error('恢复后未达到5个事前注册的全新成熟保留日');
+  preregistration=verifyPreregisteredCandidate(preRegistration,{
+   sorted,ids,packFingerprint:PACK_HASH,oldWeights,
+   previousFingerprint:previous?.fingerprint||null,
+   previousTrialFingerprint:previousTrial?.fingerprint||null,
+   freshTest:preregFreshTest
+  });
+  // This choice was committed before the new signal, not optimized on
+  // heldout outcomes. Its step and absolute ranges remain strictly bounded.
+  for(const f of defs){
+   const w=preRegistration.candidateWeights[f.id],old=oldWeights[f.id];
+   if(!finite(w)||w<f.baseWeight*.5||w>f.baseWeight*1.5||
+      w<old*.92-1e-7||w>old*1.08+1e-7)
+    throw Error('预注册研究候选超出单轮或总权重范围');
+   proposal[f.id]=w;
+  }
+ }else if(cooldownMonitoring&&registrationRequired){
+  preregistration={status:'cooldown-monitoring-no-candidate-promoted',
+   canTrade:false,productionWeightsChanged:false};
+ }
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
    baselineTest=dailyIC(freshTest,ids,oldWeights),
@@ -568,6 +600,25 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  // Market-shock deferral does not erase already INSPECTED holdout scores:
  // changing only the market flag cannot buy a free second candidate trial.
  const consumed=!activeCooldown&&!recoveredNow;
+ if(trialBudget!==null&&(
+   !Number.isSafeInteger(trialBudget.maxTrials)||trialBudget.maxTrials!==6||
+   !Number.isSafeInteger(trialBudget.windowTradingDays)||trialBudget.windowTradingDays!==90||
+   !Number.isSafeInteger(trialBudget.usedTrials)||trialBudget.usedTrials<0||
+   !Number.isSafeInteger(trialBudget.remainingTrials)||
+   trialBudget.remainingTrials!==Math.max(0,6-trialBudget.usedTrials)||
+   !day(trialBudget.windowStartDay)||
+   trialBudget.asOfDay!==sorted.at(-1).day||
+   !['budget-available','budget-exhausted'].includes(trialBudget.status)))
+  throw Error('全局研究预算协议或交易日不一致');
+ // A pause-only audit may still record new mature observations even when
+ // all trial slots are exhausted. Do not silently expend a new slot.
+ if(consumed&&trialBudget&&trialBudget.remainingTrials===0)
+  throw Error('全局研究试验预算已耗尽，候选不可再次查看样本外数据');
+ const globalTrialBudget=trialBudget?
+  {...trialBudget,consumedThisRun:consumed,
+   remainingAfterRun:Math.max(0,trialBudget.remainingTrials-(consumed?1:0))}:
+  {status:'not-enforced-direct-research-call',consumedThisRun:consumed,
+   canTrade:false,productionWeightsChanged:false};
  const trialAudit={schemaVersion:1,status:consumed?'consumed':'not-evaluated',
   trialNumber:trialLineage.count+(consumed?1:0),
   previousTrialFingerprint:trialLineage.priorFingerprint,
@@ -606,6 +657,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
   shadowDecay,cooldown,modelComparison,factorMarginalContribution,trialAudit,
+  globalTrialBudget,preregistration,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -617,11 +669,13 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    '因子冗余门禁只用训练期冻结分数估计相关性，不证明增量因果贡献；仅抑制可靠正向共线因子的研究增权',
    '每个因子调整须留下单独撤销其调权的反事实IC证据，稳定有害或不可比较时拒绝研究晋级；未证明因果独立性',
    '每次未暂停的候选评估都会占用不可复用的成熟保留日，即使晋级失败也记录试验次数和指纹',
+   '启动研究进程时最多允许90个交易日观察窗内6次候选评估，跨旧成功和失败版本累计；本地调用需明确标为未启用全局预算',
+   '事前候选权重承诺须早于新增保留集首日信号冻结；严格模式缺失预注册直接拒绝，旧兼容模式明确标记未预注册',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
-module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,
+module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,verifyEpisode,
  selectNonOverlappingMaturedCrossSections};
