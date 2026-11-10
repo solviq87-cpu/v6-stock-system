@@ -310,12 +310,17 @@ function validateManifest(manifest){
   throw Error('需要完整时间排序研究批次目录');
 }
 function runOnce({manifestFile,outputDir,now=Date.now(),
- requirePreRegistration=false,autoRegisterCandidate=false}={}){
+ requirePreRegistration=false,autoRegisterCandidate=false,
+ operatorMode=false}={}){
  if(autoRegisterCandidate&&!requirePreRegistration)
   throw Error('自动接力必须先启用严格预注册');
  const conf=parse(['once',manifestFile,outputDir]);
- // Reject invalid manifests without creating or changing the output directory.
+ // Check the EXACT manifest consumed on this tick: watch must not continue
+ // if a formerly canonical operator manifest was replaced while running.
+ // Direct research tests intentionally retain legacy fixture compatibility.
  const manifest=readJson(conf.manifestFile);
+ if(operatorMode&&manifest?.mode!=='v6-forward-training-manifest')
+  throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>evaluateOnce(
   {...conf,requirePreRegistration,autoRegisterCandidate},now,manifest));
@@ -455,12 +460,12 @@ function main(args){
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  if(config.mode==='register')return runRegister(config);
  if(config.mode==='register-auto')return runRegisterAuto(config);
- if(config.mode==='once')return runOnce(config);
+ if(config.mode==='once')return runOnce({...config,operatorMode:true});
  let busy=false,closing=false;
  const tick=()=>{
   if(busy||closing)return;
   busy=true;
-  try{console.log(JSON.stringify(runOnce(config)));}
+  try{console.log(JSON.stringify(runOnce({...config,operatorMode:true})));}
   catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));}
   finally{busy=false;}
  };
