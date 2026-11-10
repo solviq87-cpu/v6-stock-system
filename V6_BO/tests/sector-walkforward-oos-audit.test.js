@@ -91,7 +91,7 @@ test('purge applies to each horizon at exact test-start, not to unrelated labels
 });
 test('missing mature target and underpowered test never fabricate independent return observations',()=>{
  const items=samples();
- items.at(-1)=episode(54,{testPeriod:true,missing20:true});
+ items[items.length-1]=episode(54,{testPeriod:true,missing20:true});
  const r=run(items);
  assert.equal(r.status,'insufficient-evidence');
  assert.equal(r.panels[0].status,'temporal-split-descriptive-unverified');
@@ -115,7 +115,7 @@ test('overlapping concept memberships, ambiguous top industry and missing ranked
 });
 test('mixed industry versions/provider source and duplicate days cannot be pooled as independent events',()=>{
  const mixed=samples();
- mixed.at(-1)=episode(54,{testPeriod:true,version:'new-bao-classification'});
+ mixed[mixed.length-1]=episode(54,{testPeriod:true,version:'new-bao-classification'});
  const one=run(mixed);
  assert.equal(one.status,'blocked');
  assert.equal(one.reason,'cross-provider-or-classification-version-not-comparable');
