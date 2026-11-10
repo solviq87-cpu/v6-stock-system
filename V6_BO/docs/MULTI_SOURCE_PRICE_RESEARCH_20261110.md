@@ -30,7 +30,7 @@ node scripts/multi-source-quote.js 600519
 1. 对每家来源保留单独的状态及逐票原始 `quoteAt`，校验股票代码、市场、CNY、未复权、正常交易、价格/前收 > 0、报出时间不在未来、不跨北京时间日期。
 2. 同一个来源超过 15 秒视为过期；可比来源间时点跨度默认不超过 5 秒，价格最大差值默认不超过 30 bps（0.30%）。以上阈值仅为保守研究规则，**并非准确价格的统计证明**。
 3. 对于 2–3 个可比来源，至少 2 家形成价格/时间一致子集；对于 4 家及以上，必须取得严格多数。若出现多个同样规模、互相冲突的子集，结果 `ambiguous-price-groups`，不挑一个硬凑。
-4. 有明确一致子集时，`referencePrice` **取该组中原始时间最新的一家实际报价**，不造算术平均的虚构成交价格；同时提供 `representativeProvider`、`supportingProviders`、`disagreeingProviders`、差异与时间证据。
+4. 有明确一致子集时，`referencePrice` **取该组中原始时间最新的一家实际报价**，不造算术平均的虚构成交价格；同时提供 `representativeProvider`、`supportingProviders`、`disagreeingProviders`、差异与时间证据。`sourceStatuses` 逐源记录 `observedPrice`、`quoteAt`、`quoteAgeMs`、`status` 与 `inConsensus`，可审计哪个接口有效、哪家被排除。若某来源报出约 100 倍价格，**保留原值并排除异常来源，不根据推测自动除以 100**，避免价格单位误判。
 5. 只有一个有效来源、时点不一致、价格冲突、缺价、停牌、越权/未配置、休市时：**`referencePrice:null`**，并显示具体拒绝原因。其他源不能偷偷继承旧源时间戳；数据源不能通过改写统一时间混为一个独立来源。
 6. 即使多家一致，返回值始终 `providerLicensed:false`、`certifiedLive:false`、`exchangeCalendarVerified:false`、`canTrade:false`、`canNotify:false`，不得直接接模拟撮合、自动买卖、正式实时宣称或对外商业分发。
 
