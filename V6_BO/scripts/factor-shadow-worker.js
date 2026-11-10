@@ -168,12 +168,7 @@ function withResearchLock(dir,work){
   fs.unlinkSync(lock);
  }
 }
-function runOnce({manifestFile,outputDir,now=Date.now()}={}){
- const conf=parse(['once',manifestFile,outputDir]);
- return withResearchLock(conf.outputDir,()=>evaluateOnce(conf,now));
-}
-function evaluateOnce(conf,now){
- const manifest=readJson(conf.manifestFile);
+function validateManifest(manifest){
  if(manifest?.mode==='v6-forward-training-manifest'){
   const {integrity,...body}=manifest;
   if(integrity!==hash(body)||manifest.canTrade!==false||
@@ -184,6 +179,15 @@ function evaluateOnce(conf,now){
  if(manifest?.schemaVersion!==1||!Array.isArray(manifest.episodes)||
     manifest.episodes.length<36||manifest.episodes.length>400)
   throw Error('需要完整时间排序研究批次目录');
+}
+function runOnce({manifestFile,outputDir,now=Date.now()}={}){
+ const conf=parse(['once',manifestFile,outputDir]);
+ // Reject invalid manifests without creating or changing the output directory.
+ const manifest=readJson(conf.manifestFile);
+ validateManifest(manifest);
+ return withResearchLock(conf.outputDir,()=>evaluateOnce(conf,now,manifest));
+}
+function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
