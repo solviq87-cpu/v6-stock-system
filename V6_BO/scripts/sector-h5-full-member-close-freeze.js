@@ -73,6 +73,12 @@ function runOnce(conf,{now=Date.now()}={}){
   return blocked('input-changed-between-read-and-freeze');
  fs.mkdirSync(outDir,{recursive:true,mode:0o700});
  safePath(outDir);
+ // Existing output directories may have been created outside this tool.
+ // Refuse group/world traversal even though files themselves are 0600:
+ // filenames and evidence timestamps are sensitive research metadata.
+ const directory=fs.lstatSync(outDir);
+ if(!directory.isDirectory()||(directory.mode&0o077)!==0)
+  return blocked('private-research-output-directory-permissions-too-open');
  const temp=path.join(outDir,'.sector-h5-stage-'+process.pid+'-'+
   crypto.randomBytes(8).toString('hex'));
  let fd,created=false;
