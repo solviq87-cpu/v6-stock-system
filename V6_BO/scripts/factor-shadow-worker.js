@@ -75,6 +75,56 @@ function latestCooldown(dir,accepted){
   throw Error('同日存在冲突的研究冷却状态');
  return states[0]||null;
 }
+/**
+ * Resolve the last spent holdout from immutable private research archives.
+ * Rejected candidates count: looking at a held-out result consumes it.
+ * Keep an audit chain across restarts rather than relying on in-memory state.
+ */
+function latestTrial(dir,accepted){
+ if(!fs.existsSync(dir))return null;
+ const names=fs.readdirSync(dir)
+  .filter(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x));
+ if(names.length>500)throw Error('影子研究试验归档超过500项审计上限');
+ const parent=accepted?.fingerprint||null,history=[];
+ for(const name of names){
+  const result=readJson(path.join(dir,name));
+  if(result?.mode!=='v6-factor-shadow-evolution-v1'||
+     typeof result.fingerprint!=='string')
+   throw Error('影子研究试验档案结构无效');
+  const {fingerprint,...payload}=result;
+  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
+   throw Error('研究试验归档被篡改，拒绝读取');
+  if(result.previousFingerprint!==parent)continue;
+  const audit=result.trialAudit;
+  // Earlier sealed research reports already exposed their evaluation
+  // holdout but were written before a formal trial ledger existed.
+  const legacy=!audit&&['shadow-retained','paused-market-shock'].includes(result.status);
+  const consumed=audit?.status==='consumed';
+  if(!legacy&&!consumed)continue;
+  const end=legacy?result.lastObservationDay:audit.lastHoldoutDay;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(end)||
+     end>result.lastObservationDay||
+     (parent&&end<=accepted.lastObservationDay)||
+     (!legacy&&(!/^\d{4}-\d{2}-\d{2}$/.test(audit.firstHoldoutDay)||
+      audit.firstHoldoutDay>end||!Number.isSafeInteger(audit.trialNumber)||
+      audit.trialNumber<1||audit.holdoutDays<5)))
+   throw Error('试验占用日期与研究血缘不一致');
+  history.push({end,result,count:legacy?1:audit.trialNumber,
+   previousTrialFingerprint:legacy?null:audit.previousTrialFingerprint});
+ }
+ history.sort((a,b)=>a.end.localeCompare(b.end));
+ for(let i=0;i<history.length;i++){
+  const current=history[i],prior=history[i-1];
+  if(prior&&current.end<=prior.end)
+   throw Error('同一批保留日被不同研究试验重复占用');
+  if(!prior&&current.count!==1)
+   throw Error('首个研究试验编号或档案前缀缺失');
+  if(prior&&(current.count!==prior.count+1||
+     current.previousTrialFingerprint!==prior.result.fingerprint))
+   throw Error('研究试验归档链断裂或顺序错误');
+ }
+ return history.at(-1)?.result||null;
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -101,6 +151,7 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
   throw Error('需要完整时间排序研究批次目录');
  const previous=latestAccepted(conf.outputDir);
  const previousCooldown=latestCooldown(conf.outputDir,previous);
+ const previousTrial=latestTrial(conf.outputDir,previous);
  const episodes=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
@@ -109,10 +160,15 @@ function runOnce({manifestFile,outputDir,now=Date.now()}={}){
  let result;
  try{
   result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
-   marketContext:manifest.marketContext});
+   previousTrial,marketContext:manifest.marketContext});
  }catch(e){
   if(previous&&/未增加新的训练时间窗/.test(String(e.message)))
    return {ok:true,status:'skipped-no-new-training',version:previous.version,
+    canTrade:false,productionWeightsChanged:false};
+  if(previousTrial&&/新增独立试验保留日不足/.test(String(e.message)))
+   return {ok:true,status:'skipped-no-new-trial-holdout',
+    version:previous?.version||0,
+    previousTrialFingerprint:previousTrial.fingerprint,
     canTrade:false,productionWeightsChanged:false};
   throw e;
  }
@@ -153,4 +209,4 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,latestCooldown,main,readEpisodeReport};
+module.exports={parse,runOnce,latestAccepted,latestCooldown,latestTrial,main,readEpisodeReport};

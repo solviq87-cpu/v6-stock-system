@@ -274,6 +274,44 @@ function selectNonOverlappingMaturedCrossSections(sorted){
  }
  return {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows};
 }
+/**
+ * An unsuccessful challenger has already viewed its holdout. Its immutable
+ * research report therefore consumes that holdout even without an accepted
+ * new shadow version. A restarted worker supplies the last sealed trial.
+ */
+function verifyPreviousTrial(previousTrial,previous,sorted,ids,feed){
+ if(previousTrial===null)return {cutoff:previous?.lastObservationDay||null,
+  count:0,priorFingerprint:null};
+ const {fingerprint,...contents}=previousTrial||{};
+ const audit=contents.trialAudit;
+ const legacy=!audit&&['shadow-retained','paused-market-shock'].includes(contents.status);
+ const cutoff=legacy?contents.lastObservationDay:audit?.lastHoldoutDay;
+ const expectedParent=previous?.fingerprint||null;
+ const sameEvidence=Array.isArray(contents.observedFingerprints)&&
+  contents.observedFingerprints.length<=sorted.length&&
+  contents.observedFingerprints.every((pair,i)=>
+   hash(pair)===hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]));
+ if(typeof fingerprint!=='string'||fingerprint!==hash(contents)||
+    contents.mode!==MODEL||contents.previousFingerprint!==expectedParent||
+    !['shadow-retained','shadow-updated','paused-market-shock'].includes(contents.status)||
+    contents.packFingerprint!==PACK_HASH||
+    hash(contents.factorIds)!==hash(ids)||hash(contents.feed)!==hash(feed)||
+    contents.canTrade!==false||contents.productionWeightsChanged!==false||
+    !sameEvidence||!day(cutoff)||
+    cutoff<= (previous?.lastObservationDay||'0000-00-00')||
+    cutoff>contents.lastObservationDay||
+    contents.lastObservationDay>sorted.at(-1).day||
+    (!legacy&&(
+     audit.schemaVersion!==1||audit.status!=='consumed'||
+     !day(audit.firstHoldoutDay)||audit.firstHoldoutDay>cutoff||
+     !Number.isSafeInteger(audit.trialNumber)||audit.trialNumber<1||
+     !Number.isSafeInteger(audit.holdoutDays)||audit.holdoutDays<5||
+     typeof audit.candidateFingerprint!=='string'||
+     !/^[0-9a-f]{64}$/.test(audit.candidateFingerprint))))
+  throw Error('历史试验账本完整性或样本血缘无效，拒绝重复优化');
+ return {cutoff,count:legacy?1:audit.trialNumber,
+  priorFingerprint:fingerprint};
+}
 const modelFingerprint=data=>hash(data);
 function baseResult(status,details){
  const payload={schemaVersion:1,mode:MODEL,status,shadowOnly:true,canTrade:false,
@@ -287,7 +325,8 @@ function baseResult(status,details){
  * training, validation and final untouched test. Research updates are bounded
  * by +/-8% of the previous shadow weights and require two positive holdouts.
  */
-function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCooldown=null,marketContext}={}){
+function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
+ previousCooldown=null,previousTrial=null,marketContext}={}){
  if(!Number.isSafeInteger(now)||now<=0||!Array.isArray(episodes)||
     episodes.length<36||episodes.length>400)throw Error('至少需要36个连续批次的前瞻研究证据');
  const sorted=episodes.map(e=>{
@@ -381,6 +420,9 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   if(previousCooldown.lastObservationDay===sorted.at(-1).day)
    return previousCooldown;
  }
+ // This check is independent from the successful model-version check:
+ // a rejected candidate also consumes the unseen test evidence it viewed.
+ const trialLineage=verifyPreviousTrial(previousTrial,previous,sorted,ids,feed);
  const icByFactor=Object.fromEntries(ids.map(id=>{
   const daily=train.map(d=>({day:d.day,regime:d.regime,
    ic:correlation(d.rows.map(x=>x.values[id]),d.rows.map(x=>x.returnPct))}))
@@ -405,8 +447,16 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  }
  // Previous model's test days are no longer untouched. Require five NEW
  // chronologically later mature holdout days for a later self-upgrade.
- const freshTest=previous?test.filter(d=>d.day>previous.lastObservationDay):test;
- if(freshTest.length<5)throw Error('新增独立样本外交易日不足，不能重复优化已看过的测试集');
+ const monitoringTest=previous?test.filter(d=>d.day>previous.lastObservationDay):test;
+ // An ACTIVE cooldown observes the whole post-acceptance history to seek
+ // ten recovery days; such reports cannot promote or consume a new trial.
+ const cooldownMonitoring=previousCooldown!==null&&
+  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+ const freshTest=cooldownMonitoring?monitoringTest:
+  monitoringTest.filter(d=>!trialLineage.cutoff||d.day>trialLineage.cutoff);
+ if(freshTest.length<5)
+  throw Error(previousTrial?'新增独立试验保留日不足，禁止复用已检验样本外数据':
+   '新增独立样本外交易日不足，不能重复优化已看过的测试集');
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
    baselineTest=dailyIC(freshTest,ids,oldWeights),
@@ -421,7 +471,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  // Never mutate the previously accepted model, formal weights or account.
  const officialWeights=Object.fromEntries(defs.map(f=>[f.id,f.baseWeight]));
  const shadowDecay=previous?
-  assessShadowDecay(freshTest,ids,officialWeights,oldWeights,dailyIC):
+  assessShadowDecay(monitoringTest,ids,officialWeights,oldWeights,dailyIC):
   {status:'not-applicable-first-version',assessedDays:0,alert:false,
    rollbackReviewSuggested:false,canTrade:false,productionWeightsChanged:false};
  // State machine: alert -> active cooldown -> recovered (no weight
@@ -434,7 +484,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  let cooldown=null,postRecoveryHoldoutDays=0;
  let recovery=null,activeCooldown=false,recoveredNow=false;
  if(previous&&existingGate?.phase==='active'){
-  const newRecoveryDays=freshTest.filter(d=>d.day>existingGate.alertDay);
+  const newRecoveryDays=monitoringTest.filter(d=>d.day>existingGate.alertDay);
   recovery=assessShadowRecovery(newRecoveryDays,ids,officialWeights,oldWeights,dailyIC);
   if(recovery.recovered){
    recoveredNow=true;
@@ -497,6 +547,23 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
     (postRecoveryGain>.002&&postRecoveryStability.halfPeriodsConsistent&&
      postRecoveryEvolved.meanIC>0));
  const weights=accepted?proposal:oldWeights;
+ // Even a rejected or unchanged candidate has inspected the whole paired
+ // holdout once. Persist its last used trading day and candidate identity in
+ // an immutable model report; later trials must see five strictly NEW days.
+ // Market-shock deferral does not erase already INSPECTED holdout scores:
+ // changing only the market flag cannot buy a free second candidate trial.
+ const consumed=!activeCooldown&&!recoveredNow;
+ const trialAudit={schemaVersion:1,status:consumed?'consumed':'not-evaluated',
+  trialNumber:trialLineage.count+(consumed?1:0),
+  previousTrialFingerprint:trialLineage.priorFingerprint,
+  previousAcceptedFingerprint:previous?.fingerprint||null,
+  firstHoldoutDay:consumed?postRecoveryTest[0].day:null,
+  lastHoldoutDay:consumed?postRecoveryTest.at(-1).day:null,
+  holdoutDays:consumed?postRecoveryTest.length:0,
+  candidateFingerprint:hash({factorIds:ids,oldWeights,proposal,trainingEnd}),
+  reason:consumed?'candidate-evaluated-on-fresh-holdout':
+   'cooldown-monitoring-not-a-promotion-trial',
+  canTrade:false,productionWeightsChanged:false};
  return baseResult(accepted?'shadow-updated':recoveredNow?'shadow-recovered':
   activeCooldown?(shadowDecay.alert&&!existingGate?'paused-shadow-decay':'paused-shadow-cooldown'):
   paused?'paused-market-shock':shadowDecay.alert?'paused-shadow-decay':'shadow-retained',{
@@ -523,7 +590,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
-  shadowDecay,cooldown,modelComparison,factorMarginalContribution,
+  shadowDecay,cooldown,modelComparison,factorMarginalContribution,trialAudit,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -534,6 +601,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
    '晋级还需在同一新鲜保留集上显著优于固定原始因子权重，不允许仅相对上一弱版本略有改进',
    '因子冗余门禁只用训练期冻结分数估计相关性，不证明增量因果贡献；仅抑制可靠正向共线因子的研究增权',
    '每个因子调整须留下单独撤销其调权的反事实IC证据，稳定有害或不可比较时拒绝研究晋级；未证明因果独立性',
+   '每次未暂停的候选评估都会占用不可复用的成熟保留日，即使晋级失败也记录试验次数和指纹',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
