@@ -10,6 +10,7 @@ const {freezeCohort}=require('./forward-signal-observer');
 const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
 const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRecovery}=require('./factor-learning-reliability');
+const {compareShadowVersions}=require('./factor-model-comparison');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -449,6 +450,11 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
  // can become "new" evidence for the next promotion.
  const postRecoveryTest=existingGate?.phase==='recovered'?
   freshTest.filter(d=>d.day>existingGate.recoveryDay):freshTest;
+ // Each immutable report retains the paired fixed-baseline / accepted /
+ // proposed scores on truly fresh days. Previously consumed cooldown
+ // recovery days are not eligible for renewed baseline certification.
+ const modelComparison=compareShadowVersions(postRecoveryTest,ids,
+  officialWeights,oldWeights,proposal,dailyIC);
  const unseenReady=postRecoveryTest.length>=5;
  const postRecoveryStability=existingGate?.phase==='recovered'&&unseenReady?
   pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC):null;
@@ -460,6 +466,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   postRecoveryEvolved.meanIC-postRecoveryBase.meanIC:null;
  const accepted=candidateChanged&&!paused&&!shadowDecay.alert&&
    !activeCooldown&&!recoveredNow&&unseenReady&&
+   modelComparison.originalGatePassed&&
    validationDelta>0.002&&testDelta>0.002&&
    validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
    evolvedValidation.meanIC>0&&evolvedTest.meanIC>0&&
@@ -492,7 +499,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
-  shadowDecay,cooldown,
+  shadowDecay,cooldown,modelComparison,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
@@ -500,6 +507,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,previousCool
    '前瞻冻结、逐期样本外和实际交易费用/滑点仍须独立审计',
    '市场状态只使用信号发生时输入的未认证指数广度证据，无法证明宏观因果关系',
    '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
+   '晋级还需在同一新鲜保留集上显著优于固定原始因子权重，不允许仅相对上一弱版本略有改进',
    '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
    '衰减后必须有两个新的5日完整恢复块，恢复本身不提升研究权重；另需5个更新成熟日作下一次晋级验证',
    '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
