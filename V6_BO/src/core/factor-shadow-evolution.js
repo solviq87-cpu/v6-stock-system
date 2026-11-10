@@ -468,11 +468,15 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   canTrade:false,productionWeightsChanged:false};
  if(!cooldownMonitoring&&(preRegistration!==null||registrationRequired)){
   if(preRegistration===null)throw Error('候选预注册缺失，严格研究模式拒绝查看样本外结果');
+  const preregFreshTest=previousCooldown?.cooldown?.phase==='recovered'?
+   freshTest.filter(d=>d.day>previousCooldown.cooldown.recoveryDay):freshTest;
+  if(preregFreshTest.length<5)
+   throw Error('恢复后未达到5个事前注册的全新成熟保留日');
   preregistration=verifyPreregisteredCandidate(preRegistration,{
    sorted,ids,packFingerprint:PACK_HASH,oldWeights,
    previousFingerprint:previous?.fingerprint||null,
    previousTrialFingerprint:previousTrial?.fingerprint||null,
-   freshTest
+   freshTest:preregFreshTest
   });
   // This choice was committed before the new signal, not optimized on
   // heldout outcomes. Its step and absolute ranges remain strictly bounded.
