@@ -19,6 +19,14 @@
 
 原有简单 `schemaVersion:1,episodes:[...]` 的早期合成研究测试协议保留，避免重写历史验证工具；**新的强制门禁针对有正式 canonical 模式标记的真实研究清单**。部署时应使用 `factor-maturity-link` 生成的正式清单，不应改回弱约束的测试格式作为运营输入。
 
+## 运维入口只接受正式清单（补强）
+
+**所有直接运行 `scripts/factor-shadow-worker.js` 的运维 CLI 模式**（`once`、`watch`、`register`、`register-auto`）现在必须读取 `mode=v6-forward-training-manifest` 的正式清单。旧研究示例 `{schemaVersion:1, episodes:[...]}` 没有原捕获回执约束，不能作为生产式自动学习输入，也不能通过换名称绕开前述首份 H5 归档校验。
+
+程序接口的旧测试模式仍保留以复现早期合成测试；不能将其当成生产运行授权。没有至少36个成熟独立研究日，正式 Worker 仍拒绝启动训练。更重要的是，36日和本地 SHA 一致并不能替代真实源许可/第三方核验与独立样本外检查。
+
+新增回归 `node --test tests/factor-shadow-cli-canonical.test.js` 验证不合格的旧简化 manifest 在创建模型目录之前被拒绝，合法模式但样本不足仍按既有保守门禁退出。
+
 ## 回归与运行
 
 从 `V6_BO` 运行：

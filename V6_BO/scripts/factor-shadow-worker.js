@@ -402,6 +402,12 @@ function evaluateOnce(conf,now,manifest){
 }
 function main(args){
  const config=parse(args);
+ // The operational CLI MUST consume the receipt-backed canonical manifest.
+ // Legacy minimal manifests remain supported by the direct research test API,
+ // but are not accepted by the unattended operator commands.
+ const operatorManifest=readJson(config.manifestFile);
+ if(operatorManifest?.mode!=='v6-forward-training-manifest')
+  throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  if(config.mode==='register')return runRegister(config);
  if(config.mode==='register-auto')return runRegisterAuto(config);
  if(config.mode==='once')return runOnce(config);
