@@ -452,6 +452,12 @@ function evaluateOnce(conf,now,manifest){
 }
 function main(args){
  const config=parse(args);
+ // Operational watch/once/register must never bypass the receipt-backed
+ // canonical frozen-to-H5 manifest guard added to the shared dev baseline.
+ // Direct runOnce remains a test/research-only compatibility entry.
+ const operatorManifest=readJson(config.manifestFile);
+ if(operatorManifest?.mode!=='v6-forward-training-manifest')
+  throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  if(config.mode==='register')return runRegister(config);
  if(config.mode==='register-auto')return runRegisterAuto(config);
  if(config.mode==='once')return runOnce(config);
