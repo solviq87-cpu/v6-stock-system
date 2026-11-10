@@ -19,7 +19,8 @@ async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date
  const quoteTimeAudit=auditSnapshotQuoteTimes(snapshot,{asOf:timingClock});
  return {verifiedLive:false,rankingModified:false,
   snapshotMetadata:{date:snapshot.date,source:snapshot.source,verifiedLive:false,startedAt:snapshot.startedAt,retrievedAt:snapshot.retrievedAt,samplingDurationMs:snapshot.samplingDurationMs,
-   universeSize:snapshot.universeSize,pages:snapshot.pages,warning:snapshot.warning},
+   universeSize:snapshot.universeSize,pages:snapshot.pages,
+   sourceCoverage:snapshot.sourceCoverage??null,warning:snapshot.warning},
   breadth,regime,candidateIntersection,quoteTimeAudit,
   riskEvidence:assessCandidateEvidence(snapshot,breadth,regime,candidates,candidateIntersection,{requireOriginalQuoteTime:true}),
   note:'公开行情请求日期不等于逐股原始报价时点，缺f124原始时间不可判为近期可信行情；供应商自报时间也不是交易所认证'};
