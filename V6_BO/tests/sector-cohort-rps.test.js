@@ -83,3 +83,39 @@ test('study is exposed through historical stock explanations without granting ca
   assert.equal(candidate.rationale.selection.officialCandidate,false);
  }
 });
+
+test('dated imported breadth projection adds sector evidence without changing strategy scores',()=>{
+ const {history,factorContexts}=sample();
+ const provider='licensed-public-snapshot';
+ history.provider=provider;
+ const tradeDate=history.asOf,asOf=Date.parse(tradeDate+'T15:00:00+08:00');
+ const observedAt=asOf-60_000;
+ const sectors=['设备','材料','医药'].map((name,j)=>({
+  code:'BK'+(j+1),name,category:'industry',source:provider,
+  tradeDate,observedAt,changePct:[3,1,-2][j],memberCount:5,
+  stocks:Array.from({length:5},(_,i)=>({
+   symbol:String(600001+j+i*100),source:provider,tradeDate,observedAt,
+   changePct:[3,1,-2][j]+i/10,isLimitUp:false,tradingStatus:'trading'
+  }))
+ }));
+ const snapshot={source:'imported',provider,tradeDate,observedAt,
+  marketChangePct:.2,sectors};
+ const old=historicalExplanations(history,{market:{factorContexts}});
+ const next=historicalExplanations(history,{market:{
+  factorContexts,sectorBreadthSnapshot:snapshot}});
+ assert.equal(old.dailySectorStudy,undefined);
+ assert.equal(next.dailySectorStudy.status,'imported-unverified');
+ assert.equal(next.dailySectorStudy.rankedSectorCount,3);
+ assert.equal(next.dailySectorStudy.sectors.find(x=>x.code==='BK1').rank,1);
+ const c=next.candidates.find(x=>x.symbol==='600001');
+ assert.equal(c.rationale.dailySectorStrength[0].name,'设备');
+ assert.deepEqual(next.candidates.map(x=>[x.symbol,x.score,x.historicalModelPassed,
+  x.rationale.selection.officialCandidate,x.rationale.selection.watchEligible]),
+  old.candidates.map(x=>[x.symbol,x.score,x.historicalModelPassed,
+   x.rationale.selection.officialCandidate,x.rationale.selection.watchEligible]));
+ assert.equal(next.canTrade,false);
+ const wrong=historicalExplanations(history,{market:{
+  factorContexts,sectorBreadthSnapshot:{...snapshot,provider:'different-provider'}}});
+ assert.equal(wrong.dailySectorStudy.status,'unknown');
+ assert.equal(wrong.dailySectorStudy.reason,'historical-source-or-provider-mismatch');
+});
