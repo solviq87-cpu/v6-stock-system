@@ -36,9 +36,14 @@ function projectProbe(input, now = Date.now()) {
       q = quote(s.lastQuote, input.code, now);
       if (q.timestamp > input.generatedAt) throw Error('报价时间晚于检查');
     } else if (s.snapshot || s.lastQuote) throw Error('失败来源不能携带有效报价');
-    const fresh = q && now - q.timestamp <= 15000;
-    const status = !q ? 'unavailable' : fresh ? 'fresh-unverified' : 'dated-snapshot';
-    return { id: s.id, status, quote: q ? { ...q, status: 'market-state-unverified', quoteAt: q.timestamp,
+    // A recent vendor timestamp does not make a halted stock tradable.
+    // Preserve the validated underlying trading state rather than masking it.
+    const normalTrading = q?.status === 'normal';
+    const fresh = normalTrading && now - q.timestamp <= 15000;
+    const status = !q ? 'unavailable' : !normalTrading ? 'dated-snapshot' :
+      fresh ? 'fresh-unverified' : 'dated-snapshot';
+    return { id: s.id, status, quote: q ? { ...q,
+      status: normalTrading ? 'market-state-unverified' : q.status, quoteAt: q.timestamp,
       quoteTime: new Date(q.timestamp).toISOString(), freshness: fresh ? 'within-15-seconds-unverified' : 'not-realtime' } : null };
   });
   return { schemaVersion: 1, status: now - input.generatedAt > 15000 ? 'check-expired' : sources.some(s => s.status === 'fresh-unverified') ? 'observed-unverified' : sources.some(s => s.quote) ? 'snapshot-only' : 'unavailable',
