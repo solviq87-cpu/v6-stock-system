@@ -59,6 +59,14 @@ test('concept overlap allowed across boards, not within the same board',()=>{
  const r=evaluate(x);
  assert.equal(r.sectors.concept.length,1);assert.equal(r.sectors.industry.length,2);
 });
+test('simulation labels and incomparable sector types never pass observational ranking',()=>{
+ const x=fixture();x.snapshot.source='simulated';
+ assert.equal(evaluate(x).status,'insufficient-evidence');
+ const y=fixture();y.sectorObservations.source='fixture';
+ assert.equal(evaluate(y).status,'insufficient-evidence');
+ const z=fixture();z.sectorObservations.sectors[1].kind='concept';
+ assert.equal(evaluate(z).status,'insufficient-comparison');
+});
 test('live research only adds optional read-only sector study when explicitly supplied',async()=>{
  const input=fixture();const opts={now:asOf,fetchSnapshot:async()=>input.snapshot};
  const before=await researchLiveMarket(opts);
