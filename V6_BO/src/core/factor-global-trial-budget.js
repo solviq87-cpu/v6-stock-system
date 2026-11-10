@@ -5,6 +5,8 @@
  * Date window is the latest 90 DISTINCT, explicit research signal days.
  */
 const MAX_TRIALS=6,WINDOW_DAYS=90;
+const INSPECTED=new Set(['shadow-updated','shadow-retained','paused-market-shock']);
+const MONITOR_ONLY=new Set(['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered']);
 const finiteDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -21,15 +23,26 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  const asOfDay=days.at(-1);
  const counted=[];
  for(const report of reports){
-  if(!report||report.mode!=='v6-factor-shadow-evolution-v1')continue;
+  if(!report||report.mode!=='v6-factor-shadow-evolution-v1')
+   throw Error('全局试验历史档案模式无效，不能跳过');
   // Budget is GLOBAL, not per pack revision. Replacing factor definitions
   // must not reset prior candidate inspections or hide malformed archives.
   if(!/^[0-9a-f]{64}$/.test(report.packFingerprint||''))
    throw Error('全局试验历史因子包指纹无效');
-  const audit=report.trialAudit;
-  const legacy=!audit&&['shadow-updated','shadow-retained','paused-market-shock']
-   .includes(report.status);
-  if(!legacy&&audit?.status!=='consumed')continue;
+  // Never silently discard an inspected candidate because an audit status
+  // is unknown, missing on a new report, or mislabeled as monitor-only.
+  const inspected=INSPECTED.has(report.status),monitorOnly=MONITOR_ONLY.has(report.status);
+  if(!inspected&&!monitorOnly)
+   throw Error('全局试验历史报告状态无效，拒绝跳过');
+  const hasAudit=Object.hasOwn(report,'trialAudit'),audit=report.trialAudit;
+  if(hasAudit&&(!audit||typeof audit!=='object'||Array.isArray(audit)||
+     audit.schemaVersion!==1||
+     audit.status!==(inspected?'consumed':'not-evaluated')))
+   throw Error('全局试验审计状态与报告状态不一致，拒绝少计试验');
+  // Older immutable reports predate trialAudit; retain their conservative
+  // inspected-holdout treatment rather than rewriting those archives.
+  const legacy=!hasAudit&&inspected;
+  if(!inspected)continue;
   const end=legacy?report.lastObservationDay:audit.lastHoldoutDay,
    start=legacy?report.holdout?.firstFreshDay:audit.firstHoldoutDay;
   if(!finiteDate(end)||!finiteDate(start)||start>end||
