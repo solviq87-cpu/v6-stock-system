@@ -64,6 +64,7 @@
     "factor:capture:watch": "node scripts/factor-eod-capture.js watch",
     "factor:shadow:once": "node scripts/factor-shadow-worker.js once",
     "factor:shadow:watch": "node scripts/factor-shadow-worker.js watch",
+    "factor:shadow:archive:audit": "node scripts/factor-shadow-archive-audit.js compare",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
     "tracking:watch": "node scripts/forward-tracking-cloud.js watch",
     "research:sector:once": "node scripts/sector-strength-research.js once",
