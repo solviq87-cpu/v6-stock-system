@@ -5,6 +5,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
+const {verifyCanonicalManifestLineage}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
 const {preregisterCandidate,verifyPreregisteredCandidate}=
  require('../src/core/factor-candidate-prereg');
@@ -355,6 +356,11 @@ function evaluateOnce(conf,now,manifest){
    });
   }
  }
+ // Strictly recheck the ENTIRE frozen receipt -> first mature H5 archive
+ // lineage for canonical manifests. A valid manifest hash alone is not proof.
+ // Keep preregistration and trial-budget checks ahead of opening any H5 files.
+ if(manifest.mode==='v6-forward-training-manifest')
+  verifyCanonicalManifestLineage(manifest,{now});
  const episodes=manifest.episodes.map((x,i)=>({
   features:frozen[i],report:readEpisodeReport(x.reportFile)
  }));

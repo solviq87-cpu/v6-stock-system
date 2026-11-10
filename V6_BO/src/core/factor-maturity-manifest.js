@@ -97,4 +97,71 @@ function createManifest(episodes){
   episodes:entries,canTrade:false,productionWeightsChanged:false};
  return {...payload,integrity:hash(payload)};
 }
-module.exports={verifyDailyCapture,discoverCaptures,firstMaturedArchive,createManifest,hash};
+/**
+ * Strict re-audit of an immutable, canonical training manifest at the actual
+ * learning boundary. The manifest checksum alone is self-declared: it does not
+ * prove that outcomes came from the FIRST sealed mature H5 archive or from
+ * the original signal/factor capture receipt.
+ *
+ * This is intentionally read-only and is NOT provider authentication.
+ */
+function verifyCanonicalManifestLineage(manifest,{now=Date.now()}={}){
+ if(!Number.isSafeInteger(now)||now<=0||
+    manifest?.schemaVersion!==1||
+    manifest.mode!=='v6-forward-training-manifest'||
+    manifest.evidenceBasis!=='first-matured-sealed-5-trading-day'||
+    manifest.canTrade!==false||manifest.productionWeightsChanged!==false||
+    !Array.isArray(manifest.episodes)||manifest.episodes.length<1||
+    manifest.episodes.length>400)
+  throw Error('训练清单或审核时钟无效');
+ const {integrity,...body}=manifest;
+ if(integrity!==hash(body))throw Error('训练清单完整性校验失败');
+ let previous=null;
+ for(const entry of manifest.episodes){
+  if(!entry||typeof entry.featuresFile!=='string'||
+     typeof entry.reportFile!=='string'||
+     !path.isAbsolute(entry.featuresFile)||!path.isAbsolute(entry.reportFile))
+   throw Error('训练清单缺少私有冻结文件或观察归档路径');
+  const featuresFile=path.resolve(entry.featuresFile);
+  const reportFile=path.resolve(entry.reportFile);
+  const match=/^features-(\d{4}-\d{2}-\d{2})\.json$/.exec(path.basename(featuresFile));
+  const signalDay=match?.[1];
+  if(!signalDay||!day(signalDay)||(previous&&signalDay<=previous))
+   throw Error('训练清单的信号日期重复、乱序或路径不符');
+  previous=signalDay;
+  // The original receipt must reproduce the immutable cohort and features,
+  // not just repeat a self-signed manifest path.
+  const receipt=verifyDailyCapture(path.join(path.dirname(featuresFile),
+   'receipt-'+signalDay+'.json'),{now});
+  if(receipt.featuresFile!==featuresFile)
+   throw Error('训练清单未指向原始冻结因子文件');
+  const historyDir=path.dirname(reportFile);
+  const trackingDayDir=path.dirname(historyDir);
+  if(path.basename(historyDir)!=='forward-tracking-history'||
+     path.basename(trackingDayDir)!==signalDay||
+     !/^\d{8}-\d{4}-\d{2}-\d{2}\.json$/.test(path.basename(reportFile)))
+   throw Error('训练结果不是该信号日的不可变H5观察归档');
+  // readSnapshot checks content SHA, original observation time and audit.
+  const archived=readSnapshot(reportFile);
+  if(!archived)throw Error('训练结果归档不存在');
+  verifyAndJoin(receipt.features,archived.report,now);
+  if(archived.report.records.length!==receipt.features.features.length||
+     !archived.report.records.every(r=>{
+      const w=r.windows?.[1];
+      return w&&typeof w.targetDate==='string'&&day(w.targetDate)&&
+       w.targetDate<=archived.report.asOf&&
+       ['observed','missing-or-suspended','corporate-action-unresolved']
+        .includes(w.status);
+     }))
+   throw Error('未完成的五交易日观察不得进入训练清单');
+  const first=firstMaturedArchive(path.join(trackingDayDir,'current.json'),
+   receipt.features,{now});
+  if(first!==reportFile)
+   throw Error('训练清单必须使用最早封存的成熟H5归档，不得事后挑选');
+ }
+ return {status:'canonical-lineage-verified-local-only',verifiedEpisodes:manifest.episodes.length,
+  readOnly:true,authorizedProviderIndependentlyVerified:false,
+  independentExchangeCalendarVerified:false,canTrade:false,
+  productionWeightsChanged:false};
+}
+module.exports={verifyDailyCapture,discoverCaptures,firstMaturedArchive,createManifest,verifyCanonicalManifestLineage,hash};
