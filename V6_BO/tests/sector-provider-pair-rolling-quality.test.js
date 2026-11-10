@@ -386,6 +386,30 @@ test('a registered missing signal day remains a coverage loss, not a cherry-pick
  assert.equal(r.expectedSignalDays,5);
  assert.equal(r.receivedEpisodeCount,3);
 });
+test('missing policy, explicit null policy or injected promotion fields fail closed without exceptions',()=>{
+ const {receipt,evidence}=registeredFixture();
+ const opts={now:asOf+1000};
+ for(const modify of [
+  e=>delete e.policy,
+  e=>e.policy=null,
+  e=>e.policy=[],
+  e=>e.canTrain=true,
+  e=>e.externalVerificationClaim='trusted'
+ ]){
+  const data={schemaVersion:1,
+   mode:'sector-provider-pair-quality-imported-input',
+   source:'imported',...structuredClone(evidence)};
+  modify(data);
+  let result;
+  assert.doesNotThrow(()=>{
+   result=verifyRegisteredSectorPairEvidence(receipt,data,opts);
+  });
+  assert.equal(result.status,'blocked');
+  assert.equal(result.canTrain,false);
+  assert.equal(result.canTrade,false);
+ }
+});
+
 test('registration CLI writes one 0600 receipt; registered reports are immutable and reproducible',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-registered-pair-'));
  try{
