@@ -129,3 +129,28 @@ test('valid cooldown-only evidence never spends trial slots but cannot hide an i
  const legacyMonitor={...monitored};delete legacyMonitor.trialAudit;
  assert.equal(assessGlobalTrialBudget([legacyMonitor],ds,pack).usedTrials,0);
 });
+
+test('cooldown and recovered monitor-only archives cannot be newer than the restored manifest',()=>{
+ const ds=days(110),restored=ds.slice(0,50);
+ for(const status of ['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered']){
+  const monitor={...record(ds,10),status,
+   trialAudit:{schemaVersion:1,status:'not-evaluated'}};
+  assert.equal(monitor.lastObservationDay,ds[55]);
+  assert.throws(()=>assessGlobalTrialBudget([monitor],restored,pack),
+   /全局监控或试验档案晚于当前研究清单，历史交易日倒退/);
+  assert.throws(()=>assessGlobalTrialBudget([{
+   ...monitor,lastObservationDay:'2026-02-30'
+  }],ds,pack),/全局研究档案最后观察日期无效/);
+  // Monitoring still consumes no attempts when its date is legitimate.
+  const inBounds={...monitor,lastObservationDay:ds[49]};
+  const valid=assessGlobalTrialBudget([inBounds],restored,pack);
+  assert.equal(valid.usedTrials,0);
+  assert.equal(valid.remainingTrials,6);
+ }
+ // A legacy cooldown warning without trialAudit remains monitoring-only,
+ // but it cannot bypass the same chronology gate.
+ const legacy={...record(ds,10),status:'paused-shadow-decay'};
+ delete legacy.trialAudit;
+ assert.throws(()=>assessGlobalTrialBudget([legacy],restored,pack),
+  /全局监控或试验档案晚于当前研究清单，历史交易日倒退/);
+});
