@@ -135,6 +135,31 @@ test('new private archive is 0600, write-once, and retry only verifies identical
  assert.equal(retry.changed,false);
  assert.equal(fs.readFileSync(f.outputFile,'utf8'),bytes);
 });
+test('actual PR149 private candidate capture file plugs into the new EOD cohort archive',t=>{
+ const x=input(),f=files(t);
+ const captureCli=require('../scripts/sector-shadow-candidate-capture');
+ const quoteFile=path.join(f.root,'snapshot.json');
+ const membersFile=path.join(f.root,'classification.json');
+ const candidateDir=path.join(f.root,'original-candidate');
+ fs.writeFileSync(quoteFile,JSON.stringify(x.snapshot));
+ fs.writeFileSync(membersFile,JSON.stringify(x.membership));
+ const previous=captureCli.runOnce(captureCli.parse([
+  'once',quoteFile,membersFile,candidateDir]),{now:candidateAt});
+ assert.equal(previous.status,'same-day-candidate-captured-unverified');
+ const actualFile=path.join(candidateDir,'candidate-'+day+'.json');
+ const c=JSON.parse(fs.readFileSync(actualFile,'utf8'));
+ assert.equal(c.integrity,previous.captureIntegrity);
+ assert.equal(c.entry.industries.length,0);
+ const newArgs=['once',actualFile,f.closeFile,f.outputDir];
+ const result=main(newArgs,{now:freezeAt});
+ assert.equal(result.status,'full-industry-close-cohorts-captured-unverified');
+ const sealed=JSON.parse(fs.readFileSync(f.outputFile,'utf8'));
+ assert.equal(sealed.originalCandidateIntegrity,c.integrity);
+ assert.equal(sealed.industries.length,3);
+ assert.equal(sealed.totalMemberCount,15);
+ assert.equal(sealed.canTrain,false);
+ assert.equal(sealed.canTrade,false);
+});
 test('changed raw closes and tampered archive cannot replace a previously frozen cohort',t=>{
  const f=files(t),first=main(f.args,{now:freezeAt});
  assert.equal(first.status,'full-industry-close-cohorts-captured-unverified');
