@@ -34,6 +34,10 @@ const IDENTITY_FIELDS=Object.freeze([
 const QUALITY_FIELDS=Object.freeze([
  'minMaturedSessions','maxDisagreementRatePct','maxNonComparableRatePct'
 ]);
+const EVIDENCE_FIELDS=Object.freeze([
+ 'schemaVersion','mode','source','asOf','tradeDates',
+ 'expectedSignalDates','policy','episodes'
+]);
 function validDates(calendar,scheduled){
  return Array.isArray(calendar)&&calendar.length>=22&&calendar.length<=2500&&
   calendar.every((d,i)=>validDay(d)&&(i===0||calendar[i-1]<d))&&
@@ -124,6 +128,9 @@ function verifyRegisteredSectorPairEvidence(receipt,evidence,{now=Date.now()}={}
  const status=verifySectorPairRegistration(receipt,{asOf:now});
  if(status.status==='blocked')return status;
  if(evidence?.schemaVersion!==1||
+  !evidence||typeof evidence!=='object'||Array.isArray(evidence)||
+  Object.keys(evidence).sort().join(',')!==
+   EVIDENCE_FIELDS.slice().sort().join(',')||
   evidence.mode!=='sector-provider-pair-quality-imported-input'||
   evidence.source!=='imported'||!validTime(evidence.asOf)||
   evidence.asOf>now||evidence.asOf<receipt.registeredAt||
@@ -133,7 +140,8 @@ function verifyRegisteredSectorPairEvidence(receipt,evidence,{now=Date.now()}={}
   !Array.isArray(evidence.episodes))
   return block('evidence-calendar-scheduled-dates-or-clock-mismatches-locked-receipt');
  const expectedPolicy=receipt.policy;
- if(sha(evidence.policy)!==sha(expectedPolicy))
+ if(!evidence.policy||typeof evidence.policy!=='object'||
+   Array.isArray(evidence.policy)||sha(evidence.policy)!==sha(expectedPolicy))
   return block('evidence-policy-differs-from-precommitted-quality-thresholds');
  for(const episode of evidence.episodes){
   const f=episode?.primary?.cohort;
