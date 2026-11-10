@@ -1037,3 +1037,85 @@ test('auto registration fails before opening any forward label when prior sealed
   /尚无已封存历史研究报告/);
  assert.equal(fs.readdirSync(outputDir).length,0);
 });
+
+test('strict watch auto-handoff registers one unseen future candidate without reading any H5 report',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-watch-auto-handoff-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'private');
+ const records=[];
+ const append=(from,to)=>{
+  for(let i=from;i<to;i++){
+   const e=episode(i),ff=path.join(dir,'f'+i+'.json'),
+    rf=path.join(dir,'r'+i+'.json');
+   fs.writeFileSync(ff,JSON.stringify(e.features));
+   fs.writeFileSync(rf,JSON.stringify(e.report));
+   records.push({featuresFile:ff,reportFile:rf});
+  }
+  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:records}));
+ };
+ append(0,56);
+ const clock=at(dates[60],'16:05:00');
+ const acceptedResult=runShadowWorker({manifestFile,outputDir,now:clock});
+ assert.equal(acceptedResult.status,'shadow-updated');
+ const accepted=latestAccepted(outputDir);
+ assert.equal(accepted.fingerprint,acceptedResult.fingerprint);
+ const invalidH5=records[0].reportFile;
+ const oldReport=fs.readFileSync(invalidH5);
+ fs.unlinkSync(invalidH5);
+ const strictAuto={manifestFile,outputDir,now:clock,
+  requirePreRegistration:true,autoRegisterCandidate:true};
+ const reg=runShadowWorker(strictAuto);
+ assert.equal(reg.status,'candidate-auto-preregistered');
+ assert.equal(reg.sourceFingerprint,accepted.fingerprint);
+ assert.ok(latestCandidateRegistration(outputDir,accepted,null));
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ const filesBefore=fs.readdirSync(outputDir);
+ const awaiting=runShadowWorker(strictAuto);
+ assert.equal(awaiting.status,'skipped-awaiting-post-prereg-signals');
+ assert.equal(awaiting.preregistrationFingerprint,reg.fingerprint);
+ assert.deepEqual(fs.readdirSync(outputDir),filesBefore);
+ fs.writeFileSync(invalidH5,oldReport);
+ append(61,66);
+ const evaluated=runShadowWorker({...strictAuto,
+  now:at(dates[70],'16:05:00')});
+ assert.ok(['shadow-updated','shadow-retained','paused-shadow-decay']
+  .includes(evaluated.status));
+ const archived=JSON.parse(fs.readFileSync(path.join(outputDir,
+  fs.readdirSync(outputDir).find(x=>x.includes(evaluated.fingerprint.slice(0,12)))),
+  'utf8'));
+ assert.equal(archived.preregistration.status,
+  'candidate-committed-before-new-signal');
+ assert.equal(archived.preregistration.registrationFingerprint,reg.fingerprint);
+ assert.equal(archived.preregistration.holdoutFirstDay,dates[61]);
+ assert.equal(archived.canTrade,false);
+ assert.equal(archived.productionWeightsChanged,false);
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+});
+test('watch auto-registration requires explicit strict mode, never auto-bootstrap from unknown H5 outcomes',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-watch-auto-no-prior-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const manifestFile=path.join(dir,'manifest.json'),outputDir=path.join(dir,'research');
+ const records=Array.from({length:36},(_,i)=>{
+  const e=episode(i),ff=path.join(dir,'f'+i+'.json');
+  fs.writeFileSync(ff,JSON.stringify(e.features));
+  return {featuresFile:ff,reportFile:path.join(dir,'NO-PRICE-REPORT-'+i+'.json')};
+ });
+ fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:records}));
+ assert.throws(()=>parseShadowWorker(['watch',manifestFile,outputDir,'--auto-prereg']),
+  /仅允许 watch 同时明确启用/);
+ assert.throws(()=>parseShadowWorker(['once',manifestFile,outputDir,'--auto-prereg',
+  '--require-prereg']),/仅允许 watch 同时明确启用/);
+ assert.throws(()=>parseShadowWorker(['watch',manifestFile,outputDir,
+  '--auto-prereg','--auto-prereg','--require-prereg']),/不可重复/);
+ const parsed=parseShadowWorker(['watch',manifestFile,outputDir,'--auto-prereg',
+  '--require-prereg','--interval','60000']);
+ assert.equal(parsed.autoRegisterCandidate,true);
+ assert.equal(parsed.requirePreRegistration,true);
+ assert.equal(parsed.interval,60000);
+ assert.throws(()=>runShadowWorker({manifestFile,outputDir,
+  autoRegisterCandidate:true,now:finalClock}),/必须先启用严格预注册/);
+ const status=runShadowWorker({manifestFile,outputDir,now:finalClock,
+  autoRegisterCandidate:true,requirePreRegistration:true});
+ assert.equal(status.status,'skipped-auto-prereg-needs-sealed-history');
+ assert.equal(fs.readdirSync(outputDir).length,0);
+});
