@@ -8,7 +8,10 @@
 const crypto=require('node:crypto');
 const {auditSectorPairQuality}=require('./sector-provider-pair-rolling-quality');
 const {aShareCalendarDate}=require('./a-share-calendar');
-const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const canonical=x=>Array.isArray(x)?x.map(canonical):
+ x&&typeof x==='object'?
+ Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
+const sha=x=>crypto.createHash('sha256').update(JSON.stringify(canonical(x))).digest('hex');
 const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(Date.parse(d+'T00:00:00Z')).toISOString().slice(0,10)===d;
@@ -82,7 +85,7 @@ function prepareSectorPairRegistration(plan,{now=Date.now()}={}){
   studyId:plan.studyId,registeredAt:now,registrationSource:'local-operator-clock-unattested',
   sourcePlanSha256:sha(plan),
   tradeDates:plan.tradeDates.slice(),expectedSignalDates:plan.expectedSignalDates.slice(),
-  identity:{...plan.identity},
+  identity:Object.fromEntries(IDENTITY_FIELDS.map(k=>[k,plan.identity[k]])),
   policy:{...plan.policy,registeredAt:now},
   ...safe};
  return {status:'locally-registered-unverified',
@@ -98,9 +101,13 @@ function verifySectorPairRegistration(receipt,{asOf=Date.now()}={}){
   !/^[0-9a-f]{64}$/.test(receipt.sourcePlanSha256||'')||
   !validDates(receipt.tradeDates,receipt.expectedSignalDates)||
   !validIdentity(receipt.identity)||
-  !validQuality({...receipt.policy,registeredAt:undefined}&&
-   Object.fromEntries(Object.entries(receipt.policy||{}).filter(([k])=>k!=='registeredAt')) )||
+  !validQuality(Object.fromEntries(Object.entries(receipt.policy||{})
+   .filter(([k])=>k!=='registeredAt')))||
   receipt.policy?.registeredAt!==receipt.registeredAt||
+  Object.keys(receipt).sort().join(',')!==
+   ['schemaVersion','mode','studyId','registeredAt','registrationSource',
+    'sourcePlanSha256','tradeDates','expectedSignalDates','identity',
+    'policy','integrity',...Object.keys(safe)].sort().join(',')||
   !Object.entries(safe).every(([k,v])=>receipt[k]===v))
   return block('invalid-or-rewritten-local-registration-receipt');
  const {integrity,...body}=receipt;
