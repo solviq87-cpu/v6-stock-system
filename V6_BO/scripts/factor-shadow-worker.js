@@ -154,8 +154,9 @@ function globalTrialBudget(dir,signalDays){
   if(report?.mode!=='v6-factor-shadow-evolution-v1'||
      typeof report.fingerprint!=='string')throw Error('试验预算档案结构无效');
   const {fingerprint,...payload}=report;
-  if(hash(payload)!==fingerprint||!name.includes(fingerprint.slice(0,12)))
-   throw Error('试验预算档案完整性无效');
+  if(hash(payload)!==fingerprint||
+     name!==`shadow-${report.trainingEnd}-${fingerprint.slice(0,12)}.json`)
+   throw Error('试验预算档案完整性或封存日期文件名无效');
   return report;
  });
  return assessGlobalTrialBudget(archives,signalDays,hash(factorPack));
