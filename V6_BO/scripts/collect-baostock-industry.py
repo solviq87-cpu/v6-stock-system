@@ -42,7 +42,8 @@ def export(bs, standard, clock):
         if login.error_code != "0":
             raise ValueError("BaoStock登录失败")
         try:
-            result = bs.query_stock_industry(date=clock.strftime("%Y-%m-%d"))
+            # Provider current snapshot; a requested date does not prove historical membership.
+            result = bs.query_stock_industry()
             if result.error_code != "0":
                 raise ValueError("BaoStock行业分类查询失败")
             fields = result.fields
@@ -77,6 +78,8 @@ def export(bs, standard, clock):
     return {
         "schemaVersion": 1,
         "source": "baostock:query_stock_industry",
+        "collectionMode": "current-provider-snapshot",
+        "historicalMembershipVerified": False,
         "completed": True,
         "standard": standard,
         "updateDate": update_date,
@@ -123,6 +126,8 @@ def main(argv):
     print(json.dumps({
         "mode": "industry-membership-export-only", "rows": bundle["declaredRows"],
         "classificationDate": bundle["updateDate"],
+        "collectionMode": bundle["collectionMode"],
+        "historicalMembershipVerified": False,
         "providerLicenseIndependentlyVerified": False,
         "verifiedLive": False, "canTrade": False,
     }, ensure_ascii=False))
