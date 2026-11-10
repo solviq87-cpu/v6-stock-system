@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {inspectSectorShadowEligibility:inspect}=require('../src/core/sector-shadow-learning-preflight');
 const {observeSectorShadowForward:observe}=require('../src/core/sector-shadow-forward-observer');
 const {bridgeExistingMarketSector:bridge}=require('../src/core/sector-breadth-market-bridge');
+const {freezeSectorMemberIdentity}=require('../src/core/sector-member-identity-proof');
 const days=['2026-11-04','2026-11-05','2026-11-06',
  '2026-11-09','2026-11-10','2026-11-11'];
 const clock=d=>Date.parse(d+'T10:30:00+08:00');
@@ -32,6 +33,7 @@ function fixture(day,{shift=0}={}){
  assert.equal(b.status,'imported-unverified');
  const record={schemaVersion:1,mode:'dated-sector-research-only',
   status:b.status,reason:null,tradeDate:day,observedAt:end,data:b,
+  memberIdentity:freezeSectorMemberIdentity(membership),
   verifiedLive:false,canTrade:false,weightsChanged:false};
  return {preflight:p,record};
 }
@@ -143,4 +145,23 @@ test('untrusted preview claims cannot unlock model weights or labels',()=>{
   const r=observe(f,archives,{tradeDates:days,asOf:clock(days.at(-1))});
   assert.equal(r.status,'blocked');assert.equal(r.canTrain,false);
  }
+});
+test('equal-count constituent substitution blocks 3/5-session observation',()=>{
+ const records=structuredClone(archives);
+ records[2].memberIdentity.sectors[0].memberSha256='f'.repeat(64);
+ const r=run(records);
+ assert.equal(r.status,'blocked');
+ assert.equal(r.threeSession.status,'blocked');
+ assert.match(r.threeSession.reason,/member-identity-drift/);
+ assert.equal(r.canTrain,false);
+});
+test('legacy baseline without fingerprint is blocked, later missing proof fails closed',()=>{
+ const old=structuredClone(archives);
+ delete old[0].memberIdentity;
+ assert.equal(run(old).reason,'missing-frozen-baseline-member-identity');
+ const later=structuredClone(archives);
+ delete later[1].memberIdentity;
+ const r=run(later);
+ assert.equal(r.status,'blocked');
+ assert.match(r.threeSession.reason,/missing-member-identity-proof/);
 });
