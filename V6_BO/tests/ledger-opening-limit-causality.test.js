@@ -22,7 +22,7 @@ test('opening limit-down remains nonfillable even if the price recovers intraday
  assert.ok(r.orders.some(o=>o.day===29&&o.side==='sell'&&o.status==='blocked'));
  assert.ok(!r.orders.some(o=>o.day===29&&o.side==='sell'&&o.status==='filled'));
  assert.equal(r.equity.find(x=>x.day===29).openPositions,1);
- assert.ok(r.equity.find(x=>x.day===29).value<options.initialCash??100000);
+ assert.ok(r.equity.find(x=>x.day===29).value<100000);
  assert.ok(r.orders.some(o=>o.day===30&&o.side==='sell'&&o.status==='filled'));
 });
 
