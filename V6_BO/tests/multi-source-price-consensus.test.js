@@ -159,3 +159,54 @@ test('public probe failure never permits lone optional source to synthesize a pr
  assert.equal(result.sourceStatuses[3].status,'eligible-for-comparison');
  assert.equal(result.canTrade,false);
 });
+
+test('midday boundary after successful public quotes never requests optional source or publishes a reference price',async()=>{
+ const start=Date.parse('2026-11-10T11:29:59+08:00');
+ const close=Date.parse('2026-11-10T11:30:01+08:00');
+ let virtualNow=start,optionalCalls=0;
+ const probe=async({code,providers})=>{
+  virtualNow=close;
+  return {schemaVersion:1,mode:'public-quote-probe',code,generatedAt:start,
+   probeOnly:true,canTrade:false,verifiedLive:false,paidServicesUsed:false,
+   sources:providers.map(id=>({id,status:'ok',
+    snapshot:{schemaVersion:1,provider:id,observedAt:start,
+     quotes:[{exchange:'SH',code,currency:'CNY',adjustment:'unadjusted',
+      volumeUnit:'share',status:'normal',timestamp:start-1000,
+      price:10,previousClose:10,volume:10000}]}}))};
+ };
+ const result=await checkMultiPublicPrices({code:'600519',now:start,
+  clock:()=>virtualNow,probe,
+  fetchItick:async()=>{optionalCalls++;throw Error('should not call');}});
+ assert.equal(optionalCalls,0);
+ assert.equal(result.status,'outside-weekday-session-window');
+ assert.equal(result.referencePrice,null);
+ assert.equal(result.sourceStatuses.length,4);
+ assert.equal(result.sourceStatuses[3].status,'unconfigured');
+ assert.equal(result.canTrade,false);
+});
+test('afternoon market close during optional-source retrieval blocks final quote publication',async()=>{
+ const start=Date.parse('2026-11-10T14:59:59+08:00');
+ const close=Date.parse('2026-11-10T15:00:01+08:00');
+ let virtualNow=start,optionalCalls=0;
+ const probe=async({code,providers})=>({
+  schemaVersion:1,mode:'public-quote-probe',code,generatedAt:start,
+  probeOnly:true,canTrade:false,verifiedLive:false,paidServicesUsed:false,
+  sources:providers.map(id=>({id,status:'ok',
+   snapshot:{schemaVersion:1,provider:id,observedAt:start,
+    quotes:[{exchange:'SH',code,currency:'CNY',adjustment:'unadjusted',
+     volumeUnit:'share',status:'normal',timestamp:start-1000,
+     price:10,previousClose:10,volume:10000}]}}))
+ });
+ const result=await checkMultiPublicPrices({code:'600519',now:start,
+  clock:()=>virtualNow,probe,
+  fetchItick:async()=>{
+   optionalCalls++;
+   virtualNow=close;
+   return {id:'itick',status:'fresh-unverified',
+    quote:q(10,start-1000)};
+  }});
+ assert.equal(optionalCalls,1);
+ assert.equal(result.status,'outside-weekday-session-window');
+ assert.equal(result.referencePrice,null);
+ assert.equal(result.canTrade,false);
+});
