@@ -660,5 +660,5 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
-module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,
+module.exports={freezeFeatureEpisode,evolveShadowFactors,verifyAndJoin,verifyEpisode,
  selectNonOverlappingMaturedCrossSections};
