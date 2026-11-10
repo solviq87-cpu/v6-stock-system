@@ -63,7 +63,9 @@
     "factor:shadow:once": "node scripts/factor-shadow-worker.js once",
     "factor:shadow:watch": "node scripts/factor-shadow-worker.js watch",
     "tracking:once": "node scripts/forward-tracking-cloud.js once",
-    "tracking:watch": "node scripts/forward-tracking-cloud.js watch"
+    "tracking:watch": "node scripts/forward-tracking-cloud.js watch",
+    "research:industry:once": "node scripts/observed-industry-participation.js",
+    "research:industry:collect": "python3 scripts/collect-baostock-industry.py"
   },
   "engines": {
     "node": ">=22.6"
