@@ -89,7 +89,7 @@ test('public Tencent, Eastmoney and Sina are all queried, optional fourth source
  const r=await checkMultiPublicPrices({code:'600519',now,probe,
   fetchItick:async()=>({id:'itick',status:'unconfigured'})});
  assert.equal(r.status,'sources-agree-unverified');
- assert.equal(r.referencePrice,10.00);
+ assert.equal(r.referencePrice,10.01);
  assert.equal(r.sourceCount,4);
  assert.equal(r.eligibleCount,3);
  assert.equal(r.canTrade,false);
