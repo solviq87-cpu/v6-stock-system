@@ -137,7 +137,7 @@ test('cooldown and recovered monitor-only archives cannot be newer than the rest
    trialAudit:{schemaVersion:1,status:'not-evaluated'}};
   assert.equal(monitor.lastObservationDay,ds[55]);
   assert.throws(()=>assessGlobalTrialBudget([monitor],restored,pack),
-   /全局监控或试验档案晚于当前研究清单，历史交易日倒退/);
+   /全局监控档案晚于当前研究清单，历史交易日倒退/);
   assert.throws(()=>assessGlobalTrialBudget([{
    ...monitor,lastObservationDay:'2026-02-30'
   }],ds,pack),/全局研究档案最后观察日期无效/);
@@ -152,5 +152,5 @@ test('cooldown and recovered monitor-only archives cannot be newer than the rest
  const legacy={...record(ds,10),status:'paused-shadow-decay'};
  delete legacy.trialAudit;
  assert.throws(()=>assessGlobalTrialBudget([legacy],restored,pack),
-  /全局监控或试验档案晚于当前研究清单，历史交易日倒退/);
+  /全局监控档案晚于当前研究清单，历史交易日倒退/);
 });
