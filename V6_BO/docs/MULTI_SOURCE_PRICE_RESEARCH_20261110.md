@@ -41,6 +41,24 @@ node scripts/multi-source-quote.js 600519
 5. 只有一个有效来源、时点不一致、价格冲突、缺价、停牌、越权/未配置、休市时：**`referencePrice:null`**，并显示具体拒绝原因。其他源不能偷偷继承旧源时间戳；数据源不能通过改写统一时间混为一个独立来源。**隔离故障：** iTick 授权/断线/格式错误或单次公开行情诊断异常，单独标为 `unavailable`，其他正常来源继续完成一致性比对；iTick 对响应正文进行读取前的 64 KiB 字节限制，拒绝异常超长响应。
 6. 即使多家一致，返回值始终 `providerLicensed:false`、`certifiedLive:false`、`exchangeCalendarVerified:false`、`canTrade:false`、`canNotify:false`，不得直接接模拟撮合、自动买卖、正式实时宣称或对外商业分发。
 
+## 上游身份去重（同一个数据源不能冒充多票）
+
+一次性研究融合接口 `fuseMultiSourcePrices` 的单条来源，可选增加 `upstreamGroup`，例如某个有权限的服务商以两个网关名称返回同一底层报价：
+
+```js
+{ id:'vendor-a-gateway-1', upstreamGroup:'vendor-a', status:'fresh-unverified', quote:normalizedQuote }
+{ id:'vendor-a-gateway-2', upstreamGroup:'vendor-a', status:'fresh-unverified', quote:normalizedQuote }
+```
+
+- `upstreamGroup` 是**操作者明确填写的来源身份组**，只允许小写英文、数字、连字符；缺省时使用已有来源 `id`，原有三家公开来源路径无需改动。
+- 一次诊断中，如果至少两条**可比较的新鲜报价**声明相同 `upstreamGroup`，返回 `status=duplicate-upstream-evidence`、`referencePrice:null` 和重复来源清单。即使价格完全一致也不把同一上游算成两个证据。
+- 过时或无效来源不进入重复有效源计算；若保留的两家来源实际各有独立声明组，仍执行既有报价时点、价格、前收及交易窗口约束。
+- 所有来源仍保留原价、原始报价时间与状态。来源组只作**声明一致性防误用**，无法证明未声明来源或别名确实独立，亦无法认证行情许可或交易所实时性。不得通过随机改名回避此门禁。
+- **宁可不给统一价，也不能通过重复上游制造共识。** 研究返回仍禁止模拟盘撮合、自动交易和正式实时宣称。
+
+离线回归：
+`node --test tests/multi-source-price-consensus.test.js tests/quote-nontrading-source-status.test.js`，随后继续 `npm run check`、`npm test`；只信当前提交的 CI 结果。
+
 ## 当日实测样本与适配边界
 
 2026-11-10 北京时间 13:47 左右，在一次性低频只读公开接口查询中，贵州茅台 `600519`：

@@ -4,21 +4,33 @@
 // evidence, emits immutable shadow-model revisions, NEVER production weights.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
-const {evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
+const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
+const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
+const {preregisterCandidate}=require('../src/core/factor-candidate-prereg');
+const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
- if(!['once','watch'].includes(mode)||!manifestFile||!outputDir||
+ if(!['once','watch','register'].includes(mode)||!manifestFile||!outputDir||
     !path.isAbsolute(manifestFile)||!path.isAbsolute(outputDir))
-  throw Error('用法: factor-shadow-worker.js once|watch <私有manifest绝对路径> <私有模型目录绝对路径> [--interval 60000]');
- if(flags.length&&(mode!=='watch'||flags.length!==2||flags[0]!=='--interval'))
-  throw Error('轮询仅支持 watch --interval 毫秒');
- const interval=flags.length?Number(flags[1]):60000;
+  throw Error('用法: factor-shadow-worker.js once|watch|register <私有manifest绝对路径> <私有模型目录绝对路径>');
+ safeNew(path.join(outputDir,'shadow-guard.json'));
+ if(mode==='register'){
+  if(flags.length!==1||!path.isAbsolute(flags[0]))
+   throw Error('register 仅接受一个候选权重JSON绝对路径');
+  return {mode,manifestFile,outputDir,candidateWeightsFile:flags[0]};
+ }
+ const requirePreRegistration=flags.includes('--require-prereg');
+ if(flags.filter(x=>x==='--require-prereg').length>1)
+  throw Error('不可重复设置严格预注册门禁');
+ const extra=flags.filter(x=>x!=='--require-prereg');
+ if(extra.length&&(mode!=='watch'||extra.length!==2||extra[0]!=='--interval'))
+  throw Error('轮询仅支持 watch --interval 毫秒及 --require-prereg');
+ const interval=extra.length?Number(extra[1]):60000;
  if(!Number.isSafeInteger(interval)||interval<30000||interval>3600000)
   throw Error('研究轮询间隔必须为30000至3600000毫秒');
- safeNew(path.join(outputDir,'shadow-guard.json'));
- return {mode,manifestFile,outputDir,interval};
+ return {mode,manifestFile,outputDir,interval,requirePreRegistration};
 }
 function latestAccepted(dir){
  if(!fs.existsSync(dir))return null;
@@ -129,6 +141,86 @@ function latestTrial(dir,accepted){
  }
  return history.at(-1)?.result||null;
 }
+/**
+ * Count ALL committed holdout inspections, not just trials under the last
+ * accepted model. Validate archive integrity before deriving the budget.
+ */
+function globalTrialBudget(dir,signalDays){
+ const names=fs.existsSync(dir)?fs.readdirSync(dir)
+  .filter(x=>/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/.test(x)):[];
+ if(names.length>500)throw Error('全局试验预算归档超过500项');
+ const archives=names.map(name=>{
+  const report=readJson(path.join(dir,name));
+  if(report?.mode!=='v6-factor-shadow-evolution-v1'||
+     typeof report.fingerprint!=='string')throw Error('试验预算档案结构无效');
+  const {fingerprint,...payload}=report;
+  if(hash(payload)!==fingerprint||
+     name!==`shadow-${report.trainingEnd}-${fingerprint.slice(0,12)}.json`)
+   throw Error('试验预算档案完整性或封存日期文件名无效');
+  return report;
+ });
+ return assessGlobalTrialBudget(archives,signalDays,hash(factorPack));
+}
+/**
+ * One pending immutable candidate per active accepted/trial lineage. Multiple
+ * precommitments would let researchers shop alternatives before evaluation.
+ */
+function latestCandidateRegistration(dir,accepted,previousTrial){
+ if(!fs.existsSync(dir))return null;
+ const names=fs.readdirSync(dir).filter(x=>/^prereg-[0-9a-f]{12}\.json$/.test(x));
+ if(names.length>500)throw Error('候选预注册目录超过500项');
+ const parent=accepted?.fingerprint||null,trial=previousTrial?.fingerprint||null;
+ const matches=[];
+ for(const name of names){
+  const r=readJson(path.join(dir,name));
+  if(r?.mode!=='v6-shadow-candidate-prereg-v1'||typeof r.fingerprint!=='string')
+   throw Error('候选预注册档案结构无效');
+  const {fingerprint,...payload}=r;
+  if(hash(payload)!==fingerprint||name!=='prereg-'+fingerprint.slice(0,12)+'.json')
+   throw Error('候选预注册档案完整性无效');
+  if(r.parentAcceptedFingerprint===parent&&r.parentTrialFingerprint===trial)
+   matches.push(r);
+ }
+ if(matches.length>1)throw Error('同一研究血缘存在多个预注册候选，拒绝挑选');
+ return matches[0]||null;
+}
+/**
+ * Explicit PRE-outcome registration: verify only frozen features, never read
+ * any forward reportFile. Candidate weights come from a separate bounded
+ * JSON file and are persisted before future signal snapshots may be created.
+ */
+function runRegister({manifestFile,outputDir,candidateWeightsFile,now=Date.now()}={}){
+ const conf=parse(['register',manifestFile,outputDir,candidateWeightsFile]);
+ const manifest=readJson(conf.manifestFile);
+ validateManifest(manifest);
+ return withResearchLock(conf.outputDir,()=>{
+ const features=manifest.episodes.map(e=>{
+  if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
+   throw Error('预注册必须提供冻结特征绝对路径');
+  // Deliberately DO NOT OPEN e.reportFile in the registration stage.
+  const frozen=readJson(e.featuresFile);
+  verifyEpisode(frozen,now);
+  return frozen;
+ });
+ const accepted=latestAccepted(conf.outputDir);
+ const previousTrial=latestTrial(conf.outputDir,accepted);
+ if(latestCandidateRegistration(conf.outputDir,accepted,previousTrial))
+  throw Error('同一血缘已存在预注册候选，禁止多个事前参数版本');
+ const base=features[0].factors;
+ const weights=accepted?.shadowWeights||
+  Object.fromEntries(base.map(x=>[x.id,x.baseWeight]));
+ const entry=preregisterCandidate({features,candidateWeights:readJson(candidateWeightsFile),
+  acceptedWeights:weights,registeredAt:now,
+  parentAcceptedFingerprint:accepted?.fingerprint||null,
+  parentTrialFingerprint:previousTrial?.fingerprint||null,
+  packFingerprint:hash(factorPack)});
+ const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+ writeNew(file,entry);
+ return {ok:true,status:'candidate-preregistered',fingerprint:entry.fingerprint,
+  latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
+  canTrade:false,productionWeightsChanged:false};
+ });
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -184,26 +276,50 @@ function validateManifest(manifest){
     manifest.episodes.length<36||manifest.episodes.length>400)
   throw Error('需要完整时间排序研究批次目录');
 }
-function runOnce({manifestFile,outputDir,now=Date.now()}={}){
+function runOnce({manifestFile,outputDir,now=Date.now(),
+ requirePreRegistration=false}={}){
  const conf=parse(['once',manifestFile,outputDir]);
  // Reject invalid manifests without creating or changing the output directory.
  const manifest=readJson(conf.manifestFile);
  validateManifest(manifest);
- return withResearchLock(conf.outputDir,()=>evaluateOnce(conf,now,manifest));
+ return withResearchLock(conf.outputDir,()=>evaluateOnce(
+  {...conf,requirePreRegistration},now,manifest));
 }
 function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
- const episodes=manifest.episodes.map(x=>{
+ const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
+ if(conf.requirePreRegistration&&!preRegistration&&!previousCooldown)
+  throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
+ // Audit the total experiment budget using immutable frozen FEATURE dates
+ // BEFORE opening any H5 forward-return report. A budget-denied challenger
+ // must not inspect held-out prices merely to discover that it cannot run.
+ const frozen=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
-  return {features:readJson(x.featuresFile),report:readEpisodeReport(x.reportFile)};
+  const features=readJson(x.featuresFile);
+  verifyEpisode(features,now);
+  return features;
  });
+ const trialBudget=globalTrialBudget(conf.outputDir,
+  frozen.map(x=>x.signalDay));
+ const cooldownOnly=previousCooldown&&
+  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+ if(trialBudget.remainingTrials===0&&!cooldownOnly)
+  return {ok:true,status:'skipped-global-trial-budget-exhausted',
+   usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
+   windowStartDay:trialBudget.windowStartDay,
+   canTrade:false,productionWeightsChanged:false};
+ const episodes=manifest.episodes.map((x,i)=>({
+  features:frozen[i],report:readEpisodeReport(x.reportFile)
+ }));
  let result;
  try{
   result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
-   previousTrial,marketContext:manifest.marketContext});
+   previousTrial,trialBudget,preRegistration,
+   requirePreRegistration:conf.requirePreRegistration,
+   marketContext:manifest.marketContext});
  }catch(e){
   if(previous&&/未增加新的训练时间窗/.test(String(e.message)))
    return {ok:true,status:'skipped-no-new-training',version:previous.version,
@@ -212,6 +328,11 @@ function evaluateOnce(conf,now,manifest){
    return {ok:true,status:'skipped-no-new-trial-holdout',
     version:previous?.version||0,
     previousTrialFingerprint:previousTrial.fingerprint,
+    canTrade:false,productionWeightsChanged:false};
+  if(/全局研究试验预算已耗尽/.test(String(e.message)))
+   return {ok:true,status:'skipped-global-trial-budget-exhausted',
+    usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
+    windowStartDay:trialBudget.windowStartDay,
     canTrade:false,productionWeightsChanged:false};
   throw e;
  }
@@ -231,6 +352,7 @@ function evaluateOnce(conf,now,manifest){
 }
 function main(args){
  const config=parse(args);
+ if(config.mode==='register')return runRegister(config);
  if(config.mode==='once')return runOnce(config);
  let busy=false,closing=false;
  const tick=()=>{
@@ -252,4 +374,5 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,latestAccepted,latestCooldown,latestTrial,main,readEpisodeReport};
+module.exports={parse,runOnce,runRegister,latestAccepted,latestCooldown,
+ latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport};

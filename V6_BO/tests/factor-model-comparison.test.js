@@ -114,3 +114,27 @@ test('five unseen days remain explicitly low evidence and partial blocks are not
  assert.equal(eleven.proposedVsOriginal.fragility.incompleteTailDays,1);
  assert.equal(eleven.proposedVsOriginal.fragility.completeFiveObservationBlocks[1].lastDay,'2026-06-10');
 });
+
+test('rounded first-half IC must not falsely pass the shadow promotion gate',()=>{
+ const deltas=[.001,.001,.001,-.004001,-.004001,.01,.01,.01,.01,.01];
+ const rows=tradingDays(10).map((row,i)=>({...row,
+  original:.10,accepted:.10,proposed:.10+deltas[i]}));
+ // True first-half delta is -0.0010004 (< -0.001); display rounds to -0.001.
+ const r=run(rows);
+ assert.equal(r.proposedVsOriginal.firstHalfDeltaIC,-.001);
+ assert.ok(r.proposedVsOriginal.meanDeltaIC>.002);
+ assert.equal(r.proposedVsOriginal.betterDayPct,80);
+ assert.equal(r.originalGatePassed,false);
+ assert.equal(r.canTrade,false);
+});
+
+test('rounded mean IC must not falsely reject a full-precision shadow uplift',()=>{
+ const rows=tradingDays(10).map(row=>({...row,
+  original:.10,accepted:.10,proposed:.1020004}));
+ // True uplift exceeds the strictly greater-than .002 threshold.
+ assert.equal(rows[0].proposed-rows[0].original>.002,true);
+ const r=run(rows);
+ assert.equal(r.proposedVsOriginal.meanDeltaIC,.002);
+ assert.equal(r.originalGatePassed,true);
+ assert.equal(r.productionWeightsChanged,false);
+});
