@@ -1182,6 +1182,15 @@ test('recovered-but-waiting cooldown cannot bypass strict prereg or read unseale
  assert.equal(alert.cooldown.phase,'active');
  const nine=[...alerted,...Array.from({length:9},(_,i)=>episode(61+i))];
  const cooling=evolveShadowFactors(nine,{now:finalClock,previous,previousCooldown:alert});
+ // An active cooldown is a pure safety-monitoring path, not a candidate trial:
+ // strict preregistration must not suppress its legitimate recovery evidence.
+ const strictCooling=evolveShadowFactors(nine,
+  {now:finalClock,previous,previousCooldown:alert,
+   requirePreRegistration:true});
+ assert.equal(strictCooling.status,'paused-shadow-cooldown');
+ assert.equal(strictCooling.cooldown.phase,'active');
+ assert.equal(strictCooling.trialAudit.status,'not-evaluated');
+ assert.equal(strictCooling.globalTrialBudget.consumedThisRun,false);
  const recovered=evolveShadowFactors([...nine,episode(70)],
   {now:finalClock,previous,previousCooldown:cooling});
  assert.equal(recovered.status,'shadow-recovered');
