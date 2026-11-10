@@ -160,6 +160,21 @@ test('actual PR149 private candidate capture file plugs into the new EOD cohort 
  assert.equal(sealed.canTrain,false);
  assert.equal(sealed.canTrade,false);
 });
+test('preexisting group/world accessible output directory never receives frozen research',t=>{
+ const f=files(t);
+ fs.mkdirSync(f.outputDir,{recursive:true,mode:0o755});
+ fs.chmodSync(f.outputDir,0o755);
+ const result=runOnce(parse(f.args),{now:freezeAt});
+ assert.equal(result.status,'blocked');
+ assert.equal(result.reason,'private-research-output-directory-permissions-too-open');
+ assert.equal(result.changed,false);
+ assert.equal(result.canTrade,false);assert.equal(result.canTrain,false);
+ assert.equal(fs.existsSync(f.outputFile),false);
+ fs.chmodSync(f.outputDir,0o700);
+ const accepted=runOnce(parse(f.args),{now:freezeAt});
+ assert.equal(accepted.status,'full-industry-close-cohorts-captured-unverified');
+ assert.equal(fs.statSync(f.outputFile).mode&0o777,0o600);
+});
 test('changed raw closes and tampered archive cannot replace a previously frozen cohort',t=>{
  const f=files(t),first=main(f.args,{now:freezeAt});
  assert.equal(first.status,'full-industry-close-cohorts-captured-unverified');
