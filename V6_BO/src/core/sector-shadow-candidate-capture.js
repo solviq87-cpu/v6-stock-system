@@ -24,7 +24,11 @@ function prepareSectorShadowCandidateCapture(snapshot,membership,{now=Date.now()
    !membership||membership.tradeDate!==snapshot.date||
    sampledAt>now||now-sampledAt>300000||
    aShareCalendarDate(now)!==snapshot.date||
-   aShareCalendarDate(sampledAt)!==snapshot.date)
+   aShareCalendarDate(sampledAt)!==snapshot.date||
+   // Signal-day close must already have passed. Intraday quote snapshots
+   // are not eligible to masquerade as end-of-day research evidence.
+   sampledAt<Date.parse(snapshot.date+'T15:00:00+08:00')||
+   sampledAt>Date.parse(snapshot.date+'T16:00:00+08:00'))
   return reject('requires-fresh-same-day-operator-observation-within-five-minutes');
  let preflight;
  try{preflight=inspectSectorShadowEligibility(snapshot,membership,{asOf:sampledAt});}
