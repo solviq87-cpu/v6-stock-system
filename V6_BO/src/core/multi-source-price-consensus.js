@@ -33,7 +33,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   else if(s.status==='dated-snapshot')reason='dated-snapshot';
   else if(s.status==='fresh-unverified'){
    if(!q||q.code!==code||q.exchange!==expectedExchange||q.currency!=='CNY'||
-    q.adjustment!=='unadjusted'||q.status==='halted'||q.status==='delisted'||
+    q.adjustment!=='unadjusted'||!['normal','market-state-unverified'].includes(q.status)||
     !Number.isFinite(q.price)||q.price<=0||!Number.isFinite(q.previousClose)||
     q.previousClose<=0||!Number.isSafeInteger(q.quoteAt)||q.quoteAt<=0)
     reason='invalid-quote';
