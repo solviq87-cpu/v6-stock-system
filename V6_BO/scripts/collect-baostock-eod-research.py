@@ -200,7 +200,7 @@ def parse_args(argv, clock=beijing_clock):
 
 
 def main(argv):
-    codes, start, end, dataset_id, output = parse_args(argv)
+    codes, start, end, dataset_id, output = parse_args(argv, clock=beijing_clock)
     try:
         import baostock as bs
     except ImportError as e:
