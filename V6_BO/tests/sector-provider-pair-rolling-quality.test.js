@@ -94,7 +94,7 @@ function episode(idx){
 const indices=[0,1,2,3,4];
 function fixture(){
  return {episodes:indices.map(episode),
-  expectedSignalDates:indices.map(i=>days[i]),tradeDates:days,
+  expectedSignalDates:indices.map(i=>days[i]),tradeDates:days.slice(),
   policy:{schemaVersion:1,mode:'preregistered-sector-provider-pair-quality',
    registeredAt:firstRegistered,minMaturedSessions:3,
    maxDisagreementRatePct:10,maxNonComparableRatePct:20},
