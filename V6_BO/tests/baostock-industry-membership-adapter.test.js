@@ -116,3 +116,11 @@ test('BaoStock collector refuses network before SDK login unless explicitly auth
  assert.equal(r.status,1);
  assert.equal(fs.existsSync(dest),false);
 });
+
+test('BaoStock collector never requests historical classification by a date argument',()=>{
+ const script=fs.readFileSync(path.resolve(__dirname,'../scripts/collect-baostock-industry.py'),'utf8');
+ assert.match(script,/bs\.query_stock_industry\(\)/);
+ assert.doesNotMatch(script,/bs\.query_stock_industry\(date\s*=/);
+ assert.match(script,/"collectionMode": "current-provider-snapshot"/);
+ assert.match(script,/"historicalMembershipVerified": False/);
+});
