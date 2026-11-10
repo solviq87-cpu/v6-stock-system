@@ -43,8 +43,11 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
    else {reason='eligible-for-comparison';valid.push({id:s.id,price:q.price,quoteAt:q.quoteAt});}
   }else if(s.status==='unavailable')reason='unavailable';
   else reason='invalid-status';
+  const quoteAt=Number.isSafeInteger(q?.quoteAt)&&q.quoteAt>0?q.quoteAt:null;
+  const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   sourceStatuses.push({provider:s.id,status:reason,
-   quoteAt:Number.isSafeInteger(q?.quoteAt)?q.quoteAt:null});
+   quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
+   observedPrice,inConsensus:false});
  }
  const base={schemaVersion:1,mode:'multi-source-price-consensus-research',
   code,checkedAt:new Date(now).toISOString(),referencePrice:null,representativeProvider:null,
@@ -52,7 +55,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
   sourceStatuses,priceToleranceBps,timeGapMs,maxAgeMs,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
   canTrade:false,canNotify:false,
-  note:'仅比较逐股、同交易日且时间接近的供应商报价；缺失/冲突不输出统一价格；不认证供应商独立性或实时报价许可。'};
+  note:'仅比较逐股、同交易日且时间接近的供应商报价；逐源原始价格/时点保留，异常价格不自动乘除比例或取平均；缺失/冲突不输出统一价格，不认证独立性或许可。'};
  // This checks weekday clocks only; a statutory holiday can look like a session.
  if(!session(now))return {...base,status:'outside-weekday-session-window'};
  if(valid.length<2)return {...base,status:'insufficient-comparable-sources'};
@@ -72,6 +75,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,timeGapMs=
  // Equally sized but different coherent sets have no unambiguous winner.
  if(best.length!==1)return {...base,status:'ambiguous-price-groups'};
  const matched=best[0],ids=new Set(matched.map(x=>x.id));
+ for(const status of sourceStatuses)status.inConsensus=ids.has(status.provider);
  const representative=[...matched].sort((a,b)=>b.quoteAt-a.quoteAt||a.id.localeCompare(b.id))[0];
  return {...base,status:matched.length===valid.length?'sources-agree-unverified':'partial-source-agreement-unverified',
   // An observed price from one confirming provider, NEVER an invented average.
