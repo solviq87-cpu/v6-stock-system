@@ -53,3 +53,35 @@ test('authorization failure and malformed token return fail closed without leaki
  assert.doesNotMatch(JSON.stringify(r),/fake-secret/);
  await assert.rejects(()=>fetchItickStockQuote({code:'600519',now,token:'x\r\ny'}),/凭据/);
 });
+
+test('oversized streamed response fails closed without reading full remote body',async()=>{
+ let chunksRead=0;
+ async function* largeBody(){
+  chunksRead++;
+  yield Buffer.alloc(40000,120);
+  chunksRead++;
+  yield Buffer.alloc(40000,120);
+  chunksRead++;
+  throw Error('must not read a third chunk');
+ }
+ const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
+  fetchImpl:async()=>({ok:true,body:largeBody()})});
+ assert.equal(r.status,'unavailable');
+ assert.equal(chunksRead,2);
+});
+test('declared huge content-length is rejected before streaming',async()=>{
+ let didRead=false;
+ const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
+  fetchImpl:async()=>({ok:true,headers:{get:()=>String(90000)},
+   body:{async *[Symbol.asyncIterator](){didRead=true;yield Buffer.from('{}');}}})});
+ assert.equal(r.status,'unavailable');
+ assert.equal(didRead,false);
+});
+test('normal bounded streamed iTick response is accepted',async()=>{
+ async function* body(){yield Buffer.from(JSON.stringify(data()));}
+ const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
+  fetchImpl:async()=>({ok:true,body:body()})});
+ assert.equal(r.status,'fresh-unverified');
+ assert.equal(r.quote.quoteAt,now-2000);
+ assert.equal(r.canTrade,false);
+});
