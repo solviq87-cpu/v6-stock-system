@@ -19,7 +19,7 @@ EOD close JSON 契约：schemaVersion=1，mode=sector-h5-imported-signal-day-eod
 
 - 完整校验 PR #149 原始候选封存、SHA、快照时间、原始行业成分和候选预检；不允许重排行业、改变信号基准或从旧日期生成新cohort。
 - 只读取已有私有文件，不访问网络、行情收费接口或模拟盘。路径必须为绝对路径，拒绝public和符号链接；单份输入限32MiB、档案限40MiB。
-- 新档案0600权限，临时写入+fsync+原子硬链接发布；已存在的同日输出绝不覆盖。同一源重复运行只能按当初冻结时钟验证相同文件字节和指纹；冲突则阻断。
+- 新档案0600权限，输出目录必须为私有0700级别（拒绝任何组/其他用户可进入的目录），临时写入+fsync+原子硬链接发布；已存在的同日输出绝不覆盖。同一源重复运行只能按当初冻结时钟验证相同文件字节和指纹；冲突则阻断。
 - 首次成功：full-industry-close-cohorts-captured-unverified（退出0）；已有相同档案：already-frozen-identical（退出0）；证据不足：blocked（退出2）；私有输入/文件系统异常：failed-private-input-validation（退出1）。错误输出不回显路径、原始数据或个股代码。
 - 本地时间、文件指纹可被拥有写权限者伪造；这只是内部一致性封存，**不是第三方可信时间戳、报价许可、策略有效性或前瞻认证**。所有执行路径保持canTrain:false、canTrade:false、canNotify:false、outOfSampleValidated:false、weightsChanged:false。
 
