@@ -245,3 +245,44 @@ test('configurable previous-close tolerance is bounded and does not change trade
  assert.ok(r.maxMatchedPreviousCloseGapBps>0);
  assert.equal(r.canTrade,false);
 });
+
+test('different provider labels sharing a declared upstream cannot manufacture independent consensus',()=>{
+ const a={...src('tencent',10),upstreamGroup:'shared-vendor'};
+ const b={...src('mirror',10.01),upstreamGroup:'shared-vendor'};
+ const result=fuse([a,b]);
+ assert.equal(result.status,'duplicate-upstream-evidence');
+ assert.equal(result.referencePrice,null);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.eligibleCount,2);
+ assert.deepEqual(result.duplicateUpstreamGroups,[
+  {upstreamGroup:'shared-vendor',providers:['mirror','tencent']}]);
+ assert.ok(result.sourceStatuses.every(s=>s.upstreamGroup==='shared-vendor'));
+});
+
+test('a duplicate upstream among three sources cannot pad votes while a stale alias is excluded',()=>{
+ const fresh=[{...src('tencent',10),upstreamGroup:'upstream-a'},
+  {...src('eastmoney',10.01),upstreamGroup:'upstream-a'},
+  {...src('sina',10),upstreamGroup:'upstream-b'}];
+ assert.equal(fuse(fresh).status,'duplicate-upstream-evidence');
+ assert.equal(fuse(fresh).referencePrice,null);
+ const stale={...fresh[1],quote:q(10.01,now-20000)};
+ const recovered=fuse([fresh[0],stale,fresh[2]]);
+ assert.equal(recovered.status,'sources-agree-unverified');
+ assert.equal(recovered.eligibleCount,2);
+ assert.equal(recovered.sourceStatuses[1].status,'stale-quote');
+ assert.deepEqual(recovered.supportingProviders,['sina','tencent']);
+ assert.equal(recovered.canTrade,false);
+});
+
+test('explicit upstream identity is validated without pretending an unverified identity is certified',()=>{
+ assert.throws(()=>fuse([{...src('tencent',10),upstreamGroup:'https://bad.example'},
+  src('sina',10)]),/上游身份标记无效/);
+ assert.throws(()=>fuse([{...src('tencent',10),upstreamGroup:''},
+  src('sina',10)]),/上游身份标记无效/);
+ const result=fuse([{...src('tencent',10),upstreamGroup:'vendor-a'},
+  {...src('sina',10.01),upstreamGroup:'vendor-b'}]);
+ assert.equal(result.status,'sources-agree-unverified');
+ assert.equal(result.providerLicensed,false);
+ assert.equal(result.certifiedLive,false);
+ assert.equal(result.canTrade,false);
+});
