@@ -165,3 +165,18 @@ test('legacy baseline without fingerprint is blocked, later missing proof fails 
  assert.equal(r.status,'blocked');
  assert.match(r.threeSession.reason,/missing-member-identity-proof/);
 });
+
+test('candidate member identity cannot be replaced even when sector scores stay identical',()=>{
+ const changed=structuredClone(frozen);
+ changed.shadowSample.memberIdentity.sectors[0].memberSha256='a'.repeat(64);
+ const r=observe(changed,archives,{tradeDates:days,asOf:clock(days.at(-1))});
+ assert.equal(r.status,'blocked');
+ assert.equal(r.reason,'candidate-member-identity-does-not-match-baseline');
+ assert.equal(r.canTrain,false);
+});
+test('legacy shadow candidate missing member identity is rejected',()=>{
+ const changed=structuredClone(frozen);
+ delete changed.shadowSample.memberIdentity;
+ const r=observe(changed,archives,{tradeDates:days,asOf:clock(days.at(-1))});
+ assert.equal(r.reason,'candidate-member-identity-does-not-match-baseline');
+});
