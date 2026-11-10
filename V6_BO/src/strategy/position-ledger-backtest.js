@@ -1,7 +1,7 @@
 'use strict';
 const {scanUniverse}=require('./universe-scanner');
 const {validateHistoricalBars}=require('./feed-quality');
-const {atLockedLimit,limitPct}=require('./walk-forward-backtest');
+const {atLockedLimit}=require('./historical-session');
 const {validateRiskLimits,evaluatePreviousCloseRisk}=require('../core/portfolio-risk-gate');
 const {tradingFees,validateFeeSchedules,maxAffordableQuantity}=require('../core/trading-fees');
 const {validateEntryPolicy,evaluateEntryRisk,consecutiveLosses}=require('../core/common-entry-risk');
