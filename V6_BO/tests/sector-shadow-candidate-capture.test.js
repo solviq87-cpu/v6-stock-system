@@ -13,7 +13,8 @@ const tradeDate='2026-11-10',end=Date.parse(tradeDate+'T15:00:00+08:00');
 const capturedAt=end+60000,late=end+6*60000;
 const tradeDates=['2026-11-10','2026-11-11','2026-11-12',
  '2026-11-13','2026-11-16','2026-11-17'];
-function source(){
+function source(day=tradeDate){
+ const sourceEnd=Date.parse(day+'T15:00:00+08:00');
  const stocks=[],sectors=[];
  for(let g=0;g<3;g++){
   const members=[];
@@ -21,20 +22,20 @@ function source(){
    const code=String(600001+g*100+j);
    members.push(code);
    stocks.push({code,pctChange:[4,1,-2][g]+j*.03,
-    vendorQuoteAt:end-5000});
+    vendorQuoteAt:sourceEnd-5000});
   }
   sectors.push({category:'industry',code:'BS_'+g,name:'industry'+g,
    memberCount:members.length,members});
  }
  return {
-  snapshot:{date:tradeDate,source:'eastmoney-clist-unverified-live',
+  snapshot:{date:day,source:'eastmoney-clist-unverified-live',
    universeSize:stocks.length,stocks,
-   startedAt:new Date(end-60000).toISOString(),
-   retrievedAt:new Date(end).toISOString()},
+   startedAt:new Date(sourceEnd-60000).toISOString(),
+   retrievedAt:new Date(sourceEnd).toISOString()},
   membership:{schemaVersion:1,source:'imported',
    provider:'baostock:query_stock_industry',
    classificationVersion:'operator-version-20261110',
-   tradeDate,observedAt:end-120000,sectors}
+   tradeDate:day,observedAt:sourceEnd-120000,sectors}
  };
 }
 function files(t,s=source()){
@@ -163,7 +164,7 @@ test('malformed modes, public outputs, symlinked input and duplicate path fail e
  assert.throws(()=>parse(['once',alias,f.membershipFile,f.outputDir]),/symlink/);
 });
 test('child CLI does not expose raw source or paths and rejects historic-only samples',t=>{
- const f=files(t);
+ const f=files(t,source('2026-10-30'));
  const result=spawnSync(process.execPath,[script,...f.args],
   {encoding:'utf8',timeout:12000});
  assert.equal(result.status,2);
