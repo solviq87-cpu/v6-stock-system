@@ -797,6 +797,7 @@ test('exhausted global budget denies the next challenger before opening absent h
   const payload={mode:'v6-factor-shadow-evolution-v1',
    packFingerprint,status:'shadow-retained',
    previousFingerprint:'unrelated-accepted-version-'+i,
+   trainingEnd:dates[i*5+1],
    lastObservationDay:dates[i*5+6],trialAudit:{
     schemaVersion:1,status:'consumed',trialNumber:i+1,
     firstHoldoutDay:dates[i*5+2],lastHoldoutDay:dates[i*5+6],
