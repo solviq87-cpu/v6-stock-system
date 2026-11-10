@@ -2,7 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {freezeCohort,evaluateForward}=require('../src/core/forward-signal-observer');
-const {freezeFeatureEpisode,evolveShadowFactors}=require('../src/core/factor-shadow-evolution');
+const {freezeFeatureEpisode,evolveShadowFactors,
+ selectNonOverlappingMaturedCrossSections}=require('../src/core/factor-shadow-evolution');
 const {execute}=require('../scripts/factor-shadow-evolution');
 const {runOnce:runShadowWorker,parse:parseShadowWorker}=require('../scripts/factor-shadow-worker');
 const at=(d,clock='16:00:00')=>Date.parse(d+'T'+clock+'+08:00');
@@ -20,10 +21,10 @@ function weekdays(n){
  return result;
 }
 const dates=weekdays(70);
-function episode(index){
+function episode(index,{reuseSymbols=false}={}){
  const d=dates[index],future=dates.slice(index,index+6),signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
-  const symbol='60000'+j,id=d+'-'+symbol,score=aScores[j],
+  const symbol=String(600000+(reuseSymbols?0:index%6*6)+j),id=d+'-'+symbol,score=aScores[j],
    reverse=100-score+jitter[j];
   signals.push({signalId:id,symbol,system:'manual',cohort:'research',
    provenance:'synthetic-protocol-test-not-market',signalDate:d,signalAt:at(d),
@@ -253,4 +254,52 @@ test('already reviewed historic episode fingerprints cannot be changed during se
  next[1].report.marketFingerprint='a'.repeat(64);
  assert.throws(()=>evolveShadowFactors(next,{now:finalClock,previous:old}),
   /历史冻结证据被替换或回写/);
+});
+
+test('shadow learning excludes a symbol until its previously used 5-day outcome matures, without deleting observations',()=>{
+ const section=(signalIndex,symbols,targetIndex)=>({
+  day:dates[signalIndex],features:{marketRegime:{regime:'unknown'}},
+  rows:symbols.map(symbol=>({symbol,returnPct:1,targetDate:dates[targetIndex]}))
+ });
+ const first=Array.from({length:6},(_,i)=>String(600000+i));
+ const second=Array.from({length:5},(_,i)=>String(600100+i));
+ const result=selectNonOverlappingMaturedCrossSections([
+  section(0,first,5),
+  section(1,first,6), // All six outcomes reuse overlapping same-stock windows.
+  section(2,[first[0],...second],7), // Only five fresh rows can be used.
+  section(6,first,11) // All six become eligible after their prior target day.
+ ]);
+ assert.equal(result.observed.length,3);
+ assert.deepEqual([...result.used],[dates[0],dates[2],dates[6]]);
+ assert.equal(result.excludedOverlappingRows,7);
+ assert.equal(result.excludedDuplicateSameDayRows,0);
+ assert.equal(result.observed[1].rows.length,5);
+ assert.equal(result.observed[2].rows.length,6);
+});
+test('same-day duplicate symbols still do not count as two independent stocks',()=>{
+ const rows=Array.from({length:5},(_,j)=>({
+  symbol:String(601000+j),returnPct:j,targetDate:dates[5]
+ }));
+ const result=selectNonOverlappingMaturedCrossSections([{
+  day:dates[0],rows:[...rows,
+   {symbol:rows[0].symbol,returnPct:2,targetDate:dates[5]}],
+  features:{marketRegime:{regime:'unknown'}}
+ }]);
+ assert.equal(result.observed.length,0); // Only four distinct admissible symbols remain.
+ assert.equal(result.excludedDuplicateSameDayRows,2);
+});
+test('replaying the same six stocks every day cannot fabricate 15 independent training days',()=>{
+ const source=Array.from({length:56},(_,i)=>episode(i,{reuseSymbols:true}));
+ assert.throws(()=>evolveShadowFactors(source,{now:finalClock}),
+  /样本不足或未来收益窗口重叠/);
+});
+test('rotating symbol cohorts preserve original immutable signals and sufficient nonoverlapping shadow training',()=>{
+ const source=Array.from({length:56},(_,i)=>episode(i));
+ const result=evolveShadowFactors(source,{now:finalClock});
+ assert.ok(result.sampleIndependence.eligibleCrossSectionDays>=50);
+ assert.equal(result.sampleIndependence.excludedOverlappingRows,0);
+ assert.equal(result.sampleIndependence.excludedDuplicateSameDayRows,0);
+ assert.equal(result.sampleIndependence.overlappingOriginalSignalsPreserved,true);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.productionWeightsChanged,false);
 });
