@@ -120,6 +120,13 @@ function observeSectorShadowForward(preflight,archives,{tradeDates,asOf=Date.now
  // Older archives without member fingerprints are not comparable evidence.
  if(!archiveIdentityBound(baseline))
   return block('missing-frozen-baseline-member-identity');
+ if(s.memberIdentity?.status!=='identity-frozen-unverified'||
+   s.memberIdentity.tradeDate!==s.tradeDate||
+   s.memberIdentity.observedAt!==baseline.data.membershipFrozenAt||
+   s.memberIdentity.membershipProvider!==s.membershipSource||
+   s.memberIdentity.classificationVersion!==s.classificationVersion||
+   JSON.stringify(s.memberIdentity)!==JSON.stringify(baseline.memberIdentity))
+  return block('candidate-member-identity-does-not-match-baseline');
  const ranked=baseline.data.study.sectors.filter(x=>x?.rank!==null&&x?.rank!==undefined);
  if(ranked.length!==s.sectors.length||
    ranked.some(x=>{
