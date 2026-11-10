@@ -42,7 +42,7 @@ test('sealing prevents future report, different factor pack, lineage tampering o
  assert.throws(()=>proposeFromSealedResearch(args(changed)),/历史封存训练报告/);
 });
 test('invalid calendar dates cannot seed an automatic candidate even with a matching local SHA',()=>{
- for(const invalid of ['2026-02-29','2026-02-30','2026-13-01','2026-00-10']){
+ for(const invalid of ['0000-01-01','2026-02-29','2026-02-30','2026-13-01','2026-00-10']){
   assert.throws(()=>proposeFromSealedResearch(args(sealed({lastObservationDay:invalid}))),
    /历史封存训练报告/);
  }
