@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {assessFactorReliability,pairedStability}=require('../src/core/factor-learning-reliability');
+const {assessFactorReliability,pairedStability,assessShadowDecay}=require('../src/core/factor-learning-reliability');
 const rows=(ics,regime='unknown')=>ics.map((ic,i)=>({day:'d'+i,regime,ic}));
 test('persistent directional information is eligible for bounded, confidence-adjusted shadow learning',()=>{
  const r=assessFactorReliability(rows(Array(30).fill(.36)));
@@ -116,4 +116,50 @@ test('incomplete last block cannot inflate the complete five-session confirmatio
  assert.equal(r.latestBlockMeanIC,.3);
  assert.ok(r.blockDirectionConsistencyPct<=100);
  assert.equal(r.productionWeightsChanged,false);
+});
+// Prospective shadow-decay tests. Controlled IC values are synthetic and
+// deliberately not used as evidence of actual market performance.
+test('accepted shadow underperforms immutable base on fresh days: pause and request research rollback review only',()=>{
+ const days=Array.from({length:10},(_,i)=>({day:'new-'+i,base:.16,shadow:-.23}));
+ const score=(sample,_ids,weight)=>({days:1,
+  meanIC:weight.x===1?sample[0].base:sample[0].shadow});
+ const report=assessShadowDecay(days,['x','y'],{x:1,y:1},{x:2,y:1},score);
+ assert.equal(report.status,'decay-alert-unverified');
+ assert.equal(report.assessedDays,10);
+ assert.equal(report.negativeDeltaPct,100);
+ assert.equal(report.alert,true);
+ assert.equal(report.rollbackReviewSuggested,true);
+ assert.equal(report.canTrade,false);
+ assert.equal(report.productionWeightsChanged,false);
+});
+test('two losing variants alone cannot manufacture relative shadow decay, and four days cannot certify it',()=>{
+ const score=(sample,_ids,weights)=>({days:1,
+  meanIC:weights.x===1?sample[0].base:sample[0].shadow});
+ const days=Array.from({length:10},(_,i)=>({day:'new-'+i,base:-.4,shadow:-.39}));
+ const stable=assessShadowDecay(days,['x','y'],{x:1},{x:2},score);
+ assert.equal(stable.alert,false);
+ assert.equal(stable.status,'no-decay-detected');
+ const short=assessShadowDecay(days.slice(0,4).map(x=>({...x,base:.2,shadow:-.5})),
+  ['x','y'],{x:1},{x:2},score);
+ assert.equal(short.status,'insufficient-fresh-evidence');
+ assert.equal(short.alert,false);
+});
+test('decay uses newest ten matured samples rather than dilution from older historical success',()=>{
+ const score=(sample,_ids,weights)=>({days:1,
+  meanIC:weights.x===1?sample[0].base:sample[0].shadow});
+ const days=[
+  ...Array.from({length:15},(_,i)=>({day:'old-'+i,base:0,shadow:.5})),
+  ...Array.from({length:10},(_,i)=>({day:'new-'+i,base:.15,shadow:-.15}))
+ ];
+ const r=assessShadowDecay(days,['x','y'],{x:1},{x:2},score);
+ assert.equal(r.windowDays,10);
+ assert.equal(r.assessedDays,10);
+ assert.equal(r.alert,true);
+ assert.ok(r.deltaIC<-.02);
+});
+test('mismatched per-day IC coverage cannot be compared as equal evidence',()=>{
+ const score=(_sample,_ids,weights)=>({days:weights.x===1?1:0,meanIC:.2});
+ assert.throws(()=>assessShadowDecay(
+  Array.from({length:5},(_,i)=>({day:String(i)})),['x','y'],{x:1},{x:2},score
+ ),/覆盖不一致/);
 });
