@@ -28,6 +28,11 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   if(!s||typeof s.id!=='string'||!/^[a-z][a-z0-9-]{0,39}$/.test(s.id)||providers.has(s.id))
    throw Error('来源缺失或重复');
   providers.add(s.id);
+  // A renamed wrapper around one vendor is not a second independent quote.
+  // This identity is operator-declared and is NOT vendor authentication.
+  const upstreamGroup=s.upstreamGroup===undefined?s.id:s.upstreamGroup;
+  if(typeof upstreamGroup!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(upstreamGroup))
+   throw Error('上游身份标记无效');
   const q=s.quote;
   let reason='unavailable';
   if(s.status==='unconfigured')reason='unconfigured';
@@ -41,13 +46,13 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
    else if(q.quoteAt>now)reason='future-quote';
    else if(now-q.quoteAt>maxAgeMs)reason='stale-quote';
    else if(chinaDay(q.quoteAt)!==chinaDay(now))reason='different-market-day';
-   else {reason='eligible-for-comparison';valid.push({id:s.id,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});}
+   else {reason='eligible-for-comparison';valid.push({id:s.id,upstreamGroup,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});}
   }else if(s.status==='unavailable')reason='unavailable';
   else reason='invalid-status';
   const quoteAt=Number.isSafeInteger(q?.quoteAt)&&q.quoteAt>0?q.quoteAt:null;
   const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   const observedPreviousClose=Number.isFinite(q?.previousClose)&&q.previousClose>0?q.previousClose:null;
-  sourceStatuses.push({provider:s.id,status:reason,
+  sourceStatuses.push({provider:s.id,upstreamGroup,status:reason,
    quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
    observedPrice,observedPreviousClose,inConsensus:false});
  }
@@ -60,6 +65,20 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   note:'仅比较逐股、同交易日且时间接近的供应商报价；最新价与前收盘价均需跨源一致，逐源保留原价/原时点；异常价格不自动乘除比例或取平均；冲突时不输出统一价格，不认证独立性或许可。'};
  // This checks weekday clocks only; a statutory holiday can look like a session.
  if(!session(now))return {...base,status:'outside-weekday-session-window'};
+ // Count independent declared upstream identities, not merely distinct labels.
+ // Fail closed rather than arbitrarily picking one of multiple aliases.
+ const byUpstream=new Map();
+ for(const q of valid){
+  if(!byUpstream.has(q.upstreamGroup))byUpstream.set(q.upstreamGroup,[]);
+  byUpstream.get(q.upstreamGroup).push(q.id);
+ }
+ const duplicateUpstreamGroups=[...byUpstream.entries()]
+  .filter(([,ids])=>ids.length>1)
+  .map(([upstreamGroup,providers])=>({upstreamGroup,providers:providers.sort()}))
+  .sort((a,b)=>a.upstreamGroup.localeCompare(b.upstreamGroup));
+ if(duplicateUpstreamGroups.length)return {...base,status:'duplicate-upstream-evidence',
+  duplicateUpstreamGroups,
+  note:base.note+'；本轮存在同一上游多个有效来源别名，不能将它们当独立票数'};
  if(valid.length<2)return {...base,status:'insufficient-comparable-sources'};
  const quorum=valid.length<=3?2:Math.floor(valid.length/2)+1;
  const groups=[];
