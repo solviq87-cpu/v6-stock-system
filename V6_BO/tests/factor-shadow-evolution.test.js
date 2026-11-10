@@ -722,7 +722,7 @@ test('unchanged calendar must audit historical accepted evidence before returnin
  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
 });
 
-test('no-new-training skip must audit spent trials and cooldown evidence first',()=>{
+test('a reverted input calendar cannot hide spent trials or active cooldown as a no-op',()=>{
  const base=Array.from({length:56},(_,i)=>episode(i));
  const accepted=evolveShadowFactors(base,{now:finalClock});
  assert.equal(accepted.status,'shadow-updated');
@@ -739,29 +739,23 @@ test('no-new-training skip must audit spent trials and cooldown evidence first',
  const spent=evolveShadowFactors(withFive,{now:finalClock,previous:accepted,marketContext});
  assert.equal(spent.status,'paused-market-shock');
  assert.equal(spent.trialAudit.status,'consumed');
- const next=[...withFive,episode(61)];
- // 61 -> 62 episodes adds one observation, but floor(0.56*n)
- // leaves the training end identical. The no-op must still audit history.
- assert.equal(Math.floor(61*.56),Math.floor(62*.56));
- assert.throws(()=>evolveShadowFactors(next,{now:finalClock,
-  previous:accepted,previousTrial:spent}),/未增加新的训练时间窗/);
- const changed=next.slice();
- changed[60]=episode(60,{reverseReturns:true});
- assert.throws(()=>evolveShadowFactors(changed,{now:finalClock,
+ // Accidentally restore a shorter manifest after a failed shadow trial.
+ // Its train end stays identical to the accepted 56-day model, but the
+ // sealed spent-holdout trial proves the research calendar advanced farther.
+ const rolledBack=[...base,episode(56)];
+ assert.equal(Math.floor(56*.56),Math.floor(57*.56));
+ assert.throws(()=>evolveShadowFactors(rolledBack,{now:finalClock,
+  previous:accepted}),/未增加新的训练时间窗/);
+ assert.throws(()=>evolveShadowFactors(rolledBack,{now:finalClock,
   previous:accepted,previousTrial:spent}),/历史试验账本完整性或样本血缘无效/);
  const corrupt={...spent,trialAudit:{...spent.trialAudit,trialNumber:999}};
- assert.throws(()=>evolveShadowFactors(next,{now:finalClock,
+ assert.throws(()=>evolveShadowFactors(rolledBack,{now:finalClock,
   previous:accepted,previousTrial:corrupt}),/历史试验账本完整性或样本血缘无效/);
  const decayed=[
   ...base,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))
  ];
  const cooldown=evolveShadowFactors(decayed,{now:finalClock,previous:accepted});
  assert.equal(cooldown.status,'paused-shadow-decay');
- const withCooldown=[...decayed,episode(61)];
- assert.throws(()=>evolveShadowFactors(withCooldown,{now:finalClock,
-  previous:accepted,previousCooldown:cooldown}),/未增加新的训练时间窗/);
- const revisedCooldown=withCooldown.slice();
- revisedCooldown[60]=episode(60);
- assert.throws(()=>evolveShadowFactors(revisedCooldown,{now:finalClock,
+ assert.throws(()=>evolveShadowFactors(rolledBack,{now:finalClock,
   previous:accepted,previousCooldown:cooldown}),/历史衰减冷却证据或血缘无效/);
 });
