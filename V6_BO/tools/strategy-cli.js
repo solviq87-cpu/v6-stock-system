@@ -25,8 +25,11 @@ function main(argv=process.argv.slice(2)){
     sellTaxBps:input.feeSchedules?null:input.sellTaxBps??5,
     note:'离线研究撮合参数；不代表真实成交或交易所认证'}};
  }else{
-  // Explicit compatibility route: never allow this simplified cash-only
-  // model to be silently presented as a comparable ledger backtest.
+  // Explicit compatibility route: the legacy helper redirects to a ledger
+  // when policy inputs are present. Reject those instead of mislabeling it.
+  const incompatible=['feeSchedules','riskPolicy','universeHistory','settlements',
+   'sellTaxBps','lotSize'].filter(k=>input?.[k]!=null);
+  if(incompatible.length)throw Error('旧版简化回测不支持账本/税费参数: '+incompatible.join(','));
   const report=walkForward(input);
   result={...report,executionModel:'legacy-simplified',
    researchOnly:true,canTrade:false,
