@@ -98,7 +98,7 @@ function latestTrial(dir,accepted){
   const audit=result.trialAudit;
   // Earlier sealed research reports already exposed their evaluation
   // holdout but were written before a formal trial ledger existed.
-  const legacy=!audit&&result.status==='shadow-retained';
+  const legacy=!audit&&['shadow-retained','paused-market-shock'].includes(result.status);
   const consumed=audit?.status==='consumed';
   if(!legacy&&!consumed)continue;
   const end=legacy?result.lastObservationDay:audit.lastHoldoutDay;
