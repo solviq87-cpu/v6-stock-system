@@ -109,6 +109,20 @@ test('changed quote, new member version or tampered sealed file must never overw
  r=main(f.args,{now:late});
  assert.equal(r.reason,'existing-candidate-file-corrupted-or-clock-inconsistent');
 });
+test('intraday and late-after-hours quote snapshots cannot masquerade as same-day EOD research',()=>{
+ for(const hour of ['10:30','16:30']){
+  const s=source(),at=Date.parse(tradeDate+'T'+hour+':00+08:00');
+  s.snapshot.startedAt=new Date(at-60000).toISOString();
+  s.snapshot.retrievedAt=new Date(at).toISOString();
+  s.snapshot.stocks.forEach(x=>{x.vendorQuoteAt=at-5000;});
+  s.membership.observedAt=at-120000;
+  const result=prepareSectorShadowCandidateCapture(s.snapshot,s.membership,
+   {now:at+60000});
+  assert.equal(result.status,'blocked');
+  assert.equal(result.capture,null);
+  assert.equal(result.canTrain,false);
+ }
+});
 test('late historical input without existing captured record never creates a faux same-day freeze',t=>{
  const f=files(t),r=main(f.args,{now:late});
  assert.equal(r.status,'blocked');
