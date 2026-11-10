@@ -36,6 +36,8 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    const response=await fetchImpl(address(id,code),{
     method:'GET',redirect:'manual',signal:controller.signal
    });
+   if(response?.type==='opaqueredirect')
+    return reason('redirect-refused');
    if(!response||!Number.isInteger(response.status))
     return reason('transport-error');
    const httpStatus=response.status;
