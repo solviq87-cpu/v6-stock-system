@@ -18,6 +18,9 @@ function renderSelection(report){
   add(root,'p',report.reason||'本次历史数据不足，无法生成选股理由','muted');return;
  }
  // Historical snapshot only; separate industry and concept tables, no live quote claims.
+ const sectorStateLabel={ 'broad-strength':'广泛强势',
+  'leader-concentrated':'龙头集中', 'developing-strength':'酝酿走强',
+  weak:'偏弱',mixed:'内部分化' };
  const daily=report.dailySectorStudy;
  if(daily){
   if(daily.status!=='imported-unverified')
@@ -30,7 +33,7 @@ function renderSelection(report){
       .sort((a,b)=>a.rank-b.rank).slice(0,5);
     if(rows.length)add(root,'p',(category==='industry'?'行业':'概念')+'观察：'+
       rows.map(s=>s.rank+'.'+s.name+' '+s.score+'/100'+'｜上涨 '+s.upPct+
-       '%｜板块 '+s.changePct+'%｜'+s.state).join('；'),'muted');
+       '%｜板块 '+s.changePct+'%｜'+(sectorStateLabel[s.state]||s.state)).join('；'),'muted');
    }
    if(!daily.rankedSectorCount)
     add(root,'p','同类有效板块不足3个，暂不生成强弱排名；缺价不补0','muted');
@@ -107,7 +110,7 @@ function renderSelection(report){
   if(Array.isArray(dailyStrength)&&dailyStrength.length)
    add(d,'p','当日所属板块参与度：'+dailyStrength.map(x=>
     x.name+'｜研究分 '+x.score+'｜上涨家数比例 '+x.upPct+
-    '%｜'+x.state).join('；')+'（仅导入样本；不变更正式选股权重）','muted');
+    '%｜'+(sectorStateLabel[x.state]||x.state)).join('；')+'（仅导入样本；不变更正式选股权重）','muted');
   const price=rationale.price||{},rise=rationale.whyUp||{};
   add(d,'p','历史收盘涨跌：'+(typeof price.changePct==='number'?price.changePct+'%':'不可核实')+
    '；'+(rise.conclusion||'无法核实上涨原因'));
