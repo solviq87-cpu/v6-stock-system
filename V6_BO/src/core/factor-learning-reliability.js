@@ -114,4 +114,51 @@ function pairedStability(days,ids,baseline,proposed,dailyScore){
   recentDeltaIC:round(second,7),positiveDayFractionPct:round(plus*100,2),
   halfPeriodsConsistent:first>=-0.001&&second>=-0.001&&mean(deltas.map(x=>x.delta))>.002};
 }
-module.exports={assessFactorReliability,pairedStability};
+/**
+ * Audit an already-accepted shadow version on later, unseen matured days.
+ * Evaluate at most the newest ten observations so stale historic success cannot
+ * dilute a sustained recent decline. This is a shadow diagnostic, not a
+ * production rollback or proof of live profitability.
+ */
+function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
+ if(!Array.isArray(days)||typeof dailyScore!=='function'||
+    !Array.isArray(ids)||ids.length<2)
+  throw Error('沙盒效果衰减的样本或因子协议无效');
+ const window=days.slice(-10),pairs=[];
+ for(const d of window){
+  const base=dailyScore([d],ids,baseWeights);
+  const accepted=dailyScore([d],ids,acceptedWeights);
+  if(base.days!==accepted.days)throw Error('效果衰减基准与沙盒样本覆盖不一致');
+  if(base.days===1){
+   if(!finite(base.meanIC)||!finite(accepted.meanIC)||
+      Math.abs(base.meanIC)>1||Math.abs(accepted.meanIC)>1)
+    throw Error('效果衰减IC证据无效');
+   pairs.push({date:d.day,baseIC:base.meanIC,shadowIC:accepted.meanIC,
+    delta:accepted.meanIC-base.meanIC});
+  }
+ }
+ const base={status:'insufficient-fresh-evidence',assessedDays:pairs.length,
+  windowDays:window.length,baselineMeanIC:null,shadowMeanIC:null,
+  deltaIC:null,negativeDeltaPct:null,firstHalfDeltaIC:null,
+  recentHalfDeltaIC:null,alert:false,rollbackReviewSuggested:false,
+  canTrade:false,productionWeightsChanged:false};
+ if(pairs.length<5)return base;
+ const mid=Math.floor(pairs.length/2);
+ const delta=pairs.map(x=>x.delta);
+ const baselineMeanIC=mean(pairs.map(x=>x.baseIC));
+ const shadowMeanIC=mean(pairs.map(x=>x.shadowIC));
+ const overall=mean(delta),first=mean(delta.slice(0,mid)),
+  recent=mean(delta.slice(mid));
+ const negativeFraction=delta.filter(x=>x<0).length/pairs.length;
+ // Joint criteria intentionally protect against noise or both variants
+ // deteriorating together. No automatic production or shadow rollback.
+ const alert=shadowMeanIC<-.02&&overall<=-.02&&
+  negativeFraction>=.8&&first<=-.01&&recent<=-.01;
+ return {...base,status:alert?'decay-alert-unverified':'no-decay-detected',
+  baselineMeanIC:round(baselineMeanIC,6),
+  shadowMeanIC:round(shadowMeanIC,6),deltaIC:round(overall,6),
+  negativeDeltaPct:round(negativeFraction*100,2),
+  firstHalfDeltaIC:round(first,6),recentHalfDeltaIC:round(recent,6),
+  alert,rollbackReviewSuggested:alert};
+}
+module.exports={assessFactorReliability,pairedStability,assessShadowDecay};

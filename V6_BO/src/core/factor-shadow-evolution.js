@@ -9,7 +9,7 @@ const pack=require('../../strategies/extended-factor-pack.json');
 const {freezeCohort}=require('./forward-signal-observer');
 const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
-const {assessFactorReliability,pairedStability}=require('./factor-learning-reliability');
+const {assessFactorReliability,pairedStability,assessShadowDecay}=require('./factor-learning-reliability');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -362,15 +362,25 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    testStability=pairedStability(freshTest,ids,oldWeights,proposal,dailyIC);
  const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
    testDelta=evolvedTest.meanIC-baselineTest.meanIC;
+ // Compare the already-accepted research weights against the immutable
+ // original factor-pack baseline on NEW observations only. A persistent loss
+ // pauses further research promotion and emits a rollback-review alert.
+ // Never mutate the previously accepted model, formal weights or account.
+ const officialWeights=Object.fromEntries(defs.map(f=>[f.id,f.baseWeight]));
+ const shadowDecay=previous?
+  assessShadowDecay(freshTest,ids,officialWeights,oldWeights,dailyIC):
+  {status:'not-applicable-first-version',assessedDays:0,alert:false,
+   rollbackReviewSuggested:false,canTrade:false,productionWeightsChanged:false};
  const shock=marketContext===undefined?null:assessMarketShock(marketContext,{asOf:now});
  const paused=shock?.deferLearningUpdate===true;
  const candidateChanged=ids.some(id=>proposal[id]!==oldWeights[id]);
- const accepted=candidateChanged&&!paused&&
+ const accepted=candidateChanged&&!paused&&!shadowDecay.alert&&
    validationDelta>0.002&&testDelta>0.002&&
    validStability.halfPeriodsConsistent&&testStability.halfPeriodsConsistent&&
    evolvedValidation.meanIC>0&&evolvedTest.meanIC>0;
  const weights=accepted?proposal:oldWeights;
- return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':'shadow-retained',{
+ return baseResult(accepted?'shadow-updated':paused?'paused-market-shock':
+  shadowDecay.alert?'paused-shadow-decay':'shadow-retained',{
   version:accepted?version:previous?.version||0,packVersion:pack.version,
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
   lastObservationDay:sorted.at(-1).day,previousFingerprint:accepted?previousFingerprint:
@@ -391,12 +401,17 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,marketContex
    stability:testStability,firstFreshDay:freshTest[0].day},
   shadowWeights:weights,proposedShadowWeights:proposal,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
+  pausedForShadowDecay:shadowDecay.alert,
+  rollbackReviewSuggested:shadowDecay.rollbackReviewSuggested,
+  shadowDecay,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),
   limitations:['自报导入源与SHA无法独立认证历史先验性/行情来源',
    '在持有期重叠、幸存者偏差、股票相关性和多重检验未消除前不代表因果收益',
    '前瞻冻结、逐期样本外和实际交易费用/滑点仍须独立审计',
    '市场状态只使用信号发生时输入的未认证指数广度证据，无法证明宏观因果关系',
    '连续晋级必须有比上一已接受版本更晚的独立保留测试日',
+   '效果衰减提醒基于最新最多10个成熟样本，需进一步核对市场环境和统计不确定性',
+   '只建议审查研究回退，不自动撤销既有研究档案，更不修改正式策略或账户',
    '仅研究沙盒自动进化，正式15因子/四套选股策略/模拟盘完全不变']
  });
 }
