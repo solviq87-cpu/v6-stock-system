@@ -12,6 +12,17 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  if(primary.source!=='imported'||secondary.source!=='imported'||!primary.provider||!secondary.provider||primary.provider===secondary.provider||!primary.datasetId||!secondary.datasetId)throw Error('多源核对必须为不同供应商提供的独立 imported 数据');
  if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');
  if(!primary.priceAdjustment||!secondary.priceAdjustment||!['qfq','hfq','unadjusted'].includes(primary.priceAdjustment.mode)||primary.priceAdjustment.mode!==secondary.priceAdjustment.mode)throw Error('多源核对要求一致且明确的复权方式');
+ // Optional source clock evidence must be supplied by BOTH feeds. Never
+ // infer quote freshness from asOf (a trading date) or local receipt time.
+ const aClock=primary.observedAt,bClock=secondary.observedAt;
+ if((aClock===undefined)!==(bClock===undefined))throw Error('多源时间戳缺失：两份数据必须同时提供 observedAt');
+ let observationSkewMs=null;
+ if(aClock!==undefined){
+  if(!Number.isSafeInteger(aClock)||!Number.isSafeInteger(bClock)||aClock<=0||bClock<=0)
+   throw Error('多源 observedAt 时间戳无效');
+  observationSkewMs=Math.abs(aClock-bClock);
+  if(observationSkewMs>300000)throw Error('多源行情观察时间相差超过五分钟，禁止一致性放行');
+ }
  const bs=new Map(secondary.stocks.map(s=>[String(s.code||s.symbol),s]));
  const differences=[];let total=0,comparedBars=0,maximumPriceDifferenceBps=0,maximumVolumeDifferencePct=0;
  function note(symbol,date,field,lhs,rhs,relative){total++;if(differences.length<maxDiscrepancies)differences.push({symbol,date,field,primary:lhs,secondary:rhs,relativeDifference:Math.round(relative*1e4)/1e4});}
@@ -34,7 +45,8 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
-  priceAdjustmentMode:primary.priceAdjustment.mode,comparedBars,discrepancies:total,displayedDiscrepancies:differences,
+  priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
+  timestampComparable:observationSkewMs!==null,comparedBars,discrepancies:total,displayedDiscrepancies:differences,
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   consensus:total===0,releaseReady:false,
