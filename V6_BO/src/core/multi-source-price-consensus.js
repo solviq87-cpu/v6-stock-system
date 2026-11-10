@@ -101,14 +101,23 @@ async function checkMultiPublicPrices(config={}){
   sources:PUBLIC_IDS.map(id=>({id,status:'unavailable'}))
    .concat([{id:'itick',status:'unconfigured'}],extraSources),
   priceToleranceBps,timeGapMs,maxAgeMs});
- const raw=await probe({code,providers:PUBLIC_IDS});
- const projected=projectProbe(raw,currentClock());
+ // A single optional adapter or public probe exception must not abort the
+ // complete research result. Errors are downgraded to explicitly unavailable.
+ let projected;
+ try{
+  const raw=await probe({code,providers:PUBLIC_IDS});
+  projected=projectProbe(raw,currentClock());
+ }catch{projected={sources:[]};}
  const sources=PUBLIC_IDS.map(id=>{
   const s=projected.sources.find(item=>item.id===id);
   return s?{id,status:s.status,quote:s.quote}: {id,status:'unavailable'};
  });
  // Official iTick is opt-in and needs an operator token, never embedded in code.
- const itick=await fetchItick({code,token:itickToken,now:currentClock()});
+ let itick;
+ try{itick=await fetchItick({code,token:itickToken,now:currentClock()});}
+ catch{itick=null;}
+ if(!itick||itick.id!=='itick'||!['fresh-unverified','dated-snapshot','unavailable','unconfigured'].includes(itick.status))
+  itick={id:'itick',status:'unavailable'};
  return fuseMultiSourcePrices({code,now:currentClock(),sources:[...sources,itick,...extraSources],
   priceToleranceBps,timeGapMs,maxAgeMs});
 }
