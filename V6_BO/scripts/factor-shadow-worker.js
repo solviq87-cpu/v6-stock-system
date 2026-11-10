@@ -287,13 +287,28 @@ function evaluateOnce(conf,now,manifest){
  const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
  if(conf.requirePreRegistration&&!preRegistration&&!previousCooldown)
   throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
- const episodes=manifest.episodes.map(x=>{
+ // Audit the total experiment budget using immutable frozen FEATURE dates
+ // BEFORE opening any H5 forward-return report. A budget-denied challenger
+ // must not inspect held-out prices merely to discover that it cannot run.
+ const frozen=manifest.episodes.map(x=>{
   if(typeof x?.featuresFile!=='string'||typeof x.reportFile!=='string')
    throw Error('批次文件路径无效');
-  return {features:readJson(x.featuresFile),report:readEpisodeReport(x.reportFile)};
+  const features=readJson(x.featuresFile);
+  verifyEpisode(features,now);
+  return features;
  });
  const trialBudget=globalTrialBudget(conf.outputDir,
-  episodes.map(e=>e.features?.signalDay));
+  frozen.map(x=>x.signalDay));
+ const cooldownOnly=previousCooldown&&
+  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+ if(trialBudget.remainingTrials===0&&!cooldownOnly)
+  return {ok:true,status:'skipped-global-trial-budget-exhausted',
+   usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,
+   windowStartDay:trialBudget.windowStartDay,
+   canTrade:false,productionWeightsChanged:false};
+ const episodes=manifest.episodes.map((x,i)=>({
+  features:frozen[i],report:readEpisodeReport(x.reportFile)
+ }));
  let result;
  try{
   result=evolveShadowFactors(episodes,{now,previous,previousCooldown,
