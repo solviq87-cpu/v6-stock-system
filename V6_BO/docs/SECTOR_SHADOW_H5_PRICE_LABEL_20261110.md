@@ -10,7 +10,7 @@ PR #92 只生成同日强度的影子候选；PR #95 的 3/5 交易日观察只�
 
 调用 `evaluateSectorShadowH5PriceLabels(preflight, membership, cohort, market, {sectorCode, now})`：
 
-1. `preflight` 是 PR #92 的 `inspectSectorShadowEligibility` 当时返回的成功预检，不是事后按收益重算出来的强势名单；身份和时点均需保存。
+1. `preflight` 是同交易日 `inspectSectorShadowEligibility` 返回的成功预检，不是事后按收益重算出来的强势名单；身份和时点均需保存。每个入选板块现在同时冻结从完整成员列表按排序稳定计算的 `memberSha256` 和 `memberCount`；H5 收益计算再次核对这两个证据。只比较分类版本号或成员数量不能发现“同数量换股”，缺少身份指纹的旧预检必须拒绝输出收益标签。SHA-256 是输入完整性线索，**不是第三方可信时间戳或数据来源认证**。
 2. `membership` 是同一天、同分类版本、行情观察之前的冻结成员对象；选中的板块必须是 `industry` 分类并有 **5–500 只**互异股票。现有 `freezeCohort` 一批最多500个信号，所以超出500只的完整行业**一律拒绝**，不许挑500个赢家冒充全部成员；未来要扩大覆盖，需先另设可验证的批次合并协议。
 3. `cohort` 必须由已有 `freezeCohort` 在信号当日生成，`feed.source=imported`，全体成员一只股票一个独立ID；`system=manual`、`cohort=sector-shadow/industry/<行业代码>`。信号时间不得早于同日北京时间16:00，冻结不得晚于本日，且离信号时间不超过5分钟，离同日板块观察时间不超过2小时。这个界限防止研究用次日数据补造前一日信号。
 4. `market` 是操作方已合法取得的未复权日K证据，需使用与冻结cohort完全相同的 `provider` / `datasetId` / `priceBasis`，包含明确交易日历、每位成员的基准日与将来日期的收盘价、成交量、停牌、公司行为标记。必须保持此前冻结的同日 `baselineClose` 精确一致。源或任何记录冲突会被已有 `evaluateForward` 拒绝。

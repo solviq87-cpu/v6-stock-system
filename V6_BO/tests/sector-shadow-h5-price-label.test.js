@@ -174,3 +174,55 @@ test('no 3-day price-label claim is invented from the separate descriptive rotat
  assert.equal(r.canTrain,false);
  assert.equal(r.canNotify,false);
 });
+
+test('ranked sector preview freezes a SHA-256 identity for every member group',()=>{
+ const g=seed();
+ const ranked=g.preflight.shadowSample.sectors;
+ assert.equal(ranked.length,3);
+ for(const s of ranked){
+  assert.equal(s.memberCount,5);
+  assert.match(s.memberSha256,/^[a-f0-9]{64}$/);
+ }
+ const r=exec(g);
+ assert.equal(r.status,'gross-h5-label-observed-unverified');
+ assert.equal(r.frozenMemberSha256,ranked[0].memberSha256);
+ assert.equal(r.canTrain,false);
+ assert.equal(r.canTrade,false);
+});
+test('same-count member replacement fails closed even if later cohort and prices are swapped to match',()=>{
+ const g=seed(),replacement='600999';
+ // Old logic only checked the unchanged version and complete count. A
+ // retrospectively swapped five-stock cohort could pass those gates.
+ g.membership.sectors[0].members[0]=replacement;
+ const oldSignals=g.cohort.signals;
+ const revised=oldSignals.map((s,i)=>i?{...s}:{
+  ...s,signalId:'sig-'+replacement,symbol:replacement});
+ g.cohort=freezeCohort({schemaVersion:1,feed,signals:revised},{now:frozenAt});
+ const m=marketOf(g);
+ assert.equal(m.stocks[0].symbol,replacement);
+ const r=exec(g,m);
+ assert.equal(r.status,'blocked');
+ assert.equal(r.reason,'frozen-sector-member-identity-mismatch');
+ assert.equal(r.labelsAvailable,false);
+ assert.equal(r.grossMeanReturnPct,null);
+ assert.equal(r.canTrain,false);
+});
+test('a legacy preview lacking frozen member identity cannot acquire H5 price labels',()=>{
+ const g=seed();
+ delete g.preflight.shadowSample.sectors[0].memberSha256;
+ const r=exec(g);
+ assert.equal(r.status,'blocked');
+ assert.equal(r.reason,'frozen-sector-member-identity-mismatch');
+ assert.equal(r.labelsAvailable,false);
+ assert.equal(r.canTrade,false);
+});
+test('constituent order alone does not change canonical member identity',()=>{
+ const g=seed(),market=marketOf(g);
+ // Preserve each symbol's existing baseline when only the membership display
+ // order changes; reassigning closes by the new array order would be invalid.
+ g.membership.sectors[0].members.reverse();
+ const r=exec(g,market);
+ assert.equal(r.status,'gross-h5-label-observed-unverified');
+ assert.equal(r.frozenMemberSha256,g.preflight.shadowSample.sectors[0].memberSha256);
+ assert.equal(r.canTrain,false);
+});
