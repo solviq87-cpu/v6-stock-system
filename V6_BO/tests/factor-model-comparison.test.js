@@ -74,3 +74,43 @@ test('impossible factor scores and malformed baseline definitions cannot qualify
  assert.throws(()=>compareShadowVersions(tradingDays(10),['factor','other'],
   {factor:1,other:1},{factor:2,other:1},{factor:0,other:1},score),/权重缺失/);
 });
+
+test('paired robustness reports leave-one-out and complete five-observation blocks without promoting',()=>{
+ const r=run(tradingDays(10));
+ const frag=r.proposedVsOriginal.fragility;
+ assert.equal(frag.status,'descriptive-unverified');
+ assert.equal(frag.assessedDays,10);
+ assert.equal(frag.worstLeaveOneOutMeanDeltaIC,.06);
+ assert.equal(frag.bestLeaveOneOutMeanDeltaIC,.06);
+ assert.equal(frag.singleDayDependent,false);
+ assert.equal(frag.completeFiveObservationBlocks.length,2);
+ assert.equal(frag.allCompleteBlocksPositive,true);
+ assert.equal(frag.incompleteTailDays,0);
+ assert.equal(frag.changesPromotionGate,false);
+ assert.equal(frag.canTrade,false);
+ assert.equal(r.originalGatePassed,true);
+ assert.equal(r.proposedVsAccepted.fragility.worstLeaveOneOutMeanDeltaIC,.04);
+});
+
+test('a large single-day outlier is reported as fragile even when mean improvement is positive',()=>{
+ const rows=tradingDays(10).map((row,i)=>({...row,
+  original:.10,accepted:.10,proposed:i===0?.99:.08}));
+ const r=run(rows);
+ assert.ok(r.proposedVsOriginal.meanDeltaIC>0);
+ assert.equal(r.proposedVsOriginal.fragility.singleDayDependent,true);
+ assert.equal(r.proposedVsOriginal.fragility.worstLeaveOneOutMeanDeltaIC,-.02);
+ assert.equal(r.proposedVsOriginal.fragility.allCompleteBlocksPositive,false);
+ assert.equal(r.originalGatePassed,false);
+});
+
+test('five unseen days remain explicitly low evidence and partial blocks are not counted',()=>{
+ const short=run(tradingDays(5));
+ assert.equal(short.proposedVsOriginal.fragility.status,'limited-fresh-observations');
+ assert.equal(short.proposedVsOriginal.fragility.completeFiveObservationBlocks.length,1);
+ assert.equal(short.proposedVsOriginal.fragility.allCompleteBlocksPositive,null);
+ assert.equal(short.proposedVsOriginal.fragility.changesPromotionGate,false);
+ const eleven=run(tradingDays(11));
+ assert.equal(eleven.proposedVsOriginal.fragility.completeFiveObservationBlocks.length,2);
+ assert.equal(eleven.proposedVsOriginal.fragility.incompleteTailDays,1);
+ assert.equal(eleven.proposedVsOriginal.fragility.completeFiveObservationBlocks[1].lastDay,'2026-06-10');
+});
