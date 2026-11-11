@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const page = document.body.dataset.page;
   const state = {items:[],rawCount:0,scanned:null,at:null,isSnapshot:false,selected:null,period:"day",
-    candles:[],loadId:0,chartId:0,ready:false,wasPartial:false};
+    candles:[],loadId:0,chartId:0,ready:false,wasPartial:false,completeScope:false,scope:""};
   const safe = v => v == null ? "" : String(v).slice(0,450);
   const finite = v => (typeof v === "number" || (typeof v === "string" && v.trim() !== "" && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Number(v) : null;
   const fmt = (v,d=2) => finite(v) == null ? "—" : Number(v).toLocaleString("zh-CN",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -21,12 +21,14 @@
   async function get(url,signal){
     const headers={Accept:"application/json"};
     const t=token();
-    if(t)headers.Authorization="Bearer "+t;
+    // The existing V6 server verifies req.__tok extracted from same-origin URL
+    // query (not the Authorization header). Never forward the token off-origin.
+    if(t){const u=new URL(url,window.location.origin);if(u.origin!==window.location.origin)throw Error("禁止跨站传递令牌");u.searchParams.set("token",t);url=u.pathname+u.search;}
     const r=await fetch(url,{method:"GET",credentials:"same-origin",cache:"no-store",headers,signal});
     if(!r.ok)throw Error("HTTP "+r.status);
     const d=await r.json();
     if(d&&d.locked===true)throw Error("当前没有候选池查看权限，请在原站完成登录");
-    if(d&&d.ok===false)throw Error(safe(d.error||d.note||"接口返回不可用"));
+    if(d&&d.ok===false){const e=new Error(safe(d.error||d.note||"接口返回不可用"));e.status=d.status||"api-error";throw e;}
     if(d&&(d.isMock===true||d.simulated===true))throw Error("拒绝将模拟数据当成真实命中");
     return d;
   }
@@ -81,17 +83,21 @@
   };
   function completeness(data){
     const raw=Array.isArray(data.items)?data.items.length:0;
-    const declared=finite(data.count), scanned=finite(data.totalScanned);
+    const declared=finite(data.totalStocks??data.count),scanned=finite(data.totalScanned);
     state.rawCount=raw;state.scanned=scanned;state.at=data.snapshotDay||data.tradeDate||data.date||data.asOf||null;
-    state.isSnapshot=data.isSnapshot===true;state.wasPartial=(declared!=null&&declared>raw)||raw>=40;
-    const intro="接口返回 "+raw+" 条候选，合并同股后 "+state.items.length+" 只";
-    const limit="。当前服务端接口通常最多返回40～50只，尚不能确认覆盖全部市场命中。";
-    notify(intro+limit+"不会自动强制扫描或补造候选。","warn");
+    state.isSnapshot=data.isSnapshot===true;state.completeScope=data.fullyRead===true;
+    state.scope=safe(data.scope||"");
+    state.wasPartial=!state.completeScope;
+    const intro="当前读取 "+raw+" 条源记录，合并同股后 "+state.items.length+" 只。";
+    const note=state.completeScope
+      ?"六项量化条件的整份扫描快照已按游标全部读取并核对数量；但其他四套策略及额外战法仍待统一汇入。"
+      :"当前仅显示旧接口实际返回的候选，受旧接口最多50只的限制，不能称为全市场全部命中。";
+    notify(intro+note+" 未认证实时行情；页面翻页不重算、不下单。");
     set("count-matches",state.items.length);
-    set("count-signals",state.items.reduce((s,x)=>s+x.reasons.length,0));
+    set("count-signals",state.items.reduce((n,x)=>n+x.reasons.length,0));
     set("count-scanned",scanned==null?"未提供":fmt(scanned,0));
     set("count-snapshot",dateText(state.at));
-    set("all-matches-warning",state.wasPartial?"可能已达到接口条数上限，当前结果不完整":"当前只展示已返回候选，完整性仍待后端分页证明");
+    set("all-matches-warning",state.completeScope?"六条件快照已完整读取 · 其他策略待接入":"候选尚不完整 · 仅显示已返回数据");
     set("summary-count",state.items.length);
   }
   function filters(){
@@ -230,19 +236,66 @@
     canvas.replaceChildren(svg);
     if(note)note.textContent=(state.period==="day"?"日K":state.period==="month"?"月K（真实日线按自然月聚合）":"年K（真实日线按公历年聚合）")+" · "+all.length+" 个有效周期，图中最近 "+plot.length+" 根 · 截止 "+all.at(-1).date+" · 最近周期可能未结束";
   }
+  // Pin every page to one immutable server snapshot. Never mix a changed
+  // snapshot into partial results; the server must identify total coverage.
+  async function readAllSixRulePages(){
+    let cursor="",snapshotId="",total=null,asOf=null,totalScanned=null,totalSignals=null;
+    const all=[],seenCursors=new Set();
+    for(let n=0;n<81;n++){
+      if(n===80)throw Error("分页超过安全上限，拒绝显示不完整结果");
+      const endpoint="/api/v6/matches?limit=100"+(cursor?"&cursor="+encodeURIComponent(cursor):"");
+      const d=await get(endpoint);
+      if(d.scope!=="quant-picks-six-rules"||d.completeForScope!==true)
+        throw Error("后端尚未确认量化六条件的完整快照");
+      if(!Array.isArray(d.items)||!Number.isSafeInteger(d.totalStocks)||d.totalStocks<0||
+         d.totalStocks>8000||!Number.isSafeInteger(d.offset)||d.offset!==all.length||
+         typeof d.snapshotId!=="string"||!/^[0-9a-f]{24}$/.test(d.snapshotId))
+        throw Error("分页快照元数据无效，已拒绝混合不同批次");
+      if(snapshotId&&d.snapshotId!==snapshotId)throw Error("读取过程中快照发生变化，请重新读取");
+      if(total!==null&&d.totalStocks!==total)throw Error("快照总数变化");
+      snapshotId=d.snapshotId;total=d.totalStocks;
+      asOf=d.asOf;totalScanned=d.totalScanned;totalSignals=d.totalSignals;
+      all.push(...d.items);
+      if(!d.hasMore){
+        if(d.nextCursor!==null||all.length!==total)throw Error("分页终止状态与候选总数不一致");
+        const actualSignals=all.reduce((sum,x)=>sum+(Array.isArray(x.hit)?x.hit.length:0),0);
+        if(actualSignals!==totalSignals)throw Error("服务端命中条件总数与逐页内容不一致");
+        return {items:all,count:all.length,totalStocks:total,totalScanned,totalSignals,
+          asOf,scope:"quant-picks-six-rules",fullyRead:true,snapshotId};
+      }
+      if(!d.nextCursor||typeof d.nextCursor!=="string"||seenCursors.has(d.nextCursor)||all.length>=total)
+        throw Error("分页游标损坏、重复或提前结束");
+      seenCursors.add(d.nextCursor);
+      cursor=d.nextCursor;
+    }
+    throw Error("分页流程未正确结束");
+  }
   async function load(){
     const seq=++state.loadId,button=$("refresh-all");if(button)button.disabled=true;
-    notify("正在从 V6 已有只读接口获取候选…");
+    notify("正在核对 V6 的全量快照及全部命中条件…");
     try{
-      const d=await get("/api/quant-picks?board=all&max=500");
+      let d,legacy=null;
+      try{d=await readAllSixRulePages();}
+      catch(firstError){
+        if(firstError.status==="not-ready"){
+          // A single ordinary cached GET may initialize the existing scan.
+          // Never use force=1, POST, or a new browser-owned scanner.
+          legacy=await get("/api/quant-picks?board=all&max=50");
+          try{d=await readAllSixRulePages();}
+          catch(secondError){
+            if(secondError.status!=="not-ready")throw secondError;
+            d=legacy; // Explicitly labelled partial in completeness().
+          }
+        }else throw firstError;
+      }
       if(seq!==state.loadId)return;
-      if(!Array.isArray(d.items))throw Error("接口没有返回合法的候选列表");
+      if(!Array.isArray(d.items))throw Error("接口没有返回合法候选列表");
       state.items=combine(d.items);state.ready=true;
       completeness(d);filters();render();
     }catch(err){
       if(seq!==state.loadId)return;
       if(!state.ready){state.items=[];render();}
-      notify((state.ready?"刷新失败，保留上一次已显示的结果；不是实时报价。":"没有可展示的有效候选。")+" "+safe(err.message),"error");
+      notify((state.ready?"刷新失败，暂时保留先前已核验结果（非实时）。":"当前无法取得可核验的候选。")+" "+safe(err.message),"error");
     }finally{if(seq===state.loadId&&button)button.disabled=false;}
   }
   async function loadToday(){
