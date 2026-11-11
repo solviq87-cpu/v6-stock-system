@@ -10669,6 +10669,8 @@ function loadMarketSnapshot() {
 // ── 量化选股扫描（手机速览页「量化选股」卡片，仅开发者可见）────────────────────
 // 按用户给出的 5 组条件选股，命中任意一条即入选，并注明命中条件编号与理由。
 // ⛔ 条件文本存在部分歧义，按最合理交易语义实现，并在理由中显式列出实际判据。
+const { createV6MatchesSnapshotStore } = require('./src/core/v6-matches-snapshot');
+const v6MatchesSnapshotStore = createV6MatchesSnapshotStore();
 let _quantPicksCache = { ts: 0, data: null, busy: false };
 async function quantPicksScan(opts = {}) {
   const max = opts.max || 20;
@@ -10866,6 +10868,15 @@ async function quantPicksScan(opts = {}) {
       uniq.push(x);
     }
     uniq.sort((a, b) => b.hit.length - a.hit.length || b.pct - a.pct);
+
+    // Only a COMPLETED all-board six-rule scan can publish an immutable full
+    // result set. The existing /api/quant-picks response stays capped and unchanged.
+    // Pagination of this snapshot never triggers scanning, paper orders or pushes.
+    if (board === 'all') {
+      const published = v6MatchesSnapshotStore.publish({ items: uniq, asOf: now,
+        totalScanned: stocks.length, board });
+      if (!published.ok) console.warn('[v6 full matches]', published.error);
+    }
 
     // lo：板块视图（与竞价共振同款）——按板块聚合命中票，板块强度前4各取前4只
     const qAgg = new Map();
@@ -18660,7 +18671,7 @@ function handle(req, res, u, body) {
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
-  const isAsset = p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
+  const isAsset = p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
   // 找回密码三步聚 allowlist：忘记密码时手头没有任何凭证，必须在门禁之前放行，否则永远走不下去
   const isAuth = p === '/api/lock/status' || p === '/api/lock/setup' || p === '/api/lock/unlock' || p === '/api/lock/change' || p === '/api/lock/trust'
@@ -21640,6 +21651,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   //    放开门禁后任何只读设备都能靠反复 force 把线上实例按在持续扫描上——这是 js 轮放开时
   //    漏掉的动作分级。现把 force 收回给开发者：只读身份照常看卡片（60 秒缓存 + 自己的 30 秒
   //    轮询，数据新鲜度不受影响），手动「🔄 刷新」对只读取缓存结果（响应带 asOf，时间可见）。
+  // Dedicated V6 six-rule all-matches snapshot: authorized, read-only, pinned
+  // cursor pages. Unlike legacy /api/quant-picks it does not cap the full set
+  // to 50 and never initiates a scan. Other strategy engines remain separate.
+  if (p === '/api/v6/matches' && req.method === 'GET') {
+    const requested = u.searchParams.get('limit');
+    const limit = requested === null ? 50 : /^\\d+$/.test(requested) ? Number(requested) : NaN;
+    const cursor = u.searchParams.get('cursor') || '';
+    return json(res, v6MatchesSnapshotStore.page({ limit, cursor }));
+  }
   if (p === '/api/quant-picks') {
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
