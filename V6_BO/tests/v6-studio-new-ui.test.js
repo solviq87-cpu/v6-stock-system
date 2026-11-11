@@ -91,6 +91,10 @@ test('isolated HTTP server serves both actual new pages and required assets', { 
     for(const [url,expected] of [
       ['/v6-studio.html','今日判断'],
       ['/v6-matches.html','全部命中个股'],
+      ['/v6-research.html','策略研究'],
+      ['/v6-validation.html','回测验证'],
+      ['/v6-paper.html','模拟账本也要严谨'],
+      ['/assets/v6-studio-areas.js','function projectPaper'],
       ['/assets/v6-studio.css','.stock-list'],
       ['/assets/v6-studio.js','function combine(items)']
     ]){
@@ -154,4 +158,25 @@ test('new full-match API is routed after the existing token gate and sourced fro
     source.indexOf("v6MatchesSnapshotStore.publish"),'publish after complete sorted scan, before limit');
   assert.ok(source.indexOf("v6MatchesSnapshotStore.publish") <
     source.indexOf("items: uniq.slice(0, max)"),'snapshot may not contain truncated results');
+});
+
+
+test('all five new daily workspaces stay within new navigation and no paper writes are exposed',()=>{
+  for(const p of ['v6-research.html','v6-validation.html','v6-paper.html']){
+    const html=read('public/'+p);
+    assert.match(html,/\/v6-studio\.html/);
+    assert.match(html,/\/v6-matches\.html/);
+    assert.match(html,/\/v6-research\.html/);
+    assert.match(html,/\/v6-validation\.html/);
+    assert.match(html,/\/v6-paper\.html/);
+    assert.doesNotMatch(html, /href="\/#v6-paper"|href="\/research.html"|一键发布|待发布请求/);
+  }
+  const controller=read('public/assets/v6-studio-areas.js');
+  new vm.Script(controller);
+  assert.match(controller,/\/api\/paper/);
+  assert.match(controller,/getItem\('qd_device'\)/);
+  assert.doesNotMatch(controller,/method\s*:\s*['"]POST['"]|\/api\/trade|force=1|\/api\/release/);
+  const srv=read('server.js');
+  for(const p of ['/v6-research.html','/v6-validation.html','/v6-paper.html'])
+    assert.ok(srv.includes("p === '"+p+"'"),p+' static route not allowed');
 });
