@@ -21656,7 +21656,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // to 50 and never initiates a scan. Other strategy engines remain separate.
   if (p === '/api/v6/matches' && req.method === 'GET') {
     const requested = u.searchParams.get('limit');
-    const limit = requested === null ? 50 : /^\\d+$/.test(requested) ? Number(requested) : NaN;
+    const limit = requested === null ? 50 : /^\d+$/.test(requested) ? Number(requested) : NaN;
     const cursor = u.searchParams.get('cursor') || '';
     return json(res, v6MatchesSnapshotStore.page({ limit, cursor }));
   }
