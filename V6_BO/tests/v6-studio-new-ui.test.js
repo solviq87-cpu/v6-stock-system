@@ -33,13 +33,17 @@ test('V6 studio has a new and separate decision-first homepage and all-matches p
 test('V6 studio read-only JS compiles and neither forces a scan nor submits an order', () => {
   const src = read('public/assets/v6-studio.js');
   new vm.Script(src);
-  assert.match(src, /\/api\/quant-picks\?board=all&max=500/);
+  assert.match(src, /\/api\/v6\/matches\?limit=100/);
+  assert.match(src, /\/api\/quant-picks\?board=all&max=50/);
+  assert.match(src, /readAllSixRulePages/);
+  assert.match(src, /snapshotId/);
   assert.match(src, /\/api\/kline\?code=/);
   assert.match(src, /function combine\(items\)/);
   assert.match(src, /a\.reasons\.push\(x\)/);
   assert.match(src, /incoming\.forEach/);
   assert.match(src, /const raw=Array\.isArray\(item\.hit\)/);
-  assert.match(src, /当前服务端接口通常最多返回40～50只/);
+  assert.match(src, /当前仅显示旧接口实际返回的候选/);
+  assert.match(src, /六项量化条件的整份扫描快照已按游标全部读取/);
   assert.doesNotMatch(src, /\bforce=1\b|method\s*:\s*['"]POST['"]|\/api\/paper\/submit|\/api\/trade\/execute/);
   assert.match(src, /createElementNS/);
   assert.match(src, /get\("\/api\/reference-indexes"\)/);
@@ -134,4 +138,20 @@ test('same stock retains all distinct strategy hits and never invents missing ba
   assert.equal(monthly[0].high,12);
   assert.equal(monthly[0].low,9);
   assert.equal(monthly[0].close,11.8);
+});
+
+
+test('new full-match API is routed after the existing token gate and sourced from complete scan results', () => {
+  const source=read('server.js');
+  assert.match(source, /p === '\/api\/v6\/matches' && req\.method === 'GET'/);
+  assert.match(source, /v6MatchesSnapshotStore\.page\(\{ limit, cursor \}\)/);
+  assert.match(source, /v6MatchesSnapshotStore\.publish\(\{ items: uniq, asOf: now,/);
+  assert.match(source, /p === '\/v6-studio\.html'/);
+  assert.match(source, /p === '\/v6-matches\.html'/);
+  assert.ok(source.indexOf("if (!isAsset && !isAuth && !isLocalReq(req))") <
+    source.indexOf("p === '/api/v6/matches'"), 'new read API cannot bypass authentication');
+  assert.ok(source.indexOf("uniq.sort((a, b)") <
+    source.indexOf("v6MatchesSnapshotStore.publish"),'publish after complete sorted scan, before limit');
+  assert.ok(source.indexOf("v6MatchesSnapshotStore.publish") <
+    source.indexOf("items: uniq.slice(0, max)"),'snapshot may not contain truncated results');
 });
