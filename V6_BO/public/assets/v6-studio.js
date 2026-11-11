@@ -182,7 +182,7 @@
     const chart=el("div","chart","正在读取历史K线…");chart.id="real-chart";
     const chartNote=el("p","note","历史数据按返回的交易日聚合，不补齐缺失日期，不代表实时报价。");chartNote.id="chart-caption";
     const research=el("a","outline","打开完整策略研究");
-    research.href="/research.html#decisionWorkspace";research.style.display="inline-block";research.style.marginTop="14px";
+    research.href="/v6-research.html";research.style.display="inline-block";research.style.marginTop="14px";
     panel.append(kicker,heading,tag,title,ul,dl,subtitle,periods,chart,chartNote,research);
     state.candles=[];const seq=++state.chartId;
     if(x.code)loadKline(x.code,seq);else chart.textContent="股票代码未核验，无法请求K线";
