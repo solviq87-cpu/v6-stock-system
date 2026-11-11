@@ -47,14 +47,14 @@
       <label>排序<select id="sort-stock" aria-label="命中股票排序"><option value="score">综合评分</option><option value="signals">条件命中数量</option><option value="change">涨跌幅</option><option value="name">股票代码</option></select></label>
       <button type="button" class="outline" id="clear-filters">清空筛选</button>
     </div>
-    <div id="source-alert" class="alert" role="status" aria-live="polite">等待已授权的候选接口返回。当前接口存在条数上限，需要后端补齐全量分页。</div>
+    <div id="source-alert" class="alert" role="status" aria-live="polite">正在读取六项量化条件的全部已完成快照；其他策略来源尚待统一汇总。</div>
     <div class="summaryline"><span>当前筛选显示：<strong id="visible-count">—</strong> 只</span><span>没有返回的股票不会被虚构为命中，且不触发强制扫描</span></div>
     <div class="list-layout">
       <div id="stock-list" class="stock-list" aria-live="polite"><div class="empty">等待真实命中结果…</div></div>
       <aside class="card detail" id="detail-panel" aria-label="股票全部命中条件和K线"><div class="placeholder">从左侧选一只股票<br>查看它命中的所有条件、风险与历史K线</div></aside>
     </div>
   </section>
-  <p class="footer-note">状态声明：本页面是新版 V6 的只读工作区。不启用付费行情、不发推送、不提交订单。服务器候选接口如果只能返回40～50只，这里只称“已返回候选”，不冒充全市场全量名单。</p>
+  <p class="footer-note">状态声明：本页面是新版 V6 的只读工作区。不启用付费行情、不发推送、不提交订单。完整读取的范围仅为六项量化条件，其他四套核心策略及扩展战法还需统一汇总；未取得完整快照时明确标注部分结果。</p>
 </main>
 </div>
 <nav class="mobile-tabbar" aria-label="手机底部导航">
