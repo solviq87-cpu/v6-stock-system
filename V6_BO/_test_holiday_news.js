@@ -20,8 +20,8 @@ const newsSrc = cut('function buildNewsDigest', '// __HOLIDAY_HELPERS_END__');
 //    2026-10-07 起 mergeArchive 改用 NEWS_ARCHIVE_CAP（统一归档上限常量），必须一并注入。
 const mkMerge = new Function('HOLIDAY_BUF_CAP', 'NEWS_ARCHIVE_CAP', 'within3Days', `${mergeSrc}\nreturn { mergeArchive };`);
 const { mergeArchive } = mkMerge(1200, 300, within3Days);
-const mkNews = new Function('S', 'PAPER_CFG', 'PAPER', 'isTradeDay', `${newsSrc}\nreturn { buildNewsDigest, holidaySpanUpToToday, holidayDigestShouldFire };`);
-const api = mkNews({ news: { badAll: [], goodAll: [], neutralAll: [] } }, {}, {}, () => true);
+const mkNews = new Function('S', 'PAPER_CFG', 'PAPER', 'isTradeDay', 'newsEvidenceAllowsItem', `${newsSrc}\nreturn { buildNewsDigest, holidaySpanUpToToday, holidayDigestShouldFire };`);
+const api = mkNews({ news: { badAll: [], goodAll: [], neutralAll: [] } }, {}, {}, () => true, () => true);
 
 let pass = 0, fail = 0;
 const ok = (c, n, g) => { if (c) { pass++; console.log('  ✅ ' + n + (g !== undefined ? '  → ' + g : '')); } else { fail++; console.log('  ❌ ' + n + '  → ' + g); } };

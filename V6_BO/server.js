@@ -5655,7 +5655,7 @@ function auctionScoreOf(x, ctx) {
     // ①-2 板块共振闸：同板块昨日涨停 <2 只 → 孤板高开易一日游，共振弱则扣分（已有共振加分的反面约束）
     if ((r.secZT || 0) < 2) { s += auctionResonanceAdj(r.secZT); risk.push('板块共振弱·孤板高开易一日游'); factors.push('板块共振弱'); }
   }
-  if (S.news && S.news.goodCodes && S.news.goodCodes.has(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
+  if (S.news && S.news.goodCodes && newsSupportsCode(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
   const fc = x.floatCap || 0;
   // ① 选股纪律：市值曲线更陡——大票显著罚、小盘显著奖（ik 轮实证候选中位 75→98亿漂移拖累命中）
   // ⛔ kv 轮（2026-10-24）实证补档：旧曲线在 300亿~1000亿 区间是**零惩罚的洞**（旧 -14/-9/-4 三档
@@ -6078,7 +6078,7 @@ async function tick() {
         });
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
         // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
-        const goodHit = S.news.goodCodes && S.news.goodCodes.has(s.code);
+        const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
         const badHit = S.news.badCodes.has(s.code);
         const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
@@ -6146,7 +6146,7 @@ async function tick() {
           S.trendState.set(s.code, ts);
           if (conds.length) {
             const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
-            const _good = S.news.goodCodes && S.news.goodCodes.has(s.code);
+            const _good = S.news.goodCodes && newsSupportsCode(s.code);
             const _rp = riseProbOf(s, { condCount: conds.length, up3: tr.up3, fund3d: tr.fund3d, badHit: _bad, goodHit: _good });
             alerts.push({
               type: '趋势票', code: s.code, name: s.name,
@@ -13903,6 +13903,41 @@ function paperSnap(key, pmPaper) {
 
 // ---------------- 4.6 消息面：利空雷达 + 利好消息近3日归档（东财7×24 · 关键词分类 · stockList代码联动） ----------------
 const NEWS_FILE = path.join(__dirname, 'news.json');
+const NEWS_EVIDENCE_ROOT=process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence');
+function captureNewsEvidence(raw){
+  try{
+    S.news.evidenceIntake=require('./src/core/news-evidence-journal').captureProviderBatch(NEWS_EVIDENCE_ROOT,raw);
+    S.news.evidenceRejected=new Set(S.news.evidenceIntake.rejectedEventIds);
+  }
+  catch{S.news.evidenceIntake={status:'unknown',reason:'private-evidence-unavailable'};}
+}
+function newsPublicationMetadata(raw,now=Date.now()){
+  let publishedAt=null;
+  try{publishedAt=require('./src/core/news-evidence-journal').sourceTime(raw.showTime);if(publishedAt>now)publishedAt=null;}catch{}
+  return {publishedAt,receivedAt:now,publicationTimeStatus:publishedAt===null?'unknown':'source-declared-unverified'};
+}
+// Revocation is checked against the current immutable chain, including CLI
+// imports made after this server started. A damaged archive is unknown.
+let newsEvidenceCache={stamp:null,withdrawn:new Set(),unknown:false};
+function newsEvidenceCurrent(){
+  if(S.news.evidenceIntake?.status==='unknown')return {...newsEvidenceCache,unknown:true};
+  try{
+    const stamp=fs.existsSync(NEWS_EVIDENCE_ROOT)?fs.statSync(NEWS_EVIDENCE_ROOT).mtimeMs:null;
+    if(stamp!==newsEvidenceCache.stamp){
+      const rows=require('./src/core/news-evidence-journal').readJournal(NEWS_EVIDENCE_ROOT),latest=new Map();
+      for(const e of rows)if(e.evidence.source==='eastmoney-fast-news')latest.set(e.evidence.eventId,e.evidence);
+      newsEvidenceCache={stamp,unknown:false,withdrawn:new Set([...latest].filter(([,e])=>e.kind==='retracted').map(([id])=>id))};
+    }
+  }catch{newsEvidenceCache={stamp:NaN,withdrawn:new Set(),unknown:true};}
+  return newsEvidenceCache;
+}
+function newsSupportsCode(code){
+  const state=newsEvidenceCurrent();
+  return !state.unknown&&S.news.goodCodes.has(code)&&S.news.goodAll.some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+}
+function newsEvidenceAllowsItem(item){
+  const state=newsEvidenceCurrent();return !state.unknown&&!state.withdrawn.has(String(item.id))&&!S.news.evidenceRejected?.has(String(item.id));
+}
 const HOLIDAY_BUF_CAP = 1200; // 假期新闻缓冲上限（覆盖整个长假周期，不受近3日归档限制）
 // ⛔ 2026-10-07 新增（本轮角度：系统里"只增不减"的东西 —— 清理口径要自洽）：
 //    三个常规归档（利空/利好/中性）以前各用一个数字：内存 mergeArchive 截 400、
@@ -14173,7 +14208,7 @@ function classifyNews(raw, nameOf) {
       : ('命中利好词: ' + ghit.slice(0, 3).join('、'));
     // 详细个股：代码解析为中文名，面板直接显示"名称(代码)"
     const stocks = codes.map(c => `${nameOf.get(c) || ''}(${c})`);
-    out.push({ id: n.code, t: n.showTime || '', title, summary, codes, stocks, type: isBad ? 'bad' : 'good', why, sectors: secs });
+    out.push({ id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes, stocks, type: isBad ? 'bad' : 'good', why, sectors: secs });
   }
   return out;
 }
@@ -14194,7 +14229,7 @@ function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但�
     if (!codes.length) continue; // 中性且无个股关联：不入库
     const secs = (S.sectors || []).filter(s => s.name && s.name.length >= 2 && text.includes(s.name)).slice(0, 2).map(s => s.name);
     out.push({
-      id: n.code, t: n.showTime || '', title, summary, codes,
+      id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes,
       stocks: codes.map(c => `${nameOf.get(c) || ''}(${c})`),
       type: 'neutral', why: '中性: 未命中利好/利空关键词，仅信息播报', sectors: secs
     });
@@ -14230,6 +14265,7 @@ async function seedNews() {
       }
     }
     if (!raw.length) return;
+    captureNewsEvidence(raw);
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
     const items = classifyNews(raw, nameOf);
     const neutral = classifyNeutral(raw.filter(n => !items.some(x => x.id === n.code)), nameOf);
@@ -14256,6 +14292,7 @@ async function refreshNews() {
     const raw = [];
     for (const r of rs) if (r.status === 'fulfilled' && r.value) raw.push(...(r.value.data.fastNewsList || []));
     if (!raw.length) return;
+    captureNewsEvidence(raw);
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
     const items = classifyNews(raw, nameOf);
     const neutral = classifyNeutral(raw.filter(n => !items.some(x => x.id === n.code)), nameOf);
@@ -14272,7 +14309,7 @@ async function refreshNews() {
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
-    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id));
+    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id) && newsEvidenceAllowsItem(x));
     // 非开盘时段：利好只更新面板与归档，不做即时推送（新闻是主要噪音源），
     // 统一留给每日新闻汇总（21:00）/ 周末汇总（周日21:00）一起发。
     // 标记仍照打，避免次日开盘一次性补推一大堆。
@@ -14319,7 +14356,7 @@ function buildNewsDigest(dates, label, topN, src) {
   const badAll = (src && src.bad) || S.news.badAll;
   const goodAll = (src && src.good) || S.news.goodAll;
   const neutralAll = (src && src.neutral) || S.news.neutralAll;
-  const inDays = list => list.filter(x => dates.includes((x.t || '').slice(0, 10)));
+  const inDays = list => list.filter(x => newsEvidenceAllowsItem(x) && dates.includes((x.t || '').slice(0, 10)));
   const bad = inDays(badAll), good = inDays(goodAll), neutral = inDays(neutralAll);
   const freq = (list, key) => { const m = {}; for (const it of list) for (const s of (it[key] || [])) m[s] = (m[s] || 0) + 1; return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const arcLabel = (src && src.arcLabel) || `近3日归档: 利空${S.news.badAll.length}/利好${S.news.goodAll.length}/中性${S.news.neutralAll.length}`;
@@ -14338,7 +14375,7 @@ function buildNewsDigest(dates, label, topN, src) {
     if (gs.length) msg += '\n\n【🔥 周末高频受益个股】\n' + gs.map(([s, n]) => `▪ ${s}（${n}条利好）`).join('\n');
     if (bs.length) msg += '\n【⛔ 周末避雷个股】\n' + bs.map(([s, n]) => `▪ ${s}（${n}条利空）`).join('\n');
   }
-  const badCodes = new Set(badAll.flatMap(x => x.codes));
+  const badCodes = new Set(badAll.filter(newsEvidenceAllowsItem).flatMap(x => x.codes));
   const warn = [];
   for (const [acc, cfg] of Object.entries(PAPER_CFG)) {
     const hit = Object.values(PAPER[acc].positions || {}).filter(p => badCodes.has(p.code));
@@ -15422,7 +15459,7 @@ function scanYiEr() {
     const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
     const _mainPct = snap ? (snap.mainPct || 0) : 0;
     if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-    if (S.news && S.news.goodCodes && S.news.goodCodes.has(z.code)) { prob += 3; why.push('利好催化'); }
+    if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 3; why.push('利好催化'); }
     // ⛔ 主线强度接入（2026-10-08 重构）：主线强则票强，主线弱则个体难独活
     //    按主线聚合统计，不再被「电池/电池技术/储能概念/锂电池概念」多个板块名拆散
     const secStrength = themeStrengthOf(z);
@@ -15600,7 +15637,7 @@ function scanLianbanRelay() {
       const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
       const _mainPct = snap ? (snap.mainPct || 0) : 0;
       if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-      if (S.news && S.news.goodCodes && S.news.goodCodes.has(z.code)) { prob += 2; why.push('利好'); }
+      if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 2; why.push('利好'); }
       if (level >= 3 && maxLb < 7) { prob -= 10; why.push('高度不足·谨慎'); }
       // ⛔ 主线强度接入（2026-10-08 重构）：按主线聚合，不再被多个板块名拆散
       const secStrength = themeStrengthOf(z);
@@ -15848,8 +15885,8 @@ function newsTitlesFor(code, name) {
     if (Array.isArray(x.stocks) && (x.stocks.indexOf(code) >= 0 || (nm && x.stocks.indexOf(nm) >= 0))) return true;
     return !!(nm && nm.length >= 2 && String(x.title).indexOf(nm) >= 0);
   };
-  for (const x of (S.news && S.news.goodAll) || []) { if (match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
-  for (const x of (S.news && S.news.badAll) || []) { if (match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.goodAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.badAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
   return { good, bad };
 }
 S.pre = S.pre || { time: null, items: [] };
@@ -21011,6 +21048,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/news-evidence'){
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET；新闻证据导入使用显式本地CLI'});
+    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token'].includes(k)))return reply(400,{ok:false,error:'未知查询参数'});
+    try{
+      const result=require('./src/core/news-evidence-journal').query(NEWS_EVIDENCE_ROOT,{
+        symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50});
+      return reply(200,{ok:true,result});
+    }catch{return reply(422,{ok:false,status:'unknown',error:'新闻证据不可用、完整性校验失败或查询参数无效'});}
+  }
   if(p==='/api/research/order-account'){
     if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
     if(!requireEditor(res,req.__tok,req))return;
