@@ -333,7 +333,18 @@ async function fetchAllStocksTx(base) {
   return rows.map(r => {
     const e = emMap.get(r.code);
     if (!e) return r;
-    return { ...r, mainInflow: e.mainInflow || 0, mainPct: e.mainPct || 0, listedDate: e.listedDate || 0 };
+    const toObservedNumber = v => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'string' && v.trim() === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    return {
+      ...r,
+      mainInflow: toObservedNumber(e.mainInflow),
+      mainPct: toObservedNumber(e.mainPct),
+      listedDate: Number.isFinite(Number(e.listedDate)) ? Number(e.listedDate) : 0
+    };
   });
 }
 
@@ -1481,7 +1492,7 @@ async function fetchBatchSnapshotTx(codes) {
         volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
         high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
         mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
-        speed: 0, listedDate: 0, mainInflow: 0, mainPct: 0
+        speed: 0, listedDate: 0, mainInflow: null, mainPct: null
       });
     }
   }
@@ -1527,7 +1538,7 @@ async function fetchAllStocksSina() {
         turnover: +d.turnoverratio,
         high: +d.high, low: +d.low, open: +d.open, preClose: +d.settlement,
         mktcap: +d.mktcap * 1e4, floatCap: +d.nmc * 1e4,
-        speed: 0, listedDate: 0, mainInflow: 0, mainPct: 0
+        speed: 0, listedDate: 0, mainInflow: null, mainPct: null
       });
     }
     await delay(150);

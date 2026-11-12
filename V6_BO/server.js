@@ -10638,7 +10638,8 @@ function dashboardPushMeta() {
   return {
     pushLast: pushLast(),
     pushGov: pushGovStat(),
-    pushLog: (Array.isArray(PUSH_LOG) ? PUSH_LOG : []).slice(0, 240)
+    pushLog: (Array.isArray(PUSH_LOG) ? PUSH_LOG : []).slice(0, 240),
+    strategyVersion: APP_VER
   };
 }
 

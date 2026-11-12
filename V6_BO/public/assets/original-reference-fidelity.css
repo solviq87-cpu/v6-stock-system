@@ -149,17 +149,25 @@ body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}
    On typical 320-430 CSS px phones chart/explanation remain stacked and scroll
    normally; only the original 1024px reference composition is constrained. */
 @media(min-width:1001px) and (max-width:1100px){
+  body.vx-mobile #vx-ranking{
+    max-height:208px;
+    overflow:hidden;
+  }
+  body.vx-mobile #vx-ranking .vx-table-scroll{
+    min-height:0;
+    max-height:118px;
+  }
   body.vx-mobile .vx-detail-column{
-    height:328px;
-    min-height:328px;
-    max-height:328px;
+    height:312px;
+    min-height:312px;
+    max-height:312px;
     overflow:hidden;
     grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
   }
   body.vx-mobile .vx-detail-column>.vx-panel{
-    height:328px;
+    height:312px;
     min-height:0;
-    max-height:328px;
+    max-height:312px;
     min-width:0;
     overflow:hidden;
   }

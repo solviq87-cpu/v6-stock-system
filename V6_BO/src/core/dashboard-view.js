@@ -59,19 +59,45 @@ function normalizePushLogRecord(record){
  };
 }
 
-function pushLogByCode(pushLog){
- const byCode=new Map();
+function pushLogIndex(pushLog){
+ const latestByCode=new Map();
+ const historyByCode=new Map();
  const list=Array.isArray(pushLog)?pushLog:[];
  for(const item of list){
   const normalized=normalizePushLogRecord(item);
   const codes=Array.isArray(item?.extra?.codes)?item.extra.codes.filter(isCode):[];
   if(!codes.length||normalized.ts===null)continue;
+  const historyEntry={
+   ts:normalized.ts,
+   status:normalized.status,
+   title:normalized.title,
+   note:normalized.note,
+   channel:normalized.channel,
+   sent:normalized.sent,
+   failed:normalized.failed
+  };
   for(const code of codes){
-   const previous=byCode.get(code);
-   if(!previous||normalized.ts>previous.ts)byCode.set(code,normalized);
+   const previous=latestByCode.get(code);
+   if(!previous||normalized.ts>previous.ts)latestByCode.set(code,historyEntry);
+   const history=historyByCode.get(code)||[];
+   history.push(historyEntry);
+   historyByCode.set(code,history);
   }
  }
- return byCode;
+ for(const [code,history] of historyByCode){
+  history.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const dedup=[],seen=new Set();
+  for(const entry of history){
+   const key=[entry.ts,entry.status,entry.title,entry.channel].join('|');
+   if(seen.has(key))continue;
+   seen.add(key);
+   dedup.push(entry);
+   if(dedup.length>=20)break;
+  }
+  historyByCode.set(code,dedup);
+  if(!latestByCode.get(code)&&dedup.length)latestByCode.set(code,dedup[0]);
+ }
+ return {latestByCode,historyByCode};
 }
 
 function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallbackReason='缺失值'){
@@ -106,12 +132,21 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
  const signals=Array.isArray(state?.signals)?state.signals:[];
  const pushLast=pushMeta&&typeof pushMeta==='object'?pushMeta.pushLast:null;
  const pushGov=pushMeta&&typeof pushMeta==='object'?pushMeta.pushGov:null;
- const pushByCode=pushLogByCode(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
+ const {latestByCode:pushByCode,historyByCode}=pushLogIndex(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
  const items=[];
  const seenSignalCode=new Set();
- for(const sig of signals.slice(0,120)){
+ const signalsByCode=new Map();
+ for(const sig of signals){
   const code=text(sig?.code);
   if(!isCode(code))continue;
+  const grouped=signalsByCode.get(code)||[];
+  grouped.push(sig);
+  signalsByCode.set(code,grouped);
+ }
+ for(const [code,grouped] of signalsByCode){
+  grouped.sort((a,b)=>(number(b?.ts)||0)-(number(a?.ts)||0));
+  const sig=grouped[0]||null;
+  if(!sig)continue;
   seenSignalCode.add(code);
   const row=poolByCode.get(code)||null;
   const pushRecord=pushByCode.get(code)||null;
@@ -126,6 +161,15 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   const met=conditions.filter(x=>x.satisfied===true).length;
   const validN=conditions.filter(x=>x.satisfied!==null).length;
   const stageInfo=stageMeta(stage.state);
+  const signalHistory=grouped.slice(0,12).map(entry=>({
+   triggerAt:number(entry?.ts),
+   triggerStrategy:text(entry?.type||'未标注策略'),
+   probability:number(entry?.riseProb)??number(entry?.prob),
+   price:number(entry?.price),
+   pct:number(entry?.pct),
+   mainPct:number(entry?.mainPct),
+   rawMessage:text(entry?.msg||'')
+  }));
   items.push({
    id:text((sig?.type||'signal')+'-'+code+'-'+(sig?.ts||'')),
    scope:signalScopeOfCode(code),
@@ -148,6 +192,20 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    pushChannel:text(pushRecord?.channel||''),
    pushNote:text(pushRecord?.note||''),
    rawMessage:text(sig?.msg||''),
+    volume:number(sig?.volume)??number(row?.volume),
+    amount:number(sig?.amount)??number(row?.amount),
+    turnover:number(sig?.turnover)??number(row?.turnover),
+    mainInflow:number(sig?.mainInflow)??number(row?.mainInflow),
+    mainPct:number(sig?.mainPct)??number(row?.mainPct),
+    dataSource:text(sig?.source||row?.quoteSource||'state.signals'),
+    strategyVersion:text(pushMeta?.strategyVersion||state?.strategyVersion||''),
+    riskLevel:row?.bad===true?'high':'unknown',
+    stopLossRule:text(sig?.stopLoss||'待验证'),
+    invalidationRule:text(sig?.invalidWhen||'待验证'),
+    signalValidity:stage.state==='expired'||stage.state==='failed'?'invalid':'active',
+    signalHistory,
+    duplicateSignalCount:Math.max(0,grouped.length-1),
+    pushHistory:historyByCode.get(code)||[],
    conditions,
    conditionsSummary:{met,total:validN,label:`条件满足 ${met}/${validN}`},
    factorValues:row?.factorValues&&typeof row.factorValues==='object'?row.factorValues:{},
@@ -158,7 +216,6 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
  }
 
  for(const row of rows){
-  if(items.length>=80)break;
   if(!isCode(row.code)||seenSignalCode.has(row.code))continue;
   const values=row.factorValues&&typeof row.factorValues==='object'?row.factorValues:{};
   const firstField=Object.keys(values)[0]||'';
@@ -192,6 +249,20 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    pushChannel:'',
    pushNote:'',
    rawMessage:'',
+   volume:number(row?.volume),
+   amount:number(row?.amount),
+   turnover:number(row?.turnover),
+   mainInflow:number(row?.mainInflow),
+   mainPct:number(row?.mainPct),
+   dataSource:text(row?.quoteSource||'candidate_pool'),
+   strategyVersion:text(pushMeta?.strategyVersion||state?.strategyVersion||''),
+   riskLevel:row?.bad===true?'high':'unknown',
+   stopLossRule:'待验证',
+   invalidationRule:'待验证',
+   signalValidity:'unknown',
+   signalHistory:[],
+   duplicateSignalCount:0,
+   pushHistory:historyByCode.get(row.code)||[],
    conditions:candidateConditions,
    conditionsSummary:{met,total:validN,label:`条件满足 ${met}/${validN}`},
    factorValues:values,
@@ -220,7 +291,8 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   }:null,
   counts,
   emptyReason,
-  items:items.slice(0,60)
+   strategyVersion:text(pushMeta?.strategyVersion||state?.strategyVersion||''),
+   items
  };
 }
 
@@ -230,7 +302,8 @@ function dashboardView(state,mood=null,now=Date.now(),meta={}){
  const observed=Number.isFinite(state.stocksAt)&&state.stocksAt>0;
  const fourteenCodes=new Set((state.myrules?.items||[]).filter(Boolean).map(x=>x.code));
  const sectorCounts=new Map(Object.entries(state.ztBySector||{}).map(([name,list])=>[name,Array.isArray(list)?list.length:0]));
- const rows=pool.slice(0,80).map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
+ const rows=pool.map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
+   volume:number(c.volume),amount:number(c.amount),turnover:number(c.turnover),mainInflow:number(c.mainInflow),mainPct:number(c.mainPct),
    sector:text(c.sector||c.industry||''),
    fourteen:fourteenCodes.has(c.code),focused:c.focused===true||c.focused===1,signals:Array.isArray(c.paths)?c.paths.filter(x=>typeof x==='string').slice(0,5):[],
    explanation:Array.isArray(c.pathWhy)?c.pathWhy.filter(x=>typeof x==='string').slice(0,5):typeof c.pathWhy==='string'?[c.pathWhy]:[],
