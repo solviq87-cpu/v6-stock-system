@@ -1,0 +1,460 @@
+{
+  "basis": "static review only; no application regression executed",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "decision": "keep_dev",
+      "archive_blob": "5804645c33e1bec0d1446c22710a0fb8b1fab492",
+      "dev_blob": "9e663ee929e4640ce566ae0c43a06bb1a4132857",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "README.md",
+      "decision": "keep_dev",
+      "archive_blob": "c31aac323c11eada2244e01f403b67b028bc2c80",
+      "dev_blob": "69dc61338fbf4c3d2fe1eff77c1e34c974e4456e",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "RESTORE.md",
+      "decision": "keep_dev",
+      "archive_blob": "bf35f5e4fe8d7fdc861a4caaf1c2571f4be235e1",
+      "dev_blob": "94ff823d5341c36436b213743cd8653fec9ecd3f",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "docs/V6_行情扫描与回测使用说明.md",
+      "decision": "keep_dev",
+      "archive_blob": "a6cc3af04402f31c5ab89433e1e7ed25a1312a00",
+      "dev_blob": "08a90ecd96194c964795b90bc6b9c8c03045eb38",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "holdings.js",
+      "decision": "keep_dev",
+      "archive_blob": "20bce2de022aae2f52e5416e586a077de6ac7ceb",
+      "dev_blob": "885dc557efec9dbd5865009a9a8d5e9cfad3f628",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "integration/CHAT_HANDOFF.md",
+      "decision": "keep_dev",
+      "archive_blob": "5763037ecc7a22a46e6fc56c05669fa5514615df",
+      "dev_blob": "244cbae981170f7d69bdb8071a917f89845c9287",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "integration/TEST_REPORT.md",
+      "decision": "keep_dev",
+      "archive_blob": "2ebf2146afeaa190d7e049a70c93b27ef1eb97a0",
+      "dev_blob": "bfeff2e9c929cdca9da474da7e98b2d8ccd5bb6b",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "package.json",
+      "decision": "keep_dev",
+      "archive_blob": "ca26785483a7792c8acd4d0ab80181ae005779ce",
+      "dev_blob": "70f8fcdbf37d8eba33cdd48a03e361f5e53db9be",
+      "reason": "保留后续运维约束、命令及版本交接，原 BN 记录仍有来源证据。"
+    },
+    {
+      "path": "public/assets/app.js",
+      "decision": "keep_dev",
+      "archive_blob": "f446c71921ba350e1a49c0eb3611e28d7b21f3bd",
+      "dev_blob": "cce72811b35fdcd1fc6b79bfd6c215d1a52f81f0",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/assets/complete-workbench.js",
+      "decision": "keep_dev",
+      "archive_blob": "868fcbe693486dbe9a62c228718c865292e54fa0",
+      "dev_blob": "0ad4a9a8013dc42d137f8459421592a16c726e4a",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/assets/research-workbench.js",
+      "decision": "keep_dev",
+      "archive_blob": "74ed5396cf1266b09cd04fca3fbe2593c8e34025",
+      "dev_blob": "a0fd3d750bc1c4ca4242339d5e23abc767d2b180",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/assets/terminal-dashboard.js",
+      "decision": "keep_dev",
+      "archive_blob": "d526cd1bfec9628eeccfef06ec64cf3c9cf5ba87",
+      "dev_blob": "20377ff9ba40bb826a157c95704e355d14216ad6",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/assets/v6-reference-dashboard.css",
+      "decision": "keep_dev",
+      "archive_blob": "412bfe52e732d4b3bd024aacab26c525176eb530",
+      "dev_blob": "2f000292f4fe035a38c700b4093fb14a16ef7950",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/assets/v6-reference-dashboard.js",
+      "decision": "keep_dev",
+      "archive_blob": "5ca8f7c080a733c2f819e91445ec30d117f64062",
+      "dev_blob": "b38c00bded02c7b194aaaad52946669089f1190a",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/index.html",
+      "decision": "keep_dev",
+      "archive_blob": "e392d4ed219f7fa4ed9360407b87798cdbbc3524",
+      "dev_blob": "9e2fad468cb3e192df0ca2b9184babb2add8c4de",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/manifest.json",
+      "decision": "keep_dev",
+      "archive_blob": "1e2077c403aa8954b569660f14ec5bc643f21f77",
+      "dev_blob": "af4f9c37e869d5ae0d25edd0c4dd8e78b2c6099b",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/mobile.html",
+      "decision": "keep_dev",
+      "archive_blob": "70eefd7c6e8f7004bffe7da9f0030c4d9625af01",
+      "dev_blob": "084e36d950f9bf4c3508aa1a5cb8986799b6079e",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/reference-dashboard.html",
+      "decision": "keep_dev",
+      "archive_blob": "2126e153703d4045f1d3218314cb4b6ea19dbb92",
+      "dev_blob": "03b5f7dbc2e10ed3bbf0ed12f6c0338e2089420c",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/research.html",
+      "decision": "keep_dev",
+      "archive_blob": "f0195ab06a06692fab02f15077587d23442b248d",
+      "dev_blob": "e952e2c34e09d99a471a47dc0e38f669a262818d",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "public/sw.js",
+      "decision": "keep_dev",
+      "archive_blob": "11b04fc9255efc12fe451f144f90eccb167323f4",
+      "dev_blob": "0590ce107ed7e67681a502cd5572322d58241ac7",
+      "reason": "保留后续 UI、品牌、只读证据及缓存更新；不覆盖锁定主页。"
+    },
+    {
+      "path": "scripts/forward-signals.js",
+      "decision": "keep_dev",
+      "archive_blob": "9608d14d8a7ccf7cf07ec1682c31b57537d436d1",
+      "dev_blob": "fac0c85691c655c40a76eb67bde7dc15949935ad",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "scripts/learning-profile.js",
+      "decision": "keep_dev",
+      "archive_blob": "7c141b966cc2e96b6691dd97a847c9d518f408ee",
+      "dev_blob": "ea4c44d48d57155066d915eaea57e09141b9f2c4",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "scripts/paper-monitor.js",
+      "decision": "keep_dev",
+      "archive_blob": "3248560b813d3c64cd50ce078476b860f44f4a35",
+      "dev_blob": "1db1626e8eb01a904f71d1b4fe3b6a895b4f4dc9",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "scripts/ui-reference-browser-check.js",
+      "decision": "keep_dev",
+      "archive_blob": "2e69a148ed7b0b145f980a89923ce8a8101d2fca",
+      "dev_blob": "f638178cc6ede0dd8dd79b7bd16f3f9781250ffd",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "server.js",
+      "decision": "keep_dev",
+      "archive_blob": "eb45f2e63d9d4c8b06e3871ce96e7d043a8bdf20",
+      "dev_blob": "038221258ff0bc00e7e4c137aa3e82ef93f3268c",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/complete-workbench.js",
+      "decision": "keep_dev",
+      "archive_blob": "45898145f578d2ede2f3bb96220d97dae49057d7",
+      "dev_blob": "3f0280a28e805337fc78e0b79df2b17c79afa0e2",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/dashboard-view.js",
+      "decision": "keep_dev",
+      "archive_blob": "d22ba646872f85d2be5b4ef15c662ba689996b81",
+      "dev_blob": "1ffeea99dc0c617324b4760d531635160e76d64f",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/eastmoney-historical-feed.js",
+      "decision": "keep_dev",
+      "archive_blob": "72d3a98ecf0750bf1519de2a12431b6acb20e058",
+      "dev_blob": "85994718cb5e83cf20315577e35b5d16c3bd1321",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/eastmoney-market-snapshot.js",
+      "decision": "keep_dev",
+      "archive_blob": "bcfb1abcbf8bbe92f4653b313eeec03bd0df799b",
+      "dev_blob": "3d838e87ea602513fd85009c4451d44c339c4077",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/factor-health.js",
+      "decision": "keep_dev",
+      "archive_blob": "8cf44d8191358ea53e32a245a0b27916cbeaf6cf",
+      "dev_blob": "62cd5dc713da0a4700ff12e146048c8a9a748bb2",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/learning-profile-registry.js",
+      "decision": "keep_dev",
+      "archive_blob": "f33fb7dcf212aa37a2a9e1799dd69b312b001b00",
+      "dev_blob": "f6622697083a7363c90bf561cbf41c8e1baa0d06",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/live-candidate-bridge.js",
+      "decision": "keep_dev",
+      "archive_blob": "5f994c92e39be8e0f1cf32e8263b8d6e0decdb09",
+      "dev_blob": "1f5e85b52b5ed500b1e7aa2eb88c7bc9139c2e0d",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/live-market-research.js",
+      "decision": "keep_dev",
+      "archive_blob": "404886f50eb8390fd2f244ac650e26b241fd58e9",
+      "dev_blob": "abfa05d95769011333edf66474e39c59cf2e466a",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/market-feed-consensus.js",
+      "decision": "keep_dev",
+      "archive_blob": "bf19200d0ee573d0c54c36768d62c58986b4b257",
+      "dev_blob": "94632c9c5351c593a82fd94200c4d1ce2e36021e",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/market-regime.js",
+      "decision": "keep_dev",
+      "archive_blob": "cada7905095d508226fff3a2454fd5a4692b675f",
+      "dev_blob": "fbc11156b4d5a3d1586ddc2fbfdd4897375fb7f4",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/multi-strategy-engine.js",
+      "decision": "keep_dev",
+      "archive_blob": "7fa7ebc83458b64b42feb85681dcb37a1d43bc44",
+      "dev_blob": "df3c6997858c4d704cb56cff5e188d52f8aaa6c3",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/paper-monitor.js",
+      "decision": "keep_dev",
+      "archive_blob": "bf73856e83731755e2e64b36b7813240af529509",
+      "dev_blob": "8441e9a7bbc736974488e951ea7e8e861f259f42",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/public-market.js",
+      "decision": "keep_dev",
+      "archive_blob": "75f034b656998c88c89b9d97df3677ae11e4a9de",
+      "dev_blob": "c4c1abc854072e1ca14af714764094e62a304e89",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/public-quote-probe.js",
+      "decision": "keep_dev",
+      "archive_blob": "f88200c078a05b199fe461dae2a876467163fbdd",
+      "dev_blob": "77f300cf45b87ae2236aa8b463a674593225f711",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/quote-observation-view.js",
+      "decision": "keep_dev",
+      "archive_blob": "c54a5b229eccaee18e4ab00425eabdae1d369dc1",
+      "dev_blob": "223dbe034204f085af40b3c455aab07e5cfd5a75",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/research-risk-gate.js",
+      "decision": "keep_dev",
+      "archive_blob": "c65a1dc362006563f91961feda4e6041e77fbebd",
+      "dev_blob": "dbe60cb1b50b5a483315817db891bc73b1b1dcfc",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/core/strategy-engine.js",
+      "decision": "keep_dev",
+      "archive_blob": "eebeb0665223308b9935a8398cef8d350fc8a96e",
+      "dev_blob": "ef5fd9ad31bdc9d7a0d66eb86c2bf820f763fc72",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/server/bootstrap.js",
+      "decision": "keep_dev",
+      "archive_blob": "6b7fd2196dfa4c8656393b8d720dfa867cfd4186",
+      "dev_blob": "460fad423b90fe2a74eb4c010a2d1bd8235b28c4",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/feed-quality.js",
+      "decision": "keep_dev",
+      "archive_blob": "9738fd91432b0e8c4289ba865efc97536b8a0550",
+      "dev_blob": "a6974431a5d08cd42a3e076bba25fb8468357d1a",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/limit-ladder-engine.js",
+      "decision": "keep_dev",
+      "archive_blob": "ba1bc13d6aedf75ef1eec421138ce578b22cf40d",
+      "dev_blob": "4def70562b265497c958c0e8c8d4e51ce7b6f8a0",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/model-experiment.js",
+      "decision": "keep_dev",
+      "archive_blob": "346ca463a20396d8a179c4e2cf19c5f464bb1a71",
+      "dev_blob": "66fa5952bdcec6c2356be59e7fbfb3a166aecde2",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/position-ledger-backtest.js",
+      "decision": "keep_dev",
+      "archive_blob": "787c54ddff10dc7142c87aa09681ed322d0af098",
+      "dev_blob": "49ce9024420e96239443f060b248ff9ec834f354",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/research-v2-limit-ladder-engine.js",
+      "decision": "keep_dev",
+      "archive_blob": "88f5bd37833845d3c8ce4f3f20a075608119e732",
+      "dev_blob": "03f7db6a7f9b6861f60da474de2e351e153a6dfb",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/research-v2-universe-scanner.js",
+      "decision": "keep_dev",
+      "archive_blob": "4451b5b4189e0af8458da3ebbdea8878c353d138",
+      "dev_blob": "8130ff942c59284d7f0428c5cf06bce0ea2529ee",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/snapshot-normalizer.js",
+      "decision": "keep_dev",
+      "archive_blob": "68947bdff9467d4460b7a4bd296cbf005e8f34dc",
+      "dev_blob": "27dc8aa7eb3548012930893ed023ca7d4c74e074",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "src/strategy/universe-scanner.js",
+      "decision": "keep_dev",
+      "archive_blob": "e1a7e9400b8bf98087a659d900afc22e56adff71",
+      "dev_blob": "3047355c6277a54f7de47b1b59675de29dc468f4",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "tests/eastmoney-historical-feed.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "1621658ad30ddb2352643da14211955ea731a2b0",
+      "dev_blob": "6b33e3855302f5b0e7b0d305b506a58ef09ddc0c",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/factor-feed-integration.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "ec39668f42dd15fab3b1869f1abfab33ededc932",
+      "dev_blob": "215c04693539f7e5c4ac5c5f78ecbe8b835a2c9d",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/full-server-isolated-smoke.js",
+      "decision": "keep_dev",
+      "archive_blob": "825285e5fed12a0fa5dc0ac526500522f128da04",
+      "dev_blob": "ce1966298e2e2e1df351c0e2739cebe15b23a916",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/market-feed-consensus.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "1cf402b5b85d7609160a7e50fc88fd3cfb73573f",
+      "dev_blob": "cb85e04f95e70a9e7c481298b518406e3912f7c0",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/paper-application-service.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "59dc798c32c89541b0c880433ddccdd6d00e0e99",
+      "dev_blob": "c1989a93a66e3091fd9173635a47442fac12f641",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/paper-monitor-e2e.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "5d5ffafca1cad6c7f050fa7ca07d4d1900a2c49c",
+      "dev_blob": "47d451b7b91866dada3c4653889609af12f73ee0",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/paper-original-quote-time.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "f5596e28b4ea02fbeaf7d66156ed5dcd60c1a77d",
+      "dev_blob": "53fb3c9e4830471bac276708b75c08fafec27dbc",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/stock-provider-links.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "36b847b31345de0ddcf70e516b7070fa1b8796cc",
+      "dev_blob": "8ef039c2b2d2cf24ec255ed275e273cccb4281dd",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/terminal-dashboard.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "a2603c4db852eb108bc1ebf2e8972e8e90c05e42",
+      "dev_blob": "16428ce4d72b05d1cc665926dd23486ba46ccde3",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/ui-theme-rollout.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "fb29ec7567d3696e40c15c4565a16aea01093635",
+      "dev_blob": "26f6b335a4a2a335a53e2d7ec909e85e54bc7f4b",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/v6-reference-design.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "a00691808a80ba2457eaba6c8a7f5775ad550aa9",
+      "dev_blob": "758adab63bb1739fbd2ca1dcdae7e3794724eace",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tests/v6-reference-precision-layout.test.js",
+      "decision": "keep_dev",
+      "archive_blob": "54c20acf0419b6cf438e7591bb845a4dbb5db7a5",
+      "dev_blob": "59ce564c0e8b1f7070a8ae9d652c7365ef1934d7",
+      "reason": "保留新增边界与回归测试，旧 fixture 调整适配后续功能；本次未执行应用回归。"
+    },
+    {
+      "path": "tools/fit-market-models.py",
+      "decision": "keep_dev",
+      "archive_blob": "827a7c5459d8cd52845418dcad10f65f7532c0c4",
+      "dev_blob": "9082aafbd351deda6ecf31bf271f9fd1efefbd54",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    },
+    {
+      "path": "tools/strategy-cli.js",
+      "decision": "keep_dev",
+      "archive_blob": "9365dc3f639b054a59ee21300176745ed5d19318",
+      "dev_blob": "657e418b1596a647fb6a22b5821858477ea39718",
+      "reason": "保留后续原始时点/质量门禁、研究及验证能力；未发现需从 BN 逆向移植的独有逻辑。"
+    }
+  ]
+}
