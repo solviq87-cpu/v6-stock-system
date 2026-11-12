@@ -358,7 +358,7 @@ async function refresh() {
         const L = au.globalLeader;
         html += `<div style="margin-bottom:8px">🎯 竞价龙头推断：<b style="color:var(--up)">${L.leaderName}(${L.leaderCode})</b>
           <span class="${cls(L.leaderPct)}">${sign(L.leaderPct)}%</span>
-          <span class="muted">板块【${L.sector}】主力净流入 ${fmtY(L.sectorInflow)}，板块内上涨 ${L.upCount}/${L.totalCount}</span></div>`;
+          <span class="muted">板块【${L.sector}】主力净流入 ${fmtY(L.sectorInflow)}，板块内上涨 ${L.upCount == null ? '未知' : L.upCount}/${L.totalCount == null ? '未知' : L.totalCount}</span></div>`;
       }
       html += (au.strong || []).slice(0, 6).map(x =>
         `<span class="tag">${x.name} 竞价<span class="${cls(x.auctionPct)}">${sign(x.auctionPct)}%</span> 主力${fmtY(x.mainInflow)}${x.score != null ? ` <span class="muted">分${x.score}</span>` : ''}</span>`).join('');
@@ -395,7 +395,7 @@ async function refresh() {
     }
     document.getElementById('sectors').innerHTML = '<tr><th>板块</th><th>涨跌</th><th>主力净流入</th><th>上涨/总数</th><th>领涨股</th></tr>' +
       (s.sectors || []).slice(0, 15).map(x =>
-        `<tr><td>${x.name}</td><td class="${cls(x.pct)}">${sign(x.pct)}%</td><td class="${cls(x.mainInflow)}">${fmtY(x.mainInflow)}</td><td>${x.upCount}/${x.totalCount}</td><td class="${cls(x.leaderPct)}">${x.leader} ${sign(x.leaderPct)}%</td></tr>`).join('');
+        `<tr><td>${x.name}</td><td class="${cls(x.pct)}">${sign(x.pct)}%</td><td class="${cls(x.mainInflow)}">${fmtY(x.mainInflow)}</td><td>${x.upCount == null ? '未知' : x.upCount}/${x.totalCount == null ? '未知' : x.totalCount}</td><td class="${cls(x.leaderPct)}">${x.leader} ${sign(x.leaderPct)}%</td></tr>`).join('');
     // 涨停分类（角色颜色图例：红=龙头 橙=龙二 金=中军 灰=跟风，对应CSS .r-leader/.r-deputy/.r-mid/.r-follow）
     // ⛔ 池子是哪一天的必须说出来（dd 轮）：写死"今日"在竞价时段/休市日说的是反的 ——
     //    那份池子其实是上一交易日收盘的。日子由后端 S.ztDay（真正喂给数据源的参数）说了算，
@@ -451,16 +451,16 @@ async function refresh() {
     //    四级（超大单/大单/中单/小单）净额恒等于 0，看各自正负就知道谁在买、谁在卖。
     const balanceRow = x => {
       const f = x && x.flow;
-      if (!f || f.dir === 'unknown') return '';
-      if (!x.superNet && !x.bigNet && !x.midNet && !x.smallNet) return '';
-      const DIR = { in: ['#c92a2a', '买方占优'], out: ['#2b8a3e', '卖方占优'], mixed: ['#e8590c', '资金分歧'], flat: ['#868e96', '主力缺席'] };
+      if (!f) return '';
+      if (f.dir === 'unknown') return `<div class="muted">订单大小净额：${esc(f.label || '证据不足')}</div>`;
+      const DIR = { in: ['#c92a2a', '主力口径净流入'], out: ['#2b8a3e', '主力口径净流出'], mixed: ['#e8590c', '分类分歧'], flat: ['#868e96', '净额较小'] };
       const c = DIR[f.dir] || DIR.flat;
-      const cell = (lab, v) => `<span>${lab} <b class="${cls(v)}">${v > 0 ? '+' : ''}${fmtY(Math.abs(v))}</b></span>`;
+      const cell = (lab, v) => `<span>${lab} <b class="${cls(v)}">${v > 0 ? '+' : ''}${v == null ? '未知' : fmtY(Math.abs(v))}</b></span>`;
       return `<div class="rvc-g" style="border-top:1px dashed rgba(128,128,128,.25);padding-top:5px;margin-top:3px">
         <span style="color:${c[0]};font-weight:600" title="${f.label}">🌗 ${c[1]}</span>
         ${cell('超大单', f.superNet)}${cell('大单', f.bigNet)}${cell('中单', f.midNet)}${cell('小单', f.smallNet)}
       </div>
-      <div class="rvc-g"><span class="muted" title="恒等式：超大单+大单+中单+小单=0（买到的金额必然等于卖出的金额），所以正负就能定论谁在买谁在卖">→ ${f.label}</span></div>`;
+      <div class="rvc-g"><span class="muted" title="东财按订单大小分类的净额估计，不代表实际投资者身份">→ ${f.label}</span></div>`;
     };
     // 市场温度：不只看大盘指数 —— 用全A个股真实涨跌 + 市值分层，看穿"护指数拉权重"
     if (document.getElementById('brBody')) {
@@ -525,7 +525,7 @@ async function refresh() {
           (c.dd60 != null ? `<span class="muted">距60日高 -${c.dd60}%</span>` : '') +
           `<span class="muted">综合分 ${x.bmScore == null ? '-' : x.bmScore}</span></div>` : '';
         return `<div class="rvc">
-          <div class="rvc-h"><b class="up">${x.mainPct}%</b><span>${x.name}</span><span class="muted">${x.code}</span>${x.sector ? `<span class="tag">${x.sector}</span>` : ''}${heatTag}${kindTag}${riskTag}${capTag}${start}</div>
+          <div class="rvc-h"><b class="up">${x.mainPct == null ? '未知' : x.mainPct + '%'}</b><span>${x.name}</span><span class="muted">${x.code}</span>${x.sector ? `<span class="tag">${x.sector}</span>` : ''}${heatTag}${kindTag}${riskTag}${capTag}${start}</div>
           ${posRow}
           <div class="prob-wrap"><span class="muted">当日封板概率预测</span><div class="prob-bar"><i style="width:${p}%;background:${pc}"></i></div><b style="color:${pc}">${p}%</b><span class="muted">距涨停还有 ${x.gapToLimit == null ? '-' : x.gapToLimit} 个点</span></div>
           <div class="rvc-g"><span>现价 ${x.price} <b class="${cls(x.pct)}">${sign(x.pct)}%</b></span><span>主力净额 <b class="up">${fmtY(x.mainInflow)}</b>（当日累计）</span><span class="muted">净占比=主力净流入/成交额，越高说明大资金越集中</span></div>
@@ -1223,7 +1223,7 @@ async function refresh() {
           if (x.gapToHigh20 >= 5) tg.push(`<span class="tag">上方${x.gapToHigh20}%空间</span>`);
           return `<div class="rvc">
             <div class="rvc-h"><b style="color:${pc}">${x.prob}</b><span>${x.name}</span><span class="muted">${x.code}</span><span class="tag">${x.sector}${x.secZT ? ' ' + x.secZT + '板' : ''}</span>${tg.join('')}</div>
-            <div class="rvc-g"><span>现价 ${x.price}</span><span class="${cls(x.pct)}">${sign(x.pct)}%</span><span>主力净占比 <b class="${cls(x.mainPct)}">${x.mainPct}%</b></span><span>净额 ${fmtY(x.mainInflow)}</span></div>
+            <div class="rvc-g"><span>现价 ${x.price}</span><span class="${cls(x.pct)}">${sign(x.pct)}%</span><span>主力净占比 <b class="${cls(x.mainPct)}">${x.mainPct == null ? '未知' : x.mainPct + '%'}</b></span><span>净额 ${fmtY(x.mainInflow)}</span></div>
             <div style="white-space:normal;margin-top:5px;font-size:12px">埋伏依据: <b class="up">${x.reason || '-'}</b></div>
             <div class="muted" style="white-space:normal;margin-top:3px">注意：这是<b>尚未启动</b>的票，优点是成本低，代价是要等；不属于追涨。</div>
           </div>`;
@@ -3579,17 +3579,17 @@ function klRenderFlow() {
   if (f.source === 'ths') {
     const cls = f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : '';
     box.innerHTML = `<div style="padding:8px 10px;border:1px solid #e5e8ec;border-radius:8px">
-      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（同花顺兜底） <span class="muted" style="font-weight:400">主动净买占比 <b class="${cls}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct}%</b></span></div>
-      <div style="font-size:12px;margin-top:3px">主动净买额 <b class="${cls}">${f.today > 0 ? '+' : ''}${klMoney(f.today)}</b></div>
+      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（同花顺兜底） <span class="muted" style="font-weight:400">主动净买占比 <b class="${cls}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct == null ? '未知' : f.mainPct + '%'}</b></span></div>
+      <div style="font-size:12px;margin-top:3px">主动净买额 <b class="${cls}">${f.today > 0 ? '+' : ''}${f.today == null ? '未知' : klMoney(f.today)}</b></div>
       <div class="muted" style="font-size:11px;margin-top:3px">${esc(f.note || '东财资金流未返回，已用同花顺主动净买占比兜底（无超大/大/中/小单四级拆分）')}。数据源：同花顺。</div>
     </div>`;
     return;
   }
-  const net = (v, lb) => `<span style="margin-right:10px">${lb} <b class="${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${v > 0 ? '+' : ''}${klMoney(v)}</b></span>`;
+  const net = (v, lb) => `<span style="margin-right:10px">${lb} <b class="${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${v > 0 ? '+' : ''}${v == null ? '未知' : klMoney(v)}</b></span>`;
   box.innerHTML = `<div style="padding:8px 10px;border:1px solid #e5e8ec;border-radius:8px">
-    <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（四级·东财） <span class="muted" style="font-weight:400">主力净占比 <b class="${f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : ''}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct}%</b></span></div>
+    <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（四级·东财） <span class="muted" style="font-weight:400">主力净占比 <b class="${f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : ''}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct == null ? '未知' : f.mainPct + '%'}</b></span></div>
     <div style="font-size:12px;margin-top:3px">${net(f.superNet, '超大单')}${net(f.bigNet, '大单')}${net(f.midNet, '中单')}${net(f.smallNet, '小单')}</div>
-    <div class="muted" style="font-size:11px;margin-top:3px">净额＝主动买入−主动卖出；红=净流入、绿=净流出。数据为当日盘中/收盘值，非交易时段显示最近一个交易日的定格值。数据源：东财。</div>
+    <div class="muted" style="font-size:11px;margin-top:3px">供应商按订单大小分类估算净额；红=净流入、绿=净流出，不代表投资者身份。数据为当日盘中/收盘值，非交易时段显示最近一个交易日的定格值。数据源：东财。</div>
   </div>`;
 }
 function klRenderPaper() {
@@ -3670,14 +3670,14 @@ function renderAnalyze(d) {
   else if (f.source === 'ths') {
     const cls = f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : '';
     flowHtml = `<div style="padding:8px 10px;border:1px solid #e5e8ec;border-radius:8px">
-      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（同花顺兜底） <span class="muted" style="font-weight:400">主动净买占比 <b class="${cls}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct}%</b></span></div>
-      <div style="font-size:12px;margin-top:3px">主动净买额 <b class="${cls}">${f.today > 0 ? '+' : ''}${klMoney(f.today)}</b></div>
+      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（同花顺兜底） <span class="muted" style="font-weight:400">主动净买占比 <b class="${cls}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct == null ? '未知' : f.mainPct + '%'}</b></span></div>
+      <div style="font-size:12px;margin-top:3px">主动净买额 <b class="${cls}">${f.today > 0 ? '+' : ''}${f.today == null ? '未知' : klMoney(f.today)}</b></div>
       <div class="muted" style="font-size:11px;margin-top:3px">${esc(f.note || '东财资金流未返回，已用同花顺主动净买占比兜底（无超大/大/中/小单四级拆分）')}。数据源：同花顺。</div>
     </div>`;
   } else {
-    const net = (v, lb) => `<span style="margin-right:10px">${lb} <b class="${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${v > 0 ? '+' : ''}${klMoney(v)}</b></span>`;
+    const net = (v, lb) => `<span style="margin-right:10px">${lb} <b class="${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${v > 0 ? '+' : ''}${v == null ? '未知' : klMoney(v)}</b></span>`;
     flowHtml = `<div style="padding:8px 10px;border:1px solid #e5e8ec;border-radius:8px">
-      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（四级·东财） <span class="muted" style="font-weight:400">主力净占比 <b class="${f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : ''}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct}%</b></span></div>
+      <div style="font-weight:600;font-size:12.5px">💧 当日大单资金流（四级·东财） <span class="muted" style="font-weight:400">主力净占比 <b class="${f.mainPct > 0 ? 'up' : f.mainPct < 0 ? 'down' : ''}" style="font-size:14px">${f.mainPct > 0 ? '+' : ''}${f.mainPct == null ? '未知' : f.mainPct + '%'}</b></span></div>
       <div style="font-size:12px;margin-top:3px">${net(f.superNet, '超大单')}${net(f.bigNet, '大单')}${net(f.midNet, '中单')}${net(f.smallNet, '小单')}</div>
       <div class="muted" style="font-size:11px;margin-top:3px">数据为当日盘中/收盘值。数据源：东财。</div>
     </div>`;

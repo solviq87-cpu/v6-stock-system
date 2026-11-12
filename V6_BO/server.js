@@ -8,6 +8,32 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+// Funds evidence: missing values remain unknown throughout display and aggregation.
+function fundsNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
+function fundsRounded(value, digits = 0) {
+  const n = fundsNumber(value); return n === null ? null : Number(n.toFixed(digits));
+}
+function fundsWindowSum(rows, count, fields = ['main']) {
+  if (!Array.isArray(rows) || rows.length < count) return null;
+  const window = rows.slice(-count);
+  if (!window.every(row => row && fields.every(field => fundsNumber(row[field]) !== null))) return null;
+  return window.reduce((sum, row) => sum + fields.reduce((subtotal, field) => subtotal + row[field], 0), 0);
+}
+function fundsWindowDelta(rows, count) {
+  if (!Array.isArray(rows) || rows.length < count || count < 2) return null;
+  const window = rows.slice(-count);
+  if (!window.every(row => row && fundsNumber(row.mainInflow) !== null)) return null;
+  return window[window.length - 1].mainInflow - window[0].mainInflow;
+}
+function applyObservedFunds(stock, flow) {
+  stock.mainInflow = fundsNumber(flow.today); stock.mainPct = fundsNumber(flow.pct);
+  for (const field of ['superNet', 'bigNet', 'midNet', 'smallNet']) stock[field] = fundsNumber(flow[field]);
+  stock.fundsSource = flow.upstream === 'eastmoney' ? 'eastmoney' : null;
+  stock.fundsMethod = flow.fundsMethod || null;
+  stock.fundsRetrievedAt = fundsNumber(flow.retrievedAt);
+  stock.fundsSourceTimestamp = fundsNumber(flow.sourceTimestamp);
+}
+
 const { analyzeShortline } = require('./_shortline');
 const { rankCandidates } = require('./src/strategy/strategy-service');
 const { projectPaperAccount: V6ProjectPaperAccount } = require('./src/core/paper-unified-view');
@@ -515,9 +541,11 @@ function pickNotableSectors(sectors, prevFlow, canDiff, STRONG_PCT) {
   const surges = [], strong = [];
   for (const s of (sectors || [])) {
     const prev = prevFlow ? prevFlow.get(s.name) : null;
-    const d = prev != null ? ((s.mainInflow || 0) - prev) : 0;
-    if (canDiff && prev != null && d >= 3e7 && (s.mainInflow || 0) > 0) surges.push({ name: s.name, delta: d, pct: s.pct || 0, kind: 'surge' });
-    if ((s.pct || 0) >= STRONG_PCT && (s.mainInflow || 0) > 0) strong.push({ name: s.name, delta: d, pct: s.pct || 0, kind: 'strong' });
+    const currentKnown = typeof s.mainInflow === 'number' && Number.isFinite(s.mainInflow);
+    const previousKnown = typeof prev === 'number' && Number.isFinite(prev);
+    const d = canDiff && currentKnown && previousKnown ? s.mainInflow - prev : null;
+    if (canDiff && prev != null && d !== null && d >= 3e7 && s.mainInflow > 0) surges.push({ name: s.name, delta: d, pct: s.pct || 0, kind: 'surge' });
+    if (currentKnown && (s.pct || 0) >= STRONG_PCT && s.mainInflow > 0) strong.push({ name: s.name, delta: d, pct: s.pct || 0, kind: 'strong' });
   }
   const _byName = new Map();
   for (const x of [...surges, ...strong]) {
@@ -542,7 +570,7 @@ function ztThemesOf(z) {
 
 async function sectorSurgeScan() {
   if (!isTradingTime() || !S.sectors.length) { return; }
-  const cur = new Map(S.sectors.map(s => [s.name, s.mainInflow || 0]));
+  const cur = new Map(S.sectors.map(s => [s.name, fundsNumber(s.mainInflow)]));
   // ⛔ 基线必须和本轮同属一个累计周期。mainInflow 是**当日累计**，跨天归零；
   //    昨天收盘存下的是昨天的累计数，今天开盘拿今天的累计去减它，减出来的「增量」
   //    横跨两个周期 —— 实证：昨天净流出 -2 亿、今天才流入 1000 万，d = 2.1 亿 ≥ 3000 万门槛
@@ -609,7 +637,7 @@ async function sectorSurgeScan() {
           : `【${sg.name}】板块走强 ${sg.pct > 0 ? '+' : ''}${sg.pct.toFixed(2)}%${ztN ? ` · 主线 ${ztN}只涨停` : ''}`;
         pushAll(`═══ ⚡ 板块异动 · 涨停概率速报 ═══\n${_head}\n联动个股速评（涨停概率模型）:\n` +
           // ⛔ 这里的 prob 出自 A.nextDayLimitProb —— 赌的是【次日】封板，不标出来会被当成"今天就能封"
-          top.map(x => `▪ ${x.name}(${x.code}) 现涨${x.pct > 0 ? '+' : ''}${x.pct.toFixed(1)}% 涨停概率${x.prob}%${probTag('ztNext', x.prob)}${x.mainPct ? ` 主力占比${x.mainPct.toFixed(0)}%` : ''}\n  ${pickLogic({ reason: `板块异动联动（${sg.name} 30秒主力净流入${signTxt(sg.delta)}${inf(sg.delta)}、板块${sg.pct > 0 ? '+' : ''}${sg.pct.toFixed(2)}%）+ 个股现涨${x.pct.toFixed(1)}%走强` })}${fuseLine(x)}`).join('\n') +
+          top.map(x => `▪ ${x.name}(${x.code}) 现涨${x.pct > 0 ? '+' : ''}${x.pct.toFixed(1)}% 涨停概率${x.prob}%${probTag('ztNext', x.prob)}${x.mainPct ? ` 主力占比${x.mainPct.toFixed(0)}%` : ''}\n  ${pickLogic({ reason: `板块异动联动（${sg.name}${sg.delta == null ? '主力净流入为正，增量未知' : '30秒主力净流入' + signTxt(sg.delta) + inf(sg.delta)}、板块${sg.pct > 0 ? '+' : ''}${sg.pct.toFixed(2)}%）+ 个股现涨${x.pct.toFixed(1)}%走强` })}${fuseLine(x)}`).join('\n') +
           // ⛔ 2026-10-08 修：用户要求"涨停分析全部走私密通道" —— 这是涨停概率速报，改私密机器人
           `\n（异动板块15分钟内不重复推送 · 已进入自学习样本）${govFoot()}`, false, { undo: top.$undo, modDay: 'sector', private: true });
         // ⛔ 2026-10-07 修（本轮角度：数据血缘）：同上，原来第 5 参传 null，分数只塞进 extra.score。
@@ -4486,14 +4514,7 @@ async function rebuildPool() {
         S.flow5d.set(f.code, f);
         const s = set.get(f.code);
         if (s) { // 补齐主力净流入（新浪/腾讯备用源该字段为0）
-          if (f.today) s.mainInflow = f.today;
-          if (f.pct) s.mainPct = f.pct;
-          // 四级资金（超大单/大单/中单/小单）一并挂到快照上：
-          // 只有这样才能回答"到底是流入多还是流出多"，不必每次现拉。
-          if (f.superNet != null) {
-            s.superNet = f.superNet; s.bigNet = f.bigNet;
-            s.midNet = f.midNet; s.smallNet = f.smallNet;
-          }
+          applyObservedFunds(s, f);
         }
       }
       console.log(`[pool] push2批量资金流兜底: ${flows.length}/${flowMiss.length} 只`);
@@ -4581,17 +4602,18 @@ async function rebuildPool() {
     const hp = A.hengPanFangLiang(k.rows);
     if (hp && hp.ok) pushPath('横盘放量', `前10日振幅仅${hp.amp}%(平台整理)、今日量能${hp.volRatio}倍`);
     if (profitRatio != null && profitRatio < 0.11) pushPath('筹码峰<11%', `获利盘${(profitRatio * 100).toFixed(1)}%、低位筹码高度集中`);
-    // 主力吸筹：近3日主力+大单+超大单净额合计为正，且股价涨幅温和（价平钱进=吸筹特征）
+    // Preserve the legacy weighted condition; display the actual big+super net sum separately.
     const fd = S.fundDays.get(s.code) || [];
-    if (fd.length >= 3) {
-      const big3 = fd.slice(-3).reduce((a, d) => a + (d.main || 0) * 0.6 + (d.big || 0) + (d.super || 0), 0);
+    if (fundsWindowSum(fd, 3, ['main', 'big', 'super']) !== null) {
+      const weightedFlow = fd.slice(-3).reduce((a, d) => a + d.main * 0.6 + d.big + d.super, 0);
+      const bigSuperNet3 = fundsWindowSum(fd, 3, ['big', 'super']);
       const cum3p = k.rows.slice(-3).reduce((a, r) => a + r.pct, 0);
-      if (big3 > 0 && cum3p < 6)
-        pushPath('主力吸筹', `3日大单+超大单净买${Math.round(big3 / 1e4)}万、同期股价仅涨${cum3p.toFixed(1)}%`);
+      if (weightedFlow > 0 && cum3p < 6)
+        pushPath('主力吸筹', `3日大单+超大单净额${Math.round(bigSuperNet3 / 1e4)}万（供应商订单大小口径）、同期股价仅涨${cum3p.toFixed(1)}%`);
     }
     // 大单流入：当日主力净占比显著且股价温和上行（未涨停，资金真买入而非情绪追板）
     if ((s.mainPct || 0) >= 8 && s.pct > 0 && s.pct < 7)
-      pushPath('大单流入', `当日主力净占比${(+s.mainPct).toFixed(1)}%、净额${Math.round((s.mainInflow || 0) / 1e4)}万、涨幅${(+s.pct).toFixed(2)}%未过热`);
+      pushPath('大单流入', `当日主力净占比${(+s.mainPct).toFixed(1)}%、净额${fundsNumber(s.mainInflow) === null ? '未知' : Math.round(s.mainInflow / 1e4) + '万'}、涨幅${(+s.pct).toFixed(2)}%未过热`);
     // ---- 二次聚焦：剔除近5日出现过「爆发日」的高位股 ----
     // ⛔ 原来是写死的 `r.pct > 9`（2026-10-06 修）：9% 只对主板有意义（10cm，接近涨停），
     //    对创业板/科创板(20cm) 只是一半路程、对北交所(30cm) 连三分之一都不到 ——
@@ -4695,13 +4717,14 @@ async function rebuildPool() {
   // 资金门槛（双通道）：fflow 三日净流入 → push2 五日主力净流入(f164) → 当日主力净流入，均无数据时退回放量上涨代理
   const fund3dOf = c => {
     const fd = S.fundDays.get(c.code);
-    if (fd && fd.length >= 3) return fd.slice(-3).reduce((s, d) => s + (d.main || 0), 0);
+    const sum = fundsWindowSum(fd, 3);
+    if (sum !== null) return sum;
     const f5 = S.flow5d && S.flow5d.get(c.code);
     // ⛔ 原来是 `f5 && f5.d5 ? f5.d5 : null` —— em.js:1091 的 `d5: +d.f164 || 0` 里
     //    **0 是真实值**（东财 f164 = 五日主力净流入持平），却被 falsy 短路判成「数据缺失」，
     //    于是下面 `f3 == null` 的「资金接口拿不到数据时放行」分支被误触发：
     //    资金持平的票冒充「缺数据」进池。判得出的 0 就是 0，不是判不出。
-    return (f5 && f5.d5 != null) ? f5.d5 : null; // 5日主力净流入近似多日净流入
+    return fundsNumber(f5 && f5.d5); // 5日主力净流入近似多日净流入
   };
   // 池容量与闸门评估窗是两个不同的数（2026-10-28 修，见下方 slice 处注释）
   const POOL_CAP = 50;           // 精选池上限
@@ -5128,11 +5151,11 @@ function computeMainline() {
     if (lb > g.maxLb) g.maxLb = lb;
     g.stocks.push({ name: z.name, code: z.code, lb, prob: null });
   }
-  const flow = new Map((S.sectors || []).map(s => [s.name, s.mainInflow || 0]));
+  const flow = new Map((S.sectors || []).map(s => [s.name, fundsNumber(s.mainInflow)]));
   const arr = Object.values(stats);
   for (const g of arr) {
     g.stocks.sort((a, b) => b.lb - a.lb);
-    g.inflow = flow.get(g.sector);
+    g.inflow = flow.get(g.sector) ?? null;
   }
   // 主线强度 = 涨停家数×2 + 连板总高度（板块资金流可用时作参考展示）
   arr.sort((a, b) => (b.count * 2 + b.lbSum) - (a.count * 2 + a.lbSum));
@@ -5897,15 +5920,14 @@ async function tick() {
     for (const s of snaps) {
       // 记录资金轨迹（保留10分钟）
       const h = S.inflowHistory.get(s.code) || [];
-      h.push({ t: now, mainInflow: s.mainInflow || 0, pct: s.pct });
+      h.push({ t: now, mainInflow: fundsNumber(s.mainInflow), pct: s.pct });
       while (h.length && now - h[0].t > 10 * 60 * 1000) h.shift();
       S.inflowHistory.set(s.code, h);
 
       if (h.length >= 12) {
-        const old = h[h.length - 12]; // 约1分钟前
-        const delta = (s.mainInflow || 0) - old.mainInflow;
+        const delta = fundsWindowDelta(h, 12); // 约1分钟前；缺失样本中断资金差分。
         // 用户总开关：资金做多意愿强烈 = 个股主力净流入为正 且 盘中留存未转流出
-        const bullishIntent = (s.mainInflow || 0) > 0 && delta >= 0;
+        const bullishIntent = delta !== null && fundsNumber(s.mainInflow) !== null && s.mainInflow > 0 && delta >= 0;
         const streakMin = countStreak(h);
         const poolItem = S.candidatePool.find(c => c.code === s.code);
         const ztInSector = sectorZTCountFor(s);
@@ -6202,7 +6224,10 @@ async function tick() {
 function countStreak(h) {
   // 连续主力净流入增加的采样点数（5秒一采，12点≈1分钟）
   let n = 0;
-  for (let i = h.length - 1; i > 0 && h[i].mainInflow >= h[i - 1].mainInflow; i--) n++;
+  for (let i = h.length - 1; i > 0 &&
+    typeof h[i].mainInflow === 'number' && Number.isFinite(h[i].mainInflow) &&
+    typeof h[i - 1].mainInflow === 'number' && Number.isFinite(h[i - 1].mainInflow) &&
+    h[i].mainInflow >= h[i - 1].mainInflow; i--) n++;
   return Math.round(n / 12); // 折算成分钟
 }
 function sectorZTCountFor(stock) {
@@ -6360,7 +6385,7 @@ async function scanBigMoneyInner() {
     return [];
   }
   // 备用快照源（新浪/腾讯）不带主力资金字段 → 先用东财 push2 给"交投最活跃头部"补齐，再扫描
-  const hasFlow = base.filter(s => (s.mainPct || 0) !== 0).length > base.length * 0.3;
+  const hasFlow = base.filter(s => fundsNumber(s.mainPct) !== null).length > base.length * 0.3;
   if (!hasFlow) {
     const top = [...base].sort((a, b) => (b.amount || 0) - (a.amount || 0)).slice(0, 700);
     try {
@@ -6369,12 +6394,7 @@ async function scanBigMoneyInner() {
       let n = 0;
       for (const s of top) {
         const f = fm.get(s.code); if (!f) continue;
-        if (f.today) s.mainInflow = f.today;
-        if (f.pct) s.mainPct = f.pct; // f184 主力净占比
-        if (f.superNet != null) {     // 四级资金：超大单/大单/中单/小单净额（判买卖力量对比用）
-          s.superNet = f.superNet; s.bigNet = f.bigNet;
-          s.midNet = f.midNet; s.smallNet = f.smallNet;
-        }
+        applyObservedFunds(s, f);
         n++;
       }
       console.log(`[bigmoney] push2 补齐主力资金 ${n}/${top.length} 只`);
@@ -6382,7 +6402,7 @@ async function scanBigMoneyInner() {
     base = top;
   }
   // 数据源三级保障：① 东财主力资金流 → ② 同花顺外盘/内盘（主动净买）→ ③ 纯量价代理
-  let source = base.filter(s => (s.mainPct || 0) !== 0).length > 0 ? 'em' : 'none';
+  let source = base.filter(s => fundsNumber(s.mainPct) !== null).length > 0 ? 'em' : 'none';
   let ths = null;
   if (source === 'none') {
     const cand = [...base].sort((a, b) => (b.amount || 0) - (a.amount || 0)).slice(0, 160); // 只查交投最活跃的
@@ -6396,8 +6416,8 @@ async function scanBigMoneyInner() {
     // 涨停概率（与后排蓄势同一套模型），供"大单流入→可能涨停"实时推送判定
     const poolItem = S.candidatePool.find(c => c.code === s.code);
     const gapToLimit = numGapRaw(s.code, s.name, s.pct); // 面板/文案用：取不到是 null（显示 '-'），不编数
-    const mp = mpOverride == null ? (s.mainPct || 0) : mpOverride;
-    const mi = miOverride == null ? (s.mainInflow || 0) : miOverride;
+    const mp = mpOverride == null ? fundsNumber(s.mainPct) : fundsNumber(mpOverride);
+    const mi = miOverride == null ? fundsNumber(s.mainInflow) : fundsNumber(miOverride);
     const prob = +calibratedProb(A.limitUpProbability({
       score: numNeutral('score', poolItem ? poolItem.score : null),
       mainPct: numNeutral('mainPct', mp),
@@ -6408,10 +6428,10 @@ async function scanBigMoneyInner() {
     }) * 100).toFixed(0);
     return {
       code: s.code, name: s.name, price: s.price, pct: +(+s.pct).toFixed(2),
-      mainPct: +mp.toFixed(1), mainInflow: Math.round(mi),
+      mainPct: fundsRounded(mp, 1), mainInflow: fundsRounded(mi),
       // 买卖两侧都要摊开：以前只给一个净额，用户问"也有流出啊到底谁多"时答不上来
-      superNet: Math.round(s.superNet || 0), bigNet: Math.round(s.bigNet || 0),
-      midNet: Math.round(s.midNet || 0), smallNet: Math.round(s.smallNet || 0),
+      superNet: fundsRounded(s.superNet), bigNet: fundsRounded(s.bigNet),
+      midNet: fundsRounded(s.midNet), smallNet: fundsRounded(s.smallNet),
       flow: (() => { try { return em.flowBalance(s); } catch { return null; } })(),
       sector: sectorOfStock(s), prob, gapToLimit,
       source, proxy: src !== 'em',
@@ -6758,13 +6778,14 @@ async function klineFlowOf(code) {
     const f = (arr || [])[0];
     if (f) {
       rec.data = {
-        source: 'em',                                          // 东财四级资金流
-        mainPct: +(Number(f.pct) || 0).toFixed(2),            // 主力净占比 %（东财 f184）
-        today: Math.round(Number(f.today) || 0),              // 当日主力净额（元）
-        superNet: Math.round(Number(f.superNet) || 0),        // 超大单净额（元）
-        bigNet: Math.round(Number(f.bigNet) || 0),            // 大单净额（元）
-        midNet: Math.round(Number(f.midNet) || 0),            // 中单净额（元）
-        smallNet: Math.round(Number(f.smallNet) || 0),        // 小单净额（元）
+        source: 'em', upstream: 'eastmoney', fundsMethod: f.fundsMethod,
+        retrievedAt: fundsNumber(f.retrievedAt), sourceTimestamp: fundsNumber(f.sourceTimestamp),
+        mainPct: fundsRounded(f.pct, 2),            // 主力净占比 %（东财 f184）
+        today: fundsRounded(f.today),              // 当日主力净额（元）
+        superNet: fundsRounded(f.superNet),        // 超大单净额（元）
+        bigNet: fundsRounded(f.bigNet),            // 大单净额（元）
+        midNet: fundsRounded(f.midNet),            // 中单净额（元）
+        smallNet: fundsRounded(f.smallNet),        // 小单净额（元）
       };
     } else {
       // ③b：东财无数据 → 同花顺主动净买兜底（用户要求「大单数据可从同花顺获取」）
@@ -6772,11 +6793,11 @@ async function klineFlowOf(code) {
       //    不拿 0 冒充缺失字段，显式标 source='ths' + note 说明口径差异。
       try {
         const th = await em.fetchThsActive(c);
-        if (th && (th.netAmt || th.activePct)) {
+        if (th && (fundsNumber(th.netAmt) !== null || fundsNumber(th.activePct) !== null)) {
           rec.data = {
-            source: 'ths',
-            mainPct: th.activePct,                             // 主动买占比（与东财主力净占比量级可比）
-            today: Math.round(th.netAmt || 0),                 // 主动净买额（元）
+            source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
+            mainPct: fundsNumber(th.activePct),                             // 主动买占比（与东财主力净占比量级可比）
+            today: fundsRounded(th.netAmt),                 // 主动净买额（元）
             superNet: null, bigNet: null, midNet: null, smallNet: null,
             note: '东财资金流未返回，已用同花顺主动净买占比兜底（无超大/大/中/小单四级拆分）',
           };
@@ -6845,7 +6866,7 @@ function washVsDistribute(rows, flowRec, dayRef) {
   if (!aboveMa && ma20 != null && maUp === false) { score--; reasons.push({ side: 'distribute', text: `收盘跌破 20 日线且均线走平/下行——支撑失效` }); }
   if (rangePos != null && rangePos > 0.8 && Math.abs(pct) < 1 && volRatio != null && volRatio > 1.2) { score--; reasons.push({ side: 'distribute', text: `高位放量滞涨：仅 ${pctStr(pct)} 却放着 ${Math.round(volRatio * 100)}% 的量——往上拉不动了` }); }
   if (upper > 1.5 * bodyPct && upper > 0.3 && upper - lower > 0.1 && rangePos != null && rangePos > 0.5) { score--; reasons.push({ side: 'distribute', text: '高位长上影：冲高回落，上方套牢盘在出' }); }
-  if (fl && fl.superNet < 0 && Math.abs(fl.superNet) > Math.abs(fl.bigNet || 0)) { score--; reasons.push({ side: 'distribute', text: '超大单净流出超过大单——机构级减仓迹象' }); }
+  if (fl && fundsNumber(fl.superNet) !== null && fundsNumber(fl.bigNet) !== null && fl.superNet < 0 && Math.abs(fl.superNet) > Math.abs(fl.bigNet)) { score--; reasons.push({ side: 'distribute', text: '超大单净流出绝对额超过大单净额（订单大小口径）' }); }
   // ls+：十日量能逻辑接入裁判本体（用户「成交量逻辑别忘了接」）——红瘦绿肥/爆量出货→出货证据；红肥绿瘦→洗盘证据
   if (typeof A !== 'undefined' && A && typeof A.volTenOf === 'function') {
     const _v10 = A.volTenOf(rows);
@@ -7491,9 +7512,10 @@ async function scanBigMoneyPush() {
     if (!f || x.source !== 'em') return '';
     const w = v => `${(v / 1e4).toFixed(0)}万`;
     const sign = v => (v > 0 ? '+' : '') + w(v);
+    if (f.dir === 'unknown') return `\n  🌗 买卖对比（${FLOW_WIN}）：${f.label}`;
     if (Math.abs(f.main) < 1) return '';
     return `\n  🌗 买卖对比（${FLOW_WIN}）：超大单${sign(f.superNet)} / 大单${sign(f.bigNet)} / 中单${sign(f.midNet)} / 小单${sign(f.smallNet)}` +
-      `\n  → ${f.label}${f.consistent ? '' : '（⚠️ 四级净额不守恒，数据疑似脏值，仅作参考）'}`;
+      `\n  → ${f.label}${f.consistent === false ? '（⚠️ 四级净额不守恒，数据疑似脏值，仅作参考）' : ''}`;
   };
   const logic = x => pickLogic({
     paths: ['大单流入'],
@@ -11545,24 +11567,24 @@ const num = v => { const x = Number(v); return isFinite(x) ? x : 0; };
   if (rng > 0 && lower > 1.5 * bodyPct && lower > 0.3) { score++; reasons.push({ side: 'accumulate', text: '长下影线：盘中砸盘被低接，主力护盘成本区' }); }
   // ⑥ 资金证据（前提项）：当日主力净买入，或【多日持续吸筹】（kq：单日吸筹可能是对倒脉冲，看5日窗口）
   const hist = Array.isArray(E.flowHist) ? E.flowHist : [];
-  let pos5 = 0, sum5 = 0, sumLast3 = 0, sumPrev3 = 0;
-  if (hist.length >= 5) {
+  let pos5 = null, sum5 = null, sumLast3 = null, sumPrev3 = null;
+  if (fundsWindowSum(hist, 5) !== null) {
     const last5 = hist.slice(-5);
-    pos5 = last5.filter(d => (+d.main || 0) > 0).length;
-    sum5 = last5.reduce((a, d) => a + (+d.main || 0), 0);
+    pos5 = last5.filter(d => d.main > 0).length;
+    sum5 = fundsWindowSum(last5, 5);
   }
   if (hist.length >= 6) {
-    sumLast3 = hist.slice(-3).reduce((a, d) => a + (+d.main || 0), 0);
-    sumPrev3 = hist.slice(-6, -3).reduce((a, d) => a + (+d.main || 0), 0);
+    sumLast3 = fundsWindowSum(hist, 3);
+    sumPrev3 = fundsWindowSum(hist.slice(-6, -3), 3);
   }
   const todayFlowOK = !!(fl && (fl.mainPct > 1.5 || fl.today > 5e6));
   const multiFlowOK = pos5 >= 3 && sum5 > 0;                 // 近5日≥3天净入且累计为正
-  if (todayFlowOK) { score++; reasons.push({ side: 'accumulate', text: `当日主力净占比 ${fl.mainPct}% · 净入 ${Math.round((fl.today || 0) / 1e4)} 万——资金在低位进场` }); }
+  if (todayFlowOK) { score++; reasons.push({ side: 'accumulate', text: `当日主力净占比 ${fundsNumber(fl.mainPct) === null ? '未知' : fl.mainPct + '%'} · 净入 ${fundsNumber(fl.today) === null ? '未知' : Math.round(fl.today / 1e4) + ' 万'}——资金在低位进场` }); }
   else if (multiFlowOK) { score++; reasons.push({ side: 'accumulate', text: `近5日 ${pos5} 天主力净入、累计 ${sum5 > 0 ? '+' : ''}${Math.round(sum5 / 1e4)} 万——多日持续吸筹，非单日脉冲` }); }
   // ⑥b 资金由负转正（吸筹启动）⑥c 洗盘吸筹交替（回调日主力在接，用户 kq 点题）
-  if (hist.length >= 6 && sumLast3 > 0 && sumPrev3 <= 0) { score++; reasons.push({ side: 'accumulate', text: '近3日主力净流入由负转正——吸筹启动信号' }); }
+  if (sumLast3 !== null && sumPrev3 !== null && sumLast3 > 0 && sumPrev3 <= 0) { score++; reasons.push({ side: 'accumulate', text: '近3日主力净流入由负转正——吸筹启动信号' }); }
   const pctByDate = new Map(rows.map(r => [String(r.date), num(r.pct)]));
-  const altN = hist.slice(-10).filter(d => { const p = pctByDate.get(String(d.date)); return p != null && p < -0.5 && (+d.main || 0) > 0; }).length;
+  const altN = hist.slice(-10).filter(d => { const p = pctByDate.get(String(d.date)); return p != null && p < -0.5 && fundsNumber(d.main) !== null && d.main > 0; }).length;
   if (altN >= 2) { score++; reasons.push({ side: 'accumulate', text: `近10日中 ${altN} 个回调日主力净入——洗盘/吸筹交替进行，边洗边吸` }); }
   // lh（调研共识·股旁/财云/约投顾/百科四源）：吸筹期可识别的日线级信号
   const vAvg5b = avgA(vol.slice(-6, -1));
@@ -12430,7 +12452,7 @@ async function washTrendScan(opts = {}) {
         return {
           code: s.code, name: s.name, price: +s.price || 0, pct: +s.pct || 0,
           score: wScore, signal, sector: _sec, sectorLabel: _heat ? _heat.short : '',
-          mainPct: fl.mainPct != null ? fl.mainPct : null, mainInflow: fl.today || 0, flowSrc: fl.source || '',
+          mainPct: fl.mainPct != null ? fl.mainPct : null, mainInflow: fundsNumber(fl.today), flowSrc: fl.source || '',
           relayScore: rw.score || 0, breakout: wBreak || null, aKill: _ak,
           ...(wStruct || {}),
           reasons: wReasons || [],
@@ -14371,39 +14393,39 @@ async function enrichZTPoolMeta(zt) {
   if (n || fail) console.log(`[zt] 附加筹码/量能/形态：成功 ${n} 只，失败 ${fail} 只`);
 }
 
-// jf 轮：从个股资金流（mainInflow / thsNetAmt）聚合出「板块资金流」第二把尺子，
-// 作为东财板块流的辅助校验。个股资金源本身已包含东财 f62 / 同花顺主动净买 / 量价代理，
-// 与 EM 直接按板块统计的口径不同，正好交叉验证。
+// Same-upstream, same-method stock sum; not an independent source or complete sector total.
 function aggregateSectorFlowFromStocks() {
-  const map = new Map();
-  for (const s of (S.stocks || [])) {
-    if (!s || !s.code || !s.name) continue;
-    const sec = sectorOfStock({ code: s.code, name: s.name }) || s.sector || '';
-    if (!sec) continue;
-    // 优先用个股主力净流入（东财口径），其次同花顺主动净买，都不行就跳过
-    const flow = (typeof s.mainInflow === 'number' && isFinite(s.mainInflow)) ? s.mainInflow
-               : (typeof s.thsNetAmt === 'number' && isFinite(s.thsNetAmt)) ? s.thsNetAmt
-               : null;
-    if (flow == null || flow === 0) continue;
-    const cur = map.get(sec) || { mainInflow: 0, upCount: 0, totalCount: 0, src: new Set() };
-    cur.mainInflow += flow;
-    cur.totalCount++;
-    if ((s.pct || 0) > 0) cur.upCount++;
-    if (typeof s.mainInflow === 'number' && isFinite(s.mainInflow)) cur.src.add('em');
-    if (typeof s.thsNetAmt === 'number' && isFinite(s.thsNetAmt)) cur.src.add('ths');
-    map.set(sec, cur);
+  const map = new Map(), seen = new Set();
+  for (const stock of (S.stocks || [])) {
+    if (!stock || !stock.code || !stock.name || seen.has(stock.code)) continue;
+    seen.add(stock.code);
+    const name = sectorOfStock({code: stock.code, name: stock.name}) || stock.sector || '';
+    if (!name) continue;
+    const row = map.get(name) || {name, sum: 0, observedStockCount: 0, knownFundsCount: 0,
+      upCount: 0, downCount: 0, observedPriceCount: 0};
+    row.observedStockCount++;
+    if (fundsNumber(stock.pct) !== null) {
+      row.observedPriceCount++;
+      if (stock.pct > 0) row.upCount++;
+      if (stock.pct < 0) row.downCount++;
+    }
+    if (stock.fundsSource === 'eastmoney' && stock.fundsMethod === 'vendor-order-size-estimate' &&
+        fundsNumber(stock.mainInflow) !== null) {
+      row.sum += stock.mainInflow; row.knownFundsCount++;
+    }
+    map.set(name, row);
   }
-  const rows = [];
-  for (const [name, v] of map) {
-    rows.push({
-      name,
-      mainInflow: +v.mainInflow.toFixed(0),
-      upCount: v.upCount,
-      totalCount: v.totalCount,
-      src: Array.from(v.src).join('+')
-    });
-  }
-  return rows.sort((a, b) => b.mainInflow - a.mainInflow);
+  return Array.from(map.values()).map(row => ({
+    name: row.name, mainInflow: null, // Full provider membership is not established here.
+    observedMainInflowSum: row.knownFundsCount ? fundsRounded(row.sum) : null,
+    upCount: row.observedPriceCount ? row.upCount : null,
+    downCount: row.observedPriceCount ? row.downCount : null,
+    observedDirectionalCount: row.observedPriceCount ? row.upCount + row.downCount : null,
+    totalCount: null, observedStockCount: row.observedStockCount,
+    knownFundsCount: row.knownFundsCount, fundsCoverage: row.knownFundsCount / row.observedStockCount,
+    src: 'em-observed-subset', upstream: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
+    independentSource: false, sourceTimestamp: null
+  })).sort((a, b) => (b.observedMainInflowSum ?? -Infinity) - (a.observedMainInflowSum ?? -Infinity));
 }
 
 // ---------------- 5. 定时任务 ----------------
@@ -14478,8 +14500,9 @@ async function refreshSectorsZT() {
       let hist = {};
       if (fs.existsSync(histPath)) { try { hist = JSON.parse(fs.readFileSync(histPath, 'utf8')) || {}; } catch {} }
       const top = rows.slice(0, 60).map(s => ({
-        code: s.code, name: s.name, mainInflow: +(s.mainInflow || 0),
-        pct: s.pct != null ? +s.pct : null, upCount: +(s.upCount || 0), totalCount: +(s.totalCount || 0)
+        code: s.code, name: s.name, mainInflow: fundsNumber(s.mainInflow),
+        pct: fundsNumber(s.pct), upCount: fundsNumber(s.upCount), downCount: fundsNumber(s.downCount),
+        totalCount: fundsNumber(s.totalCount), observedDirectionalCount: fundsNumber(s.observedDirectionalCount)
       }));
       hist[day] = top;
       const keep = Object.keys(hist).sort().slice(-90);
@@ -14516,16 +14539,16 @@ async function refreshSectorsZT() {
       console.error('[sectors] 板块流兜底重拉失败（板块栏/补涨龙可能无源）:', (e && e.message) || e);
     }
   }
-  // jf 轮：腾讯/同花顺个股资金流聚合出板块流第二把尺子，辅助校验东财板块流
+  // 同源个股子集观察，仅保留明确东财订单大小口径，不视为独立来源核验。
   try {
     const alt = aggregateSectorFlowFromStocks();
     S.sectorsAlt = alt;  // 内存态，不落盘；供校验/兜底/面板展示 age
-    // 校验：东财 Top10 与个股聚合 Top10 的差异
+    // 比较：板块供应商排行与已观测个股子集排行，覆盖范围不同。
     const emTop = (S.sectors || []).slice(0, 10).map(x => x.name);
     const altTop = alt.slice(0, 10).map(x => x.name);
     const overlap = emTop.filter(n => altTop.includes(n)).length;
     if (emTop.length && altTop.length) {
-      console.log(`[sectors] 板块流交叉校验：东财Top10与个股聚合Top10重叠 ${overlap}/10；个股聚合源 ${alt.length} 个板块`);
+      console.log(`[sectors] 同源覆盖比较：东财Top10与个股子集Top10重叠 ${overlap}/10；个股聚合源 ${alt.length} 个板块`);
     }
   } catch (e) {
     console.error('[sectors] 个股聚合板块流失败:', (e && e.message) || e);
@@ -20807,6 +20830,29 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return json(res,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
     }catch(e){return json(res,{ok:false,error:String(e.message).slice(0,200)},400);}
   }
+  if (['/api/research/linked-intelligence','/api/research/stock-memory','/api/research/public-context'].includes(p)) {
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    const memoryRoot=process.env.V6_STOCK_INTELLIGENCE_DIR||path.join(__dirname,'data','stock-intelligence-memory');
+    if(p==='/api/research/stock-memory'){
+      if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+      const symbol=u.searchParams.get('symbol');
+      if(!/^\d{6}$/.test(symbol||''))return reply(400,{ok:false,error:'需要六位股票代码'});
+      return require('./src/server/linked-intelligence-job').runLinkedIntelligenceJob({symbol},{memoryRoot,action:'read-memory'}).then(result=>reply(result.ok?200:422,result));
+    }
+    if(req.method!=='POST')return reply(405,{ok:false,error:'仅允许POST'});
+    if(Buffer.byteLength(body||'','utf8')>2*1024*1024)return reply(413,{ok:false,error:'研究数据超过2MiB'});
+    let input;try{input=JSON.parse(body||'{}');}catch{return reply(400,{ok:false,error:'JSON格式错误'});}
+    if(!input||typeof input!=='object'||Array.isArray(input))return reply(400,{ok:false,error:'研究参数必须为对象'});
+    if(p==='/api/research/linked-intelligence')return require('./src/server/linked-intelligence-job').runLinkedIntelligenceJob(input,{memoryRoot}).then(result=>reply(result.ok?200:422,result));
+    // Explicit on-demand egress to a fixed upstream. No client URL or path is consumed.
+    if(Buffer.byteLength(body||'','utf8')>8192)return reply(413,{ok:false,error:'公开来源请求超过8KiB'});
+    return require('./scripts/capture-public-market-context').capturePublicContext(
+      process.env.V6_PUBLIC_CONTEXT_DIR||path.join(__dirname,'data','public-market-context'),
+      {date:input.date,sectorCode:input.sectorCode,symbol:input.symbol,historyDays:input.historyDays})
+      .then(capture=>reply(200,{ok:true,result:capture.report,archive:{hash:capture.hash,reused:capture.reused}}))
+      .catch(()=>reply(422,{ok:false,error:'公开数据不可用、封存失败或请求参数无效'}));
+  }
   if (p === '/api/research/agent-status') {
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
@@ -21355,10 +21401,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const pool = S.candidatePool.slice(0, 50).map(c => {
       const h = S.inflowHistory.get(c.code);
       let retain = null, retainWin = null, retainTxt = null;
-      if (h && h.length >= 12) {
+      if (h && h.length >= 12 && fundsWindowDelta(h, h.length) !== null) {
         const t0 = Number(h[0] && h[0].t) || 0;
         const t1 = Number(h[h.length - 1] && h[h.length - 1].t) || 0;
-        const d = (h[h.length - 1].mainInflow || 0) - (h[0].mainInflow || 0);
+        const d = fundsWindowDelta(h, h.length);
         retain = Math.round(d / 1e4); // 万元（窗口见 retainWin）
         // ⛔ 名义 10 分钟，实际跨度随轨迹长度变化 —— 把实际窗口一并交出去
         retainWin = t1 > t0 ? Math.round((t1 - t0) / 1000) : 0;

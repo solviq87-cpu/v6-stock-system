@@ -74,7 +74,9 @@
     "test:sector:classify": "node --test tests/baostock-industry-membership-adapter.test.js tests/sector-breadth-market-bridge.test.js",
     "research:agent": "node scripts/factor-research-agent.js",
     "research:models": "node tools/research-runner.js models",
-    "research:public-factors": "node tools/research-runner.js public-factors"
+    "research:public-factors": "node tools/research-runner.js public-factors",
+    "research:context:capture": "node scripts/capture-public-market-context.js",
+    "research:context:watch": "node scripts/watch-public-market-context.js watch"
   },
   "engines": {
     "node": ">=22.6"

@@ -9,6 +9,8 @@ function eq(a, b, m) { ok(a === b, m + '  (got ' + JSON.stringify(a) + ' want ' 
 
 const src = fs.readFileSync('server.js', 'utf8');
 const html = fs.readFileSync('public/index.html', 'utf8');
+// The locked homepage loads its retained-flow renderer from this external asset.
+const app = fs.readFileSync('public/assets/app.js', 'utf8');
 
 // 从源码切出真实实现（不复制，保证测的是线上那份）
 function slice(startMark, endMark) {
@@ -108,7 +110,7 @@ ok(retainWinTxt(30) !== retainWinTxt(600), 'F10 ⛔ 30 秒与 10 分钟必须标
 console.log('\n=== G. 源码断言 ===');
 const stripC = (l) => { const i = l.indexOf('//'); return i >= 0 ? l.slice(0, i) : l; };
 const code = src.split('\n').filter(l => !l.startsWith('const APP_VER = ')).map(stripC);
-const hcode = html.split('\n').filter(l => !l.startsWith('const APP_VER = ')).map(stripC);
+const hcode = (html + '\n' + app).split('\n').filter(l => !l.startsWith('const APP_VER = ')).map(stripC);
 
 ok(code.some(l => /const canDiff = prevSnapUsable\('sectorFlow'/.test(l)),
   'G1 板块突增做差前先问 prevSnapUsable');

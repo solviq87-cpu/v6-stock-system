@@ -51,7 +51,7 @@ test('research agent status and public factor computation require editor rights 
    await delay(50);
   }
   assert.ok(ready,'fixture server did not start: '+logs.slice(-1500));
-  for(const route of ['/api/research/agent-status','/api/research/public-factors']){
+  for(const route of ['/api/research/agent-status','/api/research/public-factors','/api/research/linked-intelligence','/api/research/stock-memory?symbol=600001','/api/research/public-context']){
    assert.notEqual((await request(port,route)).body.ok,true);
    assert.notEqual((await request(port,route,viewer)).body.ok,true);
   }
@@ -64,6 +64,22 @@ test('research agent status and public factor computation require editor rights 
   const unknown=await request(port,'/api/research/public-factors',editor,{schemaVersion:1,stocks:[{symbol:'000001'}]});
   assert.equal(unknown.status,200);assert.equal(unknown.body.result.observations[0].status,'unavailable');
   assert.ok(Object.values(unknown.body.result.observations[0].values).every(x=>x===null));
+  assert.equal((await request(port,'/api/research/linked-intelligence',editor)).status,405);
+  assert.equal((await request(port,'/api/research/public-context',editor,{symbol:'not-a-stock'})).status,422);
+  assert.equal((await request(port,'/api/research/stock-memory?symbol=../config',editor)).status,400);
+  const asOf=Date.parse('2025-01-03T16:00:00+08:00');
+  const history={schemaVersion:1,asOf,persist:true,tradeDates:['2025-01-01','2025-01-02','2025-01-03','2025-01-06'],
+    stocks:[{symbol:'600001',name:'history-fixture',source:'http-fixture',priceBasis:'unadjusted',observedAt:asOf,
+      bars:['2025-01-01','2025-01-02','2025-01-03'].map(date=>({date,open:10,high:11,low:9,close:10,volume:1000}))}]};
+  const linked=await request(port,'/api/research/linked-intelligence',editor,history);
+  assert.equal(linked.status,200);assert.equal(linked.body.result.canTrade,false);
+  assert.equal(linked.body.result.stocks[0].forecast.direction.probability,null);
+  assert.equal(linked.body.result.stocks[0].memory.status,'saved');
+  const memory=await request(port,'/api/research/stock-memory?symbol=600001',editor);
+  assert.equal(memory.status,200);assert.equal(memory.body.result.totalRevisions,1);
+  assert.equal(memory.body.result.revisions[0].stock.bars.length,3);
+  assert.equal(memory.body.result.forwardValidation.direction.evaluated,0);
+  assert.ok(!JSON.stringify(memory.body).includes(tmp));
  }finally{
   if(child&&child.exitCode===null&&child.signalCode===null){const stopped=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGKILL');await stopped;}
   fs.rmSync(tmp,{recursive:true,force:true});

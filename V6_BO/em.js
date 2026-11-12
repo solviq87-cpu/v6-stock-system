@@ -343,6 +343,8 @@ async function fetchAllStocksTx(base) {
       ...r,
       mainInflow: toObservedNumber(e.mainInflow),
       mainPct: toObservedNumber(e.mainPct),
+      fundsSource: e.fundsSource || null, fundsMethod: e.fundsMethod || null,
+      fundsRetrievedAt: e.fundsRetrievedAt ?? null, fundsSourceTimestamp: e.fundsSourceTimestamp ?? null,
       listedDate: Number.isFinite(Number(e.listedDate)) ? Number(e.listedDate) : 0
     };
   });
@@ -358,8 +360,26 @@ function normalizeStock(d) {
     mktcap: d.f20, floatCap: d.f21,   // 总市值/流通市值
     speed: d.f22,                     // 涨速
     listedDate: d.f26,                // 上市日期 yyyymmdd
-    mainInflow: d.f62, mainPct: d.f184 // 主力净流入(元)/净占比%
+    mainInflow: observedFlowNumber(d.f62), mainPct: observedFlowNumber(d.f184),
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
+    fundsRetrievedAt: Date.now(), fundsSourceTimestamp: null // 接收时刻不是原报价时刻
   };
+}
+
+// Vendor order-size estimates are not investor identities. Missing values stay unknown.
+function observedFlowNumber(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+function observedFlowCount(value) {
+  const number = observedFlowNumber(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+function flowProvenance(retrievedAt) {
+  return { source: 'eastmoney', upstream: 'eastmoney',
+    fundsMethod: 'vendor-order-size-estimate', retrievedAt, sourceTimestamp: null };
 }
 
 // 板块资金流。t:2 行业板块, t:3 概念板块
@@ -369,12 +389,20 @@ async function fetchSectorFlow(type) {
     `&fields=f12,f14,f2,f3,f62,f66,f72,f104,f105,f128,f136,f140,f141`;
   const j = await get(u);
   if (!j.data || !j.data.diff) return [];
-  return j.data.diff.map(d => ({
-    code: d.f12, name: d.f14, pct: d.f3,
-    mainInflow: d.f62, bigInflow: d.f66,
-    upCount: d.f104, totalCount: d.f105,
-    leader: d.f128, leaderCode: d.f140, leaderPct: d.f136
-  }));
+  const retrievedAt = Date.now();
+  return j.data.diff.map(d => {
+    const upCount = observedFlowCount(d.f104), downCount = observedFlowCount(d.f105);
+    return {
+      code: d.f12, name: d.f14, pct: observedFlowNumber(d.f3),
+      mainInflow: observedFlowNumber(d.f62), superInflow: observedFlowNumber(d.f66),
+      bigInflow: observedFlowNumber(d.f72), upCount, downCount,
+      // f105 is declining stocks, not total membership; flat/unquoted members are unknown.
+      observedDirectionalCount: upCount !== null && downCount !== null ? upCount + downCount : null,
+      totalCount: null,
+      leader: d.f128, leaderCode: d.f140, leaderPct: observedFlowNumber(d.f136),
+      ...flowProvenance(retrievedAt)
+    };
+  });
 }
 
 // 板块成分股（东财行业/概念板块 fs=b:BK代码）：补涨龙候选池来源
@@ -1244,10 +1272,13 @@ async function fetchFundFlowDays(code, days = 6) {
     `&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65`;
   const parse = j => {
     if (!j || !j.data || !j.data.klines) return null;
+    const retrievedAt = Date.now();
     return j.data.klines.map(s => {
       const p = s.split(',');
-      // 东财资金流日线：f51日期 f52主力 f53小单 f54中单 f55大单 f56超大单（大单+超大单=机构级大资金）
-      return { date: p[0], main: +p[1], small: +p[2] || 0, mid: +p[3] || 0, big: +p[4] || 0, super: +p[5] || 0 };
+      // f51日期；f52主力=f55大单+f56超大单，仅为供应商订单大小分类估计。
+      return { date: p[0], main: observedFlowNumber(p[1]), small: observedFlowNumber(p[2]),
+        mid: observedFlowNumber(p[3]), big: observedFlowNumber(p[4]), super: observedFlowNumber(p[5]),
+        ...flowProvenance(retrievedAt) };
     });
   };
   try {
@@ -1305,9 +1336,9 @@ function curlGet(u, timeoutMs = 8000, referer) {
 //      f78  中单净额     f81 中单净占比
 //      f84  小单净额     f87 小单净占比
 //    恒等式：f66+f72+f78+f84 === 0（买到的金额必然等于卖出的金额）
-//    → 所以"谁在买谁在卖"不用猜，看四级各自的正负就知道答案：
-//      超大单 + 小单 -  = 大资金在买、散户在卖（偏多）
-//      超大单 - 大单 +  = 顶级资金在跑、次级大单在接（偏空，就是用户担心的"也有流出"）
+//    四级正负反映供应商订单大小分类下的净额，不能识别实际投资者身份：
+//      超大单 + 小单 -  = 超大单净流入、小单净流出
+//      超大单 - 大单 +  = 超大单净流出、大单净流入
 //    以前只推 f62 这一个数字，等于把"主力内部打架"这种关键信息直接丢掉。
 async function fetchBatchFlowEM(codes) {
   const chunks = [];
@@ -1325,41 +1356,49 @@ async function fetchBatchFlowEM(codes) {
       _srcWarn('批量资金流·两通道均失败', `本批 ${batch.length} 只（${batch[0]}…）Node/curl 双通道均无数据 —— 返回 []，调用方须按「无资金流」处理，⛔ 不拿 0 冒充`);
       return [];
     }
+    const retrievedAt = Date.now();
     return j.data.diff.map(d => ({
-      code: String(d.f12), today: +d.f62 || 0, d5: +d.f164 || 0, d10: +d.f174 || 0, pct: +d.f184 || 0,
-      superNet: +d.f66 || 0, superPct: +d.f69 || 0,   // 超大单
-      bigNet: +d.f72 || 0, bigPct: +d.f75 || 0,       // 大单
-      midNet: +d.f78 || 0, midPct: +d.f81 || 0,       // 中单
-      smallNet: +d.f84 || 0, smallPct: +d.f87 || 0    // 小单
+      code: String(d.f12), today: observedFlowNumber(d.f62), d5: observedFlowNumber(d.f164),
+      d10: observedFlowNumber(d.f174), pct: observedFlowNumber(d.f184),
+      superNet: observedFlowNumber(d.f66), superPct: observedFlowNumber(d.f69),
+      bigNet: observedFlowNumber(d.f72), bigPct: observedFlowNumber(d.f75),
+      midNet: observedFlowNumber(d.f78), midPct: observedFlowNumber(d.f81),
+      smallNet: observedFlowNumber(d.f84), smallPct: observedFlowNumber(d.f87),
+      ...flowProvenance(retrievedAt)
     })).filter(d => /^\d{6}$/.test(d.code));
   };
   const results = await pool(chunks, one, 4);
   return results.filter(Boolean).flat();
 }
 
-// 买卖力量对比：把四级资金翻译成一句人话结论 + 一个方向标识
-// dir: 'in'强势净流入 / 'out'大资金出逃 / 'mixed'大资金内部分歧 / 'flat'几乎无主力参与
-function flowBalance(t) {
-  const sup = +(t.superNet || 0), big = +(t.bigNet || 0);
-  const mid = +(t.midNet || 0), sml = +(t.smallNet || 0);
+// 供应商订单大小分类的净额对比；净额不能证明投资者身份或总参与度。
+// dir: 'in'主力口径净流入 / 'out'主力口径净流出 / 'mixed'分类分歧 / 'flat'净额较小
+function flowBalance(t = {}) {
+  const sup = observedFlowNumber(t?.superNet), big = observedFlowNumber(t?.bigNet);
+  const mid = observedFlowNumber(t?.midNet), sml = observedFlowNumber(t?.smallNet);
+  if ([sup, big, mid, sml].some(value => value === null)) {
+    return { dir: 'unknown', label: '订单大小分类净额缺失，无法判断净流入方向',
+      main: sup !== null && big !== null ? sup + big : null,
+      superNet: sup, bigNet: big, midNet: mid, smallNet: sml, consistent: null };
+  }
   const main = sup + big;
   const sum = sup + big + mid + sml;
   // 数据自检：四级净额数学上必须归零，偏差过大说明接口字段串位或被限流返回脏值
   const gross = Math.abs(sup) + Math.abs(big) + Math.abs(mid) + Math.abs(sml) || 1;
   const consistent = Math.abs(sum) / gross < 0.02;
-  const retail = mid + sml;
-  let dir = 'flat', label = '主力参与度极低，无法判断买卖力量';
+  const midSmall = mid + sml;
+  let dir = 'flat', label = '主力口径净额相对较小，不能据此判断总成交参与度';
   if (!consistent) {
     // 恒等式被打破 = 接口字段串位 / 被限流返回脏值，此时说什么"买多卖少"都是编的
     dir = 'unknown'; label = '⚠️ 四级净额不守恒（数据源疑似串位或限流脏值），买卖力量判不出来，本条仅作线索';
   } else if (Math.abs(main) < gross * 0.08) { dir = 'flat'; }
-  else if (main > 0 && sup <= 0 && big > 0) { dir = 'mixed'; label = '超大单在出货、次级大单在接 → 表面净流入实为大单内部接盘，别当成真买盘'; }
-  else if (main < 0 && sup < 0 && big > 0) { dir = 'mixed'; label = '超大单在跑、次级大单在接 → 净流出但顶级资金尚未完全撤离，分歧较大'; }
-  else if (main > 0 && sup > 0 && retail < 0) { dir = 'in'; label = '超大单在买、中小散户在卖 → 买方力量明确占优'; }
-  else if (main < 0 && sup < 0 && retail > 0) { dir = 'out'; label = '超大单在跑、中小单在接 → 卖方力量占优（典型的资金出逃）'; }
-  else if (main < 0 && sup >= 0 && big < 0) { dir = 'mixed'; label = '超大单仍在买、大单在减 → 净流出但顶级资金未撤，分歧中'; }
-  else if (main > 0) { dir = 'in'; label = '主力整体净买入 → 买方力量占优'; }
-  else { dir = 'out'; label = '主力整体净卖出 → 卖方力量占优'; }
+  else if (main > 0 && sup <= 0 && big > 0) { dir = 'mixed'; label = '超大单净额非正、大单净流入 → 主力口径净流入，分类方向分歧'; }
+  else if (main < 0 && sup < 0 && big > 0) { dir = 'mixed'; label = '超大单净流出、大单净流入 → 主力口径净流出，分类方向分歧'; }
+  else if (main > 0 && sup > 0 && midSmall < 0) { dir = 'in'; label = '超大单净流入、中小单合计净流出 → 主力口径净流入'; }
+  else if (main < 0 && sup < 0 && midSmall > 0) { dir = 'out'; label = '超大单净流出、中小单合计净流入 → 主力口径净流出'; }
+  else if (main < 0 && sup >= 0 && big < 0) { dir = 'mixed'; label = '超大单净额非负、大单净流出 → 主力口径净流出，分类方向分歧'; }
+  else if (main > 0) { dir = 'in'; label = '大单与超大单合计净流入（供应商主力口径）'; }
+  else { dir = 'out'; label = '大单与超大单合计净流出（供应商主力口径）'; }
   return { dir, label, main, superNet: sup, bigNet: big, midNet: mid, smallNet: sml, consistent };
 }
 
