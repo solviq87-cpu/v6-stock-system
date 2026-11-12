@@ -1,0 +1,299 @@
+{
+  "recorded_at_utc": "2026-11-12T12:59:04+00:00",
+  "scope": "Local validation of unchanged application trees plus BI archive intake tooling; remote candidate CI is tracked separately in PR #172.",
+  "repository": "solviq87-cpu/v6-stock-system",
+  "application_baseline_commit": "5629cf4f5ca88aab92e7e151937880bcf6cfa6b9",
+  "intake_parent_commit": "3099ae89d9ae9db773047fe957709742698ceb21",
+  "preserved_git_objects": {
+    "V6_BO": "d02364fd15baaf5c66b0fe36e42d98d8f4b2e1e6",
+    "V6_WEB": "8b4ff76a9a439ddfeab53831fb40dfe7c9aa11e7",
+    "V6_BO/public/index.html": "9e2fad468cb3e192df0ca2b9184babb2add8c4de",
+    "V6_BO/public/mobile.html": "084e36d950f9bf4c3508aa1a5cb8986799b6079e"
+  },
+  "environment": {
+    "os": "Linux",
+    "node": "24.22.1",
+    "model_python": "3.12.14",
+    "native_python": "3.13.5",
+    "model_dependencies": {
+      "scikit-learn": "1.8.0",
+      "lightgbm": "4.6.0",
+      "xgboost": "3.1.3"
+    },
+    "test_concurrency": 2,
+    "OMP_NUM_THREADS": 1,
+    "OPENBLAS_NUM_THREADS": 1,
+    "MKL_NUM_THREADS": 1,
+    "PYTHONDONTWRITEBYTECODE": 1
+  },
+  "results": [
+    {
+      "name": "source-check",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "working_directory": ".",
+      "exit_code": 0,
+      "log": {
+        "name": "source-check.log",
+        "bytes": 443,
+        "sha256": "6b6dbdec19bdedcbe1473a583dcf920d3cae5a97792a2d3adde76b945810e35c",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "backend-full",
+      "command": [
+        "npm",
+        "test"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "tap_verification_exit_code": 0,
+      "counts": {
+        "tests": 1915,
+        "pass": 1915,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "duration_seconds": 80.114,
+      "log": {
+        "name": "backend-full.tap",
+        "bytes": 422962,
+        "sha256": "bc571a8e7422e0f7d0e8a033bb4cd9fd0bdb29d80d053882bc66240d837b5dc4",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "preserved-quote-ui",
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "--test-concurrency=2",
+        "tests/quote-freshness-bj.test.js",
+        "tests/paper-original-quote-time.test.js",
+        "tests/paper-authority-quote-time.test.js",
+        "tests/pool-quote-provenance.test.js",
+        "tests/quote-observation-view.test.js",
+        "tests/six-photo-backups.test.js",
+        "tests/picks-three-k.test.js"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "counts": {
+        "tests": 48,
+        "pass": 48,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "log": {
+        "name": "preserved-quote-ui.tap",
+        "bytes": 11917,
+        "sha256": "30eb99845d6f3ff602ea883fb1473b5819a93f5b9373730842aae9d3a1a689fa",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "web-tests",
+      "command": [
+        "npm",
+        "test"
+      ],
+      "working_directory": "V6_WEB",
+      "exit_code": 0,
+      "suites": {
+        "analysis": 13,
+        "ui": 2,
+        "strategy-research": 22,
+        "strategy-ui": 3
+      },
+      "tests": 40,
+      "failed": 0,
+      "log": {
+        "name": "web-tests.log",
+        "bytes": 4571,
+        "sha256": "1aa1bfb59c49950cd88f2820d67feb9dd200df7c2b7abb0f2d47efeb60eeb8e0",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "web-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "working_directory": "V6_WEB",
+      "exit_code": 0,
+      "log": {
+        "name": "web-build.log",
+        "bytes": 165,
+        "sha256": "efe93348d1b635ecbe8ae5092fa5d5a8859947ff6eee9593ec90aa5cd83168a9",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      },
+      "tracked_dist_unchanged": true
+    },
+    {
+      "name": "archive-tools",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_audit_*_archive.py",
+        "-v"
+      ],
+      "working_directory": ".",
+      "exit_code": 0,
+      "duration_seconds": 0.787,
+      "log_sha256": "bdb15785cef1e8f7c02ab453ebc5733692810a448761d3344836cb4ed466837f",
+      "log": {
+        "name": "archive-tools.log",
+        "bytes": 2455,
+        "sha256": "bdb15785cef1e8f7c02ab453ebc5733692810a448761d3344836cb4ed466837f",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      },
+      "tests": 20,
+      "bi_tests": 12,
+      "existing_bn_tests": 8
+    },
+    {
+      "name": "eight-point",
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/eight-point-flow.test.js",
+        "tests/research-watch-journal.test.js",
+        "tests/research-explanation-ui.test.js",
+        "tests/manual-holding-risk-watch.test.js",
+        "tests/research-rule-weight-review.test.js"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "duration_seconds": 0.856,
+      "log_sha256": "cbb2f17d2921a643985b77a4f4102a55b5430d0a2b79d6b7db45db4b66fb5a3f",
+      "log": {
+        "name": "eight-point.log",
+        "bytes": 7353,
+        "sha256": "cbb2f17d2921a643985b77a4f4102a55b5430d0a2b79d6b7db45db4b66fb5a3f",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      },
+      "counts": {
+        "tests": 30,
+        "pass": 30,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "name": "yellow-four",
+      "command": [
+        "npm",
+        "run",
+        "test:yellow-four"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "duration_seconds": 0.347,
+      "log_sha256": "6c0b037e8a9bb3c403701d892d0585e56a32ad54db30b2a7c0ba5dd7dac89a06",
+      "log": {
+        "name": "yellow-four.log",
+        "bytes": 2086,
+        "sha256": "6c0b037e8a9bb3c403701d892d0585e56a32ad54db30b2a7c0ba5dd7dac89a06",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "source-catalog",
+      "command": [
+        "node",
+        "scripts/audit-market-source-catalog.js"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "duration_seconds": 0.057,
+      "log_sha256": "57fb80928a4bfe81e3826d573609609a2af6e3f94402b8443dbdbd6afb612a46",
+      "log": {
+        "name": "source-catalog.log",
+        "bytes": 409,
+        "sha256": "57fb80928a4bfe81e3826d573609609a2af6e3f94402b8443dbdbd6afb612a46",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "release-structure",
+      "command": [
+        "node",
+        "scripts/v6-release-preflight.js"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "duration_seconds": 0.091,
+      "log_sha256": "bf6f00074b5d21ffa67b0507a558126e6e72b271007dd22232ea2b68b109e6fc",
+      "log": {
+        "name": "release-structure.log",
+        "bytes": 7426,
+        "sha256": "bf6f00074b5d21ffa67b0507a558126e6e72b271007dd22232ea2b68b109e6fc",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "isolated-http",
+      "command": [
+        "node",
+        "tests/full-server-isolated-smoke.js"
+      ],
+      "working_directory": "V6_BO",
+      "exit_code": 0,
+      "duration_seconds": 1.305,
+      "log_sha256": "c63e5d1d79fb6d0a8f5d2fef7dd288718e4d71d3d199ada37384e37f5d5487a6",
+      "log": {
+        "name": "isolated-http.log",
+        "bytes": 93,
+        "sha256": "c63e5d1d79fb6d0a8f5d2fef7dd288718e4d71d3d199ada37384e37f5d5487a6",
+        "retention": "Local execution evidence; not raw application data and not included in the public repository."
+      }
+    },
+    {
+      "name": "real-bi-archive",
+      "command": [
+        "python3",
+        "scripts/audit-bi-archive.py",
+        "<same-SHA256-BI.zip>",
+        "<complete-pinned-dev-tree.json>",
+        "--output",
+        "docs/archive-intake/bi-1060-inventory.json"
+      ],
+      "working_directory": ".",
+      "exit_code": 0,
+      "archive_files": 4297,
+      "counts": {
+        "identical": 1612,
+        "different": 67,
+        "archive_only": 2618
+      },
+      "repo_only": 387,
+      "source_manifest_verified_files": 1086,
+      "output_sha256": "1d0c529d86f0a52af7b126bc13d29e698b55dae7b160d69f77a8142368c37721"
+    }
+  ],
+  "interpretation": [
+    "Targeted suites overlap with the full suite; do not sum them into an independent test count.",
+    "Historical archive TAP files are not counted as fresh runs.",
+    "Local checks do not certify live market data, production deployment, real trades or investment returns.",
+    "GitHub CI must pass on the uploaded candidate commit with the repository Node 22 / Python 3.11 environment before merge."
+  ]
+}
