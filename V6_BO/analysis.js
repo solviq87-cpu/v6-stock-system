@@ -433,7 +433,8 @@ function trendCheck({ rows, fundDays, price }) {
   // ⚠️ 2026-10-19 it2：缩量上涨判据补「两日量都必须 >0」——同花顺延迟会把「缺成交」冒充 volume=0，
   //   此时 today.volume(0) < prev.volume(>0) 恒成立，会把「没数据」误判成「缩量上涨」。缺量一律不判缩量。
   const shrinkUp = today.pct > 0 && today.volume > 0 && rows[rows.length - 2].volume > 0 && today.volume < rows[rows.length - 2].volume; // 缩量上涨
-  const fund3d = fundDays && fundDays.length >= 3
+  const fund3d = Array.isArray(fundDays) && fundDays.length >= 3 &&
+    fundDays.slice(-3).every(d => d && typeof d.main === 'number' && Number.isFinite(d.main))
     ? fundDays.slice(-3).every(d => d.main > 0) : null; // 三日主力净流入
   return {
     ma5: +last5.toFixed(2), prevHigh20: +prevHigh20.toFixed(2),
@@ -520,16 +521,17 @@ function trendPoolCheck({ rows, fundDays, price, mainInflow, thsNetAmt, floatCap
     last5.every(r => Math.abs(r.close - ma5now) / ma5now <= 0.06);
   // 资金流入：三日主力净流入合计>0；无资金流数据时用今日主力净流入>0 兜底；
   // 资金流接口被限流时进一步降级为量价代理（放量+收涨≈资金参与），接口恢复后自动用回真实数据
-  const fund3dSum = fundDays && fundDays.length >= 3
-    ? fundDays.slice(-3).reduce((s, d) => s + (d.main || 0), 0) : null;
+  const fund3dSum = Array.isArray(fundDays) && fundDays.length >= 3 &&
+    fundDays.slice(-3).every(d => d && typeof d.main === 'number' && Number.isFinite(d.main))
+    ? fundDays.slice(-3).reduce((sum, d) => sum + d.main, 0) : null;
   // 资金四级保障：① 东财三日主力净流入 → ② 东财当日主力净流入 → ③ 同花顺外盘/内盘(主动净买) → ④ 量价代理
   // 东财资金接口被限流时，用同花顺的真实主动买盘顶上，而不是直接退化成"量价代理"
   let fundIn = false, proxy = false, source = 'em';
   if (fund3dSum != null) fundIn = fund3dSum > 0;
-  else if ((mainInflow || 0) > 0) fundIn = true;
+  else if (typeof mainInflow === 'number' && Number.isFinite(mainInflow)) fundIn = mainInflow > 0;
   // 有同花顺真实资金数据就按它一锤定音：净流出直接判不合格，
   // 不再回落到偏乐观的"量价代理"（否则会拿放量上涨的假象掩盖真实的资金出逃）
-  else if (thsNetAmt != null) { fundIn = thsNetAmt > 0; source = 'ths'; }
+  else if (typeof thsNetAmt === 'number' && Number.isFinite(thsNetAmt)) { fundIn = thsNetAmt > 0; source = 'ths'; }
   else {
     const amt = rows[rows.length - 1].amount, amtPrev = rows[rows.length - 2].amount;
     if (amt > amtPrev * 0.98 && rows[rows.length - 1].pct >= 0) { fundIn = true; proxy = true; source = 'price'; }
