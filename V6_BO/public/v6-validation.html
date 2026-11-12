@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f4ef">
+<title>回测验证 · 天枢智策 V6</title><link rel="stylesheet" href="/assets/v6-studio.css?v=20261113c"><script src="/assets/v6-studio-areas.js?v=20261113c" defer></script></head>
+<body data-page="validation"><div class="shell"><aside class="sidebar" aria-label="V6 新版主导航"><a class="brand" href="/v6-studio.html"><span class="monogram">V6</span><span><strong>天枢智策</strong><small>独立智能投研工作室</small></span></a><div class="side-label">RESEARCH SPACE / 投研空间</div><nav class="nav"><a href="/v6-studio.html"><span class="symbol">◫</span>今日判断</a>
+<a href="/v6-matches.html"><span class="symbol">◎</span>全部命中个股</a>
+<a href="/v6-research.html"><span class="symbol">◇</span>策略研究</a>
+<a href="/v6-validation.html" class="active" aria-current="page"><span class="symbol">↗</span>回测验证</a>
+<a href="/v6-paper.html"><span class="symbol">▤</span>模拟盘</a></nav><div class="side-foot">辅助选股 · 非实盘交易<br>先证据，后决策</div></aside>
+<main class="main"><div class="topline"><div class="breadcrumb">V6 工作室 ／ 回测验证</div><div class="tools"><span class="status-pill">验证版 · 仅凭接口证据</span><button class="outline" id="area-refresh" type="button">↻ 重新读取</button></div></div><div class="kicker">VALIDATION LAB / 证据链</div><h1>用未来数据验证，<br>而不是用漂亮的回测说服自己。</h1><p class="lead">将扫描信号、历史回测、样本外验证、模拟交易分别管理。没有冻结前的证据和合法交易日序列，就不显示所谓的已验证收益。</p><div class="alert" id="verify-status" role="status" aria-live="polite">正在读取冻结来源与信号快照状态…</div>
+<section class="metrics">
+<article class="card metric"><small>六条件候选个股</small><strong id="verify-stocks">—</strong><span>仅指量化六条件</span></article>
+<article class="card metric"><small>对应条件信号数</small><strong id="verify-signals">—</strong><span>不等于交易次数</span></article>
+<article class="card metric"><small>快照生成时间</small><strong id="verify-basis" style="font-size:16px">未获取</strong><span>不是交易所认证行情时间</span></article>
+<article class="card metric"><small>来源与范围</small><strong id="verify-source" style="font-size:16px">待核验</strong><span>其他四套策略另行核对</span></article>
+</section>
+<div class="section-head"><h2>从策略发现到实证的四道门</h2></div>
+<div class="secondary-grid">
+<section class="card feature"><div class="index">01 / FREEZE</div><h3>冻结信号</h3><p>记录当时已出现的股票、条件ID、时间与来源，禁止事后倒填。</p><span class="status-pill">历史记录待核验</span></section>
+<section class="card feature"><div class="index">02 / FOLLOW-UP</div><h3>未来交易日追踪</h3><p>按真实交易日历进行1、5、20、60日观察。停牌、缺价和公司行为不混同失败。</p><span class="status-pill">成熟样本待核验</span></section>
+<section class="card feature"><div class="index">03 / OOS</div><h3>样本外验证</h3><p>历史训练与未来检验隔离；回测收益与真实可成交性是两回事。</p><span class="status-pill">结论尚未认证</span></section>
+</div>
+<div class="section-head"><h2>独立核验入口</h2></div><div class="card panelpad"><p>新版 V6 不会在这里画一条编造的累计收益曲线。等冻结与跟踪数据实际接通后，才把策略胜率、最大回撤、样本量及观测日期逐项展示。</p><a class="action" href="/v6-matches.html" style="display:inline-block">回到全部命中个股</a></div>
+<p class="footer-note">V6 全新投研工作室 · 数据未知即显示未知；演示数据不会冒充实测；产品日常操作与开发维护互相隔离。</p></main></div><nav class="mobile-tabbar" aria-label="手机底部导航"><a href="/v6-studio.html"><span>◫</span>今日</a>
+<a href="/v6-matches.html"><span>◎</span>命中</a>
+<a href="/v6-research.html"><span>◇</span>策略研究</a>
+<a href="/v6-validation.html" class="active" aria-current="page"><span>↗</span>验证</a>
+<a href="/v6-paper.html"><span>▤</span>模拟盘</a></nav></body></html>
