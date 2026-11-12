@@ -6,8 +6,8 @@ const {readStockMemory}=require('../src/core/stock-intelligence-memory');
 function fixture(){
  const dates=Array.from({length:85},(_,i)=>new Date(Date.UTC(2025,0,1+i)).toISOString().slice(0,10));
  const bars=dates.slice(0,84).map((date,i)=>({date,open:10+i*.03,high:10.1+i*.03,low:9.9+i*.03,close:10.04+i*.03,volume:10000,amount:100000000,
-  knownAt:Date.parse(date+'T15:01:00+08:00'),statusKnownAt:date+'T09:00:00+08:00',tradable:true,suspended:false,isST:false,corporateAction:false}));
- const asOf=Date.parse(dates[83]+'T16:00:00+08:00');
+  knownAt:Date.parse(date+'T16:01:00+08:00'),statusKnownAt:date+'T09:00:00+08:00',tradable:true,suspended:false,isST:false,corporateAction:false,corporateActionKnownAt:date+'T09:00:00+08:00'}));
+ const asOf=Date.parse(dates[83]+'T16:05:00+08:00');
  return {schemaVersion:1,asOf,tradeDates:dates,stocks:[{symbol:'600001',name:'样本',source:'fixture',priceBasis:'unadjusted',observedAt:asOf,bars}]};
 }
 function context(f){return {source:'eastmoney',tradeDate:f.stocks[0].bars.at(-1).date,retrievedAt:f.asOf,

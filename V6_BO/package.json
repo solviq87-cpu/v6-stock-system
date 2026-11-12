@@ -76,7 +76,9 @@
     "research:models": "node tools/research-runner.js models",
     "research:public-factors": "node tools/research-runner.js public-factors",
     "research:context:capture": "node scripts/capture-public-market-context.js",
-    "research:context:watch": "node scripts/watch-public-market-context.js watch"
+    "research:context:watch": "node scripts/watch-public-market-context.js watch",
+    "research:stock": "node scripts/stock-observation-monitor.js",
+    "research:sector:relations": "node scripts/sector-relations-capture-report.js"
   },
   "engines": {
     "node": ">=22.6"

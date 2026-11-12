@@ -8,6 +8,40 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+// Opt-in durable research observer. Push delivery, ranking and accounts remain independent.
+let _stockObservationMonitor=null,_stockObservationMonitorError=null;
+function stockObservationOptions(){
+  return {observationRoot:process.env.V6_STOCK_OBSERVATIONS_DIR||path.join(__dirname,'data','stock-observations'),
+    memoryRoot:process.env.V6_STOCK_INTELLIGENCE_DIR||path.join(__dirname,'data','stock-intelligence-memory'),
+    calendarFile:process.env.V6_RESEARCH_CALENDAR_FILE||undefined,
+    sectorCaptureRoot:process.env.V6_RESEARCH_SECTOR_CAPTURE_DIR||undefined,
+    sectorIds:process.env.V6_RESEARCH_SECTOR_IDS?process.env.V6_RESEARCH_SECTOR_IDS.split(',').map(s=>s.trim()):undefined};
+}
+function getStockObservationMonitor(){
+  if(process.env.V6_AUTO_STOCK_OBSERVATIONS!=='1'||isReplica())return null;
+  if(!_stockObservationMonitor&&!_stockObservationMonitorError){
+    try{_stockObservationMonitor=require('./src/core/stock-observation-monitor').createStockObservationMonitor({
+      queueRoot:process.env.V6_STOCK_OBSERVATION_QUEUE_DIR||path.join(__dirname,'data','stock-observation-queue'),jobOptions:stockObservationOptions()});}
+    catch{_stockObservationMonitorError='blocked-observation-monitor';}
+  }
+  return _stockObservationMonitor;
+}
+function queuePushedStockObservations(text,codes,opts){
+  const monitor=getStockObservationMonitor();if(!monitor)return;
+  const decisionAt=Date.now(),messageHash=require('node:crypto').createHash('sha256').update(text).digest('hex');
+  for(const symbol of codes){
+    if(!/^(?:(?:600|601|603|605|688|000|001|002|003|300|301)\d{3}|(?:43|83|87|88|92)\d{4})$/.test(symbol))continue;
+    try{
+      const signalRefs=(Array.isArray(opts.signalRefs)?opts.signalRefs:[]).filter(r=>r&&r.code===symbol&&typeof r.type==='string'&&r.type.length<=64&&
+        (r.ts===undefined||Number.isSafeInteger(r.ts)&&r.ts>0&&r.ts<=decisionAt)).slice(0,20).map(r=>({code:r.code,type:r.type,...(r.ts===undefined?{}:{ts:r.ts})}));
+      const receipt=require('./src/core/stock-observation-queue').enqueueStockObservation(
+        process.env.V6_STOCK_OBSERVATION_QUEUE_DIR||path.join(__dirname,'data','stock-observation-queue'),
+        {symbol,decisionAt,trigger:'push-attempt',signalRefs,messageHash});
+      if(!receipt.queued)console.error('[research-observation] 采集队列未接收意图：'+receipt.reason);
+    }catch{console.error('[research-observation] 股票采集意图未封存；推送流程继续');}
+  }
+  monitor.wake();
+}
 // Funds evidence: missing values remain unknown throughout display and aggregation.
 function fundsNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
 function fundsRounded(value, digits = 0) {
@@ -9324,6 +9358,9 @@ function pushAll(text, force, opts) {
     _pushLast = { ret: false, sent: false, why: '夜间静默', t: Date.now() };
     return false;   // 夜间静默拦下：没发出去
   }
+  if (typeof process!=='undefined'&&process.env.V6_AUTO_STOCK_OBSERVATIONS==='1'&&typeof queuePushedStockObservations==='function') {
+    try{queuePushedStockObservations(text,_codes,opts);}catch{console.error('[research-observation] 意图封存失败，推送继续');}
+  }
   // 实时通道：任何一条推送同步触达面板，打开着的页面立即刷新（不用等轮询）
   // opts.private=true 属于私密消息（如持仓风控），只推给开发者连接，观看(只读)连接收不到
   // opts.sseEdit=true 只影响 SSE 分流（同样只发开发者连接），**不改变外发目的地** ——
@@ -17830,7 +17867,10 @@ const _httpBootstrap = createDashboardServer({
   onListen: () => {
     console.log(`量化看盘平台: http://127.0.0.1:${PORT}`);
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
-    if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') init().catch(e => console.error('[init]', e));
+    if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
+      init().catch(e => console.error('[init]', e));
+      try{getStockObservationMonitor()?.start();}catch{console.error('[research-observation] 采集队列未启动');}
+    }
   }
 });
 const inManualPush = _httpBootstrap.inManualPush;
@@ -20829,6 +20869,32 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       else throw Error('未知账户操作');
       return json(res,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
     }catch(e){return json(res,{ok:false,error:String(e.message).slice(0,200)},400);}
+  }
+  if (p==='/api/research/stock-observation-status') {
+    if(!requireEditor(res,req.__tok,req))return;
+    res.setHeader('Cache-Control','no-store');
+    if(req.method!=='GET'){res.writeHead(405,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify({ok:false,error:'仅允许GET'}));}
+    const monitor=getStockObservationMonitor();
+    return json(res,{ok:true,enabled:!!monitor,error:_stockObservationMonitorError,...(monitor?monitor.status():{running:false}),researchOnly:true,canTrade:false});
+  }
+  if (['/api/research/observe-stock','/api/research/stock-observations','/api/research/sector-capture-relations'].includes(p)) {
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    const options=stockObservationOptions();
+    if(p==='/api/research/stock-observations'){
+      if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+      const symbol=u.searchParams.get('symbol'),provider=u.searchParams.get('provider');
+      if(!/^\d{6}$/.test(symbol||'')||!['eastmoney','tencent'].includes(provider))return reply(400,{ok:false,error:'需要明确六位代码与档案来源'});
+      return require('./src/server/stock-observation-job').runStockObservationJob({symbol,provider},{...options,action:'read'})
+        .then(result=>reply(result.ok?200:422,result));
+    }
+    if(req.method!=='POST')return reply(405,{ok:false,error:'仅允许POST'});
+    if(Buffer.byteLength(body||'','utf8')>8192)return reply(413,{ok:false,error:'股票观察请求超过8KiB'});
+    let b;try{b=JSON.parse(body||'{}');}catch{return reply(400,{ok:false,error:'JSON格式错误'});}
+    if(!b||typeof b!=='object'||Array.isArray(b))return reply(400,{ok:false,error:'需要股票研究参数对象'});
+    if(p==='/api/research/sector-capture-relations')return require('./src/server/stock-observation-job').runStockObservationJob({sectorIds:b.sectorIds},{...options,action:'sector'}).then(result=>reply(result.ok?200:422,result));
+    const input={symbol:b.symbol,provider:b.provider??'auto',historyDays:b.historyDays??120,includeContext:b.includeContext??false,sectorCode:b.sectorCode};
+    return require('./src/server/stock-observation-job').runStockObservationJob(input,options).then(result=>reply(result.ok?200:422,result));
   }
   if (['/api/research/linked-intelligence','/api/research/stock-memory','/api/research/public-context'].includes(p)) {
     if(!requireEditor(res,req.__tok,req))return;
