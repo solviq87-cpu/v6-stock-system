@@ -7,6 +7,7 @@ const {atLockedLimit}=require('./walk-forward-backtest');
 const {catalog,evaluateOpenSourceRules}=require('./open-source-research-signals');
 const {catalog:linkedCatalog,evaluateLinkedResearch}=require('./linked-factor-research');
 const {catalog:qualityCatalog,evaluateQualityMomentumResearch}=require('./quality-volume-reversal-research');
+const {catalog:confirmationCatalog,evaluateSignalConfirmation}=require('./signal-confirmation-research');
 const {assessMarketShock}=require('../core/market-shock-learning-gate');
 const {summarizeTemporalSignalEpisodes}=require('./research-signal-episodes');
 const {evaluateRuleWeightReview}=require('./research-rule-weight-review');
@@ -35,6 +36,8 @@ function policy(input={}){
   throw Error('附加战法验证开关必须为布尔值');
  if(o.includeQualityRules!==undefined&&typeof o.includeQualityRules!=='boolean')
   throw Error('质量量价战法验证开关必须为布尔值');
+ if(o.includeSignalConfirmation!==undefined&&typeof o.includeSignalConfirmation!=='boolean')
+  throw Error('相互确认信号开关必须为布尔值');
  if(o.linkedSeries!==undefined&&
     (!o.linkedSeries||typeof o.linkedSeries!=='object'||Array.isArray(o.linkedSeries)||
      Object.keys(o.linkedSeries).length>20||
@@ -170,9 +173,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
  if(history.priceAdjustment?.mode!=='unadjusted'||
     !history.priceAdjustment?.provider)
   throw Error('需明确未复权价格及提供者出处才能进行次日开盘价格审计');
- const activeCatalog=[...catalog,
-  ...(p.includeLinkedRules===true?linkedCatalog:[]),
-  ...(p.includeQualityRules===true?qualityCatalog:[])];
+ const confirmationEnabled=p.includeSignalConfirmation===true;
  const n=ds.barsPerStock,maxH=Math.max(...p.horizons);
  const first=n-maxH-p.windows*p.testDays-1;
  if(first<40+p.gapDays)throw Error('历史样本不足：需完整预热、隔离窗口和未来持有期');
@@ -181,8 +182,10 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
  const events=[],folds=[];
  const diagnosticRules=[
   ...(p.includeLinkedRules===true?linkedCatalog:[]),
-  ...(p.includeQualityRules===true?qualityCatalog:[])
+  ...(p.includeQualityRules===true?qualityCatalog:[]),
+  ...(confirmationEnabled?confirmationCatalog:[])
  ];
+ const activeCatalog=[...catalog,...diagnosticRules];
  const ruleInputDiagnostics=diagnosticRules.length?
   Object.fromEntries(diagnosticRules.map(rule=>[rule.id,
    {candidateDays:0,notMatchedDays:0,unverifiedInputDays:0,blockedDays:0}])):null;
@@ -203,12 +206,14 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
      evaluateQualityMomentumResearch({...stock,bars:rows},{
       marketRisk:marketAt(rows.at(-1).date,p.marketContexts)==='systemic-selloff'?'risk_off':'unknown'
      }).strategies:[];
-    if(ruleInputDiagnostics)for(const x of [...extra,...quality]){
+    const confirmation=confirmationEnabled?evaluateSignalConfirmation({...stock,bars:rows}):[];
+    const optionalSignals=[...extra,...quality,...confirmation];
+    if(ruleInputDiagnostics)for(const x of optionalSignals){
       const field={candidate:'candidateDays',not_matched:'notMatchedDays',
        insufficient_data:'unverifiedInputDays',risk_blocked:'blockedDays'}[x.status];
       if(field)ruleInputDiagnostics[x.id][field]++;
     }
-    for(const candidate of [...signals.strategies,...extra,...quality]){
+    for(const candidate of [...signals.strategies,...optionalSignals]){
      if(candidate.status!=='candidate')continue;
      const tradeDate=rows.at(-1).date;
      const marketRegime=marketAt(tradeDate,p.marketContexts);
@@ -247,11 +252,12 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
   configuration:{windows:p.windows,testDays:p.testDays,gapDays:p.gapDays,horizons:p.horizons.slice(),
    feeBps:p.feeBps,slippageBps:p.slippageBps,sellTaxBps:p.sellTaxBps,
    ...(p.includeLinkedRules===true?{includeLinkedRules:true}: {}),
-   ...(p.includeQualityRules===true?{includeQualityRules:true}: {})}, 
+   ...(p.includeQualityRules===true?{includeQualityRules:true}: {}),
+   ...(confirmationEnabled?{includeSignalConfirmation:true}:{})},
   folds,rules,events,
-  ...(p.includeLinkedRules===true||p.includeQualityRules===true?
+  ...(diagnosticRules.length>0?
     {overlapDiagnostics:summarizeSignalOverlap(events,activeCatalog,p.horizons)}:{}),
-  ...(p.includeLinkedRules===true||p.includeQualityRules===true?
+  ...(diagnosticRules.length>0?
     {temporalOverlapDiagnostics:summarizeTemporalSignalEpisodes(events,activeCatalog,p.horizons,dateList)}:{}),
   ...(ruleInputDiagnostics?{ruleInputDiagnostics}:{}),
   sampleIntegrity:{eventsRetained:events.length,
@@ -264,7 +270,7 @@ function evaluatePublicRuleForwardAudit(history,opts={}){
    '进口数据来源、停复牌、涨跌停参数、公司行为核验未经过外部独立对账；无足够证据时净收益为空',
    '行情暴跌样本继续保留，不据一次回撤自动淘汰策略、修改因子权重或生成实盘委托',
    '额外战法仅在显式includeLinkedRules时评价；指数/板块序列按信号日切片，缺少21日对齐记录时相对动量不命中，未证实收益不得晋级']};
- if(p.includeLinkedRules===true||p.includeQualityRules===true)
+ if(diagnosticRules.length>0)
   report.weightReviewDiagnostics=evaluateRuleWeightReview(report);
  return report;
 }
