@@ -2,6 +2,7 @@
 // Evidence accompanies a paper fill; it never grants execution permission.
 const crypto = require('node:crypto');
 const {aShareCalendarDate} = require('./a-share-calendar');
+const {validateInputProvenance}=require('./paper-input-provenance');
 const fingerprint = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const timestamp = value => Number.isSafeInteger(value) && value > 0 && value <= 8e15;
 const label = value => value === null || typeof value === 'string' && value.trim().length > 0 && value.length <= 80 && !/[\x00-\x1f\x7f]/.test(value);
@@ -30,6 +31,9 @@ function validateFillEvidence(value, expected = {}) {
       payload.verifiedLive !== false || payload.canTrade !== false) throw Error('成交报价证据完整性或时点校验失败');
   if (payload.source === 'simulated' && payload.mode !== 'simulated' ||
       payload.source === 'imported' && payload.mode !== 'imported') throw Error('成交报价证据模式与来源不一致');
+  if(payload.inputProvenance!=null)validateInputProvenance(payload.inputProvenance,{symbol:payload.symbol,provider:payload.provider,price:payload.quotePrice,
+    quoteAt:payload.quoteAt,receivedAt:payload.receivedAt,volume:payload.volume,upperLimit:payload.upperLimit,lowerLimit:payload.lowerLimit,
+    suspended:payload.suspended,tradable:payload.tradable});
   for (const key of ['symbol', 'tradeDate', 'price', 'executionAt']) {
     if (expected[key] !== undefined && payload[key] !== expected[key]) throw Error('成交报价证据与成交记录不一致');
   }
@@ -49,6 +53,7 @@ function createFillEvidence(quote, {executionAt, executionKind, symbol, tradeDat
     symbol, tradeDate, price, quotePrice: quote?.price, volumeUnit: quote?.volumeUnit, volume: quote?.volume,
     upperLimit: quote?.upperLimit, lowerLimit: quote?.lowerLimit,
     suspended: quote?.suspended, tradable: quote?.tradable,
+    inputProvenance:quote?.inputProvenance==null?null:JSON.parse(JSON.stringify(validateInputProvenance(quote.inputProvenance))),
     // This is persisted research evidence, never a reusable execution approval.
     verifiedLive: false, canTrade: false};
   const value = {...payload, fingerprint: fingerprint(payload)};

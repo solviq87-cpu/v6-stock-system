@@ -12948,8 +12948,9 @@ function paperAuthorityQuotes(){
     marks[st.code]=Number(observation.price);
     const previous=Number(st.preClose);if(!(previous>0)||!Number.isFinite(st.volume)||st.volume<=0)continue;
     const limit=limitPctOfCode(st.code,st.name);
+    const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:st,observation,priceOrigin:observation===cached?'S.lastPx':'S.stocks',limitPct:limit});
     quotes[st.code]={symbol:st.code,price:Number(observation.price),quoteSource:observation.quoteSource,provider:observation.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(observation.receivedAt)?observation.receivedAt:null,mode:observation.quoteMode||observation.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:st.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
-      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:st.suspended===true,tradable:st.tradable!==false};
+      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:st.suspended===true,tradable:st.tradable!==false,inputProvenance};
   }
   return quotes;
 }
