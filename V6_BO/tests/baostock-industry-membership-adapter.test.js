@@ -25,7 +25,8 @@ function fixture(){
   universeSize:15,startedAt:new Date(start).toISOString(),
   retrievedAt:new Date(end).toISOString(),verifiedLive:false,stocks};
  const classification={schemaVersion:1,source:'baostock:query_stock_industry',
-  completed:true,standard:'证监会行业分类',updateDate:'2026-11-09',
+  completed:true,collectionMode:'current-provider-snapshot',
+  historicalMembershipVerified:false,standard:'证监会行业分类',updateDate:'2026-11-09',
   observedAt,declaredRows:15,rows};
  return {snapshot,classification};
 }
@@ -123,4 +124,20 @@ test('BaoStock collector never requests historical classification by a date argu
  assert.doesNotMatch(script,/bs\.query_stock_industry\(date\s*=/);
  assert.match(script,/"collectionMode": "current-provider-snapshot"/);
  assert.match(script,/"historicalMembershipVerified": False/);
+});
+
+test('consumer rejects legacy or falsely historical BaoStock classification bundles',()=>{
+ for(const tweak of [
+  x=>delete x.classification.collectionMode,
+  x=>x.classification.collectionMode='historical-as-of-date',
+  x=>delete x.classification.historicalMembershipVerified,
+  x=>x.classification.historicalMembershipVerified=true
+ ]){
+  const x=fixture();tweak(x);
+  assert.equal(adapt(x.classification,x.snapshot).status,'unknown');
+ }
+ const input=fixture();
+ const ok=adapt(input.classification,input.snapshot);
+ assert.equal(ok.membership.provenance.collectionMode,'current-provider-snapshot');
+ assert.equal(ok.membership.provenance.historicalMembershipVerified,false);
 });

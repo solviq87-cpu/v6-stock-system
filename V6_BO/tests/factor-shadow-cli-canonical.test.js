@@ -52,3 +52,16 @@ test('a canonical manifest is allowed past format selection but still fails on i
  assert.doesNotMatch(r.stderr,/仅接受冻结回执/);
  assert.equal(fs.existsSync(p.outputDir),false);
 });
+
+test('operator health rejects legacy test manifests without writing a research directory',t=>{
+ const p=setup(t);
+ fs.writeFileSync(p.manifestFile,JSON.stringify({schemaVersion:1,
+  episodes:Array.from({length:36},(_,i)=>({
+   featuresFile:path.join(p.dir,'synthetic-f-'+i+'.json'),
+   reportFile:path.join(p.dir,'synthetic-r-'+i+'.json')
+  }))}));
+ const result=run('health',p.manifestFile,p.outputDir);
+ assert.notEqual(result.status,0);
+ assert.match(result.stderr,/仅接受冻结回执与首份成熟H5绑定的正式研究清单/);
+ assert.equal(fs.existsSync(p.outputDir),false);
+});

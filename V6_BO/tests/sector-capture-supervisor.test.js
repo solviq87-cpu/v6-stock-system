@@ -15,6 +15,7 @@ function fixture(){
  }
  return {
   raw:{schemaVersion:1,source:'baostock:query_stock_industry',completed:true,
+   collectionMode:'current-provider-snapshot',historicalMembershipVerified:false,
    standard:'证监会行业分类',updateDate:'2026-11-09',
    observedAt:start-60000,declaredRows:15,rows},
   calendar:{source:'imported',

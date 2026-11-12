@@ -20,6 +20,7 @@ function fixture(){
    universeSize:15,startedAt:new Date(start).toISOString(),
    retrievedAt:new Date(end).toISOString(),verifiedLive:false,stocks},
   raw:{schemaVersion:1,source:'baostock:query_stock_industry',
+   collectionMode:'current-provider-snapshot',historicalMembershipVerified:false,
    completed:true,standard:'证监会行业分类',updateDate:'2026-11-09',
    observedAt,declaredRows:15,rows},
   calendar:{source:'imported',tradeDates}
