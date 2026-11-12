@@ -10634,6 +10634,14 @@ function pushOutcomesReport() {
   if (pushAll(msg, true, { private: true }) !== false) outcomesReportSentDate = ds;
 }
 
+function dashboardPushMeta() {
+  return {
+    pushLast: pushLast(),
+    pushGov: pushGovStat(),
+    pushLog: (Array.isArray(PUSH_LOG) ? PUSH_LOG : []).slice(0, 240)
+  };
+}
+
 // ── 手机速览页 /m 的精简数据源（2026-10-17 用户决策）──────────────────────
 // ⛔ 只下发「一眼结论」所需字段（几十 KB 内，不是 /api/state 的几百 KB —— 手机刷新慢的主因）。
 // ⛔⛔ 字段必须复用同源数据（marketMood / S.auction / S.ztPool / S.sectors / S.mainline / S.nextplan），
@@ -12523,7 +12531,7 @@ function buildMobileDigest() {
     }
   }
   return {
-    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood),
+    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood,Date.now(),dashboardPushMeta()),
     now: Date.now(),
     trading: isTradingTime(),
     ready: marketReady(),
@@ -21391,7 +21399,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return { direct, indirect };
     };
     return json(res, {
-      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood()),
+      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood(),Date.now(),dashboardPushMeta()),
       now: Date.now(), trading: isTradingTime(),
       loop: S.loop,
       auction: S.auction,

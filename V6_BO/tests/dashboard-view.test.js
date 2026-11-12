@@ -11,3 +11,13 @@ test('dashboard preserves source ordering, uses actual strategy membership and o
 test('dashboard never coerces absent or malformed numbers to observed zeros',()=>{
  const d=dashboardView({stocksAt:100,candidatePool:[{code:'000001',score:NaN,price:null,pct:'2'}],idxRt:{items:[{price:Infinity,pct:null}]}});assert.equal(d.rows[0].score,null);assert.equal(d.rows[0].price,null);assert.equal(d.rows[0].pct,null);assert.equal(d.indices[0].price,null);
 });
+test('dashboard push projection separates candidate/trigger/sent states using signal and push logs',()=>{
+ const now=Date.parse('2026-11-12T10:10:00Z');
+ const s={stocksAt:now,candidatePool:[{code:'000001',name:'甲',price:10,pct:1,score:80,sector:'算力'},{code:'000002',name:'乙',price:8,pct:-2,score:60,sector:'券商'}],signals:[{type:'趋势票',code:'000001',name:'甲',price:10.1,pct:1.2,prob:78,ts:now-60000}],news:{badCodes:new Set()}};
+ const d=dashboardView(s,{upN:2,downN:1,flatN:0},now,{pushLog:[{ts:now-30000,status:'✅ 已送达',extra:{codes:['000001']}}],pushGov:{minProb:70},pushLast:{sent:true,t:now-30000}});
+ assert.equal(d.pushes.counts.sent,1);
+ assert.equal(d.pushes.counts.candidate,1);
+ assert.equal(d.pushes.items[0].stage,'sent');
+ assert.equal(d.pushes.items[0].conditions[0].threshold,70);
+ assert.equal(d.pushes.items[0].conditionsSummary.label,'条件满足 2/2');
+});
