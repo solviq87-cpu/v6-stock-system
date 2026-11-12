@@ -13,7 +13,7 @@ const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRec
 const {compareShadowVersions}=require('./factor-model-comparison');
 const {assessFactorRedundancy}=require('./factor-redundancy');
 const {assessFactorMarginalContribution}=require('./factor-marginal-contribution');
-const {verifyPreregisteredCandidate}=require('./factor-candidate-prereg');
+const {verifyPreregisteredCandidate,SEED_MODE}=require('./factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -367,7 +367,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  const sorted=episodes.map(e=>{
   const data=verifyEpisode(e?.features,now);
   return {day:data.signalDay,features:data,rows:verifyAndJoin(e.features,e.report,now),
-   featureFingerprint:e.features.fingerprint,marketFingerprint:e.report.marketFingerprint};
+   featureFingerprint:e.features.fingerprint,featureCapturedAt:data.capturedAt,
+   marketFingerprint:e.report.marketFingerprint};
  }).sort((a,b)=>a.day.localeCompare(b.day));
  const days=new Set(sorted.map(x=>x.day));
  if(days.size!==sorted.length)throw Error('同一天只能有一个不可变训练批次');
@@ -505,7 +506,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    (!previousCooldown.cooldown&&previousCooldown.status==='paused-shadow-decay'));
  const freshTest=cooldownMonitoring?monitoringTest:
   monitoringTest.filter(d=>(!trialLineage.cutoff||d.day>trialLineage.cutoff)&&
-   (!preRegistration||d.day>preRegistration.latestFrozenSignalDay));
+   (!preRegistration||preRegistration.mode===SEED_MODE&&preRegistration.latestFrozenSignalDay===null||
+    d.day>preRegistration.latestFrozenSignalDay));
  if(freshTest.length<5)
   throw Error(previousTrial?'新增独立试验保留日不足，禁止复用已检验样本外数据':
    '新增独立样本外交易日不足，不能重复优化已看过的测试集');

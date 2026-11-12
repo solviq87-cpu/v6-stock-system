@@ -18,6 +18,11 @@ let _stockObservationMonitor=null,_stockObservationMonitorError=null;
 function stockObservationOptions(){
   return {observationRoot:process.env.V6_STOCK_OBSERVATIONS_DIR||path.join(__dirname,'data','stock-observations'),
     memoryRoot:process.env.V6_STOCK_INTELLIGENCE_DIR||path.join(__dirname,'data','stock-intelligence-memory'),
+    evidenceRoot:process.env.V6_STOCK_RESEARCH_EVIDENCE_DIR||path.join(__dirname,'data','stock-research-evidence'),
+    priceEventRoot:process.env.V6_PRICE_EVENT_RESEARCH_DIR||path.join(__dirname,'data','stock-price-event-research'),
+    followupRoot:process.env.V6_STOCK_RESEARCH_FOLLOWUPS_DIR||path.join(__dirname,'data','stock-research-followups'),
+    watchRoot:process.env.V6_STOCK_RESEARCH_WATCH_DIR||path.join(__dirname,'data','stock-research-watchlist'),
+    publicSectorRoot:process.env.V6_PUBLIC_SECTOR_RESEARCH_DIR||path.join(__dirname,'data','public-sector-research'),
     calendarFile:process.env.V6_RESEARCH_CALENDAR_FILE||undefined,
     sectorCaptureRoot:process.env.V6_RESEARCH_SECTOR_CAPTURE_DIR||undefined,
     sectorIds:process.env.V6_RESEARCH_SECTOR_IDS?process.env.V6_RESEARCH_SECTOR_IDS.split(',').map(s=>s.trim()):undefined};
@@ -21488,7 +21493,17 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     res.setHeader('Cache-Control','no-store');
     if(req.method!=='GET'){res.writeHead(405,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify({ok:false,error:'仅允许GET'}));}
     const monitor=getStockObservationMonitor();
-    return json(res,{ok:true,enabled:!!monitor,error:_stockObservationMonitorError,...(monitor?monitor.status():{running:false}),researchOnly:true,canTrade:false});
+    return require('./src/server/stock-observation-job').runStockObservationJob({}, {...stockObservationOptions(),queueRoot:process.env.V6_STOCK_OBSERVATION_QUEUE_DIR||path.join(__dirname,'data','stock-observation-queue'),action:'status'})
+      .then(result=>json(res,{ok:result.ok,enabled:!!monitor,error:_stockObservationMonitorError,...(monitor?monitor.status({lifecycleOnly:true}):{running:false}),...(result.result||{}),researchOnly:true,canTrade:false}));
+  }
+  if(p==='/api/research/public-sectors'){
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(!['GET','POST'].includes(req.method))return reply(405,{ok:false,error:'仅允许GET或POST'});
+    if(Buffer.byteLength(body||'','utf8')>8192)return reply(413,{ok:false,error:'板块请求超过8KiB'});
+    let input={};if(req.method==='POST')try{const b=JSON.parse(body||'{}');if(!b||Array.isArray(b)||typeof b!=='object')throw Error();input={boards:b.boards};}catch{return reply(400,{ok:false,error:'需要板块选择对象'});}
+    return require('./src/server/stock-observation-job').runStockObservationJob(input,{...stockObservationOptions(),action:req.method==='GET'?'read-public-sectors':'capture-public-sectors'})
+      .then(result=>reply(result.ok?200:422,result));
   }
   if (['/api/research/observe-stock','/api/research/stock-observations','/api/research/sector-capture-relations'].includes(p)) {
     if(!requireEditor(res,req.__tok,req))return;

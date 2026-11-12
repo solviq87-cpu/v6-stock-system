@@ -10,16 +10,23 @@ const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget'
 const {assessShadowRuntimeHealth}=require('../src/core/factor-shadow-runtime-health');
 const {preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint}=
  require('../src/core/factor-candidate-prereg');
+const {preregisterSeedCandidate,verifySeedRegistrationMetadata,SEED_MODE}=
+ require('../src/core/factor-candidate-prereg');
 const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-proposer');
 const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
- if(!['once','watch','register','register-auto','health'].includes(mode)||!manifestFile||!outputDir||
+ if(!['once','watch','register','register-auto','register-seed','health'].includes(mode)||!manifestFile||!outputDir||
     !path.isAbsolute(manifestFile)||!path.isAbsolute(outputDir))
-  throw Error('用法: factor-shadow-worker.js once|watch|register|register-auto|health <私有manifest绝对路径> <私有模型目录绝对路径>');
+  throw Error('用法: factor-shadow-worker.js once|watch|register|register-auto|health <私有manifest绝对路径> <私有模型目录绝对路径>；register-seed <私有捕获目录> <私有模型目录> <固定种子配置JSON>');
  safeNew(path.join(outputDir,'shadow-guard.json'));
+ if(mode==='register-seed'){
+  if(flags.length!==1||!path.isAbsolute(flags[0]))
+   throw Error('register-seed 仅接受私有捕获目录、模型目录及固定种子配置JSON绝对路径');
+  return {mode,captureDir:manifestFile,outputDir,seedConfigFile:flags[0]};
+ }
  if(mode==='health'){
   if(flags.length)throw Error('只读研究健康检查不接受额外参数');
   return {mode,manifestFile,outputDir};
@@ -190,11 +197,12 @@ function latestCandidateRegistration(dir,accepted,previousTrial){
  const matches=[];
  for(const name of names){
   const r=readJson(path.join(dir,name));
-  if(r?.mode!=='v6-shadow-candidate-prereg-v1'||typeof r.fingerprint!=='string')
+  if(!['v6-shadow-candidate-prereg-v1',SEED_MODE].includes(r?.mode)||typeof r.fingerprint!=='string')
    throw Error('候选预注册档案结构无效');
   const {fingerprint,...payload}=r;
   if(hash(payload)!==fingerprint||name!=='prereg-'+fingerprint.slice(0,12)+'.json')
    throw Error('候选预注册档案完整性无效');
+  if(r.mode===SEED_MODE)verifySeedRegistrationMetadata(r);
   if(r.parentAcceptedFingerprint===parent&&r.parentTrialFingerprint===trial)
    matches.push(r);
  }
@@ -260,6 +268,35 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
 }
 function runRegister(args={}){return registerCandidate(args);}
 function runRegisterAuto(args={}){return registerCandidate({...args,auto:true});}
+function runRegisterSeed({captureDir,outputDir,seedConfigFile,now=Date.now()}={}){
+ const conf=parse(['register-seed',captureDir,outputDir,seedConfigFile]);
+ const captureRoot=path.resolve(conf.captureDir),modelRoot=path.resolve(conf.outputDir);
+ if(captureRoot===modelRoot||captureRoot.startsWith(modelRoot+path.sep)||
+    modelRoot.startsWith(captureRoot+path.sep))
+  throw Error('固定种子捕获目录与模型目录不能重合或嵌套');
+ for(const file of [conf.seedConfigFile,path.join(conf.captureDir,'.seed-input-guard')])safeNew(file);
+ const stat=fs.statSync(conf.seedConfigFile),captureStat=fs.statSync(conf.captureDir);
+ if(!stat.isFile()||(stat.mode&0o077)!==0||!captureStat.isDirectory()||
+    (captureStat.mode&0o077)!==0||
+    (fs.existsSync(conf.outputDir)&&(fs.statSync(conf.outputDir).mode&0o077)!==0))
+  throw Error('固定种子输入和模型目录必须使用私有权限');
+ const seedConfig=readJson(conf.seedConfigFile);
+ return withResearchLock(conf.outputDir,()=>{
+  // Existing archive filenames alone deny bootstrap. No previous model or
+  // held-out outcome is read to choose this once-only initial candidate.
+  if(fs.readdirSync(conf.outputDir).some(name=>/^(shadow-|prereg-).*\.json$/.test(name)))
+   throw Error('固定种子仅允许空白初始研究血缘，禁止重置旧试验或重复登记');
+  const features=discoverCaptures(conf.captureDir,{now}).map(c=>{
+   verifyEpisode(c.features,now);return c.features;
+  });
+  const entry=preregisterSeedCandidate({features,seedConfig,registeredAt:now});
+  writeNew(path.join(conf.outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json'),entry);
+  return {ok:true,status:'candidate-seed-preregistered',fingerprint:entry.fingerprint,
+   seedPolicy:entry.seedPolicy,registeredAt:entry.registeredAt,recordedAt:entry.recordedAt,
+   latestFrozenSignalDay:entry.latestFrozenSignalDay,frozenPrefixDays:features.length,
+   canTrade:false,productionWeightsChanged:false};
+ });
+}
 function readEpisodeReport(file){
  const original=readJson(file);
  if(original?.mode==='v6-forward-tracking-snapshot'){
@@ -435,6 +472,18 @@ function pendingRegistrationStatus(reg,{conf,manifest,frozen,previous,previousTr
  if(!Array.isArray(prefix)||prefix.length<frozen.length)return null;
  const all=registrationFeatures(manifest,frozen,conf.captureDir,now);
  const edge=all[prefix.length-1];
+ if(reg.mode===SEED_MODE){
+  verifySeedRegistrationMetadata(reg);
+  if(reg.algorithmFingerprint!==currentResearchCodeFingerprint()||previous||previousTrial||
+     prefix.length>all.length||prefix.some((fp,i)=>fp!==all[i]?.fingerprint)||
+     (prefix.length>0&&(reg.latestFrozenSignalDay!==edge?.signalDay||reg.lastFrozenCapturedAt!==edge?.capturedAt))||
+     all.slice(prefix.length).some(f=>f.capturedAt<=Math.max(reg.registeredAt,reg.recordedAt)))
+   throw Error('待执行固定种子与真实冻结证据或研究代码不一致');
+  return {ok:true,status:prefix.length>frozen.length?
+   'skipped-awaiting-preregistered-prefix-maturity':'skipped-awaiting-post-prereg-signals',
+   pendingPrefixDays:prefix.length-frozen.length,preregistrationFingerprint:reg.fingerprint,
+   canTrade:false,productionWeightsChanged:false};
+ }
  if(!Number.isSafeInteger(reg.registeredAt)||reg.registeredAt<=0||prefix.length>all.length||prefix.some((fp,i)=>fp!==all[i]?.fingerprint)||
     reg.algorithmFingerprint!==currentResearchCodeFingerprint()||reg.packFingerprint!==hash(factorPack)||
     reg.parentAcceptedFingerprint!==(previous?.fingerprint||null)||
@@ -510,7 +559,7 @@ function evaluateOnce(conf,now,manifest){
   if(prefix.length<sorted.length){
    const next=sorted[prefix.length],defs=sorted[0].factors;
    verifyPreregisteredCandidate(preRegistration,{
-    sorted:sorted.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint})),
+    sorted:sorted.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt})),
     ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
     oldWeights:previous?.shadowWeights||
      Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
@@ -523,7 +572,10 @@ function evaluateOnce(conf,now,manifest){
  // A handful of still-maturing registered-prefix days are never a new
  // candidate holdout. Wait using features only, before opening H5 outcomes.
  if(preRegistration&&!cooldownOnly&&conf.requirePreRegistration){
-  const fresh=frozen.filter(f=>f.signalDay>preRegistration.latestFrozenSignalDay&&f.capturedAt>preRegistration.registeredAt);
+  const sealedAt=preRegistration.mode===SEED_MODE?
+   Math.max(preRegistration.registeredAt,preRegistration.recordedAt):preRegistration.registeredAt;
+  const fresh=frozen.filter(f=>(preRegistration.mode===SEED_MODE&&preRegistration.latestFrozenSignalDay===null||
+   f.signalDay>preRegistration.latestFrozenSignalDay)&&f.capturedAt>sealedAt);
   if(fresh.length<5)return {ok:true,status:'skipped-awaiting-post-prereg-matured-days',
    maturedPostRegistrationDays:fresh.length,requiredPostRegistrationDays:5,
    canTrade:false,productionWeightsChanged:false};
@@ -576,6 +628,7 @@ function evaluateOnce(conf,now,manifest){
 }
 function main(args){
  const config=parse(args);
+ if(config.mode==='register-seed')return runRegisterSeed(config);
  // The operational CLI MUST consume the receipt-backed canonical manifest.
  // Legacy minimal manifests remain supported by the direct research test API,
  // but are not accepted by the unattended operator commands.
@@ -607,6 +660,6 @@ if(require.main===module){
   if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
-module.exports={parse,runOnce,runRegister,runRegisterAuto,latestAccepted,latestCooldown,
+module.exports={parse,runOnce,runRegister,runRegisterAuto,runRegisterSeed,latestAccepted,latestCooldown,
  latestTrial,globalTrialBudget,latestCandidateRegistration,main,readEpisodeReport,
  runHealth,readWatchHeartbeat,writeWatchHeartbeat};

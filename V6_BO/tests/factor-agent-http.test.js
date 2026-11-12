@@ -55,7 +55,7 @@ test('research agent status and public factor computation require editor rights 
    await delay(50);
   }
   assert.ok(ready,'fixture server did not start: '+logs.slice(-1500));
-  for(const route of ['/api/research/agent-status','/api/research/public-factors','/api/research/linked-intelligence','/api/research/stock-memory?symbol=600001','/api/research/public-context','/api/research/observe-stock','/api/research/stock-observations?symbol=600000&provider=eastmoney','/api/research/stock-observation-status']){
+  for(const route of ['/api/research/agent-status','/api/research/public-factors','/api/research/linked-intelligence','/api/research/stock-memory?symbol=600001','/api/research/public-context','/api/research/observe-stock','/api/research/stock-observations?symbol=600000&provider=eastmoney','/api/research/stock-observation-status','/api/research/public-sectors']){
    assert.notEqual((await request(port,route)).body.ok,true);
    assert.notEqual((await request(port,route,viewer)).body.ok,true);
   }
@@ -95,6 +95,12 @@ test('research agent status and public factor computation require editor rights 
   assert.equal(stored.status,200);assert.equal(stored.body.result.observation.revision,1);assert.equal(stored.body.result.stock.bars.at(-1).close,10.3);
   const observerStatus=await request(port,'/api/research/stock-observation-status',editor);
   assert.equal(observerStatus.status,200);assert.equal(observerStatus.body.enabled,false);assert.equal(observerStatus.body.canTrade,false);
+  assert.equal(observerStatus.body.researchFollowups.counts.total,0);assert.equal(observerStatus.body.dailyResearch.counts.watches,1);
+  assert.ok(!JSON.stringify(observerStatus.body).includes(tmp));
+  const sectors=await request(port,'/api/research/public-sectors',editor);
+  assert.equal(sectors.status,200);assert.equal(sectors.body.result.selectionRequired,true);
+  assert.equal((await request(port,'/api/research/public-sectors',editor,{boards:[{category:'industry',code:'https://evil'}]})).status,422);
+  assert.equal((await request(port,'/api/research/public-sectors',editor,{boards:[]})).status,422);
  }finally{
   if(child&&child.exitCode===null&&child.signalCode===null){const stopped=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGKILL');await stopped;}
   fs.rmSync(tmp,{recursive:true,force:true});

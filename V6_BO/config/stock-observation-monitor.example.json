@@ -6,6 +6,11 @@
   "intervalMs": 60000,
   "jobOptions": {
     "observationRoot": "/srv/v6-research/stock-observations",
-    "memoryRoot": "/srv/v6-research/stock-intelligence-memory"
+    "memoryRoot": "/srv/v6-research/stock-intelligence-memory",
+    "evidenceRoot": "/srv/v6-research/stock-research-evidence",
+    "priceEventRoot": "/srv/v6-research/stock-price-event-research",
+    "followupRoot": "/srv/v6-research/stock-research-followups",
+    "watchRoot": "/srv/v6-research/stock-research-watchlist",
+    "publicSectorRoot": "/srv/v6-research/public-sector-research"
   }
 }

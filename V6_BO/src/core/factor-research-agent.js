@@ -5,7 +5,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {readJson}=require('./forward-tracking-store');
 const {validatePaths,checkSource,runDailyCycle}=require('./factor-daily-research-cycle');
 const {discoverCaptures}=require('./factor-maturity-manifest');
-const {currentResearchCodeFingerprint}=require('./factor-candidate-prereg');
+const {currentResearchCodeFingerprint,verifySeedRegistrationMetadata,SEED_MODE}=require('./factor-candidate-prereg');
 const {safeNew,writeNew}=require('../../scripts/factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const sealed=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
@@ -43,14 +43,16 @@ function names(dir,pattern){
 function lineage(dir){
  return names(dir,/^(shadow-|prereg-).*\.json$/).map(name=>{
   const item=readJson(path.join(dir,name)),{fingerprint,...body}=item;
-  const prereg=item.mode==='v6-shadow-candidate-prereg-v1';
+  const seed=item.mode===SEED_MODE;
+  const prereg=seed||item.mode==='v6-shadow-candidate-prereg-v1';
   const expected=prereg?`prereg-${fingerprint?.slice(0,12)}.json`:
    `shadow-${item.trainingEnd}-${fingerprint?.slice(0,12)}.json`;
   if(item.schemaVersion!==1||!sealed(fingerprint)||hash(body)!==fingerprint||name!==expected||
      (!prereg&&item.mode!=='v6-factor-shadow-evolution-v1')||
      item.canTrade!==false||item.productionWeightsChanged!==false)
    throw Error('agent-lineage-integrity-rejected');
-  if(prereg&&(!sealed(item.packFingerprint)||!sealed(item.algorithmFingerprint)||
+  if(seed)verifySeedRegistrationMetadata(item);
+  if(prereg&&!seed&&(!sealed(item.packFingerprint)||!sealed(item.algorithmFingerprint)||
      item.sealedBeforeFutureSignals!==true||!Number.isSafeInteger(item.registeredAt)||
      !Number.isSafeInteger(item.lastFrozenCapturedAt)||item.registeredAt<item.lastFrozenCapturedAt||
      !Array.isArray(item.frozenPrefixFingerprints)||item.frozenPrefixFingerprints.length<36||

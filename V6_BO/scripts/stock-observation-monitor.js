@@ -8,9 +8,12 @@ function loadConfig(file){
  const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));let config;
  try{const st=fs.fstatSync(fd);if(!st.isFile()||st.size>8192||st.mode&0o077)throw Error('配置文件需要私有权限且不超过8KiB');config=JSON.parse(fs.readFileSync(fd,'utf8'));}finally{fs.closeSync(fd);}
  if(config.schemaVersion!==1||config.mode!=='stock-observation-monitor'||config.canTrade!==false||!config.jobOptions)throw Error('观察配置协议无效');
- const roots=[config.queueRoot,config.jobOptions.observationRoot,config.jobOptions.memoryRoot];
+ const resolved=require('../src/core/stock-observation-research').researchPaths(config.jobOptions);
+ config.jobOptions={...config.jobOptions,...resolved};
+ const roots=[config.queueRoot,config.jobOptions.observationRoot,config.jobOptions.memoryRoot,...Object.values(resolved)];
  for(const p of roots)if(typeof p!=='string'||!path.isAbsolute(p)||p.split(path.sep).some(s=>s.toLowerCase()==='public'))throw Error('研究目录无效');
- if(roots.some((p,i)=>roots.some((q,j)=>i!==j&&(p===q||p.startsWith(q+path.sep)||q.startsWith(p+path.sep)))))throw Error('研究目录必须独立');
+ const normalized=roots.map(p=>path.resolve(p));
+ if(normalized.some((p,i)=>normalized.some((q,j)=>i!==j&&(p===q||p.startsWith(q+path.sep)||q.startsWith(p+path.sep)))))throw Error('研究目录必须独立');
  return config;
 }
 async function main(args){
@@ -20,7 +23,9 @@ async function main(args){
   const result=await require('../src/server/stock-observation-job').runStockObservationJob({symbol,provider:'auto',historyDays:120,includeContext:true},config.jobOptions);
   if(!result.ok)throw Error('股票采集失败');
   const r=result.result;return {status:r.status,symbol:r.stock?.symbol||symbol,source:r.history?.provider,asOf:r.asOf,observation:r.observation,memory:r.memory,
-   calendar:r.calendar?.status,targetDate:r.analysis?.targetDate,currentFormation:r.currentFormation?.status,blockers:r.readiness?.blockers,researchOnly:true,canTrade:false};
+   calendar:r.calendar?.status,targetDate:r.analysis?.targetDate,currentFormation:r.currentFormation?.status,blockers:r.readiness?.blockers,
+   evidenceBundleHash:r.evidenceBundle?.hash,marketContext:r.marketContext?.status,stockStatus:r.stockStatus?.status,
+   priceEventResearch:r.priceEventResearch,researchFollowups:r.researchFollowups,watch:r.watch,researchOnly:true,canTrade:false};
  }
  const monitor=createStockObservationMonitor({...config,keepAlive:mode==='watch'});
  if(mode==='once')return monitor.runOnce();
