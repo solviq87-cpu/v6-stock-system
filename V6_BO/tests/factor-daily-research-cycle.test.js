@@ -1,14 +1,17 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {runDailyCycle,validatePaths}=
+const {runDailyCycle,validatePaths,runProspectiveShadowResearch}=
  require('../src/core/factor-daily-research-cycle');
 const {main,parse}=require('../scripts/factor-daily-research');
 const {inspectResearchChain}=require('../src/core/factor-chain-readiness');
+const {runOnce:marketOnce}=require('../scripts/authorized-factor-market');
+const {runOnce:captureOnce}=require('../scripts/factor-eod-capture');
+const {runRegister}=require('../scripts/factor-shadow-worker');
 const at=(day,time='16:04:00')=>Date.parse(day+'T'+time+'+08:00');
 const days=(()=>{
  const values=[];let t=Date.parse('2026-08-03T00:00:00Z');
- while(values.length<44){
+ while(values.length<86){
   const d=new Date(t);
   if(d.getUTCDay()!==0&&d.getUTCDay()!==6)
    values.push(d.toISOString().slice(0,10));
@@ -32,8 +35,8 @@ function history(index,{rewriteOld=false}={}){
      suspended:false};
    })}))};
 }
-function initialSignals(){
- const d=days[currentIndex],provider='unit-point-in-time',
+function initialSignals(index=currentIndex){
+ const d=days[index],provider='unit-point-in-time',
   stamp=at(d,'15:00:00');
  return {
   picks:{asOf:at(d,'16:01:15'),board:'all',totalScanned:3200,
@@ -78,6 +81,24 @@ function setup(t){
  const configFile=path.join(privateDir,'research-config.json');
  fs.writeFileSync(configFile,JSON.stringify(config),{mode:0o600});
  return {root,config,configFile};
+}
+function freezeDay(config,index){
+ const {picks,factors}=initialSignals(index);
+ fs.writeFileSync(config.historyFile,JSON.stringify(history(index)));
+ fs.writeFileSync(config.picksFile,JSON.stringify(picks));
+ fs.writeFileSync(config.factorsFile,JSON.stringify(factors));
+ marketOnce({sourceFile:config.historyFile,outputFile:config.marketFile,
+  mode:'sync',now:at(days[index])});
+ captureOnce({picksFile:config.picksFile,marketFile:config.marketFile,
+  factorFile:config.factorsFile,outputDir:config.captureDir,
+  now:at(days[index])});
+}
+function candidateFile(config,manifest){
+ const frozen=JSON.parse(fs.readFileSync(manifest.episodes[0].featuresFile,'utf8'));
+ const file=path.join(path.dirname(config.historyFile),'candidate.json');
+ fs.writeFileSync(file,JSON.stringify(Object.fromEntries(
+  frozen.factors.map(f=>[f.id,f.baseWeight*1.02]))));
+ return file;
 }
 test('default preview is completely zero-write, no network or factor state',t=>{
  const {config,configFile}=setup(t),stamp=at(days[currentIndex]);
@@ -137,6 +158,110 @@ test('operator apply: closed same-day data -> immutable cohort -> H5 pending -> 
  },{now:matureStamp});
  assert.equal(audit.status,'insufficient-independent-h5-days');
  assert.equal(audit.eligibleForTraining,false);
+});
+test('daily cycle requires prospective research even with 36 real matured cohorts; waits survive retry',t=>{
+ const {config}=setup(t);
+ // Produce real receipt-backed daily captures through the existing writers.
+ // Stop freezing signals while the final H5 matures, so an explicit candidate
+ // can reserve a clean boundary before any next research signal is frozen.
+ for(let i=currentIndex;i<currentIndex+36;i++)freezeDay(config,i);
+ const matureIndex=currentIndex+40,now=at(days[matureIndex]);
+ fs.writeFileSync(config.historyFile,JSON.stringify(history(matureIndex)));
+ const first=runDailyCycle(config,{mode:'observe',apply:true,now});
+ assert.equal(first.manifestDays,36);
+ const shadow=first.stages.find(s=>s.stage==='independent-shadow-model');
+ assert.deepEqual(shadow,{stage:'independent-shadow-model',
+  status:'skipped-auto-prereg-needs-sealed-history',
+  nextAction:'provide-sealed-prior-research-or-explicit-preregistration'});
+ assert.equal(first.shadowModelVersion,null);
+ assert.deepEqual(fs.readdirSync(config.modelDir),[]);
+ const repeat=runDailyCycle(config,{mode:'observe',apply:true,now:now+1});
+ assert.deepEqual(repeat.stages.find(s=>s.stage==='independent-shadow-model'),shadow);
+ assert.deepEqual(fs.readdirSync(config.modelDir),[]);
+ const manifest=JSON.parse(fs.readFileSync(config.manifestFile,'utf8'));
+ const weightsFile=candidateFile(config,manifest);
+ const prereg=runRegister({manifestFile:config.manifestFile,
+  outputDir:config.modelDir,candidateWeightsFile:weightsFile,now:now+2});
+ assert.equal(prereg.status,'candidate-preregistered');
+ const before=fs.readdirSync(config.modelDir);
+ const waiting=runDailyCycle(config,{mode:'observe',apply:true,now:now+3});
+ assert.deepEqual(waiting.stages.find(s=>s.stage==='independent-shadow-model'),{
+  stage:'independent-shadow-model',status:'skipped-awaiting-post-prereg-signals',
+  nextAction:'await-signals-frozen-after-preregistration'});
+ assert.deepEqual(fs.readdirSync(config.modelDir),before);
+ assert.equal(waiting.shadowModelVersion,null);
+ assert.equal(waiting.canTrade,false);
+ assert.equal(waiting.productionWeightsChanged,false);
+ assert.equal(fs.existsSync(path.join(config.modelDir,'.shadow-worker.lock')),false);
+});
+test('canonical registration seals pending captures without opening H5 and waits until true post-registration signals',t=>{
+ const {config}=setup(t);
+ for(let i=currentIndex;i<currentIndex+41;i++)freezeDay(config,i);
+ const lastCapture=currentIndex+40,now=at(days[lastCapture]);
+ const initial=runDailyCycle(config,{mode:'observe',apply:true,now});
+ assert.equal(initial.archivedSignalDays,41);
+ assert.equal(initial.manifestDays,36);
+ const manifest=JSON.parse(fs.readFileSync(config.manifestFile,'utf8'));
+ const candidateWeightsFile=candidateFile(config,manifest);
+ // Invalid actual H5 bytes make any accidental outcome read fail. The
+ // registration and early worker wait may inspect only frozen features.
+ const h5File=manifest.episodes[0].reportFile,h5Bytes=fs.readFileSync(h5File);
+ let registered;
+ try{
+  fs.writeFileSync(h5File,'H5 must not be opened before prospective eligibility');
+  registered=runRegister({manifestFile:config.manifestFile,
+   outputDir:config.modelDir,candidateWeightsFile,now:now+1});
+  const waiting=runProspectiveShadowResearch(config,now+2);
+  assert.equal(waiting.status,'skipped-awaiting-preregistered-prefix-maturity');
+  assert.equal(waiting.pendingPrefixDays,5);
+  assert.equal(waiting.preregistrationFingerprint,registered.fingerprint);
+ }finally{fs.writeFileSync(h5File,h5Bytes);}
+ const preregFile=path.join(config.modelDir,
+  'prereg-'+registered.fingerprint.slice(0,12)+'.json');
+ const prereg=JSON.parse(fs.readFileSync(preregFile,'utf8'));
+ assert.equal(prereg.frozenPrefixFingerprints.length,41);
+ assert.equal(prereg.latestFrozenSignalDay,days[lastCapture]);
+ const before=fs.readdirSync(config.modelDir);
+ const cycle=runDailyCycle(config,{mode:'observe',apply:true,now:now+3});
+ assert.deepEqual(cycle.stages.find(s=>s.stage==='independent-shadow-model'),{
+  stage:'independent-shadow-model',status:'skipped-awaiting-preregistered-prefix-maturity',
+  nextAction:'await-preregistered-prefix-h5-maturity',pendingPrefixDays:5});
+ assert.deepEqual(fs.readdirSync(config.modelDir),before);
+ assert.throws(()=>runProspectiveShadowResearch({...config,
+  captureDir:path.join(path.dirname(config.captureDir),'different-capture-dir')},now+4),
+  /捕获目录与成熟清单血缘不一致/);
+ const receiptFile=path.join(config.captureDir,'receipt-'+days[lastCapture]+'.json');
+ const receiptBytes=fs.readFileSync(receiptFile);
+ try{
+  const corrupt=JSON.parse(receiptBytes);
+  corrupt.inputFingerprint='0'.repeat(64);
+  fs.writeFileSync(receiptFile,JSON.stringify(corrupt));
+  assert.throws(()=>runProspectiveShadowResearch(config,now+4),/捕获回执无效/);
+ }finally{fs.writeFileSync(receiptFile,receiptBytes);}
+ assert.deepEqual(fs.readdirSync(config.modelDir),before);
+ // These five old captures remain part of the registered historical prefix
+ // when their H5 matures; they cannot become this candidate's fresh test.
+ const matureIndex=lastCapture+5,matureNow=at(days[matureIndex]);
+ fs.writeFileSync(config.historyFile,JSON.stringify(history(matureIndex)));
+ const matured=runDailyCycle(config,{mode:'observe',apply:true,now:matureNow});
+ assert.equal(matured.manifestDays,41);
+ assert.deepEqual(matured.stages.find(s=>s.stage==='independent-shadow-model'),{
+  stage:'independent-shadow-model',status:'skipped-awaiting-post-prereg-signals',
+  nextAction:'await-signals-frozen-after-preregistration'});
+ assert.deepEqual(fs.readdirSync(config.modelDir),before);
+ assert.equal(matured.shadowModelVersion,null);
+ assert.equal(matured.canTrade,false);
+ assert.equal(fs.existsSync(path.join(config.modelDir,'.shadow-worker.lock')),false);
+});
+test('daily shadow handoff rejects a legacy manifest before opening any frozen or H5 input',t=>{
+ const {config}=setup(t);
+ fs.writeFileSync(config.manifestFile,JSON.stringify({schemaVersion:1,
+  episodes:Array.from({length:36},(_,i)=>({
+   featuresFile:path.join(config.captureDir,'missing-feature-'+i+'.json'),
+   reportFile:path.join(config.trackingDir,'missing-h5-'+i+'.json')}))}));
+ assert.throws(()=>runProspectiveShadowResearch(config,at(days[75])),
+  /仅接受冻结回执与首份成熟H5绑定/);
+ assert.equal(fs.existsSync(config.modelDir),false);
 });
 test('old EOD data on next calendar day is never presented as today, nor permitted to freeze',t=>{
  const {config}=setup(t),today=days[currentIndex],

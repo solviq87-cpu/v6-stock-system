@@ -501,7 +501,8 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  const cooldownMonitoring=previousCooldown!==null&&
   ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
  const freshTest=cooldownMonitoring?monitoringTest:
-  monitoringTest.filter(d=>!trialLineage.cutoff||d.day>trialLineage.cutoff);
+  monitoringTest.filter(d=>(!trialLineage.cutoff||d.day>trialLineage.cutoff)&&
+   (!preRegistration||d.day>preRegistration.latestFrozenSignalDay));
  if(freshTest.length<5)
   throw Error(previousTrial?'新增独立试验保留日不足，禁止复用已检验样本外数据':
    '新增独立样本外交易日不足，不能重复优化已看过的测试集');

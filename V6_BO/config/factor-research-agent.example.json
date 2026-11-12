@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "mode": "v6-factor-research-agent",
+  "researchOnly": true,
+  "canTrade": false,
+  "outputDir": "/srv/v6-research/agent-memory",
+  "cycle": {
+    "schemaVersion": 1,
+    "mode": "v6-factor-daily-research-cycle",
+    "researchOnly": true,
+    "canTrade": false,
+    "historyFile": "/srv/v6-research/inputs/authorized-history.json",
+    "picksFile": "/srv/v6-research/inputs/frozen-picks.json",
+    "factorsFile": "/srv/v6-research/inputs/frozen-factors.json",
+    "marketFile": "/srv/v6-research/market-current.json",
+    "captureDir": "/srv/v6-research/captures",
+    "trackingDir": "/srv/v6-research/tracking",
+    "manifestFile": "/srv/v6-research/training-manifest.json",
+    "neutralDir": "/srv/v6-research/neutral-reports",
+    "modelDir": "/srv/v6-research/shadow-models"
+  }
+}

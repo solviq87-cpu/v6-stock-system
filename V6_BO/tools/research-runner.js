@@ -8,6 +8,7 @@ const {holdoutBacktest}=require('../src/strategy/holdout-backtest');
 function main(){
  const [mode,file]=process.argv.slice(2);
  const commands={scan:scanUniverse,ledger:ledgerBacktest,holdout:holdoutBacktest,models:modelExperiment,
+  'public-factors':require('../src/server/public-factor-job').analyzePublicFactors,
   preopen:require('../src/strategy/preopen-watch').preopenWatch,stress:require('../src/strategy/cost-stress').costStress};
  if(!Object.hasOwn(commands,mode)||!file)throw Error('用法: node tools/research-runner.js '+Object.keys(commands).join('|')+' 输入.json');
  const payload=JSON.parse(fs.readFileSync(file,'utf8'));

@@ -36,7 +36,10 @@
     "audit:release": "npm --prefix V6_BO run audit:release",
     "audit:feeds": "npm --prefix V6_BO run audit:feeds",
     "market:history": "npm --prefix V6_BO run market:history",
-    "research:history": "npm --prefix V6_BO run research:history"
+    "research:history": "npm --prefix V6_BO run research:history",
+    "research:agent": "npm --prefix V6_BO run research:agent --",
+    "research:models": "npm --prefix V6_BO run research:models --",
+    "research:public-factors": "npm --prefix V6_BO run research:public-factors --"
   },
   "engines": {
     "node": ">=22.6"
