@@ -150,13 +150,14 @@ test('accumulation path displays actual big-plus-super net without counting main
     s: {code: '000001'}, k: {rows: [{pct: 1}, {pct: 1}, {pct: 1}]},
     pushPath: (name, detail) => paths.push({name, detail})});
   const block = extract(server, '    const fd = S.fundDays.get(s.code) || [];', '    // 大单流入：当日主力净占比');
-  vm.runInContext(block, ctx);
+  const declaration = extract(server, '    const conditionPathInputs=[];', '    // CONDITION_EVIDENCE_END');
+  vm.runInContext(`{${declaration}${block}}`, ctx);
   assert.equal(paths.length, 1);
   assert.match(paths[0].detail, /净额300万/);
   assert.doesNotMatch(paths[0].detail, /480万/);
   days[1].super = null;
   paths.length = 0;
-  vm.runInContext(`{${block}}`, ctx);
+  vm.runInContext(`{${declaration}${block}}`, ctx);
   assert.equal(paths.length, 0);
 });
 

@@ -164,13 +164,13 @@ test('actual relay scanners and push builders carry the sealing target and displ
     limitUpCount: level, price: 10, pct: 10, amount: 1e9, sealAmount: 2e8,
     floatCap: 1e10, turnover: 5, breakCount: 0}));
   const state = {ztPool, ztBySector: {'技术': ztPool}, klines: new Map(), stocks: [], news: {}};
-  const dependencies = {S: state, A: require('../analysis'), todayBeta: () => 0,
+  const dependencies = {S: state, A: require('../analysis'), SignalEvidence: require('../src/core/signal-evidence-chain'), Buffer, todayBeta: () => 0,
     classifySectorRoles: () => ({map: new Map(ztPool.map(z => [z.code, 'leader']))}),
     themeStrengthOf: () => ({theme: '技术', score: 50, grade: '中', inflowSum: 0, sectorZT: 4, maxLb: 7, roleScore: 20}),
     isMainlineStock: () => ({ok: true, reason: 'fixture'}), krowsOf: () => [], fusedProb: x.fusedProb,
     ZT_INFER_PUSH_PROB: 18, todayStr: () => '20261113', empTable: x.empTable, HIT_THR: 3,
     fuseLine: x.fuseLine};
-  const production = new Function(...Object.keys(dependencies), grab('function scanYiEr() {') +
+  const production = new Function(...Object.keys(dependencies), grab('function signalCondition(') + grab('function annotateSignalConditions(') + grab('function scanYiEr() {') +
     grab('function scanLianbanRelay() {') + grab('function buildYiErMessage(items) {') +
     grab('function buildLianbanRelayMessage(items) {') +
     '\nreturn {scanYiEr,scanLianbanRelay,buildYiErMessage,buildLianbanRelayMessage};')(...Object.values(dependencies));
