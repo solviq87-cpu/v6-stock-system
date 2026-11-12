@@ -1,0 +1,49 @@
+{
+  "original_filename": "V6_1090_full_20261107bo.zip",
+  "original_bytes": 70795284,
+  "original_sha256": "28e73e364a846339bd9394ef7210dcdab8a0ae6aacfde4ad92c0a9f19cde22cb",
+  "zip_entries": 4355,
+  "parts": [
+    {
+      "name": "V6_1090_full_20261107bo.zip.part01",
+      "bytes": 9000000,
+      "sha256": "be8b9047caeb653cc253a909b355adddc014aa272dc68aadbe99cca321424573"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part02",
+      "bytes": 9000000,
+      "sha256": "67f4f6939d7f188cc1bf0e49a00072f73de1f718e4786e8a7cbcae49c631a2c2"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part03",
+      "bytes": 9000000,
+      "sha256": "2d4bcf4331ad892eebf41b872eee9e6ed1653f76f2ed86e98655737de39af427"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part04",
+      "bytes": 9000000,
+      "sha256": "f73567dab817f6c87d5d315cf31ede5647f3eb5c456e3175c1e049a3dac0bc5b"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part05",
+      "bytes": 9000000,
+      "sha256": "f70bb5e420e0f26c3270805e72e0d66dc8a3438fbdb84c21b0e33145dd74e0c7"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part06",
+      "bytes": 9000000,
+      "sha256": "8fc19300a01bfab0f5a093df7294e696c79087cc47e1b246b98701711034e1d2"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part07",
+      "bytes": 9000000,
+      "sha256": "f1b0f957eddfe950aa0e6132841da671c550f0bb90f4711e55eca97289df773b"
+    },
+    {
+      "name": "V6_1090_full_20261107bo.zip.part08",
+      "bytes": 7795284,
+      "sha256": "c4e46a89c80a44a14094bcf76021c33bee00bb33d9750d6e0d3697716fe3d6a4"
+    }
+  ],
+  "note": "Original package is a raw historical archive, not a production-deployable source tree. Historical objects contain test-looking Feishu webhook URLs. Confirm authorization, do not publish this archive publicly or replace dev."
+}
