@@ -1573,7 +1573,7 @@ async function fetchKlineThs(code, days = 95) {
 // 腾讯批量快照（每60只一批）：换手率/市值可直接取
 async function fetchBatchSnapshotTx(codes) {
   const requested = [...new Set(codes)], out = [];
-  let lastError, completed = 0;
+  let lastError, completed = 0, consecutiveFailures = 0;
   for (let i = 0; i < requested.length; i += 60) {
     const batchCodes = requested.slice(i, i + 60);
     try {
@@ -1599,9 +1599,17 @@ async function fetchBatchSnapshotTx(codes) {
         });
       }
       completed++;
+      consecutiveFailures = 0;
     } catch (e) {
       lastError = e;
+      consecutiveFailures++;
       batchQuoteWarn('tencent', batchCodes, classifyNetErr(String(e && e.message || e)));
+      // Full-A callers can request thousands of stocks. A provider outage must
+      // not turn one failed request into hundreds of serial timeout waits.
+      if (consecutiveFailures >= 4 && i + 60 < requested.length) {
+        batchQuoteWarn('tencent', requested.slice(i + 60), 'consecutive-failures');
+        break;
+      }
     }
   }
   if (!completed && lastError) throw lastError;

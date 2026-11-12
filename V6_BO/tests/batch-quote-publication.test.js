@@ -196,6 +196,47 @@ test('Tencent all-batch failure remains an error after all bounded batches have 
   assert.equal(h.wireCalls.length, 4);
 });
 
+test('a 6000-stock Tencent outage stops after four consecutive request failures', async () => {
+  const h = harness({rawTx: async () => { throw Error('fixture broad outage'); }});
+  await assert.rejects(h.api.fetchBatchSnapshotTx(codes(6000)), /fixture broad outage/);
+  assert.equal(h.wireCalls.length, 4);
+  assert.equal(h.wireCalls.flat().length, 240);
+});
+
+test('Tencent preserves an earlier successful batch when four later failures stop a large request', async () => {
+  const h = harness({rawTx: async (requested, clock, index) => {
+    if (index > 0) { clock.advance(8000); throw Error('fixture later outage'); }
+    return Buffer.from(requested.map(code => wire(code, clock.now())).join('\n'));
+  }});
+  const rows = await h.api.fetchBatchSnapshotTx(codes(6000));
+  assert.equal(h.wireCalls.length, 5);
+  assert.equal(h.wireCalls.at(-1).at(-1), '000300');
+  assert.equal(rows.length, 60);
+  assert.deepEqual(Array.from(rows, row => row.code), codes(60));
+  assert.ok(rows.every(row => row.quoteAt === start && row.receivedAt === start));
+  assert.ok(rows.every(row => row.quoteFreshness === 'stale' && row.canTrade === false));
+  assert.match(JSON.stringify(h.warnings), /consecutive-failures/);
+  assert.doesNotMatch(JSON.stringify(h.warnings), /fixture later outage/);
+});
+
+test('HTTP success resets the consecutive failure budget and healthy 100-batch requests stay complete', async () => {
+  const healthy = harness();
+  const complete = await healthy.api.fetchBatchSnapshotTx(codes(6000));
+  assert.equal(healthy.wireCalls.length, 100);
+  assert.equal(complete.length, 6000);
+  assert.equal(complete.at(-1).code, '006000');
+  const h = harness({rawTx: async (requested, clock, index) => {
+    if ([0, 1, 2, 4, 5, 6].includes(index)) throw Error('fixture intermittent failure');
+    if (index === 3) return Buffer.from(''); // HTTP succeeded without usable rows.
+    return Buffer.from(requested.map(code => wire(code, clock.now())).join('\n'));
+  }});
+  const rows = await h.api.fetchBatchSnapshotTx(codes(6000));
+  assert.equal(h.wireCalls.length, 100);
+  assert.equal(rows.length, 6000 - 7 * 60);
+  assert.equal(rows[0].code, '000421');
+  assert.equal(rows.at(-1).code, '006000');
+});
+
 test('Tencent direct history rows preserve unknown and original future times without execution permission', async () => {
   const h = harness({rawTx: async requested => Buffer.from(requested.map((code, index) =>
     wire(code, start, {30: index === 0 ? 'invalid' : timestamp(start + 1000)})).join('\n'))});
