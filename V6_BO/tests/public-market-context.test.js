@@ -33,6 +33,13 @@ test('request completion timestamps and raw hashes are retained; partial transpo
  let now=NOW;const r=await fetchPublicContext({date:'2026-11-12'},{now:()=>now++,requestJson:async target=>{if(target.includes('getTopicZBPool'))throw Error('HTTP 403');const json=target.includes('getTopicZTPool')?pool('600001'):flow;return {json,raw:JSON.stringify(json)};}});
  assert.ok(r.marketFlow.firstObservedAt>r.startedAt);assert.equal(r.marketFlow.rawHash.length,64);assert.equal(r.marketFlow.hashBasis,'raw-response-bytes');assert.equal(r.marketFlow.sourceTimestamp,null);assert.equal(r.limitPools.status,'unknown');assert.equal(r.errors.length,1);assert.match(r.errors[0].message,/403/);assert.equal(r.marketFlow.status,'observed-unverified');
 });
+test('observation capture can retain exact raw bytes while normal context responses omit them',async()=>{
+ const sourceJson=source(),requestJson=async target=>{const actual=await sourceJson(target);return {json:{rc:1},raw:' '+JSON.stringify(actual)+'\n'};};
+ const report=await fetchPublicContext({date:'2026-11-12'},{now:()=>NOW,requestJson,retainRawEvidence:true});
+ assert.equal(report.rawEvidence.length,3);assert.equal(report.marketFlow.status,'observed-unverified');
+ for(const ref of report.rawEvidence){const raw=Buffer.from(ref.data,'base64');assert.equal(raw.length,ref.byteLength);assert.equal(require('node:crypto').createHash('sha256').update(raw).digest('hex'),ref.sha256);assert.equal(raw[0],32);assert.equal(ref.receivedAt,NOW);}
+ const normal=await fetchPublicContext({date:'2026-11-12'},{now:()=>NOW,requestJson});assert.equal(Object.hasOwn(normal,'rawEvidence'),false);
+});
 test('input bounds and arbitrary URL transport are rejected before fetching',async()=>{
  for(const input of [{date:'2026-11-31'},{date:'2026-11-13'},{historyDays:121},{historyDays:0},{sectorCode:'https://evil'},{symbol:'600001;echo'}])await assert.rejects(()=>fetchPublicContext(input,{now:()=>NOW,requestJson:()=>assert.fail('must not request')}));
  await assert.rejects(()=>requestPublicJson('https://example.com/'),/URL/);await assert.rejects(()=>requestPublicJson('http://push2ex.eastmoney.com/getTopicZTPool'),/URL/);

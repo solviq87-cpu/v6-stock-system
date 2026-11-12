@@ -45,21 +45,23 @@ function parsePool(json,{date,kind}){
  const sameDate=dateOK(tradeDate)&&tradeDate===date,complete=sameDate&&totalCount!==null&&totalCount===data.pool.length&&records.length===data.pool.length&&invalidCount===0;
  return {status:complete?'observed-unverified':'partial-evidence',complete,tradeDate,requestedDate:date,records,fetchedCount:data.pool.length,totalCount,partial:!complete,invalidCount,sourceTimestamp:null,dateMatched:sameDate,fieldMappingSource:SOURCES.pools,unit:'CNY',priceScale:'vendor-milliyuan-divided-by-1000'};
 }
-async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={}, {now=Date.now,requestJson=requestPublicJson}={}){
+async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={}, {now=Date.now,requestJson=requestPublicJson,retainRawEvidence=false}={}){
  const clock=typeof now==='function'?now:()=>now,startedAt=clock();
  if(!Number.isSafeInteger(startedAt)||startedAt<=0)throw Error('采集时钟无效');
  const explicitDate=date!==undefined;date=explicitDate?date:chinaDate(startedAt);if(!dateOK(date)||date>chinaDate(startedAt)||!Number.isSafeInteger(historyDays)||historyDays<1||historyDays>120)throw Error('日期或历史长度无效');
  if(sectorCode!==undefined&&(typeof sectorCode!=='string'||!/^BK\d{4}$/.test(sectorCode)))throw Error('板块代码须为BK四位数字');
  if(symbol!==undefined&&(typeof symbol!=='string'||!/^(?:60|68|00|30|43|83|87|88|92)\d{4}$/.test(symbol)))throw Error('A股代码无效');
- const errors=[],requests=[['marketFlow',url(FLOW,flowParams('1.000001',historyDays,true)),'market']];
+ const errors=[],rawEvidence=[],requests=[['marketFlow',url(FLOW,flowParams('1.000001',historyDays,true)),'market']];
  if(sectorCode)requests.push(['sectorFlow',url(FLOW,flowParams('90.'+sectorCode,historyDays)),'sector']);
  if(symbol)requests.push(['stockFlow',url(FLOW,flowParams((symbol.startsWith('6')?'1.':'0.')+symbol,historyDays)),'stock']);
  const values={marketFlow:empty(),sectorFlow:empty('not-requested'),stockFlow:empty('not-requested'),sealed:{status:'unknown',records:[],partial:true,totalCount:null,fetchedCount:0},broken:{status:'unknown',records:[],partial:true,totalCount:null,fetchedCount:0}};
  const fetchOne=async([name,target,kind],poolDate=date)=>{
   try{
    const returned=await requestJson(target,{maxBytes:MAX_BYTES,timeoutMs:12000}),firstObservedAt=clock();
-   const wrapped=returned&&Object.hasOwn(returned,'json'),json=wrapped?returned.json:returned,raw=wrapped&&typeof returned.raw==='string'?returned.raw:JSON.stringify(json);
+   const wrapped=returned&&Object.hasOwn(returned,'json'),raw=wrapped&&typeof returned.raw==='string'?returned.raw:JSON.stringify(wrapped?returned.json:returned);
    if(typeof raw!=='string'||Buffer.byteLength(raw)>MAX_BYTES)throw Error('响应超过2MiB或非JSON');
+   const json=wrapped&&typeof returned.raw==='string'?JSON.parse(raw):wrapped?returned.json:returned;
+   if(retainRawEvidence&&wrapped&&typeof returned.raw==='string')rawEvidence.push({encoding:'base64',data:Buffer.from(raw).toString('base64'),sha256:sha(raw),byteLength:Buffer.byteLength(raw),source:'eastmoney:'+name,url:target,receivedAt:firstObservedAt});
    if(kind!=='pool'){
     const [market,code]=new URL(target).searchParams.get('secid').split('.');
     if(json?.data?.code!==undefined&&String(json.data.code)!==code||json?.data?.market!==undefined&&String(json.data.market)!==market)throw Error('资金流响应证券身份不一致');
@@ -81,7 +83,7 @@ async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={},
  const retrievedAt=clock(),observed=Object.values(values).map(x=>x.firstObservedAt).filter(Number.isSafeInteger);
  const actualDates=[values.marketFlow.lastTradeDate,...fallbackDates,z.tradeDate,b.tradeDate].filter(d=>dateOK(d)&&d<=date).sort();
  const tradeDate=!explicitDate&&observedFlowDate?observedFlowDate:actualDates.at(-1)||null;
- return {schemaVersion:1,source:'eastmoney',startedAt,retrievedAt,firstObservedAt:observed.length?Math.min(...observed):null,tradeDate,requestedDate:date,marketFlow:values.marketFlow,sectorFlow:values.sectorFlow,stockFlow:values.stockFlow,limitPools,errors,researchOnly:true,verifiedLive:false,canTrade:false,canNotify:false,note:'tradeDate来自实际响应日期，requestedDate为查询上限；逐行日期和池响应qdate保留。公共供应商资金按订单大小估算，不证明机构真实资金；不将采集时间当作行情时间。'};
+ return {schemaVersion:1,source:'eastmoney',startedAt,retrievedAt,firstObservedAt:observed.length?Math.min(...observed):null,tradeDate,requestedDate:date,marketFlow:values.marketFlow,sectorFlow:values.sectorFlow,stockFlow:values.stockFlow,limitPools,errors,...(retainRawEvidence?{rawEvidence}:{}),researchOnly:true,verifiedLive:false,canTrade:false,canNotify:false,note:'tradeDate来自实际响应日期，requestedDate为查询上限；逐行日期和池响应qdate保留。公共供应商资金按订单大小估算，不证明机构真实资金；不将采集时间当作行情时间。'};
 }
 let running=false;
 async function fetchPublicContext(options,dependencies){

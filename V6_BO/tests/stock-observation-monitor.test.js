@@ -4,6 +4,16 @@ const {createStockObservationMonitor}=require('../src/core/stock-observation-mon
 const {enqueueStockObservation}=require('../src/core/stock-observation-queue');
 const success=()=>({status:'captured',observation:{revision:1,observationHash:'a'.repeat(64)},history:{provider:'tencent',rawHash:'b'.repeat(64)}});
 function setup(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'stock-monitor-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;}
+test('private monitor config validates every new research directory independently',t=>{
+ const root=setup(t),file=path.join(root,'config.json'),load=require('../scripts/stock-observation-monitor').loadConfig;
+ const config={schemaVersion:1,mode:'stock-observation-monitor',canTrade:false,queueRoot:path.join(root,'queue'),
+  jobOptions:{observationRoot:path.join(root,'observations'),memoryRoot:path.join(root,'memory')}};
+ const write=()=>fs.writeFileSync(file,JSON.stringify(config),{mode:0o600});write();
+ assert.equal(load(file).jobOptions.followupRoot,path.join(root,'stock-research-followups'));
+ config.jobOptions.followupRoot=path.join(root,'observations','nested');write();assert.throws(()=>load(file),/独立/);
+ config.jobOptions.followupRoot=path.join(root,'public','followups');write();assert.throws(()=>load(file),/目录/);
+ config.jobOptions.followupRoot='relative-followups';write();assert.throws(()=>load(file),/目录/);
+});
 test('durable intent survives monitor recreation and a completed capture is never fetched again',async t=>{
  const root=setup(t),decisionAt=Date.now();enqueueStockObservation(root,{symbol:'600000',decisionAt,trigger:'push-attempt'});
  let calls=0;const first=createStockObservationMonitor({queueRoot:root},{capture:async()=>{calls++;return success();}});
