@@ -1225,24 +1225,84 @@ async function fetchAuctionTicks(code) {
 // 批量实时快照（自选池用），含主力净流入；东财限流时切换腾讯
 async function fetchBatchSnapshot(codes) {
   const requested = [...new Set(codes)], chosen = new Map();
+  const txAttempted = new Set();
   let lastError;
-  for (const fetchRows of [fetchBatchSnapshotEM, fetchBatchSnapshotTx]) {
-    const missing = requested.filter(code => !chosen.has(code));
-    if (!missing.length) break;
+  const refresh = now => {
+    for (const [code, row] of chosen) {
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness === 'recent-unverified') chosen.set(code, current);
+      else chosen.delete(code);
+    }
+  };
+  const missing = () => requested.filter(code => !chosen.has(code));
+  const collect = (rows, wanted, now) => {
+    const allowed = new Set(wanted);
+    for (const row of rows || []) {
+      if (!row || !allowed.has(row.code)) continue;
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness !== 'recent-unverified') continue;
+      const previous = chosen.get(row.code);
+      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(row.code, current);
+    }
+  };
+  const fetchMissing = async (provider, fetchRows, wanted) => {
+    if (!wanted.length) return;
+    if (provider === 'tencent') for (const code of wanted) txAttempted.add(code);
     try {
-      for (const row of (await fetchRows(missing)) || []) {
-        if (!missing.includes(row.code) || chosen.has(row.code) || row.quoteFreshness !== 'recent-unverified') continue;
-        chosen.set(row.code, row);
-      }
-    } catch (e) { lastError = e; }
+      const rows = await fetchRows(wanted), now = Date.now();
+      refresh(now);
+      collect(rows, wanted, now);
+    } catch (e) {
+      lastError = e;
+      batchQuoteWarn(provider, wanted, classifyNetErr(String(e && e.message || e)));
+    }
+  };
+  for (const [provider, fetchRows] of [['eastmoney', fetchBatchSnapshotEM], ['tencent', fetchBatchSnapshotTx]]) {
+    refresh(Date.now());
+    await fetchMissing(provider, fetchRows, missing());
   }
-  const missing = requested.filter(code => !chosen.has(code));
-  if (missing.length) {
-    for (const row of require('./src/core/six-photo-backups').photoQuoteFallback(missing))
-      if (missing.includes(row.code) && !chosen.has(row.code)) chosen.set(row.code, row);
+  // A slow secondary request can expire a primary row that did not need the
+  // secondary at its start. Give only these never-requested symbols one chance.
+  refresh(Date.now());
+  await fetchMissing('tencent', fetchBatchSnapshotTx, missing().filter(code => !txAttempted.has(code)));
+  refresh(Date.now());
+  const remaining = missing();
+  if (remaining.length) {
+    try {
+      const rows = require('./src/core/six-photo-backups').photoQuoteFallback(remaining);
+      const now = Date.now();
+      refresh(now);
+      collect(rows, remaining, now);
+    } catch (e) {
+      lastError = e;
+      batchQuoteWarn('research', remaining, 'unavailable');
+    }
   }
+  // One clock for the entire published batch, after every request/backup read.
+  refresh(Date.now());
   if (!chosen.size && lastError) throw lastError;
   return requested.map(code => chosen.get(code)).filter(Boolean);
+}
+
+function batchQuoteAtPublication(row, now) {
+  const validTime = value => Number.isSafeInteger(value) && value > 0 && value <= 8e15;
+  const day = value => new Date(value + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const quoteAt = row && row.quoteAt, receivedAt = row && row.receivedAt;
+  let quoteFreshness = 'unknown';
+  if (row && typeof row.price === 'number' && Number.isFinite(row.price) && row.price > 0 &&
+      typeof row.quoteSource === 'string' && row.quoteSource.trim() &&
+      validTime(quoteAt) && validTime(receivedAt) && validTime(now)) {
+    // A timestamp that was future at receipt never becomes valid merely by waiting.
+    if (quoteAt > receivedAt || receivedAt > now) quoteFreshness = 'future';
+    else if (now - quoteAt > 15000 || day(quoteAt) !== day(now)) quoteFreshness = 'stale';
+    else quoteFreshness = 'recent-unverified';
+  }
+  return { ...row, quoteFreshness, canTrade: row?.canTrade === true && quoteFreshness === 'recent-unverified' };
+}
+function batchQuoteWarn(provider, codes, reason) {
+  // Only bounded public stock identifiers and fixed reason classes; no raw URL/error body.
+  const validCodes = codes.filter(code => /^\d{6}$/.test(code));
+  _srcWarn(`批量报价·${provider}`, `${reason}；本批${codes.length}只，代码${validCodes.slice(0, 60).join(',') || '未知'}；保留其他有效行`);
 }
 
 async function fetchBatchSnapshotEM(codes) {
@@ -1512,30 +1572,57 @@ async function fetchKlineThs(code, days = 95) {
 
 // 腾讯批量快照（每60只一批）：换手率/市值可直接取
 async function fetchBatchSnapshotTx(codes) {
-  const out = [];
-  for (let i = 0; i < codes.length; i += 60) {
-    const batch = codes.slice(i, i + 60).map(c => txMarket(c) + c).join(',');
-    const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
-    const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
-    let m;
-    while ((m = re.exec(text))) {
-      const f = m[2].split('~');
-      if (f.length < 46 || !+f[3]) continue;
-      const receivedAt = Date.now();
-      let quoteAt = null;
-      try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
-      const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
-      out.push({
-        quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
-        code: m[1], name: f[1], price: +f[3], pct: +f[32],
-        volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
-        high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
-        mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
-        speed: 0, listedDate: 0, mainInflow: null, mainPct: null
-      });
+  const requested = [...new Set(codes)], out = [];
+  let lastError, completed = 0, consecutiveFailures = 0;
+  for (let i = 0; i < requested.length; i += 60) {
+    const batchCodes = requested.slice(i, i + 60);
+    try {
+      const batch = batchCodes.map(c => txMarket(c) + c).join(',');
+      const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
+      const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
+      const wanted = new Set(batchCodes);
+      let m;
+      while ((m = re.exec(text))) {
+        const f = m[2].split('~');
+        if (!wanted.has(m[1]) || f.length < 46 || !Number.isFinite(+f[3]) || +f[3] <= 0) continue;
+        const receivedAt = Date.now();
+        let quoteAt = null;
+        try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
+        const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
+        out.push({
+          quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
+          code: m[1], name: f[1], price: +f[3], pct: +f[32],
+          volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
+          high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
+          mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
+          speed: 0, listedDate: 0, mainInflow: null, mainPct: null
+        });
+      }
+      completed++;
+      consecutiveFailures = 0;
+    } catch (e) {
+      lastError = e;
+      consecutiveFailures++;
+      batchQuoteWarn('tencent', batchCodes, classifyNetErr(String(e && e.message || e)));
+      // Full-A callers can request thousands of stocks. A provider outage must
+      // not turn one failed request into hundreds of serial timeout waits.
+      if (consecutiveFailures >= 4 && i + 60 < requested.length) {
+        batchQuoteWarn('tencent', requested.slice(i + 60), 'consecutive-failures');
+        break;
+      }
     }
   }
-  return out;
+  if (!completed && lastError) throw lastError;
+  // Direct full-A/display callers retain dated rows, with their real final status.
+  const now = Date.now(), selected = new Map();
+  const priority = row => row.quoteFreshness === 'recent-unverified' ? 2 : row.quoteFreshness === 'stale' ? 1 : 0;
+  const originalTime = row => Number.isSafeInteger(row.quoteAt) && row.quoteAt > 0 ? row.quoteAt : -Infinity;
+  for (const row of out) {
+    const current = batchQuoteAtPublication(row, now), previous = selected.get(row.code);
+    if (!previous || priority(current) > priority(previous) ||
+        (priority(current) === priority(previous) && originalTime(current) > originalTime(previous))) selected.set(row.code, current);
+  }
+  return requested.map(code => selected.get(code)).filter(Boolean);
 }
 
 // 新浪全A列表（⛔ 2026-10-09 起改【首选】全量源）：
