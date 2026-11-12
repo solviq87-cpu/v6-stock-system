@@ -31,6 +31,22 @@ function archive(dir,{kind='shadow',status='shadow-retained',
 function copy(src,dest,name){
  fs.copyFileSync(path.join(src,name),path.join(dest,name));
 }
+test('guarded seed registrations are preserved byte-for-byte without rewriting prior archive records',t=>{
+ const {reference,backup}=dirs(t),{preregisterSeedCandidate,SEED_POLICY}=require('../src/core/factor-candidate-prereg');
+ const seed=preregisterSeedCandidate({registeredAt:Date.now(),seedConfig:{schemaVersion:1,mode:'v6-fixed-shadow-seed-config-v1',
+  researchOnly:true,canTrade:false,seedPolicy:SEED_POLICY,factorIds:['sector_heat','leader_strength']}});
+ const seedFile='prereg-'+seed.fingerprint.slice(0,12)+'.json';
+ fs.writeFileSync(path.join(reference,seedFile),JSON.stringify(seed)+'\n',{mode:0o600});
+ const oldFile=archive(reference,{kind:'prereg'}),before=fs.readFileSync(path.join(reference,oldFile));
+ for(const file of [seedFile,oldFile])copy(reference,backup,file);
+ const result=compare(reference,backup);assert.equal(result.ok,true);assert.equal(result.preregisteredCandidates,2);
+ assert.deepEqual(fs.readFileSync(path.join(backup,seedFile)),fs.readFileSync(path.join(reference,seedFile)));
+ assert.deepEqual(fs.readFileSync(path.join(reference,oldFile)),before);
+ const changed={...seed,candidateWeights:{...seed.candidateWeights,sector_heat:999}}, {fingerprint,...payload}=changed;
+ const resealed={...payload,fingerprint:hash(payload)},changedFile='prereg-'+resealed.fingerprint.slice(0,12)+'.json';
+ fs.unlinkSync(path.join(backup,seedFile));fs.writeFileSync(path.join(backup,changedFile),JSON.stringify(resealed),{mode:0o600});
+ assert.throws(()=>scan(backup),/固定种子/,'even a self-consistent hash must not bypass seed metadata policy');
+});
 test('read-only archive comparison includes rejected trials, accepted model and all preregistration receipts',t=>{
  const {reference,backup}=dirs(t);
  const records=[

@@ -4,6 +4,7 @@
 // Never writes, restores, deletes or resets a consumed-holdout trial ledger.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {safeNew}=require('./factor-shadow-evolution');
+const {SEED_MODE,verifySeedRegistrationMetadata}=require('../src/core/factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const bytesHash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const SHADOW=/^shadow-\d{4}-\d{2}-\d{2}-[a-f0-9]{12}\.json$/;
@@ -111,9 +112,11 @@ function scan(dir){
        audit.status!==(INSPECTED.has(record.status)?'consumed':'not-evaluated'))
      throw Error('研究试验状态与封存审计不一致：'+name);
    }
-  }else if(record.mode!=='v6-shadow-candidate-prereg-v1'||
-           name!==`prereg-${fingerprint.slice(0,12)}.json`){
-   throw Error('候选预注册档案模式或文件名不匹配：'+name);
+  }else{
+   if(!['v6-shadow-candidate-prereg-v1',SEED_MODE].includes(record.mode)||
+      name!==`prereg-${fingerprint.slice(0,12)}.json`)
+    throw Error('候选预注册档案模式或文件名不匹配：'+name);
+   if(record.mode===SEED_MODE)verifySeedRegistrationMetadata(record);
   }
   kinds[kind]++;
   files.push({name,sha256:bytesHash(data),fingerprint,kind});

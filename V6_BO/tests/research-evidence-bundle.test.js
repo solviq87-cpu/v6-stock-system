@@ -7,6 +7,24 @@ function input(extra={}){return {symbol:'600001',provider:'eastmoney',priceBasis
 function clock(time,fn){const original=Date.now;Date.now=()=>time;try{return fn();}finally{Date.now=original;}}
 function temporary(fn){const root=fs.mkdtempSync(path.join(os.tmpdir(),'evidence-bundle-'));try{const r=fn(root);if(r?.then)return r.finally(()=>fs.rmSync(root,{recursive:true,force:true}));fs.rmSync(root,{recursive:true,force:true});return r;}catch(e){fs.rmSync(root,{recursive:true,force:true});throw e;}}
 function files(root,kind){return fs.readdirSync(root,{recursive:true}).filter(n=>n.includes(kind+path.sep)&&n.endsWith('.json')).map(n=>path.join(root,n));}
+test('trigger keeps immutable 64-hex signal identity and legacy missing identity across restart',()=>temporary(root=>{
+ const trigger={kind:'push-attempt',intentId:a,signalRefs:[{code:'600001',type:'pool',ts:epoch-1,id:b},{code:'600001',type:'trend',ts:epoch-1}]};
+ const value=input({trigger}),first=clock(epoch+1000,()=>freeze(root,value));
+ assert.deepEqual(first.trigger.signalRefs,trigger.signalRefs);
+ delete require.cache[require.resolve('../src/core/research-evidence-bundle')];
+ const reopened=require('../src/core/research-evidence-bundle').readResearchEvidenceBundle(root,{symbol:'600001',provider:'eastmoney',hash:first.hash,asOf:epoch+1000});
+ assert.equal(reopened.hash,first.hash);assert.equal(reopened.trigger.signalRefs[0].id,b);assert.equal(Object.hasOwn(reopened.trigger.signalRefs[1],'id'),false);
+ const later=clock(epoch+2000,()=>freeze(root,input({trigger:{...trigger,signalRefs:[{...trigger.signalRefs[0],id:a},trigger.signalRefs[1]]}})));
+ assert.notEqual(later.hash,first.hash,'different signal identities must produce different evidence bundles');
+ assert.equal(read(root,{symbol:'600001',provider:'eastmoney',hash:first.hash,asOf:epoch+2000}).trigger.signalRefs[0].id,b);
+}));
+test('invalid signal identities and unknown reference fields still reject rather than being discarded',()=>temporary(root=>{
+ for(const ref of [{id:'not-a-hash'},{id:'A'.repeat(64)},{id:null},{id:7},{id:[b]},{id:b,extra:'not-allowed'},{signalId:b}]){
+  const trigger={kind:'push-attempt',signalRefs:[{code:'600001',type:'pool',ts:epoch-1,...ref}]};
+  assert.throws(()=>clock(epoch+1000,()=>freeze(root,input({trigger}))),/校验/);
+ }
+ assert.equal(fs.readdirSync(root).length,0,'invalid trigger cannot create a partially published bundle');
+}));
 test('freeze stores parsed facts and archive references privately without altering inputs or existing data',()=>temporary(root=>{
  const value=input(),original=structuredClone(value);fs.writeFileSync(path.join(root,'user-history.txt'),'keep',{mode:0o600});const first=clock(epoch+1000,()=>freeze(root,value));assert.deepEqual(value,original);assert.equal(first.recordedAt,epoch+1000);assert.equal(first.decisionAt,epoch);assert.equal(first.revision,1);assert.equal(first.canTrade,false);assert.equal(first.canNotify,false);
  assert.match(first.hash,/^[a-f0-9]{64}$/);assert.equal(fs.readFileSync(path.join(root,'user-history.txt'),'utf8'),'keep');for(const file of [...files(root,'objects'),...files(root,'receipts')]){assert.equal(fs.statSync(file).mode&0o777,0o600);assert.equal(fs.statSync(path.dirname(file)).mode&0o777,0o700);}
