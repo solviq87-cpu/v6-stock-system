@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+const probabilityContract = require('./src/core/probability-contract');
 // Funds evidence: missing values remain unknown throughout display and aggregation.
 function fundsNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
 function fundsRounded(value, digits = 0) {
@@ -457,7 +458,7 @@ function computePreselect() {
     return {
       code: c.code, name: c.name, price: c.price, pct: c.pct,
       profitRatio: c.profitRatio, score: c.score, paths: c.paths,
-      prob: +(p * 100).toFixed(0),
+      prob: +(p * 100).toFixed(0), probKind: 'model-estimate', eventTarget: 'ztToday', calibrationCertified: false,
       reason: [
         (c.paths || []).join('+'),
         `获利筹码${c.profitRatio != null ? c.profitRatio + '%' : '-'}`,
@@ -1365,7 +1366,7 @@ function panelNotes() {
     // 否则用户看到 55% 却被 63% 拦下，只会以为系统错了。原值在推送治理面板 minProb 里。
     // ⛔ typeof 守卫：panelNotes 会被守门沙箱切出真跑（_test_ee/_test_promise），沙箱没注入
     //    这两个新符号，裸调会 ReferenceError 崩套件；生产环境必然在。
-    gate: `到线只是入选，还要过胜率门 ${(typeof pushMinProbEff === 'function') ? pushMinProbEff() : pushMinProb()}%${(typeof envCold === 'function') && envCold() ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '，额度同步减半）' : ''} / 实测命中率底线 35%（样本≥20，go 轮 D5「只推高准确率票」） / 实盘 EV 底线（同型信号实测亏钱的不推，样本≥30且统计显著才判，普跌日更严，ig 轮 #261） / 每日条数闸门 / 模块节流才真发，被拦下不补发`,
+    gate: `到线只是入选，还要过研究值门 ${(typeof pushMinProbEff === 'function') ? pushMinProbEff() : pushMinProb()}/100${(typeof envCold === 'function') && envCold() ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '，额度同步减半）' : ''} / 仅次日最高涨≥3%事件适用历史频率底线35%（样本≥20，不是封板率门槛） / 实盘 EV 底线（同型信号实测亏钱的不推，样本≥30且统计显著才判，普跌日更严） / 每日条数闸门 / 模块节流才真发，被拦下不补发`,
     // ⛔ 「30秒刷新 / 60秒刷新」这类承诺只在数据窗口内成立 —— 休市与夜间根本不拉，必须说清
     refreshWin: '仅在 9:15–15:40 数据窗口内刷新；休市 / 夜间不再拉取，面板保留最后一次结果'
   };
@@ -1637,7 +1638,8 @@ const EMP_BUCKETS = ['<45', '45-54', '55-64', '65-74', '75+'];
 //    ⛔ 判据：**给一个量登记它是什么；不同刻度的数不许进同一个档。**
 const PROB_KIND = {
   pool:  { kind: 'score', label: '精选池技术评分', why: 'scoreStock 的技术评分（0~100），不是涨停概率' },
-  trend: { kind: 'score', label: '趋势票趋势分',   why: 'trendScore（0~100），分布与概率不同，不能同档统计' }
+  trend: { kind: 'score', label: '趋势票趋势分',   why: 'trendScore（0~100），分布与概率不同，不能同档统计' },
+  pre:   { kind: 'score', label: '埋伏研究排序分', why: '手工条件与形态排序分（20~88），不是封板概率' }
 };
 function probKindOf(type) { const d = PROB_KIND[type]; return d ? d.kind : 'prob'; }
 function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型概率'; }
@@ -1873,43 +1875,28 @@ function empTable() {
   const sk = { scanned: 0, live: 0, by: {} };
   const bumpSkip = kk => { sk.by[kk] = (sk.by[kk] || 0) + 1; skipAdd(kk); };
   const bump = (k, s) => {
-    const v = (m[k] = m[k] || { n: 0, hit: 0, lu: 0, strong: 0, ok: 0, fake: 0, _d: new Set() });
-    v.n++;
-    const isAuczt = s.type === 'auczt';
-    const hit = isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.hit);
-    const limitUp = isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.limitUp);
-    if (hit) v.hit++; if (limitUp) v.lu++;
-    // ⛔⛔ 2026-10-08 修：用户要求"不要只看上涨，还要看回落，综合评判"。
-    //    empTable 现在按 quality 分层统计：strong（真正能吃到肉）/ ok（有利润）/ fake（追高被套）。
-    //    自适应闭环和 fusedProb 优先用 strong+ok 作为"真实命中率"，fake 单独列出来让用户看见。
-    let quality = 'miss';
-    if (isAuczt) {
+    const rawDay = String(s.date || '').replace(/-/g, '');
+    const parsedDay = /^\d{8}$/.test(rawDay) ? new Date(rawDay.slice(0,4) + '-' + rawDay.slice(4,6) + '-' + rawDay.slice(6,8) + 'T00:00:00Z') : null;
+    const day = parsedDay && Number.isFinite(parsedDay.getTime()) && parsedDay.toISOString().slice(0,10).replace(/-/g, '') === rawDay ? rawDay : null;
+    const record = (key, hit, limitUp, quality) => {
+      const v = (m[key] = m[key] || { n: 0, hit: 0, lu: 0, luN: 0,
+        strong: 0, ok: 0, fake: 0, qualityN: 0, _d: new Set(), _luD: new Set(), _qualityD: new Set() });
+      if (typeof hit === 'boolean') { v.n++; if (hit) v.hit++; if (day) v._d.add(day); }
+      if (typeof limitUp === 'boolean') { v.luN++; if (limitUp) v.lu++; if (day) v._luD.add(day); }
+      if (['strong', 'ok', 'fake', 'miss'].includes(quality)) {
+        v.qualityN++; if (day) v._qualityD.add(day);
+        if (quality === 'strong') v.strong++; else if (quality === 'ok') v.ok++; else if (quality === 'fake') v.fake++;
+      }
+    };
+    if (s.type === 'auczt') {
       const r = s.resolved;
-      if (r) quality = r.limitUp ? 'strong' : (r.hit ? 'ok' : 'miss');
-    } else {
-      quality = (s.nd && s.nd.quality) || 'miss';
-    }
-    if (quality === 'strong') v.strong++;
-    else if (quality === 'ok') v.ok++;
-    else if (quality === 'fake') v.fake++;
-    if (s.date) v._d.add(String(s.date).replace(/-/g, ''));
-    // ⛔ jy 轮：auczt 双口径——在当日封板口径之外，另开一列统计「次日最高≥+3%命中率」。
-    //   这样 empTable 同时持有 auczt|档（当日封板率）和 auczt-nd|档（次日+3%率），
-    //   前端/接口可按同一条信号的 prob 查两个独立口径，避免用错尺子。
-    if (isAuczt && s.nd) {
-      const ndKey = 'auczt-nd|' + empBucketOf(s.prob);
-      const vn = (m[ndKey] = m[ndKey] || { n: 0, hit: 0, lu: 0, strong: 0, ok: 0, fake: 0, _d: new Set() });
-      vn.n++;
-      if (s.nd.hit) vn.hit++;
-      if (s.nd.limitUp) vn.lu++;
-      let q = 'miss';
-      if (s.nd.quality) q = s.nd.quality;
-      else if (s.nd.hit) q = 'ok';
-      if (q === 'strong') vn.strong++;
-      else if (q === 'ok') vn.ok++;
-      else if (q === 'fake') vn.fake++;
-      if (s.date) vn._d.add(String(s.date).replace(/-/g, ''));
-    }
+      // Missing same-day outcomes must not become observed failures merely
+      // because the same signal already has a next-day result.
+      const limitUp = r && typeof r.limitUp === 'boolean' ? r.limitUp : null;
+      const quality = limitUp === true ? 'strong' : r && typeof r.hit === 'boolean' ? (r.hit ? 'ok' : 'miss') : null;
+      if (limitUp !== null) record(k, limitUp, limitUp, quality);
+      if (s.nd) record('auczt-nd|' + empBucketOf(s.prob), s.nd.hit, s.nd.limitUp, s.nd.quality);
+    } else if (s.nd) record(k, s.nd.hit, s.nd.limitUp, s.nd.quality);
   };
   for (const s of (S.learn.signals || [])) {
     sk.scanned++;
@@ -1943,15 +1930,15 @@ function empTable() {
   }
   for (const k of Object.keys(m)) {
     const v = m[k];
-    v.rate = Math.round(v.hit / v.n * 100);
-    v.luRate = Math.round(v.lu / v.n * 100);
+    v.rate = v.n ? Math.round(v.hit / v.n * 100) : null;
+    v.luRate = v.luN ? Math.round(v.lu / v.luN * 100) : null;
     // ⛔ 2026-10-08 修：综合质量分层统计（strong=真正能吃到肉 / ok=有利润 / fake=追高被套）
-    v.strongRate = v.strong ? Math.round(v.strong / v.n * 100) : 0;
-    v.okRate = v.ok ? Math.round(v.ok / v.n * 100) : 0;
-    v.fakeRate = v.fake ? Math.round(v.fake / v.n * 100) : 0;
+    v.strongRate = v.qualityN ? Math.round(v.strong / v.qualityN * 100) : null;
+    v.okRate = v.qualityN ? Math.round(v.ok / v.qualityN * 100) : null;
+    v.fakeRate = v.qualityN ? Math.round(v.fake / v.qualityN * 100) : null;
     // 真实命中率 = strong + ok（排除 fake 这种"看起来命中实际亏钱"的样本）
-    v.realRate = Math.round((v.strong + v.ok) / v.n * 100);
-    v.days = v._d.size;
+    v.realRate = v.qualityN ? Math.round((v.strong + v.ok) / v.qualityN * 100) : null;
+    v.days = v._d.size; v.luDays = v._luD.size; v.qualityDays = v._qualityD.size;
     const b = k.split('|')[1];
     const strong = (v.n >= EMP_BIG_N && v.days >= EMP_BIG_DAYS);
     const normal = (v.n >= EMP_MIN_N && v.days >= EMP_MIN_DAYS);
@@ -1960,7 +1947,7 @@ function empTable() {
     v.locked = (strong || normal || refu) ? null
       : `证据不足（${v.n}条/跨${v.days}日：需 ${EMP_MIN_N} 条且跨 ≥${EMP_MIN_DAYS} 日，或 ${EMP_BIG_N} 条以上且跨 ≥${EMP_BIG_DAYS} 日）·暂不校准`;
     v.evidence = strong ? '大样本' : (normal ? '常规' : (refu ? `强证伪(实测比模型低${ppTxt(gap, false)})` : '不足'));
-    delete v._d;
+    delete v._d; delete v._luD; delete v._qualityD;
   }
   _empCache = { t: now, map: m, done: true };
   _empSkip = sk;
@@ -2008,16 +1995,36 @@ function effProb(prob, type) {
 }
 // 同上，但把「证据厚度」一起交出来 —— 融合两个学习源时要靠它决定实测该占多大分量。
 // 20 条和 400 条都叫"实测 60%"，可信度天差地别：前者可能只是两天的运气。
-function empInfo(prob, type) {
+function empInfo(prob, type, target) {
   if (prob == null || !isFinite(prob)) return null;
-  const t = empTable();
-  const ks = empKeysOf(prob, type);
-  const g = empGroupOf(type);
-  // ⛔⛔ B1 轮：auczt 不借"全部|同档"池（当日封板 vs 次日命中，两种目标两把尺子）
-  const own = t[ks[0]], all = type === 'auczt' ? null : t[ks[1]];
-  const v = (own && !own.locked) ? own : ((all && !all.locked) ? all : null);
-  if (!v) return null;
-  return { rate: v.rate, luRate: v.luRate, n: v.n, days: v.days, evidence: v.evidence, group: v === own ? g : '全部' };
+  const t = empTable(), ks = empKeysOf(prob, type), g = empGroupOf(type);
+  const event = target || (type === 'auczt' ? 'ztToday' : 'up3Next');
+  const select = v => {
+    if (!v) return null;
+    const sameDay = type === 'auczt';
+    let rate, n, days;
+    if (event === 'ztToday' && sameDay) { rate = v.luRate; n = v.luN; days = v.luDays; }
+    else if (event === 'ztNext' && !sameDay) { rate = v.luRate; n = v.luN; days = v.luDays; }
+    else if (event === 'up3Next' && !sameDay) { rate = v.rate; n = v.n; days = v.days; }
+    else if ((event === 'qualityToday' && sameDay) || (event === 'qualityNext' && !sameDay)) {
+      rate = v.realRate; n = v.qualityN; days = v.qualityDays;
+    }
+    else return null;
+    if (!Number.isFinite(rate) || !Number.isInteger(n) || !Number.isInteger(days)) return null;
+    const normal = n >= EMP_MIN_N && days >= EMP_MIN_DAYS;
+    const big = n >= EMP_BIG_N && days >= EMP_BIG_DAYS;
+    const gap = empMidOf(empBucketOf(prob)) - rate;
+    const refuted = n >= EMP_REFU_N && days >= EMP_REFU_DAYS && gap >= EMP_REFU_GAP;
+    if (!normal && !big && !refuted) return null;
+    return { rate: v.rate, luRate: v.luRate, realRate: v.realRate,
+      strongRate: v.strongRate, okRate: v.okRate, fakeRate: v.fakeRate,
+      qualityN: v.qualityN, qualityDays: v.qualityDays,
+      target: event, targetRate: rate, n, days,
+      evidence: big ? '大样本' : normal ? '常规' : '强证伪', calibrationCertified: false };
+  };
+  const own = select(t[ks[0]]), all = type === 'auczt' ? null : select(t[ks[1]]);
+  const found = own || all;
+  return found ? {...found, group: own ? g : '全部'} : null;
 }
 
 // ── ⛔ 自适应调整的复核（2026-10-07，本轮角度：说过一次就不再复核的结论）─────────────
@@ -2489,64 +2496,54 @@ function laProbCached(code, name, rows, target) {
   }
   return v;
 }
-// ── 学习融合：把「实测重标定」和「自学形态模型」合成一个推送用的胜率 ──────────
-//   用户那句「你学的东西不是应该进化后推送我吗」问的正是这里。
-//   这台机器有两套学习，以前各管一段、谁都没落到"推给你的那个数字"上：
-//     emp = 从【自己最近推的票】的回验里学：同族群同档次，实测命中多少（学的是"我准不准"）
-//     la  = 从【全A股历史走势】里学：长得像今天这样的形态，后来有多大比例涨/封板（学的是"形态灵不灵"）
-//   前者只进了门槛、后者只在候选池加了个分 —— 学出来的东西一直躺在库里。
-//   现在合成一个数：门槛、排序、文案三处共用，学一次就真的改一次推送。
-//   口径统一为「次日最高涨幅 ≥3%」（HIT_THR），与回验命中口径一致，否则两个百分比不能相加。
-// ⚠️ 第 6 个参数 target（'up3' / 'zt'）**默认 'up3' 是刻意的，不是漏传**（2026-10-07 查证）：
-//    上面①实测档 emp.rate 就是"次日涨≥3%"口径，②自学修正 delta 必须和它同刻度才能加权，
-//    所以默认取 up3 那份模型。要的是"次日封板"口径请显式传 'zt' ——
-//    项目里真正按封板口径用模型的地方（preBreakoutInner 的埋伏打分、scanSteadyUp 的 ztP）
-//    都是**直接调 laProb(..., 'zt')** 自己拿数，不走 fusedProb，两边不冲突。
-//    ⛔ 别因为"没地方传 target"就顺手给它传 'zt'：那是把封板概率的百分点加到涨3%概率上，
-//       量纲不同，越加越偏（封板基准约 2%，涨3%基准约 24%）。
-const LA_DELTA_CAP = 12;   // 自学形态最多能把模型概率推高/压低多少个百分点（只做加权，不单独定生死）
+// Same-event historical evidence can form a research ranking score. None of
+// these production inputs has an independent calibration certificate.
+const LA_DELTA_CAP = 12;
 function fusedProb(code, name, rows, type, modelProb, target) {
+  const event = probabilityContract.targetFor(type, target);
   const out = {
-    prob: Number.isFinite(modelProb) ? modelProb : null,
+    prob: probabilityContract.bounded(modelProb, type),
     model: Number.isFinite(modelProb) ? modelProb : null,
-    emp: null, empN: 0, empDays: 0, empGroup: '', empLu: null,
-    la: null, laBase: null, delta: 0, src: '模型原值', why: ''
+    valueKind: probabilityContract.kind(type), modelKind: probabilityContract.kind(type), target: event,
+    calibrationCertified: false, emp: null, empN: 0, empDays: 0, empGroup: '', empLu: null,
+    empReal: null, empStrong: null, empOk: null, empFake: null, empQualityN: 0,
+    la: null, laBase: null, delta: 0, src: '模型原值（未独立校准）', why: ''
   };
-  if (out.prob == null) return out;
-  // ① 实测：必须按【原始模型概率】查档。empTable 的桶是按登记时的原值分的，
-  //    拿"已经标定过"的数再去查一次桶，等于对同一件事标定两遍，越标越低。
-  const ei = empInfo(out.prob, type);
-  // ② 自学：取形态相对全市场基准的溢价做个体修正。base<=0 表示模型还没学出来，跳过而不是当成 0 溢价。
-  const pr = laProbCached(code, name, rows, target || 'up3');
-  if (pr && Number.isFinite(pr.p) && Number.isFinite(pr.base) && pr.base > 0) {
-    out.la = +(pr.p * 100).toFixed(1);
-    out.laBase = +(pr.base * 100).toFixed(1);
+  if (out.prob == null || out.valueKind === 'score') return out;
+  const qualityTarget = type === 'auczt' ? 'qualityToday' : 'qualityNext';
+  const diagnostic = empInfo(out.model, type, qualityTarget);
+  if (diagnostic) {
+    out.empReal = diagnostic.realRate; out.empStrong = diagnostic.strongRate;
+    out.empOk = diagnostic.okRate; out.empFake = diagnostic.fakeRate;
+    out.empQualityN = diagnostic.qualityN;
+    out.empQualityTarget = qualityTarget;
+  }
+  if (!event) { out.src = '事件目标未知，保留模型原值'; return out; }
+  const ei = empInfo(out.model, type, event);
+  const shape = probabilityContract.shapeTarget(event);
+  // LEARNALL has only next-day targets; it cannot correct today's sealing model.
+  const pr = shape ? laProbCached(code, name, rows, shape) : null;
+  if (pr && Number.isFinite(pr.p) && pr.p >= 0 && pr.p <= 1 &&
+      Number.isFinite(pr.base) && pr.base > 0 && pr.base <= 1) {
+    out.la = +(pr.p * 100).toFixed(1); out.laBase = +(pr.base * 100).toFixed(1);
     out.delta = Math.max(-LA_DELTA_CAP, Math.min(LA_DELTA_CAP, +((pr.p - pr.base) * 100).toFixed(1)));
     out.why = laWhy(pr, 2);
   }
-  const shaped = Math.max(0, Math.min(100, out.prob + out.delta));
-  if (ei) {
-    // ⛔⛔ 2026-10-08 修：用户要求"不要只看上涨，还要看回落，综合评判"。
-    //    fusedProb 现在优先用 realRate（strong+ok，排除 fake）作为实测命中率，
-    //    而不是旧的 rate（只看 maxGain≥3%）。这样融合出来的概率更贴近用户真实体验。
-    //    如果 realRate 证据不足（样本太少还没分层），fallback 到旧的 rate。
-    const useRate = (ei.realRate != null && ei.n >= EMP_MIN_N) ? ei.realRate : ei.rate;
-    // 证据越厚，实测说话的分量越大；样本少时以个体判断为主（别拿二十条噪声直接推翻模型）
+  const shaped = probabilityContract.bounded(out.prob + out.delta, type);
+  if (ei && ei.target === event && Number.isFinite(ei.targetRate)) {
+    const useRate = ei.targetRate;
     const w = Math.max(0.35, Math.min(0.75, ei.n / (ei.n + 120)));
-    let fused = w * useRate + (1 - w) * shaped;
-    // ⛔ 准确率提升：模型高估惩罚。当实测命中率远低于模型概率，说明模型在这类票上系统性失真。
-    //    低命中率桶（<40%）+ 模型给中高分（>50）= 模型过于乐观，融合概率要更保守。
     let penalty = 1;
     if (useRate < 40 && out.model > 50) penalty *= 0.90;
-    //    模型高估超过25个百分点 = 严重失真，额外惩罚。
     if (out.model - useRate > 25) penalty *= 0.92;
-    out.prob = Math.round(fused * penalty);
+    out.prob = probabilityContract.bounded(Math.round((w * useRate + (1 - w) * shaped) * penalty), type);
     out.emp = useRate; out.empN = ei.n; out.empDays = ei.days; out.empGroup = ei.group; out.empLu = ei.luRate;
-    out.empStrong = ei.strongRate; out.empOk = ei.okRate; out.empFake = ei.fakeRate;  // 分层数据供文案展示
-    out.src = `实测${useRate}%(n=${ei.n}·真${ei.realRate}%·假${ei.fakeRate}%) ⊕ 自学${out.delta >= 0 ? '+' : ''}${out.delta}` + (penalty < 1 ? ` · 准确率校正×${penalty.toFixed(2)}` : '');
+    out.valueKind = 'ranking-score';
+    out.src = `${probabilityContract.label(event)}历史频率${useRate}%(n=${ei.n})与模型形成研究排序分（未独立校准）`;
   } else {
-    out.prob = Math.round(shaped);
-    out.src = pr ? `自学修正${ppTxt(out.delta)}` : '模型原值';
+    out.prob = probabilityContract.bounded(Math.round(shaped), type);
+    out.valueKind = out.la === null ? 'model-estimate' : 'ranking-score';
+    out.src = out.la === null ? '无同事件经验，保留模型原值（未独立校准）' : '同事件形态研究排序分（未独立校准）';
   }
   return out;
 }
@@ -2593,48 +2590,45 @@ function floatCapOf(code) {
   }
   return _capIdx.get(String(code)) || missingOf('floatCap');
 }
-// 推送文案里的那一行「学后胜率」：把模型原值、实测标定、自学修正三个数摊开给你看。
-// 以前推送只给一个模型算出来的数字，你无从判断它是拍脑袋还是学出来的 —— 现在拆开写，
-// 顺便把机器自己挖到的形态规律念出来（历史多少例、后来多少概率涨）。
+// 研究排序值、原模型估值与同事件历史频率分别展示；没有独立校准证据。
 function fuseLine(x) {
   const f = x && x._fz;
   if (!f || f.prob == null) return '';
   const parts = [];
-  if (f.emp != null) parts.push(`同档实测${f.emp}%(${f.empN}条/跨${f.empDays}日)`);
-  if (f.la != null) parts.push(`自学形态${f.la}%(基准${f.laBase}%)`);
-  // ⛔ 「学后胜率」也是一句结论 —— 它赌的是哪件事（当日封板 / 次日涨≥3%）得由它自己说。
-  //    同一句话里"同档实测 X%"指的是命中率（次日最高涨≥HIT_THR%），不补这句用户会以为是封板率。
-  // ⛔ probDefOfType 返回的是 kind 键（ztToday），**不是**定义文本 —— 少套一层 probDef 就会
-  //    把「ztToday」这个内部代号原样印进推送（实测就是这样，用户看到的是一串英文缩写）。
-  const _def = probDef(probDefOfType(x && x.type));
-  // ⛔ 定义塞进同一个括号里当首项，别写成两个紧挨着的括号（「（当日封板）（模型72%）」读着像两件事）
-  const head = `\n  🧠 <b>学后胜率 ${f.prob}%</b>（${_def ? _def + ' · ' : ''}模型${f.model}%${parts.length ? ' · ' + parts.join(' · ') : ''}）`;
+  if (f.emp != null) parts.push(`同事件历史频率${f.emp}%(${f.empN}条/跨${f.empDays}日)`);
+  if (f.la != null) parts.push(`同事件形态频率${f.la}%(基准${f.laBase}%)`);
+  const def = f.valueKind === 'score' ? '策略排序用途' : probabilityContract.label(f.target);
+  const value = f.valueKind === 'score' || f.valueKind === 'ranking-score'
+    ? `研究排序分 ${f.prob}/100` : `模型估值 ${f.prob}%`;
+  const head = `\n  🧠 <b>${value}</b>（${def} · 未独立校准 · 原模型${f.model}${parts.length ? ' · ' + parts.join(' · ') : ''}）`;
   return f.why ? head + `\n  📚 ${f.why}` : head;
 }
 // ── 进化是否真的有效：融合后的分档 vs 同一批信号按原始概率分档 ──────────────
 //   光说"我学了"不算数 —— 得能证明学完之后推的票更准。这里把同一批已回验样本
 //   分别按「原始概率」和「融合概率」分档统计实测命中率，谁更准一目了然。
 //   lift = 融合档命中率 − 原值档命中率（正=学习有用）。样本不足的档不给结论。
-function learnFusedReport() {
+function learnFusedReport(target = 'up3Next') {
   const rows = [];
   const stat = key => {
     const m = {};
     for (const s of (S.learn.signals || [])) {
       // ⛔ 同样只认实盘：混进 600 条"已知涨停倒推"的回测样本，会得出
       //    "融合后命中率 75%、学习带来 +39 点增量"这种自欺欺人的结论。
-      // ⛔ hx 轮例外：auczt 预测当日封板 → 用 resolved（当日）回验，其它类型仍用 nd。
-      const hasOutcome = s.type === 'auczt' ? !!(s.resolved) : !!(s.nd);
-      if (!hasOutcome || s.void || !isLiveSample(s)) continue;
+      if (probabilityContract.targetFor(s.type) !== target || s.void || !isLiveSample(s)) continue;
+      const hit = target === 'ztToday' ? s.resolved && s.resolved.limitUp
+        : target === 'ztNext' ? s.nd && s.nd.limitUp : s.nd && s.nd.hit;
+      if (typeof hit !== 'boolean') continue;
       const v = s[key];
       if (v == null || !isFinite(v)) continue;
       const b = empBucketOf(v);
-      const o = (m[b] = m[b] || { n: 0, hit: 0, lu: 0, _d: new Set() });
-      const isAuczt = s.type === 'auczt';
-      o.n++; if (isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.hit)) o.hit++; if (isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.limitUp)) o.lu++;
+      const o = (m[b] = m[b] || { n: 0, hit: 0, lu: 0, luN: 0, _d: new Set() });
+      const limitUp = target === 'ztToday' ? s.resolved && s.resolved.limitUp : s.nd && s.nd.limitUp;
+      o.n++; if (hit) o.hit++;
+      if (typeof limitUp === 'boolean') { o.luN++; if (limitUp) o.lu++; }
       o._d.add(String(s.date || '').replace(/-/g, ''));
     }
     for (const k of Object.keys(m)) {
-      const v = m[k]; v.rate = Math.round(v.hit / v.n * 100); v.luRate = Math.round(v.lu / v.n * 100); v.days = v._d.size; delete v._d;
+      const v = m[k]; v.rate = Math.round(v.hit / v.n * 100); v.luRate = v.luN ? Math.round(v.lu / v.luN * 100) : null; v.days = v._d.size; delete v._d;
     }
     return m;
   };
@@ -2650,7 +2644,8 @@ function learnFusedReport() {
     });
   }
   const tn = rows.reduce((s, x) => s + x.fusedN, 0);
-  return { rows, fusedN: tn, ready: tn >= 60 };
+  return { rows, fusedN: tn, ready: tn >= 60, target,
+    kind: 'historical-event-frequency', calibrationCertified: false, independentHoldout: false };
 }
 
 async function runLearnallIngest() {
@@ -3266,10 +3261,10 @@ function recomputeBuckets() {
   saveLearn();
 }
 function calibratedProb(p) {
+  // Legacy buckets mix next-day outcomes and have no independent calibration
+  // evidence. Preserve the bounded original model; do not apply their corr.
   if (p == null) return p;
-  const b = p >= 90 ? '90+' : p >= 85 ? '85-89' : p >= 80 ? '80-84' : p >= 70 ? '70-79' : '<70';
-  const corr = (S.learn.buckets[b] || {}).corr || 1;
-  return Math.min(97, Math.max(5, p * corr));
+  return Number.isFinite(p) ? Math.min(97, Math.max(5, p)) : null;
 }
 try { Object.assign(S.config, JSON.parse(fs.readFileSync(CFG_FILE, 'utf8'))); delete S.config.wecomWebhook; } catch {} // 企业微信渠道已移除
 const saveCfg = () => { const _o = atomicWrite(CFG_FILE, JSON.stringify(S.config, null, 2)); return _o ? true : _diskFail('config.json（面板配置）'); };
@@ -5707,7 +5702,7 @@ function inferZTProb() {
     out.push({ code: x.code, name: x.name, price: x.price, auctionPct: x.auctionPct,
       score: x.score, mainInflow: x.mainInflow || 0,
       // ⛔ h2 轮：单层标定 —— prob 已由 hy 映射+上游修正给出，这里只做实测上限封顶（不再二次切档）
-      prob: aucztProbClamp(prob),
+      prob: aucztProbClamp(prob), probKind: 'model-estimate', eventTarget: 'ztToday', calibrationCertified: false,
       reason: (x.why || []).join(' + ') || '竞价放量高开',
       risk: ((x.risk || []).concat(_mk < 1 ? ['市场偏弱·竞价信号降权'] : [])).join(' | '), factors: x.factors || [],
       // ⛔ 判不出就留 null（推送/面板按空值省略），绝不把「未知」渲染成「弱(0)」
@@ -5795,7 +5790,7 @@ function buildAuctionStrongMessage(topN) {
     const rk = [zi && zi.risk, risk].filter(Boolean).join(' | ');
     msg += `   ⚠️ ${rk || '暂无明显风险信号'}${stop ? ` · 参考止损 ${stop}${stopRefNote()}` : ''}\n`;
   });
-  msg += '\n说明：涨停概率由「竞价多维评分」标定并经历史回验校准，非承诺收益；'
+  msg += '\n说明：当日封板模型估值来自竞价评分映射与风险修正，未经独立样本外校准，非承诺收益；'
     + '\n竞价未撮合前取虚拟匹配价（可撤单，越接近 9:25 越准），9:25 后取法定开盘价；'
     + '\n开盘后请对照实际走势再决定。';
   msg += auctionFrontRunNote(au.time);
@@ -6007,7 +6002,7 @@ async function tick() {
             risk: riskNoteOf(s, { gap, badHit, goodHit }),
             stopRef: stopRefOf(s),
             // ⛔ 后排补涨赌的是【当日】封板（下面那句"距涨停 X% 空间"就是当日的剩余空间）
-            msg: `【后排蓄势】${s.name}(${s.code}) 涨${s.pct}% 主力净占比${(s.mainPct || 0).toFixed(1)}% 1分钟流入${Math.round(delta / 1e4)}万 ${probDef('ztToday')}概率${probC.toFixed(0)}%${((S.learn.buckets[probC >= 90 ? '90+' : probC >= 85 ? '85-89' : probC >= 80 ? '80-84' : probC >= 70 ? '70-79' : '<70'] || {}).corr || 1) !== 1 ? '(已校准)' : ''}\n  选股逻辑: 板块后排补涨（距涨停 ${gap.toFixed(1)}% 空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万，${probDef('ztToday')}概率模型${probC.toFixed(0)}%）`
+            msg: `【后排蓄势】${s.name}(${s.code}) 涨${s.pct}% 主力净占比${(s.mainPct || 0).toFixed(1)}% 1分钟流入${Math.round(delta / 1e4)}万 ${probDef('ztToday')}概率${probC.toFixed(0)}%（模型估值，未独立校准）\n  选股逻辑: 板块后排补涨（距涨停 ${gap.toFixed(1)}% 空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万，${probDef('ztToday')}概率模型${probC.toFixed(0)}%）`
           });
           // ⚠️ 不在这里登记：alerts 只是"命中条件"，还要过去重那一关。
           //    只有真正推送出去的票才进学习库（见下方 fired 循环），
@@ -8532,8 +8527,8 @@ function govTake(code, type, strong, prob) {
       ok: false,
       fused: _fz,
       why: _fz.emp != null
-        ? `模型给 ${prob}%，同档实测 ${_fz.emp}%（${_fz.empN}条/跨${_fz.empDays}日）${_fz.delta ? `，自学形态${ppTxt(_fz.delta)}` : ''} → 融合 ${useProb}%，低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`
-        : `融合胜率 ${useProb}%（模型${prob}%${_fz.delta ? ` · 自学形态${ppTxt(_fz.delta)}` : ''}）低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`,
+        ? `模型给 ${prob}%，同档实测 ${_fz.emp}%（${_fz.empN}条/跨${_fz.empDays}日）${_fz.delta ? `，自学形态${ppTxt(_fz.delta)}` : ''} → 研究排序值 ${useProb}，低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`
+        : `研究排序值 ${useProb}（未独立校准，模型${prob}%${_fz.delta ? ` · 自学形态${ppTxt(_fz.delta)}` : ''}）低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`,
     };
   }
   const now = Date.now();
@@ -8545,7 +8540,7 @@ function govTake(code, type, strong, prob) {
   //       已按样本厚度加权，这里只对"证据确凿的差"下硬手，不重复惩罚薄样本）。
   //    ⛔ forcePush（持续大单流入）豁免：那是用户明确要求的客观资金行为通道。
   const D5_MIN_HIT = 35, D5_MIN_N = 20;   // 实测命中率底线 / 最小样本数；改这两个值=改 D5 力度，只此一处
-  if (!forcePush && _fz.emp != null && _fz.empN >= D5_MIN_N && _fz.emp < D5_MIN_HIT) {
+  if (!forcePush && _fz.target === 'up3Next' && _fz.emp != null && _fz.empN >= D5_MIN_N && _fz.emp < D5_MIN_HIT) {
     PUSH_GOV.lowProb++;
     return {
       ok: false,
@@ -9916,8 +9911,9 @@ function buildAlertsReport(list, opt) {
     ? `  🎯 已封板（不再预判上涨概率，重点防炸板）`
     // ⛔「上涨概率」赌的到底是"涨多少、多久"必须由它自己说：它被回验的口径是 sig.nd
     //    =【次日最高涨幅≥HIT_THR%】。只写"上涨概率"等于把结论给了、前提没给。
-    : `  🎯 ${probDef('up3Next')}概率 ${a.riseProb != null ? a.riseProb : (a.prob != null ? a.prob : '-')}%`
-      + (a.type === '后排涨停概率' ? `（${probDef('ztToday')}概率 ${a.prob}%）` : '');
+    : a.type === '后排涨停概率'
+      ? `  🎯 ${probDef('ztToday')}模型估值 ${a.prob == null ? '-' : a.prob}%（未独立校准）`
+      : `  🎯 ${probDef('up3Next')}模型估值 ${a.riseProb != null ? a.riseProb : '-'}%（未独立校准）`;
   const lines = ['═══ 📊 量化看盘·盘中推送 ═══'];
   for (const g of ORDER) {
     const items = list.filter(a => GROUP[a.type] === g);
@@ -9929,7 +9925,7 @@ function buildAlertsReport(list, opt) {
         `${head(a)} 现价${a.price} (${pct(a.pct)})${no(a)}`
         + (a.type === '后排涨停概率' ? ` 距涨停${a.gapPct != null ? a.gapPct + '%' : '-'}` : '')
         + `\n${probLine(a)}`
-        + (a._fz && a._fz.prob != null ? `\n  🧠 <b>学后胜率 ${a._fz.prob}%</b>（模型${a._fz.model}%${a._fz.emp != null ? ` · 同档实测${a._fz.emp}%(${a._fz.empN}条)` : ''}${a._fz.la != null ? ` · 自学形态${a._fz.la}%` : ''}）${a._fz.why ? `\n  📚 ${a._fz.why}` : ''}` : '')
+        + fuseLine(a)
         + `\n  📌 选股逻辑: ${a.logic || (a.msg || '').slice(0, 80)}`
         + `\n  ⚠️ ${a.risk || '暂无特殊风险'} | 参考止损 ${a.stopRef || '-'}${(a.stopRef && a.stopRef !== '-') ? stopRefNote() : ''}`
       );
@@ -9957,13 +9953,13 @@ function buildAlertsReport(list, opt) {
 function fusedEvoLine() {
   const r = learnFusedReport();
   if (!r.fusedN) return '';
-  const head = `\n【学习进化自检】已按「学后胜率」回验 ${r.fusedN} 条`;
+  const head = `\n【历史分档对照】研究排序值已回验 ${r.fusedN} 条（次日最高涨≥${HIT_THR}%事件，非独立校准）`;
   const ok = r.rows.filter(x => x.lift != null);
   if (!ok.length) return head + '（分档样本还不够比较，继续积累中）';
   const avg = Math.round(ok.reduce((s, x) => s + x.lift, 0) / ok.length);
   return head + '：' + ok.map(x => `${x.bucket}档 原值${x.rawRate}%→学后${x.fusedRate}%(n=${x.fusedN})`).join('、')
     + `，平均${ppTxt(avg)}`
-    + (avg > 0 ? ' —— 学习确实在改善推送' : avg < 0 ? ' —— ⚠️ 融合反而更差，需复查权重' : '');
+    + (avg > 0 ? ' —— 仅为同批历史样本分档差异' : avg < 0 ? ' —— ⚠️ 历史分档频率更低，需复查' : '');
 }
 // 每日复盘消息：定时推送与手动补发共用，避免两处逻辑走偏
 // ⛔ 本轮（各池标的 · 上涨原因）：**所有池子都要带上涨原因，不只是精选池**
@@ -10635,7 +10631,7 @@ function buildLearnReport() {
     }
   }
   m += `\n📋 当日学习动作\n`;
-  m += `   · 信号回验：每10分钟一轮，闭环校准概率模型\n`;
+  m += `   · 信号回验：每10分钟一轮，记录历史事件频率与研究排序\n`;
   m += `   · 全A入库：15:40后自动执行（learnall + ztpre）\n`;
   m += `   · K线补齐：15:30后进入极速模式（30秒/2000只）\n`;
   m += `   · 自适应调参：大单/相似/趋势三处闭环自动优化门槛\n`;
@@ -11156,7 +11152,9 @@ async function auctionResonanceScan(opts = {}) {
         inflow5d,
         drawdown3d: drawdown3d != null ? +(drawdown3d * 100).toFixed(1) : null,
         probToday,
-        probNd
+        probNd,
+        probTodayMeta: {kind: 'model-estimate', target: 'ztToday', calibrationCertified: false},
+        probNdMeta: {kind: 'historical-event-frequency', target: 'up3Next', calibrationCertified: false}
       };
     });
 
@@ -11211,6 +11209,7 @@ async function auctionResonanceScan(opts = {}) {
         picks: g.picks.sort((a, b) => b.score - a.score).slice(0, 4).map(p => ({
           code: p.code, name: p.name, score: p.score, auctionPct: p.auctionPct, pct: p.pct, price: p.price,
           probToday: p.probToday, probNd: p.probNd,
+          probTodayMeta: p.probTodayMeta, probNdMeta: p.probNdMeta,
           chipPeak: p.chipPeak || null, volTen: p.volTen || null, candlePattern: p.candlePattern || null,
           chipVol: p.chipVol || '',
           reasons: (p.reasons || []).slice(0, 3)
@@ -15305,6 +15304,7 @@ function scanYiEr() {
       turnover: to, floatCap: fc, role: role || 'follow',
       mainInflow: _mainInflow, mainPct: _mainPct,
       prob, fused: useProb, delta: _fz.delta, src: _fz.src || '',
+      probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
       why: why.join('·') || '首板基础分',
       sectorStrength: secStrength,
       mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
@@ -15326,13 +15326,14 @@ function buildYiErMessage(items) {
     const keys = Object.keys(emp).filter(k => k.startsWith('未启动类|'));
     let totalN = 0, totalHit = 0;
     for (const k of keys) { totalN += emp[k].n; totalHit += emp[k].hit; }
-    if (totalN >= 10) statLine = `\n📊 未启动类模型命中率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本）`;
+    if (totalN >= 10) statLine = `\n📊 未启动类次日最高涨≥${HIT_THR}%历史频率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本；不是封板率）`;
   } catch {}
   let msg = `═══ 🎯 一进二 · 次日连板潜力榜 ═══\n${dstr} · 从 ${(S.ztPool || []).filter(z => (z.limitUpCount || 1) === 1).length} 只首板中筛出 ${items.length} 只${statLine}\n`;
   items.forEach((x, i) => {
     const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
     msg += `\n${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag}\n`;
-    msg += `   🎯 次日涨停概率 ${x.fused}%（模型${x.prob}%${x.delta ? '·学' + (x.delta >= 0 ? '+' : '') + x.delta : ''}）${probTag('ztNext', x.fused)}\n`;
+    msg += `   🎯 次日封板研究排序值 ${x.fused}/100（原模型估值${x.prob}%；未独立校准）\n`;
+    msg += fuseLine(x) + '\n';
     // ⛔ 涨停原因分类详细展示：把 why 拆成逐项
     const reasons = (x.why || '首板基础分').split('·');
     msg += `   📌 涨停逻辑（${reasons.length}项）：\n`;
@@ -15346,7 +15347,7 @@ function buildYiErMessage(items) {
     }
   });
   msg += '\n⚠️ 一进二属于高风险接力策略，次日开盘请观察板块情绪与竞价强度再决策；\n';
-  msg += '概率经历史回验校准，非承诺收益。';
+  msg += '排序值及原模型估值未经独立样本外校准，非承诺收益。';
   return msg;
 }
 
@@ -15481,6 +15482,7 @@ function scanLianbanRelay() {
         turnover: to, floatCap: fc, role: role || 'follow',
         mainInflow: _mainInflow, mainPct: _mainPct,
         prob, fused: useProb, delta: _fz.delta, src: _fz.src || '',
+        probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
         why: why.join('·') || '连板基础分',
         level, maxLb,
         sectorStrength: secStrength,
@@ -15507,7 +15509,7 @@ function buildLianbanRelayMessage(items) {
     const keys = Object.keys(emp).filter(k => k.startsWith('追高类|'));
     let totalN = 0, totalHit = 0;
     for (const k of keys) { totalN += emp[k].n; totalHit += emp[k].hit; }
-    if (totalN >= 10) statLine = `📊 追高类模型命中率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本）\n`;
+    if (totalN >= 10) statLine = `📊 追高类次日最高涨≥${HIT_THR}%历史频率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本；不是封板率）\n`;
   } catch {}
   let msg = `═══ 🎯 连板接力 · 二进三${san.length ? ' + 三进四' : ''} ═══\n${dstr}`;
   if (san.length) msg += ` · 市场最高板 ${san[0].maxLb} 板`;
@@ -15517,7 +15519,8 @@ function buildLianbanRelayMessage(items) {
     er.forEach((x, i) => {
       const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
       const reasons = (x.why || '连板基础分').split('·');
-      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 概率${x.fused}%\n`;
+      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 次日封板研究排序值${x.fused}/100（未独立校准）\n`;
+      msg += fuseLine(x) + '\n';
       msg += `  📌 连板逻辑（${reasons.length}项）：\n`;
       reasons.forEach(r => { msg += `     ▪ ${r}\n`; });
       msg += `  💰 主力净流入 ${inf(x.mainInflow)}${x.mainPct > 0 ? '（+' + x.mainPct.toFixed(1) + '%）' : x.mainPct < 0 ? '（' + x.mainPct.toFixed(1) + '%）' : ''} · 封单 ${inf(x.sealAmount)} · 换手${x.turnover.toFixed(1)}%\n`;
@@ -15532,7 +15535,8 @@ function buildLianbanRelayMessage(items) {
     san.forEach((x, i) => {
       const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
       const reasons = (x.why || '连板基础分').split('·');
-      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 概率${x.fused}%\n`;
+      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 次日封板研究排序值${x.fused}/100（未独立校准）\n`;
+      msg += fuseLine(x) + '\n';
       msg += `  📌 连板逻辑（${reasons.length}项）：\n`;
       reasons.forEach(r => { msg += `     ▪ ${r}\n`; });
       msg += `  💰 主力净流入 ${inf(x.mainInflow)}${x.mainPct > 0 ? '（+' + x.mainPct.toFixed(1) + '%）' : x.mainPct < 0 ? '（' + x.mainPct.toFixed(1) + '%）' : ''} · 封单 ${inf(x.sealAmount)} · 换手${x.turnover.toFixed(1)}%\n`;
@@ -15866,6 +15870,8 @@ async function preBreakoutInner() {
           code: s.code, name: s.name, sector: c.sec, price: s.price, pct: +(s.pct).toFixed(2),
           mainPct: +(s.mainPct || 0).toFixed(1), mainInflow: Math.round(s.mainInflow || 0),
           secZT: c.ztN, leaderLb: c.lb, volRatio, aboveMa5, gapToHigh20, amp, prob, ztP,
+          probKind: 'score', eventTarget: null, calibrationCertified: false,
+          ztPKind: 'historical-pattern-frequency', ztPTarget: 'ztNext',
           ztBase: prZ ? +(prZ.base * 100).toFixed(1) : null,
           // staleBoard：名单来自缓存（板块源限流退避中），涨幅/资金可能略旧 —— 必须显式标出
           stale: staleBoard || undefined,
@@ -15928,13 +15934,13 @@ async function scanPrePush() {
     if (!fresh.length) return;
     // ⛔ 主推数字用融合概率（学后胜率），让用户看到的是"学完之后的数字"。
     const _fprob = x => (x._fz && x._fz.prob != null ? x._fz.prob : x.prob);
-    const preTitle = isEarlyPush ? '═══ 🚀 早盘起爆点 · 机器自学挑的 ═══' : '═══ 🌱 涨停前埋伏 · 机器自学挑的 ═══';
+    const preTitle = isEarlyPush ? '═══ 🚀 早盘起爆点 · 研究排序 ═══' : '═══ 🌱 涨停前埋伏 · 研究排序 ═══';
     const preFoot = isEarlyPush
-      ? '\n（这批是早盘 9:30–10:00 热点板块里**刚启动**的票，涨幅还不高，属于起爆前发现而非追涨；概率来自全A股历史自学，不是我写死的规则）'
-      : '\n（这批是热点板块里**还没启动**的票，属于提前埋伏而非追涨；概率来自全A股历史自学，不是我写死的规则）';
+      ? '\n（早盘 9:30–10:00 热点板块候选；埋伏分由规则和历史形态形成研究排序，次日封板数值是历史形态频率，均未经独立样本外校准）'
+      : '\n（热点板块尚未启动候选；埋伏分由规则和历史形态形成研究排序，次日封板数值是历史形态频率，均未经独立样本外校准）';
     pushAll(preTitle + '\n' + fresh.map(x =>
       `▪ ${x.name}(${x.code}) 现价${x.price} ${x.pct > 0 ? '+' : ''}${x.pct}%  ` +
-      `次日封板<b>${x.ztP != null ? x.ztP + '%' : '—'}</b>（全市场基准${x.ztBase != null ? x.ztBase + '%' : '—'}）  埋伏分 ${_fprob(x)}\n` +
+      `次日封板形态频率<b>${x.ztP != null ? x.ztP + '%' : '—'}</b>（历史基准${x.ztBase != null ? x.ztBase + '%' : '—'}）  埋伏分 ${_fprob(x)}/100\n` +
       `  依据: ${x.reason}\n  板块:${x.sector}（${x.secZT}只涨停）${fuseLine(x)}`
     ).join('\n') + preFoot + govFoot(),
       // ⛔ 2026-10-08 修：用户要求"涨停分析全部走私密通道" —— 涨停前埋伏改私密机器人

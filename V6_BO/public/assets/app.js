@@ -495,7 +495,7 @@ async function refresh() {
         + (_st.total ? `（其中 ${_st.down || 0} 只处下跌通道·已降权，${_st.cold || 0} 只冷门板块）` : '')
         + ' · 权重股≤4个名额 · 名次=净占比×位置×板块冷热';
       document.getElementById('bigMoney').innerHTML = (s.bigMoney.items || []).map(x => {
-        // 涨停概率：同一套校准过的逻辑回归模型，越高说明封板概率越大
+        // 经验权重逻辑模型的估值；没有独立样本外校准证据。
         const p = Math.max(0, Math.min(100, +x.prob || 0));
         const pc = p >= 60 ? '#c92a2a' : p >= 40 ? '#e8590c' : p >= 20 ? '#f08c00' : '#868e96';
         const start = x.startSignal
@@ -527,7 +527,7 @@ async function refresh() {
         return `<div class="rvc">
           <div class="rvc-h"><b class="up">${x.mainPct == null ? '未知' : x.mainPct + '%'}</b><span>${x.name}</span><span class="muted">${x.code}</span>${x.sector ? `<span class="tag">${x.sector}</span>` : ''}${heatTag}${kindTag}${riskTag}${capTag}${start}</div>
           ${posRow}
-          <div class="prob-wrap"><span class="muted">当日封板概率预测</span><div class="prob-bar"><i style="width:${p}%;background:${pc}"></i></div><b style="color:${pc}">${p}%</b><span class="muted">距涨停还有 ${x.gapToLimit == null ? '-' : x.gapToLimit} 个点</span></div>
+          <div class="prob-wrap"><span class="muted">当日封板模型估值（未独立校准）</span><div class="prob-bar"><i style="width:${p}%;background:${pc}"></i></div><b style="color:${pc}">${p}%</b><span class="muted">距涨停还有 ${x.gapToLimit == null ? '-' : x.gapToLimit} 个点</span></div>
           <div class="rvc-g"><span>现价 ${x.price} <b class="${cls(x.pct)}">${sign(x.pct)}%</b></span><span>主力净额 <b class="up">${fmtY(x.mainInflow)}</b>（当日累计）</span><span class="muted">净占比=主力净流入/成交额，越高说明大资金越集中</span></div>
           ${balanceRow(x)}
         </div>`;
@@ -967,7 +967,7 @@ async function refresh() {
         // ge 轮：被主流板块闸门留下的票，打「主流板块」蓝徽标，把"有依据"写在脸上
         const _mlTag = x.mainline ? `<span class="tag" style="background:#e7f5ff;color:#1971c2;font-weight:600">主流板块</span>` : '';
         return `<div class="rvc">
-          <div class="rvc-h"><b>${probTxt}%</b><span class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：算法信号/模拟盘成交/做T/锁仓/量能/大单资金/洗盘出货判定">${x.name}</span><span class="muted">${x.code}</span>
+          <div class="rvc-h"><b title="次日封板研究排序值，未独立校准">${probTxt}/100</b><span class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：算法信号/模拟盘成交/做T/锁仓/量能/大单资金/洗盘出货判定">${x.name}</span><span class="muted">${x.code}</span>
             <span class="tag">${_roleTag(x.role)}</span>${_mlTag}${lbTxt}${x.sector ? `<span class="tag">${x.sector}</span>` : ''}</div>
           <div class="rvc-g"><span>现价 <b>${x.price}</b></span><span>封板 <b>${Math.round(Math.min(x.sealRatio || 0, 1.5) * 100)}%</b></span><span>开板 <b>${x.breakCount || 0}次</b></span><span>换手 <b>${(x.turnover || 0).toFixed(1)}%</b></span></div>
           <div class="rvc-g"><span>封单 <b>${_money(x.sealAmount)}</b></span><span>流通 <b>${(x.floatCap || 0) >= 1e8 ? ((x.floatCap || 0) / 1e8).toFixed(1) + '亿' : Math.round((x.floatCap || 0) / 1e4) + '万'}</b></span><span>主力 <b class="${(x.mainInflow || 0) > 0 ? 'up' : ''}">${_money(x.mainInflow)}</b></span></div>
@@ -991,14 +991,14 @@ async function refresh() {
         : `<div class="muted" style="padding:10px">暂无候选 —— 需要有 2 板/3 板票在板上；三进四仅在最高板≥7 板（情绪高涨期）才参与</div>`;
       const yeT = document.getElementById('yeTime');
       if (yeT) yeT.textContent = yeArr.length
-        ? `${_yeOf ? _yeOf + ' 收盘算出 · ' : ''}${yeArr.length} 只候选 · 仅主流板块入选 · 按融合概率排序`
+        ? `${_yeOf ? _yeOf + ' 收盘算出 · ' : ''}${yeArr.length} 只候选 · 仅主流板块入选 · 按研究值排序`
         : '暂无候选';
       const lbT = document.getElementById('lbTime');
       if (lbT) lbT.textContent = lbArr.length
         ? `${_lbOf ? _lbOf + ' 收盘算出 · ' : ''}${lbArr.length} 只候选 · 仅主流板块入选 · 板块联动已计入`
         : '暂无候选';
       const yeI = document.getElementById('yeInfo');
-      if (yeI) yeI.innerHTML = yeArr.length ? `<span class="tag">首板 ${yeArr.length} 只入选</span><span class="muted">融合概率 = 模型分 × 实测校准</span>` : '';
+      if (yeI) yeI.innerHTML = yeArr.length ? `<span class="tag">首板 ${yeArr.length} 只入选</span><span class="muted">次日封板研究排序 · 未独立校准</span>` : '';
       const lbI = document.getElementById('lbInfo');
       if (lbI) lbI.innerHTML = lbArr.length ? `<span class="tag">连板 ${lbArr.length} 只入选</span><span class="muted">越往上越吃板块联动</span>` : '';
     }
@@ -1314,8 +1314,8 @@ async function refresh() {
       const _btR = document.getElementById('btResult');
       if (_btR && !_btR.innerHTML.trim()) {
         _btR.innerHTML = `<div class="muted" style="white-space:normal;line-height:1.9;padding:4px 2px">
-          <b>📐 回测口径</b>：逐日回放最近 <b>40 个交易日</b>的筛选逻辑，对每个评分段统计「次日涨停或涨5%」的概率。<br>
-          <b>📈 怎么看</b>：评分段命中率就是概率模型的校准依据；高分段（≥70分）的样本胜率决定 &gt;80% 推送线是否站得住。<br>
+          <b>📐 历史统计口径</b>：逐日回放当前可见股票最近 <b>40 根日K</b>的筛选逻辑，对每个评分段统计「下一根日K收盘涨停或涨幅≥5%」的历史频率。<br>
+          <b>📈 怎么看</b>：这是收盘事件频率，未经独立样本外校准；不能证明当日封板模型、推送阈值或费后交易收益有效。缺历史排名与资金证据时保留未知。<br>
           <b>⏱ 注意</b>：结果<b>不落盘</b>，每次点「运行回测」都重新计算（逐股回放，约20-40秒）；刷新页面后这里会重新变空。<br>
           <span class="mut2">统计参考，不构成投资建议。</span></div>`;
       }
@@ -3205,7 +3205,7 @@ async function arLoad() {
     let m = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px">';
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">竞价涨幅</div><b class="${cls(rec.auctionPct)}">${sign(rec.auctionPct)}%</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">竞价分</div><b>${rec.score != null ? rec.score : '-'}</b></div>`;
-    m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">回测涨停概率</div><b>${rec.prob != null ? rec.prob + '%' : '-'}</b></div>`;
+    m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">历史模型研究值（未独立校准）</div><b>${rec.prob != null ? rec.prob : '-'}</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">市场环境</div><b>${rec.mktUpRatio == null ? '未知' : (rec.mktUpRatio < 0.35 ? '普跌·降权' : rec.mktUpRatio < 0.5 ? '偏弱' : '正常')}</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">撤单陷阱</div><b style="color:${rec.trap ? '#c92a2a' : ''}">${rec.trap ? '是 · ' + esc(rec.trapWhy || '') : '否'}</b></div>`;
     m += '</div>';
@@ -3698,7 +3698,7 @@ function renderAnalyze(d) {
       <span class="${up ? 'up' : 'down'}">${pctTxt}</span>
     </div>
     <div class="muted" style="font-size:12px;margin-top:2px">K线截至 ${String(d.asOf).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} · 均线 MA5 ${ma.ma5 == null ? '-' : ma.ma5} / MA10 ${ma.ma10 == null ? '-' : ma.ma10} / MA20 ${ma.ma20 == null ? '-' : ma.ma20} / MA60 ${ma.ma60 == null ? '-' : ma.ma60}</div>
-    <div style="margin-top:8px;font-size:12px">算法标注：买点 <b>${buyN}</b> · 做T <b>${tN}</b> · 锁仓 <b>${lockN}</b>${algo.fuse != null ? ' · 融合概率 ' + algo.fuse + '%' : ''}</div>
+    <div style="margin-top:8px;font-size:12px">算法标注：买点 <b>${buyN}</b> · 做T <b>${tN}</b> · 锁仓 <b>${lockN}</b>${algo.fuse != null ? ' · 研究排序值 ' + algo.fuse + '/100' : ''}</div>
     <div style="margin-top:8px">${washHtml}</div>
     <div style="margin-top:8px">${flowHtml}</div>
     ${briefHtml}
@@ -4546,12 +4546,12 @@ async function runBacktest() {
     if (r && r.error) { clearInterval(poll); el.textContent = '❌ 回测失败：' + r.error; return; }
     if (r && !r.empty) {
       clearInterval(poll);
-      el.textContent = `完成：${r.股票数} 只 × ${r.交易日数} 日 = ${r.总样本} 样本`;
+      el.textContent = `完成：当前 ${r.股票数} 只 · 观测 ${r.交易日数} 日 · 有效样本 ${r.总样本} 个`;
       const b = r.分数段命中率;
     document.getElementById('btResult').innerHTML =
-      `<table><tr><th>评分段</th><th>样本数</th><th>次日涨停或涨5%概率</th></tr>` +
-      Object.entries(b).map(([k, v]) => `<tr><td><b>${k}分</b></td><td>${v.样本数}</td><td class="${v.次日涨停或涨5pct概率 >= 30 ? 'up' : ''}"><b>${v.次日涨停或涨5pct概率}</b></td></tr>`).join('') +
-      `</table><p class="muted" style="margin-top:8px">高分段(≥70分)样本 ${r.高分样本数} 个，胜率 ${r.高分胜率}。概率模型以该命中率校准，>80%推送线表示模型综合评分下历史上多数能封板/大涨的强势组合。回测为统计参考，不构成投资建议。</p>`;
+      `<table><tr><th>评分段</th><th>样本数</th><th>次日收盘事件历史频率</th></tr>` +
+      Object.entries(b).map(([k, v]) => `<tr><td><b>${k}分</b></td><td>${v.样本数}</td><td class="${Number.isFinite(v.frequencyPct) && v.frequencyPct >= 30 ? 'up' : ''}"><b>${v.历史事件频率 || v.次日涨停或涨5pct概率}</b></td></tr>`).join('') +
+      `</table><p class="muted" style="margin-top:8px">高分段(≥70分)样本 ${r.高分样本数} 个，历史事件频率 ${r.高分事件频率 || r.高分胜率}。统计的是下一根日K收盘涨停或涨幅≥5%，不是当日封板校准概率、成交胜率或费后净收益。当前样本不代表历史全市场；排名与资金缺当时证据时保持未知。</p>`;
       return;
     }
     if (tries >= 30) {
