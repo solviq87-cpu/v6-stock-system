@@ -3,7 +3,7 @@
 const number=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const text=v=>typeof v==='string'?v.slice(0,200):'';
 const isCode=v=>typeof v==='string'&&/^\d{6}$/.test(v);
-const {quoteObservationView}=require('./quote-observation-view');
+const {quoteObservationView,fundsObservationView}=require('./quote-observation-view');
 const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluatePlaybooks}=require('../strategy/research-playbook-engine');
 const factorPack=require('../../strategies/extended-factor-pack.json');
@@ -348,10 +348,10 @@ function dashboardView(state,mood=null,now=Date.now(),meta={}){
  const rules=state.myrules;
  return {sixPhotoBackups:require('./six-photo-backups').readSixPhotoBank(process.env.V6_SIX_PHOTO_FILE),publicQuoteProbe:require('./public-quote-probe').readPublicQuoteProbe(process.env.V6_PUBLIC_QUOTE_PROBE_FILE),parallelMarket:require('./parallel-market').readParallelMarket(process.env.V6_PARALLEL_MARKET_FILE),riskEvidence,schemaVersion:1,observedAt:observed?state.stocksAt:null,indexObservedAt:number(state.idxRt?.at),
    source:'现有行情快照 · 未完成供应商认证',verifiedLive:false,
-   indices:(state.idxRt?.items||[]).filter(Boolean).slice(0,4).map(x=>({code:text(x.code),name:text(x.name),price:number(x.price),pct:number(x.pct)})),
+   indices:(state.idxRt?.items||[]).filter(Boolean).slice(0,4).map(x=>({...quoteObservationView(x,now),code:text(x.code),name:text(x.name),price:number(x.price),pct:number(x.pct)})),
    mood:{label:text(mood?.mood),advice:text(mood?.advice),note:text(mood?.why||mood?.note),upN:up,downN:down,flatN:flat,ztN:number(mood?.ztN),dtN:number(mood?.dtN),upRatio:observed&&total?Math.round(up/total*100):null,
     scope:{market:'全A',sample:total||null,snapAt:number(mood?.snapAt)||number(state.stocksAt),method:'外围30% + 涨跌比40% + 资金30%',dtSource:text(mood?.dtSrc||''),idxAt:number(mood?.idxAt)||number(state?.idxRt?.at)}},
-   sectors:(Array.isArray(state.sectors)?state.sectors:[]).slice(0,40).map(s=>({name:text(s?.name),pct:number(s?.pct),mainInflow:number(s?.mainInflow),ztCount:sectorCounts.get(s?.name)||0})),
+   sectors:(Array.isArray(state.sectors)?state.sectors:[]).slice(0,40).map(s=>({name:text(s?.name),pct:number(s?.pct),mainInflow:number(s?.mainInflow),fundsQuality:fundsObservationView(s,now),ztCount:sectorCounts.get(s?.name)||0})),
    counts:{candidates:observed?pool.length:null,focused:observed?rows.filter(x=>x.focused).length:null,signals:observed&&Array.isArray(state.signals)?state.signals.length:null,risk:observed?rows.filter(x=>x.bad).length:null},
    strategies:[{id:'fourteen',label:'十四条选股',count:rules?.date?number(rules.count):null,note:rules?.date?text(rules.date):'尚无独立证据'},
     {id:'bazi',label:'八字口诀',count:observed?rows.filter(x=>x.bazi).length:null,note:'候选池已评估数'},

@@ -254,7 +254,7 @@ function loadUniverse() {
 
 const EM_PAGE_URL = pn => `${EM}/api/qt/clist/get?pn=${pn}&pz=100&po=1&np=1&fltt=2&invt=2&fid=f20` +
   `&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23` +
-  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184`;
+  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184,f124`;
 const EM_PAGES = 60;
 
 // ① 并发抢页：交易时段东财约 50% 随机断连，串行 56 页要 30 秒以上；
@@ -345,12 +345,17 @@ async function fetchAllStocksTx(base) {
       mainPct: toObservedNumber(e.mainPct),
       fundsSource: e.fundsSource || null, fundsMethod: e.fundsMethod || null,
       fundsRetrievedAt: e.fundsRetrievedAt ?? null, fundsSourceTimestamp: e.fundsSourceTimestamp ?? null,
+      fundsUnit:e.fundsUnit||null,
       listedDate: Number.isFinite(Number(e.listedDate)) ? Number(e.listedDate) : 0
     };
   });
 }
 
 function normalizeStock(d) {
+  const receivedAt = Date.now();
+  const seconds=typeof d.f124==='number'||typeof d.f124==='string'&&/^\d+$/.test(d.f124)?Number(d.f124):null;
+  const quoteAt = Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 8e12 ? seconds * 1000 : null;
+  const observation = batchQuoteAtPublication({price:d.f2,quoteSource:'eastmoney',quoteAt,receivedAt,canTrade:true},receivedAt);
   return {
     code: d.f12, name: d.f14,
     price: d.f2, pct: d.f3,           // 现价 / 涨跌幅%
@@ -361,8 +366,12 @@ function normalizeStock(d) {
     speed: d.f22,                     // 涨速
     listedDate: d.f26,                // 上市日期 yyyymmdd
     mainInflow: observedFlowNumber(d.f62), mainPct: observedFlowNumber(d.f184),
-    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
-    fundsRetrievedAt: Date.now(), fundsSourceTimestamp: null // 接收时刻不是原报价时刻
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',fundsUnit:'CNY',
+    fundsRetrievedAt: receivedAt, fundsSourceTimestamp: null, // 价格时间不能冒充资金原时点
+    ...observation, quoteMode:'public-live-unverified',
+    tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+    canNotify:observation.canTrade,
+    quoteMissingReason:quoteAt===null?'source-time-unavailable':observation.quoteFreshness==='recent-unverified'?null:observation.quoteFreshness
   };
 }
 
@@ -379,7 +388,9 @@ function observedFlowCount(value) {
 }
 function flowProvenance(retrievedAt) {
   return { source: 'eastmoney', upstream: 'eastmoney',
-    fundsMethod: 'vendor-order-size-estimate', retrievedAt, sourceTimestamp: null };
+    fundsMethod: 'vendor-order-size-estimate', fundsUnit:'CNY', unit:'CNY',
+    retrievedAt, sourceTimestamp: null, tradeDate:null, mode:'vendor-order-size-estimate',
+    freshness:'unknown', missingReason:'missing-original-funds-time',canTrade:false,canNotify:false };
 }
 
 // 板块资金流。t:2 行业板块, t:3 概念板块
@@ -1191,7 +1202,7 @@ async function fetchKlineEM(code, days = 95) {
       chg: +p[9], turnover: +p[10]
     };
   });
-  return { name: j.data.name, rows };
+  return { name: j.data.name, rows,src:'em',adjust:'qfq',receivedAt:Date.now() };
 }
 
 // 集合竞价分时（东财 trends2 iscr=1）：取 09:15–09:25 每分钟的价/量，
@@ -1512,7 +1523,7 @@ async function fetchKlineTx(code, days = 95) {
     rows[i].pct = +(((rows[i].close - rows[i - 1].close) / rows[i - 1].close) * 100).toFixed(2);
     rows[i].amount = rows[i].volume * rows[i].close * 100;
   }
-  return { name: '', rows, src: 'tx', adjust: 'qfq' };
+  return { name: '', rows, src: 'tx', adjust: 'qfq',receivedAt:Date.now() };
 }
 
 // ---------------- 同花顺日K（数据源第二梯队，腾讯之外再兜一层）----------------
@@ -1559,7 +1570,7 @@ async function fetchKlineThs(code, days = 95) {
       arr[i].amp = arr[i].low > 0 ? +(((arr[i].high - arr[i].low) / arr[i].low) * 100).toFixed(2) : 0;
     }
     _thsKFail = 0;
-    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq' };
+    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',receivedAt:Date.now() };
   } catch (e) {
     if (++_thsKFail >= THS_K_FAIL_MAX) {
       _thsKDownUntil = Date.now() + THS_K_DOWN_MS;
@@ -1591,6 +1602,8 @@ async function fetchBatchSnapshotTx(codes) {
         const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
         out.push({
           quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
+          quoteMode:'public-live-unverified',tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+          canNotify:quoteFreshness==='recent-unverified',
           code: m[1], name: f[1], price: +f[3], pct: +f[32],
           volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
           high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
@@ -1659,6 +1672,9 @@ async function fetchAllStocksSina() {
       if (!Number.isFinite(amount) || amount <= 0) continue;
       out.push({
         code, name,
+        quoteSource:'sina',quoteAt:null,receivedAt:Date.now(),tradeDate:null,
+        quoteMode:'public-observation',quoteFreshness:'unknown',canTrade:false,canNotify:false,
+        quoteMissingReason:'source-date-unavailable',
         price, pct: +d.changepercent,
         volume: +d.volume, amount,
         turnover: +d.turnoverratio,
@@ -1748,7 +1764,13 @@ async function fetchIdxRt() {
     let m;
     while ((m = re.exec(text))) {
       const f = m[2].split('~');
-      if (f.length > 32 && f[3] && NAME[m[1]]) out.push({ code: m[1], name: NAME[m[1]], price: +f[3], pct: +f[32] });
+      if (f.length > 32 && f[3] && NAME[m[1]]) {
+        const receivedAt=Date.now();let quoteAt=null;
+        try { quoteAt=require('./src/core/public-market').timestamp(f[30]||''); } catch {}
+        const observation=batchQuoteAtPublication({price:+f[3],quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
+        out.push({code:m[1],name:NAME[m[1]],pct:+f[32],...observation,quoteMode:'index-observation',canNotify:false,
+          tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null});
+      }
     }
     return out;
   } catch { return []; }

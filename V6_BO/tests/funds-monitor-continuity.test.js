@@ -19,6 +19,7 @@ function context(extra = {}) {
 }
 function stock(at, mainInflow = 0, extra = {}) {
   return {code: '000001', price: 10, pct: 0, mainPct: 0, floatCap: 1e10, mainInflow,
+    quoteAt:at,receivedAt:at,quoteSource:'eastmoney',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,
     fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
     fundsRetrievedAt: at, fundsSourceTimestamp: null, ...extra};
 }
@@ -109,6 +110,7 @@ function monitor() {
   let now = start, response = [];
   class Clock extends Date { static now() { return now; } }
   const c = context({Date: Clock, console: {log() {}, error() {}}, monitorCodes: [],
+    require:id=>{assert.equal(id,'./src/core/quote-observation-view');return require('../src/core/quote-observation-view');},
     S: {loop: {running: false, tickCount: 0}, candidatePool: [{code: '000001'}, {code: '000002'}],
       sectors: [], stocks: [], inflowHistory: new Map(), klines: new Map(),
       news: {goodCodes: new Set(), badCodes: new Set()}},

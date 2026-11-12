@@ -310,15 +310,18 @@ function sectorMktFlow() {
   return { v: +(sum / 1e8).toFixed(1), day: S.sectorsDay || '', at: S.sectorsAt || 0 };
 }
 
-// ⛔ if 轮：「大盘实时」行（情绪卡的秒级部分）。只认 90 秒内的指数快照 ——
-//    休市/夜间/取不到时返回 null，不拿旧指数冒充"实时"。
+// 指数按供应商原时点判新鲜度；本地刚收到旧包也不能标为当前报价。
 function idxRtLine() {
   const r = S.idxRt;
   if (!r || !r.at || !Array.isArray(r.items) || !r.items.length) return null;
-  if (Date.now() - r.at > 90 * 1000) return null;
-  const t = new Date(r.at);
-  const hhmmss = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
-  return `大盘实时：${r.items.map(x => `${x.name}${x.pct > 0 ? '+' : ''}${(+x.pct).toFixed(2)}%`).join(' · ')}（${hhmmss}）`;
+  const now=Date.now();
+  const items=r.items.filter(x=>typeof x.price==='number'&&Number.isFinite(x.price)&&x.price>0&&
+    typeof x.pct==='number'&&Number.isFinite(x.pct)&&typeof x.quoteSource==='string'&&x.quoteSource.trim()&&
+    Number.isSafeInteger(x.quoteAt)&&x.quoteAt>0&&Number.isSafeInteger(x.receivedAt)&&
+    x.quoteAt<=x.receivedAt&&x.receivedAt<=now&&now-x.quoteAt<=15000&&
+    new Date(x.quoteAt+28800000).toISOString().slice(0,10)===new Date(now+28800000).toISOString().slice(0,10));
+  if(!items.length)return null;
+  return `大盘报价：${items.map(x=>`${x.name}${x.pct>0?'+':''}${(+x.pct).toFixed(2)}%（原时点${new Date(x.quoteAt+28800000).toISOString().slice(11,19)}）`).join(' · ')} · 未认证`;
 }
 
 // 外围市场情绪：隔夜美股+港股综合 + 全市场做多意愿
@@ -637,6 +640,7 @@ async function sectorSurgeScan() {
         const cands = [];
         for (const sn of (snaps || [])) {
           if (!sn || !sn.price) continue;
+          if(!require('./src/core/quote-observation-view').quoteUseEligibility(sn,Date.now()).canNotify)continue;
           if ((sn.pct || 0) < 3) continue; // 只看强势股
           // ⛔ 2026-10-09 修（口径普查）：sg 取自东财板块涨幅榜（"固态电池BK0968"这类 BK 名），
           //    而 S.ztBySector 的键是【主线归并口径】（电池·储能）—— 两套命名对不上，
@@ -5959,6 +5963,7 @@ async function tick() {
     const now = Date.now();
     const alerts = [];
     for (const s of snaps) {
+      if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
       // 记录资金轨迹（保留10分钟）
       const h = S.inflowHistory.get(s.code) || [];
       const observation = fundsHistoryObservation(s, now);
@@ -6577,8 +6582,17 @@ function isMarketOpenNow() {
   return (hm >= 9 * 60 + 15 && hm <= 11 * 60 + 30) || (hm >= 13 * 60 && hm <= 15 * 60 + 10);
 }
 const _klineFreshGate = new Map();            // code -> {date, failed, at}：当天回源仍取不到最新则不再空转
+const _klineReadMeta = new Map(); // Last read path, separate from provider availability time.
 async function klineRows(code) {
   const target = latestTradeDate();
+  const read=(rows,snapshot,cacheLayer,cacheAt=null,lastAttemptAt=null)=>{
+    if(typeof _klineReadMeta!=='undefined'){
+      if(_klineReadMeta.size>1500)_klineReadMeta.clear();
+      _klineReadMeta.set(code,{snapshot:{src:snapshot?.src,source:snapshot?.source,
+        adjust:snapshot?.adjust,adjustment:snapshot?.adjustment,receivedAt:snapshot?.receivedAt},cacheLayer,cacheAt,lastAttemptAt,targetDate:target});
+    }
+    return rows;
+  };
   // ⛔⛔ 2026-10-27 le 轮：当日行必须「定稿」才算数（用户「每个数字可信」）。
   //   事故：002995 11:01 盘中取数成功 → 当日行 close=19.77（那一刻的涨停价）落盘；收盘真实 18.52。
   //   缓存末行日期==今天 → 三级兜底永远判「已最新」直接返回，这一行盘中价被复盘/审计当成收盘价。
@@ -6597,18 +6611,19 @@ async function klineRows(code) {
     const ld = klineLastDate(mem.rows);
     if (ld >= target && _settled(mem.rows, _klineAt.get(code) || 0)) {
       const age = Date.now() - (_klineAt.get(code) || 0);
-      if (!isMarketOpenNow() || age < KLINE_INTRADAY_TTL) return mem.rows;
+      if (!isMarketOpenNow() || age < KLINE_INTRADAY_TTL) return read(mem.rows,mem,'memory',_klineAt.get(code)||null);
     }
   }
   // ② 磁盘层：最新交易日以内且当日行已定稿则载入内存返回（klineSet 会刷新 _klineAt）
   const cf = path.join(KLINE_CACHE, code + '.json');
-  let disk = null;
+  let disk = null,diskAt=null;
   try {
     const k = JSON.parse(fs.readFileSync(cf, 'utf8'));
     if (k && k.rows && k.rows.length) {
       disk = k;
       let mt = 0; try { mt = fs.statSync(cf).mtimeMs; } catch {}
-      if (klineLastDate(k.rows) >= target && _settled(k.rows, mt)) { klineSet(code, k); return k.rows; }
+      diskAt=mt||null;
+      if (klineLastDate(k.rows) >= target && _settled(k.rows, mt)) { klineSet(code, k); return read(k.rows,k,'disk',mt||null); }
     }
   } catch {}
   // ③ 当天已回源但源无更优数据（周末/节假日/源滞后）：直接返回缓存，不空转
@@ -6619,7 +6634,7 @@ async function klineRows(code) {
     const cut = new Date(now); cut.setHours(15, 0, 0, 0);
     if (now.getHours() * 60 + now.getMinutes() >= 15 * 60 + 5 && (Number(gate.at) || 0) < cut.getTime()) gate = null;
   }
-  if (gate && gate.date === target && gate.failed) return (mem && mem.rows && mem.rows.length) ? mem.rows : (disk ? disk.rows : []);
+  if (gate && gate.date === target && gate.failed) return read((mem && mem.rows && mem.rows.length)?mem.rows:(disk?disk.rows:[]),mem||disk,'held-after-source-failure',_klineAt.get(code)||diskAt,gate.at);
   // ④ 回源取数
   try {
     const k = await em.fetchKline(code, 30);
@@ -6631,20 +6646,20 @@ async function klineRows(code) {
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.delete(code);
-        return k.rows;
+        return read(k.rows,k,'source',k.receivedAt||null);
       }
       if (ld > curLast) {                      // 比缓存新但仍非最新（源滞后）→ 升级缓存，标记当天失败
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });
-        return k.rows;
+        return read(k.rows,k,'source-lagging',k.receivedAt||null);
       }
       _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });   // 源返回不比缓存新 → 不降级，标记当天失败
-      return curBest || k.rows;
+      return read(curBest||k.rows,curBest?(mem||disk):k,'held-source-not-newer',_klineAt.get(code)||diskAt,Date.now());
     }
   } catch {}
   _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });
-  return (mem && mem.rows && mem.rows.length) ? mem.rows : (disk ? disk.rows : []);
+  return read((mem&&mem.rows&&mem.rows.length)?mem.rows:(disk?disk.rows:[]),mem||disk,'held-after-source-failure',_klineAt.get(code)||diskAt,Date.now());
 }
 
 // 股票名解析（K线面板标题用）：全A快照 → 涨停池 → 模拟盘持仓 → 磁盘K线缓存名 → 空串。
@@ -12800,7 +12815,7 @@ function paperFeeAmount(key,side,amount){
 function paperAuthorityQuotes(){
   const quotes={},marks={},now=Date.now();
   // Authority and risk marks must retain the provider clock, never the receive clock.
-  const fresh=q=>q&&q.canTrade!==false&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
+  const fresh=q=>q&&require('./src/core/quote-observation-view').quoteSourceAllowsUse(q)&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
   for(const [code,tick] of S.lastPx||[]){if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);}
   for(const st of S.stocks||[]){
     const tick=S.lastPx?.get?.(st.code),cached=tick&&{...tick,price:tick.p};
@@ -13302,7 +13317,10 @@ function ingestPx(rows) {
     // Parallel providers can return out of order; receipt order must not roll back provider time.
     const previous = S.lastPx.get(s.code);
     if (previous && Number.isSafeInteger(previous.quoteAt) && previous.quoteAt > s.quoteAt) continue;
-    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource });
+    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource,
+      receivedAt:Number.isSafeInteger(s.receivedAt)&&s.receivedAt>0?s.receivedAt:null,
+      mode:typeof (s.quoteMode||s.mode)==='string'?(s.quoteMode||s.mode):null,canNotify:s.canNotify!==false,
+      simulated:s.simulated===true,readOnlyBackup:s.readOnlyBackup===true,tradable:s.tradable,suspended:s.suspended });
   }
 }
 function paperPrices() {
@@ -13724,10 +13742,15 @@ function paperSnap(key, pmPaper) {
     totalPnl: +(eq - cfg.initial).toFixed(2), totalPct: +((eq / cfg.initial - 1) * 100).toFixed(2),
     positions: Object.values(acc.positions).map(pp => {
       const price = pmPaper.get(pp.code) || pp.lastPrice || pp.buyPrice;
+      const valuationQuote=require('./src/core/quote-observation-view').valuationObservation(S,pp.code,price,pp,pmPaper.has(pp.code),Date.now());
       // ⛔ 2026-10-07 改：面板这列原本也是自然日，与卖出判据（已改交易日）不是一个口径 ——
       //    同一张表上"持有 8 天"配一条"持有超 4 个交易日"的卖出理由，谁看都像算错了。
       //    现在两处同为交易日口径，另给 natDays 供文案说明休市占了几天。
-      return { ...pp, lastPrice: price, pnl: +(price * pp.shares - (pp.basis || pp.buyPrice * pp.shares)).toFixed(2), pnlPct: +((price / pp.buyPrice - 1) * 100).toFixed(2), days: tradeDaysSince(pp.buyTs), natDays: Math.max(0, Math.floor((Date.now() - (Number(pp.buyTs) || 0)) / 86400000)), bad: S.news.badCodes.has(pp.code) };
+      return { ...pp, lastPrice: price,valuationQuote,
+        pnl: +(price * pp.shares - (pp.basis || pp.buyPrice * pp.shares)).toFixed(2), pnlPct: +((price / pp.buyPrice - 1) * 100).toFixed(2),
+        days:Number(pp.buyTs)>0?tradeDaysSince(pp.buyTs):pp.buyDate?tradeDaysSince(Date.parse(pp.buyDate+'T00:00:00+08:00')):null,
+        natDays:Number(pp.buyTs)>0?Math.max(0,Math.floor((Date.now()-Number(pp.buyTs))/86400000)):null,
+        bad: S.news.badCodes.has(pp.code) };
     }),
     // ⛔ du 轮：只给 30 笔却报"对账 N 笔"，用户会以为看到的就是全部。
     //    现在把真实总数与本次下发条数一起交出去，前端才说得清"共 N 笔，此处显示最近 M 笔"。
@@ -19577,6 +19600,8 @@ function handle(req, res, u, body) {
         json(res, {
           ok: true, code, name: stockNameOf(code), ...page,
           ma: page.rows.length ? klineMaOf(page.rows) : null,
+          dataQuality:require('./src/core/quote-observation-view').klineObservation(
+            _klineReadMeta.get(code)?.snapshot||S.klines.get(code),rows,{...(_klineReadMeta.get(code)||{}),now:Date.now()}),
         });
       } catch (e) { json(res, { ok: false, error: (e && e.message) || String(e), code }); }
     })();

@@ -2925,8 +2925,17 @@ function renderPaper(suf, p, mirror) {
       ? `<span class="tag" style="background:#fff4e6;color:#e8590c" title="休市或行情未刷新，持仓按 ${p.pxBasis.label} 价估值">🕒 按 ${p.pxBasis.label}价估值</span>`
       : '');
   const pos = p.positions || [];
-  document.getElementById('pp' + suf + 'Pos').innerHTML = '<tr><th>股票</th><th>买入价</th><th>现价</th><th>盈亏</th><th>盈亏%</th><th>股数</th><th>持有</th><th>买入理由</th></tr>' +
-    (pos.length ? pos.map(x => `<tr${x.bad ? ' style="background:#fff5f5"' : ''}><td><b class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：成本/止损/止盈线、买卖点、做T/锁仓、量能/大单资金/洗盘出货判定">${x.name}</b> <span class="muted">${x.code}</span>${x.bad ? ' <span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️利空</span>' : ''}</td><td>${x.buyPrice}</td><td>${x.lastPrice}</td><td>${pnl(x.pnl)}</td><td class="${x.pnlPct > 0 ? 'up' : x.pnlPct < 0 ? 'down' : ''}">${x.pnlPct > 0 ? '+' : ''}${x.pnlPct}%</td><td>${x.shares}</td><td>${x.days}交易日</td><td class="muted">${x.reason || ''}</td></tr>`).join('') : '<tr><td colspan="8" class="muted">暂无持仓（等待新信号触发自动买入）</td></tr>');
+  const valuationLabel = x => {
+    const q=x.valuationQuote;
+    if(!q)return '估值来源或时点未知';
+    if(q.valuationKind==='cost-basis')return '按成本估值 · 无报价';
+    if(q.valuationKind==='carried-mark')return '沿用上次价 · 时点未知';
+    const source=({eastmoney:'东财',tencent:'腾讯',sina:'新浪',ths:'同花顺'})[q.quoteSource]||'未标明来源';
+    const status=({'recent-unverified':'近时点未认证',stale:'原报价较旧',future:'时序异常',unknown:'原时点未知'})[q.quoteStatus]||'时点未知';
+    return `${source} · ${status} · 仅估值`;
+  };
+  document.getElementById('pp' + suf + 'Pos').innerHTML = '<tr><th>股票</th><th>买入价</th><th>估值价</th><th>盈亏</th><th>盈亏%</th><th>股数</th><th>持有</th><th>买入理由</th></tr>' +
+    (pos.length ? pos.map(x => `<tr${x.bad ? ' style="background:#fff5f5"' : ''}><td><b class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：成本/止损/止盈线、买卖点、做T/锁仓、量能/大单资金/洗盘出货判定">${x.name}</b> <span class="muted">${x.code}</span>${x.bad ? ' <span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️利空</span>' : ''}</td><td>${x.buyPrice}</td><td>${x.lastPrice}<div class="muted" style="font-size:11px">${esc(valuationLabel(x))}</div></td><td>${pnl(x.pnl)}</td><td class="${x.pnlPct > 0 ? 'up' : x.pnlPct < 0 ? 'down' : ''}">${x.pnlPct > 0 ? '+' : ''}${x.pnlPct}%</td><td>${x.shares}</td><td>${x.days==null?'日期未知':x.days+'交易日'}</td><td class="muted">${x.reason || ''}</td></tr>`).join('') : '<tr><td colspan="8" class="muted">暂无持仓（等待新信号触发自动买入）</td></tr>');
   const tr = (p.trades || []).slice(0, 12);
   // ⛔ du 轮：同一份流水在系统里其实是三个数 —— 这里只画 12 笔、接口只给 30 笔、
   //    而对账按全量算。不把真实总数标出来，用户会以为看到的就是全部。
@@ -3996,7 +4005,7 @@ function holdCard(x) {
     </div>
     ${tagHtml ? `<div style="margin:3px 0">${tagHtml}<span class="tag" style="cursor:pointer" onclick="holdEditTags('${x.code}')">＋标签</span></div>` : `<div style="margin:3px 0"><span class="tag" style="cursor:pointer" onclick="holdEditTags('${x.code}')">＋加标签</span></div>`}
     <div class="rvc-g">
-      <span>现价 <b>${x.price}</b> <b class="${_pnlCls(x.pct)}">当日${_sg(x.pct)}%</b></span>
+      <span>${x.valuationOnly?'估值价':'现价'} <b>${x.price}</b> <b class="${_pnlCls(x.pct)}">当日${_sg(x.pct)}%</b></span>
       <span>成本 ${x.cost}</span><span>股数 ${x.shares}</span>
       <span>市值 ${Math.round(x.market).toLocaleString()}</span>
       <span class="${_pnlCls(x.profitAmt)}">浮盈亏 ${_sg(x.profitAmt)}元</span>
@@ -4004,7 +4013,7 @@ function holdCard(x) {
       <span class="muted">占总仓 ${x.weight}%</span>
       ${x.drawdown != null && x.hiRef ? `<span class="${x.drawdown >= 5 ? 'down' : x.drawdown >= 3 ? 'down' : 'muted'}" title="现价较近10日高点 ${x.hiRef} 的回落幅度；≥3% 提醒一次止盈，≥5% 每30分钟提醒一次">回撤 ${x.drawdown}%</span>` : ''}
       <span class="muted">5日线 ${x.ma5 == null ? '-' : x.ma5}${x.aboveMa5 === true ? '（站上）' : x.aboveMa5 === false ? '（跌破）' : ''}</span>
-      <span class="${x.mainIn > 0 ? 'up' : x.mainIn < 0 ? 'down' : 'muted'}">主力 ${x.mainIn > 0 ? '+' : ''}${Math.round(x.mainIn / 1e4)}万${x.mainPct ? ' / ' + x.mainPct + '%' : ''}</span>
+      <span class="${x.mainIn > 0 ? 'up' : x.mainIn < 0 ? 'down' : 'muted'}">主力 ${x.mainIn==null?'未知':(x.mainIn>0?'+':'')+Math.round(x.mainIn/1e4)+'万'}${x.mainPct==null?'':' / '+x.mainPct+'%'}</span>
       ${x.note ? `<span class="muted">${x.note}</span>` : ''}
     </div>
     <div style="margin-top:5px">${x.muted ? '<div class="act act-info" style="opacity:.75">🔇 该股已暂停手机推送：以下建议只在面板显示，不会发到手机。<div class="why">恢复方法：点本卡右上角的「🔔 恢复推送」，或取消表单里的「🔇 暂停推送」勾选。</div></div>' : ''}${acts}</div>
