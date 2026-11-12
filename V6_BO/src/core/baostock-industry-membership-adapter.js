@@ -29,7 +29,9 @@ function adaptBaoStockIndustryMembership(raw,snapshot,{minCoverage=.8,maxVersion
   snapshot.stocks.length/snapshot.universeSize<minCoverage)
   return fail('dated-complete-quote-snapshot-required');
  if(raw?.schemaVersion!==1||raw?.source!=='baostock:query_stock_industry'||
-  raw.completed!==true||!['证监会行业分类','申万一级行业'].includes(raw.standard)||
+  raw.completed!==true||raw.collectionMode!=='current-provider-snapshot'||
+  raw.historicalMembershipVerified!==false||
+  !['证监会行业分类','申万一级行业'].includes(raw.standard)||
   !validDate(raw.updateDate)||raw.updateDate>tradeDate||
   !millis(raw.observedAt)||raw.observedAt>started||
   aShareCalendarDate(raw.observedAt)!==tradeDate||
@@ -68,7 +70,6 @@ function adaptBaoStockIndustryMembership(raw,snapshot,{minCoverage=.8,maxVersion
   return fail('classification-market-coverage-insufficient');
  const sectors=[];
  for(const [name,set] of groups){
-  // Previous research bridge requires >=5 frozen members per board.
   if(set.size<5)continue;
   const code='BS_'+hash([raw.standard,name]).slice(0,12).toUpperCase();
   sectors.push({code,name,category:'industry',
@@ -86,6 +87,7 @@ function adaptBaoStockIndustryMembership(raw,snapshot,{minCoverage=.8,maxVersion
   classificationVersion:'baostock-'+standardId+'-'+raw.updateDate+'-'+fingerprint.slice(0,12),
   observedAt:raw.observedAt,sectors,
   provenance:{originalSource:raw.source,standard:raw.standard,
+   collectionMode:raw.collectionMode,historicalMembershipVerified:false,
    classificationDate:raw.updateDate,classifiedStocks:classified.size,
    marketMappedStocks:represented,marketCoveragePct:Number((coverage*100).toFixed(3)),
    fingerprint,sourceObservedAt:raw.observedAt,quoteSource:snapshot.source,
