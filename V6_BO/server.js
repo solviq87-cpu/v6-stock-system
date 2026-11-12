@@ -18104,6 +18104,8 @@ function saveAccessOrRestore(previousAccess) {
 // ② 观看密码(view)  ：任意设备验证一次即可长期只读，只能看行情，不能改任何东西，也看不到「我的持仓」
 // 两套密码各自独立加盐哈希，互不影响；会话令牌与长期设备令牌也都按角色分池。
 const _tokens = new Map();   // 开发者会话 token -> 过期时间戳（60 分钟）
+const _editSessionDevices = new Map(); // 开发者短会话 -> 授权设备摘要
+const _passwordOnlyEditSessions = new Map(); // 仅设置/改密例外：一小时且受口令世代约束
 const _vtokens = new Map();  // 观看者会话 token -> 过期时间戳（12 小时，观看不必频繁重输）
 const _viewSessionDevices = new Map(); // 只读短会话 -> 授权设备摘要；旧版无绑定会话保守失效
 function hashPwd(pwd, salt) {
@@ -18481,6 +18483,15 @@ function expireIdleViewDevices(now, opts) {
   if (keys.length) { revokeViewSessionsForDevices(keys); saveAccess(); closeRevokedSseConnections(); }
   return { removed: keys.length, names, idleMs };
 }
+function revokeEditSessionsForDevices(digests) {
+  const removed = new Set(digests);
+  for (const token of _tokens.keys()) {
+    const bound = _editSessionDevices.get(token);
+    if (!bound || removed.has(bound)) {
+      _tokens.delete(token); _editSessionDevices.delete(token); _passwordOnlyEditSessions.delete(token);
+    }
+  }
+}
 function revokeViewSessionsForDevices(digests) {
   const removed = new Set(digests);
   for (const token of _vtokens.keys()) {
@@ -18488,12 +18499,17 @@ function revokeViewSessionsForDevices(digests) {
     if (!bound || removed.has(bound)) { _vtokens.delete(token); _viewSessionDevices.delete(token); }
   }
 }
-function issueToken(role, deviceToken) {
+function issueToken(role, deviceToken, { passwordOnly = false } = {}) {
   const t = crypto.randomBytes(24).toString('hex');
   if (role === 'view') {
     _vtokens.set(t, Date.now() + 12 * 60 * 60 * 1000);
     if (deviceToken) _viewSessionDevices.set(t, devDigest(deviceToken));
-  } else _tokens.set(t, Date.now() + 60 * 60 * 1000);
+  } else {
+    if (!deviceToken && !passwordOnly) throw Error('开发者会话必须绑定授权设备');
+    _tokens.set(t, Date.now() + 60 * 60 * 1000);
+    if (deviceToken) _editSessionDevices.set(t, devDigest(deviceToken));
+    else _passwordOnlyEditSessions.set(t, Number(accessSecret && accessSecret.gen) || 0);
+  }
   return t;
 }
 // 长期设备令牌：一次验证，该设备之后自动免密（可在面板按角色查看/撤销）
@@ -18556,7 +18572,13 @@ function roleOf(t, ip) {
   if (!t) return null;
   const exp = _tokens.get(t);
   if (exp) {
-    if (Date.now() > exp) { _tokens.delete(t); return null; }
+    const digest = _editSessionDevices.get(t);
+    const passwordOnly = _passwordOnlyEditSessions.has(t) &&
+      _passwordOnlyEditSessions.get(t) === (Number(accessSecret && accessSecret.gen) || 0);
+    const record = digest && accessSecret && accessSecret.devices && accessSecret.devices[digest];
+    if (Date.now() > exp || (!digest && !passwordOnly) || (digest && (!record || record.role === 'view'))) {
+      _tokens.delete(t); _editSessionDevices.delete(t); _passwordOnlyEditSessions.delete(t); return null;
+    }
     return 'edit';
   }
   const vexp = _vtokens.get(t);
@@ -18723,7 +18745,7 @@ if (!hasPhone()) {
 // _otpHit/_authFail（限流计数）都只增不扫的话，跑几个月内存里全是尸体。
 setInterval(() => {
   const now = Date.now();
-  try { for (const [t, exp] of _tokens) if (exp < now) _tokens.delete(t); } catch {}
+  try { for (const [t, exp] of _tokens) if (exp < now) { _tokens.delete(t); _editSessionDevices.delete(t); _passwordOnlyEditSessions.delete(t); } } catch {}
   try { for (const [t, exp] of _vtokens) if (exp < now) { _vtokens.delete(t); _viewSessionDevices.delete(t); } } catch {}
   try { for (const [k, v] of _otp) if (!v || (v.exp || 0) < now) _otp.delete(k); } catch {}
   try { _sweepCodes(); } catch {}
@@ -18739,6 +18761,8 @@ setInterval(() => {
   for (const m of [_tokens, _vtokens, _otp, AUTH_CODES, _otpHit, _authFail, _devTouch]) {   // 兜底硬上限
     try { if (m.size > 5000) { const ks = [...m.keys()].slice(0, m.size - 2500); for (const k of ks) m.delete(k); } } catch {}
   }
+  for (const t of _editSessionDevices.keys()) if (!_tokens.has(t)) _editSessionDevices.delete(t);
+  for (const t of _passwordOnlyEditSessions.keys()) if (!_tokens.has(t)) _passwordOnlyEditSessions.delete(t);
 }, 10 * 60 * 1000).unref();
 
 function pushVerifyCode(code, minutes, onDelivery) {
@@ -20321,7 +20345,7 @@ if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) return json(res, { 
     //    正是 cd 轮刚清掉的那类垃圾。代价是本次登录只有 1 小时：与其让用户一小时后莫名其妙
     //    掉线，不如现在就把时效讲明白。（文案用单引号常量：_test_error_advice.js 只抠单引号文案）
     return json(res, {
-      ok: true, role: 'edit', token: issueToken('edit'),
+      ok: true, role: 'edit', token: issueToken('edit', null, { passwordOnly: true }),
       note: '密码已设置，本次登录 1 小时内有效（未绑定本机指纹）。之后重新输入口令即可；想长期免密，请在登录框里正常登录一次（会绑定指纹）'
     });
   }
@@ -20344,7 +20368,7 @@ if (p === '/api/lock/unlock' && req.method === 'POST') {
         // ✅ 修复：口令登录也签发长期设备令牌。否则只发内存短令牌，服务端每次重启（托管平台常回收实例）就把人踢回登录页，
         //        逼着走「忘记密码」流程 → 反复收验证码推送。设备令牌自签名、随 machineKey 跨发版存活。
         const dt = issueDevice({ name: '开发者登录·' + (_unm || 'web'), ip: clientIp(req), fp: _ufp }, 'edit');
-        return json(res, { ok: true, role: 'edit', token: issueToken('edit'), deviceToken: dt, note: '已以开发者身份进入（可编辑·本设备已授权长期免密）' });
+        return json(res, { ok: true, role: 'edit', token: issueToken('edit', dt), deviceToken: dt, note: '已以开发者身份进入（可编辑·本设备已授权长期免密）' });
       }
 
       if (_viewGate(req, res, body)) return;   // 只读：需开发者放行
@@ -20376,7 +20400,7 @@ if (p === '/api/lock/unlock' && req.method === 'POST') {
     if (!pwdOk(pwd, 'edit')) { authFail(req, p); return json(res, { ok: false, error: '密码错误' }); }
     authOk(req, p);
 const dt2 = issueDevice({ name: '开发者登录·' + (_unm || 'web'), ip: clientIp(req), fp: _ufp }, 'edit');
-    return json(res, { ok: true, role: 'edit', token: issueToken('edit'), deviceToken: dt2 });
+    return json(res, { ok: true, role: 'edit', token: issueToken('edit', dt2), deviceToken: dt2 });
   }
   if (p === '/api/lock/change' && req.method === 'POST') {
     let pwd = '', npwd = '', tok = '', role = 'edit';
@@ -20427,7 +20451,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //    ① 其它设备已全部掉线，这是**预期行为**不是故障；② 本机这个登录也只有 1 小时。
     //    否则用户在手机上改完密码，回头发现电脑端掉了，会以为改密码把系统改坏了。
     return json(res, {
-      ok: true, role: 'edit', token: issueToken('edit'),
+      ok: true, role: 'edit', token: issueToken('edit', null, { passwordOnly: true }),
       note: '密码已更新：其它设备上的登录已全部失效（这是预期行为），本机本次登录 1 小时内有效。想长期免密，请在登录框里正常登录一次（会绑定指纹）'
     });
   }
@@ -20800,15 +20824,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     }
     _otp.delete('R' + rt);  // 落盘成功才消费一次性重置票据
     _otp.delete('CUR:' + crypto.createHash('sha256').update(rec.ip).digest('hex'));
-    _tokens.clear();                 // 短会话令牌（输一次密码换一次的那种）作废
+    _tokens.clear(); _editSessionDevices.clear(); _passwordOnlyEditSessions.clear(); // 开发者短会话作废
     if (kick) { _vtokens.clear(); _viewSessionDevices.clear(); }      // 全网下线时才连观看短令牌一起清
-    const t = issueToken('edit');
     // 找回的这台设备当场签发长期令牌：省掉前端「再用新密码调一次 trust」的往返 ——
     // 那一步一旦撞上 IP 限流窗口就会失败，表现为「明明找回成功，还是被留在登录页」。
     let devTok = '';
     try {
       if (!kick) devTok = issueDevice({ name: (_rnm || '找回后自动信任').slice(0, 40), ip: clientIp(req), fp: _rfp }, 'edit');
     } catch (e) { console.error('[reset] 签发设备令牌失败', e && e.message); }
+    const t = issueToken('edit', devTok || null, { passwordOnly: !devTok });
     // 新密码必须回到本人手机：卡片 + 文本双发，任何一个到了都算送达
     // ⛔ 2026-10-06 修：sendPwdCard 是 async，原来写 `try { sendPwdCard(...) } catch(e){...}`
     //   —— **没有 await 的 async 调用，reject 根本进不了这个 catch**，它只会变成 unhandledRejection。
@@ -20917,11 +20941,12 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     let hit = 0;
     let revokedView = false;
     const revokedViewDigests = [];
+    const revokedEditDigests = [];
     const rev = _revokedBag();
     // 开发者设备与只读设备都可撤销（这正是保留在开发者手里的"收回观看权"开关）
     for (const [index, bag] of [(accessSecret && accessSecret.devices) || {}, (viewStore() && viewStore().devices) || {}].entries()) {
       for (const d of Object.keys(bag)) {
-        if (d.startsWith(id)) { delete bag[d]; rev[d] = Date.now(); hit++; if (index === 1) { revokedView = true; revokedViewDigests.push(d); } }
+        if (d.startsWith(id)) { delete bag[d]; rev[d] = Date.now(); hit++; if (index === 1) { revokedView = true; revokedViewDigests.push(d); } else revokedEditDigests.push(d); }
       }
     }
     // 自证令牌不依赖 access.json 验真，撤销必须同时写进 revoked 名单，否则撤了还能进
@@ -20930,6 +20955,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if (!saveAccessOrRestore(beforeRevoke)) return json(res, { ok: false, error: '撤销未能持久化，已回滚本次修改；请检查磁盘状态后重试。' });
     // 旧版短会话没有设备绑定；撤销只读设备后全部只读短会话一并退出，防止继续访问。
     if (revokedView) revokeViewSessionsForDevices(revokedViewDigests);
+    if (revokedEditDigests.length) revokeEditSessionsForDevices(revokedEditDigests);
     if (hit) closeRevokedSseConnections();
     return json(res, { ok: true, revoked: hit });
   }
@@ -20944,6 +20970,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if (act !== 'prune') return json(res, { ok: false, error: '未知操作' });
     const beforePrune = structuredClone(accessSecret);
     const prunedViewDigests = [];
+    const prunedEditDigests = [];
     let removed = 0;
     const cut = Date.now() - days * 86400000;
     // u 版：被清理的记录必须同步进 revoked 名单——自证令牌验真不查设备台账，
@@ -20981,12 +21008,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         if ((v.ts || 0) > (kk.ts || 0)) { seenPh.set(key, k); stale.push(keep); }
         else stale.push(k);
       }
-      for (const k of new Set(stale)) { delete bag[k]; rev[k] = Date.now(); removed++; if (bagIndex === 1) prunedViewDigests.push(k); }
+      for (const k of new Set(stale)) { delete bag[k]; rev[k] = Date.now(); removed++; if (bagIndex === 1) prunedViewDigests.push(k); else prunedEditDigests.push(k); }
     }
     // ⛔ 同"撤销设备"那条：清掉的只是内存里的记录，没落盘就等于没清理 ——
     //    用户看到"已清理 N 条"，重启后那 N 条原样回来。
     if (!saveAccessOrRestore(beforePrune)) return json(res, { ok: false, error: '清理未能持久化，已回滚本次修改；请检查磁盘状态后重试。' });
     if (prunedViewDigests.length) revokeViewSessionsForDevices(prunedViewDigests);
+    if (prunedEditDigests.length) revokeEditSessionsForDevices(prunedEditDigests);
     if (removed) closeRevokedSseConnections();
     return json(res, { ok: true, removed, note: removed ? `已合并/清理 ${removed} 条重复或 ${days} 天未露面的记录` : '没有需要清理的记录' });
   }

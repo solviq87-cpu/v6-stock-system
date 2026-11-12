@@ -12,7 +12,7 @@ function request(port,url,method='GET',body=null,token=''){
   });req.once('error',reject);req.once('timeout',()=>req.destroy(Error('studio fixture timeout')));req.end(data);
  });
 }
-async function createFixture({count=250}={}){
+async function createFixture({count=250,serverSource}={}){
  const root=path.resolve(__dirname,'../..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-studio-')),port=await freePort();
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
  for(const name of fs.readdirSync(root))if(name.endsWith('.js')&&name!=='server.js')fs.copyFileSync(path.join(root,name),path.join(tmp,name));
@@ -23,7 +23,7 @@ async function createFixture({count=250}={}){
   open:10,high:10.6,low:9.9,close:i===600?10.4:10,volume:i===600?100000:200000,amount:2000000,pct:4,turnover:6}));
  const stocks=Array.from({length:count},(_,i)=>({code:String(600000+i),name:'隔离测试'+i,price:10.4,pct:4,turnover:6,floatCap:100e8,profitRatio:.8}));
  fs.writeFileSync(path.join(tmp,'studio-fixture.json'),JSON.stringify({rows,stocks}));
- const entry=path.join(tmp,'server.js'),original=fs.readFileSync(entry,'utf8'),anchor='let _quantPicksCache = { ts: 0, data: null, busy: false };';
+ const entry=path.join(tmp,'server.js'),original=serverSource??fs.readFileSync(entry,'utf8'),anchor='let _quantPicksCache = { ts: 0, data: null, busy: false };';
  if(!original.includes(anchor))throw Error('studio fixture anchor missing');
  // Only the temporary server copy receives synthetic state. Production has no fixture endpoint.
  fs.writeFileSync(entry,original.replace(anchor,`const studioFixture = JSON.parse(fs.readFileSync(path.join(__dirname,'studio-fixture.json'),'utf8')); S.stocks=studioFixture.stocks; for (const stock of S.stocks) klineSet(stock.code,{rows:studioFixture.rows});\n`+anchor));

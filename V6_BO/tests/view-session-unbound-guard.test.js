@@ -11,10 +11,11 @@ function run({bound=true,record=true,expired=false,sessionExpired=false,develope
  const boundMap=new Map(bound?[[token,digest]]:[]);
  const devices=record?{[digest]:{ts:expired?now-86400001:now-1000}}:{};
  const ctx={Date,_tokens:developer?new Map([[token,now+3600000]]):new Map(),
+ _editSessionDevices:new Map(developer?[[token,digest]]:[]),_passwordOnlyEditSessions:new Map(),
  _vtokens:vt,_viewSessionDevices:boundMap,
  viewStore:()=>({devices}),viewIdleKeys:(d,t,ms)=>Object.keys(d).filter(k=>t-d[k].ts>=ms),
  viewIdleMs:()=>86400000,verifyDeviceToken:()=>null,
- accessSecret:{devices:{},view:{devices:{}}},devDigest:()=>digest};
+ accessSecret:{devices:developer?{[digest]:{role:'edit'}}:{},view:{devices:{}}},devDigest:()=>digest};
  vm.createContext(ctx);vm.runInContext(src.slice(start,end)+';globalThis.testRole=roleOf;',ctx);
  return {role:ctx.testRole(token,'127.0.0.1'),sessionExists:vt.has(token),boundExists:boundMap.has(token)};
 }
