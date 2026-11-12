@@ -2,9 +2,11 @@
 
 > **手机/电脑同时刷新与周末新闻规则**：两端分别从同一云端读取数据，任意一端可用，不依赖另一端开机。周末新闻继续刷新、盘面保留最后交易日的快照日期。云端持久化部署仍需现场验证。详见 [双端云端与休市运行规则](V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md)。
 
-> **国内写入/部署交接入口**：用户指定 `https://acd98a1c1a46e6ce4.app.workbuddy.host`（文档 `/api/ai/doc?id=ai`）。下一位 AI 开工先读 [国内 WorkBuddy 写入目标及鉴权现状](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 与 [AGENTS.md](AGENTS.md)。此目标与下方历史研究预览站不是一回事；实际写入 API 和生产部署尚未认证，分享码/令牌禁止提交。
-V6 智能选股系统｜实时行情、智能选股、涨停复盘、风险控制
+> **国内写入/部署交接入口**：用户指定 WorkBuddy 作为国内部署协作目标。实际生产部署、持久化和自动发布仍需现场验证；分享码、令牌禁止提交到仓库或 CI 日志。
 
+> **生产运行依赖政策（2026-11-13）**：生产、部署、构建和运行代码禁止接入 OpenAI / ChatGPT API，不允许 API Key、SDK、私有接口或 OpenAI 专属 hosting 配置。国内智能能力如需接入，只允许使用用户授权的 WorkBuddy 能力；核心行情、策略、回测、模拟盘和风控不得依赖任何外部大模型 API 才能启动。
+
+V6 智能选股系统｜实时行情、智能选股、涨停复盘、风险控制
 
 ## Development
 
@@ -22,4 +24,4 @@ Offline model research supports optional LightGBM/XGBoost comparisons and dated 
 
 ## Web strategy research
 
-The [V6 strategy research website](https://v6-stock-bn-preview.mythiclatch2.chatgpt.site) was published on 2026-11-08 with the existing owner-private access preserved. It includes Donchian20/10, RSI2 and momentum TopK research variants, local historical simulation and factor analysis. Default data is synthetic; live strategy performance is unverified. See [release details](V6_WEB/README.md).
+`V6_WEB/` is a provider-neutral static research module. Its historical preview publication is retained only as release history in `V6_WEB/README.md`; it is not a production dependency or deployment target.
