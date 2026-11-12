@@ -1266,15 +1266,19 @@ async function refresh() {
       //    以前它单独写 ppPoolInfo/ppPreInfo 那一行，紧接着 renderPaper 第一行又把同一行覆盖掉，等于没写。
       renderPaper('Pool', s.paper.pool, !!s.paper.mirror); renderPaper('Pre', s.paper.pre, !!s.paper.mirror);
     }
+    const newsKnown = value => typeof value === 'number' && Number.isFinite(value);
+    const newsCount = value => newsKnown(value) ? String(value) : '未知';
+    const newsPct = value => newsKnown(value) ? (value > 0 ? '+' : '') + value.toFixed(1) + '%' : '未知';
+    const newsFunds = (value, absolute = false) => newsKnown(value) ? fmtY(absolute ? Math.abs(value) : value) : '未知';
     // 每条消息的直接影响个股（新闻点名）+ 板块间接影响个股（涨红跌绿，中国股市惯例）
     const relHtml = x => {
       if (!x || !x.related) return '';
       const col = p => `color:${p.pct > 0 ? '#c92a2a' : p.pct < 0 ? '#2b8a3e' : '#495057'}`;
-      const fmt = p => `<b style="${col(p)}">${p.name}(${p.code}) ${(+p.pct || 0) > 0 ? '+' : ''}${(+p.pct || 0).toFixed(1)}%</b>`;
+      const fmt = p => `<b style="${col(p)}">${esc(p.name)}(${esc(p.code)}) ${newsPct(p.pct)}</b>`;
       const d = (x.related.direct || []).map(fmt).join('、');
       const i = (x.related.indirect || []).map(fmt).join('、');
       return (d ? `<br><span style="font-size:12px">📌 直接影响: ${d}</span>` : '') +
-             (i ? `<br><span style="font-size:12px">🔗 板块间接: <span class="muted">[${x.related.indirect[0].via}]</span> ${i}</span>` : '');
+             (i ? `<br><span style="font-size:12px">🔗 板块间接: <span class="muted">[${esc(x.related.indirect[0].via)}]</span> ${i}</span>` : '');
     };
     // 利空雷达
     if (s.badNews) {
@@ -1282,7 +1286,7 @@ async function refresh() {
       document.getElementById('bnSectors').innerHTML = (s.badNews.sectors || []).map(x =>
         `<span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️ ${x.name}${x.pct != null ? ' ' + x.pct + '%' : ''} <span class="muted">${x.from}${x.mainInflow != null ? ' · 主力' + (x.mainInflow / 1e8).toFixed(1) + '亿' : ''}</span></span>`).join('') || '<span class="muted">暂无利空板块</span>';
       document.getElementById('bnList').innerHTML = (s.badNews.items || []).map(x =>
-        `<div class="sig zt" style="font-size:12px"><span class="tag" style="background:#ffe3e3;color:#c92a2a">利空</span> <b>${(x.t || '').slice(5, 16)}</b> ${x.title}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.join('、') : ''}<br><span class="muted">判定: ${x.why || ''}</span>${x.stat ? `<br><span style="font-size:12px;color:#c92a2a">📊 受累个股统计: ${x.stat.total}只 · 下跌${x.stat.down} · 上涨${x.stat.up} · 均幅${x.stat.avgPct}% · 主力净流出${fmtY(Math.abs(x.stat.mainSum))}${x.stat.mainSum > 0 ? '（反转为净流入）' : ''}</span>` : ''}${relHtml(x)}</div>`).join('') || '<div class="muted">近3日暂无利空快讯</div>';
+        `<div class="sig zt" style="font-size:12px"><span class="tag" style="background:#ffe3e3;color:#c92a2a">利空</span> <b>${(x.t || '').slice(5, 16)}</b> ${esc(x.title)}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.map(esc).join('、') : ''}<br><span class="muted">判定: ${esc(x.why || '')}</span>${x.stat ? `<br><span style="font-size:12px;color:#c92a2a">📊 受累个股统计: ${x.stat.total}只 · 下跌${newsCount(x.stat.down)} · 上涨${newsCount(x.stat.up)} · 均幅${newsPct(x.stat.avgPct)} · 主力净流出${newsFunds(x.stat.mainSum, true)}${x.stat.mainSum > 0 ? '（反转为净流入）' : ''}</span>` : ''}${relHtml(x)}</div>`).join('') || '<div class="muted">近3日暂无利空快讯</div>';
     }
     // 利好消息近3日
     if (s.goodNews) {
@@ -1293,8 +1297,8 @@ async function refresh() {
       document.getElementById('gnList').innerHTML = (s.goodNews.items || []).map(x => {
         const tag = x.type === 'good' ? '<span class="tag" style="background:#d3f9d8;color:#2b8a3e">利好</span>' : '<span class="tag" style="background:#e9ecef;color:#495057">中性</span>';
         // 每条利好/中性消息后的关联个股实时统计分析
-        const stat = x.stat ? `<br><span style="font-size:12px;color:#2b8a3e">📊 关联个股统计: ${x.stat.total}只 · 上涨${x.stat.up} · 涨停${x.stat.limit} · 均幅${x.stat.avgPct > 0 ? '+' : ''}${x.stat.avgPct}% · 主力净流入${fmtY(x.stat.mainSum)}</span>` : '';
-        return `<div class="sig" style="font-size:12px">${tag} <b>${(x.t || '').slice(5, 16)}</b> ${x.title}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.join('、') : ''}<br><span class="muted">判定: ${x.why || ''}</span>${stat}${relHtml(x)}</div>`;
+        const stat = x.stat ? `<br><span style="font-size:12px;color:#2b8a3e">📊 关联个股统计: ${x.stat.total}只 · 上涨${newsCount(x.stat.up)} · 涨停${newsCount(x.stat.limit)} · 均幅${newsPct(x.stat.avgPct)} · 主力净流入${newsFunds(x.stat.mainSum)}</span>` : '';
+        return `<div class="sig" style="font-size:12px">${tag} <b>${(x.t || '').slice(5, 16)}</b> ${esc(x.title)}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.map(esc).join('、') : ''}<br><span class="muted">判定: ${esc(x.why || '')}</span>${stat}${relHtml(x)}</div>`;
       }).join('') || '<div class="muted">近3日暂无利好快讯</div>';
     }
     // wecom / mail

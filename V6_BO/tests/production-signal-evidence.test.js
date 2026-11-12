@@ -80,15 +80,15 @@ test('journal refuses public, symlink and invalid query paths',t=>{
 function serverContext(dir){
  let now=at,saves=0;
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
- const context=vm.createContext({Date:Clock,SignalEvidence:Evidence,SignalJournal:Journal,path,fs,NEWS_EVIDENCE_ROOT:path.join(dir,'news'),__dirname:path.resolve(__dirname,'..'),
-   SIGNAL_RULE_SOURCE_HASH:'fixture-loaded-source',process:{env:{V6_SIGNAL_EVIDENCE_DIR:dir}},require:module=>module.startsWith('./')?require(path.resolve(__dirname,'..',module)):require(module),
+ const context=vm.createContext({Date:Clock,SignalEvidence:Evidence,SignalJournal:Journal,path,fs,__dirname:path.resolve(__dirname,'..'),
+   SIGNAL_RULE_SOURCE_HASH:'fixture-loaded-source',process:{env:{V6_SIGNAL_EVIDENCE_DIR:dir,V6_NEWS_EVIDENCE_DIR:path.join(dir,'news-evidence')}},require:module=>module.startsWith('./')?require(path.resolve(__dirname,'..',module)):require(module),
    console:{error(){},log(){}},S:{learn:{signals:[],buckets:{}}},
    fusedProb:()=>({prob:74,model:60,emp:100,la:null,delta:0,valueKind:'ranking-score',target:'ztToday'}),
    todayStr:()=> '20261112',krowsOf:()=>[],probKindOf:()=> 'score',isTradeDay:()=>true,pruneSignals(){},
    saveLearn(){saves++;},tick(){}});
  vm.runInContext(section('let signalRuleVersion;','// 存量迁移'),context);
+ vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),context);
  vm.runInContext(section('function logSignal(','// 样本库剪枝'),context);
- vm.runInContext(section('let newsEvidenceCache=','const HOLIDAY_BUF_CAP'),context);
  return {c:context,set:value=>{now=value;},saves:()=>saves};
 }
 test('real logSignal retains the first daily sample and appends later observations with explicit lineage',t=>{

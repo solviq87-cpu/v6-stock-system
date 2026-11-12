@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const path = require('node:path'),os=require('node:os');
 const source = fs.readFileSync(require.resolve('../server.js'), 'utf8');
 function section(start, end) {
   const a = source.indexOf(start), b = source.indexOf(end, a);
@@ -110,6 +111,7 @@ function monitor() {
   let now = start, response = [];
   class Clock extends Date { static now() { return now; } }
   const c = context({Date: Clock, console: {log() {}, error() {}}, monitorCodes: [],
+    fs,path,__dirname:path.resolve(__dirname,'..'),process:{env:{V6_NEWS_EVIDENCE_DIR:path.join(os.tmpdir(),'v6-news-empty-'+process.pid+'-'+Math.random().toString(16).slice(2))}},
     require:id=>{assert.equal(id,'./src/core/quote-observation-view');return require('../src/core/quote-observation-view');},
     S: {loop: {running: false, tickCount: 0}, candidatePool: [{code: '000001'}, {code: '000002'}],
       sectors: [], stocks: [], inflowHistory: new Map(), klines: new Map(),
@@ -121,6 +123,7 @@ function monitor() {
     calibratedProb: value => value, probThreshold: () => 1, auctionPhase: () => 0,
     pushAll: () => assert.fail('no external notification allowed'),
     enqueueIntraday: () => assert.fail('fixture must not enqueue notifications')});
+  vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),c);
   vm.runInContext(section('async function tick()', '\nfunction countStreak(h)'), c);
   return {c, async run(at, rows) { now = at; response = rows; await c.tick(); }};
 }

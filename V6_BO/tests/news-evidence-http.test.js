@@ -13,7 +13,7 @@ function request(p,url,method='GET',data=null,token=''){
 test('real server editor-only reads, explicit CLI writes, unknown failure and persistent restart', {timeout:45000},async t=>{
  const source=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-news-http-'));
  const copy=rel=>{fs.mkdirSync(path.dirname(path.join(tmp,rel)),{recursive:true});fs.cpSync(path.join(source,rel),path.join(tmp,rel),{recursive:true});};
- for(const rel of ['server.js','src','strategies','public','package.json','scripts/news-evidence.js'])copy(rel);
+ for(const rel of ['server.js','src','strategies','public','package.json','scripts/news-evidence.js','config/data-source-catalog.json','config/six-photo-sources.json'])copy(rel);
  for(const file of fs.readdirSync(source))if(file.endsWith('.js')&&file!=='server.js')copy(file);
  const salt=crypto.randomBytes(16).toString('hex');
  fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify({salt,hash:crypto.scryptSync('fixture-news-editor',salt,32).toString('hex'),devices:{}}));
@@ -36,6 +36,7 @@ test('real server editor-only reads, explicit CLI writes, unknown failure and pe
   });
  };
  t.after(async()=>{await stop();fs.rmSync(tmp,{recursive:true,force:true});});
+ fs.writeFileSync(path.join(tmp,'news.json'),JSON.stringify({goodAll:[{id:'http-event',title:'withdrawn cached positive',t:'2026-11-12 12:00:00',codes:['600000'],sectors:['fixture-sector'],stocks:[],type:'good'}],badAll:[{id:'http-event',title:'withdrawn cached risk',t:'2026-11-12 12:00:00',codes:['600000'],sectors:['fixture-sector'],stocks:[],type:'bad'}],neutralAll:[{id:'http-event',title:'withdrawn cached neutral',t:'2026-11-12 12:00:00',codes:['600000'],sectors:['fixture-sector'],stocks:[],type:'neutral'}]}));
  await start();const endpoint='/api/research/news-evidence';
  assert.notEqual((await request(p,endpoint)).body?.ok,true);assert.notEqual((await request(p,endpoint,'GET',null,'invalid-token')).body?.ok,true);
  const login=async()=>{const r=await request(p,'/api/lock/unlock','POST',{role:'edit',password:'fixture-news-editor',fp:'news-fixture'});assert.equal(r.body?.ok,true,r.raw);return r.body.token;};
@@ -43,13 +44,17 @@ test('real server editor-only reads, explicit CLI writes, unknown failure and pe
  assert.equal((await request(p,endpoint,'POST',{},token)).status,405);
  assert.equal((await request(p,endpoint+'?root=/etc','GET',null,token)).status,400);
  const now=Date.now()-3000,input=path.join(tmp,'operator-input.json');
- const original={schemaVersion:1,source:'fixture-source',eventId:'http-event',sourceRevisionId:'first',kind:'original',supersedes:null,url:'https://example.test/original',title:'<img src=x onerror=alert(1)>',body:'fixture original',securities:['600000'],publishedAt:now-1000,receivedAt:now,revisedAt:null};
+ const original={schemaVersion:1,source:'eastmoney-fast-news',eventId:'http-event',sourceRevisionId:'first',kind:'original',supersedes:null,url:'https://example.test/original',title:'<img src=x onerror=alert(1)>',body:'fixture original',securities:['600000'],publishedAt:now-1000,receivedAt:now,revisedAt:null};
  const cli=evidence=>{fs.writeFileSync(input,JSON.stringify(evidence));const r=spawnSync(process.execPath,['scripts/news-evidence.js','import',input],{cwd:tmp,env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout).results[0];};
  const first=cli(original);let q=await request(p,endpoint+'?symbol=600000&limit=1','GET',null,token);
  assert.equal(q.body.result.summary.eligibleForResearchSupport,1);assert.equal(q.body.result.rows[0].evidence.title,original.title);
  const r2=cli({...original,kind:'revised',sourceRevisionId:'second',supersedes:first.eventHash,body:'corrected',receivedAt:now+1000,revisedAt:now+500});
  cli({...original,kind:'retracted',sourceRevisionId:'third',supersedes:r2.eventHash,body:'withdrawn',receivedAt:now+2000,revisedAt:now+1500});
  q=await request(p,endpoint+'?limit=1','GET',null,token);assert.deepEqual(q.body.result.summary,{totalRevisions:3,currentEvents:1,retractedEvents:1,eligibleForResearchSupport:0,unknownEvents:0});assert.equal(q.body.result.rows.length,1);
+ const state=await request(p,'/api/state','GET',null,token);assert.ok(state.body?.goodNews,state.raw+'\n'+logs.slice(-2000));
+ assert.equal(state.body.goodNews.items.length,0,'withdrawn cached positive and neutral rows cannot remain in public state');
+ assert.equal(state.body.goodNews.hotStocks.length,0);assert.equal(state.body.goodNews.hotSectors.length,0);assert.equal(state.body.badNews.items.length,0);assert.equal(state.body.badNews.codes.length,0);
+ assert.ok(state.body.dashboard.riskEvidence.news.every(n=>!n.title.startsWith('withdrawn cached')),'dashboard risk evidence must use the same retraction view');
  await stop();await start();token=await login();q=await request(p,endpoint,'GET',null,token);assert.equal(q.body.result.total,3);assert.ok(q.body.result.rows.every(r=>!r.eligibleForResearchSupport));
  const viewPassword=await request(p,'/api/lock/change','POST',{role:'view',newPassword:'fixture-news-viewer',token},token);assert.equal(viewPassword.body.ok,true,viewPassword.raw);
  const view=await request(p,'/api/lock/unlock','POST',{role:'view',password:'fixture-news-viewer',fp:'viewer-news-fixture'});assert.equal(view.body.pending,true,view.raw);

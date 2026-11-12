@@ -37,7 +37,8 @@ function queuePushedStockObservations(text,codes,opts){
     if(!/^(?:(?:600|601|603|605|688|000|001|002|003|300|301)\d{3}|(?:43|83|87|88|92)\d{4})$/.test(symbol))continue;
     try{
       const signalRefs=(Array.isArray(opts.signalRefs)?opts.signalRefs:[]).filter(r=>r&&r.code===symbol&&typeof r.type==='string'&&r.type.length<=64&&
-        (r.ts===undefined||Number.isSafeInteger(r.ts)&&r.ts>0&&r.ts<=decisionAt)).slice(0,20).map(r=>({code:r.code,type:r.type,...(r.ts===undefined?{}:{ts:r.ts})}));
+        (r.ts===undefined||Number.isSafeInteger(r.ts)&&r.ts>0&&r.ts<=decisionAt)).slice(0,20).map(r=>({code:r.code,type:r.type,...(r.ts===undefined?{}:{ts:r.ts}),
+          ...(/^[a-f0-9]{64}$/.test(r.signalId||'')?{id:r.signalId}:{})}));
       const receipt=require('./src/core/stock-observation-queue').enqueueStockObservation(
         process.env.V6_STOCK_OBSERVATION_QUEUE_DIR||path.join(__dirname,'data','stock-observation-queue'),
         {symbol,decisionAt,trigger:'push-attempt',signalRefs,messageHash});
@@ -12740,7 +12741,7 @@ function buildMobileDigest(includePrivate = false) {
     }
   }
   return {
-    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood,Date.now(),dashboardPushMeta(includePrivate)),
+    dashboard: require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(),mood,Date.now(),dashboardPushMeta(includePrivate)),
     now: Date.now(),
     trading: isTradingTime(),
     ready: marketReady(),
@@ -13937,6 +13938,14 @@ function newsSupportsCode(code){
 }
 function newsEvidenceAllowsItem(item){
   const state=newsEvidenceCurrent();return !state.unknown&&!state.withdrawn.has(String(item.id))&&!S.news.evidenceRejected?.has(String(item.id));
+}
+function newsEvidenceVisibleState(state=S){
+  const news=state.news||{};
+  const visible=Object.fromEntries(['goodAll','badAll','neutralAll'].map(key=>[
+    key,(Array.isArray(news[key])?news[key]:[]).filter(newsEvidenceAllowsItem)]));
+  return {...state,news:{...news,...visible,
+    goodCodes:new Set(visible.goodAll.flatMap(x=>x.codes||[])),badCodes:new Set(visible.badAll.flatMap(x=>x.codes||[])),
+    badSectors:new Set(visible.badAll.flatMap(x=>x.sectors||[]))}};
 }
 const HOLIDAY_BUF_CAP = 1200; // 假期新闻缓冲上限（覆盖整个长假周期，不受近3日归档限制）
 // ⛔ 2026-10-07 新增（本轮角度：系统里"只增不减"的东西 —— 清理口径要自洽）：
@@ -21180,7 +21189,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
     try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
-      state:S,now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+      state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
       agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
     catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
   }
@@ -21763,12 +21772,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //    两个实例共用同一个构造，展示口径才不会各写一份然后分叉。
     const mkPaper = key => paperSnap(key, pmPaper);
     // 利空板块 = 消息命中板块 ∪ 重挫板块（大跌+主力净流出）
-    const newsSecs = (S.sectors || []).filter(s => S.news.badSectors.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
+    const visibleNews=newsEvidenceVisibleState().news;
+    const newsSectorNames=new Set(visibleNews.badAll.flatMap(x=>x.sectors||[]));
+    const newsSecs = (S.sectors || []).filter(s => newsSectorNames.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
     const heavySecs = (S.sectors || []).filter(s => s.pct <= -1.5 && (s.mainInflow || 0) < 0).slice(0, 10).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '重挫' }));
     const badSectorsAll = [...newsSecs, ...heavySecs.filter(h => !newsSecs.some(n => n.name === h.name))].slice(0, 12);
     // 利好3日归档聚合：受益板块/个股热度
     const secCnt = {}, stCnt = {};
-    for (const x of S.news.goodAll) {
+    for (const x of visibleNews.goodAll) {
       for (const sn of (x.sectors || [])) secCnt[sn] = (secCnt[sn] || 0) + 1;
       for (const cd of (x.codes || [])) stCnt[cd] = (stCnt[cd] || 0) + 1;
     }
@@ -21777,20 +21788,23 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const statOf = codes => {
       const rel = (codes || []).map(cd => S.stocks.find(s => s.code === cd)).filter(s => s && s.price);
       if (!rel.length) return null;
-      const up = rel.filter(s => s.pct > 0).length;
-      const down = rel.filter(s => s.pct < 0).length;
+      const pctKnown=rel.filter(s=>fundsNumber(s.pct)!==null),fundsKnown=rel.filter(s=>fundsNumber(s.mainInflow)!==null);
+      const pctComplete=pctKnown.length===rel.length,fundsComplete=fundsKnown.length===rel.length;
+      const up = pctComplete?rel.filter(s => s.pct > 0).length:null;
+      const down = pctComplete?rel.filter(s => s.pct < 0).length:null;
       // 涨停家数必须按板块限幅判：写死 >= 9.4 就永远数不到 ST（旧口径 5%、现 10% 里偏弱的）
       // 与 20cm/30cm 涨停，而这里恰恰是「利好加推·利空减推」的依据 —— 少算涨停会削弱利好、放大恐慌。
-      const limit = rel.filter(s => s.pct != null && A.isLimitUp(s.code, s.name, s.pct)).length;
-      const avgPct = +(rel.reduce((a, s) => a + (s.pct || 0), 0) / rel.length).toFixed(1);
-      const mainSum = Math.round(rel.reduce((a, s) => a + (s.mainInflow || 0), 0));
-      return { total: rel.length, up, down, limit, avgPct, mainSum };
+      const limit = pctComplete?rel.filter(s => A.isLimitUp(s.code, s.name, s.pct)).length:null;
+      const avgPct = pctComplete?+(rel.reduce((a, s) => a + s.pct, 0) / rel.length).toFixed(1):null;
+      const mainSum = fundsComplete?Math.round(rel.reduce((a, s) => a + s.mainInflow, 0)):null;
+      return { total: rel.length, up, down, limit, avgPct, mainSum,
+        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:rel.length,pctComplete,fundsComplete} };
     };
     const relCodeMap = new Map(S.stocks.map(s => [s.code, s]));
     // 每条消息的直接影响个股（新闻点名）+ 间接影响个股（新闻提到的板块成分股，涨幅强的在前）
     const relatedOf = x => {
       const direct = (x.codes || []).map(cd => relCodeMap.get(cd)).filter(s => s && s.price)
-        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: +s.pct || 0, price: s.price, direct: true }));
+        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: true }));
       const dset = new Set(direct.map(d => d.code));
       const indirect = [];
       for (const nm of (x.sectors || [])) {
@@ -21799,7 +21813,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         for (const s of c.list) {
           if (dset.has(s.code) || indirect.some(i => i.code === s.code)) continue;
           if (A.isJunkName(s.name) || s.code.startsWith('30') || s.code.startsWith('68')) continue;
-          indirect.push({ code: s.code, name: s.name, pct: +s.pct || 0, price: s.price, direct: false, via: nm });
+          indirect.push({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: false, via: nm });
           if (indirect.length >= 8) break;
         }
         if (indirect.length >= 8) break;
@@ -21807,7 +21821,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return { direct, indirect };
     };
     return json(res, {
-      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood(),Date.now(),dashboardPushMeta(_stEdit)),
+      dashboard: require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(),marketMood(),Date.now(),dashboardPushMeta(_stEdit)),
       now: Date.now(), trading: isTradingTime(),
       loop: S.loop,
       auction: S.auction,
@@ -21967,10 +21981,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       // mirror=true 表示这台实例是副本：模拟盘不在这儿跑，展示的是从线上同步过来的那份。
       // ⛔ 必须让用户看得见 —— 否则副本上"模拟盘一动不动"会被当成坏了。
       paper: _stEdit ? { pool: mkPaper('pool'), pre: mkPaper('pre'), mirror: isReplica() } : { hidden: true, pool: null, pre: null },
-      badNews: { time: S.news.time, items: S.news.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...S.news.badCodes].slice(0, 60), sectors: badSectorsAll },
+      badNews: { time: S.news.time, items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
       goodNews: {
         time: S.news.time,
-        items: [...S.news.goodAll, ...S.news.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
+        items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
         hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
         hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
       },
