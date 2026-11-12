@@ -1727,19 +1727,36 @@ async function fetchThsActive(code) {
   const m = /quotebridge_v6_realhead_hs_\w+_last\(([\s\S]*)\)/.exec(text);
   if (!m) return null;
   const items = (JSON.parse(m[1]) || {}).items || {};
-  const outer = +items['14'] || 0;   // 外盘（主动买入股数）
-  const inner = +items['15'] || 0;   // 内盘（主动卖出股数）
-  const vol = +items['13'] || 0;     // 成交量(股)
-  const amount = +items['19'] || 0;  // 成交额(元)
-  const price = +items['10'] || 0;
-  const avg = vol > 0 ? amount / vol : price;  // 当日均价
-  const netVol = outer - inner;
-  const netAmt = Math.round(netVol * avg);     // 主动净买额(元)
+  const outer = observedFlowCount(items['14']);   // 外盘（主动买入股数）
+  const inner = observedFlowCount(items['15']);   // 内盘（主动卖出股数）
+  const vol = observedFlowCount(items['13']);     // 成交量(股)
+  const nonNegative = value => {
+    const number = observedFlowNumber(value);
+    return number !== null && number >= 0 ? number : null;
+  };
+  const amount = nonNegative(items['19']);        // 成交额(元)
+  const price = nonNegative(items['10']);
+  let netAmt = null, activePct = null;
+  // 不用缺失的一侧或最后成交价补造主动净额；估算均价须有成交额和成交量依据。
+  if (outer !== null && inner !== null && vol !== null && amount !== null) {
+    if (vol > 0 && amount > 0) {
+      const estimate = Math.round((outer - inner) * (amount / vol));
+      const percentage = estimate / amount * 100;
+      if (Number.isFinite(estimate) && Number.isFinite(percentage)) {
+        netAmt = estimate;
+        activePct = +percentage.toFixed(2);
+      }
+    } else if (vol === 0 && amount === 0 && outer === 0 && inner === 0) {
+      netAmt = 0; // 显式零成交可知净额为零，但零分母没有可解释的占比。
+    }
+  }
   return {
     code, price, amount, turnoverVol: vol,
     outer, inner, netAmt,
     // 主动买占比 = 净主动买额 / 当日成交额（与东财"主力净占比"量级可比）
-    activePct: amount > 0 ? +(netAmt / amount * 100).toFixed(2) : 0
+    activePct,
+    source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
+    retrievedAt: Date.now(), sourceTimestamp: null
   };
 }
 // 批量拉取（限制并发，避免被网关 502）
@@ -1747,7 +1764,7 @@ async function fetchThsActiveBatch(codes, limit = 8) {
   const uniq = [...new Set(codes)];
   const rs = await pool(uniq, c => fetchThsActive(c), limit);
   const m = new Map();
-  for (const r of rs) if (r && (r.netAmt || r.activePct)) m.set(r.code, r);
+  for (const r of rs) if (r && observedFlowNumber(r.netAmt) !== null) m.set(r.code, r);
   return m;
 }
 

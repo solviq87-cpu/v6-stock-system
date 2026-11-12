@@ -19,11 +19,49 @@ function fundsWindowSum(rows, count, fields = ['main']) {
   if (!window.every(row => row && fields.every(field => fundsNumber(row[field]) !== null))) return null;
   return window.reduce((sum, row) => sum + fields.reduce((subtotal, field) => subtotal + row[field], 0), 0);
 }
-function fundsWindowDelta(rows, count) {
-  if (!Array.isArray(rows) || rows.length < count || count < 2) return null;
+const FUNDS_CONTINUITY_MAX_GAP_MS = 15000;
+function fundsObservationDay(at) {
+  if (!Number.isSafeInteger(at) || at <= 0 || at > 8e15) return null;
+  return new Date(at + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+function fundsHistoryObservation(stock, now) {
+  return { t: now, mainInflow: fundsNumber(stock.mainInflow), pct: stock.pct,
+    fundsSource: stock.fundsSource || null, fundsMethod: stock.fundsMethod || null,
+    fundsRetrievedAt: fundsNumber(stock.fundsRetrievedAt),
+    // An unknown vendor timestamp stays unknown; price time is not funds time.
+    fundsSourceTimestamp: stock.fundsSourceTimestamp ?? null };
+}
+function fundsHistoryValid(row) {
+  if (!row || fundsNumber(row.mainInflow) === null || !fundsObservationDay(row.t) ||
+      typeof row.fundsSource !== 'string' || !row.fundsSource.trim() ||
+      typeof row.fundsMethod !== 'string' || !row.fundsMethod.trim()) return false;
+  const received = row.fundsRetrievedAt;
+  if (!fundsObservationDay(received) || received > row.t || row.t - received > FUNDS_CONTINUITY_MAX_GAP_MS ||
+      fundsObservationDay(received) !== fundsObservationDay(row.t)) return false;
+  const original = row.fundsSourceTimestamp;
+  return original === null || (fundsObservationDay(original) !== null && original <= received &&
+    received - original <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    fundsObservationDay(original) === fundsObservationDay(received));
+}
+function fundsHistoryContinuous(previous, current) {
+  return fundsHistoryValid(previous) && fundsHistoryValid(current) &&
+    previous.fundsSource === current.fundsSource && previous.fundsMethod === current.fundsMethod &&
+    fundsObservationDay(previous.t) === fundsObservationDay(current.t) &&
+    current.t > previous.t && current.t - previous.t <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    current.fundsRetrievedAt > previous.fundsRetrievedAt &&
+    current.fundsRetrievedAt - previous.fundsRetrievedAt <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    (previous.fundsSourceTimestamp === null ? current.fundsSourceTimestamp === null :
+      current.fundsSourceTimestamp !== null && current.fundsSourceTimestamp > previous.fundsSourceTimestamp &&
+      current.fundsSourceTimestamp - previous.fundsSourceTimestamp <= FUNDS_CONTINUITY_MAX_GAP_MS);
+}
+function fundsWindowDelta(rows, count, { minSpanMs = 0, maxSpanMs = Infinity } = {}) {
+  if (!Array.isArray(rows) || !Number.isInteger(count) || rows.length < count || count < 2) return null;
   const window = rows.slice(-count);
-  if (!window.every(row => row && fundsNumber(row.mainInflow) !== null)) return null;
-  return window[window.length - 1].mainInflow - window[0].mainInflow;
+  if (!window.every((row, index) => index === 0 ? fundsHistoryValid(row) : fundsHistoryContinuous(window[index - 1], row))) return null;
+  const span = window[window.length - 1].t - window[0].t;
+  if (span < minSpanMs || span > maxSpanMs) return null;
+  const delta = window[window.length - 1].mainInflow - window[0].mainInflow;
+  return Number.isFinite(delta) ? delta : null;
 }
 function applyObservedFunds(stock, flow) {
   stock.mainInflow = fundsNumber(flow.today); stock.mainPct = fundsNumber(flow.pct);
@@ -162,7 +200,7 @@ const S = {
   idxDisc: null,          // oa 轮：指数纪律警示（2026-10-29 用户交易纪律铁律·警示参考）：{signal:'entry'|'exit'|'flat', close, prevHigh, prevLow, day, at}；不接模拟盘，只告诉能做/不能做
   auction: null,           // 竞价快照 + 异动板块 + 龙头
   signals: [],             // 推送信号记录
-  inflowHistory: new Map(),// code -> [{t, mainInflow}] 5秒资金流入轨迹
+  inflowHistory: new Map(),// code -> continuous funds observations with their own provenance
   trendState: new Map(),   // code -> {belowMa5, aboveTicks, belowHigh, highTicks, firedMa5, firedHigh}
   lastPush: new Map(),     // 去重 key -> ts
   pushCount: new Map(),    // 去重 key -> {d:日期, n:当日第几次推送}（强势股可重复推，用来标注"第N次"）
@@ -5913,19 +5951,30 @@ async function tick() {
     }
     const codes = [..._mon].slice(0, 220);
     monitorCodes = codes;
-    const snaps = await em.fetchBatchSnapshot(codes);
+    let snaps;
+    try { snaps = await em.fetchBatchSnapshot(codes); }
+    catch (e) {
+      for (const code of codes) S.inflowHistory.delete(code);
+      throw e;
+    }
+    // An omitted stock is an observation gap, even when other stocks succeeded.
+    const returnedCodes = new Set(snaps.map(row => row.code));
+    for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const now = Date.now();
     const alerts = [];
     for (const s of snaps) {
       // 记录资金轨迹（保留10分钟）
       const h = S.inflowHistory.get(s.code) || [];
-      h.push({ t: now, mainInflow: fundsNumber(s.mainInflow), pct: s.pct });
+      const observation = fundsHistoryObservation(s, now);
+      if (h.length && !fundsHistoryContinuous(h[h.length - 1], observation)) h.length = 0;
+      h.push(observation);
       while (h.length && now - h[0].t > 10 * 60 * 1000) h.shift();
       S.inflowHistory.set(s.code, h);
 
       if (h.length >= 12) {
-        const delta = fundsWindowDelta(h, 12); // 约1分钟前；缺失样本中断资金差分。
+        // Twelve normal 5-second samples span 55s. Slow/rapid batches cannot masquerade as one minute.
+        const delta = fundsWindowDelta(h, 12, { minSpanMs: 45000, maxSpanMs: 75000 });
         // 用户总开关：资金做多意愿强烈 = 个股主力净流入为正 且 盘中留存未转流出
         const bullishIntent = delta !== null && fundsNumber(s.mainInflow) !== null && s.mainInflow > 0 && delta >= 0;
         const streakMin = countStreak(h);
@@ -6222,13 +6271,11 @@ async function tick() {
 }
 
 function countStreak(h) {
-  // 连续主力净流入增加的采样点数（5秒一采，12点≈1分钟）
-  let n = 0;
-  for (let i = h.length - 1; i > 0 &&
-    typeof h[i].mainInflow === 'number' && Number.isFinite(h[i].mainInflow) &&
-    typeof h[i - 1].mainInflow === 'number' && Number.isFinite(h[i - 1].mainInflow) &&
-    h[i].mainInflow >= h[i - 1].mainInflow; i--) n++;
-  return Math.round(n / 12); // 折算成分钟
+  if (!Array.isArray(h) || h.length < 2 || !fundsHistoryValid(h[h.length - 1])) return 0;
+  let first = h.length - 1;
+  while (first > 0 && fundsHistoryContinuous(h[first - 1], h[first]) &&
+    h[first].mainInflow >= h[first - 1].mainInflow) first--;
+  return Math.round((h[h.length - 1].t - h[first].t) / 60000);
 }
 function sectorZTCountFor(stock) {
   const sec = sectorOfStock(stock);
