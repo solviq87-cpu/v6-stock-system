@@ -44,7 +44,7 @@ if(strip){
  const pushPanel=document.createElement('article');
  pushPanel.className='vx-panel vx-push-panel';
  pushPanel.id='vx-pushes';
- pushPanel.innerHTML=`<h2>${icon('bell')}系统推送股票</h2><div class="vx-push-context" id="vx-push-context">当前对象：全部指数 · 全部板块</div><div class="vx-push-tabs"><button type="button" data-vx-push-tab="pushed" aria-pressed="true">系统推送</button><button type="button" data-vx-push-tab="candidate" aria-pressed="false">研究候选</button><button type="button" data-vx-push-tab="watch" aria-pressed="false">自选股票</button></div><div class="vx-push-filters"><label>指数<select id="vx-index-scope"><option value="all">全部指数</option><option value="1.000001">上证指数</option><option value="0.399001">深证成指</option><option value="0.399006">创业板指</option><option value="1.000688">科创50</option></select></label><label>状态<select id="vx-push-stage"><option value="all">全部状态</option><option value="candidate">候选股票</option><option value="triggered">信号已触发</option><option value="pending">待发送</option><option value="sent">发送成功</option><option value="failed">发送失败</option><option value="expired">已失效</option></select></label></div><div class="vx-sector-chips" id="vx-sector-chips"></div><div class="vx-push-summary" id="vx-push-summary">等待推送信号</div><div class="vx-push-list" id="vx-push-list" role="list"></div>`;
+ pushPanel.innerHTML=`<h2>${icon('bell')}系统推送股票</h2><div class="vx-push-context" id="vx-push-context">当前对象：全部市场 · 全部板块</div><div class="vx-push-tabs"><button type="button" data-vx-push-tab="pushed" aria-pressed="true">系统推送</button><button type="button" data-vx-push-tab="candidate" aria-pressed="false">研究候选</button><button type="button" data-vx-push-tab="watch" aria-pressed="false">自选股票</button></div><div class="vx-push-filters"><label>范围<select id="vx-index-scope"><option value="all">全部市场</option><option value="1.000001">上海市场</option><option value="0.399001">深圳市场</option><option value="0.399006">创业板</option><option value="1.000688">科创板</option></select></label><label>状态<select id="vx-push-stage"><option value="all">全部状态</option><option value="candidate">候选股票</option><option value="triggered">信号已触发</option><option value="pending">待发送</option><option value="sent">发送成功</option><option value="failed">发送失败</option><option value="expired">已失效</option><option value="history">历史推送</option></select></label></div><div class="vx-sector-chips" id="vx-sector-chips"></div><div class="vx-push-summary" id="vx-push-summary">等待推送信号</div><div class="vx-push-list" id="vx-push-list" role="list"></div>`;
  strip.append(dashboard.querySelector('.vx-mood'),pushPanel,dashboard.querySelector('.vx-environment'));
  const risk=document.createElement('article');
  risk.className='vx-panel vx-risk-panel';
@@ -77,7 +77,7 @@ const el=id=>document.getElementById(id);
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const format=(v,d=2)=>finite(v)?v.toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 const codeRe=/^\d{6}$/;
-const stageMap={candidate:'候选股票',triggered:'信号已触发',pending:'待发送',sent:'发送成功',failed:'发送失败',expired:'已失效'};
+const stageMap={candidate:'候选股票',triggered:'信号已触发',pending:'待发送',sent:'发送成功',failed:'发送失败',expired:'已失效',history:'历史推送'};
 
 let model=null,filter='all',selected=null,epoch=0,controller=null,indexScope='all',sectorScope='',pushStage='all',pushTab='pushed';
 const observedSeries=new Map();
@@ -133,17 +133,17 @@ function indexKey(indexCode){
  if(indexCode==='1.000001')return 'sh';
  if(indexCode==='0.399001')return 'sz';
  if(indexCode==='0.399006')return 'cyb';
- if(indexCode==='1.000688')return 'kc50';
+ if(indexCode==='1.000688')return 'star';
  return 'all';
 }
 function rowInIndex(row,scope){
  if(scope==='all')return true;
  const code=String(row?.code||'');
  const key=indexKey(scope);
- if(key==='sh')return /^60/.test(code);
+ if(key==='sh')return /^(60|68)/.test(code);
  if(key==='sz')return /^(00|001|002|003|30)/.test(code);
  if(key==='cyb')return /^30/.test(code);
- if(key==='kc50')return /^68/.test(code);
+ if(key==='star')return /^68/.test(code);
  return true;
 }
 function rowInSector(row){
@@ -202,7 +202,7 @@ function shapeCondition(c){
   label:String(c.label||'未命名条件'),
   value:finite(c.value)?c.value:null,
   threshold:finite(c.threshold)?c.threshold:null,
-  operator:String(c.operator||'>='),
+  operator:String(c.operator||''),
   source:String(c.source||'来源未知'),
   reason:String(c.reason||'缺少判定依据'),
   satisfied:c.satisfied===true?true:c.satisfied===false?false:null,
@@ -216,9 +216,9 @@ function fallbackConditions(row){
  const keys=Object.keys(values).slice(0,3);
  for(const key of keys){
   const v=values[key];
-  out.push(shapeCondition({id:key,label:key,value:v,threshold:70,operator:'>=',source:'candidate.factorValues',reason:finite(v)&&v>=70?'满足':'未满足'}));
+  out.push(shapeCondition({id:key,label:key,value:v,threshold:null,operator:'',source:'candidate.factorValues',reason:'未记录策略阈值，仅展示观察值'}));
  }
- if(finite(row?.score))out.unshift(shapeCondition({id:'score',label:'候选评分',value:row.score,threshold:0,operator:'>=',source:'candidate.score',reason:'候选评分展示'}));
+ if(finite(row?.score))out.unshift(shapeCondition({id:'score',label:'候选评分',value:row.score,threshold:null,operator:'',source:'candidate.score',reason:'未记录策略阈值，仅展示观察值'}));
  return out.filter(Boolean);
 }
 
@@ -254,12 +254,14 @@ function pushItemsForView(){
   invalidationRule:String(x.invalidationRule||'待验证'),
   signalValidity:String(x.signalValidity||'unknown'),
   duplicateSignalCount:finite(x.duplicateSignalCount)?Math.max(0,Math.floor(x.duplicateSignalCount)):0,
-  pushHistory:Array.isArray(x.pushHistory)?x.pushHistory.slice(0,8).map(h=>({
-   ts:finite(h?.ts)?h.ts:null,status:String(h?.status||''),title:String(h?.title||''),note:String(h?.note||''),channel:String(h?.channel||'')
+  pushHistory:Array.isArray(x.pushHistory)?x.pushHistory.map(h=>({
+   ts:finite(h?.ts)?h.ts:null,status:String(h?.status||''),title:String(h?.title||''),note:String(h?.note||''),channel:String(h?.channel||''),
+   signalRefs:(Array.isArray(h?.signalRefs)?h.signalRefs:[]).filter(ref=>ref?.code===String(x.code)).map(ref=>({type:String(ref.type||''),ts:finite(ref.ts)?ref.ts:null}))
   })) : [],
-  signalHistory:Array.isArray(x.signalHistory)?x.signalHistory.slice(0,8).map(h=>({
-   triggerAt:finite(h?.triggerAt)?h.triggerAt:null,triggerStrategy:String(h?.triggerStrategy||''),probability:finite(h?.probability)?h.probability:null,
-   rawMessage:String(h?.rawMessage||'')
+  signalHistory:Array.isArray(x.signalHistory)?x.signalHistory.map(h=>({
+   triggerAt:finite(h?.triggerAt)?h.triggerAt:null,triggerStrategy:String(h?.triggerStrategy||''),strategyVersion:String(h?.strategyVersion||''),probability:finite(h?.probability)?h.probability:null,
+   rawMessage:String(h?.rawMessage||''),quoteAt:finite(h?.quoteAt)?h.quoteAt:null,quoteSource:String(h?.quoteSource||''),
+   conditionEvidence:(Array.isArray(h?.conditionEvidence)?h.conditionEvidence:[]).map(shapeCondition).filter(Boolean)
   })) : [],
   focused:x.focused===true,
   conditions:(Array.isArray(x.conditions)?x.conditions:[]).map(shapeCondition).filter(Boolean),
@@ -275,7 +277,7 @@ function pushItemsForView(){
    triggerStrategy:'候选观察',triggerAt:null,pushAt:null,quoteAt:finite(row.quoteAt)?row.quoteAt:null,quoteSource:String(row.quoteSource||''),stage:'candidate',stageLabel:'候选股票',
    stageReason:'当前无系统推送记录，展示候选池联动入口',pushStatus:'',pushChannel:'',pushNote:'',focused:row.focused===true,
    volume:finite(row.volume)?row.volume:null,amount:finite(row.amount)?row.amount:null,turnover:finite(row.turnover)?row.turnover:null,mainInflow:finite(row.mainInflow)?row.mainInflow:null,mainPct:finite(row.mainPct)?row.mainPct:null,
-   dataSource:String(row.quoteSource||'candidate_pool'),strategyVersion:String(model?.pushes?.strategyVersion||''),riskLevel:row.bad?'high':'unknown',stopLossRule:'待验证',invalidationRule:'待验证',signalValidity:'unknown',duplicateSignalCount:0,pushHistory:[],signalHistory:[],
+   dataSource:String(row.quoteSource||'candidate_pool'),strategyVersion:'',riskLevel:row.bad?'high':'unknown',stopLossRule:'待验证',invalidationRule:'待验证',signalValidity:'unknown',duplicateSignalCount:0,pushHistory:[],signalHistory:[],
    conditions:fallbackConditions(row),conditionsSummary:null,playbookAnalysis:row.playbookAnalysis||null,factorValues:row.factorValues||{},factorEvidence:row.factorEvidence||{},scope:'all'
   }));
  }
@@ -285,8 +287,8 @@ function pushItemsForView(){
  else if(pushTab==='watch')items=items.filter(x=>x.focused===true);
  if(pushStage!=='all')items=items.filter(x=>x.stage===pushStage);
  items.sort((a,b)=>{
-  const ao=['pending','triggered','sent','failed','expired','candidate'].indexOf(a.stage);
-  const bo=['pending','triggered','sent','failed','expired','candidate'].indexOf(b.stage);
+  const ao=['pending','triggered','sent','failed','expired','candidate','history'].indexOf(a.stage);
+  const bo=['pending','triggered','sent','failed','expired','candidate','history'].indexOf(b.stage);
   return (ao-bo)||((b.triggerAt||0)-(a.triggerAt||0))||((b.quoteAt||0)-(a.quoteAt||0));
  });
   return items;
@@ -312,16 +314,16 @@ function renderPushes(){
  pushUi.scrollTop=listNode.scrollTop||0;
  normalizePushOpen();
  const items=pushItemsForView();
- const stat={candidate:0,triggered:0,pending:0,sent:0,failed:0,expired:0};
+ const stat={candidate:0,triggered:0,pending:0,sent:0,failed:0,expired:0,history:0};
  for(const item of items){if(Object.prototype.hasOwnProperty.call(stat,item.stage))stat[item.stage]++;}
  const summary=el('vx-push-summary');
  const asOf=model?.pushes?.asOf;
  const source=model?.pushes?.source||'state.signals';
  if(summary){
-  summary.textContent=items.length?`当前展示 ${items.length} 条 · 候选${stat.candidate} / 触发${stat.triggered} / 待发${stat.pending} / 已发${stat.sent} / 失败${stat.failed} / 失效${stat.expired} · 数据源 ${source} ${finite(asOf)?new Date(asOf).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):''}`:(model?.pushes?.emptyReason||'暂无系统推送股票记录');
+  summary.textContent=items.length?`当前展示 ${items.length} 条 · 候选${stat.candidate} / 触发${stat.triggered} / 待发${stat.pending} / 已发${stat.sent} / 失败${stat.failed} / 失效${stat.expired} / 历史${stat.history} · 数据源 ${source} ${finite(asOf)?new Date(asOf).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):''}`:(model?.pushes?.emptyReason||'暂无系统推送股票记录');
  }
  const context=el('vx-push-context');
- if(context)context.textContent=`当前对象：${indexScope==='all'?'全部指数':(el('vx-index-scope')?.selectedOptions?.[0]?.textContent||'指数')} · ${sectorScope||'全部板块'}${selected?` · ${selected}`:''}`;
+ if(context)context.textContent=`当前对象：${indexScope==='all'?'全部市场':({'1.000001':'上海市场','0.399001':'深圳市场','0.399006':'创业板','1.000688':'科创板'}[indexScope]||'范围待核验')+'（按代码市场，非指数成分股）'} · ${sectorScope||'全部板块'}${selected?` · ${selected}`:''}`;
  const modeInfo=research.mode==='draft'&&research.factor?`研究预演：${research.factor} ≥ ${research.threshold}`:'生产配置';
  const lastDelivery=model?.pushes?.channels?.lastDispatch;
  const deliveryTxt=lastDelivery&&finite(lastDelivery.t)?`${lastDelivery.sent?'最近发送成功':'最近发送未确认'} · ${new Date(lastDelivery.t).toLocaleTimeString('zh-CN')}`:'最近发送状态待核验';
@@ -347,7 +349,7 @@ function renderPushes(){
   const cond=item.conditions.length?item.conditions:[];
   const met=cond.filter(c=>c.satisfied===true).length;
   const total=cond.filter(c=>c.satisfied!==null).length;
-  const ratio=total?`${met}/${total}`:'—';
+  const ratio=total?`${met}/${total}（已记录条件${cond.length>total?'，另有'+(cond.length-total)+'项待核验':''}）`:'待核验';
   const triggerAt=item.triggerAt?new Date(item.triggerAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'—';
   const pushAt=item.pushAt?new Date(item.pushAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'—';
   const quoteAt=item.quoteAt?new Date(item.quoteAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'未知';
@@ -355,11 +357,12 @@ function renderPushes(){
   const amountText=finite(item.amount)?format(item.amount/1e8)+'亿':'未知';
   const volumeText=finite(item.volume)?format(item.volume,0):'未知';
   const validity=item.signalValidity==='active'?'有效待跟踪':item.signalValidity==='invalid'?'已失效':'待验证';
-  const historyLine=item.pushHistory.length?item.pushHistory.slice(0,3).map(h=>`${h.ts?new Date(h.ts).toLocaleTimeString('zh-CN'):''} ${h.status||'状态未知'}`).join(' / '):'暂无推送历史';
+  const historyLine=item.pushHistory.length?`<details><summary>推送历史（${item.pushHistory.length}条保留日志）</summary>${item.pushHistory.map(h=>`<p>${esc(h.ts?new Date(h.ts).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'时间未知')} · ${esc(h.status||'状态未知')} · ${esc(h.channel||'通道未知')} · ${esc(h.title)} ${esc(h.note)} ${h.signalRefs.map(ref=>esc(ref.type)+' @ '+esc(ref.ts?new Date(ref.ts).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'时间未知')).join(' / ')}</p>`).join('')}</details>`:'暂无推送历史';
+  const signalLine=item.signalHistory.length?`<details><summary>信号历史（${item.signalHistory.length}条）</summary>${item.signalHistory.map(h=>`<p>${esc(h.triggerAt?new Date(h.triggerAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'时间未知')} · ${esc(h.triggerStrategy||'策略未知')} · 版本 ${esc(h.strategyVersion||'未知')} · ${esc(h.rawMessage)}${h.conditionEvidence.map(c=>' · '+esc(c.label)+': '+esc(c.value)+' '+esc(c.operator)+' '+esc(c.threshold)+' ('+esc(c.satisfied===null?'待核验':c.satisfied?'满足':'未满足')+')').join('')}</p>`).join('')}</details>`:'';
   const duplicateLine=item.duplicateSignalCount>0?`重复信号 ${item.duplicateSignalCount} 次`:'无重复信号';
-  const strategyVersion=item.strategyVersion||model?.pushes?.strategyVersion||'待验证';
+  const strategyVersion=item.strategyVersion||'未知（未留存）';
   const riskLabel=item.riskLevel==='high'?'高风险':'待验证';
-  return `<details class="vx-push-item ${stageClass}" data-vx-push-key="${esc(key)}"${open}><summary><b>${esc(item.name)}<small>${esc(item.code)} · ${esc(item.sector||'板块未知')}</small></b><span class="vx-stage">${esc(item.stageLabel)}</span><strong class="${item.pct<0?'vx-down':'vx-up'}">${format(item.price)} ${finite(item.pct)?(item.pct>0?'+':'')+item.pct.toFixed(2)+'%':'—'}</strong></summary><div class="vx-push-meta"><p>触发策略：${esc(item.triggerStrategy)} · 条件满足 ${ratio}</p><p>触发时间：${esc(triggerAt)} · 推送时间：${esc(pushAt)}</p><p>行情：${format(item.price)} / ${finite(item.pct)?(item.pct>0?'+':'')+item.pct.toFixed(2)+'%':'—'} · 成交量 ${esc(volumeText)} · 成交额 ${esc(amountText)} · 主力净额 ${esc(flowText)}</p><p>来源：${esc(item.dataSource||'未知')} · 原始时间 ${esc(quoteAt)} · 策略版本 ${esc(strategyVersion)}</p><p>风险：${esc(riskLabel)} · 止损 ${esc(item.stopLossRule||'待验证')} · 失效条件 ${esc(item.invalidationRule||'待验证')} · 当前信号 ${esc(validity)}</p><p>状态：${esc(item.stageReason||'待核验')} ${item.pushStatus?`· ${esc(item.pushStatus)}`:''}${item.pushNote?` · ${esc(item.pushNote)}`:''}</p><p>历史：${esc(historyLine)} · ${esc(duplicateLine)}</p><div class="vx-push-actions"><button type="button" data-vx-code="${esc(item.code)}">查看行情</button><button type="button" data-vx-evidence="${esc(key)}">查看依据</button><a href="/#v6-stock" aria-label="打开自选股票页">加入自选</a><button type="button" data-vx-pin="${esc(key)}">${pinned?'取消固定':'固定对比'}</button></div></div></details>`;
+  return `<details class="vx-push-item ${stageClass}" data-vx-push-key="${esc(key)}"${open}><summary><b>${esc(item.name)}<small>${esc(item.code)} · ${esc(item.sector||'板块未知')}</small></b><span class="vx-stage">${esc(item.stageLabel)}</span><strong class="${item.pct<0?'vx-down':'vx-up'}">${format(item.price)} ${finite(item.pct)?(item.pct>0?'+':'')+item.pct.toFixed(2)+'%':'—'}</strong></summary><div class="vx-push-meta"><p>触发策略：${esc(item.triggerStrategy)} · 条件满足 ${ratio}</p><p>触发时间：${esc(triggerAt)} · 推送时间：${esc(pushAt)}</p><p>行情：${format(item.price)} / ${finite(item.pct)?(item.pct>0?'+':'')+item.pct.toFixed(2)+'%':'—'} · 成交量 ${esc(volumeText)} · 成交额 ${esc(amountText)} · 主力净额 ${esc(flowText)}</p><p>来源：${esc(item.dataSource||'未知')} · 原始时间 ${esc(quoteAt)} · 策略版本 ${esc(strategyVersion)}</p><p>风险：${esc(riskLabel)} · 止损 ${esc(item.stopLossRule||'待验证')} · 失效条件 ${esc(item.invalidationRule||'待验证')} · 当前信号 ${esc(validity)}</p><p>状态：${esc(item.stageReason||'待核验')} ${item.pushStatus?`· ${esc(item.pushStatus)}`:''}${item.pushNote?` · ${esc(item.pushNote)}`:''}</p><p>${esc(duplicateLine)}</p>${historyLine}${signalLine}<div class="vx-push-actions"><button type="button" data-vx-code="${esc(item.code)}">查看行情</button><button type="button" data-vx-evidence="${esc(key)}">查看依据</button><a href="/#v6-stock" aria-label="打开自选股票页">加入自选</a><button type="button" data-vx-pin="${esc(key)}">${pinned?'取消固定':'固定对比'}</button></div></div></details>`;
  }).join('');
  listNode.append(wrap);
  listNode.scrollTop=pushUi.scrollTop;
@@ -393,7 +396,7 @@ function renderConditionsFor(code,forcedKey=''){
  const first=forcedKey&&conditionCache.has(forcedKey)?forcedKey:[...conditionCache.keys()][0];
  const active=conditionCache.get(first);
  if(active){
-  detail.innerHTML=`<p><b>${esc(active.label)}</b> · ${active.operator} ${active.threshold===null?'—':active.threshold}</p><p>实际值：${active.value===null?'缺失':active.value} · 判定：${active.satisfied===true?'满足':active.satisfied===false?'未满足':'无法判定'}</p><p>来源：${esc(active.source||'来源未知')} · 更新时间：${active.updatedAt?new Date(active.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'未知'}</p><p>${esc(active.reason||'缺少说明')}</p>`;
+  detail.innerHTML=`<p><b>${esc(active.label)}</b> · ${esc(active.operator)} ${active.threshold===null?'—':active.threshold}</p><p>实际值：${active.value===null?'缺失':active.value} · 判定：${active.satisfied===true?'满足':active.satisfied===false?'未满足':'无法判定'}</p><p>来源：${esc(active.source||'来源未知')} · 更新时间：${active.updatedAt?new Date(active.updatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'未知'}</p><p>${esc(active.reason||'缺少说明')}</p>`;
  }
 }
 
@@ -480,7 +483,7 @@ function renderIssuer(row,positivePatterns=0){
 function token(){try{return (typeof getRelToken==='function'?getRelToken():typeof getToken==='function'?getToken():'')||'';}catch{return '';}}
 
 async function select(code){
- const row=(model?.rows||[]).find(r=>r.code===code);
+ const row=(model?.rows||[]).find(r=>r.code===code)||(model?.pushes?.items||[]).find(r=>r.code===code);
  const isValidCode=/^\d{6}$/;
  if(!row||!isValidCode.test(code))return;
  selected=code;
@@ -498,7 +501,7 @@ async function select(code){
  renderConditionsFor(code);
  if(el('vx-chart'))el('vx-chart').textContent='正在读取K线…';
  if(el('vx-pattern-preview'))el('vx-pattern-preview').textContent='正在核对历史日K形态，尚无结论';
- const evidence=[row.probabilityLabel||'概率尚未验证',...(row.news||[]).map(n=>n.direction+'：'+n.title+' · '+(n.reason||'缺少判定依据')+' · '+(n.source||'来源未知')+' · '+n.publishedAt+'（未核验）'),...row.signals,...(row.explanation||[]),...(row.bazi?[`八字口诀：${row.bazi.verdict||'结论暂缺'}${row.bazi.line?' · '+row.bazi.line:''}`]:[]),row.bad?'风险：命中现有利空提示':'风险：未完成独立核验'];
+ const evidence=[row.probabilityLabel||'概率尚未验证',...(row.news||[]).map(n=>n.direction+'：'+n.title+' · '+(n.reason||'缺少判定依据')+' · '+(n.source||'来源未知')+' · '+n.publishedAt+'（未核验）'),...(row.signals||[]),...(row.explanation||[]),...(row.bazi?[`八字口诀：${row.bazi.verdict||'结论暂缺'}${row.bazi.line?' · '+row.bazi.line:''}`]:[]),row.bad?'风险：命中现有利空提示':'风险：未完成独立核验'];
  if(el('vx-explanation'))el('vx-explanation').innerHTML=evidence.map(t=>`<p><span>◇</span>${esc(t)}</p>`).join('');
  try{
   const r=await fetch('/api/kline?code='+code+'&n=120',{headers:{Authorization:'Bearer '+token()},signal:controller.signal,cache:'no-store'});
@@ -560,7 +563,7 @@ function render(data){
  renderPushes();
  renderResearchPanel();
  if(model&&selected){
-  const active=(model.rows||[]).find(r=>r.code===selected);
+  const active=(model.rows||[]).find(r=>r.code===selected)||(model.pushes?.items||[]).find(r=>r.code===selected);
   selectedQuote(active);
   renderIssuer(active);
   renderConditionsFor(selected);

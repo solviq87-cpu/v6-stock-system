@@ -9427,8 +9427,8 @@ function pushAll(text, force, opts) {
   });
   if (_mailOn) {
     sendQQMail({ user: m.user, authCode: m.authCode, to: m.to, subject: '【量化看盘】实时信号', text })
-      .then(() => { _mailOk = true; _settle(); })
-      .catch(e => { console.error('[mail]', e && e.message); _mailOk = false; _mailInfo = String((e && e.message) || e); _settle(); });
+      .then(() => { pushLog('✅ 已送达', text, _extra({ channel: '邮箱' })); _mailOk = true; _settle(); })
+      .catch(e => { console.error('[mail]', e && e.message); pushLog(sendResultUnknown(e && e.message) ? '⚠️ 送达结果未知' : '❌ 发送失败', text, _extra({ channel: '邮箱', error: String((e && e.message) || e) })); _mailOk = false; _mailInfo = String((e && e.message) || e); _settle(); });
   }
   // ⛔ 判据必须与 mailReady() 同一把尺子（2026-10-07）：原来这里只查 user+authCode、漏了收件人 to，
   //    于是"邮箱填了一半"时既不算已配、也不记这条「未配置通道」—— 面板流水里只剩一句
@@ -10637,12 +10637,12 @@ function pushOutcomesReport() {
   if (pushAll(msg, true, { private: true }) !== false) outcomesReportSentDate = ds;
 }
 
-function dashboardPushMeta() {
+function dashboardPushMeta(includePrivate = false) {
   return {
-    pushLast: pushLast(),
+    pushLast: includePrivate ? pushLast() : null,
     pushGov: pushGovStat(),
-    pushLog: (Array.isArray(PUSH_LOG) ? PUSH_LOG : []).slice(0, 240),
-    strategyVersion: APP_VER
+    pushLog: includePrivate && Array.isArray(PUSH_LOG) ? PUSH_LOG : [],
+    appVersion: APP_VER
   };
 }
 
@@ -12515,7 +12515,7 @@ function pushAuctionResonanceTop3(items) {
   pushAll(text, false, { private: true });
 }
 
-function buildMobileDigest() {
+function buildMobileDigest(includePrivate = false) {
   const mood = marketMood();
   const auc = S.auction || {};
   let zt = S.ztPool || [];
@@ -12535,7 +12535,7 @@ function buildMobileDigest() {
     }
   }
   return {
-    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood,Date.now(),dashboardPushMeta()),
+    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood,Date.now(),dashboardPushMeta(includePrivate)),
     now: Date.now(),
     trading: isTradingTime(),
     ready: marketReady(),
@@ -21403,7 +21403,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return { direct, indirect };
     };
     return json(res, {
-      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood(),Date.now(),dashboardPushMeta()),
+      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood(),Date.now(),dashboardPushMeta(_stEdit)),
       now: Date.now(), trading: isTradingTime(),
       loop: S.loop,
       auction: S.auction,
@@ -21640,7 +21640,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // 手机速览页 /m 的精简数据源：只下发「一眼结论」所需字段（几十 KB 内）。
   // ⛔ 复用 /api/state 同源数据，不新写聚合口径（见 buildMobileDigest 注释）。
   if (p === '/api/mobile-digest') {
-    return json(res, buildMobileDigest());
+    return json(res, buildMobileDigest(isEditorReq(req, '')));
   }
   // 手机速览页「量化选股」卡片数据源。
   // ⛔ js 轮（2026-10-22，用户原话「把这个上面的功能设置成只读也可见」+截图）：量化选股/竞价共振
