@@ -3,9 +3,11 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const server=fs.readFileSync(path.resolve(__dirname,'../server.js'),'utf8');
 const match=/async function auctionResonanceScan\(opts = \{\}\) \{[\s\S]*?\n\}\n/.exec(server);
+const learningExtra=/function learningSignalExtra\(row,extra=\{\}\) \{[\s\S]*?\n\}/.exec(server);
 const now=Date.parse('2026-11-09T09:25:45+08:00');
 function engine(){
  assert.ok(match,'missing real scan function');
+ assert.ok(learningExtra,'missing real signal provenance adapter');
  const events={pushed:0,logged:0,computed:0,klineFetches:0,smoothPreviews:0,smoothWrites:0,errors:[]};
  const S={
   stocks:[
@@ -49,9 +51,10 @@ function engine(){
   klineRows:async()=>{events.klineFetches++;return [];},
   pushAuctionResonanceTop3:()=>{events.pushed++;},
   logSignal:()=>{events.logged++;},
+  productionSignalVersion:()=> 'auction-read-isolation-fixture',
   console:{error:(...args)=>events.errors.push(args.map(String).join(' '))}
  };
- const scan=vm.runInNewContext(match[0]+'\nauctionResonanceScan;',context);
+ const scan=vm.runInNewContext(learningExtra[0]+'\n'+match[0]+'\nauctionResonanceScan;',context);
  return {scan,S,events};
 }
 test('viewer GET recomputes market research without push, learning writes or trading commands',async()=>{
