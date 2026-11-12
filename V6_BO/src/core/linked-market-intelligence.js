@@ -15,7 +15,7 @@ function publicContextView(context,asOf){
  const retrievedAt=stamp(context?.retrievedAt),usable=Number.isFinite(retrievedAt)&&retrievedAt>0&&retrievedAt<=asOf&&available(context)&&context.source==='eastmoney'&&day(context.tradeDate)&&context.tradeDate<=new Date(asOf+8*3600000).toISOString().slice(0,10);
  const out={status:usable?'observed-unverified':'unknown',tradeDate:usable?context.tradeDate:null,
   retrievedAt:usable?context.retrievedAt:null,source:usable?context.source:null,sourceTimestamp:null,
-  funds:{market:null,sector:null,stock:null},sentiment:{status:'unknown',reason:'缺少同日完整涨停和炸板未封池'},
+  indices:null,funds:{market:null,sector:null,stock:null},sentiment:{status:'unknown',reason:'缺少同日完整涨停和炸板未封池'},
   limitation:'接收时间不是原始行情时间；资金为供应商按订单大小估算，不能识别真实账户身份'};
  if(!usable)return out;
  for(const [key,input] of [['market','marketFlow'],['sector','sectorFlow'],['stock','stockFlow']]){
@@ -28,9 +28,11 @@ function publicContextView(context,asOf){
   if(flow.source!=='eastmoney'||flow.fundsMethod!=='vendor-order-size-estimate'||!Array.isArray(rows)||rows.length>120)continue;
   if(rows.some(r=>!day(r.tradeDate)||r.tradeDate>context.tradeDate||!available(r))||new Set(rows.map(r=>r.tradeDate)).size!==rows.length)continue;
   out.funds[key]={source:'eastmoney',fundsMethod:flow.fundsMethod,symbol:/^\d{6}$/.test(flow.symbol||'')?flow.symbol:null,
-   rawHash:/^[a-f0-9]{64}$/.test(flow.rawHash||'')?flow.rawHash:null,
+   sectorCode:/^BK\d{4}$/.test(flow.sectorCode||'')?flow.sectorCode:null,rawHash:/^[a-f0-9]{64}$/.test(flow.rawHash||'')?flow.rawHash:null,
    retrievedAt:received,sourceTimestamp:sourceAt,status:'observed-unverified',unit:'CNY',...flags,
    records:rows.map(r=>({tradeDate:r.tradeDate,...Object.fromEntries(['mainNetInflow','smallNetInflow','midNetInflow','bigNetInflow','superNetInflow'].map(k=>[k,finite(r[k])?r[k]:null]))}))};
+  if(key==='market')out.indices={source:'eastmoney',tradeDate:rows.at(-1)?.tradeDate||null,retrievedAt:received,sourceTimestamp:sourceAt,
+   rawHash:out.funds.market.rawHash,records:rows.map(r=>({tradeDate:r.tradeDate,...Object.fromEntries(['shanghaiClose','shanghaiChangePct','shenzhenClose','shenzhenChangePct'].map(k=>[k,finite(r[k])?r[k]:null]))})),...flags};
  }
  const pools=context.limitPools;
  // Recompute descriptive ratios from complete, disjoint records; distrust scores.

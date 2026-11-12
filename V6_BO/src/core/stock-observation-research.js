@@ -9,6 +9,31 @@ const {studyPatternOutcomes}=require('../strategy/pattern-outcome-study');
 const {detectPatterns}=require('../strategy/a-share-patterns');
 const {publicContextView}=require('./linked-market-intelligence');
 const {readResearchCalendar}=require('./research-calendar-source');
+const {fetchPublicStockStatusEvidence}=require('./public-stock-status-evidence');
+const {freezeResearchEvidenceBundle,readResearchEvidenceBundle}=require('./research-evidence-bundle');
+const {advancePriceEventResearch,readPriceEventResearch}=require('./price-event-research-agent');
+const {scheduleStockResearchFollowup}=require('./stock-research-followups');
+function researchPaths(options){
+ const base=path.dirname(options.observationRoot);
+ return {evidenceRoot:options.evidenceRoot||path.join(base,'stock-research-evidence'),
+  priceEventRoot:options.priceEventRoot||path.join(base,'stock-price-event-research'),
+  followupRoot:options.followupRoot||path.join(base,'stock-research-followups'),
+  watchRoot:options.watchRoot||path.join(base,'stock-research-watchlist'),
+  publicSectorRoot:options.publicSectorRoot||path.join(base,'public-sector-research')};
+}
+function sourceReferences(root,evidence=[]){
+ return evidence.map(e=>({...archiveRawEvidence(root,e),source:e.source||'unknown',url:e.url||null,receivedAt:e.receivedAt}));
+}
+async function currentPublicSectors(root,{now=Date.now}={}){
+ const {readPublicSectorResearch,capturePublicSectorResearch}=require('./public-sector-research');
+ const prior=readPublicSectorResearch(root,{now});
+ const selection=Array.isArray(prior.selection)?prior.selection:prior.selection?.boards;
+ // A user chooses the fixed board universe; a stock capture never selects winners.
+ if(!selection?.length)return prior;
+ const last=prior.current?.retrievedAt??prior.current?.observedAt??prior.retrievedAt;
+ return Number.isSafeInteger(last)&&now()-last<15*60000?prior:capturePublicSectorResearch(root,{}, {now});
+}
+
 const flags={researchOnly:true,canTrade:false,canNotify:false,verifiedLive:false,productionWeightsChanged:false,autoPromotion:false};
 const symbolOK=s=>typeof s==='string'&&/^(?:(?:600|601|603|605|688|000|001|002|003|300|301)\d{3}|(?:43|83|87|88|92)\d{4})$/.test(s);
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -46,6 +71,22 @@ function priceFormation(stock,asOf){
  return {status:'price-only-unverified',date:bars.at(-1)?.date||null,availableAt:bars.length?Math.max(...bars.map(b=>b.knownAt)):null,
   historicalEligible:false,calendarContinuityVerified:false,patterns:detectPatterns({...stock,bars}),...flags};
 }
+function observedLinkage(result){
+ const date=result.history.tradeDate,market=result.marketContext,sector=result.evidenceBundle?.sectorContext;
+ const current=sector?.current,boards=Array.isArray(current?.boards)?current.boards:[];
+ const memberBoards=boards.filter(b=>b.membershipComplete&&Array.isArray(b.members)&&b.members.includes(result.stock.symbol));
+ const sameDate=market?.tradeDate===date,stockFlow=market?.funds?.stock;
+ const flow=stockFlow?.symbol===result.stock.symbol?stockFlow.records.find(r=>r.tradeDate===date):null;
+ const index=sameDate?market?.indices?.records?.find(r=>r.tradeDate===date):null;
+ return {status:'descriptive-unverified',tradeDate:date,marketTradeDate:market?.tradeDate||null,
+  sameMarketTradeDate:sameDate,indices:index||null,stockMainNetInflow:typeof flow?.mainNetInflow==='number'?flow.mainNetInflow:null,
+  sentiment:sameDate?market?.sentiment:null,
+  memberBoards:memberBoards.map(b=>({category:b.category,code:b.code,name:b.name,quoteDate:b.quoteDate,quoteAt:b.quoteAt,
+   membersObservedAt:b.membersObservedAt,sameQuoteDate:b.quoteDate===date,changePct:b.quoteDate===date?b.changePct:null,
+   mainNetInflow:b.quoteDate===date?b.mainNetInflow:null,membershipScope:'current-observation-only'})),
+  patternIds:result.currentFormation?.patterns?.matched?.map(p=>p.id)||[],
+  limitation:'同日共现与当前成员归属用于解释；不证明指数导致个股涨跌，不作为过去样本特征或策略权重',...flags};
+}
 function sectorCaptureResearch({captureRoot,calendarFile,asOf,sectorIds}={}){
  if(!captureRoot)return {status:'unconfigured',reason:'尚未配置同时冻结的板块成员和行情档案',...flags};
  try{
@@ -55,13 +96,13 @@ function sectorCaptureResearch({captureRoot,calendarFile,asOf,sectorIds}={}){
   return {status:input.status,report,provenance:input.provenance,limitations:input.limitations,...flags};
  }catch{return {status:'unavailable',reason:'冻结板块档案、日历或明确成员选择未通过校验',...flags};}
 }
-function buildObservationResearch({stock,history,observation,asOf,context=null,saveMemory=false},{memoryRoot,calendarFile,readCalendar=readResearchCalendar,sectorCaptureRoot,sectorIds}={}){
+function buildObservationResearch({stock,history,observation,asOf,context=null,marketContext=null,evidenceBundle=null,saveMemory=false},{memoryRoot,calendarFile,readCalendar=readResearchCalendar,sectorCaptureRoot,sectorIds}={}){
  const cal=readCalendar({asOf,symbol:stock.symbol,calendarFile}),blockers=[];
  const result={schemaVersion:1,status:'captured',asOf,stock,history:{...history,tradeDate:stock.bars.at(-1)?.date||null},observation,
   calendar:{status:cal.status,source:cal.metadata?.source||null,from:cal.metadata?.from||null,to:cal.metadata?.to||null,
    nextTradeDate:cal.tradeDates?.find(d=>d>stock.bars.at(-1)?.date)||null,nextSessionAfterAsOfDate:cal.nextTradeDate||null,
    metadata:cal.metadata||null,reason:cal.reason||null},analysis:null,patternStudy:null,currentFormation:priceFormation(stock,asOf),
-  marketContext:publicContextView(context,asOf),sectorRelations:null,memory:{status:'not-requested'},...flags,
+  marketContext:marketContext||publicContextView(context,asOf),evidenceBundle,sectorRelations:null,memory:{status:'not-requested'},...flags,
   limitations:['原始响应接收时间不是供应商历史发布时间；初次下载的旧K线不会变成过去已知的样本',
    '当前价格形态与严格历史概率分开；状态、公司行为和涨停价证据缺失不会补造',
    '重复同版数据复用原档案，来源或价格口径不同的记录独立留存']};
@@ -85,7 +126,7 @@ function buildObservationResearch({stock,history,observation,asOf,context=null,s
       const researchKey=hash(JSON.stringify({observationHash:observation.observationHash,forecastEvidence,calendarHash:cal.metadata?.sha256||null}));
       const prior=readStockMemory(memoryRoot,stock.symbol,{asOf,limit:500}).revisions.find(e=>e.context?.researchKey===researchKey);
       result.memory=prior?{status:'saved',revision:prior.revision,eventHash:prior.eventHash,reused:true}: {status:'saved',...appendSnapshot(memoryRoot,{stock:study,forecast:result.analysis,decisionAt:asOf,
-       context:{researchKey,observationHash:observation.observationHash,sourceRawHash:history.rawHash||null,calendarHash:cal.metadata?.sha256||null}})};
+       context:{researchKey,observationHash:observation.observationHash,sourceRawHash:history.rawHash||null,calendarHash:cal.metadata?.sha256||null,evidenceBundleHash:evidenceBundle?.hash||null}})};
      }catch{result.memory={status:'failed',reason:'研究预测档案未完成，原有不可变档案保留'};blockers.push('研究预测封存尚未成功，可以重试；原始行情观察已保留');}
     }
    }catch{blockers.push('逐日来源、数据口径或研究证据不满足严格协议');}
@@ -93,6 +134,7 @@ function buildObservationResearch({stock,history,observation,asOf,context=null,s
  }
  result.sectorCapture=sectorCaptureResearch({captureRoot:sectorCaptureRoot,calendarFile,asOf,sectorIds});
  result.sectorRelations=result.sectorCapture.report||null;
+ result.linkage=observedLinkage(result);
  result.readiness={blockers};return result;
 }
 function validateOptions(options){
@@ -102,13 +144,18 @@ function validateOptions(options){
 }
 async function observeStock(options,dependencies={}){
  validateOptions(options);
- const {observationRoot,memoryRoot,calendarFile,sectorCaptureRoot,sectorIds,fetchHistory=fetchPublicStockHistory,fetchContext=fetchPublicContext,readCalendar=readResearchCalendar,now=Date.now}=dependencies;
+ const {observationRoot,memoryRoot,calendarFile,sectorCaptureRoot,sectorIds,fetchHistory=fetchPublicStockHistory,fetchContext=fetchPublicContext,fetchStatus=fetchPublicStockStatusEvidence,fetchSectors=currentPublicSectors,readCalendar=readResearchCalendar,now=Date.now}=dependencies;
+ const roots=researchPaths(dependencies);
  const clock=typeof now==='function'?now:()=>now;
  const outcomes=await Promise.allSettled([fetchHistory({symbol:options.symbol,provider:options.provider||'auto',historyDays:options.historyDays??120},{now:clock}),
-  options.includeContext?fetchContext({symbol:options.symbol,sectorCode:options.sectorCode},{now:clock}):Promise.resolve(null)]);
+  options.includeContext?fetchContext({symbol:options.symbol,sectorCode:options.sectorCode},{now:clock,retainRawEvidence:true}):Promise.resolve(null),
+  options.includeContext?fetchStatus({symbol:options.symbol},{now:clock}):Promise.resolve(null),
+  options.includeContext?fetchSectors(roots.publicSectorRoot,{now:clock}):Promise.resolve(null)]);
  const history=outcomes[0].status==='fulfilled'?outcomes[0].value:null;
  const asOf=clock();if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>Date.now())throw Error('研究观察时点无效');
  const context=outcomes[1].status==='fulfilled'?outcomes[1].value:null;
+ const stockStatus=outcomes[2].status==='fulfilled'?outcomes[2].value:null;
+ const sectorContext=outcomes[3].status==='fulfilled'?outcomes[3].value:null;
  const rawEvidence=history?.rawEvidence?archiveRawEvidence(observationRoot,history.rawEvidence):null;
  if(!history||history.status!=='observed-unverified'||!history.stock?.bars?.length)return {schemaVersion:1,status:'unavailable',asOf,
   history:history?historySummary(history):{status:'unknown',errors:[{code:'history-source-unavailable'}]},stock:null,analysis:null,currentFormation:null,
@@ -121,8 +168,33 @@ async function observeStock(options,dependencies={}){
  const observation=retainStockObservation(observationRoot,{stock,observedAt:history.retrievedAt,
   context:{sourceEvidence:history.provenance,units:history.units,rawEvidence,trigger:options.trigger||'manual-research'}});
  const {stock:merged,...receipt}=observation;
- return buildObservationResearch({stock:merged,history:historySummary(history),observation:receipt,asOf,context,saveMemory:true},
+ const sourceRefs=[{...rawEvidence,source:history.source,url:history.provenance?.requestUrl||null,receivedAt:history.retrievedAt},
+  ...sourceReferences(observationRoot,context?.rawEvidence),...sourceReferences(observationRoot,stockStatus?.rawEvidence)];
+ const marketContext=publicContextView(context,asOf);
+ const compactStatus=stockStatus?Object.fromEntries(Object.entries(stockStatus).filter(([k])=>k!=='rawEvidence')):null;
+ const evidenceBundle=freezeResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,priceBasis:merged.priceBasis,
+  decisionAt:asOf,observationHash:receipt.observationHash,history:historySummary(history),marketContext,stockStatus:compactStatus,sectorContext,
+  sourceRefs,trigger:options.origin||{kind:options.trigger||'manual-research'}});
+ const result=buildObservationResearch({stock:merged,history:historySummary(history),observation:receipt,asOf,context,marketContext,evidenceBundle,saveMemory:true},
   {memoryRoot,calendarFile,readCalendar,sectorCaptureRoot,sectorIds});
+ result.stockStatus=compactStatus;result.publicSectors=sectorContext;
+ const cal=readCalendar({asOf,symbol:merged.symbol,calendarFile});
+ result.priceEventResearch={status:'unavailable',reason:cal.reason||'明确交易日历与价格尚不满足研究条件',...flags};
+ if(cal.status==='available'){
+  const dates=new Set(cal.tradeDates),bars=merged.bars.filter(b=>dates.has(b.date));
+  const conflict=merged.bars.some(b=>b.date>=cal.calendar.from&&b.date<=cal.calendar.to&&!dates.has(b.date));
+  if(bars.length&&!conflict)try{
+   result.priceEventResearch=advancePriceEventResearch(roots.priceEventRoot,{stock:{...merged,bars},observationHash:receipt.observationHash,
+    evidenceBundleHash:evidenceBundle.hash,decisionAt:asOf,tradeDates:cal.tradeDates});
+   const scheduled=result.priceEventResearch.pendingTargets.map(target=>scheduleStockResearchFollowup(roots.followupRoot,target));
+   result.researchFollowups={status:scheduled.some(r=>!r.scheduled)?'blocked':'scheduled',targets:scheduled,...flags};
+  }catch{result.priceEventResearch={status:'failed',reason:'研究结果或复访任务尚未完整封存，价格档案已保留',...flags};}
+ }
+ try{result.watch=require('./stock-research-watchlist').registerResearchWatch(roots.watchRoot,{symbol:merged.symbol,provider:merged.provider,registeredAt:asOf});}
+ catch{result.watch={status:'failed',reason:'日终观察登记未完成',...flags};}
+ const frozenHash=result.priceEventResearch.currentHypothesis?.evidenceBundleHash;
+ result.hypothesisEvidence=frozenHash?(frozenHash===evidenceBundle.hash?evidenceBundle:readResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,asOf:Date.now(),hash:frozenHash})):null;
+ return result;
 }
 function readStockObservationResearch({symbol,provider},dependencies={}){
  if(!symbolOK(symbol)||!['eastmoney','tencent'].includes(provider))throw Error('读取档案需要明确股票与来源');
@@ -130,9 +202,17 @@ function readStockObservationResearch({symbol,provider},dependencies={}){
  const asOf=typeof now==='function'?now():now,stored=readObservedStock(observationRoot,symbol,{provider,priceBasis:'unadjusted',asOf});
  if(!stored.stock)return {schemaVersion:1,status:'empty',asOf,stock:null,observation:{revision:0},calendar:{status:'unavailable'},analysis:null,
   currentFormation:null,memory:{status:'not-requested'},readiness:{blockers:['该来源尚无股票观察档案']},...flags};
- const latest=stored.observations.at(-1);
- return buildObservationResearch({stock:stored.stock,observation:{revision:stored.revision,changed:false,observationHash:latest.observationHash,observationCount:stored.observationCount},asOf,
+ const latest=stored.observations.at(-1),roots=researchPaths(dependencies);
+ const evidenceBundle=readResearchEvidenceBundle(roots.evidenceRoot,{symbol,provider,asOf});
+ const result=buildObservationResearch({stock:stored.stock,observation:{revision:stored.revision,changed:false,observationHash:latest.observationHash,observationCount:stored.observationCount},asOf,
+  marketContext:evidenceBundle?.marketContext,evidenceBundle,
   history:{status:'stored-observation',source:stored.stock.source,provider,priceBasis:'unadjusted',retrievedAt:stored.stock.observedAt,sourceTimestamp:null,errors:[],archiveReadOnly:true}},
   {memoryRoot,calendarFile,readCalendar,sectorCaptureRoot,sectorIds});
+ result.stockStatus=evidenceBundle?.stockStatus||null;result.publicSectors=evidenceBundle?.sectorContext||null;
+ const research=readPriceEventResearch(roots.priceEventRoot,{symbol,provider,asOf});
+ result.priceEventResearch=research.streams[0]||{status:'empty',...flags};
+ const frozenHash=result.priceEventResearch.currentHypothesis?.evidenceBundleHash;
+ result.hypothesisEvidence=frozenHash?readResearchEvidenceBundle(roots.evidenceRoot,{symbol,provider,asOf,hash:frozenHash}):null;
+ return result;
 }
-module.exports={observeStock,readStockObservationResearch,buildObservationResearch,archiveRawEvidence,sectorCaptureResearch};
+module.exports={observeStock,readStockObservationResearch,buildObservationResearch,archiveRawEvidence,sectorCaptureResearch,researchPaths};

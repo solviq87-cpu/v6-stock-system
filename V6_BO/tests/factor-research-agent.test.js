@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {runAgent,readAgentStatus,validateConfig}=require('../src/core/factor-research-agent');
 const {main,parse}=require('../scripts/factor-research-agent');
-const {preregisterCandidate}=require('../src/core/factor-candidate-prereg');
+const {preregisterCandidate,preregisterSeedCandidate,SEED_POLICY}=require('../src/core/factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const now=Date.parse('2026-09-21T16:04:00+08:00');
 function setup(t){
@@ -72,6 +72,24 @@ test('H5 payloads are never opened by perception or preview',t=>{
  fs.writeFileSync(path.join(archives,'00000002-2026-09-21.json'),'INVALID FORWARD RETURN JSON MUST NOT BE READ');
  const result=runAgent(config,{now:now+1});
  assert.equal(result.status,'preview-ready');assert.equal(result.nextAction,'run-observe-research-cycle');
+});
+test('agent recognizes independently validated empty-prefix seed without opening outcomes or altering failure policy',t=>{
+ const {config}=setup(t);
+ t.mock.method(Date,'now',()=>now);
+ const seedConfig={schemaVersion:1,mode:'v6-fixed-shadow-seed-config-v1',
+  researchOnly:true,canTrade:false,seedPolicy:SEED_POLICY,
+  factorIds:['sector_heat','leader_strength']};
+ const entry=preregisterSeedCandidate({seedConfig,registeredAt:now-60000});
+ fs.mkdirSync(config.cycle.modelDir,{mode:0o700});
+ const file=path.join(config.cycle.modelDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+ fs.writeFileSync(file,JSON.stringify(entry),{mode:0o600});
+ assert.equal(runAgent(config,{now}).status,'preview-ready');
+ assert.equal(fs.existsSync(config.outputDir),false);
+ const changed={...entry,candidateWeights:{...entry.candidateWeights,sector_heat:1.4}};
+ const {fingerprint,...body}=changed;changed.fingerprint=hash(body);
+ fs.unlinkSync(file);
+ fs.writeFileSync(path.join(config.cycle.modelDir,'prereg-'+changed.fingerprint.slice(0,12)+'.json'),JSON.stringify(changed));
+ assert.throws(()=>runAgent(config,{now}),/stopped-check-private/);
 });
 test('missing current-day data gives actionable needs-data status with no provider/path leakage',t=>{
  const {config,dir}=setup(t);fs.unlinkSync(config.cycle.historyFile);

@@ -17,7 +17,13 @@ function runStockObservationJob(payload,options={}){
 }
 if(!isMainThread){
  const {payload,options}=workerData;
- Promise.resolve().then(()=>options.action==='sector'
+ Promise.resolve().then(()=>options.action==='status'
+  ?require('../core/stock-observation-monitor').readStockResearchStatus(options)
+  :options.action==='read-public-sectors'
+  ?require('../core/public-sector-research').readPublicSectorResearch(options.publicSectorRoot)
+  :options.action==='capture-public-sectors'
+  ?require('../core/public-sector-research').capturePublicSectorResearch(options.publicSectorRoot,payload)
+  :options.action==='sector'
   ?require('../core/stock-observation-research').sectorCaptureResearch({captureRoot:options.sectorCaptureRoot,calendarFile:options.calendarFile,asOf:Date.now(),sectorIds:payload.sectorIds})
   :options.action==='read'
   ?require('../core/stock-observation-research').readStockObservationResearch(payload,options)

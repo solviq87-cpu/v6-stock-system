@@ -80,3 +80,31 @@ test('chart caps actual supplied candles at 120 and date selector exposes indivi
   const p = get('captureChart'), svg = p.children.find(n => n.tagName === 'svg'); assert.equal(svg.children.filter(n => n.tagName === 'rect').length, 120);
   const control = p.children.find(n => n.tagName === 'input'); control.value = '0'; control.handlers.input(); assert.match(p.textContent, /2026-01-06 · 开 15/);
 });
+
+test('frozen raw candle event, strict forecasts and immutable evidence are labeled independently', async () => {
+  const f = fixture(); f.result.priceEventResearch = { objective: 'next-session-reported-candle-direction-v1', status: 'research-observation-recorded', currentHypothesis: { prediction: 'up', state: 'bullish', targetDate: '2026-11-13', decisionAt: 1794480000000, recordedAt: 1794480001000, probabilities: null, evidenceBundleHash: 'hash-fixture' }, pendingTargets: [{ targetDate: '2026-11-13' }], forwardValidation: { evaluated: 1, independentTargetDays: 1, rawCandleMatchFrequency: null, brier: null, brierEvaluated: 0 } };
+  f.result.evidenceBundle = { hash: 'hash-fixture', recordedAt: 1794480001000, decisionAt: 1794480000000, stockStatus: { dividendEvents: { records: [], status: 'unknown' }, suspensionEvents: { records: [], status: 'unknown' } }, marketContext: { indices: { source: 'fixture', tradeDate: '2026-11-12', sourceTimestamp: null, retrievedAt: '2026-11-13T01:00:00Z', records: [{ tradeDate: '2026-11-12', shanghaiClose: 3000, shenzhenClose: null }] } } };
+  const { get } = setup(f); get('captureSymbol').value = '600000'; await get('captureRun').click();
+  const text = get('captureEvidence').textContent;
+  for (const term of ['原始日K研究状态 / 目标日', '2026-11-13', 'C>O', '等待冻结后独立目标日证据', 'hash-fixture', '无记录不表示正常交易', '3000 / 未知', '指数原始时间：未知']) assert.ok(text.includes(term), term);
+  assert.match(get('captureAnalysis').textContent, /下一交易日上涨概率：等待状态 \/ 行动证据/);
+  assert.doesNotMatch(text, /预测胜率|收益保证|100.0%/);
+});
+
+test('latest observation and hypothesis-sealed evidence never substitute for one another', async () => {
+  const f = fixture(); f.result.priceEventResearch = { currentHypothesis: { evidenceBundleHash: 'old-hash', targetDate: '2026-11-13' } };
+  f.result.evidenceBundle = { hash: 'new-hash', marketContext: { status: 'NEW-CONTEXT' }, sourceRefs: ['new-source'] };
+  f.result.hypothesisEvidence = { hash: 'old-hash', marketContext: { status: 'FROZEN-CONTEXT' }, sourceRefs: ['old-source'] };
+  f.result.linkage = { tradeDate: '2026-11-12', marketTradeDate: '2026-11-12', sameMarketTradeDate: true, indices: { shanghaiClose: 3000, shanghaiChangePct: 0, shenzhenClose: null }, stockMainNetInflow: 0, sentiment: { status: 'observed-unverified' }, memberBoards: [{ category: 'industry', code: 'BK1000', name: '<b>板块</b>', quoteDate: '2026-11-11', sameQuoteDate: false, changePct: 999, mainNetInflow: 999, membershipScope: 'current-observation-only' }] };
+  const { get } = setup(f); get('captureSymbol').value = '600000'; await get('captureRun').click(); const text = get('captureEvidence').textContent;
+  for (const term of ['本次观察与预测封存证据不同', '本次观察哈希：new-hash', '预测引用哈希：old-hash', '封存市场 / 板块状态：FROZEN-CONTEXT / 未知', '同日上证 / 深证：3000 / 未知', '个股同日主力净流入（元）：0', '<b>板块</b>', '日期不同或缺失，数值未知']) assert.ok(text.includes(term), term);
+  assert.doesNotMatch(text, /999/);
+});
+
+test('missing sealed evidence stays unknown and mismatched market date hides same-day index and sentiment', async () => {
+  const f = fixture(); f.result.priceEventResearch = { currentHypothesis: { evidenceBundleHash: 'missing-hash' } }; f.result.evidenceBundle = { hash: 'latest-hash', marketContext: { status: 'NEW' } };
+  f.result.linkage = { sameMarketTradeDate: false, indices: { shanghaiClose: 999 }, sentiment: { status: 'SHOULD-NOT-SHOW' } };
+  const { get } = setup(f); get('captureSymbol').value = '600000'; await get('captureRun').click(); const text = get('captureEvidence').textContent;
+  assert.match(text, /预测封存原文哈希：未知/); assert.match(text, /封存原文缺失或引用不匹配；保持未知/); assert.match(text, /日期不同或缺失，禁止混作同日证据/);
+  assert.doesNotMatch(text, /SHOULD-NOT-SHOW|999|封存市场 \/ 板块状态：NEW/);
+});

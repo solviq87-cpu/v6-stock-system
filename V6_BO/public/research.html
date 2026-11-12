@@ -50,8 +50,17 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div class="linked-controls"><label for="captureSymbol">六位股票代码<input id="captureSymbol" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="六位代码" autocomplete="off"></label><label for="captureProvider">日K来源<select id="captureProvider"><option value="auto">自动选择</option><option value="eastmoney">东方财富</option><option value="tencent">腾讯</option></select></label></div>
 <div class="linked-actions"><button id="captureRun" type="button">采集并研究</button><button id="captureRead" type="button">读取已存历史</button></div>
 <p id="captureStatus" role="status" aria-live="polite">输入代码即可开始；仅点击采集时联网读取行情。</p>
-<div id="captureSummary"></div><div id="captureChart"></div><div id="captureAnalysis"></div><details><summary>完整证据与缺失项</summary><pre id="captureOutput"></pre></details>
+<div id="captureSummary"></div><div id="captureChart"></div><div id="captureAnalysis"></div><div id="captureEvidence"></div><details><summary>完整证据与缺失项</summary><pre id="captureOutput"></pre></details>
 </section>
+<section class="card linked-workbench" id="researchEvidence" aria-labelledby="researchEvidenceHeading">
+<h2 id="researchEvidenceHeading">研究复访与板块证据</h2>
+<div class="linked-actions"><button id="researchStatusRead" type="button">读取云端研究与复访状态</button></div><p id="researchStatusMessage" role="status" aria-live="polite">尚未读取</p><div id="researchStatusSummary"></div>
+<details><summary>板块选择、当前交集与历史覆盖</summary>
+<div class="linked-actions"><button id="sectorSavedRead" type="button">读取已存板块</button><button id="sectorCatalogueRun" type="button">刷新目录与已选板块</button></div>
+<div class="linked-controls"><label for="sectorCategory">板块类型<select id="sectorCategory"><option value="industry">行业</option><option value="concept">概念</option></select></label><label for="sectorSearch">查找板块<input id="sectorSearch" type="search" placeholder="名称或BK代码" autocomplete="off"></label><label for="sectorBoardChoice">目录板块<select id="sectorBoardChoice"><option value="">请先读取或更新目录</option></select></label></div>
+<div class="linked-actions"><button id="sectorBoardAdd" type="button">加入选择</button><button id="sectorCaptureRun" type="button">采集并保存已选板块</button></div><div id="sectorSelection"></div>
+<p id="sectorEvidenceStatus" role="status" aria-live="polite">选择1至6个板块；保存后后续个股采集会复用云端选择。</p><div id="sectorEvidenceSummary"></div><details><summary>板块完整证据</summary><pre id="sectorEvidenceOutput"></pre></details>
+</details></section>
 <section class="card linked-workbench" id="linkedIntelligence" aria-labelledby="linkedHeading">
 <h2 id="linkedHeading">小盘面联动与个股记忆</h2>
 <p class="muted">市场、板块、个股与资金证据一起查看。历史条件概率仅供研究；缺失数据保留未知，当前资金不会回填历史样本，不自动下单。</p>
@@ -119,4 +128,4 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="ruleSummary" class="cards" aria-live="polite"></div>
 <div id="ruleDetails" class="scroller"></div></section>
 <div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="patternPools" aria-live="polite"></div><div id="issuerPools" aria-live="polite"></div><div id="linkagePools" aria-live="polite"></div><div id="lifecyclePools" aria-live="polite"></div><div id="table" class="scroller"></div></section>
-</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113capture1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script></body></html>
+</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113evidence2"></script><script src="/assets/research-evidence-workbench.js?v=20261113evidence1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script></body></html>
