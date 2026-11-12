@@ -21146,6 +21146,16 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return reply(200,{ok:true,...result});
     }catch(error){return reply(422,{ok:false,error:'冻结证据不存在、身份无效或完整性校验失败'});}
   }
+  if (p === '/api/research/risk-center') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+    try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
+      state:S,now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
+    catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
+  }
   if (p === '/api/research/agent-status') {
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
