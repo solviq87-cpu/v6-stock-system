@@ -41,6 +41,20 @@ test('sealing prevents future report, different factor pack, lineage tampering o
  const changed=structuredClone(o);changed.factorLearning.a.suggestedWeightMultiplier=-.08;
  assert.throws(()=>proposeFromSealedResearch(args(changed)),/历史封存训练报告/);
 });
+test('invalid calendar dates cannot seed an automatic candidate even with a matching local SHA',()=>{
+ for(const invalid of ['0000-01-01','2026-02-29','2026-02-30','2026-13-01','2026-00-10']){
+  assert.throws(()=>proposeFromSealedResearch(args(sealed({lastObservationDay:invalid}))),
+   /历史封存训练报告/);
+ }
+ for(const invalid of ['2026-06-31','2026-13-05','2026-99-99']){
+  assert.throws(()=>proposeFromSealedResearch({...args(),latestFrozenDay:invalid}),
+   /历史封存训练报告/);
+ }
+ assert.throws(()=>proposeFromSealedResearch({...args(),latestFrozenDay:undefined}),
+  /历史封存训练报告/);
+ const leap=sealed({lastObservationDay:'2028-02-29'});
+ assert.equal(proposeFromSealedResearch({...args(leap),latestFrozenDay:'2028-03-01'}).canTrade,false);
+});
 test('all-zero historical multipliers do not claim an automatic learned upgrade',()=>{
  const allZero=sealed({factorLearning:{a:{suggestedWeightMultiplier:0},
   b:{suggestedWeightMultiplier:0}},factorRedundancy:{suppressedFactorIds:[]}});

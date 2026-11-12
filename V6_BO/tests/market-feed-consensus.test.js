@@ -10,6 +10,7 @@ const response=x=>({ok:true,status:200,headers:{get:()=>null},body:Readable.from
 test('不同供应商相同日期、价格、成交量及复权口径通过独立一致性核对，但不误称已真实认证',()=>{
  const r=compareMarketFeeds(feed('provider-A'),feed('provider-B'));
  assert.equal(r.consensus,true);assert.equal(r.comparedBars,39);assert.equal(r.releaseReady,false);assert.equal(r.verifiedExternal,false);
+ assert.equal(r.asOf,dates.at(-1),'consensus preserves declared data date, not local receipt time');
 });
 test('来源不是独立供应商、复权不一致或交易日不同直接拒绝',()=>{
  assert.throws(()=>compareMarketFeeds(feed('provider-A'),feed('provider-A')),/不同供应商/);

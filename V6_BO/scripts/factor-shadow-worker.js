@@ -452,8 +452,11 @@ function evaluateOnce(conf,now,manifest){
  const previousCooldown=latestCooldown(conf.outputDir,previous);
  const previousTrial=latestTrial(conf.outputDir,previous);
  const preRegistration=latestCandidateRegistration(conf.outputDir,previous,previousTrial);
+ // A recovered-but-waiting report can retain a paused status. Only an
+ // active phase (or the original sealed decay alert) is monitoring-only.
  const cooldownOnly=previousCooldown&&
-  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+  (previousCooldown.cooldown?.phase==='active'||
+   (!previousCooldown.cooldown&&previousCooldown.status==='paused-shadow-decay'));
  // A recovered cooldown is NOT an active monitoring exemption. It needs a
  // freshly committed candidate before any new forward return is opened.
  if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly&&
