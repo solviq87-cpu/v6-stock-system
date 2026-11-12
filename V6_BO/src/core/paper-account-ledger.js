@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { acquireProcessLock, releaseProcessLock } = require('./process-file-lock');
+const {fillEvidenceOf}=require('./paper-fill-evidence');
 const hash = x => crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const money = n => Math.round((n + Number.EPSILON) * 100) / 100;
 function atomicWrite(file, value, faultInjector) {
@@ -80,7 +81,9 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         pos.sellable = pos.lots.filter(x => x.sellableDate ? x.sellableDate <= tradeDate : String(x.buyDate) < tradeDate).reduce((s, x) => s + Number(x.quantity), 0);
       }
       if(account.cash<0)throw new Error('成交费用超过现金余额，拒绝透支');
-      const event = { eventId: fill.eventId, orderId: order.orderId, symbol: order.symbol, side: order.side, quantity: qty, price, fee, gross, costBasis:money(costBasis), realizedPnl:order.side==='sell'?money(gross-fee-costBasis):0, tradeDate, cashAfter: account.cash };
+      const fillEvidence=fillEvidenceOf({...fill,symbol:order.symbol,tradeDate});
+      const event = { eventId: fill.eventId, orderId: order.orderId, symbol: order.symbol, side: order.side, quantity: qty, price, fee, gross, costBasis:money(costBasis), realizedPnl:order.side==='sell'?money(gross-fee-costBasis):0, tradeDate, cashAfter: account.cash,
+        ...(fillEvidence?{timestamp:fillEvidence.executionAt,fillEvidence:JSON.parse(JSON.stringify(fillEvidence))}:{}) };
       account.events.push(event); account.eventHashes[fill.eventId] = eventHash;
       account.updatedAt = new Date().toISOString();
       account.fingerprint = hash({ cash: account.cash, positions: account.positions, events: account.events });

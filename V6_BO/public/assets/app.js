@@ -2932,9 +2932,17 @@ function renderPaper(suf, p, mirror) {
   //    而对账按全量算。不把真实总数标出来，用户会以为看到的就是全部。
   const trTotal = Number(p.tradesTotal) || tr.length;
   document.getElementById('pp' + suf + 'Trades').innerHTML = tr.length ? tr.map(x =>
-    `<div class="sig ${x.side === '卖出' && x.pnl < 0 ? 'zt' : ''}" style="font-size:12px">${new Date(x.t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} <b>${x.side}</b> ${x.name}(${x.code}) ${x.shares}股 @${x.price}${x.side === '卖出' ? ' 盈亏' + (x.pnl > 0 ? '+' : '') + x.pnl : ''} <span class="muted">${x.reason || ''}</span></div>`).join('')
+    `<div class="sig ${x.side === '卖出' && x.pnl < 0 ? 'zt' : ''}" style="font-size:12px">${esc(paperTradeTimeLabel(x))} <b>${x.side}</b> ${x.name}(${x.code}) ${x.shares}股 @${x.price}${x.side === '卖出' ? ' 盈亏' + (x.pnl > 0 ? '+' : '') + x.pnl : ''} <span class="muted">${x.reason || ''}${x.fillEvidence?' · '+esc(paperTradeSourceLabel(x)):''}</span></div>`).join('')
     + (trTotal > tr.length ? `<div class="muted" style="font-size:11px;padding-top:4px">共 ${trTotal} 笔，此处显示最近 ${tr.length} 笔</div>` : '')
     : '<div class="muted" style="font-size:12px">暂无交易记录</div>';
+}
+function paperTradeTimeLabel(trade) {
+  if(Number.isSafeInteger(trade?.t)&&trade.t>0)return new Date(trade.t).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  return (typeof trade?.tradeDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(trade.tradeDate)?trade.tradeDate:'日期未知')+'（时刻未知）';
+}
+function paperTradeSourceLabel(trade) {
+  const labels={simulated:'模拟输入',imported:'导入研究','public-live-unverified':'公开报价未认证',unknown:'来源未知'};
+  return labels[trade?.fillEvidence?.mode]||'来源未知';
 }
 // ═══ hj 轮：应用内 K 线面板（用户 2026-10-14 原话：「点开个股直接查看，买卖T点锁仓直接标出来，不用跨软件」+「K线和量能以及大单情况洗盘还是出货都要显示出来哦」）═══
 // 设计铁律（与服务端 klineMarksOf / washVsDistribute 注释一一对应）：

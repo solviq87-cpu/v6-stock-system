@@ -6718,7 +6718,7 @@ function paperHoldsOf(code) {
       acc: key, accName: cfg.name,
       buyPrice: +Number(p.buyPrice).toFixed(3),
       shares: Number(p.shares) || 0,
-      buyDate: p.buyTs ? dayKeyOf(p.buyTs) : null,
+      buyDate: typeof p.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.buyDate)?p.buyDate.replace(/-/g,''):p.buyTs ? dayKeyOf(p.buyTs) : null,
       peak: p.peak == null ? null : +Number(p.peak).toFixed(4),
       lastPrice: price ? +price.toFixed(3) : null,
       stop: +(Number(p.buyPrice) * (1 + stopFrac)).toFixed(3),
@@ -12811,7 +12811,7 @@ function paperAuthorityQuotes(){
     marks[st.code]=Number(observation.price);
     const previous=Number(st.preClose);if(!(previous>0)||!Number.isFinite(st.volume)||st.volume<=0)continue;
     const limit=limitPctOfCode(st.code,st.name);
-    quotes[st.code]={symbol:st.code,price:Number(observation.price),quoteSource:observation.quoteSource,quoteAt:timestamp,tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:st.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
+    quotes[st.code]={symbol:st.code,price:Number(observation.price),quoteSource:observation.quoteSource,provider:observation.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(observation.receivedAt)?observation.receivedAt:null,mode:observation.quoteMode||observation.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:st.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
       upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:st.suspended===true,tradable:st.tradable!==false};
   }
   return quotes;
@@ -13475,7 +13475,7 @@ function dayKeyOf(ts) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
 function paperT1Locked(pos) {
-  return !!(pos && pos.buyTs && dayKeyOf(pos.buyTs) === todayStr());
+  return !!(pos && (typeof pos.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(pos.buyDate)?pos.buyDate.replace(/-/g,'')===todayStr():pos.buyTs&&dayKeyOf(pos.buyTs)===todayStr()));
 }
 // 从某个时刻到今天，中间经过了几个**交易日**（不含买入当日，含今天；买入当天返回 0）。
 // ⛔ 2026-10-07 补（本轮角度：以为是一回事、其实是两回事的时间点）：
@@ -13665,8 +13665,10 @@ function paperCheck(key, pm) {
     if (profit > pos.peak) pos.peak = profit;
     // ⛔ 2026-10-07 改：原来是 `Math.floor((Date.now() - pos.buyTs) / 86400000)`（自然日），
     //    与 T+1 锁的 dayKeyOf 不是一个口径。休市日本就没有交易机会，现在按**交易日**计。
-    const days = tradeDaysSince(pos.buyTs);
-    const natDays = Math.max(0, Math.floor((Date.now() - (Number(pos.buyTs) || 0)) / 86400000));
+    // A known buy date supports calendar counting, but is not an execution timestamp.
+    const buyDate=typeof pos.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(pos.buyDate)?pos.buyDate:null;
+    const days = tradeDaysSince(pos.buyTs || (buyDate?Date.parse(buyDate+'T12:00:00+08:00'):null));
+    const natDays = Number.isSafeInteger(pos.buyTs)&&pos.buyTs>0?Math.max(0, Math.floor((Date.now() - pos.buyTs) / 86400000)):null;
     // T+1：当日买入的今日轮空，不参与任何卖出判定（价格照记，次日自动解禁）
     if (paperT1Locked(pos)) { pos.t1Locked = true; continue; }
     pos.t1Locked = false;
@@ -13681,7 +13683,7 @@ function paperCheck(key, pm) {
     // ⛔ 文案不许撒谎：判据已经是交易日了，理由里就把两种口径都写明白
     //    （长假后常见"自然日十几天、交易日才 1 天"，只写"持有超 N 日"会让人以为系统算错了）
     else if (days >= cfg.expireDays && profit < 0.02) {
-      paperSell(key, pos.code, price, `持有超${cfg.expireDays}个交易日且收益<2%，换股（自然日已过${natDays}天，其中休市${Math.max(0, natDays - days)}天）`);
+      paperSell(key, pos.code, price, `持有超${cfg.expireDays}个交易日且收益<2%，换股（${natDays===null?'买入日期'+(buyDate||'未知')+'，具体时刻未知':`自然日已过${natDays}天，其中休市${Math.max(0, natDays - days)}天`}）`);
     }
   }
   if (Object.keys(acc.positions).length) paperTouch();
