@@ -37,8 +37,12 @@ function names(dir){
  const out=[];out.temporaryBytes=0;if(!fs.existsSync(dir))return out;
  const entries=fs.readdirSync(dir);if(entries.length>MAX_INTENTS*4)throw Error('too many temporary entries');
  for(const name of entries){
-  const file=path.join(dir,name),st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile())throw Error('invalid queue entry');
-  if(/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name)){if((st.mode&0o777)!==0o600||st.size>MAX_INTENT_BYTES)throw Error('invalid temporary file');out.temporaryBytes+=st.size;continue;}
+  const file=path.join(dir,name),temporary=/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name);let st;
+  // Publishers unlink their stage after atomic linking. Only that exact name
+  // may disappear between enumeration and stat; committed/unknown names fail.
+  try{st=fs.lstatSync(file);}catch(e){if(temporary&&e.code==='ENOENT')continue;throw e;}
+  if(st.isSymbolicLink()||!st.isFile())throw Error('invalid queue entry');
+  if(temporary){if((st.mode&0o777)!==0o600||st.size>MAX_INTENT_BYTES)throw Error('invalid temporary file');out.temporaryBytes+=st.size;continue;}
   if(!/^\d{6}\.json$/.test(name))throw Error('invalid queue name');out.push(name);
  }
  return out.sort();
@@ -72,7 +76,7 @@ function safeSuccess(result,asOf){
  if(h.observedAt!==undefined){if(!validTime(h.observedAt)||asOf!==undefined&&h.observedAt>asOf)return null;history.observedAt=h.observedAt;}
  return {status:'captured',observation:{revision:o.revision,observationHash:o.observationHash},history};
 }
-function readState(root){
+function readState(root,appendRefreshes=3){
  const base=privateDir(root),intentDir=privateDir(path.join(base,'intents')),attemptRoot=privateDir(path.join(base,'attempts'));
  if(fs.existsSync(base)&&fs.readdirSync(base).some(n=>!['intents','attempts'].includes(n)))throw Error('invalid root entry');
  const intentNames=names(intentDir);if(intentNames.length>MAX_INTENTS)throw Error('too many intents');
@@ -92,7 +96,19 @@ function readState(root){
   }
   entries.push({event,attempts});previous=event;
  }
- if(fs.existsSync(attemptRoot))for(const name of fs.readdirSync(attemptRoot)){if(!hex.test(name)||!ids.has(name))throw Error('orphan attempt');privateDir(path.join(attemptRoot,name));}
+ if(fs.existsSync(attemptRoot))for(const name of fs.readdirSync(attemptRoot)){
+  if(!hex.test(name))throw Error('orphan attempt');
+  if(!ids.has(name)){
+   // A writer publishes its intent before creating the attempt directory. A
+   // newly visible child can therefore follow our earlier parent snapshot.
+   // Retry only after observing an appended parent prefix, then revalidate the
+   // entire chain. Unexplained orphans and continuously moving queues fail.
+   const latest=names(intentDir);
+   if(appendRefreshes>0&&latest.length>intentNames.length&&intentNames.every((n,i)=>latest[i]===n))return readState(root,appendRefreshes-1);
+   throw Error('orphan attempt');
+  }
+  privateDir(path.join(attemptRoot,name));
+ }
  if(bytes>MAX_TOTAL_BYTES)throw Error('queue size exceeded');return {base,intentDir,attemptRoot,entries,bytes};
 }
 function atomicPublish(dir,name,record,max){

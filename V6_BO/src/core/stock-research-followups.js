@@ -46,9 +46,19 @@ function recordFile(file,max){
 function entries(dir,max){
  const names=[],state={names,temporaryBytes:0};if(!fs.existsSync(dir))return state;
  const all=fs.readdirSync(dir);if(all.length>MAX_JOBS*4)throw Error('too many entries');
- for(const name of all){const st=fs.lstatSync(path.join(dir,name));if(st.isSymbolicLink()||!st.isFile())throw Error('invalid entry');if(/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name)){if((st.mode&0o777)!==0o600||st.size>max)throw Error('invalid temporary');state.temporaryBytes+=st.size;continue;}if(!/^\d{6}\.json$/.test(name))throw Error('invalid entry');names.push(name);}names.sort();return state;
+ for(const name of all){
+  const temporary=/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name);let st;
+  try{st=fs.lstatSync(path.join(dir,name));}catch(e){
+   // A publisher unlinks its private staging file after linking the immutable
+   // record. Only that exact staging name may disappear after this listing.
+   if(temporary&&e.code==='ENOENT')continue;throw e;
+  }
+  if(st.isSymbolicLink()||!st.isFile())throw Error('invalid entry');
+  if(temporary){if((st.mode&0o777)!==0o600||st.size>max)throw Error('invalid temporary');state.temporaryBytes+=st.size;continue;}
+  if(!/^\d{6}\.json$/.test(name))throw Error('invalid entry');names.push(name);
+ }names.sort();return state;
 }
-function readState(root){
+function readState(root,retry=0){
  const base=privateDir(root),intents=privateDir(path.join(base,'intents')),attemptRoot=privateDir(path.join(base,'attempts'));
  if(fs.existsSync(base)&&fs.readdirSync(base).some(n=>!['intents','attempts'].includes(n)))throw Error('invalid root entry');
  const listing=entries(intents,MAX_FILE);if(listing.names.length>MAX_JOBS)throw Error('capacity');const jobs=[],ids=new Set();let bytes=listing.temporaryBytes,previous=null;
@@ -66,7 +76,20 @@ function readState(root){
   }
   jobs.push({event,attempts});previous=event;
  }
- if(fs.existsSync(attemptRoot))for(const name of fs.readdirSync(attemptRoot)){if(!hex.test(name)||!ids.has(name))throw Error('orphan attempt');privateDir(path.join(attemptRoot,name));}
+ if(fs.existsSync(attemptRoot))for(const name of fs.readdirSync(attemptRoot)){
+  if(!hex.test(name))throw Error('orphan attempt');
+  const dir=path.join(attemptRoot,name),st=fs.lstatSync(dir);
+  if(st.isSymbolicLink()||!st.isDirectory())throw Error('invalid attempt directory');
+  if(!ids.has(name)){
+   // Another publisher can append an intent and start its attempt after our
+   // intent snapshot. Retry only an append-only listing change, then validate
+   // the new intent chain and its linkage; an actual orphan remains an error.
+   const current=entries(intents,MAX_FILE).names;
+   if(retry<4&&current.length>listing.names.length&&listing.names.every((n,i)=>current[i]===n))return readState(root,retry+1);
+   throw Error('orphan attempt');
+  }
+  privateDir(dir);
+ }
  if(bytes>MAX_BYTES)throw Error('byte capacity');return {base,intents,attemptRoot,jobs,bytes};
 }
 function publish(dir,name,record,max){
