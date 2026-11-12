@@ -71,8 +71,13 @@ function privateDir(value,create=false){
 function directories(root,id,create=false){const base=privateDir(root,create),symbol=privateDir(path.join(base,id.symbol),create),dir=privateDir(path.join(symbol,sha(id.provider)),create);return {dir,receipts:privateDir(path.join(dir,'receipts'),create),objects:privateDir(path.join(dir,'objects'),create)};}
 function readJson(file,max){const st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile()||(st.mode&0o777)!==0o600||st.size>max)throw Error('invalid evidence file');const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));try{const current=fs.fstatSync(fd);if(current.size>max)throw Error('evidence file too large');return {value:JSON.parse(fs.readFileSync(fd,'utf8')),bytes:current.size};}finally{fs.closeSync(fd);}}
 function listing(dir,type,max){const committed=[],temporary=[];if(!fs.existsSync(dir))return {committed,temporary,bytes:0};const names=fs.readdirSync(dir);if(names.length>2000)throw Error('evidence entry limit');let bytes=0;
- for(const name of names){const st=fs.lstatSync(path.join(dir,name));if(st.isSymbolicLink()||!st.isFile()||(st.mode&0o777)!==0o600||st.size>max)throw Error('invalid evidence entry');bytes+=st.size;
-  if(/^(?:[a-f0-9]{64}|\d{6})\.json\.[a-f0-9]{16}\.tmp$/.test(name)){temporary.push(name);continue;}
+ const staging=type==='receipts'?/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/:/^[a-f0-9]{64}\.json\.[a-f0-9]{16}\.tmp$/;
+ for(const name of names){let st;try{st=fs.lstatSync(path.join(dir,name));}catch(error){
+   // Another publisher can unlink its own staging file after our readdir.
+   // A missing committed record (or any other error) remains corruption.
+   if(error.code==='ENOENT'&&staging.test(name))continue;throw error;
+  }if(st.isSymbolicLink()||!st.isFile()||(st.mode&0o777)!==0o600||st.size>max)throw Error('invalid evidence entry');bytes+=st.size;
+  if(staging.test(name)){temporary.push(name);continue;}
   if(!(type==='receipts'?/^\d{6}\.json$/:/^[a-f0-9]{64}\.json$/).test(name))throw Error('invalid evidence filename');committed.push(name);
  }return {committed:committed.sort(),temporary,bytes};
 }

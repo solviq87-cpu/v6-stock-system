@@ -25,6 +25,31 @@ test('invalid signal identities and unknown reference fields still reject rather
  }
  assert.equal(fs.readdirSync(root).length,0,'invalid trigger cannot create a partially published bundle');
 }));
+function publicationWorker(script,args){
+ const child=spawn(process.execPath,['-e',script,...args],{stdio:['ignore','pipe','pipe']});let buffer='',stderr='',readyValue,result,parseError,readyResolve,readyReject,doneResolve,doneReject,closedResolve;
+ const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;}),done=new Promise((resolve,reject)=>{doneResolve=resolve;doneReject=reject;}),closed=new Promise(resolve=>{closedResolve=resolve;});ready.catch(()=>{});done.catch(()=>{});
+ const parseLine=line=>{if(!line.trim())return;try{const message=JSON.parse(line);if(message.event==='ready'){readyValue=message;readyResolve(message);}else if(message.event==='result')result=message.result;else throw Error('unexpected child message');}catch(error){parseError=error;readyReject(error);doneReject(error);}};
+ child.stdout.on('data',data=>{buffer+=data;let end;while((end=buffer.indexOf('\n'))!==-1){const line=buffer.slice(0,end);buffer=buffer.slice(end+1);parseLine(line);}});child.stderr.on('data',data=>{stderr+=data;});
+ child.on('error',error=>{readyReject(error);doneReject(error);});child.on('close',(code,signal)=>{
+  parseLine(buffer);const error=parseError||((code!==0||result===undefined)?Error(stderr||'child stopped '+code+'/'+signal):null);
+  if(!readyValue)readyReject(error||Error('child never reached publication'));if(error)doneReject(error);else doneResolve(result);closedResolve({code,signal});
+ });return {child,ready,done,closed};
+}
+async function publicationRace(root){
+ const decisionAt=Date.now()-1000,value=input({decisionAt});value.history.observedAt=decisionAt-100;value.marketContext.observedAt=decisionAt-50;value.stockStatus.observedAt=decisionAt-10;value.sectorContext.observedAt=decisionAt-20;value.sourceRefs[0].receivedAt=decisionAt-100;
+ const barrier=path.join(os.tmpdir(),'evidence-barrier-'+crypto.randomBytes(8).toString('hex')),modulePath=require.resolve('../src/core/research-evidence-bundle');
+ const script=`const fs=require('node:fs'),{freezeResearchEvidenceBundle}=require(${JSON.stringify(modulePath)}),link=fs.linkSync;let gated=false;fs.linkSync=(from,to)=>{if(to.includes('/receipts/')&&!gated){gated=true;const receipt=JSON.parse(fs.readFileSync(from,'utf8'));process.stdout.write(JSON.stringify({event:'ready',recordedAt:receipt.recordedAt})+'\\n');const end=Date.now()+10000;while(!fs.existsSync(process.argv[2])){if(Date.now()>end)throw Error('timeout');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10);}}return link(from,to);};try{process.stdout.write(JSON.stringify({event:'result',result:freezeResearchEvidenceBundle(process.argv[1],JSON.parse(process.argv[3]))})+'\\n');}catch(error){process.stderr.write(error.message);process.exitCode=1;}`;
+ const workers=[];let timeout;const deadline=new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('publication readiness timeout')),12000);});
+ try{
+  // The first writer is paused after writing its receipt stage. Launching the
+  // second now guarantees different real recordedAt values, not a clock stub.
+  const first=publicationWorker(script,[root,barrier,JSON.stringify(value)]);workers.push(first);const firstReady=await Promise.race([first.ready,deadline]);
+  const second=publicationWorker(script,[root,barrier,JSON.stringify(value)]);workers.push(second);const secondReady=await Promise.race([second.ready,deadline]);assert.ok(secondReady.recordedAt>firstReady.recordedAt);
+  fs.writeFileSync(barrier,'go');const results=await Promise.all(workers.map(w=>w.done));assert.equal(results[0].hash,results[1].hash);assert.equal(results.filter(r=>r.reused).length,1);assert.equal(files(root,'receipts').length,1);assert.equal(read(root,{symbol:'600001',provider:'eastmoney',hash:results[0].hash}).marketContext.index.close,4000);return results;
+ }finally{
+  clearTimeout(timeout);for(const w of workers)if(w.child.exitCode===null&&w.child.signalCode===null)w.child.kill();await Promise.all(workers.map(w=>w.closed));try{fs.unlinkSync(barrier);}catch(error){if(error.code!=='ENOENT')throw error;}
+ }
+}
 test('freeze stores parsed facts and archive references privately without altering inputs or existing data',()=>temporary(root=>{
  const value=input(),original=structuredClone(value);fs.writeFileSync(path.join(root,'user-history.txt'),'keep',{mode:0o600});const first=clock(epoch+1000,()=>freeze(root,value));assert.deepEqual(value,original);assert.equal(first.recordedAt,epoch+1000);assert.equal(first.decisionAt,epoch);assert.equal(first.revision,1);assert.equal(first.canTrade,false);assert.equal(first.canNotify,false);
  assert.match(first.hash,/^[a-f0-9]{64}$/);assert.equal(fs.readFileSync(path.join(root,'user-history.txt'),'utf8'),'keep');for(const file of [...files(root,'objects'),...files(root,'receipts')]){assert.equal(fs.statSync(file).mode&0o777,0o600);assert.equal(fs.statSync(path.dirname(file)).mode&0o777,0o700);}
@@ -102,10 +127,39 @@ test('five hundred receipts cap a small archive, while an existing bundle still 
  for(let i=1;i<500;i++){const {hash,...body}=template;body.decisionAt=epoch+i;body.recordedAt=epoch+1000+i;const object={...body,hash:sha(body)};const {schemaVersion,mode,recordedAt,...intake}=body;for(const key of ['researchOnly','verifiedLive','canTrade','canNotify','weightsChanged'])delete intake[key];const receipt={schemaVersion:1,revision:i+1,previousHash,hash:object.hash,intakeHash:sha(intake),decisionAt:body.decisionAt,recordedAt:body.recordedAt},record={...receipt,receiptHash:sha(receipt)};previousHash=record.receiptHash;fs.writeFileSync(path.join(path.dirname(objectFile),object.hash+'.json'),encode(object),{flag:'wx',mode:0o600});fs.writeFileSync(path.join(path.dirname(receiptFile),String(i+1).padStart(6,'0')+'.json'),encode(record),{flag:'wx',mode:0o600});}
  assert.equal(read(root,{symbol:'600001',provider:'eastmoney',asOf:epoch+2000}).revision,500);assert.throws(()=>clock(epoch+3000,()=>freeze(root,input({decisionAt:epoch+2000}))),/校验/);assert.equal(clock(epoch+3000,()=>freeze(root,input())).reused,true);
 }));
-test('two processes freezing identical evidence publish one receipt and preserve a recoverable object',async()=>temporary(async root=>{
- const decisionAt=Date.now()-1000,value=input({decisionAt});value.history.observedAt=decisionAt-100;value.marketContext.observedAt=decisionAt-50;value.stockStatus.observedAt=decisionAt-10;value.sectorContext.observedAt=decisionAt-20;value.sourceRefs[0].receivedAt=decisionAt-100;
- const barrier=path.join(os.tmpdir(),'evidence-barrier-'+crypto.randomBytes(8).toString('hex')),modulePath=require.resolve('../src/core/research-evidence-bundle');
- const script=`const fs=require('node:fs'),{freezeResearchEvidenceBundle}=require(${JSON.stringify(modulePath)}),link=fs.linkSync;let gated=false;fs.linkSync=(from,to)=>{if(to.includes('/receipts/')&&!gated){gated=true;process.stdout.write('ready\\n');const end=Date.now()+10000;while(!fs.existsSync(process.argv[2])){if(Date.now()>end)throw Error('timeout');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10);}}return link(from,to);};process.stdout.write(JSON.stringify(freezeResearchEvidenceBundle(process.argv[1],JSON.parse(process.argv[3])))+'\\n');`;
- const workers=[];for(let i=0;i<2;i++){const child=spawn(process.execPath,['-e',script,root,barrier,JSON.stringify(value)],{stdio:['ignore','pipe','pipe']});let output='',error='',readyResolve,readyReject;const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});child.stdout.on('data',d=>{output+=d;if(output.includes('ready\n'))readyResolve();});child.stderr.on('data',d=>{error+=d;});child.on('error',readyReject);const done=new Promise((resolve,reject)=>child.on('exit',code=>{if(!output.includes('ready\n'))readyReject(Error(error||'early exit'));code?reject(Error(error||'child failed')):resolve(JSON.parse(output.trim().split('\n').at(-1)));}));done.catch(()=>{});workers.push({child,ready,done});}
- let timeout;try{await Promise.race([Promise.all(workers.map(w=>w.ready)),new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('readiness timeout')),12000);})]);fs.writeFileSync(barrier,'go');const results=await Promise.all(workers.map(w=>w.done));assert.equal(results[0].hash,results[1].hash);assert.equal(results.filter(r=>r.reused).length,1);assert.equal(files(root,'receipts').length,1);assert.equal(read(root,{symbol:'600001',provider:'eastmoney',hash:results[0].hash}).marketContext.index.close,4000);}finally{clearTimeout(timeout);try{fs.unlinkSync(barrier);}catch{}for(const w of workers)if(w.child.exitCode===null&&w.child.signalCode===null)w.child.kill();}
+test('a correctly named object or receipt stage disappearing between readdir and lstat is a normal publication race',()=>{
+ for(const kind of ['objects','receipts'])temporary(root=>{
+  clock(epoch+1000,()=>freeze(root,input()));const committed=files(root,kind)[0],dir=path.dirname(committed),stage=committed+'.0123456789abcdef.tmp';fs.writeFileSync(stage,'partial',{mode:0o600});const readdir=fs.readdirSync;let removed=false;
+  fs.readdirSync=(selected,...args)=>{const names=readdir(selected,...args);if(!removed&&selected===dir){assert.ok(names.includes(path.basename(stage)));fs.unlinkSync(stage);removed=true;}return names;};
+  let frozen;try{frozen=clock(epoch+2000,()=>freeze(root,input({trigger:'second'})));}finally{fs.readdirSync=readdir;}
+  assert.equal(removed,true);assert.equal(frozen.revision,2);assert.equal(read(root,{symbol:'600001',provider:'eastmoney',hash:frozen.hash,asOf:epoch+2000}).hash,frozen.hash);
+ });
+});
+test('a committed object or receipt disappearing after readdir still fails closed',()=>{
+ for(const kind of ['objects','receipts'])temporary(root=>{
+  clock(epoch+1000,()=>freeze(root,input()));const committed=files(root,kind)[0],dir=path.dirname(committed),readdir=fs.readdirSync;let removed=false;
+  fs.readdirSync=(selected,...args)=>{const names=readdir(selected,...args);if(!removed&&selected===dir){fs.unlinkSync(committed);removed=true;}return names;};
+  try{assert.throws(()=>read(root,{symbol:'600001',provider:'eastmoney'}),/校验/);}finally{fs.readdirSync=readdir;}assert.equal(removed,true);
+ });
+});
+test('a wrong-kind disappearing staging name or a non-ENOENT staging error remains invalid evidence',()=>{
+ for(const kind of ['objects','receipts'])temporary(root=>{
+  clock(epoch+1000,()=>freeze(root,input()));const dir=path.dirname(files(root,kind)[0]),name=(kind==='objects'?'000002':'a'.repeat(64))+'.json.0123456789abcdef.tmp',stage=path.join(dir,name);fs.writeFileSync(stage,'partial',{mode:0o600});const readdir=fs.readdirSync;let removed=false;
+  fs.readdirSync=(selected,...args)=>{const names=readdir(selected,...args);if(!removed&&selected===dir){fs.unlinkSync(stage);removed=true;}return names;};try{assert.throws(()=>read(root,{symbol:'600001',provider:'eastmoney'}),/校验/);}finally{fs.readdirSync=readdir;}assert.equal(removed,true);
+ });
+ temporary(root=>{clock(epoch+1000,()=>freeze(root,input()));const stage=files(root,'objects')[0]+'.0123456789abcdef.tmp';fs.writeFileSync(stage,'partial',{mode:0o600});const lstat=fs.lstatSync;fs.lstatSync=(file,...args)=>{if(file===stage)throw Object.assign(Error('denied stage'),{code:'EACCES'});return lstat(file,...args);};try{assert.throws(()=>read(root,{symbol:'600001',provider:'eastmoney'}),/校验/);}finally{fs.lstatSync=lstat;}});
+});
+test('a receipt published between directory snapshots can be read because its object was already published',()=>temporary(root=>{
+ clock(epoch+1000,()=>freeze(root,input()));const receiptDir=path.dirname(files(root,'receipts')[0]),readdir=fs.readdirSync;let published=false,second;
+ fs.readdirSync=(selected,...args)=>{const names=readdir(selected,...args);if(!published&&selected===receiptDir){published=true;second=clock(epoch+3000,()=>freeze(root,input({decisionAt:epoch+2000,trigger:'second'})));}return names;};
+ try{assert.equal(read(root,{symbol:'600001',provider:'eastmoney',asOf:epoch+3000}).revision,1);}finally{fs.readdirSync=readdir;}assert.equal(read(root,{symbol:'600001',provider:'eastmoney',asOf:epoch+3000}).hash,second.hash);
 }));
+test('child output errors reject promises and cleanup waits for close after readiness or partial output',async()=>{
+ for(const script of ["process.stdout.write('ready\\n');setInterval(()=>{},1000);","process.stdout.write(JSON.stringify({event:'ready'})+'\\n');setInterval(()=>{},1000);"]){
+  const worker=publicationWorker(script,[]);try{if(script.includes("'ready\\n'"))await assert.rejects(worker.ready,SyntaxError);else await worker.ready;}finally{if(worker.child.exitCode===null&&worker.child.signalCode===null)worker.child.kill();await worker.closed;}await assert.rejects(worker.done);
+ }
+});
+test('two processes freezing identical evidence publish one receipt and preserve a recoverable object',async()=>temporary(publicationRace));
+test('fifty independent real two-process publications retain one receipt with different recording clocks',async()=>{
+ for(let i=0;i<50;i++)await temporary(publicationRace);
+});
