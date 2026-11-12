@@ -13,7 +13,7 @@ const FACTOR_CATALOG=(Array.isArray(factorPack?.factors)?factorPack.factors:[])
  .map(x=>({id:text(x.id),field:text(x.field),label:text(x.label||x.field),weight:number(x.weight)}))
  .filter(x=>x.field);
 const FACTOR_FIELDS=FACTOR_CATALOG.map(x=>x.field);
-const PUSH_SENT_RE=/^(?:✅)|送达结果未知/;
+const PUSH_SENT_RE=/^(?:✅)/;
 const PUSH_FAILED_RE=/^(?:❌|🚫|⚠️|🔒|夜间静默|副本拦截|↩️)|未送达|拒收|未配置|闸门|拦截/;
 
 function factorValuesOf(row){
@@ -27,15 +27,16 @@ function factorValuesOf(row){
 
 function signalScopeOfCode(code){
  if(!isCode(code))return 'all';
- if(code.startsWith('68'))return 'kc50';
+ if(code.startsWith('68'))return 'star';
  if(code.startsWith('30'))return 'cyb';
- if(code.startsWith('60'))return 'sh';
- return 'sz';
+ if(/^(60|68)/.test(code))return 'sh';
+ return /^(00|30)/.test(code)?'sz':'other';
 }
 
 function stageMeta(stage){
  const map={
   candidate:{label:'候选股票',order:5},
+  history:{label:'历史推送',order:6},
   triggered:{label:'信号已触发',order:1},
   pending:{label:'待发送',order:0},
   sent:{label:'发送成功',order:2},
@@ -59,19 +60,45 @@ function normalizePushLogRecord(record){
  };
 }
 
-function pushLogByCode(pushLog){
- const byCode=new Map();
+function pushLogIndex(pushLog){
+ const historyByCode=new Map();
  const list=Array.isArray(pushLog)?pushLog:[];
  for(const item of list){
   const normalized=normalizePushLogRecord(item);
   const codes=Array.isArray(item?.extra?.codes)?item.extra.codes.filter(isCode):[];
-  if(!codes.length||normalized.ts===null)continue;
-  for(const code of codes){
-   const previous=byCode.get(code);
-   if(!previous||normalized.ts>previous.ts)byCode.set(code,normalized);
+  if(!codes.length||normalized.ts===null||normalized.ts<=0)continue;
+  const historyEntry={
+   signalRefs:(Array.isArray(item?.extra?.signalRefs)?item.extra.signalRefs:[])
+    .filter(ref=>isCode(ref?.code)&&typeof ref?.type==='string'&&number(ref?.ts)!==null)
+    .map(ref=>({code:ref.code,type:text(ref.type),ts:ref.ts})),
+   ts:normalized.ts,
+   status:normalized.status,
+   title:normalized.title,
+   note:normalized.note,
+   channel:normalized.channel,
+   sent:normalized.sent,
+   unknown:normalized.status.includes('送达结果未知'),
+   failed:normalized.failed
+  };
+  for(const code of new Set(codes)){
+   const history=historyByCode.get(code)||[];
+   history.push(historyEntry);
+   historyByCode.set(code,history);
   }
  }
- return byCode;
+ for(const [code,history] of historyByCode){
+  history.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const dedup=[],seen=new Set();
+  for(const entry of history){
+   const refs=entry.signalRefs.map(ref=>[ref.code,ref.type,ref.ts]).sort();
+   const key=JSON.stringify([entry.ts,entry.status,entry.title,entry.channel,entry.note,refs]);
+   if(seen.has(key))continue;
+   seen.add(key);
+   dedup.push(entry);
+  }
+  historyByCode.set(code,dedup);
+ }
+ return {historyByCode};
 }
 
 function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallbackReason='缺失值'){
@@ -88,14 +115,35 @@ function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallba
  return {id:text(id),label:text(label),value:actual,threshold:gate,operator:text(operator),satisfied,reason:text(reason),source:text(source),updatedAt:number(updatedAt)};
 }
 
-function stageOfSignal(signalRow,pushRecord,candidateRow,pushLast,now){
+// A metric alone is not a strategy rule. Only causal, attributed snapshots
+// can supply thresholds; current global settings must not rewrite old evidence.
+function recordedConditions(record,cutoff){
+ const list=Array.isArray(record?.conditionEvidence)?record.conditionEvidence:[];
+ return list.filter(c=>c&&typeof c==='object').map(c=>{
+  const at=number(c.updatedAt),source=text(c.source);
+  const causal=source.trim()&&at!==null&&at>0&&at<=cutoff;
+  return conditionLine(c.id,c.label,c.value,causal?c.threshold:null,c.operator,source,at,
+   causal?'缺少有效数值或比较规则':'缺少触发时点的来源证据');
+ });
+}
+function observedConditions(record,cutoff,fields,source){
+ const frozen=recordedConditions(record,cutoff);
+ if(frozen.length)return frozen;
+ return fields.map(([id,label,value,at])=>conditionLine(id,label,value,null,'',source,at,'未记录策略阈值，仅展示观察值'));
+}
+function conditionSummary(conditions){
+ const met=conditions.filter(c=>c.satisfied===true).length;
+ const total=conditions.filter(c=>c.satisfied!==null).length;
+ const unknown=conditions.length-total;
+ return {met,total,unknown,scope:'recorded-only',label:total?`条件满足 ${met}/${total}`:'条件待核验'};
+}
+
+function stageOfSignal(signalRow,pushRecord,candidateRow,now){
  const ts=number(signalRow?.ts)||0;
  const age=ts>0?Math.max(0,now-ts):Infinity;
  if(pushRecord?.sent)return {state:'sent',reason:'已存在可核验的发送记录'};
  if(pushRecord?.failed)return {state:'failed',reason:pushRecord.note||pushRecord.status||'发送未完成'};
- if(pushLast&&pushLast.sent===null&&number(pushLast.t)!==null&&number(pushLast.t)>=ts&&age<=5*60*1000){
-  return {state:'pending',reason:text(pushLast.why)||'等待通道回执'};
- }
+ if(pushRecord?.unknown)return {state:'pending',reason:'送达结果未知，不能确认发送成功'};
  if(age>6*60*60*1000&&(!candidateRow||candidateRow.price==null)){
   return {state:'expired',reason:'信号窗口已过且当前候选池无对应行情'};
  }
@@ -106,26 +154,53 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
  const signals=Array.isArray(state?.signals)?state.signals:[];
  const pushLast=pushMeta&&typeof pushMeta==='object'?pushMeta.pushLast:null;
  const pushGov=pushMeta&&typeof pushMeta==='object'?pushMeta.pushGov:null;
- const pushByCode=pushLogByCode(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
+ const {historyByCode}=pushLogIndex(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
  const items=[];
  const seenSignalCode=new Set();
- for(const sig of signals.slice(0,120)){
+ const signalsByCode=new Map();
+ for(const sig of signals){
   const code=text(sig?.code);
   if(!isCode(code))continue;
+  const grouped=signalsByCode.get(code)||[];
+  grouped.push(sig);
+  signalsByCode.set(code,grouped);
+ }
+ for(const [code,grouped] of signalsByCode){
+  grouped.sort((a,b)=>(number(b?.ts)||0)-(number(a?.ts)||0));
+  const sig=grouped[0]||null;
+  if(!sig)continue;
   seenSignalCode.add(code);
   const row=poolByCode.get(code)||null;
-  const pushRecord=pushByCode.get(code)||null;
-  const stage=stageOfSignal(sig,pushRecord,row,pushLast,now);
-  const signalProb=number(sig?.riseProb)??number(sig?.prob);
-  const probThreshold=number(pushGov?.minProb);
-  const conditions=[
-   conditionLine('probability','信号概率评分',signalProb,probThreshold,'>=',probThreshold===null?'阈值缺失':'pushGov.minProb',sig?.ts,probThreshold===null?'当前无概率阈值配置':'缺失概率值'),
-   conditionLine('main_pct','主力净占比',sig?.mainPct,0,'>=','state.signals.mainPct',sig?.ts,'缺少主力占比'),
-   conditionLine('candidate_score','候选评分',row?.score,0,'>=','candidate.score',row?.quoteAt||state?.stocksAt,'候选池暂未收录该票')
-  ];
-  const met=conditions.filter(x=>x.satisfied===true).length;
-  const validN=conditions.filter(x=>x.satisfied!==null).length;
+  // A stock's earlier receipt cannot acknowledge a later signal. Keep it in
+  // history, but require a non-future receipt after this trigger for its status.
+  const signalAt=number(sig?.ts);
+  const receipts=signalAt!==null&&signalAt>0&&signalAt<=now
+   ?(historyByCode.get(code)||[]).filter(record=>record.ts>=signalAt&&record.ts<=now&&record.signalRefs.some(ref=>
+     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt)):[];
+  // Multiple channels describe one delivery attempt. A proven success cannot
+  // be undone by another channel's later timeout or failure.
+  const pushRecord=receipts.find(record=>record.sent)||receipts.find(record=>record.unknown)||receipts[0]||null;
+  const quote=number(row?.price)!==null?row:sig;
+  const signalValidity=signalAt===null||signalAt<=0||signalAt>now?'unknown'
+   :now-signalAt>6*60*60*1000?'invalid':'active';
+  const stage=stageOfSignal(sig,pushRecord,row,now);
+  const conditions=observedConditions(sig,signalAt!==null&&signalAt<=now?signalAt:0,[
+   ['probability','信号概率评分',number(sig?.riseProb)??number(sig?.prob),signalAt],
+   ['main_pct','主力净占比',sig?.mainPct,signalAt]
+  ],'state.signals');
   const stageInfo=stageMeta(stage.state);
+  const signalHistory=grouped.map(entry=>({
+   triggerAt:number(entry?.ts),
+   triggerStrategy:text(entry?.type||'未标注策略'),
+   strategyVersion:text(entry?.strategyVersion||''),
+   conditionEvidence:recordedConditions(entry,number(entry?.ts)!==null&&entry.ts<=now?entry.ts:0),
+   quoteAt:number(entry?.quoteAt),quoteSource:text(entry?.quoteSource||''),
+   probability:number(entry?.riseProb)??number(entry?.prob),
+   price:number(entry?.price),
+   pct:number(entry?.pct),
+   mainPct:number(entry?.mainPct),
+   rawMessage:text(entry?.msg||'')
+  }));
   items.push({
    id:text((sig?.type||'signal')+'-'+code+'-'+(sig?.ts||'')),
    scope:signalScopeOfCode(code),
@@ -137,10 +212,10 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    code,
    name:text(sig?.name||row?.name||code),
    sector:text(sig?.sector||row?.sector||row?.industry||''),
-   price:number(sig?.price)??number(row?.price),
-   pct:number(sig?.pct)??number(row?.pct),
-   quoteAt:number(row?.quoteAt)||number(state?.stocksAt)||number(sig?.ts),
-   quoteSource:text(row?.quoteSource||'候选快照'),
+   price:number(quote?.price),
+   pct:number(quote?.pct),
+   quoteAt:number(quote?.quoteAt),
+   quoteSource:text(quote?.quoteSource||''),
    triggerStrategy:text(sig?.type||'未标注策略'),
    triggerAt:number(sig?.ts),
    pushAt:pushRecord&&pushRecord.ts!==null?pushRecord.ts:null,
@@ -148,8 +223,22 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    pushChannel:text(pushRecord?.channel||''),
    pushNote:text(pushRecord?.note||''),
    rawMessage:text(sig?.msg||''),
+    volume:number(quote?.volume),
+    amount:number(quote?.amount),
+    turnover:number(quote?.turnover),
+    mainInflow:number(quote?.mainInflow),
+    mainPct:number(quote?.mainPct),
+    dataSource:text(quote?.quoteSource||quote?.source||''),
+    strategyVersion:text(sig?.strategyVersion||''),
+    riskLevel:row?.bad===true?'high':'unknown',
+    stopLossRule:text(sig?.stopLoss||'待验证'),
+    invalidationRule:text(sig?.invalidWhen||'待验证'),
+    signalValidity,
+    signalHistory,
+    duplicateSignalCount:grouped.length-new Set(grouped.map(entry=>text(entry?.type))).size,
+    pushHistory:historyByCode.get(code)||[],
    conditions,
-   conditionsSummary:{met,total:validN,label:`条件满足 ${met}/${validN}`},
+   conditionsSummary:conditionSummary(conditions),
    factorValues:row?.factorValues&&typeof row.factorValues==='object'?row.factorValues:{},
    factorEvidence:row?.factorEvidence&&typeof row.factorEvidence==='object'?row.factorEvidence:{},
    playbookAnalysis:row?.playbookAnalysis&&typeof row.playbookAnalysis==='object'?row.playbookAnalysis:null,
@@ -157,43 +246,52 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   });
  }
 
- for(const row of rows){
-  if(items.length>=80)break;
+ // Historical stocks remain inspectable after leaving the current pools.
+ const historyRows=[...historyByCode.keys()].filter(code=>!poolByCode.has(code)&&!seenSignalCode.has(code))
+  .map(code=>({code,historyOnly:true}));
+ for(const row of [...rows,...historyRows]){
   if(!isCode(row.code)||seenSignalCode.has(row.code))continue;
   const values=row.factorValues&&typeof row.factorValues==='object'?row.factorValues:{};
-  const firstField=Object.keys(values)[0]||'';
-  const threshold=firstField?70:null;
-  const candidateConditions=[
-   conditionLine('candidate_score','候选评分',row.score,0,'>=','candidate.score',row?.quoteAt||state?.stocksAt,'候选评分缺失'),
-   conditionLine(firstField||'factor_preview',firstField?`${firstField} 研究阈值`:'研究阈值',firstField?values[firstField]:null,threshold,'>=',firstField?'candidate.factorValues':'无可用因子',row?.quoteAt||state?.stocksAt,firstField?'因子值缺失':'暂无可量化因子')
-  ];
-  const met=candidateConditions.filter(x=>x.satisfied===true).length;
-  const validN=candidateConditions.filter(x=>x.satisfied!==null).length;
-  const stageInfo=stageMeta('candidate');
+  const candidateConditions=row.historyOnly?[]:row.conditionEvidence;
+  const stageInfo=stageMeta(row.historyOnly?'history':'candidate');
   items.push({
-   id:'candidate-'+row.code,
+   id:(row.historyOnly?'history-':'candidate-')+row.code,
    scope:signalScopeOfCode(row.code),
-   source:'candidate_pool',
-   stage:'candidate',
+   source:row.historyOnly?'pushlog':'candidate_pool',
+   stage:row.historyOnly?'history':'candidate',
    stageLabel:stageInfo.label,
-   stageReason:'仅进入候选池，尚未触发推送信号',
+   stageReason:row.historyOnly?'仅有历史日志，缺少对应的触发和行情快照':'仅进入候选池，尚未触发推送信号',
    stageOrder:stageInfo.order,
    code:text(row.code),
    name:text(row.name||row.code),
    sector:text(row.sector||''),
    price:number(row.price),
    pct:number(row.pct),
-   quoteAt:number(row.quoteAt)||number(state?.stocksAt)||null,
-   quoteSource:text(row.quoteSource||'候选快照'),
-   triggerStrategy:'候选观察',
+   quoteAt:number(row.quoteAt),
+   quoteSource:text(row.quoteSource||''),
+   triggerStrategy:row.historyOnly?'历史推送（策略待核验）':'候选观察',
    triggerAt:null,
    pushAt:null,
    pushStatus:'',
    pushChannel:'',
    pushNote:'',
    rawMessage:'',
+   volume:number(row?.volume),
+   amount:number(row?.amount),
+   turnover:number(row?.turnover),
+   mainInflow:number(row?.mainInflow),
+   mainPct:number(row?.mainPct),
+   dataSource:text(row?.quoteSource||(row.historyOnly?'pushlog':'candidate_pool')),
+   strategyVersion:text(row?.strategyVersion||''),
+   riskLevel:row?.bad===true?'high':'unknown',
+   stopLossRule:'待验证',
+   invalidationRule:'待验证',
+   signalValidity:'unknown',
+   signalHistory:[],
+   duplicateSignalCount:0,
+   pushHistory:historyByCode.get(row.code)||[],
    conditions:candidateConditions,
-   conditionsSummary:{met,total:validN,label:`条件满足 ${met}/${validN}`},
+   conditionsSummary:conditionSummary(candidateConditions),
    factorValues:values,
    factorEvidence:row.factorEvidence&&typeof row.factorEvidence==='object'?row.factorEvidence:{},
    playbookAnalysis:row.playbookAnalysis&&typeof row.playbookAnalysis==='object'?row.playbookAnalysis:null,
@@ -202,7 +300,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
  }
 
  items.sort((a,b)=>(a.stageOrder-b.stageOrder)||((b.triggerAt||0)-(a.triggerAt||0))||((b.quoteAt||0)-(a.quoteAt||0))||String(a.code).localeCompare(String(b.code)));
- const counts={candidate:0,triggered:0,pending:0,sent:0,failed:0,expired:0,total:items.length};
+ const counts={candidate:0,triggered:0,pending:0,sent:0,failed:0,expired:0,history:0,total:items.length};
  for(const x of items){
   if(Object.prototype.hasOwnProperty.call(counts,x.stage))counts[x.stage]++;
  }
@@ -220,7 +318,8 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   }:null,
   counts,
   emptyReason,
-  items:items.slice(0,60)
+   appVersion:text(pushMeta?.appVersion||''),
+   items
  };
 }
 
@@ -230,7 +329,10 @@ function dashboardView(state,mood=null,now=Date.now(),meta={}){
  const observed=Number.isFinite(state.stocksAt)&&state.stocksAt>0;
  const fourteenCodes=new Set((state.myrules?.items||[]).filter(Boolean).map(x=>x.code));
  const sectorCounts=new Map(Object.entries(state.ztBySector||{}).map(([name,list])=>[name,Array.isArray(list)?list.length:0]));
- const rows=pool.slice(0,80).map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
+ const rows=pool.map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
+   volume:number(c.volume),amount:number(c.amount),turnover:number(c.turnover),mainInflow:number(c.mainInflow),mainPct:number(c.mainPct),
+   strategyVersion:text(c.strategyVersion||''),
+   conditionEvidence:observedConditions(c,now,[['candidate_score','候选评分',c.score,c.quoteAt]],'candidate_pool'),
    sector:text(c.sector||c.industry||''),
    fourteen:fourteenCodes.has(c.code),focused:c.focused===true||c.focused===1,signals:Array.isArray(c.paths)?c.paths.filter(x=>typeof x==='string').slice(0,5):[],
    explanation:Array.isArray(c.pathWhy)?c.pathWhy.filter(x=>typeof x==='string').slice(0,5):typeof c.pathWhy==='string'?[c.pathWhy]:[],

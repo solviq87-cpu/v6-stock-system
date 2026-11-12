@@ -54,13 +54,16 @@
   body.vx-mobile .vx-index .vx-spark{height:23px;margin-top:1px}
   body.vx-mobile .vx-market-strip>.vx-mood{grid-column:span 3;grid-row:auto;height:142px!important;min-height:142px;padding:11px 12px!important;min-width:0}
   body.vx-mobile .vx-market-strip>.vx-environment{grid-column:span 3;grid-row:auto;height:142px!important;min-height:142px;padding:11px 10px!important;min-width:0}
+  body.vx-mobile .vx-market-strip>.vx-mood{order:1}
+  body.vx-mobile .vx-market-strip>.vx-environment{order:2}
   body.vx-mobile .vx-market-strip h2{font-size:14px!important;line-height:1.3;white-space:normal}
   body.vx-mobile .vx-mood .vx-gauge{max-width:132px;margin:4px auto -5px}
   body.vx-mobile .vx-mood .vx-gauge strong{font-size:26px!important}
   body.vx-mobile .vx-mood>small{font-size:11px!important}
   body.vx-mobile .vx-environment .vx-regime{font-size:16px!important;display:block;margin:9px 0 5px;padding:7px 5px;max-width:100%;white-space:normal;text-align:center}
   body.vx-mobile .vx-environment p{font-size:11px!important;line-height:1.5;overflow-wrap:anywhere}
-  body.vx-mobile .vx-market-strip>.vx-risk-panel{grid-column:1/-1;grid-row:auto;height:auto!important;min-height:103px;padding:10px 12px!important;min-width:0}
+  body.vx-mobile .vx-market-strip>.vx-risk-panel{order:3;grid-column:1/-1;grid-row:auto;height:auto!important;min-height:103px;padding:10px 12px!important;min-width:0}
+  body.vx-mobile .vx-market-strip>.vx-push-panel{order:4;grid-column:1/-1;grid-row:auto;min-width:0}
   body.vx-mobile .vx-risk-panel dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 0}
   body.vx-mobile .vx-risk-panel dl>div{display:block;min-width:0;margin:0;font-size:11px;line-height:1.5}
   body.vx-mobile .vx-risk-panel dt{font-size:11px;white-space:normal;overflow-wrap:anywhere}
@@ -149,17 +152,25 @@ body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}
    On typical 320-430 CSS px phones chart/explanation remain stacked and scroll
    normally; only the original 1024px reference composition is constrained. */
 @media(min-width:1001px) and (max-width:1100px){
+  body.vx-mobile #vx-ranking{
+    max-height:208px;
+    overflow:hidden;
+  }
+  body.vx-mobile #vx-ranking .vx-table-scroll{
+    min-height:0;
+    max-height:118px;
+  }
   body.vx-mobile .vx-detail-column{
-    height:328px;
-    min-height:328px;
-    max-height:328px;
+    height:312px;
+    min-height:312px;
+    max-height:312px;
     overflow:hidden;
     grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
   }
   body.vx-mobile .vx-detail-column>.vx-panel{
-    height:328px;
+    height:312px;
     min-height:0;
-    max-height:328px;
+    max-height:312px;
     min-width:0;
     overflow:hidden;
   }

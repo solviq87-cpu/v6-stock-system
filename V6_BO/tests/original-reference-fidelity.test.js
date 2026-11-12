@@ -29,6 +29,7 @@ test('mobile narrow landscape: 3 index tiles then readable mood/environment/risk
  assert.match(css,/\.vx-market-strip>.*?vx-mood.*?grid-column:span 3/s);
  assert.match(css,/\.vx-market-strip>.*?vx-environment.*?grid-column:span 3/s);
  assert.match(css,/\.vx-market-strip>.*?vx-risk-panel.*?grid-column:1\/-1/s);
+ assert.match(css,/\.vx-market-strip>.*?vx-push-panel.*?order:4.*?grid-column:1\/-1/s);
  assert.match(css,/\.vx-risk-panel dl>div.*?font-size:11px/s);
  assert.doesNotMatch(css,/\.vx-risk-panel\s*\{\s*display:none/);
 });
@@ -71,7 +72,9 @@ test('phone and 1024px reference-style ranking show a compact price without losi
 });
 test('original 1024px reference stock-detail card fits above the mobile dock',()=>{
  assert.ok(css.includes('@media(min-width:1001px) and (max-width:1100px)'));
- assert.ok(css.includes('height:328px;'));
+ assert.ok(css.includes('height:312px;'));
+ assert.ok(css.includes('body.vx-mobile #vx-ranking'));
+ assert.ok(css.includes('max-height:208px;'));
  assert.ok(css.includes('body.vx-mobile .vx-detail-column .vx-explanation'));
  assert.ok(css.includes('overflow-y:auto;'));
  const browser=read('scripts/ui-reference-browser-check.js');

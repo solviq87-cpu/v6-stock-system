@@ -73,3 +73,16 @@ test('no issuer evidence is explicitly unknown rather than labelled risk-free',(
  const h=setup();h.events['v6-dashboard-data']({detail:model()});
  assert.match(h.nodes.get('vx-issuer-evidence').textContent,/不代表这家公司没有风险/);
 });
+test('selected history-only stock keeps its own quote on the next dashboard refresh',()=>{
+ const h=setup(),m=model();m.rows=[];m.pushes={items:[{code:'688001',name:'历史股票',price:10,pct:1,quoteAt:Date.now()-1000,quoteSource:'fixture',stage:'history'}]};
+ h.events['v6-dashboard-data']({detail:m});
+ h.docEvents.click({target:{closest:q=>q==='[data-vx-code]'?{dataset:{vxCode:'688001'}}:null}});
+ assert.equal(h.requests[0].url,'/api/kline?code=688001&n=120');assert.match(h.nodes.get('vx-selected-price').textContent,/10\.00/);
+ m.pushes.items[0].price=12;h.events['v6-dashboard-data']({detail:m});
+ assert.match(h.nodes.get('vx-selected-price').textContent,/12\.00/);assert.match(h.nodes.get('vx-selected-price').title,/快照/);
+});
+test('condition comparison operators are escaped before rendering untrusted evidence',()=>{
+ const h=setup(),m=model();m.pushes={items:[{code:'000001',stage:'triggered',conditions:[{id:'bad',label:'恶意比较符',operator:'<img src=x onerror=alert(1)>',value:10,threshold:1,satisfied:null}]}]};
+ h.events['v6-dashboard-data']({detail:m});const html=h.nodes.get('vx-condition-detail').innerHTML;
+ assert.match(html,/&lt;img/);assert.ok(!html.includes('<img'));
+});

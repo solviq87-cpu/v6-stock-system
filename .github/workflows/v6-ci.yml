@@ -3,7 +3,8 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    # Stacked correctness PRs must run the same gates before reaching dev.
+    branches: [main, dev, "feat/**"]
   workflow_dispatch:
 
 jobs:
