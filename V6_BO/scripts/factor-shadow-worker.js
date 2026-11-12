@@ -5,7 +5,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {readJson,readSnapshot}=require('../src/core/forward-tracking-store');
 const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evolution');
-const {verifyCanonicalManifestLineage}=require('../src/core/factor-maturity-manifest');
+const {verifyCanonicalManifestLineage,discoverCaptures}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
 const {preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint}=
  require('../src/core/factor-candidate-prereg');
@@ -238,7 +238,7 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
  const conf=parse(args),manifest=readJson(conf.manifestFile);
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>{
-  const features=manifest.episodes.map(e=>{
+  let features=manifest.episodes.map(e=>{
    if(typeof e?.featuresFile!=='string'||!path.isAbsolute(e.featuresFile))
     throw Error('预注册必须提供冻结特征绝对路径');
    // Neither manual nor automatic registration opens a price reportFile.
@@ -246,6 +246,7 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
    verifyEpisode(frozen,now);
    return frozen;
   });
+  features=registrationFeatures(manifest,features,conf.captureDir,now);
   const accepted=latestAccepted(conf.outputDir);
   const previousTrial=latestTrial(conf.outputDir,accepted);
   return registerCandidateLocked({manifest,outputDir:conf.outputDir,now,auto,
@@ -311,7 +312,7 @@ function validateManifest(manifest){
 }
 function runOnce({manifestFile,outputDir,now=Date.now(),
  requirePreRegistration=false,autoRegisterCandidate=false,
- operatorMode=false}={}){
+ operatorMode=false,captureDir}={}){
  if(autoRegisterCandidate&&!requirePreRegistration)
   throw Error('自动接力必须先启用严格预注册');
  const conf=parse(['once',manifestFile,outputDir]);
@@ -323,7 +324,39 @@ function runOnce({manifestFile,outputDir,now=Date.now(),
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>evaluateOnce(
-  {...conf,requirePreRegistration,autoRegisterCandidate},now,manifest));
+  {...conf,requirePreRegistration,autoRegisterCandidate,captureDir},now,manifest));
+}
+// Registration seals all receipt-backed features already visible, including
+// H5-pending captures. No outcome file is opened to construct this prefix.
+function registrationFeatures(manifest,frozen,captureDir,now){
+ if(manifest.mode!=='v6-forward-training-manifest')return frozen;
+ const dirs=new Set(manifest.episodes.map(e=>path.dirname(e.featuresFile)));
+ if(dirs.size!==1)throw Error('自动预注册必须使用同一原始捕获目录');
+ const dir=captureDir||[...dirs][0];
+ safeNew(path.join(dir,'.prereg-capture-guard'));
+ if(path.resolve(dir)!==path.resolve([...dirs][0]))throw Error('捕获目录与成熟清单血缘不一致');
+ const captures=discoverCaptures(dir,{now});
+ const all=captures.map(e=>{verifyEpisode(e.features,now);return e.features;});
+ if(frozen.some((f,i)=>all[i]?.fingerprint!==f.fingerprint))
+  throw Error('成熟清单不是原始捕获的连续前缀，禁止事后筛选研究日');
+ return all;
+}
+function pendingRegistrationStatus(reg,{conf,manifest,frozen,previous,previousTrial,now}){
+ const prefix=reg.frozenPrefixFingerprints;
+ if(!Array.isArray(prefix)||prefix.length<frozen.length)return null;
+ const all=registrationFeatures(manifest,frozen,conf.captureDir,now);
+ const edge=all[prefix.length-1];
+ if(!Number.isSafeInteger(reg.registeredAt)||reg.registeredAt<=0||prefix.length>all.length||prefix.some((fp,i)=>fp!==all[i]?.fingerprint)||
+    reg.algorithmFingerprint!==currentResearchCodeFingerprint()||reg.packFingerprint!==hash(factorPack)||
+    reg.parentAcceptedFingerprint!==(previous?.fingerprint||null)||
+    reg.parentTrialFingerprint!==(previousTrial?.fingerprint||null)||
+    reg.latestFrozenSignalDay!==edge?.signalDay||
+    reg.lastFrozenCapturedAt!==edge?.capturedAt||reg.registeredAt<edge?.capturedAt)
+  throw Error('待执行候选预注册与全部冻结证据或研究代码已不一致');
+ return {ok:true,status:prefix.length>frozen.length?
+  'skipped-awaiting-preregistered-prefix-maturity':'skipped-awaiting-post-prereg-signals',
+  pendingPrefixDays:prefix.length-frozen.length,preregistrationFingerprint:reg.fingerprint,
+  canTrade:false,productionWeightsChanged:false};
 }
 function evaluateOnce(conf,now,manifest){
  const previous=latestAccepted(conf.outputDir);
@@ -362,27 +395,16 @@ function evaluateOnce(conf,now,manifest){
    return {ok:true,status:'skipped-auto-prereg-needs-sealed-history',
     canTrade:false,productionWeightsChanged:false};
   return registerCandidateLocked({manifest,outputDir:conf.outputDir,now,
-   auto:true,features:frozen,accepted:previous,previousTrial});
+   auto:true,features:registrationFeatures(manifest,frozen,conf.captureDir,now),accepted:previous,previousTrial});
  }
  if(conf.requirePreRegistration&&!preRegistration&&!cooldownOnly)
   throw Error('候选预注册缺失：严格模式在读取远期收益前拒绝运行');
  // A newly committed candidate cannot have a future test signal yet.
  // Do not read old H5 reports while simply waiting for the first new
  // frozen signal; this also avoids spuriously re-testing the old holdout.
- if(conf.requirePreRegistration&&preRegistration&&!cooldownOnly&&
-    preRegistration.frozenPrefixFingerprints?.length===frozen.length){
-  const ordered=[...frozen].sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
-  if(preRegistration.algorithmFingerprint!==currentResearchCodeFingerprint()||
-     preRegistration.packFingerprint!==hash(factorPack)||
-     preRegistration.parentAcceptedFingerprint!==(previous?.fingerprint||null)||
-     preRegistration.parentTrialFingerprint!==(previousTrial?.fingerprint||null)||
-     preRegistration.latestFrozenSignalDay!==ordered.at(-1).signalDay||
-     preRegistration.registeredAt<preRegistration.lastFrozenCapturedAt||
-     preRegistration.frozenPrefixFingerprints.some((fp,i)=>fp!==ordered[i].fingerprint))
-   throw Error('待执行候选预注册与冻结证据或研究代码已不一致');
-  return {ok:true,status:'skipped-awaiting-post-prereg-signals',
-   preregistrationFingerprint:preRegistration.fingerprint,
-   canTrade:false,productionWeightsChanged:false};
+ if(conf.requirePreRegistration&&preRegistration&&!cooldownOnly){
+  const waiting=pendingRegistrationStatus(preRegistration,{conf,manifest,frozen,previous,previousTrial,now});
+  if(waiting)return waiting;
  }
  // Validate an already-sealed commitment against frozen FEATURES before
  // opening any forward-return files. Outcome-based eligibility is checked
@@ -405,6 +427,14 @@ function evaluateOnce(conf,now,manifest){
     freshTest:[{day:next.signalDay,featureCapturedAt:next.capturedAt}]
    });
   }
+ }
+ // A handful of still-maturing registered-prefix days are never a new
+ // candidate holdout. Wait using features only, before opening H5 outcomes.
+ if(preRegistration&&!cooldownOnly&&conf.requirePreRegistration){
+  const fresh=frozen.filter(f=>f.signalDay>preRegistration.latestFrozenSignalDay&&f.capturedAt>preRegistration.registeredAt);
+  if(fresh.length<5)return {ok:true,status:'skipped-awaiting-post-prereg-matured-days',
+   maturedPostRegistrationDays:fresh.length,requiredPostRegistrationDays:5,
+   canTrade:false,productionWeightsChanged:false};
  }
  // Strictly recheck the ENTIRE frozen receipt -> first mature H5 archive
  // lineage for canonical manifests. A valid manifest hash alone is not proof.
@@ -429,6 +459,8 @@ function evaluateOnce(conf,now,manifest){
     version:previous?.version||0,
     previousTrialFingerprint:previousTrial.fingerprint,
     canTrade:false,productionWeightsChanged:false};
+  if(/样本不足或未来收益窗口重叠|新增独立样本外交易日不足|恢复后未达到5个事前注册的全新成熟保留日/.test(String(e.message)))
+   return {ok:true,status:'skipped-insufficient-independent-h5-days',canTrade:false,productionWeightsChanged:false};
   if(/全局研究试验预算已耗尽/.test(String(e.message)))
    return {ok:true,status:'skipped-global-trial-budget-exhausted',
     usedTrials:trialBudget.usedTrials,maxTrials:trialBudget.maxTrials,

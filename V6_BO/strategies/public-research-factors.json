@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "status": "research-unverified",
+  "factors": [
+    {
+      "id": "qlib_cord20", "version": "1.0.0", "label": "20日收益与量变相关", "orientation": "unverified",
+      "formula": "PearsonCorr20(close/lag(close), log(1+volume/lag(volume)))",
+      "minBars": 21, "requiredFields": ["close", "volume"], "unit": "correlation",
+      "source": "https://github.com/microsoft/qlib/blob/main/qlib/contrib/data/loader.py",
+      "sourceLicense": "MIT", "licenseUrl": "https://github.com/microsoft/qlib/blob/main/LICENSE",
+      "adaptation": "Strict complete windows; undefined correlation returns null, never neutral zero."
+    },
+    {
+      "id": "qlib_vsumd20", "version": "1.0.0", "label": "20日成交量增减平衡", "orientation": "unverified",
+      "formula": "sum20(volume-lag(volume))/sum20(abs(volume-lag(volume)))",
+      "minBars": 21, "requiredFields": ["volume"], "unit": "ratio",
+      "source": "https://github.com/microsoft/qlib/blob/main/qlib/contrib/data/loader.py",
+      "sourceLicense": "MIT", "licenseUrl": "https://github.com/microsoft/qlib/blob/main/LICENSE",
+      "adaptation": "Zero denominator returns null instead of epsilon stabilization; not signed order flow."
+    },
+    {
+      "id": "qlib_wvma20", "version": "1.0.0", "label": "20日量加权绝对收益离散度", "orientation": "unverified",
+      "formula": "sampleStd20(abs(close/lag(close)-1)*volume)/mean20(abs(close/lag(close)-1)*volume)",
+      "minBars": 21, "requiredFields": ["close", "volume"], "unit": "ratio",
+      "source": "https://github.com/microsoft/qlib/blob/main/qlib/contrib/data/loader.py",
+      "sourceLicense": "MIT", "licenseUrl": "https://github.com/microsoft/qlib/blob/main/LICENSE",
+      "adaptation": "Sample standard deviation (ddof=1); zero denominator returns null."
+    },
+    {
+      "id": "amihud_illiq20_rmb", "version": "1.0.0", "label": "20日人民币成交额非流动性", "orientation": "unverified",
+      "formula": "mean20(abs(close/lag(close)-1)/actualAmountCNY)",
+      "minBars": 21, "requiredFields": ["close", "amount"], "unit": "1/CNY", "optional": true,
+      "source": "https://archive.nyu.edu/handle/2451/26706",
+      "sourceLicense": "Publication copyright reserved; independently implemented mathematical measure",
+      "licenseUrl": "https://archive.nyu.edu/handle/2451/26706",
+      "adaptation": "20-session RMB adaptation; requires actual unadjusted monetary turnover, never close times volume."
+    }
+  ]
+}

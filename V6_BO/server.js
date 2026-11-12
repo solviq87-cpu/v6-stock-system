@@ -20807,6 +20807,22 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return json(res,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
     }catch(e){return json(res,{ok:false,error:String(e.message).slice(0,200)},400);}
   }
+  if (p === '/api/research/agent-status') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+    return reply(200,{ok:true,agent:require('./src/core/factor-research-agent').readAgentStatus(process.env.V6_FACTOR_AGENT_DIR),
+      catalog:require('./src/strategy/public-factor-features').catalog});
+  }
+  if (p === '/api/research/public-factors') {
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='POST')return reply(405,{ok:false,error:'仅允许POST'});
+    if(Buffer.byteLength(body||'','utf8')>2*1024*1024)return reply(413,{ok:false,error:'研究数据超过2MiB'});
+    let input;try{input=JSON.parse(body||'{}');}catch{return reply(400,{ok:false,error:'JSON格式错误'});}
+    return require('./src/server/public-factor-job').runPublicFactorJob(input).then(result=>reply(result.ok?200:422,result));
+  }
   if (p === '/api/research/adaptive-latest') {
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;

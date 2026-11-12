@@ -104,6 +104,27 @@ function inspectResult(config,now){
   independentTradingDaysNeeded:r.independentTradingDaysNeeded,
   shadowModelVersion:r.shadowModelVersion??null};
 }
+function runProspectiveShadowResearch(config,now){
+ // Automatic daily runs must use the same prospective/operator boundary as
+ // strict watch. Missing bootstrap evidence is a wait, never permission to
+ // inspect a fresh holdout and create an unregistered challenger.
+ return shadowOnce({manifestFile:config.manifestFile,
+  outputDir:config.modelDir,captureDir:config.captureDir,now,operatorMode:true,
+  requirePreRegistration:true,autoRegisterCandidate:true});
+}
+function shadowNextAction(status){
+ if(status==='skipped-auto-prereg-needs-sealed-history')
+  return 'provide-sealed-prior-research-or-explicit-preregistration';
+ if(status==='skipped-awaiting-preregistered-prefix-maturity')
+  return 'await-preregistered-prefix-h5-maturity';
+ if(['candidate-auto-preregistered','skipped-awaiting-post-prereg-signals']
+    .includes(status))return 'await-signals-frozen-after-preregistration';
+ if(['skipped-no-new-trial-holdout','skipped-awaiting-post-prereg-matured-days','skipped-insufficient-independent-h5-days'].includes(status))
+  return 'await-independent-matured-h5-days';
+ if(status==='skipped-global-trial-budget-exhausted')
+  return 'await-global-trial-budget';
+ return null;
+}
 function runDailyCycle(config,{mode='observe',apply=false,now=Date.now()}={}){
  validatePaths(config);
  if(!['capture','observe'].includes(mode)||typeof apply!=='boolean'||
@@ -149,8 +170,12 @@ function runDailyCycle(config,{mode='observe',apply=false,now=Date.now()}={}){
    captureDir:config.captureDir,trackingDir:config.trackingDir,
    outDir:config.neutralDir,now}));
   if(maturity.maturedDays>=36){
-   phase('independent-shadow-model',()=>shadowOnce({
-    manifestFile:config.manifestFile,outputDir:config.modelDir,now}));
+   const shadow=phase('independent-shadow-model',()=>
+    runProspectiveShadowResearch(config,now));
+   const nextAction=shadowNextAction(shadow.status);
+   if(nextAction)stages.at(-1).nextAction=nextAction;
+   if(Number.isSafeInteger(shadow.pendingPrefixDays)&&shadow.pendingPrefixDays>0)
+    stages.at(-1).pendingPrefixDays=shadow.pendingPrefixDays;
   }else stages.push({stage:'independent-shadow-model',
    status:'skipped-insufficient-matured-h5-days'});
   const state=phase('read-only-chain-audit',()=>({
@@ -167,4 +192,5 @@ function runDailyCycle(config,{mode='observe',apply=false,now=Date.now()}={}){
   fs.closeSync(fd);fs.unlinkSync(lock);
  }
 }
-module.exports={validatePaths,checkSource,runDailyCycle};
+module.exports={validatePaths,checkSource,runDailyCycle,
+ runProspectiveShadowResearch};

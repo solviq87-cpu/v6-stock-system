@@ -2,7 +2,8 @@
 const {chinaValue}=require('./china-value');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
-const {featuresAt,names}=require('./model-features');
+const {featuresAt,names:baselineNames}=require('./model-features');
+const {selectPublicFeatures,publicFeaturesAt,catalogFingerprint}=require('./model-public-features');
 const {assertAligned,visibleCloseFactors}=require('./historical-session');
 const {ledgerBacktest}=require('./research-v2-position-ledger-backtest');
 const {applyRiskFilter}=require('./risk-filter');
@@ -17,6 +18,9 @@ const supportedModels=[...defaultModels,'lightgbm','xgboost'];
 
 function modelExperiment(options) {
   const {stocks,splitDay,source='imported',holdDays=1}=options;
+  const featureSet=options.featureSet??'baseline-v1';
+  const extraNames=selectPublicFeatures(featureSet),names=[...baselineNames,...extraNames];
+  const featureFingerprints=new Map();
   const models=options.models===undefined?defaultModels:options.models;
   if(!Array.isArray(models)||!models.length||new Set(models).size!==models.length||
       models.some(name=>!supportedModels.includes(name))) throw Error('模型列表为空、重复或包含不支持的模型');
@@ -59,14 +63,26 @@ function modelExperiment(options) {
       const risk=applyRiskFilter({...visibleCloseFactors(bar),isST:bar.isST??stock.isST,
         suspended:bar.suspended??stock.suspended,tradable:bar.tradable??stock.tradable});
       if(!risk.pass){reject(audit,['SIGNAL_RISK_REJECTED']);continue;}
-      const features=featuresAt(stock.bars,day);
+      let features=featuresAt(stock.bars,day);
       if(!features){reject(audit,['FEATURES_UNAVAILABLE']);continue;}
+      if(extraNames.length){
+        const observed=publicFeaturesAt(stock,day,options.tradingDates);
+        if(extraNames.some(name=>!Number.isFinite(observed.values[name]))){
+          reject(audit,['PUBLIC_FACTOR_EVIDENCE_UNAVAILABLE']);continue;
+        }
+        features={...features,...observed.values};
+        const fingerprints=featureFingerprints.get(symbol)||[];
+        fingerprints.push([day,observed.provenance.inputSha256]);featureFingerprints.set(symbol,fingerprints);
+      }
       const conditions=evaluateModelFilters(stock.bars,day,features,modelFilters);
       if(!conditions.pass){reject(audit,conditions.reasons);continue;}
       if(!executionCapacity(stock,bar,1,1,{minPriorTurnover:options.minPriorTurnover}).shares){
         reject(audit,['PRIOR_TURNOVER_TOO_LOW_OR_UNKNOWN']);continue;
       }
-      const vector=names.map(n=>features[n]);
+      // Convert tiny liquidity units with a fixed, predeclared transform;
+      // tree split tolerances must not silently discard a valid 1/CNY input.
+      const vector=names.map(n=>features[n]*(n==='amihud_illiq20_rmb'?1e8:1));
+      if(vector.some(v=>!Number.isFinite(v))){reject(audit,['NONFINITE_MODEL_INPUT']);continue;}
       if(day>=splitDay){
         rows.push({day,symbol,features});
         test.push(vector);
@@ -126,7 +142,7 @@ function modelExperiment(options) {
     summaries[name]=result.metrics;
   }
   const datasetSha256=createHash('sha256').update(JSON.stringify({stocks:stocks.map(stock=>
-    ({...stock,bars:stock.bars.slice(0,end+1)})),universeHistory:options.universeHistory??null})).digest('hex');
+    (extraNames.length?(()=>{const {factorHistory,...raw}=stock;return {...raw,bars:stock.bars.slice(0,end+1),publicFeatureFingerprints:featureFingerprints.get(String(stock.symbol||stock.code))||[]};})():{...stock,bars:stock.bars.slice(0,end+1)})),universeHistory:options.universeHistory??null})).digest('hex');
   const ledgerDefaults={initialCash:100000,topN:3,holdDays:1,feeBps:8,slippageBps:10,sellTaxBps:5,
     lotSize:100,maxAgeMs:86400000,strictMarks:true,stopLossPct:null,maxPositionPct:100,
     drawdownAlertPct:null,maxDrawdownPausePct:null,maxDailyLossPausePct:null,maxParticipationPct:null,
@@ -136,7 +152,7 @@ function modelExperiment(options) {
   backtest.tradingDates=options.tradingDates??dates;
   backtest.externalEntryEligibility=typeof options.entryEligibility==='function';
   return {source,verifiedLive:false,autoTrade:false,sklearn:version,modelVersions,features:names,
-    protocol:{models:[...models],modelFilters:{...modelFilters},minPriorTurnover:options.minPriorTurnover??null,
+    protocol:{featureSet,featureInputTransforms:extraNames.includes('amihud_illiq20_rmb')?{amihud_illiq20_rmb:{multiplier:1e8,unit:'per-100-million-CNY'}}:{},publicFactorCatalogFingerprint:extraNames.length?catalogFingerprint:null,models:[...models],modelFilters:{...modelFilters},minPriorTurnover:options.minPriorTurnover??null,
       datasetSha256,universeMode:options.universeHistory?'provided-unverified':'legacy-unverified',
       target:'next-open-to-following-open-gross-return',splitDay,end,backtest},sampleAudit,
     valueSignalDays,trainingRows:x.length,trainingDays:trainingDays.size,lastTrainingLabelDate:dates[lastLabelDay],
