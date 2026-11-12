@@ -44,13 +44,17 @@ test('token changes clear private results and prevent an older response from res
  assert.match(x.nodes.get('riskCenterContent').textContent,/PRIVATE_NEW/);assert.doesNotMatch(x.nodes.get('riskCenterContent').textContent,/PRIVATE_OLD/);
  await x.nodes.get('token').fire('change');assert.equal(x.nodes.get('riskCenterContent').textContent,'');
 });
-test('page hiding clears existing results and invalidates pending responses even after returning visible',async()=>{
+test('page hiding and offline transitions clear private results and invalidate pending responses',async()=>{
  const x=setup(),first=x.click();x.calls[0].resolve(response(result()));await first;
  assert.match(x.nodes.get('riskCenterContent').textContent,/PRIVATE_RISK_TITLE/);
  x.document.hidden=true;x.events.visibilitychange();assert.equal(x.nodes.get('riskCenterContent').textContent,'');
  x.document.hidden=false;const pending=x.click();x.document.hidden=true;x.events.visibilitychange();x.document.hidden=false;
  x.calls[1].resolve(response(result('PRIVATE_LATE')));await pending;assert.equal(x.nodes.get('riskCenterContent').textContent,'');
  x.events.pagehide();assert.equal(x.nodes.get('riskCenterContent').textContent,'');
+ const online=x.click();x.calls[2].resolve(response(result('PRIVATE_ONLINE')));await online;
+ assert.match(x.nodes.get('riskCenterContent').textContent,/PRIVATE_ONLINE/);
+ const offline=x.click();x.events.offline();x.calls[3].resolve(response(result('PRIVATE_OFFLINE_LATE')));await offline;
+ assert.equal(x.nodes.get('riskCenterContent').textContent,'');assert.match(x.nodes.get('riskCenterStatus').textContent,/网络离线/);
 });
 test('failed or malformed reads clear all previous private results and retain unknown risk',async()=>{
  const x=setup(),first=x.click();x.calls[0].resolve(response(result()));await first;

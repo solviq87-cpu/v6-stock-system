@@ -57,6 +57,7 @@
  token?.addEventListener('input',()=>clear());token?.addEventListener('change',()=>clear());
  doc.addEventListener('visibilitychange',()=>{if(doc.hidden)clear('页面已隐藏，私有风险结果已清空。');});
  root.addEventListener?.('pagehide',()=>clear('页面已隐藏，私有风险结果已清空。'));
+ root.addEventListener?.('offline',()=>clear('网络离线，私有风险结果已清空。'));
  button.addEventListener('click',async()=>{
   const current=++generation,secret=token?.value.trim()||'';
   content.replaceChildren();status.textContent='正在读取已有风险证据…';button.disabled=true;
