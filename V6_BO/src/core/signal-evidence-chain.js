@@ -47,19 +47,25 @@ function createProductionSignalEvidence(input) {
   if (!source || quoteAt === null || quoteAt > input.triggerAt || receivedAt === null || quoteAt > receivedAt || receivedAt > input.triggerAt) missing.push('UNKNOWN_OR_INVALID_ORIGINAL_QUOTE');
   if (quoteAt !== null && input.triggerAt - quoteAt > 15000) missing.push('STALE_QUOTE');
   const conditions = (Array.isArray(input.conditions) ? input.conditions : []).map(c => ({id:text(c.id),label:text(c.label),value:finite(c.value),threshold:finite(c.threshold),operator:text(c.operator),source:text(c.source),updatedAt:finite(c.updatedAt)}));
-  if (!conditions.length || conditions.some(c => c.value === null || c.threshold === null || !c.source || c.updatedAt === null || c.updatedAt > input.triggerAt)) missing.push('INCOMPLETE_TRIGGER_CONDITIONS');
+  const coverage=input.conditionCoverage||{};
+  const conditionCoverage={schemaVersion:1,status:['complete','partial'].includes(coverage.status)?coverage.status:'unknown',scope:text(coverage.scope)||'unknown',
+    producers:(Array.isArray(coverage.producers)?coverage.producers:[]).map(text),covered:(Array.isArray(coverage.covered)?coverage.covered:[]).map(text),
+    missing:(Array.isArray(coverage.missing)?coverage.missing:[]).map(gap=>({id:text(typeof gap==='string'?gap:gap?.id),source:text(gap?.source)}))};
+  if (conditionCoverage.status!=='complete'||conditionCoverage.scope==='unknown'||!conditionCoverage.producers.length||conditionCoverage.missing.length||!conditions.length||conditions.some(c => !conditionCoverage.covered.includes(c.id)||c.value === null || c.threshold === null || !c.source || !Number.isSafeInteger(c.updatedAt) || c.updatedAt > input.triggerAt||!['>','>=','<','<=','===','!=='].includes(c.operator))) missing.push('INCOMPLETE_TRIGGER_CONDITIONS');
   const version = text(input.strategyVersion); if (!version) missing.push('UNKNOWN_STRATEGY_VERSION');
+  const strategyDependencies=input.strategyDependencies||{status:'unknown',files:[],fingerprint:null};
+  if(strategyDependencies.status!=='complete')missing.push('STRATEGY_DEPENDENCIES_UNVERIFIED');
   if (!Array.isArray(input.inputs?.bars) || !input.inputs.bars.length) missing.push('NO_FROZEN_KLINE');
   if (!input.inputs?.news?.originalEvidence) missing.push('NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN');
   if (input.inputs?.qualityEvidence?.canNotify !== true) missing.push('QUOTE_USE_NOT_ELIGIBLE_OR_UNKNOWN');
   if (!input.risk?.invalidWhen) missing.push('NO_EXPLICIT_INVALIDATION_RULE');
   const payload = snapshot({schemaVersion:2,mode:'production-signal-provenance',code:input.code,type:text(input.type),triggerAt:input.triggerAt,
-    strategyVersion:version,recordKind:input.recordKind === 'trigger' ? 'trigger' : 'observation',supersedes:typeof input.supersedes === 'string' ? input.supersedes : null,
+    strategyVersion:version,strategyDependencies,recordKind:input.recordKind === 'trigger' ? 'trigger' : 'observation',supersedes:typeof input.supersedes === 'string' ? input.supersedes : null,
     quote:{price:finite(quote.price),pct:finite(quote.pct),quoteAt,receivedAt,quoteSource:source,quoteFreshness:text(quote.quoteFreshness),canTrade:quote.canTrade === true},
     model:{value:finite(input.model?.value),kind:text(input.model?.kind)||'unknown',target:input.model?.target===null?null:text(input.model?.target)||'unknown',
       rankingValue:finite(input.model?.rankingValue),rankingKind:text(input.model?.rankingKind)||'unknown',calibrationCertified:false},
     riseModel:{value:finite(input.riseModel?.value),kind:text(input.riseModel?.kind)||'unknown',target:input.riseModel?.target===null?null:text(input.riseModel?.target)||'unknown',source:text(input.riseModel?.source),calibrationCertified:false},
-    conditions,inputs:input.inputs || {},supportingReasons:(input.supportingReasons || []).map(text),opposingReasons:(input.opposingReasons || []).map(text),
+    conditions,conditionCoverage,inputs:input.inputs || {},supportingReasons:(input.supportingReasons || []).map(text),opposingReasons:(input.opposingReasons || []).map(text),
     risk:{text:text(input.risk?.text),stopLoss:text(input.risk?.stopLoss),invalidWhen:text(input.risk?.invalidWhen)},
     message:text(input.message),status:missing.length ? 'partial' : 'recorded',missingReasons:missing,canTrade:false});
   const evidenceFingerprint = sha256(payload);

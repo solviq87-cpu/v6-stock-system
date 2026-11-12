@@ -110,6 +110,8 @@ function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallba
   else if(operator==='<=')satisfied=actual<=gate;
   else if(operator==='>')satisfied=actual>gate;
   else if(operator==='<')satisfied=actual<gate;
+  else if(operator==='===')satisfied=actual===gate;
+  else if(operator==='!==')satisfied=actual!==gate;
  }
  const reason=satisfied===null?fallbackReason:(satisfied?'满足':'未满足');
  return {id:text(id),label:text(label),value:actual,threshold:gate,operator:text(operator),satisfied,reason:text(reason),source:text(source),updatedAt:number(updatedAt)};
@@ -234,6 +236,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
     strategyVersion:text(sig?.strategyVersion||''),
     signalId:text(sig?.signalId||''),evidenceFingerprint:text(sig?.evidenceFingerprint||''),
     evidenceStatus:text(sig?.evidenceStatus||'unknown'),evidenceArchiveStatus:text(sig?.evidenceArchiveStatus||'unknown'),
+    conditionCoverage:sig?.conditionCoverage&&typeof sig.conditionCoverage==='object'?sig.conditionCoverage:{status:'unknown',scope:'unknown',missing:[]},
     evidenceMissingReasons:Array.isArray(sig?.evidenceMissingReasons)?sig.evidenceMissingReasons.map(text):[],
     riskLevel:row?.bad===true?'high':'unknown',
     stopLossRule:text(sig?.stopLoss||'待验证'),

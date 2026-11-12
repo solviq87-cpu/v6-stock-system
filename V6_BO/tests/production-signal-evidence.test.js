@@ -7,8 +7,10 @@ const at=Date.parse('2026-11-12T10:00:00+08:00');
 function section(start,end){const a=source.indexOf(start),b=source.indexOf(end,a);assert.ok(a>=0&&b>a,start);return source.slice(a,b);}
 function root(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'signal-proof-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return path.join(dir,'private');}
 const input=()=>({code:'000001',type:'大单快速流入',triggerAt:at,strategyVersion:'rules-v1',recordKind:'trigger',
+ strategyDependencies:{status:'complete',files:[{path:'fixture.js',status:'known',sha256:'a'.repeat(64)}],fingerprint:'b'.repeat(64)},
  quote:{price:10,pct:1,quoteAt:at-1000,receivedAt:at,quoteSource:'eastmoney',canTrade:true},
  conditions:[{id:'flow',label:'资金增量',value:5e7,threshold:3e6,operator:'>',source:'rule-v1',updatedAt:at}],
+ conditionCoverage:{status:'complete',scope:'fixture-single-rule',producers:['fixture'],covered:['flow'],missing:[]},
  inputs:{bars:[{date:'2026-11-11',close:10}],news:{originalEvidence:[{id:'announcement-1'}]},qualityEvidence:{canNotify:true}},
  model:{value:60,kind:'model-estimate',target:'ztToday',rankingValue:70,rankingKind:'ranking-score'},supportingReasons:['同一有效资金窗口增加'],opposingReasons:['非收益认证'],risk:{text:'风险',stopLoss:'9',invalidWhen:'触发条件失效'}});
 
@@ -81,7 +83,8 @@ function serverContext(dir){
  let now=at,saves=0;
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
  const context=vm.createContext({Date:Clock,SignalEvidence:Evidence,SignalJournal:Journal,path,fs,__dirname:path.resolve(__dirname,'..'),
-   SIGNAL_RULE_SOURCE_HASH:'fixture-loaded-source',process:{env:{V6_SIGNAL_EVIDENCE_DIR:dir,V6_NEWS_EVIDENCE_DIR:path.join(dir,'news-evidence')}},require:module=>module.startsWith('./')?require(path.resolve(__dirname,'..',module)):require(module),
+   SIGNAL_RULE_SOURCE_HASH:'fixture-loaded-source',SIGNAL_RULE_SOURCE_MANIFEST:require('../src/core/signal-rule-manifest').buildSignalRuleSourceManifest(path.resolve(__dirname,'..')),
+   process:{env:{V6_SIGNAL_EVIDENCE_DIR:dir,V6_NEWS_EVIDENCE_DIR:path.join(dir,'news-evidence')}},require:module=>module.startsWith('./')?require(path.resolve(__dirname,'..',module)):require(module),
    console:{error(){},log(){}},S:{learn:{signals:[],buckets:{}}},
    fusedProb:()=>({prob:74,model:60,emp:100,la:null,delta:0,valueKind:'ranking-score',target:'ztToday'}),
    todayStr:()=> '20261112',krowsOf:()=>[],probKindOf:()=> 'score',isTradeDay:()=>true,pruneSignals(){},
@@ -134,7 +137,7 @@ test('actual tick freezes a causal funds condition, raw provenance and archive b
    isStrongAlert:()=>false,modDayTake:()=>true,govTake:()=>({ok:true}),auctionPhase:()=>0,dataCapOf:()=>200,sseSend(){},
    enqueueIntraday:rows=>{c.enqueued=rows;},A:{limitUpProbability:()=>.5,isNearLimitUp:()=>false}});
  Object.assign(c.S,{loop:{running:false,tickCount:0},candidatePool:[{code:'000001'}],sectors:[],stocks:[],inflowHistory:new Map(),klines:new Map(),
-   news:{goodCodes:new Set(),badCodes:new Set()},fastinRepeat:new Map(),lastPush:new Map(),pushCount:new Map(),signals:[]});
+   news:{goodCodes:new Set(),badCodes:new Set(),goodAll:[]},fastinRepeat:new Map(),lastPush:new Map(),pushCount:new Map(),signals:[]});
  vm.runInContext(section('function fundsNumber(','const { analyzeShortline }'),c);
  vm.runInContext(section('function countStreak(h)','function sectorZTCountFor('),c);
  c.S.inflowHistory.set('000001',Array.from({length:11},(_,i)=>c.fundsHistoryObservation({...stock,mainInflow:(i+1)*1e7,fundsRetrievedAt:at-(11-i)*5000},at-(11-i)*5000)));

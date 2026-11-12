@@ -11,7 +11,8 @@ const em = require('./em');
 const probabilityContract = require('./src/core/probability-contract');
 const SignalEvidence = require('./src/core/signal-evidence-chain');
 const SignalJournal = require('./src/core/production-signal-journal');
-const SIGNAL_RULE_SOURCE_HASH = require('node:crypto').createHash('sha256').update(fs.readFileSync(__filename)).update(fs.readFileSync(path.join(__dirname,'analysis.js'))).digest('hex');
+const SIGNAL_RULE_SOURCE_MANIFEST = require('./src/core/signal-rule-manifest').buildSignalRuleSourceManifest(__dirname);
+const SIGNAL_RULE_SOURCE_HASH = SIGNAL_RULE_SOURCE_MANIFEST.fingerprint;
 // Opt-in durable research observer. Push delivery, ranking and accounts remain independent.
 let _stockObservationMonitor=null,_stockObservationMonitorError=null;
 function stockObservationOptions(){
@@ -753,6 +754,15 @@ async function sectorSurgeScan() {
           //    修法：查表前用 themeOfSec 归并到主线（与 S.ztBySector 建键同一入口）。
           const p = A.nextDayLimitProb({ limitUpCount: 1, sealRatio: 0, breakCount: 0, firstSeal: null, sectorZT: ((S.ztBySector || {})[_secKey] || []).length, turnover: sn.turnover || 5, aboveMa5: true });
           cands.push({ ...reviewSnapshotFields(sn), code: sn.code, name: nameOf.get(sn.code) || sn.code, price: sn.price, pct: sn.pct, prob: Math.round(calibratedProb(p)), mainPct: sn.mainPct });
+          // CONDITION_EVIDENCE_BEGIN
+          annotateSignalConditions(cands[cands.length-1],'sectorSurgeScan',[
+            ['price','原行价格',sn.price,0,'>'],['stock-strength','个股涨幅',sn.pct||0,3,'>='],
+            ['sector-trigger','板块实际命中分支',sg.kind==='surge'?sg.delta:sg.pct,sg.kind==='surge'?3e7:2.5,'>='],
+            ['sector-flow','板块当日净流入',cur.get(sg.name),0,'>']],
+            ['PICK_NOTABLE_SECTORS_SURGE_OR_STRENGTH_BRANCH_NOT_EXPANDED','NEXT_DAY_LIMIT_MODEL_INTERNALS_NOT_EXPANDED'],
+            {sectorSignal:sg,sectorZT:((S.ztBySector||{})[_secKey]||[]).length,turnoverUsed:sn.turnover||5,modelRaw:p,
+              modelAssumptions:{limitUpCount:1,sealRatio:0,breakCount:0,firstSeal:null,aboveMa5:true}});
+          // CONDITION_EVIDENCE_END
         }
         cands.sort((a, b) => b.prob - a.prob);
         if (!cands.length) return;
@@ -909,16 +919,46 @@ const saveLearn = () => { const _o = atomicWrite(STAT_FILE, JSON.stringify(S.lea
 let signalRuleVersion;
 function productionSignalVersion() {
   // Hash the evaluator actually loaded by this process; never backfill it into old samples.
-  if (!signalRuleVersion) signalRuleVersion='live-signal-v2:'+require('node:crypto').createHash('sha256').update(SIGNAL_RULE_SOURCE_HASH+tick.toString()+logSignal.toString()+fusedProb.toString()).digest('hex');
+  if (!signalRuleVersion) signalRuleVersion='live-signal-v3:'+SIGNAL_RULE_SOURCE_MANIFEST.status+':'+require('node:crypto').createHash('sha256').update(SIGNAL_RULE_SOURCE_HASH+tick.toString()+logSignal.toString()+fusedProb.toString()).digest('hex');
   return signalRuleVersion;
 }
 function signalCondition(id,label,value,threshold,operator,at) {
   return {id,label,value,threshold,operator,source:'frozen-live-rule:'+id,updatedAt:at};
 }
+// Metadata only: callers pass values already evaluated by their original rule.
+// Missing external internals remain explicit; a nonempty list never means a complete strategy.
+function annotateSignalConditions(row,producer,rules,missing=[],inputs={}) {
+  if(!row||typeof row!=='object')return row;
+  const at=Date.now(),previous=Array.isArray(row.conditionEvidence)?row.conditionEvidence:[];
+  const additions=(Array.isArray(rules)?rules:[]).map(([id,label,value,threshold,operator])=>({
+    id:producer+':'+id,label,value:typeof value==='number'&&Number.isFinite(value)?value:null,
+    threshold:typeof threshold==='number'&&Number.isFinite(threshold)?threshold:null,operator,
+    source:'server.js#'+producer,updatedAt:at}));
+  const merged=new Map(previous.map(condition=>[condition.id,condition]));
+  for(const condition of additions)merged.set(condition.id,condition);
+  const gaps=[...(row.conditionCoverage?.missing||[]),...missing.map(id=>({id,source:'server.js#'+producer})),
+    {id:'SHARED_GOVERNANCE_AND_DELIVERY_NOT_EXPANDED',source:'server.js#'+producer}];
+  const uniqueGaps=[...new Map(gaps.map(gap=>[gap.id+'|'+gap.source,gap])).values()];
+  let values=null;
+  try{const raw=JSON.stringify(inputs);if(Buffer.byteLength(raw)>64*1024)throw Error('size');values=JSON.parse(raw);}
+  catch{uniqueGaps.push({id:'CONDITION_INPUT_SNAPSHOT_UNAVAILABLE',source:'server.js#'+producer});}
+  const conditions=[...merged.values()];
+  if(conditions.length>128)uniqueGaps.push({id:'CONDITION_COUNT_EXCEEDS_128',source:'server.js#'+producer});
+  const allStages=[...(row.conditionInputs||[]),{producer,evaluatedAt:at,values}];
+  if(allStages.length>12)uniqueGaps.push({id:'CONDITION_STAGE_COUNT_EXCEEDS_12',source:'server.js#'+producer});
+  const stages=allStages.slice(-12);
+  try{
+    const frozen=SignalEvidence.immutableSnapshot({conditionEvidence:conditions.slice(0,128),conditionCoverage:{schemaVersion:1,
+      status:'partial',scope:'producer-local-conditions',producers:[...new Set([...(row.conditionCoverage?.producers||[]),producer])],
+      covered:conditions.slice(0,128).map(condition=>condition.id),missing:uniqueGaps},conditionInputs:stages});
+    Object.assign(row,frozen);
+  }catch{row.conditionCoverage={schemaVersion:1,status:'partial',scope:'producer-local-conditions',missing:[{id:'CONDITION_METADATA_SNAPSHOT_FAILED',source:'server.js#'+producer}]};}
+  return row;
+}
 function learningSignalExtra(row,extra={}) {
   const quote={};
   for(const field of ['price','pct','quoteAt','receivedAt','quoteSource','quoteFreshness','canTrade','canNotify','mode']) if(row && row[field]!==undefined)quote[field]=row[field];
-  return {...extra,sourceRecord:row||null,quoteEvidence:quote,conditionEvidence:Array.isArray(row?.conditionEvidence)?row.conditionEvidence:[],
+  return {...extra,sourceRecord:row||null,quoteEvidence:quote,conditionEvidence:Array.isArray(row?.conditionEvidence)?row.conditionEvidence:[],conditionCoverage:row?.conditionCoverage||null,
     strategyVersion:row?.strategyVersion||productionSignalVersion(),signalRisk:typeof row?.risk==='string'?row.risk:'',stopLoss:row?.stopRef||row?.stopLoss||'',invalidWhen:row?.invalidWhen||''};
 }
 function captureProductionSignal(record,quote={},rows=[],extra={}) {
@@ -930,8 +970,8 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
   const modelKind=record.probKind==='score'?'score':record.prob==null?'unknown':'model-estimate';
   const eventTarget=record.eventTarget!==undefined?record.eventTarget:record._fz?.target??'unknown';
   try{evidence=SignalEvidence.createProductionSignalEvidence({code:record.code,type:record.type,triggerAt:at,
-    recordKind:extra.recordKind,strategyVersion:record.strategyVersion||productionSignalVersion(),supersedes:extra.supersedes,
-    quote,conditions:record.conditionEvidence||[],model:{value:record.prob,kind:modelKind,target:eventTarget,
+    recordKind:extra.recordKind,strategyVersion:record.strategyVersion||productionSignalVersion(),strategyDependencies:SIGNAL_RULE_SOURCE_MANIFEST,supersedes:extra.supersedes,
+    quote,conditions:record.conditionEvidence||[],conditionCoverage:record.conditionCoverage,model:{value:record.prob,kind:modelKind,target:eventTarget,
       rankingValue:record._fz?.prob,rankingKind:record._fz?.valueKind||'unknown'},
     riseModel:{value:record.riseProb,kind:record.riseProb==null?'unknown':'model-estimate',target:record.riseEventTarget??'unknown',source:record.riseModelSource||''},
     inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news:extra.news||{originalEvidence:null},qualityEvidence},
@@ -949,7 +989,7 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
   catch(error){console.error('[signal-evidence] 冻结归档不可用，不能声称可持久回放');}
   return SignalEvidence.immutableSnapshot({...record,signalId:evidence.signalId,evidenceFingerprint:evidence.evidenceFingerprint,
     evidenceStatus:evidence.status,evidenceArchiveStatus:archiveStatus,evidenceMissingReasons:evidence.missingReasons,
-    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,qualityEvidence,
+    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,conditionCoverage:evidence.conditionCoverage,qualityEvidence,
     probKind:modelKind,eventTarget,calibrationCertified:false,
     quoteAt:evidence.quote.quoteAt,receivedAt:evidence.quote.receivedAt,quoteSource:evidence.quote.quoteSource,
     stopLoss:evidence.risk.stopLoss,invalidWhen:evidence.risk.invalidWhen});
@@ -1294,14 +1334,14 @@ function logSignal(type, code, name, price, prob, extra = {}) {
   const _old = S.learn.signals.find(s => s.type === type && s.code === code && s.date === todayStr());
   const observation=captureProductionSignal({ts:Date.now(),type,code,name,price,prob:_p,
     probKind:probKindOf(type)==='score'?'score':'model-estimate',eventTarget:_fz.target!==undefined?_fz.target:'unknown',_fz,
-    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],
+    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],conditionCoverage:extra.conditionCoverage,
     logic:(extra.paths||[]).join('；'),risk:extra.signalRisk||'',stopLoss:extra.stopLoss||'',invalidWhen:extra.invalidWhen||''},
     extra.quoteEvidence||{price},_rows,{recordKind:'observation',supersedes:_old?.signalId||null,
       metrics:{originalRecord:extra.sourceRecord||null,cal:extra.cal??null,score:extra.score??null,legacyParent:_old&&!_old.signalId?{type:_old.type,code:_old.code,date:_old.date,ts:_old.ts??null}:null}});
   const result={..._fz,signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,evidenceArchiveStatus:observation.evidenceArchiveStatus};
   if (_old) return result;
   const sampleExtra={...extra};
-  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.sourceRecord;
+  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.conditionCoverage; delete sampleExtra.sourceRecord;
   S.learn.signals.push({
     ...JSON.parse(JSON.stringify(sampleExtra)),
     date: todayStr(), ts: observation.ts, type, code, name, price,
@@ -4760,6 +4800,9 @@ async function rebuildPool() {
     // ---- 选股路径标记：每条路径同时记录「触发它的真实数据」，面板直接显示为什么选中 ----
     const last5 = k.rows.slice(-5);
     const paths = [], pathWhy = {};
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionPathInputs=[];
+    // CONDITION_EVIDENCE_END
     const pushPath = (nm, why) => { paths.push(nm); pathWhy[nm] = why; };
     const prTxt = profitRatio == null ? '未知' : (profitRatio * 100).toFixed(0) + '%';
     const ma5 = +(last5.reduce((s2, r) => s2 + r.close, 0) / 5).toFixed(2);
@@ -4772,6 +4815,10 @@ async function rebuildPool() {
       const last8 = k.rows.slice(-8);
       const smallUp = last8.filter(r => r.pct > 0 && r.pct <= 5).length;
       const cum8 = last8.reduce((s2, r) => s2 + r.pct, 0);
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'碎阳向上',kind:'alternative-all',rules:[[smallUp,5,'>='],[cum8,2,'>='],[cum8,15,'<='],[s.price,ma5,'>']],
+        windowPct:last8.map(r=>r.pct),maxDailyPulse:6,smallUpDefinition:{minExclusive:0,maxInclusive:5}});
+      // CONDITION_EVIDENCE_END
       if (smallUp >= 5 && cum8 >= 2 && cum8 <= 15 && !last8.some(r => r.pct > 6) && s.price > ma5)
         pushPath('碎阳向上', `近8日${smallUp}根小阳、累计${signTxt(cum8)}${cum8.toFixed(1)}%、无单日>6%脉冲、站上5日线${ma5}`);
     }
@@ -4785,6 +4832,9 @@ async function rebuildPool() {
       const low95 = Math.min(...low95Rows.map(r => r.low));
       const cum3 = k.rows.slice(-3).reduce((s2, r) => s2 + r.pct, 0);
       const volT = k.rows[k.rows.length - 1].volume, volY = k.rows[k.rows.length - 2].volume;
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'低位启动',kind:'alternative-all',windowCount:low95N,rules:[[low95,0,'>'],[low95>0?s.price/low95:null,1.2,'<'],[cum3,4,'>'],[volY,0,'>'],[volT,volY*1.5,'>='],[s.price,ma5,'>']]});
+      // CONDITION_EVIDENCE_END
       if (low95 > 0 && s.price / low95 < 1.2 && cum3 > 4 && volY > 0 && volT >= volY * 1.5 && s.price > ma5)
         pushPath('低位启动', `距${winLabel('low95', low95N)}低点仅${signNum(((s.price / low95 - 1) * 100), "%")}${winShort('low95', low95N)}、3日累涨${cum3.toFixed(1)}%、今日量能${(volT / volY).toFixed(1)}倍`);
     }
@@ -4802,6 +4852,9 @@ async function rebuildPool() {
       const weightedFlow = fd.slice(-3).reduce((a, d) => a + d.main * 0.6 + d.big + d.super, 0);
       const bigSuperNet3 = fundsWindowSum(fd, 3, ['big', 'super']);
       const cum3p = k.rows.slice(-3).reduce((a, r) => a + r.pct, 0);
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'主力吸筹',kind:'alternative-all',rules:[[weightedFlow,0,'>'],[cum3p,6,'<']],rawFundsWindow:fd.slice(-3),mainWeight:0.6,bigWeight:1,superWeight:1,bigSuperNet3});
+      // CONDITION_EVIDENCE_END
       if (weightedFlow > 0 && cum3p < 6)
         pushPath('主力吸筹', `3日大单+超大单净额${Math.round(bigSuperNet3 / 1e4)}万（供应商订单大小口径）、同期股价仅涨${cum3p.toFixed(1)}%`);
     }
@@ -4848,6 +4901,16 @@ async function rebuildPool() {
       basis: _scoreBasis, scoreNote: scoreNoteOf(scoreAdj, _scoreBasis),
       zt90Txt: winLabel('zt90', k.rows.length) + winShort('zt90', k.rows.length)
     });
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(scored[scored.length-1],'rebuildPool.score',[
+      ['price','原行价格',s.price,0,'>'],['kline-count','评分可得K线',k.rows.length,5,'>=']],
+      ['PRESELECTION_RANK_UNION_AND_EXTERNAL_PATH_INTERNALS_NOT_FULLY_EXPANDED','SCORESTOCK_CHIP_WEEKLY_MACD_INTERNALS_NOT_EXPANDED'],
+      {turnover2d:t2d,turnoverRank:i+1,universeCount:total,rawScore:score,chipAdj,scoreAfterChip:scoreAdj,detail,paths,pathWhy,profitRatio,zt90,zt5,
+        evaluationBars:k.rows,additionalPathInputs:conditionPathInputs,externalPathResults:{macd,weekly:wk,hengPan:hp},
+        alternativePathPredicates:[{path:'温和连阳',all:[[profitRatio,0.7,'>='],[up5,3,'>=']]},
+          {path:'高换手',all:[[profitRatio,0.7,'>='],[i,300,'<']]},{path:'涨停基因',all:[[profitRatio,0.85,'>='],[zt90,2,'>=']]},
+          {path:'筹码峰<11%',all:[[profitRatio,0.11,'<']]},{path:'大单流入',all:[[s.mainPct||0,8,'>='],[s.pct,0,'>'],[s.pct,7,'<']]}]});
+    // CONDITION_EVIDENCE_END
   }
   // ⛔ 池内排序比较器只准有一份（2026-10-06 修，本轮角度：排序与截断）
   //    原来下面这串在 2324/2368 复制粘贴了两遍、2446 又是另一串（带八字分），
@@ -4930,10 +4993,26 @@ async function rebuildPool() {
     // 资金流接口被限流拿不到数据时照样放行；仅在有数据显示三日大幅净流出时剔除
     const VP_PATHS = ['碎阳向上', '低位启动', '横盘放量', '主力吸筹', 'MACD水上金叉', '周线金叉', '筹码峰<11%', '大单流入'];
     const vpNew = c.paths.some(p => VP_PATHS.includes(p));
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(c,'rebuildPool.selection',[
+      ['score','本次首选分支评分门',c.score,vpNew&&c.score>=58?58:65,'>='],
+      ['funding-branch','本次资金或原缺失放行分支',Number(vpNew&&c.score>=58?(fundIn||f3==null):fundIn),1,'==='],
+      ...(!(vpNew&&c.score>=58)?[['focus-or-path','常规聚焦或形态门',Number(c.focused||c.paths.length>0),1,'===']]:[])],
+      ['VP_OR_REGULAR_OR_FALLBACK_BRANCH_MUST_BE_READ_WITH_INPUTS','BAZI_AND_LEARNALL_INTERNALS_NOT_EXPANDED'],
+      {branchUsed:vpNew&&c.score>=58?'volume-price':'regular',vpNew,fundIn,todayFlow:c.mainInflow??null,multiDayFlow:f3,
+        missingMultiDayAllowed:vpNew&&c.score>=58&&f3==null,focused:c.focused,paths:c.paths,score:c.score,learnAdj:c.learnAdj??null,lowBonus:c.lowBonus??null,laAdj:c.laAdj??null,laP:c.laP??null,laBase:c.laBase??null});
+    // CONDITION_EVIDENCE_END
     if (vpNew && c.score >= 58) return fundIn || f3 == null;
     return fundIn && c.score >= 65 && (c.focused || c.paths.length > 0);
   });
+  // CONDITION_EVIDENCE_BEGIN
+  const conditionFallbackTriggered = !picked.length;
+  // CONDITION_EVIDENCE_END
   if (!picked.length) picked = scored.filter(c => ((c.mainInflow || 0) > 0 || c.paths.length > 0) && c.score >= 70); // 兜底：高分或命中任一形态
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.fallback-context',conditionFallbackTriggered?[
+    ['fallback-score','本次兜底分支评分门',c.score,70,'>=']]:[],[],{fallbackTriggered:conditionFallbackTriggered,poolBaziWindow:POOL_BAZI_WINDOW,poolCapacity:POOL_CAP});
+  // CONDITION_EVIDENCE_END
   // ⛔ 这里截的是「八字闸门评估窗」，不是「池上限」（2026-10-28 修，选股体系会话）。
   //    原来这一行 `slice(0, 50)` 被同时当成池上限用，而八字闸门在它**之后**才踢人
   //    （高位加速 / 破位整理一票否决）—— 被踢掉的名额**不会回填**：
@@ -4997,6 +5076,10 @@ async function rebuildPool() {
   const unjudgedN = picked.filter(baziUnknown).length;
   if (unjudgedN) console.log(`[pool] ⚠️ ${unjudgedN} 只票算不出八字（${(picked.find(baziUnknown) || {}).baziMiss || '数据不足'}）—— 它们未经过高位加速/破位闸门，已在卡片上标注`);
   picked = picked.filter(c => !baziBlocked(c));
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.bazi',[],['BAZI_INNER_THRESHOLDS_AND_SAFE_FALLBACK_NOT_EXPANDED'],
+    {bazi:c.bazi||null,baziDims:c.baziDims||null,baziMiss:c.baziMiss||null,excludedStages:['高位加速','破位整理']});
+  // CONDITION_EVIDENCE_END
   if (!picked.length) {
     // ⛔ 原来的退路 `scored.slice(0, 20)` 是个逻辑陷阱：scored 按评分降序，
     //    被"高位加速/破位整理"否决掉的恰恰是评分最高的那批 —— 于是【行情越差、
@@ -5015,6 +5098,10 @@ async function rebuildPool() {
     }
   }
   const baziKicked = beforeGate - picked.length;
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.final-bazi',[],['BAZI_INNER_THRESHOLDS_AND_SECONDARY_FALLBACK_NOT_EXPANDED'],
+    {bazi:c.bazi||null,baziDims:c.baziDims||null,baziMiss:c.baziMiss||null,excludedStages:['高位加速','破位整理'],poolCapacity:POOL_CAP});
+  // CONDITION_EVIDENCE_END
   if (baziKicked) console.log(`[pool] 八字闸门拦下 ${baziKicked} 只（高位加速/破位整理，不推不进池）`);
   // 八字分参与最终排序：同样 score 下，四维度分高的排前面
   picked.sort(byFinal);
@@ -5235,6 +5322,12 @@ async function rebuildPool() {
           t.amp20 != null ? `日均振幅${t.amp20}%` : null,
           t.source === 'ths' ? '资金流入(同花顺主动净买)' : t.proxy ? '资金流入(量价代理·限流中)' : t.fund3dSum != null ? '三日主力净流入' : '当日主力流入'].filter(Boolean)
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(trend[trend.length-1],'rebuildPool.trend',[
+        ['price','原行价格',s.price,0,'>'],['kline-count','趋势判断K线数量',k.rows.length,5,'>=']],
+        ['ANALYSIS_TREND_POOL_CHECK_INTERNAL_CHANNEL_OR_GATES_NOT_EXPANDED','LIMIT_UP_PROBABILITY_INTERNALS_NOT_EXPANDED'],
+        {evaluationBars:k.rows,trendResult:t,price:s.price,mainInflow:s.mainInflow,thsNetAmt:thsF?thsF.netAmt:null,floatCap:s.floatCap,probRaw});
+      // CONDITION_EVIDENCE_END
     }
   }
   // 排序（2026-09-30 改）：以前按【资金流入绝对值】排 —— 大盘股（保利、金域医学）金额天然大
@@ -5821,6 +5914,10 @@ function inferZTProb() {
     else if (sc < 50) prob = -28 + sc * 0.9;
     else if (sc < 55) prob = -65 + sc * 1.8;
     else prob = -95 + sc * 2.4;
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionMappedProb=prob;
+    const conditionFactorInputs=(x.factors||[]).map(factor=>({factor,entry:paths[factor]||null}));
+    // CONDITION_EVIDENCE_END
     // 学习校准①：按概率桶「实际命中率/期望命中率」缩放（模型高估则收敛、低估则放大）
     // ⛔⛔ B1 轮（2026-10-17）：auczt 不套概率桶 corr —— recomputeBuckets 已把 auczt 剔除出
     //    概率桶（当日封板 vs 次日命中，两种口径两把尺子），桶里剩下的全是次日口径样本，
@@ -5873,6 +5970,16 @@ function inferZTProb() {
       // ⛔ 判不出就留 null（推送/面板按空值省略），绝不把「未知」渲染成「弱(0)」
       theme: _thKnown ? _th.theme : null, themeStrength: _thKnown ? _th.grade : null,
       themeScore: _thKnown ? _th.score : null, persist: _thKnown ? _ps.grade : null });
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(out[out.length-1],'inferZTProb',[
+      ['phase-low','学习登记竞价阶段下界',S.auction.phase,1,'>='],['phase-high','学习登记竞价阶段上界',S.auction.phase,3,'<=']],
+      ['AUCTION_SCORE_PRODUCER_AND_FACTOR_HISTORY_ORIGINAL_EVIDENCE_NOT_EXPANDED','THEME_AND_MOOD_INTERNALS_NOT_EXPANDED'],
+      {scoreRaw:x.score,scoreUsed:sc,mappedValue:conditionMappedProb,factorInputs:conditionFactorInputs,factorWeight:0.8,factorAdjustment:adj,riskDiscount:0.72,
+        beforeClamp:prob,afterClamp:out[out.length-1].prob,clamp:{min:2,max:AUCZT_PROB_CEIL},
+        riskInput:x.risk,marketUpRatio:_up,marketMultiplier:_mk,moodAdvice:_adv,moodMultiplier:_moodMul,
+        themeInput:_th,themeKnown:_thKnown,themeMultiplier:thMul,themePersistence:_ps,
+        scoreMapping:[{upperExclusive:45,offset:2,slope:0.2},{upperExclusive:50,offset:-28,slope:0.9},{upperExclusive:55,offset:-65,slope:1.8},{upperExclusive:null,offset:-95,slope:2.4}]});
+    // CONDITION_EVIDENCE_END
   }
   out.sort((a, b) => b.prob - a.prob);
   // ⚠️ 以前只留 Top10，导致「竞价强势票」列表里除前 10 名外的票拿不到涨停概率，
@@ -6698,14 +6805,34 @@ async function scanBigMoneyInner() {
     //    所以必须先把候选池放大，否则重排等于从 12 只里挑 12 只（等于没排）。
     list = rows.filter(r => r.mp > thr && r.mi > 0)
       .sort((a, b) => (b.mp - a.mp) || (b.mi - a.mi))
-      .slice(0, 20).map(r => enrich(source, r.mp, r.mi)(r.s));
+      .slice(0, 20).map(r => {
+        const candidate=enrich(source,r.mp,r.mi)(r.s);
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(candidate,'scanBigMoneyInner.flow',[
+          ['main-percent','原资金源净占比严格门',r.mp,thr,'>'],['positive-flow','原资金源净流入',r.mi,0,'>'],
+          ['return-low','个股涨幅下界',r.s.pct,0,'>'],['return-high','个股涨幅上界',r.s.pct,8,'<']],
+          ['BASE_MARKET_CAP_JUNK_NAME_AND_LIMIT_MODEL_INTERNALS_NOT_EXPANDED'],
+          {source,rawMainPct:r.mp,rawMainInflow:r.mi,threshold:thr,returnPct:r.s.pct,floatCap:r.s.floatCap,topLimit:20});
+        // CONDITION_EVIDENCE_END
+        return candidate;
+      });
   } else {
     // ③ 最后的兜底：纯量价代理（明确标注，不与真实资金信号混淆）
     list = base.filter(s => (s.amount || 0) >= 3e8 && (s.pct || 0) >= 1.5 &&
         (s.turnover || 0) >= 3 && (s.turnover || 0) <= 15 &&
         (s.price || 0) >= (s.high || 0) * 0.985 && (s.speed || 0) >= 0.5)
       .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-      .slice(0, 20).map(enrich('price', null, null));
+      .slice(0, 20).map(s=>{
+        const candidate=enrich('price',null,null)(s);
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(candidate,'scanBigMoneyInner.price-proxy',[
+          ['amount','量价代理成交额',s.amount||0,3e8,'>='],['return','量价代理涨幅',s.pct||0,1.5,'>='],
+          ['turnover-low','量价代理换手下界',s.turnover||0,3,'>='],['turnover-high','量价代理换手上界',s.turnover||0,15,'<='],
+          ['near-high','量价代理贴近日高',s.price||0,(s.high||0)*0.985,'>='],['speed','量价代理涨速',s.speed||0,0.5,'>=']],
+          ['PRICE_PROXY_IS_NOT_ORIGINAL_FUNDS_EVIDENCE','LIMIT_MODEL_AND_CONTEXT_INTERNALS_NOT_EXPANDED'],{source:'price-proxy',high:s.high,rawAmount:s.amount,rawReturn:s.pct,rawTurnover:s.turnover,rawSpeed:s.speed});
+        // CONDITION_EVIDENCE_END
+        return candidate;
+      });
   }
   // 先把候选票的题材归属补齐（东财个股所属板块，写进 stockBoards 永久缓存）：
   // 不然银行/石油/军工这类权重股三层反查全落空 → 板块一栏全是"未知"，
@@ -6741,6 +6868,12 @@ async function scanBigMoneyInner() {
     .sort((a, b) => (b.bmScore - a.bmScore) || ((b.mainPct || 0) - (a.mainPct || 0)));
   // ⛔ 市值硬门槛：35亿以下除非特别突出（概率≥80），否则不进大单池
   list = list.filter(x => (x.capYi || 0) >= 35 || x.prob >= 80);
+  // CONDITION_EVIDENCE_BEGIN
+  for(const x of list)annotateSignalConditions(x,'scanBigMoneyInner.rank-cap',[
+    ['capital-or-prob','原市值或评分例外',Number((x.capYi||0)>=35||x.prob>=80),1,'===']],
+    ['CONTEXT_WEIGHT_AND_HEAT_INTERNALS_NOT_EXPANDED'],{capYi:x.capYi,prob:x.prob,bmScore:x.bmScore,context:x.ctx,heat:x.heat,
+      capFloor:35,exceptionScore:80,heavyThreshold:500,heavyLimit:HEAVY_MAX,totalLimit:TOTAL});
+  // CONDITION_EVIDENCE_END
   const downN = list.filter(x => x.ctx && (x.ctx.flowKind === '下跌途中接盘' || x.ctx.flowKind === '深跌后承接')).length;
   const coldN = list.filter(x => x.heat && x.heat.cold).length;
   const heavyN = list.filter(isHeavy).length;
@@ -7688,6 +7821,13 @@ async function scanBigMoneyPush() {
     if (x.breakoutReady) score++;
     // mb：消费/商业百货板块联动加分（今日涨停集中区：商业百货、食品、旅游）
     if (x.heat && x.heat.hot && /百货|商业|零售|消费|食品|酒店|旅游|餐饮/.test(x.sector || '')) score += 0.5;
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'scanBigMoneyPush.normal',[
+      ['factor-score','普通大单原组合分',score,2,'>='],['launch-ready','原启动判断',typeof x.launchReady==='boolean'?Number(x.launchReady):null,1,'>='],
+      ['code-age','同票距上次推送毫秒',now-(S.bigMoneyPushed.get(x.code)||0),30*60000,'>']],
+      ['HAS_LAUNCH_HAS_BREAKOUT_CONTEXT_AND_HEAT_INTERNALS_NOT_EXPANDED'],
+      {prob:x.prob,startSignal:x.startSignal??null,flowKind:x.ctx?.flowKind||null,hot:x.heat?.hot??null,breakoutReady:x.breakoutReady??null,sector:x.sector,score,slots:_slots});
+    // CONDITION_EVIDENCE_END
     // ma：推送结果学习沉淀的「好的条件」——满足才给普通大单推，不满足只上面板
     return score >= 2 && x.launchReady;
   }).slice(0, _slots);
@@ -7732,6 +7872,16 @@ async function scanBigMoneyPush() {
   // A/B 对照：A组登记 type='bigmoney'（模型组），B组登记 type='bigmoney-B'（实证组）——
   // 两组 type 不同 → logSignal 去重天然分开、bigMoneyStats/自优化等现有统计零污染。
   for (const x of fresh) {
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'scanBigMoneyPush.delivery',[
+      ['cutoff','当前分钟距大单截止',new Date(now).getHours()*60+new Date(now).getMinutes(),BM_PUSH_END_MIN,'<'],
+      ['code-age','原同票冷却窗口',now-(S.bigMoneyPushed.get(x.code)||0),(freshHot.includes(x)?15:30)*60000,'>'],
+      ...(freshHot.includes(x)?[['hot-factor-count','原热门组合因子数',bmHotFactors(x,now),BM_HOT_FACTOR_MIN,'>=']]:[])],
+      ['BM_CONTEXT_HOT_FACTOR_INTERNALS_AND_AB_BUCKET_HISTORY_NOT_EXPANDED'],
+      {group:x._grp,hotPath:freshHot.includes(x),ctx:x.ctx,heat:x.heat,startSignal:x.startSignal??null,
+        lastModulePush:bigMoneyLastPush,hotGapRequired:BIGMONEY_GAP_HOT,normalGapRequired:BIGMONEY_GAP_NORMAL,
+        aKeep:A_KEEP,bKeep:B_KEEP,prob:x.prob,empiricalRateUsed:x._grp==='B'?empOf(x):null});
+    // CONDITION_EVIDENCE_END
     S.bigMoneyPushed.set(x.code, now);
     const _fz = logSignal(x._grp === 'B' ? 'bigmoney-B' : 'bigmoney', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { mainPct: x.mainPct, sector: x.sector }));
     if (_fz) x._fz = _fz;    // 登记时算好的融合胜率，直接拿给文案用（同一个数，不会两处打架）
@@ -7971,6 +8121,15 @@ async function findSimilarStocks() {
         why: `近5日走势与强势股 ${ref.name}(${ref.code}，今日${(ref.pct || 0).toFixed(2)}%) 相似度 ${sim}（门槛${gate}）`
           + `；自身${above ? '站上5日线' : '在5日线下方'}${volUp ? '、今日放量' : ''}、今日涨${(c.pct || 0).toFixed(2)}%未涨停，属跟随补涨位`
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(out[out.length-1],'findSimilarStocks',[
+        ['reference-strength','样板原涨幅',ref.pct||0,5,'>='],['reference-bars','样板K线长度',refRows.length,6,'>='],
+        ['candidate-bars','候选K线长度',rows.length,6,'>='],['return-low','候选涨幅下界',c.pct||0,0.5,'>='],['return-high','候选涨幅上界',c.pct||0,7,'<='],
+        ['similarity','实际相似度门',sim,gate+2,'>='],['technical-or','站均线或放量的原组合',Number(above||volUp),1,'>='],
+        ['capital-or','市值或评分或相似度例外',Number((_capYi||0)>=35||prob>=80||sim>=90),1,'>=']],
+        ['SIM_SCORE_RETURN_SERIES_ALIGNMENT_AND_HISTORICAL_AVAILABILITY_NOT_CERTIFIED'],
+        {configuredGate:gate,effectiveGate:gate+2,sim,ma5,above,volUp,capYi:_capYi,prob,reference:{code:ref.code,name:ref.name,pct:ref.pct},referenceBars:refRows,evaluationBars:rows,referenceReturns:refRet,candidateReturns:_retSeries(rows)});
+      // CONDITION_EVIDENCE_END
     }
   }
   console.log(`[similar] 样板${refs.length}个 · 比对${_checked}只(K线缺失${_noRows}只) · 最高相似度${_best}（门槛${gate}）· 入围${out.length}只`);
@@ -11377,12 +11536,25 @@ async function auctionResonanceScan(opts = {}) {
       const probToday = (auc && S.auction && S.auction.ztProbMap && S.auction.ztProbMap[code])
         ? S.auction.ztProbMap[code].prob : null;
       const probNd = (probToday != null) ? empNdProb(probToday, 'auczt') : null;
+      // CONDITION_EVIDENCE_BEGIN
+      const conditionMetadata={};
+      annotateSignalConditions(conditionMetadata,'auctionResonanceScan',[
+        ['auction-or-sector','匹配竞价或强板块的原组合',Number(!!auc||topSectorNames.has(sector)),1,'>='],
+        ...(!auc?[['sector-only-return','无竞价时绝对涨幅门',Math.abs(+stock.pct||0),2,'>=']]:[])],
+        ['AUCTION_SCORE_ROLE_AND_SCORE_SMOOTH_INTERNALS_NOT_EXPANDED','HISTORICAL_SECTOR_MEMBERSHIP_AVAILABILITY_NOT_CERTIFIED','CHIP_VOL_PATTERN_FOLLOWUP_NOT_EXPANDED'],
+        {board,auctionBasis:auctionEvidence,auctionInput:auc||null,sectorRank:rank,sectorRow:sectorRow||null,
+          sectorHistory:secHist,inflow5d,drawdown3d,gain,role:role||null,rawCompositeScore:score,smoothed:_sm,maxResults:max,
+          scoreRules:{auctionWeight:0.9,auctionCap:45,sectorRankSteps:[[3,18],[5,12],[10,6]],inflowWeight:0.5/1e9,inflowCap:15,drawdownWeight:10,drawdownCap:10,gainWeight:2,gainCap:12}});
+      // CONDITION_EVIDENCE_END
 
       return {
         ...reviewSnapshotFields(stock),
         code, name,
         sector,
         auctionPct: auc ? auc.auctionPct : null,
+        // CONDITION_EVIDENCE_BEGIN
+        ...conditionMetadata,
+        // CONDITION_EVIDENCE_END
         auctionInputStatus: auc ? 'auction-snapshot-unverified' : 'sector-only',
         auctionEvidenceStatus: auc ? auctionEvidence.status : 'no-matching-auction-evidence',
         auctionQuoteAt: null, // Historical cache has no provider quote time.
@@ -12431,6 +12603,13 @@ function ztSealPush(fresh, ztN) {
   // lr 实证：10-27 弱市封单普遍<2亿，2亿门槛把哨兵整沉默了；5000万=有真实封板强度即可报
   const picks = reviewedRows(ranked, 'fact-broadcast').filter(x => !_ztSentPushed.has(x.code) && (x.sealAmount == null || x.sealAmount >= 5e7)).slice(0, Math.max(1, Math.min(4, Math.round(3 * pushIntensityOf('ztsent')))));
   for (const x of picks) {
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'ztSealPush',[
+      ['already-pushed','本次登记前已推送标记',Number(_ztSentPushed.has(x.code)),0,'<='],
+      ...(x.sealAmount!=null?[['seal-amount','已知封单原门槛',x.sealAmount,5e7,'>=']]:[])],
+      ['SEAL_POOL_ORIGINAL_OBSERVATION_AND_DYNAMIC_RANK_TRIM_NOT_FULLY_EXPANDED',...(x.sealAmount==null?['SEAL_AMOUNT_UNKNOWN_ACCEPTED_BY_LEGACY_RULE']:[])],
+      {sealAmount:x.sealAmount??null,firstSeal:x.firstSeal??null,sector:x.sec,totalLimitUpCount:ztN,rankBySeal:ranked.indexOf(x)+1});
+    // CONDITION_EVIDENCE_END
     _ztSentPushed.add(x.code);
     const reason = (typeof ztReasonOf === 'function') ? (ztReasonOf(x.code) || '') : '';
     sentLogPush('seal', { code: x.code, name: x.name, text: `封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''} · ${x.sec || '未知板块'}` });
@@ -15605,6 +15784,17 @@ function scanYiEr() {
     const _fz = fusedProb(z.code, z.name, krowsOf(z.code), 'yier', prob);
     const useProb = _fz.prob;
     if (useProb < ZT_INFER_PUSH_PROB) continue;
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionMetadata={};
+    annotateSignalConditions(conditionMetadata,'scanYiEr',[
+      ['first-board','原首板分组',(z.limitUpCount||1),1,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+      ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
+      ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
+      {rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
+        evaluationBars:k?.rows||null,sealRatio,sealStrength,flags,beta,marketMood,sectorZT,role:role||null,mainFlowInput:{mainInflow:_mainInflow,mainPct:_mainPct},
+        secStrength,mainlineDecision:_ml,modelAfterLocalAdjustments:prob,ranking:_fz,
+        scoreBranchThresholds:{noBreak:0,seal:[5e7,1e8],turnover:[2,3,15,25],sectorCount:[3,5],amount:5e8,mainPercent:0,themeScore:[40,60],themeInflow:1e8}});
+    // CONDITION_EVIDENCE_END
     out.push({
       // ⛔ 复盘模块加固（2026-10-28）：同一类炸点（pct 缺失抛 TypeError）在这两处卡片构建器里
       //    也有 —— 虽然外面有 try 兜底（只丢这一张卡、不丢整条复盘），但用户侧就是「卡片突然空了」，
@@ -15619,6 +15809,9 @@ function scanYiEr() {
       probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
       researchEvidence: z.researchEvidence || null,
       why: why.join('·') || '首板基础分',
+      // CONDITION_EVIDENCE_BEGIN
+      ...conditionMetadata,
+      // CONDITION_EVIDENCE_END
       sectorStrength: secStrength,
       mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
     });
@@ -15786,6 +15979,17 @@ function scanLianbanRelay() {
       const _fz = fusedProb(z.code, z.name, krowsOf(z.code), 'lianban', prob);
       const useProb = _fz.prob;
       if (useProb < ZT_INFER_PUSH_PROB) continue;
+      // CONDITION_EVIDENCE_BEGIN
+      const conditionMetadata={};
+      annotateSignalConditions(conditionMetadata,'scanLianbanRelay',[
+        ['board-level','原连板分组',z.limitUpCount||1,level,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+        ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
+        ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
+        {level,maxLb,rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
+          evaluationBars:k?.rows||null,sealRatio,sealStrength,flags,beta,marketMood,sectorZT,role:role||null,mainFlowInput:{mainInflow:_mainInflow,mainPct:_mainPct},
+          secStrength,mainlineDecision:_ml,modelAfterLocalAdjustments:prob,ranking:_fz,
+          scoreBranchThresholds:{noBreak:0,seal:1e8,turnover:[3,15,25],sectorCount:5,amount:5e8,mainPercent:0,marketHeight:7,themeScore:[40,60],themeInflow:1e8}});
+      // CONDITION_EVIDENCE_END
       out.push({
         // ⛔ 复盘模块加固（2026-10-28）：同一类炸点（pct 缺失抛 TypeError）在这两处卡片构建器里
       //    也有 —— 虽然外面有 try 兜底（只丢这一张卡、不丢整条复盘），但用户侧就是「卡片突然空了」，
@@ -15800,6 +16004,9 @@ function scanLianbanRelay() {
         probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
       researchEvidence: z.researchEvidence || null,
         why: why.join('·') || '连板基础分',
+        // CONDITION_EVIDENCE_BEGIN
+        ...conditionMetadata,
+        // CONDITION_EVIDENCE_END
         level, maxLb,
         sectorStrength: secStrength,
         mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
@@ -16196,6 +16403,16 @@ async function preBreakoutInner() {
           stale: staleBoard || undefined,
           reason: why.join(' + ') + (staleBoard ? ' + 成分名单为缓存(板块源限流中)' : '')
         });
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(out[out.length-1],'preBreakoutInner',[
+          ['return-low','埋伏涨幅下界',s.pct,-1.5,'>='],['return-high','原时段动态涨幅上界',s.pct,maxPct,'<='],['price','原价格',s.price,0,'>'],
+          ['not-sealed','原成分股未封板',Number(c.ztCodes.has(s.code)),0,'<='],
+          ['capital-or-model','市值或历史模型例外的原组合',Number((_capYi||0)>=35||(ztP!=null&&ztP>=25)||prob>=80),1,'>=']],
+          ['HOT_SECTOR_BRANCH_AND_LA_MODEL_CHIP_VOL_INTERNALS_NOT_FULLY_EXPANDED','LOGIC_AND_NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN'],
+          {evaluationBars:rows,isEarlyWindow,maxPct,sector:c.sec,sectorZT:c.ztN,leaderLb:c.lb,capYi:_capYi,volToday,vol5,volRatio,ma5,aboveMa5,gapToHigh20,amp,chipScore,ztP,
+            learnedModel:prZ||null,logic:_at,rankWithinSector:wi+1,staleBoard,
+            scoreBranchThresholds:{volume:[1.2,1.5],gapToHigh20:5,amplitude:25,lowReturn:1.5,capYi:35,exceptionZtP:25,exceptionScore:80,clamp:[20,88],learnBlend:[0.45,0.55]}});
+        // CONDITION_EVIDENCE_END
       } catch {}
     }
   }
@@ -16244,6 +16461,12 @@ async function scanPrePush() {
       //    不回写的话文案里的「埋伏分」显示的是模型原值，看到的数 ≠ 决策的数。
       if (_g.fused) x._fz = _g.fused;
       if (_g.undo) fresh.$undo = (fresh.$undo || []).concat([_g.undo]);   // 2026-10-06：发送失败要退
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(x,'scanPrePush',[
+        ['historical-model-floor','原时段历史模型门',x.ztP||0,ztPThr,'>='],
+        ['code-age','原同票冷却',Date.now()-(S.prePushed.get(x.code)||0),120*60000,'>=']],
+        ['SHARED_GOVERNOR_AND_SORT_TRIM_ARE_SEPARATE_FROM_MODEL_CONDITIONS'],{isEarlyPush,ztPThr,strongThreshold:strongThr,governorFused:_g.fused||null});
+      // CONDITION_EVIDENCE_END
       S.prePushed.set(x.code, Date.now());
       logSignal('pre', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { paths: ['板块效应埋伏'], sector: x.sector, secZT: x.secZT }));
       fresh.push(x);
@@ -16355,6 +16578,16 @@ async function computeBuZhang() {
         stale: staleBoard || undefined,
         prob, reason: why.join(' + ') + (staleBoard ? ' + 成分名单为缓存(板块源限流中)' : '')
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(out[out.length-1],'computeBuZhang',[
+        ['leader-height','原板块龙头门',c.lb,1,'>='],['return-low','原个股涨幅下界',s.pct,-1,'>='],['return-high','原个股涨幅上界',s.pct,9,'<='],
+        ['not-sealed','原成分未封板',Number(ztCodes.has(s.code)),0,'<='],
+        ['capital-or-height','市值或高度或评分例外的原组合',Number((s.floatCap||0)>=3.5e9||c.lb>=2||prob>=80),1,'>=']],
+        ['BOARD_MEMBERSHIP_HISTORICAL_AVAILABILITY_AND_CLASSIFY_ROLES_NOT_CERTIFIED','RANK_TRIM_AND_JUNK_NAME_INTERNALS_NOT_EXPANDED'],
+        {sector:c.sec,leader:c.leader?{code:c.leader.code,name:c.leader.name,limitUpCount:c.leader.limitUpCount}:null,
+          sectorZT:c.arr.length,sectorMainInflow:secObj.mainInflow??null,mainPct:s.mainPct??null,floatCap:s.floatCap??null,staleBoard,
+          scoreRules:{base:35,heightWeight:6,heightCap:18,sectorCountWeight:4,sectorCap:16,goldenRange:[2,6],goldenPoints:8,otherPoints:4,flowWeight:1.5,flowCap:12,sectorFlowBonus:5,clamp:[30,92]}});
+      // CONDITION_EVIDENCE_END
     }
   }
   out.sort((a, b) => b.prob - a.prob);

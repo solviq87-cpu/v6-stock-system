@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path'),os=require('node:os');
+const {createRequire}=require('node:module');
+const productionRequire=createRequire(require.resolve('../server.js'));
 const source = fs.readFileSync(require.resolve('../server.js'), 'utf8');
 function section(start, end) {
   const a = source.indexOf(start), b = source.indexOf(end, a);
@@ -19,7 +21,7 @@ function context(extra = {}) {
   return ctx;
 }
 function stock(at, mainInflow = 0, extra = {}) {
-  return {code: '000001', price: 10, pct: 0, mainPct: 0, floatCap: 1e10, mainInflow,
+  return {code: '000001', name:'正常股票', price: 10, pct: 0, mainPct: 0, floatCap: 1e10, mainInflow,volume:1e6,amount:1e8,
     quoteAt:at,receivedAt:at,quoteSource:'eastmoney',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,
     fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
     fundsRetrievedAt: at, fundsSourceTimestamp: null, ...extra};
@@ -112,10 +114,12 @@ function monitor() {
   class Clock extends Date { static now() { return now; } }
   const c = context({Date: Clock, console: {log() {}, error() {}}, monitorCodes: [],
     fs,path,__dirname:path.resolve(__dirname,'..'),process:{env:{V6_NEWS_EVIDENCE_DIR:path.join(os.tmpdir(),'v6-news-empty-'+process.pid+'-'+Math.random().toString(16).slice(2))}},
-    require:id=>{assert.equal(id,'./src/core/quote-observation-view');return require('../src/core/quote-observation-view');},
+    require:productionRequire,Buffer,
+    SignalEvidence:productionRequire('./src/core/signal-evidence-chain'),
+    SIGNAL_RULE_SOURCE_MANIFEST:productionRequire('./src/core/signal-rule-manifest').buildSignalRuleSourceManifest(path.resolve(__dirname,'..')),
     S: {loop: {running: false, tickCount: 0}, candidatePool: [{code: '000001'}, {code: '000002'}],
       sectors: [], stocks: [], inflowHistory: new Map(), klines: new Map(),
-      news: {goodCodes: new Set(), badCodes: new Set()}},
+      news: {goodCodes: new Set(), badCodes: new Set(),evidenceIntake:{status:'unknown'}}},
     PAPER: {pool: {positions: {}}, pre: {positions: {}}},
     em: {fetchBatchSnapshot: async () => { if (response instanceof Error) throw response; return response; }},
     ingestPx() {}, A: {isNearLimitUp: () => false, limitUpProbability: () => 0},
@@ -124,6 +128,11 @@ function monitor() {
     pushAll: () => assert.fail('no external notification allowed'),
     enqueueIntraday: () => assert.fail('fixture must not enqueue notifications')});
   vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),c);
+  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows',
+    'recommendationSendOptions','prepareRecommendationDelivery','signalCondition','annotateSignalConditions']){
+    const a=source.indexOf('function '+name+'('),b=source.indexOf('\n}\n',a);
+    assert.ok(a>=0&&b>a,name);vm.runInContext(source.slice(a,b+2),c);
+  }
   vm.runInContext(section('async function tick()', '\nfunction countStreak(h)'), c);
   return {c, async run(at, rows) { now = at; response = rows; await c.tick(); }};
 }
