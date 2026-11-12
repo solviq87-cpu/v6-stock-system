@@ -32,16 +32,18 @@
 
 ## 验证与基线对照
 
-新增 `tests/market-consumer-contract.test.js` 16 个行为用例，执行实际生产函数或工厂。覆盖旧、未来、未知、跨日、失序接收、模拟/只读来源、缓存失败沿用、合法历史、逐持仓来源、日期未知、真实零、无效资金与 mock 提醒。
+新增 `tests/market-consumer-contract.test.js` 17 个行为用例，执行实际生产函数或工厂。覆盖旧、未来、未知、跨日、失序接收、模拟/只读来源、缓存失败沿用、合法历史、逐持仓来源、日期未知、真实零、无效资金与 mock 提醒。
 
-16 个定向 node:test 文件合计 **123 通过，0 失败，0 跳过**。包含新契约、报价展示与池复制、原始报价执行、权威账本报价、资金连续性、批量最终发布、板块资金、仪表盘与 K 线分页。另跑旧离线守门：持仓窗口/去重 17、持仓审计 56、推送隐私 62、K 线新鲜度 17 个断言全部通过。语法检查与 `git diff --check` 通过。全量组合回归由主集成执行，本批未重复运行全量。
+16 个定向 node:test 文件合计 **124 通过，0 失败，0 跳过**。包含新契约、报价展示与池复制、原始报价执行、权威账本报价、资金连续性、批量最终发布、板块资金、仪表盘与 K 线分页。另跑旧离线守门：持仓窗口/去重 17、持仓审计 56、推送隐私 62、K 线新鲜度 17 个断言全部通过。语法检查与 `git diff --check` 通过。全量组合回归由主集成执行，本批未重复运行全量。
 
 原始日志位于 `/workspace/remaining-output/data-*`，关键文件：
 
-- `data-final-targeted.tap` / `.exit`：123 个定向测试。
+- `data-final-targeted.tap` / `.exit`：124 个定向测试。
 - `data-before-after.cjs` / `.json` / `.log` / `.exit`：直接读取固定基线源码与修改后源码进行相同 fixture 对照。旧指数包不再称实时；全 A `f124` 从丢失变为保留；未知买入时刻原先显示 20770 个自然日，现为 null；旧全 A 持仓仍按 8 元估值，但 mock 止损提醒从 1 条变为 0 条。
 - `data-_test_holdings_watch_gate.log`、`data-_test_holdings_audit.log`、`data-_test_holdings_push_privacy.log`、`data-_test_kline_fresh.log`：旧守门结果。
 - `data-legacy-baseline.json`：额外探测的两组旧脚本在固定基线也失败。`_test_kline_sync.js` 从锁定主页提取不到旧 APP_VER 字面量；`_test_kline_view.js` 的旧分页断言已漂移，且其 VM 未注入 A1 新增的 `fundsNumber`。这两组不属于当前 npm test 集合；本批没有修改主页或扩改无关旧脚本来掩盖失败。
+
+补充复核：首批提交 `1646fd6` 的来源屏障未识别 imported/fixture/mock/test/synthetic。`data-imported-before.tap` 记录 10 个受控输入全部能进入实际自动 `paperAuthorityQuotes` 且获得提醒资格的反例。后续小提交修正模式、明确来源 token 和显式输入标志，并让同一行池复制/缓存保留这些禁用标志。新增用例同时验证直接行、池复制与真实自动入口，合法 `public-live-unverified`、东财、腾讯及 `eastmoney-latest` 继续通过。没有改手工研究填单或账本 `validateFillEvidence`，研究导入仍可如实记为模拟证据。
 
 ## 限制与恢复
 

@@ -183,6 +183,26 @@ test('automatic paper authority rejects observation/simulated sources, including
  assert.equal(c.paperAuthorityQuotes()['000001'].quoteAt,now-1000,'legacy source-timed authority contract remains supported without invented receipt');
 });
 
+test('imported, fixture, mock and synthetic evidence cannot enter automatic authority or reminders',()=>{
+ const c=run(server,['ingestPx','paperAuthorityQuotes'],{S:{lastPx:new Map(),stocks:[]},limitPctOfCode:()=>.1,
+  require:name=>name==='./src/core/quote-observation-view'?contract:require('../src/core/a-share-calendar')});
+ const cases=[{quoteMode:'imported'},{quoteMode:'fixture'},{quoteMode:'mock-market'},{quoteMode:'backtest'},
+  {quoteMode:'synthetic-market'},{quoteSource:'imported'},{quoteSource:'import'},{quoteSource:'fixture-feed'},
+  {quoteSource:'mock:quote'},{quoteSource:'test'},{quoteSource:'synthetic-feed'},
+  {imported:true},{fixture:true},{mock:true},{synthetic:true},{mode:'imported',quoteMode:undefined}];
+ const outcomes=cases.map(patch=>{
+  const row=quote({volume:100,preClose:10,...patch});c.S.lastPx.clear();c.S.stocks=[row];c.ingestPx([row]);
+  const snapshot={price:row.price,...contract.quoteSnapshotFields(row)};
+  return {authority:Object.keys(c.paperAuthorityQuotes()).length,notify:contract.quoteUseEligibility(row,now).canNotify,
+   copiedNotify:contract.quoteUseEligibility(snapshot,now).canNotify};
+ });
+ assert.deepEqual(outcomes,cases.map(()=>({authority:0,notify:false,copiedNotify:false})));
+ for(const quoteSource of ['eastmoney','tencent','eastmoney-latest']){
+  const row=quote({quoteSource,volume:100,preClose:10});c.S.lastPx.clear();c.S.stocks=[row];c.ingestPx([row]);
+  assert.equal(c.paperAuthorityQuotes()['000001'].price,9);assert.equal(contract.quoteUseEligibility(row,now).canNotify,true);
+ }
+});
+
 function holdingFixture(t,{batch=[],stocks=[],ths=new Map()}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-quote-consumer-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'holdings.json'),JSON.stringify({capital:100000,items:[{code:'000001',name:'fixture',cost:10,shares:100}]}));

@@ -13395,7 +13395,8 @@ function ingestPx(rows) {
     S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource,
       receivedAt:Number.isSafeInteger(s.receivedAt)&&s.receivedAt>0?s.receivedAt:null,
       mode:typeof (s.quoteMode||s.mode)==='string'?(s.quoteMode||s.mode):null,canNotify:s.canNotify!==false,
-      simulated:s.simulated===true,readOnlyBackup:s.readOnlyBackup===true,tradable:s.tradable,suspended:s.suspended });
+      simulated:s.simulated===true,readOnlyBackup:s.readOnlyBackup===true,imported:s.imported===true,
+      fixture:s.fixture===true,mock:s.mock===true,synthetic:s.synthetic===true,tradable:s.tradable,suspended:s.suspended });
   }
 }
 function paperPrices() {

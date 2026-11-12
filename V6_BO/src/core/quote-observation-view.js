@@ -19,9 +19,11 @@ function quoteObservationView(row,now=Date.now()){
 // This predicate alone does not certify timing or grant use permissions.
 function quoteSourceAllowsUse(row){
  const mode=typeof (row?.quoteMode||row?.mode)==='string'?String(row.quoteMode||row.mode):'';
- return row?.canTrade!==false&&!/simulat|research|cost|carried|histor/i.test(mode)&&
-   !/simulat|readOnlyBackup/i.test(row?.quoteSource||'')&&row?.simulated!==true&&
-   row?.readOnlyBackup!==true&&row?.tradable!==false&&row?.suspended!==true;
+ const source=typeof row?.quoteSource==='string'?row.quoteSource:'';
+ return row?.canTrade!==false&&!/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode)&&
+   !/simulat|readOnlyBackup/i.test(source)&&!/(?:^|[-_:/\.\s])(?:import(?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:/\.\s])/i.test(source)&&
+   !['simulated','readOnlyBackup','imported','fixture','mock','synthetic'].some(flag=>row?.[flag]===true)&&
+   row?.tradable!==false&&row?.suspended!==true;
 }
 // Use gates consume this exact row. Display projections never grant permissions.
 function quoteUseEligibility(row,now=Date.now()){
@@ -42,8 +44,10 @@ function quoteSnapshotFields(row){
  const quoteAt=validPrice&&Number.isSafeInteger(row?.quoteAt)&&row.quoteAt>0?row.quoteAt:null;
  const source=validPrice&&typeof row?.quoteSource==='string'?row.quoteSource.trim().slice(0,100):'';
  const receivedAt=Number.isSafeInteger(row?.receivedAt)&&row.receivedAt>0?row.receivedAt:null;
+ const flags=Object.fromEntries(['simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']
+   .filter(flag=>typeof row?.[flag]==='boolean').map(flag=>[flag,row[flag]]));
  return {quoteAt,quoteSource:source||null,receivedAt,...(row?.canTrade===false?{canTrade:false}:{}),
-   ...(typeof row?.quoteMode==='string'?{quoteMode:row.quoteMode}:{}),
+   ...flags,...(typeof (row?.quoteMode||row?.mode)==='string'?{quoteMode:row.quoteMode||row.mode}:{}),
    ...(typeof row?.tradeDate==='string'?{tradeDate:row.tradeDate}:{}),
    ...(typeof row?.canNotify==='boolean'?{canNotify:row.canNotify}:{})};
 }
