@@ -39,7 +39,10 @@
     "research:history": "npm --prefix V6_BO run research:history",
     "research:agent": "npm --prefix V6_BO run research:agent --",
     "research:models": "npm --prefix V6_BO run research:models --",
-    "research:public-factors": "npm --prefix V6_BO run research:public-factors --"
+    "research:public-factors": "npm --prefix V6_BO run research:public-factors --",
+    "factor:shadow:archive:audit": "npm --prefix V6_BO run factor:shadow:archive:audit --",
+    "research:sector:close:freeze": "npm --prefix V6_BO run research:sector:close:freeze --",
+    "research:sector:pair:register": "npm --prefix V6_BO run research:sector:pair:register --"
   },
   "engines": {
     "node": ">=22.6"
