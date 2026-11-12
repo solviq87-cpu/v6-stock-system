@@ -39,9 +39,13 @@ test('research agent status and public factor computation require editor rights 
   fs.writeFileSync(path.join(tmp,'pushlog.json'),JSON.stringify([{ts:Date.now()-1000,status:'✅ 已送达(私密)',title:privateTitle,note:privateNote,channel:'飞书·私密',extra:{codes:[privateCode]}}]));
   // Boot mode skips collectors; this additional fixture guard rejects all egress.
   fs.writeFileSync(path.join(tmp,'deny-network.cjs'),"for(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>{throw Error('fixture forbids outbound requests');};}global.fetch=()=>Promise.reject(Error('fixture forbids fetch'));\n");
+  // The public intake's bounded curl subprocess is mocked too: this test never dials a vendor.
+  const bin=path.join(tmp,'fixture-bin');fs.mkdirSync(bin);
+  const historyRaw={rc:0,data:{code:'600000',market:1,name:'capture-fixture',klines:['2025-01-01,10,10.1,10.2,9.9,100,100000,3,1,.1,1','2025-01-02,10.1,10.2,10.3,10,200,200000,3,1,.1,1','2025-01-03,10.2,10.3,10.4,10.1,300,300000,3,1,.1,1']}};
+  fs.writeFileSync(path.join(bin,'curl'),'#!'+process.execPath+'\nconst target=process.argv.at(-1);if(!target.startsWith("https://push2his.eastmoney.com/api/qt/stock/kline/get?"))process.exit(2);process.stdout.write('+JSON.stringify(JSON.stringify(historyRaw))+');\n',{mode:0o700});
   const port=await freePort();
   child=spawn(process.execPath,['--require',path.join(tmp,'deny-network.cjs'),'server.js'],{
-   cwd:tmp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1'},stdio:['ignore','pipe','pipe']
+   cwd:tmp,env:{...process.env,PATH:bin+path.delimiter+process.env.PATH,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1'},stdio:['ignore','pipe','pipe']
   });
   child.stdout.on('data',chunk=>logs+=chunk);child.stderr.on('data',chunk=>logs+=chunk);
   let ready=false;
@@ -51,7 +55,7 @@ test('research agent status and public factor computation require editor rights 
    await delay(50);
   }
   assert.ok(ready,'fixture server did not start: '+logs.slice(-1500));
-  for(const route of ['/api/research/agent-status','/api/research/public-factors','/api/research/linked-intelligence','/api/research/stock-memory?symbol=600001','/api/research/public-context']){
+  for(const route of ['/api/research/agent-status','/api/research/public-factors','/api/research/linked-intelligence','/api/research/stock-memory?symbol=600001','/api/research/public-context','/api/research/observe-stock','/api/research/stock-observations?symbol=600000&provider=eastmoney','/api/research/stock-observation-status']){
    assert.notEqual((await request(port,route)).body.ok,true);
    assert.notEqual((await request(port,route,viewer)).body.ok,true);
   }
@@ -80,6 +84,17 @@ test('research agent status and public factor computation require editor rights 
   assert.equal(memory.body.result.revisions[0].stock.bars.length,3);
   assert.equal(memory.body.result.forwardValidation.direction.evaluated,0);
   assert.ok(!JSON.stringify(memory.body).includes(tmp));
+  assert.equal((await request(port,'/api/research/observe-stock',editor)).status,405);
+  assert.equal((await request(port,'/api/research/observe-stock',editor,{symbol:'bad'})).status,422);
+  assert.equal((await request(port,'/api/research/stock-observations?symbol=600000&provider=auto',editor)).status,400);
+  const observed=await request(port,'/api/research/observe-stock',editor,{symbol:'600000',provider:'eastmoney',historyDays:3});
+  assert.equal(observed.status,200);assert.equal(observed.body.result.status,'captured');assert.equal(observed.body.result.stock.bars.length,3);
+  assert.equal(observed.body.result.stock.bars[0].volume,10000);assert.equal(observed.body.result.stock.bars[0].suspended,undefined);
+  assert.equal(observed.body.result.canTrade,false);assert.ok(!JSON.stringify(observed.body).includes(tmp));
+  const stored=await request(port,'/api/research/stock-observations?symbol=600000&provider=eastmoney',editor);
+  assert.equal(stored.status,200);assert.equal(stored.body.result.observation.revision,1);assert.equal(stored.body.result.stock.bars.at(-1).close,10.3);
+  const observerStatus=await request(port,'/api/research/stock-observation-status',editor);
+  assert.equal(observerStatus.status,200);assert.equal(observerStatus.body.enabled,false);assert.equal(observerStatus.body.canTrade,false);
  }finally{
   if(child&&child.exitCode===null&&child.signalCode===null){const stopped=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGKILL');await stopped;}
   fs.rmSync(tmp,{recursive:true,force:true});

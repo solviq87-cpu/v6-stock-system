@@ -7,7 +7,7 @@ function fixture(n=90){
  const bars=tradeDates.slice(0,n).map((date,i)=>{
   const previous=close,limit=+(previous*1.1).toFixed(2);close=i%7===0?limit:+(previous*1.01).toFixed(2);
   return {date,open:previous,close,high:Math.min(limit,close+.001),low:previous-.001,volume:10000,amount:200000000,
-   knownAt:Date.parse(date+'T15:01:00+08:00'),statusKnownAt:date+'T09:00:00+08:00',suspended:false,tradable:true,isST:false,corporateAction:false,
+   knownAt:Date.parse(date+'T15:01:00+08:00'),statusKnownAt:date+'T09:00:00+08:00',suspended:false,tradable:true,isST:false,corporateAction:false,corporateActionKnownAt:date+'T16:00:00+08:00',
    limitUpPrice:limit,limitReferencePrice:previous,limitKnownAt:date+'T09:00:00+08:00',noPriceLimit:false};
  });
  const asOf=Date.parse(tradeDates[n-1]+'T16:00:00+08:00');
@@ -15,6 +15,25 @@ function fixture(n=90){
 }
 function run(f,extra={}){return studyPatternOutcomes(f.stock,{asOf:f.asOf,tradeDates:f.tradeDates,...extra});}
 const pattern=(r,id='red_three_soldiers')=>r.patterns.find(p=>p.id===id);
+
+test('EOD status arrival is legitimate research evidence and never certifies pre-open board identity',()=>{
+ const f=fixture();for(const b of f.stock.bars){b.statusKnownAt=b.date+'T16:01:00+08:00';b.corporateActionKnownAt=b.date+'T16:02:00+08:00';}
+ f.asOf+=5*60000;f.stock.observedAt=f.asOf;
+ const r=run(f);assert.equal(pattern(r).direction.samples,87);assert.equal(r.evidenceProtocol,'post-close-research-v2');assert.equal(pattern(r,'limit_up_shakeout_main').currentlyMatched,null);assert.equal(r.canTrade,false);
+ const intraday=fixture();intraday.asOf-=30*60000;intraday.stock.observedAt=intraday.asOf;intraday.stock.bars.at(-1).corporateActionKnownAt=intraday.asOf;
+ const early=run(intraday);assert.equal(pattern(early).currentlyMatched,null);assert.equal(early.currentFormation.status,'price-only-unverified');assert.equal(early.currentFormation.historicalEligible,false);
+});
+test('late company/status evidence cannot backfill a historical formation or mature a future label',()=>{
+ for(const field of ['statusKnownAt','corporateActionKnownAt']){
+  const f=fixture(),base=run(f),last=f.stock.bars.at(-1);last[field]=f.asOf+60000;
+  const delayed=run(f);assert.equal(pattern(delayed).direction.samples,pattern(base).direction.samples-1);assert.equal(pattern(delayed).currentlyMatched,null);assert.equal(delayed.currentFormation.status,'price-only-unverified');
+  f.asOf+=60000;f.stock.observedAt=f.asOf;assert.equal(pattern(run(f)).direction.samples,pattern(base).direction.samples);
+  const late=fixture();late.stock.bars[30][field]=Date.parse(late.tradeDates[31]+'T16:00:00+08:00');assert.equal(pattern(run(late)).direction.samples,pattern(run(fixture())).direction.samples-1);
+ }
+ const unknown=fixture();for(const b of unknown.stock.bars){delete b.corporateActionKnownAt;delete b.statusKnownAt;}
+ const r=run(unknown);assert.equal(r.coverage.usableFormations,0);assert.equal(r.currentFormation.status,'price-only-unverified');assert.equal(r.currentFormation.date,unknown.stock.bars.at(-1).date);assert.equal(r.currentFormation.canTrade,false);
+ unknown.stock.bars.at(-1).knownAt=unknown.asOf+1;assert.equal(run(unknown).currentFormation.date,unknown.stock.bars.at(-2).date);
+});
 
 test('confirmed patterns use observed next-session outcomes, empirical frequencies and Wilson intervals',()=>{
  const f=fixture(),result=run(f),p=pattern(result);
@@ -53,7 +72,7 @@ test('a formation cannot use a late-known candle, and missing sessions never joi
  assert.equal(pattern(run(late)).direction.samples,baseline-1);
  const gap=fixture();gap.stock.bars=gap.stock.bars.filter((_,i)=>i%3!==0);
  assert.equal(run(gap).coverage.usableFormations,0);assert.deepEqual(run(gap).patterns,[]);
- for(const field of ['knownAt','statusKnownAt','suspended','tradable','isST','corporateAction']){
+ for(const field of ['knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt']){
   const f=fixture();for(const b of f.stock.bars)delete b[field];const r=run(f);
   assert.equal(r.coverage.usableFormations,0,field);assert.ok(r.patterns.every(p=>p.direction.probability===null));
  }

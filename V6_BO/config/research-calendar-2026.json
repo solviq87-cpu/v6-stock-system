@@ -1,0 +1,1708 @@
+{
+  "schemaVersion": 1,
+  "exchange": "SSE",
+  "source": "sse-szse-official-2026-explicit-research-calendar",
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "supportedExchanges": [
+    "SSE",
+    "SZSE"
+  ],
+  "firstObservedAt": "2026-11-12T20:05:22.551912Z",
+  "sourceAuthenticated": false,
+  "verifiedExternal": false,
+  "tradeEligible": false,
+  "runtimeEligible": false,
+  "realTime": false,
+  "sourceEvidence": [
+    {
+      "key": "sse",
+      "sourceUrl": "https://www.sse.com.cn/disclosure/announcement/general/c/c_20251222_10802507.shtml",
+      "rawHash": "sha256:ff188c710b8904758c185eb955e9eaa2c9bd7c2061af984d4f1d743f899c12a4",
+      "firstObservedAt": "2026-11-12T19:59:11.332851Z",
+      "httpStatus": 200,
+      "bytes": 28038,
+      "sourcePublicationDate": "2025-12-22",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "szse_canonical",
+      "sourceUrl": "https://www.szse.cn/disclosure/notice/general/t20251222_618087.html",
+      "rawHash": "sha256:1656d8708d5faed33c7588538639d96128f39fdface02cfa6eb66d796c40f14e",
+      "firstObservedAt": "2026-11-12T19:59:43.538723Z",
+      "httpStatus": 200,
+      "bytes": 24946,
+      "sourcePublicationDate": "2025-12-22",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "sse_rule2026",
+      "sourceUrl": "https://www.sse.com.cn/lawandrules/sselawsrules2025/fund/trading/c/c_20260424_10817739.shtml",
+      "rawHash": "sha256:7b45ad2d9560087c327b01245a53e2848a9935a99cafe011c451a862f6434830",
+      "firstObservedAt": "2026-11-12T19:59:41.716027Z",
+      "httpStatus": 200,
+      "bytes": 33582,
+      "sourcePublicationDate": "2026-04-24",
+      "publicationPrecision": "date",
+      "effectiveDate": "2026-07-06"
+    },
+    {
+      "key": "sse_rule2026_docx",
+      "sourceUrl": "https://www.sse.com.cn/lawandrules/sselawsrules2025/fund/trading/c/10817739/files/7ffa42ba08bf4605a9e680bd38d452b4.docx",
+      "rawHash": "sha256:fc922c433438b2636cb631eab25cca405209712acbb6aaded768c45456ff8888",
+      "firstObservedAt": "2026-11-12T19:59:42.609645Z",
+      "httpStatus": 200,
+      "bytes": 65302,
+      "sourcePublicationDate": "2026-04-24",
+      "publicationPrecision": "date",
+      "effectiveDate": "2026-07-06"
+    },
+    {
+      "key": "sse_rule2023_archive",
+      "sourceUrl": "https://www.sse.com.cn/lawandrules/sselawsrules2025/repeal/rules/c/c_20250612_10824490.shtml",
+      "rawHash": "sha256:41674dd8ae45aa79628c5a298c9b90f3a50e8b7a2f0a5df96cc146870ca13b46",
+      "firstObservedAt": "2026-11-12T20:00:34.214790Z",
+      "httpStatus": 200,
+      "bytes": 34499,
+      "sourcePublicationDate": "2023-02-17",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "sse_rule2023_docx",
+      "sourceUrl": "https://www.sse.com.cn/lawandrules/sselawsrules2025/repeal/rules/c/10824490/files/dcbe58edb194451d93f19b1f7dd8fb4c.docx",
+      "rawHash": "sha256:7aa2319f6dcf597be1e86b3b69d7c2ad0e6acb2a5d0cc6be48a01af602fded40",
+      "firstObservedAt": "2026-11-12T20:01:06.443149Z",
+      "httpStatus": 200,
+      "bytes": 51948,
+      "sourcePublicationDate": "2023-02-17",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "szse_rule2026",
+      "sourceUrl": "https://docs.static.szse.cn/www/lawrules/rule/trade/current/W020260424690713155663.pdf",
+      "rawHash": "sha256:9b66f8b0db70f84a25ef1ccb4ee2351001724e408117552d75f6d8993483c586",
+      "firstObservedAt": "2026-11-12T19:59:42.755436Z",
+      "httpStatus": 200,
+      "bytes": 282084,
+      "sourcePublicationDate": "2026-04-24",
+      "publicationPrecision": "date",
+      "effectiveDate": "2026-07-06"
+    },
+    {
+      "key": "szse_rule_notice",
+      "sourceUrl": "https://www.szse.cn/lawrules/rule/trade/t20260424_620190.html",
+      "rawHash": "sha256:0dcb0971ac96123f369178ce8f5397d948190d41281175694664de1d1dd4dce5",
+      "firstObservedAt": "2026-11-12T20:00:34.063412Z",
+      "httpStatus": 200,
+      "bytes": 19302,
+      "sourcePublicationDate": "2026-04-24",
+      "publicationPrecision": "date",
+      "effectiveDate": "2026-07-06"
+    },
+    {
+      "key": "sse_latest_holiday",
+      "sourceUrl": "https://www.sse.com.cn/disclosure/announcement/general/c/c_20260915_10832273.shtml",
+      "rawHash": "sha256:070610b8371dcb2fb094cbbeaf9ecb1bf515949c6da09edb7afe4888d6f574b4",
+      "firstObservedAt": "2026-11-12T20:00:34.280718Z",
+      "httpStatus": 200,
+      "bytes": 26880,
+      "sourcePublicationDate": "2026-09-17",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "sse_holiday_index",
+      "sourceUrl": "https://www.sse.com.cn/disclosure/dealinstruc/closed/list/",
+      "rawHash": "sha256:16627969581acab0f595232c25c5bacd465210d97f5f5d7b2cba3db1fd689cd5",
+      "firstObservedAt": "2026-11-12T20:00:33.981355Z",
+      "httpStatus": 200,
+      "bytes": 31684,
+      "sourcePublicationDate": null,
+      "publicationPrecision": null
+    },
+    {
+      "key": "szse_rule2023_notice",
+      "sourceUrl": "https://www.szse.cn/lawrules/rule/repeal/rules/t20230217_598773.html",
+      "rawHash": "sha256:7f4405a3e7021976db2d4ecbb1b02434f603110b2de46233f5a8b71f2059794a",
+      "bytes": 15560,
+      "firstObservedAt": "2026-11-12T20:05:18.439653Z",
+      "httpStatus": 200,
+      "sourcePublicationDate": "2023-02-17",
+      "publicationPrecision": "date"
+    },
+    {
+      "key": "szse_rule2023",
+      "sourceUrl": "https://docs.static.szse.cn/www/lawrules/rule/repeal/rules/W020230217564423808793.pdf",
+      "rawHash": "sha256:7018114a6e11deb239c2a72e71e49defc6e8841b3e2c093b3bbf809282c67222",
+      "bytes": 620843,
+      "firstObservedAt": "2026-11-12T20:05:22.550478Z",
+      "httpStatus": 200,
+      "sourcePublicationDate": "2023-02-17",
+      "publicationPrecision": "date"
+    }
+  ],
+  "ruleBasis": [
+    {
+      "exchange": "SSE",
+      "appliesFrom": "2026-01-01",
+      "appliesTo": "2026-07-05",
+      "evidenceKeys": [
+        "sse_rule2023_archive",
+        "sse_rule2023_docx"
+      ],
+      "clause": "2.4.1",
+      "weekendRule": "本所交易日为每周一至周五。国家法定假日和本所公告的休市日，本所市场休市。"
+    },
+    {
+      "exchange": "SSE",
+      "appliesFrom": "2026-07-06",
+      "appliesTo": "2026-12-31",
+      "evidenceKeys": [
+        "sse_rule2026",
+        "sse_rule2026_docx"
+      ],
+      "clause": "2.4.1",
+      "weekendRule": "本所交易日为每周一至周五。国家法定假日和本所公告的休市日，本所市场休市。"
+    },
+    {
+      "exchange": "SZSE",
+      "appliesFrom": "2026-01-01",
+      "appliesTo": "2026-07-05",
+      "evidenceKeys": [
+        "szse_rule2023_notice",
+        "szse_rule2023",
+        "szse_rule_notice"
+      ],
+      "clause": "2.3.1",
+      "weekendRule": "本所交易日为每周一至周五。国家法定假日和本所公告的休市日，本所市场休市。"
+    },
+    {
+      "exchange": "SZSE",
+      "appliesFrom": "2026-07-06",
+      "appliesTo": "2026-12-31",
+      "evidenceKeys": [
+        "szse_rule_notice",
+        "szse_rule2026"
+      ],
+      "clause": "2.3.1",
+      "weekendRule": "本所交易日为每周一至周五。国家法定假日和本所公告的休市日，本所市场休市。"
+    }
+  ],
+  "holidayRanges": [
+    {
+      "name": "元旦",
+      "from": "2026-01-01",
+      "to": "2026-01-03"
+    },
+    {
+      "name": "春节",
+      "from": "2026-02-15",
+      "to": "2026-02-23"
+    },
+    {
+      "name": "清明节",
+      "from": "2026-04-04",
+      "to": "2026-04-06"
+    },
+    {
+      "name": "劳动节",
+      "from": "2026-05-01",
+      "to": "2026-05-05"
+    },
+    {
+      "name": "端午节",
+      "from": "2026-06-19",
+      "to": "2026-06-21"
+    },
+    {
+      "name": "中秋节",
+      "from": "2026-09-25",
+      "to": "2026-09-27"
+    },
+    {
+      "name": "国庆节",
+      "from": "2026-10-01",
+      "to": "2026-10-07"
+    }
+  ],
+  "weekendMakeupClosures": [
+    "2026-01-04",
+    "2026-02-14",
+    "2026-02-28",
+    "2026-05-09",
+    "2026-09-20",
+    "2026-10-10"
+  ],
+  "unconfirmedExchanges": [
+    {
+      "exchange": "BSE",
+      "sourceUrl": "https://www.bse.cn/important_news/200027428.html",
+      "sourcePublicationDate": "2025-12-22",
+      "probeStatus": 403,
+      "rawCaptured": false,
+      "reason": "原站HTTP403；搜索缓存相同休市安排不足以作为原始HTTP证据，默认不支持BSE。"
+    }
+  ],
+  "derivation": "Explicit sessions transcribed from captured SSE/SZSE weekday trading rules and 2026 annual closure notices. New 2026 rules apply only from 2026-07-06. Scheduled dates do not certify market uptime, quote freshness, or trade eligibility.",
+  "sessions": [
+    {
+      "date": "2026-01-01",
+      "open": false
+    },
+    {
+      "date": "2026-01-02",
+      "open": false
+    },
+    {
+      "date": "2026-01-03",
+      "open": false
+    },
+    {
+      "date": "2026-01-04",
+      "open": false
+    },
+    {
+      "date": "2026-01-05",
+      "open": true
+    },
+    {
+      "date": "2026-01-06",
+      "open": true
+    },
+    {
+      "date": "2026-01-07",
+      "open": true
+    },
+    {
+      "date": "2026-01-08",
+      "open": true
+    },
+    {
+      "date": "2026-01-09",
+      "open": true
+    },
+    {
+      "date": "2026-01-10",
+      "open": false
+    },
+    {
+      "date": "2026-01-11",
+      "open": false
+    },
+    {
+      "date": "2026-01-12",
+      "open": true
+    },
+    {
+      "date": "2026-01-13",
+      "open": true
+    },
+    {
+      "date": "2026-01-14",
+      "open": true
+    },
+    {
+      "date": "2026-01-15",
+      "open": true
+    },
+    {
+      "date": "2026-01-16",
+      "open": true
+    },
+    {
+      "date": "2026-01-17",
+      "open": false
+    },
+    {
+      "date": "2026-01-18",
+      "open": false
+    },
+    {
+      "date": "2026-01-19",
+      "open": true
+    },
+    {
+      "date": "2026-01-20",
+      "open": true
+    },
+    {
+      "date": "2026-01-21",
+      "open": true
+    },
+    {
+      "date": "2026-01-22",
+      "open": true
+    },
+    {
+      "date": "2026-01-23",
+      "open": true
+    },
+    {
+      "date": "2026-01-24",
+      "open": false
+    },
+    {
+      "date": "2026-01-25",
+      "open": false
+    },
+    {
+      "date": "2026-01-26",
+      "open": true
+    },
+    {
+      "date": "2026-01-27",
+      "open": true
+    },
+    {
+      "date": "2026-01-28",
+      "open": true
+    },
+    {
+      "date": "2026-01-29",
+      "open": true
+    },
+    {
+      "date": "2026-01-30",
+      "open": true
+    },
+    {
+      "date": "2026-01-31",
+      "open": false
+    },
+    {
+      "date": "2026-02-01",
+      "open": false
+    },
+    {
+      "date": "2026-02-02",
+      "open": true
+    },
+    {
+      "date": "2026-02-03",
+      "open": true
+    },
+    {
+      "date": "2026-02-04",
+      "open": true
+    },
+    {
+      "date": "2026-02-05",
+      "open": true
+    },
+    {
+      "date": "2026-02-06",
+      "open": true
+    },
+    {
+      "date": "2026-02-07",
+      "open": false
+    },
+    {
+      "date": "2026-02-08",
+      "open": false
+    },
+    {
+      "date": "2026-02-09",
+      "open": true
+    },
+    {
+      "date": "2026-02-10",
+      "open": true
+    },
+    {
+      "date": "2026-02-11",
+      "open": true
+    },
+    {
+      "date": "2026-02-12",
+      "open": true
+    },
+    {
+      "date": "2026-02-13",
+      "open": true
+    },
+    {
+      "date": "2026-02-14",
+      "open": false
+    },
+    {
+      "date": "2026-02-15",
+      "open": false
+    },
+    {
+      "date": "2026-02-16",
+      "open": false
+    },
+    {
+      "date": "2026-02-17",
+      "open": false
+    },
+    {
+      "date": "2026-02-18",
+      "open": false
+    },
+    {
+      "date": "2026-02-19",
+      "open": false
+    },
+    {
+      "date": "2026-02-20",
+      "open": false
+    },
+    {
+      "date": "2026-02-21",
+      "open": false
+    },
+    {
+      "date": "2026-02-22",
+      "open": false
+    },
+    {
+      "date": "2026-02-23",
+      "open": false
+    },
+    {
+      "date": "2026-02-24",
+      "open": true
+    },
+    {
+      "date": "2026-02-25",
+      "open": true
+    },
+    {
+      "date": "2026-02-26",
+      "open": true
+    },
+    {
+      "date": "2026-02-27",
+      "open": true
+    },
+    {
+      "date": "2026-02-28",
+      "open": false
+    },
+    {
+      "date": "2026-03-01",
+      "open": false
+    },
+    {
+      "date": "2026-03-02",
+      "open": true
+    },
+    {
+      "date": "2026-03-03",
+      "open": true
+    },
+    {
+      "date": "2026-03-04",
+      "open": true
+    },
+    {
+      "date": "2026-03-05",
+      "open": true
+    },
+    {
+      "date": "2026-03-06",
+      "open": true
+    },
+    {
+      "date": "2026-03-07",
+      "open": false
+    },
+    {
+      "date": "2026-03-08",
+      "open": false
+    },
+    {
+      "date": "2026-03-09",
+      "open": true
+    },
+    {
+      "date": "2026-03-10",
+      "open": true
+    },
+    {
+      "date": "2026-03-11",
+      "open": true
+    },
+    {
+      "date": "2026-03-12",
+      "open": true
+    },
+    {
+      "date": "2026-03-13",
+      "open": true
+    },
+    {
+      "date": "2026-03-14",
+      "open": false
+    },
+    {
+      "date": "2026-03-15",
+      "open": false
+    },
+    {
+      "date": "2026-03-16",
+      "open": true
+    },
+    {
+      "date": "2026-03-17",
+      "open": true
+    },
+    {
+      "date": "2026-03-18",
+      "open": true
+    },
+    {
+      "date": "2026-03-19",
+      "open": true
+    },
+    {
+      "date": "2026-03-20",
+      "open": true
+    },
+    {
+      "date": "2026-03-21",
+      "open": false
+    },
+    {
+      "date": "2026-03-22",
+      "open": false
+    },
+    {
+      "date": "2026-03-23",
+      "open": true
+    },
+    {
+      "date": "2026-03-24",
+      "open": true
+    },
+    {
+      "date": "2026-03-25",
+      "open": true
+    },
+    {
+      "date": "2026-03-26",
+      "open": true
+    },
+    {
+      "date": "2026-03-27",
+      "open": true
+    },
+    {
+      "date": "2026-03-28",
+      "open": false
+    },
+    {
+      "date": "2026-03-29",
+      "open": false
+    },
+    {
+      "date": "2026-03-30",
+      "open": true
+    },
+    {
+      "date": "2026-03-31",
+      "open": true
+    },
+    {
+      "date": "2026-04-01",
+      "open": true
+    },
+    {
+      "date": "2026-04-02",
+      "open": true
+    },
+    {
+      "date": "2026-04-03",
+      "open": true
+    },
+    {
+      "date": "2026-04-04",
+      "open": false
+    },
+    {
+      "date": "2026-04-05",
+      "open": false
+    },
+    {
+      "date": "2026-04-06",
+      "open": false
+    },
+    {
+      "date": "2026-04-07",
+      "open": true
+    },
+    {
+      "date": "2026-04-08",
+      "open": true
+    },
+    {
+      "date": "2026-04-09",
+      "open": true
+    },
+    {
+      "date": "2026-04-10",
+      "open": true
+    },
+    {
+      "date": "2026-04-11",
+      "open": false
+    },
+    {
+      "date": "2026-04-12",
+      "open": false
+    },
+    {
+      "date": "2026-04-13",
+      "open": true
+    },
+    {
+      "date": "2026-04-14",
+      "open": true
+    },
+    {
+      "date": "2026-04-15",
+      "open": true
+    },
+    {
+      "date": "2026-04-16",
+      "open": true
+    },
+    {
+      "date": "2026-04-17",
+      "open": true
+    },
+    {
+      "date": "2026-04-18",
+      "open": false
+    },
+    {
+      "date": "2026-04-19",
+      "open": false
+    },
+    {
+      "date": "2026-04-20",
+      "open": true
+    },
+    {
+      "date": "2026-04-21",
+      "open": true
+    },
+    {
+      "date": "2026-04-22",
+      "open": true
+    },
+    {
+      "date": "2026-04-23",
+      "open": true
+    },
+    {
+      "date": "2026-04-24",
+      "open": true
+    },
+    {
+      "date": "2026-04-25",
+      "open": false
+    },
+    {
+      "date": "2026-04-26",
+      "open": false
+    },
+    {
+      "date": "2026-04-27",
+      "open": true
+    },
+    {
+      "date": "2026-04-28",
+      "open": true
+    },
+    {
+      "date": "2026-04-29",
+      "open": true
+    },
+    {
+      "date": "2026-04-30",
+      "open": true
+    },
+    {
+      "date": "2026-05-01",
+      "open": false
+    },
+    {
+      "date": "2026-05-02",
+      "open": false
+    },
+    {
+      "date": "2026-05-03",
+      "open": false
+    },
+    {
+      "date": "2026-05-04",
+      "open": false
+    },
+    {
+      "date": "2026-05-05",
+      "open": false
+    },
+    {
+      "date": "2026-05-06",
+      "open": true
+    },
+    {
+      "date": "2026-05-07",
+      "open": true
+    },
+    {
+      "date": "2026-05-08",
+      "open": true
+    },
+    {
+      "date": "2026-05-09",
+      "open": false
+    },
+    {
+      "date": "2026-05-10",
+      "open": false
+    },
+    {
+      "date": "2026-05-11",
+      "open": true
+    },
+    {
+      "date": "2026-05-12",
+      "open": true
+    },
+    {
+      "date": "2026-05-13",
+      "open": true
+    },
+    {
+      "date": "2026-05-14",
+      "open": true
+    },
+    {
+      "date": "2026-05-15",
+      "open": true
+    },
+    {
+      "date": "2026-05-16",
+      "open": false
+    },
+    {
+      "date": "2026-05-17",
+      "open": false
+    },
+    {
+      "date": "2026-05-18",
+      "open": true
+    },
+    {
+      "date": "2026-05-19",
+      "open": true
+    },
+    {
+      "date": "2026-05-20",
+      "open": true
+    },
+    {
+      "date": "2026-05-21",
+      "open": true
+    },
+    {
+      "date": "2026-05-22",
+      "open": true
+    },
+    {
+      "date": "2026-05-23",
+      "open": false
+    },
+    {
+      "date": "2026-05-24",
+      "open": false
+    },
+    {
+      "date": "2026-05-25",
+      "open": true
+    },
+    {
+      "date": "2026-05-26",
+      "open": true
+    },
+    {
+      "date": "2026-05-27",
+      "open": true
+    },
+    {
+      "date": "2026-05-28",
+      "open": true
+    },
+    {
+      "date": "2026-05-29",
+      "open": true
+    },
+    {
+      "date": "2026-05-30",
+      "open": false
+    },
+    {
+      "date": "2026-05-31",
+      "open": false
+    },
+    {
+      "date": "2026-06-01",
+      "open": true
+    },
+    {
+      "date": "2026-06-02",
+      "open": true
+    },
+    {
+      "date": "2026-06-03",
+      "open": true
+    },
+    {
+      "date": "2026-06-04",
+      "open": true
+    },
+    {
+      "date": "2026-06-05",
+      "open": true
+    },
+    {
+      "date": "2026-06-06",
+      "open": false
+    },
+    {
+      "date": "2026-06-07",
+      "open": false
+    },
+    {
+      "date": "2026-06-08",
+      "open": true
+    },
+    {
+      "date": "2026-06-09",
+      "open": true
+    },
+    {
+      "date": "2026-06-10",
+      "open": true
+    },
+    {
+      "date": "2026-06-11",
+      "open": true
+    },
+    {
+      "date": "2026-06-12",
+      "open": true
+    },
+    {
+      "date": "2026-06-13",
+      "open": false
+    },
+    {
+      "date": "2026-06-14",
+      "open": false
+    },
+    {
+      "date": "2026-06-15",
+      "open": true
+    },
+    {
+      "date": "2026-06-16",
+      "open": true
+    },
+    {
+      "date": "2026-06-17",
+      "open": true
+    },
+    {
+      "date": "2026-06-18",
+      "open": true
+    },
+    {
+      "date": "2026-06-19",
+      "open": false
+    },
+    {
+      "date": "2026-06-20",
+      "open": false
+    },
+    {
+      "date": "2026-06-21",
+      "open": false
+    },
+    {
+      "date": "2026-06-22",
+      "open": true
+    },
+    {
+      "date": "2026-06-23",
+      "open": true
+    },
+    {
+      "date": "2026-06-24",
+      "open": true
+    },
+    {
+      "date": "2026-06-25",
+      "open": true
+    },
+    {
+      "date": "2026-06-26",
+      "open": true
+    },
+    {
+      "date": "2026-06-27",
+      "open": false
+    },
+    {
+      "date": "2026-06-28",
+      "open": false
+    },
+    {
+      "date": "2026-06-29",
+      "open": true
+    },
+    {
+      "date": "2026-06-30",
+      "open": true
+    },
+    {
+      "date": "2026-07-01",
+      "open": true
+    },
+    {
+      "date": "2026-07-02",
+      "open": true
+    },
+    {
+      "date": "2026-07-03",
+      "open": true
+    },
+    {
+      "date": "2026-07-04",
+      "open": false
+    },
+    {
+      "date": "2026-07-05",
+      "open": false
+    },
+    {
+      "date": "2026-07-06",
+      "open": true
+    },
+    {
+      "date": "2026-07-07",
+      "open": true
+    },
+    {
+      "date": "2026-07-08",
+      "open": true
+    },
+    {
+      "date": "2026-07-09",
+      "open": true
+    },
+    {
+      "date": "2026-07-10",
+      "open": true
+    },
+    {
+      "date": "2026-07-11",
+      "open": false
+    },
+    {
+      "date": "2026-07-12",
+      "open": false
+    },
+    {
+      "date": "2026-07-13",
+      "open": true
+    },
+    {
+      "date": "2026-07-14",
+      "open": true
+    },
+    {
+      "date": "2026-07-15",
+      "open": true
+    },
+    {
+      "date": "2026-07-16",
+      "open": true
+    },
+    {
+      "date": "2026-07-17",
+      "open": true
+    },
+    {
+      "date": "2026-07-18",
+      "open": false
+    },
+    {
+      "date": "2026-07-19",
+      "open": false
+    },
+    {
+      "date": "2026-07-20",
+      "open": true
+    },
+    {
+      "date": "2026-07-21",
+      "open": true
+    },
+    {
+      "date": "2026-07-22",
+      "open": true
+    },
+    {
+      "date": "2026-07-23",
+      "open": true
+    },
+    {
+      "date": "2026-07-24",
+      "open": true
+    },
+    {
+      "date": "2026-07-25",
+      "open": false
+    },
+    {
+      "date": "2026-07-26",
+      "open": false
+    },
+    {
+      "date": "2026-07-27",
+      "open": true
+    },
+    {
+      "date": "2026-07-28",
+      "open": true
+    },
+    {
+      "date": "2026-07-29",
+      "open": true
+    },
+    {
+      "date": "2026-07-30",
+      "open": true
+    },
+    {
+      "date": "2026-07-31",
+      "open": true
+    },
+    {
+      "date": "2026-08-01",
+      "open": false
+    },
+    {
+      "date": "2026-08-02",
+      "open": false
+    },
+    {
+      "date": "2026-08-03",
+      "open": true
+    },
+    {
+      "date": "2026-08-04",
+      "open": true
+    },
+    {
+      "date": "2026-08-05",
+      "open": true
+    },
+    {
+      "date": "2026-08-06",
+      "open": true
+    },
+    {
+      "date": "2026-08-07",
+      "open": true
+    },
+    {
+      "date": "2026-08-08",
+      "open": false
+    },
+    {
+      "date": "2026-08-09",
+      "open": false
+    },
+    {
+      "date": "2026-08-10",
+      "open": true
+    },
+    {
+      "date": "2026-08-11",
+      "open": true
+    },
+    {
+      "date": "2026-08-12",
+      "open": true
+    },
+    {
+      "date": "2026-08-13",
+      "open": true
+    },
+    {
+      "date": "2026-08-14",
+      "open": true
+    },
+    {
+      "date": "2026-08-15",
+      "open": false
+    },
+    {
+      "date": "2026-08-16",
+      "open": false
+    },
+    {
+      "date": "2026-08-17",
+      "open": true
+    },
+    {
+      "date": "2026-08-18",
+      "open": true
+    },
+    {
+      "date": "2026-08-19",
+      "open": true
+    },
+    {
+      "date": "2026-08-20",
+      "open": true
+    },
+    {
+      "date": "2026-08-21",
+      "open": true
+    },
+    {
+      "date": "2026-08-22",
+      "open": false
+    },
+    {
+      "date": "2026-08-23",
+      "open": false
+    },
+    {
+      "date": "2026-08-24",
+      "open": true
+    },
+    {
+      "date": "2026-08-25",
+      "open": true
+    },
+    {
+      "date": "2026-08-26",
+      "open": true
+    },
+    {
+      "date": "2026-08-27",
+      "open": true
+    },
+    {
+      "date": "2026-08-28",
+      "open": true
+    },
+    {
+      "date": "2026-08-29",
+      "open": false
+    },
+    {
+      "date": "2026-08-30",
+      "open": false
+    },
+    {
+      "date": "2026-08-31",
+      "open": true
+    },
+    {
+      "date": "2026-09-01",
+      "open": true
+    },
+    {
+      "date": "2026-09-02",
+      "open": true
+    },
+    {
+      "date": "2026-09-03",
+      "open": true
+    },
+    {
+      "date": "2026-09-04",
+      "open": true
+    },
+    {
+      "date": "2026-09-05",
+      "open": false
+    },
+    {
+      "date": "2026-09-06",
+      "open": false
+    },
+    {
+      "date": "2026-09-07",
+      "open": true
+    },
+    {
+      "date": "2026-09-08",
+      "open": true
+    },
+    {
+      "date": "2026-09-09",
+      "open": true
+    },
+    {
+      "date": "2026-09-10",
+      "open": true
+    },
+    {
+      "date": "2026-09-11",
+      "open": true
+    },
+    {
+      "date": "2026-09-12",
+      "open": false
+    },
+    {
+      "date": "2026-09-13",
+      "open": false
+    },
+    {
+      "date": "2026-09-14",
+      "open": true
+    },
+    {
+      "date": "2026-09-15",
+      "open": true
+    },
+    {
+      "date": "2026-09-16",
+      "open": true
+    },
+    {
+      "date": "2026-09-17",
+      "open": true
+    },
+    {
+      "date": "2026-09-18",
+      "open": true
+    },
+    {
+      "date": "2026-09-19",
+      "open": false
+    },
+    {
+      "date": "2026-09-20",
+      "open": false
+    },
+    {
+      "date": "2026-09-21",
+      "open": true
+    },
+    {
+      "date": "2026-09-22",
+      "open": true
+    },
+    {
+      "date": "2026-09-23",
+      "open": true
+    },
+    {
+      "date": "2026-09-24",
+      "open": true
+    },
+    {
+      "date": "2026-09-25",
+      "open": false
+    },
+    {
+      "date": "2026-09-26",
+      "open": false
+    },
+    {
+      "date": "2026-09-27",
+      "open": false
+    },
+    {
+      "date": "2026-09-28",
+      "open": true
+    },
+    {
+      "date": "2026-09-29",
+      "open": true
+    },
+    {
+      "date": "2026-09-30",
+      "open": true
+    },
+    {
+      "date": "2026-10-01",
+      "open": false
+    },
+    {
+      "date": "2026-10-02",
+      "open": false
+    },
+    {
+      "date": "2026-10-03",
+      "open": false
+    },
+    {
+      "date": "2026-10-04",
+      "open": false
+    },
+    {
+      "date": "2026-10-05",
+      "open": false
+    },
+    {
+      "date": "2026-10-06",
+      "open": false
+    },
+    {
+      "date": "2026-10-07",
+      "open": false
+    },
+    {
+      "date": "2026-10-08",
+      "open": true
+    },
+    {
+      "date": "2026-10-09",
+      "open": true
+    },
+    {
+      "date": "2026-10-10",
+      "open": false
+    },
+    {
+      "date": "2026-10-11",
+      "open": false
+    },
+    {
+      "date": "2026-10-12",
+      "open": true
+    },
+    {
+      "date": "2026-10-13",
+      "open": true
+    },
+    {
+      "date": "2026-10-14",
+      "open": true
+    },
+    {
+      "date": "2026-10-15",
+      "open": true
+    },
+    {
+      "date": "2026-10-16",
+      "open": true
+    },
+    {
+      "date": "2026-10-17",
+      "open": false
+    },
+    {
+      "date": "2026-10-18",
+      "open": false
+    },
+    {
+      "date": "2026-10-19",
+      "open": true
+    },
+    {
+      "date": "2026-10-20",
+      "open": true
+    },
+    {
+      "date": "2026-10-21",
+      "open": true
+    },
+    {
+      "date": "2026-10-22",
+      "open": true
+    },
+    {
+      "date": "2026-10-23",
+      "open": true
+    },
+    {
+      "date": "2026-10-24",
+      "open": false
+    },
+    {
+      "date": "2026-10-25",
+      "open": false
+    },
+    {
+      "date": "2026-10-26",
+      "open": true
+    },
+    {
+      "date": "2026-10-27",
+      "open": true
+    },
+    {
+      "date": "2026-10-28",
+      "open": true
+    },
+    {
+      "date": "2026-10-29",
+      "open": true
+    },
+    {
+      "date": "2026-10-30",
+      "open": true
+    },
+    {
+      "date": "2026-10-31",
+      "open": false
+    },
+    {
+      "date": "2026-11-01",
+      "open": false
+    },
+    {
+      "date": "2026-11-02",
+      "open": true
+    },
+    {
+      "date": "2026-11-03",
+      "open": true
+    },
+    {
+      "date": "2026-11-04",
+      "open": true
+    },
+    {
+      "date": "2026-11-05",
+      "open": true
+    },
+    {
+      "date": "2026-11-06",
+      "open": true
+    },
+    {
+      "date": "2026-11-07",
+      "open": false
+    },
+    {
+      "date": "2026-11-08",
+      "open": false
+    },
+    {
+      "date": "2026-11-09",
+      "open": true
+    },
+    {
+      "date": "2026-11-10",
+      "open": true
+    },
+    {
+      "date": "2026-11-11",
+      "open": true
+    },
+    {
+      "date": "2026-11-12",
+      "open": true
+    },
+    {
+      "date": "2026-11-13",
+      "open": true
+    },
+    {
+      "date": "2026-11-14",
+      "open": false
+    },
+    {
+      "date": "2026-11-15",
+      "open": false
+    },
+    {
+      "date": "2026-11-16",
+      "open": true
+    },
+    {
+      "date": "2026-11-17",
+      "open": true
+    },
+    {
+      "date": "2026-11-18",
+      "open": true
+    },
+    {
+      "date": "2026-11-19",
+      "open": true
+    },
+    {
+      "date": "2026-11-20",
+      "open": true
+    },
+    {
+      "date": "2026-11-21",
+      "open": false
+    },
+    {
+      "date": "2026-11-22",
+      "open": false
+    },
+    {
+      "date": "2026-11-23",
+      "open": true
+    },
+    {
+      "date": "2026-11-24",
+      "open": true
+    },
+    {
+      "date": "2026-11-25",
+      "open": true
+    },
+    {
+      "date": "2026-11-26",
+      "open": true
+    },
+    {
+      "date": "2026-11-27",
+      "open": true
+    },
+    {
+      "date": "2026-11-28",
+      "open": false
+    },
+    {
+      "date": "2026-11-29",
+      "open": false
+    },
+    {
+      "date": "2026-11-30",
+      "open": true
+    },
+    {
+      "date": "2026-12-01",
+      "open": true
+    },
+    {
+      "date": "2026-12-02",
+      "open": true
+    },
+    {
+      "date": "2026-12-03",
+      "open": true
+    },
+    {
+      "date": "2026-12-04",
+      "open": true
+    },
+    {
+      "date": "2026-12-05",
+      "open": false
+    },
+    {
+      "date": "2026-12-06",
+      "open": false
+    },
+    {
+      "date": "2026-12-07",
+      "open": true
+    },
+    {
+      "date": "2026-12-08",
+      "open": true
+    },
+    {
+      "date": "2026-12-09",
+      "open": true
+    },
+    {
+      "date": "2026-12-10",
+      "open": true
+    },
+    {
+      "date": "2026-12-11",
+      "open": true
+    },
+    {
+      "date": "2026-12-12",
+      "open": false
+    },
+    {
+      "date": "2026-12-13",
+      "open": false
+    },
+    {
+      "date": "2026-12-14",
+      "open": true
+    },
+    {
+      "date": "2026-12-15",
+      "open": true
+    },
+    {
+      "date": "2026-12-16",
+      "open": true
+    },
+    {
+      "date": "2026-12-17",
+      "open": true
+    },
+    {
+      "date": "2026-12-18",
+      "open": true
+    },
+    {
+      "date": "2026-12-19",
+      "open": false
+    },
+    {
+      "date": "2026-12-20",
+      "open": false
+    },
+    {
+      "date": "2026-12-21",
+      "open": true
+    },
+    {
+      "date": "2026-12-22",
+      "open": true
+    },
+    {
+      "date": "2026-12-23",
+      "open": true
+    },
+    {
+      "date": "2026-12-24",
+      "open": true
+    },
+    {
+      "date": "2026-12-25",
+      "open": true
+    },
+    {
+      "date": "2026-12-26",
+      "open": false
+    },
+    {
+      "date": "2026-12-27",
+      "open": false
+    },
+    {
+      "date": "2026-12-28",
+      "open": true
+    },
+    {
+      "date": "2026-12-29",
+      "open": true
+    },
+    {
+      "date": "2026-12-30",
+      "open": true
+    },
+    {
+      "date": "2026-12-31",
+      "open": true
+    }
+  ]
+}
