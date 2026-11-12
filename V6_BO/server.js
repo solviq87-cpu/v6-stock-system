@@ -9,6 +9,9 @@ const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
 const probabilityContract = require('./src/core/probability-contract');
+const SignalEvidence = require('./src/core/signal-evidence-chain');
+const SignalJournal = require('./src/core/production-signal-journal');
+const SIGNAL_RULE_SOURCE_HASH = require('node:crypto').createHash('sha256').update(fs.readFileSync(__filename)).update(fs.readFileSync(path.join(__dirname,'analysis.js'))).digest('hex');
 // Funds evidence: missing values remain unknown throughout display and aggregation.
 function fundsNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
 function fundsRounded(value, digits = 0) {
@@ -686,7 +689,7 @@ async function sectorSurgeScan() {
         // ⛔ 2026-10-07 修（本轮角度：数据血缘）：同上，原来第 5 参传 null，分数只塞进 extra.score。
         //    而 fusedProb 只认第 5 参、empcalib 只认样本里的 prob 字段 —— extra.score 没人读。
         //    判定端 govFilter 用 x.prob 判、留档端却没分 → 同一只票"判的时候有分、存的时候没分"。
-        for (const x of top.slice(0, 3)) logSignal('sector', x.code, x.name, x.price, x.prob, { score: x.prob, paths: ['板块异动联动'] });
+        for (const x of top.slice(0, 3)) logSignal('sector', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { score: x.prob, paths: ['板块异动联动'] }));
       } catch (e) { console.error('[sectorSurge]', e.message); }
     })();
   }
@@ -801,6 +804,54 @@ const LEARN_HIST_FILE = path.join(__dirname, 'learn_history.json');
 S.learn = readJsonSafe(STAT_FILE, 'stats.json（信号样本/分桶校准/A-B 实验）') || { signals: [], buckets: {}, scoreThreshold: 75, samples: 0, hits: 0 };
 // ⛔ 返回落盘成败：调用方（尤其是会回应用户的接口）必须拿它决定怎么答复，不许写失败还回 ok:true
 const saveLearn = () => { const _o = atomicWrite(STAT_FILE, JSON.stringify(S.learn)); return _o ? true : _diskFail('stats.json（信号样本/校准分桶）'); };
+let signalRuleVersion;
+function productionSignalVersion() {
+  // Hash the evaluator actually loaded by this process; never backfill it into old samples.
+  if (!signalRuleVersion) signalRuleVersion='live-signal-v2:'+require('node:crypto').createHash('sha256').update(SIGNAL_RULE_SOURCE_HASH+tick.toString()+logSignal.toString()+fusedProb.toString()).digest('hex');
+  return signalRuleVersion;
+}
+function signalCondition(id,label,value,threshold,operator,at) {
+  return {id,label,value,threshold,operator,source:'frozen-live-rule:'+id,updatedAt:at};
+}
+function learningSignalExtra(row,extra={}) {
+  const quote={};
+  for(const field of ['price','pct','quoteAt','receivedAt','quoteSource','quoteFreshness','canTrade','canNotify','mode']) if(row && row[field]!==undefined)quote[field]=row[field];
+  return {...extra,sourceRecord:row||null,quoteEvidence:quote,conditionEvidence:Array.isArray(row?.conditionEvidence)?row.conditionEvidence:[],
+    strategyVersion:row?.strategyVersion||productionSignalVersion(),signalRisk:typeof row?.risk==='string'?row.risk:'',stopLoss:row?.stopRef||row?.stopLoss||'',invalidWhen:row?.invalidWhen||''};
+}
+function captureProductionSignal(record,quote={},rows=[],extra={}) {
+  const at=record.ts;
+  const bars=Array.isArray(rows)?rows:[]; // Preserve each actual row, including provenance fields not known by this adapter.
+  const eligibility=require('./src/core/quote-observation-view').quoteUseEligibility;
+  const qualityEvidence=typeof eligibility==='function'?eligibility(quote,at):{canTrade:false,canNotify:false,missingReason:'QUALITY_CONTRACT_UNAVAILABLE'};
+  let evidence;
+  const modelKind=record.probKind==='score'?'score':record.prob==null?'unknown':'model-estimate';
+  const eventTarget=record.eventTarget!==undefined?record.eventTarget:record._fz?.target??'unknown';
+  try{evidence=SignalEvidence.createProductionSignalEvidence({code:record.code,type:record.type,triggerAt:at,
+    recordKind:extra.recordKind,strategyVersion:record.strategyVersion||productionSignalVersion(),supersedes:extra.supersedes,
+    quote,conditions:record.conditionEvidence||[],model:{value:record.prob,kind:modelKind,target:eventTarget,
+      rankingValue:record._fz?.prob,rankingKind:record._fz?.valueKind||'unknown'},
+    riseModel:{value:record.riseProb,kind:record.riseProb==null?'unknown':'model-estimate',target:record.riseEventTarget??'unknown',source:record.riseModelSource||''},
+    inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news:extra.news||{originalEvidence:null},qualityEvidence},
+    supportingReasons:[record.logic||''].filter(Boolean),opposingReasons:[record.risk||''].filter(Boolean),
+    risk:{text:record.risk||'',stopLoss:record.stopLoss||record.stopRef||'',invalidWhen:record.invalidWhen||''},message:record.msg||''});}
+  catch(error){
+    console.error('[signal-evidence] 输入无法冻结，证据保持不可用');
+    // An oversized or invalid archive must not stop existing monitoring or invent an ID.
+    return SignalEvidence.immutableSnapshot({ts:at,code:record.code,type:record.type,name:record.name,price:record.price,prob:record.prob,
+      evidenceStatus:'unavailable',evidenceArchiveStatus:'unavailable',evidenceMissingReasons:['EVIDENCE_SNAPSHOT_FAILED'],
+      signalId:null,evidenceFingerprint:null,probKind:modelKind,eventTarget,calibrationCertified:false});
+  }
+  let archiveStatus='unavailable';
+  try{SignalJournal.appendEvidence(process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence'),evidence,{clock:()=>Date.now()});archiveStatus='archived';}
+  catch(error){console.error('[signal-evidence] 冻结归档不可用，不能声称可持久回放');}
+  return SignalEvidence.immutableSnapshot({...record,signalId:evidence.signalId,evidenceFingerprint:evidence.evidenceFingerprint,
+    evidenceStatus:evidence.status,evidenceArchiveStatus:archiveStatus,evidenceMissingReasons:evidence.missingReasons,
+    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,qualityEvidence,
+    probKind:modelKind,eventTarget,calibrationCertified:false,
+    quoteAt:evidence.quote.quoteAt,receivedAt:evidence.quote.receivedAt,quoteSource:evidence.quote.quoteSource,
+    stopLoss:evidence.risk.stopLoss,invalidWhen:evidence.risk.invalidWhen});
+}
 // 存量迁移：非交易日登记的样本本来就无法回验，标废，避免污染命中率统计
 // ⛔ 2026-10-15 修（#232 幽灵信号）：原来只判周末（getDay 0/6），法定假日里的周四/周五照样漏网 ——
 //    实测 2026 国庆 10-01~10-06 落了 156 条非交易日样本（auczt 64 + pool 57 + buzhang 12 +
@@ -1130,39 +1181,40 @@ function logSignal(type, code, name, price, prob, extra = {}) {
   // ⚠️ 重复登记修正（2026-09-29 发现）：同一只票同一天的同类信号以前会登记多次
   //    （实测 1973 条样本里有 1007 条是重复的，占 51%，例如 zt|600418|20260928 记了 3 次）。
   //    少数反复触发的票会重复计分，把整体命中率从真实的 43% 压到 30%。
-  //    现在同类同源只留一条：已回验的不动（保持回验一致性），未回验的更新价格/概率并合并因子。
+  //    统计仍每类/股/日只计一次；首次输入不覆写，后来观察另行追加不可变证据。
   const _key = type + '|' + code + '|' + todayStr();
   // ── 学习融合值：登记时就把它算出来存进样本 ──
   //   以前样本里只有"模型原值"，回验后只能评估模型准不准，永远无法回答
   //   「学完之后是不是更准」。现在并存一个 fused，回验时两套分档一起统计，
   //   learnFusedReport() 直接给出"融合档命中率 − 原值档命中率"= 学习带来的增量。
-  const _fz = fusedProb(code, name, krowsOf(code), type, _p);
+  const _rows = krowsOf(code);
+  const _fz = fusedProb(code, name, _rows, type, _p);
   const _old = S.learn.signals.find(s => s.type === type && s.code === code && s.date === todayStr());
-  if (_old) {
-    if (!_old.resolved) {
-      if (price) _old.price = price;
-      if (_p != null) { _old.prob = _p; _old.probKind = probKindOf(type); }
-      if (extra.cal) _old.cal = extra.cal;   // 同日重复登记也要带上刻度标记，否则新值被判退役
-      _old.fused = _fz.prob; _old.laP = _fz.la; _old.empP = _fz.emp; _old.delta = _fz.delta;
-      const merged = new Set([...(_old.paths || []), ...(extra.paths || [])]);
-      _old.paths = Array.from(merged);
-      saveLearn();
-    }
-    return _fz;
-  }
+  const observation=captureProductionSignal({ts:Date.now(),type,code,name,price,prob:_p,
+    probKind:probKindOf(type)==='score'?'score':'model-estimate',eventTarget:_fz.target!==undefined?_fz.target:'unknown',_fz,
+    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],
+    logic:(extra.paths||[]).join('；'),risk:extra.signalRisk||'',stopLoss:extra.stopLoss||'',invalidWhen:extra.invalidWhen||''},
+    extra.quoteEvidence||{price},_rows,{recordKind:'observation',supersedes:_old?.signalId||null,
+      metrics:{originalRecord:extra.sourceRecord||null,cal:extra.cal??null,score:extra.score??null,legacyParent:_old&&!_old.signalId?{type:_old.type,code:_old.code,date:_old.date,ts:_old.ts??null}:null}});
+  const result={..._fz,signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,evidenceArchiveStatus:observation.evidenceArchiveStatus};
+  if (_old) return result;
+  const sampleExtra={...extra};
+  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.sourceRecord;
   S.learn.signals.push({
-    date: todayStr(), ts: Date.now(), type, code, name, price,
+    ...JSON.parse(JSON.stringify(sampleExtra)),
+    date: todayStr(), ts: observation.ts, type, code, name, price,
     prob: _p, probKind: probKindOf(type),
     fused: _fz.prob, laP: _fz.la, empP: _fz.emp, delta: _fz.delta,
     void: !isTradeDay(_nd),
-    ...extra
+    signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,
+    evidenceArchiveStatus:observation.evidenceArchiveStatus,strategyVersion:observation.strategyVersion
   });
   // ⚠️ 剪枝口径已改（原 string）：以前直接 slice(-1500) 丢最老的，配合"9/28 一天 1373 条"
   //    两天就能把 7~9 月的历史样本清空 → 学习库只剩两三天 → 又回到「拿一天下结论」的死循环。
   //    现在按「交易日配额」剪：每天最多留 quota 条，保住日期多样性。
   pruneSignals();
   saveLearn();
-  return _fz;
+  return result;
 }
 // 样本库剪枝：体积要控，但「独立交易日数」更要保住 —— 它是所有学习结论的证据厚度。
 function pruneSignals(limit = 2600) {
@@ -4930,7 +4982,7 @@ async function rebuildPool() {
       // ⛔ 2026-10-07 修（本轮角度：数据血缘）：同上。精选池的分数叫 `score`，
       //    govFilter 的 probAt 认得出它（判定端有分），但留档端原先传 null → 样本没分。
       //    'pool' 在 empcalib 里属 EMP_EARLY（未启动类），标定拿不到档就无法进化。
-      for (const c of fresh) logSignal('pool', c.code, c.name, c.price, c.score, { score: c.score, paths: c.paths || [] });
+      for (const c of fresh) logSignal('pool', c.code, c.name, c.price, c.score, learningSignalExtra(c, { score: c.score, paths: c.paths || [] }));
       // 模拟盘A·跟单盘：新进池标的自动买入（paperBuy内部自动排除利空股）
       paperBuy('pool', fresh, paperPrices(), c => `新进检测池(评分${c.score})`);
     }
@@ -5109,7 +5161,7 @@ async function rebuildPool() {
       //         这条链路的**证据永远是空的**，学不出来也就永远不会更准。
       //    判定端（govFilter 的 probAt）已经能取到 trendScore，留档端却取不到 ——
       //    "判的时候有分、存的时候没分"，典型的血缘断裂。现在把同一个数传进去。
-      for (const c of fresh) logSignal('trend', c.code, c.name, c.price, c.trendScore, {});
+      for (const c of fresh) logSignal('trend', c.code, c.name, c.price, c.trendScore, learningSignalExtra(c));
     }
   }
   S.prevTrendCodes = new Set(trend.map(c => c.code));
@@ -5732,7 +5784,7 @@ function inferZTProb() {
     try {
       for (const x of S.auction.ztInfers) {
         // cal:'h2' = 刻度版本标记（h2 轮起），退役判据据此豁免数值判断，见 isRetiredProbScale
-        logSignal('auczt', x.code, x.name, x.price, x.prob, { score: x.score, cal: 'h2', paths: x.factors.length ? x.factors : ['竞价涨停推断'] });
+        logSignal('auczt', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { score: x.score, cal: 'h2', paths: x.factors.length ? x.factors : ['竞价涨停推断'] }));
       }
     } catch {}
   }
@@ -5962,6 +6014,7 @@ async function tick() {
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const now = Date.now();
     const alerts = [];
+    const signalSourceByCode = new Map(snaps.map(row => [row.code,row]));
     for (const s of snaps) {
       if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
       // 记录资金轨迹（保留10分钟）
@@ -5999,13 +6052,18 @@ async function tick() {
         if (bullishIntent && probC > pushTh && gap != null && gap > 0.5 && !(badHit && probC < 92)) {
           alerts.push({
             type: '后排涨停概率', code: s.code, name: s.name,
-            price: s.price, pct: s.pct, prob: +probC.toFixed(0),
+            price: s.price, pct: s.pct, prob: +probC.toFixed(0),probKind:'model-estimate',eventTarget:'ztToday',riseEventTarget:'ztToday',riseModelSource:'copied-from-prob',
             mainPct: s.mainPct, fastInDelta: Math.round(delta / 1e4) + '万/分钟',
             gapPct: +gap.toFixed(1),
             riseProb: +probC.toFixed(0),
+            conditionEvidence:[signalCondition('probability','模型评分门',probC,pushTh,'>',now),
+              signalCondition('gap','距涨停空间',gap,0.5,'>',now),signalCondition('main-flow','当日净流入',s.mainInflow,0,'>',now),
+              signalCondition('flow-delta','连续资金变化',delta,0,'>=',now),
+              ...(badHit?[signalCondition('negative-news-gate','利空时评分门',probC,92,'>=',now)]:[])],
+            ruleInputs:{model:prob*100,modelAfterAdjustment:probC,mainInflow:s.mainInflow,mainPct:s.mainPct,delta,gap,streakMin,ztInSector,goodHit:!!goodHit,badHit:!!badHit},
             logic: `板块后排补涨：距涨停${gap.toFixed(1)}%空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万 + 板块已${ztInSector}只涨停`,
             risk: riskNoteOf(s, { gap, badHit, goodHit }),
-            stopRef: stopRefOf(s),
+            stopRef: stopRefOf(s),invalidWhen:'连续资金窗口中断、净流入转负、距涨停空间或原模型门槛不再满足时，本次观察依据失效。',
             // ⛔ 后排补涨赌的是【当日】封板（下面那句"距涨停 X% 空间"就是当日的剩余空间）
             msg: `【后排蓄势】${s.name}(${s.code}) 涨${s.pct}% 主力净占比${(s.mainPct || 0).toFixed(1)}% 1分钟流入${Math.round(delta / 1e4)}万 ${probDef('ztToday')}概率${probC.toFixed(0)}%（模型估值，未独立校准）\n  选股逻辑: 板块后排补涨（距涨停 ${gap.toFixed(1)}% 空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万，${probDef('ztToday')}概率模型${probC.toFixed(0)}%）`
           });
@@ -6020,12 +6078,16 @@ async function tick() {
         if (fastIn && s.mainPct > 1) {
           alerts.push({
             type: '大单快速流入', code: s.code, name: s.name,
-            price: s.price, pct: s.pct, prob: +calibratedProb(prob * 100).toFixed(0),
+            price: s.price, pct: s.pct, prob: +calibratedProb(prob * 100).toFixed(0),probKind:'model-estimate',eventTarget:'ztToday',riseEventTarget:'up3Next',riseModelSource:'riseProbOf',
             mainPct: s.mainPct, fastInDelta: Math.round(delta / 1e4) + '万/分钟',
             riseProb: riseProbOf(s, { condCount: 1, badHit, goodHit }),
+            conditionEvidence:[signalCondition('fast-flow','分钟资金增量',delta,Math.max(3e6,s.floatCap*0.0003),'>',now),
+              signalCondition('positive-return','涨幅转正',s.pct,0,'>',now),signalCondition('main-percent','主力净占比',s.mainPct,1,'>',now),
+              signalCondition('positive-flow','当日净流入',s.mainInflow,0,'>',now)],
+            ruleInputs:{mainInflow:s.mainInflow,mainPct:s.mainPct,delta,floatCap:s.floatCap,goodHit:!!goodHit,badHit:!!badHit},
             logic: `资金抢筹：1分钟主力净流入${Math.round(delta / 1e4)}万（连续未转流出）+ 全天净占比${(s.mainPct || 0).toFixed(1)}%`,
             risk: riskNoteOf(s, { badHit, goodHit }),
-            stopRef: stopRefOf(s),
+            stopRef: stopRefOf(s),invalidWhen:'连续资金窗口中断、分钟增量不再超过原门槛、涨幅不再为正或主力净占比不再大于1时，本次观察依据失效。',
             msg: `【大单流入】${s.name}(${s.code}) 涨${s.pct}% 1分钟主力净流入${Math.round(delta / 1e4)}万 全天净占比${(s.mainPct || 0).toFixed(1)}%`
           });
         }
@@ -6038,6 +6100,7 @@ async function tick() {
         const tr = A.trendCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price });
         if (tr) {
           const ts = S.trendState.get(s.code) || { belowMa5: !tr.aboveMa5, aboveTicks: 0, belowHigh: !tr.brokeHigh, highTicks: 0, firedMa5: false, firedHigh: false };
+          const priorTrendState = {...ts};
           // 状态推进：突破→站稳(≥3个采样点≈15秒)
           if (tr.aboveMa5) { if (ts.belowMa5) ts.aboveTicks++; } else { ts.belowMa5 = true; ts.aboveTicks = 0; }
           if (tr.brokeHigh) { if (ts.belowHigh) ts.highTicks++; } else { ts.belowHigh = true; ts.highTicks = 0; }
@@ -6053,12 +6116,15 @@ async function tick() {
             const _rp = riseProbOf(s, { condCount: conds.length, up3: tr.up3, fund3d: tr.fund3d, badHit: _bad, goodHit: _good });
             alerts.push({
               type: '趋势票', code: s.code, name: s.name,
-              price: s.price, pct: s.pct, prob: _rp,
+              price: s.price, pct: s.pct, prob: _rp,probKind:'model-estimate',eventTarget:'up3Next',riseEventTarget:'up3Next',riseModelSource:'riseProbOf',
               mainPct: s.mainPct, fastInDelta: '',
               riseProb: _rp,
+              conditionEvidence:[signalCondition('positive-flow','当日净流入',s.mainInflow,0,'>',now),
+                ...conds.map((label,index)=>signalCondition('trend-hit-'+index,label,1,1,'>=',now))],
+              ruleInputs:{trend:{...tr},persistenceBefore:priorTrendState,persistenceAfter:{...ts},matched:conds.slice(),mainInflow:s.mainInflow},
               logic: `趋势突破：${conds.join('；')}（5日线${tr.ma5} 前高${tr.prevHigh20}）`,
               risk: riskNoteOf(s, { badHit: _bad, goodHit: _good }),
-              stopRef: (tr.ma5 && tr.ma5 > 0) ? `${tr.ma5}（5日线，跌破离场）` : stopRefOf(s),
+              stopRef: (tr.ma5 && tr.ma5 > 0) ? `${tr.ma5}（5日线，跌破离场）` : stopRefOf(s),invalidWhen:'当日资金净流入不再为正，或被冻结的均线、前高突破及持续站稳条件不再成立时，本次趋势依据失效。',
               msg: `【趋势票】${s.name}(${s.code}) 涨${s.pct}% 现价${s.price} | 命中: ${conds.join('；')} | 5日线${tr.ma5} 前高${tr.prevHigh20}`
             });
           }
@@ -6076,12 +6142,15 @@ async function tick() {
         const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
         alerts.push({
           type: '涨停', code: s.code, name: s.name,
-          price: s.price, pct: s.pct, prob: null, sector: sec,
+          price: s.price, pct: s.pct, prob: null, probKind:'unknown',eventTarget:null,riseEventTarget:null,sector: sec,
           mainPct: s.mainPct, fastInDelta: '',
           riseProb: null, // 已封板，不再谈上涨概率；关键风险是炸板
+          conditionEvidence:[signalCondition('limit-price','触及涨停区间',s.pct,A.limitPctOf(s.code,s.name)-0.25,'>=',now),
+            signalCondition('sector-or-flow','板块梯队或资金背书',secZT>=2||s.mainPct>=3?1:0,1,'>=',now)],
+          ruleInputs:{sectorCount:secZT,mainPct:s.mainPct,limitPct:A.limitPctOf(s.code,s.name),tolerance:0.25},
           logic: `封板：触及涨停价 + 板块【${sec}】(${secZT}只涨停) + 主力净占比${(s.mainPct || 0).toFixed(1)}%`,
           risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 命中利空雷达（有负面消息，慎追）' : ''}`,
-          stopRef: stopRefOf(s),
+          stopRef: stopRefOf(s),invalidWhen:'价格离开原涨停容差区间，或原板块梯队和资金背书同时不再成立时，本次封板观察依据失效。',
           msg: `【涨停】${s.name}(${s.code}) 封板！板块:${sec}(${secZT}只涨停) 主力净占比${(s.mainPct || 0).toFixed(1)}%`
         });
       }
@@ -6152,13 +6221,16 @@ async function tick() {
       // ⚠️ 原来只有「后排涨停概率」一类会登记，大单流入/趋势票/涨停推了却不回测，模型学不到它们。
       try {
         const _t = alertType(a);
-        const _fz = logSignal(_t, a.code, a.name, a.price, (a.riseProb != null ? a.riseProb : a.prob),
-          { sector: a.sector || '', mainPct: a.mainPct || 0, pushNo: a.pushNo || 1 });
+        const _fz = logSignal(_t, a.code, a.name, a.price, a.prob,
+          learningSignalExtra({...a,...signalSourceByCode.get(a.code)}, { sector: a.sector || '', mainPct: a.mainPct ?? null, pushNo: a.pushNo || 1 }));
         if (_fz) a._fz = _fz;   // 学后胜率：文案与闸门用同一个数
       } catch {}
-      S.signals.unshift(a);
+      const frozenSignal=captureProductionSignal(a,signalSourceByCode.get(a.code)||{},krowsOf(a.code),
+        {recordKind:'trigger',funds:S.inflowHistory.get(a.code)||[],metrics:a.ruleInputs||null,
+          news:{goodHit:!!S.news.goodCodes?.has(a.code),badHit:!!S.news.badCodes?.has(a.code),originalEvidence:null}});
+      S.signals.unshift(frozenSignal);
       if (S.signals.length > dataCapOf('signals')) S.signals.pop();
-      fired.push(a);
+      fired.push(frozenSignal);
       // 🔁 持续大单流入特别提醒：同一只票今日第 2 次及以上命中大单快速流入
       //    用户原话「大单重复流入也可以特别提醒」—— 反复扫货 = 主力持续吸筹，
       //    是比单次更强的多头信号，值得单独再发一条。
@@ -6170,10 +6242,13 @@ async function tick() {
             msg: `【持续大单流入】${a.name}(${a.code}) 今日第 ${a.fastinNo} 次触发1分钟大单快速流入（主力持续吸筹，比单次更强） 现价${a.price} 涨${a.pct}% 全天净占比${(a.mainPct||0).toFixed(1)}%`,
             strong: true, ts: now, pushNo: a.fastinNo
           });
-          S.signals.unshift(rep);
+          rep.conditionEvidence=[...(a.conditionEvidence||[]),signalCondition('repeat-flow','当日流入触发次数',a.fastinNo,2,'>=',now)];
+          const frozenRepeat=captureProductionSignal(rep,signalSourceByCode.get(a.code)||{},krowsOf(a.code),
+            {recordKind:'trigger',funds:S.inflowHistory.get(a.code)||[],metrics:rep.ruleInputs||null});
+          S.signals.unshift(frozenRepeat);
           if (S.signals.length > dataCapOf('signals')) S.signals.pop();
-          fired.push(rep);
-          try { logSignal('bigmoney_repeat', a.code, a.name, a.price, (a.riseProb != null ? a.riseProb : a.prob), { repeat: a.fastinNo }); } catch {}
+          fired.push(frozenRepeat);
+          try { logSignal('bigmoney_repeat', a.code, a.name, a.price, a.prob, learningSignalExtra({...rep,...signalSourceByCode.get(a.code)}, { repeat: a.fastinNo })); } catch {}
           console.log(`[gov] 🔁 持续大单流入 ${a.name}(${a.code}) 今日第${a.fastinNo}次，已发特别提醒`);
         } else {
           console.log(`[gov] 持续大单流入 ${a.name}(${a.code}) 已拦下：${rv.why}`);
@@ -7534,7 +7609,7 @@ async function scanBigMoneyPush() {
   // 两组 type 不同 → logSignal 去重天然分开、bigMoneyStats/自优化等现有统计零污染。
   for (const x of fresh) {
     S.bigMoneyPushed.set(x.code, now);
-    const _fz = logSignal(x._grp === 'B' ? 'bigmoney-B' : 'bigmoney', x.code, x.name, x.price, x.prob, { mainPct: x.mainPct, sector: x.sector });
+    const _fz = logSignal(x._grp === 'B' ? 'bigmoney-B' : 'bigmoney', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { mainPct: x.mainPct, sector: x.sector }));
     if (_fz) x._fz = _fz;    // 登记时算好的融合胜率，直接拿给文案用（同一个数，不会两处打架）
   }
   // ⛔ 节流位必须**发送之后**才置：pushAll 被条数闸门/夜间静默/副本拦下时只是静默 return，
@@ -7791,7 +7866,7 @@ async function scanSimilarPush() {
     // ⛔ slice 后置：让 govFilter 先按融合概率排序，再用 govTrim 截断到 4 只。
     const fresh = modDayKeepOrDrop('similar', govTrim(govFilter('similar', list.filter(x => now - (S.simPushed.get(x.code) || 0) > 60 * 60000)), 4));
     if (!fresh.length) return;
-    for (const x of fresh) { S.simPushed.set(x.code, now); const fz = logSignal('similar', x.code, x.name, x.price, x.prob, { sim: x.sim, ref: x.ref }); if (fz) x._fz = fz; }
+    for (const x of fresh) { S.simPushed.set(x.code, now); const fz = logSignal('similar', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { sim: x.sim, ref: x.ref })); if (fz) x._fz = fz; }
     const st = similarStats();
     const hist = st.n ? `\n【学习闭环】相似跟随累计${st.n}个：次日涨≥${HIT_THR}% ${st.hitRate}%、真涨停 ${st.luRate}%；相似度门槛 ${_govCfg('simGate')} 由学习自动校准` : '';
     // ⛔ 主推数字用融合概率（学后胜率）。
@@ -9344,7 +9419,7 @@ function pushAll(text, force, opts) {
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
   const _extra = base => Object.assign({}, base, { extra: { codes: _codes,
-    signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts })) : [] } });
+    signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) })) : [] } });
   // ⛔ 2026-10-02 改：以前 essential=true 会让【副本实例也照发】（本意是"找回密码不能被副本吞掉"），
   //    实际后果是本地开发副本往用户手机狂发：找回验证码 44 条、只读申请、重置通知……
   //    这些全是用户在【线上】面板触发的动作，线上(primary)实例自己会发，副本没有任何理由插手。
@@ -9882,7 +9957,7 @@ function flushIntraday() {
     list.sort((x, y) => (ALERT_RANK[x.type] ?? 9) - (ALERT_RANK[y.type] ?? 9) || alertScore(y) - alertScore(x));
     const top = list.slice(0, INTRADAY_MAX_ITEMS);
     // Persist only the exact signals included in this batch, never omitted rows.
-    opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts }));
+    opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) }));
     // ⛔ 缓冲区是 (信号类型:代码) 键的 Map —— 同一只票在「涨停」与「大单流入」两个模块下各占一条。
     //    所以 list.length 是**信号条数**，不是股票只数；文案里那个"只"必须数去重后的代码。
     //    （旧写法直接把条数当只数报，命中 5 条里若有 1 只占两条，用户读到的是"共命中 5 只"—— 只有 4 只票。）
@@ -11255,7 +11330,7 @@ async function auctionResonanceScan(opts = {}) {
       if (board === 'all' && top.length && isTradingTime() && evidenceRows.length)
         pushAuctionResonanceTop3(evidenceRows);
       for (const x of evidenceRows) {
-        try { logSignal('aucres', x.code, x.name, x.price, x.score, { score: x.score, paths: x.reasons.slice(0, 3) }); } catch (e) {}
+        try { logSignal('aucres', x.code, x.name, x.price, x.score, learningSignalExtra(x, { score: x.score, paths: x.reasons.slice(0, 3) })); } catch (e) {}
       }
     }
     return data;
@@ -12205,7 +12280,7 @@ function ztSealPush(fresh, ztN) {
     const reason = (typeof ztReasonOf === 'function') ? (ztReasonOf(x.code) || '') : '';
     sentLogPush('seal', { code: x.code, name: x.name, text: `封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''} · ${x.sec || '未知板块'}` });
     pushAll(`═══ 🔴 封板哨兵 · 盘中实时 ═══\n${x.name}(${x.code})　现价 ${x.price}\n板块：${x.sec || '未知'}（全市场涨停 ${ztN} 只）\n封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''}\n${reason ? '涨停原因：' + reason + '\n' : ''}提示：封板为既成事实非买入建议；追板风险高，次日接力请看 15:45 连板榜。`, false, { private: true });
-    try { logSignal('ztsent', x.code, x.name, x.price, 50, { seal: x.sealAmount, sec: x.sec }); } catch (e) {}
+    try { logSignal('ztsent', x.code, x.name, x.price, 50, learningSignalExtra(x, { seal: x.sealAmount, sec: x.sec })); } catch (e) {}
   }
 }
 const _rushCool = new Map();   // ln：冲板/起涨改即时单独推，代码级 30 分钟冷却（用户「单独推送+别等合并窗口」）
@@ -15392,7 +15467,7 @@ function pushYiEr() {
   const msg = buildYiErMessage(toPush);
   if (!msg) return;
   for (const x of toPush) {
-    try { logSignal('yier', x.code, x.name, x.price, x.prob, { role: x.role, sector: x.sector, sealRatio: x.sealRatio }); } catch {}
+    try { logSignal('yier', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { role: x.role, sector: x.sector, sealRatio: x.sealRatio })); } catch {}
   }
   // ⛔ 面板「一进二」卡片已经在上面的 refreshStrategyCards 里刷好了（含完整候选：
   //    主线强度/封单/资金/涨停逻辑），此处不再重复写 —— 推送与展示彻底分家。
@@ -15591,7 +15666,7 @@ function pushLianbanRelay() {
   const msg = buildLianbanRelayMessage(toPush);
   if (!msg) return;
   for (const x of toPush) {
-    try { logSignal('lianban', x.code, x.name, x.price, x.prob, { role: x.role, sector: x.sector, sealRatio: x.sealRatio, level: x.level }); } catch {}
+    try { logSignal('lianban', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { role: x.role, sector: x.sector, sealRatio: x.sealRatio, level: x.level })); } catch {}
   }
   // ⛔ 同上面一进二：卡片已在 refreshStrategyCards 里刷新（推送被拦下面板照样有得看），此处不重复写。
   if (pushAll(msg, false, { private: true }) !== false) {
@@ -15949,7 +16024,7 @@ async function scanPrePush() {
       if (_g.fused) x._fz = _g.fused;
       if (_g.undo) fresh.$undo = (fresh.$undo || []).concat([_g.undo]);   // 2026-10-06：发送失败要退
       S.prePushed.set(x.code, Date.now());
-      logSignal('pre', x.code, x.name, x.price, x.prob, { paths: ['板块效应埋伏'], sector: x.sector, secZT: x.secZT });
+      logSignal('pre', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { paths: ['板块效应埋伏'], sector: x.sector, secZT: x.secZT }));
       fresh.push(x);
     }
     // ⛔ 包一层（cx 轮）：2 小时去重把 5 只候选全挡掉时，模块日名额要还回去
@@ -16094,7 +16169,7 @@ async function computeBuZhang() {
         kept.push(x);
         // ⚠️ 概率统一按「百分数」登记（如 68 表示 68%）。以前这里 /100 存成 0.68，
         //    被学习库当成 0.68% 直接落进 <70 桶，污染了概率校准（见 logSignal 里的量纲防御）。
-        const fz = logSignal('buzhang', x.code, x.name, x.price, x.prob, { paths: ['补涨龙联动'] });
+        const fz = logSignal('buzhang', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { paths: ['补涨龙联动'] }));
         if (fz) x._fz = fz;
       }
       if (!kept.length) return;
@@ -20932,6 +21007,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       {date:input.date,sectorCode:input.sectorCode,symbol:input.symbol,historyDays:input.historyDays})
       .then(capture=>reply(200,{ok:true,result:capture.report,archive:{hash:capture.hash,reused:capture.reused}}))
       .catch(()=>reply(422,{ok:false,error:'公开数据不可用、封存失败或请求参数无效'}));
+  }
+  if (p === '/api/signals/evidence') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+    try {
+      const result=SignalJournal.readEvidence(process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence'),
+        {code:u.searchParams.get('code'),date:u.searchParams.get('date'),
+          ...(u.searchParams.has('id')?{id:u.searchParams.get('id')}:{}),limit:Math.max(1,Math.min(200,Number(u.searchParams.get('limit'))||100))});
+      return reply(200,{ok:true,...result});
+    }catch(error){return reply(422,{ok:false,error:'冻结证据不存在、身份无效或完整性校验失败'});}
   }
   if (p === '/api/research/agent-status') {
     res.setHeader('Cache-Control','no-store');

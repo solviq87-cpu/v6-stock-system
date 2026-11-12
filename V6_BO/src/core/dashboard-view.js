@@ -70,7 +70,7 @@ function pushLogIndex(pushLog){
   const historyEntry={
    signalRefs:(Array.isArray(item?.extra?.signalRefs)?item.extra.signalRefs:[])
     .filter(ref=>isCode(ref?.code)&&typeof ref?.type==='string'&&number(ref?.ts)!==null)
-    .map(ref=>({code:ref.code,type:text(ref.type),ts:ref.ts})),
+    .map(ref=>({code:ref.code,type:text(ref.type),ts:ref.ts,...(/^[a-f0-9]{64}$/.test(ref.signalId||'')?{signalId:ref.signalId}:{})})),
    ts:normalized.ts,
    status:normalized.status,
    title:normalized.title,
@@ -90,7 +90,7 @@ function pushLogIndex(pushLog){
   history.sort((a,b)=>(b.ts||0)-(a.ts||0));
   const dedup=[],seen=new Set();
   for(const entry of history){
-   const refs=entry.signalRefs.map(ref=>[ref.code,ref.type,ref.ts]).sort();
+   const refs=entry.signalRefs.map(ref=>[ref.code,ref.type,ref.ts,ref.signalId||null]).sort();
    const key=JSON.stringify([entry.ts,entry.status,entry.title,entry.channel,entry.note,refs]);
    if(seen.has(key))continue;
    seen.add(key);
@@ -176,7 +176,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   const signalAt=number(sig?.ts);
   const receipts=signalAt!==null&&signalAt>0&&signalAt<=now
    ?(historyByCode.get(code)||[]).filter(record=>record.ts>=signalAt&&record.ts<=now&&record.signalRefs.some(ref=>
-     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt)):[];
+     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt&&(!sig.signalId||ref.signalId===sig.signalId))):[];
   // Multiple channels describe one delivery attempt. A proven success cannot
   // be undone by another channel's later timeout or failure.
   const pushRecord=receipts.find(record=>record.sent)||receipts.find(record=>record.unknown)||receipts[0]||null;
@@ -190,6 +190,8 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   ],'state.signals');
   const stageInfo=stageMeta(stage.state);
   const signalHistory=grouped.map(entry=>({
+   signalId:text(entry?.signalId||''),evidenceFingerprint:text(entry?.evidenceFingerprint||''),
+   evidenceStatus:text(entry?.evidenceStatus||'unknown'),evidenceArchiveStatus:text(entry?.evidenceArchiveStatus||'unknown'),
    triggerAt:number(entry?.ts),
    triggerStrategy:text(entry?.type||'未标注策略'),
    strategyVersion:text(entry?.strategyVersion||''),
@@ -230,6 +232,9 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
     mainPct:number(quote?.mainPct),
     dataSource:text(quote?.quoteSource||quote?.source||''),
     strategyVersion:text(sig?.strategyVersion||''),
+    signalId:text(sig?.signalId||''),evidenceFingerprint:text(sig?.evidenceFingerprint||''),
+    evidenceStatus:text(sig?.evidenceStatus||'unknown'),evidenceArchiveStatus:text(sig?.evidenceArchiveStatus||'unknown'),
+    evidenceMissingReasons:Array.isArray(sig?.evidenceMissingReasons)?sig.evidenceMissingReasons.map(text):[],
     riskLevel:row?.bad===true?'high':'unknown',
     stopLossRule:text(sig?.stopLoss||'待验证'),
     invalidationRule:text(sig?.invalidWhen||'待验证'),

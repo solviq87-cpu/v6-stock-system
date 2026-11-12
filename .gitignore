@@ -18,3 +18,4 @@ history/objects/
 # Private research archives; never ship observed stock history or source captures.
 V6_BO/data/stock-intelligence-memory/
 V6_BO/data/public-market-context/
+V6_BO/data/signal-evidence/
