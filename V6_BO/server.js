@@ -21075,7 +21075,17 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
             ...(b.end===undefined?{}:{end:b.end}),...(b.initialCash===undefined?{}:{initialCash:b.initialCash}),
             ...(b.topN===undefined?{}:{topN:b.topN}),...(b.holdDays===undefined?{}:{holdDays:b.holdDays}),
             ...(b.feeBps===undefined?{}:{feeBps:b.feeBps}),...(b.slippageBps===undefined?{}:{slippageBps:b.slippageBps}),
-            ...(b.sellTaxBps===undefined?{}:{sellTaxBps:b.sellTaxBps})});
+            ...(b.sellTaxBps===undefined?{}:{sellTaxBps:b.sellTaxBps}),
+            ...(b.lotSize===undefined?{}:{lotSize:b.lotSize}),
+            ...(b.tradingDates===undefined?{}:{tradingDates:b.tradingDates}),
+            ...(b.maxParticipationPct===undefined?{}:{maxParticipationPct:b.maxParticipationPct}),
+            ...(b.minPriorTurnover===undefined?{}:{minPriorTurnover:b.minPriorTurnover}),
+            ...(b.maxDrawdownPausePct===undefined?{}:{maxDrawdownPausePct:b.maxDrawdownPausePct}),
+            ...(b.maxDailyLossPausePct===undefined?{}:{maxDailyLossPausePct:b.maxDailyLossPausePct}),
+            ...(b.feeSchedules===undefined?{}:{feeSchedules:b.feeSchedules}),
+            ...(b.riskPolicy===undefined?{}:{riskPolicy:b.riskPolicy}),
+            ...(b.universeHistory===undefined?{}:{universeHistory:b.universeHistory}),
+            ...(b.settlements===undefined?{}:{settlements:b.settlements})});
       return json(res,{ok:true,verifiedLive:false,provenance:'user-uploaded-unverified',
         warning:'上传行情未经过供应商真实性验证，不是实时选股或实盘收益',result});
     } catch(e) { return json(res,{ok:false,error:String(e&&e.message||e).slice(0,300)}); }

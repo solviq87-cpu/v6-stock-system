@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs');
 const {scanUniverse}=require('../src/strategy/universe-scanner');
-const {walkForward}=require('../src/strategy/walk-forward-backtest');
+const {legacyWalkForward}=require('../src/strategy/walk-forward-backtest');
 const {walkForwardWithPolicy}=require('../src/strategy/walk-forward-policy-adapter');
 
 function main(argv=process.argv.slice(2)){
@@ -30,7 +30,7 @@ function main(argv=process.argv.slice(2)){
   const incompatible=['feeSchedules','riskPolicy','universeHistory','settlements',
    'sellTaxBps','lotSize'].filter(k=>input?.[k]!=null);
   if(incompatible.length)throw Error('旧版简化回测不支持账本/税费参数: '+incompatible.join(','));
-  const report=walkForward(input);
+  const report=legacyWalkForward(input);
   result={...report,executionModel:'legacy-simplified',
    researchOnly:true,canTrade:false,
    warnings:[...(report.warnings||[]),

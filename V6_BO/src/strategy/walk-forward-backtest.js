@@ -1,6 +1,7 @@
 'use strict';
 const {scanUniverse}=require('./universe-scanner');
 const {validateHistoricalBars}=require('./feed-quality');
+const {atLockedLimit:openingLimit,limitPct:historicalLimitPct}=require('./historical-session');
 const num=v=>typeof v==='number'&&Number.isFinite(v);
 const LIMITS={main:10,chinext:20,star:20,bse:30};
 function limitPct(stock){
@@ -18,7 +19,7 @@ function atLockedLimit(bar,prior,stock,side){
  const locked=side==='buy'?(price>=boundary-.011&&bar.low>=boundary-.011):(price<=boundary+.011&&bar.high<=boundary+.011);
  return {blocked:locked,reason:locked?(side==='buy'?'一字涨停无法买入':'一字跌停无法卖出'):null};
 }
-function walkForward({stocks=[],start=27,end=null,topN=3,feeBps=8,slippageBps=10,initialCash=100000,
+function legacyWalkForward({stocks=[],start=27,end=null,topN=3,feeBps=8,slippageBps=10,initialCash=100000,
  maxAgeMs=86400000,source='imported',holdDays=1,feeSchedules=null,riskPolicy=null,universeHistory=null,settlements=null}={}){
  if(!Array.isArray(stocks)||!stocks.length)throw Error('回测需要历史股票数据');
  if(feeSchedules||riskPolicy||universeHistory||settlements)return require('./walk-forward-policy-adapter').walkForwardWithPolicy({stocks,start,end,topN,feeBps,slippageBps,initialCash,maxAgeMs,source,holdDays,feeSchedules,riskPolicy,universeHistory,settlements});
@@ -65,11 +66,26 @@ function walkForward({stocks=[],start=27,end=null,topN=3,feeBps=8,slippageBps=10
   cash=after;equity.push({day:sellDay,value:+cash.toFixed(2)});
  }
  let peak=initialCash,maxDrawdown=0;for(const e of equity){peak=Math.max(peak,e.value);maxDrawdown=Math.max(maxDrawdown,1-e.value/peak);}
- return {trades,skipped,equity,metrics:{trades:trades.length,returnPct:+((cash/initialCash-1)*100).toFixed(4),
+ return {researchOnly:true,canTrade:false,executionModel:'legacy-simplified',trades,skipped,equity,
+  warnings:['显式旧版兼容结果：跳过卖出受阻样本，不得作为逐日账本净收益或回撤验收'],
+  metrics:{trades:trades.length,returnPct:+((cash/initialCash-1)*100).toFixed(4),
   maxDrawdownPct:+(maxDrawdown*100).toFixed(4),winRatePct:trades.length?+(trades.filter(t=>t.netReturnPct>0).length/trades.length*100).toFixed(2):null},
   assumptions:['信号日收盘后生成；次日开盘买入；买入后至少下一交易日开盘卖出，符合T+1最低持有日约束',
   '一字涨停买入、一字跌停卖出及未知涨跌停制度跳过，不能保证其他涨跌停状态可成交',
   '跳过卖出受阻样本可能产生幸存者偏差；不模拟延迟卖出和逐日持仓盯市，收益仅供流程研究',
   '未模拟订单簿、真实冲击成本、复权制度变化及完整交易所撮合']};
 }
-module.exports={walkForward,atLockedLimit,limitPct};
+// General callers get the original scanner with a position ledger. Retain the
+// old simplified algorithm only under an explicitly named compatibility API.
+function walkForward(options={}){
+ const {start=27,holdDays=1,initialCash=100000}=options;
+ const result=require('./walk-forward-policy-adapter').walkForwardWithPolicy({
+  ...options,lotSize:options.lotSize??1,sellTaxBps:options.sellTaxBps??0});
+ const stride=holdDays+1,dailyEquity=result.equity;
+ return {...result,researchOnly:true,canTrade:false,executionModel:'daily-position-ledger',
+  dataProvenance:{...result.dataProvenance,mode:'strategy-scanner'},dailyEquity,
+  equity:[{day:start-1,value:initialCash},...dailyEquity.filter(e=>e.day>start&&(e.day-start)%stride===0)],
+  openPositions:result.openPositions||[],orders:result.orders||[],skipped:result.skipped||[],
+  assumptions:[...(result.assumptions||[]),'默认逐日保留卖出受阻持仓，减少丢弃亏损样本的幸存者偏差；未认证真实历史成分完整性']};
+}
+module.exports={walkForward,legacyWalkForward,atLockedLimit:openingLimit,limitPct:historicalLimitPct};
