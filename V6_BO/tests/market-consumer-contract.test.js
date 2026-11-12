@@ -5,6 +5,7 @@ const {EventEmitter}=require('node:events');
 const contract=require('../src/core/quote-observation-view');
 const server=fs.readFileSync(require.resolve('../server'),'utf8');
 const em=fs.readFileSync(require.resolve('../em'),'utf8');
+const serverRequire=require('node:module').createRequire(require.resolve('../server'));
 const now=Date.parse('2026-11-13T10:00:00+08:00');
 class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
 const quote=(patch={})=>({code:'000001',price:9,pct:-10,quoteSource:'eastmoney',quoteAt:now-1000,
@@ -172,7 +173,7 @@ test('ingest keeps actual receivedAt/mode separately from local ingestion time',
 
 test('automatic paper authority rejects observation/simulated sources, including through its price cache',()=>{
  const c=run(server,['ingestPx','paperAuthorityQuotes'],{S:{lastPx:new Map(),stocks:[]},limitPctOfCode:()=>.1,
-  require:name=>name==='./src/core/quote-observation-view'?contract:require('../src/core/a-share-calendar')});
+  require:serverRequire});
  for(const patch of [{quoteMode:'research-observation'},{quoteMode:'simulated-market'},
   {quoteMode:'historical-bars'},{quoteSource:'simulated'},{simulated:true},{readOnlyBackup:true},
   {tradable:false},{suspended:true},{canTrade:false}]){
@@ -185,7 +186,7 @@ test('automatic paper authority rejects observation/simulated sources, including
 
 test('imported, fixture, mock and synthetic evidence cannot enter automatic authority or reminders',()=>{
  const c=run(server,['ingestPx','paperAuthorityQuotes'],{S:{lastPx:new Map(),stocks:[]},limitPctOfCode:()=>.1,
-  require:name=>name==='./src/core/quote-observation-view'?contract:require('../src/core/a-share-calendar')});
+  require:serverRequire});
  const cases=[{quoteMode:'imported'},{quoteMode:'fixture'},{quoteMode:'mock-market'},{quoteMode:'backtest'},
   {quoteMode:'synthetic-market'},{quoteSource:'imported'},{quoteSource:'import'},{quoteSource:'fixture-feed'},
   {quoteSource:'mock:quote'},{quoteSource:'test'},{quoteSource:'synthetic-feed'},
