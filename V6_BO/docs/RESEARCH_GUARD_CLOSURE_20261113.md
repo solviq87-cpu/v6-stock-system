@@ -4,7 +4,7 @@
 
 ## 已修复的三个边界
 
-1. **恢复等待不豁免预登记**：`factor-shadow-worker.js`与`factor-shadow-evolution.js`只把`cooldown.phase=active`视为纯监控通路；历史没有phase的`paused-shadow-decay`封存警报按严格active兼容。`paused-shadow-cooldown`也可能携带`phase=recovered`，不能凭状态名绕过新候选预登记。合法active冷却监控仍能收集恢复证据，不消耗晋级试验预算。
+1. **恢复等待不豁免预登记**：`factor-shadow-worker.js`与`factor-shadow-evolution.js`只把`cooldown.phase=active`视为纯监控通路；历史完全没有`cooldown`对象的`paused-shadow-decay`封存警报按严格active兼容，有对象但缺少phase不享受豁免。`paused-shadow-cooldown`也可能携带`phase=recovered`，不能凭状态名绕过新候选预登记。合法active冷却监控仍能收集恢复证据，不消耗晋级试验预算。
 2. **同日指纹不冒充多日隔离证据**：`market-feed-consensus`保留数据声明的`asOf`，没有用接收时间代替。`feed-discrepancy-quarantine`按不同日期统计门槛；同日不同文件指纹不增加独立日数；同日矛盾结论单独标记。旧无日期报告可见但不凑天数。分类仍是只读研究标签，不能选择真实供应商、修改实时价格或授予交易权限。
 3. **候选日期是真实日历日期**：`factor-shadow-candidate-proposer`对封存报告最后观测日和最新冻结日都执行ISO日历回环校验，拒绝2月30日、无效月、零年等。合法闰日仍可用；完整SHA不使一个无效日期成为有效证据。
 
