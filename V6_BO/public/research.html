@@ -22,7 +22,7 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 @media(max-width:420px){.decision-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.decision-grid strong{font-size:20px}.decision-actions button{width:100%}}
 .linked-workbench{overflow-wrap:anywhere}.linked-workbench label{display:block;min-width:0}.linked-workbench input{width:100%;margin-top:6px}.linked-workbench input[type=checkbox]{width:auto;margin:0}.linked-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}.linked-workbench .linked-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.linked-workbench pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font-size:12px}.linked-workbench .card{min-width:0}.linked-workbench ul{padding-left:20px}.linked-workbench details{margin:12px 0}.linked-workbench summary{cursor:pointer;min-height:30px}.linked-workbench .linked-check{display:flex;align-items:center;gap:8px}.linked-workbench .linked-summary{border-left:3px solid #548ed6;padding-left:12px}
 @media(max-width:600px){.linked-controls{grid-template-columns:minmax(0,1fr)}.linked-workbench .linked-actions button{width:100%}}
-</style></head><body><main>
+.linked-workbench select{max-width:100%;width:100%;margin-top:6px;padding:9px;background:#101d30;color:#e1eaff;border:1px solid #355174;border-radius:6px}#captureChart svg{display:block;width:100%;height:auto}#captureChart{min-width:0;max-width:100%;overflow:hidden}#captureChart input{width:100%}</style></head><body><main>
 <p><a href="/">← 返回天枢智策主面板</a>　<a href="/picks.html">查看云端选股结果 →</a>　<a href="/auction-picks.html">查看竞价观察池 →</a></p><h1>天枢智策 · 选股与战法研究工作台</h1>
 <p class="muted">仅开发者可运行。使用上传数据或系统内存K线；超过24小时的缓存拒绝分析，非实时行情；所有信号均为研究候选，不自动下单。</p>
 <section class="card" id="decisionWorkspace" aria-labelledby="decisionHeading">
@@ -45,6 +45,13 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="factorAgentCatalog"></div><details><summary>研究阶段与下一步</summary><pre id="factorAgentOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
 <label>带来源的历史JSON <input id="publicFactorFile" type="file" accept=".json,application/json"></label><button id="publicFactorRun" type="button">计算公开研究因子</button>
 <p id="publicFactorStatus" role="status" aria-live="polite">等待有效历史数据</p><details><summary>因子值与数据依据</summary><pre id="publicFactorOutput" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto"></pre></details></section>
+<section class="card linked-workbench" id="stockCapture" aria-labelledby="stockCaptureHeading">
+<h2 id="stockCaptureHeading">按代码采集并记住K线</h2>
+<div class="linked-controls"><label for="captureSymbol">六位股票代码<input id="captureSymbol" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="六位代码" autocomplete="off"></label><label for="captureProvider">日K来源<select id="captureProvider"><option value="auto">自动选择</option><option value="eastmoney">东方财富</option><option value="tencent">腾讯</option></select></label></div>
+<div class="linked-actions"><button id="captureRun" type="button">采集并研究</button><button id="captureRead" type="button">读取已存历史</button></div>
+<p id="captureStatus" role="status" aria-live="polite">输入代码即可开始；仅点击采集时联网读取行情。</p>
+<div id="captureSummary"></div><div id="captureChart"></div><div id="captureAnalysis"></div><details><summary>完整证据与缺失项</summary><pre id="captureOutput"></pre></details>
+</section>
 <section class="card linked-workbench" id="linkedIntelligence" aria-labelledby="linkedHeading">
 <h2 id="linkedHeading">小盘面联动与个股记忆</h2>
 <p class="muted">市场、板块、个股与资金证据一起查看。历史条件概率仅供研究；缺失数据保留未知，当前资金不会回填历史样本，不自动下单。</p>
@@ -112,4 +119,4 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="ruleSummary" class="cards" aria-live="polite"></div>
 <div id="ruleDetails" class="scroller"></div></section>
 <div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="patternPools" aria-live="polite"></div><div id="issuerPools" aria-live="polite"></div><div id="linkagePools" aria-live="polite"></div><div id="lifecyclePools" aria-live="polite"></div><div id="table" class="scroller"></div></section>
-</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script></body></html>
+</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113capture1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script></body></html>

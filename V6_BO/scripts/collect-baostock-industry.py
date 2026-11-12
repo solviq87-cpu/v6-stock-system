@@ -60,6 +60,10 @@ def export(bs, standard, clock):
                     continue
                 matched.append({k: row[k] for k in (
                     "updateDate", "code", "industry", "industryClassification")})
+            # A stream can fail after yielding apparently valid rows. Exhaustion
+            # is not proof of completeness; preserve the SDK's final status.
+            if result.error_code != "0":
+                raise ValueError("BaoStock行业分类查询中途失败，拒绝不完整结果")
         finally:
             bs.logout()
     if not 15 <= len(matched) <= 10000:

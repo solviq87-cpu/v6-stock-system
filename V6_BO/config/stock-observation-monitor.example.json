@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "mode": "stock-observation-monitor",
+  "canTrade": false,
+  "queueRoot": "/srv/v6-research/stock-observation-queue",
+  "intervalMs": 60000,
+  "jobOptions": {
+    "observationRoot": "/srv/v6-research/stock-observations",
+    "memoryRoot": "/srv/v6-research/stock-intelligence-memory"
+  }
+}

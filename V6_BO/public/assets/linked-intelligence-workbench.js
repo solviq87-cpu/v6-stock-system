@@ -114,6 +114,17 @@ function renderLinkage(parent, linkage) {
   line(parent, '支持依据', limit(d.support).length ? limit(d.support).map(value).join('；') : '暂无已知支持依据');
   line(parent, '风险依据', limit(d.risks).length ? limit(d.risks).map(value).join('；') : '暂无已知风险依据，不代表无风险');
 }
+function renderCurrentFormation(parent, current) {
+  if (!current) return;
+  const part = node('div', undefined, 'linked-summary');
+  part.append(node('h4', '当前形态 · 仅价格证据（price-only，未核验）'));
+  line(part, '证据状态', value(current.status));
+  line(part, '形态日期 / 首次可用时间', value(current.date) + ' / ' + time(current.availableAt));
+  const checks = limit(current.patterns?.checks);
+  for (const c of checks) line(part, value(c.label || c.id), value(c.status) + ' · ' + value(c.detail));
+  if (!checks.length) line(part, '形态证据', value(current.patterns?.reason));
+  parent.append(part);
+}
 function renderPatternStudy(parent, study) {
   const patterns = Array.isArray(study?.patterns) ? study.patterns.filter(p => p.currentlyMatched === true).slice(0, 8) : [];
   if (!patterns.length) return;
@@ -178,6 +189,7 @@ function renderAnalysis(r) {
     line(card, '已知收盘K线 / 提供数', value(stock.forecast?.coverage?.closedKnown) + ' / ' + value(stock.forecast?.coverage?.provided));
     line(card, '预测目标交易日', value(stock.forecast?.targetDate));
     renderLinkage(card, stock.linkage);
+    renderCurrentFormation(card, stock.currentFormation || stock.analysis?.currentFormation || stock.patternStudy?.currentFormation);
     renderPatternStudy(card, stock.patternStudy);
     const conditions = limit(stock.conditions);
     card.append(node('h4', '逐项条件与缺失证据'));
@@ -185,7 +197,7 @@ function renderAnalysis(r) {
     for (const c of conditions) ul.append(node('li', value(c.label || c.id) + ' · ' + value(c.status) + ' · ' + value(c.detail)));
     if (!conditions.length) ul.append(node('li', '条件证据未知'));
     card.append(ul);
-    const checks = limit(stock.forecast?.patterns?.checks);
+    const checks = limit((stock.currentFormation || stock.analysis?.currentFormation || stock.patternStudy?.currentFormation)?.patterns?.checks || stock.forecast?.patterns?.checks);
     if (checks.length) {
       const details = node('details'); details.append(node('summary', '形态条件明细'));
       const items = node('ul'); for (const c of checks) items.append(node('li', value(c.label) + ' · ' + value(c.status) + ' · ' + value(c.detail)));
@@ -203,8 +215,10 @@ function renderMemory(r) {
   const parent = el('linkedMemorySummary'); parent.replaceChildren();
   line(parent, '股票 / 历史版本数', value(r.symbol) + ' / ' + value(r.totalRevisions));
   for (const [kind, label] of [['direction', '方向'], ['limitUp', '涨停']]) {
-    const v = r.forwardValidation?.[kind];
-    line(parent, label + '冻结预测后续验证', '样本 ' + value(v?.evaluated) + ' · Brier ' + (finite(v?.brier) ? number(v.brier) : '尚无可用验证'));
+    const v2 = r.newProtocolForwardValidation?.[kind], legacy = r.legacyForwardValidation?.[kind];
+    const v = v2 || r.forwardValidation?.[kind];
+    line(parent, label + (v2 ? 'v2冻结预测后续验证' : '冻结预测后续验证（兼容摘要，协议未分层）'), '样本 ' + value(v?.evaluated) + ' · Brier ' + (finite(v?.brier) ? number(v.brier) : '尚无可用验证'));
+    line(parent, label + '验证协议分层', '旧协议 ' + value(legacy?.evaluated ?? v?.legacyEvaluated ?? r.forwardValidation?.legacyEvaluated) + ' · v2新协议 ' + value(v2?.evaluated ?? v?.newProtocolEvaluated ?? r.forwardValidation?.newProtocolEvaluated) + '；总样本不代表v2已验证');
   }
   for (const revision of limit(r.revisions)) {
     const details = node('details');

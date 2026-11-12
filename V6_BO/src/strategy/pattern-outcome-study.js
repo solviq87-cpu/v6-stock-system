@@ -3,6 +3,7 @@
 const {detectPatterns}=require('./a-share-patterns');
 const {validateHistoricalBars}=require('./feed-quality');
 const MAX_BARS=500,MAX_PREFIX=60; // detectPatterns currently needs at most 50 bars.
+const VERSION='pattern-outcome-eod-v2';
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
 const stamp=x=>{const t=typeof x==='number'?x:typeof x==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?(?:Z|[+-]\d\d:\d\d)$/.test(x)&&day(x.slice(0,10))&&+x.slice(11,13)<24&&+x.slice(14,16)<60&&+x.slice(17,19)<60?Date.parse(x):NaN;return Number.isSafeInteger(t)&&t>0&&t<8640000000000000?t:NaN;};
@@ -51,11 +52,11 @@ function studyPatternOutcomes(stock,{asOf=Date.now(),tradeDates,minSamples=20}={
  const observedAt=stamp(stock.observedAt),hasSource=typeof stock.source==='string'&&stock.source.trim(),hasBasis=typeof stock.priceBasis==='string'&&stock.priceBasis.trim();
  const usableProvenance=!!hasSource&&!!hasBasis&&finite(observedAt)&&observedAt<=asOf;
  const metadata=bars.map(b=>({knownAt:stamp(b.knownAt),closeAt:at(b.date,'15:00:00'),
-  statusAt:stamp(b.statusKnownAt),index:indices.get(b.date)}));
+  evidenceAt:Math.max(stamp(b.knownAt),stamp(b.statusKnownAt),stamp(b.corporateActionKnownAt)),index:indices.get(b.date)}));
  const available=(i,cut)=>{
   const b=bars[i],m=metadata[i];
   return usableProvenance&&m.closeAt<=cut&&finite(m.knownAt)&&m.knownAt>=m.closeAt&&m.knownAt<=Math.min(cut,observedAt)&&
-   finite(m.statusAt)&&m.statusAt<=m.closeAt&&b.suspended===false&&b.tradable===true&&b.isST===false&&b.corporateAction===false&&b.volume>0;
+   cut>=at(b.date,'16:00:00')&&finite(m.evidenceAt)&&m.evidenceAt<=Math.min(cut,observedAt)&&b.suspended===false&&b.tradable===true&&b.isST===false&&b.corporateAction===false&&b.volume>0;
  };
  const patterns=new Map(),detected=new Map();
  let usableFormations=0,closedKnown=0,lastClosed=-1;
@@ -80,7 +81,7 @@ function studyPatternOutcomes(stock,{asOf=Date.now(),tradeDates,minSamples=20}={
    row.matchedFormations++;
    const next=bars[i+1];
    if(!next||metadata[i+1].index!==m.index+1||!available(i+1,asOf))continue;
-   const sample={signalDate:bars[i].date,targetDate:next.date,knownAt:metadata[i+1].knownAt,change:next.close-bars[i].close};
+   const sample={signalDate:bars[i].date,targetDate:next.date,knownAt:Math.max(m.evidenceAt,metadata[i+1].evidenceAt),change:next.close-bars[i].close};
    row.directionSamples.push({...sample,y:sample.change>0?1:0});
    const y=limitLabel(next,bars[i],stock.priceBasis);
    if(y!==null)row.limitSamples.push({...sample,y});
@@ -95,7 +96,12 @@ function studyPatternOutcomes(stock,{asOf=Date.now(),tradeDates,minSamples=20}={
    direction:summarize(row.directionSamples,minSamples,true),limitUp:summarize(row.limitSamples,minSamples),
    canTrade:false,prospective:false};
  });
- return {schemaVersion:1,status:rows.some(p=>p.direction.samples>=minSamples||p.limitUp.samples>=minSamples)?'historical-association':'insufficient-evidence',
+ // Current geometry is useful without historical eligibility. It cannot certify
+ // ST, board, corporate-action or executable-price evidence.
+ const priceBars=bars.filter((b,i)=>usableProvenance&&metadata[i].closeAt<=asOf&&finite(metadata[i].knownAt)&&metadata[i].knownAt>=metadata[i].closeAt&&metadata[i].knownAt<=Math.min(asOf,observedAt));
+ const currentPatterns=detectPatterns({symbol:String(stock.symbol||stock.code),bars:priceBars});
+ const currentFormation={status:currentPatterns.usable?'price-only-unverified':'insufficient-price-evidence',date:priceBars.at(-1)?.date||null,availableAt:priceBars.length?Math.max(...priceBars.map(b=>stamp(b.knownAt))):null,historicalEligible:!!current,patterns:currentPatterns,researchOnly:true,canTrade:false,canNotify:false,verifiedLive:false};
+ return {schemaVersion:1,featureVersion:VERSION,evidenceProtocol:'post-close-research-v2',currentFormation,status:rows.some(p=>p.direction.samples>=minSamples||p.limitUp.samples>=minSamples)?'historical-association':'insufficient-evidence',
   symbol:String(stock.symbol||stock.code),asOf,source:hasSource?stock.source:null,priceBasis:hasBasis?stock.priceBasis:null,
   currentDate:lastClosed>=0?bars[lastClosed].date:null,minSamples,patterns:rows,
   coverage:{provided:bars.length,closedKnown,usableFormations,causalSourceAvailable:usableProvenance,maxPrefixBars:MAX_PREFIX},

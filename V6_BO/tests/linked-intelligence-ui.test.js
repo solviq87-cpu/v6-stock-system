@@ -214,3 +214,28 @@ test('empty template contains no invented dates, prices or trading history', asy
   assert.equal(calls.length, 0); assert.equal(downloads.length, 1);
   assert.deepEqual(JSON.parse(await downloads[0].text()), { schemaVersion: 1, asOf: null, tradeDates: [], stocks: [], persist: false });
 });
+
+test('current price-only formation remains visible independently from unknown historical probability', async () => {
+  const r = structuredClone(result);
+  r.stocks[0].forecast.direction.probability = null;
+  r.stocks[0].patternStudy = { currentFormation: { status: 'price-only-unverified', date: '2026-11-12', availableAt: 1794480000000,
+    patterns: { checks: [{ label: '当前独立形态', status: 'matched', detail: '仅价格' }] } }, patterns: [] };
+  const { get } = setup({ ok: true, result: r });
+  get('linkedIntelligenceFile').files = [{ size: 100, text: async () => JSON.stringify({ schemaVersion: 1, asOf: r.asOf, tradeDates: [], stocks: [] }) }];
+  await get('linkedIntelligenceRun').click();
+  assert.match(get('linkedStockSummary').textContent, /当前形态 · 仅价格证据（price-only，未核验）/);
+  assert.match(get('linkedStockSummary').textContent, /当前独立形态/);
+  assert.match(get('linkedStockSummary').textContent, /下一明确交易日上涨概率：数据不足/);
+});
+
+test('v2 validation uses the new protocol summary and labels legacy evaluations separately', async () => {
+  const { get } = setup({ ok: true, result: { symbol: '600000', totalRevisions: 4,
+    forwardValidation: { direction: { evaluated: 99, brier: .01 } },
+    newProtocolForwardValidation: { direction: { evaluated: 2, brier: .25 } },
+    legacyForwardValidation: { direction: { evaluated: 97, brier: .005 } } } });
+  get('linkedMemorySymbol').value = '600000'; await get('linkedMemoryRead').click();
+  const text = get('linkedMemorySummary').textContent;
+  assert.match(text, /方向v2冻结预测后续验证：样本 2 · Brier 0.250/);
+  assert.match(text, /旧协议 97 · v2新协议 2/);
+  assert.doesNotMatch(text, /样本 99|Brier 0.010/);
+});

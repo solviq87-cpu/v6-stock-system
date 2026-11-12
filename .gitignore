@@ -19,3 +19,5 @@ history/objects/
 V6_BO/data/stock-intelligence-memory/
 V6_BO/data/public-market-context/
 V6_BO/data/signal-evidence/
+V6_BO/data/stock-observations/
+V6_BO/data/stock-observation-queue/

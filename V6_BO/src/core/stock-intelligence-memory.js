@@ -2,12 +2,13 @@
 // Historical frequencies and immutable research decisions, never execution scores.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {detectPatterns}=require('../strategy/a-share-patterns');
-const VERSION='stock-trend-momentum20-v1',MAX_EVENTS=500,MAX_FILE=512*1024;
+const VERSION='stock-trend-momentum20-eod-v2',MAX_EVENTS=500,MAX_FILE=512*1024;
 const flags={researchOnly:true,verifiedLive:false,canTrade:false,canNotify:false};
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
 const stamp=x=>{const t=typeof x==='number'?x:typeof x==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?(?:Z|[+-]\d\d:\d\d)$/.test(x)&&day(x.slice(0,10))&&+x.slice(11,13)<24&&+x.slice(14,16)<60&&+x.slice(17,19)<60?Date.parse(x):NaN;return Number.isSafeInteger(t)&&t>0&&t<8640000000000000?t:NaN;};
 const closeAt=d=>Date.parse(d+'T15:00:00+08:00');
+const researchAt=d=>Date.parse(d+'T16:00:00+08:00');
 const endAt=d=>Date.parse(d+'T23:59:59.999+08:00');
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
@@ -17,7 +18,7 @@ const hash=x=>crypto.createHash('sha256').update(encode(x)).digest('hex');
 function calendar(dates){if(!Array.isArray(dates)||dates.length<2||dates.length>1000||dates.some((d,i)=>!day(d)||(i&&d<=dates[i-1])))throw Error('需要明确、递增且无重复的交易日历');return new Map(dates.map((d,i)=>[d,i]));}
 function normalizeStock(stock){
  if(!stock||!/^\d{6}$/.test(String(stock.symbol||stock.code||''))||!Array.isArray(stock.bars)||stock.bars.length>500)throw Error('股票代码或历史上限无效');
- const fields=['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','priceBasis','limitUpPrice','limitReferencePrice','limitKnownAt','noPriceLimit','market','limitPct','ipoNoLimit'];
+ const fields=['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt','priceBasis','limitUpPrice','limitReferencePrice','limitKnownAt','noPriceLimit','market','limitPct','ipoNoLimit'];
  let previous='';const bars=stock.bars.map(b=>{
   if(!b||!day(b.date)||b.date<=previous)throw Error('K线日期无效、重复或倒序');previous=b.date;
   if(!['open','high','low','close','volume'].every(k=>finite(b[k]))||Math.min(b.open,b.low,b.close)<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)||b.high<b.low||!Number.isSafeInteger(b.volume)||b.volume<0)throw Error('OHLCV无效');
@@ -31,7 +32,10 @@ function normalizeStock(stock){
 }
 function interval(w,n){if(!n)return null;const z=1.95996398454,p=w/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,r=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return [Math.max(0,c-r),Math.min(1,c+r)];}
 function estimate(samples,minSamples){const wins=samples.reduce((s,x)=>s+x.y,0),n=samples.length;return {status:n>=minSamples?'empirical-research':'insufficient-samples',probability:n>=minSamples?(wins+1)/(n+2):null,samples:n,wins,confidenceInterval:n>=minSamples?interval(wins,n):null,confidenceLevel:.95,trainedThrough:samples.at(-1)?.targetDate||null,method:'laplace-conditional-frequency',sampleDependence:'same-stock daily observations may overlap'};}
-function tradable(b,at){return b.volume>0&&b.suspended===false&&b.tradable===true&&b.isST===false&&finite(stamp(b.statusKnownAt))&&stamp(b.statusKnownAt)<=Math.min(at,closeAt(b.date))&&b.corporateAction===false;}
+// This is EOD research eligibility, never evidence of availability at the open.
+// A later status/action correction becomes usable only when actually received.
+function evidenceAt(b){return Math.max(stamp(b.knownAt),stamp(b.statusKnownAt),stamp(b.corporateActionKnownAt));}
+function tradable(b,at){return at>=researchAt(b.date)&&b.volume>0&&b.suspended===false&&b.tradable===true&&b.isST===false&&b.corporateAction===false&&finite(evidenceAt(b))&&evidenceAt(b)<=at;}
 function limitLabel(b,basis,reference){
  const known=stamp(b.limitKnownAt),open=Date.parse(b.date+'T09:30:00+08:00');
  if(basis!=='unadjusted'||b.noPriceLimit!==false||!finite(b.limitUpPrice)||!finite(b.limitReferencePrice)||b.limitReferencePrice<=0||b.limitUpPrice<=b.limitReferencePrice||b.limitUpPrice/b.limitReferencePrice>1.5||b.high>b.limitUpPrice+.011||finite(reference)&&Math.abs(reference-b.limitReferencePrice)>.011||!finite(known)||known>open)return null;
@@ -43,17 +47,17 @@ function stateAt(bars,i,cut,indices){
  const ma=mean(rows.slice(1).map(b=>b.close));
  return (bars[i].close>=ma?'above':'below')+'-'+(bars[i].close>=bars[i-5].close?'up':'down');
 }
-function causalStats(bars,states,labels,minSamples,asOf){
+function causalStats(bars,states,labels,minSamples,asOf,currentState){
  const matured=[],oos=[];
  for(let i=20;i<bars.length;i++){
   const cut=Math.min(asOf,endAt(bars[i].date));
   const available=matured.filter(s=>s.knownAt<=cut),same=available.filter(s=>s.state===states[i]);
   const p=estimate(same,minSamples),base=estimate(available,minSamples);
   const label=labels[i];
-  if(states[i]&&label){if(p.probability!==null&&base.probability!==null)oos.push({signalDate:bars[i].date,targetDate:label.targetDate,p:p.probability,baseline:base.probability,y:label.y});matured.push({...label,state:states[i]});}
+  if(states[i]&&label){if(p.probability!==null&&base.probability!==null)oos.push({signalDate:bars[i].date,targetDate:label.targetDate,knownAt:label.knownAt,p:p.probability,baseline:base.probability,y:label.y});matured.push({...label,state:states[i]});}
  }
- const current=states.at(-1),usable=matured.filter(s=>s.knownAt<=asOf),selected=current?usable.filter(s=>s.state===current):[];
- const evaluated=oos.filter(s=>s.targetDate<=chinaDay(asOf));
+ const current=currentState,usable=matured.filter(s=>s.knownAt<=asOf),selected=current?usable.filter(s=>s.state===current):[];
+ const evaluated=oos.filter(s=>s.knownAt<=asOf);
  const brier=evaluated.length?mean(evaluated.map(s=>(s.p-s.y)**2)):null,baselineBrier=evaluated.length?mean(evaluated.map(s=>(s.baseline-s.y)**2)):null;
  return {...estimate(selected,minSamples),state:current,outOfSample:{evaluated:evaluated.length,brier,baselineBrier,brierSkill:baselineBrier>0?1-brier/baselineBrier:null,method:'rolling-prediction-before-next-session-label',prospective:false}};
 }
@@ -66,14 +70,19 @@ function analyzeStockHistory(stock,{asOf=Date.now(),tradeDates,minSamples=20}={}
  if(s.bars.some(b=>!indices.has(b.date)))throw Error('K线日期不在显式交易日历');
  const bars=s.bars.filter(b=>finite(observed)&&observed<=asOf&&b.date<=chinaDay(asOf)&&closeAt(b.date)<=asOf&&finite(stamp(b.knownAt))&&stamp(b.knownAt)<=Math.min(asOf,observed)&&stamp(b.knownAt)>=closeAt(b.date));
  if(s.bars.length!==bars.length)missing.push('UNAVAILABLE_OR_UNCLOSED_BARS_EXCLUDED');
- const states=bars.map((b,i)=>missing.some(x=>x!=='UNAVAILABLE_OR_UNCLOSED_BARS_EXCLUDED')?null:stateAt(bars,i,Math.min(asOf,endAt(b.date)),indices));
- const directionLabels=bars.map((b,i)=>{const next=bars[i+1];return next&&indices.get(next.date)===indices.get(b.date)+1&&tradable(b,asOf)&&tradable(next,asOf)?{y:next.close>b.close?1:0,targetDate:next.date,knownAt:stamp(next.knownAt)}:null;});
+ const states=bars.map((b,i)=>missing.some(x=>x!=='UNAVAILABLE_OR_UNCLOSED_BARS_EXCLUDED')?null:stateAt(bars,i,Math.min(asOf,observed,endAt(b.date)),indices));
+ const directionLabels=bars.map((b,i)=>{const next=bars[i+1];return next&&indices.get(next.date)===indices.get(b.date)+1&&tradable(b,Math.min(asOf,observed))&&tradable(next,Math.min(asOf,observed))?{y:next.close>b.close?1:0,targetDate:next.date,knownAt:Math.max(evidenceAt(b),evidenceAt(next))}:null;});
  const limitLabels=directionLabels.map((label,i)=>{if(!label)return null;const y=limitLabel(bars[i+1],s.priceBasis,bars[i].close);return y===null?null:{...label,y};});
- const last=bars.at(-1),direction=causalStats(bars,states,directionLabels,minSamples,asOf),limitUp=causalStats(bars,states,limitLabels,minSamples,asOf);
+ // A newly received prior-session bar may inform a decision made now. It must
+ // still never manufacture the formation that was unavailable on that old day.
+ const currentState=missing.some(x=>x!=='UNAVAILABLE_OR_UNCLOSED_BARS_EXCLUDED')||!bars.length?null:stateAt(bars,bars.length-1,Math.min(asOf,observed),indices);
+ const last=bars.at(-1),direction=causalStats(bars,states,directionLabels,minSamples,asOf,currentState),limitUp=causalStats(bars,states,limitLabels,minSamples,asOf,currentState);
  const nextSession=last?tradeDates[indices.get(last.date)+1]||null:null;
+ const patterns=detectPatterns({...s,bars});
+ const currentFormation={status:patterns.usable?'price-only-unverified':'insufficient-price-evidence',date:last?.date||null,availableAt:bars.length?Math.max(...bars.map(b=>stamp(b.knownAt))):null,historicalEligible:currentState!=null,patterns,...flags};
  return {schemaVersion:1,mode:'stock-history-intelligence',featureVersion:VERSION,...flags,symbol:s.symbol,asOf,source:s.source,priceBasis:s.priceBasis,lastBarDate:last?.date||null,targetDate:nextSession,tradeDates:[...tradeDates],minSamples,
-  coverage:{provided:s.bars.length,closedKnown:bars.length,eligibleFormationStates:states.filter(Boolean).length,missing,latestFormationUsable:states.at(-1)!=null},
-  patterns:detectPatterns({...s,bars}),direction,limitUp,
+  coverage:{provided:s.bars.length,closedKnown:bars.length,eligibleFormationStates:states.filter(Boolean).length,missing,latestFormationUsable:currentState!=null},
+  evidenceProtocol:'post-close-research-v2',currentFormation,patterns,direction,limitUp,
   uncertainty:'历史条件频率与Wilson区间；同股样本相关，非统计独立认证。样本不足不输出概率。',
   limitations:['方向标签为下个明确交易日收盘相对本日收盘，不是可成交净收益','涨停标签仅使用未复权价格和逐日预先已知的涨停价/参考价','当前市场、情绪、板块和资金上下文不回填历史样本'],inputFingerprint:hash(s)};
 }
@@ -101,20 +110,32 @@ function readEvents(root,symbol){
 function frozenOutcomes(events,asOf){
  const outcomes=[],scoredTargets=new Set();
  for(const frozen of events){
-  const f=frozen.forecast;if(!f||!f.targetDate||f.lastBarDate!==chinaDay(frozen.decisionAt))continue;
-  // A replay supplied today cannot be promoted into a forecast made last month.
-  if(frozen.recordedAt>Math.min(endAt(f.lastBarDate),frozen.decisionAt+60000))continue;
+  const f=frozen.forecast;if(!f||!f.targetDate)continue;
+  const legacy=f.featureVersion==='stock-trend-momentum20-v1';
+  if(!legacy&&f.featureVersion!==VERSION)continue;
+  if(legacy){
+   if(f.lastBarDate!==chinaDay(frozen.decisionAt)||frozen.recordedAt>Math.min(endAt(f.lastBarDate),frozen.decisionAt+60000))continue;
+  }else{
+   const dates=f.tradeDates,index=Array.isArray(dates)?dates.indexOf(f.lastBarDate):-1,targetOpen=Date.parse(f.targetDate+'T09:30:00+08:00');
+   // Genuine overnight/weekend decisions precede the next declared session.
+   // Local publication time prevents a late historical import backdating one.
+   if(index<0||dates[index+1]!==f.targetDate||!finite(targetOpen)||frozen.decisionAt<closeAt(f.lastBarDate)||frozen.decisionAt>=targetOpen||frozen.recordedAt>Math.min(targetOpen,frozen.decisionAt+60000))continue;
+  }
   const entry=frozen.stock.bars.find(b=>b.date===f.lastBarDate);if(!entry)continue;
   for(const later of events){
    if(later.revision<=frozen.revision||later.recordedAt<=frozen.recordedAt||later.decisionAt>asOf||later.stock.priceBasis!==frozen.stock.priceBasis||later.stock.source!==frozen.stock.source||later.stock.provider!==frozen.stock.provider)continue;
-   const b=later.stock.bars.find(b=>b.date===f.targetDate),known=stamp(b?.knownAt),observed=stamp(later.stock.observedAt);
-   if(!b||!finite(known)||!finite(observed)||known>observed||known<=frozen.decisionAt||known>later.decisionAt||known>asOf||known<closeAt(b.date)||!tradable(b,asOf))continue;
+   const b=later.stock.bars.find(b=>b.date===f.targetDate),known=b?(legacy?stamp(b.knownAt):evidenceAt(b)):NaN,observed=stamp(later.stock.observedAt);
+   // Preserve an explicitly versioned historical protocol's reported score.
+   // Its absence of an action-availability clock is disclosed, never upgraded
+   // to v2 evidence or used by analyzeStockHistory's current training path.
+   const eligible=b&&(legacy?(b.volume>0&&b.suspended===false&&b.tradable===true&&b.isST===false&&finite(stamp(b.statusKnownAt))&&stamp(b.statusKnownAt)<=Math.min(asOf,closeAt(b.date))&&b.corporateAction===false):tradable(b,Math.min(asOf,later.decisionAt,observed)));
+   if(!b||!finite(known)||!finite(observed)||known>observed||known<=frozen.decisionAt||known>later.decisionAt||known>asOf||stamp(b.knownAt)<closeAt(b.date)||!eligible)continue;
    for(const kind of ['direction','limitUp']){
     const p=f[kind]?.probability,y=kind==='direction'?(b.close>entry.close?1:0):limitLabel(b,later.stock.priceBasis,entry.close);
     const key=JSON.stringify([f.featureVersion,kind,b.date,frozen.stock.source,frozen.stock.provider,frozen.stock.priceBasis]);
     // Re-saving context or correcting the same forecast is not a new outcome.
     // Keep every revision, but score the first frozen prediction once per target.
-    if(finite(p)&&y!==null&&!scoredTargets.has(key)){scoredTargets.add(key);outcomes.push({revision:frozen.revision,labelRevision:later.revision,kind,targetDate:b.date,probability:p,outcome:y,brier:(p-y)**2,knownAt:known,canTrade:false});}
+    if(finite(p)&&y!==null&&!scoredTargets.has(key)){scoredTargets.add(key);outcomes.push({revision:frozen.revision,labelRevision:later.revision,kind,targetDate:b.date,probability:p,outcome:y,brier:(p-y)**2,knownAt:known,featureVersion:f.featureVersion,evidenceProtocol:legacy?'legacy-v1-action-clock-unproven':'post-close-research-v2',legacyEvidenceUnproven:legacy,researchOnly:true,canTrade:false});}
    }
    break; // First observed outcome is immutable; later corrections remain in history.
   }
@@ -124,7 +145,10 @@ function frozenOutcomes(events,asOf){
 function readStockMemory(root,symbol,{asOf=Date.now(),limit=100}={}){
  if(!Number.isSafeInteger(asOf)||asOf<=0||!Number.isSafeInteger(limit)||limit<1||limit>MAX_EVENTS)throw Error('历史查询上限或时间无效');
  const events=readEvents(root,symbol).filter(e=>e.decisionAt<=asOf&&e.recordedAt<=asOf),outcomes=frozenOutcomes(events,asOf);
- return {schemaVersion:1,mode:'stock-intelligence-memory',...flags,symbol:String(symbol),asOf,totalRevisions:events.length,revisions:events.slice(-limit),frozenPredictionOutcomes:outcomes,forwardValidation:Object.fromEntries(['direction','limitUp'].map(kind=>{const rows=outcomes.filter(o=>o.kind===kind);return [kind,{evaluated:rows.length,brier:rows.length?mean(rows.map(o=>o.brier)):null}];}))};
+ const summarize=records=>Object.fromEntries(['direction','limitUp'].map(kind=>{const rows=records.filter(o=>o.kind===kind);return [kind,{evaluated:rows.length,brier:rows.length?mean(rows.map(o=>o.brier)):null}];}));
+ const legacy=outcomes.filter(o=>o.legacyEvidenceUnproven),current=outcomes.filter(o=>!o.legacyEvidenceUnproven),forwardValidation=summarize(outcomes);
+ for(const kind of ['direction','limitUp'])Object.assign(forwardValidation[kind],{legacyEvaluated:legacy.filter(o=>o.kind===kind).length,newProtocolEvaluated:current.filter(o=>o.kind===kind).length,evidenceScope:'historical-protocol-compatibility-summary'});
+ return {schemaVersion:1,mode:'stock-intelligence-memory',...flags,symbol:String(symbol),asOf,totalRevisions:events.length,revisions:events.slice(-limit),frozenPredictionOutcomes:outcomes,forwardValidation,legacyForwardValidation:summarize(legacy),newProtocolForwardValidation:summarize(current)};
 }
 function appendSnapshot(root,{stock,context={},forecast=null,decisionAt}={}){
  if(!Number.isSafeInteger(decisionAt)||decisionAt<=0||decisionAt>Date.now())throw Error('决策时点无效或位于未来');
