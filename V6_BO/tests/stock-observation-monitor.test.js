@@ -21,6 +21,8 @@ test('monitor coalesces concurrent wakes, and stop waits for its active capture'
 });
 test('production push observer is admitted after gates and observer failure cannot change delivery',async()=>{
  const src=fs.readFileSync(require.resolve('../server'),'utf8'),start=src.indexOf('function pushAll('),end=src.indexOf('\n}\n',start)+2;
+ const deliveryStart=src.indexOf('function prepareRecommendationDelivery('),deliveryEnd=src.indexOf('\n}\n',deliveryStart)+2;
+ assert.ok(deliveryStart>=0&&deliveryEnd>deliveryStart);
  for(const mode of ['allowed','throw','replica','quota','quiet','disabled']){
   const logs=[],observed=[];
   const ctx={process:{env:{V6_AUTO_STOCK_OBSERVATIONS:mode==='disabled'?'0':'1'}},S:{config:{qqMail:{}}},redactSecrets:v=>v,extractStockCodes:()=>['600000'],
@@ -29,7 +31,7 @@ test('production push observer is admitted after gates and observer failure cann
    queuePushedStockObservations:(text,codes)=>{observed.push({text,codes});if(mode==='throw')throw Error('fixture disk full');},
    mailReady:()=>true,feishuReady:()=>true,feishuSend:(_text,cb)=>cb(true,'fixture receipt'),sendResultUnknown:()=>false,
    sendQQMail:()=>Promise.resolve(),pushLog:(status,text,extra)=>logs.push({status,text,extra}),_pushLast:null,console:{log(){},error(){}}};
-  vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);ctx.pushAll('600000 fixture stock',false,{public:true});
+  vm.createContext(ctx);vm.runInContext(src.slice(deliveryStart,deliveryEnd)+'\n'+src.slice(start,end),ctx);ctx.pushAll('600000 fixture stock',false,{public:true});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(observed.length,['allowed','throw'].includes(mode)?1:0,mode);
   if(['allowed','throw','disabled'].includes(mode)){assert.equal(ctx._pushLast.sent,true,mode);assert.ok(logs.some(l=>l.status.startsWith('✅')),mode);}
