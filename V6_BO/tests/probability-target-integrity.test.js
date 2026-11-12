@@ -211,12 +211,14 @@ test('the real governance gate keeps its up3 accuracy floor within that event', 
   const x = api(seal.concat(up3), {p: .5, base: .1});
   const state = {klines: new Map()}, governance = {codes: new Map(), lowProb: 0, total: 0};
   const dependencies = {S: state, PUSH_GOV: governance, govResetIfNewDay: () => {},
+    reviewRecommendation: row => require('../src/core/recommendation-evidence-review').reviewRecommendationEvidence(row, {purpose:'intraday-recommendation'}),
     _govCfg: () => 0, pushMinProb: () => 0, pushMinProbPre: () => 0,
     fusedProb: x.fusedProb, krowsOf: () => [], pushQuota: () => 100,
     PUSH_GOV_RESERVE: .2, savePushGov: () => {}};
-  const gate = new Function(...Object.keys(dependencies), grab('function govTake(code, type, strong, prob) {') +
+  const gate = new Function(...Object.keys(dependencies), grab('function govTake(code, type, strong, prob, row) {') +
     '\nreturn govTake;')(...Object.values(dependencies));
-  const sealing = gate('600000', 'yier', false, 60), gains = gate('600001', 'trendsig', false, 80);
+  const row = code => ({code,name:'正常股票',price:10,quoteAt:Date.now()-100,receivedAt:Date.now(),quoteSource:'vendor-original',mode:'public-live-unverified',canNotify:true,amount:1e8});
+  const sealing = gate('600000', 'yier', false, 60, row('600000')), gains = gate('600001', 'trendsig', false, 80, row('600001'));
   assert.equal(sealing.ok, true, '35 percent up3 evidence is not a sealing-event floor');
   assert.equal(sealing.fused.target, 'ztNext');
   assert.equal(gains.ok, false);

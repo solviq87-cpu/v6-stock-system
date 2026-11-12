@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {quoteSnapshotFields:copy,quoteObservationView:view}=require('../src/core/quote-observation-view');
+const {reviewQuoteSnapshotFields:reviewCopy}=require('../src/core/recommendation-evidence-review');
 const {dashboardView}=require('../src/core/dashboard-view');
 const now=Date.parse('2026-11-07T02:00:00+08:00');
 const row={code:'600519',name:'样本',price:10,pct:1,quoteAt:now-1000,quoteSource:'tencent',receivedAt:now};
@@ -30,8 +31,8 @@ for(const [label,marker] of [['精选池','scored.push({\n'],['连阳池','if (t
   const source=fs.readFileSync(require.resolve('../server.js'),'utf8');
   const start=source.indexOf(marker);assert.ok(start>=0);const body=source.slice(start+marker.length);
   const end=body.indexOf('\n',body.indexOf('code: s.code'));assert.ok(end>=0);
-  const prefix=body.slice(0,end);assert.match(prefix,/quoteSnapshotFields\(s\)/);
-  const c={s:{...row},require:id=>{assert.equal(id,'./src/core/quote-observation-view');return {quoteSnapshotFields:copy};}};vm.createContext(c);
+  const prefix=body.slice(0,end);assert.match(prefix,/reviewSnapshotFields\(s\)/);
+  const c={s:{...row},reviewSnapshotFields:reviewCopy};vm.createContext(c);
   const pooled=vm.runInContext('({'+prefix+'})',c);
   assert.equal(pooled.price,row.price);assert.equal(pooled.quoteAt,row.quoteAt);assert.equal(pooled.quoteSource,row.quoteSource);
   c.s.price=99;c.s.quoteAt=now;assert.equal(pooled.price,10);assert.equal(pooled.quoteAt,now-1000);

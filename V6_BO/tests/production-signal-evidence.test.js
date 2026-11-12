@@ -89,6 +89,10 @@ function serverContext(dir){
  vm.runInContext(section('let signalRuleVersion;','// 存量迁移'),context);
  vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),context);
  vm.runInContext(section('function logSignal(','// 样本库剪枝'),context);
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery']){
+  const start=source.indexOf('function '+name+'('),end=source.indexOf('\n}\n',start)+2;
+  vm.runInContext(source.slice(start,end),context);
+ }
  return {c:context,set:value=>{now=value;},saves:()=>saves};
 }
 test('real logSignal retains the first daily sample and appends later observations with explicit lineage',t=>{
@@ -122,7 +126,7 @@ test('a later auction calibration marker belongs to its new observation and cann
 test('actual tick freezes a causal funds condition, raw provenance and archive before enqueue',async t=>{
  const dir=root(t),{c}=serverContext(dir);
  const stock={code:'000001',name:'测试',price:10,pct:1,mainPct:2,mainInflow:12e7,floatCap:1e10,
-   quoteSource:'eastmoney',quoteAt:at-1000,receivedAt:at,canTrade:true,
+   quoteSource:'eastmoney',quoteAt:at-1000,receivedAt:at,canTrade:true,mode:'public-live-unverified',canNotify:true,amount:2e8,
    fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsRetrievedAt:at,fundsSourceTimestamp:null};
  Object.assign(c,{PAPER:{pool:{positions:{}},pre:{positions:{}}},monitorCodes:[],
    em:{fetchBatchSnapshot:async()=>[stock]},ingestPx(){},numNeutral:(_,v)=>v,sectorZTCountFor:()=>0,numGapRaw:()=>2,
@@ -174,14 +178,15 @@ test('actual archive failure is explicit and never overwrites the first sample',
  assert.equal(failed.signalId,null);assert.equal(failed.evidenceStatus,'unavailable');
 });
 test('actual batch sender carries immutable IDs only for selected signals without any external dispatch',()=>{
- const first={code:'000001',type:'趋势票',ts:at,signalId:'a'.repeat(64)},omitted={code:'000002',type:'大单快速流入',ts:at,signalId:'b'.repeat(64)},logs=[];
- const context=vm.createContext({INTRADAY:{buf:new Map([['first',first],['omitted',omitted]]),parts:[],firstAt:at},
+ const first={code:'000001',name:'正常股票',price:10,quoteAt:at-1000,receivedAt:at,quoteSource:'vendor-original',mode:'public-live-unverified',canNotify:true,amount:1e8,type:'趋势票',ts:at,signalId:'a'.repeat(64)},omitted={code:'000002',type:'大单快速流入',ts:at,signalId:'b'.repeat(64)},logs=[];
+ class Clock extends Date{constructor(...args){super(...(args.length?args:[at+1000]));}static now(){return at+1000;}}
+ const context=vm.createContext({Date:Clock,require:module=>module.startsWith('./')?require(path.resolve(__dirname,'..',module)):require(module),INTRADAY:{buf:new Map([['first',first],['omitted',omitted]]),parts:[],firstAt:at},
   INTRADAY_MAX_ITEMS:1,ALERT_RANK:{},alertScore:()=>0,buildAlertsReport:()=> '000001',
   redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>true,
   pushLog:(status,title,data)=>logs.push({status,title,...data}),console:{log(){}},sseSendEdit(){},_pushLast:null});
- for(const name of ['pushAll','flushIntraday']){
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday']){
   const start=source.indexOf('function '+name+'('),end=source.indexOf('\n}\n',start)+2;
   assert.ok(start>=0&&end>start);vm.runInContext(source.slice(start,end),context);
  }
- context.flushIntraday();assert.equal(logs.length,1);assert.deepEqual(JSON.parse(JSON.stringify(logs[0].extra.signalRefs)),[first]);
+ context.flushIntraday();assert.equal(logs.length,1);assert.deepEqual(JSON.parse(JSON.stringify(logs[0].extra.signalRefs)),[{code:first.code,type:first.type,ts:first.ts,signalId:first.signalId}]);
 });
