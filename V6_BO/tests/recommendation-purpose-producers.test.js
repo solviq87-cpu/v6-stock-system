@@ -6,7 +6,7 @@ function fn(name){let a=source.indexOf('function '+name+'(');const b=source.inde
 function engine(at=close){
  const sent=[],logged=[];
  class Clock extends Date{constructor(...args){super(...(args.length?args:[at]));}static now(){return at;}getHours(){return new Date(this.getTime()+28800000).getUTCHours();}getMinutes(){return new Date(this.getTime()+28800000).getUTCMinutes();}}
- const c=vm.createContext({Date:Clock,require:createRequire(serverPath),console:{log(){},error(){}},S:{ztPool:[],yierList:[],lianbanList:[]},
+ const c=vm.createContext({Date:Clock,require:createRequire(serverPath),Buffer,SignalEvidence:require('../src/core/signal-evidence-chain'),console:{log(){},error(){}},S:{ztPool:[],yierList:[],lianbanList:[]},
   todayStr:()=> '20261113',isTradeDay:()=>true,inQuietHours:()=>false,sentToday:()=>false,refreshStrategyCards(){},
   yierSentDate:'',erjinSanSentDate:'',yierAuctionSentDate:'',pushAll:(...args)=>{sent.push(args);return true;},
   logSignal:(...args)=>logged.push(args),learningSignalExtra:(row,extra)=>({...extra,sourceRecord:row}),
@@ -17,7 +17,7 @@ function engine(at=close){
   modDayTake:()=>true,signTxt:value=>value,winLabel:key=>key,winShort:()=>'',_tsProg:{scanned:100,total:10},
   _ztSentPushed:new Set(),_fmtSealY:value=>value,pushIntensityOf:()=>1,sectorOfStock:()=> '板块',sectorHeat:()=>({hot:true}),sentLogPush(){},
   _arLastPush:{date:'',sig:'',ts:0,n:0},AR_PUSH_GAP:3600000,AR_PUSH_DAY_MAX:5});
- for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery',
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','signalCondition','annotateSignalConditions',
   'pushYiEr','pushLianbanRelay','pushZtPre','pushSteadyUp','pushTrendScan','ztSealPush','pushAuctionResonanceTop3','pushYiErAuction'])vm.runInContext(fn(name),c);
  return {c,sent,logged};
 }

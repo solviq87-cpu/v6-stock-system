@@ -37,6 +37,10 @@ function sandbox(src=source){
   loadSectorHistory:()=>({}),buildZTRoleMap:()=>new Map(),maxDrawdown:()=>0,scoreSmoothOf:(_code,score)=>({score,rawScore:score}),empNdProb:()=>null,
   _auctionResonanceCache:new Map(),AUCTION_RESONANCE_CACHE_MS:30000});
  for(const name of ['annotateSignalConditions','learningSignalExtra','fundsNumber','fundsRounded','fundsWindowSum'])vm.runInContext(fn(name,name==='annotateSignalConditions'?source:src),c);
+ // Keep the actual purpose gates active in both sides of the metadata comparison.
+ // createRequire(serverPath) resolves their real module instead of a permissive VM stub.
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','researchSnapshotFields','researchQuoteFields',
+  'freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','auctionSendOptions'])vm.runInContext(fn(name),c);
  return {c,logs,messages,rows,run:name=>vm.runInContext(fn(name,src),c),src};
 }
 async function pair(names,setup,execute){
@@ -77,7 +81,7 @@ test('actual yier and lianban scanners retain original selection and freeze thei
  }
 });
 test('actual auction inference preserves the original curve and freezes multipliers and phase inputs',async()=>{
- const {result}=await pair(['aucztProbClamp','inferZTProb'],({c})=>{c.S.auction.strong=[{code:'000001',name:'测试',price:10,score:48,factors:['factor'],why:[],risk:[]}];c.S.learn.paths.factor={adj:2};},({c})=>{c.inferZTProb();return c.S.auction.ztInfers;});
+ const {result}=await pair(['aucztProbClamp','inferZTProb'],({c})=>{c.S.auction.strong=[stock({price:10,score:48,factors:['factor'],why:[],risk:[]})];c.S.learn.paths.factor={adj:2};},({c})=>{c.inferZTProb();return c.S.auction.ztInfers;});
  assert.equal(result.length,1);assert.ok(Math.abs(result[0].conditionInputs[0].values.mappedValue-15.2)<1e-10);assert.equal(result[0].conditionInputs[0].values.factorAdjustment,1.6);
  assert.equal(result[0].conditionEvidence.find(rule=>rule.id.endsWith(':phase-high')).threshold,3);
 });
@@ -96,7 +100,10 @@ test('actual pre and buzhang scanners preserve membership while recording origin
  }
 });
 test('actual seal broadcaster keeps selected records and snapshots the pre-mutation dedup marker',async()=>{
- const {result,after}=await pair(['ztSealPush'],({c})=>{c.S.ztPool=[stock({sealAmount:1e8}),stock({code:'000002',sealAmount:2e7}),stock({code:'000003',sealAmount:null})];},({c,logs})=>{c.ztSealPush(c.S.ztPool,3);return logs.map(args=>({code:args[1],prob:args[4],...args[5].sourceRecord}));});
+ const {result,after}=await pair(['ztSealPush'],({c})=>{
+  const factEvidence={kind:'provider-limit-up-pool-record',tradeDate:'2026-11-13',source:'vendor-original',observedAt:now};
+  c.S.ztPool=[stock({sealAmount:1e8,factEvidence}),stock({code:'000002',sealAmount:2e7,factEvidence}),stock({code:'000003',sealAmount:null,factEvidence})];
+ },({c,logs})=>{c.ztSealPush(c.S.ztPool,3);return logs.map(args=>({code:args[1],prob:args[4],...args[5].sourceRecord}));});
  assert.equal(result.length,2);const first=result.find(row=>row.code==='000001');assert.equal(first.conditionEvidence.find(rule=>rule.id.endsWith(':already-pushed')).value,0);
  assert.equal(first.conditionEvidence.find(rule=>rule.id.endsWith(':seal-amount')).threshold,5e7);assert.equal(after.c._ztSentPushed.has('000001'),true);
 });

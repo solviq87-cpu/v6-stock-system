@@ -23,7 +23,7 @@ function engine(){
  };
  class Clock extends Date{static now(){return now;}}
  const context={
-  Date:Clock,Math,Number,Map,Set,String,
+  Date:Clock,Math,Number,Map,Set,String,Buffer,SignalEvidence:require('../src/core/signal-evidence-chain'),
   S,AUCTION_RESONANCE_CACHE_MS:30000,_auctionResonanceCache:new Map(),
   require:name=>{
    if(name==='./src/core/auction-resonance-basis')
@@ -56,7 +56,7 @@ function engine(){
   console:{error:(...args)=>events.errors.push(args.map(String).join(' '))}
  };
  const helper=name=>{const start=server.indexOf('function '+name+'('),end=server.indexOf('\n}\n',start)+2;assert.ok(start>=0&&end>start);return server.slice(start,end);};
- const scan=vm.runInNewContext(['reviewRecommendation','reviewedRows','reviewSnapshotFields','learningSignalExtra'].map(helper).join('\n')+'\n'+match[0]+'\nauctionResonanceScan;',context);
+ const scan=vm.runInNewContext(['reviewRecommendation','reviewedRows','reviewSnapshotFields','signalCondition','annotateSignalConditions','learningSignalExtra'].map(helper).join('\n')+'\n'+match[0]+'\nauctionResonanceScan;',context);
  return {scan,S,events};
 }
 test('viewer GET recomputes market research without push, learning writes or trading commands',async()=>{
