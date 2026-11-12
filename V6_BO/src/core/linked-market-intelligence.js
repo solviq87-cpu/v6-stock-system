@@ -11,7 +11,8 @@ const flags={canTrade:false,canNotify:false,verifiedLive:false,productionWeights
 
 function publicContextView(context,asOf){
  const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
- const retrievedAt=stamp(context?.retrievedAt),usable=Number.isFinite(retrievedAt)&&retrievedAt>0&&retrievedAt<=asOf&&context.source==='eastmoney'&&day(context.tradeDate);
+ const available=e=>['sourceTimestamp','firstObservedAt','retrievedAt','observedAt','knownAt'].every(k=>e?.[k]==null||Number.isFinite(stamp(e[k]))&&stamp(e[k])>0&&stamp(e[k])<=asOf);
+ const retrievedAt=stamp(context?.retrievedAt),usable=Number.isFinite(retrievedAt)&&retrievedAt>0&&retrievedAt<=asOf&&available(context)&&context.source==='eastmoney'&&day(context.tradeDate)&&context.tradeDate<=new Date(asOf+8*3600000).toISOString().slice(0,10);
  const out={status:usable?'observed-unverified':'unknown',tradeDate:usable?context.tradeDate:null,
   retrievedAt:usable?context.retrievedAt:null,source:usable?context.source:null,sourceTimestamp:null,
   funds:{market:null,sector:null,stock:null},sentiment:{status:'unknown',reason:'缺少同日完整涨停和炸板未封池'},
@@ -19,13 +20,13 @@ function publicContextView(context,asOf){
  if(!usable)return out;
  for(const [key,input] of [['market','marketFlow'],['sector','sectorFlow'],['stock','stockFlow']]){
   const flow=context[input];
-  if(!flow||typeof flow!=='object')continue;
+  if(!flow||typeof flow!=='object'||!available(flow))continue;
   const received=flow.retrievedAt===undefined?retrievedAt:stamp(flow.retrievedAt);
   const sourceAt=flow.sourceTimestamp==null?null:stamp(flow.sourceTimestamp);
   if(!Number.isFinite(received)||received<=0||received>asOf||sourceAt!==null&&(!Number.isFinite(sourceAt)||sourceAt<=0||sourceAt>received))continue;
   const rows=flow.records;
   if(flow.source!=='eastmoney'||flow.fundsMethod!=='vendor-order-size-estimate'||!Array.isArray(rows)||rows.length>120)continue;
-  if(rows.some(r=>!day(r.tradeDate)||r.tradeDate>context.tradeDate||r.observedAt!==undefined&&(!Number.isFinite(stamp(r.observedAt))||stamp(r.observedAt)>asOf))||new Set(rows.map(r=>r.tradeDate)).size!==rows.length)continue;
+  if(rows.some(r=>!day(r.tradeDate)||r.tradeDate>context.tradeDate||!available(r))||new Set(rows.map(r=>r.tradeDate)).size!==rows.length)continue;
   out.funds[key]={source:'eastmoney',fundsMethod:flow.fundsMethod,symbol:/^\d{6}$/.test(flow.symbol||'')?flow.symbol:null,
    rawHash:/^[a-f0-9]{64}$/.test(flow.rawHash||'')?flow.rawHash:null,
    retrievedAt:received,sourceTimestamp:sourceAt,status:'observed-unverified',unit:'CNY',...flags,
@@ -34,9 +35,9 @@ function publicContextView(context,asOf){
  const pools=context.limitPools;
  // Recompute descriptive ratios from complete, disjoint records; distrust scores.
  const projectPool=p=>{
-  if(!p||!day(p.tradeDate)||p.tradeDate!==context.tradeDate||!Array.isArray(p.records)||p.records.length>10000)return null;
+  if(!p||!available(p)||p.source!==undefined&&p.source!=='eastmoney'||!day(p.tradeDate)||p.tradeDate!==context.tradeDate||!Array.isArray(p.records)||p.records.length>10000)return null;
   const symbols=p.records.map(r=>r.symbol);
-  const valid=symbols.every(s=>typeof s==='string'&&/^\d{6}$/.test(s))&&new Set(symbols).size===symbols.length;
+  const valid=symbols.every(s=>typeof s==='string'&&/^\d{6}$/.test(s))&&new Set(symbols).size===symbols.length&&p.records.every(available);
   return {tradeDate:p.tradeDate,fetchedCount:symbols.length,totalCount:Number.isSafeInteger(p.totalCount)&&p.totalCount>=0?p.totalCount:null,
    complete:valid&&p.complete===true&&p.partial===false&&p.totalCount===symbols.length,symbols,sourceTimestamp:null,...flags};
  };

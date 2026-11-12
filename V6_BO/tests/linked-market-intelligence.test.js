@@ -35,6 +35,8 @@ test('untrusted public metadata is projected and pool ratios require actual disj
  let out=publicContextView(c,f.asOf);assert.equal(out.funds.stock.canTrade,false);assert.equal(out.funds.stock.status,'observed-unverified');assert.equal(out.sentiment.sealRate,.5);
  c.limitPools.broken.records[0].symbol='600001';assert.equal(publicContextView(c,f.asOf).sentiment.sealRate,null);
  c.limitPools.broken.records[0].symbol='600002';c.limitPools.broken.partial=true;assert.equal(publicContextView(c,f.asOf).sentiment.sealRate,null);
+  c.limitPools.broken.partial=false;c.limitPools.broken.retrievedAt=f.asOf+1;assert.equal(publicContextView(c,f.asOf).sentiment.sealRate,undefined);
+  c.limitPools.broken.retrievedAt=f.asOf;c.limitPools.broken.records[0].knownAt=f.asOf+1;assert.equal(publicContextView(c,f.asOf).sentiment.sealRate,null);
  c.stockFlow.sourceTimestamp=f.asOf+100;assert.equal(publicContextView(c,f.asOf).funds.stock,null);
  c.retrievedAt=f.asOf+100;assert.equal(publicContextView(c,f.asOf).status,'unknown');
 });
