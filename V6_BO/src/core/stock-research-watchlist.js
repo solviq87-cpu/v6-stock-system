@@ -44,10 +44,18 @@ function listing(dir,maxSize){
  if(!fs.existsSync(dir))return {files:[],bytes:0};
  const files=[],all=fs.readdirSync(dir);let bytes=0;
  if(all.length>MAX_HISTORY*3)throw Error('entry capacity');
- for(const name of all){const file=path.join(dir,name),st=fs.lstatSync(file);
+ for(const name of all){const file=path.join(dir,name),temporary=/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name);let st;
+  try{st=fs.lstatSync(file);}
+  catch(error){
+   // A publisher unlinks its staging name after the atomic link succeeds.
+   // Only that exact staging namespace may vanish during a directory scan;
+   // missing sealed records still indicate a broken immutable history.
+   if(temporary&&error.code==='ENOENT')continue;
+   throw error;
+  }
   if(!st.isFile()||st.isSymbolicLink()||(st.mode&0o777)!==0o600||st.size>maxSize)throw Error('invalid record');
   bytes+=st.size;
-  if(/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(name))continue;
+  if(temporary)continue;
   if(!/^\d{6}\.json$/.test(name))throw Error('invalid record name');
   const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
   try{if(fs.fstatSync(fd).size>maxSize)throw Error('oversize');files.push({name,value:JSON.parse(fs.readFileSync(fd,'utf8'))});}
@@ -105,7 +113,9 @@ function validProof(proof,job,startedAt,completedAt){
 function readState(root){
  const base=privateDir(root),wdir=privateDir(path.join(base,'watches')),hdir=privateDir(path.join(base,'history'));
  if(fs.existsSync(base)&&fs.readdirSync(base).some(n=>!['watches','history'].includes(n)))throw Error('invalid root entry');
- const wl=listing(wdir,2048),hl=listing(hdir,8192),watches=[],history=[],ids=new Map(),latest=new Map();
+ // Publishers commit a watch before any attempt can refer to it. Read children
+ // first so a concurrently appended child never outruns our parent snapshot.
+ const hl=listing(hdir,8192),wl=listing(wdir,2048),watches=[],history=[],ids=new Map(),latest=new Map();
  if(wl.files.length>MAX_SYMBOLS*2||hl.files.length>MAX_HISTORY||wl.bytes+hl.bytes>MAX_BYTES)throw Error('capacity');
  let previous=null;
  for(const [i,{name,value:e}]of wl.files.entries()){

@@ -66,6 +66,49 @@ test('publication retries are bounded, crash leftovers cannot lock future proces
  try{const blocked=enqueueAt(root,job({symbol:'600002'}));assert.equal(blocked.reason,'FOLLOWUP_PUBLICATION_CONFLICT');assert.equal(calls,5);}finally{fs.linkSync=link;}
  const dir=path.join(root,'attempts',first.id);fs.mkdirSync(dir,{mode:0o700});fs.writeFileSync(path.join(dir,'000001.json.0123456789abcdef.tmp'),'unfinished',{mode:0o600});const before=read(root,{now:dueAt}).bytes;assert.ok(before>0);assert.equal((await processFollowups(root,{now:dueAt,capture:async()=>capture()})).results[0].status,'completed');
 }));
+test('a legal temporary file cleaned after directory listing is harmless in intents and attempts',async()=>{
+ for(const kind of ['intents','attempts'])await temporary(async root=>{
+  const first=enqueueAt(root);await processFollowups(root,{now:dueAt,capture:async()=>capture()});
+  const dir=kind==='intents'?path.join(root,kind):path.join(root,kind,first.id),file=path.join(dir,'000002.json.0123456789abcdef.tmp');
+  const before=read(root,{now:dueAt});fs.writeFileSync(file,'unfinished',{mode:0o600});
+  const list=fs.readdirSync;let removed=false;
+  fs.readdirSync=function(value,...args){const names=list.call(this,value,...args);if(value===dir&&!removed){removed=true;fs.unlinkSync(file);}return names;};
+  try{const after=read(root,{now:dueAt});assert.equal(removed,true);assert.deepEqual(after,before);}finally{fs.readdirSync=list;}
+ });
+});
+test('a committed or malformed temporary file disappearing after listing still fails closed',async()=>{
+ for(const kind of ['intents','attempts'])for(const name of ['000001.json','000002.json.not-a-nonce.tmp'])await temporary(async root=>{
+  const first=enqueueAt(root);await processFollowups(root,{now:dueAt,capture:async()=>capture()});
+  const dir=kind==='intents'?path.join(root,kind):path.join(root,kind,first.id),file=path.join(dir,name);
+  if(name.endsWith('.tmp'))fs.writeFileSync(file,'unfinished',{mode:0o600});
+  const list=fs.readdirSync;let removed=false;
+  fs.readdirSync=function(value,...args){const names=list.call(this,value,...args);if(value===dir&&!removed){removed=true;fs.unlinkSync(file);}return names;};
+  try{assert.throws(()=>read(root,{now:dueAt}),/校验/);assert.equal(removed,true);}finally{fs.readdirSync=list;}
+ });
+});
+test('present temporary files retain permission, type and byte bounds',()=>{
+ for(const kind of ['intents','attempts'])for(const invalid of ['permissions','size','symlink'])temporary(root=>{
+  const first=enqueueAt(root),dir=kind==='intents'?path.join(root,kind):path.join(root,kind,first.id);fs.mkdirSync(dir,{recursive:true,mode:0o700});
+  const file=path.join(dir,'000002.json.0123456789abcdef.tmp');
+  if(invalid==='symlink')fs.symlinkSync(path.join(root,'intents','000001.json'),file);
+  else{fs.writeFileSync(file,invalid==='size'?'x'.repeat((kind==='intents'?4096:2048)+1):'unfinished',{mode:0o600});if(invalid==='permissions')fs.chmodSync(file,0o644);}
+  assert.throws(()=>read(root,{now:dueAt}),/校验/);
+ });
+});
+test('an intent and attempt directory published after the intent snapshot are revalidated, never treated as an orphan',()=>temporary(root=>{
+ enqueueAt(root);const list=fs.readdirSync,intents=path.join(root,'intents');let appended=false;
+ fs.readdirSync=function(value,...args){const names=list.call(this,value,...args);if(value===intents&&!appended){
+  appended=true;const next=enqueueAt(root,job({symbol:'600002'}));fs.mkdirSync(path.join(root,'attempts',next.id),{mode:0o700});
+ }return names;};
+ try{assert.equal(read(root,{now:dueAt}).counts.total,2);assert.equal(appended,true);}finally{fs.readdirSync=list;}
+ fs.mkdirSync(path.join(root,'attempts','f'.repeat(64)),{mode:0o700});assert.throws(()=>read(root),/校验/);
+}));
+test('a listed attempt directory disappearing remains an integrity failure',()=>temporary(root=>{
+ const first=enqueueAt(root),attemptRoot=path.join(root,'attempts'),dir=path.join(attemptRoot,first.id);fs.mkdirSync(dir,{mode:0o700});
+ const list=fs.readdirSync;let removed=false;
+ fs.readdirSync=function(value,...args){const names=list.call(this,value,...args);if(value===attemptRoot&&!removed){removed=true;fs.rmdirSync(dir);}return names;};
+ try{assert.throws(()=>read(root),/校验/);assert.equal(removed,true);}finally{fs.readdirSync=list;}
+}));
 test('1000 intent bound preserves existing history and idempotent duplicates',()=>temporary(root=>{
  const digest=n=>crypto.createHash('sha256').update(String(n)).digest('hex');const first=enqueueAt(root);
  const file=files(root)[0],template=JSON.parse(fs.readFileSync(file,'utf8')),dir=path.dirname(file);

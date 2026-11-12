@@ -71,6 +71,74 @@ test('unpublished temporary bytes count toward quota and oversized committed fil
  enqueue(root,intent());const before=read(root).bytes,temp=path.join(root,'intents','000002.json.0123456789abcdef.tmp');fs.writeFileSync(temp,'partial',{mode:0o600});assert.equal(read(root).bytes,before+7);
  fs.unlinkSync(temp);const file=archiveFiles(root)[0];fs.writeFileSync(file,'x'.repeat(8193));assert.throws(()=>read(root),/校验/);
 }));
+test('snapshot accepts a strictly named stage disappearing after readdir before lstat',()=>temporary(root=>{
+ enqueue(root,intent());const temp=path.join(root,'intents','000002.json.0123456789abcdef.tmp');fs.writeFileSync(temp,'partial',{mode:0o600});
+ const original=fs.lstatSync;let removed=false;
+ fs.lstatSync=function(file,...args){if(file===temp&&!removed){removed=true;fs.unlinkSync(temp);}return original.call(fs,file,...args);};
+ try{assert.equal(read(root).counts.total,1);assert.equal(removed,true);}finally{fs.lstatSync=original;}
+}));
+test('snapshot still rejects a committed or illegal entry disappearing before lstat',()=>{
+ for(const name of ['000001.json','000002.json.not-a-publisher.tmp'])temporary(root=>{
+  enqueue(root,intent());const target=path.join(root,'intents',name);if(name!=='000001.json')fs.writeFileSync(target,'partial',{mode:0o600});
+  const original=fs.lstatSync;let removed=false;
+  fs.lstatSync=function(file,...args){if(file===target&&!removed){removed=true;fs.unlinkSync(target);}return original.call(fs,file,...args);};
+  try{assert.throws(()=>read(root),/校验/);assert.equal(removed,true);}finally{fs.lstatSync=original;}
+ });
+});
+test('snapshot rejects a genuine orphan attempt directory',()=>temporary(root=>{
+ enqueue(root,intent());fs.mkdirSync(path.join(root,'attempts','f'.repeat(64)),{mode:0o700});assert.throws(()=>read(root),/校验/);
+}));
+test('snapshot rereads a legally appended parent and published child between directory snapshots',async()=>temporary(async root=>{
+ enqueue(root,intent());const appended=intent({decisionAt:epoch+1});
+ await temporary(async fixture=>{
+  const prepared=enqueue(fixture,appended);await processQueue(fixture,{now:()=>Date.now()+60000,capture:async()=>captured()});
+  const childBytes=fs.readFileSync(path.join(fixture,'attempts',prepared.id,'000001.json'));
+  const original=fs.readdirSync;let inserted=false;
+  fs.readdirSync=function(dir,...args){
+   if(dir===path.join(root,'attempts')&&!inserted){
+    inserted=true;const result=enqueue(root,appended);assert.equal(result.id,prepared.id);
+    const childDir=path.join(root,'attempts',result.id);fs.mkdirSync(childDir,{mode:0o700});fs.writeFileSync(path.join(childDir,'000001.json'),childBytes,{mode:0o600});
+   }
+   return original.call(fs,dir,...args);
+  };
+  try{const result=read(root);assert.equal(inserted,true);assert.equal(result.counts.total,2);assert.equal(result.counts.completed,1);assert.equal(result.completed[0].id,prepared.id);}finally{fs.readdirSync=original;}
+ });
+}));
+test('snapshot append refresh cannot hide an actual orphan or remove prior history',()=>temporary(root=>{
+ enqueue(root,intent());let appendedBytes,appendedId;
+ temporary(fixture=>{
+  fs.mkdirSync(path.join(fixture,'intents'),{mode:0o700});fs.mkdirSync(path.join(fixture,'attempts'),{mode:0o700});
+  fs.copyFileSync(path.join(root,'intents','000001.json'),path.join(fixture,'intents','000001.json'));
+  appendedId=enqueue(fixture,intent({decisionAt:epoch+1})).id;
+  appendedBytes=fs.readFileSync(path.join(fixture,'intents','000002.json'));
+ });
+ fs.mkdirSync(path.join(root,'attempts','f'.repeat(64)),{mode:0o700});
+ const original=fs.readdirSync;let inserted=false;
+ fs.readdirSync=function(dir,...args){
+  if(dir===path.join(root,'attempts')&&!inserted){
+   inserted=true;
+   // Publish authentic bytes prepared through the public enqueue API, while
+   // retaining the unrelated orphan that the subsequent refresh must reject.
+   const stage=path.join(root,'intents','000002.json.0123456789abcdef.tmp');
+   fs.writeFileSync(stage,appendedBytes,{mode:0o600});fs.linkSync(stage,path.join(root,'intents','000002.json'));fs.unlinkSync(stage);
+   fs.mkdirSync(path.join(root,'attempts',appendedId),{mode:0o700});
+  }
+  return original.call(fs,dir,...args);
+ };
+ try{assert.throws(()=>read(root),/校验/);assert.equal(inserted,true);assert.equal(fs.existsSync(path.join(root,'intents','000001.json')),true);assert.equal(fs.existsSync(path.join(root,'intents','000002.json')),true);}finally{fs.readdirSync=original;}
+}));
+test('snapshot append refresh is bounded under continuously advancing publishers',()=>temporary(root=>{
+ enqueue(root,intent());const original=fs.readdirSync;let inserted=0,insidePublisher=false;
+ fs.readdirSync=function(dir,...args){
+  if(dir===path.join(root,'attempts')&&!insidePublisher){
+   insidePublisher=true;
+   try{const added=enqueue(root,intent({decisionAt:epoch+(++inserted)}));fs.mkdirSync(path.join(root,'attempts',added.id),{mode:0o700});}finally{insidePublisher=false;}
+  }
+  return original.call(fs,dir,...args);
+ };
+ try{assert.throws(()=>read(root),/校验/);assert.equal(inserted,4);}finally{fs.readdirSync=original;}
+ assert.equal(read(root).counts.total,5);
+}));
 test('killing an in-flight worker leaves no permanent lock and another process can capture the same intent',async()=>temporary(async root=>{
  enqueue(root,intent());const modulePath=require.resolve('../src/core/stock-observation-queue');
  const script=`const {processStockObservationQueue}=require(${JSON.stringify(modulePath)});processStockObservationQueue(process.argv[1],{capture:async()=>{process.stdout.write('ready\\n');await new Promise(()=>{setInterval(()=>{},1000);});}});`;

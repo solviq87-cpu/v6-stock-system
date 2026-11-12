@@ -178,7 +178,63 @@ test('crash temporary files do not become intent, serial guard releases and fail
  assert.equal((await call(root,next,async()=>capture(next))).results[0].status,'completed');
  assert.equal(read(root).counts.attempts,2);
 }));
-test('two processes can fetch twice but CAS stores one immutable session completion',async()=>temporary(async root=>{
+test('publisher cleanup between directory listing and lstat only permits exact temporary names to disappear',()=>{
+ const disappearDuringScan=(dir,file,action)=>{
+  const original=fs.readdirSync;let removed=false;
+  fs.readdirSync=function(input,...args){const names=original.call(this,input,...args);
+   if(String(input)===dir&&names.includes(path.basename(file))){fs.unlinkSync(file);removed=true;}
+   return names;
+  };
+  try{action();assert.equal(removed,true);}finally{fs.readdirSync=original;}
+ };
+ temporary(root=>{
+  register(root,intent());const dir=path.join(root,'history'),file=path.join(dir,'000001.json.0123456789abcdef.tmp');
+  fs.writeFileSync(file,'stage',{mode:0o600});
+  disappearDuringScan(dir,file,()=>{assert.equal(read(root).counts.watches,1);assert.equal(read(root).counts.attempts,0);});
+ });
+ temporary(root=>{
+  register(root,intent());const [file]=records(root);
+  disappearDuringScan(path.dirname(file),file,()=>assert.throws(()=>read(root),/校验/));
+ });
+ temporary(root=>{
+  register(root,intent());const dir=path.join(root,'history'),file=path.join(dir,'000001.json.invalid.tmp');
+  fs.writeFileSync(file,'invalid stage',{mode:0o600});
+  disappearDuringScan(dir,file,()=>assert.throws(()=>read(root),/校验/));
+ });
+});
+test('surviving temporary files retain strict permissions and individual size limits',()=>temporary(root=>{
+ register(root,intent());const file=path.join(root,'history','000001.json.0123456789abcdef.tmp');
+ fs.writeFileSync(file,'stage',{mode:0o600});fs.chmodSync(file,0o644);
+ assert.throws(()=>read(root),/校验/);fs.chmodSync(file,0o600);
+ fs.writeFileSync(file,'x'.repeat(8193));assert.throws(()=>read(root),/校验/);
+}));
+test('parent-first publication between collection scans produces a consistent snapshot; real orphan history still rejects',async()=>temporary(async root=>{
+ register(root,intent());const now=t('2026-01-05T16:10:00');await call(root,now);
+ register(root,intent({symbol:'600002'}));
+ await call(root,now,async job=>{const r=capture(now);r.stock.symbol=job.symbol;return r;});
+ const wdir=path.join(root,'watches'),hdir=path.join(root,'history'),
+  parent=path.join(wdir,'000002.json'),child=path.join(hdir,'000002.json'),
+  parentBytes=fs.readFileSync(parent),childBytes=fs.readFileSync(child);
+ // Restore the earlier valid fixture, then publish the already-validated
+ // parent/child pair in the same order as independent live writers.
+ fs.unlinkSync(child);fs.unlinkSync(parent);
+ const original=fs.readdirSync;let published=false,first;
+ fs.readdirSync=function(input,...args){const names=original.call(this,input,...args);
+  if(!published&&[wdir,hdir].includes(String(input))){
+   published=true;first=String(input);
+   fs.writeFileSync(parent,parentBytes,{flag:'wx',mode:0o600});
+   fs.writeFileSync(child,childBytes,{flag:'wx',mode:0o600});
+  }
+  return names;
+ };
+ try{
+  const snapshot=read(root);assert.equal(published,true);assert.equal(first,hdir);
+  assert.equal(snapshot.counts.watches,2);assert.equal(snapshot.counts.completed,1);
+ }finally{fs.readdirSync=original;}
+ assert.equal(read(root).counts.completed,2);
+ fs.unlinkSync(parent);assert.throws(()=>read(root),/校验/);
+}));
+async function concurrentCompletion(root){
  register(root,intent());const modulePath=require.resolve('../src/core/stock-research-watchlist'),
   now=t('2026-01-05T16:10:00'),barrier=path.join(os.tmpdir(),'watch-barrier-'+crypto.randomBytes(8).toString('hex'));
  const script=`const fs=require('node:fs'),m=require(${JSON.stringify(modulePath)});m.processResearchWatchlist(process.argv[1],{now:${now},readCalendar:()=>(${JSON.stringify(calendar())}),capture:async()=>{process.stdout.write('ready\\n');while(!fs.existsSync(process.argv[2]))await new Promise(r=>setTimeout(r,10));return ${JSON.stringify(capture())};}}).then(r=>process.stdout.write(JSON.stringify(r)+'\\n')).catch(e=>{process.stderr.write(e.message);process.exitCode=1;});`;
@@ -199,4 +255,7 @@ test('two processes can fetch twice but CAS stores one immutable session complet
   assert.equal(results.filter(r=>r.results[0].published).length,1);assert.equal(read(root).counts.completed,1);
   assert.equal(read(root).counts.attempts,1);
  }finally{clearTimeout(timer);try{fs.unlinkSync(barrier);}catch{}for(const w of workers)if(w.child.exitCode===null&&w.child.signalCode===null)w.child.kill();}
-}));
+}
+test('two processes can fetch twice but CAS stores one immutable session completion across 20 publication races',async()=>{
+ for(let round=0;round<20;round++)await temporary(concurrentCompletion);
+});
