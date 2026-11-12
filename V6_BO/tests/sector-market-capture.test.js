@@ -17,6 +17,7 @@ function fixture(){
   stocks.push({code,pctChange:groups[j][i],vendorQuoteAt:end-5000});
  }
  const raw={schemaVersion:1,source:'baostock:query_stock_industry',
+  collectionMode:'current-provider-snapshot',historicalMembershipVerified:false,
   completed:true,standard:'证监会行业分类',updateDate:'2026-11-09',
   observedAt:start-60000,declaredRows:15,rows};
  const snapshot={source:'eastmoney-clist-unverified-live',date:day,
