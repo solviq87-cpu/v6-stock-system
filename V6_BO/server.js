@@ -21080,6 +21080,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
             ...(b.sellTaxBps===undefined?{}:{sellTaxBps:b.sellTaxBps}),
             ...(b.lotSize===undefined?{}:{lotSize:b.lotSize}),
             ...(b.tradingDates===undefined?{}:{tradingDates:b.tradingDates}),
+            ...(b.strictHistoricalStatus===undefined?{}:{strictHistoricalStatus:b.strictHistoricalStatus}),
             ...(b.maxParticipationPct===undefined?{}:{maxParticipationPct:b.maxParticipationPct}),
             ...(b.minPriorTurnover===undefined?{}:{minPriorTurnover:b.minPriorTurnover}),
             ...(b.maxDrawdownPausePct===undefined?{}:{maxDrawdownPausePct:b.maxDrawdownPausePct}),

@@ -79,6 +79,18 @@ test('old ledger selection cannot bypass historical membership by returning a fi
  const r=ledgerBacktest({stocks:[a,b],start:27,end:31,universeHistory:history,selectCandidates:()=>[b.symbol]});
  assert.equal(r.orders.filter(o=>o.side==='buy'&&o.status==='filled').length,0);
 });
+test('strict historical runs reject absent daily status and ignore later stock-level status',()=>{
+ const s=stock();
+ assert.throws(()=>run(s,{strictHistoricalStatus:true}),/逐日ST/);
+ assert.throws(()=>run(s,{strictHistoricalStatus:'true'}),/布尔/);
+ for(const b of s.bars)Object.assign(b,{isST:false,suspended:false,tradable:true});
+ const before=run(s,{strictHistoricalStatus:true});
+ assert.ok(before.orders.some(o=>o.status==='filled'));
+ Object.assign(s,{isST:true,suspended:true,tradable:false});
+ assert.deepEqual(run(s,{strictHistoricalStatus:true}),before);
+ delete s.bars[28].suspended;
+ assert.throws(()=>run(s,{strictHistoricalStatus:true}),/逐日ST/);
+});
 
 test('old ledger declares absent historical evidence instead of reporting verification',()=>{
  const s=stock();const r=run(s);

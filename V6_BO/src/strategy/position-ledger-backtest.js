@@ -12,12 +12,13 @@ const {applyResearchSettlements,validateSettlementTable}=require('../core/corpor
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const good=x=>finite(x)&&x>0;
 function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDays=1,
- feeBps=8,slippageBps=10,sellTaxBps=5,lotSize=100,source='imported',maxAgeMs=86400000,selectCandidates=null,strictMarks=true,tradingDates=null,maxParticipationPct=null,minPriorTurnover=null,maxDrawdownPausePct=null,maxDailyLossPausePct=null,feeSchedules=null,riskPolicy=null,universeHistory=null,settlements=null}={}){
+ feeBps=8,slippageBps=10,sellTaxBps=5,lotSize=100,source='imported',maxAgeMs=86400000,selectCandidates=null,strictMarks=true,strictHistoricalStatus=false,tradingDates=null,maxParticipationPct=null,minPriorTurnover=null,maxDrawdownPausePct=null,maxDailyLossPausePct=null,feeSchedules=null,riskPolicy=null,universeHistory=null,settlements=null}={}){
  validateSettlementTable(settlements);validateUniverseHistory(universeHistory);validateFeeSchedules(feeSchedules);validateEntryPolicy(riskPolicy);
  validateRiskLimits({maxDrawdownPausePct,maxDailyLossPausePct});
  const executionRisk={maxParticipationPct,minPriorTurnover};validateExecutionRisk(executionRisk);
  if(!Array.isArray(stocks)||!stocks.length)throw Error('需要历史K线股票池');
  if(selectCandidates!==null&&typeof selectCandidates!=='function')throw Error('选股函数必须是函数');
+ if(typeof strictHistoricalStatus!=='boolean')throw Error('逐日证券状态严格开关必须为布尔值');
  if(!good(initialCash)||![feeBps,slippageBps,sellTaxBps].every(x=>finite(x)&&x>=0&&x<10000)||
   !Number.isInteger(topN)||topN<1||!Number.isInteger(holdDays)||holdDays<1||!Number.isInteger(lotSize)||lotSize<1)
   throw Error('回测参数不合法');
@@ -26,6 +27,11 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
  for(const stock of stocks){const q=validateHistoricalBars(stock?.bars?.slice(0,stop+1));if(!q.usable)throw Error(`历史行情质量门禁拒绝 ${stock?.symbol||stock?.code||'unknown'}: ${q.errors.join('；')}`);}
  if(!Number.isInteger(start)||start<27||!Number.isInteger(stop)||stop<=start)throw Error('历史数据不足');
  assertAligned(stocks,stop,tradingDates);
+ // Legacy research may declare only current status. Strict historical runs may
+ // never borrow it: missing daily flags reject the dataset before any fills.
+ if(strictHistoricalStatus&&stocks.some(s=>s.bars.slice(0,stop+1).some(b=>
+  typeof b.date!=='string'||!['isST','suspended','tradable'].every(k=>typeof b[k]==='boolean'))))
+  throw Error('严格历史研究需要带日期的逐日ST、停牌及可交易状态');
  const byCode=new Map();
  for(const s of stocks){const code=String(s.symbol||s.code||'').trim();if(!code||byCode.has(code))throw Error('股票代码缺失或重复');byCode.set(code,s);}
  let cash=initialCash,positions=new Map(),lastMarks=new Map(),pending=[],trades=[],orders=[],equity=[],warnings=[];
@@ -130,6 +136,7 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
  const historicalEvidence={dates:used.every(b=>b.date)?'aligned-dated':'undated-legacy',
   calendar:tradingDates?'provided-unverified':'unverified',universe:universeHistory?'point-in-time-declared-unverified':'legacy-unverified',
   securityStatus:used.every(b=>['isST','suspended','tradable'].every(k=>typeof b[k]==='boolean'))?'bar-declared-unverified':'unverified-stock-fallback',
+  strictHistoricalStatus,
   priceBasis:used.every(b=>b.priceBasis==='unadjusted')?'declared-unadjusted':'unknown',
   corporateActions:stocks.every(s=>s.corporateActionsVerified===true)?'declared-unverified':'unknown',
   factors:'historical-bar-prefix-only; untimed bar factors remain unverified'};

@@ -66,3 +66,15 @@
 本批合成回归只证明约束和账本一致性，没有把真实数据验收标为完成。
 
 回滚使用本提交的 `git revert`，不要以旧压缩包覆盖当前开发分支。
+
+## 集成复核补充
+
+公开战法远期审计 `public-rule-forward-audit.js` 同样约束双向滑点到该执行日的涨跌停边界，
+不把未触板的开盘价加滑点后变成制度外成交价。新增实际命中规则的买卖边界反例在修复前失败，
+修复后该文件 10 项通过；记录 `forward-limit-before.tap`、`forward-limit-targeted.tap`。
+
+原 scanner 账本和实际 HTTP `/api/research/ledger` 增加显式 `strictHistoricalStatus:true`。
+开启后，使用区间内任一天缺少日期或逐日 `isST/suspended/tradable` 布尔状态都拒绝运行，
+不能用股票级当前状态填补。此模式是后续真实历史数据验收的必要条件之一，
+不是证券资格、公司行为或供应商真实性认证。旧输入默认继续兼容研究，仍披露
+`unverified-stock-fallback`，其状态变化可能影响历史结果，不能当作已消除这类时间泄漏。

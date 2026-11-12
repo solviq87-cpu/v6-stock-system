@@ -67,6 +67,15 @@ test('actual legacy research HTTP route enforces historical dates, membership an
  assert.ok(allowed.result.orders.filter(o=>o.status==='filled').every(o=>o.shares<=100));
  const malformed=await post({...payload,maxParticipationPct:101});
  assert.equal(malformed.ok,false);assert.match(malformed.error,/参与率/);
+ const strictMissing=await post({...payload,strictHistoricalStatus:true});
+ assert.equal(strictMissing.ok,false);assert.match(strictMissing.error,/逐日ST/);
+ const strictStock=structuredClone(stock);
+ for(const b of strictStock.bars)Object.assign(b,{isST:false,suspended:false,tradable:true});
+ Object.assign(strictStock,{isST:true,suspended:true,tradable:false});
+ const strict=await post({...payload,stocks:[strictStock],strictHistoricalStatus:true});
+ assert.equal(strict.ok,true,JSON.stringify(strict));
+ assert.equal(strict.result.dataProvenance.historicalEvidence.strictHistoricalStatus,true);
+ assert.ok(strict.result.orders.some(o=>o.status==='filled'));
  const misdated=structuredClone(stock);misdated.symbol='000001';
  misdated.bars=misdated.bars.map(b=>({...b,date:new Date(Date.parse(b.date)+86400000).toISOString().slice(0,10)}));
  const misaligned=await post({...payload,stocks:[stock,misdated]});
