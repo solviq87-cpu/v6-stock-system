@@ -9264,7 +9264,8 @@ function pushAll(text, force, opts) {
   text = redactSecrets(text);   // ⛔ 凭据闸门：密码/令牌一律不许出网（2026-10-02）
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
-  const _extra = base => Object.assign({}, base, { extra: { codes: _codes } });
+  const _extra = base => Object.assign({}, base, { extra: { codes: _codes,
+    signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts })) : [] } });
   // ⛔ 2026-10-02 改：以前 essential=true 会让【副本实例也照发】（本意是"找回密码不能被副本吞掉"），
   //    实际后果是本地开发副本往用户手机狂发：找回验证码 44 条、只读申请、重置通知……
   //    这些全是用户在【线上】面板触发的动作，线上(primary)实例自己会发，副本没有任何理由插手。
@@ -9801,6 +9802,8 @@ function flushIntraday() {
   if (list.length) {
     list.sort((x, y) => (ALERT_RANK[x.type] ?? 9) - (ALERT_RANK[y.type] ?? 9) || alertScore(y) - alertScore(x));
     const top = list.slice(0, INTRADAY_MAX_ITEMS);
+    // Persist only the exact signals included in this batch, never omitted rows.
+    opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts }));
     // ⛔ 缓冲区是 (信号类型:代码) 键的 Map —— 同一只票在「涨停」与「大单流入」两个模块下各占一条。
     //    所以 list.length 是**信号条数**，不是股票只数；文案里那个"只"必须数去重后的代码。
     //    （旧写法直接把条数当只数报，命中 5 条里若有 1 只占两条，用户读到的是"共命中 5 只"—— 只有 4 只票。）

@@ -13,7 +13,7 @@ const FACTOR_CATALOG=(Array.isArray(factorPack?.factors)?factorPack.factors:[])
  .map(x=>({id:text(x.id),field:text(x.field),label:text(x.label||x.field),weight:number(x.weight)}))
  .filter(x=>x.field);
 const FACTOR_FIELDS=FACTOR_CATALOG.map(x=>x.field);
-const PUSH_SENT_RE=/^(?:✅)|送达结果未知/;
+const PUSH_SENT_RE=/^(?:✅)/;
 const PUSH_FAILED_RE=/^(?:❌|🚫|⚠️|🔒|夜间静默|副本拦截|↩️)|未送达|拒收|未配置|闸门|拦截/;
 
 function factorValuesOf(row){
@@ -68,12 +68,14 @@ function pushLogIndex(pushLog){
   const codes=Array.isArray(item?.extra?.codes)?item.extra.codes.filter(isCode):[];
   if(!codes.length||normalized.ts===null)continue;
   const historyEntry={
+   signalRefs:Array.isArray(item?.extra?.signalRefs)?item.extra.signalRefs:[],
    ts:normalized.ts,
    status:normalized.status,
    title:normalized.title,
    note:normalized.note,
    channel:normalized.channel,
    sent:normalized.sent,
+   unknown:normalized.status.includes('送达结果未知'),
    failed:normalized.failed
   };
   for(const code of codes){
@@ -114,14 +116,12 @@ function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallba
  return {id:text(id),label:text(label),value:actual,threshold:gate,operator:text(operator),satisfied,reason:text(reason),source:text(source),updatedAt:number(updatedAt)};
 }
 
-function stageOfSignal(signalRow,pushRecord,candidateRow,pushLast,now){
+function stageOfSignal(signalRow,pushRecord,candidateRow,now){
  const ts=number(signalRow?.ts)||0;
  const age=ts>0?Math.max(0,now-ts):Infinity;
  if(pushRecord?.sent)return {state:'sent',reason:'已存在可核验的发送记录'};
  if(pushRecord?.failed)return {state:'failed',reason:pushRecord.note||pushRecord.status||'发送未完成'};
- if(pushLast&&pushLast.sent===null&&number(pushLast.t)!==null&&number(pushLast.t)>=ts&&age<=5*60*1000){
-  return {state:'pending',reason:text(pushLast.why)||'等待通道回执'};
- }
+ if(pushRecord?.unknown)return {state:'pending',reason:'送达结果未知，不能确认发送成功'};
  if(age>6*60*60*1000&&(!candidateRow||candidateRow.price==null)){
   return {state:'expired',reason:'信号窗口已过且当前候选池无对应行情'};
  }
@@ -132,7 +132,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
  const signals=Array.isArray(state?.signals)?state.signals:[];
  const pushLast=pushMeta&&typeof pushMeta==='object'?pushMeta.pushLast:null;
  const pushGov=pushMeta&&typeof pushMeta==='object'?pushMeta.pushGov:null;
- const {latestByCode:pushByCode,historyByCode}=pushLogIndex(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
+ const {historyByCode}=pushLogIndex(pushMeta&&typeof pushMeta==='object'?pushMeta.pushLog:[]);
  const items=[];
  const seenSignalCode=new Set();
  const signalsByCode=new Map();
@@ -149,8 +149,16 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   if(!sig)continue;
   seenSignalCode.add(code);
   const row=poolByCode.get(code)||null;
-  const pushRecord=pushByCode.get(code)||null;
-  const stage=stageOfSignal(sig,pushRecord,row,pushLast,now);
+  // A stock's earlier receipt cannot acknowledge a later signal. Keep it in
+  // history, but require a non-future receipt after this trigger for its status.
+  const signalAt=number(sig?.ts);
+  const pushRecord=signalAt!==null&&signalAt>0&&signalAt<=now
+   ?(historyByCode.get(code)||[]).find(record=>record.ts>=signalAt&&record.ts<=now&&record.signalRefs.some(ref=>
+     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt))||null:null;
+  const quote=number(row?.price)!==null?row:sig;
+  const signalValidity=signalAt===null||signalAt<=0||signalAt>now?'unknown'
+   :now-signalAt>6*60*60*1000?'invalid':'active';
+  const stage=stageOfSignal(sig,pushRecord,row,now);
   const signalProb=number(sig?.riseProb)??number(sig?.prob);
   const probThreshold=number(pushGov?.minProb);
   const conditions=[
@@ -181,10 +189,10 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    code,
    name:text(sig?.name||row?.name||code),
    sector:text(sig?.sector||row?.sector||row?.industry||''),
-   price:number(sig?.price)??number(row?.price),
-   pct:number(sig?.pct)??number(row?.pct),
-   quoteAt:number(row?.quoteAt)||number(state?.stocksAt)||number(sig?.ts),
-   quoteSource:text(row?.quoteSource||'候选快照'),
+   price:number(quote?.price),
+   pct:number(quote?.pct),
+   quoteAt:number(quote?.quoteAt),
+   quoteSource:text(quote?.quoteSource||''),
    triggerStrategy:text(sig?.type||'未标注策略'),
    triggerAt:number(sig?.ts),
    pushAt:pushRecord&&pushRecord.ts!==null?pushRecord.ts:null,
@@ -192,19 +200,19 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    pushChannel:text(pushRecord?.channel||''),
    pushNote:text(pushRecord?.note||''),
    rawMessage:text(sig?.msg||''),
-    volume:number(sig?.volume)??number(row?.volume),
-    amount:number(sig?.amount)??number(row?.amount),
-    turnover:number(sig?.turnover)??number(row?.turnover),
-    mainInflow:number(sig?.mainInflow)??number(row?.mainInflow),
-    mainPct:number(sig?.mainPct)??number(row?.mainPct),
-    dataSource:text(sig?.source||row?.quoteSource||'state.signals'),
+    volume:number(quote?.volume),
+    amount:number(quote?.amount),
+    turnover:number(quote?.turnover),
+    mainInflow:number(quote?.mainInflow),
+    mainPct:number(quote?.mainPct),
+    dataSource:text(quote?.quoteSource||quote?.source||''),
     strategyVersion:text(pushMeta?.strategyVersion||state?.strategyVersion||''),
     riskLevel:row?.bad===true?'high':'unknown',
     stopLossRule:text(sig?.stopLoss||'待验证'),
     invalidationRule:text(sig?.invalidWhen||'待验证'),
-    signalValidity:stage.state==='expired'||stage.state==='failed'?'invalid':'active',
+    signalValidity,
     signalHistory,
-    duplicateSignalCount:Math.max(0,grouped.length-1),
+    duplicateSignalCount:grouped.length-new Set(grouped.map(entry=>text(entry?.type))).size,
     pushHistory:historyByCode.get(code)||[],
    conditions,
    conditionsSummary:{met,total:validN,label:`条件满足 ${met}/${validN}`},
@@ -240,7 +248,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
    sector:text(row.sector||''),
    price:number(row.price),
    pct:number(row.pct),
-   quoteAt:number(row.quoteAt)||number(state?.stocksAt)||null,
+   quoteAt:number(row.quoteAt),
    quoteSource:text(row.quoteSource||'候选快照'),
    triggerStrategy:'候选观察',
    triggerAt:null,
