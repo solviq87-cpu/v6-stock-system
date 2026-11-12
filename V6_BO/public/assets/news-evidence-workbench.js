@@ -27,21 +27,25 @@
  if(typeof module==='object'&&module.exports)module.exports={allowedUrl,clock,render};
  if(!root.document)return;
  const doc=root.document,button=doc.getElementById('newsEvidenceLoad');if(!button)return;
- const token=doc.getElementById('token'),status=doc.getElementById('newsEvidenceStatus'),rows=doc.getElementById('newsEvidenceRows');let generation=0;
- const clear=()=>{generation++;rows.replaceChildren();status.textContent='尚未查询';};
- token?.addEventListener('input',clear);
+ const token=doc.getElementById('token'),symbolInput=doc.getElementById('newsEvidenceSymbol'),status=doc.getElementById('newsEvidenceStatus'),rows=doc.getElementById('newsEvidenceRows');let generation=0;
+ const clear=()=>{generation++;rows.replaceChildren();status.textContent='尚未查询';button.disabled=false;};
+ for(const input of [token,symbolInput])for(const event of ['input','change'])input?.addEventListener(event,clear);
+ doc.addEventListener('visibilitychange',()=>{if(doc.hidden)clear();});
+ root.addEventListener?.('pagehide',clear);
+ root.addEventListener?.('offline',clear);
  button.addEventListener('click',async()=>{
-  const g=++generation,secret=token?.value.trim()||'',symbol=doc.getElementById('newsEvidenceSymbol').value.trim();
+  const g=++generation,secret=token?.value.trim()||'',symbol=symbolInput.value.trim();
+  const active=()=>g===generation&&secret===(token?.value.trim()||'')&&symbol===symbolInput.value.trim()&&!doc.hidden;
   rows.replaceChildren();status.textContent='读取新闻证据…';button.disabled=true;
   try{
    if(symbol&&!/^\d{6}$/.test(symbol))throw Error('请输入六位证券代码');
    const response=await fetch('/api/research/news-evidence'+(symbol?'?symbol='+encodeURIComponent(symbol):''),{
     headers:secret?{Authorization:'Bearer '+secret}:{},cache:'no-store'});
    const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'权限不足或证据不可用');
-   if(g!==generation||secret!==(token?.value.trim()||''))return;
+   if(!active())return;
    render(doc,rows,data.result);const s=data.result.summary;
    status.textContent=s.currentEvents?'当前事件 '+s.currentEvents+' · 已撤稿 '+s.retractedEvents+' · 未知 '+s.unknownEvents+' · 完整来源声明 '+s.eligibleForResearchSupport:'暂无已归档新闻；不能据此断言无风险';
-  }catch(e){if(g===generation){rows.replaceChildren();status.textContent='证据未知：'+e.message;}}
-  finally{button.disabled=false;}
+  }catch(e){if(active()){rows.replaceChildren();status.textContent='证据未知：'+e.message;}}
+  finally{if(active())button.disabled=false;}
  });
 })(typeof window==='object'?window:globalThis);
