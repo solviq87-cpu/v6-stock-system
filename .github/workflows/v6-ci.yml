@@ -4,7 +4,7 @@ on:
     branches: [main, dev]
   pull_request:
     # Stacked correctness PRs must run the same gates before reaching dev.
-    branches: [main, dev, "feat/**"]
+    branches: [main, dev, "feat/**", "chore/**"]
   workflow_dispatch:
 
 jobs:
@@ -61,6 +61,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Block OpenAI and ChatGPT runtime API dependencies
+        id: noopenai
+        working-directory: .
+        run: python scripts/audit-no-openai-runtime.py
       - name: Verify archived source intake guards (offline fixtures only)
         id: archivecheck
         working-directory: .
@@ -97,6 +101,7 @@ jobs:
       - name: Record backend CI evidence in workflow summary
         if: always()
         env:
+          NO_OPENAI_RESULT: ${{ steps.noopenai.outcome }}
           ARCHIVE_RESULT: ${{ steps.archivecheck.outcome }}
           SOURCE_RESULT: ${{ steps.sourcecheck.outcome }}
           EIGHT_RESULT: ${{ steps.eightpointcheck.outcome }}
@@ -110,6 +115,7 @@ jobs:
             echo ""
             echo "| 门禁 | 结果 |"
             echo "| --- | --- |"
+            echo "| OpenAI/ChatGPT 生产 API 依赖禁入 | $NO_OPENAI_RESULT |"
             echo "| 历史完整包接收工具及拒绝边界 | $ARCHIVE_RESULT |"
             echo "| 语法与完整回归 | $SOURCE_RESULT |"
             echo "| 八项一体化证据、风控与网页显示回归 | $EIGHT_RESULT |"

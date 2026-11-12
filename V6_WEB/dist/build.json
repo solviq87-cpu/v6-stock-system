@@ -1,8 +1,9 @@
 {
   "app": "V6 browser research",
-  "version": "20261108strategy1",
+  "version": "20261113provider-neutral",
   "engineSource": "solviq87-cpu/v6-stock-system@6bead0b78792323848a16806f2d3115171127095",
   "mode": "local-browser-research",
+  "deployment": "provider-neutral",
   "liveMarket": false,
   "serverModelTraining": false
 }
