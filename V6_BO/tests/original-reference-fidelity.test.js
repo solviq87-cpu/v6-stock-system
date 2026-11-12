@@ -29,6 +29,7 @@ test('mobile narrow landscape: 3 index tiles then readable mood/environment/risk
  assert.match(css,/\.vx-market-strip>.*?vx-mood.*?grid-column:span 3/s);
  assert.match(css,/\.vx-market-strip>.*?vx-environment.*?grid-column:span 3/s);
  assert.match(css,/\.vx-market-strip>.*?vx-risk-panel.*?grid-column:1\/-1/s);
+ assert.match(css,/\.vx-market-strip>.*?vx-push-panel.*?order:4.*?grid-column:1\/-1/s);
  assert.match(css,/\.vx-risk-panel dl>div.*?font-size:11px/s);
  assert.doesNotMatch(css,/\.vx-risk-panel\s*\{\s*display:none/);
 });
