@@ -93,7 +93,9 @@ async function installPolicyFixture(page) {
     const stock = (symbol, patch = {}) => ({ symbol, name: '隔离测试科技', sector: '计算机', sectorNode: 'sw1_710000', sectorSource: 'isolated-fixture-classification', sectorUpdatedAt: time, sectorClassificationKnown: true, price: 10, previousClose: 9.8, change: 2, volume: 1e6, amount: 1e8, turnover: 3, marketCap: 1e10, floatMarketCap: 5e9, pe: 10, pb: 1, ma5: 10, ma20: 9, momentum: 8, dayVolumeRatio: 1.5, volatility: 1, providerTime: time, providerDateKnown: true, receivedAt: time, fetchedAt: time, historyGap: false, historyAsOfDate: '2026-11-13', source: 'isolated-public-fixture', ...patch });
     const snapshot = { schemaVersion: 2, source: 'isolated-public-fixture', fetchedAt: time, providerTime: time, stocks: [stock('600001'), stock('600002', { name: '隔离对照科技', marketCap: 2e10, price: 11, pe: 12, pb: 1.2, ma5: 10.5, ma20: 10, momentum: 7, dayVolumeRatio: 1.3 })], universe: { count: 2, complete: true }, indices: [] };
     const realMarket = window.V6Market;
-    window.V6Market = { ...realMarket, snapshot, universe: snapshot.universe };
+    // Keep stock-click UI behavior, but never let its real-market closure
+    // publish a different (empty) quote pool into this news-only fixture.
+    window.V6Market = { ...realMarket, snapshot, universe: snapshot.universe, loadSeries: async () => [] };
     window.V6Core.setMarketData(snapshot);
     window.__newsPolicyFixture = { snapshot, state: window.V6Core.createDefaultState(), marketDataVersion: window.V6Core.marketDataVersion };
     window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -141,7 +143,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       assert.equal(await pool.locator('img,script').count(), 0, 'news content became executable markup');
       assert.equal(await page.evaluate(() => window.__newsXss), undefined);
       assert.deepEqual(await pool.locator('a[href]').evaluateAll(links => links.map(link => link.getAttribute('href')).filter(href => /^(?:javascript|data):/i.test(href || ''))), []);
-      const initial = await installPolicyFixture(page);
+      let initial = await installPolicyFixture(page);
       assert.equal(initial.risk.status, 'checked'); assert.deepEqual(initial.items, ['600001']);
       assert.equal(initial.quoteObservation?.ok, true, 'news cache test began with a quote already rejected by the source clock');
       assert.equal(initial.quoteObservation.code, 'latest-close-observation');
@@ -151,6 +153,11 @@ test('news pool controls, real candidate caches and source failures are safe in 
       assert.match(await directLink.innerText(), /隔离测试科技/, 'direct association lost the supplied stock name');
       await directLink.click();
       await page.waitForFunction(() => document.querySelector('.tj-linkage')?.textContent.includes('600001'));
+      await page.waitForFunction(version => window.V6Core.marketDataVersion > version, initial.version);
+      // Focus selection legitimately re-applies its quote snapshot. Start the
+      // unchanged-market cache assertions only after that work has completed.
+      initial = await installPolicyFixture(page);
+      assert.deepEqual(initial.items, ['600001']);
       const ledgerBefore = f.records.find(record => record.name === 'v6.app.state')?.content;
       assert.equal(typeof ledgerBefore, 'string', 'fixture account was never created');
       const ledgerWritesBefore = f.ledgerWrites;
