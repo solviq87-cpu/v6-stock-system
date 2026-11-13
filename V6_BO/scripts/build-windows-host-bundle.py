@@ -17,6 +17,7 @@ PRIVATE_PARTS = {'data', 'durable', '.git', 'node_modules', '__pycache__', '.kli
 PRIVATE_FILES = {'config.json', 'access.json', 'holdings.json', 'paper.json', 'pushlog.json',
                  'stats.json', 'changes_state.json', '.holdings_ops.json'}
 SUFFIXES = {'.sh', '.js', '.ps1', '.cmd', '.md', '.json'}
+CONTROL_DIR = 'deploy/windows-host'
 SHA = re.compile(r'[a-f0-9]{40}')
 CI = re.compile(r'https://github\.com/solviq87-cpu/v6-stock-system/actions/runs/[0-9]+')
 
@@ -58,15 +59,32 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
     if git(repo, 'rev-parse', '--verify', sha + '^{commit}').decode().strip() != sha:
         raise ValueError('source-is-not-exact-commit')
     output, controls = Path(output), Path(controls)
+    if controls.absolute() != (Path(repo) / 'V6_BO' / CONTROL_DIR).absolute():
+        raise ValueError('controls-must-use-source-commit')
     if output.exists() or output.is_symlink():
         raise ValueError('output-already-exists')
     archive = git(repo, 'archive', '--format=tar', sha + ':V6_BO')
     if len(archive) > 128 * 1024 * 1024:
         raise ValueError('source-archive-too-large')
-    payload = {}
+    payload, launchers = {}, {}
     with tarfile.open(fileobj=io.BytesIO(archive)) as source:
         for entry in source:
             name = str(safe_path(entry.name.rstrip('/')))
+            if name == CONTROL_DIR and entry.isdir():
+                continue
+            if name.startswith(CONTROL_DIR + '/'):
+                control = name[len(CONTROL_DIR) + 1:]
+                if ('/' in control or not entry.isfile() or
+                        PurePosixPath(control).suffix not in SUFFIXES or entry.size > 256 * 1024):
+                    raise ValueError('invalid-control-file')
+                data = source.extractfile(entry).read()
+                if len(data) != entry.size:
+                    raise ValueError('source-size-mismatch')
+                # Windows line endings are the only transformation of Git bytes.
+                if PurePosixPath(control).suffix in {'.ps1', '.cmd'}:
+                    data = data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+                launchers[control] = data
+                continue
             if not selected(name):
                 continue
             if entry.isdir():
@@ -84,21 +102,13 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
     files = {'payload/' + p: data for p, data in payload.items()}
     required = {'init.sh', 'start.sh', 'check.sh', 'stop.sh', 'host-runtime.js', 'install-node.sh',
                 'windows-host.ps1', 'START.cmd', 'README.zh-CN.md'}
-    if not controls.is_dir() or controls.is_symlink():
-        raise ValueError('controls-unavailable')
-    for file in controls.iterdir():
-        if file.is_symlink() or not file.is_file() or file.suffix not in SUFFIXES or file.stat().st_size > 256 * 1024:
-            raise ValueError('invalid-control-file')
-        data = file.read_bytes()
-        if file.suffix in {'.ps1', '.cmd'}:
-            data = data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
-        files[str(safe_path(file.name))] = data
+    files.update(launchers)
     if not required.issubset(files):
         raise ValueError('required-controls-missing')
     manifest = {'schemaVersion': 1, 'sourceSha': sha,
                 'files': [{'path': p, 'sha256': hashlib.sha256(data).hexdigest()} for p, data in sorted(payload.items())]}
     files['manifest.json'] = (json.dumps(manifest, ensure_ascii=True, indent=2) + '\n').encode()
-    files['source.json'] = (json.dumps({'sourceSha': sha, 'ciUrl': ci_url,
+    files['source.json'] = (json.dumps({'sourceSha': sha, 'controlsSourceSha': sha, 'ciUrl': ci_url,
                                       'scope': 'windows-wsl-local-backend', 'productionDeployed': False,
                                       'accountMigrationPerformed': False}, indent=2) + '\n').encode()
     if len({p.casefold() for p in files}) != len(files):
