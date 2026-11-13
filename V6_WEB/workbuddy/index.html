@@ -689,7 +689,7 @@ function writePrivateBudget(key,value){try{const raw=JSON.stringify(value);if(ra
 function sourceFamily(url){const host=new URL(url).hostname.toLowerCase();if(['gtimg.cn','gtimg.com','qq.com'].some(d=>host===d||host.endsWith('.'+d)))return 'tencent';if(['sina.com.cn','sina.cn','sinajs.cn'].some(d=>host===d||host.endsWith('.'+d)))return 'sina';if(host==='eastmoney.com'||host.endsWith('.eastmoney.com'))return 'eastmoney';throw rateError('RATE_UNKNOWN_SOURCE','未知供应商，未执行外采');}
 function requireCollection(sessionBound=true){
  syncMarketSession();
- if(!collectionRequested||root.document?.hidden)throw rateError('COLLECTION_PAUSED','采集已暂停，当前显示缓存');
+ if(!collectionRequested||root.document?.hidden||root.navigator?.onLine===false)throw rateError('COLLECTION_PAUSED','采集已暂停，当前显示缓存');
  const session=marketSessionAt();if(sessionBound&&!session.open)throw rateError('MARKET_SESSION_CLOSED',session.label,{session});
  if(!root.navigator?.locks?.request)throw rateError('RATE_LOCK_UNAVAILABLE','此浏览器不支持跨标签页采集锁，已停止外采');
 }
@@ -698,7 +698,7 @@ function stopCollectionWork(){collectionController.abort();for(const c of active
 function syncMarketSession(){
  if(sessionSyncing)return;sessionSyncing=true;
  try{
-  const session=marketSessionAt(),enabled=collectionRequested&&!root.document?.hidden&&session.open,changed=enabled!==collectionEnabled;
+  const session=marketSessionAt(),enabled=collectionRequested&&!root.document?.hidden&&root.navigator?.onLine!==false&&session.open,changed=enabled!==collectionEnabled;
   if(changed&&!enabled)stopCollectionWork();
   collectionEnabled=enabled;state.collectionEnabled=enabled;state.collectionRequested=collectionRequested;state.marketSession=session;
   if(collectionRequested){state.collectionPauseReason=enabled?null:session.label;state.phase=enabled?'ready':'session-closed';}
@@ -785,12 +785,12 @@ function readAutoPreference(){
 function writeAutoPreference(enabled){readAutoPreference();try{root.localStorage.setItem(AUTO_PREF_KEY,JSON.stringify({schemaVersion:1,enabled}));}catch(e){throw rateError('RATE_STORAGE_UNAVAILABLE','自动扫描偏好无法保存，已停止扫描');}}
 function initializeAutoCollection(){if(readAutoPreference())return resumeCollection();pauseCollection('手动暂停已保留',{persist:false});return current;}
 function resumeCollection(){
- if(root.document?.hidden)throw rateError('COLLECTION_PAUSED','请在页面前台继续采集');
+ if(root.document?.hidden||root.navigator?.onLine===false)throw rateError('COLLECTION_PAUSED','请在联网的页面前台继续采集');
  if(!root.navigator?.locks?.request)throw rateError('RATE_LOCK_UNAVAILABLE','浏览器不支持跨标签页采集锁，请使用受控云端采集');
  readPrivateBudget(RATE_KEY);readPrivateBudget(HISTORY_KEY);writeAutoPreference(true);collectionController=new AbortController();collectionRequested=true;syncMarketSession();notify();return current;
 }
 function pauseCollection(reason='手动暂停',{persist=reason==='手动暂停'}={}){
- collectionRequested=false;collectionEnabled=false;state.collectionRequested=false;state.collectionEnabled=false;state.collectionPauseReason=reason;state.phase='paused';clearTimeout(sessionTimer);sessionTimer=null;stopCollectionWork();if(persist){try{writeAutoPreference(false);}catch(e){state.preferenceError=e.message;state.collectionPauseReason=reason+'；'+e.message;}}notify();return current;
+ collectionRequested=false;syncMarketSession();collectionEnabled=false;state.collectionRequested=false;state.collectionEnabled=false;state.collectionPauseReason=reason;state.phase='paused';clearTimeout(sessionTimer);sessionTimer=null;stopCollectionWork();if(persist){try{writeAutoPreference(false);}catch(e){state.preferenceError=e.message;state.collectionPauseReason=reason+'；'+e.message;}}notify();return current;
 }
 
 async function publicFetch(url,{signal,timeout=16000}={}){
@@ -2185,10 +2185,17 @@ function startMarket(){
  };
  window.V6Market.subscribeSession(sessionChanged);
  window.V6Market.subscribe(snapshot=>{sessionChanged();if(snapshot?.stocks)acceptMarket(snapshot);});
- if(SHARE)try{window.V6Market.initializeAutoCollection();}catch(e){marketError=e.message;window.V6Market.pauseCollection(e.message,{persist:false});}
+ restoreDeviceCollection();
  updateMarketStatus();
 }
 
+// Device lifecycle is temporary; only the explicit pause button changes preference.
+function restoreDeviceCollection(){
+ if(!marketStarted||!SHARE||document.hidden||window.navigator?.onLine===false)return;
+ if(!window.V6Market.status.collectionRequested)try{window.V6Market.initializeAutoCollection();}
+ catch(e){marketError=e.message;window.V6Market.pauseCollection(e.message,{persist:false});}
+ updateMarketStatus();
+}
 function pauseMarketCollection(reason='手动暂停'){
  window.V6Market.pauseCollection(reason);clearTimeout(quoteTimer);clearTimeout(fullScanTimer);clearTimeout(battleTimer);battleTimer=null;battleController?.abort();updateMarketStatus();renderMarketSafely();
 }
@@ -2532,8 +2539,10 @@ document.addEventListener('submit',async event=>{
 });
 $('#trade-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
 window.addEventListener('hashchange',route);
-window.addEventListener('online',()=>{refreshMarket();if(!cloud)initialize();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseMarketCollection('后台页面已暂停');else updateMarketStatus();});
+window.addEventListener('online',()=>{restoreDeviceCollection();if(!cloud)initialize();});
+window.addEventListener('offline',()=>pauseMarketCollection('网络断开，保留缓存'));
+window.addEventListener('pageshow',restoreDeviceCollection);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseMarketCollection('后台页面已暂停');else restoreDeviceCollection();});
 document.addEventListener('focusout',()=>{if(marketDirty)setTimeout(()=>{if(!document.activeElement?.matches('input,select,textarea'))renderMarketSafely();},0);});
 view=navs.some(n=>n[0]===location.hash.slice(1).split('?')[0])?location.hash.slice(1).split('?')[0]:'home';initializeUniverse().then(initializeClassifications).then(initialize).then(startMarket).then(initializeBattle);
 })();

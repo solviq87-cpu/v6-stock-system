@@ -23,6 +23,49 @@ function installActualBoot(h){
  c.startMarket();
 }
 
+function lifecycle(h){
+ const c=h.c,events={};c.addEventListener=(n,fn)=>events[n]=fn;c.document.addEventListener=c.addEventListener;
+ Object.assign(c,{cloud:true,initialize(){},renderMarketSafely(){}});installActualBoot(h);
+ const a=html.indexOf('function pauseMarketCollection('),b=html.indexOf('async function toggleMarketCollection(',a);
+ vm.runInContext(html.slice(a,b),c);
+ for(const name of ['online','offline','pageshow','visibilitychange']){
+  const line=html.split('\n').find(s=>s.startsWith((name==='visibilitychange'?'document':'window')+".addEventListener('"+name+"',"));
+  assert.ok(line);vm.runInContext(line,c);
+ }
+ return events;
+}
+test('independent devices restore foreground refresh once and retain manual pause',()=>{
+ const phone=harness(),pc=harness(),p=lifecycle(phone),d=lifecycle(pc);
+ pc.c.document.hidden=true;d.visibilitychange();assert.equal(phone.api.status.collectionEnabled,true);
+ phone.c.document.hidden=true;p.visibilitychange();phone.c.document.hidden=false;p.visibilitychange();
+ assert.equal(phone.c.refreshCount,2);p.pageshow();p.online();assert.equal(phone.c.refreshCount,2);
+ phone.c.pauseMarketCollection();p.pageshow();p.online();assert.equal(phone.api.status.collectionRequested,false);
+ assert.equal(JSON.parse(phone.storage.get('v6:scan-auto-preference:v1')).enabled,false);
+ assert.equal(phone.calls.length+pc.calls.length,0);
+});
+test('offline stops transport; recovery needs connectivity, foreground and valid access',async()=>{
+ const h=harness(),e=lifecycle(h);h.c.navigator.onLine=false;e.offline();
+ assert.equal(h.api.status.collectionEnabled,false);await assert.rejects(h.api.publicFetch('https://qt.gtimg.cn/q=sh600000'));
+ assert.throws(()=>h.api.resumeCollection());h.c.document.hidden=true;h.c.navigator.onLine=true;e.online();
+ assert.equal(h.api.status.collectionRequested,false);h.c.document.hidden=false;e.visibilitychange();assert.equal(h.api.status.collectionEnabled,true);
+ h.c.document.hidden=true;e.visibilitychange();h.c.SHARE='';h.c.document.hidden=false;e.visibilitychange();assert.equal(h.api.status.collectionRequested,false);
+ assert.equal(h.calls.length,0);
+});
+test('foreground recovery preserves session and damaged-preference gates',()=>{
+ for(const date of ['2026-11-13T15:12:00','2026-11-14T10:00:00','2027-01-04T10:00:00']){
+  const h=harness(date),e=lifecycle(h);h.c.document.hidden=true;e.visibilitychange();h.c.document.hidden=false;e.visibilitychange();
+  assert.equal(h.api.status.collectionEnabled,false);assert.equal(h.c.refreshCount,0);
+ }
+ const h=harness(),e=lifecycle(h);h.c.document.hidden=true;e.visibilitychange();h.storage.set('v6:scan-auto-preference:v1','broken');
+ h.c.document.hidden=false;e.visibilitychange();assert.equal(h.api.status.collectionEnabled,false);
+});
+test('initially hidden or offline devices start when they become available',()=>{
+ for(const kind of ['hidden','offline']){
+  const h=harness();if(kind==='hidden')h.c.document.hidden=true;else h.c.navigator.onLine=false;
+  const e=lifecycle(h);assert.equal(h.c.refreshCount,0);h.c.document.hidden=false;h.c.navigator.onLine=true;e.pageshow();assert.equal(h.c.refreshCount,1);
+ }
+});
+
 test('scan scheduling calendar exactly matches the existing explicit 2026 repository calendar',()=>{
  const h=harness(),raw=fs.readFileSync(path.resolve(__dirname,'../config/research-calendar-2026.json')),calendar=JSON.parse(raw);
  assert.equal(h.api.scanCalendar.sha256,crypto.createHash('sha256').update(raw).digest('hex'));
