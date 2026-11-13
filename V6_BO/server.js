@@ -1103,17 +1103,7 @@ function betaWindowOpen() {
 async function fetchMarketBeta(opt) {
   if (!(opt && opt.force) && !betaWindowOpen()) return null;   // 非数据时段不落库，宁缺勿错
   try {
-    const https = require('https');
-    const ag = new https.Agent({ keepAlive: false, maxSockets: 4, family: 4 });
-    const txt = await new Promise((resolve, reject) => {
-      const rq = https.get('https://qt.gtimg.cn/q=s_sh000001,s_sz399001,s_sz399006', { ag,
-        headers: { 'User-Agent': 'Mozilla/5.0', Connection: 'close' } }, s => {
-        const cs = []; s.on('data', c => cs.push(c));
-        s.on('end', () => resolve(new TextDecoder('gbk').decode(Buffer.concat(cs))));
-      });
-      rq.on('error', reject);
-      rq.setTimeout(15000, () => { rq.destroy(); reject(new Error('timeout')); });
-    });
+    const txt = new TextDecoder('gbk').decode(await em.requestQuoteBytes('https://qt.gtimg.cn/q=s_sh000001,s_sz399001,s_sz399006'));
     let sum = 0, cnt = 0; const detail = {};
     for (const line of txt.split(';')) {
       const m = line.match(/v_s_(\w+)="([^"]+)"/);
@@ -22462,29 +22452,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   }
   // V6 参考图首页四大指数：使用腾讯公开行情快照；缺失/异常时返回 unavailable，绝不填充演示数字。
   if (p === '/api/reference-indexes') {
-    const https = require('https');
     const codes = [
       { key: 'sh', code: 'sh000001', name: '上证指数' },
       { key: 'sz', code: 'sz399001', name: '深证成指' },
       { key: 'cyb', code: 'sz399006', name: '创业板指' },
       { key: 'kc50', code: 'sh000688', name: '科创50' }
     ];
-    const request = new Promise((resolve, reject) => {
-      const req = https.get('https://qt.gtimg.cn/q=' + codes.map(x => x.code).join(','), {
-        headers: { 'User-Agent': 'Mozilla/5.0', Connection: 'close' },
-        timeout: 6500
-      }, upstream => {
-        const chunks = [];
-        upstream.on('data', chunk => chunks.push(chunk));
-        upstream.on('end', () => {
-          if (upstream.statusCode !== 200) return reject(new Error('指数行情源 HTTP ' + upstream.statusCode));
-          try { resolve(new TextDecoder('gbk').decode(Buffer.concat(chunks))); }
-          catch (e) { reject(e); }
-        });
-      });
-      req.on('timeout', () => req.destroy(new Error('指数行情源超时')));
-      req.on('error', reject);
-    });
+    const request = em.requestQuoteBytes('https://qt.gtimg.cn/q=' + codes.map(x => x.code).join(','))
+      .then(bytes => new TextDecoder('gbk').decode(bytes));
     request.then(raw => {
       const byCode = new Map();
       for (const line of String(raw).split(';')) {
@@ -22509,7 +22484,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       json(res, { ok: Object.keys(items).length > 0, source: 'tencent-qt', asOf: new Date().toISOString(), items,
         missing: codes.filter(x => !items[x.key]).map(x => x.key) });
     }).catch(error => {
-      json(res, { ok: false, source: 'tencent-qt', asOf: new Date().toISOString(), items: {}, missing: codes.map(x => x.key), error: String(error && error.message || error) });
+      json(res, { ok: false, source: 'tencent-qt', asOf: new Date().toISOString(), items: {}, missing: codes.map(x => x.key), error: /timeout/i.test(String(error?.message)) ? '指数行情源超时' : String(error && error.message || error) });
     });
     return;
   }

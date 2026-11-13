@@ -1424,6 +1424,16 @@ function flowBalance(t = {}) {
 function txGet(url, referer = 'https://gu.qq.com') {
   return nodeGetBytes(url, 8000, { 'User-Agent': 'Mozilla/5.0', 'Referer': referer });
 }
+function requestQuoteBytes(url) {
+  // The server's index consumers share this same transport and supplier budget.
+  // Do not expose a general URL fetcher through their fixed quote request path.
+  let target;
+  try { target = new URL(url); } catch { return Promise.reject(Error('行情请求地址无效')); }
+  if (target.protocol !== 'https:' || target.hostname !== 'qt.gtimg.cn' || target.port || target.username || target.password || target.search || target.hash ||
+      url.length > 8192 || !/^\/q=(?:s_)?(?:sh|sz|bj)\d{6}(?:,(?:s_)?(?:sh|sz|bj)\d{6})*$/.test(target.pathname))
+    return Promise.reject(Error('仅允许固定腾讯报价端点'));
+  return dedup('quote-bytes|' + url, () => txGet(url));
+}
 const txJSON = async url => JSON.parse((await txGet(url)).toString('utf8'));
 
 function txMarket(code) {
@@ -1834,3 +1844,5 @@ async function fetchIndustryAll(progress) {
 }
 
 module.exports = { get, delay, pool, classifyNetErr, fetchAllStocks, fetchAllStocksEM, fetchKlineTx, fetchKlineThs, guardDayRow, rebuildDayRow, appendDayRow, dayGuardStats, thsKlineDown, fetchKlineBulk, emKlineDown, fetchSectorFlow, fetchZTPool, fetchZTPoolThs, fetchZTPoolLatestDay, fetchDTCount, thsHighDays, fetchKline, fetchBatchSnapshot, fetchFundFlowDays, fetchBatchFlowEM, flowBalance, fetchGlobal, fetchIdxRt, fetchBatchSnapshotTx, fetchExtQuotes, fetchSinaSectors, fetchSinaSectorStocks, fetchBoardStocks, fetchStockBoards, fetchThsActive, fetchThsActiveBatch, fetchLhb, judgeWhale, fetchZtReason, WHALE_KEYS, dedup, inflightSize, backoffStats, fetchAuctionTicks, fetchIndustryAll };
+
+module.exports.requestQuoteBytes = requestQuoteBytes;
