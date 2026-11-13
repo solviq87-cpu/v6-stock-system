@@ -210,7 +210,7 @@ ok(/judged\+\+;/.test(SV) && /keptFlow\+\+;/.test(SV), 'W7b 深判/过大单闸�
   const rY = fn(rowsY, '20261023', env);
   ok(rY.breakout && rY.breakout.fired && rY.breakout.level === 'yellow', 'W44 放量站上5日线（量比1.2/峰值56%）→ 🟡黄灯（未达红灯双轨）');
   ok(fn(rows, '20261024', env).verdict === 'none', 'W45 归属日不匹配 → 判不出（不硬判）');
-  ok(/relayWashOf\(tail, day, \{ mktAvgPct, turnover/.test(SV) && /_badCodes\.has\(String\(s\.code\)\)/.test(SV),
+  ok(/relayWashOf\(tail, day, \{ mktAvgPct, turnover/.test(SV) && /newsWarnsCode\(String\(s\.code\)\)/.test(SV),
     'W46 env 透传（换手/全A均值）+ 利空在案排除接线');
   ok(/🔴 洗盘结束·红灯/.test(MOB) && /洗盘结束·黄灯/.test(MOB) && /⚠️🟡/.test(MOB), 'W47 前端红灯/黄灯/存疑黄灯三徽标');
   // kn 轮：红灯动态化——峰值回归路径 + 市场温度动态阈值

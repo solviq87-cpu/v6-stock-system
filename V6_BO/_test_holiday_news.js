@@ -18,8 +18,10 @@ const newsSrc = cut('function buildNewsDigest', '// __HOLIDAY_HELPERS_END__');
 
 // ⛔ 沙箱注入清单漏一个外部符号 = 整个套件崩掉（不是变红），踩过多次。
 //    2026-10-07 起 mergeArchive 改用 NEWS_ARCHIVE_CAP（统一归档上限常量），必须一并注入。
-const mkMerge = new Function('HOLIDAY_BUF_CAP', 'NEWS_ARCHIVE_CAP', 'within3Days', `${mergeSrc}\nreturn { mergeArchive };`);
-const { mergeArchive } = mkMerge(1200, 300, within3Days);
+// This suite isolates date/cap behavior; real journal-version validation is in
+// tests/news-current-projection.test.js.
+const mkMerge = new Function('HOLIDAY_BUF_CAP', 'NEWS_ARCHIVE_CAP', 'within3Days', 'newsEvidenceAllowsItem', `${mergeSrc}\nreturn { mergeArchive };`);
+const { mergeArchive } = mkMerge(1200, 300, within3Days, () => true);
 const mkNews = new Function('S', 'PAPER_CFG', 'PAPER', 'isTradeDay', 'newsEvidenceAllowsItem', `${newsSrc}\nreturn { buildNewsDigest, holidaySpanUpToToday, holidayDigestShouldFire };`);
 const api = mkNews({ news: { badAll: [], goodAll: [], neutralAll: [] } }, {}, {}, () => true, () => true);
 

@@ -86,12 +86,13 @@ test('existing server consumers refresh retractions after CLI append without pro
  state.news.badAll=[];state.news.neutralAll=[];
  const serverRequire=require('node:module').createRequire(path.resolve(__dirname,'../server.js'));
  const functions=new Function('fs','NEWS_EVIDENCE_ROOT','S','require',source.slice(start,end)+'\nreturn {newsSupportsCode,newsEvidenceAllowsItem};')(fs,root,state,serverRequire);
- assert.equal(functions.newsSupportsCode('600000'),true);
+ assert.equal(functions.newsSupportsCode('600000'),false,'legacy cache without a journal version stays unbound');
  const one=put(root,base({source:'eastmoney-fast-news',eventId:'vendor-1'}));
+ Object.assign(state.news.goodAll[0],{title:base().title,summary:base().body,publishedAt:base().publishedAt,newsEvidence:{eventHash:one.eventHash,sourceRevisionId:'edition-1'}});
  assert.equal(functions.newsSupportsCode('600000'),true);
  put(root,base({source:'eastmoney-fast-news',eventId:'vendor-1',sourceRevisionId:'withdrawn',kind:'retracted',supersedes:one.eventHash,revisedAt:NOW,receivedAt:NOW}));
  assert.equal(functions.newsSupportsCode('600000'),false);assert.equal(functions.newsEvidenceAllowsItem({id:'vendor-1'}),false);
- assert.equal(functions.newsEvidenceAllowsItem({id:'unrelated'}),true);
+ assert.equal(functions.newsEvidenceAllowsItem({id:'unrelated'}),false,'an absent journal event is unknown');
  const digestStart=source.indexOf('function buildNewsDigest'),digestEnd=source.indexOf('// __HOLIDAY_HELPERS_END__',digestStart);
  const digest=new Function('S','PAPER_CFG','PAPER','isTradeDay','newsEvidenceAllowsItem',source.slice(digestStart,digestEnd)+'\nreturn buildNewsDigest;')(state,{}, {},()=>true,functions.newsEvidenceAllowsItem);
  const item={id:'vendor-1',t:'2026-11-10 15:00:00',title:'WITHDRAWN_TITLE',codes:['600000'],stocks:[],sectors:[]};

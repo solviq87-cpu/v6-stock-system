@@ -594,7 +594,7 @@ function analyzePreBuy(cands) {
     // ① 基础门槛
     if (c.prob < 60) continue;
     // ② 利空过滤
-    if (S.news && S.news.badCodes && S.news.badCodes.has(c.code)) continue;
+    if (newsWarnsCode(c.code)) continue;
     // ③ 不是已封板/一字板（距涨停至少还有 3% 空间）
     if (A.isLimitUp(c.code, c.name, c.pct)) continue;
     const gap = numNeutral('gap', numGapRaw(c.code, c.name, c.pct));
@@ -6293,7 +6293,7 @@ async function tick() {
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
         // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
-        const badHit = S.news.badCodes.has(s.code);
+        const badHit = newsWarnsCode(s.code);
         const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
         // ⛔ 2026-10-08 修：gap>0.2%太松，回调到0.5%（比原来严格、但不至于一票难求）
@@ -6361,7 +6361,7 @@ async function tick() {
           if (tr.brokeHigh && ts.belowHigh && holds(ts.highTicks) && !ts.firedHigh) { conds.push('盘中突破前高并站稳(压力位突破)'); ts.firedHigh = true; }
           S.trendState.set(s.code, ts);
           if (conds.length) {
-            const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
+            const _bad = newsWarnsCode(s.code);
             const _good = S.news.goodCodes && newsSupportsCode(s.code);
             const _rp = riseProbOf(s, { condCount: conds.length, up3: tr.up3, fund3d: tr.fund3d, badHit: _bad, goodHit: _good });
             alerts.push({
@@ -6390,7 +6390,7 @@ async function tick() {
         //    用户投诉「拉涨停那么多为什么不推送」。改为：仅当「无板块效应 且 主力净占比<3%（无资金背书）」才跳过；
         //    有板块梯队 / 有资金抢筹的涨停一律推送（封板是既成事实，值得播报）。
         if (secZT < 2 && (s.mainPct || 0) < 3) { console.log(`[zt] 孤狼涨停跳过 ${s.name}(${s.code}) secZT=${secZT} mainPct=${s.mainPct}`); continue; }
-        const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
+        const _bad = newsWarnsCode(s.code);
         alerts.push({
             ...reviewSnapshotFields(s), originalQuote:Object.freeze({...s}),
           type: '涨停', code: s.code, name: s.name,
@@ -6478,7 +6478,7 @@ async function tick() {
       } catch {}
       const frozenSignal=captureProductionSignal(a,a.originalQuote||a,krowsOf(a.code),
         {recordKind:'trigger',funds:S.inflowHistory.get(a.code)||[],metrics:a.ruleInputs||null,
-          news:{goodHit:!!S.news.goodCodes?.has(a.code),badHit:!!S.news.badCodes?.has(a.code),originalEvidence:null}});
+          news:{goodHit:newsSupportsCode(a.code),badHit:newsWarnsCode(a.code),originalEvidence:null}});
       S.signals.unshift(frozenSignal);
       if (S.signals.length > dataCapOf('signals')) S.signals.pop();
       fired.push(frozenSignal);
@@ -12943,7 +12943,6 @@ async function washTrendScan(opts = {}) {
     accCands.sort((a, b) => (+b.amount || 0) - (+a.amount || 0));
     const deepList = shortlist.concat(accCands.slice(0, 30));   // kt/kw：吸筹深判位 20→30（池子偏少，适度扩容）
 
-    const _badCodes = (S.news && S.news.badCodes) || new Set();
     // kx：单进程有界并发深判（WASH_TREND_CONC 路）——串行等网络 ~2min → ~30s；不加端口/不加实例/不动令牌闸
     //（用户：只保留一个端口 + 多开需许可，并发在进程内解决）。JS 单线程：idx 自增与计数器 ++ 均为同步段，无竞态；
     // 结果按下标归位，顺序确定（后续统一 sort 不受影响）。
@@ -12951,7 +12950,7 @@ async function washTrendScan(opts = {}) {
     let _next = 0;
     const judgeOne = async s => {
       try {
-        if (_badCodes && _badCodes.has && _badCodes.has(String(s.code))) return;   // 利空在案（业绩暴雷/减持等），排除
+        if (newsWarnsCode(String(s.code))) return;   // 只按当前同版利空排除，CLI撤稿后立即停止沿用旧集合
         const _sec = sectorOfStock(s) || s.sector || '';
         const _heat = sectorHeat(_sec);
         const rows = await klineRows(s.code);
@@ -14261,7 +14260,7 @@ function paperSnap(key, pmPaper) {
         pnl: +(price * pp.shares - (pp.basis || pp.buyPrice * pp.shares)).toFixed(2), pnlPct: +((price / pp.buyPrice - 1) * 100).toFixed(2),
         days:Number(pp.buyTs)>0?tradeDaysSince(pp.buyTs):pp.buyDate?tradeDaysSince(Date.parse(pp.buyDate+'T00:00:00+08:00')):null,
         natDays:Number(pp.buyTs)>0?Math.max(0,Math.floor((Date.now()-Number(pp.buyTs))/86400000)):null,
-        bad: S.news.badCodes.has(pp.code) };
+        bad: newsWarnsCode(pp.code) };
     }),
     // ⛔ du 轮：只给 30 笔却报"对账 N 笔"，用户会以为看到的就是全部。
     //    现在把真实总数与本次下发条数一起交出去，前端才说得清"共 N 笔，此处显示最近 M 笔"。
@@ -14302,35 +14301,83 @@ function captureNewsEvidence(raw){
 function newsPublicationMetadata(raw,now=Date.now()){
   let publishedAt=null;
   try{publishedAt=require('./src/core/news-evidence-journal').sourceTime(raw.showTime);if(publishedAt>now)publishedAt=null;}catch{}
-  return {publishedAt,receivedAt:now,publicationTimeStatus:publishedAt===null?'unknown':'source-declared-unverified'};
+  let newsEvidence=null;
+  try{
+    const state=newsEvidenceCurrent(String(raw.code||'')),current=state.latest.get(String(raw.code||''));
+    if(current&&!state.unknown&&current.evidence.kind!=='retracted'&&
+      require('./src/core/news-evidence-journal').providerInput(raw,current,{now})===null)
+      newsEvidence={eventHash:current.eventHash,sourceRevisionId:current.evidence.sourceRevisionId,sequence:current.sequence,recordedAt:current.recordedAt};
+  }catch{}
+  return {publishedAt,receivedAt:now,publicationTimeStatus:publishedAt===null?'unknown':'source-declared-unverified',newsEvidence};
 }
 // Revocation is checked against the current immutable chain, including CLI
 // imports made after this server started. A damaged archive is unknown.
-let newsEvidenceCache={stamp:null,withdrawn:new Set(),unknown:false};
-function newsEvidenceCurrent(){
+let newsEvidenceCache={stamp:null,inventory:null,files:new Map(),latest:new Map(),withdrawn:new Set(),unknown:false,chainVerifiedAt:null,metadataCheckedAt:null};
+const NEWS_EVIDENCE_METADATA_INTERVAL_MS=1000,NEWS_EVIDENCE_MAX_FILES=10000;
+function newsEvidenceFileStamp(file){
+  const s=fs.lstatSync(file,{bigint:true});
+  if(!s.isFile()||s.isSymbolicLink()||(s.mode&0o077n)!==0n||s.size<2n||s.size>131072n)throw Error('INVALID_PRIVATE_NEWS_FILE');
+  return [s.dev,s.ino,s.size,s.mode,s.mtimeNs,s.ctimeNs,s.nlink].join(':');
+}
+function newsEvidenceCurrent(eventId=null){
   if(S.news.evidenceIntake?.status==='unknown')return {...newsEvidenceCache,unknown:true};
+  const now=Date.now();let stamp=null;
   try{
-    const stamp=fs.existsSync(NEWS_EVIDENCE_ROOT)?fs.statSync(NEWS_EVIDENCE_ROOT).mtimeMs:null;
-    if(stamp!==newsEvidenceCache.stamp){
-      const rows=require('./src/core/news-evidence-journal').readJournal(NEWS_EVIDENCE_ROOT),latest=new Map();
-      for(const e of rows)if(e.evidence.source==='eastmoney-fast-news')latest.set(e.evidence.eventId,e.evidence);
-      newsEvidenceCache={stamp,unknown:false,withdrawn:new Set([...latest].filter(([,e])=>e.kind==='retracted').map(([id])=>id))};
+    const journal=require('./src/core/news-evidence-journal');
+    if(fs.existsSync(NEWS_EVIDENCE_ROOT)){
+      const dir=fs.lstatSync(NEWS_EVIDENCE_ROOT,{bigint:true});
+      if(!dir.isDirectory()||dir.isSymbolicLink()||(dir.mode&0o077n)!==0n)throw Error('INVALID_PRIVATE_NEWS_DIRECTORY');
+      stamp=[dir.dev,dir.ino,dir.mode,dir.mtimeNs,dir.ctimeNs].join(':');
+    }else stamp='missing';
+    let changed=stamp!==newsEvidenceCache.stamp;
+    // Check the version actually being consumed on every use. The rest of the
+    // bounded archive gets a metadata scan at most once per second.
+    const referenced=eventId===null?null:newsEvidenceCache.latest.get(eventId);
+    if(!changed&&!newsEvidenceCache.unknown&&referenced){
+      const name=String(referenced.sequence).padStart(6,'0')+'.json';
+      changed=newsEvidenceFileStamp(NEWS_EVIDENCE_ROOT+'/'+name)!==newsEvidenceCache.files.get(name);
     }
-  }catch{newsEvidenceCache={stamp:NaN,withdrawn:new Set(),unknown:true};}
+    if(changed||newsEvidenceCache.metadataCheckedAt===null||now-newsEvidenceCache.metadataCheckedAt>=NEWS_EVIDENCE_METADATA_INTERVAL_MS){
+      const files=new Map();
+      if(stamp!=='missing'){
+        const names=fs.readdirSync(NEWS_EVIDENCE_ROOT).filter(n=>!/^\.stage-[a-f0-9]{24}$/.test(n)).sort();
+        if(names.length>NEWS_EVIDENCE_MAX_FILES||names.some(n=>!/^\d{6}\.json$/.test(n)))throw Error('INVALID_NEWS_ARCHIVE_INVENTORY');
+        for(const name of names)files.set(name,newsEvidenceFileStamp(NEWS_EVIDENCE_ROOT+'/'+name));
+      }
+      const inventory=JSON.stringify([...files]);
+      if(changed||newsEvidenceCache.unknown||inventory!==newsEvidenceCache.inventory){
+        const rows=journal.readJournal(NEWS_EVIDENCE_ROOT),latest=new Map();
+        for(const e of rows)if(e.evidence.source==='eastmoney-fast-news')latest.set(e.evidence.eventId,e);
+        newsEvidenceCache={stamp,inventory,files,latest,unknown:false,chainVerifiedAt:now,metadataCheckedAt:now,
+          withdrawn:new Set([...latest].filter(([,e])=>e.evidence.kind==='retracted').map(([id])=>id))};
+      }else newsEvidenceCache={...newsEvidenceCache,files,metadataCheckedAt:now};
+    }
+  }catch{newsEvidenceCache={...newsEvidenceCache,stamp,unknown:true,metadataCheckedAt:now};}
   return newsEvidenceCache;
 }
 function newsSupportsCode(code){
   const state=newsEvidenceCurrent();
-  return !state.unknown&&S.news.goodCodes.has(code)&&S.news.goodAll.some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+  return !state.unknown&&(S.news.goodAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+}
+function newsWarnsCode(code){
+  return (S.news.badAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+}
+function newsWarnsSector(sector){
+  return (S.news.badAll||[]).some(n=>(n.sectors||[]).includes(sector)&&newsEvidenceAllowsItem(n));
 }
 function newsEvidenceAllowsItem(item){
-  const state=newsEvidenceCurrent();return !state.unknown&&!state.withdrawn.has(String(item.id))&&!S.news.evidenceRejected?.has(String(item.id));
+  const id=String(item?.id||''),state=newsEvidenceCurrent(id),current=state.latest.get(id);
+  return !state.unknown&&!!current&&current.evidence.kind!=='retracted'&&!S.news.evidenceRejected?.has(id)&&
+    item.newsEvidence?.eventHash===current.eventHash&&item.newsEvidence?.sourceRevisionId===current.evidence.sourceRevisionId&&
+    item.title===current.evidence.title&&item.summary===current.evidence.body.slice(0,90)&&item.publishedAt===current.evidence.publishedAt&&
+    Array.isArray(item.codes)&&JSON.stringify([...new Set(item.codes)].sort())===JSON.stringify(current.evidence.securities);
 }
 function newsEvidenceVisibleState(state=S){
   const news=state.news||{};
   const visible=Object.fromEntries(['goodAll','badAll','neutralAll'].map(key=>[
     key,(Array.isArray(news[key])?news[key]:[]).filter(newsEvidenceAllowsItem)]));
-  return {...state,news:{...news,...visible,
+  return {...state,news:{...news,...visible,good:visible.goodAll.slice(0,40),bad:visible.badAll.slice(0,40),
+    holidayBuf:(news.holidayBuf||[]).filter(newsEvidenceAllowsItem),
     goodCodes:new Set(visible.goodAll.flatMap(x=>x.codes||[])),badCodes:new Set(visible.badAll.flatMap(x=>x.codes||[])),
     badSectors:new Set(visible.badAll.flatMap(x=>x.sectors||[]))}};
 }
@@ -14634,9 +14681,11 @@ function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但�
   return out;
 }
 function mergeArchive(list, items, keepAll) { // 按 id 去重合并 → （keepAll 时不过滤近3日）→ 时间倒序 → 上限400/假期缓冲上限
-  const seen = new Set(list.map(x => x.id));
-  for (const it of items) if (!seen.has(it.id)) { list.push(it); seen.add(it.id); }
-  const arr = keepAll ? list : list.filter(x => within3Days(x.t));
+  // These lists are current projections. The append-only journal retains every
+  // original and revision; a prior category cannot survive a changed version.
+  const current=new Map(list.map(x=>[String(x.id),x]));
+  for(const it of items)if(newsEvidenceAllowsItem(it))current.set(String(it.id),it);
+  const arr=[...current.values()].filter(x=>newsEvidenceAllowsItem(x)&&(keepAll||within3Days(x.t)));
   return arr.sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, keepAll ? HOLIDAY_BUF_CAP : NEWS_ARCHIVE_CAP);
 }
 async function fetchNewsPage(column, sortEnd, size) {
@@ -22229,7 +22278,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       }
       const k = S.klines.get(c.code);
       const levels = k && k.rows ? A.computeLevels(k.rows, c.price, c.high, c.low) : null;
-      return { ...c, retain, retainWin, retainTxt, levels, bad: S.news.badCodes.has(c.code) };
+      return { ...c, retain, retainWin, retainTxt, levels, bad: newsWarnsCode(c.code) };
     });
     // 模拟盘双账户状态（A跟单盘10万 / B预选盘50万）
     const pmPaper = paperPrices();
