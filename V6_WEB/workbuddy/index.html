@@ -1923,7 +1923,7 @@ function pauseMarketCollection(reason='手动暂停'){
 }
 async function toggleMarketCollection(){
  if(window.V6Market.status.collectionEnabled){pauseMarketCollection();toast('采集已暂停，保留已有云端数据');return;}
- try{window.V6Market.resumeCollection();toast('已继续受控采集；公开源可能仍需等待冷却');refreshMarket(true);scanFullMarket(true);renderMarketSafely();}
+ try{window.V6Market.resumeCollection();toast('已继续受控采集；公开源可能仍需等待冷却');refreshMarket(true);scanFullMarket(true);refreshClassifications();renderMarketSafely();}
  catch(e){toast(e.message);updateMarketStatus();}
 }
 async function initializeUniverse(){
