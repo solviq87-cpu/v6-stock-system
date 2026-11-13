@@ -8,6 +8,9 @@ on:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
       - 'V6_BO/scripts/ui-picks-three-k-browser-check.js'
+      - 'V6_BO/scripts/build-workbuddy-static.js'
+      - 'V6_BO/scripts/workbuddy-static-browser-check.js'
+      - 'V6_WEB/workbuddy/**'
       - '.github/workflows/v6-ui-browser.yml'
   workflow_dispatch:
 
@@ -57,6 +60,13 @@ jobs:
           set -euo pipefail
           node scripts/ui-reference-browser-check.js
           node scripts/ui-picks-three-k-browser-check.js
+      - name: Verify the WorkBuddy static artifact preserves current page interactions
+        env:
+          NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules
+          CHROMIUM_PATH: ${{ steps.browser.outputs.binary }}
+          V6_UI_BROWSER: ${{ steps.browser.outputs.binary }}
+          V6_UI_QA_DIR: ${{ runner.temp }}/v6-ui-report
+        run: node --test scripts/workbuddy-static-browser-check.js
       - name: Save temporary fixture screenshots and geometry for reviewers
         if: always()
         uses: actions/upload-artifact@v4

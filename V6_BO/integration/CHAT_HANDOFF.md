@@ -1,4 +1,4 @@
-**2026-11-09 新增国内写入目标（接手必读）**：用户指定 WorkBuddy `https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档入口 `/api/ai/doc?id=ai`。已实际打开但返回 `401 invalid or missing token`；未获取真实写入接口或生产部署确认。`sharecode` / token 等凭据绝不入库。严格按 `docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 验证授权、写入路由、回执与回滚，禁止别的 AI 自行猜一个服务器或声称已部署。最新 GitHub 代码以 `dev` 分支实际 SHA 为准，以下为历史档案。
+**2026-11-13 最新用户覆盖与自动更新交接（优先于以下历史档案）**：当前唯一 WorkBuddy 目标 `https://af3c7822e6aafc135.app.workbuddy.host`。官方 `/console`、`/api/site`、`/api/health` 带私有分享码只读实测 200；旧文档路径 `/api/ai/doc?id=ai` 为 404 官方指引，发布接口为 `POST /api/publish`（仅单文件静态 HTML，无 Node/Python 执行）。尚未执行写入或证明生产部署。用户已要求 GitHub 自动检测更新，详见 `docs/AUTO_UPDATE_WORKBUDDY_20261113.md`：仅发布通过 V6 CI 的 `dev` 精确头 SHA，须完成 GitHub Actions 私有 Secret 一次配置和首轮发布/回读核验；当前集成设置 Secret 的 API 实测 403，不能宣称长期更新已运行。分享码/token 禁止入 Git、日志、截图。新站当前 HTML 与仓库锁定主页不同，保持四策略/模拟盘/风控与现有界面，禁止旧主页发布脚本覆盖；目标细节见 `docs/CHINA_WORKBUDDY_WRITE_TARGET.md`。
 
 ---
 

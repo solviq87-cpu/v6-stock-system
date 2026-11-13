@@ -5,6 +5,7 @@
   "description": "量化看盘平台 - 精选池/涨停归因/题材分类/资金监控/双通道推送",
   "main": "server.js",
   "scripts": {
+    "update:repository": "node scripts/repository-auto-update.js",
     "start": "node server.js",
     "research:linkages": "node scripts/run-six-linkages.js",
     "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js",

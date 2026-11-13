@@ -4,6 +4,7 @@
   "private": true,
   "description": "V6 仓库入口；实际工程位于 V6_BO",
   "scripts": {
+    "update:repository": "npm --prefix V6_BO run update:repository --",
     "start": "npm --prefix V6_BO run start",
     "check": "npm --prefix V6_BO run check",
     "start:legacy": "npm --prefix V6_BO run start:legacy",
