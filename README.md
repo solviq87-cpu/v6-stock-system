@@ -2,7 +2,7 @@
 
 > **手机/电脑同时刷新与周末新闻规则**：两端分别从同一云端读取数据，任意一端可用，不依赖另一端开机。周末新闻继续刷新、盘面保留最后交易日的快照日期。云端持久化部署仍需现场验证。详见 [双端云端与休市运行规则](V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md)。
 
-> **国内写入/部署交接入口（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host` 为当前唯一指定目标。已只读核验官方 `/console`、`/api/site`、`/api/health`；官方发布为 `POST /api/publish`，仅托管单文件静态 HTML。完整工程后端、持久化、首轮发布及长期自动更新尚未验证。参见 [目标与鉴权](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [GitHub 自动更新操作](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。分享码只放私有凭据存储，禁止进入 Git 或 CI 日志。
+> **国内写入/部署交接入口（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host` 为当前唯一指定目标。已只读核验官方 `/console`、`/api/site`、`/api/health`；官方发布为 `POST /api/publish`，仅托管单文件静态 HTML。完整工程后端、持久化、首轮发布及长期自动更新尚未验证。参见 [目标与鉴权](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [GitHub 自动更新操作](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。分享码只放私有凭据存储，禁止进入 Git 或 CI 日志。 自动更新采用既有每小时 hosted 任务和当前 managed cloud 环境唯一发布者 managed-task，GitHub 每 15 分钟只读巡检；私有 shareCodeFile 注入解除 GitHub Secret 配置依赖，精确 CI/SHA/owner 与完整内容校验继续强制。本次任务/发布结果待 PR 实际回执；环境文件或权限缺失必须停发报告。 角色切换按 `V6_BO/config/repository-auto-update-owner.json` 执行停旧 scheduler→等在途结束且 journal.transaction=null（旧 owner 先恢复）→owner 变更 SHA 通过 CI→启新；owner 不能撤销在途写入，跨环境 flock 不互斥。
 
 > **生产运行依赖政策（2026-11-13）**：生产、部署、构建和运行代码禁止接入 OpenAI / ChatGPT API，不允许 API Key、SDK、私有接口或 OpenAI 专属 hosting 配置。国内智能能力如需接入，只允许使用用户授权的 WorkBuddy 能力；核心行情、策略、回测、模拟盘和风控不得依赖任何外部大模型 API 才能启动。
 

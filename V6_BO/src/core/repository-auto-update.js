@@ -24,9 +24,10 @@ function configuration(input) {
   if (c.retryFailedSha !== undefined || c.retryToken !== undefined) {
     assert(SHA.test(c.retryFailedSha) && ID.test(c.retryToken), 'invalid-config');
   }
+  assert(c.publisherOwner === undefined || ['managed-task', 'github-actions'].includes(c.publisherOwner), 'invalid-config');
   return c;
 }
-function privateDirectory(dir) {
+function privateDirectory(dir, { create = true } = {}) {
   assert(dir === path.resolve(dir), 'unsafe-state-directory');
   const parts = path.resolve(dir).split(path.sep).filter(Boolean);
   assert(!parts.some(part => /^(?:public|public_html|static|www|wwwroot|htdocs)$/i.test(part)), 'unsafe-state-directory');
@@ -36,9 +37,12 @@ function privateDirectory(dir) {
     try { assert(!fs.lstatSync(parent).isSymbolicLink(), 'unsafe-state-directory'); }
     catch (e) { if (e.code !== 'ENOENT') throw e; }
   }
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const st = fs.lstatSync(dir);
+  if (create) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  let st;
+  try { st = fs.lstatSync(dir); }
+  catch (error) { if (!create && error.code === 'ENOENT') return false; throw error; }
   assert(st.isDirectory() && !st.isSymbolicLink() && (st.mode & 0o077) === 0 && st.uid === process.getuid(), 'unsafe-state-directory');
+  return true;
 }
 function openPrivate(file, flags) {
   let fd;
@@ -85,8 +89,21 @@ function readState(file, scope) {
     assert(t && SHA.test(t.sha) && validVersion(t.target) && t.target.sha === t.sha && validVersion(t.previous) && ID.test(t.idempotencyKey) &&
       ['applying', 'rolling-back'].includes(t.phase) && typeof t.rollbackAttempted === 'boolean', 'invalid-state');
     assert(same(t.previous, state.latestVerified), 'invalid-state');
+    assert(t.publisherOwner === undefined || ['managed-task', 'github-actions'].includes(t.publisherOwner), 'invalid-state');
   }
   return state;
+}
+
+// Read only an atomically written, validated journal. A missing directory stays absent.
+// The coordinator rechecks ownership under its kernel lock before any recovery write.
+function peekPendingRepositoryUpdate(input) {
+  const c = configuration(input);
+  if (!privateDirectory(c.stateDir, { create: false })) return null;
+  const state = readState(path.join(c.stateDir, 'journal.json'), {
+    repository: c.repository, branch: c.branch, targetOrigin: c.targetOrigin
+  });
+  return state.transaction ? { sha: state.transaction.sha,
+    ...(state.transaction.publisherOwner === undefined ? {} : { publisherOwner: state.transaction.publisherOwner }) } : null;
 }
 
 /**
@@ -177,6 +194,7 @@ async function runRepositoryAutoUpdate(input, dependencies = {}) {
     }
     // Reconcile the immutable in-flight SHA before observing a newer branch head.
     if (state.transaction) {
+      if (state.transaction.publisherOwner !== c.publisherOwner) return result('recovery-ownership-unverified');
       if (!hasRead || (c.mode === 'apply' && !hasWrite)) return result('needs-provider');
       if (c.mode !== 'apply') return result('recovery-required', { candidateSha: state.transaction.sha });
       const t = state.transaction;
@@ -215,6 +233,7 @@ async function runRepositoryAutoUpdate(input, dependencies = {}) {
     }
     if (c.mode !== 'apply') { record('update-available', { sha }); return result('update-available', { candidateSha: sha, deployedSha: current.sha }); }
     const t = { sha, target: desired, previous: current, phase: 'applying', rollbackAttempted: false,
+      ...(c.publisherOwner === undefined ? {} : { publisherOwner: c.publisherOwner }),
       idempotencyKey: `v6-${crypto.randomBytes(16).toString('hex')}` };
     state.transaction = t; record('apply-started', { sha, previousSha: current.sha, idempotencyKey: t.idempotencyKey });
     try {
@@ -231,4 +250,4 @@ async function runRepositoryAutoUpdate(input, dependencies = {}) {
   } finally { if (fd !== undefined) fs.closeSync(fd); }
 }
 
-module.exports = { runRepositoryAutoUpdate };
+module.exports = { runRepositoryAutoUpdate, peekPendingRepositoryUpdate };

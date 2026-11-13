@@ -1,6 +1,6 @@
 # 出问题了怎么办（不依赖任何聊天记录）
 
-> **2026-11-13 用户明确覆盖旧目标**：当前唯一国内目标为 `https://af3c7822e6aafc135.app.workbuddy.host`；官方文档 `/console`，发布 `POST /api/publish`，仅单文件静态 HTML。接手先读 [目标说明](docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [自动更新/回滚](docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。只读核验成功，真实写入与生产部署尚未验证。下文 `quant-dashboard-77614.app.workbuddy.host` 属于历史恢复记录，不是当前目标或备用主机；不可把旧机器 `pushRole` 原样上传。代码基线使用 GitHub `solviq87-cpu/v6-stock-system` 的 `dev` 实际 SHA。
+> **2026-11-13 用户明确覆盖旧目标**：当前唯一国内目标为 `https://af3c7822e6aafc135.app.workbuddy.host`；官方文档 `/console`，发布 `POST /api/publish`，仅单文件静态 HTML。接手先读 [目标说明](docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [自动更新/回滚](docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。只读核验成功，真实写入与生产部署尚未验证。下文 `quant-dashboard-77614.app.workbuddy.host` 属于历史恢复记录，不是当前目标或备用主机；不可把旧机器 `pushRole` 原样上传。代码基线使用 GitHub `solviq87-cpu/v6-stock-system` 的 `dev` 实际 SHA。 自动更新采用既有每小时 hosted 任务和当前 managed cloud 环境唯一发布者 managed-task，GitHub 每 15 分钟只读巡检；私有 shareCodeFile 注入解除 GitHub Secret 配置依赖，精确 CI/SHA/owner 与完整内容校验继续强制。本次任务/发布结果待 PR 实际回执；环境文件或权限缺失必须停发报告。 角色切换按 `V6_BO/config/repository-auto-update-owner.json` 执行停旧 scheduler→等在途结束且 journal.transaction=null（旧 owner 先恢复）→owner 变更 SHA 通过 CI→启新；owner 不能撤销在途写入，跨环境 flock 不互斥。
 
 
 > 这份文件在 Gitee 仓库里，**不含任何密码、密钥、持仓**。  

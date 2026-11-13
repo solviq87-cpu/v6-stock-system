@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "publisher": "managed-task",
+  "repository": "solviq87-cpu/v6-stock-system",
+  "branch": "dev",
+  "targetOrigin": "https://af3c7822e6aafc135.app.workbuddy.host",
+  "scope": "static-frontend-only"
+}
