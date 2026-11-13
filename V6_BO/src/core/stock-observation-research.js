@@ -96,7 +96,7 @@ function sectorCaptureResearch({captureRoot,calendarFile,asOf,sectorIds}={}){
   return {status:input.status,report,provenance:input.provenance,limitations:input.limitations,...flags};
  }catch{return {status:'unavailable',reason:'冻结板块档案、日历或明确成员选择未通过校验',...flags};}
 }
-function buildObservationResearch({stock,history,observation,asOf,context=null,marketContext=null,evidenceBundle=null,saveMemory=false},{memoryRoot,calendarFile,readCalendar=readResearchCalendar,sectorCaptureRoot,sectorIds}={}){
+function buildObservationResearch({stock,history,observation,asOf,context=null,marketContext=null,evidenceBundle=null,saveMemory=false,research36Config={}},{memoryRoot,calendarFile,readCalendar=readResearchCalendar,sectorCaptureRoot,sectorIds}={}){
  const cal=readCalendar({asOf,symbol:stock.symbol,calendarFile}),blockers=[];
  const result={schemaVersion:1,status:'captured',asOf,stock,history:{...history,tradeDate:stock.bars.at(-1)?.date||null},observation,
   calendar:{status:cal.status,source:cal.metadata?.source||null,from:cal.metadata?.from||null,to:cal.metadata?.to||null,
@@ -135,27 +135,32 @@ function buildObservationResearch({stock,history,observation,asOf,context=null,m
  result.sectorCapture=sectorCaptureResearch({captureRoot:sectorCaptureRoot,calendarFile,asOf,sectorIds});
  result.sectorRelations=result.sectorCapture.report||null;
  result.linkage=observedLinkage(result);
- result.readiness={blockers};return result;
+ result.readiness={blockers};
+ result.research36=require('../strategy/research36-observation').compileObservation(result,{tradingDates:cal.tradeDates||[],config:research36Config}).result;
+ return result;
 }
 function validateOptions(options){
  if(!options||!symbolOK(options.symbol)||!['auto','eastmoney','tencent'].includes(options.provider||'auto')||
   !Number.isSafeInteger(options.historyDays??120)||(options.historyDays??120)<1||(options.historyDays??120)>500||
-  options.includeContext!==undefined&&typeof options.includeContext!=='boolean'||options.sectorCode!==undefined&&!/^BK\d{4}$/.test(options.sectorCode))throw Error('股票、来源、历史长度或板块参数无效');
+  options.includeContext!==undefined&&typeof options.includeContext!=='boolean'||options.includeFinancials!==undefined&&typeof options.includeFinancials!=='boolean'||options.sectorCode!==undefined&&!/^BK\d{4}$/.test(options.sectorCode))throw Error('股票、来源、历史长度或板块参数无效');
 }
 async function observeStock(options,dependencies={}){
  validateOptions(options);
- const {observationRoot,memoryRoot,calendarFile,sectorCaptureRoot,sectorIds,fetchHistory=fetchPublicStockHistory,fetchContext=fetchPublicContext,fetchStatus=fetchPublicStockStatusEvidence,fetchSectors=currentPublicSectors,readCalendar=readResearchCalendar,now=Date.now}=dependencies;
+ require('../strategy/research36').settings(options.research36Config||{});
+ const {observationRoot,memoryRoot,calendarFile,sectorCaptureRoot,sectorIds,fetchHistory=fetchPublicStockHistory,fetchContext=fetchPublicContext,fetchStatus=fetchPublicStockStatusEvidence,fetchSectors=currentPublicSectors,fetchFinancials=require('./public-stock-financials').fetchPublicStockFinancials,readCalendar=readResearchCalendar,now=Date.now}=dependencies;
  const roots=researchPaths(dependencies);
  const clock=typeof now==='function'?now:()=>now;
  const outcomes=await Promise.allSettled([fetchHistory({symbol:options.symbol,provider:options.provider||'auto',historyDays:options.historyDays??120},{now:clock}),
   options.includeContext?fetchContext({symbol:options.symbol,sectorCode:options.sectorCode},{now:clock,retainRawEvidence:true}):Promise.resolve(null),
   options.includeContext?fetchStatus({symbol:options.symbol},{now:clock}):Promise.resolve(null),
-  options.includeContext?fetchSectors(roots.publicSectorRoot,{now:clock}):Promise.resolve(null)]);
+  options.includeContext?fetchSectors(roots.publicSectorRoot,{now:clock}):Promise.resolve(null),
+  options.includeFinancials?fetchFinancials({symbol:options.symbol},{now:clock}):Promise.resolve(null)]);
  const history=outcomes[0].status==='fulfilled'?outcomes[0].value:null;
  const asOf=clock();if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>Date.now())throw Error('研究观察时点无效');
  const context=outcomes[1].status==='fulfilled'?outcomes[1].value:null;
  const stockStatus=outcomes[2].status==='fulfilled'?outcomes[2].value:null;
  const sectorContext=outcomes[3].status==='fulfilled'?outcomes[3].value:null;
+ const financials=outcomes[4].status==='fulfilled'?outcomes[4].value:null;
  const rawEvidence=history?.rawEvidence?archiveRawEvidence(observationRoot,history.rawEvidence):null;
  if(!history||history.status!=='observed-unverified'||!history.stock?.bars?.length)return {schemaVersion:1,status:'unavailable',asOf,
   history:history?historySummary(history):{status:'unknown',errors:[{code:'history-source-unavailable'}]},stock:null,analysis:null,currentFormation:null,
@@ -169,13 +174,14 @@ async function observeStock(options,dependencies={}){
   context:{sourceEvidence:history.provenance,units:history.units,rawEvidence,trigger:options.trigger||'manual-research'}});
  const {stock:merged,...receipt}=observation;
  const sourceRefs=[{...rawEvidence,source:history.source,url:history.provenance?.requestUrl||null,receivedAt:history.retrievedAt},
-  ...sourceReferences(observationRoot,context?.rawEvidence),...sourceReferences(observationRoot,stockStatus?.rawEvidence)];
+  ...sourceReferences(observationRoot,context?.rawEvidence),...sourceReferences(observationRoot,stockStatus?.rawEvidence),...sourceReferences(observationRoot,financials?.rawEvidence)];
  const marketContext=publicContextView(context,asOf);
+ if(financials){const {rawEvidence,...summary}=financials;marketContext.financials=summary;}
  const compactStatus=stockStatus?Object.fromEntries(Object.entries(stockStatus).filter(([k])=>k!=='rawEvidence')):null;
  const evidenceBundle=freezeResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,priceBasis:merged.priceBasis,
   decisionAt:asOf,observationHash:receipt.observationHash,history:historySummary(history),marketContext,stockStatus:compactStatus,sectorContext,
   sourceRefs,trigger:options.origin||{kind:options.trigger||'manual-research'}});
- const result=buildObservationResearch({stock:merged,history:historySummary(history),observation:receipt,asOf,context,marketContext,evidenceBundle,saveMemory:true},
+ const result=buildObservationResearch({stock:merged,history:historySummary(history),observation:receipt,asOf,context,marketContext,evidenceBundle,saveMemory:true,research36Config:options.research36Config||{}},
   {memoryRoot,calendarFile,readCalendar,sectorCaptureRoot,sectorIds});
  result.stockStatus=compactStatus;result.publicSectors=sectorContext;
  const cal=readCalendar({asOf,symbol:merged.symbol,calendarFile});

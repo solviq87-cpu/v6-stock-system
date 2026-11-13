@@ -9,7 +9,7 @@ class Element{
  setAttribute(k,v){this[k]=v;}addEventListener(k,f){(this.listeners[k]||=[]).push(f);}fire(k){return Promise.all((this.listeners[k]||[]).map(f=>f()));}
 }
 function setup(){
- const ids=['research36Catalog','research36Run','token','research36File','research36Status','research36Config','research36Result'];
+ const ids=['research36Symbol','research36Observe','research36Catalog','research36Run','token','research36File','research36Status','research36Config','research36Result'];
  const nodes=new Map(ids.map(id=>[id,new Element()])),events={},calls=[];
  const document={hidden:false,getElementById:id=>nodes.get(id),createElement:tag=>new Element(tag),addEventListener:(k,f)=>events[k]=f};
  const root={document,Date,addEventListener:(k,f)=>events[k]=f,fetch:(url,options)=>new Promise(resolve=>calls.push({url,options,resolve}))};
@@ -42,4 +42,11 @@ test('file changes, token changes and pagehide suppress late results',async()=>{
 test('oversize imports never reach the API',async()=>{
  const x=setup();x.nodes.get('research36File').files=[{size:256*1024+1,text:async()=>{throw Error('must not read');}}];
  await x.nodes.get('research36Run').fire('click');assert.equal(x.calls.length,0);assert.match(x.nodes.get('research36Status').textContent,/未完成/);
+});
+
+test('stock-code analysis is explicit, sends no file and suppresses results after a stock change',async()=>{
+ const x=setup();await x.nodes.get('research36Observe').fire('click');assert.equal(x.calls.length,0);
+ x.nodes.get('research36Symbol').value='600000';const pending=x.nodes.get('research36Observe').fire('click');assert.equal(x.calls.length,1);assert.equal(x.calls[0].url,'/api/research/strategy36/observe');assert.equal(JSON.parse(x.calls[0].options.body).symbol,'600000');
+ const result=engine.evaluateResearch36({stock:{code:'600000'},asOf:Date.now()});x.calls[0].resolve(reply({ok:true,result:{research36:result}}));await pending;assert.equal(x.nodes.get('research36Result').children.length,36);
+ const late=x.nodes.get('research36Observe').fire('click');x.nodes.get('research36Symbol').value='000001';await x.nodes.get('research36Symbol').fire('input');x.calls[1].resolve(reply({ok:true,result:{research36:result}}));await late;assert.equal(x.nodes.get('research36Result').children.length,0);
 });

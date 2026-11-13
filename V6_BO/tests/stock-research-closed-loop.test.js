@@ -102,3 +102,12 @@ test('actual queued monitor capture carries signal hash through observeStock, bu
  assert.throws(()=>readResearchEvidenceBundle(roots.evidenceRoot,{symbol:'600000',provider:'tencent',hash,asOf:f.clock}),/校验/);
  fs.writeFileSync(full,raw);assert.equal(readResearchEvidenceBundle(roots.evidenceRoot,{symbol:'600000',provider:'tencent',hash,asOf:f.clock}).hash,hash);
 });
+
+test('financial capture and 36 strategy evidence survive archive-only restart with original receipt time',async t=>{
+ const f=fixture(t),{parseFinancials}=require('../src/core/public-stock-financials');let captures=0;
+ const raw=Buffer.from(JSON.stringify({success:true,result:{data:[{SECURITY_CODE:'600000',SECUCODE:'600000.SH',CURRENCY:'CNY',REPORT_DATE:'2024-12-31',NOTICE_DATE:'2025-01-15',UPDATE_DATE:'2025-01-15',ROEJQ:12,ZCFZL:40}]}}));
+ const period=parseFinancials(raw,{symbol:'600000',kind:'period',receivedAt:f.clock});
+ const deps={...f.deps,fetchFinancials:async()=>{captures++;return {symbol:'600000',source:'eastmoney-financials',datasets:{period},rawEvidence:[{source:'eastmoney-financials',encoding:'base64',data:raw.toString('base64'),sha256:period.rawHash,byteLength:raw.length,receivedAt:f.clock}]};}};
+ const first=await observeStock({symbol:'600000',includeFinancials:true},deps);assert.equal(captures,1);assert.ok(first.research36.pipeline.derivedFields.includes('roePct'));
+ f.setClock(f.clock+60000);const read=readStockObservationResearch({symbol:'600000',provider:'tencent'},deps);assert.equal(captures,1);assert.equal(read.marketContext.financials.datasets.period.receivedAt,period.receivedAt);assert.equal(read.evidenceBundle.hash,first.evidenceBundle.hash);assert.ok(read.research36.pipeline.derivedFields.includes('roePct'));assert.equal(read.research36.canTrade,false);
+});
