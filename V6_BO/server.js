@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+const {classifyFeishuReceipt} = require('./src/core/feishu-receipt');
 const probabilityContract = require('./src/core/probability-contract');
 const SignalEvidence = require('./src/core/signal-evidence-chain');
 const SignalJournal = require('./src/core/production-signal-journal');
@@ -4920,8 +4921,8 @@ async function rebuildPool() {
   //    于是降级路径与正常路径的池内顺序不是同一把尺子，slice(0,20) 截掉的
   //    也就不一定是"最该截掉的那批"。现在两串各留一份，两条路径共用。
   const byScore = (a, b) => (b.focused - a.focused) || (b.score - a.score) || ((b.profitRatio || 0) - (a.profitRatio || 0));
-  const byFinal = (a, b) => (b.focused - a.focused) || ((b.bazi ? b.bazi.total : 0) - (a.bazi ? a.bazi.total : 0)) || (b.score - a.score);
-  // 排序：二次聚焦优先 → 评分 → 获利筹码
+  const byFinal = (a, b) => Number(b.selectionEvidenceStatus === 'sufficient') - Number(a.selectionEvidenceStatus === 'sufficient') || (b.focused - a.focused) || ((b.bazi ? b.bazi.total : 0) - (a.bazi ? a.bazi.total : 0)) || (b.score - a.score) || String(a.code).localeCompare(String(b.code));
+  // 初筛：二次聚焦优先 → 评分 → 获利筹码；最终排序先比较关键证据完整性。
   scored.sort(byScore);
   // 条件自优化应用：每条命中路径按真实命中率获得评分修正（优条件加权/差条件降权，±5分）
   if (S.learn.paths && Object.keys(S.learn.paths).length) {
@@ -5031,7 +5032,6 @@ async function rebuildPool() {
   // 用户口诀（2026-10-02）：先定主线板块 → 板块内挑活跃强势 → 看位置别追高 → 确认承接再出手。
   // 给池里每只票算四维度分：既用于【排序】（八字分高的往前排），也用于【文案】
   // （推送里直接写清"趋势强/资金中性/启动位/承接偏弱"），并且「高位加速」「破位」一票否决。
-  const mainlineNames = new Set(((S.mainline && S.mainline.items) || []).map(m => m.sector));
   for (const c of picked) {
     try {
       const kk = S.klines.get(c.code);
@@ -5042,7 +5042,7 @@ async function rebuildPool() {
       //    实测 .kline_cache 里 10 只票只有 6~21 根 K 线（清一色次新股 301686/601091/688801…），
       //    它们每天进候选、打分、入池，**一次都没被八字闸门看过**，而次新股恰恰是
       //    「高位加速」最典型的群体 —— 硬闸门专防的那一类，恰恰是它唯一漏掉的那一类。
-      if (!rows || rows.length < 25) { c.baziMiss = `K线仅${rows ? rows.length : 0}根（<25）·八字闸门未执行`; continue; }
+      if (!rows || rows.length < 25) { c.baziMiss = `K线仅${rows ? rows.length : 0}根（<25）·八字闸门未执行`; c.selectionEvidenceStatus = 'incomplete'; continue; }
       const sec = sectorOfStock({ code: c.code, name: c.name });
       const ztArr = (S.ztBySector || {})[sec] || [];
       const leaderPct = ztArr.length ? Math.max(...ztArr.map(z => +z.pct || 0)) : null;
@@ -5051,17 +5051,20 @@ async function rebuildPool() {
         fundDays: S.fundDays.get(c.code), mainInflow: c.mainInflow, floatCap: c.floatCap,
         sectorInfo: {
           secZT: ztArr.length,
-          streak: mainlineNames.has(sec) ? 2 : (ztArr.length ? 1 : 0),  // 在今日主线里视为"连续活跃"
+          streak: null,  // 今日主线排名不能证明连续两日上榜；保留未知，不编造历史。
           leaderPct
         }
       });
-      c.bazi = { total: r.total, stage: r.stage, verdict: r.verdict, line: r.line, advise: r.advise };
+      c.bazi = { total: r.total, stage: r.stage, verdict: r.verdict, line: r.line, advise: r.advise,
+        scoreKind: r.scoreKind, calibrationCertified: false, evidenceComplete: r.evidenceComplete,
+        actionable: r.actionable, coverage: r.coverage, fundsEvidence: r.dims.fund.fundsEvidence || null };
+      c.selectionEvidenceStatus = r.coverage.criticalMissing.length ? 'incomplete' : 'sufficient';
       c.baziDims = {
         trend: r.detail.trend, fund: r.detail.fund, position: r.detail.position, support: r.detail.support
       };
       c.baziWhy = { trend: r.dims.trend.why, fund: r.dims.fund.why, position: r.dims.position.why, support: r.dims.support.why };
       if (r.insufficient) c.baziMiss = r.insufficient;
-    } catch { c.baziMiss = '八字计算失败·闸门未执行'; /* 单只算不出来不影响整池，但必须留痕 */ }
+    } catch { c.baziMiss = '八字计算失败·闸门未执行'; c.selectionEvidenceStatus = 'incomplete'; /* 单只算不出来不影响整池，但必须留痕 */ }
   }
   // ⛔ 高位加速 / 破位整理 直接踢出精选池：用户口诀里最硬的一条是
   //    "高位加速进场大概率接最后一棒"、"逆势抄底是散户亏钱的大坑"。
@@ -5073,10 +5076,10 @@ async function rebuildPool() {
   //    项目既定的「缺数据不判死」原则说的是**打分权重**（大单缺 K 线按中性 0.7、趋势池缺 K 线中性），
   //    它从来不适用于**一票否决的硬闸门**：证据不足时唯一诚实的做法是「说清楚没判」，
   //    而不是默许放行。现在把两者分开：判得出的照旧判，判不出的单独标 baziMiss。
-  const baziUnknown = c => !c.bazi;
+  const baziUnknown = c => !c.bazi || c.selectionEvidenceStatus === 'incomplete';
   const beforeGate = picked.length;
   const unjudgedN = picked.filter(baziUnknown).length;
-  if (unjudgedN) console.log(`[pool] ⚠️ ${unjudgedN} 只票算不出八字（${(picked.find(baziUnknown) || {}).baziMiss || '数据不足'}）—— 它们未经过高位加速/破位闸门，已在卡片上标注`);
+  if (unjudgedN) console.log(`[pool] ⚠️ ${unjudgedN} 只票八字关键证据不足（${(picked.find(baziUnknown) || {}).baziMiss || '数据不足'}）—— 仅供观察，不能进入兜底推荐`);
   picked = picked.filter(c => !baziBlocked(c));
   // CONDITION_EVIDENCE_BEGIN
   for(const c of picked)annotateSignalConditions(c,'rebuildPool.bazi',[],['BAZI_INNER_THRESHOLDS_AND_SAFE_FALLBACK_NOT_EXPANDED'],
@@ -9764,6 +9767,7 @@ function pushAll(text, force, opts) {
   if (!opts) opts = { private: true };
   else if (opts.public === true) { opts = Object.assign({}, opts); delete opts.private; }
   else if (!opts.private) opts = Object.assign({}, opts, { private: true });
+  if (delivery.kind === 'historical-trigger-observation') opts = {...opts, forceHistoricalObservation:true};
   text = redactSecrets(text);   // ⛔ 凭据闸门：密码/令牌一律不许出网（2026-10-02）
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
@@ -9775,7 +9779,7 @@ function pushAll(text, force, opts) {
   //    → 现在副本对外发一律说不（验证码在副本上改为本机回显），只保留 manual（本机面板主动点的）例外。
   // 定时任务没有请求上下文，仍被拦截 → 只有线上推，手机不会一次来两份。
   const _manual = !!(opts && opts.manual) || inManualPush();
-  if (isReplica() && !(opts && opts.essential) && !_manual) {
+  if (isReplica() && !_manual) {
     // 面板照样实时刷新，只是不往手机/邮箱外发
     console.log('[replica] 本实例为副本，拦截定时外发推送:', String(text).slice(0, 50).replace(/\n/g, ' '));
     pushLog('副本拦截(不外发)', text, _extra({ note: '本实例是副本，定时推送一律不对外发，只有线上实例才推' }));
@@ -9822,14 +9826,13 @@ function pushAll(text, force, opts) {
   } catch {}
   // ⛔ 2026-10-05 新增：私密消息（opts.private）在配了私密机器人后【只发私密机器人】，
   //    不再往群里那个共享机器人发，也不发邮箱 —— 持仓的金额、验证码都只该本人看见。
-  //    没配私密通道则完全走下面的老路（群机器人），一行行为都不变。
+  //    没配私密通道则记录私密未送达，不改发公共通道。
   //    ⚠️ 位置很讲究：必须排在副本拦截/条数闸门/夜间静默/面板推送【之后】，
   //       这样私密化只是"换个收件人"，不会顺手把静默和额度一起绕过去。
   // ⛔⛔ 2026-10-06（本轮角度：占位与送达的原子性）：确认没送到 → 把这一批占位退回去。
   //   见 govRelease 的注释：额度/冷却/去重/模块配额是**发送之前**就占上的，
   //   发送失败若不退回，这条消息当天就永久消失（下一轮会因为"已推过"直接跳过它）。
-  //   ⚠️ 只在这里退一次：下面的私密通道失败会退回群机器人，只有【最终也没送到】才回滚，
-  //      避免"私密失败→群发成功"这种成功路径被误退。
+  //   只在确认未发送时退回占位；私密通道结果未知保留去重，任何失败均不改发群。
   const _undo = opts && opts.undo;
   const _release = (why) => {
     if (!_undo) return;
@@ -9849,7 +9852,7 @@ function pushAll(text, force, opts) {
       _release('私密通道未配置');
       return false;
     }
-    feishuProbe(feishuSecId(), process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '', text).then(r => {
+    feishuSendPrivate(text, {...opts, manual:_manual}).then(r => {
       if (r && r.ok) { _pushLast = { ret: true, sent: true, why: '', t: Date.now() }; pushLog('✅ 已送达(私密)', text, _extra({ channel: '飞书·私密', note: '仅本人可见：' + feishuSecMask() })); return; }
       // ⛔⛔ fz 轮：私密通道「结果未知」（超时/断连）时**不许退回群机器人**。
       //    消息很可能已经送到本人手上了，再往群里补一条 = 同一条内容来两遍（用户反复投诉的那种重复）；
@@ -10053,9 +10056,10 @@ function feishuProbe(id, secret, text, _https) {
         try { res.on('data', d => b += d); } catch (e) {}
         res.on('end', () => {
           let j = null; try { j = JSON.parse(b); } catch (e) {}
-          if (j && (j.code === 0 || j.StatusCode === 0 || j.msg === 'success')) done({ ok: true, msg: 'ok' });
-          else done({ ok: false, msg: j ? ('code=' + j.code + ' ' + String(j.msg || '').slice(0, 60)) : ('响应异常: ' + String(b).slice(0, 60)) });
+          done(classifyFeishuReceipt(res.statusCode, j));
         });
+        res.on('aborted', () => done({ok:false,msg:'送达结果未知：响应中断'}));
+        res.on('error', () => done({ok:false,msg:'送达结果未知：响应流错误'}));
       });
     } catch (e) { return done({ ok: false, msg: '请求构造失败: ' + ((e && e.message) || e) }); }
     req.on('timeout', () => { try { req.destroy(); } catch (e) {} done({ ok: false, msg: '请求超时（8 秒无响应）' }); });
@@ -10071,8 +10075,10 @@ function feishuErrTip(msg) {
   const m = String(msg || '');
   const cm = m.match(/code=(-?\d+)/);
   const code = cm ? cm[1] : '';
-  if (code === '9499' || /too many request/i.test(m)) return '飞书限流了（同一时间发太多）。这不是地址坏了，等 1~2 分钟再点一次自检即可。';
-  if (/签名|sign|signature/i.test(m)) return '签名校验没过：群里如果没开「签名校验」，请把密钥那一栏清空再试；开了的话就是密钥抄错了。';
+  if (code === '11232' || /HTTP 429|too many request/i.test(m)) return '飞书限流了（同一时间发太多）。这不是地址坏了，等 1~2 分钟再点一次自检即可。';
+  if (code === '9499') return '飞书拒绝了请求参数，请检查消息格式；更换机器人地址通常不能解决。';
+  if (code === '19021' || /签名|sign|signature/i.test(m)) return '签名校验没过：群里如果没开「签名校验」，请把密钥那一栏清空再试；开了的话检查密钥与服务器时间。';
+  if (/送达结果未知/.test(m)) return '未取得有效回执，暂不自动重推。请先核对飞书消息和网络状态。';
   if (/invalid|not exist|不存在|已删除|解散|robot/i.test(m)) return '这个机器人地址已失效（机器人被删除 / 群已解散）。请到飞书群里重新添加机器人，再把新地址复制进来。';
   if (/超时|timeout|ETIMEDOUT/i.test(m)) return '连不上飞书服务器（超时）。检查网络/代理后重试。';
   if (/ENOTFOUND|EAI_AGAIN|网络异常/i.test(m)) return '域名解析失败，检查网络或代理设置。';
@@ -10097,6 +10103,7 @@ function feishuErrTip(msg) {
 //   流水里写清楚「结果未知·未重推」，用户要补可以在面板手动发（manual 不受去重限制）。
 function sendResultUnknown(info) {
   const s = String(info || '');
+  if (/送达结果未知/.test(s)) return true;
   if (!s) return false;                                                    // 没信息就当确认失败
   if (/超时|timeout|ETIMEDOUT|ESOCKETTIMEDOUT|未回调/i.test(s)) return true;
   if (/ECONNRESET|ECONNABORTED|EPIPE|socket hang up|ENOTFOUND|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|ECONNREFUSED/i.test(s)) return true;
@@ -10118,6 +10125,25 @@ const _fsQueue = FSQ.createQueue(
   (text, cb) => feishuSendOnce(text, cb),
   { minGap: 1200, maxQ: 200, retry: 2, log: { warn: m => console.warn('[feishu] ' + m), error: m => console.error('[feishu] ' + m) } }
 );
+// Default-private business messages use the same bounded scheduling guarantees.
+// Credentials are captured when queued so a config change cannot redirect an old message.
+const _fsPrivateQueue = FSQ.createQueue(
+  (job, cb) => {
+    if (isReplica() && !job.options.manual) return cb(false, '本实例已切为副本，排队消息未发送');
+    if (job.id !== feishuSecId() || job.secret !== (process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || ''))
+      return cb(false, '私密通道配置已变更，排队消息未发送');
+    if (job.options.recommendationRows && !job.options.forceHistoricalObservation &&
+        !prepareRecommendationDelivery(job.text, job.options).canRecommend)
+      return cb(false, '排队期间推荐证据失效，未发送');
+    return feishuProbe(job.id, job.secret, job.text).then(r => cb(r.ok, r.msg), () => cb(false, '送达结果未知：私密请求异常'));
+  },
+  { minGap: 1200, maxQ: 200, retry: 2, log: { warn: m => console.warn('[feishu-private] ' + m), error: m => console.error('[feishu-private] ' + m) } }
+);
+function feishuSendPrivate(text, opts) {
+  const job = {id:feishuSecId(), secret:process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '', text, options:{...opts}};
+  if (!job.id) return Promise.resolve({ok:false,msg:'私密通道未配置'});
+  return new Promise(resolve => _fsPrivateQueue.send(job, (ok, msg) => resolve({ok,msg}), opts));
+}
 
 // opts.priority = true 的消息插到队首：验证码 / 凭证卡这类有时效的东西不能排在一堆行情快报后面。
 function feishuSend(text, cb, opts) { _fsQueue.send(text, cb, opts); }
@@ -10160,15 +10186,11 @@ function feishuSendOnce(text, cb) {
       let j = null;
       try { j = JSON.parse(b); } catch {}
       // 飞书成功返回 {"code":0,"msg":"success"}；失败返回非 0 code + msg
-      if (j && (j.code === 0 || j.StatusCode === 0 || j.msg === 'success')) {
-        console.log('[feishu] 已送达 code=0');
-        done(true, 'ok');
-      } else {
-        const em = j ? ('code=' + j.code + ' ' + String(j.msg || '').slice(0, 80)) : String(b).slice(0, 80);
-        console.error('[feishu] 发送失败 ' + em);
-        done(false, em);
-      }
+      const receipt = classifyFeishuReceipt(r.statusCode, j);
+      done(receipt.ok, receipt.msg);
     });
+    r.on('aborted', () => done(false, '送达结果未知：响应中断'));
+    r.on('error', () => done(false, '送达结果未知：响应流错误'));
   });
   // ⛔ 没有超时的话：对端接受连接却迟迟不响应（代理挂住 / socket 半开），
   //    这个请求就永远没有下文，回调不来 → 队列永久锁死。15 秒足够飞书应答。

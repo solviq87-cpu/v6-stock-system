@@ -15,7 +15,7 @@ const activeFlag=value=>value===true||value===1||(typeof value==='string'&&!!tex
 function reviewQuoteSnapshotFields(row){
  const input=row&&typeof row==='object'?row:{};
  const copied={...quoteSnapshotFields(input)};
- for(const field of ['mode','simulated','imported','fixture','mock','synthetic','readOnlyBackup','tradable','suspended','halt','riskWarning','isST','volume','amount']){
+ for(const field of ['mode','simulated','imported','fixture','mock','synthetic','readOnlyBackup','tradable','suspended','halt','riskWarning','isST','volume','amount','selectionEvidenceStatus']){
   if(Object.hasOwn(input,field))copied[field]=input[field];
  }
  return copied;
@@ -51,6 +51,7 @@ function reviewRecommendationEvidence(row,{purpose,now=Date.now()}={}){
 
  if(!PURPOSES.has(purpose))addMissing('UNKNOWN_PURPOSE','必须明确即时推荐、带日期观察或事实播报用途。');
  else if(purpose==='intraday-recommendation'){
+  if(input.selectionEvidenceStatus === 'incomplete')addMissing('INCOMPLETE_SELECTION_EVIDENCE','此候选关键选股证据不足，仅保留观察，不能作为即时推荐。');
   if(!text(input.quoteMode||input.mode))addMissing('MISSING_QUOTE_MODE','缺少同一原始报价行的用途模式。');
   const name=text(input.name);
   if(input.isST===true||activeFlag(input.riskWarning)||/^(?:S\*?ST|\*+\s*ST|ST)|退市/i.test(name))addContra('ST_OR_RISK_WARNING','ST、退市或明确风险警示标的不能进入即时推荐。');

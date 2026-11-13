@@ -20,6 +20,7 @@ const A = require('./analysis.js');
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const N = (r, ns) => { for (const n of ns) { const v = r && r[n]; if (v != null && isFinite(+v)) return +v; } return 0; };
+const observedNumber = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 // ---------- 维度一：趋势（均线多头 + 稳步抬升 + 回踩不破 + 板块节奏）----------
 function dimTrend(ctx) {
@@ -67,10 +68,11 @@ function dimTrend(ctx) {
 
   // ⑤ 板块节奏：连续上涨 + 有龙头带领 + 反复活跃 → 加分；一日游 → 减分
   if (sectorInfo) {
-    const { secZT = 0, streak = 0, leaderPct = null } = sectorInfo;
+    const { secZT = null, streak = null, leaderPct = null } = sectorInfo;
     if (secZT >= 2) { s += 10; why.push(`所属板块今日${secZT}只涨停（有龙头带领下持续活跃）`); }
     else if (secZT === 1) { s += 2; why.push('所属板块今日1只涨停（需次日验证是否一日游）'); }
     if (streak >= 2) { s += 6; why.push(`板块连续${streak}日上榜（非一日游）`); }
+    else if (streak == null) miss.push('板块连续性');
     // ⚠️ leaderPct 是从涨停池/板块榜直接拿的原始值，实测见过 10.0217866897583 这种浮点，
     //    不格式化会把一长串小数打进推送文案里（手机上看就是一串乱码）
     if (leaderPct != null && leaderPct >= 5) { s += 4; why.push(`板块龙头涨${(+leaderPct).toFixed(1)}%领涨`); }
@@ -88,22 +90,25 @@ function dimFund(ctx) {
 
   // ① 主力资金：四级保障（东财三日 → 当日净流入 → 同花顺主动净买 → 量价代理）
   let src = null, inflow = null;
-  if (fundDays && fundDays.length >= 3) {
-    inflow = fundDays.slice(-3).reduce((a, d) => a + (d.main || 0), 0);
+  const window = Array.isArray(fundDays) ? fundDays.slice(-3) : [];
+  const historyComplete = window.length === 3 && window.every(d => d && observedNumber(d.main) !== null);
+  if (historyComplete && Number.isFinite(window.reduce((a, d) => a + d.main, 0))) {
+    inflow = window.reduce((a, d) => a + d.main, 0);
     src = '东财三日主力净额';
-  } else if (mainInflow != null && mainInflow !== 0) { inflow = mainInflow; src = '当日主力净流入'; }
-  else if (thsNetAmt != null) { inflow = thsNetAmt; src = '同花顺主动净买'; }
+  } else if (observedNumber(mainInflow) !== null) { inflow = mainInflow; src = '当日主力净流入'; }
+  else if (observedNumber(thsNetAmt) !== null) { inflow = thsNetAmt; src = '同花顺主动净买'; }
   if (inflow != null) {
     const wan = +(inflow / 1e4).toFixed(0);
     if (inflow > 0) { s += 16; why.push(`${src} +${wan}万（主力在进）`); }
-    else { s -= 18; why.push(`${src} ${wan}万（资金持续撤离，进场容易接盘）`); }
+    else if (inflow < 0) { s -= 18; why.push(`${src} ${wan}万（该口径净流出，注意承接风险）`); }
+    else why.push(`${src} 0万（已观测净额为零，不作流入或流出加减分）`);
     // 持续性：逐日都为正才算"持续流入"
-    if (fundDays && fundDays.length >= 3) {
-      const all = fundDays.slice(-3).every(d => (d.main || 0) > 0);
+    if (historyComplete) {
+      const all = window.every(d => d.main > 0);
       if (all) { s += 8; why.push('近3日连续净流入（持续性成立）'); }
-      else if (fundDays.slice(-3).every(d => (d.main || 0) < 0)) { s -= 8; why.push('近3日连续净流出'); }
+      else if (window.every(d => d.main < 0)) { s -= 8; why.push('近3日连续净流出'); }
     }
-  } else { miss.push('资金流'); why.push('资金流数据缺失，本维度按中性处理'); }
+  } else { miss.push('资金流'); why.push('资金流未知，仅保留独立量价形态评分，不能据此认定资金流入'); }
 
   // ② 炒作惯性：近20日涨停 / 大阳线数量（"资金曾经炒作过的更容易再来"）
   const r20 = rows.slice(-20);
@@ -141,7 +146,10 @@ function dimFund(ctx) {
   // ⑤ 高位大单要打折：在高位加速区间的"资金流入"可能是拉高出货
   if (bmc && bmc.atHigh) { s -= 8; why.push('已在60日高点附近，此时的流入需警惕拉高出货'); }
 
-  return { score: clamp(Math.round(s), 0, 100), label: scoreLabel(s), why: why.join('；') || '无可判据', miss };
+  return { score: clamp(Math.round(s), 0, 100), label: scoreLabel(s), why: why.join('；') || '无可判据', miss,
+    fundsEvidence: { source: src, net: inflow, observed: inflow !== null, historyComplete,
+      method: src === '同花顺主动净买' ? 'active-net-buy' : src ? 'vendor-order-size-estimate' : null,
+      sourceTimestamp: ctx.fundsSourceTimestamp ?? null, verifiedLive: false } };
 }
 
 // ---------- 维度三：位置（启动位 / 洗盘位 / 高位加速）----------
@@ -334,12 +342,29 @@ function evaluate(ctx) {
     for (const m of ((d && d.miss) || [])) missSet.add(m);
   }
   const miss = [...missSet];
+  // Keep the legacy research score for compatibility, but never promote missing evidence
+  // to an actionable verdict. Coverage is about inputs, not a calibrated win probability.
+  const knownDimensions = Object.values(dims).filter(d => observedNumber(d.score) !== null && !d.insufficient).length;
+  const completeDimensions = Object.values(dims).filter(d => observedNumber(d.score) !== null && !d.insufficient && !(d.miss || []).length).length;
+  const evidenceComplete = miss.length === 0;
+  const criticalMissing = Object.entries(dims).filter(([, d]) => d.insufficient || observedNumber(d.score) === null).map(([id]) => id);
+  if (!fund.fundsEvidence?.observed && !criticalMissing.includes('fund')) criticalMissing.push('资金流');
+  if (observedNumber(price) === null || price <= 0) criticalMissing.push('有效价格');
+  const hardVeto = stage === '高位加速' || stage === '破位整理';
+  if (criticalMissing.length && !hardVeto) {
+    verdict = '观察';
+    advise = `关键证据不足（${criticalMissing.join('、')}），暂不据此给出介入或加仓建议；等待数据补齐后重新评估`;
+  }
   const line = `八字 ${trend.label}/${fund.label}/${position.label}/${support.label}｜${stage}·${verdict}`;
 
   return {
     total: Math.round(total * 10) / 10,
     dims, stage, verdict, advise, line,
     insufficient: miss.length > 0 ? miss : null,
+    scoreKind: 'research-score', calibrationCertified: false,
+    evidenceComplete, actionable: !criticalMissing.length && verdict === '可介入',
+    coverage: { totalDimensions: 4, knownDimensions, completeDimensions,
+      completeRate: completeDimensions / 4, missing: miss, criticalMissing },
     detail: {
       trend: trend.score, fund: fund.score, position: position.score, support: support.score,
       bias: position.bias, dd60: position.dd60, r5: position.r5
