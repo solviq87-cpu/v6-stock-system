@@ -342,3 +342,60 @@ process.stdin.on('data', d=>input+=d);process.stdin.on('end',()=>{
   assert.deepEqual(report.args, ['--disable', '--config', '-']); assert.equal(report.receivedSecretViaStdin, true);
   assert.equal(JSON.stringify(report).includes(PRIVATE), false);
 });
+test('real curl preserves exact Unicode HTML through a receiver that decodes split UTF-8 chunks incorrectly', { timeout: 10000 }, async t => {
+  const http = require('node:http'); const { spawn } = require('node:child_process');
+  const f = setup(t); const sourceFile = path.join(f.dir, 'unicode.html');
+  fs.writeFileSync(sourceFile, '<!doctype html><html><head><title>天枢智策</title></head><body>' +
+    '低波稳健 中文 😀 𠮷 \\n \\u4e2d "quoted" <p>换行\n制表\t</p>'.repeat(900) + '</body></html>');
+  for (const sha of [SHA, NEXT]) f.artifacts[sha] = buildWorkBuddyStatic({ sourceFile, sha });
+  let actual = { html: f.artifacts[SHA].html, title: '天枢智策', author: '测试', at: 1 };
+  const receivedAscii = [];
+  const server = http.createServer((req, res) => {
+    let text = '', ascii = true;
+    req.on('data', chunk => {
+      // Deliberately reproduce the host bug at every byte boundary, independent of TCP packet sizes.
+      for (let i = 0; i < chunk.length; i++) { ascii = ascii && chunk[i] < 128; text += chunk.subarray(i, i + 1).toString('utf8'); }
+    });
+    req.on('end', () => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.method === 'POST') {
+        try { actual = { ...actual, ...JSON.parse(text), at: actual.at + 1 }; receivedAscii.push(ascii); res.end('{"ok":true}'); }
+        catch { res.statusCode = 400; res.end('{"ok":false}'); }
+      } else if (req.url.startsWith('/api/site')) res.end(JSON.stringify({ ok: true, published: true, site: actual }));
+      else if (req.url.startsWith('/api/health')) res.end('{"ok":true,"published":true}');
+      else { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(actual.html); }
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const localOrigin = `http://127.0.0.1:${server.address().port}`;
+  const originalPath = process.env.PATH;
+  const curl = originalPath.split(path.delimiter).map(dir => path.join(dir, 'curl')).find(file => {
+    try { fs.accessSync(file, fs.constants.X_OK); return fs.statSync(file).isFile(); } catch { return false; }
+  });
+  assert.ok(curl, 'real curl is required');
+  const send = options => new Promise((resolve, reject) => {
+    const child = spawn(curl, ['--disable', '--config', '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    child.stdout.resume(); child.stderr.resume(); child.on('error', reject);
+    child.on('close', code => code === 0 ? resolve() : reject(Error('local curl failed'))); child.stdin.end(options.join('\n') + '\n');
+  });
+  // Control uses the original serializer and must demonstrate corruption at the real HTTP receiver.
+  await send([`url = ${JSON.stringify(`${localOrigin}/api/publish`)}`, 'request = "POST"', 'silent', 'proto = "=http"', 'max-time = 2',
+    'header = "Content-Type: application/json"', `data-binary = ${JSON.stringify(JSON.stringify({ html: f.artifacts[NEXT].html }))}`]);
+  assert.equal(receivedAscii[0], false); assert.notEqual(actual.html, f.artifacts[NEXT].html); assert.ok(actual.html.includes('\ufffd'));
+  actual = { ...actual, html: f.artifacts[SHA].html };
+  // Forward the production transport's exact stdin configuration to a loopback-only real curl.
+  const bin = path.join(f.dir, 'curl-forwarder'); fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'curl'), `#!/usr/bin/env node
+const {spawn}=require('node:child_process');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{
+const line=input.split('\\n').find(s=>s.startsWith('url = '));const url=new URL(JSON.parse(line.slice(6)));
+if(url.origin!==${JSON.stringify(TARGET)})process.exit(3);
+input=input.replace(/^url = .+$/m,'url = '+JSON.stringify(${JSON.stringify(localOrigin)}+url.pathname+url.search)).replace('proto = "=https"','proto = "=http"');
+const p=spawn(${JSON.stringify(curl)},['--disable','--config','-'],{stdio:['pipe','pipe','pipe']});p.stdout.pipe(process.stdout);p.stderr.resume();p.on('error',()=>process.exit(4));p.on('close',code=>process.exit(code??5));p.stdin.end(input);
+});`, { mode: 0o700 });
+  process.env.PATH = `${bin}${path.delimiter}${originalPath}`; t.after(() => { process.env.PATH = originalPath; });
+  const provider = createWorkBuddyStaticPublisher(f.config);
+  const receipt = await provider.apply(f.actionArgs(f.artifacts[NEXT], f.artifacts[SHA]));
+  assert.equal(receivedAscii[1], true); assert.equal(actual.html, f.artifacts[NEXT].html);
+  assert.equal(receipt.artifactHash, f.artifacts[NEXT].artifactHash); assert.equal(receipt.releaseId, f.artifacts[NEXT].releaseId);
+});

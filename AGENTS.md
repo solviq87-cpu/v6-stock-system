@@ -4,7 +4,7 @@
 
 > **云端/双端/休市不可回退规则（2026-11-09）**：手机版和电脑版网页都能独立刷新同一份云端状态；任意一端在线不依赖另一端，本地浏览器不作为账户/历史唯一存储。周末/法定休市日新闻与公告继续更新，盘面保留最后交易日快照与数据日期，禁止旧价伪装实时或触发模拟买卖；不擅自采购付费服务。飞书提醒由唯一云端主实例发送，周末新闻/公告可推、休市旧行情不得触发交易信号；私密/公共通道和重复发送风险见 `V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md`。
 
-> **国内写入/部署目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`；官方管理文档 `/console`，官方单文件 HTML 发布 `POST /api/publish`。详见 `V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 与 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md`。每次请求需私有 `sharecode` 查询参数，分享码/token 不得入 Git 或日志。已只读核验文档/站点/健康检查，尚未写入或证明生产部署；自动更新仍待 GitHub Actions Secret 配置及首轮发布验证。禁止回退旧主机或把静态托管当 Node/Python 服务。
+> **国内写入/部署目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`；官方管理文档 `/console`，官方单文件 HTML 发布 `POST /api/publish`。详见 `V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 与 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md`。每次请求需私有 `sharecode` 查询参数，分享码/token 不得入 Git 或日志。已实际调用发布接口；首次大页面写入出现 Unicode 内容损坏，严格哈希门禁拒绝确认成功，恢复须使用精确当前哈希与原加密快照。仅 CI 绿色或 HTTP 200 不能证明已发布，长期自动更新还需 GitHub Actions Secret 及完整读回。禁止回退旧主机或把静态托管当 Node/Python 服务。
 
 > **用户锁定两张主页（2026-11-09，优先级最高）**：禁止改动 `V6_BO/public/index.html`（电脑主页）和 `V6_BO/public/mobile.html`（手机主页）任何字节，主页外观/导航不动。唯一「智能选股」入口进入 `/picks.html`，之后内页才分别响应式适配电脑左右栏/手机单列；每只股票显示实际命中条件、详情只需日K/月K/年K。源码和固定 SHA、测试见 `V6_BO/docs/HOMEPAGES_LOCKED_SINGLE_PICKS_20261109.md`。未经用户明确改变要求不能移除锁定测试。
 

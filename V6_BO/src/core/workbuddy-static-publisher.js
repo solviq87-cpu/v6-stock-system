@@ -41,7 +41,13 @@ function curlTransport({ targetOrigin, shareCode }) {
     const options = [`url = ${JSON.stringify(url)}`, `request = ${JSON.stringify(method)}`, 'silent', 'proto = "=https"',
       `max-time = ${Math.max(1, Math.min(12, timeoutMs / 1000))}`, `max-filesize = ${MAX_BYTES}`,
       'write-out = "\\nV6_HTTP_STATUS:%{http_code}"'];
-    if (body !== undefined) options.push('header = "Content-Type: application/json"', `data-binary = ${JSON.stringify(JSON.stringify(body))}`);
+    if (body !== undefined) {
+      // Some hosts decode each incoming byte chunk separately. ASCII JSON escapes keep
+      // UTF-8 characters intact across those boundaries; JSON.parse restores exact HTML.
+      const serialized = JSON.stringify(body).replace(/[\u007f-\uffff]/g,
+        character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`);
+      options.push('header = "Content-Type: application/json"', `data-binary = ${JSON.stringify(serialized)}`);
+    }
     // Ignore user curlrc files: they may enable redirects, tracing or unsafe TLS.
     const process = spawn('curl', ['--disable', '--config', '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
     let chunks = [], length = 0, oversized = false;

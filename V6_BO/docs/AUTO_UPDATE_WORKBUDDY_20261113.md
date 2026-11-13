@@ -8,7 +8,9 @@
 
 发布条件是 `dev` 精确当前头 SHA 对应的最新 push V6 CI 工作流及其全部必要 job（包括 `verify` 和 `verify-web`）均成功。工作流先通过独立 `actions/github-script` 只读门禁核对候选 SHA、CI 和分支头，成功后才 checkout 精确 SHA，随后加载分享码 Secret；不能先执行未经检查的候选脚本。发布前再次核对分支头和 CI，使用同一 SHA 构建产物，单个并发发布任务避免互相覆盖。发布后 `/api/site` 必须与预期完整源 SHA、`releaseId`、`artifactHash` 和实际 HTML 内容匹配，并通过 `/api/health`；相同源 SHA 但 HTML 不同也拒绝接受。标题或页面自带 SHA 标记不能单独证明已验证。失败停止，以发布前的加密站点快照恢复并再次读回验证；私有发布记录和加密快照通过工作流缓存保留，不上传明文页面快照或分享码。
 
-**长期自动更新尚未激活，首轮真实发布/回滚尚未验证。** 当前集成调用仓库 Actions Secret 公钥接口返回 403，无法在此会话中设置所需私有 Secret。只读站点、文档与健康检查成功，不能替代真实写入回执或工作流运行记录，也不能证明长期持续运行。
+**长期自动更新尚未激活。** 当前集成调用仓库 Actions Secret 公钥接口返回 403，无法在此会话中设置所需私有 Secret。代码已通过 CI 合入默认 `dev`，自动工作流可运行，但缺少 Secret 时实际发布步骤跳过。只读站点、健康检查或绿色工作流不能替代真实写入回执，也不能证明长期持续运行。
+
+首次真实大页面发布揭示 Unicode 传输损坏：线上完整 HTML 多出 21 个 U+FFFD，严格内容哈希校验拒绝成功回执。客户端已统一在拼接完响应 Buffer 后解码；损坏高度符合接收端或中间层按分块错误解码请求 UTF-8，具体服务端实现未证实。发布请求使用纯 ASCII JSON Unicode 转义规避该问题，JSON 解码后的 HTML 必须逐字节一致；本地真实 curl 分块接收回归覆盖中文、非 BMP 字符、反斜杠和控制字符。损坏标记页面须使用下文显式 legacy 恢复，再初始化通过 CI 的新版本，不能把声明的 SHA 当作内容证明。执行后的实际恢复/发布回执见对应修复 PR。
 
 ## 一次私有配置
 
@@ -17,11 +19,11 @@
 - 名称：`V6_WORKBUDDY_SHARECODE`。
 - 值：用户已有的新目标分享码，只在 GitHub 私有输入框填写。
 
-此值不得贴入 Issue、PR、工作流 YAML、命令参数、截图或聊天交接文件；不得用明文环境变量代替 Secret。现有授权已覆盖实现、检查和准备自动更新，不需要重新询问目标或分享码。Secret 配置、工作流合入默认 `dev` 分支及手动触发工作流，仍不足以初始化当前没有受信发布标记的线上页面。必须先由授权维护者在新 `dev` 的 CI 成功后，审核当前页面的完整 SHA-256，显式执行下文 `bootstrap --apply --expected-legacy-hash`，再核对首轮发布回执、完整预期内容读回与健康结果。完成这次初始化后，`once` 和定时工作流才可持续更新。当前尚未执行 bootstrap 或真实写入；工作流尚未进入默认分支、Secret 缺失或初始化未完成时，不可宣称定时更新已运行。
+此值不得贴入 Issue、PR、工作流 YAML、命令参数、截图或聊天交接文件；不得用明文环境变量代替 Secret。现有授权已覆盖实现、检查和准备自动更新，不需要重新询问目标或分享码。Secret 配置、工作流合入默认 `dev` 分支及手动触发工作流，仍不足以初始化没有受信发布标记的线上页面。必须先由授权维护者在新 `dev` 的 CI 成功后，审核当前页面的完整 SHA-256，显式执行下文 `bootstrap --apply --expected-legacy-hash`，再核对首轮发布回执、完整预期内容读回与健康结果。完成这次初始化后，`once` 和定时工作流才可持续更新。Secret 缺失或初始化未通过完整读回时，不可宣称定时更新已运行。
 
 ## 安全运行与恢复
 
-参考配置为 `V6_BO/config/repository-auto-update.example.json`；复制到仓库外的私有配置后，核对 `repository`、`branch`、`targetOrigin`、`stateDir`、`intervalMs` 和 `sourcePath`（`V6_WEB/workbuddy/index.html`），必要时指定 `repositoryRoot`。CLI 格式为 `node scripts/repository-auto-update.js <check|once|watch|bootstrap> <私有config.json>`，先使用 `check` 查看仓库状态与候选 SHA；首次初始化通过后，再运行 `once <私有config.json> --apply`；`watch --apply` 用于已有常驻运行环境，当前静态托管站不能运行此 Node 进程。首次必须由授权维护者执行 `node scripts/repository-auto-update.js bootstrap <私有config.json> --apply --expected-legacy-hash <经过审核的64位SHA256>`，明确绑定当前无标记页面，避免覆盖其他版本；此步骤移除线上历史硬编码凭据并建立受信发布状态。当前尚未执行；运行前核对 CLI 帮助和新 `dev` 的成功 CI。发布前快照必须私有保存，并以 AES-GCM 加密后进入 Actions 缓存。凭据仅通过私有环境注入，`GITHUB_TOKEN` 可用于仓库只读核验。禁止复用旧 `_release_publish` 脚本，它会 bump 锁定主页版本并可能暂存无关脏代码。
+参考配置为 `V6_BO/config/repository-auto-update.example.json`；复制到仓库外的私有配置后，核对 `repository`、`branch`、`targetOrigin`、`stateDir`、`intervalMs` 和 `sourcePath`（`V6_WEB/workbuddy/index.html`），必要时指定 `repositoryRoot`。CLI 格式为 `node scripts/repository-auto-update.js <check|once|watch|bootstrap> <私有config.json>`，先使用 `check` 查看仓库状态与候选 SHA；首次初始化通过后，再运行 `once <私有config.json> --apply`；`watch --apply` 用于已有常驻运行环境，当前静态托管站不能运行此 Node 进程。首次必须由授权维护者执行 `node scripts/repository-auto-update.js bootstrap <私有config.json> --apply --expected-legacy-hash <经过审核的64位SHA256>`，明确绑定当前无标记页面，避免覆盖其他版本；此步骤移除线上历史硬编码凭据并建立受信发布状态。运行前核对 CLI 帮助和新 `dev` 的成功 CI。发布前快照必须私有保存，并以 AES-GCM 加密后进入 Actions 缓存。凭据仅通过私有环境注入，`GITHUB_TOKEN` 可用于仓库只读核验。禁止复用旧 `_release_publish` 脚本，它会 bump 锁定主页版本并可能暂存无关脏代码覆盖当前站点。
 
 加密快照保留上限为 32 份，优先保留当前版本、仍有效的前驱版本及首次 legacy 备份，其余已经验证的旧 HTML 可轮换；当前不能据此宣称已有任何真实发布或恢复验证。保留失败前源 SHA、已验证站点 SHA、加密快照与去敏私有记录；失败后查看门禁或回读错误，修复后重新跑通过 CI 的候选版本。回滚必须使用该目标自己发布前保存的快照，不能切换旧主机或用仓库 BO 锁定主页替换新站界面。若快照/缓存不可用或回读无法确认，则停止并保留失败状态，不猜测恢复成功。
 
