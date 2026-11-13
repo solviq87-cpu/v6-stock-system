@@ -134,6 +134,19 @@ test('sealed candidates retain identity-bound metadata and mismatched or future 
 
 test('real tick archives its later reservation before enqueue while keeping the original trigger time',async t=>{
  const {c,dir}=context(t,{advanceOnReset:5,advanceOnSave:5});
+ const news=require('../src/core/news-evidence-journal'),newsRoot=path.join(dir,'news-evidence');
+ c.process.env.V6_NEWS_EVIDENCE_DIR=newsRoot;
+ const original={schemaVersion:1,source:'clock-fixture',eventId:'during-review',sourceRevisionId:'one',kind:'original',supersedes:null,
+  url:'https://example.test/source',title:'触发前已知',body:'原始正文',bodyScope:'declared-body',securities:['000001'],
+  publishedAt:at-60000,receivedAt:at-2,revisedAt:null};
+ const before=news.appendBatch(newsRoot,[original],{now:at-1}).results[0];
+ let later;
+ const save=c.savePushGov;
+ c.savePushGov=()=>{
+  save();
+  later=news.appendBatch(newsRoot,[{...original,sourceRevisionId:'two',kind:'revised',supersedes:before.eventHash,
+   title:'审核期间收到修订',body:'较晚正文',receivedAt:at+6,revisedAt:at+6}],{now:at+7}).results[0];
+ };
  const stock=live({mainPct:2,mainInflow:12e7,floatCap:1e10,fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsRetrievedAt:at,fundsSourceTimestamp:null});
  Object.assign(c,{PAPER:{pool:{positions:{}},pre:{positions:{}}},monitorCodes:[],em:{fetchBatchSnapshot:async()=>[stock]},ingestPx(){},
   numNeutral:(_,value)=>value,sectorZTCountFor:()=>0,numGapRaw:()=>2,calibratedProb:value=>value,probThreshold:()=>.9,
@@ -154,9 +167,13 @@ test('real tick archives its later reservation before enqueue while keeping the 
  assert.equal(archive.governanceEvidence.decision.allow,true);assert.equal(archive.status,'partial');
  assert.ok(archive.missingReasons.includes('INCOMPLETE_TRIGGER_CONDITIONS'));
  assert.equal(archive.governanceEvidence.model.rawValue,50);assert.equal(archive.governanceEvidence.model.fusedValue,50);
+ assert.equal(archive.inputs.news.originalEvidence[0].eventHash,before.eventHash,'later governance cannot lend its newer news to the earlier trigger');
+ assert.equal(archive.inputs.news.binding.asOf,archive.triggerAt);assert.equal(archive.inputs.news.binding.asOfHeadHash,before.eventHash);
+ assert.equal(archive.inputs.news.binding.versions.length,1);
  assert.ok(Object.isFrozen(signal.governanceEvidence));
  const observation=Journal.readEvidence(dir,{date:'2026-11-13',code:stock.code}).records.find(item=>item.evidence.recordKind==='observation').evidence;
  assert.equal(observation.governanceEvidence.evaluatedAt,archive.governanceEvidence.evaluatedAt);
+ assert.equal(observation.inputs.news.originalEvidence[0].eventHash,later.eventHash,'the distinct later observation may reference the revision already recorded then');
 });
 
 test('governance archives are immutable across release, restart and later observations; old schema stays readable',t=>{
