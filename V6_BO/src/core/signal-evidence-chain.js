@@ -59,13 +59,34 @@ function createProductionSignalEvidence(input) {
   if (!input.inputs?.news?.originalEvidence) missing.push('NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN');
   if (input.inputs?.qualityEvidence?.canNotify !== true) missing.push('QUOTE_USE_NOT_ELIGIBLE_OR_UNKNOWN');
   if (!input.risk?.invalidWhen) missing.push('NO_EXPLICIT_INVALIDATION_RULE');
+  // Optional on schema 2: absent legacy metadata keeps its original payload/hash.
+  // The central gate emits a small scalar projection, never its entire model or history state.
+  let governance = {};
+  if (input.governanceEvidence !== undefined && input.governanceEvidence !== null) {
+    try {
+      const raw = JSON.stringify(input.governanceEvidence);
+      const aliases = { '后排涨停概率':'ztprob', '大单快速流入':'fastin', '趋势票':'trendsig', '涨停':'zt' };
+      if (!input.governanceEvidence || typeof input.governanceEvidence !== 'object' || Array.isArray(input.governanceEvidence) ||
+        input.governanceEvidence.schemaVersion !== 1 || Buffer.byteLength(raw) > 16 * 1024 ||
+        input.governanceEvidence.scope !== 'central-governance-reservation' || input.governanceEvidence.code !== input.code ||
+        input.governanceEvidence.type !== (aliases[input.type] || input.type) || typeof input.governanceEvidence.decision?.allow !== 'boolean' ||
+        !Number.isSafeInteger(input.governanceEvidence.evaluatedAt) || !Number.isSafeInteger(input.capturedAt) ||
+        input.capturedAt < input.triggerAt || input.governanceEvidence.evaluatedAt > input.capturedAt) throw Error('governance metadata');
+      governance = { governanceEvidence: JSON.parse(raw) };
+      if (governance.governanceEvidence.status !== 'complete' || governance.governanceEvidence.missing?.length) missing.push('INCOMPLETE_GOVERNANCE_RULES');
+    } catch {
+      governance = { governanceEvidence: { schemaVersion:1, status:'unavailable', missing:['GOVERNANCE_METADATA_INVALID_OR_OVERSIZE'] } };
+      missing.push('GOVERNANCE_METADATA_UNAVAILABLE');
+    }
+  }
   const payload = snapshot({schemaVersion:2,mode:'production-signal-provenance',code:input.code,type:text(input.type),triggerAt:input.triggerAt,
+    ...(Number.isSafeInteger(input.capturedAt) && input.capturedAt >= input.triggerAt ? {capturedAt:input.capturedAt} : {}),
     strategyVersion:version,strategyDependencies,recordKind:input.recordKind === 'trigger' ? 'trigger' : 'observation',supersedes:typeof input.supersedes === 'string' ? input.supersedes : null,
     quote:{price:finite(quote.price),pct:finite(quote.pct),quoteAt,receivedAt,quoteSource:source,quoteFreshness:text(quote.quoteFreshness),canTrade:quote.canTrade === true},
     model:{value:finite(input.model?.value),kind:text(input.model?.kind)||'unknown',target:input.model?.target===null?null:text(input.model?.target)||'unknown',
       rankingValue:finite(input.model?.rankingValue),rankingKind:text(input.model?.rankingKind)||'unknown',calibrationCertified:false},
     riseModel:{value:finite(input.riseModel?.value),kind:text(input.riseModel?.kind)||'unknown',target:input.riseModel?.target===null?null:text(input.riseModel?.target)||'unknown',source:text(input.riseModel?.source),calibrationCertified:false},
-    conditions,conditionCoverage,inputs:input.inputs || {},supportingReasons:(input.supportingReasons || []).map(text),opposingReasons:(input.opposingReasons || []).map(text),
+    conditions,conditionCoverage,...governance,inputs:input.inputs || {},supportingReasons:(input.supportingReasons || []).map(text),opposingReasons:(input.opposingReasons || []).map(text),
     risk:{text:text(input.risk?.text),stopLoss:text(input.risk?.stopLoss),invalidWhen:text(input.risk?.invalidWhen)},
     message:text(input.message),status:missing.length ? 'partial' : 'recorded',missingReasons:missing,canTrade:false});
   const evidenceFingerprint = sha256(payload);

@@ -922,6 +922,19 @@ S.learn = readJsonSafe(STAT_FILE, 'stats.json（信号样本/分桶校准/A-B �
 // ⛔ 返回落盘成败：调用方（尤其是会回应用户的接口）必须拿它决定怎么答复，不许写失败还回 ok:true
 const saveLearn = () => { const _o = atomicWrite(STAT_FILE, JSON.stringify(S.learn)); return _o ? true : _diskFail('stats.json（信号样本/校准分桶）'); };
 let signalRuleVersion;
+// Object identity also preserves the decision for sealed candidates without changing their shape.
+const governanceEvidenceByCandidate = new WeakMap();
+const governanceEvidenceRecords = new WeakSet();
+function signalGovernanceEvidence(row,type,at,requireCandidate=false) {
+  if (!row || typeof row !== 'object') return undefined;
+  if (requireCandidate && !governanceEvidenceByCandidate.has(row)) return undefined;
+  const evidence = governanceEvidenceByCandidate.has(row) ? governanceEvidenceByCandidate.get(row) : row.governanceEvidence;
+  const aliases = { '后排涨停概率':'ztprob', '大单快速流入':'fastin', '趋势票':'trendsig', '涨停':'zt' };
+  if (!evidence || !governanceEvidenceRecords.has(evidence) || evidence.scope !== 'central-governance-reservation' || evidence.decision?.allow !== true ||
+    evidence.code !== String(row.code || '') || (type && evidence.type !== (aliases[type] || type)) ||
+    !Number.isSafeInteger(evidence.evaluatedAt) || (at !== undefined && evidence.evaluatedAt > at)) return undefined;
+  return evidence;
+}
 function productionSignalVersion() {
   // Hash the evaluator actually loaded by this process; never backfill it into old samples.
   if (!signalRuleVersion) signalRuleVersion='live-signal-v3:'+SIGNAL_RULE_SOURCE_MANIFEST.status+':'+require('node:crypto').createHash('sha256').update(SIGNAL_RULE_SOURCE_HASH+tick.toString()+logSignal.toString()+fusedProb.toString()).digest('hex');
@@ -964,10 +977,11 @@ function learningSignalExtra(row,extra={}) {
   const quote={};
   for(const field of ['price','pct','quoteAt','receivedAt','quoteSource','quoteFreshness','canTrade','canNotify','mode']) if(row && row[field]!==undefined)quote[field]=row[field];
   return {...extra,sourceRecord:row||null,quoteEvidence:quote,conditionEvidence:Array.isArray(row?.conditionEvidence)?row.conditionEvidence:[],conditionCoverage:row?.conditionCoverage||null,
+    governanceEvidence:typeof signalGovernanceEvidence==='function'?signalGovernanceEvidence(row,undefined,undefined,true):undefined,
     strategyVersion:row?.strategyVersion||productionSignalVersion(),signalRisk:typeof row?.risk==='string'?row.risk:'',stopLoss:row?.stopRef||row?.stopLoss||'',invalidWhen:row?.invalidWhen||''};
 }
 function captureProductionSignal(record,quote={},rows=[],extra={}) {
-  const at=record.ts;
+  const at=record.ts,capturedAt=Date.now();
   const bars=Array.isArray(rows)?rows:[]; // Preserve each actual row, including provenance fields not known by this adapter.
   const eligibility=require('./src/core/quote-observation-view').quoteUseEligibility;
   const qualityEvidence=typeof eligibility==='function'?eligibility(quote,at):{canTrade:false,canNotify:false,missingReason:'QUALITY_CONTRACT_UNAVAILABLE'};
@@ -979,9 +993,10 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
   let evidence;
   const modelKind=record.probKind==='score'?'score':record.prob==null?'unknown':'model-estimate';
   const eventTarget=record.eventTarget!==undefined?record.eventTarget:record._fz?.target??'unknown';
-  try{evidence=SignalEvidence.createProductionSignalEvidence({code:record.code,type:record.type,triggerAt:at,
+  try{evidence=SignalEvidence.createProductionSignalEvidence({code:record.code,type:record.type,triggerAt:at,capturedAt,
     recordKind:extra.recordKind,strategyVersion:record.strategyVersion||productionSignalVersion(),strategyDependencies:SIGNAL_RULE_SOURCE_MANIFEST,supersedes:extra.supersedes,
-    quote,conditions:record.conditionEvidence||[],conditionCoverage:record.conditionCoverage,model:{value:record.prob,kind:modelKind,target:eventTarget,
+    quote,conditions:record.conditionEvidence||[],conditionCoverage:record.conditionCoverage,
+    governanceEvidence:signalGovernanceEvidence(record,record.type,capturedAt),model:{value:record.prob,kind:modelKind,target:eventTarget,
       rankingValue:record._fz?.prob,rankingKind:record._fz?.valueKind||'unknown'},
     riseModel:{value:record.riseProb,kind:record.riseProb==null?'unknown':'model-estimate',target:record.riseEventTarget??'unknown',source:record.riseModelSource||''},
     inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news,qualityEvidence},
@@ -999,7 +1014,7 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
   catch(error){console.error('[signal-evidence] 冻结归档不可用，不能声称可持久回放');}
   return SignalEvidence.immutableSnapshot({...record,signalId:evidence.signalId,evidenceFingerprint:evidence.evidenceFingerprint,
     evidenceStatus:evidence.status,evidenceArchiveStatus:archiveStatus,evidenceMissingReasons:evidence.missingReasons,
-    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,conditionCoverage:evidence.conditionCoverage,qualityEvidence,
+    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,conditionCoverage:evidence.conditionCoverage,governanceEvidence:evidence.governanceEvidence,qualityEvidence,
     probKind:modelKind,eventTarget,calibrationCertified:false,
     quoteAt:evidence.quote.quoteAt,receivedAt:evidence.quote.receivedAt,quoteSource:evidence.quote.quoteSource,
     stopLoss:evidence.risk.stopLoss,invalidWhen:evidence.risk.invalidWhen});
@@ -1344,14 +1359,14 @@ function logSignal(type, code, name, price, prob, extra = {}) {
   const _old = S.learn.signals.find(s => s.type === type && s.code === code && s.date === todayStr());
   const observation=captureProductionSignal({ts:Date.now(),type,code,name,price,prob:_p,
     probKind:probKindOf(type)==='score'?'score':'model-estimate',eventTarget:_fz.target!==undefined?_fz.target:'unknown',_fz,
-    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],conditionCoverage:extra.conditionCoverage,
+    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],conditionCoverage:extra.conditionCoverage,governanceEvidence:extra.governanceEvidence,
     logic:(extra.paths||[]).join('；'),risk:extra.signalRisk||'',stopLoss:extra.stopLoss||'',invalidWhen:extra.invalidWhen||''},
     extra.quoteEvidence||{price},_rows,{recordKind:'observation',supersedes:_old?.signalId||null,
       metrics:{originalRecord:extra.sourceRecord||null,cal:extra.cal??null,score:extra.score??null,legacyParent:_old&&!_old.signalId?{type:_old.type,code:_old.code,date:_old.date,ts:_old.ts??null}:null}});
   const result={..._fz,signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,evidenceArchiveStatus:observation.evidenceArchiveStatus};
   if (_old) return result;
   const sampleExtra={...extra};
-  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.conditionCoverage; delete sampleExtra.sourceRecord;
+  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.conditionCoverage; delete sampleExtra.governanceEvidence; delete sampleExtra.sourceRecord;
   S.learn.signals.push({
     ...JSON.parse(JSON.stringify(sampleExtra)),
     date: todayStr(), ts: observation.ts, type, code, name, price,
@@ -8841,33 +8856,59 @@ function evEnvNow() {
 //   裸调会 ReferenceError 崩掉整个套件（hi 轮同款静默故障）——故 govTake 内必须 typeof 守卫。
 function evGateOf(type, prob, env) {
   const st = evStatsCached();
-  if (!st) return { blocked: false, why: '' };
+  if (!st) return { blocked: false, why: '', evaluated: 'stats-unavailable' };
   const e = env || evEnvNow();
   const cell = EV.evCell(st, type, prob, e);
-  if (!cell || cell.unknown || !cell.n) return { blocked: false, why: '', cell, env: e };
-  if (cell.sig !== 'sig') return { blocked: false, why: '', cell, env: e };   // ⛔ 不显著=点估计，禁作结论（ig+1 教训）
+  if (!cell || cell.unknown || !cell.n) return { blocked: false, why: '', cell, env: e, evaluated: 'cell-unknown' };
+  if (cell.sig !== 'sig') return { blocked: false, why: '', cell, env: e, evaluated: 'not-significant' };   // ⛔ 不显著=点估计，禁作结论（ig+1 教训）
   const thr = (e === '普跌') ? EV.EV_COLD_FEE : EV.EV_GATE_FEE;
   const evFee = typeof cell.evCloseFee === 'number' ? cell.evCloseFee : (cell.evClose - st.fee);
   if (evFee <= thr) {
     const _envTag = e === '普跌' ? `（普跌日·阈值收紧到 ${EV.EV_COLD_FEE}%）` : '';
     const _misTag = cell.envMismatch ? `（注：该 EV 取自「${cell.layer}」层而非当前行情层，样本不足诚实回退，仍按此判）` : '';
     return {
-      blocked: true, cell, env: e,
+      blocked: true, cell, env: e, evaluated: 'significant', threshold: thr, evFee,
       why: `按信号实盘 EV 为负：${type} 类${cell.env ? '·' + cell.env + '行情' : ''}费后 ${evFee}%（${cell.n} 条实盘样本/跨 ${cell.days} 日/聚类 t=${cell.tClu} 显著）≤ 阈值 ${thr}%${_envTag}——历史同型信号买了是亏的，宁可不报${_misTag}`,
     };
   }
-  return { blocked: false, why: '', cell, env: e };
+  return { blocked: false, why: '', cell, env: e, evaluated: 'significant', threshold: thr, evFee };
 }
 // 判定某只票这一条能不能发出去。返回 {ok, why, no}
 // prob: 模型给出的预估胜率（0~100）；传 null/undefined 表示这条没有预估胜率（如纯涨停播报），不做门槛卡。
 function govTake(code, type, strong, prob, row) {
+  // Capture only values this invocation already evaluated. Unreached gates stay null;
+  // this reservation decision is frozen before logSignal/trigger capture, never updated by delivery.
+  const finite = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
+  const text = value => typeof value === 'string' ? value.slice(0, 512) : '';
+  const trace = { schemaVersion: 1, source: 'server.js#govTake', scope: 'central-governance-reservation',
+    status: 'partial', phase: 'reservation-review', missing: ['NESTED_MODEL_AND_EV_RULES_NOT_EXPANDED', 'PRODUCER_AND_DELIVERY_RULES_OUTSIDE_SCOPE'],
+    code: text(code), type: text(type), strong: !!strong, reviewedAt: null, evaluatedAt: null, stateAt: null,
+    model: { rawValue: finite(prob), rawKind: 'unknown', fusedValue: null, fusedKind: 'unknown', target: 'unknown' },
+    review: null, followRole: null, probabilityFloor: null, d5: null, ev: null, reservationBefore: null };
+  const finish = (result, reason) => {
+    try {
+      const value = JSON.parse(JSON.stringify({ ...trace, evaluatedAt: Date.now(), decision: { allow: result.ok === true, reason, why: text(result.why), reservationNo: finite(result.no) } }));
+      const freeze = item => { if (item && typeof item === 'object') { for (const child of Object.values(item)) freeze(child); Object.freeze(item); } return item; };
+      result.governanceEvidence = freeze(value);
+      if (typeof governanceEvidenceRecords !== 'undefined') governanceEvidenceRecords.add(result.governanceEvidence);
+      if (row && typeof row === 'object' && typeof governanceEvidenceByCandidate !== 'undefined') governanceEvidenceByCandidate.set(row, result.governanceEvidence);
+      if (row && Object.isExtensible(row)) row.governanceEvidence = result.governanceEvidence;
+    } catch {} // Metadata failure must not alter the original gate or reservation writes.
+    return result;
+  };
   const review = reviewRecommendation(row);
+  trace.review = { decision: text(review.decision), canRecommend: review.canRecommend === true,
+    reasons: (Array.isArray(review.reasons) ? review.reasons : []).slice(0, 12).map(text) };
   if (row && Object.isExtensible(row)) row.evidenceReview = review;
   if (!review.canRecommend || !row || String(row.code || '') !== String(code || '')) {
-    return { ok: false, evidenceReview: review,
-      why: '推荐证据审查未通过：' + (!row || String(row.code || '') !== String(code || '') ? '缺少匹配的原候选行' : review.reasons.join('；')) };
+    return finish({ ok: false, evidenceReview: review,
+      why: '推荐证据审查未通过：' + (!row || String(row.code || '') !== String(code || '') ? '缺少匹配的原候选行' : review.reasons.join('；')) }, 'RECOMMENDATION_EVIDENCE_REJECTED');
   }
-  if (Object.isExtensible(row)) row.recommendationReviewedAt = Date.now();
+  if (Object.isExtensible(row)) {
+    const reviewedAt = Date.now();
+    row.recommendationReviewedAt = reviewedAt;
+    trace.reviewedAt = reviewedAt;
+  }
   govResetIfNewDay();
   // ⛔ go 轮 C3（用户 2026-10-12 决策「不推跟风股」）：当日涨停池里被角色分类判为
   //    「跟风 follow」（板块内除龙头/龙二/中军之外的涨停股）的票，一律不推送。
@@ -8880,8 +8921,9 @@ function govTake(code, type, strong, prob, row) {
   //    new Function 沙箱真跑，沙箱只注入它认识的符号；直接裸调新符号会 ReferenceError
   //    **崩掉整个套件**（gn 轮 two_instance_parity 踩过同款）。生产环境这些函数必然在。
   const _follow = (typeof ztFollowOf === 'function') ? ztFollowOf(code) : null;
+  trace.followRole = text(_follow) || null;
   if (_follow === 'follow') {
-    return { ok: false, why: '板块内跟风涨停（非龙头/龙二/中军），按你的设置不推送' };
+    return finish({ ok: false, why: '板块内跟风涨停（非龙头/龙二/中军），按你的设置不推送' }, 'FOLLOW_ROLE_REJECTED');
   }
   const cooldownMin = _govCfg('pushCooldownMin');
   // ⛔ 不许用 `Math.max(1, …)` 把 0 钳成 1（2026-10-06 修，本轮角度：写入端与校验端同一条规则）。
@@ -8910,18 +8952,24 @@ function govTake(code, type, strong, prob, row) {
   //    + mainPct>bigMoneyPct、capYi≥35，且名额/冷却/每只上限/模块日配额(8) 一样不少
   //    —— 只去掉那道根本不该用的 limit-up 胜率门（bigMoneyProbGate 概率门槛已整条退役）。
   const forcePush = (type === 'fastin' || type === 'bigmoney' || type === 'bigmoney-B');
+  trace.model = { rawValue: finite(prob), rawKind: text(_fz.modelKind) || 'unknown', fusedValue: finite(useProb),
+    fusedKind: text(_fz.valueKind) || 'unknown', target: _fz.target === null ? null : text(_fz.target) || 'unknown',
+    empirical: finite(_fz.emp), empiricalN: finite(_fz.empN), empiricalDays: finite(_fz.empDays), delta: finite(_fz.delta), calibrationCertified: false };
+  trace.probabilityFloor = { effective: finite(mp), forceExempt: forcePush,
+    applicable: !forcePush && prob != null && Number.isFinite(prob) && mp > 0 };
   if (!forcePush && prob != null && Number.isFinite(prob) && mp > 0 && useProb < mp) {
     PUSH_GOV.lowProb++;
     const _coldTag = (mp > pushMinProb() && type !== 'pre') ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '）' : '';   // go 轮 C2：拦因要说清为什么今天门槛高（typeof 守卫同 mp）
-    return {
+    return finish({
       ok: false,
       fused: _fz,
       why: _fz.emp != null
         ? `模型给 ${prob}%，同档实测 ${_fz.emp}%（${_fz.empN}条/跨${_fz.empDays}日）${_fz.delta ? `，自学形态${ppTxt(_fz.delta)}` : ''} → 研究排序值 ${useProb}，低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`
         : `研究排序值 ${useProb}（未独立校准，模型${prob}%${_fz.delta ? ` · 自学形态${ppTxt(_fz.delta)}` : ''}）低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`,
-    };
+    }, 'PROBABILITY_FLOOR_REJECTED');
   }
   const now = Date.now();
+  trace.stateAt = now;
   // ⛔ go 轮 D5（用户 2026-10-12 决策「只推高准确率票」· 高优先级）：
   //    模型说够格 ≠ 实测够格。同族群同档的【实盘】命中率是这台机器自己的账本 ——
   //    样本足够厚（n≥20）而实测命中率低于 35% 的族群，一律不推：
@@ -8930,34 +8978,45 @@ function govTake(code, type, strong, prob, row) {
   //       已按样本厚度加权，这里只对"证据确凿的差"下硬手，不重复惩罚薄样本）。
   //    ⛔ forcePush（持续大单流入）豁免：那是用户明确要求的客观资金行为通道。
   const D5_MIN_HIT = 35, D5_MIN_N = 20;   // 实测命中率底线 / 最小样本数；改这两个值=改 D5 力度，只此一处
+  trace.d5 = { eventTarget: 'up3Next', minimumHit: D5_MIN_HIT, minimumN: D5_MIN_N, forceExempt: forcePush,
+    applicable: !forcePush && _fz.target === 'up3Next' && _fz.emp != null && _fz.empN >= D5_MIN_N };
   if (!forcePush && _fz.target === 'up3Next' && _fz.emp != null && _fz.empN >= D5_MIN_N && _fz.emp < D5_MIN_HIT) {
     PUSH_GOV.lowProb++;
-    return {
+    return finish({
       ok: false,
       fused: _fz,
       why: `同档实测命中率 ${_fz.emp}%（${_fz.empN}条实盘样本）低于准确率门槛 ${D5_MIN_HIT}%，按「只推高准确率票」不推送`,
-    };
+    }, 'D5_ACCURACY_REJECTED');
   }
   // ② EV 准入门（#261 · ig 轮）：胜率门管「涨停概率」，本门管「按信号买到底赚不赚」。
   //    ⛔ typeof 守卫：govTake 会被守门测试切进 new Function 沙箱真跑，沙箱不注入 evGateOf，
   //       裸调会 ReferenceError 崩掉整个套件（hi 轮同款静默故障）——沙箱里自动跳过本门。
   const _evg = (typeof evGateOf === 'function') ? evGateOf(type, prob) : null;
+  trace.ev = _evg ? { evaluated: text(_evg.evaluated) || 'returned', blocked: _evg.blocked === true, env: text(_evg.env),
+    threshold: finite(_evg.threshold), evFee: finite(_evg.evFee), why: text(_evg.why),
+    cell: _evg.cell ? { unknown: _evg.cell.unknown === true, n: finite(_evg.cell.n), days: finite(_evg.cell.days),
+      sig: text(_evg.cell.sig), tClu: finite(_evg.cell.tClu), layer: text(_evg.cell.layer), envMismatch: _evg.cell.envMismatch === true,
+      evCloseFee: finite(_evg.cell.evCloseFee), evClose: finite(_evg.cell.evClose) } : null } : { evaluated: 'evaluator-unavailable', blocked: null };
   if (_evg && _evg.blocked) {
     PUSH_GOV.negEv++;
-    return { ok: false, why: _evg.why, evGate: _evg };
+    return finish({ ok: false, why: _evg.why, evGate: _evg }, 'EV_REJECTED');
   }
   const rec = PUSH_GOV.codes.get(code) || { n: 0, ts: 0, types: new Set() };
-  if (rec.types.has(type)) return { ok: false, why: '同一模块今天已经推过它了' };
-  if (maxPerCode > 0 && rec.n >= maxPerCode) return { ok: false, why: `当天已推 ${rec.n} 次（上限 ${maxPerCode}）` };
-  if (rec.n > 0 && now - rec.ts < cooldownMin * 60 * 1000) return { ok: false, why: `冷却期未过（${cooldownMin}分钟）` };
+  trace.reservationBefore = { total: finite(PUSH_GOV.total), codeCount: finite(rec.n), lastReservedAt: finite(rec.ts),
+    sameType: rec.types.has(type), maxPerCode: finite(maxPerCode), cooldownMin: finite(cooldownMin), elapsedMs: finite(now - rec.ts),
+    quota: null, ceiling: null, quotaUnlimited: null, reserve: null };
+  if (rec.types.has(type)) return finish({ ok: false, why: '同一模块今天已经推过它了' }, 'SAME_TYPE_RESERVED');
+  if (maxPerCode > 0 && rec.n >= maxPerCode) return finish({ ok: false, why: `当天已推 ${rec.n} 次（上限 ${maxPerCode}）` }, 'CODE_LIMIT_REJECTED');
+  if (rec.n > 0 && now - rec.ts < cooldownMin * 60 * 1000) return finish({ ok: false, why: `冷却期未过（${cooldownMin}分钟）` }, 'COOLDOWN_REJECTED');
   const q = pushQuota();
   const ceiling = strong ? q : Math.max(1, Math.round(q * (1 - PUSH_GOV_RESERVE)));
-  if (PUSH_GOV.total >= ceiling) return { ok: false, why: strong ? '当日名额已用尽' : '当日普通名额已用尽（强势信号仍保留席位）' };
+  Object.assign(trace.reservationBefore, { quota: finite(q), ceiling: finite(ceiling), quotaUnlimited: q === Infinity, reserve: finite(PUSH_GOV_RESERVE) });
+  if (PUSH_GOV.total >= ceiling) return finish({ ok: false, why: strong ? '当日名额已用尽' : '当日普通名额已用尽（强势信号仍保留席位）' }, 'DAILY_QUOTA_REJECTED');
   rec.n++; rec.ts = now; rec.types.add(type);
   PUSH_GOV.codes.set(code, rec);
   PUSH_GOV.total++;
   savePushGov();
-  return { ok: true, no: rec.n, fused: _fz, evidenceReview:review, undo: { code, type } };
+  return finish({ ok: true, no: rec.n, fused: _fz, evidenceReview:review, undo: { code, type } }, 'RESERVATION_ALLOWED');
 }
 // ── 占位回滚（2026-10-06 修 · 本轮角度：占位与送达的原子性）─────────────────────
 // ⛔ 这是「只占坑、不确认」留下的洞：govTake 发生在 pushAll **之前**（文案要靠它决定
@@ -9079,6 +9138,11 @@ function govFilter(type, items, codeOf, strongOf, probOf) {
   const undo = [];
   let drop = 0, lowProb = 0, noScore = 0, follow = 0, negEv = 0;   // go 轮 C3：follow=跟风涨停被拦数（第四类）；ig 轮：negEv=实盘 EV 显著为负（第五类）
   for (const x of list) {
+    // A reused candidate rejected before govTake must not retain an earlier allowed reservation.
+    if (x && typeof x === 'object') {
+      if (typeof governanceEvidenceByCandidate !== 'undefined') governanceEvidenceByCandidate.set(x, null);
+      try { if (Object.isExtensible(x)) delete x.governanceEvidence; } catch {}
+    }
     const code = codeAt(x);
     const strong = strongOf ? !!strongOf(x) : false;
     // ⛔⛔ dh 轮（本轮角度：同一个「数据没取到」在系统里是不是同一个口径）：
