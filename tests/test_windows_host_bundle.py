@@ -28,8 +28,8 @@ class HostBundle(unittest.TestCase):
         self.put('src/core/runtime.js', 'module.exports = 2;\n')
         for name in ['config.json', 'access.json', 'paper.json', 'holdings.json', 'data/history.json', 'durable/ledger.json']:
             self.put(name, 'TRACKED-PRIVATE-FIXTURE-DO-NOT-SHIP')
-        self.controls = self.base / 'controls'
-        self.controls.mkdir()
+        self.controls = self.bo / 'deploy/windows-host'
+        self.controls.mkdir(parents=True)
         for name in ['init.sh', 'start.sh', 'check.sh', 'stop.sh', 'host-runtime.js', 'install-node.sh',
                      'windows-host.ps1', 'START.cmd', 'README.zh-CN.md']:
             (self.controls / name).write_text('# fixture\n', encoding='utf-8')
@@ -118,16 +118,44 @@ class HostBundle(unittest.TestCase):
 
     def test_missing_or_linked_control_files_fail(self):
         (self.controls/'init.sh').unlink()
+        self.sha = self.commit()
         with self.assertRaisesRegex(ValueError, 'required-controls-missing'):
             self.build()
         (self.controls/'init.sh').symlink_to('/etc/passwd')
+        self.sha = self.commit()
         with self.assertRaisesRegex(ValueError, 'invalid-control-file'):
             self.build()
 
     def test_runtime_controller_is_required_for_a_startable_bundle(self):
         (self.controls/'host-runtime.js').unlink()
+        self.sha = self.commit()
         with self.assertRaisesRegex(ValueError, 'required-controls-missing'):
             self.build()
+        self.assertFalse(self.output.exists())
+
+    def test_uncommitted_launchers_cannot_change_an_exact_sha_bundle(self):
+        (self.controls/'host-runtime.js').write_text('UNREVIEWED-EXECUTABLE')
+        (self.controls/'start.sh').unlink()
+        (self.controls/'start.sh').symlink_to('/etc/passwd')
+        (self.controls/'untracked.js').write_text('UNTRACKED-EXECUTABLE')
+        self.build()
+        with zipfile.ZipFile(self.output) as archive:
+            prefix = 'tian-shu-windows-host/'
+            self.assertEqual(archive.read(prefix+'host-runtime.js'), b'# fixture\n')
+            self.assertEqual(archive.read(prefix+'start.sh'), b'# fixture\n')
+            self.assertNotIn(prefix+'untracked.js', archive.namelist())
+
+    def test_old_sha_always_uses_its_own_launchers(self):
+        old_sha = self.sha
+        (self.controls/'host-runtime.js').write_text('NEW-COMMITTED-LAUNCHER')
+        self.sha = self.commit()
+        self.build(sha=old_sha)
+        with zipfile.ZipFile(self.output) as archive:
+            self.assertEqual(archive.read('tian-shu-windows-host/host-runtime.js'), b'# fixture\n')
+
+    def test_external_control_directory_is_not_a_source_override(self):
+        with self.assertRaisesRegex(ValueError, 'controls-must-use-source-commit'):
+            builder.build_bundle(self.repo, self.sha, self.base, self.output)
         self.assertFalse(self.output.exists())
 
 
