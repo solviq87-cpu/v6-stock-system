@@ -168,7 +168,8 @@ test('ingest keeps actual receivedAt/mode separately from local ingestion time',
  const c=run(server,['ingestPx'],{S:{lastPx:new Map()}}),row=quote({receivedAt:now-500});
  c.ingestPx([row]);const cached=c.S.lastPx.get(row.code);
  assert.equal(cached.receivedAt,now-500);assert.equal(cached.t,now);assert.equal(cached.mode,'public-live-unverified');
- c.ingestPx([quote({receivedAt:undefined})]);assert.equal(c.S.lastPx.get(row.code).receivedAt,null);
+ c.ingestPx([quote({receivedAt:undefined})]);assert.equal(c.S.lastPx.get(row.code),cached,'unknown receipt cannot overwrite prior valid cache entry');
+ c.S.lastPx.clear();c.ingestPx([quote({receivedAt:undefined})]);assert.equal(c.S.lastPx.size,0);
 });
 
 test('automatic paper authority rejects observation/simulated sources, including through its price cache',()=>{

@@ -10,7 +10,7 @@ function setup(){
  vm.runInContext(source.slice(a,b),c);
  const x=source.indexOf('function ingestPx(rows)'),y=source.indexOf('function paperEquity(key, pm)',x);
  vm.runInContext(source.slice(x,y),c);
- const row={code:'600519',price:10,preClose:10,volume:100000,quoteSource:'tencent',quoteAt:epoch-1000};
+ const row={code:'600519',price:10,preClose:10,volume:100000,quoteSource:'tencent',quoteAt:epoch-1000,receivedAt:epoch,canTrade:true};
  return {c,row,clock:t=>{now=t;}};
 }
 test('authority stores provider time and source, never the later receive time',()=>{

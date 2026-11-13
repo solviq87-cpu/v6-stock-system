@@ -13786,7 +13786,10 @@ function ingestPx(rows) {
   const t = Date.now();
   for (const s of rows) {
     // 全 A 列表只有接收时刻的行仍可展示，但不能进入模拟盘成交价缓存。
-    if (!s || s.canTrade === false || !/^\d{6}$/.test(s.code) || !Number.isFinite(Number(s.price)) || !(Number(s.price) > 0)) continue;
+    if (!s || s.canTrade !== true || !/^\d{6}$/.test(s.code) || typeof s.price !== 'number' || !Number.isFinite(s.price) || s.price <= 0) continue;
+    // Apply the same original-row use contract before writing any account cache.
+    // Read-only/unknown/foreign-day rows cannot become marks that look executable.
+    if (!require('./src/core/quote-observation-view').quoteUseEligibility(s, t).canTrade) continue;
     if (typeof s.quoteSource !== 'string' || !s.quoteSource.trim() || !Number.isSafeInteger(s.quoteAt) || s.quoteAt <= 0 || s.quoteAt > t || t - s.quoteAt > 15000) continue;
     // Parallel providers can return out of order; receipt order must not roll back provider time.
     const previous = S.lastPx.get(s.code);
