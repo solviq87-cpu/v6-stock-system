@@ -46,3 +46,25 @@ test('multi-strategy with no configured strategies does not pass', () => {
   assert.equal(result.pass, false);
   assert.equal(result.finalScore, 0);
 });
+
+test('negative strategy weight cannot reverse aggregate contributions', () => {
+  const strategy = {
+    name: 'negative-weight', family: 'trend', strategyWeight: -2, minScore: 10,
+    rules: [{ field: 'x', op: '>=', value: 1, weight: 20 }]
+  };
+  const result = evaluateMultiStrategy({ snapshot: { x: 2 }, strategies: [strategy] });
+  assert.equal(result.pass, false);
+  assert.equal(result.finalScore, 0);
+  assert.equal(result.strategies[0].strategyWeight, 0);
+});
+
+test('zero-weight passing strategy is not counted as an aggregate winner', () => {
+  const strategy = {
+    name: 'zero-weight', family: 'trend', strategyWeight: 0, minScore: 10,
+    rules: [{ field: 'x', op: '>=', value: 1, weight: 20 }]
+  };
+  const result = evaluateMultiStrategy({ snapshot: { x: 2 }, strategies: [strategy] });
+  assert.equal(result.strategies[0].pass, true);
+  assert.equal(result.pass, false);
+  assert.equal(result.finalScore, 0);
+});
