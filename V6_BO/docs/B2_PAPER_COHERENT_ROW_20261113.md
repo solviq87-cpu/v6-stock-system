@@ -18,7 +18,7 @@
 
 新缓存原行的价格和非价格来源均为 `S.lastPx.wireQuote`；股票回退为 `S.stocks`。新缓存来源元数据还校验各字段的原行来源、模式和原行时钟一致。字段专属 `quoteAt/receivedAt` 仍为 null，原行时钟仅存于 `rowQuoteAt/rowReceivedAt`。同一原行不代表供应商或交易所同时认证，`independentlyVerified:false`、`canTrade:false` 和 `verifiedLive:false` 保留。
 
-旧 `S.lastPx` 价格加 `S.stocks` 非价格的 v1 证据仍可读取，旧 hash/requestHash 不重算、不回填；研究手工 simulated/imported 用途保持原协议。本批没有改变旧 schema 或历史账本。
+旧 `S.lastPx` 价格加 `S.stocks` 非价格的 v1 证据仍可读取，旧 hash/requestHash 不重算、不回填；研究手工 simulated/imported 用途保持原协议。版本号保持1，扩展可接受的 origin 字面值并对新 origin 要求同行一致。新读取器可读旧证据且不改写；旧读取器不一定可读新 origin，精确基线读取器会拒绝 `S.lastPx.wireQuote`，降级前须先在副本核对，不能将两个方向的兼容性等同。
 
 ## 实际验证与限制
 
