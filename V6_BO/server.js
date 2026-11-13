@@ -21526,6 +21526,24 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/strategy36/observe'){
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
+    if(Buffer.byteLength(body||'','utf8')>64*1024)return json(res,{ok:false,error:'研究参数超过64KB'},413);
+    let input;
+    try{
+      const b=JSON.parse(body||'{}');
+      if(!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!['symbol','provider','historyDays','config'].includes(k))||
+        !/^\d{6}$/.test(b.symbol||'')||!['auto','eastmoney','tencent'].includes(b.provider??'auto')||
+        !Number.isSafeInteger(b.historyDays??120)||(b.historyDays??120)<27||(b.historyDays??120)>500)throw Error();
+      require('./src/strategy/research36').settings(b.config??{});
+      input={symbol:b.symbol,provider:b.provider??'auto',historyDays:b.historyDays??120,includeContext:true,includeFinancials:true,research36Config:b.config??{}};
+    }catch{return json(res,{ok:false,error:'股票、来源、长度或研究配置无效'},422);}
+    // One bounded existing worker owns capture, provider budgets and immutable archives.
+    return require('./src/server/stock-observation-job').runStockObservationJob(input,stockObservationOptions())
+      .then(result=>json(res,result,result.ok?200:422));
+  }
   if(p==='/api/research/strategy36'){
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
