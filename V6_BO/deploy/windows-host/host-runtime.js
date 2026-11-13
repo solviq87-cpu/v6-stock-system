@@ -11,7 +11,22 @@ function requireThat(ok,code){if(!ok)fail(code);}
 function rootPath(value,{allowMounted=false}={}){requireThat(typeof value==='string'&&path.isAbsolute(value)&&value===path.resolve(value)&&value!==path.parse(value).root&&(allowMounted||!value.startsWith('/mnt/')),'unsafe-private-path');
  let current=path.parse(value).root;for(const part of value.split('/').filter(Boolean)){requireThat(!['public','www','htdocs'].includes(part.toLowerCase()),'unsafe-private-path');current=path.join(current,part);try{requireThat(!fs.lstatSync(current).isSymbolicLink(),'unsafe-private-path');}catch(e){if(e.code!=='ENOENT')throw e;}}return value;}
 function privateDir(dir){rootPath(dir);const st=fs.lstatSync(dir);requireThat(st.isDirectory()&&st.uid===process.getuid()&&!(st.mode&0o077),'unsafe-private-permissions');}
-function read(file,limit=8*1024*1024,privateFile=false){let fd;try{fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);const st=fs.fstatSync(fd);requireThat(st.isFile()&&st.nlink===1&&st.size<=limit,'unsafe-file');if(privateFile)requireThat(st.uid===process.getuid()&&!(st.mode&0o077),'unsafe-private-permissions');return fs.readFileSync(fd);}finally{if(fd!==undefined)fs.closeSync(fd);}}
+function read(file,limit=8*1024*1024,privateFile=false){
+ let fd;
+ try{
+  // O_NONBLOCK lets fstat reject a FIFO before waiting for another process.
+  fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+  const st=fs.fstatSync(fd);
+  requireThat(st.isFile()&&st.nlink===1&&st.size<=limit,'unsafe-file');
+  if(privateFile)requireThat(st.uid===process.getuid()&&!(st.mode&0o077),'unsafe-private-permissions');
+  const chunks=[];let total=0;
+  // Bound the actual read too: a file can grow after the initial stat.
+  while(total<=limit){const buffer=Buffer.alloc(Math.min(65536,limit+1-total)),n=fs.readSync(fd,buffer,0,buffer.length,null);if(!n)break;total+=n;requireThat(total<=limit,'unsafe-file');chunks.push(buffer.subarray(0,n));}
+  const after=fs.fstatSync(fd);
+  requireThat(['dev','ino','nlink','mode','uid','size','mtimeMs','ctimeMs'].every(k=>after[k]===st[k]),'unsafe-file');
+  return Buffer.concat(chunks,total);
+ }finally{if(fd!==undefined)fs.closeSync(fd);}
+}
 function json(file,limit,secret){try{return JSON.parse(read(file,limit,secret));}catch(e){if(e.code&&e.code!=='ENOENT')throw e;fail('invalid-state');}}
 function writeNew(file,value){const fd=fs.openSync(file,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);try{fs.writeFileSync(fd,typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 function replace(file,value){const temporary=file+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';writeNew(temporary,value);fs.renameSync(temporary,file);}
@@ -79,8 +94,9 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  const port=deps.port||8787;requireThat(await portFree(port),'port-in-use');let child;
  const childEnv=childEnvironment(env,port,smoke);
  if(smoke){const guard=path.join(root,'run/smoke-guard.cjs');requireThat(read(guard,65536,true).toString()===smokeGuard(root),'smoke-guard-changed');childEnv.NODE_OPTIONS='--require '+JSON.stringify(guard);}
- const out=fs.openSync(path.join(root,'run/server.log'),fs.constants.O_CREAT|fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW,0o600);
- try{child=spawn(fs.realpathSync(process.execPath),[path.join(root,'app/server.js')],{cwd:path.join(root,'app'),env:childEnv,detached:true,stdio:['ignore',out,out]});}finally{fs.closeSync(out);}
+ const out=fs.openSync(path.join(root,'run/server.log'),fs.constants.O_CREAT|fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK,0o600);
+ try{const stat=fs.fstatSync(out);requireThat(stat.isFile()&&stat.nlink===1&&stat.uid===process.getuid()&&!(stat.mode&0o077),'unsafe-log');
+ child=spawn(fs.realpathSync(process.execPath),[path.join(root,'app/server.js')],{cwd:path.join(root,'app'),env:childEnv,detached:true,stdio:['ignore',out,out]});}finally{fs.closeSync(out);}
  let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity;for(let i=0;i<40&&!spawnError;i++){identity=processIdentity(child.pid);if(identity)break;await sleep(25);}requireThat(identity&&!spawnError,'server-start-failed');
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
  const until=Date.now()+(deps.startupTimeoutMs||10000);while(Date.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(100);}
@@ -88,7 +104,7 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
 async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
 async function stop({root}){const meta=metadata(root),release=lock(root);try{const state=processState(root);if(!state)return {code:'already-stopped',sourceSha:meta.sourceSha};if(!ownedProcess(root,state)){requireThat(archiveStoppedRecord(root,state),'stale-process-record');return {code:'already-stopped',sourceSha:meta.sourceSha};}process.kill(state.pid,'SIGTERM');const until=Date.now()+5000;while(Date.now()<until&&ownedProcess(root,state))await sleep(50);requireThat(!ownedProcess(root,state),'stop-timeout');fs.unlinkSync(path.join(root,'run/process.json'));return {code:'stopped',sourceSha:meta.sourceSha};}finally{release();}}
 function parseArgs(args){const [action,...rest]=args;requireThat(['init','start','check','stop'].includes(action),'usage');let root=path.join(os.homedir(),'.tian-shu-local'),bundle,smoke=false;const seen=new Set();for(let i=0;i<rest.length;i++){const flag=rest[i];requireThat(!seen.has(flag),'usage');seen.add(flag);if(flag==='--home')root=rest[++i];else if(flag==='--bundle'&&action==='init')bundle=rest[++i];else if(flag==='--smoke'&&action==='start')smoke=true;else fail('usage');}rootPath(root);requireThat(action!=='init'||typeof bundle==='string','usage');return {action,root,bundle,smoke};}
-const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','invalid-state','invalid-installation','invalid-process-record','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
+const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
 async function main(args,deps={}){try{process.umask(0o077);const options=parseArgs(args);return await ({init:initialize,start,check:checkHost,stop}[options.action])(options,deps);}catch(e){return {code:CODES.has(e?.code)?e.code:'host-operation-failed',phoneConnected:false};}}
 if(require.main===module)main(process.argv.slice(2)).then(result=>{process.stdout.write(JSON.stringify(result)+'\n');if(!['initialized','started','already-running','running','stopped','already-stopped'].includes(result.code))process.exitCode=2;});
 module.exports={main,parseArgs,verifyBundle,dependencies,childEnvironment,initialize,start,checkHost,stop,processIdentity,ownedProcess};
