@@ -1,8 +1,9 @@
 'use strict';
 // Evidence archive only. These reports do not certify daily tradability or the
 // absence of corporate actions, and never populate the strict history flags.
-const {execFile}=require('node:child_process'),{promisify}=require('node:util'),{createHash}=require('node:crypto'),{performance}=require('node:perf_hooks');
-const run=promisify(execFile),MAX_BYTES=2*1024*1024,MAX_REQUESTS=8,MAX_TOTAL_MS=35000;
+const {createHash}=require('node:crypto'),{performance}=require('node:perf_hooks');
+const {requestResearchBytes,createResearchRequest,restrictionFields}=require('./research-curl-bytes');
+const MAX_BYTES=2*1024*1024,MAX_REQUESTS=8,MAX_TOTAL_MS=35000;
 const EM='https://datacenter-web.eastmoney.com/api/data/v1/get',TX='https://qt.gtimg.cn/q=';
 const REPORTS={dividendEvents:'RPT_SHAREBONUS_DET',suspensionAnnouncements:'RPT_CUSTOM_SUSPEND_DATA_INTERFACE'};
 const REFERENCES={dividendEvents:'https://github.com/akfamily/akshare/blob/main/akshare/stock/issue/stock_fhps_em.py',suspensionAnnouncements:'https://github.com/akfamily/akshare/blob/main/akshare/stock/issue/stock_tfp_em.py',priceLimits:'https://github.com/shidenggui/easyquotation/blob/master/easyquotation/tencent.py'};
@@ -32,11 +33,10 @@ function validateUrl(target){
  const expected=reportUrl(kind,dividend?.[1]||'600000',suspension?.[1]||'2000-01-01',page);
  if(!Number.isSafeInteger(page)||page<1||page>MAX_REQUESTS||u.href!==expected)throw issue('invalid-endpoint','报告参数不在固定白名单');
 }
-async function requestPublicStockStatusRaw(target,{timeoutMs=12000,processTimeoutMs=13000}={}){
+async function requestPublicStockStatusRaw(target,{timeoutMs=12000,processTimeoutMs=13000,...options}={}){
  validateUrl(target);
  const transfer=Math.max(1,Math.min(12000,timeoutMs)),processLimit=Math.max(1,Math.min(13000,processTimeoutMs));
- const {stdout}=await run('curl',['--fail','--silent','--show-error','--max-time',String(transfer/1000),'--max-filesize',String(MAX_BYTES),'--proto','=https','--user-agent','Mozilla/5.0',target],{timeout:processLimit,maxBuffer:MAX_BYTES,encoding:'buffer'});
- return {raw:stdout};
+ return requestResearchBytes(target,{...options,maxBytes:MAX_BYTES,timeoutMs:transfer,processTimeoutMs:processLimit});
 }
 function temporal(value){
  if(value==null||value==='')return {raw:value??null,date:null,precision:null,publicationInstant:null};
@@ -64,23 +64,28 @@ function quoteLimits(raw,symbol,date,receivedAt){
  const tradeDate=chinaDay(quoteAt),openAt=Date.parse(date+'T09:30:00+08:00'),sameDay=tradeDate===date;
  return {status:sameDay?'observed-unverified':'dated-snapshot',source:'tencent',symbol,tradeDate,quoteAt,receivedAt,limitUpPrice:up,limitDownPrice:down,limitKnownAt:receivedAt,preopenObserved:sameDay&&chinaDay(receivedAt)===date&&receivedAt<openAt,sourceTimestamp:quoteAt,fieldMappingSource:REFERENCES.priceLimits,scope:'vendor-current-quote; not-historical-price-limits'};
 }
-async function fetchPublicStockStatusEvidence({symbol,date}={}, {now=Date.now,requestJson=requestPublicStockStatusRaw}={}){
+async function fetchPublicStockStatusEvidence({symbol,date}={}, {now=Date.now,requestJson=requestPublicStockStatusRaw,requestGovernor}={}){
  if(!symbolOK(symbol))throw Error('A股代码无效');
  const clock=typeof now==='function'?now:()=>now,startedAt=clockValue(clock);date=date===undefined?chinaDay(startedAt):date;
  if(!dateOK(date)||date>chinaDay(startedAt))throw Error('查询日期无效或来自未来');
  const errors=[],rawEvidence=[],deadline=performance.now()+MAX_TOTAL_MS,queue=[];let active=0,requestCount=0;
- const addError=(source,e)=>errors.push({source,code:typeof e.code==='string'?e.code:'source-failed',message:String(e.stderr||e.message||e).trim().slice(0,240)});
+ const request=createResearchRequest(requestJson,requestPublicStockStatusRaw,requestGovernor);
+ const addError=(source,e)=>errors.push({source,code:typeof e.code==='string'?e.code:'source-failed',message:String(e.stderr||e.message||e).trim().slice(0,240),...restrictionFields(e)});
+ const capture=(response,target,source)=>{
+  const receivedAt=clockValue(clock);if(receivedAt<startedAt)throw issue('invalid-clock','响应接收时钟早于请求');
+  if(!response||!(Buffer.isBuffer(response.raw)||typeof response.raw==='string'))throw issue('missing-raw-bytes','证据请求必须返回原始字节');
+  const raw=Buffer.isBuffer(response.raw)?response.raw:Buffer.from(response.raw,'utf8');if(raw.length>MAX_BYTES)throw issue('response-too-large','证据响应超过2MiB');
+  rawEvidence.push({encoding:'base64',data:raw.toString('base64'),sha256:sha(raw),byteLength:raw.length,source,url:target,receivedAt});return {raw,receivedAt};
+ };
  function pump(){while(active<2&&queue.length){const job=queue.shift();active++;job().finally(()=>{active--;pump();});}}
  function fetchRaw(target,source){return new Promise((resolve,reject)=>{queue.push(async()=>{
-  let timer;
+  let timer;const controller=new AbortController();
   try{
    const remaining=Math.floor(deadline-performance.now());if(remaining<=0)throw issue('total-time-budget','证据采集超过35秒总预算');if(requestCount>=MAX_REQUESTS)throw issue('request-budget','证据采集超过8次总请求预算');requestCount++;
-   const response=await Promise.race([requestJson(target,{maxBytes:MAX_BYTES,timeoutMs:Math.min(12000,remaining),processTimeoutMs:Math.min(13000,remaining)}),new Promise((_,fail)=>{timer=setTimeout(()=>fail(issue('request-timeout','证据请求超时')),Math.min(13000,remaining));})]);
-   const receivedAt=clockValue(clock);if(receivedAt<startedAt)throw issue('invalid-clock','响应接收时钟早于请求');
-   if(!response||!(Buffer.isBuffer(response.raw)||typeof response.raw==='string'))throw issue('missing-raw-bytes','证据请求必须返回原始字节');
-   const raw=Buffer.isBuffer(response.raw)?response.raw:Buffer.from(response.raw,'utf8');if(raw.length>MAX_BYTES)throw issue('response-too-large','证据响应超过2MiB');
-   rawEvidence.push({encoding:'base64',data:raw.toString('base64'),sha256:sha(raw),byteLength:raw.length,source,url:target,receivedAt});resolve({raw,receivedAt});
-  }catch(e){reject(e);}finally{clearTimeout(timer);}
+   const beforeStart=()=>{const left=Math.floor(deadline-performance.now());if(left<=0)throw issue('total-time-budget','证据采集超过35秒总预算');return {timeoutMs:Math.min(12000,left),processTimeoutMs:Math.min(13000,left)};};
+   const response=await Promise.race([request(target,{maxBytes:MAX_BYTES,timeoutMs:Math.min(12000,remaining),processTimeoutMs:Math.min(13000,remaining),signal:controller.signal,beforeStart}),new Promise((_,fail)=>{timer=setTimeout(()=>{controller.abort();fail(issue('request-timeout','证据请求超时'));},remaining);})]);
+   resolve(capture(response,target,source));
+  }catch(e){if(e.response?.raw?.length){try{capture(e.response,target,source);}catch{}}reject(e);}finally{clearTimeout(timer);controller.abort();}
  });pump();});}
  async function reports(kind){
   const result={status:'unknown',source:'eastmoney',records:[],coverage:{declaredCount:null,fetchedCount:0,pages:null,fetchedPages:0,complete:false},absenceClaim:null,sourceTimestamp:null,fieldMappingSource:REFERENCES[kind]};

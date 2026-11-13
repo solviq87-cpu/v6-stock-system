@@ -2,12 +2,10 @@
 
 // Current provider observations only. No BaoStock compatibility branch, historical
 // member reconstruction, independent-source claim, or account/strategy writes.
-const { execFile } = require('node:child_process');
-const { promisify } = require('node:util');
+const {requestResearchBytes,createResearchRequest,restrictionFields}=require('./research-curl-bytes');
 const { createHash } = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 const { sourceQuoteTimeSeconds } = require('./market-snapshot-quote-time');
-const run = promisify(execFile);
 const CLIST = '/api/qt/clist/get';
 const INDUSTRY = 'https://17.push2.eastmoney.com' + CLIST;
 const CONCEPT = 'https://79.push2.eastmoney.com' + CLIST;
@@ -28,20 +26,16 @@ const nameOK = value => typeof value === 'string' && value.trim().length > 0 && 
 const boardID = b => b.category + '|' + b.code;
 const makeURL = (base, params) => base + '?' + new URLSearchParams(params).toString();
 
-async function requestCurrentBoardJSON(target, { timeoutMs, maxBytes, signal }) {
+async function requestCurrentBoardJSON(target, options) {
   const parsed = new URL(target);
   if (![INDUSTRY, CONCEPT, MEMBERS, FLOW].includes(parsed.origin + parsed.pathname) || parsed.username || parsed.password || parsed.hash)
     throw Error('禁止任意URL');
-  const { stdout } = await run('curl', ['--fail', '--silent', '--show-error', '--max-time',
-    String(timeoutMs / 1000), '--max-filesize', String(maxBytes), '--proto', '=https',
-    '--user-agent', 'Mozilla/5.0', '--header', 'Accept: application/json', target],
-  { timeout: timeoutMs + 100, maxBuffer: maxBytes, encoding: 'buffer', signal });
-  return { raw: stdout };
+  return requestResearchBytes(target, options);
 }
 
 async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
   const { boards: requestedBoards, maxBoards = 6, historyDays = 5 } = options;
-  const { now = Date.now, requestJson = requestCurrentBoardJSON } = dependencies;
+  const { now = Date.now, requestJson = requestCurrentBoardJSON, requestGovernor } = dependencies;
   if (!Number.isSafeInteger(maxBoards) || maxBoards < 1 || maxBoards > 6 ||
     !Number.isSafeInteger(historyDays) || historyDays < 1 || historyDays > 120 || typeof requestJson !== 'function')
     throw Error('板块数量或资金历史范围无效');
@@ -55,6 +49,7 @@ async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
   const requestedDate = chinaDay(startedAt), errors = [], rawEvidence = [];
   let lastAt = startedAt, requestCount = 0, totalBytes = 0, active = 0;
   const waiting = [];
+  const makeRequest=createResearchRequest(requestJson,requestCurrentBoardJSON,requestGovernor);
   const stamp = () => {
     const t = clock();
     if (!time(t) || t < lastAt || t - startedAt > LIMITS.collectionTimeoutMs || chinaDay(t) !== requestedDate)
@@ -62,19 +57,21 @@ async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
     lastAt = t; return t;
   };
   const captureError = (kind, code, error) => errors.push({ source: kind, code: code || null,
-    message: String(error?.message || error).replace(/[\r\n]+/g, ' ').slice(0, 200) });
+    message: String(error?.message || error).replace(/[\r\n]+/g, ' ').slice(0, 200),
+    ...(typeof error?.code==='string'?{errorCode:error.code}:{}),...restrictionFields(error) });
   async function request(target, kind, code) {
     if (active >= 2) await new Promise(resolve => waiting.push(resolve));
     active++;
-    let timer;
+    let timer,requestStartedAt;
     const controller = new AbortController();
     try {
       const remaining = Math.floor(LIMITS.collectionTimeoutMs - (performance.now() - wallStart));
       if (remaining <= 0 || requestCount >= LIMITS.maxRequests) throw Error('采集总时限或20次请求上限');
-      requestCount++; const requestStartedAt = stamp(), timeoutMs = Math.min(12000, remaining);
+      requestCount++;requestStartedAt=stamp();const timeoutMs=Math.min(12000,remaining);
+      const beforeStart=()=>{stamp();const left=Math.floor(LIMITS.collectionTimeoutMs-(performance.now()-wallStart));if(left<=0)throw Error('采集总时限或20次请求上限');return {timeoutMs:Math.min(12000,left),processTimeoutMs:Math.min(12100,left)};};
       const returned = await Promise.race([
-        Promise.resolve().then(() => requestJson(target, { timeoutMs, maxBytes: LIMITS.responseBytes, signal: controller.signal })),
-        new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(Error('有界公共请求超时')); }, timeoutMs); })
+        Promise.resolve().then(() => makeRequest(target, { timeoutMs, maxBytes: LIMITS.responseBytes, signal: controller.signal, beforeStart })),
+        new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(Error('有界公共请求超时')); }, remaining); })
       ]);
       const observedAt = stamp();
       // The raw response is the sole parse source; an injected json property
@@ -88,8 +85,14 @@ async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
         rawHash, rawBase64: raw.toString('base64'), bytes: raw.length, hashBasis: 'raw-response-bytes' };
       rawEvidence.push(evidence);
       return { json: JSON.parse(raw.toString('utf8')), observedAt, rawHash };
+    } catch(error) {
+      const raw=error.response?.raw;
+      if((Buffer.isBuffer(raw)||typeof raw==='string')&&Buffer.byteLength(raw)>0&&Buffer.byteLength(raw)<=LIMITS.responseBytes&&totalBytes+Buffer.byteLength(raw)<=LIMITS.totalResponseBytes){
+        try{const observedAt=stamp(),bytes=Buffer.from(raw);totalBytes+=bytes.length;rawEvidence.push({source:'eastmoney',kind,code:code||null,requestUrl:target,requestStartedAt,observedAt,sourceTimestamp:null,rawHash:hash(bytes),rawBase64:bytes.toString('base64'),bytes:bytes.length,hashBasis:'raw-response-bytes'});}catch{}
+      }
+      throw error;
     } finally {
-      clearTimeout(timer); active--; const release = waiting.shift(); if (release) release();
+      clearTimeout(timer);controller.abort();active--; const release = waiting.shift(); if (release) release();
     }
   }
   async function pages(base, category, code = null) {

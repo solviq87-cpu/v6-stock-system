@@ -1,8 +1,9 @@
 'use strict';
 // Field mapping checked against AKShare stock/flow/stock_fund_em.py and
 // stock/quote/stock_ztb_em.py (main). Capture time is never provider quote time.
-const {execFile}=require('node:child_process'),{promisify}=require('node:util'),crypto=require('node:crypto');
-const run=promisify(execFile),MAX_BYTES=2*1024*1024;
+const crypto=require('node:crypto');
+const {requestResearchBytes,createResearchRequest,restrictionFields}=require('./research-curl-bytes');
+const MAX_BYTES=2*1024*1024;
 const FLOW='https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get';
 const ZT='https://push2ex.eastmoney.com/getTopicZTPool',ZB='https://push2ex.eastmoney.com/getTopicZBPool';
 const SOURCES={flow:'https://github.com/akfamily/akshare/blob/main/akshare/stock/flow/stock_fund_em.py',pools:'https://github.com/akfamily/akshare/blob/main/akshare/stock/quote/stock_ztb_em.py'};
@@ -12,10 +13,10 @@ const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 const number=x=>{if(typeof x==='number')return Number.isFinite(x)?x:null;if(typeof x!=='string'||! /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(x.trim()))return null;const value=Number(x);return Number.isFinite(value)?value:null;};
 const count=x=>Number.isSafeInteger(x)&&x>=0?x:null;
 function url(base,params){return base+'?'+new URLSearchParams(params).toString();}
-async function requestPublicJson(target){
+async function requestPublicJson(target,options={}){
  const parsed=new URL(target);if(![FLOW,ZT,ZB].includes(parsed.origin+parsed.pathname)||parsed.protocol!=='https:'||parsed.username||parsed.password)throw Error('禁止任意URL');
- const {stdout}=await run('curl',['--fail','--silent','--show-error','--max-time','12','--max-filesize',String(MAX_BYTES),'--proto','=https','--user-agent','Mozilla/5.0','--header','Accept: application/json',target],{timeout:13000,maxBuffer:MAX_BYTES,encoding:'utf8'});
- if(Buffer.byteLength(stdout)>MAX_BYTES)throw Error('响应超过2MiB');return {json:JSON.parse(stdout),raw:stdout};
+ const response=await requestResearchBytes(target,{...options,maxBytes:MAX_BYTES}),raw=response.raw.toString('utf8');
+ return {...response,json:JSON.parse(raw),raw,rawBytes:response.raw};
 }
 function empty(status='unknown'){return {status,source:'eastmoney',records:[],unit:'CNY',fundsMethod:'vendor-order-size-estimate',interpretation:'vendor-order-size-estimate',fetchedCount:0,totalCount:null,partial:null,sourceTimestamp:null};}
 function flowParams(secid,days,market=false){return {lmt:String(days),klt:'101',secid,...(market?{secid2:'0.399001'}:{}),fields1:'f1,f2,f3,f7',fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65',ut:'b2884a393a59ad64002292a3e90d46a5'};}
@@ -45,7 +46,7 @@ function parsePool(json,{date,kind}){
  const sameDate=dateOK(tradeDate)&&tradeDate===date,complete=sameDate&&totalCount!==null&&totalCount===data.pool.length&&records.length===data.pool.length&&invalidCount===0;
  return {status:complete?'observed-unverified':'partial-evidence',complete,tradeDate,requestedDate:date,records,fetchedCount:data.pool.length,totalCount,partial:!complete,invalidCount,sourceTimestamp:null,dateMatched:sameDate,fieldMappingSource:SOURCES.pools,unit:'CNY',priceScale:'vendor-milliyuan-divided-by-1000'};
 }
-async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={}, {now=Date.now,requestJson=requestPublicJson,retainRawEvidence=false}={}){
+async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={}, {now=Date.now,requestJson=requestPublicJson,retainRawEvidence=false,requestGovernor}={}){
  const clock=typeof now==='function'?now:()=>now,startedAt=clock();
  if(!Number.isSafeInteger(startedAt)||startedAt<=0)throw Error('采集时钟无效');
  const explicitDate=date!==undefined;date=explicitDate?date:chinaDate(startedAt);if(!dateOK(date)||date>chinaDate(startedAt)||!Number.isSafeInteger(historyDays)||historyDays<1||historyDays>120)throw Error('日期或历史长度无效');
@@ -55,20 +56,26 @@ async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={},
  if(sectorCode)requests.push(['sectorFlow',url(FLOW,flowParams('90.'+sectorCode,historyDays)),'sector']);
  if(symbol)requests.push(['stockFlow',url(FLOW,flowParams((symbol.startsWith('6')?'1.':'0.')+symbol,historyDays)),'stock']);
  const values={marketFlow:empty(),sectorFlow:empty('not-requested'),stockFlow:empty('not-requested'),sealed:{status:'unknown',records:[],partial:true,totalCount:null,fetchedCount:0},broken:{status:'unknown',records:[],partial:true,totalCount:null,fetchedCount:0}};
+ const request=createResearchRequest(requestJson,requestPublicJson,requestGovernor);
  const fetchOne=async([name,target,kind],poolDate=date)=>{
   try{
-   const returned=await requestJson(target,{maxBytes:MAX_BYTES,timeoutMs:12000}),firstObservedAt=clock();
-   const wrapped=returned&&Object.hasOwn(returned,'json'),raw=wrapped&&typeof returned.raw==='string'?returned.raw:JSON.stringify(wrapped?returned.json:returned);
-   if(typeof raw!=='string'||Buffer.byteLength(raw)>MAX_BYTES)throw Error('响应超过2MiB或非JSON');
-   const json=wrapped&&typeof returned.raw==='string'?JSON.parse(raw):wrapped?returned.json:returned;
-   if(retainRawEvidence&&wrapped&&typeof returned.raw==='string')rawEvidence.push({encoding:'base64',data:Buffer.from(raw).toString('base64'),sha256:sha(raw),byteLength:Buffer.byteLength(raw),source:'eastmoney:'+name,url:target,receivedAt:firstObservedAt});
+   const returned=await request(target,{maxBytes:MAX_BYTES,timeoutMs:12000}),firstObservedAt=clock();
+   const wrapped=returned&&Object.hasOwn(returned,'json'),providedRaw=Buffer.isBuffer(returned?.rawBytes)?returned.rawBytes:Buffer.isBuffer(returned?.raw)?returned.raw:typeof returned?.raw==='string'?Buffer.from(returned.raw,'utf8'):null;
+   const raw=providedRaw??JSON.stringify(wrapped?returned.json:returned);
+   if(!(typeof raw==='string'||Buffer.isBuffer(raw))||Buffer.byteLength(raw)>MAX_BYTES)throw Error('响应超过2MiB或非JSON');
+   const json=providedRaw?JSON.parse(providedRaw.toString('utf8')):wrapped?returned.json:returned;
+   if(retainRawEvidence&&providedRaw)rawEvidence.push({encoding:'base64',data:providedRaw.toString('base64'),sha256:sha(providedRaw),byteLength:providedRaw.length,source:'eastmoney:'+name,url:target,receivedAt:firstObservedAt});
    if(kind!=='pool'){
     const [market,code]=new URL(target).searchParams.get('secid').split('.');
     if(json?.data?.code!==undefined&&String(json.data.code)!==code||json?.data?.market!==undefined&&String(json.data.market)!==market)throw Error('资金流响应证券身份不一致');
    }
-   const provenance={source:'eastmoney',endpoint:new URL(target).pathname,requestUrl:target,retrievedAt:firstObservedAt,firstObservedAt,sourceTimestamp:null,rawHash:sha(raw),hashBasis:wrapped&&typeof returned.raw==='string'?'raw-response-bytes':'injected-json-serialization',verifiedLive:false};
+   const provenance={source:'eastmoney',endpoint:new URL(target).pathname,requestUrl:target,retrievedAt:firstObservedAt,firstObservedAt,sourceTimestamp:null,rawHash:sha(raw),hashBasis:providedRaw?'raw-response-bytes':'injected-json-serialization',verifiedLive:false};
    values[name]={...(kind==='pool'?parsePool(json,{date:poolDate,kind:name}):parseFlow(json,{date,historyDays,kind})),...provenance};
-  }catch(e){values[name]={...values[name],status:'unknown',error:String(e.stderr||e.message||e).trim().slice(0,240)};errors.push({source:name,message:values[name].error});}
+  }catch(e){
+   const raw=e.response?.raw;
+   if(retainRawEvidence&&(Buffer.isBuffer(raw)||typeof raw==='string')&&Buffer.byteLength(raw)>0&&Buffer.byteLength(raw)<=MAX_BYTES){const receivedAt=clock();if(Number.isSafeInteger(receivedAt)&&receivedAt>=startedAt)rawEvidence.push({encoding:'base64',data:Buffer.from(raw).toString('base64'),sha256:sha(raw),byteLength:Buffer.byteLength(raw),source:'eastmoney:'+name,url:target,receivedAt});}
+   values[name]={...values[name],status:'unknown',error:String(e.stderr||e.message||e).trim().slice(0,240)};errors.push({source:name,code:typeof e.code==='string'?e.code:'source-failed',message:values[name].error,...restrictionFields(e)});
+  }
  };
  // The latest observed market date, rather than a guessed calendar, selects
  // the default pool session. Optional flow sources may supply the fallback.
