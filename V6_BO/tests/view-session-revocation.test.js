@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
 const start=source.indexOf('function expireIdleViewDevices(now, opts) {');
-const end=source.indexOf('function issueToken(role, deviceToken)',start);
+const end=source.indexOf('function issueToken(',start);
 assert.ok(start>=0&&end>start,'cannot locate expiry/revocation implementations');
 let n=0;const ok=(x,msg)=>{assert.ok(x,msg);n++;};
 function run(devices,now){

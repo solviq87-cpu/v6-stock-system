@@ -495,7 +495,7 @@ async function refresh() {
         + (_st.total ? `（其中 ${_st.down || 0} 只处下跌通道·已降权，${_st.cold || 0} 只冷门板块）` : '')
         + ' · 权重股≤4个名额 · 名次=净占比×位置×板块冷热';
       document.getElementById('bigMoney').innerHTML = (s.bigMoney.items || []).map(x => {
-        // 涨停概率：同一套校准过的逻辑回归模型，越高说明封板概率越大
+        // 经验权重逻辑模型的估值；没有独立样本外校准证据。
         const p = Math.max(0, Math.min(100, +x.prob || 0));
         const pc = p >= 60 ? '#c92a2a' : p >= 40 ? '#e8590c' : p >= 20 ? '#f08c00' : '#868e96';
         const start = x.startSignal
@@ -527,7 +527,7 @@ async function refresh() {
         return `<div class="rvc">
           <div class="rvc-h"><b class="up">${x.mainPct == null ? '未知' : x.mainPct + '%'}</b><span>${x.name}</span><span class="muted">${x.code}</span>${x.sector ? `<span class="tag">${x.sector}</span>` : ''}${heatTag}${kindTag}${riskTag}${capTag}${start}</div>
           ${posRow}
-          <div class="prob-wrap"><span class="muted">当日封板概率预测</span><div class="prob-bar"><i style="width:${p}%;background:${pc}"></i></div><b style="color:${pc}">${p}%</b><span class="muted">距涨停还有 ${x.gapToLimit == null ? '-' : x.gapToLimit} 个点</span></div>
+          <div class="prob-wrap"><span class="muted">当日封板模型估值（未独立校准）</span><div class="prob-bar"><i style="width:${p}%;background:${pc}"></i></div><b style="color:${pc}">${p}%</b><span class="muted">距涨停还有 ${x.gapToLimit == null ? '-' : x.gapToLimit} 个点</span></div>
           <div class="rvc-g"><span>现价 ${x.price} <b class="${cls(x.pct)}">${sign(x.pct)}%</b></span><span>主力净额 <b class="up">${fmtY(x.mainInflow)}</b>（当日累计）</span><span class="muted">净占比=主力净流入/成交额，越高说明大资金越集中</span></div>
           ${balanceRow(x)}
         </div>`;
@@ -967,7 +967,7 @@ async function refresh() {
         // ge 轮：被主流板块闸门留下的票，打「主流板块」蓝徽标，把"有依据"写在脸上
         const _mlTag = x.mainline ? `<span class="tag" style="background:#e7f5ff;color:#1971c2;font-weight:600">主流板块</span>` : '';
         return `<div class="rvc">
-          <div class="rvc-h"><b>${probTxt}%</b><span class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：算法信号/模拟盘成交/做T/锁仓/量能/大单资金/洗盘出货判定">${x.name}</span><span class="muted">${x.code}</span>
+          <div class="rvc-h"><b title="次日封板研究排序值，未独立校准">${probTxt}/100</b><span class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：算法信号/模拟盘成交/做T/锁仓/量能/大单资金/洗盘出货判定">${x.name}</span><span class="muted">${x.code}</span>
             <span class="tag">${_roleTag(x.role)}</span>${_mlTag}${lbTxt}${x.sector ? `<span class="tag">${x.sector}</span>` : ''}</div>
           <div class="rvc-g"><span>现价 <b>${x.price}</b></span><span>封板 <b>${Math.round(Math.min(x.sealRatio || 0, 1.5) * 100)}%</b></span><span>开板 <b>${x.breakCount || 0}次</b></span><span>换手 <b>${(x.turnover || 0).toFixed(1)}%</b></span></div>
           <div class="rvc-g"><span>封单 <b>${_money(x.sealAmount)}</b></span><span>流通 <b>${(x.floatCap || 0) >= 1e8 ? ((x.floatCap || 0) / 1e8).toFixed(1) + '亿' : Math.round((x.floatCap || 0) / 1e4) + '万'}</b></span><span>主力 <b class="${(x.mainInflow || 0) > 0 ? 'up' : ''}">${_money(x.mainInflow)}</b></span></div>
@@ -991,14 +991,14 @@ async function refresh() {
         : `<div class="muted" style="padding:10px">暂无候选 —— 需要有 2 板/3 板票在板上；三进四仅在最高板≥7 板（情绪高涨期）才参与</div>`;
       const yeT = document.getElementById('yeTime');
       if (yeT) yeT.textContent = yeArr.length
-        ? `${_yeOf ? _yeOf + ' 收盘算出 · ' : ''}${yeArr.length} 只候选 · 仅主流板块入选 · 按融合概率排序`
+        ? `${_yeOf ? _yeOf + ' 收盘算出 · ' : ''}${yeArr.length} 只候选 · 仅主流板块入选 · 按研究值排序`
         : '暂无候选';
       const lbT = document.getElementById('lbTime');
       if (lbT) lbT.textContent = lbArr.length
         ? `${_lbOf ? _lbOf + ' 收盘算出 · ' : ''}${lbArr.length} 只候选 · 仅主流板块入选 · 板块联动已计入`
         : '暂无候选';
       const yeI = document.getElementById('yeInfo');
-      if (yeI) yeI.innerHTML = yeArr.length ? `<span class="tag">首板 ${yeArr.length} 只入选</span><span class="muted">融合概率 = 模型分 × 实测校准</span>` : '';
+      if (yeI) yeI.innerHTML = yeArr.length ? `<span class="tag">首板 ${yeArr.length} 只入选</span><span class="muted">次日封板研究排序 · 未独立校准</span>` : '';
       const lbI = document.getElementById('lbInfo');
       if (lbI) lbI.innerHTML = lbArr.length ? `<span class="tag">连板 ${lbArr.length} 只入选</span><span class="muted">越往上越吃板块联动</span>` : '';
     }
@@ -1266,15 +1266,19 @@ async function refresh() {
       //    以前它单独写 ppPoolInfo/ppPreInfo 那一行，紧接着 renderPaper 第一行又把同一行覆盖掉，等于没写。
       renderPaper('Pool', s.paper.pool, !!s.paper.mirror); renderPaper('Pre', s.paper.pre, !!s.paper.mirror);
     }
+    const newsKnown = value => typeof value === 'number' && Number.isFinite(value);
+    const newsCount = value => newsKnown(value) ? String(value) : '未知';
+    const newsPct = value => newsKnown(value) ? (value > 0 ? '+' : '') + value.toFixed(1) + '%' : '未知';
+    const newsFunds = (value, absolute = false) => newsKnown(value) ? fmtY(absolute ? Math.abs(value) : value) : '未知';
     // 每条消息的直接影响个股（新闻点名）+ 板块间接影响个股（涨红跌绿，中国股市惯例）
     const relHtml = x => {
       if (!x || !x.related) return '';
       const col = p => `color:${p.pct > 0 ? '#c92a2a' : p.pct < 0 ? '#2b8a3e' : '#495057'}`;
-      const fmt = p => `<b style="${col(p)}">${p.name}(${p.code}) ${(+p.pct || 0) > 0 ? '+' : ''}${(+p.pct || 0).toFixed(1)}%</b>`;
+      const fmt = p => `<b style="${col(p)}">${esc(p.name)}(${esc(p.code)}) ${newsPct(p.pct)}</b>`;
       const d = (x.related.direct || []).map(fmt).join('、');
       const i = (x.related.indirect || []).map(fmt).join('、');
       return (d ? `<br><span style="font-size:12px">📌 直接影响: ${d}</span>` : '') +
-             (i ? `<br><span style="font-size:12px">🔗 板块间接: <span class="muted">[${x.related.indirect[0].via}]</span> ${i}</span>` : '');
+             (i ? `<br><span style="font-size:12px">🔗 板块间接: <span class="muted">[${esc(x.related.indirect[0].via)}]</span> ${i}</span>` : '');
     };
     // 利空雷达
     if (s.badNews) {
@@ -1282,7 +1286,7 @@ async function refresh() {
       document.getElementById('bnSectors').innerHTML = (s.badNews.sectors || []).map(x =>
         `<span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️ ${x.name}${x.pct != null ? ' ' + x.pct + '%' : ''} <span class="muted">${x.from}${x.mainInflow != null ? ' · 主力' + (x.mainInflow / 1e8).toFixed(1) + '亿' : ''}</span></span>`).join('') || '<span class="muted">暂无利空板块</span>';
       document.getElementById('bnList').innerHTML = (s.badNews.items || []).map(x =>
-        `<div class="sig zt" style="font-size:12px"><span class="tag" style="background:#ffe3e3;color:#c92a2a">利空</span> <b>${(x.t || '').slice(5, 16)}</b> ${x.title}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.join('、') : ''}<br><span class="muted">判定: ${x.why || ''}</span>${x.stat ? `<br><span style="font-size:12px;color:#c92a2a">📊 受累个股统计: ${x.stat.total}只 · 下跌${x.stat.down} · 上涨${x.stat.up} · 均幅${x.stat.avgPct}% · 主力净流出${fmtY(Math.abs(x.stat.mainSum))}${x.stat.mainSum > 0 ? '（反转为净流入）' : ''}</span>` : ''}${relHtml(x)}</div>`).join('') || '<div class="muted">近3日暂无利空快讯</div>';
+        `<div class="sig zt" style="font-size:12px"><span class="tag" style="background:#ffe3e3;color:#c92a2a">利空</span> <b>${(x.t || '').slice(5, 16)}</b> ${esc(x.title)}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.map(esc).join('、') : ''}<br><span class="muted">判定: ${esc(x.why || '')}</span>${x.stat ? `<br><span style="font-size:12px;color:#c92a2a">📊 受累个股统计: ${x.stat.total}只 · 下跌${newsCount(x.stat.down)} · 上涨${newsCount(x.stat.up)} · 均幅${newsPct(x.stat.avgPct)} · 主力净流出${newsFunds(x.stat.mainSum, true)}${x.stat.mainSum > 0 ? '（反转为净流入）' : ''}</span>` : ''}${relHtml(x)}</div>`).join('') || '<div class="muted">近3日暂无利空快讯</div>';
     }
     // 利好消息近3日
     if (s.goodNews) {
@@ -1293,8 +1297,8 @@ async function refresh() {
       document.getElementById('gnList').innerHTML = (s.goodNews.items || []).map(x => {
         const tag = x.type === 'good' ? '<span class="tag" style="background:#d3f9d8;color:#2b8a3e">利好</span>' : '<span class="tag" style="background:#e9ecef;color:#495057">中性</span>';
         // 每条利好/中性消息后的关联个股实时统计分析
-        const stat = x.stat ? `<br><span style="font-size:12px;color:#2b8a3e">📊 关联个股统计: ${x.stat.total}只 · 上涨${x.stat.up} · 涨停${x.stat.limit} · 均幅${x.stat.avgPct > 0 ? '+' : ''}${x.stat.avgPct}% · 主力净流入${fmtY(x.stat.mainSum)}</span>` : '';
-        return `<div class="sig" style="font-size:12px">${tag} <b>${(x.t || '').slice(5, 16)}</b> ${x.title}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.join('、') : ''}<br><span class="muted">判定: ${x.why || ''}</span>${stat}${relHtml(x)}</div>`;
+        const stat = x.stat ? `<br><span style="font-size:12px;color:#2b8a3e">📊 关联个股统计: ${x.stat.total}只 · 上涨${newsCount(x.stat.up)} · 涨停${newsCount(x.stat.limit)} · 均幅${newsPct(x.stat.avgPct)} · 主力净流入${newsFunds(x.stat.mainSum)}</span>` : '';
+        return `<div class="sig" style="font-size:12px">${tag} <b>${(x.t || '').slice(5, 16)}</b> ${esc(x.title)}${(x.stocks || []).length ? '<br>关联个股: ' + x.stocks.map(esc).join('、') : ''}<br><span class="muted">判定: ${esc(x.why || '')}</span>${stat}${relHtml(x)}</div>`;
       }).join('') || '<div class="muted">近3日暂无利好快讯</div>';
     }
     // wecom / mail
@@ -1314,8 +1318,8 @@ async function refresh() {
       const _btR = document.getElementById('btResult');
       if (_btR && !_btR.innerHTML.trim()) {
         _btR.innerHTML = `<div class="muted" style="white-space:normal;line-height:1.9;padding:4px 2px">
-          <b>📐 回测口径</b>：逐日回放最近 <b>40 个交易日</b>的筛选逻辑，对每个评分段统计「次日涨停或涨5%」的概率。<br>
-          <b>📈 怎么看</b>：评分段命中率就是概率模型的校准依据；高分段（≥70分）的样本胜率决定 &gt;80% 推送线是否站得住。<br>
+          <b>📐 历史统计口径</b>：逐日回放当前可见股票最近 <b>40 根日K</b>的筛选逻辑，对每个评分段统计「下一根日K收盘涨停或涨幅≥5%」的历史频率。<br>
+          <b>📈 怎么看</b>：这是收盘事件频率，未经独立样本外校准；不能证明当日封板模型、推送阈值或费后交易收益有效。缺历史排名与资金证据时保留未知。<br>
           <b>⏱ 注意</b>：结果<b>不落盘</b>，每次点「运行回测」都重新计算（逐股回放，约20-40秒）；刷新页面后这里会重新变空。<br>
           <span class="mut2">统计参考，不构成投资建议。</span></div>`;
       }
@@ -2925,16 +2929,33 @@ function renderPaper(suf, p, mirror) {
       ? `<span class="tag" style="background:#fff4e6;color:#e8590c" title="休市或行情未刷新，持仓按 ${p.pxBasis.label} 价估值">🕒 按 ${p.pxBasis.label}价估值</span>`
       : '');
   const pos = p.positions || [];
-  document.getElementById('pp' + suf + 'Pos').innerHTML = '<tr><th>股票</th><th>买入价</th><th>现价</th><th>盈亏</th><th>盈亏%</th><th>股数</th><th>持有</th><th>买入理由</th></tr>' +
-    (pos.length ? pos.map(x => `<tr${x.bad ? ' style="background:#fff5f5"' : ''}><td><b class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：成本/止损/止盈线、买卖点、做T/锁仓、量能/大单资金/洗盘出货判定">${x.name}</b> <span class="muted">${x.code}</span>${x.bad ? ' <span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️利空</span>' : ''}</td><td>${x.buyPrice}</td><td>${x.lastPrice}</td><td>${pnl(x.pnl)}</td><td class="${x.pnlPct > 0 ? 'up' : x.pnlPct < 0 ? 'down' : ''}">${x.pnlPct > 0 ? '+' : ''}${x.pnlPct}%</td><td>${x.shares}</td><td>${x.days}交易日</td><td class="muted">${x.reason || ''}</td></tr>`).join('') : '<tr><td colspan="8" class="muted">暂无持仓（等待新信号触发自动买入）</td></tr>');
+  const valuationLabel = x => {
+    const q=x.valuationQuote;
+    if(!q)return '估值来源或时点未知';
+    if(q.valuationKind==='cost-basis')return '按成本估值 · 无报价';
+    if(q.valuationKind==='carried-mark')return '沿用上次价 · 时点未知';
+    const source=({eastmoney:'东财',tencent:'腾讯',sina:'新浪',ths:'同花顺'})[q.quoteSource]||'未标明来源';
+    const status=({'recent-unverified':'近时点未认证',stale:'原报价较旧',future:'时序异常',unknown:'原时点未知'})[q.quoteStatus]||'时点未知';
+    return `${source} · ${status} · 仅估值`;
+  };
+  document.getElementById('pp' + suf + 'Pos').innerHTML = '<tr><th>股票</th><th>买入价</th><th>估值价</th><th>盈亏</th><th>盈亏%</th><th>股数</th><th>持有</th><th>买入理由</th></tr>' +
+    (pos.length ? pos.map(x => `<tr${x.bad ? ' style="background:#fff5f5"' : ''}><td><b class="kl-link" onclick="openKline('${x.code}')" title="点开看K线：成本/止损/止盈线、买卖点、做T/锁仓、量能/大单资金/洗盘出货判定">${x.name}</b> <span class="muted">${x.code}</span>${x.bad ? ' <span class="tag" style="background:#ffe3e3;color:#c92a2a">⚠️利空</span>' : ''}</td><td>${x.buyPrice}</td><td>${x.lastPrice}<div class="muted" style="font-size:11px">${esc(valuationLabel(x))}</div></td><td>${pnl(x.pnl)}</td><td class="${x.pnlPct > 0 ? 'up' : x.pnlPct < 0 ? 'down' : ''}">${x.pnlPct > 0 ? '+' : ''}${x.pnlPct}%</td><td>${x.shares}</td><td>${x.days==null?'日期未知':x.days+'交易日'}</td><td class="muted">${x.reason || ''}</td></tr>`).join('') : '<tr><td colspan="8" class="muted">暂无持仓（等待新信号触发自动买入）</td></tr>');
   const tr = (p.trades || []).slice(0, 12);
   // ⛔ du 轮：同一份流水在系统里其实是三个数 —— 这里只画 12 笔、接口只给 30 笔、
   //    而对账按全量算。不把真实总数标出来，用户会以为看到的就是全部。
   const trTotal = Number(p.tradesTotal) || tr.length;
   document.getElementById('pp' + suf + 'Trades').innerHTML = tr.length ? tr.map(x =>
-    `<div class="sig ${x.side === '卖出' && x.pnl < 0 ? 'zt' : ''}" style="font-size:12px">${new Date(x.t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} <b>${x.side}</b> ${x.name}(${x.code}) ${x.shares}股 @${x.price}${x.side === '卖出' ? ' 盈亏' + (x.pnl > 0 ? '+' : '') + x.pnl : ''} <span class="muted">${x.reason || ''}</span></div>`).join('')
+    `<div class="sig ${x.side === '卖出' && x.pnl < 0 ? 'zt' : ''}" style="font-size:12px">${esc(paperTradeTimeLabel(x))} <b>${x.side}</b> ${x.name}(${x.code}) ${x.shares}股 @${x.price}${x.side === '卖出' ? ' 盈亏' + (x.pnl > 0 ? '+' : '') + x.pnl : ''} <span class="muted">${x.reason || ''}${x.fillEvidence?' · '+esc(paperTradeSourceLabel(x)):''}</span></div>`).join('')
     + (trTotal > tr.length ? `<div class="muted" style="font-size:11px;padding-top:4px">共 ${trTotal} 笔，此处显示最近 ${tr.length} 笔</div>` : '')
     : '<div class="muted" style="font-size:12px">暂无交易记录</div>';
+}
+function paperTradeTimeLabel(trade) {
+  if(Number.isSafeInteger(trade?.t)&&trade.t>0)return new Date(trade.t).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  return (typeof trade?.tradeDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(trade.tradeDate)?trade.tradeDate:'日期未知')+'（时刻未知）';
+}
+function paperTradeSourceLabel(trade) {
+  const labels={simulated:'模拟输入',imported:'导入研究','public-live-unverified':'公开报价未认证',unknown:'来源未知'};
+  return labels[trade?.fillEvidence?.mode]||'来源未知';
 }
 // ═══ hj 轮：应用内 K 线面板（用户 2026-10-14 原话：「点开个股直接查看，买卖T点锁仓直接标出来，不用跨软件」+「K线和量能以及大单情况洗盘还是出货都要显示出来哦」）═══
 // 设计铁律（与服务端 klineMarksOf / washVsDistribute 注释一一对应）：
@@ -3197,7 +3218,7 @@ async function arLoad() {
     let m = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px">';
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">竞价涨幅</div><b class="${cls(rec.auctionPct)}">${sign(rec.auctionPct)}%</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">竞价分</div><b>${rec.score != null ? rec.score : '-'}</b></div>`;
-    m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">回测涨停概率</div><b>${rec.prob != null ? rec.prob + '%' : '-'}</b></div>`;
+    m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">历史模型研究值（未独立校准）</div><b>${rec.prob != null ? rec.prob : '-'}</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">市场环境</div><b>${rec.mktUpRatio == null ? '未知' : (rec.mktUpRatio < 0.35 ? '普跌·降权' : rec.mktUpRatio < 0.5 ? '偏弱' : '正常')}</b></div>`;
     m += `<div style="padding:6px 10px;border:1px solid var(--line,#e5e8ec);border-radius:8px"><div class="muted" style="font-size:11px">撤单陷阱</div><b style="color:${rec.trap ? '#c92a2a' : ''}">${rec.trap ? '是 · ' + esc(rec.trapWhy || '') : '否'}</b></div>`;
     m += '</div>';
@@ -3690,7 +3711,7 @@ function renderAnalyze(d) {
       <span class="${up ? 'up' : 'down'}">${pctTxt}</span>
     </div>
     <div class="muted" style="font-size:12px;margin-top:2px">K线截至 ${String(d.asOf).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')} · 均线 MA5 ${ma.ma5 == null ? '-' : ma.ma5} / MA10 ${ma.ma10 == null ? '-' : ma.ma10} / MA20 ${ma.ma20 == null ? '-' : ma.ma20} / MA60 ${ma.ma60 == null ? '-' : ma.ma60}</div>
-    <div style="margin-top:8px;font-size:12px">算法标注：买点 <b>${buyN}</b> · 做T <b>${tN}</b> · 锁仓 <b>${lockN}</b>${algo.fuse != null ? ' · 融合概率 ' + algo.fuse + '%' : ''}</div>
+    <div style="margin-top:8px;font-size:12px">算法标注：买点 <b>${buyN}</b> · 做T <b>${tN}</b> · 锁仓 <b>${lockN}</b>${algo.fuse != null ? ' · 研究排序值 ' + algo.fuse + '/100' : ''}</div>
     <div style="margin-top:8px">${washHtml}</div>
     <div style="margin-top:8px">${flowHtml}</div>
     ${briefHtml}
@@ -3988,7 +4009,7 @@ function holdCard(x) {
     </div>
     ${tagHtml ? `<div style="margin:3px 0">${tagHtml}<span class="tag" style="cursor:pointer" onclick="holdEditTags('${x.code}')">＋标签</span></div>` : `<div style="margin:3px 0"><span class="tag" style="cursor:pointer" onclick="holdEditTags('${x.code}')">＋加标签</span></div>`}
     <div class="rvc-g">
-      <span>现价 <b>${x.price}</b> <b class="${_pnlCls(x.pct)}">当日${_sg(x.pct)}%</b></span>
+      <span>${x.valuationOnly?'估值价':'现价'} <b>${x.price}</b> <b class="${_pnlCls(x.pct)}">当日${_sg(x.pct)}%</b></span>
       <span>成本 ${x.cost}</span><span>股数 ${x.shares}</span>
       <span>市值 ${Math.round(x.market).toLocaleString()}</span>
       <span class="${_pnlCls(x.profitAmt)}">浮盈亏 ${_sg(x.profitAmt)}元</span>
@@ -3996,7 +4017,7 @@ function holdCard(x) {
       <span class="muted">占总仓 ${x.weight}%</span>
       ${x.drawdown != null && x.hiRef ? `<span class="${x.drawdown >= 5 ? 'down' : x.drawdown >= 3 ? 'down' : 'muted'}" title="现价较近10日高点 ${x.hiRef} 的回落幅度；≥3% 提醒一次止盈，≥5% 每30分钟提醒一次">回撤 ${x.drawdown}%</span>` : ''}
       <span class="muted">5日线 ${x.ma5 == null ? '-' : x.ma5}${x.aboveMa5 === true ? '（站上）' : x.aboveMa5 === false ? '（跌破）' : ''}</span>
-      <span class="${x.mainIn > 0 ? 'up' : x.mainIn < 0 ? 'down' : 'muted'}">主力 ${x.mainIn > 0 ? '+' : ''}${Math.round(x.mainIn / 1e4)}万${x.mainPct ? ' / ' + x.mainPct + '%' : ''}</span>
+      <span class="${x.mainIn > 0 ? 'up' : x.mainIn < 0 ? 'down' : 'muted'}">主力 ${x.mainIn==null?'未知':(x.mainIn>0?'+':'')+Math.round(x.mainIn/1e4)+'万'}${x.mainPct==null?'':' / '+x.mainPct+'%'}</span>
       ${x.note ? `<span class="muted">${x.note}</span>` : ''}
     </div>
     <div style="margin-top:5px">${x.muted ? '<div class="act act-info" style="opacity:.75">🔇 该股已暂停手机推送：以下建议只在面板显示，不会发到手机。<div class="why">恢复方法：点本卡右上角的「🔔 恢复推送」，或取消表单里的「🔇 暂停推送」勾选。</div></div>' : ''}${acts}</div>
@@ -4538,12 +4559,12 @@ async function runBacktest() {
     if (r && r.error) { clearInterval(poll); el.textContent = '❌ 回测失败：' + r.error; return; }
     if (r && !r.empty) {
       clearInterval(poll);
-      el.textContent = `完成：${r.股票数} 只 × ${r.交易日数} 日 = ${r.总样本} 样本`;
+      el.textContent = `完成：当前 ${r.股票数} 只 · 观测 ${r.交易日数} 日 · 有效样本 ${r.总样本} 个`;
       const b = r.分数段命中率;
     document.getElementById('btResult').innerHTML =
-      `<table><tr><th>评分段</th><th>样本数</th><th>次日涨停或涨5%概率</th></tr>` +
-      Object.entries(b).map(([k, v]) => `<tr><td><b>${k}分</b></td><td>${v.样本数}</td><td class="${v.次日涨停或涨5pct概率 >= 30 ? 'up' : ''}"><b>${v.次日涨停或涨5pct概率}</b></td></tr>`).join('') +
-      `</table><p class="muted" style="margin-top:8px">高分段(≥70分)样本 ${r.高分样本数} 个，胜率 ${r.高分胜率}。概率模型以该命中率校准，>80%推送线表示模型综合评分下历史上多数能封板/大涨的强势组合。回测为统计参考，不构成投资建议。</p>`;
+      `<table><tr><th>评分段</th><th>样本数</th><th>次日收盘事件历史频率</th></tr>` +
+      Object.entries(b).map(([k, v]) => `<tr><td><b>${k}分</b></td><td>${v.样本数}</td><td class="${Number.isFinite(v.frequencyPct) && v.frequencyPct >= 30 ? 'up' : ''}"><b>${v.历史事件频率 || v.次日涨停或涨5pct概率}</b></td></tr>`).join('') +
+      `</table><p class="muted" style="margin-top:8px">高分段(≥70分)样本 ${r.高分样本数} 个，历史事件频率 ${r.高分事件频率 || r.高分胜率}。统计的是下一根日K收盘涨停或涨幅≥5%，不是当日封板校准概率、成交胜率或费后净收益。当前样本不代表历史全市场；排名与资金缺当时证据时保持未知。</p>`;
       return;
     }
     if (tries >= 30) {

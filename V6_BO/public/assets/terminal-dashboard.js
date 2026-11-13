@@ -509,7 +509,9 @@ async function select(code){
   if(ticket!==epoch)return;
   if(!r.ok||!d.ok)throw Error(d.error||d.msg||'暂无可用K线');
   if(el('vx-chart'))el('vx-chart').innerHTML=plot(Array.isArray(d.rows)?d.rows:[]);
-  if(el('vx-chart-source'))el('vx-chart-source').textContent='日K截至 '+(d.asOf||'未知')+' · 来源为现有行情接口';
+  if(el('vx-chart-source')){const q=d.dataQuality||{},provider={em:'东方财富',tx:'腾讯',ths:'同花顺'}[q.source]||'未知';
+   const cache={memory:'内存缓存',disk:'磁盘缓存',source:'本次取源','source-lagging':'源数据滞后','held-after-source-failure':'源不可用，沿用缓存','held-source-not-newer':'源未更新，沿用缓存'}[q.cacheLayer]||'缓存状态未知';
+   el('vx-chart-source').textContent='日K截至 '+(q.tradeDate||d.asOf||'未知')+' · 来源 '+provider+' · '+cache+(q.freshness==='source-lagging'&&q.cacheLayer!=='source-lagging'?' · 源数据滞后':'')+' · 历史价格不作执行价';}
   const preview=typeof V6PatternPreview==='object'?V6PatternPreview.evaluate(Array.isArray(d.rows)?d.rows:[]):null;
   if(el('vx-pattern-preview'))el('vx-pattern-preview').innerHTML=preview?V6PatternPreview.render(preview,{asOf:d.asOf,source:d.source||d.provider}):'形态研究组件尚未加载；请刷新页面。';
   renderIssuer(row,preview?.usable?preview.positive.length:0);

@@ -268,10 +268,10 @@ function scoreStock(o) {
   if (profitRatio == null) missing.push('获利筹码');
   else { avail += 15; s += pr >= 85 ? 15 : pr >= 70 ? 11 : pr >= 50 ? 6 : 0; }
   // 4. 两日换手排名（gm 轮：15→12 分，权重让给第 9 项「近5日涨停基因」）
-  const rk = turnoverRank2d || total || 9999;
-  detail['换手排名'] = `${rk}/${total}`;
-  s += rk <= 100 ? 12 : rk <= 300 ? 7 : rk <= 600 ? 4 : 0;
-  avail += 12;
+  const rk = Number.isFinite(turnoverRank2d) && turnoverRank2d > 0 ? turnoverRank2d : null;
+  detail['换手排名'] = rk === null ? '未知' : `${rk}/${Number.isFinite(total) ? total : '未知'}`;
+  if (rk === null) missing.push('换手排名');
+  else { s += rk <= 100 ? 12 : rk <= 300 ? 7 : rk <= 600 ? 4 : 0; avail += 12; }
   // 5. 90日涨停次数（gm 轮：15→9 分。它回答「这只票历史有没有股性」；
   //    而实测「近5日涨停」的次日涨停率约40%，是最强单一因子，回答「现在正不正在风头上」）
   detail['90日涨停'] = `${zt90}次`;
@@ -280,11 +280,10 @@ function scoreStock(o) {
   // 窗口不足 90 根时，这一项算的是「N 日内涨停几次」而不是「90 日内」—— 天然偏低
   if (rows.length < 90) partial.push(`90日涨停基因（仅${rows.length}日窗口，满窗需90日）`);
   // 6. 主力资金
-  const mp = mainPct || 0;
-  detail['主力净占比'] = `${mp.toFixed(1)}%`;
-  // ⚠️ 原来是 `mp>=5?5 : mp>=10?8`，mp>=10 必然先命中 >=5，8 分档永远拿不到
-  s += mp > 0 ? 6 : 0; s += mp >= 10 ? 8 : mp >= 5 ? 5 : 0;
-  avail += 14;
+  const mp = Number.isFinite(mainPct) ? mainPct : null;
+  detail['主力净占比'] = mp === null ? '未知' : `${mp.toFixed(1)}%`;
+  if (mp === null) missing.push('主力净占比');
+  else { s += mp > 0 ? 6 : 0; s += mp >= 10 ? 8 : mp >= 5 ? 5 : 0; avail += 14; }
   // 7. 当日涨幅处于后排蓄势区(2~7%)更适合跟风
   if (pct >= 2 && pct <= 7) s += 10; else if (pct > 0 && pct < 2) s += 5;
   avail += 10;
@@ -323,7 +322,7 @@ function scoreStock(o) {
 }
 
 // ---------- 涨停概率模型（后排股）----------
-// 特征 → logistic → 0~1。权重为经验先验，回测后可用 hitRate 校准系数
+// 特征 → logistic → 0~1。权重为经验先验；没有独立样本外校准证明。
 function limitUpProbability(f) {
   // f: {score, mainPct, profitRatio(0-100), zt90, sectorZT, gap(距涨停的百分比点), turnover, inflowStreakMin(连续流入分钟)}
   let z = -2.6;
@@ -358,8 +357,9 @@ function limitUpProbability(f) {
 //                          服务端路由改用它，pending 期间其它请求最坏只等一只票（≈1ms）
 function* backtestSteps(universe, tradingDaysBack = 40) {
   const buckets = { '80-100': { n: 0, hit: 0 }, '60-79': { n: 0, hit: 0 }, '40-59': { n: 0, hit: 0 }, '0-39': { n: 0, hit: 0 } };
-  let days = 0;
+  const days = new Set();
   const perDay = [];
+  let unknownOutcomeCount = 0;
   for (const st of (universe || [])) {
     const rows = st.rows;
     if (!rows || rows.length < 45) continue;
@@ -368,34 +368,47 @@ function* backtestSteps(universe, tradingDaysBack = 40) {
       const hist = rows.slice(0, i + 1);
       const d = hist[hist.length - 1];
       const next = rows[i + 1];
-      if (days < tradingDaysBack) days++;
+      if (!Number.isFinite(next.pct)) { unknownOutcomeCount++; continue; }
+      const day = String(d.date || '').replace(/-/g, '');
+      if (/^\d{8}$/.test(day)) days.add(day);
       const pr = calcProfitRatio(hist);
       const zt90 = hist.slice(-90).filter(r => isLimitUp(st.code, st.name, r.pct)).length;
       // gm 轮：近5日涨停基因（与实盘同一把尺子，回测才量得出新因子到底有没有用）
       const zt5 = hist.slice(-5).filter(r => isLimitUp(st.code, st.name, r.pct)).length;
-      // 两日换手排名在回测里用绝对换手近似（全市场排名逐日计算代价过高）
-      const turnover2 = (hist[hist.length - 1].turnover + hist[hist.length - 2].turnover) / 2;
-      const sc = scoreStock({
-        rows: hist, profitRatio: pr, turnoverRank2d: turnover2 >= 8 ? 100 : turnover2 >= 5 ? 300 : 600,
-        total: 5500, mainPct: 5, pct: d.pct, zt90, zt5
-      }).score;
+      // 没有历史全市场横截面排名，不能用绝对换手编造排名；资金仅接受当时可得证据。
+      const cutoff = /^\d{8}$/.test(day) ? Date.parse(day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6,8)+'T15:00:00+08:00') : null;
+      const fundsKnown = Number.isFinite(d.mainPct) && Number.isFinite(d.fundsKnownAt) &&
+        Number.isFinite(cutoff) && d.fundsKnownAt > 0 && d.fundsKnownAt <= cutoff;
+      const score = scoreStock({
+        rows: hist, profitRatio: pr, turnoverRank2d: null, total: null,
+        mainPct: fundsKnown ? d.mainPct : null, pct: d.pct, zt90, zt5
+      });
+      const sc = score.score;
       const hit = isLimitUp(st.code, st.name, next.pct) || next.pct >= 5;
       const bk = sc >= 80 ? '80-100' : sc >= 60 ? '60-79' : sc >= 40 ? '40-59' : '0-39';
       buckets[bk].n++; if (hit) buckets[bk].hit++;
-      perDay.push({ date: d.date, code: st.code, name: st.name, score: sc, nextPct: next.pct, hit });
+      perDay.push({ date: d.date, code: st.code, name: st.name, score: sc, scoreBasis: score.basis, nextPct: next.pct, hit });
     }
     yield;   // 每只票算完让出一次（异步版的让出点；同步版只是空转一次，代价可忽略）
   }
   const summary = {};
   for (const [k, v] of Object.entries(buckets)) {
-    summary[k] = { 样本数: v.n, 次日涨停或涨5pct概率: v.n ? +(v.hit / v.n * 100).toFixed(1) + '%' : '-' };
+    const rate = v.n ? +(v.hit / v.n * 100).toFixed(1) : null;
+    summary[k] = { 样本数: v.n, 事件数: v.hit, 历史事件频率: rate === null ? '-' : rate + '%', frequencyPct: rate,
+      次日涨停或涨5pct概率: rate === null ? '-' : rate + '%' };
   }
-  // 高分段（>=70分）样本的胜率 → 用于校准概率模型说明
+  // 高分段（>=70分）的同一收盘事件历史频率，不能校准当日封板模型。
   const hi = perDay.filter(x => x.score >= 70);
   return {
-    交易日数: days, 股票数: (universe || []).length, 总样本: perDay.length,
+    schemaVersion: 2, kind: 'historical-event-frequency', target: 'next-observed-bar-close-limit-up-or-close-gain-5pct',
+    labelDefinition: '信号日之后一根已知日K的收盘涨幅达到该股涨停判定，或收盘涨幅至少5%',
+    calibrationCertified: false, executionSimulated: false, historicalUniverseVerified: false,
+    unknownOutcomeCount, observedUniverseSize: (universe || []).length,
+    limitations: ['当前可见股票与缓存组成的研究样本，非点时动态全市场', '未模拟T+1成交、费用、滑点或净收益', '换手横截面排名未知，历史资金缺当时可得证据则未知', '历史事件频率不校准当日封板模型或推送阈值'],
+    交易日数: days.size, 股票数: (universe || []).length, 总样本: perDay.length,
     分数段命中率: summary,
     高分样本数: hi.length,
+    高分事件频率: hi.length ? +(hi.filter(x => x.hit).length / hi.length * 100).toFixed(1) + '%' : '-',
     高分胜率: hi.length ? +(hi.filter(x => x.hit).length / hi.length * 100).toFixed(1) + '%' : '-',
     明细样本: perDay.sort((a, b) => b.score - a.score).slice(0, 30)
   };

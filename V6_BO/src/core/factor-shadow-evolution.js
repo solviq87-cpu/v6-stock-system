@@ -499,8 +499,11 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  const monitoringTest=previous?test.filter(d=>d.day>previous.lastObservationDay):test;
  // An ACTIVE cooldown observes the whole post-acceptance history to seek
  // ten recovery days; such reports cannot promote or consume a new trial.
+ // Recovered reports awaiting fresh holdout days still require a committed
+ // candidate. A paused status alone must not exempt them from registration.
  const cooldownMonitoring=previousCooldown!==null&&
-  ['paused-shadow-decay','paused-shadow-cooldown'].includes(previousCooldown.status);
+  (previousCooldown.cooldown?.phase==='active'||
+   (!previousCooldown.cooldown&&previousCooldown.status==='paused-shadow-decay'));
  const freshTest=cooldownMonitoring?monitoringTest:
   monitoringTest.filter(d=>(!trialLineage.cutoff||d.day>trialLineage.cutoff)&&
    (!preRegistration||preRegistration.mode===SEED_MODE&&preRegistration.latestFrozenSignalDay===null||

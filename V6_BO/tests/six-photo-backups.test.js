@@ -49,9 +49,11 @@ test('fixed-file fallback validates symbols/time and does not expose raw fields 
 });
 test('existing batch quote chain uses photo backup only after original sources fail',async()=>{
  const source=fs.readFileSync(require.resolve('../em.js'),'utf8'),start=source.indexOf('async function fetchBatchSnapshot(codes)'),end=source.indexOf('async function fetchBatchSnapshotEM',start);let n=0;
- const c={fetchBatchSnapshotEM:async()=>{throw Error('offline');},fetchBatchSnapshotTx:async()=>{throw Error('offline');},require:()=>({photoQuoteFallback:()=>{n++;return [{code:'600519',canTrade:false}];}})};vm.createContext(c);vm.runInContext(source.slice(start,end),c);assert.equal((await c.fetchBatchSnapshot(['600519'])).length,1);assert.equal(n,1);
+ const now=Date.parse('2026-11-13T10:00:00+08:00');class Clock extends Date{static now(){return now;}}
+ const row={code:'600519',price:10,quoteAt:now-1000,receivedAt:now,quoteSource:'research-backup',quoteFreshness:'recent-unverified',canTrade:false};
+ const c={Date:Clock,_srcWarn(){},classifyNetErr:require('../em').classifyNetErr,fetchBatchSnapshotEM:async()=>{throw Error('offline');},fetchBatchSnapshotTx:async()=>{throw Error('offline');},require:()=>({photoQuoteFallback:()=>{n++;return [{...row}];}})};vm.createContext(c);vm.runInContext(source.slice(start,end),c);const first=await c.fetchBatchSnapshot(['600519']);assert.equal(first.length,1);assert.equal(first[0].canTrade,false);assert.equal(n,1);
  c.fetchBatchSnapshotEM=async()=>[];await c.fetchBatchSnapshot(['600519']);assert.equal(n,2);
- c.fetchBatchSnapshotEM=async()=>[{code:'600519',quoteFreshness:'recent-unverified'}];await c.fetchBatchSnapshot(['600519']);assert.equal(n,2);
+ c.fetchBatchSnapshotEM=async()=>[{...row,quoteSource:'eastmoney',canTrade:true}];await c.fetchBatchSnapshot(['600519']);assert.equal(n,2);
 });
 test('display-only photo backup rows do not enter lastPx used by simulated account execution',()=>{
  const source=fs.readFileSync(require.resolve('../server.js'),'utf8'),start=source.indexOf('function ingestPx(rows)'),end=source.indexOf('function paperPrices()',start),c={S:{lastPx:new Map()},Date};vm.createContext(c);vm.runInContext(source.slice(start,end),c);

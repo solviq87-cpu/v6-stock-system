@@ -112,7 +112,7 @@ ok((src.match(/useProb < ZT_INFER_PUSH_PROB/g) || []).length === 2, '一进二/�
 ok(/prob:\s*aucztProbClamp\(prob\)/.test(src), '调用点走 aucztProbClamp（单层标定，不再按 prob 二次切档）');
 ok(!/aucztHonestProb\(/.test(src.replace(/\/\/[^\n]*/g, '')), '旧的双层覆写 aucztHonestProb 已从代码中移除（只剩注释留痕）');
 ok(/cal:\s*'h2'/.test(src), "auczt 落库带刻度标记 cal:'h2'（退役判据据此豁免）");
-ok(/if \(extra\.cal\) _old\.cal = extra\.cal;/.test(src), '同日重复登记分支也带上刻度标记（否则新值被判退役）');
+ok(!/\b_old\.cal\s*=/.test(grabFn('logSignal')), '同日新刻度不补写首次样本；新增 observation 单独保存（真实重复行为见 production-signal-evidence.test.js）');
 ok(/if \(isRetiredProbScale\(s\)\) \{ bumpSkip\('empRetiredScale'\); continue; \}/.test(src),
   'empTable 跳过退役刻度样本并登记原因');
 ok(/if \(s\.type !== 'auczt'\) bump\(ks\[1\], s\);/.test(src), 'auczt 不喂「全部|同档」池（两种回验目标不混池）');

@@ -1,6 +1,7 @@
 // 引入统一涨停口径；analysis.js 是纯函数模块、自身无任何 require，不会形成循环依赖
 const A = require('./analysis');
 const {holdingEvidence,asHoldingsAct}=require('./src/strategy/holding-signal-evidence');
+const {quoteSnapshotFields,quoteUseEligibility,fundsObservationView}=require('./src/core/quote-observation-view');
 
 // 取某只票的利空标题（与 goodTitles 对称，用于综合判断）
 function badTitlesJoin(news, code) {
@@ -520,9 +521,12 @@ module.exports = function createHoldings(dep) {
         const t = await em.fetchThsActiveBatch(thsCodes);
         for (const [c, v] of t) {
           const s = out.get(c) || { code: c, name: '', pct: 0 };
-          s.price = s.price || v.price;
+          if(!s.price){s.price=v.price;s.quoteSource='ths';s.quoteAt=null;s.receivedAt=v.retrievedAt??null;
+            s.quoteMode='active-order-estimate';s.canTrade=false;s.canNotify=false;}
           s.mainInflow = v.netAmt;
           s.mainPct = v.activePct;
+          s.fundsSource='ths';s.fundsMethod=v.fundsMethod||'vendor-active-order-estimate';
+          s.fundsRetrievedAt=v.retrievedAt??null;s.fundsSourceTimestamp=v.sourceTimestamp??null;s.fundsUnit=v.fundsUnit||v.unit||'CNY';
           s.proxy = true; // 标注为备用口径（主动买占比），便于前端说明
           out.set(c, s);
         }
@@ -532,7 +536,11 @@ module.exports = function createHoldings(dep) {
     for (const c of codes) {
       if (out.get(c) && out.get(c).price) continue;
       const st = S.stocks.find(s => s.code === c);
-      if (st) out.set(c, { ...(out.get(c) || {}), code: c, name: st.name, price: st.price, pct: st.pct, mainInflow: st.mainInflow, mainPct: st.mainPct });
+      if (st) {const quality=quoteUseEligibility(st,_nowDate().getTime());out.set(c, { ...(out.get(c) || {}),
+        ...quoteSnapshotFields(st),code:c,name:st.name,price:st.price,pct:st.pct,
+        quoteMode:st.quoteMode||'full-a-fallback',canTrade:quality.canTrade,canNotify:quality.canNotify,
+        mainInflow:st.mainInflow,mainPct:st.mainPct,fundsSource:st.fundsSource||null,fundsMethod:st.fundsMethod||null,
+        fundsRetrievedAt:st.fundsRetrievedAt??null,fundsSourceTimestamp:st.fundsSourceTimestamp??null,fundsUnit:st.fundsUnit||null });}
     }
     return out;
   }
@@ -865,6 +873,7 @@ module.exports = function createHoldings(dep) {
     let _nameDirty = false;   // 是否补到了真实名称（补到就回写，避免下次再查）
     const list = items.map(h => {
       const snap = q.get(h.code) || {};
+      const quoteQuality=quoteUseEligibility(snap,_nowDate().getTime());
       const rows = rowMap.get(h.code) || [];
       const v = verdict(h.code, snap, rows, { positionPct });
       const researchRisk=holdingEvidence({code:h.code,bars:rows,quote:snap,
@@ -874,7 +883,15 @@ module.exports = function createHoldings(dep) {
       const patternAct=asHoldingsAct(researchRisk,{locked:!!h.locked});
       // Unlike the established price-based rules, invalid/stale pattern signals
       // remain visible ONLY, never enter the notification stream.
-      const acts=patternAct?[...v.acts,patternAct]:v.acts;
+      const observedActs=patternAct?[...v.acts,patternAct]:v.acts;
+      const acts=quoteQuality.canNotify?observedActs.map(a=>({...a,canNotify:a.canNotify!==false})):[{
+        type:'观察',urgent:false,quiet:true,canNotify:false,color:'info',
+        text:'行情来源或原始时点证据不足，暂不给出交易动作',
+        why:({'invalid-price':'缺少有效价格','missing-source':'未提供报价来源',
+          'missing-original-time':'未提供供应商原始报价时点','missing-received-time':'未记录本次接收时点',
+          'future-original-time':'原始报价时点晚于当前时刻','invalid-reception-time':'原始与接收时点顺序异常',
+          'stale-original-time':'原始报价已超过15秒','different-trade-date':'报价属于其他交易日期',
+          'observation-only-source':'该来源仅供观察','use-disabled-by-source':'本来源未允许交易提醒'})[quoteQuality.missingReason]||'报价使用条件尚未确认'}];
       const cost = num(h.cost), shares = num(h.shares);
       const price = num(snap.price);
       const prevClose = rows.length ? rows[rows.length - 1].close : null;
@@ -892,19 +909,22 @@ module.exports = function createHoldings(dep) {
       return {
         code: h.code, name: nm || snap.name || '',
         cost, shares, note: h.note || '', tags: h.tags || [], locked: !!h.locked, muted: !!h.mute,
-        price, pct: num(snap.pct), proxy: !!snap.proxy,
+        price, pct: num(snap.pct), proxy: !!snap.proxy,quoteQuality,fundsQuality:fundsObservationView(snap,_nowDate().getTime()),
+        valuationOnly:!quoteQuality.canNotify,observedActs:quoteQuality.canNotify?undefined:observedActs,
         market, costAmt: +(cost * shares).toFixed(0),
         weight: preMarket ? +((market / preMarket) * 100).toFixed(1) : 0,
         profitAmt: okP ? Math.round((price - cost) * shares) : 0,
         floatPct: okP ? +(((price - cost) / cost) * 100).toFixed(2) : null,
         dayPnl: (prevClose && price) ? Math.round((price - prevClose) * shares) : 0,
-        ma5: v.ma5, aboveMa5: v.aboveMa5, mainIn: Math.round(v.mainIn || 0), mainPct: v.mainPct || 0,
+        ma5: v.ma5, aboveMa5: v.aboveMa5,
+        mainIn:typeof snap.mainInflow==='number'&&Number.isFinite(snap.mainInflow)?Math.round(snap.mainInflow):null,
+        mainPct:typeof snap.mainPct==='number'&&Number.isFinite(snap.mainPct)?snap.mainPct:null,
         badNews: v.badNews, isLimitUp: v.isLimitUp,
         // 回撤：现价距近10日高点的回落幅度，止盈提醒的触发依据（3%提醒一次 / ≥5%每30分钟）
         drawdown: v.drawdown, hiRef: v.hiRef,
         // 事实面：当日存在针对该股的利好/停牌，参与上面的建议判定（不是只看 K 线）
         goodNews: !!v.goodNews, goodNote: v.goodNote || '', suspended: !!v.suspended,
-        level: v.level, researchRisk, acts: v.acts
+        level:quoteQuality.canNotify?v.level:'info', researchRisk, acts
       };
     });
     if (_nameDirty) { try { saveHold(); } catch {} }   // 补到的真实名称立刻落盘
@@ -949,7 +969,7 @@ module.exports = function createHoldings(dep) {
     .trim();
   const lvlName = l => (l === 'danger' ? '危险' : l === 'warn' ? '警戒' : '正常');
   // 只推「这几类」动作：止损/减仓/清仓/回撤/风险/持有观察（风险类），以及 once 的加仓提示
-  const pushable = a => a.quiet ? false : a.urgent || (a.type === '加仓' && a.once);
+  const pushable = a => a.quiet||a.canNotify===false ? false : a.urgent || (a.type === '加仓' && a.once);
   // 金额行：只有走私密通道才拼出来（2026-10-05）。缺行情/缺成本时不硬凑，
   // 否则 price=0 会算出 -成本×股数 的巨额假亏损，比不显示更糟。
   function amtLine(x) {

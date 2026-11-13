@@ -8,7 +8,7 @@ function ok(c, m) { if (c) { pass++; } else { fail++; console.log('  FAIL: ' + m
 function eq(a, b, m) { ok(a === b, m + '  (got ' + JSON.stringify(a) + ' want ' + JSON.stringify(b) + ')'); }
 
 const src = fs.readFileSync('server.js', 'utf8');
-const html = fs.readFileSync('public/index.html', 'utf8');
+const html = fs.readFileSync('public/assets/app.js', 'utf8');
 
 function slice(startMark, endMark) {
   const i = src.indexOf(startMark);
@@ -52,7 +52,7 @@ console.log('\n=== B. probKindOf 唯一出口 ===');
 eq(probKindOf('pool'), 'score', 'B1 精选池 → 评分');
 eq(probKindOf('trend'), 'score', 'B2 趋势票 → 评分');
 eq(probKindOf('bigmoney'), 'prob', 'B3 大单 → 概率');
-eq(probKindOf('pre'), 'prob', 'B4 埋伏 → 概率');
+eq(probKindOf('pre'), 'score', 'B4 埋伏规则与形态值 → 研究评分');
 eq(probKindOf('xyz_unknown'), 'prob', 'B5 ⛔ 未登记的不许默认成评分（默认概率，保守方向）');
 eq(probKindLabel('pool'), '精选池技术评分', 'B6 中文名可用');
 
@@ -95,7 +95,8 @@ ok(code.some(l => /bump\(ks\[0\], s\)/.test(l)), 'E1 empTable 用 empKeysOf 分�
 ok(!code.some(l => /bump\(empGroupOf\(s\.type\) \+ '\|' \+ b, s\)/.test(l)), 'E2 ⛔ empTable 不再无差别塞进概率档');
 ok(code.some(l => /if \(probKindOf\(s\.type\) !== 'prob'\) continue;/.test(l)), 'E3 ⛔ 概率校准桶（S.learn.buckets）排除评分类');
 ok(code.some(l => /probKind: probKindOf\(type\)/.test(l)), 'E4 logSignal 落盘时留痕 probKind');
-ok(code.some(l => /_old\.probKind = probKindOf\(type\)/.test(l)), 'E5 覆盖旧样本时 probKind 一起更新');
+// 同日首条样本不得覆盖；tests/production-signal-evidence.test.js
+// 以实际 logSignal 守护首值冻结与独立 observation，不再要求旧覆盖写法。
 ok(code.some(l => /probKind: probKindState\(\)/.test(l)), 'E6 /api/state 下发 probKind');
 // ⛔ dq 轮教训：新增下发键必须同轮接线前端
 ok(hcode.some(l => /s\.probKind/.test(l)), 'E7 ⛔ 前端同轮接线（后端算了没人用＝白算）');

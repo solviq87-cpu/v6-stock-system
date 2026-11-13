@@ -16,6 +16,7 @@ const ok = (b, s) => { if (b !== true) fail++; else pass++; console.log(`${b ===
 // 每个用例一个独立临时目录（互不串状态）
 function mkInst(dir, opts = {}) {
   const pushed = [], sseEdits = [];
+  const nowDate=opts.nowDate||(()=>new Date(2026,9,27,10,0,0));
   const inst = {
     pushed, sseEdits,
     HD: factory({
@@ -23,14 +24,16 @@ function mkInst(dir, opts = {}) {
       S: { klines: new Map(), stocks: [], news: { badCodes: new Set() } },
       em: {
         async fetchBatchSnapshot(codes) {
-          return codes.map(c => ({ code: c, name: '测试股' + c, price: opts.price || 9, pct: 0, prevClose: opts.price || 9, mainInflow: 0, mainPct: 0 }));
+          const at=nowDate().getTime();
+          return codes.map(c => ({ code: c, name: '测试股' + c, price: opts.price || 9, pct: 0, prevClose: opts.price || 9, mainInflow: 0, mainPct: 0,
+            quoteAt:at,receivedAt:at,quoteSource:'eastmoney',quoteMode:'public-live-unverified',canTrade:true,canNotify:true }));
         },
         async fetchKline(code, n) { return { rows: Array.from({ length: n || 30 }, () => ({ open: opts.price || 9, close: opts.price || 9, high: opts.price || 9, low: opts.price || 9, vol: 100 })) }; },
         async fetchThsActiveBatch() { return []; }
       },
       sseSend() {}, sseSendEdit(k, v) { sseEdits.push(k); },
       pushAll(t) { pushed.push(t); },
-      nowDate: opts.nowDate || (() => new Date(2026, 9, 27, 10, 0, 0)),   // 固定工作日，防"今天星期几"绑架
+      nowDate,   // 固定工作日与报价时钟；用途门禁通过后再验证窗口/去重
       dataWindow: ('dataWindow' in opts) ? opts.dataWindow : () => true  // ⛔ 不注入默认放行 = 旧行为零变化
     })
   };

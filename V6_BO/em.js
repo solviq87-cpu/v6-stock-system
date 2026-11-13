@@ -254,7 +254,7 @@ function loadUniverse() {
 
 const EM_PAGE_URL = pn => `${EM}/api/qt/clist/get?pn=${pn}&pz=100&po=1&np=1&fltt=2&invt=2&fid=f20` +
   `&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23` +
-  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184`;
+  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184,f124`;
 const EM_PAGES = 60;
 
 // ① 并发抢页：交易时段东财约 50% 随机断连，串行 56 页要 30 秒以上；
@@ -345,12 +345,17 @@ async function fetchAllStocksTx(base) {
       mainPct: toObservedNumber(e.mainPct),
       fundsSource: e.fundsSource || null, fundsMethod: e.fundsMethod || null,
       fundsRetrievedAt: e.fundsRetrievedAt ?? null, fundsSourceTimestamp: e.fundsSourceTimestamp ?? null,
+      fundsUnit:e.fundsUnit||null,
       listedDate: Number.isFinite(Number(e.listedDate)) ? Number(e.listedDate) : 0
     };
   });
 }
 
 function normalizeStock(d) {
+  const receivedAt = Date.now();
+  const seconds=typeof d.f124==='number'||typeof d.f124==='string'&&/^\d+$/.test(d.f124)?Number(d.f124):null;
+  const quoteAt = Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 8e12 ? seconds * 1000 : null;
+  const observation = batchQuoteAtPublication({price:d.f2,quoteSource:'eastmoney',quoteAt,receivedAt,canTrade:true},receivedAt);
   return {
     code: d.f12, name: d.f14,
     price: d.f2, pct: d.f3,           // 现价 / 涨跌幅%
@@ -361,8 +366,12 @@ function normalizeStock(d) {
     speed: d.f22,                     // 涨速
     listedDate: d.f26,                // 上市日期 yyyymmdd
     mainInflow: observedFlowNumber(d.f62), mainPct: observedFlowNumber(d.f184),
-    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
-    fundsRetrievedAt: Date.now(), fundsSourceTimestamp: null // 接收时刻不是原报价时刻
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',fundsUnit:'CNY',
+    fundsRetrievedAt: receivedAt, fundsSourceTimestamp: null, // 价格时间不能冒充资金原时点
+    ...observation, quoteMode:'public-live-unverified',
+    tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+    canNotify:observation.canTrade,
+    quoteMissingReason:quoteAt===null?'source-time-unavailable':observation.quoteFreshness==='recent-unverified'?null:observation.quoteFreshness
   };
 }
 
@@ -379,7 +388,9 @@ function observedFlowCount(value) {
 }
 function flowProvenance(retrievedAt) {
   return { source: 'eastmoney', upstream: 'eastmoney',
-    fundsMethod: 'vendor-order-size-estimate', retrievedAt, sourceTimestamp: null };
+    fundsMethod: 'vendor-order-size-estimate', fundsUnit:'CNY', unit:'CNY',
+    retrievedAt, sourceTimestamp: null, tradeDate:null, mode:'vendor-order-size-estimate',
+    freshness:'unknown', missingReason:'missing-original-funds-time',canTrade:false,canNotify:false };
 }
 
 // 板块资金流。t:2 行业板块, t:3 概念板块
@@ -1191,7 +1202,7 @@ async function fetchKlineEM(code, days = 95) {
       chg: +p[9], turnover: +p[10]
     };
   });
-  return { name: j.data.name, rows };
+  return { name: j.data.name, rows,src:'em',adjust:'qfq',receivedAt:Date.now() };
 }
 
 // 集合竞价分时（东财 trends2 iscr=1）：取 09:15–09:25 每分钟的价/量，
@@ -1225,24 +1236,84 @@ async function fetchAuctionTicks(code) {
 // 批量实时快照（自选池用），含主力净流入；东财限流时切换腾讯
 async function fetchBatchSnapshot(codes) {
   const requested = [...new Set(codes)], chosen = new Map();
+  const txAttempted = new Set();
   let lastError;
-  for (const fetchRows of [fetchBatchSnapshotEM, fetchBatchSnapshotTx]) {
-    const missing = requested.filter(code => !chosen.has(code));
-    if (!missing.length) break;
+  const refresh = now => {
+    for (const [code, row] of chosen) {
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness === 'recent-unverified') chosen.set(code, current);
+      else chosen.delete(code);
+    }
+  };
+  const missing = () => requested.filter(code => !chosen.has(code));
+  const collect = (rows, wanted, now) => {
+    const allowed = new Set(wanted);
+    for (const row of rows || []) {
+      if (!row || !allowed.has(row.code)) continue;
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness !== 'recent-unverified') continue;
+      const previous = chosen.get(row.code);
+      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(row.code, current);
+    }
+  };
+  const fetchMissing = async (provider, fetchRows, wanted) => {
+    if (!wanted.length) return;
+    if (provider === 'tencent') for (const code of wanted) txAttempted.add(code);
     try {
-      for (const row of (await fetchRows(missing)) || []) {
-        if (!missing.includes(row.code) || chosen.has(row.code) || row.quoteFreshness !== 'recent-unverified') continue;
-        chosen.set(row.code, row);
-      }
-    } catch (e) { lastError = e; }
+      const rows = await fetchRows(wanted), now = Date.now();
+      refresh(now);
+      collect(rows, wanted, now);
+    } catch (e) {
+      lastError = e;
+      batchQuoteWarn(provider, wanted, classifyNetErr(String(e && e.message || e)));
+    }
+  };
+  for (const [provider, fetchRows] of [['eastmoney', fetchBatchSnapshotEM], ['tencent', fetchBatchSnapshotTx]]) {
+    refresh(Date.now());
+    await fetchMissing(provider, fetchRows, missing());
   }
-  const missing = requested.filter(code => !chosen.has(code));
-  if (missing.length) {
-    for (const row of require('./src/core/six-photo-backups').photoQuoteFallback(missing))
-      if (missing.includes(row.code) && !chosen.has(row.code)) chosen.set(row.code, row);
+  // A slow secondary request can expire a primary row that did not need the
+  // secondary at its start. Give only these never-requested symbols one chance.
+  refresh(Date.now());
+  await fetchMissing('tencent', fetchBatchSnapshotTx, missing().filter(code => !txAttempted.has(code)));
+  refresh(Date.now());
+  const remaining = missing();
+  if (remaining.length) {
+    try {
+      const rows = require('./src/core/six-photo-backups').photoQuoteFallback(remaining);
+      const now = Date.now();
+      refresh(now);
+      collect(rows, remaining, now);
+    } catch (e) {
+      lastError = e;
+      batchQuoteWarn('research', remaining, 'unavailable');
+    }
   }
+  // One clock for the entire published batch, after every request/backup read.
+  refresh(Date.now());
   if (!chosen.size && lastError) throw lastError;
   return requested.map(code => chosen.get(code)).filter(Boolean);
+}
+
+function batchQuoteAtPublication(row, now) {
+  const validTime = value => Number.isSafeInteger(value) && value > 0 && value <= 8e15;
+  const day = value => new Date(value + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const quoteAt = row && row.quoteAt, receivedAt = row && row.receivedAt;
+  let quoteFreshness = 'unknown';
+  if (row && typeof row.price === 'number' && Number.isFinite(row.price) && row.price > 0 &&
+      typeof row.quoteSource === 'string' && row.quoteSource.trim() &&
+      validTime(quoteAt) && validTime(receivedAt) && validTime(now)) {
+    // A timestamp that was future at receipt never becomes valid merely by waiting.
+    if (quoteAt > receivedAt || receivedAt > now) quoteFreshness = 'future';
+    else if (now - quoteAt > 15000 || day(quoteAt) !== day(now)) quoteFreshness = 'stale';
+    else quoteFreshness = 'recent-unverified';
+  }
+  return { ...row, quoteFreshness, canTrade: row?.canTrade === true && quoteFreshness === 'recent-unverified' };
+}
+function batchQuoteWarn(provider, codes, reason) {
+  // Only bounded public stock identifiers and fixed reason classes; no raw URL/error body.
+  const validCodes = codes.filter(code => /^\d{6}$/.test(code));
+  _srcWarn(`批量报价·${provider}`, `${reason}；本批${codes.length}只，代码${validCodes.slice(0, 60).join(',') || '未知'}；保留其他有效行`);
 }
 
 async function fetchBatchSnapshotEM(codes) {
@@ -1452,7 +1523,7 @@ async function fetchKlineTx(code, days = 95) {
     rows[i].pct = +(((rows[i].close - rows[i - 1].close) / rows[i - 1].close) * 100).toFixed(2);
     rows[i].amount = rows[i].volume * rows[i].close * 100;
   }
-  return { name: '', rows, src: 'tx', adjust: 'qfq' };
+  return { name: '', rows, src: 'tx', adjust: 'qfq',receivedAt:Date.now() };
 }
 
 // ---------------- 同花顺日K（数据源第二梯队，腾讯之外再兜一层）----------------
@@ -1499,7 +1570,7 @@ async function fetchKlineThs(code, days = 95) {
       arr[i].amp = arr[i].low > 0 ? +(((arr[i].high - arr[i].low) / arr[i].low) * 100).toFixed(2) : 0;
     }
     _thsKFail = 0;
-    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq' };
+    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',receivedAt:Date.now() };
   } catch (e) {
     if (++_thsKFail >= THS_K_FAIL_MAX) {
       _thsKDownUntil = Date.now() + THS_K_DOWN_MS;
@@ -1512,30 +1583,59 @@ async function fetchKlineThs(code, days = 95) {
 
 // 腾讯批量快照（每60只一批）：换手率/市值可直接取
 async function fetchBatchSnapshotTx(codes) {
-  const out = [];
-  for (let i = 0; i < codes.length; i += 60) {
-    const batch = codes.slice(i, i + 60).map(c => txMarket(c) + c).join(',');
-    const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
-    const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
-    let m;
-    while ((m = re.exec(text))) {
-      const f = m[2].split('~');
-      if (f.length < 46 || !+f[3]) continue;
-      const receivedAt = Date.now();
-      let quoteAt = null;
-      try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
-      const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
-      out.push({
-        quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
-        code: m[1], name: f[1], price: +f[3], pct: +f[32],
-        volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
-        high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
-        mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
-        speed: 0, listedDate: 0, mainInflow: null, mainPct: null
-      });
+  const requested = [...new Set(codes)], out = [];
+  let lastError, completed = 0, consecutiveFailures = 0;
+  for (let i = 0; i < requested.length; i += 60) {
+    const batchCodes = requested.slice(i, i + 60);
+    try {
+      const batch = batchCodes.map(c => txMarket(c) + c).join(',');
+      const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
+      const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
+      const wanted = new Set(batchCodes);
+      let m;
+      while ((m = re.exec(text))) {
+        const f = m[2].split('~');
+        if (!wanted.has(m[1]) || f.length < 46 || !Number.isFinite(+f[3]) || +f[3] <= 0) continue;
+        const receivedAt = Date.now();
+        let quoteAt = null;
+        try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
+        const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
+        out.push({
+          quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
+          quoteMode:'public-live-unverified',tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+          canNotify:quoteFreshness==='recent-unverified',
+          code: m[1], name: f[1], price: +f[3], pct: +f[32],
+          volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
+          high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
+          mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
+          speed: 0, listedDate: 0, mainInflow: null, mainPct: null
+        });
+      }
+      completed++;
+      consecutiveFailures = 0;
+    } catch (e) {
+      lastError = e;
+      consecutiveFailures++;
+      batchQuoteWarn('tencent', batchCodes, classifyNetErr(String(e && e.message || e)));
+      // Full-A callers can request thousands of stocks. A provider outage must
+      // not turn one failed request into hundreds of serial timeout waits.
+      if (consecutiveFailures >= 4 && i + 60 < requested.length) {
+        batchQuoteWarn('tencent', requested.slice(i + 60), 'consecutive-failures');
+        break;
+      }
     }
   }
-  return out;
+  if (!completed && lastError) throw lastError;
+  // Direct full-A/display callers retain dated rows, with their real final status.
+  const now = Date.now(), selected = new Map();
+  const priority = row => row.quoteFreshness === 'recent-unverified' ? 2 : row.quoteFreshness === 'stale' ? 1 : 0;
+  const originalTime = row => Number.isSafeInteger(row.quoteAt) && row.quoteAt > 0 ? row.quoteAt : -Infinity;
+  for (const row of out) {
+    const current = batchQuoteAtPublication(row, now), previous = selected.get(row.code);
+    if (!previous || priority(current) > priority(previous) ||
+        (priority(current) === priority(previous) && originalTime(current) > originalTime(previous))) selected.set(row.code, current);
+  }
+  return requested.map(code => selected.get(code)).filter(Boolean);
 }
 
 // 新浪全A列表（⛔ 2026-10-09 起改【首选】全量源）：
@@ -1572,6 +1672,9 @@ async function fetchAllStocksSina() {
       if (!Number.isFinite(amount) || amount <= 0) continue;
       out.push({
         code, name,
+        quoteSource:'sina',quoteAt:null,receivedAt:Date.now(),tradeDate:null,
+        quoteMode:'public-observation',quoteFreshness:'unknown',canTrade:false,canNotify:false,
+        quoteMissingReason:'source-date-unavailable',
         price, pct: +d.changepercent,
         volume: +d.volume, amount,
         turnover: +d.turnoverratio,
@@ -1661,7 +1764,13 @@ async function fetchIdxRt() {
     let m;
     while ((m = re.exec(text))) {
       const f = m[2].split('~');
-      if (f.length > 32 && f[3] && NAME[m[1]]) out.push({ code: m[1], name: NAME[m[1]], price: +f[3], pct: +f[32] });
+      if (f.length > 32 && f[3] && NAME[m[1]]) {
+        const receivedAt=Date.now();let quoteAt=null;
+        try { quoteAt=require('./src/core/public-market').timestamp(f[30]||''); } catch {}
+        const observation=batchQuoteAtPublication({price:+f[3],quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
+        out.push({code:m[1],name:NAME[m[1]],pct:+f[32],...observation,quoteMode:'index-observation',canNotify:false,
+          tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null});
+      }
     }
     return out;
   } catch { return []; }
@@ -1727,19 +1836,36 @@ async function fetchThsActive(code) {
   const m = /quotebridge_v6_realhead_hs_\w+_last\(([\s\S]*)\)/.exec(text);
   if (!m) return null;
   const items = (JSON.parse(m[1]) || {}).items || {};
-  const outer = +items['14'] || 0;   // 外盘（主动买入股数）
-  const inner = +items['15'] || 0;   // 内盘（主动卖出股数）
-  const vol = +items['13'] || 0;     // 成交量(股)
-  const amount = +items['19'] || 0;  // 成交额(元)
-  const price = +items['10'] || 0;
-  const avg = vol > 0 ? amount / vol : price;  // 当日均价
-  const netVol = outer - inner;
-  const netAmt = Math.round(netVol * avg);     // 主动净买额(元)
+  const outer = observedFlowCount(items['14']);   // 外盘（主动买入股数）
+  const inner = observedFlowCount(items['15']);   // 内盘（主动卖出股数）
+  const vol = observedFlowCount(items['13']);     // 成交量(股)
+  const nonNegative = value => {
+    const number = observedFlowNumber(value);
+    return number !== null && number >= 0 ? number : null;
+  };
+  const amount = nonNegative(items['19']);        // 成交额(元)
+  const price = nonNegative(items['10']);
+  let netAmt = null, activePct = null;
+  // 不用缺失的一侧或最后成交价补造主动净额；估算均价须有成交额和成交量依据。
+  if (outer !== null && inner !== null && vol !== null && amount !== null) {
+    if (vol > 0 && amount > 0) {
+      const estimate = Math.round((outer - inner) * (amount / vol));
+      const percentage = estimate / amount * 100;
+      if (Number.isFinite(estimate) && Number.isFinite(percentage)) {
+        netAmt = estimate;
+        activePct = +percentage.toFixed(2);
+      }
+    } else if (vol === 0 && amount === 0 && outer === 0 && inner === 0) {
+      netAmt = 0; // 显式零成交可知净额为零，但零分母没有可解释的占比。
+    }
+  }
   return {
     code, price, amount, turnoverVol: vol,
     outer, inner, netAmt,
     // 主动买占比 = 净主动买额 / 当日成交额（与东财"主力净占比"量级可比）
-    activePct: amount > 0 ? +(netAmt / amount * 100).toFixed(2) : 0
+    activePct,
+    source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
+    retrievedAt: Date.now(), sourceTimestamp: null
   };
 }
 // 批量拉取（限制并发，避免被网关 502）
@@ -1747,7 +1873,7 @@ async function fetchThsActiveBatch(codes, limit = 8) {
   const uniq = [...new Set(codes)];
   const rs = await pool(uniq, c => fetchThsActive(c), limit);
   const m = new Map();
-  for (const r of rs) if (r && (r.netAmt || r.activePct)) m.set(r.code, r);
+  for (const r of rs) if (r && observedFlowNumber(r.netAmt) !== null) m.set(r.code, r);
   return m;
 }
 

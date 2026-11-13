@@ -35,7 +35,13 @@ function cleanTrigger(value,decisionAt){
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!['kind','intentId','pushDecisionAt','signalRefs','messageHash'].includes(k))||!kind(value.kind))throw Error('invalid trigger metadata');
  const out=canonical(value);for(const key of ['intentId','messageHash'])if(out[key]!==undefined&&out[key]!==null&&!hex.test(out[key]))throw Error('invalid trigger hash');
  if(out.pushDecisionAt!==undefined&&out.pushDecisionAt!==null&&(!instant(out.pushDecisionAt)||out.pushDecisionAt>decisionAt))throw Error('future push decision');
- if(out.signalRefs!==undefined){if(!Array.isArray(out.signalRefs)||out.signalRefs.length>100)throw Error('trigger reference limit');for(const ref of out.signalRefs)if(!ref||Object.keys(ref).some(k=>!['code','type','ts'].includes(k))||!/^\d{6}$/.test(ref.code||'')||!kind(ref.type)||ref.ts!==undefined&&(!instant(ref.ts)||ref.ts>decisionAt))throw Error('invalid trigger reference');}
+ if(out.signalRefs!==undefined){
+  if(!Array.isArray(out.signalRefs)||out.signalRefs.length>100)throw Error('trigger reference limit');
+  for(const ref of out.signalRefs)if(!ref||Object.keys(ref).some(k=>!['code','type','ts','id'].includes(k))||
+   !/^\d{6}$/.test(ref.code||'')||!kind(ref.type)||
+   ref.ts!==undefined&&(!instant(ref.ts)||ref.ts>decisionAt)||
+   ref.id!==undefined&&(typeof ref.id!=='string'||!hex.test(ref.id)))throw Error('invalid trigger reference');
+ }
  if(Buffer.byteLength(encode(out))>8192)throw Error('trigger size limit');return out;
 }
 function cleanInput(input){
