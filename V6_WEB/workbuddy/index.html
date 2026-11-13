@@ -89,6 +89,9 @@
 @media(max-width:700px){.v6-focus-modules{grid-template-columns:minmax(0,1fr);gap:12px}.v6-focus-body{padding:0 14px 14px}.v6-focus-status{max-width:92px}.v6-focus-stock{gap:8px}}
 
 </style>
+<style id="v6-news-pool-style">
+.v6-news-body{padding:0 16px 16px}.v6-news-state{font-size:12px;color:#a6dbe8;line-height:1.8;margin:10px 0}.v6-news-filters{display:flex;gap:6px;flex-wrap:wrap}.v6-news-filters button,.v6-news-links button{min-height:32px;border:1px solid #24516a;background:#0a293c;color:#a8dce9;border-radius:4px;padding:7px 10px;cursor:pointer;font:inherit;font-size:11px}.v6-news-filters button[aria-pressed=true]{border-color:#15cde2;background:#0c3a50}.v6-news-meta,.v6-news-note{font-size:11px;color:#83a8bb;line-height:1.8;margin:12px 0}.v6-news-list{display:grid;gap:12px}.v6-news-list article{border-top:1px solid #19465c;padding-top:12px;min-width:0}.v6-news-title{display:flex;align-items:start;gap:8px;flex-wrap:wrap}.v6-news-title a{color:#c7eaf6;font-size:13px;line-height:1.7;overflow-wrap:anywhere}.v6-news-tag{border:1px solid #35677c;color:#9ebdcb;border-radius:4px;padding:2px 6px;font-size:10px;white-space:nowrap}.v6-news-tag.bad{border-color:#b26859;color:#ffb19d}.v6-news-tag.good{border-color:#2b8c80;color:#8fe0cd}.v6-news-tag.unknown{border-color:#8d7a40;color:#d9c38b}.v6-news-list article>p{font-size:12px;color:#93b4c6;line-height:1.8;overflow-wrap:anywhere}.v6-news-links{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:#8bb1c3;margin:8px 0}.v6-news-list small{display:block;font-size:10px;line-height:1.8;color:#7198ad;overflow-wrap:anywhere}.v6-news-list details{font-size:11px;line-height:1.8;color:#7fa6bc;margin-top:9px}.v6-news-list summary{cursor:pointer}.v6-news-empty{padding:20px 0;color:#92b4c6;font-size:12px}@media(max-width:720px){.v6-news-body{padding:0 12px 12px}.v6-news-filters button{min-height:36px}.v6-news-title a{font-size:12px}}
+</style>
 </head>
 <body>
 <header class="site-masthead">
@@ -1863,6 +1866,240 @@ function render(state,snapshot,options={}){
 root.V6FocusModules=Object.freeze({compute,render});
 })(window);
 /* V6_FOCUS_MODULES_END */
+
+/* V6_NEWS_POOL_START */
+(function(root){
+'use strict';
+// This is a bounded public-summary risk view, never an authenticated news or
+// trading service. All wire bytes pass the existing shared market governor.
+const SOURCE='eastmoney-fast-news',POLICY='news-keywords-v1',KEY='v6:news-pool:cache:v1';
+const COLUMNS=['101','104'],INTERVAL=300000,TTL=600000,WINDOW=72*3600000,LIMIT=500,MAX_BYTES=2*1024*1024;
+const URL_BASE='https://np-weblist.eastmoney.com/comm/web/getFastNewsList';
+const BAD=['利空','减持','质押','立案','留置','调查','处罚','罚款','警示函','监管函','问询函','退市','预亏','首亏','亏损','业绩变脸','商誉减值','减值','终止上市','退市风险','违约','爆雷','暴雷','诉讼','仲裁','冻结','召回','裁员','关税','制裁','禁令','跌停','跌超','大跌','跳水','流出','做空','沽空','风险提示','安全事故','爆炸','火灾','失联','被查','被拘','拘留','通报批评','失信','被执行','下调评级','下调目标价','解除合同','失去','到期违约'];
+const GOOD=['利好','中标','签订','签署','合同','订单','预增','扭亏','净利润增','获批','获准','核准','收购','并购','重组','回购','增持','分红','派息','战略合作','框架协议','涨价','提价','上调评级','上调目标价','超预期','涨停','大涨','创新高','试点','政策支持','扶持','补贴','减税','降准','降息','突破','景气','大单','里程碑'];
+const INVERSE=[/出售.{0,20}已?回购股份/,/回购股份.{0,6}(出售|减持|解禁)/,/回购.{0,8}股份.{0,8}拟?出售/];
+const finite=Number.isFinite,record=x=>!!x&&typeof x==='object'&&!Array.isArray(x),iso=t=>new Date(t).toISOString();
+const text=(v,n)=>typeof v==='string'?v.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').slice(0,n):'';
+const clone=x=>JSON.parse(JSON.stringify(x)),has=(o,k)=>Object.hasOwn(o,k);
+const exact=(o,keys)=>record(o)&&Object.keys(o).length===keys.length&&keys.every(k=>has(o,k));
+const integer=(x,max)=>Number.isSafeInteger(x)&&x>=0&&x<=max;
+const time=x=>typeof x==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(x)&&finite(Date.parse(x))&&iso(Date.parse(x))===x?Date.parse(x):NaN;
+const validNow=x=>Number.isSafeInteger(x)&&x>0&&x<=8640000000000000-28800000;
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hash=value=>{let a=2166136261,b=2246822519;const s=JSON.stringify(value);for(let i=0;i<s.length;i++){a=Math.imul(a^s.charCodeAt(i),16777619);b=Math.imul(b^s.charCodeAt(i),3266489917);}return 'local-'+(a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');};
+function publication(input){
+ const raw=text(input,80),m=/^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d):(\d\d)(?:\.000)?(?:\+08:00)?$/.exec(raw);
+ if(m){const [y,mo,d,h,mi,se]=m.slice(1).map(Number);if(y<2000||y>2100||mo<1||mo>12||d<1||d>31||h>23||mi>59||se>59)return null;const utc=Date.UTC(y,mo-1,d,h-8,mi,se),check=new Date(utc+28800000);if(check.getUTCFullYear()!==y||check.getUTCMonth()!==mo-1||check.getUTCDate()!==d)return null;return iso(utc);}
+ const parsed=time(raw);return finite(parsed)?iso(parsed):null;
+}
+function safeURL(value){
+ if(typeof value!=='string'||value.length>1500)return null;
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&/(^|\.)eastmoney\.com$/i.test(u.hostname)&&![...u.searchParams.keys()].some(k=>/token|sharecode|secret|auth|password/i.test(k))?u.href:null;}catch(_){return null;}
+}
+function codesFrom(raw){
+ if(!Array.isArray(raw)||raw.length>100)return [];
+ const out=new Set();for(const value of raw){const m=/^([013])\.(\d{6})$/.exec(String(value));if(!m)continue;const [all,market,code]=m;if(market==='1'&&/^(60|68)\d{4}$/.test(code)||market==='0'&&/^(00|30)\d{4}$/.test(code)||market==='3'&&/^(43|83|87|92)\d{4}$/.test(code))out.add(code);}return [...out].sort();
+}
+const shareCode=x=>typeof x==='string'&&/^(?:00|30|60|68|43|83|87|92)\d{4}$/.test(x);
+function classify(title,summary){
+ const joined=title+'\n'+summary,inverse=INVERSE.some(p=>p.test(joined)),bad=BAD.filter(k=>joined.includes(k)),good=GOOD.filter(k=>joined.includes(k));
+ if(inverse)return {sentiment:'bad',reasons:['语义组合：出售已回购股份，优先按减持风险观察']};
+ if(bad.length)return {sentiment:'bad',reasons:['命中利空词：'+bad.slice(0,5).join('、')]};
+ if(good.length)return {sentiment:'good',reasons:['命中利好词：'+good.slice(0,5).join('、')]};
+ return {sentiment:title||summary?'neutral':'unknown',reasons:[title||summary?'未命中利好/利空规则；仅信息观察':'新闻正文/标题缺失']};
+}
+function industry(stock,classification,now){
+ const row=classification?.industry;
+ if(row?.known===true&&typeof row.value==='string'&&row.value.length>=2&&row.value.length<=100&&typeof row.source==='string'&&row.source&&finite(Date.parse(row.fetchedAt))&&Date.parse(row.fetchedAt)<=now)return {name:row.value,node:text(row.node,100),source:text(row.source,200),updatedAt:iso(Date.parse(row.fetchedAt))};
+ if(stock?.sectorClassificationKnown===true&&typeof stock.sector==='string'&&stock.sector.length>=2&&stock.sector.length<=100&&typeof stock.sectorSource==='string'&&stock.sectorSource&&finite(Date.parse(stock.sectorUpdatedAt))&&Date.parse(stock.sectorUpdatedAt)<=now)return {name:stock.sector,node:text(stock.sectorNode,100),source:text(stock.sectorSource,200),updatedAt:iso(Date.parse(stock.sectorUpdatedAt))};
+ return null;
+}
+function sectorMention(joined,name){
+ // A company name containing an industry word is not an industry event.
+ // Require an explicit named industry/sector phrase, never a bare substring.
+ const escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ return new RegExp('(?:^|[\\s，。；：、！？（）【】“”「」《》/·-]|(?:我国|全国|国内|全体|整个|A股|沪深|针对|涉及|对于|对))'+escaped+'(?:全行业|板块|行业|产业)').test(joined);
+}
+let sectorDictionary=null;
+function sectorList(title,summary,now){
+ const joined=title+'\n'+summary;
+ if(!sectorDictionary){sectorDictionary=new Map();for(const q of (Array.isArray(root.V6Market?.snapshot?.stocks)?root.V6Market.snapshot.stocks:[]).slice(0,10000)){const row=industry(q,null,now);if(row&&!sectorDictionary.has(row.name)&&!/^未|未知|自定义/.test(row.name))sectorDictionary.set(row.name,row);}}
+ return [...sectorDictionary.values()].filter(r=>sectorMention(joined,r.name)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,10);
+}
+const ITEM_KEYS=['id','title','summary','sourceTime','publishedAt','receivedAt','source','sourceUrl','codes','sectors','sentiment','reasons','current','retracted','sourceStatus','timeStatus','versionHash'];
+let state={schemaVersion:1,kind:'workbuddy-news-pool',source:SOURCE,policyVersion:POLICY,version:0,fetchedAt:null,lastAttemptAt:null,columns:{'101':{fetchedAt:null,count:0,error:null},'104':{fetchedAt:null,count:0,error:null}},items:[],lastError:null};
+let validated=false,job=null,controller=null,sequence=0,indexVersion=-1,byCode=new Map(),sectorMemo=new Map(),lastWindow=null;
+const listeners=new Set();
+function contentHash(row){return hash([row.id,row.title,row.summary,row.sourceTime,row.publishedAt,row.codes,row.retracted,row.timeStatus,row.sentiment,row.reasons]);}
+function makeRow(raw,receivedAt){
+ if(!record(raw)||raw.stockList!==undefined&&(!Array.isArray(raw.stockList)||raw.stockList.length>100)||!['string','number'].includes(typeof raw.code)||!(/^[A-Za-z0-9_:.-]{1,120}$/).test(String(raw.code)))return null;
+ const title=text(raw.title,300),summary=text(raw.summary,2000),oversized=typeof raw.title==='string'&&raw.title.length>300||typeof raw.summary==='string'&&raw.summary.length>2000;
+ const sourceTime=text(raw.showTime,80),publishedAt=publication(sourceTime),received=time(receivedAt),published=time(publishedAt);
+ const timeStatus=!publishedAt?'unknown':published>received?'future':'valid',retracted=raw.retracted===true||raw.isDeleted===true||raw.status==='retracted'||raw.status==='withdrawn';
+ const c=oversized?{sentiment:'unknown',reasons:['源摘要超出有界处理范围，保持待核']}:classify(title,summary);
+ const row={id:String(raw.code),title,summary,sourceTime,publishedAt,receivedAt,source:SOURCE,sourceUrl:safeURL(raw.url||raw.uniqueUrl||raw.appUrl)||URL_BASE,codes:codesFrom(raw.stockList),sectors:sectorList(title,summary,received),...c,current:!retracted,retracted,sourceStatus:retracted?'retracted':'source-declared-unverified',timeStatus,versionHash:''};
+ if(timeStatus!=='valid')row.reasons.push(timeStatus==='future'?'源发布时间在未来，不参加有效风险判断':'源发布时间未知，不参加有效风险判断');
+ row.versionHash=contentHash(row);return row;
+}
+function allowed(){return root.document?.hidden!==true&&root.V6Market?.status?.collectionRequested===true;}
+function serial(){return clone(state);}
+function notify(){indexVersion=-1;lastWindow=null;for(const listener of listeners){try{listener(snapshot());}catch(_){}}}
+function persist(){try{root.localStorage?.setItem(KEY,JSON.stringify(serial()));}catch(_){}}
+function change(){state.version++;notify();persist();}
+function retained(row,now){const basis=time(row.timeStatus==='valid'?row.publishedAt:row.receivedAt);return finite(basis)&&basis<=now&&now-basis<=WINDOW;}
+function prune(now){state.items=state.items.filter(row=>retained(row,now)).sort((a,b)=>time(b.timeStatus==='valid'?b.publishedAt:b.receivedAt)-time(a.timeStatus==='valid'?a.publishedAt:a.receivedAt)||time(b.receivedAt)-time(a.receivedAt)||a.id.localeCompare(b.id)).slice(0,LIMIT);}
+function indexes(){if(indexVersion===state.version)return;byCode=new Map();sectorMemo=new Map();for(const row of state.items)for(const code of row.codes){if(!byCode.has(code))byCode.set(code,[]);byCode.get(code).push(row);}indexVersion=state.version;}
+function health(now){
+ if(!validNow(now))return {ready:false,reason:'消息面检查时钟无效',key:'invalid-clock'};
+ if(state.lastError)return {ready:false,reason:'最新新闻取数失败，保持待核',key:'source-error'};
+ const parts=COLUMNS.map(column=>{const r=state.columns[column],t=time(r.fetchedAt);return !r.error&&finite(t)&&t<=now&&now-t<=TTL?'fresh':'unknown';});
+ return {ready:parts.every(x=>x==='fresh'),reason:'新闻源未完成本轮两栏目检查或缓存已过期',key:parts.join(':')};
+}
+function cacheKey(now=Date.now()){
+ const h=health(now);if(!validNow(now))return state.version+'|invalid-clock';
+ if(!lastWindow||lastWindow.version!==state.version||now<lastWindow.at||now>=lastWindow.next){
+  let next=Infinity;const active=[];for(const row of state.items){const p=time(row.timeStatus==='valid'?row.publishedAt:row.receivedAt);if((row.current||row.retracted&&row.timeStatus!=='valid')&&retained(row,now)){active.push(row.id+':'+row.versionHash);next=Math.min(next,p+WINDOW+1);}}
+  for(const c of COLUMNS){const p=time(state.columns[c].fetchedAt);if(finite(p)&&p+TTL+1>now)next=Math.min(next,p+TTL+1);}
+  lastWindow={version:state.version,at:now,next,key:hash(active)};
+ }
+ return state.version+'|'+h.key+'|'+(validated?'local-source':'unverified-cache')+'|'+lastWindow.key;
+}
+function snapshot(){const value=serial(),now=Date.now(),h=health(now);return {...value,validatedInThisPage:validated,status:h.ready?(validated?'ready':'unverified-cache'):state.lastError?'error':'unknown',cacheKey:cacheKey(now),scope:'bounded-public-summary-pool',canTrade:false,verifiedLive:false};}
+async function readJSON(response){
+ if(!response||response.ok!==true)throw Error('新闻源HTTP请求失败');
+ const declared=Number(response.headers?.get?.('content-length'));if(finite(declared)&&declared>MAX_BYTES)throw Error('新闻源响应超过2MiB');
+ if(typeof response.arrayBuffer!=='function')throw Error('新闻源缺少有界字节响应');
+ const bytes=await response.arrayBuffer();if(bytes.byteLength>MAX_BYTES)throw Error('新闻源响应超过2MiB');
+ const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
+ if(!record(value)||value.success===false||!record(value.data)||!Array.isArray(value.data.fastNewsList)||value.data.fastNewsList.length>100)throw Error('新闻源列表格式无效或超过100条');
+ return value.data.fastNewsList;
+}
+function refresh(options={}){
+ if(job)return job;
+ const now=Date.now();if(!validNow(now))return Promise.resolve(snapshot());
+ const last=time(state.lastAttemptAt);if(!allowed()||finite(last)&&now-last<INTERVAL)return Promise.resolve(snapshot());
+ sectorDictionary=null;state.lastAttemptAt=iso(now);const generation=++sequence;controller=new AbortController();
+ const signal=options.signal,onAbort=()=>controller?.abort();if(signal?.aborted)controller.abort();else signal?.addEventListener?.('abort',onAbort,{once:true});
+ job=(async()=>{
+  const updates=[];let all=true;const errors=[];
+  for(const column of COLUMNS){
+   if(!allowed()||controller.signal.aborted){all=false;errors.push('新闻采集已暂停');break;}
+   try{
+    const url=URL_BASE+'?'+new URLSearchParams({client:'web',biz:'web_724',fastColumn:column,pageSize:'100'});
+    const response=await root.V6Market.publicFetch(url,{signal:controller.signal,timeout:16000}),rows=await readJSON(response);
+    if(!allowed()||controller.signal.aborted||generation!==sequence)throw Error('新闻采集已暂停');
+    const receivedAt=iso(Date.now());let rejected=0;
+    for(const raw of rows){const row=makeRow(raw,receivedAt);if(row)updates.push(row);else rejected++;}
+    if(rejected)throw Error('新闻源包含无法识别的事件，覆盖保持待核');
+    state.columns[column]={fetchedAt:receivedAt,count:rows.length,error:null};
+   }catch(error){all=false;const reason=text(error?.message||'新闻取数失败',180);state.columns[column]={...state.columns[column],error:reason};errors.push(reason);}
+  }
+  if(!allowed()||controller.signal.aborted||generation!==sequence){validated=false;state.lastError='新闻采集已暂停，本轮不授予已检查状态';change();return snapshot();}
+  const current=new Map(state.items.map(row=>[row.id,row])),round=new Map();for(const row of updates){
+   const old=current.get(row.id),sameRound=round.get(row.id),p=time(row.publishedAt),prior=time(old?.publishedAt);
+   if(row.retracted&&row.timeStatus!=='valid'){all=false;errors.push('撤稿声明原时点未知或未来，未解除旧风险');if(old)continue;}
+   if(old&&finite(p)&&finite(prior)&&p<prior)continue;
+   if(sameRound&&p===time(sameRound.publishedAt)&&row.versionHash!==sameRound.versionHash){const conflict={...row,sentiment:'unknown',reasons:['同一事件在本轮两个栏目出现冲突版本，保持待核']};conflict.versionHash=contentHash(conflict);current.set(row.id,conflict);round.set(row.id,conflict);continue;}
+   if(!old||time(row.receivedAt)>=time(old.receivedAt)){current.set(row.id,row);round.set(row.id,row);}
+  }
+  state.items=[...current.values()];prune(Date.now());validated=all;state.lastError=all?null:[...new Set(errors)].join('；').slice(0,360);if(all)state.fetchedAt=iso(Date.now());change();return snapshot();
+ })().finally(()=>{signal?.removeEventListener?.('abort',onAbort);job=null;controller=null;});
+ return job;
+}
+function hydrate(input){
+ sectorDictionary=null;const now=Date.now(),keys=['schemaVersion','kind','source','policyVersion','version','fetchedAt','lastAttemptAt','columns','items','lastError'];
+ if(!exact(input,keys)||input.schemaVersion!==1||input.kind!=='workbuddy-news-pool'||input.source!==SOURCE||input.policyVersion!==POLICY||!integer(input.version,1e12)||!Array.isArray(input.items)||input.items.length>LIMIT||!exact(input.columns,COLUMNS)||JSON.stringify(input).length>MAX_BYTES||!validNow(now))throw Error('新闻缓存格式无效');
+ const optionalTime=t=>t===null||finite(time(t))&&time(t)<=now;
+ if(!optionalTime(input.fetchedAt)||!optionalTime(input.lastAttemptAt)||input.lastError!==null&&(typeof input.lastError!=='string'||input.lastError.length>360))throw Error('新闻缓存时点或状态无效');
+ const columns={};for(const c of COLUMNS){const row=input.columns[c];if(!exact(row,['fetchedAt','count','error'])||!optionalTime(row.fetchedAt)||!integer(row.count,100)||row.error!==null&&(typeof row.error!=='string'||row.error.length>180))throw Error('新闻缓存栏目无效');columns[c]=clone(row);}
+ const seen=new Set(),rows=[];
+ for(const row of input.items){
+  if(!exact(row,ITEM_KEYS)||!(/^[A-Za-z0-9_:.-]{1,120}$/).test(row.id)||seen.has(row.id)||typeof row.title!=='string'||row.title.length>300||typeof row.summary!=='string'||row.summary.length>2000||typeof row.sourceTime!=='string'||row.sourceTime.length>80||!optionalTime(row.receivedAt)||row.receivedAt===null||row.source!==SOURCE||!safeURL(row.sourceUrl)||!Array.isArray(row.codes)||row.codes.length>100||row.codes.some(c=>!shareCode(c))||new Set(row.codes).size!==row.codes.length||!Array.isArray(row.sectors)||row.sectors.length>10||row.sectors.some(s=>!exact(s,['name','node','source','updatedAt'])||typeof s.name!=='string'||s.name.length<2||s.name.length>100||typeof s.node!=='string'||s.node.length>100||typeof s.source!=='string'||!s.source||s.source.length>200||!optionalTime(s.updatedAt)||s.updatedAt===null)||!['good','bad','neutral','unknown'].includes(row.sentiment)||!Array.isArray(row.reasons)||row.reasons.length>5||row.reasons.some(x=>typeof x!=='string'||x.length>250)||typeof row.current!=='boolean'||typeof row.retracted!=='boolean'||row.current===row.retracted||!['retracted','source-declared-unverified'].includes(row.sourceStatus)||!['valid','unknown','future'].includes(row.timeStatus)||typeof row.versionHash!=='string'||row.versionHash.length>100)throw Error('新闻缓存事件无效');
+  const publishedAt=publication(row.sourceTime),p=time(publishedAt),received=time(row.receivedAt),timeStatus=!publishedAt?'unknown':p>received?'future':'valid';
+  if(row.publishedAt!==publishedAt||row.timeStatus!==timeStatus||row.sourceStatus!==(row.retracted?'retracted':'source-declared-unverified'))throw Error('新闻缓存原时点声明不一致');
+  const c=classify(row.title,row.summary),normalized={...clone(row),...c,sectors:sectorList(row.title,row.summary,now),versionHash:''};
+  if(row.sentiment==='unknown'){const cautious=['源摘要超出有界处理范围，保持待核','同一事件在本轮两个栏目出现冲突版本，保持待核'].find(r=>row.reasons.includes(r));if(cautious){normalized.sentiment='unknown';normalized.reasons=[cautious];}}
+  if(timeStatus!=='valid')normalized.reasons.push(timeStatus==='future'?'源发布时间在未来，不参加有效风险判断':'源发布时间未知，不参加有效风险判断');
+  normalized.versionHash=contentHash(normalized);seen.add(row.id);rows.push(normalized);
+ }
+ // A later successful direct observation cannot be replaced by loading an old
+ // shared package. Equal-receive-time content conflicts are rejected.
+ const current=new Map(state.items.map(row=>[row.id,row]));let changed=false,invalidRetraction=false;
+ for(const row of rows.filter(r=>retained(r,now))){const old=current.get(row.id);if(row.retracted&&row.timeStatus!=='valid'&&old){invalidRetraction=true;continue;}
+  // Shared records are not a source signature. They may add conservative risk,
+  // but cannot remove an already known negative before a direct source revision.
+  if(old&&old.current&&old.sentiment==='bad'&&(row.retracted||row.sentiment!=='bad'))continue;
+  if(old&&finite(time(row.publishedAt))&&finite(time(old.publishedAt))&&time(row.publishedAt)<time(old.publishedAt))continue;if(old&&time(old.receivedAt)>time(row.receivedAt))continue;if(old&&time(old.receivedAt)===time(row.receivedAt)){if(old.versionHash!==row.versionHash)throw Error('同接收时点新闻版本冲突');continue;}current.set(row.id,row);changed=true;}
+ for(const c of COLUMNS){if(time(columns[c].fetchedAt)>time(state.columns[c].fetchedAt)||state.columns[c].fetchedAt===null&&columns[c].fetchedAt!==null){state.columns[c]=columns[c];changed=true;}}
+ if(time(input.lastAttemptAt)>time(state.lastAttemptAt)||state.lastAttemptAt===null&&input.lastAttemptAt!==null){state.lastAttemptAt=input.lastAttemptAt;state.lastError=input.lastError;changed=true;}
+ if(time(input.fetchedAt)>time(state.fetchedAt)||state.fetchedAt===null&&input.fetchedAt!==null){state.fetchedAt=input.fetchedAt;changed=true;}
+ if(invalidRetraction){state.lastError='撤稿声明原时点未知或未来，未解除旧风险';changed=true;}
+ if(changed){state.items=[...current.values()];prune(now);validated=false;change();}
+ return snapshot();
+}
+function riskFor(stock,{now=Date.now(),classification}={}){
+ const code=typeof stock==='string'?stock:stock?.symbol,known=industry(record(stock)?stock:null,classification,now);indexes();
+ const associated=new Map();for(const row of byCode.get(code)||[])associated.set(row.id,{...row,linkage:'direct'});
+ if(known){
+  const key=known.name+'|'+known.source+'|'+known.updatedAt;
+  if(!sectorMemo.has(key))sectorMemo.set(key,state.items.filter(r=>sectorMention(r.title+'\n'+r.summary,known.name)));
+  for(const row of sectorMemo.get(key))if(!associated.has(row.id))associated.set(row.id,{...row,linkage:'indirect',industryEvidence:known});
+ }
+ const articles=[...associated.values()].filter(r=>r.current&&!r.retracted||r.retracted&&r.timeStatus!=='valid').filter(r=>!validNow(now)||retained(r,now));
+ const h=health(now),result={status:'unknown',reasons:[],articles:clone(articles),version:cacheKey(now),checkedAt:validNow(now)?iso(now):null,scope:'current-bounded-news-pool',verifiedLive:false};
+ if(!shareCode(code)){result.reasons=['股票代码无效，消息面保持待核'];return result;}
+ if(!h.ready){result.reasons=[h.reason];return result;}
+ const bad=articles.filter(r=>r.timeStatus==='valid'&&r.sentiment==='bad'&&time(r.publishedAt)<=now);
+ if(bad.length){result.status='blocked';result.reasons=bad.slice(0,5).map(r=>(r.linkage==='direct'?'直接关联利空：':'行业间接关联利空（待人工核实）：')+(r.title||r.id));return result;}
+ if(!validated){result.reasons=['共享或本机缓存尚未经本页新闻源复核，保持待核'];return result;}
+ if(!known){result.reasons=['股票行业来源未核实，无法完成间接影响检查'];return result;}
+ if(articles.some(r=>r.timeStatus!=='valid'||r.sentiment==='unknown')){result.reasons=['关联报道发布时间或内容判断不完整，保持待核'];return result;}
+ result.status='checked';result.reasons=['当前有限新闻池未命中有效利空；不代表没有风险或新闻全覆盖'];return result;
+}
+function renderContext(input,now){
+ const rows=Array.isArray(input?.stocks)?input.stocks:Array.isArray(root.V6Market?.snapshot?.stocks)?root.V6Market.snapshot.stocks:[],names=new Map(),industries=new Map();
+ for(const stock of rows.slice(0,10000)){
+  if(!shareCode(stock?.symbol)||names.has(stock.symbol))continue;
+  names.set(stock.symbol,{symbol:stock.symbol,name:text(stock.name,80)});
+  const classified=industry(stock,null,now);if(!classified)continue;
+  if(!industries.has(classified.name))industries.set(classified.name,[]);
+  industries.get(classified.name).push({symbol:stock.symbol,name:text(stock.name,80)});
+ }
+ return {names,industries};
+}
+function render(_state,input,options={}){
+ const now=options.now??Date.now(),filter=['all','good','bad','neutral','unknown','retracted'].includes(options.filter)?options.filter:'all',h=health(now),context=renderContext(input,now);
+ const names={good:'利好倾向',bad:'利空风险',neutral:'中性',unknown:'资料待核',retracted:'已撤稿'};
+ const rows=state.items.filter(row=>retained(row,now)).filter(row=>{
+  if(filter==='all')return true;
+  if(filter==='retracted')return row.retracted&&row.timeStatus==='valid';
+  if(filter==='unknown')return row.sentiment==='unknown'||row.timeStatus!=='valid';
+  return !row.retracted&&row.sentiment===filter&&row.timeStatus==='valid';
+ }).slice(0,20);
+ const labelTime=v=>v?new Date(v).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' 北京时间':'未提供';
+ const stockButton=(stock,linkage)=>'<button type="button" data-news-linkage="'+linkage+'" data-focus="'+stock.symbol+'">'+esc(stock.name?stock.name+' '+stock.symbol:stock.symbol)+'</button>';
+ function article(row){
+  const direct=new Set(row.codes),related=new Map(),sectors=[],joined=row.title+'\n'+row.summary;
+  for(const [name,stocks]of context.industries){if(!sectorMention(joined,name))continue;sectors.push(name);for(const stock of stocks)if(!direct.has(stock.symbol))related.set(stock.symbol,stock);}
+  const indirect=[...related.values()].sort((a,b)=>a.symbol.localeCompare(b.symbol)),tag=row.timeStatus!=='valid'?'unknown':row.retracted?'retracted':row.sentiment;
+  return '<article data-news-id="'+esc(row.id)+'"><div class="v6-news-title"><span class="v6-news-tag '+tag+'">'+names[tag]+'</span><a href="'+esc(row.sourceUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(row.title||'来源未提供标题')+(row.sourceUrl===URL_BASE?'（来源接口，未提供原文链接）':' ↗')+'</a></div><p>'+esc(row.summary?row.summary.slice(0,180)+(row.summary.length>180?'…':''):'来源未提供摘要')+'</p>'+
+   '<div class="v6-news-links"><span>直接关联（源列出）：</span>'+(row.codes.length?row.codes.slice(0,20).map(code=>stockButton(context.names.get(code)||{symbol:code,name:''},'direct')).join(''):'<span>来源未列A股代码，不按公司简称猜测</span>')+'</div>'+
+   (row.codes.length>20?'<small>源列出 '+row.codes.length+' 只，显示前20只。</small>':'')+
+   '<div class="v6-news-links"><span>行业间接关联观察 · 待核：</span><span>'+esc(sectors.length?sectors.join('、'):'尚无可匹配的明确行业表述与真实分类')+'</span></div>'+
+   (indirect.length?'<div class="v6-news-links">'+indirect.slice(0,12).map(stock=>stockButton(stock,'indirect')).join('')+'</div><small>已载入真实分类中另有关联 '+indirect.length+' 只，显示前'+Math.min(12,indirect.length)+'只；排除上方直接代码，不代表行业全体或已确认受益/受损。</small>':'<small>未具备可列示的其他已知行业成分；不凭相近公司名补造关联。</small>')+
+   '<small>原发布时间 '+esc(labelTime(row.publishedAt))+' · 收到 '+esc(labelTime(row.receivedAt))+' · 东方财富7×24公开快讯</small><details><summary>完整已取摘要 / 判断依据</summary><p>'+esc(row.summary||'来源未提供摘要')+'</p><p>'+row.reasons.map(esc).join('；')+'</p><p>仅公开摘要与关键词规则，未独立认证，不保证实际影响。'+(row.retracted&&row.timeStatus==='valid'?'明确源撤稿状态：不再参与当前风险影响。':row.retracted?'撤稿时点待核：不能解除已有风险。':'利空优先；利好不抵消同股利空。')+'</p><small>本地版本指纹 '+esc(row.versionHash)+'，不是源签名或真实性证明。</small></details></article>';
+ }
+ return '<section class="tj-panel v6-news-pool" data-module-id="news-pool"><div class="tj-panel-head"><div><h2>新闻池 · 利好与利空雷达</h2><span class="tj-panel-kicker">原始快讯 / 规则倾向 / 个股与行业关联</span></div><button type="button" class="tj-run-button" data-news-refresh>刷新新闻</button></div><div class="v6-news-body"><div class="v6-news-state" role="status">'+esc(h.ready?(validated?'本页两栏目已检查（有限覆盖）':'共享缓存 · 尚待本页复核'):state.lastError||h.reason)+'</div><div class="v6-news-filters">'+['all','bad','good','neutral','unknown','retracted'].map(id=>'<button type="button" data-news-filter="'+id+'" aria-pressed="'+String(filter===id)+'">'+(names[id]||'全部')+'</button>').join('')+'</div><p class="v6-news-meta">最后完整取数 '+esc(labelTime(state.fetchedAt))+' · 每轮两栏目各一页，最多200条；近72小时最多500条，当前筛选最多显示最近20条；不代表全市场新闻完整覆盖。</p>'+
+  (!rows.length?'<div class="v6-news-empty">当前筛选暂无可展示快讯；无记录不等于无风险。</div>':'<div class="v6-news-list">'+rows.map(article).join('')+'</div>')+
+  '<p class="v6-news-note">主推前复核有效利空直接/间接关联，命中则规避；新闻源失败、过期或资料未知保持待核。此页面“主推”是候选展示，外部飞书通知须由独立后端发送并再次审核。</p></div></section>';
+}
+
+try{const raw=root.localStorage?.getItem(KEY);if(raw)hydrate(JSON.parse(raw));}catch(_){state.lastError='本机新闻缓存无效，等待来源重新检查';}
+root.document?.addEventListener?.('visibilitychange',()=>{if(root.document.hidden)controller?.abort();});
+root.V6NewsPool=Object.freeze({refresh,hydrate,serialize:serial,riskFor,cacheKey,render,subscribe(fn){if(typeof fn!=='function')throw Error('新闻监听器必须为函数');listeners.add(fn);return()=>listeners.delete(fn);},get snapshot(){return snapshot();}});
+})(window);
+/* V6_NEWS_POOL_END */
+
 
 (function(root){
 'use strict';
