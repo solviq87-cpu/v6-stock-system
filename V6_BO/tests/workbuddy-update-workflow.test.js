@@ -39,3 +39,10 @@ test('a moving branch PR run wrong repository or unknown workflow does not autho
  }
  await assert.rejects(()=>evaluate({fail:true}));
 });
+test('runner paths are initialized at step runtime rather than unavailable job-level contexts',()=>{
+ assert.doesNotMatch(workflow.split('    steps:')[0],/runner\.temp/);
+ assert.match(workflow,/V6_UPDATE_STATE_DIR=\$RUNNER_TEMP\/v6-repository-update/);
+ assert.match(workflow,/V6_UPDATE_CONFIG=\$RUNNER_TEMP\/v6-repository-update-config\.json/);
+ assert.ok(workflow.indexOf('Initialize runner-local private paths')<workflow.indexOf('Create private updater configuration'));
+ assert.match(workflow,/>> "\$GITHUB_ENV"/);
+});
