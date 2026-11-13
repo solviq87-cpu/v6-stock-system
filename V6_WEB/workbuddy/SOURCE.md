@@ -45,9 +45,26 @@ capture. No account records or live ledger response was imported. Static
 publication does not deploy the repository's Node/Python services, upgrade
 server-side collectors, or certify market data or strategy performance.
 
-The collector hardening candidate subsequently changes this imported source.
-Its canonical HTML SHA-256 is
+The historical collector hardening candidate had canonical HTML SHA-256
+`bea502023e8246360e409196ff64fca1e57d8bc15e166fff18d498e4939ba9e1`.
+The integrated baseline at commit
+`3ef08a2c8704e5e4e511fc54ccd8a04b24fe3434` had canonical HTML SHA-256
+`a4c941745abd79fc84dc089fa561d0e7a4c17e5e5b718d5a98190c09c0538844`.
+An earlier explicit-continue classification fix produced historical candidate
+`0e4a32825735809162ca7c8efb9fa667a40eaa3a93cf1723397e6b23809374bc`.
+
+The later upstream commit
+`f6b57140ab5c7c518af25b82ca33e0f1ef891e0e` added trading-session automation,
+four observation modules and per-module collapse preferences; its canonical
+HTML SHA-256 was
 `b61c135ae075b1c3ebbb4e516eaa0f5846e301b1dca511ea6bd0a4bdd2465951`.
+The merged source preserves those changes and reconnects non-forced sector
+classification refresh at the single session transition into active collection.
+This covers explicit resume, authorized default automatic startup, and the next
+opening after an enabled closed-session wait, while retaining persistent manual
+pause, the same-day cache, attempt interval and shared provider budgets.
+Its current canonical HTML SHA-256 is
+`30a60400b792510603be8a5446bebf2c60e184aa11dd490d8d5089df8872ff5d`.
 It retains the four core strategies and all 43 playbooks, with explicit pause,
 shared browser request budgets, historical-cache controls and same-row quote
 checks at the manual paper-order boundary. See `RATE_CONTROL.md` for the

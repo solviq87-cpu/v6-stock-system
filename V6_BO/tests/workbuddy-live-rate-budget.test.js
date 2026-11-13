@@ -1,5 +1,6 @@
 'use strict';
-// Fully offline VM checks. Source evaluation is confined to the market module.
+// Fully offline VM checks of market/research modules and the actual continue
+// click handler. Account implementations are never evaluated.
 // Run with node --test V6_BO/tests/workbuddy-live-rate-budget.test.js.
 // Optional explicit source/report: node this-file source.html report.json (no network dependencies).
 global.fetch=()=>Promise.reject(Error('Offline test forbids host fetch'));
@@ -14,6 +15,9 @@ const moduleFor=name=>{const at=html.indexOf('root.'+name+'=Object.freeze('),beg
 const researchSource=['V6StrategyData','V6Financials','V6StrategyAssets'].map(moduleFor).join('\n');
 const classBegin=html.indexOf('async function refreshClassifications(force=false){'),classEnd=html.indexOf('async function scanFullMarket(',classBegin),classificationSource=html.slice(classBegin,classEnd);
 if(!classificationSource.includes('window.V6Market.publicFetch'))throw Error('Classification boundary bypassed shared transport');
+const controlsBegin=html.indexOf('function marketScanAllowed(){'),controlsEnd=html.indexOf('async function initializeUniverse()',controlsBegin),controlsSource=html.slice(controlsBegin,controlsEnd);
+const clickBegin=html.indexOf("document.addEventListener('click',async event=>{"),clickEnd=html.indexOf("document.addEventListener('change'",clickBegin),clickSource=html.slice(clickBegin,clickEnd);
+if(controlsBegin<0||controlsEnd<0||clickBegin<0||clickEnd<0||!clickSource.includes("b.hasAttribute('data-scan-market')"))throw Error('Actual collector continue boundary missing');
 if(/\bSHARE\s*=/.test(source))throw Error('Credential module denied');
 const base=Date.parse('2026-11-13T01:45:00Z');
 const sleepFlush=async()=>{for(let i=0;i<80;i++)await Promise.resolve();};
@@ -52,8 +56,19 @@ function world({start=base,status=200,latency=20,lastDate='2026-11-12',retryAfte
    return new Promise((resolve,reject)=>{let done=false,settled=false,read,bodyReject;const finish=error=>{if(done)return;done=true;active[provider]--;options.signal?.removeEventListener('abort',abort);if(error){if(settled)bodyReject?.(error);else reject(error);}};const abort=()=>finish(Object.assign(Error('Mock aborted'),{name:'AbortError'}));options.signal?.addEventListener('abort',abort,{once:true});clock.setTimeout(()=>{if(done)return;settled=true;const consume=()=>read||(read=new Promise((r,j)=>{bodyReject=j;clock.setTimeout(()=>{finish();r(body);},settings.bodyLatency);}));resolve({ok:status>=200&&status<300,status,statusText:'Mock',headers:new Headers(settings.retryAfter?{'Retry-After':settings.retryAfter}:{}),text:()=>consume(),json:async()=>JSON.parse(await consume()),arrayBuffer:async()=>new TextEncoder().encode(await consume()).buffer});},settings.latency);});
   };
   context.window=context;context.globalThis=context;vm.createContext(context,{codeGeneration:{strings:false,wasm:false}});vm.runInContext(source,context,{timeout:1000});vm.runInContext(researchSource,context,{timeout:1000});
-  context.installClassifications=()=>{};context.renderMarketSafely=()=>{};context.V6StorageCodec={encode:async()=>''};context.api=async()=>{};context.classElement={title:''};context.$=()=>context.classElement;context.CLASS_KEY='offline-classification';context.classificationData={groups:[['sw1_fixture','Fixture',1,[]]],updatedAt:'2026-11-01T00:00:00Z'};context.classificationLastAttempt=0;context.classificationJob=null;
-  vm.runInContext(classificationSource,context,{timeout:1000});return {api:context.V6Market,context};
+  context.installClassifications=payload=>{context.classificationData=payload;};context.renderMarketSafely=()=>{};context.V6StorageCodec={encode:async()=>''};context.api=async()=>{};context.classElement={title:''};context.$=()=>context.classElement;context.CLASS_KEY='offline-classification';context.classificationData={groups:[['sw1_fixture','Fixture',1,[]]],updatedAt:'2026-11-01T00:00:00Z'};context.classificationLastAttempt=0;context.classificationJob=null;
+  vm.runInContext(classificationSource,context,{timeout:1000});
+  // Keep actual startup, pause, resume and delegated click code. Quote/full-A
+  // scheduling is isolated so these cases measure the classification wires.
+  context.SHARE='fixture-only-access';context.marketStarted=false;context.marketError='';context.quoteTimer=null;context.fullScanTimer=null;context.battleTimer=null;context.battleController=null;context.scheduleBattleScan=()=>{};context.acceptMarket=()=>{};context.updateMarketStatus=()=>{};context.toast=()=>{};context.focusRefreshes=0;context.fullScans=0;context.refreshMarket=()=>{context.focusRefreshes++;};context.scanFullMarket=()=>{context.fullScans++;};
+  context.handlers={};context.document.addEventListener=(type,handler)=>{context.handlers[type]=handler;};
+  vm.runInContext(controlsSource+'\n'+clickSource,context,{timeout:1000});
+  const startControls=({automatic=false}={})=>{
+   if(!automatic)storage.set('v6:scan-auto-preference:v1',JSON.stringify({schemaVersion:1,enabled:false}));
+   context.startMarket();
+  };
+  const clickCollection=()=>Promise.resolve(context.handlers.click({target:{closest:()=>({dataset:{},hasAttribute:name=>name==='data-scan-market'})}})).then(()=>context.classificationJob);
+  return {api:context.V6Market,context,startControls,clickCollection};
  }
  return {clock,locks,storage,calls,peaks,settings,makeTab};
 }
@@ -62,6 +77,39 @@ function check(condition,message){if(!condition)throw Error(message);}
 async function test(name,fn){return nodeTest(name,async()=>{try{const evidence=await fn();results.push({name,pass:true,evidence});}catch(e){results.push({name,pass:false,error:e.message});throw e;}});}
 async function main(){
  await test('default_paused_all_entrypoints',async()=>{const w=world(),t=w.makeTab();await w.clock.settle([t.api.refreshQuotes({force:true}),t.api.loadSeries('600000',{force:true}),t.api.discoverUniverse({force:true})]);check(!t.api.status.collectionEnabled,'Default unexpectedly enabled');check(w.calls.length===0,'Default paused entrypoint emitted a wire request');return {wireRequests:w.calls.length};});
+ await test('actual_continue_click_refreshes_classifications_after_persistent_startup_pause',async()=>{
+  const w=world(),t=w.makeTab();t.startControls();await w.clock.advance(600000);check(!t.api.status.collectionRequested&&!t.api.status.collectionEnabled&&w.calls.length===0,'Startup bypassed the user persistent pause');
+  await w.clock.settle([t.clickCollection()]);check(t.api.status.collectionEnabled,'Continue click did not resume');check(w.calls.length===1&&w.calls[0].provider==='sina','Actual continue click did not refresh stale classifications');check(t.context.focusRefreshes>0&&t.context.fullScans>0,'Continue lost existing refresh/scan actions');
+  return {startupRequests:0,continuedClassificationRequests:w.calls.length,actualDelegatedClick:true};
+ });
+ await test('actual_continue_click_preserves_same_china_day_classification_cache',async()=>{
+  const w=world(),t=w.makeTab();t.startControls();t.context.classificationData.updatedAt=new Date(base-3600000).toISOString();await w.clock.settle([t.clickCollection()]);check(w.calls.length===0,'Continue force-refreshed current-day classifications');return {wireRequests:0};
+ });
+ await test('actual_continue_repeated_pause_resume_preserves_ten_minute_and_shared_wire_limits',async()=>{
+  const w=world(),t=w.makeTab(),c=t.context;t.startControls();c.classificationData.groups.push(['sw1_other','Other',1,[]]);await w.clock.settle([t.clickCollection()]);check(w.calls.length===2,'Stale classification groups were not refreshed');
+  await w.clock.settle([t.clickCollection()]);check(!t.api.status.collectionEnabled,'Second click did not pause');c.classificationData.updatedAt='2026-11-01T00:00:00Z';await w.clock.settle([t.clickCollection()]);check(w.calls.length===2,'Repeated continue bypassed ten-minute attempt limit');
+  await w.clock.settle([t.clickCollection()]);await w.clock.advance(600000);await w.clock.settle([t.clickCollection()]);check(w.calls.length===4,'Elapsed interval did not permit stale classifications');
+  check(w.peaks.sina===1&&w.calls.every((call,i)=>!i||call.startMs-w.calls[i-1].startMs>=1050),'Continue bypassed shared wire concurrency or start gap');return {wireRequests:4,peakSinaInflight:1,minimumGapMs:1050};
+ });
+ await test('actual_continue_pause_aborts_classification_work_and_does_not_revive_queue',async()=>{
+  const w=world({latency:5000}),t=w.makeTab();t.startControls();t.context.classificationData.groups.push(['sw1_other','Other',1,[]]);const continued=t.clickCollection();await sleepFlush();check(w.calls.length===1,'Continued classification did not begin');const paused=t.clickCollection();await w.clock.settle([continued,paused]);check(!t.api.status.collectionEnabled&&w.calls.length===1,'Pause allowed queued classification request');await w.clock.settle([t.clickCollection()]);check(w.calls.length===1,'Immediate continue revived paused classification queue');return {wireRequests:1};
+ });
+ await test('actual_continue_classifications_respect_hidden_daily_budget_and_provider_cooldown',async()=>{
+  for(const guard of ['hidden','daily-budget','cooldown']){
+   const w=world(),t=w.makeTab();t.startControls();if(guard==='hidden')t.context.document.hidden=true;
+   else w.storage.set('v6:public-market-budget:v1',JSON.stringify({schemaVersion:1,families:{sina:{day:'2026-11-13',starts:guard==='daily-budget'?6000:0,nextStartAt:0,blockedUntil:guard==='cooldown'?base+900000:0,failures:0,status:null}},codes:{},historyPauseUntil:0}));
+   await w.clock.settle([t.clickCollection()]);check(w.calls.length===0,'Actual continue bypassed '+guard);
+  }return {guardVariants:3,wireRequests:0};
+ });
+ await test('actual_default_auto_start_refreshes_classification_once_per_active_transition',async()=>{
+  const w=world(),t=w.makeTab();t.startControls({automatic:true});await w.clock.settle([t.context.classificationJob]);check(t.api.status.collectionRequested&&t.api.status.collectionEnabled,'Default authorized startup lost automatic session intent');check(w.calls.length===1,'Automatic active startup did not refresh stale classifications exactly once');
+  t.context.startMarket();t.api.resumeCollection();await w.clock.settle([t.context.classificationJob]);check(w.calls.length===1,'Repeated startup or enabled notification duplicated classification');return {wireRequests:1,defaultAutoPreserved:true};
+ });
+ await test('actual_continue_while_closed_refreshes_once_at_next_session_open',async()=>{
+  const w=world({start:Date.parse('2026-11-13T03:45:00Z')}),t=w.makeTab();t.startControls();await w.clock.settle([t.clickCollection()]);check(t.api.status.collectionRequested&&!t.api.status.collectionEnabled&&w.calls.length===0,'Closed-session continue collected or lost intent');
+  await w.clock.advance(Date.parse('2026-11-13T05:00:00Z')-1-w.clock.now);check(w.calls.length===0,'Classification started before afternoon opening');await w.clock.advance(1);await w.clock.settle([t.context.classificationJob]);check(t.api.status.collectionEnabled&&w.calls.length===1&&w.calls[0].provider==='sina','Opening transition did not refresh classifications exactly once');
+  t.api.resumeCollection();await w.clock.settle([t.context.classificationJob]);check(w.calls.length===1,'Repeated open-session notification duplicated classification');return {closedRequests:0,openedRequests:1,openedAt:'2026-11-13T05:00:00Z'};
+ });
  await test('same_provider_quotes_history_one_inflight',async()=>{const w=world({latency:1500}),t=w.makeTab();t.api.resumeCollection();await w.clock.settle([t.api.refreshQuotes({force:true}),t.api.loadSeries('600000',{force:true}),t.api.loadSeries('600001',{force:true})]);const starts=w.calls.filter(x=>x.provider==='tencent').map(x=>x.startMs);check(w.peaks.tencent===1,'Tencent overlap');check(starts.length>=3,'Expected quote/history wires missing');check(starts.every((x,i)=>i===0||x-starts[i-1]>=1000),'Tencent start interval under 1 second');return {peakTencentInflight:w.peaks.tencent,tencentStartMs:starts};});
  await test('two_tabs_shared_lock_and_one_second_gap',async()=>{const w=world(),a=w.makeTab(),b=w.makeTab();a.api.resumeCollection();b.api.resumeCollection();await w.clock.settle([a.api.loadSeries('600000'),b.api.loadSeries('600001')]);const starts=w.calls.map(x=>x.startMs);check(w.peaks.tencent===1,'Two-tab overlap');check(starts.length===2&&starts[1]-starts[0]>=1000,'Two-tab start interval under 1 second');return {peakTencentInflight:w.peaks.tencent,startMs:starts};});
  for(const status of [429,403])await test(`status_${status}_persists_without_same_provider_fallback`,async()=>{const w=world({status}),a=w.makeTab();a.api.resumeCollection();await w.clock.settle([a.api.loadSeries('600000',{force:true})]);check(w.calls.length===1,'Restricted response attempted a fallback');const original=w.clock.now;const b=w.makeTab();b.api.resumeCollection();await w.clock.settle([b.api.loadSeries('600001',{force:true})]);check(w.calls.length===1,'Reload bypassed cooldown');const minimum=status===403?900000:60000;await w.clock.advance(minimum-1);await w.clock.settle([b.api.loadSeries('600002',{force:true})]);check(w.calls.length===1,'Cooldown ended too early');await w.clock.advance(2);await w.clock.settle([b.api.loadSeries('600003',{force:true})]);check(w.calls.length===2,'Provider did not resume after elapsed minimum cooldown');return {beforeMinimumRequests:1,totalRequests:w.calls.length,persistedEntries:w.storage.size,elapsedMs:w.clock.now-original};});

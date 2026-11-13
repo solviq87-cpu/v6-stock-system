@@ -95,7 +95,7 @@ async function runCommand(options,dependencies={}){
   if(receipt?.sha!==candidate.sha||receipt.targetOrigin!==TARGET||!(/^[A-Za-z0-9_.:-]{1,160}$/).test(receipt.receiptId||''))throw error('invalid-bootstrap-receipt');
   return {code:'bootstrapped',candidateSha:candidate.sha,deployedSha:receipt.sha,receiptId:receipt.receiptId,targetOrigin:TARGET,scope:'static-frontend-only'};
  }
- const result=await runRepositoryAutoUpdate({...config,mode:options.apply?'apply':'check'},{source,deploy:provider,now});
+ const result=await runRepositoryAutoUpdate({...config,mode:options.apply?'apply':'check',publisherOwner:dependencies.publisherOwner},{source,deploy:provider,now});
  return {...result,scope:'static-frontend-only'};
 }
 function sanitizedFailure(){return {code:'auto-update-blocked',scope:'static-frontend-only'};}

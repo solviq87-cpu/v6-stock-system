@@ -2181,7 +2181,7 @@ function startMarket(){
  const sessionChanged=()=>{
   const active=marketScanAllowed(),justOpened=active&&!wasActive;wasActive=active;
   if(!active){clearTimeout(quoteTimer);clearTimeout(fullScanTimer);clearTimeout(battleTimer);battleTimer=null;battleController?.abort();}
-  if(justOpened){refreshMarket();scanFullMarket();scheduleBattleScan();}
+  if(justOpened){refreshMarket();scanFullMarket();refreshClassifications();scheduleBattleScan();}
  };
  window.V6Market.subscribeSession(sessionChanged);
  window.V6Market.subscribe(snapshot=>{sessionChanged();if(snapshot?.stocks)acceptMarket(snapshot);});

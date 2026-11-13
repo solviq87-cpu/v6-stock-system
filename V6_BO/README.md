@@ -1,6 +1,6 @@
 # 量化看盘平台
 
-> **国内写入/部署目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`，官方文档 `/console`，静态 HTML 发布 `POST /api/publish`。接手先读 [`docs/CHINA_WORKBUDDY_WRITE_TARGET.md`](docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [自动更新操作](docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。文档/站点/健康只读核验成功；写入、生产部署及长期自动更新未验证，禁止回退旧目标或记录分享码。
+> **国内写入/部署目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`，官方文档 `/console`，静态 HTML 发布 `POST /api/publish`。接手先读 [`docs/CHINA_WORKBUDDY_WRITE_TARGET.md`](docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [自动更新操作](docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。文档/站点/健康只读核验成功；写入、生产部署及长期自动更新未验证，禁止回退旧目标或记录分享码。 自动更新采用既有每小时 hosted 任务和当前 managed cloud 环境唯一发布者 managed-task，GitHub 每 15 分钟只读巡检；私有 shareCodeFile 注入解除 GitHub Secret 配置依赖，精确 CI/SHA/owner 与完整内容校验继续强制。本次任务/发布结果待 PR 实际回执；环境文件或权限缺失必须停发报告。 角色切换按 `V6_BO/config/repository-auto-update-owner.json` 执行停旧 scheduler→等在途结束且 journal.transaction=null（旧 owner 先恢复）→owner 变更 SHA 通过 CI→启新；owner 不能撤销在途写入，跨环境 flock 不互斥。
 
 A 股量化盯盘与选股系统：多数据源行情采集 → 四维度选股打分 → 飞书/邮件推送 → Web 面板可视化。
 

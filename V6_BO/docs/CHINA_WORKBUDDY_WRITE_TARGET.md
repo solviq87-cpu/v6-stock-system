@@ -30,16 +30,16 @@
 ## 接手、更新与恢复
 
 1. 先读根 `AGENTS.md`、`V6_BO/AGENTS.md`、本文件、`integration/CHAT_HANDOFF.md` 与自动更新操作；代码以 GitHub `dev` 精确 SHA 为基线。
-2. 从私有环境变量 `V6_WORKBUDDY_SHARECODE` 取分享码，只向当前指定 HTTPS 主机发送；不得硬编码、打印完整认证 URL 或猜其他接口。
+2. managed-task 从仓库外权限 `0600` 的分享码文件、经私有配置 `shareCodeFile` 取值；仅 GitHub 发布模式从私有 Secret `V6_WORKBUDDY_SHARECODE` 取值，只向当前指定 HTTPS 主机发送；不得硬编码、打印完整认证 URL 或猜其他接口。
 3. 发布前确认精确分支头 SHA、该 SHA 的 V6 CI `verify` 和 `verify-web` 均成功，保存当前站点加密快照与私有审计记录。
 4. 发布单文件 HTML 后核对 `/api/site` 的精确产物 SHA 标记和健康检查；失败停止，按已保存快照回滚并回读验证。不得将未验证发布写成成功。
 5. 真实写入后才更新授权/部署事实；记录去敏源 SHA、产物哈希、回执、读回、恢复结果与真实桌面/手机验收。任何失败门禁都阻止继续自动发布。
 
 ## 配置与凭据边界
 
-参考配置：`config/china-workbuddy-write-target.example.json`。`V6_CN_WRITE_ORIGIN` 可引用当前主机，`V6_CN_WRITE_DOC_PATH=/console`、`V6_CN_WRITE_ENDPOINT=/api/publish` 是已核实的路径；自动化使用 `V6_WORKBUDDY_SHARECODE` 私有 Secret。配置文件只保存变量名称，不保存任何实际分享码、token、个人持仓或成本。
+参考配置：`config/china-workbuddy-write-target.example.json`。`V6_CN_WRITE_ORIGIN` 可引用当前主机，`V6_CN_WRITE_DOC_PATH=/console`、`V6_CN_WRITE_ENDPOINT=/api/publish` 是已核实的路径；当前 managed-task 自动化通过仓库外私有 `shareCodeFile` 注入，GitHub 发布模式使用 `V6_WORKBUDDY_SHARECODE` 私有 Secret。配置文件只保存变量名称，不保存任何实际分享码、token、个人持仓或成本。
 
-当前 GitHub 集成对仓库 Actions Secret 公钥接口只读请求返回 403，无法代用户配置 Secret；禁止用工作流明文变量替代。完成一次私有 Secret 配置之前，长期自动更新未激活；绿色工作流也可能因为没有 Secret 而跳过发布，必须检查发布步骤的实际执行记录。
+当前 GitHub 集成对仓库 Actions Secret 公钥接口只读请求返回 403，无法代用户配置 Secret；禁止用工作流明文变量替代。现改用既有 hosted 任务与当前 managed cloud 环境作为唯一 `managed-task` 发布者，绕开的是 Secret 配置依赖，精确 CI/SHA/owner 和内容门禁仍必须通过。GitHub 每 15 分钟只读巡检，在 managed 所有权下不写站点。私有 runtime/凭据/快照留存依赖当前环境，缺文件或权限必须停发报告；本次任务执行和发布事实待 PR 实际回执，不能以绿色 CI 代替。owner 合约为 `V6_BO/config/repository-auto-update-owner.json`，仅约束新轮次，不能撤销旧 POST/rollback；跨环境 flock 不互斥。切换必须先停旧 scheduler，等在途结束且旧 journal.transaction=null（未完先由旧 owner 恢复），再合 owner 变更并等待该 SHA CI 成功，最后启新。受信 journal 中匹配 publisherOwner 的旧事务可优先离线恢复，不等待新 dev CI，恢复 source 拒绝新候选；未知/无 owner 旧事务停发交维护者。实际跨环境恢复未在本文验证。详见自动更新操作。
 
 ## 历史记录（禁止作为当前目标或备用）
 
