@@ -68,3 +68,26 @@ test('zero-weight passing strategy is not counted as an aggregate winner', () =>
   assert.equal(result.pass, false);
   assert.equal(result.finalScore, 0);
 });
+
+test('strict feed gate blocks candidate when source and bars are absent', () => {
+  const { evaluateCandidate } = require('../src/strategy/strategy-service');
+  const stock = { code: '600000', trendScore: 95, relativeStrengthScore: 95, maAlignmentScore: 95 };
+  const result = evaluateCandidate({
+    stock, market: {},
+    factorOptions: { requireFeedValidation: true, enforceFeedGate: true }
+  });
+  assert.equal(result.feedBlocked, true);
+  assert.equal(result.pass, false);
+  assert.ok(result.feedQuality.errors.length > 0);
+});
+
+test('invalid negative strategy weight cannot override a positive strategy', () => {
+  const good = { name: 'good', family: 'trend', strategyWeight: 1, minScore: 10,
+    rules: [{ field: 'x', op: '>=', value: 1, weight: 20 }] };
+  const invalid = { name: 'invalid', family: 'reversal', strategyWeight: -100, minScore: 10,
+    rules: [{ field: 'y', op: '>=', value: 1, weight: 20 }] };
+  const single = evaluateMultiStrategy({ snapshot: { x: 2 }, strategies: [good] });
+  const combined = evaluateMultiStrategy({ snapshot: { x: 2 }, strategies: [good, invalid] });
+  assert.equal(combined.finalScore, single.finalScore);
+  assert.equal(combined.pass, single.pass);
+});
