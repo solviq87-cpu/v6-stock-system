@@ -142,7 +142,7 @@ console.log('\n【⑥ 新闻归档：内存与磁盘、归档与归档之间，�
   const caps = [...saveLine.matchAll(/slice\(0, (\d+|NEWS_ARCHIVE_CAP)\)/g)].map(m => m[1]);
   ok('⛔ 落盘三个归档共用同一个上限', new Set(caps.slice(0, 3)).size === 1, caps.join(','));
   ok('  落盘用的就是 NEWS_ARCHIVE_CAP（不是另一个数字）', caps.slice(0, 3).every(c => c === 'NEWS_ARCHIVE_CAP'), caps.join(','));
-  ok('⛔ badAll 存量修复那处也用同一常量', /badAll\.filter\(x => within3Days\(x\.t\)\)\.slice\(0, NEWS_ARCHIVE_CAP\)/.test(clean));
+  ok('⛔ badAll 存量修复那处也用同一常量', /rows\.filter\(x=>x\.type===type&&within3Days\(x\.t\)\)\.slice\(0,NEWS_ARCHIVE_CAP\)/.test(clean));
   // 假期缓冲是【故意】不按 3 日的，必须仍然用 HOLIDAY_BUF_CAP
   ok('假期缓冲仍走 HOLIDAY_BUF_CAP（它故意不受近3日限制）', /holidayBuf[^)]*\)\.slice\(0, HOLIDAY_BUF_CAP\)/.test(clean));
   // 反证：旧写法内存 400 / 落盘 300-200-200
