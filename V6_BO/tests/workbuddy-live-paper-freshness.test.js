@@ -43,7 +43,7 @@ function extractFunction(name) {
   assert.fail('Unclosed live function: ' + name);
 }
 
-const liveFunctions = extractFunction('paperQuoteStatus') + '\n' +
+const liveFunctions = extractFunction('marketScanAllowed') + '\n' + extractFunction('paperQuoteStatus') + '\n' +
   extractFunction('battleTrade');
 const NOW = Date.UTC(2026, 10, 13, 5, 45, 0);
 const SYMBOL = 'offline-symbol';
@@ -67,7 +67,7 @@ function harness({ ageMs = 0, stock = {}, enabled = true, hidden = false,
     validNumber: value => typeof value === 'number' && Number.isFinite(value),
     document: { hidden },
     window: {
-      V6Market: { status: { collectionEnabled: enabled } },
+      V6Market: { status: { collectionEnabled: enabled }, sessionAt: () => ({open:true}) },
       V6Battle: { checkOrder(...args) {
         trace.push('risk'); riskCalls.push(args); return riskResult;
       } }
@@ -212,7 +212,7 @@ const tradeSubmitLine = source.split(/\r?\n/).find(line =>
   line.includes("if(event.target.id==='trade-form')"));
 assert.ok(tradeSubmitLine, 'Missing actual trade submit handler');
 
-for (const invalidation of ['paused', 'stale']) {
+for (const invalidation of ['paused', 'stale', 'session-ended']) {
   test('actual trade submit rechecks ' + invalidation + ' inside the commit mutation', async () => {
     const h = harness();
     const c = h.context;
@@ -234,6 +234,8 @@ for (const invalidation of ['paused', 'stale']) {
         assert.equal(h.coreCalls.length, 1, 'Fresh preview must reach the original core');
         if (invalidation === 'paused') {
           c.window.V6Market.status.collectionEnabled = false;
+        } else if (invalidation === 'session-ended') {
+          c.window.V6Market.sessionAt = () => ({open:false,kind:'after-close'});
         } else {
           const staleAt = new Date(NOW - 16000).toISOString();
           Object.assign(c.C.stocks[0], {
@@ -262,3 +264,14 @@ for (const invalidation of ['paused', 'stale']) {
     assert.equal(writes, 0, 'Rejected commit evidence must prevent persistence');
   });
 }
+
+
+test('session closure refuses a fresh paper quote before delayed effective-state timers fire', () => {
+  const h = harness();
+  assert.equal(h.context.window.V6Market.status.collectionEnabled, true);
+  h.context.window.V6Market.sessionAt = () => ({open:false,kind:'after-close'});
+  const result = h.battleTrade({}, order());
+  assert.equal(result.ok, false);
+  assert.equal(h.coreCalls.length, 0);
+  assert.equal(h.riskCalls.length, 0);
+});

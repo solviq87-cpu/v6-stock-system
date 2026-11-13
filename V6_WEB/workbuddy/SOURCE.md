@@ -47,7 +47,7 @@ server-side collectors, or certify market data or strategy performance.
 
 The collector hardening candidate subsequently changes this imported source.
 Its canonical HTML SHA-256 is
-`bea502023e8246360e409196ff64fca1e57d8bc15e166fff18d498e4939ba9e1`.
+`b61c135ae075b1c3ebbb4e516eaa0f5846e301b1dca511ea6bd0a4bdd2465951`.
 It retains the four core strategies and all 43 playbooks, with explicit pause,
 shared browser request budgets, historical-cache controls and same-row quote
 checks at the manual paper-order boundary. See `RATE_CONTROL.md` for the
@@ -70,3 +70,5 @@ The builder rejects embedded credential patterns, OpenAI runtime API access,
 external rendering assets, invalid commit IDs, and malformed release markers.
 Pattern checks supplement source review; they are not a general proof that
 arbitrary future HTML contains no sensitive information.
+
+The subsequent session/module candidate uses explicit 2026 trading sessions, four read-only observation modules and persistent per-module collapse preferences. See `SESSION_CONTROL.md`, `SESSION_MODULES.md` and `FOCUS_MODULES.md`. Source preservation of account protocols does not imply that missing auction/ladder evidence is available or that the hosted site has been updated.
