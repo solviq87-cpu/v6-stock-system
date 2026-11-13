@@ -114,3 +114,21 @@ test('all event data are bounded input evidence, not synthetic brokerage orders'
  assert.ok(r.events.every(e=>e.marketRegime==='unknown'));
  assert.ok(r.events.every(e=>e.status!=='modeled'||e.evidence==='unverified-historical-next-open-model'));
 });
+test('forward audit slippage stays inside each execution session price limit',()=>{
+ const input=dataset();
+ const first=evaluate(input,setup).events.find(e=>e.status==='modeled'&&e.horizon===1);
+ assert.ok(first,'fixture must produce a genuine matched rule');
+ const stock=input.stocks.find(s=>s.symbol===first.symbol);
+ const signalIndex=stock.bars.findIndex(b=>b.date===first.signalDate);
+ const entry=stock.bars[signalIndex+1],exit=stock.bars[signalIndex+2];
+ const upper=Math.round(stock.bars[signalIndex].close*110+1e-9)/100;
+ const lower=Math.round(entry.close*90+1e-9)/100;
+ entry.open=upper-.01;entry.high=Math.max(entry.high,entry.open);
+ exit.open=lower+.01;exit.low=Math.min(exit.low,exit.open);
+ const result=evaluate(input,{...setup,slippageBps:200});
+ const actual=result.events.find(e=>e.symbol===first.symbol&&e.ruleId===first.ruleId&&e.signalDate===first.signalDate&&e.horizon===1);
+ assert.equal(actual.status,'modeled');
+ assert.equal(actual.entryPrice,upper);
+ assert.equal(actual.exitPrice,lower);
+ assert.equal(actual.canTrade,false);
+});

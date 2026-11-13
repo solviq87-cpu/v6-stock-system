@@ -2,6 +2,7 @@
 const {analyzeMarketBreadth}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
+const {marketRequests,createMarketRequestGovernor}=require('./market-request-governor');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
 // Each row is one provider quote. f5 is provider-native lots (手), NOT shares.
 const FIELDS='f12,f14,f3,f6,f13,f2,f124,f5,f8,f20,f62,f184';
@@ -51,6 +52,8 @@ async function fetchEastmoneySnapshot(options={}){
  if(!Number.isInteger(pageSize)||pageSize<1||pageSize>1000||!Number.isInteger(maxPages)||maxPages<1||maxPages>30)throw Error('分页参数无效');
  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000)throw Error('行情请求超时时间无效');
  if(!Number.isInteger(maxSamplingMs)||maxSamplingMs<100||maxSamplingMs>120000)throw Error('行情快照跨度上限无效');
+ const physicalFetch=options.fetchImpl===undefined||fetchImpl===globalThis.fetch;
+ const governor=options.requestGovernor??(physicalFetch?marketRequests:createMarketRequestGovernor());
  const date=aShareCalendarDate(now),seen=new Set(),stocks=[];
  const verifyClock=()=>{
   const instant=new Date(clock()).getTime();
@@ -65,13 +68,19 @@ async function fetchEastmoneySnapshot(options={}){
   const url=new URL(ENDPOINT);url.searchParams.set('pn',String(pn));url.searchParams.set('pz',String(pageSize));
   url.searchParams.set('po','1');url.searchParams.set('np','1');url.searchParams.set('fltt','2');
   url.searchParams.set('fid','f3');url.searchParams.set('fs','m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23');url.searchParams.set('fields',FIELDS);
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  let data;
-  try{
-   const response=await fetchImpl(url.toString(),{signal:controller.signal,headers:{'Accept':'application/json'}});
-   if(!response?.ok)throw Error('行情网关HTTP '+(response?.status??'未知'));
-   data=parsePage(await response.json());
-  }finally{clearTimeout(timer);}
+  const target=url.toString(),request=async()=>{
+   // Queue time counts toward the sampling span, but never consumes a wire
+   // timeout. Recheck after waiting so an expired snapshot sends no new page.
+   verifyClock();
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+   try{
+    const response=await fetchImpl(target,{signal:controller.signal,headers:{'Accept':'application/json'}});
+    governor.checkResponse(target,response?.status,response?.headers);
+    if(!response?.ok)throw Error('行情网关HTTP '+(response?.status??'未知'));
+    return parsePage(await response.json());
+   }finally{clearTimeout(timer);controller.abort();}
+  };
+  const data=await (physicalFetch||options.requestGovernor?governor.run(target,request):request());
   if(total===null)total=data.total;
   if(data.total!==total)throw Error('行情分页期间股票总数变化，拒绝混合快照');
   const expected=Math.min(pageSize,total-(pn-1)*pageSize);

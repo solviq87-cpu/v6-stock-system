@@ -4,6 +4,8 @@ const {observeStock,readStockObservationResearch,researchPaths}=require('../src/
 const {createStockObservationMonitor}=require('../src/core/stock-observation-monitor');
 const {readStockResearchFollowups}=require('../src/core/stock-research-followups');
 const {fetchPublicContext}=require('../src/core/public-market-context');
+const {enqueueStockObservation}=require('../src/core/stock-observation-queue');
+const {readResearchEvidenceBundle}=require('../src/core/research-evidence-bundle');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'research-loop-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const dates=Array.from({length:36},(_,i)=>new Date(Date.UTC(2025,0,i+1)).toISOString().slice(0,10));
@@ -73,4 +75,30 @@ test('a stock first observed during the session is watched after close without i
  const stored=readStockObservationResearch({symbol:'600000',provider:'tencent'},f.deps);
  assert.equal(stored.priceEventResearch.currentHypothesis.targetDate,f.dates[31]);
  assert.equal(monitor.status().queue.counts.total,0);assert.equal(monitor.status().dailyResearch.counts.completed,1);
+});
+test('actual queued monitor capture carries signal hash through observeStock, bundle and archive-only restart',async t=>{
+ const f=fixture(t),queueRoot=path.join(f.root,'queue'),signalId='c'.repeat(64);
+ enqueueStockObservation(queueRoot,{symbol:'600000',decisionAt:f.clock,trigger:'push-attempt',signalRefs:[
+  {code:'600000',type:'pool',ts:f.clock-1,id:signalId},{code:'600000',type:'trend',ts:f.clock-1}]});
+ let calls=0,captured;
+ const capture=async intent=>{
+  calls++;
+  captured=await observeStock({symbol:intent.symbol,includeContext:true,trigger:'push-attempt-observation',origin:{
+   kind:intent.trigger,intentId:intent.id,pushDecisionAt:intent.decisionAt,signalRefs:intent.signalRefs,messageHash:intent.messageHash||null}},f.deps);
+  return captured;
+ };
+ const monitor=createStockObservationMonitor({queueRoot},{now:()=>f.clock,capture});
+ const result=await monitor.runOnce();assert.equal(result.processed,1);assert.equal(monitor.status().queue.counts.completed,1);
+ assert.equal(captured.evidenceBundle.trigger.signalRefs.find(r=>r.type==='pool').id,signalId);
+ assert.equal(Object.hasOwn(captured.evidenceBundle.trigger.signalRefs.find(r=>r.type==='trend'),'id'),false);
+ const hash=captured.evidenceBundle.hash,roots=researchPaths(f.dirs);
+ const restarted=createStockObservationMonitor({queueRoot},{now:()=>f.clock,capture});
+ assert.equal((await restarted.runOnce()).processed,0);assert.equal(calls,1);
+ const restored=readStockObservationResearch({symbol:'600000',provider:'tencent'},f.deps);
+ assert.equal(restored.evidenceBundle.hash,hash);assert.equal(restored.evidenceBundle.trigger.signalRefs.find(r=>r.type==='pool').id,signalId);
+ const file=fs.readdirSync(roots.evidenceRoot,{recursive:true}).find(n=>n.includes('objects'+path.sep)&&n.endsWith(hash+'.json'));
+ const full=path.join(roots.evidenceRoot,file),raw=fs.readFileSync(full),changed=JSON.parse(raw);
+ changed.trigger.signalRefs.find(r=>r.type==='pool').id='d'.repeat(64);fs.writeFileSync(full,JSON.stringify(changed));
+ assert.throws(()=>readResearchEvidenceBundle(roots.evidenceRoot,{symbol:'600000',provider:'tencent',hash,asOf:f.clock}),/校验/);
+ fs.writeFileSync(full,raw);assert.equal(readResearchEvidenceBundle(roots.evidenceRoot,{symbol:'600000',provider:'tencent',hash,asOf:f.clock}).hash,hash);
 });

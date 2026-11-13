@@ -45,15 +45,20 @@ test('candidate quote without provider time stays unknown despite current state 
 });
 test('real batch sender persists exact signal references only for included rows, without external delivery',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
- const src=fs.readFileSync(require.resolve('../server.js'),'utf8');
+ const serverPath=require.resolve('../server.js'),src=fs.readFileSync(serverPath,'utf8');
+ const productionRequire=require('node:module').createRequire(serverPath);
  const first={code:'000001',type:'趋势票',ts:now-60000},omitted={code:'000002',type:'大单流入',ts:now-50000};
+ const originalRow={...first,name:'正常股票',price:9,quoteAt:first.ts-1000,receivedAt:first.ts,
+  quoteSource:'vendor-original',quoteMode:'public-live-unverified',canNotify:true,volume:10000,amount:90000};
  const logs=[];
- const context={INTRADAY:{buf:new Map([['first',first],['omitted',omitted]]),parts:[],firstAt:now-60000},
+ class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const context={Date:Clock,require:productionRequire,INTRADAY:{buf:new Map([['first',originalRow],['omitted',omitted]]),parts:[],firstAt:now-60000},
   INTRADAY_MAX_ITEMS:1,ALERT_RANK:{},alertScore:()=>0,buildAlertsReport:()=> '000001',
   redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>true,
   pushLog:(status,title,data)=>logs.push({ts:now,status,title,...data}),console:{log(){}},sseSendEdit(){},_pushLast:null};
  vm.createContext(context);
- for(const name of ['pushAll','flushIntraday']){
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows',
+  'recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday']){
   const start=src.indexOf('function '+name+'('),end=src.indexOf('\n}\n',start)+2;
   assert.ok(start>=0&&end>start);vm.runInContext(src.slice(start,end),context);
  }

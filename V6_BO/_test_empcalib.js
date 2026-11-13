@@ -225,7 +225,7 @@ sec('⑪ server.js 接线（不接上等于没做）');
   ok('排序也用同一个 fusedProb（高分追高票不再排最前）', /return fusedProb\(c,[\s\S]{0,120}type, v\)\.prob/.test(SRC));
   ok('拦截原因说明"实测"多少', /同档实测/.test(SRC));
   ok('融合常量：自学修正有上下限，不会单方面定生死', /const LA_DELTA_CAP = 12/.test(SRC));
-  ok('融合按【原始模型概率】查实测档（不能拿标定过的数二次标定）', /const ei = empInfo\(out\.prob, type\)/.test(SRC));
+  ok('融合按【原始模型估值及事件】查实测档（不能拿修正数二次查档）', /const ei = empInfo\(out\.model, type, event\)/.test(SRC));
   ok('回验落地立刻失效标定缓存（学了就要马上改推送）', /if \(changed\) \{ _empCache\.t = 0/.test(SRC));
   ok('学习库更新后清推理缓存（否则学完了还拿旧答案推）', /laRefresh\(\);[\s\S]{0,200}_laCache = new Map\(\)/.test(SRC));
   ok('logSignal 登记融合值（否则无法验证学习有没有用）', /fused: _fz\.prob, laP: _fz\.la, empP: _fz\.emp/.test(SRC));

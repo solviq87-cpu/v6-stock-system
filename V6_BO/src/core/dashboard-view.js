@@ -3,7 +3,7 @@
 const number=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const text=v=>typeof v==='string'?v.slice(0,200):'';
 const isCode=v=>typeof v==='string'&&/^\d{6}$/.test(v);
-const {quoteObservationView}=require('./quote-observation-view');
+const {quoteObservationView,fundsObservationView}=require('./quote-observation-view');
 const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluatePlaybooks}=require('../strategy/research-playbook-engine');
 const factorPack=require('../../strategies/extended-factor-pack.json');
@@ -70,7 +70,7 @@ function pushLogIndex(pushLog){
   const historyEntry={
    signalRefs:(Array.isArray(item?.extra?.signalRefs)?item.extra.signalRefs:[])
     .filter(ref=>isCode(ref?.code)&&typeof ref?.type==='string'&&number(ref?.ts)!==null)
-    .map(ref=>({code:ref.code,type:text(ref.type),ts:ref.ts})),
+    .map(ref=>({code:ref.code,type:text(ref.type),ts:ref.ts,...(/^[a-f0-9]{64}$/.test(ref.signalId||'')?{signalId:ref.signalId}:{})})),
    ts:normalized.ts,
    status:normalized.status,
    title:normalized.title,
@@ -90,7 +90,7 @@ function pushLogIndex(pushLog){
   history.sort((a,b)=>(b.ts||0)-(a.ts||0));
   const dedup=[],seen=new Set();
   for(const entry of history){
-   const refs=entry.signalRefs.map(ref=>[ref.code,ref.type,ref.ts]).sort();
+   const refs=entry.signalRefs.map(ref=>[ref.code,ref.type,ref.ts,ref.signalId||null]).sort();
    const key=JSON.stringify([entry.ts,entry.status,entry.title,entry.channel,entry.note,refs]);
    if(seen.has(key))continue;
    seen.add(key);
@@ -110,6 +110,8 @@ function conditionLine(id,label,value,threshold,operator,source,updatedAt,fallba
   else if(operator==='<=')satisfied=actual<=gate;
   else if(operator==='>')satisfied=actual>gate;
   else if(operator==='<')satisfied=actual<gate;
+  else if(operator==='===')satisfied=actual===gate;
+  else if(operator==='!==')satisfied=actual!==gate;
  }
  const reason=satisfied===null?fallbackReason:(satisfied?'满足':'未满足');
  return {id:text(id),label:text(label),value:actual,threshold:gate,operator:text(operator),satisfied,reason:text(reason),source:text(source),updatedAt:number(updatedAt)};
@@ -176,7 +178,7 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   const signalAt=number(sig?.ts);
   const receipts=signalAt!==null&&signalAt>0&&signalAt<=now
    ?(historyByCode.get(code)||[]).filter(record=>record.ts>=signalAt&&record.ts<=now&&record.signalRefs.some(ref=>
-     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt)):[];
+     ref?.code===code&&ref?.type===sig.type&&ref?.ts===signalAt&&(!sig.signalId||ref.signalId===sig.signalId))):[];
   // Multiple channels describe one delivery attempt. A proven success cannot
   // be undone by another channel's later timeout or failure.
   const pushRecord=receipts.find(record=>record.sent)||receipts.find(record=>record.unknown)||receipts[0]||null;
@@ -190,6 +192,8 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
   ],'state.signals');
   const stageInfo=stageMeta(stage.state);
   const signalHistory=grouped.map(entry=>({
+   signalId:text(entry?.signalId||''),evidenceFingerprint:text(entry?.evidenceFingerprint||''),
+   evidenceStatus:text(entry?.evidenceStatus||'unknown'),evidenceArchiveStatus:text(entry?.evidenceArchiveStatus||'unknown'),
    triggerAt:number(entry?.ts),
    triggerStrategy:text(entry?.type||'未标注策略'),
    strategyVersion:text(entry?.strategyVersion||''),
@@ -230,6 +234,10 @@ function pushProjection(state,rows,poolByCode,pushMeta,now){
     mainPct:number(quote?.mainPct),
     dataSource:text(quote?.quoteSource||quote?.source||''),
     strategyVersion:text(sig?.strategyVersion||''),
+    signalId:text(sig?.signalId||''),evidenceFingerprint:text(sig?.evidenceFingerprint||''),
+    evidenceStatus:text(sig?.evidenceStatus||'unknown'),evidenceArchiveStatus:text(sig?.evidenceArchiveStatus||'unknown'),
+    conditionCoverage:sig?.conditionCoverage&&typeof sig.conditionCoverage==='object'?sig.conditionCoverage:{status:'unknown',scope:'unknown',missing:[]},
+    evidenceMissingReasons:Array.isArray(sig?.evidenceMissingReasons)?sig.evidenceMissingReasons.map(text):[],
     riskLevel:row?.bad===true?'high':'unknown',
     stopLossRule:text(sig?.stopLoss||'待验证'),
     invalidationRule:text(sig?.invalidWhen||'待验证'),
@@ -348,10 +356,10 @@ function dashboardView(state,mood=null,now=Date.now(),meta={}){
  const rules=state.myrules;
  return {sixPhotoBackups:require('./six-photo-backups').readSixPhotoBank(process.env.V6_SIX_PHOTO_FILE),publicQuoteProbe:require('./public-quote-probe').readPublicQuoteProbe(process.env.V6_PUBLIC_QUOTE_PROBE_FILE),parallelMarket:require('./parallel-market').readParallelMarket(process.env.V6_PARALLEL_MARKET_FILE),riskEvidence,schemaVersion:1,observedAt:observed?state.stocksAt:null,indexObservedAt:number(state.idxRt?.at),
    source:'现有行情快照 · 未完成供应商认证',verifiedLive:false,
-   indices:(state.idxRt?.items||[]).filter(Boolean).slice(0,4).map(x=>({code:text(x.code),name:text(x.name),price:number(x.price),pct:number(x.pct)})),
+   indices:(state.idxRt?.items||[]).filter(Boolean).slice(0,4).map(x=>({...quoteObservationView(x,now),code:text(x.code),name:text(x.name),price:number(x.price),pct:number(x.pct)})),
    mood:{label:text(mood?.mood),advice:text(mood?.advice),note:text(mood?.why||mood?.note),upN:up,downN:down,flatN:flat,ztN:number(mood?.ztN),dtN:number(mood?.dtN),upRatio:observed&&total?Math.round(up/total*100):null,
     scope:{market:'全A',sample:total||null,snapAt:number(mood?.snapAt)||number(state.stocksAt),method:'外围30% + 涨跌比40% + 资金30%',dtSource:text(mood?.dtSrc||''),idxAt:number(mood?.idxAt)||number(state?.idxRt?.at)}},
-   sectors:(Array.isArray(state.sectors)?state.sectors:[]).slice(0,40).map(s=>({name:text(s?.name),pct:number(s?.pct),mainInflow:number(s?.mainInflow),ztCount:sectorCounts.get(s?.name)||0})),
+   sectors:(Array.isArray(state.sectors)?state.sectors:[]).slice(0,40).map(s=>({name:text(s?.name),pct:number(s?.pct),mainInflow:number(s?.mainInflow),fundsQuality:fundsObservationView(s,now),ztCount:sectorCounts.get(s?.name)||0})),
    counts:{candidates:observed?pool.length:null,focused:observed?rows.filter(x=>x.focused).length:null,signals:observed&&Array.isArray(state.signals)?state.signals.length:null,risk:observed?rows.filter(x=>x.bad).length:null},
    strategies:[{id:'fourteen',label:'十四条选股',count:rules?.date?number(rules.count):null,note:rules?.date?text(rules.date):'尚无独立证据'},
     {id:'bazi',label:'八字口诀',count:observed?rows.filter(x=>x.bazi).length:null,note:'候选池已评估数'},

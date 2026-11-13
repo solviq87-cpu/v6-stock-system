@@ -3,11 +3,12 @@
 name: V6 UI Browser Geometry
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, "fix/**"]
     paths:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
       - 'V6_BO/scripts/ui-picks-three-k-browser-check.js'
+      - 'V6_BO/scripts/ui-research36-check.js'
       - 'V6_BO/scripts/build-workbuddy-static.js'
       - 'V6_BO/scripts/workbuddy-static-browser-check.js'
       - 'V6_WEB/workbuddy/**'
@@ -60,6 +61,12 @@ jobs:
           set -euo pipefail
           node scripts/ui-reference-browser-check.js
           node scripts/ui-picks-three-k-browser-check.js
+      - name: Verify research36 evidence import, configuration, privacy and responsive layout
+        env:
+          NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules
+          V6_CHROMIUM_PATH: ${{ steps.browser.outputs.binary }}
+          V6_UI_SCREENSHOT_DIR: ${{ runner.temp }}/v6-ui-report/research36
+        run: node scripts/ui-research36-check.js
       - name: Verify the WorkBuddy static artifact preserves current page interactions
         env:
           NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules

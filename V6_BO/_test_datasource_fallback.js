@@ -29,7 +29,7 @@ ok('fetchKline 东财熔断分支也走同花顺兜底',
 
 // 2) fetchKline catch 分支（东财抛错）：腾讯 → 同花顺
 ok('fetchKline catch 分支为 腾讯→同花顺 三级',
-  /\} catch \(e\) \{\s*_emKlineBad\(\);[\s\S]{0,300}?fetchKlineTx[\s\S]{0,250}?fetchKlineThs/.test(s));
+  /\} catch \(e\) \{[\s\S]{0,100}?_emKlineBad\(\);[\s\S]{0,300}?fetchKlineTx[\s\S]{0,250}?fetchKlineThs/.test(s));
 
 // 3) fetchKline 东财「返回空但没抛错」分支：也要有同花顺
 ok('fetchKline 东财返回空分支为 腾讯→同花顺',
@@ -37,7 +37,7 @@ ok('fetchKline 东财返回空分支为 腾讯→同花顺',
 
 // 4) 全市场批量补齐 fetchKlineBulk 也要有同花顺（1480 只缺口全靠这条路径）
 ok('fetchKlineBulk 补齐同花顺兜底',
-  /fetchKlineTx\(code, days\)[\s\S]{0,300}?fetchKlineThs\(code, days\)/.test(
+  /await fetchKline\(code, days\)/.test(
     s.slice(s.indexOf('async function fetchKlineBulk'), s.indexOf('async function fetchKlineEM'))));
 
 // 5) 必须导出，否则 server.js 里 em.fetchKlineThs(...) 是 undefined 直接崩

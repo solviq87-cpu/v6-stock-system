@@ -82,14 +82,16 @@ function attemptTrade(stock,index,horizon,config){
   return close('blocked-session','信号到卖出期间存在停牌、ST或零成交等风险');
  if(stock.isST===true||stock.suspended===true||stock.tradable===false)
   return close('blocked-security','证券存在交易风险');
- if(atLockedLimit(entry,signal,stock,'buy').blocked)
+ const entryLimit=atLockedLimit(entry,signal,stock,'buy');
+ if(entryLimit.blocked)
   return close('blocked-entry','次日开盘可能封板，不能假设买入成交');
- if(atLockedLimit(exit,bars[exitIndex-1],stock,'sell').blocked)
+ const exitLimit=atLockedLimit(exit,bars[exitIndex-1],stock,'sell');
+ if(exitLimit.blocked)
   return close('blocked-exit','卖出日可能一字跌停，不可从样本中删去');
  if(!finite(entry.open)||entry.open<=0||!finite(exit.open)||exit.open<=0)
   return close('invalid-execution-price','进出场价格无效');
- const entryPrice=entry.open*(1+config.slippageBps/10000);
- const exitPrice=exit.open*(1-config.slippageBps/10000);
+ const entryPrice=Math.min(entryLimit.boundary,entry.open*(1+config.slippageBps/10000));
+ const exitPrice=Math.max(exitLimit.boundary,exit.open*(1-config.slippageBps/10000));
  const feeFactor=Math.pow(1-config.feeBps/10000,2)*(1-config.sellTaxBps/10000);
  return {status:'modeled',entryDate:entry.date,exitDate:exit.date,
   entryPrice:round(entryPrice),exitPrice:round(exitPrice),

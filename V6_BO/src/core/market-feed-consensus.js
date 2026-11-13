@@ -45,7 +45,8 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
-  priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
+  // Data as-of DATE is a comparison key, not a distinct capture-session certificate.
+  asOf:primary.asOf,priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
   timestampComparable:observationSkewMs!==null,comparedBars,discrepancies:total,displayedDiscrepancies:differences,
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,

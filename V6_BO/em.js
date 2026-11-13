@@ -3,142 +3,74 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
+const { marketRequests, isMarketRestrictionError } = require('./src/core/market-request-governor');
 
-function get(url, timeout = 10000) {
-  return throttledGet(url, timeout);
-}
-
+// All physical attempts share the provider budget, including retries and curl.
+function get(url, timeout = 10000) { return rawGet(url, timeout); }
 const delay = ms => new Promise(r => setTimeout(r, ms));
-
-// ---------- 并发限流队列：最多6路并发、起始间隔≥250ms，失败自动退避重试 ----------
-let blockedUntil = 0; // 触发限流后的冷却期
-// 2026-10-27 自检补漏：东财限流退避原本完全静默，无法判断"是否频繁触发"。加计数+由通转断日志。
-let _emRateTriggers = 0;
-let _emRateLastAt = 0;
-let active = 0;
-const MAX_ACTIVE = 6;
-const waiters = [];
-let lastStart = 0;
-
-function acquireSlot() {
-  if (active < MAX_ACTIVE) { active++; return Promise.resolve(); }
-  return new Promise(r => waiters.push(r));
+let _emRateTriggers = 0, _emRateLastAt = 0;
+function checkMarketResponse(url, status, headers) {
+  try { marketRequests.checkResponse(url, status, headers); }
+  catch (e) {
+    if (isMarketRestrictionError(e)) { _emRateTriggers++; _emRateLastAt = Date.now(); }
+    throw e;
+  }
 }
-function releaseSlot() {
-  active--;
-  const w = waiters.shift();
-  if (w) { active++; w(); }
-}
-
-function throttledGet(url, timeout) {
-  const run = async () => {
-    const now = Date.now();
-    if (now < blockedUntil) await delay(blockedUntil - now);
-    await acquireSlot();
-    const gap = 250 - (Date.now() - lastStart);
-    if (gap > 0) await delay(gap);
-    lastStart = Date.now();
-    try {
-      return await rawGet(url, timeout);
-    } finally {
-      releaseSlot();
-    }
-  };
-  return run();
-}
-
-// fw 轮：网络错误分类 —— 限流(rate)与瞬时出网(egress)分开处置。
-//   限流才走全局冷却(blockedUntil)，避免把 IP 打封；瞬时出网（云端抖动）走快速重试+抖动，
-//   不触发全局冷却（否则几十页并发请求被串行拖死）；其它（坏 json 等）立即抛，不重试。
 function classifyNetErr(msg) {
   if (/rate|限流/i.test(msg)) return 'rate';
   if (/hang up|timeout|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|socket/i.test(msg)) return 'egress';
   return 'other';
 }
-// ⛔ 东财数字子域名轮换（2026-10-30，用户「大单流入全部不推送了」根因修复）：
-//    push2 主域在本机/部分网络环境被拉黑的表现是**空响应**（doGet 解析空串 → bad json），
-//    bad json 原分类为 other=不重试不换源 → 整个东财链一击即溃 → 行情快照 fallback 腾讯
-//    （无主力净流入字段，mainInflow 硬置 0）→ 大单/冲板/竞价资金类模块全灭。
-//    实测同路径 https://72.push2.eastmoney.com 正常返回数据（主域空响应）——
-//    黑名单只封部分域名/IP，数字子域名仍通。轮换策略：主域 3 次失败（含 bad json）→ 换 72 → 82 → 92。
-//    只对 push2 主域轮换（实测验证过）；非东财 URL 与 push2his/push2ex 行为完全不变。
-const EM_HOST_CHAIN = ['push2.eastmoney.com', '72.push2.eastmoney.com', '82.push2.eastmoney.com', '92.push2.eastmoney.com'];
-function emHostChainFor(url) {
-  try {
-    if (new URL(url).host === 'push2.eastmoney.com') return EM_HOST_CHAIN;
-  } catch (_) {}
-  return null;
-}
-
 async function rawGet(url, timeout) {
-  const hosts = emHostChainFor(url);
-  const rounds = hosts ? hosts.length : 1;
-  let lastErr = null;
-  for (let h = 0; h < rounds; h++) {
-    // h=0 用原 URL；h>0 把主域替换成数字子域名（同路径同参数，只换 host）
-    const tryUrl = (hosts && h > 0) ? url.replace('https://' + hosts[0], 'https://' + hosts[h]) : url;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        return await doGet(tryUrl, timeout);
-      } catch (e) {
-        lastErr = e;
-        const msg = String(e && e.message);
-        const kind = classifyNetErr(msg);
-        // 东财轮换语境下 bad json（空响应=域名被拉黑的特征）按 egress 处置：重试并允许换 host
-        const rotatable = hosts && /bad json/.test(msg);
-        if (kind === 'rate') {
-          const wasBlocked = Date.now() < blockedUntil;   // 只在「由通转断」这一刻打日志，避免每页刷屏
-          blockedUntil = Date.now() + 8000 * (attempt + 1); // 退避 8s/16s/24s
-          _emRateTriggers++;
-          _emRateLastAt = Date.now();
-          if (!wasBlocked) console.warn(`[em] 东财限流退避触发（本次运行累计 ${_emRateTriggers} 次，冷却 ${8 * (attempt + 1)}s）`);
-          if (attempt === 2) break;   // 本 host 3 次用完 → 换下一个 host（原逻辑是直接 throw）
-          await delay(1000);
-        } else if (kind === 'egress' || rotatable) {
-          if (attempt === 2) break;   // 本 host 3 次用完 → 换下一个 host
-          const jitter = Math.floor(Math.random() * 300);
-          await delay(300 * (attempt + 1) + jitter); // 快速重试 + 抖动，不触发全局冷却
-        } else throw e;
-      }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await doGet(url, timeout); }
+    catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
+      if (isMarketRestrictionError(e) || classifyNetErr(String(e && e.message)) !== 'egress' || attempt === 2) throw e;
+      await delay(300 * (attempt + 1) + Math.floor(Math.random() * 300));
     }
   }
-  throw lastErr || new Error('all hosts failed ' + url.slice(0, 60));
 }
 
 // 🔴 关键：Node 19+ 的 https.globalAgent 默认 keepAlive:true + LIFO 调度，
 //    会优先复用「最近用过的」socket。东财 CDN 会关掉空闲长连接，复用到已关闭的
 //    socket 就直接 socket hang up —— 实测交易时段约一半请求栽在这上面。
 //    显式禁用 keep-alive，每次新建连接，断连率显著下降。
-const EM_AGENT = new https.Agent({ keepAlive: false, maxSockets: 64, family: 4 });
+const EM_AGENT = new https.Agent({ keepAlive: false, maxSockets: 1, family: 4 });
 
-function doGet(url, timeout = 10000) {
-  return new Promise((resolve, reject) => {
+function nodeGetBytes(url, timeout = 10000, headers = {}) {
+  return marketRequests.run(url, () => new Promise((resolve, reject) => {
     const req = https.get(url, {
-      family: 4, // 关键：东财接口 IPv6 会挂起，强制 IPv4
-      agent: EM_AGENT,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://quote.eastmoney.com/',
-        'Connection': 'close'
-      },
-      timeout
+      family: 4, agent: EM_AGENT, headers, timeout
     }, res => {
+      try { checkMarketResponse(url, res.statusCode, res.headers); }
+      catch (e) { res.resume(); req.destroy(); reject(e); return; }
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        res.resume(); req.destroy(); reject(new Error('market HTTP ' + res.statusCode)); return;
+      }
       const chunks = [];
-      res.on('data', d => chunks.push(d));
-      res.on('end', () => {
-        try {
-          const text = Buffer.concat(chunks).toString('utf8');
-          // 东财部分接口返回 jsonp，去壳
-          const m = text.match(/^\w*\((.*)\);?\s*$/s);
-          resolve(JSON.parse(m ? m[1] : text));
-        } catch (e) {
-          reject(new Error('bad json from ' + url.slice(0, 80)));
-        }
+      let size = 0;
+      res.on('data', d => {
+        size += d.length;
+        if (size > 8e6) { const error = new Error('market response too large'); reject(error); req.destroy(error); return; }
+        chunks.push(d);
       });
+      res.on('error', reject);
+      res.on('aborted', () => reject(new Error('market response aborted')));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
     });
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout ' + url.slice(0, 80))); });
+    req.on('timeout', () => { req.destroy(new Error('market timeout')); });
     req.on('error', reject);
+  }));
+}
+async function doGet(url, timeout = 10000) {
+  const bytes = await nodeGetBytes(url, timeout, {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    'Referer': 'https://quote.eastmoney.com/', 'Connection': 'close'
   });
+  const text = bytes.toString('utf8');
+  const m = text.match(/^\w*\((.*)\);?\s*$/s);
+  try { return JSON.parse(m ? m[1] : text); }
+  catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; throw new Error('bad market json'); }
 }
 
 // 并发受限的批量执行
@@ -150,7 +82,7 @@ async function pool(items, worker, limit = 6) {
       const idx = i++;
       for (let t = 0; t < 2; t++) {
         try { ret[idx] = await worker(items[idx], idx); break; }
-        catch (e) { if (t === 1) ret[idx] = null; else await delay(500); }
+        catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; if (t === 1) ret[idx] = null; else await delay(500); }
       }
     }
   }));
@@ -208,7 +140,7 @@ async function fetchAllStocks() {
     const s = await fetchAllStocksSina();
     if (s && s.length >= FULL_MIN_OK) { saveUniverse(s.map(x => x.code)); return s; }
     if (s && s.length) console.error('[em] 新浪全A仅 ' + s.length + ' 只（不足' + FULL_MIN_OK + '），转东财兜底');
-  } catch (e) { console.error('[em] 新浪全A异常，转东财:', e && e.message); }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; console.error('[em] 新浪全A异常，转东财:', e && e.message); }
 
   // ② 兜底：东财全量分页（受随机断连影响，可能不全）
   let best = [], lastErr = null;
@@ -217,7 +149,7 @@ async function fetchAllStocks() {
       const r = await fetchAllStocksEM();
       if (r && r.length >= FULL_MIN_OK) { saveUniverse(r.map(x => x.code)); return r; }
       if (r && r.length > best.length) best = r;
-    } catch (e) { lastErr = e; }
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; lastErr = e; }
     if (round === 0) await delay(1000);
   }
   // ③ 东财不全 → 用缓存全集 + 腾讯批量快照补价（腾讯 qt.gtimg.cn 60只一批，交易时段稳定得多）
@@ -226,7 +158,7 @@ async function fetchAllStocks() {
       const filled = await fetchAllStocksTx(best);
       if (filled && filled.length >= FULL_MIN_OK) return filled;
       if (filled && filled.length > best.length) best = filled;
-    } catch (e) { console.error('[em] 腾讯补价失败:', e.message); }
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; console.error('[em] 腾讯补价失败:', e.message); }
   }
   if (best.length >= FULL_MIN_USE) { console.error('[em] 全A仅取到 ' + best.length + ' 只，降级使用'); return best; }
   console.error('[em] 全A全渠道失败:', lastErr ? lastErr.message : '样本不足');
@@ -254,7 +186,7 @@ function loadUniverse() {
 
 const EM_PAGE_URL = pn => `${EM}/api/qt/clist/get?pn=${pn}&pz=100&po=1&np=1&fltt=2&invt=2&fid=f20` +
   `&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23` +
-  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184`;
+  `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f26,f62,f184,f124`;
 const EM_PAGES = 60;
 
 // ① 并发抢页：交易时段东财约 50% 随机断连，串行 56 页要 30 秒以上；
@@ -262,7 +194,7 @@ const EM_PAGES = 60;
 async function fetchAllStocksEM() {
   const CONC = 5;
   const T0 = Date.now();
-  const BUDGET = 30000;                       // 总时间预算：宁可少几页也不拖到网关 504
+  const BUDGET = 120000;                      // 60页在共享1秒预算下仍有完成机会；到期不再派页
   const left = () => BUDGET - (Date.now() - T0);
   const pages = new Array(EM_PAGES).fill(null);
   let total = 0, cursor = 0;
@@ -276,7 +208,7 @@ async function fetchAllStocksEM() {
           pages[i] = j.data.diff;
           if (j.data.total) total = Math.max(total, j.data.total);
         }
-      } catch {}
+      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
     }
   };
   await Promise.all(Array.from({ length: CONC }, worker));
@@ -295,7 +227,7 @@ async function fetchAllStocksEM() {
           pages[i] = j.data.diff;
           if (j.data.total) total = Math.max(total, j.data.total);
         }
-      } catch {}
+      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
       await delay(60);
     }
   }
@@ -307,12 +239,12 @@ async function fetchAllStocksEM() {
   return rows;
 }
 
-// 分页专用请求：不走全局 blockedUntil（8s/16s/24s 退避会把几十页拖到几分钟）
+// 分页每次重试也进入同一供应商预算；限制响应立即停止本轮。
 async function getPaged(url, timeout = 9000, attempts = 3) {
   let last = null;
   for (let att = 0; att < attempts; att++) {
     try { return await doGet(url, timeout); }
-    catch (e) { last = e; if (att < attempts - 1) await delay(120 + att * 120); }
+    catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; last = e; if (att < attempts - 1) await delay(120 + att * 120); }
   }
   throw last;
 }
@@ -345,12 +277,17 @@ async function fetchAllStocksTx(base) {
       mainPct: toObservedNumber(e.mainPct),
       fundsSource: e.fundsSource || null, fundsMethod: e.fundsMethod || null,
       fundsRetrievedAt: e.fundsRetrievedAt ?? null, fundsSourceTimestamp: e.fundsSourceTimestamp ?? null,
+      fundsUnit:e.fundsUnit||null,
       listedDate: Number.isFinite(Number(e.listedDate)) ? Number(e.listedDate) : 0
     };
   });
 }
 
 function normalizeStock(d) {
+  const receivedAt = Date.now();
+  const seconds=typeof d.f124==='number'||typeof d.f124==='string'&&/^\d+$/.test(d.f124)?Number(d.f124):null;
+  const quoteAt = Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 8e12 ? seconds * 1000 : null;
+  const observation = batchQuoteAtPublication({price:d.f2,quoteSource:'eastmoney',quoteAt,receivedAt,canTrade:true},receivedAt);
   return {
     code: d.f12, name: d.f14,
     price: d.f2, pct: d.f3,           // 现价 / 涨跌幅%
@@ -361,8 +298,12 @@ function normalizeStock(d) {
     speed: d.f22,                     // 涨速
     listedDate: d.f26,                // 上市日期 yyyymmdd
     mainInflow: observedFlowNumber(d.f62), mainPct: observedFlowNumber(d.f184),
-    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
-    fundsRetrievedAt: Date.now(), fundsSourceTimestamp: null // 接收时刻不是原报价时刻
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',fundsUnit:'CNY',
+    fundsRetrievedAt: receivedAt, fundsSourceTimestamp: null, // 价格时间不能冒充资金原时点
+    ...observation, quoteMode:'public-live-unverified',
+    tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+    canNotify:observation.canTrade,
+    quoteMissingReason:quoteAt===null?'source-time-unavailable':observation.quoteFreshness==='recent-unverified'?null:observation.quoteFreshness
   };
 }
 
@@ -379,7 +320,9 @@ function observedFlowCount(value) {
 }
 function flowProvenance(retrievedAt) {
   return { source: 'eastmoney', upstream: 'eastmoney',
-    fundsMethod: 'vendor-order-size-estimate', retrievedAt, sourceTimestamp: null };
+    fundsMethod: 'vendor-order-size-estimate', fundsUnit:'CNY', unit:'CNY',
+    retrievedAt, sourceTimestamp: null, tradeDate:null, mode:'vendor-order-size-estimate',
+    freshness:'unknown', missingReason:'missing-original-funds-time',canTrade:false,canNotify:false };
 }
 
 // 板块资金流。t:2 行业板块, t:3 概念板块
@@ -440,7 +383,7 @@ function _boardMembersFromLocalCache(bkCode, num) {
       const sf = path.join(__dirname, 'stocks_snapshot.json');
       const sj = JSON.parse(fs.readFileSync(sf, 'utf8'));
       for (const r of (sj.rows || [])) { if (r.code && r.name) nameMap[r.code] = r.name; }
-    } catch { /* 名称拿不到就留空，不拦 */ }
+    } catch (e) { /* 名称拿不到就留空，不拦 */ }
     const out = [];
     for (const entry of arr) {
       const code = Array.isArray(entry) ? entry[0] : null;
@@ -453,7 +396,7 @@ function _boardMembersFromLocalCache(bkCode, num) {
       }
     }
     return out;
-  } catch { return []; }
+  } catch (e) { return []; }
 }
 async function fetchBoardStocks(bkCode, num = 50) {
   return dedup(`b:${bkCode}:${num}`, () => _fetchBoardStocksCore(bkCode, num));
@@ -477,13 +420,13 @@ async function _fetchBoardStocksCore(bkCode, num = 50) {
     if (j) gotResp = true;
     const r = parse(j);
     if (r.length) { BOARD_BACKOFF.fail = 0; BOARD_BACKOFF.until = 0; return r; }
-  } catch {}
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
   try {
     const j = await curlGet(u, 10000);
     if (j) gotResp = true;
     const r = parse(j);
     if (r.length) { BOARD_BACKOFF.fail = 0; BOARD_BACKOFF.until = 0; return r; }
-  } catch {}
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
   // 东财两条传输都拿不到 → 本地缓存反查兜底（stockBoards.json 反转，随包落盘、重启不丢）
   const cached = _boardMembersFromLocalCache(bkCode, num);
   if (cached && cached.length) {
@@ -513,7 +456,7 @@ function _srcWarn(tag, msg) {
     if (now - s.lastAt < 60000) return;
     s.lastAt = now;
     console.warn(`[em] ⚠️ ${tag}（累计 ${s.n} 次）：${msg}`);
-  } catch { /* 留痕本身绝不允许影响取数主流程 */ }
+  } catch (e) { /* 留痕本身绝不允许影响取数主流程 */ }
 }
 
 // 涨停池（含连板数/封单/炸板/行业）— 东财主源，挂了自动切同花顺
@@ -547,12 +490,12 @@ async function fetchZTPool(date) {
   try {
     const r = parse(await get(u));
     if (r && r.length) return r;
-  } catch { }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
   // Node 通道被反爬/断连 → curl 子进程（同 fetchBoardStocks 的策略）
   try {
     const r = parse(await curlGet(u, 12000));
     if (r && r.length) return r;
-  } catch { }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
   // 东财两条路都不通 → 同花顺涨停池
   // ⛔ 铁律③ 兜底不许静默：涨停池是全项目涨跌停计数的唯一权威源（东财封板池 tc）。
   //    三源（东财 Node 通道 → 东财 curl 通道 → 同花顺兜底）全空时返回 [] 本身是诚实的
@@ -560,7 +503,7 @@ async function fetchZTPool(date) {
   //    「三源都拉不到」，会把拉取失败直接当成「今日无涨停」，复盘/选股整片零输出。
   //    2026-10-02 补了同花顺兜底，但兜底也空时的静默没补，这里补齐。
   let t = [];
-  try { t = await fetchZTPoolThs(date); } catch (e) {
+  try { t = await fetchZTPoolThs(date); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     _srcWarn('涨停池·同花顺兜底抛错', `东财双通道已不通，同花顺兜底又抛错：${(e && e.message) || e} —— 返回空池，调用方须按「未确认」处理`);
     return [];
   }
@@ -580,8 +523,8 @@ async function fetchDTCount(date) {
   const u = `${EMX}/getTopicDTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt` +
     `&Pageindex=0&pagesize=5&sort=fund%3Aasc&date=${date}`;
   const parse = j => (j && j.data && j.data.tc != null) ? { tc: +j.data.tc, qdate: j.data.qdate } : null;
-  try { const r = parse(await get(u, 8000)); if (r) return r; } catch { }
-  try { const r = parse(await curlGet(u, 12000)); if (r) return r; } catch { }
+  try { const r = parse(await get(u, 8000)); if (r) return r; } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
+  try { const r = parse(await curlGet(u, 12000)); if (r) return r; } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
   _srcWarn('跌停池·双通道全空', `东财 getTopicDTPool 双通道均无数据（date=${date}）—— 返回 null，调用方退回自算近似并须标注，⛔ 不可判今日无跌停`);
   return null;
 }
@@ -598,8 +541,8 @@ async function fetchZTPoolLatestDay() {
   const u = `${EMX}/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt` +
     `&Pageindex=0&pagesize=1&sort=fbt%3Aasc&date=${today}`;
   let j = null;
-  try { j = await get(u, 6000); } catch { }
-  if (!j || !j.data || !j.data.qdate) { try { j = await curlGet(u, 12000); } catch { } }
+  try { j = await get(u, 6000); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
+  if (!j || !j.data || !j.data.qdate) { try { j = await curlGet(u, 12000); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; } }
   const q = j && j.data && j.data.qdate;
   // ⛔ 铁律③：探测失败返回空串是诚实的（绝不拿空串冒充今天），但原来一行日志都没有。
   //    归属日判不出会让调用方回退到 K 线探测（历史上因此探成 10-16 而实际是 10-19），
@@ -638,9 +581,9 @@ async function fetchZTPoolThs(date) {
       '&limit=100&field=199112,10,9001,330324,133971,133970,1968584,3475914,9002,330329' +
       '&filter=HS,GEM2STAR&order_field=330324&order_type=0&date=' + d;
     let j = null;
-    // ⛔ 铁律③：原 catch { break; } 静默跳过 —— 同花顺整条兜底链挂了也一行日志没有，
+    // ⛔ 铁律③：原 catch (e) { break; } 静默跳过 —— 同花顺整条兜底链挂了也一行日志没有，
     //    外层只看到空数组，分不清「同花顺也没涨停」还是「同花顺接口挂了」。
-    try { j = await curlGet(u, 15000, 'https://data.10jqka.com.cn/'); } catch (e) {
+    try { j = await curlGet(u, 15000, 'https://data.10jqka.com.cn/'); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       _srcWarn('涨停池·同花顺兜底拉取失败', `第 ${page} 页请求失败：${(e && e.message) || e}`);
       break;
     }
@@ -787,9 +730,9 @@ async function fetchZtReason(date) {
       '&field=199112,10,9001,330324,133971,133970,1968584,3475914,9002,330329' +
       '&filter=HS,GEM2STAR&order_field=330324&order_type=0&date=' + d;
     let j = null;
-    // ⛔ 铁律③：原 catch { break; } 静默跳过 —— 涨停原因兜底链挂了无日志，
+    // ⛔ 铁律③：原 catch (e) { break; } 静默跳过 —— 涨停原因兜底链挂了无日志，
     //    表现为「涨停原因整列空白」，排查时查不到是接口挂还是当日无数据。
-    try { j = await curlGet(u, 15000, 'https://data.10jqka.com.cn/'); } catch (e) {
+    try { j = await curlGet(u, 15000, 'https://data.10jqka.com.cn/'); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       _srcWarn('涨停原因·同花顺兜底拉取失败', `第 ${page} 页请求失败：${(e && e.message) || e}`);
       break;
     }
@@ -888,7 +831,7 @@ function _snapRefMap() {
     if (mtD.getFullYear() !== new Date().getFullYear() || mtD.getMonth() !== new Date().getMonth() || mtD.getDate() !== new Date().getDate()) return null;
     if (mtD.getHours() * 60 + mtD.getMinutes() < 15 * 60 + 5) return null;
     return _snapRef.map;
-  } catch { return null; }
+  } catch (e) { return null; }
 }
 function _todayStr(now) {
   const d = now || new Date();   // mq 轮：允许注入时钟（补行/守卫的守门测试不许依赖真实时间）
@@ -936,7 +879,7 @@ function rebuildDayRow(rows, ref) {
       turnover: Number(ref.turnover) > 0 ? +Number(ref.turnover).toFixed(2) : (Number(last.turnover) || 0),
       rebuilt: true                                   // 留痕：这一行不是数据源原文，是按快照重建的
     };
-  } catch { return null; }
+  } catch (e) { return null; }
 }
 // 当日行守卫计数按「自然日」清零：K线守卫是全天候累加的，累计到 92182/79374 会让「只」标签失真、
 // 与市场 5566 只完全不可比。每天跨日自动归零，使 dropped/rebuilt 等代表「今日累计」，口径诚实可比。
@@ -999,7 +942,7 @@ function guardDayRow(code, k, now) {
         console.warn(`[em] 兜底源当日行失真无法重建，已丢弃：${code} ${last.date} close=${c} vs 东财快照 ${rc}（偏差 ${(devPct * 100).toFixed(2)}%）`);
       }
     }
-  } catch { /* 守卫本身绝不能拦住取数 */ }
+  } catch (e) { /* 守卫本身绝不能拦住取数 */ }
   return k;
 }
 // ⛔⛔ ③ 当日行「缺行补齐」（2026-10-28 mq 轮，用户「每个数字可信」）
@@ -1062,7 +1005,7 @@ function appendDayRow(code, k, now, refMap) {   // refMap 仅供守门注入（�
     _dayGuard.appended = (_dayGuard.appended || 0) + 1;
     _dayGuard.lastAt = Date.now();
     _dayGuard.lastAppended = [...(_dayGuard.lastAppended || []).slice(-19), `${code} +${today} ${price}`];
-  } catch { /* 补行失败绝不能拦住取数 */ }
+  } catch (e) { /* 补行失败绝不能拦住取数 */ }
   return k;
 }
 function dayGuardStats() {
@@ -1077,7 +1020,8 @@ function backoffStats() {
   return {
     emRateTriggers: _emRateTriggers,
     emRateLastAt: _emRateLastAt,
-    emRateCooldownLeft: Math.max(0, blockedUntil - Date.now()),
+    emRateCooldownLeft: marketRequests.state(EM).cooldownLeftMs,
+    marketRequests: ['https://push2.eastmoney.com', 'https://qt.gtimg.cn', 'https://vip.stock.finance.sina.com.cn', 'https://d.10jqka.com.cn'].map(u => marketRequests.state(u)),
     emKlineDown: emKlineDown(),
     emKlineDownLeft: Math.max(0, _emKlineDownUntil - Date.now()),
     boardBackoffFail: BOARD_BACKOFF.fail,
@@ -1107,23 +1051,23 @@ async function _fetchKlineCore(code, days = 95) {
   // ⚠️ 2026-10-02 修：原来这里只试腾讯就 return —— 腾讯一旦也挂，这个函数在东财熔断期内
   //    就是彻底死的（返回 undefined），所有依赖 K 线的模块整片空白。补上同花顺兜底。
   if (emKlineDown()) {
-    try { const k = await fetchKlineTx(code, days); if (k && k.rows && k.rows.length) { k.fallback = true; return k; } } catch { }
+    try { const k = await fetchKlineTx(code, days); if (k && k.rows && k.rows.length) { k.fallback = true; return k; } } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
     try {
       const k = await fetchKlineThs(code, days);
       if (k && k.rows && k.rows.length) { k.fallback = true; return k; }
-    } catch { }
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
   }
   try {
     const k = await fetchKlineEM(code, days);
     if (k && k.rows && k.rows.length) { _emKlineOk(); return k; }
     _emKlineBad();
-  } catch (e) {
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     _emKlineBad();
     // 东财挂了 → 腾讯 → 同花顺（不再把腾讯当唯一的最后一道防线）
     try {
       const k = await fetchKlineTx(code, days);
       if (k && k.rows && k.rows.length) { k.fallback = true; return k; }
-    } catch { }
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
     const k2 = await fetchKlineThs(code, days);
     if (k2 && k2.rows && k2.rows.length) { k2.fallback = true; return k2; }
     throw e;
@@ -1132,7 +1076,7 @@ async function _fetchKlineCore(code, days = 95) {
   try {
     const k = await fetchKlineTx(code, days);
     if (k && k.rows && k.rows.length) { k.fallback = true; return k; }
-  } catch { }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; }
   try {
     const k = await fetchKlineThs(code, days);
     if (k) k.fallback = true;
@@ -1140,7 +1084,7 @@ async function _fetchKlineCore(code, days = 95) {
     // ⛔ 铁律③ 兜底不许静默：走到这里 = 东财返回空 + 腾讯失败 + 同花顺失败，三源全挂。
     //    返回 null 本身是诚实的（不拿假数据冒充），但**没有任何日志** —— 全A补K线时每只都静默 null，
     //    运维只看到「K线拉不到/陈旧」却查不到是三源全挂。逐票调用故 60 秒限频 + 累计计数。
-  } catch (e) { _klineAllSrcFail(code, e); return null; }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; _klineAllSrcFail(code, e); return null; }
 }
 
 // ── 批量拉取 K 线（全市场补齐专用）──────────────────────────────────────
@@ -1148,26 +1092,20 @@ async function _fetchKlineCore(code, days = 95) {
 // 1480 只缺口要跑大半天。这里并发跑，并且东财判死期间全程走腾讯（~143ms/只）。
 // 返回 { ok, n, added, fail, failed: [code...] }
 async function fetchKlineBulk(codes, days = 60, conc = 10) {
-  const out = new Map();
-  const failed = [];
+  const out = new Map(), failed = [];
   let i = 0;
   async function worker() {
     while (i < codes.length) {
       const code = codes[i++];
       try {
-        let k = null;
-        if (!emKlineDown()) {
-          try { k = await fetchKlineEM(code, days); if (k && k.rows && k.rows.length >= 6) _emKlineOk(); else { _emKlineBad(); k = null; } }
-          catch { _emKlineBad(); k = null; }
-        }
-        if (!k) { try { k = await fetchKlineTx(code, days); if (k) k.fallback = true; } catch { k = null; } }
-        // ⚠️ 2026-10-02 修：批量补齐也补上同花顺。全市场 1480 只缺口全靠这一条路径，
-        //    东财+腾讯双挂时整轮补齐全废（原来只到腾讯为止）。
-        if (!k || !k.rows || k.rows.length < 6) { try { k = await fetchKlineThs(code, days); if (k) k.fallback = true; } catch { k = null; } }
-        if (k) k = guardDayRow(code, k);   // ks 轮：兜底源当日行守卫（批量补齐同样不能写假行）
+        // The canonical path owns source fallback, restriction handling and dedup.
+        const k = await fetchKline(code, days);
         if (k && k.rows && k.rows.length >= 6) out.set(code, k);
         else failed.push(code);
-      } catch { failed.push(code); }
+      } catch (e) {
+        if (e && e.code === 'MARKET_RESTRICTED') throw e;
+        failed.push(code);
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(conc, 24)) }, worker));
@@ -1191,7 +1129,7 @@ async function fetchKlineEM(code, days = 95) {
       chg: +p[9], turnover: +p[10]
     };
   });
-  return { name: j.data.name, rows };
+  return { name: j.data.name, rows,src:'em',adjust:'qfq',receivedAt:Date.now() };
 }
 
 // 集合竞价分时（东财 trends2 iscr=1）：取 09:15–09:25 每分钟的价/量，
@@ -1225,35 +1163,93 @@ async function fetchAuctionTicks(code) {
 // 批量实时快照（自选池用），含主力净流入；东财限流时切换腾讯
 async function fetchBatchSnapshot(codes) {
   const requested = [...new Set(codes)], chosen = new Map();
+  const txAttempted = new Set();
   let lastError;
-  for (const fetchRows of [fetchBatchSnapshotEM, fetchBatchSnapshotTx]) {
-    const missing = requested.filter(code => !chosen.has(code));
-    if (!missing.length) break;
+  const refresh = now => {
+    for (const [code, row] of chosen) {
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness === 'recent-unverified') chosen.set(code, current);
+      else chosen.delete(code);
+    }
+  };
+  const missing = () => requested.filter(code => !chosen.has(code));
+  const collect = (rows, wanted, now) => {
+    const allowed = new Set(wanted);
+    for (const row of rows || []) {
+      if (!row || !allowed.has(row.code)) continue;
+      const current = batchQuoteAtPublication(row, now);
+      if (current.quoteFreshness !== 'recent-unverified') continue;
+      const previous = chosen.get(row.code);
+      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(row.code, current);
+    }
+  };
+  const fetchMissing = async (provider, fetchRows, wanted) => {
+    if (!wanted.length) return;
+    if (provider === 'tencent') for (const code of wanted) txAttempted.add(code);
     try {
-      for (const row of (await fetchRows(missing)) || []) {
-        if (!missing.includes(row.code) || chosen.has(row.code) || row.quoteFreshness !== 'recent-unverified') continue;
-        chosen.set(row.code, row);
-      }
-    } catch (e) { lastError = e; }
+      const rows = await fetchRows(wanted), now = Date.now();
+      refresh(now);
+      collect(rows, wanted, now);
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
+      lastError = e;
+      batchQuoteWarn(provider, wanted, classifyNetErr(String(e && e.message || e)));
+    }
+  };
+  for (const [provider, fetchRows] of [['eastmoney', fetchBatchSnapshotEM], ['tencent', fetchBatchSnapshotTx]]) {
+    refresh(Date.now());
+    await fetchMissing(provider, fetchRows, missing());
   }
-  const missing = requested.filter(code => !chosen.has(code));
-  if (missing.length) {
-    for (const row of require('./src/core/six-photo-backups').photoQuoteFallback(missing))
-      if (missing.includes(row.code) && !chosen.has(row.code)) chosen.set(row.code, row);
+  // A slow secondary request can expire a primary row that did not need the
+  // secondary at its start. Give only these never-requested symbols one chance.
+  refresh(Date.now());
+  await fetchMissing('tencent', fetchBatchSnapshotTx, missing().filter(code => !txAttempted.has(code)));
+  refresh(Date.now());
+  const remaining = missing();
+  if (remaining.length) {
+    try {
+      const rows = require('./src/core/six-photo-backups').photoQuoteFallback(remaining);
+      const now = Date.now();
+      refresh(now);
+      collect(rows, remaining, now);
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
+      lastError = e;
+      batchQuoteWarn('research', remaining, 'unavailable');
+    }
   }
+  // One clock for the entire published batch, after every request/backup read.
+  refresh(Date.now());
   if (!chosen.size && lastError) throw lastError;
   return requested.map(code => chosen.get(code)).filter(Boolean);
+}
+
+function batchQuoteAtPublication(row, now) {
+  const validTime = value => Number.isSafeInteger(value) && value > 0 && value <= 8e15;
+  const day = value => new Date(value + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const quoteAt = row && row.quoteAt, receivedAt = row && row.receivedAt;
+  let quoteFreshness = 'unknown';
+  if (row && typeof row.price === 'number' && Number.isFinite(row.price) && row.price > 0 &&
+      typeof row.quoteSource === 'string' && row.quoteSource.trim() &&
+      validTime(quoteAt) && validTime(receivedAt) && validTime(now)) {
+    // A timestamp that was future at receipt never becomes valid merely by waiting.
+    if (quoteAt > receivedAt || receivedAt > now) quoteFreshness = 'future';
+    else if (now - quoteAt > 15000 || day(quoteAt) !== day(now)) quoteFreshness = 'stale';
+    else quoteFreshness = 'recent-unverified';
+  }
+  return { ...row, quoteFreshness, canTrade: row?.canTrade === true && quoteFreshness === 'recent-unverified' };
+}
+function batchQuoteWarn(provider, codes, reason) {
+  // Only bounded public stock identifiers and fixed reason classes; no raw URL/error body.
+  const validCodes = codes.filter(code => /^\d{6}$/.test(code));
+  _srcWarn(`批量报价·${provider}`, `${reason}；本批${codes.length}只，代码${validCodes.slice(0, 60).join(',') || '未知'}；保留其他有效行`);
 }
 
 async function fetchBatchSnapshotEM(codes) {
   const secids = codes.map(c => (c.startsWith('6') || c.startsWith('9')) ? `1.${c}` : `0.${c}`).join(',');
   const u = `${EM}/api/qt/ulist.np/get?secids=${secids}&fltt=2&invt=2&np=1` +
     `&fields=f12,f14,f2,f3,f5,f6,f8,f15,f16,f17,f18,f20,f21,f22,f62,f66,f184,f124`;
-  // ⛔ 2026-10-30：Node TLS 指纹被东财全域拒绝（socket hang up）是常态，get() 抛错时走 curl 轮换
-  //    （curlGet 内对东财 URL 自动按 72/82/92 子域名轮换——腾讯 fallback 只有行情无资金流字段，
-  //    主力净流入 f62/f66 是资金类推送的硬数据，必须尽力保住东财源，不能直接退腾讯）。
+  // 普通传输故障可试现有 curl；限制响应直接退出，不切换传输。
   let j = null;
-  try { j = await get(u); } catch {}
+  try { j = await get(u); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
   if (!j || !j.data || !j.data.diff) j = await curlGet(u, 8000);
   if (!j || !j.data || !j.data.diff) throw new Error('snapshot EM+curl 双通道均无数据');
   return j.data.diff.map(d => {
@@ -1285,42 +1281,64 @@ async function fetchFundFlowDays(code, days = 6) {
     const j = await doGet(u, 6000);
     const r = parse(j);
     if (r) return r;
-  } catch {}
-  // curl 通道（该接口对 curl 放行）；--noproxy 绕过系统代理（代理环境下东财不通）
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
+  // 普通传输故障可试现有 curl；限制响应已在上一层立即抛出。
   try {
     const r2 = parse(await curlGet(u, 8000));
     if (r2) return r2;
-  } catch {}
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
   // ⛔ 铁律③：两条通道都取不到 → 返回 null 是诚实的（不拿 0 冒充），但原来静默无日志，
   //    表现为「资金流门槛整列空白/全不达标」，排查时看不到是接口挂还是该票真无资金流。
   _srcWarn('资金流日线·两通道均失败', `${code} 的 fflow 日线 Node/curl 双通道均无数据 —— 返回 null，调用方须按「无资金流」处理，⛔ 不拿 0 冒充`);
   return null;
 }
 
-// curl 子进程 GET：绕过 Node TLS 指纹拦截与本机代理环境变量
-// referer 可覆盖：同花顺 data.10jqka.com.cn 必须带自家 Referer 才给数据（2026-10-01 实测）
-// ⛔ 2026-10-30 东财域名轮换：Node TLS 指纹被东财全域拒绝（socket hang up，实测含 72/82 子域），
-//    但 curl 子进程（浏览器 UA + TLS 指纹）能通——只是部分域名（push2 主域）被本机网络环境
-//    拉黑返回空响应。所以 curlGet 对东财 URL 按 EM_HOST_CHAIN 轮换：主域空响应 → 72 → 82 → 92。
+// curl 子进程 GET：每次真实请求使用同一供应商预算，不轮换域名
+// referer 可覆盖；保留现有代理环境，限制响应不会切换域名或传输方式。
 function curlGet(u, timeoutMs = 8000, referer) {
-  return new Promise(resolve => {
-    const hosts = emHostChainFor(u);
-    const urls = hosts ? hosts.map(h => u.replace(hosts[0], h)) : [u];
-    let idx = 0;
-    const attempt = () => {
-      execFile('curl', ['-s', '--noproxy', '*', '--max-time', String(Math.ceil(timeoutMs / 1000)), urls[idx],
-        '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        '-H', 'Referer: ' + (referer || 'https://quote.eastmoney.com/'),
-        '-H', 'Accept: */*'],
-        // windowsHide 必须显式开启：node 是 DETACHED(无控制台) 启动的，Windows 会为 curl 这类控制台子系统程序
-        // 另开一个新的控制台窗口 → 每调一次闪一个黑框，这是"频繁弹窗"的真正根因，与 node 崩溃无关
-        { maxBuffer: 8e6, windowsHide: true }, (err, stdout) => {
-          if (!err && stdout) { try { resolve(JSON.parse(stdout)); return; } catch { /* 换下一个域名 */ } }
-          if (idx < urls.length - 1) { idx++; attempt(); }
-          else resolve(null);
-        });
-    };
-    attempt();
+  // Prepare files before reserving a start. The run callback reaches execFile
+  // synchronously, so slow local preparation cannot consume the wire interval.
+  const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v6-market-'));
+  const headerFile = path.join(dir, 'headers');
+  const bodyFile = path.join(dir, 'body');
+  return marketRequests.run(u, async () => {
+      const transfer = await new Promise(resolve => {
+        execFile('curl', ['--silent', '--show-error', '--max-time', String(Math.ceil(timeoutMs / 1000)),
+          '--max-filesize', '8000000', '--proto', '=https', '--dump-header', headerFile,
+          '--output', bodyFile, '--write-out', '%{http_code}',
+          '-H', 'User-Agent: Mozilla/5.0', '-H', 'Referer: ' + (referer || 'https://quote.eastmoney.com/'), u],
+          { maxBuffer: 65536, timeout: timeoutMs + 1000, windowsHide: true }, (err, stdout) => {
+            // curl may fail its body transfer after receiving a restriction header.
+            const code = Number(String(stdout || '').trim());
+            resolve({ status: code >= 100 && code <= 599 ? code : 0, failed: !!err });
+          });
+      });
+      let headers = {}, status = transfer.status;
+      try {
+        if (fs.statSync(headerFile).size > 65536) throw new Error('market headers too large');
+        const text = fs.readFileSync(headerFile, 'utf8');
+        // Only the last HTTP block applies (e.g. after a proxy CONNECT response).
+        const block = text.trim().split(/\r?\n\r?\n/).filter(b => /^HTTP\//.test(b)).pop() || '';
+        if (!status) status = Number((/^HTTP\/\S+\s+(\d{3})/.exec(block) || [])[1]) || 0;
+        for (const line of block.split(/\r?\n/).slice(1)) {
+          const at = line.indexOf(':');
+          if (at > 0 && line.slice(0, at).toLowerCase() === 'retry-after') headers['retry-after'] = line.slice(at + 1).trim();
+        }
+      } catch (e) {
+        // A missing/oversized header cannot erase a restriction already reported
+        // by curl's bounded status output. Use the conservative default cooldown.
+        checkMarketResponse(u, status, {});
+        throw e;
+      }
+      checkMarketResponse(u, status, headers);
+      if (transfer.failed) throw new Error('market curl transport failed');
+      if (status < 200 || status >= 300) throw new Error('market HTTP ' + status);
+      if (fs.statSync(bodyFile).size > 8e6) throw new Error('market response too large');
+      return JSON.parse(fs.readFileSync(bodyFile, 'utf8'));
+  }).finally(() => {
+      try { fs.rmSync(dir, { recursive: true, force: true }); }
+      catch { console.warn('[em] market temporary cleanup failed'); }
   });
 }
 
@@ -1347,7 +1365,7 @@ async function fetchBatchFlowEM(codes) {
     const secids = batch.map(c => (c.startsWith('6') || c.startsWith('9')) ? `1.${c}` : `0.${c}`).join(',');
     const u = `${EM}/api/qt/ulist.np/get?secids=${secids}&fltt=2&invt=2&np=1&fields=f12,f62,f164,f174,f184,f66,f69,f72,f75,f78,f81,f84,f87`;
     let j = null;
-    try { j = await get(u, 8000); } catch {}
+    try { j = await get(u, 8000); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
     if (!j || !j.data || !j.data.diff) j = await curlGet(u, 8000); // Node 被拒时走 curl
     if (!j || !j.data || !j.data.diff) {
       // ⛔ 铁律③：批量主力资金（当日/5日/10日 + 四级单）整批取不到 → 返回 [] 是诚实的，
@@ -1402,19 +1420,19 @@ function flowBalance(t = {}) {
   return { dir, label, main, superNet: sup, bigNet: big, midNet: mid, smallNet: sml, consistent };
 }
 
-// ---------- 备用数据源：腾讯/新浪（东财限流时自动切换，独立不限流）----------
-function txGet(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      family: 4, timeout: 8000,
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://gu.qq.com' }
-    }, res => {
-      const c = []; res.on('data', d => c.push(d));
-      res.on('end', () => resolve(Buffer.concat(c)));
-    });
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-    req.on('error', reject);
-  });
+// ---------- 备用数据源：腾讯/新浪（共享各供应商预算）----------
+function txGet(url, referer = 'https://gu.qq.com') {
+  return nodeGetBytes(url, 8000, { 'User-Agent': 'Mozilla/5.0', 'Referer': referer });
+}
+function requestQuoteBytes(url) {
+  // The server's index consumers share this same transport and supplier budget.
+  // Do not expose a general URL fetcher through their fixed quote request path.
+  let target;
+  try { target = new URL(url); } catch { return Promise.reject(Error('行情请求地址无效')); }
+  if (target.protocol !== 'https:' || target.hostname !== 'qt.gtimg.cn' || target.port || target.username || target.password || target.search || target.hash ||
+      url.length > 8192 || !/^\/q=(?:s_)?(?:sh|sz|bj)\d{6}(?:,(?:s_)?(?:sh|sz|bj)\d{6})*$/.test(target.pathname))
+    return Promise.reject(Error('仅允许固定腾讯报价端点'));
+  return dedup('quote-bytes|' + url, () => txGet(url));
 }
 const txJSON = async url => JSON.parse((await txGet(url)).toString('utf8'));
 
@@ -1452,7 +1470,7 @@ async function fetchKlineTx(code, days = 95) {
     rows[i].pct = +(((rows[i].close - rows[i - 1].close) / rows[i - 1].close) * 100).toFixed(2);
     rows[i].amount = rows[i].volume * rows[i].close * 100;
   }
-  return { name: '', rows, src: 'tx', adjust: 'qfq' };
+  return { name: '', rows, src: 'tx', adjust: 'qfq',receivedAt:Date.now() };
 }
 
 // ---------------- 同花顺日K（数据源第二梯队，腾讯之外再兜一层）----------------
@@ -1499,8 +1517,8 @@ async function fetchKlineThs(code, days = 95) {
       arr[i].amp = arr[i].low > 0 ? +(((arr[i].high - arr[i].low) / arr[i].low) * 100).toFixed(2) : 0;
     }
     _thsKFail = 0;
-    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq' };
-  } catch (e) {
+    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',receivedAt:Date.now() };
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     if (++_thsKFail >= THS_K_FAIL_MAX) {
       _thsKDownUntil = Date.now() + THS_K_DOWN_MS;
       _thsKFail = 0;
@@ -1512,30 +1530,59 @@ async function fetchKlineThs(code, days = 95) {
 
 // 腾讯批量快照（每60只一批）：换手率/市值可直接取
 async function fetchBatchSnapshotTx(codes) {
-  const out = [];
-  for (let i = 0; i < codes.length; i += 60) {
-    const batch = codes.slice(i, i + 60).map(c => txMarket(c) + c).join(',');
-    const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
-    const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
-    let m;
-    while ((m = re.exec(text))) {
-      const f = m[2].split('~');
-      if (f.length < 46 || !+f[3]) continue;
-      const receivedAt = Date.now();
-      let quoteAt = null;
-      try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
-      const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
-      out.push({
-        quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
-        code: m[1], name: f[1], price: +f[3], pct: +f[32],
-        volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
-        high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
-        mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
-        speed: 0, listedDate: 0, mainInflow: null, mainPct: null
-      });
+  const requested = [...new Set(codes)], out = [];
+  let lastError, completed = 0, consecutiveFailures = 0;
+  for (let i = 0; i < requested.length; i += 60) {
+    const batchCodes = requested.slice(i, i + 60);
+    try {
+      const batch = batchCodes.map(c => txMarket(c) + c).join(',');
+      const text = new TextDecoder('gbk').decode(await txGet(`https://qt.gtimg.cn/q=${batch}`));
+      const re = /v_(?:sh|sz|bj)(\d{6})="([^"]*)"/g;
+      const wanted = new Set(batchCodes);
+      let m;
+      while ((m = re.exec(text))) {
+        const f = m[2].split('~');
+        if (!wanted.has(m[1]) || f.length < 46 || !Number.isFinite(+f[3]) || +f[3] <= 0) continue;
+        const receivedAt = Date.now();
+        let quoteAt = null;
+        try { quoteAt = require('./src/core/public-market').timestamp(f[30] || ''); } catch {}
+        const quoteFreshness = quoteAt === null ? 'unknown' : quoteAt > receivedAt ? 'future' : receivedAt - quoteAt > 15000 ? 'stale' : 'recent-unverified';
+        out.push({
+          quoteSource: 'tencent', quoteAt, receivedAt, quoteFreshness, canTrade:quoteFreshness === 'recent-unverified',
+          quoteMode:'public-live-unverified',tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
+          canNotify:quoteFreshness==='recent-unverified',
+          code: m[1], name: f[1], price: +f[3], pct: +f[32],
+          volume: +f[6], amount: +f[37] * 1e4, turnover: +f[38],
+          high: +f[33], low: +f[34], open: +f[5], preClose: +f[4],
+          mktcap: +f[45] * 1e8, floatCap: +f[44] * 1e8,
+          speed: 0, listedDate: 0, mainInflow: null, mainPct: null
+        });
+      }
+      completed++;
+      consecutiveFailures = 0;
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
+      lastError = e;
+      consecutiveFailures++;
+      batchQuoteWarn('tencent', batchCodes, classifyNetErr(String(e && e.message || e)));
+      // Full-A callers can request thousands of stocks. A provider outage must
+      // not turn one failed request into hundreds of serial timeout waits.
+      if (consecutiveFailures >= 4 && i + 60 < requested.length) {
+        batchQuoteWarn('tencent', requested.slice(i + 60), 'consecutive-failures');
+        break;
+      }
     }
   }
-  return out;
+  if (!completed && lastError) throw lastError;
+  // Direct full-A/display callers retain dated rows, with their real final status.
+  const now = Date.now(), selected = new Map();
+  const priority = row => row.quoteFreshness === 'recent-unverified' ? 2 : row.quoteFreshness === 'stale' ? 1 : 0;
+  const originalTime = row => Number.isSafeInteger(row.quoteAt) && row.quoteAt > 0 ? row.quoteAt : -Infinity;
+  for (const row of out) {
+    const current = batchQuoteAtPublication(row, now), previous = selected.get(row.code);
+    if (!previous || priority(current) > priority(previous) ||
+        (priority(current) === priority(previous) && originalTime(current) > originalTime(previous))) selected.set(row.code, current);
+  }
+  return requested.map(code => selected.get(code)).filter(Boolean);
 }
 
 // 新浪全A列表（⛔ 2026-10-09 起改【首选】全量源）：
@@ -1548,9 +1595,9 @@ async function fetchAllStocksSina() {
     let text;
     try {
       text = (await txGet(`https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?page=${page}&num=100&sort=symbol&asc=1&node=hs_a`)).toString('utf8');
-    } catch { break; }
+    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; break; }
     let arr;
-    try { arr = JSON.parse(text); } catch { break; }
+    try { arr = JSON.parse(text); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; break; }
     if (!arr || !arr.length) break;
     for (const d of arr) {
       const code = d.code;
@@ -1572,6 +1619,9 @@ async function fetchAllStocksSina() {
       if (!Number.isFinite(amount) || amount <= 0) continue;
       out.push({
         code, name,
+        quoteSource:'sina',quoteAt:null,receivedAt:Date.now(),tradeDate:null,
+        quoteMode:'public-observation',quoteFreshness:'unknown',canTrade:false,canNotify:false,
+        quoteMissingReason:'source-date-unavailable',
         price, pct: +d.changepercent,
         volume: +d.volume, amount,
         turnover: +d.turnoverratio,
@@ -1589,15 +1639,7 @@ async function fetchGlobal() {
   const codes = ['usDJI', 'usIXIC', 'usINX', 'hkHSI', 'hkHSTECH'];
   const out = [];
   try {
-    const buf = await new Promise((resolve, reject) => {
-      const req = https.get(`https://qt.gtimg.cn/q=${codes.join(',')}`, {
-        family: 4, headers: { Referer: 'https://gu.qq.com' }, timeout: 8000
-      }, res => {
-        const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve(Buffer.concat(c)));
-      });
-      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-      req.on('error', reject);
-    });
+    const buf = await txGet(`https://qt.gtimg.cn/q=${codes.join(',')}`);
     const text = new TextDecoder('gbk').decode(buf);
     const re = /v_(\w+)="([^"]*)"/g;
     let m;
@@ -1605,7 +1647,7 @@ async function fetchGlobal() {
       const f = m[2].split('~');
       if (f.length > 32 && f[3]) out.push({ code: m[1], name: f[1], price: +f[3], pct: +f[32] });
     }
-  } catch (e) {
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     // ⛔ 铁律③：外围行情（美股/港股）整条腾讯通道挂了原来一行日志没有，
     //    表现为大盘情绪卡「外围」整行空白，排查时看不到是网络问题还是真无数据。
     _srcWarn('外围行情·腾讯通道失败', `qt.gtimg.cn 拉取失败：${(e && e.message) || e} —— 美股/港股行本轮为空`);
@@ -1613,15 +1655,7 @@ async function fetchGlobal() {
   // 多国扩展：日/韩/德/英/印（新浪 int_/znb_ 国际指数，格式: 名称,价格,涨跌额,涨跌幅）
   try {
     const sina = 'int_nikkei,znb_KOSPI,int_dax30,int_ftse,znb_SENSEX';
-    const buf2 = await new Promise((resolve, reject) => {
-      const req = https.get(`https://hq.sinajs.cn/list=${sina}`, {
-        family: 4, headers: { Referer: 'https://finance.sina.com.cn' }, timeout: 8000
-      }, res => {
-        const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve(Buffer.concat(c)));
-      });
-      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-      req.on('error', reject);
-    });
+    const buf2 = await txGet(`https://hq.sinajs.cn/list=${sina}`, 'https://finance.sina.com.cn');
     const text2 = new TextDecoder('gbk').decode(buf2);
     const re2 = /hq_str_(?:int|znb)_(\w+)="([^"]*)"/g;
     const NAME = { nikkei: '日经225', KOSPI: '韩国KOSPI', dax30: '德国DAX', ftse: '英国富时100', SENSEX: '印度SENSEX' };
@@ -1632,7 +1666,7 @@ async function fetchGlobal() {
       if (!price || !NAME[m2[1]]) continue;
       out.push({ code: m2[1], name: NAME[m2[1]], price, pct: +chg.toFixed(2) });
     }
-  } catch (e) {
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     _srcWarn('外围行情·新浪国际指数失败', `hq.sinajs.cn 拉取失败：${(e && e.message) || e} —— 日/韩/德/英/印行本轮为空`);
   }
   return out;
@@ -1646,25 +1680,23 @@ async function fetchIdxRt() {
   const codes = ['1.000001', '0.399001', '0.399006', '1.000688']; // 上证/深成/创业板/科创50
   const NAME = { '1.000001': '上证', '0.399001': '深成', '0.399006': '创业板', '1.000688': '科创50' };
   try {
-    const buf = await new Promise((resolve, reject) => {
-      const req = https.get(`https://qt.gtimg.cn/q=${codes.join(',')}`, {
-        family: 4, headers: { Referer: 'https://gu.qq.com' }, timeout: 8000
-      }, res => {
-        const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve(Buffer.concat(c)));
-      });
-      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-      req.on('error', reject);
-    });
+    const buf = await txGet(`https://qt.gtimg.cn/q=${codes.join(',')}`);
     const text = new TextDecoder('gbk').decode(buf);
     const re = /v_([\d.]+)="([^"]*)"/g;
     const out = [];
     let m;
     while ((m = re.exec(text))) {
       const f = m[2].split('~');
-      if (f.length > 32 && f[3] && NAME[m[1]]) out.push({ code: m[1], name: NAME[m[1]], price: +f[3], pct: +f[32] });
+      if (f.length > 32 && f[3] && NAME[m[1]]) {
+        const receivedAt=Date.now();let quoteAt=null;
+        try { quoteAt=require('./src/core/public-market').timestamp(f[30]||''); } catch {}
+        const observation=batchQuoteAtPublication({price:+f[3],quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
+        out.push({code:m[1],name:NAME[m[1]],pct:+f[32],...observation,quoteMode:'index-observation',canNotify:false,
+          tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null});
+      }
     }
     return out;
-  } catch { return []; }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; return []; }
 }
 
 // ---------- 外围联动：美股/港股代表标的 + 新浪行业板块及成分股（东财板块被限流时的备用） ----------
@@ -1707,39 +1739,45 @@ async function fetchSinaSectorStocks(node, num = 60) {
 // 由此可算出真实「主动净买额/主动买占比」，比纯价格猜测可靠，是资金数据的有效替代
 const THS_HEAD = 'https://d.10jqka.com.cn/v6/realhead/hs_';
 function thsGet(url, timeout = 8000) {
-  return new Promise((resolve, reject) => {
-    const req = require('https').get(url, {
-      family: 4,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0', 'Referer': 'https://stockpage.10jqka.com.cn/' },
-      timeout
-    }, res => {
-      if (res.statusCode !== 200) { res.resume(); return reject(new Error('http ' + res.statusCode)); }
-      const cs = [];
-      res.on('data', d => cs.push(d));
-      res.on('end', () => resolve(Buffer.concat(cs).toString('utf8')));
-    });
-    req.on('timeout', () => { req.destroy(new Error('timeout')); });
-    req.on('error', reject);
-  });
+  return nodeGetBytes(url, timeout, {
+    'User-Agent': 'Mozilla/5.0', 'Referer': 'https://stockpage.10jqka.com.cn/'
+  }).then(bytes => bytes.toString('utf8'));
 }
 async function fetchThsActive(code) {
   const text = await thsGet(`${THS_HEAD}${code}/last.js`);
   const m = /quotebridge_v6_realhead_hs_\w+_last\(([\s\S]*)\)/.exec(text);
   if (!m) return null;
   const items = (JSON.parse(m[1]) || {}).items || {};
-  const outer = +items['14'] || 0;   // 外盘（主动买入股数）
-  const inner = +items['15'] || 0;   // 内盘（主动卖出股数）
-  const vol = +items['13'] || 0;     // 成交量(股)
-  const amount = +items['19'] || 0;  // 成交额(元)
-  const price = +items['10'] || 0;
-  const avg = vol > 0 ? amount / vol : price;  // 当日均价
-  const netVol = outer - inner;
-  const netAmt = Math.round(netVol * avg);     // 主动净买额(元)
+  const outer = observedFlowCount(items['14']);   // 外盘（主动买入股数）
+  const inner = observedFlowCount(items['15']);   // 内盘（主动卖出股数）
+  const vol = observedFlowCount(items['13']);     // 成交量(股)
+  const nonNegative = value => {
+    const number = observedFlowNumber(value);
+    return number !== null && number >= 0 ? number : null;
+  };
+  const amount = nonNegative(items['19']);        // 成交额(元)
+  const price = nonNegative(items['10']);
+  let netAmt = null, activePct = null;
+  // 不用缺失的一侧或最后成交价补造主动净额；估算均价须有成交额和成交量依据。
+  if (outer !== null && inner !== null && vol !== null && amount !== null) {
+    if (vol > 0 && amount > 0) {
+      const estimate = Math.round((outer - inner) * (amount / vol));
+      const percentage = estimate / amount * 100;
+      if (Number.isFinite(estimate) && Number.isFinite(percentage)) {
+        netAmt = estimate;
+        activePct = +percentage.toFixed(2);
+      }
+    } else if (vol === 0 && amount === 0 && outer === 0 && inner === 0) {
+      netAmt = 0; // 显式零成交可知净额为零，但零分母没有可解释的占比。
+    }
+  }
   return {
     code, price, amount, turnoverVol: vol,
     outer, inner, netAmt,
     // 主动买占比 = 净主动买额 / 当日成交额（与东财"主力净占比"量级可比）
-    activePct: amount > 0 ? +(netAmt / amount * 100).toFixed(2) : 0
+    activePct,
+    source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
+    retrievedAt: Date.now(), sourceTimestamp: null
   };
 }
 // 批量拉取（限制并发，避免被网关 502）
@@ -1747,7 +1785,7 @@ async function fetchThsActiveBatch(codes, limit = 8) {
   const uniq = [...new Set(codes)];
   const rs = await pool(uniq, c => fetchThsActive(c), limit);
   const m = new Map();
-  for (const r of rs) if (r && (r.netAmt || r.activePct)) m.set(r.code, r);
+  for (const r of rs) if (r && observedFlowNumber(r.netAmt) !== null) m.set(r.code, r);
   return m;
 }
 
@@ -1775,7 +1813,7 @@ async function fetchIndustryAll(progress) {
         await delay(250);
       }
     }
-  } catch (e) { console.log('[industry] 东财 clist 主源异常：' + (e && e.message)); }
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; console.log('[industry] 东财 clist 主源异常：' + (e && e.message)); }
   if (progress) progress({ pages, n: Object.keys(out).length });
   // ⛔ 多源铁律（东财 clist 线上也 socket hang up 实证）：clist <1000 → 退新浪行业链
   //   （fetchSinaSectors 全板块 + 逐板块成分股反查 code→行业，约 60-90 次调用）。
@@ -1787,7 +1825,7 @@ async function fetchIndustryAll(progress) {
       try {
         const list = await fetchSinaSectorStocks(s.node, 300);
         for (const st of (list || [])) { if (st && st.code && !out[st.code]) out[st.code] = s.name; }
-      } catch (e) {
+      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
         // ⛔ 铁律③ 兜底不许静默：逐板块失败必须计数留痕——否则整条新浪兜底链挂掉无人知晓，
         //    运维只看到「行业映射少了一截」，查不到是两源皆挂还是个别板块抖动。
         fail++;
@@ -1806,3 +1844,5 @@ async function fetchIndustryAll(progress) {
 }
 
 module.exports = { get, delay, pool, classifyNetErr, fetchAllStocks, fetchAllStocksEM, fetchKlineTx, fetchKlineThs, guardDayRow, rebuildDayRow, appendDayRow, dayGuardStats, thsKlineDown, fetchKlineBulk, emKlineDown, fetchSectorFlow, fetchZTPool, fetchZTPoolThs, fetchZTPoolLatestDay, fetchDTCount, thsHighDays, fetchKline, fetchBatchSnapshot, fetchFundFlowDays, fetchBatchFlowEM, flowBalance, fetchGlobal, fetchIdxRt, fetchBatchSnapshotTx, fetchExtQuotes, fetchSinaSectors, fetchSinaSectorStocks, fetchBoardStocks, fetchStockBoards, fetchThsActive, fetchThsActiveBatch, fetchLhb, judgeWhale, fetchZtReason, WHALE_KEYS, dedup, inflightSize, backoffStats, fetchAuctionTicks, fetchIndustryAll };
+
+module.exports.requestQuoteBytes = requestQuoteBytes;

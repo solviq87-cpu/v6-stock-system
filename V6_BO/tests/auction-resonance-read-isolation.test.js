@@ -3,14 +3,16 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const server=fs.readFileSync(path.resolve(__dirname,'../server.js'),'utf8');
 const match=/async function auctionResonanceScan\(opts = \{\}\) \{[\s\S]*?\n\}\n/.exec(server);
+const learningExtra=/function learningSignalExtra\(row,extra=\{\}\) \{[\s\S]*?\n\}/.exec(server);
 const now=Date.parse('2026-11-09T09:25:45+08:00');
 function engine(){
  assert.ok(match,'missing real scan function');
+ assert.ok(learningExtra,'missing real signal provenance adapter');
  const events={pushed:0,logged:0,computed:0,klineFetches:0,smoothPreviews:0,smoothWrites:0,errors:[]};
  const S={
   stocks:[
-   {code:'000001',name:'A1',price:10.2,pct:2.2},
-   {code:'000002',name:'A2',price:10.3,pct:2.3}
+   {code:'000001',name:'A1',price:10.2,pct:2.2,quoteAt:now-1000,receivedAt:now,quoteSource:'vendor-original',mode:'public-live-unverified',canNotify:true,amount:1e8},
+   {code:'000002',name:'A2',price:10.3,pct:2.3,quoteAt:now-1000,receivedAt:now,quoteSource:'vendor-original',mode:'public-live-unverified',canNotify:true,amount:1e8}
   ],stocksAt:now-20000,klines:new Map(),
   sectors:[{name:'半导体',mainInflow:100000000,pct:2.5}],
   auction:{date:'20261109',phase:3,time:'09:25:07',
@@ -21,13 +23,14 @@ function engine(){
  };
  class Clock extends Date{static now(){return now;}}
  const context={
-  Date:Clock,Math,Number,Map,Set,String,
+  Date:Clock,Math,Number,Map,Set,String,Buffer,SignalEvidence:require('../src/core/signal-evidence-chain'),
   S,AUCTION_RESONANCE_CACHE_MS:30000,_auctionResonanceCache:new Map(),
   require:name=>{
    if(name==='./src/core/auction-resonance-basis')
     return require('../src/core/auction-resonance-basis');
    if(name==='./src/core/news-china-clock')
     return require('../src/core/news-china-clock');
+   if(name==='./src/core/recommendation-evidence-review')return require('../src/core/recommendation-evidence-review');
    throw Error('unexpected import '+name);
   },
   A:{isMainBoard:()=>true,isGEM:()=>false,isMainOrGEM:()=>true,
@@ -49,9 +52,11 @@ function engine(){
   klineRows:async()=>{events.klineFetches++;return [];},
   pushAuctionResonanceTop3:()=>{events.pushed++;},
   logSignal:()=>{events.logged++;},
+  productionSignalVersion:()=> 'fixture-v1',
   console:{error:(...args)=>events.errors.push(args.map(String).join(' '))}
  };
- const scan=vm.runInNewContext(match[0]+'\nauctionResonanceScan;',context);
+ const helper=name=>{const start=server.indexOf('function '+name+'('),end=server.indexOf('\n}\n',start)+2;assert.ok(start>=0&&end>start);return server.slice(start,end);};
+ const scan=vm.runInNewContext(['reviewRecommendation','reviewedRows','reviewSnapshotFields','signalCondition','annotateSignalConditions','learningSignalExtra'].map(helper).join('\n')+'\n'+match[0]+'\nauctionResonanceScan;',context);
  return {scan,S,events};
 }
 test('viewer GET recomputes market research without push, learning writes or trading commands',async()=>{
@@ -109,6 +114,13 @@ test('Friday recovered auction and Monday stock quotes never mix; internal tick 
  assert.ok(r2.items.every(x=>x.auctionPct===null));
  assert.equal(events.pushed,0);
  assert.equal(events.logged,0);
+});
+test('an internal scan cannot notify or log recommendations with missing candidate evidence even when auction basis is current',async()=>{
+ const {scan,S,events}=engine();
+ S.stocks[0].quoteAt=null;S.stocks[1].canNotify=false;
+ const result=await scan({board:'all',max:2,internal:true,force:true});
+ assert.equal(result.items.length,2,'unverified candidates remain visible for observation');
+ assert.equal(events.logged,0);assert.equal(events.pushed,0);
 });
 test('Monday 09:00 with Friday old snapshot cannot be treated as current auction even when quoteBasis is Friday',async()=>{
  const {scan,S,events}=engine();

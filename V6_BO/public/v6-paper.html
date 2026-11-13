@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f4ef">
+<title>模拟盘 · 天枢智策 V6</title><link rel="stylesheet" href="/assets/v6-studio.css?v=20261113c"><script src="/assets/v6-studio-areas.js?v=20261113c" defer></script></head>
+<body data-page="paper"><div class="shell"><aside class="sidebar" aria-label="V6 新版主导航"><a class="brand" href="/v6-studio.html"><span class="monogram">V6</span><span><strong>天枢智策</strong><small>独立智能投研工作室</small></span></a><div class="side-label">RESEARCH SPACE / 投研空间</div><nav class="nav"><a href="/v6-studio.html"><span class="symbol">◫</span>今日判断</a>
+<a href="/v6-matches.html"><span class="symbol">◎</span>全部命中个股</a>
+<a href="/v6-research.html"><span class="symbol">◇</span>策略研究</a>
+<a href="/v6-validation.html"><span class="symbol">↗</span>回测验证</a>
+<a href="/v6-paper.html" class="active" aria-current="page"><span class="symbol">▤</span>模拟盘</a></nav><div class="side-foot">辅助选股 · 非实盘交易<br>先证据，后决策</div></aside>
+<main class="main"><div class="topline"><div class="breadcrumb">V6 工作室 ／ 模拟盘</div><div class="tools"><span class="status-pill">验证版 · 仅凭接口证据</span></div></div><div class="kicker">PAPER ACCOUNT / 账户监督</div><h1>模拟账本也要严谨。<br>每一笔都必须有依据。</h1><p class="lead">默认不读取任何私密持仓。只有开发者主动点击后才访问现有模拟账户的只读接口，展示权益、现金与账本审计状态。这里没有真实交易入口，也没有一键买入或重置。</p><div class="card panelpad"><div class="headrow"><div><h2>模拟账户只读快照</h2><p class="muted">仅已授权的开发者可见；观看账号必须被拒绝。所有金额由现有服务端返回。</p></div><button class="action" id="paper-read" type="button">安全读取模拟盘</button></div>
+<div class="alert" id="paper-status" role="status" aria-live="polite">尚未读取模拟盘私密数据。点击按钮后验证开发者权限。</div></div>
+<div class="split" style="margin-top:17px">
+<section class="card panelpad"><div class="kicker">ACCOUNT ONE</div><h2 id="paper-pool-name">未读取</h2>
+<div class="tinyline"><span>账户权益</span><strong id="paper-pool-equity">未读取</strong></div>
+<div class="tinyline"><span>模拟盈亏比例</span><strong id="paper-pool-pnl">未读取</strong></div>
+<div class="tinyline"><span>剩余现金</span><strong id="paper-pool-cash">未读取</strong></div>
+<div class="tinyline"><span>持仓数量</span><strong id="paper-pool-positions">未读取</strong></div>
+<div class="tinyline"><span>账本核验</span><strong id="paper-pool-audit">待验证</strong></div></section>
+<section class="card panelpad"><div class="kicker">ACCOUNT TWO</div><h2 id="paper-pre-name">未读取</h2>
+<div class="tinyline"><span>账户权益</span><strong id="paper-pre-equity">未读取</strong></div>
+<div class="tinyline"><span>模拟盈亏比例</span><strong id="paper-pre-pnl">未读取</strong></div>
+<div class="tinyline"><span>剩余现金</span><strong id="paper-pre-cash">未读取</strong></div>
+<div class="tinyline"><span>持仓数量</span><strong id="paper-pre-positions">未读取</strong></div>
+<div class="tinyline"><span>账本核验</span><strong id="paper-pre-audit">待验证</strong></div></section></div>
+<div class="section-head"><h2>风险规则</h2></div><section class="card panelpad"><div class="steps">
+<div class="step"><b>1</b><div><strong>不接真实券商与真实资金</strong><p>模拟盘独立运行，不自动产生真实委托。</p></div></div>
+<div class="step"><b>2</b><div><strong>报价缺少逐票原始时点则不成交</strong><p>模拟成交遵守原项目行情新鲜度门槛；显示收益不代表可以实盘成交。</p></div></div>
+<div class="step"><b>3</b><div><strong>副本只观察权威账本</strong><p>本地预览实例不是资金权威，不提供账户重置、修复或发布操作。</p></div></div></div></section>
+<p class="footer-note">V6 全新投研工作室 · 数据未知即显示未知；演示数据不会冒充实测；产品日常操作与开发维护互相隔离。</p></main></div><nav class="mobile-tabbar" aria-label="手机底部导航"><a href="/v6-studio.html"><span>◫</span>今日</a>
+<a href="/v6-matches.html"><span>◎</span>命中</a>
+<a href="/v6-research.html"><span>◇</span>策略研究</a>
+<a href="/v6-validation.html"><span>↗</span>验证</a>
+<a href="/v6-paper.html" class="active" aria-current="page"><span>▤</span>模拟盘</a></nav></body></html>

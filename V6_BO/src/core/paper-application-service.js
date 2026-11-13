@@ -11,6 +11,7 @@ const {atomicWrite}=require('./market-data-center');
 const {applySettlement}=require('./corporate-settlements');
 const {createRejectionAudit}=require('./rejection-audit');
 const {resolveEvidence,planEvidenceImport}=require('./imported-risk-evidence');
+const {createFillEvidence,fillEvidenceOf}=require('./paper-fill-evidence');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const ledgerHash=a=>hash({cash:a.cash,positions:a.positions,events:a.events});
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
@@ -27,6 +28,15 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const cash=s.initialCash+corporateCash+s.account.events.reduce((n,e)=>n+(e.side==='buy'?-(e.gross+e.fee):e.gross-e.fee),0);if(!Number.isFinite(cash)||Math.abs(cash-s.account.cash)>.011)throw Error('资金与初始现金及成交流水不符');
   const fills=Object.values(s.orders).flatMap(x=>x.events.filter(e=>e.type==='fill'));
   if(fills.length!==s.account.events.length||fills.some(e=>!s.account.events.some(a=>a.eventId===e.eventId&&a.orderId===e.orderId&&a.quantity===e.quantity&&a.price===e.price&&a.fee===e.fee)))throw Error('订单与资金成交不一致');
+  for(const e of fills){
+   const a=s.account.events.find(a=>a.eventId===e.eventId),orderEvidence=fillEvidenceOf(e),accountEvidence=fillEvidenceOf(a);
+   if(hash(orderEvidence)!==hash(accountEvidence))throw Error('订单与资金成交报价证据不一致');
+   if(orderEvidence&&s.account.eventHashes[e.eventId]!==hash({orderId:e.orderId,fill:e,tradeDate:e.date}))throw Error('成交报价证据与事件指纹不一致');
+  }
+  if(s.fillEvidenceVersion!==undefined){
+   if(s.fillEvidenceVersion!==1||!Number.isSafeInteger(s.legacyFillEvidenceCount)||s.legacyFillEvidenceCount<0||s.legacyFillEvidenceCount>s.account.events.length)throw Error('成交报价证据版本无效');
+   if(s.account.events.slice(s.legacyFillEvidenceCount).some(e=>!fillEvidenceOf(e)))throw Error('新成交报价证据缺失');
+  }
   return s;
  }
  function mutate(fn){return withAccountLock(file,()=>{
@@ -36,6 +46,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const encoded=JSON.stringify(next)+'\n';if(Buffer.byteLength(encoded)>20*1024*1024)throw Error('账户快照超过20MiB上限，拒绝覆盖原文件');
   atomicWrite(file,encoded);return next;
  });}
+ function evidenceFormat(s){if(s.fillEvidenceVersion===undefined){s.fillEvidenceVersion=1;s.legacyFillEvidenceCount=s.account.events.length;}}
  function initialize(cash){if(typeof cash!=='number'||!Number.isFinite(cash)||cash<=0||cash>1e12)throw Error('初始资金无效');return mutate(s=>{if(s)throw Error('账户已经存在');const account={schemaVersion:1,cash,positions:{},events:[],eventHashes:{}};account.fingerprint=ledgerHash(account);return {snapshot:{schemaVersion:1,initialCash:cash,feePolicy:{...feePolicy},account,orders:{},paperOnly:true,brokerConnected:false}};});}
  function feeFor(s,side,quantity,price,date,priorFills=[]){return tradingFees({side,quantity,price,tradeDate:date,policy:s.feePolicy,schedules:s.feeSchedules||null,priorFills});}
  function checkRisk(s,order,context=null,excludeId=null){
@@ -120,7 +131,9 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const entryRisk=checkRisk(s,{...item.order,tradeDate:quote.tradeDate,quantity,limitPrice:quote.price},quote.riskContext||{observedAt:quote.timestamp,marks:quote.marks||{}},orderId);
   const feeEvidence=feeFor(s,side,quantity,quote.price,quote.tradeDate,item.events.filter(e=>e.type==='fill')),fee=feeEvidence.total;
   if(side==='buy'){const others=Object.values(s.orders).filter(x=>x.order.orderId!==orderId&&!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,[x.order.tradeDate,quote.tradeDate].sort().at(-1),x.events).total,0);if(quantity*quote.price+fee>s.account.cash-others+.001)throw Error('成交不能使用其他委托冻结资金');}
-  const event={eventId,orderId,sequence:item.events.length+1,type:'fill',quantity,price:quote.price,fee,date:quote.tradeDate,requestHash,feeEvidence,entryRisk,accountRevision:s.revision+1};
+  const fillEvidence=createFillEvidence(quote,{executionAt:now,executionKind:'research-manual',symbol:item.order.symbol,tradeDate:quote.tradeDate,price:quote.price});
+  evidenceFormat(s);
+  const event={eventId,orderId,sequence:item.events.length+1,type:'fill',quantity,price:quote.price,fee,date:quote.tradeDate,requestHash,feeEvidence,entryRisk,accountRevision:s.revision+1,timestamp:now,fillEvidence};
   const events=[...item.events,event],state=reducePaperOrderEvents(item.order,events);
   // Existing ledger enforces cash, lots and T+1 in an isolated staging file.
   // Only the final combined snapshot is authoritative; a crash cannot publish half a fill.
@@ -132,18 +145,23 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   if(!s||!s.legacy)throw Error('历史账户尚未迁入权威账本');
   if(s.revision!==expectedRevision)throw Error('权威账户版本冲突，请重新读取');
   if(['reset','setInitial'].includes(action)){
-   const previous={revision:s.revision,account:s.account,orders:s.orders,legacy:s.legacy,corporateEvents:s.corporateEvents||[],riskEvidence:s.riskEvidence||[]};
-   s.archives=[...(s.archives||[]),previous];s.account=openingAccount(legacy);s.initialCash=s.account.cash;s.orders={};s.corporateEvents=[];s.riskEvidence=[];s.legacy=legacy;s.legacyOpeningTrades=legacy.trades;s.legacyOpeningRealized=legacy.realized||0;return {snapshot:s};
+   const previous={revision:s.revision,account:s.account,orders:s.orders,legacy:s.legacy,corporateEvents:s.corporateEvents||[],riskEvidence:s.riskEvidence||[],...(s.fillEvidenceVersion!==undefined?{fillEvidenceVersion:s.fillEvidenceVersion,legacyFillEvidenceCount:s.legacyFillEvidenceCount}:{})};
+   s.archives=[...(s.archives||[]),previous];s.account=openingAccount(legacy);s.initialCash=s.account.cash;s.orders={};s.corporateEvents=[];s.riskEvidence=[];delete s.fillEvidenceVersion;delete s.legacyFillEvidenceCount;s.legacy=legacy;s.legacyOpeningTrades=legacy.trades;s.legacyOpeningRealized=legacy.realized||0;return {snapshot:s};
   }
   const known=new Set(s.legacy.trades.map(t=>hash(t)));
   const incoming=legacy.trades.filter(t=>!t.eventId&&!known.has(hash(t))).reverse();
   for(const t of incoming){
+   const id='legacy_'+hash(t).slice(0,30);
+   if(s.orders[id]){
+    if(s.orders[id].events[0]?.requestHash!==hash(t))throw Error('自动成交事件ID内容冲突');
+    continue;
+   }
    if(!['买入','卖出'].includes(t.side)||!Number.isSafeInteger(t.shares)||t.shares<=0||t.shares%100||!Number.isFinite(t.price)||t.price<=0||!Number.isFinite(t.fee)||t.fee<0||!Number.isFinite(t.t)||t.t>clock()||clock()-t.t>180000)throw Error('新成交记录缺少可靠时点，禁止重放历史修改');
    const date=require('./a-share-calendar').aShareCalendarDate(t.t),q=quotes[t.code];
    if(!q||!Number.isFinite(q.price)||Math.abs(t.price-q.price)>Math.max(.01,q.price*.001)||q.tradeDate!==date||!calendar?.isOpen(date)||q.suspended!==false||q.tradable!==true||q.volumeUnit!=='shares'||!Number.isFinite(q.volume)||q.volume<=0||!Number.isFinite(q.timestamp)||q.timestamp>clock()||clock()-q.timestamp>180000||!Number.isFinite(q.upperLimit)||!Number.isFinite(q.lowerLimit)||t.price>=q.upperLimit||t.price<=q.lowerLimit)throw Error('自动成交行情缺失、过期或触及交易限制');
    const used=s.account.events.filter(e=>e.symbol===t.code&&e.tradeDate===date).reduce((n,e)=>n+e.quantity,0);
    if(used+t.shares>q.volume*maxParticipationPct/100)throw Error('自动成交超过量参与率');
-   const id='legacy_'+hash(t).slice(0,30),order={orderId:id,symbol:t.code,side:t.side==='买入'?'buy':'sell',quantity:t.shares,limitPrice:t.price,tradeDate:date};
+   const order={orderId:id,symbol:t.code,side:t.side==='买入'?'buy':'sell',quantity:t.shares,limitPrice:t.price,tradeDate:date};
    const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,x.order.tradeDate).total,0);
    if(order.side==='buy'&&t.price*t.shares+t.fee>s.account.cash-reserved)throw Error('自动成交侵犯挂单冻结资金');
    if(order.side==='sell'){
@@ -152,7 +170,9 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    }
    const feeEvidence=feeFor(s,order.side,t.shares,t.price,date);if(Math.abs(feeEvidence.total-t.fee)>.011)throw Error('自动成交费用与生效费率不一致');
    const entryRisk=checkRisk(s,order,{...(q.riskContext||{observedAt:q.timestamp,marks:q.marks||{}}),requireImportedEvidence:true});
-   const event={eventId:id,orderId:id,sequence:1,type:'fill',quantity:t.shares,price:t.price,fee:t.fee,date,requestHash:hash(t),feeEvidence,entryRisk};
+   const fillEvidence=createFillEvidence(q,{executionAt:t.t,executionKind:'automatic-paper',symbol:t.code,tradeDate:date,price:t.price});
+   evidenceFormat(s);
+   const event={eventId:id,orderId:id,sequence:1,type:'fill',quantity:t.shares,price:t.price,fee:t.fee,date,requestHash:hash(t),feeEvidence,entryRisk,accountRevision:s.revision+1,timestamp:t.t,fillEvidence};
    const stage=fs.mkdtempSync(path.join(path.dirname(file),'.legacy-stage-'));
    try{const target=path.join(stage,'account.json');fs.writeFileSync(target,JSON.stringify(s.account),{mode:0o600});s.account=createPaperAccountLedger(target).transact(order,event,date);const e=s.account.events.at(-1);e.timestamp=t.t;e.reason=t.reason;e.feeEvidence=feeEvidence;e.entryRisk=entryRisk;e.accountRevision=s.revision+1;s.account.fingerprint=ledgerHash(s.account);}finally{fs.rmSync(stage,{recursive:true,force:true});}
    s.orders[id]={order,events:[event],state:reducePaperOrderEvents(order,[event])};s.lastTradeDate=date;

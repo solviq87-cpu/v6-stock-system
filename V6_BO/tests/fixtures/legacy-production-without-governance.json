@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "mode": "production-signal-provenance",
+  "code": "000009",
+  "type": "pool",
+  "triggerAt": 1794535200000,
+  "strategyVersion": "legacy-7ef3d56",
+  "strategyDependencies": {
+    "status": "unknown",
+    "files": [],
+    "fingerprint": null
+  },
+  "recordKind": "observation",
+  "supersedes": null,
+  "quote": {
+    "price": 10,
+    "pct": null,
+    "quoteAt": null,
+    "receivedAt": null,
+    "quoteSource": "",
+    "quoteFreshness": "",
+    "canTrade": false
+  },
+  "model": {
+    "value": null,
+    "kind": "unknown",
+    "target": "unknown",
+    "rankingValue": null,
+    "rankingKind": "unknown",
+    "calibrationCertified": false
+  },
+  "riseModel": {
+    "value": null,
+    "kind": "unknown",
+    "target": "unknown",
+    "source": "",
+    "calibrationCertified": false
+  },
+  "conditions": [],
+  "conditionCoverage": {
+    "schemaVersion": 1,
+    "status": "unknown",
+    "scope": "unknown",
+    "producers": [],
+    "covered": [],
+    "missing": []
+  },
+  "inputs": {},
+  "supportingReasons": [],
+  "opposingReasons": [],
+  "risk": {
+    "text": "",
+    "stopLoss": "",
+    "invalidWhen": ""
+  },
+  "message": "",
+  "status": "partial",
+  "missingReasons": [
+    "UNKNOWN_OR_INVALID_ORIGINAL_QUOTE",
+    "INCOMPLETE_TRIGGER_CONDITIONS",
+    "STRATEGY_DEPENDENCIES_UNVERIFIED",
+    "NO_FROZEN_KLINE",
+    "NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN",
+    "QUOTE_USE_NOT_ELIGIBLE_OR_UNKNOWN",
+    "NO_EXPLICIT_INVALIDATION_RULE"
+  ],
+  "canTrade": false,
+  "signalId": "b4e3dc3ccb03b3c7cd950030d991a471bd10c7665600f0b9e37e738083915cd8",
+  "evidenceFingerprint": "b4e3dc3ccb03b3c7cd950030d991a471bd10c7665600f0b9e37e738083915cd8"
+}

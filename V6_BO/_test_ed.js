@@ -50,12 +50,14 @@ ok('pushAll 返回真实结果到 _pushLast',
 ok('pushLast() 暴露给 /api/state',
   /pushLast:\s*pushLast\(\)/.test(SRC));
 ok('前端读了 pushLast（s.pushLast）',
-  /s\.pushLast/.test(fs.readFileSync('public/index.html', 'utf8')));
+  /s\.pushLast/.test(fs.readFileSync('public/assets/app.js', 'utf8')));
 
 // ---------- ④ 反证：已知的降级修复 ----------
 console.log('\n【④ 反证：已知的降级修复】');
-ok('klineBackfill 批量失败回落串行（有降级路径）',
-  /bulk\s*=\s*null.*回落串行/.test(SRC));
+const kbfBody = blockFrom('async function klineBackfill(');
+ok('klineBackfill 失败保留预算并延期，不立即启动第二批补抓',
+  /_kbfBudget\.reserve\(/.test(kbfBody) && /_kbfBudget\.finish\(code, result\)/.test(kbfBody) &&
+  !/fetchKlineBulk/.test(kbfBody));
 ok('feishuProbe 返回 {ok, msg} 结构化降级',
   /done\(\{\s*ok:\s*false/.test(SRC));
 ok('guard 吞异常但不抛（周期任务不崩）',

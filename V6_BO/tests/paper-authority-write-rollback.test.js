@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
 for(const name of ['paperBuy','paperSell'])test(name+' stops notification on authoritative commit failure',()=>{
  const start=source.indexOf('function '+name+'('),end=source.indexOf('\nfunction ',start+1),body=source.slice(start,end);
- assert.match(body,/const committed=savePaper\('sync',key\);if\(!committed\)return;/);
+ assert.match(body,/const committed=savePaper\('sync',key(?:,executionQuotes)?\);if\(!committed\)return;/);
  assert.ok(body.indexOf('if(!committed)return;')<body.indexOf('pushPaperDigest('));
 });
 test('savePaper rolls memory back by reloading the durable authority',()=>{

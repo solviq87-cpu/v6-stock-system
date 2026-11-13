@@ -1,0 +1,410 @@
+{
+  "baseline": "d394624fbe1eb7a8ef61d2a09e2505da28019b01",
+  "note": "Open PR file overlap only; does not prove active developer ownership or merge readiness.",
+  "pullRequests": [
+    {
+      "number": 185,
+      "title": "fix: 冻结新闻与治理证据，模拟成交固定同一原始行情行",
+      "filenames": [
+        ".github/workflows/v6-ci.yml",
+        "V6_BO/_test_holiday_news.js",
+        "V6_BO/_test_wash_trend.js",
+        "V6_BO/docs/A5_GOVERNANCE_TRACE_20261113.md",
+        "V6_BO/docs/A5_IMMUTABLE_SIGNAL_EVIDENCE_20261113.md",
+        "V6_BO/docs/A5_NEWS_SIGNAL_BINDING_20261113.md",
+        "V6_BO/docs/B2_PAPER_COHERENT_ROW_20261113.md",
+        "V6_BO/docs/B2_PAPER_FIELD_PROVENANCE_20261113.md",
+        "V6_BO/docs/NEWS_CURRENT_PROJECTION_20261113.md",
+        "V6_BO/docs/NEXT_EVIDENCE_CLOSURE_20261113.md",
+        "V6_BO/server.js",
+        "V6_BO/src/core/news-signal-evidence.js",
+        "V6_BO/src/core/paper-input-provenance.js",
+        "V6_BO/src/core/signal-evidence-chain.js",
+        "V6_BO/src/core/signal-rule-manifest.js",
+        "V6_BO/tests/fixtures/legacy-production-without-governance.json",
+        "V6_BO/tests/governance-signal-evidence.test.js",
+        "V6_BO/tests/market-consumer-contract.test.js",
+        "V6_BO/tests/news-current-projection.test.js",
+        "V6_BO/tests/news-evidence-journal.test.js",
+        "V6_BO/tests/news-signal-evidence.test.js",
+        "V6_BO/tests/paper-authority-write-rollback.test.js",
+        "V6_BO/tests/paper-coherent-row.test.js",
+        "V6_BO/tests/paper-execution-observed-price.test.js",
+        "V6_BO/tests/paper-field-provenance.test.js",
+        "V6_BO/tests/production-signal-evidence.test.js"
+      ]
+    },
+    {
+      "number": 182,
+      "title": "fix: 修复行情、概率、信号与账本的证据边界并补齐只读研究入口",
+      "filenames": [
+        ".gitignore",
+        "V6_BO/_test_auczt_calib.js",
+        "V6_BO/_test_empcalib.js",
+        "V6_BO/_test_holdings_watch_gate.js",
+        "V6_BO/_test_holiday_news.js",
+        "V6_BO/_test_probkind.js",
+        "V6_BO/analysis.js",
+        "V6_BO/docs/A1_FUNDS_TRUTHFULNESS_20261113.md",
+        "V6_BO/docs/A2_BATCH_QUOTE_VALIDITY_20261113.md",
+        "V6_BO/docs/A5_IMMUTABLE_SIGNAL_EVIDENCE_20261113.md",
+        "V6_BO/docs/A5_PRODUCER_CONDITION_COVERAGE_20261113.md",
+        "V6_BO/docs/B1_HISTORICAL_LEDGER_TRUTH_20261113.md",
+        "V6_BO/docs/B2_PAPER_FIELD_PROVENANCE_20261113.md",
+        "V6_BO/docs/B2_PAPER_FILL_EVIDENCE_20261113.md",
+        "V6_BO/docs/DATA_CONSUMER_TRUTHFULNESS_20261113.md",
+        "V6_BO/docs/DEV183_RESEARCH_COMPATIBILITY_20261113.md",
+        "V6_BO/docs/EDITOR_SHORT_SESSION_REVOCATION_20261113.md",
+        "V6_BO/docs/EVIDENCE_REVIEW_GATE_20261113.md",
+        "V6_BO/docs/FULL_SERVER_SMOKE_ISOLATION_20261113.md",
+        "V6_BO/docs/INTEGRATION_REVIEW_CLOSURE_20261113.md",
+        "V6_BO/docs/NEWS_EVIDENCE_OPERATIONS_20261113.md",
+        "V6_BO/docs/PRIVATE_RESEARCH_TOOLS_20261113.md",
+        "V6_BO/docs/PROBABILITY_EVENT_CLOSURE_20261113.md",
+        "V6_BO/docs/REMAINING_INTEGRATION_HANDOFF_20261113.md",
+        "V6_BO/docs/RESEARCH_GUARD_CLOSURE_20261113.md",
+        "V6_BO/docs/RESEARCH_RISK_CENTER_20261113.md",
+        "V6_BO/docs/V6_STUDIO_REBASED_ACCEPTANCE_20261113.md",
+        "V6_BO/em.js",
+        "V6_BO/holdings.js",
+        "V6_BO/package.json",
+        "V6_BO/public/assets/app.js",
+        "V6_BO/public/assets/news-evidence-workbench.js",
+        "V6_BO/public/assets/picks-three-k.js",
+        "V6_BO/public/assets/research-risk-center.js",
+        "V6_BO/public/assets/terminal-dashboard.js",
+        "V6_BO/public/assets/v6-market-radar.css",
+        "V6_BO/public/assets/v6-market-radar.js",
+        "V6_BO/public/assets/v6-studio-areas.js",
+        "V6_BO/public/assets/v6-studio.css",
+        "V6_BO/public/assets/v6-studio.js",
+        "V6_BO/public/research.html",
+        "V6_BO/public/v6-market-radar.html",
+        "V6_BO/public/v6-matches.html",
+        "V6_BO/public/v6-paper.html",
+        "V6_BO/public/v6-research.html",
+        "V6_BO/public/v6-studio.html",
+        "V6_BO/public/v6-validation.html",
+        "V6_BO/scripts/factor-shadow-archive-audit.js",
+        "V6_BO/scripts/factor-shadow-worker.js",
+        "V6_BO/scripts/news-evidence.js",
+        "V6_BO/scripts/sector-h5-full-member-close-freeze.js",
+        "V6_BO/scripts/sector-provider-pair-register.js",
+        "V6_BO/scripts/ui-v6-studio-browser-check.js",
+        "V6_BO/server.js",
+        "V6_BO/src/core/dashboard-view.js",
+        "V6_BO/src/core/factor-shadow-candidate-proposer.js",
+        "V6_BO/src/core/factor-shadow-evolution.js",
+        "V6_BO/src/core/feed-discrepancy-quarantine.js",
+        "V6_BO/src/core/legacy-paper-projection.js",
+        "V6_BO/src/core/market-feed-consensus.js",
+        "V6_BO/src/core/news-evidence-journal.js",
+        "V6_BO/src/core/paper-account-ledger.js",
+        "V6_BO/src/core/paper-application-service.js",
+        "V6_BO/src/core/paper-fill-evidence.js",
+        "V6_BO/src/core/paper-input-provenance.js",
+        "V6_BO/src/core/paper-unified-view.js",
+        "V6_BO/src/core/probability-contract.js",
+        "V6_BO/src/core/production-signal-journal.js",
+        "V6_BO/src/core/quote-observation-view.js",
+        "V6_BO/src/core/recommendation-evidence-review.js",
+        "V6_BO/src/core/research-evidence-bundle.js",
+        "V6_BO/src/core/research-risk-center.js",
+        "V6_BO/src/core/sector-h5-full-member-close-freeze.js",
+        "V6_BO/src/core/sector-provider-pair-registration.js",
+        "V6_BO/src/core/signal-evidence-chain.js",
+        "V6_BO/src/core/signal-rule-manifest.js",
+        "V6_BO/src/core/v6-matches-snapshot.js",
+        "V6_BO/src/strategy/position-ledger-backtest.js",
+        "V6_BO/src/strategy/public-rule-forward-audit.js",
+        "V6_BO/src/strategy/walk-forward-backtest.js",
+        "V6_BO/src/strategy/walk-forward-policy-adapter.js",
+        "V6_BO/tests/auction-resonance-read-isolation.test.js",
+        "V6_BO/tests/backtest-event-frequency.test.js",
+        "V6_BO/tests/batch-quote-publication.test.js",
+        "V6_BO/tests/dashboard-push-correctness.test.js",
+        "V6_BO/tests/dashboard-push-privacy.test.js",
+        "V6_BO/tests/editor-session-device-binding.test.js",
+        "V6_BO/tests/editor-session-revocation-http.test.js",
+        "V6_BO/tests/factor-shadow-archive-audit.test.js",
+        "V6_BO/tests/factor-shadow-candidate-proposer.test.js",
+        "V6_BO/tests/factor-shadow-evolution.test.js",
+        "V6_BO/tests/feed-discrepancy-quarantine.test.js",
+        "V6_BO/tests/full-server-isolated-smoke.js",
+        "V6_BO/tests/funds-linkage-integrity.test.js",
+        "V6_BO/tests/funds-monitor-continuity.test.js",
+        "V6_BO/tests/helpers/v6-studio-fixture.js",
+        "V6_BO/tests/integration-observer-news.test.js",
+        "V6_BO/tests/learn-pruning-reference.test.js",
+        "V6_BO/tests/legacy-ledger-http.test.js",
+        "V6_BO/tests/legacy-ledger-trust-closure.test.js",
+        "V6_BO/tests/market-consumer-contract.test.js",
+        "V6_BO/tests/market-feed-consensus.test.js",
+        "V6_BO/tests/news-evidence-http.test.js",
+        "V6_BO/tests/news-evidence-journal.test.js",
+        "V6_BO/tests/news-evidence-ui-privacy.test.js",
+        "V6_BO/tests/paper-field-provenance.test.js",
+        "V6_BO/tests/paper-fill-evidence.test.js",
+        "V6_BO/tests/pool-quote-provenance.test.js",
+        "V6_BO/tests/probability-target-integrity.test.js",
+        "V6_BO/tests/production-signal-evidence.test.js",
+        "V6_BO/tests/production-signal-replay-http.test.js",
+        "V6_BO/tests/public-rule-forward-audit.test.js",
+        "V6_BO/tests/quote-freshness-bj.test.js",
+        "V6_BO/tests/recommendation-delivery.test.js",
+        "V6_BO/tests/recommendation-evidence-review.test.js",
+        "V6_BO/tests/recommendation-production-gate.test.js",
+        "V6_BO/tests/recommendation-purpose-producers.test.js",
+        "V6_BO/tests/recommendation-review-http.test.js",
+        "V6_BO/tests/research-evidence-bundle.test.js",
+        "V6_BO/tests/research-risk-center-http.test.js",
+        "V6_BO/tests/research-risk-center-ui.test.js",
+        "V6_BO/tests/research-risk-center.test.js",
+        "V6_BO/tests/sector-h5-full-member-close-freeze.test.js",
+        "V6_BO/tests/sector-provider-pair-rolling-quality.test.js",
+        "V6_BO/tests/signal-condition-producers.test.js",
+        "V6_BO/tests/signal-rule-manifest.test.js",
+        "V6_BO/tests/six-photo-backups.test.js",
+        "V6_BO/tests/stock-observation-monitor.test.js",
+        "V6_BO/tests/stock-research-closed-loop.test.js",
+        "V6_BO/tests/ths-active-funds-integrity.test.js",
+        "V6_BO/tests/v6-matches-snapshot.test.js",
+        "V6_BO/tests/v6-studio-new-ui.test.js",
+        "V6_BO/tests/view-session-revocation.test.js",
+        "V6_BO/tests/view-session-unbound-guard.test.js",
+        "V6_BO/tools/strategy-cli.js",
+        "package.json"
+      ]
+    },
+    {
+      "number": 180,
+      "title": "fix(quotes): 最终时钟重验并保留腾讯部分批次结果",
+      "filenames": [
+        "V6_BO/docs/A2_BATCH_QUOTE_VALIDITY_20261113.md",
+        "V6_BO/em.js",
+        "V6_BO/tests/batch-quote-publication.test.js",
+        "V6_BO/tests/learn-pruning-reference.test.js",
+        "V6_BO/tests/quote-freshness-bj.test.js",
+        "V6_BO/tests/six-photo-backups.test.js"
+      ]
+    },
+    {
+      "number": 179,
+      "title": "fix(funds): 阻断不连续资金脉冲并保留同花顺未知与零值",
+      "filenames": [
+        "V6_BO/docs/A1_FUNDS_TRUTHFULNESS_20261113.md",
+        "V6_BO/em.js",
+        "V6_BO/server.js",
+        "V6_BO/tests/funds-linkage-integrity.test.js",
+        "V6_BO/tests/funds-monitor-continuity.test.js",
+        "V6_BO/tests/ths-active-funds-integrity.test.js"
+      ]
+    },
+    {
+      "number": 171,
+      "title": "test(ci): 验证 V6 CI 工作流触发与运行",
+      "filenames": [
+        "V6_BO/docs/GITHUB_WRITE_ACCESS_CHECK_20261112.md",
+        "V6_BO/docs/LOCAL_BN_ZIP_REGRESSION_20261112.md",
+        "V6_BO/docs/ZIP_GITHUB_MERGE_AUDIT_20261112.md"
+      ]
+    },
+    {
+      "number": 170,
+      "title": "只读审计：1090版70MB归档与当前dev逐路径对照（不覆盖源码）",
+      "filenames": [
+        "V6_BO/docs/V6_1090_ARCHIVE_VS_DEV_20261112.md",
+        "V6_BO/scripts/compare-v6-archive.py"
+      ]
+    },
+    {
+      "number": 169,
+      "title": "feat(ui): V6 科技风独立市场雷达展开页",
+      "filenames": [
+        "V6_BO/AGENTS.md",
+        "V6_BO/docs/V6_STUDIO_FIRST_DELIVERY_20261111.md",
+        "V6_BO/public/assets/v6-market-radar.css",
+        "V6_BO/public/assets/v6-market-radar.js",
+        "V6_BO/public/assets/v6-studio-areas.js",
+        "V6_BO/public/assets/v6-studio.css",
+        "V6_BO/public/assets/v6-studio.js",
+        "V6_BO/public/v6-market-radar.html",
+        "V6_BO/public/v6-matches.html",
+        "V6_BO/public/v6-paper.html",
+        "V6_BO/public/v6-research.html",
+        "V6_BO/public/v6-studio.html",
+        "V6_BO/public/v6-validation.html",
+        "V6_BO/scripts/v6-local-verified-update.sh",
+        "V6_BO/server.js",
+        "V6_BO/src/core/v6-matches-snapshot.js",
+        "V6_BO/tests/v6-matches-snapshot.test.js",
+        "V6_BO/tests/v6-studio-new-ui.test.js"
+      ]
+    },
+    {
+      "number": 166,
+      "title": "V6 全新投研工作室（首批）：独立今日页 + 全部命中个股页（只读原型）",
+      "filenames": [
+        "V6_BO/AGENTS.md",
+        "V6_BO/docs/V6_STUDIO_FIRST_DELIVERY_20261111.md",
+        "V6_BO/public/assets/v6-studio-areas.js",
+        "V6_BO/public/assets/v6-studio.css",
+        "V6_BO/public/assets/v6-studio.js",
+        "V6_BO/public/v6-matches.html",
+        "V6_BO/public/v6-paper.html",
+        "V6_BO/public/v6-research.html",
+        "V6_BO/public/v6-studio.html",
+        "V6_BO/public/v6-validation.html",
+        "V6_BO/scripts/v6-local-verified-update.sh",
+        "V6_BO/server.js",
+        "V6_BO/src/core/v6-matches-snapshot.js",
+        "V6_BO/tests/v6-matches-snapshot.test.js",
+        "V6_BO/tests/v6-studio-new-ui.test.js"
+      ]
+    },
+    {
+      "number": 165,
+      "title": "feat(factor): 影子自动学习只读健康检查与独占值守心跳",
+      "filenames": [
+        "V6_BO/docs/FACTOR_SHADOW_RUNTIME_HEALTH_20261110.md",
+        "V6_BO/scripts/factor-shadow-worker.js",
+        "V6_BO/src/core/factor-shadow-runtime-health.js",
+        "V6_BO/tests/factor-shadow-cli-canonical.test.js",
+        "V6_BO/tests/factor-shadow-evolution.test.js",
+        "V6_BO/tests/factor-shadow-runtime-health.test.js"
+      ]
+    },
+    {
+      "number": 164,
+      "title": "feat: 板块数据质量预登记回执与防事后改样本审计",
+      "filenames": [
+        "V6_BO/docs/SECTOR_PAIR_PROSPECTIVE_LOCAL_REGISTRATION_20261110.md",
+        "V6_BO/scripts/sector-provider-pair-register.js",
+        "V6_BO/src/core/sector-provider-pair-registration.js",
+        "V6_BO/tests/sector-provider-pair-rolling-quality.test.js"
+      ]
+    },
+    {
+      "number": 163,
+      "title": "research: 全行业成员16点后原始收盘价信号冻结，禁止历史补造",
+      "filenames": [
+        "V6_BO/docs/SECTOR_H5_FULL_MEMBER_CLOSE_FREEZE_20261110.md",
+        "V6_BO/scripts/sector-h5-full-member-close-freeze.js",
+        "V6_BO/src/core/sector-h5-full-member-close-freeze.js",
+        "V6_BO/tests/sector-h5-full-member-close-freeze.test.js"
+      ]
+    },
+    {
+      "number": 162,
+      "title": "fix(factor): 严格核对自动候选的封存与冻结日历日期",
+      "filenames": [
+        "V6_BO/docs/FACTOR_AUTO_PREREG_CALENDAR_GATE_20261110.md",
+        "V6_BO/src/core/factor-shadow-candidate-proposer.js",
+        "V6_BO/tests/factor-shadow-candidate-proposer.test.js"
+      ]
+    },
+    {
+      "number": 161,
+      "title": "fix(research): same-date feed reports cannot inflate quarantine confidence",
+      "filenames": [
+        "V6_BO/docs/FEED_PAIR_QUARANTINE_OPERATIONS_20261110.md",
+        "V6_BO/src/core/feed-discrepancy-quarantine.js",
+        "V6_BO/src/core/market-feed-consensus.js",
+        "V6_BO/tests/feed-discrepancy-quarantine.test.js",
+        "V6_BO/tests/market-feed-consensus.test.js"
+      ]
+    },
+    {
+      "number": 160,
+      "title": "feat(factor): read-only restore preflight for immutable shadow learning archives",
+      "filenames": [
+        "V6_BO/docs/FACTOR_SHADOW_ARCHIVE_RESTORE_AUDIT_20261110.md",
+        "V6_BO/package.json",
+        "V6_BO/scripts/factor-shadow-archive-audit.js",
+        "V6_BO/tests/factor-shadow-archive-audit.test.js"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "fix(factor): prevent recovered-wait cooldown from bypassing strict preregistration",
+      "filenames": [
+        "V6_BO/docs/FACTOR_DECAY_COOLDOWN_RECOVERY_20261110.md",
+        "V6_BO/scripts/factor-shadow-worker.js",
+        "V6_BO/src/core/factor-shadow-evolution.js",
+        "V6_BO/tests/factor-shadow-evolution.test.js"
+      ]
+    },
+    {
+      "number": 157,
+      "title": "fix(research): BaoStock 行业分类消费端拒绝伪历史快照",
+      "filenames": [
+        "V6_BO/src/core/baostock-industry-membership-adapter.js",
+        "V6_BO/tests/baostock-industry-membership-adapter.test.js"
+      ]
+    },
+    {
+      "number": 126,
+      "title": "fix(quotes): classify opaque redirect in one-shot endpoint health audit",
+      "filenames": [
+        "V6_BO/docs/PUBLIC_QUOTE_ENDPOINT_HEALTH_20261110.md",
+        "V6_BO/src/core/public-quote-endpoint-health.js",
+        "V6_BO/tests/public-quote-endpoint-health.test.js"
+      ]
+    },
+    {
+      "number": 123,
+      "title": "research: 冻结影子学习候选成员指纹并核对基准归档",
+      "filenames": [
+        "V6_BO/src/core/sector-shadow-forward-observer.js",
+        "V6_BO/src/core/sector-shadow-learning-preflight.js",
+        "V6_BO/tests/sector-shadow-forward-observer.test.js"
+      ]
+    },
+    {
+      "number": 117,
+      "title": "research: 冻结影子学习候选成分股身份并与基准归档绑定",
+      "filenames": [
+        "V6_BO/src/core/sector-shadow-forward-observer.js",
+        "V6_BO/src/core/sector-shadow-learning-preflight.js",
+        "V6_BO/tests/sector-shadow-forward-observer.test.js"
+      ]
+    },
+    {
+      "number": 71,
+      "title": "feat(market): label A-share session windows in quote-time research audits (non-trading)",
+      "filenames": [
+        "V6_BO/src/core/market-snapshot-quote-time.js",
+        "V6_BO/tests/market-session-window-hint.test.js"
+      ]
+    },
+    {
+      "number": 70,
+      "title": "research(market): carry per-stock quote/turnover evidence into candidate linkage",
+      "filenames": [
+        "V6_BO/src/core/live-candidate-bridge.js",
+        "V6_BO/src/core/live-market-research.js",
+        "V6_BO/tests/live-candidate-bridge.test.js",
+        "V6_BO/tests/live-market-research.test.js"
+      ]
+    },
+    {
+      "number": 4,
+      "title": "UI: 锁定手机和电脑参考图 1:1 还原标准",
+      "filenames": [
+        "V6_BO/public/assets/strategy-catalog-ui.js",
+        "V6_BO/public/assets/v6-reference-dashboard.js",
+        "V6_BO/public/assets/v6-reference-strategy-drawer.css",
+        "V6_BO/public/assets/v6-reference-strategy-drawer.js",
+        "V6_BO/public/reference-dashboard.html",
+        "V6_BO/public/strategy-catalog.html",
+        "V6_BO/scripts/run-reference-preview.js",
+        "V6_BO/src/server/strategy-dashboard-preview.js",
+        "V6_BO/src/strategy/dashboard-strategy-catalog.js",
+        "V6_BO/tests/dashboard-strategy-catalog.test.js",
+        "V6_BO/tests/strategy-dashboard-preview.test.js",
+        "docs/ui/CODEX_FEATURE_INTEGRATION_RULES.md",
+        "docs/ui/REFERENCE_1TO1_ACCEPTANCE.md"
+      ]
+    }
+  ]
+}

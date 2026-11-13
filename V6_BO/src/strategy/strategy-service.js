@@ -50,6 +50,10 @@ function evaluateCandidate({stock={},market={},strategies,factorOptions}={}){
     riskFilter:risk,
     ...(opts.requireFeedValidation?{feedQuality}:{}),
     playbookAnalysis,
+    ...(opts.includeResearch36?{research36:require('./research36').evaluateResearch36({
+      stock:{code:String(stock.code||stock.symbol||''),bars:stock.bars,features:stock.research36Features},
+      asOf:opts.asOf??Date.now(),config:opts.research36Config||{}
+    })}:{}),
     ...(opts.includeRuleComparison?{ruleComparison:require('./rule-comparison').compareRuleSystems({
       scores:opts.ruleScores||{},myrulesInput:opts.myrulesInput,baziInput:opts.baziInput,
       pythonResult:opts.pythonResult,myrulesConfig:opts.myrulesConfig,pack

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require.resolve('../server.js'),'utf8');
 function extract(start,end,context){const a=source.indexOf(start),b=source.indexOf(end,a);assert.ok(a>=0&&b>a);vm.createContext(context);vm.runInContext(source.slice(a,b),context);return context;}
 test('paper buy executes at the checked observation, not a different pool price',()=>{
- const acc={enabled:true,cash:10000,positions:{},trades:[]};const c={PAPER_CFG:{pool:{maxPos:1,name:'test'}},PAPER:{pool:acc},S:{ztCodes:new Set()},A:{isLimitUp:()=>false},Date,isReplica:()=>false,isContinuousTrading:()=>true,paperPxFresh:()=>10,paperEquity:()=>10000,paperFeeAmount:()=>5,paperLotOf:()=>100,skipAdd:()=>{},numNeutral:()=>0,dataCapOf:()=>100,savePaper:()=>true,pushPaperDigest:()=>{}};
+ const acc={enabled:true,cash:10000,positions:{},trades:[]};const c={PAPER_CFG:{pool:{maxPos:1,name:'test'}},PAPER:{pool:acc},S:{ztCodes:new Set()},A:{isLimitUp:()=>false},Date,isReplica:()=>false,isContinuousTrading:()=>true,paperPxFresh:()=>10,paperAuthorityQuotes:()=>({600519:{price:10}}),paperEquity:()=>10000,paperFeeAmount:()=>5,paperLotOf:()=>100,skipAdd:()=>{},numNeutral:()=>0,dataCapOf:()=>100,savePaper:()=>true,pushPaperDigest:()=>{}};
  extract('function paperBuy(key, cands, pm, reasonOf)', '// ---------------- A股 T+1',c);
  c.paperBuy('pool',[{code:'600519',name:'样本',price:20,pct:0}],new Map([['600519',20]]),()=> 'test');
  assert.equal(acc.trades.length,1);assert.equal(acc.trades[0].price,10);assert.equal(acc.positions['600519'].buyPrice,10);

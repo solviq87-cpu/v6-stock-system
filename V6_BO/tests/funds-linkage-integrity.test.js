@@ -150,13 +150,14 @@ test('accumulation path displays actual big-plus-super net without counting main
     s: {code: '000001'}, k: {rows: [{pct: 1}, {pct: 1}, {pct: 1}]},
     pushPath: (name, detail) => paths.push({name, detail})});
   const block = extract(server, '    const fd = S.fundDays.get(s.code) || [];', '    // 大单流入：当日主力净占比');
-  vm.runInContext(block, ctx);
+  const declaration = extract(server, '    const conditionPathInputs=[];', '    // CONDITION_EVIDENCE_END');
+  vm.runInContext(`{${declaration}${block}}`, ctx);
   assert.equal(paths.length, 1);
   assert.match(paths[0].detail, /净额300万/);
   assert.doesNotMatch(paths[0].detail, /480万/);
   days[1].super = null;
   paths.length = 0;
-  vm.runInContext(`{${block}}`, ctx);
+  vm.runInContext(`{${declaration}${block}}`, ctx);
   assert.equal(paths.length, 0);
 });
 
@@ -178,7 +179,11 @@ test('sector surge requires two observed amounts and treats real zero as compara
 test('sample histories never bridge missing funds, including a missing interior observation', () => {
   const ctx = context();
   vm.runInContext(extract(server, 'function countStreak(h)', 'function sectorZTCountFor('), ctx);
-  const rows = Array.from({length: 12}, (_, i) => ({mainInflow: i * 1e7}));
+  const start = Date.parse('2026-11-13T10:00:00+08:00');
+  const observation = (i, mainInflow) => ctx.fundsHistoryObservation({mainInflow,
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
+    fundsRetrievedAt: start + i * 5000}, start + i * 5000);
+  const rows = Array.from({length: 12}, (_, i) => observation(i, i * 1e7));
   assert.equal(ctx.fundsWindowDelta(rows, 12), 11e7);
   assert.equal(ctx.countStreak(rows), 1);
   for (const index of [0, 5, 11]) {
@@ -189,16 +194,15 @@ test('sample histories never bridge missing funds, including a missing interior 
   const afterGap = rows.map(row => ({...row}));
   afterGap[8].mainInflow = null;
   assert.equal(ctx.countStreak(afterGap), 0);
-  for (let i = 0; i < 12; i++) afterGap.push({mainInflow: i});
+  for (let i = 0; i < 12; i++) afterGap.push(observation(i + 12, i));
   assert.equal(ctx.fundsWindowDelta(afterGap, 12), 11);
 });
 
-test('actual history ingestion stores unknown and replaces prior sector baseline with unknown', () => {
-  const h = [], ctx = context({h, now: 123, s: {mainInflow: null, pct: 1}});
-  vm.runInContext(extract(server, '      h.push({ t: now, mainInflow:', '      while (h.length'), ctx);
+test('funds observations store unknown and replace prior sector baseline with unknown', () => {
+  const h = [], ctx = context();
+  h.push(ctx.fundsHistoryObservation({mainInflow: null, pct: 1}, 123));
   assert.equal(h[0].mainInflow, null);
-  ctx.s.mainInflow = 0;
-  vm.runInContext(extract(server, '      h.push({ t: now, mainInflow:', '      while (h.length'), ctx);
+  h.push(ctx.fundsHistoryObservation({mainInflow: 0, pct: 1}, 123));
   assert.equal(h[1].mainInflow, 0);
   ctx.S = {sectors: [{name: '行业', mainInflow: null}]};
   vm.runInContext(extract(server, '  const cur = new Map(S.sectors.map(', '  // ⛔ 基线必须') + '\nthis.baseline = cur;', ctx);

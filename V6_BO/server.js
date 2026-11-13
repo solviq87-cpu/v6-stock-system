@@ -8,6 +8,11 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+const probabilityContract = require('./src/core/probability-contract');
+const SignalEvidence = require('./src/core/signal-evidence-chain');
+const SignalJournal = require('./src/core/production-signal-journal');
+const SIGNAL_RULE_SOURCE_MANIFEST = require('./src/core/signal-rule-manifest').buildSignalRuleSourceManifest(__dirname);
+const SIGNAL_RULE_SOURCE_HASH = SIGNAL_RULE_SOURCE_MANIFEST.fingerprint;
 // Opt-in durable research observer. Push delivery, ranking and accounts remain independent.
 let _stockObservationMonitor=null,_stockObservationMonitorError=null;
 function stockObservationOptions(){
@@ -38,7 +43,8 @@ function queuePushedStockObservations(text,codes,opts){
     if(!/^(?:(?:600|601|603|605|688|000|001|002|003|300|301)\d{3}|(?:43|83|87|88|92)\d{4})$/.test(symbol))continue;
     try{
       const signalRefs=(Array.isArray(opts.signalRefs)?opts.signalRefs:[]).filter(r=>r&&r.code===symbol&&typeof r.type==='string'&&r.type.length<=64&&
-        (r.ts===undefined||Number.isSafeInteger(r.ts)&&r.ts>0&&r.ts<=decisionAt)).slice(0,20).map(r=>({code:r.code,type:r.type,...(r.ts===undefined?{}:{ts:r.ts})}));
+        (r.ts===undefined||Number.isSafeInteger(r.ts)&&r.ts>0&&r.ts<=decisionAt)).slice(0,20).map(r=>({code:r.code,type:r.type,...(r.ts===undefined?{}:{ts:r.ts}),
+          ...(/^[a-f0-9]{64}$/.test(r.signalId||'')?{id:r.signalId}:{})}));
       const receipt=require('./src/core/stock-observation-queue').enqueueStockObservation(
         process.env.V6_STOCK_OBSERVATION_QUEUE_DIR||path.join(__dirname,'data','stock-observation-queue'),
         {symbol,decisionAt,trigger:'push-attempt',signalRefs,messageHash});
@@ -46,6 +52,72 @@ function queuePushedStockObservations(text,codes,opts){
     }catch{console.error('[research-observation] 股票采集意图未封存；推送流程继续');}
   }
   monitor.wake();
+}
+// Review this exact candidate row. Nothing here looks up another price by code.
+function reviewRecommendation(row, purpose = 'intraday-recommendation', now = Date.now()) {
+  return require('./src/core/recommendation-evidence-review').reviewRecommendationEvidence(row, { purpose, now });
+}
+function reviewedRows(items, purpose = 'intraday-recommendation', now = Date.now()) {
+  return (Array.isArray(items) ? items : []).filter(row => {
+    const review = reviewRecommendation(row, purpose, now);
+    return purpose === 'intraday-recommendation' ? review.canRecommend
+      : purpose === 'dated-observation' ? review.canObserve : review.canBroadcast;
+  });
+}
+function reviewSnapshotFields(row) {
+  return require('./src/core/recommendation-evidence-review').reviewQuoteSnapshotFields(row);
+}
+function researchSnapshotFields(snapshot, bar) {
+  const raw = String(bar && bar.date || '');
+  const tradeDate = /^\d{8}$/.test(raw) ? raw.slice(0,4)+'-'+raw.slice(4,6)+'-'+raw.slice(6,8) : raw;
+  return {researchEvidence:{tradeDate,source:snapshot && (snapshot.src || snapshot.source) || null,
+    receivedAt:snapshot && snapshot.receivedAt || null}};
+}
+function researchQuoteFields(row) {
+  const at = row && row.quoteAt;
+  return {researchEvidence:{tradeDate:Number.isSafeInteger(at) && at > 0 && at <= 8e15
+    ? new Date(at+28800000).toISOString().slice(0,10) : null,
+    source:row && row.quoteSource || null,receivedAt:row && row.receivedAt || null}};
+}
+// Freeze the original row before buffering; later delivery cannot borrow a new quote.
+function freezeRecommendationRows(rows, historical = false) {
+  const now = Date.now();
+  return (Array.isArray(rows) ? rows : []).map(row => Object.freeze({
+    ...reviewSnapshotFields(row), code: row.code, name: row.name, price: row.price,
+    triggerAt: Number.isSafeInteger(row.ts) && row.ts > 0 ? row.ts : now,
+    reviewedAt: Number.isSafeInteger(row.recommendationReviewedAt) && row.recommendationReviewedAt > 0 ? row.recommendationReviewedAt
+      : historical && Number.isSafeInteger(row.ts) && row.ts > 0 ? row.ts
+      : historical && Number.isSafeInteger(row.receivedAt) && row.receivedAt > 0 ? row.receivedAt : now,
+    signalId: row.signalId || null, type: row.type || null
+  }));
+}
+function recommendationSendOptions(rows, options = {}, historical = false) {
+  return { ...options, recommendationRows: freezeRecommendationRows(rows, historical),
+    forceHistoricalObservation: historical };
+}
+function prepareRecommendationDelivery(text, options, now = Date.now()) {
+  if (!options || !Array.isArray(options.recommendationRows)) return {ok: true, text, kind: 'other-purpose', canRecommend: false};
+  const rows = options.recommendationRows;
+  if (!rows.length) return {ok: false, text: '', kind: 'missing-recommendation-evidence', canRecommend: false};
+  const current = rows.map(row => reviewRecommendation(row, 'intraday-recommendation', now));
+  if (!options.forceHistoricalObservation && current.every(review => review.canRecommend))
+    return {ok: true, text, kind: 'intraday-recommendation', canRecommend: true};
+  const originKnown = rows.every(row => Number.isSafeInteger(row.reviewedAt) && row.reviewedAt > 0 && row.reviewedAt <= now &&
+    reviewRecommendation(row, 'intraday-recommendation', row.reviewedAt).canRecommend);
+  if (!originKnown) return {ok: false, text: '', kind: 'unverified-original-trigger', canRecommend: false};
+  const lines = rows.map(row => `▪ ${row.name || row.code}(${row.code}) 当时报价${row.price}` +
+    `\n  原触发 ${new Date(row.triggerAt).toISOString()} · 报价原时点 ${new Date(row.quoteAt).toISOString()}` +
+    `\n  证据ID ${row.signalId || '未完整冻结（partial）'}`);
+  return {ok: true, kind: 'historical-trigger-observation', canRecommend: false,
+    text: '═══ 历史触发观察 · 非当前推荐 ═══\n' + lines.join('\n') +
+      '\n按原时点回放报价审核，不代表过去已经送达。该报价已过时或为手动历史重发；当前价格、资金和交易条件需重新核实。'};
+}
+function auctionSendOptions(auction, message, historical = false) {
+  const rows = (auction && auction.strong || []).concat(auction && auction.ztInfers || []);
+  const codes = new Set(extractStockCodes(message));
+  const selected = rows.filter(row => codes.has(String(row.code)));
+  const unique = [...new Map(selected.map(row => [String(row.code)+':'+row.price+':'+row.quoteAt, row])).values()];
+  return unique.length ? recommendationSendOptions(unique, {private:true}, historical || String(message).includes('历史触发观察')) : {private:true};
 }
 // Funds evidence: missing values remain unknown throughout display and aggregation.
 function fundsNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value : null; }
@@ -58,11 +130,49 @@ function fundsWindowSum(rows, count, fields = ['main']) {
   if (!window.every(row => row && fields.every(field => fundsNumber(row[field]) !== null))) return null;
   return window.reduce((sum, row) => sum + fields.reduce((subtotal, field) => subtotal + row[field], 0), 0);
 }
-function fundsWindowDelta(rows, count) {
-  if (!Array.isArray(rows) || rows.length < count || count < 2) return null;
+const FUNDS_CONTINUITY_MAX_GAP_MS = 15000;
+function fundsObservationDay(at) {
+  if (!Number.isSafeInteger(at) || at <= 0 || at > 8e15) return null;
+  return new Date(at + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+function fundsHistoryObservation(stock, now) {
+  return { t: now, mainInflow: fundsNumber(stock.mainInflow), pct: stock.pct,
+    fundsSource: stock.fundsSource || null, fundsMethod: stock.fundsMethod || null,
+    fundsRetrievedAt: fundsNumber(stock.fundsRetrievedAt),
+    // An unknown vendor timestamp stays unknown; price time is not funds time.
+    fundsSourceTimestamp: stock.fundsSourceTimestamp ?? null };
+}
+function fundsHistoryValid(row) {
+  if (!row || fundsNumber(row.mainInflow) === null || !fundsObservationDay(row.t) ||
+      typeof row.fundsSource !== 'string' || !row.fundsSource.trim() ||
+      typeof row.fundsMethod !== 'string' || !row.fundsMethod.trim()) return false;
+  const received = row.fundsRetrievedAt;
+  if (!fundsObservationDay(received) || received > row.t || row.t - received > FUNDS_CONTINUITY_MAX_GAP_MS ||
+      fundsObservationDay(received) !== fundsObservationDay(row.t)) return false;
+  const original = row.fundsSourceTimestamp;
+  return original === null || (fundsObservationDay(original) !== null && original <= received &&
+    received - original <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    fundsObservationDay(original) === fundsObservationDay(received));
+}
+function fundsHistoryContinuous(previous, current) {
+  return fundsHistoryValid(previous) && fundsHistoryValid(current) &&
+    previous.fundsSource === current.fundsSource && previous.fundsMethod === current.fundsMethod &&
+    fundsObservationDay(previous.t) === fundsObservationDay(current.t) &&
+    current.t > previous.t && current.t - previous.t <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    current.fundsRetrievedAt > previous.fundsRetrievedAt &&
+    current.fundsRetrievedAt - previous.fundsRetrievedAt <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    (previous.fundsSourceTimestamp === null ? current.fundsSourceTimestamp === null :
+      current.fundsSourceTimestamp !== null && current.fundsSourceTimestamp > previous.fundsSourceTimestamp &&
+      current.fundsSourceTimestamp - previous.fundsSourceTimestamp <= FUNDS_CONTINUITY_MAX_GAP_MS);
+}
+function fundsWindowDelta(rows, count, { minSpanMs = 0, maxSpanMs = Infinity } = {}) {
+  if (!Array.isArray(rows) || !Number.isInteger(count) || rows.length < count || count < 2) return null;
   const window = rows.slice(-count);
-  if (!window.every(row => row && fundsNumber(row.mainInflow) !== null)) return null;
-  return window[window.length - 1].mainInflow - window[0].mainInflow;
+  if (!window.every((row, index) => index === 0 ? fundsHistoryValid(row) : fundsHistoryContinuous(window[index - 1], row))) return null;
+  const span = window[window.length - 1].t - window[0].t;
+  if (span < minSpanMs || span > maxSpanMs) return null;
+  const delta = window[window.length - 1].mainInflow - window[0].mainInflow;
+  return Number.isFinite(delta) ? delta : null;
 }
 function applyObservedFunds(stock, flow) {
   stock.mainInflow = fundsNumber(flow.today); stock.mainPct = fundsNumber(flow.pct);
@@ -201,7 +311,7 @@ const S = {
   idxDisc: null,          // oa 轮：指数纪律警示（2026-10-29 用户交易纪律铁律·警示参考）：{signal:'entry'|'exit'|'flat', close, prevHigh, prevLow, day, at}；不接模拟盘，只告诉能做/不能做
   auction: null,           // 竞价快照 + 异动板块 + 龙头
   signals: [],             // 推送信号记录
-  inflowHistory: new Map(),// code -> [{t, mainInflow}] 5秒资金流入轨迹
+  inflowHistory: new Map(),// code -> continuous funds observations with their own provenance
   trendState: new Map(),   // code -> {belowMa5, aboveTicks, belowHigh, highTicks, firedMa5, firedHigh}
   lastPush: new Map(),     // 去重 key -> ts
   pushCount: new Map(),    // 去重 key -> {d:日期, n:当日第几次推送}（强势股可重复推，用来标注"第N次"）
@@ -274,6 +384,7 @@ setInterval(() => {
 // 不设防就会重叠执行：并发打数据源 → 触发限流 → 更慢 → 重叠更多，恶性循环。
 // 看门狗：万一任务卡死（Promise 永不返回），最多停摆 15 分钟后自动放行下一轮。
 const _taskBusy = new Map();   // name -> startedAt
+const panelRefreshPolicy=require('./src/core/panel-refresh-policy').createPanelRefreshPolicy();
 function guard(name, fn) {
   return async (...a) => {
     const at = _taskBusy.get(name);
@@ -310,15 +421,18 @@ function sectorMktFlow() {
   return { v: +(sum / 1e8).toFixed(1), day: S.sectorsDay || '', at: S.sectorsAt || 0 };
 }
 
-// ⛔ if 轮：「大盘实时」行（情绪卡的秒级部分）。只认 90 秒内的指数快照 ——
-//    休市/夜间/取不到时返回 null，不拿旧指数冒充"实时"。
+// 指数按供应商原时点判新鲜度；本地刚收到旧包也不能标为当前报价。
 function idxRtLine() {
   const r = S.idxRt;
   if (!r || !r.at || !Array.isArray(r.items) || !r.items.length) return null;
-  if (Date.now() - r.at > 90 * 1000) return null;
-  const t = new Date(r.at);
-  const hhmmss = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
-  return `大盘实时：${r.items.map(x => `${x.name}${x.pct > 0 ? '+' : ''}${(+x.pct).toFixed(2)}%`).join(' · ')}（${hhmmss}）`;
+  const now=Date.now();
+  const items=r.items.filter(x=>typeof x.price==='number'&&Number.isFinite(x.price)&&x.price>0&&
+    typeof x.pct==='number'&&Number.isFinite(x.pct)&&typeof x.quoteSource==='string'&&x.quoteSource.trim()&&
+    Number.isSafeInteger(x.quoteAt)&&x.quoteAt>0&&Number.isSafeInteger(x.receivedAt)&&
+    x.quoteAt<=x.receivedAt&&x.receivedAt<=now&&now-x.quoteAt<=15000&&
+    new Date(x.quoteAt+28800000).toISOString().slice(0,10)===new Date(now+28800000).toISOString().slice(0,10));
+  if(!items.length)return null;
+  return `大盘报价：${items.map(x=>`${x.name}${x.pct>0?'+':''}${(+x.pct).toFixed(2)}%（原时点${new Date(x.quoteAt+28800000).toISOString().slice(11,19)}）`).join(' · ')} · 未认证`;
 }
 
 // 外围市场情绪：隔夜美股+港股综合 + 全市场做多意愿
@@ -458,7 +572,7 @@ function computePreselect() {
     return {
       code: c.code, name: c.name, price: c.price, pct: c.pct,
       profitRatio: c.profitRatio, score: c.score, paths: c.paths,
-      prob: +(p * 100).toFixed(0),
+      prob: +(p * 100).toFixed(0), probKind: 'model-estimate', eventTarget: 'ztToday', calibrationCertified: false,
       reason: [
         (c.paths || []).join('+'),
         `获利筹码${c.profitRatio != null ? c.profitRatio + '%' : '-'}`,
@@ -481,7 +595,7 @@ function analyzePreBuy(cands) {
     // ① 基础门槛
     if (c.prob < 60) continue;
     // ② 利空过滤
-    if (S.news && S.news.badCodes && S.news.badCodes.has(c.code)) continue;
+    if (newsWarnsCode(c.code)) continue;
     // ③ 不是已封板/一字板（距涨停至少还有 3% 空间）
     if (A.isLimitUp(c.code, c.name, c.pct)) continue;
     const gap = numNeutral('gap', numGapRaw(c.code, c.name, c.pct));
@@ -516,7 +630,7 @@ const EXT_MAP = [
   { name: '软件/医药(印度链)', exts: ['SENSEX'], keys: ['软件服务', '医药制造', 'IT服务', '钢铁'] },
 ];
 const EXT_PUSH_GAP = 2 * 60 * 60 * 1000; // 同一联动组推送间隔2小时
-async function refreshExtLink() {
+async function refreshExtLink({notify=true}={}) {
   try {
     // 合并外围指数（10国）+ 美股代表个股：指数与联动预选深度联动
     const local = (S.global || []).map(g => ({ code: g.code, name: g.name, pct: g.pct }));
@@ -553,21 +667,30 @@ async function refreshExtLink() {
       }
       const sel = (stocks || []).filter(s => !A.isJunkName(s.name) && !s.code.startsWith('30') && !s.code.startsWith('68') && s.pct > 0 && !capTooSmall(s))
         .sort((a, b) => ((b.turnover || 0) * (b.pct || 0)) - ((a.turnover || 0) * (a.pct || 0))).slice(0, 3)
-        .map(s => ({ code: s.code, name: s.name, price: s.price, pct: s.pct, group: g.name, sector: sec.name }));
+        .map(s => ({ ...reviewSnapshotFields(s), code: s.code, name: s.name, price: s.price, pct: s.pct, group: g.name, sector: sec.name }));
       picks.push(...sel);
       // 外围指数显著上涨(≥1%) → 推送同板块最佳个股（盘中有效，每组2小时一次，夜间静默自动拦截）
-      if (g.extPct >= 1 && sel.length && isTradingTime()) {
+      const notifySel = reviewedRows(sel);
+      if (notify && g.extPct >= 1 && notifySel.length && isTradingTime()) {
         const last = (S.extPushed || new Map());
         S.extPushed = last;
         if (Date.now() - (last.get(g.name) || 0) > EXT_PUSH_GAP) {
           last.set(g.name, Date.now());
           pushAll(`═══ 🌏 外围联动 · 同板块好标的 ═══\n【${g.name}】外围驱动: ${g.extTag}\n联动A股板块: ${g.sectors.map(x => `${x.name}${x.pct > 0 ? '+' : ''}${x.pct}%`).join('、')}\n板块内较强标的:\n` +
-            sel.map(s => `▪ ${s.name}(${s.code}) 现价${s.price} 涨${sign(s.pct)}%\n  选股逻辑: 外围驱动联动（${g.name}${g.extTag}带动【${s.sector}】）+ 换手×涨幅综合强度板块内前3`).join('\n') + `\n（同组2小时内不重复推送，完整联动见面板）`);
+            notifySel.map(s => `▪ ${s.name}(${s.code}) 现价${s.price} 涨${sign(s.pct)}%\n  选股逻辑: 外围驱动联动（${g.name}${g.extTag}带动【${s.sector}】）+ 换手×涨幅综合强度板块内前3`).join('\n') + `\n（同组2小时内不重复推送，完整联动见面板）`, false, recommendationSendOptions(notifySel));
         }
       }
     }
     S.extLink = { time: new Date().toLocaleTimeString('zh-CN'), basePct: +basePct.toFixed(2), groups, picks };
   } catch (e) { console.error('[extlink]', e.message); }
+}
+
+async function refreshGlobalForDisplay() {
+  const quotes=await em.fetchGlobal();
+  if(quotes&&quotes.length)S.global=quotes;
+  await refreshExtLink({notify:false});
+  const preselect=computePreselect();
+  if(preselect&&Array.isArray(preselect.items)&&preselect.items.length)S.preselect=preselect;
 }
 
 // ---------------- 板块异动高频监控：30秒主力流入突变 → 成分股速扫 → 涨停概率速报 ----------------
@@ -627,7 +750,6 @@ async function sectorSurgeScan() {
     if (Date.now() - (_sectorAlertMap.get(sg.name) || 0) < 15 * 60000) continue;
     const sin = S.extCache.sectors.find(x => x.name.includes(sg.name) || sg.name.includes(x.name));
     if (!sin) continue;
-    _sectorAlertMap.set(sg.name, Date.now());
     (async () => {
       try {
         const stocks = await em.fetchSinaSectorStocks(sin.node, 30);
@@ -635,19 +757,30 @@ async function sectorSurgeScan() {
         const snaps = await em.fetchBatchSnapshot(stocks.slice(0, 12).map(x => x.code));
         const nameOf = new Map(stocks.map(x => [x.code, x.name]));
         const cands = [];
+        const _secKey = (typeof themeOfSec === 'function') ? themeOfSec(sg.name) : sg.name;
         for (const sn of (snaps || [])) {
           if (!sn || !sn.price) continue;
+          if (!reviewRecommendation(sn).canRecommend) continue;
           if ((sn.pct || 0) < 3) continue; // 只看强势股
           // ⛔ 2026-10-09 修（口径普查）：sg 取自东财板块涨幅榜（"固态电池BK0968"这类 BK 名），
           //    而 S.ztBySector 的键是【主线归并口径】（电池·储能）—— 两套命名对不上，
           //    sectorZT 恒为 0，nextDayLimitProb 的板块效应维度一直是空转的。
           //    修法：查表前用 themeOfSec 归并到主线（与 S.ztBySector 建键同一入口）。
-          const _secKey = (typeof themeOfSec === 'function') ? themeOfSec(sg.name) : sg.name;
           const p = A.nextDayLimitProb({ limitUpCount: 1, sealRatio: 0, breakCount: 0, firstSeal: null, sectorZT: ((S.ztBySector || {})[_secKey] || []).length, turnover: sn.turnover || 5, aboveMa5: true });
-          cands.push({ code: sn.code, name: nameOf.get(sn.code) || sn.code, price: sn.price, pct: sn.pct, prob: Math.round(calibratedProb(p)), mainPct: sn.mainPct });
+          cands.push({ ...reviewSnapshotFields(sn), code: sn.code, name: nameOf.get(sn.code) || sn.code, price: sn.price, pct: sn.pct, prob: Math.round(calibratedProb(p)), mainPct: sn.mainPct });
+          // CONDITION_EVIDENCE_BEGIN
+          annotateSignalConditions(cands[cands.length-1],'sectorSurgeScan',[
+            ['price','原行价格',sn.price,0,'>'],['stock-strength','个股涨幅',sn.pct||0,3,'>='],
+            ['sector-trigger','板块实际命中分支',sg.kind==='surge'?sg.delta:sg.pct,sg.kind==='surge'?3e7:2.5,'>='],
+            ['sector-flow','板块当日净流入',cur.get(sg.name),0,'>']],
+            ['PICK_NOTABLE_SECTORS_SURGE_OR_STRENGTH_BRANCH_NOT_EXPANDED','NEXT_DAY_LIMIT_MODEL_INTERNALS_NOT_EXPANDED'],
+            {sectorSignal:sg,sectorZT:((S.ztBySector||{})[_secKey]||[]).length,turnoverUsed:sn.turnover||5,modelRaw:p,
+              modelAssumptions:{limitUpCount:1,sealRatio:0,breakCount:0,firstSeal:null,aboveMa5:true}});
+          // CONDITION_EVIDENCE_END
         }
         cands.sort((a, b) => b.prob - a.prob);
         if (!cands.length) return;
+        _sectorAlertMap.set(sg.name, Date.now());
         // ⛔ 单模块日上限（2026-10-06 接上）：板块异动是"扇出"最大的一类
         //   （一个板块动辄带出十几只联动股），以前一天碰上几个板块就是几十只，
         //   而 MOD_DAY_CAP.sector 这道闸**一直写了没接**，等于没有。
@@ -678,11 +811,11 @@ async function sectorSurgeScan() {
           // ⛔ 这里的 prob 出自 A.nextDayLimitProb —— 赌的是【次日】封板，不标出来会被当成"今天就能封"
           top.map(x => `▪ ${x.name}(${x.code}) 现涨${x.pct > 0 ? '+' : ''}${x.pct.toFixed(1)}% 涨停概率${x.prob}%${probTag('ztNext', x.prob)}${x.mainPct ? ` 主力占比${x.mainPct.toFixed(0)}%` : ''}\n  ${pickLogic({ reason: `板块异动联动（${sg.name}${sg.delta == null ? '主力净流入为正，增量未知' : '30秒主力净流入' + signTxt(sg.delta) + inf(sg.delta)}、板块${sg.pct > 0 ? '+' : ''}${sg.pct.toFixed(2)}%）+ 个股现涨${x.pct.toFixed(1)}%走强` })}${fuseLine(x)}`).join('\n') +
           // ⛔ 2026-10-08 修：用户要求"涨停分析全部走私密通道" —— 这是涨停概率速报，改私密机器人
-          `\n（异动板块15分钟内不重复推送 · 已进入自学习样本）${govFoot()}`, false, { undo: top.$undo, modDay: 'sector', private: true });
+          `\n（异动板块15分钟内不重复推送 · 已进入自学习样本）${govFoot()}`, false, recommendationSendOptions(top, { undo: top.$undo, modDay: 'sector', private: true }));
         // ⛔ 2026-10-07 修（本轮角度：数据血缘）：同上，原来第 5 参传 null，分数只塞进 extra.score。
         //    而 fusedProb 只认第 5 参、empcalib 只认样本里的 prob 字段 —— extra.score 没人读。
         //    判定端 govFilter 用 x.prob 判、留档端却没分 → 同一只票"判的时候有分、存的时候没分"。
-        for (const x of top.slice(0, 3)) logSignal('sector', x.code, x.name, x.price, x.prob, { score: x.prob, paths: ['板块异动联动'] });
+        for (const x of top.slice(0, 3)) logSignal('sector', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { score: x.prob, paths: ['板块异动联动'] }));
       } catch (e) { console.error('[sectorSurge]', e.message); }
     })();
   }
@@ -797,6 +930,104 @@ const LEARN_HIST_FILE = path.join(__dirname, 'learn_history.json');
 S.learn = readJsonSafe(STAT_FILE, 'stats.json（信号样本/分桶校准/A-B 实验）') || { signals: [], buckets: {}, scoreThreshold: 75, samples: 0, hits: 0 };
 // ⛔ 返回落盘成败：调用方（尤其是会回应用户的接口）必须拿它决定怎么答复，不许写失败还回 ok:true
 const saveLearn = () => { const _o = atomicWrite(STAT_FILE, JSON.stringify(S.learn)); return _o ? true : _diskFail('stats.json（信号样本/校准分桶）'); };
+let signalRuleVersion;
+// Object identity also preserves the decision for sealed candidates without changing their shape.
+const governanceEvidenceByCandidate = new WeakMap();
+const governanceEvidenceRecords = new WeakSet();
+function signalGovernanceEvidence(row,type,at,requireCandidate=false) {
+  if (!row || typeof row !== 'object') return undefined;
+  if (requireCandidate && !governanceEvidenceByCandidate.has(row)) return undefined;
+  const evidence = governanceEvidenceByCandidate.has(row) ? governanceEvidenceByCandidate.get(row) : row.governanceEvidence;
+  const aliases = { '后排涨停概率':'ztprob', '大单快速流入':'fastin', '趋势票':'trendsig', '涨停':'zt' };
+  if (!evidence || !governanceEvidenceRecords.has(evidence) || evidence.scope !== 'central-governance-reservation' || evidence.decision?.allow !== true ||
+    evidence.code !== String(row.code || '') || (type && evidence.type !== (aliases[type] || type)) ||
+    !Number.isSafeInteger(evidence.evaluatedAt) || (at !== undefined && evidence.evaluatedAt > at)) return undefined;
+  return evidence;
+}
+function productionSignalVersion() {
+  // Hash the evaluator actually loaded by this process; never backfill it into old samples.
+  if (!signalRuleVersion) signalRuleVersion='live-signal-v3:'+SIGNAL_RULE_SOURCE_MANIFEST.status+':'+require('node:crypto').createHash('sha256').update(SIGNAL_RULE_SOURCE_HASH+tick.toString()+logSignal.toString()+fusedProb.toString()).digest('hex');
+  return signalRuleVersion;
+}
+function signalCondition(id,label,value,threshold,operator,at) {
+  return {id,label,value,threshold,operator,source:'frozen-live-rule:'+id,updatedAt:at};
+}
+// Metadata only: callers pass values already evaluated by their original rule.
+// Missing external internals remain explicit; a nonempty list never means a complete strategy.
+function annotateSignalConditions(row,producer,rules,missing=[],inputs={}) {
+  if(!row||typeof row!=='object')return row;
+  const at=Date.now(),previous=Array.isArray(row.conditionEvidence)?row.conditionEvidence:[];
+  const additions=(Array.isArray(rules)?rules:[]).map(([id,label,value,threshold,operator])=>({
+    id:producer+':'+id,label,value:typeof value==='number'&&Number.isFinite(value)?value:null,
+    threshold:typeof threshold==='number'&&Number.isFinite(threshold)?threshold:null,operator,
+    source:'server.js#'+producer,updatedAt:at}));
+  const merged=new Map(previous.map(condition=>[condition.id,condition]));
+  for(const condition of additions)merged.set(condition.id,condition);
+  const gaps=[...(row.conditionCoverage?.missing||[]),...missing.map(id=>({id,source:'server.js#'+producer})),
+    {id:'SHARED_GOVERNANCE_AND_DELIVERY_NOT_EXPANDED',source:'server.js#'+producer}];
+  const uniqueGaps=[...new Map(gaps.map(gap=>[gap.id+'|'+gap.source,gap])).values()];
+  let values=null;
+  try{const raw=JSON.stringify(inputs);if(Buffer.byteLength(raw)>64*1024)throw Error('size');values=JSON.parse(raw);}
+  catch{uniqueGaps.push({id:'CONDITION_INPUT_SNAPSHOT_UNAVAILABLE',source:'server.js#'+producer});}
+  const conditions=[...merged.values()];
+  if(conditions.length>128)uniqueGaps.push({id:'CONDITION_COUNT_EXCEEDS_128',source:'server.js#'+producer});
+  const allStages=[...(row.conditionInputs||[]),{producer,evaluatedAt:at,values}];
+  if(allStages.length>12)uniqueGaps.push({id:'CONDITION_STAGE_COUNT_EXCEEDS_12',source:'server.js#'+producer});
+  const stages=allStages.slice(-12);
+  try{
+    const frozen=SignalEvidence.immutableSnapshot({conditionEvidence:conditions.slice(0,128),conditionCoverage:{schemaVersion:1,
+      status:'partial',scope:'producer-local-conditions',producers:[...new Set([...(row.conditionCoverage?.producers||[]),producer])],
+      covered:conditions.slice(0,128).map(condition=>condition.id),missing:uniqueGaps},conditionInputs:stages});
+    Object.assign(row,frozen);
+  }catch{row.conditionCoverage={schemaVersion:1,status:'partial',scope:'producer-local-conditions',missing:[{id:'CONDITION_METADATA_SNAPSHOT_FAILED',source:'server.js#'+producer}]};}
+  return row;
+}
+function learningSignalExtra(row,extra={}) {
+  const quote={};
+  for(const field of ['price','pct','quoteAt','receivedAt','quoteSource','quoteFreshness','canTrade','canNotify','mode']) if(row && row[field]!==undefined)quote[field]=row[field];
+  return {...extra,sourceRecord:row||null,quoteEvidence:quote,conditionEvidence:Array.isArray(row?.conditionEvidence)?row.conditionEvidence:[],conditionCoverage:row?.conditionCoverage||null,
+    governanceEvidence:typeof signalGovernanceEvidence==='function'?signalGovernanceEvidence(row,undefined,undefined,true):undefined,
+    strategyVersion:row?.strategyVersion||productionSignalVersion(),signalRisk:typeof row?.risk==='string'?row.risk:'',stopLoss:row?.stopRef||row?.stopLoss||'',invalidWhen:row?.invalidWhen||''};
+}
+function captureProductionSignal(record,quote={},rows=[],extra={}) {
+  const at=record.ts,capturedAt=Date.now();
+  const bars=Array.isArray(rows)?rows:[]; // Preserve each actual row, including provenance fields not known by this adapter.
+  const eligibility=require('./src/core/quote-observation-view').quoteUseEligibility;
+  const qualityEvidence=typeof eligibility==='function'?eligibility(quote,at):{canTrade:false,canNotify:false,missingReason:'QUALITY_CONTRACT_UNAVAILABLE'};
+  let news;
+  try{
+    const binding=require('./src/core/news-signal-evidence').capture(process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence'),{code:record.code,triggerAt:at,now:Date.now()});
+    news={...(extra.news||{}),...binding};
+  }catch{news={...(extra.news||{}),originalEvidence:null,binding:{status:'partial',reasons:['NEWS_BINDING_UNAVAILABLE']}};}
+  let evidence;
+  const modelKind=record.probKind==='score'?'score':record.prob==null?'unknown':'model-estimate';
+  const eventTarget=record.eventTarget!==undefined?record.eventTarget:record._fz?.target??'unknown';
+  try{evidence=SignalEvidence.createProductionSignalEvidence({code:record.code,type:record.type,triggerAt:at,capturedAt,
+    recordKind:extra.recordKind,strategyVersion:record.strategyVersion||productionSignalVersion(),strategyDependencies:SIGNAL_RULE_SOURCE_MANIFEST,supersedes:extra.supersedes,
+    quote,conditions:record.conditionEvidence||[],conditionCoverage:record.conditionCoverage,
+    governanceEvidence:signalGovernanceEvidence(record,record.type,capturedAt),model:{value:record.prob,kind:modelKind,target:eventTarget,
+      rankingValue:record._fz?.prob,rankingKind:record._fz?.valueKind||'unknown'},
+    riseModel:{value:record.riseProb,kind:record.riseProb==null?'unknown':'model-estimate',target:record.riseEventTarget??'unknown',source:record.riseModelSource||''},
+    inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news,qualityEvidence},
+    supportingReasons:[record.logic||''].filter(Boolean),opposingReasons:[record.risk||''].filter(Boolean),
+    risk:{text:record.risk||'',stopLoss:record.stopLoss||record.stopRef||'',invalidWhen:record.invalidWhen||''},message:record.msg||''});}
+  catch(error){
+    console.error('[signal-evidence] 输入无法冻结，证据保持不可用');
+    // An oversized or invalid archive must not stop existing monitoring or invent an ID.
+    return SignalEvidence.immutableSnapshot({ts:at,code:record.code,type:record.type,name:record.name,price:record.price,prob:record.prob,
+      evidenceStatus:'unavailable',evidenceArchiveStatus:'unavailable',evidenceMissingReasons:['EVIDENCE_SNAPSHOT_FAILED'],
+      signalId:null,evidenceFingerprint:null,probKind:modelKind,eventTarget,calibrationCertified:false});
+  }
+  let archiveStatus='unavailable';
+  try{SignalJournal.appendEvidence(process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence'),evidence,{clock:()=>Date.now()});archiveStatus='archived';}
+  catch(error){console.error('[signal-evidence] 冻结归档不可用，不能声称可持久回放');}
+  return SignalEvidence.immutableSnapshot({...record,signalId:evidence.signalId,evidenceFingerprint:evidence.evidenceFingerprint,
+    evidenceStatus:evidence.status,evidenceArchiveStatus:archiveStatus,evidenceMissingReasons:evidence.missingReasons,
+    strategyVersion:evidence.strategyVersion,conditionEvidence:evidence.conditions,conditionCoverage:evidence.conditionCoverage,governanceEvidence:evidence.governanceEvidence,qualityEvidence,
+    probKind:modelKind,eventTarget,calibrationCertified:false,
+    quoteAt:evidence.quote.quoteAt,receivedAt:evidence.quote.receivedAt,quoteSource:evidence.quote.quoteSource,
+    stopLoss:evidence.risk.stopLoss,invalidWhen:evidence.risk.invalidWhen});
+}
 // 存量迁移：非交易日登记的样本本来就无法回验，标废，避免污染命中率统计
 // ⛔ 2026-10-15 修（#232 幽灵信号）：原来只判周末（getDay 0/6），法定假日里的周四/周五照样漏网 ——
 //    实测 2026 国庆 10-01~10-06 落了 156 条非交易日样本（auczt 64 + pool 57 + buzhang 12 +
@@ -872,17 +1103,7 @@ function betaWindowOpen() {
 async function fetchMarketBeta(opt) {
   if (!(opt && opt.force) && !betaWindowOpen()) return null;   // 非数据时段不落库，宁缺勿错
   try {
-    const https = require('https');
-    const ag = new https.Agent({ keepAlive: false, maxSockets: 4, family: 4 });
-    const txt = await new Promise((resolve, reject) => {
-      const rq = https.get('https://qt.gtimg.cn/q=s_sh000001,s_sz399001,s_sz399006', { ag,
-        headers: { 'User-Agent': 'Mozilla/5.0', Connection: 'close' } }, s => {
-        const cs = []; s.on('data', c => cs.push(c));
-        s.on('end', () => resolve(new TextDecoder('gbk').decode(Buffer.concat(cs))));
-      });
-      rq.on('error', reject);
-      rq.setTimeout(15000, () => { rq.destroy(); reject(new Error('timeout')); });
-    });
+    const txt = new TextDecoder('gbk').decode(await em.requestQuoteBytes('https://qt.gtimg.cn/q=s_sh000001,s_sz399001,s_sz399006'));
     let sum = 0, cnt = 0; const detail = {};
     for (const line of txt.split(';')) {
       const m = line.match(/v_s_(\w+)="([^"]+)"/);
@@ -1126,39 +1347,40 @@ function logSignal(type, code, name, price, prob, extra = {}) {
   // ⚠️ 重复登记修正（2026-09-29 发现）：同一只票同一天的同类信号以前会登记多次
   //    （实测 1973 条样本里有 1007 条是重复的，占 51%，例如 zt|600418|20260928 记了 3 次）。
   //    少数反复触发的票会重复计分，把整体命中率从真实的 43% 压到 30%。
-  //    现在同类同源只留一条：已回验的不动（保持回验一致性），未回验的更新价格/概率并合并因子。
+  //    统计仍每类/股/日只计一次；首次输入不覆写，后来观察另行追加不可变证据。
   const _key = type + '|' + code + '|' + todayStr();
   // ── 学习融合值：登记时就把它算出来存进样本 ──
   //   以前样本里只有"模型原值"，回验后只能评估模型准不准，永远无法回答
   //   「学完之后是不是更准」。现在并存一个 fused，回验时两套分档一起统计，
   //   learnFusedReport() 直接给出"融合档命中率 − 原值档命中率"= 学习带来的增量。
-  const _fz = fusedProb(code, name, krowsOf(code), type, _p);
+  const _rows = krowsOf(code);
+  const _fz = fusedProb(code, name, _rows, type, _p);
   const _old = S.learn.signals.find(s => s.type === type && s.code === code && s.date === todayStr());
-  if (_old) {
-    if (!_old.resolved) {
-      if (price) _old.price = price;
-      if (_p != null) { _old.prob = _p; _old.probKind = probKindOf(type); }
-      if (extra.cal) _old.cal = extra.cal;   // 同日重复登记也要带上刻度标记，否则新值被判退役
-      _old.fused = _fz.prob; _old.laP = _fz.la; _old.empP = _fz.emp; _old.delta = _fz.delta;
-      const merged = new Set([...(_old.paths || []), ...(extra.paths || [])]);
-      _old.paths = Array.from(merged);
-      saveLearn();
-    }
-    return _fz;
-  }
+  const observation=captureProductionSignal({ts:Date.now(),type,code,name,price,prob:_p,
+    probKind:probKindOf(type)==='score'?'score':'model-estimate',eventTarget:_fz.target!==undefined?_fz.target:'unknown',_fz,
+    strategyVersion:extra.strategyVersion||productionSignalVersion(),conditionEvidence:extra.conditionEvidence||[],conditionCoverage:extra.conditionCoverage,governanceEvidence:extra.governanceEvidence,
+    logic:(extra.paths||[]).join('；'),risk:extra.signalRisk||'',stopLoss:extra.stopLoss||'',invalidWhen:extra.invalidWhen||''},
+    extra.quoteEvidence||{price},_rows,{recordKind:'observation',supersedes:_old?.signalId||null,
+      metrics:{originalRecord:extra.sourceRecord||null,cal:extra.cal??null,score:extra.score??null,legacyParent:_old&&!_old.signalId?{type:_old.type,code:_old.code,date:_old.date,ts:_old.ts??null}:null}});
+  const result={..._fz,signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,evidenceArchiveStatus:observation.evidenceArchiveStatus};
+  if (_old) return result;
+  const sampleExtra={...extra};
+  delete sampleExtra.quoteEvidence; delete sampleExtra.conditionEvidence; delete sampleExtra.conditionCoverage; delete sampleExtra.governanceEvidence; delete sampleExtra.sourceRecord;
   S.learn.signals.push({
-    date: todayStr(), ts: Date.now(), type, code, name, price,
+    ...JSON.parse(JSON.stringify(sampleExtra)),
+    date: todayStr(), ts: observation.ts, type, code, name, price,
     prob: _p, probKind: probKindOf(type),
     fused: _fz.prob, laP: _fz.la, empP: _fz.emp, delta: _fz.delta,
     void: !isTradeDay(_nd),
-    ...extra
+    signalId:observation.signalId,evidenceFingerprint:observation.evidenceFingerprint,
+    evidenceArchiveStatus:observation.evidenceArchiveStatus,strategyVersion:observation.strategyVersion
   });
   // ⚠️ 剪枝口径已改（原 string）：以前直接 slice(-1500) 丢最老的，配合"9/28 一天 1373 条"
   //    两天就能把 7~9 月的历史样本清空 → 学习库只剩两三天 → 又回到「拿一天下结论」的死循环。
   //    现在按「交易日配额」剪：每天最多留 quota 条，保住日期多样性。
   pruneSignals();
   saveLearn();
-  return _fz;
+  return result;
 }
 // 样本库剪枝：体积要控，但「独立交易日数」更要保住 —— 它是所有学习结论的证据厚度。
 function pruneSignals(limit = 2600) {
@@ -1366,7 +1588,7 @@ function panelNotes() {
     // 否则用户看到 55% 却被 63% 拦下，只会以为系统错了。原值在推送治理面板 minProb 里。
     // ⛔ typeof 守卫：panelNotes 会被守门沙箱切出真跑（_test_ee/_test_promise），沙箱没注入
     //    这两个新符号，裸调会 ReferenceError 崩套件；生产环境必然在。
-    gate: `到线只是入选，还要过胜率门 ${(typeof pushMinProbEff === 'function') ? pushMinProbEff() : pushMinProb()}%${(typeof envCold === 'function') && envCold() ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '，额度同步减半）' : ''} / 实测命中率底线 35%（样本≥20，go 轮 D5「只推高准确率票」） / 实盘 EV 底线（同型信号实测亏钱的不推，样本≥30且统计显著才判，普跌日更严，ig 轮 #261） / 每日条数闸门 / 模块节流才真发，被拦下不补发`,
+    gate: `到线只是入选，还要过研究值门 ${(typeof pushMinProbEff === 'function') ? pushMinProbEff() : pushMinProb()}/100${(typeof envCold === 'function') && envCold() ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '，额度同步减半）' : ''} / 仅次日最高涨≥3%事件适用历史频率底线35%（样本≥20，不是封板率门槛） / 实盘 EV 底线（同型信号实测亏钱的不推，样本≥30且统计显著才判，普跌日更严） / 每日条数闸门 / 模块节流才真发，被拦下不补发`,
     // ⛔ 「30秒刷新 / 60秒刷新」这类承诺只在数据窗口内成立 —— 休市与夜间根本不拉，必须说清
     refreshWin: '仅在 9:15–15:40 数据窗口内刷新；休市 / 夜间不再拉取，面板保留最后一次结果'
   };
@@ -1638,7 +1860,8 @@ const EMP_BUCKETS = ['<45', '45-54', '55-64', '65-74', '75+'];
 //    ⛔ 判据：**给一个量登记它是什么；不同刻度的数不许进同一个档。**
 const PROB_KIND = {
   pool:  { kind: 'score', label: '精选池技术评分', why: 'scoreStock 的技术评分（0~100），不是涨停概率' },
-  trend: { kind: 'score', label: '趋势票趋势分',   why: 'trendScore（0~100），分布与概率不同，不能同档统计' }
+  trend: { kind: 'score', label: '趋势票趋势分',   why: 'trendScore（0~100），分布与概率不同，不能同档统计' },
+  pre:   { kind: 'score', label: '埋伏研究排序分', why: '手工条件与形态排序分（20~88），不是封板概率' }
 };
 function probKindOf(type) { const d = PROB_KIND[type]; return d ? d.kind : 'prob'; }
 function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型概率'; }
@@ -1874,43 +2097,28 @@ function empTable() {
   const sk = { scanned: 0, live: 0, by: {} };
   const bumpSkip = kk => { sk.by[kk] = (sk.by[kk] || 0) + 1; skipAdd(kk); };
   const bump = (k, s) => {
-    const v = (m[k] = m[k] || { n: 0, hit: 0, lu: 0, strong: 0, ok: 0, fake: 0, _d: new Set() });
-    v.n++;
-    const isAuczt = s.type === 'auczt';
-    const hit = isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.hit);
-    const limitUp = isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.limitUp);
-    if (hit) v.hit++; if (limitUp) v.lu++;
-    // ⛔⛔ 2026-10-08 修：用户要求"不要只看上涨，还要看回落，综合评判"。
-    //    empTable 现在按 quality 分层统计：strong（真正能吃到肉）/ ok（有利润）/ fake（追高被套）。
-    //    自适应闭环和 fusedProb 优先用 strong+ok 作为"真实命中率"，fake 单独列出来让用户看见。
-    let quality = 'miss';
-    if (isAuczt) {
+    const rawDay = String(s.date || '').replace(/-/g, '');
+    const parsedDay = /^\d{8}$/.test(rawDay) ? new Date(rawDay.slice(0,4) + '-' + rawDay.slice(4,6) + '-' + rawDay.slice(6,8) + 'T00:00:00Z') : null;
+    const day = parsedDay && Number.isFinite(parsedDay.getTime()) && parsedDay.toISOString().slice(0,10).replace(/-/g, '') === rawDay ? rawDay : null;
+    const record = (key, hit, limitUp, quality) => {
+      const v = (m[key] = m[key] || { n: 0, hit: 0, lu: 0, luN: 0,
+        strong: 0, ok: 0, fake: 0, qualityN: 0, _d: new Set(), _luD: new Set(), _qualityD: new Set() });
+      if (typeof hit === 'boolean') { v.n++; if (hit) v.hit++; if (day) v._d.add(day); }
+      if (typeof limitUp === 'boolean') { v.luN++; if (limitUp) v.lu++; if (day) v._luD.add(day); }
+      if (['strong', 'ok', 'fake', 'miss'].includes(quality)) {
+        v.qualityN++; if (day) v._qualityD.add(day);
+        if (quality === 'strong') v.strong++; else if (quality === 'ok') v.ok++; else if (quality === 'fake') v.fake++;
+      }
+    };
+    if (s.type === 'auczt') {
       const r = s.resolved;
-      if (r) quality = r.limitUp ? 'strong' : (r.hit ? 'ok' : 'miss');
-    } else {
-      quality = (s.nd && s.nd.quality) || 'miss';
-    }
-    if (quality === 'strong') v.strong++;
-    else if (quality === 'ok') v.ok++;
-    else if (quality === 'fake') v.fake++;
-    if (s.date) v._d.add(String(s.date).replace(/-/g, ''));
-    // ⛔ jy 轮：auczt 双口径——在当日封板口径之外，另开一列统计「次日最高≥+3%命中率」。
-    //   这样 empTable 同时持有 auczt|档（当日封板率）和 auczt-nd|档（次日+3%率），
-    //   前端/接口可按同一条信号的 prob 查两个独立口径，避免用错尺子。
-    if (isAuczt && s.nd) {
-      const ndKey = 'auczt-nd|' + empBucketOf(s.prob);
-      const vn = (m[ndKey] = m[ndKey] || { n: 0, hit: 0, lu: 0, strong: 0, ok: 0, fake: 0, _d: new Set() });
-      vn.n++;
-      if (s.nd.hit) vn.hit++;
-      if (s.nd.limitUp) vn.lu++;
-      let q = 'miss';
-      if (s.nd.quality) q = s.nd.quality;
-      else if (s.nd.hit) q = 'ok';
-      if (q === 'strong') vn.strong++;
-      else if (q === 'ok') vn.ok++;
-      else if (q === 'fake') vn.fake++;
-      if (s.date) vn._d.add(String(s.date).replace(/-/g, ''));
-    }
+      // Missing same-day outcomes must not become observed failures merely
+      // because the same signal already has a next-day result.
+      const limitUp = r && typeof r.limitUp === 'boolean' ? r.limitUp : null;
+      const quality = limitUp === true ? 'strong' : r && typeof r.hit === 'boolean' ? (r.hit ? 'ok' : 'miss') : null;
+      if (limitUp !== null) record(k, limitUp, limitUp, quality);
+      if (s.nd) record('auczt-nd|' + empBucketOf(s.prob), s.nd.hit, s.nd.limitUp, s.nd.quality);
+    } else if (s.nd) record(k, s.nd.hit, s.nd.limitUp, s.nd.quality);
   };
   for (const s of (S.learn.signals || [])) {
     sk.scanned++;
@@ -1944,15 +2152,15 @@ function empTable() {
   }
   for (const k of Object.keys(m)) {
     const v = m[k];
-    v.rate = Math.round(v.hit / v.n * 100);
-    v.luRate = Math.round(v.lu / v.n * 100);
+    v.rate = v.n ? Math.round(v.hit / v.n * 100) : null;
+    v.luRate = v.luN ? Math.round(v.lu / v.luN * 100) : null;
     // ⛔ 2026-10-08 修：综合质量分层统计（strong=真正能吃到肉 / ok=有利润 / fake=追高被套）
-    v.strongRate = v.strong ? Math.round(v.strong / v.n * 100) : 0;
-    v.okRate = v.ok ? Math.round(v.ok / v.n * 100) : 0;
-    v.fakeRate = v.fake ? Math.round(v.fake / v.n * 100) : 0;
+    v.strongRate = v.qualityN ? Math.round(v.strong / v.qualityN * 100) : null;
+    v.okRate = v.qualityN ? Math.round(v.ok / v.qualityN * 100) : null;
+    v.fakeRate = v.qualityN ? Math.round(v.fake / v.qualityN * 100) : null;
     // 真实命中率 = strong + ok（排除 fake 这种"看起来命中实际亏钱"的样本）
-    v.realRate = Math.round((v.strong + v.ok) / v.n * 100);
-    v.days = v._d.size;
+    v.realRate = v.qualityN ? Math.round((v.strong + v.ok) / v.qualityN * 100) : null;
+    v.days = v._d.size; v.luDays = v._luD.size; v.qualityDays = v._qualityD.size;
     const b = k.split('|')[1];
     const strong = (v.n >= EMP_BIG_N && v.days >= EMP_BIG_DAYS);
     const normal = (v.n >= EMP_MIN_N && v.days >= EMP_MIN_DAYS);
@@ -1961,7 +2169,7 @@ function empTable() {
     v.locked = (strong || normal || refu) ? null
       : `证据不足（${v.n}条/跨${v.days}日：需 ${EMP_MIN_N} 条且跨 ≥${EMP_MIN_DAYS} 日，或 ${EMP_BIG_N} 条以上且跨 ≥${EMP_BIG_DAYS} 日）·暂不校准`;
     v.evidence = strong ? '大样本' : (normal ? '常规' : (refu ? `强证伪(实测比模型低${ppTxt(gap, false)})` : '不足'));
-    delete v._d;
+    delete v._d; delete v._luD; delete v._qualityD;
   }
   _empCache = { t: now, map: m, done: true };
   _empSkip = sk;
@@ -2009,16 +2217,36 @@ function effProb(prob, type) {
 }
 // 同上，但把「证据厚度」一起交出来 —— 融合两个学习源时要靠它决定实测该占多大分量。
 // 20 条和 400 条都叫"实测 60%"，可信度天差地别：前者可能只是两天的运气。
-function empInfo(prob, type) {
+function empInfo(prob, type, target) {
   if (prob == null || !isFinite(prob)) return null;
-  const t = empTable();
-  const ks = empKeysOf(prob, type);
-  const g = empGroupOf(type);
-  // ⛔⛔ B1 轮：auczt 不借"全部|同档"池（当日封板 vs 次日命中，两种目标两把尺子）
-  const own = t[ks[0]], all = type === 'auczt' ? null : t[ks[1]];
-  const v = (own && !own.locked) ? own : ((all && !all.locked) ? all : null);
-  if (!v) return null;
-  return { rate: v.rate, luRate: v.luRate, n: v.n, days: v.days, evidence: v.evidence, group: v === own ? g : '全部' };
+  const t = empTable(), ks = empKeysOf(prob, type), g = empGroupOf(type);
+  const event = target || (type === 'auczt' ? 'ztToday' : 'up3Next');
+  const select = v => {
+    if (!v) return null;
+    const sameDay = type === 'auczt';
+    let rate, n, days;
+    if (event === 'ztToday' && sameDay) { rate = v.luRate; n = v.luN; days = v.luDays; }
+    else if (event === 'ztNext' && !sameDay) { rate = v.luRate; n = v.luN; days = v.luDays; }
+    else if (event === 'up3Next' && !sameDay) { rate = v.rate; n = v.n; days = v.days; }
+    else if ((event === 'qualityToday' && sameDay) || (event === 'qualityNext' && !sameDay)) {
+      rate = v.realRate; n = v.qualityN; days = v.qualityDays;
+    }
+    else return null;
+    if (!Number.isFinite(rate) || !Number.isInteger(n) || !Number.isInteger(days)) return null;
+    const normal = n >= EMP_MIN_N && days >= EMP_MIN_DAYS;
+    const big = n >= EMP_BIG_N && days >= EMP_BIG_DAYS;
+    const gap = empMidOf(empBucketOf(prob)) - rate;
+    const refuted = n >= EMP_REFU_N && days >= EMP_REFU_DAYS && gap >= EMP_REFU_GAP;
+    if (!normal && !big && !refuted) return null;
+    return { rate: v.rate, luRate: v.luRate, realRate: v.realRate,
+      strongRate: v.strongRate, okRate: v.okRate, fakeRate: v.fakeRate,
+      qualityN: v.qualityN, qualityDays: v.qualityDays,
+      target: event, targetRate: rate, n, days,
+      evidence: big ? '大样本' : normal ? '常规' : '强证伪', calibrationCertified: false };
+  };
+  const own = select(t[ks[0]]), all = type === 'auczt' ? null : select(t[ks[1]]);
+  const found = own || all;
+  return found ? {...found, group: own ? g : '全部'} : null;
 }
 
 // ── ⛔ 自适应调整的复核（2026-10-07，本轮角度：说过一次就不再复核的结论）─────────────
@@ -2365,6 +2593,7 @@ async function scanZtPre(topN) {
       const sec = sectorOfStock({ code, name });
       const secZT = ((S.ztBySector || {})[sec] || []).length;
       out.push({
+        ...researchSnapshotFields(k, rows[i]),
         code, name, price: rows[i].close, pct: +lastPct.toFixed(2), lb, sector: sec, secZT,
         ztP: pr.p, base: pr.base, lift: pr.lift,
         why: ZTPRE.whyText(pr, f), feat: f.txt,
@@ -2430,7 +2659,7 @@ async function runZtpreIngest() {
 
 // 推送文案：少而精（用户要"推送的内容可以少但是要精准"）—— 只推溢价最高的前 3 只
 function pushZtPre() {
-  const list = (S.ztPre || []).slice(0, 3);
+  const list = reviewedRows(S.ztPre, 'dated-observation').slice(0, 3);
   if (!list.length) return;
   const db = zpDb();
   const base = db ? +(db.baseZt * 100).toFixed(2) : null;
@@ -2439,7 +2668,7 @@ function pushZtPre() {
     `下面这几只是【形态溢价】最高的 —— 还没涨停，但涨停前的样子最像历史上那些后来封了板的：\n` +
     basisLine(S.ztPreBasis) +                       // ⛔ 基准日：K线没回填到今天时必须说清楚
     list.map((x, i) =>
-      `${i + 1}. ${x.name}(${x.code}) 现价${x.price} ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
+      `${i + 1}. ${x.name}(${x.code}) 研究收盘价${x.price}（${x.researchEvidence.tradeDate}） ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
       // ⛔ 括号里那个"几只涨停"必须带上归属日：它来自 S.ztBySector，是哪天的由 S.ztDay 说了算
       `   次日封板预判 <b>${x.ztP}%</b>（基准${x.base}%，溢价${ppTxt(x.lift)}）${x.sector && x.sector !== '未知' ? ` · ${x.sector}${x.secZT ? `(${ztDayTag(S.ztDay)}${x.secZT}只涨停)` : ''}` : ''}\n` +
       `   涨停前形态: ${x.feat.slice(0, 5).join('、')}\n` +
@@ -2490,64 +2719,54 @@ function laProbCached(code, name, rows, target) {
   }
   return v;
 }
-// ── 学习融合：把「实测重标定」和「自学形态模型」合成一个推送用的胜率 ──────────
-//   用户那句「你学的东西不是应该进化后推送我吗」问的正是这里。
-//   这台机器有两套学习，以前各管一段、谁都没落到"推给你的那个数字"上：
-//     emp = 从【自己最近推的票】的回验里学：同族群同档次，实测命中多少（学的是"我准不准"）
-//     la  = 从【全A股历史走势】里学：长得像今天这样的形态，后来有多大比例涨/封板（学的是"形态灵不灵"）
-//   前者只进了门槛、后者只在候选池加了个分 —— 学出来的东西一直躺在库里。
-//   现在合成一个数：门槛、排序、文案三处共用，学一次就真的改一次推送。
-//   口径统一为「次日最高涨幅 ≥3%」（HIT_THR），与回验命中口径一致，否则两个百分比不能相加。
-// ⚠️ 第 6 个参数 target（'up3' / 'zt'）**默认 'up3' 是刻意的，不是漏传**（2026-10-07 查证）：
-//    上面①实测档 emp.rate 就是"次日涨≥3%"口径，②自学修正 delta 必须和它同刻度才能加权，
-//    所以默认取 up3 那份模型。要的是"次日封板"口径请显式传 'zt' ——
-//    项目里真正按封板口径用模型的地方（preBreakoutInner 的埋伏打分、scanSteadyUp 的 ztP）
-//    都是**直接调 laProb(..., 'zt')** 自己拿数，不走 fusedProb，两边不冲突。
-//    ⛔ 别因为"没地方传 target"就顺手给它传 'zt'：那是把封板概率的百分点加到涨3%概率上，
-//       量纲不同，越加越偏（封板基准约 2%，涨3%基准约 24%）。
-const LA_DELTA_CAP = 12;   // 自学形态最多能把模型概率推高/压低多少个百分点（只做加权，不单独定生死）
+// Same-event historical evidence can form a research ranking score. None of
+// these production inputs has an independent calibration certificate.
+const LA_DELTA_CAP = 12;
 function fusedProb(code, name, rows, type, modelProb, target) {
+  const event = probabilityContract.targetFor(type, target);
   const out = {
-    prob: Number.isFinite(modelProb) ? modelProb : null,
+    prob: probabilityContract.bounded(modelProb, type),
     model: Number.isFinite(modelProb) ? modelProb : null,
-    emp: null, empN: 0, empDays: 0, empGroup: '', empLu: null,
-    la: null, laBase: null, delta: 0, src: '模型原值', why: ''
+    valueKind: probabilityContract.kind(type), modelKind: probabilityContract.kind(type), target: event,
+    calibrationCertified: false, emp: null, empN: 0, empDays: 0, empGroup: '', empLu: null,
+    empReal: null, empStrong: null, empOk: null, empFake: null, empQualityN: 0,
+    la: null, laBase: null, delta: 0, src: '模型原值（未独立校准）', why: ''
   };
-  if (out.prob == null) return out;
-  // ① 实测：必须按【原始模型概率】查档。empTable 的桶是按登记时的原值分的，
-  //    拿"已经标定过"的数再去查一次桶，等于对同一件事标定两遍，越标越低。
-  const ei = empInfo(out.prob, type);
-  // ② 自学：取形态相对全市场基准的溢价做个体修正。base<=0 表示模型还没学出来，跳过而不是当成 0 溢价。
-  const pr = laProbCached(code, name, rows, target || 'up3');
-  if (pr && Number.isFinite(pr.p) && Number.isFinite(pr.base) && pr.base > 0) {
-    out.la = +(pr.p * 100).toFixed(1);
-    out.laBase = +(pr.base * 100).toFixed(1);
+  if (out.prob == null || out.valueKind === 'score') return out;
+  const qualityTarget = type === 'auczt' ? 'qualityToday' : 'qualityNext';
+  const diagnostic = empInfo(out.model, type, qualityTarget);
+  if (diagnostic) {
+    out.empReal = diagnostic.realRate; out.empStrong = diagnostic.strongRate;
+    out.empOk = diagnostic.okRate; out.empFake = diagnostic.fakeRate;
+    out.empQualityN = diagnostic.qualityN;
+    out.empQualityTarget = qualityTarget;
+  }
+  if (!event) { out.src = '事件目标未知，保留模型原值'; return out; }
+  const ei = empInfo(out.model, type, event);
+  const shape = probabilityContract.shapeTarget(event);
+  // LEARNALL has only next-day targets; it cannot correct today's sealing model.
+  const pr = shape ? laProbCached(code, name, rows, shape) : null;
+  if (pr && Number.isFinite(pr.p) && pr.p >= 0 && pr.p <= 1 &&
+      Number.isFinite(pr.base) && pr.base > 0 && pr.base <= 1) {
+    out.la = +(pr.p * 100).toFixed(1); out.laBase = +(pr.base * 100).toFixed(1);
     out.delta = Math.max(-LA_DELTA_CAP, Math.min(LA_DELTA_CAP, +((pr.p - pr.base) * 100).toFixed(1)));
     out.why = laWhy(pr, 2);
   }
-  const shaped = Math.max(0, Math.min(100, out.prob + out.delta));
-  if (ei) {
-    // ⛔⛔ 2026-10-08 修：用户要求"不要只看上涨，还要看回落，综合评判"。
-    //    fusedProb 现在优先用 realRate（strong+ok，排除 fake）作为实测命中率，
-    //    而不是旧的 rate（只看 maxGain≥3%）。这样融合出来的概率更贴近用户真实体验。
-    //    如果 realRate 证据不足（样本太少还没分层），fallback 到旧的 rate。
-    const useRate = (ei.realRate != null && ei.n >= EMP_MIN_N) ? ei.realRate : ei.rate;
-    // 证据越厚，实测说话的分量越大；样本少时以个体判断为主（别拿二十条噪声直接推翻模型）
+  const shaped = probabilityContract.bounded(out.prob + out.delta, type);
+  if (ei && ei.target === event && Number.isFinite(ei.targetRate)) {
+    const useRate = ei.targetRate;
     const w = Math.max(0.35, Math.min(0.75, ei.n / (ei.n + 120)));
-    let fused = w * useRate + (1 - w) * shaped;
-    // ⛔ 准确率提升：模型高估惩罚。当实测命中率远低于模型概率，说明模型在这类票上系统性失真。
-    //    低命中率桶（<40%）+ 模型给中高分（>50）= 模型过于乐观，融合概率要更保守。
     let penalty = 1;
     if (useRate < 40 && out.model > 50) penalty *= 0.90;
-    //    模型高估超过25个百分点 = 严重失真，额外惩罚。
     if (out.model - useRate > 25) penalty *= 0.92;
-    out.prob = Math.round(fused * penalty);
+    out.prob = probabilityContract.bounded(Math.round((w * useRate + (1 - w) * shaped) * penalty), type);
     out.emp = useRate; out.empN = ei.n; out.empDays = ei.days; out.empGroup = ei.group; out.empLu = ei.luRate;
-    out.empStrong = ei.strongRate; out.empOk = ei.okRate; out.empFake = ei.fakeRate;  // 分层数据供文案展示
-    out.src = `实测${useRate}%(n=${ei.n}·真${ei.realRate}%·假${ei.fakeRate}%) ⊕ 自学${out.delta >= 0 ? '+' : ''}${out.delta}` + (penalty < 1 ? ` · 准确率校正×${penalty.toFixed(2)}` : '');
+    out.valueKind = 'ranking-score';
+    out.src = `${probabilityContract.label(event)}历史频率${useRate}%(n=${ei.n})与模型形成研究排序分（未独立校准）`;
   } else {
-    out.prob = Math.round(shaped);
-    out.src = pr ? `自学修正${ppTxt(out.delta)}` : '模型原值';
+    out.prob = probabilityContract.bounded(Math.round(shaped), type);
+    out.valueKind = out.la === null ? 'model-estimate' : 'ranking-score';
+    out.src = out.la === null ? '无同事件经验，保留模型原值（未独立校准）' : '同事件形态研究排序分（未独立校准）';
   }
   return out;
 }
@@ -2594,48 +2813,45 @@ function floatCapOf(code) {
   }
   return _capIdx.get(String(code)) || missingOf('floatCap');
 }
-// 推送文案里的那一行「学后胜率」：把模型原值、实测标定、自学修正三个数摊开给你看。
-// 以前推送只给一个模型算出来的数字，你无从判断它是拍脑袋还是学出来的 —— 现在拆开写，
-// 顺便把机器自己挖到的形态规律念出来（历史多少例、后来多少概率涨）。
+// 研究排序值、原模型估值与同事件历史频率分别展示；没有独立校准证据。
 function fuseLine(x) {
   const f = x && x._fz;
   if (!f || f.prob == null) return '';
   const parts = [];
-  if (f.emp != null) parts.push(`同档实测${f.emp}%(${f.empN}条/跨${f.empDays}日)`);
-  if (f.la != null) parts.push(`自学形态${f.la}%(基准${f.laBase}%)`);
-  // ⛔ 「学后胜率」也是一句结论 —— 它赌的是哪件事（当日封板 / 次日涨≥3%）得由它自己说。
-  //    同一句话里"同档实测 X%"指的是命中率（次日最高涨≥HIT_THR%），不补这句用户会以为是封板率。
-  // ⛔ probDefOfType 返回的是 kind 键（ztToday），**不是**定义文本 —— 少套一层 probDef 就会
-  //    把「ztToday」这个内部代号原样印进推送（实测就是这样，用户看到的是一串英文缩写）。
-  const _def = probDef(probDefOfType(x && x.type));
-  // ⛔ 定义塞进同一个括号里当首项，别写成两个紧挨着的括号（「（当日封板）（模型72%）」读着像两件事）
-  const head = `\n  🧠 <b>学后胜率 ${f.prob}%</b>（${_def ? _def + ' · ' : ''}模型${f.model}%${parts.length ? ' · ' + parts.join(' · ') : ''}）`;
+  if (f.emp != null) parts.push(`同事件历史频率${f.emp}%(${f.empN}条/跨${f.empDays}日)`);
+  if (f.la != null) parts.push(`同事件形态频率${f.la}%(基准${f.laBase}%)`);
+  const def = f.valueKind === 'score' ? '策略排序用途' : probabilityContract.label(f.target);
+  const value = f.valueKind === 'score' || f.valueKind === 'ranking-score'
+    ? `研究排序分 ${f.prob}/100` : `模型估值 ${f.prob}%`;
+  const head = `\n  🧠 <b>${value}</b>（${def} · 未独立校准 · 原模型${f.model}${parts.length ? ' · ' + parts.join(' · ') : ''}）`;
   return f.why ? head + `\n  📚 ${f.why}` : head;
 }
 // ── 进化是否真的有效：融合后的分档 vs 同一批信号按原始概率分档 ──────────────
 //   光说"我学了"不算数 —— 得能证明学完之后推的票更准。这里把同一批已回验样本
 //   分别按「原始概率」和「融合概率」分档统计实测命中率，谁更准一目了然。
 //   lift = 融合档命中率 − 原值档命中率（正=学习有用）。样本不足的档不给结论。
-function learnFusedReport() {
+function learnFusedReport(target = 'up3Next') {
   const rows = [];
   const stat = key => {
     const m = {};
     for (const s of (S.learn.signals || [])) {
       // ⛔ 同样只认实盘：混进 600 条"已知涨停倒推"的回测样本，会得出
       //    "融合后命中率 75%、学习带来 +39 点增量"这种自欺欺人的结论。
-      // ⛔ hx 轮例外：auczt 预测当日封板 → 用 resolved（当日）回验，其它类型仍用 nd。
-      const hasOutcome = s.type === 'auczt' ? !!(s.resolved) : !!(s.nd);
-      if (!hasOutcome || s.void || !isLiveSample(s)) continue;
+      if (probabilityContract.targetFor(s.type) !== target || s.void || !isLiveSample(s)) continue;
+      const hit = target === 'ztToday' ? s.resolved && s.resolved.limitUp
+        : target === 'ztNext' ? s.nd && s.nd.limitUp : s.nd && s.nd.hit;
+      if (typeof hit !== 'boolean') continue;
       const v = s[key];
       if (v == null || !isFinite(v)) continue;
       const b = empBucketOf(v);
-      const o = (m[b] = m[b] || { n: 0, hit: 0, lu: 0, _d: new Set() });
-      const isAuczt = s.type === 'auczt';
-      o.n++; if (isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.hit)) o.hit++; if (isAuczt ? !!(s.resolved && s.resolved.limitUp) : !!(s.nd && s.nd.limitUp)) o.lu++;
+      const o = (m[b] = m[b] || { n: 0, hit: 0, lu: 0, luN: 0, _d: new Set() });
+      const limitUp = target === 'ztToday' ? s.resolved && s.resolved.limitUp : s.nd && s.nd.limitUp;
+      o.n++; if (hit) o.hit++;
+      if (typeof limitUp === 'boolean') { o.luN++; if (limitUp) o.lu++; }
       o._d.add(String(s.date || '').replace(/-/g, ''));
     }
     for (const k of Object.keys(m)) {
-      const v = m[k]; v.rate = Math.round(v.hit / v.n * 100); v.luRate = Math.round(v.lu / v.n * 100); v.days = v._d.size; delete v._d;
+      const v = m[k]; v.rate = Math.round(v.hit / v.n * 100); v.luRate = v.luN ? Math.round(v.lu / v.luN * 100) : null; v.days = v._d.size; delete v._d;
     }
     return m;
   };
@@ -2651,7 +2867,8 @@ function learnFusedReport() {
     });
   }
   const tn = rows.reduce((s, x) => s + x.fusedN, 0);
-  return { rows, fusedN: tn, ready: tn >= 60 };
+  return { rows, fusedN: tn, ready: tn >= 60, target,
+    kind: 'historical-event-frequency', calibrationCertified: false, independentHoldout: false };
 }
 
 async function runLearnallIngest() {
@@ -2793,6 +3010,7 @@ async function scanTrendUniverse(topN) {
       const ztP = pz ? pz.p * 100 : 0, upP = pu ? pu.p * 100 : 0;
       const bz = pz ? pz.base * 100 : 0;
       out.push({
+        ...researchSnapshotFields(k, rows[i]),
         code, name, price: rows[i].close, pct: +lastPct.toFixed(2), lb,
         ztP: +ztP.toFixed(1), upP: +upP.toFixed(1), baseZt: +bz.toFixed(1),
         capYi: _hg.capYi, amp20: _hg.amp20,
@@ -2892,6 +3110,7 @@ async function scanSteadyUp(topN) {
       if (f) { const pz = LEARNALL.predictML(f, laDb(), 'zt'); if (pz) { ztP = +(pz.p * 100).toFixed(1); why = laWhy(pz, 2); } }
     } catch {}
     out.push({
+      ...researchSnapshotFields(k, last),
       code, name, price: last.close, pct: +(last.pct || 0).toFixed(2),
       run, cum, volTrend: vt, ma20: +ma20.toFixed(2), ztP, why, lb,
       capYi: _hg.capYi, amp20: _hg.amp20
@@ -2906,7 +3125,7 @@ async function scanSteadyUp(topN) {
 }
 // 连续收涨的推送文案
 function pushSteadyUp() {
-  const list = (S.steadyUp || []).slice(0, 6);
+  const list = reviewedRows(S.steadyUp, 'dated-observation').slice(0, 6);
   if (!list.length) return;
   if (!modDayTake('steadyup')) return;
   // ⛔ 2026-10-06：这一批没有 govTake（连续收涨按整批推），但 modDayTake 已经扣了模块配额 ——
@@ -2914,14 +3133,14 @@ function pushSteadyUp() {
   pushAll(`═══ 📶 连续收涨 · 台阶式上行 ═══\n` +
     `（连续收涨≥3天、每天温和上涨0~7%、站上20日线且20日线向上、已排除封板与4连板以上）\n` +
     list.map((x, i) =>
-      `${i + 1}. ${x.name}(${x.code}) 现价${x.price} ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
+      `${i + 1}. ${x.name}(${x.code}) 研究收盘价${x.price}（${x.researchEvidence.tradeDate}） ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
       `   连涨${x.run}天 · 累计${signTxt(x.cum)}${x.cum}% · 量能${x.volTrend >= 1.2 ? '温和放大' : x.volTrend < 0.8 ? '缩量' : '持平'}${x.volTrend}倍 · 20日线${x.ma20}` +
-      (x.ztP != null ? `\n   学后封板 ${x.ztP}%` : '') + (x.why ? ` · 📚 ${x.why}` : '')
+      (x.ztP != null ? `\n   历史形态封板频率 ${x.ztP}%` : '') + (x.why ? ` · 📚 ${x.why}` : '')
     ).join('\n') + basisLine(S.steadyUpBasis) + govFoot(), false, { modDay: 'steadyup', private: true });  // go 轮 A9：连续收涨改私密
 }
 // 全市场趋势扫描的推送文案：把"机器从全市场学出来的形态里挑了哪些票"讲清楚
 function pushTrendScan() {
-  const list = (S.trendScan || []).slice(0, 8);
+  const list = reviewedRows(S.trendScan, 'dated-observation').slice(0, 8);
   if (!list.length) return;
   const db = laDb();
   const baseZt = db && db.baseZt ? +(db.baseZt * 100).toFixed(1) : null;
@@ -2932,7 +3151,7 @@ function pushTrendScan() {
   const line = (x, i) => {
     const pos = `均线${x.maBull === 2 ? '标准多头' : x.maBull === 1 ? '部分多头' : '空头'}` +
       ` · 中期斜率${x.ma20slope > 0 ? '+' : ''}${x.ma20slope}% · 距${winLabel('hi60', x.hi60Win)}高${x.dd60}%${winShort('hi60', x.hi60Win)} · 连涨${x.runUp}天 · ${winLabel('zt60', x.zt60Win)}${x.zt60}板`;
-    return `${i}. ${x.name}(${x.code}) 现价${x.price} ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
+    return `${i}. ${x.name}(${x.code}) 研究收盘价${x.price}（${x.researchEvidence.tradeDate}） ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
       `   封板${x.ztP}%（溢价${ppTxt(x.lift)}）· 涨≥3% ${x.upP}%\n   ${pos}` +
       (x.why ? `\n   📚 ${x.why}` : '');
   };
@@ -2941,132 +3160,110 @@ function pushTrendScan() {
     basisLine(S.trendScanBasis) +                   // ⛔ 基准日：同上，K线没回填到今天必须说清楚
     `\n（全市场 ${_tsProg.scanned} 只扫描，有效 ${_tsProg.total} 只；已封板与 4 连板以上已排除）${govFoot()}`, false, { private: true });
 }
-// ── 全市场K线「长尾补齐」（2026-09-30 新增）───────────────────────────────
-// 用户问「为啥不用 A 股的五千多支票」——查实：全市场票池 .universe_cache 有 5561 只，
-// 但 .kline_cache 里只有 2538 只有历史K线。因为 K 线一直是**按需**拉的：只有被某个扫描
-// 扫到过的票才补过历史，其余一半市场从来没被看过一眼。后果有两个，而且都很致命：
-//   ① 学习引擎只见过半个市场，学到的规律天然有偏（等于天天用一半的数据下结论）；
-//   ② 更隐蔽——票没进过任何扫描列表 → 就永远不会补 K 线 → 永远进不了列表：典型的先有鸡后有蛋，
-//      没被覆盖的那三千只票等于在系统里"不存在"，埋伏也好选股也好根本看不见它们。
-// 这里按票池逐批把缺票的历史K线补回来，补完自动喂给学习引擎（幂等增量，重复灌不会重复计数）。
+// ── 全市场K线补齐：唯一有界入口，盘后/启动/手动共享预算 ───────────────
 let _kbfBusy = false;
-// ⛔ 2026-10-07 补 `ok` / `error`（本轮角度：只在 happy path 上定义过的状态）：
-//    这是**累计型**进度（added/scanned 跨轮累加，每天由 day 重置），所以不能像 _zpProg 那样
-//    整体替换；但"本轮跑没跑成"同样必须说得出来 —— 原来只有成功那一支更新，
-//    「票池为空」这个跳过出口直接 return，面板上"已补 X 只"看着一直在动，
-//    其实那可能是昨天累计下来的数字。两个非成功出口现在都标 ok:false + 原因。
 const _kbfProg = { ok: false, error: '', day: '', scanned: 0, added: 0, fail: 0, lastTs: 0, elapsedMs: 0 };
+const { createHistoryBackfillBudget, backfillSession, POLICY: HISTORY_BACKFILL_POLICY } = require('./src/strategy/history-backfill-budget');
+const _kbfDailyLimit = process.env.V6_HISTORY_BACKFILL_DAILY_LIMIT === undefined ? HISTORY_BACKFILL_POLICY.dailyLimit : Number(process.env.V6_HISTORY_BACKFILL_DAILY_LIMIT);
+const _kbfBudget = createHistoryBackfillBudget({
+  file: path.join(__dirname, 'data', 'history-backfill-private', 'budget.json'),
+  dailyLimit: Number.isSafeInteger(_kbfDailyLimit) && _kbfDailyLimit >= 0 && _kbfDailyLimit <= HISTORY_BACKFILL_POLICY.dailyLimit ? _kbfDailyLimit : 0
+});
 async function klineBackfill(limitN, days) {
+  // A push-test override must not turn a replica into a historical collector.
+  if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') return { ok: false, skipped: 'not-primary' };
   if (_kbfBusy) return { ok: false, running: true, prog: _kbfProg };
   _kbfBusy = true;
   const t0 = Date.now();
-  // 最新交易日（含今天）：回源取到 < 它的（源滞后/陈旧）一律不写盘，避免陈旧写入刷 mtime 被误判为「已刷新」
-  // ⚠️ 须用注入可用的 isTradeDay + Date 自算：klineBackfill 被 _test_kline_fresh.js 以 new Function 注入沙箱跑，
-  //    不能引用模块顶层的 latestTradeDate/klineLastDate，否则注入作用域缺符号 → 套件崩。
-  const _bfTarget = (() => {
-    const d = new Date(); d.setHours(12, 0, 0, 0);
-    const p = n => String(n).padStart(2, '0');
-    for (let i = 0; i <= 30; i++) { const t = new Date(d.getTime() - i * 86400000); if (isTradeDay(t)) return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; }
-    return `${d.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
-  })();
-  const _ldOf = k => (k && k.rows && k.rows.length) ? String(k.rows[k.rows.length - 1].date) : '';
   try {
-    // ⛔⛔ 2026-10-09 fy 修：原来 todo 只按「文件存不存在」筛选（!cached.has），
-    //    结果 5911 只**已有缓存**的票永远不会被刷新 —— 实测最新一根日期分布：
-    //    2026-10-09 只有 1217 只、10-08 有 1239 只、09-30 有 2672 只（79% 今日K线是陈旧的）。
-    //    那 1217 只是被复盘/扫描「按需单只补拉」碰到的，不是本函数补的；
-    //    用户 2026-10-08 明确要求「15点30之后所有数据必须是全量最新的」，这条从未兑现 ——
-    //    因为补齐器压根不认「陈旧」这个状态，它只认「有没有」。
-    //    现在按**新鲜度**筛：除「连文件都没有」的长尾外，
-    //    「文件在最近一个交易日收盘(15:30)之后再没写过」的也要补。
-    //    ⚠️ 用 mtime 而不是逐个读 JSON 取最后一根日期：5911 次 stat 不到 1 秒，
-    //    读内容则要解析 ~85MB，每 30 秒一轮扛不住；而补完必然写文件 → mtime 前进 → 下一轮自动跳过，
-    //    停牌/退市票也不会死循环（补过一次当天就不再重试）。
-    const cutoffMs = (() => {
-      const d = new Date();
-      const td = (typeof isTradeDay === 'function') ? !!isTradeDay(d) : true;
-      const base = new Date(td ? d.getTime() : d.getTime() - 86400000);
-      base.setHours(15, 30, 0, 0);   // 收盘时刻：15:30 前补的都不算「今日已刷新」
-      return base.getTime();
-    })();
-    const cached = new Set();
-    const stale = new Set();
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+    const session = backfillSession(t0, isTradeDay), ds = session.day;
+    if (_kbfProg.day !== ds) { _kbfProg.day = ds; _kbfProg.scanned = 0; _kbfProg.added = 0; _kbfProg.fail = 0; }
+    // Validate both source date and file age. A file touched today is not evidence
+    // that its supplier returned today's bar; weekends use the last closed session.
+    const cached = new Set(), stale = new Set();
     try {
       for (const fn of fs.readdirSync(KLINE_CACHE)) {
         const m = /^(\d{6})\.json$/.exec(String(fn));
         if (!m) continue;
         cached.add(m[1]);
         try {
-          if (fs.statSync(path.join(KLINE_CACHE, fn)).mtimeMs < cutoffMs) stale.add(m[1]);
+          const file = path.join(KLINE_CACHE, fn), k = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const lastDate = k && Array.isArray(k.rows) ? String(k.rows.at(-1)?.date || '') : '';
+          if (!validDate(lastDate) || lastDate < session.targetDate || lastDate > session.day || fs.statSync(file).mtimeMs < session.cutoffMs) stale.add(m[1]);
         } catch { stale.add(m[1]); }
       }
     } catch {}
     let uni = [];
     try {
       const u = JSON.parse(fs.readFileSync(path.join(__dirname, '.universe_cache.json'), 'utf8'));
-      uni = (Array.isArray(u) ? u : []).map(String).filter(x => /^\d{6}$/.test(x));
+      uni = [...new Set((Array.isArray(u) ? u : []).map(String).filter(x => /^\d{6}$/.test(x)))];
     } catch {}
     if (!uni.length) {
       _kbfProg.ok = false; _kbfProg.error = '票池为空（.universe_cache.json 没读到代码）';
       taskSet('kbf', { ok: false, error: _kbfProg.error, n: 0 });
       return { ok: false, error: '票池为空' };
     }
-    // 优先级：先把已有票刷到今日（stale，影响选股/复盘/次日计划的实时性），再补从未缓存的长尾。
     const todo = [...uni.filter(c => stale.has(c)), ...uni.filter(c => !cached.has(c))];
-    // ⚠️ 2026-10-01 重写：原来是「串行 + 每只 sleep 110ms + 一轮 200 只 + 4 分钟一轮」，
-    //    再叠加东财 K 线源失效（每只要 6s 超时×3 + 24s 退避 ≈ 26s 才回落腾讯），
-    //    1480 只缺口实测要跑好几个小时 —— 用户为这件事提了三次「一直没完成」。
-    //    现在：批量并发（em.fetchKlineBulk，并发 12）+ 东财熔断直连腾讯（~143ms/只）。
-    const N = Math.max(1, Math.min(Number(limitN) || 600, 2000));
-    const batch = todo.slice(0, N);
-    const n = Number(days) > 0 ? Number(days) : 60;
-    const _added0 = _kbfProg.added;   // 本轮起点：用来判断「这轮到底补没补到东西」
-    let bulk = null;
-    try { bulk = await em.fetchKlineBulk(batch, n, 12); }
-    catch (e) { bulk = null; console.error('[kline-backfill] 批量失败，回落串行:', e && e.message); }
-    if (bulk && bulk.map) {
-      for (const [code, k] of bulk.map) {
-        // 名字必须补：腾讯源 name 恒为空串，不补就会一路空到推送里显示成「600383 600383」
-        if (!k.name) k.name = nameOfCode(code) || '';
-        // ⚠️ 2026-10-14 修：回源取到的最新日期 < 最新交易日（源滞后/陈旧）时不写盘——
-        //    否则会把文件 mtime 刷成「今天」，被 mtime 新鲜度判据误判为已刷新而永久跳过（陈旧写入陷阱）。
-        if (_ldOf(k) >= _bfTarget) {
-          try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
-          _kbfProg.added++;
-        } else { _kbfProg.fail++; }   // 源滞后：本轮不算补齐成功，下轮继续重试
+    const limit = limitN === 0 ? 0 : Math.min(HISTORY_BACKFILL_POLICY.batchLimit, Math.max(1, Math.floor(Number(limitN) || HISTORY_BACKFILL_POLICY.batchLimit)));
+    const reservation = _kbfBudget.reserve(todo, { limit, targetDate: session.targetDate });
+    Object.assign(_kbfProg, { day: reservation.budgetDay, scanned: reservation.attemptedToday });
+    if (!reservation.codes.length) return { ok: true, skipped: reservation.reason, addedThis: 0,
+      stale: stale.size, missing: uni.filter(c => !cached.has(c)).length, budget: _kbfBudget.summary() };
+    const batch = reservation.codes, n = Number(days) > 0 ? Math.min(500, Math.floor(Number(days))) : 60;
+    let addedThis = 0, attemptedThis = 0;
+    // One in flight here; the shared provider governor owns actual wire spacing.
+    // No immediate fallback batch after errors: every code already has a durable
+    // retry reservation, including when the process exits before finish().
+    for (const code of batch) {
+      if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') break;
+      // Do not carry yesterday's reserved allowance into today's network work.
+      if (new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10) !== reservation.budgetDay) break;
+      let result = { reason: 'source-failed' };
+      try {
+        attemptedThis++;
+        const k = await em.fetchKline(code, n), rows = k && k.rows;
+        const lastDate = Array.isArray(rows) ? String(rows.at(-1)?.date || '') : '';
+        const dateValid = validDate(lastDate) && lastDate <= session.day;
+        if (dateValid && lastDate >= session.targetDate && rows.length >= 6) {
+          if (!k.name) k.name = nameOfCode(code) || '';
+          // Preserve the supplier's source/receivedAt/row dates; never stamp a
+          // stale result as current. A failed write must remain retryable.
+          fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k));
+          addedThis++; _kbfProg.added++;
+          result = { success: true };
+        } else if (dateValid && lastDate >= session.targetDate && rows.length > 0 && rows.length < 6) {
+          const stock = (S.stocks || []).find(s => String(s.code) === code), rawListed = stock && stock.listedDate;
+          // Eastmoney f26 is YYYYMMDD, including when represented as a number.
+          // Treating 20261112 as milliseconds would turn a new listing into 1970.
+          const listingText = String(rawListed ?? ''), listed = /^\d{8}$/.test(listingText) ? listingText.slice(0, 4) + '-' + listingText.slice(4, 6) + '-' + listingText.slice(6, 8) :
+            typeof rawListed === 'number' && Number.isSafeInteger(rawListed) && rawListed >= 100000000000 && rawListed < 8640000000000000 ? new Date(rawListed + 8 * 3600000).toISOString().slice(0, 10) : listingText;
+          const recentListing = validDate(listed) && listed <= session.targetDate && Date.parse(session.targetDate) - Date.parse(listed) < 60 * 86400000 && String(rows[0]?.date || '') >= listed;
+          result = { reason: recentListing ? 'listed-short-history' : 'insufficient-history',
+            targetDate: session.targetDate, nextSessionAt: session.nextSessionAt,
+            permanentShort: !recentListing && k.historyComplete === true };
+          _kbfProg.fail++;
+        } else { result = { reason: dateValid ? 'source-lagging' : 'source-empty-or-invalid-date' }; _kbfProg.fail++; }
+      } catch (e) {
+        _kbfProg.fail++;
+        if (e && /EACCES|ENOSPC|EROFS/.test(e.code || '')) _klineWriteErr(code, e);
       }
-      _kbfProg.fail += (bulk.fail || 0);
-      _kbfProg.scanned += batch.length;
+      _kbfBudget.finish(code, result);
       _kbfProg.lastTs = Date.now();
-    } else {
-      for (const code of batch) {
-        try {
-          const k = await em.fetchKline(code, n);
-          if (k && k.rows && k.rows.length >= 6) {
-            if (!k.name) k.name = nameOfCode(code) || '';
-            // ⚠️ 2026-10-14 修：源滞后（取到的最新日期 < 最新交易日）不写盘，保留旧 mtime 让下轮重试
-            if (_ldOf(k) >= _bfTarget) {
-              try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
-              _kbfProg.added++;
-            } else { _kbfProg.fail++; }
-          } else { _kbfProg.fail++; }
-        } catch { _kbfProg.fail++; }
-        _kbfProg.scanned++;
-        _kbfProg.lastTs = Date.now();
-      }
     }
-    // 补完立刻让学习引擎吃到这批新样本；ineffective 也没关系，幂等。
-    // ⚠️ fy 轮：本轮一只都没补到（票池已全刷到今日）时**不跑** learnall ——
-    //    极速路 30 秒一轮、样本库已 42 万条，空转灌一次白白拖住补齐主流程。
-    const _addedThis = _kbfProg.added - _added0;
     let learn = null;
-    try { if (_addedThis > 0) learn = await runLearnallIngest(); } catch (e) { /* 入库失败不影响补齐本身 */ }
+    try { if (addedThis > 0) learn = await runLearnallIngest(); } catch (e) { console.error('[kline-backfill] 学习入库失败:', e && e.message); }
     _kbfProg.ok = true; _kbfProg.error = '';
-    taskSet('kbf', { ok: true, error: '', n: outN('kbf', _kbfProg.added), ms: _kbfProg.elapsedMs || 0,
-                     empty: (_kbfProg.added || 0) ? '' : emptyWhyOf('noWork') });
+    taskSet('kbf', { ok: true, error: '', n: outN('kbf', _kbfProg.added), ms: Date.now() - t0,
+      empty: _kbfProg.added ? '' : emptyWhyOf('noWork') });
     return { ok: true, pool: uni.length, cachedBefore: cached.size,
       missing: uni.filter(c => !cached.has(c)).length, stale: stale.size, todo: todo.length,
-      addedThis: _addedThis, scanned: batch.length, added: _kbfProg.added, fail: _kbfProg.fail, learn, ms: Date.now() - t0 };
+      addedThis, scanned: attemptedThis, reserved: batch.length, added: _kbfProg.added, fail: _kbfProg.fail, learn,
+      budget: _kbfBudget.summary(), ms: Date.now() - t0 };
+  } catch (e) {
+    _kbfProg.ok = false; _kbfProg.error = String(e && e.message || e);
+    taskSet('kbf', { ok: false, error: _kbfProg.error, n: 0 });
+    return { ok: false, error: _kbfProg.error };
   } finally { _kbfProg.elapsedMs = Date.now() - t0; _kbfBusy = false; }
 }
 // 复盘类样本：登记时行情已经走完，本身不构成"预测"，只能用于回验/统计
@@ -3267,10 +3464,10 @@ function recomputeBuckets() {
   saveLearn();
 }
 function calibratedProb(p) {
+  // Legacy buckets mix next-day outcomes and have no independent calibration
+  // evidence. Preserve the bounded original model; do not apply their corr.
   if (p == null) return p;
-  const b = p >= 90 ? '90+' : p >= 85 ? '85-89' : p >= 80 ? '80-84' : p >= 70 ? '70-79' : '<70';
-  const corr = (S.learn.buckets[b] || {}).corr || 1;
-  return Math.min(97, Math.max(5, p * corr));
+  return Number.isFinite(p) ? Math.min(97, Math.max(5, p)) : null;
 }
 try { Object.assign(S.config, JSON.parse(fs.readFileSync(CFG_FILE, 'utf8'))); delete S.config.wecomWebhook; } catch {} // 企业微信渠道已移除
 const saveCfg = () => { const _o = atomicWrite(CFG_FILE, JSON.stringify(S.config, null, 2)); return _o ? true : _diskFail('config.json（面板配置）'); };
@@ -4605,6 +4802,9 @@ async function rebuildPool() {
     // ---- 选股路径标记：每条路径同时记录「触发它的真实数据」，面板直接显示为什么选中 ----
     const last5 = k.rows.slice(-5);
     const paths = [], pathWhy = {};
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionPathInputs=[];
+    // CONDITION_EVIDENCE_END
     const pushPath = (nm, why) => { paths.push(nm); pathWhy[nm] = why; };
     const prTxt = profitRatio == null ? '未知' : (profitRatio * 100).toFixed(0) + '%';
     const ma5 = +(last5.reduce((s2, r) => s2 + r.close, 0) / 5).toFixed(2);
@@ -4617,6 +4817,10 @@ async function rebuildPool() {
       const last8 = k.rows.slice(-8);
       const smallUp = last8.filter(r => r.pct > 0 && r.pct <= 5).length;
       const cum8 = last8.reduce((s2, r) => s2 + r.pct, 0);
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'碎阳向上',kind:'alternative-all',rules:[[smallUp,5,'>='],[cum8,2,'>='],[cum8,15,'<='],[s.price,ma5,'>']],
+        windowPct:last8.map(r=>r.pct),maxDailyPulse:6,smallUpDefinition:{minExclusive:0,maxInclusive:5}});
+      // CONDITION_EVIDENCE_END
       if (smallUp >= 5 && cum8 >= 2 && cum8 <= 15 && !last8.some(r => r.pct > 6) && s.price > ma5)
         pushPath('碎阳向上', `近8日${smallUp}根小阳、累计${signTxt(cum8)}${cum8.toFixed(1)}%、无单日>6%脉冲、站上5日线${ma5}`);
     }
@@ -4630,6 +4834,9 @@ async function rebuildPool() {
       const low95 = Math.min(...low95Rows.map(r => r.low));
       const cum3 = k.rows.slice(-3).reduce((s2, r) => s2 + r.pct, 0);
       const volT = k.rows[k.rows.length - 1].volume, volY = k.rows[k.rows.length - 2].volume;
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'低位启动',kind:'alternative-all',windowCount:low95N,rules:[[low95,0,'>'],[low95>0?s.price/low95:null,1.2,'<'],[cum3,4,'>'],[volY,0,'>'],[volT,volY*1.5,'>='],[s.price,ma5,'>']]});
+      // CONDITION_EVIDENCE_END
       if (low95 > 0 && s.price / low95 < 1.2 && cum3 > 4 && volY > 0 && volT >= volY * 1.5 && s.price > ma5)
         pushPath('低位启动', `距${winLabel('low95', low95N)}低点仅${signNum(((s.price / low95 - 1) * 100), "%")}${winShort('low95', low95N)}、3日累涨${cum3.toFixed(1)}%、今日量能${(volT / volY).toFixed(1)}倍`);
     }
@@ -4647,6 +4854,9 @@ async function rebuildPool() {
       const weightedFlow = fd.slice(-3).reduce((a, d) => a + d.main * 0.6 + d.big + d.super, 0);
       const bigSuperNet3 = fundsWindowSum(fd, 3, ['big', 'super']);
       const cum3p = k.rows.slice(-3).reduce((a, r) => a + r.pct, 0);
+      // CONDITION_EVIDENCE_BEGIN
+      conditionPathInputs.push({path:'主力吸筹',kind:'alternative-all',rules:[[weightedFlow,0,'>'],[cum3p,6,'<']],rawFundsWindow:fd.slice(-3),mainWeight:0.6,bigWeight:1,superWeight:1,bigSuperNet3});
+      // CONDITION_EVIDENCE_END
       if (weightedFlow > 0 && cum3p < 6)
         pushPath('主力吸筹', `3日大单+超大单净额${Math.round(bigSuperNet3 / 1e4)}万（供应商订单大小口径）、同期股价仅涨${cum3p.toFixed(1)}%`);
     }
@@ -4684,7 +4894,7 @@ async function rebuildPool() {
     } catch (e) { /* 单只算不出来不影响整池，且绝不伪造结论 */ }
     const scoreAdj = Math.max(0, Math.min(100, Math.round((score + chipAdj) * 10) / 10));
     scored.push({
-      ...require('./src/core/quote-observation-view').quoteSnapshotFields(s),
+      ...reviewSnapshotFields(s),
       code: s.code, name: s.name, price: s.price, pct: s.pct,
       turnover: s.turnover, mainInflow: s.mainInflow, mainPct: s.mainPct,
       floatCap: s.floatCap, profitRatio: profitRatio == null ? null : +(profitRatio * 100).toFixed(1),
@@ -4693,6 +4903,16 @@ async function rebuildPool() {
       basis: _scoreBasis, scoreNote: scoreNoteOf(scoreAdj, _scoreBasis),
       zt90Txt: winLabel('zt90', k.rows.length) + winShort('zt90', k.rows.length)
     });
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(scored[scored.length-1],'rebuildPool.score',[
+      ['price','原行价格',s.price,0,'>'],['kline-count','评分可得K线',k.rows.length,5,'>=']],
+      ['PRESELECTION_RANK_UNION_AND_EXTERNAL_PATH_INTERNALS_NOT_FULLY_EXPANDED','SCORESTOCK_CHIP_WEEKLY_MACD_INTERNALS_NOT_EXPANDED'],
+      {turnover2d:t2d,turnoverRank:i+1,universeCount:total,rawScore:score,chipAdj,scoreAfterChip:scoreAdj,detail,paths,pathWhy,profitRatio,zt90,zt5,
+        evaluationBars:k.rows,additionalPathInputs:conditionPathInputs,externalPathResults:{macd,weekly:wk,hengPan:hp},
+        alternativePathPredicates:[{path:'温和连阳',all:[[profitRatio,0.7,'>='],[up5,3,'>=']]},
+          {path:'高换手',all:[[profitRatio,0.7,'>='],[i,300,'<']]},{path:'涨停基因',all:[[profitRatio,0.85,'>='],[zt90,2,'>=']]},
+          {path:'筹码峰<11%',all:[[profitRatio,0.11,'<']]},{path:'大单流入',all:[[s.mainPct||0,8,'>='],[s.pct,0,'>'],[s.pct,7,'<']]}]});
+    // CONDITION_EVIDENCE_END
   }
   // ⛔ 池内排序比较器只准有一份（2026-10-06 修，本轮角度：排序与截断）
   //    原来下面这串在 2324/2368 复制粘贴了两遍、2446 又是另一串（带八字分），
@@ -4775,10 +4995,26 @@ async function rebuildPool() {
     // 资金流接口被限流拿不到数据时照样放行；仅在有数据显示三日大幅净流出时剔除
     const VP_PATHS = ['碎阳向上', '低位启动', '横盘放量', '主力吸筹', 'MACD水上金叉', '周线金叉', '筹码峰<11%', '大单流入'];
     const vpNew = c.paths.some(p => VP_PATHS.includes(p));
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(c,'rebuildPool.selection',[
+      ['score','本次首选分支评分门',c.score,vpNew&&c.score>=58?58:65,'>='],
+      ['funding-branch','本次资金或原缺失放行分支',Number(vpNew&&c.score>=58?(fundIn||f3==null):fundIn),1,'==='],
+      ...(!(vpNew&&c.score>=58)?[['focus-or-path','常规聚焦或形态门',Number(c.focused||c.paths.length>0),1,'===']]:[])],
+      ['VP_OR_REGULAR_OR_FALLBACK_BRANCH_MUST_BE_READ_WITH_INPUTS','BAZI_AND_LEARNALL_INTERNALS_NOT_EXPANDED'],
+      {branchUsed:vpNew&&c.score>=58?'volume-price':'regular',vpNew,fundIn,todayFlow:c.mainInflow??null,multiDayFlow:f3,
+        missingMultiDayAllowed:vpNew&&c.score>=58&&f3==null,focused:c.focused,paths:c.paths,score:c.score,learnAdj:c.learnAdj??null,lowBonus:c.lowBonus??null,laAdj:c.laAdj??null,laP:c.laP??null,laBase:c.laBase??null});
+    // CONDITION_EVIDENCE_END
     if (vpNew && c.score >= 58) return fundIn || f3 == null;
     return fundIn && c.score >= 65 && (c.focused || c.paths.length > 0);
   });
+  // CONDITION_EVIDENCE_BEGIN
+  const conditionFallbackTriggered = !picked.length;
+  // CONDITION_EVIDENCE_END
   if (!picked.length) picked = scored.filter(c => ((c.mainInflow || 0) > 0 || c.paths.length > 0) && c.score >= 70); // 兜底：高分或命中任一形态
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.fallback-context',conditionFallbackTriggered?[
+    ['fallback-score','本次兜底分支评分门',c.score,70,'>=']]:[],[],{fallbackTriggered:conditionFallbackTriggered,poolBaziWindow:POOL_BAZI_WINDOW,poolCapacity:POOL_CAP});
+  // CONDITION_EVIDENCE_END
   // ⛔ 这里截的是「八字闸门评估窗」，不是「池上限」（2026-10-28 修，选股体系会话）。
   //    原来这一行 `slice(0, 50)` 被同时当成池上限用，而八字闸门在它**之后**才踢人
   //    （高位加速 / 破位整理一票否决）—— 被踢掉的名额**不会回填**：
@@ -4842,6 +5078,10 @@ async function rebuildPool() {
   const unjudgedN = picked.filter(baziUnknown).length;
   if (unjudgedN) console.log(`[pool] ⚠️ ${unjudgedN} 只票算不出八字（${(picked.find(baziUnknown) || {}).baziMiss || '数据不足'}）—— 它们未经过高位加速/破位闸门，已在卡片上标注`);
   picked = picked.filter(c => !baziBlocked(c));
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.bazi',[],['BAZI_INNER_THRESHOLDS_AND_SAFE_FALLBACK_NOT_EXPANDED'],
+    {bazi:c.bazi||null,baziDims:c.baziDims||null,baziMiss:c.baziMiss||null,excludedStages:['高位加速','破位整理']});
+  // CONDITION_EVIDENCE_END
   if (!picked.length) {
     // ⛔ 原来的退路 `scored.slice(0, 20)` 是个逻辑陷阱：scored 按评分降序，
     //    被"高位加速/破位整理"否决掉的恰恰是评分最高的那批 —— 于是【行情越差、
@@ -4860,6 +5100,10 @@ async function rebuildPool() {
     }
   }
   const baziKicked = beforeGate - picked.length;
+  // CONDITION_EVIDENCE_BEGIN
+  for(const c of picked)annotateSignalConditions(c,'rebuildPool.final-bazi',[],['BAZI_INNER_THRESHOLDS_AND_SECONDARY_FALLBACK_NOT_EXPANDED'],
+    {bazi:c.bazi||null,baziDims:c.baziDims||null,baziMiss:c.baziMiss||null,excludedStages:['高位加速','破位整理'],poolCapacity:POOL_CAP});
+  // CONDITION_EVIDENCE_END
   if (baziKicked) console.log(`[pool] 八字闸门拦下 ${baziKicked} 只（高位加速/破位整理，不推不进池）`);
   // 八字分参与最终排序：同样 score 下，四维度分高的排前面
   picked.sort(byFinal);
@@ -4901,6 +5145,7 @@ async function rebuildPool() {
   // 防轰炸保留两条底线：①服务启动后首次建池只建立基准不推送 ②每轮最多列10只
   const prev = S.prevPoolCodes;
   let poolMsgPart = '';
+  let _poolRows = [];
   let _poolUndo = [];   // 2026-10-06：本批占位句柄，交给 pushAll（发送失败才退）
   if (prev && prev.size) {
     // ⛔ 单模块日上限（2026-10-06 接上）：MOD_DAY_CAP.pool 写了 4 但从没被查询过
@@ -4911,7 +5156,7 @@ async function rebuildPool() {
     const fresh = modDayTake('pool')
       ? modDayKeepOrDrop('pool', govTrim(govFilter('pool', picked.filter(c => !prev.has(c.code))), 10))
       : [];
-    _poolUndo = fresh.$undo || [];
+    _poolUndo = fresh.$undo || []; _poolRows = fresh;
     if (fresh.length) {
       // ⚠️ 八字一行必须看得见（2026-10-02）：用户给的选股口诀就是这四步，
       //    只报评分不说"趋势/资金/位置/承接"各是什么，等于把判据藏起来让人盲信。
@@ -4932,7 +5177,7 @@ async function rebuildPool() {
       // ⛔ 2026-10-07 修（本轮角度：数据血缘）：同上。精选池的分数叫 `score`，
       //    govFilter 的 probAt 认得出它（判定端有分），但留档端原先传 null → 样本没分。
       //    'pool' 在 empcalib 里属 EMP_EARLY（未启动类），标定拿不到档就无法进化。
-      for (const c of fresh) logSignal('pool', c.code, c.name, c.price, c.score, { score: c.score, paths: c.paths || [] });
+      for (const c of fresh) logSignal('pool', c.code, c.name, c.price, c.score, learningSignalExtra(c, { score: c.score, paths: c.paths || [] }));
       // 模拟盘A·跟单盘：新进池标的自动买入（paperBuy内部自动排除利空股）
       paperBuy('pool', fresh, paperPrices(), c => `新进检测池(评分${c.score})`);
     }
@@ -4969,7 +5214,7 @@ async function rebuildPool() {
     }
     // 连阳票单独收集：它未必满足"资金流入/站上均线"等全套趋势条件，但形态本身值得看
     if (t && t.steadyRun) syRaw.push({
-      ...require('./src/core/quote-observation-view').quoteSnapshotFields(s),
+      ...reviewSnapshotFields(s),
       code: s.code, name: s.name, price: s.price, pct: +(+s.pct).toFixed(2),
       yang8: t.yang8, sum8: t.sum8, runMax: t.runMax, capYi: t.capYi, amp20: t.amp20,
       dd60: t.dd60, r20: t.r20, trendScore: t.trendScore, aboveMa20: t.aboveMa20,
@@ -5051,7 +5296,7 @@ async function rebuildPool() {
       const techTxt = techBits.length ? `｜技术指标: ${techBits.join('、')}` : '';
       const why = `${shape}，叠加${fundTxt}${logicTxt}${techTxt}`;
       trend.push({
-      ...require('./src/core/quote-observation-view').quoteSnapshotFields(s),
+      ...reviewSnapshotFields(s),
         code: s.code, name: s.name, price: s.price, pct: s.pct,
         ma5: t.ma5, dev: t.dev, fund3dSum: t.fund3dSum,
         // 中期趋势（面板据此显示"它站在哪条线上、离高点多远"）
@@ -5079,6 +5324,12 @@ async function rebuildPool() {
           t.amp20 != null ? `日均振幅${t.amp20}%` : null,
           t.source === 'ths' ? '资金流入(同花顺主动净买)' : t.proxy ? '资金流入(量价代理·限流中)' : t.fund3dSum != null ? '三日主力净流入' : '当日主力流入'].filter(Boolean)
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(trend[trend.length-1],'rebuildPool.trend',[
+        ['price','原行价格',s.price,0,'>'],['kline-count','趋势判断K线数量',k.rows.length,5,'>=']],
+        ['ANALYSIS_TREND_POOL_CHECK_INTERNAL_CHANNEL_OR_GATES_NOT_EXPANDED','LIMIT_UP_PROBABILITY_INTERNALS_NOT_EXPANDED'],
+        {evaluationBars:k.rows,trendResult:t,price:s.price,mainInflow:s.mainInflow,thsNetAmt:thsF?thsF.netAmt:null,floatCap:s.floatCap,probRaw});
+      // CONDITION_EVIDENCE_END
     }
   }
   // 排序（2026-09-30 改）：以前按【资金流入绝对值】排 —— 大盘股（保利、金域医学）金额天然大
@@ -5089,6 +5340,7 @@ async function rebuildPool() {
   // 盘中新进趋势票实时推送（含学习打点）——同样强制：不限时段，与达标标的合并为一条快报
   const prevT = S.prevTrendCodes;
   let trendMsgPart = '';
+  let _trendRows = [];
   let _trendUndo = [];   // 2026-10-06：同上
   if (prevT && prevT.size) {
     // ⛔ 单模块日上限（2026-10-06 接上）：趋势池用的 type 是 'trend'，而表里的键只有 'trendsig'
@@ -5098,7 +5350,7 @@ async function rebuildPool() {
     const fresh = modDayTake('trend')
       ? modDayKeepOrDrop('trend', govTrim(govFilter('trend', trend.filter(c => !prevT.has(c.code))), 10))
       : [];
-    _trendUndo = fresh.$undo || [];
+    _trendUndo = fresh.$undo || []; _trendRows = fresh;
     if (fresh.length) {
       trendMsgPart = `【趋势票】沿5日线震荡+资金流入：\n` + fresh.map(c =>
         `▪ ${c.name}(${c.code}) ${c.price} / 5日线${c.ma5}\n  选股逻辑: ${(c.flags || []).join(' + ') || '沿5日线震荡+资金持续流入'}`
@@ -5111,7 +5363,7 @@ async function rebuildPool() {
       //         这条链路的**证据永远是空的**，学不出来也就永远不会更准。
       //    判定端（govFilter 的 probAt）已经能取到 trendScore，留档端却取不到 ——
       //    "判的时候有分、存的时候没分"，典型的血缘断裂。现在把同一个数传进去。
-      for (const c of fresh) logSignal('trend', c.code, c.name, c.price, c.trendScore, {});
+      for (const c of fresh) logSignal('trend', c.code, c.name, c.price, c.trendScore, learningSignalExtra(c));
     }
   }
   S.prevTrendCodes = new Set(trend.map(c => c.code));
@@ -5126,7 +5378,7 @@ async function rebuildPool() {
     //    同一点上各发一条「═══ 📊 量化看盘·盘中推送 ═══」。现在统一走 enqueueIntradayMsg：
     //    同一出口、同一节流、到点合并成一条（见该函数注释）。
     enqueueIntradayMsg(`═══ 📊 量化看盘·盘中推送 ═══\n${[poolMsgPart, trendMsgPart].filter(Boolean).join('\n')}${govFoot()}`,
-      { undo: _u, modDay: _md });
+      recommendationSendOptions([..._poolRows, ..._trendRows], { undo: _u, modDay: _md }));
   }
   // 统计被拦下的票里有多少是"市值不够"和"上蹿下跳"，写进 S 供面板/接口解释
   S.trendRej = trendRej;
@@ -5334,6 +5586,8 @@ async function captureAuction(force) {
   let items = valid.map(s => {
     const pxo = auctionPxOf(s, _ph);
     return {
+      ...((_inAuction || _ph === 3) && s.price > 0 && pxo.px === s.price ? reviewSnapshotFields(s)
+        : {quoteAt:null,receivedAt:null,quoteSource:null,canNotify:false,quoteMode:'historical-open-price'}),
       code: s.code, name: s.name,
       auctionPct: +(((pxo.px - s.preClose) / s.preClose) * 100).toFixed(2),
       auctionAmount: s.amount || 0,
@@ -5571,7 +5825,7 @@ function auctionScoreOf(x, ctx) {
     // ①-2 板块共振闸：同板块昨日涨停 <2 只 → 孤板高开易一日游，共振弱则扣分（已有共振加分的反面约束）
     if ((r.secZT || 0) < 2) { s += auctionResonanceAdj(r.secZT); risk.push('板块共振弱·孤板高开易一日游'); factors.push('板块共振弱'); }
   }
-  if (S.news && S.news.goodCodes && S.news.goodCodes.has(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
+  if (S.news && S.news.goodCodes && newsSupportsCode(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
   const fc = x.floatCap || 0;
   // ① 选股纪律：市值曲线更陡——大票显著罚、小盘显著奖（ik 轮实证候选中位 75→98亿漂移拖累命中）
   // ⛔ kv 轮（2026-10-24）实证补档：旧曲线在 300亿~1000亿 区间是**零惩罚的洞**（旧 -14/-9/-4 三档
@@ -5662,6 +5916,10 @@ function inferZTProb() {
     else if (sc < 50) prob = -28 + sc * 0.9;
     else if (sc < 55) prob = -65 + sc * 1.8;
     else prob = -95 + sc * 2.4;
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionMappedProb=prob;
+    const conditionFactorInputs=(x.factors||[]).map(factor=>({factor,entry:paths[factor]||null}));
+    // CONDITION_EVIDENCE_END
     // 学习校准①：按概率桶「实际命中率/期望命中率」缩放（模型高估则收敛、低估则放大）
     // ⛔⛔ B1 轮（2026-10-17）：auczt 不套概率桶 corr —— recomputeBuckets 已把 auczt 剔除出
     //    概率桶（当日封板 vs 次日命中，两种口径两把尺子），桶里剩下的全是次日口径样本，
@@ -5705,15 +5963,25 @@ function inferZTProb() {
       if (_th.grade === '强' && !x.factors.includes('题材梯队强')) x.factors.push('题材梯队强');
       if (_th.grade === '弱' && !x.factors.includes('题材梯队弱')) x.factors.push('题材梯队弱');
     }
-    out.push({ code: x.code, name: x.name, price: x.price, auctionPct: x.auctionPct,
+    out.push({ ...reviewSnapshotFields(x), code: x.code, name: x.name, price: x.price, auctionPct: x.auctionPct,
       score: x.score, mainInflow: x.mainInflow || 0,
       // ⛔ h2 轮：单层标定 —— prob 已由 hy 映射+上游修正给出，这里只做实测上限封顶（不再二次切档）
-      prob: aucztProbClamp(prob),
+      prob: aucztProbClamp(prob), probKind: 'model-estimate', eventTarget: 'ztToday', calibrationCertified: false,
       reason: (x.why || []).join(' + ') || '竞价放量高开',
       risk: ((x.risk || []).concat(_mk < 1 ? ['市场偏弱·竞价信号降权'] : [])).join(' | '), factors: x.factors || [],
       // ⛔ 判不出就留 null（推送/面板按空值省略），绝不把「未知」渲染成「弱(0)」
       theme: _thKnown ? _th.theme : null, themeStrength: _thKnown ? _th.grade : null,
       themeScore: _thKnown ? _th.score : null, persist: _thKnown ? _ps.grade : null });
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(out[out.length-1],'inferZTProb',[
+      ['phase-low','学习登记竞价阶段下界',S.auction.phase,1,'>='],['phase-high','学习登记竞价阶段上界',S.auction.phase,3,'<=']],
+      ['AUCTION_SCORE_PRODUCER_AND_FACTOR_HISTORY_ORIGINAL_EVIDENCE_NOT_EXPANDED','THEME_AND_MOOD_INTERNALS_NOT_EXPANDED'],
+      {scoreRaw:x.score,scoreUsed:sc,mappedValue:conditionMappedProb,factorInputs:conditionFactorInputs,factorWeight:0.8,factorAdjustment:adj,riskDiscount:0.72,
+        beforeClamp:prob,afterClamp:out[out.length-1].prob,clamp:{min:2,max:AUCZT_PROB_CEIL},
+        riskInput:x.risk,marketUpRatio:_up,marketMultiplier:_mk,moodAdvice:_adv,moodMultiplier:_moodMul,
+        themeInput:_th,themeKnown:_thKnown,themeMultiplier:thMul,themePersistence:_ps,
+        scoreMapping:[{upperExclusive:45,offset:2,slope:0.2},{upperExclusive:50,offset:-28,slope:0.9},{upperExclusive:55,offset:-65,slope:1.8},{upperExclusive:null,offset:-95,slope:2.4}]});
+    // CONDITION_EVIDENCE_END
   }
   out.sort((a, b) => b.prob - a.prob);
   // ⚠️ 以前只留 Top10，导致「竞价强势票」列表里除前 10 名外的票拿不到涨停概率，
@@ -5734,7 +6002,7 @@ function inferZTProb() {
     try {
       for (const x of S.auction.ztInfers) {
         // cal:'h2' = 刻度版本标记（h2 轮起），退役判据据此豁免数值判断，见 isRetiredProbScale
-        logSignal('auczt', x.code, x.name, x.price, x.prob, { score: x.score, cal: 'h2', paths: x.factors.length ? x.factors : ['竞价涨停推断'] });
+        logSignal('auczt', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { score: x.score, cal: 'h2', paths: x.factors.length ? x.factors : ['竞价涨停推断'] }));
       }
     } catch {}
   }
@@ -5756,11 +6024,15 @@ function buildAuctionStrongMessage(topN) {
   const n = topN || 10;
   const map = au.ztProbMap || {};
   // 排序：有涨停概率的优先、概率高的优先；其次按竞价主力净流入
-  const list = (au.strong || []).slice().sort((a, b) => {
+  const list = reviewedRows(au.strong).slice().sort((a, b) => {
     const pa = (map[a.code] && map[a.code].prob) || 0, pb = (map[b.code] && map[b.code].prob) || 0;
     if (pb !== pa) return pb - pa;
     return (b.mainInflow || 0) - (a.mainInflow || 0);
   }).slice(0, n);
+  if (!list.length) {
+    const historical = prepareRecommendationDelivery('', recommendationSendOptions((au.strong || []).slice(0,n), {}, true));
+    return historical.ok ? historical.text : null;
+  }
   const ds = (au && au.date) || ((typeof todayStr === 'function') ? todayStr() : '');
   const dstr = ds ? `${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)}` : '';
   const _amtTip = au.amtReliable === false ? '（非竞价窗口·成交额为当日累计值，仅作参考）' : '';
@@ -5796,7 +6068,7 @@ function buildAuctionStrongMessage(topN) {
     const rk = [zi && zi.risk, risk].filter(Boolean).join(' | ');
     msg += `   ⚠️ ${rk || '暂无明显风险信号'}${stop ? ` · 参考止损 ${stop}${stopRefNote()}` : ''}\n`;
   });
-  msg += '\n说明：涨停概率由「竞价多维评分」标定并经历史回验校准，非承诺收益；'
+  msg += '\n说明：当日封板模型估值来自竞价评分映射与风险修正，未经独立样本外校准，非承诺收益；'
     + '\n竞价未撮合前取虚拟匹配价（可撤单，越接近 9:25 越准），9:25 后取法定开盘价；'
     + '\n开盘后请对照实际走势再决定。';
   msg += auctionFrontRunNote(au.time);
@@ -5813,6 +6085,10 @@ function buildAuctionStrongMessage(topN) {
 //    现在两处都调它，标题/说明/条目口径永远一致。
 function buildAuctionAlertMessage(au, manual) {
   if (!au) return '';
+  if (manual) {
+    const historical = prepareRecommendationDelivery('', recommendationSendOptions(au.strong || [], {}, true));
+    return historical.ok ? historical.text : `═══ 竞价快照观察 · 证据不足 ═══\n快照日期 ${au.date || '未知'} ${au.time || ''}\n原始行不具备完整报价审核证据，保留面板快照，不生成当前股票推荐。`;
+  }
   const readyCount = (au && au.validCount) || 0;
   // ── 快照「时效性」必须如实标注 ──────────────────────────────────
   // 2026-09-29 事故：线上 S.auction.time 实际是 10:02:11（9:25 没抓到有效竞价、重试补抓成功），
@@ -5844,8 +6120,8 @@ function buildAuctionAlertMessage(au, manual) {
   if (_m && _m.advice) msg += `📊 市场情绪: ${_m.mood || '-'} · 建议【${_m.advice}】｜竞价推断已按情绪加权\n\n`;
   const L = au.globalLeader;
   // ⛔ 判不出不硬判：领涨股涨幅/板内涨跌家数缺失就显示「—」，绝不打印 null% / undefined 糊弄人
-  if (L) msg += `🎯 竞价龙头: ${L.leaderName}(${L.leaderCode}) ${L.leaderPct == null ? '—' : (L.leaderPct > 0 ? '+' : '') + L.leaderPct + '%'}\n  板块【${L.sector}】主力净流入${((L.sectorInflow || 0) / 1e8).toFixed(1)}亿 板内上涨${L.upCount == null ? '—' : L.upCount}/${L.totalCount == null ? '—' : L.totalCount}\n`;
-  const strong = (au.strong || []).slice(0, 8);
+  if (L) msg += `板块来源记载领涨（非个股推荐）: ${L.leaderName}(${L.leaderCode}) ${L.leaderPct == null ? '—' : (L.leaderPct > 0 ? '+' : '') + L.leaderPct + '%'}\n  板块【${L.sector}】主力净流入${((L.sectorInflow || 0) / 1e8).toFixed(1)}亿 板内上涨${L.upCount == null ? '—' : L.upCount}/${L.totalCount == null ? '—' : L.totalCount}\n`;
+  const strong = reviewedRows(au.strong).slice(0, 8);
   if (strong.length) msg += '【竞价强势】\n' + strong.map(x =>
     `▪ ${x.name}(${x.code}) 竞价${x.auctionPct > 0 ? '+' : ''}${x.auctionPct}% 主力${x.mainInflow >= 1e8 ? (x.mainInflow / 1e8).toFixed(1) + '亿' : Math.round(x.mainInflow / 1e4) + '万'}\n  ${pickLogic(x)}`).join('\n')
     + (isLate ? `\n（以上涨幅为 ${_tm} 快照，非开盘竞价初值）\n` : '\n');
@@ -5855,7 +6131,7 @@ function buildAuctionAlertMessage(au, manual) {
   // ⛔ id 轮：同板块去重（最多 2 只）+ 持久度/板块强度优先排序
   // ⛔ 2026-10-28：闸门由 ZT_INFER_PUSH_PROB(55) 换成 auczt 专用 AUCZT_PUSH_PROB(18) ——
   //    auczt 概率封顶 45，用 55 是永假闸（这段九天零外发）。≥ 语义与一进二/连板两处保持一致。
-  let zi = (au.ztInfers || []).filter(x => x.prob >= AUCZT_PUSH_PROB);
+  let zi = reviewedRows(au.ztInfers).filter(x => x.prob >= AUCZT_PUSH_PROB);
   const _themeMap = new Map();
   for (const x of zi) {
     // ⛔ 2026-10-28 修：判不出题材的票原来全被塞进同一个「未知」桶 → 同桶最多留 2 只，
@@ -5952,19 +6228,31 @@ async function tick() {
     }
     const codes = [..._mon].slice(0, 220);
     monitorCodes = codes;
-    const snaps = await em.fetchBatchSnapshot(codes);
+    let snaps;
+    try { snaps = await em.fetchBatchSnapshot(codes); }
+    catch (e) {
+      for (const code of codes) S.inflowHistory.delete(code);
+      throw e;
+    }
+    // An omitted stock is an observation gap, even when other stocks succeeded.
+    const returnedCodes = new Set(snaps.map(row => row.code));
+    for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const now = Date.now();
     const alerts = [];
     for (const s of snaps) {
+      if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
       // 记录资金轨迹（保留10分钟）
       const h = S.inflowHistory.get(s.code) || [];
-      h.push({ t: now, mainInflow: fundsNumber(s.mainInflow), pct: s.pct });
+      const observation = fundsHistoryObservation(s, now);
+      if (h.length && !fundsHistoryContinuous(h[h.length - 1], observation)) h.length = 0;
+      h.push(observation);
       while (h.length && now - h[0].t > 10 * 60 * 1000) h.shift();
       S.inflowHistory.set(s.code, h);
 
       if (h.length >= 12) {
-        const delta = fundsWindowDelta(h, 12); // 约1分钟前；缺失样本中断资金差分。
+        // Twelve normal 5-second samples span 55s. Slow/rapid batches cannot masquerade as one minute.
+        const delta = fundsWindowDelta(h, 12, { minSpanMs: 45000, maxSpanMs: 75000 });
         // 用户总开关：资金做多意愿强烈 = 个股主力净流入为正 且 盘中留存未转流出
         const bullishIntent = delta !== null && fundsNumber(s.mainInflow) !== null && s.mainInflow > 0 && delta >= 0;
         const streakMin = countStreak(h);
@@ -5981,23 +6269,29 @@ async function tick() {
         });
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
         // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
-        const goodHit = S.news.goodCodes && S.news.goodCodes.has(s.code);
-        const badHit = S.news.badCodes.has(s.code);
+        const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
+        const badHit = newsWarnsCode(s.code);
         const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
         // ⛔ 2026-10-08 修：gap>0.2%太松，回调到0.5%（比原来严格、但不至于一票难求）
         if (bullishIntent && probC > pushTh && gap != null && gap > 0.5 && !(badHit && probC < 92)) {
           alerts.push({
+            ...reviewSnapshotFields(s), originalQuote:Object.freeze({...s}),
             type: '后排涨停概率', code: s.code, name: s.name,
-            price: s.price, pct: s.pct, prob: +probC.toFixed(0),
+            price: s.price, pct: s.pct, prob: +probC.toFixed(0),probKind:'model-estimate',eventTarget:'ztToday',riseEventTarget:'ztToday',riseModelSource:'copied-from-prob',
             mainPct: s.mainPct, fastInDelta: Math.round(delta / 1e4) + '万/分钟',
             gapPct: +gap.toFixed(1),
             riseProb: +probC.toFixed(0),
+            conditionEvidence:[signalCondition('probability','模型评分门',probC,pushTh,'>',now),
+              signalCondition('gap','距涨停空间',gap,0.5,'>',now),signalCondition('main-flow','当日净流入',s.mainInflow,0,'>',now),
+              signalCondition('flow-delta','连续资金变化',delta,0,'>=',now),
+              ...(badHit?[signalCondition('negative-news-gate','利空时评分门',probC,92,'>=',now)]:[])],
+            ruleInputs:{model:prob*100,modelAfterAdjustment:probC,mainInflow:s.mainInflow,mainPct:s.mainPct,delta,gap,streakMin,ztInSector,goodHit:!!goodHit,badHit:!!badHit},
             logic: `板块后排补涨：距涨停${gap.toFixed(1)}%空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万 + 板块已${ztInSector}只涨停`,
             risk: riskNoteOf(s, { gap, badHit, goodHit }),
-            stopRef: stopRefOf(s),
+            stopRef: stopRefOf(s),invalidWhen:'连续资金窗口中断、净流入转负、距涨停空间或原模型门槛不再满足时，本次观察依据失效。',
             // ⛔ 后排补涨赌的是【当日】封板（下面那句"距涨停 X% 空间"就是当日的剩余空间）
-            msg: `【后排蓄势】${s.name}(${s.code}) 涨${s.pct}% 主力净占比${(s.mainPct || 0).toFixed(1)}% 1分钟流入${Math.round(delta / 1e4)}万 ${probDef('ztToday')}概率${probC.toFixed(0)}%${((S.learn.buckets[probC >= 90 ? '90+' : probC >= 85 ? '85-89' : probC >= 80 ? '80-84' : probC >= 70 ? '70-79' : '<70'] || {}).corr || 1) !== 1 ? '(已校准)' : ''}\n  选股逻辑: 板块后排补涨（距涨停 ${gap.toFixed(1)}% 空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万，${probDef('ztToday')}概率模型${probC.toFixed(0)}%）`
+            msg: `【后排蓄势】${s.name}(${s.code}) 涨${s.pct}% 主力净占比${(s.mainPct || 0).toFixed(1)}% 1分钟流入${Math.round(delta / 1e4)}万 ${probDef('ztToday')}概率${probC.toFixed(0)}%（模型估值，未独立校准）\n  选股逻辑: 板块后排补涨（距涨停 ${gap.toFixed(1)}% 空间 + 主力净占比${(s.mainPct || 0).toFixed(1)}% + 1分钟净流入${Math.round(delta / 1e4)}万，${probDef('ztToday')}概率模型${probC.toFixed(0)}%）`
           });
           // ⚠️ 不在这里登记：alerts 只是"命中条件"，还要过去重那一关。
           //    只有真正推送出去的票才进学习库（见下方 fired 循环），
@@ -6009,13 +6303,18 @@ async function tick() {
         const fastIn = bullishIntent && delta > Math.max(3e6, s.floatCap * 0.0003) && s.pct > 0; // 1分钟大单快速流入（做多意愿强+已转正）
         if (fastIn && s.mainPct > 1) {
           alerts.push({
+            ...reviewSnapshotFields(s), originalQuote:Object.freeze({...s}),
             type: '大单快速流入', code: s.code, name: s.name,
-            price: s.price, pct: s.pct, prob: +calibratedProb(prob * 100).toFixed(0),
+            price: s.price, pct: s.pct, prob: +calibratedProb(prob * 100).toFixed(0),probKind:'model-estimate',eventTarget:'ztToday',riseEventTarget:'up3Next',riseModelSource:'riseProbOf',
             mainPct: s.mainPct, fastInDelta: Math.round(delta / 1e4) + '万/分钟',
             riseProb: riseProbOf(s, { condCount: 1, badHit, goodHit }),
+            conditionEvidence:[signalCondition('fast-flow','分钟资金增量',delta,Math.max(3e6,s.floatCap*0.0003),'>',now),
+              signalCondition('positive-return','涨幅转正',s.pct,0,'>',now),signalCondition('main-percent','主力净占比',s.mainPct,1,'>',now),
+              signalCondition('positive-flow','当日净流入',s.mainInflow,0,'>',now)],
+            ruleInputs:{mainInflow:s.mainInflow,mainPct:s.mainPct,delta,floatCap:s.floatCap,goodHit:!!goodHit,badHit:!!badHit},
             logic: `资金抢筹：1分钟主力净流入${Math.round(delta / 1e4)}万（连续未转流出）+ 全天净占比${(s.mainPct || 0).toFixed(1)}%`,
             risk: riskNoteOf(s, { badHit, goodHit }),
-            stopRef: stopRefOf(s),
+            stopRef: stopRefOf(s),invalidWhen:'连续资金窗口中断、分钟增量不再超过原门槛、涨幅不再为正或主力净占比不再大于1时，本次观察依据失效。',
             msg: `【大单流入】${s.name}(${s.code}) 涨${s.pct}% 1分钟主力净流入${Math.round(delta / 1e4)}万 全天净占比${(s.mainPct || 0).toFixed(1)}%`
           });
         }
@@ -6028,6 +6327,7 @@ async function tick() {
         const tr = A.trendCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price });
         if (tr) {
           const ts = S.trendState.get(s.code) || { belowMa5: !tr.aboveMa5, aboveTicks: 0, belowHigh: !tr.brokeHigh, highTicks: 0, firedMa5: false, firedHigh: false };
+          const priorTrendState = {...ts};
           // 状态推进：突破→站稳(≥3个采样点≈15秒)
           if (tr.aboveMa5) { if (ts.belowMa5) ts.aboveTicks++; } else { ts.belowMa5 = true; ts.aboveTicks = 0; }
           if (tr.brokeHigh) { if (ts.belowHigh) ts.highTicks++; } else { ts.belowHigh = true; ts.highTicks = 0; }
@@ -6038,17 +6338,21 @@ async function tick() {
           if (tr.brokeHigh && ts.belowHigh && holds(ts.highTicks) && !ts.firedHigh) { conds.push('盘中突破前高并站稳(压力位突破)'); ts.firedHigh = true; }
           S.trendState.set(s.code, ts);
           if (conds.length) {
-            const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
-            const _good = S.news.goodCodes && S.news.goodCodes.has(s.code);
+            const _bad = newsWarnsCode(s.code);
+            const _good = S.news.goodCodes && newsSupportsCode(s.code);
             const _rp = riseProbOf(s, { condCount: conds.length, up3: tr.up3, fund3d: tr.fund3d, badHit: _bad, goodHit: _good });
             alerts.push({
+            ...reviewSnapshotFields(s), originalQuote:Object.freeze({...s}),
               type: '趋势票', code: s.code, name: s.name,
-              price: s.price, pct: s.pct, prob: _rp,
+              price: s.price, pct: s.pct, prob: _rp,probKind:'model-estimate',eventTarget:'up3Next',riseEventTarget:'up3Next',riseModelSource:'riseProbOf',
               mainPct: s.mainPct, fastInDelta: '',
               riseProb: _rp,
+              conditionEvidence:[signalCondition('positive-flow','当日净流入',s.mainInflow,0,'>',now),
+                ...conds.map((label,index)=>signalCondition('trend-hit-'+index,label,1,1,'>=',now))],
+              ruleInputs:{trend:{...tr},persistenceBefore:priorTrendState,persistenceAfter:{...ts},matched:conds.slice(),mainInflow:s.mainInflow},
               logic: `趋势突破：${conds.join('；')}（5日线${tr.ma5} 前高${tr.prevHigh20}）`,
               risk: riskNoteOf(s, { badHit: _bad, goodHit: _good }),
-              stopRef: (tr.ma5 && tr.ma5 > 0) ? `${tr.ma5}（5日线，跌破离场）` : stopRefOf(s),
+              stopRef: (tr.ma5 && tr.ma5 > 0) ? `${tr.ma5}（5日线，跌破离场）` : stopRefOf(s),invalidWhen:'当日资金净流入不再为正，或被冻结的均线、前高突破及持续站稳条件不再成立时，本次趋势依据失效。',
               msg: `【趋势票】${s.name}(${s.code}) 涨${s.pct}% 现价${s.price} | 命中: ${conds.join('；')} | 5日线${tr.ma5} 前高${tr.prevHigh20}`
             });
           }
@@ -6063,15 +6367,19 @@ async function tick() {
         //    用户投诉「拉涨停那么多为什么不推送」。改为：仅当「无板块效应 且 主力净占比<3%（无资金背书）」才跳过；
         //    有板块梯队 / 有资金抢筹的涨停一律推送（封板是既成事实，值得播报）。
         if (secZT < 2 && (s.mainPct || 0) < 3) { console.log(`[zt] 孤狼涨停跳过 ${s.name}(${s.code}) secZT=${secZT} mainPct=${s.mainPct}`); continue; }
-        const _bad = S.news.badCodes && S.news.badCodes.has(s.code);
+        const _bad = newsWarnsCode(s.code);
         alerts.push({
+            ...reviewSnapshotFields(s), originalQuote:Object.freeze({...s}),
           type: '涨停', code: s.code, name: s.name,
-          price: s.price, pct: s.pct, prob: null, sector: sec,
+          price: s.price, pct: s.pct, prob: null, probKind:'unknown',eventTarget:null,riseEventTarget:null,sector: sec,
           mainPct: s.mainPct, fastInDelta: '',
           riseProb: null, // 已封板，不再谈上涨概率；关键风险是炸板
+          conditionEvidence:[signalCondition('limit-price','触及涨停区间',s.pct,A.limitPctOf(s.code,s.name)-0.25,'>=',now),
+            signalCondition('sector-or-flow','板块梯队或资金背书',secZT>=2||s.mainPct>=3?1:0,1,'>=',now)],
+          ruleInputs:{sectorCount:secZT,mainPct:s.mainPct,limitPct:A.limitPctOf(s.code,s.name),tolerance:0.25},
           logic: `封板：触及涨停价 + 板块【${sec}】(${secZT}只涨停) + 主力净占比${(s.mainPct || 0).toFixed(1)}%`,
           risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 命中利空雷达（有负面消息，慎追）' : ''}`,
-          stopRef: stopRefOf(s),
+          stopRef: stopRefOf(s),invalidWhen:'价格离开原涨停容差区间，或原板块梯队和资金背书同时不再成立时，本次封板观察依据失效。',
           msg: `【涨停】${s.name}(${s.code}) 封板！板块:${sec}(${secZT}只涨停) 主力净占比${(s.mainPct || 0).toFixed(1)}%`
         });
       }
@@ -6105,6 +6413,7 @@ async function tick() {
       return { ok: true, no: fr.repeatSent };
     };
     for (const a of alerts) {
+      if (!reviewRecommendation(a, 'intraday-recommendation', now).canRecommend) continue;
       // 大单流入命中计数（无论后续是否被节流，命中条件即记一次，给「重复」判定用）
       if (a.type === '大单快速流入') {
         const fr = S.fastinRepeat.get(a.code) || { d:'', n:0, lastTs:0, lastRepeatTs:0 };
@@ -6120,15 +6429,13 @@ async function tick() {
       const last = S.lastPush.get(key) || 0;
       if (now - last < win) continue;
       // 跨模块节流：以前只认「本模块自己有没有推过」，导致同一只票被五个模块各推一遍（9/28 重复率 43.5%）
-      // ⚠️ 这里**故意不传第 4 个参数（预估胜率）**：本分支是「已持有仓位」的风控提醒，
-      //    属于止损/止盈/异常播报，跟选股命中率无关；若套用胜率门槛，会在行情不好、
-      //    模型普遍给出低分时把最该发的止损提醒给卡掉 —— 那是拿钱开玩笑。
+      // These are stock recommendations; pass the original model and the same source row.
       // ⛔ 单模块日上限（2026-10-06 接上）：快报里的 ztprob / fastin / trendsig 三个类型
       //   额度写在表上却从没被查过，等于快报不受模块级限流。
       //   ⚠️ 必须判在 govTake **之前**（与 similar 那处同约定）：modDayTake 只占模块额度、
       //   不占总名额，先判不会造成"名额被占却没推出去"。
       if (!modDayTake(alertType(a))) { console.log(`[gov] ${a.type} ${a.name}(${a.code}) 已拦下：模块日上限`); continue; }
-      const _gv = govTake(a.code, alertType(a), strong);
+      const _gv = govTake(a.code, alertType(a), strong, a.prob, a);
       if (!_gv.ok) { console.log(`[gov] ${a.type} ${a.name}(${a.code}) 已拦下：${_gv.why}`); continue; }
       S.lastPush.set(key, now);
       // 当日第几次推：强势股会被反复推，标注出来让用户知道是"加推"而不是重复啰嗦
@@ -6142,13 +6449,16 @@ async function tick() {
       // ⚠️ 原来只有「后排涨停概率」一类会登记，大单流入/趋势票/涨停推了却不回测，模型学不到它们。
       try {
         const _t = alertType(a);
-        const _fz = logSignal(_t, a.code, a.name, a.price, (a.riseProb != null ? a.riseProb : a.prob),
-          { sector: a.sector || '', mainPct: a.mainPct || 0, pushNo: a.pushNo || 1 });
+        const _fz = logSignal(_t, a.code, a.name, a.price, a.prob,
+          learningSignalExtra(a, { sector: a.sector || '', mainPct: a.mainPct ?? null, pushNo: a.pushNo || 1 }));
         if (_fz) a._fz = _fz;   // 学后胜率：文案与闸门用同一个数
       } catch {}
-      S.signals.unshift(a);
+      const frozenSignal=captureProductionSignal(a,a.originalQuote||a,krowsOf(a.code),
+        {recordKind:'trigger',funds:S.inflowHistory.get(a.code)||[],metrics:a.ruleInputs||null,
+          news:{goodHit:newsSupportsCode(a.code),badHit:newsWarnsCode(a.code),originalEvidence:null}});
+      S.signals.unshift(frozenSignal);
       if (S.signals.length > dataCapOf('signals')) S.signals.pop();
-      fired.push(a);
+      fired.push(frozenSignal);
       // 🔁 持续大单流入特别提醒：同一只票今日第 2 次及以上命中大单快速流入
       //    用户原话「大单重复流入也可以特别提醒」—— 反复扫货 = 主力持续吸筹，
       //    是比单次更强的多头信号，值得单独再发一条。
@@ -6160,10 +6470,13 @@ async function tick() {
             msg: `【持续大单流入】${a.name}(${a.code}) 今日第 ${a.fastinNo} 次触发1分钟大单快速流入（主力持续吸筹，比单次更强） 现价${a.price} 涨${a.pct}% 全天净占比${(a.mainPct||0).toFixed(1)}%`,
             strong: true, ts: now, pushNo: a.fastinNo
           });
-          S.signals.unshift(rep);
+          rep.conditionEvidence=[...(a.conditionEvidence||[]),signalCondition('repeat-flow','当日流入触发次数',a.fastinNo,2,'>=',now)];
+          const frozenRepeat=captureProductionSignal(rep,rep.originalQuote||rep,krowsOf(a.code),
+            {recordKind:'trigger',funds:S.inflowHistory.get(a.code)||[],metrics:rep.ruleInputs||null});
+          S.signals.unshift(frozenRepeat);
           if (S.signals.length > dataCapOf('signals')) S.signals.pop();
-          fired.push(rep);
-          try { logSignal('bigmoney_repeat', a.code, a.name, a.price, (a.riseProb != null ? a.riseProb : a.prob), { repeat: a.fastinNo }); } catch {}
+          fired.push(frozenRepeat);
+          try { logSignal('bigmoney_repeat', a.code, a.name, a.price, a.prob, learningSignalExtra(rep, { repeat: a.fastinNo })); } catch {}
           console.log(`[gov] 🔁 持续大单流入 ${a.name}(${a.code}) 今日第${a.fastinNo}次，已发特别提醒`);
         } else {
           console.log(`[gov] 持续大单流入 ${a.name}(${a.code}) 已拦下：${rv.why}`);
@@ -6219,11 +6532,11 @@ async function tick() {
             // 市值门槛：35亿以下除非特别突出（距涨停<1% 或 竞价涨幅>8%）
             const _capYi = s.floatCap > 0 ? +(s.floatCap / 1e8).toFixed(1) : null;
             if ((_capYi || 0) < 35 && gap >= 1 && pct < 8) continue;
-            nearZT.push({ code: s.code, name: s.name, price: s.price, pct: +pct.toFixed(2), gap: +gap.toFixed(1), lp });
+            nearZT.push({ ...reviewSnapshotFields(s), code: s.code, name: s.name, price: s.price, pct: +pct.toFixed(2), gap: +gap.toFixed(1), lp });
           }
         }
         // 只推新发现的（已推过的过滤掉）
-        const newHits = nearZT.filter(x => !S.auctionNearZTNotified.has(x.code));
+        const newHits = reviewedRows(nearZT.filter(x => !S.auctionNearZTNotified.has(x.code)));
         if (newHits.length) {
           // ⛔ 按「连板梯队」归并（fp 轮 2026-10-09）：查昨日涨停池的 limitUpCount 当板位，
           //   标成一进二/二进三/三进四/高板/首板冲刺，让竞价推送是「板位分层」而非「涨停一个推一个」。
@@ -6246,7 +6559,7 @@ async function tick() {
           }
           msg += `\n⏰ ${new Date().toLocaleTimeString('zh-CN')} · 数据来源：全市场虚拟匹配价（板位取昨日涨停池）\n`;
           msg += auctionFrontRunNote(new Date().toLocaleTimeString('zh-CN'));
-          pushAll(msg, false, { private: true });  // go 轮 A4：竞价接近涨停改私密
+          pushAll(msg, false, recommendationSendOptions(_toPush, { private: true }));
         }
       }
     } catch (e) { console.error('[竞价接近涨停检测]', e && e.message); }
@@ -6261,13 +6574,11 @@ async function tick() {
 }
 
 function countStreak(h) {
-  // 连续主力净流入增加的采样点数（5秒一采，12点≈1分钟）
-  let n = 0;
-  for (let i = h.length - 1; i > 0 &&
-    typeof h[i].mainInflow === 'number' && Number.isFinite(h[i].mainInflow) &&
-    typeof h[i - 1].mainInflow === 'number' && Number.isFinite(h[i - 1].mainInflow) &&
-    h[i].mainInflow >= h[i - 1].mainInflow; i--) n++;
-  return Math.round(n / 12); // 折算成分钟
+  if (!Array.isArray(h) || h.length < 2 || !fundsHistoryValid(h[h.length - 1])) return 0;
+  let first = h.length - 1;
+  while (first > 0 && fundsHistoryContinuous(h[first - 1], h[first]) &&
+    h[first].mainInflow >= h[first - 1].mainInflow) first--;
+  return Math.round((h[h.length - 1].t - h[first].t) / 60000);
 }
 function sectorZTCountFor(stock) {
   const sec = sectorOfStock(stock);
@@ -6466,6 +6777,7 @@ async function scanBigMoneyInner() {
       gap: numNeutral('gap', gapToLimit), turnover: numNeutral('turnover', s.turnover), inflowStreakMin: 0
     }) * 100).toFixed(0);
     return {
+      ...reviewSnapshotFields(s),
       code: s.code, name: s.name, price: s.price, pct: +(+s.pct).toFixed(2),
       mainPct: fundsRounded(mp, 1), mainInflow: fundsRounded(mi),
       // 买卖两侧都要摊开：以前只给一个净额，用户问"也有流出啊到底谁多"时答不上来
@@ -6495,14 +6807,34 @@ async function scanBigMoneyInner() {
     //    所以必须先把候选池放大，否则重排等于从 12 只里挑 12 只（等于没排）。
     list = rows.filter(r => r.mp > thr && r.mi > 0)
       .sort((a, b) => (b.mp - a.mp) || (b.mi - a.mi))
-      .slice(0, 20).map(r => enrich(source, r.mp, r.mi)(r.s));
+      .slice(0, 20).map(r => {
+        const candidate=enrich(source,r.mp,r.mi)(r.s);
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(candidate,'scanBigMoneyInner.flow',[
+          ['main-percent','原资金源净占比严格门',r.mp,thr,'>'],['positive-flow','原资金源净流入',r.mi,0,'>'],
+          ['return-low','个股涨幅下界',r.s.pct,0,'>'],['return-high','个股涨幅上界',r.s.pct,8,'<']],
+          ['BASE_MARKET_CAP_JUNK_NAME_AND_LIMIT_MODEL_INTERNALS_NOT_EXPANDED'],
+          {source,rawMainPct:r.mp,rawMainInflow:r.mi,threshold:thr,returnPct:r.s.pct,floatCap:r.s.floatCap,topLimit:20});
+        // CONDITION_EVIDENCE_END
+        return candidate;
+      });
   } else {
     // ③ 最后的兜底：纯量价代理（明确标注，不与真实资金信号混淆）
     list = base.filter(s => (s.amount || 0) >= 3e8 && (s.pct || 0) >= 1.5 &&
         (s.turnover || 0) >= 3 && (s.turnover || 0) <= 15 &&
         (s.price || 0) >= (s.high || 0) * 0.985 && (s.speed || 0) >= 0.5)
       .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-      .slice(0, 20).map(enrich('price', null, null));
+      .slice(0, 20).map(s=>{
+        const candidate=enrich('price',null,null)(s);
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(candidate,'scanBigMoneyInner.price-proxy',[
+          ['amount','量价代理成交额',s.amount||0,3e8,'>='],['return','量价代理涨幅',s.pct||0,1.5,'>='],
+          ['turnover-low','量价代理换手下界',s.turnover||0,3,'>='],['turnover-high','量价代理换手上界',s.turnover||0,15,'<='],
+          ['near-high','量价代理贴近日高',s.price||0,(s.high||0)*0.985,'>='],['speed','量价代理涨速',s.speed||0,0.5,'>=']],
+          ['PRICE_PROXY_IS_NOT_ORIGINAL_FUNDS_EVIDENCE','LIMIT_MODEL_AND_CONTEXT_INTERNALS_NOT_EXPANDED'],{source:'price-proxy',high:s.high,rawAmount:s.amount,rawReturn:s.pct,rawTurnover:s.turnover,rawSpeed:s.speed});
+        // CONDITION_EVIDENCE_END
+        return candidate;
+      });
   }
   // 先把候选票的题材归属补齐（东财个股所属板块，写进 stockBoards 永久缓存）：
   // 不然银行/石油/军工这类权重股三层反查全落空 → 板块一栏全是"未知"，
@@ -6538,6 +6870,12 @@ async function scanBigMoneyInner() {
     .sort((a, b) => (b.bmScore - a.bmScore) || ((b.mainPct || 0) - (a.mainPct || 0)));
   // ⛔ 市值硬门槛：35亿以下除非特别突出（概率≥80），否则不进大单池
   list = list.filter(x => (x.capYi || 0) >= 35 || x.prob >= 80);
+  // CONDITION_EVIDENCE_BEGIN
+  for(const x of list)annotateSignalConditions(x,'scanBigMoneyInner.rank-cap',[
+    ['capital-or-prob','原市值或评分例外',Number((x.capYi||0)>=35||x.prob>=80),1,'===']],
+    ['CONTEXT_WEIGHT_AND_HEAT_INTERNALS_NOT_EXPANDED'],{capYi:x.capYi,prob:x.prob,bmScore:x.bmScore,context:x.ctx,heat:x.heat,
+      capFloor:35,exceptionScore:80,heavyThreshold:500,heavyLimit:HEAVY_MAX,totalLimit:TOTAL});
+  // CONDITION_EVIDENCE_END
   const downN = list.filter(x => x.ctx && (x.ctx.flowKind === '下跌途中接盘' || x.ctx.flowKind === '深跌后承接')).length;
   const coldN = list.filter(x => x.heat && x.heat.cold).length;
   const heavyN = list.filter(isHeavy).length;
@@ -6574,8 +6912,17 @@ function isMarketOpenNow() {
   return (hm >= 9 * 60 + 15 && hm <= 11 * 60 + 30) || (hm >= 13 * 60 && hm <= 15 * 60 + 10);
 }
 const _klineFreshGate = new Map();            // code -> {date, failed, at}：当天回源仍取不到最新则不再空转
+const _klineReadMeta = new Map(); // Last read path, separate from provider availability time.
 async function klineRows(code) {
   const target = latestTradeDate();
+  const read=(rows,snapshot,cacheLayer,cacheAt=null,lastAttemptAt=null)=>{
+    if(typeof _klineReadMeta!=='undefined'){
+      if(_klineReadMeta.size>1500)_klineReadMeta.clear();
+      _klineReadMeta.set(code,{snapshot:{src:snapshot?.src,source:snapshot?.source,
+        adjust:snapshot?.adjust,adjustment:snapshot?.adjustment,receivedAt:snapshot?.receivedAt},cacheLayer,cacheAt,lastAttemptAt,targetDate:target});
+    }
+    return rows;
+  };
   // ⛔⛔ 2026-10-27 le 轮：当日行必须「定稿」才算数（用户「每个数字可信」）。
   //   事故：002995 11:01 盘中取数成功 → 当日行 close=19.77（那一刻的涨停价）落盘；收盘真实 18.52。
   //   缓存末行日期==今天 → 三级兜底永远判「已最新」直接返回，这一行盘中价被复盘/审计当成收盘价。
@@ -6594,18 +6941,19 @@ async function klineRows(code) {
     const ld = klineLastDate(mem.rows);
     if (ld >= target && _settled(mem.rows, _klineAt.get(code) || 0)) {
       const age = Date.now() - (_klineAt.get(code) || 0);
-      if (!isMarketOpenNow() || age < KLINE_INTRADAY_TTL) return mem.rows;
+      if (!isMarketOpenNow() || age < KLINE_INTRADAY_TTL) return read(mem.rows,mem,'memory',_klineAt.get(code)||null);
     }
   }
   // ② 磁盘层：最新交易日以内且当日行已定稿则载入内存返回（klineSet 会刷新 _klineAt）
   const cf = path.join(KLINE_CACHE, code + '.json');
-  let disk = null;
+  let disk = null,diskAt=null;
   try {
     const k = JSON.parse(fs.readFileSync(cf, 'utf8'));
     if (k && k.rows && k.rows.length) {
       disk = k;
       let mt = 0; try { mt = fs.statSync(cf).mtimeMs; } catch {}
-      if (klineLastDate(k.rows) >= target && _settled(k.rows, mt)) { klineSet(code, k); return k.rows; }
+      diskAt=mt||null;
+      if (klineLastDate(k.rows) >= target && _settled(k.rows, mt)) { klineSet(code, k); return read(k.rows,k,'disk',mt||null); }
     }
   } catch {}
   // ③ 当天已回源但源无更优数据（周末/节假日/源滞后）：直接返回缓存，不空转
@@ -6616,7 +6964,7 @@ async function klineRows(code) {
     const cut = new Date(now); cut.setHours(15, 0, 0, 0);
     if (now.getHours() * 60 + now.getMinutes() >= 15 * 60 + 5 && (Number(gate.at) || 0) < cut.getTime()) gate = null;
   }
-  if (gate && gate.date === target && gate.failed) return (mem && mem.rows && mem.rows.length) ? mem.rows : (disk ? disk.rows : []);
+  if (gate && gate.date === target && gate.failed) return read((mem && mem.rows && mem.rows.length)?mem.rows:(disk?disk.rows:[]),mem||disk,'held-after-source-failure',_klineAt.get(code)||diskAt,gate.at);
   // ④ 回源取数
   try {
     const k = await em.fetchKline(code, 30);
@@ -6628,20 +6976,20 @@ async function klineRows(code) {
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.delete(code);
-        return k.rows;
+        return read(k.rows,k,'source',k.receivedAt||null);
       }
       if (ld > curLast) {                      // 比缓存新但仍非最新（源滞后）→ 升级缓存，标记当天失败
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });
-        return k.rows;
+        return read(k.rows,k,'source-lagging',k.receivedAt||null);
       }
       _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });   // 源返回不比缓存新 → 不降级，标记当天失败
-      return curBest || k.rows;
+      return read(curBest||k.rows,curBest?(mem||disk):k,'held-source-not-newer',_klineAt.get(code)||diskAt,Date.now());
     }
   } catch {}
   _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });
-  return (mem && mem.rows && mem.rows.length) ? mem.rows : (disk ? disk.rows : []);
+  return read((mem&&mem.rows&&mem.rows.length)?mem.rows:(disk?disk.rows:[]),mem||disk,'held-after-source-failure',_klineAt.get(code)||diskAt,Date.now());
 }
 
 // 股票名解析（K线面板标题用）：全A快照 → 涨停池 → 模拟盘持仓 → 磁盘K线缓存名 → 空串。
@@ -6710,7 +7058,7 @@ function paperHoldsOf(code) {
       acc: key, accName: cfg.name,
       buyPrice: +Number(p.buyPrice).toFixed(3),
       shares: Number(p.shares) || 0,
-      buyDate: p.buyTs ? dayKeyOf(p.buyTs) : null,
+      buyDate: typeof p.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(p.buyDate)?p.buyDate.replace(/-/g,''):p.buyTs ? dayKeyOf(p.buyTs) : null,
       peak: p.peak == null ? null : +Number(p.peak).toFixed(4),
       lastPrice: price ? +price.toFixed(3) : null,
       stop: +(Number(p.buyPrice) * (1 + stopFrac)).toFixed(3),
@@ -6956,6 +7304,10 @@ async function scanWashDistributeAlerts() {
     try {
       const rows = await klineRows(code);
       if (!rows.length) continue;
+      const observedSnapshot = S.klines.get(code);
+      const datedRow = {price:rows[rows.length-1].close,
+        ...researchSnapshotFields(observedSnapshot && observedSnapshot.rows === rows ? observedSnapshot : null, rows[rows.length-1])};
+      if (!reviewRecommendation(datedRow, 'dated-observation').canObserve) continue;
       const tail = rows.slice(-30);                 // 取近 30 根（washVsDistribute 需 ≥15）
       let flowRec = null;
       try { flowRec = await klineFlowOf(code); } catch (e) { flowRec = { at: Date.now(), data: null, why: (e && e.message) || '资金流未取到' }; }
@@ -6967,10 +7319,10 @@ async function scanWashDistributeAlerts() {
       const rs = (w.reasons || []).filter(r => r.side === w.verdict).map(r => r.text).slice(0, 2).join('；');
       if (w.verdict === 'distribute') {
         // ⚠️ 风险预警：出货信号（仅提示，不自动卖出）
-        pushAll(`═══ 🔻 持仓风险预警·出货信号 ═══\n${name}(${code})\n判定：出货（得分 ${w.score}）\n依据：${rs || '量价与资金流指向向下'}\n⚠️ 仅预警，不自动操作；请结合自身仓位自行决策。`, false, { private: true });
+        pushAll(`═══ 🔻 持仓历史形态观察·出货特征 ═══\n${name}(${code})\n数据日期 ${datedRow.researchEvidence.tradeDate} · 来源 ${datedRow.researchEvidence.source}\n判定：出货特征（得分 ${w.score}）\n依据：${rs || '量价与资金流指向向下'}\n历史形态观察，不代表当前卖出指令。`, false, { private: true });
       } else if (w.verdict === 'wash') {
         // 洗盘观察：非卖出信号，仅提示
-        pushAll(`═══ 🧹 持仓观察·疑似洗盘 ═══\n${name}(${code})\n判定：洗盘（得分 +${w.score}）\n依据：${rs || '缩量回踩、下方有承接'}\n提示：疑似洗盘非卖出信号，可继续观察；仅预警不干预。`, false, { private: true });
+        pushAll(`═══ 🧹 持仓历史形态观察·疑似洗盘 ═══\n${name}(${code})\n数据日期 ${datedRow.researchEvidence.tradeDate} · 来源 ${datedRow.researchEvidence.source}\n判定：洗盘（得分 +${w.score}）\n依据：${rs || '缩量回踩、下方有承接'}\n历史形态观察，不代表当前交易指令。`, false, { private: true });
       }
     } catch (e) { console.error('[wash-alert] ' + code, e && e.message); }
   }
@@ -7471,6 +7823,13 @@ async function scanBigMoneyPush() {
     if (x.breakoutReady) score++;
     // mb：消费/商业百货板块联动加分（今日涨停集中区：商业百货、食品、旅游）
     if (x.heat && x.heat.hot && /百货|商业|零售|消费|食品|酒店|旅游|餐饮/.test(x.sector || '')) score += 0.5;
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'scanBigMoneyPush.normal',[
+      ['factor-score','普通大单原组合分',score,2,'>='],['launch-ready','原启动判断',typeof x.launchReady==='boolean'?Number(x.launchReady):null,1,'>='],
+      ['code-age','同票距上次推送毫秒',now-(S.bigMoneyPushed.get(x.code)||0),30*60000,'>']],
+      ['HAS_LAUNCH_HAS_BREAKOUT_CONTEXT_AND_HEAT_INTERNALS_NOT_EXPANDED'],
+      {prob:x.prob,startSignal:x.startSignal??null,flowKind:x.ctx?.flowKind||null,hot:x.heat?.hot??null,breakoutReady:x.breakoutReady??null,sector:x.sector,score,slots:_slots});
+    // CONDITION_EVIDENCE_END
     // ma：推送结果学习沉淀的「好的条件」——满足才给普通大单推，不满足只上面板
     return score >= 2 && x.launchReady;
   }).slice(0, _slots);
@@ -7515,8 +7874,18 @@ async function scanBigMoneyPush() {
   // A/B 对照：A组登记 type='bigmoney'（模型组），B组登记 type='bigmoney-B'（实证组）——
   // 两组 type 不同 → logSignal 去重天然分开、bigMoneyStats/自优化等现有统计零污染。
   for (const x of fresh) {
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'scanBigMoneyPush.delivery',[
+      ['cutoff','当前分钟距大单截止',new Date(now).getHours()*60+new Date(now).getMinutes(),BM_PUSH_END_MIN,'<'],
+      ['code-age','原同票冷却窗口',now-(S.bigMoneyPushed.get(x.code)||0),(freshHot.includes(x)?15:30)*60000,'>'],
+      ...(freshHot.includes(x)?[['hot-factor-count','原热门组合因子数',bmHotFactors(x,now),BM_HOT_FACTOR_MIN,'>=']]:[])],
+      ['BM_CONTEXT_HOT_FACTOR_INTERNALS_AND_AB_BUCKET_HISTORY_NOT_EXPANDED'],
+      {group:x._grp,hotPath:freshHot.includes(x),ctx:x.ctx,heat:x.heat,startSignal:x.startSignal??null,
+        lastModulePush:bigMoneyLastPush,hotGapRequired:BIGMONEY_GAP_HOT,normalGapRequired:BIGMONEY_GAP_NORMAL,
+        aKeep:A_KEEP,bKeep:B_KEEP,prob:x.prob,empiricalRateUsed:x._grp==='B'?empOf(x):null});
+    // CONDITION_EVIDENCE_END
     S.bigMoneyPushed.set(x.code, now);
-    const _fz = logSignal(x._grp === 'B' ? 'bigmoney-B' : 'bigmoney', x.code, x.name, x.price, x.prob, { mainPct: x.mainPct, sector: x.sector });
+    const _fz = logSignal(x._grp === 'B' ? 'bigmoney-B' : 'bigmoney', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { mainPct: x.mainPct, sector: x.sector }));
     if (_fz) x._fz = _fz;    // 登记时算好的融合胜率，直接拿给文案用（同一个数，不会两处打架）
   }
   // ⛔ 节流位必须**发送之后**才置：pushAll 被条数闸门/夜间静默/副本拦下时只是静默 return，
@@ -7597,7 +7966,7 @@ async function scanBigMoneyPush() {
     // 学习闭环与历史战绩只在最后一张卡上带（每票都挂一段脚注 = 又变成长消息）
     const _foot = (_i === fresh.length - 1) ? `\n${bmHist()}${govFoot()}` : '';
     const _ok = pushAll(_cardOf(x, _kind) + _foot, false,
-      { undo: x._u, modDay: 'bigmoney', private: true });  // go 轮 A1：大单流入改私密（用户决策 2026-10-12）
+      recommendationSendOptions([x], { undo: x._u, modDay: 'bigmoney', private: true }));  // go 轮 A1：大单流入改私密（用户决策 2026-10-12）
     if (_ok !== false) {
       if (_kind === 'hot') bigMoneyLastPush.hot = now; else bigMoneyLastPush.normal = now;
     } else {
@@ -7748,12 +8117,21 @@ async function findSimilarStocks() {
       if ((_capYi || 0) < 35 && prob < 80 && sim < 90) continue;
       out.push({
         // ⛔ type 不能省：fuseLine 靠它给「学后胜率」补事件定义（少这个字段 = 那行百分数又变成没前提的结论）
-        type: 'similar',
+        type: 'similar', ...reviewSnapshotFields(c),
         code: c.code, name: c.name, price: c.price, pct: +(c.pct || 0).toFixed(2), sim, prob,
         ref: `${ref.name}(${ref.code})`, refPct: +(ref.pct || 0).toFixed(2), above, volUp,
         why: `近5日走势与强势股 ${ref.name}(${ref.code}，今日${(ref.pct || 0).toFixed(2)}%) 相似度 ${sim}（门槛${gate}）`
           + `；自身${above ? '站上5日线' : '在5日线下方'}${volUp ? '、今日放量' : ''}、今日涨${(c.pct || 0).toFixed(2)}%未涨停，属跟随补涨位`
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(out[out.length-1],'findSimilarStocks',[
+        ['reference-strength','样板原涨幅',ref.pct||0,5,'>='],['reference-bars','样板K线长度',refRows.length,6,'>='],
+        ['candidate-bars','候选K线长度',rows.length,6,'>='],['return-low','候选涨幅下界',c.pct||0,0.5,'>='],['return-high','候选涨幅上界',c.pct||0,7,'<='],
+        ['similarity','实际相似度门',sim,gate+2,'>='],['technical-or','站均线或放量的原组合',Number(above||volUp),1,'>='],
+        ['capital-or','市值或评分或相似度例外',Number((_capYi||0)>=35||prob>=80||sim>=90),1,'>=']],
+        ['SIM_SCORE_RETURN_SERIES_ALIGNMENT_AND_HISTORICAL_AVAILABILITY_NOT_CERTIFIED'],
+        {configuredGate:gate,effectiveGate:gate+2,sim,ma5,above,volUp,capYi:_capYi,prob,reference:{code:ref.code,name:ref.name,pct:ref.pct},referenceBars:refRows,evaluationBars:rows,referenceReturns:refRet,candidateReturns:_retSeries(rows)});
+      // CONDITION_EVIDENCE_END
     }
   }
   console.log(`[similar] 样板${refs.length}个 · 比对${_checked}只(K线缺失${_noRows}只) · 最高相似度${_best}（门槛${gate}）· 入围${out.length}只`);
@@ -7773,7 +8151,7 @@ async function scanSimilarPush() {
     // ⛔ slice 后置：让 govFilter 先按融合概率排序，再用 govTrim 截断到 4 只。
     const fresh = modDayKeepOrDrop('similar', govTrim(govFilter('similar', list.filter(x => now - (S.simPushed.get(x.code) || 0) > 60 * 60000)), 4));
     if (!fresh.length) return;
-    for (const x of fresh) { S.simPushed.set(x.code, now); const fz = logSignal('similar', x.code, x.name, x.price, x.prob, { sim: x.sim, ref: x.ref }); if (fz) x._fz = fz; }
+    for (const x of fresh) { S.simPushed.set(x.code, now); const fz = logSignal('similar', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { sim: x.sim, ref: x.ref })); if (fz) x._fz = fz; }
     const st = similarStats();
     const hist = st.n ? `\n【学习闭环】相似跟随累计${st.n}个：次日涨≥${HIT_THR}% ${st.hitRate}%、真涨停 ${st.luRate}%；相似度门槛 ${_govCfg('simGate')} 由学习自动校准` : '';
     // ⛔ 主推数字用融合概率（学后胜率）。
@@ -7782,7 +8160,7 @@ async function scanSimilarPush() {
       `▪ ${x.name}(${x.code}) 现价${x.price} ${x.pct > 0 ? '+' : ''}${x.pct}%\n` +
       `  ${probDef('ztToday')}概率 ${_fprob(x)}% · 相似度 ${x.sim} · 样板 ${x.ref}（今日${x.refPct > 0 ? '+' : ''}${x.refPct}%）\n` +
       `  选股逻辑: 形态跟随（${x.why}）${fuseLine(x)}`
-    ).join('\n') + hist + `\n（同股60分钟内不重复推送，完整榜单见面板）${govFoot()}`, false, { undo: fresh.$undo, modDay: 'similar' });
+    ).join('\n') + hist + `\n（同股60分钟内不重复推送，完整榜单见面板）${govFoot()}`, false, recommendationSendOptions(fresh, { undo: fresh.$undo, modDay: 'similar' }));
   } catch (e) {
     taskSet('similar', { ok: false, error: String((e && e.message) || e || '未知异常') });
     console.error('[similar]', e && e.message);
@@ -8455,26 +8833,59 @@ function evEnvNow() {
 //   裸调会 ReferenceError 崩掉整个套件（hi 轮同款静默故障）——故 govTake 内必须 typeof 守卫。
 function evGateOf(type, prob, env) {
   const st = evStatsCached();
-  if (!st) return { blocked: false, why: '' };
+  if (!st) return { blocked: false, why: '', evaluated: 'stats-unavailable' };
   const e = env || evEnvNow();
   const cell = EV.evCell(st, type, prob, e);
-  if (!cell || cell.unknown || !cell.n) return { blocked: false, why: '', cell, env: e };
-  if (cell.sig !== 'sig') return { blocked: false, why: '', cell, env: e };   // ⛔ 不显著=点估计，禁作结论（ig+1 教训）
+  if (!cell || cell.unknown || !cell.n) return { blocked: false, why: '', cell, env: e, evaluated: 'cell-unknown' };
+  if (cell.sig !== 'sig') return { blocked: false, why: '', cell, env: e, evaluated: 'not-significant' };   // ⛔ 不显著=点估计，禁作结论（ig+1 教训）
   const thr = (e === '普跌') ? EV.EV_COLD_FEE : EV.EV_GATE_FEE;
   const evFee = typeof cell.evCloseFee === 'number' ? cell.evCloseFee : (cell.evClose - st.fee);
   if (evFee <= thr) {
     const _envTag = e === '普跌' ? `（普跌日·阈值收紧到 ${EV.EV_COLD_FEE}%）` : '';
     const _misTag = cell.envMismatch ? `（注：该 EV 取自「${cell.layer}」层而非当前行情层，样本不足诚实回退，仍按此判）` : '';
     return {
-      blocked: true, cell, env: e,
+      blocked: true, cell, env: e, evaluated: 'significant', threshold: thr, evFee,
       why: `按信号实盘 EV 为负：${type} 类${cell.env ? '·' + cell.env + '行情' : ''}费后 ${evFee}%（${cell.n} 条实盘样本/跨 ${cell.days} 日/聚类 t=${cell.tClu} 显著）≤ 阈值 ${thr}%${_envTag}——历史同型信号买了是亏的，宁可不报${_misTag}`,
     };
   }
-  return { blocked: false, why: '', cell, env: e };
+  return { blocked: false, why: '', cell, env: e, evaluated: 'significant', threshold: thr, evFee };
 }
 // 判定某只票这一条能不能发出去。返回 {ok, why, no}
 // prob: 模型给出的预估胜率（0~100）；传 null/undefined 表示这条没有预估胜率（如纯涨停播报），不做门槛卡。
-function govTake(code, type, strong, prob) {
+function govTake(code, type, strong, prob, row) {
+  // Capture only values this invocation already evaluated. Unreached gates stay null;
+  // this reservation decision is frozen before logSignal/trigger capture, never updated by delivery.
+  const finite = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
+  const text = value => typeof value === 'string' ? value.slice(0, 512) : '';
+  const trace = { schemaVersion: 1, source: 'server.js#govTake', scope: 'central-governance-reservation',
+    status: 'partial', phase: 'reservation-review', missing: ['NESTED_MODEL_AND_EV_RULES_NOT_EXPANDED', 'PRODUCER_AND_DELIVERY_RULES_OUTSIDE_SCOPE'],
+    code: text(code), type: text(type), strong: !!strong, reviewedAt: null, evaluatedAt: null, stateAt: null,
+    model: { rawValue: finite(prob), rawKind: 'unknown', fusedValue: null, fusedKind: 'unknown', target: 'unknown' },
+    review: null, followRole: null, probabilityFloor: null, d5: null, ev: null, reservationBefore: null };
+  const finish = (result, reason) => {
+    try {
+      const value = JSON.parse(JSON.stringify({ ...trace, evaluatedAt: Date.now(), decision: { allow: result.ok === true, reason, why: text(result.why), reservationNo: finite(result.no) } }));
+      const freeze = item => { if (item && typeof item === 'object') { for (const child of Object.values(item)) freeze(child); Object.freeze(item); } return item; };
+      result.governanceEvidence = freeze(value);
+      if (typeof governanceEvidenceRecords !== 'undefined') governanceEvidenceRecords.add(result.governanceEvidence);
+      if (row && typeof row === 'object' && typeof governanceEvidenceByCandidate !== 'undefined') governanceEvidenceByCandidate.set(row, result.governanceEvidence);
+      if (row && Object.isExtensible(row)) row.governanceEvidence = result.governanceEvidence;
+    } catch {} // Metadata failure must not alter the original gate or reservation writes.
+    return result;
+  };
+  const review = reviewRecommendation(row);
+  trace.review = { decision: text(review.decision), canRecommend: review.canRecommend === true,
+    reasons: (Array.isArray(review.reasons) ? review.reasons : []).slice(0, 12).map(text) };
+  if (row && Object.isExtensible(row)) row.evidenceReview = review;
+  if (!review.canRecommend || !row || String(row.code || '') !== String(code || '')) {
+    return finish({ ok: false, evidenceReview: review,
+      why: '推荐证据审查未通过：' + (!row || String(row.code || '') !== String(code || '') ? '缺少匹配的原候选行' : review.reasons.join('；')) }, 'RECOMMENDATION_EVIDENCE_REJECTED');
+  }
+  if (Object.isExtensible(row)) {
+    const reviewedAt = Date.now();
+    row.recommendationReviewedAt = reviewedAt;
+    trace.reviewedAt = reviewedAt;
+  }
   govResetIfNewDay();
   // ⛔ go 轮 C3（用户 2026-10-12 决策「不推跟风股」）：当日涨停池里被角色分类判为
   //    「跟风 follow」（板块内除龙头/龙二/中军之外的涨停股）的票，一律不推送。
@@ -8487,8 +8898,9 @@ function govTake(code, type, strong, prob) {
   //    new Function 沙箱真跑，沙箱只注入它认识的符号；直接裸调新符号会 ReferenceError
   //    **崩掉整个套件**（gn 轮 two_instance_parity 踩过同款）。生产环境这些函数必然在。
   const _follow = (typeof ztFollowOf === 'function') ? ztFollowOf(code) : null;
+  trace.followRole = text(_follow) || null;
   if (_follow === 'follow') {
-    return { ok: false, why: '板块内跟风涨停（非龙头/龙二/中军），按你的设置不推送' };
+    return finish({ ok: false, why: '板块内跟风涨停（非龙头/龙二/中军），按你的设置不推送' }, 'FOLLOW_ROLE_REJECTED');
   }
   const cooldownMin = _govCfg('pushCooldownMin');
   // ⛔ 不许用 `Math.max(1, …)` 把 0 钳成 1（2026-10-06 修，本轮角度：写入端与校验端同一条规则）。
@@ -8517,18 +8929,24 @@ function govTake(code, type, strong, prob) {
   //    + mainPct>bigMoneyPct、capYi≥35，且名额/冷却/每只上限/模块日配额(8) 一样不少
   //    —— 只去掉那道根本不该用的 limit-up 胜率门（bigMoneyProbGate 概率门槛已整条退役）。
   const forcePush = (type === 'fastin' || type === 'bigmoney' || type === 'bigmoney-B');
+  trace.model = { rawValue: finite(prob), rawKind: text(_fz.modelKind) || 'unknown', fusedValue: finite(useProb),
+    fusedKind: text(_fz.valueKind) || 'unknown', target: _fz.target === null ? null : text(_fz.target) || 'unknown',
+    empirical: finite(_fz.emp), empiricalN: finite(_fz.empN), empiricalDays: finite(_fz.empDays), delta: finite(_fz.delta), calibrationCertified: false };
+  trace.probabilityFloor = { effective: finite(mp), forceExempt: forcePush,
+    applicable: !forcePush && prob != null && Number.isFinite(prob) && mp > 0 };
   if (!forcePush && prob != null && Number.isFinite(prob) && mp > 0 && useProb < mp) {
     PUSH_GOV.lowProb++;
     const _coldTag = (mp > pushMinProb() && type !== 'pre') ? '（偏冷环境·门槛+' + (typeof ENV_COLD_UPLIFT === 'number' ? ENV_COLD_UPLIFT : 8) + '）' : '';   // go 轮 C2：拦因要说清为什么今天门槛高（typeof 守卫同 mp）
-    return {
+    return finish({
       ok: false,
       fused: _fz,
       why: _fz.emp != null
-        ? `模型给 ${prob}%，同档实测 ${_fz.emp}%（${_fz.empN}条/跨${_fz.empDays}日）${_fz.delta ? `，自学形态${ppTxt(_fz.delta)}` : ''} → 融合 ${useProb}%，低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`
-        : `融合胜率 ${useProb}%（模型${prob}%${_fz.delta ? ` · 自学形态${ppTxt(_fz.delta)}` : ''}）低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`,
-    };
+        ? `模型给 ${prob}%，同档实测 ${_fz.emp}%（${_fz.empN}条/跨${_fz.empDays}日）${_fz.delta ? `，自学形态${ppTxt(_fz.delta)}` : ''} → 研究排序值 ${useProb}，低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`
+        : `研究排序值 ${useProb}（未独立校准，模型${prob}%${_fz.delta ? ` · 自学形态${ppTxt(_fz.delta)}` : ''}）低于门槛 ${mp}%${_coldTag}（宁可不报，也不拉低命中率）`,
+    }, 'PROBABILITY_FLOOR_REJECTED');
   }
   const now = Date.now();
+  trace.stateAt = now;
   // ⛔ go 轮 D5（用户 2026-10-12 决策「只推高准确率票」· 高优先级）：
   //    模型说够格 ≠ 实测够格。同族群同档的【实盘】命中率是这台机器自己的账本 ——
   //    样本足够厚（n≥20）而实测命中率低于 35% 的族群，一律不推：
@@ -8537,34 +8955,45 @@ function govTake(code, type, strong, prob) {
   //       已按样本厚度加权，这里只对"证据确凿的差"下硬手，不重复惩罚薄样本）。
   //    ⛔ forcePush（持续大单流入）豁免：那是用户明确要求的客观资金行为通道。
   const D5_MIN_HIT = 35, D5_MIN_N = 20;   // 实测命中率底线 / 最小样本数；改这两个值=改 D5 力度，只此一处
-  if (!forcePush && _fz.emp != null && _fz.empN >= D5_MIN_N && _fz.emp < D5_MIN_HIT) {
+  trace.d5 = { eventTarget: 'up3Next', minimumHit: D5_MIN_HIT, minimumN: D5_MIN_N, forceExempt: forcePush,
+    applicable: !forcePush && _fz.target === 'up3Next' && _fz.emp != null && _fz.empN >= D5_MIN_N };
+  if (!forcePush && _fz.target === 'up3Next' && _fz.emp != null && _fz.empN >= D5_MIN_N && _fz.emp < D5_MIN_HIT) {
     PUSH_GOV.lowProb++;
-    return {
+    return finish({
       ok: false,
       fused: _fz,
       why: `同档实测命中率 ${_fz.emp}%（${_fz.empN}条实盘样本）低于准确率门槛 ${D5_MIN_HIT}%，按「只推高准确率票」不推送`,
-    };
+    }, 'D5_ACCURACY_REJECTED');
   }
   // ② EV 准入门（#261 · ig 轮）：胜率门管「涨停概率」，本门管「按信号买到底赚不赚」。
   //    ⛔ typeof 守卫：govTake 会被守门测试切进 new Function 沙箱真跑，沙箱不注入 evGateOf，
   //       裸调会 ReferenceError 崩掉整个套件（hi 轮同款静默故障）——沙箱里自动跳过本门。
   const _evg = (typeof evGateOf === 'function') ? evGateOf(type, prob) : null;
+  trace.ev = _evg ? { evaluated: text(_evg.evaluated) || 'returned', blocked: _evg.blocked === true, env: text(_evg.env),
+    threshold: finite(_evg.threshold), evFee: finite(_evg.evFee), why: text(_evg.why),
+    cell: _evg.cell ? { unknown: _evg.cell.unknown === true, n: finite(_evg.cell.n), days: finite(_evg.cell.days),
+      sig: text(_evg.cell.sig), tClu: finite(_evg.cell.tClu), layer: text(_evg.cell.layer), envMismatch: _evg.cell.envMismatch === true,
+      evCloseFee: finite(_evg.cell.evCloseFee), evClose: finite(_evg.cell.evClose) } : null } : { evaluated: 'evaluator-unavailable', blocked: null };
   if (_evg && _evg.blocked) {
     PUSH_GOV.negEv++;
-    return { ok: false, why: _evg.why, evGate: _evg };
+    return finish({ ok: false, why: _evg.why, evGate: _evg }, 'EV_REJECTED');
   }
   const rec = PUSH_GOV.codes.get(code) || { n: 0, ts: 0, types: new Set() };
-  if (rec.types.has(type)) return { ok: false, why: '同一模块今天已经推过它了' };
-  if (maxPerCode > 0 && rec.n >= maxPerCode) return { ok: false, why: `当天已推 ${rec.n} 次（上限 ${maxPerCode}）` };
-  if (rec.n > 0 && now - rec.ts < cooldownMin * 60 * 1000) return { ok: false, why: `冷却期未过（${cooldownMin}分钟）` };
+  trace.reservationBefore = { total: finite(PUSH_GOV.total), codeCount: finite(rec.n), lastReservedAt: finite(rec.ts),
+    sameType: rec.types.has(type), maxPerCode: finite(maxPerCode), cooldownMin: finite(cooldownMin), elapsedMs: finite(now - rec.ts),
+    quota: null, ceiling: null, quotaUnlimited: null, reserve: null };
+  if (rec.types.has(type)) return finish({ ok: false, why: '同一模块今天已经推过它了' }, 'SAME_TYPE_RESERVED');
+  if (maxPerCode > 0 && rec.n >= maxPerCode) return finish({ ok: false, why: `当天已推 ${rec.n} 次（上限 ${maxPerCode}）` }, 'CODE_LIMIT_REJECTED');
+  if (rec.n > 0 && now - rec.ts < cooldownMin * 60 * 1000) return finish({ ok: false, why: `冷却期未过（${cooldownMin}分钟）` }, 'COOLDOWN_REJECTED');
   const q = pushQuota();
   const ceiling = strong ? q : Math.max(1, Math.round(q * (1 - PUSH_GOV_RESERVE)));
-  if (PUSH_GOV.total >= ceiling) return { ok: false, why: strong ? '当日名额已用尽' : '当日普通名额已用尽（强势信号仍保留席位）' };
+  Object.assign(trace.reservationBefore, { quota: finite(q), ceiling: finite(ceiling), quotaUnlimited: q === Infinity, reserve: finite(PUSH_GOV_RESERVE) });
+  if (PUSH_GOV.total >= ceiling) return finish({ ok: false, why: strong ? '当日名额已用尽' : '当日普通名额已用尽（强势信号仍保留席位）' }, 'DAILY_QUOTA_REJECTED');
   rec.n++; rec.ts = now; rec.types.add(type);
   PUSH_GOV.codes.set(code, rec);
   PUSH_GOV.total++;
   savePushGov();
-  return { ok: true, no: rec.n, fused: _fz, undo: { code, type } };
+  return finish({ ok: true, no: rec.n, fused: _fz, evidenceReview:review, undo: { code, type } }, 'RESERVATION_ALLOWED');
 }
 // ── 占位回滚（2026-10-06 修 · 本轮角度：占位与送达的原子性）─────────────────────
 // ⛔ 这是「只占坑、不确认」留下的洞：govTake 发生在 pushAll **之前**（文案要靠它决定
@@ -8686,6 +9115,11 @@ function govFilter(type, items, codeOf, strongOf, probOf) {
   const undo = [];
   let drop = 0, lowProb = 0, noScore = 0, follow = 0, negEv = 0;   // go 轮 C3：follow=跟风涨停被拦数（第四类）；ig 轮：negEv=实盘 EV 显著为负（第五类）
   for (const x of list) {
+    // A reused candidate rejected before govTake must not retain an earlier allowed reservation.
+    if (x && typeof x === 'object') {
+      if (typeof governanceEvidenceByCandidate !== 'undefined') governanceEvidenceByCandidate.set(x, null);
+      try { if (Object.isExtensible(x)) delete x.governanceEvidence; } catch {}
+    }
     const code = codeAt(x);
     const strong = strongOf ? !!strongOf(x) : false;
     // ⛔⛔ dh 轮（本轮角度：同一个「数据没取到」在系统里是不是同一个口径）：
@@ -8702,7 +9136,7 @@ function govFilter(type, items, codeOf, strongOf, probOf) {
         `（若这个类型本就没有质量分，请登记进 NO_SCORE_TYPES 并写明替代判据）`);
       continue;
     }
-    const res = govTake(code, type, strong, probAt(x));
+    const res = govTake(code, type, strong, probAt(x), x);
     // ⛔ 2026-10-07 补（本轮角度：数据血缘 —— 显示的数必须是决策的那个数）：
     //    govTake 内部已经算过 fusedProb（排序也是它），但这个融合值过去**没有回写给 x**，
     //    于是 fuseLine(x) 读不到 `x._fz` → **静默返回空串**，文案照旧显示模型原值。
@@ -9316,6 +9750,14 @@ function extractStockCodes(text) {
 //    10-28 曾因无幂等闸 47 秒连推 17 条回执；10-29 根治「90 分钟 155 条」时确认：流程态一律不进飞书。
 
 function pushAll(text, force, opts) {
+  const delivery = prepareRecommendationDelivery(text, opts);
+  if (!delivery.ok) {
+    govReleaseAll(opts && opts.undo || []);
+    for (const mod of (Array.isArray(opts && opts.modDay) ? opts.modDay : opts && opts.modDay ? [opts.modDay] : [])) modDayRelease(mod);
+    pushLog('推荐证据未通过·不外发', '[原始行缺失或不可用]', {note:delivery.kind});
+    return false;
+  }
+  text = delivery.text;
   // lw（2026-10-27 用户定调⛔）：全部推送默认私密——「后面增加的所有推送都是私密，除了我特别提醒」。
   // 未显式声明 public:true 的一律 private:true（含此前走群机器人的复盘/新闻/学习日报/竞价定稿等）；
   // 确实要发群的消息在调用点显式传 { public: true }。
@@ -9326,7 +9768,7 @@ function pushAll(text, force, opts) {
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
   const _extra = base => Object.assign({}, base, { extra: { codes: _codes,
-    signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts })) : [] } });
+    signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) })) : [] } });
   // ⛔ 2026-10-02 改：以前 essential=true 会让【副本实例也照发】（本意是"找回密码不能被副本吞掉"），
   //    实际后果是本地开发副本往用户手机狂发：找回验证码 44 条、只读申请、重置通知……
   //    这些全是用户在【线上】面板触发的动作，线上(primary)实例自己会发，副本没有任何理由插手。
@@ -9866,8 +10308,9 @@ function flushIntraday() {
   if (list.length) {
     list.sort((x, y) => (ALERT_RANK[x.type] ?? 9) - (ALERT_RANK[y.type] ?? 9) || alertScore(y) - alertScore(x));
     const top = list.slice(0, INTRADAY_MAX_ITEMS);
+    opt.recommendationRows = freezeRecommendationRows(top, true);
     // Persist only the exact signals included in this batch, never omitted rows.
-    opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts }));
+    opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) }));
     // ⛔ 缓冲区是 (信号类型:代码) 键的 Map —— 同一只票在「涨停」与「大单流入」两个模块下各占一条。
     //    所以 list.length 是**信号条数**，不是股票只数；文案里那个"只"必须数去重后的代码。
     //    （旧写法直接把条数当只数报，命中 5 条里若有 1 只占两条，用户读到的是"共命中 5 只"—— 只有 4 只票。）
@@ -9891,6 +10334,7 @@ function flushIntraday() {
     if (!body) continue;
     msg = msg ? msg + '\n' + body : body;
     if (p.opt && p.opt.undo) opt.undo = (opt.undo || []).concat(p.opt.undo);
+    if (p.opt && Array.isArray(p.opt.recommendationRows)) opt.recommendationRows = (opt.recommendationRows || []).concat(p.opt.recommendationRows);
     if (p.opt && p.opt.modDay) {
       const ms = Array.isArray(p.opt.modDay) ? p.opt.modDay : [p.opt.modDay];
       opt.modDay = (opt.modDay || []).concat(ms);
@@ -9911,8 +10355,9 @@ function buildAlertsReport(list, opt) {
     ? `  🎯 已封板（不再预判上涨概率，重点防炸板）`
     // ⛔「上涨概率」赌的到底是"涨多少、多久"必须由它自己说：它被回验的口径是 sig.nd
     //    =【次日最高涨幅≥HIT_THR%】。只写"上涨概率"等于把结论给了、前提没给。
-    : `  🎯 ${probDef('up3Next')}概率 ${a.riseProb != null ? a.riseProb : (a.prob != null ? a.prob : '-')}%`
-      + (a.type === '后排涨停概率' ? `（${probDef('ztToday')}概率 ${a.prob}%）` : '');
+    : a.type === '后排涨停概率'
+      ? `  🎯 ${probDef('ztToday')}模型估值 ${a.prob == null ? '-' : a.prob}%（未独立校准）`
+      : `  🎯 ${probDef('up3Next')}模型估值 ${a.riseProb != null ? a.riseProb : '-'}%（未独立校准）`;
   const lines = ['═══ 📊 量化看盘·盘中推送 ═══'];
   for (const g of ORDER) {
     const items = list.filter(a => GROUP[a.type] === g);
@@ -9924,7 +10369,7 @@ function buildAlertsReport(list, opt) {
         `${head(a)} 现价${a.price} (${pct(a.pct)})${no(a)}`
         + (a.type === '后排涨停概率' ? ` 距涨停${a.gapPct != null ? a.gapPct + '%' : '-'}` : '')
         + `\n${probLine(a)}`
-        + (a._fz && a._fz.prob != null ? `\n  🧠 <b>学后胜率 ${a._fz.prob}%</b>（模型${a._fz.model}%${a._fz.emp != null ? ` · 同档实测${a._fz.emp}%(${a._fz.empN}条)` : ''}${a._fz.la != null ? ` · 自学形态${a._fz.la}%` : ''}）${a._fz.why ? `\n  📚 ${a._fz.why}` : ''}` : '')
+        + fuseLine(a)
         + `\n  📌 选股逻辑: ${a.logic || (a.msg || '').slice(0, 80)}`
         + `\n  ⚠️ ${a.risk || '暂无特殊风险'} | 参考止损 ${a.stopRef || '-'}${(a.stopRef && a.stopRef !== '-') ? stopRefNote() : ''}`
       );
@@ -9952,13 +10397,13 @@ function buildAlertsReport(list, opt) {
 function fusedEvoLine() {
   const r = learnFusedReport();
   if (!r.fusedN) return '';
-  const head = `\n【学习进化自检】已按「学后胜率」回验 ${r.fusedN} 条`;
+  const head = `\n【历史分档对照】研究排序值已回验 ${r.fusedN} 条（次日最高涨≥${HIT_THR}%事件，非独立校准）`;
   const ok = r.rows.filter(x => x.lift != null);
   if (!ok.length) return head + '（分档样本还不够比较，继续积累中）';
   const avg = Math.round(ok.reduce((s, x) => s + x.lift, 0) / ok.length);
   return head + '：' + ok.map(x => `${x.bucket}档 原值${x.rawRate}%→学后${x.fusedRate}%(n=${x.fusedN})`).join('、')
     + `，平均${ppTxt(avg)}`
-    + (avg > 0 ? ' —— 学习确实在改善推送' : avg < 0 ? ' —— ⚠️ 融合反而更差，需复查权重' : '');
+    + (avg > 0 ? ' —— 仅为同批历史样本分档差异' : avg < 0 ? ' —— ⚠️ 历史分档频率更低，需复查' : '');
 }
 // 每日复盘消息：定时推送与手动补发共用，避免两处逻辑走偏
 // ⛔ 本轮（各池标的 · 上涨原因）：**所有池子都要带上涨原因，不只是精选池**
@@ -10146,11 +10591,11 @@ async function computeNextPlan(limitN) {
     } : null;
     const fd = (S.fundDays && S.fundDays.get) ? (S.fundDays.get(c.code) || []) : [];
     return {
-      stock: { code: c.code, name: c.name, price: c.price, pct: c.pct, turnover: c.turnover, mainInflow: c.mainInflow },
+      stock: { ...reviewSnapshotFields(c), code: c.code, name: c.name, price: c.price, pct: c.pct, turnover: c.turnover, mainInflow: c.mainInflow },
       rows, sector, fundDays: fd, elapsedMin: 240,
     };
   }, 8);
-  const universe = built.filter(Boolean);
+  const universe = built.filter(u => u && reviewRecommendation({...u.stock,...researchQuoteFields(u.stock)}, 'dated-observation').canObserve);
   const plan = NP.buildPlan(universe, { maxPicks: 6, minScore: 55 });
   // 标出来路（涨停/补涨/大单/趋势）：同一只分不清来源，用户没法判断该信哪条逻辑
   const candMap = new Map(cands.map(c => [c.code, c]));
@@ -10515,7 +10960,7 @@ function buildNextPlanMessage() {
     ? NP.formatPlan(p)
     : `今日无可操作标的：候选 ${np.cand || 0} 只里没有一只达到 55 分门槛。\n宁可空仓，也不凑数。`;
   const relay = (np.relay || []).length ? '\n' + relaySection(np.relay) : '';
-  return `═══ 🗓️ 次日作战计划 · ${_ad || '下一交易日'} ═══\n${body}${relay}${tail}`;
+  return `═══ 🗓️ 次日作战计划 · ${_ad || '下一交易日'} ═══\n研究条件场景；价位为生成时输入，适用日现价与成交资格须重新核实。\n${body}${relay}${tail}`;
 }
 
 // 涨停接力段：把"今天封板的票明天能不能接力"摆出来，但条件必须先行。
@@ -10630,7 +11075,7 @@ function buildLearnReport() {
     }
   }
   m += `\n📋 当日学习动作\n`;
-  m += `   · 信号回验：每10分钟一轮，闭环校准概率模型\n`;
+  m += `   · 信号回验：每10分钟一轮，记录历史事件频率与研究排序\n`;
   m += `   · 全A入库：15:40后自动执行（learnall + ztpre）\n`;
   m += `   · K线补齐：15:30后进入极速模式（30秒/2000只）\n`;
   m += `   · 自适应调参：大单/相似/趋势三处闭环自动优化门槛\n`;
@@ -10745,6 +11190,8 @@ function loadMarketSnapshot() {
 // ── 量化选股扫描（手机速览页「量化选股」卡片，仅开发者可见）────────────────────
 // 按用户给出的 5 组条件选股，命中任意一条即入选，并注明命中条件编号与理由。
 // ⛔ 条件文本存在部分歧义，按最合理交易语义实现，并在理由中显式列出实际判据。
+const { createV6MatchesSnapshotStore } = require('./src/core/v6-matches-snapshot');
+const v6MatchesSnapshotStore = createV6MatchesSnapshotStore();
 let _quantPicksCache = { ts: 0, data: null, busy: false };
 async function quantPicksScan(opts = {}) {
   const max = opts.max || 20;
@@ -10943,6 +11390,14 @@ async function quantPicksScan(opts = {}) {
     }
     uniq.sort((a, b) => b.hit.length - a.hit.length || b.pct - a.pct);
 
+    // Freeze this completed six-condition pass before the existing response cap.
+    // Reading pages of the frozen snapshot never schedules another scanner pass.
+    if (board === 'all') {
+      const published = v6MatchesSnapshotStore.publish({ items: uniq, asOf: now,
+        totalScanned: stocks.length, board, evidence: { hotSectorsReady } });
+      if (!published.ok) console.warn('[v6 full matches]', published.error);
+    }
+
     // lo：板块视图（与竞价共振同款）——按板块聚合命中票，板块强度前4各取前4只
     const qAgg = new Map();
     for (const x of uniq) {
@@ -11132,11 +11587,25 @@ async function auctionResonanceScan(opts = {}) {
       const probToday = (auc && S.auction && S.auction.ztProbMap && S.auction.ztProbMap[code])
         ? S.auction.ztProbMap[code].prob : null;
       const probNd = (probToday != null) ? empNdProb(probToday, 'auczt') : null;
+      // CONDITION_EVIDENCE_BEGIN
+      const conditionMetadata={};
+      annotateSignalConditions(conditionMetadata,'auctionResonanceScan',[
+        ['auction-or-sector','匹配竞价或强板块的原组合',Number(!!auc||topSectorNames.has(sector)),1,'>='],
+        ...(!auc?[['sector-only-return','无竞价时绝对涨幅门',Math.abs(+stock.pct||0),2,'>=']]:[])],
+        ['AUCTION_SCORE_ROLE_AND_SCORE_SMOOTH_INTERNALS_NOT_EXPANDED','HISTORICAL_SECTOR_MEMBERSHIP_AVAILABILITY_NOT_CERTIFIED','CHIP_VOL_PATTERN_FOLLOWUP_NOT_EXPANDED'],
+        {board,auctionBasis:auctionEvidence,auctionInput:auc||null,sectorRank:rank,sectorRow:sectorRow||null,
+          sectorHistory:secHist,inflow5d,drawdown3d,gain,role:role||null,rawCompositeScore:score,smoothed:_sm,maxResults:max,
+          scoreRules:{auctionWeight:0.9,auctionCap:45,sectorRankSteps:[[3,18],[5,12],[10,6]],inflowWeight:0.5/1e9,inflowCap:15,drawdownWeight:10,drawdownCap:10,gainWeight:2,gainCap:12}});
+      // CONDITION_EVIDENCE_END
 
       return {
+        ...reviewSnapshotFields(stock),
         code, name,
         sector,
         auctionPct: auc ? auc.auctionPct : null,
+        // CONDITION_EVIDENCE_BEGIN
+        ...conditionMetadata,
+        // CONDITION_EVIDENCE_END
         auctionInputStatus: auc ? 'auction-snapshot-unverified' : 'sector-only',
         auctionEvidenceStatus: auc ? auctionEvidence.status : 'no-matching-auction-evidence',
         auctionQuoteAt: null, // Historical cache has no provider quote time.
@@ -11151,7 +11620,9 @@ async function auctionResonanceScan(opts = {}) {
         inflow5d,
         drawdown3d: drawdown3d != null ? +(drawdown3d * 100).toFixed(1) : null,
         probToday,
-        probNd
+        probNd,
+        probTodayMeta: {kind: 'model-estimate', target: 'ztToday', calibrationCertified: false},
+        probNdMeta: {kind: 'historical-event-frequency', target: 'up3Next', calibrationCertified: false}
       };
     });
 
@@ -11206,6 +11677,7 @@ async function auctionResonanceScan(opts = {}) {
         picks: g.picks.sort((a, b) => b.score - a.score).slice(0, 4).map(p => ({
           code: p.code, name: p.name, score: p.score, auctionPct: p.auctionPct, pct: p.pct, price: p.price,
           probToday: p.probToday, probNd: p.probNd,
+          probTodayMeta: p.probTodayMeta, probNdMeta: p.probNdMeta,
           chipPeak: p.chipPeak || null, volTen: p.volTen || null, candlePattern: p.candlePattern || null,
           chipVol: p.chipVol || '',
           reasons: (p.reasons || []).slice(0, 3)
@@ -11231,12 +11703,12 @@ async function auctionResonanceScan(opts = {}) {
     cache.ts = now; cache.data = data; cache.max = max;
     // Viewer reads can never send private messages or mutate the learning log.
     // The server-owned schedule below retains eligible legacy automation.
-    const evidenceRows = top.filter(x => x.auctionInputStatus === 'auction-snapshot-unverified');
+    const evidenceRows = reviewedRows(top.filter(x => x.auctionInputStatus === 'auction-snapshot-unverified'));
     if (internal && auctionEvidence.eligibleForAuctionEvidence) {
       if (board === 'all' && top.length && isTradingTime() && evidenceRows.length)
         pushAuctionResonanceTop3(evidenceRows);
       for (const x of evidenceRows) {
-        try { logSignal('aucres', x.code, x.name, x.price, x.score, { score: x.score, paths: x.reasons.slice(0, 3) }); } catch (e) {}
+        try { logSignal('aucres', x.code, x.name, x.price, x.score, learningSignalExtra(x, { score: x.score, paths: x.reasons.slice(0, 3) })); } catch (e) {}
       }
     }
     return data;
@@ -12180,13 +12652,20 @@ function ztSealPush(fresh, ztN) {
     .sort((a, b) => (b.sealAmount || 0) - (a.sealAmount || 0));
   // ll/lr：不再硬卡热门板块（弱市冷门封板也有复盘价值）——封单≥5000万（或缺失放行）按额排序每轮≤3
   // lr 实证：10-27 弱市封单普遍<2亿，2亿门槛把哨兵整沉默了；5000万=有真实封板强度即可报
-  const picks = ranked.filter(x => !_ztSentPushed.has(x.code) && (x.sealAmount == null || x.sealAmount >= 5e7)).slice(0, Math.max(1, Math.min(4, Math.round(3 * pushIntensityOf('ztsent')))));   // lv：名额随学习力度浮动
+  const picks = reviewedRows(ranked, 'fact-broadcast').filter(x => !_ztSentPushed.has(x.code) && (x.sealAmount == null || x.sealAmount >= 5e7)).slice(0, Math.max(1, Math.min(4, Math.round(3 * pushIntensityOf('ztsent')))));
   for (const x of picks) {
+    // CONDITION_EVIDENCE_BEGIN
+    annotateSignalConditions(x,'ztSealPush',[
+      ['already-pushed','本次登记前已推送标记',Number(_ztSentPushed.has(x.code)),0,'<='],
+      ...(x.sealAmount!=null?[['seal-amount','已知封单原门槛',x.sealAmount,5e7,'>=']]:[])],
+      ['SEAL_POOL_ORIGINAL_OBSERVATION_AND_DYNAMIC_RANK_TRIM_NOT_FULLY_EXPANDED',...(x.sealAmount==null?['SEAL_AMOUNT_UNKNOWN_ACCEPTED_BY_LEGACY_RULE']:[])],
+      {sealAmount:x.sealAmount??null,firstSeal:x.firstSeal??null,sector:x.sec,totalLimitUpCount:ztN,rankBySeal:ranked.indexOf(x)+1});
+    // CONDITION_EVIDENCE_END
     _ztSentPushed.add(x.code);
     const reason = (typeof ztReasonOf === 'function') ? (ztReasonOf(x.code) || '') : '';
     sentLogPush('seal', { code: x.code, name: x.name, text: `封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''} · ${x.sec || '未知板块'}` });
-    pushAll(`═══ 🔴 封板哨兵 · 盘中实时 ═══\n${x.name}(${x.code})　现价 ${x.price}\n板块：${x.sec || '未知'}（全市场涨停 ${ztN} 只）\n封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''}\n${reason ? '涨停原因：' + reason + '\n' : ''}提示：封板为既成事实非买入建议；追板风险高，次日接力请看 15:45 连板榜。`, false, { private: true });
-    try { logSignal('ztsent', x.code, x.name, x.price, 50, { seal: x.sealAmount, sec: x.sec }); } catch (e) {}
+    pushAll(`═══ 🔴 封板哨兵 · 来源记录观察 ═══\n${x.name}(${x.code})　池中记录价 ${x.price}\n记录日期 ${x.factEvidence.tradeDate} · 来源 ${x.factEvidence.source} · 本机观察 ${new Date(x.factEvidence.observedAt).toISOString()}\n板块：${x.sec || '未知'}（池中封板 ${ztN} 只）\n封单 ${fmtY(x.sealAmount)}${x.firstSeal ? ' · 首封 ' + x.firstSeal : ''}\n${reason ? '涨停原因：' + reason + '\n' : ''}封板池记录属于事实观察，不代表当前价格、可成交或买入建议。`, false, { private: true });
+    try { logSignal('ztsent', x.code, x.name, x.price, 50, learningSignalExtra(x, { seal: x.sealAmount, sec: x.sec })); } catch (e) {}
   }
 }
 const _rushCool = new Map();   // ln：冲板/起涨改即时单独推，代码级 30 分钟冷却（用户「单独推送+别等合并窗口」）
@@ -12195,6 +12674,7 @@ function ztRushScan() {
   const now = Date.now();
   for (const s of (S.stocks || [])) {
     if (!s || !s.code || s.price <= 0) continue;
+    if (!reviewRecommendation(s, 'intraday-recommendation', now).canRecommend) continue;
     if (_ztRushPushed.has(s.code)) continue;
     if (now - (_rushCool.get(s.code) || 0) < 30 * 60 * 1000 * pushIntensityOf('surge')) continue;   // lv：冷却随学习力度浮动（实绩好→冷却缩短=推得多）
     const lp = A.limitPctOf(s.code, s.name);
@@ -12220,7 +12700,7 @@ function ztRushScan() {
       _rushCool.set(s.code, now);
       const line = `${s.name}(${s.code}) ${pct}% 净入${Math.round((s.mainInflow || 0) / 1e4)}万 距板${(lp - pct).toFixed(1)}%`;
       sentLogPush('rush', { code: s.code, name: s.name, text: line });
-      pushAll(`═══ ⚡ 冲板预警 ═══\n${line}\n距涨停 ≤2% 且主力在买——封不封看盘口，仅提示不追单。`, false, { private: true });
+      pushAll(`═══ ⚡ 冲板预警 ═══\n${line}\n距涨停 ≤2% 且主力在买——封不封看盘口，仅提示不追单。`, false, recommendationSendOptions([s], { private: true }));
     }
   }
 }
@@ -12265,14 +12745,15 @@ function sectorSurgeSentinel() {
   // ⛔ 2026-10-30 回滚汇总缓冲（用户「看盘的所有推送不要改动」）：恢复每板块即时一张卡。
   for (const h of hit) {
     // 板块内未封板的强势前排（涨幅≥2 且主力净入为正，按涨幅前 5）
-    const picks = (S.stocks || []).filter(s => s && s.code && !s.suspended
+    const picks = reviewedRows((S.stocks || []).filter(s => s && s.code && !s.suspended
       && sectorOfStock({ code: s.code, name: s.name }) === h.sec
       && !(S.ztPool || []).some(z => z.code === s.code)
       && (+s.pct || 0) >= 2 && (s.mainInflow || 0) > 0 && !capTooSmall(s))
-      .sort((a, b) => (+b.pct || 0) - (+a.pct || 0)).slice(0, 5);
+      .sort((a, b) => (+b.pct || 0) - (+a.pct || 0))).slice(0, 5);
     const lines = picks.map(p => `${p.name}(${p.code}) +${(+p.pct).toFixed(1)}% 净入${Math.round((p.mainInflow || 0) / 1e4)}万`);
     sentLogPush('sector', { code: picks[0] && picks[0].code, name: h.sec, text: `板块暴动：${h.n} 只封板` });
-    pushAll(`═══ 🌋 板块暴动 · ${h.sec} ═══\n10 分钟内 ${h.n} 只封板——板块共振确认\n${lines.length ? '板块内未封前排（看板块挖票）：\n' + lines.join('\n') : '板块内未封前排暂无'}\n仅提示：暴动追高风险自负，破板率高。`, false, {});
+    const message = `═══ 🌋 板块观察 · ${h.sec} ═══\n本机10分钟观察窗口内首次见到${h.n}只封板记录（不是交易所封板发生时间）\n${lines.length ? '通过原行报价审核的未封前排：\n' + lines.join('\n') : '未封前排缺少合格报价，仅保留板块事实观察'}\n追高风险高，事实观察不授予买入资格。`;
+    pushAll(message, false, picks.length ? recommendationSendOptions(picks) : {});
   }
 }
 function ztSentinelTick() {
@@ -12300,6 +12781,7 @@ function surgeScan() {
   const now = Date.now();
   for (const s of (S.stocks || [])) {
     if (!s || !s.code || s.price <= 0) continue;
+    if (!reviewRecommendation(s, 'intraday-recommendation', now).canRecommend) continue;
     if (_surgePushed.has(s.code) || _ztRushPushed.has(s.code)) continue;
     if (now - (_rushCool.get(s.code) || 0) < 30 * 60 * 1000 * pushIntensityOf('surge')) continue;   // lv：冷却随学习力度浮动（实绩好→冷却缩短=推得多）
     if (capTooSmall(s)) continue;
@@ -12316,7 +12798,7 @@ function surgeScan() {
     _rushCool.set(s.code, now);
     const line = `${s.name}(${s.code}) +${pct}% 净占比${s.mainPct || '-'}% 涨速${s.speed || '-'}`;
     sentLogPush('surge', { code: s.code, name: s.name, text: line });
-    pushAll(`═══ \u{1f680} 起涨哨兵 ═══\n${line}\n放量起涨且主力在买、距涨停尚有空间——涨停前发现窗口，仅观察不追单。`, false, { private: true });
+    pushAll(`═══ \u{1f680} 起涨哨兵 ═══\n${line}\n放量起涨且主力在买、距涨停尚有空间——涨停前发现窗口，仅观察不追单。`, false, recommendationSendOptions([s], { private: true }));
   }
 }
 
@@ -12438,7 +12920,6 @@ async function washTrendScan(opts = {}) {
     accCands.sort((a, b) => (+b.amount || 0) - (+a.amount || 0));
     const deepList = shortlist.concat(accCands.slice(0, 30));   // kt/kw：吸筹深判位 20→30（池子偏少，适度扩容）
 
-    const _badCodes = (S.news && S.news.badCodes) || new Set();
     // kx：单进程有界并发深判（WASH_TREND_CONC 路）——串行等网络 ~2min → ~30s；不加端口/不加实例/不动令牌闸
     //（用户：只保留一个端口 + 多开需许可，并发在进程内解决）。JS 单线程：idx 自增与计数器 ++ 均为同步段，无竞态；
     // 结果按下标归位，顺序确定（后续统一 sort 不受影响）。
@@ -12446,7 +12927,7 @@ async function washTrendScan(opts = {}) {
     let _next = 0;
     const judgeOne = async s => {
       try {
-        if (_badCodes && _badCodes.has && _badCodes.has(String(s.code))) return;   // 利空在案（业绩暴雷/减持等），排除
+        if (newsWarnsCode(String(s.code))) return;   // 只按当前同版利空排除，CLI撤稿后立即停止沿用旧集合
         const _sec = sectorOfStock(s) || s.sector || '';
         const _heat = sectorHeat(_sec);
         const rows = await klineRows(s.code);
@@ -12492,6 +12973,7 @@ async function washTrendScan(opts = {}) {
         const _volAll = (typeof A.volTenOf === 'function') ? A.volTenOf(rows) : null;
         if (_volAll) { (wReasons = wReasons || []).push('📊 十日量能：' + _volAll.text); if (_volAll.verdict === 'bad') wScore = Math.max(0, wScore - 2); }
         return {
+          ...reviewSnapshotFields(s),
           code: s.code, name: s.name, price: +s.price || 0, pct: +s.pct || 0,
           score: wScore, signal, sector: _sec, sectorLabel: _heat ? _heat.short : '',
           mainPct: fl.mainPct != null ? fl.mainPct : null, mainInflow: fundsNumber(fl.today), flowSrc: fl.source || '',
@@ -12526,6 +13008,7 @@ async function washTrendScan(opts = {}) {
       let pushed = 0;
       for (const x of top) {
         if (pushed >= WASH_TREND_MAX_PUSH) break;
+        if (!reviewRecommendation(x).canRecommend) continue;
         const key = ds + ':' + x.code;
         if (_washTrendPushed.has(key)) continue;
         _washTrendPushed.add(key);
@@ -12533,7 +13016,7 @@ async function washTrendScan(opts = {}) {
         const rs = (x.reasons || []).slice(0, 2).join('；');
         const isAcc = x.signal === '吸筹';
         const bk = x.breakout && x.breakout.fired ? `\n⏫${x.breakout.level === 'red' ? '🔴红灯' : '🟡黄灯'} ${x.breakout.text}` : '';
-        pushAll(`═══ ${isAcc ? '📥' : '🧹'} 洗盘趋势 · 新命中（${x.signal}）═══\n${x.name}(${x.code})　现价 ${x.price}（${x.pct}%）\n${x.signal}得分 +${x.score}（与K线面板同一判定）\n依据：${rs || (isAcc ? '低位量缩、资金进场' : '缩量回踩、大单未撤')}\n板块：${x.sector || '未知'}${x.mainPct ? ` · 主力净占比 ${x.mainPct}%` : ''}${bk}\n提示：疑似${x.signal}非买入建议，仅入观察池；盘中判定会随收盘价变化。`, false, { private: true });
+        pushAll(`═══ ${isAcc ? '📥' : '🧹'} 洗盘趋势 · 新命中（${x.signal}）═══\n${x.name}(${x.code})　现价 ${x.price}（${x.pct}%）\n${x.signal}得分 +${x.score}（与K线面板同一判定）\n依据：${rs || (isAcc ? '低位量缩、资金进场' : '缩量回踩、大单未撤')}\n板块：${x.sector || '未知'}${x.mainPct ? ` · 主力净占比 ${x.mainPct}%` : ''}${bk}\n提示：疑似${x.signal}非买入建议，仅入观察池；盘中判定会随收盘价变化。`, false, recommendationSendOptions([x], { private: true }));
       }
     }
     return data;
@@ -12561,7 +13044,8 @@ function pushAuctionResonanceTop3(items) {
   const _arNow = new Date();
   if (_arNow.getHours() * 60 + _arNow.getMinutes() >= 9 * 60 + 30) return;
   if (_arLastPush.date !== ds) _arLastPush = { date: ds, sig: '', ts: 0, n: 0 };
-  const top3 = items.slice(0, 3);
+  const top3 = reviewedRows(items).slice(0, 3);
+  if (!top3.length) return;
   const codes = top3.map(x => x.code);
   const sig = codes.slice().sort().join('|');
   // ① 同日同组（顺序不敏感）不重复推
@@ -12576,7 +13060,7 @@ function pushAuctionResonanceTop3(items) {
     return `${i + 1}. ${x.name}(${x.code}) ${gain} · 板块${x.sector || '未知'} · 评分${x.score}`;
   }).join('\n');
   const text = `═══ 🔥 竞价共振 · TOP3 ═══\n${new Date().toLocaleTimeString('zh-CN')}\n${lines}\n\n推断依据：竞价分 + 板块强度 + 近5日板块净流入 + 近3日资金回撤`;
-  pushAll(text, false, { private: true });
+  pushAll(text, false, recommendationSendOptions(top3, { private: true }));
 }
 
 function buildMobileDigest(includePrivate = false) {
@@ -12599,7 +13083,7 @@ function buildMobileDigest(includePrivate = false) {
     }
   }
   return {
-    dashboard: require('./src/core/dashboard-view').dashboardView(S,mood,Date.now(),dashboardPushMeta(includePrivate)),
+    dashboard: require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(),mood,Date.now(),dashboardPushMeta(includePrivate)),
     now: Date.now(),
     trading: isTradingTime(),
     ready: marketReady(),
@@ -12795,27 +13279,36 @@ function paperFeeAmount(key,side,amount){
 }
 function paperAuthorityQuotes(){
   const quotes={},marks={},now=Date.now();
-  // Authority and risk marks must retain the provider clock, never the receive clock.
-  const fresh=q=>q&&q.canTrade!==false&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
-  for(const [code,tick] of S.lastPx||[]){if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);}
-  for(const st of S.stocks||[]){
-    const tick=S.lastPx?.get?.(st.code),cached=tick&&{...tick,price:tick.p};
-    const observation=fresh(cached)?cached:fresh(st)?st:null;
-    if(!observation)continue;
-    const timestamp=observation.quoteAt;
-    marks[st.code]=Number(observation.price);
-    const previous=Number(st.preClose);if(!(previous>0)||!Number.isFinite(st.volume)||st.volume<=0)continue;
-    const limit=limitPctOfCode(st.code,st.name);
-    quotes[st.code]={symbol:st.code,price:Number(observation.price),quoteSource:observation.quoteSource,quoteAt:timestamp,tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:st.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
-      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:st.suspended===true,tradable:st.tradable!==false};
+  // Authority and risk marks retain the provider clock, never the receive clock.
+  const fresh=q=>q&&require('./src/core/quote-observation-view').quoteSourceAllowsUse(q)&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
+  const complete=q=>(q.receivedAt==null||Number.isSafeInteger(q.receivedAt)&&q.receivedAt>=q.quoteAt&&q.receivedAt<=now)&&/^\d{6}$/.test(q.code)&&Number.isFinite(Number(q.preClose))&&Number(q.preClose)>0&&Number.isFinite(q.volume)&&q.volume>0&&Number.isFinite(q.volume*100);
+  const rows=new Map();
+  for(const [code,tick] of S.lastPx||[]){
+    const row=tick?.wireQuote;
+    if(row?.code===code&&fresh(row)&&complete(row)){
+      rows.set(code,{row,origin:'S.lastPx.wireQuote'});marks[code]=Number(row.price);
+    // Legacy price-only entries can mark holdings, but cannot borrow execution fields.
+    }else if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);
+  }
+  for(const st of S.stocks||[])if(st&&typeof st.code==='string'&&!rows.has(st.code)){
+    const valid=fresh(st);
+    if(valid&&!Object.hasOwn(marks,st.code))marks[st.code]=Number(st.price);
+    if(valid&&complete(st))rows.set(st.code,{row:st,origin:'S.stocks'});
+  }
+  for(const [code,{row,origin}] of rows){
+    const timestamp=row.quoteAt,previous=Number(row.preClose),limit=limitPctOfCode(code,row.name);
+    marks[code]=Number(row.price);
+    const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:row,observation:row,stockOrigin:origin,priceOrigin:origin,limitPct:limit});
+    quotes[code]={symbol:code,price:Number(row.price),quoteSource:row.quoteSource,provider:row.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(row.receivedAt)?row.receivedAt:null,mode:row.quoteMode||row.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:row.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
+      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,inputProvenance};
   }
   return quotes;
 }
 refreshPaperAuthority();
-function savePaper(action='sync',accountKey=null) {
+function savePaper(action='sync',accountKey=null,executionQuotes=null) {
   try {
     if(isReplica()){const copy={};for(const key of Object.keys(PAPER))copy[key]={...PAPER[key],initial:PAPER_CFG[key].initial};return !!atomicWrite(PAPER_FILE,JSON.stringify(copy));}
-    const quotes=paperAuthorityQuotes();
+    const quotes=executionQuotes||paperAuthorityQuotes();
     for(const key of (accountKey?[accountKey]:Object.keys(PAPER_CFG))){
       const book=_paperAuthority[key].saveLegacy({...PAPER[key],initial:PAPER_CFG[key].initial},_paperAuthorityRevision[key],{action,quotes});
       _paperAuthorityRevision[key]=book.revision;const legacy=book.legacy;PAPER[key]={...legacy};delete PAPER[key].initial;
@@ -13286,19 +13779,33 @@ try {
 // 以前只认 S.stocks（最长6分钟旧）+池价 → 买入按旧价"幻想成交"；卖出巡检只喂候选池前100的tick价，
 // 池外持仓价格冻结在买入价，止盈止损全部失真。现在统一走 S.lastPx：tick(5秒)与全A(6分钟)行情
 // 成交缓存须有15秒内逐票原时点；池价/全A快照仅可作展示估值兜底。
-S.lastPx = new Map(); // code -> { p, t: 接收时间, quoteAt: 原时点, quoteSource }
+S.lastPx = new Map(); // code -> price mark + bounded wireQuote from this exact original row
 S.ztCodes = new Set(); // 涨停票代码集（refreshSectorsZT 每30秒刷新）
 function ingestPx(rows) {
   if (!rows || !rows.length) return;
   const t = Date.now();
   for (const s of rows) {
     // 全 A 列表只有接收时刻的行仍可展示，但不能进入模拟盘成交价缓存。
-    if (!s || s.canTrade === false || !/^\d{6}$/.test(s.code) || !Number.isFinite(Number(s.price)) || !(Number(s.price) > 0)) continue;
+    if (!s || s.canTrade !== true || !/^\d{6}$/.test(s.code) || typeof s.price !== 'number' || !Number.isFinite(s.price) || s.price <= 0) continue;
+    // Apply the same original-row use contract before writing any account cache.
+    // Read-only/unknown/foreign-day rows cannot become marks that look executable.
+    if (!require('./src/core/quote-observation-view').quoteUseEligibility(s, t).canTrade) continue;
     if (typeof s.quoteSource !== 'string' || !s.quoteSource.trim() || !Number.isSafeInteger(s.quoteAt) || s.quoteAt <= 0 || s.quoteAt > t || t - s.quoteAt > 15000) continue;
     // Parallel providers can return out of order; receipt order must not roll back provider time.
     const previous = S.lastPx.get(s.code);
     if (previous && Number.isSafeInteger(previous.quoteAt) && previous.quoteAt > s.quoteAt) continue;
-    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource });
+    // Retain only bounded scalar inputs; never hold a mutable provider object or whole payload.
+    const wireQuote={};let bounded=true;
+    for(const key of ['code','name','price','volume','preClose','quoteAt','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']){
+      const value=s[key];if(value===undefined)continue;
+      if(value===null||typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value)||typeof value==='string'&&value.length<=240)wireQuote[key]=value;
+      else {bounded=false;break;}
+    }
+    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource,wireQuote:bounded?wireQuote:null,
+      receivedAt:Number.isSafeInteger(s.receivedAt)&&s.receivedAt>0?s.receivedAt:null,
+      mode:typeof (s.quoteMode||s.mode)==='string'?(s.quoteMode||s.mode):null,canNotify:s.canNotify!==false,
+      simulated:s.simulated===true,readOnlyBackup:s.readOnlyBackup===true,imported:s.imported===true,
+      fixture:s.fixture===true,mock:s.mock===true,synthetic:s.synthetic===true,tradable:s.tradable,suspended:s.suspended });
   }
 }
 function paperPrices() {
@@ -13378,14 +13885,14 @@ function paperBuy(key, cands, pm, reasonOf) {
   if (!isContinuousTrading()) return;  // 非连续竞价不自动买入（拿竞价/陈旧价买＝假成交）
   const cfg = PAPER_CFG[key], acc = PAPER[key];
   if (!acc.enabled || !cands || !cands.length) return;
-  const bought = [];
+  const bought = [],executionQuotes=paperAuthorityQuotes();
   for (const c of cands) {
     if (Object.keys(acc.positions).length >= cfg.maxPos) { skipAdd('buyHeld'); break; }
     // ⛔ dv 轮：这几处 continue 以前完全静默 —— 面板只显示"暂无持仓（等待新信号）"，
     //    而真实原因可能是"5 只候选全因一字板买不进"或"现金不足一手"，用户根本无从自查。
     if (acc.positions[c.code]) { skipAdd('buyHeld'); continue; }
-    // The checked observation must also be the execution price; pool prices can differ from it.
-    const price = paperPxFresh(c.code);
+    // Require a complete original execution row before changing cash, positions or trades.
+    const price = executionQuotes[c.code]?.price;
     if (!price) { skipAdd('buyStalePrice'); continue; }
     // 现实约束①：已封涨停的票买单排不上队（一字板永远买不进），按涨停价"幻想成交"会虚增收益率
     // ⚠️ 阈值必须按板块算：以前写死 pct >= 9.7，创业板涨 15% 会被误判成"封板"直接跳过，
@@ -13444,11 +13951,12 @@ function paperBuy(key, cands, pm, reasonOf) {
     bought.push(c.code);
   }
   if (bought.length) {
-    const committed=savePaper('sync',key);if(!committed)return;
+    const committed=savePaper('sync',key,executionQuotes);if(!committed)return;
+    const committedAccount=PAPER[key];
     pushPaperDigest(`【买入】${cfg.name} ` + bought.map(cd => {
-      const p = acc.positions[cd];
+      const p = committedAccount.positions[cd];
       return `▪ ${p.name}(${p.code}) ${p.shares}股 @ ${p.buyPrice}元 | ${p.reason}`;
-    }).join('\n') + `\n  持仓 ${Object.keys(acc.positions).length}/${cfg.maxPos} · 剩余现金 ${acc.cash.toFixed(0)}元`);
+    }).join('\n') + `\n  持仓 ${Object.keys(committedAccount.positions).length}/${cfg.maxPos} · 剩余现金 ${committedAccount.cash.toFixed(0)}元`);
   }
 }
 // ---------------- A股 T+1：当日买入的股票当日不可卖出 ----------------
@@ -13470,7 +13978,7 @@ function dayKeyOf(ts) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
 function paperT1Locked(pos) {
-  return !!(pos && pos.buyTs && dayKeyOf(pos.buyTs) === todayStr());
+  return !!(pos && (typeof pos.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(pos.buyDate)?pos.buyDate.replace(/-/g,'')===todayStr():pos.buyTs&&dayKeyOf(pos.buyTs)===todayStr()));
 }
 // 从某个时刻到今天，中间经过了几个**交易日**（不含买入当日，含今天；买入当天返回 0）。
 // ⛔ 2026-10-07 补（本轮角度：以为是一回事、其实是两回事的时间点）：
@@ -13507,6 +14015,10 @@ function paperSell(key, code, price, reason) {
   //    收盘后(非连续竞价)一律不卖，绝不让"还没正式开盘(连续竞价 9:30-11:30 / 13:00-14:57)就卖"。
   //    （函数级防御：未来无论哪个入口调 paperSell 都不会越过交易时段成交。）
   if (!isContinuousTrading()) return;
+  // Price marks can trigger research checks, but execution must use one complete original row.
+  const executionQuotes=paperAuthorityQuotes(),quote=executionQuotes[code];
+  if(!quote)return;
+  price=quote.price;
   const amount = +(price * pos.shares).toFixed(2);
   // ⛔ 同上（dt 轮）：卖出费也必须生成时就舍，否则账户现金与流水里的 fee 不是同一个数
   const fee = typeof paperFeeAmount==='function'?paperFeeAmount(key,'sell',amount):+(Math.max(5,amount*0.00025)+amount*0.0005).toFixed(2); // 佣金万2.5(最低5元) + 印花税万5
@@ -13523,9 +14035,9 @@ function paperSell(key, code, price, reason) {
   acc.trades.unshift({ t: Date.now(), side: '卖出', code, name: pos.name, price, shares: pos.shares,
     amount, fee: +fee.toFixed(2), basis, pnl, reason });
   if (acc.trades.length > dataCapOf('paperTrades')) { acc.trades.pop(); acc.tradesDropped = (Number(acc.tradesDropped) || 0) + 1; }
-  const committed=savePaper('sync',key);if(!committed)return;
+  const committed=savePaper('sync',key,executionQuotes);if(!committed)return;
   const pct = +((price / pos.buyPrice - 1) * 100).toFixed(2);
-  pushPaperDigest(`【卖出】${cfg.name} ▪ ${pos.name}(${code}) ${pos.shares}股 @ ${price}元 (${pct >= 0 ? '+' : ''}${pct}%)\n  理由: ${reason} | 本次盈亏 ${pnl >= 0 ? '+' : ''}${pnl}元 · 剩余现金 ${acc.cash.toFixed(0)}元`);
+  pushPaperDigest(`【卖出】${cfg.name} ▪ ${pos.name}(${code}) ${pos.shares}股 @ ${price}元 (${pct >= 0 ? '+' : ''}${pct}%)\n  理由: ${reason} | 本次盈亏 ${pnl >= 0 ? '+' : ''}${pnl}元 · 剩余现金 ${PAPER[key].cash.toFixed(0)}元`);
 }
 // 收益联动（移动止损保护线）：盈利攀升时止损线同步上移锁定收益
 // ⛔ 2026-10-06 修：保护线必须用【收益峰值 peak】当锚，不能拿【当前收益 profit】当锚。
@@ -13660,8 +14172,10 @@ function paperCheck(key, pm) {
     if (profit > pos.peak) pos.peak = profit;
     // ⛔ 2026-10-07 改：原来是 `Math.floor((Date.now() - pos.buyTs) / 86400000)`（自然日），
     //    与 T+1 锁的 dayKeyOf 不是一个口径。休市日本就没有交易机会，现在按**交易日**计。
-    const days = tradeDaysSince(pos.buyTs);
-    const natDays = Math.max(0, Math.floor((Date.now() - (Number(pos.buyTs) || 0)) / 86400000));
+    // A known buy date supports calendar counting, but is not an execution timestamp.
+    const buyDate=typeof pos.buyDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(pos.buyDate)?pos.buyDate:null;
+    const days = tradeDaysSince(pos.buyTs || (buyDate?Date.parse(buyDate+'T12:00:00+08:00'):null));
+    const natDays = Number.isSafeInteger(pos.buyTs)&&pos.buyTs>0?Math.max(0, Math.floor((Date.now() - pos.buyTs) / 86400000)):null;
     // T+1：当日买入的今日轮空，不参与任何卖出判定（价格照记，次日自动解禁）
     if (paperT1Locked(pos)) { pos.t1Locked = true; continue; }
     pos.t1Locked = false;
@@ -13676,7 +14190,7 @@ function paperCheck(key, pm) {
     // ⛔ 文案不许撒谎：判据已经是交易日了，理由里就把两种口径都写明白
     //    （长假后常见"自然日十几天、交易日才 1 天"，只写"持有超 N 日"会让人以为系统算错了）
     else if (days >= cfg.expireDays && profit < 0.02) {
-      paperSell(key, pos.code, price, `持有超${cfg.expireDays}个交易日且收益<2%，换股（自然日已过${natDays}天，其中休市${Math.max(0, natDays - days)}天）`);
+      paperSell(key, pos.code, price, `持有超${cfg.expireDays}个交易日且收益<2%，换股（${natDays===null?'买入日期'+(buyDate||'未知')+'，具体时刻未知':`自然日已过${natDays}天，其中休市${Math.max(0, natDays - days)}天`}）`);
     }
   }
   if (Object.keys(acc.positions).length) paperTouch();
@@ -13718,10 +14232,15 @@ function paperSnap(key, pmPaper) {
     totalPnl: +(eq - cfg.initial).toFixed(2), totalPct: +((eq / cfg.initial - 1) * 100).toFixed(2),
     positions: Object.values(acc.positions).map(pp => {
       const price = pmPaper.get(pp.code) || pp.lastPrice || pp.buyPrice;
+      const valuationQuote=require('./src/core/quote-observation-view').valuationObservation(S,pp.code,price,pp,pmPaper.has(pp.code),Date.now());
       // ⛔ 2026-10-07 改：面板这列原本也是自然日，与卖出判据（已改交易日）不是一个口径 ——
       //    同一张表上"持有 8 天"配一条"持有超 4 个交易日"的卖出理由，谁看都像算错了。
       //    现在两处同为交易日口径，另给 natDays 供文案说明休市占了几天。
-      return { ...pp, lastPrice: price, pnl: +(price * pp.shares - (pp.basis || pp.buyPrice * pp.shares)).toFixed(2), pnlPct: +((price / pp.buyPrice - 1) * 100).toFixed(2), days: tradeDaysSince(pp.buyTs), natDays: Math.max(0, Math.floor((Date.now() - (Number(pp.buyTs) || 0)) / 86400000)), bad: S.news.badCodes.has(pp.code) };
+      return { ...pp, lastPrice: price,valuationQuote,
+        pnl: +(price * pp.shares - (pp.basis || pp.buyPrice * pp.shares)).toFixed(2), pnlPct: +((price / pp.buyPrice - 1) * 100).toFixed(2),
+        days:Number(pp.buyTs)>0?tradeDaysSince(pp.buyTs):pp.buyDate?tradeDaysSince(Date.parse(pp.buyDate+'T00:00:00+08:00')):null,
+        natDays:Number(pp.buyTs)>0?Math.max(0,Math.floor((Date.now()-Number(pp.buyTs))/86400000)):null,
+        bad: newsWarnsCode(pp.code) };
     }),
     // ⛔ du 轮：只给 30 笔却报"对账 N 笔"，用户会以为看到的就是全部。
     //    现在把真实总数与本次下发条数一起交出去，前端才说得清"共 N 笔，此处显示最近 M 笔"。
@@ -13751,6 +14270,97 @@ function paperSnap(key, pmPaper) {
 
 // ---------------- 4.6 消息面：利空雷达 + 利好消息近3日归档（东财7×24 · 关键词分类 · stockList代码联动） ----------------
 const NEWS_FILE = path.join(__dirname, 'news.json');
+const NEWS_EVIDENCE_ROOT=process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence');
+function captureNewsEvidence(raw){
+  try{
+    S.news.evidenceIntake=require('./src/core/news-evidence-journal').captureProviderBatch(NEWS_EVIDENCE_ROOT,raw);
+    S.news.evidenceRejected=new Set(S.news.evidenceIntake.rejectedEventIds);
+  }
+  catch{S.news.evidenceIntake={status:'unknown',reason:'private-evidence-unavailable'};}
+}
+function newsPublicationMetadata(raw,now=Date.now()){
+  let publishedAt=null;
+  try{publishedAt=require('./src/core/news-evidence-journal').sourceTime(raw.showTime);if(publishedAt>now)publishedAt=null;}catch{}
+  let newsEvidence=null;
+  try{
+    const state=newsEvidenceCurrent(String(raw.code||'')),current=state.latest.get(String(raw.code||''));
+    if(current&&!state.unknown&&current.evidence.kind!=='retracted'&&
+      require('./src/core/news-evidence-journal').providerInput(raw,current,{now})===null)
+      newsEvidence={eventHash:current.eventHash,sourceRevisionId:current.evidence.sourceRevisionId,sequence:current.sequence,recordedAt:current.recordedAt};
+  }catch{}
+  return {publishedAt,receivedAt:now,publicationTimeStatus:publishedAt===null?'unknown':'source-declared-unverified',newsEvidence};
+}
+// Revocation is checked against the current immutable chain, including CLI
+// imports made after this server started. A damaged archive is unknown.
+let newsEvidenceCache={stamp:null,inventory:null,files:new Map(),latest:new Map(),withdrawn:new Set(),unknown:false,chainVerifiedAt:null,metadataCheckedAt:null};
+const NEWS_EVIDENCE_METADATA_INTERVAL_MS=1000,NEWS_EVIDENCE_MAX_FILES=10000;
+function newsEvidenceFileStamp(file){
+  const s=fs.lstatSync(file,{bigint:true});
+  if(!s.isFile()||s.isSymbolicLink()||(s.mode&0o077n)!==0n||s.size<2n||s.size>131072n)throw Error('INVALID_PRIVATE_NEWS_FILE');
+  return [s.dev,s.ino,s.size,s.mode,s.mtimeNs,s.ctimeNs,s.nlink].join(':');
+}
+function newsEvidenceCurrent(eventId=null){
+  if(S.news.evidenceIntake?.status==='unknown')return {...newsEvidenceCache,unknown:true};
+  const now=Date.now();let stamp=null;
+  try{
+    const journal=require('./src/core/news-evidence-journal');
+    if(fs.existsSync(NEWS_EVIDENCE_ROOT)){
+      const dir=fs.lstatSync(NEWS_EVIDENCE_ROOT,{bigint:true});
+      if(!dir.isDirectory()||dir.isSymbolicLink()||(dir.mode&0o077n)!==0n)throw Error('INVALID_PRIVATE_NEWS_DIRECTORY');
+      stamp=[dir.dev,dir.ino,dir.mode,dir.mtimeNs,dir.ctimeNs].join(':');
+    }else stamp='missing';
+    let changed=stamp!==newsEvidenceCache.stamp;
+    // Check the version actually being consumed on every use. The rest of the
+    // bounded archive gets a metadata scan at most once per second.
+    const referenced=eventId===null?null:newsEvidenceCache.latest.get(eventId);
+    if(!changed&&!newsEvidenceCache.unknown&&referenced){
+      const name=String(referenced.sequence).padStart(6,'0')+'.json';
+      changed=newsEvidenceFileStamp(NEWS_EVIDENCE_ROOT+'/'+name)!==newsEvidenceCache.files.get(name);
+    }
+    if(changed||newsEvidenceCache.metadataCheckedAt===null||now-newsEvidenceCache.metadataCheckedAt>=NEWS_EVIDENCE_METADATA_INTERVAL_MS){
+      const files=new Map();
+      if(stamp!=='missing'){
+        const names=fs.readdirSync(NEWS_EVIDENCE_ROOT).filter(n=>!/^\.stage-[a-f0-9]{24}$/.test(n)).sort();
+        if(names.length>NEWS_EVIDENCE_MAX_FILES||names.some(n=>!/^\d{6}\.json$/.test(n)))throw Error('INVALID_NEWS_ARCHIVE_INVENTORY');
+        for(const name of names)files.set(name,newsEvidenceFileStamp(NEWS_EVIDENCE_ROOT+'/'+name));
+      }
+      const inventory=JSON.stringify([...files]);
+      if(changed||newsEvidenceCache.unknown||inventory!==newsEvidenceCache.inventory){
+        const rows=journal.readJournal(NEWS_EVIDENCE_ROOT),latest=new Map();
+        for(const e of rows)if(e.evidence.source==='eastmoney-fast-news')latest.set(e.evidence.eventId,e);
+        newsEvidenceCache={stamp,inventory,files,latest,unknown:false,chainVerifiedAt:now,metadataCheckedAt:now,
+          withdrawn:new Set([...latest].filter(([,e])=>e.evidence.kind==='retracted').map(([id])=>id))};
+      }else newsEvidenceCache={...newsEvidenceCache,files,metadataCheckedAt:now};
+    }
+  }catch{newsEvidenceCache={...newsEvidenceCache,stamp,unknown:true,metadataCheckedAt:now};}
+  return newsEvidenceCache;
+}
+function newsSupportsCode(code){
+  const state=newsEvidenceCurrent();
+  return !state.unknown&&(S.news.goodAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+}
+function newsWarnsCode(code){
+  return (S.news.badAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+}
+function newsWarnsSector(sector){
+  return (S.news.badAll||[]).some(n=>(n.sectors||[]).includes(sector)&&newsEvidenceAllowsItem(n));
+}
+function newsEvidenceAllowsItem(item){
+  const id=String(item?.id||''),state=newsEvidenceCurrent(id),current=state.latest.get(id);
+  return !state.unknown&&!!current&&current.evidence.kind!=='retracted'&&!S.news.evidenceRejected?.has(id)&&
+    item.newsEvidence?.eventHash===current.eventHash&&item.newsEvidence?.sourceRevisionId===current.evidence.sourceRevisionId&&
+    item.title===current.evidence.title&&item.summary===current.evidence.body.slice(0,90)&&item.publishedAt===current.evidence.publishedAt&&
+    Array.isArray(item.codes)&&JSON.stringify([...new Set(item.codes)].sort())===JSON.stringify(current.evidence.securities);
+}
+function newsEvidenceVisibleState(state=S){
+  const news=state.news||{};
+  const visible=Object.fromEntries(['goodAll','badAll','neutralAll'].map(key=>[
+    key,(Array.isArray(news[key])?news[key]:[]).filter(newsEvidenceAllowsItem)]));
+  return {...state,news:{...news,...visible,good:visible.goodAll.slice(0,40),bad:visible.badAll.slice(0,40),
+    holidayBuf:(news.holidayBuf||[]).filter(newsEvidenceAllowsItem),
+    goodCodes:new Set(visible.goodAll.flatMap(x=>x.codes||[])),badCodes:new Set(visible.badAll.flatMap(x=>x.codes||[])),
+    badSectors:new Set(visible.badAll.flatMap(x=>x.sectors||[]))}};
+}
 const HOLIDAY_BUF_CAP = 1200; // 假期新闻缓冲上限（覆盖整个长假周期，不受近3日归档限制）
 // ⛔ 2026-10-07 新增（本轮角度：系统里"只增不减"的东西 —— 清理口径要自洽）：
 //    三个常规归档（利空/利好/中性）以前各用一个数字：内存 mergeArchive 截 400、
@@ -14021,7 +14631,7 @@ function classifyNews(raw, nameOf) {
       : ('命中利好词: ' + ghit.slice(0, 3).join('、'));
     // 详细个股：代码解析为中文名，面板直接显示"名称(代码)"
     const stocks = codes.map(c => `${nameOf.get(c) || ''}(${c})`);
-    out.push({ id: n.code, t: n.showTime || '', title, summary, codes, stocks, type: isBad ? 'bad' : 'good', why, sectors: secs });
+    out.push({ id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes, stocks, type: isBad ? 'bad' : 'good', why, sectors: secs });
   }
   return out;
 }
@@ -14042,7 +14652,7 @@ function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但�
     if (!codes.length) continue; // 中性且无个股关联：不入库
     const secs = (S.sectors || []).filter(s => s.name && s.name.length >= 2 && text.includes(s.name)).slice(0, 2).map(s => s.name);
     out.push({
-      id: n.code, t: n.showTime || '', title, summary, codes,
+      id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes,
       stocks: codes.map(c => `${nameOf.get(c) || ''}(${c})`),
       type: 'neutral', why: '中性: 未命中利好/利空关键词，仅信息播报', sectors: secs
     });
@@ -14051,9 +14661,11 @@ function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但�
   return out;
 }
 function mergeArchive(list, items, keepAll) { // 按 id 去重合并 → （keepAll 时不过滤近3日）→ 时间倒序 → 上限400/假期缓冲上限
-  const seen = new Set(list.map(x => x.id));
-  for (const it of items) if (!seen.has(it.id)) { list.push(it); seen.add(it.id); }
-  const arr = keepAll ? list : list.filter(x => within3Days(x.t));
+  // These lists are current projections. The append-only journal retains every
+  // original and revision; a prior category cannot survive a changed version.
+  const current=new Map(list.map(x=>[String(x.id),x]));
+  for(const it of items)if(newsEvidenceAllowsItem(it))current.set(String(it.id),it);
+  const arr=[...current.values()].filter(x=>newsEvidenceAllowsItem(x)&&(keepAll||within3Days(x.t)));
   return arr.sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, keepAll ? HOLIDAY_BUF_CAP : NEWS_ARCHIVE_CAP);
 }
 async function fetchNewsPage(column, sortEnd, size) {
@@ -14078,6 +14690,7 @@ async function seedNews() {
       }
     }
     if (!raw.length) return;
+    captureNewsEvidence(raw);
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
     const items = classifyNews(raw, nameOf);
     const neutral = classifyNeutral(raw.filter(n => !items.some(x => x.id === n.code)), nameOf);
@@ -14104,6 +14717,7 @@ async function refreshNews() {
     const raw = [];
     for (const r of rs) if (r.status === 'fulfilled' && r.value) raw.push(...(r.value.data.fastNewsList || []));
     if (!raw.length) return;
+    captureNewsEvidence(raw);
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
     const items = classifyNews(raw, nameOf);
     const neutral = classifyNeutral(raw.filter(n => !items.some(x => x.id === n.code)), nameOf);
@@ -14120,7 +14734,7 @@ async function refreshNews() {
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
-    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id));
+    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id) && newsEvidenceAllowsItem(x));
     // 非开盘时段：利好只更新面板与归档，不做即时推送（新闻是主要噪音源），
     // 统一留给每日新闻汇总（21:00）/ 周末汇总（周日21:00）一起发。
     // 标记仍照打，避免次日开盘一次性补推一大堆。
@@ -14167,7 +14781,7 @@ function buildNewsDigest(dates, label, topN, src) {
   const badAll = (src && src.bad) || S.news.badAll;
   const goodAll = (src && src.good) || S.news.goodAll;
   const neutralAll = (src && src.neutral) || S.news.neutralAll;
-  const inDays = list => list.filter(x => dates.includes((x.t || '').slice(0, 10)));
+  const inDays = list => list.filter(x => newsEvidenceAllowsItem(x) && dates.includes((x.t || '').slice(0, 10)));
   const bad = inDays(badAll), good = inDays(goodAll), neutral = inDays(neutralAll);
   const freq = (list, key) => { const m = {}; for (const it of list) for (const s of (it[key] || [])) m[s] = (m[s] || 0) + 1; return Object.entries(m).sort((a, b) => b[1] - a[1]); };
   const arcLabel = (src && src.arcLabel) || `近3日归档: 利空${S.news.badAll.length}/利好${S.news.goodAll.length}/中性${S.news.neutralAll.length}`;
@@ -14186,7 +14800,7 @@ function buildNewsDigest(dates, label, topN, src) {
     if (gs.length) msg += '\n\n【🔥 周末高频受益个股】\n' + gs.map(([s, n]) => `▪ ${s}（${n}条利好）`).join('\n');
     if (bs.length) msg += '\n【⛔ 周末避雷个股】\n' + bs.map(([s, n]) => `▪ ${s}（${n}条利空）`).join('\n');
   }
-  const badCodes = new Set(badAll.flatMap(x => x.codes));
+  const badCodes = new Set(badAll.filter(newsEvidenceAllowsItem).flatMap(x => x.codes));
   const warn = [];
   for (const [acc, cfg] of Object.entries(PAPER_CFG)) {
     const hit = Object.values(PAPER[acc].positions || {}).filter(p => badCodes.has(p.code));
@@ -14508,7 +15122,13 @@ async function refreshSectorsZT() {
   //       A 股不存在 0 涨停的交易日，宁可永远沿用上次有效池，也绝不拿数据缺失冒充「今日无涨停」。
   //       将来数据源若能给出「东财确认空」的独立信号，再把该信号接进这里即可。
   const _r3ok = r3.status === 'fulfilled' && Array.isArray(r3.value) && r3.value.length > 0;
-  if (_r3ok) { S.ztPoolFetchedAt = Date.now(); S.ztPoolFetchOk = true; }
+  if (_r3ok) {
+    const observedAt = Date.now(), tradeDate = String(_ztDay).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+    S.ztPoolFetchedAt = observedAt; S.ztPoolFetchOk = true;
+    r3.value = r3.value.map(row => ({...row,
+      researchEvidence:{tradeDate,source:row.src || null,receivedAt:observedAt},
+      factEvidence:{kind:'provider-limit-up-pool-record',tradeDate,source:row.src || null,observedAt}}));
+  }
   else {
     S.ztPoolFetchOk = false;
     if (r3.status === 'fulfilled') console.warn('[ztPool] 涨停池三源全空（东财双通道+同花顺均无数据）→ 按【未确认】处理：不判定「今日无涨停」，沿用上次有效池/复盘');
@@ -15109,7 +15729,7 @@ async function _computeReviewInner() {
       .sort((a, b) => (b.limitUpCount || 0) - (a.limitUpCount || 0) || (b.amount || 0) - (a.amount || 0)).slice(0, 6)
       .map(x => ({ n: x.name, lb: x.limitUpCount || 0, role: roles.map.get(x.code) || 'follow', strong: !!x.strong })); // role: leader=龙头 deputy=龙二 mid=中军 follow=跟风
     items.push({
-      code: z.code, name: z.name, price,
+      code: z.code, name: z.name, price, researchEvidence:z.researchEvidence || null,
       // ⛔ 复盘模块加固（2026-10-28）：pct 缺失/非数字时，原写法 z.pct.toFixed() 直接抛 TypeError，
       //    整轮 _computeReviewInner 当场中断 → 当天复盘全丢（定时器只打印一句，用户一条复盘都收不到）。
       //    判不出就显式 null（宁缺毋滥 / 判不出不硬判），绝不拿 0 或猜测冒充涨幅。
@@ -15165,7 +15785,7 @@ async function _computeReviewInner() {
     if (!sentToday(S.reviewGoodPushedDate, todayStr(), /涨停复盘|好标的挖掘/, 15 * 60 + 30) && !inQuietHours()
         && isTradeDay(new Date())) { // 好标的仅交易日推送，防周末重启重发周五数据
       // jn 轮：好标的挖掘是推荐出口，ST 封板股只进池（复盘清单/计数）不进推荐（同 scanYiEr 口径）
-      const goods = items.filter(x => x.prob >= 65 && (x.peers || []).length >= 1 && !A.isJunkName(x.name)).slice(0, 5);
+      const goods = reviewedRows(items, 'dated-observation').filter(x => x.prob >= 65 && (x.peers || []).length >= 1 && !A.isJunkName(x.name)).slice(0, 5);
       if (goods.length) {
         const inf = v => v >= 1e8 ? (v / 1e8).toFixed(1) + '亿' : Math.round((v || 0) / 1e4) + '万';
         const msg = '═══ 🎯 涨停复盘 · 好标的挖掘 ═══\n' + goods.map(x =>
@@ -15270,7 +15890,7 @@ function scanYiEr() {
     const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
     const _mainPct = snap ? (snap.mainPct || 0) : 0;
     if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-    if (S.news && S.news.goodCodes && S.news.goodCodes.has(z.code)) { prob += 3; why.push('利好催化'); }
+    if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 3; why.push('利好催化'); }
     // ⛔ 主线强度接入（2026-10-08 重构）：主线强则票强，主线弱则个体难独活
     //    按主线聚合统计，不再被「电池/电池技术/储能概念/锂电池概念」多个板块名拆散
     const secStrength = themeStrengthOf(z);
@@ -15287,6 +15907,17 @@ function scanYiEr() {
     const _fz = fusedProb(z.code, z.name, krowsOf(z.code), 'yier', prob);
     const useProb = _fz.prob;
     if (useProb < ZT_INFER_PUSH_PROB) continue;
+    // CONDITION_EVIDENCE_BEGIN
+    const conditionMetadata={};
+    annotateSignalConditions(conditionMetadata,'scanYiEr',[
+      ['first-board','原首板分组',(z.limitUpCount||1),1,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+      ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
+      ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
+      {rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
+        evaluationBars:k?.rows||null,sealRatio,sealStrength,flags,beta,marketMood,sectorZT,role:role||null,mainFlowInput:{mainInflow:_mainInflow,mainPct:_mainPct},
+        secStrength,mainlineDecision:_ml,modelAfterLocalAdjustments:prob,ranking:_fz,
+        scoreBranchThresholds:{noBreak:0,seal:[5e7,1e8],turnover:[2,3,15,25],sectorCount:[3,5],amount:5e8,mainPercent:0,themeScore:[40,60],themeInflow:1e8}});
+    // CONDITION_EVIDENCE_END
     out.push({
       // ⛔ 复盘模块加固（2026-10-28）：同一类炸点（pct 缺失抛 TypeError）在这两处卡片构建器里
       //    也有 —— 虽然外面有 try 兜底（只丢这一张卡、不丢整条复盘），但用户侧就是「卡片突然空了」，
@@ -15298,7 +15929,12 @@ function scanYiEr() {
       turnover: to, floatCap: fc, role: role || 'follow',
       mainInflow: _mainInflow, mainPct: _mainPct,
       prob, fused: useProb, delta: _fz.delta, src: _fz.src || '',
+      probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
+      researchEvidence: z.researchEvidence || null,
       why: why.join('·') || '首板基础分',
+      // CONDITION_EVIDENCE_BEGIN
+      ...conditionMetadata,
+      // CONDITION_EVIDENCE_END
       sectorStrength: secStrength,
       mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
     });
@@ -15319,13 +15955,15 @@ function buildYiErMessage(items) {
     const keys = Object.keys(emp).filter(k => k.startsWith('未启动类|'));
     let totalN = 0, totalHit = 0;
     for (const k of keys) { totalN += emp[k].n; totalHit += emp[k].hit; }
-    if (totalN >= 10) statLine = `\n📊 未启动类模型命中率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本）`;
+    if (totalN >= 10) statLine = `\n📊 未启动类次日最高涨≥${HIT_THR}%历史频率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本；不是封板率）`;
   } catch {}
-  let msg = `═══ 🎯 一进二 · 次日连板潜力榜 ═══\n${dstr} · 从 ${(S.ztPool || []).filter(z => (z.limitUpCount || 1) === 1).length} 只首板中筛出 ${items.length} 只${statLine}\n`;
+  let msg = `═══ 🎯 一进二 · 次日连板潜力榜 ═══\n${dstr} 生成 · 盘后研究观察，非即时交易推荐\n从 ${(S.ztPool || []).filter(z => (z.limitUpCount || 1) === 1).length} 只首板中筛出 ${items.length} 只${statLine}\n`;
   items.forEach((x, i) => {
     const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
     msg += `\n${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag}\n`;
-    msg += `   🎯 次日涨停概率 ${x.fused}%（模型${x.prob}%${x.delta ? '·学' + (x.delta >= 0 ? '+' : '') + x.delta : ''}）${probTag('ztNext', x.fused)}\n`;
+    msg += `   数据日期 ${x.researchEvidence && x.researchEvidence.tradeDate || '未知'}\n`;
+    msg += `   🎯 次日封板研究排序值 ${x.fused}/100（原模型估值${x.prob}%；未独立校准）\n`;
+    msg += fuseLine(x) + '\n';
     // ⛔ 涨停原因分类详细展示：把 why 拆成逐项
     const reasons = (x.why || '首板基础分').split('·');
     msg += `   📌 涨停逻辑（${reasons.length}项）：\n`;
@@ -15339,7 +15977,7 @@ function buildYiErMessage(items) {
     }
   });
   msg += '\n⚠️ 一进二属于高风险接力策略，次日开盘请观察板块情绪与竞价强度再决策；\n';
-  msg += '概率经历史回验校准，非承诺收益。';
+  msg += '排序值及原模型估值未经独立样本外校准，非承诺收益。';
   return msg;
 }
 
@@ -15357,11 +15995,12 @@ function pushYiEr() {
   if (sentToday(yierSentDate, ds, /一进二 · 次日连板潜力榜/, 15 * 60 + 30)) return;   // gn 轮：补 dueMin（傍晚批次必达）
   const items = S.yierList || [];
   if (!items.length) return;
-  const toPush = items.slice(0, 5);   // ⛔ 2026-10-09：推送从 top3 扩到 top5（原只推3只，用户投诉"一进二那么多只推了几个"）
+  const toPush = reviewedRows(items, 'dated-observation').slice(0, 5);
+  if (!toPush.length) return;   // ⛔ 2026-10-09：推送从 top3 扩到 top5（原只推3只，用户投诉"一进二那么多只推了几个"）
   const msg = buildYiErMessage(toPush);
   if (!msg) return;
   for (const x of toPush) {
-    try { logSignal('yier', x.code, x.name, x.price, x.prob, { role: x.role, sector: x.sector, sealRatio: x.sealRatio }); } catch {}
+    try { logSignal('yier', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { role: x.role, sector: x.sector, sealRatio: x.sealRatio })); } catch {}
   }
   // ⛔ 面板「一进二」卡片已经在上面的 refreshStrategyCards 里刷好了（含完整候选：
   //    主线强度/封单/资金/涨停逻辑），此处不再重复写 —— 推送与展示彻底分家。
@@ -15446,7 +16085,7 @@ function scanLianbanRelay() {
       const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
       const _mainPct = snap ? (snap.mainPct || 0) : 0;
       if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-      if (S.news && S.news.goodCodes && S.news.goodCodes.has(z.code)) { prob += 2; why.push('利好'); }
+      if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 2; why.push('利好'); }
       if (level >= 3 && maxLb < 7) { prob -= 10; why.push('高度不足·谨慎'); }
       // ⛔ 主线强度接入（2026-10-08 重构）：按主线聚合，不再被多个板块名拆散
       const secStrength = themeStrengthOf(z);
@@ -15463,6 +16102,17 @@ function scanLianbanRelay() {
       const _fz = fusedProb(z.code, z.name, krowsOf(z.code), 'lianban', prob);
       const useProb = _fz.prob;
       if (useProb < ZT_INFER_PUSH_PROB) continue;
+      // CONDITION_EVIDENCE_BEGIN
+      const conditionMetadata={};
+      annotateSignalConditions(conditionMetadata,'scanLianbanRelay',[
+        ['board-level','原连板分组',z.limitUpCount||1,level,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+        ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
+        ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
+        {level,maxLb,rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
+          evaluationBars:k?.rows||null,sealRatio,sealStrength,flags,beta,marketMood,sectorZT,role:role||null,mainFlowInput:{mainInflow:_mainInflow,mainPct:_mainPct},
+          secStrength,mainlineDecision:_ml,modelAfterLocalAdjustments:prob,ranking:_fz,
+          scoreBranchThresholds:{noBreak:0,seal:1e8,turnover:[3,15,25],sectorCount:5,amount:5e8,mainPercent:0,marketHeight:7,themeScore:[40,60],themeInflow:1e8}});
+      // CONDITION_EVIDENCE_END
       out.push({
         // ⛔ 复盘模块加固（2026-10-28）：同一类炸点（pct 缺失抛 TypeError）在这两处卡片构建器里
       //    也有 —— 虽然外面有 try 兜底（只丢这一张卡、不丢整条复盘），但用户侧就是「卡片突然空了」，
@@ -15474,7 +16124,12 @@ function scanLianbanRelay() {
         turnover: to, floatCap: fc, role: role || 'follow',
         mainInflow: _mainInflow, mainPct: _mainPct,
         prob, fused: useProb, delta: _fz.delta, src: _fz.src || '',
+        probKind: _fz.modelKind, fusedKind: _fz.valueKind, eventTarget: _fz.target, calibrationCertified: false, _fz,
+      researchEvidence: z.researchEvidence || null,
         why: why.join('·') || '连板基础分',
+        // CONDITION_EVIDENCE_BEGIN
+        ...conditionMetadata,
+        // CONDITION_EVIDENCE_END
         level, maxLb,
         sectorStrength: secStrength,
         mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
@@ -15500,9 +16155,9 @@ function buildLianbanRelayMessage(items) {
     const keys = Object.keys(emp).filter(k => k.startsWith('追高类|'));
     let totalN = 0, totalHit = 0;
     for (const k of keys) { totalN += emp[k].n; totalHit += emp[k].hit; }
-    if (totalN >= 10) statLine = `📊 追高类模型命中率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本）\n`;
+    if (totalN >= 10) statLine = `📊 追高类次日最高涨≥${HIT_THR}%历史频率 ${Math.round(totalHit / totalN * 100)}%（${totalN}条样本；不是封板率）\n`;
   } catch {}
-  let msg = `═══ 🎯 连板接力 · 二进三${san.length ? ' + 三进四' : ''} ═══\n${dstr}`;
+  let msg = `═══ 🎯 连板接力 · 二进三${san.length ? ' + 三进四' : ''} ═══\n${dstr} 生成 · 盘后研究观察，非即时交易推荐`;
   if (san.length) msg += ` · 市场最高板 ${san[0].maxLb} 板`;
   msg += '\n' + statLine;
   if (er.length) {
@@ -15510,7 +16165,8 @@ function buildLianbanRelayMessage(items) {
     er.forEach((x, i) => {
       const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
       const reasons = (x.why || '连板基础分').split('·');
-      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 概率${x.fused}%\n`;
+      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 数据日期${x.researchEvidence && x.researchEvidence.tradeDate || '未知'} · 次日封板研究排序值${x.fused}/100（未独立校准）\n`;
+      msg += fuseLine(x) + '\n';
       msg += `  📌 连板逻辑（${reasons.length}项）：\n`;
       reasons.forEach(r => { msg += `     ▪ ${r}\n`; });
       msg += `  💰 主力净流入 ${inf(x.mainInflow)}${x.mainPct > 0 ? '（+' + x.mainPct.toFixed(1) + '%）' : x.mainPct < 0 ? '（' + x.mainPct.toFixed(1) + '%）' : ''} · 封单 ${inf(x.sealAmount)} · 换手${x.turnover.toFixed(1)}%\n`;
@@ -15525,7 +16181,8 @@ function buildLianbanRelayMessage(items) {
     san.forEach((x, i) => {
       const roleTag = x.role === 'leader' ? '🟥龙头' : x.role === 'deputy' ? '🟧龙二' : x.role === 'mid' ? '🟨中军' : '跟风';
       const reasons = (x.why || '连板基础分').split('·');
-      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 概率${x.fused}%\n`;
+      msg += `${i + 1}️⃣ ${x.name}(${x.code}) ${x.sector} ${roleTag} · 数据日期${x.researchEvidence && x.researchEvidence.tradeDate || '未知'} · 次日封板研究排序值${x.fused}/100（未独立校准）\n`;
+      msg += fuseLine(x) + '\n';
       msg += `  📌 连板逻辑（${reasons.length}项）：\n`;
       reasons.forEach(r => { msg += `     ▪ ${r}\n`; });
       msg += `  💰 主力净流入 ${inf(x.mainInflow)}${x.mainPct > 0 ? '（+' + x.mainPct.toFixed(1) + '%）' : x.mainPct < 0 ? '（' + x.mainPct.toFixed(1) + '%）' : ''} · 封单 ${inf(x.sealAmount)} · 换手${x.turnover.toFixed(1)}%\n`;
@@ -15553,11 +16210,12 @@ function pushLianbanRelay() {
   // 三进四条件：必须有最高板≥7的证据
   const hasSan = items.some(x => x.level === 3);
   if (hasSan && !(items[0] && items[0].maxLb >= 7)) return;
-  const toPush = items.slice(0, 5);
+  const toPush = reviewedRows(items, 'dated-observation').slice(0, 5);
+  if (!toPush.length) return;
   const msg = buildLianbanRelayMessage(toPush);
   if (!msg) return;
   for (const x of toPush) {
-    try { logSignal('lianban', x.code, x.name, x.price, x.prob, { role: x.role, sector: x.sector, sealRatio: x.sealRatio, level: x.level }); } catch {}
+    try { logSignal('lianban', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { role: x.role, sector: x.sector, sealRatio: x.sealRatio, level: x.level })); } catch {}
   }
   // ⛔ 同上面一进二：卡片已在 refreshStrategyCards 里刷新（推送被拦下面板照样有得看），此处不重复写。
   if (pushAll(msg, false, { private: true }) !== false) {
@@ -15624,6 +16282,7 @@ function scanYiErAuction() {
     // 额外加分：高开≥5%且量能前5% = 极强
     const strong = (a.auctionPct || 0) >= 5 && ((zi && zi.score) || 0) >= 60;
     out.push({
+      ...reviewSnapshotFields(a),
       code: a.code, name: a.name, price: a.price,
       auctionPct: a.auctionPct || 0, auctionAmount: a.auctionAmount || 0,
       mainPct: a.mainPct || 0, mainInflow: a.mainInflow || 0,
@@ -15671,11 +16330,11 @@ function pushYiErAuction() {
   // ⛔ 2026-10-08：用户要求"9:25 刚结束就推送"——竞价 9:25 定稿，9:25~9:26 立即发出，
   //    数据最新且给用户最充分的开盘前反应时间。
   if (!isTradeDay(d) || !(t >= 9 * 60 + 25 && t < 9 * 60 + 26)) return; // 9:25~9:26
-  const items = scanYiErAuction();
+  const items = reviewedRows(scanYiErAuction());
   if (!items.length) return;
   const msg = buildYiErAuctionMessage(items);
   if (!msg) return;
-  if (pushAll(msg, false, { private: true }) !== false) yierAuctionSentDate = ds;
+  if (pushAll(msg, false, recommendationSendOptions(items, { private: true })) !== false) yierAuctionSentDate = ds;
 }
 
 // ---------------- 板块效应 · 启动前埋伏（直接回答"为什么涨停前没发现"） ----------------
@@ -15691,8 +16350,8 @@ function newsTitlesFor(code, name) {
     if (Array.isArray(x.stocks) && (x.stocks.indexOf(code) >= 0 || (nm && x.stocks.indexOf(nm) >= 0))) return true;
     return !!(nm && nm.length >= 2 && String(x.title).indexOf(nm) >= 0);
   };
-  for (const x of (S.news && S.news.goodAll) || []) { if (match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
-  for (const x of (S.news && S.news.badAll) || []) { if (match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.goodAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.badAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
   return { good, bad };
 }
 S.pre = S.pre || { time: null, items: [] };
@@ -15856,14 +16515,27 @@ async function preBreakoutInner() {
         const _capYi = s.floatCap > 0 ? +(s.floatCap / 1e8).toFixed(1) : null;
         if ((_capYi || 0) < 35 && (ztP == null || ztP < 25) && prob < 80) continue;
         out.push({
+          ...reviewSnapshotFields(s),
           code: s.code, name: s.name, sector: c.sec, price: s.price, pct: +(s.pct).toFixed(2),
           mainPct: +(s.mainPct || 0).toFixed(1), mainInflow: Math.round(s.mainInflow || 0),
           secZT: c.ztN, leaderLb: c.lb, volRatio, aboveMa5, gapToHigh20, amp, prob, ztP,
+          probKind: 'score', eventTarget: null, calibrationCertified: false,
+          ztPKind: 'historical-pattern-frequency', ztPTarget: 'ztNext',
           ztBase: prZ ? +(prZ.base * 100).toFixed(1) : null,
           // staleBoard：名单来自缓存（板块源限流退避中），涨幅/资金可能略旧 —— 必须显式标出
           stale: staleBoard || undefined,
           reason: why.join(' + ') + (staleBoard ? ' + 成分名单为缓存(板块源限流中)' : '')
         });
+        // CONDITION_EVIDENCE_BEGIN
+        annotateSignalConditions(out[out.length-1],'preBreakoutInner',[
+          ['return-low','埋伏涨幅下界',s.pct,-1.5,'>='],['return-high','原时段动态涨幅上界',s.pct,maxPct,'<='],['price','原价格',s.price,0,'>'],
+          ['not-sealed','原成分股未封板',Number(c.ztCodes.has(s.code)),0,'<='],
+          ['capital-or-model','市值或历史模型例外的原组合',Number((_capYi||0)>=35||(ztP!=null&&ztP>=25)||prob>=80),1,'>=']],
+          ['HOT_SECTOR_BRANCH_AND_LA_MODEL_CHIP_VOL_INTERNALS_NOT_FULLY_EXPANDED','LOGIC_AND_NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN'],
+          {evaluationBars:rows,isEarlyWindow,maxPct,sector:c.sec,sectorZT:c.ztN,leaderLb:c.lb,capYi:_capYi,volToday,vol5,volRatio,ma5,aboveMa5,gapToHigh20,amp,chipScore,ztP,
+            learnedModel:prZ||null,logic:_at,rankWithinSector:wi+1,staleBoard,
+            scoreBranchThresholds:{volume:[1.2,1.5],gapToHigh20:5,amplitude:25,lowReturn:1.5,capYi:35,exceptionZtP:25,exceptionScore:80,clamp:[20,88],learnBlend:[0.45,0.55]}});
+        // CONDITION_EVIDENCE_END
       } catch {}
     }
   }
@@ -15906,14 +16578,20 @@ async function scanPrePush() {
       // 选股类信号要过胜率质量门（第四个参数就是模型预估胜率）
       // 早盘起爆窗口强条件放宽：prob≥60 即算强势（低位票 prob 天然低于追板票）
       const strongThr = isEarlyPush ? 60 : 70;
-      const _g = govTake(x.code, 'pre', x.prob >= strongThr, x.prob);
+      const _g = govTake(x.code, 'pre', x.prob >= strongThr, x.prob, x);
       if (!_g.ok) continue;
       // ⛔ 2026-10-07 补（本轮角度：数据血缘）：与补涨龙那处对齐 —— 闸门判的是融合后的值，
       //    不回写的话文案里的「埋伏分」显示的是模型原值，看到的数 ≠ 决策的数。
       if (_g.fused) x._fz = _g.fused;
       if (_g.undo) fresh.$undo = (fresh.$undo || []).concat([_g.undo]);   // 2026-10-06：发送失败要退
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(x,'scanPrePush',[
+        ['historical-model-floor','原时段历史模型门',x.ztP||0,ztPThr,'>='],
+        ['code-age','原同票冷却',Date.now()-(S.prePushed.get(x.code)||0),120*60000,'>=']],
+        ['SHARED_GOVERNOR_AND_SORT_TRIM_ARE_SEPARATE_FROM_MODEL_CONDITIONS'],{isEarlyPush,ztPThr,strongThreshold:strongThr,governorFused:_g.fused||null});
+      // CONDITION_EVIDENCE_END
       S.prePushed.set(x.code, Date.now());
-      logSignal('pre', x.code, x.name, x.price, x.prob, { paths: ['板块效应埋伏'], sector: x.sector, secZT: x.secZT });
+      logSignal('pre', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { paths: ['板块效应埋伏'], sector: x.sector, secZT: x.secZT }));
       fresh.push(x);
     }
     // ⛔ 包一层（cx 轮）：2 小时去重把 5 只候选全挡掉时，模块日名额要还回去
@@ -15921,17 +16599,17 @@ async function scanPrePush() {
     if (!fresh.length) return;
     // ⛔ 主推数字用融合概率（学后胜率），让用户看到的是"学完之后的数字"。
     const _fprob = x => (x._fz && x._fz.prob != null ? x._fz.prob : x.prob);
-    const preTitle = isEarlyPush ? '═══ 🚀 早盘起爆点 · 机器自学挑的 ═══' : '═══ 🌱 涨停前埋伏 · 机器自学挑的 ═══';
+    const preTitle = isEarlyPush ? '═══ 🚀 早盘起爆点 · 研究排序 ═══' : '═══ 🌱 涨停前埋伏 · 研究排序 ═══';
     const preFoot = isEarlyPush
-      ? '\n（这批是早盘 9:30–10:00 热点板块里**刚启动**的票，涨幅还不高，属于起爆前发现而非追涨；概率来自全A股历史自学，不是我写死的规则）'
-      : '\n（这批是热点板块里**还没启动**的票，属于提前埋伏而非追涨；概率来自全A股历史自学，不是我写死的规则）';
+      ? '\n（早盘 9:30–10:00 热点板块候选；埋伏分由规则和历史形态形成研究排序，次日封板数值是历史形态频率，均未经独立样本外校准）'
+      : '\n（热点板块尚未启动候选；埋伏分由规则和历史形态形成研究排序，次日封板数值是历史形态频率，均未经独立样本外校准）';
     pushAll(preTitle + '\n' + fresh.map(x =>
       `▪ ${x.name}(${x.code}) 现价${x.price} ${x.pct > 0 ? '+' : ''}${x.pct}%  ` +
-      `次日封板<b>${x.ztP != null ? x.ztP + '%' : '—'}</b>（全市场基准${x.ztBase != null ? x.ztBase + '%' : '—'}）  埋伏分 ${_fprob(x)}\n` +
+      `次日封板形态频率<b>${x.ztP != null ? x.ztP + '%' : '—'}</b>（历史基准${x.ztBase != null ? x.ztBase + '%' : '—'}）  埋伏分 ${_fprob(x)}/100\n` +
       `  依据: ${x.reason}\n  板块:${x.sector}（${x.secZT}只涨停）${fuseLine(x)}`
     ).join('\n') + preFoot + govFoot(),
       // ⛔ 2026-10-08 修：用户要求"涨停分析全部走私密通道" —— 涨停前埋伏改私密机器人
-      false, { undo: fresh.$undo, modDay: 'pre', private: true });   // ⛔ 2026-10-06：发送失败要把这一批占位退回
+      false, recommendationSendOptions(fresh, { undo: fresh.$undo, modDay: 'pre', private: true }));   // ⛔ 2026-10-06：发送失败要把这一批占位退回
   } catch (e) { console.error('[pre]', e && e.message); }
 }
 
@@ -16014,6 +16692,7 @@ async function computeBuZhang() {
       out.push({
         // ⛔ type 不能省：fuseLine 靠它给「学后胜率」补事件定义（同上，similar 那条注释）
         type: 'buzhang',
+        ...reviewSnapshotFields(s),
         code: s.code, name: s.name, sector: c.sec, price: s.price, pct: +s.pct.toFixed(1),
         leaderName: c.leader ? c.leader.name : '', leaderLb: c.lb,
         secZT: c.arr.length, mainInflow: s.mainInflow || 0,
@@ -16022,6 +16701,16 @@ async function computeBuZhang() {
         stale: staleBoard || undefined,
         prob, reason: why.join(' + ') + (staleBoard ? ' + 成分名单为缓存(板块源限流中)' : '')
       });
+      // CONDITION_EVIDENCE_BEGIN
+      annotateSignalConditions(out[out.length-1],'computeBuZhang',[
+        ['leader-height','原板块龙头门',c.lb,1,'>='],['return-low','原个股涨幅下界',s.pct,-1,'>='],['return-high','原个股涨幅上界',s.pct,9,'<='],
+        ['not-sealed','原成分未封板',Number(ztCodes.has(s.code)),0,'<='],
+        ['capital-or-height','市值或高度或评分例外的原组合',Number((s.floatCap||0)>=3.5e9||c.lb>=2||prob>=80),1,'>=']],
+        ['BOARD_MEMBERSHIP_HISTORICAL_AVAILABILITY_AND_CLASSIFY_ROLES_NOT_CERTIFIED','RANK_TRIM_AND_JUNK_NAME_INTERNALS_NOT_EXPANDED'],
+        {sector:c.sec,leader:c.leader?{code:c.leader.code,name:c.leader.name,limitUpCount:c.leader.limitUpCount}:null,
+          sectorZT:c.arr.length,sectorMainInflow:secObj.mainInflow??null,mainPct:s.mainPct??null,floatCap:s.floatCap??null,staleBoard,
+          scoreRules:{base:35,heightWeight:6,heightCap:18,sectorCountWeight:4,sectorCap:16,goldenRange:[2,6],goldenPoints:8,otherPoints:4,flowWeight:1.5,flowCap:12,sectorFlowBonus:5,clamp:[30,92]}});
+      // CONDITION_EVIDENCE_END
     }
   }
   out.sort((a, b) => b.prob - a.prob);
@@ -16050,7 +16739,7 @@ async function computeBuZhang() {
       const kept = [];
       const _bzUndo = [];   // ⛔ 2026-10-06：本批占位句柄
       for (const x of picks) {
-        const g = govTake(x.code, 'buzhang', x.prob >= 85, x.prob);
+        const g = govTake(x.code, 'buzhang', x.prob >= 85, x.prob, x);
         if (!g.ok) continue;
         if (g.undo) _bzUndo.push(g.undo);
         x._fz = g.fused;
@@ -16058,7 +16747,7 @@ async function computeBuZhang() {
         kept.push(x);
         // ⚠️ 概率统一按「百分数」登记（如 68 表示 68%）。以前这里 /100 存成 0.68，
         //    被学习库当成 0.68% 直接落进 <70 桶，污染了概率校准（见 logSignal 里的量纲防御）。
-        const fz = logSignal('buzhang', x.code, x.name, x.price, x.prob, { paths: ['补涨龙联动'] });
+        const fz = logSignal('buzhang', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { paths: ['补涨龙联动'] }));
         if (fz) x._fz = fz;
       }
       if (!kept.length) return;
@@ -16072,7 +16761,7 @@ async function computeBuZhang() {
         `▪ ${x.name}(${x.code}) ${probDef('ztToday')}概率${_fprob(x)}%\n  推算原因: ${x.reason}\n` +
         `  板块: ${x.sector}(${x.secZT}只涨停) | 龙头: ${x.leaderName}${x.leaderLb}板\n` +
         `  现价${x.price} 涨${x.pct}% 主力净流入${w(x)}${fuseLine(x)}`
-      ).join('\n') + typeHist(['buzhang'], '补涨龙'), false, { undo: _bzUndo, modDay: 'buzhang', private: true });  // go 轮 A2：补涨龙改私密
+      ).join('\n') + typeHist(['buzhang'], '补涨龙'), false, recommendationSendOptions(kept, { undo: _bzUndo, modDay: 'buzhang', private: true }));  // go 轮 A2：补涨龙改私密
       if (_bzOk !== false) S.bzLastPush = now;
       else {
         for (const x of kept) S.bzPushed.delete(x.code);   // 被拦下 → 撤回去重，下轮还能推
@@ -16231,7 +16920,7 @@ async function init() {
       console.error(`[refreshGlobal] 失败(${e.message})`);
     }
   };
-  globalThis.__refreshGlobal = refreshGlobal; // 暴露给 /api/refresh 手动全量刷新（不受数据窗口限制）
+  globalThis.__refreshGlobal = refreshGlobal; // Legacy internal hook; panel refresh uses the display-only path.
 
   // 🔴 铁律：首轮数据必须「后台跑 + 每步超时」，绝不能阻塞下面定时器的注册。
   //    实测 2026-09-28 翻车：全新部署没有 .kline_cache，rebuildPool 要联网拉 ~700 只K线要好几分钟，
@@ -16602,7 +17291,7 @@ async function init() {
       if (t < 15 * 60 + 30 || t >= 24 * 60) { remedySkip('nextPlanBoot', 'notAfterClose'); return; }
       if (sentToday(nextPlanSentDate, todayStr(), /次日作战计划/, 15 * 60 + 45)) { remedySkip('nextPlanBoot', 'alreadySent'); return; }
       // 启动补发前先强制补齐 K 线（不依赖定时器），否则算出来还是"K线样本不足"
-      try { await klineBackfill(2000, 60); } catch (e) { console.error('[nextplan-boot] K线补齐失败:', e && e.message); }
+      try { await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60); } catch (e) { console.error('[nextplan-boot] K线补齐失败:', e && e.message); }
       await computeNextPlan(80);
       const np = S.nextplan || {};
       if (!np.plan) { remedySkip('nextPlanBoot', 'computeEmpty'); return; }
@@ -16733,60 +17422,17 @@ async function init() {
   setTimeout(guard('learn-boot', _bootSeed), 90 * 1000);
   setTimeout(guard('learn-boot', _bootSeed), 6 * 60 * 1000);
   setTimeout(guard('learn-boot', _bootSeed), 15 * 60 * 1000);
-  // ── 全市场K线长尾补齐的日常通道 ──────────────────────────────────────
-  // 盘中（9:15~15:10）一根都不拉：那时带宽和时间都要留给实时行情，补齐慢一点无所谓。
-  // 其余时间每 4 分钟补 200 只 —— 一夜之间就能把三千只长尾票补齐，之后每天只补新增的那几只。
-  // ⛔⛔ 2026-10-08 修：用户要求"15点30之后所有数据必须是全量最新的"。
-  //    原来 klineBackfill 在 9:15-15:10 期间完全停摆（return），盘中任何 K 线更新都靠 klineRows 按需单只补拉。
-  //    这意味着 15:30 收盘后，大量票的 K 线还停留在开盘前的状态，次日计划算的时候才会逐只补拉，
-  //    但 computeNextPlan 并发 8 只，80 只候选要跑 10 轮，每轮还要等网络，30 秒定时器根本跑不完。
-  //    现在：15:30 之后进入"强制补齐模式"——突破单日 12000 上限，单次 2000 只顶满内部钳制，
-  //    间隔 30 秒极速补齐，直到补完；其他时段仍按 2 分钟/1200 只的保守节奏。
-  //    ⚠️ 注意：setInterval 的间隔不能动态变，所以这里拆成两路定时器，
-  //    15:30 后启动极速路、同时清掉日常路；次日 00:00 后日常路重新生效。
-  let _kbfDailyTimer = null, _kbfFastTimer = null;
-  function _kbfTick(afterClose) {
-    return guard('kline-backfill', async () => {
-      const d = new Date();
-      const t = d.getHours() * 60 + d.getMinutes();
-      const wd = isTradeDay(d);
-      const _ac = wd && t >= 15 * 60 + 30;
-      // 如果当前实际状态与传入的 afterClose 不一致（跨边界了），让外层调度器处理
-      if (_ac !== afterClose) return;
-      if (wd && t >= 9 * 60 + 15 && t < 15 * 60 + 10) return;  // 盘中仍不跑，避免打断行情
-      if (_kbfBusy) return;
-      const ds = todayStr();
-      if (_kbfProg.day !== ds) { _kbfProg.day = ds; _kbfProg.scanned = 0; _kbfProg.added = 0; _kbfProg.fail = 0; }
-      // 15:30 后强制补齐模式：突破单日 12000 上限（收盘后这是必须完成的）
-      if (!afterClose && _kbfProg.scanned >= 12000) return;
-      try {
-        const r = await klineBackfill(afterClose ? 2000 : 1200);
-        // fy 轮：分开报「待刷新的(stale)」和「从未缓存的(missing)」，别再只用 missing 一个数 ——
-        // 全天刷完时两个都应为 0，日志里看得到才算真的补出来了。
-        if (r && r.ok && (r.addedThis || 0) > 0)
-          console.log(`[kline-backfill] 本轮补 ${r.addedThis} 只（待刷新 ${r.stale} / 未缓存 ${r.missing}）→ 学习 ${r.learn ? r.learn.added : 0} 条 / 累计 ${r.learn ? r.learn.total : '-'}`);
-      } catch (e) { console.error('[kline-backfill] 失败:', e && e.message); }
-    });
-  }
-  // 日常路：2 分钟一轮（非 15:30 后时段）
-  _kbfDailyTimer = setInterval(_kbfTick(false), 2 * 60 * 1000);
-  // 极速路调度器：每分钟检查一次是否在 15:30 后，是则切到 30 秒极速路
-  setInterval(() => {
-    const d = new Date();
-    const t = d.getHours() * 60 + d.getMinutes();
-    const wd = isTradeDay(d);
-    const inFast = wd && t >= 15 * 60 + 30 && t < 24 * 60;
-    if (inFast && !_kbfFastTimer) {
-      if (_kbfDailyTimer) { clearInterval(_kbfDailyTimer); _kbfDailyTimer = null; }
-      _kbfFastTimer = setInterval(_kbfTick(true), 30 * 1000);
-      console.log('[kline-backfill] 进入极速补齐模式（15:30 后，30 秒/2000 只）');
-    }
-    if (!inFast && _kbfFastTimer) {
-      clearInterval(_kbfFastTimer); _kbfFastTimer = null;
-      if (!_kbfDailyTimer) _kbfDailyTimer = setInterval(_kbfTick(false), 2 * 60 * 1000);
-      console.log('[kline-backfill] 恢复日常补齐模式（2 分钟/1200 只）');
-    }
-  }, 60 * 1000);
+  // 历史维护统一每分钟调度；盘后、启动和手动也不能绕过内部日预算/退避。
+  const _kbfTick = guard('kline-backfill', async () => {
+    if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') return;
+    const d = new Date(Date.now() + 8 * 3600000);
+    const t = d.getUTCHours() * 60 + d.getUTCMinutes();
+    const civil = new Date(d.toISOString().slice(0, 10) + 'T12:00:00');
+    if (isTradeDay(civil) && t >= 9 * 60 + 15 && t < 15 * 60 + 30) return;
+    const r = await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60);
+    if (r && r.ok && r.addedThis) console.log(`[kline-backfill] 本轮补 ${r.addedThis} 只；今日已预留 ${r.budget.attemptedToday}/${r.budget.dailyLimit}`);
+  });
+  setInterval(_kbfTick, HISTORY_BACKFILL_POLICY.minIntervalMs);
 
   // ── 全市场趋势扫描：学完就用，把学习模型在全市场挑出来的票推给你 ──
   //   这是"学习全市场K线、发掘上涨票"这条主线的出口。盘中不跑（免得打断行情扫描），
@@ -16991,8 +17637,8 @@ async function init() {
         m += `⏱ 比定稿早 5 分钟：这是 9:20 起不可撤单阶段的匹配价快照（9:25 定稿另发完整版）\n`;
         const L = au.globalLeader;
         // ⛔ 判不出不硬判：缺失显示「—」，绝不打印 null% / undefined
-        if (L) m += `\n🎯 竞价龙头: ${L.leaderName}(${L.leaderCode}) ${L.leaderPct == null ? '—' : (L.leaderPct > 0 ? '+' : '') + L.leaderPct + '%'}\n  板块【${L.sector}】主力净流入${((L.sectorInflow || 0) / 1e8).toFixed(1)}亿 板内上涨${L.upCount == null ? '—' : L.upCount}/${L.totalCount == null ? '—' : L.totalCount}\n`;
-        const strong = (au.strong || []).slice(0, 5);
+        if (L) m += `\n板块来源记载领涨（非个股推荐）: ${L.leaderName}(${L.leaderCode}) ${L.leaderPct == null ? '—' : (L.leaderPct > 0 ? '+' : '') + L.leaderPct + '%'}\n  板块【${L.sector}】主力净流入${((L.sectorInflow || 0) / 1e8).toFixed(1)}亿 板内上涨${L.upCount == null ? '—' : L.upCount}/${L.totalCount == null ? '—' : L.totalCount}\n`;
+        const strong = reviewedRows(au.strong).slice(0, 5);
         if (strong.length) m += '\n【竞价强势 Top5】\n' + strong.map(x =>
           `▪ ${x.name}(${x.code}) ${x.auctionPct > 0 ? '+' : ''}${x.auctionPct}% 主力${x.mainInflow >= 1e8 ? (x.mainInflow / 1e8).toFixed(1) + '亿' : Math.round(x.mainInflow / 1e4) + '万'}`).join('\n') + '\n';
         const secs = (au.sectors || []).slice(0, 3);
@@ -17005,7 +17651,7 @@ async function init() {
         //    且 9:25 之后窗口关闭再也不补。pushAll 被拦下时返回 true（不会自行解除的闸门），
         //    这里按「返回值 !== false 才置位」收口；夜间静默那种 false 才值得下轮重试。
         // ⛔ 2026-10-08 修：用户要求"竞价推送全部走私密通道" —— 竞价预览（9:20 早班车）改私密机器人
-        if (pushAll(m, true, { private: true }) !== false) auctionPrevDate = ds;
+        if (pushAll(m, true, strong.length ? recommendationSendOptions(strong, { private: true }) : {private:true}) !== false) auctionPrevDate = ds;
         else console.log('[竞价预览] 本轮推送被闸门拦下，保留今天重试机会');
         console.log('[竞价预览] 9:20 早班车已处理，样本 ' + rc + ' 只');
       } catch (e) { console.error('[竞价预览] 失败:', e && e.message); }
@@ -17094,7 +17740,7 @@ async function init() {
         // ⛔ 2026-10-06：正文构造已抽成 buildAuctionAlertMessage（与 /api/auction-digest 手动补发共用），
         //    「迟到快照要在标题与正文里说清楚」那段说明也一并搬到函数里，两处口径永远一致。
         const msg = buildAuctionAlertMessage(au, false);
-        if (pushAll(msg, false, { private: true }) !== false) {
+        if (pushAll(msg, false, auctionSendOptions(au, msg)) !== false) {
           auctionSentDate = ds;
           // ⛔ hg 轮（用户「竞价 9:25 推送不要忘记了」）：竞价强势票（m2）跟着主定稿的
           //    成功一起走 —— 旧写法在 setTimeout 里【无条件】发：主定稿被闸门拦下时，
@@ -17104,7 +17750,7 @@ async function init() {
           setTimeout(() => {
             try {
               const m2 = buildAuctionStrongMessage(10);
-              if (m2) { pushAll(m2, true, { private: true }); console.log('[竞价强势票] 已推送'); }
+              if (m2) { pushAll(m2, true, auctionSendOptions(S.auction, m2)); console.log('[竞价强势票] 已推送'); }
               else console.log('[竞价强势票] 强势票为空，跳过');
             } catch (e) { console.error('[竞价强势票] 推送失败:', e && e.message); }
           }, 4000);
@@ -17474,7 +18120,7 @@ async function init() {
     nextPlanBusy = true;
     try {
       if (!((S.nextplan || {}).plan)) {
-        try { await klineBackfill(2000, 60); } catch (e) { console.error('[health] 补推计划 K线补齐失败:', e && e.message); }
+        try { await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60); } catch (e) { console.error('[health] 补推计划 K线补齐失败:', e && e.message); }
         try { await computeNextPlan(80); } catch (e) { console.error('[health] 补推计划 computeNextPlan 失败:', e && e.message); }
       }
       if (!((S.nextplan || {}).plan)) return { skip: 'planEmpty' };
@@ -17908,6 +18554,8 @@ function saveAccessOrRestore(previousAccess) {
 // ② 观看密码(view)  ：任意设备验证一次即可长期只读，只能看行情，不能改任何东西，也看不到「我的持仓」
 // 两套密码各自独立加盐哈希，互不影响；会话令牌与长期设备令牌也都按角色分池。
 const _tokens = new Map();   // 开发者会话 token -> 过期时间戳（60 分钟）
+const _editSessionDevices = new Map(); // 开发者短会话 -> 授权设备摘要
+const _passwordOnlyEditSessions = new Map(); // 仅设置/改密例外：一小时且受口令世代约束
 const _vtokens = new Map();  // 观看者会话 token -> 过期时间戳（12 小时，观看不必频繁重输）
 const _viewSessionDevices = new Map(); // 只读短会话 -> 授权设备摘要；旧版无绑定会话保守失效
 function hashPwd(pwd, salt) {
@@ -18285,6 +18933,15 @@ function expireIdleViewDevices(now, opts) {
   if (keys.length) { revokeViewSessionsForDevices(keys); saveAccess(); closeRevokedSseConnections(); }
   return { removed: keys.length, names, idleMs };
 }
+function revokeEditSessionsForDevices(digests) {
+  const removed = new Set(digests);
+  for (const token of _tokens.keys()) {
+    const bound = _editSessionDevices.get(token);
+    if (!bound || removed.has(bound)) {
+      _tokens.delete(token); _editSessionDevices.delete(token); _passwordOnlyEditSessions.delete(token);
+    }
+  }
+}
 function revokeViewSessionsForDevices(digests) {
   const removed = new Set(digests);
   for (const token of _vtokens.keys()) {
@@ -18292,12 +18949,17 @@ function revokeViewSessionsForDevices(digests) {
     if (!bound || removed.has(bound)) { _vtokens.delete(token); _viewSessionDevices.delete(token); }
   }
 }
-function issueToken(role, deviceToken) {
+function issueToken(role, deviceToken, { passwordOnly = false } = {}) {
   const t = crypto.randomBytes(24).toString('hex');
   if (role === 'view') {
     _vtokens.set(t, Date.now() + 12 * 60 * 60 * 1000);
     if (deviceToken) _viewSessionDevices.set(t, devDigest(deviceToken));
-  } else _tokens.set(t, Date.now() + 60 * 60 * 1000);
+  } else {
+    if (!deviceToken && !passwordOnly) throw Error('开发者会话必须绑定授权设备');
+    _tokens.set(t, Date.now() + 60 * 60 * 1000);
+    if (deviceToken) _editSessionDevices.set(t, devDigest(deviceToken));
+    else _passwordOnlyEditSessions.set(t, Number(accessSecret && accessSecret.gen) || 0);
+  }
   return t;
 }
 // 长期设备令牌：一次验证，该设备之后自动免密（可在面板按角色查看/撤销）
@@ -18360,7 +19022,13 @@ function roleOf(t, ip) {
   if (!t) return null;
   const exp = _tokens.get(t);
   if (exp) {
-    if (Date.now() > exp) { _tokens.delete(t); return null; }
+    const digest = _editSessionDevices.get(t);
+    const passwordOnly = _passwordOnlyEditSessions.has(t) &&
+      _passwordOnlyEditSessions.get(t) === (Number(accessSecret && accessSecret.gen) || 0);
+    const record = digest && accessSecret && accessSecret.devices && accessSecret.devices[digest];
+    if (Date.now() > exp || (!digest && !passwordOnly) || (digest && (!record || record.role === 'view'))) {
+      _tokens.delete(t); _editSessionDevices.delete(t); _passwordOnlyEditSessions.delete(t); return null;
+    }
     return 'edit';
   }
   const vexp = _vtokens.get(t);
@@ -18527,7 +19195,7 @@ if (!hasPhone()) {
 // _otpHit/_authFail（限流计数）都只增不扫的话，跑几个月内存里全是尸体。
 setInterval(() => {
   const now = Date.now();
-  try { for (const [t, exp] of _tokens) if (exp < now) _tokens.delete(t); } catch {}
+  try { for (const [t, exp] of _tokens) if (exp < now) { _tokens.delete(t); _editSessionDevices.delete(t); _passwordOnlyEditSessions.delete(t); } } catch {}
   try { for (const [t, exp] of _vtokens) if (exp < now) { _vtokens.delete(t); _viewSessionDevices.delete(t); } } catch {}
   try { for (const [k, v] of _otp) if (!v || (v.exp || 0) < now) _otp.delete(k); } catch {}
   try { _sweepCodes(); } catch {}
@@ -18543,6 +19211,8 @@ setInterval(() => {
   for (const m of [_tokens, _vtokens, _otp, AUTH_CODES, _otpHit, _authFail, _devTouch]) {   // 兜底硬上限
     try { if (m.size > 5000) { const ks = [...m.keys()].slice(0, m.size - 2500); for (const k of ks) m.delete(k); } } catch {}
   }
+  for (const t of _editSessionDevices.keys()) if (!_tokens.has(t)) _editSessionDevices.delete(t);
+  for (const t of _passwordOnlyEditSessions.keys()) if (!_tokens.has(t)) _passwordOnlyEditSessions.delete(t);
 }, 10 * 60 * 1000).unref();
 
 function pushVerifyCode(code, minutes, onDelivery) {
@@ -18740,7 +19410,7 @@ function handle(req, res, u, body) {
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
-  const isAsset = p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
+  const isAsset = p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/v6-research.html' || p === '/v6-validation.html' || p === '/v6-paper.html' || p === '/v6-market-radar.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
   // 找回密码三步聚 allowlist：忘记密码时手头没有任何凭证，必须在门禁之前放行，否则永远走不下去
   const isAuth = p === '/api/lock/status' || p === '/api/lock/setup' || p === '/api/lock/unlock' || p === '/api/lock/change' || p === '/api/lock/trust'
@@ -19229,7 +19899,7 @@ function handle(req, res, u, body) {
         firedS.push(a);
       }
       let sent = false;
-      if (firedS.length && !sDry) { pushWecom(buildAlertsReport(firedS), true); sent = true; }
+      if (firedS.length && !sDry) { pushWecom('═══ 模拟链路演示 · 非真实股票推荐 ═══\n' + buildAlertsReport(firedS), true); sent = true; }
       return json(res, {
         ok: true, sim: true, sent,
         fired: firedS.map(a => ({ type: a.type, name: a.name, strong: a.strong, pushNo: a.pushNo })),
@@ -19490,11 +20160,11 @@ function handle(req, res, u, body) {
   if (p === '/api/kline-backfill' && req.method === 'POST') {
     let kbTok = '', n = 0;
     // klineBackfill 内部自己钳到 2000，这里前置钳一次：负值会让它 "补 -5 只" 的语义含糊
-    try { const b = JSON.parse(body || '{}'); kbTok = b.token || ''; n = _clampInt(b.n, 1, 2000, 0); } catch {}
+    try { const b = JSON.parse(body || '{}'); kbTok = b.token || ''; n = _clampInt(b.n, 0, HISTORY_BACKFILL_POLICY.batchLimit, HISTORY_BACKFILL_POLICY.batchLimit); } catch {}
     if (!requireEditor(res, kbTok, req)) return;
     if (_kbfBusy) return json(res, { ok: true, pending: true, prog: _kbfProg, note: '上一轮还在补，稍后再看' });
-    json(res, { ok: true, pending: true, note: '补齐中（每只约 110ms，量大时请耐心）' });
-    klineBackfill(n || 300).then(r => {
+    json(res, { ok: true, pending: true, note: '历史补齐受共享日预算及退避约束' });
+    klineBackfill(n).then(r => {
       console.log('[kline-backfill] 手动补完成:', JSON.stringify(r).slice(0, 200));
       if (!isReplica() && r && r.ok && r.added)
         pushLog('📚 全市场补票', '═══ 📚 全市场K线补齐 ═══',
@@ -19567,6 +20237,8 @@ function handle(req, res, u, body) {
         json(res, {
           ok: true, code, name: stockNameOf(code), ...page,
           ma: page.rows.length ? klineMaOf(page.rows) : null,
+          dataQuality:require('./src/core/quote-observation-view').klineObservation(
+            _klineReadMeta.get(code)?.snapshot||S.klines.get(code),rows,{...(_klineReadMeta.get(code)||{}),now:Date.now()}),
         });
       } catch (e) { json(res, { ok: false, error: (e && e.message) || String(e), code }); }
     })();
@@ -19925,7 +20597,7 @@ function handle(req, res, u, body) {
         const msg = buildAuctionStrongMessage(aTop);
         if (!msg) throw new Error('竞价强势票为空（有效样本 ' + ((S.auction && S.auction.validCount) || 0) + ' 只）');
         // ⛔ 2026-10-08 修：用户要求"竞价推送全部走私密通道" —— 竞价强势票改私密机器人
-        pushAll(msg, true, { private: true });
+        pushAll(msg, true, auctionSendOptions(S.auction, msg, true));
         console.log('[竞价强势票] 推送完成 validCount=' + ((S.auction && S.auction.validCount) || 0));
       } catch (e) {
         const em2 = (e && e.message) || String(e);
@@ -19963,7 +20635,7 @@ function handle(req, res, u, body) {
       const msg = buildAuctionAlertMessage(au, true);
       // ⛔ 手动补发必须打上「今天已发」：否则那个自动窗口（gb 轮起为 9:25~9:26）内还会再发一份一模一样的。
       // ⛔ 2026-10-08 修：用户要求"竞价推送全部走私密通道" —— 竞价异动手动补发改私密机器人
-      if (!sDry) { pushAll(msg, true, { private: true }); auctionSentDate = todayStr(); sent = true; }
+      if (!sDry) { sent = pushAll(msg, true, auctionSendOptions(au, msg, true)) !== false; if (sent) auctionSentDate = todayStr(); }
 
       return json(res, { ok: true, readyCount, strong: strong.length, sectors: secs.length, ztInfers: zi.length, leader: L ? (L.leaderName || null) : null, auctionTime: au ? au.time : null, sent });
     }).catch(e => {
@@ -20123,7 +20795,7 @@ if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) return json(res, { 
     //    正是 cd 轮刚清掉的那类垃圾。代价是本次登录只有 1 小时：与其让用户一小时后莫名其妙
     //    掉线，不如现在就把时效讲明白。（文案用单引号常量：_test_error_advice.js 只抠单引号文案）
     return json(res, {
-      ok: true, role: 'edit', token: issueToken('edit'),
+      ok: true, role: 'edit', token: issueToken('edit', null, { passwordOnly: true }),
       note: '密码已设置，本次登录 1 小时内有效（未绑定本机指纹）。之后重新输入口令即可；想长期免密，请在登录框里正常登录一次（会绑定指纹）'
     });
   }
@@ -20146,7 +20818,7 @@ if (p === '/api/lock/unlock' && req.method === 'POST') {
         // ✅ 修复：口令登录也签发长期设备令牌。否则只发内存短令牌，服务端每次重启（托管平台常回收实例）就把人踢回登录页，
         //        逼着走「忘记密码」流程 → 反复收验证码推送。设备令牌自签名、随 machineKey 跨发版存活。
         const dt = issueDevice({ name: '开发者登录·' + (_unm || 'web'), ip: clientIp(req), fp: _ufp }, 'edit');
-        return json(res, { ok: true, role: 'edit', token: issueToken('edit'), deviceToken: dt, note: '已以开发者身份进入（可编辑·本设备已授权长期免密）' });
+        return json(res, { ok: true, role: 'edit', token: issueToken('edit', dt), deviceToken: dt, note: '已以开发者身份进入（可编辑·本设备已授权长期免密）' });
       }
 
       if (_viewGate(req, res, body)) return;   // 只读：需开发者放行
@@ -20178,7 +20850,7 @@ if (p === '/api/lock/unlock' && req.method === 'POST') {
     if (!pwdOk(pwd, 'edit')) { authFail(req, p); return json(res, { ok: false, error: '密码错误' }); }
     authOk(req, p);
 const dt2 = issueDevice({ name: '开发者登录·' + (_unm || 'web'), ip: clientIp(req), fp: _ufp }, 'edit');
-    return json(res, { ok: true, role: 'edit', token: issueToken('edit'), deviceToken: dt2 });
+    return json(res, { ok: true, role: 'edit', token: issueToken('edit', dt2), deviceToken: dt2 });
   }
   if (p === '/api/lock/change' && req.method === 'POST') {
     let pwd = '', npwd = '', tok = '', role = 'edit';
@@ -20229,7 +20901,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //    ① 其它设备已全部掉线，这是**预期行为**不是故障；② 本机这个登录也只有 1 小时。
     //    否则用户在手机上改完密码，回头发现电脑端掉了，会以为改密码把系统改坏了。
     return json(res, {
-      ok: true, role: 'edit', token: issueToken('edit'),
+      ok: true, role: 'edit', token: issueToken('edit', null, { passwordOnly: true }),
       note: '密码已更新：其它设备上的登录已全部失效（这是预期行为），本机本次登录 1 小时内有效。想长期免密，请在登录框里正常登录一次（会绑定指纹）'
     });
   }
@@ -20602,15 +21274,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     }
     _otp.delete('R' + rt);  // 落盘成功才消费一次性重置票据
     _otp.delete('CUR:' + crypto.createHash('sha256').update(rec.ip).digest('hex'));
-    _tokens.clear();                 // 短会话令牌（输一次密码换一次的那种）作废
+    _tokens.clear(); _editSessionDevices.clear(); _passwordOnlyEditSessions.clear(); // 开发者短会话作废
     if (kick) { _vtokens.clear(); _viewSessionDevices.clear(); }      // 全网下线时才连观看短令牌一起清
-    const t = issueToken('edit');
     // 找回的这台设备当场签发长期令牌：省掉前端「再用新密码调一次 trust」的往返 ——
     // 那一步一旦撞上 IP 限流窗口就会失败，表现为「明明找回成功，还是被留在登录页」。
     let devTok = '';
     try {
       if (!kick) devTok = issueDevice({ name: (_rnm || '找回后自动信任').slice(0, 40), ip: clientIp(req), fp: _rfp }, 'edit');
     } catch (e) { console.error('[reset] 签发设备令牌失败', e && e.message); }
+    const t = issueToken('edit', devTok || null, { passwordOnly: !devTok });
     // 新密码必须回到本人手机：卡片 + 文本双发，任何一个到了都算送达
     // ⛔ 2026-10-06 修：sendPwdCard 是 async，原来写 `try { sendPwdCard(...) } catch(e){...}`
     //   —— **没有 await 的 async 调用，reject 根本进不了这个 catch**，它只会变成 unhandledRejection。
@@ -20719,11 +21391,12 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     let hit = 0;
     let revokedView = false;
     const revokedViewDigests = [];
+    const revokedEditDigests = [];
     const rev = _revokedBag();
     // 开发者设备与只读设备都可撤销（这正是保留在开发者手里的"收回观看权"开关）
     for (const [index, bag] of [(accessSecret && accessSecret.devices) || {}, (viewStore() && viewStore().devices) || {}].entries()) {
       for (const d of Object.keys(bag)) {
-        if (d.startsWith(id)) { delete bag[d]; rev[d] = Date.now(); hit++; if (index === 1) { revokedView = true; revokedViewDigests.push(d); } }
+        if (d.startsWith(id)) { delete bag[d]; rev[d] = Date.now(); hit++; if (index === 1) { revokedView = true; revokedViewDigests.push(d); } else revokedEditDigests.push(d); }
       }
     }
     // 自证令牌不依赖 access.json 验真，撤销必须同时写进 revoked 名单，否则撤了还能进
@@ -20732,6 +21405,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if (!saveAccessOrRestore(beforeRevoke)) return json(res, { ok: false, error: '撤销未能持久化，已回滚本次修改；请检查磁盘状态后重试。' });
     // 旧版短会话没有设备绑定；撤销只读设备后全部只读短会话一并退出，防止继续访问。
     if (revokedView) revokeViewSessionsForDevices(revokedViewDigests);
+    if (revokedEditDigests.length) revokeEditSessionsForDevices(revokedEditDigests);
     if (hit) closeRevokedSseConnections();
     return json(res, { ok: true, revoked: hit });
   }
@@ -20746,6 +21420,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if (act !== 'prune') return json(res, { ok: false, error: '未知操作' });
     const beforePrune = structuredClone(accessSecret);
     const prunedViewDigests = [];
+    const prunedEditDigests = [];
     let removed = 0;
     const cut = Date.now() - days * 86400000;
     // u 版：被清理的记录必须同步进 revoked 名单——自证令牌验真不查设备台账，
@@ -20783,12 +21458,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         if ((v.ts || 0) > (kk.ts || 0)) { seenPh.set(key, k); stale.push(keep); }
         else stale.push(k);
       }
-      for (const k of new Set(stale)) { delete bag[k]; rev[k] = Date.now(); removed++; if (bagIndex === 1) prunedViewDigests.push(k); }
+      for (const k of new Set(stale)) { delete bag[k]; rev[k] = Date.now(); removed++; if (bagIndex === 1) prunedViewDigests.push(k); else prunedEditDigests.push(k); }
     }
     // ⛔ 同"撤销设备"那条：清掉的只是内存里的记录，没落盘就等于没清理 ——
     //    用户看到"已清理 N 条"，重启后那 N 条原样回来。
     if (!saveAccessOrRestore(beforePrune)) return json(res, { ok: false, error: '清理未能持久化，已回滚本次修改；请检查磁盘状态后重试。' });
     if (prunedViewDigests.length) revokeViewSessionsForDevices(prunedViewDigests);
+    if (prunedEditDigests.length) revokeEditSessionsForDevices(prunedEditDigests);
     if (removed) closeRevokedSseConnections();
     return json(res, { ok: true, removed, note: removed ? `已合并/清理 ${removed} 条重复或 ${days} 天未露面的记录` : '没有需要清理的记录' });
   }
@@ -20850,6 +21526,31 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/strategy36'){
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const research=require('./src/strategy/research36');
+    if(req.method==='GET')return json(res,{ok:true,catalog:research.getCatalog()});
+    if(req.method!=='POST')return json(res,{ok:false,error:'仅允许GET或POST'},405);
+    if(Buffer.byteLength(body||'','utf8')>256*1024)return json(res,{ok:false,error:'研究输入超过256KB'},413);
+    try{
+      const input=JSON.parse(body||'{}');
+      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['stock','asOf','config'].includes(k))||input.asOf>Date.now())throw Error('输入无效');
+      return json(res,{ok:true,result:research.evaluateResearch36(input)});
+    }catch{return json(res,{ok:false,error:'研究输入、配置或时点无效；未执行生产操作'},422);}
+  }
+  if(p==='/api/research/news-evidence'){
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET；新闻证据导入使用显式本地CLI'});
+    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token'].includes(k)))return reply(400,{ok:false,error:'未知查询参数'});
+    try{
+      const result=require('./src/core/news-evidence-journal').query(NEWS_EVIDENCE_ROOT,{
+        symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50});
+      return reply(200,{ok:true,result});
+    }catch{return reply(422,{ok:false,status:'unknown',error:'新闻证据不可用、完整性校验失败或查询参数无效'});}
+  }
   if(p==='/api/research/order-account'){
     if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
     if(!requireEditor(res,req.__tok,req))return;
@@ -20933,6 +21634,28 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       {date:input.date,sectorCode:input.sectorCode,symbol:input.symbol,historyDays:input.historyDays})
       .then(capture=>reply(200,{ok:true,result:capture.report,archive:{hash:capture.hash,reused:capture.reused}}))
       .catch(()=>reply(422,{ok:false,error:'公开数据不可用、封存失败或请求参数无效'}));
+  }
+  if (p === '/api/signals/evidence') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+    try {
+      const result=SignalJournal.readEvidence(process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence'),
+        {code:u.searchParams.get('code'),date:u.searchParams.get('date'),
+          ...(u.searchParams.has('id')?{id:u.searchParams.get('id')}:{}),limit:Math.max(1,Math.min(200,Number(u.searchParams.get('limit'))||100))});
+      return reply(200,{ok:true,...result});
+    }catch(error){return reply(422,{ok:false,error:'冻结证据不存在、身份无效或完整性校验失败'});}
+  }
+  if (p === '/api/research/risk-center') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
+    try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
+      state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
+    catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
   }
   if (p === '/api/research/agent-status') {
     res.setHeader('Cache-Control','no-store');
@@ -21109,7 +21832,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
             ...(b.end===undefined?{}:{end:b.end}),...(b.initialCash===undefined?{}:{initialCash:b.initialCash}),
             ...(b.topN===undefined?{}:{topN:b.topN}),...(b.holdDays===undefined?{}:{holdDays:b.holdDays}),
             ...(b.feeBps===undefined?{}:{feeBps:b.feeBps}),...(b.slippageBps===undefined?{}:{slippageBps:b.slippageBps}),
-            ...(b.sellTaxBps===undefined?{}:{sellTaxBps:b.sellTaxBps})});
+            ...(b.sellTaxBps===undefined?{}:{sellTaxBps:b.sellTaxBps}),
+            ...(b.lotSize===undefined?{}:{lotSize:b.lotSize}),
+            ...(b.tradingDates===undefined?{}:{tradingDates:b.tradingDates}),
+            ...(b.strictHistoricalStatus===undefined?{}:{strictHistoricalStatus:b.strictHistoricalStatus}),
+            ...(b.maxParticipationPct===undefined?{}:{maxParticipationPct:b.maxParticipationPct}),
+            ...(b.minPriorTurnover===undefined?{}:{minPriorTurnover:b.minPriorTurnover}),
+            ...(b.maxDrawdownPausePct===undefined?{}:{maxDrawdownPausePct:b.maxDrawdownPausePct}),
+            ...(b.maxDailyLossPausePct===undefined?{}:{maxDailyLossPausePct:b.maxDailyLossPausePct}),
+            ...(b.feeSchedules===undefined?{}:{feeSchedules:b.feeSchedules}),
+            ...(b.riskPolicy===undefined?{}:{riskPolicy:b.riskPolicy}),
+            ...(b.universeHistory===undefined?{}:{universeHistory:b.universeHistory}),
+            ...(b.settlements===undefined?{}:{settlements:b.settlements})});
       return json(res,{ok:true,verifiedLive:false,provenance:'user-uploaded-unverified',
         warning:'上传行情未经过供应商真实性验证，不是实时选股或实盘收益',result});
     } catch(e) { return json(res,{ok:false,error:String(e&&e.message||e).slice(0,300)}); }
@@ -21494,7 +22228,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       }
       const k = S.klines.get(c.code);
       const levels = k && k.rows ? A.computeLevels(k.rows, c.price, c.high, c.low) : null;
-      return { ...c, retain, retainWin, retainTxt, levels, bad: S.news.badCodes.has(c.code) };
+      return { ...c, retain, retainWin, retainTxt, levels, bad: newsWarnsCode(c.code) };
     });
     // 模拟盘双账户状态（A跟单盘10万 / B预选盘50万）
     const pmPaper = paperPrices();
@@ -21502,12 +22236,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //    两个实例共用同一个构造，展示口径才不会各写一份然后分叉。
     const mkPaper = key => paperSnap(key, pmPaper);
     // 利空板块 = 消息命中板块 ∪ 重挫板块（大跌+主力净流出）
-    const newsSecs = (S.sectors || []).filter(s => S.news.badSectors.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
+    const visibleNews=newsEvidenceVisibleState().news;
+    const newsSectorNames=new Set(visibleNews.badAll.flatMap(x=>x.sectors||[]));
+    const newsSecs = (S.sectors || []).filter(s => newsSectorNames.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
     const heavySecs = (S.sectors || []).filter(s => s.pct <= -1.5 && (s.mainInflow || 0) < 0).slice(0, 10).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '重挫' }));
     const badSectorsAll = [...newsSecs, ...heavySecs.filter(h => !newsSecs.some(n => n.name === h.name))].slice(0, 12);
     // 利好3日归档聚合：受益板块/个股热度
     const secCnt = {}, stCnt = {};
-    for (const x of S.news.goodAll) {
+    for (const x of visibleNews.goodAll) {
       for (const sn of (x.sectors || [])) secCnt[sn] = (secCnt[sn] || 0) + 1;
       for (const cd of (x.codes || [])) stCnt[cd] = (stCnt[cd] || 0) + 1;
     }
@@ -21516,20 +22252,23 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const statOf = codes => {
       const rel = (codes || []).map(cd => S.stocks.find(s => s.code === cd)).filter(s => s && s.price);
       if (!rel.length) return null;
-      const up = rel.filter(s => s.pct > 0).length;
-      const down = rel.filter(s => s.pct < 0).length;
+      const pctKnown=rel.filter(s=>fundsNumber(s.pct)!==null),fundsKnown=rel.filter(s=>fundsNumber(s.mainInflow)!==null);
+      const pctComplete=pctKnown.length===rel.length,fundsComplete=fundsKnown.length===rel.length;
+      const up = pctComplete?rel.filter(s => s.pct > 0).length:null;
+      const down = pctComplete?rel.filter(s => s.pct < 0).length:null;
       // 涨停家数必须按板块限幅判：写死 >= 9.4 就永远数不到 ST（旧口径 5%、现 10% 里偏弱的）
       // 与 20cm/30cm 涨停，而这里恰恰是「利好加推·利空减推」的依据 —— 少算涨停会削弱利好、放大恐慌。
-      const limit = rel.filter(s => s.pct != null && A.isLimitUp(s.code, s.name, s.pct)).length;
-      const avgPct = +(rel.reduce((a, s) => a + (s.pct || 0), 0) / rel.length).toFixed(1);
-      const mainSum = Math.round(rel.reduce((a, s) => a + (s.mainInflow || 0), 0));
-      return { total: rel.length, up, down, limit, avgPct, mainSum };
+      const limit = pctComplete?rel.filter(s => A.isLimitUp(s.code, s.name, s.pct)).length:null;
+      const avgPct = pctComplete?+(rel.reduce((a, s) => a + s.pct, 0) / rel.length).toFixed(1):null;
+      const mainSum = fundsComplete?Math.round(rel.reduce((a, s) => a + s.mainInflow, 0)):null;
+      return { total: rel.length, up, down, limit, avgPct, mainSum,
+        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:rel.length,pctComplete,fundsComplete} };
     };
     const relCodeMap = new Map(S.stocks.map(s => [s.code, s]));
     // 每条消息的直接影响个股（新闻点名）+ 间接影响个股（新闻提到的板块成分股，涨幅强的在前）
     const relatedOf = x => {
       const direct = (x.codes || []).map(cd => relCodeMap.get(cd)).filter(s => s && s.price)
-        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: +s.pct || 0, price: s.price, direct: true }));
+        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: true }));
       const dset = new Set(direct.map(d => d.code));
       const indirect = [];
       for (const nm of (x.sectors || [])) {
@@ -21538,7 +22277,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         for (const s of c.list) {
           if (dset.has(s.code) || indirect.some(i => i.code === s.code)) continue;
           if (A.isJunkName(s.name) || s.code.startsWith('30') || s.code.startsWith('68')) continue;
-          indirect.push({ code: s.code, name: s.name, pct: +s.pct || 0, price: s.price, direct: false, via: nm });
+          indirect.push({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: false, via: nm });
           if (indirect.length >= 8) break;
         }
         if (indirect.length >= 8) break;
@@ -21546,7 +22285,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return { direct, indirect };
     };
     return json(res, {
-      dashboard: require('./src/core/dashboard-view').dashboardView(S,marketMood(),Date.now(),dashboardPushMeta(_stEdit)),
+      dashboard: require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(),marketMood(),Date.now(),dashboardPushMeta(_stEdit)),
       now: Date.now(), trading: isTradingTime(),
       loop: S.loop,
       auction: S.auction,
@@ -21706,10 +22445,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       // mirror=true 表示这台实例是副本：模拟盘不在这儿跑，展示的是从线上同步过来的那份。
       // ⛔ 必须让用户看得见 —— 否则副本上"模拟盘一动不动"会被当成坏了。
       paper: _stEdit ? { pool: mkPaper('pool'), pre: mkPaper('pre'), mirror: isReplica() } : { hidden: true, pool: null, pre: null },
-      badNews: { time: S.news.time, items: S.news.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...S.news.badCodes].slice(0, 60), sectors: badSectorsAll },
+      badNews: { time: S.news.time, items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
       goodNews: {
         time: S.news.time,
-        items: [...S.news.goodAll, ...S.news.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
+        items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
         hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
         hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
       },
@@ -21729,29 +22468,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   }
   // V6 参考图首页四大指数：使用腾讯公开行情快照；缺失/异常时返回 unavailable，绝不填充演示数字。
   if (p === '/api/reference-indexes') {
-    const https = require('https');
     const codes = [
       { key: 'sh', code: 'sh000001', name: '上证指数' },
       { key: 'sz', code: 'sz399001', name: '深证成指' },
       { key: 'cyb', code: 'sz399006', name: '创业板指' },
       { key: 'kc50', code: 'sh000688', name: '科创50' }
     ];
-    const request = new Promise((resolve, reject) => {
-      const req = https.get('https://qt.gtimg.cn/q=' + codes.map(x => x.code).join(','), {
-        headers: { 'User-Agent': 'Mozilla/5.0', Connection: 'close' },
-        timeout: 6500
-      }, upstream => {
-        const chunks = [];
-        upstream.on('data', chunk => chunks.push(chunk));
-        upstream.on('end', () => {
-          if (upstream.statusCode !== 200) return reject(new Error('指数行情源 HTTP ' + upstream.statusCode));
-          try { resolve(new TextDecoder('gbk').decode(Buffer.concat(chunks))); }
-          catch (e) { reject(e); }
-        });
-      });
-      req.on('timeout', () => req.destroy(new Error('指数行情源超时')));
-      req.on('error', reject);
-    });
+    const request = em.requestQuoteBytes('https://qt.gtimg.cn/q=' + codes.map(x => x.code).join(','))
+      .then(bytes => new TextDecoder('gbk').decode(bytes));
     request.then(raw => {
       const byCode = new Map();
       for (const line of String(raw).split(';')) {
@@ -21776,7 +22500,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       json(res, { ok: Object.keys(items).length > 0, source: 'tencent-qt', asOf: new Date().toISOString(), items,
         missing: codes.filter(x => !items[x.key]).map(x => x.key) });
     }).catch(error => {
-      json(res, { ok: false, source: 'tencent-qt', asOf: new Date().toISOString(), items: {}, missing: codes.map(x => x.key), error: String(error && error.message || error) });
+      json(res, { ok: false, source: 'tencent-qt', asOf: new Date().toISOString(), items: {}, missing: codes.map(x => x.key), error: /timeout/i.test(String(error?.message)) ? '指数行情源超时' : String(error && error.message || error) });
     });
     return;
   }
@@ -21795,6 +22519,12 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   //    放开门禁后任何只读设备都能靠反复 force 把线上实例按在持续扫描上——这是 js 轮放开时
   //    漏掉的动作分级。现把 force 收回给开发者：只读身份照常看卡片（60 秒缓存 + 自己的 30 秒
   //    轮询，数据新鲜度不受影响），手动「🔄 刷新」对只读取缓存结果（响应带 asOf，时间可见）。
+  if (p === '/api/v6/matches' && req.method === 'GET') {
+    const requested = u.searchParams.get('limit');
+    const limit = requested === null ? 50 : /^\d+$/.test(requested) ? Number(requested) : NaN;
+    const cursor = u.searchParams.get('cursor') || '';
+    return json(res, v6MatchesSnapshotStore.page({ limit, cursor }));
+  }
   if (p === '/api/quant-picks') {
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
@@ -21895,7 +22625,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     })();
     return;
   }
-  // 手动强制刷新：打开页面全量刷 / 单卡片按钮刷 —— 不受数据窗口限制（周末也能拉最近交易日复盘）
+  // Explicit card recollection is bounded across browser sessions; ordinary page loading only reads cloud state.
   if (p === '/api/refresh' && req.method === 'POST') {
     let mod = '';
     try { mod = ((JSON.parse(body || '{}') || {}).module || '').trim(); } catch {}
@@ -21930,15 +22660,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //   · 最危险的是 paperCheckAll：模拟盘巡检并发跑两次会**重复下单**，持仓与成交记录直接错乱
     //   现在每个模块都接同一把锁（任务名与定时器对齐，能对齐的对齐），手动刷新和定时器互斥。
     const _skipped = [];
+    const _cached = [];
     let _refreshNote = '';   // 降级说明（如副本上点模拟盘刷新 → 改为回拉线上），必须回给前端
     const _g = (name, fn) => {
       if (_taskBusy.has(name)) { _skipped.push(name); return Promise.resolve(); }
+      const admission=panelRefreshPolicy.admit(name);
+      if(!admission.allowed){_cached.push({module:name,retryAfterMs:admission.retryAfterMs});return Promise.resolve();}
       return guard(name, fn)();
     };
-    if (_want('global')) tasks.push(_g('global', async () => { const g = await em.fetchGlobal(); if (g && g.length) S.global = g; }));
-    if (_want('ext') || _want('global')) tasks.push(_g('ext', () => globalThis.__refreshGlobal ? globalThis.__refreshGlobal() : refreshExtLink()));
+    // Both aliases share one acquisition; the scheduled trading path is not a panel action.
+    if (_want('global') || _want('ext')) tasks.push(_g('global', () => refreshGlobalForDisplay()));
     if (_want('auction')) tasks.push(_g('auction', () => captureAuction()));
-    if (_want('sectors')) tasks.push(_g('sectors', () => refreshSectorsZT()));
+    if (_want('sectors')) tasks.push(_g('sectorsZT', () => refreshSectorsZT()));
     if (_want('pre')) tasks.push(_g('pre', () => scanPreBreakout(true)));
     if (mod === 'review') tasks.push(_g('review', async () => { await refreshSectorsZT(); await computeReview(); }));
     // 次日作战计划：只在手动点🔄时重算（要补拉K线，很重）。
@@ -21985,8 +22718,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       // 复盘刷新：computeReview 若尚未被 refreshSectorsZT 触发（周末窗口外），这里补跑
       if (mod === 'all' && _rfEdit && !S.review && S.ztPool.length) _g('review', () => computeReview());
       // ⛔ 被锁跳过的模块要如实回给前端：否则用户点了🔄没反应，只会以为"刷新坏了"
-      json(res, { ok: true, module: mod, errors: errs, skipped: _skipped,
-        note: [_refreshNote, _skipped.length ? `以下模块上一轮仍在跑，本次已跳过：${_skipped.join('、')}` : ''].filter(Boolean).join('；'),
+      json(res, { ok: true, module: mod, errors: errs, skipped: _skipped,cached:_cached,
+        note: [_refreshNote, _skipped.length ? `以下模块上一轮仍在跑，本次已跳过：${_skipped.join('、')}` : '',
+          _cached.length?'重复刷新已复用云端缓存，请稍后再采集':''].filter(Boolean).join('；'),
         time: new Date().toLocaleTimeString('zh-CN') });
     });
     return;

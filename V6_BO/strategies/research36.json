@@ -1,0 +1,1284 @@
+{
+  "schemaVersion": 1,
+  "version": "research36-20261113-v1",
+  "researchOnly": true,
+  "canTrade": false,
+  "note": "阈值为待验证的研究假设，不是优化后参数；上游证据是调用方声明，不能认证真实来源或盈利。",
+  "families": {
+    "trend": "趋势突破",
+    "flow": "量价资金",
+    "hot": "短线热点",
+    "quality": "基本面",
+    "event": "事件与智能"
+  },
+  "strategies": [
+    {
+      "id": "ma_trend",
+      "name": "均线多头",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "ma5Over10",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "ma10Over20",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeOver20",
+          "op": "gte",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "均线跌破或趋势反转"
+    },
+    {
+      "id": "platform",
+      "name": "平台突破",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "closeOverPrior20High",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.5,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "回落至突破平台内"
+    },
+    {
+      "id": "pullback",
+      "name": "趋势回踩",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "ma5Over10",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "ma10Over20",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeOver10",
+          "op": "between",
+          "value": [
+            1,
+            1.03
+          ],
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "lte",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "跌破中期均线"
+    },
+    {
+      "id": "new_high",
+      "name": "阶段新高",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "closeOverPrior60High",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.2,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "突破失败或量能衰减"
+    },
+    {
+      "id": "macd",
+      "name": "MACD转强",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "macdHist",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "priorMacdHist",
+          "op": "lte",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeOver20",
+          "op": "gte",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "MACD重新转负"
+    },
+    {
+      "id": "bollinger",
+      "name": "布林带突破",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "closeOverUpperBand",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "bandWidthRatio",
+          "op": "gte",
+          "value": 1.1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "回落带内且波动收缩"
+    },
+    {
+      "id": "restart",
+      "name": "二次启动",
+      "family": "trend",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "priorBreakoutRetestHeld",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeOverPrior5High",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.2,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "回踩支撑失效"
+    },
+    {
+      "id": "price_volume",
+      "name": "量价齐升",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "dailyReturnPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.5,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "放量滞涨或回落"
+    },
+    {
+      "id": "sector_resonance",
+      "name": "板块共振",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "relativeReturn20Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sectorRelativeReturn20Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sectorBreadthPct",
+          "op": "gte",
+          "value": 60,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "板块强度或广度下降"
+    },
+    {
+      "id": "relative_strength",
+      "name": "相对强弱RS",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "relativeReturn20Pct",
+          "op": "gt",
+          "value": 5,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "relativeReturn60Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "相对基准转弱"
+    },
+    {
+      "id": "turnover",
+      "name": "换手承接",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "turnoverPct",
+          "op": "between",
+          "value": [
+            3,
+            15
+          ],
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeLocation",
+          "op": "gte",
+          "value": 0.7,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "dailyReturnPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "承接衰减或过度换手"
+    },
+    {
+      "id": "fund_persistence",
+      "name": "资金持续性",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "positiveFlowDays",
+          "op": "gte",
+          "value": 3,
+          "type": "number",
+          "unit": "trading-days",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "flowCoverageDays",
+          "op": "gte",
+          "value": 5,
+          "type": "number",
+          "unit": "trading-days",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "netFlow5",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "采样不连续或资金转负"
+    },
+    {
+      "id": "chip_breakout",
+      "name": "筹码突破",
+      "family": "flow",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "chipResistanceBroken",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.5,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "筹码模型口径失效或突破失败"
+    },
+    {
+      "id": "first_board",
+      "name": "首板",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "limitStreak",
+          "op": "eq",
+          "value": 1,
+          "type": "number",
+          "unit": "trading-days",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sealedAtClose",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sealTurnoverRatio",
+          "op": "gte",
+          "value": 0.05,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "封板打开或流动性不足"
+    },
+    {
+      "id": "first_pullback",
+      "name": "首板回踩",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "daysSinceFirstBoard",
+          "op": "between",
+          "value": [
+            1,
+            3
+          ],
+          "type": "number",
+          "unit": "trading-days",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "firstBoardLowHeld",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "lte",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "首板低点失守"
+    },
+    {
+      "id": "one_to_two",
+      "name": "一进二",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "priorLimitStreak",
+          "op": "eq",
+          "value": 1,
+          "type": "number",
+          "unit": "trading-days",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "auctionReturnPct",
+          "op": "between",
+          "value": [
+            1,
+            6
+          ],
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "auctionTurnoverRatio",
+          "op": "gte",
+          "value": 0.05,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 15000
+        }
+      ],
+      "invalidation": "竞价承接不足或开盘失效"
+    },
+    {
+      "id": "weak_to_strong",
+      "name": "弱转强",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "priorWeakClose",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "auctionReturnPct",
+          "op": "between",
+          "value": [
+            1,
+            6
+          ],
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "openSupportConfirmed",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 15000
+        }
+      ],
+      "invalidation": "开盘确认被跌破"
+    },
+    {
+      "id": "engulfing",
+      "name": "反包",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "priorDailyReturnPct",
+          "op": "lt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "closeOverPriorHigh",
+          "op": "gt",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "volumeRatio",
+          "op": "gte",
+          "value": 1.2,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "回落前日高点之下"
+    },
+    {
+      "id": "leader_divergence",
+      "name": "龙头分歧承接",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "leaderRank",
+          "op": "eq",
+          "value": 1,
+          "type": "number",
+          "unit": "rank",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sectorRelativeReturn20Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "divergenceSupportHeld",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "龙头身份或板块共识失效"
+    },
+    {
+      "id": "auction",
+      "name": "竞价确认",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "auctionReturnPct",
+          "op": "between",
+          "value": [
+            1,
+            5
+          ],
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "auctionTurnoverRatio",
+          "op": "gte",
+          "value": 0.05,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "auctionFinal",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 15000
+        }
+      ],
+      "invalidation": "竞价未终结或来源时点失效"
+    },
+    {
+      "id": "late_confirm",
+      "name": "尾盘确认",
+      "family": "hot",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "minutesToClose",
+          "op": "between",
+          "value": [
+            1,
+            15
+          ],
+          "type": "number",
+          "unit": "minutes",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "closeLocation",
+          "op": "gte",
+          "value": 0.8,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 15000
+        },
+        {
+          "field": "dailyReturnPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 15000
+        }
+      ],
+      "invalidation": "尾盘回落或数据延迟"
+    },
+    {
+      "id": "roe",
+      "name": "ROE质量",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "roePct",
+          "op": "gte",
+          "value": 12,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "roePriorYearPct",
+          "op": "gte",
+          "value": 10,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "debtAssetsPct",
+          "op": "lte",
+          "value": 60,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "盈利质量下滑"
+    },
+    {
+      "id": "cashflow",
+      "name": "现金流质量",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "operatingCashToProfit",
+          "op": "gte",
+          "value": 1,
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "freeCashflow",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "现金与利润背离"
+    },
+    {
+      "id": "value_growth",
+      "name": "估值成长",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "earningsGrowthPct",
+          "op": "gte",
+          "value": 15,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "pe",
+          "op": "between",
+          "value": [
+            0.01,
+            40
+          ],
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "peg",
+          "op": "between",
+          "value": [
+            0.01,
+            1.5
+          ],
+          "type": "number",
+          "unit": "ratio",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "增长兑现不足或估值口径变化"
+    },
+    {
+      "id": "dividend_lowvol",
+      "name": "红利低波",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "dividendYieldPct",
+          "op": "gte",
+          "value": 3,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "volatilityPercentile",
+          "op": "lte",
+          "value": 30,
+          "type": "number",
+          "unit": "percentile",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "payoutPct",
+          "op": "between",
+          "value": [
+            0,
+            80
+          ],
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "分红不可持续或波动上升"
+    },
+    {
+      "id": "earnings_accel",
+      "name": "盈利加速",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "earningsGrowthPct",
+          "op": "gte",
+          "value": 15,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "earningsGrowthAccelerationPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "revenueGrowthPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "盈利或收入趋势回落"
+    },
+    {
+      "id": "industry_leader",
+      "name": "景气龙头",
+      "family": "quality",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "industryGrowthPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "industryRevenueRank",
+          "op": "between",
+          "value": [
+            1,
+            3
+          ],
+          "type": "number",
+          "unit": "rank",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "roePct",
+          "op": "gte",
+          "value": 10,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "行业景气或龙头地位变化"
+    },
+    {
+      "id": "earnings_event",
+      "name": "业绩公告",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "earningsSurprisePct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "earningsGrowthPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "announcementVerified",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "公告更正或预期反转"
+    },
+    {
+      "id": "repurchase",
+      "name": "回购进展",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "repurchaseExecutedPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 10368000000
+        },
+        {
+          "field": "repurchasePlanActive",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 10368000000
+        }
+      ],
+      "invalidation": "回购暂停或进度证据过期"
+    },
+    {
+      "id": "news",
+      "name": "新闻事件",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "newsPolarity",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "polarity",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "newsOriginalVerified",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "newsRetracted",
+          "op": "eq",
+          "value": false,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "新闻修订撤稿或事实未证实"
+    },
+    {
+      "id": "dragon_tiger",
+      "name": "龙虎榜观察",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "lhbNetBuy",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "lhbInstitutionNetBuy",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "席位结构变化或事件数据失效"
+    },
+    {
+      "id": "rotation",
+      "name": "行业轮动",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "sectorRelativeReturn20Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sectorStrengthChange",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "score",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "sectorBreadthPct",
+          "op": "gte",
+          "value": 60,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "轮动扩散不足"
+    },
+    {
+      "id": "etf",
+      "name": "ETF联动",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "etfFlow5",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "CNY",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "etfRelativeReturn20Pct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "membershipVerified",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "ETF资金转向或成员变更"
+    },
+    {
+      "id": "oversold",
+      "name": "超跌修复",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "drawdown20Pct",
+          "op": "lte",
+          "value": -15,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "rsi14",
+          "op": "between",
+          "value": [
+            20,
+            40
+          ],
+          "type": "number",
+          "unit": "score",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "dailyReturnPct",
+          "op": "gt",
+          "value": 0,
+          "type": "number",
+          "unit": "percent",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "继续下跌或基本面恶化"
+    },
+    {
+      "id": "multifactor",
+      "name": "多因子共振",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "qualityPercentile",
+          "op": "gte",
+          "value": 70,
+          "type": "number",
+          "unit": "percentile",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "momentumPercentile",
+          "op": "gte",
+          "value": 70,
+          "type": "number",
+          "unit": "percentile",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "valuationPercentile",
+          "op": "gte",
+          "value": 50,
+          "type": "number",
+          "unit": "percentile",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "因子退化或高度相关"
+    },
+    {
+      "id": "adaptive",
+      "name": "环境自适应",
+      "family": "event",
+      "version": "1.0.0",
+      "enabled": true,
+      "experimental": true,
+      "productionEnabled": false,
+      "rules": [
+        {
+          "field": "regimeAgreement",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "regimeEvidenceComplete",
+          "op": "eq",
+          "value": true,
+          "type": "boolean",
+          "unit": "boolean",
+          "maxAgeMs": 259200000
+        },
+        {
+          "field": "ensembleScore",
+          "op": "gte",
+          "value": 70,
+          "type": "number",
+          "unit": "score",
+          "maxAgeMs": 259200000
+        }
+      ],
+      "invalidation": "环境证据缺失或状态切换"
+    }
+  ]
+}

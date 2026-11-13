@@ -269,3 +269,208 @@ test('same-session target must wait until 15:15 China time before counting missi
  assert.equal(afterCutoff.agreeDays.length,1);
  assert.equal(afterCutoff.nonComparableRatePct,0);
 });
+
+
+const {prepareSectorPairRegistration,verifySectorPairRegistration,
+ verifyRegisteredSectorPairEvidence}=
+ require('../src/core/sector-provider-pair-registration');
+const {main:registrationMain,parse:registrationParse}=
+ require('../scripts/sector-provider-pair-register');
+function registeredPlan(evidence){
+ const first=evidence.episodes[0],c=first.primary.cohort;
+ const a=first.primary.adjustedFeed,b=first.secondary.adjustedFeed;
+ const ia=first.primary.benchmarkFeed,ib=first.secondary.benchmarkFeed;
+ return {schemaVersion:1,mode:'sector-pair-prospective-registration-plan',
+  source:'operator-declared',studyId:'local-prospective-sector-study-2026-08',
+  tradeDates:evidence.tradeDates.slice(),
+  expectedSignalDates:evidence.expectedSignalDates.slice(),
+  identity:{source:c.source,membershipProvider:c.membershipProvider,
+   classificationVersion:c.classificationVersion,
+   primaryAdjustedProvider:a.provider,secondaryAdjustedProvider:b.provider,
+   primaryIndexProvider:ia.provider,secondaryIndexProvider:ib.provider,
+   indexCode:ia.indexCode,
+   maxStockReturnDifferenceBps:first.policy.maxStockReturnDifferenceBps,
+   maxIndexReturnDifferenceBps:first.policy.maxIndexReturnDifferenceBps},
+  policy:{schemaVersion:1,mode:'preregistered-sector-provider-pair-quality',
+   minMaturedSessions:evidence.policy.minMaturedSessions,
+   maxDisagreementRatePct:evidence.policy.maxDisagreementRatePct,
+   maxNonComparableRatePct:evidence.policy.maxNonComparableRatePct}};
+}
+const registerNow=firstRegistered-1000;
+test('registered private output refuses exposed directories and preserves write-once contents',t=>{
+ const {immutable,read}=require('../scripts/sector-provider-pair-register');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-register-private-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const exposed=path.join(dir,'exposed');fs.mkdirSync(exposed,{mode:0o755});
+ fs.chmodSync(exposed,0o755); // Do not let the runner's private umask hide this fixture.
+ const file=path.join(exposed,'receipt.json');
+ assert.throws(()=>immutable(file,'{}\n'),/0700私有/);
+ assert.equal(fs.existsSync(file),false);
+ fs.chmodSync(exposed,0o700);
+ assert.equal(immutable(file,'{}\n'),true);
+ assert.equal(immutable(file,'{}\n'),false);
+ assert.throws(()=>immutable(file,'{"changed":true}\n'),/不可覆盖/);
+ assert.deepEqual(read(file),{});
+ assert.equal(fs.statSync(file).mode&0o777,0o600);
+ const alias=path.join(dir,'alias');fs.symlinkSync(file,alias);
+ assert.throws(()=>read(alias),/符号链接/);
+});
+function registeredFixture(){
+ const evidence=fixture(),plan=registeredPlan(evidence);
+ const result=prepareSectorPairRegistration(plan,{now:registerNow});
+ assert.equal(result.status,'locally-registered-unverified');
+ evidence.policy={...result.receipt.policy};
+ return {plan,receipt:result.receipt,evidence};
+}
+test('locally prospective receipt binds complete dates, pair identity and thresholds',()=>{
+ const {plan,receipt,evidence}=registeredFixture();
+ const check=verifySectorPairRegistration(receipt,{asOf});
+ assert.equal(check.status,'local-receipt-integrity-only');
+ const result=verifyRegisteredSectorPairEvidence(receipt,{
+  schemaVersion:1,mode:'sector-provider-pair-quality-imported-input',
+  source:'imported',...evidence},{now:asOf+1000});
+ assert.equal(result.status,'pair-quality-reviewed-unverified');
+ assert.equal(result.localReceiptMatched,true);
+ assert.equal(result.expectedSignalDays,5);
+ assert.equal(result.receivedEpisodeCount,5);
+ assert.equal(result.quality.horizons[2].comparableRatePct,100);
+ assert.equal(result.receiptIntegrity,receipt.integrity);
+ assert.equal(result.canTrain,false);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.externallyTimestampCertified,false);
+ assert.equal(result.prospectiveCertified,false);
+ assert.equal(plan.policy.registeredAt,undefined,'source plan cannot choose an arbitrary timestamp');
+});
+test('prospective local receipt rejects registration at 09:30 or later, not backdated',()=>{
+ const plan=registeredPlan(fixture());
+ for(const now of [firstRegistered,firstRegistered+1,at(3)]){
+  const r=prepareSectorPairRegistration(plan,{now});
+  assert.equal(r.status,'blocked');
+  assert.equal(r.reason,'registration-must-precede-first-expected-session-09-30');
+ }
+ const forged=structuredClone(plan);
+ forged.policy.registeredAt=firstRegistered-86400000;
+ assert.equal(prepareSectorPairRegistration(forged,{now:registerNow}).status,'blocked');
+});
+test('tampering with an already issued receipt or its local clock cannot be accepted',()=>{
+ const {receipt}=registeredFixture();
+ const edits=[
+  r=>r.expectedSignalDates.splice(2,1),
+  r=>r.tradeDates.splice(2,1),
+  r=>r.policy.maxNonComparableRatePct=30,
+  r=>r.identity.secondaryAdjustedProvider='feed-gamma',
+  r=>r.registeredAt=at(0),
+  r=>r.externallyTimestampCertified=true,
+  r=>r.integrity='0'.repeat(64),
+  r=>r.unknownRiskApproval=true
+ ];
+ for(const edit of edits){
+  const r=structuredClone(receipt);edit(r);
+  assert.equal(verifySectorPairRegistration(r,{asOf}).status,'blocked',String(edit));
+ }
+});
+test('future evidence cannot replace the registered calendar, policy or vendor identity',()=>{
+ const {receipt,evidence}=registeredFixture();
+ const edits=[
+  e=>e.expectedSignalDates.splice(2,1),
+  e=>e.tradeDates.splice(2,1),
+  e=>e.policy.maxDisagreementRatePct=11,
+  e=>e.policy.registeredAt=firstRegistered,
+  e=>e.episodes[0].secondary.adjustedFeed.provider='feed-gamma',
+  e=>e.episodes[1].policy.maxStockReturnDifferenceBps=30,
+  e=>e.episodes[2].primary.cohort.frozenAt=registerNow-1,
+  e=>e.asOf=asOf+200000,
+  e=>e.episodes.push(e.episodes[0])
+ ];
+ for(const edit of edits){
+  const e=structuredClone(evidence);edit(e);
+  const r=verifyRegisteredSectorPairEvidence(receipt,{
+   schemaVersion:1,mode:'sector-provider-pair-quality-imported-input',
+   source:'imported',...e},{now:asOf+1000});
+  assert.equal(r.status,'blocked',String(edit));
+ }
+});
+test('a registered missing signal day remains a coverage loss, not a cherry-picked success',()=>{
+ const {receipt,evidence}=registeredFixture();
+ evidence.episodes.splice(4,1);
+ evidence.episodes.splice(2,1);
+ const r=verifyRegisteredSectorPairEvidence(receipt,{
+  schemaVersion:1,mode:'sector-provider-pair-quality-imported-input',
+  source:'imported',...evidence},{now:asOf+1000});
+ assert.equal(r.status,'pair-quality-watch-unverified');
+ assert.deepEqual(r.quality.horizons[2].missingEpisodeDays,[days[2],days[4]]);
+ assert.equal(r.quality.horizons[2].comparableRatePct,60);
+ assert.equal(r.quality.horizons[2].nonComparableRatePct,40);
+ assert.equal(r.expectedSignalDays,5);
+ assert.equal(r.receivedEpisodeCount,3);
+});
+test('missing policy, explicit null policy or injected promotion fields fail closed without exceptions',()=>{
+ const {receipt,evidence}=registeredFixture();
+ const opts={now:asOf+1000};
+ for(const modify of [
+  e=>delete e.policy,
+  e=>e.policy=null,
+  e=>e.policy=[],
+  e=>e.canTrain=true,
+  e=>e.externalVerificationClaim='trusted'
+ ]){
+  const data={schemaVersion:1,
+   mode:'sector-provider-pair-quality-imported-input',
+   source:'imported',...structuredClone(evidence)};
+  modify(data);
+  let result;
+  assert.doesNotThrow(()=>{
+   result=verifyRegisteredSectorPairEvidence(receipt,data,opts);
+  });
+  assert.equal(result.status,'blocked');
+  assert.equal(result.canTrain,false);
+  assert.equal(result.canTrade,false);
+ }
+});
+
+test('registration CLI writes one 0600 receipt; registered reports are immutable and reproducible',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-registered-pair-'));
+ try{
+  const {plan,evidence}=registeredFixture();
+  const p=path.join(dir,'plan.json'),receipt=path.join(dir,'locked','receipt.json'),
+   ev=path.join(dir,'evidence.json'),out=path.join(dir,'research','report.json');
+  fs.writeFileSync(p,JSON.stringify(plan));
+  fs.writeFileSync(ev,JSON.stringify({schemaVersion:1,
+   mode:'sector-provider-pair-quality-imported-input',source:'imported',...evidence}));
+  const registered=registrationMain(['register',p,receipt],{now:registerNow});
+  assert.equal(registered.status,'locally-registered-unverified');
+  assert.equal(registered.changed,true);
+  assert.equal(fs.statSync(receipt).mode&0o777,0o600);
+  const again=registrationMain(['register',p,receipt],{now:registerNow+3600000});
+  assert.equal(again.status,'already-registered-identical');
+  assert.equal(again.changed,false);
+  const changedPlan=structuredClone(plan);
+  changedPlan.expectedSignalDates.splice(1,1);
+  fs.writeFileSync(p,JSON.stringify(changedPlan));
+  assert.equal(registrationMain(['register',p,receipt],{now:registerNow+3600000}).status,
+   'blocked-conflicting-existing-registration');
+  assert.equal(registered.receiptIntegrity,JSON.parse(fs.readFileSync(receipt)).integrity);
+  const preview=registrationMain(['preview',receipt,ev],{now:asOf+1000});
+  assert.equal(preview.status,'pair-quality-reviewed-unverified');
+  assert.equal(preview.changed,false);
+  assert.equal(fs.existsSync(path.dirname(out)),false);
+  const published=registrationMain(['publish',receipt,ev,out],{now:asOf+1000});
+  assert.equal(published.changed,true);
+  const later=registrationMain(['publish',receipt,ev,out],{now:asOf+86000000});
+  assert.equal(later.changed,false,'same evidence cannot rewrite first publication clock');
+  const archive=JSON.parse(fs.readFileSync(out,'utf8'));
+  assert.equal(archive.report.canTrain,false);
+  assert.equal(archive.report.localReceiptMatched,true);
+  assert.equal(fs.statSync(out).mode&0o777,0o600);
+  const e=JSON.parse(fs.readFileSync(ev,'utf8'));
+  e.episodes.pop();
+  fs.writeFileSync(ev,JSON.stringify(e));
+  assert.throws(()=>registrationMain(['publish',receipt,ev,out],
+   {now:asOf+86000000}),/existing-published-quality-evidence-conflicts/);
+  assert.throws(()=>registrationParse(['publish',receipt,ev,
+   path.join(dir,'public','report.json')]),/公开/);
+  const symlink=path.join(dir,'alias.json');
+  fs.symlinkSync(receipt,symlink);
+  assert.throws(()=>registrationParse(['preview',symlink,ev]),/符号链接/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

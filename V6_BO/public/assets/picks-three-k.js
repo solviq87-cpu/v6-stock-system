@@ -163,6 +163,12 @@ async function load(code){
  try{
   const result=await fetchHistoryPage(code,'',turn);
   if(turn!==generation||!result)return;
+  if(result.dataQuality){
+   const q=result.dataQuality,provider={em:'东方财富',tx:'腾讯',ths:'同花顺'}[q.source]||'未知';
+   const cache={memory:'内存缓存',disk:'磁盘缓存',source:'本次取源','source-lagging':'源数据滞后','held-after-source-failure':'源不可用，沿用缓存','held-source-not-newer':'源未更新，沿用缓存'}[q.cacheLayer]||'缓存状态未知';
+   $('detailQuote').textContent='日K截至'+(q.tradeDate||'未知')+' · 来源'+provider+
+     ' · '+cache+(q.freshness==='source-lagging'&&q.cacheLayer!=='source-lagging'?' · 源数据滞后':'')+' · 历史价格不作执行价';
+  }
   daily=source.normalize(result.rows);
   if(daily.length<2)throw Error('有效历史日K不足');
   pages=1;oldest=daily[0].date;

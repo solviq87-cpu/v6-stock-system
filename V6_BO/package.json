@@ -78,8 +78,12 @@
     "research:public-factors": "node tools/research-runner.js public-factors",
     "research:context:capture": "node scripts/capture-public-market-context.js",
     "research:context:watch": "node scripts/watch-public-market-context.js watch",
+    "factor:shadow:archive:audit": "node scripts/factor-shadow-archive-audit.js compare",
+    "research:sector:close:freeze": "node scripts/sector-h5-full-member-close-freeze.js once",
+    "research:sector:pair:register": "node scripts/sector-provider-pair-register.js",
     "research:stock": "node scripts/stock-observation-monitor.js",
-    "research:sector:relations": "node scripts/sector-relations-capture-report.js"
+    "research:sector:relations": "node scripts/sector-relations-capture-report.js",
+    "news:evidence": "node scripts/news-evidence.js"
   },
   "engines": {
     "node": ">=22.6"

@@ -22,7 +22,11 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 @media(max-width:420px){.decision-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.decision-grid strong{font-size:20px}.decision-actions button{width:100%}}
 .linked-workbench{overflow-wrap:anywhere}.linked-workbench label{display:block;min-width:0}.linked-workbench input{width:100%;margin-top:6px}.linked-workbench input[type=checkbox]{width:auto;margin:0}.linked-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}.linked-workbench .linked-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.linked-workbench pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font-size:12px}.linked-workbench .card{min-width:0}.linked-workbench ul{padding-left:20px}.linked-workbench details{margin:12px 0}.linked-workbench summary{cursor:pointer;min-height:30px}.linked-workbench .linked-check{display:flex;align-items:center;gap:8px}.linked-workbench .linked-summary{border-left:3px solid #548ed6;padding-left:12px}
 @media(max-width:600px){.linked-controls{grid-template-columns:minmax(0,1fr)}.linked-workbench .linked-actions button{width:100%}}
-.linked-workbench select{max-width:100%;width:100%;margin-top:6px;padding:9px;background:#101d30;color:#e1eaff;border:1px solid #355174;border-radius:6px}#captureChart svg{display:block;width:100%;height:auto}#captureChart{min-width:0;max-width:100%;overflow:hidden}#captureChart input{width:100%}</style></head><body><main>
+.linked-workbench select{max-width:100%;width:100%;margin-top:6px;padding:9px;background:#101d30;color:#e1eaff;border:1px solid #355174;border-radius:6px}#captureChart svg{display:block;width:100%;height:auto}#captureChart{min-width:0;max-width:100%;overflow:hidden}#captureChart input{width:100%}
+.news-evidence-row{border-top:1px solid #33415b;padding:12px 0;min-width:0;overflow-wrap:anywhere}.news-evidence-row h4{margin:6px 0}.news-evidence-row details{max-width:100%;overflow-wrap:anywhere}
+#riskCenterContent>.risk-center-evidence{grid-column:1/-1}.risk-center-evidence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.risk-center-evidence-grid section{min-width:0}
+@media(max-width:600px){.risk-center-evidence-grid{grid-template-columns:minmax(0,1fr)}}
+</style></head><body><main>
 <p><a href="/">← 返回天枢智策主面板</a>　<a href="/picks.html">查看云端选股结果 →</a>　<a href="/auction-picks.html">查看竞价观察池 →</a></p><h1>天枢智策 · 选股与战法研究工作台</h1>
 <p class="muted">仅开发者可运行。使用上传数据或系统内存K线；超过24小时的缓存拒绝分析，非实时行情；所有信号均为研究候选，不自动下单。</p>
 <section class="card" id="decisionWorkspace" aria-labelledby="decisionHeading">
@@ -33,6 +37,13 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="decisionGate" role="status" aria-live="polite"></div>
 <div id="decisionRanking" class="scroller" aria-label="研究候选排行榜"></div>
 <div id="decisionEvidence" class="decision-details"></div>
+</section>
+<section class="card linked-workbench" id="riskCenter" aria-labelledby="riskCenterHeading">
+<h2 id="riskCenterHeading">风险中心 · 只读研究</h2>
+<p class="muted">汇总已有市场、手工持仓观察与新闻证据。缺失资料保留未知，不生成交易指令。</p>
+<button id="riskCenterRead" type="button">读取现有风险证据</button>
+<p id="riskCenterStatus" role="status" aria-live="polite">尚未读取；风险未知。</p>
+<div id="riskCenterContent" class="cards" aria-live="polite"></div>
 </section>
 <section class="card" aria-labelledby="completeHeading"><h2 id="completeHeading">完整研究与模拟账户</h2>
 <p class="muted">下方输入完整历史数据。日历和四套策略所需的额外证据可一并提供；缺失证据保留为未知。</p>
@@ -127,5 +138,17 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <div id="ruleStatus" class="muted" role="status" aria-live="polite">等待提交规则研究数据</div>
 <div id="ruleSummary" class="cards" aria-live="polite"></div>
 <div id="ruleDetails" class="scroller"></div></section>
+<section class="card" id="newsEvidence"><h3>新闻原文与修订记录</h3>
+<p class="muted">按来源保留原始、修订及撤稿记录。标题不作多空结论；时间或原文不完整时显示未知。</p>
+<label for="newsEvidenceSymbol">证券代码（可留空）</label> <input id="newsEvidenceSymbol" inputmode="numeric" maxlength="6" placeholder="六位代码">
+<button id="newsEvidenceLoad" type="button">查询证据</button>
+<p id="newsEvidenceStatus" role="status" aria-live="polite">尚未查询</p><div id="newsEvidenceRows"></div></section>
 <div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="patternPools" aria-live="polite"></div><div id="issuerPools" aria-live="polite"></div><div id="linkagePools" aria-live="polite"></div><div id="lifecyclePools" aria-live="polite"></div><div id="table" class="scroller"></div></section>
-</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113evidence2"></script><script src="/assets/research-evidence-workbench.js?v=20261113evidence1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script></body></html>
+<section class="card linked-workbench" id="research36Workspace" aria-labelledby="research36Heading">
+<h2 id="research36Heading">36种策略研究</h2>
+<p class="muted">实验规则独立于原四套策略。导入带来源、单位和可得时点的证据，查看支持、反对及失效条件。条件分不是胜率。</p>
+<div class="linked-actions"><button id="research36Catalog" type="button">查看与配置研究规则</button><input id="research36File" type="file" accept="application/json,.json" aria-label="导入研究证据JSON"><button id="research36Run" type="button">分析导入证据</button></div>
+<p id="research36Status" role="status" aria-live="polite" class="muted">尚未分析；不会自动采集或下单。</p>
+<div id="research36Config" class="cards"></div><div id="research36Result" class="cards"></div>
+</section>
+</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113evidence2"></script><script src="/assets/research-evidence-workbench.js?v=20261113evidence1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script><script src="/assets/news-evidence-workbench.js?v=20261113news1"></script><script src="/assets/research-risk-center.js?v=20261113risk1"></script><script src="/assets/research36-workbench.js?v=20261113v1"></script></body></html>

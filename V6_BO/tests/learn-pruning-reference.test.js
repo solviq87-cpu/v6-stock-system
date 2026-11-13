@@ -32,7 +32,8 @@ async function txRows(time){
  const f=Array(60).fill('0');Object.assign(f,{1:'fixture',3:'10',4:'9',6:'100',30:time,32:'1',33:'11',34:'9',37:'100',38:'1',44:'1',45:'1'});
  const now=Date.parse('2026-11-06T02:00:00Z');class Clock extends Date{static now(){return now;}}
  const context={Date:Clock,TextDecoder,txMarket:()=> 'sh',txGet:async()=>Buffer.from('v_sh600519="'+f.join('~')+'";'),require:x=>require(require('node:path').resolve(__dirname,'..',x))};
- vm.createContext(context);vm.runInContext(source.slice(start,end),context);return JSON.parse(JSON.stringify(await context.fetchBatchSnapshotTx(['600519'])));
+ const helpers=source.slice(source.indexOf('function batchQuoteAtPublication('),source.indexOf('async function fetchBatchSnapshotEM(codes)'));
+ vm.createContext(context);vm.runInContext(helpers+source.slice(start,end),context);return JSON.parse(JSON.stringify(await context.fetchBatchSnapshotTx(['600519'])));
 }
 test('existing Tencent batch path preserves vendor time separately from reception time',async()=>{
  const [r]=await txRows('20261106095900');assert.equal(r.quoteAt,Date.parse('2026-11-06T01:59:00Z'));assert.equal(r.receivedAt,Date.parse('2026-11-06T02:00:00Z'));assert.equal(r.quoteFreshness,'stale');assert.equal(r.price,10);

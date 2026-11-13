@@ -75,7 +75,9 @@ test('real state and mobile routes hide private push history from viewers and pr
 test('real public push callbacks retain QQ outcomes with exact signal identity without external sends',async()=>{
  const src=fs.readFileSync(path.join(source,'server.js'),'utf8');
  const start=src.indexOf('function pushAll('),end=src.indexOf('\n}\n',start)+2;
+ const deliveryStart=src.indexOf('function prepareRecommendationDelivery('),deliveryEnd=src.indexOf('\n}\n',deliveryStart)+2;
  assert.ok(start>=0&&end>start);
+ assert.ok(deliveryStart>=0&&deliveryEnd>deliveryStart);
  const reference={code:'000001',type:'趋势票',ts:Date.now()-1000};
  for(const mailSucceeds of [true,false]){
   const logs=[];
@@ -84,7 +86,7 @@ test('real public push callbacks retain QQ outcomes with exact signal identity w
    feishuSend:(_text,callback)=>callback(false,'explicit rejection'),sendResultUnknown:()=>false,
    sendQQMail:()=>mailSucceeds?Promise.resolve():Promise.reject(Error('explicit mail rejection')),
    pushLog:(status,title,extra)=>logs.push({status,title,...extra}),_pushLast:null,console:{log(){},error(){}}};
-  vm.createContext(context);vm.runInContext(src.slice(start,end),context);
+  vm.createContext(context);vm.runInContext(src.slice(deliveryStart,deliveryEnd)+'\n'+src.slice(start,end),context);
   context.pushAll('000001 fixture market signal',false,{public:true,signalRefs:[reference]});
   await delay(0);
   const mail=logs.find(log=>log.channel==='邮箱');assert.ok(mail,'QQ callback must persist its own outcome');
