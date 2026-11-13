@@ -81,6 +81,9 @@ test('a failed source column cannot be relabeled a complete empty or complete po
  const x=fixture(t);await x.refresh([]);assert.equal(x.c.reviewRecommendationNews(x.row()).canRecommend,true);
  x.fail(104);await x.refresh([x.raw({title:'利好中标'})]);
  const result=x.c.reviewRecommendationNews(x.row());assert.equal(result.canRecommend,false);assert.equal(result.status,'unknown');
+ assert.equal(x.c.S.news.goodAll.length,1,'successful evidence survives a partial source outage');
+ assert.equal(x.c.S.news.goodPushed.size,0,'partial coverage must not consume the pending positive broadcast');
+ assert.equal(x.sends.length,0);
  x.fail(null);await x.refresh([]);assert.equal(x.c.reviewRecommendationNews(x.row()).canRecommend,true);
 });
 
