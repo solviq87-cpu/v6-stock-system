@@ -38,7 +38,10 @@ check('未声明 public 的选项仍会强制 private',/else\s+if\s*\(!opts\.pri
 console.log('\n=== B. 私密发送只走私密机器人，失败不退回群或邮箱 ===');
 check('定位到独立私密发送分支',priv.length>1200);
 check('私密通道不可用时阻止外发并回滚',/if\s*\(!privReady\(\)\)/.test(priv)&&/_release\('私密通道未配置'\)/.test(priv)&&/return false;/.test(priv));
-check('私密分支只向私密机器人发送',/feishuProbe\(feishuSecId\(/.test(priv));
+const privateQueue=between(src,'const _fsPrivateQueue =','// opts.priority');
+check('私密分支只向私密机器人发送',/feishuSendPrivate\(text, \{\.\.\.opts, manual:_manual\}\)/.test(priv)&&
+ /id:feishuSecId\(\)/.test(privateQueue)&&/feishuProbe\(job\.id, job\.secret, job\.text\)/.test(privateQueue)&&
+ !/\b(?:feishuSend|feishuId|sendMail|mailSend)\s*\(/.test(privateQueue));
 check('私密分支没有公共飞书发送',!/\bfeishuSend\s*\(/.test(priv));
 check('私密分支没有邮件或旧群直发',!/\b(?:sendMail|mailSend|pushWecom|sendWecom)\s*\(/.test(priv));
 check('明确拒绝和异常都写脱敏私密失败流水',

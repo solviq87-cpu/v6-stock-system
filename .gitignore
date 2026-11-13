@@ -25,3 +25,7 @@ V6_BO/data/news-evidence/
 
 # Private historical-maintenance budget and supplier retry state
 V6_BO/data/history-backfill-private/
+# Private descriptive push review; never commit actual stock notifications/results.
+V6_BO/learn_pushed_outcomes_review.json
+V6_BO/learn_pushed_outcomes_review.json.lock
+V6_BO/learn_pushed_outcomes_review.json.*.tmp

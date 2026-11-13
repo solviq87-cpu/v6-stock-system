@@ -13,7 +13,7 @@ const BACKUP_DIR = "C:\\Users\\28957\\WorkBuddy\\2026-09-25-13-40-58\\stock-dash
 // 关键数据文件（access/config/模拟盘/学习库/行业库/推送流水）
 const DATA_FILES = [
   "access.json", "config.json", "paper.json", "holdings.json",
-  "learnall.json", "learn_history.json", "learn_pushed_outcomes.json",
+  "learnall.json", "learn_history.json", "learn_pushed_outcomes.json", "learn_pushed_outcomes_review.json",
   "learn_missed_seals.json", "stats.json", "stock_industry.json",
   "pushlog.json", "auction_snapshot.json", "strategy_cards.json",
   ".holdings_ops.json", ".holdings_pull_history.json"
