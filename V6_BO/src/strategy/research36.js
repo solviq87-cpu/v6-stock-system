@@ -41,6 +41,16 @@ function proofProblem(p,r,code,asOf){
  if(asOf-p.observedAt>r.maxAgeMs)return '证据超过研究时效';
  if(p.unit!==r.unit)return '单位不一致';
  if(r.type==='boolean'?typeof p.value!=='boolean':!finite(p.value))return '未知或非法数值';
+ // Bound only fields whose definition guarantees a domain. Ratios, returns,
+ // cash flows and accounting percentages may legitimately exceed 100 or be negative.
+ const v=p.value;
+ if((r.unit==='percentile'||['rsi14','ensembleScore','sectorBreadthPct'].includes(r.field))&&(v<0||v>100)||
+    r.field==='sectorStrengthChange'&&(v< -100||v>100)||
+    r.unit==='polarity'&&(v< -1||v>1)||
+    r.field==='closeLocation'&&(v<0||v>1)||
+    r.unit==='rank'&&(!Number.isSafeInteger(v)||v<1)||
+    r.unit==='trading-days'&&(!Number.isSafeInteger(v)||v<0)||
+    r.unit==='minutes'&&v<0)return '数值超出字段定义范围';
  return null;
 }
 // Technical features use only completed, causally available daily bars. No source

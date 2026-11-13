@@ -38,6 +38,7 @@ function harness({now = start, primary = async () => [], secondary, backup = () 
       if (name === 'https') return {Agent: class {}, get: denied};
       if (name === 'fs') return fs;
       if (name === 'path') return path;
+      if (name === './src/core/market-request-governor') return require('../src/core/market-request-governor');
       if (name === 'child_process') return {execFile: denied};
       if (name === './src/core/public-market') return require('../src/core/public-market');
       if (name === './src/core/six-photo-backups') return {photoQuoteFallback: requested => {

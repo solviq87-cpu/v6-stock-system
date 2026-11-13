@@ -96,3 +96,21 @@ test('CLI export is private and never overwrites a previous research run',()=>{
   assert.notEqual(spawnSync(process.execPath,args).status,0);assert.deepEqual(fs.readFileSync(output),first);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('impossible bounded evidence remains unknown rather than producing support or opposition',()=>{
+ const fields={qualityPercentile:[-1,101],rsi14:[-1,101],ensembleScore:[-1,101],sectorBreadthPct:[-1,101],
+  sectorStrengthChange:[-101,101],newsPolarity:[-1.01,1.01],closeLocation:[-.01,1.01],leaderRank:[0,1.5],positiveFlowDays:[-1,1.5],minutesToClose:[-1]};
+ for(const [field,values] of Object.entries(fields)){
+  const strategy=engine.getCatalog().strategies.find(s=>s.rules.some(r=>r.field===field)),rule=strategy.rules.find(r=>r.field===field);
+  for(const value of values){const row=by(analyze({[field]:proof(value,rule.unit)}),strategy.id),check=row.checks.find(c=>c.field===field);
+   assert.equal(check.missing,'数值超出字段定义范围',field);assert.equal(check.pass,null);assert.equal(check.value,null);assert.equal(row.score,null);}
+ }
+});
+test('bounded evidence keeps endpoints and signed financial values without universal percent clamping',()=>{
+ const fields={qualityPercentile:[0,100],rsi14:[0,100],ensembleScore:[0,100],sectorBreadthPct:[0,100],sectorStrengthChange:[-100,100],
+  newsPolarity:[-1,1],closeLocation:[0,1],leaderRank:[1,100],positiveFlowDays:[0,100],minutesToClose:[0,240],roePct:[-150,150],operatingCashToProfit:[-2,2]};
+ for(const [field,values] of Object.entries(fields)){
+  const strategy=engine.getCatalog().strategies.find(s=>s.rules.some(r=>r.field===field)),rule=strategy.rules.find(r=>r.field===field);
+  for(const value of values){const check=by(analyze({[field]:proof(value,rule.unit)}),strategy.id).checks.find(c=>c.field===field);assert.equal(check.missing,null,field);assert.equal(check.value,value);}
+ }
+});

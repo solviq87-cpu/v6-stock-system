@@ -2882,12 +2882,8 @@ connectStream();
 refresh();
 loadReleaseBoard();
 setInterval(loadReleaseBoard, 60000);
-// 打开页面：立即全量强制刷新 + 15秒内每2.5秒高频轮询，确保所有窗口快速出数据
-(async () => {
-  try { fetch('/api/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ module: 'all' }) }); } catch {}
-  const t0 = Date.now();
-  const fast = setInterval(() => { refresh(); if (Date.now() - t0 > 15000) clearInterval(fast); }, 2500);
-})();
+// Opening another device reads the existing cloud snapshot; provider collection
+// is owned by the server schedule, and explicit card refreshes share its cache.
 
 function renderPaper(suf, p, mirror) {
   if (!p) return;

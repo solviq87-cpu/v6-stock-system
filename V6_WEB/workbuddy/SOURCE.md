@@ -38,12 +38,21 @@ the canonical digest differs from the remote digest. Opening the authorized
 site URL with its access code continues to supply that code to the original
 same-origin records API; code values must stay outside Git and logs.
 
-All other document bytes, visual design, inline V6Core strategy, V6Battle
+At import, all other document bytes, visual design, inline V6Core strategy, V6Battle
 43-strategy scanner, simulated account, risk, cloud records, financial and
-strategy-data modules, and public quote code are preserved from the current
+strategy-data modules, and public quote code were preserved from the current
 capture. No account records or live ledger response was imported. Static
 publication does not deploy the repository's Node/Python services, upgrade
 server-side collectors, or certify market data or strategy performance.
+
+The collector hardening candidate subsequently changes this imported source.
+Its canonical HTML SHA-256 is
+`bea502023e8246360e409196ff64fca1e57d8bc15e166fff18d498e4939ba9e1`.
+It retains the four core strategies and all 43 playbooks, with explicit pause,
+shared browser request budgets, historical-cache controls and same-row quote
+checks at the manual paper-order boundary. See `RATE_CONTROL.md` for the
+changes, preserved payloads, verification scope and remaining limitations.
+This source update is not a claim that the hosted page has been replaced.
 
 `V6_BO/scripts/build-workbuddy-static.js` reads this file without modifying it
 and inserts only nonvisual release metadata. The metadata records the full

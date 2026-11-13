@@ -42,7 +42,7 @@ test('research agent status and public factor computation require editor rights 
   // The public intake's bounded curl subprocess is mocked too: this test never dials a vendor.
   const bin=path.join(tmp,'fixture-bin');fs.mkdirSync(bin);
   const historyRaw={rc:0,data:{code:'600000',market:1,name:'capture-fixture',klines:['2025-01-01,10,10.1,10.2,9.9,100,100000,3,1,.1,1','2025-01-02,10.1,10.2,10.3,10,200,200000,3,1,.1,1','2025-01-03,10.2,10.3,10.4,10.1,300,300000,3,1,.1,1']}};
-  fs.writeFileSync(path.join(bin,'curl'),'#!'+process.execPath+'\nconst target=process.argv.at(-1);if(!target.startsWith("https://push2his.eastmoney.com/api/qt/stock/kline/get?"))process.exit(2);process.stdout.write('+JSON.stringify(JSON.stringify(historyRaw))+');\n',{mode:0o700});
+  fs.writeFileSync(path.join(bin,'curl'),'#!'+process.execPath+'\nconst args=process.argv.slice(2),target=args.at(-1);if(!target.startsWith("https://push2his.eastmoney.com/api/qt/stock/kline/get?"))process.exit(2);const body=args[args.indexOf("--output")+1];if(!body||args.indexOf("--output")<0)process.exit(3);require("node:fs").writeFileSync(body,'+JSON.stringify(JSON.stringify(historyRaw))+');process.stdout.write("HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n");\n',{mode:0o700});
   const port=await freePort();
   child=spawn(process.execPath,['--require',path.join(tmp,'deny-network.cjs'),'server.js'],{
    cwd:tmp,env:{...process.env,PATH:bin+path.delimiter+process.env.PATH,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1'},stdio:['ignore','pipe','pipe']
@@ -88,7 +88,7 @@ test('research agent status and public factor computation require editor rights 
   assert.equal((await request(port,'/api/research/observe-stock',editor,{symbol:'bad'})).status,422);
   assert.equal((await request(port,'/api/research/stock-observations?symbol=600000&provider=auto',editor)).status,400);
   const observed=await request(port,'/api/research/observe-stock',editor,{symbol:'600000',provider:'eastmoney',historyDays:3});
-  assert.equal(observed.status,200);assert.equal(observed.body.result.status,'captured');assert.equal(observed.body.result.stock.bars.length,3);
+  assert.equal(observed.status,200);assert.equal(observed.body.result.status,'captured',JSON.stringify(observed.body.result.history?.errors));assert.equal(observed.body.result.stock.bars.length,3);
   assert.equal(observed.body.result.stock.bars[0].volume,10000);assert.equal(observed.body.result.stock.bars[0].suspended,undefined);
   assert.equal(observed.body.result.canTrade,false);assert.ok(!JSON.stringify(observed.body).includes(tmp));
   const stored=await request(port,'/api/research/stock-observations?symbol=600000&provider=eastmoney',editor);
