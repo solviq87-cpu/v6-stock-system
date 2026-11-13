@@ -84,6 +84,11 @@
 <style id="v6-module-collapse-style">
 .v6-module-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin:0 0 12px}.v6-module-tools span{margin-right:auto;color:#83abc1;font-size:11px}.v6-module-tools button,.v6-module-toggle{border:1px solid #285770;border-radius:5px;background:#0b2b40;color:#a8d9e8;cursor:pointer;font:inherit;font-size:11px;min-height:34px;padding:6px 10px;white-space:nowrap}.v6-module-tools button:focus-visible,.v6-module-toggle:focus-visible{outline:2px solid #32d7ec;outline-offset:2px}.v6-module-header{position:relative}.v6-module-toggle{float:right;margin-left:8px;flex-shrink:0}.v6-module-toggle i{display:inline-block;font-style:normal;margin-left:6px;transition:transform .15s}.v6-module-collapsed>.v6-module-header .v6-module-toggle i{transform:rotate(-90deg)}.v6-module-collapsed>:not(.v6-module-header){display:none!important}.v6-module-collapsed{min-height:0!important}.v6-module-own-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;color:#bedeea;font-size:12px}.v6-module-own-header strong{font-weight:500}.v6-module-header::after{content:"";display:table;clear:both}@media(max-width:720px){.v6-module-tools{gap:6px;margin-bottom:10px}.v6-module-toggle{min-height:36px;padding:6px 8px;font-size:10px}.v6-module-tools span{font-size:10px}.v6-module-header{flex-wrap:wrap}}
 </style>
+<style id="v6-focus-module-style">
+.v6-focus-modules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}.v6-focus-module{min-width:0}.v6-focus-body{padding:0 18px 16px}.v6-focus-status{font-size:11px;color:var(--muted);text-align:right}.v6-focus-description,.v6-focus-note{color:var(--muted);font-size:12px;line-height:1.7;margin:0 0 12px}.v6-focus-counts{display:flex;gap:14px;flex-wrap:wrap;padding-bottom:12px;color:var(--muted);font-size:12px}.v6-focus-counts b{color:var(--ink);padding-left:4px}.v6-focus-list{display:grid;gap:12px}.v6-focus-list article{border-top:1px solid var(--line);padding-top:12px;min-width:0}.v6-focus-stock{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.v6-focus-stock button{border:0;background:none;color:var(--ink);padding:0;text-align:left;cursor:pointer}.v6-focus-stock button strong,.v6-focus-stock button small{display:block}.v6-focus-stock small,.v6-focus-stock span{font-size:11px;color:var(--muted)}.v6-focus-stock>b{margin-left:auto;color:var(--lime)}.v6-focus-list article>p{font-size:12px;line-height:1.6;margin:10px 0 6px}.v6-focus-clock{display:block;font-size:11px;line-height:1.8;color:var(--muted)}.v6-focus-module details{font-size:11px;line-height:1.8;color:var(--muted);margin-top:10px}.v6-focus-module summary{cursor:pointer}.v6-focus-module ul{padding-left:18px}.v6-focus-module li,.v6-focus-module p{overflow-wrap:anywhere}.v6-focus-empty{color:var(--muted);padding:18px 0;font-size:12px}.v6-focus-footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.v6-focus-footer>span{font-size:11px;color:var(--muted)}
+@media(max-width:700px){.v6-focus-modules{grid-template-columns:minmax(0,1fr);gap:12px}.v6-focus-body{padding:0 14px 14px}.v6-focus-status{max-width:92px}.v6-focus-stock{gap:8px}}
+
+</style>
 </head>
 <body>
 <header class="site-masthead">
@@ -1705,6 +1710,150 @@ function sourceEvidence(snapshot,options){const external=root.V6StrategyData,sd=
 function render(state,snapshot,options={}){const loaded=safeResult(state,snapshot,options),data=loaded.value,meta=metadata(data),group=options.group||meta.groups[0]?.id||'trend',mode=group==='library'||options.mode==='library'?'library':group==='settings'||options.mode==='settings'?'settings':'signals';const normalized={...options,group};const loading=!!(options.loading||loaded.loading||data?.status==='pending'||data?.running);return `<div class="vb-scanner">${titleBar(meta,normalized,loading)}<div class="vb-boundary"><strong>信号 ≠ 交易指令</strong><span>所有结果来自真实公开快照及可得证据，未获交易所认证。候选、人工复核、离场观察与缺资料分别显示；不生成替代行情，不承诺收益。</span></div>${groupTabs(meta,group)}${coverage(data,snapshot)}${sourceEvidence(snapshot,normalized)}${loading?'<div class="vb-loading" role="status">扫描正在计算，现有行情与持仓继续保留。历史不足或专门资料未取得时保持未判定。</div>':''}${data?.stale?`<div class="vb-loading is-stale" role="status">${data.staleCause==='settings-or-policy-changed'?'筛选参数或主推偏好已更新':'行情或证据版本已更新'}，旧信号已隐藏，等待当前版本重新扫描。${data.previousAsOf?'上次扫描依据时点 '+esc(clock(data.previousAsOf))+'。':''}</div>`:''}${loaded.error?`<div class="vb-error" role="alert">扫描暂不可用：${esc(loaded.error)}。保留已有账本，不填充虚假信号。</div>`:''}${mode==='library'?library(data,meta,options.search||'',snapshot):mode==='settings'?settingsView(data):data&&data.status!=='pending'?signalsView(data,meta,normalized):empty('等待战法扫描结果','可先查看目录或补充真实日线 / 个股证据；没有结果不等于所有策略均不符合。')}<div class="vb-bottom-note">公共快照 · probeOnly:true · canTrade:false · verifiedLive:false · 模拟风控仅作提示</div></div>`;}
 root.V6BattleUI=Object.freeze({render,PAGE_SIZE});
 })(window);
+
+/* V6_FOCUS_MODULES_START */
+(function(root){
+'use strict';
+// Read-only views over existing evidence. This module never fetches, trades or
+// changes any of the four core strategies / 43 playbooks / account protocols.
+const FLAGS=Object.freeze({probeOnly:true,canTrade:false,canNotify:false,verifiedLive:false});
+const finite=Number.isFinite,record=x=>!!x&&typeof x==='object'&&!Array.isArray(x),MAX_TIME=8640000000000000-288e5;
+const list=x=>Array.isArray(x)?x:[],source=x=>typeof x==='string'&&x.trim().length>0;
+const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&finite(Date.parse(x+'T00:00:00Z'))&&new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
+const stamp=x=>typeof x==='number'&&Number.isSafeInteger(x)&&x>0&&x<=MAX_TIME?x:typeof x==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(x)&&day(x.slice(0,10))&&+x.slice(11,13)<24&&+x.slice(14,16)<60&&+x.slice(17,19)<60?Date.parse(x):NaN;
+const dateOf=x=>{const t=stamp(x);return finite(t)?new Date(t+288e5).toISOString().slice(0,10):null;};
+const minuteOf=x=>{const t=stamp(x);if(!finite(t))return NaN;const d=new Date(t+288e5);return d.getUTCHours()*60+d.getUTCMinutes()+d.getUTCSeconds()/60;};
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const numberFormatter=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2});
+const number=x=>finite(x)?numberFormatter.format(x):'—';
+const percent=(value,reference)=>Math.round((value/reference-1)*1e8)/1e6;
+const clock=x=>day(x)?x+'（仅交易日）':finite(stamp(x))?new Date(stamp(x)).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' 北京时间':'原始时点未提供';
+const DEFINITIONS=Object.freeze([
+ {id:'auction-strength',title:'竞价强势票',group:'opening',rule:'9:20后承接 / 9:25真实量价确认',description:'只看原始竞价快照；虚拟匹配量与实际成交额分开。'},
+ {id:'one-to-two',title:'一进二',group:'opening',rule:'最近已闭合交易日连续1板',description:'按真实日涨停记录分层的接力观察池，不预测晋级成功。'},
+ {id:'two-to-three',title:'二进三',group:'opening',rule:'最近已闭合交易日连续2板',description:'连续两板与更高连板分开，盘中未收盘不新增连板。'},
+ {id:'intraday-strength',title:'盘中强势票',group:'opening',rule:'原量比战法 / 原量价动量条件',description:'标准量比与日K量比分列；盘中观察不等于确认买入。'}
+]);
+function sessionFor(now,options){
+ let value=options.marketSession;
+ if(typeof value==='function')value=value(now);
+ if(!value){try{value=root.V6Market?.sessionAt?.(now);}catch(ignore){}}
+ const date=dateOf(now);return record(value)?{...value,date:day(value.date)?value.date:date}:{date,kind:'calendar-unknown',open:false,calendarSupported:false,latestClosedDate:null,label:'交易日历待核'};
+}
+function quoteClock(q,now,session){
+ const t=stamp(q.providerTime),received=stamp(q.receivedAt??q.fetchedAt);
+ const valid=q.providerDateKnown!==false&&finite(t)&&finite(received)&&t<=received&&received<=now&&t<=now;
+ return {valid,time:q.providerTime,date:valid?dateOf(t):null,current:valid&&q.isStale!==true&&now-t<=15000&&dateOf(t)===session.date};
+}
+let commonMemo=null;
+function common(q,state,snapshot,options){
+ if(!finite(q.price)||q.price<=0)return {status:'pending',reason:'缺有效公开报价，保留资料待核'};
+ if(q.isST===true||/^(?:\*?ST)/i.test(String(q.name||''))||q.suspended===true||q.isDelisting===true||/退/.test(String(q.name||''))||q.tradable===false||q.noPriceLimit===true||q.ipoNoLimit===true)return {status:'excluded',reason:'ST、退市、停牌、无涨跌幅限制或不可交易状态'};
+ const check=options.checkStock||root.V6Battle?.checkStock;
+ if(typeof check!=='function')return {status:'pending',reason:'通用股票范围与主推偏好尚未核对'};
+ if(options.classificationFailed||options.classifications&&!options.classifications.get?.(q.symbol))return {status:'pending',reason:'通用股票分类尚未就绪'};
+ try{const cached=options.commonCache?.get(q);if(cached)return cached;const value=check(q,state,snapshot,{classification:options.classifications?.get?.(q.symbol)}),result=value?.status==='eligible'||value?.status==='passed'?{status:'eligible'}:{status:value?.status==='excluded'?'excluded':'pending',reason:'通用筛选 / 主推偏好未通过或资料待核'};if(!list(value?.pending).some(row=>row?.code==='futureQuote'))options.commonCache?.set(q,result);return result;}catch(ignore){return {status:'pending',reason:'通用筛选暂不可核对'};}
+}
+function getData(q,snapshot,options){const sd=options.strategyData||snapshot.strategyData||root.V6StrategyData?.snapshot;return sd?.bySymbol?.[q.symbol]||sd?.items?.[q.symbol]||null;}
+function getHistory(q,snapshot,options){try{return options.getBars?options.getBars(q.symbol):snapshot.strategyBars?.[q.symbol]||root.V6Market?.getStrategyBars?.(q.symbol)||null;}catch(ignore){return null;}}
+function continuity(rows,history,snapshot,options){
+ const at=options.sessionAt||root.V6Market?.sessionAt;
+ // An evidence-local date list cannot overrule the current schedule calendar.
+ // Otherwise omitting a real open day could turn a broken ladder into 1/2 boards.
+ if(typeof at==='function'){
+  const first=Date.parse(rows[0].date+'T00:00:00Z'),end=Date.parse(rows.at(-1).date+'T00:00:00Z');
+  if(end-first>32*864e5)return false;const actual=new Set(rows.map(r=>r.date));
+  for(let t=first;t<=end;t+=864e5){const date=new Date(t).toISOString().slice(0,10);let result;try{result=at(Date.parse(date+'T10:00:00+08:00'));}catch(ignore){return false;}
+   if(result?.calendarSupported!==true||(result.open===true)!==actual.has(date))return false;
+  }
+  return true;
+ }
+ const explicit=options.tradingDates||history.tradingDates||snapshot.tradingDates;
+ if(!Array.isArray(explicit)||explicit.some((d,i)=>!day(d)||(i&&d<=explicit[i-1])))return false;
+ const index=new Map(explicit.map((d,i)=>[d,i]));return rows.every((r,i)=>index.has(r.date)&&(!i||index.get(r.date)===index.get(rows[i-1].date)+1));
+}
+function ladder(q,snapshot,options,session){
+ const data=getData(q,snapshot,options),H=data?.limitHistory;
+ // The normal public OHLC cache does not contain historical ST/IPO/limit
+ // metadata. Do not fill it from today's name/board or a >9.9% shortcut.
+ if(!source(H?.source)||!Array.isArray(H.rows))return {status:'pending',reason:'缺逐日真实涨停记录与来源；不凭涨幅猜连板'};
+ const meta=getHistory(q,snapshot,options),rows=list(meta?.rows),n=meta?.completedRowCount;
+ if(!source(meta?.source)||meta.adjustment!=='none'||meta.historyGap!==false||!Number.isSafeInteger(n)||n<3||n>rows.length)return {status:'pending',reason:'缺连续已闭合未复权日K与完成元数据'};
+ const all=rows.slice(0,n);
+ if(all.some((r,i)=>!record(r)||!day(r.date)||(i&&r.date<=all[i-1].date)||!['open','high','low','close'].every(k=>finite(r[k])&&r[k]>0)||r.high<Math.max(r.open,r.close,r.low)||r.low>Math.min(r.open,r.close,r.high)||!finite(r.volume)||r.volume<=0))return {status:'pending',reason:'已闭合日K日期 / OHLCV无效，未推断连板'};
+ if(meta.completedThroughDate!==all.at(-1).date)return {status:'pending',reason:'已闭合历史截止日不一致'};
+ const target=day(session.latestClosedDate)?session.latestClosedDate:null;
+ if(!target)return {status:'pending',reason:'最近闭合交易日尚未由排程日历确认'};
+ if(all.at(-1).date>target)return {status:'pending',reason:'历史包含当前尚未闭合交易日'};
+ const tail=all.slice(-3);
+ if(!continuity(tail,H,snapshot,options))return {status:'pending',reason:'最近日K交易日连续性 / 日历覆盖待核'};
+ const byDate=new Map();for(const row of H.rows){if(!record(row)||!day(row.date)||byDate.has(row.date))return {status:'pending',reason:'涨停历史日期无效或重复'};byDate.set(row.date,row);}
+ const flags=[];for(const bar of tail){const r=byDate.get(bar.date);if(!r||typeof r.isLimitUp!=='boolean'||r.closed===false||r.isST===true||r.noPriceLimit===true||r.ipoNoLimit===true||r.corporateAction===true)return {status:'pending',reason:'近3个闭合日涨停 / 状态记录不完整或存在制度特例'};if(r.knownAt!==undefined&&(!finite(stamp(r.knownAt))||stamp(r.knownAt)>options.now))return {status:'pending',reason:'涨停记录可得时点无效或晚于本次评估'};flags.push(r.isLimitUp);}
+ let streak=0;for(let i=flags.length-1;i>=0&&flags[i];i--)streak++;
+ return {status:'ready',streak,date:all.at(-1).date,currentDate:!!target&&target===all.at(-1).date,source:H.source,evidence:[{label:'最近闭合交易日',value:tail.map(r=>r.date).join(' / ')},{label:'真实涨停标志',value:flags.map(x=>x?'涨停':'未涨停').join(' / ')},{label:'历史口径',value:'未复权；来源声明，未独立认证'}]};
+}
+function auction(q,snapshot,options,session){
+ const A=getData(q,snapshot,options)?.auction;
+ if(!record(A)||!source(A.source)||!day(A.tradeDate)||!Array.isArray(A.snapshots)||A.snapshots.length<1||A.snapshots.length>250||!finite(A.previousClose)||A.previousClose<=0)return {status:'pending',reason:'缺原始竞价快照、前收及独立来源'};
+ if(A.tradeDate>session.date)return {status:'pending',reason:'竞价交易日处于未来'};
+ const ticks=[],seen=new Set();for(const t of A.snapshots){const at=stamp(t?.quoteAt),received=stamp(t?.receivedAt),minute=minuteOf(at);
+  if(!record(t)||!finite(at)||!finite(received)||at>received||received>options.now||received-at>60000||at>options.now||dateOf(at)!==A.tradeDate||minute<555||minute>=566||seen.has(at)||t.source!==A.source||String(t.symbol??t.code)!==q.symbol||!finite(t.indicativePrice)||t.indicativePrice<=0||!Number.isSafeInteger(t.indicativeMatchedVolume)||t.indicativeMatchedVolume<0||t.executed===true&&(minute<565||minute>=566)||t.executedAmount!==undefined&&(!finite(t.executedAmount)||t.executedAmount<0))return {status:'pending',reason:'竞价原始时点 / 收到时点、证券、来源或量价不一致'};
+  seen.add(at);ticks.push({...t,at,minute});
+ }
+ ticks.sort((a,b)=>a.at-b.at);const pre=ticks.filter(t=>t.minute<560),nc=ticks.filter(t=>t.minute>=560&&t.minute<565),last=nc.at(-1),first=nc[0],final=ticks.filter(t=>t.executed===true&&t.minute>=565).at(-1);
+ const gap=final?percent(final.indicativePrice,A.previousClose):null,laterGap=final?gap:last?percent(last.indicativePrice,A.previousClose):null,early=pre.length?Math.max(...pre.map(t=>percent(t.indicativePrice,A.previousClose))):null;
+ if(early!==null&&early>=6&&laterGap!==null&&laterGap<1||final&&finite(A.limitPct)&&A.limitPct>0&&gap>=A.limitPct*.9)return {status:'excluded',reason:'早盘虚拟报价回落或接近涨幅上限，需人工核查'};
+ const rules=[],evidence=[];let basis=null;
+ if(nc.length>=2&&last.at-first.at>=60000&&first.indicativeMatchedVolume>0){let peak=0,drawdown=0;for(const t of nc){peak=Math.max(peak,t.indicativePrice);drawdown=Math.min(drawdown,percent(t.indicativePrice,peak));}const growth=last.indicativeMatchedVolume/first.indicativeMatchedVolume,hold=nc.every((t,i)=>!i||t.indicativeMatchedVolume>=nc[i-1].indicativeMatchedVolume),change=percent(last.indicativePrice,A.previousClose);
+  if(hold&&drawdown>=-1&&growth>=1.1&&change>=.5&&change<=6){rules.push('9:20后虚拟匹配量承接');evidence.push({label:'虚拟匹配量后 / 前',value:number(growth)+'（非实际成交量）'},{label:'全段最大回落',value:number(drawdown)+'%'},{label:'前收涨幅',value:number(change)+'%'});basis=last;}
+ }
+ if(final&&finite(A.dailyAverageAmount20)&&A.dailyAverageAmount20>0&&finite(final.executedAmount)&&final.executedAmount>=3e6&&final.executedAmount/A.dailyAverageAmount20>=.03&&gap>=.5&&gap<=3){rules.push('9:25实际量价确认');evidence.push({label:'实际开盘成交额',value:number(final.executedAmount/1e4)+'万元'},{label:'开盘额 / 前20日均额',value:number(final.executedAmount/A.dailyAverageAmount20*100)+'%'},{label:'原始撮合标记',value:'executed:true'});basis=final;}
+ if(final&&A.previousFirstBoardVerified===true&&Number.isSafeInteger(A.sectorRank)&&A.sectorRank>=1&&A.sectorRank<=5&&gap>=1&&gap<=6&&finite(final.executedAmount)&&final.executedAmount>=5e6){rules.push('首板次日竞价板块共振');evidence.push({label:'前日首板独立证据',value:'已提供；板块名次 '+A.sectorRank});basis=final;}
+ if(!rules.length){const complete=nc.length>=2||!!final;return {status:complete?'not-matched':'pending',reason:complete?'已载竞价证据未满足完整研究条件':'竞价独立时点尚不足，普通报价不替代'};}
+ return {status:'ready',date:A.tradeDate,time:basis.quoteAt,source:A.source,price:basis.indicativePrice,rules,evidence,current:session.open===true&&session.kind==='auction'&&A.tradeDate===session.date&&options.now-basis.at<=60000};
+}
+function intraday(q,snapshot,options,session,quote){
+ if(!quote.valid||!source(q.source))return {status:'pending',reason:'缺报价原始日期 / 来源或收到时点顺序不合法'};
+ const rules=[],evidence=[];let basis=q.providerTime;
+ const ratioAt=q.volumeRatioProviderTime||q.providerTime,minute=minuteOf(ratioAt);
+ if((q.standardVolumeRatio===true||q.volumeRatioKind==='intraday-normalized')&&finite(q.volumeRatio)&&q.volumeRatio>3&&source(q.volumeRatioSource)&&dateOf(ratioAt)===quote.date&&stamp(ratioAt)===stamp(q.providerTime)&&minute>=570&&minute<=600){rules.push('原战法b41：标准盘中量比>3');evidence.push({label:'标准盘中量比',value:number(q.volumeRatio)},{label:'标准量比来源',value:q.volumeRatioSource},{label:'量比原始时点',value:clock(ratioAt)});basis=ratioAt;}
+ // Reuse a completed original b41 result only when its original row clock is
+ // identical to this quote. A later quote must not refresh an older signal.
+ const B=options.battleResult,signal=B?.status==='ready'&&!B.stale?list(B.signals).find(s=>s.symbol===q.symbol&&s.strategyId==='b41'&&s.sourceTime===q.providerTime&&s.signalDate===quote.date):null;
+ if(!rules.length&&signal&&source(signal.source)){const value=list(signal.evidence).find(e=>e.label==='真实标准量比'),time=list(signal.evidence).find(e=>e.label==='源端时间'),m=minuteOf(time?.value);if(finite(value?.value)&&value.value>3&&dateOf(time?.value)===quote.date&&stamp(time.value)<=stamp(q.providerTime)&&m>=570&&m<=600){rules.push('原战法b41：标准盘中量比>3');evidence.push({label:'标准盘中量比',value:number(value.value)},{label:'标准量比来源',value:signal.source},{label:'量比原始时点',value:clock(time.value)});basis=time.value;}}
+ if(q.historyGap===false&&q.historyAsOfDate===quote.date&&finite(q.momentum)&&q.momentum>=6&&finite(q.dayVolumeRatio)&&q.dayVolumeRatio>=1.2){rules.push('原量价动量：20日涨幅≥6%，日K量比≥1.2');evidence.push({label:'20交易日涨幅',value:number(q.momentum)+'%'},{label:'日K量比',value:number(q.dayVolumeRatio)+'（非标准盘中量比）'},{label:'日K依据日期',value:q.historyAsOfDate});}
+ if(!rules.length)return {status:'pending',reason:'未满足完整原量比 / 量价动量条件，或历史 / 标准量比口径待核'};
+ evidence.push({label:'报价来源',value:q.source});
+ return {status:'ready',date:quote.date,time:basis,source:q.source,rules,evidence,current:session.open===true&&['morning','afternoon'].includes(session.kind)&&quote.current&&options.now-stamp(basis)<=15000};
+}
+function compute(state={},snapshot={},options={}){
+ const now=options.now===undefined?Date.now():options.now;if(!Number.isSafeInteger(now)||now<=0||now>MAX_TIME)throw Error('观察评估时点无效');
+ const settings={...options,now},session=sessionFor(now,settings),modules=DEFINITIONS.map(def=>({...def,checked:0,pending:0,excluded:0,notMatched:0,matched:0,currentCount:0,observations:[],reasons:{},...FLAGS}));
+ const issue=(m,status,reason)=>{m[status==='excluded'?'excluded':status==='not-matched'?'notMatched':'pending']++;if(reason)m.reasons[reason]=(m.reasons[reason]||0)+1;};
+ const add=(m,q,r,current,kind)=>{m.matched++;if(current)m.currentCount++;if(m.observations.length<12)m.observations.push({symbol:q.symbol,name:q.name||q.symbol,price:r.price??(quoteClock(q,now,session).valid?q.price:null),date:r.date,sourceTime:r.time||r.date,quoteTime:q.providerTime||null,source:r.source,current:!!current,kind,rules:r.rules||[],evidence:r.evidence||[],...FLAGS});};
+ const seen=new Set(),rows=list(snapshot.stocks||snapshot.quotes).slice(0,10000);
+ // checkStock's single-row fallback rehashes the whole snapshot. Reuse one
+ // batch classification through its existing API, rather than an O(N²) loop.
+ if(!settings.checkStock&&!settings.classifications&&root.V6Policy?.classifyMany){
+  const cacheable=Number.isSafeInteger(snapshot.marketDataVersion)&&Number.isSafeInteger(state.revision),key=cacheable?JSON.stringify([snapshot.marketDataVersion,state.revision,state.selectionPolicy,state.battleSettings,root.V6Policy.classificationVersion,session.date]):null;
+  if(cacheable&&commonMemo?.snapshot===snapshot&&commonMemo.rows===(snapshot.stocks||snapshot.quotes)&&commonMemo.key===key){settings.classifications=commonMemo.classifications;settings.commonCache=commonMemo.results;}
+  else try{settings.classifications=root.V6Policy.classifyMany(rows.map(q=>q?.symbol).filter(x=>typeof x==='string'),snapshot);if(cacheable){commonMemo={snapshot,rows:snapshot.stocks||snapshot.quotes,key,classifications:settings.classifications,results:new Map()};settings.commonCache=commonMemo.results;}}catch(ignore){settings.classificationFailed=true;}
+ }
+ for(const q of rows){if(!record(q)||!/^\d{6}$/.test(String(q.symbol))||seen.has(q.symbol))continue;seen.add(q.symbol);for(const m of modules)m.checked++;
+  const commonResult=common(q,state,snapshot,settings);if(commonResult.status!=='eligible'){for(const m of modules)issue(m,commonResult.status,commonResult.reason);continue;}
+  const quote=quoteClock(q,now,session),a=auction(q,snapshot,settings,session);if(a.status==='ready')add(modules[0],q,a,a.current,'auction-research');else issue(modules[0],a.status,a.reason);
+  const l=ladder(q,snapshot,settings,session);for(const [i,target] of [[1,1],[2,2]]){if(l.status!=='ready')issue(modules[i],l.status,l.reason);else if(l.streak!==target)issue(modules[i],'not-matched');else add(modules[i],q,{...l,rules:['真实涨停记录尾部连续'+target+'板']},session.open===true&&l.currentDate&&quote.current,'dated-ladder-observation');}
+  const p=intraday(q,snapshot,settings,session,quote);if(p.status==='ready')add(modules[3],q,p,p.current,'intraday-observation');else issue(modules[3],p.status,p.reason);
+ }
+ return {schemaVersion:1,session,evaluatedAt:now,modules,...FLAGS};
+}
+function render(state,snapshot,options={}){
+ const result=compute(state,snapshot,options),active=result.session.open===true;
+ return `<div class="v6-focus-modules">${result.modules.map(m=>`<section class="tj-panel v6-focus-module" data-module-id="${m.id}"><div class="tj-panel-head"><div><h2>${m.title}</h2><span class="tj-panel-kicker">${esc(m.rule)}</span></div><span class="v6-focus-status">${active?'交易时段观察':'休市 · 缓存观察'}</span></div><div class="v6-focus-body"><p class="v6-focus-description">${esc(m.description)}</p><div class="v6-focus-counts"><span>观察 <b>${m.matched}</b></span><span>当前时段 <b>${m.currentCount}</b></span><span>资料待核 <b>${m.pending}</b></span></div>${m.observations.length?`<div class="v6-focus-list">${m.observations.map(r=>`<article><div class="v6-focus-stock"><button type="button" data-focus="${r.symbol}"><strong>${esc(r.name)}</strong><small>${r.symbol}</small></button><b>${number(r.price)}</b><span>${r.current?'时段内观察':'历史 / 过期观察'}</span></div><p>${r.rules.map(esc).join('；')}</p><small class="v6-focus-clock">原始依据：${esc(clock(r.sourceTime))}${r.kind==='dated-ladder-observation'?' · 未闭合日不计连板':''}</small>${r.quoteTime?`<small class="v6-focus-clock">报价原时点：${esc(clock(r.quoteTime))}</small>`:''}<details><summary>规则依据与来源</summary><ul>${r.evidence.map(e=>`<li>${esc(e.label)}：${esc(e.value)}</li>`).join('')}</ul><p>${esc(r.source)} · 来源声明，未独立认证</p></details></article>`).join('')}</div>${m.matched>m.observations.length?`<p class="v6-focus-note">共${m.matched}条观察，展示前${m.observations.length}条；顺序不代表全A最强。</p>`:''}`:`<div class="v6-focus-empty">${m.pending?'现有资料尚不能形成完整观察':'当前资料未形成该类观察'}</div>`}${Object.keys(m.reasons).length?`<details class="v6-focus-missing"><summary>资料与过滤状态</summary><ul>${Object.entries(m.reasons).map(([text,count])=>`<li>${esc(text)} · ${count}只</li>`).join('')}</ul></details>`:''}<div class="v6-focus-footer"><a class="vb-button" href="#scanner" data-focus-module-group="${m.group}">查看原战法与证据 ↗</a><span>仅观察 · 不自动下单</span></div></div></section>`).join('')}</div>`;
+}
+root.V6FocusModules=Object.freeze({compute,render});
+})(window);
+/* V6_FOCUS_MODULES_END */
 
 (function(root){
 'use strict';
