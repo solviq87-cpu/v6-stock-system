@@ -65,6 +65,21 @@
 .vb-filter-audit{border:1px solid #1b4d65;background:#092b3d44;border-radius:3px;padding:11px 12px;margin-bottom:12px}.vb-filter-audit>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 18px;font-size:10px;color:#76a6bd;line-height:1.8}.vb-filter-audit strong{font-size:11px;font-weight:500;color:#96cadb}.vb-filter-audit small{font-size:8px;color:#527f9b}.vb-filter-audit details{margin-top:9px;padding-top:8px;border-top:1px solid #183f55}.vb-filter-audit summary{font-size:8px;color:#5e95af;cursor:pointer}.vb-filter-audit details>div{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:9px;line-height:1.8;color:#597f99;margin-top:9px}.vb-filter-audit b{font-size:10px;font-weight:500;color:#7bafc5;margin-left:4px}.vb-filter-audit p{font-size:8px;color:#477690;line-height:1.9;margin-top:8px}@media(max-width:720px){.vb-filter-audit{padding:10px;margin-bottom:10px}.vb-filter-audit>div{font-size:9px;gap:7px 12px}.vb-filter-audit strong{font-size:10px}.vb-filter-audit small{width:100%;font-size:7px}.vb-filter-audit details>div{font-size:8px}}
 
 .vb-shared-compute{display:block;font-size:8px;color:#4c7d98;line-height:1.9;margin-top:4px}@media(max-width:720px){.vb-shared-compute{font-size:7px}}
+
+.table-wrap,.tj-table-scroll,.vb-table-scroll{display:block;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;touch-action:auto;scrollbar-width:thin;scrollbar-color:#2187a4 #082237}
+.table-wrap::-webkit-scrollbar,.tj-table-scroll::-webkit-scrollbar,.vb-table-scroll::-webkit-scrollbar{height:7px}
+.table-wrap::-webkit-scrollbar-thumb,.tj-table-scroll::-webkit-scrollbar-thumb,.vb-table-scroll::-webkit-scrollbar-thumb{background:#2187a4;border-radius:5px}
+.table-wrap::-webkit-scrollbar-track,.tj-table-scroll::-webkit-scrollbar-track,.vb-table-scroll::-webkit-scrollbar-track{background:#082237}
+.table-wrap:focus-visible,.tj-table-scroll:focus-visible,.vb-table-scroll:focus-visible{outline:1px solid #31d6eb;outline-offset:-2px}
+.table-wrap>table{min-width:980px;table-layout:auto}
+.table-wrap .reason{min-width:250px;max-width:300px;white-space:normal;overflow-wrap:break-word}
+.table-wrap th,.table-wrap td{white-space:nowrap;vertical-align:middle}
+.tj-candidates-table{min-width:620px}
+.vb-holdings-table{min-width:880px}
+.vb-evidence-table{min-width:720px}
+.vb-asset-table{min-width:820px}
+.table-scroll-hint{display:none}
+@media(max-width:720px){.table-scroll-hint{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #17435b;border-bottom:1px solid #17435b;background:#08273b;color:#77cedc;font-size:10px;line-height:1.6}.table-scroll-hint span:first-child{font-size:15px;line-height:1;flex-shrink:0}.table-wrap td{padding-top:12px;padding-bottom:12px}.table-wrap .reason{font-size:11px;line-height:1.75}}
 </style>
 </head>
 <body>
@@ -1465,6 +1480,53 @@ function sourceEvidence(snapshot,options){const external=root.V6StrategyData,sd=
 function render(state,snapshot,options={}){const loaded=safeResult(state,snapshot,options),data=loaded.value,meta=metadata(data),group=options.group||meta.groups[0]?.id||'trend',mode=group==='library'||options.mode==='library'?'library':group==='settings'||options.mode==='settings'?'settings':'signals';const normalized={...options,group};const loading=!!(options.loading||loaded.loading||data?.status==='pending'||data?.running);return `<div class="vb-scanner">${titleBar(meta,normalized,loading)}<div class="vb-boundary"><strong>信号 ≠ 交易指令</strong><span>所有结果来自真实公开快照及可得证据，未获交易所认证。候选、人工复核、离场观察与缺资料分别显示；不生成替代行情，不承诺收益。</span></div>${groupTabs(meta,group)}${coverage(data,snapshot)}${sourceEvidence(snapshot,normalized)}${loading?'<div class="vb-loading" role="status">扫描正在计算，现有行情与持仓继续保留。历史不足或专门资料未取得时保持未判定。</div>':''}${data?.stale?`<div class="vb-loading is-stale" role="status">${data.staleCause==='settings-or-policy-changed'?'筛选参数或主推偏好已更新':'行情或证据版本已更新'}，旧信号已隐藏，等待当前版本重新扫描。${data.previousAsOf?'上次扫描依据时点 '+esc(clock(data.previousAsOf))+'。':''}</div>`:''}${loaded.error?`<div class="vb-error" role="alert">扫描暂不可用：${esc(loaded.error)}。保留已有账本，不填充虚假信号。</div>`:''}${mode==='library'?library(data,meta,options.search||'',snapshot):mode==='settings'?settingsView(data):data&&data.status!=='pending'?signalsView(data,meta,normalized):empty('等待战法扫描结果','可先查看目录或补充真实日线 / 个股证据；没有结果不等于所有策略均不符合。')}<div class="vb-bottom-note">公共快照 · probeOnly:true · canTrade:false · verifiedLive:false · 模拟风控仅作提示</div></div>`;}
 root.V6BattleUI=Object.freeze({render,PAGE_SIZE});
 })(window);
+
+(function(root){
+'use strict';
+const SELECTOR='.table-wrap,.tj-table-scroll,.vb-table-scroll';
+let lastView=null,active=false,touching=false,quietUntil=0,timer=null,retry=null;
+const closest=target=>target instanceof Element?target.closest(SELECTOR):null;
+function postpone(){quietUntil=Date.now()+450;}
+function start(event){if(closest(event.target)){if(event.type==='touchstart')touching=true;active=true;postpone();}}
+function release(event){if(event?.touches?.length)return;if(event.type==='touchend'||event.type==='touchcancel')touching=false;else if(touching)return;if(active){active=false;postpone();}}
+document.addEventListener('pointerdown',start,{passive:true});
+document.addEventListener('touchstart',start,{passive:true});
+document.addEventListener('pointermove',()=>{if(active)postpone();},{passive:true});
+document.addEventListener('touchmove',()=>{if(active)postpone();},{passive:true});
+for(const type of ['pointerup','pointercancel','touchend','touchcancel'])document.addEventListener(type,release,{passive:true});
+document.addEventListener('scroll',event=>{if(closest(event.target))postpone();},{capture:true,passive:true});
+root.addEventListener('blur',()=>{active=false;touching=false;quietUntil=0;});
+function keys(nodes){const counts=new Map();return nodes.map(node=>{const table=node.querySelector('table'),base=node.dataset.scrollKey||[table?.className||'table',table?.querySelector('thead')?.textContent.replace(/\s+/g,' ').trim()||''].join('|'),index=counts.get(base)||0;counts.set(base,index+1);return {node,key:base+'|'+index};});}
+function capture(view,callback){
+ if(lastView===view&&(active||Date.now()<quietUntil)){
+  retry=callback;
+  if(!timer)timer=setTimeout(()=>{timer=null;const next=retry;retry=null;if(next)next();},Math.max(80,Math.min(500,quietUntil-Date.now()+20)));
+  return null;
+ }
+ const same=lastView===view;
+ if(!same){active=false;touching=false;quietUntil=0;if(timer)clearTimeout(timer);timer=null;retry=null;}
+ const positions=same?new Map(keys([...document.querySelectorAll('#main '+SELECTOR.split(',').join(',#main '))]).map(({node,key})=>[key,{left:node.scrollLeft,atEnd:node.scrollWidth>node.clientWidth+2&&node.scrollLeft>=node.scrollWidth-node.clientWidth-3}])):new Map();
+ const open=same?new Set([...document.querySelectorAll('#main details[open]')].filter(d=>d.querySelector(SELECTOR)).map(d=>d.querySelector('summary')?.textContent.trim()).filter(Boolean)):new Set();
+ lastView=view;return {positions,open};
+}
+function decorate(){
+ for(const node of document.querySelectorAll('#main '+SELECTOR.split(',').join(',#main '))){
+  if(node.scrollWidth<=node.clientWidth+2)continue;
+  node.tabIndex=0;node.setAttribute('role','region');if(!node.hasAttribute('aria-label'))node.setAttribute('aria-label','数据表格，可左右滑动查看全部列');
+  if(root.innerWidth<=720&&!node.previousElementSibling?.classList.contains('table-scroll-hint')){
+   const hint=document.createElement('div');hint.className='table-scroll-hint';hint.innerHTML='<span aria-hidden="true">↔</span><span>左右滑动表格，查看全部列</span>';node.before(hint);
+  }
+ }
+}
+function restore(saved){
+ if(!saved)return;
+ for(const details of document.querySelectorAll('#main details'))if(saved.open.has(details.querySelector('summary')?.textContent.trim()))details.open=true;
+ for(const {node,key} of keys([...document.querySelectorAll('#main '+SELECTOR.split(',').join(',#main '))])){const position=saved.positions.get(key);if(position?.left>0)node.scrollLeft=position.atEnd?node.scrollWidth-node.clientWidth:position.left;}
+ decorate();
+}
+root.addEventListener('resize',decorate,{passive:true});
+root.V6TableScroll=Object.freeze({capture,restore});
+})(window);
 </script>
 <script>(function(){
 'use strict';
@@ -1548,11 +1610,12 @@ function portfolio(){const p=C.calcPortfolio(state),alerts=C.riskAlerts(state);r
 function riskView(){const p=C.calcPortfolio(state),alerts=C.riskAlerts(state);return pageTitle('RISK CONTROL','先设边界，再做决策。','仓位限制会拦截新增买入；止损止盈仅提示，不会自动卖出。')+`<div class="risk-layout"><section class="panel"><div class="panel-head"><div><h2 class="panel-title">模拟交易风控参数</h2><p class="panel-subtitle">应用于整个共享模拟账户 · 修改后云端保存</p></div><span class="chip green">下单前校验</span></div><div class="panel-body"><form id="risk-form"><div class="form-grid">${[['maxPositionPct','单股仓位上限',1,100,1,'成交后单只股票市值 / 总资产'],['maxExposurePct','总仓位上限',1,100,1,'成交后全部股票市值 / 总资产'],['stopLossPct','止损提醒阈值',.1,99,.1,'持仓浮动收益率达到负阈值时提醒'],['takeProfitPct','止盈提醒阈值',.1,1000,.1,'持仓浮动收益率达到正阈值时提醒']].map(([key,label,min,max,step,help])=>`<label class="field"><span class="field-label">${label}</span><div class="input-wrap"><input type="number" name="${key}" value="${state.risk[key]}" min="${min}" max="${max}" step="${step}" required aria-label="${label}"><span>%</span></div><span class="field-help">${help}</span></label>`).join('')}</div><div id="risk-error" role="alert"></div><button class="button primary" type="submit" id="risk-save">保存风控参数 ↗</button><p class="save-foot">单股上限不能高于总仓位上限。降低阈值不会自动平仓；已有超限持仓会触发提醒，卖出以降低风险仍可执行。</p></form></div></section><section class="panel"><div class="panel-head"><div><h2 class="panel-title">账户风险状态</h2><p class="panel-subtitle">基于当前模拟持仓即时计算</p></div><span class="chip${alerts.length?'':' green'}">${alerts.length?alerts.length+' 项提醒':'阈值内'}</span></div><div class="panel-body"><div class="rule-status"><div>总仓位<p>上限 ${state.risk.maxExposurePct}%</p></div><b>${fmt(p.exposure)}%</b></div><div class="rule-status"><div>最大单股仓位<p>上限 ${state.risk.maxPositionPct}%</p></div><b>${p.valuationComplete===false?'—':fmt(p.positions.reduce((max,x)=>validNumber(x.weight)?Math.max(max,x.weight):max,0))}${p.valuationComplete===false?'':'%'}</b></div><div class="rule-status"><div>当前资产回撤<p>相对已记录的账户资产峰值</p></div><b>${fmt(p.drawdown,4)}%</b></div><div class="rule-status"><div>行情可交易性<p>canTrade:false · verifiedLive:false</p></div><b class="muted">仅模拟</b></div></div></section></div><div class="section-title"><h2>风险提醒</h2><span class="muted" style="font-size:10px">不会自动下单或卖出</span></div><div class="alert-list">${alerts.length?alerts.map(a=>`<div class="alert${a.level==='danger'?' critical':''}"><strong>${esc(a.title)}</strong><br>${esc(a.message)}${a.symbol?` <button class="button small" data-sell="${a.symbol}">查看模拟卖出</button>`:''}</div>`).join(''):'<div class="alert ok">✓ 当前持仓未触发任何已设定的风控阈值。阈值内不代表没有投资风险。</div>'}</div><div class="section-title"><h2>数据与存储</h2></div><section class="panel"><div class="panel-body" style="padding-top:20px"><div class="rule-status"><div>共享云端账本<p>通过 WorkBuddy /api/records 保存。持有站点链接的使用者共用同一模拟账户。</p></div><span class="chip${cloud?' green':''}">${cloud?'已连接':'连接异常'}</span></div><div class="rule-status"><div>最近保存<p>${esc(fullDate(state.updatedAt))} · 账本版本 ${state.revision}</p></div><button class="button small" data-export>导出 JSON ↓</button></div><p class="save-foot">每次修改前会检查最新云端版本。请避免多人同时下单：当前 KV 接口不支持原子锁。网络失败时停止写入，点击右上角同步后再操作。浏览器只缓存最后确认保存的状态，用于离线查看。</p></div></section>`;}
 function render(){
  if(!ready)return;
+ const tableScroll=window.V6TableScroll?.capture(view,render);if(window.V6TableScroll&&!tableScroll)return;
  updateMarketStatus();
  $('#navigation').innerHTML=navs.map(([id,label,icon],i)=>`<a class="nav-link${view===id?' active':''}" href="#${id}" ${view===id?'aria-current="page"':''}><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></span><span>${label}</span><span class="nav-number">0${i+1}</span></a>`).join('');
  $('#breadcrumb').textContent=navs.find(n=>n[0]===view)[1];document.title='天枢智策 · '+navs.find(n=>n[0]===view)[1]+' — V6 选股系统';
  const banner=!cloud?`<div class="notice error connection-banner" role="alert"><strong>当前为只读模式，云端尚未确认。</strong><br>${esc(cloudError)}。点击右上角「同步」重试；未成功保存的操作不会更新云端。</div>`:'';
- $('#main').innerHTML=banner+({home,scanner:scannerView,factors:factorsView,watchlist:watchlistView,strategies:strategiesView,picks:picksView,portfolio,risk:riskView}[view])();renderBusy();
+ $('#main').innerHTML=banner+({home,scanner:scannerView,factors:factorsView,watchlist:watchlistView,strategies:strategiesView,picks:picksView,portfolio,risk:riskView}[view])();window.V6TableScroll?.restore(tableScroll);renderBusy();
  if(view==='scanner')scheduleBattleScan();
 }
 function openTrade(symbol=C.stocks[0]?.symbol,side='buy'){
