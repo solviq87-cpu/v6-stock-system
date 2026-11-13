@@ -13,7 +13,7 @@ function codesOf(extra){
  const match=/['"]codes['"]\s*:\s*\[([^\]]*)\]/.exec(typeof extra==='string'?extra:'');
  return match?match[1].split(',').map(s=>s.trim().replace(/^['"]|['"]$/g,'')).filter(s=>/^\d{6}$/.test(s)):[];
 }
-function reviewPushedOutcomes({date,pushlog,histories,now=Date.now()}){
+function collectAcceptedGroups({date,pushlog,now=Date.now()}){
  const ds=dateKey(date);if(!ds||!validTime(now)||ds>day(now))throw Error('复盘日期无效或晚于当前日期');
  const closeAt=Date.parse(ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8)+'T15:00:00+08:00');
  if(now<closeAt)throw Error('目标交易日尚未收盘，不能生成收盘统计');
@@ -23,11 +23,17 @@ function reviewPushedOutcomes({date,pushlog,histories,now=Date.now()}){
   if(!entry||!validTime(entry.ts)){skipped.invalidTime++;continue;}if(day(entry.ts)!==ds)continue;
   if(!/^✅ 已送达(?:\(私密\))?$/.test(entry.status||'')&&entry.status!=='gateway-accepted'){skipped.unconfirmed++;continue;}
   if(entry.ts>=closeAt){skipped.afterClose++;continue;}
-  const codes=[...new Set(codesOf(entry.extra))];if(!codes.length){skipped.missingCodes++;continue;}
+  // pushLog flattens metadata onto the record. Legacy exports nested it in extra.
+  // Never resurrect stale nested codes when a newer top-level field is present.
+  const codes=[...new Set(codesOf(Object.hasOwn(entry,'codes')?entry:entry.extra))];if(!codes.length){skipped.missingCodes++;continue;}
   for(const code of codes){const meta=groups.get(code)||{firstAcceptedAt:entry.ts,titles:new Set()};
    meta.firstAcceptedAt=Math.min(meta.firstAcceptedAt,entry.ts);if(typeof entry.title==='string')meta.titles.add(entry.title.slice(0,200));groups.set(code,meta);}
  }
  if(!groups.size)throw Error('目标日没有可核对的盘中网关接受记录；保留既有结果');
+ return {ds,closeAt,groups,skipped};
+}
+function reviewPushedOutcomes({date,pushlog,histories,now=Date.now()}){
+ const {ds,closeAt,groups,skipped}=collectAcceptedGroups({date,pushlog,now});
  const samples=[];
  for(const [code,meta] of groups){
   const history=histories instanceof Map?histories.get(code):histories?.[code];
@@ -36,7 +42,7 @@ function reviewPushedOutcomes({date,pushlog,histories,now=Date.now()}){
   if(target.length!==1){if(target.length>1)skipped.invalidHistory++;else skipped.missingOutcome++;continue;}
   const bar=target[0];if(!finite(bar.close)||bar.close<=0||!finite(bar.pct)){skipped.missingOutcome++;continue;}
   const receivedAt=bar.receivedAt??history?.receivedAt;
-  if(!validTime(receivedAt)||receivedAt<closeAt||receivedAt>now){skipped.unclosedOutcome++;continue;}
+  if(bar.final===false||history?.final===false||!validTime(receivedAt)||receivedAt<closeAt||receivedAt>now){skipped.unclosedOutcome++;continue;}
   // IPO/board limits cannot be inferred from an undated current snapshot.
   const zt=typeof bar.isLimitUp==='boolean'?bar.isLimitUp:typeof bar.limitUp==='boolean'?bar.limitUp:null;
   samples.push({id:ds+':'+code,ds,code,firstAcceptedAt:meta.firstAcceptedAt,titles:[...meta.titles].sort(),close:bar.close,pct:bar.pct,
@@ -56,4 +62,26 @@ function summarizeOutcomes(samples){
  return {observedDays:dates.length,samples:included.length,target:'close-change-vs-previous-close',strategyReturnVerified:false,
   titleStats:[...titles.values()].map(s=>({...s,closeUpRate:pct(s.up,s.n),closeLimitUpRate:pct(s.zt,s.ztKnown)})).sort((a,b)=>a.title.localeCompare(b.title))};
 }
-module.exports={dateKey,reviewPushedOutcomes,summarizeOutcomes};
+function validateStoredReview(prior,now=Date.now()){
+ if(!prior||prior.schemaVersion!==2||prior.mode!=='pushed-close-outcome-review'||
+    prior.trainEligible!==false||prior.canTrade!==false||!Array.isArray(prior.samples))
+  throw Error('既有复盘文件格式不兼容，保留原文件');
+ const ids=new Set();
+ for(const s of prior.samples){
+  const ds=dateKey(s?.ds),closeAt=ds&&Date.parse(ds.slice(0,4)+'-'+ds.slice(4,6)+'-'+ds.slice(6,8)+'T15:00:00+08:00');
+  if(!ds||ds!==s.ds||ds>day(now)||typeof s.code!=='string'||!/^\d{6}$/.test(s.code)||s.id!==ds+':'+s.code||ids.has(s.id)||
+     !validTime(s.firstAcceptedAt)||day(s.firstAcceptedAt)!==ds||s.firstAcceptedAt>=closeAt||
+     !validTime(s.outcomeReceivedAt)||s.outcomeReceivedAt<closeAt||s.outcomeReceivedAt>now||
+     !finite(s.close)||s.close<=0||!finite(s.pct)||!['up','down','flat'].includes(s.outcome)||
+     s.outcome!==(s.pct>0?'up':s.pct<0?'down':'flat')||![null,0,1].includes(s.zt)||
+     !Array.isArray(s.titles)||s.titles.some(t=>typeof t!=='string'||t.length>200)||
+     s.trainEligible!==false||s.canTrade!==false||s.feat!==null||s.sourceVerified!==false||
+     s.outcomeTarget!=='close-change-vs-previous-close'||
+     s.deliveryBasis!=='recorded-gateway-acceptance-not-device-confirmed'||
+     s.featureStatus!=='no-frozen-push-features')
+   throw Error('既有复盘记录损坏或证据不兼容，保留原文件');
+  ids.add(s.id);
+ }
+ return prior;
+}
+module.exports={dateKey,collectAcceptedGroups,reviewPushedOutcomes,summarizeOutcomes,validateStoredReview};

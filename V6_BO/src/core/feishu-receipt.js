@@ -9,6 +9,8 @@ function classifyFeishuReceipt(statusCode, payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return unknown('响应格式异常');
   const codes = ['code','StatusCode'].filter(key => Object.hasOwn(payload,key)).map(key => payload[key]);
   if (!codes.length || codes.some(code => !Number.isInteger(code))) return unknown('缺少有效业务回执码');
+  // Contradictory envelopes cannot prove rejection: releasing deduplication could resend an accepted message.
+  if (codes.includes(0) && codes.some(code => code !== 0)) return unknown('业务回执码互相矛盾');
   if (codes.some(code => code !== 0)) {
     const code = codes.find(value => value !== 0);
     const rateLimited = /too many requests?|rate limit/i.test(String(payload.msg || payload.StatusMessage || ''));
