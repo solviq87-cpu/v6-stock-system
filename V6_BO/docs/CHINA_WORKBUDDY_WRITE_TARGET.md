@@ -21,7 +21,9 @@
 | `GET /api/health`（带分享码） | 200 |
 | `GET /api/health`（无分享码） | 403 |
 
-`/api/ai/doc` 是旧文档路径，不是已验证的写入 endpoint；不得向它 POST 工程、配置或账本。官方说明核实的写入路径仅为 `/api/publish`。**本轮尚未执行写入**，未取得发布回执，`providerAuthorized=false`、`productionDeployed=false` 保持不变，不能把只读 200 当成生产部署证明。
+`/api/ai/doc` 是旧文档路径，不是已验证的写入 endpoint；不得向它 POST 工程、配置或账本。官方说明核实的写入路径仅为 `/api/publish`。上表初始只读核验时尚未执行写入，不能把只读 200 当成生产部署证明。随后真实发布已写入该站，但首次大页面的 8 个汉字变为 21 个 U+FFFD，完整产物哈希校验失败；候选仍在线上，不能将这次写入记为成功发布。
+
+损坏特征高度符合服务端或中间层逐分块错误解码 UTF-8；未取得服务端源码，不能进一步确认具体实现。修复将 JSON 请求体转换为纯 ASCII 的 Unicode 转义，JSON 解码后的 HTML 字节必须保持完全相同。恢复先用 `restore-legacy` 精确绑定当前实际 HTML 哈希和本目标原加密快照，再对成功 CI 的新 SHA 初始化并完整读回；禁止重新标记损坏页面或放宽断言。后续执行回执记录在对应修复 PR，参考配置保持默认未激活，不代表会话或完整后端已上线。
 
 该站只托管单文件静态 HTML，不能执行 Node/Python，不能因此宣称 V6 完整后端、云端账户、持久化行情、定时采集或飞书主实例已上线。当前站点 HTML 与 `V6_BO/public/index.html`、`mobile.html` 锁定主页及 `V6_WEB/dist` 不同。保持用户当前界面、策略、模拟盘和风控代码；站点源与构建 provenance 见 `V6_WEB/workbuddy/`。禁止借旧 `_release_publish` 流程改版本或暂存脏代码覆盖当前站点。
 
@@ -37,7 +39,7 @@
 
 参考配置：`config/china-workbuddy-write-target.example.json`。`V6_CN_WRITE_ORIGIN` 可引用当前主机，`V6_CN_WRITE_DOC_PATH=/console`、`V6_CN_WRITE_ENDPOINT=/api/publish` 是已核实的路径；自动化使用 `V6_WORKBUDDY_SHARECODE` 私有 Secret。配置文件只保存变量名称，不保存任何实际分享码、token、个人持仓或成本。
 
-当前 GitHub 集成对仓库 Actions Secret 公钥接口只读请求返回 403，无法代用户配置 Secret；禁止用工作流明文变量替代。完成一次私有 Secret 配置之前，长期自动更新未激活；首轮发布与回滚仍待验证。
+当前 GitHub 集成对仓库 Actions Secret 公钥接口只读请求返回 403，无法代用户配置 Secret；禁止用工作流明文变量替代。完成一次私有 Secret 配置之前，长期自动更新未激活；绿色工作流也可能因为没有 Secret 而跳过发布，必须检查发布步骤的实际执行记录。
 
 ## 历史记录（禁止作为当前目标或备用）
 
