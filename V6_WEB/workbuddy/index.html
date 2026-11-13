@@ -1922,7 +1922,7 @@ async function refreshClassifications(force=false){
   installClassifications(payload);renderMarketSafely();
   const content=await window.V6StorageCodec.encode(payload);
   await api('records','POST',{name:CLASS_KEY,title:'天枢智策 · 公开行业分类证据',author:'ChatGPT',content});
- }).catch(e=>{$('#market-status').title+='\n行业更新失败，保留原证据：'+e.message;}).finally(()=>{classificationJob=null;});
+ })().catch(e=>{$('#market-status').title+='\n行业更新失败，保留原证据：'+e.message;}).finally(()=>{classificationJob=null;});
  return classificationJob;
 }
 async function scanFullMarket(manual=false){
