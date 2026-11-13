@@ -63,7 +63,7 @@ classification refresh at the single session transition into active collection.
 This covers explicit resume, authorized default automatic startup, and the next
 opening after an enabled closed-session wait, while retaining persistent manual
 pause, the same-day cache, attempt interval and shared provider budgets.
-Its current canonical HTML SHA-256 is
+Its canonical HTML SHA-256 was
 `30a60400b792510603be8a5446bebf2c60e184aa11dd490d8d5089df8872ff5d`.
 It retains the four core strategies and all 43 playbooks, with explicit pause,
 shared browser request budgets, historical-cache controls and same-row quote
@@ -89,3 +89,9 @@ Pattern checks supplement source review; they are not a general proof that
 arbitrary future HTML contains no sensitive information.
 
 The subsequent session/module candidate uses explicit 2026 trading sessions, four read-only observation modules and persistent per-module collapse preferences. See `SESSION_CONTROL.md`, `SESSION_MODULES.md` and `FOCUS_MODULES.md`. Source preservation of account protocols does not imply that missing auction/ladder evidence is available or that the hosted site has been updated.
+
+## Foreground and reconnect recovery
+
+Device lifecycle recovery preserves manual pause and the existing collection gates.
+The current canonical HTML SHA-256 is `408025b1fe9f42da6d4f8df574e61185c410558d6928a4ae2e911995572a29d3`.
+See `SESSION_CONTROL.md` for behavior and offline validation boundaries.
