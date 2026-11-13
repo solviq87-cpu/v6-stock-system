@@ -26,7 +26,8 @@
 // 飞书自定义机器人撞频时会返回 {"code":9499,"msg":"too many request"}，
 // 网关层还可能直接给 HTTP 429。其余错误（地址无效、消息格式非法、签名过期）
 // 重试多少次都一样，必须立即回调失败，别把队列堵死。
-const RETRYABLE = /9499|too many request|Too Many Requests|\b429\b/i;
+// A bare business code is not proof of rate limiting (9499 can be a bad request).
+const RETRYABLE = /too many requests?|\b429\b|\b11232\b/i;
 
 function createQueue(sendOnce, opt) {
   const o = opt || {};
@@ -35,17 +36,28 @@ function createQueue(sendOnce, opt) {
   const retry = Number.isFinite(o.retry) ? o.retry : 2;         // 限频补发次数
   const log = o.log || null;                                    // 形如 { warn(){}, error(){} }
   const sleepFn = o.sleep || ((ms, fn) => setTimeout(fn, ms));  // 可注入假时钟做单测
+  const now = o.now || Date.now;
+  const setTimer = o.setTimer || setTimeout;
+  const clearTimer = o.clearTimer || clearTimeout;
   // 看门狗时限：超过这么久还没回调就按失败结算，把 running 还回去（可用 guardMs 覆盖做测试）
   const guardMs = Number.isFinite(o.guardMs) ? o.guardMs : 25000;
 
-  const st = { q: [], running: false, lastAt: 0, dropped: 0, retried: 0, guarded: 0 };
+  const st = { q: [], running: false, lastAt: null, dropped: 0, retried: 0, guarded: 0, callbackErrors: 0 };
+
+  function report(level, message) {
+    try { if (log && typeof log[level] === 'function') log[level](message); } catch {}
+  }
+  function notify(job, ok, info) {
+    try { if (typeof job.cb === 'function') job.cb(ok, info); }
+    catch { st.callbackErrors++; report('error', '发送结果回调异常，队列继续运行'); }
+  }
 
   function drain() {
     if (st.running) return;
     const job = st.q.shift();
     if (!job) return;
     st.running = true;
-    const wait = Math.max(0, minGap - (Date.now() - st.lastAt));
+    const wait = st.lastAt === null ? 0 : Math.max(0, minGap - (now() - st.lastAt));
     sleepFn(wait, () => runJob(job));
   }
 
@@ -56,34 +68,33 @@ function createQueue(sendOnce, opt) {
     const finish = (ok, info, noRetry = false) => {
       if (settled) return;                 // 只认第一次结果：真实回调与看门狗可能都来
       settled = true;
-      if (guard) { clearTimeout(guard); guard = null; }
-      st.lastAt = Date.now();
+      if (guard !== null) { clearTimer(guard); guard = null; }
+      st.lastAt = now();
       const canRetry = !noRetry && !ok && RETRYABLE.test(String(info));
       if (canRetry && (job.tries || 0) < retry) {
         job.tries = (job.tries || 0) + 1;
         st.retried++;
-        const back = 1500 * job.tries;
-        if (log && log.warn) log.warn(`撞飞书限频，${back}ms 后第 ${job.tries} 次补发`);
+        const back = Math.max(minGap, 1500 * job.tries);
+        report('warn', `撞飞书限频，${back}ms 后第 ${job.tries} 次补发`);
         sleepFn(back, () => runJob(job));  // 插回最前：这条已经在用户"该收到"的时间窗里了
         return;
       }
       st.running = false;                  // ⛔ 唯一把互斥资源还回去的地方
-      if (job.cb) job.cb(ok, info);
-      drain();
+      try { notify(job, ok, info); } finally { drain(); }
     };
-    // The exact current decision is checked at every dispatch/retry, never only
-    // at enqueue time. Non-recommendation jobs carry no review hook.
+    // Re-evaluate a recommendation at every dispatch/retry. A denied review
+    // is terminal even when its explanatory text contains a rate-limit code.
     if (typeof job.beforeSend === 'function') {
       try {
         const reviewed=job.beforeSend();
-        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false, reviewed&&reviewed.why||'派发前审核未通过',true);return; }
+        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false,reviewed&&reviewed.why||'派发前审核未通过',true);return; }
       } catch (_) { finish(false,'派发前审核不可用',true);return; }
     }
-    guard = setTimeout(() => {
+    guard = setTimer(() => {
       if (settled) return;
       st.guarded++;
-      if (log && log.error) log.error(`发送超过 ${guardMs}ms 没有回音，强制放行队列（该条按失败计）`);
-      finish(false, `发送超时（${guardMs}ms 未回调）`);
+      report('error', `发送超过 ${guardMs}ms 没有回音，强制放行队列（结果未知）`);
+      finish(false, `送达结果未知：发送超时（${guardMs}ms 未回调）`);
     }, guardMs);
     try {
       sendOnce(job.text, finish);
@@ -93,15 +104,23 @@ function createQueue(sendOnce, opt) {
   }
 
   function send(text, cb, opts) {
-    const job = { text, cb, beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null };
+    const job = { text, cb, priority: !!(opts && opts.priority),beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null };
     if (st.q.length >= maxQ) {
-      const drop = st.q.shift();
+      const index = st.q.findIndex(item => !item.priority);
       st.dropped++;
-      if (log && log.error) log.error('队列溢出，丢弃最旧一条未发消息: ' + String(drop && drop.text).slice(0, 60));
-      if (drop && drop.cb) { try { drop.cb(false, '发送队列已满，该条被丢弃'); } catch (e) {} }
+      report('error', '发送队列已满，拒绝或移除一条尚未发送的消息');
+      // Do not evict a pending OTP/risk alert to accommodate a routine bulletin.
+      if (index < 0) { notify(job, false, '发送队列已满，该条未发送'); return st.q.length; }
+      const [drop] = st.q.splice(index, 1);
+      // Insert first, then notify: a reentrant callback must still see a bounded queue.
+      job.droppedJob = drop;
     }
     // priority：验证码 / 凭证卡有时效，不能排在几十条行情快报后面，否则用户以为没收到。
-    if (opts && opts.priority) st.q.unshift(job); else st.q.push(job);
+    if (job.priority) {
+      const index = st.q.findIndex(item => !item.priority);
+      st.q.splice(index < 0 ? st.q.length : index, 0, job);
+    } else st.q.push(job);
+    if (job.droppedJob) { const drop = job.droppedJob; delete job.droppedJob; notify(drop, false, '发送队列已满，该条被丢弃'); }
     drain();
     return st.q.length;
   }
@@ -110,7 +129,7 @@ function createQueue(sendOnce, opt) {
     send,
     get size() { return st.q.length; },
     get running() { return st.running; },
-    stats: () => ({ queued: st.q.length, dropped: st.dropped, retried: st.retried, guarded: st.guarded, running: st.running })
+    stats: () => ({ queued: st.q.length, dropped: st.dropped, retried: st.retried, guarded: st.guarded, callbackErrors: st.callbackErrors, running: st.running })
   };
 }
 

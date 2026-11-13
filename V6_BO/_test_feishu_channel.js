@@ -7,7 +7,8 @@
 // 本测试要盯住：格式错必报错并保留原通道 / 支持先验后换 / 面板能看到打码地址 / 失败原因说人话。
 const fs = require('fs');
 const SV = fs.readFileSync('server.js', 'utf8');
-const HTML = fs.readFileSync('public/index.html', 'utf8');
+// The locked homepage loads the maintained external application script.
+const HTML = fs.readFileSync('public/index.html', 'utf8') + '\n' + fs.readFileSync('public/assets/app.js', 'utf8');
 // ⛔ 判执行顺序要在剥掉注释的版本上做：注释里会引用"现有通道未被改动"这类旧文案来解释历史 bug，
 //   直接 indexOf 整份源文件会命中注释 → 位置全错（本项目已踩 7 次）。
 const { stripNoise } = require('./_codescan.js');
@@ -33,7 +34,7 @@ try {
   // ⚠️ require 必须显式注入：new Function 造出的作用域里没有 require，
   //    feishuProbe 那句 `_https || require('https')` 会直接 ReferenceError。
   //    注入真实的 require 也不影响隔离 —— 下面所有用例都传了假 https，短路不求值。
-  api = new Function('crypto', 'S', 'require', src + '\nreturn { maskHook, feishuMask, feishuProbe, feishuErrTip };')(_crypto, _S, require);
+  api = new Function('crypto', 'S', 'require', 'classifyFeishuReceipt', src + '\nreturn { maskHook, feishuMask, feishuProbe, feishuErrTip };')(_crypto, _S, require, require('./src/core/feishu-receipt').classifyFeishuReceipt);
 } catch (e) { console.log('  ❌ 无法提取函数：' + e.message); fail++; }
 
 sec('① 打码：要认得出是哪一台，又不能泄露完整地址');
@@ -52,7 +53,7 @@ sec('② 体检消息：成功 / 限流 / 网络异常 / 机器人失效 都能�
 if (api) {
   const stub = (replyObj, errKind) => ({
     request: (opts, cb) => {
-      const res = { _h: {}, on(ev, fn) { this._h[ev] = fn; return this; } };
+      const res = { statusCode:200, _h: {}, on(ev, fn) { this._h[ev] = fn; return this; } };
       const req = { _h: {}, on(ev, fn) { this._h[ev] = fn; return this; }, destroy() {}, end() {
         setTimeout(() => {
           if (errKind === 'error') { if (req._h.error) req._h.error(new Error('ENOTFOUND boom')); return; }

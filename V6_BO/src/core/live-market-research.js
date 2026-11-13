@@ -22,7 +22,8 @@ async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date
   bridgeExistingMarketSector(snapshot,sectorMembership,{asOf:timingClock});
  return {verifiedLive:false,rankingModified:false,
   snapshotMetadata:{date:snapshot.date,source:snapshot.source,verifiedLive:false,startedAt:snapshot.startedAt,retrievedAt:snapshot.retrievedAt,samplingDurationMs:snapshot.samplingDurationMs,
-   universeSize:snapshot.universeSize,pages:snapshot.pages,warning:snapshot.warning},
+   universeSize:snapshot.universeSize,pages:snapshot.pages,
+   sourceCoverage:snapshot.sourceCoverage??null,warning:snapshot.warning},
   breadth,regime,candidateIntersection,quoteTimeAudit,
   ...(sectorBreadth===undefined?{}:{sectorBreadth}),
   riskEvidence:assessCandidateEvidence(snapshot,breadth,regime,candidates,candidateIntersection,{requireOriginalQuoteTime:true}),

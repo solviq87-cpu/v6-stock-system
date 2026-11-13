@@ -9,11 +9,11 @@ const source=fs.readFileSync(serverPath,'utf8'),realRequire=createRequire(server
 const Journal=require('../src/core/news-evidence-journal'),Queue=require('../feishuq');
 function section(a,b){const i=source.indexOf(a),j=source.indexOf(b,i);assert.ok(i>=0&&j>i,a);return source.slice(i,j);}
 function fn(name){const a=source.indexOf('function '+name+'('),b=source.indexOf('\n}\n',a)+2;assert.ok(a>=0&&b>a,name);return source.slice(a,b);}
-function fixture(t){
+function fixture(t,{deferPrivate=false}={}){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'news-final-gate-')),root=path.join(directory,'private');
  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
  let clock=Date.now(),batch=[],failColumn=null;
- const sends=[],logs=[],releases=[],quotaCalls=[];
+ const sends=[],logs=[],releases=[],quotaCalls=[],privateTimers=[],privateQueues=[];
  class Clock extends Date{constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
  const journal={...Journal,captureProviderBatch:(p,raw)=>Journal.captureProviderBatch(p,raw,{now:clock}),
   readJournal:p=>Journal.readJournal(p,{now:clock})};
@@ -21,6 +21,7 @@ function fixture(t){
   require:name=>name==='./src/core/news-evidence-journal'?journal:realRequire(name),console:{log(){},warn(){},error(){}},
   S:{config:{},stocks:[],sectors:[{name:'示例板块'},{name:'其他板块'}],secStocks:new Map(),
    news:{good:[],bad:[],goodAll:[],badAll:[],neutralAll:[],goodCodes:new Set(),badCodes:new Set(),badSectors:new Set(),goodPushed:new Set(),holidayBuf:[]}},
+  FSQ:{createQueue:(send,options)=>{const q=Queue.createQueue(send,{...options,minGap:0,sleep:(_ms,run)=>deferPrivate?privateTimers.push(run):run()});privateQueues.push(q);return q;}},
   HOLIDAY_BUF_CAP:1200,NEWS_ARCHIVE_CAP:300,within3Days:value=>{
    const parsed=Date.parse(value);return Number.isFinite(parsed)&&parsed<=clock&&clock-parsed<=3*86400000;
   },isTradeDay:()=>true,isTradingTime:()=>false,
@@ -42,6 +43,7 @@ function fixture(t){
  vm.runInContext(section('async function refreshNews()','// 每日新闻汇总'),c);
  for(const name of ['reviewRecommendation','reviewSnapshotFields','freezeRecommendationRows','freezeNewsRecommendationRows','newsRecommendationSendOptions','recommendationSendOptions',
   'recommendationNewsReview','prepareRecommendationDelivery','extractStockCodes','sendResultUnknown','pushAll','govTake','nextPlanNewsOptions'])vm.runInContext(fn(name),c);
+ vm.runInContext(section('const _fsPrivateQueue =','// opts.priority'),c);
  const raw=(patch={})=>({code:'event-1',title:'利空减持',summary:'原始消息摘要',showTime:new Date(clock-1000).toISOString(),stockList:['0.000001'],...patch});
  const row=(patch={})=>({code:'000001',name:'正常股票',sector:'其他板块',price:10,quoteAt:clock-1000,receivedAt:clock,
   mode:'public-live-unverified',quoteSource:'vendor-original',canNotify:true,amount:1e8,volume:10000,ts:clock,
@@ -61,7 +63,8 @@ function fixture(t){
   c.feishuSend=(text,callback,options)=>q.send(text,callback,options);
   return {q,timers,dispatches,run:()=>{assert.ok(timers.length,'one scheduled dispatch expected');timers.shift()();}};
  };
- return {c,root,raw,row,sends,logs,releases,quotaCalls,refresh,append,queued,
+ return {c,root,raw,row,sends,logs,releases,quotaCalls,refresh,append,queued,privateQueues,
+  dispatchPrivate:()=>{assert.ok(privateTimers.length,'one scheduled private dispatch expected');privateTimers.shift()();},
   advance:ms=>{clock+=ms;},now:()=>clock,fail:column=>{failColumn=column;}};
 }
 
@@ -153,19 +156,19 @@ test('actual pushAll rejects the previously reproducible valid-quote negative-ne
  const x=fixture(t);await x.refresh([x.raw()]);
  const options=x.c.recommendationSendOptions([x.row()],{private:true,undo:[{code:'000001',type:'pool'}],modDay:'pool'});
  assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),false);
- await Promise.resolve();assert.equal(x.sends.length,0);assert.equal(x.releases.length,2);
+ await new Promise(setImmediate);assert.equal(x.sends.length,0);assert.equal(x.releases.length,2);
 });
 
 for(const override of [{force:true},{manual:true},{force:true,manual:true}])test('high model value and caller overrides do not bypass current negative news: '+JSON.stringify(override),async t=>{
  const x=fixture(t);await x.refresh([x.raw()]);
  const options=x.c.recommendationSendOptions([x.row({prob:99.9})],{private:true,manual:!!override.manual});
- assert.equal(x.c.pushAll('模型99.9 当前可买',!!override.force,options),false);await Promise.resolve();assert.equal(x.sends.length,0);
+ assert.equal(x.c.pushAll('模型99.9 当前可买',!!override.force,options),false);await new Promise(setImmediate);assert.equal(x.sends.length,0);
 });
 
 test('a mixed recommendation batch is held as one batch when one structured row is affected',async t=>{
  const x=fixture(t);await x.refresh([x.raw()]);
  const options=x.c.recommendationSendOptions([x.row(),x.row({code:'600000'})],{private:true,undo:[{code:'000001'},{code:'600000'}],modDay:'pool'});
- assert.equal(x.c.pushAll('两个股票当前可买',false,options),false);await Promise.resolve();
+ assert.equal(x.c.pushAll('两个股票当前可买',false,options),false);await new Promise(setImmediate);
  assert.equal(x.sends.length,0);assert.equal(x.releases.length,3);
 });
 
@@ -179,7 +182,7 @@ test('an actual queued public recommendation rechecks news at dispatch and drops
  const x=fixture(t);await x.refresh([]);const queue=x.queued();
  const options=x.c.recommendationSendOptions([x.row()],{public:true,undo:[{code:'000001'}],modDay:'pool'});
  assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),true);
- await x.refresh([x.raw()]);queue.run();await Promise.resolve();
+ await x.refresh([x.raw()]);queue.run();await new Promise(setImmediate);
  assert.equal(queue.dispatches.length,0);assert.equal(queue.q.running,false);assert.equal(x.releases.length,2);
 });
 
@@ -191,7 +194,7 @@ test('the actual queue rechecks the same news guard before a rate-limit retry',a
  const options=x.c.recommendationSendOptions([x.row()],{public:true,undo:[{code:'000001'}],modDay:'pool'});
  assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),true);
  assert.ok(timers.length);timers.shift()();assert.equal(dispatches.length,1);assert.ok(timers.length);
- await x.refresh([x.raw()]);timers.shift()();await Promise.resolve();
+ await x.refresh([x.raw()]);timers.shift()();await new Promise(setImmediate);
  assert.equal(dispatches.length,1,'a newly negative retry must not reach the sender again');assert.equal(queue.running,false);
 });
 
@@ -199,19 +202,19 @@ test('risk warnings, holding sells and news broadcasts retain their non-recommen
  const x=fixture(t);
  for(const text of ['持仓风险警报：000001出现利空，请关注减仓','卖出记录：000001，本次金额600000元','新闻播报：000001收到监管关注'])
   assert.equal(x.c.pushAll(text,false,{private:true}),true);
- await Promise.resolve();assert.equal(x.sends.length,3);
+ await new Promise(setImmediate);assert.equal(x.sends.length,3);
 });
 
 test('risk association uses structured security rows rather than incidental money numbers in message text',async t=>{
  const x=fixture(t);await x.refresh([x.raw({stockList:['1.600000']})]);
  const options=x.c.recommendationSendOptions([x.row({code:'000001'})],{private:true});
- assert.equal(x.c.pushAll('正常股票(000001)；金额600000元',false,options),true);await Promise.resolve();assert.equal(x.sends.length,1);
+ assert.equal(x.c.pushAll('正常股票(000001)；金额600000元',false,options),true);await new Promise(setImmediate);assert.equal(x.sends.length,1);
 });
 
 test('explicit historical resend cannot preserve current-buy language as a news-gate override',async t=>{
  const x=fixture(t);await x.refresh([x.raw()]);
  const options=x.c.recommendationSendOptions([x.row()],{private:true,manual:true},true);
- x.c.pushAll('当前可买 正常股票(000001)',true,options);await Promise.resolve();
+ x.c.pushAll('当前可买 正常股票(000001)',true,options);await new Promise(setImmediate);
  for(const text of x.sends){assert.match(text,/历史触发观察/);assert.doesNotMatch(text,/当前可买/);}
 });
 
@@ -231,10 +234,10 @@ test('a news-only dated stock observation still checks current risk without inve
  const x=fixture(t);await x.refresh([]);
  const dated={code:'000001',name:'正常股票',sector:'其他板块'};
  assert.equal(x.c.pushAll('带日期观察：000001，仅供研究',false,x.c.newsRecommendationSendOptions([dated],{private:true})),true);
- await Promise.resolve();assert.equal(x.sends.length,1);
+ await new Promise(setImmediate);assert.equal(x.sends.length,1);
  await x.refresh([x.raw()]);
  assert.equal(x.c.pushAll('带日期观察：000001，仅供研究',true,x.c.newsRecommendationSendOptions([dated],{private:true,manual:true})),false);
- await Promise.resolve();assert.equal(x.sends.length,1);
+ await new Promise(setImmediate);assert.equal(x.sends.length,1);
 });
 
 test('news-only recommendation rows are immutable and missing rows cannot authorize a send',async t=>{
@@ -261,8 +264,8 @@ test('a later queued-news veto does not release reservations for a batch already
  x.c.S.config.qqMail={user:'fixture-user',authCode:'fixture-only-code',to:'fixture-recipient'};
  x.c.mailReady=()=>true;x.c.sendQQMail=async request=>{mail.push(request.text);};
  const options=x.c.recommendationSendOptions([x.row()],{public:true,undo:[{code:'000001'}],modDay:'pool'});
- assert.equal(x.c.pushAll('当前观察 正常股票(000001)',false,options),true);await Promise.resolve();
- assert.equal(mail.length,1);await x.refresh([x.raw()]);queue.run();await Promise.resolve();
+ assert.equal(x.c.pushAll('当前观察 正常股票(000001)',false,options),true);await new Promise(setImmediate);
+ assert.equal(mail.length,1);await x.refresh([x.raw()]);queue.run();await new Promise(setImmediate);
  assert.equal(queue.dispatches.length,0);assert.equal(x.releases.length,0,'one confirmed channel delivery owns the original reservations');
  assert.equal(x.c._pushLast.sent,true);
 });
@@ -286,7 +289,7 @@ for(const affectedCode of ['000001','600000'])test('queued immutable news identi
  options.newsRecommendationRows=[{code:'600000',name:'被替换证券',sector:'其他板块'}];
  options.recommendationRows=[x.row({code:'600000'})];
  await x.refresh([x.raw({stockList:[affectedCode==='000001'?'0.000001':'1.600000']})]);
- queue.run();await Promise.resolve();
+ queue.run();await new Promise(setImmediate);
  if(affectedCode==='000001')assert.equal(queue.dispatches.length,0,'replacing caller options cannot evade the original security risk');
  else {assert.deepEqual(queue.dispatches,['原始股票(000001)当前观察']);assert.doesNotMatch(queue.dispatches[0],/600000|被替换证券/);}
 });
@@ -298,7 +301,7 @@ test('actual next-plan metadata carries picked and relay securities into the new
  assert.deepEqual(Array.from(options.newsRecommendationRows,r=>r.code),['000001','600000']);assert.equal(options.private,true);
  x.c.S.nextplan.relay[0].code='600001';
  assert.equal(options.newsRecommendationRows[1].code,'600000');
- assert.equal(x.c.pushAll('次日条件场景，非实时买价',true,options),false);await Promise.resolve();assert.equal(x.sends.length,0);
+ assert.equal(x.c.pushAll('次日条件场景，非实时买价',true,options),false);await new Promise(setImmediate);assert.equal(x.sends.length,0);
 });
 
 test('positive keywords with a missing original publication time remain unknown and cannot authorize a high-score push',async t=>{
@@ -306,7 +309,7 @@ test('positive keywords with a missing original publication time remain unknown 
  const result=x.c.reviewRecommendationNews(x.row({prob:99.9}));
  assert.equal(result.status,'unknown');assert.equal(result.canRecommend,false);assert.equal(result.reason,'NEWS_EVENT_TIME_UNKNOWN');
  const options=x.c.recommendationSendOptions([x.row({prob:99.9})],{private:true,manual:true});
- assert.equal(x.c.pushAll('利好加分后当前可买',true,options),false);await Promise.resolve();assert.equal(x.sends.length,0);
+ assert.equal(x.c.pushAll('利好加分后当前可买',true,options),false);await new Promise(setImmediate);assert.equal(x.sends.length,0);
 });
 
 test('the status view exposes bounded source coverage rather than a passed investment decision and becomes unknown when stale or damaged',async t=>{
@@ -319,4 +322,44 @@ test('the status view exposes bounded source coverage rather than a passed inves
  await x.refresh([original]);assert.equal(x.c.newsRiskSnapshotView().status,'available');
  fs.writeFileSync(path.join(x.root,'000001.json'),'{}');x.advance(1001);
  assert.equal(x.c.newsRiskSnapshotView().status,'unknown');
+});
+
+test('a news-held attempt does not reuse an earlier successful delivery status',async t=>{
+ const x=fixture(t);await x.refresh([x.raw()]);
+ x.c._pushLast={ret:true,sent:true,why:'',t:x.now()-1000};
+ const options=x.c.recommendationSendOptions([x.row()],{private:true});
+ assert.equal(x.c.pushAll('当前可买',false,options),false);
+ assert.equal(x.c._pushLast.ret,false);assert.equal(x.c._pushLast.sent,false);
+ assert.match(x.c._pushLast.why,/利空/);assert.equal(x.sends.length,0);
+ const blocked=x.logs.find(row=>row[0]==='推荐证据未通过·不外发');
+ assert.ok(blocked);assert.deepEqual([...blocked[2].extra.codes],['000001']);
+ assert.equal(blocked[2].extra.newsRisk.reason,'CURRENT_NEGATIVE_NEWS');
+});
+
+for(const fault of ['negative','unknown'])test('the actual private queue rechecks current news immediately before sending: '+fault,async t=>{
+ const x=fixture(t,{deferPrivate:true});await x.refresh([]);
+ const options=x.c.recommendationSendOptions([x.row()],{private:true,undo:[{code:'000001'}],modDay:'pool'});
+ assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),true);assert.equal(x.sends.length,0);
+ if(fault==='negative')await x.refresh([x.raw()]);else{x.fail(104);await x.refresh([]);}
+ x.dispatchPrivate();await new Promise(setImmediate);
+ assert.equal(x.sends.length,0);assert.equal(x.releases.length,2);assert.equal(x.privateQueues[0].running,false);
+ const status=vm.runInContext('_pushLast',x.c);assert.equal(status.ret,false);assert.equal(status.sent,false);assert.match(status.why,/新闻/);
+ assert.ok(x.logs.some(entry=>entry[0]==='新闻避险·该次发送暂停'));
+});
+
+test('the private dispatch checks the captured stock identity after callers replace recommendation arrays',async t=>{
+ const x=fixture(t,{deferPrivate:true});await x.refresh([]);
+ const options=x.c.recommendationSendOptions([x.row()],{private:true});
+ assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),true);
+ options.recommendationRows=[x.row({code:'600000'})];options.newsRecommendationRows=[{code:'600000'}];
+ await x.refresh([x.raw()]);x.dispatchPrivate();await new Promise(setImmediate);
+ assert.equal(x.sends.length,0);assert.equal(x.privateQueues[0].running,false);
+});
+
+test('the merged private queue preserves the current recommendation quote expiry check',async t=>{
+ const x=fixture(t,{deferPrivate:true});await x.refresh([]);
+ const options=x.c.recommendationSendOptions([x.row()],{private:true,undo:[{code:'000001'}]});
+ assert.equal(x.c.pushAll('当前可买 正常股票(000001)',false,options),true);
+ x.advance(16000);x.dispatchPrivate();await new Promise(setImmediate);
+ assert.equal(x.sends.length,0);assert.equal(x.releases.length,1);assert.equal(x.privateQueues[0].running,false);
 });

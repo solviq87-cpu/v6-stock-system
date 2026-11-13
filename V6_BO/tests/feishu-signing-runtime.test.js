@@ -12,9 +12,11 @@ function harness(env={},config={}){
   handlers.data?.(JSON.stringify({code:0,msg:'success'}));handlers.end?.();
  } };}};
  const context={process:{env},S:{config},crypto,Buffer,Date:{now:()=>1599360473000},
+  classifyFeishuReceipt:require('../src/core/feishu-receipt').classifyFeishuReceipt,
   console:{log(){},error(){}},require:name=>{assert.equal(name,'https');return https;},stripHtmlTags:x=>x};
  vm.createContext(context);
- for(const name of ['feishuId','feishuSecId','feishuProbe','feishuSendOnce'])vm.runInContext(fn(name),context);
+ for(const name of ['feishuId','feishuSecId','feishuProbe','feishuSendOnce','feishuSendPrivate'])vm.runInContext(fn(name),context);
+ context._fsPrivateQueue={send:(job,cb)=>context.feishuProbe(job.id,job.secret,job.text).then(r=>cb(r.ok,r.msg))};
  return {context,sent,https};
 }
 test('signed private probe follows the official empty-message HMAC protocol',async()=>{

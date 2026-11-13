@@ -93,5 +93,12 @@ The subsequent session/module candidate uses explicit 2026 trading sessions, fou
 ## Foreground and reconnect recovery
 
 Device lifecycle recovery preserves manual pause and the existing collection gates.
-The current canonical HTML SHA-256 is `408025b1fe9f42da6d4f8df574e61185c410558d6928a4ae2e911995572a29d3`.
+That candidate canonical HTML SHA-256 was `408025b1fe9f42da6d4f8df574e61185c410558d6928a4ae2e911995572a29d3`.
 See `SESSION_CONTROL.md` for behavior and offline validation boundaries.
+
+## Selection freshness
+
+The current canonical HTML SHA-256 is `f1773bd287b7a3919417b96bce7315628cc4f9184e84c5ab6a4af1b30ee221b3`.
+See `SELECTION_FRESHNESS.md` for row-clock eligibility, clock-driven cache
+invalidation, actual quote-probe limitations and verification scope. This is
+source provenance, not a production publication receipt.
