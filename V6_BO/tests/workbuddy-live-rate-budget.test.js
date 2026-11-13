@@ -61,6 +61,9 @@ function world({start=base,status=200,latency=20,lastDate='2026-11-12',retryAfte
   // Keep actual startup, pause, resume and delegated click code. Quote/full-A
   // scheduling is isolated so these cases measure the classification wires.
   context.SHARE='fixture-only-access';context.marketStarted=false;context.marketError='';context.quoteTimer=null;context.fullScanTimer=null;context.battleTimer=null;context.battleController=null;context.scheduleBattleScan=()=>{};context.acceptMarket=()=>{};context.updateMarketStatus=()=>{};context.toast=()=>{};context.focusRefreshes=0;context.fullScans=0;context.refreshMarket=()=>{context.focusRefreshes++;};context.scanFullMarket=()=>{context.fullScans++;};
+  // This fixture measures classification wires; the real news transport is
+  // covered separately by the news-pool browser suite.
+  context.newsCollectionAllowed=()=>false;context.stopNewsTimer=()=>{};
   context.handlers={};context.document.addEventListener=(type,handler)=>{context.handlers[type]=handler;};
   vm.runInContext(controlsSource+'\n'+clickSource,context,{timeout:1000});
   const startControls=({automatic=false}={})=>{

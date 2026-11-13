@@ -98,7 +98,11 @@ See `SESSION_CONTROL.md` for behavior and offline validation boundaries.
 
 ## Selection freshness
 
-The current canonical HTML SHA-256 is `f1773bd287b7a3919417b96bce7315628cc4f9184e84c5ab6a4af1b30ee221b3`.
+That selection-freshness candidate canonical HTML SHA-256 was `f1773bd287b7a3919417b96bce7315628cc4f9184e84c5ab6a4af1b30ee221b3`.
 See `SELECTION_FRESHNESS.md` for row-clock eligibility, clock-driven cache
 invalidation, actual quote-probe limitations and verification scope. This is
 source provenance, not a production publication receipt.
+
+## Bounded news pool and recommendation filtering
+
+The current canonical HTML SHA-256 is `a1d58f5d95e5bc65a71f281068efc9f0bfadc3983e300b4d7790ebb4f79edcc6`. The standalone page now shows bounded public news summaries and direct/explicit industry associations, and filters primary candidates using the current news status. Source failures, unknown times and stale evidence keep candidates pending. News freshness and original quote freshness invalidate their own cache layers; refreshing news never refreshes a quote clock. The BO delivery gate is a separate server-side change and is not deployed by publishing this static HTML. See `NEWS_POOL.md` and `V6_BO/docs/NEWS_POOL_PUSH_GUARD_20261113.md`; this remains source provenance rather than proof of live publication or phone delivery.

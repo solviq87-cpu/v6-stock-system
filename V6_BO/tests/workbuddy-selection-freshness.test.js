@@ -20,6 +20,11 @@ function harness() {
   const c = { Date: ClockDate, URL, TextEncoder, TextDecoder, AbortController, setTimeout, clearTimeout,
     document: { hidden: false }, navigator: {}, localStorage: { getItem: () => null },
     fetch() { assert.fail('Freshness checks must not fetch or publish'); } };
+  // Hold the independent news prerequisite fixed while this suite varies the
+  // original quote clock. Real news revisions/expiry use the inline news tests
+  // and the browser cache checks, without weakening the quote assertions here.
+  c.V6NewsPool = Object.freeze({ cacheKey: () => 'fixture-news-checked-empty', render: () => '',
+    riskFor: () => ({ status: 'checked', reasons: ['Fixture source checked; no associated news'], articles: [] }) });
   c.window = c; vm.createContext(c);
   for (const name of ['V6Core', 'V6Market', 'V6SelectionClock', 'V6Policy', 'V6Battle']) vm.runInContext(moduleFor(name), c);
   const rows = [1, 2, 3].map((n) => ({ symbol: '30000' + n, name: '离线测试' + n,

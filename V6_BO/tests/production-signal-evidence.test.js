@@ -91,6 +91,7 @@ function serverContext(dir){
    saveLearn(){saves++;},tick(){}});
  vm.runInContext(section('let signalRuleVersion;','// 存量迁移'),context);
  vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),context);
+ require('./helpers/news-known-empty-fixture').install(context,{knownEmpty:false});
  vm.runInContext(section('function logSignal(','// 样本库剪枝'),context);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery']){
   const start=source.indexOf('function '+name+'('),end=source.indexOf('\n}\n',start)+2;
@@ -248,6 +249,7 @@ test('actual batch sender carries immutable IDs only for selected signals withou
   INTRADAY_MAX_ITEMS:1,ALERT_RANK:{},alertScore:()=>0,buildAlertsReport:()=> '000001',
   redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>true,
   pushLog:(status,title,data)=>logs.push({status,title,...data}),console:{log(){}},sseSendEdit(){},_pushLast:null});
+ require('./helpers/news-known-empty-fixture').install(context);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday']){
   const start=source.indexOf('function '+name+'('),end=source.indexOf('\n}\n',start)+2;
   assert.ok(start>=0&&end>start);vm.runInContext(source.slice(start,end),context);

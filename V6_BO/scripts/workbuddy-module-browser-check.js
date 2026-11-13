@@ -24,6 +24,9 @@ async function fixture(browser, width, { time = '2026-11-13T07:12:00.000Z', mark
     window.__moduleMarketFixture = { calls: [], active: 0, maxActive: 0 };
     window.fetch = async function (input, options = {}) {
       const url = new URL(String(input), location.href);
+      // News remains allowed after close. Count quote/history separately and
+      // fulfill this explicit news feed through the browser route fixture.
+      if (url.hostname === 'np-weblist.eastmoney.com' && url.pathname === '/comm/web/getFastNewsList') return original.apply(this, arguments);
       const publicHost = ['gtimg.cn', 'gtimg.com', 'qq.com', 'sina.com.cn', 'sina.cn', 'sinajs.cn', 'eastmoney.com'].some(host => url.hostname === host || url.hostname.endsWith('.' + host));
       if (!publicHost) return original.apply(this, arguments);
       const fixture = window.__moduleMarketFixture;
@@ -55,6 +58,9 @@ async function fixture(browser, width, { time = '2026-11-13T07:12:00.000Z', mark
     const request = route.request(), url = new URL(request.url());
     requests.push({ path: url.pathname, method: request.method() });
     if (url.origin !== ORIGIN) {
+      if (url.hostname === 'np-weblist.eastmoney.com' && url.pathname === '/comm/web/getFastNewsList') {
+        return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { fastNewsList: [] } }) });
+      }
       report.externalRequests.push({ origin: url.origin, path: url.pathname });
       return route.abort();
     }
@@ -62,8 +68,9 @@ async function fixture(browser, width, { time = '2026-11-13T07:12:00.000Z', mark
     if (url.pathname === '/api/records') {
       assert.equal(url.searchParams.get('sharecode'), 'fixture-only-access');
       if (request.method() === 'POST') {
-        writes++;
         const incoming = request.postDataJSON();
+        // Independent public news/market updates are not account writes.
+        if (incoming.name === 'v6.app.state') writes++;
         const index = records.findIndex(record => record.name === incoming.name);
         const record = { ...incoming, id: index < 0 ? `fixture-${records.length + 1}` : records[index].id };
         if (index < 0) records.push(record);
@@ -75,6 +82,10 @@ async function fixture(browser, width, { time = '2026-11-13T07:12:00.000Z', mark
   });
   async function ready() {
     await page.waitForFunction(() => document.querySelector('#navigation a') && document.querySelector('#sync-text').textContent.includes('已同步') && document.querySelector('#main [data-v6-module]') && window.V6Market.status.collectionRequested === true);
+    // Allow the initial bounded news round to settle. A reload may retain an
+    // unverified cache and its persisted five-minute cooldown; it must not be
+    // forced into another source request merely for this presentation test.
+    await page.waitForFunction(() => !window.V6NewsPool || !!window.V6NewsPool.snapshot.fetchedAt || !!window.V6NewsPool.snapshot.lastError);
   }
   await page.goto(ORIGIN + '/?sharecode=fixture-only-access', { waitUntil: 'domcontentloaded' });
   await ready();

@@ -39,6 +39,7 @@ function sandbox(src=source){
  for(const name of ['annotateSignalConditions','learningSignalExtra','fundsNumber','fundsRounded','fundsWindowSum'])vm.runInContext(fn(name,name==='annotateSignalConditions'?source:src),c);
  // Keep the actual purpose gates active in both sides of the metadata comparison.
  // createRequire(serverPath) resolves their real module instead of a permissive VM stub.
+ require('./helpers/news-known-empty-fixture').install(c);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','researchSnapshotFields','researchQuoteFields',
   'freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','auctionSendOptions'])vm.runInContext(fn(name),c);
  return {c,logs,messages,rows,run:name=>vm.runInContext(fn(name,src),c),src};

@@ -12,6 +12,7 @@ on:
       - 'V6_BO/scripts/build-workbuddy-static.js'
       - 'V6_BO/scripts/workbuddy-static-browser-check.js'
       - 'V6_BO/scripts/workbuddy-module-browser-check.js'
+      - 'V6_BO/scripts/workbuddy-news-browser-check.js'
       - 'V6_WEB/workbuddy/**'
       - '.github/workflows/v6-ui-browser.yml'
   workflow_dispatch:
@@ -74,7 +75,7 @@ jobs:
           CHROMIUM_PATH: ${{ steps.browser.outputs.binary }}
           V6_UI_BROWSER: ${{ steps.browser.outputs.binary }}
           V6_UI_QA_DIR: ${{ runner.temp }}/v6-ui-report
-        run: node --test scripts/workbuddy-static-browser-check.js scripts/workbuddy-module-browser-check.js
+        run: node --test scripts/workbuddy-static-browser-check.js scripts/workbuddy-module-browser-check.js scripts/workbuddy-news-browser-check.js
       - name: Save temporary fixture screenshots and geometry for reviewers
         if: always()
         uses: actions/upload-artifact@v4

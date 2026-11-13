@@ -65,12 +65,12 @@ function createQueue(sendOnce, opt) {
   function runJob(job) {
     let settled = false;
     let guard = null;
-    const finish = (ok, info) => {
+    const finish = (ok, info, noRetry = false) => {
       if (settled) return;                 // 只认第一次结果：真实回调与看门狗可能都来
       settled = true;
       if (guard !== null) { clearTimer(guard); guard = null; }
       st.lastAt = now();
-      const canRetry = !ok && RETRYABLE.test(String(info));
+      const canRetry = !noRetry && !ok && RETRYABLE.test(String(info));
       if (canRetry && (job.tries || 0) < retry) {
         job.tries = (job.tries || 0) + 1;
         st.retried++;
@@ -82,6 +82,14 @@ function createQueue(sendOnce, opt) {
       st.running = false;                  // ⛔ 唯一把互斥资源还回去的地方
       try { notify(job, ok, info); } finally { drain(); }
     };
+    // Re-evaluate a recommendation at every dispatch/retry. A denied review
+    // is terminal even when its explanatory text contains a rate-limit code.
+    if (typeof job.beforeSend === 'function') {
+      try {
+        const reviewed=job.beforeSend();
+        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false,reviewed&&reviewed.why||'派发前审核未通过',true);return; }
+      } catch (_) { finish(false,'派发前审核不可用',true);return; }
+    }
     guard = setTimer(() => {
       if (settled) return;
       st.guarded++;
@@ -96,7 +104,7 @@ function createQueue(sendOnce, opt) {
   }
 
   function send(text, cb, opts) {
-    const job = { text, cb, priority: !!(opts && opts.priority) };
+    const job = { text, cb, priority: !!(opts && opts.priority),beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null };
     if (st.q.length >= maxQ) {
       const index = st.q.findIndex(item => !item.priority);
       st.dropped++;
