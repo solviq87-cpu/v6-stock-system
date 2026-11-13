@@ -29,10 +29,11 @@ jobs:
       (github.event_name != 'workflow_run' && github.ref == 'refs/heads/dev'))
     runs-on: ubuntu-24.04
     timeout-minutes: 12
-    env:
-      V6_UPDATE_STATE_DIR: ${{ runner.temp }}/v6-repository-update
-      V6_UPDATE_CONFIG: ${{ runner.temp }}/v6-repository-update-config.json
     steps:
+      - name: Initialize runner-local private paths
+        run: |
+          echo "V6_UPDATE_STATE_DIR=$RUNNER_TEMP/v6-repository-update" >> "$GITHUB_ENV"
+          echo "V6_UPDATE_CONFIG=$RUNNER_TEMP/v6-repository-update-config.json" >> "$GITHUB_ENV"
       # This gate uses the official action, before any repository code or site
       # credential is loaded. A completed older event cannot execute moving dev.
       - name: Independently select a CI-approved publisher revision

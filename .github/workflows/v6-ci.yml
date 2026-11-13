@@ -61,6 +61,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Validate workflow syntax and Actions context availability
+        run: bash ../scripts/check-github-workflows.sh
       - name: Block OpenAI and ChatGPT runtime API dependencies
         id: noopenai
         working-directory: .
