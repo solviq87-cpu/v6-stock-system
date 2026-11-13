@@ -1,6 +1,6 @@
 # 出问题了怎么办（不依赖任何聊天记录）
 
-> **2026-11-09 新交接标记：国内写入/部署接口**由用户指定为 `https://acd98a1c1a46e6ce4.app.workbuddy.host`，文档入口 `/api/ai/doc?id=ai`。**接手必须先读 [国内 WorkBuddy 写入目标](docs/CHINA_WORKBUDDY_WRITE_TARGET.md)**：文档接口目前 401，实际写入 API、鉴权和生产部署尚未验证。下文的旧 WorkBuddy 在线地址 `quant-dashboard-77614.app.workbuddy.host` 只是历史恢复记录，**不是本次指定的新写入接口**，不可未经核实互换，也不能将旧机器的 `pushRole` 原样上传到新目标。源码最新基线请查 GitHub `solviq87-cpu/v6-stock-system` 的 `dev` 分支。
+> **2026-11-13 用户明确覆盖旧目标**：当前唯一国内目标为 `https://af3c7822e6aafc135.app.workbuddy.host`；官方文档 `/console`，发布 `POST /api/publish`，仅单文件静态 HTML。接手先读 [目标说明](docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [自动更新/回滚](docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。只读核验成功，真实写入与生产部署尚未验证。下文 `quant-dashboard-77614.app.workbuddy.host` 属于历史恢复记录，不是当前目标或备用主机；不可把旧机器 `pushRole` 原样上传。代码基线使用 GitHub `solviq87-cpu/v6-stock-system` 的 `dev` 实际 SHA。
 
 
 > 这份文件在 Gitee 仓库里，**不含任何密码、密钥、持仓**。  
@@ -97,7 +97,7 @@ node server.js
 
 |            | 线上                                                 | 本机                      |
 | ---------- | -------------------------------------------------- | ----------------------- |
-| 地址         | `https://quant-dashboard-77614.app.workbuddy.host` | `http://127.0.0.1:8787` |
+| 历史地址（非当前目标） | `https://quant-dashboard-77614.app.workbuddy.host` | `http://127.0.0.1:8787` |
 | `pushRole` | `primary`（唯一推送源）                                   | `replica`（只更新面板，不外发）    |
 
 **本机那份是用来改代码和调试的，不会往你手机发东西。**  

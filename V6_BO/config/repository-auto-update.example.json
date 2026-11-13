@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "repository": "solviq87-cpu/v6-stock-system",
+  "branch": "dev",
+  "targetOrigin": "https://af3c7822e6aafc135.app.workbuddy.host",
+  "workflowPath": ".github/workflows/v6-ci.yml",
+  "requiredJobs": ["verify", "verify-web"],
+  "sourcePath": "V6_WEB/workbuddy/index.html",
+  "repositoryRoot": "/srv/v6-stock-system",
+  "stateDir": "/srv/v6-auto-update",
+  "intervalMs": 300000
+}
