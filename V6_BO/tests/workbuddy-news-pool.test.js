@@ -295,3 +295,30 @@ test('a source URL with embedded credentials is not exposed as a clickable origi
  const w=world({rows101:[item({url:'https://fixture-user:fixture-pass@finance.eastmoney.com/a/news.html'})]});await refresh(w);
  assert.doesNotMatch(w.api.render({},w.context.V6Market.snapshot,{now:w.now}),/href="[^"]*fixture-user/);
 });
+test('worst-case 500-news industry risk keeps full decisions but bounds per-stock references', {timeout:15000}, async t=>{
+ const stocks=Array.from({length:5000},(_,i)=>stock({symbol:String(600000+i),name:'合成样本'+i}));
+ const w=world({stocks,rows101:[],rows104:[]});
+ for(let round=0;round<3;round++){
+  if(round)w.advance(300001);
+  for(const column of [101,104])w.settings.rows[column]=Array.from({length:100},(_,i)=>item({code:'perf-'+round+'-'+column+'-'+i,title:'半导体行业经营信息',summary:'公开经营资料。'.repeat(180)+(round===2&&column===104&&i===99?'公司被立案调查':''),showTime:round===2&&column===104&&i===98?'来源未提供':'2026-11-13 09:40:00',stockList:i<3?['1.'+stocks[i].symbol]:[]}));
+  await refresh(w);
+ }
+ assert.equal(w.api.snapshot.items.length,500);
+ const result=risk(w,stocks[0]);assert.equal(result.status,'blocked');assert.equal(result.matchedCount,500);
+ assert.equal(result.articles.length,12);assert.equal(result.omittedCount,488);
+ assert.ok(result.articles.some(row=>row.id==='perf-2-104-99'&&row.sentiment==='bad'));
+ assert.ok(result.articles.some(row=>row.id==='perf-2-104-98'&&row.timeStatus==='unknown'));
+ assert.ok(result.articles.every(row=>!Object.hasOwn(row,'summary')&&!Object.hasOwn(row,'sectors')&&!Object.hasOwn(row,'codes')));
+ const original=result.articles[0].title;result.articles[0].title='caller mutation';assert.equal(risk(w,stocks[0]).articles[0].title,original);
+ const {performance}=require('node:perf_hooks'),began=performance.now();let blocked=0;
+ for(const q of stocks)if(risk(w,q).status==='blocked')blocked++;
+ const elapsedMs=performance.now()-began;assert.equal(blocked,5000);assert.ok(elapsedMs<5000,'5000-stock risk projection exceeded a conservative 5-second offline bound');t.diagnostic('5000 stocks / 500 long summaries: '+elapsedMs.toFixed(2)+' ms; 12 short refs per stock. Not a browser or production benchmark.');
+});
+
+test('shared risk summaries expire and a valid source revision invalidates the warmed industry result',async()=>{
+ const w=world({rows101:[item({title:'半导体行业被处罚',summary:'公开风险',stockList:[]})]});await refresh(w);
+ for(let i=0;i<20;i++)assert.equal(risk(w).status,'blocked');
+ const before=w.api.cacheKey(w.now);w.advance(600001);assert.notEqual(w.api.cacheKey(w.now),before);assert.equal(risk(w).status,'unknown');
+ w.settings.rows[101]=[item({title:'原快讯明确撤稿',summary:'来源撤销原条目',showTime:'2026-11-13 09:55:00',status:'retracted',stockList:[]})];await refresh(w);
+ assert.equal(risk(w).status,'checked');assert.equal(risk(w).matchedCount,0);assert.deepEqual(plain(risk(w).articles),[]);
+});
