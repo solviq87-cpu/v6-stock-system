@@ -971,6 +971,11 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
   const bars=Array.isArray(rows)?rows:[]; // Preserve each actual row, including provenance fields not known by this adapter.
   const eligibility=require('./src/core/quote-observation-view').quoteUseEligibility;
   const qualityEvidence=typeof eligibility==='function'?eligibility(quote,at):{canTrade:false,canNotify:false,missingReason:'QUALITY_CONTRACT_UNAVAILABLE'};
+  let news;
+  try{
+    const binding=require('./src/core/news-signal-evidence').capture(process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence'),{code:record.code,triggerAt:at,now:Date.now()});
+    news={...(extra.news||{}),...binding};
+  }catch{news={...(extra.news||{}),originalEvidence:null,binding:{status:'partial',reasons:['NEWS_BINDING_UNAVAILABLE']}};}
   let evidence;
   const modelKind=record.probKind==='score'?'score':record.prob==null?'unknown':'model-estimate';
   const eventTarget=record.eventTarget!==undefined?record.eventTarget:record._fz?.target??'unknown';
@@ -979,7 +984,7 @@ function captureProductionSignal(record,quote={},rows=[],extra={}) {
     quote,conditions:record.conditionEvidence||[],conditionCoverage:record.conditionCoverage,model:{value:record.prob,kind:modelKind,target:eventTarget,
       rankingValue:record._fz?.prob,rankingKind:record._fz?.valueKind||'unknown'},
     riseModel:{value:record.riseProb,kind:record.riseProb==null?'unknown':'model-estimate',target:record.riseEventTarget??'unknown',source:record.riseModelSource||''},
-    inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news:extra.news||{originalEvidence:null},qualityEvidence},
+    inputs:{bars,funds:extra.funds||null,metrics:extra.metrics||null,news,qualityEvidence},
     supportingReasons:[record.logic||''].filter(Boolean),opposingReasons:[record.risk||''].filter(Boolean),
     risk:{text:record.risk||'',stopLoss:record.stopLoss||record.stopRef||'',invalidWhen:record.invalidWhen||''},message:record.msg||''});}
   catch(error){

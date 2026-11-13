@@ -18,7 +18,7 @@
 
 以下实际 `logSignal` 推荐入口已接冻结候选原行、原 K 线、现有模型元数据及可得报价，但旧生产者没有输出完整逐条件门槛：`sector`、`pool`、`trend`、`auczt`、`bigmoney`、`bigmoney-B`、`similar`、`aucres`、`ztsent`、`yier`、`lianban`、`pre`、`buzhang`。不存在 `conditionEvidence` 时条件数组保持空，档案明确带 `INCOMPLETE_TRIGGER_CONDITIONS`；没有根据自然语言逆造数值。它们不能在交接中写成“所有推荐入口已完全可解释”。
 
-新闻目前只留实际布尔命中及原自然语言，原公告/新闻正文档案未由这些路径提供，故明确 `NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN`。缺 K 线、原报价时间、来源、行情用途授权、策略版本或失效规则分别保留缺失原因。状态 `partial` 表示证据缺口；`recorded` 也仅指本封装字段已记录，不代表行情或模型认证。
+首次交付时新闻只留实际布尔命中及原自然语言，原公告/新闻正文档案未由这些路径提供。后续已补同股本地 journal 的触发时点版本引用，时间、正文范围、撤稿、缓存和缺口边界见 [A5_NEWS_SIGNAL_BINDING_20261113.md](A5_NEWS_SIGNAL_BINDING_20261113.md)；无合格原文时仍明确 `NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN`。缺 K 线、原报价时间、来源、行情用途授权、策略版本或失效规则分别保留缺失原因。状态 `partial` 表示证据缺口；`recorded` 也仅指本封装字段已记录，不代表行情或模型认证。
 
 逐票用途资格由数据专项的同一 `quoteUseEligibility(row, now)` 计算并冻结为 `qualityEvidence`，本批没有第二套用途授权门禁。合同模块尚未提供该导出时明确 `QUALITY_CONTRACT_UNAVAILABLE`，不能由证据归档赋予通知或交易资格。数据专项在实际 tick 的早期用途守卫与本批冻结代码需要同时整合验收。
 

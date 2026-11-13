@@ -98,6 +98,63 @@ function serverContext(dir){
  }
  return {c:context,set:value=>{now=value;},saves:()=>saves};
 }
+function newsInput(extra={}){
+ return {schemaVersion:1,source:'local-fixture-source',eventId:'news-event',sourceRevisionId:'edition-1',kind:'original',supersedes:null,
+  url:'https://example.test/source',title:'原始来源声明',body:'已收到的原始正文',bodyScope:'declared-body',securities:['000001'],
+  publishedAt:at-60000,receivedAt:at-4000,revisedAt:null,...extra};
+}
+test('real logSignal binds the journal version known at capture and later revisions never rewrite the old archive',t=>{
+ const dir=root(t),{c,set}=serverContext(dir),news=require('../src/core/news-evidence-journal'),newsRoot=path.join(dir,'news-evidence');
+ const firstNews=news.appendBatch(newsRoot,[newsInput(),newsInput({eventId:'other-security',securities:['000002']})],{now:at-3000}).results[0];
+ const first=c.logSignal('pool','000001','测试',10,50,{paths:['旧关键词原分类'],strategyVersion:'v1'});
+ const file=path.join(dir,'2026-11-12','000001',first.signalId+'.json'),bytes=fs.readFileSync(file);
+ const one=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:first.signalId}).records[0].evidence;
+ assert.equal(one.inputs.news.originalEvidence[0].eventHash,firstNews.eventHash);
+ assert.equal(one.inputs.news.originalEvidence[0].bodyHash,news.normalize(newsInput(),{now:at}).bodyHash);
+ assert.equal(one.inputs.news.originalEvidence[0].recordedAt,at-3000);
+ assert.equal(one.inputs.news.binding.association,'same-security-context');assert.equal(one.inputs.news.binding.versions.length,1);
+ assert.equal(one.inputs.news.binding.asOfSequence,2);assert.equal(one.supportingReasons[0],'旧关键词原分类');
+ const latest=news.appendBatch(newsRoot,[newsInput({kind:'revised',sourceRevisionId:'edition-2',supersedes:firstNews.eventHash,
+  body:'事后修订正文',receivedAt:at+3000,revisedAt:at+2000})],{now:at+4000}).results[0];
+ set(at+5000);const second=c.logSignal('pool','000001','测试',12,80,{paths:['同类事后观察']});
+ const two=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:second.signalId}).records[0].evidence;
+ assert.equal(two.inputs.news.originalEvidence[0].eventHash,latest.eventHash);
+ assert.equal(two.inputs.news.binding.versions[0].eligibleForResearchSupport,false);
+ assert.deepEqual(two.inputs.news.binding.versions[0].issues,['SUPERSEDED']);
+ assert.deepEqual(fs.readFileSync(file),bytes);
+ delete require.cache[require.resolve('../src/core/production-signal-journal')];
+ const reopened=require('../src/core/production-signal-journal').readEvidence(dir,{date:'2026-11-12',code:'000001',id:first.signalId});
+ assert.equal(reopened.records[0].evidence.inputs.news.originalEvidence[0].eventHash,firstNews.eventHash);
+ assert.equal(c.S.learn.signals.length,1);assert.equal(c.S.learn.signals[0].price,10);
+});
+test('real capture stays partial for missing, damaged and summary archives and refuses caller supplied originals',t=>{
+ const dir=root(t),{c}=serverContext(dir),news=require('../src/core/news-evidence-journal'),newsRoot=path.join(dir,'news-evidence');
+ const record={ts:at,code:'000001',type:'pool',price:10,prob:50};
+ const capture=()=>c.captureProductionSignal(record,{price:10},[],{news:{goodHit:true,originalEvidence:[{forged:true}]}});
+ let signal=capture();assert.equal(signal.evidenceArchiveStatus,'archived');
+ let saved=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:signal.signalId}).records[0].evidence;
+ assert.equal(saved.inputs.news.originalEvidence,null);assert.equal(saved.inputs.news.goodHit,true);assert.equal(saved.status,'partial');
+ assert.ok(saved.missingReasons.includes('NEWS_ORIGINAL_EVIDENCE_NOT_FROZEN'));
+ news.appendBatch(newsRoot,[newsInput({bodyScope:'provider-summary',publishedAt:null})],{now:at-3000});
+ signal=capture();saved=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:signal.signalId}).records[0].evidence;
+ assert.equal(saved.inputs.news.originalEvidence,null);assert.equal(saved.inputs.news.binding.versions[0].publishedAt,null);
+ assert.equal(saved.inputs.news.binding.versions[0].bodyScope,'provider-summary');assert.ok(saved.inputs.news.binding.reasons.includes('SUMMARY_ONLY'));
+ fs.writeFileSync(path.join(newsRoot,'000001.json'),'{damaged');
+ signal=capture();saved=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:signal.signalId}).records[0].evidence;
+ assert.equal(saved.inputs.news.originalEvidence,null);assert.equal(saved.inputs.news.binding.status,'partial');
+ assert.equal(signal.evidenceArchiveStatus,'archived');assert.equal(saved.status,'partial');
+});
+test('legacy schema2 archives retain their original hash and bytes after news binding is introduced',t=>{
+ const dir=root(t),legacyInput=input();legacyInput.inputs.news={originalEvidence:null};
+ const legacy=Evidence.createProductionSignalEvidence(legacyInput);
+ Journal.appendEvidence(dir,legacy,{clock:()=>at});
+ const file=path.join(dir,'2026-11-12','000001',legacy.signalId+'.json'),bytes=fs.readFileSync(file);
+ const {c,set}=serverContext(dir);set(at+1000);c.logSignal('pool','000001','测试',12,80);
+ const original=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:legacy.signalId}).records[0].evidence;
+ assert.equal(original.schemaVersion,2);assert.equal(original.evidenceFingerprint,legacy.evidenceFingerprint);
+ assert.equal(Object.hasOwn(original.inputs.news,'binding'),false);assert.equal(Evidence.validateProductionSignalEvidence(original).ok,true);
+ assert.deepEqual(fs.readFileSync(file),bytes);
+});
 test('real logSignal retains the first daily sample and appends later observations with explicit lineage',t=>{
  const dir=root(t),{c,set,saves}=serverContext(dir);
  const first=c.logSignal('pool','000001','测试',10,50,{paths:['first'],strategyVersion:'v1'});
@@ -128,6 +185,8 @@ test('a later auction calibration marker belongs to its new observation and cann
 });
 test('actual tick freezes a causal funds condition, raw provenance and archive before enqueue',async t=>{
  const dir=root(t),{c}=serverContext(dir);
+ const news=require('../src/core/news-evidence-journal');
+ const newsVersion=news.appendBatch(path.join(dir,'news-evidence'),[newsInput()],{now:at-3000}).results[0];
  const stock={code:'000001',name:'测试',price:10,pct:1,mainPct:2,mainInflow:12e7,floatCap:1e10,
    quoteSource:'eastmoney',quoteAt:at-1000,receivedAt:at,canTrade:true,mode:'public-live-unverified',canNotify:true,amount:2e8,
    fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsRetrievedAt:at,fundsSourceTimestamp:null};
@@ -148,6 +207,8 @@ test('actual tick freezes a causal funds condition, raw provenance and archive b
  assert.equal(signal.conditionEvidence.find(x=>x.id==='fast-flow').threshold,3e6);
  assert.equal(signal.evidenceArchiveStatus,'archived');assert.ok(Object.isFrozen(signal.conditionEvidence));
  const frozen=Journal.readEvidence(dir,{date:'2026-11-12',code:'000001',id:signal.signalId}).records[0].evidence;
+ assert.equal(frozen.inputs.news.originalEvidence[0].eventHash,newsVersion.eventHash);
+ assert.equal(frozen.inputs.news.goodHit,false);assert.equal(frozen.inputs.news.binding.association,'same-security-context');
  assert.equal(frozen.recordKind,'trigger');assert.equal(frozen.inputs.funds.length,12);assert.equal(frozen.inputs.metrics.delta,11e7);
  assert.equal(frozen.model.value,50);assert.equal(frozen.model.target,'ztToday');assert.equal(frozen.model.kind,'model-estimate');
  assert.equal(frozen.riseModel.value,70);assert.equal(frozen.riseModel.target,'up3Next');assert.equal(frozen.riseModel.source,'riseProbOf');
