@@ -13239,28 +13239,36 @@ function paperFeeAmount(key,side,amount){
 }
 function paperAuthorityQuotes(){
   const quotes={},marks={},now=Date.now();
-  // Authority and risk marks must retain the provider clock, never the receive clock.
+  // Authority and risk marks retain the provider clock, never the receive clock.
   const fresh=q=>q&&require('./src/core/quote-observation-view').quoteSourceAllowsUse(q)&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
-  for(const [code,tick] of S.lastPx||[]){if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);}
-  for(const st of S.stocks||[]){
-    const tick=S.lastPx?.get?.(st.code),cached=tick&&{...tick,price:tick.p};
-    const observation=fresh(cached)?cached:fresh(st)?st:null;
-    if(!observation)continue;
-    const timestamp=observation.quoteAt;
-    marks[st.code]=Number(observation.price);
-    const previous=Number(st.preClose);if(!(previous>0)||!Number.isFinite(st.volume)||st.volume<=0)continue;
-    const limit=limitPctOfCode(st.code,st.name);
-    const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:st,observation,priceOrigin:observation===cached?'S.lastPx':'S.stocks',limitPct:limit});
-    quotes[st.code]={symbol:st.code,price:Number(observation.price),quoteSource:observation.quoteSource,provider:observation.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(observation.receivedAt)?observation.receivedAt:null,mode:observation.quoteMode||observation.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:st.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
-      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:st.suspended===true,tradable:st.tradable!==false,inputProvenance};
+  const complete=q=>(q.receivedAt==null||Number.isSafeInteger(q.receivedAt)&&q.receivedAt>=q.quoteAt&&q.receivedAt<=now)&&/^\d{6}$/.test(q.code)&&Number.isFinite(Number(q.preClose))&&Number(q.preClose)>0&&Number.isFinite(q.volume)&&q.volume>0&&Number.isFinite(q.volume*100);
+  const rows=new Map();
+  for(const [code,tick] of S.lastPx||[]){
+    const row=tick?.wireQuote;
+    if(row?.code===code&&fresh(row)&&complete(row)){
+      rows.set(code,{row,origin:'S.lastPx.wireQuote'});marks[code]=Number(row.price);
+    // Legacy price-only entries can mark holdings, but cannot borrow execution fields.
+    }else if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);
+  }
+  for(const st of S.stocks||[])if(st&&typeof st.code==='string'&&!rows.has(st.code)){
+    const valid=fresh(st);
+    if(valid&&!Object.hasOwn(marks,st.code))marks[st.code]=Number(st.price);
+    if(valid&&complete(st))rows.set(st.code,{row:st,origin:'S.stocks'});
+  }
+  for(const [code,{row,origin}] of rows){
+    const timestamp=row.quoteAt,previous=Number(row.preClose),limit=limitPctOfCode(code,row.name);
+    marks[code]=Number(row.price);
+    const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:row,observation:row,stockOrigin:origin,priceOrigin:origin,limitPct:limit});
+    quotes[code]={symbol:code,price:Number(row.price),quoteSource:row.quoteSource,provider:row.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(row.receivedAt)?row.receivedAt:null,mode:row.quoteMode||row.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:row.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
+      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,inputProvenance};
   }
   return quotes;
 }
 refreshPaperAuthority();
-function savePaper(action='sync',accountKey=null) {
+function savePaper(action='sync',accountKey=null,executionQuotes=null) {
   try {
     if(isReplica()){const copy={};for(const key of Object.keys(PAPER))copy[key]={...PAPER[key],initial:PAPER_CFG[key].initial};return !!atomicWrite(PAPER_FILE,JSON.stringify(copy));}
-    const quotes=paperAuthorityQuotes();
+    const quotes=executionQuotes||paperAuthorityQuotes();
     for(const key of (accountKey?[accountKey]:Object.keys(PAPER_CFG))){
       const book=_paperAuthority[key].saveLegacy({...PAPER[key],initial:PAPER_CFG[key].initial},_paperAuthorityRevision[key],{action,quotes});
       _paperAuthorityRevision[key]=book.revision;const legacy=book.legacy;PAPER[key]={...legacy};delete PAPER[key].initial;
@@ -13731,7 +13739,7 @@ try {
 // 以前只认 S.stocks（最长6分钟旧）+池价 → 买入按旧价"幻想成交"；卖出巡检只喂候选池前100的tick价，
 // 池外持仓价格冻结在买入价，止盈止损全部失真。现在统一走 S.lastPx：tick(5秒)与全A(6分钟)行情
 // 成交缓存须有15秒内逐票原时点；池价/全A快照仅可作展示估值兜底。
-S.lastPx = new Map(); // code -> { p, t: 接收时间, quoteAt: 原时点, quoteSource }
+S.lastPx = new Map(); // code -> price mark + bounded wireQuote from this exact original row
 S.ztCodes = new Set(); // 涨停票代码集（refreshSectorsZT 每30秒刷新）
 function ingestPx(rows) {
   if (!rows || !rows.length) return;
@@ -13743,7 +13751,14 @@ function ingestPx(rows) {
     // Parallel providers can return out of order; receipt order must not roll back provider time.
     const previous = S.lastPx.get(s.code);
     if (previous && Number.isSafeInteger(previous.quoteAt) && previous.quoteAt > s.quoteAt) continue;
-    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource,
+    // Retain only bounded scalar inputs; never hold a mutable provider object or whole payload.
+    const wireQuote={};let bounded=true;
+    for(const key of ['code','name','price','volume','preClose','quoteAt','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']){
+      const value=s[key];if(value===undefined)continue;
+      if(value===null||typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value)||typeof value==='string'&&value.length<=240)wireQuote[key]=value;
+      else {bounded=false;break;}
+    }
+    S.lastPx.set(s.code, { p: Number(s.price), t, quoteAt: s.quoteAt, quoteSource: s.quoteSource,wireQuote:bounded?wireQuote:null,
       receivedAt:Number.isSafeInteger(s.receivedAt)&&s.receivedAt>0?s.receivedAt:null,
       mode:typeof (s.quoteMode||s.mode)==='string'?(s.quoteMode||s.mode):null,canNotify:s.canNotify!==false,
       simulated:s.simulated===true,readOnlyBackup:s.readOnlyBackup===true,imported:s.imported===true,
@@ -13827,14 +13842,14 @@ function paperBuy(key, cands, pm, reasonOf) {
   if (!isContinuousTrading()) return;  // 非连续竞价不自动买入（拿竞价/陈旧价买＝假成交）
   const cfg = PAPER_CFG[key], acc = PAPER[key];
   if (!acc.enabled || !cands || !cands.length) return;
-  const bought = [];
+  const bought = [],executionQuotes=paperAuthorityQuotes();
   for (const c of cands) {
     if (Object.keys(acc.positions).length >= cfg.maxPos) { skipAdd('buyHeld'); break; }
     // ⛔ dv 轮：这几处 continue 以前完全静默 —— 面板只显示"暂无持仓（等待新信号）"，
     //    而真实原因可能是"5 只候选全因一字板买不进"或"现金不足一手"，用户根本无从自查。
     if (acc.positions[c.code]) { skipAdd('buyHeld'); continue; }
-    // The checked observation must also be the execution price; pool prices can differ from it.
-    const price = paperPxFresh(c.code);
+    // Require a complete original execution row before changing cash, positions or trades.
+    const price = executionQuotes[c.code]?.price;
     if (!price) { skipAdd('buyStalePrice'); continue; }
     // 现实约束①：已封涨停的票买单排不上队（一字板永远买不进），按涨停价"幻想成交"会虚增收益率
     // ⚠️ 阈值必须按板块算：以前写死 pct >= 9.7，创业板涨 15% 会被误判成"封板"直接跳过，
@@ -13893,11 +13908,12 @@ function paperBuy(key, cands, pm, reasonOf) {
     bought.push(c.code);
   }
   if (bought.length) {
-    const committed=savePaper('sync',key);if(!committed)return;
+    const committed=savePaper('sync',key,executionQuotes);if(!committed)return;
+    const committedAccount=PAPER[key];
     pushPaperDigest(`【买入】${cfg.name} ` + bought.map(cd => {
-      const p = acc.positions[cd];
+      const p = committedAccount.positions[cd];
       return `▪ ${p.name}(${p.code}) ${p.shares}股 @ ${p.buyPrice}元 | ${p.reason}`;
-    }).join('\n') + `\n  持仓 ${Object.keys(acc.positions).length}/${cfg.maxPos} · 剩余现金 ${acc.cash.toFixed(0)}元`);
+    }).join('\n') + `\n  持仓 ${Object.keys(committedAccount.positions).length}/${cfg.maxPos} · 剩余现金 ${committedAccount.cash.toFixed(0)}元`);
   }
 }
 // ---------------- A股 T+1：当日买入的股票当日不可卖出 ----------------
@@ -13956,6 +13972,10 @@ function paperSell(key, code, price, reason) {
   //    收盘后(非连续竞价)一律不卖，绝不让"还没正式开盘(连续竞价 9:30-11:30 / 13:00-14:57)就卖"。
   //    （函数级防御：未来无论哪个入口调 paperSell 都不会越过交易时段成交。）
   if (!isContinuousTrading()) return;
+  // Price marks can trigger research checks, but execution must use one complete original row.
+  const executionQuotes=paperAuthorityQuotes(),quote=executionQuotes[code];
+  if(!quote)return;
+  price=quote.price;
   const amount = +(price * pos.shares).toFixed(2);
   // ⛔ 同上（dt 轮）：卖出费也必须生成时就舍，否则账户现金与流水里的 fee 不是同一个数
   const fee = typeof paperFeeAmount==='function'?paperFeeAmount(key,'sell',amount):+(Math.max(5,amount*0.00025)+amount*0.0005).toFixed(2); // 佣金万2.5(最低5元) + 印花税万5
@@ -13972,9 +13992,9 @@ function paperSell(key, code, price, reason) {
   acc.trades.unshift({ t: Date.now(), side: '卖出', code, name: pos.name, price, shares: pos.shares,
     amount, fee: +fee.toFixed(2), basis, pnl, reason });
   if (acc.trades.length > dataCapOf('paperTrades')) { acc.trades.pop(); acc.tradesDropped = (Number(acc.tradesDropped) || 0) + 1; }
-  const committed=savePaper('sync',key);if(!committed)return;
+  const committed=savePaper('sync',key,executionQuotes);if(!committed)return;
   const pct = +((price / pos.buyPrice - 1) * 100).toFixed(2);
-  pushPaperDigest(`【卖出】${cfg.name} ▪ ${pos.name}(${code}) ${pos.shares}股 @ ${price}元 (${pct >= 0 ? '+' : ''}${pct}%)\n  理由: ${reason} | 本次盈亏 ${pnl >= 0 ? '+' : ''}${pnl}元 · 剩余现金 ${acc.cash.toFixed(0)}元`);
+  pushPaperDigest(`【卖出】${cfg.name} ▪ ${pos.name}(${code}) ${pos.shares}股 @ ${price}元 (${pct >= 0 ? '+' : ''}${pct}%)\n  理由: ${reason} | 本次盈亏 ${pnl >= 0 ? '+' : ''}${pnl}元 · 剩余现金 ${PAPER[key].cash.toFixed(0)}元`);
 }
 // 收益联动（移动止损保护线）：盈利攀升时止损线同步上移锁定收益
 // ⛔ 2026-10-06 修：保护线必须用【收益峰值 peak】当锚，不能拿【当前收益 profit】当锚。

@@ -18,7 +18,7 @@ function boundedJson(value){
 const keys=(v,allowed)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===allowed.length&&allowed.every(k=>Object.hasOwn(v,k));
 const recordKeys=['origin','source','sourceTruncated','mode','modeTruncated','quoteAt','receivedAt','rowQuoteAt','rowReceivedAt','timeScope'];
 function validOrigin(v,price=false){
- return v&&v.origin==='S.stocks'&&(price?v.timeScope==='price-observation':v.timeScope==='row-metadata-only')&&
+ return v&&['S.stocks','S.lastPx.wireQuote'].includes(v.origin)&&(price?v.timeScope==='price-observation':v.timeScope==='row-metadata-only')&&
   (v.source===null||typeof v.source==='string'&&v.source.length<=80)&&typeof v.sourceTruncated==='boolean'&&
   (v.mode===null||typeof v.mode==='string'&&v.mode.length<=80)&&typeof v.modeTruncated==='boolean'&&
   [v.quoteAt,v.receivedAt,v.rowQuoteAt,v.rowReceivedAt].every(t=>t===null||validTime(t))&&
@@ -31,7 +31,7 @@ function validateInputProvenance(value,expected={}){
  const {price,volume,limits,status}=value;
  const priceOrigin=price?.origin==='S.lastPx'?{...price,origin:'S.stocks'}:price;
  if(!keys(price,[...recordKeys,'value'])||!validOrigin(priceOrigin,true)||
-  !['S.lastPx','S.stocks'].includes(price.origin)||!Number.isFinite(price.value)||price.value<=0||!validTime(price.quoteAt)||
+  !['S.lastPx','S.stocks','S.lastPx.wireQuote'].includes(price.origin)||!Number.isFinite(price.value)||price.value<=0||!validTime(price.quoteAt)||
   price.rowQuoteAt!==price.quoteAt||price.rowReceivedAt!==price.receivedAt||
   !keys(volume,[...recordKeys,'value','rawValue','rawUnit','unit','calculation'])||!validOrigin(volume)||
   !Number.isFinite(volume.rawValue)||volume.rawValue<=0||volume.value!==volume.rawValue*100||
@@ -58,17 +58,22 @@ function validateInputProvenance(value,expected={}){
    row.defaulted!==(row.rawType!=='boolean')||(row.rawType==='boolean')!==(row.rawBoolean!==null)||
    row.value!==(key==='suspended'?row.rawBoolean===true:row.rawBoolean!==false))throw Error('成交状态字段来源无效');
  }
+ // New cached-row origins describe one retained row; old mixed v1 origins remain readable.
+ const fields=[volume,limits.preClose,status.suspended,status.tradable];
+ if([price,...fields].some(row=>row.origin==='S.lastPx.wireQuote')&&
+  (price.origin!=='S.lastPx.wireQuote'||fields.some(row=>row.origin!==price.origin||
+   ['source','sourceTruncated','mode','modeTruncated','rowQuoteAt','rowReceivedAt'].some(key=>row[key]!==price[key]))))throw Error('成交字段来源并非同一缓存原始行');
  const actual={symbol:limits.rule.code,provider:price.source,price:price.value,quoteAt:price.quoteAt,receivedAt:price.receivedAt,
   volume:volume.value,upperLimit:limits.upperLimit,lowerLimit:limits.lowerLimit,suspended:status.suspended.value,tradable:status.tradable.value};
  for(const [key,v] of Object.entries(expected))if(v!==undefined&&actual[key]!==v)throw Error('成交字段来源与受检输入不一致');
  return value;
 }
-function createAutomaticInputProvenance({stock,observation,priceOrigin,limitPct}){
+function createAutomaticInputProvenance({stock,observation,priceOrigin,stockOrigin='S.stocks',limitPct}){
  const row=(input,origin,timeScope)=>({origin,source:clip(input.quoteSource,80),sourceTruncated:typeof input.quoteSource==='string'&&input.quoteSource.length>80,
   mode:clip(input.quoteMode||input.mode,80),modeTruncated:typeof (input.quoteMode||input.mode)==='string'&&(input.quoteMode||input.mode).length>80,
   quoteAt:timeScope==='price-observation'?at(input.quoteAt):null,receivedAt:timeScope==='price-observation'?at(input.receivedAt):null,
   rowQuoteAt:at(input.quoteAt),rowReceivedAt:at(input.receivedAt),timeScope});
- const origin=row(stock,'S.stocks','row-metadata-only'),previous=Number(stock.preClose);
+ const origin=row(stock,stockOrigin,'row-metadata-only'),previous=Number(stock.preClose);
  const status=key=>{const raw=stock[key],rawType=raw===null?'null':Array.isArray(raw)?'array':typeof raw;return {...origin,
   value:key==='suspended'?raw===true:raw!==false,rawBoolean:typeof raw==='boolean'?raw:null,rawType,
   present:Object.hasOwn(stock,key),defaulted:typeof raw!=='boolean'};};

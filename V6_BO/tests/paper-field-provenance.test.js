@@ -4,9 +4,10 @@ const root=process.env.V6_FIELD_PROVENANCE_TEST_ROOT||path.resolve(__dirname,'..
 const {createPaperApplicationService}=require(path.join(root,'src/core/paper-application-service'));
 const source=fs.readFileSync(path.join(root,'server.js'),'utf8'),now=Date.parse('2026-11-06T02:00:00Z'),old=now-86400000;
 const hash=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
-function quote(stockPatch={},cached=true){
+function quote(stockPatch={},cached=true,cachePatch={}){
  const stock={code:'600000',name:'fixture',price:8,preClose:10,volume:100,quoteSource:'old-stock-list',quoteAt:old,receivedAt:old+500,...stockPatch};
- const tick={p:10,t:now,quoteSource:'fresh-price-cache',quoteAt:now-1000,receivedAt:now-500,mode:'public-live-unverified'};
+ const wireQuote={code:'600000',name:'fixture',price:10,preClose:10,volume:100,quoteSource:'fresh-price-cache',quoteAt:now-1000,receivedAt:now-500,mode:'public-live-unverified',...cachePatch};
+ const tick={p:wireQuote.price,t:now,quoteSource:wireQuote.quoteSource,quoteAt:wireQuote.quoteAt,receivedAt:wireQuote.receivedAt,mode:wireQuote.mode,wireQuote};
  const context={S:{stocks:[stock],stocksAt:now,lastPx:new Map(cached?[['600000',tick]]:[])},Date:{now:()=>now},require:require('node:module').createRequire(path.join(root,'server.js'))};
  vm.createContext(context);
  const begin=source.indexOf('function paperAuthorityQuotes()'),end=source.indexOf('refreshPaperAuthority();',begin);
@@ -23,27 +24,27 @@ function fixture(t){
  return {app,make,file,input,trade,save:q=>app.saveLegacy(input,app.read().revision,{quotes:{'600000':q}})};
 }
 function rewrite(file,book){book.account.fingerprint=hash({cash:book.account.cash,positions:book.account.positions,events:book.account.events});delete book.fingerprint;book.fingerprint=hash(book);fs.writeFileSync(file,JSON.stringify(book));}
-test('actual authority to saveLegacy preserves fresh cache price separately from old stock-row volume, limits and missing status',t=>{
+test('actual authority to saveLegacy preserves one cached raw row for price, volume, limits and missing status',t=>{
  const {q}=quote(),x=fixture(t),book=x.save(q),event=book.account.events[0],meta=event.fillEvidence.inputProvenance;
- assert.equal(q.price,10);assert.equal(q.quoteAt,now-1000);assert.equal(meta.price.origin,'S.lastPx');assert.equal(meta.price.quoteAt,q.quoteAt);
+ assert.equal(q.price,10);assert.equal(q.quoteAt,now-1000);assert.equal(meta.price.origin,'S.lastPx.wireQuote');assert.equal(meta.price.quoteAt,q.quoteAt);
  assert.equal(meta.price.receivedAt,now-500);assert.equal(meta.price.source,'fresh-price-cache');
- assert.equal(meta.volume.rawValue,100);assert.equal(meta.volume.value,10000);assert.equal(meta.volume.source,'old-stock-list');
- assert.equal(meta.volume.quoteAt,null);assert.equal(meta.volume.receivedAt,null);assert.equal(meta.volume.rowQuoteAt,old);assert.equal(meta.volume.rowReceivedAt,old+500);
- assert.equal(meta.volume.timeScope,'row-metadata-only');assert.equal(meta.limits.preClose.value,10);assert.equal(meta.limits.preClose.rowQuoteAt,old);
+ assert.equal(meta.volume.rawValue,100);assert.equal(meta.volume.value,10000);assert.equal(meta.volume.source,'fresh-price-cache');
+ assert.equal(meta.volume.quoteAt,null);assert.equal(meta.volume.receivedAt,null);assert.equal(meta.volume.rowQuoteAt,now-1000);assert.equal(meta.volume.rowReceivedAt,now-500);
+ assert.equal(meta.volume.timeScope,'row-metadata-only');assert.equal(meta.limits.preClose.value,10);assert.equal(meta.limits.preClose.rowQuoteAt,now-1000);
  assert.equal(meta.limits.rule.limitPct,.1);assert.equal(meta.limits.upperLimit,11);assert.equal(meta.limits.lowerLimit,9);
  assert.equal(meta.status.suspended.rawBoolean,null);assert.equal(meta.status.suspended.present,false);assert.equal(meta.status.suspended.defaulted,true);assert.equal(meta.status.suspended.value,false);
  assert.equal(meta.status.tradable.rawBoolean,null);assert.equal(meta.status.tradable.value,true);assert.equal(meta.status.tradable.quoteAt,null);
  assert.equal(book.account.cash,98995);assert.equal(book.account.positions['600000'].quantity,100);assert.equal(event.fillEvidence.canTrade,false);assert.equal(book.brokerConnected,false);
  assert.deepEqual(x.make().read().account.events[0].fillEvidence.inputProvenance,meta);
- q.inputProvenance.volume.rowQuoteAt=now;assert.equal(x.make().read().account.events[0].fillEvidence.inputProvenance.volume.rowQuoteAt,old);
+ q.inputProvenance.volume.rowQuoteAt=now;assert.equal(x.make().read().account.events[0].fillEvidence.inputProvenance.volume.rowQuoteAt,now-1000);
 });
-test('unknown stock-row clocks and imported row mode stay unknown instead of borrowing price or list receipt time',t=>{
- const {q}=quote({quoteAt:undefined,receivedAt:undefined,quoteSource:undefined,mode:'imported',suspended:0,tradable:'false'}),x=fixture(t);
+test('unused imported stock row cannot contaminate cache fields and unknown receive/field clocks stay unknown',t=>{
+ const {q}=quote({quoteAt:undefined,receivedAt:undefined,quoteSource:undefined,mode:'imported'},true,{receivedAt:undefined,suspended:0,tradable:'false'}),x=fixture(t);
  const meta=x.save(q).account.events[0].fillEvidence.inputProvenance;
- assert.equal(meta.price.quoteAt,now-1000);assert.equal(meta.price.receivedAt,now-500);
+ assert.equal(meta.price.quoteAt,now-1000);assert.equal(meta.price.receivedAt,null);
  for(const row of [meta.volume,meta.limits.preClose,meta.status.suspended,meta.status.tradable]){
-  assert.equal(row.source,null);assert.equal(row.mode,'imported');assert.equal(row.quoteAt,null);assert.equal(row.receivedAt,null);
-  assert.equal(row.rowQuoteAt,null);assert.equal(row.rowReceivedAt,null);
+  assert.equal(row.origin,'S.lastPx.wireQuote');assert.equal(row.source,'fresh-price-cache');assert.equal(row.mode,'public-live-unverified');assert.equal(row.quoteAt,null);assert.equal(row.receivedAt,null);
+  assert.equal(row.rowQuoteAt,now-1000);assert.equal(row.rowReceivedAt,null);
  }
  assert.equal(meta.status.suspended.rawType,'number');assert.equal(meta.status.suspended.defaulted,true);assert.equal(meta.status.suspended.value,false);
  assert.equal(meta.status.tradable.rawType,'string');assert.equal(meta.status.tradable.defaulted,true);assert.equal(meta.status.tradable.value,true);
@@ -58,18 +59,18 @@ test('full-stock price fallback records its own row and explicit status without 
  assert.equal(meta.limits.rule.name,'*STfixture');assert.equal(meta.limits.rule.limitPct,.05);assert.equal(q.upperLimit,10.5);assert.equal(q.lowerLimit,9.5);
  assert.equal(meta.limits.preClose.rawValue,'10');assert.equal(meta.limits.preClose.value,10);
 });
-test('participation still consumes the stock-row volume and source/status evidence does not change existing acceptance thresholds',t=>{
- const accepted=quote().q,rejected=quote({volume:1}).q;
+test('participation consumes only selected raw-row volume and stale stock volume changes have no effect',t=>{
+ const accepted=quote({volume:1}).q,same=quote({volume:999999}).q,rejected=quote({},true,{volume:1}).q;
  assert.equal(accepted.price,rejected.price);assert.equal(accepted.quoteAt,rejected.quoteAt);
- assert.equal(accepted.inputProvenance.volume.value,10000);assert.equal(rejected.inputProvenance.volume.value,100);
+ assert.equal(accepted.inputProvenance.volume.value,10000);assert.equal(same.inputProvenance.volume.value,10000);assert.equal(rejected.inputProvenance.volume.value,100);
  const first=fixture(t);assert.equal(first.save(accepted).account.cash,98995);
  const second=fixture(t),before=fs.readFileSync(second.file);assert.throws(()=>second.save(rejected),/量参与率/);assert.deepEqual(fs.readFileSync(second.file),before);
 });
 test('new nested field metadata participates in fingerprints, schema checks and order-account cross checks',t=>{
  const x=fixture(t),book=x.save(quote().q),original=JSON.stringify(book),a=book.account.events[0],id=a.orderId;
- a.fillEvidence.inputProvenance.volume.rowQuoteAt=now;rewrite(x.file,book);assert.throws(()=>x.make().read(),/证据/);
+ a.fillEvidence.inputProvenance.volume.rowQuoteAt=now;rewrite(x.file,book);assert.throws(()=>x.make().read(),/证据|来源/);
  const mismatch=JSON.parse(original),changed=mismatch.account.events[0].fillEvidence;
- changed.inputProvenance.volume.rowQuoteAt=old+1;delete changed.fingerprint;changed.fingerprint=hash(changed);
+ changed.inputProvenance.limits.rule.name='changed-row-name';delete changed.fingerprint;changed.fingerprint=hash(changed);
  rewrite(x.file,mismatch);assert.throws(()=>x.make().read(),/订单与资金成交报价证据不一致/);
  const forged=JSON.parse(original),proof=forged.account.events[0].fillEvidence;
  proof.inputProvenance.volume.quoteAt=now-1000;delete proof.fingerprint;proof.fingerprint=hash(proof);
@@ -78,10 +79,17 @@ test('new nested field metadata participates in fingerprints, schema checks and 
  rewrite(x.file,forged);assert.throws(()=>x.make().read(),/来源/,'row price time cannot be laundered into a field-specific clock even with recomputed hashes');
 });
 test('unbounded, unknown-version and conflicting field metadata fail atomically',t=>{
- for(const patch of [meta=>{meta.schemaVersion=2;},meta=>{meta.extra='x'.repeat(9000);},meta=>{meta.price.value=10.1;},meta=>{meta.status.tradable.value=false;}]){
+ for(const patch of [meta=>{meta.schemaVersion=2;},meta=>{meta.extra='x'.repeat(9000);},meta=>{meta.price.value=10.1;},meta=>{meta.status.tradable.value=false;},meta=>{meta.volume.source='different-row';},meta=>{meta.volume.origin='S.stocks';}]){
   const x=fixture(t),q=quote().q,before=fs.readFileSync(x.file);patch(q.inputProvenance);
   assert.throws(()=>x.save(q),/来源/);assert.deepEqual(fs.readFileSync(x.file),before);
  }
+});
+test('legacy mixed-origin version-1 field evidence stays readable without rewriting old clocks or hashes',t=>{
+ const {createAutomaticInputProvenance}=require(path.join(root,'src/core/paper-input-provenance'));
+ const {q,stock}=quote(),x=fixture(t);
+ q.inputProvenance=createAutomaticInputProvenance({stock,observation:{price:q.price,quoteAt:q.quoteAt,receivedAt:q.receivedAt,quoteSource:q.quoteSource,mode:q.mode},priceOrigin:'S.lastPx',limitPct:.1});
+ x.save(q);const before=fs.readFileSync(x.file),reopened=x.make().read(),meta=reopened.account.events[0].fillEvidence.inputProvenance;
+ assert.equal(meta.price.origin,'S.lastPx');assert.equal(meta.volume.origin,'S.stocks');assert.equal(meta.volume.rowQuoteAt,old);assert.equal(meta.volume.quoteAt,null);assert.deepEqual(fs.readFileSync(x.file),before);
 });
 test('old fill evidence without per-field metadata retains original hashes and manual request retry semantics',t=>{
  const x=fixture(t),order={orderId:'manual-old',symbol:'600000',side:'buy',quantity:100,limitPrice:11,tradeDate:'2026-11-06'};
