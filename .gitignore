@@ -22,3 +22,6 @@ V6_BO/data/signal-evidence/
 V6_BO/data/stock-observations/
 V6_BO/data/stock-observation-queue/
 V6_BO/data/news-evidence/
+
+# Private historical-maintenance budget and supplier retry state
+V6_BO/data/history-backfill-private/

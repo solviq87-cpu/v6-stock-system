@@ -3170,132 +3170,110 @@ function pushTrendScan() {
     basisLine(S.trendScanBasis) +                   // ⛔ 基准日：同上，K线没回填到今天必须说清楚
     `\n（全市场 ${_tsProg.scanned} 只扫描，有效 ${_tsProg.total} 只；已封板与 4 连板以上已排除）${govFoot()}`, false, { private: true });
 }
-// ── 全市场K线「长尾补齐」（2026-09-30 新增）───────────────────────────────
-// 用户问「为啥不用 A 股的五千多支票」——查实：全市场票池 .universe_cache 有 5561 只，
-// 但 .kline_cache 里只有 2538 只有历史K线。因为 K 线一直是**按需**拉的：只有被某个扫描
-// 扫到过的票才补过历史，其余一半市场从来没被看过一眼。后果有两个，而且都很致命：
-//   ① 学习引擎只见过半个市场，学到的规律天然有偏（等于天天用一半的数据下结论）；
-//   ② 更隐蔽——票没进过任何扫描列表 → 就永远不会补 K 线 → 永远进不了列表：典型的先有鸡后有蛋，
-//      没被覆盖的那三千只票等于在系统里"不存在"，埋伏也好选股也好根本看不见它们。
-// 这里按票池逐批把缺票的历史K线补回来，补完自动喂给学习引擎（幂等增量，重复灌不会重复计数）。
+// ── 全市场K线补齐：唯一有界入口，盘后/启动/手动共享预算 ───────────────
 let _kbfBusy = false;
-// ⛔ 2026-10-07 补 `ok` / `error`（本轮角度：只在 happy path 上定义过的状态）：
-//    这是**累计型**进度（added/scanned 跨轮累加，每天由 day 重置），所以不能像 _zpProg 那样
-//    整体替换；但"本轮跑没跑成"同样必须说得出来 —— 原来只有成功那一支更新，
-//    「票池为空」这个跳过出口直接 return，面板上"已补 X 只"看着一直在动，
-//    其实那可能是昨天累计下来的数字。两个非成功出口现在都标 ok:false + 原因。
 const _kbfProg = { ok: false, error: '', day: '', scanned: 0, added: 0, fail: 0, lastTs: 0, elapsedMs: 0 };
+const { createHistoryBackfillBudget, backfillSession, POLICY: HISTORY_BACKFILL_POLICY } = require('./src/strategy/history-backfill-budget');
+const _kbfDailyLimit = process.env.V6_HISTORY_BACKFILL_DAILY_LIMIT === undefined ? HISTORY_BACKFILL_POLICY.dailyLimit : Number(process.env.V6_HISTORY_BACKFILL_DAILY_LIMIT);
+const _kbfBudget = createHistoryBackfillBudget({
+  file: path.join(__dirname, 'data', 'history-backfill-private', 'budget.json'),
+  dailyLimit: Number.isSafeInteger(_kbfDailyLimit) && _kbfDailyLimit >= 0 && _kbfDailyLimit <= HISTORY_BACKFILL_POLICY.dailyLimit ? _kbfDailyLimit : 0
+});
 async function klineBackfill(limitN, days) {
+  // A push-test override must not turn a replica into a historical collector.
+  if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') return { ok: false, skipped: 'not-primary' };
   if (_kbfBusy) return { ok: false, running: true, prog: _kbfProg };
   _kbfBusy = true;
   const t0 = Date.now();
-  // 最新交易日（含今天）：回源取到 < 它的（源滞后/陈旧）一律不写盘，避免陈旧写入刷 mtime 被误判为「已刷新」
-  // ⚠️ 须用注入可用的 isTradeDay + Date 自算：klineBackfill 被 _test_kline_fresh.js 以 new Function 注入沙箱跑，
-  //    不能引用模块顶层的 latestTradeDate/klineLastDate，否则注入作用域缺符号 → 套件崩。
-  const _bfTarget = (() => {
-    const d = new Date(); d.setHours(12, 0, 0, 0);
-    const p = n => String(n).padStart(2, '0');
-    for (let i = 0; i <= 30; i++) { const t = new Date(d.getTime() - i * 86400000); if (isTradeDay(t)) return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; }
-    return `${d.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
-  })();
-  const _ldOf = k => (k && k.rows && k.rows.length) ? String(k.rows[k.rows.length - 1].date) : '';
   try {
-    // ⛔⛔ 2026-10-09 fy 修：原来 todo 只按「文件存不存在」筛选（!cached.has），
-    //    结果 5911 只**已有缓存**的票永远不会被刷新 —— 实测最新一根日期分布：
-    //    2026-10-09 只有 1217 只、10-08 有 1239 只、09-30 有 2672 只（79% 今日K线是陈旧的）。
-    //    那 1217 只是被复盘/扫描「按需单只补拉」碰到的，不是本函数补的；
-    //    用户 2026-10-08 明确要求「15点30之后所有数据必须是全量最新的」，这条从未兑现 ——
-    //    因为补齐器压根不认「陈旧」这个状态，它只认「有没有」。
-    //    现在按**新鲜度**筛：除「连文件都没有」的长尾外，
-    //    「文件在最近一个交易日收盘(15:30)之后再没写过」的也要补。
-    //    ⚠️ 用 mtime 而不是逐个读 JSON 取最后一根日期：5911 次 stat 不到 1 秒，
-    //    读内容则要解析 ~85MB，每 30 秒一轮扛不住；而补完必然写文件 → mtime 前进 → 下一轮自动跳过，
-    //    停牌/退市票也不会死循环（补过一次当天就不再重试）。
-    const cutoffMs = (() => {
-      const d = new Date();
-      const td = (typeof isTradeDay === 'function') ? !!isTradeDay(d) : true;
-      const base = new Date(td ? d.getTime() : d.getTime() - 86400000);
-      base.setHours(15, 30, 0, 0);   // 收盘时刻：15:30 前补的都不算「今日已刷新」
-      return base.getTime();
-    })();
-    const cached = new Set();
-    const stale = new Set();
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+    const session = backfillSession(t0, isTradeDay), ds = session.day;
+    if (_kbfProg.day !== ds) { _kbfProg.day = ds; _kbfProg.scanned = 0; _kbfProg.added = 0; _kbfProg.fail = 0; }
+    // Validate both source date and file age. A file touched today is not evidence
+    // that its supplier returned today's bar; weekends use the last closed session.
+    const cached = new Set(), stale = new Set();
     try {
       for (const fn of fs.readdirSync(KLINE_CACHE)) {
         const m = /^(\d{6})\.json$/.exec(String(fn));
         if (!m) continue;
         cached.add(m[1]);
         try {
-          if (fs.statSync(path.join(KLINE_CACHE, fn)).mtimeMs < cutoffMs) stale.add(m[1]);
+          const file = path.join(KLINE_CACHE, fn), k = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const lastDate = k && Array.isArray(k.rows) ? String(k.rows.at(-1)?.date || '') : '';
+          if (!validDate(lastDate) || lastDate < session.targetDate || lastDate > session.day || fs.statSync(file).mtimeMs < session.cutoffMs) stale.add(m[1]);
         } catch { stale.add(m[1]); }
       }
     } catch {}
     let uni = [];
     try {
       const u = JSON.parse(fs.readFileSync(path.join(__dirname, '.universe_cache.json'), 'utf8'));
-      uni = (Array.isArray(u) ? u : []).map(String).filter(x => /^\d{6}$/.test(x));
+      uni = [...new Set((Array.isArray(u) ? u : []).map(String).filter(x => /^\d{6}$/.test(x)))];
     } catch {}
     if (!uni.length) {
       _kbfProg.ok = false; _kbfProg.error = '票池为空（.universe_cache.json 没读到代码）';
       taskSet('kbf', { ok: false, error: _kbfProg.error, n: 0 });
       return { ok: false, error: '票池为空' };
     }
-    // 优先级：先把已有票刷到今日（stale，影响选股/复盘/次日计划的实时性），再补从未缓存的长尾。
     const todo = [...uni.filter(c => stale.has(c)), ...uni.filter(c => !cached.has(c))];
-    // ⚠️ 2026-10-01 重写：原来是「串行 + 每只 sleep 110ms + 一轮 200 只 + 4 分钟一轮」，
-    //    再叠加东财 K 线源失效（每只要 6s 超时×3 + 24s 退避 ≈ 26s 才回落腾讯），
-    //    1480 只缺口实测要跑好几个小时 —— 用户为这件事提了三次「一直没完成」。
-    //    现在：批量并发（em.fetchKlineBulk，并发 12）+ 东财熔断直连腾讯（~143ms/只）。
-    const N = Math.max(1, Math.min(Number(limitN) || 600, 2000));
-    const batch = todo.slice(0, N);
-    const n = Number(days) > 0 ? Number(days) : 60;
-    const _added0 = _kbfProg.added;   // 本轮起点：用来判断「这轮到底补没补到东西」
-    let bulk = null;
-    try { bulk = await em.fetchKlineBulk(batch, n, 12); }
-    catch (e) { bulk = null; console.error('[kline-backfill] 批量失败，回落串行:', e && e.message); }
-    if (bulk && bulk.map) {
-      for (const [code, k] of bulk.map) {
-        // 名字必须补：腾讯源 name 恒为空串，不补就会一路空到推送里显示成「600383 600383」
-        if (!k.name) k.name = nameOfCode(code) || '';
-        // ⚠️ 2026-10-14 修：回源取到的最新日期 < 最新交易日（源滞后/陈旧）时不写盘——
-        //    否则会把文件 mtime 刷成「今天」，被 mtime 新鲜度判据误判为已刷新而永久跳过（陈旧写入陷阱）。
-        if (_ldOf(k) >= _bfTarget) {
-          try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
-          _kbfProg.added++;
-        } else { _kbfProg.fail++; }   // 源滞后：本轮不算补齐成功，下轮继续重试
+    const limit = limitN === 0 ? 0 : Math.min(HISTORY_BACKFILL_POLICY.batchLimit, Math.max(1, Math.floor(Number(limitN) || HISTORY_BACKFILL_POLICY.batchLimit)));
+    const reservation = _kbfBudget.reserve(todo, { limit, targetDate: session.targetDate });
+    Object.assign(_kbfProg, { day: reservation.budgetDay, scanned: reservation.attemptedToday });
+    if (!reservation.codes.length) return { ok: true, skipped: reservation.reason, addedThis: 0,
+      stale: stale.size, missing: uni.filter(c => !cached.has(c)).length, budget: _kbfBudget.summary() };
+    const batch = reservation.codes, n = Number(days) > 0 ? Math.min(500, Math.floor(Number(days))) : 60;
+    let addedThis = 0, attemptedThis = 0;
+    // One in flight here; the shared provider governor owns actual wire spacing.
+    // No immediate fallback batch after errors: every code already has a durable
+    // retry reservation, including when the process exits before finish().
+    for (const code of batch) {
+      if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') break;
+      // Do not carry yesterday's reserved allowance into today's network work.
+      if (new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10) !== reservation.budgetDay) break;
+      let result = { reason: 'source-failed' };
+      try {
+        attemptedThis++;
+        const k = await em.fetchKline(code, n), rows = k && k.rows;
+        const lastDate = Array.isArray(rows) ? String(rows.at(-1)?.date || '') : '';
+        const dateValid = validDate(lastDate) && lastDate <= session.day;
+        if (dateValid && lastDate >= session.targetDate && rows.length >= 6) {
+          if (!k.name) k.name = nameOfCode(code) || '';
+          // Preserve the supplier's source/receivedAt/row dates; never stamp a
+          // stale result as current. A failed write must remain retryable.
+          fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k));
+          addedThis++; _kbfProg.added++;
+          result = { success: true };
+        } else if (dateValid && lastDate >= session.targetDate && rows.length > 0 && rows.length < 6) {
+          const stock = (S.stocks || []).find(s => String(s.code) === code), rawListed = stock && stock.listedDate;
+          // Eastmoney f26 is YYYYMMDD, including when represented as a number.
+          // Treating 20261112 as milliseconds would turn a new listing into 1970.
+          const listingText = String(rawListed ?? ''), listed = /^\d{8}$/.test(listingText) ? listingText.slice(0, 4) + '-' + listingText.slice(4, 6) + '-' + listingText.slice(6, 8) :
+            typeof rawListed === 'number' && Number.isSafeInteger(rawListed) && rawListed >= 100000000000 && rawListed < 8640000000000000 ? new Date(rawListed + 8 * 3600000).toISOString().slice(0, 10) : listingText;
+          const recentListing = validDate(listed) && listed <= session.targetDate && Date.parse(session.targetDate) - Date.parse(listed) < 60 * 86400000 && String(rows[0]?.date || '') >= listed;
+          result = { reason: recentListing ? 'listed-short-history' : 'insufficient-history',
+            targetDate: session.targetDate, nextSessionAt: session.nextSessionAt,
+            permanentShort: !recentListing && k.historyComplete === true };
+          _kbfProg.fail++;
+        } else { result = { reason: dateValid ? 'source-lagging' : 'source-empty-or-invalid-date' }; _kbfProg.fail++; }
+      } catch (e) {
+        _kbfProg.fail++;
+        if (e && /EACCES|ENOSPC|EROFS/.test(e.code || '')) _klineWriteErr(code, e);
       }
-      _kbfProg.fail += (bulk.fail || 0);
-      _kbfProg.scanned += batch.length;
+      _kbfBudget.finish(code, result);
       _kbfProg.lastTs = Date.now();
-    } else {
-      for (const code of batch) {
-        try {
-          const k = await em.fetchKline(code, n);
-          if (k && k.rows && k.rows.length >= 6) {
-            if (!k.name) k.name = nameOfCode(code) || '';
-            // ⚠️ 2026-10-14 修：源滞后（取到的最新日期 < 最新交易日）不写盘，保留旧 mtime 让下轮重试
-            if (_ldOf(k) >= _bfTarget) {
-              try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
-              _kbfProg.added++;
-            } else { _kbfProg.fail++; }
-          } else { _kbfProg.fail++; }
-        } catch { _kbfProg.fail++; }
-        _kbfProg.scanned++;
-        _kbfProg.lastTs = Date.now();
-      }
     }
-    // 补完立刻让学习引擎吃到这批新样本；ineffective 也没关系，幂等。
-    // ⚠️ fy 轮：本轮一只都没补到（票池已全刷到今日）时**不跑** learnall ——
-    //    极速路 30 秒一轮、样本库已 42 万条，空转灌一次白白拖住补齐主流程。
-    const _addedThis = _kbfProg.added - _added0;
     let learn = null;
-    try { if (_addedThis > 0) learn = await runLearnallIngest(); } catch (e) { /* 入库失败不影响补齐本身 */ }
+    try { if (addedThis > 0) learn = await runLearnallIngest(); } catch (e) { console.error('[kline-backfill] 学习入库失败:', e && e.message); }
     _kbfProg.ok = true; _kbfProg.error = '';
-    taskSet('kbf', { ok: true, error: '', n: outN('kbf', _kbfProg.added), ms: _kbfProg.elapsedMs || 0,
-                     empty: (_kbfProg.added || 0) ? '' : emptyWhyOf('noWork') });
+    taskSet('kbf', { ok: true, error: '', n: outN('kbf', _kbfProg.added), ms: Date.now() - t0,
+      empty: _kbfProg.added ? '' : emptyWhyOf('noWork') });
     return { ok: true, pool: uni.length, cachedBefore: cached.size,
       missing: uni.filter(c => !cached.has(c)).length, stale: stale.size, todo: todo.length,
-      addedThis: _addedThis, scanned: batch.length, added: _kbfProg.added, fail: _kbfProg.fail, learn, ms: Date.now() - t0 };
+      addedThis, scanned: attemptedThis, reserved: batch.length, added: _kbfProg.added, fail: _kbfProg.fail, learn,
+      budget: _kbfBudget.summary(), ms: Date.now() - t0 };
+  } catch (e) {
+    _kbfProg.ok = false; _kbfProg.error = String(e && e.message || e);
+    taskSet('kbf', { ok: false, error: _kbfProg.error, n: 0 });
+    return { ok: false, error: _kbfProg.error };
   } finally { _kbfProg.elapsedMs = Date.now() - t0; _kbfBusy = false; }
 }
 // 复盘类样本：登记时行情已经走完，本身不构成"预测"，只能用于回验/统计
@@ -17320,7 +17298,7 @@ async function init() {
       if (t < 15 * 60 + 30 || t >= 24 * 60) { remedySkip('nextPlanBoot', 'notAfterClose'); return; }
       if (sentToday(nextPlanSentDate, todayStr(), /次日作战计划/, 15 * 60 + 45)) { remedySkip('nextPlanBoot', 'alreadySent'); return; }
       // 启动补发前先强制补齐 K 线（不依赖定时器），否则算出来还是"K线样本不足"
-      try { await klineBackfill(2000, 60); } catch (e) { console.error('[nextplan-boot] K线补齐失败:', e && e.message); }
+      try { await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60); } catch (e) { console.error('[nextplan-boot] K线补齐失败:', e && e.message); }
       await computeNextPlan(80);
       const np = S.nextplan || {};
       if (!np.plan) { remedySkip('nextPlanBoot', 'computeEmpty'); return; }
@@ -17451,60 +17429,17 @@ async function init() {
   setTimeout(guard('learn-boot', _bootSeed), 90 * 1000);
   setTimeout(guard('learn-boot', _bootSeed), 6 * 60 * 1000);
   setTimeout(guard('learn-boot', _bootSeed), 15 * 60 * 1000);
-  // ── 全市场K线长尾补齐的日常通道 ──────────────────────────────────────
-  // 盘中（9:15~15:10）一根都不拉：那时带宽和时间都要留给实时行情，补齐慢一点无所谓。
-  // 其余时间每 4 分钟补 200 只 —— 一夜之间就能把三千只长尾票补齐，之后每天只补新增的那几只。
-  // ⛔⛔ 2026-10-08 修：用户要求"15点30之后所有数据必须是全量最新的"。
-  //    原来 klineBackfill 在 9:15-15:10 期间完全停摆（return），盘中任何 K 线更新都靠 klineRows 按需单只补拉。
-  //    这意味着 15:30 收盘后，大量票的 K 线还停留在开盘前的状态，次日计划算的时候才会逐只补拉，
-  //    但 computeNextPlan 并发 8 只，80 只候选要跑 10 轮，每轮还要等网络，30 秒定时器根本跑不完。
-  //    现在：15:30 之后进入"强制补齐模式"——突破单日 12000 上限，单次 2000 只顶满内部钳制，
-  //    间隔 30 秒极速补齐，直到补完；其他时段仍按 2 分钟/1200 只的保守节奏。
-  //    ⚠️ 注意：setInterval 的间隔不能动态变，所以这里拆成两路定时器，
-  //    15:30 后启动极速路、同时清掉日常路；次日 00:00 后日常路重新生效。
-  let _kbfDailyTimer = null, _kbfFastTimer = null;
-  function _kbfTick(afterClose) {
-    return guard('kline-backfill', async () => {
-      const d = new Date();
-      const t = d.getHours() * 60 + d.getMinutes();
-      const wd = isTradeDay(d);
-      const _ac = wd && t >= 15 * 60 + 30;
-      // 如果当前实际状态与传入的 afterClose 不一致（跨边界了），让外层调度器处理
-      if (_ac !== afterClose) return;
-      if (wd && t >= 9 * 60 + 15 && t < 15 * 60 + 10) return;  // 盘中仍不跑，避免打断行情
-      if (_kbfBusy) return;
-      const ds = todayStr();
-      if (_kbfProg.day !== ds) { _kbfProg.day = ds; _kbfProg.scanned = 0; _kbfProg.added = 0; _kbfProg.fail = 0; }
-      // 15:30 后强制补齐模式：突破单日 12000 上限（收盘后这是必须完成的）
-      if (!afterClose && _kbfProg.scanned >= 12000) return;
-      try {
-        const r = await klineBackfill(afterClose ? 2000 : 1200);
-        // fy 轮：分开报「待刷新的(stale)」和「从未缓存的(missing)」，别再只用 missing 一个数 ——
-        // 全天刷完时两个都应为 0，日志里看得到才算真的补出来了。
-        if (r && r.ok && (r.addedThis || 0) > 0)
-          console.log(`[kline-backfill] 本轮补 ${r.addedThis} 只（待刷新 ${r.stale} / 未缓存 ${r.missing}）→ 学习 ${r.learn ? r.learn.added : 0} 条 / 累计 ${r.learn ? r.learn.total : '-'}`);
-      } catch (e) { console.error('[kline-backfill] 失败:', e && e.message); }
-    });
-  }
-  // 日常路：2 分钟一轮（非 15:30 后时段）
-  _kbfDailyTimer = setInterval(_kbfTick(false), 2 * 60 * 1000);
-  // 极速路调度器：每分钟检查一次是否在 15:30 后，是则切到 30 秒极速路
-  setInterval(() => {
-    const d = new Date();
-    const t = d.getHours() * 60 + d.getMinutes();
-    const wd = isTradeDay(d);
-    const inFast = wd && t >= 15 * 60 + 30 && t < 24 * 60;
-    if (inFast && !_kbfFastTimer) {
-      if (_kbfDailyTimer) { clearInterval(_kbfDailyTimer); _kbfDailyTimer = null; }
-      _kbfFastTimer = setInterval(_kbfTick(true), 30 * 1000);
-      console.log('[kline-backfill] 进入极速补齐模式（15:30 后，30 秒/2000 只）');
-    }
-    if (!inFast && _kbfFastTimer) {
-      clearInterval(_kbfFastTimer); _kbfFastTimer = null;
-      if (!_kbfDailyTimer) _kbfDailyTimer = setInterval(_kbfTick(false), 2 * 60 * 1000);
-      console.log('[kline-backfill] 恢复日常补齐模式（2 分钟/1200 只）');
-    }
-  }, 60 * 1000);
+  // 历史维护统一每分钟调度；盘后、启动和手动也不能绕过内部日预算/退避。
+  const _kbfTick = guard('kline-backfill', async () => {
+    if (String((S.config && S.config.pushRole) || 'primary') !== 'primary') return;
+    const d = new Date(Date.now() + 8 * 3600000);
+    const t = d.getUTCHours() * 60 + d.getUTCMinutes();
+    const civil = new Date(d.toISOString().slice(0, 10) + 'T12:00:00');
+    if (isTradeDay(civil) && t >= 9 * 60 + 15 && t < 15 * 60 + 30) return;
+    const r = await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60);
+    if (r && r.ok && r.addedThis) console.log(`[kline-backfill] 本轮补 ${r.addedThis} 只；今日已预留 ${r.budget.attemptedToday}/${r.budget.dailyLimit}`);
+  });
+  setInterval(_kbfTick, HISTORY_BACKFILL_POLICY.minIntervalMs);
 
   // ── 全市场趋势扫描：学完就用，把学习模型在全市场挑出来的票推给你 ──
   //   这是"学习全市场K线、发掘上涨票"这条主线的出口。盘中不跑（免得打断行情扫描），
@@ -18192,7 +18127,7 @@ async function init() {
     nextPlanBusy = true;
     try {
       if (!((S.nextplan || {}).plan)) {
-        try { await klineBackfill(2000, 60); } catch (e) { console.error('[health] 补推计划 K线补齐失败:', e && e.message); }
+        try { await klineBackfill(HISTORY_BACKFILL_POLICY.batchLimit, 60); } catch (e) { console.error('[health] 补推计划 K线补齐失败:', e && e.message); }
         try { await computeNextPlan(80); } catch (e) { console.error('[health] 补推计划 computeNextPlan 失败:', e && e.message); }
       }
       if (!((S.nextplan || {}).plan)) return { skip: 'planEmpty' };
@@ -20232,11 +20167,11 @@ function handle(req, res, u, body) {
   if (p === '/api/kline-backfill' && req.method === 'POST') {
     let kbTok = '', n = 0;
     // klineBackfill 内部自己钳到 2000，这里前置钳一次：负值会让它 "补 -5 只" 的语义含糊
-    try { const b = JSON.parse(body || '{}'); kbTok = b.token || ''; n = _clampInt(b.n, 1, 2000, 0); } catch {}
+    try { const b = JSON.parse(body || '{}'); kbTok = b.token || ''; n = _clampInt(b.n, 0, HISTORY_BACKFILL_POLICY.batchLimit, HISTORY_BACKFILL_POLICY.batchLimit); } catch {}
     if (!requireEditor(res, kbTok, req)) return;
     if (_kbfBusy) return json(res, { ok: true, pending: true, prog: _kbfProg, note: '上一轮还在补，稍后再看' });
-    json(res, { ok: true, pending: true, note: '补齐中（每只约 110ms，量大时请耐心）' });
-    klineBackfill(n || 300).then(r => {
+    json(res, { ok: true, pending: true, note: '历史补齐受共享日预算及退避约束' });
+    klineBackfill(n).then(r => {
       console.log('[kline-backfill] 手动补完成:', JSON.stringify(r).slice(0, 200));
       if (!isReplica() && r && r.ok && r.added)
         pushLog('📚 全市场补票', '═══ 📚 全市场K线补齐 ═══',
