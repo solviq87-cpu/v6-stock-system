@@ -14316,7 +14316,7 @@ function newsPublicationMetadata(raw,now=Date.now()){
 }
 // Revocation is checked against the current immutable chain, including CLI
 // imports made after this server started. A damaged archive is unknown.
-let newsEvidenceCache={stamp:null,inventory:null,files:new Map(),latest:new Map(),withdrawn:new Set(),unknown:false,chainVerifiedAt:null,metadataCheckedAt:null};
+let newsEvidenceCache={stamp:null,inventory:null,files:new Map(),latest:new Map(),assessments:new Map(),withdrawn:new Set(),unknown:false,chainVerifiedAt:null,metadataCheckedAt:null};
 const NEWS_EVIDENCE_METADATA_INTERVAL_MS=1000,NEWS_EVIDENCE_MAX_FILES=10000;
 function newsEvidenceFileStamp(file){
   const s=fs.lstatSync(file,{bigint:true});
@@ -14352,7 +14352,7 @@ function newsEvidenceCurrent(eventId=null){
       if(changed||newsEvidenceCache.unknown||inventory!==newsEvidenceCache.inventory){
         const rows=journal.readJournal(NEWS_EVIDENCE_ROOT),latest=new Map();
         for(const e of rows)if(e.evidence.source==='eastmoney-fast-news')latest.set(e.evidence.eventId,e);
-        newsEvidenceCache={stamp,inventory,files,latest,unknown:false,chainVerifiedAt:now,metadataCheckedAt:now,
+        newsEvidenceCache={stamp,inventory,files,latest,assessments:new Map(),unknown:false,chainVerifiedAt:now,metadataCheckedAt:now,
           withdrawn:new Set([...latest].filter(([,e])=>e.evidence.kind==='retracted').map(([id])=>id))};
       }else newsEvidenceCache={...newsEvidenceCache,files,metadataCheckedAt:now};
     }
@@ -14361,17 +14361,26 @@ function newsEvidenceCurrent(eventId=null){
 }
 function newsSupportsCode(code){
   const state=newsEvidenceCurrent();
-  return !state.unknown&&(S.news.goodAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+  return !state.unknown&&(S.news.goodAll||[]).some(n=>n.type==='good'&&(n.codes||[]).includes(code)&&newsDecisionAllowsItem(n));
 }
 function newsWarnsCode(code){
-  return (S.news.badAll||[]).some(n=>(n.codes||[]).includes(code)&&newsEvidenceAllowsItem(n));
+  return (S.news.badAll||[]).some(n=>n.type==='bad'&&(n.codes||[]).includes(code)&&newsDecisionAllowsItem(n));
 }
 function newsWarnsSector(sector){
-  return (S.news.badAll||[]).some(n=>(n.sectors||[]).includes(sector)&&newsEvidenceAllowsItem(n));
+  return (S.news.badAll||[]).some(n=>n.type==='bad'&&(n.sectors||[]).includes(sector)&&newsDecisionAllowsItem(n));
+}
+function newsDecisionAllowsItem(item){
+  return require('./src/core/news-sentiment').newsIsCurrent(item?.publishedAt,Date.now())&&newsEvidenceAllowsItem(item);
+}
+function newsCurrentAssessment(current,state=newsEvidenceCache){
+  if(!state.assessments.has(current.eventHash))state.assessments.set(current.eventHash,
+    require('./src/core/news-sentiment').assessNews(current.evidence.title,current.evidence.body));
+  return state.assessments.get(current.eventHash);
 }
 function newsEvidenceAllowsItem(item){
   const id=String(item?.id||''),state=newsEvidenceCurrent(id),current=state.latest.get(id);
   return !state.unknown&&!!current&&current.evidence.kind!=='retracted'&&!S.news.evidenceRejected?.has(id)&&
+    item.type===newsCurrentAssessment(current,state).type&&
     item.newsEvidence?.eventHash===current.eventHash&&item.newsEvidence?.sourceRevisionId===current.evidence.sourceRevisionId&&
     item.title===current.evidence.title&&item.summary===current.evidence.body.slice(0,90)&&item.publishedAt===current.evidence.publishedAt&&
     Array.isArray(item.codes)&&JSON.stringify([...new Set(item.codes)].sort())===JSON.stringify(current.evidence.securities);
@@ -14379,7 +14388,7 @@ function newsEvidenceAllowsItem(item){
 function newsEvidenceVisibleState(state=S){
   const news=state.news||{};
   const visible=Object.fromEntries(['goodAll','badAll','neutralAll'].map(key=>[
-    key,(Array.isArray(news[key])?news[key]:[]).filter(newsEvidenceAllowsItem)]));
+    key,(Array.isArray(news[key])?news[key]:[]).filter(n=>n.type===key.replace('All','')&&newsDecisionAllowsItem(n))]));
   return {...state,news:{...news,...visible,good:visible.goodAll.slice(0,40),bad:visible.badAll.slice(0,40),
     holidayBuf:(news.holidayBuf||[]).filter(newsEvidenceAllowsItem),
     goodCodes:new Set(visible.goodAll.flatMap(x=>x.codes||[])),badCodes:new Set(visible.badAll.flatMap(x=>x.codes||[])),
@@ -14467,22 +14476,12 @@ try {
   { if (!atomicWrite(path.join(__dirname, 'themeMap.json'), JSON.stringify(Object.assign({ _note: S.themeMap._note }, THEME_DEFAULT), null, 2))) _diskFail('themeMap.json（题材映射）'); }
   Object.assign(S.themeMap, THEME_DEFAULT);
 }
-const NEWS_BAD_KW = ['利空', '减持', '质押', '立案', '留置', '调查', '处罚', '罚款', '警示函', '监管函', '问询函', '退市', '预亏', '首亏', '亏损', '业绩变脸', '商誉减值', '减值', '终止上市', '退市风险', '违约', '爆雷', '暴雷', '诉讼', '仲裁', '冻结', '召回', '裁员', '关税', '制裁', '禁令', '跌停', '跌超', '大跌', '跳水', '流出', '做空', '沽空', '风险提示', '安全事故', '爆炸', '火灾', '失联', '被查', '被拘', '拘留', '通报批评', '失信', '被执行', '下调评级', '下调目标价', '解除合同', '失去', '到期违约'];
-const NEWS_GOOD_KW = ['利好', '中标', '签订', '签署', '合同', '订单', '预增', '扭亏', '净利润增', '获批', '获准', '核准', '收购', '并购', '重组', '回购', '增持', '分红', '派息', '战略合作', '框架协议', '涨价', '提价', '上调评级', '上调目标价', '超预期', '涨停', '大涨', '创新高', '试点', '政策支持', '扶持', '补贴', '减税', '降准', '降息', '突破', '景气', '大单', '里程碑'];
-// —— 语义反转组合规则（2026-09-29 用户报错案例）——
-// 「光莆股份：公司拟出售不超过610.36万股已回购股份」命中利好词「回购」被标利好，
-//   实际是把回购的股份【抛向市场】= 变相减持 = 抛压利空。纯关键词表无法表达这种反义组合，
-//   单列正则规则，优先级最高（压过一切利好命中）。新增反转案例时往这里加正则。
-const NEWS_BAD_PATTERNS = [
-  /出售.{0,20}已?回购股份/,   // 出售(不超过X万股)已回购股份 = 变相减持
-  /回购股份.{0,6}(出售|减持|解禁)/,
-  /回购.{0,8}股份.{0,8}拟?出售/,
-];
-// 利空判定唯一入口：组合规则优先，其次利空词表。classifyNews/classifyNeutral/存量修复共用。
+const NEWS_BAD_KW = require('./src/core/news-sentiment').NEWS_BAD_KW;
+const NEWS_GOOD_KW = require('./src/core/news-sentiment').NEWS_GOOD_KW;
+const NEWS_BAD_PATTERNS = require('./src/core/news-sentiment').NEWS_BAD_PATTERNS;
+// One classifier for intake, archive repair, display and decision gates.
 function newsIsBad(title, summary) {
-  const text = (title || '') + (summary || '');
-  if (NEWS_BAD_PATTERNS.some(r => r.test(text))) return true;
-  return NEWS_BAD_KW.some(k => text.includes(k));
+  return require('./src/core/news-sentiment').assessNews(title || '', summary || '').type === 'bad';
 }
 function saveNews() {
   // ⛔ 三个归档用同一个上限常量（见 NEWS_ARCHIVE_CAP 注释）：内存截多少，磁盘就截多少。
@@ -14494,51 +14493,47 @@ function saveNews() {
   if (S.news.goodPushed.size > 600) S.news.goodPushed = new Set([...S.news.goodPushed].slice(-600));
   return _o ? true : _diskFail('news.json（利好/利空归档与已推标记）');
 }
-// 存量归档修复（2026-09-29）：mergeArchive 按 id 去重 —— 分类规则改进后，重启重新播种
-// 也修不了已错分的旧条目（id 已存在直接跳过）。这里用【当前规则】重扫三个归档：
-//   命中利空判定的 → 从 goodAll/neutralAll 移到 badAll（goodPushed 同步清掉，防止永远占着"已推"标记）。
-// 每次启动都跑一遍，幂等；规则再更新时存量自动跟上。
+// Reclassify both directions from the bound provider body, including holiday
+// history. Do not rewrite the immutable evidence or re-send old positives.
 function repairNewsClassify() {
   let fixed = 0;
-  const isBad = x => newsIsBad(x.title, x.summary);
-  const _bad = new Set((S.news.badAll || []).map(x => x.id));
-  const pullBad = list => {
-    const keep = [];
-    for (const x of (list || [])) {
-      if (isBad(x)) {
-        // why 同步更新：留着旧「命中利好词」的说明放在利空归档里自相矛盾
-        if (!String(x.why || '').includes('利空')) x.why = '改判利空(语义反转): 出售已回购股份=变相减持';
-        if (!_bad.has(x.id)) { S.news.badAll.push(x); _bad.add(x.id); } fixed++;
+  const repair = list => {
+    const unique = new Map();
+    for (const x of list || []) {
+      const current = newsEvidenceCurrent(String(x.id)).latest.get(String(x.id));
+      // Unbound legacy rows are retained for inspection, never promoted by
+      // guessing a source body or silently purged on an evidence read failure.
+      if (!current || current.eventHash !== x.newsEvidence?.eventHash) {
+        if (!unique.has(String(x.id))) unique.set(String(x.id),x);
+        continue;
       }
-      else keep.push(x);
+      const assessment = newsCurrentAssessment(current);
+      const next = {...x, type:assessment.type, why:assessment.why, assessment};
+      if (!newsEvidenceAllowsItem(next)) {
+        if (!unique.has(String(x.id))) unique.set(String(x.id),x);
+        continue;
+      }
+      if (x.type !== next.type || x.why !== next.why || x.assessment?.version !== assessment.version) fixed++;
+      if (next.type !== 'good') S.news.goodPushed.delete(x.id);
+      else S.news.goodPushed.add(x.id); // rule upgrades are not new provider news
+      unique.set(String(x.id),next);
     }
-    return keep;
+    return [...unique.values()].sort((a,b)=>(b.publishedAt||0)-(a.publishedAt||0));
   };
-  S.news.goodAll = pullBad(S.news.goodAll);
-  S.news.neutralAll = pullBad(S.news.neutralAll);
-  // badAll 里历史遗留的旧说明（改判前写入的「命中利好词: 回购」）—— 留在利空归档里自相矛盾
-  for (const x of (S.news.badAll || [])) {
-    if (String(x.why || '').includes('命中利好词')) { x.why = '改判利空(语义反转): 出售已回购股份=变相减持'; fixed++; }
-  }
-  S.news.badAll = S.news.badAll.filter(x => within3Days(x.t)).slice(0, NEWS_ARCHIVE_CAP);
-  if (fixed) {
-    for (const x of S.news.badAll) S.news.goodPushed.delete(x.id);
-    saveNews();
-    console.log(`[news] 归档分类修复: ${fixed} 条从利好/中性改判利空（按最新判定规则）`);
-  }
+  const rows = repair([...(S.news.badAll||[]),...(S.news.goodAll||[]),...(S.news.neutralAll||[])]);
+  for (const [key,type] of [['badAll','bad'],['goodAll','good'],['neutralAll','neutral']])
+    S.news[key] = rows.filter(x=>x.type===type&&within3Days(x.t)).slice(0,NEWS_ARCHIVE_CAP);
+  S.news.holidayBuf = repair(S.news.holidayBuf).slice(0,HOLIDAY_BUF_CAP);
+  S.news.bad = S.news.badAll.slice(0,40); S.news.good = S.news.goodAll.slice(0,40);
+  S.news.badCodes = new Set(S.news.badAll.flatMap(x=>x.codes));
+  S.news.goodCodes = new Set(S.news.goodAll.flatMap(x=>x.codes));
+  S.news.badSectors = new Set(S.news.badAll.flatMap(x=>x.sectors));
+  if (fixed) { saveNews(); console.log(`[news] 当前规则重分类: ${fixed} 条（原始证据保留）`); }
 }
-function within3Days(t) { // "2026-09-25 21:43:52" 是否在近3个自然日内
-  if (!t) return false;
-  const d = t.slice(0, 10);
-  // ⛔ 2026-10-06 修：min 原来用 toISOString()（**UTC**）算，而项目里所有日期键
-  //    （todayStr / dayKeyOf / normDate / 新闻的 x.t，全是 toLocaleString 本地时间）
-  //    清一色是本地口径。北京时间 UTC+8，每天 00:00–08:00 这 8 小时里 UTC 日期比本地晚一天，
-  //    min 就少算一天 → 「近3日归档」实际留了 4 天，面板口径跟文案对不上；
-  //    这里只当下界所以是多留（宽松、不丢数据），但一旦有人拿它当上界，会把当天整漏掉。
-  //    现在统一用本地年月日拼串，和 S.marketBeta / S.breadth / byDay 的键同口径。
-  const dt = new Date(Date.now() - 2 * 86400000);
-  const min = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-  return d >= min;
+function within3Days(t) {
+  try {
+    return require('./src/core/news-sentiment').newsIsCurrent(require('./src/core/news-evidence-journal').sourceTime(t),Date.now());
+  } catch { return false; }
 }
 // 板块成分股缓存（新闻间接关联个股用）：板块名 → {time, list:[{code,name,pct,price}]}
 // 新闻只点名直接个股；"间接影响"= 新闻提到的板块 → 东财BK直查成分股Top30（按涨幅降序），面板显示板块关联股
@@ -14634,56 +14629,24 @@ async function ensureStockBoards(codes, maxN) {
     console.log(`[boards] 个股题材归属缓存新增 ${fetched} 只，累计 ${S.stockBoards.size} 只`);
   }
 }
-function classifyNews(raw, nameOf) {
+function classifyNews(raw, nameOf) { return classifyNewsRows(raw,nameOf,false); }
+function classifyNewsRows(raw, nameOf, neutralOnly) {
   const out = [];
   for (const n of raw) {
-    const title = n.title || '';
-    const summary = (n.summary || '').slice(0, 90);
-    const text = title + summary;
-    // 关键词命中判定：利空优先（含语义反转组合规则），其次利好，都没有则中性；记录命中词作为判定原因
-    const isBad = newsIsBad(title, summary);
-    const ghit = isBad ? [] : NEWS_GOOD_KW.filter(k => title.includes(k) || summary.includes(k));
-    const isGood = !isBad && ghit.length > 0;
-    if (!isBad && !isGood) continue; // 中性：仅保留带A股关联的（下方判断）
-    const codes = [];
-    for (const sl of (n.stockList || [])) {
-      const m = /^([013])\.(\d{6})$/.exec(String(sl)); // A股：0深/1沪/3北 + 6位码
-      if (m) codes.push(m[2]);
-    }
-    const secs = (S.sectors || []).filter(s => s.name && s.name.length >= 2 && text.includes(s.name)).slice(0, 2).map(s => s.name);
-    const why = isBad ? '命中利空判定' + (NEWS_BAD_PATTERNS.some(r => r.test(text)) ? '(语义反转: 出售已回购股份=变相减持)' : ': ' + NEWS_BAD_KW.filter(k => text.includes(k)).slice(0, 3).join('、'))
-      : ('命中利好词: ' + ghit.slice(0, 3).join('、'));
-    // 详细个股：代码解析为中文名，面板直接显示"名称(代码)"
-    const stocks = codes.map(c => `${nameOf.get(c) || ''}(${c})`);
-    out.push({ id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes, stocks, type: isBad ? 'bad' : 'good', why, sectors: secs });
+    if (!n || typeof n.title !== 'string' || (n.summary != null && typeof n.summary !== 'string')) continue;
+    const title = n.title, body = n.summary || '', summary = body.slice(0,90);
+    const assessment = require('./src/core/news-sentiment').assessNews(title,body);
+    if ((assessment.type === 'neutral') !== neutralOnly) continue;
+    const codes = [...new Set((Array.isArray(n.stockList)?n.stockList:[]).map(sl=>/^([013])\.(\d{6})$/.exec(String(sl))?.[2]).filter(Boolean))];
+    if (neutralOnly && !codes.length) continue;
+    const text = title + '\n' + body;
+    const sectors = [...new Set((S.sectors||[]).filter(s=>s.name&&s.name.length>=2&&text.includes(s.name)).map(s=>s.name))].slice(0,2);
+    out.push({id:n.code,t:n.showTime||'',...newsPublicationMetadata(n),title,summary,codes,
+      stocks:codes.map(c=>`${nameOf.get(c)||''}(${c})`),type:assessment.type,why:assessment.why,assessment,sectors});
   }
   return out;
 }
-function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但带A股关联的，打中性标签
-  const out = [];
-  const idSet = new Set();
-  for (const n of raw) {
-    const title = n.title || '';
-    const summary = (n.summary || '').slice(0, 90);
-    const text = title + summary;
-    if (newsIsBad(title, summary)) continue;
-    if (NEWS_GOOD_KW.some(k => title.includes(k) || summary.includes(k))) continue;
-    const codes = [];
-    for (const sl of (n.stockList || [])) {
-      const m = /^([013])\.(\d{6})$/.exec(String(sl));
-      if (m) codes.push(m[2]);
-    }
-    if (!codes.length) continue; // 中性且无个股关联：不入库
-    const secs = (S.sectors || []).filter(s => s.name && s.name.length >= 2 && text.includes(s.name)).slice(0, 2).map(s => s.name);
-    out.push({
-      id: n.code, t: n.showTime || '', ...newsPublicationMetadata(n), title, summary, codes,
-      stocks: codes.map(c => `${nameOf.get(c) || ''}(${c})`),
-      type: 'neutral', why: '中性: 未命中利好/利空关键词，仅信息播报', sectors: secs
-    });
-    idSet.add(n.code);
-  }
-  return out;
-}
+function classifyNeutral(raw, nameOf) { return classifyNewsRows(raw,nameOf,true); }
 function mergeArchive(list, items, keepAll) { // 按 id 去重合并 → （keepAll 时不过滤近3日）→ 时间倒序 → 上限400/假期缓冲上限
   // These lists are current projections. The append-only journal retains every
   // original and revision; a prior category cannot survive a changed version.
@@ -14693,7 +14656,7 @@ function mergeArchive(list, items, keepAll) { // 按 id 去重合并 → （keep
   return arr.sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, keepAll ? HOLIDAY_BUF_CAP : NEWS_ARCHIVE_CAP);
 }
 async function fetchNewsPage(column, sortEnd, size) {
-  const u = `https://np-weblist.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastColumn=${column}&sortEnd=${sortEnd || ''}&pageSize=${size}&req_trace=${Date.now()}${column}${Math.floor(Math.random() * 999)}`;
+  const u = `https://np-weblist.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastColumn=${column}&sortEnd=${encodeURIComponent(sortEnd || '')}&pageSize=${size}&req_trace=${Date.now()}${column}${Math.floor(Math.random() * 999)}`;
   const r = await em.get(u, 8000);
   return r && r.data ? r : null;
 }
@@ -14702,15 +14665,19 @@ async function seedNews() {
   try {
     const raw = [];
     for (const col of [101, 104]) {
-      let sortEnd = '', pages = 0;
-      while (pages < 3) {
-        const r = await fetchNewsPage(col, sortEnd, 100);
-        if (!r || !(r.data.fastNewsList || []).length) break;
-        raw.push(...r.data.fastNewsList);
-        sortEnd = r.data.sortEnd || '';
-        if (!sortEnd) break;
-        pages++;
-        await em.delay(400);
+      let sortEnd = '';
+      const seenCursors = new Set();
+      for (let page = 0; page < 3; page++) {
+        try {
+          const r = await fetchNewsPage(col, sortEnd, 100);
+          const rows = r?.data?.fastNewsList;
+          if (!Array.isArray(rows) || !rows.length) break;
+          raw.push(...rows);
+          const next = r.data.sortEnd;
+          if (!next || seenCursors.has(String(next))) break;
+          seenCursors.add(String(next)); sortEnd = next;
+          if (page < 2) await em.delay(400);
+        } catch { console.warn(`[news] 播种栏目 ${col} 暂不可用，保留已取得页面`); break; }
       }
     }
     if (!raw.length) return;
@@ -14722,7 +14689,7 @@ async function seedNews() {
     S.news.goodAll = mergeArchive(S.news.goodAll, items.filter(x => x.type === 'good'));
     S.news.neutralAll = mergeArchive(S.news.neutralAll, neutral);
     // 假期缓冲：休市期把全部新闻（不过滤近3日）累积进 holidayBuf，供「开盘前夜汇总」覆盖整个假期；交易日则清空
-    if (isTradeDay(new Date())) S.news.holidayBuf = [];
+    if (isTradeDay(require('./src/core/news-china-clock').newsChinaClock())) S.news.holidayBuf = [];
     else S.news.holidayBuf = mergeArchive(S.news.holidayBuf || [], items.concat(neutral), true);
     if (!S.news.baseline) { for (const x of S.news.goodAll) S.news.goodPushed.add(x.id); S.news.baseline = true; }
     S.news.time = new Date().toLocaleTimeString('zh-CN');
@@ -14739,7 +14706,7 @@ async function refreshNews() {
   try {
     const rs = await Promise.allSettled([fetchNewsPage(101, '', 100), fetchNewsPage(104, '', 100)]);
     const raw = [];
-    for (const r of rs) if (r.status === 'fulfilled' && r.value) raw.push(...(r.value.data.fastNewsList || []));
+    for (const r of rs) if (r.status === 'fulfilled' && Array.isArray(r.value?.data?.fastNewsList)) raw.push(...r.value.data.fastNewsList);
     if (!raw.length) return;
     captureNewsEvidence(raw);
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
@@ -14749,7 +14716,7 @@ async function refreshNews() {
     S.news.goodAll = mergeArchive(S.news.goodAll, items.filter(x => x.type === 'good'));
     S.news.neutralAll = mergeArchive(S.news.neutralAll, neutral);
     // 假期缓冲累积（休市时）/ 交易日清空：让「开盘前夜汇总」能拿到整个长假的完整新闻
-    if (isTradeDay(new Date())) S.news.holidayBuf = [];
+    if (isTradeDay(require('./src/core/news-china-clock').newsChinaClock())) S.news.holidayBuf = [];
     else S.news.holidayBuf = mergeArchive(S.news.holidayBuf || [], items.concat(neutral), true);
     S.news.bad = S.news.badAll.slice(0, 40);
     S.news.good = S.news.goodAll.slice(0, 40);
@@ -14758,7 +14725,7 @@ async function refreshNews() {
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
-    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id) && newsEvidenceAllowsItem(x));
+    const freshGood = S.news.goodAll.filter(x => x.codes.length && !S.news.goodPushed.has(x.id) && newsDecisionAllowsItem(x));
     // 非开盘时段：利好只更新面板与归档，不做即时推送（新闻是主要噪音源），
     // 统一留给每日新闻汇总（21:00）/ 周末汇总（周日21:00）一起发。
     // 标记仍照打，避免次日开盘一次性补推一大堆。
@@ -14824,7 +14791,7 @@ function buildNewsDigest(dates, label, topN, src) {
     if (gs.length) msg += '\n\n【🔥 周末高频受益个股】\n' + gs.map(([s, n]) => `▪ ${s}（${n}条利好）`).join('\n');
     if (bs.length) msg += '\n【⛔ 周末避雷个股】\n' + bs.map(([s, n]) => `▪ ${s}（${n}条利空）`).join('\n');
   }
-  const badCodes = new Set(badAll.filter(newsEvidenceAllowsItem).flatMap(x => x.codes));
+  const badCodes = new Set(badAll.filter(newsDecisionAllowsItem).flatMap(x => x.codes));
   const warn = [];
   for (const [acc, cfg] of Object.entries(PAPER_CFG)) {
     const hit = Object.values(PAPER[acc].positions || {}).filter(p => badCodes.has(p.code));
@@ -16395,8 +16362,8 @@ function newsTitlesFor(code, name) {
     if (Array.isArray(x.stocks) && (x.stocks.indexOf(code) >= 0 || (nm && x.stocks.indexOf(nm) >= 0))) return true;
     return !!(nm && nm.length >= 2 && String(x.title).indexOf(nm) >= 0);
   };
-  for (const x of (S.news && S.news.goodAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
-  for (const x of (S.news && S.news.badAll) || []) { if (newsEvidenceAllowsItem(x) && match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.goodAll) || []) { if (x.type === 'good' && newsDecisionAllowsItem(x) && match(x) && good.length < 3) good.push(String(x.title).slice(0, 60)); }
+  for (const x of (S.news && S.news.badAll) || []) { if (x.type === 'bad' && newsDecisionAllowsItem(x) && match(x) && bad.length < 3) bad.push(String(x.title).slice(0, 60)); }
   return { good, bad };
 }
 S.pre = S.pre || { time: null, items: [] };

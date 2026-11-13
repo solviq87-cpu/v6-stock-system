@@ -22,8 +22,8 @@ const newsSrc = cut('function buildNewsDigest', '// __HOLIDAY_HELPERS_END__');
 // tests/news-current-projection.test.js.
 const mkMerge = new Function('HOLIDAY_BUF_CAP', 'NEWS_ARCHIVE_CAP', 'within3Days', 'newsEvidenceAllowsItem', `${mergeSrc}\nreturn { mergeArchive };`);
 const { mergeArchive } = mkMerge(1200, 300, within3Days, () => true);
-const mkNews = new Function('S', 'PAPER_CFG', 'PAPER', 'isTradeDay', 'newsEvidenceAllowsItem', `${newsSrc}\nreturn { buildNewsDigest, holidaySpanUpToToday, holidayDigestShouldFire };`);
-const api = mkNews({ news: { badAll: [], goodAll: [], neutralAll: [] } }, {}, {}, () => true, () => true);
+const mkNews = new Function('S', 'PAPER_CFG', 'PAPER', 'isTradeDay', 'newsEvidenceAllowsItem', 'newsDecisionAllowsItem', `${newsSrc}\nreturn { buildNewsDigest, holidaySpanUpToToday, holidayDigestShouldFire };`);
+const api = mkNews({ news: { badAll: [], goodAll: [], neutralAll: [] } }, {}, {}, () => true, () => true, () => true);
 
 let pass = 0, fail = 0;
 const ok = (c, n, g) => { if (c) { pass++; console.log('  ✅ ' + n + (g !== undefined ? '  → ' + g : '')); } else { fail++; console.log('  ❌ ' + n + '  → ' + g); } };

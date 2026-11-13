@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const FILES=Object.freeze(['server.js','analysis.js','bazi.js','myrules.js','logic.js','learnall.js','ztpre.js','nextplan.js','kline_lang.js','_shortline.js',
  'src/strategy/strategy-service.js','src/core/probability-contract.js','src/core/quote-observation-view.js','src/core/signal-evidence-chain.js',
  'src/core/recommendation-evidence-review.js','src/core/signal-rule-manifest.js',
- 'src/core/news-signal-evidence.js','src/core/news-evidence-journal.js'].sort());
+ 'src/core/news-sentiment.js','src/core/news-signal-evidence.js','src/core/news-evidence-journal.js'].sort());
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
 function buildSignalRuleSourceManifest(root){
  if(typeof root!=='string'||!path.isAbsolute(root))throw Error('策略源码根目录无效');

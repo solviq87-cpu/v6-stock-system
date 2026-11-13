@@ -33,9 +33,7 @@ console.log('【① 源码层面：不许再用 UTC 算日期键】');
 // 剥掉注释再判（函数头那大段注释里就写着 toISOString）
 const bodyOnly = SRC.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 ok('within3Days 里不再出现 toISOString', !/toISOString/.test(bodyOnly));
-ok('改用本地年月日拼串（getFullYear/getMonth/getDate）',
-  /getFullYear\(\)/.test(bodyOnly) && /getMonth\(\)/.test(bodyOnly) && /getDate\(\)/.test(bodyOnly));
-ok('日期串补零（否则 1 月会拼成 2026-1-4，字典序比较直接错）', /padStart\(2, ?'0'\)/.test(bodyOnly));
+ok('统一调用中国自然日窗口和来源时间解析器', /newsIsCurrent/.test(bodyOnly) && /sourceTime/.test(bodyOnly));
 
 console.log('\n【② 行为层面：拨到北京凌晨 5 点（UTC 与本地差一天）】');
 // ⚠️ 必须在 new Date() 之前设置，Node 的 Date 会读它
@@ -47,7 +45,7 @@ const NOW = Date.UTC(2026, 9, 5, 21, 0, 0);
 //    直接 `new Function('__now', …)()` 不传参的话，__now 是 undefined →
 //    new Date(NaN) → min 变成 'NaN-NaN-NaN'，所有比较恒 false（第一版就这么红的）。
 const fnSrc = SRC.replace(/function within3Days/, 'function _w3d').replace(/Date\.now\(\)/g, '__now');
-const w3d = new Function('__now', fnSrc + '\n; return (t) => _w3d(t);')(NOW);
+const w3d = new Function('__now', 'require', fnSrc + '\n; return (t) => _w3d(t);')(NOW, require);
 
 const utcMin = new Date(NOW - 2 * 86400000).toISOString().slice(0, 10);      // 旧口径
 const locDt = new Date(NOW - 2 * 86400000);
@@ -59,6 +57,7 @@ ok('本地口径下界 = 2026-10-04（北京 10-06 往前 2 天）', locMin === 
 ok('10-04 算作近3日内（下界当天要留）', w3d('2026-10-04 08:00:00') === true);
 ok('10-03 不算近3日内（旧 UTC 口径会误留它）', w3d('2026-10-03 23:00:00') === false);
 ok('10-06 当然算', w3d('2026-10-06 05:00:00') === true);
+ok('未来时间拒绝', w3d('2026-10-06 05:00:01') === false);
 ok('空值返回 false', w3d('') === false && w3d(null) === false);
 
 console.log('\n【③ 全项目：日期键索引格式统一】');
