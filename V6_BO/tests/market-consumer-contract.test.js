@@ -77,7 +77,7 @@ test('index collection retains Tencent original time, including old and unknown 
  for(const [original,at] of [['20261113100000',now],['20261112150000',Date.parse('2026-11-12T15:00:00+08:00')],['',null]]){
   const c=run(em,['fetchIdxRt','batchQuoteAtPublication'],{Buffer,TextDecoder,
    require:name=>{assert.equal(name,'./src/core/public-market');return require('../src/core/public-market');},
-   https:{get(_url,_opts,cb){const req=new EventEmitter();queueMicrotask(()=>{const res=new EventEmitter();cb(res);res.emit('data',Buffer.from(wire(original)));res.emit('end');});return req;}}});
+   txGet:async()=>Buffer.from(wire(original))});
   const [r]=await c.fetchIdxRt();assert.equal(r.quoteAt,at);assert.equal(r.receivedAt,now);
   assert.equal(r.price,3000);assert.equal(r.quoteSource,'tencent-index');assert.equal(r.canNotify,false);
  }
