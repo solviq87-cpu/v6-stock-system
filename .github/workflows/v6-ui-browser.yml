@@ -3,7 +3,7 @@
 name: V6 UI Browser Geometry
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, "fix/**"]
     paths:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
