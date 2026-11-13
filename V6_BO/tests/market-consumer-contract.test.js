@@ -141,7 +141,7 @@ test('valuation follows the selected same-row price and labels carried/cost fall
 
 test('paper snapshot exposes per-position quality and cannot manufacture a buy timestamp',()=>{
  const pp={code:'000001',buyPrice:10,lastPrice:8,shares:100,buyDate:'2026-11-12',buyTs:null,buyTimeQuality:'date-only'};
- const c=run(server,['paperSnap'],{PAPER_CFG:{pool:{name:'fixture',initial:10000}},
+ const c=run(server,['newsWarnsCode','paperSnap'],{PAPER_CFG:{pool:{name:'fixture',initial:10000}},
   PAPER:{pool:{enabled:false,cash:9000,realized:0,positions:{'000001':pp},trades:[]}},
   S:{stocks:[quote({price:8,quoteAt:null})],lastPx:new Map(),news:{badCodes:new Set()}},
   paperEquity:()=>9800,tradeDaysSince:()=>1,paperAudit:()=>({ok:true}),isReplica:()=>false,quoteBasis:()=>null});
