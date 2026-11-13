@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f4ef">
+<title>全部命中个股 · 天枢智策 V6</title>
+<meta name="description" content="逐股展示V6已返回的所有候选与命中条件，保留同股多信号，支持核查与过滤。">
+<link rel="stylesheet" href="/assets/v6-studio.css?v=20261111a">
+<script src="/assets/v6-studio.js?v=20261111a" defer></script>
+</head>
+<body data-page="matches">
+<div class="shell">
+<aside class="sidebar" aria-label="新V6工作台导航">
+  <a class="brand" href="/v6-studio.html"><span class="monogram">V6</span><span><strong>天枢智策</strong><small>独立智能投研工作室</small></span></a>
+  <div class="side-label">RESEARCH SPACE / 投研空间</div>
+  <nav class="nav">
+    <a href="/v6-studio.html"><span class="symbol">◫</span>今日判断</a>
+    <a href="/v6-matches.html" class="active" aria-current="page"><span class="symbol">◎</span>全部命中个股<em>核心</em></a>
+    <a href="/v6-research.html"><span class="symbol">◇</span>策略研究</a>
+    <a href="/v6-validation.html"><span class="symbol">↗</span>回测验证</a>
+    <a href="/v6-paper.html"><span class="symbol">▤</span>模拟盘</a>
+  </nav>
+  <div class="side-foot">辅助选股 · 非实盘交易<br>行情、信号、风险均需来源证据</div>
+</aside>
+<main class="main">
+  <div class="topline">
+    <div class="breadcrumb"><span>V6 工作室</span><span>／</span><strong>全部命中个股</strong></div>
+    <div class="tools"><span class="status-pill" id="all-matches-warning">正在检查数据完整性</span><button type="button" class="action" id="refresh-all">↻ 重新读取</button></div>
+  </div>
+  <div class="headrow">
+    <div><div class="kicker">SIGNAL EXPLORER · 研究候选池</div><h1>把每一次命中，<br>都摆在你面前。</h1></div>
+    <p class="lead" style="max-width:390px;margin:0">不把相同股票的不同信号相互覆盖；每只股票展示所有已返回的命中条件、板块与风险。无证据就显示未知，不制造机会。</p>
+  </div>
+  <div class="metrics" aria-label="当前已读取候选概况">
+    <section class="card metric"><small>已返回不同个股</small><strong id="count-matches">—</strong><span>同代码信号合并显示</span></section>
+    <section class="card metric"><small>已返回命中条件</small><strong id="count-signals">—</strong><span>独立规则说明不丢失</span></section>
+    <section class="card metric"><small>参与扫描</small><strong id="count-scanned">—</strong><span>仅按服务端返回填写</span></section>
+    <section class="card metric"><small>交易日快照</small><strong id="count-snapshot" style="font-size:18px">未提供</strong><span>非实时行情认证</span></section>
+  </div>
+  <section aria-label="筛选和查看全部已返回命中股票">
+    <div class="section-head"><h2>命中清单</h2><span class="muted">所有返回的股票都会显示，不截取首页前十只</span></div>
+    <div class="card formbar">
+      <input type="search" id="search-stock" placeholder="输入股票代码、名称、板块或命中理由" aria-label="搜索命中个股">
+      <label>条件<select id="filter-rule" aria-label="按命中条件筛选"><option value="all">所有命中规则</option></select></label>
+      <label>板块<select id="filter-board" aria-label="按股票市场筛选"><option value="all">全市场</option><option value="main">沪深主板</option><option value="gem">创业板／科创板</option></select></label>
+      <label>风险<select id="filter-risk" aria-label="按风险筛选"><option value="all">全部状态</option><option value="blocked">仅风险阻断</option><option value="other">非已标记阻断</option></select></label>
+      <label>排序<select id="sort-stock" aria-label="命中股票排序"><option value="score">综合评分</option><option value="signals">条件命中数量</option><option value="change">涨跌幅</option><option value="name">股票代码</option></select></label>
+      <button type="button" class="outline" id="clear-filters">清空筛选</button>
+    </div>
+    <div id="source-alert" class="alert" role="status" aria-live="polite">正在读取六项量化条件的全部已完成快照；其他策略来源尚待统一汇总。</div>
+    <div class="summaryline"><span>当前筛选显示：<strong id="visible-count">—</strong> 只</span><span>没有返回的股票不会被虚构为命中，且不触发强制扫描</span></div>
+    <div class="list-layout">
+      <div id="stock-list" class="stock-list" aria-live="polite"><div class="empty">等待真实命中结果…</div></div>
+      <aside class="card detail" id="detail-panel" aria-label="股票全部命中条件和K线"><div class="placeholder">从左侧选一只股票<br>查看它命中的所有条件、风险与历史K线</div></aside>
+    </div>
+  </section>
+  <p class="footer-note">状态声明：本页面是新版 V6 的只读工作区。不启用付费行情、不发推送、不提交订单。完整读取的范围仅为六项量化条件，其他四套核心策略及扩展战法还需统一汇总；未取得完整快照时明确标注部分结果。</p>
+</main>
+</div>
+<nav class="mobile-tabbar" aria-label="手机底部导航">
+<a href="/v6-studio.html"><span>◫</span>今日</a><a class="active" href="/v6-matches.html" aria-current="page"><span>◎</span>全部命中</a><a href="/v6-research.html"><span>◇</span>研究</a><a href="/v6-validation.html"><span>↗</span>验证</a><a href="/v6-paper.html"><span>▤</span>模拟盘</a>
+</nav>
+</body>
+</html>

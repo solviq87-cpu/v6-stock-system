@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f4ef">
+<meta name="description" content="天枢智策V6全新投研工作室。先核验市场、再查看候选、理解原因、评估风险、跟踪结果。">
+<title>今日判断 · 天枢智策 V6</title>
+<link rel="stylesheet" href="/assets/v6-studio.css?v=20261111a">
+<script src="/assets/v6-studio.js?v=20261111a" defer></script>
+</head>
+<body data-page="studio">
+<div class="shell">
+<aside class="sidebar" aria-label="新V6工作台导航">
+  <a class="brand" href="/v6-studio.html"><span class="monogram">V6</span><span><strong>天枢智策</strong><small>独立智能投研工作室</small></span></a>
+  <div class="side-label">RESEARCH SPACE / 投研空间</div>
+  <nav class="nav">
+    <a href="/v6-studio.html" class="active" aria-current="page"><span class="symbol">◫</span>今日判断<em>首页</em></a>
+    <a href="/v6-matches.html"><span class="symbol">◎</span>全部命中个股</a>
+    <a href="/v6-research.html"><span class="symbol">◇</span>策略研究</a>
+    <a href="/v6-validation.html"><span class="symbol">↗</span>回测验证</a>
+    <a href="/v6-paper.html"><span class="symbol">▤</span>模拟盘</a>
+  </nav>
+  <div class="side-foot">辅助选股 · 非实盘交易<br>先证据，后决策</div>
+</aside>
+<main class="main">
+  <div class="topline">
+    <div class="breadcrumb"><span>V6 工作室</span><span>／</span><strong>今日判断</strong></div>
+    <div class="tools"><span class="status-pill">验证版 · 非实时认证</span><button type="button" class="action" id="refresh-all">↻ 更新研究数据</button></div>
+  </div>
+  <div class="kicker">YOUR RESEARCH DAY / 今日投研</div>
+  <h1>今天，先看清市场。<br>再寻找值得研究的机会。</h1>
+  <p class="lead">这不是旧版量化看盘的功能集合。新版 V6 只围绕一条清晰路径：市场判断 → 发现候选 → 命中证据 → 风险复核 → 后续验证。</p>
+  <section class="card hero" aria-label="今日市场结论">
+    <div>
+      <div class="kicker">MARKET PULSE / 市场判断</div>
+      <h2 id="market-view">等待已核验的市场证据</h2>
+      <p id="market-reason">行情数据与市场广度尚未确认。缺数据时不生成看多或看空结论，也不把历史快照伪装成实时行情。</p>
+      <div class="tools" style="margin-top:24px">
+        <a class="action" href="/v6-matches.html">查看全部命中个股</a>
+        <a class="outline" href="/v6-research.html">进入策略研究</a>
+      </div>
+    </div>
+    <div class="hero-viz">
+      <div class="eyebrow">市场状态 / 证据优先</div>
+      <div class="big" id="market-fresh">等待真实数据</div>
+      <div class="caption">休市时显示实际快照日，不用页面刷新时间伪造报价时点</div>
+    </div>
+  </section>
+  <div class="metrics" aria-label="市场与候选的已知摘要">
+    <section class="card metric"><small>上证指数</small><strong id="index-sh">—</strong><span id="indexpct-sh">来源未确认</span></section>
+    <section class="card metric"><small>深证成指</small><strong id="index-sz">—</strong><span id="indexpct-sz">来源未确认</span></section>
+    <section class="card metric"><small>创业板指</small><strong id="index-cyb">—</strong><span id="indexpct-cyb">来源未确认</span></section>
+    <section class="card metric"><small>已返回候选股票</small><strong id="summary-count">—</strong><span>六条件快照优先 · 其他策略待整合</span></section>
+  </div>
+  <div id="source-alert" class="alert" role="status" aria-live="polite">正在读取已有量化候选接口。只有接口返回的真实候选才会显示。</div>
+  <div class="section-head"><h2>一个清晰的选股工作流</h2><a class="outline" href="/v6-matches.html">查看已返回全部命中 →</a></div>
+  <div class="split">
+    <section class="card panelpad">
+      <div class="steps">
+        <div class="step"><b>01</b><div><strong>判断市场环境</strong><p>上证、深证、创业板与市场广度；数据无效时保持未知状态</p></div></div>
+        <div class="step"><b>02</b><div><strong>发现全部已返回候选</strong><p>不是只列十强：逐股读取命中理由、板块、评分及重复信号</p></div></div>
+        <div class="step"><b>03</b><div><strong>核对个股证据</strong><p>日月年K线、信号来源、原始时间和风险阻断，缺失信息不猜</p></div></div>
+        <div class="step"><b>04</b><div><strong>跟踪与验证</strong><p>冻结信号、复盘回测及模拟盘相互隔离，结果不被包装成真实收益</p></div></div>
+      </div>
+    </section>
+    <section class="card panelpad">
+      <div class="signal">
+        <h3>研究前提示</h3>
+        <p>V6 可以提供研究候选，但缺少真实报价时点、风控证据或行情来源验证时，不给出确定的买卖建议。</p>
+        <div class="tinyline"><span>当前涨停家数</span><strong id="zt-view">未返回</strong></div>
+        <div class="tinyline"><span>风险评估</span><strong>逐票查看原始证据</strong></div>
+      </div>
+      <div style="padding:18px 3px 0">
+        <h3>四套已有核心策略</h3>
+        <div class="tinyline"><span>十四条选股</span><strong id="strategy-rule14">待归因</strong></div>
+        <div class="tinyline"><span>八字口诀</span><strong id="strategy-bazi">待归因</strong></div>
+        <div class="tinyline"><span>GPT 五策略</span><strong id="strategy-gpt">待归因</strong></div>
+        <div class="tinyline"><span>Python 三轮筛选</span><strong id="strategy-python">待归因</strong></div>
+        <p class="note" style="margin-top:16px">策略计数来自现有只读统计；没有独立归因就不生成命中数量。</p>
+      </div>
+    </section>
+  </div>
+  <div class="section-head"><h2>独立工作区</h2><span class="muted">保留能力，不照搬旧版管理功能</span></div>
+  <div class="secondary-grid">
+    <section class="card feature"><span class="index">01 / EXPLORE</span><h3>全部命中个股</h3><p>所有已返回的股票、每条命中条件、筛选、历史K线与风险说明。</p><a href="/v6-matches.html">进入命中池 →</a></section>
+    <section class="card feature"><span class="index">02 / RESEARCH</span><h3>策略研究</h3><p>四套核心策略与研究型战法的证据和解释，不混入部署管理按钮。</p><a href="/v6-research.html">进入研究 →</a></section>
+    <section class="card feature"><span class="index">03 / VERIFY</span><h3>持续验证</h3><p>回测、样本外验证和模拟盘风险记录独立管理，不将研究信号当成交。</p><a href="/v6-validation.html">进入验证 →</a></section>
+  </div>
+  <p class="footer-note">新版 V6 独立工作室 · 当前属于仅供验证的前端预览。发布、CI、部署与待发布请求等维护操作不会占据用户日常选股首页。市场与候选数据来自现有服务接口，不含演示点位。</p>
+</main>
+</div>
+<nav class="mobile-tabbar" aria-label="手机底部导航">
+<a href="/v6-studio.html" class="active" aria-current="page"><span>◫</span>今日</a>
+<a href="/v6-matches.html"><span>◎</span>全部命中</a>
+<a href="/v6-research.html"><span>◇</span>研究</a>
+<a href="/v6-validation.html"><span>↗</span>验证</a>
+<a href="/v6-paper.html"><span>▤</span>模拟盘</a>
+</nav>
+</body>
+</html>
