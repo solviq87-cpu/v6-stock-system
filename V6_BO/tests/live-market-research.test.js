@@ -22,6 +22,17 @@ test('incomplete market universe blocks classification even with scores',async()
  const r=await researchLiveMarket({now,fetchSnapshot:async()=>({...snapshot,universeSize:40}),scores,scoreSource:'index',scoreDate:'2026-11-05'});
  assert.equal(r.breadth.usable,false);assert.equal(r.regime.usable,false);
 });
+test('read-only research retains per-stock provider-time coverage without live certification',async()=>{
+ const coverage={present:2,missing:2,minVendorQuoteAt:now-90000,maxVendorQuoteAt:now-60000,
+  supplierQuoteDates:['2026-11-05'],vendorTimeCertified:false,
+  volumeUnit:'provider-lots-not-shares',monetaryUnit:'provider-CNY-unverified'};
+ const r=await researchLiveMarket({now,fetchSnapshot:async()=>({...snapshot,sourceCoverage:coverage})});
+ assert.deepEqual(r.snapshotMetadata.sourceCoverage,coverage);
+ assert.equal(r.snapshotMetadata.verifiedLive,false);
+ assert.equal(r.riskEvidence.canTrade,false);
+ const missing=await researchLiveMarket({now,fetchSnapshot:async()=>snapshot});
+ assert.equal(missing.snapshotMetadata.sourceCoverage,null);
+});
 test('new HTTP route requires developer role, limits input, and leaves ranking untouched',()=>{
  const s=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
  const p=s.indexOf("if (p === '/api/research/live-market')");assert.ok(p>0);
