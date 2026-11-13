@@ -1931,10 +1931,11 @@ function updateMarketStatus(){
  const count=snapshot?.stocks?.filter(s=>validNumber(s.price)).length||0;
  const time=snapshot?.providerTime;
  const scan=snapshot?.scan;
- target.textContent=!window.V6Market.status.collectionEnabled?'采集已暂停 · 缓存':marketBusy?'关注报价刷新中…':marketError?(count?'部分源异常 · 查看覆盖':'行情不可用'):fullScanBusy?`全A扫描 ${scan?.processed||0}/${scan?.total||snapshot?.universe?.count||0}`:count?`全A ${count}只 · 受控采集`:'等待全A真实行情';
- target.title=(snapshot?`来源：${snapshot.source}\n源端时间：${time||'未提供日期'}\n上次拉取：${fullDate(snapshot.fetchedAt)}\n`:'')+(marketError||'默认只读取缓存；继续后关注报价至少60秒、全A至少5分钟，后台自动暂停。');
+ const status=window.V6Market.status;
+ target.textContent=!status.collectionEnabled?(status.collectionRequested?(status.marketSession?.label||'非交易时段')+' · 自动等待':'自动扫描已暂停 · 缓存'):marketBusy?'关注报价刷新中…':marketError?(count?'部分源异常 · 查看覆盖':'行情不可用'):fullScanBusy?`全A扫描 ${scan?.processed||0}/${scan?.total||snapshot?.universe?.count||0}`:count?`全A ${count}只 · 受控采集`:'等待全A真实行情';
+ target.title=(snapshot?`来源：${snapshot.source}\n源端时间：${time||'未提供日期'}\n上次拉取：${fullDate(snapshot.fetchedAt)}\n`:'')+(marketError||'仅在北京时间竞价及盘中时段自动扫描；午休、收盘和休市停扫，手动暂停会保留，进入后台停止。');
  target.classList.toggle('market-error',!!marketError);
- $('#refresh-market').disabled=marketBusy;
+ $('#refresh-market').disabled=marketBusy||!status.collectionEnabled;
 }
 function renderMarketSafely(){
  updateMarketStatus();screeningFromMarket();marketDirty=true;
