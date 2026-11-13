@@ -4,9 +4,9 @@ This standalone document preserves the existing user-owned site at
 `https://af3c7822e6aafc135.app.workbuddy.host`. It is intentionally separate
 from `V6_WEB/dist` and the locked `V6_BO/public` homepages.
 
-- Current captured published timestamp: `2026-11-13T05:36:05.321Z`.
-- Current original remote HTML SHA-256: `1c9b0e706e1f7d5d160846935ed07b17997c386e58d97c79836eb48e8f868b3d`.
-- Current imported canonical HTML SHA-256: `d102aef5e7cf52b7c99930d7985011f62a2cc9fa0c7a46f1bd5cbaa05bd21137`.
+- Current captured published timestamp: `2026-11-13T06:02:50.147Z`.
+- Current original remote HTML SHA-256: `1bcd78d41743f85b719466558ffe46379d0cf290dfc1ea7a6a1a19ac58a0c689`.
+- Current imported canonical HTML SHA-256: `e0072043ee4605f6c12e9bcb26c5390aa2853cfba4f0b9e95cace2338fa10e8b`.
 - Deployment scope: `static-frontend-only`.
 
 The initial capture was published at `2026-11-13T02:54:36.673Z`, with original
@@ -17,7 +17,19 @@ Before the first automatic-update initialization, another user tool published
 the newer full-market 43-strategy scanner. The strict expected-content hash
 guard rejected the initialization before any publish request, preserving that
 newer content. The current import adopts this newer document instead of
-overwriting it with the initial capture.
+overwriting it with the initial capture. That 43-strategy capture was published
+at `2026-11-13T05:36:05.321Z`, with original remote SHA-256
+`1c9b0e706e1f7d5d160846935ed07b17997c386e58d97c79836eb48e8f868b3d`
+and canonical SHA-256
+`d102aef5e7cf52b7c99930d7985011f62a2cc9fa0c7a46f1bd5cbaa05bd21137`.
+
+A later external publication added responsive table scrolling and preservation
+of table scroll positions and expanded details during refresh. The guarded
+legacy restoration rejected this changed target before any publish request.
+The current capture adopts those additions too; it contains no Unicode
+replacement characters. Compared with the previous 43-strategy capture, the
+changes are limited to table CSS, the inline `V6TableScroll` module, and its
+render capture/restore calls. Strategy, account and records logic is preserved.
 
 The original HTML contained an embedded site access code. Its value was never
 imported into Git. The sole source change replaces that assignment with
