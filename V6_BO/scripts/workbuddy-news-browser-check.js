@@ -156,7 +156,9 @@ test('news pool controls, real candidate caches and source failures are safe in 
       const ledgerWritesBefore = f.ledgerWrites;
       await refreshAt(f, 'bad', START + 360000);
       const blocked = await policyState(page);
-      assert.equal(blocked.risk.status, 'blocked'); assert.ok(blocked.excluded.includes('600001')); assert.ok(!blocked.items.includes('600001'));
+      assert.equal(blocked.risk.status, 'blocked');
+      assert.equal(blocked.marketDataVersion, initial.version, 'candidate input changed during news-only test: '+JSON.stringify({width,initial,blocked}));
+      assert.ok(blocked.excluded.includes('600001'), 'negative did not exclude candidate: '+JSON.stringify({width,initial,blocked})); assert.ok(!blocked.items.includes('600001'));
       assert.equal(blocked.quoteObservation?.ok, true, 'a stale quote masked the news exclusion');
       assert.equal(blocked.marketDataVersion, initial.version, 'test accidentally invalidated market caches instead of news caches');
       await page.waitForFunction(() => !document.querySelector('.tj-signals-panel [data-focus="600001"]'));
