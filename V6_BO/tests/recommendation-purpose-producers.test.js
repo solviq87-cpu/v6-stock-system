@@ -17,6 +17,7 @@ function engine(at=close){
   modDayTake:()=>true,signTxt:value=>value,winLabel:key=>key,winShort:()=>'',_tsProg:{scanned:100,total:10},
   _ztSentPushed:new Set(),_fmtSealY:value=>value,pushIntensityOf:()=>1,sectorOfStock:()=> '板块',sectorHeat:()=>({hot:true}),sentLogPush(){},
   _arLastPush:{date:'',sig:'',ts:0,n:0},AR_PUSH_GAP:3600000,AR_PUSH_DAY_MAX:5});
+ require('./helpers/news-known-empty-fixture').install(c);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','signalCondition','annotateSignalConditions',
   'pushYiEr','pushLianbanRelay','pushZtPre','pushSteadyUp','pushTrendScan','ztSealPush','pushAuctionResonanceTop3','pushYiErAuction'])vm.runInContext(fn(name),c);
  return {c,sent,logged};

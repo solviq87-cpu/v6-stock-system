@@ -18,6 +18,7 @@ function context({quota=10,reserve=.2,cooldown=90,maxPerCode=3}={}){
   _ztRushPushed:new Set(),_surgePushed:new Set(),_rushCool:new Map(),_rushMomentumCache:new Map(),pushIntensityOf:()=>1,capTooSmall:()=>false,
   A:{limitPctOf:()=>10,isLimitUp:()=>false,hasMomentumConditions:()=>true},sentinelLog:[],outbound:[],
   sentLogPush:(type,record)=>c.sentinelLog.push({type,...record}),pushAll:(...args)=>c.outbound.push(args)});
+ require('./helpers/news-known-empty-fixture').install(c);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','govTake','govFilter','ztRushScan','surgeScan'])vm.runInContext(fn(name),c,{filename:'actual-server-'+name+'.js'});
  return {c,saves:()=>saves,resets:()=>resets,setNow:value=>{clock=value;}};
 }

@@ -30,6 +30,7 @@ function context(t,options={},src=source){
   pushQuota:()=>{calls.quota++;return options.quota??10;},ztFollowOf:()=>options.follow||null,
   govResetIfNewDay(){calls.resets++;clock+=options.advanceOnReset||0;},savePushGov(){calls.saves++;clock+=options.advanceOnSave||0;},
   krowsOf:()=>[],ppTxt:String,todayStr:()=> '20261113',probKindOf:()=> 'prob',isTradeDay:()=>true,pruneSignals(){},saveLearn(){},tick(){}});
+ require('./helpers/news-known-empty-fixture').install(c);
  vm.runInContext(section(src,'let signalRuleVersion;','// 存量迁移'),c);
  for(const name of ['reviewRecommendation','reviewSnapshotFields','govTake','govFilter','govRelease','govReleaseAll','govTrim','logSignal'])vm.runInContext(fn(src,name),c);
  if(options.record)c.PUSH_GOV.codes.set('000001',{...options.record,types:new Set(options.record.types||[])});
@@ -153,7 +154,7 @@ test('real tick archives its later reservation before enqueue while keeping the 
   riseProbOf:()=>70,riskNoteOf:()=> 'fixture risk',stopRefOf:()=> '9',isStrongAlert:()=>false,modDayTake:()=>true,
   auctionPhase:()=>0,dataCapOf:()=>200,sseSend(){},enqueueIntraday:rows=>{c.enqueued=rows;},A:{limitUpProbability:()=>.5,isNearLimitUp:()=>false}});
  Object.assign(c.S,{loop:{running:false,tickCount:0},candidatePool:[{code:stock.code}],sectors:[],stocks:[],inflowHistory:new Map(),
-  news:{goodCodes:new Set(),badCodes:new Set(),goodAll:[]},fastinRepeat:new Map(),lastPush:new Map(),pushCount:new Map(),signals:[]});
+  news:{goodCodes:new Set(),badCodes:new Set(),goodAll:[],riskSnapshot:{status:'available',checkedAt:at,source:'eastmoney-fast-news',columnsComplete:true}},fastinRepeat:new Map(),lastPush:new Map(),pushCount:new Map(),signals:[]});
  vm.runInContext(section(source,'const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),c);
  vm.runInContext(section(source,'function fundsNumber(','const { analyzeShortline }'),c);
  vm.runInContext(section(source,'function countStreak(h)','function sectorZTCountFor('),c);

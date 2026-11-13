@@ -53,12 +53,12 @@ function createQueue(sendOnce, opt) {
   function runJob(job) {
     let settled = false;
     let guard = null;
-    const finish = (ok, info) => {
+    const finish = (ok, info, noRetry = false) => {
       if (settled) return;                 // 只认第一次结果：真实回调与看门狗可能都来
       settled = true;
       if (guard) { clearTimeout(guard); guard = null; }
       st.lastAt = Date.now();
-      const canRetry = !ok && RETRYABLE.test(String(info));
+      const canRetry = !noRetry && !ok && RETRYABLE.test(String(info));
       if (canRetry && (job.tries || 0) < retry) {
         job.tries = (job.tries || 0) + 1;
         st.retried++;
@@ -71,6 +71,14 @@ function createQueue(sendOnce, opt) {
       if (job.cb) job.cb(ok, info);
       drain();
     };
+    // The exact current decision is checked at every dispatch/retry, never only
+    // at enqueue time. Non-recommendation jobs carry no review hook.
+    if (typeof job.beforeSend === 'function') {
+      try {
+        const reviewed=job.beforeSend();
+        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false, reviewed&&reviewed.why||'派发前审核未通过',true);return; }
+      } catch (_) { finish(false,'派发前审核不可用',true);return; }
+    }
     guard = setTimeout(() => {
       if (settled) return;
       st.guarded++;
@@ -85,7 +93,7 @@ function createQueue(sendOnce, opt) {
   }
 
   function send(text, cb, opts) {
-    const job = { text, cb };
+    const job = { text, cb, beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null };
     if (st.q.length >= maxQ) {
       const drop = st.q.shift();
       st.dropped++;

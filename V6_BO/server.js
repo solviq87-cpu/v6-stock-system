@@ -84,6 +84,7 @@ function freezeRecommendationRows(rows, historical = false) {
   const now = Date.now();
   return (Array.isArray(rows) ? rows : []).map(row => Object.freeze({
     ...reviewSnapshotFields(row), code: row.code, name: row.name, price: row.price,
+    sector:typeof row.sector==='string'?row.sector:null, industry:typeof row.industry==='string'?row.industry:null, sectors:Object.freeze(Array.isArray(row.sectors)?row.sectors.filter(x=>typeof x==='string').slice(0,16):[]),
     triggerAt: Number.isSafeInteger(row.ts) && row.ts > 0 ? row.ts : now,
     reviewedAt: Number.isSafeInteger(row.recommendationReviewedAt) && row.recommendationReviewedAt > 0 ? row.recommendationReviewedAt
       : historical && Number.isSafeInteger(row.ts) && row.ts > 0 ? row.ts
@@ -91,27 +92,50 @@ function freezeRecommendationRows(rows, historical = false) {
     signalId: row.signalId || null, type: row.type || null
   }));
 }
+function freezeNewsRecommendationRows(rows) {
+  return Object.freeze((Array.isArray(rows)?rows:[]).map(row=>Object.freeze({code:row&&row.code,name:row&&row.name,
+    sector:typeof row?.sector==='string'?row.sector:null,industry:typeof row?.industry==='string'?row.industry:null,
+    sectorSource:typeof row?.sectorSource==='string'?row.sectorSource:null,sectorAsOf:Number.isSafeInteger(row?.sectorAsOf)?row.sectorAsOf:null,sectors:Object.freeze(Array.isArray(row?.sectors)?row.sectors.filter(x=>typeof x==='string').slice(0,16):[])})));
+}
+function newsRecommendationSendOptions(rows, options = {}) {
+  return {...options,newsRecommendationRows:freezeNewsRecommendationRows(rows)};
+}
 function recommendationSendOptions(rows, options = {}, historical = false) {
   return { ...options, recommendationRows: freezeRecommendationRows(rows, historical),
-    forceHistoricalObservation: historical };
+    ...(!historical?{newsRecommendationRows:freezeNewsRecommendationRows(rows)}:{}),forceHistoricalObservation: historical };
+}
+function recommendationNewsReview(rows, now = Date.now()) {
+  if (!Array.isArray(rows) || !rows.length) return {canRecommend:false,status:'unknown',reason:'MISSING_RECOMMENDATION_ROWS',reviews:[]};
+  const reviews=rows.map(row=>reviewRecommendationNews(row,now));
+  const denied=reviews.find(review=>review.canRecommend!==true);
+  return {canRecommend:!denied,status:denied?.status||'available',reason:denied?.reason||'NO_CURRENT_NEGATIVE_NEWS',reviews};
 }
 function prepareRecommendationDelivery(text, options, now = Date.now()) {
-  if (!options || !Array.isArray(options.recommendationRows)) return {ok: true, text, kind: 'other-purpose', canRecommend: false};
+  const newsRows=options&&Array.isArray(options.newsRecommendationRows)?freezeNewsRecommendationRows(options.newsRecommendationRows):null;
+  let newsReview=newsRows?recommendationNewsReview(newsRows,now):null;
+  const rejectNews=review=>({ok:false,text:'',kind:review.status==='blocked'?'negative-news-risk':'news-risk-unknown',canRecommend:false,newsReview:review});
+  if(newsReview&&!newsReview.canRecommend)return rejectNews(newsReview);
+  const newsMeta=newsRows?{requiresNewsReview:true,newsRows,newsReview}:{};
+  if (!options || !Array.isArray(options.recommendationRows)) return {ok: true, text, kind:newsRows?'dated-stock-observation':'other-purpose',canRecommend:false,...newsMeta};
   const rows = options.recommendationRows;
   if (!rows.length) return {ok: false, text: '', kind: 'missing-recommendation-evidence', canRecommend: false};
   const current = rows.map(row => reviewRecommendation(row, 'intraday-recommendation', now));
-  if (!options.forceHistoricalObservation && current.every(review => review.canRecommend))
-    return {ok: true, text, kind: 'intraday-recommendation', canRecommend: true};
+  if (!options.forceHistoricalObservation && current.every(review => review.canRecommend)) {
+    newsReview=newsReview||recommendationNewsReview(rows,now);
+    if(!newsReview.canRecommend)return rejectNews(newsReview);
+    return {ok:true,text,kind:'intraday-recommendation',canRecommend:true,requiresNewsReview:true,newsRows:newsRows||freezeNewsRecommendationRows(rows),newsReview};
+  }
   const originKnown = rows.every(row => Number.isSafeInteger(row.reviewedAt) && row.reviewedAt > 0 && row.reviewedAt <= now &&
     reviewRecommendation(row, 'intraday-recommendation', row.reviewedAt).canRecommend);
   if (!originKnown) return {ok: false, text: '', kind: 'unverified-original-trigger', canRecommend: false};
   const lines = rows.map(row => `▪ ${row.name || row.code}(${row.code}) 当时报价${row.price}` +
     `\n  原触发 ${new Date(row.triggerAt).toISOString()} · 报价原时点 ${new Date(row.quoteAt).toISOString()}` +
     `\n  证据ID ${row.signalId || '未完整冻结（partial）'}`);
-  return {ok: true, kind: 'historical-trigger-observation', canRecommend: false,
+  return {ok:true,kind:'historical-trigger-observation',canRecommend:false,...newsMeta,
     text: '═══ 历史触发观察 · 非当前推荐 ═══\n' + lines.join('\n') +
       '\n按原时点回放报价审核，不代表过去已经送达。该报价已过时或为手动历史重发；当前价格、资金和交易条件需重新核实。'};
 }
+
 function auctionSendOptions(auction, message, historical = false) {
   const rows = (auction && auction.strong || []).concat(auction && auction.ztInfers || []);
   const codes = new Set(extractStockCodes(message));
@@ -2674,7 +2698,7 @@ function pushZtPre() {
       `   涨停前形态: ${x.feat.slice(0, 5).join('、')}\n` +
       (x.why ? `   📚 依据: ${x.why}` : '')
     // ⛔ 2026-10-08 修：用户要求"涨停分析全部走私密通道" —— 涨停前形态改私密机器人
-    ).join('\n') + govFoot(), false, { private: true });
+    ).join('\n') + govFoot(), false, newsRecommendationSendOptions(list,{ private: true }));
 }
 
 // 给一只票算「自学 Probability」：它在历史上长得像今天这样的票，后来有多大比例涨/封板。
@@ -3136,7 +3160,7 @@ function pushSteadyUp() {
       `${i + 1}. ${x.name}(${x.code}) 研究收盘价${x.price}（${x.researchEvidence.tradeDate}） ${x.pct >= 0 ? '+' : ''}${x.pct}%\n` +
       `   连涨${x.run}天 · 累计${signTxt(x.cum)}${x.cum}% · 量能${x.volTrend >= 1.2 ? '温和放大' : x.volTrend < 0.8 ? '缩量' : '持平'}${x.volTrend}倍 · 20日线${x.ma20}` +
       (x.ztP != null ? `\n   历史形态封板频率 ${x.ztP}%` : '') + (x.why ? ` · 📚 ${x.why}` : '')
-    ).join('\n') + basisLine(S.steadyUpBasis) + govFoot(), false, { modDay: 'steadyup', private: true });  // go 轮 A9：连续收涨改私密
+    ).join('\n') + basisLine(S.steadyUpBasis) + govFoot(), false, newsRecommendationSendOptions(list,{ modDay: 'steadyup', private: true }));  // go 轮 A9：连续收涨改私密
 }
 // 全市场趋势扫描的推送文案：把"机器从全市场学出来的形态里挑了哪些票"讲清楚
 function pushTrendScan() {
@@ -3158,7 +3182,7 @@ function pushTrendScan() {
   // ⛔ 2026-10-08：用户要求趋势扫描推送走私密通道
   pushAll(head + list.map(line).join('\n') +
     basisLine(S.trendScanBasis) +                   // ⛔ 基准日：同上，K线没回填到今天必须说清楚
-    `\n（全市场 ${_tsProg.scanned} 只扫描，有效 ${_tsProg.total} 只；已封板与 4 连板以上已排除）${govFoot()}`, false, { private: true });
+    `\n（全市场 ${_tsProg.scanned} 只扫描，有效 ${_tsProg.total} 只；已封板与 4 连板以上已排除）${govFoot()}`, false, newsRecommendationSendOptions(list,{ private: true }));
 }
 // ── 全市场K线补齐：唯一有界入口，盘后/启动/手动共享预算 ───────────────
 let _kbfBusy = false;
@@ -8886,6 +8910,8 @@ function govTake(code, type, strong, prob, row) {
     row.recommendationReviewedAt = reviewedAt;
     trace.reviewedAt = reviewedAt;
   }
+  const newsReview=reviewRecommendationNews(row);
+  if(!newsReview.canRecommend) return finish({ok:false,newsReview,why:'新闻避险未通过：'+newsReview.reason},newsReview.status==='blocked'?'NEGATIVE_NEWS_REJECTED':'NEWS_RISK_UNKNOWN');
   govResetIfNewDay();
   // ⛔ go 轮 C3（用户 2026-10-12 决策「不推跟风股」）：当日涨停池里被角色分类判为
   //    「跟风 follow」（板块内除龙头/龙二/中军之外的涨停股）的票，一律不推送。
@@ -9754,7 +9780,10 @@ function pushAll(text, force, opts) {
   if (!delivery.ok) {
     govReleaseAll(opts && opts.undo || []);
     for (const mod of (Array.isArray(opts && opts.modDay) ? opts.modDay : opts && opts.modDay ? [opts.modDay] : [])) modDayRelease(mod);
-    pushLog('推荐证据未通过·不外发', '[原始行缺失或不可用]', {note:delivery.kind});
+    const news=delivery.newsReview;
+    pushLog('推荐证据未通过·不外发', '[原始行缺失或不可用]', {note:news?'新闻避险：'+news.reason:delivery.kind,
+      ...(news?{extra:{codes:news.reviews.map(row=>row.code).filter(code=>/^\d{6}$/.test(code||'')),newsRisk:{status:news.status,reason:news.reason,
+        rows:news.reviews.slice(0,30).map(row=>({code:row.code,status:row.status,reason:row.reason,matches:row.matches.slice(0,8)}))}}}:{})});
     return false;
   }
   text = delivery.text;
@@ -9831,10 +9860,12 @@ function pushAll(text, force, opts) {
   //   ⚠️ 只在这里退一次：下面的私密通道失败会退回群机器人，只有【最终也没送到】才回滚，
   //      避免"私密失败→群发成功"这种成功路径被误退。
   const _undo = opts && opts.undo;
+  let _released=false;
   const _release = (why) => {
-    if (!_undo) return;
+    if (_released) return;
+    _released=true;
     try {
-      govReleaseAll(_undo);
+      govReleaseAll(_undo || []);
       if (opts && opts.modDay) {
         const ms = Array.isArray(opts.modDay) ? opts.modDay : [opts.modDay];
         for (const mm of ms) modDayRelease(mm);
@@ -9842,6 +9873,16 @@ function pushAll(text, force, opts) {
       pushLog('↩️ 占位已退回', text, _extra({ note: '发送失败（' + why + '），额度/冷却/去重已撤销，下一轮会补推' }));
     } catch (e) { console.error('[gov] 占位回滚失败:', e && e.message); }
   };
+  const _newsBeforeSend = delivery.requiresNewsReview ? () => {
+    const review=recommendationNewsReview(delivery.newsRows);
+    if(review.canRecommend)return {ok:true};
+    const why='新闻避险未通过：'+review.reason;
+    _pushLast={ret:false,sent:false,why,t:Date.now()};
+    const info=_extra({note:why});info.extra.newsRisk={status:review.status,reason:review.reason,
+      rows:review.reviews.slice(0,30).map(row=>({code:row.code,status:row.status,reason:row.reason,matches:row.matches.slice(0,8)}))};
+    pushLog('新闻避险·该次发送暂停','[当前发送尝试已暂停]',info);
+    return {ok:false,why};
+  } : null;
   if (opts && opts.private) {
     if (!privReady()) {
       _pushLast = { ret: true, sent: false, why: '私密通道未配置', t: Date.now() };
@@ -9849,6 +9890,7 @@ function pushAll(text, force, opts) {
       _release('私密通道未配置');
       return false;
     }
+    if (_newsBeforeSend) { const checked=_newsBeforeSend();if(!checked.ok){_release(checked.why);return false;} }
     feishuProbe(feishuSecId(), process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '', text).then(r => {
       if (r && r.ok) { _pushLast = { ret: true, sent: true, why: '', t: Date.now() }; pushLog('✅ 已送达(私密)', text, _extra({ channel: '飞书·私密', note: '仅本人可见：' + feishuSecMask() })); return; }
       // ⛔⛔ fz 轮：私密通道「结果未知」（超时/断连）时**不许退回群机器人**。
@@ -9930,8 +9972,10 @@ function pushAll(text, force, opts) {
     if (ok) pushLog('✅ 已送达', text, _extra({ channel: '飞书' }));
     else pushLog('❌ 发送失败', text, _extra({ channel: '飞书', error: info }));
     _fsOk = !!ok; _fsInfo = String(info || ''); _settle();
-  });
-  if (_mailOn) {
+  }, _newsBeforeSend ? {beforeSend:_newsBeforeSend} : undefined);
+  const _mailReview=_mailOn&&_newsBeforeSend?_newsBeforeSend():{ok:true};
+  if (_mailOn && !_mailReview.ok) { _mailOk=false;_mailInfo=_mailReview.why;_settle(); }
+  if (_mailOn && _mailReview.ok) {
     sendQQMail({ user: m.user, authCode: m.authCode, to: m.to, subject: '【量化看盘】实时信号', text })
       .then(() => { pushLog('✅ 已送达', text, _extra({ channel: '邮箱' })); _mailOk = true; _settle(); })
       .catch(e => { console.error('[mail]', e && e.message); pushLog(sendResultUnknown(e && e.message) ? '⚠️ 送达结果未知' : '❌ 发送失败', text, _extra({ channel: '邮箱', error: String((e && e.message) || e) })); _mailOk = false; _mailInfo = String((e && e.message) || e); _settle(); });
@@ -10311,6 +10355,7 @@ function flushIntraday() {
     list.sort((x, y) => (ALERT_RANK[x.type] ?? 9) - (ALERT_RANK[y.type] ?? 9) || alertScore(y) - alertScore(x));
     const top = list.slice(0, INTRADAY_MAX_ITEMS);
     opt.recommendationRows = freezeRecommendationRows(top, true);
+    opt.newsRecommendationRows = freezeNewsRecommendationRows(top);
     // Persist only the exact signals included in this batch, never omitted rows.
     opt.signalRefs = top.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) }));
     // ⛔ 缓冲区是 (信号类型:代码) 键的 Map —— 同一只票在「涨停」与「大单流入」两个模块下各占一条。
@@ -10337,6 +10382,7 @@ function flushIntraday() {
     msg = msg ? msg + '\n' + body : body;
     if (p.opt && p.opt.undo) opt.undo = (opt.undo || []).concat(p.opt.undo);
     if (p.opt && Array.isArray(p.opt.recommendationRows)) opt.recommendationRows = (opt.recommendationRows || []).concat(p.opt.recommendationRows);
+    if (p.opt && Array.isArray(p.opt.newsRecommendationRows)) opt.newsRecommendationRows = (opt.newsRecommendationRows || []).concat(p.opt.newsRecommendationRows);
     if (p.opt && p.opt.modDay) {
       const ms = Array.isArray(p.opt.modDay) ? p.opt.modDay : [p.opt.modDay];
       opt.modDay = (opt.modDay || []).concat(ms);
@@ -10950,6 +10996,10 @@ async function auctionNextDayOutcome(code, name, dateStr) {
   catch (e) { return { pending: true, reason: (e && e.message) || '计算失败' }; }
 }
 
+function nextPlanNewsOptions(){
+  const np=S.nextplan||{},rows=[...(Array.isArray(np.plan?.picked)?np.plan.picked:[]),...(Array.isArray(np.relay)?np.relay:[])];
+  return rows.length?newsRecommendationSendOptions(rows,{private:true}):{private:true};
+}
 function buildNextPlanMessage() {
   const np = S.nextplan || {};
   const p = np.plan;
@@ -14295,6 +14345,7 @@ function newsPublicationMetadata(raw,now=Date.now()){
 // Revocation is checked against the current immutable chain, including CLI
 // imports made after this server started. A damaged archive is unknown.
 let newsEvidenceCache={stamp:null,inventory:null,files:new Map(),latest:new Map(),withdrawn:new Set(),unknown:false,chainVerifiedAt:null,metadataCheckedAt:null};
+let newsRecommendationCache={latest:null,sectorKey:null,rows:[]};
 const NEWS_EVIDENCE_METADATA_INTERVAL_MS=1000,NEWS_EVIDENCE_MAX_FILES=10000;
 function newsEvidenceFileStamp(file){
   const s=fs.lstatSync(file,{bigint:true});
@@ -14336,6 +14387,79 @@ function newsEvidenceCurrent(eventId=null){
     }
   }catch{newsEvidenceCache={...newsEvidenceCache,stamp,unknown:true,metadataCheckedAt:now};}
   return newsEvidenceCache;
+}
+// A recommendation is held when its news snapshot is unavailable; a successful
+// empty source poll is different from an uninitialised/missing archive. This is
+// a local keyword risk check, not a certification of every market news source.
+function newsRiskSnapshotView(now=Date.now()){
+  const value=S.news&&S.news.riskSnapshot;
+  let available=!!value&&value.status==='available'&&value.source==='eastmoney-fast-news'&&value.columnsComplete===true&&
+    Number.isSafeInteger(value.checkedAt)&&value.checkedAt>0&&value.checkedAt<=now&&now-value.checkedAt<=300000;
+  try{if(newsEvidenceCurrent().unknown)available=false;}catch{available=false;}
+  return {schemaVersion:1,status:available?'available':'unknown',source:'eastmoney-fast-news',
+    checkedAt:Number.isSafeInteger(value?.checkedAt)?value.checkedAt:null,
+    validUntil:Number.isSafeInteger(value?.checkedAt)?value.checkedAt+300000:null,
+    columnsComplete:value?.columnsComplete===true,decisionScope:'direct-security-and-explicit-sector',
+    sourceCoverage:'two-configured-news-columns-only',verified:false};
+}
+function explicitNewsSectorMatch(text,name){
+  if(typeof text!=='string'||typeof name!=='string'||name.length<2)return false;
+  // Company names and longer industries are not whole-sector evidence:
+  // “招商银行” is not “银行板块”, and “电力设备” is not “电力行业”.
+  if(['板块','行业','产业','概念','领域'].some(suffix=>text.includes(name+suffix)))return true;
+  return /(?:板块|行业|产业|领域|概念)$/.test(name)&&text.includes(name);
+}
+function reviewRecommendationNews(row,now=Date.now(),retry=0){
+  const unknown=reason=>({schemaVersion:1,code:/^\d{6}$/.test(String(row&&row.code||''))?String(row.code):null,status:'unknown',canRecommend:false,reason,matches:[],scope:'direct-security-and-explicit-sector',verified:false});
+  if(!Number.isSafeInteger(now)||now<=0||now>8e15||!row||!/^\d{6}$/.test(String(row.code||'')))return unknown('NEWS_REVIEW_INPUT_INVALID');
+  const coverage=S.news&&S.news.riskSnapshot;
+  if(!coverage||coverage.status!=='available'||coverage.columnsComplete!==true||coverage.source!=='eastmoney-fast-news'||
+    !Number.isSafeInteger(coverage.checkedAt)||coverage.checkedAt<=0||coverage.checkedAt>now||now-coverage.checkedAt>300000)return unknown('NEWS_SNAPSHOT_UNAVAILABLE_OR_STALE');
+  let state;try{state=newsEvidenceCurrent();}catch{return unknown('NEWS_EVIDENCE_UNAVAILABLE');}
+  if(!state||state.unknown||!(state.latest instanceof Map))return unknown('NEWS_EVIDENCE_UNAVAILABLE');
+  const validSector=value=>typeof value==='string'&&value.trim().length>=2&&value.trim().length<=80&&!['未知','其他','行业待核实','全A','全市场','个股','A股','-','—'].includes(value.trim());
+  const sectors=new Set([row.sector,row.industry,...(Array.isArray(row.sectors)?row.sectors:[])].filter(validSector).map(x=>x.trim()));
+  const sectorBasis=[...sectors].map(value=>({value,kind:'candidate-explicit-classification',source:typeof row.sectorSource==='string'?row.sectorSource:null,asOf:Number.isSafeInteger(row.sectorAsOf)?row.sectorAsOf:null,evaluatedAt:now}));
+  // Use only the existing explicit classification, never a sector guessed from
+  // the headline or every member of an unrelated broad market category.
+  try{if(typeof sectorOfStock==='function'){const value=sectorOfStock(row);if(validSector(value)&&!sectors.has(value.trim())){sectors.add(value.trim());sectorBasis.push({value:value.trim(),kind:'current-local-classification',source:'server.js#sectorOfStock',asOf:null,evaluatedAt:now});}}}catch{}
+  const sectorKey='explicit-candidate-classification';
+  if(newsRecommendationCache.latest!==state.latest||newsRecommendationCache.sectorKey!==sectorKey){
+    const rows=[];
+    for(const [id,current]of state.latest){
+      const evidence=current&&current.evidence;
+      if(!evidence||evidence.kind==='retracted')continue;
+      const text=String(evidence.title||'')+String(evidence.body||'');
+      rows.push({id,current,codes:Array.isArray(evidence.securities)?evidence.securities.filter(code=>/^\d{6}$/.test(code)):[],
+        text,negative:newsIsBad(evidence.title||'',String(evidence.body||''))});
+    }
+    newsRecommendationCache={latest:state.latest,sectorKey,rows};
+  }
+  const code=String(row.code),matches=[];
+  const firstDate=new Date(now+28800000-2*86400000).toISOString().slice(0,10);
+  for(const item of newsRecommendationCache.rows){
+    const direct=item.codes.includes(code),via=[...sectors].filter(name=>explicitNewsSectorMatch(item.text,name));
+    if(!direct&&!via.length)continue;
+    let checked;try{checked=newsEvidenceCurrent(item.id);}catch{return unknown('NEWS_EVIDENCE_UNAVAILABLE');}
+    if(!checked||checked.unknown)return unknown('NEWS_EVIDENCE_UNAVAILABLE');
+    if(checked.latest!==state.latest)return retry<1?reviewRecommendationNews(row,now,retry+1):unknown('NEWS_CHANGED_DURING_REVIEW');
+    const evidence=item.current.evidence,at=evidence.publishedAt,received=evidence.receivedAt,recorded=item.current.recordedAt;
+    if(!Number.isSafeInteger(at)||at<=0||at>now||!Number.isSafeInteger(received)||received<at||received>now||
+      !Number.isSafeInteger(recorded)||recorded>now)return unknown(item.negative?'NEGATIVE_NEWS_TIME_UNKNOWN':'NEWS_EVENT_TIME_UNKNOWN');
+    if(!item.negative||new Date(at+28800000).toISOString().slice(0,10)<firstDate)continue;
+    matches.push({eventId:item.id,eventHash:item.current.eventHash,source:evidence.source,publishedAt:at,
+      association:direct?'direct-security':'explicit-sector',sectors:via,sectorBasis:sectorBasis.filter(item=>via.includes(item.value))});
+  }
+  // Unbound legacy negatives are not confirmed facts, but must not be silently
+  // interpreted as a clean risk check. Superseded/retracted IDs are governed by
+  // the current chain above, not by this stale cache.
+  for(const item of (Array.isArray(S.news.badAll)?S.news.badAll:[])){
+    if(state.latest.has(String(item&&item.id||'')))continue;
+    if((Array.isArray(item?.codes)&&item.codes.includes(code))||(Array.isArray(item?.sectors)&&item.sectors.some(name=>sectors.has(name))))return unknown('UNBOUND_NEGATIVE_NEWS');
+  }
+  return {schemaVersion:1,code,status:matches.length?'blocked':'available',canRecommend:matches.length===0,
+    reason:matches.length?'CURRENT_NEGATIVE_NEWS':'NO_CURRENT_NEGATIVE_NEWS',matches,checkedAt:now,
+    snapshotCheckedAt:coverage.checkedAt,sectorAssociation:{status:sectors.size?'available-unverified':'unknown',values:[...sectors],basis:sectorBasis},scope:'direct-security-and-explicit-sector',verified:false};
 }
 function newsSupportsCode(code){
   const state=newsEvidenceCurrent();
@@ -14617,10 +14741,11 @@ function classifyNews(raw, nameOf) {
   for (const n of raw) {
     const title = n.title || '';
     const summary = (n.summary || '').slice(0, 90);
-    const text = title + summary;
+    const fullSummary=String(n.summary||'');
+    const text = title + fullSummary;
     // 关键词命中判定：利空优先（含语义反转组合规则），其次利好，都没有则中性；记录命中词作为判定原因
-    const isBad = newsIsBad(title, summary);
-    const ghit = isBad ? [] : NEWS_GOOD_KW.filter(k => title.includes(k) || summary.includes(k));
+    const isBad = newsIsBad(title, fullSummary);
+    const ghit = isBad ? [] : NEWS_GOOD_KW.filter(k => text.includes(k));
     const isGood = !isBad && ghit.length > 0;
     if (!isBad && !isGood) continue; // 中性：仅保留带A股关联的（下方判断）
     const codes = [];
@@ -14643,9 +14768,10 @@ function classifyNeutral(raw, nameOf) { // 中性快讯：未命中关键词但�
   for (const n of raw) {
     const title = n.title || '';
     const summary = (n.summary || '').slice(0, 90);
-    const text = title + summary;
-    if (newsIsBad(title, summary)) continue;
-    if (NEWS_GOOD_KW.some(k => title.includes(k) || summary.includes(k))) continue;
+    const fullSummary=String(n.summary||'');
+    const text = title + fullSummary;
+    if (newsIsBad(title, fullSummary)) continue;
+    if (NEWS_GOOD_KW.some(k => text.includes(k))) continue;
     const codes = [];
     for (const sl of (n.stockList || [])) {
       const m = /^([013])\.(\d{6})$/.exec(String(sl));
@@ -14717,9 +14843,14 @@ async function refreshNews() {
   try {
     const rs = await Promise.allSettled([fetchNewsPage(101, '', 100), fetchNewsPage(104, '', 100)]);
     const raw = [];
+    const complete=rs.length===2&&rs.every(r=>r.status==='fulfilled'&&r.value&&Array.isArray(r.value.data?.fastNewsList));
     for (const r of rs) if (r.status === 'fulfilled' && r.value) raw.push(...(r.value.data.fastNewsList || []));
-    if (!raw.length) return;
+    S.news.riskSnapshot={status:'unknown',checkedAt:Date.now(),source:'eastmoney-fast-news',columnsComplete:complete};
+    if (!complete) return;
     captureNewsEvidence(raw);
+    if(S.news.evidenceIntake?.status==='unknown'||S.news.evidenceIntake?.rejected>0)return;
+    S.news.riskSnapshot={status:'available',checkedAt:Date.now(),source:'eastmoney-fast-news',columnsComplete:true};
+    if (!raw.length) return;
     const nameOf = new Map(S.stocks.map(s => [s.code, s.name]));
     const items = classifyNews(raw, nameOf);
     const neutral = classifyNeutral(raw.filter(n => !items.some(x => x.id === n.code)), nameOf);
@@ -14771,7 +14902,7 @@ async function refreshNews() {
     ensureSectorStocks(secNames).catch(() => {});   // 同上：async 不 await，reject 进不了外层 catch
     saveNews();
     console.log(`[news] 刷新: 3日归档 利空${S.news.badAll.length} 利好${S.news.goodAll.length} 中性${S.news.neutralAll.length}, 本轮新利好推送${Math.min(freshGood.length, 8)}条`);
-  } catch (e) { console.error('[news]', e.message); }
+  } catch (e) { S.news.riskSnapshot={status:'unknown',checkedAt:Date.now(),source:'eastmoney-fast-news',columnsComplete:false};console.error('[news]', e.message); }
 }
 
 // 每日新闻汇总（工作日21:00推送 / 周日21:00周末汇总）：利好/利空分析归类 + 受益/受累板块个股 + 模拟盘避险
@@ -15819,7 +15950,7 @@ async function _computeReviewInner() {
         // ⛔ 复盘模块修（2026-10-28）：置位原来写在 pushAll **之前** —— 违反本项目「先发后置位」铁律：
         //    pushAll 永不抛异常、被闸门/无通道拦下时静默 return，而"今天已发"已经打上 →
         //    这条好标的挖掘当天永久消失（没有任何重试机会）。改成按返回值置位。
-        if (pushAll(msg, false, { private: true }) !== false) S.reviewGoodPushedDate = todayStr();
+        if (pushAll(msg, false, newsRecommendationSendOptions(goods,{ private: true })) !== false) S.reviewGoodPushedDate = todayStr();
       }
     }
   } catch (e) {
@@ -16027,7 +16158,7 @@ function pushYiEr() {
   }
   // ⛔ 面板「一进二」卡片已经在上面的 refreshStrategyCards 里刷好了（含完整候选：
   //    主线强度/封单/资金/涨停逻辑），此处不再重复写 —— 推送与展示彻底分家。
-  if (pushAll(msg, false, { private: true }) !== false) {
+  if (pushAll(msg, false, newsRecommendationSendOptions(toPush,{ private: true })) !== false) {
     yierSentDate = ds;
     S.yierYesterday = { date: ds, items: toPush.map(x => ({ code: x.code, name: x.name, sector: x.sector, role: x.role, prob: x.prob })) };
   }
@@ -16241,7 +16372,7 @@ function pushLianbanRelay() {
     try { logSignal('lianban', x.code, x.name, x.price, x.prob, learningSignalExtra(x, { role: x.role, sector: x.sector, sealRatio: x.sealRatio, level: x.level })); } catch {}
   }
   // ⛔ 同上面一进二：卡片已在 refreshStrategyCards 里刷新（推送被拦下面板照样有得看），此处不重复写。
-  if (pushAll(msg, false, { private: true }) !== false) {
+  if (pushAll(msg, false, newsRecommendationSendOptions(toPush,{ private: true })) !== false) {
     erjinSanSentDate = ds;
     S.lianbanYesterday = { date: ds, items: toPush.map(x => ({ code: x.code, name: x.name, sector: x.sector, role: x.role, prob: x.prob, level: x.level })) };
   }
@@ -17318,7 +17449,7 @@ async function init() {
       await computeNextPlan(80);
       const np = S.nextplan || {};
       if (!np.plan) { remedySkip('nextPlanBoot', 'computeEmpty'); return; }
-      if (pushAll(buildNextPlanMessage(), true, { private: true }) !== false) nextPlanSentDate = todayStr();
+      if (pushAll(buildNextPlanMessage(), true, nextPlanNewsOptions()) !== false) nextPlanSentDate = todayStr();
       else console.log('[nextplan-boot] 推送被闸门拦下，保留今天重试机会');
     } catch (e) { console.error('[nextplan-boot] 异常:', e && e.message); }
   };
@@ -17354,7 +17485,7 @@ async function init() {
       //    当天的作战计划就永久蒸发了（15:45 之后每 20 秒一轮，本来有的是重试机会）。
       //    ⚠️ 同复盘那处：这里的 `!== false` 因 force=true 而恒成立（静默被绕过、条数闸门返回 true），
       //       真正保证必达的是「次日作战计划」在 MSG_FREE_RE 里免配额 —— 别再指望这个判断重试。
-      if (pushAll(buildNextPlanMessage(), true, { private: true }) !== false) nextPlanSentDate = ds;
+      if (pushAll(buildNextPlanMessage(), true, nextPlanNewsOptions()) !== false) nextPlanSentDate = ds;
       else console.log('[nextplan] 本轮推送被闸门拦下，保留今天重试机会');
     } catch (e) {
       console.error('[nextplan] 推送异常:', e && e.message);
@@ -18147,7 +18278,7 @@ async function init() {
         try { await computeNextPlan(80); } catch (e) { console.error('[health] 补推计划 computeNextPlan 失败:', e && e.message); }
       }
       if (!((S.nextplan || {}).plan)) return { skip: 'planEmpty' };
-      if (pushAll(buildNextPlanMessage(), true, { private: true }) !== false) { nextPlanSentDate = todayStr(); return { ok: true }; }
+      if (pushAll(buildNextPlanMessage(), true, nextPlanNewsOptions()) !== false) { nextPlanSentDate = todayStr(); return { ok: true }; }
       return { ok: false, error: '被闸门拦下' };
     } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
     finally { nextPlanBusy = false; }
@@ -22483,9 +22614,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       // mirror=true 表示这台实例是副本：模拟盘不在这儿跑，展示的是从线上同步过来的那份。
       // ⛔ 必须让用户看得见 —— 否则副本上"模拟盘一动不动"会被当成坏了。
       paper: _stEdit ? { pool: mkPaper('pool'), pre: mkPaper('pre'), mirror: isReplica() } : { hidden: true, pool: null, pre: null },
-      badNews: { time: S.news.time, items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
+      badNews: { time: S.news.time, riskSnapshot:newsRiskSnapshotView(), items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
       goodNews: {
-        time: S.news.time,
+        time: S.news.time, riskSnapshot:newsRiskSnapshotView(),
         items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
         hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
         hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
