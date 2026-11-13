@@ -45,7 +45,7 @@ function validateHtml(input, { checkCredentials = true } = {}) {
       /\b(?:api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*(['"])[^'"]+\1/i.test(html) ||
       /(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bgh[pousr]_[A-Za-z0-9_]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bsk-(?:proj-)?[A-Za-z0-9_-]{20,})/.test(html) ||
       /https?:\/\/[^\s/'"<>]+:[^\s/@'"<>]+@/i.test(html))) throw new Error('Static HTML contains a possible embedded credential');
-  if (checkCredentials && /(?:api\.openai\.com|OPENAI_API_KEY)/i.test(html)) throw new Error('OpenAI runtime API access is forbidden in static HTML');
+  if (checkCredentials && /(?:api\.openai\.com|\bopenai[_-]api[_-]key\b)/i.test(html)) throw new Error('OpenAI runtime API access is forbidden in static HTML');
   // Ignore inline script/style text when looking for markup dependencies.
   const markup = html.replace(/<!--[^]*?-->/g, '').replace(/(<(?:script|style)\b[^>]*>)[^]*?<\/(?:script|style)\s*>/gi, '$1');
   for (const tag of markup.match(/<(?:script|link|img|source|video|audio|iframe|object|embed|input)\b[^>]*>/gi) || []) {

@@ -90,6 +90,8 @@ test('malformed, oversized, external dependency and embedded credential HTML fai
     SIMPLE.replace('</head>', '<style>body{background:url(https://example.invalid/x)}</style></head>'),
     SIMPLE.replace('window.fixture=1;', "const SHARE='fixture-do-not-publish';"),
     SIMPLE.replace('window.fixture=1;', "const apiKey='fixture-do-not-publish';"),
+    SIMPLE.replace('window.fixture=1;', 'window.OPENAI_API_KEY;'),
+    SIMPLE.replace('window.fixture=1;', "window['openai-api-key'];"),
     SIMPLE.replace('window.fixture=1;', "fetch('https://api.openai.com/v1/responses');")
   ]) {
     fs.writeFileSync(files.sourceFile, html);
