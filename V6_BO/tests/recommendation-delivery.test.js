@@ -8,7 +8,7 @@ function fn(name){const a=source.indexOf('function '+name+'('),b=source.indexOf(
 function engine(){
  let now=at;const sends=[],logs=[],releases=[];
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
- const c=vm.createContext({Date:Clock,require:createRequire(serverPath),console:{log(){},error(){}},S:{config:{}},
+ const c=vm.createContext({Date:Clock,require:createRequire(serverPath),process:{env:{}},console:{log(){},error(){}},S:{config:{}},
   redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>false,msgGate:()=>({ok:true}),inQuietHours:()=>false,
   sseSendEdit(){},sseSend(){},privReady:()=>true,feishuSecId:()=> 'send-mock',feishuSecMask:()=> 'send-mock',
   feishuProbe:async(_id,_secret,text)=>{sends.push(text);return {ok:true};},pushLog:(...args)=>logs.push(args),_pushLast:{},

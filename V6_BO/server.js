@@ -9849,7 +9849,7 @@ function pushAll(text, force, opts) {
       _release('私密通道未配置');
       return false;
     }
-    feishuProbe(feishuSecId(), (S.config && S.config.feishuSecSecret) || '', text).then(r => {
+    feishuProbe(feishuSecId(), process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '', text).then(r => {
       if (r && r.ok) { _pushLast = { ret: true, sent: true, why: '', t: Date.now() }; pushLog('✅ 已送达(私密)', text, _extra({ channel: '飞书·私密', note: '仅本人可见：' + feishuSecMask() })); return; }
       // ⛔⛔ fz 轮：私密通道「结果未知」（超时/断连）时**不许退回群机器人**。
       //    消息很可能已经送到本人手上了，再往群里补一条 = 同一条内容来两遍（用户反复投诉的那种重复）；
@@ -10038,7 +10038,8 @@ function feishuProbe(id, secret, text, _https) {
       try {
         const ts = Math.floor(Date.now() / 1000);
         payload.timestamp = String(ts);
-        payload.sign = crypto.createHmac('sha256', secret).update(ts + '\n' + secret).digest('base64');
+        // Feishu signs an empty message with timestamp + newline + secret as the HMAC key.
+        payload.sign = crypto.createHmac('sha256', ts + '\n' + secret).update('').digest('base64');
       } catch (e) { return done({ ok: false, msg: '签名密钥异常: ' + ((e && e.message) || e) }); }
     }
     const buf = Buffer.from(JSON.stringify(payload), 'utf8');
@@ -10140,12 +10141,13 @@ function feishuSendOnce(text, cb) {
     return done(false, '未配置飞书机器人地址');
   }
   const payload = { msg_type: 'text', content: { text: stripHtmlTags(text) } };
-  if (S.config.feishuSecret) {
+  const secret = process.env.V6_FEISHU_PUBLIC_SECRET || (S.config && S.config.feishuSecret) || '';
+  if (secret) {
     try {
       const ts = Math.floor(Date.now() / 1000);
       payload.timestamp = String(ts);
-      payload.sign = crypto.createHmac('sha256', S.config.feishuSecret).update(ts + '\n' + S.config.feishuSecret).digest('base64');
-    } catch {}
+      payload.sign = crypto.createHmac('sha256', ts + '\n' + secret).update('').digest('base64');
+    } catch { return done(false, '签名密钥异常'); }
   }
   const body = Buffer.from(JSON.stringify(payload), 'utf8');
   const req = require('https').request({
@@ -18673,7 +18675,7 @@ async function srcPkgShip(b64, ver, name) {
     pushLog('副本拦截(不外发)', card, { channel: '飞书·私密', note: '副本只同步不主动外发：源码包链接（含 token）仅限主实例推送，面板「推送流水」可查' });
     return { ok: true, sent: false, url: srcPkgUrl(token), note: '副本实例不外发源码包（链接见面板「📋 推送流水」）' };
   }
-  const r = await feishuProbe(feishuSecId(), (S.config && S.config.feishuSecSecret) || '', card);
+  const r = await feishuProbe(feishuSecId(), process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '', card);
   if (r && r.ok) {
     pushLog('✅ 已送达(私密)', card, { channel: '飞书·私密', note: '源码包链接仅本人可见：' + feishuSecMask() });
     return { ok: true, sent: true, url: srcPkgUrl(token) };
@@ -19527,12 +19529,12 @@ function handle(req, res, u, body) {
     //    ②自检本身往公开通道外发，违反私密铁律（流水里 channel 记成"飞书"就是这条留下的）。
     //    → 现在私密优先；私密没配才退回公开通道，并在文案与流水里如实标注体检的是哪一条（判不出不冒充）。
     let _pid = feishuSecId();
-    let _psec = (S.config && S.config.feishuSecSecret) || '';
+    let _psec = process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || '';
     let _ch = '飞书·私密';
     let _maskFn = feishuSecMask;
     if (!_pid) {
       _pid = feishuId();
-      _psec = (S.config && S.config.feishuSecret) || '';
+      _psec = process.env.V6_FEISHU_PUBLIC_SECRET || (S.config && S.config.feishuSecret) || '';
       _ch = '飞书（公开·私密未配置）';
       _maskFn = feishuMask;
     }
@@ -19557,11 +19559,11 @@ function handle(req, res, u, body) {
     try { b = JSON.parse(body || '{}'); } catch (e) {}
     let pTok = b.token || ((u.searchParams && u.searchParams.get('token')) || '');
     if (!requireEditor(res, pTok, req)) return;
-    const addr = String(b.webhook || (S.config && S.config.feishuWebhook) || '');
+    const addr = String(b.webhook || process.env.V6_FEISHU_PUBLIC_WEBHOOK || (S.config && S.config.feishuWebhook) || '');
     const m = addr.match(/open-apis\/bot\/v2\/hook\/([\w-]{8,})/);
     if (!m) { json(res, { ok: false, error: '机器人地址无效：应当形如 https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' }); return; }
-    const sec = b.secret != null ? String(b.secret) : String((S.config && S.config.feishuSecret) || '');
     const isNew = !!(b.webhook) && String(b.webhook) !== String(process.env.V6_FEISHU_PUBLIC_WEBHOOK || (S.config && S.config.feishuWebhook) || '');
+    const sec = b.secret != null ? String(b.secret) : isNew ? '' : String(process.env.V6_FEISHU_PUBLIC_SECRET || (S.config && S.config.feishuSecret) || '');
     feishuProbe(m[1], sec, (isNew ? '🔧 新通道体检：收到这条说明待换的新地址有效。' : '🔧 通道体检：收到这条说明当前生效的机器人正常。')).then(r => json(res, {
       ok: !!r.ok, mask: maskHook(addr), detail: r.msg, tip: r.ok ? '' : feishuErrTip(r.msg),
       desc: (r.ok ? '✅ ' : '❌ ') + (isNew ? '待换的新地址' : '当前生效的地址') + ' ' + maskHook(addr) + (r.ok ? ' 推通了' : ' 没推通')
@@ -19956,12 +19958,9 @@ function handle(req, res, u, body) {
     if (diag.replica) diag.verdict = '本实例是副本(replica)，定时推送一律不外发 —— 只有线上实例才是推送源';
     else if (!diag.trading) diag.verdict = '当前非交易时段，盘中扫描不运行（属正常）；开盘后每 5 秒自动扫描一次';
     else if (diag.quiet) diag.verdict = '⚠️ 交易时段但正处夜间静默窗口，信号会被静默拦截，请检查面板的静默时段设置';
-    // ⛔ 2026-10-07 修（本轮角度：系统对自己说的话负不负责）：
-    //    原来只看飞书就下结论「推送发不出去」—— 邮箱配好了的话消息照样送得到，
-    //    这句断言是假的，还会把人往飞书上引（去配一个他其实不需要的通道）。
-    else if (!feishuReady() && !mailReady()) diag.verdict = '⚠️ 飞书与邮箱两条通道都没配好，推送一条都发不出去';
-    else if (!feishuReady()) diag.verdict = '⚠️ 飞书机器人未配置或地址格式不对，当前仅邮箱通道可用（邮箱需账号+授权码+收件人齐全）';
-    else diag.verdict = '✅ 扫描与推送条件均满足：交易时段内、非静默、通道已配置';
+    // The default delivery route is private; public/email readiness cannot certify it.
+    else if (!feishuSecReady()) diag.verdict = '⚠️ 默认私密推送通道未配置；公共飞书或邮箱不能代替私密通道';
+    else diag.verdict = '私密通道已配置，仍需核对行情证据、推送额度及网关回执；未确认手机送达';
     if (!sDry) {
       pushWecom(buildAlertsReport([{
         type: '涨停', code: '000000', name: '推送链路自检', price: 0, pct: 0, prob: null,
