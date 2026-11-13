@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "research36-20261113-v1",
+  "version": "research36-20261113-v1-data1",
   "researchOnly": true,
   "canTrade": false,
   "note": "阈值为待验证的研究假设，不是优化后参数；上游证据是调用方声明，不能认证真实来源或盈利。",
@@ -753,7 +753,7 @@
       "id": "roe",
       "name": "ROE质量",
       "family": "quality",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "enabled": true,
       "experimental": true,
       "productionEnabled": false,
@@ -772,7 +772,7 @@
           "value": 10,
           "type": "number",
           "unit": "percent",
-          "maxAgeMs": 10368000000
+          "maxAgeMs": 47520000000
         },
         {
           "field": "debtAssetsPct",
