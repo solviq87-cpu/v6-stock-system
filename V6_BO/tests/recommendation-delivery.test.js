@@ -16,6 +16,7 @@ function engine(){
   govReleaseAll:list=>releases.push(...list),modDayRelease:mod=>releases.push(mod),
   INTRADAY:{buf:new Map(),parts:[],firstAt:at,lastSent:0},INTRADAY_MAX_ITEMS:4,ALERT_RANK:{},alertScore:()=>1,
   buildAlertsReport:()=> '现价10 · 当前可买 · 参考止损9.7'});
+ require('./helpers/news-known-empty-fixture').install(c);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday'])vm.runInContext(fn(name),c);
  const queueStart=source.indexOf('const _fsPrivateQueue ='),queueEnd=source.indexOf('// opts.priority',queueStart);
  vm.runInContext(source.slice(queueStart,queueEnd),c);

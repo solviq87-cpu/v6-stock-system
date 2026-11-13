@@ -128,6 +128,7 @@ function monitor() {
     pushAll: () => assert.fail('no external notification allowed'),
     enqueueIntraday: () => assert.fail('fixture must not enqueue notifications')});
   vm.runInContext(section('const NEWS_EVIDENCE_ROOT=','const HOLIDAY_BUF_CAP'),c);
+  require('./helpers/news-known-empty-fixture').install(c,{knownEmpty:false});
   for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows',
     'recommendationSendOptions','prepareRecommendationDelivery','signalCondition','annotateSignalConditions']){
     const a=source.indexOf('function '+name+'('),b=source.indexOf('\n}\n',a);

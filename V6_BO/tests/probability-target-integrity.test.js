@@ -211,6 +211,7 @@ test('the real governance gate keeps its up3 accuracy floor within that event', 
   const x = api(seal.concat(up3), {p: .5, base: .1});
   const state = {klines: new Map()}, governance = {codes: new Map(), lowProb: 0, total: 0};
   const dependencies = {S: state, PUSH_GOV: governance, govResetIfNewDay: () => {},
+    reviewRecommendationNews:require('./helpers/news-known-empty-fixture').install({S:state}).reviewRecommendationNews,
     reviewRecommendation: row => require('../src/core/recommendation-evidence-review').reviewRecommendationEvidence(row, {purpose:'intraday-recommendation'}),
     _govCfg: () => 0, pushMinProb: () => 0, pushMinProbPre: () => 0,
     fusedProb: x.fusedProb, krowsOf: () => [], pushQuota: () => 100,

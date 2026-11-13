@@ -57,6 +57,7 @@ test('real batch sender persists exact signal references only for included rows,
   redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>true,
   pushLog:(status,title,data)=>logs.push({ts:now,status,title,...data}),console:{log(){}},sseSendEdit(){},_pushLast:null};
  vm.createContext(context);
+ require('./helpers/news-known-empty-fixture').install(context);
  for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows',
   'recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday']){
   const start=src.indexOf('function '+name+'('),end=src.indexOf('\n}\n',start)+2;
