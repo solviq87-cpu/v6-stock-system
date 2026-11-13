@@ -2,7 +2,7 @@
 
 > **手机/电脑同时刷新与周末新闻规则**：两端分别从同一云端读取数据，任意一端可用，不依赖另一端开机。周末新闻继续刷新、盘面保留最后交易日的快照日期。云端持久化部署仍需现场验证。详见 [双端云端与休市运行规则](V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md)。
 
-> **国内写入/部署交接入口**：用户指定 `https://acd98a1c1a46e6ce4.app.workbuddy.host` 作为既有国内部署目标；实际生产部署、持久化和自动发布仍需现场验证。新提供的 WorkBuddy 协作板仅用于协作记录，在未确认其部署能力前不替换该生产目标。分享码、令牌禁止提交到仓库或 CI 日志。
+> **国内写入/部署交接入口（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host` 为当前唯一指定目标。已只读核验官方 `/console`、`/api/site`、`/api/health`；官方发布为 `POST /api/publish`，仅托管单文件静态 HTML。完整工程后端、持久化、首轮发布及长期自动更新尚未验证。参见 [目标与鉴权](V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md) 和 [GitHub 自动更新操作](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md)。分享码只放私有凭据存储，禁止进入 Git 或 CI 日志。
 
 > **生产运行依赖政策（2026-11-13）**：生产、部署、构建和运行代码禁止接入 OpenAI / ChatGPT API，不允许 API Key、SDK、私有接口或 OpenAI 专属 hosting 配置。国内智能能力如需接入，只允许使用用户授权的 WorkBuddy 能力；核心行情、策略、回测、模拟盘和风控不得依赖任何外部大模型 API 才能启动。
 

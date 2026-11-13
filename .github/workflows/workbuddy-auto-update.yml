@@ -1,0 +1,144 @@
+name: V6 WorkBuddy Auto Update
+on:
+  workflow_run:
+    workflows: [V6 CI]
+    types: [completed]
+    branches: [dev]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# The single-file provider has no compare-and-swap endpoint. Serialize publishers.
+concurrency:
+  group: v6-workbuddy-static-${{ github.repository_id }}
+  cancel-in-progress: false
+
+jobs:
+  update-static-site:
+    if: >-
+      github.repository == 'solviq87-cpu/v6-stock-system' &&
+      ((github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'dev' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name != 'workflow_run' && github.ref == 'refs/heads/dev'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      V6_UPDATE_STATE_DIR: ${{ runner.temp }}/v6-repository-update
+      V6_UPDATE_CONFIG: ${{ runner.temp }}/v6-repository-update-config.json
+    steps:
+      # This gate uses the official action, before any repository code or site
+      # credential is loaded. A completed older event cannot execute moving dev.
+      - name: Independently select a CI-approved publisher revision
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner,repo}=context.repo;
+            const blocked=reason=>{core.setOutput('approved','false');core.summary.addRaw(`自动发布等待：${reason}。本轮不执行仓库发布代码。`).write();};
+            const head=async()=>{const r=await github.rest.repos.getBranch({owner,repo,branch:'dev',request:{timeout:10000}});return r.data.commit.sha;};
+            const sha=await head();
+            if(!/^[a-f0-9]{40}$/.test(sha)){blocked('invalid-head');return;}
+            const runs=[];
+            for(let page=1;page<=5;page++){
+              const r=await github.rest.actions.listWorkflowRuns({owner,repo,workflow_id:'v6-ci.yml',branch:'dev',event:'push',head_sha:sha,per_page:100,page,request:{timeout:10000}});
+              if(r.data.total_count>500){blocked('too-many-runs');return;}
+              runs.push(...r.data.workflow_runs);
+              if(runs.length===r.data.total_count)break;
+              if(page===5||r.data.workflow_runs.length!==100){blocked('incomplete-runs');return;}
+            }
+            if(!runs.length){blocked('no-ci-run');return;}
+            if(runs.some(r=>r.head_sha!==sha||r.head_branch!=='dev'||r.event!=='push'||r.path!=='.github/workflows/v6-ci.yml'||r.repository.full_name!==context.payload.repository.full_name||r.head_repository.full_name!==context.payload.repository.full_name)){blocked('run-identity');return;}
+            runs.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)||b.id-a.id||b.run_attempt-a.run_attempt);
+            const run=runs[0];
+            if(run.status!=='completed'||run.conclusion!=='success'){blocked('ci-not-successful');return;}
+            const jobs=[];
+            for(let page=1;page<=5;page++){
+              const r=await github.request('GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}/jobs',{owner,repo,run_id:run.id,attempt_number:run.run_attempt,per_page:100,page,request:{timeout:10000}});
+              if(r.data.total_count>500){blocked('too-many-jobs');return;}
+              jobs.push(...r.data.jobs);
+              if(jobs.length===r.data.total_count)break;
+              if(page===5||r.data.jobs.length!==100){blocked('incomplete-jobs');return;}
+            }
+            const names=jobs.map(j=>j.name);
+            if(new Set(names).size!==names.length||!['verify','verify-web'].every(n=>names.includes(n))||jobs.some(j=>j.run_id!==run.id||j.head_sha!==sha||j.status!=='completed'||j.conclusion!=='success')){blocked('job-identity-or-result');return;}
+            if(await head()!==sha){blocked('branch-moved');return;}
+            core.setOutput('sha',sha);core.setOutput('approved','true');
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.approved == 'true'
+        with:
+          ref: ${{ steps.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.approved == 'true'
+        with:
+          node-version: '22'
+      - name: Check private deployment configuration
+        if: steps.gate.outputs.approved == 'true'
+        id: access
+        env:
+          V6_WORKBUDDY_SHARECODE: ${{ secrets.V6_WORKBUDDY_SHARECODE }}
+        run: |
+          if [ -z "$V6_WORKBUDDY_SHARECODE" ]; then
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo '### 自动发布尚未启用' >> "$GITHUB_STEP_SUMMARY"
+            echo '需要在仓库 Actions Secrets 中设置 V6_WORKBUDDY_SHARECODE；本轮没有发布或回滚。' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo 'configured=true' >> "$GITHUB_OUTPUT"
+          mkdir -p "$V6_UPDATE_STATE_DIR/publisher/snapshots"
+          chmod 700 "$V6_UPDATE_STATE_DIR" "$V6_UPDATE_STATE_DIR/publisher" "$V6_UPDATE_STATE_DIR/publisher/snapshots"
+      - name: Restore deployment recovery state
+        if: steps.access.outputs.configured == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ runner.temp }}/v6-repository-update/journal.json
+            ${{ runner.temp }}/v6-repository-update/publisher/snapshots
+          key: v6-workbuddy-v1-${{ github.repository_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: v6-workbuddy-v1-${{ github.repository_id }}-
+      - name: Create private updater configuration
+        if: steps.access.outputs.configured == 'true'
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs');
+          fs.writeFileSync(process.env.V6_UPDATE_CONFIG,JSON.stringify({
+            schemaVersion:1,repository:'solviq87-cpu/v6-stock-system',branch:'dev',
+            targetOrigin:'https://af3c7822e6aafc135.app.workbuddy.host',
+            workflowPath:'.github/workflows/v6-ci.yml',requiredJobs:['verify','verify-web'],
+            sourcePath:'V6_WEB/workbuddy/index.html',repositoryRoot:process.env.GITHUB_WORKSPACE,
+            stateDir:process.env.V6_UPDATE_STATE_DIR,intervalMs:300000
+          }),{mode:0o600});
+          JS
+      - name: Detect exact checked commit and publish verified static frontend
+        id: publish
+        if: steps.access.outputs.configured == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          V6_WORKBUDDY_SHARECODE: ${{ secrets.V6_WORKBUDDY_SHARECODE }}
+        run: node V6_BO/scripts/repository-auto-update.js once "$V6_UPDATE_CONFIG" --apply
+      - name: Save encrypted recovery state even after a failed publication
+        if: always() && steps.access.outputs.configured == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/v6-repository-update/journal.json
+            ${{ runner.temp }}/v6-repository-update/publisher/snapshots
+          key: v6-workbuddy-v1-${{ github.repository_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Record publication boundary
+        if: always() && steps.access.outputs.configured == 'true'
+        env:
+          PUBLISH_RESULT: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo '### WorkBuddy 静态前端自动更新'
+            echo "发布步骤结果：$PUBLISH_RESULT"
+            echo '只发布已通过 V6 CI 的 dev 提交；实际版本由页面内容哈希与提交标记核验。'
+            echo '这是单文件静态前端，不部署 Node/Python、账户账本或服务端研究进程。'
+          } >> "$GITHUB_STEP_SUMMARY"
