@@ -2268,6 +2268,7 @@ async function shareBattleResult(result){
 
 document.addEventListener('click',async event=>{
  const b=event.target.closest('button,a')||event.target.closest('.strategy-card')?.querySelector('a[data-strategy]');if(!b)return;
+ if(b.hasAttribute('data-focus-module-group')){event.preventDefault();const group=b.dataset.focusModuleGroup;if(window.V6Battle.groups.some(g=>g.id===group))battleGroup=group;battleFilter='all';battlePage=1;navigate('scanner');return;}
  if(b.dataset.action?.startsWith('battle-')){event.preventDefault();await handleBattleAction(b);return;}
  if(b.hasAttribute('data-scan-market')){await toggleMarketCollection();return;}
  if(b.hasAttribute('data-load-history')){await continueHistory();return;}
