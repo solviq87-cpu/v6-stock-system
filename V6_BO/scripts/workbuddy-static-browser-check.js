@@ -32,7 +32,15 @@ test('current site preserves desktop/mobile navigation and query records authent
         if (url.pathname === '/api/records') {
           assert.equal(url.searchParams.get('sharecode'), 'fixture-only-access');
           authenticatedRequests++;
-          if (request.method() === 'POST') records = [{ ...request.postDataJSON(), id: 'fixture-ledger' }];
+          if (request.method() === 'POST') {
+            const incoming = request.postDataJSON();
+            // Background market/strategy caches and the ledger are separate
+            // records. Match the platform's name-based upsert semantics.
+            const index = records.findIndex(record => record.name === incoming.name);
+            const record = { ...incoming, id: index < 0 ? `fixture-${records.length + 1}` : records[index].id };
+            if (index < 0) records.push(record);
+            else records[index] = record;
+          }
           return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, records, record: records[0] }) });
         }
         return route.fulfill({ status: 404, body: '' });
@@ -40,7 +48,7 @@ test('current site preserves desktop/mobile navigation and query records authent
       await page.goto('http://workbuddy.test/?sharecode=fixture-only-access', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => document.querySelector('#navigation a') && document.querySelector('#sync-text').textContent.includes('已同步'));
       const snapshot = [];
-      for (const view of ['home', 'picks', 'strategies', 'portfolio', 'risk']) {
+      for (const view of ['home', 'picks', 'scanner', 'strategies', 'portfolio', 'risk']) {
         const navigation = page.locator(`#navigation a[href="#${view}"]`);
         if (await navigation.isVisible()) await navigation.click();
         else {
