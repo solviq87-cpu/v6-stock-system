@@ -384,6 +384,7 @@ setInterval(() => {
 // 不设防就会重叠执行：并发打数据源 → 触发限流 → 更慢 → 重叠更多，恶性循环。
 // 看门狗：万一任务卡死（Promise 永不返回），最多停摆 15 分钟后自动放行下一轮。
 const _taskBusy = new Map();   // name -> startedAt
+const panelRefreshPolicy=require('./src/core/panel-refresh-policy').createPanelRefreshPolicy();
 function guard(name, fn) {
   return async (...a) => {
     const at = _taskBusy.get(name);
@@ -629,7 +630,7 @@ const EXT_MAP = [
   { name: '软件/医药(印度链)', exts: ['SENSEX'], keys: ['软件服务', '医药制造', 'IT服务', '钢铁'] },
 ];
 const EXT_PUSH_GAP = 2 * 60 * 60 * 1000; // 同一联动组推送间隔2小时
-async function refreshExtLink() {
+async function refreshExtLink({notify=true}={}) {
   try {
     // 合并外围指数（10国）+ 美股代表个股：指数与联动预选深度联动
     const local = (S.global || []).map(g => ({ code: g.code, name: g.name, pct: g.pct }));
@@ -670,7 +671,7 @@ async function refreshExtLink() {
       picks.push(...sel);
       // 外围指数显著上涨(≥1%) → 推送同板块最佳个股（盘中有效，每组2小时一次，夜间静默自动拦截）
       const notifySel = reviewedRows(sel);
-      if (g.extPct >= 1 && notifySel.length && isTradingTime()) {
+      if (notify && g.extPct >= 1 && notifySel.length && isTradingTime()) {
         const last = (S.extPushed || new Map());
         S.extPushed = last;
         if (Date.now() - (last.get(g.name) || 0) > EXT_PUSH_GAP) {
@@ -682,6 +683,14 @@ async function refreshExtLink() {
     }
     S.extLink = { time: new Date().toLocaleTimeString('zh-CN'), basePct: +basePct.toFixed(2), groups, picks };
   } catch (e) { console.error('[extlink]', e.message); }
+}
+
+async function refreshGlobalForDisplay() {
+  const quotes=await em.fetchGlobal();
+  if(quotes&&quotes.length)S.global=quotes;
+  await refreshExtLink({notify:false});
+  const preselect=computePreselect();
+  if(preselect&&Array.isArray(preselect.items)&&preselect.items.length)S.preselect=preselect;
 }
 
 // ---------------- 板块异动高频监控：30秒主力流入突变 → 成分股速扫 → 涨停概率速报 ----------------
@@ -16940,7 +16949,7 @@ async function init() {
       console.error(`[refreshGlobal] 失败(${e.message})`);
     }
   };
-  globalThis.__refreshGlobal = refreshGlobal; // 暴露给 /api/refresh 手动全量刷新（不受数据窗口限制）
+  globalThis.__refreshGlobal = refreshGlobal; // Legacy internal hook; panel refresh uses the display-only path.
 
   // 🔴 铁律：首轮数据必须「后台跑 + 每步超时」，绝不能阻塞下面定时器的注册。
   //    实测 2026-09-28 翻车：全新部署没有 .kline_cache，rebuildPool 要联网拉 ~700 只K线要好几分钟，
@@ -22690,7 +22699,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     })();
     return;
   }
-  // 手动强制刷新：打开页面全量刷 / 单卡片按钮刷 —— 不受数据窗口限制（周末也能拉最近交易日复盘）
+  // Explicit card recollection is bounded across browser sessions; ordinary page loading only reads cloud state.
   if (p === '/api/refresh' && req.method === 'POST') {
     let mod = '';
     try { mod = ((JSON.parse(body || '{}') || {}).module || '').trim(); } catch {}
@@ -22725,15 +22734,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     //   · 最危险的是 paperCheckAll：模拟盘巡检并发跑两次会**重复下单**，持仓与成交记录直接错乱
     //   现在每个模块都接同一把锁（任务名与定时器对齐，能对齐的对齐），手动刷新和定时器互斥。
     const _skipped = [];
+    const _cached = [];
     let _refreshNote = '';   // 降级说明（如副本上点模拟盘刷新 → 改为回拉线上），必须回给前端
     const _g = (name, fn) => {
       if (_taskBusy.has(name)) { _skipped.push(name); return Promise.resolve(); }
+      const admission=panelRefreshPolicy.admit(name);
+      if(!admission.allowed){_cached.push({module:name,retryAfterMs:admission.retryAfterMs});return Promise.resolve();}
       return guard(name, fn)();
     };
-    if (_want('global')) tasks.push(_g('global', async () => { const g = await em.fetchGlobal(); if (g && g.length) S.global = g; }));
-    if (_want('ext') || _want('global')) tasks.push(_g('ext', () => globalThis.__refreshGlobal ? globalThis.__refreshGlobal() : refreshExtLink()));
+    // Both aliases share one acquisition; the scheduled trading path is not a panel action.
+    if (_want('global') || _want('ext')) tasks.push(_g('global', () => refreshGlobalForDisplay()));
     if (_want('auction')) tasks.push(_g('auction', () => captureAuction()));
-    if (_want('sectors')) tasks.push(_g('sectors', () => refreshSectorsZT()));
+    if (_want('sectors')) tasks.push(_g('sectorsZT', () => refreshSectorsZT()));
     if (_want('pre')) tasks.push(_g('pre', () => scanPreBreakout(true)));
     if (mod === 'review') tasks.push(_g('review', async () => { await refreshSectorsZT(); await computeReview(); }));
     // 次日作战计划：只在手动点🔄时重算（要补拉K线，很重）。
@@ -22780,8 +22792,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       // 复盘刷新：computeReview 若尚未被 refreshSectorsZT 触发（周末窗口外），这里补跑
       if (mod === 'all' && _rfEdit && !S.review && S.ztPool.length) _g('review', () => computeReview());
       // ⛔ 被锁跳过的模块要如实回给前端：否则用户点了🔄没反应，只会以为"刷新坏了"
-      json(res, { ok: true, module: mod, errors: errs, skipped: _skipped,
-        note: [_refreshNote, _skipped.length ? `以下模块上一轮仍在跑，本次已跳过：${_skipped.join('、')}` : ''].filter(Boolean).join('；'),
+      json(res, { ok: true, module: mod, errors: errs, skipped: _skipped,cached:_cached,
+        note: [_refreshNote, _skipped.length ? `以下模块上一轮仍在跑，本次已跳过：${_skipped.join('、')}` : '',
+          _cached.length?'重复刷新已复用云端缓存，请稍后再采集':''].filter(Boolean).join('；'),
         time: new Date().toLocaleTimeString('zh-CN') });
     });
     return;
