@@ -15665,16 +15665,29 @@ async function _computeReviewInner() {
     else staleMark('review', 'held');
     return;
   }
-  // 为涨停股补K线（缓存优先，每日最多补60只）
-  const need = S.ztPool.filter(z => !S.klines.has(z.code)).slice(0, 60).map(z => z.code);
-  if (need.length) {
-    await em.pool(need, async code => {
-      const k = await em.fetchKline(code, 95);
-      if (k && k.rows && k.rows.length) {
-        klineSet(code, k);
-        try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
+  // Keep one source generation across asynchronous history/snapshot reads.
+  const reviewInput = JSON.stringify([S.ztDay, S.ztPool, S.ztBySector, S.sectors]);
+  // Reference snapshot's full-pool batching replaces the old first-60 blind spot.
+  // The cap bounds requests, not the number of stocks retained in the review.
+  const needAll = [...new Set(S.ztPool.filter(z => {
+    const rows = S.klines.get(z.code)?.rows;
+    return !Array.isArray(rows) || rows.length < 25;
+  }).map(z => z.code))];
+  const need = needAll.slice(0, 180);
+  if (needAll.length > need.length) console.warn('[复盘] 本轮补K线已达180只上限，剩余' + (needAll.length - need.length) + '只保留资料待核');
+  for (let i = 0; i < need.length; i += 60) {
+    await em.pool(need.slice(i, i + 60), async code => {
+      try {
+        const k = await em.fetchKline(code, 95);
+        if (k && Array.isArray(k.rows) && k.rows.length >= 25) {
+          klineSet(code, k);
+          try { fs.writeFileSync(path.join(KLINE_CACHE, code + '.json'), JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
+        }
+        return k;
+      } catch (e) {
+        console.warn('[复盘] 单股K线补取失败，保留该股资料待核:', code);
+        return null;
       }
-      return k;
     }, 12);
   }
   const snapByCode = new Map();
@@ -15686,6 +15699,11 @@ async function _computeReviewInner() {
     //    结果每只票的主力净占比都显示"缺失"，看起来像"数据本来就没有"，而不是"这次没取到"。
     //    判不出仍是 null（不硬判），但必须留痕说明是取数失败。
     console.warn('[复盘] 涨停股快照抓取失败，本轮主力净占比一律按 null（判不出不硬判）:', e && e.message);
+  }
+  if (reviewInput !== JSON.stringify([S.ztDay, S.ztPool, S.ztBySector, S.sectors])) {
+    console.warn('[复盘] 计算期间涨停池或板块批次已变化，保留旧复盘，等待下一轮');
+    staleMark('review', 'held');
+    return S.review;
   }
   const items = [];
   for (const z of S.ztPool) {
@@ -15759,14 +15777,17 @@ async function _computeReviewInner() {
   // ⛔ 复盘模块加固（2026-10-28）：prob 为 null/undefined 时 b.prob - a.prob = NaN，
   //    比较器返回 NaN 被视为 0 → 排序整体失效、顺序退化为「未排序」。
   //    复盘正是按次日涨停概率降序给人看的，顺序乱了等于没排。缺概率按 0 兜底参与排序。
-  items.sort((a, b) => (Number(b.prob) || 0) - (Number(a.prob) || 0));
+  items.sort((a, b) => (Number(b.prob) || 0) - (Number(a.prob) || 0) || String(a.code).localeCompare(String(b.code)));
   // ⛔ 2026-10-06 补：把「复盘这一刻」的涨停池快照一起定格下来 —— 只数与首行文案都存进 S.review。
   //    以前 buildReviewMessage 首行 todayHead() 与尾部「涨停池 N 只」都是【推送那一刻】实时取
   //    S.ztPool（30 秒刷一次）的，而正文 items / 形态统计来自本轮算好的快照 —— 一条消息里
   //    两套时刻的数据：复盘在 45 只时算完、推送时池子涨到 52 只，就会首行写「今日涨停 52 只」
   //    而下面的「首板 X 只 连板 Y 只」加起来是 45 只，自己跟自己对不上，还看不出是哪儿错了。
   //    现在推送端一律用这里的快照（读回的旧 review.json 没有这两个字段时兜底用实时值）。
-  S.review = Object.assign(mkReviewShell(items), { head: items.length ? todayHead() : '', themeSrc: S.ztTopicSrc || '' });
+  S.review = Object.assign(mkReviewShell(items), { head: items.length ? todayHead() : '', themeSrc: S.ztTopicSrc || '',
+    historyCoverage: { total: items.length, requested: needAll.length, attempted: need.length,
+      available: items.filter(x => x.aboveMa5 != null).length, missing: items.filter(x => x.aboveMa5 == null).length,
+      deferred: needAll.length - need.length } });
   staleMark('review', 'fresh');
   // ⛔ 复盘模块加固（2026-10-28）：落盘失败会抛异常，而下面紧接着 pushYiEr / pushLianbanRelay /
   //    好标的挖掘三条推送 —— 一次磁盘写失败会把这三条一起吞掉（异常直接中断整个函数）。
@@ -15816,7 +15837,7 @@ function scanYiEr() {
   // ⛔ jn 轮（2026-10-21）：涨停池是市场真相口径，含 ST 封板股（东财/同花顺接口侧都按名排除 ST，
   //    靠 deriveLimitUpMissed 从全A快照补）；但推荐侧维持 jj 轮既定口径 —— ST 不进选股/推送
   //    （与 scanZtPre 同款理由：风险警示股的形态与次日连板规律不适用于本模型）。
-  const pool = ztAll.filter(z => (z.limitUpCount || 1) === 1 && !A.isJunkName(z.name));
+  const pool = ztAll.filter(z => z.limitUpCount === 1 && !A.isJunkName(z.name));
   if (!pool.length) return [];
   const beta = todayBeta();
   const marketMood = (beta != null && beta <= -1.5) ? -4 : (beta != null && beta >= 1.5) ? 3 : 0;
@@ -15910,7 +15931,7 @@ function scanYiEr() {
     // CONDITION_EVIDENCE_BEGIN
     const conditionMetadata={};
     annotateSignalConditions(conditionMetadata,'scanYiEr',[
-      ['first-board','原首板分组',(z.limitUpCount||1),1,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+      ['first-board','原首板分组',z.limitUpCount,1,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
       ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
       ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
       {rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
@@ -15922,7 +15943,7 @@ function scanYiEr() {
       // ⛔ 复盘模块加固（2026-10-28）：同一类炸点（pct 缺失抛 TypeError）在这两处卡片构建器里
       //    也有 —— 虽然外面有 try 兜底（只丢这一张卡、不丢整条复盘），但用户侧就是「卡片突然空了」，
       //    服务端只留一行 console。判不出就显式 null（前端 sign(null) 显示 '-'），绝不拿 0 冒充。
-      code: z.code, name: z.name, price: z.price,
+      code: z.code, name: z.name, price: z.price, level: 1, targetLevel: 2,
       pct: (z.pct != null && isFinite(Number(z.pct))) ? +Number(z.pct).toFixed(1) : null,
       sector: z.sector, sectorZT, sealRatio: +sealRatio.toFixed(2), sealStrength,
       breakCount: z.breakCount || 0, sealAmount: _seal,
@@ -15939,7 +15960,7 @@ function scanYiEr() {
       mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
     });
   }
-  out.sort((a, b) => b.fused - a.fused);
+  out.sort((a, b) => b.fused - a.fused || String(a.code).localeCompare(String(b.code)));
   return out.slice(0, 8);   // ⛔ 2026-10-09：候选扩到8（原5），面板卡片与推送都能多覆盖几只一进二
 }
 
@@ -16021,7 +16042,7 @@ function scanLianbanRelay() {
   const marketMood = (beta != null && beta <= -1.5) ? -4 : (beta != null && beta >= 1.5) ? 3 : 0;
   const out = [];
   for (const level of [2, 3]) {
-    const pool = ztAll.filter(z => (z.limitUpCount || 1) === level && !A.isJunkName(z.name));   // jn 轮：ST 只进池不进推荐（同 scanYiEr）
+    const pool = ztAll.filter(z => z.limitUpCount === level && !A.isJunkName(z.name));   // jn 轮：ST 只进池不进推荐（同 scanYiEr）
     if (!pool.length) continue;
     for (const z of pool) {
       const k = S.klines.get(z.code);
@@ -16105,7 +16126,7 @@ function scanLianbanRelay() {
       // CONDITION_EVIDENCE_BEGIN
       const conditionMetadata={};
       annotateSignalConditions(conditionMetadata,'scanLianbanRelay',[
-        ['board-level','原连板分组',z.limitUpCount||1,level,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
+        ['board-level','原连板分组',z.limitUpCount,level,'==='],['mainline','原主线判断',Number(_ml.ok),1,'==='],
         ['ranking-floor','实际研究排序门',useProb,ZT_INFER_PUSH_PROB,'>=']],
         ['NEXT_DAY_LIMIT_REVIEW_FLAGS_MAINLINE_AND_ROLE_INTERNALS_NOT_EXPANDED','NEWS_SUPPORT_AND_HISTORY_POINT_IN_TIME_NOT_FULLY_FROZEN'],
         {level,maxLb,rawBoard:{limitUpCount:z.limitUpCount,amount:z.amount,sealAmount:z.sealAmount,floatCap:z.floatCap,turnover:z.turnover,breakCount:z.breakCount,firstSeal:z.firstSeal},
@@ -16130,13 +16151,13 @@ function scanLianbanRelay() {
         // CONDITION_EVIDENCE_BEGIN
         ...conditionMetadata,
         // CONDITION_EVIDENCE_END
-        level, maxLb,
+        level, targetLevel: level + 1, maxLb,
         sectorStrength: secStrength,
         mainline: true, mainlineBasis: _ml.reason,   // ge 轮：主流板块闸门依据（前端显「主流板块」徽标）
       });
     }
   }
-  out.sort((a, b) => b.fused - a.fused);
+  out.sort((a, b) => b.fused - a.fused || String(a.code).localeCompare(String(b.code)));
   return out.slice(0, 6);
 }
 
@@ -16266,7 +16287,7 @@ function scanYiErAuction() {
   // 昨日首板池：优先用收盘后保存的候选，否则从当前涨停池（=昨日涨停池，竞价时）中筛首板
   const yest = (S.yierYesterday && S.yierYesterday.items) || [];
   // jn 轮：回退路径同样挂 ST 闸门（yest 来自已过滤的 toPush，这条是兜底）
-  const pool = yest.length ? yest : (S.ztPool || []).filter(z => (z.limitUpCount || 1) === 1 && !A.isJunkName(z.name))
+  const pool = yest.length ? yest : (S.ztPool || []).filter(z => z.limitUpCount === 1 && !A.isJunkName(z.name))
     .map(z => ({ code: z.code, name: z.name, sector: z.sector, role: 'follow', prob: 0 }));
   if (!pool.length) return [];
   const out = [];
