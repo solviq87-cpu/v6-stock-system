@@ -50,7 +50,7 @@ ok('抓到 /api/test-push 代码段', block.length > 200, '长度=' + block.leng
 ok('先取私密通道 feishuSecId()', /let\s+_pid\s*=\s*feishuSecId\(\)/.test(block));
 ok('私密未配置才退回 feishuId()', /if\s*\(\s*!_pid\s*\)\s*\{[\s\S]*?_pid\s*=\s*feishuId\(\)/.test(block));
 ok('私密密钥用 feishuSecSecret', /feishuSecSecret/.test(block));
-ok('退回分支用 feishuSecret', /_psec\s*=\s*\(S\.config\s*&&\s*S\.config\.feishuSecret\)/.test(block));
+ok('公开体检优先运行时密钥，兼容配置密钥', /_psec\s*=\s*process\.env\.V6_FEISHU_PUBLIC_SECRET\s*\|\|\s*\(S\.config\s*&&\s*S\.config\.feishuSecret\)/.test(block));
 
 console.log('\n=== B. 旧写法反证（改回去即失守）===');
 ok('没有 `const _pid = feishuId()` 硬编码公开通道', !/const\s+_pid\s*=\s*feishuId\(\)/.test(block));
