@@ -73,8 +73,28 @@ function safeStartup(root){const config=json(path.join(root,'app/config.json'),1
  for(const f of manifest.files)if(!mutableSeeds.has(f.path))requireThat(digest(read(path.join(root,'app',f.path),64*1024*1024))===f.sha256,'installed-code-changed');return meta;}
 function lock(root){privateDir(root);const file=path.join(root,'run/control.lock');let fd=fs.openSync(file,fs.constants.O_CREAT|fs.constants.O_RDWR|fs.constants.O_NOFOLLOW,0o600);const st=fs.fstatSync(fd);if(!st.isFile()||st.uid!==process.getuid()||st.mode&0o077){fs.closeSync(fd);fail('unsafe-lock');}
  const r=spawnSync('flock',['-n','3'],{stdio:['ignore','ignore','ignore',fd],timeout:2000});if(r.error||r.status!==0){fs.closeSync(fd);fail('host-busy');}return ()=>fs.closeSync(fd);}
-function processIdentity(pid){if(!Number.isSafeInteger(pid)||pid<=1)return null;try{const dir='/proc/'+pid,stat=read(dir+'/stat',8192).toString(),tail=stat.slice(stat.lastIndexOf(')')+2).split(' '),cmd=read(dir+'/cmdline',16384).toString().split('\0').filter(Boolean);
-  if(tail[0]==='Z'||!cmd.length)return null;return {pid,startTime:tail[19],bootId:fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim(),uid:fs.statSync(dir).uid,exe:fs.realpathSync(dir+'/exe'),cwd:fs.realpathSync(dir+'/cwd'),cmd};}catch{return null;}}
+function processStat(pid){
+ const stat=read('/proc/'+pid+'/stat',8192).toString(),tail=stat.slice(stat.lastIndexOf(')')+2).trim().split(/\s+/);
+ requireThat(stat.startsWith(pid+' (')&&tail.length>=20&&/^[A-Za-z]$/.test(tail[0])&&/^\d+$/.test(tail[19]),'process-inspection-failed');
+ return {state:tail[0],startTime:tail[19]};
+}
+function processIdentity(pid){
+ if(!Number.isSafeInteger(pid)||pid<=1)return null;
+ try{
+  const dir='/proc/'+pid,stat=processStat(pid);
+  if(['Z','X'].includes(stat.state))return null;
+  const cmd=read(dir+'/cmdline',16384).toString().split('\0').filter(Boolean);
+  requireThat(cmd.length>0,'process-inspection-failed');
+  return {pid,startTime:stat.startTime,bootId:fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim(),uid:fs.statSync(dir).uid,exe:fs.realpathSync(dir+'/exe'),cwd:fs.realpathSync(dir+'/cwd'),cmd};
+ }catch{
+  // Missing exe/cwd or unreadable metadata does not prove that the PID exited.
+  // Recheck stat so an exit during inspection remains recoverable without
+  // treating permissions, I/O errors or an incomplete read as a stopped daemon.
+  try{if(['Z','X'].includes(processStat(pid).state))return null;}
+  catch(error){if(['ENOENT','ESRCH'].includes(error.code))return null;}
+  fail('process-inspection-failed');
+ }
+}
 function ownedProcess(root,state){const actual=processIdentity(state.pid);return !!actual&&actual.startTime===state.startTime&&actual.bootId===state.bootId&&actual.uid===process.getuid()&&actual.exe===state.exe&&actual.cwd===path.join(root,'app')&&actual.cmd.length===2&&actual.cmd[0]===state.exe&&actual.cmd[1]===path.join(root,'app/server.js');}
 function processState(root){try{const value=json(path.join(root,'run/process.json'),16384,true);requireThat(value&&Number.isSafeInteger(value.pid)&&/^\d+$/.test(value.startTime)&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.bootId)&&typeof value.exe==='string'&&path.isAbsolute(value.exe)&&Number.isInteger(value.port)&&value.port>0&&value.port<65536,'invalid-process-record');return value;}catch(e){if(!fs.existsSync(path.join(root,'run/process.json')))return null;throw e;}}
 function archiveStoppedRecord(root,state){const actual=processIdentity(state.pid),boot=fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();if(actual&&state.bootId===boot)return false;
@@ -115,7 +135,14 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  const out=fs.openSync(path.join(root,'run/server.log'),fs.constants.O_CREAT|fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK,0o600);
  try{const stat=fs.fstatSync(out);requireThat(stat.isFile()&&stat.nlink===1&&stat.uid===process.getuid()&&!(stat.mode&0o077),'unsafe-log');
  child=spawn(fs.realpathSync(process.execPath),[path.join(root,'app/server.js')],{cwd:path.join(root,'app'),env:childEnv,detached:true,stdio:['ignore',out,out]});}finally{fs.closeSync(out);}
- let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity;for(let i=0;i<40&&!spawnError;i++){identity=processIdentity(child.pid);if(identity)break;await sleep(25);}requireThat(identity&&!spawnError,'server-start-failed');
+ let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity,inspectionError;
+ for(let i=0;i<40&&!spawnError;i++){
+  try{identity=processIdentity(child.pid);inspectionError=undefined;}
+  catch(error){if(error.code!=='process-inspection-failed')throw error;inspectionError=error;}
+  if(identity)break;await sleep(25);
+ }
+ if(!identity&&inspectionError)throw inspectionError;
+ requireThat(identity&&!spawnError,'server-start-failed');
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
  const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
@@ -129,14 +156,22 @@ async function stop({root}){
   // permission and other signal errors must preserve the recovery record.
   try{process.kill(state.pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
   const until=performance.now()+5000;
-  while(performance.now()<until&&ownedProcess(root,state))await sleep(50);
-  requireThat(!ownedProcess(root,state),'stop-timeout');
+  for(;;){
+   let inspectionError;
+   // Exit tears down /proc entries in stages. Retry an unknown observation
+   // within the original deadline, but never treat it as proof of exit.
+   try{if(!ownedProcess(root,state))break;}
+   catch(error){if(error.code!=='process-inspection-failed')throw error;inspectionError=error;}
+   const remaining=until-performance.now();
+   if(remaining<=0){if(inspectionError)throw inspectionError;fail('stop-timeout');}
+   await sleep(Math.min(50,remaining));
+  }
   fs.unlinkSync(path.join(root,'run/process.json'));
   return {code:'stopped',sourceSha:meta.sourceSha};
  }finally{release();}
 }
 function parseArgs(args){const [action,...rest]=args;requireThat(['init','start','check','stop'].includes(action),'usage');let root=path.join(os.homedir(),'.tian-shu-local'),bundle,smoke=false;const seen=new Set();for(let i=0;i<rest.length;i++){const flag=rest[i];requireThat(!seen.has(flag),'usage');seen.add(flag);if(flag==='--home')root=rest[++i];else if(flag==='--bundle'&&action==='init')bundle=rest[++i];else if(flag==='--smoke'&&action==='start')smoke=true;else fail('usage');}rootPath(root);requireThat(action!=='init'||typeof bundle==='string','usage');return {action,root,bundle,smoke};}
-const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
+const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','process-inspection-failed','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
 async function main(args,deps={}){try{process.umask(0o077);const options=parseArgs(args);return await ({init:initialize,start,check:checkHost,stop}[options.action])(options,deps);}catch(e){return {code:CODES.has(e?.code)?e.code:'host-operation-failed',phoneConnected:false};}}
 if(require.main===module)main(process.argv.slice(2)).then(result=>{process.stdout.write(JSON.stringify(result)+'\n');if(!['initialized','started','already-running','running','stopped','already-stopped'].includes(result.code))process.exitCode=2;});
 module.exports={main,parseArgs,verifyBundle,dependencies,childEnvironment,initialize,start,checkHost,stop,processIdentity,ownedProcess};
