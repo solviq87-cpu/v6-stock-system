@@ -22,6 +22,8 @@ on:
       - 'V6_BO/scripts/ui-model-library-check.js'
       - 'V6_BO/scripts/ui-research-summary-cards-check.js'
       - 'V6_BO/scripts/ui-research-selection-check.js'
+      - 'V6_BO/scripts/ui-research-navigation-check.js'
+      - 'V6_BO/scripts/ui-research-tab-race-check.js'
       - 'V6_BO/scripts/ui-research-context-check.js'
       - 'V6_BO/scripts/ui-market-linkage-check.js'
       - 'V6_BO/scripts/ui-learning-workbench-check.js'
@@ -48,6 +50,8 @@ on:
       - 'V6_BO/scripts/ui-model-library-check.js'
       - 'V6_BO/scripts/ui-research-summary-cards-check.js'
       - 'V6_BO/scripts/ui-research-selection-check.js'
+      - 'V6_BO/scripts/ui-research-navigation-check.js'
+      - 'V6_BO/scripts/ui-research-tab-race-check.js'
       - 'V6_BO/scripts/ui-research-context-check.js'
       - 'V6_BO/scripts/ui-market-linkage-check.js'
       - 'V6_BO/scripts/ui-learning-workbench-check.js'
@@ -115,6 +119,8 @@ jobs:
           node scripts/ui-model-library-check.js
           node scripts/ui-research-summary-cards-check.js
           node scripts/ui-research-selection-check.js
+          node scripts/ui-research-navigation-check.js
+          node scripts/ui-research-tab-race-check.js
           node scripts/ui-research-context-check.js
           node scripts/ui-market-linkage-check.js
           node scripts/ui-learning-workbench-check.js
