@@ -9,6 +9,9 @@ const crypto=require('node:crypto');
 const {validateSettlement}=require('./corporate-settlements');
 const MAX_WIRE=2*1024*1024,MAX_PAGES=8,MAX_EVENTS=500;
 const digest=x=>crypto.createHash('sha256').update(x).digest('hex');
+const originalText=v=>typeof v==='string'?v.slice(0,2000):null;
+const originalNumber=v=>typeof v==='number'&&Number.isFinite(v)?v:
+ typeof v==='string'&&/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v)&&Number.isFinite(Number(v))?Number(v):null;
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const validDay=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -133,6 +136,14 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
    if(normalized[field]!==stored.dates[sourceField])
     invalid('规范化声明日期与原始日期不一致：'+field);
   }
+  for(const [field,rawField] of [
+   ['name','SECURITY_NAME_ABBR'],['planText','IMPL_PLAN_PROFILE'],
+   ['progress','ASSIGN_PROGRESS']]){
+   if(normalized[field]!==originalText(stored.rawRow[rawField]))
+    invalid('规范化来源文本与原始行不一致：'+field);
+  }
+  if(normalized.pretaxBonusRmb!==originalNumber(stored.rawRow.PRETAX_BONUS_RMB))
+   invalid('规范化分红金额字段与原始行不一致');
   remaining.delete(stored.id);
  }
  const bySettlement=[],eventIds=new Set();

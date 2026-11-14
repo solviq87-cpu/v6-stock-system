@@ -74,6 +74,9 @@ test('reparsed summary and raw byte hash must agree: changed dates/IDs cannot be
  const report=await captured(CAPTURED),id=report.dividendEvents.records[0].sourceRecordId;
  for(const mutate of [
   r=>{r.dividendEvents.records[0].sourceRecordId='f'.repeat(64);},
+  r=>{r.dividendEvents.records[0].pretaxBonusRmb=9999;},
+  r=>{r.dividendEvents.records[0].planText='篡改方案';},
+  r=>{r.dividendEvents.records[0].name='错误证券';},
   r=>{r.dividendEvents.records[0].exDividendDate='2026-07-17';},
   r=>{r.dividendEvents.records[0].vendorDates.EX_DIVIDEND_DATE.raw='2026-07-17';},
   r=>{r.dividendEvents.records[0].vendorDates.EX_DIVIDEND_DATE.precision='instant';},
