@@ -3,6 +3,10 @@
  const doc=root.document;if(!doc?.getElementById('researchWorkspace'))return;
  const $=id=>doc.getElementById(id),host=$('workspaceContent'),status=$('workspaceStatus');
  let view=null,tab='evidence',offset=0,generation=0,request=null,undo=null,nativeEvidence=null,modelPrediction=null,selectedRunId=null;
+ let nativeFileEpoch=0,forecastFileEpoch=0,nativeReadPending=false,forecastReadPending=false;
+ const preferenceFields={workspaceObjective:'研究目标',workspaceHorizon:'观察周期',workspaceMaxWeight:'集中度关注线',workspaceAvoid:'回避板块',workspaceExcluded:'排除股票',workspaceUnresolved:'未完成事项'};
+ const preferenceDefaults={workspaceObjective:'',workspaceHorizon:'5',workspaceMaxWeight:'30',workspaceAvoid:'',workspaceExcluded:'',workspaceUnresolved:''};
+ let preferenceBase=null,preferenceTouched=new Set(),preferenceConflicts=new Set(),livePreferenceDraft=null,preferenceContext=$('workspaceAsOf').value;
  const tabs={evidence:'结论与证据',timeline:'判断变化',systems:'四体系分歧',screening:'筛选与落选',market:'市场与题材',scorecard:'策略成绩',defense:'持仓防守',diagnostics:'分析诊断'};
  const names={pass:'满足',fail:'未满足',unknown:'未知',selected:'已入选',rejected:'未入选','coverage-only':'证据覆盖',
   'first-observation':'首次观察',added:'新增条件',removed:'不再提供','observed-change':'观察变化','data-revision':'同日数据修订','rule-version-changed':'规则改版',
@@ -36,11 +40,49 @@
   b.setAttribute('aria-label',valid?'查看 '+symbol+' 的研究':'缺少股票代码，无法查看研究');
  }
  function key(){return 'web_'+(root.crypto?.randomUUID?.().replace(/-/g,'')||Date.now().toString(36)+Math.random().toString(36).slice(2));}
+ const preferenceValues=()=>Object.fromEntries(Object.keys(preferenceFields).map(id=>[id,$(id).value]));
+ function storedPreferenceValues(p){return {workspaceObjective:p.value.objective,workspaceHorizon:String(p.value.horizonDays),workspaceMaxWeight:String(p.value.maxPositionPct??30),workspaceAvoid:p.value.avoidSectors.join('，'),workspaceExcluded:p.value.excludedSymbols.join('，'),workspaceUnresolved:p.value.unresolved.join('\n')};}
+ function preferenceDirty(){return Object.keys(preferenceFields).some(id=>preferenceBase?$(id).value!==preferenceBase.values[id]:preferenceTouched.has(id));}
+ function preferenceNotice(){
+  const note=$('workspacePreferenceDraftStatus'),conflicts=$('workspacePreferenceConflicts'),actions=$('workspacePreferenceDraftActions');
+  conflicts.replaceChildren();const dirty=preferenceDirty(),count=preferenceConflicts.size;
+  note.textContent=historical()?(livePreferenceDraft?'历史偏好只读；返回当前时点后可继续本页草稿。':''):count?'已保存偏好也有更新，请核对差异后选择保留的内容。':dirty?'本页有未保存修改；重读和翻页会保留。':'';
+  note.hidden=!note.textContent;conflicts.hidden=!count;
+  for(const id of preferenceConflicts)line(conflicts,preferenceFields[id],'已保存：'+(preferenceBase.values[id]||'（空）')+'；本页：'+($(id).value||'（空）'));
+  actions.hidden=historical()||!dirty&&!count;$('workspacePreferenceKeepDraft').hidden=!count;
+  syncControls();
+ }
+ function mergePreferences(p){
+  const next=storedPreferenceValues(p);
+  for(const id of Object.keys(preferenceFields)){
+   const current=$(id).value,before=preferenceBase?.values[id];
+   if(historical()||!preferenceBase&&!preferenceTouched.has(id)||current===before||current===next[id]){$(id).value=next[id];preferenceConflicts.delete(id);}
+   else if(preferenceBase&&next[id]!==before)preferenceConflicts.add(id);
+  }
+  preferenceBase={revision:p.revision,values:next};preferenceTouched.clear();preferenceNotice();
+ }
+ function switchPreferenceContext(){
+  const next=$('workspaceAsOf').value;if(next===preferenceContext)return;
+  if(!preferenceContext)livePreferenceDraft={base:preferenceBase,values:preferenceValues(),touched:[...preferenceTouched],conflicts:[...preferenceConflicts]};
+  preferenceBase=null;preferenceTouched=new Set();preferenceConflicts=new Set();
+  for(const id of Object.keys(preferenceFields))$(id).value=preferenceDefaults[id];
+  if(!next&&livePreferenceDraft){const saved=livePreferenceDraft;preferenceBase=saved.base;preferenceTouched=new Set(saved.touched);preferenceConflicts=new Set(saved.conflicts);for(const id of Object.keys(preferenceFields))$(id).value=saved.values[id];livePreferenceDraft=null;}
+  preferenceContext=next;preferenceNotice();
+ }
+ function cancelPendingFiles(){
+  if(nativeReadPending){nativeFileEpoch++;nativeReadPending=false;nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='文件读取已停止，请重新选择补充证据';}
+  if(forecastReadPending){forecastFileEpoch++;forecastReadPending=false;modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='文件读取已停止，请为当前研究重新选择预测结果';}
+ }
  function syncControls(){
   host.setAttribute('aria-busy',String(!!request));
   const busy=!!request;$('workspaceExport').disabled=busy||!view;$('workspaceLatest').disabled=busy||!selectedRunId;
+  $('workspaceReview').disabled=busy||historical()||nativeReadPending;
   $('workspaceForecastInput').disabled=busy||!view?.forecastEvaluation?.input;
   $('workspaceForecastFreeze').disabled=busy||historical()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction;
+  for(const id of Object.keys(preferenceFields))$(id).disabled=historical();
+  $('workspaceSavePreferences').disabled=busy||historical()||!view||!!preferenceConflicts.size;
+  $('workspaceRestorePreferences').disabled=busy||historical()||!view;
+  for(const id of ['workspacePreferenceKeepDraft','workspacePreferenceDiscardDraft'])$(id).disabled=busy||historical();
  }
  function clearSummary(){const summary=$('workspaceSummary');if(summary){summary.replaceChildren();summary.hidden=true;}root.V6MarketLinkageCard?.clear($('workspaceMarketLinkage'));}
  function renderSummary(){
@@ -70,16 +112,19 @@
   if(privacy||!preserveSelection){selectedRunId=null;$('workspaceCompareRun').value='';}
   generation++;request?.abort();request=null;view=null;host.replaceChildren();clearSummary();status.textContent=message;
   if(privacy)root.V6MarketLinkageCard?.clear($('workspaceMarketLinkage'),true);
+  nativeFileEpoch++;forecastFileEpoch++;nativeReadPending=false;forecastReadPending=false;
   modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastInput').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除；读取研究版本后可继续';
   nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';
   if(privacy){nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])$(id).value='';
    $('workspaceHorizon').value='5';$('workspaceMaxWeight').value='30';
-   for(const id of ['workspacePreferenceVersion','workspacePreset','workspacePresetVersion','workspaceScreenRun','workspaceCompareRun'])$(id).replaceChildren();undo=null;$('workspaceUndoPreset').disabled=true;}
-  syncControls();
+   for(const id of ['workspacePreferenceVersion','workspacePreset','workspacePresetVersion','workspaceScreenRun','workspaceCompareRun'])$(id).replaceChildren();undo=null;$('workspaceUndoPreset').disabled=true;
+   preferenceBase=null;preferenceTouched.clear();preferenceConflicts.clear();livePreferenceDraft=null;preferenceContext=$('workspaceAsOf').value;}
+  preferenceNotice();
  }
  const historical=()=>$('workspaceAsOf').value!=='';
  function allowWrite(){if(historical()){status.textContent='历史回放只读；清空历史时点后可保存';return false;}return true;}
  async function call(body,extra={}){
+  cancelPendingFiles();
   if(!body&&extra.export!=='1'&&Object.hasOwn(extra,'runId'))selectedRunId=extra.runId||null;
   request?.abort();const controller=new AbortController();request=controller;
   const id=++generation,token=$('token')?.value.trim()||'';
@@ -215,10 +260,9 @@
   if(f.total)pagination(f.total);for(const text of arr(f.limitations))node('p',text,c);if(f.pairs?.limitedGroups)line(c,'配对上限','部分组合超过16个配置或256组，已保留原记录');
  }
  function settings(){
-  const p=view.preferences;$('workspaceObjective').value=p.value.objective;$('workspaceHorizon').value=String(p.value.horizonDays);$('workspaceMaxWeight').value=p.value.maxPositionPct??30;
-  const forecast=view.forecastEvaluation;if(modelPrediction&&modelPrediction.inputFingerprint!==forecast?.input?.inputFingerprint){modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='研究输入已变化，请为当前版本重新选择预测结果';}
+  const p=view.preferences;mergePreferences(p);
+  const forecast=view.forecastEvaluation;if(modelPrediction&&modelPrediction.inputFingerprint!==forecast?.input?.inputFingerprint){forecastFileEpoch++;forecastReadPending=false;modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='研究输入已变化，请为当前版本重新选择预测结果';}
   $('workspaceForecastInput').disabled=!forecast?.input;$('workspaceForecastFreeze').disabled=historical()||!forecast?.freezeAllowed||!modelPrediction;
-  $('workspaceAvoid').value=p.value.avoidSectors.join('，');$('workspaceExcluded').value=p.value.excludedSymbols.join('，');$('workspaceUnresolved').value=p.value.unresolved.join('\n');
   $('workspacePreferenceVersion').replaceChildren();for(const h of p.history){const o=node('option','版本 '+h.revision+' · '+clock(h.recordedAt),$('workspacePreferenceVersion'));o.value=String(h.revision);}
   const preset=$('workspacePreset').value;$('workspacePreset').replaceChildren();for(const p of view.presets){const o=node('option',p.name,$('workspacePreset'));o.value=p.name;}if(view.presets.some(x=>x.name===preset))$('workspacePreset').value=preset;presetVersions();
   for(const [id,items,empty,text]of [['workspaceScreenRun',view.screenRuns,'最新批次',x=>clock(x.asOf)+' · '+x.total+'只'],['workspaceCompareRun',view.runs.rows,'不对照',x=>x.symbol+' · '+clock(x.recordedAt)+' · '+x.id.slice(0,10)]]){
@@ -226,7 +270,7 @@
    if(chosen&&!arr(items).some(x=>x.id===chosen)&&previous){const o=node('option',previous.endsWith('（保留所选记录）')?previous:previous+'（保留所选记录）',$(id));o.value=chosen;}
    $(id).value=chosen;
   }
-  for(const id of ['workspaceReview','workspaceSavePreferences','workspaceRestorePreferences','workspaceSavePreset','workspaceRestorePreset'])$(id).disabled=historical();
+  for(const id of ['workspaceSavePreset','workspaceRestorePreset'])$(id).disabled=historical();
  }
  function presetVersions(){const p=view?.presets.find(x=>x.name===$('workspacePreset').value);$('workspacePresetVersion').replaceChildren();for(const h of arr(p?.history)){const o=node('option','版本 '+h.revision+' · '+clock(h.recordedAt),$('workspacePresetVersion'));o.value=String(h.revision);}}
  for(const [id,title]of Object.entries(tabs)){const b=button($('workspaceTabs'),title,()=>{tab=id;const paged=offset!==0;offset=0;syncTabs();if(paged)navigate();else render();});b.dataset.tab=id;b.id='workspaceTab-'+id;b.setAttribute('role','tab');b.setAttribute('aria-controls','workspaceContent');}
@@ -239,8 +283,19 @@
  $('workspaceRead').addEventListener('click',()=>{offset=0;call();});
  $('workspaceLatest').addEventListener('click',()=>{if(request)return;selectedRunId=null;offset=0;call();});
  $('workspaceReview').addEventListener('click',async()=>{if(!allowWrite())return;const symbol=$('workspaceSymbol').value.trim();if(!/^\d{6}$/.test(symbol)){status.textContent='比较已存股票需要六位代码';return;}const r=await call({action:'review',symbol,provider:$('workspaceProvider').value,requestId:key(),...(nativeEvidence?{nativeEvidence}:{})});if(r)call(null,{runId:r.runId});});
- $('workspaceNativeFile').addEventListener('change',async()=>{const file=$('workspaceNativeFile').files?.[0],id=generation;nativeEvidence=null;if(!file)return;if(file.size>60000){$('workspaceNativeStatus').textContent='文件超过60KB，未读取';return;}try{const value=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!value||Array.isArray(value)||Object.keys(value).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence','marketLinkageEvidence'].includes(k)))throw Error();nativeEvidence=value;$('workspaceNativeStatus').textContent=Object.entries(value).map(([k,v])=>k==='marketLinkageEvidence'?'大盘—板块联动 '+val(v?.benchmark?.name||v?.benchmark?.code)+' / '+val(v?.tradeDate)+' · 封存时校验':(names[k.replace('Evidence','')]||k)+' '+val(v?.symbol)+' / '+val(v?.date||'日价序列')).join('；')+'；比较时仍需校验身份与时间';}catch{$('workspaceNativeStatus').textContent='评估文件格式无效；缺失保持未知';}});
- $('workspaceNativeClear').addEventListener('click',()=>{nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='补充证据已清除';});
+ $('workspaceNativeFile').addEventListener('change',async()=>{
+  const file=$('workspaceNativeFile').files?.[0],id=generation,epoch=++nativeFileEpoch;nativeEvidence=null;nativeReadPending=false;syncControls();
+  const current=()=>epoch===nativeFileEpoch&&id===generation&&!doc.hidden;
+  if(!file){$('workspaceNativeStatus').textContent='补充证据已清除';return;}
+  if(file.size>60000){$('workspaceNativeStatus').textContent='文件超过60KB，未读取';return;}
+  nativeReadPending=true;syncControls();$('workspaceNativeStatus').textContent='正在读取所选补充证据…';
+  try{const raw=await file.text();if(!current())return;const value=JSON.parse(raw);
+   if(!value||Array.isArray(value)||Object.keys(value).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence','marketLinkageEvidence'].includes(k)))throw Error();
+   nativeEvidence=value;$('workspaceNativeStatus').textContent=Object.entries(value).map(([k,v])=>k==='marketLinkageEvidence'?'大盘—板块联动 '+val(v?.benchmark?.name||v?.benchmark?.code)+' / '+val(v?.tradeDate)+' · 封存时校验':(names[k.replace('Evidence','')]||k)+' '+val(v?.symbol)+' / '+val(v?.date||'日价序列')).join('；')+'；比较时仍需校验身份与时间';
+  }catch{if(current())$('workspaceNativeStatus').textContent='评估文件格式无效；缺失保持未知';}
+  finally{if(current()){nativeReadPending=false;syncControls();}}
+ });
+ $('workspaceNativeClear').addEventListener('click',()=>{nativeFileEpoch++;nativeReadPending=false;nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='补充证据已清除';syncControls();});
  function downloadJson(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
  $('workspaceLinkageTemplate')?.addEventListener('click',()=>{
   const r=view?.selectedRun,symbol=r?.symbol||$('workspaceSymbol').value.trim(),provider=r?.provider||$('workspaceProvider').value,date=r?.tradeDate||'';
@@ -253,14 +308,36 @@
   $('workspaceNativeStatus').textContent='已下载空模板；收益和权重按小数填写，时间为毫秒。只填真实证据，再导入并比较已存股票。';
  });
  $('workspaceForecastInput').addEventListener('click',()=>{const input=view?.forecastEvaluation?.input;if(!input)return;downloadJson('tian-shu-forecast-input.json',{input,outputTemplate:view.forecastEvaluation.outputTemplate});$('workspaceForecastStatus').textContent='输入与空模板已导出；预测值、版本与生成时点需由实际运行填写';});
- $('workspaceForecastFile').addEventListener('change',async()=>{modelPrediction=null;$('workspaceForecastFreeze').disabled=true;const file=$('workspaceForecastFile').files?.[0],input=view?.forecastEvaluation?.input,id=generation;if(!file)return;if(!input){$('workspaceForecastStatus').textContent='请先读取研究版本';return;}if(file.size>60000){$('workspaceForecastStatus').textContent='文件超过60KB，未读取';return;}
-  try{const p=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!p||p.inputFingerprint!==input.inputFingerprint||!Array.isArray(p.forecasts))throw Error();modelPrediction=p;$('workspaceForecastStatus').textContent='已选择 '+val(p.model?.id)+' / '+val(p.model?.revision)+' · '+p.forecasts.length+'个周期；封存时校验日期、版本和分位数';$('workspaceForecastFreeze').disabled=historical()||!view?.forecastEvaluation?.freezeAllowed;}catch{$('workspaceForecastStatus').textContent='结果格式或输入指纹不匹配；请使用当前版本导出的输入';}
+ $('workspaceForecastFile').addEventListener('change',async()=>{
+  modelPrediction=null;forecastReadPending=false;$('workspaceForecastFreeze').disabled=true;
+  const file=$('workspaceForecastFile').files?.[0],input=view?.forecastEvaluation?.input,id=generation,epoch=++forecastFileEpoch;
+  const current=()=>epoch===forecastFileEpoch&&id===generation&&!doc.hidden&&view?.forecastEvaluation?.input?.inputFingerprint===input?.inputFingerprint;
+  if(!file){$('workspaceForecastStatus').textContent='所选预测已清除，已封存档案保留';return;}
+  if(!input){$('workspaceForecastStatus').textContent='请先读取研究版本';return;}
+  if(file.size>60000){$('workspaceForecastStatus').textContent='文件超过60KB，未读取';return;}
+  forecastReadPending=true;$('workspaceForecastStatus').textContent='正在读取所选预测…';
+  try{const raw=await file.text();if(!current())return;const p=JSON.parse(raw);
+   if(!p||p.inputFingerprint!==input.inputFingerprint||!Array.isArray(p.forecasts))throw Error();
+   modelPrediction=p;$('workspaceForecastStatus').textContent='已选择 '+val(p.model?.id)+' / '+val(p.model?.revision)+' · '+p.forecasts.length+'个周期；封存时校验日期、版本和分位数';syncControls();
+  }catch{if(current())$('workspaceForecastStatus').textContent='结果格式或输入指纹不匹配；请使用当前版本导出的输入';}
+  finally{if(current())forecastReadPending=false;}
  });
- $('workspaceForecastClear').addEventListener('click',()=>{modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除，已封存档案保留';});
- $('workspaceForecastFreeze').addEventListener('click',async()=>{if(!allowWrite()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction)return;const runId=view.selectedRun.id;const saved=await call({action:'freeze-forecast',runId,requestId:key(),prediction:modelPrediction});if(saved){modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='预测已封存；等待后续真实行情评价';tab='scorecard';offset=0;call(null,{runId});}});
- $('workspaceSavePreferences').addEventListener('click',async()=>{if(!view){status.textContent='请先读取研究记录';return;}
-  if(!allowWrite())return;const result=await call({action:'preferences',requestId:key(),expectedRevision:view.preferences.revision,value:{objective:$('workspaceObjective').value,horizonDays:Number($('workspaceHorizon').value),maxPositionPct:Number($('workspaceMaxWeight').value),avoidSectors:$('workspaceAvoid').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),excludedSymbols:$('workspaceExcluded').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),unresolved:$('workspaceUnresolved').value.split('\n').map(x=>x.trim()).filter(Boolean)}});if(result)call();});
- $('workspaceRestorePreferences').addEventListener('click',async()=>{if(!view||!allowWrite())return;const r=await call({action:'restore-preferences',requestId:key(),expectedRevision:view.preferences.revision,revision:Number($('workspacePreferenceVersion').value)});if(r)call();});
+ $('workspaceForecastClear').addEventListener('click',()=>{forecastFileEpoch++;forecastReadPending=false;modelPrediction=null;$('workspaceForecastFile').value='';syncControls();$('workspaceForecastStatus').textContent='所选预测已清除，已封存档案保留';});
+ $('workspaceForecastFreeze').addEventListener('click',async()=>{if(!allowWrite()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction||request)return;const runId=view.selectedRun.id;const saved=await call({action:'freeze-forecast',runId,requestId:key(),prediction:modelPrediction});if(saved){forecastFileEpoch++;forecastReadPending=false;modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='预测已封存；等待后续真实行情评价';tab='scorecard';offset=0;call(null,{runId});}});
+ $('workspaceSavePreferences').addEventListener('click',async()=>{
+  if(!view||request){status.textContent='请先完成研究记录读取';return;}
+  if(!allowWrite()||preferenceConflicts.size)return;
+  const sent=preferenceValues(),result=await call({action:'preferences',requestId:key(),expectedRevision:preferenceBase?.revision??view.preferences.revision,value:{objective:sent.workspaceObjective,horizonDays:Number(sent.workspaceHorizon),maxPositionPct:Number(sent.workspaceMaxWeight),avoidSectors:sent.workspaceAvoid.split(/[,，]/).map(x=>x.trim()).filter(Boolean),excludedSymbols:sent.workspaceExcluded.split(/[,，]/).map(x=>x.trim()).filter(Boolean),unresolved:sent.workspaceUnresolved.split('\n').map(x=>x.trim()).filter(Boolean)}});
+  if(result){preferenceBase={revision:result.revision,values:sent};preferenceTouched.clear();preferenceConflicts.clear();preferenceNotice();call();}
+ });
+ $('workspaceRestorePreferences').addEventListener('click',async()=>{
+  if(!view||request||!allowWrite())return;const before=preferenceValues();
+  const r=await call({action:'restore-preferences',requestId:key(),expectedRevision:view.preferences.revision,revision:Number($('workspacePreferenceVersion').value)});
+  if(r){preferenceBase=null;preferenceTouched=new Set(Object.keys(preferenceFields).filter(id=>$(id).value!==before[id]));preferenceConflicts.clear();call();}
+ });
+ for(const id of Object.keys(preferenceFields))for(const event of ['input','change'])$(id).addEventListener(event,()=>{if(historical())return;preferenceTouched.add(id);preferenceConflicts.delete(id);preferenceNotice();});
+ $('workspacePreferenceKeepDraft').addEventListener('click',()=>{if(request||historical())return;const focus=[...preferenceConflicts][0];preferenceConflicts.clear();preferenceNotice();if(focus)$(focus).focus();});
+ $('workspacePreferenceDiscardDraft').addEventListener('click',()=>{if(request||historical()||!preferenceBase)return;const ids=preferenceConflicts.size?[...preferenceConflicts]:Object.keys(preferenceFields);for(const id of ids)$(id).value=preferenceBase.values[id];preferenceConflicts.clear();preferenceTouched.clear();preferenceNotice();$(ids[0]).focus();});
  $('workspaceSavePreset').addEventListener('click',async()=>{if(!view||!allowWrite())return;const name=$('workspacePresetName').value,prior=view.presets.find(p=>p.name===name),symbol=$('workspaceSymbol').value.trim();const r=await call({action:'preset',requestId:key(),expectedRevision:prior?.revision||0,value:{name,...(symbol?{symbol}:{}),status:$('workspaceFilterStatus').value,minScore:Number($('workspaceMinScore').value),horizon:Number($('workspaceHorizon').value)}});if(r)call();});
  $('workspacePreset').addEventListener('change',presetVersions);
  $('workspaceRestorePreset').addEventListener('click',async()=>{if(!view||!allowWrite())return;const p=view.presets.find(x=>x.name===$('workspacePreset').value);if(!p)return;const r=await call({action:'restore-preset',name:p.name,revision:Number($('workspacePresetVersion').value),expectedRevision:p.revision,requestId:key()});if(r)call();});
@@ -271,7 +348,7 @@
   if(snapshot.selectedRun?.id)extra.runId=snapshot.selectedRun.id;if(snapshot.screening?.runId)extra.screenId=snapshot.screening.runId;
   const r=await call(null,extra);if(!r)return;const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='tian-shu-research.json';a.click();URL.revokeObjectURL(url);
  });
- for(const id of ['workspaceSymbol','workspaceProvider','workspaceAsOf','workspaceFilterStatus','workspaceMinScore','token'])for(const event of ['input','change'])$(id)?.addEventListener(event,()=>{offset=0;const keep=id==='workspaceFilterStatus'||id==='workspaceMinScore';clear(undefined,id==='token',keep);if(id==='workspaceAsOf')$('workspaceScreenRun').value='';for(const key of ['workspaceReview','workspaceSavePreferences','workspaceRestorePreferences','workspaceSavePreset','workspaceRestorePreset'])$(key).disabled=historical();});
+ for(const id of ['workspaceSymbol','workspaceProvider','workspaceAsOf','workspaceFilterStatus','workspaceMinScore','token'])for(const event of ['input','change'])$(id)?.addEventListener(event,()=>{offset=0;if(id==='workspaceAsOf')switchPreferenceContext();const keep=id==='workspaceFilterStatus'||id==='workspaceMinScore';clear(undefined,id==='token',keep);if(id==='workspaceAsOf')$('workspaceScreenRun').value='';for(const key of ['workspaceReview','workspaceSavePreset','workspaceRestorePreset'])$(key).disabled=historical();});
  for(const id of ['workspaceScreenRun','workspaceCompareRun'])$(id).addEventListener('change',()=>{offset=0;clear(undefined,false,true);call();});
  root.addEventListener?.('offline',()=>clear('网络离线，私有研究视图已清空',true));root.addEventListener?.('pagehide',()=>clear('页面已离开，私有研究视图已清空',true));
  doc.addEventListener('visibilitychange',()=>{if(doc.hidden)clear('页面隐藏，私有研究视图已清空',true);});
