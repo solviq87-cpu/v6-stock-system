@@ -19619,6 +19619,38 @@ function handle(req, res, u, body) {
     (u.searchParams && u.searchParams.get('token')) ||
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
+  // Explicitly enabled, authenticated CAS records on the REAL V6 server.
+  // No configuration => no route. Existing WorkBuddy hosting remains static-only.
+  // This adapter NEVER accepts sharecode/query-token as an account identity.
+  if (p === '/api/records' && process.env.V6_ENABLE_CLOUD_RECORDS_HTTP === '1') {
+    const ledgerRoot = process.env.V6_CLOUD_RECORDS_ROOT;
+    const privatePath = require('node:path');
+    const projectRoot = privatePath.resolve(__dirname);
+    const root = typeof ledgerRoot === 'string' && privatePath.isAbsolute(ledgerRoot)
+      ? privatePath.resolve(ledgerRoot) : null;
+    if (process.env.QD_CLOUD !== '1' || !root ||
+        root === projectRoot || root.startsWith(projectRoot + privatePath.sep)) {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, code: 'CLOUD_RECORDS_NOT_CONFIGURED' }));
+      return;
+    }
+    try {
+      const { createCloudRecordsCasStore } = require('./src/core/cloud-records-cas-store');
+      const { createCloudRecordsHttpHandler } = require('./src/server/cloud-records-http');
+      const adapter = createCloudRecordsHttpHandler({
+        store: createCloudRecordsCasStore(root),
+        authenticate: (bearer, request) => roleOf(bearer, clientIp(request)),
+        sameOrigin: sameOriginOk
+      });
+      return adapter(req, res, body);
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, code: 'CLOUD_RECORDS_UNAVAILABLE' }));
+      return;
+    }
+  }
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
   const isAsset = p === '/model-library.html' || p === '/assets/model-library-catalog.json' || p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/v6-research.html' || p === '/v6-validation.html' || p === '/v6-paper.html' || p === '/v6-market-radar.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
