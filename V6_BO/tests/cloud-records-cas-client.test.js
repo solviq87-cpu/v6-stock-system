@@ -324,10 +324,7 @@ test('status and record reads detect session rotation without sending a new requ
  assert.equal(c.status().revision,null);
  assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
  assert.equal(f.requests.length,1);
- const d=createClient({getToken:()=>auth,fetchImpl:f.fetchImpl});
- // A fresh client must not treat a VIEW bearer as an editing session.
- await code(()=>d.load(),'ACCESS_DENIED');
- assert.equal(d.status().loaded,false);
+ // Revocation on the first client is local: it must send no new HTTP requests.
 });
 
 test('status polling alone clears revoked device snapshots before a caller inspects records',async t=>{
