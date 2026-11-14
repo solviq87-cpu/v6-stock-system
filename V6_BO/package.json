@@ -83,7 +83,11 @@
     "research:sector:pair:register": "node scripts/sector-provider-pair-register.js",
     "research:stock": "node scripts/stock-observation-monitor.js",
     "research:sector:relations": "node scripts/sector-relations-capture-report.js",
-    "news:evidence": "node scripts/news-evidence.js"
+    "news:evidence": "node scripts/news-evidence.js",
+    "data:sources:audit": "node scripts/audit-data-source-lineage.js",
+    "data:history:crosscheck": "node scripts/research-cross-source-history.js",
+    "data:macro:worldbank": "node scripts/collect-worldbank-indicator.js",
+    "test:data:sources": "node --test tests/data-source-lineage.test.js tests/multi-source-publisher-lineage.test.js tests/baostock-historical-normalizer.test.js tests/research-cross-source-history.test.js tests/worldbank-indicators.test.js tests/picks-data-source-evidence.test.js"
   },
   "engines": {
     "node": ">=22.6"
