@@ -133,7 +133,7 @@
     card.append(badges);
     const quoteAt = item.vendorQuoteAt || item.quoteAt;
     const quoteTime = formatAt(quoteAt);
-    card.append(node('p', 'footnote', quoteTime ?
+    card.append(node('p', 'footnote', (quoteTime ?
       '第三方自报报价时点：' + quoteTime + ' · 未经交易所实时性认证' :
       '逐票报价原始时点：未知（不能当实时价）') + ' · ' + quoteEvidence(item)));
     const link = node('a', '', '查看策略研究与详细风控');
