@@ -7,6 +7,11 @@ test('every conclusion links evidence; real zero survives and missing original t
  assert.equal(c.value,0);assert.equal(c.status,'fail');assert.equal(e.value,0);assert.equal(e.sourceTimestamp,null);assert.equal(e.receivedAt,r.asOf);
  assert.ok(r.conditions.every(c=>c.evidenceIds.length&&c.evidenceIds.every(id=>r.evidence.some(e=>e.id===id))));assert.equal(r.sourceRefs[0].url,'https://example.org/data');assert.equal(r.canTrade,false);
 });
+test('benchmark imports reject future days, impossible dates and prices claimed before the opening',()=>{
+ const f=fixture(),b={symbol:'000001',provider:'tencent',source:'synthetic-index',priceBasis:'unadjusted',frequency:'1d',bars:[{date:dates[70],open:100,knownAt:at(70)}]};
+ assert.ok(D.buildWorkspaceDecision(f,{benchmarkEvidence:b}).benchmarkSeries);
+ for(const patch of [{date:dates[71]},{date:'2026-02-30'},{knownAt:at(70,'09:29')}])assert.throws(()=>D.buildWorkspaceDecision(f,{benchmarkEvidence:{...b,bars:[{...b.bars[0],...patch}]}}),/基准/);
+});
 test('field evidence received in the future cannot become an observed fact',()=>{
  const f=fixture();f.research36.evaluations[0].checks[0].evidence.recordedAt=f.asOf+1;
  const r=D.buildWorkspaceDecision(f),e=r.evidence.find(x=>x.field==='funds');assert.equal(e.value,null);assert.equal(e.status,'unknown');

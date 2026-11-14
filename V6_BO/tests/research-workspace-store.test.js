@@ -19,6 +19,10 @@ test('immutable hashed events survive process restart, preserve 0/null, and have
  assert.throws(()=>S.appendEvent(root,'diagnostic',{bad:NaN},{requestId:'test_record_0002'}),/有限JSON/);
  assert.throws(()=>S.appendEvent(root,'diagnostic',{asOf:Date.now()+10000},{requestId:'test_record_0002'}),/未来/);
 });
+test('backward append time is rejected before publishing a corrupt history link',t=>{
+ const {root}=setup(t),now=Date.now()-1000;S.appendEvent(root,'diagnostic',{stage:'first'},{requestId:'clock_test_001',now});
+ assert.throws(()=>S.appendEvent(root,'diagnostic',{stage:'older'},{requestId:'clock_test_002',now:now-1}),/时钟回退/);assert.equal(S.readEvents(root).length,1);
+});
 for(const defect of ['content','gap','symlink','permission','unknown-file'])test('tampered workspace rejects '+defect+' without repairing history',t=>{
  const {root,dir}=setup(t);S.appendEvent(root,'diagnostic',{stage:'saved'},{requestId:'tamper_test_001'});const file=path.join(root,'000001.json');
  if(defect==='content'){const e=JSON.parse(fs.readFileSync(file));e.data.stage='changed';fs.writeFileSync(file,JSON.stringify(e));}

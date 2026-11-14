@@ -2,10 +2,11 @@
 const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto'),{performance}=require('node:perf_hooks');
 const store=require('./research-workspace-store'),decision=require('./research-workspace-decision'),analytics=require('./research-workspace-analytics');
 const checks=require('./research-workspace-diagnostics');
+const modelForecast=require('./model-forward-evaluation');
 const array=x=>Array.isArray(x)?x:[];
 const rootOf=options=>options.workspaceRoot||path.join(path.dirname(options.observationRoot),'research-workspace');
 function codeVersion(){
- const files=['research-workspace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','../strategy/rule-comparison.js'];
+ const files=['research-workspace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','model-forward-evaluation.js','../strategy/rule-comparison.js'];
  return {fingerprint:store.digest(files.map(f=>({file:f,sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,f))).digest('hex')}))),
   commit:/^[a-f0-9]{40}$/.test(process.env.V6_SOURCE_COMMIT||'')?process.env.V6_SOURCE_COMMIT:null};
 }
@@ -79,6 +80,7 @@ function saveSettings(root,input){
   return store.appendEvent(root,'preset',{name:v.name,symbol:v.symbol??null,status:v.status??'all',minScore:v.minScore??0,horizon:v.horizon??5},{requestId,expectedRevision});
  }throw Error('未知研究设置操作');
 }
+function saveModelForecast(root,input){return modelForecast.freezeForecast(root,store.readEvents(root),input);}
 function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now()}={}){
  const asOf=query.asOf??now,events=store.readEvents(root,{asOf});
  if(query.symbol!==undefined&&!/^\d{6}$/.test(query.symbol)||query.offset!==undefined&&(!Number.isSafeInteger(query.offset)||query.offset<0)||
@@ -102,6 +104,10 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
  const offset=query.offset??0,limit=query.limit??20;
  const history=symbol?analytics.timeline(events,symbol,asOf):[];
  const scorecard=analytics.scorecards(events,{asOf}),outcomes=scorecard.observations.filter(o=>!query.symbol||o.symbol===query.symbol);
+ const forecastEvaluation=modelForecast.evaluationView(root,events,{asOf,symbol:query.symbol,runId:query.runId,offset,limit});
+ try{forecastEvaluation.input=latest?modelForecast.prepareInput(latest):null;}catch{forecastEvaluation.input=null;forecastEvaluation.inputReason='所选研究缺少可核对的闭合价格、证券身份或交易日历';}
+ forecastEvaluation.outputTemplate=forecastEvaluation.input?modelForecast.outputTemplate(forecastEvaluation.input):null;
+ forecastEvaluation.freezeAllowed=query.asOf===undefined&&forecastEvaluation.status==='available'&&!!forecastEvaluation.input&&now<forecastEvaluation.input.freezeDeadline;
  return {schemaVersion:1,mode:'research-workspace',asOf,...store.FLAGS,
   selectedRun:latest?{id:latest.hash,sequence:latest.sequence,recordedAt:latest.recordedAt,...latest.data}:null,
   runs:{total:runs.length,offset,limit,rows:runs.slice().reverse().slice(offset,offset+limit).map(e=>({id:e.hash,recordedAt:e.recordedAt,symbol:e.data.symbol,name:e.data.name,provider:e.data.provider,tradeDate:e.data.tradeDate,regime:e.data.regime,codeVersion:e.data.codeVersion}))},
@@ -111,6 +117,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
     funnel:screen?.data.funnel||null,lookupStatus:!screen?'no-screen-run':!evaluated?'not-evaluated-in-this-run':!screenRows.length?'filtered-out':'available',provenance:screen?.data.provenance||null},
   scorecard:{...scorecard,observations:outcomes.slice(offset,offset+limit),observationTotal:outcomes.length,offset,limit,stress:[{feeBps:16,slippageBps:30,sellTaxBps:5},{feeBps:32,slippageBps:50,sellTaxBps:5}].map(cost=>({assumptions:cost,groups:analytics.scorecards(events,{asOf,...cost}).groups}))},quality:analytics.qualityReport(latest?.data),
   inputAudit:checks.inputAudit(latest?.data),pairedComparison:checks.pairedComparison(latest?.data,compared?.data),drift:checks.driftReport(events,asOf),
+  forecastEvaluation,
   publicModelComparison:new Date(asOf+28800000).toISOString().slice(0,10)>='2026-11-14'?require('../../config/public-model-comparison-20261114.json'):{models:[],reason:'对照目录晚于回放时点，不作为当时已知资料'},
   defense:query.asOf===undefined?analytics.holdingDefense(events,accounts,quotes,asOf,preferences?.data):{rows:[],exposures:[],reason:'历史回放不借用当前持仓；原账本没有该时点快照'},
   preferences:{revision:preferences?.revision||0,value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
@@ -123,6 +130,7 @@ function exportResearch(view){
  return {schemaVersion:1,mode:'research-reproducible-export',...store.FLAGS,asOf:view.asOf,run:view.selectedRun,
   timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
   inputAudit:view.inputAudit,pairedComparison:view.pairedComparison,drift:view.drift,
+  forecastEvaluation:view.forecastEvaluation,
   omitted:['实际账户持仓、成本、令牌、Webhook和私有文件路径'],scope:'selected-private-research-evidence-only'};
 }
-module.exports={rootOf,codeVersion,trace,saveObservation,saveDiagnostic,reviewStored,saveScreen,saveSettings,workspaceView,exportResearch};
+module.exports={rootOf,codeVersion,trace,saveObservation,saveDiagnostic,reviewStored,saveScreen,saveSettings,saveModelForecast,workspaceView,exportResearch};

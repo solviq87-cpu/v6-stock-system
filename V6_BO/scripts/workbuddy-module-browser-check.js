@@ -137,7 +137,11 @@ test('collapsible business modules preserve mobile/desktop interactions and loca
 
           const module = page.locator('#main [data-v6-module]').first();
           const toggle = module.locator('[data-module-toggle]').first();
-          const ownHandlerKeptNode = await toggle.evaluate(button => {
+          // News may render between locator resolution and evaluation. Resolve
+          // and click in one browser task to isolate this synchronous handler.
+          const ownHandlerKeptNode = await page.evaluate(() => {
+            const button = document.querySelector('#main [data-v6-module]')?.querySelector('[data-module-toggle]');
+            if (!button) throw new Error('module toggle missing before synchronous click');
             button.dataset.fixtureSentinel = 'same-node';
             button.click();
             const kept = document.contains(button) && button.dataset.fixtureSentinel === 'same-node';

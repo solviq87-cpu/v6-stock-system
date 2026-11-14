@@ -2,7 +2,7 @@
  'use strict';
  const doc=root.document;if(!doc?.getElementById('researchWorkspace'))return;
  const $=id=>doc.getElementById(id),host=$('workspaceContent'),status=$('workspaceStatus');
- let view=null,tab='evidence',offset=0,generation=0,request=null,undo=null,nativeEvidence=null;
+ let view=null,tab='evidence',offset=0,generation=0,request=null,undo=null,nativeEvidence=null,modelPrediction=null;
  const tabs={evidence:'结论与证据',timeline:'判断变化',systems:'四体系分歧',screening:'筛选与落选',market:'市场与题材',scorecard:'策略成绩',defense:'持仓防守',diagnostics:'分析诊断'};
  const names={pass:'满足',fail:'未满足',unknown:'未知',selected:'已入选',rejected:'未入选','coverage-only':'证据覆盖',
   'first-observation':'首次观察',added:'新增条件',removed:'不再提供','observed-change':'观察变化','data-revision':'同日数据修订','rule-version-changed':'规则改版',
@@ -13,6 +13,7 @@
   'observed-unverified':'已有观察，未认证',quality:'来源与质量',risk:'风险过滤',strategy:'策略条件',eligibility:'候选资格','paper-estimate':'含成本纸面估计'};
  Object.assign(names,{available:'已有本轮记录',partial:'部分完成',started:'正在进行',pending:'待到期','descriptive-only':'仅描述统计','not-evaluated':'尚未评估','unverified-execution':'成交证据不足',
   'user-uploaded-unverified':'用户上传，未验证','server-memory-cache-unverified':'内存历史缓存，未验证','persisted-unverified-cache':'磁盘历史缓存，未验证'});
+ Object.assign(names,{'missing-outcome':'已到期，缺后续行情','unusable-outcome':'结果证据不可用','repeated-origin':'同日同配置重复，未增加样本','input-unavailable':'原输入不可核对',point:'点值',mean:'均值预测',median:'中位数预测'});
  const val=x=>x===null||x===undefined?'未知':typeof x==='object'?JSON.stringify(x):String(x),label=x=>names[x]||val(x);
  const arr=x=>Array.isArray(x)?x:[];
  const clock=x=>Number.isSafeInteger(x)&&x>0?new Date(x).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未知';
@@ -24,6 +25,7 @@
  function key(){return 'web_'+(root.crypto?.randomUUID?.().replace(/-/g,'')||Date.now().toString(36)+Math.random().toString(36).slice(2));}
  function clear(message='输入或权限已变化，请重新读取',privacy=false){
   generation++;request?.abort();request=null;view=null;host.replaceChildren();status.textContent=message;
+  modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastInput').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除；读取研究版本后可继续';
   nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';
   if(privacy){nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])$(id).value='';
    $('workspaceHorizon').value='5';$('workspaceMaxWeight').value='30';
@@ -108,6 +110,7 @@
    if(!view.scorecard?.groups?.length)line(c,'样本','尚未积累冻结判断和后续结果，不生成示例成绩');
    for(const text of arr(view.scorecard?.limitations))node('p',text,c);
    for(const scenario of arr(view.scorecard?.stress)){const d=detail(c,'费用压力：佣金 '+scenario.assumptions.feeBps+'bp / 滑点 '+scenario.assumptions.slippageBps+'bp');for(const g of scenario.groups)line(d,label(g.system)+' / '+g.horizon+'日',g.averageNetReturnPct===null?'缺少可成交样本':g.averageNetReturnPct+'%（纸面估计）');}
+   renderForecasts(view.forecastEvaluation);
   }else if(tab==='defense'){
    const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));}
    for(const e of arr(view.defense?.exposures))line(c,e.name+'共同暴露',e.symbols.join('、')+' · '+val(e.weightPct)+'%');
@@ -122,8 +125,27 @@
    const models=detail(c,'公开模型对照与借鉴');for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
   }
  }
+ function renderForecasts(f){
+  const c=card('模型预测前向评测');if(!f||f.status==='unavailable'){line(c,'状态',f?.reason||'暂无预测档案');return;}
+  line(c,'范围',f.scope?.runId?'所选研究版本':f.scope?.symbol?'所选股票':'全部已保存预测');line(c,'比较口径','预测误差，不是可成交收益或上涨概率');
+  line(c,'对照范围',f.inputComparison);
+  line(c,'配置统计 / 预测记录',val(f.groupTotal)+' / '+val(f.total)+'；按页读取');
+  if(!arr(f.groups).length)line(c,'记录','尚无封存预测；可展开“模型预测与前向评测”导入结果');
+  for(const g of arr(f.groups)){const d=detail(c,g.model.id+' · '+g.model.revision+' · '+g.horizon+'日 · '+label(g.status));
+   line(d,'来源 / 点值类型',g.provider+' / '+label(g.pointKind));line(d,'全部 / 已到期有价 / 待到期 / 缺价 / 不可用 / 重复',[g.total,g.matured,g.pending,g.missing,g.invalid,g.repeated].join(' / '));
+   line(d,'平均绝对误差 / 前值基线 / 趋势基线',[g.mae,g.naiveMae,g.driftMae].map(val).join(' / ')+' 元');line(d,'相对前值基线',g.relativeMae===null?'无可计算比值（基线误差为零或无样本）':g.relativeMae+' 倍');
+   line(d,'分位数平均损失',g.pinballLoss);line(d,'区间覆盖 / 区间目标覆盖',val(g.intervalCoveragePct)+'% / '+val(g.nominalCoveragePct)+'%（'+g.intervalSamples+'样本）');
+   line(d,'平均区间宽度',val(g.meanIntervalWidth)+' 元；更宽的区间不能只凭覆盖率认定更好');
+   line(d,'不同股票 / 信号日 / 非重叠窗口',[g.symbols,g.signalDays,g.nonOverlappingWindows].join(' / '));line(d,'后续行情修订',g.revisedOutcomes);line(d,'训练截止期',g.model.trainingCutoff||'未知');line(d,'模型执行与耗时','来自明确导入，尚未由本系统核验');
+  }
+  for(const pair of arr(f.pairs?.rows)){const d=detail(c,'同输入配对 '+pair.modelA.id+' / '+pair.modelB.id+' · '+pair.horizon+'日');line(d,'完全匹配样本',pair.samples);line(d,'平均绝对误差 A / B',pair.maeA+' / '+pair.maeB+' 元');line(d,'误差差值 A−B',pair.deltaMaeAminusB+' 元；负值表示A误差较小');line(d,'统计范围','仅描述配对交集；独立性和获利均未认证');}
+  for(const r of arr(f.rows)){const d=detail(c,r.symbol+' · '+r.modelId+' · '+r.targetDate+' · '+label(r.status));line(d,'原观察日 / 周期',r.originDate+' / '+r.horizon+'日');line(d,'预测 / 首次收到的收盘价',val(r.point)+' / '+val(r.actual));line(d,'绝对误差 / 前值误差',val(r.absoluteError)+' / '+val(r.naiveError));line(d,'输入指纹',r.inputFingerprint);if(r.revisedOutcome)line(d,'后续版本收盘价',r.latestObservedClose+'；首次评价不被改写');}
+  if(f.total)pagination(f.total);for(const text of arr(f.limitations))node('p',text,c);if(f.pairs?.limitedGroups)line(c,'配对上限','部分组合超过16个配置或256组，已保留原记录');
+ }
  function settings(){
   const p=view.preferences;$('workspaceObjective').value=p.value.objective;$('workspaceHorizon').value=String(p.value.horizonDays);$('workspaceMaxWeight').value=p.value.maxPositionPct??30;
+  const forecast=view.forecastEvaluation;if(modelPrediction&&modelPrediction.inputFingerprint!==forecast?.input?.inputFingerprint){modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='研究输入已变化，请为当前版本重新选择预测结果';}
+  $('workspaceForecastInput').disabled=!forecast?.input;$('workspaceForecastFreeze').disabled=historical()||!forecast?.freezeAllowed||!modelPrediction;
   $('workspaceAvoid').value=p.value.avoidSectors.join('，');$('workspaceExcluded').value=p.value.excludedSymbols.join('，');$('workspaceUnresolved').value=p.value.unresolved.join('\n');
   $('workspacePreferenceVersion').replaceChildren();for(const h of p.history){const o=node('option','版本 '+h.revision+' · '+clock(h.recordedAt),$('workspacePreferenceVersion'));o.value=String(h.revision);}
   const preset=$('workspacePreset').value;$('workspacePreset').replaceChildren();for(const p of view.presets){const o=node('option',p.name,$('workspacePreset'));o.value=p.name;}if(view.presets.some(x=>x.name===preset))$('workspacePreset').value=preset;presetVersions();
@@ -138,6 +160,13 @@
  $('workspaceReview').addEventListener('click',async()=>{if(!allowWrite())return;const symbol=$('workspaceSymbol').value.trim();if(!/^\d{6}$/.test(symbol)){status.textContent='比较已存股票需要六位代码';return;}const r=await call({action:'review',symbol,provider:$('workspaceProvider').value,requestId:key(),...(nativeEvidence?{nativeEvidence}:{})});if(r)call(null,{runId:r.runId});});
  $('workspaceNativeFile').addEventListener('change',async()=>{const file=$('workspaceNativeFile').files?.[0],id=generation;nativeEvidence=null;if(!file)return;if(file.size>60000){$('workspaceNativeStatus').textContent='文件超过60KB，未读取';return;}try{const value=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!value||Array.isArray(value)||Object.keys(value).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence'].includes(k)))throw Error();nativeEvidence=value;$('workspaceNativeStatus').textContent=Object.entries(value).map(([k,v])=>(names[k.replace('Evidence','')]||k)+' '+val(v.symbol)+' / '+val(v.date||'日价序列')).join('；')+'；比较时仍需校验身份与时间';}catch{$('workspaceNativeStatus').textContent='评估文件格式无效；缺失保持未知';}});
  $('workspaceNativeClear').addEventListener('click',()=>{nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='补充证据已清除';});
+ function downloadJson(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+ $('workspaceForecastInput').addEventListener('click',()=>{const input=view?.forecastEvaluation?.input;if(!input)return;downloadJson('tian-shu-forecast-input.json',{input,outputTemplate:view.forecastEvaluation.outputTemplate});$('workspaceForecastStatus').textContent='输入与空模板已导出；预测值、版本与生成时点需由实际运行填写';});
+ $('workspaceForecastFile').addEventListener('change',async()=>{modelPrediction=null;$('workspaceForecastFreeze').disabled=true;const file=$('workspaceForecastFile').files?.[0],input=view?.forecastEvaluation?.input,id=generation;if(!file)return;if(!input){$('workspaceForecastStatus').textContent='请先读取研究版本';return;}if(file.size>60000){$('workspaceForecastStatus').textContent='文件超过60KB，未读取';return;}
+  try{const p=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!p||p.inputFingerprint!==input.inputFingerprint||!Array.isArray(p.forecasts))throw Error();modelPrediction=p;$('workspaceForecastStatus').textContent='已选择 '+val(p.model?.id)+' / '+val(p.model?.revision)+' · '+p.forecasts.length+'个周期；封存时校验日期、版本和分位数';$('workspaceForecastFreeze').disabled=historical()||!view?.forecastEvaluation?.freezeAllowed;}catch{$('workspaceForecastStatus').textContent='结果格式或输入指纹不匹配；请使用当前版本导出的输入';}
+ });
+ $('workspaceForecastClear').addEventListener('click',()=>{modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除，已封存档案保留';});
+ $('workspaceForecastFreeze').addEventListener('click',async()=>{if(!allowWrite()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction)return;const runId=view.selectedRun.id;const saved=await call({action:'freeze-forecast',runId,requestId:key(),prediction:modelPrediction});if(saved){modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastStatus').textContent='预测已封存；等待后续真实行情评价';tab='scorecard';offset=0;call(null,{runId});}});
  $('workspaceSavePreferences').addEventListener('click',async()=>{if(!view){status.textContent='请先读取研究记录';return;}
   if(!allowWrite())return;const result=await call({action:'preferences',requestId:key(),expectedRevision:view.preferences.revision,value:{objective:$('workspaceObjective').value,horizonDays:Number($('workspaceHorizon').value),maxPositionPct:Number($('workspaceMaxWeight').value),avoidSectors:$('workspaceAvoid').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),excludedSymbols:$('workspaceExcluded').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),unresolved:$('workspaceUnresolved').value.split('\n').map(x=>x.trim()).filter(Boolean)}});if(result)call();});
  $('workspaceRestorePreferences').addEventListener('click',async()=>{if(!view||!allowWrite())return;const r=await call({action:'restore-preferences',requestId:key(),expectedRevision:view.preferences.revision,revision:Number($('workspacePreferenceVersion').value)});if(r)call();});

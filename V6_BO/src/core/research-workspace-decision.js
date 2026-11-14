@@ -25,7 +25,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  if(benchmarkEvidence!==undefined){
   const b=benchmarkEvidence;
   if(b?.provider!==stock.provider||b.priceBasis!=='unadjusted'||b.frequency!=='1d'||typeof b.symbol!=='string'||!/^\d{6}$/.test(b.symbol)||
-   typeof b.source!=='string'||!b.source.trim()||!Array.isArray(b.bars)||b.bars.length>500||b.bars.some((x,i)=>!/^\d{4}-\d{2}-\d{2}$/.test(x.date)||i&&b.bars[i-1].date>=x.date||!finite(x.open)||x.open<=0||!known(x.knownAt,at)))throw Error('基准必须提供同来源、同未复权口径的已知开盘价序列');
+   typeof b.source!=='string'||!b.source.trim()||!Array.isArray(b.bars)||b.bars.length>500||b.bars.some((x,i)=>!/^\d{4}-\d{2}-\d{2}$/.test(x.date)||!Number.isFinite(Date.parse(x.date))||new Date(x.date).toISOString().slice(0,10)!==x.date||x.date>day(at)||i&&b.bars[i-1].date>=x.date||!finite(x.open)||x.open<=0||!known(x.knownAt,at)||x.knownAt<Date.parse(x.date+'T09:30:00+08:00')))throw Error('基准必须提供同来源、同未复权口径的已知开盘价序列');
   benchmarkSeries={provider:b.provider,symbol:b.symbol,source:b.source,priceBasis:b.priceBasis,frequency:b.frequency,bars:b.bars.map(x=>({date:x.date,open:x.open,knownAt:x.knownAt}))};
  }
  const linked=bundle?.symbol===stock.symbol&&bundle.provider===stock.provider&&bundle.priceBasis===stock.priceBasis&&bundle.observationHash===r.observation?.observationHash&&known(bundle.decisionAt,at)&&known(bundle.recordedAt,Date.now());
