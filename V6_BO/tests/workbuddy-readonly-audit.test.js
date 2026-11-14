@@ -29,12 +29,12 @@ test('all four exact same-origin paths are read-only and only hashed metadata is
     assert.equal(options.redirect, 'error');
     assert.equal(options.referrerPolicy, 'no-referrer');
     paths.push(parsed.pathname);
-    if (parsed.pathname === '/') return new Response('<h1>private</h1>', { status: 200 });
+    if (parsed.pathname === '/') return new Response('<!DOCTYPE html><html><h1>private</h1></html>', { status: 200 });
     if (parsed.pathname === '/api/records') return json({ ok: true, records: [
       { name: 'v6.app.state', content: JSON.stringify({ revision: 2, cash: 1000, positions: [], orders: [], privatePassword: 'sensitive-account-data' }) },
       { name: 'v6.news.pool', content: '{}' }
     ] });
-    return json({ ok: true, password: 'sensitive-account-data', site: { html: '<h1>private</h1>' } });
+    return json({ ok: true, password: 'sensitive-account-data', site: { html: '<!DOCTYPE html><html><h1>private</h1></html>' } });
   } });
   assert.deepEqual(paths, PATHS);
   assert.equal(result.ok, true);
@@ -185,4 +185,21 @@ test('record payloads are never printed, including unknown shape and transport f
   assert.equal(response.code,'ledger-unverified');
   assert.ok(!printed.includes(sensitive));
   assert.ok(!printed.includes(SECRET));
+});
+
+test('a JSON document returned at root is not accepted as identical HTML', async () => {
+  const jsonDocument = '{"ok":true,"records":[]}';
+  const result=await audit({ sharecode:SECRET, request(url) {
+    const p=new URL(url).pathname;
+    if(p === '/') return new Response(jsonDocument, {status:200});
+    if(p === '/api/site') return json({ok:true,site:{html:jsonDocument}});
+    if(p === '/api/records') return json({ok:true,records:[
+      {name:'v6.app.state',content:JSON.stringify({revision:1,cash:0,positions:[],orders:[]})}
+    ]});
+    return json({ok:true});
+  }});
+  assert.equal(result.htmlMatch,null);
+  assert.equal(result.pageIntegrity,'unverified');
+  assert.equal(result.code,'site-html-unverified');
+  assert.equal(result.ok,false);
 });
