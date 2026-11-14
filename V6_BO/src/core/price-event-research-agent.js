@@ -80,9 +80,10 @@ function statistics(state){
   probabilityMeaning:'仅同一原始日K收盘相对开盘三态事件；不是收益、涨停或可成交胜率',minIndependentDays:MIN_DAYS,...flags};
 }
 function version(state){const n=new Set(state.outcomes.map(o=>o.targetDate)).size;return {number:1+Math.max(0,n-MIN_DAYS+1),stage:n<MIN_DAYS?'collecting-frozen-outcomes':'research-statistics-ready',independentTargetDays:n,ruleVersion:RULE,candidateSeed:'fixed-pattern-library-seed-v1',candidateBudget:1,productionWeightsChanged:false};}
-function summarize(id,state,revision,status){return {status,objective:OBJECTIVE,...id,revision,currentHypothesis:state.hypotheses.at(-1)||null,
+function summarize(id,state,revision,status,asOf=Date.now()){return {status,objective:OBJECTIVE,...id,revision,currentHypothesis:state.hypotheses.at(-1)||null,
  pendingTargets:state.hypotheses.filter(h=>!state.outcomes.some(o=>o.hypothesisHash===h.hypothesisHash)).map(h=>({symbol:id.symbol,provider:id.provider,priceBasis:id.priceBasis,targetDate:h.targetDate,dueAt:h.dueAt,createdAt:h.recordedAt,calendarHash:h.calendarHash,hypothesisHash:h.hypothesisHash})),
- forwardValidation:statistics(state),version:version(state),correctionCount:state.corrections.length,...flags};}
+ forwardValidation:statistics(state),version:version(state),correctionCount:state.corrections.length,
+ timeline:require('./research-decision-review').buildHypothesisTimeline(state,asOf),...flags};}
 function advancePriceEventResearch(root,input){
  const now=Date.now(),v=validate(input,now),dir=location(root,v.id,true);
  for(let attempt=0;attempt<5;attempt++){
@@ -142,7 +143,7 @@ function readPriceEventResearch(root,{symbol,provider,asOf=Date.now()}={}){
    const dir=privateDir(path.join(base,s)),ids=fs.readdirSync(dir);if(ids.length>20||ids.some(id=>!sealed(id)))throw Error('研究身份目录无效');
    for(const id of ids){if(provider!==undefined&&id!==hash([provider,'unadjusted']))continue;
     const last=readChain(privateDir(path.join(dir,id)),asOf).selected;
-    if(last){if(last.identity.symbol!==s||hash([last.identity.provider,last.identity.priceBasis])!==id)throw Error('研究档案身份不一致');streams.push(summarize(last.identity,last.state,last.revision,'stored-research'));for(const outcome of last.state.outcomes)targetDays.add(outcome.targetDate);}
+    if(last){if(last.identity.symbol!==s||hash([last.identity.provider,last.identity.priceBasis])!==id)throw Error('研究档案身份不一致');streams.push(summarize(last.identity,last.state,last.revision,'stored-research',asOf));for(const outcome of last.state.outcomes)targetDays.add(outcome.targetDate);}
    }
   }
  }

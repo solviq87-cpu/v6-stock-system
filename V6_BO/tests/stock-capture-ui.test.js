@@ -61,7 +61,8 @@ test('changed token or selection cannot render old response even without dispatc
 });
 test('selection event aborts request and late errors cannot clear newer evidence', async () => {
   let rejectFirst; let count = 0;
-  const { get, calls } = setup(() => ++count === 1 ? new Promise((_, reject) => { rejectFirst = reject; }) : fixture());
+  const newer = fixture(); newer.result.stock.symbol = '600001';
+  const { get, calls } = setup(() => ++count === 1 ? new Promise((_, reject) => { rejectFirst = reject; }) : newer);
   get('captureSymbol').value = '600000'; const old = get('captureRun').click();
   get('captureSymbol').value = '600001'; get('captureSymbol').handlers.input();
   assert.equal(calls[0].options.signal.aborted, true);

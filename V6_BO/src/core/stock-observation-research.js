@@ -13,6 +13,7 @@ const {fetchPublicStockStatusEvidence}=require('./public-stock-status-evidence')
 const {freezeResearchEvidenceBundle,readResearchEvidenceBundle}=require('./research-evidence-bundle');
 const {advancePriceEventResearch,readPriceEventResearch}=require('./price-event-research-agent');
 const {scheduleStockResearchFollowup}=require('./stock-research-followups');
+const {buildDecisionReview}=require('./research-decision-review');
 function researchPaths(options){
  const base=path.dirname(options.observationRoot);
  return {evidenceRoot:options.evidenceRoot||path.join(base,'stock-research-evidence'),
@@ -200,6 +201,7 @@ async function observeStock(options,dependencies={}){
  catch{result.watch={status:'failed',reason:'日终观察登记未完成',...flags};}
  const frozenHash=result.priceEventResearch.currentHypothesis?.evidenceBundleHash;
  result.hypothesisEvidence=frozenHash?(frozenHash===evidenceBundle.hash?evidenceBundle:readResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,asOf:Date.now(),hash:frozenHash})):null;
+ result.decisionReview=buildDecisionReview(result,{viewAt:Date.now()});
  return result;
 }
 function readStockObservationResearch({symbol,provider},dependencies={}){
@@ -219,6 +221,7 @@ function readStockObservationResearch({symbol,provider},dependencies={}){
  result.priceEventResearch=research.streams[0]||{status:'empty',...flags};
  const frozenHash=result.priceEventResearch.currentHypothesis?.evidenceBundleHash;
  result.hypothesisEvidence=frozenHash?readResearchEvidenceBundle(roots.evidenceRoot,{symbol,provider,asOf,hash:frozenHash}):null;
+ result.decisionReview=buildDecisionReview(result);
  return result;
 }
 module.exports={observeStock,readStockObservationResearch,buildObservationResearch,archiveRawEvidence,sectorCaptureResearch,researchPaths};

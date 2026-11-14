@@ -10,6 +10,7 @@ function renderScan(r){
  const risks=items.filter(x=>(x.patterns?.riskCount||0)>0);
  const pools=r.patternPools||{};
  $('summary').innerHTML=card('扫描总数',r.total)+card('原有风险过滤后候选',r.eligible)+card('看涨战法命中',positives.length)+card('看跌形态预警',risks.length)+card('行情质量拒绝',r.rejected)+card('模拟来源',r.simulated)+card('公告风险线索',items.filter(x=>(x.issuerEvidence?.riskClues?.length||0)>0).length);
+ globalThis.V6DecisionReview?.renderFunnel($('summary'),r.screeningFunnel);
  $('resultTitle').textContent='A股战法研究池 · 任意一套完整战法命中即可入观察池';
  const grouped=Object.entries(pools);
  $('patternPools').innerHTML=grouped.length?'<p class="muted">研究股票池与原正式精选池分开：同股可进入多个池，风险池不抵消看涨信号。历史数据仅供回测，不代表可实时交易。</p>'+
@@ -190,15 +191,22 @@ $('fetchLiveBreadth').onclick=async()=>{
 };
 
 // F01: Four independent rule systems. Render text through esc() only.
+let ruleRevision=0,ruleRequest=null;
+function clearRuleReview(){ruleRevision++;ruleRequest?.abort();ruleRequest=null;$('ruleSummary').replaceChildren();$('ruleDetails').replaceChildren();$('ruleAnalyze').disabled=false;$('ruleStatus').textContent='输入或连接已更改，请重新读取';}
+for(const id of ['rulePayload','token'])for(const event of ['input','change'])$(id).addEventListener(event,clearRuleReview);
+globalThis.addEventListener?.('offline',clearRuleReview);globalThis.addEventListener?.('pagehide',clearRuleReview);
 $('ruleAnalyze').onclick=async()=>{
  const button=$('ruleAnalyze'),status=$('ruleStatus'),summary=$('ruleSummary'),details=$('ruleDetails');
+ const id=++ruleRevision, input=$('rulePayload').value, token=$('token').value.trim();
+ ruleRequest?.abort();const controller=new AbortController();ruleRequest=controller;
+ const current=()=>id===ruleRevision&&input===$('rulePayload').value&&token===$('token').value.trim();
+ const timer=setTimeout(()=>controller.abort(),30000);
  button.disabled=true;summary.replaceChildren();details.replaceChildren();status.textContent='正在对照原始规则…';
  try{
-  const payload=JSON.parse($('rulePayload').value||'{}');
-  const token=$('token').value.trim();
-  const response=await fetch('/api/research/rule-comparison',{method:'POST',
+  const payload=JSON.parse(input||'{}');
+  const response=await fetch('/api/research/rule-comparison',{method:'POST',cache:'no-store',signal:controller.signal,
    headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},body:JSON.stringify(payload)});
-  const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'规则对照失败');
+  const data=await response.json();if(!current())return;if(!response.ok||!data.ok)throw Error(data.error||'规则对照失败');
   const systems=data.analysis?.systems||{};
   const percent=n=>Number.isFinite(n)?(100*n).toFixed(1)+'%':'—';
   const blocks=[];
@@ -215,9 +223,10 @@ $('ruleAnalyze').onclick=async()=>{
   for(const strategy of systems.gpt||[])add('GPT · '+(strategy.name||'策略'),strategy);
   add('Python 三轮',systems.python);
   details.innerHTML=blocks.join('');
+  globalThis.V6DecisionReview?.renderDisagreement(details,data.analysis?.interpretation);
   status.textContent='规则对照完成：各体系独立显示；未知数据不算失败，评分不相加，不改变线上选股排名。';
- }catch(e){status.textContent='规则对照失败：'+e.message;}
- finally{button.disabled=false;}
+ }catch(e){if(current()){summary.replaceChildren();details.replaceChildren();status.textContent='规则对照失败：'+(e.name==='AbortError'?'请求已停止':e.message);}}
+ finally{clearTimeout(timer);if(id===ruleRevision){ruleRequest=null;button.disabled=false;if(!current()){summary.replaceChildren();details.replaceChildren();status.textContent='输入或权限已更改，请重新读取';}}}
 };
 
 // C03/F01: Single-request public market research + existing candidate intersection.

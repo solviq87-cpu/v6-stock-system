@@ -1,0 +1,9 @@
+.research-review{margin-top:20px;min-width:0;overflow-wrap:anywhere}
+.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.review-card{min-width:0;border:1px solid #30496a;border-top:3px solid #73adf0;border-radius:10px;padding:14px;background:#142237;margin:10px 0;overflow-wrap:anywhere}
+#summary>.review-card{grid-column:1/-1}
+.review-grid .review-card{margin:0}.review-card h4{margin:0 0 12px;color:#dbeaff}.review-card p{font-size:14px;line-height:1.65;margin:8px 0}
+.review-action{border-top-color:#e8bd69}.review-evidence{border-top-color:#75b9f5}.review-conditions{border-top-color:#c395f0}.review-market{border-top-color:#61c5bf}.review-score{border-top-color:#80bc9a}.review-diagnostics{border-top-color:#829abd}
+.research-review details{border-top:1px solid #2e425c;padding-top:8px}.research-review summary,.review-card summary{cursor:pointer;min-height:32px;line-height:1.65}
+.research-review textarea{box-sizing:border-box;width:100%;max-width:100%;min-height:180px;margin-top:10px}
+@media(max-width:750px){.review-grid{grid-template-columns:minmax(0,1fr)}.review-card{padding:12px}.research-review button{width:100%}}

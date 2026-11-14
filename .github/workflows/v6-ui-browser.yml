@@ -15,6 +15,7 @@ on:
       - 'V6_BO/scripts/workbuddy-news-browser-check.js'
       - 'V6_BO/scripts/ui-stream-recovery-browser-check.js'
       - 'V6_BO/scripts/ui-stock-list-import-browser-check.js'
+      - 'V6_BO/scripts/ui-research-decision-review-check.js'
       - 'V6_BO/scripts/verify-browser-clock.js'
       - 'V6_WEB/workbuddy/**'
       - '.github/workflows/v6-ui-browser.yml'
@@ -72,6 +73,7 @@ jobs:
           node scripts/ui-picks-three-k-browser-check.js
           node scripts/ui-stream-recovery-browser-check.js
           node scripts/ui-stock-list-import-browser-check.js
+          node scripts/ui-research-decision-review-check.js
       - name: Verify research36 evidence import, configuration, privacy and responsive layout
         env:
           NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules
