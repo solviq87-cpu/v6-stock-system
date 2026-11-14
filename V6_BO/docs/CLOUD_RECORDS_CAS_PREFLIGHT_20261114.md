@@ -41,6 +41,8 @@ node --test V6_BO/tests/cloud-records-cas-store.test.js
 - `GET /api/records` 仅供有有效编辑令牌的设备读取，返回 `records`、`revision` 和 `writeContract:cas-v1`；没有经验证的权威快照返回 503，不新建账户。
 - `POST /api/records` 强制 `expectedRevision` 与 `requestId`，在 CAS 核心上执行。两个设备提交相同旧版本时只有一个成功，另一个 **409**；同 ID 同内容重试复用、内容不同 **409**。请求 JSON 上限 4MiB，多余字段或无效格式拒绝。
 - 明确不支持通过 PUT/DELETE 绕过门禁。HTTP 层只向客户端返回脱敏机器码，不泄露持仓日志、私密令牌或异常堆栈。
+- 安全追加：本适配器明确拒绝 URL 查询里的 `sharecode` / `token`（即使同时有 Bearer 令牌，也返回 400），POST 只接受 `application/json`，否则返回 415；成功响应带 `Cache-Control: no-store`、`Referrer-Policy: no-referrer` 和 `X-Content-Type-Options: nosniff`。这些门禁只在独立处理器内实施，**不代表已接通 WorkBuddy 静态站**。
+
 - 这不是一个常驻进程，且**尚未挂载在 `V6_BO/server.js`**。真实调用仍须现有身份机制 `roleOf`、CORS/CSRF、反向代理配置、持久卷运行和现场版本门禁；不能简单 `http.createServer` 对公网开放此模块。
 - **尚未**迁移 WorkBuddy 静态页面、原账户以及前端 CAS 客户端；双端同步仍属于生产阻塞。必须先独立保存授权备份并确认实际云端账本来源。
 
