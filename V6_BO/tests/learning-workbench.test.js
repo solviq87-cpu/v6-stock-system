@@ -8,7 +8,7 @@ function fixture(){
   set textContent(x){this.ownText=x;this.children=[];}get textContent(){return this.ownText+this.children.map(x=>x.textContent).join('');}
   setAttribute(k,v){this.attributes[k]=v;}
  }
- const elements=new Map(['learningWorkbench','learningRead','learningForce','learningLimit','learningStatus','learningSummary','learningDetails','token'].map(id=>[id,new Element()]));
+ const elements=new Map(['learningRuntimeRead','learningModelProbe','learningRuntimeStatus','learningRuntimeSummary','learningWorkbench','learningRead','learningForce','learningLimit','learningStatus','learningSummary','learningDetails','token'].map(id=>[id,new Element()]));
  elements.get('learningLimit').value='30';elements.get('token').value='private-credential';
  const doc=new EventTarget();doc.hidden=false;doc.getElementById=id=>elements.get(id);doc.createElement=tag=>new Element(tag);
  const root=new EventTarget(),calls=[],timers=new Map();let timerId=0;root.document=doc;root.navigator={onLine:true};
@@ -46,4 +46,53 @@ test('timeouts cover stalled JSON; force timeout requires reading server state b
 });
 test('batch input and malformed payload reject safely; server busy permits read without automatic retry',async()=>{
  const f=fixture();for(const x of ['','0','61','1.5','abc']){f.get('learningLimit').value=x;await f.api.request(true);}assert.equal(f.calls.length,0);f.get('learningLimit').value='30';let p=f.api.request();f.reply(0,[]);await p;assert.match(f.get('learningStatus').textContent,/格式无效/);p=f.api.request(true);f.calls[1].resolve({ok:false,status:409,json:async()=>({ok:false,error:'学习任务正在运行'})});await p;assert.equal(f.get('learningForce').disabled,true);assert.equal(f.get('learningRead').disabled,false);assert.equal(f.calls.length,2);assert.equal(f.timers.size,0);
+});
+
+function runtime(overrides={}){return {schemaVersion:1,mode:'v6-learning-runtime-preflight',checkedAt:1794562800000,readOnly:true,researchOnly:true,canTrade:false,productionWeightsChanged:false,overall:'awaiting-model-probe',nextAction:'probe-local-model',configuration:{status:'configured'},model:{status:'not-probed',modelName:'test-model:v1',modelDigest:'a'.repeat(64),checkedAt:null,inferenceVerified:false},current:{status:'needs-data',nextAction:'await-independent-matured-h5-days',sourceDay:'2026-11-13',captureDays:2},lastRun:{status:'research-cycle-completed-not-certified',checkTime:1794562000000,sourceDay:'2026-11-12',captureDays:4,nextAction:'await-next-source-or-research-lineage'},...overrides};}
+function replyRuntime(f,index,report){f.calls[index].resolve({ok:true,status:200,json:async()=>({ok:true,result:report})});}
+test('runtime mounts without requests; explicit buttons use read-only GET and exact probe POST without query credentials',async()=>{
+ const f=fixture();assert.equal(f.calls.length,0);assert.equal(f.timers.size,0);
+ f.get('learningRuntimeRead').dispatchEvent(new Event('click'));assert.equal(f.calls[0].url,'/api/research/learning-runtime');assert.equal(f.calls[0].options.method,'GET');assert.equal(f.calls[0].options.body,undefined);assert.equal(f.calls[0].options.headers.Authorization,'Bearer private-credential');assert.equal(f.calls[0].options.credentials,'same-origin');assert.equal(f.calls[0].options.cache,'no-store');replyRuntime(f,0,runtime());await new Promise(r=>setImmediate(r));
+ f.get('learningModelProbe').dispatchEvent(new Event('click'));assert.equal(f.calls[1].options.method,'POST');assert.deepEqual(JSON.parse(f.calls[1].options.body),{probeModel:true});assert.equal(f.calls[1].options.headers['Content-Type'],'application/json');replyRuntime(f,1,runtime());await new Promise(r=>setImmediate(r));assert.equal(f.calls.length,2);assert.equal(f.timers.size,0);
+ for(const event of ['online','focus','pageshow'])f.root.dispatchEvent(new Event(event));f.doc.dispatchEvent(new Event('visibilitychange'));assert.equal(f.calls.length,2);
+});
+test('runtime current conditions and last record remain separate from each other and old outcome counts',async()=>{
+ const f=fixture();let p=f.api.request();f.reply(0,status());await p;p=f.api.requestRuntime();replyRuntime(f,1,runtime());await p;
+ assert.match(f.get('learningSummary').textContent,/实盘有效已验5/);const text=f.get('learningRuntimeSummary').textContent;assert.match(text,/当前运行条件条件：需要补充数据/);assert.match(text,/现有冻结天数：2/);assert.match(text,/上次记录记录状态：研究周期已记录，尚未认证/);assert.match(text,/记录冻结天数：4/);assert.match(text,/不能证明后台任务仍在运行/);assert.doesNotMatch(text,/实盘有效已验|H5.*[24]天/);
+ p=f.api.request();f.reply(2,status());await p;assert.equal(f.get('learningRuntimeSummary').textContent,text);
+});
+test('verified model is only digest verification and cannot override an unconfigured task',async()=>{
+ const f=fixture(),p=f.api.requestRuntime(true);replyRuntime(f,0,runtime({overall:'unconfigured',nextAction:'configure-private-research-agent',configuration:{status:'unconfigured'},current:{status:'unconfigured',nextAction:null,sourceDay:null,captureDays:null},lastRun:null,model:{status:'verified',modelName:'local:v1',modelDigest:'a'.repeat(64),checkedAt:1794562800000,inferenceVerified:false}}));await p;
+ const text=f.get('learningRuntimeSummary').textContent;assert.match(text,/运行预检：尚未配置研究任务/);assert.match(text,/模型摘要已核对/);assert.match(text,/不代表推理或训练成功/);assert.match(text,/现有冻结天数：未知/);assert.match(text,/上次记录记录：暂无/);assert.doesNotMatch(text,/运行预检：具备研究预检条件|检查结果：推理成功|检查结果：训练成功|记录状态：正在运行/);
+});
+test('runtime safely maps enums, validates model fields and dates, and never prints arbitrary report data',async()=>{
+ const f=fixture(),p=f.api.requestRuntime();replyRuntime(f,0,runtime({overall:'SECRET_UNKNOWN',nextAction:'SECRET_ACTION',checkedAt:9e18,configuration:{status:'toString'},model:{status:'__proto__',modelName:'http://secret?token=SECRET',modelDigest:'SECRET',checkedAt:'2026-11-13'},current:{status:'SECRET_STATUS',nextAction:'SECRET_CURRENT_ACTION',sourceDay:'2026-02-30',captureDays:'0'},lastRun:{status:'SECRET_LAST',checkTime:-1,sourceDay:'secret',captureDays:NaN,nextAction:'SECRET_LAST_ACTION',path:'/private/SECRET'},extra:'SECRET'}));await p;
+ const text=f.get('learningRuntimeSummary').textContent;assert.doesNotMatch(text,/SECRET|2026-02-30|toString|__proto__|NaN|private/);assert.match(text,/运行预检：未知/);assert.match(text,/现有冻结天数：未知/);assert.match(text,/检查时间：未知/);
+});
+for(const [overall,label]of [['blocked','运行条件受阻'],['needs-data','需要补充研究数据'],['ready-for-research','具备研究预检条件'],['awaiting-model-probe','等待本地模型检查']])test('runtime overall '+overall+' is rendered from explicit current report',async()=>{
+ const f=fixture(),p=f.api.requestRuntime();replyRuntime(f,0,runtime({overall}));await p;assert.match(f.get('learningRuntimeSummary').textContent,new RegExp(label));
+});
+test('a new runtime probe supersedes a stalled old learning JSON body without reviving counts',async()=>{
+ const f=fixture(),body=deferred(),old=f.api.request();f.calls[0].resolve({ok:true,status:200,json:()=>body.promise});await Promise.resolve();const latest=f.api.requestRuntime(true);await old;assert.equal(f.calls[0].options.signal.aborted,true);replyRuntime(f,1,runtime());await latest;const text=f.get('learningRuntimeSummary').textContent;body.resolve({ok:true,status:status({counts:{matured:999}})});await new Promise(r=>setImmediate(r));assert.equal(f.get('learningSummary').textContent,'');assert.equal(f.get('learningRuntimeSummary').textContent,text);
+});
+test('a new learning read supersedes runtime JSON body and stale 403 fetch cannot clear new state',async()=>{
+ const f=fixture(),body=deferred(),old=f.api.requestRuntime();f.calls[0].resolve({ok:true,status:200,json:()=>body.promise});await Promise.resolve();const latest=f.api.request();await old;f.reply(1,status());await latest;body.resolve({ok:true,result:runtime()});await new Promise(r=>setImmediate(r));assert.equal(f.get('learningRuntimeSummary').textContent,'');assert.match(f.get('learningSummary').textContent,/实盘有效已验5/);
+ const stale=f.api.requestRuntime(),fresh=f.api.request();await stale;f.reply(3,status());await fresh;f.calls[2].resolve({ok:false,status:403,json:async()=>{throw Error('forbidden');}});await new Promise(r=>setImmediate(r));assert.match(f.get('learningSummary').textContent,/实盘有效已验5/);
+});
+test('runtime superseding force preserves backend uncertainty through timeout until an old-status read confirms idle',async()=>{
+ const f=fixture(),force=f.api.request(true),probe=f.api.requestRuntime(true);await force;assert.equal(f.get('learningForce').disabled,true);assert.equal([...f.timers.values()].at(-1).ms,15000);[...f.timers.values()].at(-1).fn();await probe;assert.match(f.get('learningRuntimeStatus').textContent,/只读预检，不改变学习状态/);assert.equal(f.get('learningForce').disabled,true);await f.api.request(true);assert.equal(f.calls.length,2);
+ const read=f.api.request();f.reply(2,status({operation:{state:'idle'}}));await read;assert.equal(f.get('learningForce').disabled,false);
+});
+for(const change of ['token','hidden','offline','pagehide','403','locked'])test('runtime '+change+' clears both private sections and blocks late JSON',async()=>{
+ const f=fixture();let p=f.api.request();f.reply(0,status());await p;p=f.api.requestRuntime();replyRuntime(f,1,runtime());await p;assert.notEqual(f.get('learningRuntimeSummary').textContent,'');const body=deferred(),pending=f.api.requestRuntime(true);f.calls[2].resolve({ok:true,status:200,json:()=>body.promise});await Promise.resolve();
+ if(change==='403'||change==='locked'){body.resolve(change==='locked'?{ok:false,locked:true}:{});if(change==='403'){const newer=f.api.requestRuntime();f.calls[3].resolve({ok:false,status:403,json:async()=>{throw Error('not JSON');}});await newer;}}
+ else if(change==='token'){f.get('token').value='expired';f.get('token').dispatchEvent(new Event('change'));}
+ else if(change==='hidden'){f.doc.hidden=true;f.doc.dispatchEvent(new Event('visibilitychange'));}
+ else if(change==='offline'){f.root.navigator.onLine=false;f.root.dispatchEvent(new Event('offline'));}
+ else f.root.dispatchEvent(new Event('pagehide'));
+ await pending;body.resolve({ok:true,result:runtime()});await new Promise(r=>setImmediate(r));assert.equal(f.get('learningSummary').textContent,'');assert.equal(f.get('learningDetails').textContent,'');assert.equal(f.get('learningRuntimeSummary').textContent,'');assert.equal(f.get('learningRuntimeSummary').hidden,true);assert.equal(f.calls.length,change==='403'?4:3);
+});
+test('a silently changed token rejects runtime response and malformed runtime safety flags fail closed',async()=>{
+ const f=fixture(),pending=f.api.requestRuntime();f.get('token').value='expired-without-event';replyRuntime(f,0,runtime());await pending;assert.equal(f.get('learningRuntimeSummary').textContent,'');
+ for(const override of [{canTrade:true},{readOnly:false},{schemaVersion:2},{productionWeightsChanged:true}]){const p=f.api.requestRuntime();replyRuntime(f,f.calls.length-1,runtime(override));await p;assert.equal(f.get('learningRuntimeSummary').textContent,'');assert.match(f.get('learningRuntimeStatus').textContent,/格式无效/);}
 });

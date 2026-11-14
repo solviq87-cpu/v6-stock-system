@@ -4,3 +4,8 @@
 #learningWorkbench summary{min-height:44px;display:flex;align-items:center;cursor:pointer}#learningWorkbench details{min-width:0;border-top:1px solid #304761;margin-top:10px}#learningWorkbench .learning-type{border-top:1px solid #304761;padding:10px 0}#learningWorkbench p{line-height:1.6}#learningWorkbench :is(button,input,summary):focus-visible{outline:2px solid #a9d6ff;outline-offset:2px}
 @media(max-width:700px){#learningWorkbench .learning-counts{grid-template-columns:repeat(2,minmax(0,1fr))}#learningWorkbench .learning-counts strong{font-size:22px}}
 @media(max-width:420px){#learningWorkbench .learning-actions{display:grid;grid-template-columns:minmax(0,1fr)}#learningWorkbench .learning-actions button,#learningLimit{width:100%}#learningWorkbench .learning-counts{gap:7px}#learningWorkbench .learning-counts article{padding:9px}}
+
+#learningWorkbench .learning-runtime{border-bottom:1px solid #325a80;padding-bottom:14px;margin-bottom:14px}#learningWorkbench .learning-runtime-group{border-top:1px solid #304761;padding-top:4px;margin-top:12px}#learningWorkbench h4{font-size:15px;margin:12px 0 8px}#learningRuntimeSummary{min-width:0}#learningRuntimeSummary p{margin:8px 0}
+
+#learningWorkbench .learning-runtime-conditions{display:grid;grid-template-columns:minmax(0,1fr);gap:0}#learningWorkbench .learning-runtime-conditions>.learning-runtime-group{min-width:0}
+@media(min-width:760px){#learningWorkbench .learning-runtime-conditions{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}}
