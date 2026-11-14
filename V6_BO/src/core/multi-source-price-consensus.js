@@ -6,6 +6,7 @@
 const {probePublicQuotes,projectProbe}=require('./public-quote-probe');
 const {session}=require('./quote-dual-source-diagnostic');
 const {fetchItickStockQuote}=require('./itick-stock-quote');
+const {resolveUpstream}=require('./data-source-lineage');
 const PUBLIC_IDS=['tencent','eastmoney','sina'];
 const bps=(a,b)=>10000*Math.abs(a-b)/Math.max(a,b);
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
@@ -47,8 +48,11 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   providers.add(s.id);
   // A renamed wrapper around one vendor is not a second independent quote.
   // This identity is operator-declared and is NOT vendor authentication.
-  const upstreamGroup=s.upstreamGroup===undefined?s.id:s.upstreamGroup;
-  if(typeof upstreamGroup!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(upstreamGroup))
+  const identity=resolveUpstream(s.id,s.upstreamGroup);
+  const upstreamGroup=identity.group;
+  // Provider aliases without a known upstream cannot vote on independence.
+  // Registered routes use their canonical raw publisher, not SDK names.
+  if(upstreamGroup!==null&& !/^[a-z][a-z0-9-]{0,63}$/.test(upstreamGroup))
    throw Error('上游身份标记无效');
   const q=s.quote;
   let reason='unavailable';
@@ -63,13 +67,15 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
    else if(q.quoteAt>now)reason='future-quote';
    else if(now-q.quoteAt>maxAgeMs)reason='stale-quote';
    else if(chinaDay(q.quoteAt)!==chinaDay(now))reason='different-market-day';
+   else if(identity.ambiguous)reason='unknown-upstream';
    else {reason='eligible-for-comparison';valid.push({id:s.id,upstreamGroup,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});}
   }else if(s.status==='unavailable')reason='unavailable';
   else reason='invalid-status';
   const quoteAt=Number.isSafeInteger(q?.quoteAt)&&q.quoteAt>0?q.quoteAt:null;
   const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   const observedPreviousClose=Number.isFinite(q?.previousClose)&&q.previousClose>0?q.previousClose:null;
-  sourceStatuses.push({provider:s.id,upstreamGroup,status:reason,
+  sourceStatuses.push({provider:s.id,upstreamGroup,upstreamCatalogued:identity.known,
+   sourceIdentityVerified:false,status:reason,
    quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
    observedPrice,observedPreviousClose,inConsensus:false});
  }
@@ -79,6 +85,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   sourceStatuses,priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,
   operatorCalendarProvided:operatorDay!==null,operatorCalendarMatch:operatorDay,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
+  upstreamIdentityVerified:false,
   canTrade:false,canNotify:false,
   note:'仅比较逐股、同交易日且时间接近的供应商报价；最新价与前收盘价均需跨源一致，逐源保留原价/原时点；异常价格不自动乘除比例或取平均；冲突时不输出统一价格，不认证独立性或许可。'};
  // This checks weekday clocks only; a statutory holiday can look like a session.

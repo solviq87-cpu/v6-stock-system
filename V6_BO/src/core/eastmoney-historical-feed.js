@@ -52,16 +52,16 @@ async function boundedJson(response,maxBytes){
  }else{const s=await response.text();bytes=Buffer.from(s);if(bytes.length>maxBytes)throw Error('公开K线响应超过大小限制');}
  try{return JSON.parse(bytes.toString('utf8'));}catch{throw Error('公开K线响应不是合法JSON');}
 }
-async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fetch,timeoutMs=10000,maxBytes=2*1024*1024,now=Date.now(),adjustmentMode='qfq'}={}){
- if(!['qfq','unadjusted'].includes(adjustmentMode))throw Error('仅允许前复权 qfq 或不复权 unadjusted 日K，拒绝未知复权口径');
+async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fetch,timeoutMs=10000,maxBytes=2*1024*1024,now=Date.now(),priceAdjustment='qfq'}={}){
  if(!Array.isArray(symbols)||symbols.length<1||symbols.length>100||new Set(symbols).size!==symbols.length)throw Error('沪深A股股票池需要1到100只互异代码');
  for(const s of symbols)secId(s);
+ if(!['qfq','unadjusted'].includes(priceAdjustment))throw Error('历史复权要求明确 qfq 或 unadjusted');
  if(!validDate(start)||!validDate(end)||start>=end||end>aShareCalendarDate(now))throw Error('历史行情起止日期无效或位于未来');
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000||!Number.isSafeInteger(maxBytes)||maxBytes<1024||maxBytes>8*1024*1024)throw Error('历史接口请求参数无效');
  const stocks=[];
  for(const symbol of symbols){
   const url=new URL(ENDPOINT);
-  for(const [k,v] of Object.entries({secid:secId(symbol),fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57',klt:'101',fqt:adjustmentMode==='unadjusted'?'0':'1',beg:start.replaceAll('-',''),end:end.replaceAll('-',''),lmt:'10000'}))url.searchParams.set(k,v);
+  for(const [k,v] of Object.entries({secid:secId(symbol),fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57',klt:'101',fqt:priceAdjustment==='qfq'?'1':'0',beg:start.replaceAll('-',''),end:end.replaceAll('-',''),lmt:'10000'}))url.searchParams.set(k,v);
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
   let payload;
   try{payload=await boundedJson(await fetchImpl(url.toString(),{method:'GET',redirect:'error',signal:ctrl.signal,headers:{Accept:'application/json'}}),maxBytes);}
@@ -73,21 +73,20 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  const last=stocks[0].bars.at(-1).date;
  // Explicitly reject nonaligned sessions. Filling suspended bars with invented price is forbidden.
  if(stocks.some(s=>s.bars.at(-1).date!==last||s.bars.length!==stocks[0].bars.length||s.bars.some((b,i)=>b.date!==stocks[0].bars[i].date)))throw Error('沪深股票停牌或缺失K线导致交易日不一致，拒绝虚构补齐');
- // Keep the default adjusted dataset identity exactly as before. New fqt=0
- // research data uses a separate identity and cannot overwrite old history.
+ // v2 reflects a BREAKING unit correction: never silently rewrite a v1 import.
+ // Restore the original qfq dataset identity for existing archives; do not
+ // silently treat one historical snapshot as a different legacy dataset.
  const provider='eastmoney-public-history';
- const datasetId=adjustmentMode==='qfq'?'em-qfq-v2-'+sha({symbols,start,end,last}).slice(0,20):
-  'em-unadjusted-v1-'+sha({symbols,start,end,last,adjustmentMode}).slice(0,20);
- // This is local request completion time, not exchange-original quoteAt.
- const observedAt=Date.now();
- const dataset={source:'imported',provider,upstream:'eastmoney',datasetId,asOf:last,observedAt,
+ const datasetId=priceAdjustment==='qfq'?'em-qfq-v2-'+sha({symbols,start,end,last}).slice(0,20):
+  'em-unadjusted-v2-'+sha({symbols,start,end,last,priceAdjustment}).slice(0,20);
+ const dataset={source:'imported',provider,upstreamGroup:'eastmoney',datasetId,asOf:last,
   volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
-  priceAdjustment:{mode:adjustmentMode,provider:'eastmoney-public-history-fqt-'+(adjustmentMode==='unadjusted'?'0':'1')},stocks};
+  priceAdjustment:{mode:priceAdjustment,provider:'eastmoney-public-history-fqt-'+(priceAdjustment==='qfq'?'1':'0')},stocks};
  validateImport(dataset,{provider,datasetId});
- return {dataset,metadata:{mode:'unverified-public-daily-history',provider,datasetId,asOf:last,observedAt,
-  observedAtMeaning:'local-request-completion-not-exchange-quote-time',
-  stockCount:stocks.length,priceAdjustmentMode:adjustmentMode,volumeUnit:'shares',amountUnit:'CNY',
+ return {dataset,metadata:{mode:'unverified-public-daily-history',provider,datasetId,asOf:last,
+  retrievedAt:Date.now(),retrievedAtMeaning:'local-collection-time-not-exchange-quote-time',
+  stockCount:stocks.length,priceAdjustment,volumeUnit:'shares',amountUnit:'CNY',
   amountBasis:'actual-unadjusted-turnover',verifiedLive:false,canTrade:false,
-  warning:'公开接口返回的 fqt 复权结果及原始报价时点未经独立确认。f56按手转股，f57按人民币元保留真实成交额；不同复权口径不得比较，前复权价不得与原始成交额反算均价。网络数据、授权与公司行为仍待核验，不能直接用于实盘。'}};
+  warning:'公开接口可能调整、返回延迟或不完整行情。未核验交易所官方记录、公司行为、复权正确性及数据使用授权。f56按手转股，f57按人民币元保留原成交额；前复权价不得与原始成交额直接反算均价。不能直接用于实盘。'}};
 }
 module.exports={fetchEastmoneyHistory,parseKlines,secId};
