@@ -20,8 +20,8 @@
         typeof allowMutations !== 'boolean') throw failure('CLIENT_CONFIG_INVALID');
     const transport = fetchImpl || (typeof globalThis !== 'undefined' && globalThis.fetch);
     if (typeof transport !== 'function') throw failure('FETCH_REQUIRED');
-    let snapshot = null, tokenAtLoad = null, pending = null, busy = false, blocked = false;
-    function clear() { snapshot = null; tokenAtLoad = null; pending = null; blocked = true; }
+    let snapshot = null, tokenAtLoad = null, pending = null, busy = false, blocked = false, epoch = 0;
+    function clear() { epoch++; snapshot = null; tokenAtLoad = null; pending = null; blocked = true; }
     function status() {
       return Object.freeze({
         loaded: !!snapshot, revision: snapshot ? snapshot.revision : null,
@@ -50,9 +50,13 @@
         options.headers['Content-Type'] = 'application/json';
         options.body = JSON.stringify(payload);
       }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      options.signal = controller.signal;
       let response;
       try { response = await transport(API, options); }
       catch { throw failure('TRANSPORT_UNCERTAIN'); }
+      finally { clearTimeout(timer); }
       if (!response || typeof response.status !== 'number') throw failure('TRANSPORT_UNCERTAIN');
       if (response.status === 401) throw failure('LOGIN_REQUIRED');
       if (response.status === 403) throw failure('ACCESS_DENIED');
@@ -90,10 +94,11 @@
       if (accountCount !== 1) throw failure('LEDGER_MISSING_OR_DUPLICATED');
       return { revision: data.revision, records };
     }
-    async function readWith(auth) {
+    async function readWith(auth, originalEpoch) {
       const data = await send('GET', auth);
+      if (epoch !== originalEpoch) throw failure('AUTH_CHANGED');
       const result = validateRead(data);
-      if (token() !== auth) throw failure('AUTH_CHANGED');
+      if (token() !== auth || epoch !== originalEpoch) throw failure('AUTH_CHANGED');
       return result;
     }
     async function load() {
@@ -101,10 +106,10 @@
       if (pending) throw failure('PENDING_WRITE_MUST_BE_RECONCILED');
       busy = true;
       try {
-        const auth = token();
-        const result = await readWith(auth);
+        const auth = token(), originalEpoch = epoch;
+        const result = await readWith(auth, originalEpoch);
         snapshot = result; tokenAtLoad = auth; blocked = false;
-        return { revision: result.revision, records: clone(result.records), ...status() };
+        return { revision: result.revision, records: clone(result.records), ...status(), busy: false };
       } catch (e) {
         if (!['CLIENT_BUSY', 'PENDING_WRITE_MUST_BE_RECONCILED'].includes(e.code)) {
           // A failed read is never permission to keep treating an old balance as current.
@@ -143,16 +148,17 @@
         ...(input.title === undefined ? {} : {title: input.title}),
         ...(input.author === undefined ? {} : {author: input.author})};
     }
-    async function submit(auth) {
+    async function submit(auth, originalEpoch) {
       const job = pending;
       let ack;
       try {
         ack = await send('POST', auth, job.payload);
+        if (epoch !== originalEpoch || pending !== job) throw failure('AUTH_CHANGED');
         if (!Number.isSafeInteger(ack.revision) || !Number.isSafeInteger(ack.appliedRevision) ||
             ack.appliedRevision < job.payload.expectedRevision + 1 ||
             ack.revision < ack.appliedRevision || typeof ack.reused !== 'boolean')
           throw failure('WRITE_ACK_UNVERIFIED');
-        const latest = await readWith(auth);
+        const latest = await readWith(auth, originalEpoch);
         const current = latest.records.find(row => row.name === job.payload.name);
         if (latest.revision < ack.revision || !current ||
             current.content !== job.payload.content) {
@@ -186,16 +192,17 @@
       const id = requestIdFactory();
       if (typeof id !== 'string' || !REQUEST_ID.test(id)) throw failure('SECURE_REQUEST_ID_REQUIRED');
       pending = { payload: {...row, expectedRevision: snapshot.revision, requestId: id} };
+      const originalEpoch = epoch;
       busy = true;
-      try { return await submit(auth); } finally { busy = false; }
+      try { return await submit(auth, originalEpoch); } finally { busy = false; }
     }
     async function retryPending() {
       if (!allowMutations) throw failure('READ_ONLY_MODE');
       if (busy) throw failure('CLIENT_BUSY');
       if (!pending || !snapshot) throw failure('NO_PENDING_WRITE');
-      const auth = token();
+      const auth = token(), originalEpoch = epoch;
       busy = true;
-      try { return await submit(auth); } finally { busy = false; }
+      try { return await submit(auth, originalEpoch); } finally { busy = false; }
     }
     return Object.freeze({ load, record, commit, retryPending, status, clear });
   }
