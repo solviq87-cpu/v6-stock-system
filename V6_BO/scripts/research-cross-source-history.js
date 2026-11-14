@@ -29,7 +29,7 @@ function audit(emFile,baostockFile){
   em.priceAdjustment?.mode!=='unadjusted'||!Array.isArray(em.stocks)||
   em.stocks.length!==1||em.stocks[0].code!==raw.code)
   throw Error('需要单只相同代码、未复权且身份明确的东方财富历史');
- validateImport(em,{provider:em.provider,datasetId:em.datasetId,now:Date.parse('2026-11-14T16:30:00+08:00')});
+ validateImport(em,{provider:em.provider,datasetId:em.datasetId,now:Date.now()});
  const normalized=normalizeBaoStockDaily(raw);
  const comparison=compareMarketFeeds(em,normalized.dataset);
  return {schemaVersion:1,mode:'historical-independent-upstream-parity',
