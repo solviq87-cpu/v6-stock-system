@@ -50,3 +50,100 @@ test('双源未提供观察时间时不能误报时间已核对',()=>{
  assert.equal(r.timestampComparable,false);
  assert.equal(r.observationSkewMs,null);
 });
+
+
+function amountFeed(provider){
+ const d=feed(provider);
+ d.volumeUnit='shares';
+ d.amountUnit='CNY';
+ d.amountBasis='actual-unadjusted-turnover';
+ for(const bar of d.stocks[0].bars)bar.amount=bar.volume*bar.close;
+ return d;
+}
+test('独立历史数据按股和人民币元核对价格、数量及实际成交额',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,true);
+ assert.equal(r.volumeUnitVerified,true);
+ assert.equal(r.amountUnitVerified,true);
+ assert.equal(r.amountComparedBars,39);
+ assert.equal(r.amountCoverageGapBars,0);
+ assert.equal(r.maximumAmountDifferencePct,0);
+ assert.equal(r.releaseReady,false);
+});
+test('成交价和股数相同但成交额不同不得伪报多源一致',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ b.stocks[0].bars[5].amount*=1000; // e.g. a provider mislabeled its thousands as yuan
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.discrepancies,1);
+ assert.equal(r.displayedDiscrepancies[0].field,'amount');
+ assert.ok(r.maximumAmountDifferencePct>90);
+});
+test('单边成交额缺失须显示覆盖缺口，不能视为核对通过',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ delete b.stocks[0].bars[5].amount;
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.amountComparedBars,38);
+ assert.equal(r.amountCoverageGapBars,1);
+ assert.equal(r.displayedDiscrepancies[0].field,'amount-coverage');
+ assert.equal(r.displayedDiscrepancies[0].secondary,null);
+});
+test('成交量与成交额缺少共同单位声明必须显式拒绝',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ delete b.volumeUnit;
+ assert.throws(()=>compareMarketFeeds(a,b),/成交量单位/);
+ b.volumeUnit='shares';delete b.amountUnit;
+ assert.throws(()=>compareMarketFeeds(a,b),/成交额必须都标明/);
+ b.amountUnit='CNY';b.amountBasis='adjusted-turnover';
+ assert.throws(()=>compareMarketFeeds(a,b),/实际成交口径|原始成交口径/);
+ const c=feed('provider-C'),d=feed('provider-D');
+ c.volumeUnit='shares';d.volumeUnit='lots';
+ assert.throws(()=>compareMarketFeeds(c,d),/成交量单位/);
+});
+test('金额容差可配置但受限，仍不提供实盘放行',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ b.stocks[0].bars[0].amount*=1.06;
+ assert.equal(compareMarketFeeds(a,b,{amountTolerancePct:10}).consensus,true);
+ assert.equal(compareMarketFeeds(a,b,{amountTolerancePct:5}).consensus,false);
+ assert.throws(()=>compareMarketFeeds(a,b,{amountTolerancePct:101}),/参数无效/);
+});
+test('源记录成交额不一致时，历史导入不得覆盖已有文件',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-amount-consensus-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'independent.json');
+ const primary=amountFeed('provider-A'),secondary=amountFeed('provider-B');
+ fs.writeFileSync(secondaryFile,JSON.stringify(secondary));
+ const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,
+  provider:'provider-A',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
+ assert.equal((await center.sync()).updated,true);
+ const saved=fs.readFileSync(outputFile,'utf8');
+ secondary.stocks[0].bars[3].amount*=1000;
+ fs.writeFileSync(secondaryFile,JSON.stringify(secondary));
+ assert.match((await center.sync()).error,/不一致/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
+});
+
+test('advertised CNY turnover with no actual amount columns cannot count as consensus',()=>{
+ const a=feed('provider-A'),b=feed('provider-B');
+ for(const d of [a,b]){
+  d.volumeUnit='shares';d.amountUnit='CNY';
+  d.amountBasis='actual-unadjusted-turnover';
+ }
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.amountComparedBars,0);
+ assert.equal(r.amountCoverageGapBars,39);
+ assert.equal(r.displayedDiscrepancies[0].field,'amount-coverage');
+});
+test('matching impossible amount-volume pairs cannot manufacture independent agreement',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ a.stocks[0].bars[0].amount=0;b.stocks[0].bars[0].amount=0;
+ a.stocks[0].bars[1].volume=0;b.stocks[0].bars[1].volume=0;
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.amountCoverageGapBars,0);
+ assert.equal(r.displayedDiscrepancies.length,2);
+ assert.ok(r.displayedDiscrepancies.every(x=>x.field==='amount-volume-integrity'));
+});

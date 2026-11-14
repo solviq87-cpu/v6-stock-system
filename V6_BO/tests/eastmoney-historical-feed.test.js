@@ -14,6 +14,13 @@ test('公开日线获取器将供应商返回值转换为完整导入格式但�
  }});
  assert.equal(r.dataset.stocks.length,2);assert.equal(r.dataset.priceAdjustment.mode,'qfq');assert.equal(r.dataset.source,'imported');
  assert.equal(r.metadata.verifiedLive,false);assert.equal(r.metadata.canTrade,false);
+ assert.equal(r.dataset.volumeUnit,'shares');
+ assert.equal(r.dataset.amountUnit,'CNY');
+ assert.equal(r.dataset.amountBasis,'actual-unadjusted-turnover');
+ assert.equal(r.dataset.stocks[0].bars[0].volume,1000000,'f56 hands must become shares');
+ assert.equal(r.dataset.stocks[0].bars[0].amount,100000,'f57 amount stays CNY, not multiplied');
+ assert.match(r.dataset.datasetId,/^em-qfq-v2-/);
+ assert.equal(r.metadata.volumeUnit,'shares');
 });
 test('拒绝日期错位，绝不合成停牌交易日填平缺口',async()=>{
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['000001','600000'],start:dates[0],end:dates.at(-1),fetchImpl:async(url)=>{
@@ -36,4 +43,50 @@ test('reject impossible calendar dates instead of normalizing them',()=>{
   broken.data.klines[i]=broken.data.klines[i].replace(/^\d{4}-\d{2}-\d{2}/,invalidDate);
   assert.throws(()=>parseKlines(broken,'000001'),/日期无效/);
  }
+});
+
+
+test('Eastmoney f56 hands and f57 yuan are captured without synthetic prices or turnover',()=>{
+ const fixture=payload('600000');
+ fixture.data.klines[0]=`${dates[0]},10,10.5,11,9,123,128500`;
+ const parsed=parseKlines(fixture,'600000');
+ assert.equal(parsed.bars[0].volume,12300);
+ assert.equal(parsed.bars[0].amount,128500);
+ assert.equal(parsed.bars[0].open,10);
+ assert.equal(parsed.bars[0].close,10.5);
+ assert.equal(parsed.bars[0].date,dates[0]);
+});
+test('missing, nonnumeric, contradictory or overflow turnover/volume fails closed',()=>{
+ const changes=[
+  `${dates[0]},10,10,11,9,123`,                 // f57 never returned
+  `${dates[0]},10,10,11,9,123,`,                // missing f57
+  `${dates[0]},10,10,11,9,123,bad`,
+  `${dates[0]},10,10,11,9,123,-1`,
+  `${dates[0]},10,10,11,9,0,10000`,
+  `${dates[0]},10,10,11,9,123,0`,
+  `${dates[0]},10,10,11,9,900719925474100,100000`
+ ];
+ for(const row of changes){
+  const p=payload('000001');
+  p.data.klines[0]=row;
+  assert.throws(()=>parseKlines(p,'000001'),/OHLCV|成交额/,row);
+ }
+ const p=payload('000001');
+ p.data.klines[0]=`${dates[0]},10,10,11,9,0,0`;
+ const parsed=parseKlines(p,'000001');
+ assert.equal(parsed.bars[0].volume,0,'zero-volume day stays zero; never invent shares');
+ assert.equal(parsed.bars[0].amount,0);
+});
+test('daily date checks use Beijing market date, never previous UTC date',async()=>{
+ const now=Date.parse('2025-02-10T00:30:00+08:00');
+ const result=await fetchEastmoneyHistory({
+  symbols:['000001'],start:dates[0],end:'2025-02-10',now,
+  fetchImpl:async(url)=>{
+   const params=new URL(url).searchParams;
+   assert.equal(params.get('fields2'),'f51,f52,f53,f54,f55,f56,f57');
+   return response(payload('000001'));
+  }
+ });
+ assert.equal(result.dataset.stocks[0].bars.length,40);
+ assert.equal(result.metadata.canTrade,false);
 });
