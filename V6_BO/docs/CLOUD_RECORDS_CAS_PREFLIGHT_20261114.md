@@ -83,3 +83,24 @@ node --test V6_BO/tests/cloud-records-server-integration.test.js
 **限制不能隐瞒：** 待确认请求 ID 仅保存在内存，关闭网页或浏览器进程重启后无法自动重试；跨重启恢复仍需独立服务端回执查询与安全迁移方案。客户端只检查 CAS 协议和最小结构，不执行完整资金/持仓风控与业务对账；不得把它作为真实交易入口。现有 WorkBuddy 页面仍走旧 sharecode 数据接口，不会因为新资产文件存在就自动连接 CAS。
 
 专项回归：`node --test V6_BO/tests/cloud-records-cas-client.test.js`，测试使用**真实 localhost HTTP CAS 处理器与临时合成账本**，覆盖两客户端版本冲突、同 ID 网络重试、令牌撤销清缓存、页面手动清理后的竞态、写入回读、无权威记录拒绝、响应损坏，以及默认只读策略。GitHub 独立状态 `cloud-records-cas-client` 和原 `verify` 全量回归必须通过才可以合并。
+
+
+## 第五阶段：原始备份只读预检（不导入、不迁移）
+
+在接入任何真实数据之前，新增 `scripts/cloud-records-backup-preflight.js`。只能读取由授权维护者**独立取得**的 WorkBuddy `{ok:true,records:[...]}` 私有 JSON 备份文件，不使用分享码，不访问网络，不新建数据库，不写入账户，也不触发发布。
+
+- 输入文件必须为仓库/公开目录之外的**绝对路径、单链接普通文件、权限 0600**，禁止符号链接，最大 32 MiB；任何不符合条件的备份拒绝读取。命令不打印完整文件路径、明文持仓、现金或任何账户内容。
+- 默认仅做结构检查，输出 `structure-only`；如果由用户在受控环境另行提供原文件 SHA-256，核对一致才输出 `file-hash-matched-structure-only`。哈希相等**不能证明历史权威来源**，`backupAuthorityVerified=false` 始终不变。
+- 使用现有 CAS 记录验证逻辑做只读检查：记录名重复、没有 `v6.app.state`、账户 JSON 损坏、缺最低结构字段、无效存储编码均拒绝。输出独立的原始文件 SHA-256 和规范化 `snapshotHash`，后者仅是将来 `bootstrap(expectedSourceHash)` 的技术输入；不代表已批准初始化。
+- 原平台附带的记录 `id` 等元数据不会作为 CAS 记录业务字段迁移；报告会用 `ignoredPlatformMetadata=true` 显示，提醒迁移前单独核对其实际用途。
+- `accountHistoryReconciled=false`、`sourceProvenanceVerified=false`、`fullAccountReconciliationVerified=false`、`importAuthorized=false`、`restorePerformed=false` 始终保持。真实资金、持仓、冻结、成交、撤单必须用独立授权备份与账户回放核对，不能靠本脚本宣称已恢复。
+
+运行示例（不要在命令行历史、Git、CI、聊天中放入真实账户或分享码）：
+
+```sh
+V6_CLOUD_RECORDS_BACKUP_FILE=/private/path/workbuddy-records.json \
+V6_CLOUD_RECORDS_BACKUP_SHA256=<经独立留存的64位原文件哈希> \
+node V6_BO/scripts/cloud-records-backup-preflight.js
+```
+
+只读脚本由 `node --test V6_BO/tests/cloud-records-backup-preflight.test.js` 验证，GitHub 独立检查名 `cloud-records-backup-preflight`。这份工具**不自动扫描用户文件、资料库或云端地址**；没有真实备份时继续维持生产迁移阻塞，不创建空账户。
