@@ -18,6 +18,16 @@
   const ids=new Set();for(const e of value.entries){if(!e||typeof e.id!=='string'||!/^[A-Za-z0-9_-]{1,48}$/.test(e.id)||ids.has(e.id)||typeof e.name!=='string'||e.name.length>240||!Object.hasOwn(categories,e.category)||!Object.hasOwn(states,e.adoption)||!Array.isArray(e.borrow)||!Array.isArray(e.reads))throw Error('目录条目无效');ids.add(e.id);}return value;
  }
  function selectedEntries(){return catalog?catalog.entries.filter(e=>selected.has(e.id)):[];}
+ function summarySelection(){
+  const active=catalog&&!$('librarySearch').value.trim()&&!$('libraryCategory').value?($('libraryAdoption').value||'all'):null;
+  for(const button of document.querySelectorAll('[data-library-summary]'))button.setAttribute('aria-pressed',String(button.dataset.librarySummary===active));
+ }
+ function renderSummary(value){
+  for(const button of document.querySelectorAll('[data-library-summary]')){const adoption=button.dataset.librarySummary;
+   button.disabled=!value;button.querySelector('[data-summary-count]').textContent=value?String(adoption==='all'?value.entries.length:value.entries.filter(e=>e.adoption===adoption).length):'—';
+  }
+  if(value)summarySelection();else for(const button of document.querySelectorAll('[data-library-summary]'))button.setAttribute('aria-pressed','false');
+ }
  function renderComparison(){
   const entries=selectedEntries(),grid=$('compareGrid');grid.replaceChildren();$('compareCount').textContent=entries.length+' / '+MAX_SELECTED;
   $('libraryExport').disabled=!entries.length;$('libraryClear').disabled=!entries.length;
@@ -30,7 +40,7 @@
  function syncSelection(){for(const input of $('libraryCards').querySelectorAll('input[data-select-id]'))input.checked=selected.has(input.dataset.selectId);}
  function setSelection(id,checked){if(checked&&selected.size>=MAX_SELECTED&&!selected.has(id)){$('libraryStatus').textContent='最多选择3项，请先移除一项。';syncSelection();return;}if(checked)selected.add(id);else selected.delete(id);renderComparison();syncSelection();$('libraryStatus').textContent='已选 '+selected.size+' 项；筛选不会清除选择。';}
  function renderCards(){
-  if(!catalog)return;const q=$('librarySearch').value.trim().toLocaleLowerCase(),category=$('libraryCategory').value,adoption=$('libraryAdoption').value;
+  if(!catalog)return;summarySelection();const q=$('librarySearch').value.trim().toLocaleLowerCase(),category=$('libraryCategory').value,adoption=$('libraryAdoption').value;
   const entries=catalog.entries.filter(e=>(!category||e.category===category)&&(!adoption||e.adoption===adoption)&&(!q||[e.id,e.name,e.kind,e.repository,e.license,e.weightsLicense,...list(e.borrow),e.limit,...list(e.runMode)].join(' ').toLocaleLowerCase().includes(q)));
   const cards=$('libraryCards');cards.replaceChildren();$('libraryEmpty').hidden=!!entries.length;$('libraryCount').textContent='显示 '+entries.length+' / '+catalog.entries.length+' 项 · 核对日期 '+catalog.reviewDate;
   for(const e of entries){const card=node('article',undefined,'catalog-card');card.dataset.entryId=e.id;const selection=node('label',undefined,'selection'),checkbox=node('input');checkbox.type='checkbox';checkbox.dataset.selectId=e.id;checkbox.checked=selected.has(e.id);checkbox.setAttribute('aria-label','选择 '+e.name+' 加入对照');checkbox.addEventListener('change',()=>setSelection(e.id,checkbox.checked));selection.append(checkbox,node('span','加入对照'));card.append(selection,node('span',categories[e.category],'tag'),node('span',states[e.adoption],'tag'),node('h3',e.name),node('p',string(e.kind),'muted'),bullets(e.borrow));
@@ -42,15 +52,16 @@
   }
  }
  async function loadCatalog(){
-  const current=++generation;controller?.abort();controller=new AbortController();const requestController=controller,timer=setTimeout(()=>requestController.abort(),12000);$('libraryStatus').textContent='正在读取公开目录…';$('libraryRetry').hidden=true;
+  const current=++generation;controller?.abort();controller=new AbortController();const requestController=controller,timer=setTimeout(()=>requestController.abort(),12000);$('libraryStatus').textContent='正在读取公开目录…';$('libraryRetry').hidden=true;renderSummary(null);
   try{const response=await fetch('/assets/model-library-catalog.json',{credentials:'omit',cache:'no-store',redirect:'error',signal:controller.signal});if(!response.ok)throw Error('读取失败');const text=await response.text();if(text.length>2*1024*1024)throw Error('目录过大');const value=validCatalog(JSON.parse(text));if(current!==generation)return;catalog=value;selected=new Set([...selected].filter(id=>value.entries.some(e=>e.id===id)));
    $('libraryCategory').replaceChildren(new Option('全部类别',''));for(const [key,label]of Object.entries(categories))if(value.entries.some(e=>e.category===key))$('libraryCategory').append(new Option(label,key));
-   renderCards();renderComparison();$('libraryStatus').textContent='已读取公开目录；浏览资料不会启动模型。';
-  }catch{if(current!==generation)return;catalog=null;selected.clear();$('libraryCards').replaceChildren();$('libraryCount').textContent='';$('libraryEmpty').hidden=true;renderComparison();$('libraryStatus').textContent='公开目录暂不可用，请稍后重试。';$('libraryRetry').hidden=false;
+   renderCards();renderComparison();renderSummary(value);$('libraryStatus').textContent='已读取公开目录；浏览资料不会启动模型。';
+  }catch{if(current!==generation)return;catalog=null;selected.clear();$('libraryCards').replaceChildren();$('libraryCount').textContent='';$('libraryEmpty').hidden=true;renderComparison();renderSummary(null);$('libraryStatus').textContent='公开目录暂不可用，请稍后重试。';$('libraryRetry').hidden=false;
   }finally{clearTimeout(timer);}
  }
  $('compareHeading').tabIndex=-1;$('libraryFilters').addEventListener('submit',e=>e.preventDefault());
  for(const id of ['librarySearch','libraryCategory','libraryAdoption'])$(id).addEventListener(id==='librarySearch'?'input':'change',renderCards);
+ for(const button of document.querySelectorAll('[data-library-summary]'))button.addEventListener('click',()=>{if(!catalog)return;$('librarySearch').value='';$('libraryCategory').value='';$('libraryAdoption').value=button.dataset.librarySummary==='all'?'':button.dataset.librarySummary;renderCards();$('libraryStatus').textContent='已按总览卡片筛选；已选对照保留。';});
  $('libraryReset').addEventListener('click',()=>{$('libraryFilters').reset();renderCards();$('librarySearch').focus();});
  $('libraryClear').addEventListener('click',()=>{selected.clear();renderComparison();syncSelection();$('libraryStatus').textContent='已清除选择。';});
  $('libraryRetry').addEventListener('click',loadCatalog);

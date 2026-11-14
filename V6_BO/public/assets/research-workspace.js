@@ -23,8 +23,32 @@
  function card(title){const n=node('article',undefined,host);n.className='card';node('h3',title,n);return n;}
  function button(p,text,fn){const b=node('button',text,p);b.type='button';b.addEventListener('click',fn);return b;}
  function key(){return 'web_'+(root.crypto?.randomUUID?.().replace(/-/g,'')||Date.now().toString(36)+Math.random().toString(36).slice(2));}
+ function clearSummary(){const summary=$('workspaceSummary');if(summary){summary.replaceChildren();summary.hidden=true;}}
+ function renderSummary(){
+  const summary=$('workspaceSummary');if(!summary)return;clearSummary();if(!view)return;
+  const r=view.selectedRun,screen=view.screening,defense=view.defense;
+  node('h3','本次研究概览',summary);const context=node('p',(r?val(r.name)+' '+r.symbol+' · 数据日 '+val(r.tradeDate)+' · '+val(r.provider):'尚未选择股票研究')+'；查看时点 '+clock(view.asOf)+(historical()?' · 历史回放，只读':' · 已封存资料'),summary);context.id='workspaceSummaryContext';
+  const grid=node('div',undefined,summary);grid.className='workspace-summary-grid';
+  function overview(id,title,value,lines,target){const c=node('article',undefined,grid);c.className='workspace-summary-card';c.dataset.summaryCard=id;node('h4',title,c);const n=node('p',value,c);n.className='workspace-summary-value';for(const text of lines)node('p',text,c);
+   const b=button(c,'查看'+tabs[target],async()=>{if(!view)return;tab=target;const paged=offset!==0,runId=view.selectedRun?.id;offset=0;
+    if(paged){if(!await call(null,runId?{runId}:{}))return;}else render();
+    host.focus({preventScroll:true});host.scrollIntoView({block:'start',behavior:'auto'});
+   });b.dataset.summaryTab=target;
+  }
+  const conditions=Array.isArray(r?.conditions)?r.conditions:null,known=conditions?.filter(c=>c.status==='pass'||c.status==='fail').length,missing=conditions?.filter(c=>c.status==='unknown').length;
+  overview('evidence','证据与缺口',conditions?known+' / '+conditions.length+' 项已知':'尚无条件记录',conditions?['缺失 '+missing+' 项条件 · 去重字段缺口 '+arr(view.quality?.gaps).length+' 个','所选研究版本；条件数量不是多空票数']:['先读取或选择一条已封存股票研究。'],'evidence');
+  overview('screening','筛选批次',screen?.runId?val(screen.inputTotal)+' 只原始输入':'尚无筛选封存',screen?.runId?['整批末步保留 '+val(screen.funnel?.remaining)+' 只','当前筛选匹配 '+val(screen.total)+' 只 · 本页 '+arr(screen.rows).length+' 只',label(screen.lookupStatus)]:['封存扫描后可复查入选与落选原因。'],'screening');
+  const positions=Array.isArray(defense?.rows)&&!defense.reason?defense.rows:null;
+  const attention=positions?.filter(p=>p.status!=='observed-unverified'||p.concentrationWarning||arr(p.avoidedBoards).length||p.excludedByResearchPreference||arr(p.missing).length).length;
+  overview('defense','持仓待复核',positions?attention+' 项待复核':'持仓资料不可用',positions?['全部可读原账户持仓 '+positions.length+' 项；跨账户同股分别计数',positions.length?'含报价、原入选依据、条件失效及集中度等待核项':'当前未读到持仓项，不代表真实券商账户为空']:[defense?.reason||'没有可核对的持仓视图。'],'defense');
+  const diagnostic=arr(view.diagnostics).at(-1),stage=diagnostic?arr(diagnostic.stages).at(-1):arr(r?.diagnostics).at(-1),unresolved=Array.isArray(view.preferences?.value?.unresolved)?view.preferences.value.unresolved.length:null;
+  overview('diagnostics','分析任务状态',diagnostic?label(diagnostic.status):stage?label(stage.status):'尚未记录',[
+   diagnostic?'最近任务 '+val(diagnostic.symbol||r?.symbol)+' · '+clock(diagnostic.asOf):stage?'所选版本保存的阶段记录':'尚无任务状态，不能据此判断分析成功。',
+   ...(stage?[val(stage.stage)+(stage.durationMs!==undefined?' · '+val(stage.durationMs)+' 毫秒':'')]:[]),
+   '未完成事项 '+val(unresolved)+' 项'],'diagnostics');summary.hidden=false;
+ }
  function clear(message='输入或权限已变化，请重新读取',privacy=false){
-  generation++;request?.abort();request=null;view=null;host.replaceChildren();status.textContent=message;
+  generation++;request?.abort();request=null;view=null;host.replaceChildren();clearSummary();status.textContent=message;
   modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastInput').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除；读取研究版本后可继续';
   nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';
   if(privacy){nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])$(id).value='';
@@ -44,7 +68,7 @@
   if($('workspaceAsOf').value){const local=$('workspaceAsOf').value;query.set('asOf',String(Date.parse(local+(local.length===16?':00':'')+'+08:00')));}
   for(const [k,v]of Object.entries(extra))query.set(k,String(v));
   const timer=setTimeout(()=>controller.abort(),60000);
-  status.textContent=body?'正在保存或比较已有研究…':'正在读取已封存研究…';
+  if(extra.export!=='1')clearSummary();status.textContent=body?'正在保存或比较已有研究…':'正在读取已封存研究…';
   try{
    const response=await root.fetch('/api/research/workspace'+(body?'':'?'+query),{method:body?'POST':'GET',cache:'no-store',signal:controller.signal,
     headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
@@ -54,7 +78,7 @@
    if(body){status.textContent=result.reused?'原请求已完成，复用封存结果':'操作已完成';return result;}
    if(extra.export==='1'){status.textContent='本次证据已准备导出';return result.result;}
    view=result.result;render();settings();status.textContent='已读取 '+clock(view.asOf)+' 的封存记录；未重新采集行情';return view;
-  }catch(e){if(id===generation){view=null;host.replaceChildren();status.textContent=e.name==='AbortError'?'读取已停止；可重新读取原档案':'未完成：'+e.message;}return null;}
+  }catch(e){if(id===generation){view=null;host.replaceChildren();clearSummary();status.textContent=e.name==='AbortError'?'读取已停止；可重新读取原档案':'未完成：'+e.message;}return null;}
   finally{clearTimeout(timer);if(id===generation)request=null;}
  }
  function pagination(total){const n=node('div',undefined,host);n.className='linked-actions';line(n,'记录',Math.min(offset+1,total)+'—'+Math.min(offset+20,total)+' / '+total);
@@ -62,7 +86,7 @@
   const next=button(n,'下一页',()=>{offset+=20;call();});next.disabled=offset+20>=total;
  }
  function render(){
-  host.replaceChildren();for(const b of $('workspaceTabs').children)b.setAttribute('aria-selected',String(b.dataset.tab===tab));if(!view)return;
+  host.replaceChildren();renderSummary();for(const b of $('workspaceTabs').children)b.setAttribute('aria-selected',String(b.dataset.tab===tab));if(!view)return;
   const r=view.selectedRun;
   if(tab==='evidence'){
    const list=card('研究版本');for(const run of arr(view.runs.rows)){const row=node('div',undefined,list);row.className='workspace-row';
@@ -112,7 +136,7 @@
    for(const scenario of arr(view.scorecard?.stress)){const d=detail(c,'费用压力：佣金 '+scenario.assumptions.feeBps+'bp / 滑点 '+scenario.assumptions.slippageBps+'bp');for(const g of scenario.groups)line(d,label(g.system)+' / '+g.horizon+'日',g.averageNetReturnPct===null?'缺少可成交样本':g.averageNetReturnPct+'%（纸面估计）');}
    renderForecasts(view.forecastEvaluation);
   }else if(tab==='defense'){
-   const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));}
+   const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));if(arr(p.avoidedBoards).length)line(d,'命中回避板块',p.avoidedBoards.join('；'));if(p.excludedByResearchPreference)line(d,'研究排除名单','已列入');}
    for(const e of arr(view.defense?.exposures))line(c,e.name+'共同暴露',e.symbols.join('、')+' · '+val(e.weightPct)+'%');
    line(c,'说明',view.defense?.reason||view.defense?.meaning||'当前没有可读取的持仓；不代表实际券商账户为空');
   }else if(tab==='diagnostics'){
