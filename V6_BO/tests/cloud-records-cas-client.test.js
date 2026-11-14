@@ -101,6 +101,8 @@ test('two logged-in devices use server global revision and only one can commit',
   await code(()=>desktop.commit(row(1,80000)),'REVISION_CONFLICT');
   assert.equal(desktop.status().blocked,true);
   assert.equal(desktop.status().pendingWrite,false);
+  assert.equal(desktop.status().loaded,false,'conflicted desktop ledger is not fresh');
+  assert.throws(()=>desktop.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
   assert.equal(JSON.parse(f.store.read().records.find(x=>x.name==='v6.app.state').content).cash,90000);
   assert.equal((await desktop.load()).revision,3);
   assert.equal(desktop.status().blocked,false);
@@ -121,12 +123,17 @@ test('lost POST response keeps the exact requestId and retry does not append a s
   await code(()=>client.commit(row(1,75000)),'TRANSPORT_UNCERTAIN');
   assert.equal(client.status().pendingWrite,true);
   assert.equal(client.status().blocked,true);
+  assert.equal(client.status().loaded,false,'failed write cannot keep account marked fresh');
+  assert.throws(()=>client.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED',
+    'uncertain write must never leak cached cash as current');
   assert.equal(f.store.read().revision,2,'first POST actually committed');
   await code(()=>client.commit(row(2,70000)),'PENDING_WRITE_MUST_BE_RECONCILED');
   const retry=await client.retryPending();
   assert.equal(retry.status,'confirmed');
   assert.equal(retry.reused,true);
   assert.equal(client.status().pendingWrite,false);
+  assert.equal(client.status().loaded,true,'verified idempotent retry restores readable state');
+  assert.equal(JSON.parse(client.record('v6.app.state').content).cash,75000);
   assert.equal(f.store.read().events,2);
   const attempts=f.requests.filter(x=>x.method==='POST').map(x=>x.body);
   assert.equal(attempts.length,2);
@@ -168,6 +175,8 @@ test('a readback that shows a different account after acknowledged commit never 
   assert.equal(c.status().blocked,true);
   assert.equal(c.status().pendingWrite,false);
   assert.equal(c.status().revision,3);
+  assert.equal(c.status().loaded,false,'a superseded readback is not a trusted account snapshot');
+  assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
 });
 test('invalid write acknowledgements keep a pending ID for same-operation recovery',async()=>{
   let posts=0;
@@ -262,4 +271,75 @@ test('clear while receipt GET is pending blocks delayed proof and keeps private 
  await code(()=>checking,'AUTH_CHANGED');
  assert.equal(c.status().loaded,false);
  assert.equal(c.status().blocked,true);
+});
+
+
+test('in-flight POST and refresh GET cannot present cached balances as synchronized',async t=>{
+ const f=await fixture(t);
+ let resumePost=null,resumeGet=null,delayedGet=false;
+ const transport=(url,opts)=>{
+  if(opts.method==='POST')
+   return new Promise((resolve,reject)=>{resumePost=()=>f.fetchImpl(url,opts).then(resolve,reject);});
+  if(delayedGet)
+   return new Promise((resolve,reject)=>{resumeGet=()=>f.fetchImpl(url,opts).then(resolve,reject);});
+  return f.fetchImpl(url,opts);
+ };
+ const c=createClient({getToken:()=>EDIT,fetchImpl:transport,allowMutations:true,
+   requestIdFactory:()=> 'in_flight_req_001'});
+ const first=await c.load();
+ assert.equal(first.loaded,true,'successful initial load must remain readable');
+ assert.equal(c.status().loaded,true);
+ assert.equal(JSON.parse(c.record('v6.app.state').content).cash,100000);
+ const writing=c.commit(row(1,78000));
+ assert.equal(typeof resumePost,'function','POST is pending');
+ assert.equal(c.status().loaded,false);
+ assert.equal(c.status().pendingWrite,true);
+ assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
+ resumePost();
+ const result=await writing;
+ assert.equal(result.status,'confirmed');
+ assert.equal(c.status().loaded,true);
+ assert.equal(JSON.parse(c.record('v6.app.state').content).cash,78000);
+ delayedGet=true;
+ const refreshing=c.load();
+ assert.equal(typeof resumeGet,'function','refresh GET is pending');
+ assert.equal(c.status().loaded,false);
+ assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
+ resumeGet();
+ assert.equal((await refreshing).loaded,true);
+ assert.equal(c.status().blocked,false);
+ assert.equal(JSON.parse(c.record('v6.app.state').content).cash,78000);
+});
+
+test('status and record reads detect session rotation without sending a new request',async t=>{
+ const f=await fixture(t);
+ let auth=EDIT;
+ const c=createClient({getToken:()=>auth,fetchImpl:f.fetchImpl});
+ await c.load();
+ assert.equal(c.status().loaded,true);
+ auth=VIEW;
+ assert.throws(()=>c.record('v6.app.state'),e=>e.code==='AUTH_CHANGED');
+ assert.equal(c.status().loaded,false);
+ assert.equal(c.status().blocked,true);
+ assert.equal(c.status().revision,null);
+ assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
+ assert.equal(f.requests.length,1);
+ const d=createClient({getToken:()=>auth,fetchImpl:f.fetchImpl});
+ // A fresh client must not treat a VIEW bearer as an editing session.
+ await code(()=>d.load(),'ACCESS_DENIED');
+ assert.equal(d.status().loaded,false);
+});
+
+test('status polling alone clears revoked device snapshots before a caller inspects records',async t=>{
+ const f=await fixture(t);
+ let auth=EDIT;
+ const c=createClient({getToken:()=>auth,fetchImpl:f.fetchImpl});
+ await c.load();
+ auth='';
+ const current=c.status();
+ assert.equal(current.loaded,false);
+ assert.equal(current.blocked,true);
+ assert.equal(current.revision,null);
+ assert.throws(()=>c.record('v6.app.state'),e=>e.code==='NOT_SYNCHRONIZED');
+ assert.equal(f.requests.length,1);
 });
