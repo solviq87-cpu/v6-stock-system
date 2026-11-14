@@ -11,7 +11,7 @@ function injectedRuntime(overrides){
  return module.exports;
 }
 const freePort=()=>new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
-async function fixture(t){
+async function fixture(t,{starter=host,observedPid=()=>null}={}){
  const base=fs.mkdtempSync(path.join(os.tmpdir(),'v6-process-inspection-')),bundle=path.join(base,'bundle'),root=path.join(base,'private');
  let original;
  const server="require('node:http').createServer((q,r)=>r.end(JSON.stringify({hasPassword:false}))).listen(+process.env.PORT,process.env.HOST);";
@@ -20,12 +20,13 @@ async function fixture(t){
  t.after(async()=>{
   await host.main(['stop','--home',root]);
   // A failing baseline can archive the PID record while the fixture is alive.
+  original ||= host.processIdentity(observedPid());
   if(original&&host.ownedProcess(root,original))process.kill(original.pid,'SIGTERM');
   for(let n=0;original&&host.ownedProcess(root,original)&&n<100;n++)await new Promise(r=>setTimeout(r,10));
   fs.rmSync(base,{recursive:true,force:true});
  });
  assert.equal((await host.main(['init','--home',root,'--bundle',bundle])).code,'initialized');
- const port=await freePort();assert.equal((await host.main(['start','--home',root,'--smoke'],{port})).code,'started');
+ const port=await freePort();assert.equal((await starter.main(['start','--home',root,'--smoke'],{port})).code,'started');
  const file=path.join(root,'run/process.json'),bytes=fs.readFileSync(file),state=JSON.parse(bytes);
  original=state;
  return {root,port,file,bytes,state};
@@ -86,4 +87,14 @@ test('a confirmed zombie remains stopped without reading its vanished executable
  const actual=fs.readFileSync('/proc/'+process.pid+'/stat','utf8'),end=actual.lastIndexOf(')')+2;
  const exited=procFixture(t,{stat:actual.slice(0,end)+'Z'+actual.slice(end+1),cmd:''});
  assert.equal(exited.processIdentity(process.pid),null);
+});
+test('initial child identity acquisition retries a transient unreadable command line',async t=>{
+ let pid=null,attempts=0;
+ const starter=injectedRuntime({openSync:(file,...args)=>{
+  const match=String(file).match(/^\/proc\/(\d+)\/cmdline$/);
+  if(match){pid=Number(match[1]);if(++attempts===1)throw error('EACCES');}
+  return fs.openSync(file,...args);
+ }});
+ const f=await fixture(t,{starter,observedPid:()=>pid});
+ assert.ok(attempts>=2);assert.equal((await host.main(['check','--home',f.root])).health,true);
 });

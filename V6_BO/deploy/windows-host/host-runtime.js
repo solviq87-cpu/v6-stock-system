@@ -135,7 +135,14 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  const out=fs.openSync(path.join(root,'run/server.log'),fs.constants.O_CREAT|fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK,0o600);
  try{const stat=fs.fstatSync(out);requireThat(stat.isFile()&&stat.nlink===1&&stat.uid===process.getuid()&&!(stat.mode&0o077),'unsafe-log');
  child=spawn(fs.realpathSync(process.execPath),[path.join(root,'app/server.js')],{cwd:path.join(root,'app'),env:childEnv,detached:true,stdio:['ignore',out,out]});}finally{fs.closeSync(out);}
- let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity;for(let i=0;i<40&&!spawnError;i++){identity=processIdentity(child.pid);if(identity)break;await sleep(25);}requireThat(identity&&!spawnError,'server-start-failed');
+ let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity,inspectionError;
+ for(let i=0;i<40&&!spawnError;i++){
+  try{identity=processIdentity(child.pid);inspectionError=undefined;}
+  catch(error){if(error.code!=='process-inspection-failed')throw error;inspectionError=error;}
+  if(identity)break;await sleep(25);
+ }
+ if(!identity&&inspectionError)throw inspectionError;
+ requireThat(identity&&!spawnError,'server-start-failed');
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
  const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
@@ -149,8 +156,16 @@ async function stop({root}){
   // permission and other signal errors must preserve the recovery record.
   try{process.kill(state.pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
   const until=performance.now()+5000;
-  while(performance.now()<until&&ownedProcess(root,state))await sleep(50);
-  requireThat(!ownedProcess(root,state),'stop-timeout');
+  for(;;){
+   let inspectionError;
+   // Exit tears down /proc entries in stages. Retry an unknown observation
+   // within the original deadline, but never treat it as proof of exit.
+   try{if(!ownedProcess(root,state))break;}
+   catch(error){if(error.code!=='process-inspection-failed')throw error;inspectionError=error;}
+   const remaining=until-performance.now();
+   if(remaining<=0){if(inspectionError)throw inspectionError;fail('stop-timeout');}
+   await sleep(Math.min(50,remaining));
+  }
   fs.unlinkSync(path.join(root,'run/process.json'));
   return {code:'stopped',sourceSha:meta.sourceSha};
  }finally{release();}

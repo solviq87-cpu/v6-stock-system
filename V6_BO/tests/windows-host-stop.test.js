@@ -1,15 +1,16 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(require.resolve('../deploy/windows-host/host-runtime'),'utf8');
-function harness({exitAt=Infinity,jump=0,signalError=null,inspectionErrorAfterSignal=false}={}){
+function harness({exitAt=Infinity,jump=0,signalError=null,inspectionErrorUntil=0}={}){
  let elapsed=0,wall=100000,released=0,removed=0,signals=0,alive=true,sleeps=0;
  const state={pid:12345},root='/fixture/private';
  const c={path,metadata:()=>({sourceSha:'fixture'}),lock:()=>()=>{released++;},processState:()=>state,
-  ownedProcess:()=>{if(inspectionErrorAfterSignal&&signals)throw Object.assign(Error('unknown process state'),{code:'process-inspection-failed'});return alive&&elapsed<exitAt;},archiveStoppedRecord:()=>false,
+  ownedProcess:()=>{if(signals&&elapsed<inspectionErrorUntil)throw Object.assign(Error('unknown process state'),{code:'process-inspection-failed'});return alive&&elapsed<exitAt;},archiveStoppedRecord:()=>false,
   Date:{now:()=>wall},performance:{now:()=>elapsed},
   process:{kill:()=>{signals++;if(signalError){if(signalError==='ESRCH')alive=false;throw Object.assign(Error(signalError),{code:signalError});}}},
   fs:{unlinkSync:file=>{assert.equal(file,path.join(root,'run/process.json'));removed++;}},
   requireThat:(condition,code)=>{if(!condition)throw Object.assign(Error(code),{code});},
+  fail:code=>{throw Object.assign(Error(code),{code});},
   sleep:async ms=>{if(++sleeps>110)throw Error('stop exceeded bounded wait');elapsed+=ms;wall+=ms+jump;}};
  const start=source.indexOf('async function stop('),end=source.indexOf('function parseArgs(',start);
  assert.ok(start>=0&&end>start);vm.runInNewContext(source.slice(start,end),c);
@@ -34,7 +35,12 @@ test('signal permission failures preserve the PID record and release the control
  assert.deepEqual(h.state(),{elapsed:0,released:1,removed:0,signals:1,sleeps:0});
 });
 test('uncertain process state after SIGTERM preserves the record and releases the lock',async()=>{
- const h=harness({inspectionErrorAfterSignal:true});
+ const h=harness({inspectionErrorUntil:Infinity});
  await assert.rejects(h.run(),e=>e.code==='process-inspection-failed');
- assert.deepEqual(h.state(),{elapsed:0,released:1,removed:0,signals:1,sleeps:0});
+ assert.deepEqual(h.state(),{elapsed:5000,released:1,removed:0,signals:1,sleeps:100});
+});
+test('transient unknown state during shutdown waits for confirmed exit within the same deadline',async()=>{
+ const h=harness({exitAt:150,inspectionErrorUntil:100});
+ assert.equal((await h.run()).code,'stopped');
+ assert.deepEqual(h.state(),{elapsed:150,released:1,removed:1,signals:1,sleeps:3});
 });
