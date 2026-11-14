@@ -10,6 +10,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-cloud-client:
+    name: cloud-records-cas-client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify browser-compatible CAS client against isolated real HTTP store
+        run: |
+          node --check V6_BO/public/assets/v6-cloud-cas-client.js
+          node --test V6_BO/tests/cloud-records-cas-client.test.js
   verify-cloud-full-server:
     name: cloud-records-real-login
     runs-on: ubuntu-24.04
@@ -141,9 +156,7 @@ jobs:
             V6_BO/tests/picks-data-source-evidence.test.js \
             V6_BO/tests/market-feed-consensus.test.js \
             V6_BO/tests/multi-source-price-consensus.test.js \
-            V6_BO/tests/eastmoney-historical-feed.test.js \
-            V6_BO/tests/baostock-eod-research-bridge.test.js \
-            V6_BO/tests/market-data-center-e2e.test.js
+            V6_BO/tests/eastmoney-historical-feed.test.js
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

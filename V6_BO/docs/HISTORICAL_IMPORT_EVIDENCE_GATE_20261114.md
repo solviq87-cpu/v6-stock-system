@@ -11,7 +11,7 @@
 - 设置 `secondaryFile` 的 `market-data-center` 现在按严格模式收数，要求真正不同的已登记上游家族、同日期/复权口径、双方股/人民币元完整金额、双方采集时点（最多相差五分钟）与价格成交数据一致；有差异或证据缺失时不覆盖前一份成功记录。无副源的原有导入路径保持向后兼容，但**不宣称已做双源验证**。
 - BaoStock 原有完整 EOD 原始适配包增加 `upstreamGroup:'baostock'`、`priceAdjustment.mode:'unadjusted'`、`volumeUnit:'shares'`、`amountUnit:'CNY'`、`amountBasis:'actual-unadjusted-turnover'`，保留停牌、公司行为和原始采集时钟门禁；额外字段会改变归档字节，请新建研究输出文件，禁止覆写已存在的旧归档。
 - 东方财富旧默认前复权 `em-qfq-v2` 恢复之前的不可变身份算法；新的 fqt=0 不复权数据仍用独立 `em-unadjusted-v2` 身份。采集完成时间只在本地元数据中报告，绝不冒充供应商原始 `quoteAt`，避免破坏已存在跨源研究的时间字段含义。
-- 在现有 `multi-source-data-lineage` GitHub CI 检查中补 BaoStock EOD 和导入落盘端到端测试，不创建一个同名重复任务。
+- 保留最新 dev 已有的 `multi-source-data-lineage` 专项 CI（覆盖来源目录、历史比对与东财历史采集），新增 BaoStock EOD/严格落盘等回归由现有 `npm test` 全量工作流在每次 push/PR 触发。为避免覆盖并行提交，不重写共享 CI 工作流。
 
 ### 实证边界
 

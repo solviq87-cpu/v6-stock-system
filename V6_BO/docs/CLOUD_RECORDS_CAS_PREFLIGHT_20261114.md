@@ -67,3 +67,19 @@ node --test V6_BO/tests/cloud-records-server-integration.test.js
 该测试启动**真正的原有 V6 server.js**，仅在临时目录生成合成密码和合成账本，不带任何真实环境密钥，不访问外部网络；验证原登录令牌、未登录拒绝、跨域拒绝、版本冲突 409、相同请求幂等、请求格式拒绝和实际文件回读，并在退出时清理临时副本。
 
 **尚未生产启用：** 此开关不在仓库配置中默认打开，未修改 WorkBuddy 静态发布器、未关联真实云端账本；没有购买部署服务、没有修改服务器凭据、没有用模拟测试替代真实数据迁移及真机验收。当前静态 WorkBuddy 页面仍按旧 `sharecode` 请求模式工作，无法自动变成 Bearer/CAS 客户端；迁移前还需要改造专用授权前端、备份/恢复、真实持久卷和多设备测试。禁止将本阶段称为“云端连接已经恢复”。
+
+
+## 第四阶段：独立浏览器 CAS 客户端（默认只读，未接入线上 UI）
+
+新增 `public/assets/v6-cloud-cas-client.js`，通过 Node 的 CommonJS 或浏览器 `window.V6CloudCasClient` 显式创建实例。本文件不会自动调用任何接口，不修改锁定的电脑/手机首页，也不会读取或写入 `localStorage`、cookie 或分享码；**不会自动接管现有 WorkBuddy 单文件静态页面**。
+
+- `createClient({getToken, fetchImpl, allowMutations, requestIdFactory})`：必须由宿主提供真实会话令牌获取函数。只允许同源固定路径 `/api/records`，令牌仅置于 `Authorization: Bearer`，从不拼接到 URL，禁用跨站请求和缓存。缺/换令牌即清除已载入的私有账户数据。
+- `allowMutations` **默认 false**；必须由未来已经通过真实备份、权限和部署审批的宿主显式启用，不能由接口响应的 HTTP 200 自动启用。
+- `load()` 只接受 `writeContract:cas-v1`、明确的**服务端全局 revision**、唯一 `v6.app.state`、可识别账户最低结构。缺失、同名重复、损坏时拒绝；不会创建默认账户。
+- `commit(record)` 只能更新之前已确认存在的记录；提交携带服务端全局 `expectedRevision` 和高熵 `requestId`。遇到 HTTP 409 会冻结写入，不自行合并两端资金、持仓或流水。
+- `retryPending()` 专门处理单次会话内“POST 可能已经落盘但回执丢失”：**只重发同一 requestId 与同一正文**，而不是新建订单。首次 POST、重试及读回都使用相同身份；读回不一致则停止继续修改。
+- `clear()` 和凭据变化将增加操作世代，防止较晚返回的旧网络响应重新填回敏感账户状态。
+
+**限制不能隐瞒：** 待确认请求 ID 仅保存在内存，关闭网页或浏览器进程重启后无法自动重试；跨重启恢复仍需独立服务端回执查询与安全迁移方案。客户端只检查 CAS 协议和最小结构，不执行完整资金/持仓风控与业务对账；不得把它作为真实交易入口。现有 WorkBuddy 页面仍走旧 sharecode 数据接口，不会因为新资产文件存在就自动连接 CAS。
+
+专项回归：`node --test V6_BO/tests/cloud-records-cas-client.test.js`，测试使用**真实 localhost HTTP CAS 处理器与临时合成账本**，覆盖两客户端版本冲突、同 ID 网络重试、令牌撤销清缓存、页面手动清理后的竞态、写入回读、无权威记录拒绝、响应损坏，以及默认只读策略。GitHub 独立状态 `cloud-records-cas-client` 和原 `verify` 全量回归必须通过才可以合并。
