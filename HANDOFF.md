@@ -1,11 +1,26 @@
 # 天枢智策 V6｜多智能体交接入口
 
+<!-- CURRENT_CHECKPOINT_START -->
+## 当前断点 · 2026-11-14（先核对实际 Git，再读对应模块）
+
+- 当前集成基线：`dev@a6150b6577d9407e2b4b37206750178c5e07c2db`（#212文档回执；业务起点4233950）。#209/#210/#211 已合并；下面历史段落的“待合并”只描述当时状态。
+- 当前任务：V6-001/006 冷启动快照恢复 + V6-003 上下文续接；分支 `fix/boot-snapshot-continuation-20261114`，当前执行者 Codex。先查该分支/PR，避免重复修复。
+- 验证：本地3384通过/0失败/3可选ML跳过；网页40通过；完整服务隔离启动通过。远端CI与生产状态必须分别核对。
+- 本批：100只快照恢复边界、退市池全过滤后回填、异常/未来时间新鲜度、损坏快照诊断；原始逐票时间保留，恢复不调用实时价格入账。测试/回滚见 `V6_BO/docs/BOOT_SNAPSHOT_CONTINUATION_20261114.md`。
+- 快速续接：`npm run context:resume`，仅输出实际本地 SHA、分支、脏文件与本段；origin/dev 是本地缓存，仍须查询 GitHub 的最新 dev/PR/精确 head CI。命令不会联网或更改仓库。
+- 稳定约束：现有完整工程增量维护；不采购服务；凭据不入Git；原四体系、账户历史和两张主页保持；只使用原报价时点判断15秒，不把收到时间当报价时间。
+- 发布：本批未执行生产写入。唯一发布 owner 与事务/快照依赖见 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md`；静态发布不等于完整后台部署。
+- 队列：旧UI草稿 #4/#166/#169 仍待逐项评审；不是可直接回灌的修复。现场24项未关闭，见 `V6_BO/integration/TASK_STATUS.md`。
+- 下一步：核验本分支最终CI/合并回执；再做目标Windows重启、双端真实断线恢复、盘中行情与持久快照联动验收。缺少原发布环境/私有事务和真机时准确记录阻塞，不把本地测试当生产通过。
+- 读取预算：先读本段和两级AGENTS；按任务检索具体函数/文档。历史CHAT_HANDOFF、WORK_LOG和大文件按关键词/行范围读取，不每轮整份打印；详细日志存文件，只回传失败段和汇总。每次阶段结束更新本段，保留历史记录。
+<!-- CURRENT_CHECKPOINT_END -->
+
 > **先读此文件，但原仓库更高优先级规则仍在根 `AGENTS.md` 与 `V6_BO/AGENTS.md`。** 本文是协作索引，不能替代技术规范、现场验收或用户权限。
 
 ## 30 秒接手流程
 
-1. 阅读 `AGENTS.md`、`V6_BO/AGENTS.md`、`README.md` 与 `V6_BO/integration/CHAT_HANDOFF.md`。
-2. 阅读根 `TASK_MASTER.md`（任务去重）、`RELEASE_QUEUE.md`（开放 PR）、`WORK_LOG.md`（变更）及原 `V6_BO/integration/TASK_STATUS.md`（24 项验收）。
+1. 执行 `npm run context:resume`，阅读 `AGENTS.md`、`V6_BO/AGENTS.md`；稳定要求保存在仓库，不重复粘贴整个聊天历史。
+2. 按任务编号查询 `TASK_MASTER.md`、`RELEASE_QUEUE.md`；仅在需要历史证据时检索 `WORK_LOG.md`、`V6_BO/integration/CHAT_HANDOFF.md` 的相关段落。现场总验收查 `V6_BO/integration/TASK_STATUS.md`，不要重复整份读取所有归档。
 3. 从 GitHub 实际查询 `dev` 最新 SHA、开放/草稿 PR、Issue、工作流 CI、各任务已有实现；**不要只信本地快照表**。
 4. 领取任务前寻找重复 Issue/PR/分支，核实负责人和影响文件，冲突则暂停并协商。不能把 Markdown 当互斥锁。
 5. 只补已核实的缺口，小步提交，记录实际运行过的专项和全量测试；测试失败不可掩盖。

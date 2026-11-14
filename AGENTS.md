@@ -2,6 +2,8 @@
 
 > 适用范围：本仓库全部目录。每次开始修改前，必须先阅读本文件和 `V6_BO/AGENTS.md`，再检查目标模块文档、最新提交及测试状态。不得把阅读声明等同于已执行测试。
 
+> **续接入口**：先运行 `npm run context:resume` 获取有界检查点与实际本地Git状态，再核对远端dev/活动PR。历史交接、源码和测试日志按本轮任务定向读取；每阶段更新 `HANDOFF.md` 当前检查点，不追加整份历史到提示词。该命令不联网，不代表远端CI或生产状态。
+
 > **云端/双端/休市不可回退规则（2026-11-09）**：手机版和电脑版网页都能独立刷新同一份云端状态；任意一端在线不依赖另一端，本地浏览器不作为账户/历史唯一存储。周末/法定休市日新闻与公告继续更新，盘面保留最后交易日快照与数据日期，禁止旧价伪装实时或触发模拟买卖；不擅自采购付费服务。飞书提醒由唯一云端主实例发送，周末新闻/公告可推、休市旧行情不得触发交易信号；私密/公共通道和重复发送风险见 `V6_BO/docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md`。
 
 > **国内写入/部署目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`；官方管理文档 `/console`，官方单文件 HTML 发布 `POST /api/publish`。详见 `V6_BO/docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 与 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md`。每次请求需私有 `sharecode` 查询参数，分享码/token 不得入 Git 或日志。已实际调用发布接口；首次大页面写入出现 Unicode 内容损坏，严格哈希门禁拒绝确认成功，恢复须使用精确当前哈希与原加密快照。仅 CI 绿色或 HTTP 200 不能证明已发布，自动更新改由既有每小时 hosted 任务和当前 managed cloud 环境唯一发布，仍需精确 CI/SHA/owner 与完整读回，GitHub 每 15 分钟只读巡检。禁止回退旧主机或把静态托管当 Node/Python 服务。 角色切换按 `V6_BO/config/repository-auto-update-owner.json` 执行停旧 scheduler→等在途结束且 journal.transaction=null（旧 owner 先恢复）→owner 变更 SHA 通过 CI→启新；owner 不能撤销在途写入，跨环境 flock 不互斥。
