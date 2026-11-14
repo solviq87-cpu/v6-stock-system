@@ -107,3 +107,49 @@ test('numeric receipt times are accepted, absent receipt never borrows disk mtim
  assert.equal(missing.status,'unavailable');assert.ok(!JSON.stringify(missing).includes(f.dir));
  fs.writeFileSync(f.file,JSON.stringify({...f.calendar,observedAt:Date.parse(asOf)+1}));assert.equal(readResearchCalendar({asOf,calendarFile:f.file}).status,'unavailable');
 });
+
+test('calendar cannot claim its source was observed before that source was published',t=>{
+ const f=fixture(t);
+ const bad=[
+  {sourcePublishedAt:'2026-11-12T01:00:01Z'},
+  {sourcePublicationDate:'2026-11-13'},
+  {sourceEvidence:[{firstObservedAt:'2026-11-12T02:00:00Z',
+   sourcePublishedAt:'2026-11-12T02:00:01Z'}]},
+  {sourceEvidence:[{firstObservedAt:'2026-11-12T02:00:00Z',
+   sourcePublicationDate:'2026-11-12'}]},
+  {sourceEvidence:[{firstObservedAt:'2026-11-12T00:30:00Z',
+   observedAt:'2026-11-12T02:00:00Z'}]},
+  {observedAt:'2026-11-12T00:59:00Z'},
+  {firstObservedAt:'2026-11-12T01:00:00Z',
+   observedAt:'2026-11-12T00:59:00Z'}
+ ];
+ for(const patch of bad){
+  fs.writeFileSync(f.file,JSON.stringify({...f.calendar,...patch}));
+  const result=readResearchCalendar({asOf,calendarFile:f.file});
+  assert.equal(result.status,'unavailable',JSON.stringify(patch));
+  assert.deepEqual(result.tradeDates,[]);
+  assert.equal(result.nextTradeDate,null);
+ }
+});
+test('a historical calendar is usable when publication precedes recorded observation',t=>{
+ const f=fixture(t,{
+  sourcePublishedAt:'2026-11-12T00:59:59Z',
+  sourcePublicationDate:'2026-11-12',
+  sourceEvidence:[{firstObservedAt:'2026-11-12T00:59:59Z',
+   sourcePublishedAt:'2026-11-12T00:59:58Z'}]
+ });
+ const result=readResearchCalendar({asOf,calendarFile:f.file});
+ assert.equal(result.status,'available',result.reason);
+ assert.equal(result.metadata.sourceAuthenticated,false);
+ assert.equal(result.metadata.knowledgeAvailableAt,new Date(f.calendar.firstObservedAt).toISOString());
+ assert.equal(result.metadata.tradeEligible,false);
+});
+
+test('explicit +08:00 publication instants preserve causal ordering just like UTC Z',t=>{
+ const f=fixture(t,{sourcePublishedAt:'2026-11-12T08:59:59+08:00'});
+ assert.equal(readResearchCalendar({asOf,calendarFile:f.file}).status,'available');
+ fs.writeFileSync(f.file,JSON.stringify({...f.calendar,
+  sourcePublishedAt:'2026-11-12T09:00:01+08:00'}));
+ const blocked=readResearchCalendar({asOf,calendarFile:f.file});
+ assert.equal(blocked.status,'unavailable');
+});
