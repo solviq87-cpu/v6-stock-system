@@ -7,8 +7,8 @@ const legacy=require('../config/data-source-catalog.json');
 const {sourceLineage,resolveUpstream,validateRegistry,sourceSummary}=require('../src/core/data-source-lineage');
 test('wide source inventory is registered and tied to original publishers rather than counting SDK aliases',()=>{
  const r=validateRegistry();
- assert.equal(r.routeCount,89);assert.ok(r.claimedUpstreamGroups>=45);
- assert.ok(registry.researchRepositories.length>=20);
+ assert.equal(r.routeCount,120);assert.ok(r.claimedUpstreamGroups>=70);
+ assert.ok(registry.researchRepositories.length>=30);
  assert.equal(r.underlyingProvidersVerified,0);
  assert.equal(r.authorizedLiveFeedsVerified,0);
  assert.equal(r.canTrade,false);
@@ -65,7 +65,7 @@ test('all registered routes have source evidence, controlled permissions and no 
 test('dedicated registry audit is real executable and explicitly not a live connectivity test',()=>{
  const data=JSON.parse(execFileSync(process.execPath,[path.resolve(__dirname,'../scripts/audit-data-source-lineage.js')],{encoding:'utf8'}));
  assert.equal(data.ok,true);
- assert.equal(data.routeCount,89);
+ assert.equal(data.routeCount,120);
  assert.equal(data.authorizedLiveFeedsVerified,0);
  assert.equal(data.canTrade,false);
 });
@@ -81,4 +81,27 @@ test('isolated server without mounted registry keeps bootable module but refuses
   assert.throws(()=>isolated.resolveUpstream('tencent'),/目录缺失或损坏/);
   assert.throws(()=>isolated.validateRegistry(),/目录缺失或损坏/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('official SEC, ECB, BOJ and Treasury routes count underlying publishers, not duplicate SDKs',()=>{
+ const s=validateRegistry();
+ assert.equal(s.routeCount,120);assert.equal(s.canTrade,false);
+ for(const id of ['sec-edgar','ecb','boj-statistics','us-treasury-fiscal','us-eia','japan-estat']){
+  assert.equal(sourceLineage(id).known,true,id);
+  assert.equal(sourceLineage(id).active,false,id);
+  assert.equal(sourceLineage(id).canTrade,false,id);
+ }
+ assert.equal(sourceLineage('boj-statistics').market,'JP');
+ assert.equal(resolveUpstream('ecb-fx-daily').group,'ecb');
+ assert.equal(resolveUpstream('ecb').group,'ecb');
+ assert.equal(resolveUpstream('us-treasury-average-rates').group,'us-treasury-fiscal');
+ assert.equal(resolveUpstream('us-treasury-debt').group,'us-treasury-fiscal');
+ assert.equal(resolveUpstream('us-treasury-fiscal').group,'us-treasury-fiscal');
+ assert.equal(sourceLineage('us-eia').access,'credentials-required');
+ assert.equal(sourceLineage('japan-estat').access,'credentials-required');
+ assert.equal(sourceLineage('ecb').access,'registered-only');
+ assert.equal(sourceLineage('sec-edgar').access,'registered-only');
+ assert.equal(sourceLineage('sec-edgar').verifiedIndependent,false);
+ assert.equal(registry.sources.find(x=>x.id==='sec-edgar').adapter,'sec-companyfacts.js');
+ assert.equal(registry.sources.find(x=>x.id==='ecb').adapter,'ecb-fx-daily.js');
 });
