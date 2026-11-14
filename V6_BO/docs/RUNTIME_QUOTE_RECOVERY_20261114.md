@@ -1,0 +1,43 @@
+# 后台互斥、模拟盘报价消费与断线恢复增量
+
+基线：`dev@e986fccf4282c3f5ccefa22c9f98372eadf74e68`（已含 #208、#209）。
+执行分支：`integration/runtime-quote-recovery-20261114`；任务 V6-001 / V6-002 / V6-006。
+
+## 实际缺口及修复
+
+1. `server.js / guard` 原来在 15 分钟后放行第二个同名任务，原任务并未取消；旧任务结束还会释放第二个任务的锁。现在直到原 Promise 完成或拒绝才释放，超时首次告警。不同任务仍可并行，手动与定时同名调用仍共用互斥。持续不返回的任务不会自行复制执行，需检查上游超时或安全重启。
+2. `paperPxFresh`、`paperAuthorityQuotes` 原来允许部分缺接收时间/明确使用权限的全 A 行，价格专用缓存也能参与收益峰值与风险 marks。现在两处消费统一调用现有 `quoteUseEligibility`，复核同一原始行的来源、权限、原报价时刻、接收时刻、15 秒及中国自然日；只读/模拟/导入/停牌等不合格行不能参与自动决策和权威风险 marks。
+3. 桌面应用 SSE 重连原来只更新连接徽章，不补读断线期间的共享状态；过期连接的错误和旧重试计时器还能干扰新连接。现在每次连接成功读取现有共享快照，旧连接/旧重试回调不能替换新连接，联网恢复即时刷新。
+
+`paperPrices()` 仍保留历史价格用于显示估值，不是交易授权接口。只有通过统一门禁的原始报价行才能提高收益峰值、参与实时决策或权威风控 marks。没有完整成交字段的行仍不能借用另一行情行的量、昨收或状态。现有历史账本的读取、指纹和旧证据格式兼容保留；本批没有回写账户历史。
+
+## 复现与验证
+
+- 基线新增反例：报价/任务 10 项中 8 失败，SSE 5 项中 4 失败。修复后包含既有报价、账本字段、双端刷新等专项 66 项全部通过。
+- 本机 Node 24.22.1、6000 行合成报价，运行原 `ingestPx + paperAuthorityQuotes`，预热 2 次后 7 次中位：基线 101.35ms、候选 93.06ms。各轮均产生 6000 条报价；仅作无明显退化的本机检查，非生产性能认证。
+- 第一轮完整回归 3370 项：3359 通过、8 失败、3 跳过。8 项集中在两个旧测试文件，仍把缺接收时点/权限的报价视为可以新成交。已将正常夹具补成完整证据，把缺失证据改为原子拒绝，并保留历史格式可读、未知逐字段时点、账户指纹和不借用字段的原断言。
+- 最终完整回归：3370 项，3367 通过、0 失败、0 取消、3 跳过；TAP 完整性验证成功。3 个可选 LightGBM/XGBoost 依赖本地缺失，不冒称通过。
+- `npm run check`、66 项专项、网页构建与 40 项测试、`dist` 一致性、独立完整服务 HTTP 启动通过；服务冒烟没有读取私有配置或对外发请求。
+- 20 项归档工具、运行时依赖禁入、工作流检查、14 数据源登记、发布结构预检通过。结构预检不是生产批准。
+- 旧 `_test_timer_guard.js` 17/17；旧 `_test_logic_audit.js` 为 101/102，其 `sectors` 正则断言失败在精确基线独立 worktree 同样复现，本批未降低该断言。
+- 本机 Chromium 启动因 `socket() failed: Operation not permitted` 被环境限制，未完成本地浏览器验收。CI 增加真实 HTTP/SSE 双独立浏览器上下文 1440/390 检查，覆盖断网、另一端持续更新、恢复后补读、重复 online、关闭一端；同时保留现有 9 视口及其他浏览器检查，须以精确 PR head 的结果为准。
+
+复现命令（仓库根）：
+
+```bash
+npm run check
+RUNNER_TEMP=/tmp V6_MODEL_PYTHON=/path/to/ml-python V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test
+node --test V6_BO/tests/paper-use-consistency.test.js V6_BO/tests/runtime-task-guard.test.js V6_BO/tests/stream-recovery.test.js V6_BO/tests/paper-field-provenance.test.js V6_BO/tests/market-consumer-contract.test.js V6_BO/tests/paper-authority-quote-time.test.js V6_BO/tests/paper-coherent-row.test.js V6_BO/tests/paper-original-quote-time.test.js V6_BO/tests/cloud-dual-device-refresh.test.js
+npm --prefix V6_WEB run build
+npm --prefix V6_WEB test
+node V6_BO/tests/full-server-isolated-smoke.js
+V6_UI_BROWSER=/path/to/chromium node V6_BO/scripts/ui-stream-recovery-browser-check.js
+```
+
+## 保留范围与交付边界
+
+- 锁定主页 Git blob：电脑 `9e2fad468cb3e192df0ca2b9184babb2add8c4de`、手机 `084e36d950f9bf4c3508aa1a5cb8986799b6079e`，均未变。未重构科技风 UI、删除原策略、移植旧草稿页面或重复开发接口。
+- 最新开放 UI 草稿 #4、#166、#169 仍待逐项评审，不直接合入其旧代码。此次没有找到可直接恢复的上轮未推送补丁；按当前 dev 真实缺口复现后增量修复，不把聊天历史测试数当本批证据。
+- 未部署完整后端、未发送真实消息、未开启实盘/购买服务；未改变唯一 managed-task 发布者。WorkBuddy 单 HTML 静态托管不能执行本批 Node 后台，仓库合并不表示后台已上线。
+- 持久化后台快照的整体恢复、策略成绩单的真实前向样本、目标 Windows/手机真机、长期盘中行情与跨机灾备仍需继续验收，未关闭原 24 项现场台账。
+- 回滚：标准 revert 本批修复/合并提交，保留私有账户、历史证据、发布事务与配置。无需迁移或回写账本。

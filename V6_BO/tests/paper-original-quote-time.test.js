@@ -45,7 +45,7 @@ test('full-A fallback accepts only its own fresh provider timestamp', () => {
   const t = 1_800_000_000_000;
   clock(t);
   c.S.stocksAt = t;
-  c.S.stocks = [{ code: '000001', price: 8, quoteSource: 'tencent', quoteAt: t - 500 }];
+  c.S.stocks = [{ code: '000001', price: 8, quoteSource: 'tencent', quoteAt: t - 500, receivedAt: t, canTrade: true }];
   assert.equal(c.paperPxFresh('000001'), 8);
   c.S.stocks[0].canTrade = false;
   assert.equal(c.paperPxFresh('000001'), 0);

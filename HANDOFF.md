@@ -32,6 +32,8 @@
 
 ## 接手/交付的最小格式
 
+本轮继续入口（2026-11-14）：`integration/runtime-quote-recovery-20261114`，从 #209 合并提交 `e986fcc` 增量修复后台互斥、报价消费和断线恢复。开始后续工作前先核对其 PR/最新 dev，避免重复修补；实际验证、首轮失败与剩余事项见 [本批记录](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)。
+
 ```text
 任务编号及负责人：
 起始 dev SHA、工作分支、PR：

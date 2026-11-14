@@ -5,8 +5,8 @@ const {createPaperApplicationService}=require(path.join(root,'src/core/paper-app
 const source=fs.readFileSync(path.join(root,'server.js'),'utf8'),now=Date.parse('2026-11-06T02:00:00Z'),old=now-86400000;
 const hash=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
 function quote(stockPatch={},cached=true,cachePatch={}){
- const stock={code:'600000',name:'fixture',price:8,preClose:10,volume:100,quoteSource:'old-stock-list',quoteAt:old,receivedAt:old+500,...stockPatch};
- const wireQuote={code:'600000',name:'fixture',price:10,preClose:10,volume:100,quoteSource:'fresh-price-cache',quoteAt:now-1000,receivedAt:now-500,mode:'public-live-unverified',...cachePatch};
+ const stock={code:'600000',name:'fixture',price:8,preClose:10,volume:100,quoteSource:'old-stock-list',quoteAt:old,receivedAt:old+500,canTrade:true,...stockPatch};
+ const wireQuote={code:'600000',name:'fixture',price:10,preClose:10,volume:100,quoteSource:'fresh-price-cache',quoteAt:now-1000,receivedAt:now-500,canTrade:true,mode:'public-live-unverified',...cachePatch};
  const tick={p:wireQuote.price,t:now,quoteSource:wireQuote.quoteSource,quoteAt:wireQuote.quoteAt,receivedAt:wireQuote.receivedAt,mode:wireQuote.mode,wireQuote};
  const context={S:{stocks:[stock],stocksAt:now,lastPx:new Map(cached?[['600000',tick]]:[])},Date:{now:()=>now},require:require('node:module').createRequire(path.join(root,'server.js'))};
  vm.createContext(context);
@@ -38,13 +38,15 @@ test('actual authority to saveLegacy preserves one cached raw row for price, vol
  assert.deepEqual(x.make().read().account.events[0].fillEvidence.inputProvenance,meta);
  q.inputProvenance.volume.rowQuoteAt=now;assert.equal(x.make().read().account.events[0].fillEvidence.inputProvenance.volume.rowQuoteAt,now-1000);
 });
-test('unused imported stock row cannot contaminate cache fields and unknown receive/field clocks stay unknown',t=>{
+test('missing price receipt rejects new fills; imported rows cannot contaminate valid cache or invent field clocks',t=>{
  const {q}=quote({quoteAt:undefined,receivedAt:undefined,quoteSource:undefined,mode:'imported'},true,{receivedAt:undefined,suspended:0,tradable:'false'}),x=fixture(t);
- const meta=x.save(q).account.events[0].fillEvidence.inputProvenance;
- assert.equal(meta.price.quoteAt,now-1000);assert.equal(meta.price.receivedAt,null);
+ const before=fs.readFileSync(x.file);assert.equal(q,undefined);assert.throws(()=>x.save(q),/自动成交行情缺失/);assert.deepEqual(fs.readFileSync(x.file),before);
+ const valid=quote({quoteAt:undefined,receivedAt:undefined,quoteSource:undefined,mode:'imported'},true,{suspended:0,tradable:'false'}).q;
+ const meta=x.save(valid).account.events[0].fillEvidence.inputProvenance;
+ assert.equal(meta.price.quoteAt,now-1000);assert.equal(meta.price.receivedAt,now-500);
  for(const row of [meta.volume,meta.limits.preClose,meta.status.suspended,meta.status.tradable]){
   assert.equal(row.origin,'S.lastPx.wireQuote');assert.equal(row.source,'fresh-price-cache');assert.equal(row.mode,'public-live-unverified');assert.equal(row.quoteAt,null);assert.equal(row.receivedAt,null);
-  assert.equal(row.rowQuoteAt,now-1000);assert.equal(row.rowReceivedAt,null);
+  assert.equal(row.rowQuoteAt,now-1000);assert.equal(row.rowReceivedAt,now-500);
  }
  assert.equal(meta.status.suspended.rawType,'number');assert.equal(meta.status.suspended.defaulted,true);assert.equal(meta.status.suspended.value,false);
  assert.equal(meta.status.tradable.rawType,'string');assert.equal(meta.status.tradable.defaulted,true);assert.equal(meta.status.tradable.value,true);

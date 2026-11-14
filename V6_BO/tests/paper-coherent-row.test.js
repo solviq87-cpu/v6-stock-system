@@ -42,7 +42,7 @@ test('full cached row capacity and limit/status inputs are independent of stale 
 });
 test('price-only legacy cache marks holdings but cannot authorize automatic buy from stale stock execution fields',t=>{
  const x=harness(t),before=fs.readFileSync(x.file);x.c.S.lastPx.set('600000',{p:10,t:now,quoteAt:now-1000,quoteSource:'tencent'});
- assert.equal(x.c.paperPrices().get('600000'),10);assert.equal(x.c.paperPxFresh('600000'),10);assert.equal(x.c.paperAuthorityQuotes()['600000'],undefined);
+ assert.equal(x.c.paperPrices().get('600000'),10);assert.equal(x.c.paperPxFresh('600000'),0);assert.equal(x.c.paperAuthorityQuotes()['600000'],undefined);
  x.buy();assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.c.PAPER.pool.cash,10000);assert.deepEqual(Object.keys(x.c.PAPER.pool.positions),[]);assert.equal(x.c.PAPER.pool.trades.length,0);assert.equal(x.notices.length,0);assert.deepEqual(x.skips,['buyStalePrice']);
 });
 test('incomplete fresh cache falls back to a complete fresh stock row as a whole',t=>{
@@ -71,7 +71,7 @@ test('authority write failure rolls real paperBuy mutations back and does not se
 
 test('sell uses the complete row price even when a distinct price-only mark falls inside legacy price tolerance',t=>{
  const x=harness(t,{stocks:[wire()],holdings:true});x.c.S.lastPx.set('600000',{p:10.005,t:now,quoteAt:now-500,quoteSource:'tencent'});
- assert.equal(x.c.paperPxFresh('600000'),10.005);x.c.paperSell('pool','600000',10.005,'test sell');
+ assert.equal(x.c.paperPxFresh('600000'),10);x.c.paperSell('pool','600000',10.005,'test sell');
  const book=x.app.read(),proof=book.account.events[0].fillEvidence;assert.equal(book.account.events[0].price,10);assert.equal(proof.quotePrice,10);assert.equal(proof.inputProvenance.price.origin,'S.stocks');
  assert.equal(book.account.cash,10994.5);assert.equal(x.notices.length,1);
 });

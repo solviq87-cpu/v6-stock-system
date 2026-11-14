@@ -404,17 +404,24 @@ setInterval(() => {
   } catch {}
 }, 10 * 60 * 1000).unref();
 
-// ── u 版：定时任务防重入（带 15 分钟看门狗）─────────────────────────────────
+// ── 定时任务防重入（15 分钟只告警，直到原任务结束才释放）─────────────────────
 // 精选池重建/相似股扫描/板块全量这类重任务，跑一次经常超过自身周期，
 // 不设防就会重叠执行：并发打数据源 → 触发限流 → 更慢 → 重叠更多，恶性循环。
-// 看门狗：万一任务卡死（Promise 永不返回），最多停摆 15 分钟后自动放行下一轮。
-const _taskBusy = new Map();   // name -> startedAt
+// 超时不代表原 Promise 已取消；提前放行会重复采集/写入，旧 finally 还会误删新锁。
+// 各网络请求负责自身超时；真正不结束的任务须诊断或安全重启，不能启动第二个写者。
+const _taskBusy = new Map();   // name -> { startedAt, warned }
 const panelRefreshPolicy=require('./src/core/panel-refresh-policy').createPanelRefreshPolicy();
 function guard(name, fn) {
   return async (...a) => {
     const at = _taskBusy.get(name);
-    if (at && Date.now() - at < 15 * 60 * 1000) return;
-    _taskBusy.set(name, Date.now());
+    if (at !== undefined) {
+      if (!at.warned && Date.now() - at.startedAt >= 15 * 60 * 1000) {
+        at.warned = true;
+        console.error(`[guard:${name}] 任务超过15分钟仍未结束，保留互斥锁`);
+      }
+      return;
+    }
+    _taskBusy.set(name, { startedAt: Date.now(), warned: false });
     // ⛔ catch 不能省：setInterval 回调返回的 promise 没有任何人接，
     //    任务一抛错就是 unhandledRejection（全局兜底只打一行日志，周期任务从此静默停摆）。
     //    周期性任务的正确语义是"这轮失败、下轮再来"，不是把异常抛给空气。
@@ -13375,15 +13382,15 @@ function paperFeeAmount(key,side,amount){
 function paperAuthorityQuotes(){
   const quotes={},marks={},now=Date.now();
   // Authority and risk marks retain the provider clock, never the receive clock.
-  const fresh=q=>q&&require('./src/core/quote-observation-view').quoteSourceAllowsUse(q)&&typeof q.quoteSource==='string'&&q.quoteSource.trim()&&Number.isSafeInteger(q.quoteAt)&&q.quoteAt>0&&q.quoteAt<=now&&now-q.quoteAt<=15000&&Number.isFinite(Number(q.price))&&Number(q.price)>0;
+  const fresh=q=>q&&require('./src/core/quote-observation-view').quoteUseEligibility(q,now).canTrade;
   const complete=q=>(q.receivedAt==null||Number.isSafeInteger(q.receivedAt)&&q.receivedAt>=q.quoteAt&&q.receivedAt<=now)&&/^\d{6}$/.test(q.code)&&Number.isFinite(Number(q.preClose))&&Number(q.preClose)>0&&Number.isFinite(q.volume)&&q.volume>0&&Number.isFinite(q.volume*100);
   const rows=new Map();
   for(const [code,tick] of S.lastPx||[]){
     const row=tick?.wireQuote;
     if(row?.code===code&&fresh(row)&&complete(row)){
       rows.set(code,{row,origin:'S.lastPx.wireQuote'});marks[code]=Number(row.price);
-    // Legacy price-only entries can mark holdings, but cannot borrow execution fields.
-    }else if(fresh({...tick,price:tick?.p}))marks[code]=Number(tick.p);
+    // A partial current row may mark risk, but never borrow missing execution fields.
+    }else if(row?.code===code&&fresh(row))marks[code]=row.price;
   }
   for(const st of S.stocks||[])if(st&&typeof st.code==='string'&&!rows.has(st.code)){
     const valid=fresh(st);
@@ -13920,8 +13927,8 @@ function paperPrices() {
 //    于是一笔「按几小时前（甚至昨天收盘）的价买入」的假成交照样记进流水 —— 这与 paperBuy
 //    注释里自己写的「拿陈旧价买＝假成交」直接矛盾，也和卖出端的严格程度不对称。
 //    现在：只有**真实观察到的最新价**才允许买入成交：
-//      ① S.lastPx（逐票原时点已校验）15 秒内；
-//      ② S.stocks 全 A 行也须携带逐票原时点且该时点仍在 15 秒内。
+//      ① S.lastPx 原始行仍通过统一来源/权限/接收时点/15秒门禁；
+//      ② S.stocks 全 A 原始行通过同一门禁。
 //    两者都不满足 = 行情无法证明当前可用 → 宁可这轮不买（buyStalePrice 面板可见），
 //    绝不拿候选池价、昨收价幻想成交（宁缺毋滥：假成交会污染收益率与学习样本）。
 //    ⛔ 判不出不硬判的另一面：这里「判不出新鲜」= 不成交而不是「按旧价成交」，
@@ -13929,15 +13936,16 @@ function paperPrices() {
 function paperPxFresh(code) {
   const c = String(code || '');
   const now = Date.now();
+  const usable = row => row?.code === c && require('./src/core/quote-observation-view').quoteUseEligibility(row, now).canTrade;
   try {
     const lp = (S.lastPx && S.lastPx.get) ? S.lastPx.get(c) : null;
-    if (lp && Number.isFinite(Number(lp.p)) && Number(lp.p) > 0 && typeof lp.quoteSource === 'string' && lp.quoteSource.trim() && now - (Number(lp.t) || 0) < 180000 && Number.isSafeInteger(lp.quoteAt) && lp.quoteAt > 0 && lp.quoteAt <= now && now - lp.quoteAt <= 15000) return Number(lp.p);
+    if (usable(lp?.wireQuote)) return lp.wireQuote.price;
   } catch {}
   try {
     const sa = Number(S.stocksAt) || 0;
     if (sa && sa <= now && now - sa < 600000) {
       const st = (S.stocks || []).find(x => x && String(x.code) === c);
-      if (st && st.canTrade !== false && typeof st.quoteSource === 'string' && st.quoteSource.trim() && Number.isSafeInteger(st.quoteAt) && st.quoteAt > 0 && st.quoteAt <= now && now - st.quoteAt <= 15000 && Number.isFinite(Number(st.price)) && Number(st.price) > 0) return Number(st.price);
+      if (usable(st)) return st.price;
     }
   } catch {}
   return 0;

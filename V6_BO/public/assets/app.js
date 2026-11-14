@@ -1402,6 +1402,7 @@ function onPageVisible() {
 }
 document.addEventListener('visibilitychange', onPageVisible);
 window.addEventListener('focus', onPageVisible);
+window.addEventListener('online', onPageVisible);
 // H2：桌面端持续自检——标签常驻聚焦、不切前台时也定时比对服务端版本，堵住 checkAppVer 只在切前台事件触发的探测盲窗。
 // 与手机端 checkMobVer 同口径 15s；请求走 /api/lock/status（轻量 no-store），后台标签自动跳过（刷新与本地存活专项）。
 setInterval(() => {
@@ -2693,9 +2694,11 @@ async function fgReset() {
   applyToken(r.token || tr.deviceToken || '', false, 'edit');
 }
 // ───────── 实时通道（SSE）：服务端一有推送/新信号，页面立即刷新，不等轮询 ─────────
-let _es = null, _esRetry = 0;
+let _es = null, _esRetry = 0, _esTimer = null, _esEpoch = 0;
 function rtState(txt, on) { const el = document.getElementById('rtState'); if (el) { el.textContent = txt; el.className = 'badge' + (on ? ' on' : ''); } }
 function connectStream() {
+  const epoch = ++_esEpoch;
+  if (_esTimer !== null) { clearTimeout(_esTimer); _esTimer = null; }
   try {
     if (_es) { try { _es.close(); } catch {} _es = null; }
     const t = GATE.token || LOCK.token || localStorage.getItem('qd_device') || localStorage.getItem('qd_token') || '';
@@ -2704,7 +2707,12 @@ function connectStream() {
       '&dev=' + encodeURIComponent(MY_DID) +
       '&dname=' + encodeURIComponent(deviceName());
     const es = new EventSource('/api/stream' + qs);
-    es.onopen = () => { _esRetry = 0; rtState('⚡ 实时连接正常', true); };
+    es.onopen = () => {
+      if (_es !== es) return;
+      _esRetry = 0; rtState('⚡ 实时连接正常', true);
+      // SSE does not replay missed events; read the existing cloud snapshot on every open.
+      if (!document.hidden) { countdown = 5; refresh(); }
+    };
     es.addEventListener('alert', e => {
       try { const d = JSON.parse(e.data || '{}'); countdown = 5; refresh(); pageMsg('📢 ' + (d.time || '') + ' ' + (d.preview || '').slice(0, 80) + '…', 'ok'); } catch {}
     });
@@ -2751,14 +2759,22 @@ function connectStream() {
       } catch {}
     });
     es.onerror = () => {
+      if (_es !== es) return;
       try { es.close(); } catch {}
-      if (_es === es) _es = null;
+      _es = null;
       rtState('⚪ 实时连接中断·重连中', false);
-      _esRetry++; setTimeout(connectStream, Math.min(30000, 3000 * _esRetry));
+      _esRetry++;
+      _esTimer = setTimeout(() => {
+        if (epoch !== _esEpoch) return;
+        _esTimer = null; connectStream();
+      }, Math.min(30000, 3000 * _esRetry));
     };
     _es = es;
   } catch {}
 }
+window.addEventListener('online', () => {
+  if (!document.hidden && !_es) connectStream();
+});
 // ── 各票池面板整体折叠：点面板标题前的箭头（或标题文字）即收起整块，状态记在 localStorage ──
 const PANEL_KEY = 'qd_panel';             // 折叠状态
 const PANEL_HIDE_KEY = 'qd_panel_hide';   // 「想看哪个就看哪个」里没被勾选的面板
