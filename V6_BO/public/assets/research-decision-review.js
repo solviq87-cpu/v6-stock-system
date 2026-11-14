@@ -3,7 +3,9 @@
 const arr=x=>Array.isArray(x)?x:[];
 const val=x=>x===null||x===undefined||x===''?'未知':typeof x==='object'?JSON.stringify(x):String(x);
 const time=x=>Number.isSafeInteger(x)&&x>0&&Number.isFinite(new Date(x).getTime())?new Date(x).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未知';
-const names={pending:'等待目标日', 'awaiting-evidence':'已到复访时间，等待结果证据',evaluated:'已有首次评价',
+const fieldNames={"cashflow":"现金流","announcementVerified":"公告原文核验","auctionFinal":"竞价最终快照","auctionReturnPct":"竞价涨跌幅","auctionTurnoverRatio":"竞价成交额比例","bandWidthRatio":"波动带宽比例","chipResistanceBroken":"筹码压力突破","closeLocation":"收盘位置","closeOver10":"收盘价/10日均线","closeOver20":"收盘价/20日均线","closeOverPrior20High":"收盘价/前20日高点","closeOverPrior5High":"收盘价/前5日高点","closeOverPrior60High":"收盘价/前60日高点","closeOverPriorHigh":"收盘价/前日高点","closeOverUpperBand":"收盘价/波动上轨","dailyReturnPct":"当日涨跌幅","daysSinceFirstBoard":"距首板交易日","debtAssetsPct":"资产负债率","divergenceSupportHeld":"背离支撑保持","dividendYieldPct":"股息率","drawdown20Pct":"20日回撤","earningsGrowthAccelerationPct":"利润增长加速度","earningsGrowthPct":"利润增长率","earningsSurprisePct":"业绩预期差","ensembleScore":"研究组合评分","etfFlow5":"ETF五日资金流","etfRelativeReturn20Pct":"ETF二十日相对收益","firstBoardLowHeld":"首板低点保持","flowCoverageDays":"资金覆盖交易日","freeCashflow":"自由现金流","industryGrowthPct":"行业增长率","industryRevenueRank":"行业营收排名","leaderRank":"板块地位排名","lhbInstitutionNetBuy":"龙虎榜机构净买入","lhbNetBuy":"龙虎榜净买入","limitStreak":"连续涨停数","ma10Over20":"10日/20日均线","ma5Over10":"5日/10日均线","macdHist":"MACD柱值","membershipVerified":"板块成员核验","minutesToClose":"距收盘分钟数","momentumPercentile":"动量分位","netFlow5":"五日净流入","newsOriginalVerified":"新闻原文核验","newsPolarity":"新闻方向","newsRetracted":"新闻是否撤回","openSupportConfirmed":"开盘支撑确认","operatingCashToProfit":"经营现金流/利润","payoutPct":"分红比例","pe":"市盈率","peg":"市盈率相对增长率","positiveFlowDays":"资金连续流入日数","priorBreakoutRetestHeld":"前次突破回踩保持","priorDailyReturnPct":"前日涨跌幅","priorLimitStreak":"此前连板数","priorMacdHist":"前日MACD柱值","priorWeakClose":"前日收盘偏弱","qualityPercentile":"质量分位","regimeAgreement":"市场状态一致性","regimeEvidenceComplete":"市场状态证据完整性","relativeReturn20Pct":"20日相对收益","relativeReturn60Pct":"60日相对收益","repurchaseExecutedPct":"回购执行比例","repurchasePlanActive":"回购计划有效","revenueGrowthPct":"营收增长率","roePct":"净资产收益率","roePriorYearPct":"上年净资产收益率","rsi14":"14日RSI","sealTurnoverRatio":"封单/成交额","sealedAtClose":"收盘封板","sectorBreadthPct":"板块上涨覆盖率","sectorRelativeReturn20Pct":"板块20日相对收益","sectorStrengthChange":"板块强度变化","turnoverPct":"换手率","valuationPercentile":"估值分位","volatilityPercentile":"波动分位","volumeRatio":"量比"};
+const pretty=x=>String(x).replace(/\b[A-Za-z][A-Za-z0-9]+\b/g,k=>fieldNames[k]||k);
+const names={linked:'引用已匹配',saved:'已封存',failed:'未完成',scheduled:'已安排',blocked:'安排受阻',unavailable:'不可用',empty:'暂无档案','not-requested':'本轮未请求','stored-observation':'已存观察','stored-research':'已存研究','research-observation-recorded':'已记录研究',unchanged:'档案未变化','no-eligible-prospective-hypothesis':'尚无可冻结的前瞻假设',pending:'等待目标日', 'awaiting-evidence':'已到复访时间，等待结果证据',evaluated:'已有首次评价',
   'observed-unverified':'已观察，未外部认证',unknown:'未知',research_candidate:'满足研究条件',not_matched:'条件未满足',insufficient_data:'证据不足',disabled:'未启用',
   up:'收盘高于开盘',down:'收盘低于开盘',flat:'收盘等于开盘',bullish:'正向形态较多',bearish:'风险形态较多',balanced:'形态均衡'};
 const label=x=>names[x]||val(x);
@@ -19,7 +21,7 @@ function summaryText(r){
   '研究条件：满足 '+val(counts.research_candidate)+'；未满足 '+val(counts.not_matched)+'；缺证据 '+val(counts.insufficient_data),
   '冻结判断：'+label(current.prediction)+'；目标日 '+val(current.targetDate)+'；状态 '+label(current.status),
   '下次检查：'+time(r.action?.nextCheckAt),
-  '未决事项：'+arr(r.action?.nextChecks).join('；'),
+  '未决事项：'+arr(r.action?.nextChecks).map(pretty).join('；'),
   '原始历史保留在服务端，摘要不补充新行情或推断交易许可。'].join('\n').slice(0,4000);
 }
 function render(host,r){
@@ -31,7 +33,7 @@ function render(host,r){
  line(action,'当前状态',label(r.current?.status));line(action,'研究判断',label(r.current?.prediction));
  line(action,'目标日',r.current?.targetDate);line(action,'下一次检查（北京时间）',time(r.action?.nextCheckAt));
  if(r.current?.status==='awaiting-evidence')line(action,'已到期时间',time(r.action?.dueAt));
- for(const item of arr(r.action?.nextChecks).slice(0,8))action.append(node('p',item));
+ for(const item of arr(r.action?.nextChecks).slice(0,8))action.append(node('p',pretty(item)));
  for(const item of arr(r.action?.prohibited))action.append(node('p',item));
  const evidence=section(grid,'证据来源与缺口','review-evidence');
  for(const e of arr(r.evidence)){
@@ -48,7 +50,7 @@ function render(host,r){
  for(const row of arr(conditions.rows)){
   const d=disclosure(rules,row.name+' · '+label(row.status));
   for(const [key,title]of [['support','已满足'],['opposition','未满足'],['missing','待补证据']]){
-   for(const c of arr(row[key]))line(d,title,val(c.field)+' · '+(key==='missing'?val(c.reason):val(c.value)+' '+val(c.op)+' '+val(c.threshold))+' · 来源 '+val(c.source));
+   for(const c of arr(row[key]))line(d,title,val(fieldNames[c.field]||c.field)+' · '+(key==='missing'?val(c.reason):val(c.value)+' '+val(c.op)+' '+val(c.threshold))+' · 来源 '+val(c.source));
   }
   line(d,'失效 / 复查条件',row.invalidation);
  }
@@ -65,7 +67,7 @@ function render(host,r){
  line(score,'方向匹配频率',typeof card.matchFrequency==='number'?(card.matchFrequency*100).toFixed(1)+'%':'样本不足或未知');
  line(score,'Brier',card.brier);score.append(node('p',card.meaning||'等待冻结结果'));
  const diagnostics=section(grid,'本次分析状态','review-diagnostics');
- for(const d of arr(r.diagnostics))line(diagnostics,d.stage,d.status);
+ for(const d of arr(r.diagnostics))line(diagnostics,d.stage,label(d.status));
  const history=disclosure(host,'判断变化时间线 · '+val(r.timeline?.total)+' 条');
  if(r.timeline?.truncated)history.append(node('p','仅展示最近50条；完整档案未删除。'));
  history.append(node('p',r.timeline?.meaning||'暂无冻结判断；不生成示例历史。'));
