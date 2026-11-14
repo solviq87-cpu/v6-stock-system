@@ -104,6 +104,31 @@ jobs:
             echo ""
             echo "仅为代码测试，不表示网页已部署或接通实时行情。"
           } >> "$GITHUB_STEP_SUMMARY"
+  verify-source-lineage:
+    name: multi-source-data-lineage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit original upstream mapping and authorization status
+        run: node V6_BO/scripts/audit-data-source-lineage.js
+      - name: Independent publisher, historical unit and candidate evidence regression
+        run: |
+          node --test \
+            V6_BO/tests/data-source-lineage.test.js \
+            V6_BO/tests/multi-source-publisher-lineage.test.js \
+            V6_BO/tests/baostock-historical-normalizer.test.js \
+            V6_BO/tests/worldbank-indicators.test.js \
+            V6_BO/tests/research-cross-source-history.test.js \
+            V6_BO/tests/picks-data-source-evidence.test.js \
+            V6_BO/tests/market-feed-consensus.test.js \
+            V6_BO/tests/multi-source-price-consensus.test.js \
+            V6_BO/tests/eastmoney-historical-feed.test.js
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

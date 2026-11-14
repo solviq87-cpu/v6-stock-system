@@ -3,6 +3,7 @@
  * Comparison does not certify market truth or grant a live-trading capability. */
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
+const {resolveUpstream}=require('./data-source-lineage');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
@@ -10,6 +11,16 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  }
  const a=validateDataset(primary),b=validateDataset(secondary);
  if(primary.source!=='imported'||secondary.source!=='imported'||!primary.provider||!secondary.provider||primary.provider===secondary.provider||!primary.datasetId||!secondary.datasetId)throw Error('多源核对必须为不同供应商提供的独立 imported 数据');
+ // Two differently named adapters sourcing one tape are only ONE publisher.
+ // Unknown legacy vendor labels remain comparable for offline testing, but
+ // never gain a verified-independence or live-trading claim.
+ const upstreamA=resolveUpstream(primary.provider,primary.upstreamGroup);
+ const upstreamB=resolveUpstream(secondary.provider,secondary.upstreamGroup);
+ if((upstreamA.known&&upstreamA.ambiguous)||(upstreamB.known&&upstreamB.ambiguous))
+  throw Error('已登记多源包装器缺少逐接口原始上游，不能认定数据独立');
+ if(upstreamA.group===upstreamB.group)
+  throw Error('同一原始上游重复包装，不是独立供应商数据');
+
  if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');
  if(!primary.priceAdjustment||!secondary.priceAdjustment||!['qfq','hfq','unadjusted'].includes(primary.priceAdjustment.mode)||primary.priceAdjustment.mode!==secondary.priceAdjustment.mode)throw Error('多源核对要求一致且明确的复权方式');
  // Unit parity is mandatory once either source declares an explicit volume unit.
@@ -74,8 +85,10 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   }
  }
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
-  primary:{provider:primary.provider,datasetId:primary.datasetId,fingerprint:sha(primary)},
-  secondary:{provider:secondary.provider,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
+  primary:{provider:primary.provider,upstreamGroup:upstreamA.group,datasetId:primary.datasetId,fingerprint:sha(primary)},
+  secondary:{provider:secondary.provider,upstreamGroup:upstreamB.group,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
+  upstreamIdentityCatalogued:upstreamA.known&&upstreamB.known,
+  upstreamIndependenceVerified:false,
   // Data as-of DATE is a comparison key, not a distinct capture-session certificate.
   asOf:primary.asOf,priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
   timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
@@ -84,6 +97,6 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,
   consensus:total===0,releaseReady:false,
-  warning:'只比较两份声称独立的行情数值、同口径复权与明确标注的成交量/成交额单位；没有验证供应商身份、授权、交易所日历或公司行为，严禁视为实盘放行'};
+  warning:'比较两家名称与原始上游不同的研究数据；同一上游多SDK不会被误算独立。身份登记及数值一致并不验证授权、日历、公司行为或实盘独立性。'};
 }
 module.exports={compareMarketFeeds};

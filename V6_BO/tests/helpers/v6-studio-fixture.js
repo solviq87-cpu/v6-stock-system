@@ -16,6 +16,12 @@ async function createFixture({count=250,serverSource}={}){
  const root=path.resolve(__dirname,'../..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-studio-')),port=await freePort();
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
  for(const name of fs.readdirSync(root))if(name.endsWith('.js')&&name!=='server.js')fs.copyFileSync(path.join(root,name),path.join(tmp,name));
+ // The isolated copy includes the new source-lineage module, whose catalogue
+ // is data-only: copy ONLY its two public static JSON dependencies.
+ const catalogDir=path.join(tmp,'config');fs.mkdirSync(catalogDir,{recursive:true});
+ for(const name of ['data-source-catalog.json','data-source-registry-2026.json'])
+  fs.copyFileSync(path.join(root,'config',name),path.join(catalogDir,name));
+
  const salt='studio-fixture-only-salt',password='studio-fixture-only-password';
  fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify({salt,hash:crypto.scryptSync(password,salt,32).toString('hex'),devices:{}}));
  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
