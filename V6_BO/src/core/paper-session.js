@@ -6,10 +6,12 @@ const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {reconcileAccount}=require('./account-reconciliation');
 const {replayPaperAccount}=require('./paper-replay');
+const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const clone=x=>JSON.parse(JSON.stringify(x));
 function normalize(history){
  validateDataset(history);
+ assertUnadjustedExecutionPriceBasis(history);
  if(history.stocks.some(s=>s.bars.some(b=>!b.date)))throw Error('持续模拟账户要求所有K线包含真实交易日期');
  return clone(history);
 }
@@ -54,6 +56,7 @@ function validateSession(s){
    sha(s.history)!==s.historyHash||sha(s.report)!==s.reportHash)fail();
  if(s.configHash!==undefined&&sha(s.config)!==s.configHash)fail();
  const ds=validateDataset(s.history),r=s.report;
+ try{assertUnadjustedExecutionPriceBasis(s.history);}catch{fail();}
  if(!r||r.mode!=='offline-paper-replay'||r.canTrade!==false||r.verifiedLive!==false||r.fingerprint!==s.historyHash||
    s.lastDate!==ds.lastDate||r.dataset?.lastDate!==ds.lastDate||!Array.isArray(r.equity)||!r.equity.length)fail();
  if(!r.config||Object.keys(s.config).some(k=>sha(r.config[k])!==sha(s.config[k])))fail();

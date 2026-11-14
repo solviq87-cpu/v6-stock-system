@@ -188,6 +188,7 @@ jobs:
             V6_BO/tests/research-cross-source-history.test.js \
             V6_BO/tests/research-calendar-source.test.js \
             V6_BO/tests/historical-corporate-pit.test.js \
+            V6_BO/tests/historical-execution-price-basis.test.js \
             V6_BO/tests/multi-source-calendar-gate.test.js
   verify-source-lineage:
     name: multi-source-data-lineage

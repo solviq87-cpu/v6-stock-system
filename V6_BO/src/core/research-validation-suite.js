@@ -2,9 +2,11 @@
 /** Reproducible, offline, multi-window research evaluation. No trading or promotion. */
 const {validateDataset}=require('./historical-validation');
 const {ledgerBacktest}=require('../strategy/research-v2-position-ledger-backtest');
+const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const crypto=require('node:crypto');
 function evaluateResearchSuite(data,{windows=3,testDays=20,gapDays=1,feeBps=8,slippageBps=10,sellTaxBps=5,topN=3,initialCash=100000,maxPositionPct=30,holdDays=2}={}){
  const provenance=validateDataset(data);
+ assertUnadjustedExecutionPriceBasis(data);
  if(!Number.isInteger(windows)||windows<1||windows>12||!Number.isInteger(testDays)||testDays<3||testDays>500||
  !Number.isInteger(gapDays)||gapDays<1||gapDays>20)throw Error('滚动窗口配置无效');
  if(!['imported','fixture','simulated'].includes(data.source))throw Error('数据来源类型未获准用于离线评估');

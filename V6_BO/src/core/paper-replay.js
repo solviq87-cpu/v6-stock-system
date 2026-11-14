@@ -2,6 +2,7 @@
 /** Deterministic, offline paper-account replay. Research ranking at close t executes no earlier than open t+1. */
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
+const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const {scanUniverse}=require('../strategy/universe-scanner');
 const {validateRiskLimits,evaluatePreviousCloseRisk}=require('./portfolio-risk-gate');
 const {atLockedLimit,historicalStock}=require('../strategy/historical-session');
@@ -55,6 +56,7 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=x=>Math.round(x*100)/100;
 function replayPaperAccount(history,settings={}){
  const dataset=validateDataset(history);
+ assertUnadjustedExecutionPriceBasis(history);
  const cfg={initialCash:100000,maxPositions:3,allocationPct:0.25,feeBps:8,slippageBps:10,sellTaxBps:5,stopLossPct:0.08,startDay:31,maxDrawdownPausePct:null,maxDailyLossPausePct:null,maxParticipationPct:null,minPriorTurnover:null,...settings};
  if(!finite(cfg.initialCash)||cfg.initialCash<=0||!Number.isInteger(cfg.maxPositions)||cfg.maxPositions<1||cfg.maxPositions>30||!finite(cfg.allocationPct)||cfg.allocationPct<=0||cfg.allocationPct>1||!Number.isInteger(cfg.startDay)||cfg.startDay<31||cfg.startDay>=dataset.barsPerStock-1||![cfg.feeBps,cfg.slippageBps,cfg.sellTaxBps].every(x=>finite(x)&&x>=0&&x<=1000)||!finite(cfg.stopLossPct)||cfg.stopLossPct<=0||cfg.stopLossPct>=1)throw Error('模拟盘参数无效');
  validateRiskLimits(cfg);validateExecutionRisk(cfg);
