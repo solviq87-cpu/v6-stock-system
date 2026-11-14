@@ -207,6 +207,7 @@ test('伪装上游、无时间或无成交额的双源不能进入严格数据�
  other.observedAt=primary.observedAt;
  delete other.stocks[0].bars[2].amount;
  fs.writeFileSync(secondaryFile,JSON.stringify(other));
- assert.match((await center.sync()).error,/证据不足/);
+ // 缺少一根成交额属于对账差异，直接隔离而非伪报完整覆盖。
+ assert.match((await center.sync()).error,/行情不一致/);
  assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
 });
