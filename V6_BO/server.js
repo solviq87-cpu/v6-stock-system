@@ -19641,7 +19641,16 @@ function handle(req, res, u, body) {
       const { createCloudRecordsCasStore } = require('./src/core/cloud-records-cas-store');
       const { createCloudRecordsHttpHandler } = require('./src/server/cloud-records-http');
       const adapter = createCloudRecordsHttpHandler({
-        store: createCloudRecordsCasStore(root),
+        // Operator-provided historical head, retained independently of this
+        // mutable ledger. Configuring only one half fails closed (503).
+        store: createCloudRecordsCasStore(root, {
+          ...((process.env.V6_CLOUD_RECORDS_ANCHOR_REVISION !== undefined ||
+                process.env.V6_CLOUD_RECORDS_ANCHOR_PROOF_SHA256 !== undefined)
+            ? { trustedReadAnchor: {
+                revision: process.env.V6_CLOUD_RECORDS_ANCHOR_REVISION,
+                proof: process.env.V6_CLOUD_RECORDS_ANCHOR_PROOF_SHA256
+              }} : {})
+        }),
         authenticate: (bearer, request) => roleOf(bearer, clientIp(request)),
         sameOrigin: sameOriginOk
       });
