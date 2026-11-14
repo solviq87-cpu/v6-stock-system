@@ -1,0 +1,39 @@
+# Check PR commit coverage separately from the full regression and static deployment.
+# This job is only a read-only verifier: it does not publish Git statuses.
+name: V6 PR Commit Coverage
+on:
+  pull_request:
+    branches: [dev, main, 'feat/**', 'fix/**', 'chore/**']
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+  actions: read
+jobs:
+  commit-coverage:
+    name: commit-status-coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check exact PR head against each real per-SHA test result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {audit} = require(process.env.GITHUB_WORKSPACE + '/V6_BO/scripts/verify-pr-commit-statuses.js');
+            const result=await audit({
+              github, owner:context.repo.owner, repo:context.repo.repo,
+              pr:context.payload.pull_request
+            });
+            const header='PR commit coverage: '+result.passed+'/'+result.checked;
+            const details=result.failures.map(v=>v.sha+' '+v.reason).join('\n');
+            await core.summary.addRaw(header+(details?'\n\n'+details:'')+
+              '\n\nFull V6 CI verify/verify-web and UI checks remain separate.').write();
+            if(!result.ok)throw Error('unverified-pr-commits: '+details.slice(0,1000));
