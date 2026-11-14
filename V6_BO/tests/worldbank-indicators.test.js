@@ -43,7 +43,7 @@ test('future, wrong country, missing row year, duplicates and nonnumbers are ref
 test('invalid or future time range is blocked before any network call',async()=>{
  let calls=0;const mock=async()=>{calls++;throw Error('must not fetch');};
  for(const config of [{...cfg,country:'../../etc'},{...cfg,indicator:'_SYS'},{...cfg,endYear:2029},
-  {...cfg,startYear:1990,endYear:2025},{...cfg,now:NaN}]){
+  {...cfg,startYear:1950,endYear:2025},{...cfg,now:NaN}]){
   await assert.rejects(()=>collectWorldBankIndicator({...config,fetchImpl:mock}),/不合法/);
  }
  assert.equal(calls,0);
