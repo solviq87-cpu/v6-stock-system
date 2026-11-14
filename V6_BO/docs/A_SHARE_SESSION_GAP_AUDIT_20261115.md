@@ -20,7 +20,7 @@
    - 日历无文件、来源时间晚于核查时刻、越过年度覆盖（2027）、不支持北交所等情况返回`calendar-unavailable`，绝不把星期一到星期五自行认作交易日。
 2. `scripts/research-cross-source-history.js` 原有东财/BaoStock离线对账入口：
    - 只在保证原始 `provider=baostock`、严格分离原始停牌源证据后，使用正常交易日K做数值一致性核对；
-   - 新增独立 `calendarCoverage`、`rawBaoStockFingerprint`、`excludedRawSuspensionRows` 与 `researchEvidenceComplete`。**数值一致**与**交易日完整**明确分开；如果两家均漏开市日，`comparison.consensus=true` 也必须 `researchEvidenceComplete=false`。
+   - 新增独立 `calendarCoverage`、`rawBaoStockFingerprint`、`excludedRawSuspensionRows`、`numericAndCalendarCoverageConsistent` 与 `researchEvidenceComplete`。后者还必须具备可比较的原采集时点、逐日停牌状态字段及原研究证据质量；**只要时间或状态缺证，即使日历和价格都匹配，仍为false**。**数值一致**与**交易日完整**明确分开；如果两家均漏开市日，`comparison.consensus=true` 也必须 `researchEvidenceComplete=false`。
    - 若确实有 BaoStock 原始停牌行，缺口可标为“供应商声明停牌但未经交易所证实”；即使所有缺口都有声明，仍不能把研究结果晋级实盘交易。
    - 文件只读导入，输出 `wx` 原子保护新路径，保持旧证据与历史报告不覆盖。
 3. 新增专项 `tests/a-share-session-coverage.test.js` 和扩展 `tests/research-cross-source-history.test.js`，保留原回归。CI 新设 `a-share-session-data-quality` 每次 push/PR 真执行，覆盖共同遗漏、停牌原始状态、节假日、未来、日期错误、无采集时刻、异常金额和旧导入兼容。
