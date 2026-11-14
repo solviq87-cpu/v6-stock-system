@@ -22,8 +22,9 @@ function testServer(t,{bootstrap=true}={}){
 function get(f,route='/api/records',token='editor-token-123',options={}){
  return new Promise((resolve,reject)=>{
   const json=options.body===undefined?null:JSON.stringify(options.body);
-  const headers={...(token?{Authorization:'Bearer '+token}:{}),...(options.headers||{}),
-    ...(json?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(json)}:{})};
+  const headers={...(token?{Authorization:'Bearer '+token}:{}),
+    ...(json?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(json)}:{}),
+    ...(options.headers||{})};
   const req=http.request({host:'127.0.0.1',port:f.port,path:route,method:options.method||'GET',headers},res=>{
    let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(body),headers:res.headers}));
   });req.on('error',reject);req.end(json||undefined);
@@ -41,7 +42,8 @@ test('missing, invalid, read-only device tokens and hostile origins cannot discl
   const r=await get(f,'/api/records',token,opts);assert.equal(r.status,expected);
   assert.equal(r.body.ok,false);assert.equal(JSON.stringify(r.body).includes('cash'),false);
  }
- assert.equal((await get(f,'/api/records?sharecode=public-link',null)).status,401);
+ assert.equal((await get(f,'/api/records?sharecode=public-link',null)).status,400);
+ assert.equal((await get(f,'/api/records?token=private-token', 'editor-token-123')).status,400);
 });
 test('authorized GET on absent authoritative account fails without default initialization',async t=>{
  const f=await testServer(t,{bootstrap:false}),r=await get(f);
@@ -89,4 +91,28 @@ test('unsupported verbs and other routes never write to the ledger',async t=>{
  assert.equal((await get(f,'/api/records','editor-token-123',{method:'PUT'})).status,405);
  assert.equal((await get(f,'/api/status','editor-token-123')).status,404);
  assert.equal(f.store.read().revision,1);
+});
+
+test('query credentials and non-JSON posts fail even with authenticated edit token',async t=>{
+ const f=await testServer(t);
+ const good=payload(1,'mobile_0005',99999);
+ for(const path of ['/api/records?sharecode=leaked-test','/api/records?token=leaked-test']){
+  const result=await get(f,path,'editor-token-123',{method:'POST',body:good});
+  assert.equal(result.status,400);
+  assert.equal(result.body.code,'QUERY_CREDENTIALS_FORBIDDEN');
+ }
+ const bad=await get(f,'/api/records','editor-token-123',{
+  method:'POST',body:good,headers:{'Content-Type':'text/plain'}
+ });
+ assert.equal(bad.status,415);
+ assert.equal(bad.body.code,'JSON_CONTENT_TYPE_REQUIRED');
+ assert.equal(f.store.read().revision,1,'rejected requests must not advance ledger');
+});
+test('success responses never leak in browser cache and never imply production validation',async t=>{
+ const f=await testServer(t),r=await get(f);
+ assert.equal(r.status,200);
+ assert.equal(r.headers['cache-control'],'no-store');
+ assert.equal(r.headers['referrer-policy'],'no-referrer');
+ assert.equal(r.headers['x-content-type-options'],'nosniff');
+ assert.equal(r.body.accountRecoveryVerified,false);
 });
