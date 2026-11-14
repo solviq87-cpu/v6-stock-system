@@ -77,10 +77,8 @@ jobs:
         working-directory: .
         run: python -m unittest discover -s tests -p 'test_windows_host_bundle.py' -v
       - name: Verify complete engineering archive integrity, reproducibility and privacy guards
-        working-directory: .
         run: python -m unittest discover -s tests -p 'test_complete_engineering_bundle.py' -v
       - name: Build and verify the full real source tree without deploying
-        working-directory: .
         run: |
           set -euo pipefail
           target="$RUNNER_TEMP/v6-complete-source-ci-$GITHUB_SHA.zip"
