@@ -47,6 +47,25 @@ V6_UI_BROWSER=/path/to/chromium node V6_BO/scripts/ui-stream-recovery-browser-ch
 - 本机Node24.22.1；可选LightGBM/XGBoost依赖缺失的3项保持跳过。Chromium仍被本机socket权限限制，浏览器结论仅来自上述GitHub运行。
 - 两张锁定主页blob仍为下述原值。未部署、未改变发布owner、未发送消息、未回写账本。最终合并提交与合并后CI以PR #210最新回执为准。
 
+## 浏览器时钟缺陷复现与修复
+
+`9e3e4c1` 完整CI `43558365551` 成功，但浏览器 `43558365549` 再次失败：同源请求间隔与新闻直接/间接风险状态断言未通过，已暂停合并。此前两次成功不作为消除间歇问题的证据。
+
+定位到固定测试驱动Playwright 1.56.1的上游模拟时钟倒退缺陷（[官方问题 #37700](https://github.com/microsoft/playwright/issues/37700)、[官方修复 #37820](https://github.com/microsoft/playwright/pull/37820)）。新增 `scripts/verify-browser-clock.js` 直接加载实际安装驱动的时钟实现，以可控native计时跨越fake timer边界复现，无需浏览器或行情请求：
+
+- 1.56.1：先观察1000510，再观察1000100，确定性倒退，脚本退出1。
+- 1.57.0：先观察1000010，再观察1000100，单调前进，脚本退出0。
+
+工作流固定驱动改为1.57.0，并在所有浏览器检查之前执行该离线门禁。保留同源1050ms最低间隔、15秒报价门禁、新闻排除/撤稿恢复断言和所有视口；增加失败上下文，没有修改业务源码来适配测试。此证据证明旧驱动时钟缺陷，浏览器症状是否全部消除仍须修复后精确head运行确认。
+
+```bash
+# 分别指向隔离安装的 playwright@1.56.1 / playwright@1.57.0
+NODE_PATH=/path/to/driver/node_modules node V6_BO/scripts/verify-browser-clock.js
+bash scripts/check-github-workflows.sh
+```
+
+本脚本有意依赖已固定Playwright内部生成时钟模块：将来升级若路径/API变化应明确失败并评审，不能静默跳过。GitHub工作流精确head结果及合并回执见PR #210；未执行生产发布。
+
 ## 保留范围与交付边界
 
 - 锁定主页 Git blob：电脑 `9e2fad468cb3e192df0ca2b9184babb2add8c4de`、手机 `084e36d950f9bf4c3508aa1a5cb8986799b6079e`，均未变。未重构科技风 UI、删除原策略、移植旧草稿页面或重复开发接口。

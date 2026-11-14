@@ -167,7 +167,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       const ledgerWritesBefore = f.ledgerWrites;
       await refreshAt(f, 'bad', START + 360000);
       const blocked = await policyState(page);
-      assert.equal(blocked.risk.status, 'blocked');
+      assert.equal(blocked.risk.status, 'blocked', 'direct risk: ' + JSON.stringify({width,blocked}));
       assert.equal(blocked.marketDataVersion, initial.version, 'candidate input changed during news-only test: '+JSON.stringify({width,initial,blocked}));
       assert.ok(blocked.excluded.includes('600001'), 'negative did not exclude candidate: '+JSON.stringify({width,initial,blocked})); assert.ok(!blocked.items.includes('600001'));
       assert.equal(blocked.quoteObservation?.ok, true, 'a stale quote masked the news exclusion');
@@ -187,7 +187,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       if (process.env.V6_WORKBUDDY_NEWS_SCREENSHOT_DIR) await review.screenshot({ path: path.join(process.env.V6_WORKBUDDY_NEWS_SCREENSHOT_DIR, `news-exclusion-${width}.png`) });
       await refreshAt(f, 'industry', START + 720000);
       const indirect = await policyState(page);
-      assert.equal(indirect.risk.status, 'blocked');
+      assert.equal(indirect.risk.status, 'blocked', 'indirect risk: ' + JSON.stringify({width,indirect}));
       assert.ok(indirect.risk.articles.some(row => row.id === 'fixture-sector' && row.linkage === 'indirect'));
       assert.ok(indirect.risk.reasons.some(reason => /间接/.test(reason)));
       const indirectLink = pool.locator('[data-news-id="fixture-sector"] [data-news-linkage="indirect"][data-focus="600001"]');

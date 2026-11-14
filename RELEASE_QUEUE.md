@@ -19,7 +19,7 @@
 ## 本轮增量候选
 
 - `integration/runtime-quote-recovery-20261114`：后台互斥、模拟盘报价消费、SSE 恢复补读；基于 `e986fcc`，无需合并旧 UI 草稿。详见 [验证与边界](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)。合并须等待最终全量与精确 head 的 CI/浏览器结果；未部署完整后端。
-- 已对应 [PR #210](https://github.com/solviq87-cpu/v6-stock-system/pull/210)：`23c13b9` 完整CI成功、浏览器两轮成功。首轮390px新闻用例间歇失败已补诊断、保留记录，未改断言。最终文档更新后仍核对精确head门禁；生产发布状态保持未验证。
+- 已对应 [PR #210](https://github.com/solviq87-cpu/v6-stock-system/pull/210)：`9e3e4c1` 完整CI成功但浏览器复现失败，阻止合并。已确定性验证旧Playwright时钟倒退，升级固定版本1.57.0并增加离线门禁；须以修复后精确head完整CI/浏览器结果决定是否合并，生产发布保持未验证。
 
 ## 评审—合并—发布门禁（不能跳过）
 

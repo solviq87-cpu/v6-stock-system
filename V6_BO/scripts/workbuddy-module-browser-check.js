@@ -291,7 +291,7 @@ test('automatic collection waits after close and uses the same bounded budget du
   const byFamily = new Map();
   for (const call of running.fixture.calls) {
     const family = /(?:gtimg\.(?:cn|com)|qq\.com)$/.test(call.host) ? 'tencent' : /eastmoney\.com$/.test(call.host) ? 'eastmoney' : 'sina';
-    if (byFamily.has(family)) assert.ok(call.at - byFamily.get(family) >= 1050, `same-family starts too close: ${family}`);
+    if (byFamily.has(family)) assert.ok(call.at - byFamily.get(family) >= 1050, `same-family starts too close: ${family}: ${JSON.stringify(running.fixture.calls)}`);
     byFamily.set(family, call.at);
   }
   await page.locator('[data-scan-market]').click();
