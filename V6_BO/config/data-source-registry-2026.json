@@ -693,9 +693,9 @@
       "dataClass": "macro-series",
       "market": "GLOBAL",
       "access": "registered-only",
-      "adapter": "candidate",
+      "adapter": "worldbank-indicators.js",
       "evidenceUrl": "https://datahelpdesk.worldbank.org/knowledgebase/topics/125589",
-      "note": ""
+      "note": "Official public API; one-shot operator-triggered research import only, license varies by dataset, no vintage certification"
     },
     {
       "id": "imf",
