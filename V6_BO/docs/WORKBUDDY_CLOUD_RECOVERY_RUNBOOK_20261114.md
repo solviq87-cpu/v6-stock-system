@@ -12,7 +12,7 @@
 
 ## 第一阶段：真实线上接口只读审计
 
-使用\`V6_BO/scripts/workbuddy-readonly-audit.js\`，只允许当前固定 WorkBuddy 目标的三个 GET：
+使用\`V6_BO/scripts/workbuddy-readonly-audit.js\`，只允许当前固定 WorkBuddy 目标的四个 GET：
 \`/api/site\`、\`/api/health\`、\`/api/records\`。工具默认不发任何 POST/PUT/DELETE、不会发布、不会发送飞书、不会改变持仓，也不会把分享码或私密记录写到日志里。
 
 在**已有授权的私有运行环境**执行：
@@ -26,7 +26,13 @@ V6_WORKBUDDY_SHARECODE_FILE=/private/workbuddy-sharecode \
 node --test V6_BO/tests/workbuddy-readonly-audit.test.js
 \`\`\`
 
-工具仅输出 HTTP 状态、响应大小、SHA-256、JSON 可解析性以及记录条目数/是否出现 \`v6.app.state\`。这些信息**只能验证接口和读回结构**；空记录、未知账号、不含交易流水的状态不能称“历史已恢复”。遇到 403/404/500 或 HTML 响应必须照实记录；没有凭据就标明 “credential-unavailable”，不探测公共群、旧主机或泄露凭据。
+工具仅输出 HTTP 状态、响应大小、SHA-256、JSON 可解析性、同一站点 `/` 与 `/api/site.site.html` 原始 HTML 哈希的一致性，以及记录条目数/账本语法状态/是否出现 \`v6.app.state\`。这些信息**只能验证接口和读回结构**；空记录、未知账号、不含交易流水的状态不能称“历史已恢复”。遇到 403/404/500 或 HTML 响应必须照实记录；没有凭据就标明 “credential-unavailable”，不探测公共群、旧主机或泄露凭据。
+
+### 单一审计器验收语义
+
+最新版本保留一个 `workbuddy-readonly-audit.js`，**不**额外维护第二套云端探测脚本。四条固定 GET 的第四条是站点根路径（只读）；`pageIntegrity=matching-bytes` 说明本轮根页面与 site API 的 HTML 内容字节哈希一致，`different-bytes` 说明存在发布/取回不一致，`unverified` 表示无法证明一致。三者都不证明后端上线或账户恢复。
+
+`ledgerStatus` 可为 `not-returned`、`duplicate-ambiguous`、`invalid-account-json`、`invalid-account-format` 或 `parseable-not-validated`。最后一种只表示 JSON 可解析，不是余额、订单、流水或 schema 已验收。返回值的 `accountRecoveryVerified`、`serverLoginVerified` 始终为 false，不因 GET 200 自动变成 true。
 
 ## 第二阶段：历史账户保护与恢复
 
