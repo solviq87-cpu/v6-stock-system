@@ -79,7 +79,7 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  const provider='eastmoney-public-history';
  const datasetId=priceAdjustment==='qfq'?'em-qfq-v2-'+sha({symbols,start,end,last}).slice(0,20):
   'em-unadjusted-v2-'+sha({symbols,start,end,last,priceAdjustment}).slice(0,20);
- const dataset={source:'imported',provider,upstreamGroup:'eastmoney',datasetId,asOf:last,
+ const dataset={source:'imported',provider,datasetId,asOf:last,
   volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   priceAdjustment:{mode:priceAdjustment,provider:'eastmoney-public-history-fqt-'+(priceAdjustment==='qfq'?'1':'0')},stocks};
  validateImport(dataset,{provider,datasetId});

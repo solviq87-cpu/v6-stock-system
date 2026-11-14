@@ -106,3 +106,15 @@ test('research-only public history can request raw unadjusted bars for BaoStock 
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['600000'],start:dates[0],end:dates.at(-1),
   priceAdjustment:'unknown',fetchImpl:async()=>{throw Error('must never fetch');}}),/复权/);
 });
+
+
+test('默认前复权保留原数据集签名和无多余根字段，避免改写已有历史',async()=>{
+ const crypto=require('node:crypto');
+ const symbols=['000001'],start=dates[0],end=dates.at(-1);
+ const r=await fetchEastmoneyHistory({symbols,start,end,fetchImpl:async()=>response(payload('000001'))});
+ const original='em-qfq-v2-'+crypto.createHash('sha256')
+  .update(JSON.stringify({symbols,start,end,last:end})).digest('hex').slice(0,20);
+ assert.equal(r.dataset.datasetId,original);
+ assert.equal(Object.hasOwn(r.dataset,'upstreamGroup'),false);
+ assert.equal(r.metadata.retrievedAtMeaning,'local-collection-time-not-exchange-quote-time');
+});
