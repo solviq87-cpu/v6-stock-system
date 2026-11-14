@@ -69,3 +69,16 @@ test('dedicated registry audit is real executable and explicitly not a live conn
  assert.equal(data.authorizedLiveFeedsVerified,0);
  assert.equal(data.canTrade,false);
 });
+
+test('isolated server without mounted registry keeps bootable module but refuses any data consensus',()=>{
+ const fs=require('node:fs'),os=require('node:os');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-lineage-isolated-'));
+ try{
+  const src=path.resolve(__dirname,'../src/core/data-source-lineage.js');
+  fs.copyFileSync(src,path.join(dir,'data-source-lineage.js'));
+  const isolated=require(path.join(dir,'data-source-lineage.js'));
+  assert.equal(isolated.sourceLineage('tencent').known,false);
+  assert.throws(()=>isolated.resolveUpstream('tencent'),/目录缺失或损坏/);
+  assert.throws(()=>isolated.validateRegistry(),/目录缺失或损坏/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
