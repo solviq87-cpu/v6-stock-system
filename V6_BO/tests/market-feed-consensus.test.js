@@ -124,3 +124,26 @@ test('源记录成交额不一致时，历史导入不得覆盖已有文件',asy
  assert.match((await center.sync()).error,/不一致/);
  assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
 });
+
+test('advertised CNY turnover with no actual amount columns cannot count as consensus',()=>{
+ const a=feed('provider-A'),b=feed('provider-B');
+ for(const d of [a,b]){
+  d.volumeUnit='shares';d.amountUnit='CNY';
+  d.amountBasis='actual-unadjusted-turnover';
+ }
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.amountComparedBars,0);
+ assert.equal(r.amountCoverageGapBars,39);
+ assert.equal(r.displayedDiscrepancies[0].field,'amount-coverage');
+});
+test('matching impossible amount-volume pairs cannot manufacture independent agreement',()=>{
+ const a=amountFeed('provider-A'),b=amountFeed('provider-B');
+ a.stocks[0].bars[0].amount=0;b.stocks[0].bars[0].amount=0;
+ a.stocks[0].bars[1].volume=0;b.stocks[0].bars[1].volume=0;
+ const r=compareMarketFeeds(a,b);
+ assert.equal(r.consensus,false);
+ assert.equal(r.amountCoverageGapBars,0);
+ assert.equal(r.displayedDiscrepancies.length,2);
+ assert.ok(r.displayedDiscrepancies.every(x=>x.field==='amount-volume-integrity'));
+});

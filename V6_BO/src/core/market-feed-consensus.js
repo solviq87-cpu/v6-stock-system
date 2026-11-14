@@ -19,7 +19,7 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  if((primary.volumeUnit!==undefined||secondary.volumeUnit!==undefined)&&!volumeUnitVerified)
   throw Error('多源成交量单位不一致或未归一为 shares，禁止核对通过');
  const hasAmounts=feed=>feed.stocks.some(stock=>stock.bars.some(bar=>bar.amount!==undefined));
- const amountRequested=hasAmounts(primary)||hasAmounts(secondary);
+ const amountRequested=[primary,secondary].some(feed=>hasAmounts(feed)||feed.amountUnit!==undefined||feed.amountBasis!==undefined);
  if(amountRequested&&(!volumeUnitVerified||
     primary.amountUnit!=='CNY'||secondary.amountUnit!=='CNY'||
     primary.amountBasis!=='actual-unadjusted-turnover'||
@@ -64,6 +64,11 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
      const amount=Math.abs(x.amount-y.amount)/Math.max(x.amount,y.amount,1)*100;
      maximumAmountDifferencePct=Math.max(maximumAmountDifferencePct,amount);
      if(amount>amountTolerancePct)note(symbol,x.date,'amount',x.amount,y.amount,amount);
+     // Matching nonsense still is not trustworthy: a traded share cannot
+     // have zero actual cash turnover, and zero traded shares imply zero cash.
+     if((x.volume===0)!==(x.amount===0)||
+        (y.volume===0)!==(y.amount===0))
+      note(symbol,x.date,'amount-volume-integrity',x.amount,y.amount,100);
     }
    }
   }
