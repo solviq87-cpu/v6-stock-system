@@ -9,7 +9,7 @@
 
 ## 本机启动器续接
 
-`fix/local-host-health-restart-20261114`：健康探测总时限/断开处理及真实后台重启读回；起点 `9251e27`，代码和测试证据见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`。合并与CI以GitHub对应PR当前字段为准；未写生产，未切换owner。
+PR #216健康探测与重启读回已合入 `5b4360a`，合并后CI43565135543通过。续接分支 `fix/local-host-stop-clock-20261114` 补停止路径时钟/退出边界；代码和测试证据见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`。合并与CI以GitHub对应PR当前字段为准；未写生产，未切换owner。
 
 ## 查到的开放 UI PR
 

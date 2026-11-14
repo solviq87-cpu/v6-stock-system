@@ -120,7 +120,21 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
 async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
-async function stop({root}){const meta=metadata(root),release=lock(root);try{const state=processState(root);if(!state)return {code:'already-stopped',sourceSha:meta.sourceSha};if(!ownedProcess(root,state)){requireThat(archiveStoppedRecord(root,state),'stale-process-record');return {code:'already-stopped',sourceSha:meta.sourceSha};}process.kill(state.pid,'SIGTERM');const until=Date.now()+5000;while(Date.now()<until&&ownedProcess(root,state))await sleep(50);requireThat(!ownedProcess(root,state),'stop-timeout');fs.unlinkSync(path.join(root,'run/process.json'));return {code:'stopped',sourceSha:meta.sourceSha};}finally{release();}}
+async function stop({root}){
+ const meta=metadata(root),release=lock(root);
+ try{
+  const state=processState(root);if(!state)return {code:'already-stopped',sourceSha:meta.sourceSha};
+  if(!ownedProcess(root,state)){requireThat(archiveStoppedRecord(root,state),'stale-process-record');return {code:'already-stopped',sourceSha:meta.sourceSha};}
+  // A process can exit after the ownership check. ESRCH confirms it is gone;
+  // permission and other signal errors must preserve the recovery record.
+  try{process.kill(state.pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
+  const until=performance.now()+5000;
+  while(performance.now()<until&&ownedProcess(root,state))await sleep(50);
+  requireThat(!ownedProcess(root,state),'stop-timeout');
+  fs.unlinkSync(path.join(root,'run/process.json'));
+  return {code:'stopped',sourceSha:meta.sourceSha};
+ }finally{release();}
+}
 function parseArgs(args){const [action,...rest]=args;requireThat(['init','start','check','stop'].includes(action),'usage');let root=path.join(os.homedir(),'.tian-shu-local'),bundle,smoke=false;const seen=new Set();for(let i=0;i<rest.length;i++){const flag=rest[i];requireThat(!seen.has(flag),'usage');seen.add(flag);if(flag==='--home')root=rest[++i];else if(flag==='--bundle'&&action==='init')bundle=rest[++i];else if(flag==='--smoke'&&action==='start')smoke=true;else fail('usage');}rootPath(root);requireThat(action!=='init'||typeof bundle==='string','usage');return {action,root,bundle,smoke};}
 const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
 async function main(args,deps={}){try{process.umask(0o077);const options=parseArgs(args);return await ({init:initialize,start,check:checkHost,stop}[options.action])(options,deps);}catch(e){return {code:CODES.has(e?.code)?e.code:'host-operation-failed',phoneConnected:false};}}
