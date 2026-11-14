@@ -108,7 +108,8 @@ test('real official open-date subset qualifies only for research shape coverage,
  const report=audit(f.a,f.b,{now:observedAt});
  assert.equal(report.comparison.consensus,true);
  assert.equal(report.calendarCoverage.status,'open-session-shape-consistent-unverified');
- assert.equal(report.researchEvidenceComplete,true);
+ assert.equal(report.numericAndCalendarCoverageConsistent,true);
+ assert.equal(report.researchEvidenceComplete,false,'provider clock/halt completeness is not certified by price+calendar shape');
  assert.equal(report.calendarCoverage.completeByProviderEvidence,true);
  assert.equal(report.calendarCoverage.exchangeVerified,false);
  assert.equal(report.calendarCoverage.pointInTimeBacktestReady,false);
@@ -119,6 +120,7 @@ test('both independent sources missing the same 2026 open trading day can never 
  const report=audit(f.a,f.b,{now:observedAt});
  assert.equal(report.comparison.consensus,true);
  assert.equal(report.researchEvidenceComplete,false);
+ assert.equal(report.numericAndCalendarCoverageConsistent,false);
  assert.equal(report.calendarCoverage.status,'unexplained-or-zero-volume-gaps');
  assert.deepEqual(report.calendarCoverage.bySymbol[0].unexplainedMissingOpenDays,[missing]);
  assert.equal(report.canTrade,false);
@@ -130,7 +132,8 @@ test('BaoStock explicit halted source row is separated without inventing a match
  assert.equal(report.excludedRawSuspensionRows,1);
  assert.equal(report.calendarCoverage.status,'provider-declared-halts-unverified');
  assert.deepEqual(report.calendarCoverage.bySymbol[0].providerDeclaredSuspensionDays,[day]);
- assert.equal(report.researchEvidenceComplete,true);
+ assert.equal(report.numericAndCalendarCoverageConsistent,true);
+ assert.equal(report.researchEvidenceComplete,false,'provider clock/halt completeness is not certified by price+calendar shape');
  assert.equal(report.calendarCoverage.exchangeVerified,false);
  assert.equal(report.usableForExecution,false);
 });
