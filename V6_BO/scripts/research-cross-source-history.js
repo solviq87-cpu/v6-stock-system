@@ -39,13 +39,20 @@ function audit(emFile,baostockFile,{now=Date.now(),calendarFile}={}){
  const calendarCoverage=auditDailySessionCoverage(normalized.dataset,{
   now,calendarFile,suspensions:partition.suspensions
  });
- const researchEvidenceComplete=comparison.consensus===true&&
+ const numericAndCalendarCoverageConsistent=comparison.consensus===true&&
   calendarCoverage.completeByProviderEvidence===true;
+ // Market data source stamps and per-bar halt status are separate proof classes.
+ // A history with NO vendor clock or one-sided halt declarations is never
+ // "complete research evidence" merely because its visible dates match.
+ const researchEvidenceComplete=numericAndCalendarCoverageConsistent&&
+  comparison.evidenceQuality?.status==='consistent-research-only'&&
+  comparison.suspensionCoverage?.complete===true;
  return {schemaVersion:1,mode:'historical-independent-upstream-parity',
   code:raw.code,asOf:comparison.asOf,comparison,
   calendarCoverage,rawBaoStockFingerprint:partition.rawFingerprint,
   excludedRawSuspensionRows:partition.suspensions.length,
-  researchEvidenceComplete,baostock:normalized.provenance,
+  numericAndCalendarCoverageConsistent,researchEvidenceComplete,
+  baostock:normalized.provenance,
   canTrade:false,verifiedLive:false,verifiedExternal:false,
   sourceIndependenceAuthenticated:false,usableForExecution:false,
   warning:'价格一致不等于交易日完整。必须另外审计交易所研究日历、供应商自报停牌、未解释缺口及公司行为；报告没有交易权限，历史日历不构成当年已知时点证据'};
@@ -63,6 +70,7 @@ function main(args){
  }finally{fs.closeSync(fd);}
  console.log(JSON.stringify({output:full,numericMatched:report.comparison.consensus,
   sessionCoverage:report.calendarCoverage.status,
+  numericAndCalendarCoverageConsistent:report.numericAndCalendarCoverageConsistent,
   researchEvidenceComplete:report.researchEvidenceComplete,
   differences:report.comparison.discrepancies,canTrade:false}));
 }
