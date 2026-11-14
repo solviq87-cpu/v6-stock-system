@@ -34,6 +34,8 @@
 
 本轮继续入口（2026-11-14）：`integration/runtime-quote-recovery-20261114`，从 #209 合并提交 `e986fcc` 增量修复后台互斥、报价消费和断线恢复。开始后续工作前先核对其 PR/最新 dev，避免重复修补；实际验证、首轮失败与剩余事项见 [本批记录](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)。
 
+续接已定位为 [PR #210](https://github.com/solviq87-cpu/v6-stock-system/pull/210)。诊断head `23c13b9` 的完整CI及两轮浏览器复测通过，本地重跑3367通过/3可选依赖跳过；首轮浏览器间歇失败仍保留，未宣称根因修复。后续先读取PR最终head、合并状态和CI，再进入剩余快照恢复/现场验收，不重复修补本批三项。生产部署与长期验收尚未完成。
+
 ```text
 任务编号及负责人：
 起始 dev SHA、工作分支、PR：
