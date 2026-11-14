@@ -89,6 +89,8 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
   // Dedicated result page must be reachable through the REAL server routes, not
   // merely pass an offline DOM test while silently returning the home fallback.
+  const workbookDenied=await get(p,'/api/research/import-workbook');
+  assert.equal(JSON.parse(workbookDenied.body).locked,true,'Excel parser must require real authentication before spawning');
   const picks=await get(p,'/picks.html');
   assert.equal(picks.status,200,'/picks.html must be served by V6');
   assert.match(picks.body,/智能选股结果/);

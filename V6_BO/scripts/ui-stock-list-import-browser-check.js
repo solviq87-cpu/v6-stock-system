@@ -4,11 +4,19 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const assert = require('node:assert/strict'), os = require('node:os');
 const { chromium } = require('playwright');
+const { workbook } = require('../tests/helpers/stock-workbook-fixture');
+const { runStockWorkbookJob } = require('../src/server/stock-workbook-job');
+const xlsx = workbook({ sheets: [{ name: '观察清单', rows: [['代码','名称'],['000001','测试甲']] }, { name: '研究候选', rows: [['代码','名称'],['600000','测试乙'],['600519',{ xml: '<f>1</f><v>600519</v>' }]] }] });
 const root = path.resolve(__dirname, '../public');
 const output = process.env.V6_UI_QA_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'v6-stock-import-'));
 fs.mkdirSync(output, { recursive: true });
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (pathname === '/api/research/import-workbook' && req.method === 'POST' && req.headers.authorization === 'Bearer synthetic-test-token') {
+    let body = ''; for await (const chunk of req) body += chunk;
+    const result = await runStockWorkbookJob(JSON.parse(body));
+    res.writeHead(result.ok ? 200 : 422, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(result)); return;
+  }
   if (pathname.startsWith('/api/')) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: false, error: '合成权限拒绝' })); return;
@@ -57,8 +65,22 @@ const server = http.createServer((req, res) => {
       const rows = await page.locator('.stock-import-row').evaluateAll(nodes => nodes.map(n => ({ right: n.getBoundingClientRect().right, width: n.clientWidth, scroll: n.scrollWidth })));
       assert.ok(rows.every(r => r.right <= width && r.scroll <= r.width), 'preview rows fit at ' + width);
       await page.locator('#stockCapture').screenshot({ path: path.join(output, 'stock-import-' + width + '.png') });
+      const beforeWorkbook = calls.length;
+      await page.locator('#stockListFile').setInputFiles({ name: 'fixture.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: xlsx });
+      assert.equal(calls.length, beforeWorkbook, 'choosing XLSX must not upload');
+      assert.equal(await page.locator('#stockListSheetLabel').isVisible(), false);
+      await page.locator('#stockListParse').click();
+      await page.waitForFunction(() => document.querySelector('#stockListStatus').textContent.includes('含多个工作表'));
+      await page.locator('#stockListSheet').selectOption('研究候选');
+      await page.locator('#stockListParse').click();
+      await page.getByRole('button', { name: '选择研究 600000', exact: true }).waitFor();
+      assert.equal(await page.locator('#stockListStatus').innerText(), '1 只待核验 · 0 条重复 · 1 条未识别');
+      assert.equal(await page.locator('#stockListSheet').inputValue(), '研究候选');
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'workbook fits at ' + width);
+      await page.locator('#stockCapture').screenshot({ path: path.join(output, 'stock-workbook-' + width + '.png') });
       await page.locator('#token').fill('changed-test-token');
       assert.equal(await page.locator('#stockListText').inputValue(), '');
+      assert.equal(await page.locator('#stockListSheetLabel').isVisible(), false);
       assert.equal(await page.locator('#stockListPreview button').count(), 0);
       assert.deepEqual(errors, []); await page.close();
       console.log('PASS: stock import preview, selection, permission rejection, file, clear and layout at ' + width);

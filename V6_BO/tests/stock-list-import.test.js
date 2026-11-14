@@ -57,13 +57,14 @@ class Element {
   focus() { this.focused = true; }
   click() { return this.dispatchEvent({ type: 'click' }); }
 }
-function setup() {
+function setup(options = {}) {
   const nodes = new Map(), get = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
   const window = new Element(); let selected = 0;
   get('captureSymbol').addEventListener('input', () => selected++);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/assets/stock-list-import.js'), 'utf8'), {
     V6StockListParser: parser, document: { getElementById: get, createElement: tag => new Element(tag) }, window, Event,
-    fetch() { throw Error('preview or selection must not fetch'); }, localStorage: { setItem() { throw Error('no persistent import data'); } }
+    AbortController, Uint8Array, setTimeout, clearTimeout, btoa: value => Buffer.from(value, 'binary').toString('base64'),
+    fetch: options.fetch || (() => { throw Error('preview or selection must not fetch'); }), localStorage: { setItem() { throw Error('no persistent import data'); } }
   });
   return { get, window, selected: () => selected };
 }
@@ -98,11 +99,41 @@ test('file loading cannot resurrect cleared text after credentials, navigation, 
   }
 });
 test('file validation rejects oversized or unsupported files before reading and safely reports read errors', async () => {
-  for (const file of [{ name: 'stocks.xlsx', size: 1 }, { name: 'stocks.csv', size: parser.MAX_BYTES + 1 }]) {
+  for (const file of [{ name: 'stocks.xls', size: 1 }, { name: 'stocks.csv', size: parser.MAX_BYTES + 1 }]) {
     const { get } = setup(); get('stockListFile').files = [{ ...file, text() { throw Error('must not read'); } }];
     await get('stockListFile').dispatchEvent({ type: 'change' });
     assert.equal(get('stockListPreview').textContent, ''); assert.doesNotMatch(get('stockListStatus').textContent, /must not read/);
   }
   const { get } = setup(); get('stockListFile').files = [{ name: 'stocks.csv', size: 1, text: async () => { throw Error('读取失败'); } }];
   await get('stockListFile').dispatchEvent({ type: 'change' }); assert.equal(get('stockListStatus').textContent, '读取失败');
+});
+
+test('XLSX needs an explicit click and editor token; choosing a file does not upload', async () => {
+  let calls = 0;
+  const { get } = setup({ fetch: async () => { calls++; return { ok: true, json: async () => ({ ok: true, result: { sheets: [{ name: '一', available: true }], selected: '一', preview: parser.parseStockList('000001') } }) }; } });
+  get('stockListFile').files = [{ name: 'stocks.xlsx', size: 4, arrayBuffer: async () => new Uint8Array([80, 75, 3, 4]).buffer }];
+  await get('stockListFile').dispatchEvent({ type: 'change' }); assert.equal(calls, 0);
+  await get('stockListParse').click(); assert.equal(calls, 0); assert.match(get('stockListStatus').textContent, /令牌/);
+  get('token').value = 'fixture-token'; await get('stockListParse').click(); assert.equal(calls, 1);
+  assert.match(get('stockListStatus').textContent, /1 只待核验/);
+  assert.equal(get('stockListSheet').value, '一');
+});
+test('XLSX stale responses never resurrect selections after token, sheet, paste, clear, offline or navigation changes', async () => {
+  for (const action of ['token', 'sheet', 'paste', 'clear', 'offline', 'pagehide']) {
+    let resolve, requestSignal;
+    const { get, window } = setup({ fetch: async (_url, options) => { requestSignal = options.signal; return new Promise(r => { resolve = r; }); } });
+    get('token').value = 'fixture-token';
+    get('stockListFile').files = [{ name: 'stocks.xlsx', size: 4, arrayBuffer: async () => new Uint8Array([80, 75, 3, 4]).buffer }];
+    await get('stockListFile').dispatchEvent({ type: 'change' });
+    const pending = get('stockListParse').click(); await new Promise(r => setImmediate(r));
+    if (action === 'token') await get('token').dispatchEvent({ type: 'input' });
+    else if (action === 'sheet') await get('stockListSheet').dispatchEvent({ type: 'change' });
+    else if (action === 'paste') await get('stockListText').dispatchEvent({ type: 'input' });
+    else if (action === 'clear') await get('stockListClear').click();
+    else await window.dispatchEvent({ type: action });
+    assert.equal(requestSignal.aborted, true);
+    resolve({ ok: true, json: async () => ({ ok: true, result: { sheets: [{ name: '旧表', available: true }], selected: '旧表', preview: parser.parseStockList('600519') } }) });
+    await pending;
+    assert.equal(get('stockListPreview').textContent, '', action); assert.doesNotMatch(get('stockListSheet').textContent, /旧表/);
+  }
 });
