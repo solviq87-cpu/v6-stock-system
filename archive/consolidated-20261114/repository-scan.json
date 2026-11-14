@@ -1,0 +1,1323 @@
+{
+  "refs": [
+    {
+      "ref": "refs/heads/archive/v6-1090-bo-parts-20261112",
+      "commit": "66b09af2f8325b2b29c3b68a66b797a1e70e6cc2"
+    },
+    {
+      "ref": "refs/heads/archive/v6-1090-bo-small-parts-20261112",
+      "commit": "d93b28c7acd112244c77d2e9a3fedecc08aeaf40"
+    },
+    {
+      "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+      "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18"
+    },
+    {
+      "ref": "refs/heads/archive/v6-full-35f9b716459e",
+      "commit": "e58bdd9921a8569b6600d98ef89ec53bcb618b24"
+    },
+    {
+      "ref": "refs/heads/audit/bo-full-reconcile-20261107",
+      "commit": "220d7a573101611c585ac8142858ce578b11ebd6"
+    },
+    {
+      "ref": "refs/heads/audit/daily-stock-deep-20261114",
+      "commit": "a25e608861439fd1ea15dc988bf5560e5587093d"
+    },
+    {
+      "ref": "refs/heads/audit/strategy-evidence-gap-20261113",
+      "commit": "affdddc8505b773a487c141e20add9b8cff18f90"
+    },
+    {
+      "ref": "refs/heads/audit/v6-1090-safe-reconcile-20261112",
+      "commit": "5fb8d061ee2b50041e3628d3f1d99217729de5b9"
+    },
+    {
+      "ref": "refs/heads/audit/v6-sync-review-20261108",
+      "commit": "18b405c954bac090e2a893c8b35c9132edebfc59"
+    },
+    {
+      "ref": "refs/heads/chore/remove-openai-runtime-deps-20261113",
+      "commit": "2fb0f6aa4c498ff37afffc3b36dc4a72942a766b"
+    },
+    {
+      "ref": "refs/heads/chore/sync-current-workbuddy-page-20261113",
+      "commit": "a572c396bfe3788c0a0e96162d263f2c99beb54b"
+    },
+    {
+      "ref": "refs/heads/chore/v6-complete-engineering-bundle-20261114",
+      "commit": "59b0daa123298545556782b43ba63293b47024d3"
+    },
+    {
+      "ref": "refs/heads/codex/model-conditions-comparison",
+      "commit": "a4839fb6da9b2ae76523bfd33b07f56bb1a5ff68"
+    },
+    {
+      "ref": "refs/heads/codex/quote-linkage-evidence-20261110",
+      "commit": "4057e553b736db1edd06915ccf223dae47b94aec"
+    },
+    {
+      "ref": "refs/heads/codex/strategy-research",
+      "commit": "f84f20f53112af38a9d2ba3a3d57ec585db07b3a"
+    },
+    {
+      "ref": "refs/heads/codex/web-research-draft",
+      "commit": "b6e31ba295776bf77f69adcb2da3ab0a1807549e"
+    },
+    {
+      "ref": "refs/heads/dev",
+      "commit": "c6a0b93f624c307199cee98ecd98d8d2a07de2d1"
+    },
+    {
+      "ref": "refs/heads/docs/boot-snapshot-receipt-20261114",
+      "commit": "bbfd9b3ad299fb67adcf6cac649bf911c496b314"
+    },
+    {
+      "ref": "refs/heads/docs/feature-public-comparison-20261114",
+      "commit": "77e7762545831171bc6c26d74ac3fe54be011c35"
+    },
+    {
+      "ref": "refs/heads/docs/forward-audit-merge-receipt-20261114",
+      "commit": "4a4f6d97265ca85943e9524292b17a44bde21dda"
+    },
+    {
+      "ref": "refs/heads/docs/pin-workbuddy-china-write-target-20261109",
+      "commit": "190e977665ba011f45ca54326b7d678a259b244a"
+    },
+    {
+      "ref": "refs/heads/docs/v6-task-coordination-20261113",
+      "commit": "fd8e3f545833913fbf91b5ba70af37b205025cb5"
+    },
+    {
+      "ref": "refs/heads/docs/workbuddy-target-sanitized-20261109",
+      "commit": "564d5dbc964b7fa2fd63e058eeafdb9912e8f5ca"
+    },
+    {
+      "ref": "refs/heads/docs/workbuddy-write-target-handoff-ci-20261109",
+      "commit": "190e977665ba011f45ca54326b7d678a259b244a"
+    },
+    {
+      "ref": "refs/heads/feat/auction-research-watchlist-20261109",
+      "commit": "110c56c4e04147c28810aab6a7f49945c8a5a3fa"
+    },
+    {
+      "ref": "refs/heads/feat/authorized-market-eod-bridge-20261110",
+      "commit": "50d20d4cbf4809f4d1f8e85a9bf166191b0e018e"
+    },
+    {
+      "ref": "refs/heads/feat/baostock-eod-evidence-bridge-20261110",
+      "commit": "6dc617c8cf4eb458b2d958da0232e140b99eadb5"
+    },
+    {
+      "ref": "refs/heads/feat/causal-market-memory-20261113",
+      "commit": "1f7bf7b72c6937fe7c498281fbe4fea407d26d5e"
+    },
+    {
+      "ref": "refs/heads/feat/ci-gated-auto-update-20261113",
+      "commit": "46fd1d598254e048edb9cb134c707b1087a978cc"
+    },
+    {
+      "ref": "refs/heads/feat/clist-stock-metrics-provenance-20261110",
+      "commit": "49ef8d333410d54a2a63f7a519e76a6a49cd8f1d"
+    },
+    {
+      "ref": "refs/heads/feat/cloud-cross-device-refresh-weekend-20261109",
+      "commit": "88f5d6c73f3c20ef03c42cc700ff67e2cd9ecc86"
+    },
+    {
+      "ref": "refs/heads/feat/complete-research-linkage-20261113",
+      "commit": "23e993716a78521dacf2b6aa99a0eb2afbfa9915"
+    },
+    {
+      "ref": "refs/heads/feat/daily-sector-breadth-20261110",
+      "commit": "22b433c685674274c9e8af6f1f6d819def4b1257"
+    },
+    {
+      "ref": "refs/heads/feat/factor-auto-watch-prereg-dev-20261110",
+      "commit": "054aa0255850ce563c9aa8f7927cdfd1c98dab35"
+    },
+    {
+      "ref": "refs/heads/feat/factor-auto-watch-prereg-handoff-20261110",
+      "commit": "f719108625d928cc55f7c11458fe4b81f4c3bb3d"
+    },
+    {
+      "ref": "refs/heads/feat/factor-autoregister-candidate-20261110",
+      "commit": "0bc6ac9e4e5fd1ea7d0909273f3c83645a960ecb"
+    },
+    {
+      "ref": "refs/heads/feat/factor-block-reliability-20261110",
+      "commit": "e332d7480a95b73a2365203fd87482d5db83e8d8"
+    },
+    {
+      "ref": "refs/heads/feat/factor-champion-challenger-benchmark-20261110",
+      "commit": "5cd970894cde15ee509cce231e826da347af396d"
+    },
+    {
+      "ref": "refs/heads/feat/factor-counterfactual-marginal-20261110",
+      "commit": "a2c151076ea8d6c34f5614488b5767a1f88f13c7"
+    },
+    {
+      "ref": "refs/heads/feat/factor-daily-research-cycle-20261110",
+      "commit": "9598de8ce5c3b0527b0f4e45c810efb1146942b7"
+    },
+    {
+      "ref": "refs/heads/feat/factor-decay-cooldown-recovery-20261110",
+      "commit": "7826485cbc1192400ca37d2f215825a83709113b"
+    },
+    {
+      "ref": "refs/heads/feat/factor-end-to-end-readiness-20261110",
+      "commit": "07ca5207eb865851732275369d85fefe44fc0ce2"
+    },
+    {
+      "ref": "refs/heads/feat/factor-eod-auto-capture-20261110",
+      "commit": "cd6d7c47871e1a2dcae25b176ff65bdabfeed0aa"
+    },
+    {
+      "ref": "refs/heads/feat/factor-global-budget-prereg-20261110",
+      "commit": "c526efe783f43254f72e491f71199d9e247a5803"
+    },
+    {
+      "ref": "refs/heads/feat/factor-global-budget-prereg-lock-safe-20261110",
+      "commit": "e0b6584413492fea24ee6a2d5ec1760e0f6a9113"
+    },
+    {
+      "ref": "refs/heads/feat/factor-holdout-trial-ledger-20261110",
+      "commit": "dc26909acccc2770735c2e8b6c5d6eaa43f2b186"
+    },
+    {
+      "ref": "refs/heads/feat/factor-industry-multihorizon-audit-20261110",
+      "commit": "dec69158626b049155dd97178dc225f2c0642fda"
+    },
+    {
+      "ref": "refs/heads/feat/factor-matured-manifest-link-20261110",
+      "commit": "f4c108a20ae677dbeb9fbd94617a476af6d1a555"
+    },
+    {
+      "ref": "refs/heads/feat/factor-nonoverlap-training-20261110",
+      "commit": "d6c46002f6af31f43c66de7e73def30b109762a3"
+    },
+    {
+      "ref": "refs/heads/feat/factor-redundancy-shadow-gate-20261110",
+      "commit": "1ee4fb85a6ae99d6e9674303245ecf9ce14027e6"
+    },
+    {
+      "ref": "refs/heads/feat/factor-reliability-regime-guard-20261110",
+      "commit": "16525c1048ea6b2a3737d9a71ffb689143e6dfc9"
+    },
+    {
+      "ref": "refs/heads/feat/factor-shadow-archive-restore-audit-20261110",
+      "commit": "e4e6058efd7c52ec7d844f88221f2ff811ea7155"
+    },
+    {
+      "ref": "refs/heads/feat/factor-shadow-decay-gate-20261110",
+      "commit": "149be4e5527866aa535f1a60d815dea50121dfa3"
+    },
+    {
+      "ref": "refs/heads/feat/factor-shadow-evolution-20261110",
+      "commit": "2f87071bf1c8bd692d3a325a1ace05648947b31e"
+    },
+    {
+      "ref": "refs/heads/feat/factor-shadow-watch-health-20261110",
+      "commit": "9463161b6ecd057859b72224a0367fb66eb99856"
+    },
+    {
+      "ref": "refs/heads/feat/forward-observation-readonly-bridge-20261110",
+      "commit": "3e422b8fba2c90fc8bd9233b9281384797ecb2f7"
+    },
+    {
+      "ref": "refs/heads/feat/frozen-model-evaluation-20261114",
+      "commit": "69d195b2703a2491f8354961a996403f43997fa6"
+    },
+    {
+      "ref": "refs/heads/feat/linked-market-intelligence-20261112",
+      "commit": "6ddbd7995fbecf14a5c6df275945aea53616f917"
+    },
+    {
+      "ref": "refs/heads/feat/market-clist-source-field-coverage-20261110",
+      "commit": "b319dc16be4bcc0c91b082234bf7c94785be6cd7"
+    },
+    {
+      "ref": "refs/heads/feat/multi-source-price-consensus-20261110",
+      "commit": "494b073d54536a746abbfb565881d8de90d945b7"
+    },
+    {
+      "ref": "refs/heads/feat/news-evidence-20261113",
+      "commit": "69072e2ee27640649f8969b321cc5ebba8e63358"
+    },
+    {
+      "ref": "refs/heads/feat/open-model-patterns-20261114",
+      "commit": "5b225e958cd52538485581a4fc37043d72fd5081"
+    },
+    {
+      "ref": "refs/heads/feat/picks-one-entry-responsive-three-k-20261109",
+      "commit": "77c0cc88e62f908100cae5f967d8748bac770641"
+    },
+    {
+      "ref": "refs/heads/feat/picks-quote-evidence-20261110",
+      "commit": "abe9f5eb9a1016fcc4eecabbd87610a254a05ba4"
+    },
+    {
+      "ref": "refs/heads/feat/picks-visibility-cloud-readonly-20261109",
+      "commit": "3b84251e9ca9c3f58fe76f65d94faa952a587705"
+    },
+    {
+      "ref": "refs/heads/feat/public-quote-endpoint-health-20261110",
+      "commit": "9946f3f3c2ca1a83a9fa026fa3c039449a0ecf5e"
+    },
+    {
+      "ref": "refs/heads/feat/quant-picks-eod-freeze-20261110",
+      "commit": "b9465974132a76292867e2cda24aad80ddcdd962"
+    },
+    {
+      "ref": "refs/heads/feat/quote-source-window-quality-20261110",
+      "commit": "7de624fa0c7976a05b8e6ab528106d73f32bbdfe"
+    },
+    {
+      "ref": "refs/heads/feat/research-agent-evolution",
+      "commit": "4515ef2135693e82823cbcba78ce39f71de6e1d3"
+    },
+    {
+      "ref": "refs/heads/feat/research-closure-20261114",
+      "commit": "b669a28f26f273ca2ef49d6ec78ce2173c4edcc8"
+    },
+    {
+      "ref": "refs/heads/feat/research-decision-workbench-20261114",
+      "commit": "fe1a2144915e1eed686c77b28f0624a13ec4592d"
+    },
+    {
+      "ref": "refs/heads/feat/rework-four-yellow-acceptance-20261109",
+      "commit": "755ed2f408ac87bec2e44a555999eb44fe2519e6"
+    },
+    {
+      "ref": "refs/heads/feat/rework-four-yellow-verified-20261109",
+      "commit": "755ed2f408ac87bec2e44a555999eb44fe2519e6"
+    },
+    {
+      "ref": "refs/heads/feat/sector-adjusted-benchmark-reconcile-20261110",
+      "commit": "e16b4cefcd2c45de69437ab3b455028ee05e7af2"
+    },
+    {
+      "ref": "refs/heads/feat/sector-breadth-existing-quote-bridge-20261110",
+      "commit": "2d239cc09ff5e759863c0fc6b06c2a2510256232"
+    },
+    {
+      "ref": "refs/heads/feat/sector-capture-circuit-supervisor-20261110",
+      "commit": "bd49582ede524570cccec65fa821debaa4cf6b8e"
+    },
+    {
+      "ref": "refs/heads/feat/sector-daily-safe-chain-20261110",
+      "commit": "bdabe501fc02eb74bb1313bbee64246f71b6e305"
+    },
+    {
+      "ref": "refs/heads/feat/sector-dual-adjusted-provider-audit-20261110",
+      "commit": "aab9eed602334b1711f22e5d3b56afbec6d53b6d"
+    },
+    {
+      "ref": "refs/heads/feat/sector-frozen-1-5-20-forward-prices-20261110",
+      "commit": "aade18c34f12754173cbc082fb96edc3925ab57c"
+    },
+    {
+      "ref": "refs/heads/feat/sector-optin-market-capture-20261110",
+      "commit": "3f9c226909f05c807ba190ad9b6d5036bdf9739a"
+    },
+    {
+      "ref": "refs/heads/feat/sector-provider-pair-rolling-quality-20261110",
+      "commit": "0eb22f9517bf57737fe2adfe37f084b0e18a4600"
+    },
+    {
+      "ref": "refs/heads/feat/sector-quality-prospective-registration-20261110",
+      "commit": "43b3a9f710524040b3d941235ca09570f9f4ff71"
+    },
+    {
+      "ref": "refs/heads/feat/sector-rotation-evidence-20261110",
+      "commit": "1f13937b2b956c59b5067ad86ea2340dbc930087"
+    },
+    {
+      "ref": "refs/heads/feat/sector-rotation-latest-dev-20261110",
+      "commit": "dd5bb0e9d06a364599794d7f2ed0548d4ff90699"
+    },
+    {
+      "ref": "refs/heads/feat/sector-rotation-standalone-20261110",
+      "commit": "0919d4e775372ab51562d4c7057cd9fe3230022e"
+    },
+    {
+      "ref": "refs/heads/feat/sector-walkforward-leakage-audit-20261110",
+      "commit": "0a288bb72703471297fc80c2a4cba985023915ed"
+    },
+    {
+      "ref": "refs/heads/feat/stock-list-import-20261114",
+      "commit": "a80ce3cb22c7538bc510aa1a968390820efa37e8"
+    },
+    {
+      "ref": "refs/heads/feat/stock-workbook-import-20261114",
+      "commit": "37b1287a43a5ce3e10f637680f4d7ea228b60b15"
+    },
+    {
+      "ref": "refs/heads/feat/tian-shu-ui-linkage-20261112",
+      "commit": "21ce1ce662b8e0696bb8f8fa484b347a15dec295"
+    },
+    {
+      "ref": "refs/heads/feat/v6-atlas-ui-redesign-20261111",
+      "commit": "23c59156ed79c429bb76337afe0ce547c46ebc73"
+    },
+    {
+      "ref": "refs/heads/feat/v6-candidate-rationale-linkage-20261108",
+      "commit": "5a4874b1afbc9f12aaaf9c816f0d1fc9385085b0"
+    },
+    {
+      "ref": "refs/heads/feat/v6-complete-research-explanations-20261109",
+      "commit": "265821c8b526f92043aabe5cb58f0e027ef92b34"
+    },
+    {
+      "ref": "refs/heads/feat/v6-complete-research-upgrade-20261113",
+      "commit": "5f07b7a86a4f3b15b243a8717693aff5431a8857"
+    },
+    {
+      "ref": "refs/heads/feat/v6-eight-point-durable-daily-loop-20261109",
+      "commit": "51aca852e8aa9f5f375a7935c8b5fcf48e62e8e8"
+    },
+    {
+      "ref": "refs/heads/feat/v6-eight-point-integrated-closure-20261109",
+      "commit": "16a1fb3b00ea32148045d0a38aef1e125524b018"
+    },
+    {
+      "ref": "refs/heads/feat/v6-frozen-market-promotion-gate-20261109",
+      "commit": "fa02962deea668b72b95775659b0174198f63a5c"
+    },
+    {
+      "ref": "refs/heads/feat/v6-linked-rule-forward-audit-20261109",
+      "commit": "e2d03a7022ced47af252c7bde6a0c5abaa0bc2ac"
+    },
+    {
+      "ref": "refs/heads/feat/v6-manual-holding-risk-watch-20261109",
+      "commit": "a21dc09efd6e269fc6daac7ab2d3ac50722edcdb"
+    },
+    {
+      "ref": "refs/heads/feat/v6-manual-quote-crosscheck-20261109",
+      "commit": "7801c10ba88346a9ceaeffc3dea4b5990af2f511"
+    },
+    {
+      "ref": "refs/heads/feat/v6-market-radar-module-20261111",
+      "commit": "b7ba8db45103eb89a02a4ff5551e3948241a525e"
+    },
+    {
+      "ref": "refs/heads/feat/v6-market-sector-resilience-20261109",
+      "commit": "a4ee40c6f5016944193d72485d9be4772bb00fd6"
+    },
+    {
+      "ref": "refs/heads/feat/v6-market-shock-learning-gate-20261108",
+      "commit": "4069df76d8fcfd97eeba89f86789e3e6ee8ed278"
+    },
+    {
+      "ref": "refs/heads/feat/v6-opensource-a-share-research-rules-20261109",
+      "commit": "80c7931ae1677385874c8d0ef7a32d9e220e9d22"
+    },
+    {
+      "ref": "refs/heads/feat/v6-picks-extend-merged-ui-20261109",
+      "commit": "79dc2f151ab876e8913a1974851f7ad38969321a"
+    },
+    {
+      "ref": "refs/heads/feat/v6-public-multifactor-linkage-20261109",
+      "commit": "1c93ae59800f032143eadfc1b02b28438925bf07"
+    },
+    {
+      "ref": "refs/heads/feat/v6-public-rule-forward-audit-20261109",
+      "commit": "49efb6cc0908603eaae98e297c333e6a1d1aadb6"
+    },
+    {
+      "ref": "refs/heads/feat/v6-quality-audit-integrated-20261109",
+      "commit": "ce133598711a2e372b2dd5990b91fceb432a805d"
+    },
+    {
+      "ref": "refs/heads/feat/v6-quality-factors-after-overlap-20261109",
+      "commit": "7c5ec11814cf637e7140fdce4ff0d33f11a72474"
+    },
+    {
+      "ref": "refs/heads/feat/v6-quality-rules-forward-audit-20261109",
+      "commit": "2db1261a36873d638ee5b89b049e89b84790a5c1"
+    },
+    {
+      "ref": "refs/heads/feat/v6-quality-volume-reversal-factors-20261109",
+      "commit": "dda5668eb5e3f42d9541c9788f864bc3e360f4f1"
+    },
+    {
+      "ref": "refs/heads/feat/v6-reference-live-factors-20261108",
+      "commit": "9bff2d13d8158aef8cfc972fe8ad5c73113d2c51"
+    },
+    {
+      "ref": "refs/heads/feat/v6-reference-ui-20261108",
+      "commit": "dbe30414c3bf43504d414a83589c3541185fb632"
+    },
+    {
+      "ref": "refs/heads/feat/v6-research36-data-pipeline-20261113",
+      "commit": "9e456fc53cabe2e17a268650b29085a2d450bd9b"
+    },
+    {
+      "ref": "refs/heads/feat/v6-rule-weight-review-evidence-20261109",
+      "commit": "c735fc7f173e367c4328333c7722139dd20a98bd"
+    },
+    {
+      "ref": "refs/heads/feat/v6-sector-cohort-rps-20261109",
+      "commit": "d172bb480462d2289867c0ae7c39eece3dc10bf0"
+    },
+    {
+      "ref": "refs/heads/feat/v6-selection-results-center-20261109",
+      "commit": "d47177e642a846480a3aaff6973bbff0f662e553"
+    },
+    {
+      "ref": "refs/heads/feat/v6-session-release-integration-20261113",
+      "commit": "ffb881fb3e8cb91c59b4457959003b6368b6ea4a"
+    },
+    {
+      "ref": "refs/heads/feat/v6-signal-family-overlap-audit-20261109",
+      "commit": "0f1ca29262b6e015514291cc3b4cb4915708f902"
+    },
+    {
+      "ref": "refs/heads/feat/v6-temporal-signal-episodes-20261109",
+      "commit": "795b0e59b0060cc34309ae0388f351a251fe7985"
+    },
+    {
+      "ref": "refs/heads/feat/v6-weak-market-defensive-preference-20261109",
+      "commit": "c736644b6e399ce4d3f1fbc0e0fb2e64d1334cb1"
+    },
+    {
+      "ref": "refs/heads/feat/visible-stock-picks-and-research-patterns-20261109",
+      "commit": "a3634e1cb0f86334375dc313589f4c7d77d604b7"
+    },
+    {
+      "ref": "refs/heads/feat/windows-local-host-20261113",
+      "commit": "83726a0bb6eafde2de257625c3cebfb2142a4f97"
+    },
+    {
+      "ref": "refs/heads/feat/workbuddy-session-modules-20261113",
+      "commit": "99d3af9f91c61acdaafdbffbb925bc6c9503f211"
+    },
+    {
+      "ref": "refs/heads/feature/baostock-industry-frozen-bridge-20261110",
+      "commit": "570b021af8ec8efcf2aa68917d6dda677399ad12"
+    },
+    {
+      "ref": "refs/heads/feature/baostock-industry-source-only-20261110",
+      "commit": "a3b45cd7af8555be3a500831a639ab0ce74fb157"
+    },
+    {
+      "ref": "refs/heads/feature/cloud-forward-tracking-20261110",
+      "commit": "a355c40cf45e24432154e3924d8680afff869433"
+    },
+    {
+      "ref": "refs/heads/feature/forward-daily-intake-20261110",
+      "commit": "59e10b89dfb23daff9dc015b9ae8558d3a7e6f5c"
+    },
+    {
+      "ref": "refs/heads/feature/picks-followup-observations-20261109",
+      "commit": "56e9494d80e3d4bff5b57b2aba649d1b5a367136"
+    },
+    {
+      "ref": "refs/heads/feature/sector-breadth-strength-20261110",
+      "commit": "b39fcc9f5c1f6f3555a7094cbf2bce7002b5eb28"
+    },
+    {
+      "ref": "refs/heads/feature/sector-industry-quote-bridge-20261110",
+      "commit": "5af6243be545e6587c054af075427f89aad9ff32"
+    },
+    {
+      "ref": "refs/heads/feature/sector-learning-evidence-preflight-20261110",
+      "commit": "3b1108faa13a8dd21d0d3520e3245ad000638bd5"
+    },
+    {
+      "ref": "refs/heads/fix/a1-funds-truthfulness-20261113",
+      "commit": "1ced0cb6cb9306c4bd1846a27d814dc30ad07578"
+    },
+    {
+      "ref": "refs/heads/fix/a2-batch-quote-validity-20261113",
+      "commit": "4981c5e08f45afc7a94dfc774a06a8c7607b2bd3"
+    },
+    {
+      "ref": "refs/heads/fix/auction-read-side-effects-and-stale-evidence-20261109",
+      "commit": "a4388e24359bae8f6e5ffd3cdaa7dd3173edb74e"
+    },
+    {
+      "ref": "refs/heads/fix/backtest-cli-ledger-default-20261110",
+      "commit": "72adb9ab8658da36b86dc5d4e2723817b6d40eeb"
+    },
+    {
+      "ref": "refs/heads/fix/baostock-collector-failclosed-20261110",
+      "commit": "0bfa0b023c6bdc1489674cbeea8f31dd4eb388ae"
+    },
+    {
+      "ref": "refs/heads/fix/baostock-consumer-snapshot-guard-20261110",
+      "commit": "19aa00d68df313674b2fb714184443572330faa7"
+    },
+    {
+      "ref": "refs/heads/fix/baostock-snapshot-semantics-20261110",
+      "commit": "09a1581ea29ba223515aa6f5f5a4864c661a18fc"
+    },
+    {
+      "ref": "refs/heads/fix/boot-snapshot-continuation-20261114",
+      "commit": "cfe02cafe0d3bb400405f183a0389757ccade02e"
+    },
+    {
+      "ref": "refs/heads/fix/china-news-clock-and-quote-evidence-20261109",
+      "commit": "e511213d82c992f478d466e248f3a1219cf17c00"
+    },
+    {
+      "ref": "refs/heads/fix/collection-refresh-budget-20261113",
+      "commit": "32d5fd4e1cb391174e5285213955bb7ba2113a0b"
+    },
+    {
+      "ref": "refs/heads/fix/current-dev-safe-pr-reconcile-20261113",
+      "commit": "8698753778c4f4cad3fc7b653cda9fc0f9b30ef7"
+    },
+    {
+      "ref": "refs/heads/fix/current-selection-freshness-20261113",
+      "commit": "51144a70643e4e81e001d56217b7a9624709cf32"
+    },
+    {
+      "ref": "refs/heads/fix/device-auto-resume-20261113",
+      "commit": "ae972fff8986854ebe1702f2df3311c769d482bf"
+    },
+    {
+      "ref": "refs/heads/fix/factor-auto-prereg-calendar-gate-20261110",
+      "commit": "73ea536478f72267016e488fceb449d62aea6216"
+    },
+    {
+      "ref": "refs/heads/fix/factor-canonical-manifest-lineage-20261110",
+      "commit": "4b304e9ab19bd150d4d834f9f60a086c528f93be"
+    },
+    {
+      "ref": "refs/heads/fix/factor-forward-horizon-date-guard-20261110",
+      "commit": "4c8af6c518cb851970dab53dcba6ff17b135eb6a"
+    },
+    {
+      "ref": "refs/heads/fix/factor-global-trial-status-fail-closed-20261110",
+      "commit": "7e9074433f69b777a08aa39d642c9b6b788e517d"
+    },
+    {
+      "ref": "refs/heads/fix/factor-monitor-archive-calendar-rewind-20261110",
+      "commit": "dee939e2f977fc64ca45c1e377e1f6702b73c6e2"
+    },
+    {
+      "ref": "refs/heads/fix/factor-operator-canonical-only-20261110",
+      "commit": "9b50b3699bd2044190bfc18e203337a6fe6e9df9"
+    },
+    {
+      "ref": "refs/heads/fix/factor-prereg-before-holdout-read-20261110",
+      "commit": "302eb086045f2598bc594cfb71164ae826d71a7c"
+    },
+    {
+      "ref": "refs/heads/fix/factor-regime-ic-raw-threshold-20261110",
+      "commit": "a0257084501947365f9741adf94f1910d7b73758"
+    },
+    {
+      "ref": "refs/heads/fix/factor-shadow-lineage-skip-guard-20261110",
+      "commit": "04decdce2fba80c2729c7d8ff2789979f116b1f8"
+    },
+    {
+      "ref": "refs/heads/fix/factor-shadow-same-window-history-audit-20261110",
+      "commit": "108061c7aec518654322b069f7c132afd9e95447"
+    },
+    {
+      "ref": "refs/heads/fix/factor-shadow-single-writer-20261110",
+      "commit": "46caa9c64c108a43f965ae259cf61685229f7cd0"
+    },
+    {
+      "ref": "refs/heads/fix/factor-shadow-skip-audits-ledgers-20261110",
+      "commit": "03e549b149a1c4977dcac7bbfb4e042bc4e28083"
+    },
+    {
+      "ref": "refs/heads/fix/factor-trial-budget-calendar-rollback-20261110",
+      "commit": "73084cad84a74d0eecd5437ec11b486fd10194d5"
+    },
+    {
+      "ref": "refs/heads/fix/feed-pair-distinct-asof-days-20261110",
+      "commit": "6e63eca33e0fdce885e03246bf8e8301be3b4ec6"
+    },
+    {
+      "ref": "refs/heads/fix/forward-horizon-sample-audit-20261114",
+      "commit": "1e52cb90f3da8d90cccff0a06c8dc5e3a60129a6"
+    },
+    {
+      "ref": "refs/heads/fix/forward-tracking-gzip-projection-20261110",
+      "commit": "9def29827107b60cd6aad1d17388b370c64d252b"
+    },
+    {
+      "ref": "refs/heads/fix/funds-monitor-capacity-20261114",
+      "commit": "1d2b35930f607a1c515345f90cc276432ed1d5ea"
+    },
+    {
+      "ref": "refs/heads/fix/integrated-news-release-20261113",
+      "commit": "b39603debcc4ed1c7c2dd629ac5cefb8c4d5e38e"
+    },
+    {
+      "ref": "refs/heads/fix/local-host-health-restart-20261114",
+      "commit": "1b9a1f272d95b593f2cfb4cb86938d42718a16ef"
+    },
+    {
+      "ref": "refs/heads/fix/local-host-process-inspection-20261114",
+      "commit": "6e19fa875c320b03b18f1a58371c1d128b1f8449"
+    },
+    {
+      "ref": "refs/heads/fix/local-host-stop-clock-20261114",
+      "commit": "17c80140d74b6f294f26873bcdfa367851a0867f"
+    },
+    {
+      "ref": "refs/heads/fix/market-session-window-hints-20261110",
+      "commit": "1818ca113e6ce5a14d07a5855564a596611418e1"
+    },
+    {
+      "ref": "refs/heads/fix/news-pool-push-gate-20261113",
+      "commit": "87752be4e7f3a031ea2f49505210dd21e8322e27"
+    },
+    {
+      "ref": "refs/heads/fix/next-evidence-closure-20261113",
+      "commit": "b434769fde9301ed91c1cd46777b9af4b7e002e2"
+    },
+    {
+      "ref": "refs/heads/fix/picks-auth-revocation-20261109",
+      "commit": "1d4897f1864acc72e4b6543839a6d1c5f0fc3bdb"
+    },
+    {
+      "ref": "refs/heads/fix/picks-kline-auth-sync-20261109",
+      "commit": "887494a26b1d8d3287cda03162e7f009539c3563"
+    },
+    {
+      "ref": "refs/heads/fix/picks-kline-history-pagination-20261109",
+      "commit": "aeeb4b0d940e54298ead215fd38a7594145561d5"
+    },
+    {
+      "ref": "refs/heads/fix/picks-selected-detail-live-sync-20261109",
+      "commit": "844a6cafbd50bb46b5ebfeaf72fb8eb00e983791"
+    },
+    {
+      "ref": "refs/heads/fix/picks-truncated-period-and-live-assets-20261109",
+      "commit": "1f03faf8d6077132ab1a45f5f6fbf5bd0bd45c08"
+    },
+    {
+      "ref": "refs/heads/fix/public-quote-redirect-diagnostics-20261110",
+      "commit": "411c5389e553c3e3efcf7474c4c8c8b2547448b0"
+    },
+    {
+      "ref": "refs/heads/fix/quote-endpoint-publication-freshness-20261110",
+      "commit": "607d8d8bbcc2737d36932dc306597473bca2bd9f"
+    },
+    {
+      "ref": "refs/heads/fix/quote-health-opaque-redirect-20261110",
+      "commit": "21096dfa3b6762b9b32ca07747863a74792559a3"
+    },
+    {
+      "ref": "refs/heads/fix/quote-health-opaqueredirect-20261110-0621",
+      "commit": "0e269eb27b49276d13983779ec144d1ab4f80bf6"
+    },
+    {
+      "ref": "refs/heads/fix/quote-hidden-redirect-guard-20261110",
+      "commit": "45734a8e329d25be06b9f35943f3d55e66e2f89f"
+    },
+    {
+      "ref": "refs/heads/fix/quote-nontrading-status-guard-20261110",
+      "commit": "65198efda4ec72d696142781f277d3573af34423"
+    },
+    {
+      "ref": "refs/heads/fix/quote-operator-trading-calendar-20261110",
+      "commit": "4fe848663cd62bf13b11c45cd90fb3bfeecb0927"
+    },
+    {
+      "ref": "refs/heads/fix/quote-prevclose-consensus-guard-20261110",
+      "commit": "195d6dfa26f2089597a474590a74095f8921b9fa"
+    },
+    {
+      "ref": "refs/heads/fix/quote-previous-close-consensus-20261110",
+      "commit": "94fd1aeb2118baec9b7e73a117b20fce0b63291c"
+    },
+    {
+      "ref": "refs/heads/fix/quote-upstream-identity-guard-20261110",
+      "commit": "c8bf014685f87bb3dd14a0f6741218db1cd40f2d"
+    },
+    {
+      "ref": "refs/heads/fix/remaining-trust-closure-20261113",
+      "commit": "7ef3d560bdcc3a1b02fe17eae6f07ccc4a37ae26"
+    },
+    {
+      "ref": "refs/heads/fix/research-evidence-publication-race-20261113",
+      "commit": "e12230871f5bcd1ccc9af161c1d38e78cbc11388"
+    },
+    {
+      "ref": "refs/heads/fix/sector-membership-quote-integrity-20261110",
+      "commit": "ba3d3ad6f62d44cc788fbcff4454799146cfe84b"
+    },
+    {
+      "ref": "refs/heads/fix/sector-pair-partial-disagreement-and-maturity-20261110",
+      "commit": "5a39b53c5c3ef817aef711851dc87420526f4cab"
+    },
+    {
+      "ref": "refs/heads/fix/sector-shadow-frozen-member-h5-guard-20261110",
+      "commit": "eb098cecf3da530972878dc4066e6725de41fe49"
+    },
+    {
+      "ref": "refs/heads/fix/sector-supervisor-crossday-inflight-20261110",
+      "commit": "e4bd6deb9deca14cea2e4d5c7fe27e97fdb817af"
+    },
+    {
+      "ref": "refs/heads/fix/shadow-archive-identity-20261110",
+      "commit": "fd648d8fad51ec77b096264a030064d02a5c711d"
+    },
+    {
+      "ref": "refs/heads/fix/shadow-fragility-raw-ic-20261110",
+      "commit": "1fb6f7b41366e28c6a4aaf512bd139c2d6f617cc"
+    },
+    {
+      "ref": "refs/heads/fix/shadow-ic-unrounded-gate-20261110",
+      "commit": "b4be9ebcb77d6be744d95575884137952adc51e9"
+    },
+    {
+      "ref": "refs/heads/fix/shadow-recovered-wait-prereg-bypass-20261110",
+      "commit": "eb0aa727f2a8996bf465cf905ec71c1b92573ae6"
+    },
+    {
+      "ref": "refs/heads/fix/tian-shu-data-linkage-20261112",
+      "commit": "57cbf80b0a8d1c2103a1cb5c6a6c681c4a40c24b"
+    },
+    {
+      "ref": "refs/heads/fix/ui-match-original-no-dock-overlap-20261109",
+      "commit": "551e4a757d212f6a183ed3bd08ac319f984c4c44"
+    },
+    {
+      "ref": "refs/heads/fix/ui-original-reference-fidelity-20261109",
+      "commit": "152068dfe8ad6129fcd52fc8530779f051a3ba83"
+    },
+    {
+      "ref": "refs/heads/fix/v6-kline-true-history-pagination-20261109",
+      "commit": "bf2a65aead59ab89d92abe9cceac8afd2d637cca"
+    },
+    {
+      "ref": "refs/heads/fix/v6-private-monitor-durable-dedup-20261109",
+      "commit": "a0d46699f41d630dbb4d0db8603c2aa93459d02f"
+    },
+    {
+      "ref": "refs/heads/fix/v6-quote-timestamp-provenance-20261109",
+      "commit": "45161baf9aa80ee9cfe560a6aac540f314199e8b"
+    },
+    {
+      "ref": "refs/heads/fix/v6-research-cache-ci-summary-20261109",
+      "commit": "d9cc49b08de9a7b4b0f2b99a18310bb57a264da6"
+    },
+    {
+      "ref": "refs/heads/fix/v6-upgrade-quote-integration-20261113",
+      "commit": "390503f1088a26972edbd6ddeb638e898d0a68d6"
+    },
+    {
+      "ref": "refs/heads/fix/workbuddy-ascii-json-20261113",
+      "commit": "23a097783f67dd9db437eafaecb3307cc96ad27c"
+    },
+    {
+      "ref": "refs/heads/fix/workbuddy-classification-resume-20261113",
+      "commit": "f8509943c71ffecb16d0b56b1db7abb2425ff64e"
+    },
+    {
+      "ref": "refs/heads/fix/workbuddy-live-sync-20261113b",
+      "commit": "bff87bb56c63c76f6e4b8f74baea6510fad51529"
+    },
+    {
+      "ref": "refs/heads/fix/workbuddy-workflow-runtime-paths-20261113",
+      "commit": "bbae9427a0784897243ff666e221c9f91550d109"
+    },
+    {
+      "ref": "refs/heads/import/v6-1083-bn-review",
+      "commit": "17aa0f9e8c467e7150003314304158d64210ee64"
+    },
+    {
+      "ref": "refs/heads/improve/card-push-linkage-20261113",
+      "commit": "1cb4a92b53b35c233cbfcf74ddae3927e4abb38d"
+    },
+    {
+      "ref": "refs/heads/improve/reference-integration-quality-20261113",
+      "commit": "51ede02cdebf7b61a2f6e74eaf57e9123ffcbfbf"
+    },
+    {
+      "ref": "refs/heads/improve/reference-review-followup-20261113",
+      "commit": "440f0e6e751543fada4cefd87d2f812e675736d1"
+    },
+    {
+      "ref": "refs/heads/improve/source-linkage-20261113",
+      "commit": "25fe3dede95316417b9ecac78c581b9614710f50"
+    },
+    {
+      "ref": "refs/heads/integrate/pending-release-20261113",
+      "commit": "339955eb781bc9f9da08f777d49eb267e8c9b6e7"
+    },
+    {
+      "ref": "refs/heads/integration/runtime-quote-recovery-20261114",
+      "commit": "142832eb28107faae671a5e81df713593c6c8f0e"
+    },
+    {
+      "ref": "refs/heads/main",
+      "commit": "a2b2f15ddfb8c79c459875647ff1711af2a9bfda"
+    },
+    {
+      "ref": "refs/heads/merge/bn-1083-safe-intake-20261112",
+      "commit": "d4cb411ac775666b3eeca9cd597d25715e3a4970"
+    },
+    {
+      "ref": "refs/heads/research/factor-paired-fragility-20261110",
+      "commit": "0bac85fdeec1359f94f56a63e9a405602023f250"
+    },
+    {
+      "ref": "refs/heads/research/feed-discrepancy-quarantine-20261110",
+      "commit": "a38382bdfaf90346ae6b0a5e2084f3e17dcab2d8"
+    },
+    {
+      "ref": "refs/heads/research/feed-snapshot-clock-guard-20261110",
+      "commit": "1143ecc2fa24796597d2fa41a7fbff2f79454063"
+    },
+    {
+      "ref": "refs/heads/research/public-signal-confirmation",
+      "commit": "9cf6acaad7b1a8af7db7d944e98be27a49b5fff0"
+    },
+    {
+      "ref": "refs/heads/research/sector-archive-member-proof-20261110",
+      "commit": "2290bc7469c4018b164ea320235d682305e6d6aa"
+    },
+    {
+      "ref": "refs/heads/research/sector-archive-proof-binding-20261110",
+      "commit": "17c4141d08d21edc53ae285392ed17f3069ad21b"
+    },
+    {
+      "ref": "refs/heads/research/sector-forward-member-gate-20261110",
+      "commit": "6cc02a6bca30ac9453000f8e9f49626753ed673b"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-full-member-close-freeze-20261110",
+      "commit": "8a50c901571cca9119dadeb1d1045301c60f4f0d"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-market-regime-stress-20261110",
+      "commit": "96b05f2c30c219fbf3d66bc61c59c46146f7b6a9"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-private-replay-cli-20261110",
+      "commit": "6f06cb4d62855d5a8abf25930d28d6bd6ca27d54"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-raw-evidence-replay-20261110",
+      "commit": "94efe8981fe11172b70ae8f5517f8c41aac9d271"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-readiness-gate-20261110",
+      "commit": "e62625861a0e2b6c36f19be86307921613828701"
+    },
+    {
+      "ref": "refs/heads/research/sector-h5-walkforward-cost-audit-20261110",
+      "commit": "94451cff84e675d9886bf8f5991e4640e0e30a2f"
+    },
+    {
+      "ref": "refs/heads/research/sector-member-identity-proof-20261110",
+      "commit": "f061ec3a62b094f3cc5053169bb60c6e4d86de20"
+    },
+    {
+      "ref": "refs/heads/research/sector-sameday-candidate-seal-20261110",
+      "commit": "d32bf1201d2dfacff855b71d8d6f9e1d7c45cab1"
+    },
+    {
+      "ref": "refs/heads/research/sector-shadow-candidate-identity-20261110",
+      "commit": "67ffadc8225cc9ce61526d5f759140c0db5fb566"
+    },
+    {
+      "ref": "refs/heads/research/sector-shadow-candidate-proof-rebased-20261110",
+      "commit": "48f86fd3df8ece5ee12578f261b7bbd610d2bc7d"
+    },
+    {
+      "ref": "refs/heads/research/sector-shadow-candidate-proof-v2-20261110",
+      "commit": "9399170a7551baa48c23e3b672058bb77aa5fe1a"
+    },
+    {
+      "ref": "refs/heads/research/sector-shadow-forward-observation-20261110",
+      "commit": "230127404b01e5a24e18183b3693bbeace865dfa"
+    },
+    {
+      "ref": "refs/heads/research/sector-shadow-h5-price-label-20261110",
+      "commit": "0c146c6eaeddff2d7401bc8ff587e11e15f603aa"
+    },
+    {
+      "ref": "refs/heads/test/ui-real-chromium-geometry-20261109",
+      "commit": "4ea4232216b0ceb2ffd7489747d8c655e8397a39"
+    },
+    {
+      "ref": "refs/heads/ui/reference-fidelity-contract",
+      "commit": "5dcbdb5966bff01677ac7cabb04534668c29dd61"
+    }
+  ],
+  "archive_blobs": [
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part001",
+      "blob": "6abafe0c551d04804bae5520c496a91a72177e0e",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part001"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part002",
+      "blob": "552d10d874a4ca3f1ae0d562d4419e6cecdb4b3c",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part002"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part003",
+      "blob": "533dc1eec7b85b639523fd9c239f0d975d510938",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part003"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part004",
+      "blob": "55a8ee6b21bb30a90401d08bfa06e5d91d3576ce",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part004"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part005",
+      "blob": "8fbe73f190a4520aad7803d67f229884ec0c626e",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part005"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part006",
+      "blob": "e6775342a3131b149f244ae41edc065d5bba93a0",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part006"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part007",
+      "blob": "9249110feb472d72f97de47d02a0f4da301a0044",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part007"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part008",
+      "blob": "eba57562fa08e7c4c8ad28aed5d959fd49d0f8db",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part008"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part009",
+      "blob": "0b25954a800818de86714a39f7a4e032f70cf8f9",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part009"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part010",
+      "blob": "11a691833c59d16fd987e6f1b41d38b95a275342",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part010"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part011",
+      "blob": "416c0c1e16e8e8d19fbe688be131aed1a92f24b1",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part011"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part012",
+      "blob": "06520cbc9ca1bf5154a51ffd19834041edcb195f",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part012"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part013",
+      "blob": "36435f834731ccf8a185c8a47bd0a4c317532095",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part013"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part014",
+      "blob": "546d97314318d5fdd735b59b02097b6899a5fbcf",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part014"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part015",
+      "blob": "56149997106dd59ce8f8ed7a3f611e78422e0925",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part015"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part016",
+      "blob": "58d5110b63fdc427da6b3b48255b04f4a1fbf889",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part016"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part017",
+      "blob": "165b2d65ee1434a9005570167bbdcda9d2e6078d",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part017"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part018",
+      "blob": "6b403cd1c8e5d9e96e0742acb643dfa89f01bcb3",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part018"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part019",
+      "blob": "020bb6ddbd57ad80dd331f8a5d98d07227b48ebb",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part019"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part020",
+      "blob": "6e4f542a15a903187e564026274d059322bd99be",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part020"
+        }
+      ]
+    },
+    {
+      "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part021",
+      "blob": "db5845dea8b1fd57e406c527adcca9474249331a",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+          "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part021"
+        }
+      ]
+    },
+    {
+      "path": "V6_FULL_35f9b716459e.zip",
+      "blob": "a7c979ec68ab92616825f3de3feae3589f0a4bf8",
+      "sources": [
+        {
+          "ref": "refs/heads/archive/v6-full-35f9b716459e",
+          "commit": "e58bdd9921a8569b6600d98ef89ec53bcb618b24",
+          "path": "V6_FULL_35f9b716459e.zip"
+        }
+      ]
+    }
+  ],
+  "refs_with_archives": [
+    {
+      "ref": "refs/heads/archive/v6-1090-encrypted-20261112",
+      "commit": "c5ca779021afcffed851cedf4b2dac793de9ac18",
+      "archives": [
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part001",
+          "blob": "6abafe0c551d04804bae5520c496a91a72177e0e",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part002",
+          "blob": "552d10d874a4ca3f1ae0d562d4419e6cecdb4b3c",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part003",
+          "blob": "533dc1eec7b85b639523fd9c239f0d975d510938",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part004",
+          "blob": "55a8ee6b21bb30a90401d08bfa06e5d91d3576ce",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part005",
+          "blob": "8fbe73f190a4520aad7803d67f229884ec0c626e",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part006",
+          "blob": "e6775342a3131b149f244ae41edc065d5bba93a0",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part007",
+          "blob": "9249110feb472d72f97de47d02a0f4da301a0044",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part008",
+          "blob": "eba57562fa08e7c4c8ad28aed5d959fd49d0f8db",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part009",
+          "blob": "0b25954a800818de86714a39f7a4e032f70cf8f9",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part010",
+          "blob": "11a691833c59d16fd987e6f1b41d38b95a275342",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part011",
+          "blob": "416c0c1e16e8e8d19fbe688be131aed1a92f24b1",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part012",
+          "blob": "06520cbc9ca1bf5154a51ffd19834041edcb195f",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part013",
+          "blob": "36435f834731ccf8a185c8a47bd0a4c317532095",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part014",
+          "blob": "546d97314318d5fdd735b59b02097b6899a5fbcf",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part015",
+          "blob": "56149997106dd59ce8f8ed7a3f611e78422e0925",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part016",
+          "blob": "58d5110b63fdc427da6b3b48255b04f4a1fbf889",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part017",
+          "blob": "165b2d65ee1434a9005570167bbdcda9d2e6078d",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part018",
+          "blob": "6b403cd1c8e5d9e96e0742acb643dfa89f01bcb3",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part019",
+          "blob": "020bb6ddbd57ad80dd331f8a5d98d07227b48ebb",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part020",
+          "blob": "6e4f542a15a903187e564026274d059322bd99be",
+          "mode": "100644"
+        },
+        {
+          "path": "archive/V6_1090_encrypted/V6_1090_full_20261107bo.aes256gcm.part021",
+          "blob": "db5845dea8b1fd57e406c527adcca9474249331a",
+          "mode": "100644"
+        }
+      ]
+    },
+    {
+      "ref": "refs/heads/archive/v6-full-35f9b716459e",
+      "commit": "e58bdd9921a8569b6600d98ef89ec53bcb618b24",
+      "archives": [
+        {
+          "path": "V6_FULL_35f9b716459e.zip",
+          "blob": "a7c979ec68ab92616825f3de3feae3589f0a4bf8",
+          "mode": "100644"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1,
+  "repository": "solviq87-cpu/v6-stock-system",
+  "scannedAt": "2026-11-14T12:07:43.252220+00:00",
+  "scope": "current tips of all advertised refs/heads and refs/tags, not deleted refs or every historical commit",
+  "branchCount": 236,
+  "tagCount": 0,
+  "baselineSha": "c6a0b93f624c307199cee98ecd98d8d2a07de2d1"
+}
