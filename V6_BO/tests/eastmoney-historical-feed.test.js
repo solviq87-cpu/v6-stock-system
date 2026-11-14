@@ -90,3 +90,19 @@ test('daily date checks use Beijing market date, never previous UTC date',async(
  assert.equal(result.dataset.stocks[0].bars.length,40);
  assert.equal(result.metadata.canTrade,false);
 });
+
+test('research-only public history can request raw unadjusted bars for BaoStock parity',async()=>{
+ const result=await fetchEastmoneyHistory({symbols:['600000'],start:dates[0],end:dates.at(-1),
+  priceAdjustment:'unadjusted',fetchImpl:async(url)=>{
+   assert.equal(new URL(url).searchParams.get('fqt'),'0');
+   assert.equal(new URL(url).searchParams.get('fields2'),'f51,f52,f53,f54,f55,f56,f57');
+   return response(payload('600000'));
+  }});
+ assert.equal(result.dataset.priceAdjustment.mode,'unadjusted');
+ assert.equal(result.dataset.priceAdjustment.provider,'eastmoney-public-history-fqt-0');
+ assert.match(result.dataset.datasetId,/^em-unadjusted-v2-/);
+ assert.equal(result.dataset.amountUnit,'CNY');
+ assert.equal(result.metadata.canTrade,false);
+ await assert.rejects(()=>fetchEastmoneyHistory({symbols:['600000'],start:dates[0],end:dates.at(-1),
+  priceAdjustment:'unknown',fetchImpl:async()=>{throw Error('must never fetch');}}),/复权/);
+});
