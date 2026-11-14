@@ -73,7 +73,7 @@ function validateRegistry(){
   if(!safe.test(r.id)||typeof r.upstreamGroup!=='string'||
      !(safe.test(r.upstreamGroup)||/^multi:[a-z][a-z0-9-]*$/.test(r.upstreamGroup))||
      !legalAccess.has(r.access)||typeof r.dataClass!=='string'||!r.dataClass||
-     !['CN','HK','US','KR','GLOBAL'].includes(r.market)||
+     !['CN','HK','US','KR','JP','GLOBAL'].includes(r.market)||
      typeof r.evidenceUrl!=='string'||!/^https:\/\//.test(r.evidenceUrl)||typeof r.adapter!=='string')
    throw Error('数据源目录字段非法: '+r.id);
  }

@@ -11,6 +11,14 @@
 - 两张锁定主页、原四策略/账户/15秒规则与归档保留；完整起点备份SHA与revert见文档，未执行生产发布或物理真机认证。剩余：统一PR、核对最终CI、合并和本地dev同步。
 <!-- CURRENT_CHECKPOINT_END -->
 
+## 数据底座官方扩容 · 2026-11-15（待最终 CI/PR 核验）
+
+- 本批根据用户“继续扩充准确数据底座”要求，以实际 `dev@64bf9b4179a21e358bc8349e5f7f01daa518bab7` 为起点、`feat/official-sec-ecb-data-foundation-20261115` 为独立分支；不重构旧包、账户、四策略或锁定主页。
+- 在 89 条路线基础上增记31条，合计120条候选/已存在接口；79组包含模糊来源的登记标记、30个实查开源仓库。**这些不是真实上线接入数，也不证明独立授权。**
+- 新增 `src/core/sec-companyfacts.js`：固定美国 SEC 官方 companyfacts 单次 GET，用户须经私有环境声明真 User-Agent，文件按新路径独立落盘；申报日期不是交易可用时间，修订不覆盖，`pointInTimeBacktestReady=false`。新增 `src/core/ecb-fx-daily.js`：ECB 单次 CSV 获取欧元参考汇率，严格 1 EUR 报价方向、限量、单位/年份/来源与缺失，`canTrade=false`；各有 CLI、专项测试和 CI。
+- 原14源授权白名单未改，未知、收费或待审核来源继续登记不主动请求。所有变更与运行/限制证据在 [官方源扩容报告](V6_BO/docs/OFFICIAL_SEC_ECB_SOURCE_EXPANSION_20261115.md)；PR 最终提交 CI、实际网络联通、许可、发布另核，**不得将其标记为已经通过或线上部署**。
+
+
 ## #253研究导航交付历史
 
 ## 当前断点 · 2026-11-14（研究页键盘、分页竞态与长列表）
