@@ -47,7 +47,7 @@ test('multi-provider frameworks, credential feeds and unknown sources do not inh
  assert.equal(resolveUpstream('ashare').group,null);
  assert.equal(resolveUpstream('ashare','sina').group,'sina');
  assert.throws(()=>resolveUpstream('efinance','tencent'),/目录不一致/);
- assert.throws(()=>resolveUpstream('chstockdata-tdx','eastmoney'),/目录不一致/);
+ assert.throws(()=>resolveUpstream('pytdx-quote-route','eastmoney'),/目录不一致/);
  assert.equal(sourceLineage('unregistered-private-source').access,'unreviewed');
  assert.equal(sourceSummary().autoEnableNewProviders,false);
 });
