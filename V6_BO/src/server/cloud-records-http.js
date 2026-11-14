@@ -6,6 +6,7 @@
  */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const BEARER=/^Bearer ([A-Za-z0-9._~-]{8,256})$/i;
+const RECEIPT_ROUTE=/^\/api\/records\/receipts\/([A-Za-z0-9_-]{8,100})$/;
 const VALID_FIELDS=new Set(['name','title','author','content','expectedRevision','requestId']);
 function respond(res,status,body){
  if(res.writableEnded||res.destroyed)return;
@@ -15,21 +16,33 @@ function respond(res,status,body){
 const fail=(res,status,code)=>respond(res,status,{ok:false,code});
 function createCloudRecordsHttpHandler({store,authenticate,sameOrigin,maxBytes=MAX_BODY_BYTES}={}){
  if(!store||typeof store.read!=='function'||typeof store.upsert!=='function'||
+    typeof store.receipt!=='function'||
     typeof authenticate!=='function'||typeof sameOrigin!=='function')throw Error('AUTH_AND_ORIGIN_POLICIES_REQUIRED');
  if(!Number.isSafeInteger(maxBytes)||maxBytes<1024||maxBytes>MAX_BODY_BYTES)throw Error('INVALID_BODY_LIMIT');
  return async function cloudRecordsHttp(req,res,body=null){
   let url;
   try{url=new URL(req.url,'http://local.invalid');}catch{return fail(res,400,'INVALID_REQUEST_PATH');}
-  if(url.pathname!=='/api/records')return fail(res,404,'NOT_FOUND');
+  const receiptRoute=url.pathname.match(RECEIPT_ROUTE);
+  if(url.pathname!=='/api/records'&&!receiptRoute)return fail(res,404,'NOT_FOUND');
   // This is a logged-in API, not a share-link API. Never accept URL-carried tokens or sharecodes.
   if(url.search)return fail(res,400,'QUERY_CREDENTIALS_FORBIDDEN');
-  if(!['GET','POST'].includes(req.method))return fail(res,405,'METHOD_NOT_ALLOWED');
+  if(!['GET','POST'].includes(req.method)||(receiptRoute&&req.method!=='GET'))return fail(res,405,'METHOD_NOT_ALLOWED');
   try{if(!sameOrigin(req))return fail(res,403,'CROSS_SITE_FORBIDDEN');}catch{return fail(res,403,'CROSS_SITE_FORBIDDEN');}
   const match=typeof req.headers.authorization==='string'&&req.headers.authorization.match(BEARER);
   if(!match)return fail(res,401,'LOGIN_REQUIRED');
   let role;
   try{role=await authenticate(match[1],req);}catch{return fail(res,401,'LOGIN_REQUIRED');}
   if(role!=='edit')return fail(res,role==='view'?403:401,role==='view'?'READ_ONLY':'LOGIN_REQUIRED');
+  if(receiptRoute){
+   try{
+    const detail=store.receipt(receiptRoute[1]);
+    return respond(res,200,{ok:true,writeContract:'cas-v1',receipt:detail,
+      accountRecoveryVerified:false});
+   }catch(e){
+    if(e.code==='NO_AUTHORITATIVE_SNAPSHOT')return fail(res,503,'AUTHORITATIVE_LEDGER_UNAVAILABLE');
+    return fail(res,503,'LEDGER_VERIFICATION_FAILED');
+   }
+  }
   if(req.method==='GET'){
    try{
     const state=store.read();
