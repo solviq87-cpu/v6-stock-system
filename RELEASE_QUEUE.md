@@ -14,7 +14,12 @@
 
 ## 管理文档 PR
 
-- `docs/v6-task-coordination-20261113`：四份任务协调 Markdown（V6-003）。仅文档评审，不应触发自动发布；PR/提交信息以真实回执为准。
+- #209 `docs/v6-task-coordination-20261113` 已合入 dev `e986fcc`：四份任务协调 Markdown（V6-003），不等于业务部署。
+
+## 本轮增量候选
+
+- `integration/runtime-quote-recovery-20261114`：后台互斥、模拟盘报价消费、SSE 恢复补读；基于 `e986fcc`，无需合并旧 UI 草稿。详见 [验证与边界](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)。合并须等待最终全量与精确 head 的 CI/浏览器结果；未部署完整后端。
+- 已对应 [PR #210](https://github.com/solviq87-cpu/v6-stock-system/pull/210)：`9e3e4c1` 完整CI成功但浏览器复现失败，阻止合并。已确定性验证旧Playwright时钟倒退，升级固定版本1.57.0并增加离线门禁；须以修复后精确head完整CI/浏览器结果决定是否合并，生产发布保持未验证。
 
 ## 评审—合并—发布门禁（不能跳过）
 

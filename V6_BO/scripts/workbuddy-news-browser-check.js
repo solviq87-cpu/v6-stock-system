@@ -109,7 +109,11 @@ async function policyState(page) {
   return page.evaluate(() => {
     const f = window.__newsPolicyFixture;
     const result = window.V6Policy.screen(f.state, f.snapshot, 'value');
-    return { items: result.items.map(row => row.symbol), pending: result.pending.map(row => row.symbol), excluded: result.excluded.map(row => row.symbol), risk: window.V6NewsPool.riskFor(f.snapshot.stocks[0]), marketDataVersion: window.V6Core.marketDataVersion, quoteObservation: window.V6SelectionClock?.check(f.snapshot.stocks[0]), counts: result.counts };
+    return { items: result.items.map(row => row.symbol), pending: result.pending.map(row => row.symbol), excluded: result.excluded.map(row => row.symbol), risk: window.V6NewsPool.riskFor(f.snapshot.stocks[0]), marketDataVersion: window.V6Core.marketDataVersion, quoteObservation: window.V6SelectionClock?.check(f.snapshot.stocks[0]), counts: result.counts,
+      pendingReasons: result.pending.map(row => ({ symbol: row.symbol, reasons: row.pendingReasons })),
+      excludedReasons: result.excluded.map(row => ({ symbol: row.symbol, reasons: row.reasons })),
+      coreSymbols: window.V6Core.stocks.filter(row => row.price > 0).map(row => row.symbol),
+      newsKey: window.V6NewsPool.cacheKey(), now: new Date().toISOString() };
   });
 }
 
@@ -163,7 +167,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       const ledgerWritesBefore = f.ledgerWrites;
       await refreshAt(f, 'bad', START + 360000);
       const blocked = await policyState(page);
-      assert.equal(blocked.risk.status, 'blocked');
+      assert.equal(blocked.risk.status, 'blocked', 'direct risk: ' + JSON.stringify({width,blocked}));
       assert.equal(blocked.marketDataVersion, initial.version, 'candidate input changed during news-only test: '+JSON.stringify({width,initial,blocked}));
       assert.ok(blocked.excluded.includes('600001'), 'negative did not exclude candidate: '+JSON.stringify({width,initial,blocked})); assert.ok(!blocked.items.includes('600001'));
       assert.equal(blocked.quoteObservation?.ok, true, 'a stale quote masked the news exclusion');
@@ -183,7 +187,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       if (process.env.V6_WORKBUDDY_NEWS_SCREENSHOT_DIR) await review.screenshot({ path: path.join(process.env.V6_WORKBUDDY_NEWS_SCREENSHOT_DIR, `news-exclusion-${width}.png`) });
       await refreshAt(f, 'industry', START + 720000);
       const indirect = await policyState(page);
-      assert.equal(indirect.risk.status, 'blocked');
+      assert.equal(indirect.risk.status, 'blocked', 'indirect risk: ' + JSON.stringify({width,indirect}));
       assert.ok(indirect.risk.articles.some(row => row.id === 'fixture-sector' && row.linkage === 'indirect'));
       assert.ok(indirect.risk.reasons.some(reason => /间接/.test(reason)));
       const indirectLink = pool.locator('[data-news-id="fixture-sector"] [data-news-linkage="indirect"][data-focus="600001"]');
@@ -191,7 +195,7 @@ test('news pool controls, real candidate caches and source failures are safe in 
       assert.match(await indirectLink.innerText(), /隔离测试科技/, 'indirect member lost the supplied stock name');
       await refreshAt(f, 'clear', START + 1080000);
       const clear = await policyState(page);
-      assert.equal(clear.risk.status, 'checked'); assert.deepEqual(clear.items, ['600001']);
+      assert.equal(clear.risk.status, 'checked'); assert.deepEqual(clear.items, ['600001'], 'retraction did not restore candidate: ' + JSON.stringify({ width, initial, clear }));
       await page.waitForFunction(() => !!document.querySelector('.tj-signals-panel [data-focus="600001"]'));
       await pool.locator('[data-news-filter="retracted"]').click();
       assert.equal(await pool.locator('[data-news-id="fixture-main"]').count(), 1);

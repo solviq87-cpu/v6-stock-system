@@ -29,7 +29,7 @@ test('authority rejects stale, missing, future, fractional and read-only full-A 
 test('fresh receive time cannot revive stale cache or risk marks; holdings outside full-A retain fresh marks',()=>{
  const {c,row}=setup();c.S.stocks=[{...row,quoteAt:epoch-20000}];
  c.S.lastPx.set('600519',{p:11,t:epoch,quoteAt:epoch-20000,quoteSource:'tencent'});
- c.S.lastPx.set('000001',{p:9,t:epoch,quoteAt:epoch-500,quoteSource:'tencent'});
+ c.ingestPx([{...row,code:'000001',price:9,quoteAt:epoch-500}]);
  c.S.stocks.push({...row,code:'600000'});
  const q=c.paperAuthorityQuotes();assert.equal(q['600519'],undefined);
  assert.equal(q['600000'].riskContext.marks['600519'],undefined);

@@ -182,7 +182,9 @@ test('automatic paper authority rejects observation/simulated sources, including
   assert.equal(Object.keys(c.paperAuthorityQuotes()).length,0,JSON.stringify(patch));
  }
  c.S.lastPx.clear();c.S.stocks=[quote({volume:100,preClose:10,receivedAt:undefined,canTrade:undefined})];
- assert.equal(c.paperAuthorityQuotes()['000001'].quoteAt,now-1000,'legacy source-timed authority contract remains supported without invented receipt');
+ assert.equal(c.paperAuthorityQuotes()['000001'],undefined,'missing receipt and explicit permission cannot authorize automatic execution');
+ c.S.stocks=[quote({volume:100,preClose:10})];
+ assert.equal(c.paperAuthorityQuotes()['000001'].quoteAt,now-1000,'complete original-row evidence remains executable');
 });
 
 test('imported, fixture, mock and synthetic evidence cannot enter automatic authority or reminders',()=>{
