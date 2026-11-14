@@ -10,6 +10,20 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Every push/PR gets a separate visible safety check, not an empty status.
+  verify-cloud-ledger:
+    name: cloud-ledger-failclosed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Missing or unreadable cloud ledger must never be overwritten
+        run: node --test V6_BO/tests/workbuddy-ledger-failclosed.test.js
   verify-web:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
