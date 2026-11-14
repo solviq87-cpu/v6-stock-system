@@ -64,6 +64,27 @@
     const date = new Date(stamp);
     return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
   };
+  // Price-source evidence is attached to each candidate, never inferred from
+  // the candidate snapshot time or a K-line cache. Unknown means UNKNOWN.
+  const quoteEvidence = item => {
+    const raw = item.quoteProvider ?? item.quoteSource ?? item.priceProvider ??
+      item.priceSource ?? item.provenance?.quoteSource ?? item.provenance?.priceSource;
+    const names = {em:'东财',eastmoney:'东财',tx:'腾讯',tencent:'腾讯',
+      sina:'新浪',ths:'同花顺',baostock:'BaoStock',
+      itick:'iTick',mootdx:'通达信'};
+    const source = typeof raw === 'string' && raw.trim() ?
+      (names[raw.trim().toLowerCase()] || '供应商标识待审') : '价格来源未知';
+    const q = item.quoteTimeStatus ?? item.quoteFreshness?.status ??
+      item.provenance?.quoteTimeStatus;
+    const quality = {
+      unknown:'原始时点未知', 'stale-source-time':'报价已过时',
+      'stale-quote':'报价已过时',future:'未来时点异常',
+      'future-quote':'未来时点异常',
+      'historical-snapshot':'仅历史快照',
+      'recent-source-unverified':'时间可读未认证'
+    }[q] || '真实性待独立核验';
+    return '价格源 ' + source + ' · 质量 ' + quality + ' · 非交易认证';
+  };
   // A single evidence projection feeds both list clicks and cloud refreshes.
   // Never let a previously selected stock keep outdated risk or hit labels.
   const detailPayload = item => {
@@ -75,8 +96,8 @@
       reasons: reasonRows(item),
       risk: String(item.riskStatus || item.risk?.status || item.risk?.level || item.riskLevel ||
         (item.blocked === true || item.risk?.blocked === true ? '存在风险阻断' : '风险未评估')).slice(0, 130),
-      quoteProof: quoteTime ? '第三方自报报价时点：' + quoteTime + ' · 未认证实时' :
-        '逐票原始报价时点未知 · 非实时认证'
+      quoteProof: (quoteTime ? '第三方自报报价时点：' + quoteTime + ' · 未认证实时' :
+        '逐票原始报价时点未知 · 非实时认证') + ' · ' + quoteEvidence(item)
     };
   };
   const showItem = item => {
@@ -114,7 +135,7 @@
     const quoteTime = formatAt(quoteAt);
     card.append(node('p', 'footnote', quoteTime ?
       '第三方自报报价时点：' + quoteTime + ' · 未经交易所实时性认证' :
-      '逐票报价原始时点：未知（不能当实时价）'));
+      '逐票报价原始时点：未知（不能当实时价）') + ' · ' + quoteEvidence(item)));
     const link = node('a', '', '查看策略研究与详细风控');
     link.textContent = '深入策略研究（可选）';
     const rawCode=String(item.code||item.symbol||'');
