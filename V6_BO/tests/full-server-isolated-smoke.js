@@ -28,8 +28,9 @@ function isolatedFixture(){
   for(const name of fs.readdirSync(source))if(name.endsWith('.js'))fs.copyFileSync(path.join(source,name),path.join(root,name));
   fs.mkdirSync(path.join(root,'config'));fs.mkdirSync(path.join(root,'tmp'));
   for(const name of ['data-source-catalog.json','six-photo-sources.json'])fs.copyFileSync(path.join(source,'config',name),path.join(root,'config',name));
-  const account=()=>{const salt=crypto.randomBytes(16).toString('hex');return {salt,hash:crypto.scryptSync(crypto.randomBytes(32),salt,32).toString('hex'),devices:{}};};
-  const access=account();access.view=account();fs.writeFileSync(path.join(root,'access.json'),JSON.stringify(access),{mode:0o600});
+  const account=password=>{const salt=crypto.randomBytes(16).toString('hex');return {salt,hash:crypto.scryptSync(password,salt,32).toString('hex'),devices:{}};};
+  // Fixture-only credentials; the isolated server cannot read real accounts or call the network.
+  const access=account('V6-FIXTURE-EDIT-ONLY-20261114');access.view=account('V6-FIXTURE-VIEW-ONLY-20261114');fs.writeFileSync(path.join(root,'access.json'),JSON.stringify(access),{mode:0o600});
   const guard=path.join(root,'smoke-isolation.cjs'),violations=path.join(root,'isolation-violations.log');
   fs.writeFileSync(guard,`'use strict';
 const fs=require('node:fs'),path=require('node:path'),{fileURLToPath}=require('node:url');
@@ -137,6 +138,21 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   });
   const revoke=await post('/api/lock/revoke',{id:'nonexistent',token:''});
   assert.notEqual(JSON.parse(revoke.body).ok,true);
+  // Exercise the REAL password handler with a synthetic account in the isolated
+  // copy. HTTP 200 without a valid role/token is not a successful login.
+  const wrongLogin=await post('/api/lock/unlock',{password:'wrong-fixture-password',role:'auto',fp:'fixture-device-1'});
+  const wrong=JSON.parse(wrongLogin.body);
+  assert.notEqual(wrong.ok,true,'wrong password granted an edit session');
+  assert.equal(wrong.token,undefined);
+  assert.equal(wrong.deviceToken,undefined);
+  const goodLogin=await post('/api/lock/unlock',{password:'V6-FIXTURE-EDIT-ONLY-20261114',role:'auto',fp:'fixture-device-1',name:'CI synthetic only'});
+  const authenticated=JSON.parse(goodLogin.body);
+  assert.equal(authenticated.ok,true,'isolated server rejected correct synthetic edit password');
+  assert.equal(authenticated.role,'edit');
+  assert.match(authenticated.token,/^[a-f0-9]{48}$/i,'successful login did not issue a short-lived session token');
+  assert.ok(typeof authenticated.deviceToken==='string'&&authenticated.deviceToken.length>=16,
+    'successful login did not issue an authorized device token');
+  assert.ok(!goodLogin.body.includes('V6-FIXTURE-EDIT-ONLY-20261114'),'login response echoed plaintext password');
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
   console.log('PASS: 完整服务、首页、选股/竞价/参考图页面、脚本、404与无凭证拒绝');
  } finally {
