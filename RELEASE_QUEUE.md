@@ -4,6 +4,8 @@
 
 - 新批基线`dev@9d15c034`（#220已合并）：`fix/funds-monitor-capacity-20261114`修复盘中强势扫描未知资金与超220持仓固定截断。[实际反例、范围与测试](V6_BO/docs/FUNDS_MONITOR_CAPACITY_20261114.md)。本地关联66通过，精确最终全量/PR CI见HANDOFF当前断点；未部署，未切换发布者。#221是独立Excel导入候选，本批不合并或覆盖。
 
+- 本批仅文档审查：`docs/feature-public-comparison-20261114`，基线`9d15c034`。[八类功能/16来源/24候选核验](V6_BO/docs/FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)与来源清单已登记；原功能定向120通过，未改运行文件/产物，不触发生产发布。#221/#222在本轮开始时仍为独立开放PR，不能算入dev已实现；最终状态须重新读取。
+
 - 已核对#216/#218/#219合并，当前基线 `dev@c188f9f5affab9cad9bad065e3a191870fb12f9b`；下文各历史候选不视为实时待合并任务。
 - 本批V6-005/006进程读取失败保护：`fix/local-host-process-inspection-20261114`，本地3425通过/0失败/3可选ML跳过，关联39项和网页40项通过。精确CI与合并状态查询对应PR；未执行生产写入。
 
