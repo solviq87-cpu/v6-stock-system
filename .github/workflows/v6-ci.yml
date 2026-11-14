@@ -1,7 +1,9 @@
 name: V6 CI
 on:
+  # Run full checks for each pushed development-branch head, not just dev/main.
+  # Historical binary-only archive branches have no runnable V6 source tree.
   push:
-    branches: [main, dev]
+    branches: ['**', '!archive/**']
   pull_request:
     # Stacked correctness PRs must run the same gates before reaching dev.
     branches: [main, dev, "feat/**", "chore/**", "fix/**"]
