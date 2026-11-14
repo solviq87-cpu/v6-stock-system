@@ -4,11 +4,22 @@
  * A SDK route is not an independent vendor, and a registry entry never grants
  * copyright/usage permission, feed freshness, broker execution or live trust.
  */
-const registry=require('../../config/data-source-registry-2026.json');
-const legacy=require('../../config/data-source-catalog.json');
+// Some isolated server fixtures intentionally copy only src/ and no config/.
+ // Missing or corrupt registries must NOT crash unrelated account/read-only
+ // routes. Every actual lineage comparison still fails closed without them.
+function guardedCatalogue(file){
+ try{return require(file);}
+ catch{return null;}
+}
+const registry=guardedCatalogue('../../config/data-source-registry-2026.json');
+const legacy=guardedCatalogue('../../config/data-source-catalog.json');
+const catalogAvailable=!!(registry&&legacy&&Array.isArray(registry.sources)&&Array.isArray(legacy.sources));
+function requireCatalogue(){
+ if(!catalogAvailable)throw Error('原始行情上游目录缺失或损坏，禁止多源核对放行');
+}
 const safe=/^[a-z][a-z0-9-]{0,63}$/;
-const routes=new Map(registry.sources.map(x=>[x.id,Object.freeze({...x})]));
-const baseIds=new Set(legacy.sources.map(x=>x.id));
+const routes=new Map((registry?.sources||[]).map(x=>[x.id,Object.freeze({...x})]));
+const baseIds=new Set((legacy?.sources||[]).map(x=>x.id));
 function sourceLineage(id){
  if(typeof id!=='string'||!/^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/.test(id))return null;
  const r=routes.get(id);
@@ -22,6 +33,7 @@ function sourceLineage(id){
   verifiedIndependent:false,canTrade:false};
 }
 function resolveUpstream(id,declaredGroup){
+ requireCatalogue();
  const r=sourceLineage(id);
  if(!r)throw Error('数据源标识格式无效');
  if(declaredGroup!==undefined&&(typeof declaredGroup!=='string'||!safe.test(declaredGroup)))
@@ -38,6 +50,7 @@ function resolveUpstream(id,declaredGroup){
   verifiedIndependent:false,canTrade:false};
 }
 function sourceSummary(){
+ requireCatalogue();
  const upstreams=new Set();
  const byAccess={};const byClass={};
  for(const s of registry.sources){
@@ -50,6 +63,7 @@ function sourceSummary(){
   autoEnableNewProviders:false,canTrade:false,byAccess,byClass};
 }
 function validateRegistry(){
+ requireCatalogue();
  if(registry.schemaVersion!==1||registry.productionEntitlementGranted!==false||
    registry.autoEnableNewProviders!==false||registry.defaultCanTrade!==false||
    registry.sources.length<14||routes.size!==registry.sources.length)
