@@ -13,12 +13,14 @@ test('real workspace HTTP enforces editor access, private CAS writes, restart/re
  const stop=async()=>{if(child&&child.exitCode===null&&child.signalCode===null){const done=new Promise(r=>child.once('exit',r));child.kill('SIGKILL');await done;}};
  try{
   const copy=p=>fs.cpSync(path.join(source,p),path.join(dir,p),{recursive:true});for(const p of ['src','scripts','strategies','public','package.json'])copy(p);
-  fs.mkdirSync(path.join(dir,'config'));for(const p of ['config/data-source-catalog.json','config/six-photo-sources.json','config/research-calendar-2026.json'])copy(p);
+  fs.mkdirSync(path.join(dir,'config'));for(const p of ['config/data-source-catalog.json','config/six-photo-sources.json','config/research-calendar-2026.json','config/public-model-comparison-20261114.json'])copy(p);
   for(const p of fs.readdirSync(source))if(p.endsWith('.js'))copy(p);
   const digest=x=>crypto.createHash('sha256').update(x).digest('hex'),editor=crypto.randomBytes(32).toString('hex'),viewer=crypto.randomBytes(32).toString('hex');
   const account=()=>{const salt=crypto.randomBytes(16).toString('hex');return {salt,hash:crypto.scryptSync('synthetic-http-password-only',salt,32).toString('hex'),devices:{}};};
   const access=account();access.view=account();access.devices[digest(editor)]={role:'edit',ts:Date.now()};access.view.devices[digest(viewer)]={role:'view',ts:Date.now()};fs.writeFileSync(path.join(dir,'access.json'),JSON.stringify(access));
-  const root=path.join(dir,'private-workspace'),observations=path.join(dir,'private-observations'),guard=path.join(dir,'guard-readonly'),mutations=path.join(dir,'mutations'),egress=path.join(dir,'egress'),preload=path.join(dir,'deny.cjs');
+  const root=path.join(dir,'private-workspace'),observations=path.join(dir,'private-observations'),guard=path.join(dir,'guard-readonly'),mutations=path.join(dir,'mutations'),egress=path.join(dir,'egress'),preload=path.join(dir,'deny.cjs'),slow=path.join(dir,'pause-workspace-worker');
+  const jobFile=path.join(dir,'src/server/research-workspace-job.js'),jobCode=fs.readFileSync(jobFile,'utf8'),needle="if(p.action==='view'){";
+  assert.ok(jobCode.includes(needle));fs.writeFileSync(jobFile,jobCode.replace(needle,needle+`if(require('node:fs').existsSync(${JSON.stringify(slow)})){process.stderr.write('WORKSPACE_WORKER_HELD\\n');while(require('node:fs').existsSync(${JSON.stringify(slow)}))Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,50);}`));
   fs.writeFileSync(preload,`const fs=require('node:fs'),exists=fs.existsSync.bind(fs),append=fs.appendFileSync.bind(fs);const guard=${JSON.stringify(guard)},mutations=${JSON.stringify(mutations)},egress=${JSON.stringify(egress)};
 const deny=name=>{append(egress,name+'\\n');throw Error('egress forbidden');};for(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>deny(name);}const net=require('node:net');net.connect=net.createConnection=net.Socket.prototype.connect=()=>deny('socket');require('node:tls').connect=()=>deny('tls');global.fetch=()=>Promise.reject(deny('fetch'));
 for(const name of ['writeFileSync','appendFileSync','renameSync','unlinkSync','mkdirSync','rmdirSync','rmSync','linkSync','symlinkSync','truncateSync','chmodSync','writeSync']){const old=fs[name];fs[name]=function(...args){if(exists(guard)){append(mutations,name+'\\n');throw Error('GET attempted mutation');}return old.apply(this,args);};}
@@ -44,6 +46,10 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   await stop();port=await boot();fs.writeFileSync(guard,'read/export/replay');
   r=await request(port,'/api/research/workspace?symbol=600000&runId='+runId,editor);assert.equal(r.body.result.runs.total,1);assert.equal(r.body.result.screening.inputTotal,1);assert.equal(r.body.result.screening.rows[0].symbol,'600000');assert.equal(r.body.result.preferences.value.objective,settings.value.objective);assert.equal(r.body.result.preferences.revision,1);assert.equal(r.body.result.diagnostics.at(-1).stages.at(-1).stage,'封存研究结果');
   const ex=await request(port,'/api/research/workspace?symbol=600000&export=1',editor);assert.equal(ex.body.result.run.id,runId);for(const text of [editor,viewer,root,observations,'"positions"'])assert.ok(!JSON.stringify(ex.body).includes(text));
+  fs.writeFileSync(slow,'hold archive worker');let completed=false;const pending=request(port,'/api/research/workspace',editor).then(r=>{completed=true;return r;});
+  try{for(let i=0;i<300&&!logs.includes('WORKSPACE_WORKER_HELD');i++)await pause(10);assert.ok(logs.includes('WORKSPACE_WORKER_HELD'),'archive query runs in bounded worker');
+   assert.equal((await request(port,'/api/lock/status')).status,200);assert.equal(completed,false,'server health remains responsive while archive computation is held');
+  }finally{fs.unlinkSync(slow);}assert.equal((await pending).body.ok,true);
   assert.equal(fs.existsSync(mutations),false);assert.equal(fs.existsSync(egress),false);
  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
 });

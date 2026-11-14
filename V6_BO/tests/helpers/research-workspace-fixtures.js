@@ -5,7 +5,8 @@ const dates=Array.from({length:240},(_,i)=>new Date(Date.UTC(2026,0,1+i)).toISOS
 const at=(index,hour='16:30')=>Date.parse(dates[index]+'T'+hour+':00+08:00');
 function fixture({index=70,symbol='600000',provider='tencent',priceShift=0}={}){
  const bars=dates.slice(0,index+1).map((date,i)=>({date,open:10+i*.01+priceShift,close:10.05+i*.01+priceShift,high:10.15+i*.01+priceShift,low:9.9+i*.01+priceShift,volume:10000+i,amount:100000,
-  knownAt:at(i),statusKnownAt:at(i,'09:00'),suspended:false,tradable:true,isST:false,corporateAction:false,corporateActionKnownAt:at(i,'09:00')}));
+  knownAt:at(i),statusKnownAt:at(i,'09:00'),suspended:false,tradable:true,isST:false,corporateAction:false,corporateActionKnownAt:at(i,'09:00'),
+  limitReferencePrice:10.04+i*.01+priceShift,limitUpPrice:Math.round((10.04+i*.01+priceShift)*110)/100,limitPct:10,noPriceLimit:false,limitKnownAt:at(i,'09:00')}));
  const observationHash=digest({symbol,provider,bars});
  return {asOf:at(index),stock:{symbol,name:'合成验证股票',provider,source:provider,priceBasis:'unadjusted',observedAt:at(index),bars},observation:{observationHash},
   history:{status:'observed-unverified'},calendar:{metadata:{sha256:'a'.repeat(64),source:'synthetic-explicit-calendar'},nextTradeDate:dates[index+1]},analysis:{tradeDates:dates},

@@ -67,17 +67,22 @@ function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5
   const usable=x=>x.volume>0&&x.suspended===false&&x.tradable===true&&x.isST===false&&x.corporateAction===false&&
    Number.isSafeInteger(x.statusKnownAt)&&x.statusKnownAt<=Date.parse(x.date+'T09:30:00+08:00')&&
    Number.isSafeInteger(x.corporateActionKnownAt)&&x.corporateActionKnownAt<=Date.parse(x.date+'T09:30:00+08:00')&&x.high!==x.low;
-  if(!usable(entry)||!usable(exit)){b.blocked++;obs.status='unverified-execution';obs.priceReturnPct=round(priceReturn);observations.push(obs);continue;}
+  const limits=x=>{if(x.noPriceLimit!==false||!(x.limitReferencePrice>0)||!finite(x.limitPct)||x.limitPct<=0||x.limitPct>30||!Number.isSafeInteger(x.limitKnownAt)||x.limitKnownAt>Date.parse(x.date+'T09:30:00+08:00'))return null;
+   const up=Math.round(x.limitReferencePrice*(1+x.limitPct/100)*100)/100,down=Math.round(x.limitReferencePrice*(1-x.limitPct/100)*100)/100;
+   return finite(x.limitUpPrice)&&Math.abs(x.limitUpPrice-up)<.011&&x.high<=up+.011&&x.low>=down-.011?{up,down}:null;};
+  const entryLimit=limits(entry),exitLimit=limits(exit),windowDates=dates.slice(index+1,index+2+horizon),windowBars=current.bars.filter(x=>windowDates.includes(x.date));
+  const actionVerified=windowBars.length===windowDates.length&&windowBars.every(x=>x.corporateAction===false&&Number.isSafeInteger(x.corporateActionKnownAt)&&x.corporateActionKnownAt<=Date.parse(x.date+'T09:30:00+08:00'));
+  if(!usable(entry)||!usable(exit)||!actionVerified||!entryLimit||!exitLimit||entry.open>=entryLimit.up-.005||exit.open<=exitLimit.down+.005){b.blocked++;obs.status='unverified-execution';obs.priceReturnPct=round(priceReturn);observations.push(obs);continue;}
   const net=100*((exit.open*(1-slippageBps/10000)*(1-(feeBps+sellTaxBps)/10000))/(entry.open*(1+slippageBps/10000)*(1+feeBps/10000))-1);
   if(!finite(net)){b.blocked++;obs.status='invalid-cost-estimate';observations.push(obs);continue;}
-  b.net.push(net);b.dates.add(d.tradeDate);b.symbols.add(d.symbol);b.windows.push({from:index+1,to:index+1+horizon});obs.status='paper-estimate';obs.netReturnPct=round(net);obs.priceReturnPct=round(priceReturn);
+  b.net.push(net);b.dates.add(d.tradeDate);b.symbols.add(d.symbol);b.windows.push({from:entryDate,to:exitDate});obs.status='paper-estimate';obs.netReturnPct=round(net);obs.priceReturnPct=round(priceReturn);
   const benchmark=current.benchmarkSeries,indexRows=array(benchmark?.bars),be=indexRows.find(x=>x.date===entryDate),bx=indexRows.find(x=>x.date===exitDate);
   obs.benchmarkStatus='missing-matching-open-series';
   if(benchmark?.provider===d.provider&&benchmark.priceBasis===d.priceBasis&&benchmark.frequency==='1d'&&be&&bx&&be.knownAt<=asOf&&bx.knownAt<=asOf&&be.open>0&&bx.open>0){obs.benchmarkReturnPct=100*(bx.open/be.open-1);obs.benchmarkStatus='matched-open-to-open';b.excess.push(net-obs.benchmarkReturnPct);}
   observations.push(obs);
  }
  const systems=['fourteen','bazi','gpt','python'];
- const groups=[...buckets.values()].map(b=>{let nonOverlappingWindows=0,end=-1;for(const w of b.windows.slice().sort((a,b)=>a.to-b.to))if(w.from>end){nonOverlappingWindows++;end=w.to;}
+ const groups=[...buckets.values()].map(b=>{let nonOverlappingWindows=0,end='';for(const w of b.windows.slice().sort((a,b)=>a.to.localeCompare(b.to)))if(w.from>end){nonOverlappingWindows++;end=w.to;}
  return {system:b.system,version:b.version,regime:b.regime,horizon:b.horizon,provider:b.provider,
   total:b.total,passed:b.passed,rejected:b.rejected,unknown:b.unknown,pending:b.pending,missing:b.missing,blocked:b.blocked,
   observedPriceCount:b.price.length,modeledCount:b.net.length,independentSignalDays:b.dates.size,nonOverlappingWindows,distinctSymbols:b.symbols.size,

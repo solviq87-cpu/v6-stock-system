@@ -101,6 +101,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
  if(query.minScore>0)screenRows=screenRows.filter(r=>r.score!==null&&r.score>=query.minScore);
  const offset=query.offset??0,limit=query.limit??20;
  const history=symbol?analytics.timeline(events,symbol,asOf):[];
+ const scorecard=analytics.scorecards(events,{asOf}),outcomes=scorecard.observations.filter(o=>!query.symbol||o.symbol===query.symbol);
  return {schemaVersion:1,mode:'research-workspace',asOf,...store.FLAGS,
   selectedRun:latest?{id:latest.hash,sequence:latest.sequence,recordedAt:latest.recordedAt,...latest.data}:null,
   runs:{total:runs.length,offset,limit,rows:runs.slice().reverse().slice(offset,offset+limit).map(e=>({id:e.hash,recordedAt:e.recordedAt,symbol:e.data.symbol,name:e.data.name,provider:e.data.provider,tradeDate:e.data.tradeDate,regime:e.data.regime,codeVersion:e.data.codeVersion}))},
@@ -108,8 +109,9 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
   screenRuns:events.filter(e=>e.kind==='screen').slice().reverse().slice(0,100).map(e=>({id:e.hash,asOf:e.data.asOf,total:e.data.total,provenance:e.data.provenance})),
   screening:{runId:screen?.hash||null,total:screenRows.length,inputTotal:screen?.data.total??null,offset,limit,rows:screenRows.slice(offset,offset+limit),
     funnel:screen?.data.funnel||null,lookupStatus:!screen?'no-screen-run':!evaluated?'not-evaluated-in-this-run':!screenRows.length?'filtered-out':'available',provenance:screen?.data.provenance||null},
-  scorecard:{...analytics.scorecards(events,{asOf}),stress:[{feeBps:16,slippageBps:30,sellTaxBps:5},{feeBps:32,slippageBps:50,sellTaxBps:5}].map(cost=>({assumptions:cost,groups:analytics.scorecards(events,{asOf,...cost}).groups}))},quality:analytics.qualityReport(latest?.data),
+  scorecard:{...scorecard,observations:outcomes.slice(offset,offset+limit),observationTotal:outcomes.length,offset,limit,stress:[{feeBps:16,slippageBps:30,sellTaxBps:5},{feeBps:32,slippageBps:50,sellTaxBps:5}].map(cost=>({assumptions:cost,groups:analytics.scorecards(events,{asOf,...cost}).groups}))},quality:analytics.qualityReport(latest?.data),
   inputAudit:checks.inputAudit(latest?.data),pairedComparison:checks.pairedComparison(latest?.data,compared?.data),drift:checks.driftReport(events,asOf),
+  publicModelComparison:new Date(asOf+28800000).toISOString().slice(0,10)>='2026-11-14'?require('../../config/public-model-comparison-20261114.json'):{models:[],reason:'对照目录晚于回放时点，不作为当时已知资料'},
   defense:query.asOf===undefined?analytics.holdingDefense(events,accounts,quotes,asOf,preferences?.data):{rows:[],exposures:[],reason:'历史回放不借用当前持仓；原账本没有该时点快照'},
   preferences:{revision:preferences?.revision||0,value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
   presets:[...presetMap.values()].map(e=>({revision:e.revision,...e.data,history:events.filter(p=>p.kind==='preset'&&p.data.name===e.data.name).map(p=>({revision:p.revision,recordedAt:p.recordedAt,...p.data}))})),

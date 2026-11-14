@@ -25,6 +25,8 @@
 
 保留[16来源与24项候选的原始对照](FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)和[固定源码/许可清单](PUBLIC_COMPARISON_SOURCES_20261114.json)。另整合#221对Qlib、QUANTAXIS、Qbot的源码评估；重复来源按固定版本解释，不重复计算为新接入数据源。没有复制或执行上游引擎，没有引入模型服务、收费行情或自动交易接口。
 
+用户追加继续比较模型后，另实读[八类新模型/框架对照](PUBLIC_MODEL_COMPARISON_20261114.md)，新增8个独立来源，合计24个公开来源；版本与许可清单在`config/public-model-comparison-20261114.json`，研究页“分析诊断”可展开查阅。模型未安装、权重未下载，收益/速度实测为空。特别记录TimesFM 3.0源码与下载权重的不同许可，不引入生产。
+
 | 原候选 | 本轮落实或明确复用 | 边界 |
 | --- | --- | --- |
 | REF-01/05/06 | 内容指纹、字段证据与修订影响；不可变run目录、代码版本/原生输入、条件前后值、配对固定输入比较 | 对照不满足证券/来源/观察哈希/分析时点一致就拒绝归因 |
@@ -45,6 +47,7 @@
 - 核心文件：`src/core/research-workspace-{store,decision,analytics,diagnostics}.js`和`research-workspace.js`；页面资源`public/assets/research-workspace.js`；服务路由`/api/research/workspace`。
 - 私有目录由运维设置`V6_RESEARCH_WORKSPACE_DIR`，默认`data/research-workspace`，拒绝public目录/符号链接。GET不创建目录。0700目录/0600事件，进程锁、原子不可覆盖发布、哈希链、幂等ID和设置CAS；2000事件、单事件2MiB、总128MiB硬限。达到容量必须保留原档案后离线归档，不循环删旧数据。
 - 自动捕获仅在完整后端已有采集任务运行时增加研究封存，不另起后台抓取、不改变预算或发布owner。保存失败不会丢弃原始股票/扫描响应；回执明确失败。
+- 大档案查询/聚合及用户设置写入在单并发、55秒/384MiB有界worker运行，原行情主循环不承担档案计算；嵌套观察worker协议显式区分。HTTP故障注入验证计算暂停时健康请求仍可响应。
 - 导出包括当前选择的研究与证据、成本/版本/时间、分页范围和约束；不含实际持仓/成本、认证令牌、私有文件路径。导出分页范围明确，不谎称单页就是全部历史。
 - 回退：对最终功能提交执行`git revert`；私有工作区保留可恢复。基线归档`base-a307144.tar` SHA256 `184f336ea77ac8b1b460bc8a9429a496dec5a61ef62b27aaabfd81efc0501724`存于本轮工作区Artifacts，不上传私有运行数据。
 - WorkBuddy唯一目标/发布者及严格哈希门禁不变。其单HTML托管无法运行Node/Python；没有可信既有发布运行时与读回回执时，不宣称后台已上线或自行替换发布者。

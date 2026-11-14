@@ -9,7 +9,7 @@ function history(){
 }
 test('scorecards retain all four systems and mature/pending denominators across 1/5/20/60 sessions',()=>{
  const events=history(),r=A.scorecards(events,{asOf:at(140)});assert.deepEqual(r.systems.map(x=>x.id),['fourteen','bazi','gpt','python']);
- for(const h of [1,5,20,60]){const g=r.groups.find(g=>g.system==='python'&&g.horizon===h);assert.equal(g.total,2);assert.equal(g.passed,2);assert.equal(g.modeledCount,1);assert.equal(g.pending,1);assert.equal(g.status,'insufficient-independent-samples');}
+ for(const h of [1,5,20,60]){const g=r.groups.find(g=>g.system==='python'&&g.horizon===h);assert.equal(g.total,2);assert.equal(g.passed,2);assert.equal(g.modeledCount,1);assert.equal(g.pending,1);assert.equal(g.nonOverlappingWindows,1);assert.equal(g.status,'insufficient-independent-samples');}
  assert.ok(r.groups.every(g=>g.total===g.rejected+g.unknown+g.passed&&g.passed===g.modeledCount+g.pending+g.missing+g.blocked));
 });
 test('cost and benchmark use matching next-session open-to-open prices; expensive assumptions reduce estimates',()=>{
@@ -18,7 +18,7 @@ test('cost and benchmark use matching next-session open-to-open prices; expensiv
  assert.ok(o.netReturnPct<o.priceReturnPct);const stress=A.scorecards(events,{asOf:at(140),feeBps:32,slippageBps:50});assert.ok(stress.groups.find(x=>x.system==='python'&&x.horizon===1).averageNetReturnPct<r.groups.find(x=>x.system==='python'&&x.horizon===1).averageNetReturnPct);
  const wrong=structuredClone(events);wrong[1].data.benchmarkSeries.priceBasis='adjusted';assert.equal(A.scorecards(wrong,{asOf:at(140)}).observations.find(x=>x.runId===events[0].hash&&x.system==='python'&&x.horizon===1).benchmarkStatus,'missing-matching-open-series');
 });
-for(const defect of ['suspended','zero-volume','one-price','unknown-action','late-status','missing-price','late-signal'])test('scorecard never reports net results for '+defect,()=>{
+for(const defect of ['suspended','zero-volume','one-price','unknown-action','late-status','missing-price','late-signal','unknown-limit','limit-up-open','limit-down-exit'])test('scorecard never reports net results for '+defect,()=>{
  const events=history(),bar=events[1].data.bars[71];
  if(defect==='suspended')bar.suspended=true;
  if(defect==='zero-volume')bar.volume=0;
@@ -27,7 +27,13 @@ for(const defect of ['suspended','zero-volume','one-price','unknown-action','lat
  if(defect==='late-status')bar.statusKnownAt=at(71);
  if(defect==='missing-price')events[1].data.bars=events[1].data.bars.filter(x=>x.date!==dates[71]);
  if(defect==='late-signal')events[0].recordedAt=at(71,'10:00');
+ if(defect==='unknown-limit')delete bar.limitKnownAt;
+ if(defect==='limit-up-open')bar.open=bar.limitUpPrice;
+ if(defect==='limit-down-exit'){const exit=events[1].data.bars[72];exit.open=Math.round(exit.limitReferencePrice*.9*100)/100;}
  const o=A.scorecards(events,{asOf:at(140)}).observations.find(x=>x.runId===events[0].hash&&x.system==='python'&&x.horizon===1);assert.equal(o.netReturnPct,null);assert.notEqual(o.status,'paper-estimate');
+});
+test('corporate action inside a multi-session holding window blocks a share-constant net estimate',()=>{
+ const events=history();events[1].data.bars[73].corporateAction=true;const o=A.scorecards(events,{asOf:at(140)}).observations.find(x=>x.runId===events[0].hash&&x.system==='python'&&x.horizon===5);assert.equal(o.netReturnPct,null);assert.equal(o.status,'unverified-execution');
 });
 test('same-day recalculation cannot replace the first frozen signal or import future outcomes into replay',()=>{
  const events=history(),revised=structuredClone(events[0]);revised.sequence=2;revised.hash='revision';revised.data.systems.find(s=>s.id==='python').verdict='fail';revised.recordedAt++;

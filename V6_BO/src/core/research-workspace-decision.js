@@ -124,7 +124,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   nativeInputs:{fourteen:fourteenEvidence||null,gpt:gptEvidence?{symbol:stock.symbol,date:last.date,knownAt:gptEvidence.knownAt,source:gptEvidence.source,scores}:null,python:pythonEvidence||null},
   context:{linkage:linked?r.linkage||null:null,sectorContext:linked?bundle.sectorContext:null,financials:linked?bundle.marketContext?.financials:null,
    indices:linked?bundle.marketContext?.indices:null},
-  bars:bars.map(b=>Object.fromEntries(['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt','limitUpPrice','limitKnownAt'].filter(k=>b[k]!==undefined).map(k=>[k,b[k]]))),
+  bars:bars.map(b=>Object.fromEntries(['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt','limitUpPrice','limitReferencePrice','limitPct','noPriceLimit','limitKnownAt'].filter(k=>b[k]!==undefined).map(k=>[k,b[k]]))),
   tradeDates:array(r.analysis?.tradeDates),calendarEvidence:r.calendar?.metadata||null,benchmarkSeries,targetDate:r.calendar?.nextTradeDate||null,dueAt:r.priceEventResearch?.currentHypothesis?.dueAt||null,
   originalResearch:r.decisionReview||null,sourceStatus:r.history?.status||'unknown',statusEvidence:statusRows.length,
   diagnostics:array(r.decisionReview?.diagnostics),

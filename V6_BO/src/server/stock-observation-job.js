@@ -10,14 +10,14 @@ function runStockObservationJob(payload,options={}){
   const finish=async result=>{if(done)return;done=true;clearTimeout(timer);try{if(worker)await worker.terminate();}finally{
    if(!options.action&&options.workspaceRoot&&!result.ok)result.diagnosticId=require('../core/research-workspace').saveDiagnostic(options,{symbol:payload?.symbol||null,provider:payload?.provider||null,status:'failed',stages:progress||[],errorCode:'CAPTURE_JOB_FAILED',retry:'原始档案保留；检查最后阶段后使用原入口重试'});
    active.delete(group);resolve(result);}};
-  try{worker=new Worker(__filename,{workerData:{payload,options},resourceLimits:{maxOldGenerationSizeMb:192}});
+  try{worker=new Worker(__filename,{workerData:{payload,options,__v6StockObservationJob:true},resourceLimits:{maxOldGenerationSizeMb:192}});
    worker.on('message',message=>{if(message?.progress){progress=message.progress;return;}void finish(message);});worker.once('error',()=>finish({ok:false,error:'股票观察任务未完成'}));
    worker.once('exit',()=>finish({ok:false,error:'股票观察任务已停止'}));
    timer=setTimeout(()=>finish({ok:false,error:'股票观察任务超过55秒'}),55000);
   }catch{finish({ok:false,error:'无法启动股票观察任务'});}
  });
 }
-if(!isMainThread){
+if(!isMainThread&&workerData?.__v6StockObservationJob===true){
  const {payload,options}=workerData;
  const stages=[],capture=!options.action&&!!options.workspaceRoot;
  const onResearchStage=(stage,status)=>{const now=Date.now();if(status==='started')stages.push({stage,status,startedAt:now});else{const row=stages.findLast(r=>r.stage===stage&&r.status==='started');if(row)Object.assign(row,{status,finishedAt:now,durationMs:Math.max(0,now-row.startedAt)});}parentPort.postMessage({progress:stages});};

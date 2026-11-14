@@ -21715,6 +21715,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const reply=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'私有研究记录需要编辑权限'},403);
     const options=stockObservationOptions(),workspace=require('./src/core/research-workspace'),root=workspace.rootOf(options);
+    const job=payload=>require('./src/server/research-workspace-job').runWorkspaceJob(payload).then(result=>{const {httpStatus,...value}=result;reply(value,httpStatus||(result.ok?200:422));}).catch(()=>reply({ok:false,error:'研究档案任务未完成，原档案保留'},503));
     if(req.method==='GET'){
       try{
         const allowed=['symbol','runId','compareId','screenId','asOf','offset','limit','status','minScore','export','token'];
@@ -21722,8 +21723,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         if([...u.searchParams.keys()].some(k=>u.searchParams.getAll(k).length!==1)||u.searchParams.has('export')&&!['0','1'].includes(u.searchParams.get('export')))throw Error('重复或无效查询');
         const query=Object.fromEntries([...u.searchParams].filter(([k])=>['symbol','runId','compareId','screenId','status'].includes(k)));
         for(const key of ['asOf','offset','limit','minScore'])if(u.searchParams.has(key)){if(!/^\d+(\.\d+)?$/.test(u.searchParams.get(key)))throw Error('无效数值');query[key]=Number(u.searchParams.get(key));}
-        const view=workspace.workspaceView(root,query,{accounts:PAPER,quotes:S.lastPx,now:Date.now()});
-        return reply({ok:true,result:u.searchParams.get('export')==='1'?workspace.exportResearch(view):view});
+        const accounts=Object.fromEntries(Object.entries(PAPER).map(([id,a])=>[id,{positions:Object.fromEntries(Object.entries(a.positions||{}).map(([symbol,p])=>[symbol,Object.fromEntries(['name','shares','buyPrice','cost','buyTs','locked','mute'].filter(k=>p[k]!==undefined).map(k=>[k,p[k]]))]))}]));
+        const symbols=new Set(Object.values(accounts).flatMap(a=>Object.keys(a.positions))),quotes=[...S.lastPx].filter(([s])=>symbols.has(s));
+        return job({action:'view',root,query,accounts,quotes,now:Date.now(),export:u.searchParams.get('export')==='1'});
       }catch{return reply({ok:false,error:'研究查询无效或私有档案校验失败，未改写历史'},422);}
     }
     if(req.method!=='POST')return reply({ok:false,error:'仅允许GET或POST'},405);
@@ -21731,11 +21733,11 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     let input;try{input=JSON.parse(body||'{}');if(!input||Array.isArray(input)||typeof input!=='object')throw Error();}catch{return reply({ok:false,error:'研究参数格式无效'},400);}
     if(input.action==='review'){
       if(Object.keys(input).some(k=>!['action','symbol','provider','requestId','nativeEvidence'].includes(k)))return reply({ok:false,error:'未知研究参数'},422);
-      return workspace.reviewStored(input,options).then(result=>reply(result,result.ok?200:422)).catch(()=>reply({ok:false,error:'股票、来源、请求ID或档案无效'},422));
+      return job({action:'review',input,options});
     }
     try{
       if(Object.keys(input).some(k=>!['action','value','name','revision','expectedRevision','requestId'].includes(k)))throw Error();
-      const event=workspace.saveSettings(root,input);return reply({ok:true,revision:event.revision,recordId:event.hash,reused:event.reused,researchOnly:true});
+      return job({action:'settings',root,input});
     }catch{return reply({ok:false,error:'设置无效或版本冲突，请重新读取后再保存'},409);}
   }
   if(p==='/api/research/strategy36/observe'){

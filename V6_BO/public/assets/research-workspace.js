@@ -118,6 +118,7 @@
    for(const stage of arr(r?.diagnostics))line(c,stage.stage,label(stage.status));
    const audit=detail(c,'指标预热与历史可得性');for(const w of arr(view.inputAudit?.warmup))line(audit,w.length+'根K线',w.value||w.status);line(audit,'预热判断',view.inputAudit?.warmupStatus);line(audit,'历史可得性',view.inputAudit?.pointInTime?.meaning);
    for(const drift of arr(view.drift?.reports)){const d=detail(c,'输入变化 '+drift.before+' → '+drift.after);line(d,'同股 / 新增 / 移出',[drift.matched,drift.added,drift.removed].join(' / '));line(d,'未知条件比例',val(drift.beforeUnknownRate)+' → '+val(drift.afterUnknownRate));line(d,'解释',drift.attribution);}
+   const models=detail(c,'公开模型对照与借鉴');for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
   }
  }
  function settings(){
