@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-14T12:16:27.459642+00:00",
+  "baselineSha": "c6a0b93f624c307199cee98ecd98d8d2a07de2d1",
+  "scope": "local verification before repository commit; exact remote CI and merge are recorded by the PR, not inferred here",
+  "checks": [
+    {
+      "command": "python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha 35f9b716459eb29c39adc4d992bc0156e2432673 --output <original ZIP>",
+      "result": "pass",
+      "gitTrackedFiles": 2515,
+      "payloadBytes": 37435618,
+      "zipBytes": 15579349,
+      "zipSha256": "3c9a21e9e344ff203268071c3a9a3c79d0e07a2bf8c11e7601677a0b425cd8e0"
+    },
+    {
+      "command": "python3 scripts/consolidate-engineering-archive.py --repo . --output archive/consolidated-20261114/engineering-35f9b716459e --verify",
+      "result": "pass",
+      "members": 2517,
+      "expandedBytes": 38100228,
+      "reused": 2510,
+      "preservedVariants": 5,
+      "metadata": 2,
+      "independentEveryMemberByteComparison": "pass"
+    },
+    {
+      "command": "original encrypted manifest: every available part size + SHA256 + Git blob SHA1",
+      "result": "pass",
+      "presentParts": 21,
+      "expectedParts": 68,
+      "missingParts": 47,
+      "presentBytes": 22020096,
+      "decryptionAttempted": false
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_audit_*_archive.py' -v",
+      "result": "pass",
+      "tests": 37,
+      "newConsolidationTests": 17
+    },
+    {
+      "command": "python3 -m unittest discover -s V6_BO/tests -p 'test_complete_engineering_bundle.py' -v",
+      "result": "pass",
+      "tests": 5
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_windows_host_bundle.py' -v",
+      "result": "pass",
+      "tests": 12
+    },
+    {
+      "command": "npm run check",
+      "result": "pass"
+    },
+    {
+      "command": "V6_MODEL_PYTHON=<numpy/scikit-learn Python> V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test",
+      "result": "pass",
+      "counts": {
+        "tests": 3534,
+        "pass": 3531,
+        "fail": 0,
+        "skipped": 3
+      },
+      "tapCompleteness": "pass",
+      "numpyVersion": "2.3.5",
+      "scikitLearnVersion": "1.8.0",
+      "skips": "3 optional LightGBM/XGBoost comparisons; optional dependencies unavailable locally"
+    },
+    {
+      "command": "V6_WEB: npm ci --ignore-scripts --no-audit --no-fund; npm run build; npm test; git diff --exit-code -- dist",
+      "result": "pass",
+      "tests": 40
+    },
+    {
+      "command": "node V6_BO/tests/full-server-isolated-smoke.js",
+      "result": "pass"
+    },
+    {
+      "command": "node --test V6_BO/tests/resume-context.test.js",
+      "result": "pass",
+      "tests": 2
+    },
+    {
+      "command": "python3 scripts/audit-no-openai-runtime.py; git diff --cached --check",
+      "result": "pass"
+    }
+  ],
+  "initialAttempts": [
+    {
+      "check": "full regression without explicit ML interpreter",
+      "counts": {
+        "tests": 3534,
+        "pass": 3517,
+        "fail": 14,
+        "skipped": 3
+      },
+      "cause": "regression runner chose lightweight system Python without ML dependencies",
+      "resolution": "reran full suite with existing numpy/scikit-learn interpreter; no application code changed"
+    },
+    {
+      "check": "first combined archive unit run",
+      "tests": 37,
+      "failed": 1,
+      "cause": "new mode fixture assumed 0644 despite environment umask creating 0600",
+      "resolution": "test records original permission and asserts preservation; final 37/37 passed"
+    }
+  ],
+  "homepages": [
+    {
+      "path": "V6_BO/public/index.html",
+      "unchanged": true,
+      "sha256": "3c7969885e5e18bf97f3541c954e109040598839483a6ba5faa64f8f71323df4"
+    },
+    {
+      "path": "V6_BO/public/mobile.html",
+      "unchanged": true,
+      "sha256": "8b1d8297eb2439d9f525810b07ead80e67aa534d245368c065d31b80c743b354"
+    }
+  ],
+  "limitations": [
+    "encrypted BO cannot be restored without missing 47 parts and private decryption key",
+    "not a scan of every historical commit or deleted ref",
+    "no production deployment or real trading/network-data certification",
+    "remote CI and merge status must be read from the PR"
+  ]
+}
