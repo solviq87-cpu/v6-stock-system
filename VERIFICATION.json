@@ -1,0 +1,12 @@
+{
+  "ciUrl": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43590463784",
+  "filename": "V6_FULL_35f9b716459e.zip",
+  "gitTrackedFiles": 2515,
+  "productionDeployed": false,
+  "schemaVersion": 1,
+  "scope": "full-Git-tracked-project",
+  "sourceBytes": 37435618,
+  "sourceSha": "35f9b716459eb29c39adc4d992bc0156e2432673",
+  "zipBytes": 15579349,
+  "zipSha256": "3c9a21e9e344ff203268071c3a9a3c79d0e07a2bf8c11e7601677a0b425cd8e0"
+}
