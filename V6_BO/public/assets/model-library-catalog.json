@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "reviewDate": "2026-11-14",
   "scope": "公开模型、界面与运行设计对照；采用状态指设计落实，未运行上游模型",
-  "sourceCount": 41,
+  "sourceCount": 53,
   "upstreamCodeCopied": false,
   "weightsDownloaded": false,
   "modelAPIsAdded": 0,
@@ -21,11 +21,11 @@
     },
     {
       "id": "workflow",
-      "count": 8
+      "count": 9
     },
     {
       "id": "interface",
-      "count": 5
+      "count": 16
     },
     {
       "id": "runtime",
@@ -2093,6 +2093,611 @@
       ],
       "adoption": "candidate",
       "implementation": []
+    },
+    {
+      "id": "U01",
+      "name": "Perspective",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "perspective-dev/perspective",
+      "commit": "56038acfb5be1ba29d2a325f5f70567a8fa3d290",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "rust/perspective-viewer/src/rust/workspace.rs",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/rust/perspective-viewer/src/rust/workspace.rs",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "e4f7dbef1e70ce20291951d52daf2851a46ddb8e"
+        },
+        {
+          "path": "rust/perspective-viewer/src/rust/custom_events.rs",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/rust/perspective-viewer/src/rust/custom_events.rs",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "41b28281de781775165279242f880fc8d1b73c43"
+        },
+        {
+          "path": "LICENSE.md",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/LICENSE.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "1ffb266a1a85fcec1a520583683928a242366aaa"
+        }
+      ],
+      "license": "Apache-2.0根许可；实际复制/分发须保留许可和NOTICE，第三方依赖另核。本次不复制代码、组件、品牌或样式。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "主/详情面板共享选择产生的全局筛选；每个来源面板有独立贡献，取消选择、降级主面板或关闭面板时定向删除贡献。",
+        "全局筛选作为瞬态覆盖层，与每个面板自己保存的筛选配置分开；事件带来源面板标识，订阅跟随面板生命周期释放。"
+      ],
+      "limit": "只独立采用通用交互/状态原则；不接入WASM/Rust分析引擎，不搬入可拖动工作区。；上游面板和大数据性能未在V6运行测试；不能据此认证交易、安全或收益。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U02",
+      "name": "FDC3标准与类型接口",
+      "category": "workflow",
+      "kind": "界面与模块联动参考",
+      "repository": "finos/FDC3",
+      "commit": "c6adda7a1f66d97d03809343852a4bfc0806f859",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "packages/fdc3-standard/src/api/Channel.ts",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/src/api/Channel.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "c779fbba812cecb9a5b6527b11b4517cb28c61d5"
+        },
+        {
+          "path": "packages/fdc3-standard/src/api/DesktopAgent.ts",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/src/api/DesktopAgent.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "2916bb16aa75cf8cfb6e7c0442801185c6fa14a9"
+        },
+        {
+          "path": "LICENSE.md",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/LICENSE.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "1ad0319cab673441dd40e9a756e8ee72b0ee3198"
+        },
+        {
+          "path": "LICENSE.spdx",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/LICENSE.spdx",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "d8a2312dcbb1e9d8ba88ec33f119169de3fedd1c"
+        },
+        {
+          "path": "packages/fdc3-standard/package.json",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/package.json",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "2752b89e0b05fbeffdec737fc0dff0ec02ee1053"
+        }
+      ],
+      "license": "根LICENSE.md为Community Specification License 1.0（规范材料）；本次读取的@finos/fdc3-standard包package.json与Channel.ts/DesktopAgent.ts头均明确Apache-2.0。规范授权和源码授权分开，不将整个项目简单标为MIT。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "共享上下文与用户意图分开：同一证券上下文可对应查看图表、新闻或分析等不同动作，目标与动作由显式意图确定。",
+        "Context/Channel按类型传递，消息含来源与时间元数据；避免广播回送自身形成环路，清除上下文有独立事件。"
+      ],
+      "limit": "不安装Desktop Agent、扩展、跨域桥或FDC3运行库；不宣称V6已符合FDC3标准。；不能把上下文或URL字段当作账户权限、交易指令、实时行情认证；必须避免隐式广播私人账户内容。",
+      "status": "本轮已独立实现所列交互设计；未安装、执行或复制本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "独立实现同一证券上下文与显式分区入口；不接入FDC3DesktopAgent",
+          "path": "V6_BO/public/assets/research-context.js"
+        }
+      ],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U03",
+      "name": "Grafana",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "grafana/grafana",
+      "commit": "3f36380cfd6240f348c2a6226f6fb07647746d60",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "public/app/features/dashboard-scene/scene/DashboardSceneUrlSync.ts",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/public/app/features/dashboard-scene/scene/DashboardSceneUrlSync.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "6a3cf0c8350d1568e01101d2b73bdecd90b6ce01"
+        },
+        {
+          "path": "public/app/features/dashboard-scene/scene/PanelLinks.tsx",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/public/app/features/dashboard-scene/scene/PanelLinks.tsx",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游",
+          "blobSha": "047e0d5e8de76da1bfb35c79296892689ff22c8c"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/LICENSE",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "be3f7b28e564e7dd05eaf59d64adba1a4065ac0e"
+        },
+        {
+          "path": "LICENSING.md",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/LICENSING.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对",
+          "blobSha": "805f3c434d8f8c244d8cb99aee900234ceffb8ec"
+        }
+      ],
+      "license": "根LICENSE和LICENSING.md明确默认AGPL-3.0-only，部分列明目录另为Apache-2.0；本次读取的public/app/features/dashboard-scene代码处于默认AGPL范围。仅独立实现通用状态/导航原则，不复制组件、源码或样式。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "看板级、面板级与单个数据点级跳转分层，跳转可带当前时间范围与模板变量，减少用户重复定位。",
+        "URL中的面板意图在异步加载时保留，加载完成后重新查当前树；用户关闭/改选或离开时取消旧请求，不能晚到重开旧面板。",
+        "链接随变量和时间上下文变化重新求值，查看/编辑/分享入口仍受独立权限与状态守门。"
+      ],
+      "limit": "当前认证令牌、持仓、账户ID、私有运行档案不能放入公开URL或外链；只选适合本产品的最小上下文。；不迁入Grafana/数据库/新服务；不借AGPL项目的整体外观或代码作白标复制。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U04",
+      "name": "AG Grid Community",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "ag-grid/ag-grid",
+      "commit": "66795992a80a53c5684bd10690fa02f514de96ee",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "packages/ag-grid-community/src/selection/baseSelectionService.ts",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/src/selection/baseSelectionService.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游",
+          "blobSha": "da271a65c6e53d5ee6dd3b6aae273146bde58712"
+        },
+        {
+          "path": "packages/ag-grid-community/src/filter/filterManager.ts",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/src/filter/filterManager.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游",
+          "blobSha": "fac5c5b29bbc96ba7c2854ec4daac300a08b8de1"
+        },
+        {
+          "path": "LICENSE.txt",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/LICENSE.txt",
+          "readScope": "完整许可文本读取",
+          "blobSha": "f1456e7c185b120949fb57793a98ee4d1f0d5ff8"
+        },
+        {
+          "path": "packages/ag-grid-community/LICENSE.txt",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/LICENSE.txt",
+          "readScope": "完整许可文本读取",
+          "blobSha": "2958a01a797ec0ee248a32855c868f0b7448022c"
+        }
+      ],
+      "license": "根目录明确区分 MIT Community 与 Commercial Enterprise；本次读取的 Community 代码为 MIT。Master/Detail Enterprise 实现不属于免费的 Community 许可。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "selection事件带source，无状态变化不重发；选择状态和aria-selected同步并支持SPACE键。",
+        "列筛选/外部筛选/quick filter统一通过filterChanged事件驱动，源标识区分用户和API状态恢复。"
+      ],
+      "limit": "这里只核验Community选择与筛选源码，不安装依赖、不复制组件；不把Enterprise功能标为MIT。；生产交易和实时行情不是此UI库可认证的能力；大表性能未在V6实测。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U05",
+      "name": "Glide Data Grid",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "glideapps/glide-data-grid",
+      "commit": "0875d78cc41535a39f8b417ff88ce1ebe129c363",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "packages/core/src/internal/data-grid/use-selection-behavior.ts",
+          "url": "https://github.com/glideapps/glide-data-grid/blob/0875d78cc41535a39f8b417ff88ce1ebe129c363/packages/core/src/internal/data-grid/use-selection-behavior.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游",
+          "blobSha": "e7f6f9ee9ac12771b3e689c3c6b067194a0b23b1"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/glideapps/glide-data-grid/blob/0875d78cc41535a39f8b417ff88ce1ebe129c363/LICENSE",
+          "readScope": "完整许可文本读取",
+          "blobSha": "cc5d8d6947262c6d79e6cb4de9154686f3bb6589"
+        }
+      ],
+      "license": "根与 core 包 MIT；实际采用时依赖和嵌入资源仍需各自审查。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "当前单元格、行集合、列集合分开；exclusive/mixed/additive明确定义互斥与累加。",
+        "选择触发类型包含click/drag/keyboard-nav/keyboard-select/edit，回调统一交出新状态。"
+      ],
+      "limit": "本次没有把canvas大表或React依赖引入V6；移动端窄屏仍需原生可读卡片。；只读取选择状态逻辑，未运行上游或宣称读屏/性能全部兼容V6。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U06",
+      "name": "Apache Superset",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "apache/superset",
+      "commit": "f81191d55eef3e0fa3ae04b1c83d4e474a2a392a",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "superset-frontend/src/dashboard/components/nativeFilters/FilterBar/CrossFilters/CrossFilterTag.tsx",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/superset-frontend/src/dashboard/components/nativeFilters/FilterBar/CrossFilters/CrossFilterTag.tsx",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游",
+          "blobSha": "44467a356f93f65fde7e6cfa4cbc171b4e2a1949"
+        },
+        {
+          "path": "superset-frontend/plugins/plugin-chart-ag-grid-table/src/utils/getCrossFilterDataMask.ts",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/superset-frontend/plugins/plugin-chart-ag-grid-table/src/utils/getCrossFilterDataMask.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游",
+          "blobSha": "ef404606931cec5ef8eef5c52462af18def2b710"
+        },
+        {
+          "path": "LICENSE.txt",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/LICENSE.txt",
+          "readScope": "完整许可文本读取",
+          "blobSha": "56313ab5a54a163e7d46224cb5470a814c3a2436"
+        }
+      ],
+      "license": "Apache-2.0 根许可；NOTICE及字体等子组件另有许可。这里只借鉴通用机制，不复制组件/字体/品牌。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "交叉筛选标签同时显示列和值，可按emitterId定向移除，不误清其他发射源的过滤。",
+        "点击已激活值可清除该筛选；数据mask把实际查询过滤条件与展示label/value分别记录，空选择显式清空。"
+      ],
+      "limit": "过滤mask不应被当作账户访问权限；V6服务端仍需逐请求验证。；不会导入Superset查询后端或连接数据库；只采用单页内受控状态与显式作用域。",
+      "status": "本轮已独立实现所列交互设计；未安装、执行或复制本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "按来源范围清理联动证据，清股票不清历史时点或无关输入",
+          "path": "V6_BO/public/assets/linked-intelligence-workbench.js"
+        }
+      ],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U07",
+      "name": "TanStack Table",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "TanStack/table",
+      "commit": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "packages/table-core/src/features/row-selection/rowSelectionFeature.ts",
+          "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/packages/table-core/src/features/row-selection/rowSelectionFeature.ts",
+          "readScope": "lines 37–58,112–157",
+          "blobSha": "9053a52a7d3360fe461e587c73d8d90b42f331bd"
+        },
+        {
+          "path": "packages/table-core/src/features/row-selection/rowSelectionFeature.utils.ts",
+          "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/packages/table-core/src/features/row-selection/rowSelectionFeature.utils.ts",
+          "readScope": "lines 120–150,238–294",
+          "blobSha": "c90758f7b9222baf71f2bf9fa998c21a644e269f"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/LICENSE",
+          "readScope": "许可文件；根MIT；所用第三方依赖及具体资产另核。本批不导入依赖或移植组件源码。",
+          "blobSha": "9fe1442eeb4881c516ae031f29c6c3a90446e9ec"
+        }
+      ],
+      "license": "MIT；根MIT；所用第三方依赖及具体资产另核。本批不导入依赖或移植组件源码。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "选择证券/版本的身份与当前过滤、分页可见集分开；筛选变更不会悄悄切到另一对象。",
+        "显示所选对象暂不在当前结果的状态，提供定位/清除操作，不把当前页行数当全部候选。"
+      ],
+      "limit": "固定源码为当前分支版本，最新文档与v8文档存在API差异；仅借鉴状态边界，不照搬API或升级本工程框架。；所选ID映射可保留不在当前数据页的ID，但getSelectedRowModel仍只能返回已加载行；不据此宣称服务器全部结果已加载。；没有安装上游、运行其测试或测量V6大表性能。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U08",
+      "name": "TanStack Router",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "TanStack/router",
+      "commit": "0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "packages/router-core/src/searchParams.ts",
+          "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/packages/router-core/src/searchParams.ts",
+          "readScope": "lines 1–54,67–104",
+          "blobSha": "19155586e8ea23d5e8696d3777bf60a794bf5df9"
+        },
+        {
+          "path": "packages/router-core/src/searchMiddleware.ts",
+          "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/packages/router-core/src/searchMiddleware.ts",
+          "readScope": "lines 25–64,101–141",
+          "blobSha": "a78732d8338573a373066bfc3520c670efb1705f"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/LICENSE",
+          "readScope": "许可文件；根MIT；具体插件/依赖条款另核。本批独立实现通用上下文规则，不导入路由框架。",
+          "blobSha": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22"
+        }
+      ],
+      "license": "MIT；根MIT；具体插件/依赖条款另核。本批独立实现通用上下文规则，不导入路由框架。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "跨板块只传经过白名单校验的公共证券代码和目标段落，返回/重载恢复同一公共选择。",
+        "显式清除优先于上下文保留；未知参数、非法代码、过期目标不自动补成最新记录。"
+      ],
+      "limit": "上游通用JSON参数能力不等于允许把私有run ID、账户、持仓、访问令牌或证据原文放进URL；V6必须采用更窄字段集合和权限边界。；URL恢复只恢复选择，不恢复授权，也不证明持久化研究或云端账户状态已恢复。；未安装或执行TanStack Router，不宣称其全部导航功能已在V6落地。",
+      "status": "本轮已独立实现所列交互设计；未安装、执行或复制本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "仅恢复经过白名单验证的公开目录选择，清除优先于保留",
+          "path": "V6_BO/public/assets/public-library-context.js"
+        }
+      ],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U09",
+      "name": "Apache ECharts",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "apache/echarts",
+      "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "src/core/echarts.ts",
+          "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/src/core/echarts.ts",
+          "readScope": "lines 2808–2840,2994–3017",
+          "blobSha": "8214c11e0edefe4f7edb0310b812eb671e15bdfe"
+        },
+        {
+          "path": "src/component/brush/BrushModel.ts",
+          "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/src/component/brush/BrushModel.ts",
+          "readScope": "lines 90–110,195–220",
+          "blobSha": "4bf87b566cd4617aa5316048fd40b065c4e20ab8"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/LICENSE",
+          "readScope": "许可文件；根Apache-2.0，NOTICE、licenses与第三方依赖另核；图表数据/地图数据权利不随根许可转移。",
+          "blobSha": "c633765305b658c2b42837d2b72071d73c0379c5"
+        }
+      ],
+      "license": "Apache-2.0；根Apache-2.0，NOTICE、licenses与第三方依赖另核；图表数据/地图数据权利不随根许可转移。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "股票选择事件带明确来源，依赖面板只响应一次；目标面板渲染不再次广播同一选择，避免联动循环。",
+        "过滤范围的未提供、保持和清除为不同动作；切模块不自动重新采集或把观察状态当交易信号。"
+      ],
+      "limit": "仅借鉴事件/动作与联动范围原则，没有引入ECharts包或替换现有K线实现。；图表联动不代表跨数据源时间戳对齐；V6的报价来源、数据日、原始时点与交易门禁仍需独立核验。；没有上游实跑、性能比较或A股数据/收益认证。",
+      "status": "本轮已独立实现所列交互设计；未安装、执行或复制本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "同股事件只消费不反向重播；迟到响应不能恢复旧上下文",
+          "path": "V6_BO/public/assets/research-context.js"
+        }
+      ],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U10",
+      "name": "Metabase",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "metabase/metabase",
+      "commit": "5430ed963ed36bb9c3ed7abc1d960d7e697a47f1",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "frontend/src/metabase/dashboard/click-behavior/dashboard-click-drill.ts",
+          "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/frontend/src/metabase/dashboard/click-behavior/dashboard-click-drill.ts",
+          "readScope": "lines 40–71,83–95,107–138",
+          "blobSha": "0b972b667f5e55836a90e9725838c98c6ab1dd6c"
+        },
+        {
+          "path": "frontend/src/metabase/dashboard/click-behavior/question-url.ts",
+          "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/frontend/src/metabase/dashboard/click-behavior/question-url.ts",
+          "readScope": "lines 9–50",
+          "blobSha": "15dbc494695be22bf1fdfd0826ef66c4a33fb985"
+        },
+        {
+          "path": "LICENSE.txt",
+          "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/LICENSE.txt",
+          "readScope": "许可文件；根声明：enterprise目录外按AGPL，enterprise目录按Metabase Commercial License（文件另有声明除外）；已另读LICENSE-AGPL.txt Version3。本批仅对照公开说明和通用交互原则，代码/样式不移植，商业嵌入许可不推定取得。",
+          "blobSha": "f3a3c334cae8a5ea53c431ae31d12107dac94012"
+        }
+      ],
+      "license": "AGPL-3.0 / commercial；根声明：enterprise目录外按AGPL，enterprise目录按Metabase Commercial License（文件另有声明除外）；已另读LICENSE-AGPL.txt Version3。本批仅对照公开说明和通用交互原则，代码/样式不移植，商业嵌入许可不推定取得。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "每个联动入口有明确去向及字段映射：选股票→对应版本/字段证据/关联研究，而不是打开丢失上下文的新页。",
+        "目标不可用时禁用动作并说明原因；点击某项只更新明确相关的面板，原始分组/导航视图可保持以便切换。"
+      ],
+      "limit": "AGPL与商业授权范围不能混同；不复制源码、组件、CSS、品牌或商业嵌入实现，仅独立实现通用联动原则。；Metabase参数映射能力不意味着V6后端接受任意参数或用户具备目标证据权限。；未安装/运行Metabase或上游测试，未验证其在V6的性能、部署、查询能力。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U11",
+      "name": "Plotly Dash",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "plotly/dash",
+      "commit": "5f771e11051c175ee2a581c8719b2f3143c3238c",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "dash/_callback_context.py",
+          "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/dash/_callback_context.py",
+          "readScope": "lines 19–28, 65–138",
+          "blobSha": "2245ddad7618bdde89cc042d6237cb0c243ba55c"
+        },
+        {
+          "path": "dash/dash-renderer/src/actions/dependencies.js",
+          "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/dash/dash-renderer/src/actions/dependencies.js",
+          "readScope": "lines 707–800, 885–920",
+          "blobSha": "81d3b2e19eca70de1b40aebe2dac95c00c438e5a"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/LICENSE",
+          "readScope": "许可文件；根LICENSE为MIT；Dash Enterprise/托管服务、图表数据及第三方依赖分别核验，不由根许可推定覆盖。",
+          "blobSha": "2c4d2c3116933473b9958470e6c28d5db860cb46"
+        }
+      ],
+      "license": "MIT；根LICENSE为MIT；Dash Enterprise/托管服务、图表数据及第三方依赖分别核验，不由根许可推定覆盖。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "同一次股票选择携带明确事件来源与证券/研究版本上下文，依赖面板只响应已变字段。",
+        "表格筛选只改变可见集，股票选择与后端任务执行是分开的事件；无选择时展示明确空态。",
+        "面板间同步时拒绝自我回写造成的重复循环，重新渲染不能自动变成重新采集。"
+      ],
+      "limit": "仅独立借鉴触发上下文和显式依赖原则；没有安装Dash/运行上游测试/复制Python或renderer源码。；公开交互能力不证明股票数据授权、行情实时性、A股研究正确性或收益；V6后端权限与报价门禁保持独立。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "U12",
+      "name": "Streamlit",
+      "category": "interface",
+      "kind": "界面与模块联动参考",
+      "repository": "streamlit/streamlit",
+      "commit": "0c8cc186f0db90eda8836f231bd4c160e267d288",
+      "reviewedOn": "2026-11-14",
+      "reads": [
+        {
+          "path": "lib/streamlit/runtime/state/session_state.py",
+          "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/lib/streamlit/runtime/state/session_state.py",
+          "readScope": "lines 890–1018, 1416–1460, 1605–1680",
+          "blobSha": "8774e41e5f0613fd8da7f0a2a51beb637d9f6c19"
+        },
+        {
+          "path": "lib/streamlit/runtime/state/widgets.py",
+          "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/lib/streamlit/runtime/state/widgets.py",
+          "readScope": "lines 155–241",
+          "blobSha": "005cb0fcc7d0bb3c3e5f336f80fce7c34dfa3aec"
+        },
+        {
+          "path": "LICENSE",
+          "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/LICENSE",
+          "readScope": "许可文件；根LICENSE为Apache-2.0；第三方组件、外部连接器、云服务条款与数据权利另行核对。",
+          "blobSha": "57bc88a15a0ee8266c259b2667e64608d3f7e292"
+        }
+      ],
+      "license": "Apache-2.0；根LICENSE为Apache-2.0；第三方组件、外部连接器、云服务条款与数据权利另行核对。",
+      "weightsLicense": "不涉及模型权重；第三方资产与数据另核",
+      "borrow": [
+        "固定stock/run/filter键，筛选变化和详情展开不应无故替换所选研究版本。",
+        "只把非敏感选择放进可校验的URL状态，浏览器返回时由该状态恢复；令牌、账户和持仓不能进URL。",
+        "公开页面上下文与私有详情分开；身份/权限撤回时清除私有内容，保留公共导航不等于保留私有数据。"
+      ],
+      "limit": "SessionState是上游会话内机制，不应移植为V6账户唯一存储；双端账户/历史仍由既有云端档案读取。；没有安装Streamlit或运行上游测试，未评测多标签、多用户、移动真机或性能；仅独立借鉴状态身份和失效规则。",
+      "status": "已核查固定官方源码与许可；本轮仅独立借鉴设计，未运行上游",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "固定官方源码与许可静态审阅"
+      ],
+      "runtimeNotes": "未安装、未运行或复制上游组件；不认证数据授权、性能或收益",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
     }
   ]
 }

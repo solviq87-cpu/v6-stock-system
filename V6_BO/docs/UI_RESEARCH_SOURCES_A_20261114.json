@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-14",
+  "v6Baseline": "040692bcea3039cd707e1b7f52b5ad08ee77ebd2",
+  "scope": "金融/数据界面与板块联动；6个与原41来源不同的新官方仓库；只记录固定源码和许可，不导入上游",
+  "method": "官方GitHub仓库元数据/固定提交/许可/关键源码读取，源文件Git blob SHA-1与SHA-256交叉验证；官方文档补充交互语义。未运行上游或第三方依赖。",
+  "canonicalRepositoryNote": "finos/perspective的当前官方仓库为perspective-dev/perspective，只计一个独立来源。jpmorganchase/elemental实际为API文档组件，未作为金融板块联动来源计数。",
+  "sourceCount": 6,
+  "implementationStatusNote": "v6Application为建议落点，不表示本证据文件单独已完成实现；实际采用位置/测试以主交付记录为准。",
+  "sources": [
+    {
+      "id": "UA01",
+      "name": "Perspective",
+      "repository": "perspective-dev/perspective",
+      "commit": "56038acfb5be1ba29d2a325f5f70567a8fa3d290",
+      "reviewedOn": "2026-11-14",
+      "category": "interface-and-module-linkage",
+      "license": "Apache-2.0根许可；实际复制/分发须保留许可和NOTICE，第三方依赖另核。本次不复制代码、组件、品牌或样式。",
+      "licenseReads": [
+        {
+          "path": "LICENSE.md",
+          "blobSha": "1ffb266a1a85fcec1a520583683928a242366aaa",
+          "bytes": 10541,
+          "sha256": "4339a06f638aa50ed33dbca17b29d8f397b6072837724054726e8c94f9ffe23b",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/LICENSE.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        }
+      ],
+      "reads": [
+        {
+          "path": "rust/perspective-viewer/src/rust/workspace.rs",
+          "blobSha": "e4f7dbef1e70ce20291951d52daf2851a46ddb8e",
+          "bytes": 41879,
+          "sha256": "5eefd7d1998a5f417dad427768de9913d807d890d1c33dd4b0b139f88c88775b",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/rust/perspective-viewer/src/rust/workspace.rs",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        },
+        {
+          "path": "rust/perspective-viewer/src/rust/custom_events.rs",
+          "blobSha": "41b28281de781775165279242f880fc8d1b73c43",
+          "bytes": 18049,
+          "sha256": "217923cbaddfd563ee1a37883126a4b2ff1fb4740cd5445a6144e64e8ca6ef34",
+          "url": "https://github.com/perspective-dev/perspective/blob/56038acfb5be1ba29d2a325f5f70567a8fa3d290/rust/perspective-viewer/src/rust/custom_events.rs",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        }
+      ],
+      "officialDocs": [
+        "https://github.com/perspective-dev/perspective/discussions/3205"
+      ],
+      "borrow": [
+        "主/详情面板共享选择产生的全局筛选；每个来源面板有独立贡献，取消选择、降级主面板或关闭面板时定向删除贡献。",
+        "全局筛选作为瞬态覆盖层，与每个面板自己保存的筛选配置分开；事件带来源面板标识，订阅跟随面板生命周期释放。"
+      ],
+      "v6Application": [
+        "研究页单一股票/版本选择驱动证据、筛选、成绩等视图；清除某个筛选不重置用户其他选择。",
+        "显示可移除的联动上下文标签并按来源分组；详情更新不修改正式策略配置、冻结输入或账户。"
+      ],
+      "limits": [
+        "只独立采用通用交互/状态原则；不接入WASM/Rust分析引擎，不搬入可拖动工作区。",
+        "上游面板和大数据性能未在V6运行测试；不能据此认证交易、安全或收益。"
+      ],
+      "adoptionStatus": "design-reference-recommended-independent-implementation",
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "固定官方仓库源码/许可与官方文档审阅；未安装或执行",
+      "verificationMethod": "GitHub connector固定commit读取；gh只读Git blob交叉验证SHA-1及SHA-256"
+    },
+    {
+      "id": "UA02",
+      "name": "FDC3标准与类型接口",
+      "repository": "finos/FDC3",
+      "commit": "c6adda7a1f66d97d03809343852a4bfc0806f859",
+      "reviewedOn": "2026-11-14",
+      "category": "interface-and-module-linkage",
+      "license": "根LICENSE.md为Community Specification License 1.0（规范材料）；本次读取的@finos/fdc3-standard包package.json与Channel.ts/DesktopAgent.ts头均明确Apache-2.0。规范授权和源码授权分开，不将整个项目简单标为MIT。",
+      "licenseReads": [
+        {
+          "path": "LICENSE.md",
+          "blobSha": "1ad0319cab673441dd40e9a756e8ee72b0ee3198",
+          "bytes": 16129,
+          "sha256": "f40b1d00369c21b963293189b4617b5de439a11858541c07c620984634fb63b7",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/LICENSE.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        },
+        {
+          "path": "LICENSE.spdx",
+          "blobSha": "d8a2312dcbb1e9d8ba88ec33f119169de3fedd1c",
+          "bytes": 181,
+          "sha256": "aa2ca2143f92f76eae961b60ae7a6fe4172260e21bdf76e09ee77cbf7ff7274a",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/LICENSE.spdx",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        },
+        {
+          "path": "packages/fdc3-standard/package.json",
+          "blobSha": "2752b89e0b05fbeffdec737fc0dff0ec02ee1053",
+          "bytes": 1018,
+          "sha256": "83f52c8dd90fc0692d9d9ed829d1f1757eb8d6d787ad1675db498a41b4fb2b1b",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/package.json",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        }
+      ],
+      "reads": [
+        {
+          "path": "packages/fdc3-standard/src/api/Channel.ts",
+          "blobSha": "c779fbba812cecb9a5b6527b11b4517cb28c61d5",
+          "bytes": 8513,
+          "sha256": "d684f00e80561e1800debe13809c2fadd541b4a5e8bd10a8aa16997f97d8a4fa",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/src/api/Channel.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        },
+        {
+          "path": "packages/fdc3-standard/src/api/DesktopAgent.ts",
+          "blobSha": "2916bb16aa75cf8cfb6e7c0442801185c6fa14a9",
+          "bytes": 40909,
+          "sha256": "a9e5e2519a23c536e0af9b748e5abfbc914e0e45167f9c12f731c9f68621cf9b",
+          "url": "https://github.com/finos/FDC3/blob/c6adda7a1f66d97d03809343852a4bfc0806f859/packages/fdc3-standard/src/api/DesktopAgent.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        }
+      ],
+      "officialDocs": [
+        "https://fdc3.finos.org/docs/api/ref/Channel",
+        "https://fdc3.finos.org/docs/next/api/ref/DesktopAgent"
+      ],
+      "borrow": [
+        "共享上下文与用户意图分开：同一证券上下文可对应查看图表、新闻或分析等不同动作，目标与动作由显式意图确定。",
+        "Context/Channel按类型传递，消息含来源与时间元数据；避免广播回送自身形成环路，清除上下文有独立事件。"
+      ],
+      "v6Application": [
+        "在本工程内部采用经过校验的股票代码/研究版本上下文，用户明确点击后进入图表、证据或研究；仅携带目标页面认可的字段。",
+        "联动不是授权：接收页面仍逐请求验证权限，撤权/股票更换/页面离开时释放监听及清除私有上下文。"
+      ],
+      "limits": [
+        "不安装Desktop Agent、扩展、跨域桥或FDC3运行库；不宣称V6已符合FDC3标准。",
+        "不能把上下文或URL字段当作账户权限、交易指令、实时行情认证；必须避免隐式广播私人账户内容。"
+      ],
+      "adoptionStatus": "design-reference-recommended-independent-implementation",
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "固定官方仓库源码/许可与官方文档审阅；未安装或执行",
+      "verificationMethod": "GitHub connector固定commit读取；gh只读Git blob交叉验证SHA-1及SHA-256"
+    },
+    {
+      "id": "UA03",
+      "name": "Grafana",
+      "repository": "grafana/grafana",
+      "commit": "3f36380cfd6240f348c2a6226f6fb07647746d60",
+      "reviewedOn": "2026-11-14",
+      "category": "interface-and-module-linkage",
+      "license": "根LICENSE和LICENSING.md明确默认AGPL-3.0-only，部分列明目录另为Apache-2.0；本次读取的public/app/features/dashboard-scene代码处于默认AGPL范围。仅独立实现通用状态/导航原则，不复制组件、源码或样式。",
+      "licenseReads": [
+        {
+          "path": "LICENSE",
+          "blobSha": "be3f7b28e564e7dd05eaf59d64adba1a4065ac0e",
+          "bytes": 34523,
+          "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/LICENSE",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        },
+        {
+          "path": "LICENSING.md",
+          "blobSha": "805f3c434d8f8c244d8cb99aee900234ceffb8ec",
+          "bytes": 991,
+          "sha256": "4393edddf47e6bea89b817a2eb28f99d8a245da390bf6a6ed317e070e018948d",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/LICENSING.md",
+          "readScope": "完整字节读取及Git blob SHA-1/SHA-256交叉验证；许可全文核对"
+        }
+      ],
+      "reads": [
+        {
+          "path": "public/app/features/dashboard-scene/scene/DashboardSceneUrlSync.ts",
+          "blobSha": "6a3cf0c8350d1568e01101d2b73bdecd90b6ce01",
+          "bytes": 12359,
+          "sha256": "ab1a67e0b79172cd843da9dfb70e076639c85f305a6b70bc952be6c5f1b09b1b",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/public/app/features/dashboard-scene/scene/DashboardSceneUrlSync.ts",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        },
+        {
+          "path": "public/app/features/dashboard-scene/scene/PanelLinks.tsx",
+          "blobSha": "047e0d5e8de76da1bfb35c79296892689ff22c8c",
+          "bytes": 2626,
+          "sha256": "fbf2a33b97fe110edf251ccf2da18a62defc2d011c1c71c25c05ffdbd3c0d5ad",
+          "url": "https://github.com/grafana/grafana/blob/3f36380cfd6240f348c2a6226f6fb07647746d60/public/app/features/dashboard-scene/scene/PanelLinks.tsx",
+          "readScope": "完整文件字节读取；所列状态/事件/导航关键实现静态审阅，未运行上游"
+        }
+      ],
+      "officialDocs": [
+        "https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/manage-dashboard-links/"
+      ],
+      "borrow": [
+        "看板级、面板级与单个数据点级跳转分层，跳转可带当前时间范围与模板变量，减少用户重复定位。",
+        "URL中的面板意图在异步加载时保留，加载完成后重新查当前树；用户关闭/改选或离开时取消旧请求，不能晚到重开旧面板。",
+        "链接随变量和时间上下文变化重新求值，查看/编辑/分享入口仍受独立权限与状态守门。"
+      ],
+      "v6Application": [
+        "研究详情到相关模块的跳转保留股票与确切所选版本，避免自动跳到最新记录。",
+        "对只读导航维护白名单参数和URL长度上限；旧请求不能覆盖新选择，未知或无权数据清空。"
+      ],
+      "limits": [
+        "当前认证令牌、持仓、账户ID、私有运行档案不能放入公开URL或外链；只选适合本产品的最小上下文。",
+        "不迁入Grafana/数据库/新服务；不借AGPL项目的整体外观或代码作白标复制。"
+      ],
+      "adoptionStatus": "design-reference-recommended-independent-implementation",
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "固定官方仓库源码/许可与官方文档审阅；未安装或执行",
+      "verificationMethod": "GitHub connector固定commit读取；gh只读Git blob交叉验证SHA-1及SHA-256"
+    },
+    {
+      "repository": "ag-grid/ag-grid",
+      "name": "AG Grid Community",
+      "commit": "66795992a80a53c5684bd10690fa02f514de96ee",
+      "reviewedOn": "2026-11-14",
+      "license": "根目录明确区分 MIT Community 与 Commercial Enterprise；本次读取的 Community 代码为 MIT。Master/Detail Enterprise 实现不属于免费的 Community 许可。",
+      "licenseReads": [
+        {
+          "path": "LICENSE.txt",
+          "blobSha": "f1456e7c185b120949fb57793a98ee4d1f0d5ff8",
+          "bytes": 610,
+          "sha256": "01149a553a8f761e71c827c4659bb8f5caca9f61dfab65676ac47023c835837e",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/LICENSE.txt",
+          "readScope": "完整许可文本读取"
+        },
+        {
+          "path": "packages/ag-grid-community/LICENSE.txt",
+          "blobSha": "2958a01a797ec0ee248a32855c868f0b7448022c",
+          "bytes": 1077,
+          "sha256": "31636f0472dda16bba11a7b78204e1f677b77452092e185a65cddd45b6c9fb29",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/LICENSE.txt",
+          "readScope": "完整许可文本读取"
+        }
+      ],
+      "reads": [
+        {
+          "path": "packages/ag-grid-community/src/selection/baseSelectionService.ts",
+          "blobSha": "da271a65c6e53d5ee6dd3b6aae273146bde58712",
+          "bytes": 19254,
+          "sha256": "984cbb085ed7326dcf6a5692da134e0b23e919fa3927289617c8a8f5f9fc2609",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/src/selection/baseSelectionService.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游"
+        },
+        {
+          "path": "packages/ag-grid-community/src/filter/filterManager.ts",
+          "blobSha": "fac5c5b29bbc96ba7c2854ec4daac300a08b8de1",
+          "bytes": 13290,
+          "sha256": "9cf5ffb774fa43296cef8d7de90905118ede3f98a5ba1ef6c8c590bcbe0f3f09",
+          "url": "https://github.com/ag-grid/ag-grid/blob/66795992a80a53c5684bd10690fa02f514de96ee/packages/ag-grid-community/src/filter/filterManager.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游"
+        }
+      ],
+      "borrow": [
+        "selection事件带source，无状态变化不重发；选择状态和aria-selected同步并支持SPACE键。",
+        "列筛选/外部筛选/quick filter统一通过filterChanged事件驱动，源标识区分用户和API状态恢复。"
+      ],
+      "v6Application": [
+        "研究记录/候选表单一selectedStock/selectedRun状态，选中行、详情面板与上下文条同步。",
+        "跨模块动作带来源和用户动作标签；清除筛选与清除选择分开；禁止事件自我循环。"
+      ],
+      "limits": [
+        "这里只核验Community选择与筛选源码，不安装依赖、不复制组件；不把Enterprise功能标为MIT。",
+        "生产交易和实时行情不是此UI库可认证的能力；大表性能未在V6实测。"
+      ],
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "源码/官方文档设计审阅；未安装执行",
+      "verificationMethod": "GitHub connector固定commit/source读取；gh Git blob只读交叉校验SHA-1和SHA-256",
+      "id": "UA04",
+      "category": "interface-and-module-linkage",
+      "adoptionStatus": "design-reference-recommended-independent-implementation"
+    },
+    {
+      "repository": "glideapps/glide-data-grid",
+      "name": "Glide Data Grid",
+      "commit": "0875d78cc41535a39f8b417ff88ce1ebe129c363",
+      "reviewedOn": "2026-11-14",
+      "license": "根与 core 包 MIT；实际采用时依赖和嵌入资源仍需各自审查。",
+      "licenseReads": [
+        {
+          "path": "LICENSE",
+          "blobSha": "cc5d8d6947262c6d79e6cb4de9154686f3bb6589",
+          "bytes": 1072,
+          "sha256": "2b170413ac49c921a3aa773706367d11d149ddd6b9d536ce460f2860da0d7636",
+          "url": "https://github.com/glideapps/glide-data-grid/blob/0875d78cc41535a39f8b417ff88ce1ebe129c363/LICENSE",
+          "readScope": "完整许可文本读取"
+        }
+      ],
+      "reads": [
+        {
+          "path": "packages/core/src/internal/data-grid/use-selection-behavior.ts",
+          "blobSha": "e7f6f9ee9ac12771b3e689c3c6b067194a0b23b1",
+          "bytes": 6484,
+          "sha256": "192496ba088a2a28c46b1c3f6ebd84e6ff43041c48df8015e545bf96d338036b",
+          "url": "https://github.com/glideapps/glide-data-grid/blob/0875d78cc41535a39f8b417ff88ce1ebe129c363/packages/core/src/internal/data-grid/use-selection-behavior.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游"
+        }
+      ],
+      "borrow": [
+        "当前单元格、行集合、列集合分开；exclusive/mixed/additive明确定义互斥与累加。",
+        "选择触发类型包含click/drag/keyboard-nav/keyboard-select/edit，回调统一交出新状态。"
+      ],
+      "v6Application": [
+        "查看股票详情与多选比较采用不同动作，不因点击卡片误选/取消其他对照项。",
+        "当前选择对键盘和触摸一致；列表过滤或分页不应悄悄清空明确选择，失效项给出可恢复提示。"
+      ],
+      "limits": [
+        "本次没有把canvas大表或React依赖引入V6；移动端窄屏仍需原生可读卡片。",
+        "只读取选择状态逻辑，未运行上游或宣称读屏/性能全部兼容V6。"
+      ],
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "源码/官方文档设计审阅；未安装执行",
+      "verificationMethod": "GitHub connector固定commit/source读取；gh Git blob只读交叉校验SHA-1和SHA-256",
+      "id": "UA05",
+      "category": "interface-and-module-linkage",
+      "adoptionStatus": "design-reference-recommended-independent-implementation"
+    },
+    {
+      "repository": "apache/superset",
+      "name": "Apache Superset",
+      "commit": "f81191d55eef3e0fa3ae04b1c83d4e474a2a392a",
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0 根许可；NOTICE及字体等子组件另有许可。这里只借鉴通用机制，不复制组件/字体/品牌。",
+      "licenseReads": [
+        {
+          "path": "LICENSE.txt",
+          "blobSha": "56313ab5a54a163e7d46224cb5470a814c3a2436",
+          "bytes": 11585,
+          "sha256": "ff254eb676d6ed2b36f26a74e7c50411cd57e11823f3e91004ffe48fcfd273cf",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/LICENSE.txt",
+          "readScope": "完整许可文本读取"
+        }
+      ],
+      "reads": [
+        {
+          "path": "superset-frontend/src/dashboard/components/nativeFilters/FilterBar/CrossFilters/CrossFilterTag.tsx",
+          "blobSha": "44467a356f93f65fde7e6cfa4cbc171b4e2a1949",
+          "bytes": 3048,
+          "sha256": "46e3ec6fa9869aa59e456389880a019300ddaaf8b8a0de71bb4adf596d903499",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/superset-frontend/src/dashboard/components/nativeFilters/FilterBar/CrossFilters/CrossFilterTag.tsx",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游"
+        },
+        {
+          "path": "superset-frontend/plugins/plugin-chart-ag-grid-table/src/utils/getCrossFilterDataMask.ts",
+          "blobSha": "ef404606931cec5ef8eef5c52462af18def2b710",
+          "bytes": 4279,
+          "sha256": "482bcaa4de1eabc236085045afb3925bae2d83325c0cd66414d3f087c0e19e18",
+          "url": "https://github.com/apache/superset/blob/f81191d55eef3e0fa3ae04b1c83d4e474a2a392a/superset-frontend/plugins/plugin-chart-ag-grid-table/src/utils/getCrossFilterDataMask.ts",
+          "readScope": "读取完整文件字节；选择/事件/过滤的关键实现逐项审阅，未运行上游"
+        }
+      ],
+      "borrow": [
+        "交叉筛选标签同时显示列和值，可按emitterId定向移除，不误清其他发射源的过滤。",
+        "点击已激活值可清除该筛选；数据mask把实际查询过滤条件与展示label/value分别记录，空选择显式清空。"
+      ],
+      "v6Application": [
+        "把研究上下文做成可见、可移除的股票/运行版本/日期标签，来源和作用范围清楚。",
+        "新闻/证据/成绩视图复用同一股票选择；用户清除股票标签时清除对应过滤并保留无关视图设置。"
+      ],
+      "limits": [
+        "过滤mask不应被当作账户访问权限；V6服务端仍需逐请求验证。",
+        "不会导入Superset查询后端或连接数据库；只采用单页内受控状态与显式作用域。"
+      ],
+      "upstreamInstalled": false,
+      "upstreamTestsExecuted": false,
+      "codeCopied": false,
+      "upstreamRunMode": "源码/官方文档设计审阅；未安装执行",
+      "verificationMethod": "GitHub connector固定commit/source读取；gh Git blob只读交叉校验SHA-1和SHA-256",
+      "id": "UA06",
+      "category": "interface-and-module-linkage",
+      "adoptionStatus": "design-reference-recommended-independent-implementation"
+    }
+  ]
+}

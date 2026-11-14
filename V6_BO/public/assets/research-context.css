@@ -1,0 +1,11 @@
+#researchContext{border:1px solid #355b80;border-radius:12px;background:#102037;padding:16px;margin:18px 0;min-width:0;overflow-wrap:anywhere}
+#researchContext h2{font-size:17px;margin:0 0 12px}#researchContextForm{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+#researchContextForm label{display:grid;gap:5px;min-width:0;font-size:13px;color:#b7d3ef}#researchContextForm input{width:170px;max-width:100%}
+#researchContextForm select{min-height:44px;border:1px solid #3c4f6b;border-radius:8px;background:#0e192b;color:#e6edf7;padding:9px;max-width:100%}
+#researchContext button,#researchContext input{min-height:44px}#researchContextClear{background:#263d57}
+#researchContextCurrent{font-size:14px;font-weight:650;color:#b9deff;margin:12px 0 8px;font-variant-numeric:tabular-nums}
+#researchContextStatus{font-size:13px;line-height:1.6;color:#b4c7df;margin:10px 0 0}
+.research-context-targets{display:flex;flex-wrap:wrap;gap:8px}.research-context-targets button{background:#203d5b;border:1px solid #446684;padding:8px 12px}
+#researchContext :focus-visible{outline:3px solid #a4d6ff;outline-offset:3px}
+#workspaceContent .workspace-drilldown{min-height:44px;min-width:44px;margin:8px 0}
+@media(max-width:600px){#researchContext{padding:13px}#researchContextForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#researchContextForm input,#researchContextForm select{width:100%;font-size:16px}#researchContextForm button{width:100%;padding:9px 6px}.research-context-targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.research-context-targets button{width:100%;padding:9px 6px;font-size:13px}}
