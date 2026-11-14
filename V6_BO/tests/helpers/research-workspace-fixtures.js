@@ -15,7 +15,7 @@ function fixture({index=70,symbol='600000',provider='tencent',priceShift=0}={}){
 }
 function native(index=70,symbol='600000'){
  const pack=require('../../strategies/a-share-strategy-pack.json');
- return {gptEvidence:{symbol,date:dates[index],knownAt:at(index),source:'synthetic-native-gpt-factor-fixture',scores:Object.fromEntries([...new Set(pack.strategies.flatMap(s=>s.rules.map(r=>r.field)))].map(k=>[k,k==='riskScore'?0:100]))},
+ return {gptEvidence:{symbol,date:dates[index],knownAt:at(index),source:'synthetic-native-gpt-factor-fixture',scores:Object.fromEntries([...new Set(pack.strategies.flatMap(s=>s.rules.map(r=>r.field)))].map(k=>[k,k==='riskScore'?0:100])),market:{breadthScore:70,indexTrendScore:70,marketVolumeScore:70,riskScore:0,volatilityScore:20,sentimentScore:70}},
   pythonEvidence:{symbol,date:dates[index],observedThrough:dates[index],knownAt:at(index),evaluatorVersion:'python-native/synthetic-fixture-v1',provenance:'python-runtime:isolated-test-only',rounds:[1,2,3].map(round=>({round,verdict:'pass',reason:'合成独立运行验证',observedThrough:dates[index]}))}};
 }
 function event(data,sequence=1,recordedAt=data.asOf){return {kind:'analysis',hash:digest({sequence,data,recordedAt}),sequence,recordedAt,data};}

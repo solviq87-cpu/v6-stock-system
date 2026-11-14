@@ -62,10 +62,12 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   if(e.aucTicks!==undefined){const t=e.aucTicks;if(!t||Object.keys(t).some(k=>!['preClose','bars'].includes(k))||!finite(t.preClose)||t.preClose<=0||!Array.isArray(t.bars)||t.bars.length>11||t.bars.some((b,i)=>Object.keys(b).some(k=>!['t','price','volume'].includes(k))||!/^09:(?:1[5-9]|2[0-5])$/.test(b.t)||i&&t.bars[i-1].t>=b.t||!finite(b.price)||b.price<=0||!finite(b.volume)||b.volume<0))throw Error('竞价分时证据无效');}
   fourteen={stock:{...e.stock,...actual},rows:nativeRows,...Object.fromEntries(['sector','auction','aucTicks','lhb','profitRatio'].filter(k=>e[k]!==undefined).map(k=>[k,e[k]]))};
  }
- let scores={};
+ let scores={},gptMarket=null;
  if(gptEvidence!==undefined){
   if(gptEvidence?.symbol!==stock.symbol||gptEvidence.date!==last.date||!known(gptEvidence.knownAt,at)||typeof gptEvidence.source!=='string'||!/^\w[\w./:-]{2,159}$/.test(gptEvidence.source)||gptEvidence.source.includes('://'))throw Error('GPT因子证据必须匹配股票、日期和已知时间');
-  scores=Object.fromEntries(Object.entries(gptEvidence.scores||{}).filter(([,v])=>finite(v)));
+  scores=Object.fromEntries(Object.entries(gptEvidence.scores||{}).filter(([,v])=>finite(v)&&v>=0&&v<=100));
+  const fields=['breadthScore','indexTrendScore','marketVolumeScore','riskScore','volatilityScore','sentimentScore'];
+  if(fields.every(k=>finite(gptEvidence.market?.[k])&&gptEvidence.market[k]>=0&&gptEvidence.market[k]<=100))gptMarket=Object.fromEntries(fields.map(k=>[k,gptEvidence.market[k]]));
  }
  let pythonResult;
  if(pythonEvidence!==undefined){
@@ -81,8 +83,8 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  for(const r of systems.fourteen.rules)if(r.id===11&&!finite(fourteen.stock.limitUpCount)||r.id===9&&!['limitUpCount','breakCount','sealAmount','amount'].every(k=>finite(fourteen.stock[k])))Object.assign(r,{status:'unknown',observed:null,reason:'封板、连板及证券状态原始证据不足；不采用默认零值'});
  let gptVerdict='unknown';
  const pack=require('../../strategies/a-share-strategy-pack.json');
- if([...new Set(pack.strategies.flatMap(s=>s.rules.map(r=>r.field)))].every(f=>finite(scores[f])))
-  gptVerdict=require('./multi-strategy-engine').evaluateMultiStrategy({snapshot:scores,market:{},strategies:pack.strategies}).pass?'pass':'fail';
+ if(gptMarket&&[...new Set(pack.strategies.flatMap(s=>s.rules.map(r=>r.field)))].every(f=>finite(scores[f])))
+  gptVerdict=require('./multi-strategy-engine').evaluateMultiStrategy({snapshot:scores,market:gptMarket,strategies:pack.strategies}).pass?'pass':'fail';
  const addRule=(system,rule,coverageOnly=false)=>{
   const proof={source:system==='python'?pythonResult?.provenance:system==='gpt'?gptEvidence?.source:system==='fourteen'&&fourteenEvidence?fourteenEvidence.source:'v6-native/'+system,
    availableAt:system==='python'?pythonEvidence?.knownAt:system==='gpt'?gptEvidence?.knownAt:system==='fourteen'&&fourteenEvidence?fourteenEvidence.knownAt:at,recordedAt:at,evidenceId:bundleHash};
@@ -96,6 +98,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  array(systems.fourteen.rules).forEach(x=>addRule('fourteen',x));
  array(systems.bazi.dimensions).forEach(x=>addRule('bazi',x,true));
  array(systems.gpt).forEach((s,i)=>array(s.rules).forEach(x=>addRule('gpt',{...x,id:i+':'+x.id,label:s.name+' · '+x.label})));
+ if(!gptMarket)addRule('gpt',{id:'market-context',label:'原生市场环境输入',status:'unknown',reason:'缺少同一时点六项市场评分，不采用默认中性值'});
  array(systems.python.rules).forEach(x=>addRule('python',x));
  if(!systems.python.available)addRule('python',{id:'native-three-rounds',label:'原生三轮结果',status:'unknown',reason:systems.python.reason});
  for(const rule of array(r.research36?.code===stock.symbol?r.research36.evaluations:[]))for(const c of array(rule.checks)){
@@ -122,7 +125,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   priceBasis:stock.priceBasis,observationHash:r.observation?.observationHash||null,bundleHash,sourceRefs,
   inputCoverage:{providedBars:stock.bars.length,admittedClosedBars:bars.length,excludedBars:stock.bars.length-bars.length},
   conditions:rules,evidence:nodes,systems:conditionGroups,regime,regimeMeaning:'同日上证涨跌方向分组，不是行情因果或生产市场择时',
-  nativeInputs:{fourteen:fourteenEvidence||null,gpt:gptEvidence?{symbol:stock.symbol,date:last.date,knownAt:gptEvidence.knownAt,source:gptEvidence.source,scores}:null,python:pythonEvidence||null},
+  nativeInputs:{fourteen:fourteenEvidence||null,gpt:gptEvidence?{symbol:stock.symbol,date:last.date,knownAt:gptEvidence.knownAt,source:gptEvidence.source,scores,market:gptMarket}:null,python:pythonEvidence||null},
   context:{linkage:linked?r.linkage||null:null,sectorContext:linked?bundle.sectorContext:null,financials:linked?bundle.marketContext?.financials:null,
    indices:linked?bundle.marketContext?.indices:null},
   bars:bars.map(b=>Object.fromEntries(['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt','limitUpPrice','limitReferencePrice','limitPct','noPriceLimit','limitKnownAt'].filter(k=>b[k]!==undefined).map(k=>[k,b[k]]))),

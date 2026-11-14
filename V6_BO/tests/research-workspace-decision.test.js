@@ -22,6 +22,7 @@ test('four systems stay independent; native three-round evidence and GPT factors
  assert.equal(missing.conditions.find(c=>c.id==='fourteen:11').status,'unknown');assert.ok(missing.systems.find(s=>s.id==='bazi').coverageOnly);
  const r=D.buildWorkspaceDecision(f,native());assert.equal(r.systems.find(s=>s.id==='python').verdict,'pass');assert.equal(r.systems.find(s=>s.id==='gpt').verdict,'pass');
  assert.match(r.systems[0].version,/fourteen\/[a-f0-9]{16}/);assert.equal(r.systems.find(s=>s.id==='bazi').support.length,0);
+ const noMarket=native();delete noMarket.gptEvidence.market;const unknown=D.buildWorkspaceDecision(f,noMarket);assert.equal(unknown.systems.find(s=>s.id==='gpt').verdict,'unknown');assert.ok(unknown.systems.find(s=>s.id==='gpt').missing.some(c=>c.id==='gpt:market-context'));
  const wrong=native();wrong.gptEvidence.symbol='600001';assert.throws(()=>D.buildWorkspaceDecision(f,wrong),/匹配/);
  const future=native();future.pythonEvidence.knownAt=f.asOf+1;assert.throws(()=>D.buildWorkspaceDecision(f,future),/时点/);
 });
