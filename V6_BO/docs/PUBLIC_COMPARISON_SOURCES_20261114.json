@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-14",
+  "v6Baseline": "9d15c034177445c071b32cb2a5b2226f656b46eb",
+  "method": "固定版本关键源码与官方公开说明对照；不代表完整代码审计、安装验证、数据授权或收益认证；未复制上游实现。网页为访问日期快照，不具备Git提交不可变性。",
+  "canonicalRepositoryNote": "GitHub API按仓库ID返回OpenBB为openbq-org/OpenBB、GX为fivetran/great_expectations；使用实际返回的canonical owner与固定SHA，不沿用旧组织名推定许可。",
+  "sources": [
+    {
+      "id": "S01",
+      "name": "daily_stock_analysis",
+      "reviewedOn": "2026-11-14",
+      "repository": "ZhuLinsen/daily_stock_analysis",
+      "commit": "70f250597e9a2b0afe2d7dd6b992c90926916105",
+      "rootLicenseNote": "根MIT；筛选子目录另有Apache-2.0与第三方声明",
+      "reads": [
+        {
+          "path": "src/schemas/analysis_context_pack.py",
+          "url": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/70f250597e9a2b0afe2d7dd6b992c90926916105/src/schemas/analysis_context_pack.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "src/services/run_diagnostics.py",
+          "url": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/70f250597e9a2b0afe2d7dd6b992c90926916105/src/services/run_diagnostics.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://github.com/ZhuLinsen/daily_stock_analysis/blob/70f250597e9a2b0afe2d7dd6b992c90926916105/THIRD_PARTY_NOTICES.md"
+      ]
+    },
+    {
+      "id": "S02",
+      "name": "Qlib",
+      "reviewedOn": "2026-11-14",
+      "repository": "microsoft/qlib",
+      "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "rootLicenseNote": "MIT",
+      "reads": [
+        {
+          "path": "docs/component/recorder.rst",
+          "url": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/docs/component/recorder.rst",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "qlib/data/pit.py",
+          "url": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/qlib/data/pit.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://qlib.readthedocs.io/en/stable/component/recorder.html"
+      ]
+    },
+    {
+      "id": "S03",
+      "name": "QUANTAXIS",
+      "reviewedOn": "2026-11-14",
+      "repository": "yutiansut/QUANTAXIS",
+      "commit": "232aa7ac9869966108f02a8fff85f1f7b09a9ce2",
+      "rootLicenseNote": "根MIT；不据此推定数据使用权",
+      "reads": [
+        {
+          "path": "QUANTAXIS/QAData/data_resample.py",
+          "url": "https://github.com/yutiansut/QUANTAXIS/blob/232aa7ac9869966108f02a8fff85f1f7b09a9ce2/QUANTAXIS/QAData/data_resample.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": []
+    },
+    {
+      "id": "S04",
+      "name": "Qbot",
+      "reviewedOn": "2026-11-14",
+      "repository": "UFund-Me/Qbot",
+      "commit": "f0425ae4ae8bd02b79656b8f7039f4cd6874095e",
+      "rootLicenseNote": "根MIT；内嵌第三方目录须另核",
+      "reads": [
+        {
+          "path": "qbot/engine/backtest/backtest_base.py",
+          "url": "https://github.com/UFund-Me/Qbot/blob/f0425ae4ae8bd02b79656b8f7039f4cd6874095e/qbot/engine/backtest/backtest_base.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": []
+    },
+    {
+      "id": "S05",
+      "name": "QuantConnect LEAN",
+      "reviewedOn": "2026-11-14",
+      "repository": "QuantConnect/Lean",
+      "commit": "82d26047e95a89b53c9cbe02b67efaa3c4455ed9",
+      "rootLicenseNote": "Apache-2.0；云服务/数据另行约束",
+      "reads": [
+        {
+          "path": "Common/Data/Market/Dividend.cs",
+          "url": "https://github.com/QuantConnect/Lean/blob/82d26047e95a89b53c9cbe02b67efaa3c4455ed9/Common/Data/Market/Dividend.cs",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "Common/Data/Market/Split.cs",
+          "url": "https://github.com/QuantConnect/Lean/blob/82d26047e95a89b53c9cbe02b67efaa3c4455ed9/Common/Data/Market/Split.cs",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://www.quantconnect.com/docs/v2/writing-algorithms/key-concepts/research-guide",
+        "https://www.quantconnect.com/docs/v2/writing-algorithms/optimization/walk-forward-optimization"
+      ]
+    },
+    {
+      "id": "S06",
+      "name": "Freqtrade",
+      "reviewedOn": "2026-11-14",
+      "repository": "freqtrade/freqtrade",
+      "commit": "5197bedab82559fac6be6c1539c64b94368fb91c",
+      "rootLicenseNote": "GPL-3.0（根LICENSE文本）；实际移植前另核文件/依赖",
+      "reads": [
+        {
+          "path": "docs/lookahead-analysis.md",
+          "url": "https://github.com/freqtrade/freqtrade/blob/5197bedab82559fac6be6c1539c64b94368fb91c/docs/lookahead-analysis.md",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "docs/recursive-analysis.md",
+          "url": "https://github.com/freqtrade/freqtrade/blob/5197bedab82559fac6be6c1539c64b94368fb91c/docs/recursive-analysis.md",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://www.freqtrade.io/en/stable/lookahead-analysis/",
+        "https://www.freqtrade.io/en/stable/recursive-analysis/"
+      ]
+    },
+    {
+      "id": "S07",
+      "name": "Ghostfolio",
+      "reviewedOn": "2026-11-14",
+      "repository": "ghostfolio/ghostfolio",
+      "commit": "f58465aea78dd0c386cf9bcde5a22fbcf508911a",
+      "rootLicenseNote": "AGPL-3.0（根LICENSE文本）；不复制实现",
+      "reads": [
+        {
+          "path": "apps/api/src/models/rules/account-cluster-risk/single-account.ts",
+          "url": "https://github.com/ghostfolio/ghostfolio/blob/f58465aea78dd0c386cf9bcde5a22fbcf508911a/apps/api/src/models/rules/account-cluster-risk/single-account.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "apps/api/src/models/rules/fees/fee-ratio-total-investment-volume.ts",
+          "url": "https://github.com/ghostfolio/ghostfolio/blob/f58465aea78dd0c386cf9bcde5a22fbcf508911a/apps/api/src/models/rules/fees/fee-ratio-total-investment-volume.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": []
+    },
+    {
+      "id": "S08",
+      "name": "Portfolio Performance",
+      "reviewedOn": "2026-11-14",
+      "repository": "portfolio-performance/portfolio",
+      "commit": "e8f60849cf2ebd44e56a5b793cde5cdffe15ae12",
+      "rootLicenseNote": "EPL-1.0（根LICENSE文本）；不复制实现",
+      "reads": [
+        {
+          "path": "name.abuchen.portfolio/src/name/abuchen/portfolio/math/IRR.java",
+          "url": "https://github.com/portfolio-performance/portfolio/blob/e8f60849cf2ebd44e56a5b793cde5cdffe15ae12/name.abuchen.portfolio/src/name/abuchen/portfolio/math/IRR.java",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://help.portfolio-performance.info/en/concepts/performance/",
+        "https://help.portfolio-performance.info/en/reference/view/taxonomies/"
+      ]
+    },
+    {
+      "id": "S09",
+      "name": "OpenBB核心及Workspace文档",
+      "reviewedOn": "2026-11-14",
+      "repository": "openbq-org/OpenBB",
+      "commit": "e43353a82815ff9ba56ad1b7ad47c32729dcf314",
+      "rootLicenseNote": "本次固定核心LICENSE为Apache-2.0；不据此给Workspace商业服务/UI授权",
+      "reads": [
+        {
+          "path": "openbb_platform/core/openbb_core/provider/abstract/fetcher.py",
+          "url": "https://github.com/openbq-org/OpenBB/blob/e43353a82815ff9ba56ad1b7ad47c32729dcf314/openbb_platform/core/openbb_core/provider/abstract/fetcher.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://docs.openbb.co/workspace/analysts/widgets/overview",
+        "https://docs.openbb.co/workspace/developers/data-integration"
+      ]
+    },
+    {
+      "id": "S10",
+      "name": "Evidently",
+      "reviewedOn": "2026-11-14",
+      "repository": "evidentlyai/evidently",
+      "commit": "34771fe41c08ca074d96a52aaf4a45cd640cbaf5",
+      "rootLicenseNote": "Apache-2.0",
+      "reads": [
+        {
+          "path": "src/evidently/presets/drift.py",
+          "url": "https://github.com/evidentlyai/evidently/blob/34771fe41c08ca074d96a52aaf4a45cd640cbaf5/src/evidently/presets/drift.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://docs.evidentlyai.com/metrics/preset_data_drift"
+      ]
+    },
+    {
+      "id": "S11",
+      "name": "MLflow",
+      "reviewedOn": "2026-11-14",
+      "repository": "mlflow/mlflow",
+      "commit": "480c3b01730007a11d536412f9094e99d47f9252",
+      "rootLicenseNote": "Apache-2.0",
+      "reads": [
+        {
+          "path": "mlflow/data/dataset.py",
+          "url": "https://github.com/mlflow/mlflow/blob/480c3b01730007a11d536412f9094e99d47f9252/mlflow/data/dataset.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://mlflow.org/docs/latest/ml/tracking/"
+      ]
+    },
+    {
+      "id": "S12",
+      "name": "OpenLineage",
+      "reviewedOn": "2026-11-14",
+      "repository": "OpenLineage/OpenLineage",
+      "commit": "c41626e99af0a02ad95a2805979167ad948ecb7b",
+      "rootLicenseNote": "Apache-2.0（根LICENSE）；标准/文档按各自声明",
+      "reads": [
+        {
+          "path": "spec/facets/DatasetVersionDatasetFacet.json",
+          "url": "https://github.com/OpenLineage/OpenLineage/blob/c41626e99af0a02ad95a2805979167ad948ecb7b/spec/facets/DatasetVersionDatasetFacet.json",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        },
+        {
+          "path": "spec/facets/ErrorMessageRunFacet.json",
+          "url": "https://github.com/OpenLineage/OpenLineage/blob/c41626e99af0a02ad95a2805979167ad948ecb7b/spec/facets/ErrorMessageRunFacet.json",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://openlineage.io/docs/spec/object-model/"
+      ]
+    },
+    {
+      "id": "S13",
+      "name": "OpenTelemetry",
+      "reviewedOn": "2026-11-14",
+      "repository": null,
+      "commit": null,
+      "rootLicenseNote": "仅参考公开规范与官方文档；未移植代码",
+      "reads": [],
+      "officialDocs": [
+        "https://opentelemetry.io/docs/concepts/signals/traces/"
+      ]
+    },
+    {
+      "id": "S14",
+      "name": "LangGraph JS",
+      "reviewedOn": "2026-11-14",
+      "repository": "langchain-ai/langgraphjs",
+      "commit": "fa426b293b6ecccbf62b4f262475777b4bf86673",
+      "rootLicenseNote": "MIT；LangSmith等托管服务另行约束",
+      "reads": [
+        {
+          "path": "libs/checkpoint/src/base.ts",
+          "url": "https://github.com/langchain-ai/langgraphjs/blob/fa426b293b6ecccbf62b4f262475777b4bf86673/libs/checkpoint/src/base.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://docs.langchain.com/oss/javascript/langgraph/persistence",
+        "https://docs.langchain.com/oss/javascript/langgraph/interrupts"
+      ]
+    },
+    {
+      "id": "S15",
+      "name": "Great Expectations GX Core",
+      "reviewedOn": "2026-11-14",
+      "repository": "fivetran/great_expectations",
+      "commit": "eadca9dd020d37f039ba9fd69a7e0b826acaced3",
+      "rootLicenseNote": "Apache-2.0（根LICENSE）",
+      "reads": [
+        {
+          "path": "great_expectations/core/expectation_suite.py",
+          "url": "https://github.com/fivetran/great_expectations/blob/eadca9dd020d37f039ba9fd69a7e0b826acaced3/great_expectations/core/expectation_suite.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试"
+        }
+      ],
+      "officialDocs": [
+        "https://docs.greatexpectations.io/docs/core/introduction/gx_overview/",
+        "https://docs.greatexpectations.io/docs/core/run_validations/run_a_validation_definition/"
+      ]
+    },
+    {
+      "id": "S16",
+      "name": "TradingView",
+      "reviewedOn": "2026-11-14",
+      "repository": null,
+      "commit": null,
+      "rootLicenseNote": "闭源商业产品；仅比较官方公开交互说明，不复制代码/购买服务",
+      "reads": [],
+      "officialDocs": [
+        "https://www.tradingview.com/support/solutions/43000712747-bar-replay-how-and-why-to-test-a-strategy-in-the-past/",
+        "https://www.tradingview.com/support/solutions/43000718804-how-to-create-save-and-update-a-custom-screen/",
+        "https://www.tradingview.com/blog/en/screener-autosave-undo-58224/"
+      ]
+    }
+  ]
+}
