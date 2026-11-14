@@ -1959,6 +1959,7 @@ const SKIP_RULE = {
   buyHeld: '已持有（同票不重复买）',
   buyNoPrice: '取不到有效价',
   buyStalePrice: '没有实时行情（陈旧价不成交）',
+  buyMonitorCapacity: '持仓已达监控容量（暂停自动买入）',
   buySealed: '已封涨停（一字板买不进）',
   buyNoCash: '现金不足一手',
   buyOverCash: '现金不足（含手续费）',
@@ -6253,22 +6254,23 @@ async function tick() {
     //    板块强势股（龙一）根本不在监控集 → 盘中大单/趋势/涨停检测永远扫不到它们。
     //    把各板块领涨股（东财板块流给的 leaderCode，前20个板块）并入监控集，让板块强势股也能被盘中扫描。
     // 持仓优先取原时点可核验的报价；即使已经移出候选池，止损巡检也不能失去覆盖。
-    const _mon = new Set();
-    for (const account of Object.values(PAPER)) {
-      for (const code of Object.keys(account.positions || {})) if (/^\d{6}$/.test(code)) _mon.add(code);
-    }
-    for (const c of S.candidatePool.slice(0, 100)) if (c && /^\d{6}$/.test(c.code)) _mon.add(c.code);
-    for (const sec of (S.sectors || []).slice(0, 20)) {
-      if (sec.leaderCode && /^\d{6}$/.test(sec.leaderCode)) _mon.add(sec.leaderCode);
-    }
-    const codes = [..._mon].slice(0, 220);
+    const { monitorPlan, monitorCoverage } = require('./src/core/monitor-capacity');
+    const plan = monitorPlan(PAPER, S.candidatePool, S.sectors, S.loop.monitorNextOffset);
+    const codes = plan.codes;
     monitorCodes = codes;
+    S.loop.monitorNextOffset = plan.nextOffset;
+    S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetching');
+    // A capacity-deferred symbol is a sampling gap, not an uninterrupted funds window.
+    const requestedCodes = new Set(codes);
+    for (const code of S.inflowHistory.keys()) if (!requestedCodes.has(code)) S.inflowHistory.delete(code);
     let snaps;
     try { snaps = await em.fetchBatchSnapshot(codes); }
     catch (e) {
+      S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
       for (const code of codes) S.inflowHistory.delete(code);
       throw e;
     }
+    S.loop.monitor = monitorCoverage(plan, snaps, Date.now(), 'observed', PAPER);
     // An omitted stock is an observation gap, even when other stocks succeeded.
     const returnedCodes = new Set(snaps.map(row => row.code));
     for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
@@ -11949,8 +11951,8 @@ async function intradayStrongScan(opts = {}) {
       const speed = +(s.speed || 0);
       const turnover = +(s.turnover || 0);
       const amount = +(s.amount || 0);
-      const mainPct = +(s.mainPct || 0);
-      const mainInflow = +(s.mainInflow || 0);
+      const mainPct = fundsNumber(s.mainPct);
+      const mainInflow = fundsNumber(s.mainInflow);
       const capYi = s.floatCap > 0 ? +(s.floatCap / 1e8).toFixed(1) : 0;
       const sector = sectorOfStock(s) || s.sector || '';
       const heat = sectorHeat(sector);
@@ -11985,7 +11987,7 @@ async function intradayStrongScan(opts = {}) {
       reasons.push(`成交 ${amountYi.toFixed(1)}亿`);
 
       // 5. 主力资金（0-18 分）：净占比为主，净流入为辅
-      const mainScore = Math.min(18, Math.max(0, mainPct * 1.2));
+      const mainScore = mainPct === null ? 0 : Math.min(18, Math.max(0, mainPct * 1.2));
       score += mainScore;
       if (mainPct > 0) reasons.push(`主力净占比 ${mainPct.toFixed(1)}%`);
       if (mainInflow > 1e7) reasons.push(`主力净流入 ${(mainInflow / 1e8).toFixed(1)}亿`);
@@ -12035,8 +12037,8 @@ async function intradayStrongScan(opts = {}) {
         speed: +speed.toFixed(2),
         turnover: +turnover.toFixed(1),
         amount,
-        mainPct: +mainPct.toFixed(1),
-        mainInflow: Math.round(mainInflow),
+        mainPct: fundsRounded(mainPct, 1),
+        mainInflow: mainInflow === null ? null : Math.round(mainInflow),
         sector,
         score: _sm2.score,
         rawScore: _sm2.rawScore,
@@ -13989,8 +13991,13 @@ function paperBuy(key, cands, pm, reasonOf) {
   if (!isContinuousTrading()) return;  // 非连续竞价不自动买入（拿竞价/陈旧价买＝假成交）
   const cfg = PAPER_CFG[key], acc = PAPER[key];
   if (!acc.enabled || !cands || !cands.length) return;
+  const { heldCodes, MONITOR_CAPACITY } = require('./src/core/monitor-capacity');
+  // Existing exits keep their per-stock quote/T+1 gates. Do not add exposure
+  // when the bounded monitor has no room for another distinct holding.
+  if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); return; }
   const bought = [],executionQuotes=paperAuthorityQuotes();
   for (const c of cands) {
+    if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); break; }
     if (Object.keys(acc.positions).length >= cfg.maxPos) { skipAdd('buyHeld'); break; }
     // ⛔ dv 轮：这几处 continue 以前完全静默 —— 面板只显示"暂无持仓（等待新信号）"，
     //    而真实原因可能是"5 只候选全因一字板买不进"或"现金不足一手"，用户根本无从自查。
