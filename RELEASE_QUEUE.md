@@ -17,6 +17,10 @@
 
 上述只是接口在核查时返回的开放 PR；以后必须重新读取最新队列，不可依据本表猜测 PR 是否已合并、关闭、CI 成功或正在写入。
 
+## 本轮源码研究
+
+- 分支 `audit/daily-stock-deep-20261114`，基线 `9251e27`；[深度对照报告](V6_BO/docs/DAILY_STOCK_ANALYSIS_DEEP_REVIEW_20261114.md)。仅文档，不是新增功能发布包，未部署。候选按D01～D16分批实施；不直接合并上游项目或旧UI草稿。
+
 ## 管理文档 PR
 
 - #209 `docs/v6-task-coordination-20261113` 已合入 dev `e986fcc`：四份任务协调 Markdown（V6-003），不等于业务部署。

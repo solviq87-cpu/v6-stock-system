@@ -3,10 +3,12 @@
 <!-- CURRENT_CHECKPOINT_START -->
 ## 当前断点 · 2026-11-14（先核对实际 Git，再读对应模块）
 
+- 本轮研究基线：`dev@9251e27d718e52ca2568f17b1c360ecae8a69102`（含#215文档回执）。用户要求先深挖 daily_stock_analysis；登录与飞书现场检查暂缓。研究分支 `audit/daily-stock-deep-20261114`，16项对照及实施验收见 `V6_BO/docs/DAILY_STOCK_ANALYSIS_DEEP_REVIEW_20261114.md`。本批只改文档，候选功能尚未实施。
+- 后续借鉴首选：统一证据卡、决策变化时间线、四体系分歧解释；复用现有档案和比较模块。上游固定 `70f2505`，15个Agent模板与10个筛选配置分开；上游pytest因缺依赖未启动，不能当已通过。原现场队列保留。
 - 当前业务版本：`dev@ac52fda658699176bb9c6839cc94385720303975`（PR #214已合并；已保留#213股票清单导入）。#209/#210/#211/#212 已合并；下面历史段落的“待合并”只描述当时状态。
-- 本批已交付：[PR #214](https://github.com/solviq87-cpu/v6-stock-system/pull/214)，V6-001/006冷启动恢复与V6-003续接入口。无需重复修复；现场验收仍待。
-- 验证：精确PR head `cfe02ca` 的远端CI [43563319326](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43563319326)成功，合并树全量3397通过/0失败/0跳过、网页40通过，包含#213；本地3384通过/3可选ML跳过为较早基线证据。生产状态另验。
-- 本批：100只快照恢复边界、退市池全过滤后回填、异常/未来时间新鲜度、损坏快照诊断；原始逐票时间保留，恢复不调用实时价格入账。测试/回滚见 `V6_BO/docs/BOOT_SNAPSHOT_CONTINUATION_20261114.md`。
+- 上一批业务交付：[PR #214](https://github.com/solviq87-cpu/v6-stock-system/pull/214)，V6-001/006冷启动恢复与V6-003续接入口。无需重复修复；现场验收仍待。
+- 上一批验证：精确PR head `cfe02ca` 的远端CI [43563319326](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43563319326)成功，合并树全量3397通过/0失败/0跳过、网页40通过，包含#213；本地3384通过/3可选ML跳过为较早基线证据。生产状态另验。
+- 上一批修复：100只快照恢复边界、退市池全过滤后回填、异常/未来时间新鲜度、损坏快照诊断；原始逐票时间保留，恢复不调用实时价格入账。测试/回滚见 `V6_BO/docs/BOOT_SNAPSHOT_CONTINUATION_20261114.md`。
 - 快速续接：`npm run context:resume`，仅输出实际本地 SHA、分支、脏文件与本段；origin/dev 是本地缓存，仍须查询 GitHub 的最新 dev/PR/精确 head CI。命令不会联网或更改仓库。
 - 稳定约束：现有完整工程增量维护；不采购服务；凭据不入Git；原四体系、账户历史和两张主页保持；只使用原报价时点判断15秒，不把收到时间当报价时间。
 - 发布：本批未执行生产写入。唯一发布 owner 与事务/快照依赖见 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md`；静态发布不等于完整后台部署。
