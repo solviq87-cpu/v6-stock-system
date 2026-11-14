@@ -3,10 +3,12 @@ const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypt
 const store=require('./research-workspace-store'),decision=require('./research-workspace-decision'),analytics=require('./research-workspace-analytics');
 const checks=require('./research-workspace-diagnostics');
 const modelForecast=require('./model-forward-evaluation');
+const marketLinkage=require('./market-sector-stock-linkage');
+const {enrichMarketLinkageHistory}=require('./market-linkage-history');
 const array=x=>Array.isArray(x)?x:[];
 const rootOf=options=>options.workspaceRoot||path.join(path.dirname(options.observationRoot),'research-workspace');
 function codeVersion(){
- const files=['research-workspace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','model-forward-evaluation.js','../strategy/rule-comparison.js'];
+ const files=['research-workspace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','market-sector-stock-linkage.js','market-linkage-history.js','model-forward-evaluation.js','../strategy/rule-comparison.js'];
  return {fingerprint:store.digest(files.map(f=>({file:f,sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,f))).digest('hex')}))),
   commit:/^[a-f0-9]{40}$/.test(process.env.V6_SOURCE_COMMIT||'')?process.env.V6_SOURCE_COMMIT:null};
 }
@@ -30,7 +32,7 @@ function saveDiagnostic(options,data){
 async function reviewStored(input,options,{read}={}){
  const {symbol,provider,requestId,nativeEvidence}=input||{};
  if(!/^\d{6}$/.test(symbol||'')||!['eastmoney','tencent'].includes(provider)||typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(requestId))throw Error('需要六位代码、明确档案来源和请求ID');
- if(nativeEvidence!==undefined&&(!nativeEvidence||Array.isArray(nativeEvidence)||Object.keys(nativeEvidence).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence'].includes(k))))throw Error('原生策略证据字段无效');
+ if(nativeEvidence!==undefined&&(!nativeEvidence||Array.isArray(nativeEvidence)||Object.keys(nativeEvidence).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence','marketLinkageEvidence'].includes(k))))throw Error('原生策略证据字段无效');
  const root=rootOf(options),fingerprint=store.digest({symbol,provider,nativeEvidence:nativeEvidence||null}),prior=store.readEvents(root).find(e=>e.requestId===requestId);
  if(prior){if(prior.kind!=='analysis'||prior.data.requestFingerprint!==fingerprint)throw Error('请求ID与内容冲突');return {ok:true,runId:prior.hash,reused:true,...store.FLAGS};}
  const t=trace();
@@ -117,7 +119,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
     funnel:screen?.data.funnel||null,lookupStatus:!screen?'no-screen-run':!evaluated?'not-evaluated-in-this-run':!screenRows.length?'filtered-out':'available',provenance:screen?.data.provenance||null},
   scorecard:{...scorecard,observations:outcomes.slice(offset,offset+limit),observationTotal:outcomes.length,offset,limit,stress:[{feeBps:16,slippageBps:30,sellTaxBps:5},{feeBps:32,slippageBps:50,sellTaxBps:5}].map(cost=>({assumptions:cost,groups:analytics.scorecards(events,{asOf,...cost}).groups}))},quality:analytics.qualityReport(latest?.data),
   inputAudit:checks.inputAudit(latest?.data),pairedComparison:checks.pairedComparison(latest?.data,compared?.data),drift:checks.driftReport(events,asOf),
-  forecastEvaluation,
+  forecastEvaluation,marketLinkage:enrichMarketLinkageHistory(marketLinkage.buildMarketSectorStockLinkage(events,{selectedEvent:latest,asOf}),events,{selectedEvent:latest,asOf}),
   publicModelComparison:new Date(asOf+28800000).toISOString().slice(0,10)>='2026-11-14'?require('../../config/public-model-comparison-20261114.json'):{models:[],reason:'对照目录晚于回放时点，不作为当时已知资料'},
   defense:query.asOf===undefined?analytics.holdingDefense(events,accounts,quotes,asOf,preferences?.data):{rows:[],exposures:[],reason:'历史回放不借用当前持仓；原账本没有该时点快照'},
   preferences:{revision:preferences?.revision||0,value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
@@ -128,7 +130,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
 }
 function exportResearch(view){
  return {schemaVersion:1,mode:'research-reproducible-export',...store.FLAGS,asOf:view.asOf,run:view.selectedRun,
-  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
+  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,marketLinkage:view.marketLinkage,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
   inputAudit:view.inputAudit,pairedComparison:view.pairedComparison,drift:view.drift,
   forecastEvaluation:view.forecastEvaluation,
   omitted:['实际账户持仓、成本、令牌、Webhook和私有文件路径'],scope:'selected-private-research-evidence-only'};

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "design-only-not-implemented",
+  "checkedAtUTC": "2026-11-14",
+  "baseline": "0cc2228c922082a1eecf7478942cf6532a7aebbc",
+  "scope": "Repository audit and independently proposed market-sector-stock analysis. Not a live market ranking, causal model, production integration or return validation.",
+  "webSources": [
+    {
+      "id": "CSI300",
+      "url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/en/000300_Index_Methodology_en.pdf",
+      "httpStatus": 200,
+      "bytes": 1254452,
+      "sha256": "e8de553ca0fc0a45870688535047752600779cc2902ce1ed8ff5f701cb0a0e72",
+      "publicationOrRevisionDate": null,
+      "readSections": [
+        "4.2",
+        "5.1"
+      ],
+      "supports": "Free-float adjusted shares and divisor maintenance; sector returns or total market cap are not exact index attribution.",
+      "limits": "CSI300 methodology only; each other benchmark needs its own applicable methodology and effective data."
+    },
+    {
+      "id": "StockChartsRelativeRotation",
+      "url": "https://chartschool.stockcharts.com/table-of-contents/chart-analysis/chart-types/relative-rotation-graphs-rrg-charts",
+      "httpStatus": 200,
+      "bytes": 20434,
+      "sha256": "280bea9304e85798d6e1e0b842f3ca257055a08fd99a2a3a59224aa178afc81d",
+      "publicationOrRevisionDate": null,
+      "supports": "Relative to a selected benchmark; relative strength and its momentum differ. Idealized rotation is not guaranteed.",
+      "limits": "Reference only; independent return-difference charts must not be represented as proprietary JdK RRG indicators."
+    },
+    {
+      "id": "StockChartsBreadth",
+      "url": "https://chartschool.stockcharts.com/table-of-contents/market-indicators/advance-decline-line",
+      "httpStatus": 200,
+      "bytes": 13152,
+      "sha256": "83bf72f95256c89a086ae9f5723929bb7a54a8db303aa8ee22c73ef7ca174273",
+      "publicationOrRevisionDate": null,
+      "supports": "Advances minus declines counts each stock equally, unlike capitalization-weighted price indexes.",
+      "limits": "Our proposed normalized breadth is independently defined; it is not the accumulated AD Line."
+    },
+    {
+      "id": "QuantConnectPIT",
+      "url": "https://www.quantconnect.com/docs/v2/writing-algorithms/key-concepts/research-guide",
+      "httpStatus": 200,
+      "bytes": 443682,
+      "sha256": "53922cd226e90d8f2b5cec8d59ac619361c67c9e0c83c740c523d5f91c67c685",
+      "publicationOrRevisionDate": null,
+      "supports": "Dynamic universes and point-in-time data; current constituent backtests introduce survivorship bias.",
+      "limits": "Reporting lag cannot reconstruct missing historical membership. The plan blocks such historical claims."
+    }
+  ],
+  "repositorySources": [
+    {
+      "id": "AKShareIndustry",
+      "repository": "akfamily/akshare",
+      "commit": "ab94ddf63d2ef4aa9561b4c512ea4c17e729b204",
+      "path": "akshare/stock/board/stock_board_industry_em.py",
+      "readLines": [
+        1,
+        225
+      ],
+      "gitBlobSha": "e27bd47675e95db32e91146ad95d34f09fe32d94",
+      "url": "https://github.com/akfamily/akshare/blob/ab94ddf63d2ef4aa9561b4c512ea4c17e729b204/akshare/stock/board/stock_board_industry_em.py",
+      "license": {
+        "name": "MIT",
+        "path": "LICENSE",
+        "gitBlobSha": "2cf236b6bb27d23fa6031b8acd20e61b7152083b",
+        "url": "https://github.com/akfamily/akshare/blob/ab94ddf63d2ef4aa9561b4c512ea4c17e729b204/LICENSE"
+      },
+      "supports": "The industry listing maps f104/f105 to advancing/declining counts and f128/f136/f140 to the reported leading stock and return/code; these are provider fields, not index weight or contribution.",
+      "limits": "Source and license inspected only. No installed SDK, copied code, live API availability, historical membership or market-data redistribution authorization established."
+    }
+  ],
+  "verification": {
+    "command": "node --test tests/daily-sector-strength.test.js tests/market-sector-resilience.test.js tests/market-sector-pattern-linkage.test.js tests/linked-factor-research.test.js tests/sector-relations.test.js tests/sector-rotation-history.test.js tests/sector-breadth-market-bridge.test.js tests/sector-member-identity-proof.test.js tests/sector-relations-capture-bridge.test.js tests/research-workspace-analytics.test.js",
+    "cwd": "V6_BO",
+    "tests": 91,
+    "pass": 91,
+    "fail": 0,
+    "skipped": 0,
+    "log": "/workspace/scratch/market-sector-stock-audit.tap",
+    "meaning": "Existing module contract regression only; proposed index attribution and role rules do not exist or pass acceptance merely because this regression passed."
+  },
+  "rawWebEvidenceLocation": "/workspace/scratch/market-relation-sources",
+  "policy": {
+    "upstreamCodeCopied": false,
+    "dependenciesAdded": false,
+    "runtimeChanged": false,
+    "productionDeployed": false,
+    "paidServicesPurchased": false
+  }
+}

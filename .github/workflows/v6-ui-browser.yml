@@ -23,6 +23,7 @@ on:
       - 'V6_BO/scripts/ui-research-summary-cards-check.js'
       - 'V6_BO/scripts/ui-research-selection-check.js'
       - 'V6_BO/scripts/ui-research-context-check.js'
+      - 'V6_BO/scripts/ui-market-linkage-check.js'
       - 'V6_BO/scripts/ui-model-library-context-check.js'
       - 'V6_BO/scripts/verify-browser-clock.js'
       - 'V6_WEB/workbuddy/**'
@@ -47,6 +48,7 @@ on:
       - 'V6_BO/scripts/ui-research-summary-cards-check.js'
       - 'V6_BO/scripts/ui-research-selection-check.js'
       - 'V6_BO/scripts/ui-research-context-check.js'
+      - 'V6_BO/scripts/ui-market-linkage-check.js'
       - 'V6_BO/scripts/ui-model-library-context-check.js'
       - 'V6_BO/scripts/verify-browser-clock.js'
       - 'V6_WEB/workbuddy/**'
@@ -112,6 +114,7 @@ jobs:
           node scripts/ui-research-summary-cards-check.js
           node scripts/ui-research-selection-check.js
           node scripts/ui-research-context-check.js
+          node scripts/ui-market-linkage-check.js
           node scripts/ui-model-library-context-check.js
       - name: Verify research36 evidence import, configuration, privacy and responsive layout
         env:

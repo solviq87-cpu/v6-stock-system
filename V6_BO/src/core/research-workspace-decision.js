@@ -3,6 +3,7 @@ const {digest,FLAGS}=require('./research-workspace-store');
 const fs=require('node:fs'),path=require('node:path');
 const {compareRuleSystems}=require('../strategy/rule-comparison');
 const {evaluatePythonEvidence}=require('./python-three-round-evidence');
+const {normalizeMarketLinkageEvidence}=require('./market-sector-stock-linkage');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const time=x=>Number.isSafeInteger(x)&&x>0;
 const array=x=>Array.isArray(x)?x:[];
@@ -13,7 +14,7 @@ function strategyVersions(){
  const files={fourteen:['../../myrules.js','../../analysis.js'],bazi:['../../bazi.js','../../analysis.js'],gpt:['multi-strategy-engine.js','strategy-engine.js','market-regime.js','../../strategies/a-share-strategy-pack.json'],python:['python-three-round-evidence.js']};
  return Object.fromEntries(Object.entries(files).map(([id,names])=>[id,id+'/'+digest(names.map(f=>fs.readFileSync(path.join(__dirname,f),'utf8'))).slice(0,16)]));
 }
-function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvidence,benchmarkEvidence}={}){
+function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvidence,benchmarkEvidence,marketLinkageEvidence}={}){
  const r=result||{},stock=r.stock,at=r.asOf,bundle=r.evidenceBundle;
  if(!stock||!/^\d{6}$/.test(stock.symbol)||!time(at)||!known(stock.observedAt,at)||
   !Array.isArray(stock.bars)||stock.bars.length>500||!['eastmoney','tencent'].includes(stock.provider)||stock.source!==stock.provider||stock.priceBasis!=='unadjusted')throw Error('需要带身份和时点的已归档股票');
@@ -21,6 +22,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   !['open','high','low','close'].every(k=>finite(b[k])&&b[k]>0)||b.high<Math.max(b.open,b.close,b.low)||b.low>Math.min(b.open,b.close,b.high)||!finite(b.volume)||b.volume<0))throw Error('归档K线顺序、价格或成交量无效');
  const bars=stock.bars.filter(b=>known(b.knownAt,at)&&b.date<=day(at)&&Date.parse(b.date+'T15:10:00+08:00')<=at&&b.knownAt>=Date.parse(b.date+'T15:10:00+08:00'));
  const last=bars.at(-1);if(!last)throw Error('没有截止研究时点的闭合日K');
+ const marketLinkage=marketLinkageEvidence===undefined?null:normalizeMarketLinkageEvidence(marketLinkageEvidence,{asOf:at,tradeDate:last.date,provider:stock.provider,symbol:stock.symbol});
  let benchmarkSeries=null;
  if(benchmarkEvidence!==undefined){
   const b=benchmarkEvidence;
@@ -127,7 +129,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   conditions:rules,evidence:nodes,systems:conditionGroups,regime,regimeMeaning:'同日上证涨跌方向分组，不是行情因果或生产市场择时',
   nativeInputs:{fourteen:fourteenEvidence||null,gpt:gptEvidence?{symbol:stock.symbol,date:last.date,knownAt:gptEvidence.knownAt,source:gptEvidence.source,scores,market:gptMarket}:null,python:pythonEvidence||null},
   context:{linkage:linked?r.linkage||null:null,sectorContext:linked?bundle.sectorContext:null,financials:linked?bundle.marketContext?.financials:null,
-   indices:linked?bundle.marketContext?.indices:null},
+   indices:linked?bundle.marketContext?.indices:null,marketLinkageEvidence:marketLinkage},
   bars:bars.map(b=>Object.fromEntries(['date','open','high','low','close','volume','amount','knownAt','statusKnownAt','suspended','tradable','isST','corporateAction','corporateActionKnownAt','limitUpPrice','limitReferencePrice','limitPct','noPriceLimit','limitKnownAt'].filter(k=>b[k]!==undefined).map(k=>[k,b[k]]))),
   tradeDates:array(r.analysis?.tradeDates),calendarEvidence:r.calendar?.metadata||null,benchmarkSeries,targetDate:r.calendar?.nextTradeDate||null,dueAt:r.priceEventResearch?.currentHypothesis?.dueAt||null,
   originalResearch:r.decisionReview||null,sourceStatus:r.history?.status||'unknown',statusEvidence:statusRows.length,
