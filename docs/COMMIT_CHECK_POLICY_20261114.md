@@ -22,3 +22,13 @@ GitHub Actions 只对触发运行关联的 SHA 给出检查。历史提交本来
 - CI 失败不得标记为交付成功；PR 与 dev 必须有精确 head SHA 的 verify 和 verify-web 成功记录，UI 改动另查浏览器结果。
 - 仓库分支保护/必需检查需拥有 GitHub 管理权限的维护者在 Settings → Rules → Rulesets 设置；单靠 YAML 不能强制 GitHub 拒绝绕过检查的合并。要求至少 verify、verify-web，UI 结果在 UI PR 中应一并审核；不要把因路径过滤导致的未触发状态误设成全仓永久必需检查。
 - 代码提交的相关测试结果、SHA、未测范围要随 PR 和交接记录留存；不要为了绿色结果删断言、改成功定义或跳过测试。
+
+
+## 补充：批量推送也按每个 SHA 检查（2026-11-15）
+
+- 新增 .github/workflows/v6-per-commit-smoke.yml。普通非归档 push 用 GitHub Compare API 枚举 before 到 after 的完整新增提交，不依赖可能截断的 webhook commits 列表。
+- 每个新增 SHA 分别检出并执行语法、行情质量和订单状态的轻量测试，获得 GitHub commit status v6/per-commit-smoke。绿色表示该次快速测试通过，不能替代完整 V6 CI 的 verify / verify-web、受影响的 visual-geometry，也不能证明线上已发布。
+- 执行测试的作业仅有只读权限，并禁止 checkout 保存令牌。唯一具有 statuses: write 权限的作业不检出、不执行分支代码，只读取 GitHub 官方作业结果，写回每个精确提交的成功/失败状态。
+- 新建分支首次 push 仅验证其当前头 SHA，不为旧祖先补造结果。强制推送、非快进或超过 32 个新提交的单次推送必须停止并报告，需安全地拆分推送；不能把本次限制绕过当成通过。
+- 该记录是 commit status，不是 GitHub Actions check run；提交列表可显示结果，PR Checks 面板仍须以原 Actions 检查为准。archive/** 保留归档校验流程。
+- 要强制阻断无检查的合并，仍必须由有仓库规则管理权限的维护者建立 Ruleset，把 verify、verify-web 与适用的 v6/per-commit-smoke 设为必需并核对来源；仅有 YAML 不等于已开启仓库合并保护。
