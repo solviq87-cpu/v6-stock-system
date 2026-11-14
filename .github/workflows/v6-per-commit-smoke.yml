@@ -1,0 +1,119 @@
+# Every newly pushed source revision gets its own *smoke* status.
+# Full V6 CI remains an independent release gate on the push head.
+name: V6 Per-Commit Smoke
+on:
+  push:
+    branches: ['**', '!archive/**']
+permissions:
+  contents: read
+jobs:
+  select:
+    if: github.repository == 'solviq87-cpu/v6-stock-system' && github.event.deleted != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    outputs:
+      matrix: ${{ steps.range.outputs.matrix }}
+      shas: ${{ steps.range.outputs.shas }}
+    steps:
+      - name: Obtain the full forward commit range, not a truncated webhook list
+        id: range
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner,repo}=context.repo;
+            const before=context.payload.before,after=context.sha;
+            const valid=s=>typeof s==='string'&&/^[a-f0-9]{40}$/.test(s);
+            if(!valid(after)||after!==context.payload.after||context.payload.forced)throw Error('unsafe-or-forced-push');
+            let shas;
+            if(context.payload.created||/^0{40}$/.test(before||'')){
+              // A newly created ref does not newly introduce all historical ancestors.
+              shas=[after];
+            }else{
+              if(!valid(before))throw Error('invalid-previous-sha');
+              const res=await github.rest.repos.compareCommits({owner,repo,base:before,head:after,per_page:100,page:1});
+              const cmp=res.data;
+              if(cmp.status!=='ahead'||!Number.isSafeInteger(cmp.ahead_by)||cmp.ahead_by<1||cmp.ahead_by>32)throw Error('nonforward-or-over-32-commit-push');
+              shas=(cmp.commits||[]).map(x=>x.sha);
+              if(shas.length!==cmp.ahead_by||shas[shas.length-1]!==after)throw Error('incomplete-or-wrong-commit-range');
+            }
+            if(!shas.length||shas.length>32||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-sha-matrix');
+            core.setOutput('matrix',JSON.stringify({include:shas.map(sha=>({sha}))}));
+            core.setOutput('shas',JSON.stringify(shas));
+            await core.summary.addRaw('检测新增 SHA：'+shas.length+'。每条独立快速测试，完整 V6 CI 另行执行。').write();
+  smoke:
+    name: per-sha-${{ matrix.sha }}
+    needs: select
+    if: needs.select.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact revision, syntax and isolated safety fixtures
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --check V6_BO/server.js
+          node --check V6_BO/src/server/bootstrap.js
+          node --check V6_BO/public/assets/app.js
+          node --check V6_WEB/scripts/build.mjs
+          node --test --test-timeout=60000 \
+            V6_BO/tests/commit-check-triggers.test.js \
+            V6_BO/tests/market-feed-consensus.test.js \
+            V6_BO/tests/paper-order-state-machine.test.js
+  publish-status:
+    name: per-commit-evidence
+    needs: [select, smoke]
+    if: always() && needs.select.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # The status writer never checks out or executes untrusted branch code.
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+    steps:
+      - name: Attach one truthful status per tested SHA
+        uses: actions/github-script@v7
+        env:
+          COVERAGE_SHAS: ${{ needs.select.outputs.shas }}
+        with:
+          script: |
+            const {owner,repo}=context.repo;
+            const shas=JSON.parse(process.env.COVERAGE_SHAS||'[]');
+            const valid=s=>typeof s==='string'&&/^[a-f0-9]{40}$/.test(s);
+            if(!shas.length||shas.length>32||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-coverage-targets');
+            const attempt=Number(process.env.GITHUB_RUN_ATTEMPT||'1');
+            if(!Number.isSafeInteger(attempt)||attempt<1)throw Error('invalid-run-attempt');
+            const response=await github.rest.actions.listJobsForWorkflowRunAttempt({
+              owner,repo,run_id:context.runId,attempt_number:attempt,per_page:100,page:1
+            });
+            if(response.data.total_count>100||response.data.jobs.length!==response.data.total_count)throw Error('job-records-not-complete');
+            const jobs=response.data.jobs;
+            let failures=0;
+            for(const sha of shas){
+              const matches=jobs.filter(job=>job.name==='per-sha-'+sha);
+              const ok=matches.length===1&&matches[0].status==='completed'&&matches[0].conclusion==='success';
+              await github.rest.repos.createCommitStatus({
+                owner,repo,sha,state:ok?'success':'failure',context:'v6/per-commit-smoke',
+                description:ok?'Exact SHA syntax + 3 targeted tests passed; full CI separate':'Exact SHA smoke missing or failed; full CI separate',
+                target_url:'https://github.com/'+owner+'/'+repo+'/actions/runs/'+context.runId+'/attempts/'+attempt
+              });
+              if(!ok)failures++;
+            }
+            await core.summary.addRaw('逐 SHA 独立状态写入 '+shas.length+'；失败 '+failures+'。这不是完整 CI 或线上发布结果。').write();
+            if(failures)throw Error('per-sha-smoke-failed:'+failures);
