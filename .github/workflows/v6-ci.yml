@@ -25,6 +25,21 @@ jobs:
         run: |
           node --check V6_BO/scripts/cloud-records-backup-preflight.js
           node --test V6_BO/tests/cloud-records-backup-preflight.test.js
+  verify-cloud-ledger-anchor:
+    name: cloud-records-ledger-anchor-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Detect valid-chain rollback and reject nonauthoritative recovery claims
+        run: |
+          node --check V6_BO/scripts/cloud-records-ledger-anchor-audit.js
+          node --test V6_BO/tests/cloud-records-ledger-anchor-audit.test.js
   verify-cloud-client:
     name: cloud-records-cas-client
     runs-on: ubuntu-24.04
