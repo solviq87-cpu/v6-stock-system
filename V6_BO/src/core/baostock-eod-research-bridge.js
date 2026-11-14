@@ -112,6 +112,8 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
  }
  const history={schemaVersion:1,source:'imported',provider:'baostock',
   datasetId:bundle.datasetId,priceBasis:'unadjusted',
+  priceAdjustment:{mode:'unadjusted',provider:'baostock-adjustflag-3'},
+  volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   asOf:bundle.asOf,observedAt:bundle.observedAt,stocks,
   evidenceProtocol:'baostock-eod-research-export-v1',
   upstreamUsageScope:'operator-review-required',

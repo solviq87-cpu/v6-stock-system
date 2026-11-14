@@ -4,6 +4,7 @@
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {resolveUpstream}=require('./data-source-lineage');
+const {evaluateMarketEvidence}=require('./market-evidence-quality');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
@@ -49,14 +50,29 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  }
  const bs=new Map(secondary.stocks.map(s=>[String(s.code||s.symbol),s]));
  const differences=[];let total=0,comparedBars=0,amountComparedBars=0,amountCoverageGapBars=0;
+ const symbolEvidence=new Map(primary.stocks.map(s=>[String(s.code||s.symbol),{symbol:String(s.code||s.symbol),comparedBars:0,discrepancies:0,fields:[]}]));
  let maximumPriceDifferenceBps=0,maximumVolumeDifferencePct=0,maximumAmountDifferencePct=0;
- function note(symbol,date,field,lhs,rhs,relative){total++;if(differences.length<maxDiscrepancies)differences.push({symbol,date,field,primary:lhs,secondary:rhs,relativeDifference:Math.round(relative*1e4)/1e4});}
+ function note(symbol,date,field,lhs,rhs,relative){
+  total++;
+  const evidence=symbolEvidence.get(symbol);
+  if(evidence){evidence.discrepancies++;if(!evidence.fields.includes(field))evidence.fields.push(field);}
+  if(differences.length<maxDiscrepancies)differences.push({symbol,date,field,primary:lhs,secondary:rhs,relativeDifference:Math.round(relative*1e4)/1e4});
+ }
  for(const s of primary.stocks){
   const symbol=String(s.code||s.symbol),other=bs.get(symbol);
   if(!other)throw Error('多源股票代码集合不一致: '+symbol);
   for(let i=0;i<s.bars.length;i++){
    const x=s.bars[i],y=other.bars[i];if(x.date!==y.date)throw Error('多源交易日错位: '+symbol);
-   comparedBars++;
+   comparedBars++;symbolEvidence.get(symbol).comparedBars++;
+   // A price/turnover match cannot override contradictory halt flags.
+   if(x.suspended!==undefined||y.suspended!==undefined){
+    if(typeof x.suspended!=='boolean'||typeof y.suspended!=='boolean')
+     note(symbol,x.date,'suspension-coverage',x.suspended??null,y.suspended??null,100);
+    else if(x.suspended!==y.suspended)
+     note(symbol,x.date,'suspension-status',x.suspended,y.suspended,100);
+    if((x.suspended===true&&x.volume!==0)||(y.suspended===true&&y.volume!==0))
+     note(symbol,x.date,'suspension-volume-integrity',x.volume,y.volume,100);
+   }
    for(const field of ['open','high','low','close']){
     const value=Math.abs(x[field]-y[field])/Math.max(Math.abs(x[field]),Math.abs(y[field]),1e-9)*10000;
     maximumPriceDifferenceBps=Math.max(maximumPriceDifferenceBps,value);
@@ -84,6 +100,9 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
    }
   }
  }
+ const evidenceQuality=evaluateMarketEvidence({catalogued:upstreamA.known&&upstreamB.known,
+  timestampComparable:observationSkewMs!==null,volumeUnitVerified,
+  amountUnitVerified:amountRequested,amountCoverageGapBars,amountComparedBars,comparedBars,discrepancies:total});
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,upstreamGroup:upstreamA.group,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,upstreamGroup:upstreamB.group,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
@@ -93,6 +112,7 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   asOf:primary.asOf,priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
   timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
   comparedBars,amountComparedBars,amountCoverageGapBars,discrepancies:total,displayedDiscrepancies:differences,
+  bySymbol:[...symbolEvidence.values()],evidenceQuality,
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,

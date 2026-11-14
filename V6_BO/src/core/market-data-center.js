@@ -66,6 +66,12 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
     const reference=JSON.parse(fs.readFileSync(secondaryFile,'utf8'));
     consensus=compareMarketFeeds(incoming,reference);
     if(!consensus.consensus)throw Error('双供应商行情不一致，共 '+consensus.discrepancies+' 项差异');
+    // The optional comparison file is a WRITE GATE, not just a displayed
+    // diagnostic: distinct names or equal numbers alone never authorize import.
+    if(consensus.evidenceQuality?.status!=='consistent-research-only')
+     throw Error('双源独立上游身份、时间、股数或实际成交额证据不足，拒绝写入历史');
+    if(incoming.observedAt>observedAt||reference.observedAt>observedAt)
+     throw Error('双源采集时点位于导入时钟未来，拒绝写入历史');
    }
    let changed=true;
    if(fs.existsSync(outputFile)){
@@ -75,7 +81,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
    }
    if(changed){atomicWrite(outputFile,stable(incoming)+'\n');updates++;}
    lastDigest=digest(stable(incoming));lastSuccess=new Date().toISOString();lastError=null;
-   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary}:null};
+   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary,evidenceQuality:consensus.evidenceQuality,bySymbol:consensus.bySymbol}:null};
   }catch(e){lastError=e.message;return {updated:false,error:lastError};}
   finally{busy=false;}
  }
