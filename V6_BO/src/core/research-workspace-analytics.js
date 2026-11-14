@@ -46,21 +46,41 @@ function timeline(events,symbol,asOf){
 }
 function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5}={}){
  if(![feeBps,slippageBps,sellTaxBps].every(x=>finite(x)&&x>=0&&x<=1000))throw Error('成绩单费用假设无效');
- const runs=analysisEvents(events,asOf),latest=new Map(),first=new Map();
- for(const e of runs){latest.set(e.data.symbol+'|'+e.data.provider,e.data);const d=e.data;for(const s of d.systems){const key=[d.symbol,d.provider,d.tradeDate,s.id,s.version].join('|');if(!first.has(key))first.set(key,{run:e,data:d,system:s});}}
+ const runs=analysisEvents(events,asOf),latest=new Map(),first=new Map(),prices=new Map();
+ const priceIdentity=d=>{
+  // Version-one workspace decisions predate the currency field and contain
+  // unadjusted CNY A-share bars. Unknown schemas/bases are never interchangeable.
+  const legacy=d.schemaVersion===1&&d.researchOnly===true&&d.canTrade===false&&d.canNotify===false&&d.productionWeightsChanged===false&&/^[a-f0-9]{64}$/.test(d.observationHash||'');
+  if(!legacy||!/^\d{6}$/.test(d.symbol||'')||!['tencent','eastmoney'].includes(d.provider)||d.priceBasis!=='unadjusted'||Object.hasOwn(d,'currency')&&d.currency!=='CNY')return null;
+  return d.symbol+'|'+d.provider+'|unadjusted|CNY';
+ };
+ // Keep the existing latest analysis-time correction policy per date. A rolling
+ // snapshot omitting a date does not erase older evidence for that date.
+ for(const e of runs){const identity=priceIdentity(e.data);if(!identity)continue;latest.set(identity,e.data);if(!prices.has(identity))prices.set(identity,new Map());
+  for(const bar of array(e.data.bars))if(typeof bar.date==='string')prices.get(identity).set(bar.date,{bar,event:e});
+ }
+ const validPrice=row=>{if(!row)return false;const {bar:b,event:e}=row,closed=Date.parse(b.date+'T15:10:00+08:00');
+  return /^\d{4}-\d{2}-\d{2}$/.test(b.date)&&Number.isFinite(closed)&&day(closed)===b.date&&Number.isSafeInteger(b.knownAt)&&b.knownAt>=closed&&b.knownAt<=Math.min(asOf,e.data.asOf,e.recordedAt)&&
+   ['open','high','low','close'].every(k=>finite(b[k])&&b[k]>0)&&b.high>=Math.max(b.open,b.close,b.low)&&b.low<=Math.min(b.open,b.close,b.high)&&finite(b.volume)&&b.volume>=0;
+ };
+ // The first server receipt owns the signal; a later backdated analysis must
+ // not replace an already frozen pass/fail or remove its outcome sample.
+ for(const e of runs.slice().sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence)){const d=e.data;for(const s of d.systems){const key=[d.symbol,d.provider,d.tradeDate,s.id,s.version].join('|');if(!first.has(key))first.set(key,{run:e,data:d,system:s});}}
  const buckets=new Map(),observations=[];
  for(const {run,data:d,system:s}of first.values())for(const horizon of [1,5,20,60]){
   const key=[s.id,s.version,d.regime,horizon,d.provider].join('|');
   if(!buckets.has(key))buckets.set(key,{system:s.id,version:s.version,regime:d.regime,horizon,provider:d.provider,total:0,passed:0,rejected:0,unknown:0,pending:0,missing:0,blocked:0,price:[],net:[],excess:[],dates:new Set(),symbols:new Set(),windows:[]});
   const b=buckets.get(key);b.total++;
   if(s.verdict!=='pass'){b[s.verdict==='fail'?'rejected':'unknown']++;continue;}b.passed++;
-  const current=latest.get(d.symbol+'|'+d.provider),dates=array(current?.tradeDates),index=dates.indexOf(d.tradeDate);
+  const identity=priceIdentity(d),current=latest.get(identity),evidence=prices.get(identity),dates=array(current?.tradeDates),index=dates.indexOf(d.tradeDate);
   const entryDate=dates[index+1],exitDate=dates[index+1+horizon];
   if(index<0||!exitDate&&dates.at(-1)<day(asOf)){b.missing++;continue;}
   if(!exitDate||exitDate>day(asOf)){b.pending++;continue;}
-  const entry=current.bars.find(x=>x.date===entryDate),exit=current.bars.find(x=>x.date===exitDate);
-  const obs={runId:run.hash,symbol:d.symbol,system:s.id,horizon,signalDate:d.tradeDate,entryDate,exitDate,status:'missing',netReturnPct:null};
-  if(!entry||!exit||entry.knownAt>asOf||exit.knownAt>asOf){b.missing++;observations.push(obs);continue;}
+  const entrySource=evidence?.get(entryDate),exitSource=evidence?.get(exitDate),entry=entrySource?.bar,exit=exitSource?.bar;
+  const obs={runId:run.hash,symbol:d.symbol,system:s.id,horizon,signalDate:d.tradeDate,entryDate,exitDate,status:'missing',netReturnPct:null,
+   outcomePolicy:'latest-available-snapshot-containing-date',entryOutcomeRunId:entrySource?.event.hash??null,exitOutcomeRunId:exitSource?.event.hash??null,
+   entryOutcomeRecordedAt:entrySource?.event.recordedAt??null,exitOutcomeRecordedAt:exitSource?.event.recordedAt??null};
+  if(!validPrice(entrySource)||!validPrice(exitSource)){b.missing++;observations.push(obs);continue;}
   if(!(entry.open>0&&exit.open>0)){b.missing++;observations.push(obs);continue;}
   const entryOpen=Date.parse(entryDate+'T09:30:00+08:00');
   if(d.asOf>=entryOpen||run.recordedAt>=entryOpen){b.blocked++;obs.status='signal-frozen-after-entry';observations.push(obs);continue;}
@@ -71,8 +91,8 @@ function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5
   const limits=x=>{if(x.noPriceLimit!==false||!(x.limitReferencePrice>0)||!finite(x.limitPct)||x.limitPct<=0||x.limitPct>30||!Number.isSafeInteger(x.limitKnownAt)||x.limitKnownAt>Date.parse(x.date+'T09:30:00+08:00'))return null;
    const up=Math.round(x.limitReferencePrice*(1+x.limitPct/100)*100)/100,down=Math.round(x.limitReferencePrice*(1-x.limitPct/100)*100)/100;
    return finite(x.limitUpPrice)&&Math.abs(x.limitUpPrice-up)<.011&&x.high<=up+.011&&x.low>=down-.011?{up,down}:null;};
-  const entryLimit=limits(entry),exitLimit=limits(exit),windowDates=dates.slice(index+1,index+2+horizon),windowBars=current.bars.filter(x=>windowDates.includes(x.date));
-  const actionVerified=windowBars.length===windowDates.length&&windowBars.every(x=>x.corporateAction===false&&Number.isSafeInteger(x.corporateActionKnownAt)&&x.corporateActionKnownAt<=Date.parse(x.date+'T09:30:00+08:00'));
+  const entryLimit=limits(entry),exitLimit=limits(exit),windowDates=dates.slice(index+1,index+2+horizon),windowBars=windowDates.map(date=>evidence?.get(date));
+  const actionVerified=windowBars.length===windowDates.length&&windowBars.every(row=>validPrice(row)&&row.bar.corporateAction===false&&Number.isSafeInteger(row.bar.corporateActionKnownAt)&&row.bar.corporateActionKnownAt<=Date.parse(row.bar.date+'T09:30:00+08:00'));
   if(!usable(entry)||!usable(exit)||!actionVerified||!entryLimit||!exitLimit||entry.open>=entryLimit.up-.005||exit.open<=exitLimit.down+.005){b.blocked++;obs.status='unverified-execution';obs.priceReturnPct=round(priceReturn);observations.push(obs);continue;}
   const net=100*((exit.open*(1-slippageBps/10000)*(1-(feeBps+sellTaxBps)/10000))/(entry.open*(1+slippageBps/10000)*(1+feeBps/10000))-1);
   if(!finite(net)){b.blocked++;obs.status='invalid-cost-estimate';observations.push(obs);continue;}
@@ -91,8 +111,9 @@ function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5
   excessReturnPct:round(average(b.excess)),positiveFractionPct:b.net.length?round(100*b.net.filter(n=>n>0).length/b.net.length):null,
   status:b.net.length>=30&&nonOverlappingWindows>=10&&b.symbols.size>=10?'descriptive-only':'insufficient-independent-samples'};});
  return {groups,observations,systems:systems.map(id=>({id,groups:groups.filter(g=>g.system===id).length,status:groups.some(g=>g.system===id)?'observed':'not-evaluated'})),
-  assumptions:{feeBps,slippageBps,sellTaxBps,entry:'next-session-open',exit:'entry-plus-horizon-session-open',quantityMode:'percentage-paper-estimate-not-account-ledger'},
-  limitations:['含成本估计不是权威模拟账本收益；不报告没有成交证据的净收益','同股连续信号和重叠周期非独立样本；不按收益自动调权','缺同日期/口径基准时超额保持未知'],...FLAGS};
+  assumptions:{feeBps,slippageBps,sellTaxBps,entry:'next-session-open',exit:'entry-plus-horizon-session-open',quantityMode:'percentage-paper-estimate-not-account-ledger',signalSelection:'first-server-receipt',outcomeSelection:'latest-available-snapshot-containing-date'},
+  limitations:['含成本估计不是权威模拟账本收益；不报告没有成交证据的净收益','同股连续信号和重叠周期非独立样本；不按收益自动调权','缺同日期/口径基准时超额保持未知',
+   '同日信号取首次服务端接收；逐日期价格沿用截至查看时点最新分析快照中的修订，滚动窗口省略不删除旧证据'],...FLAGS};
 }
 function holdingDefense(events,accounts,quotes,asOf,preferences={}){
  const runs=analysisEvents(events,asOf),rows=[];
