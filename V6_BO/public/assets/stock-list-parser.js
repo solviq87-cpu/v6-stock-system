@@ -52,11 +52,17 @@
     if (new TextEncoder().encode(input).length > MAX_BYTES) throw Error('文件或文本不能超过 100 KB');
     if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]/.test(input)) throw Error('文本包含无效字符，请使用 UTF-8 CSV/TSV/TXT');
     const rows = readRows(input.replace(/^\ufeff/, '').replace(/\r\n?/g, '\n'));
+    return parseStockRows(rows);
+  }
+  function parseStockRows(rows, options = {}) {
+    if (!Array.isArray(rows) || rows.length > MAX_ROWS) throw Error('最多解析 ' + MAX_ROWS + ' 行');
+    if (rows.some(row => !row || !Number.isSafeInteger(row.line) || row.line < 1 || !Array.isArray(row.cells) || row.cells.some(value => typeof value !== 'string' || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]/.test(value)))) throw Error('表格含无效单元格或字符');
     const items = [], rejected = [], duplicates = [], seen = new Map(); let entries = 0;
-    const headers = rows[0]?.cells.map(x => x.toLowerCase()) || [];
+    const headers = rows[0]?.cells.map(x => x.trim().toLowerCase()) || [];
     const codes = headers.flatMap((x, i) => codeHeaders.has(x) ? [i] : []);
     const names = headers.flatMap((x, i) => nameHeaders.has(x) ? [i] : []);
     const table = codes.length > 0 || names.length > 0;
+    if (options.requireHeader && !table) throw Error('Excel 需要代码表头；请使用代码、股票代码或 symbol');
     if (table && (codes.length !== 1 || names.length > 1)) throw Error('表格需要唯一的代码列，名称列最多一列');
     function add(value, name, line) {
       if (++entries > MAX_ROWS) throw Error('最多解析 ' + MAX_ROWS + ' 个条目');
@@ -73,8 +79,10 @@
     }
     for (const row of rows.slice(table ? 1 : 0)) {
       if (table) {
-        if (row.cells.length !== headers.length) { rejected.push({ line: row.line, value: '', reason: '列数与表头不一致' }); continue; }
-        add(row.cells[codes[0]], names.length ? row.cells[names[0]] : '', row.line);
+        const invalid = [codes[0], ...(names.length ? [names[0]] : [])].map(i => row.invalidCells?.[i]).find(Boolean);
+        if (invalid) { rejected.push({ line: row.line, value: '', reason: invalid }); continue; }
+        if (!options.sparse && row.cells.length !== headers.length) { rejected.push({ line: row.line, value: '', reason: '列数与表头不一致' }); continue; }
+        add(row.cells[codes[0]] || '', names.length ? (row.cells[names[0]] || '').trim() : '', row.line);
       } else {
         // Without headers this is a code list, never a portfolio table: a
         // balance, quantity or name must not silently become a security.
@@ -83,5 +91,5 @@
     }
     return { items, rejected, duplicates, format: table ? 'table' : 'list', identityVerified: false };
   }
-  return { parseStockList, normalizeCode, MAX_BYTES, MAX_ROWS, MAX_SYMBOLS };
+  return { parseStockList, parseStockRows, normalizeCode, MAX_BYTES, MAX_ROWS, MAX_SYMBOLS };
 });

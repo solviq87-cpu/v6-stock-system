@@ -2,13 +2,13 @@
   'use strict';
   const el = id => document.getElementById(id), parser = globalThis.V6StockListParser;
   if (!el('stockListImport') || !parser) return;
-  let revision = 0;
+  let revision = 0, workbook = null, active = null;
   function node(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
   function clear(message = '清单已更改，请重新预览。') {
-    revision++; el('stockListPreview').replaceChildren(); el('stockListStatus').textContent = message;
+    revision++; active?.abort(); active = null; el('stockListPreview').replaceChildren(); el('stockListStatus').textContent = message;
   }
-  function render(text) {
-    const result = parser.parseStockList(text), host = el('stockListPreview'); host.replaceChildren();
+  function render(text, preview) {
+    const result = preview || parser.parseStockList(text), host = el('stockListPreview'); host.replaceChildren();
     el('stockListStatus').textContent = result.items.length + ' 只待核验 · ' + result.duplicates.length + ' 条重复 · ' + result.rejected.length + ' 条未识别';
     for (const item of result.items) {
       const row = node('div'); row.className = 'stock-import-row';
@@ -32,23 +32,67 @@
       host.append(details);
     }
   }
-  el('stockListText').addEventListener('input', () => { el('stockListFile').value = ''; clear(); });
+  function clearWorkbook() {
+    workbook = null; el('stockListSheet').replaceChildren(); el('stockListSheetLabel').hidden = true;
+  }
+  async function importWorkbook() {
+    clear();
+    const token = el('token')?.value.trim(), file = workbook, current = revision;
+    if (!token) { clear('请先填写编辑令牌，再上传解析 Excel。'); return; }
+    const controller = new AbortController(); active = controller;
+    const timer = setTimeout(() => controller.abort(), 15000);
+    el('stockListStatus').textContent = '正在上传至当前 V6 服务并解析…';
+    const unchanged = () => current === revision && workbook === file && el('token').value.trim() === token;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!unchanged()) return;
+      if (controller.signal.aborted) throw Error('解析超时');
+      if (bytes.length > 512 * 1024) throw Error('XLSX 文件不能超过 512 KB');
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      const response = await fetch('/api/research/import-workbook', { method: 'POST', cache: 'no-store', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ base64: btoa(binary), sheet: el('stockListSheet').value || undefined }) });
+      const data = await response.json();
+      if (!unchanged()) return;
+      if (controller.signal.aborted) throw Error('解析超时');
+      if (!response.ok || !data.ok) throw Error(data.locked ? '请先登录并使用有效编辑令牌。' : data.error || 'Excel 解析失败');
+      const result = data.result, select = el('stockListSheet'); select.replaceChildren();
+      const placeholder = node('option', '请选择工作表'); placeholder.value = ''; select.append(placeholder);
+      for (const sheet of result.sheets) {
+        const option = node('option', sheet.name + (sheet.available ? '' : '（隐藏，不导入）'));
+        option.value = sheet.name; option.disabled = !sheet.available; select.append(option);
+      }
+      el('stockListSheetLabel').hidden = false; select.value = result.selected || '';
+      if (result.preview) render('', result.preview);
+      else el('stockListStatus').textContent = '含多个工作表，请选择一个后再点击预览。';
+    } catch (error) {
+      if (unchanged()) clear(controller.signal.aborted ? 'Excel 解析超时，请重试或缩小文件。' : error instanceof SyntaxError ? 'Excel 服务不可用，请确认连接到 V6 后端。' : error.message);
+    } finally { clearTimeout(timer); if (active === controller) active = null; }
+  }
+  el('stockListSheet').addEventListener('change', () => clear('工作表已更改，请点击预览。'));
+  el('stockListText').addEventListener('input', () => { clearWorkbook(); el('stockListFile').value = ''; clear(); });
   el('stockListParse').addEventListener('click', () => {
+    if (workbook) return importWorkbook();
     clear(); try { render(el('stockListText').value); } catch (e) { clear(e.message); }
   });
   el('stockListFile').addEventListener('change', async () => {
-    clear(); el('stockListText').value = '';
+    clear(); clearWorkbook(); el('stockListText').value = '';
     const file = el('stockListFile').files[0], current = revision;
     if (!file) return;
     try {
-      if (!/\.(csv|tsv|txt)$/i.test(file.name)) throw Error('请选择 UTF-8 CSV/TSV/TXT；Excel 请复制表格或另存为 CSV UTF-8');
+      if (/\.xlsx$/i.test(file.name)) {
+        if (file.size > 512 * 1024) throw Error('XLSX 文件不能超过 512 KB');
+        workbook = file; el('stockListStatus').textContent = '已选择 Excel；点击预览后上传解析，不保存文件。'; return;
+      }
+      if (!/\.(csv|tsv|txt)$/i.test(file.name)) throw Error('请选择 XLSX 或 UTF-8 CSV/TSV/TXT；旧版 XLS 请另存为 XLSX');
       if (file.size > parser.MAX_BYTES) throw Error('文件不能超过 100 KB');
       const text = await file.text();
       if (revision !== current) return;
       el('stockListText').value = text; render(text);
     } catch (e) { if (revision === current) clear(e.message); }
   });
-  function reset() { el('stockListText').value = ''; el('stockListFile').value = ''; clear('清单已清空。'); }
+  function reset() { clearWorkbook(); el('stockListText').value = ''; el('stockListFile').value = ''; clear('清单已清空。'); }
   el('stockListClear').addEventListener('click', reset);
   for (const event of ['input', 'change']) el('token')?.addEventListener(event, reset);
   window.addEventListener('pagehide', reset);
