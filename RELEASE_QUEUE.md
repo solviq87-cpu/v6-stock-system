@@ -2,6 +2,8 @@
 
 ## 最新核对 · 2026-11-14
 
+- 实现续接`feat/research-closure-20261114`：[八类研究闭环](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)。#222已在精确head CI43578342431成功后合入`dev@f742809`；#221冲突已保留双边记录整合，等待最新head双CI。新研究功能正在专项/全量/浏览器验收，最终精确SHA和合并状态另记。未切换唯一发布者。
+
 - 本批仅文档审查：`docs/feature-public-comparison-20261114`，基线`9d15c034`。[八类功能/16来源/24候选核验](V6_BO/docs/FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)与来源清单已登记；原功能定向120通过，未改运行文件/产物，不触发生产发布。#221/#222在本轮开始时仍为独立开放PR，不能算入dev已实现；最终状态须重新读取。
 
 - 已核对#216/#218/#219合并，当前基线 `dev@c188f9f5affab9cad9bad065e3a191870fb12f9b`；下文各历史候选不视为实时待合并任务。

@@ -24,9 +24,13 @@ function stockObservationOptions(){
     followupRoot:process.env.V6_STOCK_RESEARCH_FOLLOWUPS_DIR||path.join(__dirname,'data','stock-research-followups'),
     watchRoot:process.env.V6_STOCK_RESEARCH_WATCH_DIR||path.join(__dirname,'data','stock-research-watchlist'),
     publicSectorRoot:process.env.V6_PUBLIC_SECTOR_RESEARCH_DIR||path.join(__dirname,'data','public-sector-research'),
+    workspaceRoot:process.env.V6_RESEARCH_WORKSPACE_DIR||path.join(__dirname,'data','research-workspace'),
     calendarFile:process.env.V6_RESEARCH_CALENDAR_FILE||undefined,
     sectorCaptureRoot:process.env.V6_RESEARCH_SECTOR_CAPTURE_DIR||undefined,
     sectorIds:process.env.V6_RESEARCH_SECTOR_IDS?process.env.V6_RESEARCH_SECTOR_IDS.split(',').map(s=>s.trim()):undefined};
+}
+function saveWorkspaceScan(result,provenance){
+  result.workspace=require('./src/core/research-workspace').saveScreen(stockObservationOptions().workspaceRoot,result,provenance);
 }
 function getStockObservationMonitor(){
   if(process.env.V6_AUTO_STOCK_OBSERVATIONS!=='1'||isReplica())return null;
@@ -21700,6 +21704,33 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/workspace'){
+    const reply=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
+    if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'私有研究记录需要编辑权限'},403);
+    const options=stockObservationOptions(),workspace=require('./src/core/research-workspace'),root=workspace.rootOf(options);
+    if(req.method==='GET'){
+      try{
+        const allowed=['symbol','runId','compareId','screenId','asOf','offset','limit','status','minScore','export','token'];
+        if([...u.searchParams.keys()].some(k=>!allowed.includes(k)))throw Error('未知研究查询');
+        if([...u.searchParams.keys()].some(k=>u.searchParams.getAll(k).length!==1)||u.searchParams.has('export')&&!['0','1'].includes(u.searchParams.get('export')))throw Error('重复或无效查询');
+        const query=Object.fromEntries([...u.searchParams].filter(([k])=>['symbol','runId','compareId','screenId','status'].includes(k)));
+        for(const key of ['asOf','offset','limit','minScore'])if(u.searchParams.has(key)){if(!/^\d+(\.\d+)?$/.test(u.searchParams.get(key)))throw Error('无效数值');query[key]=Number(u.searchParams.get(key));}
+        const view=workspace.workspaceView(root,query,{accounts:PAPER,quotes:S.lastPx,now:Date.now()});
+        return reply({ok:true,result:u.searchParams.get('export')==='1'?workspace.exportResearch(view):view});
+      }catch{return reply({ok:false,error:'研究查询无效或私有档案校验失败，未改写历史'},422);}
+    }
+    if(req.method!=='POST')return reply({ok:false,error:'仅允许GET或POST'},405);
+    if(Buffer.byteLength(body||'','utf8')>64*1024)return reply({ok:false,error:'研究操作超过64KiB'},413);
+    let input;try{input=JSON.parse(body||'{}');if(!input||Array.isArray(input)||typeof input!=='object')throw Error();}catch{return reply({ok:false,error:'研究参数格式无效'},400);}
+    if(input.action==='review'){
+      if(Object.keys(input).some(k=>!['action','symbol','provider','requestId','nativeEvidence'].includes(k)))return reply({ok:false,error:'未知研究参数'},422);
+      return workspace.reviewStored(input,options).then(result=>reply(result,result.ok?200:422)).catch(()=>reply({ok:false,error:'股票、来源、请求ID或档案无效'},422));
+    }
+    try{
+      if(Object.keys(input).some(k=>!['action','value','name','revision','expectedRevision','requestId'].includes(k)))throw Error();
+      const event=workspace.saveSettings(root,input);return reply({ok:true,revision:event.revision,recordId:event.hash,reused:event.reused,researchOnly:true});
+    }catch{return reply({ok:false,error:'设置无效或版本冲突，请重新读取后再保存'},409);}
+  }
   if(p==='/api/research/strategy36/observe'){
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
@@ -21956,6 +21987,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if(!stocks.length)return json(res,{ok:false,error:'没有合格磁盘K线',skipped});
       const result=p.endsWith('disk-scan')?V6ResearchScan({stocks,now:Date.now(),maxAgeMs:86400000}):
         V6ResearchLedger({stocks,start:27,topN:3});
+      if(p.endsWith('disk-scan'))saveWorkspaceScan(result,'persisted-unverified-cache');
       return json(res,{ok:true,verifiedLive:false,provenance:'persisted-unverified-cache',selected:codes.length,
         accepted:stocks.length,skipped,warning:'磁盘缓存不是实时行情；没有验证真实供应商及成交可行性',result});
     }catch(e){return json(res,{ok:false,error:String(e.message||e).slice(0,240)});}
@@ -22002,6 +22034,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     try{
       const result=p.endsWith('cache-scan')?V6ResearchScan({stocks,now:Date.now(),maxAgeMs:86400000}):
         V6ResearchLedger({stocks,start:27,topN:3});
+      if(result.items)saveWorkspaceScan(result,'server-memory-cache-unverified');
       return json(res,{ok:true,verifiedLive:false,provenance:'server-memory-cache-unverified',
         warning:'现有缓存K线可能过期，且未验证数据源及复权；不代表实时行情或真实可成交收益',
         selected:selected.length,accepted:stocks.length,skipped,result});
@@ -22036,6 +22069,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
             ...(b.riskPolicy===undefined?{}:{riskPolicy:b.riskPolicy}),
             ...(b.universeHistory===undefined?{}:{universeHistory:b.universeHistory}),
             ...(b.settlements===undefined?{}:{settlements:b.settlements})});
+      if(result.items)saveWorkspaceScan(result,'user-uploaded-unverified');
       return json(res,{ok:true,verifiedLive:false,provenance:'user-uploaded-unverified',
         warning:'上传行情未经过供应商真实性验证，不是实时选股或实盘收益',result});
     } catch(e) { return json(res,{ok:false,error:String(e&&e.message||e).slice(0,300)}); }

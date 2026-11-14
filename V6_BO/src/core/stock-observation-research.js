@@ -146,22 +146,28 @@ function validateOptions(options){
   options.includeContext!==undefined&&typeof options.includeContext!=='boolean'||options.includeFinancials!==undefined&&typeof options.includeFinancials!=='boolean'||options.sectorCode!==undefined&&!/^BK\d{4}$/.test(options.sectorCode))throw Error('股票、来源、历史长度或板块参数无效');
 }
 async function observeStock(options,dependencies={}){
+ const stage=typeof dependencies.onResearchStage==='function'?dependencies.onResearchStage:()=>{};
+ stage('校验研究输入','started');
  validateOptions(options);
  require('../strategy/research36').settings(options.research36Config||{});
+ stage('校验研究输入','completed');
  const {observationRoot,memoryRoot,calendarFile,sectorCaptureRoot,sectorIds,fetchHistory=fetchPublicStockHistory,fetchContext=fetchPublicContext,fetchStatus=fetchPublicStockStatusEvidence,fetchSectors=currentPublicSectors,fetchFinancials=require('./public-stock-financials').fetchPublicStockFinancials,readCalendar=readResearchCalendar,now=Date.now}=dependencies;
  const roots=researchPaths(dependencies);
  const clock=typeof now==='function'?now:()=>now;
+ stage('行情与上下文采集','started');
  const outcomes=await Promise.allSettled([fetchHistory({symbol:options.symbol,provider:options.provider||'auto',historyDays:options.historyDays??120},{now:clock}),
   options.includeContext?fetchContext({symbol:options.symbol,sectorCode:options.sectorCode},{now:clock,retainRawEvidence:true}):Promise.resolve(null),
   options.includeContext?fetchStatus({symbol:options.symbol},{now:clock}):Promise.resolve(null),
   options.includeContext?fetchSectors(roots.publicSectorRoot,{now:clock}):Promise.resolve(null),
   options.includeFinancials?fetchFinancials({symbol:options.symbol},{now:clock}):Promise.resolve(null)]);
+ stage('行情与上下文采集','completed');
  const history=outcomes[0].status==='fulfilled'?outcomes[0].value:null;
  const asOf=clock();if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>Date.now())throw Error('研究观察时点无效');
  const context=outcomes[1].status==='fulfilled'?outcomes[1].value:null;
  const stockStatus=outcomes[2].status==='fulfilled'?outcomes[2].value:null;
  const sectorContext=outcomes[3].status==='fulfilled'?outcomes[3].value:null;
  const financials=outcomes[4].status==='fulfilled'?outcomes[4].value:null;
+ stage('保存原始行情','started');
  const rawEvidence=history?.rawEvidence?archiveRawEvidence(observationRoot,history.rawEvidence):null;
  if(!history||history.status!=='observed-unverified'||!history.stock?.bars?.length)return {schemaVersion:1,status:'unavailable',asOf,
   history:history?historySummary(history):{status:'unknown',errors:[{code:'history-source-unavailable'}]},stock:null,analysis:null,currentFormation:null,
@@ -182,6 +188,7 @@ async function observeStock(options,dependencies={}){
  const evidenceBundle=freezeResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,priceBasis:merged.priceBasis,
   decisionAt:asOf,observationHash:receipt.observationHash,history:historySummary(history),marketContext,stockStatus:compactStatus,sectorContext,
   sourceRefs,trigger:options.origin||{kind:options.trigger||'manual-research'}});
+ stage('保存原始行情','completed');stage('分析与复访登记','started');
  const result=buildObservationResearch({stock:merged,history:historySummary(history),observation:receipt,asOf,context,marketContext,evidenceBundle,saveMemory:true,research36Config:options.research36Config||{}},
   {memoryRoot,calendarFile,readCalendar,sectorCaptureRoot,sectorIds});
  result.stockStatus=compactStatus;result.publicSectors=sectorContext;
@@ -202,6 +209,7 @@ async function observeStock(options,dependencies={}){
  const frozenHash=result.priceEventResearch.currentHypothesis?.evidenceBundleHash;
  result.hypothesisEvidence=frozenHash?(frozenHash===evidenceBundle.hash?evidenceBundle:readResearchEvidenceBundle(roots.evidenceRoot,{symbol:merged.symbol,provider:merged.provider,asOf:Date.now(),hash:frozenHash})):null;
  result.decisionReview=buildDecisionReview(result,{viewAt:Date.now()});
+ stage('分析与复访登记','completed');
  return result;
 }
 function readStockObservationResearch({symbol,provider},dependencies={}){
