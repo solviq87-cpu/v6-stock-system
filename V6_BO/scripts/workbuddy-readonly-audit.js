@@ -14,13 +14,20 @@ const validCode = value => typeof value === 'string' && value.length > 4 && valu
 
 function privateShareCode(file) {
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw Error('credential-path-required');
-  const stat = fs.lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0)
-    throw Error('credential-file-permissions-invalid');
-  if (stat.size > 1024) throw Error('credential-file-too-large');
-  const sharecode = fs.readFileSync(file, 'utf8').trim();
-  if (!validCode(sharecode)) throw Error('credential-invalid');
-  return sharecode;
+  // Open first with no-follow, then check the actual descriptor. This avoids
+  // the lstat -> read path-swap race, and never prints file or secret contents.
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)); }
+  catch { throw Error('credential-file-permissions-invalid'); }
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || (stat.mode & 0o077) !== 0)
+      throw Error('credential-file-permissions-invalid');
+    if (stat.size > 1024) throw Error('credential-file-too-large');
+    const sharecode = fs.readFileSync(fd, 'utf8').trim();
+    if (!validCode(sharecode)) throw Error('credential-invalid');
+    return sharecode;
+  } finally { fs.closeSync(fd); }
 }
 
 async function boundedResponse(res) {
