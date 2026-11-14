@@ -5,7 +5,8 @@ const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {resolveUpstream}=require('./data-source-lineage');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
-function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
+function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100,requireKnownIndependentUpstreams=false}={}){
+ if(typeof requireKnownIndependentUpstreams!=='boolean')throw Error('上游独立性参数无效');
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
   if((name==='maxDiscrepancies'&&!Number.isSafeInteger(v))||typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error('多源核对参数无效: '+name);
  }
@@ -20,6 +21,8 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   throw Error('已登记多源包装器缺少逐接口原始上游，不能认定数据独立');
  if(upstreamA.group===upstreamB.group)
   throw Error('同一原始上游重复包装，不是独立供应商数据');
+ if(requireKnownIndependentUpstreams&&(!upstreamA.known||!upstreamB.known||upstreamA.ambiguous||upstreamB.ambiguous))
+  throw Error('双源独立性证据不足：严格导入只接受两家已登记且上游明确不同的来源');
 
  if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');
  if(!primary.priceAdjustment||!secondary.priceAdjustment||!['qfq','hfq','unadjusted'].includes(primary.priceAdjustment.mode)||primary.priceAdjustment.mode!==secondary.priceAdjustment.mode)throw Error('多源核对要求一致且明确的复权方式');
@@ -84,6 +87,15 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
    }
   }
  }
+ const amountUnitVerified=amountRequested&&amountCoverageGapBars===0&&amountComparedBars===comparedBars;
+ const evidenceChecks={
+  cataloguedDifferentUpstreams:upstreamA.known&&upstreamB.known&&!upstreamA.ambiguous&&!upstreamB.ambiguous,
+  tradingDatesAligned:true,priceAdjustmentAligned:true,sharesNormalized:volumeUnitVerified,
+  fullCnyTurnover:amountUnitVerified,captureTimesComparable:observationSkewMs!==null,
+  valuesAgree:total===0
+ };
+ const evidenceCoverageScore=Math.round(100*Object.values(evidenceChecks).filter(Boolean).length/Object.keys(evidenceChecks).length);
+ const researchComparisonReady=Object.values(evidenceChecks).every(Boolean);
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,upstreamGroup:upstreamA.group,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,upstreamGroup:upstreamB.group,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
@@ -91,12 +103,14 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   upstreamIndependenceVerified:false,
   // Data as-of DATE is a comparison key, not a distinct capture-session certificate.
   asOf:primary.asOf,priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
-  timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
+  timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified,
+  evidenceChecks,evidenceCoverageScore,researchComparisonReady,
+  comparisonDecision:total?'disagreement-quarantined':researchComparisonReady?'research-evidence-only':'insufficient-evidence',
   comparedBars,amountComparedBars,amountCoverageGapBars,discrepancies:total,displayedDiscrepancies:differences,
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,
   consensus:total===0,releaseReady:false,
-  warning:'比较两家名称与原始上游不同的研究数据；同一上游多SDK不会被误算独立。身份登记及数值一致并不验证授权、日历、公司行为或实盘独立性。'};
+  warning:'同一上游多SDK不算独立；证据覆盖分不是股价准确率。数值一致不证明源授权、真实性、交易日历、公司行为或实盘可用性。'};
 }
 module.exports={compareMarketFeeds};

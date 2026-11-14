@@ -51,6 +51,11 @@ test('BaoStock native unadjusted, halts, corporate-action dates and exchange cal
  assert.equal(result.history.source,'imported');
  assert.equal(result.history.provider,'baostock');
  assert.equal(result.history.priceBasis,'unadjusted');
+ assert.equal(result.history.upstreamGroup,'baostock');
+ assert.deepEqual(result.history.priceAdjustment,{mode:'unadjusted',provider:'baostock-adjustflag-3'});
+ assert.equal(result.history.volumeUnit,'shares');
+ assert.equal(result.history.amountUnit,'CNY');
+ assert.equal(result.history.amountBasis,'actual-unadjusted-turnover');
  assert.equal(result.history.observedAt,b.observedAt);
  assert.equal(result.history.stocks.length,codes.length);
  assert.equal(result.history.stocks[0].corporateActions[0],days[10]);

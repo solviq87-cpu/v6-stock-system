@@ -110,8 +110,10 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
   });
   stocks.push({symbol:code.slice(3),corporateActions:actions,bars});
  }
- const history={schemaVersion:1,source:'imported',provider:'baostock',
+ const history={schemaVersion:1,source:'imported',provider:'baostock',upstreamGroup:'baostock',
   datasetId:bundle.datasetId,priceBasis:'unadjusted',
+  priceAdjustment:{mode:'unadjusted',provider:'baostock-adjustflag-3'},
+  volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   asOf:bundle.asOf,observedAt:bundle.observedAt,stocks,
   evidenceProtocol:'baostock-eod-research-export-v1',
   upstreamUsageScope:'operator-review-required',

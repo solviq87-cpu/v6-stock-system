@@ -74,12 +74,18 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  // Explicitly reject nonaligned sessions. Filling suspended bars with invented price is forbidden.
  if(stocks.some(s=>s.bars.at(-1).date!==last||s.bars.length!==stocks[0].bars.length||s.bars.some((b,i)=>b.date!==stocks[0].bars[i].date)))throw Error('沪深股票停牌或缺失K线导致交易日不一致，拒绝虚构补齐');
  // v2 reflects a BREAKING unit correction: never silently rewrite a v1 import.
- const provider='eastmoney-public-history',datasetId='em-'+priceAdjustment+'-v2-'+sha({symbols,start,end,last,priceAdjustment}).slice(0,20);
+ // Restore the original qfq dataset identity for existing archives; do not
+ // silently treat one historical snapshot as a different legacy dataset.
+ const provider='eastmoney-public-history';
+ const datasetId=priceAdjustment==='qfq'?'em-qfq-v2-'+sha({symbols,start,end,last}).slice(0,20):
+  'em-unadjusted-v2-'+sha({symbols,start,end,last,priceAdjustment}).slice(0,20);
  const dataset={source:'imported',provider,datasetId,asOf:last,
   volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   priceAdjustment:{mode:priceAdjustment,provider:'eastmoney-public-history-fqt-'+(priceAdjustment==='qfq'?'1':'0')},stocks};
  validateImport(dataset,{provider,datasetId});
- return {dataset,metadata:{mode:'unverified-public-daily-history',provider,datasetId,asOf:last,stockCount:stocks.length,priceAdjustment,volumeUnit:'shares',amountUnit:'CNY',
+ return {dataset,metadata:{mode:'unverified-public-daily-history',provider,datasetId,asOf:last,
+  retrievedAt:Date.now(),retrievedAtMeaning:'local-collection-time-not-exchange-quote-time',
+  stockCount:stocks.length,priceAdjustment,volumeUnit:'shares',amountUnit:'CNY',
   amountBasis:'actual-unadjusted-turnover',verifiedLive:false,canTrade:false,
   warning:'公开接口可能调整、返回延迟或不完整行情。未核验交易所官方记录、公司行为、复权正确性及数据使用授权。f56按手转股，f57按人民币元保留原成交额；前复权价不得与原始成交额直接反算均价。不能直接用于实盘。'}};
 }
