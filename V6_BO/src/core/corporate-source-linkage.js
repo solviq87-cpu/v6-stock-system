@@ -96,8 +96,9 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
   for(const row of wire.rows){
    if(!row||typeof row!=='object'||Array.isArray(row)||
       row.SECURITY_CODE!==capture.symbol||
-      (row.SECUCODE!==undefined&&
-       !new RegExp('^'+capture.symbol+'\\.(?:SH|SZ|BJ)
+      (row.SECUCODE!==undefined&&!['.SH','.SZ','.BJ'].some(suffix=>
+       row.SECUCODE===capture.symbol+suffix)))
+    invalid('原始股票身份与查询对象不一致');
    const id=digest(Buffer.from(JSON.stringify(row)));
    if(rows.has(id))invalid('原始记录重复');
    const dates=Object.fromEntries(sourceFields.map(k=>[k,rawDate(row[k])]));
