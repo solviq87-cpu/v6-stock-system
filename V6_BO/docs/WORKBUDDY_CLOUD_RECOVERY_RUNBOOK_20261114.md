@@ -64,3 +64,11 @@ node --test V6_BO/tests/workbuddy-readonly-audit.test.js
 每次交接应附：精确 40 位 Git SHA、CI run URL、私有运行环境名称、HTTP 状态/响应 hash、账本备份证据、登录/会话/权限日志、双端实机截图（脱敏）、飞书实际送达、不可回退 SHA 和未完成项。缺项标“阻塞/未执行”，不标已修复。
 
 > 保留原始策略/账户/界面/测试；只有满足完整证据才允许从“代码已合并”升级为“线上已恢复”。
+
+
+### 审计结果负面门禁（2026-11-14 复核修正）
+
+- 原审计器在 HTTP 200 且 records 为数组时，即使没有 v6.app.state、账户损坏或站点 HTML 内容不同，仍可能输出 ok=true。本次修正为：四路只读核验中，账户仅通过最低形态预检且根页与 /api/site 的 HTML 原始哈希一致时，才输出 ok=true。
+- 账户最低形态只检查非负整数 revision、有限数值 cash、positions 和 orders 数组。即使这些全部通过也仅是 parseable-not-validated；绝不因此声称资金流水、历史交易、跨设备一致性、登录鉴权已经真实验收。
+- 新增 code 明确区分 records-access-denied（401/403）、records-endpoint-not-found（404）、records-unverified、ledger-missing、ledger-unverified、site-api-unverified、site-html-mismatch、site-html-unverified 和 read-only-evidence-collected。
+- 若 ok=true 也始终保留 accountRecoveryVerified=false、serverLoginVerified=false、productionDeploymentVerified=false。严禁将这轮 GET-only 代码回归冒充生产上线或账户恢复成功；仍须授权环境进行现场核验。

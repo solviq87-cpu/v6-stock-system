@@ -32,7 +32,7 @@ test('all four exact same-origin paths are read-only and only hashed metadata is
     paths.push(parsed.pathname);
     if (parsed.pathname === '/') return new Response(HTML, {status: 200, headers: {'content-type':'text/html'}});
     if (parsed.pathname === '/api/records') return json({ ok: true, records: [
-      { name: 'v6.app.state', content: '{"privatePassword":"sensitive-account-data"}' },
+      { name: 'v6.app.state', content: JSON.stringify({revision:2,cash:1250,positions:[],orders:[],privatePassword:'sensitive-account-data'}) },
       { name: 'v6.news.pool', content: '{}' }
     ] });
     return json({ ok: true, password: 'sensitive-account-data', site: { html: HTML } });
@@ -67,7 +67,8 @@ test('malformed JSON 200 is not a successful API test', async () => {
 
 test('unexpected empty data does not prove recovery of any historical account', async () => {
   const result = await audit({ sharecode: SECRET, request: () => json({ ok: true, records: [] }) });
-  assert.equal(result.ok, true, 'API can work while records are empty, not a recovery proof');
+  assert.equal(result.ok, false, 'a missing ledger must fail the combined evidence gate');
+  assert.equal(result.code, 'ledger-missing');
   assert.equal(result.endpoints[2].recordCount, 0);
   assert.equal(result.endpoints[2].hasV6State, false);
 });
@@ -112,11 +113,12 @@ test('root/site HTML version mismatch is shown without leaking either page', asy
     const p = new URL(url).pathname;
     if (p === '/') return new Response('<!DOCTYPE html><html>different private page</html>');
     if (p === '/api/site') return json({ok:true,site:{html:HTML}});
-    if (p === '/api/records') return json({ok:true,records:[{name:'v6.app.state',content:'{}'}]});
+    if (p === '/api/records') return json({ok:true,records:[{name:'v6.app.state',content:JSON.stringify({revision:1,cash:100,positions:[],orders:[]})}]});
     return json({ok:true});
   }});
   assert.equal(result.pageIntegrity, 'different-bytes');
-  assert.equal(result.ok, true, 'root mismatch does not change the three API responses');
+  assert.equal(result.ok, false, 'root mismatch must prevent a positive combined result');
+  assert.equal(result.code, 'site-html-mismatch');
   assert.ok(!JSON.stringify(result).includes('different private page'));
   assert.ok(!JSON.stringify(result).includes(HTML));
 });
@@ -127,4 +129,59 @@ test('missing root page cannot be marked as HTML readback success', async () => 
   assert.equal(result.pageIntegrity,'unverified');
   assert.equal(result.endpoints[3].httpStatus,404);
   assert.equal(result.accountRecoveryVerified,false);
+});
+
+test('damaged or structurally incomplete account never passes even if HTML/health agree', async () => {
+  for (const content of ['{broken', '{}', JSON.stringify({revision:-1,cash:0,positions:[],orders:[]})]) {
+    const result=await audit({sharecode:SECRET,request(url) {
+      const p=new URL(url).pathname;
+      if(p==='/')return new Response(HTML);
+      if(p==='/api/site')return json({ok:true,site:{html:HTML}});
+      if(p==='/api/records')return json({ok:true,records:[{name:'v6.app.state',content}]});
+      return json({ok:true});
+    }});
+    assert.equal(result.ok,false);
+    assert.equal(result.code,'ledger-unverified');
+    assert.equal(result.accountRecoveryVerified,false);
+  }
+});
+
+test('403 and 404 records are distinguished without data exposure', async () => {
+  for (const [status, expected] of [[403,'records-access-denied'],[404,'records-endpoint-not-found']]) {
+    const result=await audit({sharecode:SECRET,request(url) {
+      const p=new URL(url).pathname;
+      if(p==='/')return new Response(HTML);
+      if(p==='/api/records')return new Response('SECRET ERR BODY', {status});
+      return json({ok:true,site:{html:HTML}});
+    }});
+    assert.equal(result.ok,false);
+    assert.equal(result.code,expected);
+    assert.ok(!JSON.stringify(result).includes('SECRET ERR BODY'));
+  }
+});
+
+test('HTML 200 with no site.html proof cannot be a successful readback', async () => {
+  const result=await audit({sharecode:SECRET,request(url) {
+    const p=new URL(url).pathname;
+    if(p==='/')return new Response(HTML);
+    if(p==='/api/records')return json({ok:true,records:[
+      {name:'v6.app.state',content:JSON.stringify({revision:1,cash:12,positions:[],orders:[]})}
+    ]});
+    return json({ok:true});
+  }});
+  assert.equal(result.ok,false);
+  assert.equal(result.pageIntegrity,'unverified');
+  assert.equal(result.code,'site-html-unverified');
+});
+
+test('oversized or rejected response is not a positive cloud check', async () => {
+  const result=await audit({sharecode:SECRET,request(url) {
+    const p=new URL(url).pathname;
+    if(p==='/')return new Response(HTML);
+    if(p==='/api/records')return new Response('X'.repeat(4*1024*1024+1));
+    return json({ok:true,site:{html:HTML}});
+  }});
+  assert.equal(result.ok,false);
+  assert.equal(result.code,'records-unverified');
+  assert.equal(result.endpoints[2].error,'oversized-response');
 });
