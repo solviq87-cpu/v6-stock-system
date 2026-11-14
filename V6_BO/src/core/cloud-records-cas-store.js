@@ -126,7 +126,8 @@ function inspect(root) {
       if (e.fingerprint !== digest({action:'upsert',record:row})) throw error('UPSERT_FINGERPRINT_INVALID');
       map.set(row.name,row);
     }
-    requests.set(e.requestId,{fingerprint:e.fingerprint,sequence:index});
+    requests.set(e.requestId,{fingerprint:e.fingerprint,sequence:index,action:e.action,
+      recordName:e.action==='upsert'?e.record.name:null});
     prev=e;
   }
   return {status:'ready', revision:eventNames.length, records:[...map.values()], proof:prev.hash,
@@ -205,7 +206,26 @@ function createCloudRecordsCasStore(root) {
         proof:item.hash,offlineOnly:true};
     });
   }
-  return {read,bootstrap,upsert};
+  // A read-only, fully verified receipt. Absence means only "not in this snapshot",
+  // not that a remote request could never have been processed elsewhere.
+  function receipt(requestId) {
+    if (typeof requestId !== 'string' || !REQUEST_ID.test(requestId))
+      throw error('INVALID_REQUEST_ID');
+    const state=inspect(root);
+    if (state.status!=='ready') throw error('NO_AUTHORITATIVE_SNAPSHOT');
+    const event=state._requests.get(requestId);
+    return Object.freeze({
+      found:!!event,
+      status:event?'committed':'not-present-in-verified-ledger',
+      action:event?.action??null,
+      recordName:event?.recordName??null,
+      appliedRevision:event?.sequence??null,
+      currentRevision:state.revision,
+      verifiedFromHashChain:true, readOnly:true, offlineOnly:true,
+      accountRecoveryVerified:false, productionDeployed:false
+    });
+  }
+  return {read,bootstrap,upsert,receipt};
 }
 // Pure inspection only: caller receives no private record bodies and this function does not write.
 function inspectBackupCandidate(rows) {

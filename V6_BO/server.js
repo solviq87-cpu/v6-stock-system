@@ -19623,7 +19623,8 @@ function handle(req, res, u, body) {
   // Explicitly enabled, authenticated CAS records on the REAL V6 server.
   // No configuration => no route. Existing WorkBuddy hosting remains static-only.
   // This adapter NEVER accepts sharecode/query-token as an account identity.
-  if (p === '/api/records' && process.env.V6_ENABLE_CLOUD_RECORDS_HTTP === '1') {
+  if ((p === '/api/records' || /^\/api\/records\/receipts\/[A-Za-z0-9_-]{8,100}$/.test(p)) &&
+      process.env.V6_ENABLE_CLOUD_RECORDS_HTTP === '1') {
     const ledgerRoot = process.env.V6_CLOUD_RECORDS_ROOT;
     const privatePath = require('node:path');
     const projectRoot = privatePath.resolve(__dirname);

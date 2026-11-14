@@ -112,3 +112,54 @@ test('structured market/news cache remains unchanged without altering the accoun
  assert.deepEqual(JSON.parse(JSON.stringify(snapshot.records.find(r=>r.name==='v6.news.pool').content)),payload);
  assert.equal(JSON.parse(snapshot.records.find(r=>r.name==='v6.app.state').content).cash,100000);
 });
+
+
+test('receipt lookup is read-only and unavailable without verified original history',t=>{
+ const f=fixture(t);
+ code(()=>f.store.receipt('request_0001'),'NO_AUTHORITATIVE_SNAPSHOT');
+ code(()=>f.store.receipt('../../secret'),'INVALID_REQUEST_ID');
+ assert.equal(f.store.read().status,'uninitialized');
+ assert.equal(fs.readdirSync(f.root).filter(n=>n.endsWith('.json')).length,0);
+});
+
+test('receipt proof survives restart, preserves original revision after later updates, and never returns balances',t=>{
+ const f=fixture(t);seed(f);
+ const before=f.store.receipt('bootstrap_0001');
+ assert.equal(before.found,true);
+ assert.equal(before.action,'bootstrap');
+ assert.equal(before.recordName,null);
+ const initial=f.store.read().events;
+ const missing=f.store.receipt('never_sent_001');
+ assert.deepEqual({found:missing.found,status:missing.status,applied:missing.appliedRevision},
+  {found:false,status:'not-present-in-verified-ledger',applied:null});
+ const update=f.store.upsert({expectedRevision:1,requestId:'phone_receipt_001',
+  record:ledger(account(1,72000))});
+ assert.equal(update.currentRevision,2);
+ f.store.upsert({expectedRevision:2,requestId:'news_receipt_001',record:news('{"items":[]}')});
+ const restart=createCloudRecordsCasStore(f.root);
+ const receipt=restart.receipt('phone_receipt_001');
+ assert.equal(receipt.found,true);
+ assert.equal(receipt.action,'upsert');
+ assert.equal(receipt.recordName,'v6.app.state');
+ assert.equal(receipt.appliedRevision,2);
+ assert.equal(receipt.currentRevision,3);
+ assert.equal(receipt.verifiedFromHashChain,true);
+ assert.equal(receipt.accountRecoveryVerified,false);
+ assert.equal(receipt.productionDeployed,false);
+ assert.equal(receipt.readOnly,true);
+ assert.equal(f.store.read().events,initial+2);
+ const text=JSON.stringify(receipt);
+ assert.ok(!text.includes('72000'));
+ assert.ok(!text.includes('positions'));
+});
+
+test('corrupt immutable history cannot produce a positive receipt despite a matching requestId',t=>{
+ const f=fixture(t);seed(f);
+ f.store.upsert({expectedRevision:1,requestId:'proof_tamper_001',record:ledger(account(1,22000))});
+ const pathToEvent=path.join(f.root,'000002.json');
+ const original=fs.readFileSync(pathToEvent,'utf8');
+ fs.writeFileSync(pathToEvent,original.replace('22000','88000'));
+ code(()=>f.store.receipt('proof_tamper_001'),'EVENT_HASH_MISMATCH');
+ fs.writeFileSync(pathToEvent,original);
+ assert.equal(f.store.receipt('proof_tamper_001').found,true);
+});
