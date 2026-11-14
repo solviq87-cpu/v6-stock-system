@@ -11,7 +11,7 @@ const pct = x => finite(x) ? (x * 100).toFixed(1) + '%' : '等待状态 / 行动
 function node(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
 function line(p, label, x) { p.append(node('p', label + '：' + val(x))); }
 let sequence = 0, active = null, resolved = null;
-function clear() { for (const id of ['captureSummary', 'captureChart', 'captureAnalysis', 'captureEvidence', 'captureOutput']) el(id).replaceChildren(); }
+function clear() { for (const id of ['captureSummary', 'captureChart', 'captureAnalysis', 'captureEvidence', 'captureDecision', 'captureOutput']) el(id).replaceChildren(); }
 function invalidate() {
   sequence++; active?.abort(); active = null; resolved = null; clear();
   el('captureStatus').textContent = '输入已更改，请重新采集或读取。';
@@ -90,6 +90,7 @@ function render(r) {
   if (blockers.length) line(a, '缺失与限制', blockers.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join('；'));
   a.append(node('p', '当前形态独立于历史概率；历史频率不等于前瞻验证或可成交收益。本页仅供研究。'));
   renderEvidence(r);
+  if (globalThis.V6DecisionReview && el('captureDecision')) globalThis.V6DecisionReview.render(el('captureDecision'), r.decisionReview);
   el('captureOutput').textContent = JSON.stringify(r, null, 2);
 }
 function renderEvidence(r) {
@@ -172,6 +173,7 @@ async function run(readOnly) {
     const body = await response.json(); if (!unchanged()) return;
     if (!response.ok || !body.ok || !body.result || typeof body.result !== 'object') throw Error(body.error || '研究请求未完成');
     const r = body.result, actual = r.history?.provider || r.stock?.provider;
+    if (r.stock && (r.stock.symbol !== symbol || provider !== 'auto' && actual !== provider)) throw Error('返回股票或来源与请求不一致');
     if (!readOnly && ['eastmoney', 'tencent'].includes(actual)) resolved = { symbol, provider: actual };
     render(r); status.textContent = (readOnly ? '已读取云端已存历史' : '本轮采集完成') + ' · ' + val(r.status) + '；请核对截止日与缺失证据。';
   } catch (e) {
@@ -181,6 +183,8 @@ async function run(readOnly) {
     if (id === sequence) { active = null; el('captureRun').disabled = el('captureRead').disabled = false; if (!unchanged()) { clear(); status.textContent = '输入或令牌已更改，请重新读取。'; } }
   }
 }
+globalThis.addEventListener?.('offline', invalidate);
+globalThis.addEventListener?.('pagehide', invalidate);
 el('captureRun').addEventListener('click', () => run(false));
 el('captureRead').addEventListener('click', () => run(true));
 })();

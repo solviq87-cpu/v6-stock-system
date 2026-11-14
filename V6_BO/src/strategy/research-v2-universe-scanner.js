@@ -54,7 +54,7 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
  const lifecycleBySymbol=new Map(lifecycle.states.map(x=>[x.symbol,x]));
  for(const item of items)item.lifecycle=lifecycleBySymbol.get(item.symbol)||null;
  items.sort((a,b)=>Number(b.tradable)-Number(a.tradable)||Number(b.quality.usable)-Number(a.quality.usable)||(b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol));
- return {asOf:now,total:items.length,eligible:items.filter(x=>x.tradable).length,rejected:items.filter(x=>!x.quality.usable).length,
+ return {screeningFunnel:require('../core/research-decision-review').buildScreeningFunnel(items),asOf:now,total:items.length,eligible:items.filter(x=>x.tradable).length,rejected:items.filter(x=>!x.quality.usable).length,
   simulated:items.filter(x=>x.quality.simulated).length,
   patternPoolCount:Object.values(patternPools).reduce((a,p)=>a+p.length,0),patternPools,
   issuerPools,linkagePools,lifecycle,issuerEvidenceSource:optional.status,items,disclaimer:'候选研究排行，不提供自动下单；模拟/导入/过期行情须显著标注'};

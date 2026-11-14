@@ -57,8 +57,9 @@ function compareRuleSystems({scores={},pack,myrulesInput,baziInput,pythonResult,
       rules:Array.isArray(pythonResult.rules)?pythonResult.rules:[],
       coverage:coverage(Array.isArray(pythonResult.rules)?pythonResult.rules:[])}
     :{available:false,reason:'独立Python评分未提供可追溯来源和日期'};
-  return {mode:'independent-research',rankingModified:false,
-    systems:{fourteen:myrulesComparison(myrulesInput,myrulesConfig),
-      bazi:baziComparison(baziInput),gpt:packComparison(scores,pack),python}};
+  const systems={fourteen:myrulesComparison(myrulesInput,myrulesConfig),
+    bazi:baziComparison(baziInput),gpt:packComparison(scores,pack),python};
+  return {mode:'independent-research',rankingModified:false,systems,
+    interpretation:require('../core/research-decision-review').summarizeRuleDisagreement(systems)};
 }
 module.exports={coverage,packComparison,compareRuleSystems};
