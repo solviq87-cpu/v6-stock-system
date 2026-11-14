@@ -2308,7 +2308,7 @@ async function api(path,method='GET',body){
  catch(e){if(e.name==='AbortError')throw new Error('云端连接超时，请重试同步确认状态');throw e;}
  finally{clearTimeout(timer);}
 }
-async function readRemote(){bootstrapPermission=false;const data=await api('records');await restoreSharedMarket(data);if(!Array.isArray(data.records))throw new Error('云端记录格式无法识别');const records=data.records.filter(r=>r.name===KEY);if(!records.length){bootstrapPermission=data.allowCreateInitialState===true&&data.records.length===0;return null;}const record=records[records.length-1];let raw;try{raw=typeof record.content==='string'?JSON.parse(record.content):record.content;}catch(e){throw new Error('云端 V6 状态内容损坏，已停止写入以保护原数据');}return C.normalizeState(raw);}
+async function readRemote(){bootstrapPermission=false;const data=await api('records');if(!Array.isArray(data.records))throw new Error('云端记录格式无法识别');const records=data.records.filter(r=>r&&r.name===KEY);if(records.length>1)throw new Error('云端存在多条同名模拟账本，已禁止自动选择或覆盖，请先核对权威历史记录');await restoreSharedMarket(data);if(!records.length){bootstrapPermission=data.allowCreateInitialState===true&&data.records.length===0;return null;}const record=records[0];let raw;try{raw=typeof record.content==='string'?JSON.parse(record.content):record.content;}catch(e){throw new Error('云端 V6 状态内容损坏，已停止写入以保护原数据');}return C.normalizeState(raw);}
 function serializeLedger(value){
  return {...value,picks:Object.fromEntries(Object.entries(value.picks||{}).map(([id,entry])=>[id,{time:entry.time,items:(entry.items||[]).map(item=>typeof item==='string'?item:item.symbol)}])),signalHistory:(value.signalHistory||[]).slice(0,100).map(entry=>({...entry,totalCount:entry.totalCount??entry.symbols.length,symbols:entry.symbols.slice(0,200)}))};
 }

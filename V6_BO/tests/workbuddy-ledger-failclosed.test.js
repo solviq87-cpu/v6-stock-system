@@ -127,3 +127,20 @@ test('a changed or missing persisted revision is not accepted as a successful wr
     /一致性读回/);
   assert.equal(f.writes, 1);
 });
+
+test('duplicate V6 ledger records fail closed without choosing the last row or overwriting either', async () => {
+  const first = { revision: 8, cash: 800000, positions: [], orders: [],
+    picks: {}, signalHistory: [], risk: {} };
+  const second = { ...first, revision: 9, cash: 600000 };
+  const rows = [
+    { id: 'historical-A', name: 'v6.app.state', content: JSON.stringify(first) },
+    { id: 'historical-B', name: 'v6.app.state', content: JSON.stringify(second) }
+  ];
+  const f = fixture({ rows, allow: true });
+  await f.initialize();
+  assert.equal(f.writes, 0);
+  assert.equal(f.context.cloud, false);
+  assert.equal(f.context.lastConnection.status, 'error');
+  assert.match(f.context.cloudError, /多条同名模拟账本/);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.records())), rows);
+});
