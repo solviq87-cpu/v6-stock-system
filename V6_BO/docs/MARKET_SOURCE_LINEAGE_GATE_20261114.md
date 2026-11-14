@@ -31,3 +31,10 @@ V6_MODEL_PYTHON=python3 V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THR
 ```
 
 GitHub Actions `history-source-lineage-safety` 与原 `verify` 完整测试必须以实际同一 PR SHA 的运行结果为准；代码提交不代表 CI 通过或生产已部署。回滚使用此 PR 对应提交的普通 Git revert，不得覆盖较新的工程文件。
+
+## 东方财富不复权可比输入（同分支补充）
+
+- `fetchEastmoneyHistory({ ..., adjustmentMode:'unadjusted' })` 明确使用 `fqt=0`；旧默认 `qfq/fqt=1` 完全保留，两种模式使用不同 datasetId，禁止混写历史。
+- CLI `node scripts/eastmoney-historical-import.js 000001 2026-09-01 2026-11-13 /abs/private/em-unadjusted.json --unadjusted` 创建新文件，不覆写旧数据；请求与日期仍遵守原有安全限制。
+- `observedAt` 是本地采集完成时间而非供应商原始市场报价时间；供应商是否真正返回不复权行情须通过真实样本和公司行为资料核验。
+- 真实 BaoStock 和东财样本可能缺交易日或出现复权差异；不会强制补齐，也不会在冲突时认定某一方真实。

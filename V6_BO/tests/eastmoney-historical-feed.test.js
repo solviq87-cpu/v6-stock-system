@@ -90,3 +90,37 @@ test('daily date checks use Beijing market date, never previous UTC date',async(
  assert.equal(result.dataset.stocks[0].bars.length,40);
  assert.equal(result.metadata.canTrade,false);
 });
+
+
+test('明确请求东方财富 fqt=0 不复权，BaoStock 同口径可研究对账且不改旧 qfq 标识',async()=>{
+ const {compareMarketFeeds}=require('../src/core/market-feed-consensus');
+ let requestFqt=null;
+ const result=await fetchEastmoneyHistory({symbols:['000001'],start:dates[0],
+  end:dates.at(-1),adjustmentMode:'unadjusted',fetchImpl:async(url)=>{
+   requestFqt=new URL(url).searchParams.get('fqt');
+   return response(payload('000001'));
+  }});
+ assert.equal(requestFqt,'0');
+ assert.equal(result.dataset.priceAdjustment.mode,'unadjusted');
+ assert.equal(result.dataset.priceAdjustment.provider,'eastmoney-public-history-fqt-0');
+ assert.match(result.dataset.datasetId,/^em-unadjusted-v1-/);
+ assert.equal(result.dataset.upstream,'eastmoney');
+ assert.equal(result.metadata.observedAtMeaning,'local-request-completion-not-exchange-quote-time');
+ const comparison=structuredClone(result.dataset);
+ comparison.provider='baostock';comparison.upstream='baostock';
+ comparison.datasetId='baostock-synthetic-fixture';
+ comparison.priceAdjustment={mode:'unadjusted',provider:'baostock-adjustflag-3'};
+ const r=compareMarketFeeds(result.dataset,comparison,{requireKnownIndependentUpstreams:true});
+ assert.equal(r.consensus,true);
+ assert.equal(r.sourceLineage.knownDistinctUpstreamFamilies,true);
+ assert.equal(r.releaseReady,false);
+ assert.equal(r.canTrade,false);
+ assert.ok(result.dataset.observedAt>0);
+ assert.equal(result.dataset.stocks[0].bars[0].volume,1000000);
+});
+test('不允许静默选择不存在的复权模式，也不进行任何网络请求',async()=>{
+ let count=0;
+ await assert.rejects(()=>fetchEastmoneyHistory({symbols:['000001'],start:dates[0],
+  end:dates.at(-1),adjustmentMode:'hfq',fetchImpl:async()=>{count++;return response(payload('000001'));}}),/复权/);
+ assert.equal(count,0);
+});
