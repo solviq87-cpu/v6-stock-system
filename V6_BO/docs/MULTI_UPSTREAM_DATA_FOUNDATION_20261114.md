@@ -22,7 +22,7 @@
 | [Ashare](https://github.com/mpquant/Ashare) | 新浪/腾讯选择及回退 | 未披露**本次实际选中**上游时标成模糊来源，不参与独立性表决 |
 | [easyquotation](https://github.com/shidenggui/easyquotation) | 新浪或腾讯（由后端模式决定） | 必须保留显式所选提供方 |
 | [mootdx](https://github.com/mootdx/mootdx) / [pytdx](https://github.com/rainx/pytdx) | 通达信 TDX | 不误当两家市场发布方 |
-| [chstockdata](https://github.com/joycoding2000/chstockdata) | 腾讯、TDX、新浪分路 | 各路单独归类，重名不混票 |
+| [FinRL](https://github.com/AI4Finance-Foundation/FinRL) | 数据处理及训练框架（非数据发布者） | 借鉴统一特征处理，不当作独立行情源 |
 | [stock-data-hub](https://github.com/valueflowever/stock-data-hub) | EFinance、PyTDX、AKShare、BaoStock、Yahoo等 | 保留每次选择的上游、缓存和失败身份 |
 | [CNEquity](https://github.com/rootSunc/CNEquity) | 视数据集而异的官方/聚合来源 | 参考行级溯源与不可变归档，不能把数据湖当单一权威源 |
 | [Qlib](https://github.com/microsoft/qlib)、[vn.py](https://github.com/vnpy/vnpy)、[OpenBB](https://github.com/OpenBB-finance/OpenBB) | 框架自身不发布行情 | 只借架构；数据权限与供应商另核 |
