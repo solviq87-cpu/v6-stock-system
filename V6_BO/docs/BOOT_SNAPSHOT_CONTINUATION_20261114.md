@@ -49,3 +49,10 @@ npm run context:resume
 
 回滚：标准revert本批提交；不迁移或回写私有账本/快照。未来时间失去“新鲜”资格属于预期修正，不能为恢复显示而放宽门禁。
 未完成：原24项现场验收、目标Windows/手机真机、真实盘中连续行情、跨机灾备、策略长期样本、完整后台部署。未写生产、发送消息、切换发布owner、购买服务或连接券商；既有唯一发布器和私有事务恢复要求保留。
+
+## GitHub最终回执
+
+- [PR #214](https://github.com/solviq87-cpu/v6-stock-system/pull/214) 已合并到dev：`ac52fda658699176bb9c6839cc94385720303975`。原head `cfe02cafe0d3bb400405f183a0389757ccade02e` 的源码tree与本地验收tree完全相同；上传后实际fetch比对无差异。
+- [精确head CI 43563319326](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43563319326) 的verify、verify-web全部成功；实际PR合并树包含新主线#213股票导入，完整3397通过/0失败/0跳过，网页40通过。可选ML在CI已安装；不把本地3跳过冒充本地通过。
+- 合并树 `970466d0b492c2b1476abc686960debd75cfeaa8` 保留#213所有改动及两张锁定主页；代码交付完成，生产发布/现场验收未完成。
+- 首次命令行上传检查缺Git HTTPS凭据，已使用现有GitHub连接完成上传，无需重复要求用户授权。
