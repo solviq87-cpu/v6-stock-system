@@ -11,6 +11,8 @@ test('whole forward range selected with strict cap and SHA identity',()=>{
  "incomplete-or-wrong-commit-range","context.payload.forced","fail-fast: false",
  "fromJSON(needs.select.outputs.matrix)"])assert.ok(s.includes(term),term);
  assert.match(s,/branches:\s*\['\*\*',\s*'!archive\/\*\*'\]/);
+ assert.match(s, /matrix: \$\{\{ fromJSON\(needs\.select\.outputs\.matrix\) \}\}/);
+ assert.ok(!/\$\{(?!\{)[^}\n]+\}/.test(s),'invalid GitHub expression placeholder');
 });
 test('per revision test is read-only and actually checks out the exact SHA',()=>{
  const s=source().split('\n  smoke:\n')[1]?.split('\n  publish-status:\n')[0];
