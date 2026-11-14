@@ -795,19 +795,30 @@ async function marketWire(url,task,options={}){
    requireCollection(options.sessionBound!==false);let now=Date.now(),b=readPrivateBudget(RATE_KEY),row=familyState(b,family,now);
    if(row.blockedUntil>now)throw rateError('RATE_SOURCE_COOLDOWN','供应商冷却中，未发出请求',{resumeAt:row.blockedUntil});
    if(row.starts>=RATE_POLICY.dailyStarts)throw rateError('RATE_DAY_BUDGET','供应商当日请求预算已用尽，保留缓存');
-   const wait=Math.max(0,row.nextStartAt-now);if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+   while(row.nextStartAt>now){
+    const wait=Math.min(row.nextStartAt-now,Math.max(1,RATE_POLICY.queueWaitMs-(now-queuedAt)));await new Promise(resolve=>setTimeout(resolve,wait));
+    requireCollection(options.sessionBound!==false);now=Date.now();if(queueController.signal.aborted||now-queuedAt>=RATE_POLICY.queueWaitMs)throw rateError('RATE_QUEUE_TIMEOUT','采集排队超时，未发出请求');
+    b=readPrivateBudget(RATE_KEY);row=familyState(b,family,now);
+    if(row.blockedUntil>now)throw rateError('RATE_SOURCE_COOLDOWN','供应商冷却中，未发出请求',{resumeAt:row.blockedUntil});
+    if(row.starts>=RATE_POLICY.dailyStarts)throw rateError('RATE_DAY_BUDGET','供应商当日请求预算已用尽，保留缓存');
+   }
    requireCollection(options.sessionBound!==false);now=Date.now();if(queueController.signal.aborted||now-queuedAt>=RATE_POLICY.queueWaitMs)throw rateError('RATE_QUEUE_TIMEOUT','采集排队超时，未发出请求');
    b=readPrivateBudget(RATE_KEY);row=familyState(b,family,now);
    if(row.blockedUntil>now)throw rateError('RATE_SOURCE_COOLDOWN','供应商冷却中，未发出请求',{resumeAt:row.blockedUntil});
    if(options.historySymbol)reserveHistory(options.historySymbol,options.historyTarget,now,options.historyBars||60);
    row.nextStartAt=now+RATE_POLICY.startGapMs;row.starts++;writePrivateBudget(RATE_KEY,b);
-   try{const result=await task(async response=>{
+   try{const pending=Promise.resolve(task(async response=>{
     if(response.status===429||response.status===403){const current=readPrivateBudget(RATE_KEY),r=familyState(current,family,Date.now()),minimum=response.status===403?900000:60000;
      r.blockedUntil=Math.max(r.blockedUntil,Date.now()+Math.max(minimum,retryDelay(response.headers?.get?.('Retry-After'),Date.now())));r.status=response.status;writePrivateBudget(RATE_KEY,current);
      throw rateError('RATE_SOURCE_RESTRICTED','供应商拒绝或限流，已停止该供应商采集',{status:response.status,resumeAt:r.blockedUntil});
     }
     if(!response.ok)throw rateError('SOURCE_HTTP_ERROR','公开数据HTTP '+response.status);
-   });requireCollection(options.sessionBound!==false);const current=readPrivateBudget(RATE_KEY),r=familyState(current,family,Date.now());r.failures=0;writePrivateBudget(RATE_KEY,current);return result;
+   }));
+   // Persist the gap after synchronous dispatch so storage/setup overhead from
+   // the earlier reservation cannot shorten actual fetch-to-fetch spacing.
+   try{row.nextStartAt=Math.max(row.nextStartAt,Date.now()+RATE_POLICY.startGapMs);writePrivateBudget(RATE_KEY,b);}
+   catch(e){await pending.catch(()=>{});throw e;}
+   const result=await pending;requireCollection(options.sessionBound!==false);const current=readPrivateBudget(RATE_KEY),r=familyState(current,family,Date.now());r.failures=0;writePrivateBudget(RATE_KEY,current);return result;
    }catch(e){if(!['RATE_SOURCE_RESTRICTED','COLLECTION_PAUSED','MARKET_SESSION_CLOSED'].includes(e.code)){
     const current=readPrivateBudget(RATE_KEY),r=familyState(current,family,Date.now());r.failures=Math.min(8,(r.failures||0)+1);r.blockedUntil=Math.max(r.blockedUntil,Date.now()+Math.min(900000,15000*2**(r.failures-1)));writePrivateBudget(RATE_KEY,current);
    }throw e;}
