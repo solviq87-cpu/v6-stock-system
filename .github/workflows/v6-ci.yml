@@ -24,6 +24,19 @@ jobs:
           node-version: '22'
       - name: Missing or unreadable cloud ledger must never be overwritten
         run: node --test V6_BO/tests/workbuddy-ledger-failclosed.test.js
+  verify-workbuddy-readonly-audit:
+    name: workbuddy-readonly-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify private credentials never escape and only GET requests are allowed
+        run: node --test V6_BO/tests/workbuddy-readonly-audit.test.js
   verify-web:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
