@@ -16,7 +16,9 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 function privateShareCode(file) {
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw Error('credential-path-required');
   // Open the checked inode itself: never reread a path after a lstat/open race.
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)); }
+  catch { throw Error('credential-file-permissions-invalid'); }
   try {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || (stat.mode & 0o077) !== 0)
@@ -117,6 +119,7 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
       result.sha256 = digest(payload.bytes);
       if (endpoint === '/') {
         result.htmlSha256 = result.sha256;
+        result.htmlDocument = /<!doctype html|<html[\s>]/i.test(payload.bytes.toString('utf8', 0, 512));
         results.push(result);
         continue;
       }
@@ -140,8 +143,9 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
   }
   const find = endpoint => results.find(row => row.endpoint === endpoint);
   const root = find('/'), site = find('/api/site'), health = find('/api/health'), records = find('/api/records');
-  const htmlMatch = root.htmlSha256 && site.siteHtmlSha256
+  const htmlMatch = root.htmlDocument === true && root.htmlSha256 && site.siteHtmlSha256
     ? root.htmlSha256 === site.siteHtmlSha256 : null;
+  const pageIntegrity = htmlMatch === true ? 'matching-bytes' : htmlMatch === false ? 'different-bytes' : 'unverified';
   let code;
   if (records.code === 'endpoint-not-found') code = 'records-endpoint-not-found';
   else if (records.code === 'access-denied') code = 'records-access-denied';
@@ -158,7 +162,7 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
     code, status: 'read-only-diagnostic', checkedAt: now(), target: ORIGIN,
     method: 'GET-only', readOnly: true, accountRecoveryVerified: false,
     authenticatedSessionVerified: false, productionDeploymentVerified: false,
-    htmlMatch, endpoints: results
+    htmlMatch, pageIntegrity, endpoints: results
   };
 }
 
