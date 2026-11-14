@@ -120,6 +120,22 @@ test('real legacy V6 login gates the opt-in private CAS route and preserves hist
  const saved=await request(port,'/api/records',{method:'POST',token,body:update});
  assert.equal(saved.status,200,'first CAS commit failed: '+JSON.stringify(saved.body));
  assert.equal(saved.body.revision,2);
+ const receiptPath='/api/records/receipts/mobile_device_01';
+ const noTokenReceipt=await request(port,receiptPath);
+ assert.equal(noTokenReceipt.status,401,'receipt cannot bypass original V6 login');
+ const maliciousReceipt=await request(port,receiptPath,{token,origin:'https://evil.fixture'});
+ assert.equal(maliciousReceipt.status,403);
+ const sourceReceipt=await request(port,receiptPath,{token});
+ assert.equal(sourceReceipt.status,200);
+ assert.equal(sourceReceipt.body.receipt.status,'committed');
+ assert.equal(sourceReceipt.body.receipt.appliedRevision,2);
+ assert.equal(sourceReceipt.body.receipt.readOnly,true);
+ assert.equal(sourceReceipt.body.accountRecoveryVerified,false);
+ assert.ok(!JSON.stringify(sourceReceipt.body).includes('90000'));
+ const absentReceipt=await request(port,'/api/records/receipts/never_sent_001',{token});
+ assert.equal(absentReceipt.status,200);
+ assert.equal(absentReceipt.body.receipt.found,false,'missing receipt is not a committed event');
+ assert.equal((await request(port,receiptPath,{method:'POST',token,body:{}})).status,405);
  const stale=await request(port,'/api/records',{method:'POST',token,body:{
   ...update,requestId:'desktop_device_01',content:JSON.stringify({revision:1,cash:80000,positions:[],orders:[]})
  }});
