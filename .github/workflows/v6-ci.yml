@@ -10,6 +10,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-market-source-integrity:
+    name: history-source-lineage-safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source family, strict historical import and BaoStock unit safety
+        run: |
+          node --check V6_BO/src/core/market-source-lineage.js
+          node --check V6_BO/src/core/market-feed-consensus.js
+          node --check V6_BO/src/core/market-data-center.js
+          node --check V6_BO/src/core/baostock-eod-research-bridge.js
+          node --test V6_BO/tests/market-feed-consensus.test.js V6_BO/tests/baostock-eod-research-bridge.test.js V6_BO/tests/market-data-center-e2e.test.js V6_BO/tests/eastmoney-historical-feed.test.js
   verify-cloud-cas:
     name: cloud-records-cas
     runs-on: ubuntu-24.04

@@ -64,8 +64,10 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
     const stat=fs.lstatSync(secondaryFile);
     if(!stat.isFile()||stat.size>maxBytes)throw Error('独立行情对照文件无效或超过上限');
     const reference=JSON.parse(fs.readFileSync(secondaryFile,'utf8'));
-    consensus=compareMarketFeeds(incoming,reference);
+    consensus=compareMarketFeeds(incoming,reference,{requireKnownIndependentUpstreams:true});
     if(!consensus.consensus)throw Error('双供应商行情不一致，共 '+consensus.discrepancies+' 项差异');
+    if(!consensus.researchComparisonReady)
+     throw Error('双源研究证据不足：必须有独立上游归属、股/人民币元完整口径和五分钟内采集时间；原文件未覆盖');
    }
    let changed=true;
    if(fs.existsSync(outputFile)){
@@ -75,7 +77,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
    }
    if(changed){atomicWrite(outputFile,stable(incoming)+'\n');updates++;}
    lastDigest=digest(stable(incoming));lastSuccess=new Date().toISOString();lastError=null;
-   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary}:null};
+   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary,researchComparisonReady:consensus.researchComparisonReady,evidenceCoverageScore:consensus.evidenceCoverageScore,canTrade:false}:null};
   }catch(e){lastError=e.message;return {updated:false,error:lastError};}
   finally{busy=false;}
  }

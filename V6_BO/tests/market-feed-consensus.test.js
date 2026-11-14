@@ -26,8 +26,8 @@ test('多源发现价格和成交量偏差，逐项保留供审计的差异与�
 test('导入时可选多源核对，异常不覆盖已保存数据',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-consensus-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'independent.json');
- const primary=feed('provider-A'),other=feed('provider-B');fs.writeFileSync(secondaryFile,JSON.stringify(other));
- const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,provider:'provider-A',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
+ const primary=completeFeed('eastmoney-public-history'),other=completeFeed('tencent-public-history');fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,provider:'eastmoney-public-history',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
  assert.equal((await center.sync()).consensus.matched,true);
  const saved=fs.readFileSync(outputFile,'utf8');other.stocks[0].bars[10].close+=.2;fs.writeFileSync(secondaryFile,JSON.stringify(other));
  assert.match((await center.sync()).error,/不一致/);assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
@@ -59,6 +59,11 @@ function amountFeed(provider){
  d.amountBasis='actual-unadjusted-turnover';
  for(const bar of d.stocks[0].bars)bar.amount=bar.volume*bar.close;
  return d;
+}
+function completeFeed(provider){
+ const feed=amountFeed(provider);
+ feed.observedAt=Date.parse('2025-02-08T08:05:00Z');
+ return feed;
 }
 test('独立历史数据按股和人民币元核对价格、数量及实际成交额',()=>{
  const a=amountFeed('provider-A'),b=amountFeed('provider-B');
@@ -113,10 +118,10 @@ test('源记录成交额不一致时，历史导入不得覆盖已有文件',asy
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-amount-consensus-'));
  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'independent.json');
- const primary=amountFeed('provider-A'),secondary=amountFeed('provider-B');
+ const primary=completeFeed('eastmoney-public-history'),secondary=completeFeed('tencent-public-history');
  fs.writeFileSync(secondaryFile,JSON.stringify(secondary));
  const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,
-  provider:'provider-A',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
+  provider:'eastmoney-public-history',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
  assert.equal((await center.sync()).updated,true);
  const saved=fs.readFileSync(outputFile,'utf8');
  secondary.stocks[0].bars[3].amount*=1000;
@@ -146,4 +151,62 @@ test('matching impossible amount-volume pairs cannot manufacture independent agr
  assert.equal(r.amountCoverageGapBars,0);
  assert.equal(r.displayedDiscrepancies.length,2);
  assert.ok(r.displayedDiscrepancies.every(x=>x.field==='amount-volume-integrity'));
+});
+
+
+test('包装接口共用东财上游时拒绝伪双源，未知包装只保留非认证研究结论',()=>{
+ const groups=[
+  ['eastmoney-public-history','efinance'],
+  ['choice','akshare:stock_zh_a_hist'],
+  ['tencent','tencent-public-history']
+ ];
+ for(const [a,b] of groups)assert.throws(()=>compareMarketFeeds(feed(a),feed(b)),/共享同一上游/);
+ const r=compareMarketFeeds(feed('provider-A'),feed('provider-B'));
+ assert.equal(r.consensus,true);
+ assert.equal(r.sourceLineage.knownDistinctUpstreamFamilies,false);
+ assert.equal(r.upstreamIndependenceVerified,false);
+ assert.equal(r.researchComparisonReady,false);
+ assert.equal(r.comparisonDecision,'insufficient-evidence');
+ assert.ok(r.evidenceCoverageScore<100);
+ assert.throws(()=>compareMarketFeeds(feed('provider-A'),feed('provider-B'),{requireKnownIndependentUpstreams:true}),/证据不足/);
+});
+test('BaoStock 与东财已登记为不同上游，但即使离线数值一致也不得自动放行交易',()=>{
+ const a=completeFeed('eastmoney-public-history'),b=completeFeed('baostock');
+ a.priceAdjustment.mode='unadjusted';b.priceAdjustment.mode='unadjusted';
+ const r=compareMarketFeeds(a,b,{requireKnownIndependentUpstreams:true});
+ assert.equal(r.consensus,true);
+ assert.equal(r.researchComparisonReady,true);
+ assert.equal(r.evidenceCoverageScore,100);
+ assert.equal(r.sourceLineage.knownDistinctUpstreamFamilies,true);
+ assert.equal(r.sourceLineage.actualUpstreamIndependenceVerified,false);
+ assert.equal(r.canTrade,false);
+ assert.equal(r.releaseReady,false);
+});
+test('伪装上游、无时间或无成交额的双源不能进入严格数据导入',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-strict-source-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'peer.json');
+ let primary=completeFeed('eastmoney-public-history');
+ let other=completeFeed('baostock');
+ other.priceAdjustment.mode=primary.priceAdjustment.mode;
+ fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ const center=createMarketDataCenter({url:'https://data.example.org/history',
+  outputFile,provider:'eastmoney-public-history',datasetId:'dataset-101',
+  secondaryFile,fetchImpl:async()=>response(primary)});
+ assert.equal((await center.sync()).updated,true);
+ const saved=fs.readFileSync(outputFile,'utf8');
+ other.upstream='eastmoney';
+ fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ assert.match((await center.sync()).error,/上游冲突/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
+ delete other.upstream;
+ delete other.observedAt;
+ fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ assert.match((await center.sync()).error,/时间戳缺失/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
+ other.observedAt=primary.observedAt;
+ delete other.stocks[0].bars[2].amount;
+ fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ assert.match((await center.sync()).error,/证据不足/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
 });

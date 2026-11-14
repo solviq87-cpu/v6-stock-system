@@ -3,13 +3,18 @@
  * Comparison does not certify market truth or grant a live-trading capability. */
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
+const {inspectMarketSourceLineage}=require('./market-source-lineage');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
-function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
+function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100,requireKnownIndependentUpstreams=false}={}){
+ if(typeof requireKnownIndependentUpstreams!=='boolean')throw Error('多源上游独立性参数无效');
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
   if((name==='maxDiscrepancies'&&!Number.isSafeInteger(v))||typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error('多源核对参数无效: '+name);
  }
  const a=validateDataset(primary),b=validateDataset(secondary);
  if(primary.source!=='imported'||secondary.source!=='imported'||!primary.provider||!secondary.provider||primary.provider===secondary.provider||!primary.datasetId||!secondary.datasetId)throw Error('多源核对必须为不同供应商提供的独立 imported 数据');
+ // Labels alone never establish distinct upstreams. A strict import path must
+ // reject unknown wrappers; offline legacy comparisons remain non-certified.
+ const sourceLineage=inspectMarketSourceLineage(primary,secondary,{requireKnownDistinct:requireKnownIndependentUpstreams});
  if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');
  if(!primary.priceAdjustment||!secondary.priceAdjustment||!['qfq','hfq','unadjusted'].includes(primary.priceAdjustment.mode)||primary.priceAdjustment.mode!==secondary.priceAdjustment.mode)throw Error('多源核对要求一致且明确的复权方式');
  // Unit parity is mandatory once either source declares an explicit volume unit.
@@ -73,17 +78,29 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
    }
   }
  }
+ const amountUnitVerified=amountRequested&&amountCoverageGapBars===0&&amountComparedBars===comparedBars;
+ // An evidence-completeness index, NOT an estimated probability of a correct
+ // quote or permission to send orders. Unknown provenance cannot score fully.
+ const evidenceChecks={distinctRegisteredUpstreams:sourceLineage.knownDistinctUpstreamFamilies,
+  alignedTradingDates:true,alignedPriceAdjustment:true,normalizedShares:volumeUnitVerified,
+  completeCnyTurnover:amountUnitVerified,comparableCaptureTimes:observationSkewMs!==null,
+  agreedValues:total===0};
+ const evidenceCoverageScore=Math.round(100*Object.values(evidenceChecks).filter(Boolean).length/Object.keys(evidenceChecks).length);
+ const researchComparisonReady=Object.values(evidenceChecks).every(Boolean);
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
   // Data as-of DATE is a comparison key, not a distinct capture-session certificate.
   asOf:primary.asOf,priceAdjustmentMode:primary.priceAdjustment.mode,observationSkewMs,
-  timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
+  timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified,
+  sourceLineage,upstreamIndependenceVerified:false,
+  evidenceChecks,evidenceCoverageScore,researchComparisonReady,
+  comparisonDecision:total?'disagreement-quarantined':researchComparisonReady?'research-evidence-only':'insufficient-evidence',
   comparedBars,amountComparedBars,amountCoverageGapBars,discrepancies:total,displayedDiscrepancies:differences,
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,
   consensus:total===0,releaseReady:false,
-  warning:'只比较两份声称独立的行情数值、同口径复权与明确标注的成交量/成交额单位；没有验证供应商身份、授权、交易所日历或公司行为，严禁视为实盘放行'};
+  warning:'共用上游包装接口不能冒充两家供应商；完整性分数不是行情准确率。数值一致不能验证供应商真实性、授权、交易所日历、停牌、公司行为或原始报价时间，严禁视为实盘放行'};
 }
 module.exports={compareMarketFeeds};
