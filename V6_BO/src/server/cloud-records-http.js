@@ -9,7 +9,7 @@ const BEARER=/^Bearer ([A-Za-z0-9._~-]{8,256})$/i;
 const VALID_FIELDS=new Set(['name','title','author','content','expectedRevision','requestId']);
 function respond(res,status,body){
  if(res.writableEnded||res.destroyed)return;
- res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+ res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Pragma':'no-cache','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'});
  res.end(JSON.stringify(body));
 }
 const fail=(res,status,code)=>respond(res,status,{ok:false,code});
@@ -18,9 +18,11 @@ function createCloudRecordsHttpHandler({store,authenticate,sameOrigin,maxBytes=M
     typeof authenticate!=='function'||typeof sameOrigin!=='function')throw Error('AUTH_AND_ORIGIN_POLICIES_REQUIRED');
  if(!Number.isSafeInteger(maxBytes)||maxBytes<1024||maxBytes>MAX_BODY_BYTES)throw Error('INVALID_BODY_LIMIT');
  return async function cloudRecordsHttp(req,res,body=null){
-  let path;
-  try{path=new URL(req.url,'http://local.invalid').pathname;}catch{return fail(res,400,'INVALID_REQUEST_PATH');}
-  if(path!=='/api/records')return fail(res,404,'NOT_FOUND');
+  let url;
+  try{url=new URL(req.url,'http://local.invalid');}catch{return fail(res,400,'INVALID_REQUEST_PATH');}
+  if(url.pathname!=='/api/records')return fail(res,404,'NOT_FOUND');
+  // This is a logged-in API, not a share-link API. Never accept URL-carried tokens or sharecodes.
+  if(url.search)return fail(res,400,'QUERY_CREDENTIALS_FORBIDDEN');
   if(!['GET','POST'].includes(req.method))return fail(res,405,'METHOD_NOT_ALLOWED');
   try{if(!sameOrigin(req))return fail(res,403,'CROSS_SITE_FORBIDDEN');}catch{return fail(res,403,'CROSS_SITE_FORBIDDEN');}
   const match=typeof req.headers.authorization==='string'&&req.headers.authorization.match(BEARER);
@@ -36,7 +38,11 @@ function createCloudRecordsHttpHandler({store,authenticate,sameOrigin,maxBytes=M
       writeContract:'cas-v1',readOnly:false,accountRecoveryVerified:false});
    }catch{return fail(res,503,'LEDGER_VERIFICATION_FAILED');}
   }
-  if(typeof body!=='string'||Buffer.byteLength(body)>maxBytes)return fail(res,413,'REQUEST_TOO_LARGE');
+  if(typeof req.headers['content-type']!=='string'||
+     !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers['content-type']))
+     return fail(res,415,'JSON_CONTENT_TYPE_REQUIRED');
+  if(typeof body!=='string')return fail(res,400,'INVALID_JSON');
+  if(Buffer.byteLength(body)>maxBytes)return fail(res,413,'REQUEST_TOO_LARGE');
   let data;
   try{data=JSON.parse(body);}catch{return fail(res,400,'INVALID_JSON');}
   if(!data||typeof data!=='object'||Array.isArray(data)||
