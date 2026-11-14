@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('../server.js'), 'utf8');
 const contract = require('../src/core/probability-contract');
+const LearningIntegrity = require('../src/core/learning-outcome-integrity');
 function grab(start, end = '\n}\n') {
   const a = source.indexOf(start), b = source.indexOf(end, a);
   assert.ok(a >= 0 && b >= a, start);
@@ -20,15 +21,19 @@ const actual = ctx.parts.join('\n') + '\n' + grab('function empInfo(prob, type, 
 function api(signals = [], shape = null) {
   const calls = [];
   const state = {learn: {signals, buckets: {'55-64': {corr: .2}, '<70': {corr: .2}, '80-84': {corr: .1}}}};
-  const functions = new Function('S', 'probabilityContract', 'laProbCached', 'laWhy', actual +
+  const functions = new Function('S', 'probabilityContract', 'laProbCached', 'laWhy', 'LearningIntegrity', actual +
     '\nreturn {empTable,empInfo,fusedProb,fuseLine,calibratedProb,probKindOf};')(
-    state, contract, (...args) => {calls.push(args[3]); return shape;}, () => 'fixture pattern');
+    state, contract, (...args) => {calls.push(args[3]); return shape;}, () => 'fixture pattern', LearningIntegrity);
   return {...functions, calls};
 }
 function signals(type, prob, patch = {}) {
-  return Array.from({length: 20}, (_, i) => ({type, prob,
-    date: '202611' + String(i % 5 + 2).padStart(2, '0'),
-    nd: {hit: true, limitUp: i < 4, quality: 'fake'}, ...patch}));
+  return Array.from({length: 20}, (_, i) => {
+    const date = '202611' + String(i % 5 + 2).padStart(2, '0'), target = LearningIntegrity.nextDay(date);
+    const base = {type, prob, date, nd:{date:target, integrity:{version:'calendar-final-ohlcv-v1',targetDate:target},
+      nextPct:1,maxGain:4,closeGain:1,openGap:0,hit:true,limitUp:i<4,quality:'fake'}, ...patch};
+    if(patch.resolved) base.resolved={date,nextPct:1,maxGain:2,...patch.resolved};
+    return base;
+  });
 }
 
 test('empInfo transports real zero and all quality rates without converting quality into another event', () => {
@@ -232,7 +237,7 @@ test('the historical comparison report separates sealing and gain events and pre
     signals('auczt', 20, {resolved: {limitUp: false, hit: true}}));
   rows.forEach(row => { row.fused = row.prob; });
   const dependencies = {S: {learn: {signals: rows}}, probabilityContract: contract,
-    isLiveSample: () => true, empBucketOf: n => n < 45 ? '<45' : '55-64', EMP_BUCKETS: ['<45', '55-64']};
+    isLiveSample: () => true, LearningIntegrity, empBucketOf: n => n < 45 ? '<45' : '55-64', EMP_BUCKETS: ['<45', '55-64']};
   const report = new Function(...Object.keys(dependencies), grab("function learnFusedReport(target = 'up3Next') {") +
     '\nreturn learnFusedReport;')(...Object.values(dependencies));
   const gain = report(), seal = report('ztNext'), today = report('ztToday');

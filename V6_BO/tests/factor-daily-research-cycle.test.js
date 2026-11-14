@@ -327,3 +327,14 @@ test('CLI only accepts explicit mode and absolute private config and opt-in appl
  assert.throws(()=>parse(['watch','/private/config.json']),/用法/);
  assert.throws(()=>parse(['capture','/private/config.json','--force']),/用法/);
 });
+test('async shadow proposal holds cycle lock and failure stays a failed stage',async t=>{
+ const {config}=setup(t);for(let i=currentIndex;i<currentIndex+36;i++)freezeDay(config,i);
+ const now=at(days[currentIndex+40]);fs.writeFileSync(config.historyFile,JSON.stringify(history(currentIndex+40)));
+ const workerPath=require.resolve('../scripts/factor-shadow-worker'),cyclePath=require.resolve('../src/core/factor-daily-research-cycle');
+ const worker=require(workerPath),original=worker.runOnce,cached=require.cache[cyclePath];let reject;
+ worker.runOnce=()=>new Promise((resolve,r)=>{reject=r;});delete require.cache[cyclePath];const fresh=require(cyclePath);
+ t.after(()=>{worker.runOnce=original;require.cache[cyclePath]=cached;});
+ const pending=fresh.runDailyCycle(config,{mode:'observe',apply:true,now});const lock=path.join(path.dirname(config.manifestFile),'.factor-research-cycle.lock');
+ assert.equal(typeof pending.then,'function');assert.equal(fs.existsSync(lock),true);assert.throws(()=>fresh.runDailyCycle(config,{mode:'observe',apply:true,now}),/尚未结束/);
+ reject(Error('model unavailable'));await assert.rejects(pending,e=>e.stage==='independent-shadow-model');assert.equal(fs.existsSync(lock),false);
+});

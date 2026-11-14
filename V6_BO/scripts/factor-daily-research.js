@@ -21,8 +21,8 @@ function main(args,{now=Date.now()}={}){
 if(require.main===module){
  try{
   const result=main(process.argv.slice(2));
-  console.log(JSON.stringify(result,null,2));
-  if(result.status.startsWith('blocked-'))process.exitCode=2;
+  if(result&&typeof result.then==='function')result.then(value=>{console.log(JSON.stringify(value,null,2));if(value.status.startsWith('blocked-'))process.exitCode=2;}).catch(()=>{console.error(JSON.stringify({status:'failed-stop-and-audit-before-retry',canTrade:false,productionWeightsChanged:false}));process.exitCode=1;});
+  else{console.log(JSON.stringify(result,null,2));if(result.status.startsWith('blocked-'))process.exitCode=2;}
  }catch(error){
   console.error(JSON.stringify({ok:false,
    stage:error.stage||'preflight',

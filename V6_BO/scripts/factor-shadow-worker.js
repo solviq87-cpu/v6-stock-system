@@ -16,6 +16,7 @@ const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-p
 const factorPack=require('../strategies/extended-factor-pack.json');
 const {writeNew,safeNew}=require('./factor-shadow-evolution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+function requireLocalModelDigest(){if(process.env.V6_LOCAL_LEARNING_MODEL&&!/^(?:sha256:)?[a-f0-9]{64}$/.test(process.env.V6_LOCAL_LEARNING_DIGEST||''))throw Error('本地模型研究必须明确固定有效摘要');}
 function parse(args){
  const [mode,manifestFile,outputDir,...flags]=args;
  if(!['once','watch','register','register-auto','register-seed','health'].includes(mode)||!manifestFile||!outputDir||
@@ -203,6 +204,8 @@ function latestCandidateRegistration(dir,accepted,previousTrial){
   if(hash(payload)!==fingerprint||name!=='prereg-'+fingerprint.slice(0,12)+'.json')
    throw Error('候选预注册档案完整性无效');
   if(r.mode===SEED_MODE)verifySeedRegistrationMetadata(r);
+  if(r.modelProvenance){const p=r.modelProvenance,code=crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../src/core/local-model-learning-proposer.js'))).digest('hex');
+   if(p.method!=='ollama-native-structured'||p.algorithmFingerprint!==code||!['digest','requestFingerprint','responseFingerprint'].every(k=>/^[a-f0-9]{64}$/.test(p[k]||'')))throw Error('本地模型候选来源或代码指纹无效');}
   if(r.parentAcceptedFingerprint===parent&&r.parentTrialFingerprint===trial)
    matches.push(r);
  }
@@ -225,27 +228,67 @@ function registerCandidateLocked({manifest,outputDir,now,auto=false,
  const prior=auto?(previousTrial||accepted):null;
  if(auto&&!prior)
   throw Error('尚无已封存历史研究报告，自动候选预注册拒绝启动');
- const proposal=auto?proposeFromSealedResearch({
-  source:prior,definitions:defs,acceptedWeights:weights,
-  packFingerprint:hash(factorPack),
-  latestFrozenDay:features.at(-1).signalDay
- }):null;
- const entry=preregisterCandidate({features,
-  candidateWeights:auto?proposal.candidateWeights:readJson(candidateWeightsFile),
-  acceptedWeights:weights,registeredAt:now,
-  parentAcceptedFingerprint:accepted?.fingerprint||null,
-  parentTrialFingerprint:previousTrial?.fingerprint||null,
-  packFingerprint:hash(factorPack),
-  autoSourceFingerprint:auto?proposal.sourceFingerprint:null});
- const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
- writeNew(file,entry);
- return {ok:true,status:auto?'candidate-auto-preregistered':'candidate-preregistered',
-  fingerprint:entry.fingerprint,sourceFingerprint:proposal?.sourceFingerprint||null,
-  latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt:now,
-  canTrade:false,productionWeightsChanged:false};
+ const input={source:prior,definitions:defs,acceptedWeights:weights,
+  packFingerprint:hash(factorPack),latestFrozenDay:features.at(-1).signalDay};
+ const finish=(proposal,registeredAt)=>{
+  // Re-scan receipt-backed captures after inference; a capture during model
+  // latency must not become a supposedly unseen post-registration signal.
+  if(proposal?.modelProvenance&&manifest.mode==='v6-forward-training-manifest'){
+   const current=registrationFeatures(manifest,manifest.episodes.map(e=>readJson(e.featuresFile)),undefined,registeredAt);
+   if(hash(current.map(x=>x.fingerprint))!==hash(features.map(x=>x.fingerprint)))
+    throw Error('模型生成期间冻结证据发生变化，请重新预注册');
+  }
+  let entry=preregisterCandidate({features,
+   candidateWeights:auto?proposal.candidateWeights:readJson(candidateWeightsFile),
+   acceptedWeights:weights,registeredAt,
+   parentAcceptedFingerprint:accepted?.fingerprint||null,
+   parentTrialFingerprint:previousTrial?.fingerprint||null,
+   packFingerprint:hash(factorPack),
+   autoSourceFingerprint:auto?proposal.sourceFingerprint:null});
+  if(proposal?.modelProvenance){const {fingerprint,...body}=entry;const payload={...body,modelProvenance:proposal.modelProvenance};entry={...payload,fingerprint:hash(payload)};}
+  const file=path.join(outputDir,'prereg-'+entry.fingerprint.slice(0,12)+'.json');
+  writeNew(file,entry);
+  return {ok:true,status:auto?'candidate-auto-preregistered':'candidate-preregistered',
+   fingerprint:entry.fingerprint,sourceFingerprint:proposal?.sourceFingerprint||null,
+   ...(proposal?.modelProvenance?{candidateMethod:'ollama-native-structured',modelName:proposal.modelProvenance.modelName,modelDigest:proposal.modelProvenance.digest}:{}),
+   latestFrozenSignalDay:entry.latestFrozenSignalDay,registeredAt,
+   canTrade:false,productionWeightsChanged:false};
+ };
+ if(auto&&process.env.V6_LOCAL_LEARNING_MODEL){
+  // A stable configured digest is required before reading a cached review.
+  requireLocalModelDigest();
+  // Verify the source and definitions before reusing any private review.
+  proposeFromSealedResearch({...input,allowUnchanged:true});
+  const options={model:process.env.V6_LOCAL_LEARNING_MODEL,
+   endpoint:process.env.V6_LOCAL_LEARNING_ENDPOINT||'http://127.0.0.1:11434',
+   digest:process.env.V6_LOCAL_LEARNING_DIGEST||undefined};
+  const cacheKey=hash({sourceFingerprint:prior.fingerprint,acceptedWeights:weights,
+   model:options.model,endpoint:options.endpoint,digest:options.digest||null,
+   algorithmFingerprint:currentResearchCodeFingerprint()});
+  const file=safeNew(path.join(outputDir,'model-review-'+cacheKey+'.json'));
+  const reply=(receipt,reused)=>({ok:true,status:'skipped-model-no-change',
+   sourceFingerprint:prior.fingerprint,candidateMethod:'ollama-native-structured',
+   modelName:receipt.modelProvenance.modelName,modelDigest:receipt.modelProvenance.digest,
+   reviewFingerprint:receipt.fingerprint,reused,canTrade:false,productionWeightsChanged:false});
+  if(fs.existsSync(file)){
+   const stat=fs.lstatSync(file),receipt=readJson(file),{fingerprint,...body}=receipt;
+   if(!stat.isFile()||stat.isSymbolicLink()||(stat.mode&0o777)!==0o600||fingerprint!==hash(body)||receipt.mode!=='v6-local-model-review-v1'||receipt.cacheKey!==cacheKey||receipt.sourceFingerprint!==prior.fingerprint||receipt.status!=='model-retained-unchanged'||receipt.canTrade!==false||receipt.productionWeightsChanged!==false||receipt.modelProvenance?.method!=='ollama-native-structured'||receipt.modelProvenance?.modelName!==options.model||receipt.modelProvenance?.digest!==options.digest.replace(/^sha256:/,''))throw Error('本地模型复核档案完整性无效');
+   return reply(receipt,true);
+  }
+  const {proposeLocalModel}=require('../src/core/local-model-learning-proposer');
+  return proposeLocalModel(input,options).then(proposal=>{
+   if(proposal.status!=='model-retained-unchanged')return finish(proposal,Date.now());
+   const body={schemaVersion:1,mode:'v6-local-model-review-v1',cacheKey,
+    sourceFingerprint:prior.fingerprint,status:proposal.status,modelProvenance:proposal.modelProvenance,
+    reviewedAt:Date.now(),canTrade:false,productionWeightsChanged:false};
+   const receipt={...body,fingerprint:hash(body)};writeNew(file,receipt);return reply(receipt,false);
+  });
+ }
+ return finish(auto?proposeFromSealedResearch(input):null,now);
 }
 function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
  now=Date.now(),auto=false}={}){
+ if(auto)requireLocalModelDigest();
  const args=auto?['register-auto',manifestFile,outputDir]:
   ['register',manifestFile,outputDir,candidateWeightsFile];
  const conf=parse(args),manifest=readJson(conf.manifestFile);
@@ -395,12 +438,9 @@ function withResearchLock(dir,work){
    throw Error('研究模型目录存在独占锁；请人工核对运行进程和试验档案，不得自动清锁');
   throw error;
  }
- try{
-  fs.writeFileSync(fd,JSON.stringify({schemaVersion:1,pid:process.pid,
-   startedAt:new Date().toISOString(),purpose:'shadow-research-only'})+'\n');
-  fs.fsyncSync(fd);
-  return work();
- }finally{
+ let released=false;
+ const release=()=>{
+  if(released)return;released=true;
   let held;
   try{held=fs.fstatSync(fd);}finally{fs.closeSync(fd);}
   let current;
@@ -409,7 +449,15 @@ function withResearchLock(dir,work){
   if(current.dev!==held.dev||current.ino!==held.ino)
    throw Error('研究独占锁身份变化；拒绝清理其他进程的锁');
   fs.unlinkSync(lock);
- }
+ };
+ try{
+  fs.writeFileSync(fd,JSON.stringify({schemaVersion:1,pid:process.pid,
+   startedAt:new Date().toISOString(),purpose:'shadow-research-only'})+'\n');
+  fs.fsyncSync(fd);
+  const value=work();
+  if(value&&typeof value.then==='function')return Promise.resolve(value).finally(release);
+  release();return value;
+ }catch(error){release();throw error;}
 }
 function validateManifest(manifest){
  if(manifest?.mode==='v6-forward-training-manifest'){
@@ -426,6 +474,7 @@ function validateManifest(manifest){
 function runOnce({manifestFile,outputDir,now=Date.now(),
  requirePreRegistration=false,autoRegisterCandidate=false,
  operatorMode=false,captureDir,watchPulse=false,watchIntervalMs=60000}={}){
+ if(autoRegisterCandidate)requireLocalModelDigest();
  if(autoRegisterCandidate&&!requirePreRegistration)
   throw Error('自动接力必须先启用严格预注册');
  const conf=parse(['once',manifestFile,outputDir]);
@@ -437,19 +486,13 @@ function runOnce({manifestFile,outputDir,now=Date.now(),
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>{
-  let outcome='tick-success',lastStatus='unknown';
+  const heartbeat=(outcome,lastStatus)=>{if(watchPulse)writeWatchHeartbeat(conf.outputDir,
+   {now,intervalMs:watchIntervalMs,outcome,lastStatus});};
   try{
-   const result=evaluateOnce(
-    {...conf,requirePreRegistration,autoRegisterCandidate,captureDir},now,manifest);
-   lastStatus=result.status;
-   return result;
-  }catch(e){
-   outcome='tick-error';lastStatus='worker-evaluation-error';
-   throw e;
-  }finally{
-   if(watchPulse)writeWatchHeartbeat(conf.outputDir,
-    {now,intervalMs:watchIntervalMs,outcome,lastStatus});
-  }
+   const result=evaluateOnce({...conf,requirePreRegistration,autoRegisterCandidate,captureDir},now,manifest);
+   if(result&&typeof result.then==='function')return result.then(value=>{heartbeat('tick-success',value.status);return value;},e=>{heartbeat('tick-error','worker-evaluation-error');throw e;});
+   heartbeat('tick-success',result.status);return result;
+  }catch(e){heartbeat('tick-error','worker-evaluation-error');throw e;}
  });
 }
 // Registration seals all receipt-backed features already visible, including
@@ -640,10 +683,10 @@ function main(args){
  if(config.mode==='register-auto')return runRegisterAuto(config);
  if(config.mode==='once')return runOnce({...config,operatorMode:true});
  let busy=false,closing=false;
- const tick=()=>{
+ const tick=async()=>{
   if(busy||closing)return;
   busy=true;
-  try{console.log(JSON.stringify(runOnce({...config,operatorMode:true,
+  try{console.log(JSON.stringify(await runOnce({...config,operatorMode:true,
    watchPulse:true,watchIntervalMs:config.interval})));}
   catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));}
   finally{busy=false;}
@@ -657,7 +700,8 @@ function main(args){
 if(require.main===module){
  try{
   const result=main(process.argv.slice(2));
-  if(result?.mode!=='watch')console.log(JSON.stringify(result));
+  if(result&&typeof result.then==='function')result.then(v=>console.log(JSON.stringify(v))).catch(e=>{console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;});
+  else if(result?.mode!=='watch')console.log(JSON.stringify(result));
  }catch(e){console.error(JSON.stringify({ok:false,error:String(e.message).slice(0,220)}));process.exitCode=1;}
 }
 module.exports={parse,runOnce,runRegister,runRegisterAuto,runRegisterSeed,latestAccepted,latestCooldown,

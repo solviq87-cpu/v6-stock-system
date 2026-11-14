@@ -1,0 +1,97 @@
+{
+  "as_of": "2026-11-14",
+  "scope": "Official source review plus separate isolated synthetic-aggregate local model inference; no production activation.",
+  "sources": [
+    {
+      "project": "ollama/ollama",
+      "commit": "a5864fcb33969705de3c0ebfedf4b2a16c970bcc",
+      "path": "docs/api.md",
+      "git_blob_sha1": null,
+      "capability": "POST /api/chat; docs establish format accepts JSON schema, stream false returns one response. A local loopback candidate-output adapter is feasible; validate all fields locally.",
+      "quote": "Structured outputs are supported by providing a JSON schema in the `format` parameter.",
+      "quote_words": 13,
+      "license": "Ollama software LICENSE is MIT (path LICENSE; blob SHA 8e3dc978a7ca8c53f56bbedc5b558116140fc02e). This does not license each pulled model."
+    },
+    {
+      "project": "QwenLM/Qwen3",
+      "commit": "7a2f61ffc7a20d47efcd2bf97f6f2bf52729042e",
+      "path": "README.md",
+      "git_blob_sha1": "d0b77b3169e32c9977e1df71eab589895507bc5e",
+      "model": "Qwen/Qwen3-4B",
+      "model_license": "Apache-2.0, verified on official Hugging Face model page and LICENSE page; model license is distinct from serving runtime/repository license.",
+      "url": "https://huggingface.co/Qwen/Qwen3-4B/blob/main/LICENSE",
+      "quote": "All our open-weight models are licensed under Apache 2.0.",
+      "quote_words": 9,
+      "model_routing": "Separate isolated verification used qwen3:0.6b; 4B was not benchmarked."
+    },
+    {
+      "project": "microsoft/RD-Agent",
+      "commit": "484776c211e4fbbeef03e0ec00d6bbee7362a4f4",
+      "path": "README.md",
+      "git_blob_sha1": null,
+      "license_path": "LICENSE",
+      "license": "MIT; blob SHA 9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+      "principles": "Quant R&D alternates factor/model co-optimization; use a bounded hypothesis -> experiment -> evaluation loop, quantify robustness, and retain reproducible traces. Adapt only the experimental discipline, not the broad agent/autonomous execution stack.",
+      "quote": "coordinated factor-model co-optimization",
+      "quote_words": 4
+    }
+  ],
+  "isolated_inference": {
+    "model": "qwen3:0.6b",
+    "digest": "7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435",
+    "elapsedMs": 11211,
+    "usedSyntheticAggregateEvidence": true,
+    "actualInference": true,
+    "acceptedByCandidateSchema": true,
+    "proposalStatus": "model-retained-unchanged",
+    "candidateChanged": false,
+    "researchVersionRetained": true,
+    "acceptedWeights": {
+      "sector_heat": 1.3,
+      "leader_strength": 1.3
+    },
+    "candidateWeights": {
+      "sector_heat": 1.3,
+      "leader_strength": 1.3
+    },
+    "productionApplied": false,
+    "holdoutEvaluated": false,
+    "modelProvenance": {
+      "modelName": "qwen3:0.6b",
+      "digest": "7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435",
+      "requestFingerprint": "3c837de269924b36bb5819d93ba4cac199ad3fc1af56423b724bb13c2c220dca",
+      "responseFingerprint": "8e572dd6655e62e438e1f5fa394f55f27ef308b405fef8ac2210c4a27a4a2f2e",
+      "method": "ollama-native-structured",
+      "algorithmFingerprint": "000dbd9ff18737356d19d3a43dba837edf67b77fd8141cc94b9c01becf5481bf"
+    },
+    "runtimeVersion": "0.40.16",
+    "runtimeReleaseArchiveSha256": "87bfafb2acbc89b2e6a1be0a9043de6aa75fb450696f86bc426e65fc448f788d",
+    "modelMetadata": {
+      "model": "qwen3:0.6b",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3",
+        "families": [
+          "qwen3"
+        ],
+        "parameter_size": "751.63M",
+        "quantization_level": "Q4_K_M"
+      },
+      "licenseSha256": "d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12",
+      "apacheLicensePresent": true,
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ]
+    },
+    "caveats": [
+      "Synthetic aggregate input only; no real-market holdout or production activation.",
+      "Earlier cold/concurrent attempts exceeded the 30-second limit; early invalid or unchanged responses were rejected before the no-op lifecycle fix.",
+      "This receipt records the measured adapter fingerprint, not a financial quality benchmark.",
+      "A later cold final-code attempt also timed out safely; this successful receipt retains its measured adapter fingerprint."
+    ],
+    "runtimeStoppedAfterExperiment": true
+  }
+}
