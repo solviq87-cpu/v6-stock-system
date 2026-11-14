@@ -158,24 +158,24 @@
       "note": ""
     },
     {
-      "id": "cn-stockdata-tencent",
+      "id": "ashare-tencent-route",
       "upstreamGroup": "tencent",
       "dataClass": "a-share-bars",
       "market": "CN",
       "access": "registered-only",
       "adapter": "candidate",
-      "evidenceUrl": "https://github.com/joycoding2000/chstockdata",
-      "note": ""
+      "evidenceUrl": "https://github.com/mpquant/Ashare",
+      "note": "Ashare's Tencent backend needs exact chosen route/provenance; not an independent additional publisher"
     },
     {
-      "id": "chstockdata-tdx",
+      "id": "pytdx-quote-route",
       "upstreamGroup": "tdx",
       "dataClass": "a-share-bars",
       "market": "CN",
       "access": "registered-only",
       "adapter": "candidate",
-      "evidenceUrl": "https://github.com/joycoding2000/chstockdata",
-      "note": ""
+      "evidenceUrl": "https://github.com/rainx/pytdx",
+      "note": "TDX route is shared with pytdx/mootdx; no new market publisher"
     },
     {
       "id": "stock-data-hub-efinance",
@@ -935,9 +935,9 @@
       "finding": "TDX upstream"
     },
     {
-      "name": "chstockdata",
-      "url": "https://github.com/joycoding2000/chstockdata",
-      "finding": "Tencent, TDX, Sina routes not three unique wrappers"
+      "name": "FinRL",
+      "url": "https://github.com/AI4Finance-Foundation/FinRL",
+      "finding": "financial DRL data layer; it normalizes providers but is not itself an independent market publisher"
     },
     {
       "name": "stock-data-hub",
