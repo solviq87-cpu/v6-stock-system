@@ -37,6 +37,7 @@
  }
  function key(){return 'web_'+(root.crypto?.randomUUID?.().replace(/-/g,'')||Date.now().toString(36)+Math.random().toString(36).slice(2));}
  function syncControls(){
+  host.setAttribute('aria-busy',String(!!request));
   const busy=!!request;$('workspaceExport').disabled=busy||!view;$('workspaceLatest').disabled=busy||!selectedRunId;
   $('workspaceForecastInput').disabled=busy||!view?.forecastEvaluation?.input;
   $('workspaceForecastFreeze').disabled=busy||historical()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction;
@@ -106,17 +107,30 @@
   }catch(e){if(id===generation&&token===($('token')?.value.trim()||'')&&!doc.hidden){if(permissionDenied)clear('未完成：读取权限已失效，私有研究与偏好已清空，请重新认证',true);else{view=null;host.replaceChildren();clearSummary();status.textContent=e.name==='AbortError'?'读取已停止；可重新读取原档案':'未完成：'+e.message;}}return null;}
   finally{clearTimeout(timer);if(id===generation){request=null;syncControls();}}
  }
+ async function navigate(extra={}){
+  const pending=call(null,extra),id=generation;status.focus({preventScroll:true});
+  const result=await pending;
+  // A later request or the user's own focus move owns the next interaction.
+  if(id!==generation||doc.hidden||doc.activeElement!==status)return;
+  if(result){host.focus({preventScroll:true});host.scrollIntoView({block:'start',behavior:'auto'});}
+ }
+ function syncTabs(){
+  const focused=$('workspaceTabs').contains(doc.activeElement)?doc.activeElement.dataset.tab:tab;
+  for(const b of $('workspaceTabs').children){b.setAttribute('aria-selected',String(b.dataset.tab===tab));b.tabIndex=b.dataset.tab===focused?0:-1;}
+  host.setAttribute('aria-labelledby','workspaceTab-'+tab);
+ }
  function pagination(total){const n=node('div',undefined,host);n.className='linked-actions';line(n,'记录',Math.min(offset+1,total)+'—'+Math.min(offset+20,total)+' / '+total);
-  const prev=button(n,'上一页',()=>{offset=Math.max(0,offset-20);call();});prev.disabled=offset===0;
-  const next=button(n,'下一页',()=>{offset+=20;call();});next.disabled=offset+20>=total;
+  const prev=button(n,'上一页',()=>{offset=Math.max(0,offset-20);navigate();});prev.disabled=offset===0;
+  const next=button(n,'下一页',()=>{offset+=20;navigate();});next.disabled=offset+20>=total;
  }
  function render(){
-  host.replaceChildren();renderSummary();for(const b of $('workspaceTabs').children)b.setAttribute('aria-selected',String(b.dataset.tab===tab));if(!view)return;
+  host.replaceChildren();renderSummary();syncTabs();if(!view)return;
   root.V6MarketLinkageCard?.render($('workspaceMarketLinkage'),view.marketLinkage,{onInspect:inspectStock});
   const r=view.selectedRun;
   if(tab==='evidence'){
-   const list=card('研究版本');for(const run of arr(view.runs.rows)){const row=node('div',undefined,list);row.className='workspace-row';
-    const choice=button(row,run.symbol+' · '+run.tradeDate+' · '+clock(run.recordedAt)+' · '+run.id.slice(0,10),()=>call(null,{runId:run.id}));choice.dataset.workspaceRun=run.id;choice.setAttribute('aria-pressed',String(run.id===selectedRunId));}
+   const list=card('研究版本'),versions=node('div',undefined,list);versions.className='workspace-run-list';versions.setAttribute('role','region');versions.setAttribute('aria-label','研究版本列表');versions.tabIndex=0;
+   for(const run of arr(view.runs.rows)){const row=node('div',undefined,versions);row.className='workspace-row';
+    const choice=button(row,run.symbol+' · '+run.tradeDate+' · '+clock(run.recordedAt)+' · '+run.id.slice(0,10),()=>navigate({runId:run.id}));choice.dataset.workspaceRun=run.id;choice.setAttribute('aria-pressed',String(run.id===selectedRunId));}
    if(!view.runs.total)line(list,'记录','尚未封存；先采集股票或比较已存股票');else pagination(view.runs.total);
    if(r){const c=card(r.name+' '+r.symbol+' · 结论与证据');line(c,'数据截止日',r.tradeDate);line(c,'来源',r.provider);line(c,'封存时间',clock(r.recordedAt));
     const evidence=new Map(arr(r.evidence).map(e=>[e.id,e]));
@@ -215,7 +229,13 @@
   for(const id of ['workspaceReview','workspaceSavePreferences','workspaceRestorePreferences','workspaceSavePreset','workspaceRestorePreset'])$(id).disabled=historical();
  }
  function presetVersions(){const p=view?.presets.find(x=>x.name===$('workspacePreset').value);$('workspacePresetVersion').replaceChildren();for(const h of arr(p?.history)){const o=node('option','版本 '+h.revision+' · '+clock(h.recordedAt),$('workspacePresetVersion'));o.value=String(h.revision);}}
- for(const [id,title]of Object.entries(tabs)){const b=button($('workspaceTabs'),title,()=>{tab=id;const paged=offset!==0;offset=0;if(view&&paged)call();else render();});b.dataset.tab=id;b.setAttribute('role','tab');}
+ for(const [id,title]of Object.entries(tabs)){const b=button($('workspaceTabs'),title,()=>{tab=id;const paged=offset!==0;offset=0;syncTabs();if(paged)navigate();else render();});b.dataset.tab=id;b.id='workspaceTab-'+id;b.setAttribute('role','tab');b.setAttribute('aria-controls','workspaceContent');}
+ $('workspaceTabs').addEventListener('keydown',event=>{
+  const choices=[...$('workspaceTabs').children],index=choices.indexOf(event.target);if(index<0)return;
+  const target=event.key==='ArrowRight'?(index+1)%choices.length:event.key==='ArrowLeft'?(index+choices.length-1)%choices.length:event.key==='Home'?0:event.key==='End'?choices.length-1:null;
+  if(target===null)return;event.preventDefault();for(const b of choices)b.tabIndex=-1;choices[target].tabIndex=0;choices[target].focus();
+ });
+ syncTabs();
  $('workspaceRead').addEventListener('click',()=>{offset=0;call();});
  $('workspaceLatest').addEventListener('click',()=>{if(request)return;selectedRunId=null;offset=0;call();});
  $('workspaceReview').addEventListener('click',async()=>{if(!allowWrite())return;const symbol=$('workspaceSymbol').value.trim();if(!/^\d{6}$/.test(symbol)){status.textContent='比较已存股票需要六位代码';return;}const r=await call({action:'review',symbol,provider:$('workspaceProvider').value,requestId:key(),...(nativeEvidence?{nativeEvidence}:{})});if(r)call(null,{runId:r.runId});});
