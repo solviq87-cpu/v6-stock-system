@@ -1,0 +1,92 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
+const {createCloudRecordsCasStore,digest}=require('../src/core/cloud-records-cas-store');
+const {createCloudRecordsHttpHandler}=require('../src/server/cloud-records-http');
+const state=(revision=0,cash=100000)=>({revision,cash,positions:[],orders:[]});
+function testServer(t,{bootstrap=true}={}){
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'v6-cas-http-'));fs.chmodSync(root,0o700);
+ const store=createCloudRecordsCasStore(root);
+ if(bootstrap){const records=[{name:'v6.app.state',content:JSON.stringify(state())}];
+  store.bootstrap({records,expectedSourceHash:digest({records}),operatorApproved:true,requestId:'bootstrap_0001'});}
+ const handler=createCloudRecordsHttpHandler({store,
+  authenticate:async token=>token==='editor-token-123'?'edit':token==='viewer-token-123'?'view':null,
+  sameOrigin:req=>!req.headers.origin||req.headers.origin==='http://trusted.fixture'});
+ const server=http.createServer((req,res)=>{
+  const chunks=[];let size=0;req.on('data',b=>{size+=b.length;if(size<=5*1024*1024)chunks.push(b);});
+  req.on('end',()=>void handler(req,res,Buffer.concat(chunks).toString('utf8')));
+ });
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{force:true,recursive:true});});
+ return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve({store,server,port:server.address().port})));
+}
+function get(f,route='/api/records',token='editor-token-123',options={}){
+ return new Promise((resolve,reject)=>{
+  const json=options.body===undefined?null:JSON.stringify(options.body);
+  const headers={...(token?{Authorization:'Bearer '+token}:{}),...(options.headers||{}),
+    ...(json?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(json)}:{})};
+  const req=http.request({host:'127.0.0.1',port:f.port,path:route,method:options.method||'GET',headers},res=>{
+   let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(body),headers:res.headers}));
+  });req.on('error',reject);req.end(json||undefined);
+ });
+}
+const payload=(rev,requestId,cash=50000)=>({name:'v6.app.state',content:JSON.stringify(state(rev,cash)),expectedRevision:rev,requestId});
+test('adapter cannot be created without mandatory authenticated session and same-origin policy',()=>{
+ const fake={read(){},upsert(){}};
+ assert.throws(()=>createCloudRecordsHttpHandler({store:fake}),/AUTH_AND_ORIGIN_POLICIES_REQUIRED/);
+ assert.throws(()=>createCloudRecordsHttpHandler({store:fake,authenticate:()=>true}),/AUTH_AND_ORIGIN_POLICIES_REQUIRED/);
+});
+test('missing, invalid, read-only device tokens and hostile origins cannot disclose account',async t=>{
+ const f=await testServer(t);
+ for(const [token,opts,expected]of [[null,{},401],['invalid-token-123',{},401],['viewer-token-123',{},403],['editor-token-123',{headers:{Origin:'https://evil.fixture'}},403]]){
+  const r=await get(f,'/api/records',token,opts);assert.equal(r.status,expected);
+  assert.equal(r.body.ok,false);assert.equal(JSON.stringify(r.body).includes('cash'),false);
+ }
+ assert.equal((await get(f,'/api/records?sharecode=public-link',null)).status,401);
+});
+test('authorized GET on absent authoritative account fails without default initialization',async t=>{
+ const f=await testServer(t,{bootstrap:false}),r=await get(f);
+ assert.equal(r.status,503);assert.equal(r.body.code,'AUTHORITATIVE_LEDGER_UNAVAILABLE');
+ assert.equal(f.store.read().status,'uninitialized');
+});
+test('editor GET/POST preserves explicit CAS revision and request-id replay result',async t=>{
+ const f=await testServer(t),initial=await get(f);
+ assert.equal(initial.status,200);assert.equal(initial.body.revision,1);
+ assert.equal(initial.body.writeContract,'cas-v1');assert.equal(initial.body.accountRecoveryVerified,false);
+ const post=await get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'mobile_0001')});
+ assert.equal(post.status,200);assert.equal(post.body.revision,2);assert.equal(post.body.reused,false);
+ const retry=await get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'mobile_0001')});
+ assert.equal(retry.status,200);assert.equal(retry.body.reused,true);
+ const latest=await get(f);assert.equal(latest.body.records.length,1);assert.equal(latest.body.revision,2);
+ assert.equal(JSON.parse(latest.body.records[0].content).cash,50000);
+});
+test('concurrent phone and desktop writes cannot both succeed for one expected version',async t=>{
+ const f=await testServer(t);
+ const [a,b]=await Promise.all([
+  get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'mobile_0001',70000)}),
+  get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'desktop_001',80000)})
+ ]);
+ assert.deepEqual([a.status,b.status].sort(),[200,409]);
+ assert.equal((await get(f)).body.revision,2);
+});
+test('same request ID carrying different content yields 409, no account overwrite',async t=>{
+ const f=await testServer(t);
+ assert.equal((await get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'mobile_0001',70000)})).status,200);
+ const r=await get(f,'/api/records','editor-token-123',{method:'POST',body:payload(1,'mobile_0001',80000)});
+ assert.equal(r.status,409);assert.equal(r.body.code,'IDEMPOTENCY_CONTENT_CONFLICT');
+ assert.equal(JSON.parse((await get(f)).body.records[0].content).cash,70000);
+});
+test('missing version/id or unexpected field cannot bypass server CAS contract',async t=>{
+ const f=await testServer(t);
+ for(const body of [{name:'v6.app.state',content:JSON.stringify(state())},
+  {...payload(1,'okid_0001'),unknown:'bad'}, {...payload(1,'okid_0002'),expectedRevision:0}]){
+  const r=await get(f,'/api/records','editor-token-123',{method:'POST',body});
+  assert.equal(r.status,400);
+ }
+ assert.equal((await get(f)).body.revision,1);
+});
+test('unsupported verbs and other routes never write to the ledger',async t=>{
+ const f=await testServer(t);
+ assert.equal((await get(f,'/api/records','editor-token-123',{method:'PUT'})).status,405);
+ assert.equal((await get(f,'/api/status','editor-token-123')).status,404);
+ assert.equal(f.store.read().revision,1);
+});
