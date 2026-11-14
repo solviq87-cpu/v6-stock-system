@@ -21,6 +21,10 @@
 - `integration/runtime-quote-recovery-20261114`：后台互斥、模拟盘报价消费、SSE 恢复补读；基于 `e986fcc`，无需合并旧 UI 草稿。详见 [验证与边界](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)。合并须等待最终全量与精确 head 的 CI/浏览器结果；未部署完整后端。
 - 已对应 [PR #210](https://github.com/solviq87-cpu/v6-stock-system/pull/210)：`9e3e4c1` 完整CI成功但浏览器复现失败，阻止合并。已确定性验证旧Playwright时钟倒退，升级固定版本1.57.0并增加离线门禁；须以修复后精确head完整CI/浏览器结果决定是否合并，生产发布保持未验证。
 
+- 补充核对：#210 已合入 `dev@92db2d2f64d130c21007915568d7292b14d9a0c4`；以上失败与修复为历史记录，不代表当前 PR 仍开放。
+- V6-009 [PR #211](https://github.com/solviq87-cpu/v6-stock-system/pull/211)：前向观察周期股票数与旧归档兼容；最新主线集成本地 `45c3a3f` 全量3374通过/0失败/3可选ML跳过，关联98项、网页40项和隔离服务通过。用户明确授权后已上传，远端代码 tree 与本地一致；等待最新 head 远端 CI，未合并/未发布。
+
+
 ## 评审—合并—发布门禁（不能跳过）
 
 1. 取 `dev` 最新精确 SHA、PR head SHA、最新 diff 与相关任务号，先判断是否重复、冲突、已存在功能。
