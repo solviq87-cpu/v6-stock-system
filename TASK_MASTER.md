@@ -37,7 +37,7 @@
 
 ## 本轮续接 · V6-005/006
 
-从 `9251e27` 继续现有本机启动器：分支 `fix/local-host-health-restart-20261114`，修复健康检查挂起并补真实后台重启/双HTTP读回。详见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`；Windows/手机现场状态仍为待验收。精确提交、CI和合并状态读取对应PR，不按旧段落重复领取。
+PR #216已合入 `5b4360a`，健康探测与重启读回3400项远端回归通过。现从该版本继续停止路径，分支 `fix/local-host-stop-clock-20261114`，补时钟回拨/快进与进程检查后退出边界。详见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`；Windows/手机现场状态仍为待验收。精确提交、CI和合并状态读取对应PR，不按旧段落重复领取。
 
 ## 去重与任务所有权规则
 
