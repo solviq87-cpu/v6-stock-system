@@ -3651,9 +3651,10 @@ function quoteDayOf(at) {
 // ⛔ 判新鲜度必须同时看两件事：① 拉取时刻够不够近 ② 归属日是不是"此刻该有的那天"。
 //    只看①会漏掉休市日（刚拉过、但拉到的是上一交易日的收盘价）；只看②在盘中刚重启时误判。
 function quoteBasis(maxAgeMs) {
-  const at = Number(S.stocksAt) || 0;
+  const rawAt = Number(S.stocksAt);
+  const at = Number.isFinite(rawAt) && rawAt > 0 ? rawAt : 0;
   const age = at ? Date.now() - at : Infinity;
-  const fresh = !!at && age <= (maxAgeMs || 10 * 60 * 1000);
+  const fresh = !!at && age >= 0 && age <= (maxAgeMs || 10 * 60 * 1000);
   const day = at ? quoteDayOf(at) : '';
   const isToday = !!day && day === todayStr();
   return { at, day, age: isFinite(age) ? age : null, fresh, isToday,
@@ -16983,12 +16984,17 @@ function loadSnapshotsOnBoot() {
   try {
     if (!S.stocks.length) {
       const s = JSON.parse(fs.readFileSync(STOCKS_SNAP_FILE, 'utf8'));
-      if (s && Array.isArray(s.rows) && s.rows.length > 100) {
-        S.stocks = s.rows; S.stocksAt = s.at || 0;
+      if (s && Array.isArray(s.rows) && s.rows.length >= 100) {
+        // Match setAllStocks' boundary; recovery preserves source times and never ingests live prices.
+        const at = Number(s.at);
+        S.stocks = s.rows; S.stocksAt = Number.isFinite(at) && at > 0 ? at : 0;
         console.log('[boot] 从快照恢复全A ' + S.stocks.length + ' 只（可能滞后，待实时刷新覆盖）');
       }
     }
-  } catch {}
+  } catch (e) {
+    // Missing on first boot is normal. Do not log parser errors containing saved payloads.
+    if (!e || e.code !== 'ENOENT') console.error('[boot] 全A快照读取失败，等待实时刷新');
+  }
   try {
     if (!S.ztPool.length) {
       const z = JSON.parse(fs.readFileSync(ZTPOOL_SNAP_FILE, 'utf8'));
@@ -17000,7 +17006,7 @@ function loadSnapshotsOnBoot() {
           S.ztExcluded = { day: z.day || '', count: _bd.length, items: _bd.map(x => ({ code: x.code, name: x.name, pct: x.pct != null ? +x.pct : null })) };
           console.log('[boot] 快照内退市整理期股按新口径剔除 ' + _bd.length + ' 只（' + _bd.map(x => x.name).join('、') + '）');
         }
-        S.ztPool = _bp.length ? _bp : z.pool; S.ztDay = z.day || '';
+        S.ztPool = _bp; S.ztDay = z.day || '';
         // ⛔ ig 轮（#262）：快照的戳是上一进程写的，来历不可考 —— 标未探测，
         //    等本轮首次 refreshSectorsZT 探测完再转正；每日自检不拿它当"已验证的归属日"。
         S.ztDayProbed = false;
