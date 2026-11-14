@@ -147,6 +147,28 @@ jobs:
             echo ""
             echo "仅为代码测试，不表示网页已部署或接通实时行情。"
           } >> "$GITHUB_STEP_SUMMARY"
+  verify-a-share-session-coverage:
+    name: a-share-session-data-quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile research-only calendar and halt evidence gate
+        run: |
+          node --check V6_BO/src/core/a-share-session-coverage.js
+          node --check V6_BO/scripts/research-cross-source-history.js
+      - name: Audit open sessions, provider-declared halts, shared missing dates and point-in-time boundaries
+        run: |
+          node --test \
+            V6_BO/tests/a-share-session-coverage.test.js \
+            V6_BO/tests/research-cross-source-history.test.js \
+            V6_BO/tests/research-calendar-source.test.js \
+            V6_BO/tests/multi-source-calendar-gate.test.js
   verify-source-lineage:
     name: multi-source-data-lineage
     runs-on: ubuntu-24.04

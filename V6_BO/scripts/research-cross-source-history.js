@@ -7,6 +7,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {normalizeBaoStockDaily}=require('../src/core/baostock-historical-normalizer');
 const {compareMarketFeeds}=require('../src/core/market-feed-consensus');
 const {validateImport}=require('../src/core/market-data-center');
+const {partitionBaoStockRows,auditDailySessionCoverage}=require('../src/core/a-share-session-coverage');
 function readObject(file){
  const stat=fs.lstatSync(file);
  if(!stat.isFile()||stat.size<2||stat.size>8*1024*1024)throw Error('输入证据不是8MiB以内的普通文件');
@@ -23,20 +24,38 @@ function collectBaoStock(payload){
   return {code:payload.code,rows:payload.rows,collectorObservedAt:payload.collectorObservedAt};
  throw Error('不接受没有明确BaoStock来源标签的原始历史');
 }
-function audit(emFile,baostockFile){
+function audit(emFile,baostockFile,{now=Date.now(),calendarFile}={}){
  const em=readObject(emFile),raw=collectBaoStock(readObject(baostockFile));
  if(em?.provider!=='eastmoney-public-history'||em?.source!=='imported'||
   em.priceAdjustment?.mode!=='unadjusted'||!Array.isArray(em.stocks)||
   em.stocks.length!==1||em.stocks[0].code!==raw.code)
   throw Error('需要单只相同代码、未复权且身份明确的东方财富历史');
- validateImport(em,{provider:em.provider,datasetId:em.datasetId,now:Date.now()});
- const normalized=normalizeBaoStockDaily(raw);
+ validateImport(em,{provider:em.provider,datasetId:em.datasetId,now});
+ // Suspended BaoStock rows are SOURCE STATUS EVIDENCE, never synthetic OHLC.
+ // Keep normalizer strict: only actually traded rows reach numeric parity.
+ const partition=partitionBaoStockRows({...raw,now});
+ const normalized=normalizeBaoStockDaily({...raw,rows:partition.tradingRows});
  const comparison=compareMarketFeeds(em,normalized.dataset);
+ const calendarCoverage=auditDailySessionCoverage(normalized.dataset,{
+  now,calendarFile,suspensions:partition.suspensions
+ });
+ const numericAndCalendarCoverageConsistent=comparison.consensus===true&&
+  calendarCoverage.completeByProviderEvidence===true;
+ // Market data source stamps and per-bar halt status are separate proof classes.
+ // A history with NO vendor clock or one-sided halt declarations is never
+ // "complete research evidence" merely because its visible dates match.
+ const researchEvidenceComplete=numericAndCalendarCoverageConsistent&&
+  comparison.evidenceQuality?.status==='consistent-research-only'&&
+  comparison.suspensionCoverage?.complete===true;
  return {schemaVersion:1,mode:'historical-independent-upstream-parity',
-  code:raw.code,asOf:comparison.asOf,comparison,baostock:normalized.provenance,
+  code:raw.code,asOf:comparison.asOf,comparison,
+  calendarCoverage,rawBaoStockFingerprint:partition.rawFingerprint,
+  excludedRawSuspensionRows:partition.suspensions.length,
+  numericAndCalendarCoverageConsistent,researchEvidenceComplete,
+  baostock:normalized.provenance,
   canTrade:false,verifiedLive:false,verifiedExternal:false,
   sourceIndependenceAuthenticated:false,usableForExecution:false,
-  warning:'仅比较已明确标注东财和BaoStock的未复权历史；无联网验证、授权证明、公司行为复核或交易权限'};
+  warning:'价格一致不等于交易日完整。必须另外审计交易所研究日历、供应商自报停牌、未解释缺口及公司行为；报告没有交易权限，历史日历不构成当年已知时点证据'};
 }
 function main(args){
  if(args.length!==3)throw Error('用法: node scripts/research-cross-source-history.js <eastmoney-unadjusted.json> <baostock-raw.json> <new-report.json>');
@@ -49,7 +68,10 @@ function main(args){
   fs.writeFileSync(fd,JSON.stringify(report,null,2)+'\n');
   fs.fsyncSync(fd);
  }finally{fs.closeSync(fd);}
- console.log(JSON.stringify({output:full,matched:report.comparison.consensus,
+ console.log(JSON.stringify({output:full,numericMatched:report.comparison.consensus,
+  sessionCoverage:report.calendarCoverage.status,
+  numericAndCalendarCoverageConsistent:report.numericAndCalendarCoverageConsistent,
+  researchEvidenceComplete:report.researchEvidenceComplete,
   differences:report.comparison.discrepancies,canTrade:false}));
 }
 if(require.main===module){
