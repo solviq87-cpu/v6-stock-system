@@ -10,7 +10,7 @@ const safe=/^[a-z][a-z0-9-]{0,63}$/;
 const routes=new Map(registry.sources.map(x=>[x.id,Object.freeze({...x})]));
 const baseIds=new Set(legacy.sources.map(x=>x.id));
 function sourceLineage(id){
- if(typeof id!=='string'||!safe.test(id))return null;
+ if(typeof id!=='string'||!/^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/.test(id))return null;
  const r=routes.get(id);
  if(!r)return {id,known:false,upstreamGroup:null,upstreamAmbiguous:true,
   dataClass:null,access:'unreviewed',adapter:'unregistered',active:false,
