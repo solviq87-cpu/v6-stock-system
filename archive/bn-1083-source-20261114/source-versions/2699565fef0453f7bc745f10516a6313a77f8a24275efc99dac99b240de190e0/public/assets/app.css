@@ -1,0 +1,270 @@
+:root{--up:#e03131;--down:#0ca678;--bg:#f5f6f8;--card:#fff;--line:#e5e8ec;--txt:#1c2333;--sub:#697386;--acc:#3b5bdb;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+.wrap{max-width:1280px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+h1{font-size:18px}
+.badge{padding:3px 10px;border-radius:20px;font-size:12px;background:#eef1f6;color:var(--sub)}
+.badge.on{background:#ffe3e3;color:var(--up)}
+.badge.ok{background:#d3f9d8;color:#2b8a3e}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:hidden}
+.card h2{font-size:14px;margin-bottom:10px;color:var(--txt);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2 small{color:var(--sub);font-weight:400}
+.sec{margin:20px 0 10px;font-weight:700;font-size:15px;color:var(--acc);border-left:4px solid var(--acc);padding-left:9px}
+/* ii 轮方案A：手机端折叠「展开更多」按钮——默认隐藏，仅在 ≤760px 媒体查询内显示（媒体规则在下方、源序靠后，可覆盖本默认） */
+.mobile-expand-btn{display:none}
+.rf{margin-left:auto;cursor:pointer;opacity:.5;font-size:13px;transition:transform .2s,opacity .2s;user-select:none}
+.rf:hover{opacity:1}
+.rf.spin{animation:spin 1s linear infinite;opacity:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tabbtn{padding:3px 10px;font-size:12px;margin-right:4px;opacity:.55}
+.tabbtn.on{opacity:1}
+.fbtn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;margin-right:4px;color:var(--sub)}
+.fbtn.on{border-color:var(--acc);color:var(--acc);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--sub);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid #f0f2f5;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.up{color:var(--up)} .down{color:var(--down)}
+.score{display:inline-block;min-width:38px;text-align:center;font-weight:700;border-radius:6px;padding:2px 6px}
+.s-h{background:#ffe3e3;color:#c92a2a}.s-m{background:#fff3bf;color:#e67700}.s-l{background:#e9ecef;color:#495057}
+.tag{display:inline-block;background:#edf2ff;color:var(--acc);border-radius:5px;padding:2px 8px;margin:2px;font-size:12px}
+.tag b{color:#c92a2a}
+/* 命中率三口径拆解行：实盘/回测/马后炮各占一行，右侧灰字说明该口径代表什么 */
+.learnsplit{margin:0 0 8px;padding:8px 10px;background:#fbfcfd;border:1px solid var(--line);border-radius:8px}
+.learnsplit .splitrow{display:flex;align-items:center;gap:10px;font-size:12px;padding:2px 0;flex-wrap:wrap}
+.learnsplit .splitrow .tag{min-width:118px;text-align:center;margin:0}
+.learnsplit .splitrow .tag.up{background:#ffe3e3;color:#c92a2a}
+.learnsplit .splitrow .tag.down{background:#e6f7ee;color:#0ca678}
+.learnsplit .splitrow .mut2{color:#9aa3b0;font-size:11px}
+/* 顶部浮条：版本提示 / 草稿恢复通知。fixed 在最上层，不占文档流，避免把卡片顶下去 */
+.topbar{position:fixed;left:0;right:0;top:0;z-index:9999;background:#fff4e6;color:#8a4b00;
+  border-bottom:1px solid #ffd8a8;padding:8px 14px;font-size:13px;line-height:1.6;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.topbar b{color:#c92a2a}
+.topbar-warn{background:#e7f5ff;color:#1c4b8a;border-bottom-color:#a5d8ff}
+.btn{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
+.btn.ghost{background:#fff;color:var(--acc)}
+input[type=text]{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;width:320px}
+.muted{color:var(--sub);font-size:12px}
+.cd{font-variant-numeric:tabular-nums;font-weight:700;color:var(--acc)}
+.sig{padding:8px 10px;border-left:3px solid var(--acc);background:#f8f9ff;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:13px}
+.sig.zt{border-color:var(--up);background:#fff5f5}
+/* 可滚动窗口：左右也要能滑 —— 表格列多，手机窄屏必然横向溢出，
+   只开 overflow-y 的话右边内容会被 .card 的 overflow:hidden 直接裁掉且滑不动 */
+.scrolly{max-height:340px;overflow:auto;-webkit-overflow-scrolling:touch}
+/* ── 2026-09-30 修复：同行卡片被拉伸成等高，滚动区却只有 340px → 下面一整片空白 ──
+   .grid 默认 align-items:stretch：同一行里内容多的那张卡会把兄弟一起撑高。
+   而 .scrolly 是 max-height:340px，表格一满就不再长 —— 于是多出来的高度全变成空白
+   （用户原话：「板块资金流排行为啥下面空了那么多」—— 它旁边那张竞价卡有 15 行沼泽式表格，
+    远超板块表的高度，右边底下就空出一大块）。
+   解法：让含滚动区的卡片内部纵向 flex，滚动区吃掉剩余高度。既不留白，
+   同样的位置还能多显示好几行。手机端（单列 + max-height:none）不受影响。 */
+.card.fluid{display:flex;flex-direction:column}
+.card.fluid>*:not(.scrolly){flex:0 0 auto}
+.card.fluid>.scrolly{flex:1 1 auto;min-height:150px;max-height:none;overflow:auto}
+@supports selector(:has(*)){
+  /* 只作用于网格里的卡片：表格/非网格区的卡片布局保持原样，降低改动面 */
+  .grid>.card:has(>.scrolly){display:flex;flex-direction:column}
+  .grid>.card:has(>.scrolly)>*:not(.scrolly){flex:0 0 auto}
+  .grid>.card:has(>.scrolly)>.scrolly{flex:1 1 auto;min-height:150px;max-height:none;overflow:auto}
+}
+/* 裸表格（没包 .scrolly 的那些，如竞价板块表）专用横滑层 */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* ══ 涨停池角色颜色对照（必须保留注释）════════════════════
+   .r-leader 红色底白字 = 龙头（板块内连板数最高·核心人气股）
+   .r-deputy 橙色底白字 = 龙二（除龙头外连板最高且≥2板·空间第二梯队）
+   .r-mid    金色底深字 = 中军（板块内成交额最大·大资金主战场）
+   .r-follow 灰色底深字 = 跟风（同板块其余涨停个股）
+   与后端 classifySectorRoles 的 leader/deputy/mid/follow 一一对应 */
+.rtag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:12px;margin:2px}
+.r-leader{background:#e03131;color:#fff;font-weight:700}
+.r-deputy{background:#e8590c;color:#fff;font-weight:700}
+.r-mid{background:#f5b301;color:#5c4400;font-weight:700}
+.r-follow{background:#e9ecef;color:#495057}
+/* ══ 复盘/补涨龙 横向卡片网格布局（每只个股一张卡·信息全展示·免上下左右滑动）══ */
+.rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.rvc{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+.rvc-h{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:13px}
+.rvc-h b{font-size:17px}
+.rvc-g{display:flex;gap:8px 12px;flex-wrap:wrap;font-size:12px;margin-top:4px;align-items:center}
+/* 趋势票池专用小号卡片：同构但更紧凑，信息密度更高 */
+.rvgrid.sm{grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:8px}
+.rvc.sm{padding:6px 8px;border-radius:8px}
+.rvc.sm .rvc-h{font-size:12px}
+.rvc.sm .rvc-h b{font-size:15px}
+.rvc.sm .rvc-g{font-size:11px;gap:5px 10px;margin-top:3px}
+.rvc.sm .score{min-width:40px;padding:1px 5px;font-size:12px}
+.rvc.sm .tag{padding:1px 6px;font-size:11px;margin:1px}
+/* ══ 涨停复盘 redesign（fv 轮）：按题材分组 + 涨停原因高亮 ══ */
+.rvgrp{margin-bottom:12px}
+.rvgrp-h{font-size:14px;font-weight:700;margin:2px 0 6px;padding:4px 8px;background:linear-gradient(90deg,#fff4e6,#fff);border-left:4px solid #e8590c;border-radius:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rvgrp-h b{color:#e8590c;font-size:15px}
+.rvc-reason{margin-top:5px;font-size:12.5px;line-height:1.6}
+.rvc-reason .th{display:inline-block;background:#fff0f6;border:1px solid #faa2c1;color:#c2255c;border-radius:8px;padding:1px 8px;margin:2px 4px 2px 0;font-weight:600}
+.tag.hl{background:#e03131;color:#fff}
+.tag.src{background:#f1f3f5;color:#868e96}
+/* ══ 我的持仓 · 盯盘风控 ══ */
+input[type=number]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
+.hform{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px dashed #ced4da;border-radius:8px;background:#f8f9fa;margin-bottom:8px}
+.hform input[type=text],.hform input[type=number]{width:104px}
+.hform input#hNote{width:110px}
+.hcard{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+/* 持仓卡右上角的操作按钮：尺寸走类，不走行内样式（否则手机端放大不生效） */
+.hbtns{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.hgap{flex:1}
+.hbtn{padding:2px 8px;font-size:12px;white-space:nowrap}
+.hbtn.hdel{background:#fff;color:#c92a2a;border-color:#ffc9c9}
+.hcard.lv-danger{border-color:#ffa8a8;background:#fff5f5}
+.hcard.lv-warn{border-color:#ffd8a8;background:#fffbf2}
+.hcard.lv-info{border-color:#dbe4ff;background:#fbfcff}
+.act{padding:5px 8px;border-radius:0 6px 6px 0;margin-top:4px;font-size:12px;line-height:1.55;white-space:normal}
+.act-danger{background:#fff5f5;border-left:3px solid var(--up)}
+.act-warn{background:#fffaf0;border-left:3px solid #f08c00}
+.act-good{background:#f2fbf6;border-left:3px solid #0ca678}
+.act-info{background:#f8f9ff;border-left:3px solid var(--acc)}
+.act .why{color:var(--sub);font-size:11px}
+/* 持仓按标签分组的「可折叠区块」 */
+.hgrp{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:8px;background:#fff}
+.hgrp-h{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#f8f9fa;cursor:pointer;font-size:13px;user-select:none}
+.hgrp-h:hover{background:#f1f3f5}
+.hgrp-h .chev{display:inline-block;width:14px;color:var(--sub);font-size:12px}
+.hgrp-h .cnt{display:inline-block;min-width:18px;text-align:center;background:#e9ecef;border-radius:10px;padding:0 6px;font-size:11px;color:#495057}
+.hgrp-b{padding:6px 8px}
+/* 编辑专属元素：只读（观看密码）登录时自动隐藏/禁用，防止误改 */
+.eo-hide{display:none !important}
+.eo-off{opacity:.45;pointer-events:none}
+/* 涨停概率条（大单流入卡片） */
+.prob-wrap{display:flex;align-items:center;gap:8px;margin:5px 0 2px;font-size:12px}
+.prob-bar{flex:1;min-width:80px;height:8px;border-radius:5px;background:#e9ecef;overflow:hidden}
+.prob-bar i{display:block;height:100%;border-radius:5px;transition:width .4s}
+/* ── 手机端适配：表单铺满、输入框放大到易点、按钮加高、卡片单列 ── */
+@media(max-width:760px){
+  .hform{padding:10px;gap:8px}
+  .hform input[type=text],.hform input[type=number]{width:100%;flex:1 1 46%;min-width:0;padding:10px 10px;font-size:16px}
+  .hform input#hCode{flex:1 1 100%}
+  .hform input#hNote,.hform input#hTags{flex:1 1 100%}
+  .hform button,.hform .btn{padding:10px 14px;font-size:14px;flex:1 1 auto}
+  .hform label[for],.hform>span.muted{font-size:12px}
+  .hcard{padding:10px}
+  .hcard .rvc-h{flex-wrap:wrap;gap:6px}
+  /* 操作按钮：手机上独占一整行、每个都放大到手指点得准（≥38px 高 / 14px 字） */
+  .hcard .hbtns{flex:1 1 100%;margin-left:0;margin-top:6px;gap:6px}
+  .hcard .hbtn{padding:9px 10px;font-size:14px;min-height:38px;flex:1 1 0;min-width:62px;border-radius:8px}
+  .hcard .hgap{flex:1 1 100%;height:0}
+  .hcard .rvc-g{grid-template-columns:repeat(2,1fr);gap:4px 8px}
+  .hcard .act{font-size:12.5px}
+  #holdTagBar{gap:6px}
+  #holdTagBar .tag{padding:4px 10px;font-size:12px}
+  /* ⚠️ 原写法 overflow:visible 会让超宽表格溢出到 .card，再被 .card 的 overflow:hidden 裁掉
+     —— 右边内容既看不到也滑不动。这里改为：纵向放开（跟着页面一起滚），横向必须能滑。 */
+  .scrolly{max-height:none !important;overflow-x:auto !important;overflow-y:visible !important;-webkit-overflow-scrolling:touch}
+  .card{overflow:visible}
+  /* ⚠️ 别在这里给 .card 加 content-visibility:auto —— 它会让视口外的卡片高度塌陷成
+     contain-intrinsic-size 的估算值，而手机端 .scrolly 又是 overflow-y:visible（内容实际更高），
+     两者叠加会造成「内容溢出、和下一张卡片叠在一起 / 滚动到那儿是空白」，也就是
+     「电脑上明明能显示、手机上却显示不出来」。流畅度改用接口 gzip + 后台不刷新来保证。 */
+  /* 表格列多时保证有横向滚动条可拖，而不是被硬生生截断 */
+  table{min-width:100%;width:auto}
+  .tw{display:block}
+  /* 顶部速跳导航：长页面一键跳转，开发者/只读都不用一路翻 */
+  .sec-nav{position:sticky;top:0;z-index:50;display:flex;gap:6px;flex-wrap:wrap;padding:8px 2px;background:#fff;border-bottom:1px solid #e9ecef;margin-bottom:6px;overflow-x:auto}
+  .sec-nav a{font-size:12px;padding:4px 12px;border-radius:16px;background:#f1f3f5;color:#343a40;text-decoration:none;white-space:nowrap;cursor:pointer}
+  .sec-nav a:hover{background:#e7f5ff;color:#1971c2}
+  .sec-nav a.cur{background:#4263eb;color:#fff}
+  .sec{scroll-margin-top:56px}
+  /* 开发者面板标签页：把 8 块管理功能收进 5 个标签，省去一路往下翻 */
+  .ltab-btn{font-size:12px;padding:4px 12px;border:1px solid #ced4da;background:#fff;border-radius:16px;cursor:pointer;color:#495057}
+  .ltab-btn:hover{border-color:#868e96}
+  .ltab-btn.active{background:#4263eb;color:#fff;border-color:#4263eb}
+  .locktab{animation:ltf .15s ease}
+  @keyframes ltf{from{opacity:.4}to{opacity:1}}
+  /* 设备列表：手机上把表格转成卡片，避免横向溢出 / 列挤在一起 */
+  .dev-table table,.dev-table thead,.dev-table tbody,.dev-table th,.dev-table td,.dev-table tr{display:block}
+  .dev-table thead tr{display:none}
+  .dev-table tr{margin-bottom:8px;border:1px solid #e9ecef;border-radius:8px;padding:8px;background:#fff}
+  .dev-table td{border:none;padding:4px 0;white-space:normal}
+  .dev-table td:empty{display:none}
+  /* 在线设备卡片：把身份/设备/活跃三行信息竖排 */
+  .dev-table .dev-role{font-size:12px}
+  .dev-table .dev-id{font-size:13px;font-weight:700}
+  .dev-table .dev-name,.dev-table .dev-meta{color:var(--sub);font-size:12px}
+  .dev-table .dev-revoke{margin-top:6px}
+  .dev-table .dev-revoke .btn{width:100%;padding:8px 0}
+  /* ── hj 轮：K 线面板（可点股票名 + 右侧抽屉）── */
+  .kl-link{cursor:pointer;border-bottom:1px dashed #adb5bd}
+  .kl-link:hover{color:#3b5bdb;border-bottom-color:#3b5bdb}
+  #klWrap{position:fixed;inset:0;z-index:10002;background:rgba(245,246,248,.82);display:none;align-items:stretch;justify-content:flex-end}
+  #klPanel{background:#fff;color:#1c2333;border-left:1px solid #e5e8ec;box-shadow:-8px 0 32px rgba(0,0,0,.14);width:min(760px,100vw);height:100%;display:flex;flex-direction:column;font-size:13px;animation:klslide .18s ease}
+  @keyframes klslide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+  @media (max-width:520px){#klPanel{width:100vw}}
+}
+
+
+/* 多策略可视化中心 */
+.strategy-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 14px}.strategy-metric{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fafafa}.strategy-metric b{display:block;font-size:18px}.strategy-metric span{display:block;font-size:12px;color:#6b7280;margin-top:4px}.strategy-top{display:grid;gap:7px}.strategy-row{display:grid;grid-template-columns:44px minmax(120px,1fr) minmax(110px,1.4fr) 60px;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:9px 10px;cursor:pointer}.strategy-row:hover{border-color:#94a3b8;background:#fafafa}.srank{font-weight:700;color:#64748b}.sname{font-weight:700}.sname small{display:block;font-weight:400;color:#6b7280;margin-top:2px}.sscore{font-weight:700}.scorebar{height:5px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:5px}.scorebar i{display:block;height:100%;background:#475569;border-radius:999px}.spass{font-size:12px;font-weight:700;text-align:center;padding:4px 6px;border-radius:999px}.spass.ok{background:#dcfce7;color:#166534}.spass.no{background:#fef3c7;color:#92400e}.strategy-detail{margin-top:12px;padding:12px;border:1px dashed #cbd5e1;border-radius:9px;background:#fafafa}.contrib-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}.contrib-grid>div{min-width:0}.contrib-grid span{display:block;font-size:12px;color:#64748b}.contrib-grid b{display:block;margin-top:3px}.strategy-reasons{margin-top:10px;font-size:13px;line-height:1.7}@media(max-width:700px){.strategy-summary{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:38px minmax(90px,1fr) minmax(85px,1fr) 52px;gap:6px;padding:8px}.contrib-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ═══════════════════════════════════════════════════════
+   V5 · Visual UI refinement
+   Modern dashboard surface: stronger hierarchy, softer cards,
+   clearer market/strategy status and mobile-first density.
+   ═══════════════════════════════════════════════════════ */
+:root{--bg:#f4f7fb;--card:#ffffff;--line:#e7ecf3;--txt:#172033;--sub:#718096;--acc:#365cf5;--acc-soft:#eef2ff;--up:#e5484d;--down:#16a34a}
+body{background:radial-gradient(circle at 12% -10%,rgba(54,92,245,.10),transparent 32%),radial-gradient(circle at 90% 0,rgba(14,165,233,.08),transparent 28%),var(--bg);line-height:1.5}
+.wrap{max-width:1440px;padding:18px}
+header{position:sticky;top:10px;z-index:30;gap:10px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.90);backdrop-filter:blur(16px);box-shadow:0 8px 28px rgba(20,34,62,.06);border-color:rgba(220,228,240,.9)}
+h1{font-size:20px;letter-spacing:.2px;display:flex;align-items:center;gap:7px}
+.badge{padding:5px 10px;border:1px solid #e8edf5;background:#f7f9fc;color:#64748b;font-weight:600}
+.badge.ok{background:#ecfdf3;border-color:#c8f2d8}.badge.on{background:#fff0f1;border-color:#ffd4d8}
+.btn{border-radius:10px;padding:7px 13px;font-weight:650;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(54,92,245,.16)}.btn:active{transform:none}.btn.ghost{border-color:#e1e7f0;background:#fff}
+.card{border-radius:16px;padding:16px;border-color:rgba(224,230,240,.95);box-shadow:0 4px 18px rgba(28,45,74,.035);transition:box-shadow .2s ease,border-color .2s ease}
+.card:hover{box-shadow:0 8px 26px rgba(28,45,74,.07);border-color:#d9e1ee}
+.card h2{font-size:15px;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid #eef2f7}.card h2 small{font-size:11px}
+.sec{margin:28px 0 12px;font-size:17px;color:#22304a;border-left:none;padding-left:0;display:flex;align-items:center;gap:8px}.sec:after{content:"";height:1px;background:#dfe6f1;flex:1;margin-left:6px}
+th{background:#fafbfd;color:#77849a;font-weight:700}td,th{padding:8px 9px}tbody tr{transition:background .15s ease}tbody tr:hover{background:#f8faff}
+.tag{border:1px solid #e4e9f2;background:#f5f7ff;border-radius:999px;padding:3px 9px}.score{border-radius:999px;padding:3px 8px}
+.strategy-card{position:relative;overflow:visible;background:linear-gradient(145deg,#fff 0%,#fbfcff 100%)}
+.strategy-card:before{content:"";position:absolute;inset:0 0 auto 0;height:4px;border-radius:16px 16px 0 0;background:linear-gradient(90deg,#365cf5,#7c3aed,#0ea5e9)}
+.strategy-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0 16px}
+.strategy-metric{position:relative;overflow:hidden;border-radius:14px;padding:14px 15px;background:linear-gradient(145deg,#fff,#f8faff);border-color:#e5eaf3}
+.strategy-metric:after{content:"";position:absolute;width:64px;height:64px;border-radius:50%;right:-22px;bottom:-26px;background:var(--acc-soft)}
+.strategy-metric b{font-size:22px;letter-spacing:-.5px;color:#172554}.strategy-metric span{font-size:12px;color:#718096}
+.strategy-top{gap:9px}.strategy-row{grid-template-columns:48px minmax(150px,1fr) minmax(130px,1.6fr) 68px;border-radius:14px;padding:11px 12px;border-color:#e6ebf2;box-shadow:0 2px 7px rgba(30,41,59,.025);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.strategy-row:hover{transform:translateY(-1px);border-color:#bdc9ff;background:#fff;box-shadow:0 8px 20px rgba(54,92,245,.08)}
+.srank{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#f1f4f9;color:#4c5b72}.strategy-row:nth-child(1) .srank{background:#fff4d6;color:#a16207}.strategy-row:nth-child(2) .srank{background:#eef1f5}.strategy-row:nth-child(3) .srank{background:#fff0e8;color:#c2410c}
+.sname{font-size:14px;color:#1e293b}.sscore{color:#1d4ed8}.scorebar{height:7px;background:#edf1f7;margin-top:7px}.scorebar i{background:linear-gradient(90deg,#365cf5,#7c3aed,#0ea5e9)}
+.spass{padding:5px 8px;border:1px solid transparent}.spass.ok{background:#ecfdf3;border-color:#c8f2d8}.spass.no{background:#fff8e7;border-color:#ffe4a8}
+.strategy-detail{border-style:solid;border-color:#e4eaf3;background:linear-gradient(145deg,#fbfcff,#f7f9fc);border-radius:14px;padding:15px}.contrib-grid{gap:10px}.contrib-grid>div{padding:10px;border:1px solid #e7ecf3;border-radius:12px;background:#fff}.contrib-grid span{font-size:11px}.contrib-grid b{font-size:16px;color:#243b64}
+.strategy-reasons{padding:10px 12px;border-left:3px solid var(--acc);background:#fff;border-radius:8px}
+@media(max-width:900px){.wrap{padding:12px}header{position:static;border-radius:14px}.g2,.g3{gap:10px}.card{border-radius:14px}.strategy-summary{grid-template-columns:repeat(2,1fr)}.strategy-row{grid-template-columns:42px minmax(90px,1fr) minmax(100px,1.2fr) 60px}}
+@media(max-width:560px){body{font-size:13px}.wrap{padding:9px}header{padding:12px;gap:7px}h1{width:100%;font-size:18px}.badge{font-size:11px;padding:4px 8px}.btn{padding:7px 10px;font-size:12px}.card{padding:12px}.sec{margin-top:22px;font-size:16px}.strategy-metric{padding:12px}.strategy-metric b{font-size:19px}.strategy-row{grid-template-columns:38px minmax(80px,1fr) minmax(80px,1fr) 54px;gap:7px;padding:9px}.srank{width:30px;height:30px}.sname{font-size:13px}.sname small{font-size:10px}.sscore{font-size:12px}.contrib-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* V6 UI 20261104: preserve existing card behavior, prevent narrow title columns. */
+:root{--v6-radius:16px;--v6-shadow:0 5px 22px rgba(28,43,75,.035)}
+.card{border-radius:var(--v6-radius);box-shadow:var(--v6-shadow)}
+.card h2{min-width:0;flex-wrap:wrap;align-items:flex-start;line-height:1.55}
+.card h2>span,.card h2>small{min-width:0;overflow-wrap:anywhere;word-break:normal}
+.card h2>small{flex:1 1 190px;line-height:1.55}
+.card h2 .rf{flex:0 0 auto}
+button,.btn,a{touch-action:manipulation}
+button:focus-visible,.btn:focus-visible,a:focus-visible{outline:3px solid #5488f4;outline-offset:2px}
+@media(max-width:760px){
+  html,body{max-width:100%;overflow-x:clip}
+  .wrap{width:100%;max-width:100%;min-width:0}
+  .grid,.g2,.g3,.card{min-width:0;max-width:100%}
+  .card{padding:14px;border-radius:17px}
+  .card h2{display:flex;flex-wrap:wrap;justify-content:flex-start;column-gap:10px;row-gap:5px}
+  .card h2>span:first-child{flex:1 1 170px;min-width:0;max-width:100%;white-space:normal;word-break:normal;overflow-wrap:break-word}
+  .card h2>small{flex:1 1 180px;min-width:0;white-space:normal;overflow-wrap:break-word}
+  .card h2 .rf{margin-left:auto}
+  .sec{scroll-margin-top:14px}
+  .btn{min-height:38px}
+  .tw{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:390px){.card h2>span:first-child,.card h2>small{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){.rf{transition:none}.rf.spin{animation:none}}

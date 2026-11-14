@@ -1,0 +1,13 @@
+'use strict';
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+assert.match(app,/s\.paper\s*&&\s*s\.paper\.hidden/);
+assert.match(app,/只读（观看）权限不可查看/);
+assert.match(server,/viewPwd:/);
+assert.match(server,/devPwd:/);
+console.log('PASS: 只读模拟盘前端兜底存在');
+console.log('SECURITY WARNING: 后端仍含 viewPwd/devPwd 明文回显字段，需单独整改和回归；此测试不表示密码安全通过');

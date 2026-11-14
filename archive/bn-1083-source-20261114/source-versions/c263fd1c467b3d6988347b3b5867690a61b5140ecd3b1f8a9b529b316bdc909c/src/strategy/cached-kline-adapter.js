@@ -1,0 +1,12 @@
+ 'use strict';
+const finite=x=>typeof x==='number'&&Number.isFinite(x);
+function adaptCachedKline(code,k,{cachedAt=0,now=Date.now()}={}){
+ if(!/^\d{6}$/.test(String(code))||!k||!Array.isArray(k.rows))return {stock:null,error:'缓存代码或结构无效'};
+ const bars=k.rows.slice(-500).map(r=>({date:String(r.date||''),open:Number(r.open),high:Number(r.high),low:Number(r.low),close:Number(r.close),volume:Number(r.volume??r.vol)}));
+ if(bars.length<27||bars.some(b=>![b.open,b.high,b.low,b.close,b.volume].every(finite)||b.open<=0||b.close<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)||b.low<=0||b.volume<0))return {stock:null,error:'缓存K线不足或OHLCV无效'};
+ for(let i=1;i<bars.length;i++)if(!bars[i].date||bars[i].date<=bars[i-1].date)return {stock:null,error:'缓存K线日期重复或倒序'};
+ const last=bars.at(-1),age=now-cachedAt;
+ return {stock:{symbol:String(code),name:String(k.name||'').slice(0,50),market:/^(30)/.test(code)?'chinext':/^(68)/.test(code)?'star':/^(8|4)/.test(code)?'bse':'main',bars,
+  feed:{source:'imported',timestamp:cachedAt},dataAudit:{origin:'existing-server-memory-cache',lastBarDate:last.date,cachedAt,cacheAgeMs:age,verifiedLive:false}},error:null};
+}
+module.exports={adaptCachedKline};

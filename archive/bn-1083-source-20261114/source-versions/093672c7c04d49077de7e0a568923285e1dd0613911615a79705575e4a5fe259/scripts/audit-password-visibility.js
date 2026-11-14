@@ -1,0 +1,11 @@
+'use strict';
+const fs=require('node:fs'); const path=require('node:path'); const assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const app=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+assert.doesNotMatch(server,/viewPwd:\s*String\(_viewPwdHint\.pwd/);
+assert.doesNotMatch(server,/devPwd:\s*String\(_devPwdHint\.pwd/);
+assert.doesNotMatch(server,/_(view|dev)PwdHint\.pwd\s*=/);
+assert.doesNotMatch(app,/const p = st\.(viewPwd|devPwd)/);
+assert.match(app,/安全起见不显示原密码/);
+console.log('PASS: 密码明文缓存赋值、API 回显与前端回显均已移除');

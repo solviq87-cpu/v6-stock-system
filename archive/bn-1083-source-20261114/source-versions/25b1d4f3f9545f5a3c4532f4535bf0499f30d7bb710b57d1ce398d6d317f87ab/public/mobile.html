@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>速览 · 手机看盘</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#1a1f2e; --card2:#212736; --line:#2a3142;
+    --txt:#e6edf3; --sub:#9aa5b5; --dim:#6b7688;
+    --up:#f6465d; --down:#2ebd85; --gold:#f0b90b; --blue:#4a9eff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  body{padding:0 0 calc(env(safe-area-inset-bottom) + 70px)}
+  .wrap{max-width:560px;margin:0 auto;padding:14px 14px 0}
+  /* 顶栏 */
+  .top{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 12px}
+  .top .title{font-size:19px;font-weight:700;letter-spacing:.5px}
+  .top .sub{font-size:12px;color:var(--dim)}
+  .top a{color:var(--blue);text-decoration:none;font-size:13px;font-weight:600}
+  /* 情绪结论大卡 */
+  .mood{background:linear-gradient(135deg,#0f1b2d,#1a1f2e 70%);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;margin-bottom:12px}
+  .mood .advice{font-size:30px;font-weight:800;letter-spacing:2px}
+  .mood .advice.jia{color:var(--up)} .mood .advice.jian{color:var(--down)} .mood .advice.kong{color:var(--down)} .mood .advice.guan{color:var(--gold)}
+  .mood .moodtag{font-size:13px;color:var(--sub);margin-top:2px}
+  .mood .note{font-size:13px;color:var(--sub);margin-top:10px;line-height:1.65}
+  /* 卡片通用 */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .card .hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .card .hd .ico{font-size:17px}
+  .card .hd .t{font-size:15px;font-weight:700;flex:1}
+  .card .hd .meta{font-size:11px;color:var(--dim)}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .row:last-child{border-bottom:none}
+  .row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .pc{font-weight:700;font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--sub)}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;background:var(--card2);color:var(--sub);margin-left:6px}
+  .empty{color:var(--dim);font-size:13px;padding:6px 0}
+  .hint{font-size:12px;color:var(--dim);text-align:center;padding:6px 0 4px}
+  /* 登录门 */
+  #gate{display:none;max-width:400px;margin:60px auto 0;padding:0 20px}
+  #gate .gcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 20px}
+  #gate h1{font-size:18px;margin-bottom:6px}
+  #gate p{font-size:13px;color:var(--sub);margin-bottom:14px}
+  #gate input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:12px 14px;font-size:16px;margin-bottom:12px}
+  #gate input:focus{outline:none;border-color:var(--blue)}
+  #gate button{width:100%;background:var(--blue);border:none;color:#fff;padding:12px;border-radius:8px;font-size:15px;font-weight:700}
+  #gate .err{color:var(--up);font-size:13px;margin-top:10px;min-height:18px}
+  #gate .ghost{background:none;border:none;color:var(--dim);font-size:13px;margin-top:10px;width:100%;padding:8px}
+  /* 错误态 */
+  #err{display:none;max-width:400px;margin:60px auto 0;text-align:center;color:var(--dim);padding:0 20px}
+  /* 底栏 */
+  .foot{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(0deg,var(--bg) 70%,transparent);padding:12px 14px calc(env(safe-area-inset-bottom) + 10px)}
+  .foot .bar{max-width:560px;margin:0 auto;display:flex;gap:10px}
+  .foot a,.foot button{flex:1;text-align:center;background:var(--card);border:1px solid var(--line2,var(--line));color:var(--txt);border-radius:10px;padding:12px;font-size:14px;font-weight:600;text-decoration:none;font-family:inherit}
+  .foot .primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  .stale{color:var(--gold)}
+  /* Tab 导航 */
+  .tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}
+  .tab{flex:1;text-align:center;background:transparent;border:none;color:var(--sub);padding:9px 4px;font-size:14px;font-weight:600;border-radius:9px;cursor:pointer;font-family:inherit}
+  .tab.active{background:var(--blue);color:#fff}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  .pull-hint{font-size:11px;color:var(--dim);text-align:center;padding:6px 0 14px}
+  .card.foldable .hd{cursor:pointer;user-select:none}
+  .card.foldable .hd::after{content:'▼';font-size:11px;color:var(--dim);margin-left:auto}
+  .card.foldable.collapsed .hd::after{content:'▶'}
+  .card.foldable.collapsed .bd{display:none}
+  .card .bd{display:block}
+  /* 推送通道状态小点 */
+  .pushstate{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);margin-top:4px}
+  .pushstate i{display:inline-block;width:7px;height:7px;border-radius:50%}
+  .pushstate i.on{background:#2ebd85}
+  .pushstate i.off{background:#f6465d}
+  .pushstate i.warn{background:var(--gold)}
+  .pushstate i.rep{background:#6b7688}
+  .qp-item{padding:8px 0;border-bottom:1px solid var(--line)}
+  .qp-item:last-child{border-bottom:none}
+  .qp-head{display:flex;align-items:center;justify-content:space-between;font-size:14px}
+  .qp-head .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qp-head .pc{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:8px}
+  .qp-reason{font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5}
+  .qp-sector{font-size:12px;color:var(--sub);margin-top:3px}
+  .qp-reason .id{display:inline-block;background:var(--card2);padding:0 6px;border-radius:4px;margin-right:4px;color:var(--gold)}
+  .qp-refresh{font-size:12px;color:var(--blue);background:none;border:none;padding:4px 0;font-family:inherit}
+  .ar-filter{display:flex;gap:6px;padding:8px 0 4px;border-bottom:1px solid var(--line);margin-bottom:6px}
+  .ar-filter button{flex:1;font-size:12px;padding:5px 0;border:1px solid var(--line);border-radius:4px;background:var(--card2);color:var(--text);font-family:inherit}
+  .ar-filter button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+  /* V6 mobile redesign: preserve original IDs, auth, refresh and tab logic. */
+  :root{--bg:#071120;--card:#11233d;--card2:#1a3050;--line:#2d4a70;--txt:#f0f6ff;--sub:#b1c5e2;--dim:#91a9c7;--blue:#318ff1}
+  body{background:radial-gradient(ellipse at 50% 0%,#142c50,transparent 45%),var(--bg);font-size:16px}
+  .wrap{max-width:650px;padding:16px 14px 0}
+  .top .title{font-size:23px}.top .sub{font-size:13px}
+  .mood,.card{background:linear-gradient(150deg,#142c4a,#101d32);border-color:#31517c;box-shadow:0 6px 20px #0003}
+  .mood .advice{font-size:34px}.mood .note{font-size:14px;line-height:1.75}
+  .card .hd .t{font-size:17px}.card .hd .meta{font-size:12px}
+  .row,.qp-head{font-size:15px}.qp-reason,.qp-sector{font-size:13px;line-height:1.6}
+  .tab{min-height:46px;font-size:15px}.foot a,.foot button{min-height:50px;font-size:15px}
+  button,a{touch-action:manipulation}button:focus-visible,a:focus-visible{outline:3px solid #77c5ff;outline-offset:2px}
+  .v6-mobile-brand{font-size:12px;letter-spacing:.08em;color:#73bfff;margin-bottom:7px;font-weight:700}
+  .v6-mobile-link{display:inline-flex;align-items:center;min-height:44px;color:#9fd0ff;text-decoration:none;font-size:13px;font-weight:700}
+  @media(max-width:375px){.wrap{padding:12px 10px 0}.top .title{font-size:20px}.card{padding:13px}.tabs{gap:2px}.tab{font-size:13px}}
+  /* Batch47: compact phone, large phone and tablet-safe touch layout. */
+  html{overflow-x:hidden;-webkit-text-size-adjust:100%}
+  body{min-width:0;overflow-x:hidden}
+  .wrap,.card,.mood,.tab-panel{min-width:0}
+  .top{gap:12px}.top>div{min-width:0}.top .title{overflow-wrap:anywhere;line-height:1.3}
+  .card .hd{min-width:0;flex-wrap:wrap}.card .hd .t{min-width:0;overflow-wrap:anywhere}
+  .card .bd{min-width:0;overflow-wrap:anywhere}
+  .card .bd table{min-width:520px}.card .bd:has(table){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .card .bd pre,.card .bd code{white-space:pre-wrap;overflow-wrap:anywhere}
+  .tabs{position:sticky;top:0;z-index:10;background:#11233df5;backdrop-filter:blur(12px)}
+  .tab{min-width:0;white-space:nowrap}
+  .foot{z-index:20;background:linear-gradient(0deg,#071120 80%,#07112000)}
+  .foot .bar{gap:8px}.foot a,.foot button{min-width:0;padding:10px 8px}
+  #gate{margin-top:max(28px,env(safe-area-inset-top))}
+  #gate input,#gate button{min-height:48px}
+  .v6-research-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(125deg,#173961,#11233d);border:1px solid #37689b;border-radius:14px;padding:15px;margin-bottom:12px;text-decoration:none;color:#f0f6ff;min-height:72px}
+  .v6-research-entry strong{display:block;font-size:17px}.v6-research-entry small{display:block;font-size:12px;color:#b1c5e2;line-height:1.5;margin-top:3px}
+  .v6-research-entry .arrow{font-size:22px;color:#7dc3ff;flex:none}
+  @media(max-width:360px){.wrap{padding:12px 10px 0}.foot{padding-left:8px;padding-right:8px}.foot .bar{gap:5px}.foot a,.foot button{font-size:13px}.top .title{font-size:19px}}
+  @media(min-width:600px) and (max-width:900px){.wrap{max-width:760px;padding:24px}.card{padding:20px}.foot .bar{max-width:760px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="stylesheet" href="/assets/terminal-theme.css?v=20261105ag">
+</head>
+<body>
+<div class="wrap" id="app" style="display:none">
+  <div class="v6-mobile-brand">V6 · AI 量化辅助决策</div>
+  <div class="top">
+    <div>
+      <div class="title">V6 量化看盘系统 <span id="verTag" style="font-size:11px;font-weight:400;color:#868e96;vertical-align:middle"></span></div>
+      <div class="sub" id="sub">加载中…</div>
+      <div class="pushstate" id="pushState" style="display:none"><i class="off"></i><span>推送状态</span></div>
+    </div>
+    <a href="./" id="fullLink" class="v6-mobile-link">电脑版 ↗</a>
+  </div>
+
+  <a class="v6-research-entry" href="/research.html#decisionWorkspace" aria-label="打开 AI 选股研究工作台，查看策略、风险及排行榜">
+    <span><strong>✦ AI 选股研究工作台</strong><small>四套策略 · 风险证据 · 排行榜 · 回测门禁<br>需开发者权限；研究信号不等于买入指令</small></span><span class="arrow" aria-hidden="true">›</span>
+  </a>
+  <div class="mood" id="moodCard">
+    <div class="advice" id="moodAdvice">—</div>
+    <div class="moodtag" id="moodTag">市场情绪：—</div>
+    <div class="note" id="moodNote">—</div>
+    <div class="note" id="moodDisc" style="display:none;font-weight:600;margin-top:4px"></div>
+  </div>
+
+  <div class="card foldable" id="slCard" style="display:none">
+    <div class="hd" onclick="toggleCard(this)"><span class="ico">⚡</span><span class="t">短线速览</span><span class="meta" id="slMeta"></span><button class="qp-refresh" id="slRefresh" onclick="event.stopPropagation();loadShortline(true)">🔄 刷新</button></div>
+    <div class="bd" id="slBody"></div>
+  </div>
+
+  <div class="tabs" id="tabBar" role="tablist" aria-label="手机看盘页面">
+    <button role="tab" aria-controls="tab-overview" aria-selected="true" class="tab active" data-tab="overview" onclick="switchTab('overview')">概览</button>
+    <button role="tab" aria-controls="tab-market" aria-selected="false" class="tab" data-tab="market" onclick="switchTab('market')">市场</button>
+    <button role="tab" aria-controls="tab-plan" aria-selected="false" class="tab" data-tab="plan" onclick="switchTab('plan')">计划</button>
+  </div>
+
+  <div id="tab-overview" class="tab-panel active">
+    <div class="card foldable" id="relCard" style="display:none">
+      <div class="hd" onclick="toggleRel()"><span class="ico">🚀</span><span class="t">发布看板</span><span class="meta" id="relMeta"></span></div>
+      <div class="bd" id="relBody"></div>
+    </div>
+    <div class="card foldable">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">🔥</span><span class="t">涨停池</span><span class="meta" id="ztMeta"></span></div>
+      <div class="bd" id="ztBody"></div>
+    </div>
+    <!-- 量化选股卡片：js 轮起对只读（观看）身份也展示，默认折叠 -->
+    <div class="card foldable collapsed" id="qpCard" style="display:none">
+      <div class="hd" onclick="toggleQp()">
+        <span class="ico">🧬</span>
+        <span class="t">量化选股</span>
+        <span class="meta" id="qpMeta"></span>
+      </div>
+      <div class="bd" id="qpBody">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+    <!-- 竞价共振卡片：js 轮起对只读（观看）身份也展示，默认折叠 -->
+    <div class="card foldable collapsed" id="arCard" style="display:none">
+      <div class="hd" onclick="toggleAr()">
+        <span class="ico">🔥</span>
+        <span class="t">竞价共振</span>
+        <span class="meta" id="arMeta"></span>
+      </div>
+      <div class="bd" id="arBody">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+    <!-- nz 轮：玄学字辈批量涨停卡片（羊洋阳扬杨/龙/华…含同音字根族） -->
+    <div class="card foldable collapsed" id="ncCard" style="display:none">
+      <div class="hd" onclick="toggleNc()">
+        <span class="ico">🔮</span>
+        <span class="t">玄学字辈</span>
+        <span class="meta" id="ncMeta"></span>
+      </div>
+      <div class="bd" id="ncBody">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-market" class="tab-panel">
+    <div class="card foldable">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">📊</span><span class="t">板块强度</span><span class="meta" id="secMeta"></span></div>
+      <div class="bd" id="secBody"></div>
+    </div>
+    <div class="card foldable">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">🎯</span><span class="t">竞价异动</span><span class="meta" id="aucMeta"></span></div>
+      <div class="bd" id="aucBody"></div>
+    </div>
+    <!-- 盘中强势票卡片：jz 轮新增，对只读（观看）身份也展示 -->
+    <div class="card foldable collapsed" id="isCard" style="display:none">
+      <div class="hd" onclick="toggleIs()">
+        <span class="ico">⚡</span>
+        <span class="t">盘中强势</span>
+        <span class="meta" id="isMeta"></span>
+      </div>
+      <div class="bd" id="isBody">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-plan" class="tab-panel">
+    <div class="card foldable">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">🗓️</span><span class="t">明日计划</span><span class="meta" id="npMeta"></span></div>
+      <div class="bd" id="npBody"></div>
+    </div>
+    <div class="card foldable" id="psCard">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">🔥</span><span class="t">涨停前发现</span><span class="meta" id="psMeta"></span></div>
+      <div class="bd" id="psBody"></div>
+    </div>
+    <div class="card foldable" id="wtCard">
+      <div class="hd" onclick="toggleCard(this)"><span class="ico">🧹</span><span class="t">洗盘趋势</span><span class="meta" id="wtMeta"></span></div>
+      <div class="bd" id="wtBody"></div>
+    </div>
+  </div>
+
+  <div class="pull-hint">下拉即可刷新 · 持仓与完整榜单请点底部「完整面板」</div>
+</div>
+
+<div id="gate">
+  <div class="gcard">
+    <h1>🔐 输入口令</h1>
+    <p>首次访问需验证口令（与主面板同一口令）。验证后本设备长期免密。</p>
+    <input type="password" id="pwd" placeholder="开发者口令或观看口令" autocomplete="current-password" spellcheck="false" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">进入</button>
+    <div class="err" id="gateErr"></div>
+    <button class="ghost" onclick="location.href='./'">去完整面板登录</button>
+  </div>
+</div>
+
+<div id="err">
+  <div style="font-size:40px;margin-bottom:10px">⚠️</div>
+  <div>加载失败，请检查网络后<a href="javascript:location.reload()" style="color:var(--blue)">重试</a></div>
+</div>
+
+<div class="foot" id="foot" style="display:none">
+  <div class="bar">
+    <button onclick="load()">🔄 刷新</button>
+    <button id="btnPushTest" style="display:none" onclick="testPush()">🔔 推送自检</button>
+    <a href="./" class="primary">完整面板</a>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let _role = null;
+const getToken = () => {
+  try {
+    return new URLSearchParams(location.search).get('token')
+      || localStorage.getItem('qd_device') || localStorage.getItem('qd_token') || '';
+  } catch (e) {
+    // Safari 隐私模式 / 某些限制场景下 localStorage 访问会抛 SecurityError
+    return new URLSearchParams(location.search).get('token') || '';
+  }
+};
+
+function pc(v){ return v==null ? '<span class="flat">—</span>' : `<span class="${v>0?'up':v<0?'down':'flat'}">${v>0?'+':''}${(+v).toFixed(1)}%</span>`; }
+function esc(s){ return String(s==null?'':s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+// ───────── 发布看板（手机端）─────────
+async function toggleRel() {
+  const body = $('#relBody');
+  if (!body) return;
+  if (body.style.display === 'none') { body.style.display = ''; loadRelBoard(); }
+  else body.style.display = 'none';
+}
+async function loadRelBoard() {
+  const body = $('#relBody');
+  const meta = $('#relMeta');
+  // ⛔ 元素不存在/页面结构变化时静默退出，不许抛错打断主流程
+  if (!body) return;
+  const t = getToken();
+  if (!t) { body.innerHTML = '<div class="empty">未登录</div>'; return; }
+  try {
+    const r = await fetch('/api/release/requests?token=' + encodeURIComponent(t), { cache: 'no-store' }).then(x => x.json());
+    if (!r.ok) { body.innerHTML = '<div class="empty">读取失败：' + esc(r.error || '') + '</div>'; return; }
+    const reqs = r.requests || [];
+    if (!Array.isArray(reqs)) { body.innerHTML = '<div class="empty">数据异常</div>'; return; }
+    // 上次发布记录：版本+时间+每个请求改了什么（发布结果一目了然）
+    let lastHtml = '';
+    const lr = r.lastRelease;
+    if (lr && lr.version) {
+      const t = new Date(lr.at);
+      const tt = String(t.getMonth() + 1) + '/' + String(t.getDate()) + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+      const items = (lr.details || []).map((d, i) =>
+        '<div style="font-size:12px;color:#495057;padding:1px 0">' + (i + 1) + '.【' + esc(d.space) + '】' + esc(d.summary) + '</div>').join('');
+      lastHtml = '<div style="background:#ebfbee;border:1px solid #8ce99a;border-radius:6px;padding:8px 10px;margin:8px 12px;font-size:12px">'
+        + '<b>📦 上次发布 v' + esc(lr.version) + '</b> · ' + tt + ' · ' + lr.count + ' 个请求' + items + '</div>';
+    }
+    const pending = reqs.filter(x => (x.status || 'pending') === 'pending' || String(x.status).indexOf('pending') === 0);
+    // 线上当前版本（与状态并列显示，一眼知道现在跑的是哪版）
+    if (meta) meta.textContent = pending.length + ' 待发布 · 线上 v' + (r.onlineVer || '—');
+    // ⛔ 指令状态（2026-10-29）：点了确认后实时显示指令在哪一步
+    try {
+      const cmd = await fetch('/api/release/command?token=' + encodeURIComponent(t), { cache: 'no-store' }).then(x => x.json());
+      if (cmd && cmd.status && cmd.status !== 'none' && meta) {
+        const stTxt = { pending: '⏳ 指令等待本地执行', claimed: '⚙️ 本地执行中', done: '✅ 上次发布完成', failed: '❌ 上次发布失败' }[cmd.status] || cmd.status;
+        meta.textContent += ' · ' + stTxt;
+      }
+    } catch (_) {}
+    const relCard = document.getElementById('relCard');
+    if (_role !== 'edit') { if (relCard) relCard.style.display = 'none'; return; }
+    if (relCard) relCard.style.display = '';
+    if (!reqs.length) { body.innerHTML = '<div class="empty">当前没有待处理请求</div>'; return; }
+    const stageName = s => {
+      if (!s || s === 'pending') return '🟠 待确认';
+      if (s === 'confirmed') return '🔵 已确认';
+      if (s.indexOf('published-') === 0) return '🟢 已发布 ' + s.slice(10);
+      if (s.indexOf('verified-') === 0) return '✅ 已复核 ' + s.slice(9);
+      if (s === 'rejected') return '⚪ 已驳回';
+      if (s === 'verifying') return '⏳ 复核中';
+      return esc(s);
+    };
+    // ⛔ 联动升级①（2026-10-28）：模块影响图谱——从 tracker events 取 link_check 数据渲染
+    const graphOf = (r) => {
+      const evs = (r.events || []).filter(e => e.stage === 'link_check');
+      if (!evs.length) return '';
+      let g = null;
+      try { g = JSON.parse(evs[evs.length - 1].detail); } catch (_) { return ''; }
+      if (!Array.isArray(g) || !g.length) return '';
+      return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' +
+        g.map(m => '<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;' +
+          (m.ok ? 'background:#ebfbee;color:#2b8a3e;border:1px solid #8ce99a' : m.tests === 0 ? 'background:#f1f3f5;color:#868e96;border:1px solid #dee2e6' : 'background:#fff5f5;color:#c92a2a;border:1px solid #ffa8a8') +
+          '">' + (m.ok ? '🟢' : m.tests === 0 ? '⚪' : '🔴') + ' ' + esc(m.m) + (m.tests ? ' ' + m.tests : '') + '</span>').join('') +
+        '</div>';
+    };
+    // 每行独立确认按钮（用户要求）：单个发布只发这一个请求
+    let html = lastHtml + (pending.length ? `<div style="padding:8px 12px"><button class="btn" onclick="relPublishMobile()" style="width:100%">🚀 全部发布（${pending.length} 个）</button></div>` : '');
+    html += '<div style="max-height:340px;overflow:auto">';
+    const _localC = relLocalConfirmed();
+    for (const r of reqs) {
+      let isPend = (r.status || 'pending') === 'pending' || String(r.status).indexOf('pending') === 0;
+      // 本地已确认过的：不再显示待确认/确认按钮（发布执行中）；真正发布后置位后清标记
+      if (isPend && _localC[r.file]) r.status = 'confirmed';
+      if (!isPend && _localC[r.file]) relClearConfirmed(r.file);
+      const btn = isPend && !_localC[r.file]
+        ? `<button id="relb_${esc(r.file)}" onclick="relConfirmOne('${esc(r.file)}')" style="flex-shrink:0;padding:5px 12px;border:1px solid #339af0;background:#e7f5ff;color:#1971c2;border-radius:6px;font-size:12px;font-weight:600;font-family:inherit">✓ 确认</button>`
+        : '';
+      html += `<div style="padding:10px 12px;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:flex-start">` +
+        `<div style="flex:1;min-width:0">` +
+        `<div style="font-weight:600">${esc(r.space)}${r.urgent ? ' <span style="color:#c92a2a">🔥急修</span>' : ''}</div>` +
+        `<div style="font-size:13px;color:#666;margin-top:4px">${esc(r.summary)}</div>` +
+        graphOf(r) +
+        `<div style="font-size:12px;color:#999;margin-top:4px">${stageName(r.status)} · ${esc(r.ts)}</div></div>` +
+        btn + `</div>`;
+    }
+    html += '</div>';
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="empty">网络异常：' + esc(e.message) + '</div>';
+  }
+}
+// ⛔ 本地确认标记（2026-10-28）：点了确认立刻标记，请求不再重复显示"待确认"——
+//    发布是本地异步执行的（30s拉指令+跑git/python），期间服务端状态还是 pending，
+//    用户会以为没点上反复点。本地标记后显示"已确认·执行中"，真正发布后自动清除。
+function relLocalConfirmed() { try { return JSON.parse(localStorage.getItem('rel_confirmed') || '{}'); } catch (e) { return {}; } }
+function relMarkConfirmed(file) {
+  const m = relLocalConfirmed(); m[file] = Date.now();
+  try { localStorage.setItem('rel_confirmed', JSON.stringify(m)); } catch (e) {}
+}
+function relClearConfirmed(file) {
+  const m = relLocalConfirmed();
+  if (m[file]) { delete m[file]; try { localStorage.setItem('rel_confirmed', JSON.stringify(m)); } catch (e) {} }
+}
+// ⛔ 页面内反馈（2026-10-28）：手机端 alert/confirm 经常被浏览器吞或延迟大，
+//    "点了没反应"的投诉根源。改用行内状态变化 + 顶部 toast，点了立刻见反应。
+function relToast(msg, ok) {
+  let t = document.getElementById('relToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'relToast';
+    t.style.cssText = 'position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:99999;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:opacity .3s;max-width:86vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.style.background = ok === false ? '#fff5f5' : ok === true ? '#ebfbee' : '#fff9db';
+  t.style.color = ok === false ? '#c92a2a' : ok === true ? '#2b8a3e' : '#8a5a00';
+  t.style.border = '1px solid ' + (ok === false ? '#ffa8a8' : ok === true ? '#8ce99a' : '#ffd43b');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+}
+// 单个请求确认发布
+async function relConfirmOne(file) {
+  const btn = document.getElementById('relb_' + file);
+  const t = getToken();
+  if (!t) { relToast('未登录', false); return; }
+  if (btn) { btn.textContent = '提交中…'; btn.disabled = true; }
+  relToast('已提交「' + file.slice(15, -3) + '」，本地执行中…');
+  try {
+    const r = await fetch('/api/release/publish?token=' + encodeURIComponent(t), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, files: [file] })
+    }).then(x => x.json());
+    if (!r.ok) {
+      if (btn) { btn.textContent = '✓ 重试'; btn.disabled = false; }
+      relToast('提交失败：' + (r.error || '未知'), false);
+      return;
+    }
+    relMarkConfirmed(file);
+    if (btn) { btn.textContent = '已确认 ✓'; btn.style.background = '#ebfbee'; btn.style.borderColor = '#8ce99a'; btn.style.color = '#2b8a3e'; }
+    relToast('已确认，本地执行中，完成后推送版本号', true);
+    setTimeout(loadRelBoard, 2000);
+  } catch (e) {
+    if (btn) { btn.textContent = '✓ 重试'; btn.disabled = false; }
+    relToast('网络异常：' + e.message, false);
+  }
+}
+async function relPublishMobile() {
+  const t = getToken();
+  if (!t) { relToast('未登录', false); return; }
+  relToast('已提交全部请求，本地执行中…');
+  try {
+    const r = await fetch('/api/release/publish?token=' + encodeURIComponent(t), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t })
+    }).then(x => x.json());
+    if (!r.ok) {
+      let msg = '发布失败：' + (r.error || '未知');
+      // 红灯：手机端不提供强制发布（风险操作放电脑端），明确指引
+      if (r.checkResult && r.checkResult.red && r.checkResult.red.length) {
+        msg += '（联检红灯：' + r.checkResult.red.join('、') + '。请修复后重试，强制发布请在电脑端操作）';
+      }
+      relToast(msg, false);
+      loadRelBoard();
+      return;
+    }
+    if (r.queued) relToast('已收到确认（' + r.count + ' 个请求），版本号稍后推送', true);
+    // ⛔ 原生 alert 在手机深色模式下是黑底弹窗（用户反馈的「偶发黑色弹窗」），全站改用页内 relToast
+    else relToast('✅ 已发布：' + r.version + ' · 共 ' + r.count + ' 个请求', true);
+    loadRelBoard();
+  } catch (e) { relToast('网络异常：' + e.message, false); }
+}
+
+// ───────── 版本自检（jt 轮，2026-10-22）─────────
+// ⛔ 根因（用户反馈「量化选股改为只读还是不可见」）：手机速览页**没有版本自检**，
+//    一个从发布前就开着的页面会永远跑旧 JS——js 轮已把 _role==='edit' 加载闸删掉，
+//    但旧页面里的闸门还在，只读身份 therefore 永远加载不到量化选股卡片。
+//    主面板 index.html 早有 checkAppVer（ek/gk 轮修过两遍），mobile.html 一直只靠
+//    Service Worker 更新——而 SW 对【已经打开的页面】无效，必须页面自己发现版本落后。
+// 做法与 index.html 同源：拿 /api/lock/status（公开轻量）的 appVer 与本地常量比对，
+//    不一致 → 注销 SW + 带 _v/_r 双随机参数 location.replace，强制绕过缓存取新页。
+// ⛔ 两条护栏：① 用户正在口令框输入时不刷新（不冲掉人家打的字）；
+//    ② 30 秒内不重复强制刷新（防浏览器/SW 竞态下无限 reload）。
+const APP_VER = '20261105ag';
+let _verChkAt = 0;
+function forceRefreshToLatest() {
+  const u = new URL(location.href);
+  u.searchParams.set('_v', Date.now());
+  u.searchParams.set('_r', Math.random().toString(36).slice(2));
+  const go = () => { location.replace(u.toString()); };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      if (!regs || !regs.length) { go(); return; }
+      Promise.all(regs.map(r => r.unregister())).then(go).catch(go);
+    }).catch(go);
+  } else {
+    go();
+  }
+}
+async function checkMobVer(knownVer) {
+  let srvVer = knownVer || '';
+  if (!srvVer) {
+    let st;
+    try {
+      st = await fetch('/api/lock/status?v=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+    } catch (e) { return false; }   // 自检失败不影响正常进入
+    srvVer = (st && typeof st.appVer === 'string') ? st.appVer : '';
+  }
+  if (!srvVer || srvVer === APP_VER) return false;
+  const typing = document.activeElement && document.activeElement.id === 'pwd';
+  if (typing) return false;        // 正在输口令：不刷新，下一轮再查
+  let last = 0;
+  try { last = Number(sessionStorage.getItem('qd_ver_refresh_at') || 0) || 0; } catch (e) {}
+  if (Date.now() - last < 15000) { console.warn('[版本自检] 本地 ' + APP_VER + ' ≠ 服务端 ' + srvVer + '，但 15 秒内已强制刷新过，本轮跳过'); return false; }
+  try { sessionStorage.setItem('qd_ver_refresh_at', String(Date.now())); } catch (e) {}
+  console.log('[版本自检] 本地 ' + APP_VER + ' ≠ 服务端 ' + srvVer + ' → 强制刷新到最新版');
+  forceRefreshToLatest();
+  return true;
+}
+function onPageVisible() {
+  if (document.hidden) return;
+  if (Date.now() - _verChkAt > 15000) { _verChkAt = Date.now(); checkMobVer(); }
+}
+document.addEventListener('visibilitychange', onPageVisible);
+window.addEventListener('focus', onPageVisible);
+window.addEventListener('pageshow', onPageVisible);
+function row(nm, pct, extra){ return `<div class="row"><span class="nm">${esc(nm)}${extra?`<span class="tag">${esc(extra)}</span>`:''}</span><span class="pc">${pc(pct)}</span></div>`; }
+
+function fmtDay(ds){
+  if (!ds) return '';
+  const s = String(ds);
+  if (s.length === 8) return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6,8);
+  return s;
+}
+const TAB_KEY = 'qd_m_tab';
+function switchTab(name){
+  document.querySelectorAll('#tabBar .tab').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-tab') === name);
+    b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === name));
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + name);
+    p.setAttribute('aria-hidden', String(p.id !== 'tab-' + name));
+  });
+  try { localStorage.setItem(TAB_KEY, name); } catch (_) {}
+}
+function restoreTab(){
+  let name = 'overview';
+  try { name = localStorage.getItem(TAB_KEY) || 'overview'; } catch (_) {}
+  if (!['overview','market','plan'].includes(name)) name = 'overview';
+  switchTab(name);
+}
+function setPushState(role, ready, isReplica){
+  _role = role;
+  const box = document.getElementById('pushState');
+  const btn = document.getElementById('btnPushTest');
+  if (!box) return;
+  box.style.display = '';
+  if (isReplica) {
+    box.innerHTML = '<i class="rep"></i><span>本地实例 · 不推送到手机</span>';
+  } else if (ready) {
+    box.innerHTML = '<i class="on"></i><span>飞书通道已配置</span>';
+  } else {
+    box.innerHTML = '<i class="off"></i><span>飞书通道未配置 · 推送到不了手机</span>';
+  }
+  if (btn) btn.style.display = (role === 'edit' && !isReplica) ? '' : 'none';
+  // ⛔ 版本号：速览页顶部常显（用户要求），任何身份都可见
+  try {
+    const verEl = document.getElementById('verTag');
+    if (verEl) verEl.textContent = 'v' + APP_VER;
+  } catch (_) {}
+  // 发布看板：开发者身份自动显示并加载（用户反馈"没看见"——原先初始 display:none 且需手点）
+  try {
+    const relCard = document.getElementById('relCard');
+    if (relCard) {
+      if (role === 'edit') { relCard.style.display = ''; loadRelBoard(); }
+      else relCard.style.display = 'none';
+    }
+  } catch (_) {}
+}
+async function testPush(){
+  const btn = document.getElementById('btnPushTest');
+  if (!btn) return;
+  const old = btn.textContent;
+  btn.textContent = '发送中…';
+  btn.disabled = true;
+  try {
+    const t = getToken();
+    const r = await fetch('/api/test-push' + (t ? '?token=' + encodeURIComponent(t) : ''), { method:'POST' });
+    const j = await r.json();
+    if (j.ok) relToast('✅ 自检推送已发出，看手机是否收到', true);
+    else relToast('❌ 推送失败：' + (j.error || j.detail || '未知'), false);
+  } catch(e) {
+    relToast('❌ 网络错误：' + e.message, false);
+  } finally {
+    btn.textContent = old;
+    btn.disabled = false;
+  }
+}
+async function loadShortline(manual){
+  const btn = document.getElementById('slRefresh');
+  if (manual && btn) { btn.textContent = '刷新中…'; btn.disabled = true; }
+  try{
+    const _t = (typeof getToken === 'function') ? getToken() : '';
+    const r = await fetch('/api/shortline?v=' + Date.now() + (_t ? '&token=' + encodeURIComponent(_t) : ''), { cache:'no-store' }).then(x => x.json());
+    if (!r || r.error) return;
+    document.getElementById('slCard').style.display = '';
+    const cyc = r.cycle || {};
+    const sp = r.strongPositiveRate;
+    const spTxt = sp != null ? '强势股反馈率 ' + (sp * 100).toFixed(0) + '%' : '反馈率判不出';
+    const toneColor = ({ good:'#2f9e44', warn:'#f08c00', bad:'#e03131' })[cyc.tone] || '#868e96';
+    document.getElementById('slMeta').textContent = cyc.stage || '';
+    let html = `<div style="margin-bottom:4px"><span style="color:${toneColor};font-weight:600">情绪周期：${cyc.stage || '—'}</span> <span class="muted">${spTxt}</span></div>`;
+    html += `<div class="muted" style="margin-bottom:4px">${cyc.advice || ''}</div>`;
+    const tim = r.timing || {};
+    if (tim.pass != null) html += `<div class="muted" style="margin-bottom:4px">📐 趋势择时：${tim.note || ''}</div>`;
+    const cands = r.candidates || [];
+    if (cands.length){
+      html += '<div style="margin-top:6px;font-weight:600">⚡ 短线候选</div>' + cands.map(c => row(c.name, c.pct, c.score != null ? '分' + c.score : '')).join('');
+    } else {
+      html += '<div class="empty" style="margin-top:6px">今日暂无高质量候选</div>';
+    }
+    document.getElementById('slBody').innerHTML = html;
+  } catch(e){ /* 静默，不影响主面板 */ }
+  if (manual && btn) { btn.textContent = '🔄 刷新'; btn.disabled = false; }
+}
+function render(d){
+  window.__v6Dashboard=d.dashboard||null;
+  window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
+  document.getElementById('app').style.display = '';
+  document.getElementById('foot').style.display = '';
+  document.getElementById('gate').style.display = 'none';
+  loadShortline();
+  document.getElementById('err').style.display = 'none';
+  const snap = d.isSnapshot;
+  const snapDay = snap ? fmtDay(d.snapshotDay) : '';
+  const t = d.now ? new Date(d.now) : null;
+  const timeStr = t && !isNaN(t.getTime()) ? t.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  document.getElementById('sub').textContent = snap
+    ? ('⏸ 休市 · 显示 ' + snapDay + ' 数据')
+    : ((d.trading ? '🟢 交易中' : '⏸ 未开盘') + ' · 更新 ' + timeStr + (d.ready ? '' : ' · ⚠️ 行情未就绪'));
+  // 情绪
+  const m = d.mood;
+  if (m){
+    const map = { '今天能做':'jia', '今天谨慎':'jian', '今天别做':'kong', '今天观望':'guan', '加仓':'jia', '减仓':'jian', '空仓':'kong', '观望':'guan' };
+    const _v = m.verdict || m.advice || '观望';
+    document.getElementById('moodAdvice').textContent = _v;
+    document.getElementById('moodAdvice').className = 'advice ' + (map[_v]||'guan');
+    let _tag = '市场情绪：' + (m.mood||'—') + '（建议 ' + (m.advice||'—') + '） · 涨 ' + (m.upN||0) + ' / 跌 ' + (m.downN||0) + ' · 涨停 ' + (m.ztN||0) + ' 家';
+    if (m.boardHardRate != null) _tag += ' · 硬板率 ' + m.boardHardRate + '%';
+    document.getElementById('moodTag').textContent = _tag;
+    document.getElementById('moodNote').textContent = m.why || m.note || '';
+    // lp：情绪卡附强势板块前三（digest.mainline3）
+    const _ml3 = (d.mainline3 || []).filter(x => x.sector);
+    if (_ml3.length) {
+      document.getElementById('moodNote').textContent += '　🔥 强势板块：' + _ml3.map((x, i) => `${i + 1}.${x.sector}${x.strength != null ? '(' + x.strength + ')' : ''}`).join(' ');
+    }
+    // oa：指数纪律警示（用户交易纪律铁律·警示参考）：站上昨高可做 / 跌破昨低不可做·次日休息
+    const _id = d.idxDisc;
+    if (_id && _id.fresh) {
+      const map = { entry: ['🟢 纪律：站上昨日最高，可做（分批·去弱留强）', '#2f9e44'], exit: ['🔴 纪律：跌破昨日最低，不可做·明天强制休息', '#e03131'], flat: ['⚪ 纪律：昨高昨低之间，观望', '#868e96'] };
+      const t = map[_id.signal] || map.flat;
+      const el = document.getElementById('moodDisc');
+      if (el) { el.textContent = t[0]; el.style.color = t[1]; el.style.display = ''; }
+    } else {
+      const el = document.getElementById('moodDisc');
+      if (el) el.style.display = 'none';
+    }
+  } else {
+    if (snap) {
+      document.getElementById('moodAdvice').textContent = '休市';
+      document.getElementById('moodAdvice').className = 'advice guan';
+      document.getElementById('moodTag').textContent = '显示 ' + snapDay + ' 收盘数据';
+      document.getElementById('moodNote').textContent = '非交易日无实时行情，涨停池与板块强度为最近交易日快照。';
+    } else {
+      document.getElementById('moodAdvice').textContent = '—';
+      document.getElementById('moodAdvice').className = 'advice guan';
+      document.getElementById('moodTag').textContent = '市场情绪：数据暂缺';
+      document.getElementById('moodNote').textContent = d.ready ? '行情已就绪，稍后自动刷新' : '行情未就绪，请稍候';
+    }
+  }
+  // 竞价
+  const a = d.auction || {};
+  document.getElementById('aucMeta').textContent = a.stage ? a.stage + ' · ' + (a.validCount||0) + ' 只' : '';
+  const ab = document.getElementById('aucBody');
+  if (a.strong && a.strong.length){
+    ab.innerHTML = a.strong.map(x => row(x.name, x.pct, x.score!=null ? '分'+x.score : '')).join('');
+  } else {
+    ab.innerHTML = '<div class="empty">' + (a.stage ? '当前无强势票' : '竞价时段未到或数据未就绪') + '</div>';
+  }
+  // 涨停池：ka 轮按板块净流入排序，并在卡片上标出板块强度/流入
+  const z = d.ztPool || {};
+  document.getElementById('ztMeta').textContent = (z.tag || '') + ' · ' + (z.count||0) + ' 只' + (z.excluded ? '（剔退市 ' + z.excluded + '）' : '') + (z.top && z.top.sortedByInflow ? ' · 按板块流入' : '');
+  const zb = document.getElementById('ztBody');
+  if (z.top && z.top.length){
+    zb.innerHTML = z.top.map(x => {
+      const inflowYi = x.sectorInflow != null ? (x.sectorInflow / 1e8).toFixed(1) : null;
+      const hotTag = inflowYi && +inflowYi >= 1 ? `🔥${inflowYi}亿` : '';
+      const sectorTag = x.sector ? `${esc(x.sector)}${x.sectorPct != null ? ' ' + (x.sectorPct > 0 ? '+' : '') + (+x.sectorPct).toFixed(1) + '%' : ''}` : '';
+      return `<div class="row">
+        <span class="nm">${esc(x.name)}${sectorTag ? `<span class="tag">${sectorTag}</span>` : ''}${hotTag ? `<span class="tag" style="background:#3a2a1a;color:#f0b90b">${hotTag}</span>` : ''}</span>
+        <span class="pc ${x.pct>0?'up':x.pct<0?'down':'flat'}">${x.pct>0?'+':''}${(+x.pct).toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+  } else {
+    zb.innerHTML = '<div class="empty">暂无涨停数据</div>';
+  }
+  // nz：玄学字辈批量涨停（羊洋阳扬杨/龙/华…含同音字根族）
+  const nc = d.nameClans || {};
+  const ncTop = nc.top || [];
+  const ncCard = document.getElementById('ncCard');
+  if (ncTop.length) {
+    ncCard.style.display = '';
+    document.getElementById('ncMeta').textContent = '批量 ' + ncTop.length + ' 族';
+    document.getElementById('ncBody').innerHTML = ncTop.map(c => `
+      <div class="qp-item">
+        <div class="qp-head">
+          <span class="nm">🔮 ${esc(c.key)}字辈<span class="tag">${c.count}只</span></span>
+          <span class="pc up">${c.type === 'clan' ? '同音族' : c.type === 'first' ? '首字辈' : c.type === 'early' ? '次字辈' : '单字'}</span>
+        </div>
+        <div style="margin:3px 0;font-size:12px;color:#888">${(c.items || []).map(i => {
+          const tags = [i.chip, i.vol, i.pattern].filter(Boolean).join('·');
+          return esc(i.name) + (tags ? `<span style="color:#aaa">（${esc(tags)}）</span>` : '');
+        }).join('、')}</div>
+        ${(c.scanHits && c.scanHits.length && c.scanTotal > (c.items || []).length) ? `
+        <div style="margin-top:4px;padding-top:4px;border-top:1px dashed #333;font-size:12px">
+          <div style="color:#e67700;font-weight:600">🔍 全市场同族 ${c.scanTotal} 只（补涨挖掘）</div>
+          ${c.scanHits.map(h => `<div class="row" style="padding:2px 0">
+            <span class="nm">${h.isZT ? '🔴' : '⚪'} ${esc(h.name)}${h.isZT ? '<span class="tag">已涨停</span>' : ''}</span>
+            <span class="pc ${h.pct>0?'up':h.pct<0?'down':'flat'}">${h.pct!=null?(h.pct>0?'+':'')+(+h.pct).toFixed(1)+'%':'—'}</span>
+          </div>`).join('')}
+        </div>` : ''}
+      </div>`).join('');
+  } else {
+    ncCard.style.display = 'none';
+  }
+  // 板块
+  const s = d.sectors || [];
+  const secAge = typeof d.sectorsAgeSec === 'number' ? ' · ' + d.sectorsAgeSec + '秒前' : '';
+  document.getElementById('secMeta').textContent = '前 ' + s.length + ' 强' + secAge;
+  document.getElementById('secBody').innerHTML = s.length
+    ? s.map(x => row(x.name, x.pct)).join('')
+    : '<div class="empty">暂无板块数据</div>';
+  // 明日计划（lc：digest 改发对象 {picked[],relay[],cand,applyDate}，渲染对齐桌面卡片的精简版）
+  const np = d.nextplan || {};
+  const npk = np.picked || [];
+  document.getElementById('npMeta').textContent = npk.length
+    ? `入围 ${npk.length}${np.cand ? ' · 候选' + np.cand : ''}${np.applyDate ? ' · 适用 ' + np.applyDate : ''}`
+    : '';
+  document.getElementById('npBody').innerHTML = npk.length
+    ? npk.map(x => `<div class="qp-item">
+        <div class="qp-head">
+          <span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span>
+          <span class="pc ${x.pct>0?'up':x.pct<0?'down':'flat'}">${x.pct==null?'':(x.pct>0?'+':'')+x.pct.toFixed(1)+'%'} · ${esc(x.grade||'')} ${x.score}分</span>
+        </div>
+        <div style="margin:3px 0">进场 <b>${x.entry ? x.entry[0]+'~'+x.entry[1] : '-'}</b> · 止损 <b class="down">${x.stop != null ? x.stop : '-'}</b> · 目标 <b class="up">${x.target != null ? x.target : '-'}</b>${x.sector ? ` · ${esc(x.sector)}` : ''}</div>
+        ${(x.reasons || []).slice(0, 2).map(r => `<div class="qp-reason">· ${esc(r)}</div>`).join('')}
+        ${(x.confirm || []).slice(0, 1).map(c => `<div class="qp-reason" style="color:#faad14">✔ 做不到就别碰: ${esc(c)}</div>`).join('')}
+      </div>`).join('')
+      + ((np.relay && np.relay.length) ? `<div style="margin:8px 0 3px;color:#e67700;font-weight:600">⚡ 涨停接力 ${np.relay.length} 只（高风险 · 只在你能盯盘时做）</div>` + np.relay.map(x => `<div class="qp-item"><div class="qp-head"><span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span><span class="pc">${x.limitUpCount > 1 ? x.limitUpCount + '连板' : '首板'} · ${x.score}分</span></div>${x.risk ? `<div class="qp-reason" style="color:#e67700">⚠️ ${esc(x.risk)}</div>` : ''}${x.reason ? `<div class="qp-reason">· ${esc(x.reason)}</div>` : ''}</div>`).join('') : '')
+    : '<div class="empty">收盘后生成 · 详情见完整面板</div>';
+
+  // 量化选股 / 竞价共振 / 盘中强势：js/jz 轮起对只读（观看）身份也加载展示 —— 服务端
+  // /api/quant-picks、/api/auction-resonance、/api/intraday-strong 已同步放开，接口只回市场扫描
+  // 结果（命中条件/板块/竞价分/强势因子），不含持仓等私密字段。
+  // ky/lk：四张扫描卡限频随网络分档（Wi-Fi 15s / 流量 30s），首次 render 即载，手动🔄不受限。
+  if (Date.now() - _cardsAt > (netFastLane() ? 15000 : 30000)) {
+    _cardsAt = Date.now();
+    loadQuantPicks(false);
+    loadAuctionResonance(false);
+    loadPreseal();
+    loadIntradayStrong(false);
+    loadWashTrend(false);
+  }
+}
+let _cardsAt = 0;
+
+function toggleQp(){
+  const c = document.getElementById('qpCard');
+  if (c) c.classList.toggle('collapsed');
+}
+
+// kg 轮：所有卡片可折叠——通用开关（hd 元素传入，折叠的是整卡；▼/▶ 箭头由 .foldable CSS 出）
+function toggleCard(hd){
+  const c = hd && hd.parentElement;
+  if (c) c.classList.toggle('collapsed');
+}
+
+function renderQuantPicks(d){
+  const card = document.getElementById('qpCard');
+  const body = document.getElementById('qpBody');
+  const meta = document.getElementById('qpMeta');
+  if (!card || !body) return;
+  if (d && d.locked){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const items = (d && d.items) || [];
+  const t = d && d.asOf ? new Date(d.asOf).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
+  const board = (typeof window !== 'undefined' && window._qpBoard) || 'all';
+  meta.innerHTML = items.length + ' 只' + (t ? ' · ' + t : '') + ' <button class="qp-refresh" onclick="event.stopPropagation();loadQuantPicks(true)">🔄 刷新</button>';
+  // lo：对齐竞价共振卡——板块切换 + 哨兵动态 + 板块视图置顶 + 全量榜收 details
+  const filterBar = '<div class="ar-filter" onclick="event.stopPropagation()">'
+    + ['all','main','gem'].map(k => `<button class="${k === board ? 'on' : ''}" onclick="setQpBoard('${k}')">${{all:'全部',main:'主板',gem:'创业板'}[k]}</button>`).join('')
+    + '</div>';
+  if (!items.length){
+    body.innerHTML = filterBar + '<div class="empty">' + (d && d.note ? esc(d.note) : '暂无命中') + '</div>';
+    return;
+  }
+  const sent = (d && d.sentinel) || [];
+  const sentinelBlock = sent.length
+    ? '<div style="margin:2px 0 6px;color:#e67700;font-weight:600">📡 哨兵动态（起涨/冲板/封板·实时）</div>' + sent.slice(0, 8).map(e => {
+        const icon = e.type === 'seal' ? '🔴' : e.type === 'rush' ? '⚡' : '🚀';
+        const tm = e.at ? new Date(e.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="qp-reason" style="margin:2px 0">${icon} <b>${esc(e.name || '-')}</b>${e.code ? `(${esc(e.code)})` : ''} <span class="muted">${tm}</span><br>${esc(e.text || '')}</div>`;
+      }).join('')
+    : '';
+  const sv = (d && d.sectorView) || [];
+  const sectorBlock = sv.length
+    ? '<div style="margin:6px 0;color:#e67700;font-weight:600">🔥 命中板块强度（先看板块，再挑票）</div>' + sv.map(g => {
+        const pickRows = g.picks.map(p => `<div class="qp-item">
+            <div class="qp-head">
+              <span class="nm">${esc(p.name)}<span class="tag">${esc(p.code)}</span></span>
+              <span class="pc" title="${esc(p.trendText || '')}">${p.score != null ? p.score + '分' : ''}${p.trend === 'rising' ? ' ↗' : p.trend === 'falling' ? ' ↘' : ''} ${(+p.pct) > 0 ? '+' : ''}${(+p.pct).toFixed(1)}%</span>
+            </div>
+          </div>`).join('');
+        return `<div class="qp-item" style="border-left:3px solid #e67700">
+          <div class="qp-head">
+            <span class="nm">▶ ${esc(g.name)}</span>
+            <span class="pc">${g.n} 只命中${g.rank ? ' · 资金第' + g.rank : ''} · 均涨 ${g.avgPct}%</span>
+          </div>
+          ${pickRows}
+        </div>`;
+      }).join('')
+    : '';
+  const flatBlock = '<details style="margin-top:6px"><summary style="color:#999;font-size:12px">全部命中 ' + items.length + ' 只（含条件明细·参考）</summary>'
+    + items.map(x => {
+    const reasons = (x.hit || []).map(h => `<span class="id">条件${h.id}</span>${esc(h.text)}`).join('<br>');
+    // iy 轮：用户「量化选股选出的股票后面加上所属板块」——sector 来自 quantPicksScan 的 sectorOfStock 四层归属；⛔ 判不出是空串，空串不渲染（缺数据≠造假板块），文本必经 esc()
+    const sectorLine = x.sector ? `<div class="qp-sector">所属板块：${esc(x.sector)}</div>` : '';
+    return `<div class="qp-item">
+      <div class="qp-head">
+        <span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span>
+        <span class="pc ${x.pct>0?'up':x.pct<0?'down':'flat'}" title="${esc(x.trendText || '')}">${x.pct>0?'+':''}${(+x.pct).toFixed(1)}%${x.trend==='rising'?' ↗':x.trend==='falling'?' ↘':''}</span>
+      </div>
+      ${sectorLine}
+      ${x.chipVol ? `<div class="qp-reason" style="color:#8a6d3b">🧱📊 ${esc(x.chipVol)}</div>` : ''}
+      <div class="qp-reason">${reasons}</div>
+    </div>`;
+  }).join('') + '</details>';
+  body.innerHTML = filterBar + sentinelBlock + sectorBlock + flatBlock;
+}
+
+function setQpBoard(board){
+  if (typeof window !== 'undefined') window._qpBoard = ['main','gem'].includes(board) ? board : 'all';
+  try { localStorage.setItem('qpBoard', window._qpBoard); } catch(e) {}
+  loadQuantPicks(true);
+}
+async function loadQuantPicks(force){
+  const t = getToken();
+  if (!t) return;
+  let _qb = 'all'; try { _qb = (typeof window !== 'undefined' && window._qpBoard) || localStorage.getItem('qpBoard') || 'all'; } catch(e) {}
+  const board = _qb;
+  try {
+    const r = await fetch('/api/quant-picks' + (t ? '?token=' + encodeURIComponent(t) + '&' : '?') + (force ? 'force=1&' : '') + 'board=' + encodeURIComponent(board) + '&max=40', { cache: 'no-store' });   // lo：板块切换+票数放宽40
+    if (!r.ok) return;
+    const d = await r.json();
+    renderQuantPicks(d);
+  } catch(e) {}
+}
+
+function toggleAr(){
+  const c = document.getElementById('arCard');
+  if (c) c.classList.toggle('collapsed');
+}
+
+// nz：玄学字辈卡片折叠切换
+function toggleNc(){
+  const c = document.getElementById('ncCard');
+  if (c) c.classList.toggle('collapsed');
+}
+
+function renderAuctionResonance(d){
+  const card = document.getElementById('arCard');
+  const body = document.getElementById('arBody');
+  const meta = document.getElementById('arMeta');
+  if (!card || !body) return;
+  if (d && d.locked){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const items = (d && d.items) || [];
+  const t = d && d.asOf ? new Date(d.asOf).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
+  const board = window._arBoard || 'all';
+  meta.innerHTML = items.length + ' 只' + (t ? ' · ' + t : '') + ' <button class="qp-refresh" onclick="event.stopPropagation();loadAuctionResonance(true)">🔄 刷新</button>';
+  const filterBar = '<div class="ar-filter" onclick="event.stopPropagation()">'
+    + ['all','main','gem'].map(k => `<button class="${k === board ? 'on' : ''}" onclick="setArBoard('${k}')">${{all:'全部',main:'主板',gem:'创业板'}[k]}</button>`).join('')
+    + '</div>';
+  if (!items.length){
+    body.innerHTML = filterBar + '<div class="empty">' + (d && d.note ? esc(d.note) : '暂无命中') + '</div>';
+    return;
+  }
+  // lf 轮（用户原意）：竞价先看板块强弱——板块视图置顶（板块内未封板可买票），原全市场共振榜收进<details>作参考。
+  // lm：哨兵动态（起涨/冲板/封板事件流水）置顶可见——不用翻推送记录也能看到"刚才发生了什么"。
+  const sent = (d && d.sentinel) || [];
+  const sentinelBlock = sent.length
+    ? '<div style="margin:2px 0 6px;color:#e67700;font-weight:600">📡 哨兵动态（起涨/冲板/封板·实时）</div>' + sent.slice(0, 8).map(e => {
+        const icon = e.type === 'seal' ? '🔴' : e.type === 'rush' ? '⚡' : '🚀';
+        const tm = e.at ? new Date(e.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `<div class="qp-reason" style="margin:2px 0">${icon} <b>${esc(e.name || '-')}</b>${e.code ? `(${esc(e.code)})` : ''} <span class="muted">${tm}</span><br>${esc(e.text || '')}</div>`;
+      }).join('')
+    : '';
+  const sv = (d && d.sectorView) || [];
+  const sectorBlock = sv.length
+    ? '<div style="margin:2px 0 6px;color:#e67700;font-weight:600">🔥 竞价板块强度（先看板块，再挑票）</div>' + sv.map(g => {
+        const pickRows = g.picks.length
+          ? g.picks.map(p => `<div class="qp-item">
+              <div class="qp-head">
+                <span class="nm">${esc(p.name)}<span class="tag">${esc(p.code)}</span></span>
+                <span class="pc">${p.score}分 ${p.auctionPct != null ? `<span class="tag">竞价 +${p.auctionPct.toFixed(2)}%</span>` : ''}</span>
+              </div>
+              <div class="qp-reason">${(p.reasons || []).slice(0, 2).map(esc).join('<br>')}</div>
+            </div>`).join('')
+          : '<div class="qp-reason">板块内未封板可买票暂无（前排已封板的看接力风险）</div>';
+        return `<div class="qp-item" style="border-left:3px solid #e67700">
+          <div class="qp-head">
+            <span class="nm">▶ ${esc(g.name)}</span>
+            <span class="pc">${g.rank ? '资金第' + g.rank + ' · ' : ''}竞价${g.aucN}只${g.sealedN ? ' · 封板' + g.sealedN : ''} · 均涨${g.avgGain}%</span>
+          </div>
+          ${pickRows}
+        </div>`;
+      }).join('')
+    : '';
+  const flatBlock = '<details style="margin-top:6px"><summary style="color:#999;font-size:12px">全市场共振 TOP ' + items.length + '（含封板票·参考）</summary>'
+    + items.map(x => {
+    const reasons = (x.reasons || []).map((r, i) => `<span class="id">${i + 1}</span>${esc(r)}`).join('<br>');
+    const sectorLine = x.sector ? `<div class="qp-sector">所属板块：${esc(x.sector)}</div>` : '';
+    const gainLine = x.auctionPct != null
+      ? `<span class="tag">竞价 ${x.auctionPct > 0 ? '+' : ''}${x.auctionPct.toFixed(2)}%</span>`
+      : `<span class="tag">现涨 ${x.pct > 0 ? '+' : ''}${x.pct.toFixed(2)}%</span>`;
+    // jy 轮：auczt 两口径并列展示——当日封板概率 + 次日+3%命中率。
+    const probLine = x.probToday != null
+      ? `<span class="tag" title="当日封板概率（诚实刻度）">当日 ${x.probToday}%</span>${x.probNd != null ? `<span class="tag" title="次日最高≥+3% 实测命中率">次日+3% ${x.probNd}%</span>` : '<span class="tag">次日+3% 样本不足</span>'}`
+      : '';
+    return `<div class="qp-item">
+      <div class="qp-head">
+        <span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span>
+        <span class="pc" title="${esc(x.trendText || '')}">${x.score}分${x.trend==='rising'?' ↗':x.trend==='falling'?' ↘':' →'} ${gainLine}</span>
+      </div>
+      ${probLine ? `<div style="margin:3px 0">${probLine}</div>` : ''}
+      ${sectorLine}
+      ${x.chipVol ? `<div class="qp-reason" style="color:#8a6d3b">🧱📊 ${esc(x.chipVol)}</div>` : ''}
+      <div class="qp-reason">${reasons}</div>
+    </div>`;
+  }).join('') + '</details>';
+  body.innerHTML = filterBar + sentinelBlock + sectorBlock + flatBlock;
+}
+
+function setArBoard(board){
+  window._arBoard = ['main','gem'].includes(board) ? board : 'all';
+  try { localStorage.setItem('arBoard', window._arBoard); } catch(e) {}
+  loadAuctionResonance(true);
+}
+async function loadAuctionResonance(force){
+  const t = getToken();
+  if (!t) return;
+  const board = window._arBoard || (window._arBoard = (function(){ try { return localStorage.getItem('arBoard') || 'all'; } catch(e) { return 'all'; } })());
+  try {
+    const r = await fetch('/api/auction-resonance' + (t ? '?token=' + encodeURIComponent(t) + '&' : '?') + (force ? 'force=1&' : '') + 'board=' + encodeURIComponent(board) + '&max=40', { cache: 'no-store' });   // lm：显示票数放宽到 40
+    if (!r.ok) return;
+    const d = await r.json();
+    renderAuctionResonance(d);
+  } catch(e) {}
+}
+
+function toggleIs(){
+  const c = document.getElementById('isCard');
+  if (c) c.classList.toggle('collapsed');
+}
+
+function renderIntradayStrong(d){
+  const card = document.getElementById('isCard');
+  const body = document.getElementById('isBody');
+  const meta = document.getElementById('isMeta');
+  if (!card || !body) return;
+  if (d && d.locked){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const items = (d && d.items) || [];
+  const t = d && d.asOf ? new Date(d.asOf).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
+  const board = (typeof window !== 'undefined' && window._isBoard) || 'all';
+  meta.innerHTML = items.length + ' 只' + (t ? ' · ' + t : '') + ' <button class="qp-refresh" onclick="event.stopPropagation();loadIntradayStrong(true)">🔄 刷新</button>';
+  // lp：对齐竞价共振卡——板块切换 + 哨兵动态 + 板块视图置顶 + 全量榜收 details
+  const filterBar = '<div class="ar-filter" onclick="event.stopPropagation()">'
+    + ['all','main','gem'].map(k => `<button class="${k === board ? 'on' : ''}" onclick="setIsBoard('${k}')">${{all:'全部',main:'主板',gem:'创业板'}[k]}</button>`).join('')
+    + '</div>';
+  if (!items.length){
+    body.innerHTML = filterBar + '<div class="empty">' + (d && d.note ? esc(d.note) : '暂无命中') + '</div>';
+    return;
+  }
+  const sent = (d && d.sentinel) || [];
+  const sentinelBlock = sent.length
+    ? '<div style="margin:2px 0 6px;color:#e67700;font-weight:600">📡 哨兵动态（起涨/冲板/封板·实时）</div>' + sent.slice(0, 8).map(e => {
+        const icon = e.type === 'seal' ? '🔴' : e.type === 'rush' ? '⚡' : '🚀';
+        const tm = e.at ? new Date(e.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+        return '<div class="qp-reason" style="margin:2px 0">' + icon + ' <b>' + esc(e.name || '-') + '</b>' + (e.code ? '(' + esc(e.code) + ')' : '') + ' <span class="muted">' + tm + '</span><br>' + esc(e.text || '') + '</div>';
+      }).join('')
+    : '';
+  const sv = (d && d.sectorView) || [];
+  const sectorBlock = sv.length
+    ? '<div style="margin:6px 0;color:#e67700;font-weight:600">🔥 强势板块（先看板块，再挑票）</div>' + sv.map(g => {
+        const pickRows = g.picks.map(p => '<div class="qp-item"><div class="qp-head"><span class="nm">' + esc(p.name) + '<span class="tag">' + esc(p.code) + '</span></span>' +
+          '<span class="pc">' + (p.score != null ? p.score + '分' : '') + (p.trend === 'rising' ? ' ↗' : p.trend === 'falling' ? ' ↘' : '') + ' ' + (p.pct > 0 ? '+' : '') + (+p.pct).toFixed(1) + '%</span></div></div>').join('');
+        return '<div class="qp-item" style="border-left:3px solid #e67700"><div class="qp-head"><span class="nm">▶ ' + esc(g.name) + '</span>' +
+          '<span class="pc">' + g.n + ' 只' + (g.rank ? ' · 资金第' + g.rank : '') + ' · 均涨 ' + g.avgPct + '%</span></div>' + pickRows + '</div>';
+      }).join('')
+    : '';
+  body.innerHTML = filterBar + sentinelBlock + sectorBlock
+    + '<details style="margin-top:6px"><summary style="color:#999;font-size:12px">全部强势 ' + items.length + ' 只（含依据明细·参考）</summary>'
+    + items.map(x => {
+    const reasons = (x.reasons || []).map((r, i) => `<span class="id">${i + 1}</span>${esc(r)}`).join('<br>');
+    const sectorLine = x.sector ? `<div class="qp-sector">所属板块：${esc(x.sector)}</div>` : '';
+    const probLine = x.prob != null ? `<span class="tag" title="当日冲击涨停概率（学习校准后）">涨停概率 ${x.prob}%</span>` : '';
+    return `<div class="qp-item">
+      <div class="qp-head">
+        <span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span>
+        <span class="pc ${x.pct>0?'up':x.pct<0?'down':'flat'}">${x.pct>0?'+':''}${x.pct.toFixed(1)}% · ${x.score}分</span>
+      </div>
+      <div style="margin:3px 0">${probLine}</div>
+      ${sectorLine}
+      ${x.chipVol ? `<div class="qp-reason" style="color:#8a6d3b">🧱📊 ${esc(x.chipVol)}</div>` : ''}
+      <div class="qp-reason">${reasons}</div>
+    </div>`;
+  }).join('') + '</details>';
+}
+
+function setIsBoard(board){
+  if (typeof window !== 'undefined') window._isBoard = ['main','gem'].includes(board) ? board : 'all';
+  try { localStorage.setItem('isBoard', (typeof window !== 'undefined' && window._isBoard) || 'all'); } catch(e) {}
+  loadIntradayStrong(true);
+}
+async function loadIntradayStrong(force){
+  const t = getToken();
+  if (!t) return;
+  try {
+    const board = (typeof window !== 'undefined' && window._isBoard) || 'all';
+    const r = await fetch('/api/intraday-strong' + (t ? '?token=' + encodeURIComponent(t) + '&' : '?') + (force ? 'force=1&' : '') + 'board=' + encodeURIComponent(board) + '&max=40', { cache: 'no-store' }); // lp
+    if (!r.ok) return;
+    const d = await r.json();
+    renderIntradayStrong(d);
+  } catch(e) {}
+}
+
+// kf 轮：「洗盘趋势」卡片（计划 Tab）——服务端 /api/wash-trend 对只读返回 locked，
+// 前端收到 locked 即隐藏卡片（与量化选股 locked 防御同 pattern），仅开发者可见。
+// lx：「涨停前发现」卡片——仅开发者（服务端对只读返回 locked，前端直接隐藏卡片）
+function renderPreseal(d){
+  const card = document.getElementById('psCard');
+  const body = document.getElementById('psBody');
+  const meta = document.getElementById('psMeta');
+  if (!card || !body) return;
+  if (!d || d.locked){ card.style.display = 'none'; return; }   // 只读身份不可见（用户要求仅自己可见）
+  card.style.display = '';
+  const items = d.items || [];
+  meta.innerHTML = `涨停 ${d.sealedN || 0} · 涨停前发现 <b style="color:#e67700">${d.preN || 0}</b>${d.preRate != null ? '（' + d.preRate + '%）' : ''}`;
+  body.innerHTML = items.length ? items.map(x => {
+    const sealed = x.result === '封板';
+    const viaTag = `<span class="tag">${esc(x.via || '-')}</span>`;
+    return `<div class="qp-item">
+      <div class="qp-head">
+        <span class="nm">${esc(x.name || '-')}${x.code ? `<span class="tag">${esc(x.code)}</span>` : ''}${viaTag}<span class="muted">${esc(x.at || '')}</span></span>
+        <span class="pc">${sealed ? '<b style="color:#c0392b">已封板 ✅</b>' : `<span style="color:#27ae60">未封</span>`}${x.auctionPct != null ? ' · 竞价 +' + x.auctionPct + '%' : ''}</span>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">今日暂无涨停前发现的票</div>';
+}
+async function loadPreseal(){
+  const t = getToken();
+  if (!t) return;
+  try {
+    const r = await fetch('/api/preseal?token=' + encodeURIComponent(t), { cache: 'no-store' });
+    if (!r.ok) return;
+    renderPreseal(await r.json());
+  } catch(e) {}
+}
+
+function renderWashTrend(d){
+  const card = document.getElementById('wtCard');
+  const body = document.getElementById('wtBody');
+  const meta = document.getElementById('wtMeta');
+  if (!card || !body) return;
+  if (d && d.locked){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const items = (d && d.items) || [];
+  const t = d && d.asOf ? new Date(d.asOf).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
+  meta.innerHTML = items.length + ' 只' + (t ? ' · ' + t : '') + (d && d.frozen ? ' · 🔒收盘已锁' : '') + ' <button class="qp-refresh" onclick="event.stopPropagation();loadWashTrend(true)">🔄 刷新</button>';
+  // lu：主板/创业板无命中回退全板块时，说明行必须可见（否则创业板票出现在主板页签像数据出错）
+  if (d && d.boardFallback) meta.innerHTML += ' <span style="color:#e67700;font-size:12px">（本页签无命中·已回退全板块）</span>';
+  // ki 轮：主板/创业板/全部口径切换（与竞价共振同 pattern，localStorage 记忆 wtBoard）
+  const board = window._wtBoard || 'all';
+  const filterBar = '<div class="ar-filter" onclick="event.stopPropagation()">'
+    + ['all','main','gem'].map(k => `<button class="${k === board ? 'on' : ''}" onclick="setWtBoard('${k}')">${{all:'全部',main:'主板',gem:'创业板'}[k]}</button>`).join('')
+    + '</div>';
+  if (!items.length){
+    body.innerHTML = filterBar + '<div class="empty">' + (d && d.note ? esc(d.note) : '暂无命中') + '</div>';
+    return;
+  }
+  body.innerHTML = filterBar + items.map(x => {
+    const reasons = (x.reasons || []).map((r, i) => `<span class="id">${i + 1}</span>${esc(r)}`).join('<br>');
+    const sectorLine = x.sector ? `<div class="qp-sector">所属板块：${esc(x.sector)}</div>` : '';
+    const moneyLine = x.mainPct ? `<span class="tag" title="当日主力净流入占比">主力净占比 ${x.mainPct}%</span>` : '';
+    // kl/km 轮：分级触发——黄灯=放量站上5日线(量比>1.5)，红灯=再站上10日线且量≥前5日均量1.9倍
+    const breakLine = x.breakout && x.breakout.fired
+      ? (x.breakout.level === 'red'
+        ? `<span class="tag" style="background:rgba(255,77,79,.18);color:#ff4d4f" title="${esc(x.breakout.text)}">🔴 洗盘结束·红灯</span>`
+        : `<span class="tag" style="background:rgba(250,173,20,.15);color:${x.breakout.suspect ? '#ff4d4f' : '#faad14'}" title="${esc(x.breakout.text)}">${x.breakout.suspect ? '⚠️🟡' : '🟡'} 洗盘结束·黄灯${x.breakout.suspect ? '(存疑)' : ''}</span>`)
+      : '';
+    return `<div class="qp-item">
+      <div class="qp-head">
+        <span class="nm">${esc(x.name)}<span class="tag">${esc(x.code)}</span></span>
+        <span class="pc ${x.pct>0?'up':x.pct<0?'down':'flat'}">${x.pct>0?'+':''}${x.pct.toFixed(1)}% · ${x.signal === '吸筹' ? '📥吸筹' : '🧹洗盘'}+${x.score}分</span>
+      </div>
+      <div style="margin:3px 0">${moneyLine}${breakLine}</div>
+      ${sectorLine}
+      <div class="qp-reason">${reasons}</div>
+    </div>`;
+  }).join('');
+}
+
+function setWtBoard(board){
+  window._wtBoard = ['main','gem'].includes(board) ? board : 'all';
+  try { localStorage.setItem('wtBoard', window._wtBoard); } catch(e) {}
+  loadWashTrend(true);
+}
+
+async function loadWashTrend(force){
+  const t = getToken();
+  if (!t) return;
+  const board = window._wtBoard || (window._wtBoard = (function(){ try { return localStorage.getItem('wtBoard') || 'all'; } catch(e) { return 'all'; } })());
+  try {
+    const r = await fetch('/api/wash-trend' + (t ? '?token=' + encodeURIComponent(t) + '&' : '?') + (force ? 'force=1&' : '') + 'board=' + encodeURIComponent(board), { cache: 'no-store' });
+    if (r.status === 401 || r.status === 403){
+      const c = document.getElementById('wtCard'); if (c) c.style.display = 'none';
+      return;
+    }
+    if (!r.ok) return;
+    const d = await r.json();
+    renderWashTrend(d);
+  } catch(e) {}
+}
+
+async function load(){
+  const t = getToken();
+  try {
+    const r = await fetch('/api/mobile-digest' + (t ? '?token=' + encodeURIComponent(t) : ''), { cache: 'no-store' });
+    if (r.status === 401 || r.status === 403){ showGate(); return; }
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    render(d);
+  } catch(e){
+    document.getElementById('err').style.display = '';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('foot').style.display = 'none';
+    document.getElementById('gate').style.display = 'none';
+  }
+}
+
+function showGate(){
+  window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:null}));
+  document.getElementById('gate').style.display = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('foot').style.display = 'none';
+  document.getElementById('err').style.display = 'none';
+}
+
+async function doLogin(){
+  const pwd = (document.getElementById('pwd').value || '').replace(/[\s\u200b-\u200f\ufeff]/g, '');
+  const err = document.getElementById('gateErr');
+  err.textContent = '';
+  if (!pwd){ err.textContent = '请输入口令'; return; }
+  try {
+    let r = await fetch('/api/lock/unlock', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, role: 'edit' }) }).then(x=>x.json());
+    if (!r || !r.ok || !r.token){
+      r = await fetch('/api/lock/unlock', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, role: 'view' }) }).then(x=>x.json());
+    }
+    if (r && r.ok && r.token){
+      try { localStorage.setItem('qd_device', r.token); } catch (_) {}
+      load();
+    } else {
+      err.textContent = (r && r.error) || '口令错误';
+    }
+  } catch(e){ err.textContent = '网络错误，请重试'; }
+}
+
+// 有 token 就直接加载；否则先问身份状态，判断是否需要登录门
+(async function init(){
+  restoreTab();
+  const t = getToken();
+  if (!t){ showGate(); return; }
+  try {
+    const st = await fetch('/api/lock/status?token=' + encodeURIComponent(t), { cache:'no-store' }).then(x=>x.json());
+    if (st && (st.needAuth || st.invalid)){ showGate(); return; }
+    setPushState(st && st.role, st && st.feishuReady, st && st.pushRole === 'replica');
+    // jt 轮：这份 status 里就带 appVer，顺手做第一次版本自检（不一致会强制刷新到新页，刷新中就不必再 load）
+    if (await checkMobVer(st && st.appVer)) return;
+  } catch(e){}
+  load();
+})();
+
+// PWA：注册 Service Worker，让 /m 可被「添加到主屏幕」并离线缓存静态资源
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// lk：网络分档刷新（用户「Wi-Fi 2秒一刷新 手机流量10秒一刷新」）——
+// Android Chrome 可显式识别 wifi/cellular；识别不了时按 effectiveType 快网兜底；saveData 一律慢档。
+function netFastLane() {
+  try {
+    const c = navigator.connection;
+    if (!c) return false;
+    if (c.type) return c.type === 'wifi';
+    if (c.effectiveType) return c.effectiveType === '4g' && !c.saveData;
+  } catch (e) {}
+  return false;
+}
+try { navigator.connection && navigator.connection.addEventListener && navigator.connection.addEventListener('change', () => { _lastLoad = 0; _cardsAt = 0; }); } catch (e) {}
+let _lastLoad = 0;
+setInterval(() => {
+  const now = Date.now();
+  // 版本自检 15s 节流不变
+  if (now - _verChkAt > 15000) { _verChkAt = now; checkMobVer(); }
+  const gap = netFastLane() ? 2000 : 10000;
+  if (now - _lastLoad >= gap) { _lastLoad = now; load(); }
+}, 1000);
+</script>
+<script src="/assets/terminal-dashboard.js?v=20261105ag"></script>
+</body>
+</html>

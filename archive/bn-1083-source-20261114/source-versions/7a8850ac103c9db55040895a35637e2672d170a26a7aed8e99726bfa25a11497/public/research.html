@@ -1,0 +1,21 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V6 选股战法研究工作台</title>
+<style>
+:root{color-scheme:dark}body{font:15px system-ui,-apple-system,sans-serif;background:#0b1220;color:#e6edf7;margin:0}
+main{max-width:1180px;margin:auto;padding:22px}.muted{color:#98a9c4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:#172338;border:1px solid #2b3a52;border-radius:14px;padding:16px;margin:10px 0}button{background:#2b75d5;color:white;border:0;border-radius:9px;padding:10px 16px;cursor:pointer}
+button:disabled{opacity:.5}input,textarea{background:#0e192b;border:1px solid #3c4f6b;color:white;border-radius:8px;padding:9px;max-width:100%;box-sizing:border-box}
+textarea{width:100%;height:175px;font:12px monospace}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #33415b;text-align:left;font-size:13px}
+.scroller{overflow:auto}.good{color:#8be0b0}.bad{color:#ffb0a7}a{color:#94c5ff}
+</style></head><body><main>
+<p><a href="/">← 返回 V6 主面板</a></p><h1>V6 · 选股与战法研究工作台</h1>
+<p class="muted">仅开发者可运行。使用用户上传的历史数据，非实时行情；所有信号均为研究候选，不自动下单。</p>
+<section class="card"><h3>数据输入</h3>
+<p>开发者令牌（本机直接访问可留空）：<input id="token" type="password" autocomplete="off" placeholder="远程访问请输入开发者令牌"></p>
+<p><input id="file" type="file" accept=".json,application/json"> <button id="scan">扫描选股排行榜</button> <button id="backtest">运行持仓回测</button></p>
+<p>已有K线缓存股票代码（逗号分隔）：<input id="codes" placeholder="000001,600000" style="width:340px"> <button id="cacheScan">扫描本机缓存</button> <button id="cacheLedger">回测本机缓存</button></p>
+<textarea id="payload" placeholder='粘贴JSON：{"stocks":[{"symbol":"000001","market":"main","feed":{"source":"imported","timestamp":...},"bars":[...]}]}'></textarea>
+<p class="muted">输入：stocks 数组，每只 27～500 根K线，最多100只；回测建议至少40根。文件仅发送到当前V6服务，不会上传到其他服务。</p>
+</section><section id="status" class="card">等待输入数据。</section>
+<div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="table" class="scroller"></div></section>
+</main><script src="/assets/research-workbench.js"></script></body></html>
