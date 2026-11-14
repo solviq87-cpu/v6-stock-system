@@ -58,3 +58,18 @@ node --test V6_BO/tests/workbuddy-readonly-audit.test.js
 每次交接应附：精确 40 位 Git SHA、CI run URL、私有运行环境名称、HTTP 状态/响应 hash、账本备份证据、登录/会话/权限日志、双端实机截图（脱敏）、飞书实际送达、不可回退 SHA 和未完成项。缺项标“阻塞/未执行”，不标已修复。
 
 > 保留原始策略/账户/界面/测试；只有满足完整证据才允许从“代码已合并”升级为“线上已恢复”。
+
+
+## 云端只读审计加固补充（2026-11-14）
+
+本轮沿用已有的 V6_BO/scripts/workbuddy-readonly-audit.js，不创建第二套入口。
+新增固定的站点主页 GET /，合计执行四个 GET：/、/api/site、/api/health、/api/records。只在原授权运行环境使用 0600 私有分享码文件，不记录敏感内容。
+
+- htmlMatch=true：表示本次只读 GET 的主页 UTF-8 内容哈希与 /api/site 中 site.html 哈希相同；不代表发布受信、真实后台或账户已恢复。
+- htmlMatch=false：哈希不同，需核对发布状态；禁止绕过唯一 managed-task 的 SHA/CI/owner/加密快照门禁。
+- /api/records 的 ledgerStatus：missing、duplicate-ambiguous、invalid-json、unrecognized-shape、shape-readable-unverified。最后一种也只是最小形态预检，不是历史账户、权限、账本流水或 CAS 认证。
+- records-endpoint-not-found 对应本次授权请求获得 404；records-access-denied 对应 401/403，不能误称接口不存在。
+- ok=true 仅表示接口只读结构、最小账本形态与两个页面哈希一致。报告仍有 accountRecoveryVerified=false、authenticatedSessionVerified=false、productionDeploymentVerified=false。
+- 缺失或损坏记录时 ok=false，严禁使用默认空账户代替原历史。
+
+既有 CI 的 workbuddy-readonly-audit 及 verify 仍会执行。测试含损坏账本、重复记录、空记录、403/404、哈希不匹配、超大响应和凭据脱敏。只有真实授权运行和独立账户恢复证据，才能标记现场验收通过。
