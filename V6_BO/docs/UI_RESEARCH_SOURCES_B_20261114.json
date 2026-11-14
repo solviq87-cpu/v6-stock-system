@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-14",
+  "v6Baseline": "040692bcea3039cd707e1b7f52b5ad08ee77ebd2",
+  "method": "官方文档检索及固定Git提交的根许可、关键源码读取；按现有41来源去重；只记录实际观察的机制，不运行上游或复制实现。",
+  "entries": [
+    {
+      "id": "B01",
+      "repository": "TanStack/table",
+      "name": "TanStack Table",
+      "commit": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "MIT",
+        "note": "根MIT；所用第三方依赖及具体资产另核。本批不导入依赖或移植组件源码。",
+        "repository": "TanStack/table",
+        "commit": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599",
+        "path": "LICENSE",
+        "blobSha": "9fe1442eeb4881c516ae031f29c6c3a90446e9ec",
+        "bytes": 1071,
+        "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/LICENSE"
+      },
+      "reads": [
+        {
+          "repository": "TanStack/table",
+          "commit": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599",
+          "path": "packages/table-core/src/features/row-selection/rowSelectionFeature.ts",
+          "blobSha": "9053a52a7d3360fe461e587c73d8d90b42f331bd",
+          "bytes": 6063,
+          "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/packages/table-core/src/features/row-selection/rowSelectionFeature.ts",
+          "observedSymbols": [
+            "rowSelectionFeature",
+            "onRowSelectionChange",
+            "table_getSelectedRowIds"
+          ],
+          "mechanism": "选择状态单独注册为rowSelection，并通过统一状态更新器处理；所选ID与渲染、过滤派生模型分别取用。",
+          "readScope": "lines 37–58,112–157"
+        },
+        {
+          "repository": "TanStack/table",
+          "commit": "c14e0221b1e656c7bb35e7b3d4cdf188719a3599",
+          "path": "packages/table-core/src/features/row-selection/rowSelectionFeature.utils.ts",
+          "blobSha": "c90758f7b9222baf71f2bf9fa998c21a644e269f",
+          "bytes": 29593,
+          "url": "https://github.com/TanStack/table/blob/c14e0221b1e656c7bb35e7b3d4cdf188719a3599/packages/table-core/src/features/row-selection/rowSelectionFeature.utils.ts",
+          "observedSymbols": [
+            "table_getSelectedRowModel",
+            "table_getFilteredSelectedRowModel",
+            "row.id"
+          ],
+          "mechanism": "基础行集中的所选行与过滤后所选行采用不同入口；选择映射以稳定row.id为键，清空可明确重置整张映射。",
+          "readScope": "lines 120–150,238–294"
+        }
+      ],
+      "officialDocs": [
+        "https://tanstack.com/table/latest/docs/guide/row-selection",
+        "https://tanstack.com/table/latest/docs/guide/row-models"
+      ],
+      "borrow": [
+        "选择证券/版本的身份与当前过滤、分页可见集分开；筛选变更不会悄悄切到另一对象。",
+        "显示所选对象暂不在当前结果的状态，提供定位/清除操作，不把当前页行数当全部候选。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/model-library.js"
+      ],
+      "limits": [
+        "固定源码为当前分支版本，最新文档与v8文档存在API差异；仅借鉴状态边界，不照搬API或升级本工程框架。",
+        "所选ID映射可保留不在当前数据页的ID，但getSelectedRowModel仍只能返回已加载行；不据此宣称服务器全部结果已加载。",
+        "没有安装上游、运行其测试或测量V6大表性能。"
+      ],
+      "installed": false,
+      "executed": false
+    },
+    {
+      "id": "B02",
+      "repository": "TanStack/router",
+      "name": "TanStack Router",
+      "commit": "0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "MIT",
+        "note": "根MIT；具体插件/依赖条款另核。本批独立实现通用上下文规则，不导入路由框架。",
+        "repository": "TanStack/router",
+        "commit": "0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09",
+        "path": "LICENSE",
+        "blobSha": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22",
+        "bytes": 1079,
+        "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/LICENSE"
+      },
+      "reads": [
+        {
+          "repository": "TanStack/router",
+          "commit": "0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09",
+          "path": "packages/router-core/src/searchParams.ts",
+          "blobSha": "19155586e8ea23d5e8696d3777bf60a794bf5df9",
+          "bytes": 3396,
+          "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/packages/router-core/src/searchParams.ts",
+          "observedSymbols": [
+            "parseSearchWith",
+            "stringifySearchWith",
+            "defaultParseSearch"
+          ],
+          "mechanism": "解析和序列化集中处理、可替换；默认支持JSON值，UI状态传递不必和页面路径变更绑定。",
+          "readScope": "lines 1–54,67–104"
+        },
+        {
+          "repository": "TanStack/router",
+          "commit": "0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09",
+          "path": "packages/router-core/src/searchMiddleware.ts",
+          "blobSha": "a78732d8338573a373066bfc3520c670efb1705f",
+          "bytes": 4701,
+          "url": "https://github.com/TanStack/router/blob/0b6d4f3f6b42e704555d9ff0014ddbf8b44f8e09/packages/router-core/src/searchMiddleware.ts",
+          "observedSymbols": [
+            "retainSearchParams",
+            "stripSearchParams",
+            "removedAny",
+            "removed"
+          ],
+          "mechanism": "明确分开跨导航保留字段与删除字段；显式删除和默认剥离有元数据，保留步骤不会重新塞回已清除的值。",
+          "readScope": "lines 25–64,101–141"
+        }
+      ],
+      "officialDocs": [
+        "https://tanstack.com/router/latest/docs/guide/search-params",
+        "https://tanstack.com/router/latest/docs/guide/navigation"
+      ],
+      "borrow": [
+        "跨板块只传经过白名单校验的公共证券代码和目标段落，返回/重载恢复同一公共选择。",
+        "显式清除优先于上下文保留；未知参数、非法代码、过期目标不自动补成最新记录。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/ui-navigation.js"
+      ],
+      "limits": [
+        "上游通用JSON参数能力不等于允许把私有run ID、账户、持仓、访问令牌或证据原文放进URL；V6必须采用更窄字段集合和权限边界。",
+        "URL恢复只恢复选择，不恢复授权，也不证明持久化研究或云端账户状态已恢复。",
+        "未安装或执行TanStack Router，不宣称其全部导航功能已在V6落地。"
+      ],
+      "installed": false,
+      "executed": false
+    },
+    {
+      "id": "B03",
+      "repository": "apache/echarts",
+      "name": "Apache ECharts",
+      "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "Apache-2.0",
+        "note": "根Apache-2.0，NOTICE、licenses与第三方依赖另核；图表数据/地图数据权利不随根许可转移。",
+        "repository": "apache/echarts",
+        "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+        "path": "LICENSE",
+        "blobSha": "c633765305b658c2b42837d2b72071d73c0379c5",
+        "bytes": 11990,
+        "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/LICENSE"
+      },
+      "reads": [
+        {
+          "repository": "apache/echarts",
+          "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+          "path": "src/core/echarts.ts",
+          "blobSha": "8214c11e0edefe4f7edb0310b812eb671e15bdfe",
+          "bytes": 125569,
+          "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/src/core/echarts.ts",
+          "observedSymbols": [
+            "connect",
+            "disconnect",
+            "dispatchAction",
+            "CONNECT_STATUS_PENDING",
+            "escapeConnect"
+          ],
+          "mechanism": "同组图表的事件映射为动作后转发给其他成员；pending/updating状态与escapeConnect限制重复广播和反馈回路，disconnect解除联动。",
+          "readScope": "lines 2808–2840,2994–3017"
+        },
+        {
+          "repository": "apache/echarts",
+          "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+          "path": "src/component/brush/BrushModel.ts",
+          "blobSha": "4bf87b566cd4617aa5316048fd40b065c4e20ab8",
+          "bytes": 8400,
+          "url": "https://github.com/apache/echarts/blob/34f4d927eafe251f26f63afd3aeefa30f2feba30/src/component/brush/BrushModel.ts",
+          "observedSymbols": [
+            "brushLink",
+            "seriesIndex",
+            "setAreas"
+          ],
+          "mechanism": "刷选范围与目标series显式配置；未提供areas时保留原范围，真正清空需明确传入空范围。",
+          "readScope": "lines 90–110,195–220"
+        }
+      ],
+      "officialDocs": [
+        "https://echarts.apache.org/handbook/en/concepts/event/",
+        "https://echarts.apache.org/en/api.html#echarts.connect"
+      ],
+      "borrow": [
+        "股票选择事件带明确来源，依赖面板只响应一次；目标面板渲染不再次广播同一选择，避免联动循环。",
+        "过滤范围的未提供、保持和清除为不同动作；切模块不自动重新采集或把观察状态当交易信号。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/picks-three-k.js"
+      ],
+      "limits": [
+        "仅借鉴事件/动作与联动范围原则，没有引入ECharts包或替换现有K线实现。",
+        "图表联动不代表跨数据源时间戳对齐；V6的报价来源、数据日、原始时点与交易门禁仍需独立核验。",
+        "没有上游实跑、性能比较或A股数据/收益认证。"
+      ],
+      "installed": false,
+      "executed": false
+    },
+    {
+      "id": "B04",
+      "repository": "metabase/metabase",
+      "name": "Metabase",
+      "commit": "5430ed963ed36bb9c3ed7abc1d960d7e697a47f1",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "AGPL-3.0 / commercial",
+        "note": "根声明：enterprise目录外按AGPL，enterprise目录按Metabase Commercial License（文件另有声明除外）；已另读LICENSE-AGPL.txt Version3。本批仅对照公开说明和通用交互原则，代码/样式不移植，商业嵌入许可不推定取得。",
+        "repository": "metabase/metabase",
+        "commit": "5430ed963ed36bb9c3ed7abc1d960d7e697a47f1",
+        "path": "LICENSE.txt",
+        "blobSha": "f3a3c334cae8a5ea53c431ae31d12107dac94012",
+        "bytes": 855,
+        "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/LICENSE.txt"
+      },
+      "reads": [
+        {
+          "repository": "metabase/metabase",
+          "commit": "5430ed963ed36bb9c3ed7abc1d960d7e697a47f1",
+          "path": "frontend/src/metabase/dashboard/click-behavior/dashboard-click-drill.ts",
+          "blobSha": "0b972b667f5e55836a90e9725838c98c6ab1dd6c",
+          "bytes": 8887,
+          "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/frontend/src/metabase/dashboard/click-behavior/dashboard-click-drill.ts",
+          "observedSymbols": [
+            "getDashboardDrillType",
+            "getDashboardDrillParameters",
+            "hasLinkTargetData"
+          ],
+          "mechanism": "点击明确区分更新筛选、跳转链接、目标面板及当前面板重置；目标信息缺失时拒绝生成可执行钻取，字段通过参数映射传递。",
+          "readScope": "lines 40–71,83–95,107–138"
+        },
+        {
+          "repository": "metabase/metabase",
+          "commit": "5430ed963ed36bb9c3ed7abc1d960d7e697a47f1",
+          "path": "frontend/src/metabase/dashboard/click-behavior/question-url.ts",
+          "blobSha": "15dbc494695be22bf1fdfd0826ef66c4a33fb985",
+          "bytes": 2019,
+          "url": "https://github.com/metabase/metabase/blob/5430ed963ed36bb9c3ed7abc1d960d7e697a47f1/frontend/src/metabase/dashboard/click-behavior/question-url.ts",
+          "observedSymbols": [
+            "getStructuredQuestionUrlWithParameters",
+            "convertParametersToMbql",
+            "getParameterValuesBySlug"
+          ],
+          "mechanism": "构建详情URL时显式携带适用筛选；可编辑查询采用结构化过滤转换，不能将同一参数解释盲目套用到原生SQL查询。",
+          "readScope": "lines 9–50"
+        }
+      ],
+      "officialDocs": [
+        "https://www.metabase.com/docs/latest/dashboards/interactive",
+        "https://www.metabase.com/docs/latest/dashboards/filters",
+        "https://www.metabase.com/docs/latest/questions/visualizations/drill-through"
+      ],
+      "borrow": [
+        "每个联动入口有明确去向及字段映射：选股票→对应版本/字段证据/关联研究，而不是打开丢失上下文的新页。",
+        "目标不可用时禁用动作并说明原因；点击某项只更新明确相关的面板，原始分组/导航视图可保持以便切换。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/model-library.js"
+      ],
+      "limits": [
+        "AGPL与商业授权范围不能混同；不复制源码、组件、CSS、品牌或商业嵌入实现，仅独立实现通用联动原则。",
+        "Metabase参数映射能力不意味着V6后端接受任意参数或用户具备目标证据权限。",
+        "未安装/运行Metabase或上游测试，未验证其在V6的性能、部署、查询能力。"
+      ],
+      "installed": false,
+      "executed": false
+    },
+    {
+      "repository": "plotly/dash",
+      "name": "Plotly Dash",
+      "commit": "5f771e11051c175ee2a581c8719b2f3143c3238c",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "MIT",
+        "note": "根LICENSE为MIT；Dash Enterprise/托管服务、图表数据及第三方依赖分别核验，不由根许可推定覆盖。",
+        "repository": "plotly/dash",
+        "commit": "5f771e11051c175ee2a581c8719b2f3143c3238c",
+        "path": "LICENSE",
+        "blobSha": "2c4d2c3116933473b9958470e6c28d5db860cb46",
+        "bytes": 1086,
+        "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/LICENSE"
+      },
+      "reads": [
+        {
+          "repository": "plotly/dash",
+          "commit": "5f771e11051c175ee2a581c8719b2f3143c3238c",
+          "path": "dash/_callback_context.py",
+          "blobSha": "2245ddad7618bdde89cc042d6237cb0c243ba55c",
+          "bytes": 13250,
+          "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/dash/_callback_context.py",
+          "observedSymbols": [
+            "CallbackContext.triggered",
+            "triggered_prop_ids",
+            "triggered_id",
+            "has_context"
+          ],
+          "mechanism": "触发来源以组件ID和属性显式记录，与全部input/state值分开；首次无事件时不会伪造用户触发。",
+          "readScope": "lines 19–28, 65–138"
+        },
+        {
+          "repository": "plotly/dash",
+          "commit": "5f771e11051c175ee2a581c8719b2f3143c3238c",
+          "path": "dash/dash-renderer/src/actions/dependencies.js",
+          "blobSha": "81d3b2e19eca70de1b40aebe2dac95c00c438e5a",
+          "bytes": 64201,
+          "url": "https://github.com/plotly/dash/blob/5f771e11051c175ee2a581c8719b2f3143c3238c/dash/dash-renderer/src/actions/dependencies.js",
+          "observedSymbols": [
+            "computeGraphs",
+            "inputMap",
+            "outputMap",
+            "MultiGraph",
+            "validateDependencies"
+          ],
+          "mechanism": "将组件＋属性解析为输入/输出映射，显式检查依赖；MultiGraph专门用于循环依赖检查，不能据此宣称它就是生产执行调度器。",
+          "readScope": "lines 707–800, 885–920"
+        }
+      ],
+      "officialDocs": [
+        "https://dash.plotly.com/determining-which-callback-input-changed",
+        "https://dash.plotly.com/app-lifecycle"
+      ],
+      "borrow": [
+        "同一次股票选择携带明确事件来源与证券/研究版本上下文，依赖面板只响应已变字段。",
+        "表格筛选只改变可见集，股票选择与后端任务执行是分开的事件；无选择时展示明确空态。",
+        "面板间同步时拒绝自我回写造成的重复循环，重新渲染不能自动变成重新采集。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/picks-three-k.js"
+      ],
+      "limits": [
+        "仅独立借鉴触发上下文和显式依赖原则；没有安装Dash/运行上游测试/复制Python或renderer源码。",
+        "公开交互能力不证明股票数据授权、行情实时性、A股研究正确性或收益；V6后端权限与报价门禁保持独立。"
+      ],
+      "installed": false,
+      "executed": false,
+      "id": "B05"
+    },
+    {
+      "repository": "streamlit/streamlit",
+      "name": "Streamlit",
+      "commit": "0c8cc186f0db90eda8836f231bd4c160e267d288",
+      "reviewedOn": "2026-11-14",
+      "category": "linked-ui-workflow",
+      "license": {
+        "spdx": "Apache-2.0",
+        "note": "根LICENSE为Apache-2.0；第三方组件、外部连接器、云服务条款与数据权利另行核对。",
+        "repository": "streamlit/streamlit",
+        "commit": "0c8cc186f0db90eda8836f231bd4c160e267d288",
+        "path": "LICENSE",
+        "blobSha": "57bc88a15a0ee8266c259b2667e64608d3f7e292",
+        "bytes": 11358,
+        "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/LICENSE"
+      },
+      "reads": [
+        {
+          "repository": "streamlit/streamlit",
+          "commit": "0c8cc186f0db90eda8836f231bd4c160e267d288",
+          "path": "lib/streamlit/runtime/state/session_state.py",
+          "blobSha": "8774e41e5f0613fd8da7f0a2a51beb637d9f6c19",
+          "bytes": 90907,
+          "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/lib/streamlit/runtime/state/session_state.py",
+          "observedSymbols": [
+            "SessionState.on_script_will_rerun",
+            "_call_callbacks",
+            "register_widget",
+            "_remove_stale_widgets"
+          ],
+          "mechanism": "新交互先进入受控状态，再派发变化控件回调；历史导航可令URL绑定状态优先，过期控件按保留范围清理，禁用控件的伪造变化不触发回调。",
+          "readScope": "lines 890–1018, 1416–1460, 1605–1680"
+        },
+        {
+          "repository": "streamlit/streamlit",
+          "commit": "0c8cc186f0db90eda8836f231bd4c160e267d288",
+          "path": "lib/streamlit/runtime/state/widgets.py",
+          "blobSha": "005cb0fcc7d0bb3c3e5f336f80fce7c34dfa3aec",
+          "bytes": 10693,
+          "url": "https://github.com/streamlit/streamlit/blob/0c8cc186f0db90eda8836f231bd4c160e267d288/lib/streamlit/runtime/state/widgets.py",
+          "observedSymbols": [
+            "register_widget",
+            "register_widget_from_metadata",
+            "persist_state",
+            "bind",
+            "clearable"
+          ],
+          "mechanism": "URL绑定和跨页保留都要求显式稳定key；保留范围限定page/session，空值可清除语义须明确，元数据传给统一session_state注册。",
+          "readScope": "lines 155–241"
+        }
+      ],
+      "officialDocs": [
+        "https://docs.streamlit.io/develop/concepts/architecture/widget-behavior",
+        "https://docs.streamlit.io/develop/concepts/multipage-apps/widgets",
+        "https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state"
+      ],
+      "borrow": [
+        "固定stock/run/filter键，筛选变化和详情展开不应无故替换所选研究版本。",
+        "只把非敏感选择放进可校验的URL状态，浏览器返回时由该状态恢复；令牌、账户和持仓不能进URL。",
+        "公开页面上下文与私有详情分开；身份/权限撤回时清除私有内容，保留公共导航不等于保留私有数据。"
+      ],
+      "v6Targets": [
+        "V6_BO/public/assets/research-workspace.js",
+        "V6_BO/public/assets/model-library.js",
+        "V6_BO/public/assets/ui-navigation.js"
+      ],
+      "limits": [
+        "SessionState是上游会话内机制，不应移植为V6账户唯一存储；双端账户/历史仍由既有云端档案读取。",
+        "没有安装Streamlit或运行上游测试，未评测多标签、多用户、移动真机或性能；仅独立借鉴状态身份和失效规则。"
+      ],
+      "installed": false,
+      "executed": false,
+      "id": "B06"
+    }
+  ]
+}

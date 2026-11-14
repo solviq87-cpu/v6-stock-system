@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-14T14:07:32.722949+00:00",
+  "baselineSha": "040692bcea3039cd707e1b7f52b5ad08ee77ebd2",
+  "newRepositories": 12,
+  "publicCatalogSources": 53,
+  "newReferenceIds": [
+    "U01",
+    "U02",
+    "U03",
+    "U04",
+    "U05",
+    "U06",
+    "U07",
+    "U08",
+    "U09",
+    "U10",
+    "U11",
+    "U12"
+  ],
+  "implementedDesignIds": [
+    "U02",
+    "U06",
+    "U08",
+    "U09"
+  ],
+  "upstreamCodeCopied": false,
+  "upstreamExecuted": false,
+  "modelAPIsAdded": 0,
+  "runtimeDependenciesAdded": 0,
+  "checks": [
+    {
+      "command": "node scripts/build-model-library.js --check; node --test tests/open-model-library.test.js",
+      "result": "pass",
+      "catalogEntries": 53
+    },
+    {
+      "command": "node --test tests/research-context.test.js",
+      "result": "pass",
+      "tests": 11
+    },
+    {
+      "command": "node --test tests/public-library-context.test.js",
+      "result": "pass",
+      "tests": 10
+    },
+    {
+      "command": "node --test tests/linked-intelligence-context.test.js tests/linked-intelligence-ui.test.js",
+      "result": "pass",
+      "tests": 23,
+      "newBoundaryTests": 7
+    },
+    {
+      "command": "V6_MODEL_PYTHON=<existing numpy/scikit-learn interpreter> V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test",
+      "result": "pass",
+      "counts": {
+        "tests": 3567,
+        "pass": 3564,
+        "fail": 0,
+        "skipped": 3
+      },
+      "tapCompleteness": "pass",
+      "scope": "concentrated local full run; final public-context race regression was added afterward and separately passed; exact final commit receives full CI"
+    },
+    {
+      "command": "npm run check; node --check <changed UI modules>",
+      "result": "pass"
+    },
+    {
+      "command": "node tests/full-server-isolated-smoke.js",
+      "result": "pass",
+      "boundary": "isolated temporary configuration, no outbound transport or account writes"
+    },
+    {
+      "command": "python3 -m unittest discover -s V6_BO/tests -p 'test_complete_engineering_bundle.py' -v",
+      "result": "pass",
+      "tests": 5
+    },
+    {
+      "command": "node --test V6_BO/tests/commit-check-triggers.test.js V6_BO/tests/picks-three-k.test.js <new context/library tests>",
+      "result": "pass",
+      "boundary": "existing CI trigger and locked-homepage guards retained"
+    },
+    {
+      "command": "node scripts/ui-research-context-check.js",
+      "result": "pass",
+      "viewports": [
+        320,
+        390,
+        430,
+        1536
+      ],
+      "boundary": "actual picks/research pages, synthetic archive/quotes/auth, no external requests or context-triggered writes"
+    },
+    {
+      "command": "node scripts/ui-model-library-context-check.js",
+      "result": "pass",
+      "viewports": [
+        320,
+        390,
+        430,
+        1536
+      ],
+      "datasets": [
+        "synthetic public metadata",
+        "actual 53-source catalog"
+      ],
+      "additional": "clear selection then reload stays cleared; private/freeform keys absent from canonical browser URL and share URL"
+    },
+    {
+      "command": "node scripts/ui-model-library-check.js",
+      "result": "pass",
+      "viewports": [
+        320,
+        390,
+        430,
+        1536
+      ],
+      "datasets": [
+        "synthetic public metadata",
+        "actual public catalog"
+      ]
+    },
+    {
+      "command": "node scripts/ui-research-selection-check.js",
+      "result": "pass",
+      "viewports": [
+        320,
+        390,
+        430,
+        1536
+      ],
+      "boundary": "existing frozen run, comparison, filtering, asOf, export and auth continuity preserved"
+    },
+    {
+      "command": "python3 scripts/audit-no-openai-runtime.py; git diff --check",
+      "result": "pass"
+    }
+  ],
+  "review": {
+    "criticalReview": "independent focused code review found a public-evidence/analysis completion race; fixed and reviewed closed before submission",
+    "counterexample": "new public-context deferred response regression failed before fix (false !== true); 23/23 related tests passed afterward",
+    "sourceScope": "fixed official repository license and key-source reads, not complete upstream execution or general security certification"
+  },
+  "screenshotsActuallyViewed": [
+    "research-context-320.png",
+    "research-context-1536.png",
+    "library-public-context-actual-320.png"
+  ],
+  "homepages": [
+    {
+      "path": "V6_BO/public/index.html",
+      "unchanged": true,
+      "sha256": "3c7969885e5e18bf97f3541c954e109040598839483a6ba5faa64f8f71323df4"
+    },
+    {
+      "path": "V6_BO/public/mobile.html",
+      "unchanged": true,
+      "sha256": "8b1d8297eb2439d9f525810b07ead80e67aa534d245368c065d31b80c743b354"
+    }
+  ],
+  "costWorkflow": {
+    "referencePhase": "12 sources reviewed before implementation resumed",
+    "delivery": "one cohesive change set and PR planned after local validation",
+    "lightweightModelTask": "catalog metadata assembly and schema checks",
+    "codingModelTask": "asynchronous context/privacy review; no full-history research restart"
+  },
+  "limits": [
+    "not a production deployment",
+    "not an iPhone Safari/Android physical-device or original-reference pixel-perfect certification",
+    "upstream runtime/model performance and trading results unmeasured",
+    "no new model or paid market-data API installed",
+    "final exact-head CI and merge state must be read from the PR"
+  ]
+}

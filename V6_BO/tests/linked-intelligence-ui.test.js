@@ -44,7 +44,7 @@ test('section follows factor agent, keeps existing modules and provides licensed
   const section = html.slice(html.indexOf('id="linkedIntelligence"'), html.indexOf('id="adaptiveHeading"'));
   assert.ok(html.indexOf('id="factorAgentHeading"') < html.indexOf('id="linkedIntelligence"'));
   for (const id of ['linkedPublicRun', 'linkedIntelligenceFile', 'linkedIntelligenceRun', 'linkedMemoryRead', 'linkedTemplate']) assert.ok(section.includes('id="' + id + '"'));
-  assert.ok(html.includes('/assets/linked-intelligence-workbench.js?v=20261112linked1'));
+  assert.ok(html.includes('/assets/linked-intelligence-workbench.js?v=20261114context1'));
   for (const label of ['AKShare · MIT', 'efinance · MIT', 'CZSC · Apache-2.0', 'Qlib · MIT']) assert.ok(section.includes(label));
   assert.ok(html.includes('.linked-controls{grid-template-columns:minmax(0,1fr)}'));
   assert.doesNotMatch(script, /\.innerHTML\s*=/);

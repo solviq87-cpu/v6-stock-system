@@ -9,6 +9,44 @@ const number = x => finite(x) ? x.toFixed(3) : '未知';
 const money = x => finite(x) ? x.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) + ' 元' : '未知';
 const limit = x => Array.isArray(x) ? x.slice(0, 100) : [];
 let publicContext = null;
+const lanes = {
+  public: { button: 'linkedPublicRun', status: 'linkedPublicStatus', inputs: ['linkedPublicSymbol', 'linkedSectorCode', 'linkedPublicDate'], outputs: ['linkedPublicSummary', 'linkedPublicOutput'] },
+  analysis: { button: 'linkedIntelligenceRun', status: 'linkedIntelligenceStatus', inputs: ['linkedIntelligenceFile', 'linkedPersist'], outputs: ['linkedMarketSummary', 'linkedStockSummary', 'linkedSectorSummary', 'linkedIntelligenceOutput'] },
+  memory: { button: 'linkedMemoryRead', status: 'linkedMemoryStatus', inputs: ['linkedMemorySymbol'], outputs: ['linkedMemorySummary', 'linkedMemoryOutput'] }
+};
+for (const lane of Object.values(lanes)) { lane.version = 0; lane.controller = null; lane.timer = null; }
+function clearOutput(name) {
+  if (name === 'public') publicContext = null;
+  for (const id of lanes[name].outputs) el(id).replaceChildren();
+}
+function invalidate(name, message = '输入已变化，请重新读取') {
+  const lane = lanes[name]; lane.version++; lane.controller?.abort(); lane.controller = null;
+  clearTimeout(lane.timer); lane.timer = null; clearOutput(name);
+  el(lane.button).disabled = false; el(lane.status).textContent = message;
+}
+function invalidatePublic(message) {
+  invalidate('public', message); invalidate('analysis', '公共上下文已变化，请重新分析所选文件');
+}
+function invalidateAll(message) {
+  for (const name of Object.keys(lanes)) invalidate(name, message);
+  el('linkedIntelligenceFile').value = ''; el('linkedPersist').checked = false;
+}
+function selection(name) {
+  const inputs = lanes[name].inputs.map(id => id === 'linkedIntelligenceFile' ? el(id).files?.[0] :
+    id === 'linkedPersist' ? el(id).checked : el(id).value);
+  return name === 'analysis' ? [...inputs, publicContext] : inputs;
+}
+function stale() { const error = Error('研究上下文已变化'); error.name = 'AbortError'; return error; }
+function assertCurrent(context) {
+  const lane = lanes[context.name];
+  if (lane.version !== context.version || context.controller.signal.aborted) throw stale();
+  if (context.token !== (el('token')?.value || '')) { invalidateAll('开发者令牌已更改，请重新读取'); throw stale(); }
+  if (document.hidden) { invalidateAll('页面已隐藏，研究证据已清空'); throw stale(); }
+  if (selection(context.name).some((v, i) => v !== context.selection[i])) {
+    if (context.name === 'public') invalidatePublic(); else invalidate(context.name);
+    throw stale();
+  }
+}
 function node(tag, content, className) {
   const n = document.createElement(tag);
   if (content !== undefined) n.textContent = content;
@@ -22,28 +60,31 @@ function time(x) {
   return finite(t) && Number.isFinite(new Date(t).getTime()) ? new Date(t).toISOString() : '原始时间缺失';
 }
 function raw(id, data) { el(id).textContent = JSON.stringify(data, null, 2); }
-async function request(url, options = {}) {
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 45000);
-  const token = el('token')?.value || '';
-  try {
-    const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } });
-    const body = await response.json();
-    if (token !== (el('token')?.value || '')) throw Error('开发者令牌已更改，请重新读取');
-    if (!response.ok || !body.ok) throw Error(body.error || '研究请求未完成');
-    if (!body.result || typeof body.result !== 'object') throw Error('研究响应格式无效');
-    return body.result;
-  } finally { clearTimeout(timer); }
+async function request(url, options, context) {
+  assertCurrent(context);
+  const response = await fetch(url, { ...options, cache: 'no-store', signal: context.controller.signal,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + context.token } });
+  assertCurrent(context);
+  if (response.status === 401 || response.status === 403) { invalidateAll('读取权限已失效，研究证据已清空'); throw stale(); }
+  const body = await response.json(); assertCurrent(context);
+  if (body.locked === true || body.needPassword === true) { invalidateAll('读取权限已失效，研究证据已清空'); throw stale(); }
+  if (!response.ok || !body.ok) throw Error(body.error || '研究请求未完成');
+  if (!body.result || typeof body.result !== 'object') throw Error('研究响应格式无效');
+  return body.result;
 }
 async function action(buttonId, statusId, clear, run) {
   const button = el(buttonId), status = el(statusId);
-  if (button.disabled) return;
-  button.disabled = true;
+  if (button.disabled || document.hidden) return;
+  const name = Object.keys(lanes).find(key => lanes[key].button === buttonId), lane = lanes[name];
+  if (name === 'public') invalidatePublic(); else invalidate(name);
+  const context = { name, version: lane.version, token: el('token')?.value || '', selection: selection(name), controller: new AbortController() };
+  lane.controller = context.controller; button.disabled = true;
+  lane.timer = setTimeout(() => { if (lane.version === context.version) invalidate(name, '请求超时，请稍后重试'); }, 45000);
   status.textContent = '正在读取研究证据…';
   clear();
-  try { await run(status); }
-  catch (error) { clear(); status.textContent = error.name === 'AbortError' ? '请求超时，请稍后重试' : error.message || '请求失败'; }
-  finally { button.disabled = false; }
+  try { await run(status, context); }
+  catch (error) { if (lane.version === context.version) { clear(); status.textContent = error.name === 'AbortError' ? '请求已停止，请重新读取' : error.message || '请求失败'; } }
+  finally { if (lane.version === context.version) { clearTimeout(lane.timer); lane.timer = null; lane.controller = null; button.disabled = false; } }
 }
 function renderFlow(parent, label, evidence) {
   const card = node('article', undefined, 'card'); card.append(node('h4', label));
@@ -230,38 +271,53 @@ function renderMemory(r) {
 
 el('linkedPublicRun').addEventListener('click', () => action('linkedPublicRun', 'linkedPublicStatus', () => {
   publicContext = null; el('linkedPublicSummary').replaceChildren(); el('linkedPublicOutput').textContent = '';
-}, async status => {
+}, async (status, context) => {
   const symbol = el('linkedPublicSymbol').value.trim(), sectorCode = el('linkedSectorCode').value.trim(), date = el('linkedPublicDate').value;
   if (symbol && !/^\d{6}$/.test(symbol)) throw Error('股票代码需要六位数字');
   if (sectorCode && !/^BK\d{4}$/.test(sectorCode)) throw Error('板块代码需要 BK 加四位数字');
   if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) throw Error('交易日期无效');
   const payload = { ...(symbol ? { symbol } : {}), ...(sectorCode ? { sectorCode } : {}), ...(date ? { date } : {}) };
-  const r = await request('/api/research/public-context', { method: 'POST', body: JSON.stringify(payload) });
+  const r = await request('/api/research/public-context', { method: 'POST', body: JSON.stringify(payload) }, context);
+  assertCurrent(context);
+  // A study may have begun after this public read started, before its result
+  // arrived. It cannot remain beside newer context that it never consumed.
+  invalidate('analysis', '公共上下文已更新，请重新分析所选文件');
   publicContext = r; renderPublic(r); status.textContent = '已读取公共上下文；请核对来源、原始时点与缺失项。';
 }));
 el('linkedIntelligenceRun').addEventListener('click', () => action('linkedIntelligenceRun', 'linkedIntelligenceStatus', () => {
   for (const id of ['linkedMarketSummary', 'linkedStockSummary', 'linkedSectorSummary']) el(id).replaceChildren();
   el('linkedIntelligenceOutput').textContent = '';
-}, async status => {
+}, async (status, context) => {
   const file = el('linkedIntelligenceFile').files?.[0];
   if (!file) throw Error('请选择带来源与原始时点的历史 JSON');
   if (file.size > 2 * 1024 * 1024) throw Error('文件不能超过2MiB');
   const payload = JSON.parse(await file.text());
+  assertCurrent(context);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.schemaVersion !== 1 || !Number.isSafeInteger(payload.asOf) ||
       !Array.isArray(payload.tradeDates) || !Array.isArray(payload.stocks)) throw Error('需要 schemaVersion:1、数字 asOf、tradeDates 和 stocks 数组');
   payload.persist = el('linkedPersist').checked;
   if (!Object.prototype.hasOwnProperty.call(payload, 'publicContext') && publicContext) payload.publicContext = publicContext;
-  const r = await request('/api/research/linked-intelligence', { method: 'POST', body: JSON.stringify(payload) });
+  const r = await request('/api/research/linked-intelligence', { method: 'POST', body: JSON.stringify(payload) }, context);
+  assertCurrent(context);
   renderAnalysis(r); status.textContent = '联动研究已完成；概率与形态不代表可成交收益。';
 }));
 el('linkedMemoryRead').addEventListener('click', () => action('linkedMemoryRead', 'linkedMemoryStatus', () => {
   el('linkedMemorySummary').replaceChildren(); el('linkedMemoryOutput').textContent = '';
-}, async status => {
+}, async (status, context) => {
   const symbol = el('linkedMemorySymbol').value.trim();
   if (!/^\d{6}$/.test(symbol)) throw Error('股票代码需要六位数字');
-  const r = await request('/api/research/stock-memory?symbol=' + encodeURIComponent(symbol));
+  const r = await request('/api/research/stock-memory?symbol=' + encodeURIComponent(symbol), {}, context);
+  assertCurrent(context);
+  if (r.symbol !== symbol) throw Error('个股记忆的股票代码不匹配，请重新读取');
   renderMemory(r); status.textContent = r.totalRevisions ? '已读取个股历史版本与冻结预测后续验证。' : '该股票尚无已保存的研究版本。';
 }));
+for (const [name, lane] of Object.entries(lanes)) for (const id of lane.inputs) for (const event of ['input', 'change']) {
+  el(id).addEventListener(event, () => { if (name === 'public') invalidatePublic(); else invalidate(name); });
+}
+for (const event of ['input', 'change']) el('token')?.addEventListener(event, () => invalidateAll('身份已变化，请重新读取研究证据'));
+document.addEventListener?.('visibilitychange', () => { if (document.hidden) invalidateAll('页面已隐藏，研究证据已清空'); });
+globalThis.addEventListener?.('offline', () => invalidateAll('网络离线，研究证据已清空'));
+globalThis.addEventListener?.('pagehide', () => invalidateAll('页面已离开，研究证据已清空'));
 el('linkedTemplate').addEventListener('click', () => {
   const template = { schemaVersion: 1, asOf: null, tradeDates: [], stocks: [], persist: false };
   const url = URL.createObjectURL(new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' }));

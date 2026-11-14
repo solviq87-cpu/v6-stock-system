@@ -22,6 +22,19 @@
  function detail(p,title){const n=node('details',undefined,p);node('summary',title,n);return n;}
  function card(title){const n=node('article',undefined,host);n.className='card';node('h3',title,n);return n;}
  function button(p,text,fn){const b=node('button',text,p);b.type='button';b.addEventListener('click',fn);return b;}
+ async function inspectStock(symbol){
+  if(!/^\d{6}$/.test(symbol||''))return;
+  // Selecting a stock is distinct from collecting evidence or writing a run.
+  if(typeof root.CustomEvent==='function')root.dispatchEvent(new root.CustomEvent('v6:research-context',{detail:{symbol,source:'workspace'}}));
+  if($('workspaceSymbol').value.trim()!==symbol){$('workspaceSymbol').value=symbol;$('workspaceSymbol').dispatchEvent(new root.Event('input',{bubbles:true}));}
+  tab='evidence';offset=0;if(!await call())return;
+  host.focus({preventScroll:true});host.scrollIntoView({block:'start',behavior:'auto'});
+ }
+ function stockAction(parent,symbol){
+  const valid=/^\d{6}$/.test(symbol||''),b=button(parent,'查看该股研究',()=>inspectStock(symbol));
+  b.dataset.workspaceSymbol=valid?symbol:'';b.disabled=!valid;b.className='workspace-drilldown';
+  b.setAttribute('aria-label',valid?'查看 '+symbol+' 的研究':'缺少股票代码，无法查看研究');
+ }
  function key(){return 'web_'+(root.crypto?.randomUUID?.().replace(/-/g,'')||Date.now().toString(36)+Math.random().toString(36).slice(2));}
  function syncControls(){
   const busy=!!request;$('workspaceExport').disabled=busy||!view;$('workspaceLatest').disabled=busy||!selectedRunId;
@@ -128,7 +141,7 @@
   }else if(tab==='screening'){
    const c=card('本轮筛选与逐股落选');line(c,'查询结果',label(view.screening.lookupStatus));line(c,'原输入范围',view.screening.inputTotal);line(c,'资料性质',label(view.screening.provenance));
    for(const step of arr(view.screening.funnel?.steps))line(c,step.label,step.before+' → '+step.after+'；移出 '+step.removed+'；未知 '+step.unknown);
-   for(const row of arr(view.screening.rows)){const d=detail(c,row.symbol+' '+row.name+' · '+label(row.status));line(d,'首次淘汰',label(row.firstReason));
+   for(const row of arr(view.screening.rows)){const d=detail(c,row.symbol+' '+row.name+' · '+label(row.status));stockAction(d,row.symbol);line(d,'首次淘汰',label(row.firstReason));
     for(const x of arr(row.reasons))line(d,label(x.stage),label(x.status)+' · '+x.reason);}
    pagination(view.screening.total);
   }else if(tab==='market'){
@@ -147,7 +160,7 @@
    for(const scenario of arr(view.scorecard?.stress)){const d=detail(c,'费用压力：佣金 '+scenario.assumptions.feeBps+'bp / 滑点 '+scenario.assumptions.slippageBps+'bp');for(const g of scenario.groups)line(d,label(g.system)+' / '+g.horizon+'日',g.averageNetReturnPct===null?'缺少可成交样本':g.averageNetReturnPct+'%（纸面估计）');}
    renderForecasts(view.forecastEvaluation);
   }else if(tab==='defense'){
-   const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));if(arr(p.avoidedBoards).length)line(d,'命中回避板块',p.avoidedBoards.join('；'));if(p.excludedByResearchPreference)line(d,'研究排除名单','已列入');}
+   const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));stockAction(d,p.symbol);line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));if(arr(p.avoidedBoards).length)line(d,'命中回避板块',p.avoidedBoards.join('；'));if(p.excludedByResearchPreference)line(d,'研究排除名单','已列入');}
    for(const e of arr(view.defense?.exposures))line(c,e.name+'共同暴露',e.symbols.join('、')+' · '+val(e.weightPct)+'%');
    line(c,'说明',view.defense?.reason||view.defense?.meaning||'当前没有可读取的持仓；不代表实际券商账户为空');
   }else if(tab==='diagnostics'){
@@ -157,7 +170,7 @@
    for(const stage of arr(r?.diagnostics))line(c,stage.stage,label(stage.status));
    const audit=detail(c,'指标预热与历史可得性');for(const w of arr(view.inputAudit?.warmup))line(audit,w.length+'根K线',w.value||w.status);line(audit,'预热判断',view.inputAudit?.warmupStatus);line(audit,'历史可得性',view.inputAudit?.pointInTime?.meaning);
    for(const drift of arr(view.drift?.reports)){const d=detail(c,'输入变化 '+drift.before+' → '+drift.after);line(d,'同股 / 新增 / 移出',[drift.matched,drift.added,drift.removed].join(' / '));line(d,'未知条件比例',val(drift.beforeUnknownRate)+' → '+val(drift.afterUnknownRate));line(d,'解释',drift.attribution);}
-   const models=detail(c,'公开模型对照与借鉴');const library=node('a','查看全部模型、界面与运行方式对照（当前公开资料）',models);library.href='/model-library.html';for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
+   const models=detail(c,'公开模型对照与借鉴');const library=node('a','查看全部模型、界面与运行方式对照（当前公开资料）',models);library.href='/model-library.html';const uiLibrary=node('a','查看界面与模块联动对照',models);uiLibrary.href='/model-library.html?category=interface&ids=U03,U08,U09#compareHeading';for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
   }
  }
  function modelConfiguration(parent,model){

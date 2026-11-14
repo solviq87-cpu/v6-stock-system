@@ -116,10 +116,10 @@
       '第三方自报报价时点：' + quoteTime + ' · 未经交易所实时性认证' :
       '逐票报价原始时点：未知（不能当实时价）'));
     const link = node('a', '', '查看策略研究与详细风控');
-    link.href = '/research.html#decisionWorkspace';
     link.textContent = '深入策略研究（可选）';
     const rawCode=String(item.code||item.symbol||'');
     const code=/^\d{6}$/.test(rawCode)?rawCode:null;
+    link.href = code ? '/research.html?symbol=' + encodeURIComponent(code) + '#researchWorkspace' : '/research.html#researchWorkspace';
     const tracking=item.forwardTracking||state.forwardTracking;
     const projected=code&&window.V6PicksFollowup?.project(tracking,code);
     card.append(node('p','pick-followup-summary',projected?.state==='available'
