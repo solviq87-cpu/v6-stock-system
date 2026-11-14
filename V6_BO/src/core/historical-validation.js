@@ -4,6 +4,7 @@ const {holdoutBacktest}=require('../strategy/holdout-backtest');
 const {validateUniverseHistory}=require('./historical-universe');
 const {corporateAction}=require('./corporate-actions');
 const {validateSettlementTable}=require('./corporate-settlements');
+const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 function validCalendarDate(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
@@ -71,6 +72,7 @@ function validateBacktestConfig(history,barCount){
 }
 function runValidatedBacktest(history){
  const dataset=validateDataset(history);
+ assertUnadjustedExecutionPriceBasis(history);
  validateBacktestConfig(history,dataset.barsPerStock);
  require('./trading-fees').validateFeeSchedules(history.feeSchedules);require('./common-entry-risk').validateEntryPolicy(history.riskPolicy);
  const options={stocks:history.stocks,source:history.source,start:history.start??27,
