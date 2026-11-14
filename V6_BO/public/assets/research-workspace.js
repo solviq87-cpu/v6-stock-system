@@ -41,7 +41,7 @@
   $('workspaceForecastInput').disabled=busy||!view?.forecastEvaluation?.input;
   $('workspaceForecastFreeze').disabled=busy||historical()||!view?.forecastEvaluation?.freezeAllowed||!modelPrediction;
  }
- function clearSummary(){const summary=$('workspaceSummary');if(summary){summary.replaceChildren();summary.hidden=true;}}
+ function clearSummary(){const summary=$('workspaceSummary');if(summary){summary.replaceChildren();summary.hidden=true;}root.V6MarketLinkageCard?.clear($('workspaceMarketLinkage'));}
  function renderSummary(){
   const summary=$('workspaceSummary');if(!summary)return;clearSummary();if(!view)return;
   const r=view.selectedRun,screen=view.screening,defense=view.defense;
@@ -68,6 +68,7 @@
  function clear(message='输入或权限已变化，请重新读取',privacy=false,preserveSelection=false){
   if(privacy||!preserveSelection){selectedRunId=null;$('workspaceCompareRun').value='';}
   generation++;request?.abort();request=null;view=null;host.replaceChildren();clearSummary();status.textContent=message;
+  if(privacy)root.V6MarketLinkageCard?.clear($('workspaceMarketLinkage'),true);
   modelPrediction=null;$('workspaceForecastFile').value='';$('workspaceForecastFreeze').disabled=true;$('workspaceForecastInput').disabled=true;$('workspaceForecastStatus').textContent='所选预测已清除；读取研究版本后可继续';
   nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';
   if(privacy){nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])$(id).value='';
@@ -111,6 +112,7 @@
  }
  function render(){
   host.replaceChildren();renderSummary();for(const b of $('workspaceTabs').children)b.setAttribute('aria-selected',String(b.dataset.tab===tab));if(!view)return;
+  root.V6MarketLinkageCard?.render($('workspaceMarketLinkage'),view.marketLinkage,{onInspect:inspectStock});
   const r=view.selectedRun;
   if(tab==='evidence'){
    const list=card('研究版本');for(const run of arr(view.runs.rows)){const row=node('div',undefined,list);row.className='workspace-row';
@@ -145,6 +147,7 @@
     for(const x of arr(row.reasons))line(d,label(x.stage),label(x.status)+' · '+x.reason);}
    pagination(view.screening.total);
   }else if(tab==='market'){
+   const jump=button(host,'查看大盘—板块—个股联动',()=>{const linkage=$('workspaceMarketLinkage');if(linkage&&!linkage.hidden){linkage.focus({preventScroll:true});linkage.scrollIntoView({block:'start',behavior:'auto'});}});jump.className='workspace-drilldown';
    const c=card('市场—题材—个股位置');line(c,'市场分组',label(r?.regime));line(c,'说明',r?.regimeMeaning);
    for(const b of arr(view.marketPosition?.boards)){const d=detail(c,b.name+' · '+label(b.phase)+' · '+label(b.role));line(d,'数据日 / 成员覆盖',b.tradeDate+' / '+b.observedMembers+' / '+b.memberCount);line(d,'同日相对位置',b.rank);line(d,'阶段依据',b.phaseBasis);line(d,'角色依据',b.roleBasis);for(const h of arr(b.history))line(d,h.date,h.changePct+'%');}
    line(c,'范围与缺口',view.marketPosition?.reason);
@@ -216,9 +219,19 @@
  $('workspaceRead').addEventListener('click',()=>{offset=0;call();});
  $('workspaceLatest').addEventListener('click',()=>{if(request)return;selectedRunId=null;offset=0;call();});
  $('workspaceReview').addEventListener('click',async()=>{if(!allowWrite())return;const symbol=$('workspaceSymbol').value.trim();if(!/^\d{6}$/.test(symbol)){status.textContent='比较已存股票需要六位代码';return;}const r=await call({action:'review',symbol,provider:$('workspaceProvider').value,requestId:key(),...(nativeEvidence?{nativeEvidence}:{})});if(r)call(null,{runId:r.runId});});
- $('workspaceNativeFile').addEventListener('change',async()=>{const file=$('workspaceNativeFile').files?.[0],id=generation;nativeEvidence=null;if(!file)return;if(file.size>60000){$('workspaceNativeStatus').textContent='文件超过60KB，未读取';return;}try{const value=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!value||Array.isArray(value)||Object.keys(value).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence'].includes(k)))throw Error();nativeEvidence=value;$('workspaceNativeStatus').textContent=Object.entries(value).map(([k,v])=>(names[k.replace('Evidence','')]||k)+' '+val(v.symbol)+' / '+val(v.date||'日价序列')).join('；')+'；比较时仍需校验身份与时间';}catch{$('workspaceNativeStatus').textContent='评估文件格式无效；缺失保持未知';}});
+ $('workspaceNativeFile').addEventListener('change',async()=>{const file=$('workspaceNativeFile').files?.[0],id=generation;nativeEvidence=null;if(!file)return;if(file.size>60000){$('workspaceNativeStatus').textContent='文件超过60KB，未读取';return;}try{const value=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!value||Array.isArray(value)||Object.keys(value).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence','marketLinkageEvidence'].includes(k)))throw Error();nativeEvidence=value;$('workspaceNativeStatus').textContent=Object.entries(value).map(([k,v])=>k==='marketLinkageEvidence'?'大盘—板块联动 '+val(v?.benchmark?.name||v?.benchmark?.code)+' / '+val(v?.tradeDate)+' · 封存时校验':(names[k.replace('Evidence','')]||k)+' '+val(v?.symbol)+' / '+val(v?.date||'日价序列')).join('；')+'；比较时仍需校验身份与时间';}catch{$('workspaceNativeStatus').textContent='评估文件格式无效；缺失保持未知';}});
  $('workspaceNativeClear').addEventListener('click',()=>{nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='补充证据已清除';});
  function downloadJson(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+ $('workspaceLinkageTemplate')?.addEventListener('click',()=>{
+  const r=view?.selectedRun,symbol=r?.symbol||$('workspaceSymbol').value.trim(),provider=r?.provider||$('workspaceProvider').value,date=r?.tradeDate||'';
+  const dates=arr(r?.tradeDates),i=dates.indexOf(date),close=d=>d?Date.parse(d+'T15:00:00+08:00'):null;
+  downloadJson('tian-shu-market-linkage-template.json',{marketLinkageEvidence:{provider,symbol,tradeDate:date,knownAt:null,window:{start:i>0?close(dates[i-1]):null,end:close(date)},returnBasis:'price',
+   benchmark:{provider,code:'',name:'',methodologyVersion:'',return:null,startValue:null,knownAt:null},
+   classification:{provider,version:'',knownAt:null,effectiveAt:null},methodology:{weightsKnownAt:null,weightsEffectiveAt:null,noCorporateActions:null,completeConstituents:null},
+   boards:[{code:'',name:'',category:'industry',members:[],membersKnownAt:null,membersEffectiveAt:null,return:null,knownAt:null}],
+   stocks:[{symbol,return:null,weight:null,indexMember:null,primaryIndustry:null,turnover:null,knownAt:null}]}});
+  $('workspaceNativeStatus').textContent='已下载空模板；收益和权重按小数填写，时间为毫秒。只填真实证据，再导入并比较已存股票。';
+ });
  $('workspaceForecastInput').addEventListener('click',()=>{const input=view?.forecastEvaluation?.input;if(!input)return;downloadJson('tian-shu-forecast-input.json',{input,outputTemplate:view.forecastEvaluation.outputTemplate});$('workspaceForecastStatus').textContent='输入与空模板已导出；预测值、版本与生成时点需由实际运行填写';});
  $('workspaceForecastFile').addEventListener('change',async()=>{modelPrediction=null;$('workspaceForecastFreeze').disabled=true;const file=$('workspaceForecastFile').files?.[0],input=view?.forecastEvaluation?.input,id=generation;if(!file)return;if(!input){$('workspaceForecastStatus').textContent='请先读取研究版本';return;}if(file.size>60000){$('workspaceForecastStatus').textContent='文件超过60KB，未读取';return;}
   try{const p=JSON.parse(await file.text());if(id!==generation||doc.hidden)return;if(!p||p.inputFingerprint!==input.inputFingerprint||!Array.isArray(p.forecasts))throw Error();modelPrediction=p;$('workspaceForecastStatus').textContent='已选择 '+val(p.model?.id)+' / '+val(p.model?.revision)+' · '+p.forecasts.length+'个周期；封存时校验日期、版本和分位数';$('workspaceForecastFreeze').disabled=historical()||!view?.forecastEvaluation?.freezeAllowed;}catch{$('workspaceForecastStatus').textContent='结果格式或输入指纹不匹配；请使用当前版本导出的输入';}
