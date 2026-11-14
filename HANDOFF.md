@@ -6,6 +6,7 @@
 - #224已合入`dev@aca2657fe713b7996f14e18f00545e3ecb242a7a`，精确head双CI及合并后CI43582404384均成功；八类研究闭环与24公开来源对照不重复开发。
 - 交付[PR#225](https://github.com/solviq87-cpu/v6-stock-system/pull/225)，分支`feat/frozen-model-evaluation-20261114`，工作树`/workspace/v6-model-evaluation`。已接通研究页“固定输入→明确导入预测→下一开盘前封存→后续原行情评价”，含前值/趋势基线、分位数损失/区间宽度、同输入配对及待成熟/缺数/修订；不执行模型/交易/通知或新增付费API。不要重复领取已实现部分。
 - 代码`b7e0814582052b0f0d80bcc606c1a1114bedec0e`最终全量3524项：3521通过/0失败/3可选ML跳过，关联74项、真实HTTP、三组各四视口浏览器、网页40项/构建/dist、12项Windows打包、依赖审计及完整服务隔离启动均通过。精确代码head CI43586673971及浏览器43586673991成功；最终文档head/合并与合并后CI以PR机器回执为准。
+- 中间浏览器43587051816失败未豁免：旧静态页的同步DOM断言改为同一浏览器任务内取当前按钮并点击，排除异步新闻刷新后的旧引用，应用HTML未改。完整静态浏览器组10/10通过；最终修正head双CI仍须按PR实读。
 - [实现合同、验证命令与限制](V6_BO/docs/FROZEN_MODEL_FORECAST_20261114.md)。基线完整归档`/workspace/artifacts/v6-model-evaluation-20261114/base-aca2657.tar` SHA256 `0c6e4fb1ecec2763cebb0c9d646e8e8f9725e219fa65142874fcc5f4e413e748`；回退revert本批提交且保留原研究、预测同级档案与账户。两张锁定主页SHA未变。
 - 自动发布任务只读核实仍启用；本环境缺任务指定的固定Node和受信launcher文件，按既有规则不重装/替换/新建发布者。没有新发布回执；只托管单HTML的目标不能运行完整后台。
 <!-- CURRENT_CHECKPOINT_END -->
