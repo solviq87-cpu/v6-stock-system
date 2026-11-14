@@ -10,6 +10,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-cloud-backup:
+    name: cloud-records-backup-preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test no-write backup validation and source integrity rejection
+        run: |
+          node --check V6_BO/scripts/cloud-records-backup-preflight.js
+          node --test V6_BO/tests/cloud-records-backup-preflight.test.js
   verify-cloud-client:
     name: cloud-records-cas-client
     runs-on: ubuntu-24.04
