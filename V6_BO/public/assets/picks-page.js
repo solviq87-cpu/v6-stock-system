@@ -68,10 +68,11 @@
   // the candidate snapshot time or a K-line cache. Unknown means UNKNOWN.
   const quoteEvidence = item => {
     const raw = item.quoteProvider ?? item.quoteSource ?? item.priceProvider ??
-      item.priceSource ?? item.provenance?.quoteSource ?? item.provenance?.priceSource;
+      item.priceSource ?? item.quote?.source ?? item.src ?? item.provenance?.quoteSource ?? item.provenance?.priceSource;
     const names = {em:'东财',eastmoney:'东财',tx:'腾讯',tencent:'腾讯',
       sina:'新浪',ths:'同花顺',baostock:'BaoStock',
-      itick:'iTick',mootdx:'通达信'};
+      itick:'iTick',mootdx:'通达信',efinance:'东财（efinance）',
+      'akshare-em-daily':'东财（AKShare）',ashare:'来源待确认（Ashare）'};
     const source = typeof raw === 'string' && raw.trim() ?
       (names[raw.trim().toLowerCase()] || '供应商标识待审') : '价格来源未知';
     const q = item.quoteTimeStatus ?? item.quoteFreshness?.status ??
