@@ -76,6 +76,24 @@ GET/导出不创建目录或联网，所有HTTP入口需原编辑权限。计算
 
 ## 实际验证与发布范围
 
-定向、真实HTTP与四视口浏览器均已实跑，最终全量/CI/合并数以本轮交付记录为准。浏览器使用实际页面及核心函数与显式合成时钟/行情，覆盖输入模板下载、坏指纹拒绝、两模型封存、到期配对、历史禁写、撤权/离线清除和响应式几何。真实HTTP验证权限、重启留存、拒绝晚到、原请求幂等、只读回放及零外联；合成环境不认证真实模型的准确率或收益。
+代码`b7e0814582052b0f0d80bcc606c1a1114bedec0e`最终全量3524项：3521通过/0失败/3可选ML跳过，TAP完整；关联74项、真实HTTP、原研究/工作区/模型三组各四视口、网页40项及构建/dist、12项Windows打包、运行依赖审计与完整服务隔离启动均成功。精确代码head [CI43586673971](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43586673971)和[浏览器43586673991](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43586673991)成功，最终文档head/合并/合并后CI见[PR#225](https://github.com/solviq87-cpu/v6-stock-system/pull/225)。
+
+实际命令：
+
+```sh
+# V6_BO目录，全量：本环境显式选用已有Python与受限并发
+V6_MODEL_PYTHON=/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test
+node --test tests/model-forward-evaluation.test.js tests/research-workspace-store.test.js tests/research-workspace-decision.test.js tests/research-workspace.test.js tests/research-workspace-http.test.js tests/rule-comparison.test.js
+NODE_PATH=/opt/codex/cua_node/lib/node_modules V6_UI_BROWSER=/usr/bin/chromium node scripts/ui-model-forecast-check.js
+npm run check
+node tests/full-server-isolated-smoke.js
+# 仓库根目录
+python3 scripts/audit-no-openai-runtime.py
+python3 -m unittest discover -s tests -p 'test_windows_host_bundle.py' -v
+# V6_WEB目录
+npm run build && npm test && git diff --exit-code -- dist
+```
+
+浏览器使用实际页面及核心函数与显式合成时钟/行情，覆盖输入模板下载、坏指纹拒绝、两模型封存、到期配对、历史禁写、撤权/离线清除和响应式几何。真实HTTP验证权限、重启留存、拒绝晚到、原请求幂等、只读回放及零外联；合成环境不认证真实模型的准确率或收益。首轮浏览器修正为实际展开折叠详情再验证可见数据；本机最终复跑补回已有Chromium路径后通过，没有削减业务断言或下载浏览器。
 
 仅确认原自动发布任务仍启用；本会话缺少任务要求的受信固定运行文件，没有替换、下载或启动第二发布者，也没有线上成功回执。继续遵守[既有唯一发布者规则](AUTO_UPDATE_WORKBUDDY_20261113.md)；单HTML托管不等于完整Node/Python后台上线。两张锁定主页和原策略/账本/15秒门禁不变，原24项现场台账不自动关闭。
