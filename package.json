@@ -45,7 +45,8 @@
     "factor:shadow:archive:audit": "npm --prefix V6_BO run factor:shadow:archive:audit --",
     "research:sector:close:freeze": "npm --prefix V6_BO run research:sector:close:freeze --",
     "research:sector:pair:register": "npm --prefix V6_BO run research:sector:pair:register --",
-    "news:evidence": "npm --prefix V6_BO run news:evidence --"
+    "news:evidence": "npm --prefix V6_BO run news:evidence --",
+    "research:learning:status": "npm --prefix V6_BO run research:learning:status --"
   },
   "engines": {
     "node": ">=22.6"

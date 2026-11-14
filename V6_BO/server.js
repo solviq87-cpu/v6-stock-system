@@ -19619,6 +19619,7 @@ function handle(req, res, u, body) {
     (u.searchParams && u.searchParams.get('token')) ||
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
+  if(p==='/api/research/learning-runtime')res.setHeader('Cache-Control','no-store');
   // Explicitly enabled, authenticated CAS records on the REAL V6 server.
   // No configuration => no route. Existing WorkBuddy hosting remains static-only.
   // This adapter NEVER accepts sharecode/query-token as an account identity.
@@ -21917,6 +21918,25 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
       agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
     catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
+  }
+  if (p === '/api/research/learning-runtime') {
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    // Use the native session/device ledger, with a header credential only.
+    const bearer=((req.headers.authorization||'').match(/^Bearer\s+([A-Za-z0-9._~-]{8,256})$/i)||[])[1]||'';
+    if(roleOf(bearer,clientIp(req))!=='edit')return reply(403,{ok:false,locked:true,readOnly:true,error:'需要编辑者身份才能检查私有研究运行条件'});
+    if(!['GET','POST'].includes(req.method))return reply(405,{ok:false,error:'仅允许GET或POST'});
+    if([...u.searchParams].length)return reply(400,{ok:false,error:'运行检查不接受查询参数'});
+    let probeModel=false;
+    if(req.method==='GET'){
+      if(body)return reply(400,{ok:false,error:'只读检查不接受请求数据'});
+    }else{
+      if(Buffer.byteLength(body||'','utf8')>256)return reply(413,{ok:false,error:'运行检查参数过大'});
+      let input;try{input=JSON.parse(body||'');}catch{return reply(400,{ok:false,error:'运行检查参数无效'});}
+      if(!input||Array.isArray(input)||Object.keys(input).length!==1||input.probeModel!==true)return reply(400,{ok:false,error:'仅接受明确的本地模型检查'});
+      probeModel=true;
+    }
+    return require('./src/server/learning-runtime-job').runLearningRuntimeJob({probeModel})
+      .then(result=>reply(result.ok?200:(result.httpStatus||422),result));
   }
   if (p === '/api/research/agent-status') {
     res.setHeader('Cache-Control','no-store');
