@@ -8,7 +8,9 @@ const start=server.indexOf(marker),end=server.indexOf('  // ---------------- 我
 ok(start>0&&end>start,'research routes found');
 const block=server.slice(start,end);
 const {validateUpload:V6ValidateResearchUpload}=require('../src/strategy/research-upload-validator');
+const savedScans=[];
 const context={V6ValidateResearchUpload,Buffer,Date,JSON,process:{env:{}},__dirname:root,
+ saveWorkspaceScan:(result,provenance)=>{savedScans.push({result,provenance});result.workspace={status:'saved'};},
  S:{klines:new Map()},_klineAt:new Map(),V6DiskCache:{list:()=>[],store:()=>({}),read:()=>({})},
  V6ResearchScan:()=>({total:1,items:[]}),V6ResearchLedger:()=>({equity:[],metrics:{}}),
  requireEditor:(res,tok,req)=>{if(req.role==='edit')return true;res.out={ok:false,locked:true,readOnly:true};return false;},
@@ -27,9 +29,11 @@ const bars=Array.from({length:30},(_,i)=>({open:10,high:11,low:9,close:10,volume
 const stock={symbol:'000001',feed:{source:'imported',timestamp:Date.now()},bars};
 const payload=JSON.stringify({stocks:[stock]});
 ok(run('/api/research/scan','read','POST',payload).locked,'read denied scan');
+ok(savedScans.length===0,'denied scan cannot publish workspace history');
 ok(run('/api/research/ledger','read','POST',payload).locked,'read denied ledger');
 ok(run('/api/research/scan','edit','GET',payload).ok===false,'scan POST only');
 ok(run('/api/research/scan','edit','POST',payload).ok,'editor scan');
+ok(savedScans.length===1&&savedScans[0].provenance==='user-uploaded-unverified','accepted scan keeps original result and seals research receipt');
 ok(run('/api/research/ledger','edit','POST',payload).ok,'editor ledger');
 ok(run('/api/research/scan','edit','POST','{').ok===false,'bad JSON');
 ok(run('/api/research/scan','edit','POST','x'.repeat(2*1024*1024+1)).ok===false,'2MB cap');

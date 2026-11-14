@@ -10,6 +10,10 @@ V6 智能选股系统｜实时行情、智能选股、涨停复盘、风险控�
 
 ## 功能落实与公开项目对照
 
+续接实际功能见[八类研究工作区实现](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)：研究页已接字段证据、变化追溯、原生体系、完整落选检索、条件化市场题材关系、四周期成绩、原持仓防守及有版本约束/诊断/回放导出。运行数据不足会显示未知，合并与生产状态单独核验。
+
+追加[八类公开模型与研究框架对照](V6_BO/docs/PUBLIC_MODEL_COMPARISON_20261114.md)：Chronos/TimesFM/Moirai/Kronos/RD-Agent/TradingAgents/FinGPT/Qwen，逐项记录固定源码、可借鉴内容、许可、成本与未测试范围；与原16来源合计24个独立公开来源。未安装模型或调用新API。
+
 见[八类功能核验与16个公开来源综合对照](V6_BO/docs/FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)：逐项列出代码/研究页入口、实际测试、尚缺闭环，以及24项候选的复用位置、优先级和验收条件。候选清单不是已实现或已部署功能；固定源码及许可记录见[来源清单](V6_BO/docs/PUBLIC_COMPARISON_SOURCES_20261114.json)。
 
 ## Development

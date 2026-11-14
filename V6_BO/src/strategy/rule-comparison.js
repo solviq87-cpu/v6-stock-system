@@ -1,6 +1,6 @@
 'use strict';
 // Read-only cross-system evidence. Never merges independent strategy scores.
-const {evaluateOne}=require('../../myrules');
+const {evaluateOne,DEFAULTS}=require('../../myrules');
 const bazi=require('../../bazi');
 const {loadPack}=require('./strategy-service');
 const OWN=Object.prototype.hasOwnProperty;
@@ -35,7 +35,8 @@ function packComparison(scores={},pack=loadPack()){
 function myrulesComparison(input,config){
   if(!input)return {available:false,reason:'未提供十四条原生评估上下文'};
   const result=evaluateOne(input,config);
-  const rules=result.items.map(x=>({id:x.i,label:x.name,status:x.unknown?'unknown':x.ok?'pass':'fail',reason:x.note,exclusion:x.i===11}));
+  const c={...DEFAULTS,...config},thresholds={1:{capLo:c.capLo,capHi:c.capHi},2:c.priceMax,3:{glueSpread:c.glueSpread,channelR2:c.channelR2},4:{geneDays:c.geneDays,pileRatio:c.pileRatio},5:{secZtMin:c.secZtMin,secPctMin:c.secPctMin},6:{aucTurnLo:c.aucTurnLo,aucTurnHi:c.aucTurnHi,aucPctLo:c.aucPctLo,aucPctHi:c.aucPctHi},8:{jingliu:c.jingliu,fengliu:c.fengliu,fengcheng:c.fengcheng,jingzuo:c.jingzuo},9:c.sealRatio,10:c.profitMax,11:c.maxLianBan,13:c.volRatio};
+  const rules=result.items.map(x=>({id:x.i,label:x.name,status:x.unknown?'unknown':x.ok?'pass':'fail',observed:x.unknown?null:x.val??null,op:[2,11].includes(x.i)?'<':'native-rule',threshold:thresholds[x.i]??null,reason:x.note,exclusion:x.i===11}));
   return {available:true,pass:result.pass,excluded:result.excluded,coverage:coverage(rules),rules,
     hits:result.hits,requiredHits:config?.minHits??6};
 }

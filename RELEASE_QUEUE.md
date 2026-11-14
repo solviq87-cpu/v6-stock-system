@@ -8,6 +8,10 @@
 
 ## 最新核对 · 2026-11-14
 
+- 交付PR[#224](https://github.com/solviq87-cpu/v6-stock-system/pull/224)：八类研究功能与新增八类模型对照，实施已完成；本地最终3495通过/0失败/3可选ML跳过，四视口/HTTP/网页/打包均通过，代码head8d630c8双CI成功。最终记录提交核验精确head后合并；无需重复领取此实现任务。生产未发布，可信唯一运行时/完整读回与原现场台账另验。
+
+- 实现续接`feat/research-closure-20261114`：[八类研究闭环](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)。#222已在精确head CI43578342431成功后合入`dev@f742809`；#221经精确head CI43578794549/浏览器43578794647成功合入`8fe273a`。新研究功能正在专项/全量/浏览器验收，最终精确SHA和合并状态另记。未切换唯一发布者。
+
 - 新批基线`dev@9d15c034`（#220已合并）：`fix/funds-monitor-capacity-20261114`修复盘中强势扫描未知资金与超220持仓固定截断。[实际反例、范围与测试](V6_BO/docs/FUNDS_MONITOR_CAPACITY_20261114.md)。本地关联66通过，精确最终全量/PR CI见HANDOFF当前断点；未部署，未切换发布者。#221是独立Excel导入候选，本批不合并或覆盖。
 
 - 本批仅文档审查：`docs/feature-public-comparison-20261114`，基线`9d15c034`。[八类功能/16来源/24候选核验](V6_BO/docs/FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)与来源清单已登记；原功能定向120通过，未改运行文件/产物，不触发生产发布。#221/#222在本轮开始时仍为独立开放PR，不能算入dev已实现；最终状态须重新读取。

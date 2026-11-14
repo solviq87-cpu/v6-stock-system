@@ -92,6 +92,7 @@ function render(r) {
   renderEvidence(r);
   if (globalThis.V6DecisionReview && el('captureDecision')) globalThis.V6DecisionReview.render(el('captureDecision'), r.decisionReview);
   el('captureOutput').textContent = JSON.stringify(r, null, 2);
+  if(typeof globalThis.CustomEvent==='function')globalThis.dispatchEvent?.(new CustomEvent('v6:stock-research',{detail:{symbol:r.stock?.symbol,provider:r.stock?.provider,workspace:r.workspace||null}}));
 }
 function renderEvidence(r) {
   const host = el('captureEvidence');
