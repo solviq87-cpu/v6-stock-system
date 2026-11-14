@@ -39,6 +39,7 @@ test('same-day recalculation cannot replace the first frozen signal or import fu
  const events=history(),revised=structuredClone(events[0]);revised.sequence=2;revised.hash='revision';revised.data.systems.find(s=>s.id==='python').verdict='fail';revised.recordedAt++;
  const r=A.scorecards([events[0],revised,events[1]],{asOf:at(140)});assert.equal(r.groups.find(g=>g.system==='python'&&g.horizon===1).rejected,0);
  assert.equal(A.scorecards(events,{asOf:at(70)}).observations.length,0);
+ const noCalendar=history();noCalendar[1].data.tradeDates=[];const unknown=A.scorecards(noCalendar,{asOf:at(140)}).groups.find(g=>g.system==='python'&&g.horizon===1);assert.equal(unknown.pending,0);assert.equal(unknown.missing,2);
 });
 test('holding defense reads authoritative holdings, matches entry evidence and refuses incomplete or stale valuation',()=>{
  const one=D.buildWorkspaceDecision(fixture()),two=D.buildWorkspaceDecision(fixture({index:71}));one.conditions[0].status='pass';two.conditions[0].status='fail';

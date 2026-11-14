@@ -101,7 +101,7 @@
   }else if(tab==='scorecard'){
    const c=card('策略 × 行情环境 × 观察周期');for(const g of arr(view.scorecard?.groups)){const d=detail(c,label(g.system)+' · '+label(g.regime)+' · '+g.horizon+'日 · '+label(g.status));
     line(d,'来源 / 策略版本',g.provider+' / '+g.version);
-    line(d,'全部 / 满足 / 未满足 / 未知',[g.total,g.passed,g.rejected,g.unknown].join(' / '));line(d,'待到期 / 缺价 / 成交证据不足',[g.pending,g.missing,g.blocked].join(' / '));
+    line(d,'全部 / 满足 / 未满足 / 未知',[g.total,g.passed,g.rejected,g.unknown].join(' / '));line(d,'待到期 / 缺后续证据 / 成交证据不足',[g.pending,g.missing,g.blocked].join(' / '));
     line(d,'可观察价格样本 / 成本化样本',g.observedPriceCount+' / '+g.modeledCount);line(d,'独立股票 / 信号日',g.distinctSymbols+' / '+g.independentSignalDays);
     line(d,'非重叠持有窗口',g.nonOverlappingWindows);
     line(d,'平均价格变化 / 成本后估计',val(g.averagePriceReturnPct)+'% / '+val(g.averageNetReturnPct)+'%');line(d,'同口径基准超额',g.excessReturnPct===null?'缺少匹配基准':g.excessReturnPct+'%');}

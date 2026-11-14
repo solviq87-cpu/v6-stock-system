@@ -56,7 +56,8 @@ function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5
   if(s.verdict!=='pass'){b[s.verdict==='fail'?'rejected':'unknown']++;continue;}b.passed++;
   const current=latest.get(d.symbol+'|'+d.provider),dates=array(current?.tradeDates),index=dates.indexOf(d.tradeDate);
   const entryDate=dates[index+1],exitDate=dates[index+1+horizon];
-  if(index<0||!exitDate||exitDate>day(asOf)){b.pending++;continue;}
+  if(index<0||!exitDate&&dates.at(-1)<day(asOf)){b.missing++;continue;}
+  if(!exitDate||exitDate>day(asOf)){b.pending++;continue;}
   const entry=current.bars.find(x=>x.date===entryDate),exit=current.bars.find(x=>x.date===exitDate);
   const obs={runId:run.hash,symbol:d.symbol,system:s.id,horizon,signalDate:d.tradeDate,entryDate,exitDate,status:'missing',netReturnPct:null};
   if(!entry||!exit||entry.knownAt>asOf||exit.knownAt>asOf){b.missing++;observations.push(obs);continue;}
