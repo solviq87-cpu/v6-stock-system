@@ -97,6 +97,12 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const reference=await get(p,'/reference-dashboard.html');
   assert.equal(reference.status,200,'reference dashboard shell must remain reachable');
   assert.match(reference.body,/AI 综合选股信号/);
+  const library=await get(p,'/model-library.html');
+  assert.equal(library.status,200);assert.match(library.headers['content-type'],/text\/html/);assert.match(library.body,/id="modelLibrary"/);
+  const catalog=await get(p,'/assets/model-library-catalog.json');
+  assert.equal(catalog.status,200);assert.match(catalog.headers['content-type'],/application\/json/);
+  const publicModels=JSON.parse(catalog.body);assert.equal(publicModels.schemaVersion,1);assert.ok(publicModels.entries.length>24);assert.equal(publicModels.modelAPIsAdded,0);
+  assert.equal(JSON.parse((await get(p,'/assets/not-public-config.json')).body).locked,true,'public catalog must not expose arbitrary JSON paths');
   const picksScript=await get(p,'/assets/picks-page.js');
   assert.equal(picksScript.status,200,'picks viewer script must be served');
   assert.match(picksScript.body,/clearProtectedResults/);

@@ -1,0 +1,2059 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-14",
+  "entries": [
+    {
+      "id": "S01",
+      "name": "daily_stock_analysis",
+      "category": "workflow",
+      "kind": "既有公开项目/规范对照",
+      "repository": "ZhuLinsen/daily_stock_analysis",
+      "commit": "70f250597e9a2b0afe2d7dd6b992c90926916105",
+      "reads": [
+        {
+          "path": "src/schemas/analysis_context_pack.py",
+          "url": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/70f250597e9a2b0afe2d7dd6b992c90926916105/src/schemas/analysis_context_pack.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "src/services/run_diagnostics.py",
+          "url": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/70f250597e9a2b0afe2d7dd6b992c90926916105/src/services/run_diagnostics.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；筛选子目录另有Apache-2.0与第三方声明",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "来源、反证与失败阶段分别记录"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "来源、反证与失败阶段分别记录",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S02",
+      "name": "Qlib",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "microsoft/qlib",
+      "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "reads": [
+        {
+          "path": "docs/component/recorder.rst",
+          "url": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/docs/component/recorder.rst",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "qlib/data/pit.py",
+          "url": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/qlib/data/pit.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "MIT",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "输入指纹、实验版本和可知时点固定"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "输入指纹、实验版本和可知时点固定",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S03",
+      "name": "QUANTAXIS",
+      "category": "data",
+      "kind": "既有公开项目/规范对照",
+      "repository": "yutiansut/QUANTAXIS",
+      "commit": "232aa7ac9869966108f02a8fff85f1f7b09a9ce2",
+      "reads": [
+        {
+          "path": "QUANTAXIS/QAData/data_resample.py",
+          "url": "https://github.com/yutiansut/QUANTAXIS/blob/232aa7ac9869966108f02a8fff85f1f7b09a9ce2/QUANTAXIS/QAData/data_resample.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；不据此推定数据使用权",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "交易时段及数据口径不可相互替代"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "保留既有公开对照；本轮未实施新的上游能力",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S04",
+      "name": "Qbot",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "UFund-Me/Qbot",
+      "commit": "f0425ae4ae8bd02b79656b8f7039f4cd6874095e",
+      "reads": [
+        {
+          "path": "qbot/engine/backtest/backtest_base.py",
+          "url": "https://github.com/UFund-Me/Qbot/blob/f0425ae4ae8bd02b79656b8f7039f4cd6874095e/qbot/engine/backtest/backtest_base.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；内嵌第三方目录须另核",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "同日期简单基线与费用口径分开"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "同日期简单基线与费用口径分开",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S05",
+      "name": "QuantConnect LEAN",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "QuantConnect/Lean",
+      "commit": "82d26047e95a89b53c9cbe02b67efaa3c4455ed9",
+      "reads": [
+        {
+          "path": "Common/Data/Market/Dividend.cs",
+          "url": "https://github.com/QuantConnect/Lean/blob/82d26047e95a89b53c9cbe02b67efaa3c4455ed9/Common/Data/Market/Dividend.cs",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "Common/Data/Market/Split.cs",
+          "url": "https://github.com/QuantConnect/Lean/blob/82d26047e95a89b53c9cbe02b67efaa3c4455ed9/Common/Data/Market/Split.cs",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0；云服务/数据另行约束",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "公司行为及前视偏差的未知证据保留"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "公司行为及前视偏差的未知证据保留",
+          "path": "V6_BO/src/core/research-workspace-analytics.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S06",
+      "name": "Freqtrade",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "freqtrade/freqtrade",
+      "commit": "5197bedab82559fac6be6c1539c64b94368fb91c",
+      "reads": [
+        {
+          "path": "docs/lookahead-analysis.md",
+          "url": "https://github.com/freqtrade/freqtrade/blob/5197bedab82559fac6be6c1539c64b94368fb91c/docs/lookahead-analysis.md",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "docs/recursive-analysis.md",
+          "url": "https://github.com/freqtrade/freqtrade/blob/5197bedab82559fac6be6c1539c64b94368fb91c/docs/recursive-analysis.md",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "GPL-3.0（根LICENSE文本）；实际移植前另核文件/依赖",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "未来数据不能改写首次观察结果"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "未来数据不能改写首次观察结果",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S07",
+      "name": "Ghostfolio",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "ghostfolio/ghostfolio",
+      "commit": "f58465aea78dd0c386cf9bcde5a22fbcf508911a",
+      "reads": [
+        {
+          "path": "apps/api/src/models/rules/account-cluster-risk/single-account.ts",
+          "url": "https://github.com/ghostfolio/ghostfolio/blob/f58465aea78dd0c386cf9bcde5a22fbcf508911a/apps/api/src/models/rules/account-cluster-risk/single-account.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "apps/api/src/models/rules/fees/fee-ratio-total-investment-volume.ts",
+          "url": "https://github.com/ghostfolio/ghostfolio/blob/f58465aea78dd0c386cf9bcde5a22fbcf508911a/apps/api/src/models/rules/fees/fee-ratio-total-investment-volume.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "AGPL-3.0（根LICENSE文本）；不复制实现",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "持仓暴露、集中度和来源质量集中展示"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "持仓暴露、集中度和来源质量集中展示",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S08",
+      "name": "Portfolio Performance",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "portfolio-performance/portfolio",
+      "commit": "e8f60849cf2ebd44e56a5b793cde5cdffe15ae12",
+      "reads": [
+        {
+          "path": "name.abuchen.portfolio/src/name/abuchen/portfolio/math/IRR.java",
+          "url": "https://github.com/portfolio-performance/portfolio/blob/e8f60849cf2ebd44e56a5b793cde5cdffe15ae12/name.abuchen.portfolio/src/name/abuchen/portfolio/math/IRR.java",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "EPL-1.0（根LICENSE文本）；不复制实现",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "区分资金加权与时间加权收益的适用前提"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "保留既有公开对照；本轮未实施新的上游能力",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S09",
+      "name": "OpenBB核心及Workspace文档",
+      "category": "interface",
+      "kind": "既有公开项目/规范对照",
+      "repository": "openbq-org/OpenBB",
+      "commit": "e43353a82815ff9ba56ad1b7ad47c32729dcf314",
+      "reads": [
+        {
+          "path": "openbb_platform/core/openbb_core/provider/abstract/fetcher.py",
+          "url": "https://github.com/openbq-org/OpenBB/blob/e43353a82815ff9ba56ad1b7ad47c32729dcf314/openbb_platform/core/openbb_core/provider/abstract/fetcher.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "本次固定核心LICENSE为Apache-2.0；不据此给Workspace商业服务/UI授权",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "数据状态与展示组件分开"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "保留既有公开对照；本轮未实施新的上游能力",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S10",
+      "name": "Evidently",
+      "category": "evaluation",
+      "kind": "既有公开项目/规范对照",
+      "repository": "evidentlyai/evidently",
+      "commit": "34771fe41c08ca074d96a52aaf4a45cd640cbaf5",
+      "reads": [
+        {
+          "path": "src/evidently/presets/drift.py",
+          "url": "https://github.com/evidentlyai/evidently/blob/34771fe41c08ca074d96a52aaf4a45cd640cbaf5/src/evidently/presets/drift.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "漂移与样本覆盖分开验收"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "保留既有公开对照；本轮未实施新的上游能力",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S11",
+      "name": "MLflow",
+      "category": "workflow",
+      "kind": "既有公开项目/规范对照",
+      "repository": "mlflow/mlflow",
+      "commit": "480c3b01730007a11d536412f9094e99d47f9252",
+      "reads": [
+        {
+          "path": "mlflow/data/dataset.py",
+          "url": "https://github.com/mlflow/mlflow/blob/480c3b01730007a11d536412f9094e99d47f9252/mlflow/data/dataset.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "保存数据、参数、版本与产物引用"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "保存数据、参数、版本与产物引用",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S12",
+      "name": "OpenLineage",
+      "category": "workflow",
+      "kind": "既有公开项目/规范对照",
+      "repository": "OpenLineage/OpenLineage",
+      "commit": "c41626e99af0a02ad95a2805979167ad948ecb7b",
+      "reads": [
+        {
+          "path": "spec/facets/DatasetVersionDatasetFacet.json",
+          "url": "https://github.com/OpenLineage/OpenLineage/blob/c41626e99af0a02ad95a2805979167ad948ecb7b/spec/facets/DatasetVersionDatasetFacet.json",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        },
+        {
+          "path": "spec/facets/ErrorMessageRunFacet.json",
+          "url": "https://github.com/OpenLineage/OpenLineage/blob/c41626e99af0a02ad95a2805979167ad948ecb7b/spec/facets/ErrorMessageRunFacet.json",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0（根LICENSE）；标准/文档按各自声明",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "结论与原数据版本建立可追溯引用"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "结论与原数据版本建立可追溯引用",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S13",
+      "name": "OpenTelemetry",
+      "category": "workflow",
+      "kind": "既有公开项目/规范对照",
+      "repository": null,
+      "commit": null,
+      "reads": [
+        {
+          "path": null,
+          "blobSha": null,
+          "url": "https://opentelemetry.io/docs/concepts/signals/traces/",
+          "readScope": "既有官方文档访问快照，无Git固定版本"
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "仅参考公开规范与官方文档；未移植代码",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "统一阶段、耗时与故障位置"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "统一阶段、耗时与故障位置",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S14",
+      "name": "LangGraph JS",
+      "category": "workflow",
+      "kind": "既有公开项目/规范对照",
+      "repository": "langchain-ai/langgraphjs",
+      "commit": "fa426b293b6ecccbf62b4f262475777b4bf86673",
+      "reads": [
+        {
+          "path": "libs/checkpoint/src/base.ts",
+          "url": "https://github.com/langchain-ai/langgraphjs/blob/fa426b293b6ecccbf62b4f262475777b4bf86673/libs/checkpoint/src/base.ts",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "MIT；LangSmith等托管服务另行约束",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "已存阶段和版本可恢复，禁止重复写入"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "已存阶段和版本可恢复，禁止重复写入",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S15",
+      "name": "Great Expectations GX Core",
+      "category": "data",
+      "kind": "既有公开项目/规范对照",
+      "repository": "fivetran/great_expectations",
+      "commit": "eadca9dd020d37f039ba9fd69a7e0b826acaced3",
+      "reads": [
+        {
+          "path": "great_expectations/core/expectation_suite.py",
+          "url": "https://github.com/fivetran/great_expectations/blob/eadca9dd020d37f039ba9fd69a7e0b826acaced3/great_expectations/core/expectation_suite.py",
+          "readScope": "关键定义/方法/边界抽样，未运行上游测试",
+          "blobSha": null
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "Apache-2.0（根LICENSE）",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "输入质量契约先于分析与保存"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。",
+      "status": "相关设计在V6已有实现，未安装或执行本上游项目",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "输入质量契约先于分析与保存",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "S16",
+      "name": "TradingView",
+      "category": "interface",
+      "kind": "既有公开项目/规范对照",
+      "repository": null,
+      "commit": null,
+      "reads": [
+        {
+          "path": null,
+          "blobSha": null,
+          "url": "https://www.tradingview.com/support/solutions/43000712747-bar-replay-how-and-why-to-test-a-strategy-in-the-past/",
+          "readScope": "既有官方文档访问快照，无Git固定版本"
+        },
+        {
+          "path": null,
+          "blobSha": null,
+          "url": "https://www.tradingview.com/support/solutions/43000718804-how-to-create-save-and-update-a-custom-screen/",
+          "readScope": "既有官方文档访问快照，无Git固定版本"
+        },
+        {
+          "path": null,
+          "blobSha": null,
+          "url": "https://www.tradingview.com/blog/en/screener-autosave-undo-58224/",
+          "readScope": "既有官方文档访问快照，无Git固定版本"
+        }
+      ],
+      "reviewedOn": "2026-11-14",
+      "license": "闭源商业产品；仅比较官方公开交互说明，不复制代码/购买服务",
+      "weightsLicense": "不适用或须逐个模型/数据集另核；软件许可不授予权重或数据使用权",
+      "borrow": [
+        "回放、筛选和撤销的交互说明"
+      ],
+      "limit": "仅按已列明的关键源码/官方文档借鉴；不据框架能力推断A股覆盖、数据许可或收益。商业闭源交互说明，不复制实现。",
+      "status": "保留既有公开对照；本轮未实施新的上游能力",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "官方文档与固定源码设计参考"
+      ],
+      "runtimeNotes": "未部署该上游框架；V6继续沿用原后台及私有研究档案，资源与收益没有上游实测",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null
+    },
+    {
+      "id": "M01",
+      "name": "Chronos-2 / Chronos-Bolt",
+      "kind": "通用时序预测",
+      "borrow": [
+        "分位数评价与区间覆盖检查；校准训练仍待实测",
+        "过去变量与预先已知未来变量分开",
+        "模型检查点与配置留痕"
+      ],
+      "limit": "通用时序榜单不等于A股盈利；未来成交量、新闻和财报值不能作为已知协变量",
+      "license": "根源码Apache-2.0；未独立核验每个权重检查点/数据集许可",
+      "status": "已落实导入预测的输入与配置封存、基线/分位数评价；上游模型未运行",
+      "repository": "amazon-science/chronos-forecasting",
+      "commit": "1224fafa91e1ecd6674f5204066b159e40b5e4a1",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "1ec146a2e037a7725f53ae6bdfba22970804efb2",
+          "url": "https://github.com/amazon-science/chronos-forecasting/blob/1224fafa91e1ecd6674f5204066b159e40b5e4a1/README.md"
+        },
+        {
+          "path": "src/chronos/chronos2/pipeline.py",
+          "blobSha": "d2b3f02e62fe663c0888414bad017f41d8ce57d3",
+          "url": "https://github.com/amazon-science/chronos-forecasting/blob/1224fafa91e1ecd6674f5204066b159e40b5e4a1/src/chronos/chronos2/pipeline.py"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "67db8588217f266eb561f75fae738656325deac9",
+          "url": "https://github.com/amazon-science/chronos-forecasting/blob/1224fafa91e1ecd6674f5204066b159e40b5e4a1/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "forecast",
+      "weightsLicense": "根源码Apache-2.0；未独立核验每个权重检查点/数据集许可",
+      "runMode": [
+        "离线批次预测候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：输入/模型配置封存、分位数与基线对照",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ]
+    },
+    {
+      "id": "M02",
+      "name": "TimesFM 3.0 / 2.5",
+      "kind": "通用时序预测",
+      "borrow": [
+        "点预测与分位数分开评价",
+        "固定版本与基线",
+        "源码和权重许可分别记录"
+      ],
+      "limit": "3.0下载权重仅非商业/非生产；授权云服务是另外的成本与条款；不接入生产",
+      "license": "源码Apache-2.0；README明确3.0权重timesfm-non-commercial-license-v1.0，2.5及以前权重Apache-2.0",
+      "status": "已落实导入预测的输入与配置封存、基线/分位数评价；上游模型未运行",
+      "repository": "google-research/timesfm",
+      "commit": "918df02c9d366b2145bc5876135fa2131d3ed2a6",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "804951ffd5755267c96a1ef2867e0be895fae385",
+          "url": "https://github.com/google-research/timesfm/blob/918df02c9d366b2145bc5876135fa2131d3ed2a6/README.md"
+        },
+        {
+          "path": "src/timesfm3/configs.py",
+          "blobSha": "74ac900554670f8d0f12aebd9bdb430add19fb0d",
+          "url": "https://github.com/google-research/timesfm/blob/918df02c9d366b2145bc5876135fa2131d3ed2a6/src/timesfm3/configs.py"
+        },
+        {
+          "path": "src/timesfm3/torch/configs.py",
+          "blobSha": "c60443cfb84c705e8c9149ecb9f22a1d996da358",
+          "url": "https://github.com/google-research/timesfm/blob/918df02c9d366b2145bc5876135fa2131d3ed2a6/src/timesfm3/torch/configs.py"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+          "url": "https://github.com/google-research/timesfm/blob/918df02c9d366b2145bc5876135fa2131d3ed2a6/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "forecast",
+      "weightsLicense": "源码Apache-2.0；README明确3.0权重timesfm-non-commercial-license-v1.0，2.5及以前权重Apache-2.0",
+      "runMode": [
+        "离线批次预测候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：输入/模型配置封存、分位数与基线对照",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ]
+    },
+    {
+      "id": "M03",
+      "name": "Moirai 2.0 / Uni2TS",
+      "kind": "通用时序预测",
+      "borrow": [
+        "观察掩码与缺失分开",
+        "分位数评价",
+        "滚动且非重叠测试窗口"
+      ],
+      "limit": "缺失不补成零；上下文长度、patch和目标维度要固定；外部榜单不是本工程结果",
+      "license": "根源码Apache-2.0；每个权重/数据集另核",
+      "status": "已落实导入预测的输入与配置封存、基线/分位数评价；上游模型未运行",
+      "repository": "SalesforceAIResearch/uni2ts",
+      "commit": "cfd46d4510ed8896f263116f32928eede05b0a75",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "833c53a435a19b9b42c27e6f0a477b1963303ee0",
+          "url": "https://github.com/SalesforceAIResearch/uni2ts/blob/cfd46d4510ed8896f263116f32928eede05b0a75/README.md"
+        },
+        {
+          "path": "src/uni2ts/model/moirai2/forecast.py",
+          "blobSha": "bd1d5992dda586d04d44063d994b6e8fddf0573d",
+          "url": "https://github.com/SalesforceAIResearch/uni2ts/blob/cfd46d4510ed8896f263116f32928eede05b0a75/src/uni2ts/model/moirai2/forecast.py"
+        },
+        {
+          "path": "LICENSE.txt",
+          "blobSha": "b2949c4234a7073c094f52afe08e60f87e6c9a0e",
+          "url": "https://github.com/SalesforceAIResearch/uni2ts/blob/cfd46d4510ed8896f263116f32928eede05b0a75/LICENSE.txt"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "forecast",
+      "weightsLicense": "根源码Apache-2.0；每个权重/数据集另核",
+      "runMode": [
+        "离线批次预测候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：输入/模型配置封存、分位数与基线对照",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "name": "RD-Agent",
+      "kind": "自动研究框架",
+      "borrow": [
+        "假设—实验—反馈记录",
+        "代码/数据/配置一致的版本比较",
+        "执行隔离与恢复检查点"
+      ],
+      "limit": "不执行生成的任意代码；不启动LLM接口或无限实验；沿用原试验预算/影子门禁",
+      "license": "根MIT；依赖、模型与数据许可另核",
+      "status": "已落实研究run、阶段诊断、固定输入配对与有界计算隔离",
+      "repository": "microsoft/RD-Agent",
+      "commit": "484776c211e4fbbeef03e0ec00d6bbee7362a4f4",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "2b766a76a9adeaa1080c4dce058d0a84e782202d",
+          "url": "https://github.com/microsoft/RD-Agent/blob/484776c211e4fbbeef03e0ec00d6bbee7362a4f4/README.md"
+        },
+        {
+          "path": "rdagent/core/experiment.py",
+          "blobSha": "e77e15b2ef75a7d46072c5e0b06ccf1c7e05d7ef",
+          "url": "https://github.com/microsoft/RD-Agent/blob/484776c211e4fbbeef03e0ec00d6bbee7362a4f4/rdagent/core/experiment.py"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+          "url": "https://github.com/microsoft/RD-Agent/blob/484776c211e4fbbeef03e0ec00d6bbee7362a4f4/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "workflow",
+      "weightsLicense": "根MIT；依赖、模型与数据许可另核",
+      "runMode": [
+        "本地/自托管研究候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：研究版本、阶段与支持/反对证据记录",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ]
+    },
+    {
+      "id": "M05",
+      "name": "Kronos",
+      "kind": "金融OHLCV时序模型",
+      "borrow": [
+        "模型与tokenizer成对固定",
+        "记录采样温度、top-p、路径数/随机种子",
+        "输入/输出日期和OHLCV结构校验"
+      ],
+      "limit": "采样路径平均不等于上涨概率；预测K线不能进入原始行情、模拟成交或历史训练标签",
+      "license": "根MIT；独立权重、tokenizer及训练数据的许可/污染范围尚未逐个核验",
+      "status": "已落实导入预测的输入与配置封存、基线/分位数评价；上游模型未运行",
+      "repository": "shiyu-coder/Kronos",
+      "commit": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "faffa1578cf0172f6b88f5db8a9b1205668ffef1",
+          "url": "https://github.com/shiyu-coder/Kronos/blob/67b630e67f6a18c9e9be918d9b4337c960db1e9a/README.md"
+        },
+        {
+          "path": "model/kronos.py",
+          "blobSha": "ce4494ee0b3ec8751b09d5488c93bde995e008e0",
+          "url": "https://github.com/shiyu-coder/Kronos/blob/67b630e67f6a18c9e9be918d9b4337c960db1e9a/model/kronos.py"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "88b04125e828241d8aada64bfe7f700bb03bcef8",
+          "url": "https://github.com/shiyu-coder/Kronos/blob/67b630e67f6a18c9e9be918d9b4337c960db1e9a/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "forecast",
+      "weightsLicense": "根MIT；独立权重、tokenizer及训练数据的许可/污染范围尚未逐个核验",
+      "runMode": [
+        "离线批次预测候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：输入/模型配置封存、分位数与基线对照",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ]
+    },
+    {
+      "id": "M06",
+      "name": "TradingAgents",
+      "kind": "金融研究代理框架",
+      "borrow": [
+        "支持与反对意见按证据拆开",
+        "价格与结论绑定",
+        "带流程版本的恢复点与结果成熟后反思"
+      ],
+      "limit": "角色数不等于独立证据数；复盘记忆只在结果已发生后可见；不接其交易/LLM接口",
+      "license": "根源码Apache-2.0；外部服务、行情、模型条款另核",
+      "status": "已落实四体系分歧、到时点回放与阶段恢复信息；未运行上游代理",
+      "repository": "TauricResearch/TradingAgents",
+      "commit": "9fa1196fffbcfd9de5146d2dd2869df84ab99838",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "9567a73615a9f73825038055dc6bb5dc298f43f3",
+          "url": "https://github.com/TauricResearch/TradingAgents/blob/9fa1196fffbcfd9de5146d2dd2869df84ab99838/README.md"
+        },
+        {
+          "path": "tradingagents/memory/reflection.py",
+          "blobSha": "cf23c639504b16b78b36cd089cbccdd79393488c",
+          "url": "https://github.com/TauricResearch/TradingAgents/blob/9fa1196fffbcfd9de5146d2dd2869df84ab99838/tradingagents/memory/reflection.py"
+        },
+        {
+          "path": "tradingagents/graph/checkpointer.py",
+          "blobSha": "7fc994dc4875b47b5ad1f141ef5049ee29ce824b",
+          "url": "https://github.com/TauricResearch/TradingAgents/blob/9fa1196fffbcfd9de5146d2dd2869df84ab99838/tradingagents/graph/checkpointer.py"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "url": "https://github.com/TauricResearch/TradingAgents/blob/9fa1196fffbcfd9de5146d2dd2869df84ab99838/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "workflow",
+      "weightsLicense": "根源码Apache-2.0；外部服务、行情、模型条款另核",
+      "runMode": [
+        "本地/自托管研究候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "设计：研究版本、阶段与支持/反对证据记录",
+          "path": "V6_BO/src/core/research-workspace.js"
+        }
+      ]
+    },
+    {
+      "id": "M07",
+      "name": "FinGPT / Forecaster",
+      "kind": "金融文本与情绪模型",
+      "borrow": [
+        "利好/担忧/缺失分开",
+        "按公司与日期对齐新闻",
+        "情绪任务和收益任务分别验收"
+      ],
+      "limit": "Forecaster主要训练于DOW30；不能把情绪分类成绩迁移为A股方向胜率；底座和LoRA分别核许可",
+      "license": "根MIT；Forecaster子目录标MIT不能覆盖底座模型/供应商数据许可",
+      "status": "复用现有新闻证据与条件证据；未接模型或新增数据API",
+      "repository": "AI4Finance-Foundation/FinGPT",
+      "commit": "ac5c5443fbeeafad801e7a3c188e4f24cfaad4d8",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "6210432880cacb4e8c773d5a2bb155b8f585e5ed",
+          "url": "https://github.com/AI4Finance-Foundation/FinGPT/blob/ac5c5443fbeeafad801e7a3c188e4f24cfaad4d8/README.md"
+        },
+        {
+          "path": "fingpt/FinGPT_Forecaster/README.md",
+          "blobSha": "25401e11cd1d0f879a080d6943866f8a0bb478c1",
+          "url": "https://github.com/AI4Finance-Foundation/FinGPT/blob/ac5c5443fbeeafad801e7a3c188e4f24cfaad4d8/fingpt/FinGPT_Forecaster/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "b5ccfe3e48d1ee785a0eafa503a909ebdc52074b",
+          "url": "https://github.com/AI4Finance-Foundation/FinGPT/blob/ac5c5443fbeeafad801e7a3c188e4f24cfaad4d8/LICENSE"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "finance-text",
+      "weightsLicense": "根MIT；Forecaster子目录标MIT不能覆盖底座模型/供应商数据许可",
+      "runMode": [
+        "本地/自托管研究候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "M08",
+      "name": "Qwen3 / Qwen3-2507",
+      "kind": "中文通用语言模型",
+      "borrow": [
+        "模型/模式/提示模板与结果契约固定",
+        "输出与来源引用独立校验",
+        "上下文裁剪与耗时/成本披露"
+      ],
+      "limit": "中文表达与推理能力不证明证券预测能力；不接新增模型API，现有生产智能能力仍遵守WorkBuddy授权政策",
+      "license": "根目录未发现独立LICENSE；README声明开放权重Apache-2.0，具体检查点/依赖仍须核实",
+      "status": "只作候选能力对照，未安装或测量",
+      "repository": "QwenLM/Qwen3",
+      "commit": "7a2f61ffc7a20d47efcd2bf97f6f2bf52729042e",
+      "reviewedOn": "2026-11-14",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "d0b77b3169e32c9977e1df71eab589895507bc5e",
+          "url": "https://github.com/QwenLM/Qwen3/blob/7a2f61ffc7a20d47efcd2bf97f6f2bf52729042e/README.md"
+        }
+      ],
+      "readScope": "固定版本README、许可与列明关键源码抽样；未执行上游模型或基准",
+      "category": "language",
+      "weightsLicense": "根目录未发现独立LICENSE；README声明开放权重Apache-2.0，具体检查点/依赖仍须核实",
+      "runMode": [
+        "本地/自托管研究候选"
+      ],
+      "runtimeNotes": "未下载权重或运行上游；本系统仅接受明确导入的预测，执行方式、耗时与硬件仍需单独实测",
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "I01",
+      "name": "Open WebUI",
+      "category": "interface",
+      "kind": "自托管模型工作台",
+      "repository": "open-webui/open-webui",
+      "commit": "b0e6098e940942281d9c83f3529ea117287a3a22",
+      "reviewedOn": "2026-11-14",
+      "license": "Open WebUI License，含品牌保留条件；历史贡献按LICENSE_HISTORY各自许可",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "模型搜索、类型筛选及结果为空时的明确状态",
+        "目录筛选与运行端点分开，来源片段独立展开"
+      ],
+      "limit": "不复制页面实现或品牌；不能笼统标BSD-3。当前品牌调整受用户规模/书面许可等例外条件约束；引用相关度不是获利概率。",
+      "status": "目录与交互设计已独立落实；未安装/复制上游应用",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "独立实现分类筛选、来源详情与最多三项并排比较",
+          "path": "V6_BO/public/model-library.html"
+        }
+      ],
+      "runMode": [
+        "自托管网页界面",
+        "可连接本地模型或兼容接口"
+      ],
+      "runtimeNotes": "仅参考目录和引用交互设计；未安装其前后端，未新增模型或接口。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "82d20f3a2b4700c09bbfc25515869a279fd5334c",
+          "url": "https://github.com/open-webui/open-webui/blob/b0e6098e940942281d9c83f3529ea117287a3a22/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "99f39e7feff29c93342877adad2d5c15e707444c",
+          "url": "https://github.com/open-webui/open-webui/blob/b0e6098e940942281d9c83f3529ea117287a3a22/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "src/lib/components/workspace/Models.svelte",
+          "blobSha": "4d2c7c757c339c7a5fce8f19eec08ecca2570e11",
+          "url": "https://github.com/open-webui/open-webui/blob/b0e6098e940942281d9c83f3529ea117287a3a22/src/lib/components/workspace/Models.svelte",
+          "readScope": "getModelList / hasFilters / searchController"
+        },
+        {
+          "path": "src/lib/components/chat/Messages/Citations/CitationModal.svelte",
+          "blobSha": "333723fe6bca5ed7042f4d82fe06b34ad0b5817d",
+          "url": "https://github.com/open-webui/open-webui/blob/b0e6098e940942281d9c83f3529ea117287a3a22/src/lib/components/chat/Messages/Citations/CitationModal.svelte",
+          "readScope": "mergedDocuments / getTextFragmentUrl"
+        }
+      ]
+    },
+    {
+      "id": "I02",
+      "name": "LibreChat",
+      "category": "interface",
+      "kind": "多模型会话界面",
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "fad2c51da41bb46c9cdd44a720cea4df0d47876b",
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；嵌入组件/第三方依赖/连接模型条款另核",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "搜索结果与模型提供方分组",
+        "键盘可达的选择和明确当前选择",
+        "模型目录按需求启用，避免展示即触发模型运行"
+      ],
+      "limit": "原danny-avila地址已重定向到LibreChat-AI；会话分支与多模型角色不是独立金融证据，不自动接入其账户/付费接口。",
+      "status": "目录与交互设计已独立落实；未安装/复制上游应用",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "独立实现分类筛选、来源详情与最多三项并排比较",
+          "path": "V6_BO/public/model-library.html"
+        }
+      ],
+      "runMode": [
+        "自托管服务及网页客户端",
+        "多模型/工具由管理员配置"
+      ],
+      "runtimeNotes": "独立实现模型筛选与最多3项对比；不复制聊天、鉴权、工具执行系统。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "67dd3b4393b6c3017924d50e4b09edcdabd19654",
+          "url": "https://github.com/LibreChat-AI/LibreChat/blob/fad2c51da41bb46c9cdd44a720cea4df0d47876b/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "5ee6463dee826517754e332444f0acb7b3d106a0",
+          "url": "https://github.com/LibreChat-AI/LibreChat/blob/fad2c51da41bb46c9cdd44a720cea4df0d47876b/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "client/src/components/Chat/Menus/Endpoints/ModelSelector.tsx",
+          "blobSha": "e643c8ed9a3b8f303ec6bef4a52a6ff0c9a5bd0a",
+          "url": "https://github.com/LibreChat-AI/LibreChat/blob/fad2c51da41bb46c9cdd44a720cea4df0d47876b/client/src/components/Chat/Menus/Endpoints/ModelSelector.tsx",
+          "readScope": "activateSelectorCatalogs / ModelSelectorContent / renderSearchResults"
+        }
+      ]
+    },
+    {
+      "id": "I03",
+      "name": "AnythingLLM",
+      "category": "interface",
+      "kind": "文档工作区与来源侧栏",
+      "repository": "Mintplex-Labs/anything-llm",
+      "commit": "4d09fa5f730698d39f1d783e47316744b260a700",
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；模型、文档与可选服务许可另核",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "桌面来源侧栏与手机单独来源详情",
+        "把来源标题、片段和限制放在模型结论旁边",
+        "模型选择保持在工作区上下文"
+      ],
+      "limit": "不复制文档、知识库、自动记忆与定时任务；未核验的引用评分不当作金融真实性。",
+      "status": "目录与交互设计已独立落实；未安装/复制上游应用",
+      "adoption": "implemented",
+      "implementation": [
+        {
+          "label": "独立实现分类筛选、来源详情与最多三项并排比较",
+          "path": "V6_BO/public/model-library.html"
+        }
+      ],
+      "runMode": [
+        "桌面客户端",
+        "Docker自托管；多用户特性依版本"
+      ],
+      "runtimeNotes": "采用公开来源/版本/许可展开与手机堆叠比较；不迁移用户文档和账户。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "0623b8f086924fb2330207984728c0cccf690452",
+          "url": "https://github.com/Mintplex-Labs/anything-llm/blob/4d09fa5f730698d39f1d783e47316744b260a700/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "cc42d1d080250fb38c47b81ed8f9fb1d64dc2965",
+          "url": "https://github.com/Mintplex-Labs/anything-llm/blob/4d09fa5f730698d39f1d783e47316744b260a700/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "frontend/src/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/ChatModelSelection/index.jsx",
+          "blobSha": "839011de4dc1df57fbfc00139d7b7d8c950b66ce",
+          "url": "https://github.com/Mintplex-Labs/anything-llm/blob/4d09fa5f730698d39f1d783e47316744b260a700/frontend/src/components/WorkspaceChat/ChatContainer/PromptInput/LLMSelector/ChatModelSelection/index.jsx",
+          "readScope": "ChatModelSelection"
+        },
+        {
+          "path": "frontend/src/components/WorkspaceChat/ChatContainer/SourcesSidebar/MobileCitationModal/SourceDetailView/index.jsx",
+          "blobSha": "6e4bc33b2a88605440a59f0d19118622ff662053",
+          "url": "https://github.com/Mintplex-Labs/anything-llm/blob/4d09fa5f730698d39f1d783e47316744b260a700/frontend/src/components/WorkspaceChat/ChatContainer/SourcesSidebar/MobileCitationModal/SourceDetailView/index.jsx",
+          "readScope": "SourceDetailView"
+        }
+      ]
+    },
+    {
+      "id": "I04",
+      "name": "Dify",
+      "category": "workflow",
+      "kind": "可视化工作流与执行追踪",
+      "repository": "langgenius/dify",
+      "commit": "e07c1f42b94e349ddfaf76f31f356b323f7f288c",
+      "reviewedOn": "2026-11-14",
+      "license": "Dify Open Source License：modified Apache-2.0，含多租户、前端LOGO/版权及外观设计声明",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "运行中/部分成功/失败/停止/暂停分开",
+        "节点追踪、重试详情、输入输出各自查看"
+      ],
+      "limit": "不是纯Apache-2.0；不复制其前端/工作流引擎/样式与外观；只抽取通用阶段状态原则；用户多租户或移除标识须按许可另核。",
+      "status": "已核对固定版本官方README、LICENSE及列明关键文件；未运行上游软件",
+      "adoption": "reference-only",
+      "implementation": [],
+      "runMode": [
+        "Docker Compose多服务部署",
+        "工作流后台与前端分离"
+      ],
+      "runtimeNotes": "现有V6阶段诊断保留；不为画布另起后台或扩大原工作预算。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "1f2414728c9837eb0248680e1d1443c7b94a304d",
+          "url": "https://github.com/langgenius/dify/blob/e07c1f42b94e349ddfaf76f31f356b323f7f288c/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "329ee302875f292fdd11e12e830562d0be9ade1c",
+          "url": "https://github.com/langgenius/dify/blob/e07c1f42b94e349ddfaf76f31f356b323f7f288c/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "web/app/components/workflow/run/status-container.tsx",
+          "blobSha": "d220cc9ecfbddb966a2dfa3b780a170b84b48ac3",
+          "url": "https://github.com/langgenius/dify/blob/e07c1f42b94e349ddfaf76f31f356b323f7f288c/web/app/components/workflow/run/status-container.tsx",
+          "readScope": "StatusContainer"
+        },
+        {
+          "path": "web/app/components/workflow/run/tracing-panel.tsx",
+          "blobSha": "7f56c183f638265b740e6bb7b0250d9bd0841f47",
+          "url": "https://github.com/langgenius/dify/blob/e07c1f42b94e349ddfaf76f31f356b323f7f288c/web/app/components/workflow/run/tracing-panel.tsx",
+          "readScope": "findExecution / toggleCollapse / renderNode"
+        }
+      ]
+    },
+    {
+      "id": "I05",
+      "name": "llama.cpp",
+      "category": "runtime",
+      "kind": "本地量化推理运行时",
+      "repository": "ggml-org/llama.cpp",
+      "commit": "32bdc3a89e6528d3e419024c833c5dabf32c7541",
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；内嵌第三方目录及每个模型权重另核",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "量化精度、上下文与并发上限显式记录",
+        "空闲/排队/运行槽位及耗时分开",
+        "健康、监控与执行接口分开"
+      ],
+      "limit": "运行时开源不等于所载模型许可开放；低位量化的金融抽取准确率/速度/内存均未测，不下载模型、不启用其终端工具。",
+      "status": "已核对固定版本官方README、LICENSE及列明关键文件；未运行上游软件",
+      "adoption": "candidate",
+      "implementation": [],
+      "runMode": [
+        "CPU或GPU本地推理",
+        "GGUF量化模型与可选本地HTTP服务"
+      ],
+      "runtimeNotes": "本系统未安装/执行；CPU/GPU/内存、p50/p95和量化误差实测保持未知。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "80b73cc528fae2c2a00199841774bdc37b50736f",
+          "url": "https://github.com/ggml-org/llama.cpp/blob/32bdc3a89e6528d3e419024c833c5dabf32c7541/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "e7dca554bcb802f98408383a864404e3aa4eacca",
+          "url": "https://github.com/ggml-org/llama.cpp/blob/32bdc3a89e6528d3e419024c833c5dabf32c7541/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "tools/server/README.md",
+          "blobSha": "9f5cd62cc9d3da5dc4ca13de306dcb806b12125a",
+          "url": "https://github.com/ggml-org/llama.cpp/blob/32bdc3a89e6528d3e419024c833c5dabf32c7541/tools/server/README.md",
+          "readScope": "parallel slots / timeout / metrics / per-tool timeout"
+        }
+      ]
+    },
+    {
+      "id": "I06",
+      "name": "vLLM",
+      "category": "runtime",
+      "kind": "高吞吐模型服务运行时",
+      "repository": "vllm-project/vllm",
+      "commit": "5fad73d1221d61446fb178bb0bf9151482ac43d0",
+      "reviewedOn": "2026-11-14",
+      "license": "根Apache-2.0；模型、量化及可选后端依赖另核",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "按排队请求数与token预算拒绝过载",
+        "取消/断开请求释放计算资源",
+        "JSON结构约束与业务数值校验分别进行"
+      ],
+      "limit": "兼容接口不是本系统获准调用外部模型；JSON合法不等于金融事实正确；高吞吐/GPU资源收益未在V6实测。",
+      "status": "已核对固定版本官方README、LICENSE及列明关键文件；未运行上游软件",
+      "adoption": "candidate",
+      "implementation": [],
+      "runMode": [
+        "本地/服务器批处理与异步推理",
+        "GPU与分布式并行等方式依模型和硬件"
+      ],
+      "runtimeNotes": "保留现有55秒/384MiB单并发worker；本轮不增加vLLM服务或API。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "d01261427d0535d9e8f2494f1fc6704e6488bbf4",
+          "url": "https://github.com/vllm-project/vllm/blob/5fad73d1221d61446fb178bb0bf9151482ac43d0/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "url": "https://github.com/vllm-project/vllm/blob/5fad73d1221d61446fb178bb0bf9151482ac43d0/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "vllm/v1/engine/async_llm.py",
+          "blobSha": "5ce033688a3ece19a003888134d9232dc12045a8",
+          "url": "https://github.com/vllm-project/vllm/blob/5fad73d1221d61446fb178bb0bf9151482ac43d0/vllm/v1/engine/async_llm.py",
+          "readScope": "AsyncLLM admission checks / shutdown / abort"
+        },
+        {
+          "path": "docs/features/structured_outputs.md",
+          "blobSha": "36b341ddf4683f39e124007cecb34fe422b4d542",
+          "url": "https://github.com/vllm-project/vllm/blob/5fad73d1221d61446fb178bb0bf9151482ac43d0/docs/features/structured_outputs.md",
+          "readScope": "structured_outputs JSON Schema / parser boundary tokens"
+        }
+      ]
+    },
+    {
+      "id": "I07",
+      "name": "Ollama",
+      "category": "runtime",
+      "kind": "本地模型管理与调度",
+      "repository": "ollama/ollama",
+      "commit": "a5864fcb33969705de3c0ebfedf4b2a16c970bcc",
+      "reviewedOn": "2026-11-14",
+      "license": "根MIT；各模型及所载manifest/权重独立许可",
+      "weightsLicense": "运行平台本身无统一权重许可；所连接/下载的模型须逐个核验",
+      "borrow": [
+        "有界等待队列、明确server-busy",
+        "排队时取消或超时即不启动加载",
+        "模型版本/manifest标识与运行器分别记录"
+      ],
+      "limit": "不要把能下载模型当作可商用或足够资源的证明；不使用未知硬件的固定并发，不自动执行pull或启服务。",
+      "status": "已核对固定版本官方README、LICENSE及列明关键文件；未运行上游软件",
+      "adoption": "candidate",
+      "implementation": [],
+      "runMode": [
+        "本地常驻服务",
+        "桌面/CLI和Docker运行方式"
+      ],
+      "runtimeNotes": "未安装、拉取模型或运行推理，启动/加载耗时及资源指标未知。",
+      "installed": false,
+      "inferenceExecuted": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "codeCopied": false,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "2a7dd787dc04fad1536797c7a64f9c3d85fa0782",
+          "url": "https://github.com/ollama/ollama/blob/a5864fcb33969705de3c0ebfedf4b2a16c970bcc/README.md",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "8e3dc978a7ca8c53f56bbedc5b558116140fc02e",
+          "url": "https://github.com/ollama/ollama/blob/a5864fcb33969705de3c0ebfedf4b2a16c970bcc/LICENSE",
+          "readScope": "固定版本全文已获取，抽样核对许可与设计相关段落"
+        },
+        {
+          "path": "server/sched.go",
+          "blobSha": "e8384623f57d26902a8aab4acab8f92c6e854ccb",
+          "url": "https://github.com/ollama/ollama/blob/a5864fcb33969705de3c0ebfedf4b2a16c970bcc/server/sched.go",
+          "readScope": "InitScheduler / getRunner / processPending / processCompleted"
+        }
+      ]
+    },
+    {
+      "id": "N01",
+      "repository": "deepseek-ai/DeepSeek-R1",
+      "name": "DeepSeek-R1 / R1-Distill",
+      "kind": "通用推理语言模型",
+      "category": "language",
+      "borrow": [
+        "按任务设推理预算，记录采样配置与完成/截断状态",
+        "模型、tokenizer与蒸馏底座分开固定",
+        "答案可核验事实与推理文字分别验收"
+      ],
+      "limit": "推理/数学榜单不能证明A股收益；671B总参数与37B激活参数不能当作37B模型的加载内存。蒸馏Llama版本仍需核底座条款。",
+      "codeLicense": "MIT（根LICENSE已读）",
+      "weightsLicense": "README声明R1原版权重MIT；Distill-Qwen基座Apache-2.0，Distill-Llama沿用各代Llama条款，具体检查点另核",
+      "runtime": "官方提供vLLM/SGLang等本地运行示例及1.5B至70B蒸馏变体；未下载/测速/核算本机内存",
+      "selection": "借鉴固定配置、预算和结果校验；大权重运行仅保留离线候选",
+      "tasks": [
+        "结论解释",
+        "金融数值题核验",
+        "文本事实提取"
+      ],
+      "inspectedFunctions": [
+        "README：模型表、Usage Recommendations、License"
+      ],
+      "commit": "0cf78561f1d51c84a21b2190626b21116d5c68bb",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "MIT（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "40d1af36fdb96e26129527b0531bb3ac195f6713",
+          "url": "https://github.com/deepseek-ai/DeepSeek-R1/blob/0cf78561f1d51c84a21b2190626b21116d5c68bb/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "d42fae903e9fa07f3e8edb0db00a8d905ba49560",
+          "url": "https://github.com/deepseek-ai/DeepSeek-R1/blob/0cf78561f1d51c84a21b2190626b21116d5c68bb/LICENSE"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "官方提供vLLM/SGLang等本地运行示例及1.5B至70B蒸馏变体；未下载/测速/核算本机内存；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N02",
+      "repository": "zai-org/GLM-4.5",
+      "name": "GLM-4.5 / GLM-4.7 / GLM-4.7-Flash",
+      "kind": "通用推理与工具模型",
+      "category": "language",
+      "borrow": [
+        "逐轮选择轻量/深入模式并留存所用模式",
+        "工具结果与最终结论分开",
+        "固定chat template与只解码生成后缀"
+      ],
+      "limit": "4.7-Flash的30B-A3B是总参数/激活参数区别，不代表3B加载需求；网页/代码基准不是金融实测。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "README对4.5/4.5-Air权重声明MIT；不能把此声明无条件延伸至所有4.7/量化检查点，须各模型卡另核",
+      "runtime": "固定源码的Transformers示例使用zai-org/GLM-4.7；README提供GLM-4.7-Flash与按轮thinking控制；未运行",
+      "selection": "优先借鉴运行模式显式化与模式配置留痕；不自动启用多轮思维或模型服务",
+      "tasks": [
+        "中文研究",
+        "工具协作",
+        "结构化结果"
+      ],
+      "inspectedFunctions": [
+        "inference/trans_infer_cli.py：apply_chat_template、max_new_tokens、generated suffix decode",
+        "README：GLM-4.7 Preserved/Turn-level Thinking、模型表、4.5许可"
+      ],
+      "commit": "170f20b2c10659008fdbc909d478bc2a75bc3627",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "3c032e93f96f388d7a18169d0993fc3db40264af",
+          "url": "https://github.com/zai-org/GLM-4.5/blob/170f20b2c10659008fdbc909d478bc2a75bc3627/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "827fdc3a6b57acf622dd6bf4d36bac98509d6a58",
+          "url": "https://github.com/zai-org/GLM-4.5/blob/170f20b2c10659008fdbc909d478bc2a75bc3627/LICENSE"
+        },
+        {
+          "path": "inference/trans_infer_cli.py",
+          "blobSha": "c7c6f4d369b923f359f0d1dad7de9c5d5e77c403",
+          "url": "https://github.com/zai-org/GLM-4.5/blob/170f20b2c10659008fdbc909d478bc2a75bc3627/inference/trans_infer_cli.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "固定源码的Transformers示例使用zai-org/GLM-4.7；README提供GLM-4.7-Flash与按轮thinking控制；未运行；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N03",
+      "repository": "InternLM/InternLM",
+      "name": "InternLM3-8B-Instruct",
+      "kind": "中文通用语言模型与会话示例",
+      "category": "language",
+      "borrow": [
+        "参数放侧栏，主要结果放主栏",
+        "轻量/深入模式和历史记录分别管理",
+        "用户/模型/工具环境消息使用明确角色协议"
+      ],
+      "limit": "本地8B示例未做本机显存/延迟测试；深思文字不是可审计证据，不应把完整内部思维链作为股票结论依据。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "当前README明确代码和权重Apache-2.0；适用当前所列模型，历史变体和派生量化另核",
+      "runtime": "官方chat/web_demo.py为Streamlit宽布局、侧栏参数、推理模式和清空会话；无本轮模型执行",
+      "selection": "优先借鉴侧栏/结果分区与模式分离；保留V6原权限、证据和会话档案",
+      "tasks": [
+        "中文问答",
+        "研究页面布局",
+        "角色协议"
+      ],
+      "inspectedFunctions": [
+        "chat/web_demo.py：prepare_generation_config、combine_history、render_message、on_btn_click",
+        "chat/chat_format.md：user/assistant/environment与工具JSON协议"
+      ],
+      "commit": "68fdc71330059255fd647abf28219ad11e8e4865",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "5cff0e0a175b552cd839e770e116f5f5d871080e",
+          "url": "https://github.com/InternLM/InternLM/blob/68fdc71330059255fd647abf28219ad11e8e4865/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "9d9096b4de56790b2f1adcdb3c1c26913be88338",
+          "url": "https://github.com/InternLM/InternLM/blob/68fdc71330059255fd647abf28219ad11e8e4865/LICENSE"
+        },
+        {
+          "path": "chat/chat_format.md",
+          "blobSha": "b9451e233009e20de76598526c1624caeb61eed6",
+          "url": "https://github.com/InternLM/InternLM/blob/68fdc71330059255fd647abf28219ad11e8e4865/chat/chat_format.md"
+        },
+        {
+          "path": "chat/web_demo.py",
+          "blobSha": "1fa66b39bfa5beef1bb684796a656ea51a2bacd6",
+          "url": "https://github.com/InternLM/InternLM/blob/68fdc71330059255fd647abf28219ad11e8e4865/chat/web_demo.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "官方chat/web_demo.py为Streamlit宽布局、侧栏参数、推理模式和清空会话；无本轮模型执行；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N04",
+      "repository": "mistralai/mistral-inference",
+      "name": "Mistral / Mixtral（旧官方推理库）",
+      "kind": "语言模型推理参考实现",
+      "category": "runtime",
+      "borrow": [
+        "模型、tokenizer和采样配置成套固定",
+        "EOS、最大输出和采样温度分开控制",
+        "明确库维护状态与模型权重许可"
+      ],
+      "limit": "GitHub元数据和README均明确该库已归档，不推荐作为新生产运行时；Codestral22B、Mistral Large2等权重条款与Apache源码不同。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "README明确Codestral22B采用MNPL非生产许可、Mistral Large2采用MRL研究许可；其余每个检查点另核，不能统一标Apache",
+      "runtime": "旧库的generate/generate_mamba/sample/sample_top_p可作采样/停止方法参考；仓库archived=true",
+      "selection": "只借鉴固定配置和停止语义，旧运行库不采用",
+      "tasks": [
+        "推理终止",
+        "采样参数一致性",
+        "运行时维护审查"
+      ],
+      "inspectedFunctions": [
+        "src/mistral_inference/generate.py：generate、sample、sample_top_p",
+        "README：Archived、模型表与权重许可备注"
+      ],
+      "commit": "9eaeb91c17450e09021b6065a1d5cc69876507c8",
+      "reviewedOn": "2026-11-14",
+      "archived": true,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "9c25e2c21f263177227bfdad41754147ba001229",
+          "url": "https://github.com/mistralai/mistral-inference/blob/9eaeb91c17450e09021b6065a1d5cc69876507c8/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "url": "https://github.com/mistralai/mistral-inference/blob/9eaeb91c17450e09021b6065a1d5cc69876507c8/LICENSE"
+        },
+        {
+          "path": "src/mistral_inference/generate.py",
+          "blobSha": "bc6112dbef7873d9ab29d8a6061add62d13c0672",
+          "url": "https://github.com/mistralai/mistral-inference/blob/9eaeb91c17450e09021b6065a1d5cc69876507c8/src/mistral_inference/generate.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "旧库的generate/generate_mamba/sample/sample_top_p可作采样/停止方法参考；仓库archived=true；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "reference-only",
+      "implementation": []
+    },
+    {
+      "id": "N05",
+      "repository": "meta-llama/llama-models",
+      "name": "Llama 3.2 / Llama 4 系列",
+      "kind": "开放权重语言/多模态模型与运行工具",
+      "category": "language",
+      "borrow": [
+        "模型代际、tokenizer、量化和分片配置成套固定",
+        "不同检查点维护各自许可与模型卡",
+        "按实际内存和硬件选择运行方式"
+      ],
+      "limit": "开放权重不等于Apache/MIT；Llama各代自定义社区许可与使用政策、分发署名等条件需分别核查；官方硬件说明不是本机资源测量。",
+      "codeLicense": "根LICENSE为自定义Llama条款，未将其归为OSI许可；所读checkpoint.py指向该LICENSE",
+      "weightsLicense": "已读Llama3.2 Community License；3.2/4等代际分别有LICENSE/USE_POLICY，不能通用授权",
+      "runtime": "README有分片与FP8/Int4运行示例；Llama4 Scout示例仍要求大显存，激活参数不能替代总权重需求；未执行",
+      "selection": "借鉴完整配置身份与代际许可分离；不直接搬自定义许可源码",
+      "tasks": [
+        "检查点版本管理",
+        "量化配置辨别",
+        "内存与分片记录"
+      ],
+      "inspectedFunctions": [
+        "models/checkpoint.py：map_mp_rank、maybe_reshard_state_dict、reshard_mp",
+        "models/llama3_2/LICENSE：授权与分发条件",
+        "README：模型代际表与量化运行"
+      ],
+      "commit": "0e0b8c519242d5833d8c11bffc1232b77ad7f301",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "根LICENSE为自定义Llama条款，未将其归为OSI许可；所读checkpoint.py指向该LICENSE",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "5bb13708f2738c4755763e6fa38f644679277e66",
+          "url": "https://github.com/meta-llama/llama-models/blob/0e0b8c519242d5833d8c11bffc1232b77ad7f301/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "9b25f5a3b5ec4d213429582118fcd3eb189ab5ea",
+          "url": "https://github.com/meta-llama/llama-models/blob/0e0b8c519242d5833d8c11bffc1232b77ad7f301/LICENSE"
+        },
+        {
+          "path": "models/checkpoint.py",
+          "blobSha": "b579865c0ba5bbe6a6626513dc02947bb8c937cb",
+          "url": "https://github.com/meta-llama/llama-models/blob/0e0b8c519242d5833d8c11bffc1232b77ad7f301/models/checkpoint.py"
+        },
+        {
+          "path": "models/llama3_2/LICENSE",
+          "blobSha": "83f13c3a5da0106959dd8cbee0eecfd4e6cef3d2",
+          "url": "https://github.com/meta-llama/llama-models/blob/0e0b8c519242d5833d8c11bffc1232b77ad7f301/models/llama3_2/LICENSE"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "README有分片与FP8/Int4运行示例；Llama4 Scout示例仍要求大显存，激活参数不能替代总权重需求；未执行；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N06",
+      "repository": "ibm-granite/granite-tsfm",
+      "name": "IBM Granite Time Series / TinyTimeMixers",
+      "kind": "时序基础模型与处理工具",
+      "category": "forecast",
+      "borrow": [
+        "预处理器拟合状态可序列化，随输入和版本留痕",
+        "校准集拟合与测试集预测分离",
+        "目标分位数、区间宽度和覆盖率使用各自口径"
+      ],
+      "limit": "scaler不能在完整未来数据上拟合；conformal方法不能在参与校准的同批样本上自证覆盖；本轮无真实模型校准、A股基准或收益实测。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "具体TTM/Granite检查点及数据集模型卡仍需另核；源码许可不当作所有权重授权",
+      "runtime": "toolkit含预测/预处理/独立后处理器；未安装torch或新依赖，未运行上游模型",
+      "selection": "优先借鉴预处理和校准数据隔离的实验合同；本轮尚未实现校准训练",
+      "tasks": [
+        "行情预测",
+        "预处理留痕",
+        "分位数校准方法"
+      ],
+      "inspectedFunctions": [
+        "tsfm_public/toolkit/time_series_preprocessor.py：TimeSeriesPreprocessor、序列化scaler",
+        "tsfm_public/toolkit/conformal.py：PostHocProbabilisticProcessor.train/predict、非一致性分数"
+      ],
+      "commit": "31fa2f01573341f17e9997280f61481de18ce28c",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "b805bb352cd3540afedf147770b390b5287ae2d2",
+          "url": "https://github.com/ibm-granite/granite-tsfm/blob/31fa2f01573341f17e9997280f61481de18ce28c/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "url": "https://github.com/ibm-granite/granite-tsfm/blob/31fa2f01573341f17e9997280f61481de18ce28c/LICENSE"
+        },
+        {
+          "path": "tsfm_public/toolkit/time_series_preprocessor.py",
+          "blobSha": "130c787eb17b79937b2155f618ff2ba05975fe32",
+          "url": "https://github.com/ibm-granite/granite-tsfm/blob/31fa2f01573341f17e9997280f61481de18ce28c/tsfm_public/toolkit/time_series_preprocessor.py"
+        },
+        {
+          "path": "tsfm_public/toolkit/conformal.py",
+          "blobSha": "a4a38752e4177e4c0f059b2bcc5a647eb46c64df",
+          "url": "https://github.com/ibm-granite/granite-tsfm/blob/31fa2f01573341f17e9997280f61481de18ce28c/tsfm_public/toolkit/conformal.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "toolkit含预测/预处理/独立后处理器；未安装torch或新依赖，未运行上游模型；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "离线批次时序预测候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N07",
+      "repository": "google/gemma_pytorch",
+      "name": "Gemma 3（旧官方PyTorch实现）",
+      "kind": "轻量开放权重文本/多模态模型",
+      "category": "language",
+      "borrow": [
+        "明确模型规模、dtype、tokenizer与上下文配置",
+        "文本/图像预处理分开",
+        "按目标运行环境选择实现"
+      ],
+      "limit": "GitHub元数据archived=true，不把旧库当新生产推荐；图像理解不能替代公告原文和K线数值；根Apache源码不能覆盖独立权重条款。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "README给出Kaggle/HuggingFace权重下载；具体检查点条款未核验，不声明权重Apache",
+      "runtime": "旧PyTorch/XLA实现支持CPU/GPU/TPU与Gemma3 1B/4B/12B/27B等配置；具体资源未本机测量",
+      "selection": "只借鉴dtype/规模/预处理显式配置，旧库不采用",
+      "tasks": [
+        "截图辅助研究候选",
+        "模型配置辨别",
+        "运行成本记录"
+      ],
+      "inspectedFunctions": [
+        "gemma/config.py：GemmaConfig、get_config_for_1b、Gemma3各规模配置",
+        "README：Gemma3权重链接与CPU/GPU/TPU运行"
+      ],
+      "commit": "014acb7ac4563a5f77c76d7ff98f31b568c16508",
+      "reviewedOn": "2026-11-14",
+      "archived": true,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "20344c5e4318a95e538a6f48d6bb5372cc3ad92e",
+          "url": "https://github.com/google/gemma_pytorch/blob/014acb7ac4563a5f77c76d7ff98f31b568c16508/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "url": "https://github.com/google/gemma_pytorch/blob/014acb7ac4563a5f77c76d7ff98f31b568c16508/LICENSE"
+        },
+        {
+          "path": "gemma/config.py",
+          "blobSha": "710f6d18be53c99c1170f6f8f6408b51c7c3741f",
+          "url": "https://github.com/google/gemma_pytorch/blob/014acb7ac4563a5f77c76d7ff98f31b568c16508/gemma/config.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "旧PyTorch/XLA实现支持CPU/GPU/TPU与Gemma3 1B/4B/12B/27B等配置；具体资源未本机测量；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N08",
+      "repository": "OpenBMB/MiniCPM",
+      "name": "MiniCPM5-1B / MiniCPM5-2B",
+      "kind": "端侧小语言模型与工具协议",
+      "category": "language",
+      "borrow": [
+        "按硬件、文件格式和目标只选一种运行后端",
+        "工具名、允许参数、必填项和重复键严格校验",
+        "未完成流式结果不得提前变成可执行调用",
+        "侧重小模型可运行条件而非只追参数规模"
+      ],
+      "limit": "README的端侧性能不等于本机测速；不复制XML修补/宽松解析分支来绕过V6严格JSON合同；端侧模型不得成为账户或交易写入主体。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）；工具解析器文件保留vLLM contributors SPDX版权头",
+      "weightsLicense": "当前README声明仓库与MiniCPM模型Apache-2.0；第三方GGUF/MLX/LiteRT产物仍须核来源、哈希和条款",
+      "runtime": "官方列出MiniCPM5-1B/2B的Transformers/vLLM/SGLang、GGUF/llama.cpp、MLX与LiteRT方案，按平台选一后端；本轮未安装或运行",
+      "selection": "优先借鉴严格契约和运行前条件卡；保留固定工具白名单与禁止执行上传代码",
+      "tasks": [
+        "低资源运行候选",
+        "工具调用协议",
+        "运行前诊断"
+      ],
+      "inspectedFunctions": [
+        "tool_parsers/minicpm5xml_tool_parser.py：_build_tool_maps、_parse_function_block、_streaming_args_diff",
+        "skills/minicpm5-deploy/SKILL.md：硬件/格式/目标路由表；仅作为研究资料读取，没有执行其中指令"
+      ],
+      "commit": "f4293a1a7bde05d1acce99488235792615fc241b",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "Apache-2.0（根LICENSE已读）；工具解析器文件保留vLLM contributors SPDX版权头",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "3bb020e9c105387ad0526533dadf7db63a7f0540",
+          "url": "https://github.com/OpenBMB/MiniCPM/blob/f4293a1a7bde05d1acce99488235792615fc241b/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "b5ff00dcf3d8024db285692aecd4340017875c06",
+          "url": "https://github.com/OpenBMB/MiniCPM/blob/f4293a1a7bde05d1acce99488235792615fc241b/LICENSE"
+        },
+        {
+          "path": "tool_parsers/minicpm5xml_tool_parser.py",
+          "blobSha": "cc9a0a9e743c881a5462a16925066547b9bcf708",
+          "url": "https://github.com/OpenBMB/MiniCPM/blob/f4293a1a7bde05d1acce99488235792615fc241b/tool_parsers/minicpm5xml_tool_parser.py"
+        },
+        {
+          "path": "skills/minicpm5-deploy/SKILL.md",
+          "blobSha": "a4a8412291dad10937dbae78ee4061d864924fac",
+          "url": "https://github.com/OpenBMB/MiniCPM/blob/f4293a1a7bde05d1acce99488235792615fc241b/skills/minicpm5-deploy/SKILL.md"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "官方列出MiniCPM5-1B/2B的Transformers/vLLM/SGLang、GGUF/llama.cpp、MLX与LiteRT方案，按平台选一后端；本轮未安装或运行；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    },
+    {
+      "id": "N09",
+      "repository": "SUFE-AIFLM-Lab/Fin-R1",
+      "name": "Fin-R1",
+      "kind": "金融推理语言模型",
+      "category": "finance-text",
+      "borrow": [
+        "按金融计算、专业知识、文本/表格任务分开验收",
+        "答案数值校验与证据逻辑校验分开",
+        "领域训练数据与底座模型来源分开记录"
+      ],
+      "limit": "7B金融推理榜单不等于A股方向或收益；固定仓库根无LICENSE文件/训练实现，README的Apache徽章不足以完成代码/权重/数据独立核验，不能直接搬未核权数据。",
+      "codeLicense": "根目录没有LICENSE且无完整训练源码；README显示Apache-2.0徽章，视为声明信息",
+      "weightsLicense": "模型基于Qwen2.5-7B-Instruct；具体Fin-R1模型卡、数据和底座授权需分别核验",
+      "runtime": "README提供Transformers/vLLM运行示例；仅阅读说明和技术方法，没有下载权重或执行样例",
+      "selection": "借鉴金融任务分类与数值/证据双校验，模型仅保留候选",
+      "tasks": [
+        "金融数值题",
+        "公告/表格问答",
+        "证据一致性"
+      ],
+      "inspectedFunctions": [
+        "README：金融任务分类、数据构建与两阶段质量筛选、Qwen2.5-7B基座",
+        "固定根目录：未发现LICENSE或完整训练源码"
+      ],
+      "commit": "06ead1e61ff77cad71dc409198b1a2575d748ecd",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "根目录没有LICENSE且无完整训练源码；README显示Apache-2.0徽章，视为声明信息",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "0118555353d75d7287b3e1e0086e40d58d071fa1",
+          "url": "https://github.com/SUFE-AIFLM-Lab/Fin-R1/blob/06ead1e61ff77cad71dc409198b1a2575d748ecd/README.md"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "README提供Transformers/vLLM运行示例；仅阅读说明和技术方法，没有下载权重或执行样例；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "本地或自托管运行候选"
+      ],
+      "adoption": "reference-only",
+      "implementation": []
+    },
+    {
+      "id": "N10",
+      "repository": "Time-MoE/Time-MoE",
+      "name": "Time-MoE",
+      "kind": "稀疏时序基础模型",
+      "category": "forecast",
+      "borrow": [
+        "训练区间拟合scaler，测试区间只transform",
+        "上下文与预测长度有显式上限",
+        "绝对误差按实际样本总和聚合，不平均各批均值"
+      ],
+      "limit": "README的通用时序结果不是A股实测；示例trust_remote_code需要固定和审读远程实现，不能照搬自动执行；不把未来动态变量当已知输入。",
+      "codeLicense": "Apache-2.0（根LICENSE已读）",
+      "weightsLicense": "每个Maple728/TimeMoE检查点与Time-300B数据许可尚未独立核验，不由根源码许可推断",
+      "runtime": "README建议context+prediction不超过4096；存在50M/200M及更大MoE研究变体；本轮未运行",
+      "selection": "优先借鉴训练/测试处理隔离和统计分母；预处理训练区间合同仍为候选",
+      "tasks": [
+        "行情预测候选",
+        "样本外验证",
+        "输入规范化"
+      ],
+      "inspectedFunctions": [
+        "time_moe/datasets/benchmark_dataset.py：BenchmarkEvalDataset、scaler.fit(train_data)/transform(test_data)",
+        "run_eval.py：SumEvalMetric、MAEMetric、模型评测入口"
+      ],
+      "commit": "915bfda4c78a544d62a2bec6ab22948423059236",
+      "reviewedOn": "2026-11-14",
+      "archived": false,
+      "license": "Apache-2.0（根LICENSE已读）",
+      "status": "已核读固定官方资料和所列源码；设计候选，未安装或实跑模型",
+      "installed": false,
+      "inferenceExecuted": false,
+      "sourceCodeCopied": false,
+      "v6MeasuredAccuracy": null,
+      "v6MeasuredLatencyMs": null,
+      "v6MeasuredPeakMemoryMb": null,
+      "reads": [
+        {
+          "path": "README.md",
+          "blobSha": "726bd78f4a06fb93d7bab6eb3b764055fe4fff44",
+          "url": "https://github.com/Time-MoE/Time-MoE/blob/915bfda4c78a544d62a2bec6ab22948423059236/README.md"
+        },
+        {
+          "path": "LICENSE",
+          "blobSha": "b73ad030f2d42e0801e0d1cb84d8a90cdce30633",
+          "url": "https://github.com/Time-MoE/Time-MoE/blob/915bfda4c78a544d62a2bec6ab22948423059236/LICENSE"
+        },
+        {
+          "path": "run_eval.py",
+          "blobSha": "75662cbd89a8b4e453fe72eaf6278bb864ff558e",
+          "url": "https://github.com/Time-MoE/Time-MoE/blob/915bfda4c78a544d62a2bec6ab22948423059236/run_eval.py"
+        },
+        {
+          "path": "time_moe/datasets/benchmark_dataset.py",
+          "blobSha": "63e5ad4f7333c9b5c8bb2031c0741cf6e8e337aa",
+          "url": "https://github.com/Time-MoE/Time-MoE/blob/915bfda4c78a544d62a2bec6ab22948423059236/time_moe/datasets/benchmark_dataset.py"
+        }
+      ],
+      "readScope": "固定README、根许可（如有）及所列源码/协议抽样；未下载权重或数据、未执行上游、未复现外部榜单",
+      "runtimeNotes": "README建议context+prediction不超过4096；存在50M/200M及更大MoE研究变体；本轮未运行；未在V6执行，硬件与任务质量须实测",
+      "runMode": [
+        "离线批次时序预测候选"
+      ],
+      "adoption": "candidate",
+      "implementation": []
+    }
+  ]
+}
