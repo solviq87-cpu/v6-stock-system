@@ -207,4 +207,24 @@ function createCloudRecordsCasStore(root) {
   }
   return {read,bootstrap,upsert};
 }
-module.exports={createCloudRecordsCasStore,digest};
+// Pure inspection only: caller receives no private record bodies and this function does not write.
+function inspectBackupCandidate(rows) {
+  const normalized = recordsArray(rows);
+  const account = normalized.find(item => item.name === 'v6.app.state');
+  if (!account) throw error('MISSING_AUTHORITATIVE_ACCOUNT');
+  const original = typeof account.content === 'string' ? JSON.parse(account.content) : account.content;
+  const recognized = original && Number.isSafeInteger(original.revision) && original.revision >= 0;
+  if (!recognized) throw error('INVALID_ACCOUNT_SHAPE');
+  const fields = new Set(['name','content','title','author']);
+  return Object.freeze({
+    snapshotHash: digest({records:normalized}),
+    recordCount: normalized.length,
+    accountRevision: original.revision,
+    ignoredPlatformMetadata: rows.some(row => Object.keys(row).some(key => !fields.has(key))),
+    accountShape: 'minimum-fields-only',
+    fullAccountReconciliationVerified: false,
+    sourceProvenanceVerified: false,
+    importAuthorized: false
+  });
+}
+module.exports={createCloudRecordsCasStore,digest,inspectBackupCandidate};
