@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 
 const ORIGIN = 'https://af3c7822e6aafc135.app.workbuddy.host';
-const PATHS = Object.freeze(['/api/site', '/api/health', '/api/records']);
+const PATHS = Object.freeze(['/api/site', '/api/health', '/api/records', '/']);
 const MAX_BYTES = 4 * 1024 * 1024;
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const validCode = value => typeof value === 'string' && value.length > 4 && value.length <= 512
@@ -61,7 +61,7 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
       response = await request(url.toString(), {
         method: 'GET', redirect: 'error', cache: 'no-store',
         signal: AbortSignal.timeout(10000), referrerPolicy: 'no-referrer',
-        headers: { accept: 'application/json' }
+        headers: { accept: endpoint === '/' ? 'text/html' : 'application/json' }
       });
       const result = { endpoint, httpStatus: response.status, validJson: false };
       const payload = await boundedResponse(response);
@@ -70,16 +70,34 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
       } else {
         result.byteLength = payload.bytes.length;
         result.sha256 = digest(payload.bytes);
-        if (response.status === 200) {
+        if (endpoint === '/') {
+          // HTML is untrusted. Only emit type/digest; never print or execute it.
+          result.htmlDocument = response.status === 200 && /<!doctype html|<html/i.test(payload.bytes.toString('utf8').slice(0,512));
+        } else if (response.status === 200) {
           try {
             const data = JSON.parse(payload.bytes.toString('utf8'));
-            result.validJson = !!data && typeof data === 'object' && data.ok === true;
+            result.validJson = !!data && typeof data === 'object' && !Array.isArray(data) && data.ok === true;
+            if (endpoint === '/api/site' && result.validJson && typeof data.site?.html === 'string') {
+              result.siteHtmlSha256 = digest(Buffer.from(data.site.html,'utf8'));
+              result.siteHtmlBytes = Buffer.byteLength(data.site.html,'utf8');
+            }
             if (endpoint === '/api/records' && result.validJson) {
               result.recordsArray = Array.isArray(data.records);
               if (result.recordsArray) {
                 result.recordCount = data.records.length;
-                result.hasV6State = data.records.some(x => x && x.name === 'v6.app.state');
-              }
+                const matches = data.records.filter(x => x && typeof x === 'object' && x.name === 'v6.app.state');
+                result.hasV6State = matches.length > 0;
+                if (matches.length === 0) result.ledgerStatus = 'not-returned';
+                else if (matches.length > 1) result.ledgerStatus = 'duplicate-ambiguous';
+                else {
+                  let account=matches[0].content;
+                  try {
+                    if (typeof account === 'string') account=JSON.parse(account);
+                    result.ledgerStatus = account && typeof account === 'object' && !Array.isArray(account)
+                      ? 'parseable-not-validated' : 'invalid-account-format';
+                  } catch { result.ledgerStatus = 'invalid-account-json'; }
+                }
+              } else result.ledgerStatus = 'contract-unrecognized';
             }
           } catch { result.error = 'unexpected-response-format'; }
         }
@@ -90,9 +108,17 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
       results.push({ endpoint, httpStatus: null, validJson: false, error: 'transport-failed' });
     }
   }
+  const apis = results.filter(x => x.endpoint !== '/');
+  const root = results.find(x => x.endpoint === '/');
+  const site = results.find(x => x.endpoint === '/api/site');
+  const pageIntegrity = root?.httpStatus === 200 && root.htmlDocument && site?.siteHtmlSha256
+    ? (root.sha256 === site.siteHtmlSha256 ? 'matching-bytes' : 'different-bytes') : 'unverified';
   return {
-    ok: results.every(x => x.httpStatus === 200 && x.validJson && !x.error)
+    ok: apis.every(x => x.httpStatus === 200 && x.validJson && !x.error)
       && results.find(x => x.endpoint === '/api/records')?.recordsArray === true,
+    pageIntegrity,
+    accountRecoveryVerified: false,
+    serverLoginVerified: false,
     status: 'read-only-diagnostic',
     checkedAt: now(), target: ORIGIN, method: 'GET-only',
     endpoints: results
