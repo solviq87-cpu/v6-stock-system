@@ -10,6 +10,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-cloud-cas:
+    name: cloud-records-cas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check append-only ledger, CAS conflicts, idempotency and child process races
+        run: |
+          node --check V6_BO/src/core/cloud-records-cas-store.js
+          node --test V6_BO/tests/cloud-records-cas-store.test.js
   # Every push/PR gets a separate visible safety check, not an empty status.
   verify-cloud-ledger:
     name: cloud-ledger-failclosed
