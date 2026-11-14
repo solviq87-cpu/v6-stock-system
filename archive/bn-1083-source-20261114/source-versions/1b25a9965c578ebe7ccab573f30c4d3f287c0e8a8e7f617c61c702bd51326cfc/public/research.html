@@ -1,0 +1,33 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V6 选股战法研究工作台</title>
+<style>
+:root{color-scheme:dark}body{font:15px system-ui,-apple-system,sans-serif;background:#0b1220;color:#e6edf7;margin:0}
+main{max-width:1180px;margin:auto;padding:22px}.muted{color:#98a9c4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:#172338;border:1px solid #2b3a52;border-radius:14px;padding:16px;margin:10px 0}button{background:#2b75d5;color:white;border:0;border-radius:9px;padding:10px 16px;cursor:pointer}
+button:disabled{opacity:.5}input,textarea{background:#0e192b;border:1px solid #3c4f6b;color:white;border-radius:8px;padding:9px;max-width:100%;box-sizing:border-box}
+textarea{width:100%;height:175px;font:12px monospace}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #33415b;text-align:left;font-size:13px}
+.scroller{overflow:auto}.good{color:#8be0b0}.bad{color:#ffb0a7}a{color:#94c5ff}
+</style></head><body><main>
+<p><a href="/">← 返回 V6 主面板</a></p><h1>V6 · 选股与战法研究工作台</h1>
+<p class="muted">仅开发者可运行。使用上传数据或系统内存K线；超过24小时的缓存拒绝分析，非实时行情；所有信号均为研究候选，不自动下单。</p>
+<section class="card"><h3>数据输入</h3>
+<p>开发者令牌（本机直接访问可留空）：<input id="token" type="password" autocomplete="off" placeholder="远程访问请输入开发者令牌"></p>
+<p><input id="file" type="file" accept=".json,application/json"> <button id="refresh">联网更新历史K线（最多20只）</button> <button id="scan">扫描选股排行榜</button> <button id="backtest">运行持仓回测</button> <button id="saveDisk">将内存缓存保存到磁盘</button> <button id="diskScan">扫描磁盘缓存</button> <button id="diskLedger">回测磁盘缓存</button> <button id="cacheScan">扫描现有K线缓存</button> <button id="cacheBacktest">回测现有缓存</button></p>
+<textarea id="payload" placeholder='粘贴JSON：{"stocks":[{"symbol":"000001","market":"main","feed":{"source":"imported","timestamp":...},"bars":[...]}]}'></textarea>
+<p class="muted">输入：stocks 数组，每只 27～500 根K线，最多100只；回测建议至少40根。文件仅发送到当前V6服务，不会上传到其他服务。</p>
+</section><p id="capabilities" class="muted">等待读取研究能力状态（开发者权限）</p><section id="status" class="card">等待输入数据。</section>
+<section class="card" id="liveBreadth"><h3>东方财富 · 全市场行情宽度</h3>
+<p class="muted">开发者按需联网抓取公开报价，数据源可能延迟、不可用或不完整。仅展示市场宽度，不自动推断涨跌停或改变选股策略；请求日期不等于逐笔交易日期。</p>
+<p><button id="fetchLiveBreadth" type="button">联网获取市场宽度</button></p>
+<div id="liveBreadthStatus" class="muted" role="status" aria-live="polite">尚未请求行情</div>
+<div id="liveBreadthSummary" class="cards" aria-live="polite"></div>
+</section>
+<section class="card" id="marketResearch"><h3>市场宽度与环境研究 <span class="muted">C03 · 独立研究，不改变选股结果</span></h3>
+<p class="muted">粘贴带来源和交易日期的市场快照，及同一交易日独立来源的五项评分。覆盖率不足或缺失评分会明确显示不可用。非自动实时行情。</p>
+<label for="marketPayload">市场研究 JSON</label>
+<textarea id="marketPayload" aria-label="市场宽度与环境研究 JSON" placeholder='{"snapshot":{"date":"2026-11-05","source":"licensed-feed","universeSize":2,"stocks":[{"code":"000001","pctChange":2},{"code":"000002","pctChange":-1}]},"scoreSource":"independent-index","scoreDate":"2026-11-05","scores":{"indexTrendScore":65,"marketVolumeScore":60,"riskScore":20,"volatilityScore":30,"sentimentScore":70}}'></textarea>
+<p><button id="marketAnalyze" type="button">分析市场宽度和环境</button></p>
+<div id="marketStatus" class="muted" role="status" aria-live="polite">等待提交带来源的数据</div>
+<div id="marketSummary" class="cards" aria-live="polite"></div></section>
+<div id="summary" class="cards"></div><section id="results" class="card" hidden><h3 id="resultTitle"></h3><div id="table" class="scroller"></div></section>
+</main><script src="/assets/research-workbench.js"></script></body></html>

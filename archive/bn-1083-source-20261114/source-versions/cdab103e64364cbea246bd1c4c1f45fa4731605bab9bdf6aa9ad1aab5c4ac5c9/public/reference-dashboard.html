@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#061326"><title>V6 量化看盘系统 · 参考图布局</title>
+<link rel="stylesheet" href="/assets/v6-reference-dashboard.css?v=20261105r2">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="返回V6主系统"><span class="brand-mark">▥</span><span><b>V6 量化看盘系统</b><small>A股智能选股 · 量化策略 · 风控交易辅助</small></span></a>
+  <nav class="topnav" aria-label="主导航"><a class="active" href="/">⌂ 首页</a><a href="/research.html">◉ 智能选股</a><a href="/#v6-strategy">▣ 策略研究</a><a href="/#v6-plan">▥ 回测分析</a><a href="/#v6-paper">◉ 模拟交易</a><a href="/#v6-market">▤ 行情中心</a><a href="/#holdSec1">⬡ 风险控制</a><a href="/#v6-stock">▤ 排行榜</a></nav>
+  <div class="top-actions"><button aria-label="消息">♧<i>3</i></button><button aria-label="系统设置">⚙</button><a href="/#lockPanel">◉ <span>开发者</span></a></div>
+</header>
+<div class="mobile-head"><div class="mobile-brand"><span class="brand-mark">▥</span><span><b>V6 量化看盘系统</b><small>A股智能选股 · 策略研究 · 风险控制</small></span></div><div class="mobile-actions"><a href="/research.html">⌕</a><a href="/#v6-news">♧<i>3</i></a><a href="/#lockPanel">●</a></div></div>
+<nav class="mobile-nav"><a class="active" href="/">⌂ 首页</a><a href="/research.html">◎ 智能选股</a><a href="/#v6-strategy">♧ 策略研究</a><a href="/#v6-plan">▥ 回测分析</a><a href="/#v6-market">▤ 行情中心</a><a href="/#v6-paper">▦ 更多</a></nav>
+<aside class="sidebar">
+ <a class="selected" href="/#v6-market">▣ 总览仪表盘</a><a href="/#v6-market">♧ 市场环境</a><a href="/research.html">⌕ 选股中心</a><a href="/research.html">▣ AI策略引擎</a>
+ <details open><summary>◎ 四套选股体系</summary><a href="/research.html">十四条选股</a><a href="/research.html">八字口诀</a><a href="/research.html">GPT 五策略</a><a href="/research.html">Python 三轮筛选</a></details>
+ <a href="/#v6-plan">▧ 策略回测</a><a href="/#v6-paper">▣ 模拟交易</a><a href="/#holdSec1">⬡ 持仓与风控</a><a href="/#v6-stock">♧ 选股排行榜</a><a href="/#v6-news">♧ 消息与推送</a><a href="/#lockPanel">⚙ 系统设置</a>
+ <div class="side-foot">V6 量化看盘系统<br><small>参考图布局 · 实时数据以主系统为准</small></div>
+</aside>
+<main class="dashboard">
+ <div class="market-meta"><strong id="trade-date">行情数据读取中</strong><span id="source-state">当前页为布局预览；行情请以主系统接口为准</span></div>
+ <section class="indices">
+  <article class="panel index"><b>上证指数</b><strong data-index="sh">--</strong><small data-index-pct="sh">等待行情接口</small><div class="spark"><i></i></div></article>
+  <article class="panel index"><b>深证成指</b><strong data-index="sz">--</strong><small data-index-pct="sz">等待行情接口</small><div class="spark"><i></i></div></article>
+  <article class="panel index"><b>创业板指</b><strong data-index="cyb">--</strong><small data-index-pct="cyb">等待行情接口</small><div class="spark"><i></i></div></article>
+  <article class="panel index"><b>科创50</b><strong data-index="kc50">--</strong><small data-index-pct="kc50">等待行情接口</small><div class="spark"><i></i></div></article>
+  <article class="panel gauge"><b>市场情绪</b><div class="gauge-ring"><span id="mood-score">--</span></div><small id="mood-label">等待真实情绪数据</small></article>
+  <article class="panel environment"><b>市场环境判断</b><strong id="market-verdict">等待数据</strong><small id="market-why">趋势、资金与广度指标待确认</small></article>
+  <article class="panel mobile-risk"><b>⬡ 风险提示</b><p>涨停家数 <strong id="risk-zt">待计算</strong></p><p>候选数量 <strong id="risk-candidates">待计算</strong></p><small id="risk-asof">行情状态待确认</small></article>
+ </section>
+ <section class="summary">
+  <article class="panel ai-summary"><h2><span class="ai-icon">AI</span> AI 综合选股信号</h2><div class="chips"><a href="/research.html"><small>今日候选</small><b id="pick-count">--</b><em>只</em></a><a href="/research.html"><small>重点关注</small><b id="focus-count">--</b><em>只</em></a><a href="/research.html"><small>可研究</small><b id="research-count">--</b><em>只</em></a><a href="/research.html"><small>风险剔除</small><b id="blocked-count">--</b><em>只</em></a></div></article>
+  <article class="panel strategy-count"><h2>▥ 四套策略信号数量</h2><div class="strategy-row">十四条选股 <b data-strategy="rule14">待核验</b><i></i></div><div class="strategy-row">八字口诀 <b data-strategy="bazi">待核验</b><i></i></div><div class="strategy-row">GPT 五策略 <b data-strategy="gpt">待核验</b><i></i></div><div class="strategy-row">Python 三轮筛选 <b data-strategy="python">待核验</b><i></i></div></article>
+  <article class="panel risk"><h2>⬡ 风控概览</h2><p>涨停家数 <b id="risk-zt-desktop">待计算</b></p><p>候选数量 <b id="risk-candidates-desktop">待计算</b></p><p>数据新鲜度 <b id="risk-fresh">待核验</b></p><p>账户风控 <b class="green">请进入风控页核验</b></p></article>
+  <article class="panel strategy-performance"><h2>▥ 今日策略表现 <small>（近20日）</small></h2><p>十四条选股 <b>规则保留</b></p><p>八字口诀 <b>规则保留</b></p><p>GPT 五策略 <b>待独立验证</b></p><p>Python 三轮筛选 <b>待独立验证</b></p></article>
+ </section>
+ <section class="workarea">
+  <article class="panel ranking"><div class="rank-tabs"><a class="on" href="/research.html">🏆 AI选股排行榜</a><a href="/research.html">重点关注</a><a href="/research.html">买卖信号</a><a href="/research.html">策略表现</a><button type="button">综合评分排序⌄</button></div>
+   <div class="table-scroll"><table><thead><tr><th>#</th><th>股票代码</th><th>股票名称</th><th>最新价</th><th>涨跌幅</th><th>综合评分</th><th>主要信号</th><th>策略来源</th><th>风险等级</th><th>操作</th></tr></thead><tbody id="ranking-body"><tr><td colspan="10">正在读取服务端选股结果</td></tr></tbody></table></div>
+  </article>
+  <aside class="right-stack">
+   <article class="panel chart-panel"><div class="chart-tabs"><b>K线走势</b><a href="/#v6-market">资金流向</a><a href="/#v6-market">技术指标</a><a href="/research.html">诊断分析</a></div><div class="chart-head"><b id="chart-stock">等待选择股票</b><span id="chart-state">行情未载入</span></div><div class="chart-grid" id="chart-canvas"><div class="empty-chart">等待真实 K 线数据</div></div><div class="volume" id="chart-volume"></div></article>
+   <article class="panel diagnosis"><h2>▣ AI 信号解释 <a href="/research.html">详细分析 ›</a></h2><strong id="diagnosis-status">研究信号说明（非交易指令）</strong><ul id="diagnosis-list"><li>趋势：等待已验证的行情数据。</li><li>资金：等待资金流数据源确认。</li><li>基本面：需核验最新财报与公告。</li><li>策略共振：等待四套策略计算结果。</li><li>风险提示：数据未齐全前不提供交易结论。</li></ul></article>
+  </aside>
+ </section>
+</main>
+<nav class="mobile-dock"><a href="/" class="on"><b>⌂</b><small>首页</small></a><a href="/research.html"><b>☆</b><small>自选股</small></a><a href="/#v6-market"><b>▥</b><small>行情</small></a><a class="ai" href="/research.html"><b>✦</b><small>AI</small></a><a href="/#v6-paper"><b>⇄</b><small>模拟交易</small></a><a href="/#holdSec1"><b>⬡</b><small>风控</small></a><a href="/#lockPanel"><b>♙</b><small>我的</small></a></nav>
+<script src="/assets/v6-reference-dashboard.js?v=20261105r2" defer></script>
+</body></html>

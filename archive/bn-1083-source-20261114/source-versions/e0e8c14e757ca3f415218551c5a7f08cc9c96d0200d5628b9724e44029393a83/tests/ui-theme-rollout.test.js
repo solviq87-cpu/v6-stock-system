@@ -1,0 +1,5 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
+const pub=path.join(__dirname,'..','public');const read=p=>fs.readFileSync(path.join(pub,p),'utf8');
+test('desktop theme is loaded without removing original app entrypoint',()=>{const html=read('index.html');assert.match(html,/v6-design\.css/);assert.match(html,/assets\/app\.js/);assert.match(html,/v6-design-nav/);assert.match(html,/href="\/research\.html"/)});
+test('mobile preserves original runtime and introduces larger tap targets',()=>{const html=read('mobile.html');assert.match(html,/V6 量化看盘系统/);assert.match(html,/\.foot a,\.foot button\{min-height:50px/);assert.match(html,/function netFastLane\(/);assert.match(html,/id="app"/);assert.match(html,/id="gate"/)});
+test('desktop design theme includes responsive and accessibility treatment',()=>{const css=read('assets/v6-design.css');assert.match(css,/@media\(max-width:760px\)/);assert.match(css,/focus-visible/);assert.match(css,/prefers-reduced-motion/);assert.doesNotMatch(css,/600519|300750|96\.8/)});

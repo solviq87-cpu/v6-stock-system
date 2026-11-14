@@ -1,0 +1,43 @@
+'use strict';
+/** Fail-closed comparison of two OPERATOR-SUPPLIED, independently labeled feeds.
+ * Comparison does not certify market truth or grant a live-trading capability. */
+const crypto=require('node:crypto');
+const {validateDataset}=require('./historical-validation');
+const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,maxDiscrepancies=100}={}){
+ for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
+  if((name==='maxDiscrepancies'&&!Number.isSafeInteger(v))||typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error('多源核对参数无效: '+name);
+ }
+ const a=validateDataset(primary),b=validateDataset(secondary);
+ if(primary.source!=='imported'||secondary.source!=='imported'||!primary.provider||!secondary.provider||primary.provider===secondary.provider||!primary.datasetId||!secondary.datasetId)throw Error('多源核对必须为不同供应商提供的独立 imported 数据');
+ if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');
+ if(!primary.priceAdjustment||!secondary.priceAdjustment||!['qfq','hfq','unadjusted'].includes(primary.priceAdjustment.mode)||primary.priceAdjustment.mode!==secondary.priceAdjustment.mode)throw Error('多源核对要求一致且明确的复权方式');
+ const bs=new Map(secondary.stocks.map(s=>[String(s.code||s.symbol),s]));
+ const differences=[];let total=0,comparedBars=0,maximumPriceDifferenceBps=0,maximumVolumeDifferencePct=0;
+ function note(symbol,date,field,lhs,rhs,relative){total++;if(differences.length<maxDiscrepancies)differences.push({symbol,date,field,primary:lhs,secondary:rhs,relativeDifference:Math.round(relative*1e4)/1e4});}
+ for(const s of primary.stocks){
+  const symbol=String(s.code||s.symbol),other=bs.get(symbol);
+  if(!other)throw Error('多源股票代码集合不一致: '+symbol);
+  for(let i=0;i<s.bars.length;i++){
+   const x=s.bars[i],y=other.bars[i];if(x.date!==y.date)throw Error('多源交易日错位: '+symbol);
+   comparedBars++;
+   for(const field of ['open','high','low','close']){
+    const value=Math.abs(x[field]-y[field])/Math.max(Math.abs(x[field]),Math.abs(y[field]),1e-9)*10000;
+    maximumPriceDifferenceBps=Math.max(maximumPriceDifferenceBps,value);
+    if(value>priceToleranceBps)note(symbol,x.date,field,x[field],y[field],value);
+   }
+   const volume=Math.abs(x.volume-y.volume)/Math.max(x.volume,y.volume,1)*100;
+   maximumVolumeDifferencePct=Math.max(maximumVolumeDifferencePct,volume);
+   if(volume>volumeTolerancePct)note(symbol,x.date,'volume',x.volume,y.volume,volume);
+  }
+ }
+ return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
+  primary:{provider:primary.provider,datasetId:primary.datasetId,fingerprint:sha(primary)},
+  secondary:{provider:secondary.provider,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
+  priceAdjustmentMode:primary.priceAdjustment.mode,comparedBars,discrepancies:total,displayedDiscrepancies:differences,
+  maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
+  maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
+  consensus:total===0,releaseReady:false,
+  warning:'只比较两份声称独立的行情数值及复权口径；没有验证供应商身份、授权、交易所日历或公司行为，严禁视为实盘放行'};
+}
+module.exports={compareMarketFeeds};

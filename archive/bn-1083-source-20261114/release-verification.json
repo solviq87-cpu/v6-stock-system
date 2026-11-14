@@ -1,0 +1,87 @@
+{
+  "releaseId": 442994958,
+  "assetIds": [
+    739838558,
+    739843111,
+    739849697,
+    739853577
+  ],
+  "manifest": {
+    "format": "original-zip-byte-chunks-v1",
+    "original": {
+      "name": "V6_1083_full_20261106bn.zip",
+      "version": "V6 1083 / 20261106bn",
+      "size_bytes": 70485833,
+      "sha256": "f5fa0209f6b2045933cd3662600ab08b880c35ac3f3da8fae88619bc72ac8e78"
+    },
+    "part_count": 4,
+    "parts": [
+      {
+        "index": 1,
+        "package_name": "V6_1083_full_20261106bn_part01of04.zip",
+        "payload_name": "V6_1083_full_20261106bn.zip.chunk001of004.bin",
+        "offset_bytes": 0,
+        "size_bytes": 18000000,
+        "sha256": "d69797a73735d6b7fc0ce2d84dc66393a63762c64a76907c19ea6d67cf93bbda"
+      },
+      {
+        "index": 2,
+        "package_name": "V6_1083_full_20261106bn_part02of04.zip",
+        "payload_name": "V6_1083_full_20261106bn.zip.chunk002of004.bin",
+        "offset_bytes": 18000000,
+        "size_bytes": 18000000,
+        "sha256": "62999c88b23783b3a46e425f6ff7676fbe3d8afe5ee83e6b561eec4c258cba93"
+      },
+      {
+        "index": 3,
+        "package_name": "V6_1083_full_20261106bn_part03of04.zip",
+        "payload_name": "V6_1083_full_20261106bn.zip.chunk003of004.bin",
+        "offset_bytes": 36000000,
+        "size_bytes": 18000000,
+        "sha256": "eba1abc0b62725aaf1cab3cb620fe51606fa16f7019e0164009936faad01a846"
+      },
+      {
+        "index": 4,
+        "package_name": "V6_1083_full_20261106bn_part04of04.zip",
+        "payload_name": "V6_1083_full_20261106bn.zip.chunk004of004.bin",
+        "offset_bytes": 54000000,
+        "size_bytes": 16485833,
+        "sha256": "3a392fb685f1fbb0d40020fe7875d950b922bf8b899e1b5b257fae1abd2a97dd"
+      }
+    ]
+  },
+  "wrappers": [
+    {
+      "name": "V6_1083_full_20261106bn_part01of04.zip",
+      "size": 18011692,
+      "sha256": "a8bf58238cb417b711a7a3e5ac1a97296ecc12fcd900c893efd6be6a7d5427d6",
+      "chunkVerified": true
+    },
+    {
+      "name": "V6_1083_full_20261106bn_part02of04.zip",
+      "size": 18011692,
+      "sha256": "8bf700e5b3b6c18b37ba415ddbc2c73ccb30947834681f7a89669ce5fc0c380a",
+      "chunkVerified": true
+    },
+    {
+      "name": "V6_1083_full_20261106bn_part03of04.zip",
+      "size": 18011692,
+      "sha256": "6adee0361f12891d6f5eb9281b59f8f6e5d1dcf71a318794b6228f8aee319508",
+      "chunkVerified": true
+    },
+    {
+      "name": "V6_1083_full_20261106bn_part04of04.zip",
+      "size": 16497525,
+      "sha256": "2e3db9ece4926ee043534f622badc95fb32dc3edf1bd925a0bed08d97c7f08aa",
+      "chunkVerified": true
+    }
+  ],
+  "originalSha256": "f5fa0209f6b2045933cd3662600ab08b880c35ac3f3da8fae88619bc72ac8e78",
+  "restorationTool": {
+    "repositoryPath": "archive/bn-1083-source-20261114/release-tools/restore_v6_bn.py",
+    "bytes": 7618,
+    "sha256": "3bbe744addac1e009b213a283c53dbac810c41f0e40b82103874a11e621e519f",
+    "identicalInAllFourWrappers": true,
+    "executed": false
+  }
+}

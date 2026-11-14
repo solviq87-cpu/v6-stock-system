@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>量化看盘平台 · 龙头推断与涨停捕捉</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/assets/app.css?v=20261104ui2">
+<link rel="stylesheet" href="/assets/v6-design.css?v=20261105ui47">
+<link rel="stylesheet" href="/assets/v6-reference-ui.css?v=20261105ref1">
+<link rel="stylesheet" href="/assets/v6-reference-precision.css?v=20261105ref3">
+</head>
+<body>
+<div class="wrap">
+<nav class="v6-design-nav" aria-label="V6 主导航"><a href="/" aria-current="page">⌂ 首页</a><a href="/research.html">◈ 智能选股</a><a href="#v6-stock">▣ 策略研究</a><a href="#v6-plan">▥ 回测分析</a><a href="#v6-paper">◉ 模拟交易</a><a href="#v6-market">▤ 行情中心</a><a href="#holdSec1">⬡ 风险控制</a><a href="#v6-release">⚙ 系统设置</a><a href="/m">▣ 手机看盘</a><span class="v6-design-note">行情、信号和研究数据均来自现有接口；未验证数据不作交易依据</span></nav>
+  <div class="v6-research-entry" data-eo="hide"><a href="/research.html">🧪 V6 选股、战法与回测研究工作台（开发者）</a></div>
+  
+  <!-- V6 双端快捷导航：仅锚点跳转，不改变已有卡片 ID、权限或数据接口。 -->
+  <a class="v6-skip-link" href="#v6-market">跳转到盘面总览</a>
+  <nav class="v6-quick-nav" aria-label="工作台功能快捷导航">
+    <span class="v6-nav-label">工作台导航</span>
+    <a class="v6-nav-link v6-nav-primary" href="/m" title="深色手机速览看盘">🌙 速览看盘</a>
+    <a class="v6-nav-link v6-nav-primary" href="/research.html" data-eo="hide" title="开发者研究工作台">🧠 研究工作台</a>
+    <a class="v6-nav-link" href="#v6-market">盘面总览</a>
+    <a class="v6-nav-link" href="#v6-stock">外围与选股</a>
+    <a class="v6-nav-link" href="#v6-paper">模拟盘</a>
+    <a class="v6-nav-link" href="#v6-news">消息联动</a>
+    <a class="v6-nav-link" href="#v6-plan">明日计划</a>
+    <a class="v6-nav-link" href="#v6-review">复盘学习</a>
+    <a class="v6-nav-link" href="#v6-strategy">智能策略</a>
+    <a class="v6-nav-link" href="#v6-release">发布看板</a>
+  </nav>
+  <header>
+    <h1>📈 量化看盘平台</h1>
+    <span id="mkt" class="badge">--</span>
+    <span>刷新倒计时 <span id="cd" class="cd">5</span>s</span>
+    <span class="muted" id="tickinfo">--</span>
+    <span style="flex:1"></span>
+    <button data-eo="hide" class="btn ghost" id="btnHdrTools" onclick="toggleHdrTools()" title="推送通道/自查工具平时用不着，收在这里。点了才展开">🛠 工具</button>
+    <span id="rtState" class="badge" title="服务端实时通道：有新推送/新信号时页面立即刷新">⚪ 实时连接中…</span>
+    <span id="roleState" class="badge" title="当前登录身份">—</span>
+    <span id="wecomState" class="badge">微信未配置</span>
+    <span id="mailState" class="badge">邮箱未配置</span>
+    <button class="btn ghost" id="btnMobile" onclick="location.href='/m'" title="手机看盘专用速览页：信息更集中、更适合滑动">📱 速览</button>
+    <button class="btn ghost" id="btnLock" onclick="identBtn()" title="切换/升级登录身份">🔓 身份</button>
+    <button class="btn ghost" id="btnPanelToggle" onclick="toggleAllPanels()" title="一键收起/展开所有票池面板（每个面板标题前的小箭头也可单独折叠）">🔼 面板收起</button>
+    <button class="btn ghost" id="btnPanelPick" onclick="togglePanelPicker()" title="想看哪个就看哪个：勾选你要显示的面板">👁 选面板</button>
+  </header>
+  <!-- 🛠 顶部工具抽屉：推送通道配置、自检推送、推送流水这些「几个月才碰一次」的东西
+       默认收起，头部只留一个「🛠 工具」按钮。展开状态记在本地，下次打开还是你上次的样子。 -->
+  <div id="hdrTools" data-eo="hide" style="display:none;margin:8px 0;padding:10px 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <span class="muted">主通道:</span><input type="text" id="webhook" placeholder="飞书机器人 Webhook（必填）" style="width:280px" title="形如 https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx">
+      <input type="password" id="feishuSecret" placeholder="签名密钥(可选)" style="width:120px" title="群里开启「签名校验」时才需要填；没开就留空">
+      <span class="muted">备用:</span><input type="text" id="mailUser" placeholder="QQ邮箱(可选)" style="width:130px">
+      <input type="password" id="mailAuth" placeholder="SMTP授权码" style="width:100px">
+      <input type="text" id="mailTo" placeholder="收件邮箱(默认同上)" style="width:150px">
+      <button class="btn ghost" onclick="saveCfg()" title="保存。粘贴了新机器人地址时会先让它推一条体检消息——推通了才替换，推不通则原样保留旧通道，不会把你弄成「推不出去」">💾 保存/换通道</button>
+      <button class="btn ghost" onclick="fsOff()" title="停用并清空当前飞书机器人地址（之后信号不再推送）">🗑 停用</button>
+      <button class="btn ghost" onclick="testPush()" title="发一条测试消息：验证飞书/邮箱通道 与 面板实时刷新是否正常">🔔 自检推送</button>
+      <button class="btn ghost" onclick="showPushLog()" title="查看最近推送流水：竞价/复盘/新闻/盘中快报到底有没有发出去">📋 推送流水</button>
+    </div>
+    <!-- 🔐 私密通道（2026-10-05）：群里人多，验证码会被盗用、持仓金额不敢写。
+         单独配一个只有本人的机器人，验证码 + 持仓两类消息只发这里，群里看不到。 -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dee2e6">
+      <span class="muted">🔐 私密通道:</span>
+      <input type="text" id="secWebhook" placeholder="私密机器人 Webhook（可选·建议只有你本人）" style="width:280px" title="验证码与持仓推送改发这个机器人，群里的人看不到。留空=不启用，两类消息仍走上面的主通道（持仓金额照旧不显示）">
+      <input type="password" id="feishuSecSecret" placeholder="签名密钥(可选)" style="width:120px" title="这个机器人开启「签名校验」时才需要填；没开就留空">
+      <button class="btn ghost" onclick="saveSecCfg()" title="保存。会先让新机器人推一条体检消息，推通了才写入；推不通则保留原配置，不会把你弄成「私密消息发不出去」">🔐 保存/体检</button>
+      <button class="btn ghost" onclick="secOff()" title="停用私密通道：验证码与持仓退回主通道（持仓恢复为不显示金额）">🗑 停用私密</button>
+      <span id="secState" class="badge">私密通道未配置</span>
+      <span class="muted" style="font-size:12px">（启用后：找回密码验证码、持仓风控只发这里，且持仓会带上成本/金额/股数）</span>
+    </div>
+    <!-- ⏱ 推送时段与开关（2026-10-07 df）：系统里好几处提示都让用户「到面板来关/来查」，
+         而这一块以前根本不存在 —— 那些提示是没有任何兑现路径的空头承诺。
+         这一栏完全由服务端 /api/state 的 cfgSet 渲染（名称与说明都由兑现方产出，面板不另抄一份）。 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dee2e6">
+      <b style="font-size:13px">⏱ 推送时段 / 开关</b>
+      <span id="cfgSetBox" class="muted" style="font-size:12px">读取中…</span>
+    </div>
+    <!-- 🎚 门槛 / 额度（2026-10-07 dg）：用户把某个门槛调乱之后想改回来，
+         以前面板上没有任何一处写着「默认是多少」—— 默认值只活在 _govCfg 调用点的第二个参数里，
+         而 probThreshold 甚至还有第二份（S.config 初始对象的 0.80），两处说的不是同一个数。
+         更要紧的是：写入端 cfgRangeErrors 只体检【新提交】的值，config.json 里躺着的越界旧值
+         从来没人兜 —— 这一栏把「文件里是什么 / 实际按什么生效 / 默认是多少」直接说出来。 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dee2e6">
+      <b style="font-size:13px">🎚 门槛 / 额度</b>
+      <span id="cfgRangeBox" class="muted" style="font-size:12px">读取中…</span>
+    </div>
+    <!-- 🩺 各模块本轮状态（2026-10-07 dk）：同一个「这一轮没跑成」，以前各模块各说各的 ——
+         三个任务会写状态、其余几个只打日志甚至空 catch 静默，面板一律显示上一次成功的数据，
+         用户没法判断「这是没跑，还是跑砸了」。现在九个周期任务统一由 taskSet 产出，面板一处看全。 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #dee2e6">
+      <b style="font-size:13px">🩺 各模块本轮状态</b>
+      <span id="taskBox" class="muted" style="font-size:12px">读取中…</span>
+      <br><span id="staleBox" class="muted" style="font-size:12px">读取中…</span>
+    </div>
+  </div>
+  <!-- 「想看哪个就看哪个」面板选择器：勾选要显示的面板，未勾选的直接隐藏（与"折叠"互不冲突） -->
+  <div id="panelPicker" style="display:none;margin:8px 0;padding:10px 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
+      <b>👁 显示哪些面板</b>
+      <button class="btn ghost" style="padding:2px 10px;font-size:12px" onclick="setAllPanelsVisible(true)">全选</button>
+      <button class="btn ghost" style="padding:2px 10px;font-size:12px" onclick="setAllPanelsVisible(false)">全不选</button>
+      <span class="muted" style="font-size:12px">只勾你关心的；选择会被记住。不想整块收起时用它最方便。</span>
+    </div>
+    <div id="panelPickerList" style="display:flex;flex-wrap:wrap;gap:6px 14px"></div>
+  </div>
+  <!-- 开发者锁面板：修改源码/推送配置/清空模拟盘统一在此解锁（页面内联，不弹窗） -->
+  <div id="lockPanel" data-eo="hide" style="display:none;margin:8px 0;padding:10px 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <b>🔒 开发者锁</b>
+      <input type="password" id="lockPwd" placeholder="密码" style="width:140px" autocomplete="current-password" spellcheck="false" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')doUnlock()" onpaste="setTimeout(lockClean,0)">
+      <button class="btn ghost" onclick="lockPaste()" title="Ctrl+V 粘不进来时点这里，直接从剪贴板读取">📋</button>
+      <button class="btn ghost" onclick="lockEye()" title="显示/隐藏密码">👁</button>
+      <input type="password" id="lockPwd2" placeholder="新密码（改密时填）" style="width:160px">
+      <button class="btn" onclick="doUnlock()">解锁 / 首次设置</button>
+      <button class="btn ghost" onclick="doChangePwd()">修改密码</button>
+      <button class="btn ghost" onclick="doLock()">立即锁定</button>
+      <span class="muted" id="lockTip">未设置密码时，第一次输入即为设置</span>
+      <button class="btn ghost" onclick="renderDevPwdState()" title="显示当前开发者密码明文。服务端只存加盐哈希、无法反推，所以重启后需要你自己登录/修改/找回过一次才会重新有值">👁 我的开发者密码</button>
+    </div>
+    <div id="devPwdTip" class="muted" style="font-size:12px;margin-top:5px"></div>
+    <!-- 开发者面板标签页：把 8 块管理功能收进 5 个标签，省去一路往下翻 -->
+    <div id="lockTabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+      <button class="ltab-btn active" data-t="dev" onclick="lockTab('dev')">📱 设备</button>
+      <button class="ltab-btn" data-t="view" onclick="lockTab('view')">👁 观看</button>
+      <button class="ltab-btn" data-t="code" onclick="lockTab('code')">🔢 授权码</button>
+      <button class="ltab-btn" data-t="phone" onclick="lockTab('phone')">📲 找回</button>
+      <button class="ltab-btn" data-t="src" onclick="lockTab('src')">📝 源码</button>
+    </div>
+    <div class="locktab" data-tab="dev" style="margin-top:8px">
+      <!-- 手机访问提示 -->
+      <div style="background:#e7f5ff;border:1px solid #a5d8ff;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#1c4b8a;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <b>📱 手机看盘的正确姿势</b>
+        <span>主面板是给电脑设计的；手机请访问 <code>/m</code> 速览页，信息更集中、更好滑。</span>
+        <a class="btn ghost" style="padding:2px 10px;font-size:12px" href="/m" target="_blank">打开 /m</a>
+        <span class="muted" style="font-size:11px">添加到主屏幕后可像 App 一样用。</span>
+      </div>
+      <!-- 受信任设备：外部设备验证一次口令后长期免密，可在此查看/撤销 -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">📱 已授权设备</b>
+          <span class="muted" style="font-size:12px">这些设备验证过一次口令，之后打开自动免密</span>
+          <button class="btn ghost" onclick="loadDevices()" style="padding:3px 12px;font-size:12px">刷新列表</button>
+          <button class="btn ghost" onclick="openLogin()" style="padding:3px 12px;font-size:12px" title="随时弹出登录窗口：换身份登录，或在另一台设备上用 6 位授权码登录">🔑 登录窗口 / 切换身份</button>
+          <button class="btn ghost" onclick="logoutHere()" style="padding:3px 12px;font-size:12px" title="清除本机保存的免密凭证，下次打开需重新输口令（不影响其它设备）">🚪 退出本机授权</button>
+        </div>
+        <div id="devList" class="muted" style="font-size:12px;margin-top:6px">解锁后可查看</div>
+      </div>
+      <!-- 🔐 待确认只读设备：知道观看密码的人登录后先进这里，你点「允许」才放行 -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">🔐 待确认只读设备</b>
+          <span class="muted" style="font-size:12px">对方输对观看密码后会出现在这里，<b>你点「允许」他才能进来</b>；放行过的设备以后免确认</span>
+          <button class="btn ghost" onclick="loadPending()" style="padding:3px 12px;font-size:12px">刷新</button>
+        </div>
+        <div id="pendingList" class="muted" style="font-size:12px;margin-top:6px">暂无待确认申请</div>
+      </div>
+      <!-- 在线设备（实时）：谁正在看、是开发者还是仅查看端、各自的 ID -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">🟢 在线设备（实时）</b>
+          <span class="muted" style="font-size:12px">看现在有几个人在线，谁是开发者、谁是用观看密码进来的仅查看端</span>
+          <button class="btn ghost" onclick="loadOnlineDevices()" style="padding:3px 12px;font-size:12px">刷新</button>
+          <span class="muted" style="font-size:12px">本机 ID <b id="myDid">—</b></span>
+        </div>
+        <div id="onlineDevList" class="muted" style="font-size:12px;margin-top:6px">解锁后可查看</div>
+      </div>
+    </div>
+    <div class="locktab" data-tab="view" style="display:none;margin-top:8px">
+      <!-- 观看密码（只读）：给别人看行情用，看不到"我的持仓"，可随时改或一键下线 -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">👁 观看密码（只读）</b>
+          <span class="muted" style="font-size:12px">发给别人只能看行情改不了东西，也看不到「我的持仓」；对方验证一次即可长期观看</span>
+          <input type="password" id="viewPwd" placeholder="新只读密码（≥4位）" style="width:180px">
+          <button class="btn ghost" onclick="setViewPwd()" style="padding:3px 12px;font-size:12px" title="设置一个新口令；已经设过时点它就是修改（会把已授权的只读设备全部踢下线，它们需重新向你申请）">🔑 设置 / 修改只读密码</button>
+          <button class="btn ghost" onclick="renderViewPwdState()" style="padding:3px 12px;font-size:12px">👁 显示当前口令</button>
+          <button class="btn ghost" onclick="loadViewDevices()" style="padding:3px 12px;font-size:12px">看观看设备</button>
+        </div>
+        <div id="viewDevList" class="muted" style="font-size:12px;margin-top:6px">点击「看观看设备」查看通过只读密码登录的设备</div>
+        <div id="viewPwdTip" class="muted" style="font-size:12px;margin-top:5px">未设置</div>
+      </div>
+    </div>
+    <div class="locktab" data-tab="code" style="display:none;margin-top:8px">
+      <!-- 登录授权码：给"粘贴不了密码"的另一台设备用，6 位数字手打登录 -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">🔢 登录授权码</b>
+          <span class="muted" style="font-size:12px">另一台设备打不开/粘不了密码时，给它生成一个 6 位数字，手打即可登录</span>
+          <button class="btn ghost" onclick="genAuthCode()" style="padding:3px 12px;font-size:12px">生成一个</button>
+        </div>
+        <div id="authCodeBox" class="muted" style="font-size:12px;margin-top:6px">点「生成一个」→ 把显示的 6 位数字敲到另一台设备的登录框里</div>
+      </div>
+    </div>
+    <div class="locktab" data-tab="phone" style="display:none;margin-top:8px">
+      <!-- 找回手机号：忘记开发者密码时的唯一自救通道，只有绑定号码能验证 -->
+      <div style="border-top:1px dashed #adb5bd;padding-top:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <b style="font-size:13px">📲 找回手机号（忘记密码用）</b>
+          <span class="muted" style="font-size:12px">忘记开发者密码时用此号接收验证码；<b>仅此一个号码</b>可验证</span>
+          <input type="text" id="bindPhone" placeholder="新的找回手机号" style="width:150px">
+          <button class="btn ghost" onclick="saveBindPhone()" style="padding:3px 12px;font-size:12px">绑定 / 改绑</button>
+          <button class="btn ghost" onclick="testOtp()" style="padding:3px 12px;font-size:12px">发一条测试验证码</button>
+        </div>
+        <div id="bindPhoneTip" class="muted" style="font-size:12px;margin-top:5px">读取中…</div>
+      </div>
+    </div>
+    <div class="locktab" data-tab="src" style="display:none;margin-top:8px">
+      <div id="srcArea" style="border-top:1px dashed #adb5bd;padding-top:10px">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
+          <span class="muted">源码文件:</span>
+          <select id="srcFile" onchange="loadSrc()" style="padding:4px 6px">
+            <option value="server.js">server.js（主服务）</option>
+            <option value="analysis.js">analysis.js（策略算法）</option>
+            <option value="em.js">em.js（行情数据源）</option>
+            <option value="mailer.js">mailer.js（邮件通道）</option>
+            <option value="themeMap.json">themeMap.json（题材纠偏表）</option>
+            <option value="public/index.html">public/index.html（面板）</option>
+          </select>
+          <button class="btn ghost" onclick="loadSrc()">读取</button>
+          <button class="btn" onclick="saveSrc()">保存生效</button>
+          <button class="btn ghost" onclick="copyAllSource()" title="把当前运行的所有源码聚合后复制到剪贴板（过大时自动下载为 all-source.txt）">📋 复制所有源码</button>
+          <span id="copySrcState" class="muted" style="font-size:12px"></span>
+          <span class="muted">保存前自动做语法检查，原文件会备份为 .bak</span>
+        </div>
+        <textarea id="srcEdit" spellcheck="false" style="width:100%;height:320px;font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.5;padding:8px;border:1px solid #ced4da;border-radius:6px"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- V6 reference composition: live status tiles use existing app state only; no sample market values. -->
+  <section class="v6-reference-hero" aria-label="V6 盘面状态总览">
+    <div class="v6-ref-brand"><span class="v6-ref-logo">V6</span><span><b>量化看盘系统</b><small>A股智能选股 · 策略研究 · 风控交易辅助</small></span></div>
+    <div class="v6-ref-clock"><span id="v6RefDate">行情状态同步中</span><span id="v6RefConnection">数据源状态以服务端为准</span></div>
+    <div class="v6-ref-metrics">
+      <a class="v6-ref-metric" href="#v6-market"><small>行情连接</small><strong id="v6RefMarket">读取中</strong><em id="v6RefMarketNote">等待行情服务</em></a>
+      <a class="v6-ref-metric" href="#v6-market"><small>市场情绪</small><strong id="v6RefMood">等待数据</strong><em>来自当前市场情绪模块</em></a>
+      <a class="v6-ref-metric" href="#v6-stock"><small>综合精选池</small><strong id="v6RefPool">等待数据</strong><em id="v6RefPoolNote">来自现有选股池</em></a>
+      <a class="v6-ref-metric" href="#v6-strategy"><small>策略研究</small><strong id="v6RefStrategy">等待数据</strong><em>四套策略与研究信号</em></a>
+      <a class="v6-ref-metric v6-ref-metric-risk" href="#holdSec1"><small>风险与账户</small><strong>风险控制中心</strong><em>需登录并按角色授权</em></a>
+    </div>
+    <div class="v6-ref-shortcuts" aria-label="核心功能快捷入口">
+      <a href="/research.html">✦ 智能选股</a><a href="#v6-strategy">▧ 策略研究</a><a href="#v6-plan">▥ 回测分析</a><a href="#v6-paper">◉ 模拟交易</a><a href="#v6-market">▤ 行情中心</a><a href="#holdSec1">⬡ 风险控制</a>
+    </div>
+  </section>
+  <!-- ═══ 📊 盘面总览 ═══ -->
+  <nav class="sec-nav" id="secNav"></nav>
+  <div class="sec" id="v6-market">📊 盘面总览</div>
+    <!-- 市场情绪：盘面总览内一行研判（in 轮回退：不再单独大卡，复原 if 之前最简布局） -->
+    <div id="moodLine" style="margin:0 0 12px;font-size:13px;line-height:1.6"><span class="muted">🌡️ 市场情绪：</span><span id="moodBox"><span class="muted">等待数据...</span></span></div>
+
+    <!-- ⛔ 竞价异动 + 板块资金流（if 之前即并列在盘面总览首屏） -->
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card">
+        <h2><span>竞价异动 · 龙头推断</span> <small id="aucTime"></small><span class="rf" onclick="doRefresh('auction',this)" title="强制刷新">🔄</span><span class="rf" onclick="toggleAuctionReview()" title="竞价复盘 · 竞价分时 + 次日K线同屏归因">📊 复盘</span></h2>
+        <div id="leader" class="muted">等待竞价数据...</div>
+        <div class="tw" style="margin-top:10px"><table id="aucSectors"></table></div>
+        <div id="aucReview" class="tw" style="display:none;margin-top:12px"></div>
+      </div>
+      <div class="card fluid">
+        <h2><span>板块资金流排行</span> <small id="sectFlowNote">主力净流入 · 30秒刷新</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div class="scrolly"><table id="sectors"></table></div>
+      </div>
+    </div>
+    <!-- ⛔ 一进二/连板接力挨着竞价：都是开盘前要盯的策略（2026-10-08） -->
+    <div class="grid g2" style="margin-bottom:14px" data-eo="hide">
+      <div class="card">
+        <h2><span>🎯 一进二 · 首板次日接力</span> <small id="yeTime">今日首板里，明日最可能连板的</small><span class="rf" onclick="doRefresh('yier',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
+        <div id="yeInfo" style="margin-bottom:6px"></div>
+        <div class="scrolly" style="max-height:640px"><div id="yierList"></div></div>
+      </div>
+      <div class="card">
+        <h2><span>🔥 连板接力 · 二进三 / 三进四</span> <small id="lbTime">连板梯队 · 板块联动</small><span class="rf" onclick="doRefresh('lianban',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
+        <div id="lbInfo" style="margin-bottom:6px"></div>
+        <div class="scrolly" style="max-height:640px"><div id="lianbanList"></div></div>
+      </div>
+    </div>
+    <div class="grid g3" style="margin-bottom:14px">
+      <div class="card">
+        <h2><span>涨停板 · 板块分类</span><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div class="scrolly" id="ztBySector"></div>
+        <span id="ztCount" class="muted"></span>
+        <div id="ztTopics" style="margin-top:4px"></div>
+      </div>
+      <div class="card">
+        <h2><span>市场主线分析</span> <small id="mlTime"></small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div id="mainline" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+      </div>
+      <div class="card">
+        <h2><span>信号推送记录</span> <small>同股同信号30分钟去重</small></h2>
+        <div class="scrolly" id="signals"><div class="muted">暂无信号（交易时段扫描中）</div></div>
+      </div>
+    </div>
+  <!-- ═══ 🌏 外围市场与选股核心 ═══ -->
+  <div class="sec" id="v6-stock">🌏 外围市场 · 选股核心</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>外围市场 · 10国指数</span> <small id="globalNote">美/港/日/韩/德/英/印 · 60秒刷新</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div id="global"><span class="muted">加载中...</span></div>
+    </div>
+    <div class="card">
+      <h2><span>🌐 外围联动预选</span> <small id="extTime">外围板块涨跌 → A股同类板块 → 板块内较强标的</small><span class="rf" onclick="doRefresh('ext',this)" title="强制刷新">🔄</span></h2>
+      <div id="extGroups" style="margin-bottom:8px" class="muted"></div>
+      <div class="scrolly" style="max-height:240px"><table id="extPicks"></table></div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>📡 外部数据源 · 北向/南向/商品/财报/两融</span> <small id="extNote">沪深港通 · 纽约金油银 · 业绩预告 · 两融余额</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div id="external"><span class="muted">加载中...</span></div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>当日涨停预选</span> <small id="psTime">外围情绪 × 聚焦池 × 概率模型</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:260px"><table id="preselect"></table></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>趋势票池</span> <small id="tpInfo">资金流入 + 五日线震荡 · 主板</small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendPool"></div></div>
+      <div style="margin-top:10px;border-top:1px dashed rgba(128,128,128,.3);padding-top:8px">
+        <div style="font-weight:600;margin-bottom:4px">📶 连续小阳线拉升 <small class="muted" id="syInfo">系统自己全市场扫的，不等你喂</small></div>
+        <div class="scrolly" style="max-height:200px"><div class="rvgrid sm" id="smallyangBox"></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- 2026-10-01：把「机器自己全市场扫出来的三类票」各归各位。
+       以前这三个池子服务端算好了却没有面板，用户只能从推送里看到零星几条。 -->
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card fluid">
+      <h2><span>🎯 涨停前形态</span> <small id="zpInfo">学「涨停前是什么样子」，每日全市场自主挑</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="ztPreBox"></div></div>
+      <div class="muted" id="zpRules" style="margin-top:8px;font-size:12px;line-height:1.7"></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>🔭 全市场趋势扫描</span> <small id="tsInfo">不依赖候选集，按学习溢价排序</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendScanBox"></div></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>📶 连续收涨</span> <small id="suInfo">连涨≥3天、每天温和上涨、站上向上的20日线</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="steadyUpBox"></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🌡 市场温度 · 个股真实涨跌</span> <small id="brInfo">不只看大盘指数：全A个股均值 / 上涨家数 / 按市值分层</small></h2>
+    <div id="brBody" class="muted" style="padding:2px 0">加载中…</div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>💰 主力大单流入 · 实时识别</span> <small id="bmInfo">全市场当日主力净占比>6% · 温和上涨未涨停</small><span class="rf" onclick="doRefresh('bigmoney',this)" title="立即重新识别一次">🔄</span></h2>
+    <div class="scrolly" style="max-height:320px"><div class="rvgrid" id="bigMoney"></div></div>
+  </div>
+  <!-- jp 轮：涨幅异动池 —— 近 3 个交易日累计涨幅临近或达到交易所披露阈值，按「已触发/临近」分组并可折叠 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>⚡ 涨幅异动池</span> <small id="amInfo">近 3 个交易日累计涨幅：主板≥16% 临近 / ≥20% 顶异动；创业板/科创板≥24% 临近 / ≥30% 顶异动；北交所≥32% 临近 / ≥40% 顶异动</small><span class="rf" onclick="doRefresh('abmove',this)" title="立即重新识别一次">🔄</span></h2>
+    <div class="scrolly" style="max-height:400px">
+      <div class="hgrp">
+        <div class="hgrp-h" onclick="abMoveToggle('top')">
+          <span class="chev" id="amTopChev">▾</span><b>🔴 已触发异动</b><span class="cnt" id="amTopCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
+        </div>
+        <div class="hgrp-b" id="amTopBox"></div>
+      </div>
+      <div class="hgrp">
+        <div class="hgrp-h" onclick="abMoveToggle('near')">
+          <span class="chev" id="amNearChev">▾</span><b>🟠 临近异动</b><span class="cnt" id="amNearCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
+        </div>
+        <div class="hgrp-b" id="amNearBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 💼 我的持仓 · 盯盘与加减仓触发（私密：仅本机/开发者密码可见，观看密码看不到） ═══ -->
+  <div class="sec" id="holdSec1" data-eo="hide" style="display:none">💼 我的持仓 · 盯盘与加减仓触发</div>
+  <div class="card" id="holdSec2" data-eo="hide" style="display:none;margin-bottom:14px">
+    <h2><span>💼 我的持仓</span> <small id="holdInfo">录入个股/成本/仓位，<span id="holdWatchNote">平台盯盘</span>，触发条件即强推送手机</small><span class="rf" onclick="doRefresh('holdings',this)" title="立即重算一次（不发消息）">🔄</span></h2>
+    <div id="holdSummary" class="muted" style="margin-bottom:8px">加载中…</div>
+    <!-- 标签筛选：一张证可以多挂几个标签；点标签只看这一类 -->
+    <div class="hform" id="holdTagBar" style="padding-bottom:6px"></div>
+    <div class="hform">
+      <input type="text" id="hCode" placeholder="代码 600519" maxlength="6">
+      <input type="text" id="hName" placeholder="名称(选填)" maxlength="10">
+      <input type="number" id="hCost" placeholder="成本价" step="0.001">
+      <input type="number" id="hShares" placeholder="股数" step="100">
+      <input type="text" id="hNote" placeholder="备注(选填)" maxlength="20">
+      <input type="text" id="hTags" placeholder="标签，逗号分隔：长线,打板" maxlength="30">
+      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="锁仓后不再自动推卖出建议，盈亏与风险照常跟踪"><input type="checkbox" id="hLocked"> 锁仓</label>
+      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="暂停后手机不再收到这只票的任何提醒，面板照常显示估值与建议"><input type="checkbox" id="hMuted"> 🔇 暂停推送</label>
+      <button class="btn" id="hAddBtn" onclick="holdSubmit()">➕ 加入盯盘</button>
+      <button class="btn ghost" id="hCancelBtn" onclick="holdCancelEdit()" style="display:none">取消修改</button>
+      <span class="muted" style="flex-basis:100%;font-size:12px">🏷 常用标签：<span id="hPreset"></span></span>
+    </div>
+    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
+      <b style="font-size:13px">🔒 一键锁仓</b>
+      <input type="text" id="hLockCode" placeholder="股票代码" maxlength="6">
+      <input type="number" id="hLockShares" placeholder="仓位（股数）" step="100">
+      <button class="btn ghost" onclick="holdQuickLock()">🔒 锁定标签</button>
+      <span class="muted" style="font-size:12px;flex-basis:100%;white-space:normal;line-height:1.5">只填「代码 + 仓位」即可锁定：已有此票则更新股数并上锁，没有则按当前价建仓并上锁。锁仓后不再自动推减仓/止损建议，盈亏与风险信号照常显示。</span>
+    </div>
+    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
+      <span class="muted">总资金</span><input type="number" id="hCapital" placeholder="如 100000">
+      <span class="muted">止损%</span><input type="number" id="hStop" placeholder="8">
+      <span class="muted">减仓预警%</span><input type="number" id="hReduce" placeholder="4">
+      <span class="muted">止盈%</span><input type="number" id="hTake" placeholder="15">
+      <span class="muted">仓位上限%</span><input type="number" id="hMax" placeholder="90">
+      <button class="btn ghost" onclick="holdSaveCfg()">💾 保存风控参数</button>
+      <button class="btn ghost" onclick="holdCheck()">🔍 立即巡检并推送手机</button>
+      <span class="muted" style="flex-basis:100%;white-space:normal;line-height:1.6">触发规则（全部「超过」才触发，等于不算）：亏损<b>超过</b>止损线 → 提示离场；亏损<b>超过</b>预警线且出现走弱证据（跌破5日线 / 主力净流出 / 当日大跌超3% / 利空）→ 减半仓；<b>多重恶化同时成立</b>（越过止损线 + 破5日线 + 主力流出 + 当日跌超3%）→ 建议清仓；盈利<b>超过</b>止盈线 → 分批锁利；浮盈且站上5日线 + 当日温和上涨（未超5%）+ 主力净流入 → 加仓（受总仓位上限约束）。</span>
+    </div>
+    <div class="scrolly" style="max-height:560px"><div class="rvgrid" id="holdList"></div></div>
+  </div>
+
+  <!-- ⛔ in 轮回退：上面这张「综合评分榜·精选池」已移回此处（if 轮曾把它上移到盘面总览首屏，本轮复原到持仓之后、模拟盘之前的位置）。 -->
+
+  <!-- ═══ 💰 模拟盘 ═══ -->
+  <!-- ⛔ in 轮回退：精选池(综合评分榜)移回 if 之前位置，不再占用盘面总览首屏 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>综合评分榜 · 精选池</span> <small id="poolInfo"></small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
+    <div class="scrolly" style="max-height:520px"><div class="rvgrid sm" id="pool"></div></div>
+  </div>
+  <div class="sec" id="v6-paper">💰 模拟盘</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>💰 模拟盘A · 跟单盘(10万)</span> <small id="ppPoolInfo">新进检测池自动买入 · 止盈8% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
+      <div id="ppPoolSummary" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:220px"><table id="ppPoolPos"></table></div>
+      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPoolTrades"></div></div>
+      <div style="margin-top:8px">
+        <button data-eo="hide" class="btn ghost" onclick="paperAction('pool','toggle')">暂停/继续</button>
+        <button data-eo="hide" class="btn ghost" id="btnResetPOOL" onclick="paperAction('pool','reset')">重置</button>
+        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pool')">设本金</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span>💰 模拟盘B · 预选盘(50万)</span> <small id="ppPreInfo">涨停预选自动买入 · 止盈10% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
+      <div id="ppPreSummary" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:220px"><table id="ppPrePos"></table></div>
+      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPreTrades"></div></div>
+      <div style="margin-top:8px">
+        <button data-eo="hide" class="btn ghost" onclick="paperAction('pre','toggle')">暂停/继续</button>
+        <button data-eo="hide" class="btn ghost" id="btnResetPRE" onclick="paperAction('pre','reset')">重置</button>
+        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pre')">设本金</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 📰 消息面 ═══ -->
+  <div class="sec" id="v6-news">📰 消息面 · 数据联动</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>⚠️ 利空雷达</span> <small id="bnTime">利空标签+判定原因+关联个股 · 模拟盘自动避开</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
+      <div id="bnSectors" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:300px"><div id="bnList"></div></div>
+    </div>
+    <div class="card">
+      <h2><span>📰 消息面 · 利好+中性(近3日)</span> <small id="gnTime">标签+判定原因+关联个股 · 新利好推送手机</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
+      <div id="gnHot" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:300px"><div id="gnList"></div></div>
+    </div>
+  </div>
+
+  <!-- ═══ 🗓️ 次日作战计划 ═══ -->
+  <!-- 复盘回答"昨天为什么涨"，这里回答"明天干什么"：买谁、多少钱进、跌到哪算我错、次日怎么验证。
+       2026-10-01 才挂上：nextplan.js 早在 09-29 就写完了，server.js 却没 require 它，
+       等于用户从没收到过"能落地的买入计划"。 -->
+  <div class="sec" id="v6-plan">🗓️ 明日计划</div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>次日作战计划</span> <small id="npTime">买谁 · 多少钱进 · 跌到哪算错 · 次日怎么验证</small><span class="rf" onclick="doRefresh('nextplan',this)" title="强制重算（要补拉K线，约20-40秒）">🔄</span></h2>
+    <div id="npInfo" style="margin-bottom:6px"></div>
+    <div id="nextplan" class="scrolly" style="max-height:820px"></div>
+  </div>
+  <!-- ═══ 🎯 我的十四条 · 用户自己的选股体系 ═══ -->
+  <div class="sec">🎯 我的十四条</div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>我的十四条 · 逐条判定</span> <small id="mrTime">你自己的选股条件，命中几条、缺哪几条全摆出来</small><span class="rf" onclick="doRefresh('myrules',this)" title="强制重扫（要补拉K线，约30-60秒）">🔄</span></h2>
+    <div id="mrInfo" style="margin-bottom:6px"></div>
+    <div id="myrules" class="scrolly" style="max-height:820px"></div>
+  </div>
+  <!-- ═══ 📋 复盘与学习 ═══ -->
+  <div class="sec" id="v6-review">📋 复盘 · 学习</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>每日复盘 · 涨停形态与归因</span> <small id="rvTime">站5日线 / 破前高 / 量价齐升 · 次日概率</small><span class="rf" onclick="doRefresh('review',this)" title="强制刷新">🔄</span></h2>
+      <div id="rvSummary" style="margin-bottom:6px"></div>
+      <div id="rvFilters" style="margin-bottom:6px"></div>
+      <div class="scrolly" style="max-height:780px"><div id="review"></div></div>
+    </div>
+    <!-- 补涨龙·大数据回测推算（与复盘同排右栏·横向卡片布局，同一套 .rvgrid 样式） -->
+    <div class="card">
+      <h2><span>🔥 补涨龙 · 大数据回测推算</span> <small id="bzTime">龙头连板扩散 → 同板低位滞涨股 · 当日封板概率</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:780px"><div id="buzhang"></div></div>
+    </div>
+  </div>
+  <!-- 🌱 板块效应·启动前埋伏：热点板块里**还没涨**的那批票。
+       2026-09-29 复盘发现当天 33 只涨停里 55% 全天没被登记过，绝大多数是热点板块里临时启动的票。
+       这张卡就是专门把这些"还没启动但已经在热点板块内"的票挑出来，做提前覆盖。 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🌱 板块效应 · 启动前埋伏</span> <small id="preTime">热点板块内尚未启动的票 · 资金潜伏/平台整理/站上5日线 · ≥55分手机提醒</small><span class="rf" onclick="doRefresh('pre',this)" title="立即重新扫描">🔄</span></h2>
+    <div class="scrolly" style="max-height:420px"><div id="preBox"></div></div>
+  </div>
+
+  <!-- 机器学习校准（原右栏位，互换后整行铺满） -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🧠 机器学习校准</span> <small id="learnState">信号回验 · 概率与阈值自动修正 · 失败率自动控制</small></h2>
+    <div id="learnBody" class="muted" style="margin-bottom:6px"></div>
+    <!-- ★ 命中率三口径：实盘预测 / 历史回测 / 已涨停后登记（以前混算成一个数，看不出真实水平） -->
+    <div id="learnSplit" class="learnsplit"></div>
+    <!-- ★ A/B 对照实验：模型组🅰️（按模型概率排序推送） vs 实证组🅱️（按实测命中率排序推送），谁准几天后见分晓 -->
+    <div id="learnAB" class="learnsplit" style="margin-bottom:6px"></div>
+    <div style="margin-bottom:6px">
+      <button class="btn ghost tabbtn on" id="ltabB0" onclick="ltabShow(0)">概率档校准</button>
+      <button class="btn ghost tabbtn" id="ltabB1" onclick="ltabShow(1)">🔬 条件自优化</button>
+      <button class="btn ghost tabbtn" id="ltabB2" onclick="ltabShow(2)">📈 改善留档</button>
+    </div>
+    <div id="ltab0"><div class="scrolly" style="max-height:340px"><table id="learnTable"></table></div></div>
+    <div id="ltab1" style="display:none"><div class="muted" style="margin-bottom:4px">每条选股条件按真实命中率自动加权/降权（样本≥8生效）</div><div class="scrolly" style="max-height:340px"><table id="learnPaths"></table></div></div>
+    <div id="ltab2" style="display:none"><div class="muted" style="margin-bottom:4px" id="learnHistCount"></div><div class="scrolly" style="max-height:340px"><table id="learnHist"></table></div></div>
+  </div>
+
+
+  <!-- 多策略可视化中心：新引擎的市场状态、候选排名与策略贡献度 -->
+  <div class="sec" id="v6-strategy">🧠 智能策略中心</div>
+  <div class="card strategy-card" id="strategyCard">
+    <h2><span>多策略选股雷达</span><small>趋势 / 动量 / 突破 / 资金质量 / 反转 · 动态权重</small><span class="rf" onclick="loadStrategyDashboard()">🔄</span></h2>
+    <div id="strategySummary" class="strategy-summary"><span class="muted">正在读取策略数据…</span></div>
+    <div id="strategyTop" class="strategy-top"></div>
+    <div id="strategyDetail" class="strategy-detail muted">点击候选股票查看策略贡献与风险说明</div>
+  </div>
+
+  <!-- ═══ 🧪 工具 ═══ -->
+  <div class="sec">🧪 工具</div>
+  <!-- ⛔ if 轮 D7：个股分析从首屏移入工具区（首屏只留 情绪/涨停池/精选池/推送状态） -->
+  <div class="card" id="analyzeCard">
+    <h2><span>🔍 个股分析</span> <small>给代码或名称，看 K线/资金流/洗盘出货/算法点</small></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="searchBox" placeholder="输入代码或名称，如 600519 或 贵州茅台" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #ced4da;border-radius:8px" oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchPickFirst()">
+      <button class="btn" onclick="searchPickFirst()">分析</button>
+    </div>
+    <div id="searchHint" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <div id="searchCands" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+    <div id="analyzeBox" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h2><span>两个月回测</span> <small>逐日回放筛选逻辑，统计次日涨停/大涨概率</small></h2>
+    <button class="btn" onclick="runBacktest()">运行回测</button> <span class="muted" id="btState"></span>
+    <div id="btResult" class="tw" style="margin-top:10px"></div>
+  </div>
+
+  <!-- ═══ 🚀 发布看板（修改请求管理）════ -->
+  <!-- ⛔ 2026-10-28 移到页面最末：它一度被放在「盘面总览」之前，手机上首屏推开的
+       第一块是「待发布请求 · 一键发布」——而这是运维操作面板，不是行情。
+       首屏必须是盘面总览（守门 _test_mobile_fold 就是为了钉住这件事）。
+       功能一点不少：区块还在、id 不变、SSE 的 release 事件照样刷新它。 -->
+<section class="v6-ui-health" aria-label="界面与服务自检">
+  <div class="v6-health-head"><strong>🩺 界面与服务自检</strong><button type="button" id="v6UiHealthRun">立即检查</button></div>
+  <output id="v6UiHealth" role="status" aria-live="polite">尚未检查。仅检测页面组件及接口响应，不执行交易。</output>
+</section>
+  <div class="sec" id="v6-release">🚀 发布看板</div>
+  <div class="card" style="margin-bottom:14px">
+    <h2>
+      <span>待发布请求 · 一键发布</span>
+      <small id="relStat" class="muted">加载中...</small>
+      <span class="rf" onclick="loadReleaseBoard()" title="刷新">🔄</span>
+    </h2>
+    <div id="relBoard" class="muted">等待数据...</div>
+  </div>
+</div>
+
+<script src="/assets/app.js?v=20261105ad" defer></script>
+<script src="/assets/ui-navigation.js?v=20261105nav1" defer></script>
+<script src="/assets/ui-health.js?v=20261105ui46" defer></script>
+<script src="/assets/v6-reference-precision.js?v=20261105ref3" defer></script>
+</body>
+</html>

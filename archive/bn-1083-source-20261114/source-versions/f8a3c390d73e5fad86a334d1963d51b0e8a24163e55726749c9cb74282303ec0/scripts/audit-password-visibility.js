@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const app=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+const section=server.split("if (p === '/api/lock/status') {")[1]?.split("if (p === '/api/heartbeat')")[0];
+assert.ok(section,'找不到锁状态路由');
+assert.doesNotMatch(section,/\b(?:viewPwd|devPwd)\s*:/,'状态接口不应返回密码字段');
+assert.doesNotMatch(server,/_(?:view|dev)PwdHint\s*\.\s*pwd\s*=/,'不应缓存明文');
+assert.doesNotMatch(app,/const p = st\.(?:viewPwd|devPwd)/,'前端不应读取明文');
+assert.match(app,/安全起见不显示原密码/);
+console.log('PASS: 状态路由无明文字段；无明文缓存赋值；前端无明文展示');

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-14T12:56:55.714977+00:00",
+  "baselineSha": "26e3e19ecaa1a5fdee64d6d8a2fac400d0844353",
+  "scope": "actual release restoration, code coverage and local validation; exact remote CI and merge read from PR",
+  "originalArchive": {
+    "bytes": 70485833,
+    "sha256": "f5fa0209f6b2045933cd3662600ab08b880c35ac3f3da8fae88619bc72ac8e78",
+    "outerZipCrcChecks": 4,
+    "chunkHashesVerified": 4,
+    "originalCrc": "pass",
+    "archiveFiles": 4343,
+    "embeddedFileHashesVerified": 4342
+  },
+  "sourceSummary": {
+    "sourcePathVersions": 2626,
+    "topLevelCodeFiles": 1098,
+    "historyPathVersions": 1528,
+    "uniqueOriginalVersions": 1578,
+    "uniqueStoredVersions": 1578,
+    "newSourceFiles": 589,
+    "newSourceBytes": 120847992,
+    "redactedOriginalVersions": 8,
+    "topLevelCodeStatus": {
+      "different": 102,
+      "identical": 996
+    }
+  },
+  "extraCode": {
+    "path": "release-tools/restore_v6_bn.py",
+    "bytes": 7618,
+    "identicalAcrossFourWrappers": true,
+    "executed": false
+  },
+  "additionalArchiveInspection": {
+    "nestedTaskZips": 1,
+    "nestedTaskMembers": 3,
+    "nestedTaskCodeFiles": 0,
+    "unindexedTemporaryObjects": 1,
+    "temporaryObjectIsExactPrefixOfIndexedServer": true,
+    "fullIndexedServerBytes": 1603706
+  },
+  "checks": [
+    {
+      "command": "python3 scripts/extract-bn-source.py --repo . --archive <restored BN ZIP> --baseline 26e3e19ecaa1a5fdee64d6d8a2fac400d0844353 --output archive/bn-1083-source-20261114",
+      "result": "pass"
+    },
+    {
+      "command": "python3 scripts/extract-bn-source.py --repo . --output archive/bn-1083-source-20261114 --verify",
+      "result": "pass",
+      "sourcePathVersions": 2626,
+      "uniqueSourceVersions": 1578
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_audit_*_archive.py' -v",
+      "result": "pass",
+      "tests": 57,
+      "newBnSourceTests": 19
+    },
+    {
+      "command": "python3 -m unittest discover -s V6_BO/tests -p 'test_complete_engineering_bundle.py' -v",
+      "result": "pass",
+      "tests": 5
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_windows_host_bundle.py' -v",
+      "result": "pass",
+      "tests": 12
+    },
+    {
+      "command": "python3 -m py_compile scripts/extract-bn-source.py tests/test_audit_bn_source_archive.py; npm run check",
+      "result": "pass"
+    },
+    {
+      "command": "V6_MODEL_PYTHON=<existing numpy/scikit-learn Python> V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test",
+      "result": "pass",
+      "counts": {
+        "tests": 3534,
+        "pass": 3531,
+        "fail": 0,
+        "skipped": 3
+      },
+      "tapCompleteness": "pass",
+      "skips": "three optional LightGBM/XGBoost comparisons unavailable locally"
+    },
+    {
+      "command": "V6_WEB: npm run build; npm test; git diff --exit-code -- dist",
+      "result": "pass",
+      "tests": 40
+    },
+    {
+      "command": "node V6_BO/tests/full-server-isolated-smoke.js",
+      "result": "pass"
+    },
+    {
+      "command": "python3 scripts/audit-no-openai-runtime.py",
+      "result": "pass"
+    },
+    {
+      "command": "git diff --cached --check -- . :(exclude)archive/bn-1083-source-20261114/source-versions/**",
+      "result": "pass",
+      "scope": "authored tool, tests, docs and metadata; originals preserve existing whitespace/CRLF"
+    }
+  ],
+  "originalSourceFormatting": {
+    "unrestrictedGitDiffCheck": "reports original trailing whitespace/CRLF and blank EOF lines; not rewritten because raw source hashes are retained",
+    "runtimeCodeModified": false
+  },
+  "homepages": [
+    {
+      "path": "V6_BO/public/index.html",
+      "unchanged": true,
+      "sha256": "3c7969885e5e18bf97f3541c954e109040598839483a6ba5faa64f8f71323df4"
+    },
+    {
+      "path": "V6_BO/public/mobile.html",
+      "unchanged": true,
+      "sha256": "8b1d8297eb2439d9f525810b07ead80e67aa534d245368c065d31b80c743b354"
+    }
+  ],
+  "limits": [
+    "historical files are preserved evidence; not enabled or all executed",
+    "no claim all old/new business semantics are proven equivalent",
+    "8 credential-shaped values sanitized in exported copies only; no current credential-rotation claim",
+    "no deployment, live trading or actual external notification sent",
+    "raw state, private source IDs, account/config/cache/log data remain in original draft release"
+  ]
+}

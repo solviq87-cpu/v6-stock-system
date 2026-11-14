@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手机看盘体验优化方案 · 项目报告</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#131722; --card:#1a1f2e; --card2:#212736;
+    --line:#2a3142; --line2:#343d52;
+    --txt:#e6edf3; --sub:#9aa5b5; --dim:#6b7688;
+    --red:#f6465d; --green:#2ebd85; --gold:#f0b90b; --blue:#4a9eff;
+    --mono:"SFMono-Regular",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7;padding:0 0 80px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header{background:linear-gradient(135deg,#0f1b2d,#131722 60%);border-bottom:1px solid var(--line);padding:34px 0 26px;margin-bottom:28px}
+  header .wrap{display:flex;flex-direction:column;gap:10px}
+  .kicker{font-size:12px;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+  h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+  .meta{color:var(--sub);font-size:13px}
+  .verdict{display:inline-block;background:rgba(240,185,11,.12);border:1px solid rgba(240,185,11,.35);color:var(--gold);padding:8px 14px;border-radius:8px;font-size:14px;margin-top:4px}
+  h2{font-size:19px;margin:34px 0 14px;padding-left:12px;border-left:4px solid var(--blue);font-weight:700}
+  h3{font-size:15px;margin:18px 0 8px;color:var(--gold)}
+  p{color:var(--sub);font-size:14.5px;margin:8px 0}
+  strong{color:var(--txt)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:720px){.g2,.g3{grid-template-columns:1fr}}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;margin-right:6px}
+  .tag.red{background:rgba(246,70,93,.15);color:var(--red);border:1px solid rgba(246,70,93,.4)}
+  .tag.green{background:rgba(46,189,133,.15);color:var(--green);border:1px solid rgba(46,189,133,.4)}
+  .tag.gold{background:rgba(240,185,11,.15);color:var(--gold);border:1px solid rgba(240,185,11,.4)}
+  .tag.blue{background:rgba(74,158,255,.15);color:var(--blue);border:1px solid rgba(74,158,255,.4)}
+  .tag.gray{background:rgba(154,165,181,.12);color:var(--sub);border:1px solid var(--line2)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card2);color:var(--txt);font-weight:600;white-space:nowrap}
+  td{color:var(--sub)}
+  td strong{color:var(--txt)}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--blue)}
+  .fact{background:rgba(74,158,255,.06);border-left:3px solid var(--blue);padding:8px 14px;border-radius:0 8px 8px 0;margin:10px 0;color:var(--sub);font-size:13.5px}
+  .warn{background:rgba(240,185,11,.07);border-left:3px solid var(--gold);padding:8px 14px;border-radius:0 8px 8px 0;margin:10px 0;color:var(--sub);font-size:13.5px}
+  .risk{background:rgba(246,70,93,.07);border-left:3px solid var(--red);padding:8px 14px;border-radius:0 8px 8px 0;margin:10px 0;color:var(--sub);font-size:13.5px}
+  .ok{background:rgba(46,189,133,.07);border-left:3px solid var(--green);padding:8px 14px;border-radius:0 8px 8px 0;margin:10px 0;color:var(--sub);font-size:13.5px}
+  .dir{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:16px 0}
+  .dir-head{background:var(--card2);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .dir-head .prio{font-family:var(--mono);font-size:12px;color:var(--gold)}
+  .dir-body{padding:16px 18px;background:var(--card)}
+  .dir-body p{font-size:13.5px}
+  ul{margin:8px 0 8px 20px}
+  li{color:var(--sub);font-size:13.5px;margin:5px 0}
+  li strong{color:var(--txt)}
+  .legend{font-size:12px;color:var(--dim);margin-top:8px}
+  .label{font-weight:700;color:var(--txt);font-size:15px}
+  /* 决策清单 */
+  .dec{border:1px solid var(--line);border-radius:12px;margin:14px 0;background:var(--card);overflow:hidden}
+  .dec-head{padding:14px 18px;background:var(--card2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .dec-title{font-weight:700;font-size:14.5px}
+  .dec-title .n{color:var(--gold);margin-right:8px}
+  .dec-body{padding:14px 18px}
+  .dec-desc{color:var(--sub);font-size:13px;margin-bottom:10px}
+  .row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  select,textarea{background:var(--bg2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:14px;font-family:inherit}
+  select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+  textarea{flex:1;min-width:240px;min-height:40px;resize:vertical}
+  select.changed{border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,185,11,.25)}
+  .rec{font-size:12px;color:var(--green);font-weight:600}
+  .rec::before{content:"✓ 推荐";}
+  .toolbar{position:sticky;bottom:0;background:linear-gradient(0deg,var(--bg) 70%,transparent);padding:16px 0 6px}
+  .toolbar-inner{background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button{background:var(--blue);border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:transparent;border:1px solid var(--line2);color:var(--sub)}
+  #outbox{flex:1;min-width:260px;min-height:44px;font-family:var(--mono);font-size:12.5px}
+  #saved{font-size:12px;color:var(--dim)}
+  .muted{color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">Quant Dashboard · 产品优化提案</div>
+    <h1>手机看盘体验优化方案 · 项目报告</h1>
+    <div class="meta">编制日期 2026-10-17 · 依据：现状代码核查 + 你确认的痛点与方向</div>
+    <div class="verdict">一句话结论：不再动现有面板布局，改走「手机速览页 + 飞书定时摘要 + 可交互卡片」三条新赛道，把「结论」直接送到眼前。</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <h2>一、理解到的真实需求</h2>
+  <div class="card">
+    <p>你已确认的两个判断（本次需求对齐所得）：</p>
+    <table>
+      <tr><th style="width:30%">维度</th><th>你的选择</th></tr>
+      <tr><td><strong>核心痛点</strong></td><td><span class="tag red">信息太多找不到重点</span> —— 打开要滑很久，不知道「今天该重点关注什么」，想一眼看到竞价 / 市场情绪 / 持仓提醒这些关键结论。</td></tr>
+      <tr><td><strong>优化方向</strong></td><td><span class="tag gold">手机专属速览页</span> + <span class="tag gold">飞书定时摘要推送</span> + <span class="tag gold">推送升级可交互卡片</span>（明确不做小程序 / App）</td></tr>
+      <tr><td><strong>交付形式</strong></td><td>交互式 HTML（本报告，含可回填决策清单）</td></tr>
+    </table>
+    <p class="muted">※ 其余方向（小程序/App 化、加载性能优化）本次不做，如后续需要可单独立项。</p>
+  </div>
+
+  <h2>二、现状诊断（核查所得事实）</h2>
+  <div class="fact">【事实】面板现有 <strong>9 大区块 + 30+ 子区块</strong>，全部「直接可见、纵向堆叠」；移动端只有 <code>900px / 760px / 520px</code> 三档断点，窄屏只做单列，<strong>没有针对手机的「内容精选」</strong>。</div>
+  <div class="fact">【事实】推送主通道为 <strong>飞书自定义机器人 webhook</strong>（<code>open-apis/bot/v2/hook/&lt;id&gt;</code>），当前 <code>msg_type:'text'</code> 纯文本；双机器人（公开群 + 私密）。有 <code>feishuq.js</code> 发送队列与 <code>stripHtmlTags</code>。</div>
+  <div class="fact">【事实】面板区块清单：①盘面总览 ②外围市场·选股核心 ③我的持仓 ④模拟盘 ⑤消息面 ⑥明日计划 ⑦我的十四条 ⑧复盘·学习 ⑨工具。首屏第 0 块为「📊 盘面总览」。</div>
+
+  <h2>三、历史教训（为什么不能走「改布局」老路）</h2>
+  <div class="card">
+    <p>从代码版本注释链（<code>APP_VER=20261017eb</code>）可追溯到你过往四轮对「手机端折叠/置顶」的尝试：</p>
+    <table>
+      <tr><th style="width:16%">轮次</th><th>做了什么</th><th style="width:34%">你的反馈</th></tr>
+      <tr><td><code>ii</code> 轮</td><td>≤760px 收起 9 个次要区块，首屏只留盘面总览 4 卡 + 「展开更多」</td><td>——</td></tr>
+      <tr><td><code>ij</code> 轮</td><td>常显区块收窄到只留「竞价与梯队」</td><td>「折叠太狠，留几个有用的」→「消息面和模拟盘不要」</td></tr>
+      <tr><td><code>ik</code> 轮</td><td>竞价 + 市场情绪置顶到首屏</td><td>——</td></tr>
+      <tr><td><code>im</code> 轮</td><td><strong>全部回退</strong>到原始样式</td><td><strong>「面板改的看不习惯，改回原本」</strong></td></tr>
+    </table>
+    <div class="risk"><strong>【结论】「折叠 / 置顶 / 吸顶」这条「改现有面板布局」的路，你已三次否决。</strong> 本方案的三条方向全部是 <strong>「新增」而非「改动」</strong>，彻底避开这个雷区。</div>
+  </div>
+
+  <h2>四、优化方案（三个方向）</h2>
+
+  <div class="dir">
+    <div class="dir-head">
+      <span class="label">方向 A · 手机专属速览页</span>
+      <span class="tag red">P0 最高优先级</span>
+      <span class="prio">最快见效</span>
+    </div>
+    <div class="dir-body">
+      <p><strong>做什么：</strong>新增独立路由 <code>/m</code>，返回一个<strong>全新轻量页</strong>（完全不动 <code>index.html</code>），只放「一眼结论」，不放大表格。</p>
+      <p><strong>页面内容（自上而下，一屏看完）：</strong></p>
+      <ul>
+        <li>🔴 顶部「今日一句话结论」—— 市场情绪建议（加仓/减仓/空仓/观望）+ 一句研判</li>
+        <li>🎯 竞价信号 —— 今天竞价出了什么（涨停梯队 / 一进二 / 连板接力，各最多 3 条）</li>
+        <li>🔥 涨停池异动 + 板块强度 —— 今日主线</li>
+        <li>💼 持仓盯盘 —— 有触发条件的票置顶提醒</li>
+        <li>🗓️ 明日计划 —— 次日作战计划（买谁/价位/验证）</li>
+      </ul>
+      <p><strong>交互：</strong>每张卡片可点，<strong>跳转</strong>到完整面板对应区块（url 锚点），「想看细节再回大面板」。</p>
+      <div class="ok">【可行性】纯新增：加一个 <code>/m</code> 路由 + 一个轻量 HTML；数据复用现有 <code>/api/state</code>（<strong>与主面板同源，避免两套口径</strong>），或精简一个 <code>/api/mobile-digest</code>。不动任何现有文件。</div>
+      <div class="warn">【风险】需与 <code>index.html</code> 保持同一数据源；新增前端需补守门（jsdom 渲染层 + 移动端断点断言）。</div>
+    </div>
+  </div>
+
+  <div class="dir">
+    <div class="dir-head">
+      <span class="label">方向 B · 飞书定时「盘面摘要」推送</span>
+      <span class="tag red">P0 最高优先级</span>
+      <span class="prio">不打开网页也能看盘</span>
+    </div>
+    <div class="dir-body">
+      <p><strong>做什么：</strong>三个时点各推一份结构化「盘面摘要」到飞书（私密机器人，只有本人）：</p>
+      <table>
+        <tr><th style="width:22%">时点</th><th>摘要内容</th></tr>
+        <tr><td><code>09:30</code> 开盘后</td><td>市场情绪一句话 + 竞价信号清单 + 开盘异动</td></tr>
+        <tr><td><code>11:30</code> 午休</td><td>半日小结：主线板块 + 持仓盯盘状态 + 今日已推信号汇总</td></tr>
+        <tr><td><code>15:00</code> 收盘</td><td>全天总结：情绪定论 + 信号命中回看 + 明日计划预告</td></tr>
+      </table>
+      <div class="ok">【可行性】项目已有定时推送机制（定时器 + <code>feishuq.js</code> 队列 + <code>sentToday</code> 幂等），只需新增三个定时摘要任务，复用现有闸门与去重，不新造轮子。</div>
+      <div class="warn">【风险】推送频率上升可能打扰 —— 必须配一个「摘要静默开关」，且严格遵守幂等（同一天同摘要不重发）。</div>
+    </div>
+  </div>
+
+  <div class="dir">
+    <div class="dir-head">
+      <span class="label">方向 C · 推送升级可交互卡片</span>
+      <span class="tag gold">P1 锦上添花</span>
+      <span class="prio">精致度提升</span>
+    </div>
+    <div class="dir-body">
+      <p><strong>做什么：</strong>把飞书 <code>msg_type:'text'</code> 升级为 <code>msg_type:'interactive'</code> 消息卡片：红涨绿跌（A股惯例）、字段化布局（现价/距涨停/资金/板块/时间）、带「看详情」按钮跳转线上面板。</p>
+      <div class="fact">【事实·技术边界】飞书 webhook <strong>支持</strong> <code>interactive</code> 卡片，但按钮<strong>只能「跳转 URL」</strong>，<strong>不能</strong>做「加持仓」这类需要服务器回调的动作 —— 那要升级成「飞书开放平台应用 + 事件订阅」，是重投入（需申请应用、配回调地址、管 token）。</div>
+      <div class="risk">【风险】飞书卡片字段有字数上限；卡片按钮的「回调型交互」本轮不做（<strong>只做 URL 跳转</strong>），除非你愿意上开放平台应用。</div>
+      <div class="muted">※ 已有 <code>_cardOf</code> 每票一张卡片的纯文本版，本方向是把它「可视化」成真卡片。</div>
+    </div>
+  </div>
+
+  <h2>五、为什么这样做</h2>
+  <div class="card">
+    <ul>
+      <li><strong>避开雷区：</strong>三条全部是「新增」，不碰你「看不习惯」的现有布局。</li>
+      <li><strong>命中痛点：</strong>「信息过载」的解法不是「把更多东西塞进一屏」，而是「把结论抽出来」—— 速览页抽「结论卡片」、定时摘要抽「时点结论」。</li>
+      <li><strong>优先级理由：</strong>A/B 直接解决「找不到重点」，投入小、见效快，故 P0；C 是精致度，且有技术边界，故 P1 暂缓。</li>
+      <li><strong>工程一致性：</strong>复用现有 <code>/api/state</code>、<code>feishuq.js</code>、<code>sentToday</code>，不引入两套口径。</li>
+    </ul>
+  </div>
+
+  <h2>六、具体执行步骤</h2>
+  <div class="card">
+    <h3>阶段一（P0）：速览页 + 定时摘要</h3>
+    <ul>
+      <li>1. 后端加 <code>/m</code> 路由（或 <code>/api/mobile-digest</code>），聚合「情绪结论 + 竞价信号 + 涨停异动 + 持仓提醒 + 明日计划」。</li>
+      <li>2. 新增轻量前端 <code>mobile.html</code>（大字、卡片式、红涨绿跌、点击跳转主面板锚点）。</li>
+      <li>3. 新增三个定时摘要任务（09:30 / 11:30 / 15:00），复用 <code>feishuq</code> + <code>sentToday</code> 幂等。</li>
+      <li>4. 补守门：<code>_test_mobile_digest.js</code>（jsdom 渲染层 + 断点断言 + 与主面板同源校验）。</li>
+      <li>5. <code>node --check</code> 全量 + <code>_runall.js</code> 对照基线（红灯 ≤ 基线 7 套件，0 新增红）。</li>
+      <li>6. 走发布闭环：<code>_publish.py sync → --apply → 部署 → --restore → _post_publish.py</code>。</li>
+    </ul>
+    <h3>阶段二（P1）：可交互卡片</h3>
+    <ul>
+      <li>1. <code>feishuq.js</code> 支持 <code>interactive</code> 卡片构造（红涨绿跌字段 + URL 跳转按钮）。</li>
+      <li>2. 逐类信号替换为卡片（先竞价/大单，再持仓提醒）。</li>
+      <li>3. 补守门 <code>_test_feishu_card.js</code>（卡片结构断言 + 字数上限 + 旧 text 写法反证）。</li>
+      <li>4. 同上回归 + 发布。</li>
+    </ul>
+  </div>
+
+  <h2>七、关键提醒与风险（请勿忽略）</h2>
+  <div class="card">
+    <div class="warn"><strong>① 推送频率 vs 打扰：</strong>定时摘要会让每日推送从「仅触发时」变成「触发 + 三份定时」，打扰度上升。必须配「摘要静默开关」+ 严格幂等，否则可能变成新的「噪音」。</div>
+    <div class="risk"><strong>② 可交互卡片的「加持仓」回调本轮做不了：</strong>webhook 是单向的。若你坚持要「点按钮直接加持仓」，需要上飞书开放平台应用（重投入），否则按钮只能是「跳转页面」。</div>
+    <div class="warn"><strong>③ 数据同源：</strong>速览页必须复用 <code>/api/state</code>，绝不能另写一套聚合口径，否则「速览页说涨、主面板说跌」就是新的「两份实现」铁律违规。</div>
+    <div class="warn"><strong>④ 飞书卡片字段长度：</strong>卡片有字数上限，超长会截断或发送失败，需在构造层做截断兜底。</div>
+    <div class="warn"><strong>⑤ 发布闭环：</strong>任何改动都要走 <code>_publish.py</code> 完整闭环，新前端文件要进 <code>CODE_FILES</code>，否则线上看不到。</div>
+    <div class="muted">※ 未验证假设：本方案未实际验证「飞书 webhook interactive 卡片的当前字段规格」——实施阶段一前需先用测试机器人发一张样卡确认（5 分钟成本）。</div>
+  </div>
+
+  <h2>八、决策清单（请回填）</h2>
+  <p class="muted">默认值 = 我的推荐项；改过的项会高亮，草稿自动存本地。填完点「生成回发文案」复制发我即可。</p>
+  <div id="decs"></div>
+
+  <div class="toolbar">
+    <div class="toolbar-inner">
+      <button onclick="gen()">生成回发文案</button>
+      <button class="ghost" onclick="copyOut()">复制</button>
+      <button class="ghost" onclick="resetAll()">恢复推荐默认</button>
+      <span id="saved"></span>
+      <textarea id="outbox" readonly placeholder="点「生成回发文案」后，这里会显示可直接回发给我的文本"></textarea>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// 决策项定义：id, 标题, 描述, 选项[], 默认值(推荐)
+const DECS = [
+  {
+    id:'dirA', n:'1', title:'方向 A · 手机专属速览页 /m',
+    desc:'新增独立路由，一屏看完「今日结论 + 信号清单 + 持仓提醒 + 明日计划」，完全不动现有面板。',
+    opts:['做（P0，推荐）','暂缓','不做'],
+    def:'做（P0，推荐）'
+  },
+  {
+    id:'dirB', n:'2', title:'方向 B · 飞书定时摘要推送',
+    desc:'早 09:30 / 午 11:30 / 收盘 15:00 各推一份结构化「盘面摘要」到飞书私密机器人。',
+    opts:['做（P0，推荐）','暂缓','不做'],
+    def:'做（P0，推荐）'
+  },
+  {
+    id:'dirC', n:'3', title:'方向 C · 推送升级可交互卡片',
+    desc:'飞书 text → interactive 卡片（红涨绿跌 + 跳转按钮）。技术边界：按钮只能跳 URL，不能「加持仓」回调。',
+    opts:['暂缓（P1，推荐）','做（P0 一起上）','不做'],
+    def:'暂缓（P1，推荐）'
+  },
+  {
+    id:'freq', n:'4', title:'定时摘要的时点',
+    desc:'选哪些时点各推一份盘面摘要。',
+    opts:['早 + 午 + 收盘 三档（推荐）','只收盘一档','早盘 + 收盘 两档'],
+    def:'早 + 午 + 收盘 三档（推荐）'
+  },
+  {
+    id:'entry', n:'5', title:'速览页入口方式',
+    desc:'手机速览页怎么进。',
+    opts:['新路由 /m（推荐）','主面板顶部按钮跳转','主面板二维码扫码进'],
+    def:'新路由 /m（推荐）'
+  },
+  {
+    id:'silent', n:'6', title:'摘要静默开关',
+    desc:'是否给定时摘要加「一键静默」开关（防打扰）。',
+    opts:['要，加静默开关（推荐）','不要，直接推'],
+    def:'要，加静默开关（推荐）'
+  }
+];
+
+const $ = s => document.querySelector(s);
+function load(){ try{ return JSON.parse(localStorage.getItem('mobile_ux_report')||'{}'); }catch(e){ return {}; } }
+function save(d){ localStorage.setItem('mobile_ux_report', JSON.stringify(d)); }
+
+function render(){
+  const store = load();
+  const box = $('#decs');
+  box.innerHTML = '';
+  DECS.forEach(d=>{
+    const cur = store[d.id] || { val:d.def, note:'' };
+    const div = document.createElement('div');
+    div.className = 'dec';
+    div.innerHTML = `
+      <div class="dec-head">
+        <span class="dec-title"><span class="n">${d.n}.</span>${d.title}</span>
+      </div>
+      <div class="dec-body">
+        <div class="dec-desc">${d.desc}</div>
+        <div class="row">
+          <select id="sel_${d.id}" class="${cur.val!==d.def?'changed':''}">
+            ${d.opts.map(o=>`<option ${o===cur.val?'selected':''}>${o}</option>`).join('')}
+          </select>
+          <textarea id="note_${d.id}" placeholder="备注（可选）">${cur.note||''}</textarea>
+        </div>
+      </div>`;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('select').forEach(s=>{
+    s.addEventListener('change', e=>{
+      const id = e.target.id.replace('sel_','');
+      const store = load();
+      store[id] = store[id] || { val:'', note:'' };
+      store[id].val = e.target.value;
+      save(store);
+      e.target.classList.toggle('changed', e.target.value !== DECS.find(d=>d.id===id).def);
+      $('#saved').textContent = '已自动保存 ' + new Date().toLocaleTimeString();
+    });
+  });
+  box.querySelectorAll('textarea').forEach(t=>{
+    t.addEventListener('input', e=>{
+      const id = e.target.id.replace('note_','');
+      const store = load();
+      store[id] = store[id] || { val:'', note:'' };
+      store[id].note = e.target.value;
+      save(store);
+      $('#saved').textContent = '已自动保存 ' + new Date().toLocaleTimeString();
+    });
+  });
+}
+
+function gen(){
+  const store = load();
+  let lines = ['【手机看盘方案决策回填】'];
+  DECS.forEach(d=>{
+    const cur = store[d.id] || { val:d.def, note:'' };
+    const mark = cur.val !== d.def ? '（已改）' : '';
+    lines.push(`${d.n}. ${d.title}: ${cur.val}${mark}${cur.note?' —— 备注：'+cur.note:''}`);
+  });
+  $('#outbox').value = lines.join('\n');
+  $('#saved').textContent = '文案已生成，点「复制」即可';
+}
+
+function copyOut(){
+  const t = $('#outbox');
+  t.select();
+  document.execCommand('copy');
+  $('#saved').textContent = '已复制到剪贴板';
+}
+
+function resetAll(){
+  localStorage.removeItem('mobile_ux_report');
+  render();
+  $('#outbox').value = '';
+  $('#saved').textContent = '已恢复推荐默认';
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今日代码变更与影响对比 · 2026-10-12</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1c2026; --muted:#6b7280;
+    --up:#c62828; --down:#2e7d32; --warn:#b45309; --ok:#1565c0; --chip:#eef2f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:22px;background:var(--bg);color:var(--text);
+       font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;font-size:14px;line-height:1.6}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12.5px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15.5px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+  th{background:var(--chip);font-weight:600;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11.5px;line-height:18px;white-space:nowrap}
+  .t-no{background:#e8f5e9;color:#1b5e20}
+  .t-yes{background:#ffebee;color:#b71c1c}
+  .t-pend{background:#fff8e1;color:#8d6e00}
+  .up{color:var(--up);font-weight:600}
+  .down{color:var(--down);font-weight:600}
+  .mut{color:var(--muted)}
+  .key{background:#fff8e1;padding:0 3px}
+  ol,ul{margin:6px 0 0 20px;padding:0}
+  li{margin-bottom:5px}
+  code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12px}
+  .foot{color:var(--muted);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>今日代码变更与影响对比 <span class="mut" style="font-weight:400">（2026-10-12 · 线上现版本 20261012gl）</span></h1>
+<div class="sub">口径：已发布 = 线上所有人可见；未发布 = 只在本机 8787 预览，线上没有。涨跌配色按 A 股习惯：红涨绿跌。</div>
+
+<div class="card">
+<h2>一、今天已上线的 6 轮变更（全部已在生产环境生效）</h2>
+<table>
+  <tr><th>版本</th><th>上线时间</th><th>改了什么</th><th>影响面</th><th>动选股条件？</th></tr>
+  <tr>
+    <td><b>gf</b></td><td>00:56</td>
+    <td>新闻汇总「静默漏发」自诊断：到点没发且新闻归档为空时，往推送流水/面板写一条诊断说明；另修「跨午夜补发」——周一 9 点前补发仍按周末汇总口径，不再发空壳当日汇总</td>
+    <td>只影响新闻模块与推送流水</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+  <tr>
+    <td><b>gg</b></td><td>02:03</td>
+    <td>接入云服务：AI 盘面速览（大模型读要闻+精选池出结论）、云存档、WorkBuddy 登录</td>
+    <td>前端新增一块卡片</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+  <tr>
+    <td><b>gi</b></td><td>02:58</td>
+    <td><b>按你的要求撤销云服务接入</b>：代码整份回滚到 gg 之前，云端表已 DROP（0 表 0 策略）</td>
+    <td>云服务全部移除（是撤回，不是改条件）</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+  <tr>
+    <td><b>gj</b></td><td>08:30</td>
+    <td>前端韧性三处：①「这一轮没拉到数据」不再弹「面板刷新出错（数据可能已停止更新）」，改中性提示、连续 3 轮才升级红框、数据一恢复自动摘掉；② 原生 confirm/prompt（深色模式下是黑弹窗）换成页内浮层；③ 后端少返字段不再整页崩</td>
+    <td>页面交互与提示文案</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+  <tr>
+    <td><b>gk</b></td><td>09:02</td>
+    <td>页面切回前台时补跑一次版本自检（30 秒节流）—— 修「昨天就开着的标签页永远不更新」这个真漏修</td>
+    <td>页面更新时机</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+  <tr>
+    <td><b>gl</b></td><td>17:06</td>
+    <td>① <span class="key">复盘必达</span>：容器被回收后流水为空，旧兜底把「零流水」当「证据丢失」恒真 → 复盘被判「已发过」永不补发；现在晚于应发时刻且 &lt;2 小时放行。② 推送文案私密开关</td>
+    <td>复盘/作战计划的必达性</td>
+    <td><span class="tag t-no">未动</span></td>
+  </tr>
+</table>
+<div class="foot">结论：<b>今天上线到生产的东西，没有一处改过选股条件、评分权重或推送门槛。</b></div>
+</div>
+
+<div class="card">
+<h2>二、写好但<span class="key">没有发布</span>的 gm 轮（只在本机 8787 预览，线上跑的还是 gl）</h2>
+<table>
+  <tr><th>改动</th><th>内容</th><th>会影响什么</th><th>状态</th></tr>
+  <tr><td>封单强度比进概率模型</td><td><code>封单额/流通市值</code>（%）作为打板第一因子进入次日涨停概率：<code>z += 2.2 × min(封单强度, 0.6)</code>。实测强板(&gt;0.5%) 次日胜率 70.4% vs 弱板(&lt;0.3%) 29.7%</td><td>一进二/二进三/精选池的概率与排序</td><td><span class="tag t-pend">待你确认</span></td></tr>
+  <tr><td>近 5 日涨停基因（新增 10 分）</td><td>实测近 5 日板过的票次日涨停率约 40%，是比 90 日窗口更贴近「当下风头」的因子</td><td>精选池评分</td><td><span class="tag t-pend">待你确认</span></td></tr>
+  <tr><td>量能结构（新增 5 分）</td><td>缩量首板晋级率 20.3% vs 放量首板 15.1%，爆量判 0 分</td><td>精选池评分</td><td><span class="tag t-pend">待你确认</span></td></tr>
+  <tr><td>追高降温</td><td>3 连阳但 3 日累计已涨 &gt;12% 只留基础分（A 股短期动量 IC 为负，3 连阳本身不再是满分理由）</td><td>精选池评分</td><td><span class="tag t-pend">待你确认</span></td></tr>
+  <tr><td>权重重整</td><td>3 日上涨 12→10、换手排名 15→12、90 日涨停 15→9，满分 94→98</td><td>评分绝对值（面板显示的分数会变）</td><td><span class="tag t-pend">待你确认</span></td></tr>
+</table>
+<div class="foot">单测 <code>_test_model_factor.js</code> 32 断言全绿、<code>_test_need.js</code> 88/0。但按我们定的三阶段协议，<b>没经你确认不进阶段三，所以今天一天都没上线</b>——今天任何一只票的推送都不是 gm 推的。</div>
+</div>
+
+<div class="card">
+<h2>三、今天实盘对账（数据来自学习日志 2465 条样本中的今日 122 条）</h2>
+<table>
+  <tr><th>模块</th><th class="num">候选</th><th class="num">涨</th><th class="num">跌</th><th class="num">涨停</th><th class="num">胜率</th><th>对比大盘</th></tr>
+  <tr><td>竞价涨停推断</td><td class="num">58</td><td class="num up">32</td><td class="num down">26</td><td class="num">10</td><td class="num">55%</td><td>大盘上涨占比 21%</td></tr>
+  <tr><td>精选池</td><td class="num">31</td><td class="num up">15</td><td class="num down">16</td><td class="num">2</td><td class="num">48%</td><td>同上</td></tr>
+  <tr><td>趋势扫描</td><td class="num">9</td><td class="num up">7</td><td class="num down">2</td><td class="num">4</td><td class="num">78%</td><td>同上</td></tr>
+  <tr><td><b>大单流入</b></td><td class="num">5</td><td class="num up">5</td><td class="num down">0</td><td class="num">2</td><td class="num up">100%</td><td>同上</td></tr>
+  <tr><td>合计</td><td class="num"><b>122</b></td><td class="num up"><b>76</b></td><td class="num down"><b>46</b></td><td class="num"><b>24</b></td><td class="num">62.3%</td><td>—</td></tr>
+</table>
+<div class="foot">今天大盘：平均 <span class="down">-1.6%</span>、中位数 <span class="down">-1.68%</span>、<b>上涨占比仅 21%</b>（1166 涨 / 4325 跌），指数 <span class="down">-0.81%</span> —— 典型普跌日，全市场涨停池只剩 1 只。</div>
+
+<h2 style="margin-top:18px">大单流入 5 只明细（今天全涨）</h2>
+<table>
+  <tr><th>股票</th><th class="num">大单净占比</th><th class="num">收盘</th><th class="num">盘中最高</th><th>结果</th></tr>
+  <tr><td>德新科技 603032</td><td class="num">21.4%</td><td class="num up">+10.02%</td><td class="num up">+1.95%</td><td class="up">涨停</td></tr>
+  <tr><td>新 华 都 002264</td><td class="num">19.6%</td><td class="num up">+10.00%</td><td class="num up">+2.91%</td><td class="up">涨停</td></tr>
+  <tr><td>保变电气 600550</td><td class="num">34.0%</td><td class="num up">+5.91%</td><td class="num up">+2.34%</td><td class="up">涨</td></tr>
+  <tr><td>悦心健康 002162</td><td class="num">21.7%</td><td class="num up">+1.81%</td><td class="num up">+1.77%</td><td class="up">涨</td></tr>
+  <tr><td>华盛昌 002980</td><td class="num">17.0%</td><td class="num up">+1.67%</td><td class="num up">+3.07%</td><td class="up">涨</td></tr>
+</table>
+<div class="foot">这 5 只是<b>候选</b>，不等于都送到了你手上——下面第四部分说的就是「为什么你没看到」。</div>
+</div>
+
+<div class="card">
+<h2>四、已定位、今天还没修的问题（直接导致「收不到」）</h2>
+<table>
+  <tr><th>#</th><th>问题</th><th>实证</th><th>后果</th></tr>
+  <tr>
+    <td>1</td><td><b>渠道错配</b>：10 类业务推送走的是群机器人，不是私密通道</td>
+    <td>外围联动、连续收涨、盘中推送、竞价接近涨停、<b>大单流入</b>、相似走势、盘中预警汇总、利好关联、补涨龙、开盘自检</td>
+    <td>推了你也可能看不到（你主要看私密）</td>
+  </tr>
+  <tr>
+    <td>2</td><td>手动复盘入口 <code>/api/review-digest</code> 用 <code>pushWecom</code> 直发，绕过私密路由</td>
+    <td>今天 15:54:58 那条复盘流水写的是「✅ 已送达 · 飞书」，不是「已送达(私密)」</td>
+    <td>手动补的复盘进了群，私密里没有</td>
+  </tr>
+  <tr>
+    <td>3</td><td><b>线上容器今天至少被回收 2 次</b>（15:47 一次、16:50 后又一次），每次推送流水清零重来</td>
+    <td>18:11 实测线上流水 <b>0 条</b>；16:50 拉回时还有 6 条（15:49~16:17）</td>
+    <td>今早（09:15~11:35）到底推没推、推到哪，证据没了</td>
+  </tr>
+  <tr>
+    <td>4</td><td>我们自己的发布流程用线上空流水覆盖了 16:50 拉回的 6 条证据</td>
+    <td>17:05 <code>_post_publish.py</code> 二次回拉，本地 pushlog.json 被覆盖成空</td>
+    <td>今天的送达记录不可恢复（<b>这是我们的错，已记档</b>）</td>
+  </tr>
+</table>
+</div>
+
+<div class="card">
+<h2>五、科力远（600478）复盘 —— 这单我认</h2>
+<table>
+  <tr><th>环节</th><th>事实</th></tr>
+  <tr><td>推送来源</td><td>周五 10-09 19:22 的<b>晚间一进二</b>推送（不是今天的盘中推送）</td></tr>
+  <tr><td>当时的分</td><td>原始概率 <b>51</b>（<span class="down">低于主闸门 55</span>），融合分 63 才让它过闸</td></tr>
+  <tr><td>板块角色</td><td>电池·储能板块里的 <b>follow（跟风股）</b>，不是龙头</td></tr>
+  <tr><td>封单强度</td><td>0.19% —— 落在 gm 研究里「弱板(&lt;0.3%) 次日胜率仅 29.7%」那一档</td></tr>
+  <tr><td>周一走势</td><td>开 5.19（+1.8%）→ 高 5.23 → 收 5.03（<span class="down">-1.37%</span>）；你开盘买约 <span class="down">-3%</span></td></tr>
+  <tr><td>环境</td><td>周一普跌（上涨占比 21%），而晚间推送<b>看不见第二天的大盘</b>：情绪闸门只在 β ≤ -1.5 才扣分，周一 -0.81 没触发</td></tr>
+</table>
+<div class="foot">该认的两点：① 原始分 51 的边际票不该和硬板龙头同篮推；② 晚间接力没有「次日环境」这道闸，等于让你裸着进普跌日。</div>
+</div>
+
+<div class="card">
+<h2>六、待你拍板（不确认我不动代码）</h2>
+<ol>
+  <li><b>10 类推送 + 手动复盘入口统一改私密</b>（推荐全改，改完你只看私密一个地方即可）</li>
+  <li><b>推送证据耐久化</b>：发布流程禁止再用空流水回写本地（今天证据被毁的根因）</li>
+  <li><b>实例健康告警</b>：线上 11:47 停止作业到 15:47 无人知道，该主动报一声</li>
+  <li><b>gm 发不发</b>：普跌日不发 / 或按市场环境分层设不同门槛，二选一</li>
+  <li><b>新需求进阶段二</b>：竞价准确率、一进二二进三随市况调整、按板块预判首板并入一进二、盘中板块强弱实时更新、只推高准确率票 + 国家队三层 + 高胜率模型调研</li>
+</ol>
+</div>
+
+</body>
+</html>
