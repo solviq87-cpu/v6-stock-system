@@ -40,7 +40,7 @@
       }
       return value;
     }
-    async function send(method, auth, payload) {
+    async function send(method, auth, payload, endpoint = API) {
       const options = {
         method, redirect: 'error', cache: 'no-store', credentials: 'omit',
         referrerPolicy: 'no-referrer', mode: 'same-origin',
@@ -54,7 +54,7 @@
       const timer = setTimeout(() => controller.abort(), 12000);
       options.signal = controller.signal;
       let response;
-      try { response = await transport(API, options); }
+      try { response = await transport(endpoint, options); }
       catch { throw failure('TRANSPORT_UNCERTAIN'); }
       finally { clearTimeout(timer); }
       if (!response || typeof response.status !== 'number') throw failure('TRANSPORT_UNCERTAIN');
@@ -204,7 +204,43 @@
       busy = true;
       try { return await submit(auth, originalEpoch); } finally { busy = false; }
     }
-    return Object.freeze({ load, record, commit, retryPending, status, clear });
+    // Query the verified immutable event chain by an existing request ID.
+    // This is not an account login, a successful balance reconciliation, or a new write.
+    // A missing receipt is provisional; the original request might still be in flight.
+    async function receipt(requestId) {
+      if (busy) throw failure('CLIENT_BUSY');
+      if (typeof requestId !== 'string' || !REQUEST_ID.test(requestId))
+        throw failure('INVALID_REQUEST_ID');
+      const auth = token(), originalEpoch = epoch;
+      busy = true;
+      try {
+        const data = await send('GET', auth, undefined, API + '/receipts/' + requestId);
+        if (epoch !== originalEpoch || token() !== auth) throw failure('AUTH_CHANGED');
+        const proof = data.receipt;
+        if (!plain(proof) || typeof proof.found !== 'boolean' ||
+            !Number.isSafeInteger(proof.currentRevision) || proof.currentRevision < 1 ||
+            proof.readOnly !== true || proof.verifiedFromHashChain !== true ||
+            proof.accountRecoveryVerified !== false ||
+            (proof.found && (proof.status !== 'committed' ||
+              !['upsert','bootstrap'].includes(proof.action) ||
+              !Number.isSafeInteger(proof.appliedRevision) ||
+              proof.appliedRevision < 1 || proof.appliedRevision > proof.currentRevision)) ||
+            (!proof.found && (proof.status !== 'not-present-in-verified-ledger' ||
+              proof.appliedRevision !== null)))
+          throw failure('RECEIPT_UNVERIFIED');
+        return Object.freeze({
+          found: proof.found, status: proof.status,
+          action: proof.found ? proof.action : null,
+          appliedRevision: proof.found ? proof.appliedRevision : null,
+          currentRevision: proof.currentRevision,
+          readOnly: true, accountRecoveryVerified: false
+        });
+      } catch (e) {
+        if (['LOGIN_REQUIRED','ACCESS_DENIED','AUTH_CHANGED'].includes(e.code)) clear();
+        throw e;
+      } finally { busy = false; }
+    }
+    return Object.freeze({ load, record, commit, retryPending, receipt, status, clear });
   }
   const api = Object.freeze({ createClient });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
