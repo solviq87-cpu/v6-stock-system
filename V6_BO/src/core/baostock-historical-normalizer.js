@@ -44,7 +44,9 @@ function normalizeBaoStockDaily({code,rows,collectorObservedAt}={}){
   if(high<Math.max(open,close,low)||low>Math.min(open,close)||
      ((volume===0)!==(cash===0)))
    throw Error('BaoStock OHLC或成交量金额相互矛盾');
-  const daily={date:r.date,open,high,low,close,volume,amount:cash};
+  // tradestatus=1 is explicit vendor evidence of an active trading day;
+  // this false flag must never be inferred from positive volume alone.
+  const daily={date:r.date,open,high,low,close,volume,amount:cash,suspended:false};
   if(!['in-range','no-trades'].includes(assessDailyTurnoverBar(daily).status))
    throw Error('BaoStock未复权日K成交额/股数隐含均价超出高低价范围');
   bars.push(daily);

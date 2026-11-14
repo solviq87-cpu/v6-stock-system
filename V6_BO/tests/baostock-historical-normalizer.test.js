@@ -94,3 +94,12 @@ test('BaoStock standalone normalizer refuses 100x incorrect turnover even with p
  good[10].amount=String(Math.round(Number(good[10].high)*1.005*10000));
  assert.equal(normalize(good).dataset.stocks[0].bars.length,40);
 });
+
+test('simplified BaoStock tradestatus=1 preserves declared non-halt evidence, never an inferred exchange proof',()=>{
+ const r=normalize(sample());
+ assert.equal(r.dataset.stocks[0].bars[0].suspended,false);
+ assert.ok(r.dataset.stocks[0].bars.every(b=>b.suspended===false));
+ assert.equal(r.provenance.independentPublisherAuthenticated,false);
+ const wrong=sample();delete wrong[0].tradestatus;
+ assert.throws(()=>normalize(wrong),/停牌状态/);
+});

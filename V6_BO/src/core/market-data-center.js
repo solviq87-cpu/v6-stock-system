@@ -69,7 +69,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
     // The optional comparison file is a WRITE GATE, not just a displayed
     // diagnostic: distinct names or equal numbers alone never authorize import.
     if(consensus.evidenceQuality?.status!=='consistent-research-only')
-     throw Error('双源独立上游身份、时间、股数或实际成交额证据不足，拒绝写入历史');
+     throw Error('双源上游、时间、股数、实际成交额或逐日停牌状态证据不足，拒绝写入历史');
     if(incoming.observedAt>observedAt||reference.observedAt>observedAt)
      throw Error('双源采集时点位于导入时钟未来，拒绝写入历史');
    }
@@ -81,7 +81,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
    }
    if(changed){atomicWrite(outputFile,stable(incoming)+'\n');updates++;}
    lastDigest=digest(stable(incoming));lastSuccess=new Date().toISOString();lastError=null;
-   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary,evidenceQuality:consensus.evidenceQuality,bySymbol:consensus.bySymbol}:null};
+   return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary,evidenceQuality:consensus.evidenceQuality,bySymbol:consensus.bySymbol,suspensionCoverage:consensus.suspensionCoverage}:null};
   }catch(e){lastError=e.message;return {updated:false,error:lastError};}
   finally{busy=false;}
  }

@@ -53,6 +53,9 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  const bs=new Map(secondary.stocks.map(s=>[String(s.code||s.symbol),s]));
  const differences=[];let total=0,comparedBars=0,amountComparedBars=0,amountCoverageGapBars=0;
  const symbolEvidence=new Map(primary.stocks.map(s=>[String(s.code||s.symbol),{symbol:String(s.code||s.symbol),comparedBars:0,discrepancies:0,fields:[]}]));
+ const suspensionEvidence=new Map(primary.stocks.map(s=>[String(s.code||s.symbol),
+  {symbol:String(s.code||s.symbol),matchedBars:0,missingBars:0}]));
+ let suspensionComparedBars=0,suspensionCoverageGapBars=0;
  let maximumPriceDifferenceBps=0,maximumVolumeDifferencePct=0,maximumAmountDifferencePct=0;
  const vwapCheckApplicable=amountRequested&&primary.priceAdjustment.mode==='unadjusted';
  let vwapCheckedObservations=0,vwapOutlierObservations=0;
@@ -68,6 +71,13 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   for(let i=0;i<s.bars.length;i++){
    const x=s.bars[i],y=other.bars[i];if(x.date!==y.date)throw Error('多源交易日错位: '+symbol);
    comparedBars++;symbolEvidence.get(symbol).comparedBars++;
+   // Missing suspension status from BOTH vendors must remain unknown, even if
+   // prices and CNY turnover happen to agree. Never infer false from omission.
+   if(typeof x.suspended==='boolean'&&typeof y.suspended==='boolean'){
+    suspensionComparedBars++;suspensionEvidence.get(symbol).matchedBars++;
+   }else{
+    suspensionCoverageGapBars++;suspensionEvidence.get(symbol).missingBars++;
+   }
    // A price/turnover match cannot override contradictory halt flags.
    if(x.suspended!==undefined||y.suspended!==undefined){
     if(typeof x.suspended!=='boolean'||typeof y.suspended!=='boolean')
@@ -118,9 +128,11 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
    }
   }
  }
+ const suspensionCoverageComplete=suspensionComparedBars===comparedBars&&comparedBars>0;
  const evidenceQuality=evaluateMarketEvidence({catalogued:upstreamA.known&&upstreamB.known,
   timestampComparable:observationSkewMs!==null,volumeUnitVerified,
-  amountUnitVerified:amountRequested,amountCoverageGapBars,amountComparedBars,comparedBars,discrepancies:total});
+  amountUnitVerified:amountRequested,amountCoverageGapBars,amountComparedBars,comparedBars,
+  suspensionCoverageComplete,discrepancies:total});
  return {schemaVersion:1,mode:'independent-feed-shape-and-value-consensus',canTrade:false,verifiedExternal:false,
   primary:{provider:primary.provider,upstreamGroup:upstreamA.group,datasetId:primary.datasetId,fingerprint:sha(primary)},
   secondary:{provider:secondary.provider,upstreamGroup:upstreamB.group,datasetId:secondary.datasetId,fingerprint:sha(secondary)},
@@ -131,6 +143,9 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
   comparedBars,amountComparedBars,amountCoverageGapBars,discrepancies:total,displayedDiscrepancies:differences,
   bySymbol:[...symbolEvidence.values()],evidenceQuality,
+  suspensionCoverage:{comparedBars:suspensionComparedBars,
+   missingBars:suspensionCoverageGapBars,complete:suspensionCoverageComplete,
+   bySymbol:[...suspensionEvidence.values()],verifiedByExchange:false},
   vwapSanity:{applicable:vwapCheckApplicable,toleranceBps:TOLERANCE_BPS,
    checkedObservations:vwapCheckedObservations,outlierObservations:vwapOutlierObservations,
    skippedAdjustedPrices:amountRequested&&!vwapCheckApplicable,provesMarketAccuracy:false},
@@ -138,6 +153,6 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,
   consensus:total===0,releaseReady:false,
-  warning:'仅研究比较。未复权日K的成交额/股数隐含均价只是异常筛查；前后复权价格不可用于此检验。数据一致并不验证授权、日历、公司行为或实盘独立性。'};
+  warning:'仅研究比较。双源均未提供的停牌状态必须标为未知，数值共识不能代替逐日停牌证据；未复权日K隐含均价只是异常筛查。数据一致不验证授权、日历、公司行为或实盘独立性。'};
 }
 module.exports={compareMarketFeeds};
