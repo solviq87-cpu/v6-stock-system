@@ -210,3 +210,24 @@ test('watch requires opt-in and bounded interval; aborted watch starts no execut
 test('watch rejects timer-overflow intervals instead of polling every millisecond',()=>{
  assert.throws(()=>parse(['watch','/tmp/agent-config.json','--apply','--interval','2147483648']),/maximum/);
 });
+test('async cycle keeps agent lock until settled and records failure rather than false success',async t=>{
+ const {config}=setup(t),cyclePath=require.resolve('../src/core/factor-daily-research-cycle'),agentPath=require.resolve('../src/core/factor-research-agent');
+ const cycle=require(cyclePath),original=cycle.runDailyCycle,cached=require.cache[agentPath];let reject;
+ cycle.runDailyCycle=()=>new Promise((resolve,r)=>{reject=r;});delete require.cache[agentPath];const fresh=require(agentPath);
+ t.after(()=>{cycle.runDailyCycle=original;require.cache[agentPath]=cached;});
+ const pending=fresh.runAgent(config,{apply:true,now});assert.equal(typeof pending.then,'function');assert.equal(fs.existsSync(path.join(config.outputDir,'.factor-agent.lock')),true);assert.equal(fs.readdirSync(config.outputDir).filter(f=>f.startsWith('event-')).length,0);
+ assert.throws(()=>fresh.runAgent(config,{apply:true,now}),/stopped-check-private/);
+ reject(Error('model unavailable'));const result=await pending;assert.equal(result.status,'failed-stop-and-audit-before-retry');assert.equal(fs.existsSync(path.join(config.outputDir,'.factor-agent.lock')),false);assert.equal(fresh.readAgentStatus(config.outputDir).status,result.status);
+});
+test('agent reflection exposes model identity only, excluding private hypothesis',async t=>{
+ const {config}=setup(t),cyclePath=require.resolve('../src/core/factor-daily-research-cycle'),agentPath=require.resolve('../src/core/factor-research-agent'),cycle=require(cyclePath),old=cycle.runDailyCycle,cached=require.cache[agentPath];
+ cycle.runDailyCycle=()=>Promise.resolve({status:'research-cycle-completed-not-certified',stages:[{stage:'independent-shadow-model',status:'candidate-auto-preregistered',modelName:'qwen3:0.6b',modelDigest:'a'.repeat(64),hypothesis:'private'}]});delete require.cache[agentPath];const fresh=require(agentPath);t.after(()=>{cycle.runDailyCycle=old;require.cache[agentPath]=cached;});
+ const value=await fresh.runAgent(config,{apply:true,now});assert.equal(value.modelName,'qwen3:0.6b');assert.equal(value.modelDigest,'a'.repeat(64));assert.equal(JSON.stringify(value).includes('private'),false);assert.equal(fresh.readAgentStatus(config.outputDir).modelName,value.modelName);
+});
+test('model configuration changes invalidate agent idle memory without exposing config',async t=>{
+ const {config}=setup(t),cyclePath=require.resolve('../src/core/factor-daily-research-cycle'),agentPath=require.resolve('../src/core/factor-research-agent'),cycle=require(cyclePath),old=cycle.runDailyCycle,cached=require.cache[agentPath],keys=['V6_LOCAL_LEARNING_MODEL','V6_LOCAL_LEARNING_ENDPOINT','V6_LOCAL_LEARNING_DIGEST'],env=Object.fromEntries(keys.map(k=>[k,process.env[k]]));let calls=0;
+ cycle.runDailyCycle=()=>{calls++;return {status:'research-cycle-completed-not-certified',stages:[{stage:'independent-shadow-model',status:'skipped-model-no-change'}]};};delete require.cache[agentPath];const fresh=require(agentPath);t.after(()=>{cycle.runDailyCycle=old;require.cache[agentPath]=cached;for(const k of keys)if(env[k]===undefined)delete process.env[k];else process.env[k]=env[k];});
+ process.env.V6_LOCAL_LEARNING_MODEL='qwen3:0.6b';process.env.V6_LOCAL_LEARNING_ENDPOINT='http://127.0.0.1:11434';process.env.V6_LOCAL_LEARNING_DIGEST='a'.repeat(64);
+ const first=fresh.runAgent(config,{apply:true,now});assert.equal(first.status,'research-cycle-completed-not-certified');assert.equal(fresh.runAgent(config,{apply:true,now}).status,'unchanged');assert.equal(calls,1);
+ delete process.env.V6_LOCAL_LEARNING_DIGEST;assert.throws(()=>fresh.runAgent(config,{apply:true,now}),/agent-local-model-digest-required/);process.env.V6_LOCAL_LEARNING_DIGEST='b'.repeat(64);const second=fresh.runAgent(config,{apply:true,now});assert.equal(second.status,'research-cycle-completed-not-certified');assert.equal(calls,2);assert.equal(JSON.stringify(second).includes('127.0.0.1'),false);
+});

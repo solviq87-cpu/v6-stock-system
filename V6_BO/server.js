@@ -10,6 +10,7 @@ const zlib = require('zlib');
 const em = require('./em');
 const {classifyFeishuReceipt} = require('./src/core/feishu-receipt');
 const probabilityContract = require('./src/core/probability-contract');
+const LearningIntegrity = require('./src/core/learning-outcome-integrity');
 const SignalEvidence = require('./src/core/signal-evidence-chain');
 const SignalJournal = require('./src/core/production-signal-journal');
 const SIGNAL_RULE_SOURCE_MANIFEST = require('./src/core/signal-rule-manifest').buildSignalRuleSourceManifest(__dirname);
@@ -1630,7 +1631,7 @@ function panelNotes() {
   };
 }
 function resolveWithKline(sig, k) {
-  if (!sig || sig.resolved || sig.void || !sig.price) return false;
+  if (!sig || sig.void || !sig.price || (sig.resolved && (sig.type !== 'auczt' || LearningIntegrity.validSameDay(sig) || sig.resolved.mode === '历史回测'))) return false;
   if (!k || !k.rows || !k.rows.length) return false;
   const d0 = normDate(sig.date);
   const hhmm = new Date().getHours() * 60 + new Date().getMinutes();
@@ -1642,8 +1643,9 @@ function resolveWithKline(sig, k) {
     if (next) { bar = next; mode = '次一交易日'; }
   }
   if (!bar) return false;                 // 下一根还没走出来，留到下一轮
+  if (sig.type === 'auczt' && (normDate(bar.date)!==d0 || !LearningIntegrity.tradeDay(sig.date) || !LearningIntegrity.barValid(bar) || !Number.isFinite(bar.pct) || !Number.isSafeInteger(k.receivedAt) || k.receivedAt < Date.parse(String(bar.date).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')+'T15:10:00+08:00') || k.receivedAt>Date.now())) return false;
   const bd = normDate(bar.date);
-  if (sig.resolved && sig.resolved.date === bd) return false;
+  if (sig.resolved && !sig.resolvedLegacy) sig.resolvedLegacy=sig.resolved;
   sig.resolved = {
     date: bd, mode, nextPct: bar.pct,
     maxGain: +(((bar.high - sig.price) / sig.price) * 100).toFixed(2),
@@ -1660,20 +1662,12 @@ function resolveWithKline(sig, k) {
 //   记成了自己的预测业绩。两批混一张表，把真实的次日预测力（未启动65-74档 84%）稀释成了 65%。
 function resolveNextDay(sig, k) {
   if (!sig || sig.void || !k || !k.rows || !k.rows.length) return false;
-  const norm = d => String(d == null ? '' : d).replace(/-/g, '');
-  const d0 = norm(sig.date);
-  const i = k.rows.findIndex(r => norm(r.date) === d0);
-  if (i < 0) return false;
-  const base = k.rows[i], nx = k.rows[i + 1];
-  if (!nx) return false;                              // 次日还没走出来，留到下一轮
-  const entry = base.close;                           // 信号日收盘价 = 你能埋伏到的价
-  if (!entry || !nx.high) return false;
-  const nd = norm(nx.date);
-  // ⛔⛔ B2 轮（2026-10-17）：幂等判据从「date 相同」加严为「date 相同且已有 openGap」。
-  //    旧版 nd 没有开盘价三件套（open/openGap/oneLine），只判 date 会把存量 nd 永久跳过、
-  //    新字段永远补不进去。新版 openGap 必写（拿不到开盘价也写 null）→ 它 === undefined
-  //    就是「旧版 nd」的标记，放行重算一次即可（公式是纯函数，同 rows 结果确定）。
-  if (sig.nd && sig.nd.date === nd && sig.nd.openGap !== undefined) return false;
+  const checked = LearningIntegrity.usableBars(sig,k);
+  if (!checked) return false;
+  const {base, next:nx, target} = checked, entry=base.close, nd=target.replace(/-/g,'');
+  if (LearningIntegrity.validNext(sig)) return false;
+  // Preserve older, unverifiable outcomes instead of silently rewriting history.
+  if (sig.nd && !sig.ndLegacy) sig.ndLegacy = sig.nd;
   const maxGain = +(((nx.high - entry) / entry) * 100).toFixed(2);
   const closeGain = +(((nx.close - entry) / entry) * 100).toFixed(2);
   const fallback = +(Math.max(0, maxGain - closeGain).toFixed(2));
@@ -1696,7 +1690,7 @@ function resolveNextDay(sig, k) {
   const hasOpen = isFinite(nxOpen) && nxOpen > 0;
   const hasOHL = hasOpen && isFinite(Number(nx.low)) && Number(nx.low) > 0;   // high 入口已守
   sig.nd = {
-    date: nd, mode: '次日', nextPct: nx.pct,
+    date: nd, mode: '次日', nextPct: nx.pct, integrity:{version:'calendar-final-ohlcv-v1',targetDate:target},
     maxGain, closeGain, fallback,
     open: hasOpen ? nxOpen : null,
     openGap: hasOpen ? +(((nxOpen - entry) / entry) * 100).toFixed(2) : null,
@@ -1709,6 +1703,7 @@ function resolveNextDay(sig, k) {
 }
 // 用K线回验信号：涨幅≥HIT_THR%算命中，涨停算强命中
 function resolveSignals() {
+  if (learningOperation.state === 'running') return false;
   let changed = false;
   for (const sig of S.learn.signals) {
     if (resolveWithKline(sig, S.klines.get(sig.code))) changed = true;
@@ -1722,7 +1717,7 @@ function resolveSignals() {
   }
   // ⚠️ 回验一落地就必须让标定缓存失效：否则新证据要等满 5 分钟缓存才生效，
   //    而"学完立刻改推送"正是这条链路存在的意义 —— 延迟 5 分钟等于白学。
-  if (changed) { _empCache.t = 0; recomputeBuckets(); saveLearn(); }
+  if (changed) { _empCache.t = 0; invalidatePushLearnCache(); recomputeBuckets(); if (!saveLearn()) throw Error('学习结果保存失败'); }
   return changed;
 }
 // ---------------- 趋势票自学习：失败率自动控制 ----------------
@@ -1739,7 +1734,7 @@ function trendSelfOptimize() {
   // ⛔ 只认实盘样本：回测样本命中 75%，混进来会把 beta 中性化后的命中率抬高，
   //    于是"命中率不错 → 下调推送阈值 → 多推票"这条分支被假证据触发。
   // ⛔ 口径改用 nd（cy 轮）：趋势阈值就是靠这里的 hitRate 升降的，必须用预测力口径
-  const all = S.learn.signals.filter(s => s.nd && !s.void && isLiveSample(s));
+  const all = S.learn.signals.filter(s => LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
   const res = all.filter(s => ['trend', 'pool', 'ztprob'].includes(s.type)).slice(-80);
   if (res.length < 8) return;
   const ctx = learnCtx(all);
@@ -1805,7 +1800,7 @@ function bigMoneyStats() {
   // ⛔ 口径改用 nd（cy 轮）：原来按 s.resolved.limitUp（信号当天）算 —— 大单信号的票
   //    发出时通常已在拉升，当天涨停是既成事实，据此判断"推的票准不准"必然系统性偏高
   //    → 闭环看到 luRate 漂亮就放宽门槛多推，推的恰恰是已经涨起来的那一批。
-  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && s.nd && !s.void && isLiveSample(s));
+  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
   const n = res.length;
   if (!n) return { n: 0, days: 0, luRate: null, hitRate: null, buckets: {} };
   const buckets = {};
@@ -1830,7 +1825,7 @@ function bigMoneyStats() {
 function bmEmpBuckets() {
   // ⛔ 口径改用 nd（cy 轮）：A/B 双推的 B 组就是拿"各概率档实测命中率"排序的，
   //    用既成事实（信号当天）排序等于拿"已经涨过"当"将要涨"。
-  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && s.nd && !s.void && isLiveSample(s));
+  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
   const out = {};
   for (const s of res) {
     const b = bmBucket(s.prob || 0);
@@ -1933,7 +1928,7 @@ const isBacktestSample = s => !!(s && s.resolved && s.resolved.mode === '历史�
 function isPostHocSample(s) {
   if (!s || isBacktestSample(s)) return false;
   return POST_HOC_TYPES.has(s.type) ||
-    !!(s.resolved && s.resolved.limitUp && +(s.resolved.maxGain || 0) <= 0.5);
+    !!((s.type!=='auczt' || LearningIntegrity.validSameDay(s)) && s.resolved && s.resolved.limitUp && +(s.resolved.maxGain || 0) <= 0.5);
 }
 // 只有「盘中预判 → 真推送 → 次日回验」这条链上的样本，才有资格代表真实预测力
 const isLiveSample = s => !isBacktestSample(s) && !isPostHocSample(s);
@@ -2148,13 +2143,13 @@ function empTable() {
       }
     };
     if (s.type === 'auczt') {
-      const r = s.resolved;
+      const r = LearningIntegrity.validSameDay(s) ? s.resolved : null;
       // Missing same-day outcomes must not become observed failures merely
       // because the same signal already has a next-day result.
       const limitUp = r && typeof r.limitUp === 'boolean' ? r.limitUp : null;
       const quality = limitUp === true ? 'strong' : r && typeof r.hit === 'boolean' ? (r.hit ? 'ok' : 'miss') : null;
       if (limitUp !== null) record(k, limitUp, limitUp, quality);
-      if (s.nd) record('auczt-nd|' + empBucketOf(s.prob), s.nd.hit, s.nd.limitUp, s.nd.quality);
+      if (LearningIntegrity.temporalNext(s)) record('auczt-nd|' + empBucketOf(s.prob), s.nd.hit, s.nd.limitUp, s.nd.quality);
     } else if (s.nd) record(k, s.nd.hit, s.nd.limitUp, s.nd.quality);
   };
   for (const s of (S.learn.signals || [])) {
@@ -2162,9 +2157,10 @@ function empTable() {
     // ⚠️ 只认次日口径（sig.nd）："当日"回验混进来会污染预测力，详见 resolveNextDay 注释
     // ⛔ hx 轮例外：auczt 预测的是当日封板 → 用 resolved（当日）回验，其它类型仍用 nd。
     // ⛔ jy 轮：auczt 同时保留 nd（次日最高≥+3%）用于双口径展示，故 resolved 或 nd 有一个即可。
-    const hasOutcome = s.type === 'auczt' ? !!(s.resolved || s.nd) : !!(s.nd);
+    const hasOutcome = s.type === 'auczt' ? (LearningIntegrity.validSameDay(s) || LearningIntegrity.temporalNext(s)) : LearningIntegrity.temporalNext(s);
     if (!hasOutcome) { bumpSkip('empNoNd'); continue; }
     if (s.void) { bumpSkip('empVoid'); continue; }
+    if (s.type !== 'auczt' && !LearningIntegrity.temporalNext(s)) { bumpSkip('empNoNd'); continue; }
     if (s.prob == null || !isFinite(s.prob)) { bumpSkip('empNoProb'); continue; }
     // ⛔ 事后样本（历史回测倒推 / 已涨停后登记）不得进实测标定 —— 见 isLiveSample 注释。
     //    漏了这一句，未启动类 55~74 档会被虚高 31~44 个点，直接把推送闸门放宽。
@@ -2344,7 +2340,7 @@ function bigMoneyStatsRefresh() {
 function similarStats() {
   // ⛔ 口径改用 nd（cy 轮）：同 bigMoneyStats —— 相似度门槛的升降就靠这个 hitRate，
   //    用信号当天的既成事实去判"跟得准不准"，会把"跟着已涨的票"当成跟得准。
-  const res = (S.learn.signals || []).filter(s => s.type === 'similar' && s.nd && !s.void && isLiveSample(s));
+  const res = (S.learn.signals || []).filter(s => s.type === 'similar' && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
   const n = res.length;
   if (!n) return { n: 0, days: 0, luRate: null, hitRate: null };
   return {
@@ -2362,7 +2358,7 @@ function similarStats() {
 //   ⚠️ isLiveSample 只排除回测/事后样本，**不排除 void**（作废）—— 故这里显式挡 void，
 //   与 trendSelfOptimize 的样本判据保持同一把尺子（趋势"准不准"两处口径必须一致）。
 function trendStats() {
-  const res = (S.learn.signals || []).filter(s => (s.type === 'trend' || s.type === 'trendsig') && s.nd && !s.void && isLiveSample(s));
+  const res = (S.learn.signals || []).filter(s => (s.type === 'trend' || s.type === 'trendsig') && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
   const n = res.length;
   if (!n) return { n: 0, days: 0, luRate: null, hitRate: null };
   return {
@@ -2385,7 +2381,7 @@ function similarSelfOptimize() {
   if (nv > cur) {
     const _snap = adjSnapshot('similar');
     if (_snap && _snap.to > _snap.from) {
-      const _sm = (S.learn.signals || []).filter(s => s.type === 'similar' && s.nd && !s.void && isLiveSample(s));
+      const _sm = (S.learn.signals || []).filter(s => s.type === 'similar' && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s));
       const rv = adjReview(_sm, _snap, ndHit, 8, todayStr());
       if (rv.stop) {
         noteLearnChange('相似跟随闭环·复核', `相似度门槛 ${cur} 暂不再上调`,
@@ -2413,7 +2409,7 @@ function similarSelfOptimize() {
 //   现在 isLiveSample() 把它挡在所有校准/标定之外，**只留在面板的「历史回测」那一列做参照**，
 //   不再参与 corr / empTable / 融合报告 / 阈值自适应 的任何计算。
 //   （别再为了"凑够天数/样本量"把它放回去 —— 那份证据厚度是假的。）
-async function seedLearnFromHistory(days = 60, maxAdd = 600) {
+async function seedLearnFromHistoryImpl(days = 60, maxAdd = 600) {
   let added = 0;
   // S.klines 是纯内存、按需填充的，刚启动时是空的 —— 所以优先读磁盘缓存 .kline_cache/，
   // 那里常驻几百只票的历史K线，直接就能回测，不用联网。
@@ -2495,7 +2491,7 @@ async function seedLearnFromHistory(days = 60, maxAdd = 600) {
     //   「每天都留一点，绝不整体丢天」（证据厚度就是靠独立交易日数撑的）。
     //   现在统一交给 pruneSignals（按天均分 + 余额回补），上限单一真源。
     pruneSignals();
-    recomputeBuckets(); saveLearn();
+    recomputeBuckets(); if (!saveLearn()) throw Error('学习结果保存失败');
     try { noteLearnChange('历史回测补样本', `新增 ${added} 条历史涨停样本`, '用缓存K线回测过去涨停日的次日表现，为概率校准提供初始样本'); } catch {}
   }
   return { added, total: S.learn.signals.length };
@@ -2503,14 +2499,14 @@ async function seedLearnFromHistory(days = 60, maxAdd = 600) {
 // 补K线后回验：只靠内存缓存的话，从未拉过K线的票永远回验不了（学习闭环断在这里）。
 // 以前只覆盖 'bigmoney'/'similar' 两类，导致盘中真正推送的 ztprob/fastin/trendsig/zt
 // 推了却从不回测 —— 也就是"推的票到底准不准"永远没有反馈。现在全类型覆盖。
-async function resolveSignalsDeep(limit = 30) {
+async function resolveSignalsDeepImpl(limit = 30) {
   // ⛔ 修（学习闭环 2026-10-28）：原判据 `!s.resolved` 有两处错，让陈旧样本永久验不上、成死样本——
   //   ① resolved 是【当日】口径（resolveWithKline 产出），而标定/学习只认【次日】口径 sig.nd
   //      （口径分离见 resolveWithKline 上方注释；empTable L1758/L2415 亦只豁免 auczt）。
   //      已 resolved 但仍缺 nd 的样本被永久排除在深回验外 → 实证：000078 ST海王(20261020) 卡死。
   //   ② 补拉 K 线后只调 resolveWithKline、从不调 resolveNextDay → 深回验根本产不出权威 nd。
   // ⛔ 口径：仅 auczt 走 resolved（当日），其余类型一律以 nd 为准；void 不参与。
-  const needsOutcome = s => (s.type === 'auczt' ? !s.resolved : !s.nd);
+  const needsOutcome = s => !LearningIntegrity.hasOutcome(s);
   const pend = (S.learn.signals || []).filter(s => !s.void && needsOutcome(s));
   let changed = 0;
   // 第一轮：先用已有K线白捡一批，不消耗网络（次日口径 resolveNextDay 一并跑，它才是标定证据）
@@ -2522,26 +2518,49 @@ async function resolveSignalsDeep(limit = 30) {
   const need = new Set();
   for (const sig of pend) {
     if (!needsOutcome(sig)) continue;
-    if (!S.klines.has(sig.code)) need.add(sig.code);
+    need.add(sig.code);
     if (need.size >= limit) break;
   }
   const codes = [...need];
+  let fetchedSuccess=0;
   if (codes.length) {
     await em.pool(codes, async code => {
       try {
-        const k = await em.fetchKline(code, 30);
-        if (k && k.rows && k.rows.length) klineSet(code, k);
+        const k = await em.fetchKline(code, 260);
+        if (k && k.rows && k.rows.length) { klineSet(code, k); fetchedSuccess++; }
       } catch {}
     }, 8);
+    if (!fetchedSuccess) {
+      if (changed) { _empCache.t=0; invalidatePushLearnCache(); recomputeBuckets(); if (!saveLearn()) throw Error('学习结果保存失败'); }
+      const error=Error('回验数据暂不可用');error.attempted=codes.length;error.fetched=0;throw error;
+    }
     for (const sig of pend) {
       if (resolveWithKline(sig, S.klines.get(sig.code))) changed++;
       // ✅ 补上权威口径：信号日收盘 → 次日（标定/学习只认 nd）
       if (resolveNextDay(sig, S.klines.get(sig.code))) changed++;
     }
   }
-  if (changed) { _empCache.t = 0; saveLearn(); recomputeBuckets(); }
-  return { pending: pend.length, fetched: codes.length, resolved: changed };
+  if (changed) { _empCache.t = 0; invalidatePushLearnCache(); recomputeBuckets(); if (!saveLearn()) throw Error('学习结果保存失败'); }
+  return { pending: pend.length, attempted: codes.length, fetched: fetchedSuccess, resolved: changed };
 }
+
+// One shared lock protects manual, scheduled and startup requests.
+let learningOperation = {state:'idle',kind:null,startedAt:null,finishedAt:null,beforeMatured:null,afterMatured:null,fetched:0,attempted:0,newOutcomes:0,error:null};
+function uniqueMaturedLearning() {
+ const keys=new Set();
+ for(const s of S.learn.signals||[]) if(s && typeof s==='object'&&!s.void&&isLiveSample(s)&&LearningIntegrity.hasOutcome(s)) keys.add([s.type,s.code,String(s.date||'').replace(/-/g,'')].join('|'));
+ return keys.size;
+}
+function learningStatus(){return LearningIntegrity.status(S.learn?.signals,learningOperation);}
+async function runLearningOperation(kind,fn){
+ if(learningOperation.state==='running'){const e=Error('学习任务正在运行');e.code='LEARNING_BUSY';throw e;}
+ const before=uniqueMaturedLearning();
+ learningOperation={state:'running',kind,startedAt:Date.now(),finishedAt:null,beforeMatured:before,afterMatured:null,fetched:0,attempted:0,newOutcomes:0,error:null};
+ try {const r=await fn();const after=uniqueMaturedLearning();learningOperation={...learningOperation,state:'success',finishedAt:Date.now(),afterMatured:after,fetched:r.fetched||0,attempted:r.attempted||0,newOutcomes:Math.max(0,after-before)};return r;}
+ catch(e){learningOperation={...learningOperation,state:'failed',finishedAt:Date.now(),afterMatured:uniqueMaturedLearning(),attempted:Number.isSafeInteger(e.attempted)?e.attempted:0,fetched:Number.isSafeInteger(e.fetched)?e.fetched:0,error:'学习任务未完成，请稍后重试'};throw e;}
+}
+function seedLearnFromHistory(days=60,maxAdd=600,kind='seed'){return runLearningOperation(kind,()=>seedLearnFromHistoryImpl(days,maxAdd));}
+function resolveSignalsDeep(limit=30,kind='force'){return runLearningOperation(kind,()=>resolveSignalsDeepImpl(limit));}
 
 // ── 全A股走势自主学习引擎 v0：把内存+磁盘 K 线批量喂给 learnall.js ────────
 //   数据来源优先级：内存 S.klines → .kline_cache 磁盘。两者都遍历，去重靠 learnall 内部按 date。
@@ -2874,7 +2893,7 @@ function learnFusedReport(target = 'up3Next') {
     for (const s of (S.learn.signals || [])) {
       // ⛔ 同样只认实盘：混进 600 条"已知涨停倒推"的回测样本，会得出
       //    "融合后命中率 75%、学习带来 +39 点增量"这种自欺欺人的结论。
-      if (probabilityContract.targetFor(s.type) !== target || s.void || !isLiveSample(s)) continue;
+      if (probabilityContract.targetFor(s.type) !== target || s.void || !isLiveSample(s) || (target === 'ztToday' ? !LearningIntegrity.validSameDay(s) : !LearningIntegrity.temporalNext(s))) continue;
       const hit = target === 'ztToday' ? s.resolved && s.resolved.limitUp
         : target === 'ztNext' ? s.nd && s.nd.limitUp : s.nd && s.nd.hit;
       if (typeof hit !== 'boolean') continue;
@@ -3320,8 +3339,8 @@ function learnRate(list) {
 //   比"用被污染的 61% 算出 corr≈1"还要激进 —— 修完偏差反而放松闸门，等于白修。
 //   所以在天数不够但**样本够厚且实测远低于期望**时，依然照实测打折。
 const CORR_REFU_N = 80, CORR_REFU_GAP = 15;
-function recomputeBuckets() {
-  const all = S.learn.signals.filter(s => s.resolved && !s.void);
+function recomputeBuckets({allowAdjust=true}={}) {
+  const all = S.learn.signals.filter(s => !s.void && (s.resolved || LearningIntegrity.validNext(s)));
 
   // —— 口径分离（2026-09-29 复盘，正面回答「命中率为什么那么低」）——
   // 以前把【历史回测】和【实盘推送】混成一个池子算，面板显示的那个数是被稀释出来的：
@@ -3344,7 +3363,7 @@ function recomputeBuckets() {
   //   → rate 0% → 当场被判「差·自动降权」adj −5，等于拿今天还没验的题当已经做错了。
   //   empTable 早就是「无 nd 不进档」、learnFusedReport 也写了 hasOutcome，只有这里漏了。
   //   口径与 resolveSignalsDeep 的 needsOutcome 严格互补：仅 auczt 走 resolved（预测当日封板）。
-  const hasOutcome = s => (s.type === 'auczt' ? !!s.resolved : !!s.nd);
+  const hasOutcome = s => LearningIntegrity.hasOutcome(s);
   const live = liveAll.filter(hasOutcome);
   S.learn.pendingVerify = liveAll.length - live.length;   // 待回验条数（面板/自检可见，不再静默吞掉）
   // ⛔ 校准也必须只认实盘（2026-10-06 修·前视偏差）：
@@ -3430,7 +3449,7 @@ function recomputeBuckets() {
   // 自适应推送阈值：同样改为「日等权 + beta 中性化」，且要求覆盖够多交易日
   const poolRes = res.filter(s => s.type === 'pool' && s.score >= S.learn.scoreThreshold - 10);
   const pst = dayStats(poolRes);
-  if (poolRes.length >= 15 && pst.days >= MIN_LEARN_DAYS) {
+  if (allowAdjust && poolRes.length >= 15 && pst.days >= MIN_LEARN_DAYS) {
     const nr = neutralRate(poolRes, EXP, GLOBAL);
     const rate = nr == null ? pst.hit / pst.n : nr;
     const oldTh = S.learn.scoreThreshold;
@@ -3481,7 +3500,7 @@ function recomputeBuckets() {
   }));
   // 修正留档：条件评分首次生效或发生变化时，记一条改善日志
   bigMoneyStatsRefresh();           // 大单统计刷新（概率门槛自适应已退役，见函数注释）
-  similarSelfOptimize();           // 相似股跟随 闭环门槛校准
+  if (allowAdjust) similarSelfOptimize(); // 启动重算仅隔离证据，不改变阈值
   for (const [pp, v] of Object.entries(S.learn.paths)) {
     const old = prevPaths[pp];
     if (old && (old.adj !== v.adj || old.verdict !== v.verdict)) {
@@ -4602,10 +4621,12 @@ try {
     if (_rb.length) { saveCfg(); _rollbackMsg = _rb.join('、'); }
   }
 } catch (e) { console.error('[learn] 参数回滚失败:', e && e.message); }
+// 已持久化的旧统计也必须在启动时隔离无证明的历史次日结果。
+if (!_dirty) { try { recomputeBuckets({allowAdjust:false}); } catch { console.error('[learn] 学习证据重算失败'); } }
 // 统一落地：清洗/去重/升级任意一项发生都重算 + 落盘（只留一条汇总留档，不刷屏）
 try {
   if (_dirty) {
-    recomputeBuckets();
+    recomputeBuckets({allowAdjust:false});
     saveLearn();
     if (_upgradeNote) {
       noteLearnChange('学习口径', _upgradeNote, {
@@ -8027,7 +8048,7 @@ function typeHist(types, label) {
   // ⛔ 下面这句文案写的是「次日涨≥N%」—— 就必须是 nd 口径（cy 轮）。
   //    以前用的是 s.resolved.hit（信号当天）：文案承诺"次日"，数却是当天已经发生的事，
   //    等于把"我看到它涨了"说成"我提前告诉你它会涨"。
-  const res = (S.learn.signals || []).filter(s => types.includes(s.type) && s.nd);
+  const res = (S.learn.signals || []).filter(s => types.includes(s.type) && !s.void && isLiveSample(s) && LearningIntegrity.validNext(s));
   if (res.length < 5) return '';
   const hit = Math.round(res.filter(ndHit).length / res.length * 100);
   const lu = Math.round(res.filter(ndLu).length / res.length * 100);
@@ -8038,7 +8059,7 @@ function typeHist(types, label) {
 // ⛔ iq 轮（2026-10-17 议题4）：用户原话「感觉风险大于机会」—— 推送末尾必须自己说清这类票
 //   实盘到底赚不赚，而不是只挑好看的百分数。过滤条件与 bigMoneyStats 完全一致（同源同尺子）。
 function bmCloseHist() {
-  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && s.nd && !s.void && isLiveSample(s) && Number.isFinite(s.nd.closeGain));
+  const res = (S.learn.signals || []).filter(s => s.type === 'bigmoney' && LearningIntegrity.validNext(s) && !s.void && isLiveSample(s) && Number.isFinite(s.nd.closeGain));
   if (res.length < 5) return '';
   const v = res.map(s => s.nd.closeGain);
   const up3 = a => Math.round(a.filter(x => x >= 3).length / a.length * 100);
@@ -8851,7 +8872,7 @@ function evStatsCached() {
   if (_evStatsCache && now - _evStatsAt < EV_STATS_TTL && _evStatsLen === sigs.length) return _evStatsCache;
   try {
     // isLive 注入 server 自己的分类器（L1449-1457）：⛔ 同一概念禁两份实现，EV 模块不自带判据
-    _evStatsCache = EV.evStats({ signals: sigs, breadth: S.breadth || {}, isLive: (typeof isLiveSample === 'function') ? isLiveSample : undefined });
+    _evStatsCache = EV.evStats({ signals: sigs, breadth: S.breadth || {}, isLive: s => isLiveSample(s) && LearningIntegrity.validNext(s) });
     _evStatsAt = now; _evStatsLen = sigs.length;
   } catch (e) {
     console.error('[ev-gate] evStats 重建失败（本轮放行不拦）：' + ((e && e.message) || e));
@@ -12478,12 +12499,13 @@ function officialIndustry() {
 // 按推送信号类型统计近 10 个交易日实绩（上涨率/跌停率/均涨幅）→ 力度系数 0.5~1.5：
 // 上涨率≥55 且均涨>0 → 1.5 加推；上涨率≤40 或 跌停率≥5% → 0.5 降档；样本<10 不动作（判不出不硬判）。
 let _pushLearnCache = { t: 0, map: {} };
+function invalidatePushLearnCache() { _pushLearnCache.t = 0; _evStatsAt = 0; }
 function pushLearnStats() {
   const now = Date.now();
   if (now - _pushLearnCache.t < 30 * 60 * 1000) return _pushLearnCache.map;
   const m = {}; const days = {};
   for (const s of ((S.learn && S.learn.signals) || [])) {
-    if (!s.nd || s.void) continue;
+    if (s.void || !isLiveSample(s) || !LearningIntegrity.validNext(s) || !Number.isFinite(s.nd.nextPct)) continue;
     const d = String(s.date || '').replace(/-/g, '');
     if (!d) continue;
     (days[d] = days[d] || []).push(s);
@@ -12511,7 +12533,7 @@ function pushLearnStats() {
     st.mult = (st.n < 10) ? 1.0
       : (st.upRate >= 55 && st.avg > 0) ? 1.5
       : (st.upRate <= 40 || (st.dtRate != null && st.dtRate >= 5)) ? 0.5 : 1.0;
-    if (st.dtRate >= 8) st.mult = 0.4;   // 跌停重灾区再降一档
+    if (st.n >= 10 && st.dtRate >= 8) st.mult = 0.4;   // 跌停重灾区再降一档
   }
   _pushLearnCache = { t: now, map: m };
   return m;
@@ -16969,9 +16991,9 @@ const runLearnCycle = guard('learn', async (depth) => {
   // 样本太少时用缓存K线做一次历史回测补样本，保证概率校准从一开始就有真实胜率支撑
   try {
     const _ok = (S.learn.signals || []).filter(s => s.resolved && !s.void).length;
-    if (_ok < 20) { const r = await seedLearnFromHistory(60, 600); if (r.added) console.log('[learn] 历史回测补样本 +' + r.added); }
+    if (_ok < 20) { const r = await seedLearnFromHistory(60, 600, 'auto'); if (r.added) console.log('[learn] 历史回测补样本 +' + r.added); }
   } catch (e) { console.error('[learn] 补样本失败:', e && e.message); }
-  try { await resolveSignalsDeep(depth == null ? 30 : depth); } catch (e) { console.error('[learn] 补K线失败:', e && e.message); }
+  try { await resolveSignalsDeep(depth == null ? 30 : depth, 'auto'); } catch (e) { console.error('[learn] 补K线失败:', e && e.message); }
   try { resolveSignals(); } catch (e) { console.error('[learn] 回验失败:', e && e.message); }
 });
 
@@ -17563,7 +17585,7 @@ async function init() {
     try {
       const _ok = (S.learn.signals || []).filter(s => s.resolved && !s.void).length;
       if (_ok < 20) {
-        const r = await seedLearnFromHistory(60, 600);
+        const r = await seedLearnFromHistory(60, 600, 'auto');
         if (r.added) console.log('[learn] 启动补样本 +' + r.added + ' 条');
         // ⛔ dw 轮：补出 0 条时以前**完全静默**（只有 added>0 才打印），而这一路只有 3 次机会
         //    （90s / 6min / 15min）—— 三趟全补 0 条，等于这三趟白跑且没人知道。
@@ -17572,7 +17594,7 @@ async function init() {
       // ⛔ dw：seedLearnFromHistory 抛异常时上面的 remedyDone 根本没执行 —— catch 只 console.error，
       //    补救状态里就永远看不到「启动补样本失败过」这回事。现在把异常也登记进补救台账。
     } catch (e) { console.error('[learn] 启动补样本失败:', e && e.message); remedyDone('bootSeed', { ok: false, error: e && e.message }, 0); }
-    try { await resolveSignalsDeep(30); } catch {}
+    try { await resolveSignalsDeep(30, 'auto'); } catch {}
     try { resolveSignals(); } catch {}
   };
   // ── 自学模型启动自检 / 全量回填 ──────────────────────────────────────
@@ -19597,6 +19619,38 @@ function handle(req, res, u, body) {
     (u.searchParams && u.searchParams.get('token')) ||
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
+  // Explicitly enabled, authenticated CAS records on the REAL V6 server.
+  // No configuration => no route. Existing WorkBuddy hosting remains static-only.
+  // This adapter NEVER accepts sharecode/query-token as an account identity.
+  if (p === '/api/records' && process.env.V6_ENABLE_CLOUD_RECORDS_HTTP === '1') {
+    const ledgerRoot = process.env.V6_CLOUD_RECORDS_ROOT;
+    const privatePath = require('node:path');
+    const projectRoot = privatePath.resolve(__dirname);
+    const root = typeof ledgerRoot === 'string' && privatePath.isAbsolute(ledgerRoot)
+      ? privatePath.resolve(ledgerRoot) : null;
+    if (process.env.QD_CLOUD !== '1' || !root ||
+        root === projectRoot || root.startsWith(projectRoot + privatePath.sep)) {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, code: 'CLOUD_RECORDS_NOT_CONFIGURED' }));
+      return;
+    }
+    try {
+      const { createCloudRecordsCasStore } = require('./src/core/cloud-records-cas-store');
+      const { createCloudRecordsHttpHandler } = require('./src/server/cloud-records-http');
+      const adapter = createCloudRecordsHttpHandler({
+        store: createCloudRecordsCasStore(root),
+        authenticate: (bearer, request) => roleOf(bearer, clientIp(request)),
+        sameOrigin: sameOriginOk
+      });
+      return adapter(req, res, body);
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, code: 'CLOUD_RECORDS_UNAVAILABLE' }));
+      return;
+    }
+  }
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
   const isAsset = p === '/model-library.html' || p === '/assets/model-library-catalog.json' || p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/v6-research.html' || p === '/v6-validation.html' || p === '/v6-paper.html' || p === '/v6-market-radar.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
@@ -20138,52 +20192,23 @@ function handle(req, res, u, body) {
   }
   // 学习闭环状态：登记的推送票到底回测了没有、命中率多少、有没有真的在"学习"。
   // force=1 立刻补拉K线回验一批（不用等定时任务），用于验证闭环是否转得动。
-  if (p === '/api/learn-status' && req.method === 'POST') {
-    let lsTok = '', lsForce = false, lsLimit = 30, lsSeed = false;
-    try { const b6 = JSON.parse(body || '{}'); lsTok = b6.token || ''; lsForce = b6.force === true || b6.force === 1; lsSeed = b6.seed === true || b6.seed === 1; lsLimit = Number(b6.limit) || 30; } catch {}
-    if (!lsTok) lsTok = (u.searchParams && u.searchParams.get('token')) || '';
-    if (!requireEditor(res, lsTok, req)) return;
-    const learnStats = () => {
-      const all = (S.learn && S.learn.signals || []).filter(s => !s.void);
-      const byType = {};
-      for (const s of all) { const t = s.type || '?'; byType[t] = byType[t] || { n: 0, resolved: 0 }; byType[t].n++; if (s.resolved) byType[t].resolved++; }
-      return {
-        total: all.length,
-        voided: ((S.learn && S.learn.signals) || []).filter(s => s.void).length,
-        resolved: all.filter(s => s.resolved).length,
-        pending: all.filter(s => !s.resolved).length,
-        samples: (S.learn && S.learn.samples) || 0,
-        hits: (S.learn && S.learn.hits) || 0,
-        hitRate: (S.learn && S.learn.samples) ? Math.round((S.learn.hits / S.learn.samples) * 100) : 0,
-        buckets: (S.learn && S.learn.buckets) || {},
-        groups: (S.learn && S.learn.groups) || null,   // A/B 对照实验：模型组 vs 实证组各自命中率
-        scoreThreshold: (S.learn && S.learn.scoreThreshold) || null,
-        probThreshold: probThreshold(),
-        byType
-      };
-    };
-    // handle() 不是 async，这里用 Promise 回包（force 补拉K线 / seed 回测都要几秒）
-    if (lsSeed) {
-      seedLearnFromHistory(60, 600)
-        .then(r => {
-          // ⛔ dy 轮：手动 seed 也要登记 remedy，否则台账仍显示「没补上」
-          remedyDone('bootSeed', { ok: true }, (r && r.added) || 0);
-          json(res, { ok: true, seeded: r, ...learnStats() });
-        })
-        .catch(e => {
-          const _em = (e && e.message) || String(e);
-          remedyDone('bootSeed', { ok: false, error: _em }, 0);
-          json(res, { ok: true, seeded: { error: _em }, ...learnStats() });
-        });
-      return;
-    }
-    if (lsForce) {
-      resolveSignalsDeep(lsLimit)
-        .then(r => json(res, { ok: true, ran: r, ...learnStats() }))
-        .catch(e => json(res, { ok: true, ran: { error: (e && e.message) || String(e) }, ...learnStats() }));
-      return;
-    }
-    return json(res, { ok: true, ...learnStats() });
+  if (p === '/api/learn-status' && (req.method === 'GET' || req.method === 'POST')) {
+    res.setHeader('Cache-Control','no-store');
+    if(req.method==='GET' && ['force','seed','limit'].some(key=>u.searchParams.has(key))) return json(res,{ok:false,error:'只读查询不接受执行参数'});
+    let options={};
+    if(req.method==='POST') { try { options=JSON.parse(body||'{}'); if(!options||typeof options!=='object'||Array.isArray(options)) throw Error(); } catch { return json(res,{ok:false,error:'请求格式无效'}); } }
+    // Existing POST clients may supply a body token; GET never reads a query credential.
+    if (!requireEditor(res, options.token || '', req)) return;
+    if(Object.keys(options).some(k=>!['token','force','seed','limit'].includes(k)) || ['force','seed'].some(k=>options[k]!==undefined && ![true,false,0,1].includes(options[k])) || (options.token!==undefined && typeof options.token!=='string')) return json(res,{ok:false,error:'请求字段无效'});
+    const force=options.force===true||options.force===1, seed=options.seed===true||options.seed===1;
+    if(force&&seed) return json(res,{ok:false,error:'一次只能执行一种学习任务'});
+    const limit=options.limit===undefined?30:options.limit;
+    if(!Number.isSafeInteger(limit)||limit<1||limit>60) return json(res,{ok:false,error:'回验数量必须为1至60'});
+    const response=extra=>{const status=learningStatus(),c=status.counts;return {ok:true,status,total:c.total,voided:c.void,resolved:c.matured,pending:c.pending,samples:S.learn.samples||0,hits:S.learn.hits||0,hitRate:S.learn.samples?Math.round(S.learn.hits/S.learn.samples*100):0,buckets:S.learn.buckets||{},groups:S.learn.groups||null,scoreThreshold:S.learn.scoreThreshold||null,probThreshold:probThreshold(),byType:status.byType,...extra};};
+    if(!force&&!seed)return json(res,response());
+    const job=seed?seedLearnFromHistory(60,600):resolveSignalsDeep(limit);
+    job.then(r=>json(res,response(seed?{seeded:r}:{ran:r}))).catch(e=>json(res,{ok:false,error:e.code==='LEARNING_BUSY'?'学习任务正在运行':'学习任务未完成，请稍后重试',status:learningStatus()}));
+    return;
   }
   // 推送流水查询：验证「定时推送到底发没发出去」（竞价/复盘/新闻/盘中快报都记在这里）
   if (p === '/api/push-log' && req.method === 'GET') {

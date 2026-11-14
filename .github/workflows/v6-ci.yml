@@ -10,6 +10,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-cloud-full-server:
+    name: cloud-records-real-login
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify full V6 login and private CAS HTTP without real accounts or network
+        run: node --test V6_BO/tests/cloud-records-server-integration.test.js
+  verify-cloud-http:
+    name: cloud-records-http-auth
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real localhost HTTP boundaries with synthetic tokens only
+        run: |
+          node --check V6_BO/src/server/cloud-records-http.js
+          node --test V6_BO/tests/cloud-records-http.test.js
   verify-market-source-integrity:
     name: history-source-lineage-safety
     runs-on: ubuntu-24.04

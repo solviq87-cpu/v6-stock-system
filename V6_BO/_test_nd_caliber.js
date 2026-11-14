@@ -63,6 +63,9 @@ const S_BUCKET = grabLine(/^const bmBucket = /);
 const S_BMSTAT = grab(/^function bigMoneyStats\(/);
 
 // ── 沙箱：bigMoneyStats 的依赖用最小实现注入 ──────────────────────────
+// These legacy fixtures isolate target semantics; integrity has separate tests.
+globalThis.LearningIntegrity = {validNext:s=>!!s?.nd,validSameDay:s=>!!s?.resolved,hasOutcome:s=>s?.type==='auczt'?!!s.resolved:!!s?.nd};
+globalThis.isLiveSample = () => true;
 const S = { learn: { signals: [] } };
 const isLiveSample = () => true;
 const normDate = d => String(d == null ? '' : d).replace(/-/g, '');
@@ -108,7 +111,7 @@ ok(st.luRate === 50, `⑦ 真涨停率只按 nd 算（实测 ${st.luRate}%，旧
 
 // 反证：把口径换回 resolved，数字立刻虚高
 const OLD = S_BMSTAT
-  .replace(/s\.nd && !s\.void && isLiveSample\(s\)/, 's.resolved && isLiveSample(s)')
+  .replace(/LearningIntegrity\.validNext\(s\) && !s\.void && isLiveSample\(s\)/, 's.resolved && isLiveSample(s)')
   .replace(/if \(ndLu\(s\)\) buckets\[b\]\.lu\+\+;/, 'if (s.resolved.limitUp) buckets[b].lu++;')
   .replace(/res\.filter\(ndLu\)/g, 'res.filter(s => s.resolved.limitUp)')
   .replace(/res\.filter\(ndHit\)/g, 'res.filter(s => s.resolved.hit)');
@@ -130,6 +133,7 @@ const KEEP = [
   /s\.resolved && s\.resolved\.limitUp && \+\(s\.resolved\.maxGain/,   // isPostHocSample：识别"登记价就在板上"，必须用当天
   /if \(nh !== sg\.resolved\.hit\)/,                                   // 口径切换时重算 resolved.hit
   /s\.type === 'auczt' \? !!\(s\.resolved && s\.resolved\.limitUp\)/,   // hx 轮：auczt 唯一例外，用当日封板回验
+  /target === 'ztToday' \? s\.resolved && s\.resolved\.limitUp/,
   /isAuczt \? !!\(s\.resolved && s\.resolved\.limitUp\)/,              // empTable bump 内联 auczt 例外
   /s2\.type === 'auczt' \? !!\(s2\.resolved && s2\.resolved\.limitUp\)/  // pathStats 内联 auczt 例外
 ];
@@ -145,10 +149,10 @@ ok(bad.length === 0, `⑩ 除两处白名单外，源码里不再出现 resolved
 
 // ⑪ 八处关键统计：nd 为默认口径，auczt 是唯一例外（用 resolved.limitUp）
 const need = [
-  ['bigMoneyStats 样本过滤', /s\.type === 'bigmoney' && s\.nd && !s\.void && isLiveSample\(s\)/],
-  ['similarStats 样本过滤', /s\.type === 'similar' && s\.nd && !s\.void && isLiveSample\(s\)/],
-  ['趋势闭环样本过滤', /filter\(s => s\.nd && !s\.void && isLiveSample\(s\)\)/],
-  ['bmEmpBuckets（A/B 的 B 组）', /s\.type === 'bigmoney' && s\.nd && !s\.void && isLiveSample\(s\)/],
+  ['bigMoneyStats 样本过滤', /s\.type === 'bigmoney' && LearningIntegrity\.validNext\(s\) && !s\.void && isLiveSample\(s\)/],
+  ['similarStats 样本过滤', /s\.type === 'similar' && LearningIntegrity\.validNext\(s\) && !s\.void && isLiveSample\(s\)/],
+  ['趋势闭环样本过滤', /filter\(s => LearningIntegrity\.validNext\(s\) && !s\.void && isLiveSample\(s\)\)/],
+  ['bmEmpBuckets（A/B 的 B 组）', /s\.type === 'bigmoney' && LearningIntegrity\.validNext\(s\) && !s\.void && isLiveSample\(s\)/],
   ['dayStats 命中', /s\.type === 'auczt' \? !!\(s\.resolved && s\.resolved\.limitUp\) : !!\(s\.nd && s\.nd\.hit\)/],
   ['learnRate', /s\.type === 'auczt' \? !!\(s\.resolved && s\.resolved\.limitUp\) : !!\(s\.nd && s\.nd\.hit\)/],
   ['分档校准分桶', /s\.type === 'auczt' \? !!\(s\.resolved && s\.resolved\.limitUp\) : !!\(s\.nd && s\.nd\.hit\)/],
@@ -190,7 +194,7 @@ ok(/open: hasOpen \? nxOpen : null/.test(S_RND), '⑮ nd 写 open（缺开盘价
 ok(/openGap: hasOpen \?/.test(S_RND) && /oneLine: hasOHL \?/.test(S_RND),
   '⑯ nd 写 openGap / oneLine（hasOHL 守门：缺 OHLC 写 null 不写 false，"没有数据"≠"不是一字板"）');
 ok(/A\.isOneLineBoard\(/.test(S_RND), '⑰ 一字板判定走 analysis 唯一入口 isOneLineBoard（同一概念禁两份实现）');
-ok(/sig\.nd && sig\.nd\.date === nd && sig\.nd\.openGap !== undefined/.test(S_RND),
+ok(/LearningIntegrity\.validNext\(sig\)/.test(S_RND),
   '⑱ 幂等判据含 openGap —— 只判 date 会把旧版 nd 永久跳过，开盘价三件套永远补不进去');
 
 // ── 2026-10-28 学习闭环：深回验必须产出权威口径 nd ──────────────────────
@@ -199,7 +203,7 @@ ok(/sig\.nd && sig\.nd\.date === nd && sig\.nd\.openGap !== undefined/.test(S_RN
 // 缓存里没它的K线就再也补不上（000078 ST海王 20261020 卡死为死样本）。
 // 且补拉K线后只调 resolveWithKline（产 resolved），从不调 resolveNextDay → 深回验产不出 nd。
 console.log('\n=== 静态+真跑：resolveSignalsDeep 深回验口径（2026-10-28 修） ===');
-const S_DEEP = grab(/^async function resolveSignalsDeep\(/);
+const S_DEEP = grab(/^async function resolveSignalsDeepImpl\(/);
 ok(/resolveNextDay\(/.test(S_DEEP),
   '⑲ ⛔ 深回验必须调 resolveNextDay —— 只调 resolveWithKline 产出的是 resolved(当日口径)，标定/学习不认');
 ok(!/filter\(s => !s\.resolved && !s\.void\)/.test(S_DEEP),
@@ -244,7 +248,7 @@ ok(/S\.learn\.pendingVerify = liveAll\.length - live\.length/.test(S_RCB),
   '㉞ 被剔掉的条数写入 pendingVerify（不再静默吞掉，面板/自检可见）');
 
 // P2：剪枝上限必须单一真源
-const S_SEED = grab(/^async function seedLearnFromHistory\(/);
+const S_SEED = grab(/^async function seedLearnFromHistoryImpl\(/);
 ok(!/slice\(-1500\)/.test(S_SEED),
   '㉟ ⛔ slice(-1500) 已删 —— 它把 2600 条一次砍到 1500（−42%），且专切最老整天，正违反「绝不整体丢天」');
 ok(/pruneSignals\(\)/.test(S_SEED), '㊱ 改调 pruneSignals()：按天均分 + 余额回补，上限单一真源');
