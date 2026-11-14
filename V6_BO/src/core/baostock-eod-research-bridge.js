@@ -9,6 +9,7 @@
  */
 const {adaptAuthorizedHistory}=require('./factor-authorized-market-bridge');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {assessDailyTurnoverBar}=require('./daily-turnover-sanity');
 const date=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  Number.isFinite(Date.parse(x+'T00:00:00Z'))&&
  new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
@@ -105,8 +106,11 @@ function normalizeBaoStockBundle(bundle,{now=Date.now()}={}){
       (row.tradestatus==='0'&&(volume!==0||amount!==0))||
       (row.tradestatus==='1'&&volume<=0))
     throw Error('BaoStock原始OHLCV/停牌成交量不一致');
-   return {date:row.date,open,high,low,close,volume,amount,
+   const daily={date:row.date,open,high,low,close,volume,amount,
     suspended:row.tradestatus==='0',priceBasis:'unadjusted'};
+   if(!['in-range','no-trades'].includes(assessDailyTurnoverBar(daily).status))
+    throw Error('BaoStock EOD未复权日K成交额/股数隐含均价超出高低价范围');
+   return daily;
   });
   stocks.push({symbol:code.slice(3),corporateActions:actions,bars});
  }

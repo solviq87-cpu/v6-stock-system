@@ -32,7 +32,7 @@ function bundle(){
      const close=(10+j/10+i/100).toFixed(2);
      return {date,code,open:close,high:halt?close:(Number(close)+.03).toFixed(2),
       low:halt?close:(Number(close)-.03).toFixed(2),close,
-      volume:halt?'0':'100',amount:halt?'0':'1000',
+      volume:halt?'0':'100',amount:halt?'0':String(Number(close)*100),
       adjustflag:'3',tradestatus:halt?'0':'1'};
     })},
    adjust:{source:'baostock:query_adjust_factor',errorCode:'0',complete:true,
@@ -172,4 +172,11 @@ test('BaoStock original collection-time chronology is bounded even though exchan
  // adjustment query, even if all original fields contain valid numbers.
  sequential.stocks[1].kline.observedAt=at(end,'16:00:15');
  assert.throws(()=>normalizeBaoStockBundle(sequential,{now}),/查询顺序/);
+});
+
+test('BaoStock full EOD bundle rejects its own impossible yuan/share ratio',()=>{
+ const bad=bundle();
+ bad.stocks[0].kline.rows[15].amount=String(
+  Number(bad.stocks[0].kline.rows[15].amount)*100);
+ assert.throws(()=>normalizeBaoStockBundle(bad,{now}),/隐含均价/);
 });

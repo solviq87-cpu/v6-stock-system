@@ -96,7 +96,13 @@ test('research-only public history can request raw unadjusted bars for BaoStock 
   priceAdjustment:'unadjusted',fetchImpl:async(url)=>{
    assert.equal(new URL(url).searchParams.get('fqt'),'0');
    assert.equal(new URL(url).searchParams.get('fields2'),'f51,f52,f53,f54,f55,f56,f57');
-   return response(payload('600000'));
+   const raw=payload('600000');
+   raw.data.klines=raw.data.klines.map(line=>{
+    const row=line.split(',');
+    row[6]=String(Number(row[2])*Number(row[5])*100); // CNY per share, not per hand
+    return row.join(',');
+   });
+   return response(raw);
   }});
  assert.equal(result.dataset.priceAdjustment.mode,'unadjusted');
  assert.equal(result.dataset.priceAdjustment.provider,'eastmoney-public-history-fqt-0');
@@ -105,4 +111,15 @@ test('research-only public history can request raw unadjusted bars for BaoStock 
  assert.equal(result.metadata.canTrade,false);
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['600000'],start:dates[0],end:dates.at(-1),
   priceAdjustment:'unknown',fetchImpl:async()=>{throw Error('must never fetch');}}),/复权/);
+});
+
+test('Eastmoney raw fqt=0 refuses an internally impossible turnover but qfq stays unaltered',async()=>{
+ await assert.rejects(()=>fetchEastmoneyHistory({symbols:['600000'],start:dates[0],
+  end:dates.at(-1),priceAdjustment:'unadjusted',
+  fetchImpl:async()=>response(payload('600000'))}),/隐含均价/);
+ const adjusted=await fetchEastmoneyHistory({symbols:['600000'],start:dates[0],
+  end:dates.at(-1),priceAdjustment:'qfq',
+  fetchImpl:async()=>response(payload('600000'))});
+ assert.equal(adjusted.dataset.priceAdjustment.mode,'qfq');
+ assert.equal(adjusted.metadata.canTrade,false);
 });

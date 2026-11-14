@@ -170,6 +170,7 @@ jobs:
             V6_BO/tests/research-cross-source-history.test.js \
             V6_BO/tests/picks-data-source-evidence.test.js \
             V6_BO/tests/market-feed-consensus.test.js \
+            V6_BO/tests/daily-turnover-sanity.test.js \
             V6_BO/tests/market-evidence-enforcement.test.js \
             V6_BO/tests/multi-source-price-consensus.test.js \
             V6_BO/tests/eastmoney-historical-feed.test.js

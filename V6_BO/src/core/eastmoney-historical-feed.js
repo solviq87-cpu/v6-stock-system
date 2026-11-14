@@ -4,6 +4,7 @@
 const crypto=require('node:crypto');
 const {validateImport}=require('./market-data-center');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {assessDailyTurnoverBar}=require('./daily-turnover-sanity');
 const ENDPOINT='https://push2his.eastmoney.com/api/qt/stock/kline/get';
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const validDate=x=>{
@@ -67,6 +68,10 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
   try{payload=await boundedJson(await fetchImpl(url.toString(),{method:'GET',redirect:'error',signal:ctrl.signal,headers:{Accept:'application/json'}}),maxBytes);}
   finally{clearTimeout(timer);}
   const parsed=parseKlines(payload,symbol);
+  // Only unadjusted prices can be compared with raw CNY turnover / shares.
+  if(priceAdjustment==='unadjusted'&&parsed.bars.some(bar=>
+     !['in-range','no-trades'].includes(assessDailyTurnoverBar(bar).status)))
+   throw Error('东财未复权日K成交额/股数隐含均价超出高低价范围: '+symbol);
   if(parsed.bars[0].date<start||parsed.bars.at(-1).date>end)throw Error('公开行情返回了请求日期区间之外的K线');
   stocks.push(parsed);
  }

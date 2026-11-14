@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {resolveUpstream}=require('./data-source-lineage');
 const {evaluateMarketEvidence}=require('./market-evidence-quality');
+const {assessDailyTurnoverBar,TOLERANCE_BPS}=require('./daily-turnover-sanity');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
@@ -53,6 +54,8 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  const differences=[];let total=0,comparedBars=0,amountComparedBars=0,amountCoverageGapBars=0;
  const symbolEvidence=new Map(primary.stocks.map(s=>[String(s.code||s.symbol),{symbol:String(s.code||s.symbol),comparedBars:0,discrepancies:0,fields:[]}]));
  let maximumPriceDifferenceBps=0,maximumVolumeDifferencePct=0,maximumAmountDifferencePct=0;
+ const vwapCheckApplicable=amountRequested&&primary.priceAdjustment.mode==='unadjusted';
+ let vwapCheckedObservations=0,vwapOutlierObservations=0;
  function note(symbol,date,field,lhs,rhs,relative){
   total++;
   const evidence=symbolEvidence.get(symbol);
@@ -97,6 +100,20 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
      if((x.volume===0)!==(x.amount===0)||
         (y.volume===0)!==(y.amount===0))
       note(symbol,x.date,'amount-volume-integrity',x.amount,y.amount,100);
+     // Two sources agreeing with the SAME wrong amount multiplier is not
+     // independent proof of correct CNY turnover. Only raw, unadjusted prices.
+     if(vwapCheckApplicable){
+      for(const [side,bar] of [['primary',x],['secondary',y]]){
+       const check=assessDailyTurnoverBar(bar);
+       if(check.status==='no-trades')continue;
+       vwapCheckedObservations++;
+       if(check.status!=='in-range'){
+        vwapOutlierObservations++;
+        note(symbol,x.date,side+'-vwap-outside-range',check.vwap,
+         {low:bar.low,high:bar.high,volume:bar.volume,amount:bar.amount},check.deviationBps??100);
+       }
+      }
+     }
     }
    }
   }
@@ -114,10 +131,13 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
   timestampComparable:observationSkewMs!==null,volumeUnitVerified,amountUnitVerified:amountRequested,
   comparedBars,amountComparedBars,amountCoverageGapBars,discrepancies:total,displayedDiscrepancies:differences,
   bySymbol:[...symbolEvidence.values()],evidenceQuality,
+  vwapSanity:{applicable:vwapCheckApplicable,toleranceBps:TOLERANCE_BPS,
+   checkedObservations:vwapCheckedObservations,outlierObservations:vwapOutlierObservations,
+   skippedAdjustedPrices:amountRequested&&!vwapCheckApplicable,provesMarketAccuracy:false},
   maximumPriceDifferenceBps:Math.round(maximumPriceDifferenceBps*1e4)/1e4,
   maximumVolumeDifferencePct:Math.round(maximumVolumeDifferencePct*1e4)/1e4,
   maximumAmountDifferencePct:amountRequested?Math.round(maximumAmountDifferencePct*1e4)/1e4:null,
   consensus:total===0,releaseReady:false,
-  warning:'比较两家名称与原始上游不同的研究数据；同一上游多SDK不会被误算独立。身份登记及数值一致并不验证授权、日历、公司行为或实盘独立性。'};
+  warning:'仅研究比较。未复权日K的成交额/股数隐含均价只是异常筛查；前后复权价格不可用于此检验。数据一致并不验证授权、日历、公司行为或实盘独立性。'};
 }
 module.exports={compareMarketFeeds};
