@@ -162,10 +162,14 @@ jobs:
         run: |
           node --check V6_BO/src/core/a-share-session-coverage.js
           node --check V6_BO/scripts/research-cross-source-history.js
+          node --check V6_BO/src/core/corporate-source-linkage.js
+          node --check V6_BO/scripts/audit-corporate-source-linkage.js
       - name: Audit open sessions, provider-declared halts, shared missing dates and point-in-time boundaries
         run: |
           node --test \
             V6_BO/tests/a-share-session-coverage.test.js \
+            V6_BO/tests/corporate-source-linkage.test.js \
+            V6_BO/tests/public-stock-status-evidence.test.js \
             V6_BO/tests/research-cross-source-history.test.js \
             V6_BO/tests/research-calendar-source.test.js \
             V6_BO/tests/historical-corporate-pit.test.js \

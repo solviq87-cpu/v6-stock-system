@@ -50,7 +50,10 @@ function record(kind,row,symbol,receivedAt){
  if(kind==='dividendEvents'&&row.SECURITY_CODE!==symbol)throw issue('source-identity','分红报告证券不一致');
  if(row.SECURITY_CODE!==symbol)return null;
  const fields=kind==='dividendEvents'?['REPORT_DATE','PLAN_NOTICE_DATE','EQUITY_RECORD_DATE','EX_DIVIDEND_DATE','NOTICE_DATE','PUBLISH_DATE']:['SUSPEND_START_TIME','SUSPEND_END_TIME','SUSPEND_START_DATE','PREDICT_RESUME_DATE'];
- const vendorDates=Object.fromEntries(fields.map(k=>[k,temporal(row[k])])),base={symbol,name:text(row.SECURITY_NAME_ABBR),knownAt:receivedAt,vendorDates};
+ const vendorDates=Object.fromEntries(fields.map(k=>[k,temporal(row[k])])),base={symbol,name:text(row.SECURITY_NAME_ABBR),knownAt:receivedAt,vendorDates,
+  // ID identifies the parsed vendor JSON row, not source authenticity. The
+  // separate rawEvidence.sha256 seals the exact HTTP response bytes.
+  sourceRecordId:sha(Buffer.from(JSON.stringify(row))),recordHashBasis:'parsed-vendor-json-row'};
  if(kind==='dividendEvents')return {...base,reportDate:vendorDates.REPORT_DATE.date,exDividendDate:vendorDates.EX_DIVIDEND_DATE.date,equityRecordDate:vendorDates.EQUITY_RECORD_DATE.date,planNoticeDate:vendorDates.PLAN_NOTICE_DATE.date,noticeDate:vendorDates.NOTICE_DATE.date,publishDate:vendorDates.PUBLISH_DATE.date,planText:text(row.IMPL_PLAN_PROFILE),progress:text(row.ASSIGN_PROGRESS),pretaxBonusRmb:numeric(row.PRETAX_BONUS_RMB),scope:'vendor-dividend-and-bonus-plans; not-all-corporate-actions'};
  return {...base,suspendStartDate:vendorDates.SUSPEND_START_DATE.date,suspendStartTime:vendorDates.SUSPEND_START_TIME.raw,suspendEndTime:vendorDates.SUSPEND_END_TIME.raw,predictResumeDate:vendorDates.PREDICT_RESUME_DATE.date,announcementTime:null,reason:text(row.SUSPEND_REASON),durationText:text(row.SUSPEND_EXPIRE),scope:'vendor-suspension-announcements-and-plans; not-a-daily-trading-status-table'};
 }
