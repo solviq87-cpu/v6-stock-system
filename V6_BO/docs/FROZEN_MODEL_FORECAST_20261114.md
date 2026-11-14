@@ -83,7 +83,7 @@ GET/导出不创建目录或联网，所有HTTP入口需原编辑权限。计算
 ```sh
 # V6_BO目录，全量：本环境显式选用已有Python与受限并发
 V6_MODEL_PYTHON=/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test
-node --test tests/model-forward-evaluation.test.js tests/research-workspace-store.test.js tests/research-workspace-decision.test.js tests/research-workspace.test.js tests/research-workspace-http.test.js tests/rule-comparison.test.js
+node --test tests/model-forward-evaluation.test.js tests/research-workspace-store.test.js tests/research-workspace-decision.test.js tests/research-workspace-analytics.test.js tests/research-workspace.test.js tests/research-workspace-http.test.js tests/rule-comparison.test.js
 NODE_PATH=/opt/codex/cua_node/lib/node_modules V6_UI_BROWSER=/usr/bin/chromium node scripts/ui-model-forecast-check.js
 npm run check
 node tests/full-server-isolated-smoke.js
