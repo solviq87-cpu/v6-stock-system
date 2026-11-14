@@ -3,7 +3,7 @@
 <!-- CURRENT_CHECKPOINT_START -->
 ## 当前断点 · 2026-11-14（研究页键盘、分页竞态与长列表）
 
-- 用户继续改善，起点`dev@5135559`（#251），已快进整合#248至`dev@550b7ea`，分支`fix/research-navigation-20261114`，工作树`/workspace/v6-research-navigation`。已查开放PR#248/#249仅数据源，旧UI草稿不重复合并；保留最新研究上下文、市场联动、学习和原生账本。
+- 用户继续改善，起点`dev@5135559`（#251），已整合#248及#252浏览器检查修复至`dev@4875f34`，分支`fix/research-navigation-20261114`，工作树`/workspace/v6-research-navigation`。已查开放PR#248/#249仅数据源，旧UI草稿不重复合并；保留最新研究上下文、市场联动、学习和原生账本。
 - 实际浏览器复现：8个tab全部进入Tab顺序、方向键无效/无tabpanel关联；分页成功焦点掉BODY；分页GET在途切页签，旧offset20行落入新tab但页码标1—20。20条版本列表高1434—1510px。
 - 已补手动激活页签（左右/Home/End只移焦，Enter/Space激活）、完整ARIA关联、请求忙碌状态；导航读后仅本代且用户仍在状态处才聚焦新面板；切页签时分页GET重读第一页，旧回复不能覆盖。版本列表限22rem，电脑两列/手机单列，仍可滚动/键盘访问所有记录。
 - 起点独立完整备份`/workspace/artifacts/v6-research-navigation-20261114/base-5135559.tar` SHA256`179c6dff91c38d5cab46765e5aa2b1b731855f6b974822cc8147c0c0f5caa556`。只改研究内页与验证，不改锁定主页、后台/策略/账本/行情门禁；revert本批可恢复。
