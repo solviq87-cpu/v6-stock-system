@@ -76,9 +76,9 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 </section>
 <section class="card linked-workbench" id="researchWorkspace" aria-labelledby="researchWorkspaceHeading">
 <h2 id="researchWorkspaceHeading">研究记录与复盘</h2>
-<div class="linked-controls"><label>股票代码<input id="workspaceSymbol" inputmode="numeric" maxlength="6" placeholder="留空查看全部记录"></label><label>档案来源<select id="workspaceProvider"><option value="tencent">腾讯</option><option value="eastmoney">东方财富</option></select></label><label>历史时点（北京时间）<input id="workspaceAsOf" type="datetime-local"></label></div>
+<div class="linked-controls"><label>股票代码<input id="workspaceSymbol" inputmode="numeric" maxlength="6" placeholder="留空查看全部记录"></label><label>比较来源<select id="workspaceProvider"><option value="tencent">腾讯</option><option value="eastmoney">东方财富</option></select></label><label>历史时点（北京时间）<input id="workspaceAsOf" type="datetime-local"></label></div>
 <div class="linked-actions"><button id="workspaceRead" type="button">读取研究记录</button><button id="workspaceReview" type="button">比较已存股票</button><button id="workspaceExport" type="button">导出本次证据</button></div>
-<details><summary>补充原生评估证据</summary><label>选择评估结果 JSON（最多64KB）<input id="workspaceNativeFile" type="file" accept=".json,application/json"></label><p id="workspaceNativeStatus" role="status">缺少的原生结果保留未知。</p><button id="workspaceNativeClear" type="button">清除补充证据</button></details>
+<details><summary>补充原生评估证据</summary><label>选择评估结果 JSON（最多60KB）<input id="workspaceNativeFile" type="file" accept=".json,application/json"></label><p id="workspaceNativeStatus" role="status">缺少的原生结果保留未知。</p><button id="workspaceNativeClear" type="button">清除补充证据</button></details>
 <div class="linked-controls"><label>筛选批次<select id="workspaceScreenRun"><option value="">最新批次</option></select></label><label>对照研究版本<select id="workspaceCompareRun"><option value="">不对照</option></select></label><label>最低分<input id="workspaceMinScore" type="number" min="0" max="100" value="0"></label></div>
 <p id="workspaceStatus" role="status" aria-live="polite">采集结果和扫描记录封存后可在此复访；读取不重新采集行情。</p>
 <div id="workspaceTabs" class="linked-actions" role="tablist" aria-label="研究记录视图"></div><div id="workspaceContent" aria-live="polite"></div>
