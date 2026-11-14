@@ -41,7 +41,8 @@ async function fixture(t,{withNews=false}={}) {
   });
   const port=server.address().port, requests=[];
   const fetchImpl=async(url,options)=>{
-    assert.equal(url,'/api/records','client must only use same-origin fixed path');
+    assert.ok(url==='/api/records'||/^\/api\/records\/receipts\/[A-Za-z0-9_-]{8,100}$/.test(url),
+      'client may only access fixed same-origin CAS paths');
     assert.equal(options.mode,'same-origin');
     assert.equal(options.credentials,'omit');
     assert.equal(options.cache,'no-store');
@@ -194,4 +195,71 @@ test('readback and status never expose Bearer token and do not carry it in URL o
     assert.equal(JSON.stringify(data).includes('sharecode'),false);
   }
   assert.ok(f.requests.every(x=>!JSON.stringify(x).includes(EDIT)));
+});
+
+
+test('verified receipt supports read-only after page restart with a previously known request ID',async t=>{
+ const f=await fixture(t);
+ const id='receipt_mobile_001';
+ const writer=createClient({getToken:()=>EDIT,fetchImpl:f.fetchImpl,
+  allowMutations:true,requestIdFactory:()=>id});
+ await writer.load();
+ assert.equal((await writer.commit(row(1,84000))).status,'confirmed');
+ const restarted=createClient({getToken:()=>EDIT,fetchImpl:f.fetchImpl});
+ const before=f.store.read().revision;
+ const found=await restarted.receipt(id);
+ assert.equal(found.found,true);
+ assert.equal(found.status,'committed');
+ assert.equal(found.action,'upsert');
+ assert.equal(found.appliedRevision,2);
+ assert.equal(found.currentRevision,2);
+ assert.equal(found.accountRecoveryVerified,false);
+ assert.equal(restarted.status().loaded,false,'receipt metadata must not silently hydrate an account');
+ assert.equal(f.store.read().revision,before);
+ const noEvent=await restarted.receipt('unknown_id_0001');
+ assert.equal(noEvent.found,false);
+ assert.equal(noEvent.status,'not-present-in-verified-ledger');
+ assert.equal(noEvent.appliedRevision,null);
+ assert.equal(noEvent.accountRecoveryVerified,false);
+ assert.ok(!JSON.stringify(found).includes('84000'));
+ assert.ok(!JSON.stringify(found).includes(EDIT));
+});
+
+test('receipt queries never substitute a URL sharecode or accept a revoked identity',async t=>{
+ const f=await fixture(t);
+ let token=EDIT;
+ const c=createClient({getToken:()=>token,fetchImpl:f.fetchImpl});
+ await c.load();
+ token=VIEW;
+ await code(()=>c.receipt('old_receipt_001'),'AUTH_CHANGED');
+ assert.equal(c.status().loaded,false);
+ assert.equal(c.status().blocked,true);
+ await code(()=>c.receipt('../not-valid'),'INVALID_REQUEST_ID');
+ assert.equal(f.requests.filter(x=>x.method==='POST').length,0);
+});
+
+test('malformed receipt responses are never proof, even with successful HTTP',async()=>{
+ const c=createClient({getToken:()=>EDIT,fetchImpl:async()=>json({
+  ok:true,writeContract:'cas-v1',
+  receipt:{found:true,status:'committed',appliedRevision:1,currentRevision:1,
+    readOnly:false,verifiedFromHashChain:false,accountRecoveryVerified:false}
+ })});
+ await code(()=>c.receipt('receipt_test_001'),'RECEIPT_UNVERIFIED');
+ assert.equal(c.status().loaded,false);
+});
+
+test('clear while receipt GET is pending blocks delayed proof and keeps private state empty',async()=>{
+ let resolve;
+ const response=new Promise(r=>resolve=r);
+ const c=createClient({getToken:()=>EDIT,fetchImpl:()=>response});
+ const checking=c.receipt('receipt_test_001');
+ c.clear();
+ resolve(json({ok:true,writeContract:'cas-v1',receipt:{
+  found:false,status:'not-present-in-verified-ledger',currentRevision:1,
+  appliedRevision:null,readOnly:true,verifiedFromHashChain:true,
+  accountRecoveryVerified:false
+ }}));
+ await code(()=>checking,'AUTH_CHANGED');
+ assert.equal(c.status().loaded,false);
+ assert.equal(c.status().blocked,true);
 });
