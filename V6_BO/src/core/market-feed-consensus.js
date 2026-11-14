@@ -19,7 +19,8 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  const upstreamB=resolveUpstream(secondary.provider,secondary.upstreamGroup);
  if((upstreamA.known&&upstreamA.ambiguous)||(upstreamB.known&&upstreamB.ambiguous))
   throw Error('已登记多源包装器缺少逐接口原始上游，不能认定数据独立');
- if(upstreamA.group===upstreamB.group)
+ if(upstreamA.group===upstreamB.group||
+    (upstreamA.catalogGroup&&upstreamA.catalogGroup===upstreamB.catalogGroup))
   throw Error('同一原始上游重复包装，不是独立供应商数据');
 
  if(!a.firstDate||!b.firstDate||a.lastDate!==b.lastDate||a.firstDate!==b.firstDate||a.barsPerStock!==b.barsPerStock||a.stocks!==b.stocks||primary.asOf!==secondary.asOf)throw Error('多源行情交易日范围或股票池不一致');

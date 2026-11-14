@@ -108,3 +108,9 @@ test('future capture time cannot bypass strict importer even if two snapshots ag
  assert.match((await center.sync()).error,/未来/);
  assert.equal(fs.existsSync(outputFile),false);
 });
+
+test('changing a native publisher declaration cannot split the catalogued original feed',()=>{
+ const a=sample('eastmoney'),b=sample('efinance');
+ a.upstreamGroup='invented-other-seller';
+ assert.throws(()=>compareMarketFeeds(a,b),/同一原始上游/);
+});

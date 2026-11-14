@@ -67,14 +67,22 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
    else if(q.quoteAt>now)reason='future-quote';
    else if(now-q.quoteAt>maxAgeMs)reason='stale-quote';
    else if(chinaDay(q.quoteAt)!==chinaDay(now))reason='different-market-day';
-   else if(identity.ambiguous)reason='unknown-upstream';
-   else {reason='eligible-for-comparison';valid.push({id:s.id,upstreamGroup,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});}
+   else if(identity.ambiguous||(!identity.known&&!identity.declared))reason='unknown-upstream';
+   else {
+    // A user-declared alias may group sources MORE conservatively, never
+    // split two catalogued wrappers of the same underlying publisher.
+    const publisherCandidate=identity.known&&identity.catalogGroup!==null;
+    reason=publisherCandidate?'eligible-for-comparison':'unregistered-upstream';
+    valid.push({id:s.id,upstreamGroup,catalogGroup:identity.catalogGroup,
+     publisherCandidate,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});
+   }
   }else if(s.status==='unavailable')reason='unavailable';
   else reason='invalid-status';
   const quoteAt=Number.isSafeInteger(q?.quoteAt)&&q.quoteAt>0?q.quoteAt:null;
   const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   const observedPreviousClose=Number.isFinite(q?.previousClose)&&q.previousClose>0?q.previousClose:null;
   sourceStatuses.push({provider:s.id,upstreamGroup,upstreamCatalogued:identity.known,
+   publisherCandidate:identity.known&&identity.catalogGroup!==null,
    sourceIdentityVerified:false,status:reason,
    quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
    observedPrice,observedPreviousClose,inConsensus:false});
@@ -82,6 +90,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  const base={schemaVersion:1,mode:'multi-source-price-consensus-research',
   code,checkedAt:new Date(now).toISOString(),referencePrice:null,representativeProvider:null,
   supportingProviders:[],sourceCount:sources.length,eligibleCount:valid.length,
+  cataloguedPublisherCandidates:valid.filter(s=>s.publisherCandidate).length,
   sourceStatuses,priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,
   operatorCalendarProvided:operatorDay!==null,operatorCalendarMatch:operatorDay,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
@@ -96,8 +105,12 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  // Fail closed rather than arbitrarily picking one of multiple aliases.
  const byUpstream=new Map();
  for(const q of valid){
-  if(!byUpstream.has(q.upstreamGroup))byUpstream.set(q.upstreamGroup,[]);
-  byUpstream.get(q.upstreamGroup).push(q.id);
+  // Preserve both declarations and canonical registry identities. The same
+  // underlying Eastmoney tape can never be split by a renamed gateway.
+  for(const group of new Set([q.upstreamGroup,q.catalogGroup].filter(Boolean))){
+   if(!byUpstream.has(group))byUpstream.set(group,[]);
+   byUpstream.get(group).push(q.id);
+  }
  }
  const duplicateUpstreamGroups=[...byUpstream.entries()]
   .filter(([,ids])=>ids.length>1)
@@ -106,11 +119,15 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  if(duplicateUpstreamGroups.length)return {...base,status:'duplicate-upstream-evidence',
   duplicateUpstreamGroups,
   note:base.note+'；本轮存在同一上游多个有效来源别名，不能将它们当独立票数'};
- if(valid.length<2)return {...base,status:'insufficient-comparable-sources'};
- const quorum=valid.length<=3?2:Math.floor(valid.length/2)+1;
+ // Only an exact registered single-publisher route can provide a distinct
+ // research vote. Unregistered or multi-upstream declarations remain visible
+ // as evidence, but they never create an apparently corroborated price.
+ const voting=valid.filter(s=>s.publisherCandidate);
+ if(voting.length<2)return {...base,status:'insufficient-comparable-sources'};
+ const quorum=voting.length<=3?2:Math.floor(voting.length/2)+1;
  const groups=[];
- for(let mask=1;mask<(1<<valid.length);mask++){
-  const group=valid.filter((_,i)=>(mask&(1<<i))!==0);
+ for(let mask=1;mask<(1<<voting.length);mask++){
+  const group=voting.filter((_,i)=>(mask&(1<<i))!==0);
   if(group.length<quorum)continue;
   const times=group.map(x=>x.quoteAt),prices=group.map(x=>x.price),closes=group.map(x=>x.previousClose);
   if(Math.max(...times)-Math.min(...times)>timeGapMs||
@@ -126,12 +143,12 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  const matched=best[0],ids=new Set(matched.map(x=>x.id));
  for(const status of sourceStatuses)status.inConsensus=ids.has(status.provider);
  const representative=[...matched].sort((a,b)=>b.quoteAt-a.quoteAt||a.id.localeCompare(b.id))[0];
- return {...base,status:matched.length===valid.length?'sources-agree-unverified':'partial-source-agreement-unverified',
+ return {...base,status:matched.length===voting.length?'sources-agree-unverified':'partial-source-agreement-unverified',
   // An observed price from one confirming provider, NEVER an invented average.
   referencePrice:representative.price,representativeProvider:representative.id,
   quoteAt:representative.quoteAt,
   supportingProviders:[...ids].sort(),
-  matchedCount:matched.length,disagreeingProviders:valid.filter(x=>!ids.has(x.id)).map(x=>x.id).sort(),
+  matchedCount:matched.length,disagreeingProviders:voting.filter(x=>!ids.has(x.id)).map(x=>x.id).sort(),
   maxMatchedPriceGapBps:Number(bps(Math.min(...matched.map(x=>x.price)),Math.max(...matched.map(x=>x.price))).toFixed(3)),
   maxMatchedPreviousCloseGapBps:Number(bps(Math.min(...matched.map(x=>x.previousClose)),Math.max(...matched.map(x=>x.previousClose))).toFixed(3))};
 }
