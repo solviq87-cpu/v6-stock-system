@@ -26,8 +26,10 @@ test('多源发现价格和成交量偏差，逐项保留供审计的差异与�
 test('导入时可选多源核对，异常不覆盖已保存数据',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-consensus-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'independent.json');
- const primary=feed('provider-A'),other=feed('provider-B');fs.writeFileSync(secondaryFile,JSON.stringify(other));
- const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,provider:'provider-A',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
+ const primary=amountFeed('eastmoney-public-history'),other=amountFeed('baostock');
+ primary.observedAt=other.observedAt=Date.parse('2025-02-10T08:00:00Z');
+ fs.writeFileSync(secondaryFile,JSON.stringify(other));
+ const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,provider:'eastmoney-public-history',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
  assert.equal((await center.sync()).consensus.matched,true);
  const saved=fs.readFileSync(outputFile,'utf8');other.stocks[0].bars[10].close+=.2;fs.writeFileSync(secondaryFile,JSON.stringify(other));
  assert.match((await center.sync()).error,/不一致/);assert.equal(fs.readFileSync(outputFile,'utf8'),saved);
@@ -113,10 +115,11 @@ test('源记录成交额不一致时，历史导入不得覆盖已有文件',asy
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-amount-consensus-'));
  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const outputFile=path.join(dir,'history.json'),secondaryFile=path.join(dir,'independent.json');
- const primary=amountFeed('provider-A'),secondary=amountFeed('provider-B');
+ const primary=amountFeed('eastmoney-public-history'),secondary=amountFeed('baostock');
+ primary.observedAt=secondary.observedAt=Date.parse('2025-02-10T08:00:00Z');
  fs.writeFileSync(secondaryFile,JSON.stringify(secondary));
  const center=createMarketDataCenter({url:'https://data.example.org/history',outputFile,
-  provider:'provider-A',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
+  provider:'eastmoney-public-history',datasetId:'dataset-101',secondaryFile,fetchImpl:async()=>response(primary)});
  assert.equal((await center.sync()).updated,true);
  const saved=fs.readFileSync(outputFile,'utf8');
  secondary.stocks[0].bars[3].amount*=1000;

@@ -32,3 +32,34 @@ test('ambiguous Ashare aggregator cannot count as independent without per-endpoi
 test('operator cannot spoof wrapper upstream group to generate extra vote',()=>{
  assert.throws(()=>fuse([{...src('efinance',10),upstreamGroup:'tencent'},src('eastmoney',10)]),/目录不一致/);
 });
+
+test('unregistered alias cannot manufacture a second quote vote even at an identical price',()=>{
+ const result=fuse([src('tencent',10),src('unregistered-route',10)]);
+ assert.equal(result.status,'insufficient-comparable-sources');
+ assert.equal(result.referencePrice,null);
+ assert.equal(result.cataloguedPublisherCandidates,1);
+ assert.equal(result.sourceStatuses[1].status,'unknown-upstream');
+});
+test('explicitly declared unregistered alias remains evidence but is not a publisher vote',()=>{
+ const result=fuse([src('tencent',10),
+  {...src('custom-gateway',10),upstreamGroup:'claimed-independent'}]);
+ assert.equal(result.status,'insufficient-comparable-sources');
+ assert.equal(result.referencePrice,null);
+ assert.equal(result.cataloguedPublisherCandidates,1);
+ assert.equal(result.sourceStatuses[1].status,'unregistered-upstream');
+});
+test('renaming a native vendor must not split canonical Eastmoney and efinance upstream',()=>{
+ const result=fuse([{...src('eastmoney',10),upstreamGroup:'a-different-name'},
+  src('efinance',10.01)]);
+ assert.equal(result.status,'duplicate-upstream-evidence');
+ assert.equal(result.referencePrice,null);
+ assert.ok(result.duplicateUpstreamGroups.some(x=>
+  x.upstreamGroup==='eastmoney'&&x.providers.join(',')==='eastmoney,efinance'));
+});
+test('an ambiguous aggregator cannot be promoted by an operator-only upstream label',()=>{
+ const result=fuse([src('tencent',10),
+  {...src('ashare',10),upstreamGroup:'operator-claims-sina'}]);
+ assert.equal(result.status,'insufficient-comparable-sources');
+ assert.equal(result.sourceStatuses[1].status,'unregistered-upstream');
+ assert.equal(result.referencePrice,null);
+});
