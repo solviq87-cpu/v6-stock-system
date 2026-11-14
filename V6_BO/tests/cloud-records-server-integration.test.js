@@ -153,3 +153,53 @@ test('real legacy V6 login gates the opt-in private CAS route and preserves hist
  assert.equal(after.body.revision,2);
  assert.equal(JSON.parse(after.body.records[0].content).cash,90000);
 });
+
+
+test('real V6 server refuses a valid-chain rollback when external head anchor is configured',
+ {timeout:30000},async t=>{
+ const f=isolate(t),port=await freePort();
+ f.store.upsert({expectedRevision:1,requestId:'anchor_real_0001',
+  record:{name:'v6.app.state',content:JSON.stringify({
+   revision:1,cash:76000,positions:[],orders:[],risk:{},picks:{}})}});
+ const expected=f.store.read();
+ const child=spawn(process.execPath,['--require',f.guard,'server.js'],{
+  cwd:f.app,env:{PATH:process.env.PATH||'/usr/bin:/bin',TZ:'UTC',LANG:'C.UTF-8',
+   TMPDIR:path.join(f.root,'tmp'),PORT:String(port),HOST:'127.0.0.1',
+   QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1',
+   V6_ENABLE_CLOUD_RECORDS_HTTP:'1',V6_CLOUD_RECORDS_ROOT:f.ledgerRoot,
+   V6_CLOUD_RECORDS_ANCHOR_REVISION:String(expected.revision),
+   V6_CLOUD_RECORDS_ANCHOR_PROOF_SHA256:expected.proof},
+  stdio:['ignore','pipe','pipe']});
+ f.attach(child);
+ let logs='';child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);
+ let ready=false;
+ for(let n=0;n<80;n++){
+  if(child.exitCode!==null)throw Error('anchored server failed to start: '+logs.slice(-800));
+  try{if((await request(port,'/api/lock/status')).status===200){ready=true;break;}}catch{}
+  await sleep(100);
+ }
+ assert.equal(ready,true,'anchored real server never started: '+logs.slice(-700));
+ const login=await request(port,'/api/lock/unlock',{
+  method:'POST',body:{password:f.password,role:'edit',fp:'anchor-real-fixture',name:'Anchor Device'}
+ });
+ assert.equal(login.body.ok,true,'real legacy login rejected: '+JSON.stringify(login.body));
+ const token=login.body.token;
+ const valid=await request(port,'/api/records',{token});
+ assert.equal(valid.status,200);
+ assert.equal(valid.body.revision,2);
+ assert.equal(JSON.parse(valid.body.records[0].content).cash,76000);
+ fs.unlinkSync(path.join(f.ledgerRoot,'000002.json'));
+ assert.equal(f.store.read().status,'ready');
+ const denied=await request(port,'/api/records',{token});
+ assert.equal(denied.status,503);
+ assert.equal(denied.body.code,'LEDGER_VERIFICATION_FAILED');
+ assert.ok(!JSON.stringify(denied.body).includes('cash'));
+ const receipt=await request(port,'/api/records/receipts/anchor_real_0001',{token});
+ assert.equal(receipt.status,503);
+ const write=await request(port,'/api/records',{token,method:'POST',
+  body:{name:'v6.app.state',expectedRevision:1,requestId:'anchor_new_write_01',
+   content:JSON.stringify({revision:2,cash:55555,positions:[],orders:[]})}});
+ assert.equal(write.status,503);
+ assert.equal(f.store.read().revision,1,'original history has not been silently rewritten');
+ assert.equal(fs.existsSync(path.join(f.ledgerRoot,'000002.json')),false);
+});

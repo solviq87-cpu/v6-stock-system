@@ -80,6 +80,17 @@ function recordsArray(rows) {
   });
   return clean;
 }
+function normalizeReadAnchor(input) {
+  if (input === undefined) return null;
+  if (!plain(input) || Object.keys(input).some(k=>!['revision','proof'].includes(k)))
+    throw error('ANCHOR_CONFIGURATION_INVALID');
+  const revision=typeof input.revision==='string' && /^[1-9][0-9]*$/.test(input.revision)
+    ? Number(input.revision) : input.revision;
+  if (!Number.isSafeInteger(revision) || revision < 1 ||
+      typeof input.proof !== 'string' || !HASH.test(input.proof))
+    throw error('ANCHOR_CONFIGURATION_INVALID');
+  return Object.freeze({revision,proof:input.proof});
+}
 function eventFile(dir, index) { return path.join(dir,String(index).padStart(6,'0')+'.json'); }
 function readEvent(file, index) {
   const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
@@ -96,20 +107,33 @@ function readEvent(file, index) {
   } catch (e) { if (e instanceof SyntaxError) throw error('EVENT_JSON_CORRUPT'); throw e; }
   finally { fs.closeSync(fd); }
 }
-function inspect(root) {
+function inspect(root, trustedReadAnchor=null) {
   const dir = safeRoot(root);
-  if (!fs.existsSync(dir)) return {status:'uninitialized', revision:null, records:null, proof:null, events:0};
+  if (!fs.existsSync(dir)) {
+    if (trustedReadAnchor) throw error('ANCHORED_LEDGER_MISSING');
+    return {status:'uninitialized', revision:null, records:null, proof:null, events:0};
+  }
   const names = fs.readdirSync(dir);
+  // An interrupted append may leave a stage file even when the old chain is
+  // internally valid. Never serve that old snapshot as authoritative.
+  if (names.some(name=>/^\.stage-[a-f0-9]{24}$/.test(name)))
+    throw error('UNRESOLVED_STAGING_ARTIFACT');
   const eventNames = names.filter(name=>EVENT_NAME.test(name)).sort();
   const unknown = names.filter(name=>!EVENT_NAME.test(name) && name !== 'records.guard' &&
     !/^\.stage-[a-f0-9]{24}$/.test(name));
   if (unknown.length || eventNames.length > MAX_EVENTS) throw error('UNEXPECTED_STORAGE_FILES');
+  if (trustedReadAnchor && eventNames.length < trustedReadAnchor.revision)
+    throw error('ANCHOR_ROLLBACK_DETECTED');
   if (!eventNames.length) return {status:'uninitialized', revision:null, records:null, proof:null, events:0};
   const map = new Map(), requests = new Map();
   let prev = null;
   for (let index = 1; index <= eventNames.length; index++) {
     if (eventNames[index-1] !== path.basename(eventFile(dir,index))) throw error('EVENT_SEQUENCE_GAP');
     const e=readEvent(eventFile(dir,index),index);
+    // An externally retained historical head is an immutable prefix fence.
+    // New events AFTER this head may append; a shorter or forked chain may not.
+    if (trustedReadAnchor && index===trustedReadAnchor.revision &&
+        e.hash!==trustedReadAnchor.proof) throw error('ANCHOR_HISTORY_MISMATCH');
     if (e.previousHash !== (prev?.hash || null) || !REQUEST_ID.test(e.requestId) ||
         !['bootstrap','upsert'].includes(e.action)) throw error('EVENT_CHAIN_INVALID');
     if (!HASH.test(e.fingerprint) || requests.has(e.requestId)) throw error('DUPLICATE_REQUEST_EVENT');
@@ -162,11 +186,16 @@ function append(dir,entry,options) {
   atomicCreate(eventFile(dir,entry.sequence),value,options);
   return value;
 }
-function createCloudRecordsCasStore(root) {
+function createCloudRecordsCasStore(root, {trustedReadAnchor} = {}) {
+  // This anchor must be supplied independently by an operator from outside
+  // the mutable ledger. Never derive it from the ledger under inspection.
+  const anchor=normalizeReadAnchor(trustedReadAnchor);
   function read() {
-    const { _requests, ...publicState }=inspect(root);
+    const { _requests, ...publicState }=inspect(root,anchor);
     return {...publicState, offlineOnly:true, authenticatedSessionVerified:false,
-      productionDeployed:false, canTrade:false};
+      productionDeployed:false, canTrade:false,
+      externalHeadAnchorMatched:anchor?true:null,
+      externalAnchorProvenanceVerified:false, endToEndRollbackProtectionVerified:false};
   }
   function bootstrap({records, expectedSourceHash, operatorApproved, requestId},options={}) {
     if (operatorApproved !== true || !REQUEST_ID.test(requestId) || !HASH.test(expectedSourceHash))
@@ -174,9 +203,10 @@ function createCloudRecordsCasStore(root) {
     const snapshot=recordsArray(records);
     if (!snapshot.some(x=>x.name === 'v6.app.state') || digest({records:snapshot}) !== expectedSourceHash)
       throw error('AUTHORITATIVE_BACKUP_PROOF_REQUIRED');
+    if (anchor) throw error('ANCHORED_BOOTSTRAP_FORBIDDEN');
     const dir=safeRoot(root,true);
     return withAccountLock(path.join(dir,'records'),()=>{
-      const current=inspect(dir);
+      const current=inspect(dir,anchor);
       if (current.status !== 'uninitialized') throw error('BOOTSTRAP_WOULD_OVERWRITE_EXISTING_DATA');
       append(dir,{sequence:1,previousHash:null,action:'bootstrap',requestId,
         fingerprint:digest({action:'bootstrap',records:snapshot}),records:snapshot},options);
@@ -190,7 +220,7 @@ function createCloudRecordsCasStore(root) {
     const dir=safeRoot(root);
     if (!fs.existsSync(dir)) throw error('NO_AUTHORITATIVE_SNAPSHOT');
     return withAccountLock(path.join(dir,'records'),()=>{
-      const state=inspect(dir);
+      const state=inspect(dir,anchor);
       if (state.status!=='ready') throw error('NO_AUTHORITATIVE_SNAPSHOT');
       const old=state._requests.get(requestId);
       if (old) {
@@ -211,7 +241,7 @@ function createCloudRecordsCasStore(root) {
   function receipt(requestId) {
     if (typeof requestId !== 'string' || !REQUEST_ID.test(requestId))
       throw error('INVALID_REQUEST_ID');
-    const state=inspect(root);
+    const state=inspect(root,anchor);
     if (state.status!=='ready') throw error('NO_AUTHORITATIVE_SNAPSHOT');
     const event=state._requests.get(requestId);
     return Object.freeze({
