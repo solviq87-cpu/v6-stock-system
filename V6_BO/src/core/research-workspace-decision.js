@@ -19,7 +19,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   !Array.isArray(stock.bars)||stock.bars.length>500||!['eastmoney','tencent'].includes(stock.provider)||stock.source!==stock.provider||stock.priceBasis!=='unadjusted')throw Error('需要带身份和时点的已归档股票');
  if(at>Date.now()||stock.bars.some((b,i)=>!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||i&&stock.bars[i-1].date>=b.date||
   !['open','high','low','close'].every(k=>finite(b[k])&&b[k]>0)||b.high<Math.max(b.open,b.close,b.low)||b.low>Math.min(b.open,b.close,b.high)||!finite(b.volume)||b.volume<0))throw Error('归档K线顺序、价格或成交量无效');
- const bars=stock.bars.filter(b=>known(b.knownAt,at)&&b.date<=day(at)&&Date.parse(b.date+'T15:10:00+08:00')<=at);
+ const bars=stock.bars.filter(b=>known(b.knownAt,at)&&b.date<=day(at)&&Date.parse(b.date+'T15:10:00+08:00')<=at&&b.knownAt>=Date.parse(b.date+'T15:10:00+08:00'));
  const last=bars.at(-1);if(!last)throw Error('没有截止研究时点的闭合日K');
  let benchmarkSeries=null;
  if(benchmarkEvidence!==undefined){
@@ -120,6 +120,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  const regime=finite(index?.shanghaiChangePct)?index.shanghaiChangePct>0?'index-up':index.shanghaiChangePct<0?'index-down':'index-flat':'unknown';
  return {schemaVersion:1,...FLAGS,asOf:at,symbol:stock.symbol,name:stock.name||'',provider:stock.provider,tradeDate:last.date,
   priceBasis:stock.priceBasis,observationHash:r.observation?.observationHash||null,bundleHash,sourceRefs,
+  inputCoverage:{providedBars:stock.bars.length,admittedClosedBars:bars.length,excludedBars:stock.bars.length-bars.length},
   conditions:rules,evidence:nodes,systems:conditionGroups,regime,regimeMeaning:'同日上证涨跌方向分组，不是行情因果或生产市场择时',
   nativeInputs:{fourteen:fourteenEvidence||null,gpt:gptEvidence?{symbol:stock.symbol,date:last.date,knownAt:gptEvidence.knownAt,source:gptEvidence.source,scores}:null,python:pythonEvidence||null},
   context:{linkage:linked?r.linkage||null:null,sectorContext:linked?bundle.sectorContext:null,financials:linked?bundle.marketContext?.financials:null,

@@ -12,7 +12,7 @@ function inputAudit(data){
  });
  const values=warmup.filter(x=>x.value),sensitive=values.length>=2&&values.some(x=>x.value.gold!==values[0].value.gold||x.value.aboveWater!==values[0].value.aboveWater);
  const financials=data.context?.financials;
- return {status:'observed-unverified',bars:bars.length,excludedFutureRows:0,closedBarsOnly:true,
+ return {status:'observed-unverified',bars:bars.length,excludedRows:data.inputCoverage?.excludedBars??null,closedBarsOnly:true,
   warmup,warmupStatus:values.length<2?'insufficient-history':sensitive?'signal-sensitive-to-start':'no-signal-change-in-tested-lengths',
   pointInTime:{status:'frozen-at-receipt-only',financialAvailable:!!financials,financialHistoricalEligibility:'not-certified',
    membershipScope:'observed-members-at-run-time',meaning:'只认当时封存的资料；没有公告与生效版本链时不能用作历史基本面或成分回测'},

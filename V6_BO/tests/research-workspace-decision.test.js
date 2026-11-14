@@ -14,6 +14,7 @@ test('field evidence received in the future cannot become an observed fact',()=>
 test('foreign context, future bars, unordered bars and invalid OHLC cannot be borrowed',()=>{
  const f=fixture();f.evidenceBundle.symbol='600001';assert.equal(D.buildWorkspaceDecision(f).bundleHash,null);
  const later=fixture({index:71});later.asOf=at(70);later.stock.observedAt=at(70);assert.equal(D.buildWorkspaceDecision(later).tradeDate,dates[70]);
+ const partial=fixture();partial.stock.bars.at(-1).knownAt=at(70,'11:30');assert.equal(D.buildWorkspaceDecision(partial).tradeDate,dates[69]);
  for(const mutate of [x=>x.stock.bars.reverse(),x=>x.stock.bars[0].low=100,x=>x.stock.source='other']){const x=fixture();mutate(x);assert.throws(()=>D.buildWorkspaceDecision(x));}
 });
 test('four systems stay independent; native three-round evidence and GPT factors require exact identity and time',()=>{

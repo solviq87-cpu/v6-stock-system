@@ -13,10 +13,10 @@ function marketPosition(events,symbol,asOf){
  if(!latest)return {...out,reason:'尚无该股封存观察'};
  for(const board of array(latest.context?.sectorContext?.current?.boards)){
   if(!board.membershipComplete||!array(board.members).includes(symbol)||new Set(board.members).size!==board.members.length||board.quoteDate!==latest.tradeDate||
-   !Number.isSafeInteger(board.quoteAt)||board.quoteAt>latest.asOf||day(board.quoteAt)!==board.quoteDate||!Number.isSafeInteger(board.membersObservedAt)||board.membersObservedAt>latest.asOf)continue;
+   !Number.isSafeInteger(board.quoteAt)||board.quoteAt>latest.asOf||day(board.quoteAt)!==board.quoteDate||board.quoteAt<Date.parse(board.quoteDate+'T15:00:00+08:00')||!Number.isSafeInteger(board.membersObservedAt)||board.membersObservedAt>latest.asOf)continue;
   const memberHash=digest([...board.members].sort()),history=new Map();
   for(const e of own){const b=array(e.data.context?.sectorContext?.current?.boards).find(b=>b.category===board.category&&b.code===board.code);
-   if(b?.membershipComplete&&array(b.members).length&&digest([...b.members].sort())===memberHash&&b.quoteDate===e.data.tradeDate&&Number.isSafeInteger(b.quoteAt)&&day(b.quoteAt)===b.quoteDate&&b.quoteAt<=e.data.asOf&&Number.isSafeInteger(b.membersObservedAt)&&b.membersObservedAt<=e.data.asOf&&finite(b.changePct))history.set(b.quoteDate,{date:b.quoteDate,changePct:b.changePct,evidence:e.hash});}
+   if(b?.membershipComplete&&array(b.members).length&&digest([...b.members].sort())===memberHash&&b.quoteDate===e.data.tradeDate&&Number.isSafeInteger(b.quoteAt)&&day(b.quoteAt)===b.quoteDate&&b.quoteAt>=Date.parse(b.quoteDate+'T15:00:00+08:00')&&b.quoteAt<=e.data.asOf&&Number.isSafeInteger(b.membersObservedAt)&&b.membersObservedAt<=e.data.asOf&&finite(b.changePct))history.set(b.quoteDate,{date:b.quoteDate,changePct:b.changePct,evidence:e.hash});}
   const last3=[...history.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-3),dates=latest.tradeDates;
   const consecutive=last3.length===3&&last3.every((r,i)=>!i||dates.indexOf(r.date)===dates.indexOf(last3[i-1].date)+1)&&dates.includes(last3[0]?.date);
   const phase=consecutive?last3[2].changePct>last3[1].changePct&&last3[1].changePct>last3[0].changePct?'warming':
@@ -110,6 +110,7 @@ function holdingDefense(events,accounts,quotes,asOf,preferences={}){
    rows.push({accountId,symbol,name:p.name||symbol,price:q?.price??null,lastObservedPrice:finite(raw?.price)?raw.price:null,quoteAt:quote.quoteAt,quoteAgeMs:quote.quoteAgeMs,quoteStatus:quote.quoteStatus,quoteMissingReason:quote.missingReason,
     cost,shares:p.shares,weightPct:round(weight),weightBasis:'current-holdings-market-value-excluding-cash',
     costChangePct:q&&cost>0?round((q.price/cost-1)*100):null,entryRunId:entry?.hash??null,currentRunId:latest?.hash??null,
+    entryEvidenceAt:entry?.recordedAt??null,entryTradeDate:entry?.data.tradeDate??null,currentEvidenceAt:latest?.recordedAt??null,currentTradeDate:latest?.data.tradeDate??null,
     invalidated:invalidated.map(c=>({id:c.id,name:c.name,evidenceIds:c.evidenceIds})),missing:missing.map(c=>c.field),
     locked:!!p.locked,muted:!!p.mute,concentrationWarning:weight!==null&&weight>=(preferences.maxPositionPct||30),
     avoidedBoards:market.boards.filter(b=>array(preferences.avoidSectors).includes(b.name)).map(b=>b.name),excludedByResearchPreference:array(preferences.excludedSymbols).includes(symbol),
