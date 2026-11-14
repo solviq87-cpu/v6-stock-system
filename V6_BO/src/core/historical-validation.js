@@ -40,6 +40,18 @@ function validateDataset(data){
  if(data.settlements?.some(e=>!ids.has(e.symbol)))throw Error('权益结算股票不在输入历史股票池');
  if(data.universeHistory?.some(e=>!ids.has(e.symbol)))throw Error('股票池时点记录包含缺少行情的股票');
  if(dates&&dates.at(-1)>data.asOf)throw Error('历史行情包含超过截至日期的未来K线');
+ // An account may receive a lawful retrospective correction later. A
+ // historical backtest must not replay that correction as if it was known at
+ // the old effective-date open, or silently ignore an off-calendar event.
+ // Keep this gate local to research datasets: never rewrite live account history.
+ for(const event of data.settlements||[]){
+  const knownAt=Date.parse(event.publishedAt);
+  const effectiveOpen=Date.parse(event.effectiveDate+'T09:30:00+08:00');
+  if(knownAt>effectiveOpen)
+   throw Error('历史公司行为结算在生效日开盘时尚未公布，禁止回测前视');
+  if(data.source==='imported'&&dates&&!dates.includes(event.effectiveDate))
+   throw Error('历史公司行为结算生效日缺少导入交易日K，禁止静默遗漏');
+ }
  if(!['fixture','simulated','imported'].includes(data.source)&&!data.provider&&!data.datasetId)throw Error('外部数据需要provider或datasetId以便追溯');
  return {stocks:data.stocks.length,barsPerStock:length,firstDate:dates?.[0]||null,lastDate:dates?.at(-1)||null,source:data.source,asOf:data.asOf,verifiedExternal:false};
 }

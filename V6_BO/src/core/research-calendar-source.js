@@ -73,15 +73,41 @@ function readResearchCalendar({asOf=Date.now(),symbol,calendarFile}={}){
    observationBasis:data.firstObservedAt!==undefined?'recorded-first-observation':'operator-declared-observation',
    calendarKind:'explicit-research-sessions',knowledgeAvailableAt:new Date(observedMs).toISOString()};
   if(observedMs>now)throw Error('查询时尚未观察到此日历，不能倒填历史知识');
+  let latestEvidenceObserved=0;
   for(const item of [data,...evidence]){
-   for(const k of ['firstObservedAt','observedAt'])if(item[k]!==undefined&&(!Number.isFinite(observedTime(item[k]))||observedTime(item[k])>now))throw Error('日历证据观察时间位于未来或无效');
+   const times=[];
+   for(const k of ['firstObservedAt','observedAt']){
+    if(item[k]===undefined)continue;
+    const t=observedTime(item[k]);
+    if(!Number.isFinite(t)||t>now)throw Error('日历证据观察时间位于未来或无效');
+    times.push(t);
+   }
+   if(times.length===2&&times[0]>times[1])
+    throw Error('日历首次观察时间不能晚于后续观察时间');
+   const firstKnown=times.length?Math.min(...times):observedMs;
+   if(item!==data&&times.length)latestEvidenceObserved=Math.max(latestEvidenceObserved,...times);
    for(const field of ['sourcePublicationDate','originalPublishedDate']){
-    if(item[field]!==undefined&&item[field]!==null&&(!validDate(item[field])||item[field]>today))throw Error('日历来源发表日期位于未来或无效');
+    if(item[field]===undefined||item[field]===null)continue;
+    if(!validDate(item[field])||item[field]>today)
+     throw Error('日历来源发表日期位于未来或无效');
+    // Date-only CN exchange publication precision: cannot have observed
+    // the document a China-market calendar day BEFORE its publication.
+    if(item[field]>aShareCalendarDate(firstKnown))
+     throw Error('日历来源发表日期晚于首次观察，禁止回填历史知识');
    }
    for(const field of ['sourcePublishedAt','publishedAt','originalPublishedAt']){
-    if(item[field]!==undefined&&(!Number.isFinite(Date.parse(item[field]))||Date.parse(item[field])>now))throw Error('日历来源发表时间位于未来或无效');
+    if(item[field]===undefined)continue;
+    const published=typeof item[field]==='string'&&
+     /T.*(?:Z|[+-]\d{2}:\d{2})$/.test(item[field])?
+     Date.parse(item[field]):NaN;
+    if(!Number.isFinite(published)||published>now)
+     throw Error('日历来源发表时间位于未来或无效');
+    if(published>firstKnown)
+     throw Error('日历来源发表时间晚于首次观察，禁止提前使用');
    }
   }
+  if(latestEvidenceObserved>observedMs)
+   throw Error('研究日历首次观察早于所引用来源证据的首次观察，禁止倒填');
   if(today<data.from||today>data.to)throw Error('日期不在交易日历覆盖范围，交易日未知');
   const tradeDates=data.sessions.filter(row=>row.open).map(row=>row.date).sort();
   return {status:'available',tradeDates,calendar,metadata,nextTradeDate:checked.next(today)};
