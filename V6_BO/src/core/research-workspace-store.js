@@ -58,7 +58,8 @@ function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}=
   const revision=events.filter(e=>e.kind===kind&&(kind!=='preset'||e.data.name===clean.name)).length;
   if(expectedRevision!==undefined&&expectedRevision!==revision)throw Error('研究设置版本冲突，请重新读取');
   if(events.length>=MAX_EVENTS)throw Error('研究档案达到容量，请归档后继续');
-  const previous=events.at(-1),body={schemaVersion:1,sequence:events.length+1,previousHash:previous?.hash,
+  const previous=events.at(-1);if(previous&&now<previous.recordedAt)throw Error('研究记录时钟回退，未改写历史');
+  const body={schemaVersion:1,sequence:events.length+1,previousHash:previous?.hash,
    kind,requestId,inputHash,recordedAt:now,revision:revision+1,...FLAGS,data:clean};
   // Absence is represented consistently as null in the first record.
   body.previousHash=previous?.hash??null;

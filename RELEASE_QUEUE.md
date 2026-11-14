@@ -8,6 +8,8 @@
 
 ## 最新核对 · 2026-11-14
 
+- `feat/frozen-model-evaluation-20261114`从已合并#224继续落实[模型前向评测](V6_BO/docs/FROZEN_MODEL_FORECAST_20261114.md)。已接页面与HTTP，明确区分导入结果、实际模型运行、预测误差与投资收益；待本轮最终全量与精确head双CI后合并。发布运行时未在本会话恢复，不改唯一发布者。
+
 - 交付PR[#224](https://github.com/solviq87-cpu/v6-stock-system/pull/224)：八类研究功能与新增八类模型对照，实施已完成；本地最终3495通过/0失败/3可选ML跳过，四视口/HTTP/网页/打包均通过，代码head8d630c8双CI成功。最终记录提交核验精确head后合并；无需重复领取此实现任务。生产未发布，可信唯一运行时/完整读回与原现场台账另验。
 
 - 实现续接`feat/research-closure-20261114`：[八类研究闭环](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)。#222已在精确head CI43578342431成功后合入`dev@f742809`；#221经精确head CI43578794549/浏览器43578794647成功合入`8fe273a`。新研究功能正在专项/全量/浏览器验收，最终精确SHA和合并状态另记。未切换唯一发布者。

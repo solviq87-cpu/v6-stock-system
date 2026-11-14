@@ -21735,6 +21735,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if(Object.keys(input).some(k=>!['action','symbol','provider','requestId','nativeEvidence'].includes(k)))return reply({ok:false,error:'未知研究参数'},422);
       return job({action:'review',input,options});
     }
+    if(input.action==='freeze-forecast'){
+      if(Object.keys(input).some(k=>!['action','runId','requestId','prediction'].includes(k)))return reply({ok:false,error:'未知预测字段'},422);
+      return job({action:'forecast',root,input});
+    }
     try{
       if(Object.keys(input).some(k=>!['action','value','name','revision','expectedRevision','requestId'].includes(k)))throw Error();
       return job({action:'settings',root,input});
