@@ -1,0 +1,1003 @@
+{
+  "schemaVersion": 1,
+  "scope": "source-discovery-and-research-governance",
+  "updatedOn": "2026-11-14",
+  "productionEntitlementGranted": false,
+  "autoEnableNewProviders": false,
+  "defaultCanTrade": false,
+  "identityPolicy": "SDK wrappers are not independent upstream publishers; multi:* means upstream cannot be uniquely attributed without exact feed-level provenance",
+  "sources": [
+    {
+      "id": "eastmoney",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-quote",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "public-quote-probe",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "tencent",
+      "upstreamGroup": "tencent",
+      "dataClass": "a-share-quote",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "public-quote-probe",
+      "evidenceUrl": "https://github.com/joycoding2000/chstockdata",
+      "note": ""
+    },
+    {
+      "id": "sina",
+      "upstreamGroup": "sina",
+      "dataClass": "a-share-quote",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "public-quote-probe",
+      "evidenceUrl": "https://github.com/zxygithub/baostock",
+      "note": ""
+    },
+    {
+      "id": "baostock",
+      "upstreamGroup": "baostock",
+      "dataClass": "a-share-daily",
+      "market": "CN",
+      "access": "guarded-research",
+      "adapter": "optional-research-sources.py",
+      "evidenceUrl": "https://github.com/zxygithub/baostock",
+      "note": ""
+    },
+    {
+      "id": "mootdx",
+      "upstreamGroup": "tdx",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "optional-research-sources.py",
+      "evidenceUrl": "https://github.com/mootdx/mootdx",
+      "note": ""
+    },
+    {
+      "id": "pytdx",
+      "upstreamGroup": "tdx",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/rainx/pytdx",
+      "note": ""
+    },
+    {
+      "id": "ashare",
+      "upstreamGroup": "multi:sina-tencent",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "optional-research-sources.py",
+      "evidenceUrl": "https://github.com/mpquant/Ashare",
+      "note": ""
+    },
+    {
+      "id": "efinance",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "optional-research-sources.py",
+      "evidenceUrl": "https://github.com/Micro-sheep/efinance",
+      "note": ""
+    },
+    {
+      "id": "akshare-em-daily",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-daily",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "six-photo-sources.py",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "akshare-em-minute",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-minute",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "six-photo-sources.py",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "akshare-sina-minute",
+      "upstreamGroup": "sina",
+      "dataClass": "a-share-minute",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "six-photo-sources.py",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "akshare-sina-daily",
+      "upstreamGroup": "sina",
+      "dataClass": "a-share-daily",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "akshare-tencent-daily",
+      "upstreamGroup": "tencent",
+      "dataClass": "a-share-daily",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "easyquotation-sina",
+      "upstreamGroup": "sina",
+      "dataClass": "a-share-quote",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "six-photo-sources.py",
+      "evidenceUrl": "https://github.com/shidenggui/easyquotation",
+      "note": ""
+    },
+    {
+      "id": "easyquotation-tencent",
+      "upstreamGroup": "tencent",
+      "dataClass": "a-share-quote",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/shidenggui/easyquotation",
+      "note": ""
+    },
+    {
+      "id": "cn-stockdata-tencent",
+      "upstreamGroup": "tencent",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/joycoding2000/chstockdata",
+      "note": ""
+    },
+    {
+      "id": "chstockdata-tdx",
+      "upstreamGroup": "tdx",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/joycoding2000/chstockdata",
+      "note": ""
+    },
+    {
+      "id": "stock-data-hub-efinance",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/valueflowever/stock-data-hub",
+      "note": ""
+    },
+    {
+      "id": "stock-data-hub-pytdx",
+      "upstreamGroup": "tdx",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/valueflowever/stock-data-hub",
+      "note": ""
+    },
+    {
+      "id": "cnequity-em",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-bars",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/rootSunc/CNEquity",
+      "note": ""
+    },
+    {
+      "id": "cnequity-official",
+      "upstreamGroup": "multi:exchange",
+      "dataClass": "exchange-research",
+      "market": "CN",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/rootSunc/CNEquity",
+      "note": ""
+    },
+    {
+      "id": "eastmoney-public-history",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "a-share-daily",
+      "market": "CN",
+      "access": "guarded-research",
+      "adapter": "eastmoney-historical-feed.js",
+      "evidenceUrl": "https://github.com/akfamily/akshare",
+      "note": ""
+    },
+    {
+      "id": "cninfo",
+      "upstreamGroup": "cninfo",
+      "dataClass": "cn-disclosure",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "optional-research-sources.py",
+      "evidenceUrl": "https://www.cninfo.com.cn",
+      "note": ""
+    },
+    {
+      "id": "sse-disclosure",
+      "upstreamGroup": "sse",
+      "dataClass": "cn-disclosure",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.sse.com.cn",
+      "note": ""
+    },
+    {
+      "id": "szse-disclosure",
+      "upstreamGroup": "szse",
+      "dataClass": "cn-disclosure",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.szse.cn",
+      "note": ""
+    },
+    {
+      "id": "bse-disclosure",
+      "upstreamGroup": "bse",
+      "dataClass": "cn-disclosure",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.bse.cn",
+      "note": ""
+    },
+    {
+      "id": "csrc-disclosure",
+      "upstreamGroup": "csrc",
+      "dataClass": "cn-regulatory",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.csrc.gov.cn",
+      "note": ""
+    },
+    {
+      "id": "sse-calendar",
+      "upstreamGroup": "sse",
+      "dataClass": "cn-calendar",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "operator-import",
+      "evidenceUrl": "https://www.sse.com.cn",
+      "note": ""
+    },
+    {
+      "id": "szse-calendar",
+      "upstreamGroup": "szse",
+      "dataClass": "cn-calendar",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "operator-import",
+      "evidenceUrl": "https://www.szse.cn",
+      "note": ""
+    },
+    {
+      "id": "bse-calendar",
+      "upstreamGroup": "bse",
+      "dataClass": "cn-calendar",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "operator-import",
+      "evidenceUrl": "https://www.bse.cn",
+      "note": ""
+    },
+    {
+      "id": "sw-industry",
+      "upstreamGroup": "sw",
+      "dataClass": "cn-industry",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.swsresearch.com",
+      "note": ""
+    },
+    {
+      "id": "china-index",
+      "upstreamGroup": "csi",
+      "dataClass": "cn-index",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.csindex.com.cn",
+      "note": ""
+    },
+    {
+      "id": "tushare",
+      "upstreamGroup": "tushare",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://tushare.pro",
+      "note": ""
+    },
+    {
+      "id": "rqdata",
+      "upstreamGroup": "rqdata",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.ricequant.com",
+      "note": ""
+    },
+    {
+      "id": "joinquant",
+      "upstreamGroup": "jqdata",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.joinquant.com",
+      "note": ""
+    },
+    {
+      "id": "ifind",
+      "upstreamGroup": "ifind",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "authorized-gateway",
+      "evidenceUrl": "https://www.51ifind.com",
+      "note": ""
+    },
+    {
+      "id": "choice",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "authorized-gateway",
+      "evidenceUrl": "https://choice.eastmoney.com",
+      "note": ""
+    },
+    {
+      "id": "wind",
+      "upstreamGroup": "wind",
+      "dataClass": "cn-multi-asset",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.wind.com.cn",
+      "note": ""
+    },
+    {
+      "id": "miniqmt",
+      "upstreamGroup": "miniqmt",
+      "dataClass": "cn-quote-execution",
+      "market": "CN",
+      "access": "client-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.qmtstock.com",
+      "note": ""
+    },
+    {
+      "id": "tqsdk",
+      "upstreamGroup": "tianqin",
+      "dataClass": "futures-market",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.shinnytech.com/tqsdk/",
+      "note": ""
+    },
+    {
+      "id": "ctp",
+      "upstreamGroup": "ctp",
+      "dataClass": "futures-market",
+      "market": "CN",
+      "access": "client-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.sfit.com.cn",
+      "note": ""
+    },
+    {
+      "id": "shfe",
+      "upstreamGroup": "shfe",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.shfe.com.cn",
+      "note": ""
+    },
+    {
+      "id": "ine",
+      "upstreamGroup": "ine",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.ine.cn",
+      "note": ""
+    },
+    {
+      "id": "dce",
+      "upstreamGroup": "dce",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.dce.com.cn",
+      "note": ""
+    },
+    {
+      "id": "czce",
+      "upstreamGroup": "czce",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.czce.com.cn",
+      "note": ""
+    },
+    {
+      "id": "cffex",
+      "upstreamGroup": "cffex",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.cffex.com.cn",
+      "note": ""
+    },
+    {
+      "id": "gfex",
+      "upstreamGroup": "gfex",
+      "dataClass": "futures-history",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.gfex.com.cn",
+      "note": ""
+    },
+    {
+      "id": "sge",
+      "upstreamGroup": "sge",
+      "dataClass": "gold-market",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.sge.com.cn",
+      "note": ""
+    },
+    {
+      "id": "hkex",
+      "upstreamGroup": "hkex",
+      "dataClass": "hk-market",
+      "market": "CN",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.hkex.com.hk",
+      "note": ""
+    },
+    {
+      "id": "sec-edgar",
+      "upstreamGroup": "sec-edgar",
+      "dataClass": "us-disclosure",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.sec.gov/search-filings/edgar-application-programming-interfaces",
+      "note": ""
+    },
+    {
+      "id": "yfinance",
+      "upstreamGroup": "yahoo-finance",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://pypi.org/project/yfinance/",
+      "note": "Personal-use terms, not a licensed production feed"
+    },
+    {
+      "id": "yahooquery",
+      "upstreamGroup": "yahoo-finance",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/dpguthrie/yahooquery",
+      "note": ""
+    },
+    {
+      "id": "yfinance-hk",
+      "upstreamGroup": "yahoo-finance",
+      "dataClass": "hk-market",
+      "market": "HK",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://pypi.org/project/yfinance/",
+      "note": ""
+    },
+    {
+      "id": "stooq",
+      "upstreamGroup": "stooq",
+      "dataClass": "global-daily",
+      "market": "GLOBAL",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://stooq.com",
+      "note": ""
+    },
+    {
+      "id": "finance-datareader",
+      "upstreamGroup": "multi:global",
+      "dataClass": "global-daily",
+      "market": "GLOBAL",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/FinanceData/FinanceDataReader",
+      "note": ""
+    },
+    {
+      "id": "alpha-vantage",
+      "upstreamGroup": "alpha-vantage",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.alphavantage.co",
+      "note": ""
+    },
+    {
+      "id": "twelve-data",
+      "upstreamGroup": "twelvedata",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://twelvedata.com",
+      "note": ""
+    },
+    {
+      "id": "tiingo",
+      "upstreamGroup": "tiingo",
+      "dataClass": "global-daily",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.tiingo.com",
+      "note": ""
+    },
+    {
+      "id": "finnhub",
+      "upstreamGroup": "finnhub",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://finnhub.io",
+      "note": ""
+    },
+    {
+      "id": "massive-polygon",
+      "upstreamGroup": "polygon",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://massive.com",
+      "note": ""
+    },
+    {
+      "id": "fmp",
+      "upstreamGroup": "fmp",
+      "dataClass": "global-fundamentals",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://financialmodelingprep.com",
+      "note": ""
+    },
+    {
+      "id": "eodhd",
+      "upstreamGroup": "eodhd",
+      "dataClass": "global-daily",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://eodhd.com",
+      "note": ""
+    },
+    {
+      "id": "nasdaq-datalink",
+      "upstreamGroup": "nasdaq-datalink",
+      "dataClass": "global-datasets",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.nasdaq.com",
+      "note": ""
+    },
+    {
+      "id": "databento",
+      "upstreamGroup": "databento",
+      "dataClass": "global-tick",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://databento.com",
+      "note": ""
+    },
+    {
+      "id": "itick",
+      "upstreamGroup": "itick",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "itick-stock-quote.js",
+      "evidenceUrl": "https://itick.org",
+      "note": ""
+    },
+    {
+      "id": "alltick",
+      "upstreamGroup": "alltick",
+      "dataClass": "global-quote",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://alltick.co",
+      "note": ""
+    },
+    {
+      "id": "fred",
+      "upstreamGroup": "fred",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://fred.stlouisfed.org/docs/api/fred/",
+      "note": ""
+    },
+    {
+      "id": "alfred",
+      "upstreamGroup": "fred",
+      "dataClass": "macro-vintages",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://fred.stlouisfed.org/docs/api/fred/",
+      "note": ""
+    },
+    {
+      "id": "worldbank",
+      "upstreamGroup": "worldbank",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://datahelpdesk.worldbank.org/knowledgebase/topics/125589",
+      "note": ""
+    },
+    {
+      "id": "imf",
+      "upstreamGroup": "imf",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.imf.org/en/Resource-Pages/IMF-API",
+      "note": ""
+    },
+    {
+      "id": "oecd",
+      "upstreamGroup": "oecd",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.oecd.org/en/data/insights/data-explainers/2024/09/api.html",
+      "note": ""
+    },
+    {
+      "id": "bis",
+      "upstreamGroup": "bis",
+      "dataClass": "macro-rates",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.bis.org",
+      "note": ""
+    },
+    {
+      "id": "ecb",
+      "upstreamGroup": "ecb",
+      "dataClass": "macro-rates",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.ecb.europa.eu/help/getting-data-web-services-sdmx",
+      "note": ""
+    },
+    {
+      "id": "eurostat",
+      "upstreamGroup": "eurostat",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://ec.europa.eu/eurostat",
+      "note": ""
+    },
+    {
+      "id": "nbs",
+      "upstreamGroup": "nbs",
+      "dataClass": "cn-macro",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.stats.gov.cn",
+      "note": ""
+    },
+    {
+      "id": "pboc",
+      "upstreamGroup": "pboc",
+      "dataClass": "cn-monetary",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.pbc.gov.cn",
+      "note": ""
+    },
+    {
+      "id": "safe",
+      "upstreamGroup": "safe",
+      "dataClass": "cn-fx",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.safe.gov.cn",
+      "note": ""
+    },
+    {
+      "id": "sse-fund",
+      "upstreamGroup": "sse",
+      "dataClass": "cn-fund",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.sse.com.cn",
+      "note": ""
+    },
+    {
+      "id": "szse-fund",
+      "upstreamGroup": "szse",
+      "dataClass": "cn-fund",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.szse.cn",
+      "note": ""
+    },
+    {
+      "id": "efinance-fund",
+      "upstreamGroup": "eastmoney",
+      "dataClass": "cn-fund",
+      "market": "CN",
+      "access": "permission-review",
+      "adapter": "six-photo-sources.py",
+      "evidenceUrl": "https://github.com/Micro-sheep/efinance",
+      "note": ""
+    },
+    {
+      "id": "stock-data-hub-yfinance",
+      "upstreamGroup": "yahoo-finance",
+      "dataClass": "global-daily",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/valueflowever/stock-data-hub",
+      "note": ""
+    },
+    {
+      "id": "openbb",
+      "upstreamGroup": "multi:vendor",
+      "dataClass": "research-framework",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/OpenBB-finance/OpenBB",
+      "note": ""
+    },
+    {
+      "id": "qlib",
+      "upstreamGroup": "multi:dataset",
+      "dataClass": "research-framework",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/microsoft/qlib",
+      "note": ""
+    },
+    {
+      "id": "vnpy",
+      "upstreamGroup": "multi:gateway",
+      "dataClass": "trading-framework",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/vnpy/vnpy",
+      "note": ""
+    },
+    {
+      "id": "pykrx",
+      "upstreamGroup": "krx",
+      "dataClass": "kr-market",
+      "market": "KR",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/sharebook-kr/pykrx",
+      "note": ""
+    },
+    {
+      "id": "wbgapi",
+      "upstreamGroup": "worldbank",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/tgherzog/wbgapi",
+      "note": ""
+    },
+    {
+      "id": "fredapi",
+      "upstreamGroup": "fred",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/mortada/fredapi",
+      "note": ""
+    },
+    {
+      "id": "pandas-datareader-fred",
+      "upstreamGroup": "fred",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/pydata/pandas-datareader",
+      "note": ""
+    },
+    {
+      "id": "pandas-datareader-worldbank",
+      "upstreamGroup": "worldbank",
+      "dataClass": "macro-series",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://github.com/pydata/pandas-datareader",
+      "note": ""
+    }
+  ],
+  "researchRepositories": [
+    {
+      "name": "AKShare",
+      "url": "https://github.com/akfamily/akshare",
+      "finding": "multiple upstream publishers, per-interface provenance required"
+    },
+    {
+      "name": "efinance",
+      "url": "https://github.com/Micro-sheep/efinance",
+      "finding": "Eastmoney downstream wrapper"
+    },
+    {
+      "name": "BaoStock",
+      "url": "https://github.com/zxygithub/baostock",
+      "finding": "provider protocol includes volume shares, amount CNY, adjustment and trading status"
+    },
+    {
+      "name": "Ashare",
+      "url": "https://github.com/mpquant/Ashare",
+      "finding": "Sina and Tencent are separate underlying feeds"
+    },
+    {
+      "name": "easyquotation",
+      "url": "https://github.com/shidenggui/easyquotation",
+      "finding": "selected backend determines original quote publisher"
+    },
+    {
+      "name": "mootdx",
+      "url": "https://github.com/mootdx/mootdx",
+      "finding": "TDX quotation server upstream"
+    },
+    {
+      "name": "pytdx",
+      "url": "https://github.com/rainx/pytdx",
+      "finding": "TDX upstream"
+    },
+    {
+      "name": "chstockdata",
+      "url": "https://github.com/joycoding2000/chstockdata",
+      "finding": "Tencent, TDX, Sina routes not three unique wrappers"
+    },
+    {
+      "name": "stock-data-hub",
+      "url": "https://github.com/valueflowever/stock-data-hub",
+      "finding": "multi-source fallback, data freshness and route provenance"
+    },
+    {
+      "name": "weijia stockdata-hub",
+      "url": "https://github.com/weijia/stockdata-hub",
+      "finding": "per-frequency source routing and failure handling"
+    },
+    {
+      "name": "CNEquity",
+      "url": "https://github.com/rootSunc/CNEquity",
+      "finding": "dataset versioning, point-in-time and row-level lineage"
+    },
+    {
+      "name": "a-stock-data",
+      "url": "https://github.com/simonlin1212/a-stock-data",
+      "finding": "direct-source directory with mixed scraping and auth requirements"
+    },
+    {
+      "name": "Qlib",
+      "url": "https://github.com/microsoft/qlib",
+      "finding": "as-of features and calendar, not data publisher"
+    },
+    {
+      "name": "vn.py",
+      "url": "https://github.com/vnpy/vnpy",
+      "finding": "broker/data gateway framework, no data entitlement"
+    },
+    {
+      "name": "OpenBB",
+      "url": "https://github.com/OpenBB-finance/OpenBB",
+      "finding": "provider aggregation framework, no independent quote feed"
+    },
+    {
+      "name": "yfinance",
+      "url": "https://github.com/ranaroussi/yfinance",
+      "finding": "Yahoo upstream, personal-use limitations"
+    },
+    {
+      "name": "yahooquery",
+      "url": "https://github.com/dpguthrie/yahooquery",
+      "finding": "Yahoo upstream"
+    },
+    {
+      "name": "pandas-datareader",
+      "url": "https://github.com/pydata/pandas-datareader",
+      "finding": "macro APIs do not imply independent source labels"
+    },
+    {
+      "name": "FinanceDataReader",
+      "url": "https://github.com/FinanceData/FinanceDataReader",
+      "finding": "mixed global upstreams; needs route-level source"
+    },
+    {
+      "name": "pykrx",
+      "url": "https://github.com/sharebook-kr/pykrx",
+      "finding": "KRX market scope, separate calendar and licensing"
+    }
+  ]
+}
