@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "source-discovery-and-research-governance",
-  "updatedOn": "2026-11-14",
+  "updatedOn": "2026-11-15",
   "productionEntitlementGranted": false,
   "autoEnableNewProviders": false,
   "defaultCanTrade": false,
@@ -503,9 +503,9 @@
       "dataClass": "us-disclosure",
       "market": "US",
       "access": "registered-only",
-      "adapter": "candidate",
+      "adapter": "sec-companyfacts.js",
       "evidenceUrl": "https://www.sec.gov/search-filings/edgar-application-programming-interfaces",
-      "note": ""
+      "note": "Official EDGAR US GAAP company facts, manual one-shot; filer date != acceptance timestamp; requires declared contact User-Agent, no backtest permission"
     },
     {
       "id": "yfinance",
@@ -733,9 +733,9 @@
       "dataClass": "macro-rates",
       "market": "GLOBAL",
       "access": "registered-only",
-      "adapter": "candidate",
-      "evidenceUrl": "https://data.ecb.europa.eu/help/getting-data-web-services-sdmx",
-      "note": ""
+      "adapter": "ecb-fx-daily.js",
+      "evidenceUrl": "https://data.ecb.europa.eu/help/api/data-examples",
+      "note": "Official ECB SDMX daily EUR reference currency; observation dates are not real-time market prices and are not publication timestamps"
     },
     {
       "id": "eurostat",
@@ -896,6 +896,316 @@
       "adapter": "candidate",
       "evidenceUrl": "https://github.com/pydata/pandas-datareader",
       "note": ""
+    },
+    {
+      "id": "boj-statistics",
+      "upstreamGroup": "boj",
+      "dataClass": "jp-macro",
+      "market": "JP",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.boj.or.jp/en/statistics/outline/notice_2026/not260218a.htm",
+      "note": "2026 official statistical API: explicit use notice review required"
+    },
+    {
+      "id": "boj-timeseries-json",
+      "upstreamGroup": "boj",
+      "dataClass": "jp-macro",
+      "market": "JP",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.stat-search.boj.or.jp/info/nme_aphelp_en.html",
+      "note": "/api/v1/getDataCode JSON capability; not configured for active collection"
+    },
+    {
+      "id": "japan-estat",
+      "upstreamGroup": "japan-estat",
+      "dataClass": "jp-statistics",
+      "market": "JP",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.e-stat.go.jp/api/en",
+      "note": "Statistics Bureau e-Stat API requires operator credential/terms check"
+    },
+    {
+      "id": "jpx-equities",
+      "upstreamGroup": "jpx",
+      "dataClass": "jp-equities",
+      "market": "JP",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.jpx.co.jp/english/markets/statistics-equities/index.html",
+      "note": "Exchange statistics are not unlimited trading redistributions"
+    },
+    {
+      "id": "jpx-calendar",
+      "upstreamGroup": "jpx",
+      "dataClass": "jp-calendar",
+      "market": "JP",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.jpx.co.jp/english/corporate/about-jpx/calendar/index.html",
+      "note": "Explicit official exchange-day source; must freeze version before research use"
+    },
+    {
+      "id": "us-treasury-fiscal",
+      "upstreamGroup": "us-treasury-fiscal",
+      "dataClass": "us-debt-macro",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://fiscaldata.treasury.gov/api-documentation/",
+      "note": "Bureau Fiscal Service endpoint directory, no live market prices"
+    },
+    {
+      "id": "us-treasury-average-rates",
+      "upstreamGroup": "us-treasury-fiscal",
+      "dataClass": "us-debt-rates",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://fiscaldata.treasury.gov/datasets/average-interest-rates-treasury-securities/average-interest-rates-on-u-s-treasury-securities",
+      "note": "Same upstream as Treasury Fiscal API, not independent"
+    },
+    {
+      "id": "us-treasury-debt",
+      "upstreamGroup": "us-treasury-fiscal",
+      "dataClass": "us-debt-macro",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://fiscaldata.treasury.gov/datasets/debt-to-the-penny/debt-to-the-penny",
+      "note": "Same upstream as Treasury Fiscal API"
+    },
+    {
+      "id": "us-census",
+      "upstreamGroup": "us-census",
+      "dataClass": "us-macro",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.census.gov/data/developers.html",
+      "note": "Public data API, dataset-specific terms and revisions"
+    },
+    {
+      "id": "us-bea",
+      "upstreamGroup": "us-bea",
+      "dataClass": "us-macro",
+      "market": "US",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://apps.bea.gov/api/signup/",
+      "note": "BEA API user ID/operator terms"
+    },
+    {
+      "id": "us-bls",
+      "upstreamGroup": "us-bls",
+      "dataClass": "us-macro",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.bls.gov/developers/",
+      "note": "Public Bureau Labor Statistics API; version/rate restrictions"
+    },
+    {
+      "id": "us-eia",
+      "upstreamGroup": "us-eia",
+      "dataClass": "energy-macro",
+      "market": "US",
+      "access": "credentials-required",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.eia.gov/opendata/documentation.php",
+      "note": "EIA API key required; no automatic acquisition"
+    },
+    {
+      "id": "us-cftc-cot",
+      "upstreamGroup": "cftc",
+      "dataClass": "futures-position-reports",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm",
+      "note": "Tuesday positions are ordinarily released Friday, not intraday tick data"
+    },
+    {
+      "id": "us-cboe-vix",
+      "upstreamGroup": "cboe",
+      "dataClass": "us-volatility-index",
+      "market": "US",
+      "access": "permission-review",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.cboe.com/tradable_products/vix/",
+      "note": "Volatility index distribution/usage rights need written review"
+    },
+    {
+      "id": "us-treasury-yield-curve",
+      "upstreamGroup": "us-treasury",
+      "dataClass": "us-rates",
+      "market": "US",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
+      "note": "Treasury yield data, vintage and official effective dates require capture"
+    },
+    {
+      "id": "ecb-fx-daily",
+      "upstreamGroup": "ecb",
+      "dataClass": "fx-reference-daily",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.ecb.europa.eu/help/api/data-examples",
+      "note": "Manual official ECB 1 EUR to quoted currency, not independent of ECB base"
+    },
+    {
+      "id": "ecb-sdmx-generic",
+      "upstreamGroup": "ecb",
+      "dataClass": "macro-sdmx",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.ecb.europa.eu/help/getting-data-web-services-sdmx-0",
+      "note": "Same ECB underlying statistics publisher"
+    },
+    {
+      "id": "eurostat-sdmx21",
+      "upstreamGroup": "eurostat",
+      "dataClass": "macro-statistics",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://ec.europa.eu/eurostat/en/web/user-guides/data-browser/api-data-access/api-introduction",
+      "note": "No historical vintage guarantee"
+    },
+    {
+      "id": "eurostat-jsonstat",
+      "upstreamGroup": "eurostat",
+      "dataClass": "macro-statistics",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://ec.europa.eu/eurostat/en/web/user-guides/data-browser/api-data-access/api-getting-started",
+      "note": "Same Eurostat upstream, different representation"
+    },
+    {
+      "id": "imf-sdmx",
+      "upstreamGroup": "imf",
+      "dataClass": "macro-statistics",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.imf.org/en/Resource-Pages/IMF-API",
+      "note": "Check country/series/period and method changes"
+    },
+    {
+      "id": "oecd-sdmx",
+      "upstreamGroup": "oecd",
+      "dataClass": "macro-statistics",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.oecd.org/en/data/insights/data-explainers/2024/09/api.html",
+      "note": "SDMX revisions and country-specific calendars"
+    },
+    {
+      "id": "bis-sdmx",
+      "upstreamGroup": "bis",
+      "dataClass": "macro-rates",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.bis.org",
+      "note": "Same underlying BIS as original bis route"
+    },
+    {
+      "id": "un-comtrade",
+      "upstreamGroup": "un-comtrade",
+      "dataClass": "global-trade-statistics",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://comtradeapi.un.org/public/v1/preview",
+      "note": "Check rate limits/coverage and reported period basis"
+    },
+    {
+      "id": "fao-faostat",
+      "upstreamGroup": "fao",
+      "dataClass": "commodities-agriculture",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.fao.org/faostat/en/",
+      "note": "FAO statistics, not exchange trade volume"
+    },
+    {
+      "id": "ilo-ilostat",
+      "upstreamGroup": "ilo",
+      "dataClass": "global-labor",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://ilostat.ilo.org/data/",
+      "note": "ILO macro labor data, revisions unknown"
+    },
+    {
+      "id": "hkma-opendata",
+      "upstreamGroup": "hkma",
+      "dataClass": "hk-monetary",
+      "market": "HK",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://api.hkma.gov.hk/",
+      "note": "HKMA official public API; separate from HKEX quote feed"
+    },
+    {
+      "id": "mas-statistics",
+      "upstreamGroup": "mas",
+      "dataClass": "sg-monetary",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://eservices.mas.gov.sg/statistics/",
+      "note": "Monetary Authority Singapore statistical research, license review"
+    },
+    {
+      "id": "rba-statistics",
+      "upstreamGroup": "rba",
+      "dataClass": "au-macro",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.rba.gov.au/statistics/",
+      "note": "Reserve Bank Australia statistics, no executable price"
+    },
+    {
+      "id": "boe-database",
+      "upstreamGroup": "boe",
+      "dataClass": "uk-macro",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.bankofengland.co.uk/boeapps/database/",
+      "note": "Bank of England IADB time series, publication basis must be captured"
+    },
+    {
+      "id": "snb-data",
+      "upstreamGroup": "snb",
+      "dataClass": "ch-macro",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://data.snb.ch/en",
+      "note": "Swiss National Bank statistical datasets"
+    },
+    {
+      "id": "boc-valet",
+      "upstreamGroup": "bankofcanada",
+      "dataClass": "ca-macro",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://www.bankofcanada.ca/valet/docs",
+      "note": "Bank Canada Valet API official datasets"
     }
   ],
   "researchRepositories": [
@@ -998,6 +1308,56 @@
       "name": "pykrx",
       "url": "https://github.com/sharebook-kr/pykrx",
       "finding": "KRX market scope, separate calendar and licensing"
+    },
+    {
+      "name": "A-share source benchmark",
+      "url": "https://github.com/ychenfen/a-share-data-sources",
+      "finding": "Reproducible source disagreement and rate-limit benchmarks; not an authoritative feed"
+    },
+    {
+      "name": "QuantConnect Lean",
+      "url": "https://github.com/QuantConnect/Lean",
+      "finding": "Data normalization and calendar-aware engine; data entitlements separate"
+    },
+    {
+      "name": "QUANTAXIS",
+      "url": "https://github.com/yutiansut/QUANTAXIS",
+      "finding": "Multiple mainland stock data providers; route-level source provenance needed"
+    },
+    {
+      "name": "zvt",
+      "url": "https://github.com/zvtvz/zvt",
+      "finding": "Multi-country market research data abstraction, no provider license transferred"
+    },
+    {
+      "name": "vectorbt",
+      "url": "https://github.com/polakowo/vectorbt",
+      "finding": "Backtest quality ideas, not a quote publisher"
+    },
+    {
+      "name": "Backtrader",
+      "url": "https://github.com/mementum/backtrader",
+      "finding": "Explicit feeds and no future bars in backtesting; not a quote source"
+    },
+    {
+      "name": "Zipline Reloaded",
+      "url": "https://github.com/stefan-jansen/zipline-reloaded",
+      "finding": "Asset history, calendars and point-in-time backtest architecture"
+    },
+    {
+      "name": "SDMX REST standard",
+      "url": "https://github.com/sdmx-twg/sdmx-rest",
+      "finding": "Official SDMX query contract across macro data issuers, not a source"
+    },
+    {
+      "name": "sdmx-dl",
+      "url": "https://github.com/nbbrd/sdmx-dl",
+      "finding": "SDMX client for multiple upstream macro services, not independent source"
+    },
+    {
+      "name": "bt",
+      "url": "https://github.com/pmorissette/bt",
+      "finding": "Portfolio backtesting framework, not a publisher"
     }
   ]
 }
