@@ -121,6 +121,7 @@ function shadowNextAction(status){
     .includes(status))return 'await-signals-frozen-after-preregistration';
  if(['skipped-no-new-trial-holdout','skipped-awaiting-post-prereg-matured-days','skipped-insufficient-independent-h5-days'].includes(status))
   return 'await-independent-matured-h5-days';
+ if(status==='skipped-model-no-change')return 'await-next-source-or-research-lineage';
  if(status==='skipped-global-trial-budget-exhausted')
   return 'await-global-trial-budget';
  return null;
@@ -147,50 +148,37 @@ function runDailyCycle(config,{mode='observe',apply=false,now=Date.now()}={}){
  let fd;
  try{fd=fs.openSync(lock,'wx',0o600);}
  catch(e){if(e.code==='EEXIST')throw Error('研究链上一运行尚未结束或残留锁未核实');throw e;}
- const stages=[],phase=(stage,call)=>{
-  try{const out=call();stages.push({stage,status:out.status||'ok'});return out;}
-  catch(e){
-   // Outputs already published remain append-only. Never claim atomicity
-   // across independent state files; operator must retry after inspection.
-   const error=new Error('研究链已停在'+stage+'，需检查部分私有归档并核实后重试: '+e.message);
-   error.stage=stage;error.completedStages=stages;throw error;
-  }
+ const stages=[];
+ const failure=(stage,e)=>{const error=new Error('研究链已停在'+stage+'，需检查部分私有归档并核实后重试: '+e.message);error.stage=stage;error.completedStages=stages;return error;};
+ const phase=(stage,call)=>{
+  const success=out=>{stages.push({stage,status:out.status||'ok'});return out;};
+  try{const out=call();return out&&typeof out.then==='function'?out.then(success,e=>{throw failure(stage,e);}):success(out);}
+  catch(e){throw failure(stage,e);}
  };
+ let released=false;
+ const release=()=>{if(released)return;released=true;const held=fs.fstatSync(fd);fs.closeSync(fd);const current=fs.lstatSync(lock);if(current.ino!==held.ino||current.dev!==held.dev)throw Error('研究链锁身份变化');fs.unlinkSync(lock);};
  try{
   fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
-  phase('authorized-market-sync',()=>marketOnce({
-   sourceFile:config.historyFile,outputFile:config.marketFile,mode:'sync',now}));
-  if(mode==='capture')phase('immutable-eod-capture',()=>captureOnce({
-   picksFile:config.picksFile,marketFile:config.marketFile,
-   factorFile:config.factorsFile,outputDir:config.captureDir,now}));
-  const maturity=phase('maturity-pinned-history',()=>maturityOnce({
-   captureDir:config.captureDir,marketFile:config.marketFile,
-   trackingDir:config.trackingDir,manifestFile:config.manifestFile,now}));
-  phase('neutral-multihorizon-report',()=>neutralOnce({
-   captureDir:config.captureDir,trackingDir:config.trackingDir,
-   outDir:config.neutralDir,now}));
+  phase('authorized-market-sync',()=>marketOnce({sourceFile:config.historyFile,outputFile:config.marketFile,mode:'sync',now}));
+  if(mode==='capture')phase('immutable-eod-capture',()=>captureOnce({picksFile:config.picksFile,marketFile:config.marketFile,factorFile:config.factorsFile,outputDir:config.captureDir,now}));
+  const maturity=phase('maturity-pinned-history',()=>maturityOnce({captureDir:config.captureDir,marketFile:config.marketFile,trackingDir:config.trackingDir,manifestFile:config.manifestFile,now}));
+  phase('neutral-multihorizon-report',()=>neutralOnce({captureDir:config.captureDir,trackingDir:config.trackingDir,outDir:config.neutralDir,now}));
+  const finish=shadow=>{
+   if(shadow){if(shadow.candidateMethod==='ollama-native-structured'){stages.at(-1).modelName=shadow.modelName;stages.at(-1).modelDigest=shadow.modelDigest;}const nextAction=shadowNextAction(shadow.status);if(nextAction)stages.at(-1).nextAction=nextAction;
+    if(Number.isSafeInteger(shadow.pendingPrefixDays)&&shadow.pendingPrefixDays>0)stages.at(-1).pendingPrefixDays=shadow.pendingPrefixDays;}
+   const state=phase('read-only-chain-audit',()=>({status:'checked',...inspectResult(config,now)}));
+   return publicStatus('finished','research-cycle-completed-not-certified',{applied:true,sourceDay:check.asOf,stages,
+    chainStatus:state.chainStatus,archivedSignalDays:state.signalDays,maturedH5Days:state.maturedH5Days,
+    manifestDays:state.manifestDays,independentTradingDaysNeeded:state.independentTradingDaysNeeded,shadowModelVersion:state.shadowModelVersion});
+  };
   if(maturity.maturedDays>=36){
-   const shadow=phase('independent-shadow-model',()=>
-    runProspectiveShadowResearch(config,now));
-   const nextAction=shadowNextAction(shadow.status);
-   if(nextAction)stages.at(-1).nextAction=nextAction;
-   if(Number.isSafeInteger(shadow.pendingPrefixDays)&&shadow.pendingPrefixDays>0)
-    stages.at(-1).pendingPrefixDays=shadow.pendingPrefixDays;
-  }else stages.push({stage:'independent-shadow-model',
-   status:'skipped-insufficient-matured-h5-days'});
-  const state=phase('read-only-chain-audit',()=>({
-   status:'checked',...inspectResult(config,now)}));
-  return publicStatus('finished','research-cycle-completed-not-certified',{
-   applied:true,sourceDay:check.asOf,stages,
-   chainStatus:state.chainStatus,archivedSignalDays:state.signalDays,
-   maturedH5Days:state.maturedH5Days,
-   manifestDays:state.manifestDays,
-   independentTradingDaysNeeded:state.independentTradingDaysNeeded,
-   shadowModelVersion:state.shadowModelVersion
-  });
- }finally{
-  fs.closeSync(fd);fs.unlinkSync(lock);
- }
+   const shadow=phase('independent-shadow-model',()=>runProspectiveShadowResearch(config,now));
+   if(shadow&&typeof shadow.then==='function')return shadow.then(finish).finally(release);
+   const result=finish(shadow);release();return result;
+  }
+  stages.push({stage:'independent-shadow-model',status:'skipped-insufficient-matured-h5-days'});
+  const result=finish(null);release();return result;
+ }catch(e){release();throw e;}
 }
 module.exports={validatePaths,checkSource,runDailyCycle,
  runProspectiveShadowResearch};

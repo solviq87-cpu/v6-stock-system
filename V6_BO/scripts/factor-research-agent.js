@@ -35,13 +35,12 @@ function main(args,{now=Date.now(),emit=value=>console.log(JSON.stringify(value)
  const stop=()=>{stopped=true;clearTimeout(timer);process.removeListener('SIGINT',stop);process.removeListener('SIGTERM',stop);signal?.removeEventListener('abort',stop);};
  const tick=()=>{
   if(stopped)return;
-  try{
-   const result=runAgent(config,{apply:true,now:Date.now()});emit(result);
-   if(result.status==='failed-stop-and-audit-before-retry'){stop();return;}
-  }
-  catch{emit({stage:'reflection',status:'failed-stop-and-audit-before-retry',
-   nextAction:'audit-private-research-artifacts-before-retry',researchOnly:true,canTrade:false,productionWeightsChanged:false});stop();return;}
-  timer=setTimeout(tick,options.interval);
+  const failed=()=>{emit({stage:'reflection',status:'failed-stop-and-audit-before-retry',
+   nextAction:'audit-private-research-artifacts-before-retry',researchOnly:true,canTrade:false,productionWeightsChanged:false});stop();};
+  const completed=result=>{emit(result);if(result.status==='failed-stop-and-audit-before-retry'){stop();return;}if(!stopped)timer=setTimeout(tick,options.interval);};
+  try{const result=runAgent(config,{apply:true,now:Date.now()});
+   if(result&&typeof result.then==='function')result.then(completed,failed);else completed(result);
+  }catch{failed();}
  };
  process.once('SIGINT',stop);process.once('SIGTERM',stop);
  signal?.addEventListener('abort',stop,{once:true});
@@ -49,7 +48,7 @@ function main(args,{now=Date.now(),emit=value=>console.log(JSON.stringify(value)
  return {stop};
 }
 if(require.main===module){
- try{const result=main(process.argv.slice(2));if(!result.stop)console.log(JSON.stringify(result));}
+ try{const result=main(process.argv.slice(2));if(result&&typeof result.then==='function')result.then(value=>console.log(JSON.stringify(value))).catch(()=>{console.error(JSON.stringify({status:'failed-stop-and-audit-before-retry',researchOnly:true,canTrade:false,productionWeightsChanged:false}));process.exitCode=1;});else if(!result.stop)console.log(JSON.stringify(result));}
  catch{console.error(JSON.stringify({status:'failed-stop-and-audit-before-retry',
   researchOnly:true,canTrade:false,productionWeightsChanged:false}));process.exitCode=1;}
 }

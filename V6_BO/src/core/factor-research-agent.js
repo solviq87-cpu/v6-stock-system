@@ -86,8 +86,9 @@ function perceive(config,now){
  const mode=capture.status==='ready'&&!frozen.some(c=>c.day===day(now))?'capture':'observe';
  const check=mode==='capture'?capture:observe;
  const ready=check.status==='ready';
+ const localModel=process.env.V6_LOCAL_LEARNING_MODEL?hash({model:process.env.V6_LOCAL_LEARNING_MODEL,endpoint:process.env.V6_LOCAL_LEARNING_ENDPOINT||'http://127.0.0.1:11434',digest:process.env.V6_LOCAL_LEARNING_DIGEST||null}):null;
  const fingerprint=hash({config,inputs,frozen,archives,modelLineage,day:day(now),
-  code:currentResearchCodeFingerprint(),controller:hash(fs.readFileSync(__filename,'utf8'))});
+  ...(localModel?{localModel}:{}),code:currentResearchCodeFingerprint(),controller:hash(fs.readFileSync(__filename,'utf8'))});
  return {fingerprint,mode,ready,sourceDay,captureDays:frozen.length,
   nextAction:ready?`run-${mode}-research-cycle`:
    (inputs.historyFile===null?'provide-current-day-authorized-source':
@@ -108,6 +109,7 @@ function summary(value={}){
   sourceDay:typeof value.sourceDay==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value.sourceDay)?value.sourceDay:null,
   captureDays:Number.isSafeInteger(value.captureDays)&&value.captureDays>=0?value.captureDays:0,
   shadowStatus:typeof value.shadowStatus==='string'&&value.shadowStatus.length<100&&/^(skipped-[a-z0-9-]+|candidate-auto-preregistered|shadow-[a-z-]+|paused-[a-z-]+)$/.test(value.shadowStatus)?value.shadowStatus:null,
+  ...(typeof value.modelName==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(value.modelName)&&/^[a-f0-9]{64}$/.test(value.modelDigest||'')?{modelName:value.modelName,modelDigest:value.modelDigest}:{}),
   version:Number.isSafeInteger(value.version)&&value.version>=0?value.version:null,
   eventFingerprint:sealed(value.eventFingerprint)?value.eventFingerprint:null,
   checkTime:Number.isSafeInteger(value.checkTime)?value.checkTime:null,
@@ -149,7 +151,8 @@ function readAgentStatus(dir){
  }catch{return summary({stage:'reflection',status:'blocked-invalid-agent-journal',nextAction:'audit-private-research-artifacts-before-retry'});}
 }
 function runAgent(config,{apply=false,now=Date.now(),ackFailure}={}){
- try{return run(config,{apply,now,ackFailure});}
+ if(process.env.V6_LOCAL_LEARNING_MODEL&&!/^(?:sha256:)?[a-f0-9]{64}$/.test(process.env.V6_LOCAL_LEARNING_DIGEST||''))throw Error('agent-local-model-digest-required');
+ try{const value=run(config,{apply,now,ackFailure});return value&&typeof value.then==='function'?value.catch(()=>{throw Error('factor-research-agent-stopped-check-private-config-evidence-and-lock');}):value;}
  catch{throw Error('factor-research-agent-stopped-check-private-config-evidence-and-lock');}
 }
 function run(config,{apply,now,ackFailure}){
@@ -162,25 +165,21 @@ function run(config,{apply,now,ackFailure}){
  if(!apply)return plan(perceive(config,now),readEvents(dir),now).output;
  fs.mkdirSync(dir,{recursive:true,mode:0o700});privatePath(lock);
  const fd=fs.openSync(lock,'wx',0o600);
+ let released=false;
+ const release=()=>{if(released)return;released=true;const held=fs.fstatSync(fd);fs.closeSync(fd);const current=fs.lstatSync(lock);if(held.ino!==current.ino||held.dev!==current.dev)throw Error('agent-lock-identity-changed');fs.unlinkSync(lock);};
  try{
   fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
   const events=readEvents(dir),last=events.at(-1);
-  if(ackFailure!==undefined&&(last?.outcome!=='failed'||last.fingerprint!==ackFailure))
-   throw Error('agent-failure-ack-rejected');
+  if(ackFailure!==undefined&&(last?.outcome!=='failed'||last.fingerprint!==ackFailure))throw Error('agent-failure-ack-rejected');
   const before=perceive(config,now),planned=plan(before,events,now,{acknowledged:ackFailure!==undefined});
-  if(planned.repeated)return planned.output;
-  let outcome,after=before;
-  if(before.ready){
-   try{
-    outcome=runDailyCycle(config.cycle,{mode:before.mode,apply:true,now});
-    after=perceive(config,now);
-   }catch{outcome={status:'failed-stop-and-audit-before-retry'};}
-  }
+  if(planned.repeated){release();return planned.output;}
+  let after=before;
+  const finish=outcome=>{
   const shadow=outcome?.stages?.find(s=>s.stage==='independent-shadow-model');
   const status=!before.ready?'needs-data':outcome.status==='research-cycle-completed-not-certified'?
    outcome.status:'failed-stop-and-audit-before-retry';
   const output=summary({stage:'reflection',status,sourceDay:after.sourceDay,
-   captureDays:after.captureDays,shadowStatus:shadow?.status,version:outcome?.shadowModelVersion,
+   captureDays:after.captureDays,shadowStatus:shadow?.status,modelName:shadow?.modelName,modelDigest:shadow?.modelDigest,version:outcome?.shadowModelVersion,
    nextAction:status==='failed-stop-and-audit-before-retry'?'audit-private-research-artifacts-before-retry':
     !before.ready?before.nextAction:shadow?.nextAction??'await-next-source-or-research-lineage',checkTime:now});
   const body={schemaVersion:1,mode:'v6-factor-research-agent-event',sequence:events.length+1,
@@ -192,11 +191,17 @@ function run(config,{apply,now,ackFailure}){
   const fingerprint=hash(body);
   writeNew(path.join(dir,`event-${String(body.sequence).padStart(8,'0')}-${fingerprint.slice(0,12)}.json`),{...body,fingerprint});
   return summary({...output,eventFingerprint:fingerprint});
- }finally{
-  const held=fs.fstatSync(fd);fs.closeSync(fd);const current=fs.lstatSync(lock);
-  if(held.ino!==current.ino||held.dev!==current.dev)throw Error('agent-lock-identity-changed');
-  fs.unlinkSync(lock);
- }
+  };
+  if(before.ready){
+   let outcome;
+   try{outcome=runDailyCycle(config.cycle,{mode:before.mode,apply:true,now});}
+   catch{outcome={status:'failed-stop-and-audit-before-retry'};}
+   if(outcome&&typeof outcome.then==='function')return outcome.then(value=>{try{after=perceive(config,now);return finish(value);}catch{return finish({status:'failed-stop-and-audit-before-retry'});}},()=>finish({status:'failed-stop-and-audit-before-retry'})).finally(release);
+   if(outcome.status!=='failed-stop-and-audit-before-retry')try{after=perceive(config,now);}catch{outcome={status:'failed-stop-and-audit-before-retry'};}
+   const value=finish(outcome);release();return value;
+  }
+  const value=finish(null);release();return value;
+ }catch(e){release();throw e;}
 }
 function plan(perception,events,now,{acknowledged=false}={}){
  const last=events.at(-1);

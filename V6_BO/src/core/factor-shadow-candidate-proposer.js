@@ -13,7 +13,7 @@ const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 function proposeFromSealedResearch({source,definitions,acceptedWeights,
- packFingerprint,latestFrozenDay}={}){
+ packFingerprint,latestFrozenDay,allowUnchanged=false}={}){
  const {fingerprint,...payload}=source||{};
  if(!source||fingerprint!==hash(payload)||
     source.mode!=='v6-factor-shadow-evolution-v1'||
@@ -51,7 +51,7 @@ function proposeFromSealedResearch({source,definitions,acceptedWeights,
   audit.push({factorId:id,sourceMultiplier:learning.suggestedWeightMultiplier,
    redundancySuppressed:duplicates.has(id),proposedWeight:next});
  }
- if(ids.every(id=>proposal[id]===acceptedWeights[id]))
+ if(!allowUnchanged&&ids.every(id=>proposal[id]===acceptedWeights[id]))
   throw Error('历史训练未产生新的研究候选，禁止伪造一次试验');
  return {status:'proposed-from-sealed-prior-training',candidateWeights:proposal,
   sourceFingerprint:fingerprint,sourceLastObservationDay:source.lastObservationDay,
