@@ -32,7 +32,7 @@ test('a stale second device cannot overwrite a first device commit',t=>{
  assert.equal(JSON.parse(final.records.find(r=>r.name==='v6.app.state').content).cash,88888);
 });
 test('same requestId retries are idempotent, changed content with same ID is rejected',t=>{
- const f=fixture(t);seed(f),req={expectedRevision:1,requestId:'mobile_0001',record:ledger(account(1,90000))};
+ const f=fixture(t);seed(f);const req={expectedRevision:1,requestId:'mobile_0001',record:ledger(account(1,90000))};
  const first=f.store.upsert(req),second=f.store.upsert(req);
  assert.equal(first.appliedRevision,2);assert.equal(second.reused,true);
  f.store.upsert({expectedRevision:2,requestId:'market_0001',record:news('{}')});
@@ -89,7 +89,7 @@ test('a legacy lock artifact prevents writes and requires operator inspection',t
 });
 test('two independent child processes cannot both commit the same expected revision',async t=>{
  const {spawn}=require('node:child_process');
- const f=fixture(t);seed(f),modulePath=path.resolve(__dirname,'../src/core/cloud-records-cas-store.js');
+ const f=fixture(t);seed(f);const modulePath=path.resolve(__dirname,'../src/core/cloud-records-cas-store.js');
  const workers=[['phone_00001',200],['desktop_01',300]].map(([id,cash])=>{
   const script='const s=require('+JSON.stringify(modulePath)+').createCloudRecordsCasStore('+JSON.stringify(f.root)+');'
   +'try{s.upsert({expectedRevision:1,requestId:'+JSON.stringify(id)+',record:{name:"v6.app.state",content:JSON.stringify({revision:1,cash:'+cash+',orders:[],positions:[]})}});process.exit(0)}'
