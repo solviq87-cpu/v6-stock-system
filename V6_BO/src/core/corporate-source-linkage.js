@@ -146,6 +146,18 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
    invalid('规范化分红金额字段与原始行不一致');
   remaining.delete(stored.id);
  }
+ // One dividend-report row may legitimately describe both cash and bonus
+ // shares. It must NOT be treated as two independent cash entitlements
+ // (or two share distributions) simply by changing an operator eventId.
+ // The report cannot substantiate rights subscriptions, delisting proceeds or
+ // fractional-lot liquidation cash at all.
+ const reportKinds=new Set(['cash-dividend','share-distribution']);
+ const roleClaims=new Map();
+ for(const e of settlements){
+  if(!rows.has(e?.sourceRecordId)||!reportKinds.has(e.kind))continue;
+  const key=JSON.stringify([e.sourceRecordId,e.kind]);
+  roleClaims.set(key,(roleClaims.get(key)||0)+1);
+ }
  const bySettlement=[],eventIds=new Set();
  for(const e of settlements){
   if(eventIds.has(e?.eventId))invalid('历史结算事件ID重复');
@@ -155,6 +167,11 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
   if(e.symbol!==capture.symbol)issues.push('DIFFERENT_SECURITY');
   if(e.provider!=='eastmoney')issues.push('PROVIDER_NOT_IDENTICAL');
   if(!stored)issues.push('UNLINKED_SOURCE_RECORD');
+  if(!reportKinds.has(e.kind))issues.push('DIVIDEND_REPORT_DOES_NOT_SUPPORT_SETTLEMENT_KIND');
+  const roleKey=JSON.stringify([e.sourceRecordId,e.kind]);
+  const sourceRoleClaims=roleClaims.get(roleKey)||0;
+  if(sourceRoleClaims>1)
+   issues.push('SAME_SOURCE_ROW_REUSED_FOR_SAME_ENTITLEMENT_KIND');
   let dateRelation='unknown',observedBeforeOpen=false,knownAt=null;
   if(stored){
    const dates=stored.dates,recordDay=dates.EQUITY_RECORD_DATE,
@@ -162,6 +179,16 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
    knownAt=stored.knownAt;
    const openAt=Date.parse(e.effectiveDate+'T09:30:00+08:00');
    observedBeforeOpen=knownAt<=openAt;
+   if(!observedBeforeOpen)issues.push('SOURCE_OBSERVED_AFTER_EFFECTIVE_OPEN');
+   // A later operator-declared publication time cannot be attested by bytes
+   // already collected before that time, even if the effective date is later.
+   if(Date.parse(e.publishedAt)>knownAt)
+    issues.push('CLAIMED_PUBLICATION_AFTER_SOURCE_CAPTURE');
+   // The vendor's date-only PUBLISH_DATE is not a precise timestamp. Still,
+   // a capture from an EARLIER China calendar day cannot prove this row was
+   // already published: treat the chronology as source-review-required.
+   if(dates.PUBLISH_DATE&&dates.PUBLISH_DATE>chinaDay(knownAt))
+    issues.push('SOURCE_REPORTED_PUBLICATION_AFTER_CAPTURE');
    if(!observedBeforeOpen)issues.push('SOURCE_OBSERVED_AFTER_EFFECTIVE_OPEN');
    if(Date.parse(e.publishedAt)>openAt)issues.push('CLAIMED_PUBLICATION_AFTER_OPEN');
    if(recordDay===null||exDay===null)issues.push('MISSING_RECORD_OR_EX_DATE');
@@ -178,6 +205,8 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
   }
   bySettlement.push({eventId:e.eventId,kind:e.kind,symbol:e.symbol,
    sourceRecordId:e.sourceRecordId,sourceKnownAt:knownAt,
+   sourceRoleClaims,sourceEconomicTermsVerified:false,
+   cashPaymentDateVerified:false,sharesAvailableDateVerified:false,
    reportedRecordDate:stored?.dates.EQUITY_RECORD_DATE??null,
    reportedExDate:stored?.dates.EX_DIVIDEND_DATE??null,
    effectiveDate:e.effectiveDate,dateRelation,observedBeforeOpen,
@@ -188,7 +217,10 @@ function auditCorporateSourceLinkage({capture,settlements=[],now=Date.now()}={})
  return {...base,status:bySettlement.some(x=>x.issues.length)?
   'requires-source-review':'raw-row-linkage-consistent-unverified',
   sourceRowCount:rows.size,settlementCount:settlements.length,
-  linkedSourceRows:linked,bySettlement,rawEvidenceHashes:parsed.map(x=>x.wireHash),
+  linkedSourceRows:linked,bySettlement,
+  duplicatedEntitlementClaims:bySettlement.filter(x=>x.issues.includes('SAME_SOURCE_ROW_REUSED_FOR_SAME_ENTITLEMENT_KIND')).length,
+  unsupportedSettlementKinds:bySettlement.filter(x=>x.issues.includes('DIVIDEND_REPORT_DOES_NOT_SUPPORT_SETTLEMENT_KIND')).length,
+  rawEvidenceHashes:parsed.map(x=>x.wireHash),
   sourceRowsMatchRawBytes:true,
   // Source data and date-only report fields never equal exchange authority.
   canApplySettlement:false};

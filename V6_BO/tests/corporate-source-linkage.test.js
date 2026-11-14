@@ -131,3 +131,74 @@ test('replaying one settlement event twice cannot manufacture two independent so
  assert.throws(()=>auditCorporateSourceLinkage({capture:report,
   settlements:[event(id),event(id)],now:REVIEWED}),/结算事件ID重复/);
 });
+
+test('different event IDs cannot double-count a single archived cash entitlement',async()=>{
+ const report=await captured(CAPTURED);
+ const id=report.dividendEvents.records[0].sourceRecordId;
+ const two=[event(id),event(id,{eventId:'cash-again',actionId:'new-action',
+  cashDelta:999})];
+ const result=auditCorporateSourceLinkage({capture:report,settlements:two,now:REVIEWED});
+ assert.equal(result.status,'requires-source-review');
+ assert.equal(result.linkedSourceRows,0);
+ assert.equal(result.duplicatedEntitlementClaims,2);
+ assert.deepEqual(result.bySettlement.map(e=>e.sourceRoleClaims),[2,2]);
+ assert.ok(result.bySettlement.every(e=>e.status==='not-point-in-time-supported'&&
+  e.issues.includes('SAME_SOURCE_ROW_REUSED_FOR_SAME_ENTITLEMENT_KIND')));
+ assert.equal(result.canApplySettlement,false);
+});
+test('one vendor row may link distinct cash/share roles, but cannot certify amounts or share availability',async()=>{
+ const report=await captured(CAPTURED),id=report.dividendEvents.records[0].sourceRecordId;
+ const events=[event(id),event(id,{eventId:'bonus-shares',kind:'share-distribution',
+  cashDelta:0,shareDelta:10})];
+ const result=auditCorporateSourceLinkage({capture:report,settlements:events,now:REVIEWED});
+ assert.equal(result.linkedSourceRows,2);
+ assert.equal(result.duplicatedEntitlementClaims,0);
+ assert.deepEqual(result.bySettlement.map(e=>e.sourceRoleClaims),[1,1]);
+ assert.ok(result.bySettlement.every(e=>e.status==='matched-row-only-not-certified'&&
+  e.sourceEconomicTermsVerified===false&&e.cashPaymentDateVerified===false&&
+  e.sharesAvailableDateVerified===false));
+ assert.equal(result.canApplySettlement,false);
+});
+test('dividend report cannot prove rights subscription, delisting proceeds or fractional cash settlement',async()=>{
+ const report=await captured(CAPTURED),id=report.dividendEvents.records[0].sourceRecordId;
+ const scenarios=[
+  {eventId:'rights-row',kind:'rights-subscription',shareDelta:5,cashDelta:-50,basisDelta:50},
+  {eventId:'delist-row',kind:'delisting-cash',shareDelta:-100,cashDelta:800,
+   basisDelta:-1000},
+  {eventId:'fraction-row',kind:'fractional-cash',cashDelta:0.25}
+ ];
+ const result=auditCorporateSourceLinkage({capture:report,settlements:
+  scenarios.map(x=>event(id,x)),now:REVIEWED});
+ assert.equal(result.unsupportedSettlementKinds,3);
+ assert.equal(result.linkedSourceRows,0);
+ assert.equal(result.status,'requires-source-review');
+ assert.ok(result.bySettlement.every(e=>e.issues.includes(
+  'DIVIDEND_REPORT_DOES_NOT_SUPPORT_SETTLEMENT_KIND')));
+ assert.equal(result.canApplySettlement,false);
+});
+test('source row captured before its claimed publication instant must not satisfy point-in-time support',async()=>{
+ const report=await captured(CAPTURED),id=report.dividendEvents.records[0].sourceRecordId;
+ const revised=event(id,{publishedAt:'2026-07-15T10:00:01+08:00'});
+ const result=auditCorporateSourceLinkage({capture:report,settlements:[revised],now:REVIEWED});
+ assert.equal(result.status,'requires-source-review');
+ assert.ok(result.bySettlement[0].issues.includes('CLAIMED_PUBLICATION_AFTER_SOURCE_CAPTURE'));
+ assert.equal(result.bySettlement[0].observedBeforeOpen,true);
+});
+test('a row claiming vendor publication tomorrow cannot be treated as observed today',async()=>{
+ const altered={...original,PUBLISH_DATE:'2026-07-16 00:00:00'};
+ const modifiedProvider=target=>{
+  const url=new URL(target);
+  if(url.hostname==='qt.gtimg.cn')return Promise.resolve({raw:'unavailable vendor quote'});
+  if(url.searchParams.get('reportName')==='RPT_SHAREBONUS_DET')
+   return Promise.resolve(raw({success:true,result:{data:[altered],count:1,pages:1}}));
+  return Promise.resolve(raw({success:true,result:{data:[],count:0,pages:0}}));
+ };
+ const report=await fetchPublicStockStatusEvidence({symbol:'600000',date:'2026-07-15'},
+  {now:()=>CAPTURED,requestJson:modifiedProvider});
+ const id=report.dividendEvents.records[0].sourceRecordId;
+ const result=auditCorporateSourceLinkage({capture:report,settlements:[event(id,{
+  publishedAt:'2026-07-16T09:00:00+08:00'})],now:REVIEWED});
+ assert.equal(result.status,'requires-source-review');
+ assert.ok(result.bySettlement[0].issues.includes('SOURCE_REPORTED_PUBLICATION_AFTER_CAPTURE'));
+ assert.equal(result.canApplySettlement,false);
+});
