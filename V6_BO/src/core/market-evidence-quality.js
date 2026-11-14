@@ -6,7 +6,8 @@
  * exchange-grade proof; a perfect parity check alone never grants permissions.
  */
 function evaluateMarketEvidence({catalogued,timestampComparable,volumeUnitVerified,
- amountUnitVerified,amountCoverageGapBars,amountComparedBars,comparedBars,discrepancies}){
+ amountUnitVerified,amountCoverageGapBars,amountComparedBars,comparedBars,
+ suspensionCoverageComplete=false,discrepancies}){
  const amountComplete=amountUnitVerified&&amountCoverageGapBars===0&&
   amountComparedBars===comparedBars&&comparedBars>0;
  const findings=[];
@@ -14,15 +15,20 @@ function evaluateMarketEvidence({catalogued,timestampComparable,volumeUnitVerifi
  if(!timestampComparable)findings.push('OBSERVATION_TIME_NOT_COMPARABLE');
  if(!volumeUnitVerified)findings.push('SHARE_UNIT_NOT_VERIFIED');
  if(!amountComplete)findings.push('TURNOVER_COVERAGE_INCOMPLETE');
+ if(!suspensionCoverageComplete)findings.push('SUSPENSION_EVIDENCE_INCOMPLETE');
  if(discrepancies>0)findings.push('CROSS_SOURCE_DISCREPANCY');
- const evidenceCompletenessScore=Math.min(85,15+10+
-  (discrepancies===0?25:0)+(catalogued?15:0)+
-  (timestampComparable?10:0)+(volumeUnitVerified?10:0)+(amountComplete?10:0));
+ // Each category contributes a bounded number of points; unlike a capped
+ // oversubscribed score, a missing suspension category MUST visibly reduce it.
+ const evidenceCompletenessScore=10+
+  (discrepancies===0?20:0)+(catalogued?15:0)+
+  (timestampComparable?10:0)+(volumeUnitVerified?10:0)+
+  (amountComplete?10:0)+(suspensionCoverageComplete?10:0);
  const status=discrepancies>0?'quarantined-conflict':
   findings.length?'incomplete-evidence':'consistent-research-only';
  return {schemaVersion:1,status,evidenceCompletenessScore,
   maxWithoutExternalCertification:85,findings,
   amountCoverageComplete:amountComplete,
+  suspensionCoverageComplete,
   scoreMeaning:'仅表示字段、口径、上游登记、时点与一致性证据覆盖程度，不是行情正确率或价格真实概率',
   independentlyVerified:false,exchangeVerified:false,
   canTrade:false,releaseReady:false};

@@ -59,7 +59,7 @@ function amountFeed(provider){
  d.volumeUnit='shares';
  d.amountUnit='CNY';
  d.amountBasis='actual-unadjusted-turnover';
- for(const bar of d.stocks[0].bars)bar.amount=bar.volume*bar.close;
+ for(const bar of d.stocks[0].bars){bar.amount=bar.volume*bar.close;bar.suspended=false;}
  return d;
 }
 test('独立历史数据按股和人民币元核对价格、数量及实际成交额',()=>{

@@ -153,3 +153,43 @@ test('qfq prices are never used for an unadjusted-turnover weighted price sanity
  assert.equal(report.vwapSanity.skippedAdjustedPrices,true);
  assert.equal(report.canTrade,false);
 });
+
+test('both feeds omit suspension status: numeric parity remains visible but strict import refuses false completeness',async t=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ for(const feed of [a,b])for(const bar of feed.stocks[0].bars)delete bar.suspended;
+ const report=compareMarketFeeds(a,b);
+ assert.equal(report.consensus,true,'backwards-compatible price-only research still reports numeric equality');
+ assert.equal(report.suspensionCoverage.complete,false);
+ assert.equal(report.suspensionCoverage.missingBars,40);
+ assert.equal(report.suspensionCoverage.comparedBars,0);
+ assert.deepEqual(report.suspensionCoverage.bySymbol,
+  [{symbol:'600000',matchedBars:0,missingBars:40}]);
+ assert.equal(report.evidenceQuality.status,'incomplete-evidence');
+ assert.ok(report.evidenceQuality.findings.includes('SUSPENSION_EVIDENCE_INCOMPLETE'));
+ assert.equal(report.evidenceQuality.suspensionCoverageComplete,false);
+ assert.ok(report.evidenceQuality.evidenceCompletenessScore<85);
+ const {center,outputFile}=centerFor(t,a,b);
+ assert.match((await center.sync()).error,/停牌状态证据不足/);
+ assert.equal(fs.existsSync(outputFile),false);
+});
+test('fully proven research history cannot be overwritten by a pair that both silently omit suspension status',async t=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ const {center,outputFile,secondaryFile}=centerFor(t,a,b);
+ assert.equal((await center.sync()).updated,true);
+ const before=fs.readFileSync(outputFile,'utf8');
+ for(const dataset of [a,b])delete dataset.stocks[0].bars[13].suspended;
+ fs.writeFileSync(secondaryFile,JSON.stringify(b));
+ assert.match((await center.sync()).error,/停牌状态证据不足/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),before);
+});
+test('fully present vendor-declared suspension flags retain an explicit research-only score ceiling',()=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ const report=compareMarketFeeds(a,b);
+ assert.equal(report.suspensionCoverage.complete,true);
+ assert.equal(report.suspensionCoverage.missingBars,0);
+ assert.equal(report.suspensionCoverage.comparedBars,40);
+ assert.equal(report.evidenceQuality.evidenceCompletenessScore,85);
+ assert.equal(report.evidenceQuality.independentlyVerified,false);
+ assert.equal(report.suspensionCoverage.verifiedByExchange,false);
+ assert.equal(report.canTrade,false);
+});
