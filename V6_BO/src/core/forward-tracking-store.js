@@ -6,7 +6,7 @@
  */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {evaluateForward}=require('./forward-signal-observer');
-const {auditForwardRules}=require('./forward-rule-audit');
+const {auditForwardRules,validateStoredForwardAudit}=require('./forward-rule-audit');
 const MAX_BYTES=4*1024*1024;
 const digest=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function localPath(file){
@@ -44,9 +44,9 @@ function validateSnapshot(data){
  if(integrity!==digest(unsealed))throw Error('追踪归档完整性校验失败');
  if(data.report.observedAt!==data.observedAt)throw Error('观察时间不一致');
  // Recompute the descriptive audit; never trust unvalidated saved aggregates.
- const expected=auditForwardRules(data.report);
- if(JSON.stringify(data.audit)!==JSON.stringify(expected))
-  throw Error('规则审核指标与冻结价格报告不一致');
+ // Preserve the stored version and original integrity for pinned history.
+ // v1 aggregates are historical evidence, not the current sample-readiness rule.
+ validateStoredForwardAudit(data.report,data.audit);
  return data;
 }
 function readSnapshot(file){
@@ -127,7 +127,7 @@ function runOnce({cohort,market,stateFile,now=Date.now()}){
   const old=readSnapshot(stateFile);
   const report=evaluateForward(cohort,market,{now});
   if(old)noObservedRegression(old,report);
-  if(old&&old.report.marketFingerprint===report.marketFingerprint&&
+  if(old&&old.audit.schemaVersion===2&&old.report.marketFingerprint===report.marketFingerprint&&
     old.report.cohortFingerprint===report.cohortFingerprint&&
     old.report.asOf===report.asOf)
    return {ok:true,changed:false,revision:old.revision,asOf:old.report.asOf,signalCount:report.records.length};

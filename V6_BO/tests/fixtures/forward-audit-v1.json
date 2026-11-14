@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "mode": "descriptive-forward-rule-audit",
+  "asOf": "2026-11-09",
+  "sourceMode": "forward-signal-price-observation",
+  "canTrade": false,
+  "verifiedLive": false,
+  "causalEffectProven": false,
+  "weightsUpdated": false,
+  "minimumObserved": 30,
+  "minimumCoverage": 0.8,
+  "groups": [
+    {
+      "system": "fourteen",
+      "cohort": "breadth",
+      "signalCount": 39,
+      "distinctSymbols": 10,
+      "windows": [
+        {
+          "tradingDays": 1,
+          "observedCount": 30,
+          "awaitingCount": 9,
+          "missingOrSuspendedCount": 0,
+          "corporateActionUnresolvedCount": 0,
+          "maturedCount": 30,
+          "observedCoveragePct": 100,
+          "positiveFractionPct": 100,
+          "averagePriceReturnPct": 10,
+          "medianPriceReturnPct": 10,
+          "status": "descriptive-only",
+          "ruleEffectiveness": "not-proven"
+        },
+        {
+          "tradingDays": 5,
+          "observedCount": 30,
+          "awaitingCount": 9,
+          "missingOrSuspendedCount": 0,
+          "corporateActionUnresolvedCount": 0,
+          "maturedCount": 30,
+          "observedCoveragePct": 100,
+          "positiveFractionPct": 100,
+          "averagePriceReturnPct": 50,
+          "medianPriceReturnPct": 50,
+          "status": "descriptive-only",
+          "ruleEffectiveness": "not-proven"
+        },
+        {
+          "tradingDays": 20,
+          "observedCount": 0,
+          "awaitingCount": 39,
+          "missingOrSuspendedCount": 0,
+          "corporateActionUnresolvedCount": 0,
+          "maturedCount": 0,
+          "observedCoveragePct": null,
+          "positiveFractionPct": null,
+          "averagePriceReturnPct": null,
+          "medianPriceReturnPct": null,
+          "status": "insufficient-matured-sample",
+          "ruleEffectiveness": "not-proven"
+        },
+        {
+          "tradingDays": 60,
+          "observedCount": 0,
+          "awaitingCount": 39,
+          "missingOrSuspendedCount": 0,
+          "corporateActionUnresolvedCount": 0,
+          "maturedCount": 0,
+          "observedCoveragePct": null,
+          "positiveFractionPct": null,
+          "averagePriceReturnPct": null,
+          "medianPriceReturnPct": null,
+          "status": "insufficient-matured-sample",
+          "ruleEffectiveness": "not-proven"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "仅原始价变化，不代表含交易成本和可成交性后的策略收益",
+    "同一股票和相关信号非独立样本；未与市场基准及随机对照比较",
+    "缺少样本外、前视偏差及多重检验控制，不能认定任何战法有效",
+    "停牌缺价与公司行为不可当作0收益或失败；不会更新权重和模拟盘"
+  ]
+}
