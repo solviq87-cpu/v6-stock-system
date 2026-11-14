@@ -60,7 +60,7 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  const stocks=[];
  for(const symbol of symbols){
   const url=new URL(ENDPOINT);
-  for(const [k,v] of Object.entries({secid:secId(symbol),fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56',klt:'101',fqt:'1',beg:start.replaceAll('-',''),end:end.replaceAll('-',''),lmt:'10000'}))url.searchParams.set(k,v);
+  for(const [k,v] of Object.entries({secid:secId(symbol),fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57',klt:'101',fqt:'1',beg:start.replaceAll('-',''),end:end.replaceAll('-',''),lmt:'10000'}))url.searchParams.set(k,v);
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
   let payload;
   try{payload=await boundedJson(await fetchImpl(url.toString(),{method:'GET',redirect:'error',signal:ctrl.signal,headers:{Accept:'application/json'}}),maxBytes);}
