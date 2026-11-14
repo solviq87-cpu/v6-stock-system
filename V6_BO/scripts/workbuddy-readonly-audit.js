@@ -101,6 +101,9 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
                   try {
                     if (typeof account === 'string') account=JSON.parse(account);
                     result.ledgerStatus = account && typeof account === 'object' && !Array.isArray(account)
+                      && Number.isSafeInteger(account.revision) && account.revision >= 0
+                      && typeof account.cash === 'number' && Number.isFinite(account.cash)
+                      && Array.isArray(account.positions) && Array.isArray(account.orders)
                       ? 'parseable-not-validated' : 'invalid-account-format';
                   } catch { result.ledgerStatus = 'invalid-account-json'; }
                 }
@@ -120,12 +123,28 @@ async function audit({ sharecode, request = globalThis.fetch, now = () => new Da
   const site = results.find(x => x.endpoint === '/api/site');
   const pageIntegrity = root?.httpStatus === 200 && root.htmlDocument && site?.siteHtmlSha256
     ? (root.sha256 === site.siteHtmlSha256 ? 'matching-bytes' : 'different-bytes') : 'unverified';
+  const records = results.find(x => x.endpoint === '/api/records');
+  const endpointsOk = apis.every(x => x.httpStatus === 200 && x.validJson && !x.error)
+    && records?.recordsArray === true;
+  // A positive HTTP 200/records array is NOT proof of account existence, correctness or deployment.
+  // Even the strongest result below remains a read-only, unverified ledger preflight.
+  let code = 'read-only-evidence-collected';
+  if (records?.httpStatus === 401 || records?.httpStatus === 403) code = 'records-access-denied';
+  else if (records?.httpStatus === 404) code = 'records-endpoint-not-found';
+  else if (!records || records.httpStatus !== 200 || !records.validJson || !records.recordsArray)
+    code = 'records-unverified';
+  else if (records.ledgerStatus === 'not-returned') code = 'ledger-missing';
+  else if (records.ledgerStatus !== 'parseable-not-validated') code = 'ledger-unverified';
+  else if (!endpointsOk) code = 'site-api-unverified';
+  else if (pageIntegrity === 'different-bytes') code = 'site-html-mismatch';
+  else if (pageIntegrity !== 'matching-bytes') code = 'site-html-unverified';
   return {
-    ok: apis.every(x => x.httpStatus === 200 && x.validJson && !x.error)
-      && results.find(x => x.endpoint === '/api/records')?.recordsArray === true,
+    ok: code === 'read-only-evidence-collected',
+    code,
     pageIntegrity,
     accountRecoveryVerified: false,
     serverLoginVerified: false,
+    productionDeploymentVerified: false,
     status: 'read-only-diagnostic',
     checkedAt: now(), target: ORIGIN, method: 'GET-only',
     endpoints: results
