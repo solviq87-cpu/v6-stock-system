@@ -125,12 +125,12 @@ test('bad explicit halt evidence rejects missing time, wrong symbol and future c
 });
 test('before calendar was first observed or outside 2026 coverage, audit status remains unavailable',()=>{
  const older=dataset(dates.slice(0,32));
- const preClock=Date.parse('2026-10-28T10:00:00+08:00');
- assert.ok(older.asOf<='2026-10-28');
+ const preClock=Date.parse('2026-11-11T10:00:00+08:00');
+ assert.ok(older.asOf<='2026-11-11');
  const early=auditDailySessionCoverage(older,{now:preClock});
  assert.equal(early.status,'calendar-unavailable');assert.equal(early.completeByProviderEvidence,false);
  assert.equal(early.unexplainedOpenDayGaps,null);
- const futureDays=Array.from({length:45},(_,i)=>new Date(Date.UTC(2027,0,1+i)).toISOString().slice(0,10))
+ const futureDays=Array.from({length:65},(_,i)=>new Date(Date.UTC(2027,0,1+i)).toISOString().slice(0,10))
    .filter(date=>![0,6].includes(new Date(date+'T00:00:00Z').getUTCDay())).slice(0,32);
  const next={...dataset(),asOf:futureDays.at(-1),stocks:[{...dataset().stocks[0],bars:futureDays.map(date=>({
    date,open:10,high:11,low:9,close:10,volume:10000,amount:100000
