@@ -25,6 +25,7 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 .linked-workbench select{max-width:100%;width:100%;margin-top:6px;padding:9px;background:#101d30;color:#e1eaff;border:1px solid #355174;border-radius:6px}#captureChart svg{display:block;width:100%;height:auto}#captureChart{min-width:0;max-width:100%;overflow:hidden}#captureChart input{width:100%}
 .news-evidence-row{border-top:1px solid #33415b;padding:12px 0;min-width:0;overflow-wrap:anywhere}.news-evidence-row h4{margin:6px 0}.news-evidence-row details{max-width:100%;overflow-wrap:anywhere}
 #riskCenterContent>.risk-center-evidence{grid-column:1/-1}.risk-center-evidence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.risk-center-evidence-grid section{min-width:0}
+.stock-import-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #33415b;padding:10px 0}.stock-import-row span{min-width:0;overflow-wrap:anywhere}.stock-import-row button{flex-shrink:0}#stockListPreview{max-height:480px;overflow:auto}#stockListText{min-height:100px;height:100px}
 @media(max-width:600px){.risk-center-evidence-grid{grid-template-columns:minmax(0,1fr)}}
 </style></head><body><main>
 <p><a href="/">← 返回天枢智策主面板</a>　<a href="/picks.html">查看云端选股结果 →</a>　<a href="/auction-picks.html">查看竞价观察池 →</a></p><h1>天枢智策 · 选股与战法研究工作台</h1>
@@ -58,6 +59,13 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <p id="publicFactorStatus" role="status" aria-live="polite">等待有效历史数据</p><details><summary>因子值与数据依据</summary><pre id="publicFactorOutput" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto"></pre></details></section>
 <section class="card linked-workbench" id="stockCapture" aria-labelledby="stockCaptureHeading">
 <h2 id="stockCaptureHeading">按代码采集并记住K线</h2>
+<details id="stockListImport"><summary>导入股票清单</summary>
+<p class="muted">沪深股票代码列表，或带“代码 / 名称”表头的表格。支持粘贴 Excel 表格及 UTF-8 CSV/TSV/TXT，最多100只。名称与上市状态待核验；预览只在本页处理，选择后再逐只研究。</p>
+<label for="stockListText">粘贴股票代码或表格<textarea id="stockListText" spellcheck="false" placeholder="代码,名称"></textarea></label>
+<label for="stockListFile">选择清单文件<input id="stockListFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"></label>
+<div class="linked-actions"><button id="stockListParse" type="button">预览并去重</button><button id="stockListClear" type="button">清空清单</button></div>
+<p id="stockListStatus" role="status" aria-live="polite">尚未导入</p><div id="stockListPreview"></div>
+</details>
 <div class="linked-controls"><label for="captureSymbol">六位股票代码<input id="captureSymbol" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="六位代码" autocomplete="off"></label><label for="captureProvider">日K来源<select id="captureProvider"><option value="auto">自动选择</option><option value="eastmoney">东方财富</option><option value="tencent">腾讯</option></select></label></div>
 <div class="linked-actions"><button id="captureRun" type="button">采集并研究</button><button id="captureRead" type="button">读取已存历史</button></div>
 <p id="captureStatus" role="status" aria-live="polite">输入代码即可开始；仅点击采集时联网读取行情。</p>
@@ -152,4 +160,4 @@ input[type=file]{width:100%}textarea{max-width:100%;min-height:145px}
 <p id="research36Status" role="status" aria-live="polite" class="muted">输入代码后点击采集；不自动轮询或下单。</p>
 <div id="research36Config" class="cards"></div><div id="research36Result" class="cards"></div>
 </section>
-</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-capture-workbench.js?v=20261113evidence2"></script><script src="/assets/research-evidence-workbench.js?v=20261113evidence1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script><script src="/assets/news-evidence-workbench.js?v=20261113news1"></script><script src="/assets/research-risk-center.js?v=20261113risk1"></script><script src="/assets/research36-workbench.js?v=20261113pipeline1"></script></body></html>
+</main><script src="/assets/research-workbench.js?v=20261109quoteorigin1"></script><script src="/assets/complete-workbench.js?v=20261109yellowfour1"></script><script src="/assets/authority-workbench.js?v=20261106av"></script><script src="/assets/adaptive-workbench.js?v=20261106av"></script><script src="/assets/factor-agent-workbench.js?v=20261112agent1"></script><script src="/assets/stock-list-parser.js?v=20261114import1"></script><script src="/assets/stock-list-import.js?v=20261114import1"></script><script src="/assets/stock-capture-workbench.js?v=20261113evidence2"></script><script src="/assets/research-evidence-workbench.js?v=20261113evidence1"></script><script src="/assets/linked-intelligence-workbench.js?v=20261112linked1"></script><script src="/assets/news-evidence-workbench.js?v=20261113news1"></script><script src="/assets/research-risk-center.js?v=20261113risk1"></script><script src="/assets/research36-workbench.js?v=20261113pipeline1"></script></body></html>
