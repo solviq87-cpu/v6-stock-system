@@ -77,17 +77,17 @@ function unavailable(reason,stockCount){
 function auditDailySessionCoverage(history,{
  now=Date.now(),calendarFile,suspensions=[]
 }={}){
- const ds=validateDataset(history);
+ validateDataset(history);
  if(history.source!=='imported'||!Number.isSafeInteger(now)||now<=0||
     !Array.isArray(suspensions)||suspensions.length>2000)
   throw Error('交易日覆盖审计仅接受合法的导入历史与明确的停牌证据');
  const observedDay=aShareCalendarDate(now);
  if(history.asOf>observedDay)throw Error('历史日期位于本次研究检查时点之后');
- const calendarByStock=[],suspensionsBySymbol=new Map(),used=new Set();
+ const calendarByStock=[],suspensionsBySymbol=new Map(),used=new Set(),calendarSources=new Set();
  for(const entry of suspensions){
   const sym=entry?.symbol,d=entry?.date;
   if(!day(d)||typeof sym!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(sym)||
-     !ds.stocks||!history.stocks.some(s=>(s.code||s.symbol)===sym)||
+     !history.stocks.some(s=>(s.code||s.symbol)===sym)||
      entry.source!=='baostock'||entry.providerStatus!=='suspended'||
      !Number.isSafeInteger(entry.observedAt)||entry.observedAt<=0||entry.observedAt>now||
      d>aShareCalendarDate(entry.observedAt)||used.has(sym+':'+d))
@@ -103,9 +103,10 @@ function auditDailySessionCoverage(history,{
   if(cal.status!=='available')return unavailable(cal.reason,history.stocks.length);
   const dates=stock.bars.map(x=>x.date),first=dates[0],last=dates.at(-1);
   const inRange=first>=cal.calendar.from&&last<=cal.calendar.to;
+  calendarSources.add(cal.metadata.source);
   const availableDates=new Set(cal.tradeDates);
   const barred=new Set(dates),halted=suspensionsBySymbol.get(symbol)||new Map();
-  const holidays=dates.filter(d=>!availableDates.has(d));
+  const holidays=dates.filter(d=>d>=cal.calendar.from&&d<=cal.calendar.to&&!availableDates.has(d));
   const missing=inRange?cal.tradeDates.filter(d=>d>=first&&d<=last&&!barred.has(d)):[];
   const declared=[],unexplained=[];
   for(const d of missing)(halted.has(d)?declared:unexplained).push(d);
@@ -114,13 +115,9 @@ function auditDailySessionCoverage(history,{
   const unexplainedActiveRows=stock.bars.filter(x=>x.suspended===true&&x.volume>0).map(x=>x.date);
   const outsideCalendar=dates.filter(d=>d<cal.calendar.from||d>cal.calendar.to);
   const beyondSpan=[...halted.keys()].filter(d=>d<first||d>last);
-  if(holidays.length||unexplained.length||declared.length||zeroBars.length||
-     contradiction.length||outsideCalendar.length||unexplainedActiveRows.length){
-    // Inspectable audit findings; no guessed closure or fake substitute bar.
-  }
   missingTotal+=unexplained.length;declaredTotal+=declared.length;
   holidayTotal+=holidays.length;zeroTotal+=zeroBars.length;
-  covered+=missing.length+dates.length;unknownSpan ||= !inRange;
+  covered+=inRange?missing.length+dates.length-holidays.length:0;unknownSpan ||= !inRange;
   calendarByStock.push({
    symbol,exchange:cal.calendar.exchange,span:{first,last},
    totalBars:stock.bars.length,
@@ -146,13 +143,13 @@ function auditDailySessionCoverage(history,{
   s.declaredSuspendedWithTrades.length);
  const unsupported=unknownSpan;
  const incomplete=missingTotal>0||zeroTotal>0;
- const status=conflicts?'source-calendar-conflict':unsupported?
-  'outside-calendar-coverage':incomplete?'unexplained-or-zero-volume-gaps':
+ const status=unsupported?'outside-calendar-coverage':conflicts?
+  'source-calendar-conflict':incomplete?'unexplained-or-zero-volume-gaps':
   declaredTotal?'provider-declared-halts-unverified':'open-session-shape-consistent-unverified';
  const complete=!conflicts&&!unsupported&&!incomplete;
  return {schemaVersion:1,mode:'a-share-open-session-coverage-audit',
   status,observedAt:new Date(now).toISOString(),
-  calendarSource:'operator-bundled-sse-szse-2026-research',
+  calendarSources:[...calendarSources].sort(),
   calendarFingerprints:[...new Set(calendarByStock.map(s=>s.calendarFingerprint))],
   stocks:calendarByStock.length,coveredTradingDays:covered,
   unexplainedOpenDayGaps:missingTotal,providerDeclaredSuspensionDays:declaredTotal,
