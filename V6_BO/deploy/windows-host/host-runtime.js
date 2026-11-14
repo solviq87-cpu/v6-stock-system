@@ -2,6 +2,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),http=require('node:http'),net=require('node:net');
 const {spawn,spawnSync}=require('node:child_process');
+const {performance}=require('node:perf_hooks');
 const HASH=/^[a-f0-9]{64}$/,SHA=/^[a-f0-9]{40}$/;
 const digest=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -78,7 +79,24 @@ function ownedProcess(root,state){const actual=processIdentity(state.pid);return
 function processState(root){try{const value=json(path.join(root,'run/process.json'),16384,true);requireThat(value&&Number.isSafeInteger(value.pid)&&/^\d+$/.test(value.startTime)&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value.bootId)&&typeof value.exe==='string'&&path.isAbsolute(value.exe)&&Number.isInteger(value.port)&&value.port>0&&value.port<65536,'invalid-process-record');return value;}catch(e){if(!fs.existsSync(path.join(root,'run/process.json')))return null;throw e;}}
 function archiveStoppedRecord(root,state){const actual=processIdentity(state.pid),boot=fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();if(actual&&state.bootId===boot)return false;
  fs.renameSync(path.join(root,'run/process.json'),path.join(root,'run','process.stopped.'+crypto.randomBytes(8).toString('hex')+'.json'));return true;}
-function health(port){return new Promise(resolve=>{let settled=false;const done=ok=>{if(!settled){settled=true;resolve(ok);}};const req=http.get({host:'127.0.0.1',port,path:'/api/lock/status',timeout:1000},res=>{let size=0;const chunks=[];res.on('data',b=>{size+=b.length;if(size>65536){req.destroy();done(false);}else chunks.push(b);});res.on('end',()=>{try{const value=JSON.parse(Buffer.concat(chunks));done(res.statusCode===200&&typeof value.hasPassword==='boolean');}catch{done(false);}});});req.on('error',()=>done(false));req.on('timeout',()=>{req.destroy();done(false);});});}
+function health(port,timeoutMs=1000){
+ return new Promise(resolve=>{
+  let settled=false,req;
+  const done=ok=>{if(settled)return;settled=true;clearTimeout(timer);req?.destroy();resolve(ok);};
+  // Socket inactivity alone is not a deadline: a broken endpoint can trickle forever.
+  const limit=Math.max(1,Math.min(1000,timeoutMs)),timer=setTimeout(()=>done(false),limit);
+  try{
+   req=http.get({host:'127.0.0.1',port,path:'/api/lock/status',timeout:limit},res=>{
+    let size=0;const chunks=[];
+    res.on('data',b=>{size+=b.length;if(size>65536)done(false);else chunks.push(b);});
+    res.on('aborted',()=>done(false));res.on('error',()=>done(false));
+    res.on('end',()=>{try{const value=JSON.parse(Buffer.concat(chunks));done(res.statusCode===200&&typeof value?.hasPassword==='boolean');}catch{done(false);}});
+    res.on('close',()=>done(false));
+   });
+   req.on('error',()=>done(false));req.on('timeout',()=>done(false));
+  }catch{done(false);}
+ });
+}
 function portFree(port){return new Promise(resolve=>{const server=net.createServer();server.on('error',()=>resolve(false));server.listen(port,'127.0.0.1',()=>server.close(()=>resolve(true)));});}
 async function initialize({root,bundle},deps={}){rootPath(root);const report=dependencyGate(deps.env||process.env);const {manifest,payload}=verifyBundle(bundle);
  try{fs.lstatSync(root);fail('installation-already-exists');}catch(e){if(e.code!=='ENOENT')throw e;}
@@ -99,7 +117,7 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  child=spawn(fs.realpathSync(process.execPath),[path.join(root,'app/server.js')],{cwd:path.join(root,'app'),env:childEnv,detached:true,stdio:['ignore',out,out]});}finally{fs.closeSync(out);}
  let spawnError=false;child.on('error',()=>{spawnError=true;});child.unref();let identity;for(let i=0;i<40&&!spawnError;i++){identity=processIdentity(child.pid);if(identity)break;await sleep(25);}requireThat(identity&&!spawnError,'server-start-failed');
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
- const until=Date.now()+(deps.startupTimeoutMs||10000);while(Date.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(100);}
+ const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
 async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
 async function stop({root}){const meta=metadata(root),release=lock(root);try{const state=processState(root);if(!state)return {code:'already-stopped',sourceSha:meta.sourceSha};if(!ownedProcess(root,state)){requireThat(archiveStoppedRecord(root,state),'stale-process-record');return {code:'already-stopped',sourceSha:meta.sourceSha};}process.kill(state.pid,'SIGTERM');const until=Date.now()+5000;while(Date.now()<until&&ownedProcess(root,state))await sleep(50);requireThat(!ownedProcess(root,state),'stop-timeout');fs.unlinkSync(path.join(root,'run/process.json'));return {code:'stopped',sourceSha:meta.sourceSha};}finally{release();}}

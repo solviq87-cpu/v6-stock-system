@@ -35,6 +35,10 @@
 | V6-011 | PR 队列、CI、安全门禁、唯一发布器 | `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md` 定义单发布者，真实成功发布及长期运行尚须回执 | 部分实现／待验收 | P0 | 待核实 | 逐 PR 审查，不绕过精确 SHA/CI |
 | V6-012 | 低成本本地运行与手机安全访问 | 家用 Windows 每天关机；离线时不能保证新行情和推送 | 待核实 | P1 | 待核实 | 优先离线/局域网运行，外网访问需安全连接 |
 
+## 本轮续接 · V6-005/006
+
+从 `9251e27` 继续现有本机启动器：分支 `fix/local-host-health-restart-20261114`，修复健康检查挂起并补真实后台重启/双HTTP读回。详见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`；Windows/手机现场状态仍为待验收。精确提交、CI和合并状态读取对应PR，不按旧段落重复领取。
+
 ## 去重与任务所有权规则
 
 2026-11-14 本轮领取 **V6-001 / V6-002 / V6-006 的已复现缺陷**：当前 Codex，分支 `integration/runtime-quote-recovery-20261114`，基线 `e986fcc`。范围为 `server.js` 的任务互斥/模拟盘报价消费、`public/assets/app.js` 的断线恢复及测试；不重做 UI、不认领旧草稿全部内容。测试及未完成项见 [本批记录](V6_BO/docs/RUNTIME_QUOTE_RECOVERY_20261114.md)，现场总状态仍为部分实现/待验收。
