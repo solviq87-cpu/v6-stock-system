@@ -44,7 +44,7 @@
 历史 v1 审核为原样保留的证据，不能当作新门槛已通过。本地 `45c3a3f` 在最新主线集成后
 3374项通过、0失败、3可选ML缺失跳过。用户已明确同意上传，现已建立
 [PR #211](https://github.com/solviq87-cpu/v6-stock-system/pull/211)，远端代码 tree 与本地逐字节一致。
-此前上传阻塞已解除，后续按已有授权继续；最新 head CI 以 PR 实际结果为准，尚未合并或部署。
+PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43560732721) 已通过，并合入 `dev@4233950`。后续从该合并提交或更新的 dev 继续。
 
 ```text
 任务编号及负责人：

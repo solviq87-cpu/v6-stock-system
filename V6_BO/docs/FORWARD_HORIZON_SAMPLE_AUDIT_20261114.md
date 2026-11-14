@@ -71,7 +71,7 @@ node V6_BO/scripts/verify-tap-completeness.js /path/to/full-integrated.tap
 远端代码提交 `780dfdeb0fb536f02aa109454592ff398ac1d02f` 的 tree
 `814320aed02e576b0f9a8d5f48e771c34011e5f6` 与本地 `c59a288` 完全一致，
 实际 git fetch 后逐文件比较无差异；后续提交只更新上传回执文档。
-远端 CI 以 PR 最新 head 的实际结果为准，尚未合并 dev 或部署。
+PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/43560732721) 已通过。已合入 `dev@4233950bab8182e05264792cc3e380d687c64bf8`。
 
 历史阻塞：最初两次 `git push` 被自动审批拒绝。第二次已检索用户历史授权、核对公开仓库归属及
 新增差异常见凭据格式，审批仍要求当前可信用户消息直接授权本次公开上传，
