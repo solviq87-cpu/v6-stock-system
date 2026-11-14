@@ -116,3 +116,52 @@ test('success responses never leak in browser cache and never imply production v
  assert.equal(r.headers['x-content-type-options'],'nosniff');
  assert.equal(r.body.accountRecoveryVerified,false);
 });
+
+
+test('authenticated receipt GET proves an immutable event without exposing account data',async t=>{
+ const f=await testServer(t);
+ const noEvent=await get(f,'/api/records/receipts/not_sent_001');
+ assert.equal(noEvent.status,200);
+ assert.equal(noEvent.body.ok,true);
+ assert.equal(noEvent.body.receipt.found,false);
+ assert.equal(noEvent.body.receipt.status,'not-present-in-verified-ledger');
+ assert.equal(noEvent.body.receipt.currentRevision,1);
+ assert.equal(noEvent.body.accountRecoveryVerified,false);
+ const write=await get(f,'/api/records','editor-token-123',{
+  method:'POST',body:payload(1,'receipt_phone_001',76000)
+ });
+ assert.equal(write.status,200);
+ const proof=await get(f,'/api/records/receipts/receipt_phone_001');
+ assert.equal(proof.status,200);
+ assert.equal(proof.body.writeContract,'cas-v1');
+ assert.equal(proof.body.receipt.found,true);
+ assert.equal(proof.body.receipt.action,'upsert');
+ assert.equal(proof.body.receipt.recordName,'v6.app.state');
+ assert.equal(proof.body.receipt.appliedRevision,2);
+ assert.equal(proof.body.receipt.readOnly,true);
+ for(const secret of ['76000','positions','orders','content','hash','fingerprint']){
+  assert.ok(!JSON.stringify(proof.body).includes(secret),secret);
+ }
+ assert.equal(f.store.read().revision,2);
+ assert.equal(proof.headers['cache-control'],'no-store');
+});
+
+test('receipt lookup requires edit permission and never accepts URL credentials or POST',async t=>{
+ const f=await testServer(t);
+ const route='/api/records/receipts/receipt_phone_001';
+ assert.equal((await get(f,route,null)).status,401);
+ assert.equal((await get(f,route,'viewer-token-123')).status,403);
+ assert.equal((await get(f,route,'editor-token-123',{headers:{Origin:'https://evil.fixture'}})).status,403);
+ assert.equal((await get(f,route+'?sharecode=link','editor-token-123')).status,400);
+ assert.equal((await get(f,route,'editor-token-123',{method:'POST',body:{requestId:'receipt_phone_001'}})).status,405);
+ assert.equal((await get(f,'/api/records/receipts/bad!id','editor-token-123')).status,404);
+ assert.equal(f.store.read().revision,1);
+});
+
+test('receipt cannot claim successful submission without a verified authoritative store',async t=>{
+ const f=await testServer(t,{bootstrap:false});
+ const r=await get(f,'/api/records/receipts/receipt_phone_001');
+ assert.equal(r.status,503);
+ assert.equal(r.body.code,'AUTHORITATIVE_LEDGER_UNAVAILABLE');
+ assert.equal(f.store.read().status,'uninitialized');
+});
