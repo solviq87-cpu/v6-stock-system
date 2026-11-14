@@ -124,7 +124,8 @@ def read_archive(archive, expected_sha256):
             if any(str(p) in folded for p in PurePosixPath(name).parents):
                 raise ValueError("zip-file-directory-conflict")
         payload = {info.filename: zf.read(info) for info in infos}  # CRC checked on every read.
-        manifests = [p for p in payload if p.endswith("/ENGINEERING_MANIFEST.json")]
+        # Earlier snapshots can preserve other manifests as ordinary source files.
+        manifests = [p for p in payload if p.count("/") == 1 and p.endswith("/ENGINEERING_MANIFEST.json")]
         if len(manifests) != 1:
             raise ValueError("required-embedded-manifest-missing-or-ambiguous")
         manifest = load_json(payload[manifests[0]])

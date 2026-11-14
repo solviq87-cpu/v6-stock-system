@@ -34,8 +34,9 @@
     {
       "command": "python3 -m unittest discover -s tests -p 'test_audit_*_archive.py' -v",
       "result": "pass",
-      "tests": 37,
-      "newConsolidationTests": 17
+      "tests": 38,
+      "newConsolidationTests": 18,
+      "nestedHistoricalManifest": "pass: only the top-level engineering manifest controls extraction; nested preserved manifests remain ordinary hash-verified source files"
     },
     {
       "command": "python3 -m unittest discover -s V6_BO/tests -p 'test_complete_engineering_bundle.py' -v",

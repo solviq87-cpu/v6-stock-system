@@ -115,6 +115,18 @@ class ConsolidateTests(unittest.TestCase):
         self.assertEqual(tool.verify(self.repo, self.output), result)
         self.assertEqual(git(self.repo, 'diff', '--name-only'), '')
 
+    def test_nested_historical_manifest_is_an_ordinary_payload_file(self):
+        nested = 'archive/previous/metadata/ENGINEERING_MANIFEST.json'
+        historical = b'{"historical": "preserved without replacing the bundle manifest"}\n'
+        digest = self.fixture(payloads={'same.txt': b'unchanged\n', nested: historical})
+        result = self.run_consolidate(digest)
+        mapped = {f['member'].removeprefix(self.prefix): f for f in result['files']}
+        self.assertEqual(result['fileCount'], 4)
+        self.assertEqual(mapped[nested]['disposition'], 'archived-variant')
+        self.assertEqual((self.repo / mapped[nested]['repositoryPath']).read_bytes(), historical)
+        self.assertEqual(mapped['ENGINEERING_MANIFEST.json']['disposition'], 'metadata')
+        self.assertEqual(tool.verify(self.repo, self.output), result)
+
     def test_wrong_archive_digest_and_malformed_digest(self):
         self.fixture()
         for digest in ('0' * 64, 'not-a-sha256'):
