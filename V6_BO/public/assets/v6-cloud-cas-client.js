@@ -22,9 +22,18 @@
     if (typeof transport !== 'function') throw failure('FETCH_REQUIRED');
     let snapshot = null, tokenAtLoad = null, pending = null, busy = false, blocked = false, epoch = 0;
     function clear() { epoch++; snapshot = null; tokenAtLoad = null; pending = null; blocked = true; }
+    function readableSnapshot() {
+      // Retain the private snapshot only to retry the exact same idempotent write.
+      // Never expose an outdated balance while a write/read is uncertain.
+      return !!snapshot && !blocked && !pending && !busy;
+    }
     function status() {
+      // Checking status must also notice a rotated/removed device identity.
+      if (snapshot && tokenAtLoad !== null) {
+        try { token(); } catch { /* token() has already revoked the snapshot */ }
+      }
       return Object.freeze({
-        loaded: !!snapshot, revision: snapshot ? snapshot.revision : null,
+        loaded: readableSnapshot(), revision: snapshot ? snapshot.revision : null,
         pendingWrite: !!pending, busy, blocked, readOnly: !allowMutations,
         accountRecoveryVerified: false, productionDeployed: false
       });
@@ -108,8 +117,10 @@
       try {
         const auth = token(), originalEpoch = epoch;
         const result = await readWith(auth, originalEpoch);
-        snapshot = result; tokenAtLoad = auth; blocked = false;
-        return { revision: result.revision, records: clone(result.records), ...status(), busy: false };
+        snapshot = result; tokenAtLoad = auth; blocked = false; busy = false;
+        const view = status();
+        if (!view.loaded) throw failure('AUTH_CHANGED');
+        return { revision: result.revision, records: clone(result.records), ...view };
       } catch (e) {
         if (!['CLIENT_BUSY', 'PENDING_WRITE_MUST_BE_RECONCILED'].includes(e.code)) {
           // A failed read is never permission to keep treating an old balance as current.
@@ -119,7 +130,8 @@
       } finally { busy = false; }
     }
     function record(name) {
-      if (!snapshot) throw failure('NOT_SYNCHRONIZED');
+      if (!readableSnapshot()) throw failure('NOT_SYNCHRONIZED');
+      token(); // Clear the old private snapshot immediately when device identity changes.
       const found = snapshot.records.find(row => row.name === name);
       return found ? clone(found) : null;
     }

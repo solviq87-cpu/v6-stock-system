@@ -118,3 +118,16 @@ node V6_BO/scripts/cloud-records-backup-preflight.js
 - 此项维持旧 WorkBuddy 单文件页面与现有账户**不变**。静态页面仍未接入真实 CAS，会话、备份、双端真实上线须另行现场验收。
 
 受影响的回归入口（均为**隔离合成数据**）：`tests/cloud-records-cas-store.test.js`、`tests/cloud-records-http.test.js`、`tests/cloud-records-cas-client.test.js`、`tests/cloud-records-server-integration.test.js`；同时保留原 `verify` 全量 CI、`verify-web` 和其他安全检查。真实生产迁移仍等待授权权威备份、私密持久卷和双端现场核验。
+
+
+## 第七阶段：阻断中的旧账户快照不可作为当前余额
+
+本补丁修复一处独立客户端读口缺口（历史账本不迁移、不重建）：
+
+- 旧行为：浏览器客户端在 `POST` 超时、响应丢失、`409` 版本冲突或提交后读回不符时会设置 `blocked=true`，但 `status().loaded` 可能仍为 `true`，并且 `record('v6.app.state')` 仍能返回内存中的旧账户余额、持仓和订单。
+- 新行为：只要存在未决写入、禁止同步状态或当前网络读取未完成，`status().loaded=false`，`record()` 返回 `NOT_SYNCHRONIZED`；若设备会话轮换或被移除，状态查询与 `record()` 都立即作废内存的旧快照。
+- **不能**因该变更自动断言历史资金正确。对确认为已提交但后续被覆盖的记录，仍需验证完整事件链和最新授权读回；保留 `status().revision` 为诊断版本，不代表它可交易或可显示为实时余额。
+- 原请求 ID、待发内容和私人快照在**当前内存里**保留，仅用于 `retryPending()` 发送完全相同的幂等请求；回执丢失不会生成新请求 ID。经真实服务端响应和最新账户读回一致后才重新允许 `record()`。
+- 经过完整 `load()` 成功读取并验证原登录会话，返回 `loaded=true`（读口现在显式在读取完成后解除 `busy`）。`load()` 在途或令牌突然变化，绝不泄漏旧数据。
+- 只修改独立 `public/assets/v6-cloud-cas-client.js`、对应专项测试和这份文档；**不修改**锁定主页、WorkBuddy 单文件页、实盘、真实存储、发布配置。
+- 合成隔离 HTTP 测试覆盖：并发设备版本冲突、POST 等待中/超时/丢失回执、同 ID 重试、异常 ACK、提交后被覆盖、刷新 GET 在途、令牌轮换及状态轮询，无真实资金或生产密钥。测试需要由精确提交的 GitHub CI 另行出具通过回执；此段文档不是部署证明。
