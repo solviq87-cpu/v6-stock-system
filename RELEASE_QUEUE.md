@@ -7,6 +7,10 @@
 
 > **这是 2026-11-14 对 GitHub `dev` 的一次性读取快照，不是实时监控，更不是“可发布”名单。** 原仓库 `V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md` 与唯一发布者配置仍为权威发布流程。任何未满足门禁的 PR 不得自动合并或上线。
 
+## 本机启动器续接
+
+`fix/local-host-health-restart-20261114`：健康探测总时限/断开处理及真实后台重启读回；起点 `9251e27`，代码和测试证据见 `V6_BO/docs/LOCAL_HOST_HEALTH_RESTART_20261114.md`。合并与CI以GitHub对应PR当前字段为准；未写生产，未切换owner。
+
 ## 查到的开放 UI PR
 
 | PR | 范围 | 本轮查到的状态 | 重复开发/集成风险 | 本轮发布判断 |

@@ -17045,7 +17045,6 @@ function loadSnapshotsOnBoot() {
   } catch (e) { console.error('[boot] 竞价快照恢复失败:', e && e.message); }
 }
 async function init() {
-  loadSnapshotsOnBoot();   // ⛔ fw 轮：先恢复上次快照，避免冷启动/出网抖动时数据恒显 0
   // 云服务：启动时从云端拉回最近推送流水，解决容器回收后证据丢失
   await initStep('云端推送流水恢复', async () => {
     const cloudRows = await CLOUD.loadPushLogFromCloud(14);
@@ -18693,6 +18692,8 @@ const _httpBootstrap = createDashboardServer({
   host: HOST,
   onListen: () => {
     console.log(`量化看盘平台: http://127.0.0.1:${PORT}`);
+    // Local recovery is part of every boot, including offline smoke; only collectors are skipped.
+    loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
       init().catch(e => console.error('[init]', e));

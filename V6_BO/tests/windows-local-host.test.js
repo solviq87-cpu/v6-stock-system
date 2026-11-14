@@ -9,6 +9,53 @@ const fakeServer=`'use strict';const fs=require('node:fs');console.log('HOST_STD
 function writeManifest(bundle,files){const manifest={schemaVersion:1,sourceSha:SHA,files:files.map(p=>({path:p,sha256:hash(fs.readFileSync(path.join(bundle,'payload',p)))}))};fs.writeFileSync(path.join(bundle,'manifest.json'),JSON.stringify(manifest));return manifest;}
 function setup(t,server=fakeServer){const base=fs.mkdtempSync(path.join(os.tmpdir(),'v6-local-host-')),bundle=path.join(base,'bundle'),root=path.join(base,'private-app');fs.mkdirSync(path.join(bundle,'payload'),{recursive:true});fs.writeFileSync(path.join(bundle,'payload/server.js'),server);writeManifest(bundle,['server.js']);t.after(async()=>{await host.main(['stop','--home',root]);fs.rmSync(base,{recursive:true,force:true});});return {base,bundle,root,run:(action,extra=[],deps={})=>host.main([action,'--home',root,...extra],deps)};}
 const freePort=()=>new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
+// Exercise the real controller in a separate process so an unbounded probe cannot hang the test runner.
+const faultServer=fakeServer.replace("r.setHeader('Content-Type','application/json');", `
+ r.setHeader('Content-Type','application/json');
+ if(fs.existsSync('health-fault')){
+   const mode=fs.readFileSync('health-fault','utf8');
+   r.writeHead(200);r.write('{"hasPassword":');
+   if(mode==='abort'){setTimeout(()=>r.destroy(),20);return;}
+   const timer=setInterval(()=>r.write(' '),25);r.on('close',()=>clearInterval(timer));return;
+ }
+`);
+async function controller(f,action,deps={}){
+ const runtime=require.resolve('../deploy/windows-host/host-runtime');
+ const args=[action,'--home',f.root,...(action==='start'?['--smoke']:[])];
+ const script=`require(${JSON.stringify(runtime)}).main(${JSON.stringify(args)},${JSON.stringify(deps)}).then(r=>process.stdout.write(JSON.stringify(r)))`;
+ const result=await promisify(execFile)(process.execPath,['-e',script],{
+   env:{PATH:process.env.PATH,LANG:'C.UTF-8'},timeout:2200,maxBuffer:65536});
+ return JSON.parse(result.stdout);
+}
+for(const mode of ['slow','abort'])test(`health ${mode} response is bounded and leaves the owned service controllable`,{timeout:10000},async t=>{
+ const f=setup(t,faultServer);await f.run('init',['--bundle',f.bundle]);
+ const port=await freePort();assert.equal((await f.run('start',['--smoke'],{port})).code,'started');
+ const flag=path.join(f.root,'app/health-fault');fs.writeFileSync(flag,mode);
+ const result=await controller(f,'check');
+ assert.equal(result.code,'running');assert.equal(result.health,false);
+ fs.unlinkSync(flag);assert.equal((await f.run('check')).health,true);
+ assert.equal((await f.run('stop')).code,'stopped');
+});
+test('startup deadline bounds a trickling probe and keeps a recoverable owned PID record',{timeout:10000},async t=>{
+ const f=setup(t,faultServer);await f.run('init',['--bundle',f.bundle]);
+ const flag=path.join(f.root,'app/health-fault');fs.writeFileSync(flag,'slow');
+ const started=performance.now();
+ const result=await controller(f,'start',{port:await freePort(),startupTimeoutMs:250});
+ assert.equal(result.code,'health-not-ready');assert.ok(performance.now()-started<1800);
+ assert.equal(fs.existsSync(path.join(f.root,'run/process.json')),true);
+ fs.unlinkSync(flag);assert.equal((await f.run('check')).health,true);
+ assert.equal((await f.run('stop')).code,'stopped');
+});
+function requestJSON(port,url,token,body){
+ const http=require('node:http'),payload=body===undefined?null:JSON.stringify(body);
+ return new Promise((resolve,reject)=>{
+   const headers={...(token?{Authorization:'Bearer '+token}:{}),...(payload?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)}:{})};
+   const req=http.request({host:'127.0.0.1',port,path:url,agent:false,method:payload?'POST':'GET',headers,timeout:2500},res=>{
+     const chunks=[];res.on('data',b=>chunks.push(b));res.on('error',reject);
+     res.on('end',()=>{try{resolve({status:res.statusCode,value:JSON.parse(Buffer.concat(chunks))});}catch(e){reject(e);}});
+   });req.on('error',reject);req.on('timeout',()=>req.destroy(Error('fixture HTTP timeout')));req.end(payload);
+ });
+}
 test('FIFO installation metadata is rejected promptly without blocking the controller',async t=>{
  const f=setup(t);await f.run('init',['--bundle',f.bundle]);const file=path.join(f.root,'installation.json');fs.unlinkSync(file);
  assert.equal(spawnSync('mkfifo',[file]).status,0);
@@ -50,12 +97,31 @@ test('approved server really boots in isolated mode without any production state
  for(const name of ['src','public','config','tools','strategies','third_party'])if(fs.existsSync(path.join(bo,name)))fs.cpSync(path.join(bo,name),path.join(payload,name),{recursive:true,filter:p=>!p.includes('node_modules')&&!p.includes('__pycache__')});
  if(fs.existsSync(path.join(bo,'themeMap.json')))fs.copyFileSync(path.join(bo,'themeMap.json'),path.join(payload,'themeMap.json'));
  const files=[];function walk(dir,prefix=''){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const p=prefix?prefix+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(dir,entry.name),p);else files.push(p);}}walk(payload);writeManifest(f.bundle,files);
- assert.equal((await f.run('init',['--bundle',f.bundle])).code,'initialized');const port=await freePort(),r=await f.run('start',['--smoke'],{port,startupTimeoutMs:10000});assert.equal(r.code,'started');assert.equal(r.health,true);assert.equal(r.mode,'smoke');assert.equal(fs.existsSync(path.join(f.root,'app/data/order-accounts')),false);
+ assert.equal((await f.run('init',['--bundle',f.bundle])).code,'initialized');
+ const savedAt=Date.parse('2026-11-13T02:00:00Z');
+ const savedStocks={at:savedAt,rows:Array.from({length:100},(_,i)=>({code:String(600000+i),name:'合成股'+i,price:10,pct:1,quoteAt:savedAt-1000,receivedAt:savedAt,quoteSource:'fixture',canTrade:false}))};
+ const savedPool={day:'20261113',pool:[{code:'600000',name:'合成正常股',pct:10},{code:'002731',name:'合成退',pct:10}]};
+ const savedSectors={at:savedAt,day:'20261113',rows:[{name:'合成板块',pct:1,mainInflow:null}],ind:[{name:'合成行业',pct:1,mainInflow:null}]};
+ for(const [name,data]of Object.entries({'stocks_snapshot.json':savedStocks,'ztPool_snapshot.json':savedPool,'sectors.json':savedSectors}))fs.writeFileSync(path.join(f.root,'app',name),JSON.stringify(data),{mode:0o600});
+ const snapshots=()=>['stocks_snapshot.json','ztPool_snapshot.json','sectors.json'].map(name=>fs.readFileSync(path.join(f.root,'app',name),'utf8'));
+ const originalSnapshots=snapshots();
+ const verifyClients=async token=>{
+   const clients=await Promise.all([requestJSON(port,'/api/state',token),requestJSON(port,'/api/state',token)]);
+   for(const r of clients){assert.equal(r.status,200);assert.equal(r.value.stocksAt,savedAt);assert.ok(r.value.stocksAgeSec>15);assert.deepEqual(r.value.ztPool.map(x=>x.code),['600000']);assert.equal(r.value.ztExcluded.count,1);assert.equal(r.value.sectorsAt,savedAt);assert.equal(r.value.sectorsDay,'20261113');}
+   assert.deepEqual(snapshots(),originalSnapshots,'read-only boot and HTTP clients cannot rewrite original evidence');
+ };
+ const port=await freePort(),r=await f.run('start',['--smoke'],{port,startupTimeoutMs:10000});assert.equal(r.code,'started');assert.equal(r.health,true);assert.equal(r.mode,'smoke');assert.equal(fs.existsSync(path.join(f.root,'app/data/order-accounts')),false);
  const http=require('node:http'),password='fixture-'+crypto.randomBytes(16).toString('hex'),body=JSON.stringify({password,role:'edit'}),startedAt=Date.now();
  const initialized=await new Promise((resolve,reject)=>{const request=http.request({host:'127.0.0.1',port,path:'/api/lock/setup',method:'POST',timeout:3000,headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},response=>{const chunks=[];response.on('data',b=>chunks.push(b));response.on('end',()=>{try{resolve({status:response.statusCode,value:JSON.parse(Buffer.concat(chunks))});}catch(e){reject(e);}});});request.on('error',reject);request.on('timeout',()=>request.destroy(Error('isolated-password-setup-timeout')));request.end(body);});
- assert.equal(initialized.status,200);assert.equal(initialized.value.ok,true);assert.equal(initialized.value.role,'edit');assert.ok(Date.now()-startedAt<3000);assert.equal(fs.existsSync(path.join(f.root,'app/access.json')),true);assert.ok(fs.statSync(path.join(f.root,'run/server.log')).size>0);assert.equal(fs.readFileSync(path.join(f.root,'run/smoke-violations.log'),'utf8'),'');assert.equal((await f.run('stop')).code,'stopped');
+ assert.equal(initialized.status,200);assert.equal(initialized.value.ok,true);assert.equal(initialized.value.role,'edit');await verifyClients(initialized.value.token);assert.ok(Date.now()-startedAt<3000);assert.equal(fs.existsSync(path.join(f.root,'app/access.json')),true);assert.ok(fs.statSync(path.join(f.root,'run/server.log')).size>0);assert.equal(fs.readFileSync(path.join(f.root,'run/smoke-violations.log'),'utf8'),'');assert.equal((await f.run('stop')).code,'stopped');
  const access=fs.readFileSync(path.join(f.root,'app/access.json')),paper=fs.readFileSync(path.join(f.root,'app/paper.json'));
  assert.equal((await f.run('start',['--smoke'],{port,startupTimeoutMs:10000})).code,'started');
  const status=await new Promise((resolve,reject)=>{http.get({host:'127.0.0.1',port,path:'/api/lock/status'},response=>{const chunks=[];response.on('data',b=>chunks.push(b));response.on('end',()=>resolve(JSON.parse(Buffer.concat(chunks))));}).on('error',reject);});
- assert.equal(status.hasPassword,true);assert.deepEqual(fs.readFileSync(path.join(f.root,'app/access.json')),access);assert.deepEqual(fs.readFileSync(path.join(f.root,'app/paper.json')),paper);
+ assert.equal(status.hasPassword,true);
+ // Check exact boot persistence before an intentional login adds a device record.
+ assert.deepEqual(fs.readFileSync(path.join(f.root,'app/access.json')),access);
+ const unlocked=await requestJSON(port,'/api/lock/unlock',null,{password,role:'edit'});
+ assert.equal(unlocked.value.ok,true);await verifyClients(unlocked.value.token);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(f.root,'app/access.json'))).hash,JSON.parse(access).hash);
+ assert.deepEqual(fs.readFileSync(path.join(f.root,'app/paper.json')),paper);
  assert.equal(fs.readFileSync(path.join(f.root,'run/smoke-violations.log'),'utf8'),'');assert.equal((await f.run('stop')).code,'stopped');});
