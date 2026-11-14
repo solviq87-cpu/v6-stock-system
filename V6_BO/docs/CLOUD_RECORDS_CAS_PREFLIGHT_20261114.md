@@ -104,3 +104,17 @@ node V6_BO/scripts/cloud-records-backup-preflight.js
 ```
 
 只读脚本由 `node --test V6_BO/tests/cloud-records-backup-preflight.test.js` 验证，GitHub 独立检查名 `cloud-records-backup-preflight`。这份工具**不自动扫描用户文件、资料库或云端地址**；没有真实备份时继续维持生产迁移阻塞，不创建空账户。
+
+
+## 第六阶段：CAS 请求提交回执的只读核验（仍非生产部署）
+
+原 CAS 服务器已有 `requestId` 幂等事件历史，但在浏览器回执丢失、断线或重启时缺少显式查询入口。本批在**同一套原有 CAS 模块和原有开发者鉴权服务**中增加只读回执查询，不新增存储、不创建第二发布者。
+
+- `store.receipt(requestId)` 会重新验证**完整不可变事件哈希链**，只返回 `found`、`status`、`action`、`recordName`、`appliedRevision`、`currentRevision` 和只读标志。不返回账户内容、余额、持仓、流水、事件指纹或秘密凭据。
+- 原来默认关闭的 `V6_ENABLE_CLOUD_RECORDS_HTTP=1` 路由，现在也允许 `GET /api/records/receipts/:requestId`；**仅真实 V6 开发者 Bearer 会话**有权限，缺失返回 401、观看 403、跨站 403、URL 查询分享码拒绝。该接口拒绝 POST/PUT/DELETE，不写历史。
+- `found=false` 的精确定义只是“**此刻从本存储完整核验的事件链中尚未找到**”，**不证明请求永远不会完成**。断线客户端仍不得改用新请求 ID 重试原订单。
+- `found=true` 能证明该请求 ID 在此受核验的追加历史中有一次提交，但**不能单独证明当前资金、持仓、成交和对账正确**；须结合授权账号最新 `GET /api/records` 读回，处理之后被其他设备更新的情况。
+- 独立、默认只读的浏览器客户端新增 `receipt(requestId)`：允许会话重新建立后，凭先前受信记录的请求 ID 查询服务器回执，仍不自动恢复历史账户，不把 `HTTP 200` 视作资金核验，不在浏览器 `localStorage` 留下凭据或账户数据。未保存请求 ID 的页面重启后，仍无法凭空恢复原请求身份；不能宣称已完成跨重启全自动恢复。
+- 此项维持旧 WorkBuddy 单文件页面与现有账户**不变**。静态页面仍未接入真实 CAS，会话、备份、双端真实上线须另行现场验收。
+
+受影响的回归入口（均为**隔离合成数据**）：`tests/cloud-records-cas-store.test.js`、`tests/cloud-records-http.test.js`、`tests/cloud-records-cas-client.test.js`、`tests/cloud-records-server-integration.test.js`；同时保留原 `verify` 全量 CI、`verify-web` 和其他安全检查。真实生产迁移仍等待授权权威备份、私密持久卷和双端现场核验。
