@@ -65,6 +65,7 @@ jobs:
         if: steps.gate.outputs.approved == 'true'
         env:
           SOURCE_SHA: ${{ steps.gate.outputs.sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/v6-bundle"
@@ -72,7 +73,7 @@ jobs:
           output="$RUNNER_TEMP/v6-bundle/$filename"
           python V6_BO/scripts/build-complete-engineering-bundle.py build --repo "$GITHUB_WORKSPACE" --sha "$SOURCE_SHA" --output "$output" > "$RUNNER_TEMP/v6-bundle/build-result.json"
           python V6_BO/scripts/build-complete-engineering-bundle.py verify --repo "$GITHUB_WORKSPACE" --sha "$SOURCE_SHA" --output "$output" > "$RUNNER_TEMP/v6-bundle/verify-result.json"
-          python - "$RUNNER_TEMP/v6-bundle" "$SOURCE_SHA" "$GITHUB_RUN_ID" <<'PY'
+          python - "$RUNNER_TEMP/v6-bundle" "$SOURCE_SHA" "$CI_RUN_ID" <<'PY'
           import hashlib,json,sys
           from pathlib import Path
           d=Path(sys.argv[1]); sha=sys.argv[2]; run=sys.argv[3]
