@@ -1,8 +1,16 @@
 # 天枢智策 V6｜待评审与发布队列
 
+
+## 本轮增量 · 多仓库对照 / Excel清单（2026-11-14）
+
+基线 `c188f9f`（#219已合并），分支 `feat/stock-workbook-import-20261114`；新增Qlib/QUANTAXIS/Qbot源码对照，实际实现XLSX导入与工作表选择。详细范围、限制、实测和未实施候选见 [对照与交付记录](V6_BO/docs/MULTI_REPOSITORY_REVIEW_20261114.md)。当前专项21、隔离服务启动和网页40通过；本地全量3419通过/4基线复现失败/3跳过，精确head完整CI与浏览器待完成，未部署。V6-003/004/010增量，不重复原功能或旧UI草稿。
+
+
 ## 最新核对 · 2026-11-14
 
-- 实现续接`feat/research-closure-20261114`：[八类研究闭环](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)。#222已在精确head CI43578342431成功后合入`dev@f742809`；#221冲突已保留双边记录整合，等待最新head双CI。新研究功能正在专项/全量/浏览器验收，最终精确SHA和合并状态另记。未切换唯一发布者。
+- 实现续接`feat/research-closure-20261114`：[八类研究闭环](V6_BO/docs/RESEARCH_WORKSPACE_IMPLEMENTATION_20261114.md)。#222已在精确head CI43578342431成功后合入`dev@f742809`；#221经精确head CI43578794549/浏览器43578794647成功合入`8fe273a`。新研究功能正在专项/全量/浏览器验收，最终精确SHA和合并状态另记。未切换唯一发布者。
+
+- 新批基线`dev@9d15c034`（#220已合并）：`fix/funds-monitor-capacity-20261114`修复盘中强势扫描未知资金与超220持仓固定截断。[实际反例、范围与测试](V6_BO/docs/FUNDS_MONITOR_CAPACITY_20261114.md)。本地关联66通过，精确最终全量/PR CI见HANDOFF当前断点；未部署，未切换发布者。#221是独立Excel导入候选，本批不合并或覆盖。
 
 - 本批仅文档审查：`docs/feature-public-comparison-20261114`，基线`9d15c034`。[八类功能/16来源/24候选核验](V6_BO/docs/FEATURE_IMPLEMENTATION_PUBLIC_COMPARISON_20261114.md)与来源清单已登记；原功能定向120通过，未改运行文件/产物，不触发生产发布。#221/#222在本轮开始时仍为独立开放PR，不能算入dev已实现；最终状态须重新读取。
 
