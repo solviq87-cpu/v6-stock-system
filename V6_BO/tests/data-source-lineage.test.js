@@ -28,7 +28,7 @@ test('all 14 historic sources remain and old sole enabled private collector is n
 test('six SDK labels are only three underlying tapes; no 6-vote false independence',()=>{
  const east=['eastmoney','efinance','akshare-em-daily','akshare-em-minute','stock-data-hub-efinance','cnequity-em','choice'];
  const sina=['sina','akshare-sina-minute','easyquotation-sina','akshare-sina-daily'];
- const tencent=['tencent','easyquotation-tencent','akshare-tencent-daily','cn-stockdata-tencent'];
+ const tencent=['tencent','easyquotation-tencent','akshare-tencent-daily','ashare-tencent-route'];
  for(const id of east)assert.equal(resolveUpstream(id).group,'eastmoney',id);
  for(const id of sina)assert.equal(resolveUpstream(id).group,'sina',id);
  for(const id of tencent)assert.equal(resolveUpstream(id).group,'tencent',id);
