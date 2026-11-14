@@ -4,12 +4,19 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http
 const {createCloudRecordsCasStore,digest}=require('../src/core/cloud-records-cas-store');
 const {createCloudRecordsHttpHandler}=require('../src/server/cloud-records-http');
 const state=(revision=0,cash=100000)=>({revision,cash,positions:[],orders:[]});
-function testServer(t,{bootstrap=true}={}){
+function testServer(t,{bootstrap=true,anchorAfterUpdate=false}={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'v6-cas-http-'));fs.chmodSync(root,0o700);
  const store=createCloudRecordsCasStore(root);
  if(bootstrap){const records=[{name:'v6.app.state',content:JSON.stringify(state())}];
   store.bootstrap({records,expectedSourceHash:digest({records}),operatorApproved:true,requestId:'bootstrap_0001'});}
- const handler=createCloudRecordsHttpHandler({store,
+ if(anchorAfterUpdate && bootstrap){
+   store.upsert({expectedRevision:1,requestId:'anchor_http_0001',
+     record:{name:'v6.app.state',content:JSON.stringify(state(1,63000))}});
+ }
+ const pinned=anchorAfterUpdate&&bootstrap?store.read():null;
+ const liveStore=pinned?createCloudRecordsCasStore(root,{
+   trustedReadAnchor:{revision:pinned.revision,proof:pinned.proof}}):store;
+ const handler=createCloudRecordsHttpHandler({store:liveStore,
   authenticate:async token=>token==='editor-token-123'?'edit':token==='viewer-token-123'?'view':null,
   sameOrigin:req=>!req.headers.origin||req.headers.origin==='http://trusted.fixture'});
  const server=http.createServer((req,res)=>{
@@ -17,7 +24,7 @@ function testServer(t,{bootstrap=true}={}){
   req.on('end',()=>void handler(req,res,Buffer.concat(chunks).toString('utf8')));
  });
  t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{force:true,recursive:true});});
- return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve({store,server,port:server.address().port})));
+ return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve({store,liveStore,root,server,port:server.address().port})));
 }
 function get(f,route='/api/records',token='editor-token-123',options={}){
  return new Promise((resolve,reject)=>{
@@ -164,4 +171,41 @@ test('receipt cannot claim successful submission without a verified authoritativ
  assert.equal(r.status,503);
  assert.equal(r.body.code,'AUTHORITATIVE_LEDGER_UNAVAILABLE');
  assert.equal(f.store.read().status,'uninitialized');
+});
+
+
+test('pinned HTTP ledger rejects valid-chain rollback on GET, POST and receipt without touching records',async t=>{
+ const f=await testServer(t,{anchorAfterUpdate:true});
+ const before=await get(f);
+ assert.equal(before.status,200);
+ assert.equal(before.body.revision,2);
+ const event=path.join(f.root,'000002.json');
+ fs.unlinkSync(event); // controlled synthetic rollback, not a production recovery action
+ assert.equal(f.store.read().revision,1,'unanchored chain remains internally valid');
+ const account=await get(f);
+ assert.equal(account.status,503);
+ assert.equal(account.body.code,'LEDGER_VERIFICATION_FAILED');
+ assert.ok(!JSON.stringify(account.body).includes('cash'));
+ assert.equal((await get(f,'/api/records/receipts/anchor_http_0001')).status,503);
+ const write=await get(f,'/api/records','editor-token-123',{
+   method:'POST',body:payload(1,'anchor_http_write_01',9999)});
+ assert.equal(write.status,503);
+ assert.equal(write.body.code,'LEDGER_WRITE_UNAVAILABLE');
+ assert.equal(f.store.read().revision,1);
+ assert.equal(fs.existsSync(event),false);
+});
+
+test('pinned HTTP ledger blocks fork and incomplete stage even when format and hashes are valid',async t=>{
+ const f=await testServer(t,{anchorAfterUpdate:true});
+ fs.unlinkSync(path.join(f.root,'000002.json'));
+ f.store.upsert({expectedRevision:1,requestId:'anchor_http_fork_001',
+  record:{name:'v6.app.state',content:JSON.stringify(state(1,20000))}});
+ assert.equal((await get(f)).status,503,'new valid hash chain cannot bypass anchor');
+ assert.equal((await get(f,'/api/records/receipts/anchor_http_fork_001')).status,503);
+ const stage=path.join(f.root,'.stage-'+('b'.repeat(24)));
+ fs.writeFileSync(stage,'incomplete',{mode:0o600});
+ assert.equal((await get(f)).status,503);
+ fs.unlinkSync(stage);
+ assert.equal((await get(f)).status,503,'fork remains invalid after stage cleanup');
+ assert.equal(f.store.read().revision,2);
 });
