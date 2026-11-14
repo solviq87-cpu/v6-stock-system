@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(require.resolve('../deploy/windows-host/host-runtime'),'utf8');
-function harness({exitAt=Infinity,jump=0,signalError=null}={}){
+function harness({exitAt=Infinity,jump=0,signalError=null,inspectionErrorAfterSignal=false}={}){
  let elapsed=0,wall=100000,released=0,removed=0,signals=0,alive=true,sleeps=0;
  const state={pid:12345},root='/fixture/private';
  const c={path,metadata:()=>({sourceSha:'fixture'}),lock:()=>()=>{released++;},processState:()=>state,
-  ownedProcess:()=>alive&&elapsed<exitAt,archiveStoppedRecord:()=>false,
+  ownedProcess:()=>{if(inspectionErrorAfterSignal&&signals)throw Object.assign(Error('unknown process state'),{code:'process-inspection-failed'});return alive&&elapsed<exitAt;},archiveStoppedRecord:()=>false,
   Date:{now:()=>wall},performance:{now:()=>elapsed},
   process:{kill:()=>{signals++;if(signalError){if(signalError==='ESRCH')alive=false;throw Object.assign(Error(signalError),{code:signalError});}}},
   fs:{unlinkSync:file=>{assert.equal(file,path.join(root,'run/process.json'));removed++;}},
@@ -31,5 +31,10 @@ test('exit between ownership check and SIGTERM finishes cleanup without another 
 test('signal permission failures preserve the PID record and release the controller lock',async()=>{
  const h=harness({signalError:'EPERM'});
  await assert.rejects(h.run(),e=>e.code==='EPERM');
+ assert.deepEqual(h.state(),{elapsed:0,released:1,removed:0,signals:1,sleeps:0});
+});
+test('uncertain process state after SIGTERM preserves the record and releases the lock',async()=>{
+ const h=harness({inspectionErrorAfterSignal:true});
+ await assert.rejects(h.run(),e=>e.code==='process-inspection-failed');
  assert.deepEqual(h.state(),{elapsed:0,released:1,removed:0,signals:1,sleeps:0});
 });
