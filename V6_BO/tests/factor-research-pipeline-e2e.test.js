@@ -45,7 +45,7 @@ function dataset(index,mutate){
       return {date,code,open:close,
        high:(Number(close)+.05).toFixed(4),
        low:(Number(close)-.05).toFixed(4),
-       close,volume:String(200+i+j),amount:String(10000+i*20+j),
+       close,volume:String(200+i+j),amount:(Number(close)*(200+i+j)).toFixed(4),
        adjustflag:'3',tradestatus:'1'};
      })},
     adjust:{source:'baostock:query_adjust_factor',

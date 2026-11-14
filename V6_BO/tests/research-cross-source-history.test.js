@@ -39,8 +39,9 @@ test('price or amount mismatch is seen and not silently averaged away',t=>{
  f.em.stocks[0].bars[0].amount*=1000;fs.writeFileSync(f.a,JSON.stringify(f.em));
  const r=audit(f.a,f.b);
  assert.equal(r.comparison.consensus,false);
- assert.equal(r.comparison.discrepancies,1);
- assert.equal(r.comparison.displayedDiscrepancies[0].field,'amount');
+ assert.equal(r.comparison.discrepancies,2,'amount mismatch plus raw VWAP sanity');
+ assert.deepEqual(r.comparison.displayedDiscrepancies.map(x=>x.field),
+  ['amount','primary-vwap-outside-range']);
  assert.equal(r.comparison.releaseReady,false);
 });
 test('an already-existing report refuses overwrite and preserves original bytes',t=>{

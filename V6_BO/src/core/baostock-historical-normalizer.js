@@ -6,6 +6,7 @@
  */
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
+const {assessDailyTurnoverBar}=require('./daily-turnover-sanity');
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -43,7 +44,10 @@ function normalizeBaoStockDaily({code,rows,collectorObservedAt}={}){
   if(high<Math.max(open,close,low)||low>Math.min(open,close)||
      ((volume===0)!==(cash===0)))
    throw Error('BaoStock OHLC或成交量金额相互矛盾');
-  bars.push({date:r.date,open,high,low,close,volume,amount:cash});
+  const daily={date:r.date,open,high,low,close,volume,amount:cash};
+  if(!['in-range','no-trades'].includes(assessDailyTurnoverBar(daily).status))
+   throw Error('BaoStock未复权日K成交额/股数隐含均价超出高低价范围');
+  bars.push(daily);
  }
  const asOf=bars.at(-1).date;
  if(collectorObservedAt!==undefined&&

@@ -85,3 +85,12 @@ test('identical upstream aliases can never fake multi-provider history even when
  a.provider='ashare';
  assert.throws(()=>compareMarketFeeds(a,b),/包装器缺少逐接口/);
 });
+
+test('BaoStock standalone normalizer refuses 100x incorrect turnover even with plausible OHLC',()=>{
+ const bad=sample();
+ bad[10].amount=String(Number(bad[10].amount)*100);
+ assert.throws(()=>normalize(bad),/隐含均价/);
+ const good=sample();
+ good[10].amount=String(Math.round(Number(good[10].high)*1.005*10000));
+ assert.equal(normalize(good).dataset.stocks[0].bars.length,40);
+});

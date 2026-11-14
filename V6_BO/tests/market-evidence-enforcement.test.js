@@ -114,3 +114,42 @@ test('changing a native publisher declaration cannot split the catalogued origin
  a.upstreamGroup='invented-other-seller';
  assert.throws(()=>compareMarketFeeds(a,b),/同一原始上游/);
 });
+
+test('two nominally independent sources with matching 100x wrong turnover are still quarantined',async t=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ for(const item of [a.stocks[0].bars[4],b.stocks[0].bars[4]])item.amount*=100;
+ const report=compareMarketFeeds(a,b);
+ assert.equal(report.maximumAmountDifferencePct,0);
+ assert.equal(report.consensus,false);
+ assert.equal(report.vwapSanity.applicable,true);
+ assert.equal(report.vwapSanity.checkedObservations,80);
+ assert.equal(report.vwapSanity.outlierObservations,2);
+ assert.deepEqual(report.bySymbol[0].fields,
+  ['primary-vwap-outside-range','secondary-vwap-outside-range']);
+ const {center,outputFile}=centerFor(t,a,b);
+ assert.match((await center.sync()).error,/不一致/);
+ assert.equal(fs.existsSync(outputFile),false);
+});
+test('matching amount corruption on both inputs cannot overwrite last good history',async t=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ const {center,outputFile,secondaryFile}=centerFor(t,a,b);
+ assert.equal((await center.sync()).updated,true);
+ const original=fs.readFileSync(outputFile,'utf8');
+ for(const item of [a.stocks[0].bars[5],b.stocks[0].bars[5]])item.amount*=1000;
+ fs.writeFileSync(secondaryFile,JSON.stringify(b));
+ assert.match((await center.sync()).error,/不一致/);
+ assert.equal(fs.readFileSync(outputFile,'utf8'),original);
+});
+test('qfq prices are never used for an unadjusted-turnover weighted price sanity check',()=>{
+ const a=sample('eastmoney-public-history'),b=sample('baostock');
+ for(const item of [a,b]){
+  item.priceAdjustment.mode='qfq';
+  item.stocks[0].bars[0].amount*=100;
+ }
+ const report=compareMarketFeeds(a,b);
+ assert.equal(report.consensus,true);
+ assert.equal(report.vwapSanity.applicable,false);
+ assert.equal(report.vwapSanity.checkedObservations,0);
+ assert.equal(report.vwapSanity.skippedAdjustedPrices,true);
+ assert.equal(report.canTrade,false);
+});
