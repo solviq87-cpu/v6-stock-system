@@ -67,7 +67,7 @@ async function fixture(browser, width, { shared = true } = {}) {
         const record = { ...incoming, id: index < 0 ? 'fixture-' + (records.length + 1) : records[index].id };
         if (index < 0) records.push(record); else records[index] = record;
       }
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, records, record: records[0] }) });
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, records, record: records[0], allowCreateInitialState: true /* fixture-only: explicit first-use contract */ }) });
     }
     return route.fulfill({ status: 404, body: '' });
   });
