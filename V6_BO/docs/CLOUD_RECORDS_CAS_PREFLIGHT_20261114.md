@@ -32,3 +32,16 @@ node --test V6_BO/tests/cloud-records-cas-store.test.js
 5. 还需目标机器真实盘中/周末、双端真机、持久卷重启、失权/并发、私密飞书真实到达等独立验收；不得标记 `productionDeployed:true`。
 
 **回滚方法：** 撤销本新增模块和测试的提交即可，当前生产账户和静态站不会被触及。不可删除任何未来使用的历史事件目录。
+
+## 第二阶段：强制鉴权的 HTTP CAS 适配器（隔离待接入）
+
+新增 `src/server/cloud-records-http.js`，不创建第二份存储也不写任何真实账户。
+
+- 创建处理器必须显式注入 `store`、`authenticate(token,req)` 和 `sameOrigin(req)`。缺少实际会话认证/同源策略即拒绝构造，**未登录 401，只读 403，跨站 403**；不会把 URL 内的 `sharecode` 当登录证明。
+- `GET /api/records` 仅供有有效编辑令牌的设备读取，返回 `records`、`revision` 和 `writeContract:cas-v1`；没有经验证的权威快照返回 503，不新建账户。
+- `POST /api/records` 强制 `expectedRevision` 与 `requestId`，在 CAS 核心上执行。两个设备提交相同旧版本时只有一个成功，另一个 **409**；同 ID 同内容重试复用、内容不同 **409**。请求 JSON 上限 4MiB，多余字段或无效格式拒绝。
+- 明确不支持通过 PUT/DELETE 绕过门禁。HTTP 层只向客户端返回脱敏机器码，不泄露持仓日志、私密令牌或异常堆栈。
+- 这不是一个常驻进程，且**尚未挂载在 `V6_BO/server.js`**。真实调用仍须现有身份机制 `roleOf`、CORS/CSRF、反向代理配置、持久卷运行和现场版本门禁；不能简单 `http.createServer` 对公网开放此模块。
+- **尚未**迁移 WorkBuddy 静态页面、原账户以及前端 CAS 客户端；双端同步仍属于生产阻塞。必须先独立保存授权备份并确认实际云端账本来源。
+
+隔离回归：`node --test V6_BO/tests/cloud-records-http.test.js`，覆盖未登录/只读/失效令牌、跨站、无权威账本、两端并发 409、重复请求和非法方法。CI 专项结果不构成真实登录或部署认证。
