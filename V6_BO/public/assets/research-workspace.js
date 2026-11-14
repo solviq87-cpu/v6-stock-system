@@ -11,6 +11,8 @@
   'index-up':'上证上涨日','index-down':'上证下跌日','index-flat':'上证平盘日',fourteen:'十四条',bazi:'八字口诀',gpt:'GPT五策略',python:'Python三轮',
   completed:'已完成',failed:'未完成',saved:'已封存',watch:'观望','filtered-out':'已评估，当前过滤条件隐藏了结果','entry-evidence-missing':'原入选依据未封存','quote-unusable':'报价不可用','review-invalidation':'原条件失效待复查',
   'observed-unverified':'已有观察，未认证',quality:'来源与质量',risk:'风险过滤',strategy:'策略条件',eligibility:'候选资格','paper-estimate':'含成本纸面估计'};
+ Object.assign(names,{available:'已有本轮记录',partial:'部分完成',started:'正在进行',pending:'待到期','descriptive-only':'仅描述统计','not-evaluated':'尚未评估','unverified-execution':'成交证据不足',
+  'user-uploaded-unverified':'用户上传，未验证','server-memory-cache-unverified':'内存历史缓存，未验证','persisted-unverified-cache':'磁盘历史缓存，未验证'});
  const val=x=>x===null||x===undefined?'未知':typeof x==='object'?JSON.stringify(x):String(x),label=x=>names[x]||val(x);
  const arr=x=>Array.isArray(x)?x:[];
  const clock=x=>Number.isSafeInteger(x)&&x>0?new Date(x).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未知';
@@ -24,6 +26,7 @@
   generation++;request?.abort();request=null;view=null;host.replaceChildren();status.textContent=message;
   nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';
   if(privacy){nativeEvidence=null;$('workspaceNativeFile').value='';$('workspaceNativeStatus').textContent='缺少的原生结果保留未知。';for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])$(id).value='';
+   $('workspaceHorizon').value='5';$('workspaceMaxWeight').value='30';
    for(const id of ['workspacePreferenceVersion','workspacePreset','workspacePresetVersion','workspaceScreenRun','workspaceCompareRun'])$(id).replaceChildren();undo=null;$('workspaceUndoPreset').disabled=true;}
  }
  const historical=()=>$('workspaceAsOf').value!=='';
@@ -47,7 +50,7 @@
    if(id!==generation||token!==($('token')?.value.trim()||'')||doc.hidden)return null;
    if(!response.ok||!result.ok)throw Error(result.error||'研究记录不可用');
    if(body){status.textContent=result.reused?'原请求已完成，复用封存结果':'操作已完成';return result;}
-   if(extra.export==='1')return result.result;
+   if(extra.export==='1'){status.textContent='本次证据已准备导出';return result.result;}
    view=result.result;render();settings();status.textContent='已读取 '+clock(view.asOf)+' 的封存记录；未重新采集行情';return view;
   }catch(e){if(id===generation){view=null;host.replaceChildren();status.textContent=e.name==='AbortError'?'读取已停止；可重新读取原档案':'未完成：'+e.message;}return null;}
   finally{clearTimeout(timer);if(id===generation)request=null;}
@@ -86,7 +89,7 @@
     for(const [k,name]of [['support','支持条件'],['opposition','反对条件'],['missing','缺失条件']])for(const x of arr(s[k]))line(d,name,x.name+' · '+val(x.value)+' · '+val(x.reason));
    }
   }else if(tab==='screening'){
-   const c=card('本轮筛选与逐股落选');line(c,'查询结果',label(view.screening.lookupStatus));line(c,'原输入范围',view.screening.inputTotal);line(c,'资料性质',view.screening.provenance);
+   const c=card('本轮筛选与逐股落选');line(c,'查询结果',label(view.screening.lookupStatus));line(c,'原输入范围',view.screening.inputTotal);line(c,'资料性质',label(view.screening.provenance));
    for(const step of arr(view.screening.funnel?.steps))line(c,step.label,step.before+' → '+step.after+'；移出 '+step.removed+'；未知 '+step.unknown);
    for(const row of arr(view.screening.rows)){const d=detail(c,row.symbol+' '+row.name+' · '+label(row.status));line(d,'首次淘汰',label(row.firstReason));
     for(const x of arr(row.reasons))line(d,label(x.stage),label(x.status)+' · '+x.reason);}
@@ -99,6 +102,7 @@
    const c=card('策略 × 行情环境 × 观察周期');for(const g of arr(view.scorecard?.groups)){const d=detail(c,label(g.system)+' · '+label(g.regime)+' · '+g.horizon+'日 · '+label(g.status));
     line(d,'全部 / 满足 / 未满足 / 未知',[g.total,g.passed,g.rejected,g.unknown].join(' / '));line(d,'待到期 / 缺价 / 成交证据不足',[g.pending,g.missing,g.blocked].join(' / '));
     line(d,'可观察价格样本 / 成本化样本',g.observedPriceCount+' / '+g.modeledCount);line(d,'独立股票 / 信号日',g.distinctSymbols+' / '+g.independentSignalDays);
+    line(d,'非重叠持有窗口',g.nonOverlappingWindows);
     line(d,'平均价格变化 / 成本后估计',val(g.averagePriceReturnPct)+'% / '+val(g.averageNetReturnPct)+'%');line(d,'同口径基准超额',g.excessReturnPct===null?'缺少匹配基准':g.excessReturnPct+'%');}
    if(!view.scorecard?.groups?.length)line(c,'样本','尚未积累冻结判断和后续结果，不生成示例成绩');
    for(const text of arr(view.scorecard?.limitations))node('p',text,c);
