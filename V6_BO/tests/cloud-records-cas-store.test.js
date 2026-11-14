@@ -163,3 +163,97 @@ test('corrupt immutable history cannot produce a positive receipt despite a matc
  fs.writeFileSync(pathToEvent,original);
  assert.equal(f.store.receipt('proof_tamper_001').found,true);
 });
+
+
+test('trusted historical head keeps valid prefix after later commits and restart',t=>{
+ const f=fixture(t);seed(f);
+ const head=f.store.upsert({expectedRevision:1,requestId:'anchor_phone_001',
+  record:ledger(account(1,64000))});
+ const anchored=createCloudRecordsCasStore(f.root,{
+  trustedReadAnchor:{revision:2,proof:head.proof}});
+ assert.equal(anchored.read().externalHeadAnchorMatched,true);
+ assert.equal(anchored.read().externalAnchorProvenanceVerified,false);
+ assert.equal(anchored.read().endToEndRollbackProtectionVerified,false);
+ assert.equal(anchored.receipt('anchor_phone_001').found,true);
+ f.store.upsert({expectedRevision:2,requestId:'anchor_news_001',record:news('{"items":[]}')});
+ assert.equal(anchored.read().revision,3,'new valid events after pinned head are allowed');
+ assert.equal(anchored.receipt('anchor_news_001').found,true);
+ const after=anchored.upsert({expectedRevision:3,requestId:'anchor_phone_002',
+  record:ledger(account(2,61000))});
+ assert.equal(after.currentRevision,4);
+ assert.equal(createCloudRecordsCasStore(f.root,{
+  trustedReadAnchor:{revision:2,proof:head.proof}}).read().revision,4);
+});
+
+test('valid-chain truncation cannot be read, receipted, retried or written through pinned store',t=>{
+ const f=fixture(t);seed(f);
+ const old=f.store.read();
+ f.store.upsert({expectedRevision:1,requestId:'anchor_missing_001',record:ledger(account(1,22000))});
+ const signed=f.store.read();
+ const anchored=createCloudRecordsCasStore(f.root,{
+  trustedReadAnchor:{revision:signed.revision,proof:signed.proof}});
+ assert.equal(anchored.read().revision,2);
+ fs.unlinkSync(path.join(f.root,'000002.json'));
+ assert.equal(f.store.read().proof,old.proof,'unanchored chain looks internally valid');
+ code(()=>anchored.read(),'ANCHOR_ROLLBACK_DETECTED');
+ code(()=>anchored.receipt('anchor_missing_001'),'ANCHOR_ROLLBACK_DETECTED');
+ code(()=>anchored.upsert({expectedRevision:1,requestId:'anchor_block_001',
+  record:ledger(account(1,999))}),'ANCHOR_ROLLBACK_DETECTED');
+ assert.equal(fs.existsSync(path.join(f.root,'000002.json')),false,
+  'recovery checks must never silently restore, recreate or overwrite files');
+});
+
+test('valid hash-chain fork after pinned prefix cannot be mistaken for recovery',t=>{
+ const f=fixture(t);seed(f);
+ f.store.upsert({expectedRevision:1,requestId:'anchor_original_01',
+  record:ledger(account(1,40000))});
+ const before=f.store.read(),originalReceipt=f.store.receipt('anchor_original_01');
+ fs.unlinkSync(path.join(f.root,'000002.json'));
+ const fake=f.store.upsert({expectedRevision:1,requestId:'anchor_fork_req01',
+  record:ledger(account(1,30000))});
+ assert.equal(fake.currentRevision,2,'replacement forms an internally valid fresh chain');
+ const anchored=createCloudRecordsCasStore(f.root,{
+  trustedReadAnchor:{revision:2,proof:before.proof}});
+ code(()=>anchored.read(),'ANCHOR_HISTORY_MISMATCH');
+ code(()=>anchored.receipt('anchor_fork_req01'),'ANCHOR_HISTORY_MISMATCH');
+ code(()=>anchored.upsert({expectedRevision:2,requestId:'anchor_attempt_01',
+  record:ledger(account(2,19000))}),'ANCHOR_HISTORY_MISMATCH');
+ assert.equal(f.store.read().revision,2);
+ assert.equal(originalReceipt.appliedRevision,2);
+});
+
+test('malformed or partially configured external anchors fail closed before touching disk',t=>{
+ const f=fixture(t);
+ for(const value of [{revision:1},{proof:'0'.repeat(64)},
+  {revision:'01',proof:'a'.repeat(64)},
+  {revision:0,proof:'a'.repeat(64)},
+  {revision:1,proof:'BAD'},
+  {revision:1,proof:'a'.repeat(64),extra:'untrusted'},
+  null]){
+  code(()=>createCloudRecordsCasStore(f.root,{trustedReadAnchor:value}),'ANCHOR_CONFIGURATION_INVALID');
+ }
+ const anchor=createCloudRecordsCasStore(f.root,{
+  trustedReadAnchor:{revision:1,proof:'a'.repeat(64)}});
+ code(()=>anchor.read(),'ANCHOR_ROLLBACK_DETECTED');
+ const newDir=path.join(f.root,'not-yet-created');
+ const closed=createCloudRecordsCasStore(newDir,{
+  trustedReadAnchor:{revision:'1',proof:'a'.repeat(64)}});
+ code(()=>closed.read(),'ANCHORED_LEDGER_MISSING');
+ assert.equal(fs.existsSync(newDir),false);
+ code(()=>closed.bootstrap({records:[ledger()],expectedSourceHash:digest({records:[ledger()]}),
+  operatorApproved:true,requestId:'anchor_boot_001'}),'ANCHORED_BOOTSTRAP_FORBIDDEN');
+ assert.equal(fs.existsSync(newDir),false);
+});
+
+test('orphaned append-stage file blocks all CAS observations and writes until manual audit',t=>{
+ const f=fixture(t);seed(f);
+ const stage=path.join(f.root,'.stage-'+('a'.repeat(24)));
+ fs.writeFileSync(stage,'partial',{mode:0o600});
+ code(()=>f.store.read(),'UNRESOLVED_STAGING_ARTIFACT');
+ code(()=>f.store.receipt('bootstrap_0001'),'UNRESOLVED_STAGING_ARTIFACT');
+ code(()=>f.store.upsert({expectedRevision:1,requestId:'anchor_stage_001',
+  record:ledger(account(1,72000))}),'UNRESOLVED_STAGING_ARTIFACT');
+ assert.equal(fs.readdirSync(f.root).filter(x=>/^[0-9]{6}\.json$/.test(x)).length,1);
+ fs.unlinkSync(stage); // fixture-only supervised cleanup, never automatic in production
+ assert.equal(f.store.read().revision,1);
+});
