@@ -4,6 +4,8 @@
 const path=require('node:path');
 const S=require('./research-workspace-store');
 const VERSION='frozen-close-forecast-v1',HORIZONS=[1,5,20,60];
+const MODEL_IDENTITY_FIELDS=['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'];
+const modelIdentity=model=>Object.fromEntries(MODEL_IDENTITY_FIELDS.map(k=>[k,model[k]??null]));
 const array=x=>Array.isArray(x)?x:[],finite=x=>typeof x==='number'&&Number.isFinite(x);
 const stamp=x=>Number.isSafeInteger(x)&&x>0;
 const date=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
@@ -94,8 +96,8 @@ function pairedComparisons(rows){
   const unique=[...new Map(same.map(r=>[r.modelKey,r])).values()].sort((a,b)=>a.modelKey.localeCompare(b.modelKey));
   if(unique.length>16){limited++;continue;}
   for(let i=0;i<unique.length;i++)for(let j=i+1;j<unique.length;j++){
-   const a=unique[i],b=unique[j],key=[a.modelKey,b.modelKey,a.provider,a.horizon].join('|');
-   if(!pairs.has(key)){if(pairs.size>=256){limited++;continue;}pairs.set(key,{modelA:{id:a.modelId,revision:a.revision},modelB:{id:b.modelId,revision:b.revision},provider:a.provider,horizon:a.horizon,n:0,sumA:0,sumB:0,winsA:0,ties:0,days:new Set(),symbols:new Set()});}
+   const a=unique[i],b=unique[j],key=[a.modelKey,b.modelKey,a.provider,a.horizon,a.pointKind,b.pointKind].join('|');
+   if(!pairs.has(key)){if(pairs.size>=256){limited++;continue;}pairs.set(key,{modelA:{...a.model,modelKey:a.modelKey,pointKind:a.pointKind},modelB:{...b.model,modelKey:b.modelKey,pointKind:b.pointKind},provider:a.provider,horizon:a.horizon,n:0,sumA:0,sumB:0,winsA:0,ties:0,days:new Set(),symbols:new Set()});}
    const p=pairs.get(key);p.n++;p.sumA+=a.absoluteError;p.sumB+=b.absoluteError;if(a.absoluteError<b.absoluteError)p.winsA++;if(a.absoluteError===b.absoluteError)p.ties++;p.days.add(a.originDate);p.symbols.add(a.symbol);
   }
  }
@@ -108,7 +110,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
  const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set();
  for(const event of forecasts.filter(e=>e.kind==='analysis'&&e.recordedAt<=asOf&&e.data.asOf<=asOf).sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence)){
   const d=event.data;if(d.mode!=='frozen-model-forecast'||d.evaluationVersion!==VERSION||!stamp(d.generatedAt)||event.recordedAt>=d.freezeDeadline||d.generatedAt>event.recordedAt)fail('ARCHIVE');
-  const modelKey=S.digest(Object.fromEntries(['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'].map(k=>[k,d.model[k]??null])));
+  const model=modelIdentity(d.model),modelKey=S.digest(model);
   const origin=events.find(e=>e.hash===d.runId),input=origin?prepareInput(origin):null;
   for(const f of d.forecasts){
    const key=[modelKey,d.provider,f.horizon,f.pointKind,JSON.stringify(f.quantiles.map(q=>q.level))].join('|');
@@ -116,7 +118,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    if(!selected){const unique=[modelKey,d.symbol,d.provider,d.originDate,f.horizon].join('|');dedup.add(unique);continue;}
    if(!groups.has(key))groups.set(key,{key,model:d.model,provider:d.provider,horizon:f.horizon,pointKind:f.pointKind,quantileLevels:f.quantiles.map(q=>q.level),total:0,pending:0,missing:0,invalid:0,repeated:0,values:[],days:new Set(),symbols:new Set(),windows:[]});
    const group=groups.get(key);group.total++;
-   const row={id:event.hash,runId:d.runId,inputFingerprint:d.inputFingerprint,symbol:d.symbol,provider:d.provider,modelKey,modelId:d.model.id,revision:d.model.revision,
+   const row={id:event.hash,runId:d.runId,inputFingerprint:d.inputFingerprint,symbol:d.symbol,provider:d.provider,modelKey,model,modelId:d.model.id,revision:d.model.revision,
     horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null};
    const unique=[modelKey,d.symbol,d.provider,d.originDate,f.horizon].join('|');
    if(dedup.has(unique)){row.status='repeated-origin';group.repeated++;rows.push(row);continue;}dedup.add(unique);

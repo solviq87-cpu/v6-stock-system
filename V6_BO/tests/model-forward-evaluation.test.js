@@ -69,6 +69,25 @@ test('sampling parameters form distinct model configurations, while missing trai
  save(root,e,a,'config_forecast_001');save(root,e,b,'config_forecast_002',e.recordedAt+3000);
  const r=F.evaluationView(root,[e,event(D.buildWorkspaceDecision(fixture({index:71})),2)],{asOf:at(71)});assert.equal(r.groups.length,2);assert.ok(r.groups.some(g=>g.trainingCoverage==='unknown'));assert.ok(r.groups.every(g=>g.matured===1));
 });
+test('paired comparisons expose complete configuration identity even when model names and revisions match',t=>{
+ const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);a.model.tokenizerRevision='synthetic-tokenizer-v1';b.model.tokenizerRevision=a.model.tokenizerRevision;b.model.seed=1;b.model.temperature=.7;
+ save(root,e,a,'same_name_config_001');save(root,e,b,'same_name_config_002',e.recordedAt+3000);
+ const r=F.evaluationView(root,[e,event(D.buildWorkspaceDecision(fixture({index:71})),2)],{asOf:at(71)});assert.equal(r.pairs.rows.length,1);
+ const pair=r.pairs.rows[0],sides=[pair.modelA,pair.modelB];assert.equal(pair.modelA.id,pair.modelB.id);assert.equal(pair.modelA.revision,pair.modelB.revision);assert.notEqual(pair.modelA.modelKey,pair.modelB.modelKey);
+ for(const side of sides){assert.match(side.modelKey,/^[a-f0-9]{64}$/);assert.equal(side.modelKey,S.digest(Object.fromEntries(['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'].map(k=>[k,side[k]]))));assert.equal(side.weightsHash,a.model.weightsHash);assert.equal(side.tokenizerRevision,a.model.tokenizerRevision);assert.equal(side.pointKind,'point');assert.equal(Object.hasOwn(side,'latencyMs'),false);}
+ assert.deepEqual(sides.map(s=>s.seed).sort(),[0,1]);assert.ok(sides.some(s=>s.seed===0&&s.temperature===0));assert.ok(sides.some(s=>s.seed===1&&s.temperature===.7));
+ for(const row of r.rows)assert.equal(row.modelKey,S.digest(row.model));
+});
+test('paired statistics keep mean and median output combinations separate across signal dates',t=>{
+ const root=setup(t),e=origin(),next=event(D.buildWorkspaceDecision(fixture({index:71})),2),later=event(D.buildWorkspaceDecision(fixture({index:72})),3);let n=0;
+ for(const input of [e,next]){const a=prediction(input),b=prediction(input);a.model.id='alpha';b.model.id='beta';a.forecasts[0].pointKind=input===e?'mean':'median';b.forecasts[0].pointKind='mean';a.forecasts[0].targetDate=F.prepareInput(input).targets[0].targetDate;b.forecasts[0].targetDate=a.forecasts[0].targetDate;save(root,input,a,'output_kind_pair_'+(++n),input.recordedAt+2000);save(root,input,b,'output_kind_pair_'+(++n),input.recordedAt+3000);}
+ const r=F.evaluationView(root,[e,next,later],{asOf:at(72)});assert.equal(r.pairs.rows.length,2);assert.ok(r.pairs.rows.every(p=>p.samples===1&&p.signalDays===1));
+ const combinations=r.pairs.rows.map(p=>Object.fromEntries([p.modelA,p.modelB].map(m=>[m.id,m.pointKind])));assert.ok(combinations.some(p=>p.alpha==='mean'&&p.beta==='mean'));assert.ok(combinations.some(p=>p.alpha==='median'&&p.beta==='mean'));
+});
+test('changing output kind on the same model origin preserves the first forecast duplicate policy',t=>{
+ const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);a.forecasts[0].pointKind='mean';b.forecasts[0].pointKind='median';save(root,e,a,'output_kind_repeat_001');save(root,e,b,'output_kind_repeat_002',e.recordedAt+3000);
+ const r=F.evaluationView(root,[e,event(D.buildWorkspaceDecision(fixture({index:71})),2)],{asOf:at(71)});assert.equal(r.groups.find(g=>g.pointKind==='mean').matured,1);assert.equal(r.groups.find(g=>g.pointKind==='median').matured,0);assert.equal(r.groups.find(g=>g.pointKind==='median').repeated,1);assert.equal(r.pairs.rows.length,0);
+});
 test('large model catalogs paginate complete totals and bound quadratic pair comparison',t=>{
  const root=setup(t),e=origin();for(let i=0;i<25;i++){const p=prediction(e);p.model.id='custom'+i;save(root,e,p,'many_forecasts_'+String(i).padStart(3,'0'),e.recordedAt+2000+i);}
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),v=F.evaluationView(root,[e,later],{asOf:at(71),offset:20,limit:20});assert.equal(v.groupTotal,25);assert.equal(v.groups.length,5);assert.equal(v.total,25);assert.equal(v.rows.length,5);assert.equal(v.pairs.rows.length,0);assert.equal(v.pairs.limitedGroups,1);

@@ -122,8 +122,13 @@
    for(const stage of arr(r?.diagnostics))line(c,stage.stage,label(stage.status));
    const audit=detail(c,'指标预热与历史可得性');for(const w of arr(view.inputAudit?.warmup))line(audit,w.length+'根K线',w.value||w.status);line(audit,'预热判断',view.inputAudit?.warmupStatus);line(audit,'历史可得性',view.inputAudit?.pointInTime?.meaning);
    for(const drift of arr(view.drift?.reports)){const d=detail(c,'输入变化 '+drift.before+' → '+drift.after);line(d,'同股 / 新增 / 移出',[drift.matched,drift.added,drift.removed].join(' / '));line(d,'未知条件比例',val(drift.beforeUnknownRate)+' → '+val(drift.afterUnknownRate));line(d,'解释',drift.attribution);}
-   const models=detail(c,'公开模型对照与借鉴');for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
+   const models=detail(c,'公开模型对照与借鉴');const library=node('a','查看全部模型、界面与运行方式对照（当前公开资料）',models);library.href='/model-library.html';for(const m of arr(view.publicModelComparison?.models)){const d=detail(models,m.name+' · '+m.kind);line(d,'可借鉴',m.borrow.join('；'));line(d,'本系统状态',m.status);line(d,'适用限制',m.limit);line(d,'许可',m.license);line(d,'本系统实测收益/速度','尚未执行模型，无法比较');const source=m.reads?.[0]?.url;if(source&&/^https:\/\/github\.com\//.test(source)){const a=node('a','查看固定版本来源',d);a.href=source;a.target='_blank';a.rel='noopener noreferrer';}}
   }
+ }
+ function modelConfiguration(parent,model){
+  line(parent,'配置指纹',model.modelKey||'未知');
+  line(parent,'随机种子 / 温度 / top-p / 采样数',['seed','temperature','topP','sampleCount'].map(k=>val(model[k])).join(' / '));
+  line(parent,'权重 / tokenizer / 训练截止期',['weightsHash','tokenizerRevision','trainingCutoff'].map(k=>val(model[k])).join(' / '));
  }
  function renderForecasts(f){
   const c=card('模型预测前向评测');if(!f||f.status==='unavailable'){line(c,'状态',f?.reason||'暂无预测档案');return;}
@@ -138,7 +143,9 @@
    line(d,'平均区间宽度',val(g.meanIntervalWidth)+' 元；更宽的区间不能只凭覆盖率认定更好');
    line(d,'不同股票 / 信号日 / 非重叠窗口',[g.symbols,g.signalDays,g.nonOverlappingWindows].join(' / '));line(d,'后续行情修订',g.revisedOutcomes);line(d,'训练截止期',g.model.trainingCutoff||'未知');line(d,'模型执行与耗时','来自明确导入，尚未由本系统核验');
   }
-  for(const pair of arr(f.pairs?.rows)){const d=detail(c,'同输入配对 '+pair.modelA.id+' / '+pair.modelB.id+' · '+pair.horizon+'日');line(d,'完全匹配样本',pair.samples);line(d,'平均绝对误差 A / B',pair.maeA+' / '+pair.maeB+' 元');line(d,'误差差值 A−B',pair.deltaMaeAminusB+' 元；负值表示A误差较小');line(d,'统计范围','仅描述配对交集；独立性和获利均未认证');}
+  for(const pair of arr(f.pairs?.rows)){const d=detail(c,'同输入配对 '+pair.modelA.id+' / '+pair.modelB.id+' · '+pair.horizon+'日');
+   for(const [side,m]of [['A',pair.modelA],['B',pair.modelB]]){const config=detail(d,side+' · '+m.id+' / '+m.revision+' · '+label(m.pointKind)+' · '+(m.modelKey?.slice(0,12)||'未知配置'));modelConfiguration(config,m);}
+   line(d,'完全匹配样本',pair.samples);line(d,'平均绝对误差 A / B',pair.maeA+' / '+pair.maeB+' 元');line(d,'误差差值 A−B',pair.deltaMaeAminusB+' 元；负值表示A误差较小');line(d,'统计范围','仅描述配对交集；独立性和获利均未认证');}
   for(const r of arr(f.rows)){const d=detail(c,r.symbol+' · '+r.modelId+' · '+r.targetDate+' · '+label(r.status));line(d,'原观察日 / 周期',r.originDate+' / '+r.horizon+'日');line(d,'预测 / 首次收到的收盘价',val(r.point)+' / '+val(r.actual));line(d,'绝对误差 / 前值误差',val(r.absoluteError)+' / '+val(r.naiveError));line(d,'输入指纹',r.inputFingerprint);if(r.revisedOutcome)line(d,'后续版本收盘价',r.latestObservedClose+'；首次评价不被改写');}
   if(f.total)pagination(f.total);for(const text of arr(f.limitations))node('p',text,c);if(f.pairs?.limitedGroups)line(c,'配对上限','部分组合超过16个配置或256组，已保留原记录');
  }
