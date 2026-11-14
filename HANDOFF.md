@@ -1,6 +1,17 @@
 # 天枢智策 V6｜多智能体交接入口
 
 <!-- CURRENT_CHECKPOINT_START -->
+## 当前断点 · 2026-11-14（研究选择一致性与权限清理）
+
+- 用户要求继续改善；本轮分支`fix/research-selection-continuity-20261114`，工作树`/workspace/v6-research-flow`。#229八张卡已合并，未重复新增。
+- 实际复现并修复：旧研究翻页/重读/导出跳到最新、对照跨页丢失，以及401/403/locked保留私有偏好。已固定内存中的完整runId，导出绑定可见view.asOf/runId/screenId，跨页保留对照/批次；增加“查看最新研究”和所选短ID/边框，撤权完整清除，双向迟到响应不覆盖新状态。
+- 股票/比较来源/历史时点/token变化释放版本和对照，历史时点变化清旧screenId。普通网络失败保留未提交草稿以便重试。无新后端接口、行情/模型/交易/通知；两张锁定主页字节不改。
+- 初始备份`base-5ce7795.tar` SHA256`b5e0ca33df4b74e6d6a358060c0fe0d09626156c572aa2d4dcdf680dae51f6f2`，位于`/workspace/artifacts/v6-research-flow-20261114/`。已整合#231逐提交CI及#232归档，最终基线`dev@79eca81254eaf2384a9f03bc31cc2113bb8d0780`；交接冲突保留双方历史。
+- 本地全量3540项：3537通过/0失败/3可选ML跳过；研究关联8、交接/CI政策10、网页40/构建/dist、Windows打包12/完整工程5、真实隔离HTTP均成功。新增选择、扩充权限、原概览、原预测四组各320/390/430/1536通过；只读复核无阻断。最后精确head CI/合并状态以本分支PR机器回执为准。[具体行为、测试与恢复](V6_BO/docs/RESEARCH_SELECTION_CONTINUITY_20261114.md)。未做生产发布或真机1:1认证。
+<!-- CURRENT_CHECKPOINT_END -->
+
+## #232发行版源码恢复交付历史
+
 ## 当前断点 · 2026-11-14（截图 BN 发行版全部源码展开）
 
 - 用户要求核查截图“1083 BN，待比对合并”发行版四包中的全部代码；基线 `dev@26e3e19ecaa1a5fdee64d6d8a2fac400d0844353`，分支 `chore/restore-bn-release-source-20261114`。
@@ -10,7 +21,6 @@
 - 工具19新测试，归档组合57/57；本地全量3534项3531通过/0失败/3可选ML跳过，语法、服务启动、网页40/40与构建、工程/Windows打包测试通过。历史代码原有CRLF/尾空格原样保留，不把旧版全部执行或当作已启用功能。
 - 现行V6_BO/V6_WEB运行代码与锁定主页不改；最后精确head CI/PR/合并读GitHub回执。详见入口的REVIEW.md、validation.json。回滚只revert本批提交，不删除原发行版或私有运行数据。
 - 已整合 `dev@fc3d0d43eec272079087b7c9c77734954e6af473` 的#229界面概览卡片与#231逐提交CI；交接冲突保留双方历史。本轮只增BN源码/工具/证据，最终组合CI见[PR#232](https://github.com/solviq87-cpu/v6-stock-system/pull/232)。
-<!-- CURRENT_CHECKPOINT_END -->
 
 ## #229/#231界面与逐提交CI交付历史
 

@@ -19,16 +19,18 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://127.0
    const f=fixture();f.stock.name='<img src=x onerror=window.BAD=1>';W.saveObservation(f,options);W.saveObservation(fixture({index:71}),options);
    W.saveScreen(workspaceRoot,{items:Array.from({length:43},(_,i)=>({symbol:String(600000+i),quality:{usable:false,errors:['合成缺数']},score:0}))},'synthetic-browser-only');
    const page=await browser.newPage({viewport:{width,height:900}}),errors=[],requests=[];page.on('pageerror',e=>errors.push(e.message));
-   let delayed=false,release,blockedResolve;const blocked=new Promise(r=>blockedResolve=r);
+   let permissionDenied=null,heldRead=null;
+   function holdNextRead(){const gate={};gate.started=new Promise(r=>gate.markStarted=r);gate.wait=new Promise(r=>gate.release=r);gate.done=new Promise(r=>gate.markDone=r);heldRead=gate;return gate;}
    await page.route('**/api/**',async route=>{
     const req=route.request(),url=new URL(req.url());if(url.pathname!=='/api/research/workspace')return route.fulfill({status:403,json:{ok:false,error:'合成权限拒绝'}});
     requests.push({method:req.method(),url:req.url()});if(req.headers().authorization!=='Bearer fixture-editor-token')return route.fulfill({status:403,json:{ok:false,error:'合成权限拒绝'}});
-    if(delayed){await new Promise(r=>{release=r;blockedResolve();});delayed=false;}
+    const denial=permissionDenied,gate=heldRead;if(gate){heldRead=null;gate.markStarted();await gate.wait;}
     try{
+     if(denial)return await route.fulfill({status:denial.status,json:denial.body});
      let value;if(req.method()==='POST'){const input=req.postDataJSON();const event=W.saveSettings(workspaceRoot,input);value={ok:true,revision:event.revision};}
      else{const q=Object.fromEntries([...url.searchParams].filter(([k])=>!['export'].includes(k)));for(const k of ['asOf','offset','limit','minScore'])if(k in q)q[k]=Number(q[k]);const view=W.workspaceView(workspaceRoot,q);value={ok:true,result:url.searchParams.get('export')==='1'?W.exportResearch(view):view};}
      await route.fulfill({json:value});
-    }catch{await route.fulfill({status:409,json:{ok:false,error:'合成冲突'}}).catch(()=>{});}
+    }catch{await route.fulfill({status:409,json:{ok:false,error:'合成冲突'}}).catch(()=>{});}finally{gate?.markDone();}
    });
    await page.goto('http://127.0.0.1:'+server.address().port+'/research.html');assert.equal(requests.length,0);
    await page.locator('#token').fill('fixture-editor-token');await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));
@@ -48,8 +50,35 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://127.0
    const download=page.waitForEvent('download');await page.locator('#workspaceExport').click();const exported=await download;assert.equal(exported.suggestedFilename(),'tian-shu-research.json');
    await page.locator('#researchWorkspace').screenshot({path:path.join(output,'research-workspace-'+width+'.png')});
    await page.locator('#workspaceAsOf').fill('2026-04-10T16:30');assert.equal(await page.locator('#workspaceReview').isDisabled(),true);await page.locator('#workspaceAsOf').fill('');
+   const deniedCases=[{status:401,body:{ok:false,error:'合成令牌失效'}},{status:403,body:{ok:false,error:'合成权限撤销'}},{status:200,body:{locked:true,needPassword:true}}];
+   async function reloadPrivate(){permissionDenied=null;await page.locator('#token').fill('fixture-editor-token');await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));assert.equal(await page.locator('#workspaceObjective').inputValue(),'跨会话保留的合成约束');}
+   async function stagePrivateFiles(){
+    await page.locator('#workspacePresetName').fill('合成私有未保存模板');
+    await page.locator('#workspaceNativeFile').setInputFiles({name:'synthetic-private-native.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({gptEvidence:{symbol:'600000',date:'2026-04-10'}}))});
+    await page.waitForFunction(()=>document.getElementById('workspaceNativeStatus').textContent.includes('600000'));
+    const input=W.workspaceView(workspaceRoot).forecastEvaluation.input;assert.ok(input);
+    await page.locator('#workspaceForecastFile').setInputFiles({name:'synthetic-private-prediction.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({inputFingerprint:input.inputFingerprint,model:{id:'synthetic-private-model',revision:'synthetic-private-version'},forecasts:[{horizon:1,point:null}]}))});
+    await page.waitForFunction(()=>document.getElementById('workspaceForecastStatus').textContent.includes('synthetic-private-version'));
+   }
+   async function assertPrivateCleared(){
+    for(const id of ['workspaceObjective','workspaceAvoid','workspaceExcluded','workspaceUnresolved','workspacePresetName'])assert.equal(await page.locator('#'+id).inputValue(),'',id+' retained private text after permission loss');
+    for(const id of ['workspaceNativeFile','workspaceForecastFile'])assert.equal(await page.locator('#'+id).inputValue(),'',id+' retained an uploaded file after permission loss');
+    for(const id of ['workspacePreferenceVersion','workspacePreset','workspacePresetVersion','workspaceScreenRun','workspaceCompareRun'])assert.equal(await page.locator('#'+id+' option').count(),0,id+' retained private archive labels');
+    assert.equal(await page.locator('#workspaceContent').innerText(),'');assert.equal(await page.locator('#workspaceSummary').isVisible(),false);
+    assert.equal((await page.locator('#workspaceNativeStatus').innerText()).includes('600000'),false);assert.equal((await page.locator('#workspaceForecastStatus').innerText()).includes('synthetic-private-version'),false);assert.equal(await page.locator('#workspaceForecastFreeze').isDisabled(),true);
+   }
+   for(const denial of deniedCases){await reloadPrivate();await stagePrivateFiles();const posts=requests.filter(r=>r.method==='POST').length;permissionDenied=denial;await page.locator('#workspaceRead').click();await page.waitForFunction(()=>!document.getElementById('workspaceStatus').textContent.startsWith('正在'));await assertPrivateCleared();assert.equal(requests.filter(r=>r.method==='POST').length,posts);}
+   // A denied refresh must also defeat an older successful read with the same
+   // credential; no token-input event is used to trigger the privacy purge.
+   await reloadPrivate();await stagePrivateFiles();const staleRead=holdNextRead();await page.locator('#workspaceRead').click();await staleRead.started;
+   permissionDenied=deniedCases[1];await page.locator('#workspaceRead').click();await page.waitForFunction(()=>!document.getElementById('workspaceStatus').textContent.startsWith('正在'));await assertPrivateCleared();staleRead.release();await staleRead.done;await assertPrivateCleared();
+   // Conversely, an older denial must not erase a newer successful read.
+   await reloadPrivate();permissionDenied=deniedCases[1];const staleDenial=holdNextRead();await page.locator('#workspaceRead').click();await staleDenial.started;
+   permissionDenied=null;await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));staleDenial.release();await staleDenial.done;
+   assert.equal(await page.locator('#workspaceObjective').inputValue(),'跨会话保留的合成约束');assert.equal(await page.locator('#workspaceSummary').isVisible(),true);assert.ok((await page.locator('#workspaceStatus').innerText()).startsWith('已读取'));
+   permissionDenied=null;await page.locator('#token').fill('fixture-editor-token');
    await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));
-   delayed=true;await page.locator('#workspaceRead').click();await blocked;await page.locator('#token').fill('revoked-fixture-token');release();
+   const revokedRead=holdNextRead();await page.locator('#workspaceRead').click();await revokedRead.started;await page.locator('#token').fill('revoked-fixture-token');revokedRead.release();await revokedRead.done;
    await page.waitForFunction(()=>document.getElementById('workspaceContent').textContent==='');assert.equal(await page.locator('#workspaceObjective').inputValue(),'');
    const count=requests.length;await page.evaluate(()=>dispatchEvent(new Event('offline')));assert.equal(requests.length,count);assert.deepEqual(errors,[]);await page.close();console.log('workspace real browser '+width+' passed');
   }
