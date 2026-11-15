@@ -285,3 +285,112 @@ body.vx-mobile .vx-dashboard td:nth-child(4)>small{display:none!important}
  body.vx-mobile .vx-condition-panel .vx-condition-list{grid-template-columns:1fr}
  body.vx-mobile .vx-push-actions button,body.vx-mobile .vx-push-actions a{min-height:44px}
 }
+
+
+/* 2026-11-15: branded desktop login gate; no change to authentication or locked homepages.
+   This is scoped to the JS-created gate, not the mobile page's own #gate. */
+#gate.v6-auth-gate{
+  box-sizing:border-box;
+  background:
+    radial-gradient(ellipse at 14% 15%,rgba(22,141,255,.20),transparent 42%),
+    radial-gradient(ellipse at 90% 80%,rgba(37,216,150,.10),transparent 42%),
+    linear-gradient(160deg,#06152a,#040d1d 62%,#091a33) !important;
+  color:#eaf4ff;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  gap:14px !important;
+  padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) !important;
+}
+#gate.v6-auth-gate .v6-auth-brand{
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:15px;
+  width:min(100%,540px);
+  padding:19px 22px;
+  border:1px solid #33678f;
+  border-radius:18px;
+  background:linear-gradient(135deg,rgba(15,48,81,.92),rgba(7,26,49,.96));
+  box-shadow:0 16px 45px #0007,inset 0 1px #8bd9ff18;
+  color:#f0f8ff;
+  font-size:clamp(22px,3.5vw,30px);
+  font-weight:800;
+  letter-spacing:.05em;
+  text-align:left;
+}
+#gate.v6-auth-gate .v6-auth-mark{
+  display:grid;place-items:center;flex:none;
+  width:52px;height:52px;
+  border:1px solid #5fbaff;border-radius:13px;
+  background:linear-gradient(135deg,#1261b5,#08325d);
+  color:#fff;font-size:18px;letter-spacing:.02em;
+  box-shadow:0 0 25px #168dff45;
+}
+#gate.v6-auth-gate .v6-auth-brand small{
+  display:block;margin-top:6px;
+  color:#a5c7e9;font-size:12px;font-weight:500;letter-spacing:0;
+}
+#gate.v6-auth-gate .muted:not(#gateTip){color:#b7cee5 !important}
+#gate.v6-auth-gate .muted b{color:#ebf6ff}
+#gate.v6-auth-gate .v6-auth-lead{max-width:530px !important;line-height:1.8 !important}
+#gate.v6-auth-gate .v6-auth-roles,
+#gate.v6-auth-gate .v6-auth-credentials,
+#gate.v6-auth-gate .v6-auth-backup{max-width:100%;min-width:0}
+#gate.v6-auth-gate .btn{
+  box-sizing:border-box;
+  min-height:44px;
+  border:1px solid #38618d;
+  border-radius:10px;
+  background:#102b4b;color:#e5f3ff;
+  box-shadow:none;
+  white-space:normal;
+  touch-action:manipulation;
+}
+#gate.v6-auth-gate .btn:hover{
+  transform:none;
+  border-color:#62b5ff;background:#173e67;
+  box-shadow:0 0 0 1px #168dff3a;
+}
+#gate.v6-auth-gate .btn:not(.ghost){
+  background:linear-gradient(105deg,#126cb8,#168dff);
+  border-color:#56baff;color:#fff;
+}
+#gate.v6-auth-gate .btn:focus-visible,
+#gate.v6-auth-gate input:focus-visible{
+  outline:3px solid #7adaff;outline-offset:3px;
+}
+#gate.v6-auth-gate input[type="password"],
+#gate.v6-auth-gate input[type="text"]{
+  box-sizing:border-box;max-width:100%;
+  min-height:44px;
+  background:#071b32;
+  color:#f2f8ff;
+  border:1px solid #4b6c93;
+  border-radius:10px;
+}
+#gate.v6-auth-gate input::placeholder{color:#a2bddb;opacity:1}
+#gate.v6-auth-gate .v6-auth-submit{
+  min-width:190px;
+  font-weight:700;
+}
+#gate.v6-auth-gate .v6-auth-backup{
+  border-color:#365677 !important;
+  width:min(100%,515px);
+}
+#gate.v6-auth-gate .v6-auth-remember{min-height:38px}
+#gate.v6-auth-gate .v6-auth-remember input{accent-color:#168dff}
+#gate.v6-auth-gate #gateTip{max-width:520px;line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:520px){
+  #gate.v6-auth-gate{justify-content:flex-start !important;gap:12px !important;padding:calc(22px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom)) !important}
+  #gate.v6-auth-gate .v6-auth-brand{padding:14px;gap:11px}
+  #gate.v6-auth-gate .v6-auth-mark{width:44px;height:44px}
+  #gate.v6-auth-gate .v6-auth-roles{width:100%}
+  #gate.v6-auth-gate .v6-auth-roles .btn{flex:1 1 150px}
+  #gate.v6-auth-gate .v6-auth-credentials{width:100%;gap:8px}
+  #gate.v6-auth-gate #gatePwd{flex:1 1 175px;width:auto !important;min-width:0}
+  #gate.v6-auth-gate .v6-auth-submit{width:min(100%,340px)}
+}
+@media(prefers-reduced-motion:reduce){
+  #gate.v6-auth-gate .btn{transition:none}
+}
