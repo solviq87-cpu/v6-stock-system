@@ -13,7 +13,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '本机后台启动检查失败，现有账户和数据未被重装。' }
     # The current FAYO front-end is independent of the historical index page.
     # Never silently fall back to the old UI when the new page is unavailable.
-    $url = 'http://127.0.0.1:8787/nova/'
+    $url = 'http://127.0.0.1:8787/'
     $page = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 8
     if ($page.StatusCode -ne 200 -or ([string]$page.Content) -notmatch 'id\s*=\s*["'']fayo-root["'']') {
         throw '新绯曜 FAYO 页面没有通过本机验收，拒绝回退旧界面。'
