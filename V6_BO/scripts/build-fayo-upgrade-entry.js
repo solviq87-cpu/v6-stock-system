@@ -17,8 +17,8 @@ $ProgressPreference = 'SilentlyContinue'
 $work = $null
 $ok = $false
 try {
-    if ($env:OS -ne 'Windows_NT') { throw 'Please run this file on Windows.' }
-    Write-Host 'FAYO: upgrading your existing installation. Keep this window open.'
+    if ($env:OS -ne 'Windows_NT') { throw '请在你的 Windows 电脑上打开此文件。' }
+    Write-Host '绯曜：正在保留原账户升级，请保持窗口打开。'
     $assets = '${JSON.stringify(assets)}' | ConvertFrom-Json
     $work = Join-Path ([IO.Path]::GetTempPath()) ('fayo-' + [Guid]::NewGuid().ToString('N'))
     $null = New-Item -ItemType Directory -Path $work
@@ -26,21 +26,21 @@ try {
         $bytes = [Convert]::FromBase64String($asset.data)
         $digest = [Security.Cryptography.SHA256]::Create()
         try { $actual = ([BitConverter]::ToString($digest.ComputeHash($bytes))).Replace('-','').ToLowerInvariant() } finally { $digest.Dispose() }
-        if ($actual -ne $asset.sha256) { throw 'Entry integrity check failed.' }
+        if ($actual -ne $asset.sha256) { throw '入口校验未通过，尚未开始升级。' }
         [IO.File]::WriteAllBytes((Join-Path $work $asset.name), $bytes)
     }
     $wsl = (Get-Command wsl.exe -ErrorAction Stop).Source
     $linuxPath = & $wsl --distribution Ubuntu-24.04 --exec wslpath -a -u (Join-Path $work 'bootstrap.sh')
-    if ($LASTEXITCODE -ne 0 -or @($linuxPath).Count -ne 1 -or ([string]$linuxPath) -notmatch '^/') { throw 'Ubuntu-24.04 is unavailable. Nothing was initialized.' }
+    if ($LASTEXITCODE -ne 0 -or @($linuxPath).Count -ne 1 -or ([string]$linuxPath) -notmatch '^/') { throw '未能连接 Ubuntu-24.04，没有新建或覆盖安装。' }
     & $wsl --distribution Ubuntu-24.04 --exec bash ([string]$linuxPath).Trim()
-    if ($LASTEXITCODE -ne 0) { throw 'Upgrade did not complete. Keep the final result visible; no manual overwrite is needed.' }
+    if ($LASTEXITCODE -ne 0) { throw '升级未完成，请保留窗口最后的结果，不要手动覆盖原目录。' }
     $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8787/' -TimeoutSec 10
-    if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'fayo-root') { throw 'Windows could not verify the new page. The Linux result above remains authoritative.' }
+    if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'fayo-root') { throw '后台已返回结果，但 Windows 尚未连通新页面，安装与备份已保留。' }
     Start-Process 'http://127.0.0.1:8787/'
-    Write-Host 'FAYO is ready. Your original account and history were retained. Phone connection is a separate step.'
+    Write-Host '绯曜已启动，正在打开页面。使用原口令登录，手机连接另行设置。'
     $ok = $true
 } catch {
-    Write-Host ('Not completed: ' + $_.Exception.Message)
+    Write-Host ('未完成：' + $_.Exception.Message)
 } finally {
     if ($work -and (Test-Path -LiteralPath $work)) { Remove-Item -LiteralPath $work -Recurse -Force }
 }

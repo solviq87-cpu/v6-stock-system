@@ -66,7 +66,8 @@ else: sys.exit(8)
  const header=`function Invoke-WebRequest { param([switch]$UseBasicParsing,[string]$Uri,[int]$TimeoutSec) if ($Uri -ne 'http://127.0.0.1:8787/') { throw 'unexpected external URL' }; return [pscustomobject]@{StatusCode=200;Content='<div id="fayo-root"></div>'} }
 function Start-Process { param([string]$FilePath) [IO.File]::WriteAllText($env:FAYO_TEST_OPENED,$FilePath) }
 `;
- const file=path.join(base,'wrapper.ps1');fs.writeFileSync(file,header+built.ps);
+ const entry=path.join(base,'entry.cmd');fs.writeFileSync(entry,built.cmd);
+ const file=path.join(base,'wrapper.ps1');fs.writeFileSync(file,header+`$raw=[IO.File]::ReadAllText('${entry}'); $mark=':FAYO_POWERSHELL_PAYLOAD'; & ([ScriptBlock]::Create($raw.Substring($raw.LastIndexOf($mark)+$mark.Length)))`);
  const env={...process.env,PATH:base+path.delimiter+process.env.PATH,OS:'Windows_NT',TMPDIR:temp,FAYO_TEST_CALLS:log,FAYO_TEST_OPENED:opened};
  const success=spawnSync(pwsh,['-NoProfile','-File',file],{env,encoding:'utf8',timeout:15000,maxBuffer:65536});assert.equal(success.status,0,success.stdout+success.stderr);assert.equal(fs.readFileSync(opened,'utf8'),'http://127.0.0.1:8787/');
  const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);const last=calls.at(-1);assert.deepEqual(last.slice(0,4),['--distribution','Ubuntu-24.04','--exec','bash']);assert.equal(last.length,5,'one native path argument, even with spaces');assert.equal(fs.existsSync(path.dirname(last[4])),false,'temporary controls removed after success');
