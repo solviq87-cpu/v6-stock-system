@@ -23,7 +23,10 @@ async function readPublic(url,options={},deps={}){
    args.push('--output',output,'--max-filesize','4194304');
   }
   const r=(deps.run||spawnSync)('curl',args,{encoding:null,timeout:pip?550000:20000,maxBuffer:12*1024*1024,env:{PATH:process.env.PATH,LANG:'C.UTF-8',...proxyEnv(process.env)}});
-  if(r.error||r.status!==0)throw Object.assign(Error('public-network-unavailable'),{code:'public-network-unavailable'});
+  if(r.error||r.status!==0){
+   const code=pip?(r.status===28||r.error?.code==='ETIMEDOUT'?'bootstrap-download-timed-out':'bootstrap-download-failed'):'public-network-unavailable';
+   throw Object.assign(Error(code),{code});
+  }
   if(pip&&fs.statSync(output).size>4*1024*1024)throw Object.assign(Error('model-tools-download-too-large'),{code:'model-tools-download-too-large'});
   const data=pip?fs.readFileSync(output):Buffer.from(r.stdout||'');return{ok:true,body:[data],json:async()=>JSON.parse(data.toString('utf8'))};
  } finally {if(temporary)fs.rmSync(temporary,{recursive:true,force:true});}

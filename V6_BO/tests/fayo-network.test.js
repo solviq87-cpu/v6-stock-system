@@ -11,5 +11,5 @@ test('only the diagnosed Python bootstrap download gets bounded timeout retries'
  await readPublic('https://api.github.com/repos/solviq87-cpu/v6-stock-system/branches/dev',{}, {run:(exe,args,options)=>{assert.equal(args[args.indexOf('--max-time')+1],'15');assert.equal(args.includes('--retry'),false);assert.equal(options.timeout,20000);return{status:0,stdout:Buffer.from('{}')};}});
 });
 test('failed partial bootstrap downloads are removed and never returned as a valid response',async()=>{
- let output;await assert.rejects(readPublic('https://files.pythonhosted.org/packages/44/3c/d717024885424591d5376220b5e836c2d5293ce2011523c9de23ff7bf068/pip-25.3-py3-none-any.whl',{}, {run:(exe,args)=>{output=args[args.indexOf('--output')+1];fs.writeFileSync(output,'partial');return{status:28,stdout:Buffer.alloc(0)};}}),{code:'public-network-unavailable'});assert.equal(fs.existsSync(path.dirname(output)),false);
+ let output;await assert.rejects(readPublic('https://files.pythonhosted.org/packages/44/3c/d717024885424591d5376220b5e836c2d5293ce2011523c9de23ff7bf068/pip-25.3-py3-none-any.whl',{}, {run:(exe,args)=>{output=args[args.indexOf('--output')+1];fs.writeFileSync(output,'partial');return{status:28,stdout:Buffer.alloc(0)};}}),{code:'bootstrap-download-timed-out'});assert.equal(fs.existsSync(path.dirname(output)),false);
 });
