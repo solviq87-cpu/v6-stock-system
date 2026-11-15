@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Legacy recovery regression; not current FAYO product acceptance.
 // Real isolated server and synthetic accounts; never touches the user runtime.
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),os=require('node:os');
@@ -6,8 +7,8 @@ const {chromium}=require('playwright');
 const {createFixture}=require('../tests/helpers/v6-studio-fixture');
 const output=process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'v6-mobile-roles-')); fs.mkdirSync(output,{recursive:true});
 (async()=>{
- const server=await createFixture({count:4});let browser;
- const report={scope:'Real isolated V6 Node server; synthetic stocks/accounts; Chromium320; no physical device',checks:[]};
+ const server=await createFixture({count:4,legacyFrontend:true});let browser;
+ const report={scope:'Legacy recovery regression; not current product acceptance; real isolated V6 Node server; synthetic stocks/accounts; Chromium320; no physical device',checks:[]};
  try{
   const origin='http://127.0.0.1:'+server.port;
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||undefined,args:['--no-sandbox','--disable-dev-shm-usage']});

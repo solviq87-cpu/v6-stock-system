@@ -12,7 +12,7 @@ function request(port,url,method='GET',body=null,token=''){
   });req.once('error',reject);req.once('timeout',()=>req.destroy(Error('studio fixture timeout')));req.end(data);
  });
 }
-async function createFixture({count=250,serverSource}={}){
+async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
  const root=path.resolve(__dirname,'../..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-studio-')),port=await freePort();
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
  for(const name of fs.readdirSync(root))if(name.endsWith('.js')&&name!=='server.js')fs.copyFileSync(path.join(root,name),path.join(tmp,name));
@@ -31,8 +31,17 @@ async function createFixture({count=250,serverSource}={}){
  fs.writeFileSync(path.join(tmp,'studio-fixture.json'),JSON.stringify({rows,stocks}));
  const entry=path.join(tmp,'server.js'),original=serverSource??fs.readFileSync(entry,'utf8'),anchor='let _quantPicksCache = { ts: 0, data: null, busy: false };';
  if(!original.includes(anchor))throw Error('studio fixture anchor missing');
+ let fixtureSource=original;
+ if(legacyFrontend){
+  // Historical controllers remain recovery evidence. Remove the native entry
+  // remapping only in this disposable server copy, never in production or the
+  // default fixture used to verify the current FAYO product.
+  const nativeEntries=/^  const fayoEntries = new Set\([^\n]+\);\r?\n  if \(fayoEntries\.has\(p\)\) p = '\/nova\/index\.html';\r?\n/gm;
+  if([...fixtureSource.matchAll(nativeEntries)].length!==1)throw Error('legacy fixture native entry anchor missing or ambiguous');
+  fixtureSource=fixtureSource.replace(nativeEntries,"  if (p === '/') p = '/index.html';\n");
+ }
  // Only the temporary server copy receives synthetic state. Production has no fixture endpoint.
- fs.writeFileSync(entry,original.replace(anchor,`const studioFixture = JSON.parse(fs.readFileSync(path.join(__dirname,'studio-fixture.json'),'utf8')); S.stocks=studioFixture.stocks; for (const stock of S.stocks) klineSet(stock.code,{rows:studioFixture.rows});\n`+anchor));
+ fs.writeFileSync(entry,fixtureSource.replace(anchor,`const studioFixture = JSON.parse(fs.readFileSync(path.join(__dirname,'studio-fixture.json'),'utf8')); S.stocks=studioFixture.stocks; for (const stock of S.stocks) klineSet(stock.code,{rows:studioFixture.rows});\n`+anchor));
  const guard=path.join(tmp,'deny-external.cjs');
  fs.writeFileSync(guard,`for(const name of ['http','https']){const m=require(name);for(const key of ['request','get']){const original=m[key];m[key]=function(...args){const v=args[0],h=typeof v==='string'?new URL(v).hostname:v?.hostname||v?.host||'localhost';if(!['127.0.0.1','localhost','::1'].includes(h))throw Error('studio fixture denies external network');return original.apply(this,args);};}}const originalFetch=global.fetch;global.fetch=function(url,...args){if(!['127.0.0.1','localhost','::1'].includes(new URL(url).hostname))throw Error('studio fixture denies external fetch');return originalFetch(url,...args);};`);
  const child=spawn(process.execPath,['--require',guard,'server.js'],{cwd:tmp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1',V6_OPTIONAL_RESEARCH_FILE:'',V6_SIX_PHOTO_FILE:''},stdio:['ignore','pipe','pipe']});

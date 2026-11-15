@@ -1,0 +1,2687 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-15T13:29:47.937053+00:00",
+  "baselineCommit": "d76713f5750715746aa1720ae6d699ab441a2447",
+  "scope": "117 endpoint/action capabilities from the existing desktop/mobile/research applications, plus supplemental state-field observations. This is an implementation migration review, not a claim that all production flows passed.",
+  "count": 117,
+  "summary": {
+    "native_form": 100,
+    "consolidated": 3,
+    "advanced_input": 14
+  },
+  "implementationSummary": {
+    "implementedAgainstOriginalEndpoint": 114,
+    "consolidatedIntoSharedCurrentEndpoint": 3,
+    "notImplemented": 0
+  },
+  "statusDefinitions": {
+    "native_form": "Reachable native route, control, endpoint and payload reviewed statically.",
+    "advanced_input": "Preserved through an explicit file/JSON evidence input in a native workbench; not a fully field-by-field wizard.",
+    "consolidated": "Equivalent business behavior intentionally reads or uses a shared current endpoint; original transport is not called.",
+    "implemented_unwired": "Implementation exists but no product-route import/append was present at review time.",
+    "not_implemented": "No native replacement action was present at review time.",
+    "partial": "Some original behavior or data access remains unavailable."
+  },
+  "runtimeEvidence": {
+    "liveApiCallsPerformedByThisAudit": false,
+    "realExternalMessagesOrReleasesPerformed": false,
+    "targetedChecksActuallyRun": [
+      "node --check V6_BO/public/nova/workbook.js",
+      "node --check V6_BO/public/nova/workbook-view.js",
+      "node --test V6_BO/tests/fayo-workbook.test.js V6_BO/tests/fayo-market-evidence.test.js"
+    ],
+    "targetedResult": "11 tests passed: pure evidence/parser rules and controlled DOM/mock imports. This does not exercise 117 live endpoints or certify backend availability."
+  },
+  "supplementalStateCoverage": [
+    {
+      "capability": "Full combined rank, relay pools and movement pool",
+      "status": "native_form",
+      "file": "V6_BO/public/nova/market.js",
+      "evidence": "state:pool, state:yierList, state:lianbanList, state:abMove native pools were added. Own yierAsOf/lianbanAsOf labels are used for relay data; static code reviewed, not certified against a live account."
+    },
+    {
+      "capability": "Fourteen-rule per-stock statuses",
+      "status": "native_form",
+      "file": "V6_BO/public/nova/market.js",
+      "evidence": "Drawer evidence accepts row.items and exposes full stock record in native details."
+    },
+    {
+      "capability": "Original review shortcut filters and theme grouping",
+      "status": "presentation_replaced",
+      "file": "V6_BO/public/nova/market.js",
+      "evidence": "Native generic evidence and stock drawer replace exact original all/top10/p60/hard/seal/theme controls. Native paged show-more controls expose all source rows; exact historical shortcut presentation is intentionally redesigned."
+    },
+    {
+      "capability": "Low-level scheduler/staleness/learning denominator metadata",
+      "status": "native_advanced_evidence",
+      "file": "V6_BO/public/nova/operations.js",
+      "route": "#/settings/diagnostics",
+      "evidence": "Native diagnostics exposes taskState, staleState, poolBasis, needRule, empSkip, ztPreRules, trendScanProg and related state evidence. These diagnostic fields remain explicit advanced evidence rather than default card content."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "state",
+      "group": "market",
+      "label": "共享市场状态",
+      "method": "GET",
+      "endpoint": "/api/state",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "#/pulse/overview",
+        "control": "refresh",
+        "status": "native_form",
+        "note": "Reads /api/state and retains the last valid market snapshot on closed sessions.",
+        "staticConfidence": "high",
+        "line": 107,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "digest",
+      "group": "market",
+      "label": "手机市场摘要",
+      "method": "GET",
+      "endpoint": "/api/mobile-digest",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "#/pulse/overview",
+        "control": "renderPulse",
+        "status": "consolidated",
+        "note": "Mobile and desktop use the same /api/state dashboard. The old mobile-only transport is not called.",
+        "staticConfidence": "medium",
+        "line": 107,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "quant",
+      "group": "pools",
+      "label": "量化候选",
+      "method": "GET",
+      "endpoint": "/api/quant-picks",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/quant",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 5,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "auction",
+      "group": "pools",
+      "label": "竞价共振",
+      "method": "GET",
+      "endpoint": "/api/auction-resonance",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/auction",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 6,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "intraday",
+      "group": "pools",
+      "label": "盘中强势",
+      "method": "GET",
+      "endpoint": "/api/intraday-strong",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/intraday",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 7,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "wash",
+      "group": "pools",
+      "label": "洗盘趋势",
+      "method": "GET",
+      "endpoint": "/api/wash-trend",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/wash",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 23,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "preseal",
+      "group": "pools",
+      "label": "封板前哨",
+      "method": "GET",
+      "endpoint": "/api/preseal",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/preseal",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 24,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "shortline",
+      "group": "pools",
+      "label": "短线速览",
+      "method": "GET",
+      "endpoint": "/api/shortline",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/shortline",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 25,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "matches",
+      "group": "pools",
+      "label": "全部命中分页",
+      "method": "GET",
+      "endpoint": "/api/v6/matches",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/opportunities/matches",
+        "control": "观察池 / 读取最新结果",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 14,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "indices",
+      "group": "pools",
+      "label": "指数雷达",
+      "method": "GET",
+      "endpoint": "/api/reference-indexes",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/pulse/sectors",
+        "control": "读取指数证据",
+        "status": "native_form",
+        "note": "Dedicated explicit index evidence read is retained alongside the shared pulse ticker.",
+        "staticConfidence": "high",
+        "line": 88,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "strategyStats",
+      "group": "pools",
+      "label": "原策略比较统计",
+      "method": "GET",
+      "endpoint": "/api/reference-strategy-stats",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/strategies",
+        "control": "读取独立归属",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 33,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "search",
+      "group": "stock",
+      "label": "搜索股票",
+      "method": "GET",
+      "endpoint": "/api/search",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "global command search",
+        "control": "搜索股票与功能",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 179,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "analyze",
+      "group": "stock",
+      "label": "个股分析",
+      "method": "GET",
+      "endpoint": "/api/analyze",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "stock drawer / 诊断",
+        "control": "读取分析",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 210,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "kline",
+      "group": "stock",
+      "label": "日/月/年历史K线及旧页",
+      "method": "GET",
+      "endpoint": "/api/kline",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "stock drawer / 走势",
+        "control": "日 K / 月 K / 年 K / 加载更早的历史",
+        "status": "native_form",
+        "note": "Pure calendar, price, future-date, duplicate and volume validation; MA5/10/20; browser aggregation of actual daily sessions.",
+        "staticConfidence": "high",
+        "line": 213,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "marks",
+      "group": "stock",
+      "label": "K线策略标记/指定日解释",
+      "method": "GET",
+      "endpoint": "/api/kline-marks",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "stock drawer / 当日标记",
+        "control": "读取原始标记",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 208,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "auctionLog",
+      "group": "stock",
+      "label": "竞价复盘列表",
+      "method": "GET",
+      "endpoint": "/api/auction-log",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/pulse/auction-review",
+        "control": "读取最近竞价流水 / 读取竞价复盘",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 78,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "auctionReview",
+      "group": "stock",
+      "label": "竞价原分时与次日表现",
+      "method": "GET",
+      "endpoint": "/api/auction-review",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/market.js",
+        "route": "#/pulse/auction-review",
+        "control": "读取最近竞价流水 / 读取竞价复盘",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 78,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "strategyDashboard",
+      "group": "stock",
+      "label": "策略仪表盘",
+      "method": "GET",
+      "endpoint": "/api/strategy/dashboard",
+      "role": "view",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/strategies",
+        "control": "读取策略引擎",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 38,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "backtestStart",
+      "group": "stock",
+      "label": "启动原历史回测",
+      "method": "POST",
+      "endpoint": "/api/backtest",
+      "role": "edit",
+      "payload": {},
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/backtest",
+        "control": "启动历史评分检验 / 读取已保存结果 / 停止等待结果",
+        "status": "native_form",
+        "note": "The original /api/backtest engine is separate from complete-run and must retain its own start/read lifecycle.",
+        "staticConfidence": "high",
+        "line": 65,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "backtestRead",
+      "group": "stock",
+      "label": "读取回测结果",
+      "method": "GET",
+      "endpoint": "/api/backtest/result",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/backtest",
+        "control": "启动历史评分检验 / 读取已保存结果 / 停止等待结果",
+        "status": "native_form",
+        "note": "The original /api/backtest engine is separate from complete-run and must retain its own start/read lifecycle.",
+        "staticConfidence": "high",
+        "line": 65,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.read",
+      "group": "holdings",
+      "label": "读取持仓",
+      "method": "GET",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "资产簿",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 86,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.add",
+      "group": "holdings",
+      "label": "新增持仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "add",
+        "item": {
+          "code": "6digits",
+          "name": "text",
+          "cost": "number",
+          "shares": "number",
+          "note": "text",
+          "tags": [
+            "text"
+          ],
+          "locked": "boolean",
+          "mute": "boolean"
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "记录持仓 / 编辑",
+        "status": "native_form",
+        "note": "Native fields retain code, name, cost, shares, tags, notes, locking and mute state.",
+        "staticConfidence": "high",
+        "line": 64,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.update",
+      "group": "holdings",
+      "label": "编辑持仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "update",
+        "code": "6digits",
+        "data": {
+          "name": "text",
+          "cost": "number",
+          "shares": "number",
+          "note": "text",
+          "tags": [
+            "text"
+          ],
+          "locked": "boolean",
+          "mute": "boolean"
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "记录持仓 / 编辑",
+        "status": "native_form",
+        "note": "Native fields retain code, name, cost, shares, tags, notes, locking and mute state.",
+        "staticConfidence": "high",
+        "line": 64,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.remove",
+      "group": "holdings",
+      "label": "删除持仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "remove",
+        "code": "6digits"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "移除 / 移除所选 / 清空资产簿 / 暂停提醒 / 锁定仓位",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 74,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.removeMany",
+      "group": "holdings",
+      "label": "批量删除持仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "removeMany",
+        "codes": [
+          "6digits"
+        ]
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "移除 / 移除所选 / 清空资产簿 / 暂停提醒 / 锁定仓位",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 74,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.clear",
+      "group": "holdings",
+      "label": "清空持仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "clear"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "移除 / 移除所选 / 清空资产簿 / 暂停提醒 / 锁定仓位",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 74,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.mute",
+      "group": "holdings",
+      "label": "持仓静默",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "mute",
+        "code": "6digits",
+        "muted": "boolean"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "移除 / 移除所选 / 清空资产簿 / 暂停提醒 / 锁定仓位",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 74,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.setlocked",
+      "group": "holdings",
+      "label": "持仓锁定",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "setlocked",
+        "code": "6digits",
+        "locked": "boolean"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "移除 / 移除所选 / 清空资产簿 / 暂停提醒 / 锁定仓位",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 74,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.lock",
+      "group": "holdings",
+      "label": "快捷锁仓",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "lock",
+        "item": {
+          "code": "6digits",
+          "shares": "number",
+          "tags": [
+            "text"
+          ]
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/holdings",
+        "control": "锁定一笔仓位",
+        "status": "native_form",
+        "note": "Quick lock takes code and shares; tags remain editable in the native holding form.",
+        "staticConfidence": "high",
+        "line": 94,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.capital",
+      "group": "holdings",
+      "label": "总资金",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "capital",
+        "capital": "number"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/risk",
+        "control": "总资金 / 风险边界 / 立即巡检",
+        "status": "native_form",
+        "note": "Inspection and notification require an explicit confirmed action; shared backend permissions remain authoritative.",
+        "staticConfidence": "high",
+        "line": 97,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.cfg",
+      "group": "holdings",
+      "label": "风控参数",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "cfg",
+        "cfg": {
+          "stopPct": "number",
+          "reducePct": "number",
+          "takePct": "number",
+          "maxPosPct": "number"
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/risk",
+        "control": "总资金 / 风险边界 / 立即巡检",
+        "status": "native_form",
+        "note": "Inspection and notification require an explicit confirmed action; shared backend permissions remain authoritative.",
+        "staticConfidence": "high",
+        "line": 97,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "holdings.check",
+      "group": "holdings",
+      "label": "巡检并提醒",
+      "method": "POST",
+      "endpoint": "/api/holdings",
+      "role": "edit",
+      "payload": {
+        "action": "check"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/risk",
+        "control": "总资金 / 风险边界 / 立即巡检",
+        "status": "native_form",
+        "note": "Inspection and notification require an explicit confirmed action; shared backend permissions remain authoritative.",
+        "staticConfidence": "high",
+        "line": 97,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.read",
+      "group": "paper",
+      "label": "读取双模拟盘",
+      "method": "GET",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.toggle",
+      "group": "paper",
+      "label": "暂停/继续",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "toggle"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.reset",
+      "group": "paper",
+      "label": "重置账户",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "reset"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.setInitial",
+      "group": "paper",
+      "label": "改本金并清空",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "setInitial",
+        "amount": "number10000..1e9"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.setInitialKeep",
+      "group": "paper",
+      "label": "只改本金",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "setInitialKeep",
+        "amount": "number10000..1e9"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.repairPositions",
+      "group": "paper",
+      "label": "修复持仓账实",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "repairPositions"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "paper.archivePhantomTrades",
+      "group": "paper",
+      "label": "归档虚假交易",
+      "method": "POST",
+      "endpoint": "/api/paper",
+      "role": "edit",
+      "payload": {
+        "account": "pool|pre",
+        "action": "archivePhantomTrades"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/paper",
+        "control": "模拟跟踪 / 账户维护",
+        "status": "native_form",
+        "note": "Both original pool/pre accounts; distinct reset, initial-capital-preserve and initial-capital-clear actions remain separate.",
+        "staticConfidence": "high",
+        "line": 108,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.read",
+      "group": "authority",
+      "label": "读取权威账本",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "read"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "读取账户 / 读取拒单审计 / 风险配置 / 检查证据覆盖",
+        "status": "native_form",
+        "note": "Uses the existing order-account authority with revision checks. No second ledger or automatic order submission.",
+        "staticConfidence": "high",
+        "line": 212,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.audit",
+      "group": "authority",
+      "label": "审计账本",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "audit",
+        "pagination": {
+          "limit": 100
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "读取账户 / 读取拒单审计 / 风险配置 / 检查证据覆盖",
+        "status": "native_form",
+        "note": "Uses the existing order-account authority with revision checks. No second ledger or automatic order submission.",
+        "staticConfidence": "high",
+        "line": 212,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.configure",
+      "group": "authority",
+      "label": "保存风控上限",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "configure",
+        "configuration": {
+          "expectedRevision": "read.revision",
+          "riskPolicy": "object"
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "读取账户 / 读取拒单审计 / 风险配置 / 检查证据覆盖",
+        "status": "native_form",
+        "note": "Uses the existing order-account authority with revision checks. No second ledger or automatic order submission.",
+        "staticConfidence": "high",
+        "line": 212,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.settle",
+      "group": "authority",
+      "label": "导入权益结算",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "settle",
+        "settlement": "json",
+        "expectedRevision": "read.revision"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "权益结算凭据",
+        "status": "advanced_input",
+        "note": "Explicit JSON-file input, account/version read and confirmation precede settlement.",
+        "staticConfidence": "high",
+        "line": 233,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.preview-risk-evidence-import",
+      "group": "authority",
+      "label": "预检风险证据",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "preview-risk-evidence-import",
+        "evidenceList": [
+          "1..100records"
+        ],
+        "expectedRevision": "read.revision"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "风险证据入库",
+        "status": "advanced_input",
+        "note": "Explicit JSON array, 1..100 records; frozen account/file/revision preview required before import.",
+        "staticConfidence": "high",
+        "line": 242,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.import-risk-evidence-batch",
+      "group": "authority",
+      "label": "提交已预检证据",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "import-risk-evidence-batch",
+        "evidenceList": [
+          "1..100records"
+        ],
+        "expectedRevision": "preview.accountRevision"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "风险证据入库",
+        "status": "advanced_input",
+        "note": "Explicit JSON array, 1..100 records; frozen account/file/revision preview required before import.",
+        "staticConfidence": "high",
+        "line": 242,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authority.risk-evidence-status",
+      "group": "authority",
+      "label": "核对证据齐备",
+      "method": "POST",
+      "endpoint": "/api/research/order-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "risk-evidence-status",
+        "query": {
+          "tradeDate": "YYYY-MM-DD",
+          "symbol": "6digits"
+        }
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/assets/authority",
+        "control": "读取账户 / 读取拒单审计 / 风险配置 / 检查证据覆盖",
+        "status": "native_form",
+        "note": "Uses the existing order-account authority with revision checks. No second ledger or automatic order submission.",
+        "staticConfidence": "high",
+        "line": 212,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "devices",
+      "group": "system",
+      "label": "受信设备",
+      "method": "GET",
+      "endpoint": "/api/lock/devices",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "online",
+      "group": "system",
+      "label": "在线设备",
+      "method": "GET",
+      "endpoint": "/api/devices",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "phone",
+      "group": "system",
+      "label": "找回手机状态",
+      "method": "GET",
+      "endpoint": "/api/lock/phone",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/security",
+        "control": "找回手机",
+        "status": "consolidated",
+        "note": "Reads masked boundPhone from /api/lock/status; the separate /api/lock/phone request is not required.",
+        "staticConfidence": "medium",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "pushLog",
+      "group": "system",
+      "label": "推送记录",
+      "method": "GET",
+      "endpoint": "/api/push-log",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/inbox/push",
+        "control": "投递追踪",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 143,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "source",
+      "group": "system",
+      "label": "读取源码",
+      "method": "GET",
+      "endpoint": "/api/source",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/source",
+        "control": "受控源文件 / 下载源代码汇总 / 预览保存",
+        "status": "native_form",
+        "note": "Current active FAYO ESM files are included in the native file selector and server editable whitelist; saves freeze file/content.",
+        "staticConfidence": "high",
+        "line": 196,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "sourceAll",
+      "group": "system",
+      "label": "完整源码",
+      "method": "GET",
+      "endpoint": "/api/source-all",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/source",
+        "control": "受控源文件 / 下载源代码汇总 / 预览保存",
+        "status": "native_form",
+        "note": "Current active FAYO ESM files are included in the native file selector and server editable whitelist; saves freeze file/content.",
+        "staticConfidence": "high",
+        "line": 196,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "releaseRequests",
+      "group": "system",
+      "label": "发布请求",
+      "method": "GET",
+      "endpoint": "/api/release/requests",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/release",
+        "control": "发布收件箱 / 发布所选请求 / 更新所选处理阶段",
+        "status": "native_form",
+        "note": "Explicit confirmation freezes selected files, phase and details; submission is not proof of a completed deployment.",
+        "staticConfidence": "high",
+        "line": 203,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "devicePrune",
+      "group": "system",
+      "label": "清理旧设备",
+      "method": "POST",
+      "endpoint": "/api/lock/devices",
+      "role": "edit",
+      "payload": {
+        "action": "prune",
+        "days": 30
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "pendingList",
+      "group": "system",
+      "label": "读取待批准设备",
+      "method": "POST",
+      "endpoint": "/api/lock/pending-list",
+      "role": "edit",
+      "payload": {},
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "pendingApprove",
+      "group": "system",
+      "label": "批准/拒绝设备",
+      "method": "POST",
+      "endpoint": "/api/lock/pending-approve",
+      "role": "edit",
+      "payload": {
+        "req": "ID",
+        "allow": "boolean"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "revoke",
+      "group": "system",
+      "label": "撤销设备",
+      "method": "POST",
+      "endpoint": "/api/lock/revoke",
+      "role": "edit",
+      "payload": {
+        "id": "ID"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/devices",
+        "control": "设备 / 读取访问申请",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 173,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authCode",
+      "group": "system",
+      "label": "生成设备授权码",
+      "method": "POST",
+      "endpoint": "/api/auth/code",
+      "role": "edit",
+      "payload": {
+        "role": "edit|view"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/security",
+        "control": "访问安全 / 生成一次性授权码 / 更换口令 / 绑定手机号",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "password",
+      "group": "system",
+      "label": "修改密码",
+      "method": "POST",
+      "endpoint": "/api/lock/change",
+      "role": "edit",
+      "payload": {
+        "password": "secret",
+        "newPassword": "secret"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/security",
+        "control": "访问安全 / 生成一次性授权码 / 更换口令 / 绑定手机号",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "viewPassword",
+      "group": "system",
+      "label": "设置观看密码",
+      "method": "POST",
+      "endpoint": "/api/lock/change",
+      "role": "edit",
+      "payload": {
+        "role": "view",
+        "newPassword": "secret"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/security",
+        "control": "访问安全 / 生成一次性授权码 / 更换口令 / 绑定手机号",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "bindPhone",
+      "group": "system",
+      "label": "绑定找回手机",
+      "method": "POST",
+      "endpoint": "/api/lock/bind-phone",
+      "role": "edit",
+      "payload": {
+        "phone": "phone"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/security",
+        "control": "访问安全 / 生成一次性授权码 / 更换口令 / 绑定手机号",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "config",
+      "group": "system",
+      "label": "保存通道/策略配置",
+      "method": "POST",
+      "endpoint": "/api/config",
+      "role": "edit",
+      "payload": {
+        "feishuWebhook": "optional",
+        "feishuSecret": "optional",
+        "verify": true,
+        "feishuSecWebhook": "optional",
+        "feishuSecSecret": "optional",
+        "secVerify": true,
+        "qqMail": "optional object",
+        "numericGovernanceKeys": "cfgSet ranges; zero valid"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/preferences and #/settings/channels",
+        "control": "自动化偏好 / 通知路由",
+        "status": "native_form",
+        "note": "Native per-key cfgSet/cfgRange controls preserve zero values; public/private webhook and mail forms remain distinct.",
+        "staticConfidence": "high",
+        "line": 152,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "testPush",
+      "group": "system",
+      "label": "测试推送",
+      "method": "POST",
+      "endpoint": "/api/test-push",
+      "role": "edit",
+      "payload": {},
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/channels",
+        "control": "发送通道自检",
+        "status": "native_form",
+        "note": "Explicit confirmed send only.",
+        "staticConfidence": "high",
+        "line": 171,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "sourceSave",
+      "group": "system",
+      "label": "保存源码",
+      "method": "POST",
+      "endpoint": "/api/source",
+      "role": "edit",
+      "payload": {
+        "file": "allowlistedpath",
+        "content": "text"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/source",
+        "control": "受控源文件 / 下载源代码汇总 / 预览保存",
+        "status": "native_form",
+        "note": "Current active FAYO ESM files are included in the native file selector and server editable whitelist; saves freeze file/content.",
+        "staticConfidence": "high",
+        "line": 196,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "releasePublish",
+      "group": "system",
+      "label": "确认发布请求",
+      "method": "POST",
+      "endpoint": "/api/release/publish",
+      "role": "edit",
+      "payload": {
+        "files": [
+          "optionalIDs"
+        ]
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/release",
+        "control": "发布收件箱 / 发布所选请求 / 更新所选处理阶段",
+        "status": "native_form",
+        "note": "Explicit confirmation freezes selected files, phase and details; submission is not proof of a completed deployment.",
+        "staticConfidence": "high",
+        "line": 203,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "releaseUpdate",
+      "group": "system",
+      "label": "复核发布请求",
+      "method": "POST",
+      "endpoint": "/api/release/update",
+      "role": "edit",
+      "payload": {
+        "file": "ID",
+        "stage": "published|verified|rejected",
+        "detail": "text"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/operations.js",
+        "route": "#/settings/release",
+        "control": "发布收件箱 / 发布所选请求 / 更新所选处理阶段",
+        "status": "native_form",
+        "note": "Explicit confirmation freezes selected files, phase and details; submission is not proof of a completed deployment.",
+        "staticConfidence": "high",
+        "line": 203,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "authStatus",
+      "group": "auth",
+      "label": "身份状态",
+      "method": "GET",
+      "endpoint": "/api/lock/status",
+      "role": "public",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "unlock",
+      "group": "auth",
+      "label": "密码登录",
+      "method": "POST",
+      "endpoint": "/api/lock/unlock",
+      "role": "public",
+      "payload": {
+        "password": "secret",
+        "role": "auto",
+        "fp": "fingerprint",
+        "name": "device"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "trust",
+      "group": "auth",
+      "label": "信任本设备",
+      "method": "POST",
+      "endpoint": "/api/lock/trust",
+      "role": "public",
+      "payload": {
+        "password": "secret",
+        "role": "auto",
+        "fp": "fingerprint",
+        "name": "device"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "进入绯曜",
+        "status": "consolidated",
+        "note": "The current unlock route already registers the device fingerprint and returns a long-lived device token; separate trust request is redundant.",
+        "staticConfidence": "medium",
+        "line": 155,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "setup",
+      "group": "auth",
+      "label": "首次配置",
+      "method": "POST",
+      "endpoint": "/api/lock/setup",
+      "role": "public",
+      "payload": {
+        "password": "secret",
+        "role": "edit"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "首次设置访问口令",
+        "status": "native_form",
+        "note": "First-time gate setup and local security setup use hasPassword state; configured accounts continue through unlock.",
+        "staticConfidence": "high",
+        "line": 155,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "redeem",
+      "group": "auth",
+      "label": "授权码登录",
+      "method": "POST",
+      "endpoint": "/api/auth/redeem",
+      "role": "public",
+      "payload": {
+        "code": "6digits",
+        "fp": "fingerprint",
+        "name": "device"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "pendingStatus",
+      "group": "auth",
+      "label": "等待批准",
+      "method": "GET",
+      "endpoint": "/api/lock/pending-status",
+      "role": "public",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "forgot",
+      "group": "auth",
+      "label": "发送找回验证码",
+      "method": "POST",
+      "endpoint": "/api/lock/forgot",
+      "role": "public",
+      "payload": {
+        "phone": "phone"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "verifyCode",
+      "group": "auth",
+      "label": "核对找回验证码",
+      "method": "POST",
+      "endpoint": "/api/lock/verify-code",
+      "role": "public",
+      "payload": {
+        "ticket": "fromforgot",
+        "code": "digits"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "resetPassword",
+      "group": "auth",
+      "label": "重置密码",
+      "method": "POST",
+      "endpoint": "/api/lock/reset-pwd",
+      "role": "public",
+      "payload": {
+        "resetToken": "fromverify",
+        "newPassword": "secret",
+        "fp": "fingerprint",
+        "name": "device"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/app.js",
+        "route": "authorization gate",
+        "control": "访问口令 / 设备授权码 / 找回访问口令",
+        "status": "native_form",
+        "note": "Uses existing server-issued device identity and Bearer credentials; pending access and phone recovery are native forms.",
+        "staticConfidence": "high",
+        "line": 146,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "workspaceRead",
+      "group": "research",
+      "label": "研究档案分页/回放/导出",
+      "method": "GET",
+      "endpoint": "/api/research/workspace",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research-records.js",
+        "route": "#/lab/records",
+        "control": "研究档案 / 读取 / 分页 / 导出",
+        "status": "native_form",
+        "note": "Native symbol/provider/run/comparison/as-of filtering, pagination and evidence export.",
+        "staticConfidence": "high",
+        "line": 24,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "workspaceWrite",
+      "group": "research",
+      "label": "研究复核/偏好/模板/预测封存",
+      "method": "POST",
+      "endpoint": "/api/research/workspace",
+      "role": "edit",
+      "payload": {
+        "action": "review|preferences|restore-preferences|preset|restore-preset|freeze-forecast",
+        "requestId": "unique",
+        "expectedRevision": "whenapplicable"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research-records.js",
+        "route": "#/lab/records",
+        "control": "比较已存股票 / 研究偏好 / 筛选模板 / 预测输入与封存",
+        "status": "native_form",
+        "note": "All six actions: review, preferences, restore-preferences, preset, restore-preset, freeze-forecast. Explicit native evidence/forecast JSON input where required; historical views refuse writes.",
+        "staticConfidence": "high",
+        "line": 60,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "capture",
+      "group": "research",
+      "label": "采集同股历史",
+      "method": "POST",
+      "endpoint": "/api/research/observe-stock",
+      "role": "edit",
+      "payload": {
+        "symbol": "6digits",
+        "provider": "auto|eastmoney|tencent",
+        "historyDays": 120,
+        "includeContext": true
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/sources",
+        "control": "建立逐股证据包",
+        "status": "native_form",
+        "note": "Explicit source, symbol and history-days controls; stored-history reads require a concrete provider.",
+        "staticConfidence": "high",
+        "line": 201,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "captureRead",
+      "group": "research",
+      "label": "读取同股历史",
+      "method": "GET",
+      "endpoint": "/api/research/stock-observations",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/sources",
+        "control": "建立逐股证据包",
+        "status": "native_form",
+        "note": "Explicit source, symbol and history-days controls; stored-history reads require a concrete provider.",
+        "staticConfidence": "high",
+        "line": 201,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "captureStatus",
+      "group": "research",
+      "label": "采集队列状态",
+      "method": "GET",
+      "endpoint": "/api/research/stock-observation-status",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/sources",
+        "control": "建立逐股证据包",
+        "status": "native_form",
+        "note": "Explicit source, symbol and history-days controls; stored-history reads require a concrete provider.",
+        "staticConfidence": "high",
+        "line": 201,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "sectorSaved",
+      "group": "research",
+      "label": "读取板块档案",
+      "method": "GET",
+      "endpoint": "/api/research/public-sectors",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/sources",
+        "control": "行业与概念取证",
+        "status": "native_form",
+        "note": "Reads directory and saved boards, selects at most six boards, then explicitly captures.",
+        "staticConfidence": "high",
+        "line": 208,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "sectorCapture",
+      "group": "research",
+      "label": "采集板块",
+      "method": "POST",
+      "endpoint": "/api/research/public-sectors",
+      "role": "edit",
+      "payload": {
+        "boards": [
+          "optional{category,code}"
+        ]
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/sources",
+        "control": "行业与概念取证",
+        "status": "native_form",
+        "note": "Reads directory and saved boards, selects at most six boards, then explicitly captures.",
+        "staticConfidence": "high",
+        "line": 208,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "sectorRelations",
+      "group": "research",
+      "label": "板块关联采集",
+      "method": "POST",
+      "endpoint": "/api/research/sector-capture-relations",
+      "role": "edit",
+      "payload": {
+        "sectorIds": []
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/sources",
+        "control": "分析所选冻结板块",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 100,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "newsEvidence",
+      "group": "research",
+      "label": "新闻证据",
+      "method": "GET",
+      "endpoint": "/api/research/news-evidence",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/evidence",
+        "control": "读取新闻与公告证据",
+        "status": "native_form",
+        "note": "Optional symbol filter; source URLs, timestamps, summary/full-text scope and version chain remain distinguishable.",
+        "staticConfidence": "high",
+        "line": 233,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "stockMemory",
+      "group": "research",
+      "label": "个股研究记忆",
+      "method": "GET",
+      "endpoint": "/api/research/stock-memory",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/memory",
+        "control": "读取已归档记忆 / 读取公开上下文",
+        "status": "native_form",
+        "note": "Native symbol/sector/date controls and stale-object fencing.",
+        "staticConfidence": "high",
+        "line": 219,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "publicContext",
+      "group": "research",
+      "label": "读取公共上下文",
+      "method": "POST",
+      "endpoint": "/api/research/public-context",
+      "role": "edit",
+      "payload": {
+        "symbol": "optional6digits",
+        "sectorCode": "optionalBK####",
+        "date": "optionalYYYY-MM-DD"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/memory",
+        "control": "读取已归档记忆 / 读取公开上下文",
+        "status": "native_form",
+        "note": "Native symbol/sector/date controls and stale-object fencing.",
+        "staticConfidence": "high",
+        "line": 219,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "linkedIntelligence",
+      "group": "research",
+      "label": "联动研究",
+      "method": "POST",
+      "endpoint": "/api/research/linked-intelligence",
+      "role": "edit",
+      "payload": "provenance-rich JSON",
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/memory",
+        "control": "分析联动证据",
+        "status": "advanced_input",
+        "note": "Explicit provenance-bearing JSON import; optional persist checkbox and current public context.",
+        "staticConfidence": "high",
+        "line": 231,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "strategy36Catalog",
+      "group": "research",
+      "label": "36规则目录",
+      "method": "GET",
+      "endpoint": "/api/research/strategy36",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "载入规则目录 / 采集并检验所选股票",
+        "status": "native_form",
+        "note": "Native per-strategy enable/weight/threshold inputs; observe uses backend defaults for source and history days.",
+        "staticConfidence": "high",
+        "line": 139,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "strategy36Evaluate",
+      "group": "research",
+      "label": "36规则评估",
+      "method": "POST",
+      "endpoint": "/api/research/strategy36",
+      "role": "edit",
+      "payload": {
+        "stock": "object",
+        "asOf": "epoch",
+        "config": {}
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "检验导入证据",
+        "status": "advanced_input",
+        "note": "Explicit stock/asOf JSON plus current native research configuration.",
+        "staticConfidence": "high",
+        "line": 158,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "strategy36Observe",
+      "group": "research",
+      "label": "36规则采集评估",
+      "method": "POST",
+      "endpoint": "/api/research/strategy36/observe",
+      "role": "edit",
+      "payload": {
+        "symbol": "6digits",
+        "provider": "auto",
+        "historyDays": 120,
+        "config": {}
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "载入规则目录 / 采集并检验所选股票",
+        "status": "native_form",
+        "note": "Native per-strategy enable/weight/threshold inputs; observe uses backend defaults for source and history days.",
+        "staticConfidence": "high",
+        "line": 139,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "riskCenter",
+      "group": "research",
+      "label": "风险研究中心",
+      "method": "GET",
+      "endpoint": "/api/research/risk-center",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research-extensions.js",
+        "route": "#/lab/desk",
+        "control": "读取交叉风险证据",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 49,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "agentStatus",
+      "group": "research",
+      "label": "研究代理状态",
+      "method": "GET",
+      "endpoint": "/api/research/agent-status",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies and #/lab/learning",
+        "control": "读取代理状态 / 读取研究代理状态",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 160,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "publicFactors",
+      "group": "research",
+      "label": "因子计算",
+      "method": "POST",
+      "endpoint": "/api/research/public-factors",
+      "role": "edit",
+      "payload": "importedJSON",
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "计算公开因子",
+        "status": "advanced_input",
+        "note": "Explicit original public-factor input JSON; no production weight changes.",
+        "staticConfidence": "high",
+        "line": 161,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "adaptiveLatest",
+      "group": "research",
+      "label": "最近自适应研究",
+      "method": "GET",
+      "endpoint": "/api/research/adaptive-latest",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "读取最新归档",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 163,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "adaptiveRun",
+      "group": "research",
+      "label": "自适应研究",
+      "method": "POST",
+      "endpoint": "/api/research/adaptive-market",
+      "role": "edit",
+      "payload": "provenance-rich JSON",
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "运行自适应研究",
+        "status": "advanced_input",
+        "note": "Explicit provenance/availability-time JSON; missing evidence is not invented.",
+        "staticConfidence": "high",
+        "line": 164,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "complete",
+      "group": "research",
+      "label": "完整历史研究",
+      "method": "POST",
+      "endpoint": "/api/research/complete-run",
+      "role": "edit",
+      "payload": {
+        "history": "dataset",
+        "calendar": "optional",
+        "paperConfig": "optional",
+        "snapshots": "optional",
+        "pythonEvidence": "optional",
+        "validatePublicRules": "boolean",
+        "publicRuleAuditOptions": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "运行完整实验",
+        "status": "advanced_input",
+        "note": "Imported history or full input object retains calendar/paperConfig/snapshots/pythonEvidence; optional public-rule and quality switches.",
+        "staticConfidence": "high",
+        "line": 170,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "historicalPaper",
+      "group": "research",
+      "label": "历史研究账户",
+      "method": "POST",
+      "endpoint": "/api/research/paper-account",
+      "role": "edit",
+      "payload": {
+        "accountId": "ID",
+        "action": "read|append",
+        "history": "dataset",
+        "config": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "研究模拟账本",
+        "status": "advanced_input",
+        "note": "Native account read; explicit imported history append, retaining paperConfig. Separate from production S.PAPER and order-account authority.",
+        "staticConfidence": "high",
+        "line": 186,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "learnRead",
+      "group": "research",
+      "label": "学习状态",
+      "method": "GET",
+      "endpoint": "/api/learn-status",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/learning",
+        "control": "读取学习进度 / 处理已到期证据",
+        "status": "native_form",
+        "note": "Explicit bounded 1..60 processing action.",
+        "staticConfidence": "high",
+        "line": 191,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "learnRun",
+      "group": "research",
+      "label": "更新学习",
+      "method": "POST",
+      "endpoint": "/api/learn-status",
+      "role": "edit",
+      "payload": {
+        "force": true,
+        "limit": "1..60"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/learning",
+        "control": "读取学习进度 / 处理已到期证据",
+        "status": "native_form",
+        "note": "Explicit bounded 1..60 processing action.",
+        "staticConfidence": "high",
+        "line": 191,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "runtimeRead",
+      "group": "research",
+      "label": "研究运行条件",
+      "method": "GET",
+      "endpoint": "/api/research/learning-runtime",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/learning",
+        "control": "检查当前运行条件 / 核对本地模型摘要",
+        "status": "native_form",
+        "note": "Shared client sends Bearer header; no credential query parameters.",
+        "staticConfidence": "high",
+        "line": 196,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "runtimeProbe",
+      "group": "research",
+      "label": "本地模型检查",
+      "method": "POST",
+      "endpoint": "/api/research/learning-runtime",
+      "role": "edit",
+      "payload": {
+        "probeModel": true
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/learning",
+        "control": "检查当前运行条件 / 核对本地模型摘要",
+        "status": "native_form",
+        "note": "Shared client sends Bearer header; no credential query parameters.",
+        "staticConfidence": "high",
+        "line": 196,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "capabilities",
+      "group": "research",
+      "label": "研究容量",
+      "method": "GET",
+      "endpoint": "/api/research/capabilities",
+      "role": "edit",
+      "payload": null,
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "读取数据能力",
+        "status": "native_form",
+        "note": "",
+        "staticConfidence": "high",
+        "line": 185,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "scan",
+      "group": "research",
+      "label": "导入历史扫描",
+      "method": "POST",
+      "endpoint": "/api/research/scan",
+      "role": "edit",
+      "payload": "historyJSON",
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "仅扫描形态与条件 / 仅重建研究账本",
+        "status": "advanced_input",
+        "note": "Explicit original history JSON input.",
+        "staticConfidence": "high",
+        "line": 176,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "ledger",
+      "group": "research",
+      "label": "导入历史账本",
+      "method": "POST",
+      "endpoint": "/api/research/ledger",
+      "role": "edit",
+      "payload": "historyJSON",
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "仅扫描形态与条件 / 仅重建研究账本",
+        "status": "advanced_input",
+        "note": "Explicit original history JSON input.",
+        "staticConfidence": "high",
+        "line": 176,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "cacheScan",
+      "group": "research",
+      "label": "内存扫描",
+      "method": "POST",
+      "endpoint": "/api/research/cache-scan",
+      "role": "edit",
+      "payload": {
+        "limit": 50
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "内存形态扫描 / 内存账本实验 / 磁盘形态扫描 / 磁盘账本实验",
+        "status": "native_form",
+        "note": "Actual dynamic action loop forms the original four endpoint paths and correct limit/codes payloads.",
+        "staticConfidence": "high",
+        "line": 182,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "cacheLedger",
+      "group": "research",
+      "label": "内存回测",
+      "method": "POST",
+      "endpoint": "/api/research/cache-ledger",
+      "role": "edit",
+      "payload": {
+        "limit": 50
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "内存形态扫描 / 内存账本实验 / 磁盘形态扫描 / 磁盘账本实验",
+        "status": "native_form",
+        "note": "Actual dynamic action loop forms the original four endpoint paths and correct limit/codes payloads.",
+        "staticConfidence": "high",
+        "line": 182,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "diskSave",
+      "group": "research",
+      "label": "保存K线缓存",
+      "method": "POST",
+      "endpoint": "/api/research/disk-save",
+      "role": "edit",
+      "payload": {
+        "codes": []
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "保存指定历史到磁盘 / 明确更新历史K线",
+        "status": "native_form",
+        "note": "Explicit validated code-list input.",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "diskScan",
+      "group": "research",
+      "label": "磁盘扫描",
+      "method": "POST",
+      "endpoint": "/api/research/disk-scan",
+      "role": "edit",
+      "payload": {
+        "codes": []
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "内存形态扫描 / 内存账本实验 / 磁盘形态扫描 / 磁盘账本实验",
+        "status": "native_form",
+        "note": "Actual dynamic action loop forms the original four endpoint paths and correct limit/codes payloads.",
+        "staticConfidence": "high",
+        "line": 182,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "diskLedger",
+      "group": "research",
+      "label": "磁盘回测",
+      "method": "POST",
+      "endpoint": "/api/research/disk-ledger",
+      "role": "edit",
+      "payload": {
+        "codes": []
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "内存形态扫描 / 内存账本实验 / 磁盘形态扫描 / 磁盘账本实验",
+        "status": "native_form",
+        "note": "Actual dynamic action loop forms the original four endpoint paths and correct limit/codes payloads.",
+        "staticConfidence": "high",
+        "line": 182,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "historyRefresh",
+      "group": "research",
+      "label": "刷新历史",
+      "method": "POST",
+      "endpoint": "/api/research/history-refresh",
+      "role": "edit",
+      "payload": {
+        "codes": []
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "保存指定历史到磁盘 / 明确更新历史K线",
+        "status": "native_form",
+        "note": "Explicit validated code-list input.",
+        "staticConfidence": "high",
+        "line": 181,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "observedRegime",
+      "group": "research",
+      "label": "导入市场环境",
+      "method": "POST",
+      "endpoint": "/api/research/observed-regime",
+      "role": "edit",
+      "payload": {
+        "snapshot": "provenance-richstockarray",
+        "scores": "optional",
+        "scoreSource": "optional",
+        "scoreDate": "optional",
+        "minCoverage": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/desk",
+        "control": "验证市场观测",
+        "status": "advanced_input",
+        "note": "Explicit provenance-rich snapshot JSON preserves optional independent scoring/coverage fields.",
+        "staticConfidence": "high",
+        "line": 130,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "breadth",
+      "group": "research",
+      "label": "市场宽度",
+      "method": "POST",
+      "endpoint": "/api/research/eastmoney-breadth",
+      "role": "edit",
+      "payload": {},
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/desk",
+        "control": "读取市场宽度 / 只看公开市场交集 / 运行决策链",
+        "status": "native_form",
+        "note": "Native coverage field and optional explicit independent scoring JSON; no navigation-triggered runs.",
+        "staticConfidence": "high",
+        "line": 123,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "liveMarket",
+      "group": "research",
+      "label": "市场与候选交集",
+      "method": "POST",
+      "endpoint": "/api/research/live-market",
+      "role": "edit",
+      "payload": {
+        "scores": "optional",
+        "scoreSource": "optional",
+        "scoreDate": "optional",
+        "minCoverage": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/desk",
+        "control": "读取市场宽度 / 只看公开市场交集 / 运行决策链",
+        "status": "native_form",
+        "note": "Native coverage field and optional explicit independent scoring JSON; no navigation-triggered runs.",
+        "staticConfidence": "high",
+        "line": 123,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "decisionPipeline",
+      "group": "research",
+      "label": "研究主链",
+      "method": "POST",
+      "endpoint": "/api/research/decision-pipeline",
+      "role": "edit",
+      "payload": {
+        "scores": "optional",
+        "scoreSource": "optional",
+        "scoreDate": "optional",
+        "minCoverage": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/desk",
+        "control": "读取市场宽度 / 只看公开市场交集 / 运行决策链",
+        "status": "native_form",
+        "note": "Native coverage field and optional explicit independent scoring JSON; no navigation-triggered runs.",
+        "staticConfidence": "high",
+        "line": 123,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "ruleComparison",
+      "group": "research",
+      "label": "四体系对照",
+      "method": "POST",
+      "endpoint": "/api/research/rule-comparison",
+      "role": "edit",
+      "payload": {
+        "scores": "optional",
+        "myrulesInput": "optional",
+        "baziInput": "optional",
+        "pythonResult": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/strategies",
+        "control": "对照四套规则",
+        "status": "advanced_input",
+        "note": "Explicit independent scores/myrulesInput/baziInput/pythonResult; four rule systems remain separate.",
+        "staticConfidence": "high",
+        "line": 119,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "nativeDaily",
+      "group": "research",
+      "label": "原生四体系逐日研究",
+      "method": "POST",
+      "endpoint": "/api/reference-strategy-research",
+      "role": "edit",
+      "payload": {
+        "history": "dataset",
+        "snapshots": {},
+        "pythonEvidence": {},
+        "splitDay": "optional"
+      },
+      "native": {
+        "file": "V6_BO/public/nova/research.js",
+        "route": "#/lab/backtest",
+        "control": "原策略历史对照",
+        "status": "advanced_input",
+        "note": "Explicit original history/snapshots/pythonEvidence/splitDay JSON. An added extension can provide richer native fields.",
+        "staticConfidence": "high",
+        "line": 178,
+        "verification": "source_action_and_payload_review_only",
+        "runtime": "not_exercised_by_this_audit"
+      }
+    },
+    {
+      "id": "workbook",
+      "group": "research",
+      "label": "表格导入",
+      "method": "POST",
+      "endpoint": "/api/research/import-workbook",
+      "role": "edit",
+      "payload": "parsed workbook JSON",
+      "native": {
+        "file": "V6_BO/public/nova/workbook-view.js",
+        "route": "#/lab/sources",
+        "control": "股票清单入口 / 预览清单",
+        "status": "native_form",
+        "note": "Actual existing XLSX contract is {base64,sheet?}; CSV/TSV/TXT parsing is ported pure business logic; strict JSON stock lists added. Explicit preview, sheet choice and stale/abort fencing.",
+        "staticConfidence": "high",
+        "line": 4,
+        "verification": "source_review_and_controlled_dom_mock_tests",
+        "runtime": "not_exercised_by_this_audit",
+        "actualPayload": {
+          "base64": "XLSX bytes encoded as base64",
+          "sheet": "optional selected sheet name"
+        }
+      }
+    }
+  ]
+}

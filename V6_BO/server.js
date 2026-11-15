@@ -275,7 +275,7 @@ function _clampInt(v, lo, hi, dflt) {
 }
 // 前端版本号：每次改完 public/index.html 必须同步 +1（见 index.html 顶部 APP_VER）。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261115db'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261115dc'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -19547,7 +19547,8 @@ async function sendPwdCard(_unusedPwd, reason) {
   return r;
 }
 // 允许在线编辑的源码清单（白名单，禁止目录穿越）
-const EDITABLE_SRC = ['server.js', 'analysis.js', 'em.js', 'mailer.js', 'themeMap.json', 'public/index.html'];
+const FAYO_SRC = ['index.html','app.js','ui.js','client.js','market.js','market-evidence.js','workbook.js','workbook-view.js','research-extensions.js','research.js','research-records.js','operations.js','fayo.css','mark.svg'].map(file=>'public/nova/'+file);
+const EDITABLE_SRC = ['server.js', 'analysis.js', 'em.js', 'mailer.js', 'themeMap.json', 'public/index.html', ...FAYO_SRC];
 
 // 接口响应统一出口。手机端「刷新慢」的一大主因是 /api/state 这类响应动辄几百 KB，
 // 4G 下拉取+解析都很吃力。这里对超过 1KB 的响应做 gzip（通常能压到 1/5 ~ 1/10），
@@ -19703,7 +19704,7 @@ function handle(req, res, u, body) {
     }
   }
   // ---- 跨设备访问门禁：静态页面与密码接口放行，其余数据接口非本机须持有效 token ----
-  const isAsset = p === '/model-library.html' || p === '/assets/model-library-catalog.json' || p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/v6-research.html' || p === '/v6-validation.html' || p === '/v6-paper.html' || p === '/v6-market-radar.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
+  const isAsset = p.startsWith('/nova/') || /^\/legacy\/(?:[a-z0-9-]+\.html|m)$/.test(p) || p === '/model-library.html' || p === '/assets/model-library-catalog.json' || p === '/research.html' || p === '/picks.html' || p === '/auction-picks.html' || p === '/reference-dashboard.html' || p === '/v6-studio.html' || p === '/v6-matches.html' || p === '/v6-research.html' || p === '/v6-validation.html' || p === '/v6-paper.html' || p === '/v6-market-radar.html' || p === '/' || p === '/index.html' || p === '/m' || p === '/mobile.html' || p === '/manifest.json' || p === '/sw.js' || /\.(ico|png|jpg|jpeg|gif|css|js|svg|woff2?)$/.test(p);
   // trust 必须在白名单内：外部设备正是靠它完成"验证口令→签发长期令牌"，不能被门禁先拦
   // 找回密码三步聚 allowlist：忘记密码时手头没有任何凭证，必须在门禁之前放行，否则永远走不下去
   const isAuth = p === '/api/lock/status' || p === '/api/lock/setup' || p === '/api/lock/unlock' || p === '/api/lock/change' || p === '/api/lock/trust'
@@ -20911,7 +20912,7 @@ function handle(req, res, u, body) {
   if (p === '/api/stream') {
     // 云端 SSE 必须先完成鉴权。此前无凭证被默认为 view，仍可订阅公共推送。
     // 本机免密规则仅在非 QD_CLOUD 模式下有效，保持原有本地使用体验。
-    const _streamToken = (u.searchParams && u.searchParams.get('token')) || '';
+    const _streamToken = req.__tok || (u.searchParams && u.searchParams.get('token')) || '';
     const _role = isLocalReq(req) ? 'edit' : roleOf(_streamToken, clientIp(req));
     if (!_role) {
       res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -21007,7 +21008,7 @@ function handle(req, res, u, body) {
   }
   // ---- 开发者锁路由：设置密码 / 解锁 / 改密 / 锁状态 / 受保护的源码读写 ----
   if (p === '/api/lock/status') {
-    const tok0 = (u.searchParams && u.searchParams.get('token')) || '';
+    const tok0 = req.__tok || (u.searchParams && u.searchParams.get('token')) || '';
     const role0 = isLocalReq(req) ? 'edit' : roleOf(tok0, clientIp(req));
     // 「为什么又要我重新登录」的自证字段：世代号每 +1 就把之前签发的所有令牌作废。
     // 只有在本人已持开发者身份时才给，避免匿名者据此推断我方口令变更频次。
@@ -21032,7 +21033,7 @@ function handle(req, res, u, body) {
     if (!pwd || pwd.length < 4 || pwd.length > PWD_MAXLEN) return json(res, { ok: false, error: '密码至少 4 位，且不超过 200 位' });
     if (role === 'view') {
       // 观看密码属敏感权限配置：只能由本机或已持开发者密码的设备设定
-      if (!isLocalReq(req) && roleOf(tok, clientIp(req)) !== 'edit') return json(res, { ok: false, error: '只有开发者可以设置观看密码', readOnly: true });
+      if (!isLocalReq(req) && roleOf(tok || req.__tok, clientIp(req)) !== 'edit') return json(res, { ok: false, error: '只有开发者可以设置观看密码', readOnly: true });
       // ⛔ 2026-10-06 修（本轮角度：提示指向的入口必须真实存在）：
       //    原文案写「请在开发者锁面板里修改」，但面板 bv 轮已改成 5 个标签页
       //    （📱 设备 / 👁 观看 / 🔢 授权码 / 📲 找回 / 📝 源码），压根没有一个叫「开发者锁面板」的东西。
@@ -21119,7 +21120,7 @@ const dt2 = issueDevice({ name: '开发者登录·' + (_unm || 'web'), ip: clien
     if (!npwd || npwd.length < 4 || npwd.length > PWD_MAXLEN) return json(res, { ok: false, error: '新密码至少 4 位，且不超过 200 位' });
     if (role === 'view') {
       // 观看密码由开发者掌管：本机或持开发者令牌即可设置/重置，无需知道旧的观看密码
-      if (!isLocalReq(req) && roleOf(tok, clientIp(req)) !== 'edit') return json(res, { ok: false, error: '需要开发者权限才能设置观看密码', readOnly: true });
+      if (!isLocalReq(req) && roleOf(tok || req.__tok, clientIp(req)) !== 'edit') return json(res, { ok: false, error: '需要开发者权限才能设置观看密码', readOnly: true });
       // ⚠️ 发布后 _post_publish.py 会例行重设一次观看密码（密码其实并没变）。
       //    若不判断就沿用下面那套逻辑：清空 devices + _devGenBump → 手机上所有只读令牌当场作废
       //    → 表现为「你改一次版本我就要重新登录」（2026-09-30 用户质问，当天发 6 版 = 重登 6 次）。
@@ -21149,7 +21150,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         note: `观看密码已更新；${_oldN} 台已授权只读设备已全部作废，需重新申请并由你确认`
       });
     }
-    if (!checkToken(tok) || !pwdOk(pwd, 'edit')) return json(res, { ok: false, error: '验证失败' });
+    if (!checkToken(tok || req.__tok) || !pwdOk(pwd, 'edit')) return json(res, { ok: false, error: '验证失败' });
     const salt = crypto.randomBytes(16).toString('hex');
     const oldDev = (accessSecret && accessSecret.devices) || {};
     accessSecret = { salt, hash: hashPwd(npwd, salt), setAt: new Date().toISOString(), devices: {}, view: (accessSecret && accessSecret.view) || null, machineKey: (accessSecret && accessSecret.machineKey) || _runtimeMK || undefined, gen: _devGenBump('edit') };
@@ -22195,8 +22196,8 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // ---------------- 我的持仓（私密）----------------
   // 查看权限：仅「本机」或「开发者密码」登录的设备；观看密码（只读）一律看不到持仓一栏
   if (p === '/api/holdings' && req.method === 'GET') {
-    const tok = (u.searchParams && u.searchParams.get('token')) || '';
-    if (!isLocalReq(req) && roleOf(tok, clientIp(req)) !== 'edit')
+    const tok = req.__tok || (u.searchParams && u.searchParams.get('token')) || '';
+    if (!isLocalReq(req) && roleOf(tok || req.__tok, clientIp(req)) !== 'edit')
       return json(res, { ok: false, error: '持仓属私密数据，只读（观看）权限不可查看', hidden: true });
     HD.compute()
       .then(r => json(res, { ok: true, ...r }))
@@ -22301,7 +22302,12 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return json(res, { ok: false, error: '备份失败，已中止保存（原文件未被改动）：' + ((e && e.message) || e) });
     }
     if (/\.(js)$/.test(f)) {
-      try { new (require('vm').Script)(content, { filename: f }); }
+      try {
+        if (f.startsWith('public/nova/')) {
+          const checked=require('node:child_process').spawnSync(process.execPath,['--check','--input-type=module'],{input:content,encoding:'utf8',timeout:5000,maxBuffer:65536});
+          if(checked.error||checked.status!==0)throw Error((checked.stderr||checked.error?.message||'模块语法检查失败').slice(0,1000));
+        } else new (require('vm').Script)(content, { filename: f });
+      }
       catch (e) { return json(res, { ok: false, error: '语法错误，已拒绝保存：' + (e && e.message) }); }
     }
     // ⛔ 2026-10-06 修（本轮角度：磁盘状态的一致性 —— 而这里改写的正是**源码本身**）：
@@ -22323,7 +22329,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     try {
       const root = __dirname;
       const jsFiles = fs.readdirSync(root).filter(f => /\.js$/.test(f));
-      const extra = ['public/index.html', 'package.json'];
+      const extra = ['public/index.html', 'package.json', ...FAYO_SRC];
       const files = jsFiles.concat(extra);
       const parts = [];
       for (const f of files) {
@@ -23463,7 +23469,11 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   if (p === '/api/backtest/result') return json(res, (S.backtest && !S.backtestErr)
     ? S.backtest
     : { pending: !!S.backtestPending, empty: true, error: S.backtestErr || '' });
-  if (p === '/') p = '/index.html';
+  // FAYO owns every current product entry; former documents are recovery-only.
+  const fayoEntries = new Set(['/', '/m', '/index.html', '/mobile.html', '/picks.html', '/auction-picks.html', '/research.html', '/model-library.html', '/v6-studio.html', '/v6-matches.html', '/v6-research.html', '/v6-validation.html', '/v6-paper.html', '/v6-market-radar.html', '/reference-dashboard.html', '/nova/']);
+  if (fayoEntries.has(p)) p = '/nova/index.html';
+  else if (/^\/legacy\/(?:[a-z0-9-]+\.html|m)$/.test(p)) p = p === '/legacy/m' ? '/mobile.html' : p.slice('/legacy'.length);
+  // Legacy documents stay directly testable without being an active product entry.
   if (p === '/m') p = '/mobile.html';   // 手机速览页入口（2026-10-17）
   // 源码包下载：路径故意放在 /srcpkg/ 而不是 /api/ 下 —— 飞书内置浏览器点链接是普通跳转，
   // 不带 Origin，走 /api/ 前缀有被同源闸门误伤的风险（拿不到来源头时放行，但没必要赌）。

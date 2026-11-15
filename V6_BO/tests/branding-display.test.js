@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
 
-test('天枢智策 is the consistent user-facing brand; V6 remains an internal version identifier', () => {
+test('legacy brand remains archived while installed product has the new FAYO identity', () => {
   const desktop = read('index.html');
   const mobile = read('mobile.html');
   const research = read('research.html');
@@ -16,8 +16,8 @@ test('天枢智策 is the consistent user-facing brand; V6 remains an internal v
     assert.match(file, /天枢智策/, name);
     assert.doesNotMatch(file, /天书智能/, name);
   }
-  assert.equal(manifest.name, '天枢智策');
-  assert.equal(manifest.short_name, '天枢智策');
+  assert.equal(manifest.name, '绯曜 FAYO');
+  assert.equal(manifest.short_name, '绯曜');
   // November 15 explicitly replaces the old V6 logo with the brand emblem.
   // Version identifiers in paths and protocol fields must remain compatible.
   assert.match(desktop, /v6-ref-logo"[^>]*>◈<\/span>/);

@@ -145,6 +145,7 @@ jobs:
         run: |
           npm run build
           npm test
+          node --test ../V6_BO/scripts/build-fayo-static.test.js
           git diff --exit-code -- dist
       - name: Record web CI evidence in workflow summary
         if: always()
