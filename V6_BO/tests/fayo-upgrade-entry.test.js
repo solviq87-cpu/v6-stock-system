@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {upgrade,parseArgs}=require('../deploy/windows-host/fayo-upgrade');
+const {upgrade,parseArgs,waitForRelease}=require('../deploy/windows-host/fayo-upgrade');
 const {build}=require('../scripts/build-fayo-upgrade-entry');
 const OLD='a'.repeat(40),NEW='b'.repeat(40);
 function fixture(t){
@@ -8,7 +8,7 @@ function fixture(t){
  t.after(()=>fs.rmSync(home,{recursive:true,force:true}));let state={code:'stopped',sourceSha:OLD,health:false,mode:null};const calls=[],progress=[];
  const host={safeStartup:r=>{assert.equal(r,root);calls.push('private-validation');},checkHost:async()=>({...state}),stop:async()=>{calls.push('stop');state.code='stopped';},start:async({smoke})=>{calls.push('start:'+smoke);state={code:'running',sourceSha:NEW,health:true,mode:smoke?'smoke':'normal'};}};
  const updates={discover:async sha=>{calls.push('discover:'+sha);return{sha:NEW,changed:sha!==NEW,files:[],ciUrls:['test']};},update:async(options,deps)=>{calls.push('update');assert.equal(process.env.V6_MODEL_PYTHON,'/synthetic/python');assert.equal(options.root,root);assert.equal(options.approveSensitive,NEW);await deps.discover(OLD);await deps.discover(OLD);await deps.step('stopped');await deps.step('before-switch');state.sourceSha=NEW;return{code:'local-update-installed',backupVerified:true};}};
- return {home,name,root,calls,host,updates,options:{expectedSha:NEW,installationName:name},deps:{home,runtime:host,updater:updates,progress:s=>progress.push(s),prepareModelTools:async()=>'/synthetic/python'},progress,setState:s=>{state=s;}};
+ return {home,name,root,calls,host,updates,options:{expectedSha:NEW,installationName:name},deps:{home,runtime:host,updater:updates,progress:s=>progress.push(s),prepareModelTools:async()=>'/synthetic/python',waitForRelease:async()=>{}},progress,setState:s=>{state=s;}};
 }
 test('one action pins the exact release, validates the original private install and starts the normal service',async t=>{
  const previousPython=process.env.V6_MODEL_PYTHON;const f=fixture(t);const result=await upgrade(f.options,f.deps);assert.equal(process.env.V6_MODEL_PYTHON,previousPython);assert.equal(result.code,'fayo-ready');assert.equal(result.backupVerified,true);assert.equal(result.phoneConnected,false);assert.equal(f.calls[0],'private-validation');assert.equal(f.calls.filter(c=>c==='update').length,1);assert.equal(f.calls.filter(c=>c.startsWith('discover:')).length,2,'preflight is reused once; pre-switch still rechecks source');assert.ok(f.calls.includes('start:false'));assert.deepEqual(f.progress,['checking','validating','backing-up','switching','starting']);
@@ -73,4 +73,13 @@ function Start-Process { param([string]$FilePath) [IO.File]::WriteAllText($env:F
  const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);const last=calls.at(-1);assert.deepEqual(last.slice(0,4),['--distribution','Ubuntu-24.04','--exec','bash']);assert.equal(last.length,5,'one native path argument, even with spaces');assert.equal(fs.existsSync(path.dirname(last[4])),false,'temporary controls removed after success');
  fs.unlinkSync(opened);
  const failed=spawnSync(pwsh,['-NoProfile','-File',file],{env:{...env,FAYO_TEST_DENY:'1'},encoding:'utf8',timeout:15000,maxBuffer:65536});assert.equal(failed.status,1,failed.stdout+failed.stderr);assert.equal(fs.existsSync(opened),false,'failed upgrade never opens a misleading browser');assert.equal(fs.readdirSync(temp).length,0,'temporary controls removed after failure');
+});
+test('the entry waits for exact dev push release checks instead of making the user retry',async()=>{
+ let reads=0;const sleeps=[],progress=[];
+ const rows=status=>['V6 CI','V6 UI Browser Geometry'].map(name=>({name,head_sha:NEW,head_branch:'dev',event:'push',status,conclusion:status==='completed'?'success':null,run_number:2,run_attempt:1}));
+ await waitForRelease(NEW,{read:async url=>{assert.ok(url.includes('head_sha='+NEW));reads++;return{json:async()=>({total_count:2,workflow_runs:rows(reads===1?'in_progress':'completed')})};},sleep:async ms=>sleeps.push(ms),progress:s=>progress.push(s)});assert.equal(reads,2);assert.deepEqual(sleeps,[60000]);assert.deepEqual(progress,['waiting']);
+});
+test('failed and wrong-SHA release evidence never proceeds as a passed release',async()=>{
+ await assert.rejects(waitForRelease(NEW,{read:async()=>({json:async()=>({total_count:1,workflow_runs:[{name:'V6 CI',head_sha:NEW,head_branch:'dev',event:'push',status:'completed',conclusion:'failure'}]})})}),{code:'entry-release-check-failed'});
+ let reads=0;await assert.rejects(waitForRelease(NEW,{read:async()=>{reads++;return{json:async()=>({total_count:0,workflow_runs:[]})};},sleep:async()=>{}}),{code:'entry-release-check-timeout'});assert.equal(reads,13,'public polling is bounded');
 });
