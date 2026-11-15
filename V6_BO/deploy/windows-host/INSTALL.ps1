@@ -72,6 +72,11 @@ function Test-LinuxNode([string]$Distribution) {
     if (([string]$version[0]) -notmatch '^v([0-9]+)\.([0-9]+)\.') { return $false }
     return (([int]$Matches[1] -gt 22) -or ([int]$Matches[1] -eq 22 -and [int]$Matches[2] -ge 6))
 }
+function Test-ExistingInstance([string]$Distribution) {
+    # This probe requires only bash. Node may not have been installed yet.
+    & wsl.exe --distribution $Distribution --exec bash -c 'test -e "$HOME/.tian-shu-local"'
+    return ($LASTEXITCODE -eq 0)
+}
 function Install-LinuxTools([string]$Distribution) {
     if (-not (Ask-Consent 'Ubuntu 缺少基础运行依赖。是否允许通过 Ubuntu 官方 apt 软件源安装 Python、curl、文件锁等工具？不会修改 Windows 防火墙、VPN 或已有账户。')) {
         throw '基础工具尚未准备；未做系统修改。'
@@ -157,11 +162,10 @@ try {
     }
     $installed = @()
     foreach ($d in $distributions) {
-        $state = Get-HostStatus $source $d
-        if ($state.code -ne 'not-initialized') { $installed += [pscustomobject]@{ Distro = $d; Status = $state } }
+        if (Test-ExistingInstance $d) { $installed += $d }
     }
-    if ($installed.Count -gt 1) { throw '两个 Ubuntu 环境都有安装记录，拒绝自动选择，防止重复服务。' }
-    $distribution = if ($installed.Count -eq 1) { $installed[0].Distro } else { $distributions[0] }
+    if ($installed.Count -gt 1) { throw '两个 Ubuntu 环境都有安装目录，拒绝自动选择，防止重复服务。' }
+    $distribution = if ($installed.Count -eq 1) { $installed[0] } else { $distributions[0] }
     $detail = ((& wsl.exe --list --verbose 2>&1 | Out-String) -replace [char]0, '')
     if (-not ([regex]::IsMatch($detail, ('(?m)^\s*\*?\s*' + [regex]::Escape($distribution) + '\s+.+\s+2\s*$')))) {
         throw '未能确认 Ubuntu 为 WSL2。请先通过微软官方 WSL 管理界面确认版本，安装器不会自动改动其他发行版。'
