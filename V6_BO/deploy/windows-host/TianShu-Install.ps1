@@ -85,6 +85,6 @@ try {
     if($Mode -eq 'Install') {
         Add-Type -AssemblyName System.Windows.Forms
         [Windows.Forms.MessageBox]::Show('安装未完成：'+$_.Exception.Message+'。原账户和服务器没有被覆盖。','天枢智策 V6','OK','Error') | Out-Null
-    } else { Write-Error 'PACKAGE_VERIFICATION_FAILED' }
+    } elseif ($Mode -eq 'StageOnly') { Write-Error ('PACKAGE_STAGING_FAILED: '+$_.Exception.Message) } else { Write-Error 'PACKAGE_VERIFICATION_FAILED' }
     exit 1
 }
