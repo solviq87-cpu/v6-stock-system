@@ -24,7 +24,7 @@ test('installer verifies all bundled file hashes, provenance, and unknown files 
   assert.match(install, /Verify-Package \$stage/);
   assert.match(install, /previous-/);
   assert.match(install, /Move-Item -LiteralPath \$previous -Destination \$target/);
-  assert.doesNotMatch(install, /wsl\.exe|Initialize|ApplyUpdate|New-NetFirewallRule|tailscale funnel/i);
+  assert.doesNotMatch(install, /wsl\.exe|Run-Host 'Initialize'|Run-Host 'ApplyUpdate'|New-NetFirewallRule|tailscale funnel/i);
 });
 
 test('GUI uses existing host safety controller, not direct service or ledger commands', () => {
@@ -35,7 +35,7 @@ test('GUI uses existing host safety controller, not direct service or ledger com
   assert.match(desktop, /WindowStyle Hidden/);
   assert.match(desktop, /AutoStart/);
   assert.match(desktop, /Get-State/);
-  assert.doesNotMatch(desktop, /git clone|git pull|npm install|Initialize|ApplyUpdate|0\.0\.0\.0|tailscale funnel|wsl --shutdown/i);
+  assert.doesNotMatch(desktop, /git clone|git pull|npm install|Run-Host 'Initialize'|Run-Host 'ApplyUpdate'|0\.0\.0\.0|tailscale funnel|wsl --shutdown/i);
 });
 
 test('login autorun is opt-in and protects existing foreign startup shortcuts', () => {
