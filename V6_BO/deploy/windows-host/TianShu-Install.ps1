@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 $source=[IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
 $base=Join-Path $env:LOCALAPPDATA 'TianShuV6'
 $target=Join-Path $base 'current'
-$desktop=Join-Path ([Environment]::GetFolderPath('Desktop')) '天枢智策 V6（本机服务器）.lnk'
+$desktop=Join-Path ([Environment]::GetFolderPath('Desktop')) 'TianShu V6 - Local Server.lnk'
 $exe=Join-Path $PSHOME 'powershell.exe'
 function Verify-Package([string]$Root) {
     $sumFile=Join-Path $Root 'SHA256SUMS.txt'
@@ -82,7 +82,7 @@ try {
     }
     Install-Shortcut
     if ($Mode -eq 'StageOnly') { Write-Output ('STAGED:'+$sha); exit 0 }
-    [Windows.Forms.MessageBox]::Show('安装完成：桌面出现“天枢智策 V6（本机服务器）”。原账户、持仓、历史与网络设置没有被更改。','天枢智策 V6','OK','Information') | Out-Null
+    [Windows.Forms.MessageBox]::Show('安装完成：桌面出现“TianShu V6 - Local Server”快捷方式。打开后是中文界面。原账户、持仓、历史与网络设置没有被更改。','天枢智策 V6','OK','Information') | Out-Null
     & $exe -NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File (Join-Path $target 'TianShu-Desktop.ps1') -Mode Gui
     exit $LASTEXITCODE
 } catch {
