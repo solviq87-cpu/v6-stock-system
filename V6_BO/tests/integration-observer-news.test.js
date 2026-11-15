@@ -18,7 +18,7 @@ test('actual push observer retains the frozen signal hash in the durable queue a
 });
 function newsStats(stocks){
  const start=source.indexOf('const statOf = codes => {'),end=source.indexOf('const relCodeMap =',start);
- return new Function('S','A','fundsNumber',source.slice(start,end)+'\nreturn statOf;')({stocks},{isLimitUp:(_code,_name,pct)=>pct>=10},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
+ return new Function('D','A','fundsNumber',source.slice(start,end)+'\nreturn statOf;')({stocks},{isLimitUp:(_code,_name,pct)=>pct>=10},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
 }
 test('actual news statistics preserve missing pct/funds while true zero remains valid',()=>{
  let stats=newsStats([{code:'600000',price:10,pct:null,mainInflow:null}])(['600000']);
@@ -31,7 +31,7 @@ test('actual news statistics preserve missing pct/funds while true zero remains 
 });
 test('actual related-news rows retain null pct rather than inventing a zero return',()=>{
  const start=source.indexOf('const relCodeMap ='),end=source.indexOf('return json(res, {',start);
- const related=new Function('S','A','fundsNumber',source.slice(start,end)+'\nreturn relatedOf;')({stocks:[{code:'600000',price:10,pct:null}],secStocks:new Map([['fixture',{list:[{code:'000001',price:5,pct:null}]}]])},{isJunkName:()=>false},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
+ const related=new Function('D','A','fundsNumber',source.slice(start,end)+'\nreturn relatedOf;')({stocks:[{code:'600000',price:10,pct:null}],secStocks:new Map([['fixture',{list:[{code:'000001',price:5,pct:null}]}]])},{isJunkName:()=>false},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
  assert.equal(related({codes:['600000'],sectors:[]}).direct[0].pct,null);
  assert.equal(related({codes:[],sectors:['fixture']}).indirect[0].pct,null);
 });

@@ -22,6 +22,6 @@ test('天枢智策 is the consistent user-facing brand; V6 remains an internal v
   // Version identifiers in paths and protocol fields must remain compatible.
   assert.match(desktop, /v6-ref-logo"[^>]*>◈<\/span>/);
   assert.match(mobile, /v6-mobile-logo"[^>]*>◈<\/span>/);
-  assert.equal((dashboard.match(/<strong(?:\s[^>]*)?>天枢智策<\/strong>/g) || []).length, 2);
+  assert.equal((dashboard.match(/<strong(?:\s[^>]*)?>天枢智策<\/strong>/g) || []).length, 1, 'one brand in the new shell; the old duplicate footer brand is removed');
   assert.match(dashboard, /<strong role="heading" aria-level="1">天枢智策<\/strong>/);
 });

@@ -1,0 +1,126 @@
+/* Presentation only. Hidden sections keep their original controllers and permission gates. */
+(() => {
+  'use strict';
+  function start() {
+    const desktop = document.body.classList.contains('desktop-workspace');
+    const dashboard = document.getElementById('vx-dashboard');
+    if (!dashboard) return;
+
+    // Deep links select the original module, rather than sending the user down
+    // a document containing every account, research and administration form.
+    if (desktop) {
+      const modules = [...document.querySelectorAll('.workspace-module')];
+      const directory = document.querySelector('.workspace-directory');
+      const settings = document.getElementById('workspace-settings');
+      const health = document.querySelector('.v6-ui-health');
+      if (settings && health) settings.append(health);
+      const heading = document.createElement('header');
+      heading.className = 'ow-module-heading';
+      heading.innerHTML = '<span class="ow-eyebrow">TIANSHU / WORKSPACE</span><h1></h1><a href="#vx-dashboard">← 返回市场工作台</a>';
+      heading.hidden = true;
+      dashboard.after(heading);
+      function navigate() {
+        let target;
+        try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch (_) {}
+        const active = target?.closest('.workspace-module');
+        dashboard.hidden = !!active;
+        heading.hidden = !active;
+        if (active) heading.querySelector('h1').textContent = active.getAttribute('aria-label') || '工作台';
+        modules.forEach(node => { node.hidden = !!active ? node !== active : true; });
+        if (directory) directory.hidden = active !== settings;
+        document.querySelectorAll('.vx-sidebar>a,.vx-mainnav>a').forEach(link => {
+          let node;
+          try { node = document.getElementById(link.hash.slice(1)); } catch (_) {}
+          const current = active ? node?.closest('.workspace-module') === active : link.hash === '#vx-dashboard';
+          if (current) link.setAttribute('aria-current','page'); else link.removeAttribute('aria-current');
+        });
+      }
+      navigate();
+      addEventListener('hashchange', navigate);
+    }
+
+    const providerLinks = document.getElementById('vx-provider-links');
+    if (providerLinks) {
+      const disclosure = document.createElement('details');
+      disclosure.className = 'ow-provider-details';
+      const summary = document.createElement('summary');
+      summary.textContent = '外部行情参考';
+      providerLinks.before(disclosure);
+      disclosure.append(summary, providerLinks);
+    }
+
+    // The chart and short explanation stay visible. Longer evidence is one
+    // navigable tray so five empty cards never occupy the whole right column.
+    const detail = dashboard.querySelector('.vx-detail-column');
+    const definitions = [
+      ['vx-condition-panel','命中条件'], ['vx-issuer-panel','公司公告'],
+      ['vx-pattern-panel','形态研究'], ['vx-research-panel','研究预演']
+    ];
+    if (detail) {
+      const tray = document.createElement('section');
+      tray.className = 'ow-evidence-tray';
+      tray.setAttribute('aria-label','所选股票的研究证据');
+      const nav = document.createElement('div');
+      nav.className = 'ow-detail-nav';
+      nav.setAttribute('role','tablist');
+      nav.setAttribute('aria-label','研究证据分类');
+      const panels = [];
+      definitions.forEach(([id,label], index) => {
+        const panel = document.getElementById(id);
+        if (!panel) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'ow-tab-' + id;
+        button.textContent = label;
+        button.setAttribute('role','tab');
+        button.setAttribute('aria-controls', id);
+        panel.setAttribute('role','tabpanel');
+        panel.setAttribute('aria-labelledby',button.id);
+        panel.classList.add('ow-detail-panel');
+        panels.push([button,panel]);
+        nav.append(button);
+      });
+      function activate(index, focus) {
+        panels.forEach(([button,panel],i) => {
+          button.setAttribute('aria-selected', String(i === index));
+          button.tabIndex = i === index ? 0 : -1;
+          panel.hidden = i !== index;
+        });
+        if (focus) panels[index][0].focus();
+      }
+      panels.forEach(([button],index) => button.addEventListener('click',() => activate(index,false)));
+      nav.addEventListener('keydown', event => {
+        const index = panels.findIndex(([button]) => button === event.target);
+        if (index < 0 || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? panels.length-1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + panels.length) % panels.length;
+        activate(next,true);
+      });
+      tray.append(nav, ...panels.map(([,panel]) => panel));
+      detail.append(tray);
+      if (panels.length) activate(0,false);
+    }
+
+    const banner = document.getElementById('ow-snapshot-banner');
+    function showSnapshot(data) {
+      if (!banner) return;
+      // Dates originate at the server snapshot boundary, never from a refresh
+      // clock: a Sunday HTTP success cannot make Friday's price live.
+      const rawDay = typeof data?.snapshotDay === 'string' ? data.snapshotDay : '';
+      const day = /^\d{8}$/.test(rawDay) ? rawDay.slice(0,4)+'-'+rawDay.slice(4,6)+'-'+rawDay.slice(6,8) : /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : '';
+      const retained = data?.snapshotRetained === true || data?.trading === false || data?.isSnapshot === true;
+      banner.hidden = !data || !retained;
+      if (!data || !retained) return;
+      banner.textContent = day ? `${data.trading===true?'保留快照':'休市快照'} · ${day}　保留最近交易日行情与股票池，资讯继续更新。` : '当前展示历史快照 · 原始交易日待核验；行情与资讯分别更新时间。';
+    }
+    showSnapshot(window.__v6Dashboard);
+    addEventListener('v6-dashboard-data', event => showSnapshot(event.detail));
+    addEventListener('v6-dashboard-offline', () => {
+      if (!banner || !window.__v6Dashboard) return;
+      banner.hidden = false;
+      banner.textContent = '连接暂时中断 · 保留上次成功读取的行情与股票池，当前内容不代表实时。';
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();

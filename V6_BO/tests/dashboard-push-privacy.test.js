@@ -37,6 +37,15 @@ test('real state and mobile routes hide private push history from viewers and pr
   fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify(access));
   const privateCode='600987',privateTitle='PRIVATE_HISTORY_FIXTURE_TITLE',privateNote='PRIVATE_HISTORY_FIXTURE_NOTE';
   fs.writeFileSync(path.join(tmp,'pushlog.json'),JSON.stringify([{ts:Date.now()-1000,status:'✅ 已送达(私密)',title:privateTitle,note:privateNote,channel:'飞书·私密',extra:{codes:[privateCode]}}]));
+  // A previous process retained public market cards. Exercise both real routes
+  // without loading a stock universe or allowing an external network request.
+  const snapshotAt=Date.now()-14*86400000;
+  const snapshotDay=new Date(snapshotAt+8*3600000).toISOString().slice(0,10).replaceAll('-','');
+  fs.mkdirSync(path.join(tmp,'data'),{recursive:true});
+  fs.writeFileSync(path.join(tmp,'data','market-display-snapshot.json'),JSON.stringify({schemaVersion:1,day:snapshotDay,capturedAt:snapshotAt,
+    fields:{stocksAt:snapshotAt,idxRt:{at:snapshotAt,items:[{code:'1.000001',price:3200,quoteAt:snapshotAt}]},
+      candidatePool:[{code:'600001',name:'public-snapshot-fixture',price:10,score:60,quoteAt:snapshotAt,quoteSource:'fixture'}],
+      sectors:[{name:'public-sector-fixture',pct:1}],trendPool:[{code:'600001',price:10,quoteAt:snapshotAt}]},mood:{upN:10,downN:5}}));
   // Boot mode skips collectors; this additional fixture guard rejects all egress.
   fs.writeFileSync(path.join(tmp,'deny-network.cjs'),"for(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>{throw Error('fixture forbids outbound requests');};}global.fetch=()=>Promise.reject(Error('fixture forbids fetch'));\n");
   const port=await freePort();
@@ -61,6 +70,11 @@ test('real state and mobile routes hide private push history from viewers and pr
    assert.equal(item.stage,'history');assert.equal(item.pushHistory[0].title,privateTitle);assert.equal(item.pushHistory[0].note,privateNote);
    const restricted=await request(port,route,viewer);assert.equal(restricted.status,200);
    assert.ok(restricted.body.dashboard,'viewer retains the market dashboard');
+   assert.equal(restricted.body.dashboard.rows[0].code,'600001',route+' restores public pool after restart');
+   assert.equal(restricted.body.dashboard.indices[0].price,3200);
+   assert.equal(restricted.body.dashboard.snapshotDay,snapshotDay);
+   assert.equal(restricted.body.dashboard.rows[0].quoteAt,snapshotAt);
+   assert.equal(restricted.body.dashboard.isSnapshot,true);
    const serialized=JSON.stringify(restricted.body);
    for(const privateValue of [privateCode,privateTitle,privateNote])assert.ok(!serialized.includes(privateValue),route+' leaked '+privateValue);
    assert.equal(restricted.body.dashboard.pushes.channels.lastDispatch,null);

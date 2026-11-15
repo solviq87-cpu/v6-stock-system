@@ -1,6 +1,6 @@
 // Only the public application shell is available offline. Private responses and
 // market prices must always come from the server, including after revocation.
-const APP_VER = '20261115da';
+const APP_VER = '20261115db';
 const CACHE_PREFIX = 'quant-dashboard-m-';
 const CACHE_NAME = CACHE_PREFIX + APP_VER;
 const PRECACHE = ['/m', '/mobile.html', '/manifest.json', '/icon.svg'];

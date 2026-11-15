@@ -27,8 +27,9 @@ if(url==='/m'){
 }
 if(label==='mobile-reference-1024'){
   assert.ok(b.dock&&b.chart&&b.explanation,label+' missing dock or stock-detail cards');
-  assert.ok(Math.abs(b.chart.top-b.explanation.top)<=2,label+' original chart and explanation must start on same row');
-  assert.ok(Math.abs(b.chart.bottom-b.explanation.bottom)<=2,label+' original chart and explanation must share one outer card');
+  // Latest owner instruction replaces the old photo with a new independent layout.
+  assert.ok(b.chart.width>=width-50&&b.explanation.width>=width-50,label+' tablet chart and explanation use readable full-width cards');
+  assert.ok(b.chart.bottom<=b.explanation.top+2,label+' tablet chart and explanation stack in reading order');
   // The owner-authorized complete workspace now has an explicit status header
   // and more real controls. Verify the scrollable detail can be brought clear
   // of the dock, rather than requiring every control in a single first fold.

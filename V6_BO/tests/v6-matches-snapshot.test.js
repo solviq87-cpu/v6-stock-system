@@ -85,3 +85,28 @@ test('source timestamps remain unknown and scope is never promoted to all strate
   assert.equal(page.coverage.rule5,'not-evaluated');assert.equal(page.coverage.fullMarketCertified,false);
   assert.equal(page.coverage.allStrategyEngines,false);assert.ok(Object.isFrozen(page.coverage));
 });
+
+test('optional public completed-scan archive restores every paginated match after cold restart',t=>{
+  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-all-matches-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'snapshot.json'),first=createV6MatchesSnapshotStore({file}),input=mk(140);
+  input[0].token='NEVER_PERSIST';input[0].accountId='NEVER_PERSIST';input[0].quoteAt=1794299300000;
+  first.publish({items:input,asOf:1794299400000,totalScanned:5000,board:'all',evidence:{hotSectorsReady:true}});
+  const oldCursor=first.page({limit:100}).nextCursor;
+  const second=createV6MatchesSnapshotStore({file}),page=second.page({limit:100});
+  assert.equal(page.ok,true);assert.equal(page.asOf,1794299400000);assert.equal(page.totalStocks,140);
+  assert.equal(page.items[0].quoteAt,1794299300000);assert.equal(page.coverage.rule5,'available');
+  assert.equal(second.page({limit:100,cursor:page.nextCursor}).items.length,40);
+  assert.equal(second.page({limit:100,cursor:oldCursor}).status,'snapshot-changed');
+  assert.equal(fs.statSync(file).mode&0o777,0o600);assert.doesNotMatch(fs.readFileSync(file,'utf8'),/NEVER_PERSIST/);
+});
+
+test('corrupt or future persisted all-matches data fails closed without exposing parser contents',t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-all-matches-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'snapshot.json');
+ for(const text of ['private BROKEN',JSON.stringify({schemaVersion:1,asOf:Date.now()+86400000,rows:mk(1),totalScanned:1})]){
+  fs.writeFileSync(file,text);const errors=[],store=createV6MatchesSnapshotStore({file,onError:code=>errors.push(code)});
+  assert.equal(store.page().status,'not-ready');assert.deepEqual(errors,['v6-matches-display-snapshot-read']);
+ }
+});

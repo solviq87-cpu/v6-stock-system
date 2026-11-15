@@ -4,8 +4,8 @@
   "description": "天枢智策手机速览页：一句话明确结论 + 竞价/涨停/板块/明日计划",
   "start_url": "/m",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#130e20",
+  "theme_color": "#130e20",
   "orientation": "portrait",
   "scope": "/",
   "icons": [

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#130e20">
 <title>天枢智策 · 手机看盘</title>
 <style>
   :root{
@@ -135,7 +135,9 @@
 <link rel="stylesheet" href="/assets/reference-match.css?v=20261109cv">
 <link rel="stylesheet" href="/assets/original-reference-fidelity.css?v=20261109fidelity4">
 <link rel="stylesheet" href="/assets/desktop-workspace.css?v=20261115workspace1">
-<link rel="stylesheet" href="/assets/unified-workspace.css?v=20261115workspace1"><script defer src="/assets/unified-workspace.js?v=20261115workspace1"></script></head>
+<link rel="stylesheet" href="/assets/unified-workspace.css?v=20261115workspace1"><script defer src="/assets/unified-workspace.js?v=20261115prism1"></script><link rel="stylesheet" href="/assets/original-workspace.css?v=20261115prism1">
+<script defer src="/assets/original-workspace.js?v=20261115prism1"></script>
+</head>
 <body class="unified-workspace mobile-workspace">
 <div class="wrap" id="app" style="display:none">
   <div class="top">
@@ -487,7 +489,7 @@ async function relPublishMobile() {
 //    不一致 → 注销 SW + 带 _v/_r 双随机参数 location.replace，强制绕过缓存取新页。
 // ⛔ 两条护栏：① 用户正在口令框输入时不刷新（不冲掉人家打的字）；
 //    ② 30 秒内不重复强制刷新（防浏览器/SW 竞态下无限 reload）。
-const APP_VER = '20261115da';
+const APP_VER = '20261115db';
 let _verChkAt = 0;
 function forceRefreshToLatest() {
   const u = new URL(location.href);
@@ -655,7 +657,7 @@ async function loadShortline(manual){
   if (manual && btn) { btn.textContent = '🔄 刷新'; btn.disabled = false; }
 }
 function render(d){
- window.__v6Dashboard=d.dashboard||null;window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
+ window.__v6Dashboard=d.dashboard?{...d.dashboard,trading:d.trading,isSnapshot:d.isSnapshot??d.dashboard.isSnapshot,snapshotDay:d.snapshotDay||d.dashboard.snapshotDay,snapshotRetained:d.snapshotRetained??d.dashboard.snapshotRetained}:null;window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
   document.getElementById('app').style.display = '';
   document.getElementById('foot').style.display = '';
   document.getElementById('gate').style.display = 'none';
@@ -1297,6 +1299,6 @@ setInterval(() => {
 <script src="/assets/stock-provider-links.js?v=20261109cv"></script>
 <script src="/assets/stock-pattern-preview.js?v=20261108p1"></script>
 <script src="/assets/picks-periods.js?v=20261115workspace1"></script>
-<script src="/assets/terminal-dashboard.js?v=20261115workspace1"></script>
+<script src="/assets/terminal-dashboard.js?v=20261115prism1"></script>
 </body>
 </html>

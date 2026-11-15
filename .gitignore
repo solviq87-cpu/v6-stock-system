@@ -31,3 +31,11 @@ V6_BO/data/history-backfill-private/
 V6_BO/learn_pushed_outcomes_review.json
 V6_BO/learn_pushed_outcomes_review.json.lock
 V6_BO/learn_pushed_outcomes_review.json.*.tmp
+
+# Public market display recovery is runtime data, never a shipped fixture.
+V6_BO/data/market-display-snapshot.json
+V6_BO/data/market-display-snapshot.json.*.tmp
+V6_BO/data/market-response-snapshots.json
+V6_BO/data/market-response-snapshots.json.*.tmp
+V6_BO/data/v6-matches-display-snapshot.json
+V6_BO/data/v6-matches-display-snapshot.json.*.tmp

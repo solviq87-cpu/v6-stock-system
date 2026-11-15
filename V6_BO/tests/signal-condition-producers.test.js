@@ -35,6 +35,7 @@ function sandbox(src=source){
   govFoot:()=>'',govUndoOf:()=>[],pushLog(){},sseSend(){},productionSignalVersion:()=> 'fixture-version',
   logSignal:(...args)=>{logs.push(args);return {prob:args[4]};},pushAll:(...args)=>{messages.push(args);return true;},
   loadSectorHistory:()=>({}),buildZTRoleMap:()=>new Map(),maxDrawdown:()=>0,scoreSmoothOf:(_code,score)=>({score,rawScore:score}),empNdProb:()=>null,
+  rememberMarketScan:()=>{},
   _auctionResonanceCache:new Map(),AUCTION_RESONANCE_CACHE_MS:30000});
  for(const name of ['annotateSignalConditions','learningSignalExtra','fundsNumber','fundsRounded','fundsWindowSum'])vm.runInContext(fn(name,name==='annotateSignalConditions'?source:src),c);
  // Keep the actual purpose gates active in both sides of the metadata comparison.
