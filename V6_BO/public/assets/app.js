@@ -2474,28 +2474,28 @@ function logoutHere() {
 function showGate(msg) {
   let g = document.getElementById('gate');
   if (!g) {
-    g = document.createElement('div'); g.id = 'gate';
+    g = document.createElement('div'); g.id = 'gate'; g.className = 'v6-auth-gate';
     g.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#f8f9fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:inherit;text-align:center;padding:18px';
-    g.innerHTML = '<div style="font-size:22px;font-weight:800">📈 量化看盘平台</div>' +
-      '<div class="muted" style="font-size:13px;max-width:520px;white-space:normal;line-height:1.6">该设备需验证口令后才能查看数据。请选身份：<b>观看密码</b>＝只看行情；<b>开发者密码</b>＝可编辑，并能查看「我的持仓」。</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
+    g.innerHTML = '<div class="v6-auth-brand" role="heading" aria-level="1"><span class="v6-auth-mark" aria-hidden="true">V6</span><span>天枢智策<small>智能选股 · 策略研究 · 风险控制</small></span></div>' +
+      '<div class="muted v6-auth-lead" style="font-size:13px;max-width:520px;white-space:normal;line-height:1.6">该设备需验证口令后才能查看数据。请选身份：<b>观看密码</b>＝只看行情；<b>开发者密码</b>＝可编辑，并能查看「我的持仓」。</div>' +
+      '<div class="v6-auth-roles" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
       '<button class="btn ghost" id="gateTabView" onclick="gateRole(\'view\')">👁 观看密码（只读）</button>' +
       '<button class="btn ghost" id="gateTabEdit" onclick="gateRole(\'edit\')">🔓 开发者密码（可编辑）</button></div>' +
-      '<div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">' +
-      '<input type="password" id="gatePwd" placeholder="请输入口令" style="padding:10px 14px;width:230px;font-size:15px;border:1px solid #ced4da;border-radius:8px" autocomplete="current-password" spellcheck="false" autocorrect="off" autocapitalize="off" onpaste="setTimeout(gateClean,0)">' +
+      '<div class="v6-auth-credentials" style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">' +
+      '<input type="password" id="gatePwd" aria-label="登录密码" placeholder="请输入口令" style="padding:10px 14px;width:230px;font-size:15px;border:1px solid #ced4da;border-radius:8px" autocomplete="current-password" spellcheck="false" autocorrect="off" autocapitalize="off" onpaste="setTimeout(gateClean,0)">' +
       '<button class="btn ghost" style="padding:9px 12px;font-size:13px" onclick="gatePaste()" title="Ctrl+V 粘不进来时点这里，直接从剪贴板读取">📋 粘贴</button>' +
       '<button class="btn ghost" style="padding:9px 10px;font-size:13px" onclick="gateEye()" title="显示/隐藏密码，确认自己粘对了没">👁</button>' +
       '</div>' +
       '<div class="muted" id="gatePwdLen" style="font-size:12px;min-height:16px"></div>' +
-      '<button class="btn" onclick="gateSubmit()" style="padding:8px 22px;font-size:14px">验证 / 设置</button>' +
+      '<button class="btn v6-auth-submit" onclick="gateSubmit()" style="padding:8px 22px;font-size:14px">验证 / 设置</button>' +
       // 备用通道：6 位授权码，纯数字手打即可，绕开一切粘贴问题
-      '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #adb5bd;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">' +
+      '<div class="v6-auth-backup" style="margin-top:10px;padding-top:8px;border-top:1px dashed #adb5bd;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">' +
       '<span class="muted" style="font-size:12px">密码粘不进来？</span>' +
       '<input type="text" id="gateCode" placeholder="6位授权码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="padding:8px 10px;width:130px;font-size:16px;text-align:center;letter-spacing:5px;border:1px solid #ced4da;border-radius:8px">' +
       '<button class="btn ghost" style="padding:8px 12px;font-size:13px" onclick="gateRedeem()">🔢 用授权码登录</button>' +
       '</div>' +
       '<div class="muted" style="font-size:12px;max-width:520px;white-space:normal">在<b>已经登录</b>的那台设备（手机或电脑）打开「🔒 开发者锁 → 🔢 登录授权码」点一下生成，把这 6 位数字手打到这里就行 —— 不用粘密码，10 分钟内有效。</div>' +
-      '<label class="muted" style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="gateRemember" checked> 记住此设备，以后自动进入</label>' +
+      '<label class="muted v6-auth-remember" style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="gateRemember" checked> 记住此设备，以后自动进入</label>' +
       '<div class="muted" style="font-size:12px;max-width:520px;white-space:normal;min-height:18px" id="gateHint"></div>' +
       '<div class="muted" style="font-size:12px;min-height:18px;color:#c92a2a" id="gateTip">' + (msg || '') + '</div>' +
       // ⚠️ 「忘记开发者密码」入口默认隐藏：没绑定找回手机号时点进去才发现走不通，
