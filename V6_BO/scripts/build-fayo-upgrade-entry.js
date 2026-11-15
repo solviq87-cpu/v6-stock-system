@@ -4,9 +4,10 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const ROOT=path.resolve(__dirname,'../..');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const FILES=['host-runtime.js','safe-updater.js','fayo-upgrade.js','fayo-model-tools.js','fayo-network.js'];
-function build({sha,installationName,output,readSource}={}){
- if(!/^[a-f0-9]{40}$/.test(sha||'')||!/^\.tian-shu-[a-z0-9-]{1,60}$/.test(installationName||''))throw Error('invalid-entry-target');
- const read=readSource||((name)=>execFileSync('git',['show',sha+':V6_BO/deploy/windows-host/'+name],{cwd:ROOT,maxBuffer:1024*1024}));
+function build({sha,controlsSha=sha,installationName,output,readSource}={}){
+ if(!/^[a-f0-9]{40}$/.test(controlsSha||'')||!/^[a-f0-9]{40}$/.test(sha||'')||!/^\.tian-shu-[a-z0-9-]{1,60}$/.test(installationName||''))throw Error('invalid-entry-target');
+ if(!readSource&&controlsSha!==sha)execFileSync('git',['merge-base','--is-ancestor',sha,controlsSha],{cwd:ROOT});
+ const read=readSource||((name)=>execFileSync('git',['show',controlsSha+':V6_BO/deploy/windows-host/'+name],{cwd:ROOT,maxBuffer:1024*1024}));
  const assets=FILES.map(name=>{const bytes=Buffer.from(read(name));if(!bytes.length||bytes.length>512*1024)throw Error('invalid-entry-source');return {name,sha256:hash(bytes),data:bytes.toString('base64')};});
  const bootstrap='#!/bin/sh\nset -eu\nunset NODE_OPTIONS NODE_PATH\nPATH="$HOME/.local/bin:${PATH:-/usr/local/bin:/usr/bin:/bin}"\nexport PATH\ncd -- "$(dirname -- "$0")"\nexec node ./fayo-upgrade.js --expected-sha '+sha+' --installation-name '+installationName+'\n';
  assets.push({name:'bootstrap.sh',sha256:hash(bootstrap),data:Buffer.from(bootstrap).toString('base64')});
@@ -49,7 +50,7 @@ if (-not $ok) { exit 1 }
  const marker=':FAYO_POWERSHELL_PAYLOAD';
  const cmd='@echo off\r\nsetlocal\r\nset "FAYO_ENTRY_SELF=%~f0"\r\npowershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$raw=[IO.File]::ReadAllText($env:FAYO_ENTRY_SELF); $mark=\''+marker+'\'; $payload=$raw.Substring($raw.LastIndexOf($mark)+$mark.Length); & ([ScriptBlock]::Create($payload))"\r\nset "fayo_result=%ERRORLEVEL%"\r\npause\r\nexit /b %fayo_result%\r\n'+marker+'\r\n'+ps.replace(/\r?\n/g,'\r\n');
  if(output){const target=path.resolve(output);if(target.startsWith(ROOT+path.sep))throw Error('entry-output-must-be-outside-source');fs.writeFileSync(target,cmd,{flag:'wx',mode:0o600});}
- return {cmd,ps,sha,installationName,sizeBytes:Buffer.byteLength(cmd),sha256:hash(cmd)};
+ return {cmd,ps,sha,controlsSha,installationName,sizeBytes:Buffer.byteLength(cmd),sha256:hash(cmd)};
 }
 if(require.main===module){try{const args=process.argv.slice(2);if(args.length!==6||args[0]!=='--sha'||args[2]!=='--installation-name'||args[4]!=='--output')throw Error('usage');const {cmd,ps,...metadata}=build({sha:args[1],installationName:args[3],output:args[5]});console.log(JSON.stringify(metadata));}catch(e){console.error(e.message);process.exitCode=1;}}
 module.exports={build};

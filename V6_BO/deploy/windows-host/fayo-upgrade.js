@@ -46,7 +46,7 @@ async function upgrade(options,deps={}){
  progress('validating');
  let first=true;
  const previousPython=process.env.V6_MODEL_PYTHON;
- const modelPython=candidate.changed?await (deps.prepareModelTools||ensureModelPython)({home,env:process.env}):previousPython;
+ const modelPython=candidate.changed?await (deps.prepareModelTools||ensureModelPython)({home,env:process.env,progress}):previousPython;
  let result;
  try {
  if(modelPython)process.env.V6_MODEL_PYTHON=modelPython;
@@ -68,7 +68,7 @@ async function upgrade(options,deps={}){
  if(after.code!=='running'||!after.health||after.sourceSha!==options.expectedSha||after.mode==='smoke')fail('entry-start-not-ready');
  return {code:'fayo-ready',sourceSha:after.sourceSha,backupVerified:result.backupVerified===true,alreadyCurrent:result.code==='no-update',phoneConnected:false};
 }
-const messages={waiting:'正式检查仍在运行，程序会自动等待，请保持窗口打开。',checking:'1/4 检查原安装，保留原账户和历史。',validating:'2/4 核对正式版本与CI，自动进行隔离验证。可能需要几分钟，请保持窗口打开。','backing-up':'3/4 正在停服备份，并验证备份可以恢复。',switching:'3/4 正在切换已验证的新版本。',starting:'4/4 正在启动绯曜。'};
+const messages={'downloading-tools':'正在准备升级工具，连接慢时会自动重试，请保持窗口打开。',waiting:'正式检查仍在运行，程序会自动等待，请保持窗口打开。',checking:'1/4 检查原安装，保留原账户和历史。',validating:'2/4 核对正式版本与CI，自动进行隔离验证。可能需要几分钟，请保持窗口打开。','backing-up':'3/4 正在停服备份，并验证备份可以恢复。',switching:'3/4 正在切换已验证的新版本。',starting:'4/4 正在启动绯曜。'};
 if(require.main===module){
  process.umask(0o077);
  upgrade(parseArgs(process.argv.slice(2)),{progress:stage=>console.log(messages[stage]||stage)}).then(result=>{

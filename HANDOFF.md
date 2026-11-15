@@ -16,6 +16,7 @@
 - 用户明确不接受反复发包与逐条命令排错。新增固定SHA/既有目录的单文件继续升级入口，嵌入控制器，自动检查、备份/恢复预演、升级、启动及Windows页面验证；不初始化、不修改VPN/调度/电源。入口专项8/8（含真实PowerShell、模拟WSL与浏览器调用）通过；此前升级专项33/33。旧ea80709源码CI与浏览器通过，当前入口提交/新最终回执待核查，用户机尚未应用。
 - 单入口补验：所需回归依赖从缺失环境到私有venv/sklearn1.8的实际安装与导入已通过；固定pip wheel SHA校验、仅标准代理传递、无全局pip改写。入口/依赖/公开网络/原安全升级共49项通过，真实PowerShell包装器模拟调用通过；最新完整/远端门禁仍按最终SHA核对，用户机未运行新入口。
 - 发布后现场阻塞：dev固定2aada9876c9fbed1b42d001358c897587df12805，用户机升级入口在第2步报public-network-unavailable；Windows浏览器可读GitHub release API。尚不能区分GitHub检查、pip下载或Ubuntu传输，未完成本机替换。独立fix/fayo-network-diagnostics分支提供只读三地址双客户端探针，真实PowerShell+模拟WSL测试2/2，诊断只含HTTP/curl/TLS数字，不读取账号/代理凭据。未改dev或再次发布升级器。
+- 只读现场回执：Windows三地址HTTP200；Ubuntu GitHub release/checks均curl0、HTTP200、TLS0；Python bootstrap为curl28、HTTP200、TLS0，说明此次探针为响应后超时，不再泛化为GitHub或VPN全不可用。修复只延长固定pip bootstrap请求的有界等待/重试，保留TLS、大小与SHA校验；不合并dev，避免让已发入口的2aada目标失效。控制器修复与目标发布SHA分开绑定。
 <!-- CURRENT_CHECKPOINT_END -->
 
 ## 2026-11-15 · 最新核验交接与生产门禁（请优先阅读）

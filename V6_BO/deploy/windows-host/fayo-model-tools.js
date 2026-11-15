@@ -7,12 +7,12 @@ const PIP_HASH='9655943313a94722b7774661c21049070f6bbb0a1516bf02f7c8d5d9201514cd
 function fail(code){throw Object.assign(Error(code),{code});}
 function privateDir(dir){if(!fs.existsSync(dir))fs.mkdirSync(dir,{mode:0o700});const st=fs.lstatSync(dir);if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==process.getuid()||(st.mode&0o077))fail('model-tools-directory-unsafe');}
 async function downloadPip(fetchImpl=readPublic){
- const response=await fetchImpl(PIP_URL,{redirect:'error',signal:AbortSignal.timeout(60000)});
+ const response=await fetchImpl(PIP_URL,{redirect:'error',signal:AbortSignal.timeout(550000)});
  if(!response.ok)fail('model-tools-download-failed');const chunks=[];let size=0;
  for await(const bytes of response.body){size+=bytes.length;if(size>4*1024*1024)fail('model-tools-download-too-large');chunks.push(bytes);}
  const wheel=Buffer.concat(chunks);if(crypto.createHash('sha256').update(wheel).digest('hex')!==PIP_HASH)fail('model-tools-hash-mismatch');return wheel;
 }
-async function ensureModelPython({home,env=process.env},deps={}){
+async function ensureModelPython({home,env=process.env,progress=()=>{}},deps={}){
  const run=deps.run||spawnSync;
  const cleanEnv={PATH:env.PATH||'/usr/bin:/bin',HOME:home,LANG:'C.UTF-8',PIP_CONFIG_FILE:'/dev/null',...proxyEnv(env)};
  const check=python=>{const r=run(python,['-I','-c','import sklearn; assert sklearn.__version__ == "1.8.0"'],{env:cleanEnv,timeout:15000,encoding:'utf8',maxBuffer:8192});return !r.error&&r.status===0;};
@@ -29,6 +29,7 @@ async function ensureModelPython({home,env=process.env},deps={}){
  const invoke=(exe,args,timeout=60000)=>{const r=run(exe,args,{env:cleanEnv,timeout,encoding:'utf8',maxBuffer:65536});if(r.error||r.status!==0)fail('model-tools-prepare-failed');};
  try{
   invoke('python3',['-m','venv','--without-pip',stage]);
+  progress('downloading-tools');
   const wheel=await (deps.downloadPip||downloadPip)();const wheelFile=path.join(stage,'pip.whl');fs.writeFileSync(wheelFile,wheel,{flag:'wx',mode:0o600});
   const stagedPython=path.join(stage,'bin/python3');
   invoke(stagedPython,['-I','-c','import runpy,sys; sys.path.insert(0,sys.argv.pop(1)); runpy.run_module("pip",run_name="__main__")',wheelFile,'--isolated','--disable-pip-version-check','install','--no-cache-dir','--only-binary=:all:','--index-url','https://pypi.org/simple','scikit-learn==1.8.0'],300000);
