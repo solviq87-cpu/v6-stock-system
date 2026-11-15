@@ -597,3 +597,5 @@ body:is(.desktop-workspace,.mobile-workspace) .ow-provider-details a{font-size:1
 /* Period selection stays visually distinct from the generic action button. */
 body.inner-workspace .period-tabs button.period{background:#291b37!important;border-color:#583669!important;color:#c9addc!important}
 body.inner-workspace .period-tabs button.period[aria-pressed=true]{background:#704487!important;border-color:#c18cce!important;color:#fff1fc!important}
+/* Preserve the market research controls' existing touch-target contract. */
+body.inner-workspace #workspaceMarketLinkage :is(button,select,summary){min-height:44px}
