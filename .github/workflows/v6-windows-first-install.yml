@@ -67,7 +67,7 @@ jobs:
         with:
           ref: dev
           fetch-depth: 0
-      - name: Require CI and browser geometry green for this exact dev push SHA
+      - name: Verify exact dev SHA CI and require geometry if UI files changed
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -87,12 +87,24 @@ jobs:
           valid = [x for x in data.get('workflow_runs', []) if
                    x.get('head_sha') == sha and x.get('event') == 'push' and
                    x.get('head_branch') == 'dev']
-          for name in ('V6 CI', 'V6 UI Browser Geometry'):
+          for name in ('V6 CI',):
             runs = [x for x in valid if x.get('name') == name]
             assert runs, f'{name} not found for exact sha'
             newest = max(runs, key=lambda x: (x.get('run_number', 0), x.get('run_attempt', 0)))
             assert newest.get('status') == 'completed' and newest.get('conclusion') == 'success', f'{name} not green'
-          print('Verified both exact-head release gates: ' + sha)
+          # V6 UI Browser Geometry is intentionally path-filtered and won't run
+          # on installer-only changes. Require it when it runs; if absent,
+          # fail closed when this commit changes UI-related paths.
+          ui_runs = [x for x in valid if x.get('name') == 'V6 UI Browser Geometry']
+          if ui_runs:
+            newest = max(ui_runs, key=lambda x: (x.get('run_number', 0), x.get('run_attempt', 0)))
+            assert newest.get('status') == 'completed' and newest.get('conclusion') == 'success', 'UI browser geometry not green'
+          else:
+            changed = subprocess.check_output(['git', 'diff', '--name-only', 'HEAD^', 'HEAD'], text=True).splitlines()
+            watch_prefixes = ('V6_BO/public/', 'V6_WEB/workbuddy/')
+            watch_names = ('V6_BO/scripts/fayo-browser-check.js', 'V6_BO/scripts/fayo-operations-browser-check.js', '.github/workflows/v6-ui-browser.yml')
+            assert not any(p.startswith(watch_prefixes) or p in watch_names for p in changed), 'UI changed without browser geometry evidence'
+          print('Verified exact-head release CI and browser-geometry applicability: ' + sha)
           PY
       - name: Build exact tracked revision and record bundle digest
         shell: bash
