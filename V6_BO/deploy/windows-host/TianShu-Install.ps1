@@ -38,6 +38,10 @@ function Verify-Package([string]$Root) {
     return [string]$identity.sourceSha
 }
 function Install-Shortcut {
+    $desktopFolder=Split-Path -Path $desktop -Parent
+    if (-not (Test-Path -LiteralPath $desktopFolder -PathType Container)) {
+        New-Item -ItemType Directory -Path $desktopFolder -Force | Out-Null
+    }
     $arguments='-NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+(Join-Path $target 'TianShu-Desktop.ps1')+'" -Mode Gui'
     $shell=New-Object -ComObject WScript.Shell
     if(Test-Path -LiteralPath $desktop -PathType Leaf) {
