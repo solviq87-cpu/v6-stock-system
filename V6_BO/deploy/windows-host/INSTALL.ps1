@@ -115,6 +115,11 @@ function Stable-Copy([string]$Folder, [string]$SourceSha) {
             Copy-Item -LiteralPath $item.FullName -Destination $stage -Recurse -ErrorAction Stop
         }
         if ((Check-Bundle $stage) -cne $SourceSha) { throw '暂存安装包校验失败。' }
+        # Only after exact-file verification, remove ZIP download-zone marks
+        # from this private versioned copy. Never change global execution policy.
+        foreach ($control in @('windows-host.ps1', 'OPEN.ps1', 'INSTALL.ps1')) {
+            Unblock-File -LiteralPath (Join-Path $stage $control) -ErrorAction Stop
+        }
         Move-Item -LiteralPath $stage -Destination $destination -ErrorAction Stop
     } finally {
         if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
