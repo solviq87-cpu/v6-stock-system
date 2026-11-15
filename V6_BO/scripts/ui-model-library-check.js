@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'../public'),temporary=fs.mkdtempSync(path.joi
 fs.mkdirSync(output,{recursive:true});
 const make=(id,name,category,adoption)=>({id,name,category,adoption,kind:'合成公开目录夹具',repository:'example/public-source',commit:'a'.repeat(40),reads:[{path:'README.md',blobSha:'b'.repeat(40),url:'https://github.com/example/public-source/blob/'+'a'.repeat(40)+'/README.md'}],license:'合成许可字段',weightsLicense:'须独立核验',borrow:['按任务筛选','展示来源与限制'],limit:'未运行模型，不能认证收益',status:'仅设计对照',implementation:[],runMode:['本地研究候选'],runtimeNotes:'实际运行条件未知',installed:false,inferenceExecuted:false,v6MeasuredAccuracy:null,v6MeasuredLatencyMs:null});
 const fixture={schemaVersion:1,reviewDate:'2026-11-14',entries:[make('T01','语言研究甲','language','implemented'),make('T02','金融文本乙','finance-text','candidate'),make('T03','运行调度丙','runtime','candidate'),make('T04','页面交互丁','interface','reference-only'),{...make('T05','<img src=x onerror="window.libraryInjected=true">','language','reference-only'),reads:[{path:'<script>not markup</script>',blobSha:null,url:'javascript:window.libraryInjected=true'}],v6MeasuredLatencyMs:0}]};
-const ASSET_PATHS=new Set(['/model-library.html','/assets/model-library.js','/assets/model-library.css','/assets/public-library-context.js','/assets/unified-workspace.css','/assets/unified-workspace.js','/assets/model-library-catalog.json']);
+const ASSET_PATHS=new Set(['/model-library.html','/assets/model-library.js','/assets/model-library.css','/assets/public-library-context.js','/assets/unified-workspace.css','/assets/unified-workspace.js','/assets/original-workspace.css','/assets/original-workspace.js','/assets/model-library-catalog.json']);
 // Chromium may request the tab favicon implicitly. It is NOT an API/data feed.
 const BROWSER_CHROME_PATHS=new Set(['/favicon.ico']);
 const summaryCounts=page=>page.locator('[data-summary-count]').allTextContents();
@@ -17,7 +17,7 @@ let mode='normal';const requests=[];
 const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://127.0.0.1').pathname;requests.push(p);
  if(p==='/favicon.ico'){res.writeHead(204,{'Cache-Control':'no-store'});return res.end();}
  if(p==='/assets/model-library-catalog.json'){if(mode==='failure'){res.writeHead(503,{'Content-Type':'application/json'});return res.end('{}');}res.setHeader('Content-Type','application/json');return res.end(JSON.stringify(mode==='actual'?actualCatalog:mode==='zero'?{...fixture,entries:fixture.entries.slice(0,1)}:mode==='malformed'?{schemaVersion:1,reviewDate:'2026-11-14',entries:[{id:'bad'}]}:fixture));}
- if(!['/model-library.html','/assets/model-library.js','/assets/model-library.css','/assets/public-library-context.js','/assets/unified-workspace.css','/assets/unified-workspace.js'].includes(p)){res.writeHead(404);return res.end();}
+ if(!['/model-library.html','/assets/model-library.js','/assets/model-library.css','/assets/public-library-context.js','/assets/unified-workspace.css','/assets/unified-workspace.js','/assets/original-workspace.css','/assets/original-workspace.js'].includes(p)){res.writeHead(404);return res.end();}
  res.setHeader('Content-Type',p.endsWith('.html')?'text/html; charset=utf-8':p.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(path.join(root,p.slice(1))));
 });
 (async()=>{let browser;await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;

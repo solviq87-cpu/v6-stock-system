@@ -8,7 +8,7 @@ fs.mkdirSync(output,{recursive:true});
 const entry=(id,category,adoption)=>({id,name:'合成公开资料'+id,category,adoption,kind:'合成公开目录',reads:[],borrow:['共享公开上下文'],license:'合成许可',weightsLicense:'无权重',runMode:[],implementation:[],limit:'不执行模型',runtimeNotes:'合成浏览器验证',status:'合成',v6MeasuredAccuracy:null,v6MeasuredLatencyMs:null});
 const fixture={schemaVersion:1,reviewDate:'2026-11-14',entries:[entry('U02','interface','implemented'),entry('U08','interface','implemented'),entry('U09','interface','candidate'),entry('T01','workflow','candidate')]};
 const actual=JSON.parse(fs.readFileSync(path.join(root,'assets/model-library-catalog.json'),'utf8'));
-const allowed=new Set(['/model-library.html','/assets/model-library.js','/assets/public-library-context.js','/assets/model-library.css','/assets/model-library-catalog.json','/assets/unified-workspace.css','/assets/unified-workspace.js']);
+const allowed=new Set(['/model-library.html','/assets/model-library.js','/assets/public-library-context.js','/assets/model-library.css','/assets/model-library-catalog.json','/assets/unified-workspace.css','/assets/unified-workspace.js','/assets/original-workspace.css','/assets/original-workspace.js']);
 let mode='fixture';const requests=[];
 const server=http.createServer((req,res)=>{
  const pathname=new URL(req.url,'http://127.0.0.1').pathname;requests.push(pathname);
