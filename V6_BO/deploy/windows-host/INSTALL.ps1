@@ -211,10 +211,10 @@ try {
     if ($finalState.code -ne 'running' -or -not $finalState.health -or $finalState.mode -ne 'normal') {
         throw '后台未通过最终健康检查，暂不创建已完成快捷方式。'
     }
-    Make-DesktopShortcut $stable $distribution
-    Show-Message '本机安装及启动检查已通过，已创建桌面「天枢智策 V6」快捷方式。首次请在本机页面设置密码。手机互联、开机自启及自动应用更新尚需单独验收。'
     & (Join-Path $PSHOME 'powershell.exe') -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $stable 'OPEN.ps1') -Distribution $distribution
     if ($LASTEXITCODE -ne 0) { throw '新绯曜 FAYO 页面未打开；安装和账户数据已保留。' }
+    Make-DesktopShortcut $stable $distribution
+    Show-Message '本机安装、服务及新绯曜页面检查已通过，已创建桌面「天枢智策 V6」快捷方式。首次请在本机页面设置密码。手机互联、开机自启及自动应用更新尚需单独验收。'
     exit 0
 } catch {
     Show-Message ('安装尚未完成：' + [Environment]::NewLine + $_.Exception.Message +
