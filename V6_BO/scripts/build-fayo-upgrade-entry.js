@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
 const ROOT=path.resolve(__dirname,'../..');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-const FILES=['host-runtime.js','safe-updater.js','fayo-upgrade.js'];
+const FILES=['host-runtime.js','safe-updater.js','fayo-upgrade.js','fayo-model-tools.js','fayo-network.js'];
 function build({sha,installationName,output,readSource}={}){
  if(!/^[a-f0-9]{40}$/.test(sha||'')||!/^\.tian-shu-[a-z0-9-]{1,60}$/.test(installationName||''))throw Error('invalid-entry-target');
  const read=readSource||((name)=>execFileSync('git',['show',sha+':V6_BO/deploy/windows-host/'+name],{cwd:ROOT,maxBuffer:1024*1024}));

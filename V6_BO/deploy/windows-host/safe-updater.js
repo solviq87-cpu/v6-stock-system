@@ -214,7 +214,8 @@ function verifyPackage(bundle, candidate, source) {
 }
 async function prepareCandidate(candidate, work, deps = {}) {
   const repository = path.join(work, 'repository'), source = path.join(work, 'source'), bundle = path.join(work, 'bundle'), zip = path.join(work, 'runtime.zip');
-  const env = { PATH: process.env.PATH, HOME: work, LANG: 'C.UTF-8', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
+  const proxyEnv = Object.fromEntries(['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','http_proxy','https_proxy','all_proxy','no_proxy'].filter(key=>typeof process.env[key]==='string').map(key=>[key,process.env[key]]));
+  const env = { PATH: process.env.PATH, HOME: work, LANG: 'C.UTF-8', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', ...proxyEnv };
   run('git', ['init', '--bare', repository], { env });
   run('git', ['-C', repository, 'fetch', '--no-tags', '--depth=1', REMOTE, candidate.sha], { env, errorCode: 'candidate-source-fetch-failed' });
   requireThat(run('git', ['-C', repository, 'rev-parse', 'FETCH_HEAD'], { env }).trim() === candidate.sha, 'candidate-source-wrong-sha');

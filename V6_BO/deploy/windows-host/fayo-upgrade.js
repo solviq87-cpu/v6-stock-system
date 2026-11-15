@@ -6,6 +6,8 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const runtime=require('./host-runtime');
 const updater=require('./safe-updater');
+const {readPublic}=require('./fayo-network');
+const {ensureModelPython}=require('./fayo-model-tools');
 const SHA=/^[a-f0-9]{40}$/;
 function fail(code){throw Object.assign(Error(code),{code});}
 function parseArgs(args){
@@ -23,15 +25,21 @@ async function upgrade(options,deps={}){
  host.safeStartup(root);
  const before=await host.checkHost({root});
  if(!['running','stopped'].includes(before.code)||before.code==='running'&&!before.health)fail('installed-host-not-ready');
- const discover=async installed=>{const candidate=await updates.discover(installed);if(candidate.sha!==options.expectedSha)fail('entry-target-changed');return candidate;};
+ const discover=async installed=>{const candidate=await updates.discover(installed,{fetchImpl:readPublic});if(candidate.sha!==options.expectedSha)fail('entry-target-changed');return candidate;};
  const candidate=await discover(before.sourceSha);
  progress('validating');
  let first=true;
- const result=await updates.update({root,action:'apply',approveSensitive:options.expectedSha},{
+ const previousPython=process.env.V6_MODEL_PYTHON;
+ const modelPython=candidate.changed?await (deps.prepareModelTools||ensureModelPython)({home,env:process.env}):previousPython;
+ let result;
+ try {
+ if(modelPython)process.env.V6_MODEL_PYTHON=modelPython;
+ result=await updates.update({root,action:'apply',approveSensitive:options.expectedSha},{
   runtime:host,
   discover:async installed=>{if(first){first=false;return candidate;}return discover(installed);},
   step:async phase=>{if(phase==='stopped')progress('backing-up');if(phase==='before-switch')progress('switching');}
  });
+ } finally {if(previousPython===undefined)delete process.env.V6_MODEL_PYTHON;else process.env.V6_MODEL_PYTHON=previousPython;}
  if(!['local-update-installed','no-update'].includes(result.code))return result;
  // Starting the research service is part of the named user action. Never
  // enable paper accounts, send credentials, change passwords or configure VPN.

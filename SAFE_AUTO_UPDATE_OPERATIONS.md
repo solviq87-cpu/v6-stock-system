@@ -10,7 +10,7 @@
 
 `V6_BO/scripts/build-fayo-upgrade-entry.js`从精确Git提交构建一个CMD文件，嵌入有哈希的现有控制器与`fayo-upgrade.js`，无需用户重新解压完整包或复制命令。生成时绑定完整目标SHA和已经确认的既有安装目录名称，不查找后另选目录、不初始化新账户、不跟随浮动版本。单击启动代表对该固定版本执行保留账户升级；源码与CI、冷备/恢复预演、私有数据一致性和失败回退继续由原安全升级器执行。版本变化或门禁失败时停止，不自动放宽。
 
-入口完成后启动正常研究服务，并从Windows回环验证新页面后打开浏览器；不设置开机任务、电源、VPN或手机连接。CMD仅对子PowerShell临时指定执行策略，不修改永久策略；Linux通过文件参数执行，不再经PowerShell内嵌bash变量。临时控制器在运行结束后清理；账户不进入Windows临时目录。PowerShell代理测试不等于Windows物理设备认证。
+入口完成后启动正常研究服务，并从Windows回环验证新页面后打开浏览器；不设置开机任务、电源、VPN或手机连接。CMD仅对子PowerShell临时指定执行策略，不修改永久策略；Linux通过文件参数执行，不再经PowerShell内嵌bash变量。临时控制器在运行结束后清理；账户不进入Windows临时目录。回归需要的scikit-learn 1.8.0优先复用已验证的绝对Python路径；缺失时在Linux私有工具目录使用无pip venv及固定SHA256的官方pip wheel准备，不修改系统Python或应用配置。公开元数据读取通过有界curl复用已有代理设置，Git源读取仅转交标准代理变量，不转交其他凭据。PowerShell代理测试不等于Windows物理设备认证。
 
 ## 操作入口与默认行为
 
