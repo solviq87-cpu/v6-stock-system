@@ -110,6 +110,10 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
                          'host-network-check.js', 'network-check.sh'})
     if b'WatchUpdates' in launcher:
         required.update({'watch-updates.js', 'watch-updates.sh', 'safe-updater.js'})
+    if any(name in launchers for name in ('INSTALL.cmd', 'INSTALL.ps1', 'OPEN.ps1')):
+        # A friendly installer must never ship without the verified launcher
+        # and its desktop entrypoint from the very same source commit.
+        required.update({'INSTALL.cmd', 'INSTALL.ps1', 'OPEN.ps1'})
     files.update(launchers)
     if not required.issubset(files):
         raise ValueError('required-controls-missing')
