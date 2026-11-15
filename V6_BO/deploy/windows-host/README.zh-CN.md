@@ -6,6 +6,27 @@
 
 后台源码与启动脚本都从同一个 Git 提交读取，未提交的文件不能进入包；PowerShell/CMD 仅转换为 Windows 换行。`source.json` 同时记录 `sourceSha` 和 `controlsSourceSha`，`SHA256SUMS.txt` 覆盖每个打包文件。启动器拒绝 FIFO、硬链接或权限过宽的私有状态/日志，读取时限制实际字节数并核对文件未变更；异常时保留原状态，不覆盖账户。
 
+## 普通用户入口：双击 INSTALL.cmd
+
+从 GitHub 仓库 **Actions → V6 Windows first-install package** 的成功手动打包运行中，下载 Windows 构建产物，解压两层 ZIP（Actions 产物 ZIP → Windows-First-Install.zip），进入 tian-shu-windows-host 文件夹，再**双击 INSTALL.cmd**。不要把 GitHub 的「下载源码 ZIP」当作 Windows 安装包：源码根目录没有 manifest.json 和运行时校验清单。
+
+这一入口属于**带安全校验的 Windows 安装向导**，还不是签名的 exe/msi。当前包从已通过指定 CI 的 dev 精确 SHA 构建，SHA256SUMS.txt 和 manifest 双重校验；请仅从该 GitHub 仓库的正式 Actions 产物下载，若下载来源不明不要运行。Actions 产物可能过期，无法找到时需重新通过门禁打包，不能编造下载链接。
+
+安装向导完成的操作：
+- 识别现有 WSL Ubuntu，优先复用已经存在的**独立** ~/.tian-shu-local，拒绝两个发行版中重复安装记录；不会静默改写、导入、清除或迁移其他旧账户。
+- 首次缺少 WSL 时，先征得授权再运行微软官方安装命令；Windows 可能要求 UAC 和重启，并在 Ubuntu 首次运行时创建本地 Linux 用户。重启后重新双击同一个入口。
+- 缺少 Linux 基础工具时，先征求授权再通过 Ubuntu 官方 apt 安装；缺少符合版本要求的 Node.js 时，先征求授权再从 Node 官方固定地址下载，核对 SHA256。遇到网络错误会停止，不会伪报安装成功。
+- 将已经完整校验的本次版本**单独**复制到 %LOCALAPPDATA%/TianShuV6/bundles/<完整SHA>，不覆盖同名不一致的内容。用户私有运行状态始终留在 WSL 主目录，不迁入下载文件夹。
+- 新安装依次执行 Initialize → 隔离 Smoke → Stop → Start，已有安装只在健康、身份可识别的前提下复用或启动，不会重跑初始化。通过 Windows HTTP 与 WSL 健康检查后才创建桌面「天枢智策 V6」快捷方式，双击快捷方式可启动后台并打开本机页面。
+
+下载的安装包仍是开发者发布的脚本/源码运行时，不是 Windows 原生的独立离线桌面程序；需要 WSL2，且 Node 下载/apt 安装需要网络。桌面打开的是浏览器中的本机服务。**本机安装成功不等于手机私网接通、线上 WorkBuddy 页面联动、账户迁移、开机自启、采集授权或自动应用更新完成。** 安全更新器仍默认只检查，任何涉及账本、权限、数据迁移的更新必须严格执行备份/恢复/CI 门禁。上述功能要以真实 Windows 和手机验收回执为准。
+
+如果向导报告「健康检查失败」或「状态不可识别」，**不要反复重新初始化、删除安装目录或直接用 Git 覆盖源码**。保留窗口显示的错误代码，按下文 Status/Audit 的只读流程核查。
+
+---
+
+## 以下是高级用户/排障备用手动步骤
+
 ## 1. 安装一次运行环境
 
 项目使用 Linux 文件锁，所以在 Windows 通过 WSL2 Ubuntu 运行。不要直接用 Windows 原生 Node 启动。
