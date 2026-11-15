@@ -276,13 +276,23 @@ async function installedAssets(root, candidate, deps = {}) {
   const status = await (deps.runtime || runtime).checkHost({ root },{updateToken:deps.updateToken});
   requireThat(status.code === 'running' && status.health && status.sourceSha === candidate.sha, 'candidate-post-start-unhealthy');
   const processFile = readJson(path.join(root, 'run/process.json'));
-  const index = bytes(path.join(root, 'app/public/index.html'));
-  for(const [url,file]of [['/','index.html'],['/m','mobile.html']]){
-    const response=await fetch('http://127.0.0.1:'+processFile.port+url,{signal:AbortSignal.timeout(5000),redirect:'error'});
-    requireThat(response.ok&&hash(Buffer.from(await response.arrayBuffer()))===hash(bytes(path.join(root,'app/public',file))),'candidate-home-wrong-content');
+  const publicRoot = path.join(root, 'app/public');
+  const native = fs.existsSync(path.join(publicRoot, 'nova/index.html'));
+  const entries = native ? [['/', 'nova/index.html'], ['/m', 'nova/index.html']] : [['/', 'index.html'], ['/m', 'mobile.html']];
+  const documents = [];
+  for (const [url, file] of entries) {
+    const expected = bytes(path.join(publicRoot, file));
+    documents.push(expected.toString('utf8'));
+    const response = await fetch('http://127.0.0.1:' + processFile.port + url, {signal: AbortSignal.timeout(5000), redirect: 'error'});
+    requireThat(response.ok && hash(Buffer.from(await response.arrayBuffer())) === hash(expected), 'candidate-home-wrong-content');
   }
-  const mobile=bytes(path.join(root,'app/public/mobile.html'));
-  const resources = [...(index.toString('utf8')+'\n'+mobile.toString('utf8')).matchAll(/(?:src|href)="(\/assets\/[^"?#]+)(?:\?[^"#]*)?"/g)].map(match => match[1]);
+  const resources = [...documents.join('\n').matchAll(/(?:src|href)="(\/(?:assets|nova)\/[^"?#]+)(?:\?[^"#]*)?"/g)].map(match => match[1]);
+  if (native) {
+    // Include lazy modules and transitive imports, even before their view opens.
+    const manifest = readJson(path.join(root, 'source-manifest.json'));
+    for (const file of manifest.files) if (/^public\/nova\/[a-z0-9.-]+$/.test(file.path)) resources.push('/' + file.path.slice('public/'.length));
+    resources.push('/sw.js', '/manifest.json', '/assets/model-library-catalog.json');
+  }
   for (const resource of [...new Set(resources)]) {
     const expected = bytes(path.join(root, 'app/public', resource));
     const result = await fetch('http://127.0.0.1:' + processFile.port + resource + '?local_sha=' + candidate.sha, { signal: AbortSignal.timeout(5000), redirect: 'error' });

@@ -225,3 +225,18 @@ test('real Linux runtime restores the old executable and HTTP resources after po
  assert.equal(await (await fetch('http://127.0.0.1:'+f.port+'/assets/app.css')).text(),'body{color:blue}');
  assert.equal(json(path.join(f.root,'app/private-ledger-fixture.json')).events[0].id,'synthetic-preserved-event');
 });
+
+test('native post-start verification checks both actual entries and every manifested lazy module',async t=>{
+ const http=require('node:http');const f=fixture(t);
+ const files={'nova/index.html':'<!doctype html><script type="module" src="/nova/app.js?v=new"></script>','nova/app.js':'import("./research.js");','nova/research.js':'export const native=true;','sw.js':'// worker','manifest.json':'{}','assets/model-library-catalog.json':'{"entries":[]}'};
+ for(const [file,value]of Object.entries(files))write(path.join(f.root,'app/public',file),value);
+ write(path.join(f.root,'source-manifest.json'),{files:Object.entries(files).map(([file,value])=>({path:'public/'+file,sha256:digest(value)}))});
+ let wrongEntry=false,wrongModule=false;const requests=[];
+ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost').pathname;requests.push(url);const key=['/','/m'].includes(url)?'nova/index.html':url.slice(1);if(wrongEntry&&url==='/m')return res.end('old mobile');if(wrongModule&&key==='nova/research.js')return res.end('old module');res.end(files[key]||'missing');});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+ write(path.join(f.root,'run/process.json'),{port:server.address().port});
+ const deps={runtime:{checkHost:async()=>({code:'running',health:true,sourceSha:NEW})}};
+ await updater.installedAssets(f.root,{sha:NEW},deps);assert.ok(requests.includes('/nova/research.js'),'lazy research code is checked before opening that route');
+ wrongEntry=true;await assert.rejects(updater.installedAssets(f.root,{sha:NEW},deps),{code:'candidate-home-wrong-content'});
+ wrongEntry=false;wrongModule=true;await assert.rejects(updater.installedAssets(f.root,{sha:NEW},deps),{code:'candidate-served-resource-mismatch'});
+});
