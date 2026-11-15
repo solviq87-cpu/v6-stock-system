@@ -88,25 +88,42 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
-  for (const asset of ['/sw.js','/assets/app.js','/assets/app.css']) {
+  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/fayo.css']) {
     const response=await get(p,asset);
     assert.equal(response.status,200,'release asset must be reachable: '+asset);
     assert.match(response.headers['cache-control'],/no-store/,'release asset must bypass the HTTP cache: '+asset);
   }
   const releaseVersion=JSON.parse(status.body).appVer;
-  assert.ok(index.body.includes('/assets/app.js?v='+releaseVersion),'real server HTML and status release must agree');
-  // Dedicated result page must be reachable through the REAL server routes, not
-  // merely pass an offline DOM test while silently returning the home fallback.
+  const nativeVersion=response=>response.body.match(/<meta\b[^>]*\bname=["']application-version["'][^>]*\bcontent=["']([^"']+)["']/i)?.[1];
+  function nativeEntry(response,url){
+    assert.equal(response.status,200,url+' must serve the current product');
+    assert.match(response.headers['content-type'],/text\/html/,url+' must be HTML');
+    assert.equal(nativeVersion(response),releaseVersion,url+' native HTML and authenticated service release must agree');
+    assert.match(response.body,/绯曜\s+FAYO|FAYO\s*·/,url+' must identify the new product');
+    assert.match(response.body,/<script\b[^>]*\btype=["']module["'][^>]*\bsrc=["']\/nova\/app\.js(?:\?[^"']*)?["']/i,url+' must load the independent native app');
+    assert.match(response.body,/href=["']\/nova\/fayo\.css(?:\?[^"']*)?["']/i,url+' must use the independent native stylesheet');
+    assert.doesNotMatch(response.body,/<iframe\b|\/assets\/(?:app|terminal-dashboard|unified-workspace|original-workspace)\.(?:js|css)/i,url+' must not silently return or embed the old interface');
+  }
+  nativeEntry(index,'/');
+  // Every former entry now opens the independent product, while its concrete
+  // client route still reaches the corresponding existing business capability.
+  const nativeApp=await get(p,'/nova/app.js');
+  const aliasSource=nativeApp.body.match(/\bconst\s+ALIASES\s*=\s*(\{[\s\S]*?\n\});/);
+  assert.ok(aliasSource,'native client must publish a concrete entry-to-workspace map');
+  const routes=new Map([...aliasSource[1].matchAll(/["']([^"']+)["']\s*:\s*\[\s*["']([^"']+)["']\s*,\s*["']([^"']+)["']\s*\]/g)].map(match=>[match[1],[match[2],match[3]]]));
+  assert.match(nativeApp.body,/ALIASES\[location\.pathname\]/,'actual client route parsing must consume the entry map');
+  for(const [url,target] of [
+    ['/picks.html',['opportunities','quant']],
+    ['/auction-picks.html',['opportunities','auction']],
+    ['/reference-dashboard.html',['pulse','sectors']],
+    ['/model-library.html',['lab','models']],
+    ['/research.html',['lab','desk']],
+  ]){
+    nativeEntry(await get(p,url),url);
+    assert.deepEqual(routes.get(url),target,url+' must retain its business destination in the new product');
+  }
   const workbookDenied=await get(p,'/api/research/import-workbook');
   assert.equal(JSON.parse(workbookDenied.body).locked,true,'Excel parser must require real authentication before spawning');
-  const picks=await get(p,'/picks.html');
-  assert.equal(picks.status,200,'/picks.html must be served by V6');
-  assert.match(picks.body,/智能选股结果/);
-  const reference=await get(p,'/reference-dashboard.html');
-  assert.equal(reference.status,200,'reference dashboard shell must remain reachable');
-  assert.match(reference.body,/AI 综合选股信号/);
-  const library=await get(p,'/model-library.html');
-  assert.equal(library.status,200);assert.match(library.headers['content-type'],/text\/html/);assert.match(library.body,/id="modelLibrary"/);
   const catalog=await get(p,'/assets/model-library-catalog.json');
   assert.equal(catalog.status,200);assert.match(catalog.headers['content-type'],/application\/json/);
   const publicModels=JSON.parse(catalog.body);assert.equal(publicModels.schemaVersion,1);assert.ok(publicModels.entries.length>24);assert.equal(publicModels.modelAPIsAdded,0);
@@ -114,8 +131,8 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const picksScript=await get(p,'/assets/picks-page.js');
   assert.equal(picksScript.status,200,'picks viewer script must be served');
   assert.match(picksScript.body,/clearProtectedResults/);
-  // A fixture-only UI can hide a deployment 404 of newly introduced chart assets.
-  // Verify the REAL server exposes the existing periods, period controller and CSS.
+  // Recovery assets remain available for the historical frontend regression.
+  // They are not the active product entry and do not certify the new frontend.
   for(const [url,expected] of [
     ['/assets/picks-periods.js','aggregate'],
     ['/assets/picks-three-k.js','loadOlder'],
@@ -125,9 +142,6 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
     assert.equal(asset.status,200,'V6 service must serve '+url);
     assert.ok(asset.body.includes(expected),'Kline asset has unexpected or missing content '+url);
   }
-  const auction=await get(p,'/auction-picks.html');
-  assert.equal(auction.status,200,'new auction research shell must be reachable through actual server');
-  assert.match(auction.body,/竞价研究观察池/);
   const auctionScript=await get(p,'/assets/auction-picks-page.js');
   assert.equal(auctionScript.status,200,'auction research page script must be served');
   assert.match(auctionScript.body,/\/api\/auction-resonance/);
@@ -161,7 +175,7 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
     'successful login did not issue an authorized device token');
   assert.ok(!goodLogin.body.includes('V6-FIXTURE-EDIT-ONLY-20261114'),'login response echoed plaintext password');
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
-  console.log('PASS: 完整服务、首页、选股/竞价/参考图页面、脚本、404与无凭证拒绝');
+  console.log('PASS: 完整服务、绯曜原生入口/版本/业务路由映射、恢复资产、404与真实鉴权拒绝/登录');
  } finally {
   await stop(child);
   const violations=fs.existsSync(fixture.violations)?fs.readFileSync(fixture.violations,'utf8'):'';
