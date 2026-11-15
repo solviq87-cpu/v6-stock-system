@@ -193,6 +193,9 @@ try {
     if (-not (Test-LinuxNode $distribution)) { Install-LinuxNode $distribution $source }
     $stable = Stable-Copy $source $sha
     $status = Get-HostStatus $stable $distribution
+    if ($status.code -ne 'not-initialized' -and [string]$status.sourceSha -cne $sha) {
+        throw '已有安装属于不同源码版本。本向导不会暗中覆盖旧账户或将旧 UI 冒充新版本；请使用保留备份、恢复验证的安全升级流程。'
+    }
     if ($status.code -eq 'not-initialized') {
         Run-HostAction $stable $distribution 'Initialize'
         Run-HostAction $stable $distribution 'Smoke'
