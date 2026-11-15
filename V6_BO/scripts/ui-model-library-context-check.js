@@ -8,7 +8,7 @@ fs.mkdirSync(output,{recursive:true});
 const entry=(id,category,adoption)=>({id,name:'合成公开资料'+id,category,adoption,kind:'合成公开目录',reads:[],borrow:['共享公开上下文'],license:'合成许可',weightsLicense:'无权重',runMode:[],implementation:[],limit:'不执行模型',runtimeNotes:'合成浏览器验证',status:'合成',v6MeasuredAccuracy:null,v6MeasuredLatencyMs:null});
 const fixture={schemaVersion:1,reviewDate:'2026-11-14',entries:[entry('U02','interface','implemented'),entry('U08','interface','implemented'),entry('U09','interface','candidate'),entry('T01','workflow','candidate')]};
 const actual=JSON.parse(fs.readFileSync(path.join(root,'assets/model-library-catalog.json'),'utf8'));
-const allowed=new Set(['/model-library.html','/assets/model-library.js','/assets/public-library-context.js','/assets/model-library.css','/assets/model-library-catalog.json']);
+const allowed=new Set(['/model-library.html','/assets/model-library.js','/assets/public-library-context.js','/assets/model-library.css','/assets/model-library-catalog.json','/assets/unified-workspace.css','/assets/unified-workspace.js']);
 let mode='fixture';const requests=[];
 const server=http.createServer((req,res)=>{
  const pathname=new URL(req.url,'http://127.0.0.1').pathname;requests.push(pathname);
@@ -61,6 +61,6 @@ const compared=page=>page.locator('[data-compare-id]').evaluateAll(nodes=>nodes.
    for(const id of ['U02','U08','U09'])assert.ok((await page.locator('[data-compare-id='+id+']').innerText()).includes(actual.entries.find(e=>e.id===id).license));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(output,'library-public-context-actual-'+width+'.png'),fullPage:false});assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await page.close();console.log('actual '+actual.entries.length+'-source public context '+width+' passed');
   }
-  assert.ok(requests.every(p=>allowed.has(p)));
+  assert.deepEqual([...new Set(requests.filter(p=>!allowed.has(p)))],[], 'public library context must request only its explicit local presentation assets and catalog');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(temporary,{recursive:true,force:true});}
 })().catch(error=>{console.error(error.stack||error);process.exitCode=1;});
