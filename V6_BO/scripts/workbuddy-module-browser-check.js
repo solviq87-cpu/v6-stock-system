@@ -154,7 +154,29 @@ test('collapsible business modules preserve mobile/desktop interactions and loca
           await toggle.click();
           assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
           assert.equal(await module.evaluate(node => node.classList.contains('v6-module-collapsed')), true);
-          assert.equal(await module.evaluate(node => [...node.children].filter(child => !child.classList.contains('v6-module-header')).every(child => getComputedStyle(child).display === 'none')), true);
+          const hiddenCheck = await module.evaluate(node => {
+            const hidden = [...node.children].filter(child => !child.classList.contains('v6-module-header')).every(child => getComputedStyle(child).display === 'none');
+            // Capture fixture-only structure in this same task if the original
+            // calculation fails; never reread the locator to replace its result.
+            return { hidden, diagnostic: hidden ? null : {
+              key: node.getAttribute('data-v6-module'),
+              class: node.getAttribute('class'),
+              connected: node.isConnected,
+              view: document.querySelector('#navigation a.active')?.getAttribute('href') || null,
+              children: [...node.children].map(child => ({
+                tag: child.tagName,
+                class: child.getAttribute('class'),
+                header: child.classList.contains('v6-module-header'),
+                display: getComputedStyle(child).display,
+                connected: child.isConnected
+              }))
+            } };
+          });
+          try { assert.equal(hiddenCheck.hidden, true); }
+          catch (error) {
+            console.error('Fixture module collapse visibility diagnostic:', JSON.stringify(hiddenCheck.diagnostic));
+            throw error;
+          }
           assert.equal(f.writes, beforeWrites, 'presentation collapse wrote the cloud ledger');
           await toggle.focus();
           await page.keyboard.press('Enter');
