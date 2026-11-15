@@ -11,8 +11,14 @@ try {
     $powershell = Join-Path $PSHOME 'powershell.exe'
     & $powershell -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -File $controller -Action Start -Distribution $Distribution
     if ($LASTEXITCODE -ne 0) { throw '本机后台启动检查失败，现有账户和数据未被重装。' }
-    & $powershell -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -File $controller -Action Open -Distribution $Distribution
-    if ($LASTEXITCODE -ne 0) { throw '浏览器打开检查失败，请确认 http://127.0.0.1:8787/ 是否可访问。' }
+    # The current FAYO front-end is independent of the historical index page.
+    # Never silently fall back to the old UI when the new page is unavailable.
+    $url = 'http://127.0.0.1:8787/nova/'
+    $page = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 8
+    if ($page.StatusCode -ne 200 -or ([string]$page.Content) -notmatch 'id\s*=\s*["'']fayo-root["'']') {
+        throw '新绯曜 FAYO 页面没有通过本机验收，拒绝回退旧界面。'
+    }
+    Start-Process -FilePath $url
     exit 0
 } catch {
     Add-Type -AssemblyName System.Windows.Forms
