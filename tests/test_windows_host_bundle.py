@@ -174,5 +174,23 @@ class HostBundle(unittest.TestCase):
             self.assertIn('tian-shu-windows-host/safe-updater.js', archive.namelist())
 
 
+    def test_friendly_install_entry_ships_only_as_complete_control_set(self):
+        (self.controls/'INSTALL.cmd').write_text('@echo off\n', encoding='utf-8')
+        self.sha = self.commit()
+        with self.assertRaisesRegex(ValueError, 'required-controls-missing'):
+            self.build()
+        (self.controls/'INSTALL.ps1').write_text('# fixture\n', encoding='utf-8')
+        (self.controls/'OPEN.ps1').write_text('# fixture\n', encoding='utf-8')
+        self.sha = self.commit()
+        result = self.build()
+        self.assertEqual(result['sourceSha'], self.sha)
+        with zipfile.ZipFile(self.output) as archive:
+            names = archive.namelist()
+            for control in ('INSTALL.cmd', 'INSTALL.ps1', 'OPEN.ps1'):
+                self.assertIn('tian-shu-windows-host/' + control, names)
+            self.assertTrue(archive.read('tian-shu-windows-host/INSTALL.cmd').startswith(b'@echo off'))
+
+
+
 if __name__ == '__main__':
     unittest.main()
