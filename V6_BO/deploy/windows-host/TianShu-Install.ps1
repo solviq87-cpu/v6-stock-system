@@ -49,13 +49,23 @@ function Install-Shortcut {
         if (-not $old.TargetPath -or [IO.Path]::GetFullPath($old.TargetPath) -ine [IO.Path]::GetFullPath($exe) -or $old.Arguments -cne $arguments) {
             throw '桌面已有同名但不同内容的快捷方式，拒绝覆盖。'
         }
+        return
     }
-    $link=$shell.CreateShortcut($desktop)
-    $link.TargetPath=$exe
-    $link.Arguments=$arguments
-    $link.WorkingDirectory=$target
-    $link.Description='天枢智策 V6 一键管理现有 Windows/WSL 后台'
-    $link.Save()
+    # WScript.Shell on some unattended Windows runners cannot save a Unicode .lnk
+    # filename directly. Save to a unique ASCII temporary .lnk, then rename.
+    $temporary=Join-Path $desktopFolder ('TianShuV6-'+[Guid]::NewGuid().ToString('N')+'.lnk')
+    try {
+        $link=$shell.CreateShortcut($temporary)
+        $link.TargetPath=$exe
+        $link.Arguments=$arguments
+        $link.WorkingDirectory=$target
+        $link.Description='TianShu V6 local server manager'
+        $link.Save()
+        if (-not (Test-Path -LiteralPath $temporary -PathType Leaf)) { throw '桌面快捷方式没有创建成功。' }
+        Move-Item -LiteralPath $temporary -Destination $desktop
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+    }
 }
 try {
     if($env:OS -ne 'Windows_NT') { throw '请使用 Windows 电脑。' }
