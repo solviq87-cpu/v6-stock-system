@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([ValidateSet('Install','Verify')][string]$Mode='Install')
+param([ValidateSet('Install','Verify','StageOnly')][string]$Mode='Install')
 # Copies an already hash-verified runtime bundle to a stable per-user directory.
 # Never writes WSL account state, initializes services, or edits Windows network settings.
 $ErrorActionPreference='Stop'
@@ -77,6 +77,7 @@ try {
         }
     }
     Install-Shortcut
+    if ($Mode -eq 'StageOnly') { Write-Output ('STAGED:'+$sha); exit 0 }
     [Windows.Forms.MessageBox]::Show('安装完成：桌面出现“天枢智策 V6（本机服务器）”。原账户、持仓、历史与网络设置没有被更改。','天枢智策 V6','OK','Information') | Out-Null
     & $exe -NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File (Join-Path $target 'TianShu-Desktop.ps1') -Mode Gui
     exit $LASTEXITCODE
