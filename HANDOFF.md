@@ -17,6 +17,7 @@
 - 单入口补验：所需回归依赖从缺失环境到私有venv/sklearn1.8的实际安装与导入已通过；固定pip wheel SHA校验、仅标准代理传递、无全局pip改写。入口/依赖/公开网络/原安全升级共49项通过，真实PowerShell包装器模拟调用通过；最新完整/远端门禁仍按最终SHA核对，用户机未运行新入口。
 - 发布后现场阻塞：dev固定2aada9876c9fbed1b42d001358c897587df12805，用户机升级入口在第2步报public-network-unavailable；Windows浏览器可读GitHub release API。尚不能区分GitHub检查、pip下载或Ubuntu传输，未完成本机替换。独立fix/fayo-network-diagnostics分支提供只读三地址双客户端探针，真实PowerShell+模拟WSL测试2/2，诊断只含HTTP/curl/TLS数字，不读取账号/代理凭据。未改dev或再次发布升级器。
 - 只读现场回执：Windows三地址HTTP200；Ubuntu GitHub release/checks均curl0、HTTP200、TLS0；Python bootstrap为curl28、HTTP200、TLS0，说明此次探针为响应后超时，不再泛化为GitHub或VPN全不可用。修复只延长固定pip bootstrap请求的有界等待/重试，保留TLS、大小与SHA校验；不合并dev，避免让已发入口的2aada目标失效。控制器修复与目标发布SHA分开绑定。
+- 用户明确只要部署新版，不接受退回旧版。已验证本地cd3ad68完整包与正式2aada的public/server/src/strategies一致，新增一次性固定快照离线部署（不改变联网自动更新门禁）。真实0f192旧完整服务→本地新包→冷备/恢复预演→新页面及原口令登录/私有数据字节保留均已通过；Windows包装器只使用本地包，缺包才选择manifest。新离线入口尚未在用户电脑执行，当前不可宣称上线。
 <!-- CURRENT_CHECKPOINT_END -->
 
 ## 2026-11-15 · 最新核验交接与生产门禁（请优先阅读）

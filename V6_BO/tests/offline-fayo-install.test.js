@@ -1,0 +1,41 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http');
+const {verify,install,PLAN}=require('../deploy/windows-host/offline-fayo-install');
+const {build}=require('../scripts/build-fayo-offline-entry');
+const{spawnSync,execFile}=require('node:child_process'),{promisify}=require('node:util');
+test('unapproved local package is rejected before original installation is touched',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-bad-local-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));fs.writeFileSync(path.join(dir,'SHA256SUMS.txt'),'unapproved');fs.writeFileSync(path.join(dir,'manifest.json'),'{}');
+ await assert.rejects(install({bundle:dir,root:path.join(dir,'do-not-create')},{runtime:{safeStartup:()=>assert.fail('must not read installation')}}),{code:'offline-package-not-approved'});assert.equal(fs.existsSync(path.join(dir,'do-not-create')),false);
+ assert.equal(PLAN.sourceSha,'cd3ad68268941d26cff0b6a22fed5e005c24f252');assert.equal(PLAN.ciUrls.length,2);
+});
+test('offline entry contains no external downloader and binds only the known existing installation',()=>{
+ const {ps,cmd}=build({controlsSha:'a'.repeat(40),readSource:name=>fs.readFileSync(path.resolve(__dirname,'../deploy/windows-host',name))});assert.doesNotMatch(ps,/api\.github\.com|pythonhosted|curl|Initialize|Set-ExecutionPolicy/);assert.match(ps,/\.tian-shu-v278-test/);assert.match(ps,/FAYO-Windows-cd3ad68/);assert.match(ps,/127\.0\.0\.1:8787/);assert.ok(Buffer.byteLength(cmd)<150000);
+});
+const pwsh=process.env.FAYO_TEST_PWSH||'pwsh',available=!spawnSync(pwsh,['-NoProfile','-Command','exit 0'],{timeout:10000}).error;
+test('actual PowerShell offline entry passes local paths as arguments and opens only confirmed localhost',{skip:!available},async t=>{
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-offline-ps-')),profile=path.join(base,'profile with spaces');fs.mkdirSync(path.join(profile,'OneDrive/1/FAYO-Windows-cd3ad68/tian-shu-windows-host'),{recursive:true});fs.writeFileSync(path.join(profile,'OneDrive/1/FAYO-Windows-cd3ad68/tian-shu-windows-host/manifest.json'),'{}');
+ t.after(()=>fs.rmSync(base,{recursive:true,force:true}));const output=path.join(base,'opened'),log=path.join(base,'args');
+ fs.writeFileSync(path.join(base,'wsl.exe'),`#!/usr/bin/env python3\nimport sys,os,json\na=sys.argv[1:]\nwith open(os.environ['FAYO_TEST_LOG'],'a') as f:f.write(json.dumps(a)+'\\n')\nif 'wslpath' in a:print(a[-1])\nelif 'bash' in a:print('fayo-offline-ready')\nelse:sys.exit(1)\n`,{mode:0o700});
+ const {cmd}=build({controlsSha:'a'.repeat(40),readSource:name=>fs.readFileSync(path.resolve(__dirname,'../deploy/windows-host',name))});const entry=path.join(base,'entry.cmd');fs.writeFileSync(entry,cmd);
+ const file=path.join(base,'test.ps1');fs.writeFileSync(file,`function Invoke-WebRequest { param([switch]$UseBasicParsing,[string]$Uri,[int]$TimeoutSec) if($Uri -ne 'http://127.0.0.1:8787/'){throw 'external network denied'};return [pscustomobject]@{StatusCode=200;Content='<div id="fayo-root"></div>'} }\nfunction Start-Process { param([string]$FilePath) [IO.File]::WriteAllText($env:FAYO_TEST_OPENED,$FilePath) }\n$raw=[IO.File]::ReadAllText('${entry}');$mark=':FAYO_OFFLINE_PAYLOAD';& ([ScriptBlock]::Create($raw.Substring($raw.LastIndexOf($mark)+$mark.Length)))`);
+ await promisify(execFile)(pwsh,['-NoProfile','-File',file],{env:{...process.env,USERPROFILE:profile,PATH:base+path.delimiter+process.env.PATH,FAYO_TEST_LOG:log,FAYO_TEST_OPENED:output},timeout:15000,maxBuffer:65536});assert.equal(fs.readFileSync(output,'utf8'),'http://127.0.0.1:8787/');const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);assert.equal(calls.length,3);assert.equal(calls[2].length,6);assert.equal(calls[2][3],'bash');assert.ok(calls[2][5].includes('profile with spaces'));assert.equal(fs.existsSync(path.dirname(calls[2][4])),false);
+});
+const crypto=require('node:crypto'),net=require('node:net'),runtime=require('../deploy/windows-host/host-runtime'),updates=require('../deploy/windows-host/safe-updater');
+const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+const free=()=>new Promise(r=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>r(p));});});
+async function realFixture(t){
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-offline-core-'));fs.chmodSync(base,0o700);const root=path.join(base,'installation'),old='a'.repeat(40),next='b'.repeat(40);
+ const server=`const fs=require('node:fs'),path=require('node:path');require('node:http').createServer((q,r)=>{const p=new URL(q.url,'http://localhost').pathname;if(p==='/api/lock/status')return r.end(JSON.stringify({hasPassword:false}));const native=fs.existsSync('public/nova/index.html');const f=p==='/'||p==='/m'?(native?'nova/index.html':p==='/m'?'mobile.html':'index.html'):p.slice(1);try{r.end(fs.readFileSync(path.join('public',f)));}catch{r.statusCode=404;r.end();}}).listen(+process.env.PORT,'127.0.0.1');`;
+ function pack(name,sha,files){const dir=path.join(base,name);for(const[f,b]of Object.entries(files)){const full=path.join(dir,'payload',f);fs.mkdirSync(path.dirname(full),{recursive:true,mode:0o700});fs.writeFileSync(full,b,{mode:0o600});}const m={schemaVersion:1,sourceSha:sha,files:Object.entries(files).map(([path,b])=>({path,sha256:hash(b)}))};const text=JSON.stringify(m)+'\n';fs.writeFileSync(path.join(dir,'manifest.json'),text,{mode:0o600});const sums=Object.entries(files).map(([f,b])=>hash(b)+'  payload/'+f+'\n').join('')+hash(text)+'  manifest.json\n';fs.writeFileSync(path.join(dir,'SHA256SUMS.txt'),sums,{mode:0o600});return{dir,manifestHash:hash(text),sumsHash:hash(sums)};}
+ const basic={'server.js':server,'public/index.html':'<!doctype html>old local page','public/mobile.html':'<!doctype html>old mobile'};const oldPack=pack('old',old,basic),newPack=pack('new',next,{...basic,'public/nova/index.html':'<!doctype html><div id="fayo-root"></div><script src="/nova/app.js"></script>','public/nova/app.js':'// native','public/sw.js':'// worker','public/manifest.json':'{}','public/assets/model-library-catalog.json':'{}'});
+ await runtime.initialize({root,bundle:oldPack.dir});fs.writeFileSync(path.join(root,'app/account-private-fixture.json'),'{"preserve":123}',{mode:0o600});const port=await free(),stagingPort=await free();const facade={...runtime,start:(o,d)=>runtime.start(o,{...d,port})};
+ t.after(async()=>{try{const file=root+'.updater/transaction.json';const tx=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):null;await runtime.stop({root},{updateToken:tx?.token});}finally{fs.rmSync(base,{recursive:true,force:true});}});
+ return{root,bundle:newPack.dir,port,plan:{sourceSha:next,allowedInstalledSha:old,...newPack,tests:1,ciUrls:['https://github.com/solviq87-cpu/v6-stock-system/actions/runs/1','https://github.com/solviq87-cpu/v6-stock-system/actions/runs/2']},runtime:facade,stagingPort,old,next};
+}
+test('real offline source replacement verifies HTTP, cold backup, rehearsal and preserved account bytes',async t=>{
+ const f=await realFixture(t);const result=await install(f,f);assert.equal(result.code,'fayo-offline-ready',JSON.stringify(result));assert.equal(result.backupVerified,true);assert.equal(result.restoreRehearsed,true);assert.equal(fs.readFileSync(path.join(f.root,'app/account-private-fixture.json'),'utf8'),'{"preserve":123}');assert.match(await(await fetch('http://127.0.0.1:'+f.port+'/')).text(),/fayo-root/);
+});
+test('real offline source replacement restores the previous executable after post-start rejection',async t=>{
+ const f=await realFixture(t);const injected={...updates,update:(o,d)=>updates.update(o,{...d,verifyInstalled:async()=>{throw Object.assign(Error('synthetic wrong served bytes'),{code:'candidate-home-wrong-content'});}})};
+ const result=await install(f,{...f,updater:injected});assert.equal(result.rollback,'restored-previous-executable',JSON.stringify(result));assert.equal(JSON.parse(fs.readFileSync(path.join(f.root,'installation.json'))).sourceSha,f.old);assert.equal(fs.readFileSync(path.join(f.root,'app/account-private-fixture.json'),'utf8'),'{"preserve":123}');
+});
