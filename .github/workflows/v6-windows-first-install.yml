@@ -90,7 +90,7 @@ jobs:
           for name in ('V6 CI', 'V6 UI Browser Geometry'):
             runs = [x for x in valid if x.get('name') == name]
             assert runs, f'{name} not found for exact sha'
-            newest = max(runs, key=lambda x: (r.get('run_number', 0), r.get('run_attempt', 0)))
+            newest = max(runs, key=lambda x: (x.get('run_number', 0), x.get('run_attempt', 0)))
             assert newest.get('status') == 'completed' and newest.get('conclusion') == 'success', f'{name} not green'
           print('Verified both exact-head release gates: ' + sha)
           PY
