@@ -13,8 +13,8 @@ test('selection results is a usable separate phone/desktop entry with a seven-it
   for (const id of ['reload', 'board', 'sort', 'search', 'candidates', 'status', 'day']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
-  assert.equal((html.match(/class="bottom"/g) || []).length, 1);
-  const dock = html.match(/<nav class="bottom"[\s\S]*?<\/nav>/)?.[0] || '';
+  assert.equal((html.match(/class="workspace-bottom-nav"/g) || []).length, 1);
+  const dock = html.match(/<nav class="workspace-bottom-nav"[\s\S]*?<\/nav>/)?.[0] || '';
   assert.equal((dock.match(/<a /g) || []).length, 7);
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /prefers-reduced-motion/);

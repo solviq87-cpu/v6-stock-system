@@ -8,6 +8,13 @@ on:
     paths:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
+      - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
+      - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
+      - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-operations-browser-check.js'
+      - 'V6_BO/scripts/ui-mobile-roles-browser-check.js'
+      - 'V6_BO/scripts/ui-cache-upgrade-browser-check.js'
+      - 'V6_BO/tests/fixtures/service-worker-before-20261115.js'
       - 'V6_BO/scripts/ui-picks-three-k-browser-check.js'
       - 'V6_BO/scripts/ui-research36-check.js'
       - 'V6_BO/scripts/build-workbuddy-static.js'
@@ -37,6 +44,13 @@ on:
     paths:
       - 'V6_BO/public/**'
       - 'V6_BO/scripts/ui-reference-browser-check.js'
+      - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
+      - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
+      - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-operations-browser-check.js'
+      - 'V6_BO/scripts/ui-mobile-roles-browser-check.js'
+      - 'V6_BO/scripts/ui-cache-upgrade-browser-check.js'
+      - 'V6_BO/tests/fixtures/service-worker-before-20261115.js'
       - 'V6_BO/scripts/ui-picks-three-k-browser-check.js'
       - 'V6_BO/scripts/ui-research36-check.js'
       - 'V6_BO/scripts/build-workbuddy-static.js'
@@ -111,6 +125,12 @@ jobs:
           V6_UI_SCREENSHOTS: '1'
         run: |
           set -euo pipefail
+          node scripts/fayo-browser-check.js
+          node scripts/fayo-operations-browser-check.js
+          node scripts/ui-unified-workspace-browser-check.js
+          node scripts/ui-original-workspace-browser-check.js
+          node scripts/ui-mobile-roles-browser-check.js
+          node scripts/ui-cache-upgrade-browser-check.js
           node scripts/ui-reference-browser-check.js
           node scripts/ui-picks-three-k-browser-check.js
           node scripts/ui-stream-recovery-browser-check.js
@@ -156,7 +176,8 @@ jobs:
             echo '## V6 UI 浏览器几何验收'
             echo ''
             echo 'Chrome 真实排版 + 隔离本地测试数据；320/375/390/393/430/1024 手机及 1366/1536/1920 电脑 CSS 视口。'
-            echo '检查无横向溢出、三指数、风险卡宽度、排行、K线与解释上下结构、七项底栏、桌面左右分栏；截图见本次 Artifacts（7天保留）。'
+            echo '新FAYO独立应用：五空间导航、机会看板、股票抽屉、登录/撤权、休市空响应保留、19个原生业务分区、确认计划冻结；320/390/768/1366/1920实际排版。'
+            echo '随后运行保留旧页面的历史回归（含原七项底栏）；历史通过不作为新产品认证。截图见本次 Artifacts（7天保留）。'
             echo ''
-            echo '**未做**：线上 WorkBuddy 实际部署，iOS Safari/Android 真机触摸体验，股票报价真实性、飞书送达，原图的逐像素相似度认证。'
+            echo '**未做**：线上 WorkBuddy 实际部署，iOS Safari/Android 真机触摸体验，股票报价真实性、飞书送达，用户对新粉紫设计的视觉确认。'
           } >> "$GITHUB_STEP_SUMMARY"

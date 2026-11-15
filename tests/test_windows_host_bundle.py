@@ -158,6 +158,21 @@ class HostBundle(unittest.TestCase):
             builder.build_bundle(self.repo, self.sha, self.base, self.output)
         self.assertFalse(self.output.exists())
 
+    def test_update_launcher_never_ships_without_its_runtime_helpers(self):
+        (self.controls/'windows-host.ps1').write_text('# ApplyUpdate WatchUpdates\n')
+        self.sha = self.commit()
+        with self.assertRaisesRegex(ValueError, 'required-controls-missing'):
+            self.build()
+        self.assertFalse(self.output.exists())
+        for name in ['safe-updater.js', 'update.sh', 'host-audit.js', 'host-audit.sh',
+                     'host-network-check.js', 'network-check.sh', 'watch-updates.js', 'watch-updates.sh']:
+            (self.controls/name).write_text('# exact-source fixture\n')
+        self.sha = self.commit()
+        self.build()
+        with zipfile.ZipFile(self.output) as archive:
+            self.assertIn('tian-shu-windows-host/watch-updates.js', archive.namelist())
+            self.assertIn('tian-shu-windows-host/safe-updater.js', archive.namelist())
+
 
 if __name__ == '__main__':
     unittest.main()

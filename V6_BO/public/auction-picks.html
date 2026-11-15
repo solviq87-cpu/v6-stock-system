@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#071120">
-<title>V6 · 竞价研究观察池</title>
+<meta name="theme-color" content="#130e20">
+<title>天枢智策 · 竞价研究观察池</title>
 <style>
 :root{color-scheme:dark;--bg:#071120;--card:#11233d;--line:#2b4769;--txt:#f0f6ff;--muted:#a0b7d2;--accent:#56a8ff;--warn:#f4c76c}
 *{box-sizing:border-box}html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -29,10 +29,13 @@ details{margin-top:9px;color:#c6d7ec}summary{cursor:pointer;min-height:36px}.foo
 @media(max-width:850px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.top-links{display:none}}
 @media(max-width:550px){main{padding:13px 12px calc(env(safe-area-inset-bottom) + 95px)}.metric{padding:11px}.metric strong{font-size:21px}.panel,.pick{padding:12px}h1{font-size:19px}.sub{font-size:12px}.controls label{flex:1}.controls select{width:100%}.bottom{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;padding:9px 3px calc(9px + env(safe-area-inset-bottom));background:#0b1a2cf5;border-top:1px solid #385577;backdrop-filter:blur(12px)}.bottom a{min-width:0;text-align:center;font-size:10px;color:#c4d8f2}.bottom a b{display:block;font-size:17px}.bottom a.active{color:#62b7ff}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.01ms!important}}
-</style></head><body>
+</style><link rel="stylesheet" href="/assets/unified-workspace.css?v=20261115workspace1"><script defer src="/assets/unified-workspace.js?v=20261115prism1"></script><link rel="stylesheet" href="/assets/original-workspace.css?v=20261115prism1">
+<script defer src="/assets/original-workspace.js?v=20261115prism1"></script>
+</head><body class="unified-workspace inner-workspace">
+<header class="workspace-header"><a class="workspace-brand" href="/"><span class="workspace-emblem" aria-hidden="true">◈</span><strong>天枢智策</strong></a><nav class="workspace-primary-nav" aria-label="系统导航"><a href="/">首页</a><a href="/picks.html">智能选股</a><a href="/research.html">AI 研究</a><a href="/#v6-market">行情</a><a href="/#v6-paper">模拟交易</a><a href="/#holdSec1">风控</a></nav><details class="workspace-more"><summary>全部功能</summary><nav aria-label="更多业务功能"><a href="/auction-picks.html">竞价观察</a><a href="/model-library.html">模型资料库</a><a href="/research.html#completeHeading">回测分析</a><a href="/research.html#newsEvidence">新闻证据</a><a href="/#v6-release">推送与系统</a><a href="/v6-studio.html">研究概览</a><a href="/v6-matches.html">全部命中个股</a><a href="/v6-research.html">策略比较</a><a href="/v6-validation.html">回测验证</a><a href="/v6-paper.html">账本监督</a><a href="/v6-market-radar.html">市场雷达</a><a href="/m">手机版</a></nav></details><span class="workspace-connection" role="status" data-workspace-connection>连接状态待检查</span></header>
 <main>
-<header><div class="brand"><span class="logo">V6</span><div><h1>竞价研究观察池</h1><div class="sub">竞价共振 · 板块 · 原始依据 · 风险待核验</div></div></div>
-<nav class="top-links" aria-label="页面切换"><a href="/">⌂ 总览</a><a href="/picks.html">☆ 智能选股</a><a href="/research.html#decisionWorkspace">✦ 策略研究</a><a href="/m">▣ 手机速览</a></nav>
+<header><div class="brand"><span class="logo" aria-hidden="true">◈</span><div><h1>竞价研究观察池</h1><div class="sub">竞价共振 · 板块 · 原始依据 · 风险待核验</div></div></div>
+
 <button class="refresh" id="reload" type="button">↻ 读取云端结果</button></header>
 <div class="metrics" aria-label="竞价研究汇总">
 <div class="metric"><span>已有共振候选</span><strong id="total">—</strong></div>
@@ -58,4 +61,5 @@ details{margin-top:9px;color:#c6d7ec}summary{cursor:pointer;min-height:36px}.foo
 </nav>
 </main>
 <script src="/assets/auction-picks-page.js?v=20261109a" defer></script>
+<nav class="workspace-bottom-nav" aria-label="手机七项导航"><a href="/m"><span aria-hidden="true">⌂</span><small>首页</small></a><a href="/#holdSec1"><span aria-hidden="true">☆</span><small>自选股</small></a><a href="/#v6-market"><span aria-hidden="true">▤</span><small>行情</small></a><a href="/research.html"><span aria-hidden="true">✦</span><small>AI研究</small></a><a href="/#v6-paper"><span aria-hidden="true">⇄</span><small>模拟交易</small></a><a href="/#holdSec1"><span aria-hidden="true">⬡</span><small>风控</small></a><a href="/#v6-release"><span aria-hidden="true">♧</span><small>推送</small></a></nav>
 </body></html>

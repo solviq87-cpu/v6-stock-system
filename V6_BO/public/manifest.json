@@ -1,14 +1,19 @@
 {
-  "name": "天枢智策",
-  "short_name": "天枢智策",
-  "description": "天枢智策手机速览页：一句话明确结论 + 竞价/涨停/板块/明日计划",
-  "start_url": "/m",
+  "name": "绯曜 FAYO",
+  "short_name": "绯曜",
+  "description": "绯曜 FAYO：市场脉冲、策略机会、研究证据与资产风险。",
+  "start_url": "/#/pulse/overview",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#100917",
+  "theme_color": "#100917",
   "orientation": "portrait",
   "scope": "/",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "/nova/mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }

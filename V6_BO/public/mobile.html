@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#130e20">
 <title>天枢智策 · 手机看盘</title>
 <style>
   :root{
@@ -134,13 +134,15 @@
 <link rel="stylesheet" href="/assets/terminal-theme.css?v=20261109cv">
 <link rel="stylesheet" href="/assets/reference-match.css?v=20261109cv">
 <link rel="stylesheet" href="/assets/original-reference-fidelity.css?v=20261109fidelity4">
+<link rel="stylesheet" href="/assets/desktop-workspace.css?v=20261115workspace1">
+<link rel="stylesheet" href="/assets/unified-workspace.css?v=20261115workspace1"><script defer src="/assets/unified-workspace.js?v=20261115prism1"></script><link rel="stylesheet" href="/assets/original-workspace.css?v=20261115prism1">
+<script defer src="/assets/original-workspace.js?v=20261115prism1"></script>
 </head>
-<body>
+<body class="unified-workspace mobile-workspace">
 <div class="wrap" id="app" style="display:none">
-  <div class="v6-mobile-brand">天枢智策 · AI 量化辅助决策</div>
   <div class="top">
     <div class="v6-mobile-titleblock">
-      <div class="v6-mobile-titleline"><span class="v6-mobile-logo">V6</span><span class="title">天枢智策 <span id="verTag" style="font-size:11px;font-weight:400;color:#8da9ca;vertical-align:middle"></span></span></div>
+      <div class="v6-mobile-titleline"><span class="v6-mobile-logo" aria-hidden="true">◈</span><span class="title">天枢智策 <span id="verTag" style="font-size:11px;font-weight:400;color:#8da9ca;vertical-align:middle"></span></span></div>
       <div class="sub" id="sub">加载中…</div>
       <div class="pushstate" id="pushState" style="display:none"><i class="off"></i><span>推送状态</span></div>
     </div>
@@ -254,12 +256,12 @@
     </div>
   </div>
 
-  <div class="pull-hint">下拉即可刷新 · 持仓与完整榜单请点底部「完整面板」</div>
+  <div class="pull-hint">下拉刷新 · 更多数据与操作在功能导航中查看</div>
 </div>
 
 <div id="gate">
   <div class="gcard">
-    <h1>🔐 输入口令</h1>
+    <div class="workspace-login-mark" aria-hidden="true">◈</div><h1>登录天枢智策</h1>
     <p>首次访问需验证口令（与主面板同一口令）。验证后本设备长期免密。</p>
     <input type="password" id="pwd" placeholder="开发者口令或观看口令" autocomplete="current-password" spellcheck="false" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')doLogin()">
     <button onclick="doLogin()">进入</button>
@@ -281,7 +283,7 @@
     <a href="/research.html#decisionWorkspace" class="v6-mobile-ai"><b>✦</b><small>AI研究</small></a>
     <a href="./#v6-paper"><b>⇄</b><small>模拟交易</small></a>
     <a href="./#holdSec1"><b>⬡</b><small>风控</small></a>
-    <a href="./"><b>♙</b><small>我的</small></a>
+    <a href="/#v6-release"><b>♧</b><small>推送</small></a>
     <button type="button" onclick="manualMobileRefresh()" class="v6-mobile-refresh-accessible" aria-label="从云端刷新页面数据">刷新</button>
   </div>
 </div>
@@ -487,7 +489,7 @@ async function relPublishMobile() {
 //    不一致 → 注销 SW + 带 _v/_r 双随机参数 location.replace，强制绕过缓存取新页。
 // ⛔ 两条护栏：① 用户正在口令框输入时不刷新（不冲掉人家打的字）；
 //    ② 30 秒内不重复强制刷新（防浏览器/SW 竞态下无限 reload）。
-const APP_VER = '20261109cv';
+const APP_VER = '20261115dc';
 let _verChkAt = 0;
 function forceRefreshToLatest() {
   const u = new URL(location.href);
@@ -655,7 +657,7 @@ async function loadShortline(manual){
   if (manual && btn) { btn.textContent = '🔄 刷新'; btn.disabled = false; }
 }
 function render(d){
- window.__v6Dashboard=d.dashboard||null;window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
+ window.__v6Dashboard=d.dashboard?{...d.dashboard,trading:d.trading,isSnapshot:d.isSnapshot??d.dashboard.isSnapshot,snapshotDay:d.snapshotDay||d.dashboard.snapshotDay,snapshotRetained:d.snapshotRetained??d.dashboard.snapshotRetained}:null;window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
   document.getElementById('app').style.display = '';
   document.getElementById('foot').style.display = '';
   document.getElementById('gate').style.display = 'none';
@@ -1185,6 +1187,15 @@ async function load(){
     if (r.status === 401 || r.status === 403){ _mobileHasCloudState = false; showGate(); return false; }
     if (!r.ok) throw new Error('http ' + r.status);
     const d = await r.json();
+    // The server's global authorization gate intentionally also uses HTTP 200.
+    if (d && (d.locked || d.needPassword || d.needAuth || d.invalid)) {
+      _mobileHasCloudState = false;
+      showGate();
+      const message = document.getElementById('gateErr');
+      if (message) message.textContent = '访问已失效，请重新验证身份。';
+      return false;
+    }
+    if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('invalid digest');
     render(d);
     _mobileHasCloudState = true;
     return true;
@@ -1193,7 +1204,7 @@ async function load(){
     if (_mobileHasCloudState) {
       document.getElementById('sub').textContent = '⚠️ 云端暂时断开 · 上次画面（非实时）';
     } else {
-      document.getElementById('err').style.display = '';
+      document.getElementById('err').style.display = 'block';
       document.getElementById('app').style.display = 'none';
       document.getElementById('foot').style.display = 'none';
       document.getElementById('gate').style.display = 'none';
@@ -1207,8 +1218,13 @@ function manualMobileRefresh(){
 }
 
 function showGate(){
+ _role = null;
+ document.getElementById('relBody').textContent = '';
+ document.getElementById('relMeta').textContent = '';
+ document.getElementById('v6MobileResearchEntry').hidden = true;
+ window.__v6Dashboard = null;
  window.dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:null}));
-  document.getElementById('gate').style.display = '';
+  document.getElementById('gate').style.display = 'block';
   document.getElementById('app').style.display = 'none';
   document.getElementById('foot').style.display = 'none';
   document.getElementById('err').style.display = 'none';
@@ -1225,10 +1241,15 @@ async function doLogin(){
       r = await fetch('/api/lock/unlock', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, role: 'view' }) }).then(x=>x.json());
     }
     if (r && r.ok && r.token){
-      try { localStorage.setItem('qd_device', r.token); } catch (_) {}
+      document.getElementById('pwd').value = '';
+      const nextToken = r.deviceToken || r.token;
+      try { localStorage.setItem('qd_device', nextToken); } catch (_) {}
+      const status = await fetch('/api/lock/status?token=' + encodeURIComponent(nextToken), { cache: 'no-store' }).then(x => x.json());
+      if (!status || status.needAuth || status.invalid || status.locked) { showGate(); err.textContent = '身份验证已失效，请重新登录。'; return; }
+      setPushState(status.role || r.role, status.feishuReady, status.pushRole === 'replica');
       load();
     } else {
-      err.textContent = (r && r.error) || '口令错误';
+      err.textContent = r && r.pending ? '本设备等待开发者授权，请到完整面板查看申请状态。' : (r && r.error) || '口令错误';
     }
   } catch(e){ err.textContent = '网络错误，请重试'; }
 }
@@ -1250,7 +1271,7 @@ async function doLogin(){
 
 // PWA：注册 Service Worker，让 /m 可被「添加到主屏幕」并离线缓存静态资源
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js', {updateViaCache:'none'}).then(registration => registration.update()).catch(() => {});
 }
 
 // lk：网络分档刷新（用户「Wi-Fi 2秒一刷新 手机流量10秒一刷新」）——
@@ -1277,6 +1298,7 @@ setInterval(() => {
 <script src="/assets/ui-health.js?v=20261105ui46" defer></script>
 <script src="/assets/stock-provider-links.js?v=20261109cv"></script>
 <script src="/assets/stock-pattern-preview.js?v=20261108p1"></script>
-<script src="/assets/terminal-dashboard.js?v=20261109fidelity4"></script>
+<script src="/assets/picks-periods.js?v=20261115workspace1"></script>
+<script src="/assets/terminal-dashboard.js?v=20261115prism1"></script>
 </body>
 </html>

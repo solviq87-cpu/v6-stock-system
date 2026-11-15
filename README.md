@@ -1,4 +1,8 @@
-# v6-stock-system
+# 绯曜 FAYO
+
+**当前产品（2026-11-15）**：正式入口已切换为独立原生前端「绯曜 FAYO」，包括五个工作空间、机会看板、全局股票研究面板、九个研究工作区及原生资产/中枢流程。新品牌、页面、样式和控制器位于 [`V6_BO/public/nova/`](V6_BO/public/nova/)，不加载旧界面或 iframe。已有账户、数据与业务服务保留。见[重建与验证](FAYO_PRODUCT_REBUILD_20261115.md)及[117项功能迁移审查](V6_BO/docs/FAYO_FUNCTION_MIGRATION_20261115.json)。下文保留历史工程与运行说明；源码和测试不等于已上线。
+
+**正式 UI 与免费本机更新（2026-11-15）**：桌面、手机和业务内页共用现有权限/API/账户；新增默认只检查的 WSL 安全更新器和私网配置审计。参阅 [界面验收](UI_REDESIGN_ACCEPTANCE.md)、[Windows/WSL与手机操作](ZERO_COST_HOST_DEPLOYMENT.md)、[更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)。代码和隔离测试不代表用户电脑、手机或真实账户已经上线。
 
 **A股交易日缺口与停牌证据（2026-11-15）**：新增[沪深2026研究日历逐股覆盖和BaoStock原始停牌状态核验](V6_BO/docs/A_SHARE_SESSION_GAP_AUDIT_20261115.md)，区分数值相同但共同漏交易日、供应商自报停牌和真实休市；不伪造OHLC。跨源报告新增数值+交易日形状与完整来源证据两个独立状态和相应GitHub CI，缺供应商时点/停牌状态仍为证据不完整，不认证实盘或公司行为。
 

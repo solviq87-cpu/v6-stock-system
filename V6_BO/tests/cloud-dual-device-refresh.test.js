@@ -69,6 +69,31 @@ test('mobile HTTP 401 revokes old display and returns to authentication',async()
  assert.equal(await state.manual(),false);
  assert.equal(state.gated(),1);
 });
+for (const denial of [{locked:true,needPassword:true,reason:'revoked'}, {needAuth:true}, {invalid:true}, {needPassword:true}]) {
+ test('mobile rejects HTTP200 authorization response '+JSON.stringify(denial),async()=>{
+  let denied=false;
+  const state=runtime(async()=>({ok:true,status:200,json:async()=>denied?denial:{isSnapshot:true,snapshotDay:'20261113'}}));
+  assert.equal(await state.run(),true);
+  const original=state.rendered();denied=true;
+  assert.equal(await state.manual(),false);
+  assert.equal(state.gated(),1);
+  assert.equal(state.rendered(),original,'authorization response must not render or reopen the app');
+ });
+}
+test('mobile authentication gate shows a CSS-hidden panel and clears old release evidence',()=>{
+ const elements=new Map(['app','gate','foot','err','relBody','relMeta','v6MobileResearchEntry'].map(id=>[id,{style:{display:''},textContent:'private prior value',hidden:false}]));
+ const events=[];const ctx={_role:'edit',document:{getElementById:id=>elements.get(id)},window:{__v6Dashboard:{private:'old'},dispatchEvent:e=>events.push(e)},CustomEvent:class{constructor(type,init){this.type=type;this.detail=init.detail;}}};
+ vm.runInNewContext(extract('function showGate(){','\nasync function doLogin(){')+'\nglobalThis.__show=showGate;',ctx);ctx.__show();
+ assert.equal(elements.get('gate').style.display,'block','empty inline display would leave stylesheet display:none in effect');
+ for(const id of ['app','foot','err'])assert.equal(elements.get(id).style.display,'none');
+ for(const id of ['relBody','relMeta'])assert.equal(elements.get(id).textContent,'');
+ assert.equal(elements.get('v6MobileResearchEntry').hidden,true);assert.equal(ctx._role,null);assert.equal(ctx.window.__v6Dashboard,null);assert.equal(events[0].detail,null);
+});
+test('mobile first network failure explicitly shows the error panel rather than an empty screen',async()=>{
+ const state=runtime(async()=>{throw Error('offline');});
+ assert.equal(await state.run(),false);assert.equal(state.elements.get('err').style.display,'block');
+ assert.equal(state.elements.get('app').style.display,'none');assert.equal(state.elements.get('foot').style.display,'none');
+});
 test('foreground iPhone resumes cloud sync; background and uninitialized view do not',()=>{
  const source=extract('function onPageVisible() {',"document.addEventListener('visibilitychange', onPageVisible)");
  const app={style:{display:''}};

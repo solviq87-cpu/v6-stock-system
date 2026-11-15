@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 'use strict';
+// Legacy recovery regression; not current FAYO product acceptance.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {chromium}=require('playwright');
 const {createFixture}=require('../tests/helpers/v6-studio-fixture');
 const out=process.env.V6_STUDIO_BROWSER_OUTPUT||fs.mkdtempSync(path.join(os.tmpdir(),'studio-browser-'));
 fs.mkdirSync(out,{recursive:true});
-const report={syntheticFixtures:true,realBrowser:'Chromium',originalReferenceCertified:false,physicalDeviceCertified:false,checks:[],requests:[],screenshots:[]};
+const report={scope:'Legacy recovery regression; not current product acceptance',syntheticFixtures:true,realBrowser:'Chromium',originalReferenceCertified:false,physicalDeviceCertified:false,checks:[],requests:[],screenshots:[]};
 (async()=>{
- const server=await createFixture(),browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+ const server=await createFixture({legacyFrontend:true}),browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
  const errors=[];let context;
  try{
   const login=await server.request('/api/lock/unlock','POST',{password:server.password,role:'edit',fp:'studio-browser-only',name:'browser-only'},'');

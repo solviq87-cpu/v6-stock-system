@@ -35,6 +35,7 @@ function engine(){
   },
   A:{isMainBoard:()=>true,isGEM:()=>false,isMainOrGEM:()=>true,
    isJunkName:()=>false,limitPctOf:()=>10},
+  rememberMarketScan:()=>{},
   capTooSmall:()=>false,
   sectorOfStock:()=> '半导体',
   loadSectorHistory:()=>{events.computed++;return {};},

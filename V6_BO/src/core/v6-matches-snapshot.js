@@ -1,13 +1,15 @@
 'use strict';
 /**
  * V6 all-matches read-only projection over one *completed* quantPicksScan pass.
- * In-memory and deliberately ephemeral. Page reads never scan, publish, trade,
+ * An optional public display archive survives restarts. Page reads never scan, publish, trade,
  * send notifications, or mutate the existing account/audit state.
  *
  * This data covers the six rules evaluated by quantPicksScan, NOT all V6 strategy
  * systems. It cannot be advertised as a complete all-strategy market universe.
  */
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const MAX_STOCKS = 8000;
 const MAX_PAGE = 100;
 
@@ -38,8 +40,8 @@ function project(item) {
     hitIds:Object.freeze(hit.map(x=>x.id).filter(Boolean))
   });
 }
-function createV6MatchesSnapshotStore(){
-  let active=null;
+function createV6MatchesSnapshotStore({file,onError=()=>{}}={}){
+  let active=null,restoring=false;
   function publish({items,asOf,totalScanned,board,evidence={}}){
     if(board!=='all')return {ok:false,error:'only all-board snapshots are supported'};
     if(!Array.isArray(items)||items.length>MAX_STOCKS||
@@ -67,6 +69,15 @@ function createV6MatchesSnapshotStore(){
       rows
     });
     active=snapshot;
+    if(file&&!restoring){
+      try{
+        fs.mkdirSync(path.dirname(file),{recursive:true});
+        const temp=file+'.'+process.pid+'.tmp';
+        fs.writeFileSync(temp,JSON.stringify({schemaVersion:1,asOf,totalScanned,
+          rows,evidence:{hotSectorsReady:evidence.hotSectorsReady===true}}),{mode:0o600});
+        fs.renameSync(temp,file);
+      }catch{onError('v6-matches-display-snapshot-write');}
+    }
     return {ok:true,snapshotId:snapshot.id,totalStocks:rows.length,totalSignals:snapshot.totalSignals};
   }
   function page({limit=50,cursor=''}={}){
@@ -100,6 +111,18 @@ function createV6MatchesSnapshotStore(){
       totalStocks:active.totalStocks,totalSignals:active.totalSignals,
       offset,limit,items:active.rows.slice(offset,end),hasMore,nextCursor
     };
+  }
+  if(file){
+    try{
+      const stat=fs.statSync(file);
+      if(!stat.isFile()||stat.size>16*1024*1024)throw Error('invalid snapshot file');
+      const data=JSON.parse(fs.readFileSync(file,'utf8'));
+      if(data?.schemaVersion!==1||data.asOf>Date.now())throw Error('invalid snapshot schema');
+      restoring=true;
+      const result=publish({items:data.rows,asOf:data.asOf,totalScanned:data.totalScanned,board:'all',evidence:data.evidence||{}});
+      if(!result.ok)throw Error('invalid snapshot records');
+    }catch(error){if(error.code!=='ENOENT')onError('v6-matches-display-snapshot-read');}
+    finally{restoring=false;}
   }
   return {publish,page};
 }

@@ -144,7 +144,7 @@ test('new full-match API is routed after the existing token gate and sourced fro
 });
 
 
-test('all five new daily workspaces stay within new navigation and no paper writes are exposed',()=>{
+test('daily workspaces share complete navigation while their controllers expose no paper writes',()=>{
   for(const p of ['v6-research.html','v6-validation.html','v6-paper.html']){
     const html=read('public/'+p);
     assert.match(html,/\/v6-studio\.html/);
@@ -152,7 +152,9 @@ test('all five new daily workspaces stay within new navigation and no paper writ
     assert.match(html,/\/v6-research\.html/);
     assert.match(html,/\/v6-validation\.html/);
     assert.match(html,/\/v6-paper\.html/);
-    assert.doesNotMatch(html, /href="\/#v6-paper"|href="\/research.html"|一键发布|待发布请求/);
+    assert.match(html,/href="\/#v6-paper"/);
+    assert.match(html,/href="\/research.html"/);
+    assert.doesNotMatch(html, /一键发布|待发布请求|<form[^>]*method="POST"/);
   }
   const controller=read('public/assets/v6-studio-areas.js');
   new vm.Script(controller);

@@ -1,0 +1,807 @@
+{
+  "scope": "isolated synthetic read-only HTTP; real production HTML/scripts; no physical-device certification",
+  "viewportChecks": 96,
+  "widths": [
+    320,
+    375,
+    390,
+    393,
+    430,
+    1366,
+    1536,
+    1920
+  ],
+  "pages": [
+    "/",
+    "/auction-picks.html",
+    "/m",
+    "/model-library.html",
+    "/picks.html",
+    "/research.html",
+    "/v6-market-radar.html",
+    "/v6-matches.html",
+    "/v6-paper.html",
+    "/v6-research.html",
+    "/v6-studio.html",
+    "/v6-validation.html"
+  ],
+  "scriptErrors": 0,
+  "externalRequests": 0,
+  "syntheticApiRequests": 263,
+  "results": [
+    {
+      "page": "/",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/m",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/picks.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/research.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/model-library.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/auction-picks.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-studio.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-matches.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-research.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-validation.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-paper.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 320,
+      "documentWidth": 320,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 375,
+      "documentWidth": 375,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 390,
+      "documentWidth": 390,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 393,
+      "documentWidth": 393,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 430,
+      "documentWidth": 430,
+      "duplicateIds": [],
+      "visibleDocks": 1,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 1366,
+      "documentWidth": 1366,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 1536,
+      "documentWidth": 1536,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    },
+    {
+      "page": "/v6-market-radar.html",
+      "width": 1920,
+      "documentWidth": 1920,
+      "duplicateIds": [],
+      "visibleDocks": 0,
+      "brokenLocalAnchors": []
+    }
+  ],
+  "screenshotSha256": {
+    "before-desktop-1366.png": "882d0fbe7496913d11a1a52a8b9a7435c03b99451db6ff721b2ba5c5385f6e1b",
+    "after-mobile-390.png": "3192efed57c630c68e25530b3553d28f7e5c32c5b2368b11db8bebc4288c406d",
+    "before-mobile-390.png": "8d7c56e2dabad82b3b931ce01a54d677c21b47e38ebf43e4780f8557e8566d49",
+    "after-desktop-1366.png": "f745b84dc1e481e0d3e0529b306fc0922b6489412b0b8b11efff81d3d8eae7ee"
+  }
+}

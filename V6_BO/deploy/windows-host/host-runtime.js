@@ -9,6 +9,17 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const safeConfig={pushRole:'replica',feishuWebhook:'',feishuSecret:'',feishuSecWebhook:'',feishuSecSecret:'',qqMail:{user:'',authCode:'',to:''},syncUpstream:{enabled:false}};
 function fail(code){const e=new Error(code);e.code=code;throw e;}
 function requireThat(ok,code){if(!ok)fail(code);}
+// The updater journal lives outside the directory that is atomically replaced.
+// An interrupted transaction blocks ordinary starts, including after a reboot.
+function updateGuard(root,deps={}){
+ const state=root+'.updater',file=path.join(state,'transaction.json');
+ try{
+  privateDir(state);const tx=json(file,2*1024*1024,true);
+  requireThat(tx&&tx.schemaVersion===1&&typeof tx.phase==='string'&&typeof tx.token==='string','update-recovery-required');
+  if(!['completed','rolled-back','aborted'].includes(tx.phase))requireThat(typeof deps.updateToken==='string'&&deps.updateToken===tx.token,'update-in-progress');
+  return !['completed','rolled-back','aborted'].includes(tx.phase)&&deps.updateToken===tx.token;
+ }catch(e){if(e.code==='ENOENT'&&!fs.existsSync(state))return;if(e.code==='invalid-state'&&!fs.existsSync(file))return;throw e;}
+}
 function rootPath(value,{allowMounted=false}={}){requireThat(typeof value==='string'&&path.isAbsolute(value)&&value===path.resolve(value)&&value!==path.parse(value).root&&(allowMounted||!value.startsWith('/mnt/')),'unsafe-private-path');
  let current=path.parse(value).root;for(const part of value.split('/').filter(Boolean)){requireThat(!['public','www','htdocs'].includes(part.toLowerCase()),'unsafe-private-path');current=path.join(current,part);try{requireThat(!fs.lstatSync(current).isSymbolicLink(),'unsafe-private-path');}catch(e){if(e.code!=='ENOENT')throw e;}}return value;}
 function privateDir(dir){rootPath(dir);const st=fs.lstatSync(dir);requireThat(st.isDirectory()&&st.uid===process.getuid()&&!(st.mode&0o077),'unsafe-private-permissions');}
@@ -63,11 +74,11 @@ const option=rest[0],fd=option?.stdio?.[3];if((command==='flock'||command==='/us
  try{if(fs.fstatSync(fd).isFile())return original.call(this,'/usr/bin/flock',args,...rest);}catch{}}
 return child();};}cp.exec=child;cp.execSync=child;cp.fork=child;require('node:worker_threads').Worker=child;
 `;}
-function metadata(root){privateDir(root);const meta=json(path.join(root,'installation.json'),16384,true);requireThat(meta&&meta.schemaVersion===1&&meta.ready===true&&SHA.test(meta.sourceSha)&&HASH.test(meta.manifestHash),'invalid-installation');privateDir(path.join(root,'app'));privateDir(path.join(root,'run'));return meta;}
-function safeStartup(root){const config=json(path.join(root,'app/config.json'),16384,true),paper=json(path.join(root,'app/paper.json'),4*1024*1024,true);
+function metadata(root,deps={}){privateDir(root);const meta=json(path.join(root,'installation.json'),16384,true);requireThat(meta&&meta.schemaVersion===1&&(meta.ready===true||meta.ready===false&&updateGuard(root,deps)===true)&&SHA.test(meta.sourceSha)&&HASH.test(meta.manifestHash),'invalid-installation');privateDir(path.join(root,'app'));privateDir(path.join(root,'run'));return meta;}
+function safeStartup(root,deps={}){const config=json(path.join(root,'app/config.json'),16384,true),paper=json(path.join(root,'app/paper.json'),4*1024*1024,true);
  requireThat(config.pushRole==='replica'&&config.syncUpstream?.enabled===false&&['feishuWebhook','feishuSecret','feishuSecWebhook','feishuSecSecret'].every(k=>config[k]==='')&&config.qqMail&&['user','authCode','to'].every(k=>config.qqMail[k]===''),'external-delivery-not-disabled');
  requireThat(paper.pool?.enabled===false&&paper.pre?.enabled===false,'paper-not-disabled');
- const manifestBytes=read(path.join(root,'source-manifest.json'),8*1024*1024,true),meta=metadata(root);requireThat(digest(manifestBytes)===meta.manifestHash,'installed-manifest-changed');const manifest=JSON.parse(manifestBytes);
+ const manifestBytes=read(path.join(root,'source-manifest.json'),8*1024*1024,true),meta=metadata(root,deps);requireThat(digest(manifestBytes)===meta.manifestHash,'installed-manifest-changed');const manifest=JSON.parse(manifestBytes);
  // Top-level JSON seeds may be maintained by the server; executable source remains fixed.
  const mutableSeeds=new Set(['themeMap.json','external_data.json','pushgov.json','changes_state.json']);
  for(const f of manifest.files)if(!mutableSeeds.has(f.path))requireThat(digest(read(path.join(root,'app',f.path),64*1024*1024))===f.sha256,'installed-code-changed');return meta;}
@@ -127,7 +138,7 @@ async function initialize({root,bundle},deps={}){rootPath(root);const report=dep
  const serialized=JSON.stringify(manifest)+'\n';writeNew(path.join(root,'source-manifest.json'),serialized);writeNew(path.join(root,'source-sha'),manifest.sourceSha+'\n');
  writeNew(path.join(root,'installation.json'),{schemaVersion:1,ready:true,sourceSha:manifest.sourceSha,manifestHash:digest(serialized)});
  return {code:'initialized',sourceSha:manifest.sourceSha,dependencies:report,phoneConnected:false};}
-async function start({root,smoke=false},deps={}){const env=deps.env||process.env;dependencyGate(env);metadata(root);const release=lock(root);try{const meta=safeStartup(root),old=processState(root);
+async function start({root,smoke=false},deps={}){const env=deps.env||process.env;dependencyGate(env);metadata(root,deps);const release=lock(root);try{updateGuard(root,deps);const meta=safeStartup(root,deps),old=processState(root);
  if(old){if(ownedProcess(root,old))return {code:'already-running',sourceSha:meta.sourceSha,mode:old.mode,health:await health(old.port),phoneConnected:false};requireThat(archiveStoppedRecord(root,old),'stale-process-record');}
  const port=deps.port||8787;requireThat(await portFree(port),'port-in-use');let child;
  const childEnv=childEnvironment(env,port,smoke);
@@ -146,9 +157,9 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
  const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
-async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
-async function stop({root}){
- const meta=metadata(root),release=lock(root);
+async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root,deps),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
+async function stop({root},deps={}){
+ const meta=metadata(root,deps),release=lock(root);
  try{
   const state=processState(root);if(!state)return {code:'already-stopped',sourceSha:meta.sourceSha};
   if(!ownedProcess(root,state)){requireThat(archiveStoppedRecord(root,state),'stale-process-record');return {code:'already-stopped',sourceSha:meta.sourceSha};}
@@ -171,7 +182,7 @@ async function stop({root}){
  }finally{release();}
 }
 function parseArgs(args){const [action,...rest]=args;requireThat(['init','start','check','stop'].includes(action),'usage');let root=path.join(os.homedir(),'.tian-shu-local'),bundle,smoke=false;const seen=new Set();for(let i=0;i<rest.length;i++){const flag=rest[i];requireThat(!seen.has(flag),'usage');seen.add(flag);if(flag==='--home')root=rest[++i];else if(flag==='--bundle'&&action==='init')bundle=rest[++i];else if(flag==='--smoke'&&action==='start')smoke=true;else fail('usage');}rootPath(root);requireThat(action!=='init'||typeof bundle==='string','usage');return {action,root,bundle,smoke};}
-const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','process-inspection-failed','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout']);
+const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','process-inspection-failed','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout','update-in-progress','update-recovery-required']);
 async function main(args,deps={}){try{process.umask(0o077);const options=parseArgs(args);return await ({init:initialize,start,check:checkHost,stop}[options.action])(options,deps);}catch(e){return {code:CODES.has(e?.code)?e.code:'host-operation-failed',phoneConnected:false};}}
 if(require.main===module)main(process.argv.slice(2)).then(result=>{process.stdout.write(JSON.stringify(result)+'\n');if(!['initialized','started','already-running','running','stopped','already-stopped'].includes(result.code))process.exitCode=2;});
-module.exports={main,parseArgs,verifyBundle,dependencies,childEnvironment,initialize,start,checkHost,stop,processIdentity,ownedProcess};
+module.exports={main,parseArgs,verifyBundle,dependencies,childEnvironment,initialize,start,checkHost,stop,processIdentity,ownedProcess,safeStartup};

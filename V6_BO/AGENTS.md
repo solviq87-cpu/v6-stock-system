@@ -1,5 +1,12 @@
 # AGENTS.md — 量化看盘项目 AI 协作规则
 
+> **2026-11-15 最新“整体换血”要求**：当前产品改为独立的「绯曜 FAYO」，正式入口统一使用 `public/nova/` 的全新原生前端。旧页面和旧 DOM 只作为恢复/历史回归源保存，禁止新界面加载旧 CSS、旧控制器或 iframe。旧命名、七项导航和 DOM 布局锁不再限制新产品；117项功能迁移、已有数据/账户/权限与休市原时点门禁仍需独立核验。
+
+> **2026-11-15 最新用户要求覆盖此前视觉指令**：此前 UI 原图、深蓝配色和主页字节冻结均为历史约束；本轮重新设计现有全部功能卡片/股票池，采用原创粉色与紫色科技风。周末保留最近交易日（通常周五）有效行情和池数据，标注原始日期；不能用刷新时间把旧价当实时，也不能清空已有有效数据。保留原业务权限与交易门禁。
+
+
+> **当前 UI 与免费本机部署授权（2026-11-15，覆盖下文历史双主页字节锁）**：用户明确要求全面重构正式电脑/手机页面，不能只改登录配色。允许修改 index.html/mobile.html，但须保留全部业务 DOM ID、事件、策略、账户、权限和数据质量门禁，并更新有证据的新基线与回归测试，不能删除锁定测试。后台使用现有 Windows+WSL 与私人 Tailscale Serve，不购买云服务器；家用机停机则后台不可用。WorkBuddy 静态唯一发布者保持原约束。验收见根目录 UI_REDESIGN_ACCEPTANCE.md、ZERO_COST_HOST_DEPLOYMENT.md 和 SAFE_AUTO_UPDATE_OPERATIONS.md；代码/隔离测试不代表用户本机已经上线。
+
 > **云端多端及周末规则（用户2026-11-09确认）**：手机、电脑是同一云端读客户端；两端分别可手动/自动更新，另一端离线不影响；账户、观察池和历史不能只保存在某台手机/电脑。休市继续刷新新闻公告，盘面标注最近交易日并冻结，不触发模拟成交；禁止重复采集和未经授权的收费接口。云端飞书唯一主实例，周末新闻公告可以继续发送，休市旧报价不得触发选股交易提醒；敏感信息仅私密通道且不能因为超时自动改发公共群。操作与验收见 `docs/CLOUD_DUAL_DEVICE_WEEKEND_POLICY.md`。
 
 > **交接绝对不要忘国内目标（2026-11-13 用户明确覆盖旧目标）**：`https://af3c7822e6aafc135.app.workbuddy.host`；官方文档 `/console`，发布 `POST /api/publish`，仅单文件静态 HTML。先读 `docs/CHINA_WORKBUDDY_WRITE_TARGET.md` 和 `docs/AUTO_UPDATE_WORKBUDDY_20261113.md`；已实际发布，但首次大页面出现 Unicode 损坏，严格内容校验拒绝确认，须按精确哈希与加密快照恢复。发布 JSON 使用 ASCII Unicode 转义，不能放宽哈希校验。每个请求保留私有 `sharecode` 查询参数，禁止硬编码/记录凭据、猜路径或回退历史主机。自动更新采用唯一 managed-task 发布者，既有 hosted 任务每小时检查，GitHub 每 15 分钟只读巡检；仓库外私有文件注入解决 Secret 配置依赖，CI/SHA/owner 门禁不可绕过，本次任务运行结果待实际回执。 角色切换按 `V6_BO/config/repository-auto-update-owner.json` 执行停旧 scheduler→等在途结束且 journal.transaction=null（旧 owner 先恢复）→owner 变更 SHA 通过 CI→启新；owner 不能撤销在途写入，跨环境 flock 不互斥。

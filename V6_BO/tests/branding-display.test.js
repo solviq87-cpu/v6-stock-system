@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
 
-test('天枢智策 is the consistent user-facing name without renaming the V6 version identifier', () => {
+test('legacy brand remains archived while installed product has the new FAYO identity', () => {
   const desktop = read('index.html');
   const mobile = read('mobile.html');
   const research = read('research.html');
@@ -16,9 +16,12 @@ test('天枢智策 is the consistent user-facing name without renaming the V6 ve
     assert.match(file, /天枢智策/, name);
     assert.doesNotMatch(file, /天书智能/, name);
   }
-  assert.equal(manifest.name, '天枢智策');
-  assert.equal(manifest.short_name, '天枢智策');
-  assert.match(desktop, /v6-ref-logo">V6<\/span>/);
-  assert.match(mobile, /v6-mobile-logo">V6<\/span>/);
-  assert.equal((dashboard.match(/<strong>天枢智策<\/strong>/g) || []).length, 2);
+  assert.equal(manifest.name, '绯曜 FAYO');
+  assert.equal(manifest.short_name, '绯曜');
+  // November 15 explicitly replaces the old V6 logo with the brand emblem.
+  // Version identifiers in paths and protocol fields must remain compatible.
+  assert.match(desktop, /v6-ref-logo"[^>]*>◈<\/span>/);
+  assert.match(mobile, /v6-mobile-logo"[^>]*>◈<\/span>/);
+  assert.equal((dashboard.match(/<strong(?:\s[^>]*)?>天枢智策<\/strong>/g) || []).length, 1, 'one brand in the new shell; the old duplicate footer brand is removed');
+  assert.match(dashboard, /<strong role="heading" aria-level="1">天枢智策<\/strong>/);
 });

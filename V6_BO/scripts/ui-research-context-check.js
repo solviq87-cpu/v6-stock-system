@@ -41,7 +41,10 @@ const symbols=['workspaceSymbol','captureSymbol','newsEvidenceSymbol','linkedMem
     return route.fulfill({status:403,json:{ok:false,error:'synthetic unused endpoint'}});
    });
    const select=async(symbol,provider='')=>{await page.locator('#researchContextSymbol').fill(symbol);await page.locator('#researchContextProvider').selectOption(provider);await page.locator('#researchContextForm button[type=submit]').click();};
-   const read=async()=>{await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));};
+   // Cross-module draft checks use the product's complete view. Opening a
+   // context target instead would overwrite the deliberately different draft.
+   const showAll=async()=>{await page.locator('.ow-research-all').click();};
+   const read=async()=>{await showAll();await page.locator('#workspaceRead').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('已读取'));};
    const selectedRun=()=>page.locator('#workspaceContent [data-workspace-run][aria-pressed=true]').getAttribute('data-workspace-run');
    await page.goto(origin+'/picks.html');await page.waitForFunction(()=>document.querySelectorAll('.pick').length===2);
    const href=await page.locator('.pick').first().locator('a').getAttribute('href');
@@ -58,6 +61,8 @@ const symbols=['workspaceSymbol','captureSymbol','newsEvidenceSymbol','linkedMem
    for(const id of ['workspaceProvider','captureProvider'])assert.equal(await page.locator('#'+id).inputValue(),'tencent');
    const news=page.locator('[data-research-target=news]');await news.focus();await news.press('Enter');
    assert.equal(await page.evaluate(()=>document.activeElement.id),'newsEvidenceSymbol');assert.equal(requests.length,before);
+   assert.equal(await page.locator('#newsEvidenceSymbol').isVisible(),true);assert.equal(await page.locator('#workspaceSymbol').isVisible(),false);
+   await showAll();
    await page.locator('#workspaceSymbol').fill('600001');await page.locator('#captureSymbol').fill('000003');
    await news.click();assert.equal(await page.locator('#workspaceSymbol').inputValue(),'600001');assert.equal(await page.locator('#captureSymbol').inputValue(),'000003');
    assert.ok((await page.locator('#researchContextStatus').textContent()).includes('分区代码不同'));assert.equal(requests.length,before);
@@ -72,6 +77,7 @@ const symbols=['workspaceSymbol','captureSymbol','newsEvidenceSymbol','linkedMem
    await page.evaluate(()=>dispatchEvent(new CustomEvent('v6:research-context',{detail:{symbol:'600000',provider:'tencent',runId:'private-not-carried',token:'private-not-carried'}})));
    assert.equal(await selectedRun(),run);assert.equal(await page.locator('#token').inputValue(),'synthetic-context-editor');
    assert.equal(requests.length,sameStockRequests);
+   await showAll();
    await page.locator('#linkedMemoryRead').click();await page.waitForFunction(()=>document.getElementById('linkedMemoryStatus').textContent.startsWith('已读取'));
    assert.ok((await page.locator('#linkedMemorySummary').textContent()).includes('600000'));
    const native=page.locator('#workspaceNativeFile');await native.setInputFiles({name:'synthetic-native.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({pythonEvidence:{symbol:'600000'}}))});
@@ -105,6 +111,7 @@ const symbols=['workspaceSymbol','captureSymbol','newsEvidenceSymbol','linkedMem
    assert.equal(await selectedRun(),pinned);assert.equal(new URL(requests.filter(r=>r.path==='/api/research/workspace').at(-1).url).searchParams.get('runId'),pinned);
    assert.equal(await page.locator('#workspaceAsOf').inputValue(),'2026-11-01T09:30');
    assert.ok((await page.locator('#researchContextStatus').textContent()).includes('历史时点'));
+   await showAll();
    await page.locator('#newsEvidenceSymbol').fill('000002');
    await page.locator('#researchContextClear').click();assert.equal(await page.locator('#workspaceSymbol').inputValue(),'');
    assert.equal(await page.locator('#newsEvidenceSymbol').inputValue(),'000002');

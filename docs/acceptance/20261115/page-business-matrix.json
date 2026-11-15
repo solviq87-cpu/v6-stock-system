@@ -1,0 +1,5312 @@
+{
+  "baselineSha": "e113e96e2fb9f5300b54809b9450427a745ca464",
+  "scope": "Static literal DOM-to-module and module-to-API inventory. Not proof of per-control API authorization or delivery. Runtime and permissions covered separately.",
+  "pages": {
+    "index.html": {
+      "baselineBlob": "9e2fad468cb3e192df0ca2b9184babb2add8c4de",
+      "controlCount": 202,
+      "originalControls": [
+        {
+          "id": "amInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amNearBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amNearChev",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amNearCnt",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amTopBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amTopChev",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "amTopCnt",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "analyzeBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "analyzeCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "aucReview",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "aucSectors",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "aucTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authCodeBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bigMoney",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bindPhone",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bindPhoneTip",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bmInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bnList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bnSectors",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bnTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "brBody",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "brInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btResult",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnCloudRefresh",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnHdrTools",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnLock",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnMobile",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnPanelPick",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnPanelToggle",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnResetPOOL",
+          "scriptReferences": [],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "btnResetPRE",
+          "scriptReferences": [],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "buzhang",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "bzTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cd",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cfgRangeBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cfgSetBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "copySrcState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "devList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "devPwdTip",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "extGroups",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "extNote",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "extPicks",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "extTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "external",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "feishuSecSecret",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "feishuSecret",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "global",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "globalNote",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "gnHot",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "gnList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "gnTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hAddBtn",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hCancelBtn",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hCapital",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hCode",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hCost",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hLockCode",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hLockShares",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hLocked",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hMax",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hMuted",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hName",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hNote",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hPreset",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hReduce",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hShares",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hStop",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hTags",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hTake",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "hdrTools",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdSec1",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdSec2",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdSummary",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdTagBar",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "holdWatchNote",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lbInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lbTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "leader",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnAB",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnBody",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnHist",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnHistCount",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnPaths",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnSplit",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learnTable",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lianbanList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lockPanel",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": "hide",
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lockPwd",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lockPwd2",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lockTabs",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lockTip",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltab0",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltab1",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltab2",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltabB0",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltabB1",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ltabB2",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mailAuth",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mailState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mailTo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mailUser",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mainline",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mkt",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/ui-health.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mlTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodBox",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodLine",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mrInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mrTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "myDid",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "myrules",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "nextplan",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "npInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "npTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "onlineDevList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "panelPicker",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "panelPickerList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pendingList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pool",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "poolInfo",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPoolInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPoolPos",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPoolSummary",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPoolTrades",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPreInfo",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPrePos",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPreSummary",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ppPreTrades",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "preBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "preTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "preselect",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "psTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relBoard",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relStat",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "review",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "roleState",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "rtState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "rvFilters",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "rvSummary",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "rvTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "searchBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "searchCands",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "searchHint",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "secNav",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "secState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "secWebhook",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectFlowNote",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectors",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "signals",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "smallyangBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "srcArea",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "srcEdit",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "srcFile",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "staleBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "steadyUpBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategyCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategyDetail",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategySummary",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategyTop",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "suInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "syInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "taskBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tickinfo",
+          "scriptReferences": [
+            "/assets/app.js",
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tpInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "trendPool",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "trendScanBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tsInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-market",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-news",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-paper",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-plan",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-release",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-review",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-stock",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6-strategy",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefConnection",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefDate",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefMarket",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefMarketNote",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefMood",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefPool",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefPoolNote",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6RefStrategy",
+          "scriptReferences": [
+            "/assets/v6-reference-precision.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6UiHealth",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6UiHealthRun",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "viewDevList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "viewPwd",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "viewPwdTip",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "webhook",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "wecomState",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "yeInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "yeTime",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "yierList",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "zpInfo",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "zpRules",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztBySector",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztCount",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztPreBox",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztTopics",
+          "scriptReferences": [
+            "/assets/app.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/app.js": {
+          "apiPaths": [
+            "/api/analyze",
+            "/api/auction-log",
+            "/api/auction-review",
+            "/api/auth/code",
+            "/api/auth/redeem",
+            "/api/backtest",
+            "/api/backtest/result",
+            "/api/client-error",
+            "/api/config",
+            "/api/devices",
+            "/api/holdings",
+            "/api/kline",
+            "/api/kline-marks",
+            "/api/lock/bind-phone",
+            "/api/lock/change",
+            "/api/lock/devices",
+            "/api/lock/forgot",
+            "/api/lock/pending-approve",
+            "/api/lock/pending-list",
+            "/api/lock/pending-status",
+            "/api/lock/phone",
+            "/api/lock/reset-pwd",
+            "/api/lock/revoke",
+            "/api/lock/setup",
+            "/api/lock/status",
+            "/api/lock/trust",
+            "/api/lock/unlock",
+            "/api/lock/verify-code",
+            "/api/paper",
+            "/api/push-log",
+            "/api/refresh",
+            "/api/release/publish",
+            "/api/release/requests",
+            "/api/release/update",
+            "/api/search",
+            "/api/source",
+            "/api/source-all",
+            "/api/state",
+            "/api/strategy/dashboard",
+            "/api/stream",
+            "/api/test-push"
+          ]
+        },
+        "/assets/ui-navigation.js": {
+          "apiPaths": []
+        },
+        "/assets/ui-health.js": {
+          "apiPaths": [
+            "/api/state"
+          ]
+        },
+        "/assets/v6-reference-precision.js": {
+          "apiPaths": []
+        },
+        "/assets/stock-provider-links.js": {
+          "apiPaths": []
+        },
+        "/assets/stock-pattern-preview.js": {
+          "apiPaths": []
+        },
+        "/assets/terminal-dashboard.js": {
+          "apiPaths": [
+            "/api/kline"
+          ]
+        }
+      }
+    },
+    "mobile.html": {
+      "baselineBlob": "084e36d950f9bf4c3508aa1a5cb8986799b6079e",
+      "controlCount": 56,
+      "originalControls": [
+        {
+          "id": "app",
+          "scriptReferences": [
+            "/assets/ui-health.js",
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "arBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "arCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "arMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "aucBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "aucMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "err",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "foot",
+          "scriptReferences": [
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "gate",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "gateErr",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "isBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "isCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "isMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "mobileCloudRefresh",
+          "scriptReferences": [
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodAdvice",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodDisc",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodNote",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "moodTag",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ncBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ncCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ncMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "npBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "npMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "psBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "psCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "psMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pushState",
+          "scriptReferences": [
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pwd",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "qpBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "qpCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "qpMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "relb_${esc(r.file)}",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "secBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "secMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "slBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "slCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "slMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "slRefresh",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sub",
+          "scriptReferences": [
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tab-market",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tab-overview",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tab-plan",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "tabBar",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6MobileResearchEntry",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6UiHealth",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "v6UiHealthRun",
+          "scriptReferences": [
+            "/assets/ui-health.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verTag",
+          "scriptReferences": [
+            "/assets/terminal-dashboard.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "wtBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "wtCard",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "wtMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztBody",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ztMeta",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/ui-health.js": {
+          "apiPaths": [
+            "/api/state"
+          ]
+        },
+        "/assets/stock-provider-links.js": {
+          "apiPaths": []
+        },
+        "/assets/stock-pattern-preview.js": {
+          "apiPaths": []
+        },
+        "/assets/terminal-dashboard.js": {
+          "apiPaths": [
+            "/api/kline"
+          ]
+        }
+      }
+    },
+    "picks.html": {
+      "baselineBlob": "b4648c3646b0f748e91728c1d1915da6630998ba",
+      "controlCount": 24,
+      "originalControls": [
+        {
+          "id": "board",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "candidates",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cloudSync",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "day",
+          "scriptReferences": [
+            "/assets/picks-periods.js",
+            "/assets/picks-three-k.js",
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "detailQuote",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "detailReasons",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "detailRisk",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "explained",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "filterTitle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "listTitle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "periodChart",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "periodStatus",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pickDetail",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pickDetailCaption",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pickDetailCode",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pickDetailTitle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "pickFollowup",
+          "scriptReferences": [
+            "/assets/picks-three-k.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "reload",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "search",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "selectionList",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sort",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "total",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "visible",
+          "scriptReferences": [
+            "/assets/picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/picks-followup.js": {
+          "apiPaths": []
+        },
+        "/assets/picks-periods.js": {
+          "apiPaths": []
+        },
+        "/assets/picks-three-k.js": {
+          "apiPaths": [
+            "/api/kline"
+          ]
+        },
+        "/assets/picks-page.js": {
+          "apiPaths": [
+            "/api/quant-picks"
+          ]
+        }
+      }
+    },
+    "research.html": {
+      "baselineBlob": "572e65459e643a68d2c9d8835ab384fb23ad9554",
+      "controlCount": 255,
+      "originalControls": [
+        {
+          "id": "adaptiveFile",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveLatest",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveLatestStatus",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveOutput",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveRun",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveStatus",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "adaptiveSummary",
+          "scriptReferences": [
+            "/assets/adaptive-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityAccount",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityAudit",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityConfigure",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityOutput",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityRead",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authoritySettle",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authorityStatus",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "authoritySummary",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "backtest",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cacheBacktest",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "cacheScan",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "capabilities",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureAnalysis",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureChart",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureDecision",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureEvidence",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureOutput",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureProvider",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureRead",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureRun",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureStatus",
+          "scriptReferences": [
+            "/assets/stock-list-import.js",
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureSummary",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "captureSymbol",
+          "scriptReferences": [
+            "/assets/stock-list-import.js",
+            "/assets/stock-capture-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "completeHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "completeOutput",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "completeRun",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "completeStatus",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "completeSummary",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionEvidence",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionGate",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionMetrics",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionRanking",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionStatus",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "decisionWorkspace",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "diskLedger",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "diskScan",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceCheck",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceDate",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceFile",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceImport",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceOutput",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidencePanel",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidencePreview",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "evidenceSymbol",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "factorAgentCatalog",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "factorAgentHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "factorAgentOutput",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "factorAgentRefresh",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "factorAgentStatus",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "fetchLiveBreadth",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "fetchLiveMarket",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "file",
+          "scriptReferences": [
+            "/assets/research-workbench.js",
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "issuerPools",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningDetails",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningForce",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningLimit",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningModelProbe",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningRead",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningRuntimeRead",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningRuntimeStatus",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningRuntimeSummary",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningStatus",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningSummary",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "learningWorkbench",
+          "scriptReferences": [
+            "/assets/learning-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "lifecyclePools",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkagePools",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedIntelligence",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedIntelligenceFile",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedIntelligenceOutput",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedIntelligenceRun",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedIntelligenceStatus",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMarketSummary",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMemoryOutput",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMemoryRead",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMemoryStatus",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMemorySummary",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedMemorySymbol",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPersist",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicDate",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicOutput",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicRun",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicStatus",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicSummary",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedPublicSymbol",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedRulesAuditEnabled",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedSectorCode",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedSectorSummary",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedSourceLicenses",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedStockSummary",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "linkedTemplate",
+          "scriptReferences": [
+            "/assets/linked-intelligence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveBreadth",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveBreadthStatus",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveBreadthSummary",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketCandidates",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketPayload",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketResearch",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketRisk",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketStatus",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "liveMarketSummary",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "marketAnalyze",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "marketPayload",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "marketResearch",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "marketStatus",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "marketSummary",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "newsEvidence",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "newsEvidenceLoad",
+          "scriptReferences": [
+            "/assets/news-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "newsEvidenceRows",
+          "scriptReferences": [
+            "/assets/news-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "newsEvidenceStatus",
+          "scriptReferences": [
+            "/assets/news-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "newsEvidenceSymbol",
+          "scriptReferences": [
+            "/assets/news-evidence-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paperAccountId",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paperAppend",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paperRead",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "patternPools",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "payload",
+          "scriptReferences": [
+            "/assets/research-workbench.js",
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "publicFactorFile",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "publicFactorOutput",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "publicFactorRun",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "publicFactorStatus",
+          "scriptReferences": [
+            "/assets/factor-agent-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "publicRuleAuditEnabled",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "qualityRulesAuditEnabled",
+          "scriptReferences": [
+            "/assets/complete-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "refresh",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Catalog",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Config",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36File",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Heading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Observe",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Result",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Run",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Status",
+          "scriptReferences": [
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Symbol",
+          "scriptReferences": [
+            "/assets/research36-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research36Workspace",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContext",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextClear",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextCurrent",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextForm",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextProvider",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextStatus",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchContextSymbol",
+          "scriptReferences": [
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchEvidence",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchEvidenceHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchStatusMessage",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchStatusRead",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchStatusSummary",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchWorkspace",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "researchWorkspaceHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "resultTitle",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "results",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskCenter",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskCenterContent",
+          "scriptReferences": [
+            "/assets/research-risk-center.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskCenterHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskCenterRead",
+          "scriptReferences": [
+            "/assets/research-risk-center.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskCenterStatus",
+          "scriptReferences": [
+            "/assets/research-risk-center.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskDailyLoss",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskDrawdown",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskGross",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskSector",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskSingle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskStrategy",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "riskStreak",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ruleAnalyze",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ruleComparison",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ruleDetails",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "rulePayload",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ruleStatus",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "ruleSummary",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "runDecision",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "saveDisk",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "scan",
+          "scriptReferences": [
+            "/assets/research-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorBoardAdd",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorBoardChoice",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorCaptureRun",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorCatalogueRun",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorCategory",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorEvidenceOutput",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorEvidenceStatus",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorEvidenceSummary",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorSavedRead",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorSearch",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectorSelection",
+          "scriptReferences": [
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "settlementFile",
+          "scriptReferences": [
+            "/assets/authority-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-workbench.js",
+            "/assets/research-evidence-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockCapture",
+          "scriptReferences": [
+            "/assets/stock-capture-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockCaptureHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListClear",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListFile",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListImport",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListParse",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListPreview",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListSheet",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListSheetLabel",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListStatus",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stockListText",
+          "scriptReferences": [
+            "/assets/stock-list-import.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "summary",
+          "scriptReferences": [
+            "/assets/market-linkage-card.js",
+            "/assets/research-workspace.js",
+            "/assets/research-decision-review.js",
+            "/assets/research-workbench.js",
+            "/assets/complete-workbench.js",
+            "/assets/learning-workbench.js",
+            "/assets/stock-list-import.js",
+            "/assets/stock-capture-workbench.js",
+            "/assets/linked-intelligence-workbench.js",
+            "/assets/news-evidence-workbench.js",
+            "/assets/research36-workbench.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "table",
+          "scriptReferences": [
+            "/assets/research-workbench.js",
+            "/assets/stock-list-parser.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "token",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-workbench.js",
+            "/assets/complete-workbench.js",
+            "/assets/authority-workbench.js",
+            "/assets/adaptive-workbench.js",
+            "/assets/learning-workbench.js",
+            "/assets/factor-agent-workbench.js",
+            "/assets/stock-list-import.js",
+            "/assets/stock-capture-workbench.js",
+            "/assets/research-evidence-workbench.js",
+            "/assets/linked-intelligence-workbench.js",
+            "/assets/news-evidence-workbench.js",
+            "/assets/research-risk-center.js",
+            "/assets/research36-workbench.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceApplyPreset",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceAsOf",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceAvoid",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceCompareRun",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceContent",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceExcluded",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceExport",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceFilterStatus",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastClear",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastFile",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastFreeze",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastInput",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastStatus",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceForecastTools",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceHorizon",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceLatest",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceLinkageTemplate",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceMarketLinkage",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceMaxWeight",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceMinScore",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceNativeClear",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceNativeFile",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceNativeStatus",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceObjective",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceConflicts",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceDiscardDraft",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceDraftActions",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceDraftStatus",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceKeepDraft",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreferenceVersion",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePreset",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePresetName",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspacePresetVersion",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceProvider",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceRead",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceRestorePreferences",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceRestorePreset",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceReview",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceSavePreferences",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceSavePreset",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceScreenRun",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceStatus",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceSummary",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceSymbol",
+          "scriptReferences": [
+            "/assets/research-workspace.js",
+            "/assets/research-context.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceTabs",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceUndoPreset",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "workspaceUnresolved",
+          "scriptReferences": [
+            "/assets/research-workspace.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/market-linkage-card.js": {
+          "apiPaths": []
+        },
+        "/assets/research-workspace.js": {
+          "apiPaths": [
+            "/api/research/workspace"
+          ]
+        },
+        "/assets/research-decision-review.js": {
+          "apiPaths": []
+        },
+        "/assets/research-workbench.js": {
+          "apiPaths": [
+            "/api/research/",
+            "/api/research/cache-",
+            "/api/research/capabilities",
+            "/api/research/decision-pipeline",
+            "/api/research/eastmoney-breadth",
+            "/api/research/history-refresh",
+            "/api/research/live-market",
+            "/api/research/observed-regime",
+            "/api/research/rule-comparison"
+          ]
+        },
+        "/assets/complete-workbench.js": {
+          "apiPaths": [
+            "/api/research/"
+          ]
+        },
+        "/assets/authority-workbench.js": {
+          "apiPaths": [
+            "/api/research/order-account"
+          ]
+        },
+        "/assets/adaptive-workbench.js": {
+          "apiPaths": [
+            "/api/research/adaptive-latest",
+            "/api/research/adaptive-market"
+          ]
+        },
+        "/assets/learning-workbench.js": {
+          "apiPaths": [
+            "/api/learn-status",
+            "/api/research/learning-runtime"
+          ]
+        },
+        "/assets/factor-agent-workbench.js": {
+          "apiPaths": [
+            "/api/research/agent-status",
+            "/api/research/public-factors"
+          ]
+        },
+        "/assets/stock-list-parser.js": {
+          "apiPaths": []
+        },
+        "/assets/stock-list-import.js": {
+          "apiPaths": [
+            "/api/research/import-workbook"
+          ]
+        },
+        "/assets/stock-capture-workbench.js": {
+          "apiPaths": [
+            "/api/research/observe-stock",
+            "/api/research/stock-observations"
+          ]
+        },
+        "/assets/research-evidence-workbench.js": {
+          "apiPaths": [
+            "/api/research/public-sectors",
+            "/api/research/stock-observation-status"
+          ]
+        },
+        "/assets/linked-intelligence-workbench.js": {
+          "apiPaths": [
+            "/api/research/linked-intelligence",
+            "/api/research/public-context",
+            "/api/research/stock-memory"
+          ]
+        },
+        "/assets/news-evidence-workbench.js": {
+          "apiPaths": [
+            "/api/research/news-evidence"
+          ]
+        },
+        "/assets/research-risk-center.js": {
+          "apiPaths": [
+            "/api/research/risk-center"
+          ]
+        },
+        "/assets/research36-workbench.js": {
+          "apiPaths": [
+            "/api/research/strategy36"
+          ]
+        },
+        "/assets/research-context.js": {
+          "apiPaths": []
+        }
+      }
+    },
+    "model-library.html": {
+      "baselineBlob": "3d9799521d4ac116d15775ded398655396dffd27",
+      "controlCount": 20,
+      "originalControls": [
+        {
+          "id": "catalogHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "compareCount",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "compareGrid",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "compareHeading",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "compareNotice",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryAdoption",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryCards",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryCategory",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryClear",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryCount",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryEmpty",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryExport",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryFilters",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryOverviewHeading",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryReset",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryRetry",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "librarySearch",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryShare",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "libraryStatus",
+          "scriptReferences": [
+            "/assets/model-library.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "modelLibrary",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/public-library-context.js": {
+          "apiPaths": []
+        },
+        "/assets/model-library.js": {
+          "apiPaths": []
+        }
+      }
+    },
+    "auction-picks.html": {
+      "baselineBlob": "b7f86e3f3606bbdb4982850209869b6f196a112e",
+      "controlCount": 12,
+      "originalControls": [
+        {
+          "id": "board",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "explained",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "filterTitle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "listTitle",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "reload",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "results",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "search",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sort",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "synced",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "total",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "visible",
+          "scriptReferences": [
+            "/assets/auction-picks-page.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/auction-picks-page.js": {
+          "apiPaths": [
+            "/api/auction-resonance"
+          ]
+        }
+      }
+    },
+    "v6-studio.html": {
+      "baselineBlob": "e73ca7ab25f8e525e80487f90c0717fc0efed03a",
+      "controlCount": 17,
+      "originalControls": [
+        {
+          "id": "index-cyb",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "index-sh",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "index-sz",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "indexpct-cyb",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "indexpct-sh",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "indexpct-sz",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "market-fresh",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "market-reason",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "market-view",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "refresh-all",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "source-alert",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategy-bazi",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategy-gpt",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategy-python",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "strategy-rule14",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "summary-count",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "zt-view",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-studio.js": {
+          "apiPaths": [
+            "/api/kline",
+            "/api/mobile-digest",
+            "/api/reference-indexes",
+            "/api/reference-strategy-stats",
+            "/api/v6/matches"
+          ]
+        }
+      }
+    },
+    "v6-matches.html": {
+      "baselineBlob": "d305f535f045e8cec7318c1583c97a32fe6880a4",
+      "controlCount": 16,
+      "originalControls": [
+        {
+          "id": "all-matches-warning",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "clear-filters",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-matches",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-scanned",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-signals",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-snapshot",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "detail-panel",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "filter-board",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "filter-risk",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "filter-rule",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "refresh-all",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "search-stock",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sort-stock",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "source-alert",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "stock-list",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "visible-count",
+          "scriptReferences": [
+            "/assets/v6-studio.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-studio.js": {
+          "apiPaths": [
+            "/api/kline",
+            "/api/mobile-digest",
+            "/api/reference-indexes",
+            "/api/reference-strategy-stats",
+            "/api/v6/matches"
+          ]
+        }
+      }
+    },
+    "v6-research.html": {
+      "baselineBlob": "80d7be6684387dc0646dd1a1dfcdbd29353b1d08",
+      "controlCount": 11,
+      "originalControls": [
+        {
+          "id": "area-refresh",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-bazi",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-gpt",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-python",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "count-rule14",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research-asof",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "research-status",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status-bazi",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status-gpt",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status-python",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status-rule14",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-studio-areas.js": {
+          "apiPaths": [
+            "/api/paper",
+            "/api/reference-strategy-stats",
+            "/api/v6/matches"
+          ]
+        }
+      }
+    },
+    "v6-validation.html": {
+      "baselineBlob": "6e43c844f6ecb4c71c843fe13824b880902059e8",
+      "controlCount": 6,
+      "originalControls": [
+        {
+          "id": "area-refresh",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verify-basis",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verify-signals",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verify-source",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verify-status",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "verify-stocks",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-studio-areas.js": {
+          "apiPaths": [
+            "/api/paper",
+            "/api/reference-strategy-stats",
+            "/api/v6/matches"
+          ]
+        }
+      }
+    },
+    "v6-paper.html": {
+      "baselineBlob": "37479d5a438aa1f11b2d438996e9aac1931598af",
+      "controlCount": 14,
+      "originalControls": [
+        {
+          "id": "paper-pool-audit",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pool-cash",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pool-equity",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pool-name",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pool-pnl",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pool-positions",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-audit",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-cash",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-equity",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-name",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-pnl",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-pre-positions",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-read",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "paper-status",
+          "scriptReferences": [
+            "/assets/v6-studio-areas.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-studio-areas.js": {
+          "apiPaths": [
+            "/api/paper",
+            "/api/reference-strategy-stats",
+            "/api/v6/matches"
+          ]
+        }
+      }
+    },
+    "v6-market-radar.html": {
+      "baselineBlob": "25be850c7f56258d1971eafecc5534380022c848",
+      "controlCount": 10,
+      "originalControls": [
+        {
+          "id": "freshness",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "indexes",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "notice",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "overview",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "refresh",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "regime",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "risk",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sectors",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "sentiment",
+          "scriptReferences": [],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        },
+        {
+          "id": "status",
+          "scriptReferences": [
+            "/assets/v6-market-radar.js"
+          ],
+          "roleAttribute": null,
+          "bindingScope": "literal references; dynamic/generated bindings require runtime review"
+        }
+      ],
+      "modules": {
+        "/assets/v6-market-radar.js": {
+          "apiPaths": [
+            "/api/reference-indexes"
+          ]
+        }
+      }
+    }
+  }
+}

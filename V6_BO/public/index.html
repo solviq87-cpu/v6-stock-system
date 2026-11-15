@@ -11,45 +11,362 @@
 <link rel="stylesheet" href="/assets/terminal-theme.css?v=20261109cv">
 <link rel="stylesheet" href="/assets/reference-match.css?v=20261109cv">
 <link rel="stylesheet" href="/assets/original-reference-fidelity.css?v=20261109fidelity4">
+<link rel="stylesheet" href="/assets/desktop-workspace.css?v=20261115workspace1">
+<link rel="stylesheet" href="/assets/original-workspace.css?v=20261115prism1">
+<script defer src="/assets/original-workspace.js?v=20261115prism1"></script>
 </head>
-<body>
-<div class="wrap">
-<nav class="v6-design-nav" aria-label="V6 主导航"><a href="/" aria-current="page">⌂ 首页</a><a href="/picks.html">◈ 智能选股</a><a href="/auction-picks.html">🎯 竞价池</a><a href="#v6-stock">▣ 策略研究</a><a href="#v6-plan">▥ 回测分析</a><a href="#v6-paper">◉ 模拟交易</a><a href="#v6-market">▤ 行情中心</a><a href="#holdSec1">⬡ 风险控制</a><a href="#v6-release">⚙ 系统设置</a><a href="/m">▣ 手机看盘</a><span class="v6-design-note">行情、信号和研究数据均来自现有接口；未验证数据不作交易依据</span></nav>
-  <div class="v6-research-entry" data-eo="hide"><a href="/research.html">🧪 天枢智策 · 选股、战法与回测研究工作台（开发者）</a></div>
-  
-  <!-- V6 双端快捷导航：仅锚点跳转，不改变已有卡片 ID、权限或数据接口。 -->
-  <a class="v6-skip-link" href="#v6-market">跳转到盘面总览</a>
-  <nav class="v6-quick-nav" aria-label="工作台功能快捷导航">
-    <span class="v6-nav-label">工作台导航</span>
-    <a class="v6-nav-link v6-nav-primary" href="/m" title="深色手机速览看盘">🌙 速览看盘</a>
-    <a class="v6-nav-link v6-nav-primary" href="/reference-dashboard.html" title="按参考图布局查看双端界面">🖥 参考图界面</a>
-    <a class="v6-nav-link v6-nav-primary" href="/research.html" data-eo="hide" title="开发者研究工作台">🧠 研究工作台</a>
-    <a class="v6-nav-link" href="#v6-market">盘面总览</a>
-    <a class="v6-nav-link" href="#v6-stock">外围与选股</a>
-    <a class="v6-nav-link" href="#v6-paper">模拟盘</a>
-    <a class="v6-nav-link" href="#v6-news">消息联动</a>
-    <a class="v6-nav-link" href="#v6-plan">明日计划</a>
-    <a class="v6-nav-link" href="#v6-review">复盘学习</a>
-    <a class="v6-nav-link" href="#v6-strategy">智能策略</a>
-    <a class="v6-nav-link" href="#v6-release">发布看板</a>
-  </nav>
-  <header>
-    <h1>📈 量化看盘平台</h1>
+<body class="desktop-workspace">
+<main class="wrap" id="workspace-content">
+<!-- V6 双端快捷导航：仅锚点跳转，不改变已有卡片 ID、权限或数据接口。 -->
+  <a class="v6-skip-link" href="#vx-dashboard">跳转到盘面总览</a>
+<section class="workspace-session" id="workspace-session" aria-label="连接与身份状态"><div class="workspace-session-state">
     <span id="mkt" class="badge">--</span>
     <span>刷新倒计时 <span id="cd" class="cd">5</span>s</span>
     <span class="muted" id="tickinfo">--</span>
-    <span style="flex:1"></span>
-    <button data-eo="hide" class="btn ghost" id="btnHdrTools" onclick="toggleHdrTools()" title="推送通道/自查工具平时用不着，收在这里。点了才展开">🛠 工具</button>
-    <button type="button" class="btn ghost" id="btnCloudRefresh" onclick="refresh()" title="从同一云端读取最新数据，不触发模拟交易或重复行情采集">🔄 云端刷新</button>
     <span id="rtState" class="badge" title="服务端实时通道：有新推送/新信号时页面立即刷新">⚪ 实时连接中…</span>
     <span id="roleState" class="badge" title="当前登录身份">—</span>
+</div><div class="workspace-session-actions">
+    <button type="button" class="btn ghost" id="btnCloudRefresh" onclick="refresh()" title="从同一云端读取最新数据，不触发模拟交易或重复行情采集">🔄 云端刷新</button>
+    <button class="btn ghost" id="btnLock" onclick="identBtn()" title="切换/升级登录身份">🔓 身份</button>
+</div></section>
+  <!-- ═══ 📊 盘面总览 ═══ -->
+
+  <section class="workspace-module" data-workspace-module="v6-market" aria-label="市场与资金">
+  <div class="sec" id="v6-market">📊 盘面总览</div>
+    <!-- 市场情绪：盘面总览内一行研判（in 轮回退：不再单独大卡，复原 if 之前最简布局） -->
+    <div id="moodLine" style="margin:0 0 12px;font-size:13px;line-height:1.6"><span class="muted">🌡️ 市场情绪：</span><span id="moodBox"><span class="muted">等待数据...</span></span></div>
+
+    <!-- ⛔ 竞价异动 + 板块资金流（if 之前即并列在盘面总览首屏） -->
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card">
+        <h2><span>竞价异动 · 龙头推断</span> <small id="aucTime"></small><span class="rf" onclick="doRefresh('auction',this)" title="强制刷新">🔄</span><span class="rf" onclick="toggleAuctionReview()" title="竞价复盘 · 竞价分时 + 次日K线同屏归因">📊 复盘</span></h2>
+        <div id="leader" class="muted">等待竞价数据...</div>
+        <div class="tw" style="margin-top:10px"><table id="aucSectors"></table></div>
+        <div id="aucReview" class="tw" style="display:none;margin-top:12px"></div>
+      </div>
+      <div class="card fluid">
+        <h2><span>板块资金流排行</span> <small id="sectFlowNote">主力净流入 · 30秒刷新</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div class="scrolly"><table id="sectors"></table></div>
+      </div>
+    </div>
+    <!-- ⛔ 一进二/连板接力挨着竞价：都是开盘前要盯的策略（2026-10-08） -->
+    <div class="grid g2" style="margin-bottom:14px" data-eo="hide">
+      <div class="card">
+        <h2><span>🎯 一进二 · 首板次日接力</span> <small id="yeTime">今日首板里，明日最可能连板的</small><span class="rf" onclick="doRefresh('yier',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
+        <div id="yeInfo" style="margin-bottom:6px"></div>
+        <div class="scrolly" style="max-height:640px"><div id="yierList"></div></div>
+      </div>
+      <div class="card">
+        <h2><span>🔥 连板接力 · 二进三 / 三进四</span> <small id="lbTime">连板梯队 · 板块联动</small><span class="rf" onclick="doRefresh('lianban',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
+        <div id="lbInfo" style="margin-bottom:6px"></div>
+        <div class="scrolly" style="max-height:640px"><div id="lianbanList"></div></div>
+      </div>
+    </div>
+    <div class="grid g3" style="margin-bottom:14px">
+      <div class="card">
+        <h2><span>涨停板 · 板块分类</span><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div class="scrolly" id="ztBySector"></div>
+        <span id="ztCount" class="muted"></span>
+        <div id="ztTopics" style="margin-top:4px"></div>
+      </div>
+      <div class="card">
+        <h2><span>市场主线分析</span> <small id="mlTime"></small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+        <div id="mainline" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+      </div>
+      <div class="card">
+        <h2><span>信号推送记录</span> <small>同股同信号30分钟去重</small></h2>
+        <div class="scrolly" id="signals"><div class="muted">暂无信号（交易时段扫描中）</div></div>
+      </div>
+    </div>
+  <!-- ═══ 🌏 外围市场与选股核心 ═══ -->
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-stock" aria-label="选股与全球市场">
+  <div class="sec" id="v6-stock">🌏 外围市场 · 选股核心</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>外围市场 · 10国指数</span> <small id="globalNote">美/港/日/韩/德/英/印 · 60秒刷新</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div id="global"><span class="muted">加载中...</span></div>
+    </div>
+    <div class="card">
+      <h2><span>🌐 外围联动预选</span> <small id="extTime">外围板块涨跌 → A股同类板块 → 板块内较强标的</small><span class="rf" onclick="doRefresh('ext',this)" title="强制刷新">🔄</span></h2>
+      <div id="extGroups" style="margin-bottom:8px" class="muted"></div>
+      <div class="scrolly" style="max-height:240px"><table id="extPicks"></table></div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>📡 外部数据源 · 北向/南向/商品/财报/两融</span> <small id="extNote">沪深港通 · 纽约金油银 · 业绩预告 · 两融余额</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div id="external"><span class="muted">加载中...</span></div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>当日涨停预选</span> <small id="psTime">外围情绪 × 聚焦池 × 概率模型</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:260px"><table id="preselect"></table></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>趋势票池</span> <small id="tpInfo">资金流入 + 五日线震荡 · 主板</small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendPool"></div></div>
+      <div style="margin-top:10px;border-top:1px dashed rgba(128,128,128,.3);padding-top:8px">
+        <div style="font-weight:600;margin-bottom:4px">📶 连续小阳线拉升 <small class="muted" id="syInfo">系统自己全市场扫的，不等你喂</small></div>
+        <div class="scrolly" style="max-height:200px"><div class="rvgrid sm" id="smallyangBox"></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- 2026-10-01：把「机器自己全市场扫出来的三类票」各归各位。
+       以前这三个池子服务端算好了却没有面板，用户只能从推送里看到零星几条。 -->
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card fluid">
+      <h2><span>🎯 涨停前形态</span> <small id="zpInfo">学「涨停前是什么样子」，每日全市场自主挑</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="ztPreBox"></div></div>
+      <div class="muted" id="zpRules" style="margin-top:8px;font-size:12px;line-height:1.7"></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>🔭 全市场趋势扫描</span> <small id="tsInfo">不依赖候选集，按学习溢价排序</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendScanBox"></div></div>
+    </div>
+    <div class="card fluid">
+      <h2><span>📶 连续收涨</span> <small id="suInfo">连涨≥3天、每天温和上涨、站上向上的20日线</small></h2>
+      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="steadyUpBox"></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🌡 市场温度 · 个股真实涨跌</span> <small id="brInfo">不只看大盘指数：全A个股均值 / 上涨家数 / 按市值分层</small></h2>
+    <div id="brBody" class="muted" style="padding:2px 0">加载中…</div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>💰 主力大单流入 · 实时识别</span> <small id="bmInfo">全市场当日主力净占比>6% · 温和上涨未涨停</small><span class="rf" onclick="doRefresh('bigmoney',this)" title="立即重新识别一次">🔄</span></h2>
+    <div class="scrolly" style="max-height:320px"><div class="rvgrid" id="bigMoney"></div></div>
+  </div>
+  <!-- jp 轮：涨幅异动池 —— 近 3 个交易日累计涨幅临近或达到交易所披露阈值，按「已触发/临近」分组并可折叠 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>⚡ 涨幅异动池</span> <small id="amInfo">近 3 个交易日累计涨幅：主板≥16% 临近 / ≥20% 顶异动；创业板/科创板≥24% 临近 / ≥30% 顶异动；北交所≥32% 临近 / ≥40% 顶异动</small><span class="rf" onclick="doRefresh('abmove',this)" title="立即重新识别一次">🔄</span></h2>
+    <div class="scrolly" style="max-height:400px">
+      <div class="hgrp">
+        <div class="hgrp-h" onclick="abMoveToggle('top')">
+          <span class="chev" id="amTopChev">▾</span><b>🔴 已触发异动</b><span class="cnt" id="amTopCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
+        </div>
+        <div class="hgrp-b" id="amTopBox"></div>
+      </div>
+      <div class="hgrp">
+        <div class="hgrp-h" onclick="abMoveToggle('near')">
+          <span class="chev" id="amNearChev">▾</span><b>🟠 临近异动</b><span class="cnt" id="amNearCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
+        </div>
+        <div class="hgrp-b" id="amNearBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 💼 我的持仓 · 盯盘与加减仓触发（私密：仅本机/开发者密码可见，观看密码看不到） ═══ -->
+  </section>
+  <section class="workspace-module" data-workspace-module="holdSec1" aria-label="账户与持仓">
+  <div class="sec" id="holdSec1" data-eo="hide" style="display:none">💼 我的持仓 · 盯盘与加减仓触发</div>
+  <div class="card" id="holdSec2" data-eo="hide" style="display:none;margin-bottom:14px">
+    <h2><span>💼 我的持仓</span> <small id="holdInfo">录入个股/成本/仓位，<span id="holdWatchNote">平台盯盘</span>，触发条件即强推送手机</small><span class="rf" onclick="doRefresh('holdings',this)" title="立即重算一次（不发消息）">🔄</span></h2>
+    <div id="holdSummary" class="muted" style="margin-bottom:8px">加载中…</div>
+    <!-- 标签筛选：一张证可以多挂几个标签；点标签只看这一类 -->
+    <div class="hform" id="holdTagBar" style="padding-bottom:6px"></div>
+    <div class="hform">
+      <input type="text" id="hCode" placeholder="代码 600519" maxlength="6">
+      <input type="text" id="hName" placeholder="名称(选填)" maxlength="10">
+      <input type="number" id="hCost" placeholder="成本价" step="0.001">
+      <input type="number" id="hShares" placeholder="股数" step="100">
+      <input type="text" id="hNote" placeholder="备注(选填)" maxlength="20">
+      <input type="text" id="hTags" placeholder="标签，逗号分隔：长线,打板" maxlength="30">
+      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="锁仓后不再自动推卖出建议，盈亏与风险照常跟踪"><input type="checkbox" id="hLocked"> 锁仓</label>
+      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="暂停后手机不再收到这只票的任何提醒，面板照常显示估值与建议"><input type="checkbox" id="hMuted"> 🔇 暂停推送</label>
+      <button class="btn" id="hAddBtn" onclick="holdSubmit()">➕ 加入盯盘</button>
+      <button class="btn ghost" id="hCancelBtn" onclick="holdCancelEdit()" style="display:none">取消修改</button>
+      <span class="muted" style="flex-basis:100%;font-size:12px">🏷 常用标签：<span id="hPreset"></span></span>
+    </div>
+    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
+      <b style="font-size:13px">🔒 一键锁仓</b>
+      <input type="text" id="hLockCode" placeholder="股票代码" maxlength="6">
+      <input type="number" id="hLockShares" placeholder="仓位（股数）" step="100">
+      <button class="btn ghost" onclick="holdQuickLock()">🔒 锁定标签</button>
+      <span class="muted" style="font-size:12px;flex-basis:100%;white-space:normal;line-height:1.5">只填「代码 + 仓位」即可锁定：已有此票则更新股数并上锁，没有则按当前价建仓并上锁。锁仓后不再自动推减仓/止损建议，盈亏与风险信号照常显示。</span>
+    </div>
+    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
+      <span class="muted">总资金</span><input type="number" id="hCapital" placeholder="如 100000">
+      <span class="muted">止损%</span><input type="number" id="hStop" placeholder="8">
+      <span class="muted">减仓预警%</span><input type="number" id="hReduce" placeholder="4">
+      <span class="muted">止盈%</span><input type="number" id="hTake" placeholder="15">
+      <span class="muted">仓位上限%</span><input type="number" id="hMax" placeholder="90">
+      <button class="btn ghost" onclick="holdSaveCfg()">💾 保存风控参数</button>
+      <button class="btn ghost" onclick="holdCheck()">🔍 立即巡检并推送手机</button>
+      <span class="muted" style="flex-basis:100%;white-space:normal;line-height:1.6">触发规则（全部「超过」才触发，等于不算）：亏损<b>超过</b>止损线 → 提示离场；亏损<b>超过</b>预警线且出现走弱证据（跌破5日线 / 主力净流出 / 当日大跌超3% / 利空）→ 减半仓；<b>多重恶化同时成立</b>（越过止损线 + 破5日线 + 主力流出 + 当日跌超3%）→ 建议清仓；盈利<b>超过</b>止盈线 → 分批锁利；浮盈且站上5日线 + 当日温和上涨（未超5%）+ 主力净流入 → 加仓（受总仓位上限约束）。</span>
+    </div>
+    <div class="scrolly" style="max-height:560px"><div class="rvgrid" id="holdList"></div></div>
+  </div>
+
+  <!-- ⛔ in 轮回退：上面这张「综合评分榜·精选池」已移回此处（if 轮曾把它上移到盘面总览首屏，本轮复原到持仓之后、模拟盘之前的位置）。 -->
+
+  <!-- ═══ 💰 模拟盘 ═══ -->
+  <!-- ⛔ in 轮回退：精选池(综合评分榜)移回 if 之前位置，不再占用盘面总览首屏 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>综合评分榜 · 精选池</span> <small id="poolInfo"></small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
+    <div class="scrolly" style="max-height:520px"><div class="rvgrid sm" id="pool"></div></div>
+  </div>
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-paper" aria-label="模拟交易">
+  <div class="sec" id="v6-paper">💰 模拟盘</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>💰 模拟盘A · 跟单盘(10万)</span> <small id="ppPoolInfo">新进检测池自动买入 · 止盈8% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
+      <div id="ppPoolSummary" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:220px"><table id="ppPoolPos"></table></div>
+      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPoolTrades"></div></div>
+      <div style="margin-top:8px">
+        <button data-eo="hide" class="btn ghost" onclick="paperAction('pool','toggle')">暂停/继续</button>
+        <button data-eo="hide" class="btn ghost" id="btnResetPOOL" onclick="paperAction('pool','reset')">重置</button>
+        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pool')">设本金</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span>💰 模拟盘B · 预选盘(50万)</span> <small id="ppPreInfo">涨停预选自动买入 · 止盈10% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
+      <div id="ppPreSummary" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:220px"><table id="ppPrePos"></table></div>
+      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPreTrades"></div></div>
+      <div style="margin-top:8px">
+        <button data-eo="hide" class="btn ghost" onclick="paperAction('pre','toggle')">暂停/继续</button>
+        <button data-eo="hide" class="btn ghost" id="btnResetPRE" onclick="paperAction('pre','reset')">重置</button>
+        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pre')">设本金</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 📰 消息面 ═══ -->
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-news" aria-label="新闻与公告">
+  <div class="sec" id="v6-news">📰 消息面 · 数据联动</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>⚠️ 利空雷达</span> <small id="bnTime">利空标签+判定原因+关联个股 · 模拟盘自动避开</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
+      <div id="bnSectors" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:300px"><div id="bnList"></div></div>
+    </div>
+    <div class="card">
+      <h2><span>📰 消息面 · 利好+中性(近3日)</span> <small id="gnTime">标签+判定原因+关联个股 · 新利好推送手机</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
+      <div id="gnHot" style="margin-bottom:8px"></div>
+      <div class="scrolly" style="max-height:300px"><div id="gnList"></div></div>
+    </div>
+  </div>
+
+  <!-- ═══ 🗓️ 次日作战计划 ═══ -->
+  <!-- 复盘回答"昨天为什么涨"，这里回答"明天干什么"：买谁、多少钱进、跌到哪算我错、次日怎么验证。
+       2026-10-01 才挂上：nextplan.js 早在 09-29 就写完了，server.js 却没 require 它，
+       等于用户从没收到过"能落地的买入计划"。 -->
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-plan" aria-label="计划与十四条">
+  <div class="sec" id="v6-plan">🗓️ 明日计划</div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>次日作战计划</span> <small id="npTime">买谁 · 多少钱进 · 跌到哪算错 · 次日怎么验证</small><span class="rf" onclick="doRefresh('nextplan',this)" title="强制重算（要补拉K线，约20-40秒）">🔄</span></h2>
+    <div id="npInfo" style="margin-bottom:6px"></div>
+    <div id="nextplan" class="scrolly" style="max-height:820px"></div>
+  </div>
+  <!-- ═══ 🎯 我的十四条 · 用户自己的选股体系 ═══ -->
+  <div class="sec">🎯 我的十四条</div>
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>我的十四条 · 逐条判定</span> <small id="mrTime">你自己的选股条件，命中几条、缺哪几条全摆出来</small><span class="rf" onclick="doRefresh('myrules',this)" title="强制重扫（要补拉K线，约30-60秒）">🔄</span></h2>
+    <div id="mrInfo" style="margin-bottom:6px"></div>
+    <div id="myrules" class="scrolly" style="max-height:820px"></div>
+  </div>
+  <!-- ═══ 📋 复盘与学习 ═══ -->
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-review" aria-label="复盘与学习">
+  <div class="sec" id="v6-review">📋 复盘 · 学习</div>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card">
+      <h2><span>每日复盘 · 涨停形态与归因</span> <small id="rvTime">站5日线 / 破前高 / 量价齐升 · 次日概率</small><span class="rf" onclick="doRefresh('review',this)" title="强制刷新">🔄</span></h2>
+      <div id="rvSummary" style="margin-bottom:6px"></div>
+      <div id="rvFilters" style="margin-bottom:6px"></div>
+      <div class="scrolly" style="max-height:780px"><div id="review"></div></div>
+    </div>
+    <!-- 补涨龙·大数据回测推算（与复盘同排右栏·横向卡片布局，同一套 .rvgrid 样式） -->
+    <div class="card">
+      <h2><span>🔥 补涨龙 · 大数据回测推算</span> <small id="bzTime">龙头连板扩散 → 同板低位滞涨股 · 当日封板概率</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
+      <div class="scrolly" style="max-height:780px"><div id="buzhang"></div></div>
+    </div>
+  </div>
+  <!-- 🌱 板块效应·启动前埋伏：热点板块里**还没涨**的那批票。
+       2026-09-29 复盘发现当天 33 只涨停里 55% 全天没被登记过，绝大多数是热点板块里临时启动的票。
+       这张卡就是专门把这些"还没启动但已经在热点板块内"的票挑出来，做提前覆盖。 -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🌱 板块效应 · 启动前埋伏</span> <small id="preTime">热点板块内尚未启动的票 · 资金潜伏/平台整理/站上5日线 · ≥55分手机提醒</small><span class="rf" onclick="doRefresh('pre',this)" title="立即重新扫描">🔄</span></h2>
+    <div class="scrolly" style="max-height:420px"><div id="preBox"></div></div>
+  </div>
+
+  <!-- 机器学习校准（原右栏位，互换后整行铺满） -->
+  <div class="card" style="margin-bottom:14px">
+    <h2><span>🧠 机器学习校准</span> <small id="learnState">信号回验 · 概率与阈值自动修正 · 失败率自动控制</small></h2>
+    <div id="learnBody" class="muted" style="margin-bottom:6px"></div>
+    <!-- ★ 命中率三口径：实盘预测 / 历史回测 / 已涨停后登记（以前混算成一个数，看不出真实水平） -->
+    <div id="learnSplit" class="learnsplit"></div>
+    <!-- ★ A/B 对照实验：模型组🅰️（按模型概率排序推送） vs 实证组🅱️（按实测命中率排序推送），谁准几天后见分晓 -->
+    <div id="learnAB" class="learnsplit" style="margin-bottom:6px"></div>
+    <div style="margin-bottom:6px">
+      <button class="btn ghost tabbtn on" id="ltabB0" onclick="ltabShow(0)">概率档校准</button>
+      <button class="btn ghost tabbtn" id="ltabB1" onclick="ltabShow(1)">🔬 条件自优化</button>
+      <button class="btn ghost tabbtn" id="ltabB2" onclick="ltabShow(2)">📈 改善留档</button>
+    </div>
+    <div id="ltab0"><div class="scrolly" style="max-height:340px"><table id="learnTable"></table></div></div>
+    <div id="ltab1" style="display:none"><div class="muted" style="margin-bottom:4px">每条选股条件按真实命中率自动加权/降权（样本≥8生效）</div><div class="scrolly" style="max-height:340px"><table id="learnPaths"></table></div></div>
+    <div id="ltab2" style="display:none"><div class="muted" style="margin-bottom:4px" id="learnHistCount"></div><div class="scrolly" style="max-height:340px"><table id="learnHist"></table></div></div>
+  </div>
+
+
+  <!-- 多策略可视化中心：新引擎的市场状态、候选排名与策略贡献度 -->
+  </section>
+  <section class="workspace-module" data-workspace-module="v6-strategy" aria-label="策略引擎">
+  <div class="sec" id="v6-strategy">🧠 智能策略中心</div>
+  <div class="card strategy-card" id="strategyCard">
+    <h2><span>多策略选股雷达</span><small>趋势 / 动量 / 突破 / 资金质量 / 反转 · 动态权重</small><span class="rf" onclick="loadStrategyDashboard()">🔄</span></h2>
+    <div id="strategySummary" class="strategy-summary"><span class="muted">正在读取策略数据…</span></div>
+    <div id="strategyTop" class="strategy-top"></div>
+    <div id="strategyDetail" class="strategy-detail muted">点击候选股票查看策略贡献与风险说明</div>
+  </div>
+
+  <!-- ═══ 🧪 工具 ═══ -->
+  </section>
+  <section class="workspace-module" id="workspace-analysis" aria-label="个股分析与回测">
+  <div class="sec">🧪 工具</div>
+  <!-- ⛔ if 轮 D7：个股分析从首屏移入工具区（首屏只留 情绪/涨停池/精选池/推送状态） -->
+  <div class="card" id="analyzeCard">
+    <h2><span>🔍 个股分析</span> <small>给代码或名称，看 K线/资金流/洗盘出货/算法点</small></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="searchBox" placeholder="输入代码或名称，如 600519 或 贵州茅台" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #ced4da;border-radius:8px" oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchPickFirst()">
+      <button class="btn" onclick="searchPickFirst()">分析</button>
+    </div>
+    <div id="searchHint" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <div id="searchCands" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+    <div id="analyzeBox" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h2><span>两个月回测</span> <small>逐日回放筛选逻辑，统计次日涨停/大涨概率</small></h2>
+    <button class="btn" onclick="runBacktest()">运行回测</button> <span class="muted" id="btState"></span>
+    <div id="btResult" class="tw" style="margin-top:10px"></div>
+  </div>
+
+  <!-- ═══ 🚀 发布看板（修改请求管理）════ -->
+  <!-- ⛔ 2026-10-28 移到页面最末：它一度被放在「盘面总览」之前，手机上首屏推开的
+       第一块是「待发布请求 · 一键发布」——而这是运维操作面板，不是行情。
+       首屏必须是盘面总览（守门 _test_mobile_fold 就是为了钉住这件事）。
+       功能一点不少：区块还在、id 不变、SSE 的 release 事件照样刷新它。 -->
+<section class="v6-ui-health" aria-label="界面与服务自检">
+  <div class="v6-health-head"><strong>🩺 界面与服务自检</strong><button type="button" id="v6UiHealthRun">立即检查</button></div>
+  <output id="v6UiHealth" role="status" aria-live="polite">尚未检查。仅检测页面组件及接口响应，不执行交易。</output>
+</section>
+  </section>
+  <section class="workspace-module workspace-settings" id="workspace-settings" aria-label="系统设置">
+  <div class="sec">系统设置</div>
+  <div class="workspace-controls">
+    <button data-eo="hide" class="btn ghost" id="btnHdrTools" onclick="toggleHdrTools()" title="推送通道/自查工具平时用不着，收在这里。点了才展开">🛠 工具</button>
     <span id="wecomState" class="badge">微信未配置</span>
     <span id="mailState" class="badge">邮箱未配置</span>
     <button class="btn ghost" id="btnMobile" onclick="location.href='/m'" title="手机看盘专用速览页：信息更集中、更适合滑动">📱 速览</button>
-    <button class="btn ghost" id="btnLock" onclick="identBtn()" title="切换/升级登录身份">🔓 身份</button>
     <button class="btn ghost" id="btnPanelToggle" onclick="toggleAllPanels()" title="一键收起/展开所有票池面板（每个面板标题前的小箭头也可单独折叠）">🔼 面板收起</button>
     <button class="btn ghost" id="btnPanelPick" onclick="togglePanelPicker()" title="想看哪个就看哪个：勾选你要显示的面板">👁 选面板</button>
-  </header>
+  </div>
   <!-- 🛠 顶部工具抽屉：推送通道配置、自检推送、推送流水这些「几个月才碰一次」的东西
        默认收起，头部只留一个「🛠 工具」按钮。展开状态记在本地，下次打开还是你上次的样子。 -->
   <div id="hdrTools" data-eo="hide" style="display:none;margin:8px 0;padding:10px 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa">
@@ -234,9 +551,13 @@
     </div>
   </div>
 
+
+  <details class="workspace-directory"><summary>完整功能目录与运行诊断</summary>
+  <nav class="sec-nav" id="secNav" aria-label="完整功能目录"></nav>
+  <nav class="workspace-directory-links" aria-label="选股与研究页面"><a href="/picks.html">智能选股</a><a href="/auction-picks.html">竞价共振</a><a href="/research.html" data-eo="hide">研究工作台</a><a href="/model-library.html">模型资料库</a><a href="/m">手机工作台</a></nav>
   <!-- V6 reference composition: live status tiles use existing app state only; no sample market values. -->
   <section class="v6-reference-hero" aria-label="V6 盘面状态总览">
-    <div class="v6-ref-brand"><span class="v6-ref-logo">V6</span><span><b>天枢智策</b><small>A股智能选股 · 策略研究 · 风控交易辅助</small></span></div>
+    <div class="v6-ref-brand"><span class="v6-ref-logo" aria-hidden="true">◈</span><span><b>天枢智策</b><small>A股智能选股 · 策略研究 · 风控交易辅助</small></span></div>
     <div class="v6-ref-clock"><span id="v6RefDate">行情状态同步中</span><span id="v6RefConnection">数据源状态以服务端为准</span></div>
     <div class="v6-ref-metrics">
       <a class="v6-ref-metric" href="#v6-market"><small>行情连接</small><strong id="v6RefMarket">读取中</strong><em id="v6RefMarketNote">等待行情服务</em></a>
@@ -249,316 +570,8 @@
       <a href="/research.html">✦ 智能选股</a><a href="#v6-strategy">▧ 策略研究</a><a href="#v6-plan">▥ 回测分析</a><a href="#v6-paper">◉ 模拟交易</a><a href="#v6-market">▤ 行情中心</a><a href="#holdSec1">⬡ 风险控制</a>
     </div>
   </section>
-  <!-- ═══ 📊 盘面总览 ═══ -->
-  <nav class="sec-nav" id="secNav"></nav>
-  <div class="sec" id="v6-market">📊 盘面总览</div>
-    <!-- 市场情绪：盘面总览内一行研判（in 轮回退：不再单独大卡，复原 if 之前最简布局） -->
-    <div id="moodLine" style="margin:0 0 12px;font-size:13px;line-height:1.6"><span class="muted">🌡️ 市场情绪：</span><span id="moodBox"><span class="muted">等待数据...</span></span></div>
 
-    <!-- ⛔ 竞价异动 + 板块资金流（if 之前即并列在盘面总览首屏） -->
-    <div class="grid g2" style="margin-bottom:14px">
-      <div class="card">
-        <h2><span>竞价异动 · 龙头推断</span> <small id="aucTime"></small><span class="rf" onclick="doRefresh('auction',this)" title="强制刷新">🔄</span><span class="rf" onclick="toggleAuctionReview()" title="竞价复盘 · 竞价分时 + 次日K线同屏归因">📊 复盘</span></h2>
-        <div id="leader" class="muted">等待竞价数据...</div>
-        <div class="tw" style="margin-top:10px"><table id="aucSectors"></table></div>
-        <div id="aucReview" class="tw" style="display:none;margin-top:12px"></div>
-      </div>
-      <div class="card fluid">
-        <h2><span>板块资金流排行</span> <small id="sectFlowNote">主力净流入 · 30秒刷新</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
-        <div class="scrolly"><table id="sectors"></table></div>
-      </div>
-    </div>
-    <!-- ⛔ 一进二/连板接力挨着竞价：都是开盘前要盯的策略（2026-10-08） -->
-    <div class="grid g2" style="margin-bottom:14px" data-eo="hide">
-      <div class="card">
-        <h2><span>🎯 一进二 · 首板次日接力</span> <small id="yeTime">今日首板里，明日最可能连板的</small><span class="rf" onclick="doRefresh('yier',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
-        <div id="yeInfo" style="margin-bottom:6px"></div>
-        <div class="scrolly" style="max-height:640px"><div id="yierList"></div></div>
-      </div>
-      <div class="card">
-        <h2><span>🔥 连板接力 · 二进三 / 三进四</span> <small id="lbTime">连板梯队 · 板块联动</small><span class="rf" onclick="doRefresh('lianban',this)" title="重新扫描（纯计算，不写盘）">🔄</span></h2>
-        <div id="lbInfo" style="margin-bottom:6px"></div>
-        <div class="scrolly" style="max-height:640px"><div id="lianbanList"></div></div>
-      </div>
-    </div>
-    <div class="grid g3" style="margin-bottom:14px">
-      <div class="card">
-        <h2><span>涨停板 · 板块分类</span><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
-        <div class="scrolly" id="ztBySector"></div>
-        <span id="ztCount" class="muted"></span>
-        <div id="ztTopics" style="margin-top:4px"></div>
-      </div>
-      <div class="card">
-        <h2><span>市场主线分析</span> <small id="mlTime"></small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
-        <div id="mainline" style="display:flex;flex-wrap:wrap;gap:10px"></div>
-      </div>
-      <div class="card">
-        <h2><span>信号推送记录</span> <small>同股同信号30分钟去重</small></h2>
-        <div class="scrolly" id="signals"><div class="muted">暂无信号（交易时段扫描中）</div></div>
-      </div>
-    </div>
-  <!-- ═══ 🌏 外围市场与选股核心 ═══ -->
-  <div class="sec" id="v6-stock">🌏 外围市场 · 选股核心</div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>外围市场 · 10国指数</span> <small id="globalNote">美/港/日/韩/德/英/印 · 60秒刷新</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
-      <div id="global"><span class="muted">加载中...</span></div>
-    </div>
-    <div class="card">
-      <h2><span>🌐 外围联动预选</span> <small id="extTime">外围板块涨跌 → A股同类板块 → 板块内较强标的</small><span class="rf" onclick="doRefresh('ext',this)" title="强制刷新">🔄</span></h2>
-      <div id="extGroups" style="margin-bottom:8px" class="muted"></div>
-      <div class="scrolly" style="max-height:240px"><table id="extPicks"></table></div>
-    </div>
-  </div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>📡 外部数据源 · 北向/南向/商品/财报/两融</span> <small id="extNote">沪深港通 · 纽约金油银 · 业绩预告 · 两融余额</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
-      <div id="external"><span class="muted">加载中...</span></div>
-    </div>
-  </div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>当日涨停预选</span> <small id="psTime">外围情绪 × 聚焦池 × 概率模型</small><span class="rf" onclick="doRefresh('global',this)" title="强制刷新">🔄</span></h2>
-      <div class="scrolly" style="max-height:260px"><table id="preselect"></table></div>
-    </div>
-    <div class="card fluid">
-      <h2><span>趋势票池</span> <small id="tpInfo">资金流入 + 五日线震荡 · 主板</small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
-      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendPool"></div></div>
-      <div style="margin-top:10px;border-top:1px dashed rgba(128,128,128,.3);padding-top:8px">
-        <div style="font-weight:600;margin-bottom:4px">📶 连续小阳线拉升 <small class="muted" id="syInfo">系统自己全市场扫的，不等你喂</small></div>
-        <div class="scrolly" style="max-height:200px"><div class="rvgrid sm" id="smallyangBox"></div></div>
-      </div>
-    </div>
-  </div>
-  <!-- 2026-10-01：把「机器自己全市场扫出来的三类票」各归各位。
-       以前这三个池子服务端算好了却没有面板，用户只能从推送里看到零星几条。 -->
-  <div class="grid g3" style="margin-bottom:14px">
-    <div class="card fluid">
-      <h2><span>🎯 涨停前形态</span> <small id="zpInfo">学「涨停前是什么样子」，每日全市场自主挑</small></h2>
-      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="ztPreBox"></div></div>
-      <div class="muted" id="zpRules" style="margin-top:8px;font-size:12px;line-height:1.7"></div>
-    </div>
-    <div class="card fluid">
-      <h2><span>🔭 全市场趋势扫描</span> <small id="tsInfo">不依赖候选集，按学习溢价排序</small></h2>
-      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="trendScanBox"></div></div>
-    </div>
-    <div class="card fluid">
-      <h2><span>📶 连续收涨</span> <small id="suInfo">连涨≥3天、每天温和上涨、站上向上的20日线</small></h2>
-      <div class="scrolly" style="max-height:300px"><div class="rvgrid sm" id="steadyUpBox"></div></div>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>🌡 市场温度 · 个股真实涨跌</span> <small id="brInfo">不只看大盘指数：全A个股均值 / 上涨家数 / 按市值分层</small></h2>
-    <div id="brBody" class="muted" style="padding:2px 0">加载中…</div>
-  </div>
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>💰 主力大单流入 · 实时识别</span> <small id="bmInfo">全市场当日主力净占比>6% · 温和上涨未涨停</small><span class="rf" onclick="doRefresh('bigmoney',this)" title="立即重新识别一次">🔄</span></h2>
-    <div class="scrolly" style="max-height:320px"><div class="rvgrid" id="bigMoney"></div></div>
-  </div>
-  <!-- jp 轮：涨幅异动池 —— 近 3 个交易日累计涨幅临近或达到交易所披露阈值，按「已触发/临近」分组并可折叠 -->
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>⚡ 涨幅异动池</span> <small id="amInfo">近 3 个交易日累计涨幅：主板≥16% 临近 / ≥20% 顶异动；创业板/科创板≥24% 临近 / ≥30% 顶异动；北交所≥32% 临近 / ≥40% 顶异动</small><span class="rf" onclick="doRefresh('abmove',this)" title="立即重新识别一次">🔄</span></h2>
-    <div class="scrolly" style="max-height:400px">
-      <div class="hgrp">
-        <div class="hgrp-h" onclick="abMoveToggle('top')">
-          <span class="chev" id="amTopChev">▾</span><b>🔴 已触发异动</b><span class="cnt" id="amTopCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
-        </div>
-        <div class="hgrp-b" id="amTopBox"></div>
-      </div>
-      <div class="hgrp">
-        <div class="hgrp-h" onclick="abMoveToggle('near')">
-          <span class="chev" id="amNearChev">▾</span><b>🟠 临近异动</b><span class="cnt" id="amNearCnt">0</span><span class="muted" style="font-size:12px;margin-left:4px">点击折叠/展开</span>
-        </div>
-        <div class="hgrp-b" id="amNearBox"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 💼 我的持仓 · 盯盘与加减仓触发（私密：仅本机/开发者密码可见，观看密码看不到） ═══ -->
-  <div class="sec" id="holdSec1" data-eo="hide" style="display:none">💼 我的持仓 · 盯盘与加减仓触发</div>
-  <div class="card" id="holdSec2" data-eo="hide" style="display:none;margin-bottom:14px">
-    <h2><span>💼 我的持仓</span> <small id="holdInfo">录入个股/成本/仓位，<span id="holdWatchNote">平台盯盘</span>，触发条件即强推送手机</small><span class="rf" onclick="doRefresh('holdings',this)" title="立即重算一次（不发消息）">🔄</span></h2>
-    <div id="holdSummary" class="muted" style="margin-bottom:8px">加载中…</div>
-    <!-- 标签筛选：一张证可以多挂几个标签；点标签只看这一类 -->
-    <div class="hform" id="holdTagBar" style="padding-bottom:6px"></div>
-    <div class="hform">
-      <input type="text" id="hCode" placeholder="代码 600519" maxlength="6">
-      <input type="text" id="hName" placeholder="名称(选填)" maxlength="10">
-      <input type="number" id="hCost" placeholder="成本价" step="0.001">
-      <input type="number" id="hShares" placeholder="股数" step="100">
-      <input type="text" id="hNote" placeholder="备注(选填)" maxlength="20">
-      <input type="text" id="hTags" placeholder="标签，逗号分隔：长线,打板" maxlength="30">
-      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="锁仓后不再自动推卖出建议，盈亏与风险照常跟踪"><input type="checkbox" id="hLocked"> 锁仓</label>
-      <label class="muted" style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer" title="暂停后手机不再收到这只票的任何提醒，面板照常显示估值与建议"><input type="checkbox" id="hMuted"> 🔇 暂停推送</label>
-      <button class="btn" id="hAddBtn" onclick="holdSubmit()">➕ 加入盯盘</button>
-      <button class="btn ghost" id="hCancelBtn" onclick="holdCancelEdit()" style="display:none">取消修改</button>
-      <span class="muted" style="flex-basis:100%;font-size:12px">🏷 常用标签：<span id="hPreset"></span></span>
-    </div>
-    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
-      <b style="font-size:13px">🔒 一键锁仓</b>
-      <input type="text" id="hLockCode" placeholder="股票代码" maxlength="6">
-      <input type="number" id="hLockShares" placeholder="仓位（股数）" step="100">
-      <button class="btn ghost" onclick="holdQuickLock()">🔒 锁定标签</button>
-      <span class="muted" style="font-size:12px;flex-basis:100%;white-space:normal;line-height:1.5">只填「代码 + 仓位」即可锁定：已有此票则更新股数并上锁，没有则按当前价建仓并上锁。锁仓后不再自动推减仓/止损建议，盈亏与风险信号照常显示。</span>
-    </div>
-    <div class="hform" style="border-top:1px dashed #adb5bd;padding-top:8px;margin-top:6px">
-      <span class="muted">总资金</span><input type="number" id="hCapital" placeholder="如 100000">
-      <span class="muted">止损%</span><input type="number" id="hStop" placeholder="8">
-      <span class="muted">减仓预警%</span><input type="number" id="hReduce" placeholder="4">
-      <span class="muted">止盈%</span><input type="number" id="hTake" placeholder="15">
-      <span class="muted">仓位上限%</span><input type="number" id="hMax" placeholder="90">
-      <button class="btn ghost" onclick="holdSaveCfg()">💾 保存风控参数</button>
-      <button class="btn ghost" onclick="holdCheck()">🔍 立即巡检并推送手机</button>
-      <span class="muted" style="flex-basis:100%;white-space:normal;line-height:1.6">触发规则（全部「超过」才触发，等于不算）：亏损<b>超过</b>止损线 → 提示离场；亏损<b>超过</b>预警线且出现走弱证据（跌破5日线 / 主力净流出 / 当日大跌超3% / 利空）→ 减半仓；<b>多重恶化同时成立</b>（越过止损线 + 破5日线 + 主力流出 + 当日跌超3%）→ 建议清仓；盈利<b>超过</b>止盈线 → 分批锁利；浮盈且站上5日线 + 当日温和上涨（未超5%）+ 主力净流入 → 加仓（受总仓位上限约束）。</span>
-    </div>
-    <div class="scrolly" style="max-height:560px"><div class="rvgrid" id="holdList"></div></div>
-  </div>
-
-  <!-- ⛔ in 轮回退：上面这张「综合评分榜·精选池」已移回此处（if 轮曾把它上移到盘面总览首屏，本轮复原到持仓之后、模拟盘之前的位置）。 -->
-
-  <!-- ═══ 💰 模拟盘 ═══ -->
-  <!-- ⛔ in 轮回退：精选池(综合评分榜)移回 if 之前位置，不再占用盘面总览首屏 -->
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>综合评分榜 · 精选池</span> <small id="poolInfo"></small><span class="rf" onclick="doRefresh('pool',this)" title="强制刷新">🔄</span></h2>
-    <div class="scrolly" style="max-height:520px"><div class="rvgrid sm" id="pool"></div></div>
-  </div>
-  <div class="sec" id="v6-paper">💰 模拟盘</div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>💰 模拟盘A · 跟单盘(10万)</span> <small id="ppPoolInfo">新进检测池自动买入 · 止盈8% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
-      <div id="ppPoolSummary" style="margin-bottom:8px"></div>
-      <div class="scrolly" style="max-height:220px"><table id="ppPoolPos"></table></div>
-      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPoolTrades"></div></div>
-      <div style="margin-top:8px">
-        <button data-eo="hide" class="btn ghost" onclick="paperAction('pool','toggle')">暂停/继续</button>
-        <button data-eo="hide" class="btn ghost" id="btnResetPOOL" onclick="paperAction('pool','reset')">重置</button>
-        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pool')">设本金</button>
-      </div>
-    </div>
-    <div class="card">
-      <h2><span>💰 模拟盘B · 预选盘(50万)</span> <small id="ppPreInfo">涨停预选自动买入 · 止盈10% / 止损-3% · 收益联动</small><span class="rf" onclick="doRefresh('paper',this)" title="强制刷新">🔄</span></h2>
-      <div id="ppPreSummary" style="margin-bottom:8px"></div>
-      <div class="scrolly" style="max-height:220px"><table id="ppPrePos"></table></div>
-      <div class="scrolly" style="max-height:190px;margin-top:8px"><div id="ppPreTrades"></div></div>
-      <div style="margin-top:8px">
-        <button data-eo="hide" class="btn ghost" onclick="paperAction('pre','toggle')">暂停/继续</button>
-        <button data-eo="hide" class="btn ghost" id="btnResetPRE" onclick="paperAction('pre','reset')">重置</button>
-        <button data-eo="hide" class="btn ghost" onclick="paperSetInitial('pre')">设本金</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 📰 消息面 ═══ -->
-  <div class="sec" id="v6-news">📰 消息面 · 数据联动</div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>⚠️ 利空雷达</span> <small id="bnTime">利空标签+判定原因+关联个股 · 模拟盘自动避开</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
-      <div id="bnSectors" style="margin-bottom:8px"></div>
-      <div class="scrolly" style="max-height:300px"><div id="bnList"></div></div>
-    </div>
-    <div class="card">
-      <h2><span>📰 消息面 · 利好+中性(近3日)</span> <small id="gnTime">标签+判定原因+关联个股 · 新利好推送手机</small><span class="rf" onclick="doRefresh('news',this)" title="强制刷新">🔄</span></h2>
-      <div id="gnHot" style="margin-bottom:8px"></div>
-      <div class="scrolly" style="max-height:300px"><div id="gnList"></div></div>
-    </div>
-  </div>
-
-  <!-- ═══ 🗓️ 次日作战计划 ═══ -->
-  <!-- 复盘回答"昨天为什么涨"，这里回答"明天干什么"：买谁、多少钱进、跌到哪算我错、次日怎么验证。
-       2026-10-01 才挂上：nextplan.js 早在 09-29 就写完了，server.js 却没 require 它，
-       等于用户从没收到过"能落地的买入计划"。 -->
-  <div class="sec" id="v6-plan">🗓️ 明日计划</div>
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>次日作战计划</span> <small id="npTime">买谁 · 多少钱进 · 跌到哪算错 · 次日怎么验证</small><span class="rf" onclick="doRefresh('nextplan',this)" title="强制重算（要补拉K线，约20-40秒）">🔄</span></h2>
-    <div id="npInfo" style="margin-bottom:6px"></div>
-    <div id="nextplan" class="scrolly" style="max-height:820px"></div>
-  </div>
-  <!-- ═══ 🎯 我的十四条 · 用户自己的选股体系 ═══ -->
-  <div class="sec">🎯 我的十四条</div>
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>我的十四条 · 逐条判定</span> <small id="mrTime">你自己的选股条件，命中几条、缺哪几条全摆出来</small><span class="rf" onclick="doRefresh('myrules',this)" title="强制重扫（要补拉K线，约30-60秒）">🔄</span></h2>
-    <div id="mrInfo" style="margin-bottom:6px"></div>
-    <div id="myrules" class="scrolly" style="max-height:820px"></div>
-  </div>
-  <!-- ═══ 📋 复盘与学习 ═══ -->
-  <div class="sec" id="v6-review">📋 复盘 · 学习</div>
-  <div class="grid g2" style="margin-bottom:14px">
-    <div class="card">
-      <h2><span>每日复盘 · 涨停形态与归因</span> <small id="rvTime">站5日线 / 破前高 / 量价齐升 · 次日概率</small><span class="rf" onclick="doRefresh('review',this)" title="强制刷新">🔄</span></h2>
-      <div id="rvSummary" style="margin-bottom:6px"></div>
-      <div id="rvFilters" style="margin-bottom:6px"></div>
-      <div class="scrolly" style="max-height:780px"><div id="review"></div></div>
-    </div>
-    <!-- 补涨龙·大数据回测推算（与复盘同排右栏·横向卡片布局，同一套 .rvgrid 样式） -->
-    <div class="card">
-      <h2><span>🔥 补涨龙 · 大数据回测推算</span> <small id="bzTime">龙头连板扩散 → 同板低位滞涨股 · 当日封板概率</small><span class="rf" onclick="doRefresh('sectors',this)" title="强制刷新">🔄</span></h2>
-      <div class="scrolly" style="max-height:780px"><div id="buzhang"></div></div>
-    </div>
-  </div>
-  <!-- 🌱 板块效应·启动前埋伏：热点板块里**还没涨**的那批票。
-       2026-09-29 复盘发现当天 33 只涨停里 55% 全天没被登记过，绝大多数是热点板块里临时启动的票。
-       这张卡就是专门把这些"还没启动但已经在热点板块内"的票挑出来，做提前覆盖。 -->
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>🌱 板块效应 · 启动前埋伏</span> <small id="preTime">热点板块内尚未启动的票 · 资金潜伏/平台整理/站上5日线 · ≥55分手机提醒</small><span class="rf" onclick="doRefresh('pre',this)" title="立即重新扫描">🔄</span></h2>
-    <div class="scrolly" style="max-height:420px"><div id="preBox"></div></div>
-  </div>
-
-  <!-- 机器学习校准（原右栏位，互换后整行铺满） -->
-  <div class="card" style="margin-bottom:14px">
-    <h2><span>🧠 机器学习校准</span> <small id="learnState">信号回验 · 概率与阈值自动修正 · 失败率自动控制</small></h2>
-    <div id="learnBody" class="muted" style="margin-bottom:6px"></div>
-    <!-- ★ 命中率三口径：实盘预测 / 历史回测 / 已涨停后登记（以前混算成一个数，看不出真实水平） -->
-    <div id="learnSplit" class="learnsplit"></div>
-    <!-- ★ A/B 对照实验：模型组🅰️（按模型概率排序推送） vs 实证组🅱️（按实测命中率排序推送），谁准几天后见分晓 -->
-    <div id="learnAB" class="learnsplit" style="margin-bottom:6px"></div>
-    <div style="margin-bottom:6px">
-      <button class="btn ghost tabbtn on" id="ltabB0" onclick="ltabShow(0)">概率档校准</button>
-      <button class="btn ghost tabbtn" id="ltabB1" onclick="ltabShow(1)">🔬 条件自优化</button>
-      <button class="btn ghost tabbtn" id="ltabB2" onclick="ltabShow(2)">📈 改善留档</button>
-    </div>
-    <div id="ltab0"><div class="scrolly" style="max-height:340px"><table id="learnTable"></table></div></div>
-    <div id="ltab1" style="display:none"><div class="muted" style="margin-bottom:4px">每条选股条件按真实命中率自动加权/降权（样本≥8生效）</div><div class="scrolly" style="max-height:340px"><table id="learnPaths"></table></div></div>
-    <div id="ltab2" style="display:none"><div class="muted" style="margin-bottom:4px" id="learnHistCount"></div><div class="scrolly" style="max-height:340px"><table id="learnHist"></table></div></div>
-  </div>
-
-
-  <!-- 多策略可视化中心：新引擎的市场状态、候选排名与策略贡献度 -->
-  <div class="sec" id="v6-strategy">🧠 智能策略中心</div>
-  <div class="card strategy-card" id="strategyCard">
-    <h2><span>多策略选股雷达</span><small>趋势 / 动量 / 突破 / 资金质量 / 反转 · 动态权重</small><span class="rf" onclick="loadStrategyDashboard()">🔄</span></h2>
-    <div id="strategySummary" class="strategy-summary"><span class="muted">正在读取策略数据…</span></div>
-    <div id="strategyTop" class="strategy-top"></div>
-    <div id="strategyDetail" class="strategy-detail muted">点击候选股票查看策略贡献与风险说明</div>
-  </div>
-
-  <!-- ═══ 🧪 工具 ═══ -->
-  <div class="sec">🧪 工具</div>
-  <!-- ⛔ if 轮 D7：个股分析从首屏移入工具区（首屏只留 情绪/涨停池/精选池/推送状态） -->
-  <div class="card" id="analyzeCard">
-    <h2><span>🔍 个股分析</span> <small>给代码或名称，看 K线/资金流/洗盘出货/算法点</small></h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input type="text" id="searchBox" placeholder="输入代码或名称，如 600519 或 贵州茅台" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #ced4da;border-radius:8px" oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchPickFirst()">
-      <button class="btn" onclick="searchPickFirst()">分析</button>
-    </div>
-    <div id="searchHint" class="muted" style="font-size:12px;margin-top:6px"></div>
-    <div id="searchCands" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
-    <div id="analyzeBox" style="margin-top:12px"></div>
-  </div>
-  <div class="card">
-    <h2><span>两个月回测</span> <small>逐日回放筛选逻辑，统计次日涨停/大涨概率</small></h2>
-    <button class="btn" onclick="runBacktest()">运行回测</button> <span class="muted" id="btState"></span>
-    <div id="btResult" class="tw" style="margin-top:10px"></div>
-  </div>
-
-  <!-- ═══ 🚀 发布看板（修改请求管理）════ -->
-  <!-- ⛔ 2026-10-28 移到页面最末：它一度被放在「盘面总览」之前，手机上首屏推开的
-       第一块是「待发布请求 · 一键发布」——而这是运维操作面板，不是行情。
-       首屏必须是盘面总览（守门 _test_mobile_fold 就是为了钉住这件事）。
-       功能一点不少：区块还在、id 不变、SSE 的 release 事件照样刷新它。 -->
-<section class="v6-ui-health" aria-label="界面与服务自检">
-  <div class="v6-health-head"><strong>🩺 界面与服务自检</strong><button type="button" id="v6UiHealthRun">立即检查</button></div>
-  <output id="v6UiHealth" role="status" aria-live="polite">尚未检查。仅检测页面组件及接口响应，不执行交易。</output>
-</section>
+  </details>
   <div class="sec" id="v6-release">🚀 发布看板</div>
   <div class="card" style="margin-bottom:14px">
     <h2>
@@ -568,14 +581,16 @@
     </h2>
     <div id="relBoard" class="muted">等待数据...</div>
   </div>
-</div>
+  </section>
+</main>
 
-<script src="/assets/app.js?v=20261109cv" defer></script>
+<script src="/assets/app.js?v=20261115dc" defer></script>
 <script src="/assets/ui-navigation.js?v=20261105nav1" defer></script>
 <script src="/assets/ui-health.js?v=20261105ui46" defer></script>
 <script src="/assets/v6-reference-precision.js?v=20261105ref3" defer></script>
-<script src="/assets/stock-provider-links.js?v=20261109cv"></script>
+<script src="/assets/stock-provider-links.js?v=20261115dc"></script>
 <script src="/assets/stock-pattern-preview.js?v=20261108p1"></script>
-<script src="/assets/terminal-dashboard.js?v=20261109fidelity4"></script>
+<script src="/assets/picks-periods.js?v=20261115workspace1"></script>
+<script src="/assets/terminal-dashboard.js?v=20261115prism1"></script>
 </body>
 </html>

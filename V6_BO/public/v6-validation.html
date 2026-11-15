@@ -1,12 +1,14 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f4ef">
-<title>回测验证 · 天枢智策 V6</title><link rel="stylesheet" href="/assets/v6-studio.css?v=20261113c"><script src="/assets/v6-studio-areas.js?v=20261113c" defer></script></head>
-<body data-page="validation"><div class="shell"><aside class="sidebar" aria-label="V6 新版主导航"><a class="brand" href="/v6-studio.html"><span class="monogram">V6</span><span><strong>天枢智策</strong><small>独立智能投研工作室</small></span></a><div class="side-label">RESEARCH SPACE / 投研空间</div><nav class="nav"><a href="/v6-studio.html"><span class="symbol">◫</span>今日判断</a>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#130e20">
+<title>回测验证 · 天枢智策</title><link rel="stylesheet" href="/assets/v6-studio.css?v=20261113c"><script src="/assets/v6-studio-areas.js?v=20261113c" defer></script><link rel="stylesheet" href="/assets/unified-workspace.css?v=20261115workspace1"><script defer src="/assets/unified-workspace.js?v=20261115prism1"></script><link rel="stylesheet" href="/assets/original-workspace.css?v=20261115prism1">
+<script defer src="/assets/original-workspace.js?v=20261115prism1"></script>
+</head>
+<body class="unified-workspace studio-workspace" data-page="validation"><div class="shell"><aside class="sidebar" aria-label="V6 新版主导航"><a class="brand" href="/v6-studio.html"><span class="monogram" aria-hidden="true">◈</span><span><strong>天枢智策</strong><small>投研工作区</small></span></a><div class="side-label">RESEARCH SPACE / 投研空间</div><nav class="nav"><a href="/v6-studio.html"><span class="symbol">◫</span>今日判断</a>
 <a href="/v6-matches.html"><span class="symbol">◎</span>全部命中个股</a>
 <a href="/v6-research.html"><span class="symbol">◇</span>策略研究</a>
 <a href="/v6-validation.html" class="active" aria-current="page"><span class="symbol">↗</span>回测验证</a>
-<a href="/v6-paper.html"><span class="symbol">▤</span>模拟盘</a></nav><div class="side-foot">辅助选股 · 非实盘交易<br>先证据，后决策</div></aside>
-<main class="main"><div class="topline"><div class="breadcrumb">V6 工作室 ／ 回测验证</div><div class="tools"><span class="status-pill">验证版 · 仅凭接口证据</span><button class="outline" id="area-refresh" type="button">↻ 重新读取</button></div></div><div class="kicker">VALIDATION LAB / 证据链</div><h1>用未来数据验证，<br>而不是用漂亮的回测说服自己。</h1><p class="lead">将扫描信号、历史回测、样本外验证、模拟交易分别管理。没有冻结前的证据和合法交易日序列，就不显示所谓的已验证收益。</p><div class="alert" id="verify-status" role="status" aria-live="polite">正在读取冻结来源与信号快照状态…</div>
+<a href="/v6-paper.html"><span class="symbol">▤</span>模拟盘</a><a href="/">⌂ 正式首页</a><a href="/picks.html">✧ 智能选股</a><a href="/research.html">✦ 完整研究</a><a href="/model-library.html">▤ 模型资料库</a><a href="/#v6-release">♧ 推送与设置</a></nav><div class="side-foot">辅助选股 · 非实盘交易<br>先证据，后决策</div></aside>
+<main class="main"><div class="topline"><div class="breadcrumb">天枢智策 ／ 回测验证</div><div class="tools"><span class="status-pill">验证版 · 仅凭接口证据</span><button class="outline" id="area-refresh" type="button">↻ 重新读取</button></div></div><div class="kicker">VALIDATION LAB / 证据链</div><h1>回测与样本外验证</h1><p class="lead">将扫描信号、历史回测、样本外验证、模拟交易分别管理。没有冻结前的证据和合法交易日序列，就不显示所谓的已验证收益。</p><div class="alert" id="verify-status" role="status" aria-live="polite">正在读取冻结来源与信号快照状态…</div>
 <section class="metrics">
 <article class="card metric"><small>六条件候选个股</small><strong id="verify-stocks">—</strong><span>仅指量化六条件</span></article>
 <article class="card metric"><small>对应条件信号数</small><strong id="verify-signals">—</strong><span>不等于交易次数</span></article>
@@ -20,8 +22,5 @@
 <section class="card feature"><div class="index">03 / OOS</div><h3>样本外验证</h3><p>历史训练与未来检验隔离；回测收益与真实可成交性是两回事。</p><span class="status-pill">结论尚未认证</span></section>
 </div>
 <div class="section-head"><h2>独立核验入口</h2></div><div class="card panelpad"><p>新版 V6 不会在这里画一条编造的累计收益曲线。等冻结与跟踪数据实际接通后，才把策略胜率、最大回撤、样本量及观测日期逐项展示。</p><a class="action" href="/v6-matches.html" style="display:inline-block">回到全部命中个股</a></div>
-<p class="footer-note">V6 全新投研工作室 · 数据未知即显示未知；演示数据不会冒充实测；产品日常操作与开发维护互相隔离。</p></main></div><nav class="mobile-tabbar" aria-label="手机底部导航"><a href="/v6-studio.html"><span>◫</span>今日</a>
-<a href="/v6-matches.html"><span>◎</span>命中</a>
-<a href="/v6-research.html"><span>◇</span>策略研究</a>
-<a href="/v6-validation.html" class="active" aria-current="page"><span>↗</span>验证</a>
-<a href="/v6-paper.html"><span>▤</span>模拟盘</a></nav></body></html>
+<p class="footer-note">数据未知即显示未知；演示数据不会冒充实测；产品日常操作与开发维护互相隔离。</p></main></div><nav class="workspace-bottom-nav" aria-label="手机七项导航"><a href="/m"><span aria-hidden="true">⌂</span><small>首页</small></a><a href="/#holdSec1"><span aria-hidden="true">☆</span><small>自选股</small></a><a href="/#v6-market"><span aria-hidden="true">▤</span><small>行情</small></a><a href="/research.html"><span aria-hidden="true">✦</span><small>AI研究</small></a><a href="/#v6-paper"><span aria-hidden="true">⇄</span><small>模拟交易</small></a><a href="/#holdSec1"><span aria-hidden="true">⬡</span><small>风控</small></a><a href="/#v6-release"><span aria-hidden="true">♧</span><small>推送</small></a></nav>
+</body></html>
