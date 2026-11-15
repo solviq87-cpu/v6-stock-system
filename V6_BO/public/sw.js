@@ -3,7 +3,7 @@
 const APP_VER = '20261115dc';
 const CACHE_PREFIX = 'quant-dashboard-m-';
 const CACHE_NAME = CACHE_PREFIX + APP_VER;
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261115rebirth1', '/nova/app.js?v=20261115rebirth1', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js'];
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261115rebirth1', '/nova/app.js?v=20261115data1', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))

@@ -141,8 +141,8 @@ const _mkTicksFor = new Function('S', 'NP', 'em', 'Date',
 (async () => {
   let calls = 0, now = 1793236800000;
   const _S = {}, _NP = { localDate: () => '20261029' };
-  const _em = { fetchAuctionTicks: async () => { calls++; if (calls === 1) throw new Error('net'); return { preClose: null, bars: _barsReal }; } };
-  const _fn = _mkTicksFor(_S, _NP, _em, { now: () => now });
+  const _em = { fetchAuctionTicks: async () => { calls++; if (calls === 1) throw new Error('net'); return { tradeDate: '2026-10-29', preClose: null, bars: _barsReal }; } };
+  const _fn = _mkTicksFor(_S, _NP, _em, class extends Date { static now() { return now; } });
   ok(await _fn('600000') === null, '第一次拉分时失败 → null');
   ok(calls === 1, '失败后已缓存（不立刻重打数据源）');
   ok(await _fn('600000') === null && calls === 1, '15 分钟内不重试（限流保护仍在）');

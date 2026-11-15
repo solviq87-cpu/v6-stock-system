@@ -21,7 +21,7 @@ function fixture({respond=target=>({json:payload(target)}),prepareDelayMs=0,clea
  const fakeFS={async mkdtemp(){time.stall(prepareDelayMs);const dir='/offline-research/'+(++id);directories.add(dir);return dir;},async stat(file){if(!files.has(file))throw Error('missing fixture body');return {size:files.get(file).length};},async readFile(file){return files.get(file);},async rm(dir){directories.delete(dir);for(const name of files.keys())if(name.startsWith(dir+'/'))files.delete(name);if(cleanupFails)throw Error('fixture cleanup failed');}};
  const execFile=()=>assert.fail('the fixture only supports promisified curl');
  execFile[promisify.custom]=async(command,args,options)=>{
-  assert.equal(command,'curl');assert.equal(args.includes('--fail'),false);assert.equal(args.includes('--retry'),false);assert.equal(args.includes('--location'),false);
+  assert.equal(command,'curl');assert.equal(args[0],'--disable','operator curlrc must not add physical retries or redirects');assert.equal(args[args.indexOf('--max-redirs')+1],'0');assert.equal(args.includes('--fail'),false);assert.equal(args.includes('--retry'),false);assert.equal(args.includes('--location'),false);
   const target=args.at(-1),at=time.now();starts.push({target,at,options});
   const response=respond(target);if(response.gate)await response.gate;
   const raw=response.raw??(Buffer.isBuffer(response.json)?response.json:Buffer.from(' \n'+JSON.stringify(response.json??{})+'\r\n'));

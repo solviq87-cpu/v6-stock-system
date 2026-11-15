@@ -73,7 +73,7 @@ test('Sina full-A cannot guess the original date from HH:MM or the local clock',
 });
 
 test('index collection retains Tencent original time, including old and unknown observations',async()=>{
- const wire=at=>{const f=Array(40).fill('0');f[3]='3000';f[30]=at;f[32]='1';return `v_1.000001="${f.join('~')}";`;};
+ const wire=at=>{const f=Array(40).fill('0');f[3]='3000';f[30]=at;f[32]='1';return `v_sh000001="${f.join('~')}";`;};
  for(const [original,at] of [['20261113100000',now],['20261112150000',Date.parse('2026-11-12T15:00:00+08:00')],['',null]]){
   const c=run(em,['fetchIdxRt','batchQuoteAtPublication'],{Buffer,TextDecoder,
    require:name=>{assert.equal(name,'./src/core/public-market');return require('../src/core/public-market');},

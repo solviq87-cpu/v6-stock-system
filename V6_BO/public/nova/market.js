@@ -1,4 +1,4 @@
-import {aggregateCandles,movingAverages,projectForwardTracking} from './market-evidence.js';
+import {aggregateCandles,movingAverages,projectForwardTracking,stockReasons,requirePoolReady,dailyReviewEvidence} from './market-evidence.js';
 import {h,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
 
 export const POOLS=[
@@ -36,7 +36,7 @@ const quoteAt=row=>row?.vendorQuoteAt??row?.quoteAt??row?.quoteTimestamp;
 const quoteSource=row=>row?.quoteSource||row?.source||row?.quoteProvider||'来源待核验';
 export function quoteLabel(row) {const at=quoteAt(row);return Number.isFinite(at)&&at>0?dateTime(at)+' · '+quoteSource(row)+(at>Date.now()?' · 时点异常':Date.now()-at>15000?' · 历史报价':' · 原始报价'):'报价时点待核验 · '+quoteSource(row);}
 const symbolName=row=>row?.name||row?.code||'未选择';
-const reasons=row=>{const primary=Array.isArray(row?.hit)?row.hit.map(x=>typeof x==='string'?x:x.text||x.label||x.id).filter(Boolean):Array.isArray(row?.signals)?row.signals:Array.isArray(row?.explanation)?row.explanation:[];return primary.length?primary:[row?.reason,row?.why,row?.note,row?.washNote,row?.via].filter(x=>typeof x==='string'&&x);};
+const reasons=stockReasons;
 export function stockCard(row,ctx) {
  const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,row)},
   h('div',{class:'fy-stock-head'},h('div',{},h('strong',{},symbolName(row)),h('span',{class:'fy-muted'},row.code)),h('span',{class:'fy-score-ring'},typeof row.score==='number'?format(row.score,1):typeof row.prob==='number'?format(row.prob,1):row.result||'待评估',h('small',{},typeof row.score==='number'?'评分':typeof row.prob==='number'?'原概率':row.result?'原状态':''))),
@@ -64,7 +64,7 @@ export function renderPulse(route,ctx) {
   h('section',{class:'fy-pulse-hero'},h('div',{class:'fy-hero-copy'},h('span',{class:'fy-eyebrow'},'FAYO / MARKET PULSE'),h('h1',{},'市场的脉冲，',h('br'),h('em',{},'你的研究坐标。')),h('p',{},mood.note||'把市场、机会与证据，放进同一条研究路径。'),h('div',{class:'fy-inline'},button('发现机会 '+ '↗',()=>ctx.navigate('opportunities','quant'),'primary'),button('进入实验室',()=>ctx.navigate('lab','desk')))),orbital()),
   ticker(state),
   h('section',{class:'fy-workflow','aria-label':'研究路径'},[['机会发现',counts.candidates,'opportunities','quant'],['重点跟踪',counts.focused,'opportunities','focused'],['策略证据',counts.signals,'lab','records'],['风险边界',counts.risk,'assets','risk']].map(([label,count,view,sub],index)=>button(h('span',{},h('i',{},'0'+(index+1)),h('strong',{},label),h('b',{},format(count,0))),()=>ctx.navigate(view,sub),'quiet'))),
-  h('div',{class:'fy-briefing-grid'},section('此刻值得研究','实际候选，不把历史报价当作实时信号',rows.length?h('div',{class:'fy-grid two'},rows.slice(0,4).map(r=>stockCard(r,ctx))):empty('等待第一份有效市场快照','周末会保留服务端最近交易日数据；没有历史来源时不生成虚构股票。')),h('div',{class:'fy-stack'},section('市场气候',mood.label||'暂未形成有效研判',h('div',{class:'fy-climate'},h('strong',{},typeof mood.upRatio==='number'?format(mood.upRatio,1)+'%':'—'),h('span',{},'上涨家数占比')),h('p',{class:'fy-muted'},mood.note||'缺少有效市场证据时保持未知。')),section('你的工作空间','快速续接',h('div',{class:'fy-list'},[['策略与规则','lab','strategies'],['持仓与风险','assets','holdings'],['行情与板块','pulse','sectors'],['资讯与推送','inbox','all']].map(([label,view,sub])=>button(h('span',{class:'fy-inline'},label,icon('arrow')),()=>ctx.navigate(view,sub),'quiet'))))))
+  h('div',{class:'fy-briefing-grid'},section('此刻值得研究','实际候选，不把历史报价当作实时信号',rows.length?h('div',{class:'fy-grid two'},rows.slice(0,4).map(r=>stockCard(r,ctx))):empty('等待第一份有效市场快照','周末会保留服务端最近交易日数据；没有历史来源时不生成虚构股票。')),h('div',{class:'fy-stack'},section('市场气候',mood.label||'暂未形成有效研判',h('div',{class:'fy-climate'},h('strong',{},typeof mood.upRatio==='number'?format(mood.upRatio,1)+'%':'—'),h('span',{},'上涨家数占比')),h('p',{class:'fy-muted'},mood.note||'缺少有效市场证据时保持未知。')),section('你的工作空间','快速续接',h('div',{class:'fy-list'},[['每日复盘 · 全部涨停票','pulse','review'],['策略与规则','lab','strategies'],['持仓与风险','assets','holdings'],['行情与板块','pulse','sectors'],['资讯与推送','inbox','all']].map(([label,view,sub])=>button(h('span',{class:'fy-inline'},label,icon('arrow')),()=>ctx.navigate(view,sub),'quiet'))))))
  );
  if(route.sub&&route.sub!=='overview')return renderMarket(route,ctx);
  return view;
@@ -72,8 +72,12 @@ export function renderPulse(route,ctx) {
 export function renderMarket(route,ctx) {
  const state=ctx.state||{};
  const sub=route.sub||'sectors';
- const top=h('div',{class:'fy-subnav'},[['sectors','板块地图'],['global','全球与资金'],['auction-review','竞价复盘'],['plans','交易计划'],['review','复盘与学习']].map(([key,label])=>button(label,()=>ctx.navigate('pulse',key),key===sub?'primary':'quiet')));
+ const top=h('div',{class:'fy-subnav'},[['sectors','板块地图'],['global','全球与资金'],['auction-review','竞价复盘'],['plans','交易计划'],['review','每日复盘']].map(([key,label])=>button(label,()=>ctx.navigate('pulse',key),key===sub?'primary':'quiet')));
  const view=h('div',{class:'fy-stack'},top);
+ if(sub==='review'){
+  view.append(renderDailyReview(ctx),h('details',{class:'fy-details'},h('summary',{},'原复盘与历史学习'),h('div',{class:'fy-grid two'},[['原复盘',state.review],['历史学习',state.learn],['学习记录',state.learnHistory],['宽度与纪律',state.breadth]].map(([title,data])=>section(title,'保留既有服务端记录',renderEvidence(data,ctx))))));
+  return view;
+ }
  const labels=[['sectors','板块地图'],['global','全球与资金'],['plans','交易计划'],['review','复盘与学习']];
  if(sub==='auction-review') {
   const code=h('input',{name:'code',inputmode:'numeric',pattern:'[0-9]{6}',placeholder:'六位股票代码',value:ctx.stock||'',required:true});
@@ -90,6 +94,53 @@ export function renderMarket(route,ctx) {
  if(ctx.role==='edit')view.append(section('刷新专项数据','主动重算与普通读取分别操作',h('div',{class:'fy-inline'},[['sectors','板块'],['global','全球'],['auction','竞价'],['pool','候选'],['ext','外围联动'],['yier','一进二'],['lianban','连板']].map(([module,label])=>button(label+'重算',async()=>{try{await ctx.api('/api/refresh',{method:'POST',body:{module}});await ctx.refresh();ctx.notify('专项刷新已提交');}catch(error){ctx.notify(error.message,'error');}})))));
  return view;
 }
+export function renderDailyReview(ctx){
+ let evidence=dailyReviewEvidence(ctx.state||{}),page=0,query='',sector='';const size=25;
+ const expanded=new Set();
+ const detail=(key,label,...children)=>h('details',{class:'fy-details',open:expanded.has(key),onToggle:event=>{if(event.target.open)expanded.add(key);else expanded.delete(key);}},h('summary',{},label),...children);
+ const view=h('div',{class:'fy-stack'}),search=h('input',{type:'search',placeholder:'搜索代码、名称或完整原因','aria-label':'搜索每日复盘'}),select=h('select',{'aria-label':'筛选复盘板块'}),summary=h('p',{class:'fy-note',role:'status'}),sourceInfo=h('div',{class:'fy-stack'}),boards=h('div',{class:'fy-grid two'}),body=h('div',{class:'fy-stack'}),position=h('span',{});
+ const previous=button('上一页',()=>{page--;paint();}),next=button('下一页',()=>{page++;paint();});
+ const level=row=>row.limitUpCount===1?'首板':row.limitUpCount===2?'二板':row.limitUpCount?row.limitUpCount+'连板':'连板数待核验';
+ const roleLabel=value=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[value];
+ const supplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
+ function reviewCard(row){
+  const linked=row.linkedRecords.map(peer=>h('div',{class:'fy-item'},
+   peer.code?button(peer.name+' '+peer.code,()=>ctx.selectStock(peer.code),'quiet'):h('strong',{},peer.name+' · 代码待核验'),
+   h('p',{},peer.limitUpCount===0?'后台记录：未涨停强势观察':level(peer)),
+   h('small',{class:'fy-muted'},peer.role?'后台角色推断：'+roleLabel(peer.role)+'（未独立核验）':'角色待核验')));
+  return section(row.name+' · '+row.code,level(row)+' · '+(row.sectorTags.join(' / ')||'板块待核验'),
+   (row.heldRecord||row.currentSourceConfirmed===false)&&note('保留旧来源证据，本次未确认；不能据此断言当前仍封板。','warn'),
+   (row.heldRecord||row.currentSourceConfirmed===false)&&h('p',{class:'fy-muted'},'保留来源 '+row.heldSources.map(supplier).join('、')+' · 原接收时点 '+dateTime(row.receivedAt)+' · 原事件时点 '+dateTime(row.sourceEventAt)),
+   stockCard(row.stock,ctx),
+   h('p',{},'涨停原因：'+(row.reason||'待核验，尚无同交易日的原始原因证据')),
+   h('p',{class:'fy-muted'},'原始交易日 '+dayLabel(row.sourceDay)+' · 池来源 '+supplier(row.source)+' · 原因来源 '+supplier(row.reasonSource)+' · 原因日期 '+dayLabel(row.reasonDay)),
+   row.reasonSourceStatus==='retained'&&h('p',{class:'fy-muted'},'原因来源本次未确认，保留原始证据 · 原接收时点 '+dateTime(row.reasonReceivedAt)),
+   h('p',{class:'fy-muted'},row.role?'后台角色推断：'+roleLabel(row.role)+'（未独立核验）':'角色待核验'),
+   detail(row.code+':peers','同板块关联涨停股 '+row.peers.length+' 只（完整可见池）',
+    row.peers.length?h('div',{class:'fy-inline'},row.peers.map(peer=>button(peer.name+' '+peer.code+' · '+level(peer)+' · '+peer.sharedTags.join(' / '),()=>ctx.selectStock(peer.code,evidence.rows.find(x=>x.code===peer.code)?.stock),'quiet'))):note(row.dateMatched?'没有同日同板块的其他可见涨停股。':'原始日期或板块缺失，关联关系待核验。')),
+   detail(row.code+':linked','后台联动补充 '+linked.length+' 条（来源限量记录）',
+    note('此来源只返回部分联动记录；无代码的名称不匹配其他股票。'),
+    linked.length?linked:note('尚无同日复盘联动记录，不能据此断言不存在其他联动个股。')));
+ }
+ function paint(){
+  const rows=evidence.rows.filter(row=>(!sector||row.sectorTags.includes(sector)||(!row.sectorTags.length&&sector==='板块待核验'))&&(!query||[row.code,row.name,row.reason,...row.sectorTags].some(value=>String(value||'').toLowerCase().includes(query))));
+  const pages=Math.max(1,Math.ceil(rows.length/size));page=Math.max(0,Math.min(page,pages-1));previous.disabled=page===0;next.disabled=page===pages-1;
+  summary.textContent='原始交易日 '+dayLabel(evidence.day)+' · 可见复盘池 '+evidence.rows.length+' 只 · 当前筛选 '+rows.length+' 只 · 原因已核验 '+evidence.reasonKnown+' 只'+(evidence.dateUnknown?' · 原始日期待核验 '+evidence.dateUnknown+' 只':'')+(evidence.excludedDateRows?' · 已隔离不同源日记录 '+evidence.excludedDateRows+' 条':'')+(!evidence.reviewMatched?' · 复盘归档日期未匹配，不套用旧原因或角色':'');
+  position.textContent='第 '+(page+1)+' / '+pages+' 页 · 每页 '+size+' 只';
+  body.replaceChildren(...(rows.length?rows.slice(page*size,(page+1)*size).map(reviewCard):[empty('尚无匹配的涨停记录','不补造股票或原因；可清空筛选，查看完整池。')]));
+ }
+ function update(){
+  evidence=dailyReviewEvidence(ctx.state||{});select.replaceChildren(h('option',{value:''},'全部板块'),...evidence.sectors.map(item=>h('option',{value:item.name},item.name+' · '+item.count+' 只')));if(sector&&!evidence.sectors.some(x=>x.name===sector))sector='';select.value=sector;
+  const meta=evidence.sourceEvidence,count=value=>Number.isSafeInteger(value)&&value>=0?String(value):'待核验';
+  sourceInfo.replaceChildren(note('仅展示供应商已返回的记录，未认证交易所全部股票。标签包含供应商行业与概念，分类口径未统一；多板块归属分别计数，家数不能相加作为股票总数。'),
+   note(!evidence.readonly?'旧服务兼容：当前仅有策略涨停池，可能包含策略排除。':!meta?'只读复盘池元数据缺失，原始日期与完整性待核验。':meta.status==='retained'?'保留最近有效供应商复盘池，原始日期 '+dayLabel(evidence.day)+(meta.retentionReason==='startup-not-verified'?'；本次启动尚未重新核验。':'；本次请求日 '+dayLabel(meta.lastAttempt?.requestedDate||meta.lastAttempt?.tradeDate||meta.lastAttempt?.requestedTradeDate)+'。'):'供应商复盘池 · 去重 '+count(meta.uniqueCount)+' 只 · 交集 '+count(meta.intersectionCount)+' 只 · 东财独有 '+count(meta.eastmoneyOnlyCount)+' 只 · 财联社独有 '+count(meta.clsOnlyCount)+' 只。'),
+   ...(meta?.heldRecordCount>0?[note('本轮未确认的保留记录 '+count(meta.heldRecordCount)+' 只 · 保留来源 '+(Array.isArray(meta.retainedSources)?meta.retainedSources.map(supplier).join('、'):'待核验')+'；原始时点保持不变。','warn')]:[]),
+   ...(Array.isArray(meta?.sources)?meta.sources:[]).map(source=>h('p',{class:'fy-muted'},supplier(source.source)+' · 来源日 '+dayLabel(source.tradeDate)+' · 声明总量 '+count(source.totalCount)+' · 返回 '+count(source.fetchedCount)+' · '+(source.status==='retained'||meta?.status==='retained'?(source.retentionReason==='startup-not-verified'||meta?.retentionReason==='startup-not-verified'?'本次启动尚未重新核验，保留上次来源记录':source.providerComplete===true?'上次响应完整，本次来源失败保留':'保留旧来源记录，本次未确认'):source.providerComplete===true?'供应商本次响应条数齐全':'本次完整性待核验')+' · '+(source.includesST===true?'包含 ST':source.includesST===false?'来源声明不含 ST':'ST 范围由供应商定义')+' · '+(source.completenessScope==='provider-up-pool-including-st'?'供应商涨停池范围（含ST）':'供应商可见范围，非交易所全集'))));
+  boards.replaceChildren(...evidence.sectors.map(item=>detail('sector:'+item.name,item.name+' · '+item.count+' 只涨停（去重可见池）',item.logic.length?h('div',{class:'fy-list'},item.logic.map(reason=>h('p',{},reason))):note('板块逻辑待核验；尚无同日已核验原始原因。'))));paint();
+ }
+ search.addEventListener('input',()=>{query=search.value.trim().toLowerCase();page=0;paint();});select.addEventListener('change',()=>{sector=select.value;page=0;paint();});
+ view.append(section('每日复盘','供应商可见涨停记录、原始原因与全部板块关联，逐票核对。',h('div',{class:'fy-inline'},field('搜索',search),field('板块',select)),summary,sourceInfo),boards,body,h('div',{class:'fy-inline'},previous,position,next));ctx.onState?.(update);update();return view;
+}
 export function renderEvidence(data,ctx,depth=0) {
  if(data==null||Array.isArray(data)&&!data.length)return empty('尚无该项历史记录','保留真实缺数状态，数据就绪后在这里显示。');
  if(depth>6)return h('span',{class:'fy-muted'},'展开上层证据查看详情');
@@ -105,7 +156,7 @@ export function renderEvidence(data,ctx,depth=0) {
  return h('dl',{class:'fy-facts'},entries.map(([key,value])=>h('div',{},h('dt',{},labels[key]||key),h('dd',{},typeof value==='object'&&value? h('details',{class:'fy-details'},h('summary',{},Array.isArray(value)?value.length+' 条记录':'查看详情'),renderEvidence(value,ctx,depth+1)):typeof value==='number'?format(value,key==='count'||key==='total'?0:2):value==null?'未知':String(value)))));
 }
 export function renderOpportunities(route,ctx) {
- let active=POOLS.find(x=>x[0]===route.sub)||POOLS[0],current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='';
+ let active=POOLS.find(x=>x[0]===route.sub)||POOLS[0],current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='',lastSuccessDay='';
  const view=h('div',{class:'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
  selector.value=active[0];selector.addEventListener('change',()=>ctx.navigate('opportunities',selector.value));
  const search=h('input',{type:'search',placeholder:'搜索名称、代码或板块','aria-label':'筛选股票池'});
@@ -140,7 +191,7 @@ export function renderOpportunities(route,ctx) {
     data={items:current,snapshotDay:normalizedDay||state.snapshotFieldDays?.[key]||state.snapshotDay||state.dashboard?.snapshotDay,isSnapshot:state.isSnapshot||state.dashboard?.isSnapshot};
    } else {
     const params=active[0]==='matches'?new URLSearchParams({limit:String(max),...(append&&cursor?{cursor}:{})}):new URLSearchParams({board:requestedBoard,max:String(max)});
-    data=await ctx.readPool(active[0]+':'+requestedBoard,()=>ctx.api(active[3]+'?'+params,{signal:ctx.signal,timeoutMs:60000}));
+    data=await ctx.readPool(active[0]+':'+requestedBoard,async()=>requirePoolReady(await ctx.api(active[3]+'?'+params,{signal:ctx.signal,timeoutMs:60000})));
     if(ctx.signal.aborted||turn!==loadGeneration)return;
     if(append&&snapshotIdentity&&data.snapshotId&&data.snapshotId!==snapshotIdentity){cursor='';ctx.notify('扫描快照已更新，将读取新的第一页');load(false);return;}
     snapshotIdentity=data.snapshotId||snapshotIdentity;
@@ -150,9 +201,11 @@ export function renderOpportunities(route,ctx) {
    if(ctx.signal.aborted||turn!==loadGeneration)return;
    summaryView.replaceChildren(...['cycle','timing','feedback','sectorView'].filter(key=>data[key]).map(key=>h('details',{class:'fy-details'},h('summary',{},({cycle:'短线周期',timing:'时机反馈',feedback:'历史反馈',sectorView:'板块结构'})[key]),renderEvidence(data[key]))));
    const day=data.snapshotDay||state.snapshotDay||state.dashboard?.snapshotDay;
+   lastSuccessDay=day||'';
+   status.className='fy-note';
    status.textContent=active[1]+' · '+current.length+' 只'+(day?' · 原始交易日 '+dayLabel(day):'')+(data.isSnapshot||data.snapshotRetained?' · 保留快照':'');
    paint();
-  }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message;status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
+  }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message+(current.length?' · 保留上次有效结果'+(lastSuccessDay?' · 原始交易日 '+dayLabel(lastSuccessDay):' · 原始交易日待核验'):'');status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
   finally{if(turn===loadGeneration)loadMore.disabled=false;}
  }
  ctx.onState?.(()=>load());

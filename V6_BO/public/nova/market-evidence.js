@@ -109,3 +109,73 @@ export function projectForwardTracking(payload,code,{now=Date.now()}={}) {
     unresolved:entries.reduce((count,entry)=>count+entry.windows.filter(window=>window.state!=='observed').length,0),
     note:'基于冻结信号日收盘价的未复权价格变化，非可成交净收益；来源与指纹未在浏览器独立认证，不可作为策略有效性结论。'};
 }
+
+// Display contracts only: keep original evidence and never grant trading permission.
+const arr=value=>Array.isArray(value)?value.filter(Boolean):[];
+export function stockReasons(row){
+ const primary=Array.isArray(row?.hit)?row.hit.map(x=>typeof x==='string'?x:x?.text||x?.label||x?.id):Array.isArray(row?.signals)?row.signals:arr(row?.explanation);
+ const reasons=[...primary,...arr(row?.reasons)].filter(x=>typeof x==='string'&&x);
+ return reasons.length?reasons:[row?.reason,row?.why,row?.note,row?.washNote,row?.via].filter(x=>typeof x==='string'&&x);
+}
+export function requirePoolReady(data){
+ const status=String(data?.status||'').toLowerCase(),message=data?.error||data?.note||data?.message||'';
+ if(!data||data.ok===false||data.error||/^(?:error|failed|failure|unavailable|unknown|busy|pending|loading|calculating|computing|not-ready)$/.test(status)||/计算(?:失败|异常)|行情未就绪|正在计算|数据(?:不可用|未就绪)|采集失败/.test(message))throw Error(message||'该股票池尚未返回有效结果，请稍后重试。');
+ return data;
+}
+const published=value=>typeof value==='number'&&Number.isFinite(value)&&value>0?value:typeof value==='string'?Date.parse(value):NaN;
+function cninfoAnnouncement(row){
+ return row&&row.source==='巨潮资讯 · 未独立核验'&&typeof row.title==='string'&&row.title.trim()&&
+  typeof row.publishedAt==='string'&&published(row.publishedAt)>0&&published(row.publishedAt)<=Date.now()&&
+  /^https:\/\/static\.cninfo\.com\.cn\/finalpage\/\d{4}-\d{2}-\d{2}\/\d+\.pdf$/i.test(row.url||'')&&
+  arr(row.codes).length>0&&row.codes.every(code=>/^\d{6}$/.test(code));
+}
+export function newsRows(state,kind){
+ const good=arr(state.goodNews?.items),bad=arr(state.badNews?.items);
+ // Signal events retain their strategy identities, including multiple events for one code.
+ if(kind==='signals')return arr(state.signals);
+ if(kind==='alerts')return bad;
+ const announcements=arr(state.dashboard?.riskEvidence?.news).filter(cninfoAnnouncement);
+ const identity=row=>JSON.stringify([row.source,row.url,row.title,row.publishedAt,row.t,row.type,row.direction,row.codes,row.id,row.eventId,row.strategy,row.strategyId,row.system]);
+ const existing=[...good,...bad],seen=new Set(existing.map(identity));
+ const additions=announcements.filter(row=>{const key=identity(row);if(seen.has(key))return false;seen.add(key);return true;});
+ return [...existing,...additions].sort((a,b)=>(published(b.publishedAt??b.t)||0)-(published(a.publishedAt??a.t)||0));
+}
+
+const reviewDay=value=>{const day=typeof value==='string'?value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):'';return validDay(day)?day:null;};
+export function dailyReviewEvidence(state={}){
+ const readonly=Array.isArray(state.ztReviewPool),sourceEvidence=readonly&&state.ztReviewPoolMeta&&typeof state.ztReviewPoolMeta==='object'?state.ztReviewPoolMeta:null;
+ const day=reviewDay(readonly?sourceEvidence?.tradeDate:state.ztDay),reviewMatched=!!day&&reviewDay(state.review?.date)===day;
+ const reviews=new Map(reviewMatched?arr(state.review?.items).filter(x=>/^\d{6}$/.test(x.code||'')).map(x=>[x.code,x]):[]);
+ const pool=new Map();let excludedDateRows=0;
+ for(const row of arr(readonly?state.ztReviewPool:state.ztPool)){
+  if(!/^\d{6}$/.test(row.code||''))continue;
+  const ownDay=reviewDay(row.sourceTradeDate||row.tradeDate);
+  if(readonly&&day&&ownDay&&ownDay!==day){excludedDateRows++;continue;}
+  if(!pool.has(row.code))pool.set(row.code,row);
+ }
+ const rows=[...pool.values()].map(row=>{
+  const sourceDay=reviewDay(row.sourceTradeDate||row.tradeDate),dateMatched=!!day&&sourceDay===day;
+  const review=dateMatched?reviews.get(row.code):null;
+  const knownReason=x=>dateMatched&&x?.reasonDateStatus==='matched'&&reviewDay(x.reasonTradeDate)===day&&typeof x.reasonSource==='string'&&x.reasonSource.trim();
+  const reasonRow=knownReason(row)&&typeof row.reason==='string'&&row.reason.trim()?row:knownReason(review)&&typeof review.reasonRaw==='string'&&review.reasonRaw.trim()?review:null;
+  const role=dateMatched?(row.role||review?.role):null;
+  const sector=typeof row.sector==='string'?row.sector:'',sectorTags=[...new Set([...arr(row.sectorTags),sector].filter(value=>typeof value==='string'&&value.trim()).map(value=>value.trim()))];
+  return {code:row.code,name:row.name||row.code,sector,sectorTags,day,sourceDay,dateMatched,
+   heldRecord:row.heldRecord===true,currentSourceConfirmed:typeof row.currentSourceConfirmed==='boolean'?row.currentSourceConfirmed:null,
+   heldSources:arr(row.heldSources).filter(value=>typeof value==='string'),sourceStatuses:row.sourceStatuses&&typeof row.sourceStatuses==='object'?{...row.sourceStatuses}:{},
+   reasonSourceStatus:row.reasonSourceStatus||null,receivedAt:row.receivedAt??null,sourceEventAt:row.sourceEventAt??null,reasonReceivedAt:row.reasonReceivedAt??null,
+   source:arr(row.sources).filter(value=>typeof value==='string').join(' + ')||row.src||row.quoteSource||'来源待核验',limitUpCount:Number.isInteger(row.limitUpCount)&&row.limitUpCount>0?row.limitUpCount:null,
+   reason:reasonRow?(reasonRow===row?row.reason:review.reasonRaw):null,reasonSource:reasonRow?.reasonSource||null,reasonDay:reasonRow?day:null,
+   role:['leader','deputy','mid','follow'].includes(role)?role:null,
+   linkedRecords:arr(review?.peers).map(peer=>({name:typeof peer.n==='string'?peer.n:typeof peer.name==='string'?peer.name:'名称待核验',code:/^\d{6}$/.test(peer.code||'')?peer.code:null,limitUpCount:Number.isInteger(peer.lb)&&peer.lb>=0?peer.lb:null,role:['leader','deputy','mid','follow'].includes(peer.role)?peer.role:null,strong:peer.strong===true})),
+   stock:{code:row.code,name:row.name,price:row.price,pct:row.pct,sector:row.sector,quoteAt:row.quoteAt,vendorQuoteAt:row.vendorQuoteAt,quoteSource:row.quoteSource||row.src,receivedAt:row.receivedAt},peers:[]};
+ });
+ const groups=new Map();for(const row of rows)for(const key of row.sectorTags.length?row.sectorTags:['板块待核验']){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
+ for(const row of rows)if(row.sectorTags.length&&row.dateMatched){
+  const related=new Map();for(const tag of row.sectorTags)for(const peer of groups.get(tag))if(peer.code!==row.code&&peer.dateMatched){
+   if(!related.has(peer.code))related.set(peer.code,{code:peer.code,name:peer.name,limitUpCount:peer.limitUpCount,sharedTags:[]});related.get(peer.code).sharedTags.push(tag);
+  }row.peers=[...related.values()];
+ }
+ const sectors=[...groups].map(([name,items])=>({name,count:items.length,logic:[...new Set(items.map(row=>row.reason).filter(Boolean))]}));
+ return {day,reviewMatched,rows,sectors,readonly,sourceEvidence,excludedDateRows,reasonKnown:rows.filter(row=>row.reason).length,dateUnknown:rows.filter(row=>!row.dateMatched).length};
+}

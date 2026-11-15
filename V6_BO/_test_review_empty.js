@@ -44,10 +44,17 @@ ok(/ztPoolFetchedAt:\s*0/.test(SV), 'S.ztPoolFetchedAt 已初始化为 0（默�
 // ⛔ 2026-10-28 改钉（谎报缺口）：原断言只要求「r3 fulfilled」——而 em.fetchZTPool 三源全空时
 //    **也是 fulfilled**（返回 []），于是断言把「三源全空」当成了「接口确认今日无涨停」，
 //    等于替谎报背书。新判据必须同时要求「返回非空数组」才算本周期成功。
-ok(/const _r3ok = r3\.status === 'fulfilled' && Array\.isArray\(r3\.value\) && r3\.value\.length > 0;/.test(SV),
-  '涨停池「本周期成功」判据 = fulfilled 且返回非空数组（fulfilled+[] 是三源全空的未确认态，不算成功）');
-ok(/if \(_r3ok\) \{ S\.ztPoolFetchedAt = Date\.now\(\); S\.ztPoolFetchOk = true; \}/.test(SV), '只在 _r3ok（真拉到非空池）时才记时间戳，并置 ztPoolFetchOk=true');
-ok(/S\.ztPoolFetchOk = false;[\s\S]{0,260}不判定「今日无涨停」/.test(SV), '未确认（三源全空/接口失败）时显式留痕，明示不判定「今日无涨停」');
+const acceptance = SV.slice(SV.indexOf('  const _r3ok ='), SV.indexOf('  let zt = null;', SV.indexOf('  const _r3ok =')));
+ok(/r3\.status === 'fulfilled' && Array\.isArray\(r3\.value\) && r3\.value\.length > 0/.test(acceptance) &&
+  /r3\.value\.every/.test(acceptance) && /row\.sourceTradeDate === requestedTradeDate/.test(acceptance) &&
+  /row\.tradeDate === row\.sourceTradeDate/.test(acceptance),
+  '涨停池成功要求非空数组及每行源交易日与请求日一致（空、未知或错日不算成功）');
+const accepted = SV.slice(SV.indexOf('  if (_r3ok) {'), SV.indexOf('  } else {', SV.indexOf('  if (_r3ok) {')));
+ok(/zt = r3\.value\.map/.test(accepted) && /S\.ztPoolFetchedAt = observedAt; S\.ztPoolFetchOk = true;/.test(accepted),
+  '只在 _r3ok 时传递已验证证据到实际 zt 数组，并记成功时点');
+const rejected = SV.slice(SV.indexOf('  } else {', SV.indexOf('  if (_r3ok) {')), SV.indexOf('  // ⛔ 跌停家数权威源', SV.indexOf('  if (_r3ok) {')));
+ok(/S\.ztPoolFetchOk = false;/.test(rejected) && /不判定「今日无涨停」/.test(rejected),
+  '未确认、错日或接口失败显式留痕，不判定「今日无涨停」');
 ok(!/r3\.status !== 'fulfilled'\) S\.ztPoolFetchedAt/.test(SV), 'rejected（限流/超时/断网）绝不记时间戳（数据没回来就不算确认空）');
 
 console.log('\n【③ 静态：三处复盘推送的闸门（旧档/非当日绝不冒充今天推）】');

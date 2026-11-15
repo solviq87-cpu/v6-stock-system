@@ -312,7 +312,9 @@ const S = {
   sectorsAt: 0,            // 板块流拉取时刻：mainInflow 是当日累计，跨天就是另一个周期的值
   sectorsDay: '',          // 板块流归属交易日 YYYYMMDD（与 todayStr 同口径）
   idxRt: null,             // ⛔ if 轮：A股四大指数实时 {at, items:[{name,pct}]}（15s 刷新）
-  ztPool: [],              // 涨停池（30秒刷新）
+  ztPool: [],              // Existing strategy/tally pool.
+  ztReviewPool: [],        // Uncropped readonly source rows, before strategy exclusions.
+  ztReviewPoolMeta: null,
   yierList: [],            // 一进二卡片：完整候选（含主线强度）—— 面板独立卡片渲染用（2026-10-08）
   lianbanList: [],         // 连板接力卡片：二进三+三进四完整候选（含主线强度与板块联动）（2026-10-08）
   // ⛔ gb 轮：这两张卡是哪一天算出来的（YYYYMMDD）。用户要求「保持到次日 9:20 前」——
@@ -10786,12 +10788,12 @@ function shiftDate(yyyymmdd, n) {
   d.setDate(d.getDate() + n);
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 }
-async function ztReasonCached() {
+async function ztReasonCached(targetTradeDate) {
   // ⚠️ 不能用 lastTradeDay()（机器日期，只跳周末不跳节假日）：
   //    实测 10/1 国庆凌晨上线后，它给出 20261001 → 同花顺那天根本没有涨停池 → 题材 0/52，
   //    而涨停池本身是 9/30 的 52 只。日期对不上就是整片空。必须按【数据真实最新日】取。
-  let base = null;
-  try { base = await dataTradeDay(); } catch {}
+  let base = targetTradeDate || null;
+  if (!base) { try { base = await dataTradeDay(); } catch {} }
   const d0 = String(base || lastTradeDay()).replace(/-/g, '');
   if (_ztReasonCache.map && _ztReasonCache.forDay === d0 && Date.now() - _ztReasonCache.t < _ztReasonCache.ttl) {
     return _ztReasonCache.map;
@@ -10800,12 +10802,21 @@ async function ztReasonCached() {
   let map = new Map(), used = d0;
   for (let back = 0; back < 5 && !map.size; back++) {
     const d = shiftDate(d0, -back);
-    try { map = await em.fetchZtReason(d); } catch (e) { console.error('[myrules] 涨停原因拉取失败:', d, e && e.message); }
+    try {
+      const received = await em.fetchZtReason(d), observedAt = Date.now();
+      const {normalizeReasonEvidence} = require('./src/core/limit-reason-evidence');
+      map = new Map([...received].map(([code,row]) => [code,normalizeReasonEvidence(row,{requestedDate:d,receivedAt:observedAt,source:'ths'})]));
+    } catch (e) { console.error('[myrules] 涨停原因拉取失败:', d, e && e.message); }
     if (map.size) used = d;
   }
   if (!map.size && _ztReasonCache.map) return _ztReasonCache.map;   // 全拉空时沿用上次，别把已有题材抹掉
-  // 命中键记目标日 d0（不是 used），否则回退一次之后缓存就再也命中不了。
-  // 回退来的数据是"借前几天的话题"，寿命给短一点，别把当天新出的池子压着 10 分钟不放。
+  // A partial or undated response cannot erase a previously evidenced same-day reason.
+  const {reasonMatchesDay} = require('./src/core/limit-reason-evidence');
+  if (_ztReasonCache.map && _ztReasonCache.forDay === d0) {
+    for (const [code,row] of _ztReasonCache.map) if (reasonMatchesDay(row,d0) && !reasonMatchesDay(map.get(code),d0)) map.set(code,row);
+  }
+  // The target remains the cache key; fallback records retain their actual date.
+  // Short TTL for a fallback preserves the existing provider request budget.
   const ttl = (used === d0) ? 10 * 60 * 1000 : 90 * 1000;
   _ztReasonCache = { forDay: d0, used, t: Date.now(), ttl, map };
   return map;
@@ -10906,28 +10917,30 @@ async function computeMyRules(limitN) {
 
 // 竞价分时缓存（按日）：⑦⑭ 用。东财限流时 fetchAuctionTicks 会抛错 → 失败不缓存（15 分钟内重试），
 // 避免把"限流没拉到"永久当成"缺数据"（那样 ⑦⑭ 整片变 unknown）。
-async function auctionTicksFor(code) {
+async function auctionTicksFor(code, targetTradeDate = NP.localDate()) {
   const cache = S.auctionTicks || (S.auctionTicks = {});
-  const ds = NP.localDate();
+  const normalizeDate = value => /^\d{8}$/.test(String(value))
+    ? String(value).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3') : value;
+  const ds = normalizeDate(targetTradeDate);
+  if (typeof ds !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ds) || !Number.isFinite(Date.parse(ds)) ||
+      new Date(ds).toISOString().slice(0,10) !== ds || ds > new Date(Date.now() + 28800000).toISOString().slice(0,10)) return null;
   const hit = cache[code];
-  // ⛔⛔ 2026-10-29 修（失败缓存无 TTL → 竞价窗内首次失败=当日全灭）：
-  //    旧写法 `if (hit && hit.date === ds) return hit.ok ? hit.data : null;` 排在 failAt 判据**之前**，
-  //    而同一天失败必定 hit.date === ds → 后面那条 15 分钟重试窗**永远走不到**（死代码）。
-  //    实测后果：9:20(phase 2) 那一轮只要有一只票拉分时失败，本轮缓存就锁死成 null，
-  //    9:25~9:30 唯一可信的那次抓取直接被判「分时不取 → 撤单陷阱判不出」，
-  //    当日 auction_log 里 ticks 全 null（10-28、10-29 连续两天实证）。
-  //    现在按 failAt 真 TTL 重试：成败都只在窗内静默，不额外加请求量。
-  if (hit && hit.date === ds) {
-    if (hit.ok) return hit.data;
-    if (hit.failAt && Date.now() - hit.failAt < 15 * 60 * 1000) return null;
-  }
+  // A successful historical session and a failed request for another day are
+  // separate evidence. Never relabel or discard Friday on a Monday failure.
+  if (hit && hit.ok && normalizeDate(hit.date) === ds && hit.data?.tradeDate === ds) return hit.data;
+  if (hit && hit.failedFor === ds && hit.failAt && Date.now() - hit.failAt < 15 * 60 * 1000) return null;
+  const failed = () => {
+    cache[code] = { ...(hit || {}), date: hit?.date || null, ok: hit?.ok === true,
+      data: hit?.data || null, failedFor: ds, failAt: Date.now() };
+    return null;
+  };
   try {
-    const d = await em.fetchAuctionTicks(code);
-    cache[code] = { date: ds, ok: !!d, data: d, failAt: d ? 0 : Date.now() };
+    const d = await em.fetchAuctionTicks(code, ds);
+    if (!d || d.tradeDate !== ds) return failed();
+    cache[code] = { date: d.tradeDate, ok: true, data: d, failedFor: null, failAt: 0 };
     return d;
   } catch (e) {
-    cache[code] = { date: ds, ok: false, data: null, failAt: Date.now() };
-    return null;
+    return failed();
   }
 }
 
@@ -11300,7 +11313,8 @@ function marketDisplaySession() {
 }
 function marketDisplayState() {
   const session=marketDisplaySession();
-  return marketDisplaySnapshots.select(S,{trading:session.trading,openDay:session.openDay,mood:marketMood()});
+  const selected=marketDisplaySnapshots.select(S,{trading:session.trading,openDay:session.openDay,mood:marketMood()});
+  return {...selected,state:require('./src/core/limit-review-pool').selectLimitReviewDisplay(S,selected.state)};
 }
 
 function dashboardPushMeta(includePrivate = false) {
@@ -11955,24 +11969,27 @@ async function scanAbnormalMove(opts = {}) {
 //     ⑦ 距涨停越近越好（gapToLimit 小）；
 //     ⑧ 流通市值 ≥35 亿（防微盘操纵），但 >500 亿大盘股权重降权。
 const INTRADAY_STRONG_CACHE_MS = 30 * 1000;
-let _intradayStrongCache = { ts: 0, data: null, busy: false };
+const _intradayStrongCache = new Map();
 async function intradayStrongScan(opts = {}) {
-  const max = Math.min(50, Math.max(1, opts.max || 20));
+  const max = Math.min(50, Math.max(1, Math.floor(Number(opts.max) || 20)));
   const board = ['main', 'gem'].includes(opts.board) ? opts.board : 'all';   // lp：对齐竞价共振的板块切换
   const force = opts.force || false;
   const now = Date.now();
-  if (!force && _intradayStrongCache.data && (now - _intradayStrongCache.ts) < INTRADAY_STRONG_CACHE_MS) {
-    return _intradayStrongCache.data;
+  const cacheKey = board + ':' + max;
+  const cache = _intradayStrongCache.get(cacheKey) || { ts: 0, data: null, busy: false };
+  _intradayStrongCache.set(cacheKey, cache);
+  if (cache.busy) {
+    return { ...(cache.data || { asOf: now, count: 0, total: 0, items: [] }), board,
+      status: 'computing', note: '正在计算...' };
   }
-  if (_intradayStrongCache.busy) {
-    return _intradayStrongCache.data || { asOf: now, count: 0, total: 0, items: [], note: '正在计算...' };
-  }
-  _intradayStrongCache.busy = true;
+  if (!force && cache.data && (now - cache.ts) < INTRADAY_STRONG_CACHE_MS) return cache.data;
+  cache.busy = true;
   try {
     const stocks = (S.stocks || []).filter(s => s && s.code && s.name && s.price > 0 && !A.isJunkName(s.name));
     if (!stocks.length) {
-      _intradayStrongCache = { ts: now, data: { asOf: now, count: 0, total: 0, items: [], note: '行情未就绪' }, busy: false };
-      return _intradayStrongCache.data;
+      cache.ts = now;
+      cache.data = { asOf: now, board, status: 'unavailable', count: 0, total: 0, items: [], note: '行情未就绪' };
+      return cache.data;
     }
 
     const candidateIdx = new Map((S.candidatePool || []).map(c => [c.code, c]));
@@ -12085,6 +12102,7 @@ async function intradayStrongScan(opts = {}) {
       }) * 100).toFixed(0);
 
       return {
+        ...reviewSnapshotFields(s),
         code, name,
         price: +s.price || 0,
         pct: +pct.toFixed(2),
@@ -12141,19 +12159,21 @@ async function intradayStrongScan(opts = {}) {
     const data = {
       asOf: now,
       board,
+      status: top.length ? 'ready' : 'empty',
       count: top.length,
       total: candidates.length,
       items: top,
       sectorView,
       note: `扫描 ${stocks.length} 只，候选 ${candidates.length} 只，展示 TOP ${top.length}；量价异动 + 主力资金 + 板块热度 + 技术位置综合评分。`
     };
-    _intradayStrongCache = { ts: now, data, busy: false };
+    cache.ts = now;
+    cache.data = data;
     return data;
   } catch (e) {
     console.error('[intradayStrongScan]', e && e.message);
-    return { asOf: now, count: 0, total: 0, items: [], note: '计算异常：' + (e && e.message) };
+    return { asOf: now, board, status: 'error', count: 0, total: 0, items: [], note: '计算异常：' + (e && e.message) };
   } finally {
-    _intradayStrongCache.busy = false;
+    cache.busy = false;
   }
 }
 
@@ -15312,41 +15332,65 @@ async function refreshSectorsZT() {
   const _dataDay = await dataTradeDay();
   const _ztDay = _dataDay.replace(/-/g, '');
   S.ztDayProbed = _dataDayOk;
+  const _previousZtByCode = new Map([...(S.ztReviewPool || []),...(S.ztPool || [])].map(row => [row.code,row]));
   // 各接口独立容错：板块流被限流时不能拖死涨停池/复盘
-  const [r1, r2, r3] = await Promise.allSettled([
-    em.fetchSectorFlow(2), em.fetchSectorFlow(3), em.fetchZTPool(_ztDay) // 周末自动回退最近交易日
+  const [r1, r2, r3, r4] = await Promise.allSettled([
+    em.fetchSectorFlow(2), em.fetchSectorFlow(3), em.fetchZTPool(_ztDay), // 周末自动回退最近交易日
+    require('./src/core/cls-limit-up-pool').fetchClsLimitPool({date:_ztDay})
   ]);
   const ind = r1.status === 'fulfilled' ? r1.value : null;
   const con = r2.status === 'fulfilled' ? r2.value : null;
-  let zt = r3.status === 'fulfilled' ? r3.value : null;
-  // ⛔ 复盘空池保护（2026-10-27）：只在涨停池接口**真的返回过**才记"拉取时间戳"；
-  //    rejected（限流/超时/断网）= 数据没回来，绝不据此判定"今日无涨停"。
-  // ⛔ 2026-10-28 修：新增 ztPoolFetchOk 标记区分「本周期成功」vs「旧周期成功」——
-  //    rejected 时置 false 并留痕，避免 poolConfirmedEmpty 误把「数据缺失」当「今日无涨停」。
-  // ⛔⛔ 2026-10-28 修（谎报级缺口·本模块核心判据）：`fulfilled` ≠ 「确认有数据」。
-  //    em.fetchZTPool 的返回语义是：东财双通道（Node→curl）**只有拿到非空池才 return**，拿不到就一路兜到同花顺，
-  //    三源（东财→东财curl→同花顺）全空时统一 `return []` → 所以它返回 `[]` 恒等于【三源全空·未确认】，
-  //    绝不可能代表「接口明确告诉你今日 0 只涨停」。
-  //    旧写法只看 r3.status==='fulfilled' 就把 ztPoolFetchOk 置 true：三源全空（限流/断网/被反爬）时
-  //    poolConfirmedEmpty() 直接命中 → 写空壳复盘 + staleMark('review','empty') → 对外呈现「今日无涨停」。
-  //    这正是铁律「判不出不硬判、禁止拿数据缺失冒充事实」明令禁止的谎报（与 10-27 修掉的那次同族，只是入口更隐蔽）。
-  //    新判据：只有「返回了非空数组」才算本周期成功拉到；空数组 / 非数组一律按【未确认】→ 沿用旧档、不写空壳。
-  //    ⚠️ 由此 poolConfirmedEmpty() 的「确认空」在现有数据源语义下不可达（只剩 held 分支），这是**有意的**：
-  //       A 股不存在 0 涨停的交易日，宁可永远沿用上次有效池，也绝不拿数据缺失冒充「今日无涨停」。
-  //       将来数据源若能给出「东财确认空」的独立信号，再把该信号接进这里即可。
-  const _r3ok = r3.status === 'fulfilled' && Array.isArray(r3.value) && r3.value.length > 0;
+  const requestedTradeDate = _ztDay.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+  // A request date is only a selector. The accepted date must come from the
+  // supplier response, including its actual receipt, before any fact is attached.
+  const observedAt = Date.now();
+  const _r3ok = r3.status === 'fulfilled' && Array.isArray(r3.value) && r3.value.length > 0 &&
+    r3.value.every(row => row && row.src === 'em' && row.sourceTradeDate === requestedTradeDate &&
+      row.tradeDate === row.sourceTradeDate && Number.isSafeInteger(row.receivedAt) &&
+      row.receivedAt > 0 && row.receivedAt <= observedAt);
+  let zt = null;
   if (_r3ok) {
-    const observedAt = Date.now(), tradeDate = String(_ztDay).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+    zt = r3.value.map(row => ({...row,
+      researchEvidence:{tradeDate:row.sourceTradeDate,source:row.src,receivedAt:row.receivedAt},
+      factEvidence:{kind:'provider-limit-up-pool-record',tradeDate:row.sourceTradeDate,source:row.src,observedAt:row.receivedAt}}));
     S.ztPoolFetchedAt = observedAt; S.ztPoolFetchOk = true;
-    r3.value = r3.value.map(row => ({...row,
-      researchEvidence:{tradeDate,source:row.src || null,receivedAt:observedAt},
-      factEvidence:{kind:'provider-limit-up-pool-record',tradeDate,source:row.src || null,observedAt}}));
-  }
-  else {
+    S.ztPoolSourceStatus = {status:'ready',requestedTradeDate,sourceTradeDate:zt[0].sourceTradeDate,receivedAt:observedAt};
+    S.ztPoolObservations = [];
+  } else {
     S.ztPoolFetchOk = false;
-    if (r3.status === 'fulfilled') console.warn('[ztPool] 涨停池三源全空（东财双通道+同花顺均无数据）→ 按【未确认】处理：不判定「今日无涨停」，沿用上次有效池/复盘');
-    else console.warn('[ztPool] 东财涨停池接口本周期失败/限流(rejected)，将走全A快照重建兜底，不据此判定「今日无涨停」');
+    S.ztPoolSourceStatus = {status:'unavailable',reason:r3.status === 'rejected' ? 'source-failed' :
+      Array.isArray(r3.value) && r3.value.length ? 'source-date-unverified' : 'source-empty-unconfirmed',
+      requestedTradeDate,receivedAt:observedAt};
+    S.ztPoolObservations = (r3.status === 'fulfilled' && Array.isArray(r3.value) ? r3.value : []).map(row => ({...row,
+      factEvidence:null,researchEvidence:null,canTrade:false,canNotify:false}));
+    console.warn('[ztPool] 源交易日未知、错日或数据未确认 → 不判定「今日无涨停」，沿用上次有效池/复盘');
   }
+  // Snapshot reconstruction also needs the same original stock row's date.
+  // Missing-date Sina lists cannot acquire a date from this request.
+  const _datedStockByCode = new Map();
+  const _datedStocks = (Array.isArray(S.stocks) ? S.stocks : []).filter(row => row &&
+    Number.isSafeInteger(row.quoteAt) && row.quoteAt > 0 && row.quoteAt <= observedAt &&
+    Number.isSafeInteger(row.receivedAt) && row.receivedAt >= row.quoteAt && row.receivedAt <= observedAt &&
+    typeof row.quoteSource === 'string' && row.quoteSource.trim() &&
+    new Date(row.quoteAt + 28800000).toISOString().slice(0,10) === requestedTradeDate).filter(row => {
+      if (_datedStockByCode.has(row.code)) return false;
+      _datedStockByCode.set(row.code,row); return true;
+    });
+  const _derivedEvidence = rows => rows.map(row => {
+    const original = _datedStockByCode.get(row.code);
+    return {...row,...reviewSnapshotFields(original),tradeDate:new Date(original.quoteAt + 28800000).toISOString().slice(0,10),
+      researchEvidence:{tradeDate:new Date(original.quoteAt + 28800000).toISOString().slice(0,10),
+        source:original.quoteSource,receivedAt:original.receivedAt}};
+  });
+  const {mergeLimitReviewPools} = require('./src/core/limit-review-pool');
+  const _updateReviewPool = rows => {
+    const fullReview = mergeLimitReviewPools({eastmoneyRows:rows,eastmoneyMeta:_r3ok?r3.value.poolMeta:null,
+      cls:r4.status==='fulfilled'?r4.value:null,tradeDate:requestedTradeDate,
+      previousRows:S.ztReviewPool||[],previousMeta:S.ztReviewPoolMeta,
+      isStrategyExcluded:row=>!A.countsInZtTally(row.name),isRecommendationExcluded:row=>A.isJunkName(row.name)});
+    S.ztReviewPool=fullReview.rows;S.ztReviewPoolMeta=fullReview.meta;
+  };
+  _updateReviewPool(zt||[]);
   // ⛔ 跌停家数权威源（2026-10-29）：与涨停池同一个 tick 拉东财 getTopicDTPool 的 tc。
   //    独立容错：跌停池拉了失败绝不拖死涨停池主流程；拉不到就保持旧值/空值，marketMood 退回自算并标注。
   try {
@@ -15440,8 +15484,8 @@ async function refreshSectorsZT() {
   // kc 轮：东财/同花顺涨停池接口盘后常返回 tc>0 但 pool=[]（收盘后池子被清空），
   // 若直接跳过就会导致 S.ztPool 停留在旧快照（如盘中 48 只）而面板上「涨停 48 只」与实际收盘 84 只相差近半。
   // 用当前全A快照（收盘价==涨停价严口径）重建收盘封板池，作为兜底数据源；盘中若接口正常返回则走原路。
-  if ((!zt || !zt.length) && Array.isArray(S.stocks) && S.stocks.length && marketReady()) {
-    const _derived = deriveLimitUpMissed(S.stocks, []);
+  if ((!zt || !zt.length) && !S.ztPool.length && _datedStocks.length && marketReady()) {
+    const _derived = _derivedEvidence(deriveLimitUpMissed(_datedStocks, []));
     if (_derived.length) {
       await enrichMissedStreak(_derived, _ztDay);
       zt = _derived;
@@ -15459,13 +15503,15 @@ async function refreshSectorsZT() {
     //   收盘集合竞价瞬间以涨停价 34.46 成交收盘（分时 15:00 那根：开33.99 收34.46 高34.46 量4311手）。
     //   这种「收盘竞价偷袭拉板」的票两源会系统性漏掉，新浪快照是收盘后快照（price=最终收盘价），
     //   所以这里的补漏正好能兜住——这也是为什么必须用「收盘价==涨停价」的严口径而非盘中分时。
-    const _missed = deriveLimitUpMissed(S.stocks, zt);
+    const _missed = _derivedEvidence(deriveLimitUpMissed(_datedStocks, zt));
     if (_missed.length) {
       // 补漏票连板数从 K 线派生（东财/同花顺源的连板数已有，补漏票拿不到 → 这里补）
       await enrichMissedStreak(_missed, _ztDay);
       zt = zt.concat(_missed);
       console.log(`[ztPool] 涨停补漏 +${_missed.length} 只：${_missed.map(m => m.code + m.name).join('、')}`);
     }
+    // Review covers every valid source record; strategy exclusions remain flags here.
+    _updateReviewPool(zt);
     // ⛔⛔ 2026-10-28 用户口径「退市整理期股不计入涨停家数」：落库前从池里整体剔除（唯一集合法）。
     //   为什么不是「池里留着、统计时过滤」：全站有 20+ 处按池长度说话（面板涨停数 / 复盘首行 /
     //   主线板块家数 / 连板梯队 / 一进二分母 / 涨幅补漏分母 / 抽查脚本…），逐处过滤必漏一处，
@@ -15498,9 +15544,6 @@ async function refreshSectorsZT() {
     S.ztPool = zt;
     // ⛔ 归属日与池子【同一个 tick】写：晚一步写，中间那几秒里「板块 N 只涨停」说的就不是这份池子。
     S.ztDay = _ztDay;
-    // ⛔ fw 轮：落盘涨停池快照（含归属日），供冷启动恢复，避免线上出网抖动时涨停池恒显 0
-    try { atomicWrite(ZTPOOL_SNAP_FILE, JSON.stringify({ day: S.ztDay, at: Date.now(), pool: S.ztPool })); }
-    catch (e) { _diskFail('ztPool_snapshot.json'); }
     // ⛔ 2026-10-06 补：涨停票代码集必须和 S.ztPool【同一个 tick】更新，不能放在下面的 await 之后。
     //    以前它排在 `await ztReasonCached()` 后面：S.ztPool 已经是新的了，而 S.ztCodes 还停在
     //    上一轮 —— 这段窗口里模拟盘买入的封板拦截（paperBuy 里 `S.ztCodes.has(c.code)`）查不到
@@ -15527,18 +15570,21 @@ async function refreshSectorsZT() {
     if (secFix) console.log(`[zt] 涨停池补行业归属 ${secFix} 只（源数据无行业字段，走四层归属）`);
     if (secFail) console.warn(`[zt] 涨停池行业归属失败 ${secFail} 只，sector 留空不猜（样本：${secFailSamples.join('、')}）`);
     let thsTopics = [];
-    // ---- 涨停原因/题材注入（同花顺）----
-    // 注入到票对象上，面板/复盘/作战计划/推送全都自动带上了，不用每个消费方再各拉一次
-    try {
-      const rm = await ztReasonCached();
-      let hitN = 0;
-      for (const z of zt) {
-        const r = rm.get(z.code);
-        if (r && r.reason) { z.reason = r.reason; if (r.highDays) z.highDaysThs = r.highDays; hitN++; }
-      }
-      thsTopics = ztTopics(zt, 8);
-      S.ztReasonHit = hitN + '/' + zt.length;
-    } catch (e) { console.error('[zt] 同花顺涨停原因注入失败，题材退回东财口径:', (e && e.message) || e); }
+    // Only a supplier-dated reason may join this pool's session. A failed
+    // request preserves same-day evidence, never a same-code reason from yesterday.
+    let rm = new Map();
+    try { rm = await ztReasonCached(_ztDay); }
+    catch (e) { console.error('[zt] 同花顺涨停原因获取失败，保留同日已核验原因:', (e && e.message) || e); }
+    const {applyDatedLimitReason} = require('./src/core/limit-reason-evidence');
+    let hitN = 0;
+    const reviewReasonRows=S.ztReviewPoolMeta?.tradeDate===requestedTradeDate?S.ztReviewPool:[];
+    for (const z of [...zt,...reviewReasonRows]) {
+      const incoming=z.sources?.includes('cls')&&z.reasonSource==='cls'?z:rm.get(z.code);
+      Object.assign(z,applyDatedLimitReason(z,incoming,_previousZtByCode.get(z.code),_ztDay));
+      if (zt.includes(z) && z.reasonDateStatus === 'matched') hitN++;
+    }
+    thsTopics = ztTopics(zt, 8);
+    S.ztReasonHit = hitN + '/' + zt.length;
     // ---- 同花顺涨停原因 → 题材概念（三源交叉：同花顺 reason_type 优先，东财 hybk 兜底）----
     // 根因（2026-10-09 实证）：东财涨停池 hybk 是「单一行业 + 4 字截断」（"房地产开""服装家纺"），
     //   不是当日真实炒作题材；同花顺 reason_type 才是多题材概念（"固态电池+液冷服务器+水处理"），
@@ -15677,6 +15723,12 @@ async function refreshSectorsZT() {
     if (poolConfirmedEmpty()) { S.review = mkReviewShell([]); staleMark('review', 'empty'); console.warn('[review] 空池确认为空·未谎报今日无涨停（poolConfirmedEmpty 命中，非数据缺失）'); }
     else staleMark('review', 'held');
   }
+  if (S.ztReviewPoolMeta) S.ztReviewPoolMeta.missingReasonCount=(S.ztReviewPool||[]).filter(row=>
+    !require('./src/core/limit-reason-evidence').reasonMatchesDay(row,S.ztReviewPoolMeta.tradeDate)).length;
+  // Persist both dated pools after reason collection; the readonly union never feeds strategy gates.
+  try { atomicWrite(ZTPOOL_SNAP_FILE,JSON.stringify({day:S.ztDay,at:Date.now(),pool:S.ztPool,
+    reviewPool:S.ztReviewPool,reviewMeta:S.ztReviewPoolMeta})); }
+  catch (e) { _diskFail('ztPool_snapshot.json'); }
   sectorSurgeScan().catch(() => {}); // 板块异动高频监控（交易时段自动生效）
   computeBuZhang().catch(() => {});  // 补涨龙·大数据回测推算
   scanPreBreakout(true).catch(() => {}); // 板块效应·启动前埋伏（涨之前的那批票，见 scanPreBreakout 注释）
@@ -15967,7 +16019,10 @@ async function _computeReviewInner() {
       pct: (z.pct != null && isFinite(Number(z.pct))) ? +Number(z.pct).toFixed(1) : null,
       limitUpCount: z.limitUpCount, sector: z.sector,
       themes: ztThemesOf(z),                       // ⛔ fv 轮：同花顺详细题材词（涨停原因明细，前端按题材分组+原因高亮）
-      reasonRaw: z.reason || '',                   // 同花顺原始涨停原因字符串
+      reasonRaw: z.reason || '',                   // Same-session supplier reason only.
+      reasonTradeDate: z.reasonTradeDate || null, reasonSource: z.reasonSource || null,
+      reasonDateStatus: z.reasonDateStatus || 'unknown', reasonDateBasis: z.reasonDateBasis || null,
+      reasonSourceTimestamp: z.reasonSourceTimestamp ?? null, reasonReceivedAt: z.reasonReceivedAt ?? null,
       reasonSrc: S.ztTopicSrc || '',               // 题材来源（同花顺涨停原因 / 东财题材统计）可追溯
       floatCap: z.floatCap || 0,                   // 流通市值
       turnover: +(Number(z.turnover) || 0).toFixed(1),
@@ -17059,9 +17114,27 @@ function loadSnapshotsOnBoot() {
     if (!e || e.code !== 'ENOENT') console.error('[boot] 全A快照读取失败，等待实时刷新');
   }
   try {
-    if (!S.ztPool.length) {
+    if (!S.ztPool.length || !S.ztReviewPoolMeta) {
       const z = JSON.parse(fs.readFileSync(ZTPOOL_SNAP_FILE, 'utf8'));
-      if (z && Array.isArray(z.pool) && z.pool.length) {
+      // Source review restoration is independent of strategy exclusions.
+      if (!S.ztReviewPoolMeta && z && Array.isArray(z.reviewPool) && z.reviewMeta?.tradeDate &&
+          z.reviewPool.every(row=>row && row.tradeDate===z.reviewMeta.tradeDate)) {
+        // Recovery is cached evidence, not a provider attempt in this process.
+        S.ztReviewPool = z.reviewPool.map(row=>{
+          const heldSources=Array.isArray(row.sources)?row.sources.filter(source=>typeof source==='string'&&source):[];
+          return {...row,heldRecord:true,currentSourceConfirmed:false,heldSources,
+            sourceStatuses:Object.fromEntries(heldSources.map(source=>[source,'retained'])),
+            recordStatus:'held-source-observation',reasonSourceStatus:'retained',retentionReason:'startup-not-verified',
+            canTrade:false,canNotify:false};
+        });
+        S.ztReviewPoolMeta = {...z.reviewMeta,status:'retained',retentionReason:'startup-not-verified',currentSourceConfirmed:false,
+          heldRecordCount:S.ztReviewPool.length,heldSourceRecordCount:S.ztReviewPool.filter(row=>row.heldSources.length).length,
+          retainedSources:[...new Set(S.ztReviewPool.flatMap(row=>row.heldSources))],
+          sources:(Array.isArray(z.reviewMeta.sources)?z.reviewMeta.sources:[]).map(source=>({...source,
+            status:'retained',retentionReason:'startup-not-verified',currentSourceConfirmed:false})),
+          canTrade:false,canNotify:false};
+      }
+      if (!S.ztPool.length && z && Array.isArray(z.pool) && z.pool.length) {
         // ⛔ 2026-10-28：快照是上一进程写的，可能还是「退市股计入家数」的旧口径 → 恢复时过一遍同一把尺子
         const _bp = A.ztTallyOf(z.pool);
         if (_bp.length < z.pool.length) {
@@ -22671,6 +22744,8 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       sectorsAgeSec: D.sectorsAt ? Math.max(0, Math.round((Date.now() - D.sectorsAt) / 1000)) : null,
       sectorsDay: D.sectorsDay || '',
       ztPool: D.ztPool,
+      ztReviewPool: D.ztReviewPool || [],
+      ztReviewPoolMeta: D.ztReviewPoolMeta || null,
       // ⛔ 2026-10-28 用户口径「退市整理期股不计入涨停家数」：家数少了谁、几只，随状态下发可查。
       //    口径：D.ztPool 已是家数口径（不含退市整理期股），ztExcluded 只做留痕，不参与任何统计。
       ztExcluded: (D.ztExcluded && typeof D.ztExcluded === 'object')

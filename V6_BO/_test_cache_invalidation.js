@@ -53,12 +53,12 @@ console.log('\n[1] 涨停题材缓存：回退之后缓存仍要能命中（行�
   const makeEnv = src => {
     let calls = [];
     const em = { fetchZtReason: async d => { calls.push(d); return d === '20260929' ? new Map([['600000', { reason: '测试题材' }]]) : new Map(); } };
-    const build = new Function('em', 'dataTradeDay', 'lastTradeDay', `
+    const build = new Function('em', 'dataTradeDay', 'lastTradeDay', 'require', `
       let _ztReasonCache = { forDay: '', used: '', t: 0, ttl: 0, map: null };
       ${src}
       return { ztReasonCached, peek: () => _ztReasonCache };
     `);
-    const api = build(em, async () => '2026-09-30', () => '20260930');
+    const api = build(em, async () => '2026-09-30', () => '20260930', require);
     return { api, calls };
   };
 

@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const MARKET_FIELDS = ['stocksAt','idxRt','candidatePool','sectors','sectorsAt','sectorsDay','sectorsInd',
-  'ztPool','ztDay','ztDayProbed','ztBySector','ztTopics','ztTopicSrc','ztNameClans','ztReasonHit','auction',
+  'ztPool','ztReviewPool','ztReviewPoolMeta','ztDay','ztDayProbed','ztBySector','ztTopics','ztTopicSrc','ztNameClans','ztReasonHit','auction',
   'preselect','poolBasis','mainline','bigMoney','abMove','extLink','global','external','ztPre','ztPreBasis',
   'trendScan','trendScanBasis','steadyUp','steadyUpBasis','trendPool','trendRej','smallyang','myrules','buzhang','pre',
   'nextplan','idxDisc','ztNameClanScans','ztExcluded'];
