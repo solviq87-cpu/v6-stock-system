@@ -1,13 +1,16 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Initialize', 'Smoke', 'Start', 'Stop', 'Status', 'Open')]
+    [ValidateSet('Menu', 'Initialize', 'Smoke', 'Start', 'Stop', 'Status', 'Open', 'Update', 'ApplyUpdate', 'UpdateStatus', 'PauseUpdates', 'ResumeUpdates', 'WatchUpdates', 'Audit', 'NetworkStatus')]
     [string]$Action = 'Menu',
-    [string]$Distribution = 'Ubuntu-24.04'
+    [string]$Distribution = 'Ubuntu-24.04',
+    [string]$InstallationHome = '',
+    [ValidatePattern('^$|^[a-f0-9]{40}$')]
+    [string]$ApproveSensitive = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-function Invoke-HostAction([string]$Selected) {
+function Invoke-HostAction([string]$Selected, [string]$InputJson = '') {
     $wsl = (Get-Command wsl.exe -ErrorAction Stop).Source
     if ($Distribution -notmatch '^Ubuntu(?:-[0-9.]+)?$') { throw 'Use an explicitly installed Ubuntu WSL distribution.' }
     $linuxPath = & $wsl --distribution $Distribution --exec wslpath -a -u $PSScriptRoot
@@ -15,13 +18,48 @@ function Invoke-HostAction([string]$Selected) {
         throw 'WSL Ubuntu is unavailable. See README.zh-CN.md; no installation or system setting was changed.'
     }
     $bundle = ([string]$linuxPath).Trim()
-    $script = @{ Initialize = 'init.sh'; Smoke = 'start.sh'; Start = 'start.sh'; Stop = 'stop.sh'; Status = 'check.sh' }[$Selected]
+    $script = @{ Initialize = 'init.sh'; Smoke = 'start.sh'; Start = 'start.sh'; Stop = 'stop.sh'; Status = 'check.sh'; Update = 'update.sh'; ApplyUpdate = 'update.sh'; UpdateStatus = 'update.sh'; PauseUpdates = 'update.sh'; ResumeUpdates = 'update.sh'; WatchUpdates = 'watch-updates.sh'; Audit = 'host-audit.sh'; NetworkStatus = 'network-check.sh' }[$Selected]
     if (-not $script) { throw 'Invalid action.' }
     $scriptArgs = @('--distribution', $Distribution, '--exec', 'bash', "$bundle/$script")
+    $updateAction = @{ Update = 'check'; ApplyUpdate = 'apply'; UpdateStatus = 'status'; PauseUpdates = 'pause'; ResumeUpdates = 'resume' }[$Selected]
+    if ($updateAction) { $scriptArgs += $updateAction }
+    if ($InstallationHome) {
+        if ($InstallationHome -notmatch '^/' -or $InstallationHome -match "[\r\n]") { throw 'InstallationHome must be an absolute WSL Linux path.' }
+        if ($Selected -in @('Audit', 'NetworkStatus')) { throw 'This read-only check does not accept InstallationHome.' }
+        $scriptArgs += @('--home', $InstallationHome)
+    }
     if ($Selected -eq 'Initialize') { $scriptArgs += @('--bundle', $bundle) }
     if ($Selected -eq 'Smoke') { $scriptArgs += '--smoke' }
-    & $wsl @scriptArgs
+    if ($ApproveSensitive) {
+        if ($Selected -ne 'ApplyUpdate') { throw 'ApproveSensitive is only valid for an explicit ApplyUpdate.' }
+        $scriptArgs += @('--approve-sensitive', $ApproveSensitive)
+    }
+    if ($Selected -eq 'NetworkStatus') { $InputJson | & $wsl @scriptArgs }
+    else { & $wsl @scriptArgs }
     if ($LASTEXITCODE -ne 0) { throw "WSL action did not pass (exit $LASTEXITCODE). Read its result; do not overwrite the private app directory." }
+}
+
+function Show-HostAudit {
+    # Show no task arguments: existing command lines may contain private tokens.
+    $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object {
+        $_.TaskName -match '(?i)tian.?shu|v6|stock' -or $_.TaskPath -match '(?i)tian.?shu|v6|stock' -or
+        @($_.Actions | Where-Object { $_.Execute -match '(?i)tian.?shu|v6.stock|safe-updater|watch-updates' -or $_.Arguments -match '(?i)tian.?shu|v6.stock|safe-updater|watch-updates' }).Count -gt 0
+    })
+    [pscustomobject]@{ scope = 'Windows scheduled tasks'; matchingTasks = $tasks.Count; changed = $false }
+    $tasks | Select-Object TaskName, State
+    Invoke-HostAction 'Audit'
+    Write-Host 'Audit only. No task, service, firewall, VPN or power setting was changed. Review existing writers before enabling one watcher.'
+}
+
+function Test-PrivateNetwork {
+    $status = Test-WindowsEndpoint
+    if (-not $status.hasPassword) { throw 'Set the developer password before testing remote access.' }
+    $tailscale = (Get-Command tailscale.exe -ErrorAction Stop).Source
+    $serve = & $tailscale serve status --json 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve configuration is unavailable; no network setting was changed.' }
+    # Parse in the shared, bounded validator; it emits no Tailnet address or auth data.
+    Invoke-HostAction -Selected 'NetworkStatus' -InputJson ($serve -join "`n")
+    Write-Host 'A valid Serve configuration does not prove a phone connected. Verify the same account and holdings through your private HTTPS URL on the phone.'
 }
 
 function Test-WindowsEndpoint {
@@ -46,11 +84,22 @@ try {
         Write-Host '4 Check status'
         Write-Host '5 Stop this installation'
         Write-Host '6 Open local page'
-        $choice = Read-Host 'Choose 1-6'
-        $Action = @{ '1' = 'Initialize'; '2' = 'Smoke'; '3' = 'Start'; '4' = 'Status'; '5' = 'Stop'; '6' = 'Open' }[$choice]
+        Write-Host '7 Check GitHub update (dry-run, keep running service)'
+        Write-Host '8 Update status'
+        Write-Host '9 Pause update checks'
+        Write-Host '10 Resume update checks'
+        Write-Host '11 Audit existing Windows/WSL tasks (read-only)'
+        Write-Host '12 Check private HTTPS configuration (read-only)'
+        Write-Host '13 Watch for updates every 15 min (dry-run, Ctrl+C to stop)'
+        $choice = Read-Host 'Choose 1-13'
+        $Action = @{ '1' = 'Initialize'; '2' = 'Smoke'; '3' = 'Start'; '4' = 'Status'; '5' = 'Stop'; '6' = 'Open'; '7' = 'Update'; '8' = 'UpdateStatus'; '9' = 'PauseUpdates'; '10' = 'ResumeUpdates'; '11' = 'Audit'; '12' = 'NetworkStatus'; '13' = 'WatchUpdates' }[$choice]
         if (-not $Action) { throw 'No action selected.' }
     }
-    if ($Action -eq 'Open') {
+    if ($Action -eq 'Audit') {
+        Show-HostAudit
+    } elseif ($Action -eq 'NetworkStatus') {
+        Test-PrivateNetwork
+    } elseif ($Action -eq 'Open') {
         $null = Test-WindowsEndpoint
         Start-Process 'http://127.0.0.1:8787/'
     } else {

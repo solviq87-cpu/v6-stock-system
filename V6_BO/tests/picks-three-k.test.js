@@ -1,22 +1,19 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {execFileSync}=require('node:child_process');
 const root=path.join(__dirname,'..');
 const file=p=>fs.readFileSync(path.join(root,p));
 const text=p=>file(p).toString('utf8');
 const blobHash=b=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\0'),b])).digest('hex');
 const {normalize,aggregate}=require('../public/assets/picks-periods.js');
-test('the two owner-approved homepages are unmodified in the committed Git tree',()=>{
- // CI may normalize or regenerate working-tree bytes. The commit's Git blob ID
- // is the source-of-truth for the user's strict "do not modify homepages" rule.
- // Also fail closed if this Git repository is unavailable in deployment CI.
- const repo=path.resolve(root,'..');
- const committed=(name)=>execFileSync('git',['rev-parse','HEAD:V6_BO/public/'+name],{
-   cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']
- }).trim();
- assert.equal(committed('index.html'),'9e2fad468cb3e192df0ca2b9184babb2add8c4de','DO NOT MODIFY DESKTOP HOMEPAGE');
- assert.equal(committed('mobile.html'),'084e36d950f9bf4c3508aa1a5cb8986799b6079e','DO NOT MODIFY MOBILE HOMEPAGE');
+test('the authorized redesigned homepages match the explicit new regression baseline',()=>{
+ // User 2026-11-15 explicitly supersedes the old byte freeze. Keep a new exact
+ // byte baseline alongside independent pre-redesign DOM/handler preservation
+ // tests; do not silently remove the freeze just to make the redesign pass.
+ const approved=require('./fixtures/ui-homepage-approved-baseline-20261115.json');
+ assert.equal(approved.previousSourceSha,'e113e96e2fb9f5300b54809b9450427a745ca464');
+ for(const name of ['index.html','mobile.html'])
+   assert.equal(blobHash(file('public/'+name)),approved.homepages[name],name+' changed; review the authorized baseline and all business invariants');
 });
 const example=[
  {date:'2025-12-30',open:10,high:11,low:9.5,close:10.5,volume:100},
@@ -76,7 +73,7 @@ test('viewer switches day/month/year without creating historical prices or order
  assert.ok(js.includes('v6:picks-unauthorized'));
  assert.doesNotMatch(js,/\/api\/(?:trade|order|paper\/submit|push\/send)|force=1|method:'POST'/);
 });
-test('independent desktop and mobile responsive selection page never modifies original homepages',()=>{
+test('independent desktop and mobile responsive selection keeps the three-period detail contract',()=>{
  const css=text('public/assets/picks-three-k.css');
  assert.match(css,/\.picks-layout\{display:grid;grid-template-columns:/);
  assert.match(css,/@media\(max-width:900px\)/);

@@ -17,9 +17,9 @@ async function createFixture({count=250,serverSource}={}){
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
  for(const name of fs.readdirSync(root))if(name.endsWith('.js')&&name!=='server.js')fs.copyFileSync(path.join(root,name),path.join(tmp,name));
  // The isolated copy includes the new source-lineage module, whose catalogue
- // is data-only: copy ONLY its two public static JSON dependencies.
+ // is data-only: copy ONLY the three public static JSON dependencies used by lineage/dashboard.
  const catalogDir=path.join(tmp,'config');fs.mkdirSync(catalogDir,{recursive:true});
- for(const name of ['data-source-catalog.json','data-source-registry-2026.json'])
+ for(const name of ['data-source-catalog.json','data-source-registry-2026.json','six-photo-sources.json'])
   fs.copyFileSync(path.join(root,'config',name),path.join(catalogDir,name));
 
  const salt='studio-fixture-only-salt',password='studio-fixture-only-password';

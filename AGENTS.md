@@ -1,5 +1,7 @@
 # V6 AI 开发总准则（所有 AI 编程助手先读）
 
+> **当前 UI 与免费本机部署授权（2026-11-15，覆盖下文历史双主页字节锁）**：用户明确要求全面重构正式电脑/手机页面，不能只改登录配色。允许修改 index.html/mobile.html，但须保留全部业务 DOM ID、事件、策略、账户、权限和数据质量门禁，并更新有证据的新基线与回归测试，不能删除锁定测试。后台使用现有 Windows+WSL 与私人 Tailscale Serve，不购买云服务器；家用机停机则后台不可用。WorkBuddy 静态唯一发布者保持原约束。验收见根目录 UI_REDESIGN_ACCEPTANCE.md、ZERO_COST_HOST_DEPLOYMENT.md 和 SAFE_AUTO_UPDATE_OPERATIONS.md；代码/隔离测试不代表用户本机已经上线。
+
 > 适用范围：本仓库全部目录。每次开始修改前，必须先阅读本文件和 `V6_BO/AGENTS.md`，再检查目标模块文档、最新提交及测试状态。不得把阅读声明等同于已执行测试。
 
 > **续接入口**：先运行 `npm run context:resume` 获取有界检查点与实际本地Git状态，再核对远端dev/活动PR。历史交接、源码和测试日志按本轮任务定向读取；每阶段更新 `HANDOFF.md` 当前检查点，不追加整份历史到提示词。该命令不联网，不代表远端CI或生产状态。

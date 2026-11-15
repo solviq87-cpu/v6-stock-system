@@ -12,7 +12,9 @@ test('desktop loads dedicated reference theme after existing styles', () => {
   assert.ok(desktop.indexOf('v6-reference-ui.css') > desktop.indexOf('v6-design.css'));
 });
 test('desktop navigation exposes existing business sections only', () => {
-  for (const href of ['#v6-stock', '#v6-plan', '#v6-paper', '#v6-market', '#holdSec1', '#v6-release', '/m']) assert.ok(desktop.includes(`href="${href}"`), href);
+  const shell=fs.readFileSync(path.join(root,'public/assets/terminal-dashboard.js'),'utf8');
+  for (const href of ['#v6-stock', '#v6-plan', '#v6-paper', '#v6-market', '#holdSec1', '/m']) assert.ok((desktop+shell).includes(href), href);
+  assert.ok(shell.includes('#workspace-settings'),'settings entry owns the retained release/settings controls');
   for (const id of ['v6-stock','v6-plan','v6-paper','v6-market','holdSec1','v6-release']) assert.ok(desktop.includes(`id="${id}"`), id);
 });
 test('desktop theme contains dark terminal, left rail and responsive breakpoints', () => {
@@ -27,7 +29,8 @@ test('mobile loads reference theme and keeps original mobile runtime', () => {
 });
 test('mobile bottom navigation uses real page destinations', () => {
   const foot = mobile.slice(mobile.indexOf('<div class="foot"'), mobile.indexOf('</div>\n\n<script>', mobile.indexOf('<div class="foot"')));
-  for (const href of ['/m', '/picks.html', './#v6-market', './']) assert.ok(foot.includes(`href="${href}"`), href);
+  for (const href of ['/m', '/picks.html', './#v6-market', './#v6-paper', './#holdSec1', '/#v6-release']) assert.ok(foot.includes(`href="${href}"`), href);
+  assert.equal((foot.match(/<a /g)||[]).length,7);
   assert.match(mobile, /href="\/research\.html#decisionWorkspace"/); // Original developer workbench remains reachable.
   assert.match(foot, /onclick="manualMobileRefresh\(\)"/);
   assert.match(mobile, /function manualMobileRefresh\(\)/);

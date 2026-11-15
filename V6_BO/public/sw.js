@@ -1,76 +1,78 @@
-// 量化看盘 /m PWA Service Worker（eg 轮）
-// 只缓存静态资源；API 和动态数据走 network-first，避免展示 stale 行情。
-// ja 轮修正：APP_VER 原硬编码 20261017eo，与 server.js 长期不同步，导致 iz 轮改了 mobile.html 后 PWA 仍返回旧缓存，手机上看不见「所属板块」。_publish.py 已改为 sync 阶段自动同步此处 APP_VER = server.js APP_VER。
-const APP_VER = '20261109cv';
-const CACHE_NAME = 'quant-dashboard-m-' + APP_VER;
-
-const PRECACHE = [
-  '/m',
-  '/mobile.html',
-  '/manifest.json',
-  '/icon.svg'
-];
+// Only the public application shell is available offline. Private responses and
+// market prices must always come from the server, including after revocation.
+const APP_VER = '20261115da';
+const CACHE_PREFIX = 'quant-dashboard-m-';
+const CACHE_NAME = CACHE_PREFIX + APP_VER;
+const PRECACHE = ['/m', '/mobile.html', '/manifest.json', '/icon.svg'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
+    .then(() => self.skipWaiting()));
 });
+
+function purgeLegacyCaches() {
+  return caches.keys().then(keys => Promise.all(keys
+    .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+    .map(key => caches.delete(key))));
+}
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    )).then(() => self.clients.claim())
-  );
+  event.waitUntil(purgeLegacyCaches().then(() => self.clients.claim()));
 });
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response && response.status === 200) {
-      const clone = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-    }
-    return response;
-  } catch (e) {
-    return new Response('offline', { status: 503, statusText: 'offline' });
+function unavailable() {
+  return new Response(JSON.stringify({ok:false, offline:true, error:'offline',
+    message:'连接已断开，行情和账户状态不可用，请联网后重新验证身份。'}), {
+    status:503, statusText:'Offline',
+    headers:{'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store'}
+  });
+}
+
+async function networkOnly(request) {
+  try { return await fetch(request, {cache:'no-store'}); }
+  catch (_) { return unavailable(); }
+  finally {
+    // An old worker's in-flight cache.put can complete after activation. Remove
+    // that recreated cache after current requests as well; never read it.
+    try { await purgeLegacyCaches(); } catch (_) { /* network-only remains enforced */ }
   }
 }
 
-async function networkFirst(request) {
+async function publicShell(request) {
   try {
-    const response = await fetch(request);
-    if (response && response.status === 200) {
-      const clone = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+    // Revalidate even unchanged resource URLs. A cache-first worker previously
+    // kept old CSS/JS alive after a successful server deployment.
+    const response = await fetch(request, {cache:'no-store'});
+    if (response.status === 200 && response.type !== 'opaque') {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(request, response.clone());
+      } catch (_) { /* Storage quota must not replace a fresh response with stale UI. */ }
     }
     return response;
-  } catch (e) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return new Response('offline', { status: 503, statusText: 'offline' });
+  } catch (_) {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      return (await cache.match(request)) || unavailable();
+    } catch (_) { return unavailable(); }
+  } finally {
+    try { await purgeLegacyCaches(); } catch (_) { /* only this version is read */ }
   }
 }
 
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
-
-  const pathname = url.pathname;
-  // /m /mobile.html 也走 network-first（jd 轮修正）：手机速览页更新频繁，cache-first 会导致用户「收不到更新」。
-  // 离线时 networkFirst 内部会 fallback 到缓存，不会完全断网。
-  const isEntry = pathname === '/' || pathname === '/index.html' || pathname === '/m' || pathname === '/mobile.html';
-  const isStatic = pathname === '/manifest.json' ||
-                   pathname === '/icon.svg' ||
-                   pathname === '/favicon.ico' ||
-                   /\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ico)$/.test(pathname);
-
-  if (isEntry || pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(event.request));
-  } else if (isStatic) {
-    event.respondWith(cacheFirst(event.request));
+  const request = event.request;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || request.method !== 'GET') return;
+  // Credentials and source downloads are never offline resources, even when
+  // the filename appears static.
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/srcpkg/') || request.headers.has('Authorization') ||
+      [...url.searchParams.keys()].some(key => /token|auth|password|sharecode/i.test(key))) {
+    event.respondWith(networkOnly(request));
+    return;
   }
+  const entry = ['/', '/index.html', '/m', '/mobile.html'].includes(url.pathname);
+  const asset = /\.(?:html|js|css|png|jpg|jpeg|gif|svg|woff2?|ico)$/.test(url.pathname) ||
+    url.pathname === '/manifest.json';
+  if (entry || asset) event.respondWith(publicShell(request));
 });

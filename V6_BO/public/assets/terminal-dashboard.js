@@ -10,19 +10,20 @@ const icon=k=>`<svg class="vx-icon" viewBox="0 0 24 24" fill="none" stroke="curr
 const logo=`<svg class="vx-logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="vx-logo-gradient" x2="0" y2="1"><stop stop-color="#56e4ff"/><stop offset="1" stop-color="#7161ff"/></linearGradient></defs><path d="M4 31h8v13H4zm11-7h8v20h-8zm11 3h8v17h-8zm11-13h8v30h-8z" fill="url(#vx-logo-gradient)"/><path d="m4 25 12-12 10 6L43 3m-9 0h9v9" fill="none" stroke="#ee7cc6" stroke-width="3"/></svg>`;
 const link=(href,label,k,extra='')=>`<a href="${href}" ${extra}>${icon(k)}<span>${label}</span></a>`;
 const base=mobile?'/':'';
+const settingsHref=mobile?'/#workspace-settings':'#workspace-settings';
 const shell=document.createElement('div');
 shell.className='vx-shell';
 shell.innerHTML=`
-<div class="vx-topbar"><a class="vx-brand" href="${mobile?'/m':'/'}">${logo}<span><strong>天枢智策</strong><small>A股智能选股 · 策略研究 · 风险控制</small></span></a><nav class="vx-mainnav" aria-label="系统导航">
-${link('#vx-dashboard','首页','home','aria-current="page"')}${link(base+'#v6-stock','智能选股','target')}${link('/research.html','策略研究','flask')}${link('/research.html#completeHeading','回测分析','chart')}${link(base+'#v6-paper','模拟交易','wallet')}${link(base+'#v6-market','行情中心','chart')}${link(base+'#v6-strategy','风险控制','shield')}${link('#vx-ranking','排行榜','grid')}${link('#tabBar','更多','grid','class="vx-nav-more"')}</nav>
-<div class="vx-topactions">${link(base+'#v6-stock','搜索股票','search','class="vx-search-action"')}${link(base+'#v6-news','消息','bell')}${link(base+'#v6-release','系统设置','settings','class="vx-settings-action"')}<button class="vx-identity" type="button" title="查看或切换身份">${icon('user')}<span id="vx-role">身份管理</span></button></div></div>
-<aside class="vx-sidebar" aria-label="工作区导航"><div class="vx-aside-caption">WORKSPACE <span>工作台</span></div>${link('#vx-dashboard','总览仪表盘','grid','aria-current="page"')}${link(base+'#v6-market','市场环境','chart')}${link(base+'#v6-stock','选股中心','target')}${link('/research.html#decisionWorkspace','AI 策略引擎','flask')}<details open><summary>${icon('grid')}四套选股体系</summary><a href="#vx-ranking" data-vx-filter="fourteen">十四条选股</a><a href="#vx-ranking" data-vx-filter="bazi">八字口诀</a><a href="#vx-ranking" data-vx-filter="gpt">GPT 五策略</a><a href="#vx-ranking" data-vx-filter="python">Python 三轮筛选</a></details>${link('/research.html#completeHeading','策略回测','chart')}${link(base+'#v6-paper','模拟交易','wallet')}${link(base+'#v6-strategy','持仓与风控','shield')}${link('#vx-ranking','选股排行榜','star')}${link(base+'#v6-news','消息与推送','bell')}${link(base+'#v6-release','系统管理','grid')}<div class="vx-aside-bottom"><svg class="vx-bull" viewBox="0 0 180 105" aria-hidden="true"><defs><filter id="vx-bull-glow"><feGaussianBlur stdDeviation="2"/></filter></defs><path d="M16 75Q23 53 47 50L65 36Q90 23 116 40L137 49L153 42L147 57L162 67L153 77L137 75L126 65L119 83L110 95L101 94L107 77L88 72L64 79L56 96H46L48 76L36 69L27 90H17L22 70M27 61Q7 49 13 41M139 49Q145 27 151 35M144 58Q161 54 166 45" fill="none" stroke="#19cfee" stroke-width="1.5"/><path d="M16 75Q23 53 47 50L65 36Q90 23 116 40L137 49L153 42L147 57L162 67L153 77L137 75L126 65L119 83L110 95L101 94L107 77L88 72L64 79L56 96H46L48 76L36 69L27 90H17L22 70" fill="#00c8eb12" stroke="#28dfff" opacity=".6" filter="url(#vx-bull-glow)"/></svg><strong>天枢智策</strong><small>版本：20261112push</small></div></aside>`;
+<div class="vx-topbar"><a class="vx-brand" href="${mobile?'/m':'/'}">${logo}<span><strong role="heading" aria-level="1">天枢智策</strong><small>A股智能选股 · 策略研究 · 风险控制</small></span></a><nav class="vx-mainnav" aria-label="系统导航">
+${link('#vx-dashboard','首页','home','aria-current="page"')}${link('/picks.html','智能选股','target')}${link('/auction-picks.html','竞价池','target')}${link('/research.html','策略研究','flask')}${link('/research.html#completeHeading','回测分析','chart')}${link(base+'#v6-paper','模拟交易','wallet')}${link(base+'#v6-market','行情中心','chart')}${link(base+'#holdSec1','风险控制','shield')}${link('#vx-ranking','排行榜','grid')}${link(mobile?'#tabBar':'#workspace-analysis','更多功能','grid','class="vx-nav-more"')}</nav>
+<div class="vx-topactions">${link(base+'#analyzeCard','搜索股票','search','class="vx-search-action"')}${link(base+'#v6-news','消息','bell')}${link(settingsHref,'系统设置','settings','class="vx-settings-action"')}<button class="vx-identity" type="button" title="查看或切换身份">${icon('user')}<span id="vx-role">身份管理</span></button></div></div>
+<aside class="vx-sidebar" aria-label="工作区导航"><div class="vx-aside-caption">WORKSPACE <span>工作台</span></div>${link('#vx-dashboard','总览仪表盘','grid','aria-current="page"')}${link(base+'#v6-market','市场环境','chart')}${link('/picks.html','智能选股','target')}${link('/auction-picks.html','竞价共振','target')}${link(base+'#v6-stock','候选池明细','chart')}${link('/research.html#decisionWorkspace','AI 策略引擎','flask')}<details open><summary>${icon('grid')}四套选股体系</summary><a href="#vx-ranking" data-vx-filter="fourteen">十四条选股</a><a href="#vx-ranking" data-vx-filter="bazi">八字口诀</a><a href="#vx-ranking" data-vx-filter="gpt">GPT 五策略</a><a href="#vx-ranking" data-vx-filter="python">Python 三轮筛选</a></details>${link('/research.html#completeHeading','策略回测','chart')}${link(base+'#v6-paper','模拟交易','wallet')}${link(base+'#holdSec1','账户与风控','shield')}${link('#vx-ranking','选股排行榜','star')}${link(base+'#v6-news','消息与推送','bell')}${link(base+'#v6-plan','计划与十四条','target')}${link(base+'#v6-review','复盘与学习','flask')}${link(base+'#v6-strategy','策略雷达','chart')}${link(base+'#workspace-analysis','个股与回测','search')}${link('/model-library.html','模型资料库','grid')}${link(settingsHref,'系统设置','settings')}${link(mobile?'/':'/m',mobile?'完整工作台':'手机工作台','grid')}<div class="vx-aside-bottom"><svg class="vx-bull" viewBox="0 0 180 105" aria-hidden="true"><defs><filter id="vx-bull-glow"><feGaussianBlur stdDeviation="2"/></filter></defs><path d="M16 75Q23 53 47 50L65 36Q90 23 116 40L137 49L153 42L147 57L162 67L153 77L137 75L126 65L119 83L110 95L101 94L107 77L88 72L64 79L56 96H46L48 76L36 69L27 90H17L22 70M27 61Q7 49 13 41M139 49Q145 27 151 35M144 58Q161 54 166 45" fill="none" stroke="#19cfee" stroke-width="1.5"/><path d="M16 75Q23 53 47 50L65 36Q90 23 116 40L137 49L153 42L147 57L162 67L153 77L137 75L126 65L119 83L110 95L101 94L107 77L88 72L64 79L56 96H46L48 76L36 69L27 90H17L22 70" fill="#00c8eb12" stroke="#28dfff" opacity=".6" filter="url(#vx-bull-glow)"/></svg><strong>天枢智策</strong><small>行情与新闻分别核验</small></div></aside>`;
 if(mobile){host.prepend(shell);}else{document.body.prepend(shell);document.body.classList.add('vx-desktop');}
 
 const dashboard=document.createElement('section');
 dashboard.id='vx-dashboard';
 dashboard.className='vx-dashboard';
-dashboard.setAttribute('aria-label','量化看盘总览');
+dashboard.setAttribute('aria-label','天枢智策工作台总览');
 dashboard.innerHTML=`
 <div class="vx-statusline"><span><i></i><time id="vx-time">等待行情快照</time></span><span id="vx-source">尚未读取数据</span></div>
 <div class="vx-market-strip"><div class="vx-index-grid" id="vx-indices"></div></div>
@@ -31,13 +32,40 @@ dashboard.innerHTML=`
 <article class="vx-panel vx-mood"><h2>市场情绪</h2><div class="vx-gauge"><svg viewBox="0 0 180 100" aria-hidden="true"><defs><linearGradient id="vx-gauge-gradient"><stop stop-color="#00dd89"/><stop offset=".55" stop-color="#f9d875"/><stop offset="1" stop-color="#fc506a"/></linearGradient></defs><path d="M15 90a75 75 0 0 1 150 0" stroke="#18314c" stroke-width="13" fill="none"/><path id="vx-gauge-path" d="M15 90a75 75 0 0 1 150 0" stroke="url(#vx-gauge-gradient)" stroke-width="13" fill="none" pathLength="100" stroke-dasharray="0 100"/></svg><strong id="vx-ratio">—</strong></div><small id="vx-mood-scope">上涨家数占比</small></article>
 <article class="vx-panel vx-environment"><h2>${icon('shield')}市场环境判断</h2><strong id="vx-mood-label" class="vx-regime">待评估</strong><p id="vx-mood-note">等待有效的行情证据</p><div class="vx-risk-line">候选池风险提示 <b id="vx-risk">—</b></div></article></div>
 <div class="vx-content-grid"><article class="vx-panel vx-ranking" id="vx-ranking"><div class="vx-table-toolbar"><h2>${icon('star')}AI 选股排行榜</h2><label class="vx-sort-label">排序 <select id="vx-sort"><option value="original">原始排序</option><option value="score">评分降序</option></select></label></div><div class="vx-tabs" role="tablist" aria-label="策略筛选">${[['all','AI选股排行榜'],['focused','重点关注'],['fourteen','十四条'],['bazi','八字口诀'],['gpt','GPT 五策略'],['python','Python 三轮']].map(([v,l])=>`<button type="button" role="tab" aria-selected="${v==='all'}" data-vx-filter="${v}">${l}</button>`).join('')}</div><div class="vx-table-scroll"><table><thead><tr><th>#</th><th class="vx-code-cell">股票代码</th><th>股票名称<span class="vx-mobile-only">(代码)</span></th><th>快照价</th><th>涨跌幅</th><th>综合评分</th><th class="vx-wide-cell">主要信号</th><th class="vx-wide-cell">策略来源</th><th class="vx-wide-cell">风险等级</th><th>查看</th></tr></thead><tbody id="vx-rows"></tbody></table></div><div class="vx-table-footer"><span id="vx-table-note">等待候选池</span><a href="/research.html">独立策略验证 ${icon('arrow')}</a></div></article>
-<div class="vx-detail-column"><article class="vx-panel vx-chart-panel"><div class="vx-detail-tabs"><span>Ｋ线走势</span><a href="${base}#v6-stock">资金流向</a><a href="/research.html">技术指标</a><a href="/research.html#decisionWorkspace">诊断分析</a><button id="vx-chart-refresh" type="button" aria-label="刷新所选股票K线">${icon('refresh')}</button></div><div class="vx-stock-title"><strong id="vx-selected">选择一只股票</strong><span id="vx-selected-price">—</span></div><div id="vx-provider-links" style="padding:8px 12px" aria-live="polite"></div><div class="vx-ma-legend"><span>MA5</span><span>MA10</span><span>MA20</span></div><div id="vx-chart" class="vx-chart-empty">点击排行榜，查看对应行情</div><small id="vx-chart-source">仅绘制接口实际返回的K线</small></article>
+<div class="vx-detail-column"><article class="vx-panel vx-chart-panel"><div class="vx-detail-tabs"><span>Ｋ线走势</span><a href="${base}#v6-stock">资金流向</a><a href="/research.html">技术指标</a><a href="/research.html#decisionWorkspace">诊断分析</a><button id="vx-chart-refresh" type="button" aria-label="刷新所选股票K线">${icon('refresh')}</button></div><div class="vx-periods" role="group" aria-label="历史K线周期"><button type="button" data-vx-period="day" aria-pressed="true">日K</button><button type="button" data-vx-period="month" aria-pressed="false">月K</button><button type="button" data-vx-period="year" aria-pressed="false">年K</button><a href="/picks.html">完整历史 ›</a></div><div class="vx-stock-title"><strong id="vx-selected">选择一只股票</strong><span id="vx-selected-price">—</span></div><div id="vx-selected-provenance" class="vx-selected-provenance" aria-live="polite">原始报价时间与来源待核验</div><div id="vx-provider-links" style="padding:8px 12px" aria-live="polite"></div><div class="vx-ma-legend"><span>MA5</span><span>MA10</span><span>MA20</span></div><div id="vx-chart" class="vx-chart-empty">点击排行榜，查看对应行情</div><small id="vx-chart-source">仅绘制接口实际返回的K线</small></article>
 <article class="vx-panel vx-explanation"><h2>${icon('flask')}AI 信号解释 <a href="/research.html#decisionWorkspace">详细研究 ›</a></h2><span class="vx-research-pill">研究观察 · 非交易指令</span><div id="vx-explanation">选中股票后展示已有信号及证据；缺失项目保留为空。</div></article>
 <article class="vx-panel vx-explanation" id="vx-pattern-panel"><h2>历史K线战法研究 <a href="/research.html">完整战法池 ›</a></h2><span class="vx-research-pill">仅历史研究 · 不改变原评分</span><div id="vx-pattern-preview" aria-live="polite">选中股票后展示看涨形态与看跌风险，缺少K线时不作判断。</div></article>
 <article class="vx-panel vx-explanation" id="vx-issuer-panel"><h2>上市公司公告 · 风险与优势</h2><span class="vx-research-pill">标题研究线索 · 非交易指令</span><div id="vx-issuer-evidence">选中股票后展示匹配的公告原文与风险提示。</div></article>
 <article class="vx-panel vx-explanation vx-condition-panel" id="vx-condition-panel"><h2>策略条件与因子证据</h2><div id="vx-condition-summary">请选择系统推送股票或候选股票查看条件满足情况。</div><div class="vx-condition-list" id="vx-condition-list"></div><div id="vx-condition-detail">待选择条件</div></article>
 <article class="vx-panel vx-explanation vx-research-panel" id="vx-research-panel"><h2>研究预演 <small>与生产推送隔离</small></h2><span class="vx-research-pill">临时调参 · 不改生产推送</span><div class="vx-research-grid"><label>研究模式<select id="vx-research-mode"><option value="production">生产配置</option><option value="draft">研究预演</option></select></label><label>因子<select id="vx-factor-select"></select></label><label>阈值 <input id="vx-factor-threshold" type="range" min="0" max="100" step="1" value="70"/><span id="vx-factor-threshold-value">70</span></label></div><div class="vx-research-actions"><button type="button" id="vx-draft-apply">应用预演</button><button type="button" id="vx-draft-undo">撤销</button><button type="button" id="vx-draft-reset">恢复默认</button><button type="button" id="vx-draft-save">保存配置</button></div><div id="vx-draft-note">未启用研究预演。</div><div id="vx-draft-history"></div></article></div></div>`;
-if(mobile)shell.after(dashboard);else host.prepend(dashboard);
+if(mobile)shell.after(dashboard);else{
+ host.prepend(dashboard);
+ const session=document.getElementById('workspace-session');
+ if(session)host.prepend(session);
+}
+// Move the existing mobile status and refresh controls into the sole visible header.
+// The foot ID remains the original authentication visibility gate.
+if(mobile&&typeof shell.querySelector==='function'){
+ const top=host.querySelector('.top');
+ const session=document.createElement('div');
+ session.className='vx-sessionbar';
+ session.setAttribute('aria-label','连接与刷新状态');
+ for(const id of ['verTag','sub','pushState','mobileCloudRefresh']){
+  const control=document.getElementById(id);
+  if(control)session.append(control);
+ }
+ shell.append(session);
+ if(top)top.remove();
+ const oldNav=host.querySelector('.v6-mobile-reference-nav');
+ if(oldNav){
+  const directory=document.createElement('details');
+  directory.className='vx-mobile-directory';
+  const summary=document.createElement('summary');
+  summary.textContent='全部功能';
+  directory.append(summary,oldNav);
+  shell.append(directory);
+ }
+}
 
 const strip=dashboard.querySelector?dashboard.querySelector('.vx-market-strip'):null;
 if(strip){
@@ -45,7 +73,8 @@ if(strip){
  pushPanel.className='vx-panel vx-push-panel';
  pushPanel.id='vx-pushes';
  pushPanel.innerHTML=`<h2>${icon('bell')}系统推送股票</h2><div class="vx-push-context" id="vx-push-context">当前对象：全部市场 · 全部板块</div><div class="vx-push-tabs"><button type="button" data-vx-push-tab="pushed" aria-pressed="true">系统推送</button><button type="button" data-vx-push-tab="candidate" aria-pressed="false">研究候选</button><button type="button" data-vx-push-tab="watch" aria-pressed="false">自选股票</button></div><div class="vx-push-filters"><label>范围<select id="vx-index-scope"><option value="all">全部市场</option><option value="1.000001">上海市场</option><option value="0.399001">深圳市场</option><option value="0.399006">创业板</option><option value="1.000688">科创板</option></select></label><label>状态<select id="vx-push-stage"><option value="all">全部状态</option><option value="candidate">候选股票</option><option value="triggered">信号已触发</option><option value="pending">待发送</option><option value="sent">发送成功</option><option value="failed">发送失败</option><option value="expired">已失效</option><option value="history">历史推送</option></select></label></div><div class="vx-sector-chips" id="vx-sector-chips"></div><div class="vx-push-summary" id="vx-push-summary">等待推送信号</div><div class="vx-push-list" id="vx-push-list" role="list"></div>`;
- strip.append(dashboard.querySelector('.vx-mood'),pushPanel,dashboard.querySelector('.vx-environment'));
+ if(mobile)strip.append(dashboard.querySelector('.vx-mood'),pushPanel,dashboard.querySelector('.vx-environment'));
+ else strip.append(dashboard.querySelector('.vx-mood'),dashboard.querySelector('.vx-environment'));
  const risk=document.createElement('article');
  risk.className='vx-panel vx-risk-panel';
  risk.innerHTML=`<h2>${icon('shield')}风险概览</h2><dl><div><dt>候选池风险提示</dt><dd id="vx-risk-detail">—</dd></div><div><dt>仓位建议</dt><dd>待风控评估</dd></div><div><dt>最大回撤预警</dt><dd>待账户核验</dd></div></dl>`;
@@ -56,17 +85,29 @@ if(strip){
  toolbar.insertBefore(dashboard.querySelector('.vx-tabs'),toolbar.querySelector('.vx-sort-label'));
  const overview=dashboard.querySelector('.vx-overview-grid');
  overview.append(risk,performance);
+ if(!mobile)overview.after(pushPanel);
  if(mobile)strip.append(risk);
 }
 
 if(mobile){
  document.body.classList.add('vx-mobile');
- const footer=document.createElement('nav');
+ const originalFooter=document.getElementById('foot');
+ const footer=originalFooter||document.createElement('nav');
+ const refreshControl=originalFooter?.querySelector('button');
+ if(refreshControl&&typeof shell.querySelector==='function'){
+  const tools=document.createElement('details');
+  tools.className='vx-mobile-directory';
+  const summary=document.createElement('summary');
+  summary.textContent='刷新工具';
+  tools.append(summary,refreshControl);
+  shell.append(tools);
+ }
  footer.className='vx-mobile-dock';
  footer.setAttribute('aria-label','手机主导航');
- footer.innerHTML=link('#vx-dashboard','首页','home','aria-current="page"')+link('/#v6-stock','自选股','star')+link('/#v6-market','行情','chart')+'<a class="vx-dock-ai" href="/research.html"><span>AI</span><small>研究</small></a>'+link('/#v6-paper','模拟交易','wallet')+link('/#v6-strategy','风控','shield')+link('#vx-pushes','推送','bell');
+ footer.innerHTML=link('#vx-dashboard','首页','home','aria-current="page"')+link('/#holdSec1','自选股','star')+link('/#v6-market','行情','chart')+'<a class="vx-dock-ai" href="/research.html" aria-label="AI研究"><span aria-hidden="true">AI</span><small>AI研究</small></a>'+link('/#v6-paper','模拟交易','wallet')+link('/#holdSec1','风控','shield')+link('#vx-pushes','推送','bell');
  host.append(footer);
 }
+
 
 const riskCard=document.createElement('article');
 riskCard.className='vx-panel vx-evidence-card';
@@ -79,6 +120,7 @@ const format=(v,d=2)=>finite(v)?v.toLocaleString('zh-CN',{minimumFractionDigits:
 const codeRe=/^\d{6}$/;
 const stageMap={candidate:'候选股票',triggered:'信号已触发',pending:'待发送',sent:'发送成功',failed:'发送失败',expired:'已失效',history:'历史推送'};
 
+let chartPeriod='day';
 let model=null,filter='all',selected=null,epoch=0,controller=null,indexScope='all',sectorScope='',pushStage='all',pushTab='pushed';
 const observedSeries=new Map();
 const conditionCache=new Map();
@@ -115,6 +157,7 @@ function selectedQuote(row){
  if(!node)return;
  node.className=row?.pct<0?'vx-down':'vx-up';
  if(!row){
+  if(el('vx-selected-provenance'))el('vx-selected-provenance').textContent='当前候选池无报价 · 来源与交易日未知';
   node.textContent='— · 当前候选池无报价';
   node.title='当前候选池无报价';
   node.setAttribute('aria-label',node.title);
@@ -122,6 +165,11 @@ function selectedQuote(row){
  }
  const brief=format(row.price)+' '+(finite(row.pct)?(row.pct>0?'+':'')+row.pct.toFixed(2)+'%':'—');
  const provenance=quoteDescription(row);
+ if(el('vx-selected-provenance')){
+  const quoteDate=Number.isSafeInteger(row.quoteAt)&&row.quoteAt>0&&row.quoteAt<=Date.now()?new Date(row.quoteAt).toLocaleDateString('zh-CN',{timeZone:'Asia/Shanghai'}):'未知';
+  const age=Number.isSafeInteger(row.quoteAt)&&row.quoteAt>0&&row.quoteAt<=Date.now()?Date.now()-row.quoteAt:null;
+  el('vx-selected-provenance').textContent=provenance+' · 来源 '+(row.quoteSource||'未知')+' · 报价日 '+quoteDate+' · '+(age===null?'新鲜度未知':age>15000?'旧快照，非实时':'15秒内快照，未认证交易价');
+ }
  // Match the owner's single-line original chart title; preserve original quote
  // source/time for hover and assistive technology, never label it as live.
  node.textContent=brief;
@@ -504,14 +552,17 @@ async function select(code){
  const evidence=[row.probabilityLabel||'概率尚未验证',...(row.news||[]).map(n=>n.direction+'：'+n.title+' · '+(n.reason||'缺少判定依据')+' · '+(n.source||'来源未知')+' · '+n.publishedAt+'（未核验）'),...(row.signals||[]),...(row.explanation||[]),...(row.bazi?[`八字口诀：${row.bazi.verdict||'结论暂缺'}${row.bazi.line?' · '+row.bazi.line:''}`]:[]),row.bad?'风险：命中现有利空提示':'风险：未完成独立核验'];
  if(el('vx-explanation'))el('vx-explanation').innerHTML=evidence.map(t=>`<p><span>◇</span>${esc(t)}</p>`).join('');
  try{
-  const r=await fetch('/api/kline?code='+code+'&n=120',{headers:{Authorization:'Bearer '+token()},signal:controller.signal,cache:'no-store'});
+  const r=await fetch('/api/kline?code='+code+'&n='+(chartPeriod==='day'?120:1200),{headers:{Authorization:'Bearer '+token()},signal:controller.signal,cache:'no-store'});
   const d=await r.json();
   if(ticket!==epoch)return;
   if(!r.ok||!d.ok)throw Error(d.error||d.msg||'暂无可用K线');
-  if(el('vx-chart'))el('vx-chart').innerHTML=plot(Array.isArray(d.rows)?d.rows:[]);
+  const daily=Array.isArray(d.rows)?d.rows:[];
+  const bars=typeof V6PicksPeriods==='object'?V6PicksPeriods.aggregate(daily,chartPeriod):daily;
+  if(chartPeriod!=='day'&&typeof V6PicksPeriods!=='object')throw Error('周期聚合组件未加载');
+  if(el('vx-chart'))el('vx-chart').innerHTML=plot(bars);
   if(el('vx-chart-source')){const q=d.dataQuality||{},provider={em:'东方财富',tx:'腾讯',ths:'同花顺'}[q.source]||'未知';
    const cache={memory:'内存缓存',disk:'磁盘缓存',source:'本次取源','source-lagging':'源数据滞后','held-after-source-failure':'源不可用，沿用缓存','held-source-not-newer':'源未更新，沿用缓存'}[q.cacheLayer]||'缓存状态未知';
-   el('vx-chart-source').textContent='日K截至 '+(q.tradeDate||d.asOf||'未知')+' · 来源 '+provider+' · '+cache+(q.freshness==='source-lagging'&&q.cacheLayer!=='source-lagging'?' · 源数据滞后':'')+' · 历史价格不作执行价';}
+   el('vx-chart-source').textContent=({day:'日K',month:'月K',year:'年K'}[chartPeriod])+'截至 '+(q.tradeDate||d.asOf||'未知')+' · 来源 '+provider+' · '+cache+(q.freshness==='source-lagging'&&q.cacheLayer!=='source-lagging'?' · 源数据滞后':'')+(chartPeriod==='day'?'':' · 按已返回日K聚合，首尾周期可能不完整')+' · 历史价格不作执行价';}
   const preview=typeof V6PatternPreview==='object'?V6PatternPreview.evaluate(Array.isArray(d.rows)?d.rows:[]):null;
   if(el('vx-pattern-preview'))el('vx-pattern-preview').innerHTML=preview?V6PatternPreview.render(preview,{asOf:d.asOf,source:d.source||d.provider}):'形态研究组件尚未加载；请刷新页面。';
   renderIssuer(row,preview?.usable?preview.positive.length:0);
@@ -577,6 +628,7 @@ function render(data){
   if(el('vx-provider-links'))el('vx-provider-links').textContent='';
   if(el('vx-selected'))el('vx-selected').textContent='选择一只股票';
   if(el('vx-selected-price'))el('vx-selected-price').textContent='—';
+  if(el('vx-selected-provenance'))el('vx-selected-provenance').textContent='请登录后查看原始报价来源与时点';
   if(el('vx-chart'))el('vx-chart').textContent='请登录后查看行情';
   if(el('vx-explanation'))el('vx-explanation').textContent='尚无策略证据';
   if(el('vx-issuer-evidence'))el('vx-issuer-evidence').textContent='访问已失效：公告信息已清除';
@@ -590,6 +642,14 @@ function render(data){
 }
 
 document.addEventListener('click',e=>{
+ const period=e.target.closest('[data-vx-period]');
+ if(period){
+  if(!['day','month','year'].includes(period.dataset.vxPeriod))return;
+  chartPeriod=period.dataset.vxPeriod;
+  document.querySelectorAll('[data-vx-period]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.vxPeriod===chartPeriod)));
+  if(selected)select(selected);
+  return;
+ }
  const tab=e.target.closest('[data-vx-filter]');
  if(tab){
   filter=tab.dataset.vxFilter;

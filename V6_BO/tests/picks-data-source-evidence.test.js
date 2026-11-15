@@ -46,10 +46,10 @@ test('per-stock source/quality badge is safe, explanatory and refreshed when evi
  assert.doesNotMatch(second,/价格源 东财|质量 报价已过时/);
  assert.equal(ids.total.textContent,1);
 });
-test('relevant subpage cache stamp advances but protected desktop and mobile homepages are never touched',()=>{
+test('candidate source cache stamp and unique unified dock retain the read-only data contract',()=>{
  const html=fs.readFileSync(path.join(__dirname,'../public/picks.html'),'utf8');
  assert.match(html,/picks-page\.js\?v=20261114data1/);
  assert.match(html,/id="candidates"/);
- assert.equal((html.match(/class="bottom"/g)||[]).length,1);
+ assert.equal((html.match(/class="workspace-bottom-nav"/g)||[]).length,1);
  assert.doesNotMatch(script,/method:\s*['"]POST|force=1|\/api\/paper\//);
 });

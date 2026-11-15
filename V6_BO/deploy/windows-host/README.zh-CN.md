@@ -1,6 +1,6 @@
 # 用 Windows 电脑运行天枢智策后台
 
-这是可选的本机部署与验收工具，不替代手机、电脑独立访问同一云端的目标。选择此模式时，电脑负责运行后台，手机作客户端；电脑必须开机、联网且不休眠，关机或 WSL 停止后后台采集也停止。本包不购买服务器，不自动修改电源、任务计划、防火墙、VPN 或已有应用目录。
+按照 2026-11-15 的用户要求，家用 Windows + WSL 是后台部署目标，电脑浏览器和手机都是同一后台的客户端。电脑必须开机、联网且 WSL 正常运行；关机、休眠或 WSL 停止后后台不可用。本包不购买服务器，不自动修改电源、任务计划、防火墙、VPN 或已有应用目录。
 
 **这是一份本机部署包，不是已完成上线的回执。** 源码来自 manifest 标注的完整 Git SHA；实际 Windows/手机连接仍需在你的设备验证。当前 WorkBuddy 首页地址保留，但它与 Node 后端使用不同接口和账户，不能仅启动后台便声称无缝接通。
 
@@ -64,7 +64,34 @@ Status、Start 或 Stop 返回 `process-inspection-failed` 时，表示暂时无
 .\windows-host.ps1 -Action Start
 ```
 
-依赖和所有私有状态都留在 WSL Linux 主目录中，不放到 `/mnt/c` 共享目录。不要将整个运行目录上传 Git、聊天或公开网盘。不要只备份 `app/data`：登录、配置、模拟盘和历史还位于应用根目录等位置。此版本不会自动升级或迁移已有安装，避免替换源码时丢失状态。
+依赖和所有私有状态都留在 WSL Linux 主目录中，不放到 `/mnt/c` 共享目录。不要将整个运行目录上传 Git、聊天或公开网盘。不要只备份 `app/data`：登录、配置、模拟盘和历史还位于应用根目录等位置。**已有安装不能重新 Initialize，也不能通过 git pull 覆盖 app**；新版独立 updater 的操作见下文。账户迁移与主写者切换仍需独立核对。
+
+## 2.1 检查更新、暂停与只读审计
+
+启动器菜单的「Check GitHub update」默认只检查，不停止或替换当前服务。PowerShell 支持：
+
+```powershell
+.\windows-host.ps1 -Action Audit
+.\windows-host.ps1 -Action Update
+.\windows-host.ps1 -Action UpdateStatus
+.\windows-host.ps1 -Action PauseUpdates
+.\windows-host.ps1 -Action ResumeUpdates
+.\windows-host.ps1 -Action WatchUpdates
+```
+
+`Audit` 只读核对已有 Windows 计划任务与 WSL systemd 服务/定时器，报告任务名称、状态和匹配数量，不输出可能含凭据的命令参数。匹配使用名称/动作关键词，**不是全系统不存在重复写者的证明**；发现其他采集、推送、账户写者时先人工核对，不自动停用它们。
+
+`WatchUpdates` 是显式前台持续检查进程，每 15 分钟 dry-run；同一安装仅一个 watcher 可持锁。Ctrl+C 停止后续检查，并等待正在进行的 updater 安全结束。它不创建开机任务、不保证 WSL 在 Windows 注销后继续运行。完成现场验证后才可显式在 WSL 运行 `bash watch-updates.sh --apply`，仍受暂停、敏感变更和全部 updater 门禁约束；不可向 watcher 配置永久敏感变更批准。
+
+只有完成原账户冷备、恢复预演与真实本机验收后，才显式运行应用更新：
+
+```powershell
+.\windows-host.ps1 -Action ApplyUpdate
+```
+
+涉及账本、迁移或权限等敏感代码时 updater 会拒绝默认自动放行。审阅精确候选提交后，可通过 `-ApproveSensitive <完整40位SHA>` 绑定该次批准；它不会绕过 CI、完整性、备份或启动门禁。使用非默认测试安装时指定 `-InstallationHome /home/实际用户/独立测试目录`；该参数是 WSL Linux 绝对路径，不接受 Windows 共享目录。
+
+实现与恢复边界见仓库根目录 [SAFE_AUTO_UPDATE_OPERATIONS.md](../../../SAFE_AUTO_UPDATE_OPERATIONS.md)。源码包必须包含本次 updater 文件，旧解压包不会因 GitHub 有新代码而自动获得新启动器。**未在你的 Windows 上运行前，不视为已经启用定期更新或完成生产升级。**
 
 ## 3. 手机访问：免费个人私网
 
@@ -76,6 +103,14 @@ Status、Start 或 Stop 返回 `process-inspection-failed` 时，表示暂时无
 tailscale serve --bg http://127.0.0.1:8787
 tailscale serve status
 ```
+
+配置后运行只读核对：
+
+```powershell
+.\windows-host.ps1 -Action NetworkStatus
+```
+
+此核对先确认 Windows 回环能读取 V6 身份门禁且已设置密码，再检查私网 HTTPS 仅代理 `http://127.0.0.1:8787`。存在 Funnel、其他代理目标、额外转发、明文 TCP 或前台会话时拒绝认可；只报告结果，不修改现有 Tailscale 配置，也不输出私网主机名。Tailscale 版本若返回不兼容结构会安全拒绝，需按实际 CLI 状态人工核对。
 
 按官方提示启用 HTTPS，手机连接自己的 Tailscale 后打开它生成的专属 HTTPS 地址。这里使用仅限自己私网的 **Serve**；不启用公开互联网的 Funnel，不开放路由器端口，也不把服务改绑 `0.0.0.0`。
 

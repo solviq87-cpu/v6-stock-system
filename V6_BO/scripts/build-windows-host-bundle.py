@@ -102,6 +102,14 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
     files = {'payload/' + p: data for p, data in payload.items()}
     required = {'init.sh', 'start.sh', 'check.sh', 'stop.sh', 'host-runtime.js', 'install-node.sh',
                 'windows-host.ps1', 'START.cmd', 'README.zh-CN.md'}
+    # Older revisions remain buildable with their own launchers. A launcher that
+    # advertises new actions must ship the exact same revision's dependencies.
+    launcher = launchers.get('windows-host.ps1', b'')
+    if b'ApplyUpdate' in launcher:
+        required.update({'safe-updater.js', 'update.sh', 'host-audit.js', 'host-audit.sh',
+                         'host-network-check.js', 'network-check.sh'})
+    if b'WatchUpdates' in launcher:
+        required.update({'watch-updates.js', 'watch-updates.sh', 'safe-updater.js'})
     files.update(launchers)
     if not required.issubset(files):
         raise ValueError('required-controls-missing')

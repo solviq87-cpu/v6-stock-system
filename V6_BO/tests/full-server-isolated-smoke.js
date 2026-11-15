@@ -88,6 +88,13 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
+  for (const asset of ['/sw.js','/assets/app.js','/assets/app.css']) {
+    const response=await get(p,asset);
+    assert.equal(response.status,200,'release asset must be reachable: '+asset);
+    assert.match(response.headers['cache-control'],/no-store/,'release asset must bypass the HTTP cache: '+asset);
+  }
+  const releaseVersion=JSON.parse(status.body).appVer;
+  assert.ok(index.body.includes('/assets/app.js?v='+releaseVersion),'real server HTML and status release must agree');
   // Dedicated result page must be reachable through the REAL server routes, not
   // merely pass an offline DOM test while silently returning the home fallback.
   const workbookDenied=await get(p,'/api/research/import-workbook');
