@@ -131,10 +131,24 @@ function Make-DesktopShortcut([string]$Folder, [string]$Distribution) {
     if (-not $desktop) { throw '无法找到 Windows 桌面目录。' }
     $link = Join-Path $desktop '天枢智策 V6.lnk'
     $shell = New-Object -ComObject WScript.Shell
+    $target = Join-Path $PSHOME 'powershell.exe'
+    $arguments = ('-NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File "' +
+                  (Join-Path $Folder 'OPEN.ps1') + '" -Distribution ' + $Distribution)
+    if (Test-Path -LiteralPath $link) {
+        $previous = $shell.CreateShortcut($link)
+        if ($previous.TargetPath -cne $target -or $previous.Arguments -cne $arguments) {
+            $link = Join-Path $desktop '天枢智策 V6（新安装）.lnk'
+            if (Test-Path -LiteralPath $link) {
+                $previous = $shell.CreateShortcut($link)
+                if ($previous.TargetPath -cne $target -or $previous.Arguments -cne $arguments) {
+                    throw '桌面已有同名快捷方式，未覆盖它；请先检查现有图标。'
+                }
+            }
+        }
+    }
     $shortcut = $shell.CreateShortcut($link)
-    $shortcut.TargetPath = (Join-Path $PSHOME 'powershell.exe')
-    $shortcut.Arguments = ('-NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File "' +
-                           (Join-Path $Folder 'OPEN.ps1') + '" -Distribution ' + $Distribution)
+    $shortcut.TargetPath = $target
+    $shortcut.Arguments = $arguments
     $shortcut.WorkingDirectory = $Folder
     $shortcut.Description = '天枢智策 V6：启动本机服务并打开网页'
     $shortcut.IconLocation = (Join-Path $env:WINDIR 'System32\shell32.dll') + ',46'
