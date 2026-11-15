@@ -93,5 +93,9 @@ jobs:
           }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'TianShu-Install.ps1') -Mode Verify
           if ($LASTEXITCODE -ne 0) { throw 'Bundle provenance verification failed' }
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'TianShu-Desktop.ps1') -Mode Probe
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'TianShu-Install.ps1') -Mode StageOnly
+          if ($LASTEXITCODE -ne 0) { throw 'Disposable desktop staging failed' }
+          $installed = Join-Path $env:LOCALAPPDATA 'TianShuV6/current'
+          if (-not (Test-Path -LiteralPath (Join-Path $installed 'TianShu-Desktop.ps1'))) { throw 'Stable launcher missing' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $installed 'TianShu-Desktop.ps1') -Mode Probe
           if ($LASTEXITCODE -ne 0) { throw 'Desktop headless probe failed' }
