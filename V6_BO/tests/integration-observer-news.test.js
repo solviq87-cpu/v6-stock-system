@@ -30,7 +30,8 @@ test('actual news statistics preserve missing pct/funds while true zero remains 
  assert.equal(stats.avgPct,null);assert.equal(stats.mainSum,null);assert.equal(stats.availability.pctKnown,1);assert.equal(stats.availability.fundsKnown,1);
 });
 test('actual related-news rows retain null pct rather than inventing a zero return',()=>{
- const start=source.indexOf('const relCodeMap ='),end=source.indexOf('return json(res, {',start);
+ const start=source.indexOf('const relCodeMap ='),end=source.indexOf('\n    return {',start);
+ assert.ok(start>=0&&end>start);
  const related=new Function('D','A','fundsNumber',source.slice(start,end)+'\nreturn relatedOf;')({stocks:[{code:'600000',price:10,pct:null}],secStocks:new Map([['fixture',{list:[{code:'000001',price:5,pct:null}]}]])},{isJunkName:()=>false},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
  assert.equal(related({codes:['600000'],sectors:[]}).direct[0].pct,null);
  assert.equal(related({codes:[],sectors:['fixture']}).indirect[0].pct,null);

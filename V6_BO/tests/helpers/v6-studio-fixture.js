@@ -25,7 +25,7 @@ function adaptLegacyFrontendSource(source,legacyController){
  return source.replace(versionDeclaration,`const APP_VER = '${legacyVersions[0][1]}';`)
   .replace(nativeEntries,"  if (p === '/') p = '/index.html';\n");
 }
-async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
+async function createFixture({count=250,serverSource,legacyFrontend=false,clockFile}={}){
  const root=path.resolve(__dirname,'../..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-studio-')),port=await freePort();
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
  for(const name of fs.readdirSync(root))if(name.endsWith('.js')&&name!=='server.js')fs.copyFileSync(path.join(root,name),path.join(tmp,name));
@@ -57,6 +57,7 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
  fs.writeFileSync(entry,fixtureSource.replace(anchor,`const studioFixture = JSON.parse(fs.readFileSync(path.join(__dirname,'studio-fixture.json'),'utf8')); S.stocks=studioFixture.stocks; for (const stock of S.stocks) klineSet(stock.code,{rows:studioFixture.rows});\n`+anchor));
  const guard=path.join(tmp,'deny-external.cjs');
  fs.writeFileSync(guard,`for(const name of ['http','https']){const m=require(name);for(const key of ['request','get']){const original=m[key];m[key]=function(...args){const v=args[0],h=typeof v==='string'?new URL(v).hostname:v?.hostname||v?.host||'localhost';if(!['127.0.0.1','localhost','::1'].includes(h))throw Error('studio fixture denies external network');return original.apply(this,args);};}}const originalFetch=global.fetch;global.fetch=function(url,...args){if(!['127.0.0.1','localhost','::1'].includes(new URL(url).hostname))throw Error('studio fixture denies external fetch');return originalFetch(url,...args);};`);
+ if(clockFile){fs.appendFileSync(guard,`\nconst TestDate=global.Date,testClockFile=${JSON.stringify(clockFile)};global.Date=class extends TestDate{constructor(...args){super(...(args.length?args:[Number(require('node:fs').readFileSync(testClockFile,'utf8'))]));}static now(){return Number(require('node:fs').readFileSync(testClockFile,'utf8'));}};`);}
  const child=spawn(process.execPath,['--require',guard,'server.js'],{cwd:tmp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1',V6_OPTIONAL_RESEARCH_FILE:'',V6_SIX_PHOTO_FILE:''},stdio:['ignore','pipe','pipe']});
  let logs='';child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);
  async function close(){child.kill('SIGTERM');if(child.exitCode===null&&child.signalCode===null)await Promise.race([new Promise(resolve=>child.once('exit',resolve)),wait(1200)]);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');fs.rmSync(tmp,{recursive:true,force:true});}
@@ -70,4 +71,10 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
    scan:()=>request(port,'/api/quant-picks?board=all&max=50&force=1','GET',null,token),close,logs:()=>logs};
  }catch(e){await close();throw e;}
 }
-module.exports={createFixture,request,adaptLegacyFrontendSource};
+// Scanner/budget tests explicitly run in a reproducible open session. Closing
+// tests keep the real policy and drive their own shared clock file instead.
+async function createOpenFixture(options={}){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-open-clock-')),clockFile=path.join(dir,'clock');fs.writeFileSync(clockFile,String(Date.parse('2026-11-16T14:00:00+08:00')));
+ try{const f=await createFixture({...options,clockFile}),close=f.close;f.close=async()=>{try{await close();}finally{fs.rmSync(dir,{recursive:true,force:true});}};return f;}catch(e){fs.rmSync(dir,{recursive:true,force:true});throw e;}
+}
+module.exports={createFixture,createOpenFixture,request,adaptLegacyFrontendSource};

@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261116ab'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261116ac'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -11290,16 +11290,36 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   file:path.join(__dirname,'data','market-response-snapshots.json'),
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
+const closingCardSnapshots=require('./src/core/closing-card-snapshot').createClosingCardSnapshot({file:path.join(__dirname,'data','closing-card-snapshots.json'),onError:code=>console.error('[closing-cards] '+code)});
+function marketCardContext(){const session=marketDisplaySession();return {session,sourceDay:marketDisplayState().meta.snapshotDay};}
+function marketCardState(kind,value){return closingCardSnapshots.project(kind,value,marketCardContext());}
+function marketCardResponse(kind,board,value,max){const context=marketCardContext();
+  if(context.session.trading){closingCardSnapshots.remember(kind+':'+board,value,context);return value;}
+  return closedMarketCard(kind,board,max);
+}
+function closedMarketCard(kind,board,max){
+  const exact=closingCardSnapshots.read(kind+':'+board),old=exact||(board!=='all'?closingCardSnapshots.read(kind+':all'):null);
+  let result=old?{...old.value,...old.meta}:null;
+  if(result&&!exact){const belongs=row=>(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row?.code||'');result={...result,board,boardFallback:true,completeForBoard:false,sourceBoard:'all',items:(result.items||[]).filter(belongs)};if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(g=>({...g,picks:(g.picks||[]).filter(belongs)})).filter(g=>g.picks.length);result.count=result.items.length;}
+  if(!result&&['quant','auction'].includes(kind)){const legacy=marketResponseSnapshots.read(kind,board,{max:max||50});if(legacy)result={...legacy,marketFrozen:true};}
+  if(!result)result={items:[],candidates:[],count:0,board,marketFrozen:true,isSnapshot:true,snapshotRetained:false,snapshotDay:marketDisplayState().meta.snapshotDay,freezeUnavailable:true,canTrade:false,canNotify:false,note:'没有已保存的盘中卡片；收盘后不重算或补造收盘前状态'};
+  if(Number.isFinite(max)&&Array.isArray(result.items))result.items=result.items.slice(0,Math.max(1,Math.floor(max)));
+  return result;
+}
+function retainMarketCardResponse(res,kind,board='all',max){
+  if(!marketDisplaySession().trading)return true;
+  res.marketCardTransform=value=>marketCardResponse(kind,board,value,max);return false;
+}
 function rememberMarketScan(kind,board,data) {
   const day=require('./src/core/market-display-snapshot').originalQuoteDay(S,Date.now());
-  if(day&&marketDisplaySession().openDay)marketResponseSnapshots.remember(kind,board,data,{day});
+  if(day&&marketDisplaySession().trading){marketResponseSnapshots.remember(kind,board,data,{day});closingCardSnapshots.remember(kind+':'+board,data,{session:marketDisplaySession(),sourceDay:day});}
 }
 function marketDisplaySession() {
   const china=new Date(Date.now()+8*3600000),year=china.getUTCFullYear(),month=china.getUTCMonth(),date=china.getUTCDate();
   const minute=china.getUTCHours()*60+china.getUTCMinutes();
   const day=String(year)+String(month+1).padStart(2,'0')+String(date).padStart(2,'0');
   const openDay=isTradeDay(new Date(year,month,date,12));
-  return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<=900))};
+  return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
 function marketDisplayState() {
   const session=marketDisplaySession();
@@ -11552,7 +11572,7 @@ async function quantPicksScan(opts = {}) {
 
     // Freeze this completed six-condition pass before the existing response cap.
     // Reading pages of the frozen snapshot never schedules another scanner pass.
-    if (board === 'all') {
+    if (board === 'all' && marketDisplaySession().trading) {
       const published = v6MatchesSnapshotStore.publish({ items: uniq, asOf: now,
         totalScanned: stocks.length, board, evidence: { hotSectorsReady } });
       if (!published.ok) console.warn('[v6 full matches]', published.error);
@@ -13224,6 +13244,264 @@ function pushAuctionResonanceTop3(items) {
   }).join('\n');
   const text = `═══ 🔥 竞价共振 · TOP3 ═══\n${new Date().toLocaleTimeString('zh-CN')}\n${lines}\n\n推断依据：竞价分 + 板块强度 + 近5日板块净流入 + 近3日资金回撤`;
   pushAll(text, false, recommendationSendOptions(top3, { private: true }));
+}
+
+function buildDashboardState(_stEdit = false) {
+    const display=marketDisplayState(), D=display.state;
+    // 精选池附：资金留存（10分钟主力净流入变化）+ 压力位/止损/止盈
+    const pool = D.candidatePool.slice(0, 50).map(c => {
+      const h = D.inflowHistory.get(c.code);
+      let retain = null, retainWin = null, retainTxt = null;
+      if (h && h.length >= 12 && fundsWindowDelta(h, h.length) !== null) {
+        const t0 = Number(h[0] && h[0].t) || 0;
+        const t1 = Number(h[h.length - 1] && h[h.length - 1].t) || 0;
+        const d = fundsWindowDelta(h, h.length);
+        retain = Math.round(d / 1e4); // 万元（窗口见 retainWin）
+        // ⛔ 名义 10 分钟，实际跨度随轨迹长度变化 —— 把实际窗口一并交出去
+        retainWin = t1 > t0 ? Math.round((t1 - t0) / 1000) : 0;
+        const wt = retainWinTxt(retainWin);
+        retainTxt = (retain > 0 ? '+' : '') + retain + '万' + (wt ? '/' + wt : '');
+      }
+      const k = D.klines.get(c.code);
+      const levels = k && k.rows ? A.computeLevels(k.rows, c.price, c.high, c.low) : null;
+      return { ...c, retain, retainWin, retainTxt, levels, bad: newsWarnsCode(c.code) };
+    });
+    // 模拟盘双账户状态（A跟单盘10万 / B预选盘50万）
+    const pmPaper = paperPrices();
+    // ⛔ 2026-10-07 改：这份快照原先是内联在这里的，副本回拉要拿同一份结构 → 抽成 paperSnap()，
+    //    两个实例共用同一个构造，展示口径才不会各写一份然后分叉。
+    const mkPaper = key => paperSnap(key, pmPaper);
+    // 利空板块 = 消息命中板块 ∪ 重挫板块（大跌+主力净流出）
+    const visibleNews=newsEvidenceVisibleState(D).news;
+    const newsSectorNames=new Set(visibleNews.badAll.flatMap(x=>x.sectors||[]));
+    const newsSecs = (D.sectors || []).filter(s => newsSectorNames.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
+    const heavySecs = (D.sectors || []).filter(s => s.pct <= -1.5 && (s.mainInflow || 0) < 0).slice(0, 10).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '重挫' }));
+    const badSectorsAll = [...newsSecs, ...heavySecs.filter(h => !newsSecs.some(n => n.name === h.name))].slice(0, 12);
+    // 利好3日归档聚合：受益板块/个股热度
+    const secCnt = {}, stCnt = {};
+    for (const x of visibleNews.goodAll) {
+      for (const sn of (x.sectors || [])) secCnt[sn] = (secCnt[sn] || 0) + 1;
+      for (const cd of (x.codes || [])) stCnt[cd] = (stCnt[cd] || 0) + 1;
+    }
+    const nameOfCode = new Map(D.stocks.map(s => [s.code, s.name]));
+    // 每条消息的关联个股实时统计（涨幅/涨停家数/主力净流入合计），利好加推·利空减推的依据面板可视化
+    const statOf = codes => {
+      const rel = (codes || []).map(cd => D.stocks.find(s => s.code === cd)).filter(s => s && s.price);
+      if (!rel.length) return null;
+      const pctKnown=rel.filter(s=>fundsNumber(s.pct)!==null),fundsKnown=rel.filter(s=>fundsNumber(s.mainInflow)!==null);
+      const pctComplete=pctKnown.length===rel.length,fundsComplete=fundsKnown.length===rel.length;
+      const up = pctComplete?rel.filter(s => s.pct > 0).length:null;
+      const down = pctComplete?rel.filter(s => s.pct < 0).length:null;
+      // 涨停家数必须按板块限幅判：写死 >= 9.4 就永远数不到 ST（旧口径 5%、现 10% 里偏弱的）
+      // 与 20cm/30cm 涨停，而这里恰恰是「利好加推·利空减推」的依据 —— 少算涨停会削弱利好、放大恐慌。
+      const limit = pctComplete?rel.filter(s => A.isLimitUp(s.code, s.name, s.pct)).length:null;
+      const avgPct = pctComplete?+(rel.reduce((a, s) => a + s.pct, 0) / rel.length).toFixed(1):null;
+      const mainSum = fundsComplete?Math.round(rel.reduce((a, s) => a + s.mainInflow, 0)):null;
+      return { total: rel.length, up, down, limit, avgPct, mainSum,
+        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:rel.length,pctComplete,fundsComplete} };
+    };
+    const relCodeMap = new Map(D.stocks.map(s => [s.code, s]));
+    // 每条消息的直接影响个股（新闻点名）+ 间接影响个股（新闻提到的板块成分股，涨幅强的在前）
+    const relatedOf = x => {
+      const direct = (x.codes || []).map(cd => relCodeMap.get(cd)).filter(s => s && s.price)
+        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: true }));
+      const dset = new Set(direct.map(d => d.code));
+      const indirect = [];
+      for (const nm of (x.sectors || [])) {
+        const c = D.secStocks && D.secStocks.get(nm);
+        if (!c || !c.list) continue;
+        for (const s of c.list) {
+          if (dset.has(s.code) || indirect.some(i => i.code === s.code)) continue;
+          if (A.isJunkName(s.name) || s.code.startsWith('30') || s.code.startsWith('68')) continue;
+          indirect.push({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: false, via: nm });
+          if (indirect.length >= 8) break;
+        }
+        if (indirect.length >= 8) break;
+      }
+      return { direct, indirect };
+    };
+    return {
+      dashboard: {...require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(D),display.mood,Date.now(),dashboardPushMeta(_stEdit)),...display.meta},
+      ...display.meta,
+      now: Date.now(), trading: display.meta.trading,
+      loop: D.loop,
+      auction: D.auction,
+      external: D.external || { time: '', items: {} },   // ⛔ 外部数据源（北向/商品/两融）；外围/板块/龙虎榜见 global/sectors
+      global: (D.global || []).map(g => {
+        // 上涨的外围指数 → 关联A股受益/领涨板块Top3（映射命中优先，否则取全场领涨板块兜底）
+        const hint = EXT_SECTOR_HINT[g.code] || [];
+        let sectors = [];
+        if (g.pct > 0) {
+          const pool = D.sectors.length ? D.sectors : ((D.extLink && D.extLink.groups) || []).flatMap(x => x.sectors || []);
+          const hit = hint.length ? pool.filter(s => hint.some(k => (s.name || '').includes(k))) : [];
+          sectors = (hit.length ? hit : pool)
+            .sort((a, b) => ((b.pct || 0) - (a.pct || 0)) || ((b.mainInflow || 0) - (a.mainInflow || 0)))
+            .slice(0, 3)
+            .map(s => ({ name: s.name, pct: +(s.pct || 0).toFixed(2), mainInflow: s.mainInflow || 0 }));
+        }
+        return { ...g, up: g.pct > 0, sectors };
+      }),
+      preselect: D.preselect,
+      stocksAt: D.stocksAt || 0,
+      stocksAgeSec: D.stocksAt ? Math.max(0, Math.round((Date.now() - D.stocksAt) / 1000)) : null,
+      mood: display.mood,            // ⛔ ie 轮：情绪卡独立字段，与 preselect 解耦（盘后 preselect 为空也不连坐情绪卡）
+      // lp：情绪卡附强势板块前三（用户点单）——主线 Top3 名称+强度，取不到不编造
+      mainline3: (() => { const _mi = ((D.mainline || {}).items) || []; return _mi.slice(0, 3).map(x => ({ sector: x.sector || x.name || '', strength: x.strength != null ? +x.strength : null })); })(),
+      poolBasis: D.poolBasis || null,               // 精选池评分的基准日（同上，见 ztPreBasis 注释）
+      sectors: D.sectors.slice(0, 20),
+      // ⛔ ig 轮 #263 声明层：板块行的「主力净流入」是**当日累计**快照——跨天就是另一个周期的值，
+      //    光看数字说不出它是几点拉的。at=拉取时刻(ms)、day=归属日（与涨停池同口径，盘前=上一交易日）。
+      //    面板据此显示「截至 MM-DD HH:MM」，绝不把陈旧快照当实时。
+      sectorsAt: D.sectorsAt || 0,
+      sectorsAgeSec: D.sectorsAt ? Math.max(0, Math.round((Date.now() - D.sectorsAt) / 1000)) : null,
+      sectorsDay: D.sectorsDay || '',
+      ztPool: D.ztPool,
+      // ⛔ 2026-10-28 用户口径「退市整理期股不计入涨停家数」：家数少了谁、几只，随状态下发可查。
+      //    口径：D.ztPool 已是家数口径（不含退市整理期股），ztExcluded 只做留痕，不参与任何统计。
+      ztExcluded: (D.ztExcluded && typeof D.ztExcluded === 'object')
+        ? { day: D.ztExcluded.day || '', count: +D.ztExcluded.count || 0, items: Array.isArray(D.ztExcluded.items) ? D.ztExcluded.items : [] }
+        : { day: D.ztDay || '', count: 0, items: [] },
+      // ⛔ 涨停池的归属交易日必须可见（2026-10-08 dc 轮）：所有「板块 N 只涨停」这类数量词
+      //    都以它为口径。线上查不到它，就只能靠猜这份池子是哪天的 —— 正是本轮要防的事。
+      ztDay: D.ztDay || '',
+      // ⛔ ig 轮（#262）：这个戳是探测出来的（true）还是机器日期兜底的（false）——false 时
+      //    盘前它会把昨日数据说成今日，面板/诊断必须能看见"戳不可信"，不许静默展示。
+      ztDayProbed: D.ztDayProbed !== false,
+      // ⛔ 同一个日子给前端也发一份**说人话的标签**（dd 轮）：面板上「今日涨停 N 只」把日子
+      //    写死了，而这份池子在竞价时段/休市日其实是上一交易日的 —— 与推送共用同一个 ztDayTag。
+      ztDayTag: ztDayTag(D.ztDay) || '',
+      // nz：玄学字辈批量涨停（羊洋阳扬杨/龙/华…含同音字根族），供面板展示
+      nameClans: (D.ztNameClans || []).filter(c => c && c.count >= 3),
+      // ⛔ 面板上所有「每 N 分钟 / ≥N% 自动推送」的承诺由这一处产出，前端只读不写（de 轮）
+      panelNotes: panelNotes(),
+      // 面板可改的开关 / 时段 / 小时数（df 轮：这些承诺此前没有任何一条路径能兑现）
+      cfgSet: cfgSetState(),
+      cfgRange: cfgRangeState(),
+      needRule: needRuleState(),
+      winRule: winRuleState(),
+      taskState: taskState(),
+      remedy: remedyState(),
+    doneRule: doneRuleState(),
+    pushLast: pushLast(),
+    staleState: staleState(),
+    staleRule: staleRuleState(),
+    outN: outNState(),
+    prevSnap: prevSnapState(),
+      // ⚠️ 前端读的是这一份 state（另一处 5844 是精简统计版，加那里前端照样拿不到）
+      ztTopics: (D.ztTopics || []).slice(0, 8),  // 涨停题材热度
+      ztTopicSrc: D.ztTopicSrc || '',            // 题材数据来源：同花顺涨停原因 / 东财题材统计（源要可追溯）
+      // ⚠️ 涨停前形态面板的数据出口：前端只认 /api/state，之前只在 /api/source 里给了 ztPre，
+      //    结果面板永远空白（2026-10-01 联动验证查出）。改面板字段时两端一起改。
+      ztPre: (D.ztPre || []).slice(0, 20),
+      ztPreProg: _zpProg,
+      // ⛔ 基准日：这三个池的 price/pct 取自 K 线最后一根，K 线没回填到今天时是【上一交易日收盘】
+      //    而同一屏的精选池/涨停池/持仓用的是实时行情 → 一屏两个价。前端必须把这个基准日显示出来，
+      //    否则用户无从分辨（与推送文案里的 basisLine 同源同一份对象）。
+      ztPreBasis: D.ztPreBasis || null,
+      // 机器自己挖出来的规律（面板要展示"它到底学到了什么"，不能只给结论不给依据）
+      ztPreRules: (() => {
+        const d = zpDb(); const rs = (d && d.rules) || [];
+        const pick = t => rs.filter(r => r.key.charAt(0) === t).slice(0, 3);
+        return pick('S').concat(pick('P'));
+      })(),
+      // 全市场趋势扫描：不依赖任何候选集，用学习模型把全市场筛一遍的结果
+      // ⛔ 2026-10-07 补：前端「全市场趋势扫描」标题行一直在读 s.learnall.n（学习库样本数），
+      //    而本接口从来没下发过 learnall 这个键 —— 面板于是永远显示「学习库 0 条样本」，
+      //    看着像"模型没学"，其实学了几万条。同一个概念在两端对不上：后端叫 zpDb().n / learn.samples，
+      //    前端叫 learnall.n。这里按前端的口径补发（它驱动的是趋势扫描，样本数就是 ztpre 学习库的 n）。
+      learnall: { n: (zpDb() || {}).n || 0 },
+      trendScan: (D.trendScan || []).slice(0, 30),
+      trendScanProg: _tsProg,
+      trendScanBasis: D.trendScanBasis || null,   // 基准日（同上，见 ztPreBasis 注释）
+      steadyUp: (D.steadyUp || []).slice(0, 12),
+      steadyUpBasis: D.steadyUpBasis || null,     // 基准日（同上）
+      modDay: modDayStat(),
+      ztReasonHit: D.ztReasonHit || '',          // "50/52"：区分"今天没题材"还是"没取到"
+      ztBySector: Object.entries(D.ztBySector).map(([k, v]) => {
+        // 角色排序：龙头最前 → 龙二 → 中军 → 跟风；题材带动强势股(未涨停)同样参评，不要求当日涨停
+        const ext = secStrongOf(k).filter(e => !v.some(z => z.code === e.code));
+        const { map } = classifySectorRoles([...v, ...ext]);
+        const rank = { leader: 0, deputy: 1, mid: 2, follow: 3 };
+        return {
+          sector: k, count: v.length,
+          stocks: [...v, ...ext].map(x => ({ name: x.name, lb: x.limitUpCount || 0, role: map.get(x.code) || 'follow', strong: !!x.strong }))
+            .sort((a, b) => rank[a.role] - rank[b.role] || b.lb - a.lb).slice(0, 10)
+        };
+      }).sort((a, b) => b.count - a.count),
+      pool,
+      review: D.review,
+      reviewStale: reviewIsStale(),   // true=这是别的交易日的复盘（面板要标出来）；null=旧档没日期，判不出来
+      buzhang: D.buzhang,
+      pre: D.pre,          // 板块效应·启动前埋伏（热点板块里还没启动的票）
+      mainline: D.mainline,
+      bigMoney: D.bigMoney,
+      abMove: D.abMove || null,
+      extLink: D.extLink,
+      learn: {
+        samples: D.learn.samples, hits: D.learn.hits, buckets: D.learn.buckets,
+        split: D.learn.split || null,
+        groups: D.learn.groups || null,   // A/B 对照实验：模型组🅰️ vs 实证组🅱️ 各自实盘命中率
+        scoreThreshold: D.learn.scoreThreshold, paths: D.learn.paths || {},
+        base: D.learn.base || null, marketBeta: D.marketBeta || {}, todayBeta: todayBeta(),
+        minLearnDays: MIN_LEARN_DAYS,
+        // 两条新闭环：大单→涨停、相似股跟随（含真实涨停率与自适应门槛）
+        bigMoney: D.learn.bigMoney || { n: 0 }, similar: D.learn.similar || { n: 0 },
+        gates: { simGate: _govCfg('simGate') }   // ⛔ iq 轮：bigMoneyProbGate 退役后移除（大单门槛改因子组合≥2，见 bmHotFactors）
+      },
+      learnHistory: (D.learnHistory || []).slice(0, 100),
+      trendPool: (D.trendPool || []).slice(0, 50),
+      trendRej: D.trendRej || null,   // 趋势池淘汰计数：拦下多少只小市值 / 上蹿下跳
+      breadth: todayBreadth(),        // 市场宽度：个股真实涨跌 + 市值分层（看穿"护指数拉权重"）
+      smallyang: D.smallyang || null, // 全市场「连续小阳线拉升」扫描结果（系统自己找的）
+      nextplan: D.nextplan || null,   // 次日作战计划：明天买谁 / 多少钱进 / 止损 / 怎么验证
+      myrules: D.myrules || null,     // 用户的「十四条」选股体系：逐条判定 + 命中清单
+      signals: D.signals.slice(0, 50),
+      poolSize: D.candidatePool.length,
+      wecomReady: feishuReady(),
+      wecomInvalid: !!(D.config.feishuWebhook) && !feishuReady(),
+      // 当前生效的机器人（打码）——让人一眼看出"到底在用哪一个通道"，不用去找配置文件。
+      // ⚠️ 2026-10-07 修：这同一个键原先连着写了三遍（后写的覆盖先写的，值一样所以看不出问题，
+      //    但对象字面量里重复键是纯死代码，且改一处漏两处时会出现"改了没生效"）。
+      feishuMask: feishuMask(),
+      // 私密通道（验证码 + 持仓，只发本人）：打码地址 + 是否启用。
+      // 面板据此显示"私密通道：19e1****64f1 / 未配置"——没配就该明说，否则用户以为已经私密了。
+      feishuSecMask: feishuSecMask(),
+      feishuSecReady: feishuSecReady(),
+      mailReady: mailReady(),
+      probThreshold: probThreshold(),
+      // 推送节流器状态：让你看见"今天还剩多少名额"，而不是收到轰炸却不知道为什么。
+      // ⛔ 2026-10-07：这一份原先内联在这里，而「📋 推送流水」那个弹窗想显示同样的东西 ——
+      //    再抄一份就是同一份状态两处各算一遍（改一处漏一处时两边数字对不上）。
+      //    抽成 pushGovStat()，/api/state 与 /api/push-log 都调它。
+      pushGov: pushGovStat(),
+      stateCut: stateCut(),
+      probKind: probKindState(),
+      // ⛔ dv 轮：静默跳过的账要出得去 —— 面板才能回答"为什么今天只有 3 只"
+      //    （而不是让用户对着空白栏猜）。skipStat=全站淘汰统计，empSkip=命中率分母的存活率。
+      skipStat: skipState(), empSkip: empSkipStat(),
+      // mirror=true 表示这台实例是副本：模拟盘不在这儿跑，展示的是从线上同步过来的那份。
+      // ⛔ 必须让用户看得见 —— 否则副本上"模拟盘一动不动"会被当成坏了。
+      paper: _stEdit ? { pool: mkPaper('pool'), pre: mkPaper('pre'), mirror: isReplica() } : { hidden: true, pool: null, pre: null },
+      badNews: { time: D.news.time, riskSnapshot:newsRiskSnapshotView(), items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
+      goodNews: {
+        time: D.news.time, riskSnapshot:newsRiskSnapshotView(),
+        items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
+        hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
+        hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
+      },
+      // ⛔ 连板接力数据属私密策略，只读（观看）权限不可查看
+      yier: _stEdit ? (D.yierYesterday || null) : { hidden: true },
+      lianban: _stEdit ? (D.lianbanYesterday || null) : { hidden: true },
+      // ⛔ 一进二 / 连板接力卡片的完整候选（2026-10-08）：含主线强度与板块联动，供面板独立卡片渲染
+      yierList: _stEdit ? (D.yierList || []) : [],
+      lianbanList: _stEdit ? (D.lianbanList || []) : [],
+      // ⛔ gb 轮：卡片是**哪一天算的**必须一并下发。用户要求跨日保留到次日 9:20 前，
+      //    那就得让用户一眼看见"这是 10-09 收盘的结论"，否则「保留」就成了拿昨天的冒充今天的。
+      yierAsOf: D.yierAsOf || '',
+      lianbanAsOf: D.lianbanAsOf || '',
+      // kd 轮：本地副本心跳状态。线上实例能据此判断用户本机是否在线，从而快速定位"刷新不及时"是不是本地服务没起。
+      ...replicaHeartbeatState()
+    };
 }
 
 function buildMobileDigest(includePrivate = false) {
@@ -18750,14 +19028,19 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
-      let displayClosingScanDay='';
+      let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
-        const display=marketDisplayState(),session=marketDisplaySession(),minute=session.minute;
-        if(session.openDay&&minute>=15*60&&minute<=15*60+40&&display.meta.snapshotDay===session.day&&displayClosingScanDay!==session.day) {
-          displayClosingScanDay=session.day;
-          // Display scans only: no internal auction automation or signal dispatch.
-          Promise.allSettled([quantPicksScan({force:true,max:50,board:'all'}),auctionResonanceScan({force:true,max:50,board:'all'})]);
-        }
+        const session=marketDisplaySession();marketDisplayState();
+        if(session.trading){
+          marketCardState('state',buildDashboardState(false));marketCardState('mobile',buildMobileDigest(false));
+          marketCardResponse('preseal','all',presealAggregate());
+          if(S.washTrend)marketCardResponse('wash',['all','main','gem'].includes(S.washTrend.board)?S.washTrend.board:'all',S.washTrend);
+          if(session.minute>=14*60+55&&displayWarmDay!==session.day){displayWarmDay=session.day;
+            // Observe existing read-only card calculators before close; never dispatch signals.
+            const save=(kind,job)=>Promise.resolve(job).then(value=>marketCardResponse(kind,'all',value));
+            Promise.allSettled([save('quant',quantPicksScan({max:50,board:'all'})),save('auction',auctionResonanceScan({max:50,board:'all'})),save('intraday',intradayStrongScan({max:50,board:'all'})),save('shortline',analyzeShortline(S,em))]);
+          }
+        }else closingCardSnapshots.flush(true);
       }catch{console.error('[display-snapshot] capture-failed');}},30000);
       displaySnapshotTimer.unref();
       init().catch(e => console.error('[init]', e));
@@ -19549,7 +19832,7 @@ let _gzipOn = true;
 let _curReq = null;            // 当前请求引用（handle 入口赋值），供 json() 兜底读取请求头
 function json(res, obj, req) {
   let s;
-  try { s = JSON.stringify(obj); } catch { s = '{"ok":false,"error":"序列化失败"}'; }
+  try { s = JSON.stringify(res.marketCardTransform?res.marketCardTransform(obj):obj); } catch { s = '{"ok":false,"error":"序列化失败"}'; }
   // 调用方多数只传 (res, obj)，这里兜底读当前请求：不改几百处调用也能拿到 accept-encoding
   const _r = req || _curReq;
   const ae = (_r && _r.headers && _r.headers['accept-encoding']) || '';
@@ -22411,6 +22694,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   if (p === '/api/shortline') {
     // 短线速览：情绪周期 + 趋势择时 + 短线候选股（2026-11-02 合并自短线系统）
     // handle() 非 async，用 Promise 链
+    if(retainMarketCardResponse(res,'shortline'))return json(res,closedMarketCard('shortline','all'));
     return analyzeShortline(S, em)
       .then(result => json(res, result))
       .catch(e => json(res, { error: String(e && e.message || e) }, 500));
@@ -22579,268 +22863,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   }
 
   if (p === '/api/state') {
-    // ⛔ 2026-10-06 补：这个接口是整个面板的「一锅端」数据源，里面混着私密内容。
-    //    真实持仓早就挡了（/api/holdings 明写「持仓属私密数据，只读权限不可查看」），
-    //    可模拟盘双账户的现金 / 权益 / 逐票持仓 / 成交记录却从这里原样出去了 —— 同一个
-    //    私密等级，一个口子挡着、另一个口子敞开，只读（观看）设备照样能拿全。
-    //    现在按身份裁剪：非开发者只回 {hidden:true}，面板显示一行说明而不是数据。
-    //    （实参留空 → isEditorReq 自动回落到 req.__tok，走 query/body 双通道。）
-    const _stEdit = isEditorReq(req, '');
-    const display=marketDisplayState(), D=display.state;
-    // 精选池附：资金留存（10分钟主力净流入变化）+ 压力位/止损/止盈
-    const pool = D.candidatePool.slice(0, 50).map(c => {
-      const h = D.inflowHistory.get(c.code);
-      let retain = null, retainWin = null, retainTxt = null;
-      if (h && h.length >= 12 && fundsWindowDelta(h, h.length) !== null) {
-        const t0 = Number(h[0] && h[0].t) || 0;
-        const t1 = Number(h[h.length - 1] && h[h.length - 1].t) || 0;
-        const d = fundsWindowDelta(h, h.length);
-        retain = Math.round(d / 1e4); // 万元（窗口见 retainWin）
-        // ⛔ 名义 10 分钟，实际跨度随轨迹长度变化 —— 把实际窗口一并交出去
-        retainWin = t1 > t0 ? Math.round((t1 - t0) / 1000) : 0;
-        const wt = retainWinTxt(retainWin);
-        retainTxt = (retain > 0 ? '+' : '') + retain + '万' + (wt ? '/' + wt : '');
-      }
-      const k = D.klines.get(c.code);
-      const levels = k && k.rows ? A.computeLevels(k.rows, c.price, c.high, c.low) : null;
-      return { ...c, retain, retainWin, retainTxt, levels, bad: newsWarnsCode(c.code) };
-    });
-    // 模拟盘双账户状态（A跟单盘10万 / B预选盘50万）
-    const pmPaper = paperPrices();
-    // ⛔ 2026-10-07 改：这份快照原先是内联在这里的，副本回拉要拿同一份结构 → 抽成 paperSnap()，
-    //    两个实例共用同一个构造，展示口径才不会各写一份然后分叉。
-    const mkPaper = key => paperSnap(key, pmPaper);
-    // 利空板块 = 消息命中板块 ∪ 重挫板块（大跌+主力净流出）
-    const visibleNews=newsEvidenceVisibleState(D).news;
-    const newsSectorNames=new Set(visibleNews.badAll.flatMap(x=>x.sectors||[]));
-    const newsSecs = (D.sectors || []).filter(s => newsSectorNames.has(s.name)).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '消息' }));
-    const heavySecs = (D.sectors || []).filter(s => s.pct <= -1.5 && (s.mainInflow || 0) < 0).slice(0, 10).map(s => ({ name: s.name, pct: s.pct, mainInflow: s.mainInflow, from: '重挫' }));
-    const badSectorsAll = [...newsSecs, ...heavySecs.filter(h => !newsSecs.some(n => n.name === h.name))].slice(0, 12);
-    // 利好3日归档聚合：受益板块/个股热度
-    const secCnt = {}, stCnt = {};
-    for (const x of visibleNews.goodAll) {
-      for (const sn of (x.sectors || [])) secCnt[sn] = (secCnt[sn] || 0) + 1;
-      for (const cd of (x.codes || [])) stCnt[cd] = (stCnt[cd] || 0) + 1;
-    }
-    const nameOfCode = new Map(D.stocks.map(s => [s.code, s.name]));
-    // 每条消息的关联个股实时统计（涨幅/涨停家数/主力净流入合计），利好加推·利空减推的依据面板可视化
-    const statOf = codes => {
-      const rel = (codes || []).map(cd => D.stocks.find(s => s.code === cd)).filter(s => s && s.price);
-      if (!rel.length) return null;
-      const pctKnown=rel.filter(s=>fundsNumber(s.pct)!==null),fundsKnown=rel.filter(s=>fundsNumber(s.mainInflow)!==null);
-      const pctComplete=pctKnown.length===rel.length,fundsComplete=fundsKnown.length===rel.length;
-      const up = pctComplete?rel.filter(s => s.pct > 0).length:null;
-      const down = pctComplete?rel.filter(s => s.pct < 0).length:null;
-      // 涨停家数必须按板块限幅判：写死 >= 9.4 就永远数不到 ST（旧口径 5%、现 10% 里偏弱的）
-      // 与 20cm/30cm 涨停，而这里恰恰是「利好加推·利空减推」的依据 —— 少算涨停会削弱利好、放大恐慌。
-      const limit = pctComplete?rel.filter(s => A.isLimitUp(s.code, s.name, s.pct)).length:null;
-      const avgPct = pctComplete?+(rel.reduce((a, s) => a + s.pct, 0) / rel.length).toFixed(1):null;
-      const mainSum = fundsComplete?Math.round(rel.reduce((a, s) => a + s.mainInflow, 0)):null;
-      return { total: rel.length, up, down, limit, avgPct, mainSum,
-        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:rel.length,pctComplete,fundsComplete} };
-    };
-    const relCodeMap = new Map(D.stocks.map(s => [s.code, s]));
-    // 每条消息的直接影响个股（新闻点名）+ 间接影响个股（新闻提到的板块成分股，涨幅强的在前）
-    const relatedOf = x => {
-      const direct = (x.codes || []).map(cd => relCodeMap.get(cd)).filter(s => s && s.price)
-        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: true }));
-      const dset = new Set(direct.map(d => d.code));
-      const indirect = [];
-      for (const nm of (x.sectors || [])) {
-        const c = D.secStocks && D.secStocks.get(nm);
-        if (!c || !c.list) continue;
-        for (const s of c.list) {
-          if (dset.has(s.code) || indirect.some(i => i.code === s.code)) continue;
-          if (A.isJunkName(s.name) || s.code.startsWith('30') || s.code.startsWith('68')) continue;
-          indirect.push({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: false, via: nm });
-          if (indirect.length >= 8) break;
-        }
-        if (indirect.length >= 8) break;
-      }
-      return { direct, indirect };
-    };
-    return json(res, {
-      dashboard: {...require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(D),display.mood,Date.now(),dashboardPushMeta(_stEdit)),...display.meta},
-      ...display.meta,
-      now: Date.now(), trading: display.meta.trading,
-      loop: D.loop,
-      auction: D.auction,
-      external: D.external || { time: '', items: {} },   // ⛔ 外部数据源（北向/商品/两融）；外围/板块/龙虎榜见 global/sectors
-      global: (D.global || []).map(g => {
-        // 上涨的外围指数 → 关联A股受益/领涨板块Top3（映射命中优先，否则取全场领涨板块兜底）
-        const hint = EXT_SECTOR_HINT[g.code] || [];
-        let sectors = [];
-        if (g.pct > 0) {
-          const pool = D.sectors.length ? D.sectors : ((D.extLink && D.extLink.groups) || []).flatMap(x => x.sectors || []);
-          const hit = hint.length ? pool.filter(s => hint.some(k => (s.name || '').includes(k))) : [];
-          sectors = (hit.length ? hit : pool)
-            .sort((a, b) => ((b.pct || 0) - (a.pct || 0)) || ((b.mainInflow || 0) - (a.mainInflow || 0)))
-            .slice(0, 3)
-            .map(s => ({ name: s.name, pct: +(s.pct || 0).toFixed(2), mainInflow: s.mainInflow || 0 }));
-        }
-        return { ...g, up: g.pct > 0, sectors };
-      }),
-      preselect: D.preselect,
-      stocksAt: D.stocksAt || 0,
-      stocksAgeSec: D.stocksAt ? Math.max(0, Math.round((Date.now() - D.stocksAt) / 1000)) : null,
-      mood: display.mood,            // ⛔ ie 轮：情绪卡独立字段，与 preselect 解耦（盘后 preselect 为空也不连坐情绪卡）
-      // lp：情绪卡附强势板块前三（用户点单）——主线 Top3 名称+强度，取不到不编造
-      mainline3: (() => { const _mi = ((D.mainline || {}).items) || []; return _mi.slice(0, 3).map(x => ({ sector: x.sector || x.name || '', strength: x.strength != null ? +x.strength : null })); })(),
-      poolBasis: D.poolBasis || null,               // 精选池评分的基准日（同上，见 ztPreBasis 注释）
-      sectors: D.sectors.slice(0, 20),
-      // ⛔ ig 轮 #263 声明层：板块行的「主力净流入」是**当日累计**快照——跨天就是另一个周期的值，
-      //    光看数字说不出它是几点拉的。at=拉取时刻(ms)、day=归属日（与涨停池同口径，盘前=上一交易日）。
-      //    面板据此显示「截至 MM-DD HH:MM」，绝不把陈旧快照当实时。
-      sectorsAt: D.sectorsAt || 0,
-      sectorsAgeSec: D.sectorsAt ? Math.max(0, Math.round((Date.now() - D.sectorsAt) / 1000)) : null,
-      sectorsDay: D.sectorsDay || '',
-      ztPool: D.ztPool,
-      // ⛔ 2026-10-28 用户口径「退市整理期股不计入涨停家数」：家数少了谁、几只，随状态下发可查。
-      //    口径：D.ztPool 已是家数口径（不含退市整理期股），ztExcluded 只做留痕，不参与任何统计。
-      ztExcluded: (D.ztExcluded && typeof D.ztExcluded === 'object')
-        ? { day: D.ztExcluded.day || '', count: +D.ztExcluded.count || 0, items: Array.isArray(D.ztExcluded.items) ? D.ztExcluded.items : [] }
-        : { day: D.ztDay || '', count: 0, items: [] },
-      // ⛔ 涨停池的归属交易日必须可见（2026-10-08 dc 轮）：所有「板块 N 只涨停」这类数量词
-      //    都以它为口径。线上查不到它，就只能靠猜这份池子是哪天的 —— 正是本轮要防的事。
-      ztDay: D.ztDay || '',
-      // ⛔ ig 轮（#262）：这个戳是探测出来的（true）还是机器日期兜底的（false）——false 时
-      //    盘前它会把昨日数据说成今日，面板/诊断必须能看见"戳不可信"，不许静默展示。
-      ztDayProbed: D.ztDayProbed !== false,
-      // ⛔ 同一个日子给前端也发一份**说人话的标签**（dd 轮）：面板上「今日涨停 N 只」把日子
-      //    写死了，而这份池子在竞价时段/休市日其实是上一交易日的 —— 与推送共用同一个 ztDayTag。
-      ztDayTag: ztDayTag(D.ztDay) || '',
-      // nz：玄学字辈批量涨停（羊洋阳扬杨/龙/华…含同音字根族），供面板展示
-      nameClans: (D.ztNameClans || []).filter(c => c && c.count >= 3),
-      // ⛔ 面板上所有「每 N 分钟 / ≥N% 自动推送」的承诺由这一处产出，前端只读不写（de 轮）
-      panelNotes: panelNotes(),
-      // 面板可改的开关 / 时段 / 小时数（df 轮：这些承诺此前没有任何一条路径能兑现）
-      cfgSet: cfgSetState(),
-      cfgRange: cfgRangeState(),
-      needRule: needRuleState(),
-      winRule: winRuleState(),
-      taskState: taskState(),
-      remedy: remedyState(),
-    doneRule: doneRuleState(),
-    pushLast: pushLast(),
-    staleState: staleState(),
-    staleRule: staleRuleState(),
-    outN: outNState(),
-    prevSnap: prevSnapState(),
-      // ⚠️ 前端读的是这一份 state（另一处 5844 是精简统计版，加那里前端照样拿不到）
-      ztTopics: (D.ztTopics || []).slice(0, 8),  // 涨停题材热度
-      ztTopicSrc: D.ztTopicSrc || '',            // 题材数据来源：同花顺涨停原因 / 东财题材统计（源要可追溯）
-      // ⚠️ 涨停前形态面板的数据出口：前端只认 /api/state，之前只在 /api/source 里给了 ztPre，
-      //    结果面板永远空白（2026-10-01 联动验证查出）。改面板字段时两端一起改。
-      ztPre: (D.ztPre || []).slice(0, 20),
-      ztPreProg: _zpProg,
-      // ⛔ 基准日：这三个池的 price/pct 取自 K 线最后一根，K 线没回填到今天时是【上一交易日收盘】
-      //    而同一屏的精选池/涨停池/持仓用的是实时行情 → 一屏两个价。前端必须把这个基准日显示出来，
-      //    否则用户无从分辨（与推送文案里的 basisLine 同源同一份对象）。
-      ztPreBasis: D.ztPreBasis || null,
-      // 机器自己挖出来的规律（面板要展示"它到底学到了什么"，不能只给结论不给依据）
-      ztPreRules: (() => {
-        const d = zpDb(); const rs = (d && d.rules) || [];
-        const pick = t => rs.filter(r => r.key.charAt(0) === t).slice(0, 3);
-        return pick('S').concat(pick('P'));
-      })(),
-      // 全市场趋势扫描：不依赖任何候选集，用学习模型把全市场筛一遍的结果
-      // ⛔ 2026-10-07 补：前端「全市场趋势扫描」标题行一直在读 s.learnall.n（学习库样本数），
-      //    而本接口从来没下发过 learnall 这个键 —— 面板于是永远显示「学习库 0 条样本」，
-      //    看着像"模型没学"，其实学了几万条。同一个概念在两端对不上：后端叫 zpDb().n / learn.samples，
-      //    前端叫 learnall.n。这里按前端的口径补发（它驱动的是趋势扫描，样本数就是 ztpre 学习库的 n）。
-      learnall: { n: (zpDb() || {}).n || 0 },
-      trendScan: (D.trendScan || []).slice(0, 30),
-      trendScanProg: _tsProg,
-      trendScanBasis: D.trendScanBasis || null,   // 基准日（同上，见 ztPreBasis 注释）
-      steadyUp: (D.steadyUp || []).slice(0, 12),
-      steadyUpBasis: D.steadyUpBasis || null,     // 基准日（同上）
-      modDay: modDayStat(),
-      ztReasonHit: D.ztReasonHit || '',          // "50/52"：区分"今天没题材"还是"没取到"
-      ztBySector: Object.entries(D.ztBySector).map(([k, v]) => {
-        // 角色排序：龙头最前 → 龙二 → 中军 → 跟风；题材带动强势股(未涨停)同样参评，不要求当日涨停
-        const ext = secStrongOf(k).filter(e => !v.some(z => z.code === e.code));
-        const { map } = classifySectorRoles([...v, ...ext]);
-        const rank = { leader: 0, deputy: 1, mid: 2, follow: 3 };
-        return {
-          sector: k, count: v.length,
-          stocks: [...v, ...ext].map(x => ({ name: x.name, lb: x.limitUpCount || 0, role: map.get(x.code) || 'follow', strong: !!x.strong }))
-            .sort((a, b) => rank[a.role] - rank[b.role] || b.lb - a.lb).slice(0, 10)
-        };
-      }).sort((a, b) => b.count - a.count),
-      pool,
-      review: D.review,
-      reviewStale: reviewIsStale(),   // true=这是别的交易日的复盘（面板要标出来）；null=旧档没日期，判不出来
-      buzhang: D.buzhang,
-      pre: D.pre,          // 板块效应·启动前埋伏（热点板块里还没启动的票）
-      mainline: D.mainline,
-      bigMoney: D.bigMoney,
-      abMove: D.abMove || null,
-      extLink: D.extLink,
-      learn: {
-        samples: D.learn.samples, hits: D.learn.hits, buckets: D.learn.buckets,
-        split: D.learn.split || null,
-        groups: D.learn.groups || null,   // A/B 对照实验：模型组🅰️ vs 实证组🅱️ 各自实盘命中率
-        scoreThreshold: D.learn.scoreThreshold, paths: D.learn.paths || {},
-        base: D.learn.base || null, marketBeta: D.marketBeta || {}, todayBeta: todayBeta(),
-        minLearnDays: MIN_LEARN_DAYS,
-        // 两条新闭环：大单→涨停、相似股跟随（含真实涨停率与自适应门槛）
-        bigMoney: D.learn.bigMoney || { n: 0 }, similar: D.learn.similar || { n: 0 },
-        gates: { simGate: _govCfg('simGate') }   // ⛔ iq 轮：bigMoneyProbGate 退役后移除（大单门槛改因子组合≥2，见 bmHotFactors）
-      },
-      learnHistory: (D.learnHistory || []).slice(0, 100),
-      trendPool: (D.trendPool || []).slice(0, 50),
-      trendRej: D.trendRej || null,   // 趋势池淘汰计数：拦下多少只小市值 / 上蹿下跳
-      breadth: todayBreadth(),        // 市场宽度：个股真实涨跌 + 市值分层（看穿"护指数拉权重"）
-      smallyang: D.smallyang || null, // 全市场「连续小阳线拉升」扫描结果（系统自己找的）
-      nextplan: D.nextplan || null,   // 次日作战计划：明天买谁 / 多少钱进 / 止损 / 怎么验证
-      myrules: D.myrules || null,     // 用户的「十四条」选股体系：逐条判定 + 命中清单
-      signals: D.signals.slice(0, 50),
-      poolSize: D.candidatePool.length,
-      wecomReady: feishuReady(),
-      wecomInvalid: !!(D.config.feishuWebhook) && !feishuReady(),
-      // 当前生效的机器人（打码）——让人一眼看出"到底在用哪一个通道"，不用去找配置文件。
-      // ⚠️ 2026-10-07 修：这同一个键原先连着写了三遍（后写的覆盖先写的，值一样所以看不出问题，
-      //    但对象字面量里重复键是纯死代码，且改一处漏两处时会出现"改了没生效"）。
-      feishuMask: feishuMask(),
-      // 私密通道（验证码 + 持仓，只发本人）：打码地址 + 是否启用。
-      // 面板据此显示"私密通道：19e1****64f1 / 未配置"——没配就该明说，否则用户以为已经私密了。
-      feishuSecMask: feishuSecMask(),
-      feishuSecReady: feishuSecReady(),
-      mailReady: mailReady(),
-      probThreshold: probThreshold(),
-      // 推送节流器状态：让你看见"今天还剩多少名额"，而不是收到轰炸却不知道为什么。
-      // ⛔ 2026-10-07：这一份原先内联在这里，而「📋 推送流水」那个弹窗想显示同样的东西 ——
-      //    再抄一份就是同一份状态两处各算一遍（改一处漏一处时两边数字对不上）。
-      //    抽成 pushGovStat()，/api/state 与 /api/push-log 都调它。
-      pushGov: pushGovStat(),
-      stateCut: stateCut(),
-      probKind: probKindState(),
-      // ⛔ dv 轮：静默跳过的账要出得去 —— 面板才能回答"为什么今天只有 3 只"
-      //    （而不是让用户对着空白栏猜）。skipStat=全站淘汰统计，empSkip=命中率分母的存活率。
-      skipStat: skipState(), empSkip: empSkipStat(),
-      // mirror=true 表示这台实例是副本：模拟盘不在这儿跑，展示的是从线上同步过来的那份。
-      // ⛔ 必须让用户看得见 —— 否则副本上"模拟盘一动不动"会被当成坏了。
-      paper: _stEdit ? { pool: mkPaper('pool'), pre: mkPaper('pre'), mirror: isReplica() } : { hidden: true, pool: null, pre: null },
-      badNews: { time: D.news.time, riskSnapshot:newsRiskSnapshotView(), items: visibleNews.badAll.slice(0, 20).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })), codes: [...new Set(visibleNews.badAll.flatMap(x=>x.codes||[]))].slice(0, 60), sectors: badSectorsAll },
-      goodNews: {
-        time: D.news.time, riskSnapshot:newsRiskSnapshotView(),
-        items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
-        hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
-        hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
-      },
-      // ⛔ 连板接力数据属私密策略，只读（观看）权限不可查看
-      yier: _stEdit ? (D.yierYesterday || null) : { hidden: true },
-      lianban: _stEdit ? (D.lianbanYesterday || null) : { hidden: true },
-      // ⛔ 一进二 / 连板接力卡片的完整候选（2026-10-08）：含主线强度与板块联动，供面板独立卡片渲染
-      yierList: _stEdit ? (D.yierList || []) : [],
-      lianbanList: _stEdit ? (D.lianbanList || []) : [],
-      // ⛔ gb 轮：卡片是**哪一天算的**必须一并下发。用户要求跨日保留到次日 9:20 前，
-      //    那就得让用户一眼看见"这是 10-09 收盘的结论"，否则「保留」就成了拿昨天的冒充今天的。
-      yierAsOf: D.yierAsOf || '',
-      lianbanAsOf: D.lianbanAsOf || '',
-      // kd 轮：本地副本心跳状态。线上实例能据此判断用户本机是否在线，从而快速定位"刷新不及时"是不是本地服务没起。
-      ...replicaHeartbeatState()
-    });
+    return json(res, marketCardState('state',buildDashboardState(isEditorReq(req,''))));
   }
   // V6 参考图首页四大指数：使用腾讯公开行情快照；缺失/异常时返回 unavailable，绝不填充演示数字。
   if (p === '/api/reference-indexes') {
@@ -22883,7 +22906,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // 手机速览页 /m 的精简数据源：只下发「一眼结论」所需字段（几十 KB 内）。
   // ⛔ 复用 /api/state 同源数据，不新写聚合口径（见 buildMobileDigest 注释）。
   if (p === '/api/mobile-digest') {
-    return json(res, buildMobileDigest(isEditorReq(req, '')));
+    return json(res, marketCardState('mobile',buildMobileDigest(isEditorReq(req, ''))));
   }
   // 手机速览页「量化选股」卡片数据源。
   // ⛔ js 轮（2026-10-22，用户原话「把这个上面的功能设置成只读也可见」+截图）：量化选股/竞价共振
@@ -22905,6 +22928,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
     const board = ['main', 'gem'].includes(u.searchParams.get('board')) ? u.searchParams.get('board') : 'all';
+    if(retainMarketCardResponse(res,'quant',board,max))return json(res,closedMarketCard('quant',board,max));
     const frozen = !marketDisplaySession().trading ? marketResponseSnapshots.read('quant',board,{max}) : null;
     if(frozen)return json(res,frozen);
     (async () => {
@@ -22922,6 +22946,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
     const board = ['main', 'gem'].includes(u.searchParams.get('board')) ? u.searchParams.get('board') : 'all';
+    if(retainMarketCardResponse(res,'auction',board,max))return json(res,closedMarketCard('auction',board,max));
     const frozen = !marketDisplaySession().trading ? marketResponseSnapshots.read('auction',board,{max}) : null;
     if(frozen)return json(res,frozen);
     (async () => {
@@ -22959,6 +22984,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // lx：「涨停前发现」模块——仅开发者可见（用户明确要求仅自己可见，只读返回 locked）
   if (p === '/api/preseal') {
     if (!isEditorReq(req)) return json(res, { locked: true, note: '仅开发者可见' });
+    if(retainMarketCardResponse(res,'preseal'))return json(res,closedMarketCard('preseal','all'));
     try { json(res, presealAggregate()); } catch (e) { json(res, { items: [], note: '计算失败：' + (e && e.message) }); }
     return;
   }
@@ -22966,6 +22992,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
     const board = ['main', 'gem'].includes(u.searchParams.get('board')) ? u.searchParams.get('board') : 'all';
+    if(retainMarketCardResponse(res,'intraday',board,max))return json(res,closedMarketCard('intraday',board,max));
     (async () => {
       try { const d = await intradayStrongScan({ force, max, board }); if (d && !d.locked) d.sentinel = (S.ztSentLog || []).filter(x => isMainBoardCode(x.code)).slice(0, 12);  // 哨兵动态只留主板（60/000/001/002/003）
         json(res, d); }
@@ -22980,6 +23007,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const force = (u.searchParams.get('force') === '1') || (req.method === 'POST');
     const max = Math.min(30, Math.max(1, +(u.searchParams.get('max') || 12)));   // kt：默认展示 10→12 治池小
     const board = ['main', 'gem'].includes(u.searchParams.get('board')) ? u.searchParams.get('board') : 'all';
+    if(retainMarketCardResponse(res,'wash',board,max))return json(res,closedMarketCard('wash',board,max));
     (async () => {
       try {
         let d = await washTrendScan({ force, max, board });
@@ -23031,7 +23059,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       });
     }
     // 只读点「全部刷新」时自动降级：只跑行情类模块，不越权碰写类模块
-    const _want = (m) => (mod === 'all' || mod === m) && (_rfEdit || ED_MODS.indexOf(m) < 0);
+    const frozenCards=!marketDisplaySession().trading;
+    const frozenModules=new Set(['global','ext','auction','sectors','pool','bigmoney','abmove','nextplan','myrules','pre']);
+    if(frozenCards&&frozenModules.has(mod))return json(res,{ok:true,marketFrozen:true,note:'休市读取已保存的盘中卡片；复盘、一进二和二进三可独立更新'});
+    const _want = (m) => (mod === 'all' || mod === m) && (!frozenCards||!frozenModules.has(m)) && (_rfEdit || ED_MODS.indexOf(m) < 0);
     const tasks = [];
     // ⛔ 2026-10-06：这里原来是**裸调用**，完全绕开了防重入的 guard()。
     //   定时器那一路是 `setInterval(guard(name, fn))`，有锁；而面板点🔄走的是这条接口，
