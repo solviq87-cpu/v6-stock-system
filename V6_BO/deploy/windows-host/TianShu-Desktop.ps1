@@ -16,7 +16,13 @@ function Assert-Launcher {
     if (-not (Test-Path -LiteralPath (Join-Path $installed 'source.json'))) { throw '安装来源清单缺失。' }
 }
 function Run-Host([ValidateSet('Start','Stop','Status','Open','Update','NetworkStatus')][string]$Action) {
-    $output=@(& $exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $control -Action $Action 2>&1)
+    $distro='Ubuntu-24.04'
+    $distroConfig=Join-Path $env:LOCALAPPDATA 'TianShuV6\WSLDistribution.txt'
+    if(Test-Path -LiteralPath $distroConfig -PathType Leaf) {
+        $distro=([IO.File]::ReadAllText($distroConfig)).Trim()
+        if($distro -notin @('Ubuntu-24.04','Ubuntu')) { throw 'Ubuntu 安装位置记录无效，拒绝操作其他账户。' }
+    }
+    $output=@(& $exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $control -Action $Action -Distribution $distro 2>&1)
     $code=$LASTEXITCODE
     $row=@($output | ForEach-Object { [string]$_ } | Where-Object { $_.TrimStart().StartsWith('{') } | Select-Object -Last 1)
     $result=$null
@@ -88,7 +94,7 @@ Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $form=New-Object Windows.Forms.Form
 $form.Text='天枢智策 V6 · 本机服务器'
-$form.Size=New-Object Drawing.Size(550,455)
+$form.Size=New-Object Drawing.Size(550,545)
 $form.MinimumSize=$form.Size
 $form.MaximumSize=$form.Size
 $form.StartPosition='CenterScreen'
@@ -125,19 +131,20 @@ $open=Button '打开应用' 192 150 155
 $stop=Button '停止服务器' 360 150 155
 $refresh=Button '检查运行状态' 24 207 239
 $update=Button '检查更新（不安装）' 276 207 239
+$setup=Button '首次安装 / 自动检测所需环境' 24 268 491
 $auto=New-Object Windows.Forms.CheckBox
 $auto.Text='登录 Windows 后自动启动（不需要再输入命令）'
-$auto.Location=New-Object Drawing.Point(24,275)
+$auto.Location=New-Object Drawing.Point(24,330)
 $auto.Size=New-Object Drawing.Size(490,32)
 $form.Controls.Add($auto)
 $note=New-Object Windows.Forms.Label
 $note.Text='不会自动更新、覆盖账户、启动模拟交易或暴露公网端口。'
-$note.Location=New-Object Drawing.Point(24,323)
+$note.Location=New-Object Drawing.Point(24,389)
 $note.Size=New-Object Drawing.Size(490,28)
 $form.Controls.Add($note)
 $foot=New-Object Windows.Forms.Label
 $foot.Text='手机访问需另行配置私网 HTTPS；电脑关机后后台不可用。'
-$foot.Location=New-Object Drawing.Point(24,366)
+$foot.Location=New-Object Drawing.Point(24,435)
 $foot.Size=New-Object Drawing.Size(490,28)
 $form.Controls.Add($foot)
 function Refresh-State {
@@ -148,6 +155,7 @@ function Refresh-State {
     $start.Enabled=($state.State -eq 'stopped')
     $stop.Enabled=($state.State -eq 'running')
     $open.Enabled=($state.State -eq 'running')
+    $setup.Enabled=(Test-Path -LiteralPath (Join-Path $installed 'TianShu-FirstRun.ps1') -PathType Leaf)
 }
 function Run-Button([string]$Action) {
     $form.UseWaitCursor=$true
@@ -169,6 +177,15 @@ $update.Add_Click({
     if (Run-Button 'Update') {
         [Windows.Forms.MessageBox]::Show('只读更新检查完成，程序不会自动安装。','天枢智策','OK','Information') | Out-Null
     }
+})
+$setup.Add_Click({
+    $wizard=Join-Path $installed 'TianShu-FirstRun.ps1'
+    if(-not (Test-Path -LiteralPath $wizard -PathType Leaf)) {
+        [Windows.Forms.MessageBox]::Show('安装助手文件缺失，原有数据不会重置。','天枢智策','OK','Warning') | Out-Null
+        return
+    }
+    & $exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File $wizard -Mode Setup
+    Refresh-State
 })
 $auto.Checked=Startup-IsOurs
 $auto.Add_CheckedChanged({
