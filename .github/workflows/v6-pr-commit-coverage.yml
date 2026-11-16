@@ -27,8 +27,8 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
-            const {audit} = require(process.env.GITHUB_WORKSPACE + '/V6_BO/scripts/verify-pr-commit-statuses.js');
-            const result=await audit({
+            const {auditUntilReady} = require(process.env.GITHUB_WORKSPACE + '/V6_BO/scripts/verify-pr-commit-statuses.js');
+            const result=await auditUntilReady({
               github, owner:context.repo.owner, repo:context.repo.repo,
               pr:context.payload.pull_request
             });

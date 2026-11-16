@@ -4,6 +4,7 @@ const CONTEXT='v6/per-commit-smoke', MAX_COMMITS=32;
 const REPO='solviq87-cpu/v6-stock-system';
 const HASH=/^[a-f0-9]{40}$/;
 function ensure(condition,message){if(!condition)throw new Error(message);}
+function pending(message){throw Object.assign(new Error(message),{retryable:true});}
 function parseRunUrl(value){
  const match=/^https:\/\/github\.com\/solviq87-cpu\/v6-stock-system\/actions\/runs\/([1-9][0-9]*)\/attempts\/([1-9][0-9]*)$/.exec(value||'');
  if(!match)return null;
@@ -37,16 +38,19 @@ async function audit({github,owner,repo,pr}){
      const raw=await github.rest.repos.listCommitStatusesForRef({owner,repo,ref:sha,per_page:100,page:1});
      ensure(raw.data.length<100,'status-pagination-not-covered:'+sha.slice(0,12));
      const record=statusCandidate(raw.data);
-     ensure(record&&record.state==='success','missing-or-failed-smoke-status');
+     if(!record)pending('missing-smoke-status');
      ensure(record.creator?.login==='github-actions[bot]','unexpected-status-source');
      const runRef=parseRunUrl(record.target_url);
      ensure(runRef,'untrusted-status-run-link');
+     if(record.state==='pending')pending('smoke-status-pending');
+     ensure(record.state==='success','failed-smoke-status');
      const key=runRef.run_id+'/'+runRef.attempt_number;
      let saved=cache.get(key);
      if(!saved){
        const run=(await github.rest.actions.getWorkflowRun({owner,repo,run_id:runRef.run_id})).data;
-       ensure(run.name==='V6 Per-Commit Smoke'&&run.conclusion==='success'&&run.status==='completed'&&
-              run.head_repository?.full_name===REPO,'unverified-smoke-run');
+       ensure(run.name==='V6 Per-Commit Smoke'&&run.head_repository?.full_name===REPO,'unverified-smoke-run');
+       if(['queued','in_progress','waiting','pending','requested'].includes(run.status))pending('smoke-run-pending');
+       ensure(run.conclusion==='success'&&run.status==='completed','unverified-smoke-run');
        const result=(await github.rest.actions.listJobsForWorkflowRunAttempt({
          owner,repo,run_id:runRef.run_id,attempt_number:runRef.attempt_number,per_page:100,page:1
        })).data;
@@ -59,8 +63,25 @@ async function audit({github,owner,repo,pr}){
      ensure(matching.length===1&&matching[0].status==='completed'&&matching[0].conclusion==='success'&&
             evidence.length===1&&evidence[0].conclusion==='success','specific-sha-job-unverified');
      good.push(sha);
-   }catch(err){bad.push({sha:sha.slice(0,12),reason:String(err.message||err).slice(0,160)});}
+   }catch(err){bad.push({sha:sha.slice(0,12),reason:String(err.message||err).slice(0,160),retryable:err.retryable===true});}
+ }
+ if(!bad.length){
+   const current=(await github.rest.pulls.get({owner,repo,pull_number:pr.number})).data;
+   ensure(current.head?.sha===pr.head.sha&&current.base?.sha===pr.base?.sha,'pr-head-or-base-changed');
  }
  return {ok:bad.length===0,head:pr.head.sha,checked:n,passed:good.length,failures:bad};
 }
-module.exports={audit,statusCandidate,parseRunUrl,CONTEXT,MAX_COMMITS};
+// A pull_request event can arrive before its concurrent push smoke publishes
+// evidence. Wait only for evidence that is absent or explicitly still running;
+// terminal failures and invalid identities are never hidden by an older receipt.
+async function auditUntilReady({maxAttempts=21,pollIntervalMs=15000,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),...options}){
+ ensure(Number.isSafeInteger(maxAttempts)&&maxAttempts>=1&&maxAttempts<=21,'invalid-coverage-attempt-limit');
+ ensure(Number.isSafeInteger(pollIntervalMs)&&pollIntervalMs>=0&&pollIntervalMs<=15000&&typeof wait==='function','invalid-coverage-wait');
+ for(let attempt=1;attempt<=maxAttempts;attempt++){
+   const result=await audit(options);
+   if(result.ok||result.failures.some(failure=>!failure.retryable))return {...result,attempts:attempt};
+   if(attempt===maxAttempts)return {...result,attempts:attempt,timedOut:true};
+   await wait(pollIntervalMs);
+ }
+}
+module.exports={audit,auditUntilReady,statusCandidate,parseRunUrl,CONTEXT,MAX_COMMITS};

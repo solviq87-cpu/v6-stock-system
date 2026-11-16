@@ -5,6 +5,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
 const publicRoot=path.resolve(__dirname,'../public');
+const releaseVersion=fs.readFileSync(path.join(publicRoot,'nova/index.html'),'utf8').match(/<meta name="application-version" content="([^"]+)"/)[1];
 const output=process.env.FAYO_QA_DIR||process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-browser-'));
 fs.mkdirSync(output,{recursive:true});
 const sourceAt=Date.parse('2026-11-13T07:00:00Z');
@@ -24,7 +25,7 @@ function state(){
 }
 function respond(url,req,body){
  const p=url.pathname;
- if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:'20261115dc'};
+ if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
  if(p==='/api/state'||p==='/api/mobile-digest')return state();

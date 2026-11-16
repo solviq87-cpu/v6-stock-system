@@ -13,7 +13,8 @@ const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '../public');
 const output = process.env.V6_UI_QA_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'v6-original-ui-'));
 fs.mkdirSync(output, {recursive:true});
-const version = fs.readFileSync(path.join(root, 'sw.js'), 'utf8').match(/APP_VER\s*=\s*'([^']+)/)[1];
+// This fixture serves the retained legacy documents, whose bytes/version stay frozen.
+const version = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').match(/APP_VER\s*=\s*'([^']+)/)[1];
 const quoteAt = Date.parse('2026-11-13T07:00:00.000Z');
 const dashboard = {
   observedAt:Date.now(), indexObservedAt:quoteAt,
