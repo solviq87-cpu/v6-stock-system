@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const net = require('node:net');
 const http = require('node:http');
-const {createFixture}=require('./helpers/v6-studio-fixture');
+const {createOpenFixture:createFixture}=require('./helpers/v6-studio-fixture');
 const crypto=require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');

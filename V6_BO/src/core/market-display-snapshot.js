@@ -52,9 +52,10 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
     try {if(rawSourceDay&&isSessionDay(rawSourceDay))sourceDay=rawSourceDay;} catch {}
     // A retained provider quote can seed an old installation, but cannot replace
     // Friday's durable snapshot with a weekend recomputation or a Sunday receipt.
-    const replaceCurrent=openDay&&sourceDay===today;
+    const liveWindow=require('./closing-card-snapshot').beforeClose(now);
+    const replaceCurrent=openDay&&liveWindow&&sourceDay===today;
     const fillClosed=saved?.day===sourceDay&&MARKET_FIELDS.some(key=>!populated(saved.fields[key])&&populated(state[key]));
-    const canCapture=sourceDay && sourceDay<=today && ((!saved || saved.day<sourceDay) || replaceCurrent || fillClosed);
+    const canCapture=sourceDay && sourceDay<=today && ((!saved || saved.day<sourceDay&&replaceCurrent) || replaceCurrent || fillClosed&&!openDay);
     if(canCapture) {
       const previous=saved?.day===sourceDay?saved.fields:{};
       const fields={...previous},fieldDays=saved?.day===sourceDay?{...saved.fieldDays}:{};
@@ -70,7 +71,7 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
     }
     // A failed/throttled write still needs to be retried after the market closes,
     // when another capture may never be admitted for this original quote day.
-    if(file && dirty && (fillClosed || now-lastWrite>=30000)) {
+    if(file && dirty && (!liveWindow || fillClosed || now-lastWrite>=30000)) {
       const temp=file+'.'+process.pid+'.tmp';
       try {
         fs.mkdirSync(path.dirname(file),{recursive:true});
@@ -88,7 +89,7 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
           (retained || ((!sourceDay || sourceDay===saved.day) && !populated(state[key])))) fields[key]=safe(saved.fields[key]);
       return {state:{...state,...fields},mood:retained?safe(saved.mood):mood,
         meta:{trading,isSnapshot:retained,snapshotRetained:retained,snapshotDay:saved.day,
-          snapshotCapturedAt:saved.capturedAt,snapshotFieldDays:{...saved.fieldDays},snapshotSource:'last-valid-provider-quotes',canTrade:false}};
+          snapshotCapturedAt:saved.capturedAt,snapshotFieldDays:{...saved.fieldDays},snapshotSource:'last-valid-provider-quotes',marketFrozen:retained,canTrade:false}};
     }
     return {state,mood,meta:{trading,isSnapshot:!trading,snapshotRetained:false,snapshotDay:sourceDay,
       snapshotCapturedAt:null,snapshotSource:sourceDay?'provider-quotes':'unavailable',canTrade:false}};

@@ -1,9 +1,9 @@
 // Only the public application shell is available offline. Private responses and
 // market prices must always come from the server, including after revocation.
-const APP_VER = '20261116ab';
+const APP_VER = '20261116ac';
 const CACHE_PREFIX = 'quant-dashboard-m-';
 const CACHE_NAME = CACHE_PREFIX + APP_VER;
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261116ab', '/nova/app.js?v=20261116ab', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js'];
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261116ac', '/nova/app.js?v=20261116ac', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))

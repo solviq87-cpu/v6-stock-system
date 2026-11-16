@@ -42,3 +42,6 @@ V6_BO/data/v6-matches-display-snapshot.json.*.tmp
 
 # Private manual execution/review journal (never a public account replica).
 V6_BO/data/manual-decision-loop/
+
+# Server-owned market card display snapshot; not source or account authority.
+V6_BO/data/closing-card-snapshots.json

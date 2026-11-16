@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {createPanelRefreshPolicy,INTERVALS}=require('../src/core/panel-refresh-policy');
-const {createFixture}=require('./helpers/v6-studio-fixture');
+const {createOpenFixture:createFixture}=require('./helpers/v6-studio-fixture');
 const root=path.resolve(__dirname,'..'),source=fs.readFileSync(path.join(root,'server.js'),'utf8');
 
 test('panel recollection reserves one process-wide start per module and retains a conservative rollback interval',()=>{

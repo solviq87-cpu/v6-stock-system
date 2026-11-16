@@ -3,7 +3,7 @@
 // Legacy recovery regression; not current FAYO product acceptance.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {chromium}=require('playwright');
-const {createFixture}=require('../tests/helpers/v6-studio-fixture');
+const {createOpenFixture:createFixture}=require('../tests/helpers/v6-studio-fixture');
 const out=process.env.V6_STUDIO_BROWSER_OUTPUT||fs.mkdtempSync(path.join(os.tmpdir(),'studio-browser-'));
 fs.mkdirSync(out,{recursive:true});
 const report={scope:'Legacy recovery regression; not current product acceptance',syntheticFixtures:true,realBrowser:'Chromium',originalReferenceCertified:false,physicalDeviceCertified:false,checks:[],requests:[],screenshots:[]};

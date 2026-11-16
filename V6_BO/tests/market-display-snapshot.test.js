@@ -2,7 +2,7 @@
 const test=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {createMarketDisplaySnapshot,originalQuoteDay}=require('../src/core/market-display-snapshot');
-const friday=Date.parse('2026-11-13T15:02:00+08:00'),sunday=Date.parse('2026-11-15T20:00:00+08:00');
+const friday=Date.parse('2026-11-13T14:58:00+08:00'),sunday=Date.parse('2026-11-15T20:00:00+08:00');
 function fixture(t){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-display-snapshot-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const file=path.join(dir,'snapshot.json');let now=friday;
