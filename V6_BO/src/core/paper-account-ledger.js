@@ -7,6 +7,26 @@ const { acquireProcessLock, releaseProcessLock } = require('./process-file-lock'
 const {fillEvidenceOf}=require('./paper-fill-evidence');
 const hash = x => crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const money = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+function validateAccount(account) {
+  if (!plain(account) || account.schemaVersion !== 1 || !Number.isFinite(account.cash) || account.cash < 0 ||
+      !plain(account.positions) || !Array.isArray(account.events) || !plain(account.eventHashes))
+    throw new Error('账户账本结构无效');
+  if (account.fingerprint !== hash({ cash: account.cash, positions: account.positions, events: account.events }))
+    throw new Error('账户账本指纹校验失败');
+  // Keep the historical fingerprint format, but never trust a detached retry
+  // index: losing an entry must not let recovery debit the same fill twice.
+  const ids = new Set();
+  for (const event of account.events) {
+    const id = event?.eventId;
+    if (typeof id !== 'string' || !id || ids.has(id) ||
+        !Object.hasOwn(account.eventHashes, id) || !/^[a-f0-9]{64}$/.test(account.eventHashes[id]))
+      throw new Error('账户成交事件与幂等索引不一致');
+    ids.add(id);
+  }
+  if (Object.keys(account.eventHashes).length !== ids.size)
+    throw new Error('账户成交事件与幂等索引不一致');
+}
 function atomicWrite(file, value, faultInjector) {
   const dir = path.dirname(file);
   const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`);
@@ -42,9 +62,8 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         const st = fs.lstatSync(file);
         if (st.isSymbolicLink() || !st.isFile() || st.size > 20 * 1024 * 1024) throw new Error('账户文件不安全');
         account = JSON.parse(fs.readFileSync(file, 'utf8'));
-      } catch (e) { if (e.code !== 'ENOENT') throw e; account = { schemaVersion: 1, cash: 0, positions: {}, events: [], eventHashes: {} }; }
-      if (account.schemaVersion !== 1 || !Number.isFinite(account.cash) || account.cash < 0 || !account.positions || !Array.isArray(account.events)) throw new Error('账户账本结构无效');
-      if (account.fingerprint && account.fingerprint !== hash({ cash: account.cash, positions: account.positions, events: account.events })) throw new Error('账户账本指纹校验失败');
+      } catch (e) { if (e.code === 'ENOENT') throw new Error('账户账本缺失，拒绝自动重建'); throw e; }
+      validateAccount(account);
       const eventHash = hash({ orderId: order.orderId, fill, tradeDate });
       if (account.eventHashes[fill.eventId]) {
         if (account.eventHashes[fill.eventId] !== eventHash) throw new Error('成交事件ID冲突');
@@ -97,8 +116,7 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
     const st = fs.lstatSync(file);
     if (st.isSymbolicLink() || !st.isFile() || st.size > 20 * 1024 * 1024) throw new Error('账户文件不安全');
     const a = JSON.parse(fs.readFileSync(file, 'utf8'));
-    const fp = hash({ cash: a.cash, positions: a.positions, events: a.events });
-    if (a.fingerprint !== fp) throw new Error('账户账本指纹校验失败');
+    validateAccount(a);
     return { ...a, paperOnly: true, brokerConnected: false };
   }
   return Object.freeze({ transact, read });

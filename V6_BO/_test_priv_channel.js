@@ -5,7 +5,7 @@
 //   所以这两类消息（都是 opts.private）统一走 feishuSecWebhook，只发给本人：
 //     · 验证码：不再落到群里被围观
 //     · 持仓：私密了才把成本/金额/股数写出来，没配则照旧脱敏（绝不泄露到群里）
-//   没配私密通道 = 完全退回老行为，一行都不许变（不许把没配的部署弄成推不出去）。
+//   当前安全政策：私密缺失、拒绝或超时均不改发公共通道，必须如实报告未送达。
 const fs = require('fs'), path = require('path');
 const SRC = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
 const HSRC = fs.readFileSync(path.join(__dirname, 'holdings.js'), 'utf8');
@@ -108,7 +108,7 @@ function grabConst(name, src) {
   throw new Error('未闭合 const ' + name);
 }
 
-const SEC_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/19e12011-9cf9-4322-b5b2-59409d2b64f1';
+const SEC_URL = 'https://open.feishu.cn/open-apis/bot/v2/hook/00000000-0000-4000-8000-000000000002';
 
 console.log('① 私密通道识别（未配置 / 合法 / 非法 / 打码）');
 {
@@ -125,8 +125,8 @@ console.log('① 私密通道识别（未配置 / 合法 / 非法 / 打码）');
   api = mk({ config: { feishuSecWebhook: SEC_URL } });
   ok(api.feishuSecReady() === true, '配置合法地址 → 启用私密通道');
   ok(api.privReady() === true, 'privReady=true（持仓据此敢写金额）');
-  ok(api.feishuSecId() === '19e12011-9cf9-4322-b5b2-59409d2b64f1', '机器人 id 解析正确', api.feishuSecId());
-  ok(api.feishuSecMask() === '19e1****64f1', '⛔ 打码只露首尾4位（面板可见但不泄露完整地址）', api.feishuSecMask());
+  ok(api.feishuSecId() === '00000000-0000-4000-8000-000000000002', '机器人 id 解析正确', api.feishuSecId());
+  ok(api.feishuSecMask() === '0000****0002', '⛔ 打码只露首尾4位（面板可见但不泄露完整地址）', api.feishuSecMask());
 
   api = mk({ config: { feishuSecWebhook: 'https://example.com/not-a-bot' } });
   ok(api.feishuSecReady() === false, '非法地址 → 不启用（不能拿错地址当通道，否则码和持仓都丢）');
@@ -137,21 +137,21 @@ console.log('\n② 验证码：必须优先走私密通道，且绝不再落群'
 {
   const fn = grabFn('pushVerifyCode');
   const iSec = fn.indexOf('feishuProbe(feishuSecId');
-  const iAll = fn.indexOf('pushAll(secText');
+  const iUnavailable = fn.indexOf('if (!feishuSecReady())');
   ok(/feishuSecReady\(\)/.test(fn), '判据用 feishuSecReady()');
   ok(iSec >= 0, '用 feishuProbe 直投私密机器人（不经过群机器人队列）');
-  ok(iAll >= 0, '保留 pushAll 退回分支（私密不通也要把码送到本人手上）');
-  ok(iSec >= 0 && iSec < iAll, '⛔ 私密分支在退回分支之前（私密优先）');
+  ok(!/\bpushAll\s*\(/.test(fn), '⛔ 验证码绝不通过公共推送兜底');
+  ok(iUnavailable >= 0 && iUnavailable < iSec && /onDelivery\('unavailable'\)/.test(fn), '私密缺失先拒发并报告不可用');
   ok(fn.indexOf('isReplica()') >= 0 && fn.indexOf('isReplica()') < iSec,
     '副本拦截仍排在私密通道之前（副本一律不往手机外发，2026-10-02 老规矩不能破）');
-  const seg = fn.slice(fn.indexOf('if (feishuSecReady())'), iAll);
-  ok(/return;/.test(seg), '⛔ 走私密通道时直接 return，绝不再落到群机器人');
+  ok(/onDelivery\(status\)/.test(fn) && /onDelivery\('unknown'\)/.test(fn) && /return true;/.test(fn),
+    '私密发送返回实际接受/失败/未知回执，绝不伪造送达');
 }
 
 console.log('\n③ pushAll 路由：opts.private 命中私密通道');
 {
   const fn = grabFn('pushAll');
-  const iPriv = fn.indexOf('opts.private && privReady()');
+  const iPriv = fn.indexOf('if (opts && opts.private) {');
   const iGate = fn.indexOf('msgGate(');
   const iQuiet = fn.indexOf('inQuietHours()');
   // ⚠️ 锚点不能用 indexOf('feishuSend(text')：私密分支【内部】就有一条退回用的 feishuSend，
@@ -163,11 +163,11 @@ console.log('\n③ pushAll 路由：opts.private 命中私密通道');
   ok(iPriv > iQuiet, '⛔ 仍排在夜间静默之后（私密化不许顺手绕过静默）');
   ok(iPriv < iFs, '⛔ 排在群机器人发送之前（先被私密截走）', iPriv + ' < ' + iFs);
   const seg = fn.slice(iPriv, iFs);
-  ok(/feishuProbe\(feishuSecId\(\)/.test(seg), '私密分支用 feishuProbe 直投');
+  ok(/feishuSendPrivate\(text/.test(seg), '私密分支走现行私密发送队列');
   ok(!/qqMail/.test(seg), '⛔ 私密分支不发邮箱（成本/金额不该再复制一份到邮箱）');
-  ok(/return;\s*\}/.test(seg) || seg.lastIndexOf('return;') > seg.lastIndexOf('feishuSend'), '⛔ 私密分支 return，不再往下走群机器人+邮箱');
-  ok(/feishuSend\(text/.test(seg), '私密通道失败时退回群机器人（本人一定能收到，不至于永久锁死）');
-  ok(!/inManualPush\(\)/.test(fn.slice(iPriv).split('return;')[0]) || true, '（提示）手动推送上下文仍生效');
+  ok(/return true;\s*\/\//.test(seg), '⛔ 私密分支接管后返回，不再往下走群机器人+邮箱');
+  ok(!/\bfeishuSend\s*\(/.test(seg) && /禁止退回公共群/.test(seg), '⛔ 私密通道失败或未知均禁止公共兜底');
+  ok(/manual:_manual/.test(seg) && /inManualPush\(\)/.test(fn), '手动推送上下文传递到现行私密队列');
 }
 
 console.log('\n④ 持仓推送：私密才写金额，没配必须继续脱敏');
@@ -244,9 +244,9 @@ console.log('\n⑦ 行尾与版本');
   ok(!/\r/.test(HSRC), 'holdings.js 无 CRLF');
   const v = (SRC.match(/APP_VER = '([^']+)'/) || [])[1];
   ok(/^\d{8}[a-z]{2}$/.test(v || ''), '版本号格式正常', v);
-  const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  const hv = (html.match(/APP_VER = '([^']+)'/) || [])[1];
-  ok(v === hv, '⛔ 两端 APP_VER 必须一致（不一致=无限 reload）', v + ' vs ' + hv);
+  const html = fs.readFileSync(path.join(__dirname, 'public', 'nova', 'index.html'), 'utf8');
+  const hv = (html.match(/name="application-version" content="([^"]+)"/) || [])[1];
+  ok(v === hv, '⛔ 当前双端正式FAYO入口版本必须与服务端一致', v + ' vs ' + hv);
 }
 
 console.log(`\n──── 结果：${pass} 通过 / ${fail} 失败 ────`);

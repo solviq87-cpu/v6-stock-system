@@ -20,11 +20,11 @@ jobs:
       statuses: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Check exact PR head against each real per-SHA test result
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const {audit} = require(process.env.GITHUB_WORKSPACE + '/V6_BO/scripts/verify-pr-commit-statuses.js');

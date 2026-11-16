@@ -10906,28 +10906,30 @@ async function computeMyRules(limitN) {
 
 // 竞价分时缓存（按日）：⑦⑭ 用。东财限流时 fetchAuctionTicks 会抛错 → 失败不缓存（15 分钟内重试），
 // 避免把"限流没拉到"永久当成"缺数据"（那样 ⑦⑭ 整片变 unknown）。
-async function auctionTicksFor(code) {
+async function auctionTicksFor(code, targetTradeDate = NP.localDate()) {
   const cache = S.auctionTicks || (S.auctionTicks = {});
-  const ds = NP.localDate();
+  const normalizeDate = value => /^\d{8}$/.test(String(value))
+    ? String(value).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3') : value;
+  const ds = normalizeDate(targetTradeDate);
+  if (typeof ds !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ds) || !Number.isFinite(Date.parse(ds)) ||
+      new Date(ds).toISOString().slice(0,10) !== ds || ds > new Date(Date.now() + 28800000).toISOString().slice(0,10)) return null;
   const hit = cache[code];
-  // ⛔⛔ 2026-10-29 修（失败缓存无 TTL → 竞价窗内首次失败=当日全灭）：
-  //    旧写法 `if (hit && hit.date === ds) return hit.ok ? hit.data : null;` 排在 failAt 判据**之前**，
-  //    而同一天失败必定 hit.date === ds → 后面那条 15 分钟重试窗**永远走不到**（死代码）。
-  //    实测后果：9:20(phase 2) 那一轮只要有一只票拉分时失败，本轮缓存就锁死成 null，
-  //    9:25~9:30 唯一可信的那次抓取直接被判「分时不取 → 撤单陷阱判不出」，
-  //    当日 auction_log 里 ticks 全 null（10-28、10-29 连续两天实证）。
-  //    现在按 failAt 真 TTL 重试：成败都只在窗内静默，不额外加请求量。
-  if (hit && hit.date === ds) {
-    if (hit.ok) return hit.data;
-    if (hit.failAt && Date.now() - hit.failAt < 15 * 60 * 1000) return null;
-  }
+  // A successful historical session and a failed request for another day are
+  // separate evidence. Never relabel or discard Friday on a Monday failure.
+  if (hit && hit.ok && normalizeDate(hit.date) === ds && hit.data?.tradeDate === ds) return hit.data;
+  if (hit && hit.failedFor === ds && hit.failAt && Date.now() - hit.failAt < 15 * 60 * 1000) return null;
+  const failed = () => {
+    cache[code] = { ...(hit || {}), date: hit?.date || null, ok: hit?.ok === true,
+      data: hit?.data || null, failedFor: ds, failAt: Date.now() };
+    return null;
+  };
   try {
-    const d = await em.fetchAuctionTicks(code);
-    cache[code] = { date: ds, ok: !!d, data: d, failAt: d ? 0 : Date.now() };
+    const d = await em.fetchAuctionTicks(code, ds);
+    if (!d || d.tradeDate !== ds) return failed();
+    cache[code] = { date: d.tradeDate, ok: true, data: d, failedFor: null, failAt: 0 };
     return d;
   } catch (e) {
-    cache[code] = { date: ds, ok: false, data: null, failAt: Date.now() };
-    return null;
+    return failed();
   }
 }
 
@@ -18724,22 +18726,10 @@ function groupByIp(items) {
 // 旧版两个问题叠加：① 所有响应都带 ACAO:*；② 本机请求恒为管理员。
 // 于是用户浏览器里任何一个恶意网页都能用 text/plain 简单请求打本机 API
 // （包括在线改源码的接口），服务端看到 127.0.0.1 就放行 → 远程执行。
-// 规则：浏览器跨站请求必带 Origin/Referer，其主机名必须与 Host / X-Forwarded-Host
-//       一致（即同源）；不一致的 /api/ 请求直接 403。非浏览器客户端（curl/urllib，
+// 规则：浏览器 Origin/Referer 的协议、主机、端口必须匹配直接访问源或显式配置的
+//       QD_PUBLIC_URL/RENDER_EXTERNAL_URL；不采信客户端转发头，不一致的 /api/ 请求直接 403。非浏览器客户端（curl/urllib，
 //       不带 Origin）不受影响；CORS 头也只对同源 Origin 反射，不再 *。
-function _hostOnly(h) { return String(h || '').split(':')[0].toLowerCase(); }
-function sameOriginOk(req) {
-  const srcs = [req.headers.origin, req.headers.referer].filter(Boolean);
-  if (!srcs.length) return true;   // 非浏览器/直接输入网址：无来源头，放行
-  const allow = new Set([_hostOnly(req.headers.host), _hostOnly(req.headers['x-forwarded-host'])].filter(Boolean));
-  // 生产域名固定放行：云端反代的 Host/X-Forwarded-Host 写法再变，面板自己的同源请求也不会被误伤
-  try { allow.add(_hostOnly(new URL(process.env.QD_PUBLIC_URL || 'https://quant-dashboard-77614.app.workbuddy.host/').host)); } catch {}
-  for (const o of srcs) {
-    if (String(o).toLowerCase() === 'null') return false;   // file:// 或沙箱 iframe：拒
-    try { if (!allow.has(_hostOnly(new URL(o).host))) return false; } catch { return false; }
-  }
-  return true;
-}
+const { sameOriginOk, initialSetupAuthorized } = require('./src/server/request-security');
 
 // ── v 版：区分「手动触发」与「定时任务」的推送上下文 ──────────────────────
 // 场景：用户在本地面板点「立即巡检 / 手动推送」，副本实例却把它拦了 → 手机上毫无动静，
@@ -19411,10 +19401,11 @@ function bindPhone(num) {
   const n = normPhone(num);
   if (n.length < 7) return { ok: false, error: '手机号格式不正确' };
   const salt = crypto.randomBytes(16).toString('hex');
+  const previousAccessSecret = structuredClone(accessSecret);
   accessSecret = accessSecret || { devices: {} };
   // boundBy：'user' = 用户在面板里自己绑的，任何默认逻辑都不许再覆盖它
   accessSecret.phone = { salt, hash: crypto.scryptSync(n, salt, 32).toString('hex'), masked: phoneMasked(n), boundAt: new Date().toISOString(), boundBy: 'user' };
-  saveAccess();
+  if (!saveAccessOrRestore(previousAccessSecret)) return { ok: false, error: '找回手机号保存失败，本次改绑已回滚；原绑定与在途验证保持有效，请检查磁盘后重试。' };
   // 换号立即作废在途验证码/重置凭证，避免旧验证码在新号体系下继续可用
   try { _otp.clear(); } catch {}
   return { ok: true, masked: accessSecret.phone.masked };
@@ -19760,11 +19751,7 @@ function handle(req, res, u, body) {
   if (p === '/api/client-error') {
     let b = {};
     try { b = JSON.parse(body || '{}') || {}; } catch (e) {}
-    const msg = String(b.msg || '').slice(0, 500);
-    const stack = String(b.stack || '').slice(0, 4000);
-    const where = String(b.where || '').slice(0, 60);
-    const ua = String(b.ua || '').slice(0, 300);
-    const url = String(b.url || '').slice(0, 500);
+    const { msg, stack, where, ua, url } = require('./src/server/client-error-diagnostics').sanitizeClientError(b);
     if (msg || stack) {
       const line = JSON.stringify({ ts: Date.now(), t: new Date().toISOString(), msg, where, stack, ua, url }) + '\n';
       try {
@@ -21026,6 +21013,13 @@ function handle(req, res, u, body) {
   if (p === '/api/lock/setup' && req.method === 'POST') {
     let pwd = '', role = 'edit', tok = '';
     try { const b = JSON.parse(body || '{}'); pwd = (b.password || '').trim(); role = b.role === 'view' ? 'view' : 'edit'; tok = b.token; } catch {}
+    if (role === 'edit' && !hasDev()) {
+      let setupBody; try { setupBody = JSON.parse(body || '{}'); } catch {}
+      if (!initialSetupAuthorized(req, setupBody)) {
+        res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ ok: false, error: '首次设置需要私有初始化凭证', code: 'SETUP_AUTHORIZATION_REQUIRED' }));
+      }
+    }
     // ⛔ 2026-10-06 补：原来只有下界没有上界。上界不是为了安全偏好，而是为了绑住
     //    scryptSync 的开销（见 pwdOk 里的说明）—— 存进去一个超长口令，
     //    此后每一次登录校验都要在这段数据上做昂贵的派生，等于给自己埋了一个永久的卡死点。
@@ -21040,18 +21034,26 @@ function handle(req, res, u, body) {
       //    用户照着找只会找不到，最后以为这功能坏了。现在指向真实那颗按钮，并把代价讲清楚。
       if (hasView()) return json(res, { ok: false, error: '观看密码已存在；如需修改，请到登录框的锁面板「👁 观看」里点「🔑 设置 / 修改只读密码」（注意：会让已授权的只读设备全部失效并重新申请）' });
       const salt = crypto.randomBytes(16).toString('hex');
+      const previousAccessSecret = accessSecret ? JSON.parse(JSON.stringify(accessSecret)) : null;
       accessSecret = accessSecret || { devices: {} };
       accessSecret.view = { salt, hash: hashPwd(pwd, salt), setAt: new Date().toISOString(), devices: {}, pending: {}, gen: 0 };
-if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) return json(res, { ok: false, error: '写入失败' });
+      if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) {
+        accessSecret = previousAccessSecret;
+        return json(res, { ok: false, error: '写入失败' });
+      }
       return json(res, { ok: true, role: 'view', note: '观看密码已设置：只读、一次验证长期有效' });
     }
     if (hasDev()) return json(res, { ok: false, error: '密码已设置，请走解锁流程' });
     const salt = crypto.randomBytes(16).toString('hex');
+    const previousAccessSecret = accessSecret;
     const keepPhone = (accessSecret && accessSecret.phone) || null;
     accessSecret = { salt, hash: hashPwd(pwd, salt), setAt: new Date().toISOString(), devices: {}, view: (accessSecret && accessSecret.view) || null, phone: keepPhone, machineKey: (accessSecret && accessSecret.machineKey) || _runtimeMK || undefined, gen: Number((accessSecret && accessSecret.gen) || 0) };
     if (!accessSecret.view) delete accessSecret.view;
     if (!accessSecret.phone) delete accessSecret.phone;
-if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) return json(res, { ok: false, error: '写入失败' });
+    if (!atomicWrite(ACCESS_FILE, JSON.stringify(accessSecret))) {
+      accessSecret = previousAccessSecret;
+      return json(res, { ok: false, error: '写入失败' });
+    }
     // ⛔ 2026-10-07 补（本轮角度：对外承诺的时限要说清）：这条分支拿不到浏览器指纹（setup 不传 fp），
     //    所以**刻意不签长期设备令牌** —— 没有 fp 的台账条目就是「已授权设备（自动恢复）」占位，
     //    正是 cd 轮刚清掉的那类垃圾。代价是本次登录只有 1 小时：与其让用户一小时后莫名其妙
@@ -21135,6 +21137,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         }
       } catch {}
       const salt = crypto.randomBytes(16).toString('hex');
+      const previousAccessSecret = structuredClone(accessSecret);
       accessSecret = accessSecret || { devices: {} };
       // ⚠️ 重设观看密码 = 旧口令作废，之前放行过的只读设备也一并作废，必须重新走「开发者确认」。
       //    否则换了密码，老设备拿着旧令牌照样能进，等于没换。
@@ -21144,7 +21147,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       //    "内存里当场把旧哈希换掉、旧设备清空、世代 bump" —— 若这一步没写上磁盘，
       //    重启后旧密码直接复活、被作废的设备也跟着回来，而用户以为已经改掉了。
       //    这既是不一致，也是实打实的安全漏洞。以前 saveAccess() 的返回值没人看。
-      if (!saveAccess()) return json(res, { ok: false, error: '观看密码已在本次运行中更新，但没能写入 access.json —— 重启后会回到旧密码。请再点一次保存重试；若反复失败多为磁盘只读或空间不足。' });
+      if (!saveAccessOrRestore(previousAccessSecret)) return json(res, { ok: false, error: '观看密码保存失败，本次修改已回滚；原密码与设备授权保持有效，请检查磁盘后重试。' });
       return json(res, {
         ok: true, role: 'view',
         note: `观看密码已更新；${_oldN} 台已授权只读设备已全部作废，需重新申请并由你确认`
@@ -21152,12 +21155,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     }
     if (!checkToken(tok || req.__tok) || !pwdOk(pwd, 'edit')) return json(res, { ok: false, error: '验证失败' });
     const salt = crypto.randomBytes(16).toString('hex');
-    const oldDev = (accessSecret && accessSecret.devices) || {};
-    accessSecret = { salt, hash: hashPwd(npwd, salt), setAt: new Date().toISOString(), devices: {}, view: (accessSecret && accessSecret.view) || null, machineKey: (accessSecret && accessSecret.machineKey) || _runtimeMK || undefined, gen: _devGenBump('edit') };
+    const previousAccessSecret = structuredClone(accessSecret);
+    // Changing the editor password must retain recovery, revocation and viewer
+    // policy fields. Only the editor credential and device generation change.
+    accessSecret = { ...previousAccessSecret, salt, hash: hashPwd(npwd, salt), setAt: new Date().toISOString(), devices: {}, view: (accessSecret && accessSecret.view) || null, machineKey: (accessSecret && accessSecret.machineKey) || _runtimeMK || undefined, gen: _devGenBump('edit') };
     if (!accessSecret.view) delete accessSecret.view;
 
     //    这一步没落盘的话，重启后旧密码与旧令牌一并复活 —— 用户以为已经改掉，实际没有。
-    if (!saveAccess()) return json(res, { ok: false, error: '开发者密码已在本次运行中更新，但没能写入 access.json —— 重启后会回到旧密码、旧设备令牌也会复活。请再点一次保存重试；若反复失败多为磁盘只读或空间不足。' });
+    if (!saveAccessOrRestore(previousAccessSecret)) return json(res, { ok: false, error: '开发者密码保存失败，本次修改已回滚；原密码与设备授权保持有效，请检查磁盘后重试。' });
     // ⛔ 2026-10-07 补（本轮角度：对外承诺的时限要说清）：改口令会 bump 世代 + 清空已授权设备，
     //    这里同样拿不到指纹，所以只发 1 小时短令牌（理由同 setup 那条）。必须讲明白两件事：
     //    ① 其它设备已全部掉线，这是**预期行为**不是故障；② 本机这个登录也只有 1 小时。
@@ -21515,7 +21520,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     // ⚠️ revoked（已手动撤销过的令牌名单）必须接着传下去：自证令牌不查台账只验签名，
     //    名单一丢，被撤销过的旧令牌下次访问就会把自己"复活"回设备台账。
     const keepRevoked = (accessSecret && accessSecret.revoked) || null;
-    const previousAccessSecret = accessSecret;
+    const previousAccessSecret = structuredClone(accessSecret);
     accessSecret = {
       salt, hash: hashPwd(npwd, salt), setAt: new Date().toISOString(),
       devices: kick ? {} : keepDevices,
@@ -22367,6 +22372,8 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // ?force=1 可立即重扫一次（用于面板手动刷新/排查），不是定时器的替代品
   if (p === '/api/similar') {
     const force = !!(u.searchParams && u.searchParams.get('force') === '1');
+    // A forced scan also records samples and can send notifications.
+    if (force && !requireEditor(res, req.__tok, req)) return;
     const done = force ? scanSimilarPush() : Promise.resolve();
     // ⛔ 2026-10-06 修（本轮角度：报错必须给出能执行的下一步）：
     //    原来 `.catch(() => ...)` 把错误整个吞掉 —— 既不打日志也不回原因，

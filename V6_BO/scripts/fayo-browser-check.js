@@ -15,12 +15,12 @@ const candles=Array.from({length:900},(_,i)=>{
  return {date:date.toISOString().slice(0,10),open:10+i*.01,high:10.4+i*.01,low:9.8+i*.01,close:10.2+i*.01,volume:100000+i*10,amount:1200000+i*100};
 }).filter(row=>![0,6].includes(new Date(row.date+'T12:00:00Z').getUTCDay()));
 const indices=[['1.000001','上证指数',3210.12,.9],['0.399001','深证成指',10020.32,-.6],['0.399006','创业板指',2100.45,1.2],['1.000688','科创50',1020.4,.3]].map(([code,name,price,pct])=>({code,name,price,pct,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider'}));
-let phase='normal',role='edit',holdAnalysis=false,heldAnalysisReply=null;
+let phase='normal',role='edit',holdAnalysis=false,heldAnalysisReply=null,holdMarks=false,heldMarksReply=null;
 const requests=[],resources=[];
 function state(){
  const rows=phase==='empty'?[]:stocks;
- const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
- return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{items:[]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
+ return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{items:[]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 function respond(url,req,body){
  const p=url.pathname;
@@ -64,6 +64,7 @@ const server=http.createServer((req,res)=>{
    requests.push({path:url.pathname,query:Object.fromEntries(url.searchParams),method:req.method,body,authorization:req.headers.authorization||''});
    res.setHeader('Content-Type','application/json; charset=utf-8');
    if(holdAnalysis&&url.pathname==='/api/analyze'&&url.searchParams.get('code')==='600101'){holdAnalysis=false;heldAnalysisReply=()=>res.end(JSON.stringify({ok:true,code:'600101',privateNote:'late-analysis-A-must-not-paint'}));return;}
+   if(holdMarks&&url.pathname==='/api/kline-marks'){holdMarks=false;heldMarksReply=()=>res.end(JSON.stringify({ok:true,items:[{note:'late-marks-wrong-date-must-not-paint'}]}));return;}
    res.end(JSON.stringify(respond(url,req,body)));
   });return;
  }
@@ -165,6 +166,18 @@ const runChecks=async()=>{
    assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'focus returns to the selected opportunity');
    if(width===1366){
     await originCard.click();
+    await drawer.locator('[data-detail-tab="marks"]').click();
+    await drawer.getByLabel('标记交易日',{exact:true}).fill('2026-11-12');
+    holdMarks=true;
+    const pendingMarks=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/kline-marks');
+    await drawer.getByRole('button',{name:'读取原始标记',exact:true}).click();
+    await pendingMarks;
+    for(let retry=0;retry<20&&!heldMarksReply;retry++)await new Promise(resolve=>setTimeout(resolve,5));
+    assert.equal(typeof heldMarksReply,'function');
+    await drawer.getByLabel('标记交易日',{exact:true}).fill('2026-11-13');
+    heldMarksReply();heldMarksReply=null;
+    await page.waitForTimeout(60);
+    assert.doesNotMatch(await drawer.textContent(),/late-marks-wrong-date-must-not-paint/,'changing the date invalidates in-flight signal marks');
     await drawer.locator('[data-detail-tab="analysis"]').click();
     holdAnalysis=true;
     const pendingTab=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/analyze');
@@ -210,6 +223,7 @@ const runChecks=async()=>{
    await page.getByRole('button',{name:'读取最新结果',exact:true}).click();
    await page.waitForTimeout(100);
    assert.equal(await page.locator('.fy-pool-board .fy-stock-card').count(),8,'weekend empty replies retain the last valid Friday cards');
+   assert.match(await page.locator('.fy-snapshot').innerText(),/2026[-/]11[-/]13/,'the retained dashboard banner keeps its source day when the empty read carries a newer date');
    assert.match(await page.locator('.fy-main').innerText(),/2026[-/]11[-/]13/);
    phase='normal';
    for(const view of ['lab','assets','settings','pulse']){
@@ -284,7 +298,7 @@ const runChecks=async()=>{
   assert.ok(resources.some(resource=>resource.startsWith('/nova/app.js'))&&resources.some(resource=>resource.startsWith('/nova/fayo.css')),'the actual new product assets loaded');
   fs.writeFileSync(path.join(output,'fayo-browser-report.json'),JSON.stringify({scope:'real new FAYO modules and CSS; synthetic isolated HTTP only; no actual account/market/physical-device certification',report,requests,resources},null,2));
   console.log('FAYO native product: '+report.length+' scenarios across '+widths.length+' viewport widths passed; report and synthetic-data screenshots '+output);
- }finally{if(heldAnalysisReply){heldAnalysisReply();heldAnalysisReply=null;}await browser?.close();await new Promise(resolve=>server.close(resolve));}
+ }finally{if(heldAnalysisReply){heldAnalysisReply();heldAnalysisReply=null;}if(heldMarksReply){heldMarksReply();heldMarksReply=null;}await browser?.close();await new Promise(resolve=>server.close(resolve));}
 };
 if(require.main===module)runChecks().catch(error=>{console.error(error.stack||error);process.exitCode=1;});
 module.exports={server,state,stocks,indices,candles,requests,resources,output,aliases,get phase(){return phase;},set phase(value){phase=value;},get role(){return role;},set role(value){role=value;}};

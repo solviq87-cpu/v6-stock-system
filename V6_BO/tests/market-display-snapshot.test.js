@@ -35,6 +35,26 @@ test('weekend empty or recomputed results cannot overwrite Friday durable pools'
  assert.equal(result.state.candidatePool.length,1);assert.equal(result.state.sectors.length,1);
  assert.equal(fs.readFileSync(h.file,'utf8'),disk);assert.equal(result.meta.snapshotDay,'20261113');
 });
+test('failed weekend capture is retried without replacing its frozen original rows',t=>{
+ const h=fixture(t);h.setNow(sunday);fs.mkdirSync(h.file);const errors=[];
+ const store=createMarketDisplaySnapshot({file:h.file,clock:()=>sunday,onError:code=>errors.push(code)});
+ store.select(market(),{openDay:false});assert.ok(errors.includes('market-display-snapshot-write'));
+ fs.rmdirSync(h.file);
+ const recomputed={...market(),candidatePool:[{code:'600002',price:99,quoteAt:friday}]};
+ store.select(recomputed,{openDay:false});
+ const restarted=h.open().select({},{openDay:false});
+ assert.equal(restarted.state.candidatePool[0].code,'600001');
+ assert.equal(restarted.meta.snapshotDay,'20261113');
+});
+test('last throttled capture is flushed after the market closes and survives restart',t=>{
+ const h=fixture(t),store=h.open();store.select(market(),{openDay:true});h.setNow(friday+10000);
+ const latest={...market(),candidatePool:[{code:'600002',price:11,quoteAt:friday+10000}]};
+ store.select(latest,{openDay:true});h.setNow(sunday);
+ store.select({},{openDay:false});
+ const restored=h.open().select({},{openDay:false});
+ assert.equal(restored.state.candidatePool[0].code,'600002');
+ assert.equal(restored.state.candidatePool[0].quoteAt,friday+10000);
+});
 test('same-session transient empty pool retains last valid rows',t=>{
  const h=fixture(t),store=h.open();store.select(market(),{trading:true,openDay:true});h.setNow(friday+60000);
  const result=store.select({...market(),candidatePool:[],trendPool:[]},{trading:true,openDay:true});

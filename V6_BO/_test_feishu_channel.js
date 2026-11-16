@@ -24,7 +24,7 @@ function grabFn(name) {
   const j = SV.indexOf('\nfunction ', i + 1);
   return SV.slice(i, j > 0 ? j : SV.length);
 }
-const FULL = 'https://open.feishu.cn/open-apis/bot/v2/hook/db0f169a-66ca-4bf5-94e1-0a00c5e30198';
+const FULL = 'https://open.feishu.cn/open-apis/bot/v2/hook/00000000-0000-4000-8000-000000000001';
 const _S = { config: { feishuWebhook: FULL, feishuSecret: '' } };
 const _crypto = { createHmac: () => ({ update: () => ({ digest: () => 'FAKESIGN' }) }) };
 let api;
@@ -41,7 +41,7 @@ sec('① 打码：要认得出是哪一台，又不能泄露完整地址');
 if (api) {
   const m = api.maskHook(FULL);
   ok(m.indexOf('****') > 0, '中间被打码', m);
-  ok(!/db0f169a-66ca-4bf5-94e1-0a00c5e30198/.test(m), '完整地址没有出现在打码结果里');
+  ok(!/00000000-0000-4000-8000-000000000001/.test(m), '完整地址没有出现在打码结果里');
   ok(!/66ca-4bf5/.test(m), '中段-UUID 片段也没泄露', m);
   ok(api.maskHook(FULL) === api.feishuMask(), 'feishuMask() 与 maskHook(当前地址) 一致', api.feishuMask());
   ok(api.maskHook('') === '(未配置)', '空串不炸且有默认文案', JSON.stringify(api.maskHook('')));

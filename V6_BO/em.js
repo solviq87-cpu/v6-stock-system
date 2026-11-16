@@ -37,7 +37,17 @@ async function rawGet(url, timeout) {
 //    显式禁用 keep-alive，每次新建连接，断连率显著下降。
 const EM_AGENT = new https.Agent({ keepAlive: false, maxSockets: 1, family: 4 });
 
+function usesMarketProxy(env = {}) {
+  // Node's native https client does not consume these proxy settings. Let the
+  // existing bounded curl transport consume them, including NO_PROXY, unchanged.
+  return ['https_proxy', 'HTTPS_PROXY', 'all_proxy', 'ALL_PROXY'].some(key =>
+    typeof env[key] === 'string' && env[key].trim().length > 0);
+}
+
 function nodeGetBytes(url, timeout = 10000, headers = {}) {
+  if (usesMarketProxy(typeof process === 'object' ? process.env : {})) {
+    return curlGet(url, timeout, headers.Referer || headers.referer, true);
+  }
   return marketRequests.run(url, () => new Promise((resolve, reject) => {
     const req = https.get(url, {
       family: 4, agent: EM_AGENT, headers, timeout
@@ -1137,26 +1147,47 @@ async function fetchKlineEM(code, days = 95) {
 // ⚠️ 实测（2026-10-09）：东财竞价段「成交额」(f57) 恒为 0，但「价」(f53) 与「量(手)」(f56)
 //    每分钟都有 → 足够判价格方向上翘与量能放大（方向性红绿柱用「每分钟价 vs 昨收」近似，
 //    真正的主动买卖方向东财竞价段不给，不硬凑）。trends2 不带 /get 会 404，必须 /get。
-async function fetchAuctionTicks(code) {
+async function fetchAuctionTicks(code, targetTradeDate) {
   const secid = (code.startsWith('6') || code.startsWith('9')) ? `1.${code}` : `0.${code}`;
   const f1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13";
   const f2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61";
   const u = `${EMH}/api/qt/stock/trends2/get?secid=${secid}&fields1=${f1}&fields2=${f2}&iscr=1&ndays=1`;
   const j = await get(u, 8000);
   const d = j && j.data;
-  if (!d || !d.trends || !d.trends.length) return null;
-  const preClose = (d.pre && typeof d.pre.close === 'number') ? d.pre.close : null;
-  const bars = [];
+  if (!d || !Array.isArray(d.trends) || !d.trends.length) return null;
+  const number = value => {
+    if (typeof value !== 'number' && (typeof value !== 'string' || !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
+  const positive = value => { const n = number(value); return n !== null && n > 0 ? n : null; };
+  const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  if (targetTradeDate !== undefined && !validDate(targetTradeDate)) return null;
+  const preClose = positive(d.preClose), receivedAt = Date.now();
+  const bars = [], dates = new Set(), minutes = new Set();
   for (const s of d.trends) {
     const p = String(s).split(',');
-    const hhmm = p[0] ? p[0].slice(11) : '';        // "2026-10-09 09:15" → "09:15"
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(p[0])) continue;
+    const tradeDate = p[0].slice(0, 10), hhmm = p[0].slice(11);
     if (hhmm < '09:15' || hhmm > '09:25') continue; // 只留集合竞价段
-    const price = +p[2];                            // f53 当前价/收盘
-    if (!isFinite(price)) continue;
-    bars.push({ t: hhmm, price, high: +p[3], low: +p[4], vol: +p[5] });
+    if (!validDate(tradeDate)) continue;
+    if (targetTradeDate !== undefined && tradeDate !== targetTradeDate) continue;
+    const quoteAt = Date.parse(p[0].replace(' ', 'T') + ':00+08:00');
+    if (!Number.isSafeInteger(quoteAt) || quoteAt > receivedAt) continue;
+    const price = positive(p[2]);                    // f53 当前价/收盘
+    if (price === null) continue;
+    dates.add(tradeDate);
+    if (dates.size > 1 || minutes.has(hhmm)) return null;
+    minutes.add(hhmm);
+    const volume = number(p[5]);
+    bars.push({ t: hhmm, quoteAt, price, high: positive(p[3]), low: positive(p[4]),
+      vol: volume !== null && volume >= 0 ? volume : null });
   }
   if (!bars.length) return null;
-  return { preClose, bars };
+  bars.sort((a, b) => a.quoteAt - b.quoteAt);
+  // The supplier's session survives weekends; reception time never supplies its date.
+  return { preClose, bars, tradeDate: [...dates][0], quoteSource: 'eastmoney-auction', receivedAt };
 }
 
 // 常规分时（东财 trends2，不带 iscr=1 → 取 09:30–15:00 连续竞价段每分钟的价/均价/量）
@@ -1295,7 +1326,7 @@ async function fetchFundFlowDays(code, days = 6) {
 
 // curl 子进程 GET：每次真实请求使用同一供应商预算，不轮换域名
 // referer 可覆盖；保留现有代理环境，限制响应不会切换域名或传输方式。
-function curlGet(u, timeoutMs = 8000, referer) {
+function curlGet(u, timeoutMs = 8000, referer, asBytes = false) {
   // Prepare files before reserving a start. The run callback reaches execFile
   // synchronously, so slow local preparation cannot consume the wire interval.
   const os = require('os');
@@ -1304,7 +1335,7 @@ function curlGet(u, timeoutMs = 8000, referer) {
   const bodyFile = path.join(dir, 'body');
   return marketRequests.run(u, async () => {
       const transfer = await new Promise(resolve => {
-        execFile('curl', ['--silent', '--show-error', '--max-time', String(Math.ceil(timeoutMs / 1000)),
+        execFile('curl', ['--disable', '--silent', '--show-error', '--max-redirs', '0', '--max-time', String(Math.ceil(timeoutMs / 1000)),
           '--max-filesize', '8000000', '--proto', '=https', '--dump-header', headerFile,
           '--output', bodyFile, '--write-out', '%{http_code}',
           '-H', 'User-Agent: Mozilla/5.0', '-H', 'Referer: ' + (referer || 'https://quote.eastmoney.com/'), u],
@@ -1335,6 +1366,7 @@ function curlGet(u, timeoutMs = 8000, referer) {
       if (transfer.failed) throw new Error('market curl transport failed');
       if (status < 200 || status >= 300) throw new Error('market HTTP ' + status);
       if (fs.statSync(bodyFile).size > 8e6) throw new Error('market response too large');
+      if (asBytes) return fs.readFileSync(bodyFile);
       return JSON.parse(fs.readFileSync(bodyFile, 'utf8'));
   }).finally(() => {
       try { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -1677,21 +1709,23 @@ async function fetchGlobal() {
 //    指数是秒级的，两路各标各的数据时刻，谁也不冒充谁。
 //    取不到返回 []（调用方按「没有实时」处理，⛔ 不拿旧值顶替）。
 async function fetchIdxRt() {
-  const codes = ['1.000001', '0.399001', '0.399006', '1.000688']; // 上证/深成/创业板/科创50
+  const symbols = { sh000001: '1.000001', sz399001: '0.399001', sz399006: '0.399006', sh000688: '1.000688' };
   const NAME = { '1.000001': '上证', '0.399001': '深成', '0.399006': '创业板', '1.000688': '科创50' };
   try {
-    const buf = await txGet(`https://qt.gtimg.cn/q=${codes.join(',')}`);
+    const buf = await txGet(`https://qt.gtimg.cn/q=${Object.keys(symbols).join(',')}`);
     const text = new TextDecoder('gbk').decode(buf);
-    const re = /v_([\d.]+)="([^"]*)"/g;
+    const re = /v_((?:sh|sz)\d{6})="([^"]*)"/g;
     const out = [];
     let m;
     while ((m = re.exec(text))) {
       const f = m[2].split('~');
-      if (f.length > 32 && f[3] && NAME[m[1]]) {
+      const code = symbols[m[1]], price = /^[+]?(?:\d+\.?\d*|\.\d+)$/.test(f[3]) ? Number(f[3]) : null;
+      if (f.length > 32 && Number.isFinite(price) && price > 0 && code) {
         const receivedAt=Date.now();let quoteAt=null;
         try { quoteAt=require('./src/core/public-market').timestamp(f[30]||''); } catch {}
-        const observation=batchQuoteAtPublication({price:+f[3],quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
-        out.push({code:m[1],name:NAME[m[1]],pct:+f[32],...observation,quoteMode:'index-observation',canNotify:false,
+        const observation=batchQuoteAtPublication({price,quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
+        const pct = /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(f[32]) && Number.isFinite(Number(f[32])) ? Number(f[32]) : null;
+        out.push({code,name:NAME[code],pct,...observation,quoteMode:'index-observation',canNotify:false,
           tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null});
       }
     }

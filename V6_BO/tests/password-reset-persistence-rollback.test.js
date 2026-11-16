@@ -6,7 +6,7 @@ const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const reset = src.slice(src.indexOf("if (p === '/api/lock/reset-pwd'"), src.indexOf("if (p === '/api/lock/", src.indexOf("if (p === '/api/lock/reset-pwd'")+10));
 test('password reset snapshots previous access state before mutation', () => {
-  assert.match(reset, /const previousAccessSecret = accessSecret;[\s\S]*accessSecret = \{/);
+  assert.match(reset, /const previousAccessSecret = structuredClone\(accessSecret\);[\s\S]*accessSecret = \{/);
 });
 test('password reset restores previous access state on failed save', () => {
   assert.match(reset, /if \(!saveAccess\(\)\) \{\s*accessSecret = previousAccessSecret;/);

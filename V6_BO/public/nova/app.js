@@ -59,7 +59,7 @@ function snapshotStatus() {
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
- else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.snapshotDay||state.dashboard?.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
+ else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
 }
 function createFrame() {
  const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜'),h('small',{},'FAYO')));
