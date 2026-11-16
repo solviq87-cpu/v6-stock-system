@@ -34,10 +34,11 @@ DisableWelcomePage=no
 UninstallDisplayName=天枢智策 V6 安装程序
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 
 [Files]
 Source: "{#SourceRoot}\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "ChineseSimplified.LICENSE"; DestDir: "{app}\licenses"; DestName: "ChineseSimplified-translation-LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\天枢智策 V6\继续安装或打开"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File ""{app}\runtime\TianShu-FirstRun.ps1"" -Mode Setup"; WorkingDir: "{app}\runtime"; Comment: "继续检查本机环境或打开现有服务"
