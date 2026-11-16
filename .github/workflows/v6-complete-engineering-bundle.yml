@@ -123,7 +123,10 @@ jobs:
             const receipt=JSON.parse(fs.readFileSync(path.join(base,'VERIFICATION.json'),'utf8'));
             const archive=fs.readFileSync(path.join(base,filename));
             const digest=crypto.createHash('sha256').update(archive).digest('hex');
-            if(receipt.sourceSha!==sha||receipt.filename!==filename||receipt.zipSha256!==digest||receipt.zipBytes!==archive.length||receipt.productionDeployed!==false||archive.length>85*1024*1024)throw Error('unverified-or-oversized-archive');
+            // Retain headroom below GitHub's 100 MB blob/file limit. This cap
+            // applies to decoded ZIP bytes, not the base64 transport encoding.
+            const maxArchiveBytes=90*1024*1024;
+            if(receipt.sourceSha!==sha||receipt.filename!==filename||receipt.zipSha256!==digest||receipt.zipBytes!==archive.length||receipt.productionDeployed!==false||archive.length>maxArchiveBytes)throw Error('unverified-or-oversized-archive');
             const branch=`archive/v6-full-${sha.slice(0,12)}`;
             const created=await github.rest.git.createBlob({owner,repo,content:archive.toString('base64'),encoding:'base64'});
             const readme=`# 天枢智策 V6 完整工程包\n\n精确 Git 源码提交：${sha}。包含该提交全部 Git 已跟踪的源代码、电脑/手机页面、研究模块、测试和历史文档；不包含私有运行数据或 .git 历史。\n\nZIP：${filename}\n\nSHA-256：${digest}\n\n必须使用 ZIP 内 ENGINEERING_MANIFEST.json 核对全部文件；本包仅为源码交付，不代表生产部署、真实行情认证或实盘交易开通。\n`;
