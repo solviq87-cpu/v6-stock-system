@@ -1,0 +1,60 @@
+name: V6 Free Research Pages Preview
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'V6_WEB/**'
+      - '.github/workflows/v6-free-pages-preview.yml'
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'V6_WEB/**'
+      - '.github/workflows/v6-free-pages-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-free-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: V6_WEB/package-lock.json
+      - name: Install, test and build research-only static site
+        working-directory: V6_WEB
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Mark isolated research preview
+        run: |
+          test -f V6_WEB/dist/index.html
+          touch V6_WEB/dist/.nojekyll
+      - name: Upload Pages artifact (no credentials or account data)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: V6_WEB/dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy research-only preview
+        id: deployment
+        uses: actions/deploy-pages@v4
