@@ -13,7 +13,8 @@ const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '../public');
 const output = process.env.V6_UI_QA_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'v6-original-ui-'));
 fs.mkdirSync(output, {recursive:true});
-const version = fs.readFileSync(path.join(root, 'sw.js'), 'utf8').match(/APP_VER\s*=\s*'([^']+)/)[1];
+// This fixture serves the retained legacy documents, whose bytes/version stay frozen.
+const version = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').match(/APP_VER\s*=\s*'([^']+)/)[1];
 const quoteAt = Date.parse('2026-11-13T07:00:00.000Z');
 const dashboard = {
   observedAt:Date.now(), indexObservedAt:quoteAt,
@@ -35,18 +36,22 @@ const candles = Array.from({length:36},(_,index)=>{
   return {date:day.toISOString().slice(0,10),open:9+index*.03,high:9.3+index*.03,low:8.8+index*.03,close:9.1+index*.03,volume:100+index*5};
 }).filter(bar=>![0,6].includes(new Date(bar.date+'T00:00:00Z').getUTCDay()));
 const requests = [];
+let fixturePhase = 'snapshot';
 const server = http.createServer((req,res)=>{
   const url = new URL(req.url, 'http://127.0.0.1');
   res.setHeader('Cache-Control','no-store');
   if (url.pathname.startsWith('/api/')) {
-    requests.push({path:url.pathname,method:req.method});
+    requests.push({path:url.pathname,method:req.method,fixturePhase});
     res.setHeader('Content-Type','application/json; charset=utf-8');
     let result;
-    if (url.pathname === '/api/lock/status') result = {ok:true,role:'view',hasPassword:true,hasViewPassword:true,appVer:version,pushRole:'replica'};
-    else if (url.pathname === '/api/state' || url.pathname === '/api/mobile-digest') result = {
-      now:Date.now(),role:'view',trading:false,ready:true,isSnapshot:true,snapshotDay:dashboard.snapshotDay,
-      dashboard,global:[],pool:[],signals:[],sectors:[],stocks:[],config:{},mood:null
-    };
+    if (url.pathname === '/api/lock/status') result = {ok:true,role:fixturePhase==='revoked'?null:'view',needAuth:fixturePhase==='revoked',hasPassword:true,hasViewPassword:true,appVer:version,pushRole:'replica'};
+    else if (url.pathname === '/api/state' || url.pathname === '/api/mobile-digest') {
+      const live=fixturePhase==='live';
+      result=fixturePhase==='revoked'?{ok:false,locked:true,needAuth:true,error:'Synthetic fixture authorization revoked'}:{
+        now:Date.now(),role:'view',trading:live,ready:true,isSnapshot:!live,snapshotRetained:!live,snapshotDay:dashboard.snapshotDay,
+        dashboard:{...dashboard,fixturePhase,trading:live,isSnapshot:!live,snapshotRetained:!live},global:[],pool:[],signals:[],sectors:[],stocks:[],config:{},mood:null
+      };
+    }
     else if (url.pathname === '/api/kline') result = {
       ok:true,asOf:'2026-11-13',source:'synthetic-browser',rows:candles,
       dataQuality:{tradeDate:'2026-11-13',source:'tx',cacheLayer:'disk',freshness:'snapshot-only'}
@@ -93,6 +98,20 @@ async function checkEvidenceTabs(page, label) {
   await check(0);
 }
 
+async function readFixturePhase(page, phase) {
+  // Change the authoritative fixture before reading it through the real
+  // controller. A local-only event is otherwise overwritten by the next mobile
+  // poll, which correctly reads the fixture's still-historical server state.
+  fixturePhase=phase;
+  await page.evaluate(async()=>{
+    if(typeof manualMobileRefresh==='function')await manualMobileRefresh();
+    else await refresh();
+  });
+  await page.waitForFunction(expected=>expected==='revoked'
+    ?window.__v6Dashboard===null
+    :window.__v6Dashboard?.fixturePhase===expected,phase);
+}
+
 async function checkDesktopModules(page) {
   const before = await page.locator('.workspace-module').count();
   const market = page.locator('.vx-sidebar>a[href="#v6-market"]');
@@ -134,6 +153,7 @@ async function checkDesktopModules(page) {
     browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
     const origin='http://127.0.0.1:'+server.address().port;
     for (const {url,width} of [{url:'/',width:1366},{url:'/m',width:390},{url:'/m',width:320},{url:'/picks.html',width:1366},{url:'/research.html',width:1366}]) {
+      fixturePhase='snapshot';
       const label=(url==='/'?'desktop-home':url==='/m'?'mobile-home':url.slice(1,-5))+'-'+width;
       const page=await browser.newPage({viewport:{width,height:width<500?844:900},serviceWorkers:'block'});
       const errors=[],external=[];
@@ -185,14 +205,10 @@ async function checkDesktopModules(page) {
         }
         await page.evaluate(()=>window.scrollTo(0,0));
         await page.screenshot({path:path.join(output,'original-'+label+'.png'),fullPage:false});
-        await page.evaluate(()=>{
-          window.__v6Dashboard={...window.__v6Dashboard,trading:true,isSnapshot:false,snapshotRetained:false};
-          dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:window.__v6Dashboard}));
-        });
+        await readFixturePhase(page,'live');
         assert.equal(await banner.isVisible(),false,label+' live weekday data removes historical-session banner');
+        await readFixturePhase(page,'revoked');
         const cleared=await page.evaluate(()=>{
-          window.__v6Dashboard=null;
-          dispatchEvent(new CustomEvent('v6-dashboard-data',{detail:null}));
           return {
             bannerHidden:document.getElementById('ow-snapshot-banner').hidden,
             rows:document.getElementById('vx-rows').innerText,

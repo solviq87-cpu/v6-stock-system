@@ -17,11 +17,17 @@
 // 缺的只是"调用方有没有拿返回值当回事"。本测试就钉这件事。
 const fs = require('fs');
 const path = require('path');
+const vm = require('node:vm');
 const ROOT = __dirname;
 const SV = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 // ⛔ 判活代码一律用剥注释版本（本项目注释里会引用旧写法，已踩 11 次）
 const { stripNoise } = require('./_codescan.js');
 const CODE_K = stripNoise(SV, { keepStrings: true });
+function section(start, next) {
+  const at = SV.indexOf(start), end = SV.indexOf(next, at + start.length);
+  if (at < 0 || end < 0) throw Error('Cannot locate current implementation: ' + start);
+  return SV.slice(at, end);
+}
 
 let pass = 0, fail = 0;
 function ok(name, cond, detail) {
@@ -44,49 +50,74 @@ group('[2] 四个 save 函数必须把落盘成败交回调用方');
   ok('saveCfg 返回成败', /const saveCfg = \(\) => \{ const _o = atomicWrite\(CFG_FILE[\s\S]{0,120}_diskFail\('config\.json/.test(SV));
   ok('saveAccess 返回成败', /const saveAccess = \(\) => \{ const _o = atomicWrite\(ACCESS_FILE[\s\S]{0,120}_diskFail\('access\.json/.test(SV));
   ok('saveLearn 返回成败', /const saveLearn = \(\) => \{ const _o = atomicWrite\(STAT_FILE[\s\S]{0,160}_diskFail\('stats\.json/.test(SV));
-  ok('savePaper 返回成败', /return atomicWrite\(PAPER_FILE[\s\S]{0,120}_diskFail\('paper\.json/.test(SV));
-  ok('savePaper 异常分支也返回 false（不静默吞掉）',
-    /console\.error\('\[paper\] 落盘失败[\s\S]{0,120}return _diskFail\('paper\.json/.test(SV));
+  const savePaperSource = section('function savePaper(', '// ---------------- 模拟盘对账');
+  function paperRun(replica, commitFails) {
+    let restored = false, failures = 0;
+    const context = { PAPER: { pool: { cash: 200 } }, PAPER_CFG: { pool: { initial: 100 } },
+      PAPER_FILE: 'fixture-paper', _paperAuthorityRevision: { pool: 0 },
+      _paperAuthority: { pool: { saveLegacy() { if (commitFails) throw Error('fixture commit failure'); return { revision: 1, legacy: { cash: 200, initial: 100 } }; } } },
+      isReplica: () => replica, atomicWrite: () => false, paperAuthorityQuotes: () => ({}),
+      refreshPaperAuthority(force) { restored = force; context.PAPER.pool = { cash: 100 }; },
+      _diskFail() { failures++; return false; }, console: { error() {} } };
+    vm.createContext(context); vm.runInContext(savePaperSource, context);
+    return { result: context.savePaper('sync', 'pool'), restored: () => restored,
+      failures: () => failures, context };
+  }
+  const primary = paperRun(false, false), replica = paperRun(true, false), failed = paperRun(false, true);
+  ok('savePaper 区分权威提交成功与副本快照写入失败',
+    primary.result === true && primary.context._paperAuthorityRevision.pool === 1 && replica.result === false);
+  ok('savePaper 权威提交异常返回 false并重载持久账户恢复内存',
+    failed.result === false && failed.restored() === true && failed.failures() === 1 && failed.context.PAPER.pool.cash === 100);
   ok('落盘失败统一留痕 _diskFail（计次 + 说清后果）',
     /function _diskFail\(tag\)[\s\S]{0,220}内存已改、磁盘未变/.test(SV));
 }
 
 group('[3] 关键调用点必须检查返回值（不许写失败还回 ok:true）');
 {
-  // /api/config —— bx 轮"先算后写"之后缺的最后一块
-  ok('⛔ /api/config 检查 saveCfg 的返回值',
-    /if \(!saveCfg\(\)\) \{\s*return json\(res, \{ ok: false/.test(SV));
-  ok('落盘失败的文案说清"本次已生效但没写盘 + 重启会回退 + 可重试"',
-    /没能写入磁盘（config\.json 落盘失败）/.test(SV) && /再点一次保存重试/.test(SV));
+  const config = { old: 2, newlyAdded: true }, configBefore = { old: 1 };
+  let configResult;
+  const configFailure = section('        if (!saveCfg()) {', '      // ⛔ 2026-10-07 补（本轮角度：两个实例');
+  vm.runInNewContext('(function(){' + configFailure + '})()', {
+    S: { config }, _configBeforeSave: configBefore, saveCfg: () => false, res: {},
+    json: (_, value) => { configResult = value; }
+  });
+  ok('⛔ /api/config 保存失败返回false并原地恢复新增及修改配置',
+    configResult.ok === false && config.old === 1 && !Object.hasOwn(config, 'newlyAdded'));
+  ok('配置保存失败明确已回滚、原通道保持有效并可重试',
+    /已回滚/.test(configResult.error) && /原推送通道及其他配置保持有效/.test(configResult.error) && /重试/.test(configResult.error));
   // /api/paper —— 模拟盘持仓与成交只有这一份（jr 轮新增 repairPositions 修复路径 5 处；
   // 2026-10-28 持仓空间再加「幽灵流水已归档」第 6 处 → 原断言钉死「五处」变假红）。
   // ⛔ 改钉语义：不再钉死个数，而是**逐个操作**必须各有一处落盘检查 —— 以后再加第 7 处不假红，
   //    哪一项被删掉（又变成"写失败还回 ok:true"）必红。
-  const paperChecks = [...SV.matchAll(/if \(!savePaper\(\)\) throw new Error\('([^']+)'\)/g)].map(m => m[1]);
+  const paperChecks = [...SV.matchAll(/if \(!savePaper\(c\.action,key\)\) throw new Error\('([^']+)'\)/g)].map(m => m[1]);
   const paperOps = ['模拟盘已重置', '本金已改', '本金已修正', '启停状态已改', '持仓已修复', '幽灵流水已归档'];
   const paperMiss = paperOps.filter(op => !paperChecks.some(c => c.indexOf(op) >= 0));
   ok('⛔ /api/paper 各操作落盘都检查了返回值（重置/本金改/本金修正/启停/持仓修复/幽灵流水归档）',
     paperChecks.length >= paperOps.length && paperMiss.length === 0,
     '缺: ' + (paperMiss.join(',') || '无') + ' | 现有 ' + paperChecks.length + ' 处：' + paperChecks.join(' | '));
-  // 改密码 —— 落盘失败会让旧密码复活
-  ok('⛔ 改观看密码检查 saveAccess 的返回值',
-    /if \(!saveAccess\(\)\) return json\(res, \{ ok: false, error: '观看密码已在本次运行中更新/.test(SV));
-  ok('⛔ 改开发者密码检查 saveAccess 的返回值',
-    /if \(!saveAccess\(\)\) return json\(res, \{ ok: false, error: '开发者密码已在本次运行中更新/.test(SV));
-  ok('改密码落盘失败的文案点明了"旧密码与旧令牌会复活"',
-    /重启后会回到旧密码/.test(SV) && /旧设备令牌也会复活/.test(SV));
+  // 改密码必须事务回滚；真实故障注入见 tests/access-change-persistence.test.js。
+  ok('⛔ 改观看密码检查保存返回值并恢复原状态',
+    /if \(!saveAccessOrRestore\(previousAccessSecret\)\) return json\(res, \{ ok: false, error: '观看密码保存失败/.test(SV));
+  ok('⛔ 改开发者密码检查保存返回值并恢复原状态',
+    /if \(!saveAccessOrRestore\(previousAccessSecret\)\) return json\(res, \{ ok: false, error: '开发者密码保存失败/.test(SV));
+  ok('改密码落盘失败明确回滚，原密码与设备授权保持有效',
+    /观看密码保存失败，本次修改已回滚；原密码与设备授权保持有效/.test(SV) && /开发者密码保存失败，本次修改已回滚；原密码与设备授权保持有效/.test(SV));
   // 另外三处"收回/作废"类的用户操作：没落盘 = 重启后原样回来
-  ok('⛔ 找回密码（reset-pwd）检查 saveAccess 的返回值',
-    /if \(!saveAccess\(\)\) return json\(res, \{ ok: false, error: '新密码已在本次运行中生效/.test(SV));
-  ok('⛔ 撤销设备检查 saveAccess 的返回值',
-    /if \(!saveAccess\(\)\) return json\(res, \{ ok: false, error: '撤销没能写入 access\.json/.test(SV));
-  ok('⛔ 清理重复/过期设备检查 saveAccess 的返回值',
-    /if \(!saveAccess\(\)\) return json\(res, \{ ok: false, error: '清理结果没能写入 access\.json/.test(SV));
-  // 统一数"若反复失败多为磁盘只读或空间不足"这句兜底提示：config / 观看密码 / 开发者密码 /
-  //   找回密码 / 撤销设备 / 清理设备 共 6 处（前两处措辞是"请再点一次保存重试"，故只匹配后半句）
-  ok('这几处的文案都写明"实际上未生效 + 可重试"',
-    (SV.match(/若反复失败多为磁盘只读或空间不足/g) || []).length >= 6,
-    String((SV.match(/若反复失败多为磁盘只读或空间不足/g) || []).length));
+  const reset = section("  if (p === '/api/lock/reset-pwd'", "  if (p === '/api/lock/bind-phone'");
+  ok('⛔ 找回密码保存失败恢复深快照且先于票据核销',
+    /const previousAccessSecret = structuredClone\(accessSecret\);/.test(reset) &&
+    /if \(!saveAccess\(\)\) \{\s*accessSecret = previousAccessSecret;/.test(reset) &&
+    reset.indexOf('if (!saveAccess())') < reset.lastIndexOf("_otp.delete('R' + rt)"));
+  ok('⛔ 撤销设备保存失败恢复原状态并早于会话撤销',
+    /if \(!saveAccessOrRestore\(beforeRevoke\)\) return json\(res, \{ ok: false/.test(CODE_K));
+  ok('⛔ 清理重复/过期设备保存失败恢复原状态',
+    /if \(!saveAccessOrRestore\(beforePrune\)\) return json\(res, \{ ok: false/.test(CODE_K));
+  const retryMessages = ['配置写入磁盘失败，本次修改已回滚', '观看密码保存失败，本次修改已回滚',
+    '开发者密码保存失败，本次修改已回滚', '新密码保存失败，原密码及设备授权保持有效',
+    '撤销未能持久化，已回滚本次修改', '清理未能持久化，已回滚本次修改'];
+  ok('六处保存失败均说明保持原状态并允许重试', retryMessages.every(message => {
+    const at = SV.indexOf(message); return at >= 0 && /重试/.test(SV.slice(at, SV.indexOf("'", at)));
+  }));
 }
 
 group('[4] 业务数据不许非原子写（写一半崩掉会留下截断文件）');
@@ -115,17 +146,18 @@ group('[5] 行为验证：抠出 _diskFail 真跑（计次 + 文案都说清楚�
   const mN = SV.match(/const _diskFailN = \{\};/);   // 只用来确认源码里有这个计数器
   const mF = SV.match(/function _diskFail\(tag\) \{[\s\S]*?\n\}/);
   ok('_diskFail 可抠出', !!mN && !!mF);
-  const logs = [];
-  const N = {};   // 与源码同构的等价实现，验证计次与返回值语义
-  const diskFail = tag => { N[tag] = (N[tag] || 0) + 1; return false; };
+  const logs = [], context = { console: { error: (...args) => logs.push(args.join(' ')) } };
+  vm.createContext(context);
+  vm.runInContext(mN[0] + mF[0] + '\nglobalThis.counts = _diskFailN;', context);
+  const N = context.counts, diskFail = context._diskFail;
   ok('失败返回 false（调用方能据此决定答复）', diskFail('config.json') === false);
   ok('同一个文件第二次失败会累加计数', (diskFail('config.json'), N['config.json'] === 2));
   ok('不同文件分开计数', (diskFail('paper.json'), N['paper.json'] === 1 && N['config.json'] === 2));
-  ok('文案里写明后果（重启后会丢失）', /重启后这部分改动会丢失/.test(mF[0]));
+  ok('实际日志标明文件、累计次数与重启后丢失后果', logs.length === 3 && /config\.json（第 2 次）/.test(logs[1]) && /重启后这部分改动会丢失/.test(logs[2]));
   // 反证：不看返回值的旧写法，落盘失败时接口照样回成功
-  ok('反证：旧写法下 saveCfg 失败仍然会走到 ok:true',
-    (() => { const oldSave = () => false; if (!oldSave()) return false; return true; })() === true
-      ? true : true);
+  let attempted = 0;
+  const oldResult = (() => { const oldSave = () => { attempted++; return false; }; oldSave(); return { ok: true }; })();
+  ok('反证：真正执行旧写法忽略保存失败仍返回成功', attempted === 1 && oldResult.ok === true);
 }
 
 console.log(`\n===== 内存与磁盘一致性 守门测试：${pass} 通过 / ${fail} 失败 =====`);

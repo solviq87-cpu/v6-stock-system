@@ -1,7 +1,7 @@
 {
   "name": "V6 dev - checks and PR required",
   "target": "branch",
-  "enforcement": "disabled",
+  "enforcement": "active",
   "bypass_actors": [],
   "conditions": {
     "ref_name": {
@@ -80,6 +80,14 @@
           },
           {
             "context": "commit-status-coverage",
+            "integration_id": 15368
+          },
+          {
+            "context": "a-share-session-data-quality",
+            "integration_id": 15368
+          },
+          {
+            "context": "cloud-records-ledger-anchor-audit",
             "integration_id": 15368
           }
         ]

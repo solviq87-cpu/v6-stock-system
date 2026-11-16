@@ -68,10 +68,10 @@ test('continuous deployment is a separate read-only workflow and never runs PR c
  assert.match(workflow,/workflow_run\.event == 'push'/);assert.match(workflow,/head_repository\.full_name == github\.repository/);
  assert.match(workflow,/cancel-in-progress: false/);assert.match(workflow,/persist-credentials: false/);
  assert.match(workflow,/ref: \$\{\{ steps\.gate\.outputs\.sha \}\}/);
- assert.ok(workflow.indexOf('Independently select a CI-approved publisher revision')<workflow.indexOf('actions/checkout@v4'));
+ assert.ok(workflow.indexOf('Independently select a CI-approved publisher revision')<workflow.indexOf('actions/checkout@'));
  assert.match(workflow,/V6_WORKBUDDY_SHARECODE: \$\{\{ secrets\.V6_WORKBUDDY_SHARECODE \}\}/);
  assert.doesNotMatch(workflow,/pull_request_target|permissions:\s*write-all|[?&]sharecode=/);
- assert.doesNotMatch(workflow,/cache\/\w+@v4[^]*?path:[^]*?\/artifacts/);
+ assert.doesNotMatch(workflow,/cache\/\w+@[a-f0-9]{40}[^]*?path:[^]*?\/artifacts/);
 });
 test('explicit legacy recovery requires both observed hashes and never needs a GitHub source call',async t=>{
  const f=setup(t),options=parseArgs(['restore-legacy',f.file,'--apply','--expected-current-hash',H,'--legacy-snapshot-hash',H]);

@@ -70,7 +70,6 @@ export function renderPulse(route,ctx) {
  return view;
 }
 export function renderMarket(route,ctx) {
- const state=ctx.state||{};
  const sub=route.sub||'sectors';
  const top=h('div',{class:'fy-subnav'},[['sectors','板块地图'],['global','全球与资金'],['auction-review','竞价复盘'],['plans','交易计划'],['review','复盘与学习']].map(([key,label])=>button(label,()=>ctx.navigate('pulse',key),key===sub?'primary':'quiet')));
  const view=h('div',{class:'fy-stack'},top);
@@ -81,8 +80,13 @@ export function renderMarket(route,ctx) {
   view.append(section('开盘前发生了什么','竞价原始记录与逐股复盘',h('form',{class:'fy-form',onSubmit:async e=>{e.preventDefault();try{const q=new URLSearchParams({code:code.value,date:date.value});const r=await ctx.api('/api/auction-review?'+q,{signal:ctx.signal});output.replaceChildren(renderEvidence(r));}catch(error){ctx.notify(error.message,'error');}}},h('div',{class:'fy-grid two'},field('股票代码',code),field('交易日',date)),h('button',{type:'submit',class:'fy-button primary'},'读取竞价复盘')),button('读取最近竞价流水',async()=>{try{const r=await ctx.api('/api/auction-log?n=80',{signal:ctx.signal});output.replaceChildren(renderEvidence(r));}catch(error){ctx.notify(error.message,'error');}}),output));
   return view;
  }
- const datasets=sub==='sectors'?[['板块强度',state.sectors],['涨停题材',state.ztBySector],['市场主线',state.mainline],['板块联动',state.extLink]]:sub==='global'?[['全球市场',state.global],['外部资金与商品',state.external],['外围预选',state.preselect],['资金异动',state.bigMoney]]:sub==='plans'?[['下一交易日计划',state.nextplan],['十四条判定',state.myrules],['启动前埋伏',state.pre],['补涨线索',state.buzhang]]:[['复盘',state.review],['历史学习',state.learn],['学习记录',state.learnHistory],['宽度与纪律',state.breadth]];
- view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),h('div',{class:'fy-grid two'},datasets.map(([title,data])=>section(title,'同一份服务端市场状态',renderEvidence(data,ctx)))));
+ const datasetKeys=sub==='sectors'?[['板块强度','sectors'],['涨停题材','ztBySector'],['市场主线','mainline'],['板块联动','extLink']]:sub==='global'?[['全球市场','global'],['外部资金与商品','external'],['外围预选','preselect'],['资金异动','bigMoney']]:sub==='plans'?[['下一交易日计划','nextplan'],['十四条判定','myrules'],['启动前埋伏','pre'],['补涨线索','buzhang']]:[['复盘','review'],['历史学习','learn'],['学习记录','learnHistory'],['宽度与纪律','breadth']];
+ const datasets=h('div',{class:'fy-grid two'});
+ let pendingPaint=false;
+ const paintDatasets=()=>{if(ctx.signal?.aborted)return;if(datasets.contains(document.activeElement)){pendingPaint=true;return;}pendingPaint=false;datasets.replaceChildren(...datasetKeys.map(([title,key])=>section(title,'同一份服务端市场状态',renderEvidence(ctx.state?.[key],ctx))));};
+ datasets.addEventListener('focusout',()=>queueMicrotask(()=>{if(pendingPaint)paintDatasets();}));
+ paintDatasets();ctx.onState?.(paintDatasets);
+ view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),datasets);
  if(sub==='sectors'){
   const radar=h('div',{},empty('指数与大盘证据','主动读取当前服务已保存的指数雷达。'));
   view.append(section('指数雷达','价格、时间、来源与覆盖范围分别核验',button('读取指数证据',async()=>{try{const result=await ctx.api('/api/reference-indexes',{signal:ctx.signal});if(!ctx.signal.aborted)radar.replaceChildren(renderEvidence(result));}catch(error){if(!ctx.signal.aborted)ctx.notify(error.message,'error');}},'primary'),radar));
@@ -137,7 +141,8 @@ export function renderOpportunities(route,ctx) {
     current=unique(rowsFrom(key==='focused'?(state.dashboard?.rows||[]).filter(x=>x.focused):state[key]));
     const ownDay=key==='yierList'?state.yierAsOf:key==='lianbanList'?state.lianbanAsOf:null;
     const normalizedDay=typeof ownDay==='string'?ownDay.replaceAll('/','-').slice(0,10):null;
-    data={items:current,snapshotDay:normalizedDay||state.snapshotFieldDays?.[key]||state.snapshotDay||state.dashboard?.snapshotDay,isSnapshot:state.isSnapshot||state.dashboard?.isSnapshot};
+    const fieldDay=Object.hasOwn(state.snapshotFieldDays||{},key)?state.snapshotFieldDays[key]:state.snapshotDay||state.dashboard?.snapshotDay;
+    data={items:current,snapshotDay:normalizedDay||fieldDay,isSnapshot:state.isSnapshot||state.dashboard?.isSnapshot};
    } else {
     const params=active[0]==='matches'?new URLSearchParams({limit:String(max),...(append&&cursor?{cursor}:{})}):new URLSearchParams({board:requestedBoard,max:String(max)});
     data=await ctx.readPool(active[0]+':'+requestedBoard,()=>ctx.api(active[3]+'?'+params,{signal:ctx.signal,timeoutMs:60000}));
@@ -149,8 +154,8 @@ export function renderOpportunities(route,ctx) {
    }
    if(ctx.signal.aborted||turn!==loadGeneration)return;
    summaryView.replaceChildren(...['cycle','timing','feedback','sectorView'].filter(key=>data[key]).map(key=>h('details',{class:'fy-details'},h('summary',{},({cycle:'短线周期',timing:'时机反馈',feedback:'历史反馈',sectorView:'板块结构'})[key]),renderEvidence(data[key]))));
-   const day=data.snapshotDay||state.snapshotDay||state.dashboard?.snapshotDay;
-   status.textContent=active[1]+' · '+current.length+' 只'+(day?' · 原始交易日 '+dayLabel(day):'')+(data.isSnapshot||data.snapshotRetained?' · 保留快照':'');
+   const day=Object.hasOwn(data,'snapshotDay')?data.snapshotDay:state.snapshotDay||state.dashboard?.snapshotDay;
+   status.textContent=active[1]+' · '+current.length+' 只'+(day?' · 原始交易日 '+dayLabel(day):' · 原始交易日待核验')+(data.isSnapshot||data.snapshotRetained?' · 保留快照':'');
    paint();
   }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message;status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
   finally{if(turn===loadGeneration)loadMore.disabled=false;}
@@ -205,7 +210,9 @@ export function createStockDrawer(ctx) {
    });
    body.replaceChildren(section('信号后的真实观察','1 / 5 / 20 / 60 交易日与今日涨跌分开',note(tracking.note),tracked.length?h('div',{class:'fy-stack'},tracked):empty('尚无与该股匹配的有效跟踪证据','不会显示其他股票或未经协议验证的收益。')));
   }else if(tab==='marks'){
-   const date=h('input',{type:'date','aria-label':'标记交易日'}),output=h('div');body.replaceChildren(section('当日信号标记','与原K线标记接口相同的服务端记录',field('交易日',date),ctx.role==='edit'?button('读取原始标记',async()=>{try{const q=new URLSearchParams({code,date:date.value});const result=await ctx.api('/api/kline-marks?'+q,{signal:controller.signal});output.replaceChildren(renderEvidence(result));}catch(error){ctx.notify(error.message,'error');}}):note('逐股私密标记需要开发者权限'),output));
+   const date=h('input',{type:'date','aria-label':'标记交易日'}),output=h('div');let markRequest=0;
+   date.addEventListener('input',()=>{markRequest++;output.replaceChildren();});
+   body.replaceChildren(section('当日信号标记','与原K线标记接口相同的服务端记录',field('交易日',date),ctx.role==='edit'?button('读取原始标记',async()=>{const requestedCode=code,requestedDate=date.value,turn=generation,requestController=controller,request=++markRequest;try{const q=new URLSearchParams({code:requestedCode,date:requestedDate});const result=await ctx.api('/api/kline-marks?'+q,{signal:requestController.signal});if(turn===generation&&code===requestedCode&&date.value===requestedDate&&request===markRequest&&tab==='marks'&&!requestController.signal.aborted)output.replaceChildren(renderEvidence(result));}catch(error){if(turn===generation&&request===markRequest&&tab==='marks'&&error.name!=='AbortError')ctx.notify(error.message,'error');}}):note('逐股私密标记需要开发者权限'),output));
   }else{
    body.replaceChildren(section('个股诊断','主动读取现有分析，不产生交易',empty('尚未读取诊断结果','点击读取后显示已有分析和风险。'),button('读取分析',async()=>{try{const requestedCode=code,turn=generation,requestController=controller;const r=await ctx.api('/api/analyze?code='+encodeURIComponent(requestedCode),{signal:requestController.signal,timeoutMs:60000});if(turn===generation&&code===requestedCode&&tab==='analysis'&&!requestController.signal.aborted)body.replaceChildren(section('个股诊断','服务端已有计算',renderEvidence(r)));}catch(error){if(error.name!=='AbortError')ctx.notify(error.message,'error');}},'primary')));
   }

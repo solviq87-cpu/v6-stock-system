@@ -154,14 +154,18 @@ function messageComposer(ctx) {
 }
 function preferences(ctx) {
   if(!editor(ctx))return privateView();const state=ctx.state||{},host=el('div',{class:'fy-stack'}),controls=[];
+  const originals=new Map();
   for(const [key,item] of Object.entries(state.cfgSet||{})){
     const node=item.kind==='bool'?input(key,'','checkbox',{checked:item.value===true}):input(key,item.value??'',item.kind==='hhmm'?'time':'number',{step:item.kind==='hhmm'?undefined:'any'});
+    originals.set(key,item.kind==='bool'?node.checked:item.kind==='hhmm'?node.value:Number(node.value));
     controls.push(field(item.label||key,node,item.note||''));
   }
   const ranges=Object.entries(state.cfgRange||{});
-  for(const [key,item]of ranges)controls.push(field(item.label||key,input(key,item.cur??item.using??'','number',{min:item.min,max:item.max,step:'any'}),[item.hint,item.def!==undefined?'默认 '+item.def:''].filter(Boolean).join(' · ')));
+  for(const [key,item]of ranges){const node=input(key,item.cur??item.using??'','number',{min:item.min,max:item.max,step:'any'});originals.set(key,Number(node.value));controls.push(field(item.label||key,node,[item.hint,item.def!==undefined?'默认 '+item.def:''].filter(Boolean).join(' · ')));}
   if(!controls.length)return empty('配置目录尚未返回','重新读取服务端状态后，将显示可编辑的通知时段、开关和策略阈值。');
-  host.append(form('自动化偏好','可改项与范围由当前服务端提供，不重写策略规则。',controls,'预览修改',async values=>{const body={};for(const [key,item]of Object.entries(state.cfgSet||{}))body[key]=item.kind==='bool'?values.has(key):item.kind==='hhmm'?String(values.get(key)):Number(values.get(key));for(const [key]of ranges)body[key]=Number(values.get(key));review(ctx,host,'应用自动化偏好','将更新 '+Object.keys(body).length+' 个时段、开关或阈值。保存失败时服务端保留原配置。',async()=>{const result=await mutation(ctx,'/api/config',body);await ctx.refresh();return result;});return{note:'请在上方确认修改。'};}));return host;
+  // Send only edited values. Another device may have updated an untouched
+  // preference since this form opened; replaying the whole form loses it.
+  host.append(form('自动化偏好','可改项与范围由当前服务端提供，不重写策略规则。',controls,'预览修改',async values=>{const body={};for(const [key,item]of Object.entries(state.cfgSet||{})){const value=item.kind==='bool'?values.has(key):item.kind==='hhmm'?String(values.get(key)):Number(values.get(key));if(!Object.is(value,originals.get(key)))body[key]=value;}for(const [key]of ranges){const value=Number(values.get(key));if(!Object.is(value,originals.get(key)))body[key]=value;}if(!Object.keys(body).length)return{note:'没有需要保存的修改。'};review(ctx,host,'应用自动化偏好','将更新 '+Object.keys(body).length+' 个时段、开关或阈值。保存失败时服务端保留原配置。',async()=>{const result=await mutation(ctx,'/api/config',body);for(const [key,value]of Object.entries(body))originals.set(key,value);await ctx.refresh();return result;});return{note:'请在上方确认修改。'};}));return host;
 }
 function channels(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'}),state=ctx.state||{};
@@ -251,16 +255,16 @@ function authority(ctx) {
 }
 
 function overview(ctx) {
-  if(!editor(ctx))return privateView();const state=ctx.state||{},paper=state.paper||{},host=el('div',{class:'fy-stack'});
+  if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
   host.append(panel('你的资产空间','实际持仓与模拟跟踪分开管理，始终沿用服务器上的同一份账户。',el('div',{class:'fy-portal-grid'},[['holdings','资产簿','记录成本、股数、标签与观察安排'],['risk','风险边界','查看持仓处理条件与风险参数'],['paper','策略跟踪账户','查看两套模拟账户与原有成交记录'],['ledger','账务证据','核对现金、仓位与账务事件'],['history','变更与恢复','追溯资产变更并恢复已有快照']].map(([sub,title,note])=>action(el('span',{},el('strong',{},title),el('small',{},note)),()=>ctx.navigate('assets',sub),'portal')))));
-  if(!paper.hidden&&paper.pool)host.append(el('div',{class:'fy-metrics'},metric('策略跟踪权益',yuan(paper.pool.equity)),metric('机会预选权益',yuan(paper.pre?.equity)),metric('策略跟踪收益',pct(paper.pool.totalPct)),metric('机会预选收益',pct(paper.pre?.totalPct))));
+  const metrics=el('div');const paint=()=>{if(ctx.signal?.aborted)return;const paper=ctx.state?.paper||{};metrics.replaceChildren(...(!paper.hidden&&paper.pool?[el('div',{class:'fy-metrics'},metric('策略跟踪权益',yuan(paper.pool.equity)),metric('机会预选权益',yuan(paper.pre?.equity)),metric('策略跟踪收益',pct(paper.pool.totalPct)),metric('机会预选收益',pct(paper.pre?.totalPct)))]:[]));};paint();ctx.onState?.(paint);host.append(metrics);
   return host;
 }
 function diagnostics(ctx){
- if(!editor(ctx))return privateView();const state=ctx.state||{};
+ if(!editor(ctx))return privateView();
  const fields=[['taskState','后台任务'],['staleState','更新时效'],['poolBasis','候选口径'],['needRule','条件门槛'],['empSkip','模型跳过原因'],['ztPreRules','形态规则'],['trendScanProg','扫描进度'],['ztPreBasis','形态来源'],['trendScanBasis','扫描来源'],['steadyUpBasis','稳态来源']];
  function record(value,depth=0){if(value==null)return el('span',{class:'fy-muted'},'尚无记录');if(typeof value!=='object')return el('span',{},String(value));if(depth>5)return el('span',{},'深层记录');if(Array.isArray(value))return el('div',{class:'fy-list'},value.map(item=>el('div',{class:'fy-item'},record(item,depth+1))));return el('dl',{class:'fy-facts'},Object.entries(value).filter(([key])=>!/(?:token|secret|password|webhook|credential)/i.test(key)).map(([key,item])=>el('div',{},el('dt',{},key),el('dd',{},typeof item==='object'&&item?el('details',{class:'fy-details'},el('summary',{},'查看记录'),record(item,depth+1)):record(item,depth+1)))));}
- return el('div',{class:'fy-stack'},...fields.map(([key,title])=>panel(title,'共享状态中的实际运行记录',record(state[key]))));
+ const host=el('div',{class:'fy-stack'}),paint=()=>{if(!ctx.signal?.aborted)host.replaceChildren(...fields.map(([key,title])=>panel(title,'共享状态中的实际运行记录',record(ctx.state?.[key]))));};paint();ctx.onState?.(paint);return host;
 }
 
 export function renderOperations(route,ctx) {

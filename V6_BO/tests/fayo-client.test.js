@@ -26,6 +26,20 @@ test('an explicitly live weekday response is not silently replaced with a prior 
  assert.deepEqual(current.pool,[]);
 });
 
+test('retained market fields preserve their individual source dates instead of the newer empty reply date',async()=>{
+ const {retainMarket}=await load(),previous={...oldState(),snapshotFieldDays:{pool:'20261112',sectors:'20261113'}};
+ const incoming={trading:false,isSnapshot:true,snapshotDay:'20261115',pool:[],sectors:[],snapshotFieldDays:{pool:'20261115',sectors:'20261115'}};
+ const result=retainMarket(previous,incoming);
+ assert.equal(result.snapshotFieldDays.pool,'20261112');
+ assert.equal(result.snapshotFieldDays.sectors,'20261113');
+ assert.equal(result.snapshotFieldDays.dashboard,'20261113');
+ assert.equal(incoming.snapshotFieldDays.pool,'20261115','caller metadata is immutable');
+ const fresh=retainMarket(previous,{...incoming,pool:[{code:'600102'}]});
+ assert.equal(fresh.snapshotFieldDays.pool,'20261115','actually populated replacements retain their new source day');
+ const unknown=retainMarket({pool:[{code:'600101'}]},{trading:false,pool:[],snapshotDay:'20261115'});
+ assert.equal(unknown.snapshotFieldDays.pool,'','an unknown historical source day stays unknown');
+});
+
 test('retention never fabricates a Friday history when no actual prior snapshot exists',async()=>{
  const {retainMarket}=await load(),incoming={trading:false,isSnapshot:true,dashboard:{rows:[],indices:[]},pool:[]};
  assert.deepEqual(retainMarket(null,incoming),incoming);

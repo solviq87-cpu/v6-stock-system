@@ -18,12 +18,12 @@ const server=http.createServer((req,res)=>{
   await page.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():(external.push(route.request().url()),route.abort()));
   await page.goto(origin);
   await page.evaluate(async()=>{
-   const {renderOperations}=await import('/nova/operations.js');window.calls=[];window.notices=[];
+   const {renderOperations}=await import('/nova/operations.js'),{renderMarket,renderOpportunities}=await import('/nova/market.js');window.calls=[];window.notices=[];
    const holdings={ok:true,time:'2026-11-13 15:00',items:[{code:'600000',name:'合成资产甲',cost:10,shares:100,price:11,floatPct:10,market:1100,weight:1,profitAmt:100,dayPnl:20,tags:['观察'],acts:[]},{code:'000001',name:'合成资产乙',cost:20,shares:200,price:19,floatPct:-5,market:3800,weight:3.8,profitAmt:-200,dayPnl:-10,tags:[],acts:[]}],summary:{market:4900,cost:5000,profit:-100,floatPct:-2,dayPnl:10,positionPct:4.9,capital:100000},cfg:{stopPct:5,reducePct:3,takePct:10,maxPosPct:80},allTags:['观察']};
    const account={cash:100000,equity:100000,initial:100000,realized:0,totalPnl:0,totalPct:0,positions:[],trades:[],enabled:true};
    window.renderRoute=(view,sub,role='edit')=>{
     window.routeController?.abort();window.routeController=new AbortController();window.stateListeners=[];
-    const ctx={role,passwordCreated:()=>{window.firstPasswordInitialized=true;},auth:window.setupMode?{hasPassword:false}:undefined,onState:fn=>window.stateListeners.push(fn),signal:window.routeController.signal,state:{paper:{pool:account,pre:account},cfgSet:{quiet:{kind:'bool',label:'静默',value:false}},cfgRange:{},goodNews:{items:[{title:'合成资讯',publishedAt:'2026-11-13T15:00:00+08:00'}]},badNews:{items:[]}},notify:(...args)=>window.notices.push(args),navigate:()=>{},selectStock:()=>{},refresh:async()=>{},api:async(p,options={})=>{
+    const ctx={role,passwordCreated:()=>{window.firstPasswordInitialized=true;},auth:window.setupMode?{hasPassword:false}:undefined,onState:fn=>window.stateListeners.push(fn),signal:window.routeController.signal,state:{snapshotDay:'20261116',snapshotFieldDays:{pool:''},pool:[{code:'600101',name:'原日期未知的保留票',price:10}],paper:{pool:account,pre:account},cfgSet:{quiet:{kind:'bool',label:'静默',value:false},refreshSecs:{kind:'num',label:'刷新间隔',value:15}},cfgRange:{scoreGate:{label:'门槛',cur:50,min:0,max:100}},goodNews:{items:[{title:'合成资讯',publishedAt:'2026-11-13T15:00:00+08:00'}]},badNews:{items:[]}},notify:(...args)=>window.notices.push(args),navigate:()=>{},selectStock:()=>{},refresh:async()=>{},api:async(p,options={})=>{
      window.calls.push({path:p,method:options.method||'GET',body:options.body});
      if(options.signal?.aborted)throw new DOMException('aborted','AbortError');
      if(options.method==='POST'){
@@ -40,12 +40,38 @@ const server=http.createServer((req,res)=>{
      if(p.startsWith('/api/push-log'))return{ok:true,count:0,shown:0,sentToday:0,log:[]};
      return{ok:true,items:[],list:[]};
     }};
-    window.activeContext=ctx;document.getElementById('mount').replaceChildren(renderOperations({view,sub},ctx));
+    window.activeContext=ctx;document.getElementById('mount').replaceChildren(view==='pulse'?renderMarket({view,sub},ctx):view==='opportunities'?renderOpportunities({view,sub},ctx):renderOperations({view,sub},ctx));
    };
   });
   const cases={assets:['overview','holdings','risk','paper','ledger','authority','history'],inbox:['all','alerts','signals','push','compose'],settings:['preferences','diagnostics','channels','devices','security','source','release']};
   for(const [view,subs]of Object.entries(cases))for(const sub of subs){await page.evaluate(([view,sub])=>window.renderRoute(view,sub),[view,sub]);await page.waitForTimeout(30);assert.equal(await page.locator('.fy-operations').count(),1);assert.ok((await page.locator('#mount').innerText()).length>30,view+'/'+sub+' meaningful content');}
   assert.deepEqual(await page.evaluate(()=>window.calls.filter(c=>c.method!=='GET')),[],'navigation must never mutate or send');
+  for(const [sub,key]of [['sectors','sectors'],['global','global'],['plans','nextplan'],['review','review']]){
+   await page.evaluate(sub=>window.renderRoute('pulse',sub),sub);
+   await page.evaluate(key=>{window.activeContext.state[key]=[{note:'更新后的共享市场证据'}];window.stateListeners.forEach(fn=>fn());},key);
+   assert.equal(await page.getByText('更新后的共享市场证据',{exact:true}).isVisible(),true,'open '+sub+' follows independent cloud reads');
+  }
+  await page.evaluate(()=>window.renderRoute('assets','overview'));
+  await page.evaluate(()=>{window.activeContext.state.paper={pool:{equity:123456.78,totalPct:2},pre:{equity:50000,totalPct:0}};window.stateListeners.forEach(fn=>fn());});
+  assert.match(await page.locator('#mount').innerText(),/123,456\.78/,'open asset totals follow the current authoritative state');
+  await page.evaluate(()=>window.renderRoute('settings','diagnostics'));
+  await page.evaluate(()=>{window.activeContext.state.taskState={note:'更新后的任务状态'};window.stateListeners.forEach(fn=>fn());});
+  assert.equal(await page.getByText('更新后的任务状态',{exact:true}).isVisible(),true,'diagnostics do not freeze at route-open time');
+  await page.evaluate(()=>window.renderRoute('opportunities','ranked'));
+  assert.match(await page.locator('#mount .fy-note').innerText(),/原始交易日待核验/,'unknown retained source day is never replaced by the date of the newest read');
+  assert.doesNotMatch(await page.locator('#mount .fy-note').innerText(),/2026[-/]11[-/]16/);
+  await page.evaluate(()=>window.renderRoute('settings','preferences'));
+  const configBefore=await page.evaluate(()=>window.calls.filter(c=>c.path==='/api/config').length);
+  await page.getByRole('button',{name:'预览修改',exact:true}).click();
+  assert.equal(await page.getByRole('alertdialog').count(),0,'an untouched preference form does not propose a full stale overwrite');
+  await page.locator('input[name=quiet]').check();
+  await page.evaluate(()=>{window.activeContext.state.cfgSet.refreshSecs.value=30;window.activeContext.state.cfgRange.scoreGate.cur=60;window.stateListeners.forEach(fn=>fn());});
+  await page.getByRole('button',{name:'预览修改',exact:true}).click();
+  await page.getByRole('alertdialog').getByRole('button',{name:'确认执行',exact:true}).click();
+  assert.deepEqual((await page.evaluate(()=>window.calls.findLast(c=>c.path==='/api/config'))).body,{quiet:true},'saving one preference preserves untouched values changed by another device');
+  await page.getByRole('button',{name:'预览修改',exact:true}).click();
+  assert.equal(await page.getByRole('alertdialog').count(),0,'a successful save advances its local baseline');
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.path==='/api/config').length),configBefore+1,'no duplicate config write without new edits');
   await page.evaluate(()=>window.renderRoute('inbox','all'));
   await page.getByRole('searchbox',{name:'筛选资讯'}).fill('合成');
   await page.evaluate(()=>{window.activeContext.state.goodNews.items.push({title:'合成周末新公告',publishedAt:'2026-11-15T12:00:00+08:00'});window.stateListeners.forEach(fn=>fn());});
@@ -112,6 +138,6 @@ const server=http.createServer((req,res)=>{
    }
   }
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-  console.log('FAYO operations: 19 native views, viewer privacy, navigation zero-writes, 4 frozen confirmation plans, authority context invalidation, first-password setup, weekend news refresh, dirty-form retention, and 38 narrow-screen route layouts passed.');
+  console.log('FAYO operations: 19 native views, 6 live state projections, changed-only preference writes, viewer privacy, navigation zero-writes, 4 frozen confirmation plans, authority context invalidation, first-password setup, weekend news refresh, dirty-form retention, and 38 narrow-screen route layouts passed.');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

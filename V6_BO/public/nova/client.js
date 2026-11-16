@@ -4,8 +4,8 @@ export function retainMarket(previous,incoming) {
   if(!incoming||typeof incoming!=='object')throw Error('服务端没有返回可用状态');
   if(!previous||!(incoming.trading===false||incoming.isSnapshot===true||incoming.dashboard?.isSnapshot===true))return incoming;
   const next={...incoming};
-  for(const key of MARKET_FIELDS)if(!populated(next[key])&&populated(previous[key]))next[key]=previous[key];
   const keepFieldDay=key=>{next.snapshotFieldDays={...next.snapshotFieldDays,[key]:previous.snapshotFieldDays?.[key]||previous.snapshotDay||''};};
+  for(const key of MARKET_FIELDS)if(!populated(next[key])&&populated(previous[key])){next[key]=previous[key];keepFieldDay(key);}
   // Relay rows are private. A server permission projection must clear them;
   // only an empty, still-authorized closed-session read may recover old rows.
   const relayDenied=incoming.role==='view'||incoming.readOnly===true||incoming.paper?.hidden===true||incoming.yier?.hidden===true||incoming.lianban?.hidden===true;

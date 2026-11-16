@@ -38,7 +38,7 @@ jobs:
       # credential is loaded. A completed older event cannot execute moving dev.
       - name: Independently select a CI-approved publisher revision
         id: gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const {owner,repo}=context.repo;
@@ -114,12 +114,12 @@ jobs:
             }
             if(publisher!=='github-actions'){blocked('publisher-ownership-unverified');return;}
             core.setOutput('sha',sha);core.setOutput('approved','true');
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         if: steps.gate.outputs.approved == 'true'
         with:
           ref: ${{ steps.gate.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: steps.gate.outputs.approved == 'true'
         with:
           node-version: '22'
@@ -140,7 +140,7 @@ jobs:
           chmod 700 "$V6_UPDATE_STATE_DIR" "$V6_UPDATE_STATE_DIR/publisher" "$V6_UPDATE_STATE_DIR/publisher/snapshots"
       - name: Restore deployment recovery state
         if: steps.access.outputs.configured == 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ${{ runner.temp }}/v6-repository-update/journal.json
@@ -170,7 +170,7 @@ jobs:
         run: node V6_BO/scripts/github-repository-auto-update.js once "$V6_UPDATE_CONFIG" --apply
       - name: Save encrypted recovery state even after a failed publication
         if: always() && steps.access.outputs.configured == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ${{ runner.temp }}/v6-repository-update/journal.json

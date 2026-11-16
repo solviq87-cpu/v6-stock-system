@@ -38,7 +38,7 @@ function populated(value) {
   return value !== undefined && value !== null && value !== '' && value !== 0;
 }
 function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSessionDay=day=>![0,6].includes(new Date(day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6,8)+'T12:00:00Z').getUTCDay())}={}) {
-  let saved = null, lastWrite=0;
+  let saved = null, lastWrite=0, dirty=false;
   try {
     const data=JSON.parse(fs.readFileSync(file,'utf8'));
     if(data?.schemaVersion===1&&validDay(data.day)&&data.fields&&typeof data.fields==='object') {
@@ -66,14 +66,18 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
         }
       }
       const next={schemaVersion:1,day:sourceDay,capturedAt:now,fields,fieldDays,mood:(!replaceCurrent&&saved?.mood)||safe(mood)||null};
-      saved=next;
-      if(file && (fillClosed || now-lastWrite>=30000)) {
-        try {
-          fs.mkdirSync(path.dirname(file),{recursive:true});
-          const temp=file+'.'+process.pid+'.tmp';
-          fs.writeFileSync(temp,JSON.stringify(next),{mode:0o600});fs.renameSync(temp,file);lastWrite=now;
-        } catch {onError('market-display-snapshot-write');}
-      }
+      saved=next;dirty=true;
+    }
+    // A failed/throttled write still needs to be retried after the market closes,
+    // when another capture may never be admitted for this original quote day.
+    if(file && dirty && (fillClosed || now-lastWrite>=30000)) {
+      const temp=file+'.'+process.pid+'.tmp';
+      try {
+        fs.mkdirSync(path.dirname(file),{recursive:true});
+        fs.writeFileSync(temp,JSON.stringify(saved),{mode:0o600});fs.renameSync(temp,file);
+        lastWrite=now;dirty=false;
+      } catch {onError('market-display-snapshot-write');}
+      finally {try{fs.unlinkSync(temp);}catch{}}
     }
     if(saved && saved.day<=today) {
       // While open, only recover missing fields from the same provider day.

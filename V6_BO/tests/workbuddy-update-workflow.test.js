@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const workflow=fs.readFileSync(path.resolve(__dirname,'../../.github/workflows/workbuddy-auto-update.yml'),'utf8');
-const fragment=workflow.split('          script: |\n')[1]?.split('\n      - uses: actions/checkout@v4')[0];
+const fragment=workflow.split('          script: |\n')[1]?.split('\n      - uses: actions/checkout@')[0];
 const script=fragment?.split('\n').map(line=>line.startsWith('            ')?line.slice(12):line).join('\n');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const A='a'.repeat(40),B='b'.repeat(40),REPO='solviq87-cpu/v6-stock-system';
@@ -21,15 +21,15 @@ async function evaluate({heads=[A,A],runs=[run()],rows=jobs(),fail=false,ownersh
 }
 test('official independent gate selects immutable approved publisher code before checkout and secrets',async()=>{
  const r=await evaluate();assert.equal(r.outputs.approved,'true');assert.equal(r.outputs.sha,A);assert.equal(r.reads,3);
- assert.ok(workflow.indexOf('id: gate')<workflow.indexOf('uses: actions/checkout@v4'));
+ assert.ok(workflow.indexOf('id: gate')<workflow.indexOf('uses: actions/checkout@'));
  assert.ok(workflow.indexOf('ref: ${{ steps.gate.outputs.sha }}')<workflow.indexOf('V6_WORKBUDDY_SHARECODE:'));
  assert.doesNotMatch(workflow,/ref:\s*dev\s*\n/);
  assert.equal(r.ownerReads,1);assert.deepEqual(r.events,['head','ci','jobs','head','owner','head']);
- assert.ok(workflow.indexOf('github.rest.repos.getContent')<workflow.indexOf('uses: actions/checkout@v4'));
+ assert.ok(workflow.indexOf('github.rest.repos.getContent')<workflow.indexOf('uses: actions/checkout@'));
  assert.ok(workflow.indexOf('github.rest.repos.getContent')<workflow.indexOf('V6_WORKBUDDY_SHARECODE:'));
  assert.ok(workflow.indexOf("if(await head()!==sha)")<workflow.indexOf('github.rest.repos.getContent'));
  assert.match(workflow,/path:ownerPath,ref:sha/);
- assert.match(workflow,/uses: actions\/checkout@v4\n\s+if: steps\.gate\.outputs\.approved == 'true'/);
+ assert.match(workflow,/uses: actions\/checkout@[a-f0-9]{40} # v4\n\s+if: steps\.gate\.outputs\.approved == 'true'/);
  assert.match(workflow,/name: Check private deployment configuration\n\s+if: steps\.gate\.outputs\.approved == 'true'/);
  assert.match(workflow,/V6_APPROVED_PUBLISHER_SHA: \$\{\{ steps\.gate\.outputs\.sha \}\}/);
  assert.match(workflow,/run: node V6_BO\/scripts\/github-repository-auto-update\.js once "\$V6_UPDATE_CONFIG" --apply/);

@@ -16,6 +16,9 @@ function createDashboardServer({ handle, sameOriginOk, bodyLimit, onListen, port
   const inManualPush = () => !!pushContext.getStore();
 
   const server = http.createServer((req, res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     let u;
     let sourceOk;
     try {
@@ -27,6 +30,7 @@ function createDashboardServer({ handle, sameOriginOk, bodyLimit, onListen, port
       res.end(JSON.stringify({ ok: false, error: '请求地址或来源校验失败' }));
       return;
     }
+    if (u.pathname.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
     if (sourceOk && req.headers.origin) {
       res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
     }
