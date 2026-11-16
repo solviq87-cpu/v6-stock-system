@@ -126,7 +126,7 @@ const W = require('../src/core/research-workspace'),
           saved.result.revision,
         );
     }
-    for (const width of [320, 390, 1366]) {
+    for (const [experimentIndex, width] of [320, 390, 1366].entries()) {
       await page.setViewportSize({ width, height: 1000 });
       await wait();
       const before = (await f.request('/api/research/manual-loop')).body.result
@@ -190,9 +190,21 @@ const W = require('../src/core/research-workspace'),
         .waitFor();
       await submit('提交验证候选', {
         hypothesis: '合成未来验证候选',
-        trainEnd: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
-        validationEnd: '2026-12-31',
-        holdoutEnd: '2027-02-01',
+        trainEnd: new Date(
+          Date.now() + 8 * 3600000 + experimentIndex * 200 * 86400000,
+        )
+          .toISOString()
+          .slice(0, 10),
+        validationEnd: new Date(
+          Date.now() + 8 * 3600000 + (experimentIndex * 200 + 50) * 86400000,
+        )
+          .toISOString()
+          .slice(0, 10),
+        holdoutEnd: new Date(
+          Date.now() + 8 * 3600000 + (experimentIndex * 200 + 100) * 86400000,
+        )
+          .toISOString()
+          .slice(0, 10),
       });
       await page.getByText('等待冻结期及私有数据', { exact: true }).waitFor();
       await page
