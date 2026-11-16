@@ -12,6 +12,19 @@ function request(port,url,method='GET',body=null,token=''){
   });req.once('error',reject);req.once('timeout',()=>req.destroy(Error('studio fixture timeout')));req.end(data);
  });
 }
+function adaptLegacyFrontendSource(source,legacyController){
+ const versionDeclaration=/^const APP_VER = '([0-9]{8}[a-z]{2})';/gm;
+ const serviceVersions=[...source.matchAll(versionDeclaration)],legacyVersions=[...legacyController.matchAll(versionDeclaration)];
+ if(serviceVersions.length!==1)throw Error('legacy fixture service version declaration missing or ambiguous');
+ if(legacyVersions.length!==1)throw Error('legacy fixture controller version declaration missing or ambiguous');
+ const nativeEntries=/^  const fayoEntries = new Set\([^\n]+\);\r?\n  if \(fayoEntries\.has\(p\)\) p = '\/nova\/index\.html';\r?\n/gm;
+ if([...source.matchAll(nativeEntries)].length!==1)throw Error('legacy fixture native entry anchor missing or ambiguous');
+ // Both replacements are confined to the returned disposable server string.
+ // A real server-version mismatch makes the retained mobile controller replace
+ // its document asynchronously during page.goto, before role checks can run.
+ return source.replace(versionDeclaration,`const APP_VER = '${legacyVersions[0][1]}';`)
+  .replace(nativeEntries,"  if (p === '/') p = '/index.html';\n");
+}
 async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
  const root=path.resolve(__dirname,'../..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'v6-studio-')),port=await freePort();
  for(const name of ['server.js','src','strategies','public','package.json'])if(fs.existsSync(path.join(root,name)))fs.cpSync(path.join(root,name),path.join(tmp,name),{recursive:true});
@@ -36,9 +49,7 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
   // Historical controllers remain recovery evidence. Remove the native entry
   // remapping only in this disposable server copy, never in production or the
   // default fixture used to verify the current FAYO product.
-  const nativeEntries=/^  const fayoEntries = new Set\([^\n]+\);\r?\n  if \(fayoEntries\.has\(p\)\) p = '\/nova\/index\.html';\r?\n/gm;
-  if([...fixtureSource.matchAll(nativeEntries)].length!==1)throw Error('legacy fixture native entry anchor missing or ambiguous');
-  fixtureSource=fixtureSource.replace(nativeEntries,"  if (p === '/') p = '/index.html';\n");
+  fixtureSource=adaptLegacyFrontendSource(fixtureSource,fs.readFileSync(path.join(tmp,'public/assets/app.js'),'utf8'));
  }
  // Only the temporary server copy receives synthetic state. Production has no fixture endpoint.
  fs.writeFileSync(entry,fixtureSource.replace(anchor,`const studioFixture = JSON.parse(fs.readFileSync(path.join(__dirname,'studio-fixture.json'),'utf8')); S.stocks=studioFixture.stocks; for (const stock of S.stocks) klineSet(stock.code,{rows:studioFixture.rows});\n`+anchor));
@@ -57,4 +68,4 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
    scan:()=>request(port,'/api/quant-picks?board=all&max=50&force=1','GET',null,token),close,logs:()=>logs};
  }catch(e){await close();throw e;}
 }
-module.exports={createFixture,request};
+module.exports={createFixture,request,adaptLegacyFrontendSource};
