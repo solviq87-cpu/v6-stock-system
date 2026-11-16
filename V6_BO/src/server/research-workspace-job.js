@@ -16,6 +16,7 @@ function runWorkspaceJob(payload){
 }
 if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerData,W=require('../core/research-workspace');Promise.resolve().then(async()=>{
  try{
+  if(p.action==='manual-loop'){const M=require('../core/manual-decision-loop');try{return {ok:true,result:p.input?M.execute(p.root,p.input,p.options):M.view(p.root,p.options)};}catch(e){return {ok:false,httpStatus:e.code==='LOOP_CONFLICT'?409:422,error:/^LOOP_/.test(e.code||'')?e.message:'闭环输入或私有档案校验失败，原记录保留'};}}
   if(p.action==='view'){const view=W.workspaceView(p.root,p.query,{accounts:p.accounts,quotes:new Map(p.quotes||[]),now:p.now});return {ok:true,result:p.export?W.exportResearch(view):view};}
   if(p.action==='review')return await W.reviewStored(p.input,p.options);
   if(p.action==='forecast')return W.saveModelForecast(p.root,p.input);

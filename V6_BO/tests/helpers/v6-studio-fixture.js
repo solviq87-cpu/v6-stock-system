@@ -32,11 +32,13 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
  // The isolated copy includes the new source-lineage module, whose catalogue
  // is data-only: copy ONLY the three public static JSON dependencies used by lineage/dashboard.
  const catalogDir=path.join(tmp,'config');fs.mkdirSync(catalogDir,{recursive:true});
- for(const name of ['data-source-catalog.json','data-source-registry-2026.json','six-photo-sources.json'])
+ for(const name of ['data-source-catalog.json','data-source-registry-2026.json','six-photo-sources.json','research-calendar-2026.json'])
   fs.copyFileSync(path.join(root,'config',name),path.join(catalogDir,name));
 
  const salt='studio-fixture-only-salt',password='studio-fixture-only-password';
- fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify({salt,hash:crypto.scryptSync(password,salt,32).toString('hex'),devices:{}}));
+ const viewerToken=crypto.randomBytes(32).toString('hex');
+ const view={salt,hash:crypto.scryptSync(password+'-viewer',salt,32).toString('hex'),devices:{[crypto.createHash('sha256').update(viewerToken).digest('hex')]:{role:'view',ts:Date.now()}}};
+ fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify({salt,hash:crypto.scryptSync(password,salt,32).toString('hex'),devices:{},view}));
  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
  const rows=Array.from({length:601},(_,i)=>({date:new Date(Date.parse(today)-(600-i)*86400000).toISOString().slice(0,10),
   open:10,high:10.6,low:9.9,close:i===600?10.4:10,volume:i===600?100000:200000,amount:2000000,pct:4,turnover:6}));
@@ -64,7 +66,7 @@ async function createFixture({count=250,serverSource,legacyFrontend=false}={}){
   const login=await request(port,'/api/lock/unlock','POST',{role:'edit',password,fp:'studio-fixture-admin',name:'fixture-admin'});
   if(!login.body?.ok||!login.body.token)throw Error('studio fixture login failed');
   const token=login.body.token;
-  return {port,tmp,root,token,password,rows,stocks,request:(url,method='GET',body=null,tok=token)=>request(port,url,method,body,tok),
+  return {port,tmp,root,token,viewerToken,password,rows,stocks,request:(url,method='GET',body=null,tok=token)=>request(port,url,method,body,tok),
    scan:()=>request(port,'/api/quant-picks?board=all&max=50&force=1','GET',null,token),close,logs:()=>logs};
  }catch(e){await close();throw e;}
 }

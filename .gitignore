@@ -39,3 +39,6 @@ V6_BO/data/market-response-snapshots.json
 V6_BO/data/market-response-snapshots.json.*.tmp
 V6_BO/data/v6-matches-display-snapshot.json
 V6_BO/data/v6-matches-display-snapshot.json.*.tmp
+
+# Private manual execution/review journal (never a public account replica).
+V6_BO/data/manual-decision-loop/
