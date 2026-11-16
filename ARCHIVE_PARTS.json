@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "01661416b76a3065de78cde708060c4738aba4cf",
+  "filename": "V6_FULL_01661416b76a.zip",
+  "zipBytes": 89268253,
+  "zipSha256": "7b50667b788e724a44221737ff6fab8e481e9c867931599f7ef17c1801890199",
+  "partBytes": 33554432,
+  "parts": [
+    {
+      "path": "V6_FULL_01661416b76a.zip.part001",
+      "bytes": 33554432,
+      "sha256": "d1b269239038e7b307ff5818549e384d7078459dbb76526728059ac07f87f8e2",
+      "gitBlobSha1": "e3b1c2c3c94a8a719466aac84a6684511f5d7117"
+    },
+    {
+      "path": "V6_FULL_01661416b76a.zip.part002",
+      "bytes": 33554432,
+      "sha256": "0d58e6b9bff6289ad59828254bdf2433c21cc0066faa5e1f6f13847f2e172e96",
+      "gitBlobSha1": "a81b2d25978b2718b5c22be39fe6e0d5e19aa00a"
+    },
+    {
+      "path": "V6_FULL_01661416b76a.zip.part003",
+      "bytes": 22159389,
+      "sha256": "a6bcd8e1118f42892185acb42f46863158ee878527cfaf84503688c5f5819ffb",
+      "gitBlobSha1": "b6d6c31a7d05894ba92d188889257c2aeec5b2ff"
+    }
+  ]
+}
