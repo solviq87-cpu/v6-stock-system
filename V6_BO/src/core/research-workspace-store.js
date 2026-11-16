@@ -40,14 +40,14 @@ function readEvents(root,{asOf=Date.now()}={}){
   try{const s=fs.fstatSync(fd);bytes+=s.size;if(!s.isFile()||s.mode&0o077||s.size>MAX_EVENT||bytes>MAX_TOTAL)throw Error('研究文件权限或容量无效');e=JSON.parse(fs.readFileSync(fd,'utf8'));}finally{fs.closeSync(fd);}
   const {hash,...body}=e;
   if(e.schemaVersion!==1||e.sequence!==i+1||e.previousHash!==(previous?.hash??null)||digest(body)!==hash||
-    !['analysis','screen','preferences','preset','diagnostic'].includes(e.kind)||
+    !['analysis','screen','preferences','preset','diagnostic','manual-loop'].includes(e.kind)||
     !Number.isSafeInteger(e.recordedAt)||e.recordedAt<=0||e.recordedAt>Date.now()||previous&&e.recordedAt<previous.recordedAt||
     Object.keys(FLAGS).some(k=>e[k]!==FLAGS[k]))throw Error('研究历史完整性校验失败');
   previous=e;if(e.recordedAt<=asOf&&(!Number.isSafeInteger(e.data?.asOf)||e.data.asOf<=asOf))out.push(e);
  }return out;
 }
 function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}={}){
- if(!['analysis','screen','preferences','preset','diagnostic'].includes(kind)||!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('研究记录类型或时点无效');
+ if(!['analysis','screen','preferences','preset','diagnostic','manual-loop'].includes(kind)||!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('研究记录类型或时点无效');
  if(typeof requestId!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(requestId))throw Error('需要有效的研究请求ID');
  const clean=canonical(data),inputHash=digest({kind,data:clean});
  if(Number.isSafeInteger(clean.asOf)&&clean.asOf>now)throw Error('禁止保存未来研究');

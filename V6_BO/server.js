@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261116aa'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261116ab'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -21794,6 +21794,22 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/manual-loop'){
+    const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
+    const bearer=((req.headers.authorization||'').match(/^Bearer\s+([A-Za-z0-9._~-]{8,256})$/i)||[])[1]||'';
+    if(roleOf(bearer,clientIp(req))!=='edit')return reply(403,{ok:false,error:'人工执行记录需要编辑者身份'});
+    if([...u.searchParams].length)return reply(400,{ok:false,error:'此私有接口不接受查询参数'});
+    if(!['GET','POST'].includes(req.method))return reply(405,{ok:false,error:'仅允许GET或POST'});
+    if(req.method==='GET'&&body)return reply(400,{ok:false,error:'只读请求不接受数据'});
+    if(Buffer.byteLength(body||'','utf8')>64*1024)return reply(413,{ok:false,error:'执行记录超过64KiB'});
+    if(req.method==='POST'&&isReplica())return reply(409,{ok:false,error:'副本实例禁止写入人工执行记录'});
+    let input;
+    if(req.method==='POST'){try{input=JSON.parse(body||'');if(!input||typeof input!=='object'||Array.isArray(input))throw Error();}catch{return reply(400,{ok:false,error:'执行记录格式无效'});}}
+    const raw=HD.raw,riskPolicy=Object.fromEntries(['stopPct','reducePct','takePct','maxPosPct'].filter(k=>raw[k]!==undefined).map(k=>[k,raw[k]]));
+    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'manual-loop',root:process.env.V6_MANUAL_DECISION_LOOP_DIR||path.join(__dirname,'data','manual-decision-loop'),input,
+      options:{workspaceRoot:stockObservationOptions().workspaceRoot,riskPolicy,validationFile:process.env.V6_MANUAL_LOOP_VALIDATION_INPUT||null}})
+      .then(({httpStatus,...value})=>reply(httpStatus||(value.ok?200:422),value)).catch(()=>reply(503,{ok:false,error:'执行记录任务未完成，原记录保留'}));
+  }
   if(p==='/api/research/workspace'){
     const reply=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'私有研究记录需要编辑权限'},403);
