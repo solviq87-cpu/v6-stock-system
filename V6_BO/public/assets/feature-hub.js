@@ -251,7 +251,7 @@ function install(root){
    const more=el('button','v6-hub-shortcut v6-hub-shortcut-all','更多功能 ▦');
    more.type='button';more.addEventListener('click',()=>openHub());
    shortcuts.appendChild(more);
-   heading.after(shortcuts);
+   dashboard.append(shortcuts); // shortcuts stay accessible after live market and candidate cards
   }
   // Hide launcher when one of the app's credential dialog overlays is active:
   // it must never obstruct a required login action.
