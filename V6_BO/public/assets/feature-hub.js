@@ -6,6 +6,21 @@
   if(root&&root.document)api.install(root);
 })(typeof window==='object'?window:globalThis,function(){
 'use strict';
+// Primary navigation follows the approved homepage reference; each item opens
+// the original module or a dedicated existing page. No duplicated business UI.
+const PRIMARY_NAV=Object.freeze([
+ {label:'首页',href:'/#vx-dashboard',group:'market'},
+ {label:'行情',href:'/#v6-market',group:'market'},
+ {label:'选股',href:'/picks.html',group:'stocks'},
+ {label:'策略',href:'/#v6-strategy',group:'strategy'},
+ {label:'回测',href:'/#workspace-analysis',group:'review'},
+ {label:'复盘',href:'/#v6-review',group:'review'},
+ {label:'资讯',href:'/#v6-news',group:'settings'},
+ {label:'资金流',href:'/#sectors',group:'market'},
+ {label:'风控',href:'/#holdSec1',group:'account'},
+ {label:'模拟盘',href:'/#v6-paper',group:'account'},
+ {label:'我的',href:'/#workspace-settings',group:'settings'}
+]);
 const GROUPS=Object.freeze([
  {id:'quick',name:'常用',emoji:'★'}, {id:'market',name:'看盘行情',emoji:'📊'},
  {id:'stocks',name:'选股工具',emoji:'🎯'}, {id:'review',name:'涨停复盘',emoji:'🔥'},
@@ -229,5 +244,5 @@ function install(root){
  if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',start,{once:true});
  else start();
 }
-return Object.freeze({GROUPS,CATALOG,findEntries,validDestination,install});
+return Object.freeze({PRIMARY_NAV,GROUPS,CATALOG,findEntries,validDestination,install});
 });
