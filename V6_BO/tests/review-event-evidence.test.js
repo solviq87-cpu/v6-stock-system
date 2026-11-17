@@ -66,11 +66,32 @@ test('only HTTP(S) links without credentials are allowed; HTML is text, not mark
  const empty=new Node('div');M.render(doc,empty,plan([]));
  assert.ok(empty.children.some(x=>/证据不足/.test(x.textContent)));
 });
-test('existing review cards and shared page load the same evidence integration',()=>{
- const app=fs.readFileSync(path.resolve(__dirname,'../public/assets/app.js'),'utf8');
- const page=fs.readFileSync(path.resolve(__dirname,'../public/index.html'),'utf8');
- assert.match(app,/rv-evidence-trigger/);
- assert.match(app,/data-review-day/);
- assert.match(page,/assets\/review-event-evidence\.js/);
- assert.match(app,/题材标签，非事件证明/);
+test('approved homepages and legacy review controller remain frozen; enhancer loads independently',()=>{
+ const root=path.resolve(__dirname,'..');
+ const app=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+ const page=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+ const loader=fs.readFileSync(path.join(root,'public/assets/ui-navigation.js'),'utf8');
+ const viewer=fs.readFileSync(path.join(root,'public/assets/review-event-evidence.js'),'utf8');
+ const baseline=require('./fixtures/ui-homepage-approved-baseline-20261115.json');
+ const crypto=require('node:crypto');
+ const sha=x=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+x.length+'\0'),x])).digest('hex');
+ assert.equal(sha(fs.readFileSync(path.join(root,'public/index.html'))),baseline.homepages['index.html']);
+ assert.match(loader,/review-event-evidence\.js/);
+ assert.match(viewer,/MutationObserver\(decorate\)/);
+ assert.match(viewer,/\.rv-evidence-trigger/);
+ assert.match(viewer,/document|doc\.getElementById/);
+ assert.match(viewer,/题材标签不代表事件因果|题材标签不得冒充/);
+ assert.doesNotMatch(page,/assets\/review-event-evidence\.js/);
+ assert.match(app,/🔥 涨停原因/);
+});
+test('the old fetch shim cannot append bearer tokens to event requests or linked sources',()=>{
+ const root=path.resolve(__dirname,'..');
+ const app=fs.readFileSync(path.join(root,'public/assets/app.js'),'utf8');
+ const viewer=fs.readFileSync(path.join(root,'public/assets/review-event-evidence.js'),'utf8');
+ assert.match(app,/input\.indexOf\('\/api\/'\) === 0/,'legacy patch only rewrites relative API strings');
+ assert.match(viewer,/sameOrigin\('\/api\/state'\)/);
+ assert.match(viewer,/sameOrigin\('\/api\/research\/news-evidence\?symbol='/);
+ assert.match(viewer,/Authorization:'Bearer '\+auth/);
+ assert.match(viewer,/getRelToken/);
+ assert.doesNotMatch(viewer,/['"]\/api\/research\/news-evidence\?symbol=['"]\s*\+/);
 });
