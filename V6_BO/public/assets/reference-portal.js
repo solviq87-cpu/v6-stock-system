@@ -99,6 +99,52 @@ function install(root){
    lines.append(make(doc,'span','','真实数据请点开查看'),make(doc,'span','','不会展示演示行情'));
    a.append(lines);triple.append(a);
   }
+  // Three reference panels mirror the original V6 market, limit-up sector
+  // and capital-flow DOM. Never fabricate a chart or overwrite source data.
+  const liveRankSources=[
+    {id:'mainline',title:'市场主线排行'},
+    {id:'ztBySector',title:'涨停板 · 板块分类'},
+    {id:'sectors',title:'板块资金排行'}
+  ];
+  const rankHosts=[...triple.querySelectorAll('.v6-portal-panel')];
+  const rankObserver=typeof root.MutationObserver==='function'?new root.MutationObserver(()=>queueRanks()):null;
+  let rankPending=false;
+  function queueRanks(){
+    if(rankPending)return;
+    rankPending=true;
+    Promise.resolve().then(()=>{rankPending=false;renderRanks();});
+  }
+  function renderRanks(){
+    liveRankSources.forEach((entry,index)=>{
+      const source=doc.getElementById(entry.id),host=rankHosts[index];
+      if(!host)return;
+      let container=host.querySelector('.v6-portal-live-ranking');
+      if(!container){
+        container=make(doc,'div','v6-portal-live-ranking');
+        host.querySelector('.v6-portal-panel-placeholder')?.replaceWith(container);
+        if(!container.parentElement)host.append(container);
+      }
+      container.replaceChildren();
+      const rows=source?[...source.children].filter(node=>node.textContent?.trim()):[];
+      if(!rows.length){
+        container.append(make(doc,'p','v6-portal-no-data','暂无可核验的原系统排行数据，点击进入查看来源和日期。'));
+        return;
+      }
+      const subset=rows.slice(0,6);
+      for(const row of subset){
+        const line=make(doc,'div','v6-portal-rank-row');
+        const parts=String(row.textContent||'').replace(/\s+/g,' ').trim();
+        line.textContent=parts.slice(0,140);
+        container.append(line);
+      }
+      container.append(make(doc,'small','v6-portal-rank-source','展示原模块已渲染数据 · 请点开核验时点'));
+    });
+  }
+  for(const entry of liveRankSources){
+    const source=doc.getElementById(entry.id);
+    if(source&&rankObserver)rankObserver.observe(source,{childList:true,subtree:true,characterData:true});
+  }
+  renderRanks();
   const table=make(doc,'section','v6-portal-table');
   table.append(make(doc,'h2','','每日复盘 · 涨停形态与归因'));
   const tableHint=make(doc,'p','','涨停数量、股票名单、封板强度及原因以原复盘接口为准。点击进入查看逐股证据。');
