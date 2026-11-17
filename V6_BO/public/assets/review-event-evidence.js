@@ -92,46 +92,93 @@ function render(doc,panel,model){
 function bind(doc){
  const review=doc.getElementById('review');
  if(!review||typeof root.fetch!=='function')return;
- const token=doc.getElementById('token');
  let generation=0;
- const secret=()=>token&&typeof token.value==='string'?token.value.trim():'';
+ const authToken=()=>{
+   try{return typeof root.getRelToken==='function'?String(root.getRelToken()||''):'';}
+   catch{return '';}
+ };
+ const sameOrigin=path=>new URL(path,root.location&&root.location.href||'http://localhost/').href;
  function invalidate(){
-  generation++;
-  for(const btn of review.querySelectorAll('.rv-evidence-trigger[aria-expanded="true"]')){
-   btn.setAttribute('aria-expanded','false');
-   const box=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
-   if(box)box.replaceChildren();
-  }
+   generation++;
+   for(const btn of review.querySelectorAll('.rv-evidence-trigger[aria-expanded="true"]')){
+     btn.setAttribute('aria-expanded','false');
+     const box=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
+     if(box)box.replaceChildren();
+   }
  }
- token&&token.addEventListener('input',invalidate);
+ function decorate(){
+   // The frozen legacy renderer reconstructs its card HTML every five seconds.
+   // Enhance new cards instead of changing those approved historical bytes.
+   for(const card of review.querySelectorAll('.rvc:not([data-review-evidence-ready])')){
+     card.dataset.reviewEvidenceReady='true';
+     const code=String(card.querySelector('.rvc-h span.muted')?.textContent||'').trim();
+     if(!/^\d{6}$/.test(code))continue;
+     const label=card.querySelector('.rvc-reason');
+     if(label)for(const node of label.childNodes){
+       if(node.nodeType===3&&node.textContent.includes('🔥 涨停原因：'))
+         node.textContent=node.textContent.replace('🔥 涨停原因：','🔥 涨停题材（标签不代表事件因果）：');
+     }
+     const wrapper=doc.createElement('div');wrapper.className='rv-evidence';
+     const button=doc.createElement('button');
+     button.className='rv-evidence-trigger';button.type='button';button.dataset.code=code;
+     button.setAttribute('aria-expanded','false');
+     button.textContent='📎 逐股事件 · 日期与来源（点开核对）';
+     const results=doc.createElement('div');results.className='rv-evidence-results';
+     wrapper.appendChild(button);wrapper.appendChild(results);card.appendChild(wrapper);
+   }
+ }
+ if(typeof root.MutationObserver==='function'){
+   const observer=new root.MutationObserver(decorate);
+   observer.observe(review,{childList:true,subtree:true});
+   const role=doc.getElementById('roleState');
+   if(role)new root.MutationObserver(invalidate).observe(role,{childList:true,characterData:true,subtree:true});
+ }
+ decorate();
  doc.addEventListener('visibilitychange',()=>{if(doc.hidden)invalidate();});
  root.addEventListener&&root.addEventListener('pagehide',invalidate);
  root.addEventListener&&root.addEventListener('offline',invalidate);
+ root.addEventListener&&root.addEventListener('focus',invalidate);
  review.addEventListener('click',async ev=>{
-  const btn=ev.target&&typeof ev.target.closest==='function'?ev.target.closest('.rv-evidence-trigger'):null;
-  if(!btn||!review.contains(btn))return;
-  const panel=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
-  if(!panel)return;
-  if(btn.getAttribute('aria-expanded')==='true'){
-   generation++;btn.setAttribute('aria-expanded','false');panel.replaceChildren();return;
-  }
-  const code=btn.dataset.code,date=btn.dataset.reviewDay,current=++generation,auth=secret();
-  btn.setAttribute('aria-expanded','true');
-  panel.textContent='读取事件与来源证据…';
-  const active=()=>current===generation&&review.contains(btn)&&btn.getAttribute('aria-expanded')==='true'&&secret()===auth&&!doc.hidden;
-  try{
-   // Reject malformed identities before issuing a network request.
-   view({rows:[]},{code,date});
-   const response=await root.fetch('/api/research/news-evidence?symbol='+encodeURIComponent(code),{
-    headers:auth?{Authorization:'Bearer '+auth}:{},cache:'no-store',credentials:'same-origin'});
-   if(!response.ok)throw Error('无权限或证据接口暂不可用');
-   const data=await response.json();
-   if(!data||data.ok!==true||!data.result)throw Error('证据接口返回不完整');
-   if(!active())return;
-   render(doc,panel,view(data.result,{code,date}));
-  }catch(e){
-   if(active())panel.textContent='证据暂不可核实：'+(e&&e.message||'查询失败')+'。不把题材标签冒充已核实事件。';
-  }
+   const btn=ev.target&&typeof ev.target.closest==='function'?ev.target.closest('.rv-evidence-trigger'):null;
+   if(!btn||!review.contains(btn))return;
+   const panel=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
+   if(!panel)return;
+   if(btn.getAttribute('aria-expanded')==='true'){
+     generation++;btn.setAttribute('aria-expanded','false');panel.replaceChildren();return;
+   }
+   const code=btn.dataset.code,current=++generation,auth=authToken();
+   btn.setAttribute('aria-expanded','true');
+   panel.textContent='读取对应复盘日与事件来源…';
+   const active=()=>current===generation&&review.contains(btn)&&btn.getAttribute('aria-expanded')==='true'
+     &&authToken()===auth&&!doc.hidden;
+   try{
+     if(!/^\d{6}$/.test(String(code||'')))throw Error('证券代码无效');
+     // Absolute same-origin URLs bypass the legacy fetch shim that appends
+     // credentials to /api/ path strings. Tokens belong ONLY in headers.
+     const headers=auth?{Authorization:'Bearer '+auth}:{};
+     const stateResponse=await root.fetch(sameOrigin('/api/state'),{
+       headers,cache:'no-store',credentials:'same-origin'});
+     if(!stateResponse.ok)throw Error('无法校验当前复盘日期');
+     const state=await stateResponse.json();
+     if(!active())return;
+     const snapshot=state&&state.review,day=String(snapshot&&snapshot.date||'').replace(/-/g,'');
+     if(!snapshot||!Array.isArray(snapshot.items)||!snapshot.items.some(x=>x&&x.code===code))
+       throw Error('该股票不在当前复盘快照，请刷新页面后重试');
+     const shown=doc.getElementById('rvTime')?.textContent||'';
+     const mmdd=day.slice(4,6)+'-'+day.slice(6,8);
+     if(!/^\d{8}$/.test(day)||!shown.includes(mmdd))
+       throw Error('页面复盘归属日与云端不同，请先刷新');
+     const response=await root.fetch(sameOrigin('/api/research/news-evidence?symbol='+encodeURIComponent(code)),{
+       headers,cache:'no-store',credentials:'same-origin'});
+     if(!active())return;
+     if(!response.ok)throw Error('当前权限不足或新闻证据归档暂不可用');
+     const data=await response.json();
+     if(!active())return;
+     if(!data||data.ok!==true||!data.result)throw Error('证据接口返回不完整');
+     render(doc,panel,view(data.result,{code,date:day}));
+   }catch(e){
+     if(active())panel.textContent='证据暂不可核实：'+(e&&e.message||'查询失败')+'。题材标签不得冒充已核实的涨停原因。';
+   }
  });
 }
 if(typeof module==='object'&&module.exports)module.exports={reviewCutoff,allowedUrl,clock,classify,view,render,bind};
