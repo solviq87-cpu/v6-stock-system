@@ -31,13 +31,23 @@ function renderPanels(state,summary,reviewDay,ctx) {
  const roles=Array.isArray(state.ztBySector)?state.ztBySector:[];
  const roleDay=reviewDate(state.snapshotFieldDays?.ztBySector||state.ztDay);
  const roleRows=reviewDay&&roleDay===reviewDay?roles.slice(0,5):[];
- const board=section('涨停板 · 板块分类','龙头 / 龙二 / 中军按服务端原始角色；未涨停的题材股也可能入围',
-  roleRows.length?h('div',{class:'fy-terminal-lines'},roleRows.map(g=>
-    h('div',{class:'fy-terminal-sector'},
-     h('div',{class:'fy-terminal-line'},h('strong',{},g.sector||'板块待核验'),h('span',{},valid(g.count)?number(g.count)+' 只':'数量未知')),
-     h('div',{class:'fy-terminal-chips'},(Array.isArray(g.stocks)?g.stocks:[]).slice(0,4).map(r=>
-      h('span',{class:'fy-terminal-chip'},r.name||r.code||'名称未知',r.role&&h('small',{},' · '+({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'}[r.role]||'角色待核验'))))))):
-   empty('没有可核验的同日板块分类','本次复盘 '+(reviewDay||'日期未知')+'，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
+ const roleItems=roleRows.map(group=>{
+  const members=(Array.isArray(group.stocks)?group.stocks:[]).slice(0,4).map(row=>{
+   const role=({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[row.role]||null;
+   return h('span',{class:'fy-terminal-chip'},row.name||row.code||'名称未知',
+    role?h('small',{},' · '+role):null);
+  });
+  return h('div',{class:'fy-terminal-sector'},
+   h('div',{class:'fy-terminal-line'},
+    h('strong',{},group.sector||'板块待核验'),
+    h('span',{},valid(group.count)?number(group.count)+' 只':'数量未知')),
+   h('div',{class:'fy-terminal-chips'},members));
+ });
+ const board=section('涨停板 · 板块分类',
+  '龙头 / 龙二 / 中军按服务端原始角色；未涨停的题材股也可能入围',
+  roleItems.length?h('div',{class:'fy-terminal-lines'},roleItems):
+   empty('没有可核验的同日板块分类','本次复盘 '+(reviewDay||'日期未知')+
+    '，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
   moduleButton('查看全部板块','pulse','sectors',ctx));
  const sectors=Array.isArray(state.sectors)?state.sectors:Array.isArray(state.sectors?.items)?state.sectors.items:[];
  // Only known Yuan-valued fields are converted to 亿/万; fields without verified units are not converted.
@@ -109,7 +119,7 @@ export function renderTerminalOverview(ctx) {
  function paint() {
   if(ctx.signal?.aborted)return;
   // Focused elements are not replaced while a keyboard user is interacting with them.
-  if(view.contains(document.activeElement))return;
+  if(reviewHost.contains(document.activeElement))return;
   const state=ctx.state||{},review=state.review,summary=summarizeReview(review),coverage=reviewCoverage(review);
   const day=reviewDate(review?.date),source=coverage.source,reported=valid(review?.ztN)?review.ztN:null;
   const marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
