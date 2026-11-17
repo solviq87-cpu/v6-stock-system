@@ -291,3 +291,20 @@ button:focus-visible,.btn:focus-visible,a:focus-visible{outline:3px solid #5488f
 .v6-nav-link[aria-current="location"]{background:#315bd5;color:white;border-color:#315bd5}
 .sec[id^="v6-"]:target{background:#eaf1ff;border-radius:4px;padding-top:6px;padding-bottom:6px}
 @media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+
+/* 2026-11-17 复盘逐股证据卡：只读，不提升题材标签为事件因果 */
+.rv-evidence{margin-top:8px;border-top:1px solid rgba(115,137,165,.2);padding-top:8px}
+.rv-evidence-trigger{border:1px solid #587fb0;border-radius:7px;background:#192f4d;color:#dceeff;padding:6px 10px;cursor:pointer;font-size:12px;text-align:left}
+.rv-evidence-trigger:focus-visible{outline:2px solid #71b8fa;outline-offset:2px}
+.rv-evidence-trigger[aria-expanded="true"]{background:#274466}
+.rv-evidence-results{white-space:normal;overflow-wrap:anywhere;line-height:1.55}
+.rv-evidence-note,.rv-evidence-empty,.rv-evidence-count{font-size:12px;color:#8796aa;margin:6px 0}
+.rv-event-card{margin:8px 0;padding:9px 10px;border-radius:8px;background:rgba(42,61,83,.28);border-left:3px solid #587fa8;font-size:12px}
+.rv-event-card h4{font-size:13px;margin:0 0 5px;color:inherit}
+.rv-event-card p{margin:4px 0}
+.rv-event-card a{color:#69aef4;text-decoration:underline}
+.rv-event-context{border-left-color:#58a17c}
+.rv-event-postclose,.rv-event-late,.rv-event-old{border-left-color:#db9a43}
+.rv-event-retracted,.rv-event-superseded,.rv-event-unknown{border-left-color:#be5e64}
+.rv-event-state{font-weight:600}
+@media(max-width:650px){.rv-evidence-trigger{max-width:100%;white-space:normal}.rv-event-card{padding:8px}}

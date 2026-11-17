@@ -10,6 +10,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  verify-review-event-evidence:
+    name: review-event-evidence-asof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: No hindsight, XSS, or falsely verified limit-up reasons
+        run: |
+          node --check V6_BO/public/assets/review-event-evidence.js
+          node --test V6_BO/tests/review-event-evidence.test.js
   verify-cloud-backup:
     name: cloud-records-backup-preflight
     runs-on: ubuntu-24.04
