@@ -1,22 +1,22 @@
 /* Real V6 main dashboard: screenshot-inspired navy-blue presentation.
    The original live cards, indices, chart, news, strategies and risk remain. */
-body.vx-desktop:has(#v6LiveHomeNav),body.vx-mobile:has(#v6LiveHomeNav){
+body.vx-desktop.v6-live-home,body.vx-mobile.v6-live-home{
  --vx-bg:#041127;--vx-panel:#091d3d;--vx-line:#2459a0;--vx-text:#e7f4ff;
  --vx-muted:#a5c7ef;--vx-blue:#4cb6ff;--vx-red:#ff688b;--vx-green:#39d9a0;
  --ow-bg:#041127;--ow-surface:#0a2144;--ow-line:#285a9e;--ow-text:#edf6ff;
  --ow-purple:#70b9ff;--ow-pink:#f87bb5;background:#041127!important;color:#eaf4ff}
-body:has(#v6LiveHomeNav) .vx-topbar{background:linear-gradient(90deg,#051229,#0b2351)!important;
+body.v6-live-home .vx-topbar{background:linear-gradient(90deg,#051229,#0b2351)!important;
  border-bottom:1px solid #3275d1!important}
-body:has(#v6LiveHomeNav) .vx-sidebar{background:linear-gradient(180deg,#061632,#0a2450)!important;
+body.v6-live-home .vx-sidebar{background:linear-gradient(180deg,#061632,#0a2450)!important;
  border-right:1px solid #2858a4!important}
-body:has(#v6LiveHomeNav) .vx-dashboard :is(.vx-panel,.vx-index){
+body.v6-live-home .vx-dashboard :is(.vx-panel,.vx-index){
  background:linear-gradient(155deg,#0c2856,#081a3c)!important;
  border:1px solid #2864b4!important;color:#eaf5ff!important;
  box-shadow:inset 0 1px 0 #80b8ff25,0 8px 24px #01091877!important}
-body:has(#v6LiveHomeNav) .vx-dashboard :is(h1,h2,h3,strong){color:#f1f9ff}
-body:has(#v6LiveHomeNav) .vx-dashboard :is(.vx-up,.positive){color:#ff728f!important}
-body:has(#v6LiveHomeNav) .vx-dashboard :is(.vx-down,.negative){color:#49dfad!important}
-body:has(#v6LiveHomeNav) .vx-dashboard :is(.vx-table-toolbar,.vx-table-footer,.vx-detail-tabs){
+body.v6-live-home .vx-dashboard :is(h1,h2,h3,strong){color:#f1f9ff}
+body.v6-live-home .vx-dashboard :is(.vx-up,.positive){color:#ff728f!important}
+body.v6-live-home .vx-dashboard :is(.vx-down,.negative){color:#49dfad!important}
+body.v6-live-home .vx-dashboard :is(.vx-table-toolbar,.vx-table-footer,.vx-detail-tabs){
  border-color:#2d62ac!important}
 .v6-live-home-nav{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:thin;
  padding:10px 0;margin:0 0 7px}
