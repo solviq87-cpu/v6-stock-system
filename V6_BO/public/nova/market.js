@@ -55,7 +55,7 @@ const roleLabel=row=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟�
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 export function detailedStockCard(row,ctx) {
  const strength=row.sectorStrength||{};
- const metrics=[['快照价',format(row.price)],['封单 / 成交额',finite(row.sealRatio)?format(row.sealRatio*100,0)+'%':'未知'],['开板次数',finite(row.breakCount)?format(row.breakCount,0):'未知'],['换手率',finite(row.turnover)?format(row.turnover,1)+'%':'未知'],['封单额',money(row.sealAmount)],['流通市值',money(row.floatCap)],['主力净额',row.mainInflow==null?'未知':money(row.mainInflow)],['封单 / 流通市值',finite(row.sealStrength)?format(row.sealStrength*100,2)+'%':'未知']];
+ const metrics=[['快照价',format(row.price)],['封单 / 成交额',finite(row.sealRatio)?format(row.sealRatio*100,0)+'%':'未知'],['开板次数',finite(row.breakCount)?format(row.breakCount,0):'未知'],['换手率',finite(row.turnover)?format(row.turnover,1)+'%':'未知'],['封单额',money(row.sealAmount)],['流通市值',money(row.floatCap)],['主力净额',row.mainInflow==null?'未知':money(row.mainInflow)],['封单 / 流通市值',finite(row.sealStrength)?format(row.sealStrength,2)+'%':'未知']];
  return h('article',{class:'fy-panel fy-section'},
   h('div',{class:'fy-inline'},button(symbolName(row)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet'),h('strong',{},roleLabel(row)),row.level&&h('span',{class:'fy-tag'},row.level+'进'+(row.targetLevel||row.level+1)),row.mainline&&h('span',{class:'fy-tag'},'主流板块'),h('span',{class:'fy-tag'},row.sector||'板块待核验')),
   h('p',{},finite(row.fused)?'排序值 '+format(row.fused,1)+' · 原模型估计 '+format(row.prob,1):finite(row.prob)?'原模型估计 '+format(row.prob,1):finite(row.score)?'评分 '+format(row.score,1):'评分待核验'),

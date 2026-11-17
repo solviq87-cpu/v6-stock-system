@@ -66,7 +66,7 @@ test('review refresh keeps failed requests and unknown dates visibly distinct fr
  dom();const {renderDailyReview}=await api,ctx=context({review:{items:[]}});const view=renderDailyReview(ctx);assert.match(text(view),/报告缺少原始日期/);assert.match(text(view),/源数据未就绪/);assert.doesNotMatch(text(view),/最近复盘 · 1970/);ctx.controller.abort();
 });
 test('detailed relay shows all evidence and distinct ratio definitions without certifying model probability',async()=>{
- dom();const {detailedStockCard}=await api,ctx=context({}),view=detailedStockCard({code:'600001',name:'详细候选',role:'leader',level:2,targetLevel:3,sealRatio:1.19,sealStrength:0.0402,turnover:3.4,breakCount:0,sealAmount:270000000,floatCap:6750000000,mainInflow:null,prob:63,fused:62,why:['依据甲','依据乙','依据丙','第四条完整依据'],poolDay:'20261117',sectorStrength:{theme:'芯片',score:70,grade:'强',sectorZT:16,maxLb:3}},ctx);
+ dom();const {detailedStockCard}=await api,ctx=context({}),view=detailedStockCard({code:'600001',name:'详细候选',role:'leader',level:2,targetLevel:3,sealRatio:1.19,sealStrength:4.02,turnover:3.4,breakCount:0,sealAmount:270000000,floatCap:6750000000,mainInflow:null,prob:63,fused:62,why:['依据甲','依据乙','依据丙','第四条完整依据'],poolDay:'20261117',sectorStrength:{theme:'芯片',score:70,grade:'强',sectorZT:16,maxLb:3}},ctx);
  const body=text(view);for(const value of ['龙头','2进3','119%','4.02%','第四条完整依据','主力净额','未知','同主线涨停 16','不等于经验证的胜率'])assert.ok(body.includes(value),value);
 });
 test('sector role cards keep server roles, strong non-limit tags and source date isolation',async()=>{
