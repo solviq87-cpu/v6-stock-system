@@ -42,7 +42,7 @@ const CATALOG=Object.freeze([
  {id:'backtest',group:'review',icon:'▥',name:'历史回测',href:'/#workspace-analysis',description:'历史回放与绩效验证',tags:'回测 收益率 历史 盈亏'},
  {id:'strategy14',group:'strategy',icon:'⑭',name:'我的十四条条件',href:'/#myrules',description:'十四条选股要求逐条判定',tags:'14条 十四条 规则'},
  {id:'ai-research',group:'strategy',icon:'✦',name:'AI研究工作台',href:'/research.html#decisionWorkspace',description:'研究决策、解释和验证门禁',tags:'人工智能 GPT 策略研究',role:'edit'},
- {id:'research36',group:'strategy',icon:'◈',name:'36种策略研究',href:'/research.html#research36Workspace',description:'36种研究条件及证据查看',tags:'36条 战法 实验研究',role:'edit'},
+ {id:'research36',group:'strategy',icon:'◈',name:'36种策略研究',href:'/research.html#research36Workspace',description:'36种研究条件及证据查看',tags:'36策略 36条 战法 实验研究',role:'edit'},
  {id:'factor',group:'strategy',icon:'📐',name:'因子研究与学习',href:'/research.html#factorAgentHeading',description:'因子权重、数据证据和学习状态',tags:'因子 模型 自学习 Python',role:'edit'},
  {id:'models',group:'strategy',icon:'📚',name:'模型资料库',href:'/model-library.html',description:'研究模型与版本资料',tags:'模型管理 历史'},
  {id:'risk',group:'account',icon:'🛡',name:'策略风控中心',href:'/research.html#riskCenter',description:'风险证据和风控条件',tags:'止损 回撤 风险评估',role:'edit'},
