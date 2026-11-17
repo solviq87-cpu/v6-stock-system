@@ -67,3 +67,27 @@ test('mobile layout and large screen layout use same cards and no synthetic mark
  assert.match(css,/grid-template-columns:repeat\(3/);
  assert.match(css,/v6-portal-navlink/);
 });
+
+test('approved main homepage has eleven categories distinct from the review subpage',()=>{
+ const hub=require('../public/assets/feature-hub.js');
+ const reference=require('../public/assets/reference-portal.js');
+ const names=['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的'];
+ assert.deepEqual(hub.PRIMARY_NAV.map(x=>x.label),names);
+ assert.deepEqual(reference.MAIN_TABS.map(x=>x[0]),names);
+ for(const item of hub.PRIMARY_NAV)assert.ok(hub.validDestination(item.href));
+ const source=read('public/assets/reference-portal.js');
+ assert.match(source,/reviewHeading\.after\(portal\)/);
+ assert.doesNotMatch(source,/dash\.prepend\(portal\)/);
+ const nav=read('public/assets/feature-hub.js');
+ assert.match(nav,/mainNav\.replaceChildren\(\.\.\.navLinks\)/);
+});
+test('automatic paper orders cannot be claimed complete from read-only proposals',()=>{
+ const plan=read('src/core/strategy-paper-intent-plan.js');
+ const preflight=read('src/core/paper-execution-preflight.js');
+ const account=read('src/core/paper-application-service.js');
+ assert.match(plan,/canTrade:false/);
+ assert.match(preflight,/accountMutated: false/);
+ assert.match(account,/可卖数量不足或T\+1限制/);
+ assert.match(account,/calendar\.isOpen/);
+ assert.match(account,/成交不能使用其他委托冻结资金/);
+});
