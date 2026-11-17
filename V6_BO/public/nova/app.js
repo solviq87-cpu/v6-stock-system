@@ -83,7 +83,7 @@ function createFrame() {
  const search=button(icon('search'),openSearch,'quiet');search.setAttribute('aria-label','搜索股票与功能');search.setAttribute('aria-keyshortcuts','Control+K Meta+K');
  const refreshButton=button(icon('refresh'),()=>refresh(true),'quiet');refreshButton.setAttribute('aria-label','刷新云端数据');
  const inbox=button(icon('bell'),()=>navigate('inbox','all'),'quiet');inbox.setAttribute('aria-label','资讯与通知');
- const identity=button(role==='edit'?'管理者':'观察者',openIdentity,'quiet');identity.setAttribute('aria-label','账户与授权');
+ const identity=button(icon('user'),openIdentity,'quiet');identity.setAttribute('aria-label','账户与授权');identity.setAttribute('title',role==='edit'?'管理者':'观察者');
  const actions=h('div',{class:'fy-actions'},search,refreshButton,inbox,identity);
  const header=h('header',{class:'fy-header'},brand,nav,actions);
  const businessNav=h('nav',{class:'fy-business-nav','aria-label':'V6 原业务功能导航'},BUSINESS_NAV.map(([label,view,sub])=>
