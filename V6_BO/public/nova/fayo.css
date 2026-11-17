@@ -754,3 +754,103 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 @media(prefers-reduced-motion:reduce){
  .fy-business-nav button,.fy-button,.fy-stock-card{transition:none}
 }
+
+
+/* IPHONE17PRO 402 CSS PX / DPR 3 / 402x874 installed viewport.
+   Safari with controls visible can expose as little as 402x714.
+   Keep all widths fluid; test 320px fallback and 874px landscape too. */
+@supports(height:100dvh){
+ html,body,.fayo-app{min-height:100dvh}
+}
+.fy-terminal-review-layout{min-width:0;max-width:100%}
+.fy-terminal-mobile-cards{display:none}
+.fy-terminal-desktop-table{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:650px){
+ .fy-header{max-width:100%;box-sizing:border-box;gap:7px}
+ .fy-brand{min-width:0;flex:0 1 auto}
+ .fy-brand span{min-width:0}
+ .fy-brand strong{letter-spacing:0;white-space:nowrap}
+ .fy-actions{margin-left:auto;flex:none}
+ .fy-business-nav{max-width:100%;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .fy-business-nav button{white-space:nowrap}
+ .fy-terminal-title,.fy-terminal-provenance,.fy-terminal-panels>.fy-section,.fy-terminal-review{min-width:0;overflow-wrap:anywhere}
+ .fy-terminal-desktop-table{display:none}
+ .fy-terminal-mobile-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ .fy-terminal-mobile-stock{
+  min-width:0;padding:12px;border:1px solid #315475;border-radius:10px;
+  background:linear-gradient(110deg,#132b46,#102239);
+ }
+ .fy-terminal-mobile-stock-head{display:flex;align-items:center;gap:8px;min-width:0;justify-content:space-between}
+ .fy-terminal-mobile-stock-head .fy-button{
+  min-width:0;text-align:left;font-size:14px;font-weight:700;line-height:1.5;
+  white-space:normal;overflow-wrap:anywhere;justify-content:flex-start;
+  min-height:38px;flex:1;padding:5px 0;color:#e8f5ff;
+ }
+ .fy-terminal-mobile-board{flex:none;padding:3px 7px;background:#392f4a;color:#ffb6bd;
+  border:1px solid #745268;border-radius:6px;font-size:11px}
+ .fy-terminal-mobile-sector{color:#8fbae5;font-size:11px;margin:0 0 9px;line-height:1.45}
+ .fy-terminal-mobile-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0 0 9px}
+ .fy-terminal-mobile-metrics>div{min-width:0;padding:8px 9px;background:#0a1d31;border:1px solid #294666;border-radius:7px}
+ .fy-terminal-mobile-metrics dt{color:#8caaca;font-size:10px;margin:0 0 3px}
+ .fy-terminal-mobile-metrics dd{color:#e7f2ff;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;margin:0}
+ .fy-terminal-mobile-basis{font-size:11px;line-height:1.6;color:#c9dcf0;margin-bottom:7px;overflow-wrap:anywhere}
+ .fy-terminal-mobile-source{display:block;font-size:9px;line-height:1.5;color:#8aabcc;overflow-wrap:anywhere}
+ .fy-terminal-flows,.fy-terminal-review-list{min-width:0}
+ .fy-terminal-review-list{overflow:visible}
+ .fy-terminal-candidates .fy-inline{flex-wrap:wrap}
+ .fy-terminal-candidates .fy-inline input{max-width:100%}
+ .fy-terminal-title .fy-terminal-actions{width:100%;justify-content:flex-start}
+ .fy-terminal-review-head>.fy-button{align-self:flex-start}
+ .fy-main{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+ .fy-dock{padding:8px max(10px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+ .fy-dock button{min-height:48px}
+ .fy-terminal-index .fy-market-ticker{min-width:0}
+}
+@media(min-width:390px) and (max-width:430px) and (orientation:portrait){
+ /* Primary iPhone 17 Pro layout = 402 CSS px. */
+ .fy-header{min-height:68px;height:68px;padding-inline:13px}
+ .fy-brand strong{font-size:16px}
+ .fy-brand small{letter-spacing:.04em}
+ .fy-actions button,.fy-actions .fy-button{width:34px;min-width:34px;min-height:36px;height:36px}
+ .fy-business-nav{padding:8px 13px}
+ .fy-main{padding-inline:13px;min-width:0}
+ .fy-terminal{gap:11px}
+ .fy-terminal-title{padding:13px}
+ .fy-terminal-title h1{font-size:20px;line-height:1.4}
+ .fy-terminal-index .fy-market-ticker{gap:8px}
+ .fy-terminal-stat{min-height:90px}
+ .fy-terminal-stat>span{font-size:11px}
+ .fy-terminal-stat>small{font-size:10px}
+ .fy-terminal-panels>.fy-section{padding:13px}
+ .fy-terminal-mobile-metrics dd{font-size:14px}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+ .fy-terminal-shortcuts .fy-button{min-height:48px}
+}
+@media(max-width:375px){
+ /* Narrow older iPhones should not stretch the document beyond the viewport. */
+ .fy-header{padding-inline:8px;gap:5px}
+ .fy-brand{gap:5px}
+ .fy-brand img{width:24px;height:24px}
+ .fy-brand strong{font-size:14px}
+ .fy-brand small{display:none}
+ .fy-actions{gap:2px}
+ .fy-actions button,.fy-actions .fy-button{width:29px;min-width:29px;min-height:32px;height:32px;padding:4px}
+ .fy-actions svg{width:16px;height:16px}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(display-mode:standalone) and (max-width:650px){
+ /* Installed iOS PWA has no Safari toolbar: reserve Dynamic Island safe area. */
+ .fy-header{
+  padding-top:calc(env(safe-area-inset-top,0px) + 6px);
+  height:calc(60px + env(safe-area-inset-top,0px));
+  min-height:calc(60px + env(safe-area-inset-top,0px));
+ }
+ .fy-stock-drawer{padding-top:env(safe-area-inset-top,0px)}
+ .fy-command-layer{padding-top:calc(12px + env(safe-area-inset-top,0px))}
+}
+@media(max-width:900px) and (orientation:landscape) and (pointer:coarse){
+ /* 874x402 mobile landscape: honor side sensor/camera and home-safe insets. */
+ .fy-header{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+ .fy-business-nav{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+ .fy-main{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+}
