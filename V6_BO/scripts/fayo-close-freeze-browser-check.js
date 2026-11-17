@@ -87,7 +87,7 @@ const { chromium } = require('playwright'),
       await page.locator('#refresh').click();
       await page.waitForFunction(
         () =>
-          document.querySelector('#relay .fy-stock-meta>strong')
+          document.querySelector('#relay [data-field="price"]>strong')
             ?.textContent === '99.00',
       );
       assert.equal(await price(page), '2.00');

@@ -114,7 +114,7 @@ async function refresh(manual=false) {
   if(!role||controller?.signal.aborted)return;
   state=retainMarket(state,incoming);lastRead=Date.now();online=true;snapshotStatus();
   if(!main?.firstElementChild||main.firstElementChild.classList.contains('fy-loading'))await renderRoute();
-  else if(route.view==='pulse'&&(!route.sub||route.sub==='overview')&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
+  else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.();
   if(manual)notify('已读取同一份云端状态');
