@@ -141,6 +141,16 @@
    script.src='/assets/feature-hub.js?v=20261117nav1';
    script.async=true;script.setAttribute('data-v6-feature-hub-loader','');
    document.head.appendChild(script);
+   if(!document.querySelector('script[data-v6-reference-portal-loader]')){
+     const referenceCss=document.createElement('link');
+     referenceCss.rel='stylesheet';referenceCss.href='/assets/reference-portal.css?v=20261117ref1';
+     referenceCss.setAttribute('data-v6-reference-portal-style','');
+     document.head.appendChild(referenceCss);
+     const referenceScript=document.createElement('script');
+     referenceScript.src='/assets/reference-portal.js?v=20261117ref1';
+     referenceScript.async=true;referenceScript.setAttribute('data-v6-reference-portal-loader','');
+     document.head.appendChild(referenceScript);
+   }
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach,{once:true});
  else attach();
