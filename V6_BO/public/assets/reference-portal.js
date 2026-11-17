@@ -115,15 +115,13 @@ function install(root){
   more.addEventListener('click',()=>root.V6FeatureHub?.open?.());
   foot.append(make(doc,'span','','每个卡片均指向现有模块 · 未经核验的行情不显示数字'),more);
   portal.append(mast,nav,heading,metricGrid,triple,table,actions,foot);
-  dash.prepend(portal);
-  // The original dense dashboard is still available and fully mounted. Only
-  // the initial presentation is collapsed, never the business controllers.
-  const legacy=make(doc,'details','v6-portal-legacy');
-  const summary=make(doc,'summary','','展开原版完整数据工作台（全部历史功能）');
-  legacy.append(summary);
-  const nodes=[...dash.children].filter(node=>node!==portal&&node!==legacy);
-  nodes.forEach(node=>legacy.append(node));
-  dash.append(legacy);
+  // This reference is the REVIEW subpage, never the global homepage.
+  // Preserve #vx-dashboard as the true homepage and its live data controllers.
+  const reviewModule=doc.getElementById('v6-review')?.closest('.workspace-module');
+  if(!reviewModule)return;
+  const reviewHeading=reviewModule.querySelector('.sec');
+  if(reviewHeading)reviewHeading.after(portal);
+  else reviewModule.prepend(portal);
   // Reuse the existing market data snapshot. No additional polling/fetching.
   function sync(){
    const value=doc.getElementById('ztCount')?.textContent||'';
