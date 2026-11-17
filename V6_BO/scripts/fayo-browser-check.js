@@ -104,7 +104,7 @@ async function geometry(page,label){
  assert.deepEqual(result.duplicateIds,[],label+' has no duplicate identities');
  assert.equal(result.iframeCount,0,label+' does not embed a previous page');
  assert.equal(result.oldShells,0,label+' does not retain the previous shell');
- assert.match(result.brand,/绯曜|FAYO/i,label+' new brand is visible');
+ assert.match(result.brand,/天枢智策|绯曜|FAYO/i,label+' the approved V6 product brand is visible');
  assert.ok(result.brandBox&&result.brandBox.top>=-1&&result.brandBox.left>=0&&result.brandBox.right<=result.width+1&&result.brandBox.height>0,label+' new brand mark and name stay in the visible header: '+JSON.stringify(result.brandBox));
  return result;
 }
