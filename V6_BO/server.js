@@ -15472,6 +15472,7 @@ function deriveLimitUpMissed(stocks, pool) {
       // 新浪快照没有连板数/封单额/炸板数/首封时间 → 显式 null，绝不拿 0 冒充"缺数据"
       limitUpCount: null, sealAmount: null, breakCount: null,
       sector: '', streak: 1, firstSeal: null, src: 'derive',
+      quoteAt:s.quoteAt ?? null, receivedAt:s.receivedAt ?? null, quoteSource:s.quoteSource ?? null,
       openPct, lowOpen            // 低开拉板特征（快照层启发式）
     });
   }
@@ -15722,7 +15723,7 @@ async function refreshSectorsZT() {
   // 若直接跳过就会导致 S.ztPool 停留在旧快照（如盘中 48 只）而面板上「涨停 48 只」与实际收盘 84 只相差近半。
   // 用当前全A快照（收盘价==涨停价严口径）重建收盘封板池，作为兜底数据源；盘中若接口正常返回则走原路。
   if ((!zt || !zt.length) && Array.isArray(S.stocks) && S.stocks.length && marketReady()) {
-    const _derived = deriveLimitUpMissed(S.stocks, []);
+    const _derived = require('./src/core/limit-up-supplement').eligibleSupplementRows(deriveLimitUpMissed(S.stocks, []), _ztDay);
     if (_derived.length) {
       await enrichMissedStreak(_derived, _ztDay);
       zt = _derived;
@@ -15740,7 +15741,7 @@ async function refreshSectorsZT() {
     //   收盘集合竞价瞬间以涨停价 34.46 成交收盘（分时 15:00 那根：开33.99 收34.46 高34.46 量4311手）。
     //   这种「收盘竞价偷袭拉板」的票两源会系统性漏掉，新浪快照是收盘后快照（price=最终收盘价），
     //   所以这里的补漏正好能兜住——这也是为什么必须用「收盘价==涨停价」的严口径而非盘中分时。
-    const _missed = deriveLimitUpMissed(S.stocks, zt);
+    const _missed = require('./src/core/limit-up-supplement').eligibleSupplementRows(deriveLimitUpMissed(S.stocks, zt), _ztDay);
     if (_missed.length) {
       // 补漏票连板数从 K 线派生（东财/同花顺源的连板数已有，补漏票拿不到 → 这里补）
       await enrichMissedStreak(_missed, _ztDay);
@@ -16125,6 +16126,10 @@ function mkReviewShell(items) {
     time: new Date().toLocaleTimeString('zh-CN'),
     items: items || [],
     ztN: (S.ztPool || []).length,
+    // Freeze membership and provider counts alongside this report, not a later pool.
+    poolMembers: (S.ztPool || []).map(z => ({code:z.code, name:z.name, src:z.src || null})),
+    poolEvidence: [...new Map((S.ztPool || []).filter(z => z.poolEvidence)
+      .map(z => [JSON.stringify(z.poolEvidence), z.poolEvidence])).values()],
     head: ''
   };
 }
@@ -16242,6 +16247,7 @@ async function _computeReviewInner() {
       .map(x => ({ n: x.name, lb: x.limitUpCount || 0, role: roles.map.get(x.code) || 'follow', strong: !!x.strong })); // role: leader=龙头 deputy=龙二 mid=中军 follow=跟风
     items.push({
       code: z.code, name: z.name, price, researchEvidence:z.researchEvidence || null,
+      quoteAt:z.quoteAt ?? null, receivedAt:z.receivedAt ?? null, quoteSource:z.quoteSource ?? null,
       // ⛔ 复盘模块加固（2026-10-28）：pct 缺失/非数字时，原写法 z.pct.toFixed() 直接抛 TypeError，
       //    整轮 _computeReviewInner 当场中断 → 当天复盘全丢（定时器只打印一句，用户一条复盘都收不到）。
       //    判不出就显式 null（宁缺毋滥 / 判不出不硬判），绝不拿 0 或猜测冒充涨幅。

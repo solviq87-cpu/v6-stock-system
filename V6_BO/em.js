@@ -479,8 +479,20 @@ async function fetchZTPool(date) {
   const u = `${EMX}/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt` +
     `&Pageindex=0&pagesize=1000&sort=fbt%3Aasc&date=${date}`;
   const parse = j => {
-    if (!j || !j.data || !j.data.pool) return null;
+    if (!j || !j.data || !Array.isArray(j.data.pool)) return null;
+    const requestedDay = String(date || '').replace(/-/g, '');
+    const providerDay = String(j.data.qdate || '').replace(/-/g, '');
+    if (/^\d{8}$/.test(providerDay) && providerDay !== requestedDay) return null;
+    // Keep provider total separately from returned rows; HTTP success is not completeness.
+    const reported = j.data.tc;
+    const poolEvidence = {source:'em', scope:'eastmoney-limit-up-pool',
+      tradeDate:/^\d{8}$/.test(providerDay) ? providerDay : null,
+      requestedDay, receivedAt:Date.now(),
+      reportedCount:Number.isSafeInteger(reported) && reported >= 0 ? reported : null,
+      returnedCount:j.data.pool.length,
+      uniqueCount:new Set(j.data.pool.map(d => d && d.c).filter(c => /^\d{6}$/.test(c || ''))).size};
     return j.data.pool.map(d => ({
+      poolEvidence,
       code: d.c, name: d.n, price: d.p / 1000, pct: d.zdp,
       // ⛔ turnover 必须兜底：东财快讯偶发缺 hs 字段 → undefined 一路传到复盘里
       //    z.turnover.toFixed(1) 直接抛 TypeError → 整份每日复盘报废、面板停留在昨天那版。
