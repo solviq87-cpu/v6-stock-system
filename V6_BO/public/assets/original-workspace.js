@@ -23,11 +23,20 @@
         let target;
         try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch (_) {}
         const active = target?.closest('.workspace-module');
+        // A deep link can target a card inside a collapsed legacy section.
+        // Open its ancestor details and scroll only after its module is shown.
+        if (target && active) {
+          for (let p = target.parentElement; p; p = p.parentElement) {
+            if (p.tagName === 'DETAILS') p.open = true;
+            if (p === active) break;
+          }
+        }
         dashboard.hidden = !!active;
         heading.hidden = !active;
         if (active) heading.querySelector('h1').textContent = active.getAttribute('aria-label') || '工作台';
         modules.forEach(node => { node.hidden = !!active ? node !== active : true; });
         if (directory) directory.hidden = active !== settings;
+        if (active && target) requestAnimationFrame(() => target.scrollIntoView({block:'start',behavior:'auto'}));
         document.querySelectorAll('.vx-sidebar>a,.vx-mainnav>a').forEach(link => {
           let node;
           try { node = document.getElementById(link.hash.slice(1)); } catch (_) {}
