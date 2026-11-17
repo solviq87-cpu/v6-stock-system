@@ -79,3 +79,16 @@ body.mobile-workspace .v6-hub-launch,body.vx-mobile .v6-hub-launch{right:12px;bo
  .v6-hub-launch{font-size:12px!important;padding:8px 14px!important}
 }
 @media(prefers-reduced-motion:reduce){.v6-hub-layer *{scroll-behavior:auto}}
+
+/* Approved main-page 11-tab navigation: visible on both phone and desktop. */
+.vx-shell .vx-mainnav:has(.v6-hub-primary-link){display:flex;align-items:center;gap:5px;
+ flex:1;min-width:0;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+.vx-shell .vx-mainnav .v6-hub-primary-link{display:inline-flex!important;flex:none;align-items:center;
+ justify-content:center;min-height:42px;padding:8px 12px;border:1px solid #284e83;
+ border-radius:9px;background:linear-gradient(180deg,#102a54,#071932);color:#d8e9ff!important;
+ font-size:13px;text-decoration:none!important;white-space:nowrap}
+.vx-shell .vx-mainnav .v6-hub-primary-link[aria-current=page],
+.vx-shell .vx-mainnav .v6-hub-primary-link:hover{background:linear-gradient(180deg,#1373ba,#154a8f);
+ border-color:#5ecbff;color:#fff!important}
+@media(max-width:700px){.vx-shell .vx-mainnav .v6-hub-primary-link{min-height:42px;
+ font-size:12px;padding:8px 10px}}
