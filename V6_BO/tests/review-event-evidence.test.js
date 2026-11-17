@@ -93,5 +93,5 @@ test('the old fetch shim cannot append bearer tokens to event requests or linked
  assert.match(viewer,/sameOrigin\('\/api\/research\/news-evidence\?symbol='/);
  assert.match(viewer,/Authorization:'Bearer '\+auth/);
  assert.match(viewer,/getRelToken/);
- assert.doesNotMatch(viewer,/['"]\/api\/research\/news-evidence\?symbol=['"]\s*\+/);
+ assert.doesNotMatch(viewer,/root\.fetch\(\s*['\"]\/api\//);
 });
