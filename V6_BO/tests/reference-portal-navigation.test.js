@@ -1,0 +1,112 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const {LINKS,ACTIONS,METRICS,safeHref}=require('../public/assets/reference-portal.js');
+const hub=require('../public/assets/feature-hub.js');
+const gitBlob=bytes=>crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+bytes.length+'\0'),bytes])).digest('hex');
+test('reference screenshot menu has real routes and no fake hardcoded limit-up counts',()=>{
+ const nav=LINKS.map(x=>x[1]);
+ for(const label of ['首页','盘面总览','外围市场','选股核心','我的持仓','模拟盘','消息面','明日计划','我的十四条','复盘·学习','工具'])
+  assert.ok(nav.includes(label),'missing '+label);
+ for(const entry of LINKS)assert.ok(safeHref(entry[2]),entry[2]);
+ assert.equal(METRICS.length,7);
+ const script=read('public/assets/reference-portal.js');
+ assert.match(script,/未经核验的行情不显示数字/);
+ assert.doesNotMatch(script,/37\s*只|32\s*只|18\s*条/);
+ assert.doesNotMatch(script,/setInterval|fetch\(|localStorage|sessionStorage|\/api\/trade|\/api\/order/);
+});
+test('every reference action links into an actual legacy module and has a safe destination',()=>{
+ const index=read('public/index.html'),other=read('public/research.html');
+ const known=new Set([...index.matchAll(/\bid="([^"]+)"/g),...other.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]));
+ for(const item of ACTIONS){
+  assert.ok(safeHref(item.href),item.href);
+  const hash=item.href.split('#')[1];
+  if(hash)assert.ok(known.has(hash),'missing legacy anchor '+hash);
+ }
+ for(const item of LINKS){
+  const hash=item[2].split('#')[1];
+  if(hash)assert.ok(known.has(hash)||hash==='vx-dashboard','missing nav anchor '+hash);
+ }
+});
+test('original approved desktop/mobile pages remain byte-identical',()=>{
+ const approved=require('./fixtures/ui-homepage-approved-baseline-20261115.json');
+ for(const name of ['index.html','mobile.html'])
+  assert.equal(gitBlob(fs.readFileSync(path.join(root,'public',name))),approved.homepages[name],name);
+});
+test('portal is additive and old controllers remain mounted and available',()=>{
+ const js=read('public/assets/reference-portal.js');
+ const loader=read('public/assets/original-workspace.js');
+ assert.match(loader,/reference-portal\.js/);
+ assert.match(loader,/reference-portal\.css/);
+ assert.match(js,/getElementById\('v6-review'\)/);
+ assert.match(js,/reviewHeading\.after\(portal\)/);
+ assert.doesNotMatch(js,/dash\.prepend\(portal\)/);
+ assert.doesNotMatch(js,/nodes\.forEach\(node=>legacy\.append\(node\)\)/);
+ assert.match(js,/root\.V6FeatureHub\?\.open/);
+ assert.match(js,/root\.addEventListener\?\.\('v6-dashboard-data'/);
+ assert.match(js,/root\.addEventListener\?\.\('v6-dashboard-offline'/);
+});
+test('feature center exposes all screenshot routes with search and keyboard accessibility',()=>{
+ assert.ok(hub.CATALOG.length>=40);
+ for(const item of hub.CATALOG)assert.ok(hub.validDestination(item.href),item.href);
+ assert.ok(hub.findEntries('涨停原因').some(x=>x.id==='review-evidence'));
+ assert.ok(hub.findEntries('36策略').some(x=>x.id==='research36'));
+ assert.ok(hub.findEntries('模拟盘').some(x=>x.id==='paper'));
+ const js=read('public/assets/feature-hub.js');
+ assert.match(js,/aria-modal/);assert.match(js,/event\.key==='Escape'/);
+ assert.match(js,/event\.key!=='Tab'/);
+ assert.doesNotMatch(js,/\/api\/(?:trade|order|paper\/submit)/);
+});
+test('mobile layout and large screen layout use same cards and no synthetic market fixtures',()=>{
+ const css=read('public/assets/reference-portal.css');
+ assert.match(css,/@media\(max-width:600px\)/);
+ assert.match(css,/grid-template-columns:repeat\(7/);
+ assert.match(css,/grid-template-columns:repeat\(3/);
+ assert.match(css,/v6-portal-navlink/);
+});
+
+test('approved main homepage has eleven categories distinct from the review subpage',()=>{
+ const hub=require('../public/assets/feature-hub.js');
+ const reference=require('../public/assets/reference-portal.js');
+ const names=['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的'];
+ assert.deepEqual(hub.PRIMARY_NAV.map(x=>x.label),names);
+ assert.deepEqual(reference.MAIN_TABS.map(x=>x[0]),names);
+ for(const item of hub.PRIMARY_NAV)assert.ok(hub.validDestination(item.href));
+ const source=read('public/assets/reference-portal.js');
+ assert.match(source,/reviewHeading\.after\(portal\)/);
+ assert.doesNotMatch(source,/dash\.prepend\(portal\)/);
+ const nav=read('public/assets/feature-hub.js');
+ assert.match(nav,/mainNav\.replaceChildren\(\.\.\.navLinks\)/);
+});
+test('automatic paper orders cannot be claimed complete from read-only proposals',()=>{
+ const plan=read('src/core/strategy-paper-intent-plan.js');
+ const preflight=read('src/core/paper-execution-preflight.js');
+ const account=read('src/core/paper-application-service.js');
+ assert.match(plan,/canTrade:false/);
+ assert.match(preflight,/accountMutated: false/);
+ assert.match(account,/可卖数量不足或T\+1限制/);
+ assert.match(account,/calendar\.isOpen/);
+ assert.match(account,/成交不能使用其他委托冻结资金/);
+});
+
+test('homepage is connected to existing dashboard events rather than screenshot sample data',()=>{
+ const js=read('public/assets/live-home.js');
+ const css=read('public/assets/live-home.css');
+ const loader=read('public/assets/original-workspace.js');
+ const existing=read('public/assets/terminal-dashboard.js');
+ assert.match(js,/getElementById\('vx-dashboard'\)/);
+ assert.match(js,/v6-dashboard-data/);
+ assert.match(js,/v6-dashboard-offline/);
+ assert.match(js,/data\.observedAt/);
+ assert.doesNotMatch(js,/setInterval|fetch\(|localStorage|sessionStorage|1236580|3386\.24|11234\.56/);
+ assert.match(existing,/render\(e\.detail\)/);
+ assert.match(existing,/model\?\.indices/);
+ assert.match(existing,/model\?\.counts/);
+ assert.match(existing,/model\?\.strategies/);
+ assert.match(css,/--vx-bg:#041127/);
+ assert.match(loader,/live-home\.js/);
+ assert.match(loader,/live-home\.css/);
+});

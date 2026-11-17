@@ -23,11 +23,20 @@
         let target;
         try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch (_) {}
         const active = target?.closest('.workspace-module');
+        // A deep link can target a card inside a collapsed legacy section.
+        // Open its ancestor details and scroll only after its module is shown.
+        if (target && active) {
+          for (let p = target.parentElement; p; p = p.parentElement) {
+            if (p.tagName === 'DETAILS') p.open = true;
+            if (p === active) break;
+          }
+        }
         dashboard.hidden = !!active;
         heading.hidden = !active;
         if (active) heading.querySelector('h1').textContent = active.getAttribute('aria-label') || '工作台';
         modules.forEach(node => { node.hidden = !!active ? node !== active : true; });
         if (directory) directory.hidden = active !== settings;
+        if (active && target) requestAnimationFrame(() => target.scrollIntoView({block:'start',behavior:'auto'}));
         document.querySelectorAll('.vx-sidebar>a,.vx-mainnav>a').forEach(link => {
           let node;
           try { node = document.getElementById(link.hash.slice(1)); } catch (_) {}
@@ -123,4 +132,44 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
+})();
+
+
+/* Navigation-only enhancement. Keep the approved index/mobile documents and all
+ * business controllers untouched; reuse their existing CSS/JS load points. */
+(function(){
+ 'use strict';
+ function attach(){
+   // This shell exists only on the two primary original V6 entry pages.
+   if(!document.querySelector('.vx-shell')||document.querySelector('script[data-v6-feature-hub-loader]'))return;
+   const style=document.createElement('link');
+   style.rel='stylesheet';style.href='/assets/feature-hub.css?v=20261117nav1';
+   style.setAttribute('data-v6-feature-hub-style','');
+   document.head.appendChild(style);
+   const script=document.createElement('script');
+   script.src='/assets/feature-hub.js?v=20261117nav1';
+   script.async=true;script.setAttribute('data-v6-feature-hub-loader','');
+   document.head.appendChild(script);
+   if(!document.querySelector('script[data-v6-live-home-loader]')){
+     const liveStyle=document.createElement('link');
+     liveStyle.rel='stylesheet';liveStyle.href='/assets/live-home.css?v=20261117live1';
+     document.head.appendChild(liveStyle);
+     const liveScript=document.createElement('script');
+     liveScript.src='/assets/live-home.js?v=20261117live1';
+     liveScript.async=true;liveScript.setAttribute('data-v6-live-home-loader','');
+     document.head.appendChild(liveScript);
+   }
+   if(!document.querySelector('script[data-v6-reference-portal-loader]')){
+     const referenceCss=document.createElement('link');
+     referenceCss.rel='stylesheet';referenceCss.href='/assets/reference-portal.css?v=20261117ref1';
+     referenceCss.setAttribute('data-v6-reference-portal-style','');
+     document.head.appendChild(referenceCss);
+     const referenceScript=document.createElement('script');
+     referenceScript.src='/assets/reference-portal.js?v=20261117ref1';
+     referenceScript.async=true;referenceScript.setAttribute('data-v6-reference-portal-loader','');
+     document.head.appendChild(referenceScript);
+   }
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach,{once:true});
+ else attach();
 })();
