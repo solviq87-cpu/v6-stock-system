@@ -48,7 +48,7 @@ const server=http.createServer((req,res)=>{
   assert.deepEqual(await page.evaluate(()=>window.calls.filter(c=>c.method!=='GET')),[],'navigation must never mutate or send');
   for(const [sub,key]of [['sectors','sectors'],['global','global'],['plans','nextplan'],['review','review']]){
    await page.evaluate(sub=>window.renderRoute('pulse',sub),sub);
-   await page.evaluate(key=>{window.activeContext.state[key]=[{note:'更新后的共享市场证据'}];window.stateListeners.forEach(fn=>fn());},key);
+   await page.evaluate(key=>{window.activeContext.state[key]=key==='review'?{date:'20261117',items:[],note:'更新后的共享市场证据'}:[{note:'更新后的共享市场证据'}];window.stateListeners.forEach(fn=>fn());},key);
    assert.equal(await page.getByText('更新后的共享市场证据',{exact:true}).isVisible(),true,'open '+sub+' follows independent cloud reads');
   }
   await page.evaluate(()=>window.renderRoute('assets','overview'));
