@@ -124,3 +124,24 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
 })();
+
+
+/* Navigation-only enhancement. Keep the approved index/mobile documents and all
+ * business controllers untouched; reuse their existing CSS/JS load points. */
+(function(){
+ 'use strict';
+ function attach(){
+   // This shell exists only on the two primary original V6 entry pages.
+   if(!document.querySelector('.vx-shell')||document.querySelector('script[data-v6-feature-hub-loader]'))return;
+   const style=document.createElement('link');
+   style.rel='stylesheet';style.href='/assets/feature-hub.css?v=20261117nav1';
+   style.setAttribute('data-v6-feature-hub-style','');
+   document.head.appendChild(style);
+   const script=document.createElement('script');
+   script.src='/assets/feature-hub.js?v=20261117nav1';
+   script.async=true;script.setAttribute('data-v6-feature-hub-loader','');
+   document.head.appendChild(script);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach,{once:true});
+ else attach();
+})();
