@@ -30,11 +30,15 @@ test('actual beta consumer uses guarded bytes and preserves the original index a
 
 test('real reference-index HTTP endpoint delegates to the shared quote transport without a separate Node request',async t=>{
  const anchor='let _quantPicksCache = { ts: 0, data: null, busy: false };';
- const fields=Array(40).fill('0');fields[3]='100';fields[4]='99';
+ const fields=Array(40).fill('0');fields[3]='100';fields[4]='99';fields[30]='20261116150000';
  const payload=['sh000001','sz399001','sz399006','sh000688'].map(code=>'v_'+code+'="'+fields.join('~')+'";').join('');
  const inject='em.requestQuoteBytes=async()=>Buffer.from('+JSON.stringify(payload)+');\n';
  const fixture=await createFixture({count:1,serverSource:server.replace(anchor,inject+anchor)});t.after(()=>fixture.close());
  const response=await fixture.request('/api/reference-indexes');assert.equal(response.body.ok,true);
  assert.equal(Object.keys(response.body.items).length,4);assert.equal(response.body.items.sh.price,100);
  assert.equal(response.body.items.kc50.previousClose,99);assert.equal(response.body.items.sh.changePct,1.01);
+ assert.equal(response.body.items.sh.quoteAt,Date.parse('2026-11-16T15:00:00+08:00'));
+ assert.equal(response.body.items.sh.tradeDate,'2026-11-16');
+ assert.equal(response.body.items.sh.canTrade,false);assert.equal(response.body.crossValidated,false);
+ assert.equal(response.body.asOfKind,'retrieved-at-not-quote-time');
 });

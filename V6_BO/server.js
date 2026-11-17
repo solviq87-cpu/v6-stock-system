@@ -22885,7 +22885,11 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         const current = Number(fields[3]);
         const previous = Number(fields[4]);
         if (!Number.isFinite(current) || current <= 0 || !Number.isFinite(previous) || previous <= 0) continue;
+        const receivedAt = Date.now();
+        let quoteAt = null;
+        try { quoteAt = require('./src/core/public-market').timestamp(fields[30] || ''); } catch {}
         byCode.set(code, {
+          ...require('./src/core/quote-observation-view').quoteObservationView({price:current,quoteAt,receivedAt,quoteSource:'tencent-index',quoteMode:'index-observation'},receivedAt),
           price: current,
           changePct: Number(((current - previous) / previous * 100).toFixed(2)),
           previousClose: previous
@@ -22896,7 +22900,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         const quote = byCode.get(item.code);
         if (quote) items[item.key] = { ...quote, code: item.code, name: item.name };
       }
-      json(res, { ok: Object.keys(items).length > 0, source: 'tencent-qt', asOf: new Date().toISOString(), items,
+      json(res, { ok: Object.keys(items).length > 0, source: 'tencent-qt', asOf: new Date().toISOString(), asOfKind:'retrieved-at-not-quote-time', crossValidated:false, items,
         missing: codes.filter(x => !items[x.key]).map(x => x.key) });
     }).catch(error => {
       json(res, { ok: false, source: 'tencent-qt', asOf: new Date().toISOString(), items: {}, missing: codes.map(x => x.key), error: /timeout/i.test(String(error?.message)) ? '指数行情源超时' : String(error && error.message || error) });
