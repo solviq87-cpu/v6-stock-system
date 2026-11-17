@@ -77,6 +77,8 @@ function render(doc,panel,model){
   append(doc,card,'h4','事件线索：'+item.title);
   append(doc,card,'p',item.status.label,'rv-event-state');
   append(doc,card,'p','来源：'+item.source+' · '+item.bodyScope+' · 来源声明未独立核实');
+  append(doc,card,'p','事件实际发生日期：未核实（不能用新闻发布时间代替）。');
+  append(doc,card,'p','公司业务关联：供应商仅关联了证券代码，尚无业务合同或公告正文交叉证明。');
   append(doc,card,'p','发布 '+clock(item.publishedAt)+'；接收 '+clock(item.receivedAt)+'；归档 '+clock(item.recordedAt));
   if(item.revisedAt!=null)append(doc,card,'p','修订／撤稿时间 '+clock(item.revisedAt));
   append(doc,card,'p',item.summary,'rv-event-summary');

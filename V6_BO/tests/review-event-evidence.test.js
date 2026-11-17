@@ -60,6 +60,8 @@ test('only HTTP(S) links without credentials are allowed; HTML is text, not mark
  assert.match(card.children[0].textContent,/<img src=x/);
  assert.equal(card.children.filter(x=>x.tag==='a').length,0);
  assert.ok(card.children.some(x=>/来源声明未独立核实/.test(x.textContent)));
+ assert.ok(card.children.some(x=>/事件实际发生日期：未核实/.test(x.textContent)));
+ assert.ok(card.children.some(x=>/尚无业务合同或公告正文交叉证明/.test(x.textContent)));
  assert.ok(panel.children.some(x=>/不能独立证明涨停原因/.test(x.textContent)));
  const empty=new Node('div');M.render(doc,empty,plan([]));
  assert.ok(empty.children.some(x=>/证据不足/.test(x.textContent)));
