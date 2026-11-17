@@ -41,8 +41,10 @@ test('portal is additive and old controllers remain mounted and available',()=>{
  const loader=read('public/assets/original-workspace.js');
  assert.match(loader,/reference-portal\.js/);
  assert.match(loader,/reference-portal\.css/);
- assert.match(js,/v6-portal-legacy/);
- assert.match(js,/nodes\.forEach\(node=>legacy\.append\(node\)\)/);
+ assert.match(js,/getElementById\('v6-review'\)/);
+ assert.match(js,/reviewHeading\.after\(portal\)/);
+ assert.doesNotMatch(js,/dash\.prepend\(portal\)/);
+ assert.doesNotMatch(js,/nodes\.forEach\(node=>legacy\.append\(node\)\)/);
  assert.match(js,/root\.V6FeatureHub\?\.open/);
  assert.match(js,/root\.addEventListener\?\.\('v6-dashboard-data'/);
  assert.match(js,/root\.addEventListener\?\.\('v6-dashboard-offline'/);
