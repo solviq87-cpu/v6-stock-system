@@ -125,7 +125,12 @@ function install(root){
         if(!container.parentElement)host.append(container);
       }
       container.replaceChildren();
-      const rows=source?[...source.children].filter(node=>node.textContent?.trim()):[];
+      // #sectors is a table: direct children can be a single TBODY, so
+      // extract individual TD rows instead of rendering the entire table as
+      // one giant line. Other two sources are card containers.
+      const rows=source?(entry.id==='sectors'
+        ?[...source.querySelectorAll('tr')].filter(node=>node.querySelector('td'))
+        :[...source.children].filter(node=>node.textContent?.trim())):[];
       if(!rows.length){
         container.append(make(doc,'p','v6-portal-no-data','暂无可核验的原系统排行数据，点击进入查看来源和日期。'));
         return;
