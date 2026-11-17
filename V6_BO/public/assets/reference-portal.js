@@ -109,6 +109,7 @@ function install(root){
   const rankHosts=[...triple.querySelectorAll('.v6-portal-panel')];
   const rankObserver=typeof root.MutationObserver==='function'?new root.MutationObserver(()=>queueRanks()):null;
   let rankPending=false;
+  let rankDisconnected=false;
   function queueRanks(){
     if(rankPending)return;
     rankPending=true;
@@ -125,6 +126,10 @@ function install(root){
         if(!container.parentElement)host.append(container);
       }
       container.replaceChildren();
+      if(rankDisconnected){
+        container.append(make(doc,'p','v6-portal-no-data','行情连接中断 · 排行榜已停止实时展示，请进入原模块核对历史时点。'));
+        return;
+      }
       // #sectors is a table: direct children can be a single TBODY, so
       // extract individual TD rows instead of rendering the entire table as
       // one giant line. Other two sources are card containers.
@@ -153,12 +158,12 @@ function install(root){
   // A disconnected dashboard must not keep presenting retained sector rows as
   // if they were current. Preserve the old source DOM for historical review.
   root.addEventListener?.('v6-dashboard-offline',()=>{
-    for(const host of rankHosts){
-      const container=host?.querySelector('.v6-portal-live-ranking');
-      if(!container)continue;
-      container.replaceChildren(make(doc,'p','v6-portal-no-data',
-        '行情连接中断 · 排行榜已停止实时展示，请进入原模块核对历史时点。'));
-    }
+    rankDisconnected=true;
+    renderRanks();
+  });
+  root.addEventListener?.('v6-dashboard-data',()=>{
+    rankDisconnected=false;
+    queueRanks();
   });
   const table=make(doc,'section','v6-portal-table');
   table.append(make(doc,'h2','','每日复盘 · 涨停形态与归因'));
