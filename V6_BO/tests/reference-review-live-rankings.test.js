@@ -9,8 +9,10 @@ test('review screenshot ranking cards reuse three existing legacy sources',()=>{
   assert.match(src,new RegExp("id:'"+id+"'"));
   assert.match(legacy,new RegExp("getElementById\\('"+id+"'\\)"));
  }
- assert.match(src,/source\?\[\.\.\.source\.children\]/);
+ assert.match(src,/source\?\(entry\.id==='sectors'/);
  assert.match(src,/source\.children/);
+ assert.match(src,/source\.querySelectorAll\('tr'\)/);
+ assert.match(src,/node\.querySelector\('td'\)/);
  assert.match(src,/rankObserver\.observe\(source/);
  assert.match(src,/rankHosts\[index\]/);
  assert.doesNotMatch(src,/fetch\(|setInterval\(|Math\.random\(/);
