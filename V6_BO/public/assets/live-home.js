@@ -13,13 +13,9 @@
    ['复盘','/#v6-review'],['资讯','/#v6-news'],['资金流','/#sectors'],
    ['风控','/#holdSec1'],['模拟盘','/#v6-paper'],['我的','/#workspace-settings']
   ];
-  const nav=doc.createElement('nav');nav.id='v6LiveHomeNav';nav.className='v6-live-home-nav';
-  nav.setAttribute('aria-label','天枢智策 V6 首页功能直达');
-  for(const [name,href] of routes){
-   const a=doc.createElement('a');a.href=href;a.textContent=name;nav.append(a);
-  }
-  const heading=dashboard.querySelector('.ow-page-heading');
-  if(heading)heading.after(nav);
+  // The existing top bar is already the eleven-tab navigation. Never insert
+  // another horizontal bar above the live candidate pool.
+  doc.body.classList.add('v6-live-home');
   // Existing cards are live controller outputs. Enhance their click surface
   // only when it cannot interfere with buttons, selects, or stock row actions.
   const targets=[
@@ -48,7 +44,9 @@
   const connection=doc.createElement('span');connection.className='v6-live-home-provenance';
   connection.setAttribute('role','status');
   connection.textContent='行情数据等待原服务端核验';
-  nav.after(connection);
+  const statusline=dashboard.querySelector('.vx-statusline');
+  if(statusline)statusline.append(connection);
+  else dashboard.append(connection);
   function sync(data){
    if(!data||!Number.isFinite(data.observedAt)||data.observedAt>Date.now()||
       Date.now()-data.observedAt>180000){
