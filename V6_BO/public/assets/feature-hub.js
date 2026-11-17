@@ -205,6 +205,22 @@ function install(root){
    if(event.shiftKey&&doc.activeElement===first){event.preventDefault();last.focus();}
    else if(!event.shiftKey&&doc.activeElement===last){event.preventDefault();first.focus();}
   });
+  // Apply the 11 approved main-page categories to the existing shell. This is
+  // navigation only: the real dashboard and all legacy controllers stay intact.
+  const shell=doc.querySelector('.vx-shell');
+  const mainNav=shell?.querySelector('.vx-mainnav');
+  if(mainNav){
+    const navLinks=[];
+    for(const entry of PRIMARY_NAV){
+      if(!validDestination(entry.href))continue;
+      const a=el('a','v6-hub-primary-link',entry.label);
+      a.href=entry.href;
+      if(entry.label==='首页')a.setAttribute('aria-current','page');
+      navLinks.push(a);
+    }
+    mainNav.replaceChildren(...navLinks);
+    mainNav.setAttribute('aria-label','V6 主导航：点击打开对应模块');
+  }
   const launcher=el('button','v6-hub-launch','⌕ 全部功能');
   launcher.type='button';launcher.setAttribute('aria-haspopup','dialog');
   launcher.setAttribute('aria-controls','v6FeatureHub');
