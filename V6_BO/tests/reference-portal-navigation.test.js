@@ -91,3 +91,22 @@ test('automatic paper orders cannot be claimed complete from read-only proposals
  assert.match(account,/calendar\.isOpen/);
  assert.match(account,/成交不能使用其他委托冻结资金/);
 });
+
+test('homepage is connected to existing dashboard events rather than screenshot sample data',()=>{
+ const js=read('public/assets/live-home.js');
+ const css=read('public/assets/live-home.css');
+ const loader=read('public/assets/original-workspace.js');
+ const existing=read('public/assets/terminal-dashboard.js');
+ assert.match(js,/getElementById\('vx-dashboard'\)/);
+ assert.match(js,/v6-dashboard-data/);
+ assert.match(js,/v6-dashboard-offline/);
+ assert.match(js,/data\.observedAt/);
+ assert.doesNotMatch(js,/setInterval|fetch\(|localStorage|sessionStorage|1236580|3386\.24|11234\.56/);
+ assert.match(existing,/render\(e\.detail\)/);
+ assert.match(existing,/model\?\.indices/);
+ assert.match(existing,/model\?\.counts/);
+ assert.match(existing,/model\?\.strategies/);
+ assert.match(css,/--vx-bg:#041127/);
+ assert.match(loader,/live-home\.js/);
+ assert.match(loader,/live-home\.css/);
+});
