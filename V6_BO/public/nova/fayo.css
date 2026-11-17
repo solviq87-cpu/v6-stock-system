@@ -586,7 +586,7 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 .fy-business-nav button{
   cursor:pointer;border:1px solid #284663;border-radius:8px;
   min-height:36px;padding:7px 12px;background:#102138;
-  color:#c3d5e8;font:600 11px/1.4 inherit;
+  color:#c3d5e8;font-size:11px;font-weight:600;line-height:1.4;font-family:inherit;
   white-space:nowrap;transition:background .16s,border-color .16s
 }
 .fy-business-nav button:hover{color:#fff;background:#173859;border-color:#548cc4}
