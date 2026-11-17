@@ -6,6 +6,14 @@
  if(root&&root.document)api.install(root);
 })(typeof window==='object'?window:globalThis,function(){
 'use strict';
+// The 11-tab main homepage is the existing #vx-dashboard. The reference
+// screenshot below is only the review subpage and must not hijack / or /m.
+const MAIN_TABS=Object.freeze([
+ ['首页','/#vx-dashboard'],['行情','/#v6-market'],['选股','/picks.html'],
+ ['策略','/#v6-strategy'],['回测','/#workspace-analysis'],
+ ['复盘','/#v6-review'],['资讯','/#v6-news'],['资金流','/#sectors'],
+ ['风控','/#holdSec1'],['模拟盘','/#v6-paper'],['我的','/#workspace-settings']
+]);
 const LINKS=[
  ['⌂','首页','/#vx-dashboard'],['▥','盘面总览','/#v6-market'],
  ['🌐','外围市场','/#global'],['🎯','选股核心','/#v6-stock'],
@@ -152,5 +160,5 @@ function install(root){
  if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',start,{once:true});
  else start();
 }
-return {LINKS,ACTIONS,METRICS,safeHref,install};
+return {MAIN_TABS,LINKS,ACTIONS,METRICS,safeHref,install};
 });
