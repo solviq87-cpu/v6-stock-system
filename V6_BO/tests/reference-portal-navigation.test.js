@@ -14,7 +14,7 @@ test('reference screenshot menu has real routes and no fake hardcoded limit-up c
  for(const entry of LINKS)assert.ok(safeHref(entry[2]),entry[2]);
  assert.equal(METRICS.length,7);
  const script=read('public/assets/reference-portal.js');
- assert.match(script,/未核验的行情不显示数字/);
+ assert.match(script,/未经核验的行情不显示数字/);
  assert.doesNotMatch(script,/37\s*只|32\s*只|18\s*条/);
  assert.doesNotMatch(script,/setInterval|fetch\(|localStorage|sessionStorage|\/api\/trade|\/api\/order/);
 });
