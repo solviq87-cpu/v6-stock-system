@@ -1,0 +1,81 @@
+/* V6 search-first feature navigation. Additive styling only; does not resize business cards or change permissions. */
+.v6-hub-layer[hidden],.v6-hub-shortcuts[hidden]{display:none!important}
+.v6-hub-layer{position:fixed;inset:0;z-index:21000;display:grid;place-items:center;padding:16px;isolation:isolate}
+.v6-hub-backdrop{position:absolute;inset:0;background:rgba(5,6,13,.79);backdrop-filter:blur(6px)}
+.v6-hub-dialog{position:relative;z-index:1;display:flex;flex-direction:column;gap:14px;width:min(800px,100%);
+ max-height:min(720px,calc(100dvh - 32px));min-height:0;overflow:hidden;
+ padding:20px 24px;border:1px solid #765c96;border-radius:20px;
+ background:linear-gradient(150deg,#22172f,#140f20 74%);color:#f4edfa;
+ box-shadow:0 26px 90px #000c;font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.v6-hub-header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.v6-hub-heading{min-width:0}.v6-hub-kicker{font-size:11px;letter-spacing:.15em;color:#b89bcb}
+.v6-hub-heading h2{font-size:23px!important;margin:2px 0 2px;color:#fff!important;line-height:1.3}
+.v6-hub-heading p{font-size:13px;color:#c1adcf;margin:0}
+.v6-hub-layer .v6-hub-close{flex:none;background:#362744!important;color:#eddff6!important;border:1px solid #765c96!important;
+ min-height:38px;border-radius:10px;padding:6px 12px;font-size:13px;cursor:pointer}
+.v6-hub-search{display:flex;flex-direction:column;gap:5px}
+.v6-hub-search label{font-size:12px;font-weight:700;color:#dfcef0}
+.v6-hub-layer .v6-hub-search input{width:100%;min-height:50px!important;padding:11px 14px!important;
+ font-size:16px!important;border:1px solid #8a65a7!important;border-radius:12px!important;
+ background:#110e1d!important;color:#fff!important;outline-offset:3px}
+.v6-hub-search input::placeholder{color:#a994b9}
+.v6-hub-tabs{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding:2px 0 5px;flex:none}
+.v6-hub-layer .v6-hub-category{flex:none;min-height:36px!important;white-space:nowrap;border-radius:24px!important;
+ padding:6px 11px!important;color:#d7c6e6!important;border:1px solid #4b3b5e!important;
+ background:#21182f!important;font-size:12px!important;cursor:pointer}
+.v6-hub-layer .v6-hub-category[aria-pressed="true"]{background:#7a519c!important;border-color:#b68cda!important;color:#fff!important}
+.v6-hub-status{font-size:12px;color:#bda9cf;margin:0}
+.v6-hub-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+ overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 8px 2px;flex:1;min-height:60px}
+.v6-hub-layer .v6-hub-item{display:flex;align-items:center;gap:10px;padding:12px;
+ text-decoration:none!important;color:#efe4f7!important;background:#2a2039!important;
+ border:1px solid #514065!important;border-radius:12px!important;min-height:72px;min-width:0}
+.v6-hub-layer .v6-hub-item:hover,.v6-hub-layer .v6-hub-item:focus-visible{
+ background:#3b2a50!important;border-color:#b68cda!important;outline:2px solid #d7a5f0;outline-offset:1px}
+.v6-hub-item-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;
+ background:#453254;color:#f8e5ff;font-size:20px}
+.v6-hub-item-body{display:grid;min-width:0;gap:3px;flex:1}
+.v6-hub-item-body strong{font-size:14px;font-weight:700;color:#fff}
+.v6-hub-item-body small{font-size:12px;line-height:1.4;color:#bfaed0;overflow-wrap:anywhere}
+.v6-hub-role{font-size:10px;border:1px solid #795d8b;color:#d4bcdf;border-radius:5px;padding:1px 4px;white-space:nowrap}
+.v6-hub-empty{grid-column:1/-1;border:1px dashed #795d8b;border-radius:10px;padding:20px;text-align:center;color:#cab9d9}
+.v6-hub-footnote{margin:0;font-size:11px;color:#aa94bb;border-top:1px solid #483556;padding-top:9px}
+.v6-hub-launch{position:fixed!important;right:24px;bottom:24px;z-index:1400;
+ min-height:46px!important;border-radius:99px!important;padding:9px 18px!important;
+ color:#fff!important;background:#804dab!important;border:1px solid #ca99ec!important;
+ box-shadow:0 6px 30px #0009!important;cursor:pointer;font-size:14px!important;font-weight:700!important}
+.v6-hub-top{display:inline-flex;align-items:center;justify-content:center;
+ min-height:40px!important;border-radius:10px!important;padding:8px 12px!important;
+ border:1px solid #946cb5!important;background:#41284f!important;color:#f9e8ff!important;
+ cursor:pointer;font-size:12px!important;white-space:nowrap}
+.v6-hub-shortcuts{display:flex;align-items:center;flex-wrap:wrap;gap:9px;
+ margin:12px 0 18px;padding:13px 15px;border-radius:14px;
+ border:1px solid #554062;background:#1d172b;color:#efe3f7}
+.v6-hub-shortcuts-title{display:grid;gap:2px;margin-right:auto;min-width:150px}
+.v6-hub-shortcuts-title strong{font-size:14px;color:#f5e8ff}
+.v6-hub-shortcuts-title span{font-size:11px;color:#bba8ce}
+.v6-hub-shortcuts .v6-hub-shortcut{display:inline-flex;align-items:center;justify-content:center;text-align:center;gap:4px;
+ border:1px solid #654b7f!important;border-radius:9px!important;
+ background:#332442!important;color:#f2dffb!important;min-height:38px!important;
+ padding:7px 12px!important;text-decoration:none!important;font-size:12px!important;font-weight:600!important;white-space:normal}
+.v6-hub-shortcuts .v6-hub-shortcut-all{background:#7e4e9e!important;color:#fff!important;cursor:pointer}
+body[data-v6-hub-open="1"]{overflow:hidden}
+body.mobile-workspace .v6-hub-launch,body.vx-mobile .v6-hub-launch{right:12px;bottom:calc(env(safe-area-inset-bottom) + 90px)}
+@media(max-width:700px){
+ .v6-hub-layer{padding:8px}
+ .v6-hub-dialog{padding:17px 14px;border-radius:16px;max-height:calc(100dvh - 16px);gap:11px}
+ .v6-hub-heading h2{font-size:20px!important}
+ .v6-hub-results{grid-template-columns:1fr}
+ .v6-hub-layer .v6-hub-item{min-height:62px;padding:10px}
+ .v6-hub-footnote{font-size:10px}
+ .v6-hub-top{font-size:12px!important;padding:8px 10px!important}
+ .v6-hub-shortcuts{gap:7px;margin:8px 0 14px}
+ .v6-hub-shortcuts-title{flex-basis:100%}
+ .v6-hub-shortcuts .v6-hub-shortcut{flex:1 1 calc(50% - 7px);min-height:42px!important}
+}
+@media(max-width:390px){
+ .v6-hub-top{font-size:0!important;padding:7px 10px!important}
+ .v6-hub-top::after{content:'▦';font-size:18px}
+ .v6-hub-launch{font-size:12px!important;padding:8px 14px!important}
+}
+@media(prefers-reduced-motion:reduce){.v6-hub-layer *{scroll-behavior:auto}}
