@@ -155,6 +155,9 @@ const runChecks=async()=>{
     await page.setViewportSize({width:402,height:714});
     await geometry(page,'iphone17pro-safari-compact-402x714');
     await page.screenshot({path:path.join(output,'iphone17pro-402x714.png'),fullPage:false});
+    await page.setViewportSize({width:874,height:402});
+    await geometry(page,'iphone17pro-landscape-874x402');
+    await page.screenshot({path:path.join(output,'iphone17pro-landscape-874x402.png'),fullPage:false});
     await page.setViewportSize({width:402,height:874});
    }
    await navigate(page,'opportunities','quant');
