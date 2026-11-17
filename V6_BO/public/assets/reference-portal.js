@@ -150,6 +150,16 @@ function install(root){
     if(source&&rankObserver)rankObserver.observe(source,{childList:true,subtree:true,characterData:true});
   }
   renderRanks();
+  // A disconnected dashboard must not keep presenting retained sector rows as
+  // if they were current. Preserve the old source DOM for historical review.
+  root.addEventListener?.('v6-dashboard-offline',()=>{
+    for(const host of rankHosts){
+      const container=host?.querySelector('.v6-portal-live-ranking');
+      if(!container)continue;
+      container.replaceChildren(make(doc,'p','v6-portal-no-data',
+        '行情连接中断 · 排行榜已停止实时展示，请进入原模块核对历史时点。'));
+    }
+  });
   const table=make(doc,'section','v6-portal-table');
   table.append(make(doc,'h2','','每日复盘 · 涨停形态与归因'));
   const tableHint=make(doc,'p','','涨停数量、股票名单、封板强度及原因以原复盘接口为准。点击进入查看逐股证据。');
