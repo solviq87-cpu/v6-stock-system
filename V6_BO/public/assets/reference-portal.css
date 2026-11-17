@@ -96,3 +96,14 @@
  .v6-portal-action-icon{width:28px;height:28px;font-size:18px}
  .v6-portal-footer{flex-wrap:wrap}
 }
+
+/* Real review rows reuse the original app.js output, not screenshot fixtures. */
+.v6-portal-real-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.v6-reference-portal .v6-portal-stock-row{display:flex;flex-direction:column;gap:5px;padding:11px;
+ border:1px solid #376bb5;border-radius:10px;background:#102d59;color:#e7f4ff!important;
+ text-decoration:none!important;overflow-wrap:anywhere;min-width:0}
+.v6-portal-stock-row strong{font-size:13px;color:#fff}
+.v6-portal-stock-row span{font-size:12px;color:#b5d3f2}
+.v6-portal-stock-row small{font-size:11px;color:#8ddaff}
+.v6-portal-no-data{font-size:12px;color:#a6c6ec}
+@media(max-width:600px){.v6-portal-real-rows{grid-template-columns:1fr}}
