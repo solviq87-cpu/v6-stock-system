@@ -1131,7 +1131,7 @@ async function refresh() {
         `<span class="tag">站5日线 <b>${cnt('aboveMa5')}</b></span>` +
         `<span class="tag">破前高 <b>${cnt('brokeHighHold')}</b></span>` +
         `<span class="tag">量价齐升 <b>${cnt('volPriceUp')}</b></span>` +
-        (_src ? `<span class="tag src">题材标签来源:${esc(_src)}</span>` : '');
+        (_src ? `<span class="tag src">原因来源:${_src}</span>` : '');
       // 筛选 + 分组切换（按题材分组是 fv 轮 redesign 的核心）
       document.getElementById('rvFilters').innerHTML = [
         ['theme', '按题材'], ['flat', '平铺'],
@@ -1157,10 +1157,7 @@ async function refresh() {
         const mp = x.mainPct == null ? '-' : `<b class="${x.mainPct > 0 ? 'up' : 'down'}">${sign(x.mainPct)}%</b>`;
         const flag = (n, v) => v == null ? '' : `<span class="muted">${n} ${v ? '✅' : '—'}</span>`;
         // ⛔ fv 轮：涨停原因（同花顺详细题材词）高亮置顶，原因来源可追溯
-        const themes = (x.themes && x.themes.length) ? x.themes.map(t => `<span class="th">${esc(t)}</span>`).join('') : (x.reasonRaw ? `<span class="th">${esc(x.reasonRaw)}</span>` : '<span class="muted">题材标签未取到</span>');
-         const rvDay = String(s.review.date || '').replace(/-/g, '');
-         const rvCode = /^\d{6}$/.test(String(x.code || '')) ? x.code : '';
-         const rvDaySafe = /^\d{8}$/.test(rvDay) ? rvDay : '';
+        const themes = (x.themes && x.themes.length) ? x.themes.map(t => `<span class="th">${t}</span>`).join('') : (x.reasonRaw ? `<span class="th">${x.reasonRaw}</span>` : '<span class="muted">原因未取到</span>');
         const peers = (x.peers || []).map(p => {
           const o = typeof p === 'string' ? { n: p, lb: 0, role: 'follow' } : p;
           const pc = o.role === 'leader' ? 'r-leader' : o.role === 'deputy' ? 'r-deputy' : o.role === 'mid' ? 'r-mid' : 'r-follow';
@@ -1171,12 +1168,11 @@ async function refresh() {
         const ld = x.leader ? `<span class="muted">领涨: ${x.leader}${x.sectorInflow ? ' · 板块净流入' + fmtY(x.sectorInflow) : ''}</span>` : '';
         return `<div class="rvc">
           <div class="rvc-h"><b class="${x.prob >= 40 ? 'up' : ''}">${x.prob}%</b><span>${x.name}</span><span class="muted">${x.code}</span><span class="tag">${x.sector}</span><span class="tag ${x.limitUpCount > 1 ? 'hl' : ''}">${x.limitUpCount > 1 ? '<b>' + x.limitUpCount + '连板</b>' : '首板'}</span></div>
-          <div class="rvc-reason">🔥 涨停题材（题材标签，非事件证明）：${themes}</div>
+          <div class="rvc-reason">🔥 涨停原因：${themes}</div>
           <div class="rvc-g"><span>封板 ${seal}</span><span>开板 ${brk}</span><span>成交额 ${amt}</span><span>流通市值 ${fc}</span><span>主力 ${mp}</span>${x.turnover ? `<span class="muted">换手${x.turnover}%</span>` : ''}</div>
           <div class="rvc-g">${flag('5日线', x.aboveMa5)}${flag('破前高', x.brokeHighHold)}${flag('量价齐升', x.volPriceUp)}</div>
           <div class="rvc-g">${peers} ${ld}</div>
-          <div class="muted" style="white-space:normal;margin-top:4px">盘面结构推断：${esc(x.reason || '未知')}</div>
-           <div class="rv-evidence"><button class="rv-evidence-trigger" type="button" data-code="${rvCode}" data-review-day="${rvDaySafe}" aria-expanded="false">📎 逐股事件 · 日期与来源（点开核对）</button><div class="rv-evidence-results"></div></div>
+          <div class="muted" style="white-space:normal;margin-top:4px">${x.reason || ''}</div>
         </div>`;
       };
       // 按题材分组（默认）或平铺
