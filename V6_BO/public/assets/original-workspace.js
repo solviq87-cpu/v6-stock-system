@@ -150,6 +150,15 @@
    script.src='/assets/feature-hub.js?v=20261117nav1';
    script.async=true;script.setAttribute('data-v6-feature-hub-loader','');
    document.head.appendChild(script);
+   if(!document.querySelector('script[data-v6-live-home-loader]')){
+     const liveStyle=document.createElement('link');
+     liveStyle.rel='stylesheet';liveStyle.href='/assets/live-home.css?v=20261117live1';
+     document.head.appendChild(liveStyle);
+     const liveScript=document.createElement('script');
+     liveScript.src='/assets/live-home.js?v=20261117live1';
+     liveScript.async=true;liveScript.setAttribute('data-v6-live-home-loader','');
+     document.head.appendChild(liveScript);
+   }
    if(!document.querySelector('script[data-v6-reference-portal-loader]')){
      const referenceCss=document.createElement('link');
      referenceCss.rel='stylesheet';referenceCss.href='/assets/reference-portal.css?v=20261117ref1';
