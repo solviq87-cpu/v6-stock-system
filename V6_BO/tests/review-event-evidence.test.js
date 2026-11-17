@@ -78,6 +78,10 @@ test('approved homepages and legacy review controller remain frozen; enhancer lo
  assert.equal(sha(fs.readFileSync(path.join(root,'public/index.html'))),baseline.homepages['index.html']);
  assert.match(loader,/review-event-evidence\.js/);
  assert.match(viewer,/MutationObserver\(decorate\)/);
+ assert.match(viewer,/host\.insertBefore\(drawer,review\.parentElement\)/,'the drawer survives #review redraw');
+ assert.match(viewer,/drawer\.hidden=false/);
+ assert.match(viewer,/new root\.MutationObserver\(decorate\)\.observe\(review/);
+ assert.doesNotMatch(viewer,/review\.contains\(btn\).*authToken\(\)/,'async responses should not depend on old card nodes');
  assert.match(viewer,/\.rv-evidence-trigger/);
  assert.match(viewer,/document|doc\.getElementById/);
  assert.match(viewer,/题材标签不代表事件因果|题材标签不得冒充/);
