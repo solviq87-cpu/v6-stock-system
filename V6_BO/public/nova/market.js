@@ -86,10 +86,10 @@ export function nextPlanCards(state,day,ctx) {
    Array.isArray(row.invalid)&&h('p',{},'失效条件：'+row.invalid.join('；')))):empty('同日计划没有候选'),
   note('展示现有模型计划，价位为生成时参考；需结合下一交易日新行情确认，未确认时不执行。'));
 }
-function ticker(state) {
+export function ticker(state) {
  const labels={'1.000001':'上证指数','0.399001':'深证成指','0.399006':'创业板指','1.000688':'科创 50'};
  const data=state?.dashboard?.indices||[];
- return h('section',{class:'fy-market-ticker','aria-label':'指数快照'},Object.entries(labels).map(([code,name])=>{const row=data.find(x=>x.code===code)||{};return h('div',{},h('span',{},name),h('strong',{class:direction(row.pct)},format(row.price)),h('small',{class:direction(row.pct)},percent(row.pct)));}));
+ return h('section',{class:'fy-market-ticker fy-index-evidence','aria-label':'指数快照'},Object.entries(labels).map(([code,name])=>{const row=data.find(x=>x.code===code)||{};return h('div',{},h('span',{},name),h('strong',{class:direction(row.pct)},format(row.price)),h('small',{class:direction(row.pct)},percent(row.pct)),h('small',{class:'fy-quote-time'},quoteLabel(row)),h('small',{class:'fy-muted'},'单源观测 · 尚未交叉核验'));}));
 }
 function orbital() {
  const node=h('div',{class:'fy-orbit','aria-hidden':'true'});
@@ -248,7 +248,7 @@ function advancedPools(ctx) {
   h('div',{class:'fy-inline'},button('市场总览',()=>ctx.navigate('pulse','market-overview')),button('板块行情',()=>ctx.navigate('pulse','sectors')),button('策略研究',()=>ctx.navigate('lab','strategies'))));
 }
 export function renderAllOpportunities(ctx) {
- const output=h('div'),status=h('p',{class:'fy-note',role:'status'}),diagnostics=h('div');
+ const output=h('div'),status=h('p',{class:'fy-note',role:'status'}),diagnostics=h('div'),indexes=h('div');
  const search=h('input',{type:'search',placeholder:'搜索股票名称或代码','aria-label':'筛选全部候选'});
  let query='',shown=24,remote=[],busy=false,lastAttempt=0,generation=0;
  const more=button('显示更多股票',()=>{shown+=24;paint();});more.hidden=true;
@@ -260,6 +260,7 @@ export function renderAllOpportunities(ctx) {
   ...remote.filter(entry=>!entry.private||ctx.role==='edit')];}
  function paint(){
   if(ctx.signal?.aborted)return;
+  indexes.replaceChildren(ticker(ctx.state));
   const all=combinePoolResults(entries()),rows=all.filter(row=>!query||[row.name,row.code,row.sector].some(value=>String(value||'').toLowerCase().includes(query)));
   // Scores from different strategies are not calibrated against one another.
   status.textContent='已汇总 '+all.length+' 只候选 · 各股票池自动合并去重'+(busy?' · 正在读取更多结果…':'');
@@ -284,7 +285,7 @@ export function renderAllOpportunities(ctx) {
   busy=false;refreshButton.disabled=false;paint();
  }
  search.addEventListener('input',()=>{query=search.value.trim().toLowerCase();shown=24;paint();});
- const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'选好的票，直接看'),h('p',{},'默认汇总全部股票池，你只需挑选想研究的股票。')),simpleNavigation(ctx),h('div',{class:'fy-inline'},search,refreshButton),status,output,more,advancedPools(ctx),h('details',{class:'fy-details'},h('summary',{},'数据状态与覆盖范围'),diagnostics));
+ const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'选好的票，直接看'),h('p',{},'默认汇总全部股票池，你只需挑选想研究的股票。')),indexes,simpleNavigation(ctx),h('div',{class:'fy-inline'},search,refreshButton),status,output,more,advancedPools(ctx),h('details',{class:'fy-details'},h('summary',{},'数据状态与覆盖范围'),diagnostics));
  ctx.onState?.(()=>{paint();loadRemote();});paint();loadRemote();return view;
 }
 export function renderRelayCard(ctx,key) {

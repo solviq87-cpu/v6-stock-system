@@ -70,6 +70,22 @@ const forbidden =
   /token|password|secret|credential|webhook|cookie|holding|account|balance|cash/i;
 const dayOf = (n) =>
   new Date(n + 28800000).toISOString().slice(0, 10).replaceAll('-', '');
+// Candidate evidence stays frozen; a later dated index observation must not be
+// replaced by the last browser request before close. Compare complete rows only.
+function latestIndexObservations(saved, current, now) {
+  const allowed = new Set(['1.000001', '0.399001', '0.399006', '1.000688']);
+  const valid = (r) => r && allowed.has(r.code) &&
+    Number.isFinite(r.price) && r.price > 0 &&
+    typeof r.quoteSource === 'string' && r.quoteSource.trim() &&
+    Number.isSafeInteger(r.quoteAt) && r.quoteAt > 0 && r.quoteAt <= now &&
+    Number.isSafeInteger(r.receivedAt) && r.receivedAt >= r.quoteAt && r.receivedAt <= now;
+  const rows = new Map((Array.isArray(saved) ? saved : []).filter(r=>r && allowed.has(r.code)).map(r=>[r.code,r]));
+  for (const row of Array.isArray(current) ? current : []) {
+    const prior = rows.get(row?.code);
+    if (valid(row) && (!valid(prior) || row.quoteAt > prior.quoteAt)) rows.set(row.code,row);
+  }
+  return [...rows.values()].map(r=>({...r,canTrade:false,canNotify:false}));
+}
 function beforeClose(now) {
   const d = new Date(now + 28800000),
     m = d.getUTCHours() * 60 + d.getUTCMinutes();
@@ -266,7 +282,9 @@ function createClosingCardSnapshot({
       ...value,
       ...fields,
       ...(dashboard
-        ? { dashboard: { ...value.dashboard, ...dashboard, ...e.meta } }
+        ? { dashboard: { ...value.dashboard, ...dashboard, ...e.meta,
+            indices: latestIndexObservations(dashboard.indices, value.dashboard?.indices, clock()),
+            indexSnapshotPolicy: 'latest-original-time' } }
         : {}),
       ...e.meta,
     };

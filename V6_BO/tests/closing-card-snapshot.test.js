@@ -81,6 +81,25 @@ test('same-day populated post-close changes cannot replace any saved market card
   assert.equal(r.canTrade, false);
   assert.equal(r.canNotify, false);
 });
+test('post-close index uses later original observation while candidate evidence remains frozen', (t) => {
+  const x=setup(t),s=x.open();
+  const index=(price,time,extra={})=>({code:'1.000001',price,pct:-.5,quoteSource:'tencent-index',quoteAt:at(time),receivedAt:at(time),...extra});
+  s.project('state',{...frame(1),dashboard:{indices:[index(3578.46,'14:59:30')]}},x.context());
+  x.set(at('18:00:00'));
+  const current={...frame(99),dashboard:{indices:[index(3584.58,'15:00:00')]}};
+  const out=s.project('state',current,x.context());
+  assert.equal(out.dashboard.indices[0].price,3584.58);
+  assert.equal(out.dashboard.indices[0].quoteAt,at('15:00:00'));
+  assert.equal(out.pool[0].price,1);
+  assert.equal(out.dashboard.indices[0].canTrade,false);
+  assert.equal(current.dashboard.indices[0].canTrade,undefined,'input is not mutated');
+  for(const bad of [[],[index(999,'14:00:00')],[index(999,'18:01:00')],
+    [index(999,'15:00:00',{quoteSource:''})],[index(999,'15:00:00',{receivedAt:at('14:00:00')})],
+    [index(999,'15:00:00',{quoteAt:null})],[index(999,'15:00:00',{price:NaN})]]) {
+    const result=s.project('state',{dashboard:{indices:bad}},x.context());
+    assert.equal(result.dashboard.indices[0].price,3578.46,'invalid/older current data preserves explicitly dated old observation');
+  }
+});
 test('throttled last frame is fsynced at close and survives a new process/store', (t) => {
   const x = setup(t),
     s = x.open();
