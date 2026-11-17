@@ -84,3 +84,17 @@ test('next plans show reasons risks confirmation and applicability only for matc
  dom();const {nextPlanCards}=await api,ctx=context({}),state={nextplan:{date:'20261117',applyDate:'20261118',plan:{picked:[{code:'600001',name:'计划甲',entry:[10,11],stop:9,target:12,reasons:['量价依据'],risks:['回落风险'],confirm:['量能确认'],invalid:['条件失效']}]}}};
  const body=text(nextPlanCards(state,'2026-11-17',ctx));for(const value of ['2026-11-18','10.00 ～ 11.00','量价依据','回落风险','量能确认','条件失效'])assert.ok(body.includes(value),value);assert.doesNotMatch(text(nextPlanCards(state,'2026-11-18',ctx)),/计划甲/);
 });
+test('review exposes exact same-batch missing names instead of silently calling 33 the total',async()=>{
+ dom();const {renderDailyReview,reviewCoverage}=await api;
+ const members=Array.from({length:37},(_,i)=>({code:String(600000+i),name:'覆盖样本'+i,src:'em'}));
+ const review={date:'20261117',ztN:37,items:members.slice(0,33),poolMembers:members,poolEvidence:[{source:'em',tradeDate:'20261117',reportedCount:37,returnedCount:37,uniqueCount:37}]};
+ const coverage=reviewCoverage(review);assert.equal(coverage.sourceIncomplete,false);assert.deepEqual(coverage.missing.map(x=>x.code),members.slice(33).map(x=>x.code));
+ const ctx=context({review}),body=text(renderDailyReview(ctx));assert.match(body,/东财池统计 37 只/);assert.match(body,/本报告 33 只/);assert.match(body,/4 只未进入本报告/);for(const row of members.slice(33))assert.ok(body.includes(row.name));ctx.controller.abort();
+});
+test('partial upstream, old metadata and derived additions stay separate in coverage',async()=>{
+ const {reviewCoverage}=await api;
+ const review={date:'20261117',items:[{code:'600001'}],poolMembers:[{code:'600001',src:'em'},{code:'600002',src:'derive'}],poolEvidence:[{source:'em',tradeDate:'20261117',reportedCount:37,returnedCount:33,uniqueCount:33}]};
+ assert.equal(reviewCoverage(review).sourceIncomplete,true);assert.equal(reviewCoverage(review).supplements[0].code,'600002');
+ review.poolEvidence[0].tradeDate='20261116';assert.equal(reviewCoverage(review).source,null);
+ assert.equal(reviewCoverage({items:review.items}).missing,null);
+});

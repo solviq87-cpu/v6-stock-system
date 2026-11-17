@@ -333,6 +333,15 @@ export function summarizeReview(review) {
   first:ladder.get(1)?.length||0,continued:rows.length-(ladder.get(1)?.length||0)-unknownLevel,
   highest:ladder.size?Math.max(...ladder.keys()):null,reported:typeof review?.ztN==='number'&&Number.isFinite(review.ztN)?review.ztN:null};
 }
+export function reviewCoverage(review) {
+ const rows=unique(rowsFrom(review)),members=Array.isArray(review?.poolMembers)?unique(review.poolMembers):null;
+ const codes=new Set(rows.map(row=>row.code)),day=reviewDate(review?.date);
+ const batches=(Array.isArray(review?.poolEvidence)?review.poolEvidence:[]).filter(e=>e&&e.source==='em'&&reviewDate(e.tradeDate)===day&&day&&Number.isSafeInteger(e.reportedCount)&&e.reportedCount>=0&&Number.isSafeInteger(e.returnedCount)&&e.returnedCount>=0&&Number.isSafeInteger(e.uniqueCount)&&e.uniqueCount>=0);
+ const source=batches.length===1?batches[0]:null;
+ return {source,analyzed:rows.length,missing:members?members.filter(row=>!codes.has(row.code)):null,
+  supplements:members?members.filter(row=>row.src==='derive'):[],
+  sourceIncomplete:source?source.reportedCount!==source.uniqueCount||source.returnedCount!==source.uniqueCount:null};
+}
 export function renderDailyReview(ctx) {
  const output=h('div',{class:'fy-stack'});
  const openRow=row=>button((row.name||row.code)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet');
@@ -340,14 +349,19 @@ export function renderDailyReview(ctx) {
  function paint(){
   if(ctx.signal?.aborted||output.contains(document.activeElement))return;
   const state=ctx.state||{},review=state.review,day=reviewDate(review?.date),today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
-  const summary=summarizeReview(review),current=day===today,marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
+  const summary=summarizeReview(review),coverage=reviewCoverage(review),current=day===today,marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
   if(!review){output.replaceChildren(empty('今日复盘尚未生成','等待服务端收盘行情与复盘任务，刷新只读取实际结果。'));return;}
   const dateNote=current?'原始交易日 '+day+' · 生成于 '+(review.time||'时间待核验'):day?'今天的报告尚未返回，下面保留 '+day+' 的原报告。':'报告缺少原始日期，不能标记为今日复盘。';
   const summaryPanel=section(current?'今日复盘':day?'最近复盘 · '+day:'日期待核验的复盘',dateNote,
    h('div',{class:'fy-grid two'},metric('复盘股票',summary.rows.length+' 只'),metric('首板',summary.first+' 只'),metric('连板',summary.continued+' 只'),metric('最高连板',summary.highest==null?'未知':summary.highest+' 板')),
    h('p',{},summary.groups.length?'本次涨停样本最集中的板块是'+summary.groups[0].name+'，共 '+summary.groups[0].count+' 只；'+(summary.highest?'最高高度为 '+summary.highest+' 板。':'连板高度待核验。'):'板块证据不足，暂不判断主线。'),
-   h('p',{class:'fy-muted'},'统计范围仅为这份复盘返回的股票，不代表全市场。'+(summary.reported!=null&&summary.reported!==summary.rows.length?'接口涨停总数 '+summary.reported+' 与明细 '+summary.rows.length+' 不一致，覆盖范围待核验。':'')+(summary.unknownLevel?'其中 '+summary.unknownLevel+' 只缺少有效连板高度。':'')),
+   h('p',{class:'fy-muted'},'统计范围仅为这份复盘返回的股票，不代表全市场。'+(summary.reported!=null&&summary.reported!==summary.rows.length?'报告记录的输入数量 '+summary.reported+' 与明细 '+summary.rows.length+' 不一致，覆盖范围待核验。':'')+(summary.unknownLevel?'其中 '+summary.unknownLevel+' 只缺少有效连板高度。':'')),
    review.head&&h('details',{class:'fy-details'},h('summary',{},'原始收盘摘要'),h('p',{},review.head)));
+  const coveragePanel=section('涨停数量核对','数据源总数、接收明细和分析数量分别保留',
+   h('p',{},coverage.source?'东财池统计 '+coverage.source.reportedCount+' 只 · 实收 '+coverage.source.returnedCount+' 条 · 有效代码 '+coverage.source.uniqueCount+' 只 · 本报告 '+coverage.analyzed+' 只':'本报告 '+coverage.analyzed+' 只；未保存可核验的源端总数，不能认定已覆盖全部涨停。'),
+   coverage.sourceIncomplete&&note('源端总数与实收明细不一致，覆盖范围待核验；不按现有明细数量代替总数。'),
+   coverage.missing===null?note('原报告未保存输入股票名单，暂不能定位未分析股票。'):coverage.missing.length?h('div',{},note('同批涨停池中有 '+coverage.missing.length+' 只未进入本报告：'),h('div',{class:'fy-inline'},coverage.missing.map(openRow))):h('p',{class:'fy-muted'},'本报告已覆盖保存的输入股票名单；不代表源端全市场覆盖已验证。'),
+   coverage.supplements.length>0&&h('div',{},h('p',{},'另有快照推导补充 '+coverage.supplements.length+' 只，与东财原始池分开核对：'),h('div',{class:'fy-inline'},coverage.supplements.map(openRow))));
   const market=section('市场概况','市场快照与复盘日期分别核对',marketDay===day&&day?ticker(state):note('市场快照日期 '+(marketDay||'未知')+'，与本次复盘未确认一致，暂不合并为今日市场结论。'),
    marketDay===day&&day&&h('p',{},state.dashboard?.mood?.note||'尚无可用的市场情绪摘要。'));
   const sectors=section('强势主线','按复盘股票的主板块分组；集中度不等于次日表现',summary.groups.length?h('div',{class:'fy-grid two'},summary.groups.slice(0,6).map(group=>h('article',{class:'fy-item'},h('h3',{},group.name),h('p',{},group.count+' 只 · 最高 '+(group.highest||'未知')+' 板'),h('div',{class:'fy-inline'},group.items.slice(0,3).map(openRow)),h('p',{class:'fy-muted'},'来源：'+(review.themeSrc||'来源待核验'))))):empty('缺少板块归属','不能从股票名称推测题材。'));
@@ -365,7 +379,7 @@ export function renderDailyReview(ctx) {
     return h('article',{class:'fy-item'},h('h3',{},pool[1]),ctx.role!=='edit'?note('此候选池需要管理者身份'):sameDay&&data.items.length?h('div',{class:'fy-stack'},data.items.slice(0,3).map(row=>h('div',{},openRow(row),h('p',{},reasons(row).join('；')||'未返回选择依据，暂不作判断。')))):note('暂无与本次复盘同日的候选'+(data.snapshotDay?'；最近结果日期 '+dayLabel(data.snapshotDay):'')),button('查看'+pool[1],()=>ctx.navigate('opportunities',key)));
    })),h('p',{class:'fy-muted'},'竞价、成交量和板块延续需在下一交易日由新数据确认；条件未确认前保持观察。'));
   const records=section('完整复盘清单','点击股票查看原始依据与走势',summary.rows.length?renderEvidence(summary.rows.map(row=>({...row,poolDay:day})),ctx):empty('尚无复盘股票明细',review.note||'源数据未就绪或尚未生成明细，不能认定为今日无涨停。'));
-  output.replaceChildren(summaryPanel,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
+  output.replaceChildren(summaryPanel,coveragePanel,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
  }
  const refreshButton=button('刷新复盘',async()=>{refreshButton.disabled=true;try{await ctx.refresh();paint();}finally{refreshButton.disabled=false;}},'primary');
  const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),refreshButton,output,
