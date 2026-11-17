@@ -32,3 +32,12 @@ test('disconnected live dashboard clears preview without rewriting historical so
  assert.match(src,/container\.replaceChildren/);
  assert.doesNotMatch(src,/source\.replaceChildren/);
 });
+
+test('offline guard remains active across DOM mutation until a fresh dashboard event',()=>{
+ const src=read('public/assets/reference-portal.js');
+ assert.match(src,/let rankDisconnected=false/);
+ assert.match(src,/if\(rankDisconnected\)/);
+ assert.match(src,/rankDisconnected=true/);
+ assert.match(src,/v6-dashboard-data/);
+ assert.match(src,/rankDisconnected=false;\s*queueRanks\(\)/);
+});
