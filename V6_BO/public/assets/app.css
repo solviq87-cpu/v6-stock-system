@@ -308,3 +308,11 @@ button:focus-visible,.btn:focus-visible,a:focus-visible{outline:3px solid #5488f
 .rv-event-retracted,.rv-event-superseded,.rv-event-unknown{border-left-color:#be5e64}
 .rv-event-state{font-weight:600}
 @media(max-width:650px){.rv-evidence-trigger{max-width:100%;white-space:normal}.rv-event-card{padding:8px}}
+
+/* Stable evidence panel stays outside #review, which the legacy controller redraws. */
+.rv-evidence-drawer{margin:8px 0 12px;border:1px solid #557da7;border-radius:9px;padding:12px;
+ background:rgba(25,47,77,.08);max-height:360px;overflow:auto;overscroll-behavior:contain}
+.rv-evidence-drawer[hidden]{display:none}
+.rv-evidence-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.rv-evidence-close{padding:6px 10px;min-height:36px;background:transparent;border:1px solid #557da7;border-radius:7px;color:inherit;cursor:pointer}
+.rv-evidence-close:focus-visible{outline:2px solid #71b8fa;outline-offset:2px}
