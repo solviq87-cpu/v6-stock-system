@@ -24,3 +24,11 @@ test('rankings retain unknown state and source timestamp caveat',()=>{
  assert.match(src,/row\.textContent/);
  assert.match(src,/textContent=parts\.slice/);
 });
+
+test('disconnected live dashboard clears preview without rewriting historical source',()=>{
+ const src=read('public/assets/reference-portal.js');
+ assert.match(src,/v6-dashboard-offline/);
+ assert.match(src,/排行榜已停止实时展示/);
+ assert.match(src,/container\.replaceChildren/);
+ assert.doesNotMatch(src,/source\.replaceChildren/);
+});
