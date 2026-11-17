@@ -91,24 +91,31 @@ function render(doc,panel,model){
 }
 function bind(doc){
  const review=doc.getElementById('review');
- if(!review||typeof root.fetch!=='function')return;
- let generation=0;
+ if(!review||typeof root.fetch!=='function'||!review.parentElement?.parentElement)return;
+ const host=review.parentElement.parentElement;
+ // Original app.js redraws #review every five seconds. The detail view MUST
+ // live outside that ephemeral node or every successful request disappears.
+ const drawer=doc.createElement('section');drawer.className='rv-evidence-drawer';drawer.hidden=true;
+ drawer.setAttribute('aria-label','涨停逐股事件与来源');drawer.setAttribute('aria-live','polite');
+ const toolbar=doc.createElement('div');toolbar.className='rv-evidence-toolbar';
+ const heading=doc.createElement('strong');heading.textContent='逐股事件 · 日期与来源';
+ const close=doc.createElement('button');close.type='button';close.className='rv-evidence-close';
+ close.textContent='关闭证据';close.setAttribute('aria-label','关闭事件证据面板');
+ toolbar.appendChild(heading);toolbar.appendChild(close);
+ const results=doc.createElement('div');results.className='rv-evidence-results';
+ drawer.appendChild(toolbar);drawer.appendChild(results);
+ host.insertBefore(drawer,review.parentElement);
+ let generation=0,identity=null;
  const authToken=()=>{
    try{return typeof root.getRelToken==='function'?String(root.getRelToken()||''):'';}
    catch{return '';}
  };
  const sameOrigin=path=>new URL(path,root.location&&root.location.href||'http://localhost/').href;
- function invalidate(){
-   generation++;
-   for(const btn of review.querySelectorAll('.rv-evidence-trigger[aria-expanded="true"]')){
-     btn.setAttribute('aria-expanded','false');
-     const box=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
-     if(box)box.replaceChildren();
-   }
- }
+ const clear=()=>{
+   generation++;identity=null;drawer.hidden=true;results.replaceChildren();
+ };
+ close.addEventListener('click',clear);
  function decorate(){
-   // The frozen legacy renderer reconstructs its card HTML every five seconds.
-   // Enhance new cards instead of changing those approved historical bytes.
    for(const card of review.querySelectorAll('.rvc:not([data-review-evidence-ready])')){
      card.dataset.reviewEvidenceReady='true';
      const code=String(card.querySelector('.rvc-h span.muted')?.textContent||'').trim();
@@ -121,64 +128,54 @@ function bind(doc){
      const wrapper=doc.createElement('div');wrapper.className='rv-evidence';
      const button=doc.createElement('button');
      button.className='rv-evidence-trigger';button.type='button';button.dataset.code=code;
-     button.setAttribute('aria-expanded','false');
      button.textContent='📎 逐股事件 · 日期与来源（点开核对）';
-     const results=doc.createElement('div');results.className='rv-evidence-results';
-     wrapper.appendChild(button);wrapper.appendChild(results);card.appendChild(wrapper);
+     wrapper.appendChild(button);card.appendChild(wrapper);
    }
  }
  if(typeof root.MutationObserver==='function'){
-   const observer=new root.MutationObserver(decorate);
-   observer.observe(review,{childList:true,subtree:true});
+   new root.MutationObserver(decorate).observe(review,{childList:true,subtree:true});
    const role=doc.getElementById('roleState');
-   if(role)new root.MutationObserver(invalidate).observe(role,{childList:true,characterData:true,subtree:true});
+   if(role)new root.MutationObserver(clear).observe(role,{childList:true,characterData:true,subtree:true});
  }
  decorate();
- doc.addEventListener('visibilitychange',()=>{if(doc.hidden)invalidate();});
- root.addEventListener&&root.addEventListener('pagehide',invalidate);
- root.addEventListener&&root.addEventListener('offline',invalidate);
- root.addEventListener&&root.addEventListener('focus',invalidate);
+ doc.addEventListener('visibilitychange',()=>{if(doc.hidden)clear();});
+ root.addEventListener?.('pagehide',clear);
+ root.addEventListener?.('offline',clear);
+ root.addEventListener?.('focus',clear);
  review.addEventListener('click',async ev=>{
    const btn=ev.target&&typeof ev.target.closest==='function'?ev.target.closest('.rv-evidence-trigger'):null;
    if(!btn||!review.contains(btn))return;
-   const panel=btn.parentElement&&btn.parentElement.querySelector('.rv-evidence-results');
-   if(!panel)return;
-   if(btn.getAttribute('aria-expanded')==='true'){
-     generation++;btn.setAttribute('aria-expanded','false');panel.replaceChildren();return;
-   }
-   const code=btn.dataset.code,current=++generation,auth=authToken();
-   btn.setAttribute('aria-expanded','true');
-   panel.textContent='读取对应复盘日与事件来源…';
-   const active=()=>current===generation&&review.contains(btn)&&btn.getAttribute('aria-expanded')==='true'
+   const code=btn.dataset.code,auth=authToken(),current=++generation;
+   // Clicking the same item closes an already-open evidence panel.
+   if(!drawer.hidden&&identity===code){clear();return;}
+   identity=code;drawer.hidden=false;heading.textContent='逐股事件 · '+code+' · 日期与来源';
+   results.textContent='读取对应复盘日与事件来源…';
+   drawer.scrollIntoView?.({block:'nearest',behavior:'auto'});
+   const active=()=>current===generation&&identity===code&&!drawer.hidden
      &&authToken()===auth&&!doc.hidden;
    try{
      if(!/^\d{6}$/.test(String(code||'')))throw Error('证券代码无效');
      // Absolute same-origin URLs bypass the legacy fetch shim that appends
-     // credentials to /api/ path strings. Tokens belong ONLY in headers.
+     // credentials to /api/ relative paths. Credentials belong ONLY in headers.
      const headers=auth?{Authorization:'Bearer '+auth}:{};
      const stateResponse=await root.fetch(sameOrigin('/api/state'),{
        headers,cache:'no-store',credentials:'same-origin'});
      if(!stateResponse.ok)throw Error('无法校验当前复盘日期');
-     const state=await stateResponse.json();
-     if(!active())return;
+     const state=await stateResponse.json();if(!active())return;
      const snapshot=state&&state.review,day=String(snapshot&&snapshot.date||'').replace(/-/g,'');
      if(!snapshot||!Array.isArray(snapshot.items)||!snapshot.items.some(x=>x&&x.code===code))
        throw Error('该股票不在当前复盘快照，请刷新页面后重试');
      const shown=doc.getElementById('rvTime')?.textContent||'';
-     const mmdd=day.slice(4,6)+'-'+day.slice(6,8);
-     if(!/^\d{8}$/.test(day)||!shown.includes(mmdd))
+     if(!/^\d{8}$/.test(day)||!shown.includes(day.slice(4,6)+'-'+day.slice(6,8)))
        throw Error('页面复盘归属日与云端不同，请先刷新');
+     heading.textContent='逐股事件 · '+code+' · '+day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6,8);
      const response=await root.fetch(sameOrigin('/api/research/news-evidence?symbol='+encodeURIComponent(code)),{
        headers,cache:'no-store',credentials:'same-origin'});
-     if(!active())return;
      if(!response.ok)throw Error('当前权限不足或新闻证据归档暂不可用');
-     const data=await response.json();
-     if(!active())return;
+     const data=await response.json();if(!active())return;
      if(!data||data.ok!==true||!data.result)throw Error('证据接口返回不完整');
-     render(doc,panel,view(data.result,{code,date:day}));
-   }catch(e){
-     if(active())panel.textContent='证据暂不可核实：'+(e&&e.message||'查询失败')+'。题材标签不得冒充已核实的涨停原因。';
-   }
+     render(doc,results,view(data.result,{code,date:day}));
+   }catch(e){if(active())results.textContent='证据暂不可核实：'+(e&&e.message||'查询失败')+'。题材标签不得冒充已核实的涨停原因。';}
  });
 }
 if(typeof module==='object'&&module.exports)module.exports={reviewCutoff,allowedUrl,clock,classify,view,render,bind};
