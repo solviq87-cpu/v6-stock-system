@@ -724,7 +724,7 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
  .fy-brand img{width:31px;height:31px}
  .fy-brand strong{font-size:16px}
  .fy-brand small{font-size:7px}
- .fy-actions{gap:4px}.fy-actions button{min-width:34px;min-height:36px;padding:6px}
+ .fy-actions{gap:3px;flex:none}.fy-actions button{min-width:32px;width:32px;min-height:34px;height:34px;padding:5px}.fy-actions .fy-button{padding-inline:5px;min-width:32px;width:32px}.fy-actions svg{width:17px;height:17px}
  .fy-business-nav{padding:8px 11px;scroll-snap-type:x proximity}
  .fy-business-nav button{scroll-snap-align:start;min-height:36px;font-size:11px}
  .fy-connection-bar{padding:6px 13px}
