@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,table} from './ui.js';
-import {ticker,renderAllOpportunities,summarizeReview,reviewCoverage,reviewDate} from './market.js';
+import {ticker,quoteLabel,renderAllOpportunities,summarizeReview,reviewCoverage,reviewDate} from './market.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -81,9 +81,30 @@ function renderReviewRows(summary,ctx) {
   {label:'主力净额',value:row=>money(row.mainInflow)},
   {label:'题材 / 依据',value:row=>row.sector||'题材待核验'}
  ];
- return data.length?table(columns,data.slice(0,12)):
-  empty('暂无可核验的涨停明细','没有数据不代表没有涨停；请检查源端池、返回上限和复盘任务。');
+ if(!data.length)return empty('暂无可核验的涨停明细','没有数据不代表没有涨停；请检查源端池、返回上限和复盘任务。');
+ const mobile=data.slice(0,12).map(row=>{
+  const level=Number.isInteger(row.limitUpCount)&&row.limitUpCount>0?row.limitUpCount+' 板':'板次待核验';
+  const items=[
+   ['封单金额',money(row.sealAmount)],
+   ['开板',number(row.breakCount)+' 次'],
+   ['换手率',valid(row.turnover)?format(row.turnover,1)+'%':'—'],
+   ['主力净额',money(row.mainInflow)]
+  ];
+  const basis=[row.reason,row.why,row.note].find(text=>typeof text==='string'&&text.trim())||'尚无可核验的原始涨停依据';
+  return h('article',{class:'fy-terminal-mobile-stock','data-code':row.code},
+   h('div',{class:'fy-terminal-mobile-stock-head'},
+    open(row),h('span',{class:'fy-terminal-mobile-board'},level)),
+   h('p',{class:'fy-terminal-mobile-sector'},row.sector||'题材待核验'),
+   h('dl',{class:'fy-terminal-mobile-metrics'},items.map(([label,value])=>
+    h('div',{},h('dt',{},label),h('dd',{},value)))),
+   h('div',{class:'fy-terminal-mobile-basis'},'涨停归因：'+basis),
+   h('small',{class:'fy-terminal-mobile-source'},quoteLabel(row)));
+ });
+ return h('div',{class:'fy-terminal-review-layout'},
+  h('div',{class:'fy-terminal-desktop-table'},table(columns,data.slice(0,12))),
+  h('div',{class:'fy-terminal-mobile-cards','aria-label':'iPhone 17 Pro 纵向复盘卡片'},mobile));
 }
+
 export function renderTerminalOverview(ctx) {
  const view=h('div',{class:'fy-terminal fy-stack','data-v6-workbench':'true'});
  const title=h('header',{class:'fy-terminal-title'},
