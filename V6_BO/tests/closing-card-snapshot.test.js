@@ -92,6 +92,8 @@ test('post-close index uses later original observation while candidate evidence 
   assert.equal(out.dashboard.indices[0].quoteAt,at('15:00:00'));
   assert.equal(out.pool[0].price,1);
   assert.equal(out.dashboard.indices[0].canTrade,false);
+  assert.equal(out.dashboard.indices[0].quoteStatus,'stale');
+  assert.equal(out.dashboard.indices[0].quoteAgeMs,3*60*60*1000);
   assert.equal(current.dashboard.indices[0].canTrade,undefined,'input is not mutated');
   for(const bad of [[],[index(999,'14:00:00')],[index(999,'18:01:00')],
     [index(999,'15:00:00',{quoteSource:''})],[index(999,'15:00:00',{receivedAt:at('14:00:00')})],

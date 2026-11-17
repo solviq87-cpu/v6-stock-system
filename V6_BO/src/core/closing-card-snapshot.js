@@ -3,6 +3,7 @@
 const fs = require('node:fs'),
   path = require('node:path'),
   crypto = require('node:crypto');
+const { quoteObservationView } = require('./quote-observation-view');
 const STATE_FIELDS = [
   'pool',
   'global',
@@ -84,7 +85,7 @@ function latestIndexObservations(saved, current, now) {
     const prior = rows.get(row?.code);
     if (valid(row) && (!valid(prior) || row.quoteAt > prior.quoteAt)) rows.set(row.code,row);
   }
-  return [...rows.values()].map(r=>({...r,canTrade:false,canNotify:false}));
+  return [...rows.values()].map(r=>({...r,...quoteObservationView(r,now)}));
 }
 function beforeClose(now) {
   const d = new Date(now + 28800000),
