@@ -130,6 +130,74 @@ function install(root){
   const reviewHeading=reviewModule.querySelector('.sec');
   if(reviewHeading)reviewHeading.after(portal);
   else reviewModule.prepend(portal);
+  // Existing V6 app.js owns the authoritative review view. Reuse its
+  // already-rendered DOM and observe its updates; never request a second
+  // potentially inconsistent quote/review source.
+  const reviewSource=doc.getElementById('review');
+  const summarySource=doc.getElementById('rvSummary');
+  const timeSource=doc.getElementById('rvTime');
+  const detailRows=make(doc,'div','v6-portal-real-rows');
+  detailRows.setAttribute('aria-live','polite');
+  table.append(detailRows);
+  function textValue(node){return String(node?.textContent||'').trim();}
+  function reviewSync(){
+    const raw=timeSource?textValue(timeSource):'';
+    const stale=/非当日|日期未知|可能非当日|过期|失败|未知/.test(raw);
+    const countMatch=raw.match(/共\s*(\d{1,4})\s*只涨停/);
+    const numbers=summarySource?[...summarySource.querySelectorAll('.tag')].map(x=>textValue(x)):[];
+    const findNumber=label=>{
+      const row=numbers.find(x=>x.startsWith(label));
+      const m=row?.match(/(\d{1,4})/);
+      return m?Number(m[1]):null;
+    };
+    const total=!stale&&countMatch?Number(countMatch[1]):null;
+    const vals=[total,findNumber('首板'),findNumber('连板'),findNumber('题材'),
+      null,findNumber('站5日线'),findNumber('破前高')];
+    for(let i=0;i<metricValues.length;i++){
+      const val=vals[i];
+      const valid=Number.isSafeInteger(val)&&val>=0&&total!==null;
+      metricValues[i].val.textContent=valid?String(val):'—';
+      metricValues[i].suffix.textContent=valid?METRICS[i][2]+' · 原复盘快照':METRICS[i][2]+' · 待核验';
+    }
+    refresh.textContent=raw||'等待服务端复盘';
+    detailRows.replaceChildren();
+    if(total===null){
+      detailRows.append(make(doc,'p','v6-portal-no-data','复盘尚未取得有效的当日数据；历史复盘请打开原版详细列表核对日期。'));
+      return;
+    }
+    const cards=[...(reviewSource?.querySelectorAll('.rvc')||[])].slice(0,12);
+    if(!cards.length){
+      detailRows.append(make(doc,'p','v6-portal-no-data','真实复盘统计已到达，股票明细仍在原复盘模块加载中。'));
+      return;
+    }
+    for(const card of cards){
+      const header=card.querySelector('.rvc-h');
+      const code=textValue(header?.querySelector('span.muted'));
+      const title=textValue(header);
+      if(!/^\d{6}$/.test(code))continue;
+      const link=make(doc,'a','v6-portal-stock-row');
+      link.href='/#review';
+      link.append(make(doc,'strong','',title.slice(0,100)),
+        make(doc,'span','',textValue(card.querySelector('.rvc-reason')).slice(0,170)||'涨停原因尚无可核验证据'),
+        make(doc,'small','','打开原复盘明细 ↗'));
+      detailRows.append(link);
+    }
+  }
+  // The source is redrawn by the existing V6 controller; a microtask avoids
+  // reading half-written card markup and an observer loop on our own output.
+  let pending=false;
+  function queueReviewSync(){
+    if(pending)return;
+    pending=true;
+    Promise.resolve().then(()=>{pending=false;reviewSync();});
+  }
+  if(typeof root.MutationObserver==='function'){
+    const observer=new root.MutationObserver(queueReviewSync);
+    for(const node of [reviewSource,summarySource,timeSource]){
+      if(node)observer.observe(node,{childList:true,subtree:true,characterData:true});
+    }
+  }
+  reviewSync();
   // Reuse the existing market data snapshot. No additional polling/fetching.
   function sync(){
    const value=doc.getElementById('ztCount')?.textContent||'';
