@@ -60,7 +60,7 @@ export function detailedStockCard(row,ctx) {
   h('div',{class:'fy-inline'},button(symbolName(row)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet'),h('strong',{},roleLabel(row)),row.level&&h('span',{class:'fy-tag'},row.level+'进'+(row.targetLevel||row.level+1)),row.mainline&&h('span',{class:'fy-tag'},'主流板块'),h('span',{class:'fy-tag'},row.sector||'板块待核验')),
   h('p',{},finite(row.fused)?'排序值 '+format(row.fused,1)+' · 原模型估计 '+format(row.prob,1):finite(row.prob)?'原模型估计 '+format(row.prob,1):finite(row.score)?'评分 '+format(row.score,1):'评分待核验'),
   (finite(row.fused)||finite(row.prob))&&h('small',{class:'fy-muted'},'模型估计和排序值不等于经验证的胜率。'),
-  h('div',{class:'fy-grid two'},metrics.map(([label,value])=>h('div',{class:'fy-kpi','data-field':label==='快照价'?'price':null},h('span',{},label),h('strong',{},value)))),
+  h('div',{class:'fy-grid four'},metrics.map(([label,value])=>h('div',{class:'fy-item','data-field':label==='快照价'?'price':null},h('small',{},label),h('br'),h('strong',{},value)))),
   strength.theme&&h('p',{},'板块联动：'+strength.theme+' · '+format(strength.score,0)+' 分 · '+(strength.grade||'强弱待核验')+' · 同主线涨停 '+format(strength.sectorZT,0)+' 只 · 最高 '+format(strength.maxLb,0)+' 板'),
   h('h3',{},'入选依据'),h('p',{},reasons(row).join('；')||'接口未返回依据。'),
   row.mainlineBasis&&h('p',{class:'fy-muted'},'主线依据：'+row.mainlineBasis),
