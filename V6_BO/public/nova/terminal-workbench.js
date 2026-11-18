@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,table} from './ui.js';
-import {ticker,quoteLabel,renderAllOpportunities,summarizeReview,reviewCoverage,reviewDate} from './market.js';
+import {ticker,quoteLabel,stockCard,summarizeReview,reviewCoverage,reviewDate} from './market.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -161,8 +161,12 @@ export function renderTerminalOverview(ctx) {
    ['十四条选股','opportunities','conditions'],['策略中心','lab','strategies'],
    ['明日计划','pulse','plans'],['消息面','inbox','all']
   ].map(([label,module,sub])=>moduleButton(label,module,sub,ctx))));
- const candidates=h('section',{class:'fy-terminal-candidates'},h('h2',{},'选股核心 · 全部候选'),
-  h('p',{class:'fy-terminal-hint'},'原有全部候选聚合继续使用现有接口，股票按代码去重；不是全市场全部股票。'),renderAllOpportunities(ctx));
+ const candidatePreview=h('div',{class:'fy-terminal-preview-cards'});
+ const candidates=h('section',{class:'fy-terminal-candidates fy-terminal-preview'},
+  h('header',{class:'fy-terminal-preview-head'},
+   h('div',{},h('h2',{},'重点候选'),h('p',{class:'fy-terminal-hint'},'仅预览当前云端已返回的原始候选；历史报价不等于可交易信号。')),
+   moduleButton('查看全部候选','opportunities','all',ctx)),
+  candidatePreview);
  view.append(title,status,prioritiesHost,indexHost,statsHost,panelsHost,reviewHost,quick,candidates);
  function paint() {
   if(ctx.signal?.aborted)return;
@@ -218,6 +222,18 @@ export function renderTerminalOverview(ctx) {
    status.append(h('strong',{class:'fy-terminal-warning'},'报告自述 '+reported+' 只 / 实际明细 '+summary.rows.length+' 只；原始池覆盖仍需核验。'));
   panelsHost.replaceChildren(renderPanels(state,summary,day,ctx));
   list.replaceChildren(renderReviewRows(summary,ctx));
+  // Landing-page preview is deliberately bounded and read-only. Full pool
+  // fetching, filters, strategy evidence and paging remain in opportunities/all.
+  // This avoids automatic remote pool requests just from opening the homepage.
+  const previewRows=new Map();
+  for(const row of [...rowsFrom(state.dashboard?.rows),...rowsFrom(state.pool)]){
+   if(!row?.code||previewRows.has(row.code))continue;
+   previewRows.set(row.code,{...row,poolDay:row.poolDay||marketDay||undefined});
+  }
+  const preview=[...previewRows.values()].slice(0,3);
+  candidatePreview.replaceChildren(preview.length?
+   h('div',{class:'fy-stock-grid'},preview.map(row=>stockCard(row,ctx))):
+   empty('当前没有可核验的候选','查看完整机会工作区中的来源状态和原始依据；未返回不代表全市场没有机会。'));
  }
  ctx.onState?.(paint);paint();
  return view;
