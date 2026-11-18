@@ -62,7 +62,12 @@
    const note=doc.createElement('p');note.className='v6-mobile-review-note';
    note.textContent='此处仅复用手机已有的行情速览，不代表全市场涨停清单或逐股原因认证。完整复盘、来源日期与事件证据请打开原业务模块。';
    section.append(heading,status,grid,ranked,note);
-   mood.after(section);
+   // The same shared-digest preview belongs in the visible mobile terminal.
+   // Place it after the live index strip when the terminal is mounted; the
+   // legacy authenticated card remains the safe fallback on older shells.
+   const modern=doc.getElementById('vx-dashboard')?.querySelector('.vx-market-strip');
+   if(modern&&app.contains(modern))modern.after(section);
+   else mood.after(section);
    const read=()=>({
     status:doc.getElementById('sub')?.textContent,
     zt:doc.getElementById('ztMeta')?.textContent,

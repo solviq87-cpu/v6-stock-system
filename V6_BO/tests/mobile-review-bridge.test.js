@@ -49,6 +49,9 @@ test('additive mobile loader respects original login and DOM; API and order writ
  assert.match(js,/getElementById\('ztMeta'\)/);
  assert.match(js,/getElementById\('secBody'\)/);
  assert.match(js,/MutationObserver/);
+ assert.match(js,/getElementById\('vx-dashboard'\)\?\.querySelector\('\.vx-market-strip'\)/);
+ assert.match(js,/app\.contains\(modern\)/);
+ assert.match(js,/modern\.after\(section\)/);
  assert.doesNotMatch(js,/\bfetch\s*\(|XMLHttpRequest|\/api\/|localStorage|sessionStorage|\/api\/order|\/api\/trade/);
  assert.match(css,/min-width:390px/);
  assert.match(css,/max-width:430px/);
