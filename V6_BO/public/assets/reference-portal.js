@@ -231,23 +231,45 @@ function install(root){
       detailRows.append(make(doc,'p','v6-portal-no-data','复盘尚未取得有效的当日数据；历史复盘请打开原版详细列表核对日期。'));
       return;
     }
-    const cards=[...(reviewSource?.querySelectorAll('.rvc')||[])].slice(0,12);
+    // Mirror every currently rendered original review card, not just the
+    // first 12. This is source DOM coverage, not a certified market total.
+    const cards=[...(reviewSource?.querySelectorAll('.rvc')||[])];
     if(!cards.length){
       detailRows.append(make(doc,'p','v6-portal-no-data','真实复盘统计已到达，股票明细仍在原复盘模块加载中。'));
       return;
     }
+    const shown=new Set();
     for(const card of cards){
       const header=card.querySelector('.rvc-h');
       const code=textValue(header?.querySelector('span.muted'));
       const title=textValue(header);
-      if(!/^\d{6}$/.test(code))continue;
+      if(!/^\d{6}$/.test(code)||shown.has(code))continue;
+      if(shown.size>=200)break;
+      shown.add(code);
       const link=make(doc,'a','v6-portal-stock-row');
       link.href='/#review';
+      link.dataset.reviewCode=code;
       link.append(make(doc,'strong','',title.slice(0,100)),
-        make(doc,'span','',textValue(card.querySelector('.rvc-reason')).slice(0,170)||'涨停原因尚无可核验证据'),
-        make(doc,'small','','打开原复盘明细 ↗'));
+        make(doc,'span','',textValue(card.querySelector('.rvc-reason')).slice(0,170)||'涨停题材及事件原因尚无可核验证据'),
+        make(doc,'small','','查看该股票原复盘明细与事件证据（如有） ↗'));
+      link.addEventListener('click',event=>{
+        const latest=[...(reviewSource?.querySelectorAll('.rvc')||[])].find(row=>
+          textValue(row.querySelector('.rvc-h span.muted'))===code);
+        if(!latest)return;
+        event.preventDefault();
+        for(let parent=latest.parentElement;parent;parent=parent.parentElement){
+          if(parent.tagName==='DETAILS')parent.open=true;
+          if(parent===reviewModule)break;
+        }
+        const evidence=latest.querySelector('.rv-evidence-trigger');
+        if(evidence)evidence.click(); // available when evidence PR is installed
+        else latest.scrollIntoView?.({block:'center',behavior:'auto'});
+      });
       detailRows.append(link);
     }
+    tableHint.textContent='当前原复盘已渲染 '+shown.size+' 条不同证券记录'+
+      (cards.length>200?'（最多显示200条；其余请进入原复盘）':'')+
+      '；不代表全市场涨停清单已独立核实，题材标签不是涨停原因因果认证。';
   }
   // The source is redrawn by the existing V6 controller; a microtask avoids
   // reading half-written card markup and an observer loop on our own output.
