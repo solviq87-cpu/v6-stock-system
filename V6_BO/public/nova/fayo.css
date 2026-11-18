@@ -1014,3 +1014,13 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
  .fy-terminal-panels>.fy-section,.fy-terminal-review{box-shadow:0 0 14px #2d80ff42,inset 0 1px 0 #a2d8ff55}
 }
 @media(prefers-reduced-motion:reduce){.fy-terminal-stat,.fy-terminal-index .fy-market-ticker>div{transition:none}}
+
+
+/* Keep the source-total card unmistakably magenta, even against the general
+   per-index gradient override. No positive/negative meaning is inferred. */
+.fy-terminal-stats .fy-terminal-stat.accent{
+ background:linear-gradient(148deg,#783079,#49236e 65%,#1b2861);
+ border-color:#ff78cd;
+ box-shadow:inset 0 1px 0 #ffe0ff80,0 0 20px #f74db07a,0 8px 16px #0008;
+}
+.fy-terminal-stats .fy-terminal-stat.accent>strong{color:#ffa6d6}
