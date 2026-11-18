@@ -114,3 +114,12 @@
  border-radius:7px;color:#d8ebff;font-size:12px;line-height:1.45;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .v6-portal-rank-source{font-size:10px;color:#9dbfe7}
+
+/* The original review may contain dozens of stocks. Show all rendered items
+ * without forcing an unbounded document-height growth on desktop or iPhone. */
+.v6-portal-real-rows{
+ max-height:680px;overflow-y:auto;overscroll-behavior:contain;
+ padding:3px 5px 8px 0;scrollbar-width:thin
+}
+.v6-portal-stock-row:focus-visible{scroll-margin:16px}
+@media(max-width:600px){.v6-portal-real-rows{max-height:560px}}
