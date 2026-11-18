@@ -103,11 +103,12 @@ function renderReviewRows(summary,ctx) {
  const mobileGrid=h('div',{class:'fy-terminal-mobile-cards','aria-label':'iPhone 17 Pro 纵向复盘卡片'},mobile.slice(0,12));
  mobileGrid.id='fy-terminal-mobile-review-list';
  const remaining=data.length-12;
+ let expanded=false;
  const expand=remaining>0?button('展开其余 '+remaining+' 条复盘明细',()=>{
-  const open=expand.getAttribute('aria-expanded')!=='true';
-  mobileGrid.replaceChildren(...(open?mobile:mobile.slice(0,12)));
-  expand.setAttribute('aria-expanded',String(open));
-  expand.textContent=open?'收起到前 12 条':'展开其余 '+remaining+' 条复盘明细';
+  expanded=!expanded;
+  mobileGrid.replaceChildren(...(expanded?mobile:mobile.slice(0,12)));
+  expand.setAttribute('aria-expanded',String(expanded));
+  expand.textContent=expanded?'收起到前 12 条':'展开其余 '+remaining+' 条复盘明细';
  },'secondary'):null;
  if(expand){
   expand.className+=' fy-terminal-review-expand';
