@@ -116,7 +116,11 @@ jobs:
           # as a bounded fallback. It is installed in the test runner only.
           # No unbounded apt-get update and no font is committed to this repo.
           has_chinese_font() {
-            fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -Eq 'Noto Sans (CJK|SC)'
+            # Ubuntu apt installs "Noto Sans CJK SC" while the pinned,
+            # region-specific OFL font installs "Noto Sans SC".
+            { fc-match -f '%{family}\n' 'Noto Sans CJK SC';
+              fc-match -f '%{family}\n' 'Noto Sans SC'; } |
+              grep -Eq 'Noto Sans (CJK|SC)'
           }
           if ! has_chinese_font; then
             mkdir -p "$HOME/.local/share/fonts/v6-qa"
