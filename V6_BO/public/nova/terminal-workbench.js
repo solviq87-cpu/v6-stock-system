@@ -134,9 +134,9 @@ function renderReviewRows(summary,ctx) {
 export function renderTerminalOverview(ctx) {
  const view=h('div',{class:'fy-terminal fy-stack','data-v6-workbench':'true'});
  const title=h('header',{class:'fy-terminal-title'},
-  h('div',{},h('span',{class:'fy-terminal-eyebrow'},'V6 / SAME DATA · TWO SCREENS'),
-   h('h1',{},'盘面总览 · 涨停复盘工作台'),
-   h('p',{},'同一套策略、账户和复盘证据，电脑与手机同步读取；历史报价不当作实时行情。')),
+  h('div',{},h('span',{class:'fy-terminal-eyebrow'},'FAYO / V6'),
+   h('h1',{},'盘面总览'),
+   h('p',{},'市场、机会、风险与下一步，先看重点。')),
   h('div',{class:'fy-terminal-actions'},
    moduleButton('详细复盘','pulse','review',ctx),
    moduleButton('智能选股','opportunities','all',ctx),
@@ -144,15 +144,16 @@ export function renderTerminalOverview(ctx) {
  const status=h('div',{class:'fy-terminal-provenance',role:'status','aria-live':'polite'});
  const indexHost=h('div',{class:'fy-terminal-index'});
  const statsHost=h('div',{class:'fy-terminal-stats'});
+ const prioritiesHost=h('section',{class:'fy-terminal-priorities','aria-label':'市场、机会、风险和下一步'});
  const panelsHost=h('div',{class:'fy-terminal-context'});
  const reviewHost=h('section',{class:'fy-section fy-panel fy-terminal-review'});
  reviewHost.append(h('header',{class:'fy-terminal-review-head'},
   h('div',{},h('h2',{},'每日复盘 · 涨停形态与归因'),h('p',{},'展示服务端实际返回的逐股明细（最多200条）；手机可展开全部已返回记录，未独立核实的题材不是涨停因果证明。')),
   moduleButton('全部复盘与归因','pulse','review',ctx)));
  const list=h('div',{class:'fy-terminal-review-list'});reviewHost.append(list);
- const quick=h('section',{class:'fy-terminal-quick'},
-  h('h2',{},'业务模块快捷入口'),
-  h('div',{class:'fy-terminal-shortcuts'},[
+ const quick=h('details',{class:'fy-terminal-quick'},
+  h('summary',{},'更多业务功能 · 12 个入口'),
+  h('nav',{class:'fy-terminal-shortcuts','aria-label':'业务功能快捷入口'},[
    ['选股核心','opportunities','all'],['涨停预选','opportunities','ztpre'],
    ['板次日接力','opportunities','relay-first'],['趋势票池','opportunities','trend'],
    ['盘中异动','opportunities','movement'],['风控系统','assets','risk'],
@@ -162,7 +163,7 @@ export function renderTerminalOverview(ctx) {
   ].map(([label,module,sub])=>moduleButton(label,module,sub,ctx))));
  const candidates=h('section',{class:'fy-terminal-candidates'},h('h2',{},'选股核心 · 全部候选'),
   h('p',{class:'fy-terminal-hint'},'原有全部候选聚合继续使用现有接口，股票按代码去重；不是全市场全部股票。'),renderAllOpportunities(ctx));
- view.append(title,status,indexHost,statsHost,panelsHost,reviewHost,quick,candidates);
+ view.append(title,status,indexHost,statsHost,prioritiesHost,panelsHost,reviewHost,quick,candidates);
  function paint() {
   if(ctx.signal?.aborted)return;
   // Focused elements are not replaced while a keyboard user is interacting with them.
@@ -187,6 +188,31 @@ export function renderTerminalOverview(ctx) {
    ['5日线上',review?number(summary.rows.filter(row=>row.aboveMa5===true).length):'—','仅统计明确为真的条目']
   ].map(([label,value,detail,kind])=>stat(label,value,detail,kind)));
   const mismatch=source&&source.reportedCount!==summary.rows.length;
+  const incomplete=coverage.sourceIncomplete===true;
+  const reportGap=reported!==null&&reported!==summary.rows.length;
+  const needsReview=incomplete||Boolean(mismatch)||reportGap;
+  const marketMode=state.trading===false||state.isSnapshot===true||state.dashboard?.isSnapshot===true?'最近交易日快照':
+   state.trading===true?'交易时段 · 报价待核验':'交易状态待核验';
+  const riskHeadline=incomplete?'源端覆盖不完整':mismatch?'明细覆盖有缺口':reportGap?'报告数量不一致':
+   !source?'源端总量待核验':'原始报价须逐股核验';
+  const riskDetail=incomplete?'源端记录数与接收唯一代码数不一致':
+   mismatch?'源端 '+number(source.reportedCount)+' 只 / 复盘 '+number(summary.rows.length)+' 只':
+   reportGap?'报告 '+number(reported)+' 只 / 明细 '+number(summary.rows.length)+' 只':
+   !source?'不能将已回传明细数当成全市场涨停数':'统计一致不等于行情实时或交易条件成立';
+  prioritiesHost.replaceChildren(
+   h('div',{class:'fy-terminal-priority','data-focus':'market'},
+    h('span',{},'市场'),h('strong',{},marketMode),h('small',{},'原始快照交易日 '+(marketDay||'待核验'))),
+   h('div',{class:'fy-terminal-priority','data-focus':'opportunities'},
+    h('span',{},'机会'),h('strong',{},review?'复盘明细 '+number(summary.rows.length)+' 条':'复盘数据待就绪'),
+    h('small',{},'仅为已回传样本，不代表全市场推荐')),
+   h('div',{class:'fy-terminal-priority fy-terminal-priority-risk','data-focus':'risk'},
+    h('span',{},'风险'),h('strong',{},riskHeadline),h('small',{},riskDetail)),
+   h('div',{class:'fy-terminal-priority fy-terminal-priority-next','data-focus':'next'},
+    h('span',{},'下一步'),
+    moduleButton(needsReview?'核对复盘缺口':'查看机会证据',
+     needsReview?'pulse':'opportunities',needsReview?'review':'all',ctx),
+    h('small',{},'只进入研究页面，不触发下单')));
+
   if(mismatch)status.append(h('strong',{class:'fy-terminal-warning'},'源端 '+source.reportedCount+' 只 / 本次明细 '+summary.rows.length+' 只；差额必须核查，不能混称全市场涨停。'));
   else if(reported!==null&&reported!==summary.rows.length)
    status.append(h('strong',{class:'fy-terminal-warning'},'报告自述 '+reported+' 只 / 实际明细 '+summary.rows.length+' 只；原始池覆盖仍需核验。'));
