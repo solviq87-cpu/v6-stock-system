@@ -857,3 +857,18 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
  .fy-business-nav{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
  .fy-main{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
 }
+
+
+/* Complete original-source review inventory: desktop table scrolls, mobile
+ * starts compact and expands on an explicit user tap. No extra data requests. */
+.fy-terminal-desktop-table{max-height:690px;overflow-y:auto;overscroll-behavior:contain}
+.fy-terminal-desktop-table .fy-table thead{position:sticky;top:0;background:#102b51;z-index:1}
+.fy-terminal-review-more{display:none}
+@media(max-width:650px){
+ .fy-terminal-review-more{display:flex;justify-content:center;margin-top:12px}
+ .fy-terminal-review-more .fy-terminal-review-expand{
+  min-height:46px;min-width:180px;width:100%;max-width:340px;
+  border:1px solid #3f81c4;color:#eff7ff;background:#173866
+ }
+ .fy-terminal-mobile-cards{gap:9px}
+}
