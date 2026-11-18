@@ -899,3 +899,29 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
   margin:0 20px 0 calc(var(--fy-business-rail) + 20px)
  }
 }
+
+
+/* iPhone first-fold priority: review counters before index cards, but all
+ * original quote times, evidence, navigation and modules remain reachable. */
+@media(max-width:650px) and (orientation:portrait){
+ .fy-terminal-title{order:0;padding:10px 12px;gap:7px}
+ .fy-terminal-title .fy-terminal-eyebrow{display:none}
+ .fy-terminal-title h1{font-size:18px;line-height:1.35;margin:0 0 3px}
+ .fy-terminal-title p{font-size:10px;line-height:1.4}
+ .fy-terminal-actions{gap:6px}
+ .fy-terminal-actions .fy-button{min-height:38px;padding:7px 9px;font-size:10px}
+ .fy-terminal-provenance{order:1;padding:7px 9px;gap:3px 8px;font-size:9px;line-height:1.4}
+ .fy-terminal-provenance strong{font-size:10px}
+ .fy-terminal-stats{order:2;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .fy-terminal-stat{min-height:68px;padding:9px 10px;gap:3px}
+ .fy-terminal-stat>strong{font-size:22px;line-height:1.25}
+ .fy-terminal-stat>span,.fy-terminal-stat>small{font-size:10px;line-height:1.35}
+ .fy-terminal-index{order:3}
+ .fy-terminal-context{order:4}
+ .fy-terminal-review{order:5}
+ .fy-terminal-quick{order:6}
+ .fy-terminal-candidates{order:7}
+ .fy-terminal{gap:9px}
+ .fy-connection-bar{padding-top:5px;padding-bottom:5px}
+ .fayo-app>.fy-snapshot{padding:7px 10px;font-size:10px;line-height:1.45}
+}
