@@ -21,7 +21,7 @@ function line(label,value,detail='',variant='') {
   h('strong',{},label),h('span',{},value),detail&&h('small',{},detail));
 }
 function renderPanels(state,summary,reviewDay,ctx) {
- const marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
+ const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
  const mainline=section('市场主线排行','仅按当前复盘明细的题材归组，不能充当全市场排行',
   summary.groups.length?
    h('div',{class:'fy-terminal-lines'},summary.groups.slice(0,5).map((g,i)=>
@@ -50,23 +50,32 @@ function renderPanels(state,summary,reviewDay,ctx) {
     '，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
   moduleButton('查看全部板块','pulse','sectors',ctx));
  const sectors=Array.isArray(state.sectors)?state.sectors:Array.isArray(state.sectors?.items)?state.sectors.items:[];
- // Only known Yuan-valued fields are converted to 亿/万; fields without verified units are not converted.
- const capital=sectors.filter(row=>row&&typeof(row.name||row.sector)==='string'&&
+ // The retained client may preserve sectors from an earlier trading day while
+ // the dashboard and review advance. Only the field's own original day can
+ // authorize this preview; a fresh receivedAt or page refresh cannot.
+ const sectorDay=reviewDate(state.snapshotFieldDays?.sectors||state.sectorsDay);
+ const aligned=Boolean(sectorDay&&marketDay&&sectorDay===marketDay&&(!reviewDay||sectorDay===reviewDay));
+ // Only explicitly Yuan-valued fields are converted to 亿/万. Never turn
+ // missing units into money or show yesterday's funds as today's ranking.
+ const capital=aligned?sectors.filter(row=>row&&typeof(row.name||row.sector)==='string'&&
    (valid(row.mainInflowYuan)||valid(row.netInflowYuan))).map(row=>({
     name:row.name||row.sector,value:valid(row.mainInflowYuan)?row.mainInflowYuan:row.netInflowYuan
-   })).sort((a,b)=>b.value-a.value).slice(0,5);
+   })).sort((a,b)=>b.value-a.value).slice(0,5):[];
  const max=Math.max(1,...capital.map(row=>Math.abs(row.value)));
- const flows=section('板块资金排行','仅展示明确以元计的净流入字段；未知数据不补成 0',
-  capital.length?h('div',{class:'fy-terminal-flows'},capital.map(row=>
-   h('div',{class:'fy-terminal-flow'},
-    h('span',{},row.name),
-    h('span',{class:'fy-terminal-bar'},h('i',{style:'width:'+Math.max(3,100*Math.abs(row.value)/max).toFixed(1)+'%'})),
-    h('strong',{class:direction(row.value)},money(row.value))))):
-   empty('尚无单位明确的板块资金数据','可前往现有板块资金页面核验数据来源、时间与单位。'),
+ const dateIssue=!sectorDay?'板块资金原始交易日缺失':
+  !marketDay?'大盘快照日期缺失，无法比较资金日期':
+  sectorDay!==marketDay?'板块资金 '+sectorDay+' 与大盘 '+marketDay+' 不同日':
+  reviewDay&&sectorDay!==reviewDay?'板块资金 '+sectorDay+' 与复盘 '+reviewDay+' 不同日':'';
+ const flows=section('板块资金排行',
+  '资金来源交易日 '+(sectorDay||'待核验')+' · 仅展示明确以元计的净流入，旧日与未知不补 0',
+  !aligned?empty('资金来源交易日待核验',dateIssue+'；暂不展示排名，请进入原资金模块核对。'):
+   capital.length?h('div',{class:'fy-terminal-flows'},capital.map(row=>
+    h('div',{class:'fy-terminal-flow'},
+     h('span',{},row.name),
+     h('span',{class:'fy-terminal-bar'},h('i',{style:'width:'+Math.max(3,100*Math.abs(row.value)/max).toFixed(1)+'%'})),
+     h('strong',{class:direction(row.value)},money(row.value))))):
+    empty('尚无单位明确的板块资金数据','原资金模块可能有其他单位或缺失项，请核验数据来源与字段。'),
   moduleButton('查看资金证据','pulse','global',ctx));
- // Market-day mismatch is explicit: do not present other-day bars as the review day's.
- if(reviewDay&&marketDay&&marketDay!==reviewDay)
-  flows.append(h('p',{class:'fy-terminal-hint'},'市场快照 '+marketDay+' 与复盘 '+reviewDay+' 日期不同；资金不作为当日复盘结论。'));
  return h('div',{class:'fy-terminal-panels'},mainline,board,flows);
 }
 function renderReviewRows(summary,ctx) {
@@ -160,7 +169,7 @@ export function renderTerminalOverview(ctx) {
   if(reviewHost.contains(document.activeElement))return;
   const state=ctx.state||{},review=state.review,summary=summarizeReview(review),coverage=reviewCoverage(review);
   const day=reviewDate(review?.date),source=coverage.source,reported=valid(review?.ztN)?review.ztN:null;
-  const marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
+  const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
   status.replaceChildren(
    h('strong',{},'原始复盘日期：'+(day||'待核验')),
    h('span',{},'大盘快照：'+(marketDay||'待核验')),
