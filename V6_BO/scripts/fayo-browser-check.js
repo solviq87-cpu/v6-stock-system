@@ -21,7 +21,7 @@ const requests=[],resources=[];
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
- return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:3,returnedCount:3,uniqueCount:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 function respond(url,req,body){
  const p=url.pathname;
@@ -132,6 +132,26 @@ const runChecks=async()=>{
    await page.locator('.fy-header').waitFor({state:'visible'});
    await page.locator('.fy-stock-card[data-code="600101"]').first().waitFor({state:'visible'});
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
+
+   const focusTexts=await page.locator('.fy-terminal-priority').allTextContents();
+   assert.equal(focusTexts.length,4,'overview answers market, opportunity, risk and next-action questions');
+   assert.match(focusTexts[0],/最近交易日快照/,'closed-market snapshot must not be called live');
+   assert.match(focusTexts[1],/复盘明细 3 条/,'opportunity count is sourced from the retained review');
+   assert.match(focusTexts[2],/原始报价须逐股核验/,'matched totals do not certify live prices');
+   assert.match(focusTexts[3],/查看机会证据/,'next action opens research, not a trade');
+   const secondaryDetails=page.locator('details.fy-terminal-quick');
+   assert.equal(await secondaryDetails.evaluate(element=>element.open),false,'secondary business tools begin collapsed');
+   await secondaryDetails.locator('summary').click();
+   assert.equal(await secondaryDetails.locator('.fy-terminal-shortcuts button').count(),12,
+    'all original business quick routes remain available through disclosure');
+   await secondaryDetails.locator('summary').click();
+   assert.equal(await secondaryDetails.evaluate(element=>element.open),false,
+    'business disclosure closes without altering permissions or route');
+
+   // The disclosure interaction may scroll the page. Capture the actual first fold,
+   // not a convenient mid-page viewport that silently misses the key decisions.
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+   await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
    if([402,1366].includes(width)){
@@ -187,8 +207,10 @@ const runChecks=async()=>{
      const index=document.querySelector('.fy-terminal-index');
      const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
      return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,
-       firstStatVisible:!!a&&a.top<innerHeight,viewport:innerHeight};
+       firstStatVisible:!!a&&a.bottom>0&&a.top>=0&&a.top<innerHeight,
+       scrollTop:window.scrollY,viewport:innerHeight};
     });
+    assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
     assert.equal(firstFold.statCount,8,'all original review counters are retained');
     assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
     assert.ok(firstFold.firstStatVisible&&firstFold.statTop<firstFold.viewport*.8,
@@ -205,6 +227,14 @@ const runChecks=async()=>{
     await geometry(page,'iphone17pro-landscape-874x402');
     await page.screenshot({path:path.join(output,'iphone17pro-landscape-874x402.png'),fullPage:false});
     await page.setViewportSize({width:402,height:874});
+    phase='coverage-gap';
+    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('源端覆盖不完整'));
+    assert.match(await page.locator('[data-focus="risk"]').innerText(),/37|33/,'source mismatch is never presented as a verified total');
+    assert.match(await page.locator('[data-focus="next"]').innerText(),/核对复盘缺口/,'missing upstream members changes the next step to review');
+    phase='normal';
+    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('原始报价须逐股核验'));
    }
    await navigate(page,'opportunities','quant');
    await page.waitForFunction(()=>document.querySelectorAll('.fy-pool-board .fy-stock-card').length===8);

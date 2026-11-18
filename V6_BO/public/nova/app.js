@@ -73,7 +73,7 @@ function snapshotStatus() {
  else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
 }
 function createFrame() {
- const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'天枢智策 V6 / FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'FAYO · 原业务技术底座')));
+ const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜 FAYO'),h('small',{},'天枢智策 V6')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
  for(const[view,label,key]of MAIN){
   nav.append(h('button',{type:'button','data-fy-route':view,onClick:()=>navigate(view)},icon(key),h('span',{},label)));

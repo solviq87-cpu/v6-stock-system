@@ -58,7 +58,11 @@ function fixture(count=33){
 test('approved V6 layout uses actual review rows and keeps source 37 / analyzed 33 distinct',async()=>{
  dom();const {renderTerminalOverview}=await api,ctx=context(fixture());
  const view=renderTerminalOverview(ctx),t=textOf(view);
- assert.match(t,/盘面总览 · 涨停复盘工作台/);
+ assert.match(t,/FAYO.*V6\s+盘面总览/,'concise page heading retains the FAYO identity');
+ assert.match(t,/市场\s+最近交易日快照/,'market mode is visible and explicitly historical');
+ assert.match(t,/机会\s+复盘明细 33 条/,'opportunity digest is based on actual analyzed rows');
+ assert.match(t,/风险\s+明细覆盖有缺口/,'same-batch total mismatch remains a risk');
+ assert.match(t,/下一步\s+核对复盘缺口/,'mismatched totals lead to verification instead of trading');
  assert.match(t,/源端 37 只/);
  assert.match(t,/明细 33 只/);
  assert.match(t,/源端 37 只 \/ 本次明细 33 只/);
@@ -96,6 +100,11 @@ test('a stale sector classification cannot be merged into a new-day review',asyn
 test('real V6 module links route to existing review, strategies, simulated account and holdings',async()=>{
  dom();const {renderTerminalOverview}=await api,ctx=context(fixture(3));
  const view=renderTerminalOverview(ctx);
+ const details=locate(view,el=>el?.tag==='details'&&el?.className==='fy-terminal-quick');
+ const shortcuts=locate(details,el=>el?.className==='fy-terminal-shortcuts');
+ assert.ok(details&&shortcuts,'12 original business routes remain in a native disclosure');
+ assert.equal(shortcuts.children.filter(el=>el?.tag==='button').length,12,
+  'progressive disclosure preserves every business shortcut and its handler');
  for(const [label,expected] of [
   ['详细复盘',['pulse','review']],['选股核心',['opportunities','all']],
   ['模拟盘',['assets','paper']],['我的持仓',['assets','holdings']],
@@ -116,6 +125,31 @@ test('native shell uses approved business navigation and worker caches every eag
  assert.match(css,/V6 DEEP BLUE TERMINAL/);
  assert.match(css,/max-width:650px/);
  assert.match(worker,/\/nova\/terminal-workbench\.js/);
+});
+
+test('home shows only three current-state candidates and leaves full pool research in its own workspace',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(2);
+ s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,
+   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'}];
+ s.pool=[{code:'600101',name:'重复候选不应两次展示'},...Array.from({length:5},(_,i)=>({
+   code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,
+   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'
+ }))];
+ const ctx=context(s),view=renderTerminalOverview(ctx);
+ const host=locate(view,el=>el?.className==='fy-terminal-preview-cards');
+ const cards=locate(host,el=>el?.className==='fy-stock-grid');
+ assert.ok(host&&cards,'home keeps a real evidence-backed candidate preview');
+ assert.equal(cards.children.length,3,'home only previews three candidates');
+ assert.doesNotMatch(textOf(cards.children[1]),/结果日期 2026-11-17/,
+  'undated retained pool rows must not inherit a newer dashboard day');
+ assert.match(textOf(host),/首页原始候选/);
+ assert.match(textOf(host),/existing-source/,'original quote source is visible');
+ assert.doesNotMatch(textOf(host),/其他候选4/,'the rest are not dumped on the homepage');
+ const full=locate(view,el=>el?.tag==='button'&&textOf(el).trim()==='查看全部候选');
+ assert.ok(full,'full candidate workspace remains reachable');
+ full.listeners.click();assert.deepEqual(ctx.navigations.at(-1),['opportunities','all']);
+ await tick();assert.equal(ctx.calls.length,0,'landing does not automatically load remote strategy pools');
+ ctx.controller.abort();
 });
 
 test('all received review rows are available on desktop and on-demand mobile, without inventing stocks',async()=>{

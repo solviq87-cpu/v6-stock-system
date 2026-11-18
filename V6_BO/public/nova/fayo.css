@@ -927,43 +927,43 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 }
 
 
-/* V6 reference palette: saturated blue / violet / pink, presentation only.
+/* V6 reference palette: saturated magenta / violet with sapphire data accents, presentation only.
    Provenance, unknown values, security gates and red-up/green-down are retained. */
 :root{
- --fy-bg:#030b20;--fy-surface:#0a1e49;--fy-raised:#172f68;
- --fy-border:#347ee5;--fy-text:#f5f9ff;--fy-muted:#b4d5f6;
- --fy-faint:#94b5d4;--fy-pink:#ff6dbb;--fy-violet:#ae75ff;
+ --fy-bg:#100820;--fy-surface:#1a103b;--fy-raised:#2a1956;
+ --fy-border:#8155bf;--fy-text:#fff4ff;--fy-muted:#d5bae8;
+ --fy-faint:#b59acb;--fy-pink:#ff61b8;--fy-violet:#b37bff;
  --fy-mint:#3de5b0;--fy-red:#ff607d;
  --fy-neon-blue:#398dff;--fy-neon-violet:#aa6aff;--fy-neon-pink:#ff61ad;
 }
-body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
- radial-gradient(ellipse at 99% 19%,#7140dd33,transparent 34%),
- linear-gradient(140deg,#030b1d,#071838 56%,#030b20);color:#f5f9ff}
-.fy-header{background:linear-gradient(100deg,#071438,#102a60 52%,#0b1541);
- border-bottom:1px solid #3c95ff;box-shadow:inset 0 -1px 0 #7bcfff4b,0 0 22px #176cff43}
+body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
+ radial-gradient(ellipse at 99% 19%,#713ae240,transparent 36%),
+ linear-gradient(140deg,#0b0620,#190d34 56%,#0e0824);color:#fff4ff}
+.fy-header{background:linear-gradient(100deg,#160c34,#291447 52%,#201039);
+ border-bottom:1px solid #a86aff;box-shadow:inset 0 -1px 0 #edb2ff4b,0 0 22px #9a3ee943}
 .fy-brand img{filter:drop-shadow(0 0 11px #a45affaa) drop-shadow(0 0 8px #20baff75)}
 .fy-brand small{color:#a4d1ff}
-.fy-nav,.fy-business-nav,.fy-dock{background:linear-gradient(160deg,#071c40,#141d50);border-color:#3674c5}
-.fy-business-nav button{background:linear-gradient(145deg,#133c7c,#0a2045);border-color:#3163ab;color:#eaf4ff}
+.fy-nav,.fy-business-nav,.fy-dock{background:linear-gradient(160deg,#1a1040,#2c1750);border-color:#8659c6}
+.fy-business-nav button{background:linear-gradient(145deg,#31215d,#201439);border-color:#7250ae;color:#f4eaff}
 .fy-nav button[data-current=true],.fy-business-nav button[data-current=true],
 .fy-business-nav button[aria-current=page],.fy-dock button[data-current=true]{
- color:#fff;border-color:#60cfff;
- background:linear-gradient(135deg,#056bda,#1a51c8 58%,#4e2cad);
- box-shadow:inset 0 1px 0 #c6efff70,0 0 18px #277dff8a,0 4px 14px #0008
+ color:#fff;border-color:#df95ff;
+ background:linear-gradient(135deg,#df46aa,#a43fde 58%,#6648c5);
+ box-shadow:inset 0 1px 0 #ffe1f970,0 0 18px #ce51ed78,0 4px 14px #0008
 }
-.fy-button{background:linear-gradient(140deg,#174681,#112b62);border-color:#478add;color:#ebf6ff}
-.fy-button.primary{background:linear-gradient(125deg,#0878e5,#2159d9 67%,#5832bd);
- border-color:#70d5ff;color:#fff;box-shadow:inset 0 1px 0 #e5f7ff6b,0 0 19px #267fff80}
+.fy-button{background:linear-gradient(140deg,#4c2a76,#322052);border-color:#9565ce;color:#fbedff}
+.fy-button.primary{background:linear-gradient(125deg,#ed439f,#bc48d5 67%,#754dd1);
+ border-color:#f59bdf;color:#fff;box-shadow:inset 0 1px 0 #ffe5fa6b,0 0 19px #d945cc69}
 .fy-button:hover:not(:disabled){background:#1c5bb7;border-color:#8ce2ff;box-shadow:0 0 17px #2e8bff66}
-.fy-terminal-title{background:radial-gradient(ellipse at 96% 2%,#8b43d947,transparent 45%),
- linear-gradient(115deg,#154488,#122e6d 55%,#1d225f);
- border:1px solid #498ef6;
- box-shadow:inset 0 1px 0 #c7e5ff52,0 0 24px #236dff4a,0 10px 23px #0008}
+.fy-terminal-title{background:radial-gradient(ellipse at 96% 2%,#ff58b35b,transparent 45%),
+ linear-gradient(115deg,#5d286f,#492080 55%,#2a205e);
+ border:1px solid #b473f0;
+ box-shadow:inset 0 1px 0 #ffe6fa52,0 0 24px #aa53ec4a,0 10px 23px #0008}
 .fy-terminal-title h1{color:#fff;text-shadow:0 0 14px #7196ff70}
 .fy-terminal-title p{color:#c3dcf8}
 .fy-terminal-eyebrow{color:#8ae0ff}
-.fy-terminal-provenance{background:linear-gradient(115deg,#103873,#112858 60%,#121d4f);
- border:1px solid #448cde;color:#d0e9ff;box-shadow:inset 0 1px 0 #84baff44}
+.fy-terminal-provenance{background:linear-gradient(115deg,#332056,#2b194d 60%,#211742);
+ border:1px solid #825bc4;color:#e6d9f5;box-shadow:inset 0 1px 0 #e7baff44}
 .fy-terminal-provenance strong{color:#fff}
 .fy-terminal-provenance .fy-terminal-warning{color:#ffd5a0}
 .fy-terminal-evidence-tag{color:#4df0ba}
@@ -981,19 +981,19 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
 .fy-terminal-index .fy-market-ticker>div strong:not(.fy-positive):not(.fy-negative){color:#fff}
 .fy-terminal-index .fy-market-ticker>div strong.fy-positive{color:#ff6d83;text-shadow:0 0 11px #ff507967}
 .fy-terminal-index .fy-market-ticker>div strong.fy-negative{color:#43e8ae;text-shadow:0 0 11px #34edac50}
-.fy-terminal-stats .fy-terminal-stat{background:linear-gradient(150deg,#243d96,#1c2c73 54%,#42235d);
- border:1px solid #6c78ed;box-shadow:inset 0 1px 0 #c8b9ff74,0 0 18px #6853ff64,0 9px 17px #0008}
-.fy-terminal-stats .fy-terminal-stat:nth-child(2n){background:linear-gradient(145deg,#193b91,#16265c 62%,#28255b);border-color:#558eff}
-.fy-terminal-stats .fy-terminal-stat:nth-child(3n){background:linear-gradient(145deg,#3c2e8c,#202663 65%,#51276a);border-color:#ad72f9}
+.fy-terminal-stats .fy-terminal-stat{background:linear-gradient(150deg,#4c278b,#332076 54%,#53256b);
+ border:1px solid #a16bf2;box-shadow:inset 0 1px 0 #f0c9ff74,0 0 18px #bd65ef64,0 9px 17px #0008}
+.fy-terminal-stats .fy-terminal-stat:nth-child(2n){background:linear-gradient(145deg,#55268f,#31216c 62%,#312058);border-color:#9566e3}
+.fy-terminal-stats .fy-terminal-stat:nth-child(3n){background:linear-gradient(145deg,#792b87,#3d1d66 65%,#5c246d);border-color:#e476d5}
 .fy-terminal-stats .fy-terminal-stat.accent{background:linear-gradient(145deg,#7d317e,#47266f 61%,#23265f);
  border-color:#ff79c8;box-shadow:inset 0 1px 0 #ffddf585,0 0 20px #e14fab82,0 9px 17px #0007}
 .fy-terminal-stat>span{color:#f3e5ff}
 .fy-terminal-stat>strong{color:#ff9bc5;text-shadow:0 0 13px #ff66bc55}
 .fy-terminal-stat>small{color:#c4d7ff}
 .fy-terminal-panels>.fy-section,.fy-terminal-review,.fy-terminal-quick,.fy-terminal-candidates{
- background:radial-gradient(circle at 94% 0%,#2d4fb44a,transparent 50%),
- linear-gradient(155deg,#10366e,#0b1e49 60%,#131e48);
- border:1px solid #3c79dc;box-shadow:inset 0 1px 0 #bad9ff42,0 0 13px #216ce52d,0 9px 22px #0006}
+ background:radial-gradient(circle at 94% 0%,#863ab44a,transparent 50%),
+ linear-gradient(155deg,#32205f,#1d1647 60%,#261744);
+ border:1px solid #8e5cc9;box-shadow:inset 0 1px 0 #edd1ff42,0 0 13px #a24ddc2d,0 9px 22px #0006}
 .fy-terminal-panels>.fy-section:nth-child(1){border-color:#38a3f9;box-shadow:inset 0 1px 0 #b8ebff65,0 0 20px #078ee04c}
 .fy-terminal-panels>.fy-section:nth-child(2){border-color:#996dff;box-shadow:inset 0 1px 0 #d9b9ff59,0 0 20px #8d55ef52}
 .fy-terminal-panels>.fy-section:nth-child(3){border-color:#4689ff;box-shadow:inset 0 1px 0 #b3dcff5e,0 0 20px #288aff53}
@@ -1010,7 +1010,7 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
 .fy-terminal-shortcuts .fy-button{background:linear-gradient(125deg,#22488d,#1a2e71);border-color:#4f92e8}
 .fy-empty{background:#102853;border-color:#4279b9;color:#d0e5ff}
 .fy-quote-time,.fy-muted,.fy-terminal-review-head p,.fy-terminal-hint{color:#b7d1ed}
-.fy-dock{border-top:1px solid #528eff;box-shadow:0 -8px 20px #2159c049}
+.fy-dock{border-top:1px solid #a776e9;box-shadow:0 -8px 20px #7d3bbb49}
 @media(max-width:650px){
  .fy-terminal-stats .fy-terminal-stat{box-shadow:inset 0 1px 0 #dccaff68,0 0 14px #6257ff55,0 6px 13px #0007}
  .fy-terminal-panels>.fy-section,.fy-terminal-review{box-shadow:0 0 14px #2d80ff42,inset 0 1px 0 #a2d8ff55}
@@ -1026,3 +1026,51 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
  box-shadow:inset 0 1px 0 #ffe0ff80,0 0 20px #f74db07a,0 8px 16px #0008;
 }
 .fy-terminal-stats .fy-terminal-stat.accent>strong{color:#ffa6d6}
+
+
+/* FAYO focus hierarchy, 2026-11-18.
+   Four decision questions share one calm surface rather than four more dashboard cards.
+   Source dates and uncertainty remain visible; underlying review and shortcuts stay intact. */
+/* The homepage only previews three sourced candidates; full research lives in Opportunities. */
+.fy-terminal-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:13px}
+.fy-terminal-preview-head>div{min-width:0}
+.fy-terminal-preview-head .fy-terminal-hint{margin:3px 0 0}
+.fy-terminal-preview .fy-stock-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:650px){
+ .fy-terminal-preview-head{flex-direction:column;align-items:stretch}
+ .fy-terminal-preview-head .fy-button{align-self:flex-start}
+ .fy-terminal-preview .fy-stock-grid{grid-template-columns:minmax(0,1fr)}
+}
+.fy-terminal-priorities{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;
+ border:1px solid #4e6fbd;border-radius:12px;overflow:hidden;
+ background:linear-gradient(130deg,#151e53,#25194f 66%,#1a1f52)
+}
+.fy-terminal-priority{
+ min-width:0;display:flex;flex-direction:column;align-items:flex-start;
+ justify-content:center;gap:5px;padding:13px 17px;
+ border-right:1px solid #5168a077
+}
+.fy-terminal-priority:last-child{border-right:0}
+.fy-terminal-priority>span{font-size:10px;color:#c2bce8;font-weight:650;letter-spacing:.05em}
+.fy-terminal-priority>strong{font-size:15px;line-height:1.35;color:#f9f3ff;font-weight:650;overflow-wrap:anywhere}
+.fy-terminal-priority>small{font-size:10px;line-height:1.5;color:#b5c4e9;overflow-wrap:anywhere}
+.fy-terminal-priority-risk>strong{color:#ffbad9}
+.fy-terminal-priority-next .fy-button{min-height:36px;font-size:12px}
+.fy-terminal-quick>summary{font-size:13px;font-weight:650;color:#f2dcff}
+.fy-terminal-quick[open]>.fy-terminal-shortcuts{margin-top:12px}
+@media(max-width:1100px){
+ .fy-terminal-priorities{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-terminal-priority:nth-child(2){border-right:0}
+ .fy-terminal-priority:nth-child(-n+2){border-bottom:1px solid #5168a077}
+}
+@media(max-width:650px) and (orientation:portrait){
+ .fy-terminal-priority{padding:10px 11px}
+ .fy-terminal-priority>strong{font-size:13px}
+ .fy-terminal-priority-next .fy-button{font-size:11px;min-height:36px}
+ .fy-terminal-priorities{order:4}
+ .fy-terminal-context{order:5}
+ .fy-terminal-review{order:6}
+ .fy-terminal-quick{order:7}
+ .fy-terminal-candidates{order:8}
+}
