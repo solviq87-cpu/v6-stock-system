@@ -226,9 +226,17 @@ export function renderTerminalOverview(ctx) {
   // fetching, filters, strategy evidence and paging remain in opportunities/all.
   // This avoids automatic remote pool requests just from opening the homepage.
   const previewRows=new Map();
-  for(const row of [...rowsFrom(state.dashboard?.rows),...rowsFrom(state.pool)]){
-   if(!row?.code||previewRows.has(row.code))continue;
-   previewRows.set(row.code,{...row,poolDay:row.poolDay||marketDay||undefined});
+  // Field dates are separate: never borrow a newer index/dashboard date for
+  // a retained pool row whose original pool date is unknown or older.
+  const previewGroups=[
+   [rowsFrom(state.dashboard?.rows),reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay)],
+   [rowsFrom(state.pool),reviewDate(state.snapshotFieldDays?.pool||state.poolDay)]
+  ];
+  for(const [items,sourceDay] of previewGroups){
+   for(const row of items){
+    if(!row?.code||previewRows.has(row.code))continue;
+    previewRows.set(row.code,{...row,poolDay:row.poolDay||sourceDay||undefined});
+   }
   }
   const preview=[...previewRows.values()].slice(0,3);
   candidatePreview.replaceChildren(preview.length?
