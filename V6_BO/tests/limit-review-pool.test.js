@@ -12,9 +12,17 @@ test('provider completeness requires tc equality and unique valid records, never
   const rows=await fetchPool(tc,records),meta=rows.poolMeta;assert.ok(meta);assert.equal(meta.providerComplete,complete);assert.equal(meta.fetchedCount,records.length);assert.equal(meta.duplicateCount,duplicates);assert.equal(meta.invalidCount,invalid);assert.equal(meta.completenessScope,'provider-response-only');
  }
 });
-test('full state exposes a separate uncropped readonly review pool and completeness metadata',()=>{
- const route=server.slice(server.indexOf("if (p === '/api/state')"));assert.match(route,/ztReviewPool:\s*D\.ztReviewPool/);assert.match(route,/ztReviewPoolMeta:\s*D\.ztReviewPoolMeta/);
- assert.doesNotMatch(route,/ztReviewPool:\s*D\.ztReviewPool\.slice/);
+test('full API state builds an uncropped read-only review pool and its provenance together',()=>{
+ const route=server.slice(server.indexOf("if (p === '/api/state')"),server.indexOf("if (p === '/api/reference-indexes')"));
+ assert.match(route,/marketCardState\('state',buildDashboardState\(isEditorReq\(req,''\)\)\)/,
+  'real state route must call the shared authenticated state builder');
+ const builder=server.slice(server.indexOf('function buildDashboardState('),server.indexOf('// ──',server.indexOf('function buildDashboardState(')+32));
+ assert.match(builder,/ztReviewPool:\s*D\.ztReviewPool\s*\|\|\s*\[\]/,
+  'state returns the saved full source pool, not its strategy subset');
+ assert.match(builder,/ztReviewPoolMeta:\s*D\.ztReviewPoolMeta\s*\|\|\s*null/,
+  'count/date/source metadata must accompany the rows');
+ assert.doesNotMatch(builder,/ztReviewPool:\s*D\.ztReviewPool\.slice/,
+  'do not shrink supplier coverage to make the UI look complete');
 });
 
 const {buildLimitReviewPool,mergeLimitReviewPools,selectLimitReviewDisplay}=require('../src/core/limit-review-pool');

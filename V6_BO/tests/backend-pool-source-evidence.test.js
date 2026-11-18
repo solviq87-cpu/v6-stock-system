@@ -107,8 +107,9 @@ test('cold-start unavailable pools cannot gain a requested date from undated sto
  const previous=a.state.ztPool;await a.run();assert.equal(a.state.ztPool,previous);assert.equal(a.state.ztDay,'20261112');assert.equal(a.state.ztPoolFetchOk,false);
 });
 test('cold-start reconstruction preserves actual stock evidence without granting provider-pool facts',async()=>{
- const original=stock('600002'),derived={code:'600002',src:'derive',price:10};
+ const original=stock('600002',{quoteAt:Date.parse('2026-11-13T15:00:00+08:00')}),derived={code:'600002',src:'derive',price:10};
  const a=admission([],{prior:[],stocks:[original],derived:[derived]});await a.run();const row=a.state.ztPool[0];
+ assert.ok(row,'only a supplier-dated close may reconstruct a missing provider pool');
  assert.equal(row.tradeDate,'2026-11-13');assert.equal(row.quoteAt,original.quoteAt);assert.equal(row.receivedAt,original.receivedAt);assert.equal(row.quoteSource,original.quoteSource);assert.equal(row.factEvidence,undefined);
 });
 
