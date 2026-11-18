@@ -154,26 +154,52 @@ const runChecks=async()=>{
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
+   // Real DOM checks on both viewport types. A dense, legible terminal wins
+   // over simply painting every card purple or adding more glow.
    if([402,1366].includes(width)){
-    const vivid=await page.evaluate(()=>{
-      const css=s=>getComputedStyle(document.querySelector(s));
-      return {token:css(':root').getPropertyValue('--fy-neon-blue').trim(),
-        first:css('.fy-terminal-stat:nth-child(1)').backgroundImage,
-        second:css('.fy-terminal-stat:nth-child(2)').backgroundImage,
-        shadow:css('.fy-terminal-stat:nth-child(1)').boxShadow,
-        up:css('.fy-terminal-index .fy-market-ticker .fy-positive').color,
-        down:css('.fy-terminal-index .fy-market-ticker .fy-negative').color,
-        contextShadow:css('.fy-terminal-panels>.fy-section').boxShadow};
+    const regions=await page.evaluate(()=>{
+     const b=selector=>{const node=document.querySelector(selector);if(!node)return null;
+      const rect=node.getBoundingClientRect();return {top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right,
+       width:rect.width,height:rect.height,display:getComputedStyle(node).display};};
+     const colors=selector=>getComputedStyle(document.querySelector(selector)).color;
+     return {
+      title:b('.fy-terminal-title'),meta:b('.fy-terminal-provenance'),
+      ticker:b('.fy-terminal-index'),stats:b('.fy-terminal-stats'),
+      focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
+      review:b('.fy-terminal-review'),firstPanel:b('.fy-terminal-panels>.fy-section'),
+      sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
+      sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
+      statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
+      brand:b('.fy-header'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
+      down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
+      main:getComputedStyle(document.querySelector('.fy-terminal')).display
+     };
     });
-    assert.equal(vivid.token,'#398dff','reference blue must resolve');
-    assert.match(vivid.first,/linear-gradient/,'stats use saturated gradients');
-    assert.notEqual(vivid.first,vivid.second,'distinct card families');
-    assert.notEqual(vivid.shadow,'none','luminous stat edge');
-    assert.notEqual(vivid.contextShadow,'none','luminous context panel');
-    assert.notEqual(vivid.up,vivid.down,`index red-up / green-down must remain distinguishable: up=${vivid.up} down=${vivid.down}`);
-    const channels=color=>(color.match(/\d+/g)||[]).slice(0,3).map(Number);
-    const [rr,rg]=channels(vivid.up),[gr,gg]=channels(vivid.down);
-    assert.ok(rr>rg&&gg>gr,'index price must preserve red-up / green-down color channels');
+    assert.equal(regions.main,'flex','terminal uses same compact structural layout on both clients');
+    assert.equal(regions.sourceCount,8,'original eight audited counters remain');
+    assert.ok(regions.sourceVisible,'original date/source/unknown status must remain visible');
+    assert.ok(regions.title.top<regions.meta.top,'title precedes provenance');
+    const rgb=v=>(v.match(/\d+/g)||[]).slice(0,3).map(Number);
+    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
+    assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
+    if(width===1366){
+     assert.ok(regions.ticker.top<regions.stats.top&&regions.stats.top<regions.focus.top,
+      'desktop index strip and statistics precede the compact decision strip');
+     assert.ok(regions.focus.top<regions.panels.top&&regions.panels.top<regions.review.top,
+      'desktop 3-column market rankings precede the full review table');
+     assert.ok(regions.review.top<880,'desktop 1366x1000 shows the start of full review without deep scrolling: '+regions.review.top);
+     assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
+    }else{
+     assert.ok(regions.stats.top<regions.focus.top&&regions.focus.top<regions.panels.top,
+      'phone shows count, risk then sector ranking before secondary index charts');
+     assert.ok(regions.panels.top<regions.ticker.top,
+      'iPhone sector information appears before extended index tiles');
+     assert.ok(regions.stats.top<400&&regions.stats.bottom<780,
+      'iPhone first fold must show actual review numbers rather than big headers');
+     assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
+      'four compact count cards share the first phone row');
+     assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
+    }
    }
    if(width>=1360){
     const rail=await page.evaluate(()=>{

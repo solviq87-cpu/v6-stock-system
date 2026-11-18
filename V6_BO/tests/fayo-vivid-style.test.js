@@ -2,27 +2,41 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const css=fs.readFileSync(path.resolve(__dirname,'../public/nova/fayo.css'),'utf8');
-const qa=fs.readFileSync(path.resolve(__dirname,'../scripts/fayo-browser-check.js'),'utf8');
-const p=css.slice(css.lastIndexOf('/* V6 reference palette'));
-function L(hex){const n=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
- .map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*n[0]+.7152*n[1]+.0722*n[2];}
-const contrast=(a,b)=>(Math.max(L(a),L(b))+.05)/(Math.min(L(a),L(b))+.05);
-test('real V6 neon color tokens and key cards share the same desktop/mobile palette',()=>{
- for(const v of ['--fy-neon-blue:#398dff','--fy-neon-violet:#aa6aff','--fy-neon-pink:#ff61ad'])assert.ok(p.includes(v));
- for(const v of ['.fy-terminal-title','.fy-terminal-stats .fy-terminal-stat','.fy-terminal-panels>.fy-section','.fy-terminal-index .fy-market-ticker>div','.fy-dock'])assert.ok(p.includes(v));
- assert.match(p,/@media\(max-width:650px\)/);
- assert.match(qa,/assert\.notEqual\(vivid\.first,vivid\.second/);
+const browser=fs.readFileSync(path.resolve(__dirname,'../scripts/fayo-browser-check.js'),'utf8');
+const design=css.slice(css.lastIndexOf('/* V6 compact professional terminal'));
+function luminance(hex){
+ const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
+  .map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+ return v[0]*.2126+v[1]*.7152+v[2]*.0722;
+}
+const contrast=(a,b)=>(Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);
+test('reference iteration favors useful source data and a compact three-panel/table hierarchy',()=>{
+ assert.ok(design.length>3000,'compact design must be present');
+ assert.doesNotMatch(css,/saturated magenta \/ violet with sapphire/,'old all-purple overlay must be gone');
+ for(const token of ['.fy-terminal-index{order:2','.fy-terminal-stats{order:3','.fy-terminal-context{order:5','.fy-terminal-review{order:6'])
+  assert.ok(design.includes(token),token);
+ assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
+ assert.match(browser,/regions\.review\.top<880/);
+ assert.match(browser,/regions\.panels\.top<regions\.ticker\.top/);
 });
-test('reference palette retains contrast and correct red-up green-down semantics',()=>{
- for(const color of ['#f5f9ff','#b4d5f6','#ff6d83','#43e8ae'])assert.ok(contrast(color,'#0a1e49')>=4.5,color);
- assert.match(p,/\.fy-positive/);assert.match(p,/\.fy-negative/);
- assert.match(p,/\.fy-terminal-flow:has\(>strong\.fy-negative\)/);
+test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
+ assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+ assert.match(design,/\.fy-terminal-priorities\{order:3/);
+ assert.match(design,/\.fy-terminal-index\{order:5/);
+ assert.match(browser,/regions\.sourceCount,8/);
+ assert.match(browser,/regions\.stats\.top<400/);
+ assert.match(design,/\.fy-terminal-provenance/);
+ assert.match(design,/\.fy-terminal-priority-risk/);
 });
-test('visual-only changes keep quote timestamps visible without global filters',()=>{
- assert.doesNotMatch(p,/filter:\s*(?:saturate|brightness)/);
- assert.doesNotMatch(p,/\.fy-quote-time\s*\{[^}]*display:\s*none/);
- assert.match(p,/\.fy-quote-time/);assert.match(p,/\.fy-terminal-provenance/);
- assert.match(p,/strong\.fy-positive/);
- assert.match(p,/strong\.fy-negative/);
- assert.match(p,/@media\(prefers-reduced-motion:reduce\)/);
+test('colors carry meaning and readable dates, never blanket pink or hidden unknowns',()=>{
+ for(const color of ['#eaf4ff','#b0c8e3','#ff7188','#45e0ad'])
+  assert.ok(contrast(color,'#0d2042')>=4.5,'contrast '+color);
+ assert.match(design,/strong\.fy-positive\{color:#ff7188/);
+ assert.match(design,/strong\.fy-negative\{color:#45e0ad/);
+ assert.match(design,/\.fy-terminal-stats \.fy-terminal-stat\.accent/);
+ assert.match(design,/\.fy-quote-time/);
+ assert.match(design,/\.fy-terminal-provenance/);
+ assert.doesNotMatch(design,/filter:\s*(saturate|brightness)/);
+ assert.doesNotMatch(design,/\.fy-quote-time[^{}]*\{[^}]*display:\s*none/);
+ assert.match(design,/@media\(prefers-reduced-motion:reduce\)/);
 });
