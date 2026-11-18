@@ -58,11 +58,11 @@ function fixture(count=33){
 test('approved V6 layout uses actual review rows and keeps source 37 / analyzed 33 distinct',async()=>{
  dom();const {renderTerminalOverview}=await api,ctx=context(fixture());
  const view=renderTerminalOverview(ctx),t=textOf(view);
- assert.match(t,/FAYO \\/ V6\\s+盘面总览/,'concise page heading retains the FAYO identity');
- assert.match(t,/市场\\s+最近交易日快照/,'market mode is visible and explicitly historical');
- assert.match(t,/机会\\s+复盘明细 33 条/,'opportunity digest is based on actual analyzed rows');
- assert.match(t,/风险\\s+明细覆盖有缺口/,'same-batch total mismatch remains a risk');
- assert.match(t,/下一步\\s+核对复盘缺口/,'mismatched totals lead to verification instead of trading');
+ assert.match(t,/FAYO.*V6\s+盘面总览/,'concise page heading retains the FAYO identity');
+ assert.match(t,/市场\s+最近交易日快照/,'market mode is visible and explicitly historical');
+ assert.match(t,/机会\s+复盘明细 33 条/,'opportunity digest is based on actual analyzed rows');
+ assert.match(t,/风险\s+明细覆盖有缺口/,'same-batch total mismatch remains a risk');
+ assert.match(t,/下一步\s+核对复盘缺口/,'mismatched totals lead to verification instead of trading');
  assert.match(t,/源端 37 只/);
  assert.match(t,/明细 33 只/);
  assert.match(t,/源端 37 只 \/ 本次明细 33 只/);
