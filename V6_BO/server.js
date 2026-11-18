@@ -15767,7 +15767,7 @@ async function refreshSectorsZT() {
   // 若直接跳过就会导致 S.ztPool 停留在旧快照（如盘中 48 只）而面板上「涨停 48 只」与实际收盘 84 只相差近半。
   // 用当前全A快照（收盘价==涨停价严口径）重建收盘封板池，作为兜底数据源；盘中若接口正常返回则走原路。
   if ((!zt || !zt.length) && !S.ztPool.length && _datedStocks.length && marketReady()) {
-    const _derived = _derivedEvidence(require('./src/core/limit-up-supplement').eligibleSupplementRows(deriveLimitUpMissed(_datedStocks, []), _ztDay));
+    const _derived = require('./src/core/limit-up-supplement').eligibleSupplementRows(_derivedEvidence(deriveLimitUpMissed(_datedStocks, [])), _ztDay);
     if (_derived.length) {
       await enrichMissedStreak(_derived, _ztDay);
       zt = _derived;
@@ -15785,7 +15785,7 @@ async function refreshSectorsZT() {
     //   收盘集合竞价瞬间以涨停价 34.46 成交收盘（分时 15:00 那根：开33.99 收34.46 高34.46 量4311手）。
     //   这种「收盘竞价偷袭拉板」的票两源会系统性漏掉，新浪快照是收盘后快照（price=最终收盘价），
     //   所以这里的补漏正好能兜住——这也是为什么必须用「收盘价==涨停价」的严口径而非盘中分时。
-    const _missed = _derivedEvidence(require('./src/core/limit-up-supplement').eligibleSupplementRows(deriveLimitUpMissed(_datedStocks, zt), _ztDay));
+    const _missed = require('./src/core/limit-up-supplement').eligibleSupplementRows(_derivedEvidence(deriveLimitUpMissed(_datedStocks, zt)), _ztDay);
     if (_missed.length) {
       // 补漏票连板数从 K 线派生（东财/同花顺源的连板数已有，补漏票拿不到 → 这里补）
       await enrichMissedStreak(_missed, _ztDay);
