@@ -65,7 +65,7 @@ test('approved V6 layout uses actual review rows and keeps source 37 / analyzed 
  assert.match(t,/复盘股票0 600000/);
  assert.match(t,/测试龙头/);
  assert.match(t,/板块资金排行/);
- assert.match(t,/尚无单位明确的板块资金数据/);
+ assert.match(t,/资金来源交易日待核验/);
  assert.match(t,/3,584\.58/);
  assert.match(t,/tencent-index/);
  assert.match(t,/单源观测/);
@@ -79,7 +79,7 @@ test('no review data, no source count and no price timestamp do not become fabri
  assert.match(t,/源端涨停总数尚未核验/);
  assert.match(t,/源端涨停\s*—/);
  assert.match(t,/暂无可核验的涨停明细/);
- assert.match(t,/尚无单位明确的板块资金数据/);
+ assert.match(t,/资金来源交易日待核验/);
  assert.match(t,/报价时点待核验/);
  assert.doesNotMatch(t,/1\.20 亿/,'unknown-unit amount must not be converted to Yuan');
  await tick();ctx.controller.abort();
@@ -135,5 +135,47 @@ test('all received review rows are available on desktop and on-demand mobile, wi
  expand.listeners.click();
  assert.doesNotMatch(textOf(mobile),/复盘股票32/,'mobile can collapse large list');
  assert.match(textOf(view),/未独立核实的题材不是涨停因果证明/);
+ await tick();ctx.controller.abort();
+});
+
+test('fund bar is displayed only with an explicit Yuan unit and a matching original sector day',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(3);
+ s.snapshotFieldDays.sectors='20261117';
+ s.sectors=[{name:'算力资金',mainInflowYuan:126000000},{name:'无单位板块',mainInflow:970000000}];
+ const ctx=context(s),view=renderTerminalOverview(ctx),t=textOf(view);
+ assert.match(t,/资金来源交易日 2026-11-17/);
+ assert.match(t,/算力资金/);
+ assert.match(t,/1\\.26 亿/);
+ assert.doesNotMatch(t,/无单位板块/);
+ await tick();ctx.controller.abort();
+});
+test('mismatched, missing, and stale retained sector days never draw a false same-day fund bar',async()=>{
+ dom();const {renderTerminalOverview}=await api;
+ for(const [day,reviewDay,expected] of [
+  ['20261116','20261117',/与大盘 2026-11-17 不同日/],
+  [undefined,'20261117',/板块资金原始交易日缺失/],
+  ['20261117','20261118',/与复盘 2026-11-18 不同日/]
+ ]){
+  const s=fixture(3);
+  s.snapshotFieldDays.sectors=day;
+  s.review.date=reviewDay;
+  s.sectors=[{name:'旧资金不应显示',netInflowYuan:999000000}];
+  const ctx=context(s),t=textOf(renderTerminalOverview(ctx));
+  assert.match(t,/资金来源交易日待核验/);
+  assert.match(t,expected);
+  assert.doesNotMatch(t,/旧资金不应显示/);
+  assert.doesNotMatch(t,/9\\.99 亿/);
+  await tick();ctx.controller.abort();
+ }
+});
+test('a retained dashboard field day is authoritative over refreshed wrapper dates',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(2);
+ s.snapshotFieldDays.dashboard='20261116';
+ s.snapshotFieldDays.sectors='20261117';
+ s.dashboard.snapshotDay='20261117';
+ s.sectors=[{name:'不可冒充今日',mainInflowYuan:700000000}];
+ const ctx=context(s),t=textOf(renderTerminalOverview(ctx));
+ assert.match(t,/板块资金 2026-11-17 与大盘 2026-11-16 不同日/);
+ assert.doesNotMatch(t,/不可冒充今日/);
  await tick();ctx.controller.abort();
 });
