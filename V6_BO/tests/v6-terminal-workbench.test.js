@@ -127,6 +127,29 @@ test('native shell uses approved business navigation and worker caches every eag
  assert.match(worker,/\/nova\/terminal-workbench\.js/);
 });
 
+test('home shows only three current-state candidates and leaves full pool research in its own workspace',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(2);
+ s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,
+   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'}];
+ s.pool=[{code:'600101',name:'重复候选不应两次展示'},...Array.from({length:5},(_,i)=>({
+   code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,
+   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'
+ }))];
+ const ctx=context(s),view=renderTerminalOverview(ctx);
+ const host=locate(view,el=>el?.className==='fy-terminal-preview-cards');
+ const cards=locate(host,el=>el?.className==='fy-stock-grid');
+ assert.ok(host&&cards,'home keeps a real evidence-backed candidate preview');
+ assert.equal(cards.children.length,3,'home only previews three candidates');
+ assert.match(textOf(host),/首页原始候选/);
+ assert.match(textOf(host),/existing-source/,'original quote source is visible');
+ assert.doesNotMatch(textOf(host),/其他候选4/,'the rest are not dumped on the homepage');
+ const full=locate(view,el=>el?.tag==='button'&&textOf(el).trim()==='查看全部候选');
+ assert.ok(full,'full candidate workspace remains reachable');
+ full.listeners.click();assert.deepEqual(ctx.navigations.at(-1),['opportunities','all']);
+ await tick();assert.equal(ctx.calls.length,0,'landing does not automatically load remote strategy pools');
+ ctx.controller.abort();
+});
+
 test('all received review rows are available on desktop and on-demand mobile, without inventing stocks',async()=>{
  dom();const {renderTerminalOverview}=await api;
  const ctx=context(fixture(33)),view=renderTerminalOverview(ctx);
