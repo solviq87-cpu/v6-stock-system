@@ -1,0 +1,10 @@
+# OpenXLab 的公开预置运行时为 Python 3.9，AKShare 新版已不支持 3.9。
+# 通过环境标记分别选择兼容版本；Zeabur 使用 zbpack.json 的 Python 3.12。
+streamlit==1.32.0; python_version < "3.11"
+streamlit>=1.42,<2.0; python_version >= "3.11"
+akshare==1.18.84; python_version < "3.11"
+akshare==1.20.65; python_version >= "3.11"
+pandas>=1.5,<2.1; python_version < "3.11"
+pandas>=2.2,<3.0; python_version >= "3.11"
+numpy>=1.23,<2.0; python_version < "3.11"
+numpy>=1.26,<3.0; python_version >= "3.11"
