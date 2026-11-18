@@ -70,7 +70,7 @@ function renderPanels(state,summary,reviewDay,ctx) {
  return h('div',{class:'fy-terminal-panels'},mainline,board,flows);
 }
 function renderReviewRows(summary,ctx) {
- const data=summary.rows;
+ const data=summary.rows.slice(0,200);
  const open=row=>button(nameOf(row)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet');
  const columns=[
   {label:'股票 / 代码',value:open},
@@ -82,7 +82,7 @@ function renderReviewRows(summary,ctx) {
   {label:'题材 / 依据',value:row=>row.sector||'题材待核验'}
  ];
  if(!data.length)return empty('暂无可核验的涨停明细','没有数据不代表没有涨停；请检查源端池、返回上限和复盘任务。');
- const mobile=data.slice(0,12).map(row=>{
+ const mobile=data.map(row=>{
   const level=Number.isInteger(row.limitUpCount)&&row.limitUpCount>0?row.limitUpCount+' 板':'板次待核验';
   const items=[
    ['封单金额',money(row.sealAmount)],
@@ -97,12 +97,28 @@ function renderReviewRows(summary,ctx) {
    h('p',{class:'fy-terminal-mobile-sector'},row.sector||'题材待核验'),
    h('dl',{class:'fy-terminal-mobile-metrics'},items.map(([label,value])=>
     h('div',{},h('dt',{},label),h('dd',{},value)))),
-   h('div',{class:'fy-terminal-mobile-basis'},'涨停归因：'+basis),
+   h('div',{class:'fy-terminal-mobile-basis'},'涨停线索（未独立确认因果）：'+basis),
    h('small',{class:'fy-terminal-mobile-source'},quoteLabel(row)));
  });
+ const mobileGrid=h('div',{class:'fy-terminal-mobile-cards','aria-label':'iPhone 17 Pro 纵向复盘卡片'},mobile.slice(0,12));
+ mobileGrid.id='fy-terminal-mobile-review-list';
+ const remaining=data.length-12;
+ const expand=remaining>0?button('展开其余 '+remaining+' 条复盘明细',()=>{
+  const open=expand.getAttribute('aria-expanded')!=='true';
+  mobileGrid.replaceChildren(...(open?mobile:mobile.slice(0,12)));
+  expand.setAttribute('aria-expanded',String(open));
+  expand.textContent=open?'收起到前 12 条':'展开其余 '+remaining+' 条复盘明细';
+ },'secondary'):null;
+ if(expand){
+  expand.className+=' fy-terminal-review-expand';
+  expand.setAttribute('aria-controls','fy-terminal-mobile-review-list');
+  expand.setAttribute('aria-expanded','false');
+ }
  return h('div',{class:'fy-terminal-review-layout'},
-  h('div',{class:'fy-terminal-desktop-table'},table(columns,data.slice(0,12))),
-  h('div',{class:'fy-terminal-mobile-cards','aria-label':'iPhone 17 Pro 纵向复盘卡片'},mobile));
+  h('div',{class:'fy-terminal-desktop-table'},table(columns,data)),
+  mobileGrid,
+  expand?h('div',{class:'fy-terminal-review-more'},expand):null,
+  summary.rows.length>data.length?h('p',{class:'fy-terminal-hint'},'当前页面最多展示200条原复盘明细；其余请打开详细复盘。'):null);
 }
 
 export function renderTerminalOverview(ctx) {
@@ -121,7 +137,7 @@ export function renderTerminalOverview(ctx) {
  const panelsHost=h('div',{class:'fy-terminal-context'});
  const reviewHost=h('section',{class:'fy-section fy-panel fy-terminal-review'});
  reviewHost.append(h('header',{class:'fy-terminal-review-head'},
-  h('div',{},h('h2',{},'每日复盘 · 涨停形态与归因'),h('p',{},'明细最多展示前 12 只；全部证据、缺失项和封板记录在详细复盘中查看。')),
+  h('div',{},h('h2',{},'每日复盘 · 涨停形态与归因'),h('p',{},'展示服务端实际返回的逐股明细（最多200条）；手机可展开全部已返回记录，未独立核实的题材不是涨停因果证明。')),
   moduleButton('全部复盘与归因','pulse','review',ctx)));
  const list=h('div',{class:'fy-terminal-review-list'});reviewHost.append(list);
  const quick=h('section',{class:'fy-terminal-quick'},

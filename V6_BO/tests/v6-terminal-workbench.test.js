@@ -117,3 +117,23 @@ test('native shell uses approved business navigation and worker caches every eag
  assert.match(css,/max-width:650px/);
  assert.match(worker,/\/nova\/terminal-workbench\.js/);
 });
+
+test('all received review rows are available on desktop and on-demand mobile, without inventing stocks',async()=>{
+ dom();const {renderTerminalOverview}=await api;
+ const ctx=context(fixture(33)),view=renderTerminalOverview(ctx);
+ const desktop=locate(view,el=>el?.className==='fy-terminal-desktop-table');
+ const mobile=locate(view,el=>el?.className==='fy-terminal-mobile-cards');
+ assert.ok(desktop&&mobile);
+ assert.match(textOf(desktop),/复盘股票32/,'33rd real row is present on desktop');
+ assert.doesNotMatch(textOf(mobile),/复盘股票32/,'mobile preview starts with 12 rows');
+ const expand=locate(view,el=>el?.className?.includes?.('fy-terminal-review-expand'));
+ assert.ok(expand,'more rows must have a real interactive control');
+ assert.equal(expand['aria-expanded'],'false');
+ expand.listeners.click();
+ assert.match(textOf(mobile),/复盘股票32/,'mobile can reveal all received rows');
+ assert.equal(expand['aria-expanded'],'true');
+ expand.listeners.click();
+ assert.doesNotMatch(textOf(mobile),/复盘股票32/,'mobile can collapse large list');
+ assert.match(textOf(view),/未独立核实的题材不是涨停因果证明/);
+ await tick();ctx.controller.abort();
+});
