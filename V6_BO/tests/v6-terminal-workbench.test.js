@@ -140,6 +140,8 @@ test('home shows only three current-state candidates and leaves full pool resear
  const cards=locate(host,el=>el?.className==='fy-stock-grid');
  assert.ok(host&&cards,'home keeps a real evidence-backed candidate preview');
  assert.equal(cards.children.length,3,'home only previews three candidates');
+ assert.doesNotMatch(textOf(cards.children[1]),/结果日期 2026-11-17/,
+  'undated retained pool rows must not inherit a newer dashboard day');
  assert.match(textOf(host),/首页原始候选/);
  assert.match(textOf(host),/existing-source/,'original quote source is visible');
  assert.doesNotMatch(textOf(host),/其他候选4/,'the rest are not dumped on the homepage');
