@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-from streamlit_readonly.analysis_core import normalize_history, normalize_spot, validate_code
+from analysis_core import normalize_history, normalize_spot, validate_code
 
 TZ = ZoneInfo("Asia/Shanghai")
 
