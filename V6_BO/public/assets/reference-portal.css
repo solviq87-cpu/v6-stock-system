@@ -107,3 +107,19 @@
 .v6-portal-stock-row small{font-size:11px;color:#8ddaff}
 .v6-portal-no-data{font-size:12px;color:#a6c6ec}
 @media(max-width:600px){.v6-portal-real-rows{grid-template-columns:1fr}}
+
+/* Live source-backed rankings; never placeholder bars or synthetic values. */
+.v6-portal-live-ranking{display:grid;gap:6px;margin-top:12px;min-width:0}
+.v6-portal-rank-row{padding:8px 9px;background:#123768;border:1px solid #24579a;
+ border-radius:7px;color:#d8ebff;font-size:12px;line-height:1.45;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v6-portal-rank-source{font-size:10px;color:#9dbfe7}
+
+/* The original review may contain dozens of stocks. Show all rendered items
+ * without forcing an unbounded document-height growth on desktop or iPhone. */
+.v6-portal-real-rows{
+ max-height:680px;overflow-y:auto;overscroll-behavior:contain;
+ padding:3px 5px 8px 0;scrollbar-width:thin
+}
+.v6-portal-stock-row:focus-visible{scroll-margin:16px}
+@media(max-width:600px){.v6-portal-real-rows{max-height:560px}}

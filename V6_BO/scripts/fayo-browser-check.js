@@ -21,7 +21,7 @@ const requests=[],resources=[];
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
- return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{items:[]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:3,returnedCount:3,uniqueCount:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 function respond(url,req,body){
  const p=url.pathname;
@@ -104,7 +104,7 @@ async function geometry(page,label){
  assert.deepEqual(result.duplicateIds,[],label+' has no duplicate identities');
  assert.equal(result.iframeCount,0,label+' does not embed a previous page');
  assert.equal(result.oldShells,0,label+' does not retain the previous shell');
- assert.match(result.brand,/绯曜|FAYO/i,label+' new brand is visible');
+ assert.match(result.brand,/天枢智策|绯曜|FAYO/i,label+' the approved V6 product brand is visible');
  assert.ok(result.brandBox&&result.brandBox.top>=-1&&result.brandBox.left>=0&&result.brandBox.right<=result.width+1&&result.brandBox.height>0,label+' new brand mark and name stay in the visible header: '+JSON.stringify(result.brandBox));
  return result;
 }
@@ -115,10 +115,14 @@ const runChecks=async()=>{
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
   const origin='http://127.0.0.1:'+server.address().port;
-  const widths=process.env.FAYO_UI_WIDTHS?process.env.FAYO_UI_WIDTHS.split(',').map(Number):[320,390,768,1366,1920];
+  const widths=process.env.FAYO_UI_WIDTHS?process.env.FAYO_UI_WIDTHS.split(',').map(Number) :[320,390,402,768,1366,1920];
   for(const width of widths){
    phase='normal';role='edit';
-   const context=await browser.newContext({viewport:{width,height:width<500?900:1000},serviceWorkers:'block'});
+   const context=await browser.newContext({
+    viewport:{width,height:width===402?874:width<500?900:1000},
+    deviceScaleFactor:width===402?3:1,isMobile:width===402,hasTouch:width===402,
+    serviceWorkers:'block'
+   });
    await context.addInitScript(()=>{localStorage.setItem('qd_device','fayo-synthetic-session');localStorage.setItem('qd_role','edit');});
    const page=await context.newPage(),errors=[],external=[];
    page.on('pageerror',error=>errors.push(error.message));
@@ -131,6 +135,31 @@ const runChecks=async()=>{
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   if(width===402){
+    const actual=await page.evaluate(()=>{
+     const indices=[...document.querySelectorAll('.fy-terminal-index .fy-market-ticker>div')]
+      .map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width};});
+     return {width:innerWidth,devicePixelRatio,visibleReview:[...document.querySelectorAll('.fy-terminal-mobile-stock')]
+      .filter(node=>getComputedStyle(node).display!=='none').length,
+      tableDisplay:getComputedStyle(document.querySelector('.fy-terminal-desktop-table')).display,
+      indexCards:indices,stickyDock: getComputedStyle(document.querySelector('.fy-dock')).position};
+    });
+    assert.equal(actual.width,402,'iPhone 17 Pro content uses 402 CSS px width');
+    assert.equal(actual.devicePixelRatio,3,'iPhone 17 Pro browser emulation uses DPR 3');
+    assert.ok(actual.visibleReview>=3,'real mobile review cards are displayed at the target size');
+    assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
+    assert.equal(actual.indexCards.length,4,'four existing source-timestamped indices remain available');
+    assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row has two columns');
+    assert.ok(actual.indexCards[2].top>actual.indexCards[0].top,'iPhone shows second row of indices');
+    assert.equal(actual.stickyDock,'fixed','phone navigation stays accessible near the home indicator');
+    await page.setViewportSize({width:402,height:714});
+    await geometry(page,'iphone17pro-safari-compact-402x714');
+    await page.screenshot({path:path.join(output,'iphone17pro-402x714.png'),fullPage:false});
+    await page.setViewportSize({width:874,height:402});
+    await geometry(page,'iphone17pro-landscape-874x402');
+    await page.screenshot({path:path.join(output,'iphone17pro-landscape-874x402.png'),fullPage:false});
+    await page.setViewportSize({width:402,height:874});
+   }
    await navigate(page,'opportunities','quant');
    await page.waitForFunction(()=>document.querySelectorAll('.fy-pool-board .fy-stock-card').length===8);
    assert.equal(await page.locator('.fy-stage-chip').count(),3,'all three workflow stage counts remain visible');

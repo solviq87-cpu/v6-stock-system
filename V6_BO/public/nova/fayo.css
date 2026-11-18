@@ -544,3 +544,316 @@ textarea.fy-code-input{min-height:360px;font-family:ui-monospace,SFMono-Regular,
 .fy-market-ticker.fy-index-evidence>div{min-width:0;padding:0 12px;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 .fy-market-ticker.fy-index-evidence small{white-space:normal;overflow-wrap:anywhere;font-size:11px;line-height:1.5}
 @media(max-width:700px){.fy-market-ticker.fy-index-evidence{grid-template-columns:repeat(2,minmax(0,1fr))}.fy-market-ticker.fy-index-evidence>div{padding:0 8px;border-right:0}}
+
+
+/* ===============================================================
+   V6 DEEP BLUE TERMINAL / 2026-11-17
+   Native presentation layer for the current FAYO frontend:
+   existing routes / data / accounts / market gates are unchanged.
+   =============================================================== */
+:root{
+  --fy-bg:#07111f;--fy-surface:#101f33;--fy-raised:#172b45;
+  --fy-border:#29415e;--fy-text:#e9f3ff;--fy-muted:#9baec7;--fy-faint:#7186a1;
+  --fy-pink:#67b7ff;--fy-violet:#7c9fff;--fy-mint:#63d7ac;--fy-red:#ff7381;
+  --fy-radius:12px;--fy-shadow:0 10px 28px #010b1933;
+}
+body{background:radial-gradient(ellipse at 65% -20%,#2152aa2e,transparent 48%),linear-gradient(135deg,#07111f,#0b192a 64%,#081322);color:var(--fy-text)}
+a{color:#87c8ff}
+a:hover{color:#a5d8ff}
+button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline-color:#90cfff}
+input,select,textarea{background:#0c1c2f;border-color:#36536f;color:#eff6ff}
+input::placeholder,textarea::placeholder{color:#7e98b7}
+.fy-header{height:74px;gap:14px;padding:0 clamp(16px,2.4vw,36px);background:#071528f5;border-bottom:1px solid #244564;box-shadow:0 4px 20px #00091835}
+.fy-brand img{width:39px;height:39px;flex:none;filter:drop-shadow(0 0 8px #3c92dd55)}
+.fy-brand strong,.fy-brand b{font-size:21px;letter-spacing:.04em;white-space:nowrap}
+.fy-brand small{color:#84b3e2;letter-spacing:.1em;font-size:9px;margin-top:4px}
+.fy-nav{background:#11243a;border-color:#315373;border-radius:10px}
+.fy-nav button,.fy-nav a{color:#b3cbe7;padding-inline:13px;border-radius:8px}
+.fy-nav button:hover,.fy-nav a:hover{color:#fff;background:#1f4263}
+.fy-nav button[data-current=true],.fy-nav button[aria-current=page]{color:#fff;background:#1754a0;border-color:#3979bb;box-shadow:none}
+.fy-actions button{border:1px solid #2c4d6f;background:#102540;color:#bfdaf1}
+.fy-actions button:hover{background:#194163}
+.fy-status{color:#a6c3db}
+.fy-connection-bar{max-width:none;padding:8px clamp(16px,2.4vw,36px);color:#98aec7;font-size:11px}
+.fy-main{max-width:1940px;padding:20px clamp(14px,2.2vw,34px) 64px}
+.fayo-app>.fy-snapshot{max-width:1880px}
+.fy-business-nav{
+  display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+  padding:10px clamp(14px,2.2vw,34px);
+  background:#0b1b2ecf;border-bottom:1px solid #284664;
+  z-index:34;min-width:0
+}
+.fy-business-nav button{
+  cursor:pointer;border:1px solid #284663;border-radius:8px;
+  min-height:36px;padding:7px 12px;background:#102138;
+  color:#c3d5e8;font-size:11px;font-weight:600;line-height:1.4;font-family:inherit;
+  white-space:nowrap;transition:background .16s,border-color .16s
+}
+.fy-business-nav button:hover{color:#fff;background:#173859;border-color:#548cc4}
+.fy-business-nav button[data-current=true],.fy-business-nav button[aria-current=page]{
+  background:linear-gradient(110deg,#155eaf,#1a477e);color:#fff;border-color:#4d9be3
+}
+.fy-business-nav button:focus-visible{outline:2px solid #b3dcff;outline-offset:2px}
+.fy-button{background:#172e48;border-color:#365b7f;color:#e0efff;border-radius:8px}
+.fy-button:hover:not(:disabled){background:#1d4268;border-color:#5a96ce;transform:none}
+.fy-button.primary{background:linear-gradient(110deg,#1d68bc,#245399);border-color:#3b92e0;color:white;box-shadow:0 4px 12px #04458e21}
+.fy-button.primary:hover:not(:disabled){background:linear-gradient(110deg,#247fd7,#2e62b1)}
+.fy-button.secondary{background:#18324d;border-color:#365b7f;color:#d3e6fa}
+.fy-button.quiet{color:#9cc9ed}
+.fy-section,.fy-panel,.fy-card,.fy-item,.fy-holding-card,.fy-stock-card,.fy-portal-grid>.fy-button{
+  background:#102035;border-color:#2b4969;box-shadow:none
+}
+.fy-section h2,.fy-panel h2{color:#f0f6ff}
+.fy-section>header p,.fy-section-header p{color:#91a9c5}
+.fy-tag,.fy-pill{background:#172c48;border-color:#30577a;color:#afceef}
+.fy-kpi{background:#152b45;border-color:#34516e}
+.fy-note{background:#162e47;border-color:#315474;color:#b7d1ed}
+.fy-note.warning{background:#342b26;border-color:#8d674c;color:#ffd3ae}
+.fy-snapshot{background:#122f46;border-color:#2f667d;color:#c2e2f5}
+.fy-snapshot::before{background:#54b7e6;box-shadow:none}
+.fy-tabs button{border-color:#385677;color:#aac7e9}
+.fy-tabs button[aria-selected=true],.fy-tabs button.active{background:#194a7b;border-color:#4285c8;color:#fff}
+.fy-market-ticker{border-color:#284768}
+.fy-market-ticker>div{border-color:#294a6c}
+.fy-market-ticker .fy-positive,.fy-market-ticker .fy-positive *,.fy-positive,.fy-up{color:#ff7283}
+.fy-market-ticker .fy-negative,.fy-market-ticker .fy-negative *,.fy-negative,.fy-down{color:#53d4a8}
+.fy-empty{border-color:#31516d;background:#10243a;color:#b5c8dd}
+.fy-empty strong{color:#e7f3ff}
+.fy-quote-time,.fy-muted{color:#839bb6}
+.fy-stock-card:hover{background:#19314c;border-color:#4c8aba}
+.fy-connection-bar .fy-status{color:#b6cee6}
+.fy-dock{background:#081b31;border-color:#285277}
+.fy-dock button[data-current=true]{color:#79c7ff}
+.fy-terminal{gap:14px}
+.fy-terminal-title{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:15px 20px;border:1px solid #315777;border-radius:12px;
+  background:linear-gradient(110deg,#102a4b,#0c2039)
+}
+.fy-terminal-title h1{font-size:clamp(21px,2vw,28px);margin:3px 0 6px;color:#f0f7ff}
+.fy-terminal-title p{margin:0;font-size:11px;color:#9ab6d2}
+.fy-terminal-eyebrow{font-size:9px;letter-spacing:.12em;color:#76b9ec;font-weight:700}
+.fy-terminal-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.fy-terminal-actions .fy-button{min-height:36px;font-size:11px;padding:6px 12px}
+.fy-terminal-provenance{
+  display:flex;flex-wrap:wrap;align-items:center;gap:5px 16px;
+  padding:10px 15px;border-radius:8px;border:1px solid #2c4968;
+  background:#102139;color:#aabed4;font-size:11px
+}
+.fy-terminal-provenance strong{color:#d3e8fb;font-size:11px}
+.fy-terminal-evidence-tag{margin-left:auto;color:#65cdaa}
+.fy-terminal-provenance .fy-terminal-warning{flex-basis:100%;color:#ffb17d}
+.fy-terminal-index .fy-market-ticker{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
+ border:0;margin:0;padding:0;overflow:visible
+}
+.fy-terminal-index .fy-market-ticker>div{
+ display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+ border:1px solid #2b4c70;border-radius:10px;background:#10253d;
+ padding:12px 15px;min-width:0
+}
+.fy-terminal-index .fy-market-ticker>div strong{font-size:20px;color:#eaf5ff}
+.fy-terminal-index .fy-market-ticker>div small{font-size:10px;white-space:normal;overflow-wrap:anywhere}
+.fy-terminal-index .fy-market-ticker>div .fy-quote-time{line-height:1.35;font-size:9px}
+.fy-terminal-stats{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+.fy-terminal-stat{
+ padding:14px 11px;min-width:0;border:1px solid #34567b;border-radius:10px;
+ background:linear-gradient(150deg,#173555,#10243c);display:flex;flex-direction:column;gap:5px;
+}
+.fy-terminal-stat.accent{border-color:#8c4d64;background:linear-gradient(140deg,#4c233e,#172b47)}
+.fy-terminal-stat>span{font-size:11px;color:#c7daed;white-space:nowrap}
+.fy-terminal-stat>strong{font-size:clamp(22px,2vw,30px);font-variant-numeric:tabular-nums;font-weight:700;line-height:1.2;color:#ff8c97}
+.fy-terminal-stat>small{font-size:9px;line-height:1.45;color:#89a9c9}
+.fy-terminal-panels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;min-width:0;align-items:stretch}
+.fy-terminal-panels>.fy-section{margin:0;min-height:240px;display:flex;flex-direction:column;padding:16px 17px;border-radius:11px}
+.fy-terminal-panels>.fy-section>header{min-height:52px}
+.fy-terminal-panels>.fy-section>header h2{font-size:16px}
+.fy-terminal-panels>.fy-section>header p{font-size:10px}
+.fy-terminal-panels .fy-button{margin-top:auto;align-self:flex-start;font-size:11px;min-height:35px}
+.fy-terminal-lines{display:flex;flex-direction:column;gap:0;margin:5px 0 14px}
+.fy-terminal-line{display:flex;align-items:center;gap:9px;padding:9px 2px;border-bottom:1px solid #263f5a}
+.fy-terminal-line strong{font-size:12px;color:#d6e8fa;font-weight:600;flex:1;min-width:0}
+.fy-terminal-line>span{font-size:12px;color:#ff8594;font-weight:700;white-space:nowrap}
+.fy-terminal-line small{font-size:10px;color:#8caecc;white-space:nowrap}
+.fy-terminal-sector{padding-bottom:6px}
+.fy-terminal-chips{display:flex;gap:5px;flex-wrap:wrap;padding:2px 0 5px}
+.fy-terminal-chip{background:#203956;border:1px solid #325d85;border-radius:5px;color:#d6e9fd;font-size:10px;padding:3px 6px;max-width:100%}
+.fy-terminal-chip small{color:#8dc8ff}
+.fy-terminal-flows{display:flex;flex-direction:column;gap:12px;margin:5px 0 18px}
+.fy-terminal-flow{display:grid;grid-template-columns:88px minmax(40px,1fr) 73px;align-items:center;gap:9px;font-size:11px}
+.fy-terminal-flow>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c0d8ef}
+.fy-terminal-flow>strong{font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.fy-terminal-bar{height:9px;border-radius:20px;background:#1a344f;overflow:hidden}
+.fy-terminal-bar i{height:100%;display:block;border-radius:20px;background:linear-gradient(90deg,#c54b66,#ff8491)}
+.fy-terminal-hint{font-size:10px;line-height:1.65;color:#87a4c0;margin:9px 0}
+.fy-terminal-review{margin:0;padding:16px;min-width:0;border-radius:11px}
+.fy-terminal-review-head h2{font-size:17px;margin:0 0 6px}
+.fy-terminal-review-head p{margin:0;color:#8caac5;font-size:11px}
+.fy-terminal-review-list,.fy-terminal-review .fy-table-wrap{max-width:100%;overflow:auto;overscroll-behavior-inline:contain}
+.fy-terminal-review .fy-table{min-width:760px;font-size:11px}
+.fy-terminal-review .fy-table th{background:#162f4e;color:#a8c8e9}
+.fy-terminal-review .fy-table td{color:#d7e8f8}
+.fy-terminal-review .fy-table .fy-button{min-height:31px;padding:4px 7px;font-size:11px;text-align:left}
+.fy-terminal-quick{padding:14px 17px;background:#0f2239;border:1px solid #2c4b69;border-radius:11px}
+.fy-terminal-quick h2,.fy-terminal-candidates>h2{font-size:16px;margin-bottom:10px}
+.fy-terminal-shortcuts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.fy-terminal-shortcuts .fy-button{min-width:0;min-height:48px;font-size:11px;padding:10px 7px}
+.fy-terminal-candidates{padding:18px;border:1px solid #2c4b6b;border-radius:11px;background:#0e2136;min-width:0}
+.fy-terminal-candidates>.fy-stack>.fy-view-heading{margin:4px 0 12px}
+.fy-terminal-candidates>.fy-stack>.fy-view-heading h1{font-size:19px}
+.fy-terminal-candidates .fy-stock-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.fy-terminal-candidates .fy-market-ticker{display:none} /* already shown above */
+.fy-terminal-candidates .fy-stock-card{background:#122940}
+.fy-terminal-candidates>.fy-stack{gap:10px}
+@media(max-width:1200px){
+ .fy-terminal-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-terminal-panels{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-terminal-panels>.fy-section:last-child{grid-column:1/-1}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-terminal-candidates .fy-stock-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:900px){
+ .fy-header{height:auto;min-height:70px;padding:11px 17px}
+ .fy-business-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding:8px 15px;gap:6px}
+ .fy-business-nav button{flex:none}
+ .fy-main{padding:14px 14px 80px}
+ .fy-terminal-candidates .fy-stock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .fy-header{height:72px;min-height:72px;flex-wrap:nowrap}
+ .fy-brand img{width:31px;height:31px}
+ .fy-brand strong{font-size:16px}
+ .fy-brand small{font-size:7px}
+ .fy-actions{gap:3px;flex:none}.fy-actions button{min-width:32px;width:32px;min-height:34px;height:34px;padding:5px}.fy-actions .fy-button{padding-inline:5px;min-width:32px;width:32px}.fy-actions svg{width:17px;height:17px}
+ .fy-business-nav{padding:8px 11px;scroll-snap-type:x proximity}
+ .fy-business-nav button{scroll-snap-align:start;min-height:36px;font-size:11px}
+ .fy-connection-bar{padding:6px 13px}
+ .fy-main{padding:13px 11px calc(96px + env(safe-area-inset-bottom))}
+ .fy-terminal-title{padding:14px;align-items:flex-start;flex-direction:column;gap:12px}
+ .fy-terminal-title h1{font-size:20px}
+ .fy-terminal-actions{justify-content:flex-start}
+ .fy-terminal-actions .fy-button{font-size:11px}
+ .fy-terminal-provenance{padding:9px 11px;gap:5px 10px;font-size:10px}
+ .fy-terminal-evidence-tag{margin-left:0}
+ .fy-terminal-index .fy-market-ticker{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .fy-terminal-index .fy-market-ticker>div{padding:10px;min-width:0}
+ .fy-terminal-index .fy-market-ticker>div strong{font-size:19px}
+ .fy-terminal-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .fy-terminal-stat{padding:12px}
+ .fy-terminal-stat>strong{font-size:25px}
+ .fy-terminal-panels{grid-template-columns:minmax(0,1fr);gap:9px}
+ .fy-terminal-panels>.fy-section:last-child{grid-column:auto}
+ .fy-terminal-panels>.fy-section{min-height:0;padding:14px}
+ .fy-terminal-review{padding:12px}
+ .fy-terminal-review>header{flex-direction:column;align-items:flex-start}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .fy-terminal-shortcuts .fy-button{font-size:10px;padding:7px 4px}
+ .fy-terminal-candidates{padding:12px}
+ .fy-terminal-candidates .fy-stock-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(prefers-reduced-motion:reduce){
+ .fy-business-nav button,.fy-button,.fy-stock-card{transition:none}
+}
+
+
+/* IPHONE17PRO 402 CSS PX / DPR 3 / 402x874 installed viewport.
+   Safari with controls visible can expose as little as 402x714.
+   Keep all widths fluid; test 320px fallback and 874px landscape too. */
+@supports(height:100dvh){
+ html,body,.fayo-app{min-height:100dvh}
+}
+.fy-terminal-review-layout{min-width:0;max-width:100%}
+.fy-terminal-mobile-cards{display:none}
+.fy-terminal-desktop-table{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:650px){
+ .fy-header{max-width:100%;box-sizing:border-box;gap:7px}
+ .fy-brand{min-width:0;flex:0 1 auto}
+ .fy-brand span{min-width:0}
+ .fy-brand strong{letter-spacing:0;white-space:nowrap}
+ .fy-actions{margin-left:auto;flex:none}
+ .fy-business-nav{max-width:100%;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .fy-business-nav button{white-space:nowrap}
+ .fy-terminal-title,.fy-terminal-provenance,.fy-terminal-panels>.fy-section,.fy-terminal-review{min-width:0;overflow-wrap:anywhere}
+ .fy-terminal-desktop-table{display:none}
+ .fy-terminal-mobile-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ .fy-terminal-mobile-stock{
+  min-width:0;padding:12px;border:1px solid #315475;border-radius:10px;
+  background:linear-gradient(110deg,#132b46,#102239);
+ }
+ .fy-terminal-mobile-stock-head{display:flex;align-items:center;gap:8px;min-width:0;justify-content:space-between}
+ .fy-terminal-mobile-stock-head .fy-button{
+  min-width:0;text-align:left;font-size:14px;font-weight:700;line-height:1.5;
+  white-space:normal;overflow-wrap:anywhere;justify-content:flex-start;
+  min-height:38px;flex:1;padding:5px 0;color:#e8f5ff;
+ }
+ .fy-terminal-mobile-board{flex:none;padding:3px 7px;background:#392f4a;color:#ffb6bd;
+  border:1px solid #745268;border-radius:6px;font-size:11px}
+ .fy-terminal-mobile-sector{color:#8fbae5;font-size:11px;margin:0 0 9px;line-height:1.45}
+ .fy-terminal-mobile-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:0 0 9px}
+ .fy-terminal-mobile-metrics>div{min-width:0;padding:8px 9px;background:#0a1d31;border:1px solid #294666;border-radius:7px}
+ .fy-terminal-mobile-metrics dt{color:#8caaca;font-size:10px;margin:0 0 3px}
+ .fy-terminal-mobile-metrics dd{color:#e7f2ff;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;margin:0}
+ .fy-terminal-mobile-basis{font-size:11px;line-height:1.6;color:#c9dcf0;margin-bottom:7px;overflow-wrap:anywhere}
+ .fy-terminal-mobile-source{display:block;font-size:9px;line-height:1.5;color:#8aabcc;overflow-wrap:anywhere}
+ .fy-terminal-flows,.fy-terminal-review-list{min-width:0}
+ .fy-terminal-review-list{overflow:visible}
+ .fy-terminal-candidates .fy-inline{flex-wrap:wrap}
+ .fy-terminal-candidates .fy-inline input{max-width:100%}
+ .fy-terminal-title .fy-terminal-actions{width:100%;justify-content:flex-start}
+ .fy-terminal-review-head>.fy-button{align-self:flex-start}
+ .fy-main{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+ .fy-dock{padding:8px max(10px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}
+ .fy-dock button{min-height:48px}
+ .fy-terminal-index .fy-market-ticker{min-width:0}
+}
+@media(min-width:390px) and (max-width:430px) and (orientation:portrait){
+ /* Primary iPhone 17 Pro layout = 402 CSS px. */
+ .fy-header{min-height:68px;height:68px;padding-inline:13px}
+ .fy-brand strong{font-size:16px}
+ .fy-brand small{letter-spacing:.04em}
+ .fy-actions button,.fy-actions .fy-button{width:44px;min-width:44px;min-height:44px;height:44px}
+ .fy-business-nav{padding:8px 13px}
+ .fy-business-nav button{min-height:44px}
+ .fy-terminal-actions .fy-button{min-height:44px}
+ .fy-terminal-mobile-stock-head .fy-button{min-height:44px}
+ .fy-main{padding-inline:13px;min-width:0}
+ .fy-terminal{gap:11px}
+ .fy-terminal-title{padding:13px}
+ .fy-terminal-title h1{font-size:20px;line-height:1.4}
+ .fy-terminal-index .fy-market-ticker{gap:8px}
+ .fy-terminal-stat{min-height:90px}
+ .fy-terminal-stat>span{font-size:11px}
+ .fy-terminal-stat>small{font-size:10px}
+ .fy-terminal-panels>.fy-section{padding:13px}
+ .fy-terminal-mobile-metrics dd{font-size:14px}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+ .fy-terminal-shortcuts .fy-button{min-height:48px}
+}
+@media(max-width:375px){
+ /* Narrow older iPhones should not stretch the document beyond the viewport. */
+ .fy-header{padding-inline:8px;gap:5px}
+ .fy-brand{gap:5px}
+ .fy-brand img{width:24px;height:24px}
+ .fy-brand strong{font-size:14px}
+ .fy-brand small{display:none}
+ .fy-actions{gap:2px}
+ .fy-actions button,.fy-actions .fy-button{width:29px;min-width:29px;min-height:32px;height:32px;padding:4px}
+ .fy-actions svg{width:16px;height:16px}
+ .fy-terminal-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(display-mode:standalone) and (max-width:650px){
+ /* Installed iOS PWA has no Safari toolbar: reserve Dynamic Island safe area. */
+ .fy-header{
+  padding-top:calc(env(safe-area-inset-top,0px) + 6px);
+  height:calc(60px + env(safe-area-inset-top,0px));
+  min-height:calc(60px + env(safe-area-inset-top,0px));
+ }
+ .fy-stock-drawer{padding-top:env(safe-area-inset-top,0px)}
+ .fy-command-layer{padding-top:calc(12px + env(safe-area-inset-top,0px))}
+}
+@media(max-width:900px) and (orientation:landscape) and (pointer:coarse){
+ /* 874x402 mobile landscape: honor side sensor/camera and home-safe insets. */
+ .fy-header{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+ .fy-business-nav{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+ .fy-main{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+}

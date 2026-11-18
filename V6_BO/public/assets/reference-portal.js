@@ -99,6 +99,72 @@ function install(root){
    lines.append(make(doc,'span','','真实数据请点开查看'),make(doc,'span','','不会展示演示行情'));
    a.append(lines);triple.append(a);
   }
+  // Three reference panels mirror the original V6 market, limit-up sector
+  // and capital-flow DOM. Never fabricate a chart or overwrite source data.
+  const liveRankSources=[
+    {id:'mainline',title:'市场主线排行'},
+    {id:'ztBySector',title:'涨停板 · 板块分类'},
+    {id:'sectors',title:'板块资金排行'}
+  ];
+  const rankHosts=[...triple.querySelectorAll('.v6-portal-panel')];
+  const rankObserver=typeof root.MutationObserver==='function'?new root.MutationObserver(()=>queueRanks()):null;
+  let rankPending=false;
+  let rankDisconnected=false;
+  function queueRanks(){
+    if(rankPending)return;
+    rankPending=true;
+    Promise.resolve().then(()=>{rankPending=false;renderRanks();});
+  }
+  function renderRanks(){
+    liveRankSources.forEach((entry,index)=>{
+      const source=doc.getElementById(entry.id),host=rankHosts[index];
+      if(!host)return;
+      let container=host.querySelector('.v6-portal-live-ranking');
+      if(!container){
+        container=make(doc,'div','v6-portal-live-ranking');
+        host.querySelector('.v6-portal-panel-placeholder')?.replaceWith(container);
+        if(!container.parentElement)host.append(container);
+      }
+      container.replaceChildren();
+      if(rankDisconnected){
+        container.append(make(doc,'p','v6-portal-no-data','行情连接中断 · 排行榜已停止实时展示，请进入原模块核对历史时点。'));
+        return;
+      }
+      // #sectors is a table: direct children can be a single TBODY, so
+      // extract individual TD rows instead of rendering the entire table as
+      // one giant line. Other two sources are card containers.
+      const rows=source?(entry.id==='sectors'
+        ?[...source.querySelectorAll('tr')].filter(node=>node.querySelector('td'))
+        :[...source.children].filter(node=>node.textContent?.trim())):[];
+      if(!rows.length){
+        container.append(make(doc,'p','v6-portal-no-data','暂无可核验的原系统排行数据，点击进入查看来源和日期。'));
+        return;
+      }
+      const subset=rows.slice(0,6);
+      for(const row of subset){
+        const line=make(doc,'div','v6-portal-rank-row');
+        const parts=String(row.textContent||'').replace(/\s+/g,' ').trim();
+        line.textContent=parts.slice(0,140);
+        container.append(line);
+      }
+      container.append(make(doc,'small','v6-portal-rank-source','展示原模块已渲染数据 · 请点开核验时点'));
+    });
+  }
+  for(const entry of liveRankSources){
+    const source=doc.getElementById(entry.id);
+    if(source&&rankObserver)rankObserver.observe(source,{childList:true,subtree:true,characterData:true});
+  }
+  renderRanks();
+  // A disconnected dashboard must not keep presenting retained sector rows as
+  // if they were current. Preserve the old source DOM for historical review.
+  root.addEventListener?.('v6-dashboard-offline',()=>{
+    rankDisconnected=true;
+    renderRanks();
+  });
+  root.addEventListener?.('v6-dashboard-data',()=>{
+    rankDisconnected=false;
+    queueRanks();
+  });
   const table=make(doc,'section','v6-portal-table');
   table.append(make(doc,'h2','','每日复盘 · 涨停形态与归因'));
   const tableHint=make(doc,'p','','涨停数量、股票名单、封板强度及原因以原复盘接口为准。点击进入查看逐股证据。');
@@ -165,23 +231,45 @@ function install(root){
       detailRows.append(make(doc,'p','v6-portal-no-data','复盘尚未取得有效的当日数据；历史复盘请打开原版详细列表核对日期。'));
       return;
     }
-    const cards=[...(reviewSource?.querySelectorAll('.rvc')||[])].slice(0,12);
+    // Mirror every currently rendered original review card, not just the
+    // first 12. This is source DOM coverage, not a certified market total.
+    const cards=[...(reviewSource?.querySelectorAll('.rvc')||[])];
     if(!cards.length){
       detailRows.append(make(doc,'p','v6-portal-no-data','真实复盘统计已到达，股票明细仍在原复盘模块加载中。'));
       return;
     }
+    const shown=new Set();
     for(const card of cards){
       const header=card.querySelector('.rvc-h');
       const code=textValue(header?.querySelector('span.muted'));
       const title=textValue(header);
-      if(!/^\d{6}$/.test(code))continue;
+      if(!/^\d{6}$/.test(code)||shown.has(code))continue;
+      if(shown.size>=200)break;
+      shown.add(code);
       const link=make(doc,'a','v6-portal-stock-row');
       link.href='/#review';
+      link.dataset.reviewCode=code;
       link.append(make(doc,'strong','',title.slice(0,100)),
-        make(doc,'span','',textValue(card.querySelector('.rvc-reason')).slice(0,170)||'涨停原因尚无可核验证据'),
-        make(doc,'small','','打开原复盘明细 ↗'));
+        make(doc,'span','',textValue(card.querySelector('.rvc-reason')).slice(0,170)||'涨停题材及事件原因尚无可核验证据'),
+        make(doc,'small','','查看该股票原复盘明细与事件证据（如有） ↗'));
+      link.addEventListener('click',event=>{
+        const latest=[...(reviewSource?.querySelectorAll('.rvc')||[])].find(row=>
+          textValue(row.querySelector('.rvc-h span.muted'))===code);
+        if(!latest)return;
+        event.preventDefault();
+        for(let parent=latest.parentElement;parent;parent=parent.parentElement){
+          if(parent.tagName==='DETAILS')parent.open=true;
+          if(parent===reviewModule)break;
+        }
+        const evidence=latest.querySelector('.rv-evidence-trigger');
+        if(evidence)evidence.click(); // available when evidence PR is installed
+        else latest.scrollIntoView?.({block:'center',behavior:'auto'});
+      });
       detailRows.append(link);
     }
+    tableHint.textContent='当前原复盘已渲染 '+shown.size+' 条不同证券记录'+
+      (cards.length>200?'（最多显示200条；其余请进入原复盘）':'')+
+      '；不代表全市场涨停清单已独立核实，题材标签不是涨停原因因果认证。';
   }
   // The source is redrawn by the existing V6 controller; a microtask avoids
   // reading half-written card markup and an observer loop on our own output.
