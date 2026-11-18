@@ -134,6 +134,23 @@ const runChecks=async()=>{
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
+   if([402,1366].includes(width)){
+    const vivid=await page.evaluate(()=>{
+      const css=s=>getComputedStyle(document.querySelector(s));
+      return {token:css(':root').getPropertyValue('--fy-neon-blue').trim(),
+        first:css('.fy-terminal-stat:nth-child(1)').backgroundImage,
+        second:css('.fy-terminal-stat:nth-child(2)').backgroundImage,
+        shadow:css('.fy-terminal-stat:nth-child(1)').boxShadow,
+        up:css('.fy-positive').color,down:css('.fy-negative').color,
+        contextShadow:css('.fy-terminal-panels>.fy-section').boxShadow};
+    });
+    assert.equal(vivid.token,'#398dff','reference blue must resolve');
+    assert.match(vivid.first,/linear-gradient/,'stats use saturated gradients');
+    assert.notEqual(vivid.first,vivid.second,'distinct card families');
+    assert.notEqual(vivid.shadow,'none','luminous stat edge');
+    assert.notEqual(vivid.contextShadow,'none','luminous context panel');
+    assert.notEqual(vivid.up,vivid.down,'rising and falling remain distinguishable');
+   }
    if(width>=1360){
     const rail=await page.evaluate(()=>{
      const nav=document.querySelector('.fy-business-nav');
