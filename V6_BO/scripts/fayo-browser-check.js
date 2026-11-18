@@ -148,6 +148,10 @@ const runChecks=async()=>{
    assert.equal(await secondaryDetails.evaluate(element=>element.open),false,
     'business disclosure closes without altering permissions or route');
 
+   // The disclosure interaction may scroll the page. Capture the actual first fold,
+   // not a convenient mid-page viewport that silently misses the key decisions.
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+   await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
    if([402,1366].includes(width)){
@@ -203,8 +207,10 @@ const runChecks=async()=>{
      const index=document.querySelector('.fy-terminal-index');
      const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
      return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,
-       firstStatVisible:!!a&&a.top<innerHeight,viewport:innerHeight};
+       firstStatVisible:!!a&&a.bottom>0&&a.top>=0&&a.top<innerHeight,
+       scrollTop:window.scrollY,viewport:innerHeight};
     });
+    assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
     assert.equal(firstFold.statCount,8,'all original review counters are retained');
     assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
     assert.ok(firstFold.firstStatVisible&&firstFold.statTop<firstFold.viewport*.8,
