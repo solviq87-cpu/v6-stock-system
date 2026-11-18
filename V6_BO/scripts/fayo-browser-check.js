@@ -132,6 +132,22 @@ const runChecks=async()=>{
    await page.locator('.fy-header').waitFor({state:'visible'});
    await page.locator('.fy-stock-card[data-code="600101"]').first().waitFor({state:'visible'});
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
+
+   const focusTexts=await page.locator('.fy-terminal-priority').allTextContents();
+   assert.equal(focusTexts.length,4,'overview answers market, opportunity, risk and next-action questions');
+   assert.match(focusTexts[0],/最近交易日快照/,'closed-market snapshot must not be called live');
+   assert.match(focusTexts[1],/复盘明细 3 条/,'opportunity count is sourced from the retained review');
+   assert.match(focusTexts[2],/原始报价须逐股核验/,'matched totals do not certify live prices');
+   assert.match(focusTexts[3],/查看机会证据/,'next action opens research, not a trade');
+   const secondaryDetails=page.locator('details.fy-terminal-quick');
+   assert.equal(await secondaryDetails.evaluate(element=>element.open),false,'secondary business tools begin collapsed');
+   await secondaryDetails.locator('summary').click();
+   assert.equal(await secondaryDetails.locator('.fy-terminal-shortcuts button').count(),12,
+    'all original business quick routes remain available through disclosure');
+   await secondaryDetails.locator('summary').click();
+   assert.equal(await secondaryDetails.evaluate(element=>element.open),false,
+    'business disclosure closes without altering permissions or route');
+
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
    if([402,1366].includes(width)){
