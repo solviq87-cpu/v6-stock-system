@@ -73,7 +73,7 @@ test('mobile uses existing login and digest and supports 402 CSS px plus desktop
  assert.match(js,/\/#v6-review/);
  assert.match(js,/\/#sectors/);
  assert.match(js,/\/#holdSec1/);
- assert.match(js,/status:retained\?/);
+ assert.match(js,/source:retained\?/);
 });
 
 test('FAYO terminal restores multi-module navigation and offline never caches private APIs',()=>{
