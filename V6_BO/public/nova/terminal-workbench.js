@@ -195,7 +195,7 @@ export function renderTerminalOverview(ctx) {
    state.trading===true?'交易时段 · 报价待核验':'交易状态待核验';
   const riskHeadline=incomplete?'源端覆盖不完整':mismatch?'明细覆盖有缺口':reportGap?'报告数量不一致':
    !source?'源端总量待核验':'原始报价须逐股核验';
-  const riskDetail=incomplete?'源端记录数与接收唯一代码数不一致':
+  const riskDetail=incomplete?'源端 '+number(source.reportedCount)+' 只 / 有效代码 '+number(source.uniqueCount)+' 只':
    mismatch?'源端 '+number(source.reportedCount)+' 只 / 复盘 '+number(summary.rows.length)+' 只':
    reportGap?'报告 '+number(reported)+' 只 / 明细 '+number(summary.rows.length)+' 只':
    !source?'不能将已回传明细数当成全市场涨停数':'统计一致不等于行情实时或交易条件成立';
