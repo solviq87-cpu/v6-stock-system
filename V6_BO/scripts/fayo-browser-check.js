@@ -160,6 +160,18 @@ const runChecks=async()=>{
     assert.equal(actual.width,402,'iPhone 17 Pro content uses 402 CSS px width');
     assert.equal(actual.devicePixelRatio,3,'iPhone 17 Pro browser emulation uses DPR 3');
     assert.ok(actual.visibleReview>=3,'real mobile review cards are displayed at the target size');
+
+    const firstFold=await page.evaluate(()=>{
+     const stat=document.querySelector('.fy-terminal-stats');
+     const index=document.querySelector('.fy-terminal-index');
+     const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
+     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,
+       firstStatVisible:!!a&&a.top<innerHeight,viewport:innerHeight};
+    });
+    assert.equal(firstFold.statCount,8,'all original review counters are retained');
+    assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
+    assert.ok(firstFold.firstStatVisible&&firstFold.statTop<firstFold.viewport*.8,
+      'first meaningful review counter should appear within the iPhone first fold');
     assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
     assert.equal(actual.indexCards.length,4,'four existing source-timestamped indices remain available');
     assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row has two columns');
