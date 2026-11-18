@@ -110,6 +110,8 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
                          'host-network-check.js', 'network-check.sh'})
     if b'WatchUpdates' in launcher:
         required.update({'watch-updates.js', 'watch-updates.sh', 'safe-updater.js'})
+    if 'TianShu-Install.cmd' in launchers:
+        required.add('TianShu-FirstRun.ps1')
     files.update(launchers)
     if not required.issubset(files):
         raise ValueError('required-controls-missing')

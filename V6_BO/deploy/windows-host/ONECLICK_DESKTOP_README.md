@@ -2,6 +2,20 @@
 
 > 2026-11-16 首批交付：这是对既有 Windows/WSL 本地后台的**管理入口**，不是凭此就完成原账户迁移、新版 FAYO UI 部署、手机 HTTPS 或实盘上线。
 
+## 2026-11-16：原生 Windows EXE 安装器（新版）
+
+**普通用户优先使用** GitHub Actions 的 V6 Windows One-Click Desktop 成功构建里名为 TianShuV6-Native-Setup-EXE 的产物，下载其中的 TianShuV6-Setup.exe；不用下载和解压源码 ZIP，也不用查找 cmd 文件。
+
+双击 EXE → 点击安装 → 保持勾选“检测运行环境、保留原账户并启动天枢智策”。安装器用 Inno Setup 6 的中文图形向导，无需安装器本身提升管理员权限。首次运行先核验来源、安放文件并建立桌面图标，然后检查 WSL/Ubuntu/Node/Python；缺少组件时先中文征求授权，再调用微软官方 WSL 安装、Ubuntu apt 和经过官方 SHA256 校验的固定 Node 下载。安装 WSL 可能要求 Windows UAC、重启及首次设置自己的 Ubuntu 用户，此时不能宣称已经一键开机即用；完成重启后可在桌面“首次安装 / 自动检测所需环境”继续。
+
+现有 WSL 主目录下的本机账户优先复用；遇到多个 Ubuntu 账本或异常状态直接拒绝，不重置持仓、订单、密码或做暗中迁移。旧正式运行版本不因安装 EXE 被无提示升级。更新仍是只读检查，应用更新需原有备份和验证门禁。
+
+**当前边界：** Windows CI 上实际 EXE 安装/卸载验收通过，不等于用户自己的 WSL、手机私网或真实账户已经上线。EXE 暂未代码签名，Windows SmartScreen 可能提示未知发布者；请只使用可信仓库构建产物核对 SHA256，不关闭电脑的安全防护。手机同步、Tailscale、自动生产更新、实盘券商与源授权另行验收。
+
+工程入口：V6_BO/deploy/windows-installer/TianShuV6.iss、TianShu-FirstRun.ps1、V6_BO/tests/windows-native-installer.test.js。实际交付须附 Git SHA、构建测试和包的 SHA256。
+
+---
+
 ## 你只需要点击
 
 1. 从 GitHub Actions 的 **V6 Windows One-Click Desktop** 工作流下载 `TianShuV6-Windows-OneClick` 构建产物，并解压 ZIP。请只使用本仓库构建且已通过 Windows 校验的产物。
