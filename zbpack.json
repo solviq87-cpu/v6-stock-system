@@ -1,0 +1,10 @@
+{
+  "python": {
+    "version": "3.12",
+    "package_manager": "pip"
+  },
+  "streamlit": {
+    "entry": "app.py"
+  },
+  "start_command": "export STREAMLIT_SERVER_PORT=7860; _startup"
+}
