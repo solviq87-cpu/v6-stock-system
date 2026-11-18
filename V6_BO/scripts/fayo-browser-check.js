@@ -222,12 +222,12 @@ const runChecks=async()=>{
     await page.screenshot({path:path.join(output,'iphone17pro-landscape-874x402.png'),fullPage:false});
     await page.setViewportSize({width:402,height:874});
     phase='coverage-gap';
-    await page.getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('源端覆盖不完整'));
     assert.match(await page.locator('[data-focus="risk"]').innerText(),/37|33/,'source mismatch is never presented as a verified total');
     assert.match(await page.locator('[data-focus="next"]').innerText(),/核对复盘缺口/,'missing upstream members changes the next step to review');
     phase='normal';
-    await page.getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('原始报价须逐股核验'));
    }
    await navigate(page,'opportunities','quant');
