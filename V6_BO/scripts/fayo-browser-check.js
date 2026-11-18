@@ -134,6 +134,19 @@ const runChecks=async()=>{
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
+   if(width>=1360){
+    const rail=await page.evaluate(()=>{
+     const nav=document.querySelector('.fy-business-nav');
+     const main=document.querySelector('.fy-main');
+     const a=nav.getBoundingClientRect(),b=main.getBoundingClientRect();
+     return {position:getComputedStyle(nav).position,left:a.left,right:a.right,width:a.width,
+      mainLeft:b.left,navButtons:nav.querySelectorAll('button').length};
+    });
+    assert.equal(rail.position,'fixed','desktop must show a proper business left rail');
+    assert.ok(rail.left>=0&&rail.width>=170&&rail.width<=215,'business rail remains readable');
+    assert.ok(rail.mainLeft>=rail.right,'workspace must not overlap navigation rail');
+    assert.ok(rail.navButtons>=11,'all original business destinations remain');
+   }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
    if(width===402){
     const actual=await page.evaluate(()=>{

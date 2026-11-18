@@ -872,3 +872,30 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
  }
  .fy-terminal-mobile-cards{gap:9px}
 }
+
+
+/* Desktop-only reference-style left navigation using existing route buttons.
+   Authentication, business handlers and mobile navigation are unchanged. */
+@media(min-width:1360px){
+ .fayo-app{--fy-business-rail:190px}
+ .fy-business-nav{
+  position:fixed;top:74px;left:0;bottom:0;z-index:32;
+  width:var(--fy-business-rail);max-height:calc(100dvh - 74px);
+  display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;
+  justify-content:flex-start;gap:6px;padding:13px 9px 26px;
+  overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;
+  background:linear-gradient(180deg,#06162e,#0a2347);
+  border-right:1px solid #29588b;border-bottom:0
+ }
+ .fy-business-nav button{
+  width:100%;min-height:42px;white-space:normal;text-align:left;
+  border-radius:9px;padding:9px 11px;line-height:1.4
+ }
+ .fy-main,.fy-connection-bar{margin-left:var(--fy-business-rail);margin-right:0;max-width:none}
+ .fy-main{padding:18px 20px 72px}
+ .fy-connection-bar{padding:9px 20px}
+ .fayo-app>.fy-snapshot{
+  width:auto;max-width:none;
+  margin:0 20px 0 calc(var(--fy-business-rail) + 20px)
+ }
+}
