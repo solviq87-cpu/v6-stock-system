@@ -111,10 +111,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk >/dev/null
-          fc-cache -f >/dev/null
-          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -q 'Noto Sans CJK'
+          # Check the runner image first. An unbounded apt-get update on a
+          # flaky mirror previously consumed the entire 12-minute job limit
+          # before any browser test could start. Never call update here.
+          if ! fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -q 'Noto Sans CJK'; then
+            echo 'Noto CJK not preinstalled; bounded package install (no apt update).'
+            timeout --signal=TERM --kill-after=5s 100s sudo env DEBIAN_FRONTEND=noninteractive \
+              apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=20 \
+              -o Acquire::https::Timeout=20 install -y -qq fonts-noto-cjk >/dev/null || {
+                echo 'FONT_SETUP_UNAVAILABLE: Noto CJK could not be installed within 100s. Browser validation was NOT executed.' >&2
+                exit 1
+              }
+          fi
+          timeout --signal=TERM --kill-after=5s 30s fc-cache -f >/dev/null || {
+            echo 'FONT_CACHE_UNAVAILABLE: font cache rebuild timed out; UI verification is not certified.' >&2
+            exit 1
+          }
+          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -q 'Noto Sans CJK' || {
+            echo 'FONT_MISSING: Noto Sans CJK unavailable; do not mark visual geometry passed.' >&2
+            exit 1
+          }
       - name: Install pinned Playwright driver (no browser download, no app dependencies)
         run: |
           mkdir -p "$RUNNER_TEMP/v6-ui-driver"
