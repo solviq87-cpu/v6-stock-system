@@ -141,7 +141,8 @@ const runChecks=async()=>{
         first:css('.fy-terminal-stat:nth-child(1)').backgroundImage,
         second:css('.fy-terminal-stat:nth-child(2)').backgroundImage,
         shadow:css('.fy-terminal-stat:nth-child(1)').boxShadow,
-        up:css('.fy-positive').color,down:css('.fy-negative').color,
+        up:css('.fy-terminal-index .fy-market-ticker .fy-positive').color,
+        down:css('.fy-terminal-index .fy-market-ticker .fy-negative').color,
         contextShadow:css('.fy-terminal-panels>.fy-section').boxShadow};
     });
     assert.equal(vivid.token,'#398dff','reference blue must resolve');
@@ -149,7 +150,7 @@ const runChecks=async()=>{
     assert.notEqual(vivid.first,vivid.second,'distinct card families');
     assert.notEqual(vivid.shadow,'none','luminous stat edge');
     assert.notEqual(vivid.contextShadow,'none','luminous context panel');
-    assert.notEqual(vivid.up,vivid.down,'rising and falling remain distinguishable');
+    assert.notEqual(vivid.up,vivid.down,`index red-up / green-down must remain distinguishable: up=${vivid.up} down=${vivid.down}`);
    }
    if(width>=1360){
     const rail=await page.evaluate(()=>{
