@@ -145,7 +145,7 @@ test('fund bar is displayed only with an explicit Yuan unit and a matching origi
  const ctx=context(s),view=renderTerminalOverview(ctx),t=textOf(view);
  assert.match(t,/资金来源交易日 2026-11-17/);
  assert.match(t,/算力资金/);
- assert.match(t,/1\\.26 亿/);
+ assert.match(t,/1\.26 亿/);
  assert.doesNotMatch(t,/无单位板块/);
  await tick();ctx.controller.abort();
 });
@@ -164,7 +164,7 @@ test('mismatched, missing, and stale retained sector days never draw a false sam
   assert.match(t,/资金来源交易日待核验/);
   assert.match(t,expected);
   assert.doesNotMatch(t,/旧资金不应显示/);
-  assert.doesNotMatch(t,/9\\.99 亿/);
+  assert.doesNotMatch(t,/9\.99 亿/);
   await tick();ctx.controller.abort();
  }
 });
