@@ -978,7 +978,9 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
 .fy-terminal-index .fy-market-ticker>div:has(.fy-negative){border-bottom-color:#34e6b1;box-shadow:0 5px 16px #14d59a48,inset 0 1px 0 #a2ffe44f}
 .fy-market-ticker .fy-positive,.fy-market-ticker .fy-positive *,.fy-positive,.fy-up{color:#ff6d83}
 .fy-market-ticker .fy-negative,.fy-market-ticker .fy-negative *,.fy-negative,.fy-down{color:#43e8ae}
-.fy-terminal-index .fy-market-ticker>div strong{color:#fff}
+.fy-terminal-index .fy-market-ticker>div strong:not(.fy-positive):not(.fy-negative){color:#fff}
+.fy-terminal-index .fy-market-ticker>div strong.fy-positive{color:#ff6d83;text-shadow:0 0 11px #ff507967}
+.fy-terminal-index .fy-market-ticker>div strong.fy-negative{color:#43e8ae;text-shadow:0 0 11px #34edac50}
 .fy-terminal-stats .fy-terminal-stat{background:linear-gradient(150deg,#243d96,#1c2c73 54%,#42235d);
  border:1px solid #6c78ed;box-shadow:inset 0 1px 0 #c8b9ff74,0 0 18px #6853ff64,0 9px 17px #0008}
 .fy-terminal-stats .fy-terminal-stat:nth-child(2n){background:linear-gradient(145deg,#193b91,#16265c 62%,#28255b);border-color:#558eff}

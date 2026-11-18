@@ -22,5 +22,7 @@ test('visual-only changes keep quote timestamps visible without global filters',
  assert.doesNotMatch(p,/filter:\s*(?:saturate|brightness)/);
  assert.doesNotMatch(p,/\.fy-quote-time\s*\{[^}]*display:\s*none/);
  assert.match(p,/\.fy-quote-time/);assert.match(p,/\.fy-terminal-provenance/);
+ assert.match(p,/strong\.fy-positive/);
+ assert.match(p,/strong\.fy-negative/);
  assert.match(p,/@media\(prefers-reduced-motion:reduce\)/);
 });

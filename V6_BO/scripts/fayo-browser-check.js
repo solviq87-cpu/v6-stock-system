@@ -151,6 +151,9 @@ const runChecks=async()=>{
     assert.notEqual(vivid.shadow,'none','luminous stat edge');
     assert.notEqual(vivid.contextShadow,'none','luminous context panel');
     assert.notEqual(vivid.up,vivid.down,`index red-up / green-down must remain distinguishable: up=${vivid.up} down=${vivid.down}`);
+    const channels=color=>(color.match(/\d+/g)||[]).slice(0,3).map(Number);
+    const [rr,rg]=channels(vivid.up),[gr,gg]=channels(vivid.down);
+    assert.ok(rr>rg&&gg>gr,'index price must preserve red-up / green-down color channels');
    }
    if(width>=1360){
     const rail=await page.evaluate(()=>{
