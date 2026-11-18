@@ -163,7 +163,7 @@ export function renderTerminalOverview(ctx) {
   ].map(([label,module,sub])=>moduleButton(label,module,sub,ctx))));
  const candidates=h('section',{class:'fy-terminal-candidates'},h('h2',{},'选股核心 · 全部候选'),
   h('p',{class:'fy-terminal-hint'},'原有全部候选聚合继续使用现有接口，股票按代码去重；不是全市场全部股票。'),renderAllOpportunities(ctx));
- view.append(title,status,indexHost,statsHost,prioritiesHost,panelsHost,reviewHost,quick,candidates);
+ view.append(title,status,prioritiesHost,indexHost,statsHost,panelsHost,reviewHost,quick,candidates);
  function paint() {
   if(ctx.signal?.aborted)return;
   // Focused elements are not replaced while a keyboard user is interacting with them.
