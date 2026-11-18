@@ -1026,3 +1026,41 @@ body{background:radial-gradient(ellipse at 55% -18%,#2462e052,transparent 45%),
  box-shadow:inset 0 1px 0 #ffe0ff80,0 0 20px #f74db07a,0 8px 16px #0008;
 }
 .fy-terminal-stats .fy-terminal-stat.accent>strong{color:#ffa6d6}
+
+
+/* FAYO focus hierarchy, 2026-11-18.
+   Four decision questions share one calm surface rather than four more dashboard cards.
+   Source dates and uncertainty remain visible; underlying review and shortcuts stay intact. */
+.fy-terminal-priorities{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;
+ border:1px solid #4e6fbd;border-radius:12px;overflow:hidden;
+ background:linear-gradient(130deg,#151e53,#25194f 66%,#1a1f52)
+}
+.fy-terminal-priority{
+ min-width:0;display:flex;flex-direction:column;align-items:flex-start;
+ justify-content:center;gap:5px;padding:13px 17px;
+ border-right:1px solid #5168a077
+}
+.fy-terminal-priority:last-child{border-right:0}
+.fy-terminal-priority>span{font-size:10px;color:#c2bce8;font-weight:650;letter-spacing:.05em}
+.fy-terminal-priority>strong{font-size:15px;line-height:1.35;color:#f9f3ff;font-weight:650;overflow-wrap:anywhere}
+.fy-terminal-priority>small{font-size:10px;line-height:1.5;color:#b5c4e9;overflow-wrap:anywhere}
+.fy-terminal-priority-risk>strong{color:#ffbad9}
+.fy-terminal-priority-next .fy-button{min-height:36px;font-size:12px}
+.fy-terminal-quick>summary{font-size:13px;font-weight:650;color:#f2dcff}
+.fy-terminal-quick[open]>.fy-terminal-shortcuts{margin-top:12px}
+@media(max-width:1100px){
+ .fy-terminal-priorities{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-terminal-priority:nth-child(2){border-right:0}
+ .fy-terminal-priority:nth-child(-n+2){border-bottom:1px solid #5168a077}
+}
+@media(max-width:650px) and (orientation:portrait){
+ .fy-terminal-priority{padding:10px 11px}
+ .fy-terminal-priority>strong{font-size:13px}
+ .fy-terminal-priority-next .fy-button{font-size:11px;min-height:36px}
+ .fy-terminal-priorities{order:4}
+ .fy-terminal-context{order:5}
+ .fy-terminal-review{order:6}
+ .fy-terminal-quick{order:7}
+ .fy-terminal-candidates{order:8}
+}
