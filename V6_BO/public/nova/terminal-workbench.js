@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,table} from './ui.js';
-import {ticker,quoteLabel,stockCard,summarizeReview,reviewCoverage,reviewDate} from './market.js';
+import {ticker,quoteLabel,stockCard,rowsFrom,summarizeReview,reviewCoverage,reviewDate} from './market.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
