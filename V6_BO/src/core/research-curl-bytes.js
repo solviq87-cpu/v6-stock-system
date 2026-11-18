@@ -38,7 +38,7 @@ async function requestResearchBytes(target,options={}){
    const current={...options,...(options.beforeStart?.()||{})},{maxBytes,timeoutMs,processTimeoutMs}=bounds(current);
    if(options.signal?.aborted)throw problem('request-aborted','公共研究请求已取消');
    let stdout,wireError;
-   try{({stdout}=await run('curl',['--silent','--show-error','--max-time',String(timeoutMs/1000),'--max-filesize',String(maxBytes),'--proto','=https','--user-agent','Mozilla/5.0','--header','Accept: application/json','--dump-header','-','--output',body,target],{timeout:Math.ceil(processTimeoutMs),maxBuffer:MAX_HEADER_BYTES,encoding:'buffer',...(options.signal?{signal:options.signal}:{})}));}
+   try{({stdout}=await run('curl',['--disable','--silent','--show-error','--max-redirs','0','--max-time',String(timeoutMs/1000),'--max-filesize',String(maxBytes),'--proto','=https','--user-agent','Mozilla/5.0','--header','Accept: application/json','--dump-header','-','--output',body,target],{timeout:Math.ceil(processTimeoutMs),maxBuffer:MAX_HEADER_BYTES,encoding:'buffer',...(options.signal?{signal:options.signal}:{})}));}
    catch(error){wireError=error;stdout=error.stdout;}
    let metadata;try{metadata=headersFrom(stdout||Buffer.alloc(0));}catch(error){throw wireError||error;}
    let raw,bodyError;
