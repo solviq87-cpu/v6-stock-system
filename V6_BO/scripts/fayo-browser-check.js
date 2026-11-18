@@ -187,13 +187,19 @@ const runChecks=async()=>{
       'desktop index strip and statistics precede the compact decision strip');
      assert.ok(regions.focus.top<regions.panels.top&&regions.panels.top<regions.review.top,
       'desktop 3-column market rankings precede the full review table');
-     assert.ok(regions.review.top<880,'desktop 1366x1000 shows the start of full review without deep scrolling: '+regions.review.top);
+     assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
      assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
     }else{
      assert.ok(regions.stats.top<regions.focus.top&&regions.focus.top<regions.panels.top,
       'phone shows count, risk then sector ranking before secondary index charts');
-     assert.ok(regions.panels.top<regions.ticker.top,
-      'iPhone sector information appears before extended index tiles');
+     assert.ok(regions.panels.top<regions.review.top&&regions.review.top<regions.ticker.top,
+      'iPhone sector rankings and per-stock review precede extended index cards');
+     const phoneFocus=await page.evaluate(()=>
+      [...document.querySelectorAll('.fy-terminal-priority')]
+        .filter(node=>getComputedStyle(node).display!=='none')
+        .map(node=>node.dataset.focus));
+     assert.deepEqual(phoneFocus,['risk','next'],
+      'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
      assert.ok(regions.stats.top<400&&regions.stats.bottom<780,
       'iPhone first fold must show actual review numbers rather than big headers');
      assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,

@@ -16,7 +16,7 @@ test('reference iteration favors useful source data and a compact three-panel/ta
  for(const token of ['.fy-terminal-index{order:2','.fy-terminal-stats{order:3','.fy-terminal-context{order:5','.fy-terminal-review{order:6'])
   assert.ok(design.includes(token),token);
  assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
- assert.match(browser,/regions\.review\.top<880/);
+ assert.match(browser,/regions\.review\.top<810/);
  assert.match(browser,/regions\.panels\.top<regions\.ticker\.top/);
 });
 test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
@@ -39,4 +39,16 @@ test('colors carry meaning and readable dates, never blanket pink or hidden unkn
  assert.doesNotMatch(design,/filter:\s*(saturate|brightness)/);
  assert.doesNotMatch(design,/\.fy-quote-time[^{}]*\{[^}]*display:\s*none/);
  assert.match(design,/@media\(prefers-reduced-motion:reduce\)/);
+});
+
+test('second pass gives real sourced review priority over duplicate mobile navigation and index',()=>{
+ const final=css.slice(css.lastIndexOf('/* V6 compact second pass'));
+ assert.ok(final.length>900,'second pass must be present');
+ assert.match(final,/\.fy-terminal-review\{order:5\}/);
+ assert.match(final,/\.fy-terminal-index\{order:6\}/);
+ assert.match(final,/\.fy-terminal-priority\[data-focus="market"\]/);
+ assert.match(final,/\.fy-terminal-priority\[data-focus="opportunities"\]/);
+ assert.match(browser,/phoneFocus,\['risk','next'\]/);
+ assert.match(browser,/regions\.review\.top<regions\.ticker\.top/);
+ assert.match(browser,/regions\.review\.top<810/);
 });
