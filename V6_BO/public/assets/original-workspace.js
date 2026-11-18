@@ -173,3 +173,25 @@
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach,{once:true});
  else attach();
 })();
+
+/* Preserve the frozen mobile HTML and its login gates. Add a read-only
+ * review preview from the SAME mobile digest, never a second market feed. */
+(function(){
+ 'use strict';
+ function attachMobileReview(){
+  if(!document.body?.classList.contains('mobile-workspace')||
+     document.querySelector('script[data-v6-mobile-review-loader]'))return;
+  const style=document.createElement('link');
+  style.rel='stylesheet';
+  style.href='/assets/mobile-review-bridge.css?v=20261118review1';
+  style.setAttribute('data-v6-mobile-review-style','');
+  document.head.appendChild(style);
+  const script=document.createElement('script');
+  script.src='/assets/mobile-review-bridge.js?v=20261118review1';
+  script.async=true;
+  script.setAttribute('data-v6-mobile-review-loader','');
+  document.head.appendChild(script);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachMobileReview,{once:true});
+ else attachMobileReview();
+})();

@@ -111,10 +111,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk >/dev/null
-          fc-cache -f >/dev/null
-          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -q 'Noto Sans CJK'
+          # Runner images are ephemeral; Ubuntu package mirrors can be unreachable.
+          # Use a version-pinned, content-hash-verified OFL Google Fonts file
+          # as a bounded fallback. It is installed in the test runner only.
+          # No unbounded apt-get update and no font is committed to this repo.
+          has_chinese_font() {
+            # Ubuntu apt installs "Noto Sans CJK SC" while the pinned,
+            # region-specific OFL font installs "Noto Sans SC".
+            { fc-match -f '%{family}\n' 'Noto Sans CJK SC';
+              fc-match -f '%{family}\n' 'Noto Sans SC'; } |
+              grep -Eq 'Noto Sans (CJK|SC)'
+          }
+          if ! has_chinese_font; then
+            mkdir -p "$HOME/.local/share/fonts/v6-qa"
+            font_tmp="$RUNNER_TEMP/NotoSansSC-wght.ttf"
+            font_url='https://raw.githubusercontent.com/google/fonts/2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf'
+            if timeout --signal=TERM --kill-after=5s 85s curl --fail --location --silent --show-error \
+                --connect-timeout 10 --max-time 80 "$font_url" -o "$font_tmp" && \
+                test "$(git hash-object "$font_tmp")" = 'fb0637bafbcd804fe32152370a1225990745b4bc'; then
+              install -m 644 "$font_tmp" "$HOME/.local/share/fonts/v6-qa/NotoSansSC-wght.ttf"
+              echo 'CJK_FONT_SOURCE=google-fonts-pinned-git-blob'
+            else
+              echo 'Pinned Google Fonts unavailable or blob hash mismatch; trying bounded apt fallback.'
+              rm -f "$font_tmp"
+              timeout --signal=TERM --kill-after=5s 45s sudo env DEBIAN_FRONTEND=noninteractive \
+                apt-get -o Acquire::Retries=0 -o Acquire::http::Timeout=15 \
+                -o Acquire::https::Timeout=15 install -y -qq fonts-noto-cjk >/dev/null || {
+                  echo 'FONT_SETUP_UNAVAILABLE: both verified font sources failed; browser test NOT executed.' >&2
+                  exit 1
+                }
+              echo 'CJK_FONT_SOURCE=bounded-ubuntu-package'
+            fi
+          else
+            echo 'CJK_FONT_SOURCE=preinstalled'
+          fi
+          timeout --signal=TERM --kill-after=5s 30s fc-cache -f >/dev/null || {
+            echo 'FONT_CACHE_UNAVAILABLE: font cache rebuild timed out; do not certify screenshots.' >&2
+            exit 1
+          }
+          has_chinese_font || {
+            echo 'FONT_MISSING: No verified Noto Sans Chinese font; visual geometry NOT certified.' >&2
+            exit 1
+          }
       - name: Install pinned Playwright driver (no browser download, no app dependencies)
         run: |
           mkdir -p "$RUNNER_TEMP/v6-ui-driver"

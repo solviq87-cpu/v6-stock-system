@@ -1,6 +1,15 @@
 /* Progressive enhancement only: does not alter stock-selection or server permissions. */
 (function(){
   'use strict';
+  // Progressive enhancement: frozen public/index.html and app.js remain byte-for-byte intact.
+  // Load once; source events are fetched only after an explicit card click.
+  if(document.getElementById('review')&&!document.querySelector('script[data-review-event-evidence]')){
+    const script=document.createElement('script');
+    script.src='/assets/review-event-evidence.js?v=20261117rv2';
+    script.setAttribute('data-review-event-evidence','');
+    script.async=true;
+    document.head.appendChild(script);
+  }
   const nav=document.querySelector('.v6-quick-nav');
   if(!nav)return;
   const links=Array.from(nav.querySelectorAll('a[href^="#v6-"]'));

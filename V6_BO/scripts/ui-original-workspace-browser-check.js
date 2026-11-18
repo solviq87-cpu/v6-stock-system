@@ -152,10 +152,10 @@ async function checkDesktopModules(page) {
     const executablePath=process.env.V6_UI_BROWSER || '/usr/bin/chromium';
     browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
     const origin='http://127.0.0.1:'+server.address().port;
-    for (const {url,width} of [{url:'/',width:1366},{url:'/m',width:390},{url:'/m',width:320},{url:'/picks.html',width:1366},{url:'/research.html',width:1366}]) {
+    for (const {url,width} of [{url:'/',width:1366},{url:'/m',width:390},{url:'/m',width:402},{url:'/m',width:320},{url:'/picks.html',width:1366},{url:'/research.html',width:1366}]) {
       fixturePhase='snapshot';
       const label=(url==='/'?'desktop-home':url==='/m'?'mobile-home':url.slice(1,-5))+'-'+width;
-      const page=await browser.newPage({viewport:{width,height:width<500?844:900},serviceWorkers:'block'});
+      const page=await browser.newPage({viewport:{width,height:width===402?874:width<500?844:900},serviceWorkers:'block'});
       const errors=[],external=[];
       page.on('pageerror',error=>errors.push(error.message));
       await page.route('**/*',route=>{

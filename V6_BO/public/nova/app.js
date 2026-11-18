@@ -1,9 +1,20 @@
 import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.js';
 import {createClient,getSession,saveSession,deviceId,retainMarket} from './client.js';
 import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS} from './market.js';
+import {renderTerminalOverview} from './terminal-workbench.js';
 
 const root=document.getElementById('fayo-root');
 const MAIN=[['pulse','脉冲','pulse'],['opportunities','机会','spark'],['lab','实验室','lab'],['assets','资产','assets'],['settings','中枢','settings']];
+// User-approved original V6 business navigation. Every entry points to an existing route;
+// the internal five-space model, authentication and all legacy recovery URLs remain intact.
+const BUSINESS_NAV=[
+ ['盘面总览','pulse','overview'],['外国市场 · 选股核心','pulse','global'],
+ ['我的持仓 · 盯盘与加减仓触发','assets','holdings'],['模拟盘','assets','paper'],
+ ['消息面 · 数据联动','inbox','all'],['明日计划','pulse','plans'],
+ ['我的十四条','opportunities','conditions'],['复盘 · 学习','pulse','review'],
+ ['智能策略中心','lab','strategies'],['工具','settings','diagnostics'],
+ ['发布看板','settings','release']
+];
 const ALIASES={
  '/picks.html':['opportunities','quant'],'/auction-picks.html':['opportunities','auction'],
  '/research.html':['lab','desk'],'/model-library.html':['lab','models'],
@@ -62,7 +73,7 @@ function snapshotStatus() {
  else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
 }
 function createFrame() {
- const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜'),h('small',{},'FAYO')));
+ const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'天枢智策 V6 / FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'FAYO · 原业务技术底座')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
  for(const[view,label,key]of MAIN){
   nav.append(h('button',{type:'button','data-fy-route':view,onClick:()=>navigate(view)},icon(key),h('span',{},label)));
@@ -72,13 +83,15 @@ function createFrame() {
  const search=button(icon('search'),openSearch,'quiet');search.setAttribute('aria-label','搜索股票与功能');search.setAttribute('aria-keyshortcuts','Control+K Meta+K');
  const refreshButton=button(icon('refresh'),()=>refresh(true),'quiet');refreshButton.setAttribute('aria-label','刷新云端数据');
  const inbox=button(icon('bell'),()=>navigate('inbox','all'),'quiet');inbox.setAttribute('aria-label','资讯与通知');
- const identity=button(role==='edit'?'管理者':'观察者',openIdentity,'quiet');identity.setAttribute('aria-label','账户与授权');
+ const identity=button(icon('user'),openIdentity,'quiet');identity.setAttribute('aria-label','账户与授权');identity.setAttribute('title',role==='edit'?'管理者':'观察者');
  const actions=h('div',{class:'fy-actions'},search,refreshButton,inbox,identity);
  const header=h('header',{class:'fy-header'},brand,nav,actions);
+ const businessNav=h('nav',{class:'fy-business-nav','aria-label':'V6 原业务功能导航'},BUSINESS_NAV.map(([label,view,sub])=>
+  h('button',{type:'button','data-business-view':view,'data-business-sub':sub,onClick:()=>navigate(view,sub)},label)));
  main=h('main',{class:'fy-main',id:'fayo-content',tabindex:'-1'});
  snapshot=h('div',{class:'fy-snapshot',role:'status',hidden:true});
  const meta=h('div',{class:'fy-connection-bar'},h('span',{},'你的投资研究空间'),connection);
- frame=h('div',{class:'fayo-app'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,meta,snapshot,main,dock);
+ frame=h('div',{class:'fayo-app'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,businessNav,meta,snapshot,main,dock);
  root.replaceChildren(frame);
  drawer=createStockDrawer(context(null));root.append(drawer.element);
  snapshotStatus();
@@ -88,9 +101,15 @@ async function renderRoute() {
  route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
  frame.querySelectorAll('[data-fy-route]').forEach(node=>{const active=node.dataset.fyRoute===route.view;node.dataset.current=String(active);if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
- document.title='绯曜 FAYO · '+(MAIN.find(x=>x[0]===route.view)?.[1]||'资讯');
+ frame.querySelectorAll('[data-business-view]').forEach(node=>{
+  const active=route.view===node.dataset.businessView&&route.sub===node.dataset.businessSub;
+  node.dataset.current=String(active);
+  if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');
+ });
+ document.title='天枢智策 V6 · '+(BUSINESS_NAV.find(x=>x[1]===route.view&&x[2]===route.sub)?.[0]||MAIN.find(x=>x[0]===route.view)?.[1]||'资讯')+' · FAYO';
  try {
-  if(route.view==='pulse')main.replaceChildren(renderPulse(route,ctx));
+  if(route.view==='pulse'&&(!route.sub||route.sub==='overview'))main.replaceChildren(renderTerminalOverview(ctx));
+  else if(route.view==='pulse')main.replaceChildren(renderPulse(route,ctx));
   else if(route.view==='opportunities')main.replaceChildren(renderOpportunities(route,ctx));
   else {
    main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在打开工作空间…'));

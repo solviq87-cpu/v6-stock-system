@@ -45,7 +45,7 @@ const server = http.createServer((req,res) => {
 const allPages = ['/', '/m', '/picks.html', '/research.html', '/model-library.html', '/auction-picks.html',
   '/v6-studio.html','/v6-matches.html','/v6-research.html','/v6-validation.html','/v6-paper.html','/v6-market-radar.html'];
 const pages = process.env.V6_UI_PAGES ? process.env.V6_UI_PAGES.split(',') : allPages;
-const widths = [320,375,390,393,430,1366,1536,1920];
+const widths = [320,375,390,393,402,430,1366,1536,1920];
 (async () => {
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   let browser;
@@ -54,7 +54,7 @@ const widths = [320,375,390,393,430,1366,1536,1920];
     const origin = 'http://127.0.0.1:' + server.address().port;
     browser = await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||undefined,args:['--no-sandbox','--disable-dev-shm-usage']});
     for (const url of pages) for (const width of widths) {
-      const page = await browser.newPage({viewport:{width,height:width<500?900:1080},serviceWorkers:'block'});
+      const page = await browser.newPage({viewport:{width,height:width===402?874:width<500?900:1080},serviceWorkers:'block'});
       const errors = [], external = [];
       page.on('pageerror',error=>errors.push(error.message));
       await page.route('**/*',route => {
