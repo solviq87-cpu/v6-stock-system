@@ -1,4 +1,5 @@
-import {aggregateCandles,movingAverages,projectForwardTracking} from './market-evidence.js';
+import {aggregateCandles,movingAverages,projectForwardTracking,projectDecisionBrief} from './market-evidence.js';
+export {projectDecisionBrief};
 import {h,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
 
 export const POOLS=[

@@ -213,3 +213,25 @@ test('a retained dashboard field day is authoritative over refreshed wrapper dat
  assert.doesNotMatch(t,/不可冒充今日/);
  await tick();ctx.controller.abort();
 });
+
+test('decision panel shows real dated good/bad evidence, watch counts and no automatic writes',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(2);
+ s.dashboard.rows=[{code:'600010',name:'真实复盘候选',score:90,quoteAt:Date.parse('2026-11-17T07:00:00Z'),
+  quoteSource:'existing-source',aboveMa5:true,hit:['已有策略条件'],
+  issuerEvidence:{events:[{category:'risk-clue',title:'明确利空公告标题',publishedAt:'2026-11-16T00:00:00Z'},
+   {category:'strength-clue',title:'明确利好公告标题',publishedAt:'2026-11-16T00:00:00Z'}]}}];
+ const ctx=context(s,'view'),view=renderTerminalOverview(ctx);
+ const panel=locate(view,node=>node?.['data-v6-decision-brief']==='true');
+ assert.ok(panel,'dashboard is part of the original terminal, not a second application');
+ const display=textOf(panel);
+ assert.match(display,/逐股决策仪表盘/);
+ assert.match(display,/买入研究标签\s*0/);
+ assert.match(display,/观望 \/ 待核验\s*1/);
+ assert.match(display,/明确利空公告标题/);
+ assert.match(display,/明确利好公告标题/);
+ assert.match(display,/原始行情日 2026-11-17/);
+ assert.match(display,/历史 \/ 未知 \/ 异常时点/);
+ assert.match(display,/已有策略条件/);
+ assert.ok(ctx.calls.every(call=>!['POST','PUT','DELETE'].includes(call.options?.method)));
+ ctx.controller.abort();
+});

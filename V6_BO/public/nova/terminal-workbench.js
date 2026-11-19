@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,table} from './ui.js';
-import {ticker,quoteLabel,stockCard,rowsFrom,summarizeReview,reviewCoverage,reviewDate} from './market.js';
+import {ticker,quoteLabel,stockCard,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief} from './market.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -12,6 +12,9 @@ const nameOf = row => row?.name||row?.code||'名称待核验';
 function stat(label,value,detail,kind='') {
  return h('article',{class:'fy-terminal-stat '+kind},
   h('span',{},label),h('strong',{},value),h('small',{},detail));
+}
+function decisionStat(label,value,detail) {
+ return h('article',{class:'fy-kpi'},h('span',{},label),h('strong',{},value),h('small',{},detail));
 }
 function moduleButton(label,view,sub,ctx) {
  return button(label,()=>ctx.navigate(view,sub),'secondary');
@@ -145,6 +148,7 @@ export function renderTerminalOverview(ctx) {
  const indexHost=h('div',{class:'fy-terminal-index'});
  const statsHost=h('div',{class:'fy-terminal-stats'});
  const prioritiesHost=h('section',{class:'fy-terminal-priorities','aria-label':'市场、机会、风险和下一步'});
+ const decisionsHost=h('section',{class:'fy-section fy-panel fy-terminal-decisions','data-v6-decision-brief':'true','aria-label':'逐股决策仪表盘'});
  const panelsHost=h('div',{class:'fy-terminal-context'});
  const reviewHost=h('section',{class:'fy-section fy-panel fy-terminal-review'});
  reviewHost.append(h('header',{class:'fy-terminal-review-head'},
@@ -167,7 +171,7 @@ export function renderTerminalOverview(ctx) {
    h('div',{},h('h2',{},'重点候选'),h('p',{class:'fy-terminal-hint'},'仅预览当前云端已返回的原始候选；历史报价不等于可交易信号。')),
    moduleButton('查看全部候选','opportunities','all',ctx)),
   candidatePreview);
- view.append(title,status,prioritiesHost,indexHost,statsHost,panelsHost,reviewHost,quick,candidates);
+ view.append(title,status,prioritiesHost,indexHost,statsHost,decisionsHost,panelsHost,reviewHost,quick,candidates);
  function paint() {
   if(ctx.signal?.aborted)return;
   // Focused elements are not replaced while a keyboard user is interacting with them.
@@ -220,6 +224,34 @@ export function renderTerminalOverview(ctx) {
   if(mismatch)status.append(h('strong',{class:'fy-terminal-warning'},'源端 '+source.reportedCount+' 只 / 本次明细 '+summary.rows.length+' 只；差额必须核查，不能混称全市场涨停。'));
   else if(reported!==null&&reported!==summary.rows.length)
    status.append(h('strong',{class:'fy-terminal-warning'},'报告自述 '+reported+' 只 / 实际明细 '+summary.rows.length+' 只；原始池覆盖仍需核验。'));
+
+  // Existing authenticated dashboard only: no scanner, push, or order on page load.
+  const digest=projectDecisionBrief(state);
+  decisionsHost.replaceChildren(
+   h('header',{class:'fy-section-head'},h('div',{},
+    h('h2',{},'逐股决策仪表盘'),
+    h('p',{},'买卖观望、利好利空、策略依据，全部按原始证据显示'))),
+   h('p',{class:'fy-muted'},'原始行情日 '+(digest.marketDay||'待核验')+
+    ' · 样本 '+(digest.total||'尚无')+' 只（仅首页候选，不是全市场）'+
+    (digest.truncated?' · 仅统计服务端前200条':'') ),
+   h('div',{class:'fy-grid four'},
+    decisionStat('买入研究标签',digest.total?number(digest.counts.buy):'—','需同源原时点及真实服务端核验'),
+    decisionStat('观望 / 待核验',digest.total?number(digest.counts.watch):'—','旧报价和普通评分不能升级'),
+    decisionStat('卖出研究标签',digest.total?number(digest.counts.sell):'—','服务端声明不等于交易认证')),
+   digest.items.length?h('div',{class:'fy-stack'},
+    digest.items.map(item=>h('article',{class:'fy-item','data-code':item.code},
+     h('div',{class:'fy-inline'},
+      button(item.name+' '+item.code,()=>ctx.selectStock(item.code,rowsFrom(state.dashboard?.rows).find(row=>row.code===item.code)),'quiet'),
+      h('span',{class:'fy-tag'},item.label),
+      item.score!==null?h('small',{class:'fy-muted'},'服务端原评分 '+format(item.score,1)):null),
+     h('p',{class:'fy-muted'},'日期 '+(item.day||'未知')+' · '+item.quoteSource+
+      ' · '+item.quoteStatus+' · '+(item.quoteAt?new Date(item.quoteAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):'报价时间未知')),
+     h('p',{},'利好线索：'+(item.positives.join('；')||'未取得可核验利好证据')),
+     h('p',{},'利空 / 风险：'+item.risks.join('；')),
+     h('p',{class:'fy-muted'},'策略依据：'+(item.signals.join('；')||'尚未返回逐条命中条件'))))):
+    empty('暂无逐股决策证据','缺失数据不意味着无风险，也不能据此买入或卖出。'),
+   h('p',{class:'fy-terminal-hint'},digest.note),
+   moduleButton('查看完整策略研究','lab','desk',ctx));
   panelsHost.replaceChildren(renderPanels(state,summary,day,ctx));
   list.replaceChildren(renderReviewRows(summary,ctx));
   // Landing-page preview is deliberately bounded and read-only. Full pool

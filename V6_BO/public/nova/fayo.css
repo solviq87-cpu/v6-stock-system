@@ -1069,6 +1069,8 @@ body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
  .fy-terminal-priority>strong{font-size:13px}
  .fy-terminal-priority-next .fy-button{font-size:11px;min-height:36px}
  .fy-terminal-priorities{order:4}
+ /* New evidence cards follow the original first-fold counters and index, not the header. */
+ .fy-terminal-decisions{order:5}
  .fy-terminal-context{order:5}
  .fy-terminal-review{order:6}
  .fy-terminal-quick{order:7}

@@ -109,3 +109,86 @@ export function projectForwardTracking(payload,code,{now=Date.now()}={}) {
     unresolved:entries.reduce((count,entry)=>count+entry.windows.filter(window=>window.state!=='observed').length,0),
     note:'基于冻结信号日收盘价的未复权价格变化，非可成交净收益；来源与指纹未在浏览器独立认证，不可作为策略有效性结论。'};
 }
+
+// Provenance-first, read-only interpretation of existing server dashboard rows.
+// A score, historic quote or unverified provider "buy" label cannot authorize trading.
+export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
+  const date=value=>{
+    if(typeof value!=='string')return null;
+    const day=/^\d{8}$/.test(value)?value.slice(0,4)+'-'+value.slice(4,6)+'-'+value.slice(6):value;
+    return validDay(day)?day:null;
+  };
+  const clipped=value=>typeof value==='string'?value.trim().slice(0,120):'';
+  const raw=Array.isArray(state?.dashboard?.rows)?state.dashboard.rows:[];
+  const marketDay=date(state?.snapshotFieldDays?.dashboard||state?.dashboard?.snapshotDay);
+  const seen=new Set(),items=[],counts={buy:0,watch:0,sell:0};
+  const bounded=Number.isSafeInteger(limit)?Math.max(0,Math.min(limit,20)):3;
+  for(const row of raw.slice(0,200)) {
+    if(!row||typeof row!=='object'||Array.isArray(row))continue;
+    const code=String(row.code||'');
+    if(!/^\d{6}$/.test(code)||seen.has(code))continue;
+    seen.add(code);
+    const ownDay=row.poolDay||row.tradeDate;
+    const rowDay=ownDay?date(ownDay):marketDay;
+    // quoteAt/quoteTimestamp can be a copied reception or snapshot clock.
+    // Only an explicit supplier-origin field may qualify for this display gate.
+    const originalAt=Number.isSafeInteger(row.vendorQuoteAt)&&row.vendorQuoteAt>0&&row.vendorQuoteAt<8e15
+      ?row.vendorQuoteAt:null;
+    const receivedAt=Number.isSafeInteger(row.receivedAt)&&row.receivedAt>0?row.receivedAt:null;
+    const source=clipped(row.quoteSource);
+    const mode=clipped(row.quoteMode||row.mode);
+    const prohibited=/simulat|readonlybackup|(?:^|[-_:\/.\s])(?:impor[t](?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:\/.\s])/i;
+    const sourceUsable=Boolean(source)&&!prohibited.test(source)&&
+      !/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode)&&
+      !['simulated','readOnlyBackup','imported','fixture','mock','synthetic'].some(flag=>row[flag]===true);
+    const age=originalAt===null?NaN:now-originalAt;
+    const fresh=state?.trading===true&&Number.isSafeInteger(now)&&sourceUsable&&
+      originalAt!==null&&row.quoteAt===originalAt&&row.quoteStatus==='recent-unverified'&&
+      receivedAt!==null&&receivedAt>=originalAt&&receivedAt<=now&&
+      age>=0&&age<=15000&&
+      Boolean(rowDay&&marketDay&&rowDay===marketDay&&chinaDay(now)===marketDay&&chinaDay(originalAt)===marketDay);
+    const review=row.decisionReview;
+    const reviewed=review&&typeof review==='object'&&!Array.isArray(review)&&
+      review.status==='independently-verified'&&['buy','sell'].includes(review.action)&&
+      review.symbol===code&&review.quoteAt===originalAt&&
+      Number.isSafeInteger(review.reviewedAt)&&review.reviewedAt>=originalAt&&review.reviewedAt<=now&&
+      date(review.asOf)===rowDay&&clipped(review.source)&&
+      Array.isArray(review.evidence)&&review.evidence.some(item=>typeof item==='string'&&item.trim());
+    // The current server exposes verifiedLive=false: an unverified status string
+    // must not produce a buy/sell research label, let alone an execution permit.
+    const action=fresh&&state?.dashboard?.verifiedLive===true&&reviewed?review.action:'watch';
+    counts[action]++;
+    const positives=[],risks=[],signals=[];
+    const originalSignals=Array.isArray(row.hit)?row.hit:Array.isArray(row.signals)?row.signals:[];
+    for(const record of originalSignals){
+      const label=typeof record==='string'?record:clipped(record?.text||record?.label);
+      if(label&&signals.length<3)signals.push(label.slice(0,100));
+    }
+    if(rowDay&&marketDay&&rowDay===marketDay){
+      if(row.aboveMa5===true)positives.push('接口标记站上MA5（不等于可买入）');
+      if(row.aboveMa5===false)risks.push('接口标记未站上MA5');
+      if(finite(row.breakCount)&&row.breakCount>0)risks.push('接口记录开板 '+Math.floor(row.breakCount)+' 次');
+    }
+    const events=Array.isArray(row?.issuerEvidence?.events)?row.issuerEvidence.events:[];
+    for(const event of events.slice(0,30)){
+      const title=clipped(event?.title);
+      const published=typeof event?.publishedAt==='number'?event.publishedAt:Date.parse(event?.publishedAt||'');
+      if(!title||!finite(published)||published<=0||published>now||published>=8e15)continue;
+      const notice='公告标题线索 '+new Date(published+8*3600000).toISOString().slice(0,10)+'：'+title;
+      if(event?.category==='risk-clue'&&risks.length<5)risks.push(notice);
+      if(event?.category==='strength-clue'&&positives.length<4)positives.push(notice);
+    }
+    if(!risks.length)risks.push('未返回风险线索不等于零风险');
+    if(!fresh)risks.unshift('报价非当前可核验的15秒盘中价格，不得直接作为操作依据');
+    if(items.length<bounded)items.push({
+      code,name:clipped(row.name)||code,score:finite(row.score)&&row.score>=0&&row.score<=100?row.score:null,
+      action,label:action==='buy'?'服务端声明买入研究标签（非交易建议）':action==='sell'?'服务端声明卖出研究标签（非交易建议）':'观望 / 待核验',
+      day:rowDay,quoteAt:originalAt,
+      quoteSource:source||'来源未知',
+      quoteStatus:fresh?'供应商声明原时点在15秒内（未独立认证）':'历史 / 未知 / 异常时点',
+      positives,risks,signals
+    });
+  }
+  return {marketDay,total:seen.size,counts,items,truncated:raw.length>200,
+    note:'只统计首页已回传去重候选；缺原始供应商时间、接收因果时序或独立核验时保持观望。源端声明不是浏览器独立认证，不代表交易许可或策略收益。'};
+}
