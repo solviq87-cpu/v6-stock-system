@@ -1085,7 +1085,7 @@ body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
 :root{
  --fy-bg:#07091d;--fy-surface:#12142f;--fy-raised:#221549;
  --fy-border:#7253bb;--fy-text:#eff4ff;--fy-muted:#c1bddf;
- --fy-pink:#ec55d9;--fy-violet:#a96eff;--fy-neon-blue:#299bff;
+ --fy-pink:#ec55d9;--fy-violet:#a96eff;--fy-neon-blue:#398dff;
 }
 .fy-reference-shell{
  background:radial-gradient(ellipse at 50% 1%,#522f9b35,transparent 46%),
