@@ -51,20 +51,30 @@ python -m pytest -q streamlit_readonly/tests
 - 在平台私有环境变量设置 `DASHBOARD_PASSWORD`（推荐 20 字符以上）和 `PORT=7860`
 - 关联仓库分支的新提交可能触发构建；**是否部署成功须以实际构建记录为准**。创建计算资源前核对是否收费。
 
-## OpenXLab / 浦源（优先上海但不保证该地域可选）
+## OpenXLab / 浦源（优先验证免费 CPU，上海仅在可选时使用）
 
-OpenXLab 某些应用创建流程要求 `app.py` 位于部署仓库根目录，因此**不能不经验证就将 V6 仓库根目录当成 Streamlit 工程来部署**。
+**部署时不需要复制仓库或在 V6 根目录添加 app.py。** 已在**同一个 GitHub 仓库**建立专用 `streamlit-release` 分支，分支根目录仅包含 `app.py`、`requirements.txt`、`.streamlit/config.toml` 等只读演示文件。你可以直接在 OpenXLab 绑定这个分支：
 
-推荐保持 V6 仓库原样，仅在发布阶段**从本目录导出**到单独的部署分支（其中 `app.py`、`requirements.txt` 在分支根目录）。例如从本地完整仓库、位于已验证的提交上手动执行：
+- 仓库：`https://github.com/solviq87-cpu/v6-stock-system`
+- 分支：`streamlit-release`（不是 `dev`）
+- 应用组件：`Streamlit`，启动入口：`app.py`，端口：`7860`
+- 地区：如果控制台提供上海且符合免费资源条件，优先选上海；否则选实际可用的免费 CPU
+- 安全：在**平台环境变量**配置 `DASHBOARD_PASSWORD`，不可提交到 GitHub
+- 仅提供 AKShare 公开行情、条件选股和教学回测；未连接完整 V6/FAYO
 
-```bash
-git subtree split --prefix=streamlit_readonly -b streamlit-release
-git push origin streamlit-release
-```
+该发布分支已在 GitHub Actions 以 Python 3.9 和 3.12 完成真实依赖安装、模块导入、离线测试；这**不等于** OpenXLab 现场联网成功。
 
-在 OpenXLab 中关联**同一个 GitHub 仓库**，选择 `streamlit-release` 分支、`app.py` 入口和 `7860` 端口；若确有「上海」可用则优先上海，否则选择免费 CPU 资源。配置私有 `DASHBOARD_PASSWORD`，不要把它写入 GitHub。
+## 后续自动更新机制与限制
 
-**当前并未创建或自动推送 streamlit-release 分支**。未来需要在全量 CI 和安全发布门禁通过后，才允许自动化生成该分支。OpenXLab 官方资料中的「同步代码」不是已证实的 GitHub push 立即自动部署能力，不得宣称已开启。
+现有分支 `feat/streamlit-readonly-20261118` 的新工作流 `.github/workflows/streamlit-readonly-export.yml` 将在**合并到 dev 之后**生效。执行条件：
+
+1. `V6 CI` 对某次 `dev` 推送全部通过。
+2. 自动核对当前 `dev` 的最新 SHA 与获批 CI 的 SHA 完全一致。
+3. Python 3.9、3.12 分别安装全部部署依赖并通过只读模块的测试。
+4. 只允许将 `streamlit_readonly/` 的指定文件复制到 `streamlit-release`，如文件相同则不产生新提交。
+5. 仓库部署分支更新后，`streamlit-release` 自带的 CI 也会再次检验。
+
+**PR #303 仍为草稿并未合并，所以当前自动同步工作流尚未在 dev 上启用。** 请勿把「GitHub 自动更新部署分支」理解为「OpenXLab 已自动重新构建」，官方文档确认有「同步代码」操作但未证实每次 GitHub push 自动重建。Zeabur 的 GitHub 关联分支则支持自动触发，但费用和计算资源须以其当前账户实际配置为准。
 
 ## 隔离边界
 
