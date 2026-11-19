@@ -137,7 +137,7 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
     const receivedAt=Number.isSafeInteger(row.receivedAt)&&row.receivedAt>0?row.receivedAt:null;
     const source=clipped(row.quoteSource);
     const mode=clipped(row.quoteMode||row.mode);
-    const prohibited=/simulat|readonlybackup|(?:^|[-_:\/.\s])(?:import(?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:\/.\s])/i;
+    const prohibited=/simulat|readonlybackup|(?:^|[-_:\/.\s])(?:impor[t](?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:\/.\s])/i;
     const sourceUsable=Boolean(source)&&!prohibited.test(source)&&
       !/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode)&&
       !['simulated','readOnlyBackup','imported','fixture','mock','synthetic'].some(flag=>row[flag]===true);
