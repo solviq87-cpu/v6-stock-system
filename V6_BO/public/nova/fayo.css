@@ -1335,3 +1335,22 @@ body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
  .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
  .fy-reference-shell .fy-reference-signal-ring{width:114px}
 }
+
+/* The mobile first-fold counters must not be displaced by newly added blocks. */
+@media(max-width:650px) and (orientation:portrait){
+ .fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title{order:0}
+ .fy-reference-home>.fy-terminal-provenance,.fy-reference-review>.fy-terminal-provenance{order:1}
+ .fy-reference-home>.fy-terminal-stats,.fy-reference-review>.fy-terminal-stats{order:2}
+ .fy-reference-home>.fy-terminal-index{order:3}
+ .fy-reference-home>.fy-terminal-priorities{order:4}
+ .fy-reference-home>.fy-reference-topgrid{order:5}
+ .fy-reference-home>.fy-reference-midgrid{order:6}
+ .fy-reference-home>.fy-reference-lowergrid{order:7}
+ .fy-reference-home>.fy-terminal-decisions{order:8}
+ .fy-reference-home>.fy-terminal-context{order:9}
+ .fy-reference-home>.fy-terminal-quick{order:10}
+ .fy-reference-review>.fy-terminal-context{order:3}
+ .fy-reference-review>.fy-terminal-review{order:4}
+ .fy-reference-review>.fy-reference-review-footer{order:5}
+ .fy-reference-review>.fy-terminal-quick{order:6}
+}
