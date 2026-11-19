@@ -124,10 +124,12 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
   const seen=new Set(),items=[],counts={buy:0,watch:0,sell:0};
   const bounded=Number.isSafeInteger(limit)?Math.max(0,Math.min(limit,20)):3;
   for(const row of raw.slice(0,200)) {
-    const code=String(row?.code||'');
+    if(!row||typeof row!=='object'||Array.isArray(row))continue;
+    const code=String(row.code||'');
     if(!/^\d{6}$/.test(code)||seen.has(code))continue;
     seen.add(code);
-    const rowDay=date(row.poolDay||row.tradeDate)||marketDay;
+    const ownDay=row.poolDay||row.tradeDate;
+    const rowDay=ownDay?date(ownDay):marketDay;
     const originalAt=row.vendorQuoteAt??row.quoteAt??row.quoteTimestamp;
     const age=finite(originalAt)?now-originalAt:NaN;
     const fresh=state?.trading===true&&finite(age)&&age>=0&&age<=15000&&
@@ -154,17 +156,17 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
     for(const event of events.slice(0,30)){
       const title=clipped(event?.title);
       const published=typeof event?.publishedAt==='number'?event.publishedAt:Date.parse(event?.publishedAt||'');
-      if(!title||!finite(published)||published<=0||published>now)continue;
+      if(!title||!finite(published)||published<=0||published>now||published>=8e15)continue;
       const notice='公告标题线索 '+new Date(published+8*3600000).toISOString().slice(0,10)+'：'+title;
-      if(event.category==='risk-clue'&&risks.length<5)risks.push(notice);
-      if(event.category==='strength-clue'&&positives.length<4)positives.push(notice);
+      if(event?.category==='risk-clue'&&risks.length<5)risks.push(notice);
+      if(event?.category==='strength-clue'&&positives.length<4)positives.push(notice);
     }
     if(!fresh)risks.unshift('报价非当前可核验的15秒盘中价格，不得直接作为操作依据');
     if(!risks.length)risks.push('未返回风险线索不等于零风险');
     if(items.length<bounded)items.push({
       code,name:clipped(row.name)||code,score:finite(row.score)&&row.score>=0&&row.score<=100?row.score:null,
       action,label:action==='buy'?'服务端核验买入研究标签':action==='sell'?'服务端核验卖出研究标签':'观望 / 待核验',
-      day:rowDay,quoteAt:finite(originalAt)&&originalAt>0?originalAt:null,
+      day:rowDay,quoteAt:finite(originalAt)&&originalAt>0&&originalAt<8e15?originalAt:null,
       quoteSource:clipped(row.quoteSource||row.quoteProvider||row.source)||'来源未知',
       quoteStatus:fresh?'原始报价通过15秒展示核验':'历史 / 未知 / 异常时点',
       positives,risks,signals
