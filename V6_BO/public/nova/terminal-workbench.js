@@ -235,9 +235,9 @@ export function renderTerminalOverview(ctx) {
     ' · 样本 '+(digest.total||'尚无')+' 只（仅首页候选，不是全市场）'+
     (digest.truncated?' · 仅统计服务端前200条':'') ),
    h('div',{class:'fy-grid four'},
-    decisionStat('买入研究标签',digest.total?number(digest.counts.buy):'—','需原始时点及独立核验声明'),
+    decisionStat('买入研究标签',digest.total?number(digest.counts.buy):'—','需同源原时点及真实服务端核验'),
     decisionStat('观望 / 待核验',digest.total?number(digest.counts.watch):'—','旧报价和普通评分不能升级'),
-    decisionStat('卖出研究标签',digest.total?number(digest.counts.sell):'—','仅服务端明确核验的标签')),
+    decisionStat('卖出研究标签',digest.total?number(digest.counts.sell):'—','服务端声明不等于交易认证')),
    digest.items.length?h('div',{class:'fy-stack'},
     digest.items.map(item=>h('article',{class:'fy-item','data-code':item.code},
      h('div',{class:'fy-inline'},

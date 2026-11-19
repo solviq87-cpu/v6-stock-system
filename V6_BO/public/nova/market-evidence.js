@@ -130,16 +130,33 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
     seen.add(code);
     const ownDay=row.poolDay||row.tradeDate;
     const rowDay=ownDay?date(ownDay):marketDay;
-    const originalAt=row.vendorQuoteAt??row.quoteAt??row.quoteTimestamp;
-    const age=finite(originalAt)?now-originalAt:NaN;
-    const fresh=state?.trading===true&&finite(age)&&age>=0&&age<=15000&&
-      Boolean(rowDay&&marketDay&&rowDay===marketDay&&chinaDay(originalAt)===marketDay);
+    // quoteAt/quoteTimestamp can be a copied reception or snapshot clock.
+    // Only an explicit supplier-origin field may qualify for this display gate.
+    const originalAt=Number.isSafeInteger(row.vendorQuoteAt)&&row.vendorQuoteAt>0&&row.vendorQuoteAt<8e15
+      ?row.vendorQuoteAt:null;
+    const receivedAt=Number.isSafeInteger(row.receivedAt)&&row.receivedAt>0?row.receivedAt:null;
+    const source=clipped(row.quoteSource);
+    const mode=clipped(row.quoteMode||row.mode);
+    const prohibited=/simulat|readonlybackup|(?:^|[-_:\/.\s])(?:import(?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:\/.\s])/i;
+    const sourceUsable=Boolean(source)&&!prohibited.test(source)&&
+      !/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode)&&
+      !['simulated','readOnlyBackup','imported','fixture','mock','synthetic'].some(flag=>row[flag]===true);
+    const age=originalAt===null?NaN:now-originalAt;
+    const fresh=state?.trading===true&&Number.isSafeInteger(now)&&sourceUsable&&
+      originalAt!==null&&row.quoteAt===originalAt&&row.quoteStatus==='recent-unverified'&&
+      receivedAt!==null&&receivedAt>=originalAt&&receivedAt<=now&&
+      age>=0&&age<=15000&&
+      Boolean(rowDay&&marketDay&&rowDay===marketDay&&chinaDay(now)===marketDay&&chinaDay(originalAt)===marketDay);
     const review=row.decisionReview;
-    const reviewed=review&&typeof review==='object'&&
+    const reviewed=review&&typeof review==='object'&&!Array.isArray(review)&&
       review.status==='independently-verified'&&['buy','sell'].includes(review.action)&&
+      review.symbol===code&&review.quoteAt===originalAt&&
+      Number.isSafeInteger(review.reviewedAt)&&review.reviewedAt>=originalAt&&review.reviewedAt<=now&&
       date(review.asOf)===rowDay&&clipped(review.source)&&
-      Array.isArray(review.evidence)&&review.evidence.length>0;
-    const action=fresh&&reviewed?review.action:'watch';
+      Array.isArray(review.evidence)&&review.evidence.some(item=>typeof item==='string'&&item.trim());
+    // The current server exposes verifiedLive=false: an unverified status string
+    // must not produce a buy/sell research label, let alone an execution permit.
+    const action=fresh&&state?.dashboard?.verifiedLive===true&&reviewed?review.action:'watch';
     counts[action]++;
     const positives=[],risks=[],signals=[];
     const originalSignals=Array.isArray(row.hit)?row.hit:Array.isArray(row.signals)?row.signals:[];
@@ -165,13 +182,13 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
     if(!risks.length)risks.push('未返回风险线索不等于零风险');
     if(items.length<bounded)items.push({
       code,name:clipped(row.name)||code,score:finite(row.score)&&row.score>=0&&row.score<=100?row.score:null,
-      action,label:action==='buy'?'服务端核验买入研究标签':action==='sell'?'服务端核验卖出研究标签':'观望 / 待核验',
-      day:rowDay,quoteAt:finite(originalAt)&&originalAt>0&&originalAt<8e15?originalAt:null,
-      quoteSource:clipped(row.quoteSource||row.quoteProvider||row.source)||'来源未知',
-      quoteStatus:fresh?'原始报价通过15秒展示核验':'历史 / 未知 / 异常时点',
+      action,label:action==='buy'?'服务端声明买入研究标签（非交易建议）':action==='sell'?'服务端声明卖出研究标签（非交易建议）':'观望 / 待核验',
+      day:rowDay,quoteAt:originalAt,
+      quoteSource:source||'来源未知',
+      quoteStatus:fresh?'供应商声明原时点在15秒内（未独立认证）':'历史 / 未知 / 异常时点',
       positives,risks,signals
     });
   }
   return {marketDay,total:seen.size,counts,items,truncated:raw.length>200,
-    note:'只统计首页已回传去重候选；15秒原报价与服务端核验声明仅为研究展示，浏览器未独立认证供应商、交易权限或策略收益。'};
+    note:'只统计首页已回传去重候选；缺原始供应商时间、接收因果时序或独立核验时保持观望。源端声明不是浏览器独立认证，不代表交易许可或策略收益。'};
 }

@@ -29,3 +29,11 @@ V6_MODEL_PYTHON=/path/to/ml-python V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENB
 ## 参考项目中仍需分阶段验证的能力
 
 上游所列15种 Agent 问股、TickPlus/Tushare/Longbridge/YFinance 可选行情、SerpAPI/Anspire/Tavily/Brave/SearXNG 搜索、跨市场/多渠道推送须先和 V6 已有策略、数据来源目录、推送接口和业务门禁逐项去重并核对许可、是否收费、时区、来源、报价原始时点与网络可用性。不能把 README 声明当成 V6 实测接通。禁止未经证据验证的生产交易建议，不接券商实盘，不引入 OpenAI/ChatGPT API。
+
+## 2026-11-19 安全修订（PR #311）
+
+- 决策投影不再把普通 `quoteAt` / `quoteTimestamp` / `receivedAt` 推断成 `vendorQuoteAt`。没有同一股票源行明确的 `vendorQuoteAt` 则报价时点显示未知，研究标签保持观望；不从接收时间或快照日重建。
+- 在展示 15 秒新鲜度前，还要求 `quoteAt === vendorQuoteAt`、可辨来源、`receivedAt >= vendorQuoteAt` 且不晚于当前时钟、服务端 `quoteStatus=recent-unverified`、上海当前日期与源报价日期及字段日期一致、非模拟/历史/导入/只读备用模式。15 秒整通过，超出或未来阻止。
+- 买卖研究标签还要求服务端 `dashboard.verifiedLive === true` 及绑定股票代码、报价原时点和审核时点的审核记录。**当前实际服务端 `dashboardView` 明确返回 `verifiedLive:false`，且尚未把供应商专用 `vendorQuoteAt` 投到首页行，因而现网预期全部显示“观望 / 待核验”。这不是已经完成了供应商验证或可买卖推荐。**
+- 即使未来服务端声明已核验，浏览器也不能独立认证供应商真实性；界面改为“服务端声明”，不将源端标记冒称交易所认证、实际收益或交易资格。需要另行审计上游报价解析/权限/审核产生链路，并以全量回归和真实可用性验收后才可升级 UI。
+- 回归补充缺原时点、旧源时间与新接收时间冲突、未来、缺接收时点、非法顺序、错源、15秒边界、跨日、身份不匹配的研究审核以及模拟模式，保留原策略、账户、权限与交易路径不变。

@@ -71,11 +71,13 @@ test('native tracking keeps unknown statuses unknown and deduplicates repeated f
 test('decision brief accepts only exact original time and explicit independently verified research labels',async()=>{
  const {projectDecisionBrief}=await api;
  const ts=Date.parse('2026-11-19T05:00:00Z');
- const review={status:'independently-verified',action:'buy',asOf:'2026-11-19',source:'v6-research',evidence:['dated-record']};
- const first={code:'600519',name:'当日有证据样本',score:63,quoteAt:ts-15000,quoteSource:'eastmoney',decisionReview:review,aboveMa5:true,
+ const review={status:'independently-verified',action:'buy',asOf:'2026-11-19',source:'v6-research',evidence:['dated-record'],
+  symbol:'600519',quoteAt:ts-15000,reviewedAt:ts-500};
+ const first={code:'600519',name:'当日有证据样本',score:63,quoteAt:ts-15000,vendorQuoteAt:ts-15000,
+  receivedAt:ts-1000,quoteStatus:'recent-unverified',quoteSource:'eastmoney',decisionReview:review,aboveMa5:true,
   issuerEvidence:{events:[{category:'risk-clue',title:'风险公告标题（正文待核验）',publishedAt:'2026-11-18T06:00:00Z'},
    {category:'strength-clue',title:'利好标题线索',publishedAt:'2026-11-18T06:00:00Z'}]}};
- const state={trading:true,snapshotFieldDays:{dashboard:'20261119'},dashboard:{snapshotDay:'20261119',
+ const state={trading:true,snapshotFieldDays:{dashboard:'20261119'},dashboard:{verifiedLive:true,snapshotDay:'20261119',
   rows:[first,{code:'600519',name:'同股重复行'},null,
    {code:'000001',name:'未来报价',score:NaN,quoteAt:ts+3000,action:'sell'}]}};
  const value=projectDecisionBrief(state,{now:ts});
@@ -91,10 +93,37 @@ test('decision brief accepts only exact original time and explicit independently
   {state,time:ts+1},
   {state:{...state,dashboard:{...state.dashboard,rows:[{...first,poolDay:'20261118'}]}},time:ts},
   {state:{...state,dashboard:{...state.dashboard,rows:[{...first,vendorQuoteAt:NaN}]}},time:ts},
-  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,status:'unverified'}}]}},time:ts}
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,status:'unverified'}}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,verifiedLive:false}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,vendorQuoteAt:undefined,quoteAt:ts-1000,receivedAt:ts}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,vendorQuoteAt:undefined,quoteTimestamp:ts-1000}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,vendorQuoteAt:ts-3600000,quoteAt:ts-1000}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,receivedAt:undefined}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,receivedAt:ts+1000}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,receivedAt:ts-15001}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,quoteAt:ts-1000}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,quoteStatus:'stale'}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,quoteSource:'readOnlyBackup'}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,quoteMode:'historical-bars'}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,simulated:true}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,symbol:'000001'}}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,quoteAt:ts-1000}}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,reviewedAt:ts+1000}}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,evidence:[null,'']}}]}},time:ts}
  ];
  for(const item of cases)assert.equal(projectDecisionBrief(item.state,{now:item.time}).counts.buy,0,
   'stale, future, mismatched, unknown or unverified rows must remain watch only');
+ const legacy=projectDecisionBrief({...state,dashboard:{...state.dashboard,rows:[{
+  ...first,vendorQuoteAt:undefined,quoteAt:ts-1000,quoteTimestamp:ts-1000,receivedAt:ts
+ }]}},{now:ts});
+ assert.equal(legacy.items[0].quoteAt,null,'ambiguous server time must not be displayed as original vendor time');
+ assert.equal(legacy.counts.watch,1);
+ // Shanghai midnight, despite being less than 15 seconds old, is not the same market day.
+ const midnight=Date.parse('2026-11-19T16:00:00Z');
+ const nearMidnight={...first,quoteAt:midnight-1000,vendorQuoteAt:midnight-1000,receivedAt:midnight-500,
+  decisionReview:{...review,quoteAt:midnight-1000,reviewedAt:midnight-500}};
+ const crossDay=projectDecisionBrief({...state,dashboard:{...state.dashboard,rows:[nearMidnight]}},{now:midnight});
+ assert.equal(crossDay.counts.watch,1,'a stale wrapper day cannot promote a quote after Shanghai midnight');
  assert.equal(first.quoteAt,ts-15000,'the source object and timestamps stay untouched');
 });
 
