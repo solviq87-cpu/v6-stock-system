@@ -1,7 +1,0 @@
-{
-  "mode": "public",
-  "code": "600519",
-  "outputFile": "/safe/public-quotes.json",
-  "intervalMs": 15000,
-  "timeoutMs": 8000
-}
