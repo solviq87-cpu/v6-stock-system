@@ -1,0 +1,108 @@
+# Never publish on an unvalidated PR. Only a successful exact-source V6 CI
+# push to dev can update the isolated, non-trading Streamlit source branch.
+name: Export Streamlit Readonly Source
+on:
+  workflow_run:
+    workflows: ["V6 CI"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: v6-streamlit-release-sync
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'dev' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.12']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Confirm tested source is still dev HEAD
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          REMOTE_SHA="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/dev | cut -f1)"
+          test -n "$REMOTE_SHA"
+          test "$REMOTE_SHA" = "$SOURCE_SHA"
+      - name: Install deployment requirements and run exact-source tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -r streamlit_readonly/requirements.txt 'pytest>=7,<10'
+          python -m compileall -q streamlit_readonly
+          python -m pytest -q streamlit_readonly/tests
+          cd streamlit_readonly
+          python - <<'PY'
+          import akshare, streamlit, market_data, analysis_core
+          print("streamlit", streamlit.__version__, "akshare", akshare.__version__)
+          PY
+
+  publish:
+    needs: [validate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Recheck dev SHA and export allowlisted files only
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REMOTE_SHA="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/dev | cut -f1)"
+          test -n "$REMOTE_SHA"
+          test "$REMOTE_SHA" = "$SOURCE_SHA"
+
+          DST="$RUNNER_TEMP/streamlit-release"
+          git clone --quiet --depth 1 --branch streamlit-release "https://github.com/${GITHUB_REPOSITORY}.git" "$DST"
+          test -d "$DST/.git"
+          test ! -e "$DST/V6_BO"
+          test ! -e "$DST/.env"
+
+          # Never copy the V6 backend, credentials, account state, trading APIs,
+          # or any arbitrary file from the repository.
+          for f in app.py analysis_core.py market_data.py requirements.txt zbpack.json; do
+            cp "streamlit_readonly/$f" "$DST/$f"
+          done
+          mkdir -p "$DST/.streamlit" "$DST/tests"
+          cp streamlit_readonly/.streamlit/config.toml "$DST/.streamlit/config.toml"
+          cp streamlit_readonly/README_RELEASE.md "$DST/README.md"
+          cp streamlit_readonly/tests/test_core.py "$DST/tests/test_core.py"
+          python - "$DST/tests/test_core.py" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          before=p.read_text(encoding='utf-8')
+          after=before.replace("from streamlit_readonly.analysis_core import", "from analysis_core import")
+          if before == after:
+              raise SystemExit("Expected isolated import was not found; refusing release")
+          p.write_text(after, encoding='utf-8')
+          PY
+          git -C "$DST" add app.py analysis_core.py market_data.py requirements.txt zbpack.json README.md .streamlit/config.toml tests/test_core.py
+          if git -C "$DST" diff --cached --quiet; then
+            echo "No changes in the allowlisted preview files"
+            exit 0
+          fi
+
+          # Protect against a newer dev commit arriving during the build.
+          REMOTE_SHA="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/dev | cut -f1)"
+          test "$REMOTE_SHA" = "$SOURCE_SHA"
+          git -C "$DST" config user.name "github-actions[bot]"
+          git -C "$DST" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$DST" commit -m "sync(readonly-preview): validated V6 source $SOURCE_SHA"
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -C "$DST" -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin HEAD:refs/heads/streamlit-release
