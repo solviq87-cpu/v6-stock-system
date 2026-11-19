@@ -171,7 +171,7 @@ export function renderTerminalOverview(ctx) {
    h('div',{},h('h2',{},'重点候选'),h('p',{class:'fy-terminal-hint'},'仅预览当前云端已返回的原始候选；历史报价不等于可交易信号。')),
    moduleButton('查看全部候选','opportunities','all',ctx)),
   candidatePreview);
- view.append(title,status,prioritiesHost,decisionsHost,indexHost,statsHost,panelsHost,reviewHost,quick,candidates);
+ view.append(title,status,prioritiesHost,indexHost,statsHost,decisionsHost,panelsHost,reviewHost,quick,candidates);
  function paint() {
   if(ctx.signal?.aborted)return;
   // Focused elements are not replaced while a keyboard user is interacting with them.
