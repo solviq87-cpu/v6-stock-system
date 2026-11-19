@@ -1217,3 +1217,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-terminal-candidates{order:7}
  .fy-terminal-quick{order:8}
 }
+
+/* Integration layout: keep the source-backed daily review ahead of the
+ * added per-stock evidence section. Neither dataset nor its guards change. */
+.fy-terminal-decisions{order:7}

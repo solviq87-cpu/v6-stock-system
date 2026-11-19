@@ -166,7 +166,7 @@ const runChecks=async()=>{
       title:b('.fy-terminal-title'),meta:b('.fy-terminal-provenance'),
       ticker:b('.fy-terminal-index'),stats:b('.fy-terminal-stats'),
       focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
-      review:b('.fy-terminal-review'),firstPanel:b('.fy-terminal-panels>.fy-section'),
+      review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
@@ -179,6 +179,8 @@ const runChecks=async()=>{
     assert.equal(regions.sourceCount,8,'original eight audited counters remain');
     assert.ok(regions.sourceVisible,'original date/source/unknown status must remain visible');
     assert.ok(regions.title.top<regions.meta.top,'title precedes provenance');
+    assert.ok(regions.decisions&&regions.review.top<regions.decisions.top,
+      'new evidence cards must follow the original daily review instead of pushing it below the first fold');
     const rgb=v=>(v.match(/\d+/g)||[]).slice(0,3).map(Number);
     const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
     assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
