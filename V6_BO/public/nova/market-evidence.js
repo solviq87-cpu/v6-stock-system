@@ -178,8 +178,8 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
       if(event?.category==='risk-clue'&&risks.length<5)risks.push(notice);
       if(event?.category==='strength-clue'&&positives.length<4)positives.push(notice);
     }
-    if(!fresh)risks.unshift('报价非当前可核验的15秒盘中价格，不得直接作为操作依据');
     if(!risks.length)risks.push('未返回风险线索不等于零风险');
+    if(!fresh)risks.unshift('报价非当前可核验的15秒盘中价格，不得直接作为操作依据');
     if(items.length<bounded)items.push({
       code,name:clipped(row.name)||code,score:finite(row.score)&&row.score>=0&&row.score<=100?row.score:null,
       action,label:action==='buy'?'服务端声明买入研究标签（非交易建议）':action==='sell'?'服务端声明卖出研究标签（非交易建议）':'观望 / 待核验',
