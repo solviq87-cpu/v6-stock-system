@@ -17,7 +17,7 @@ v6-stock-system/
     analysis_core.py          # 独立教学筛选和回测，非 V6 正式策略
     market_data.py            # AKShare 独立数据适配器
     requirements.txt
-    .streamlit/config.toml    # 7860 端口，私有访问必须设置密码
+    .streamlit/config.toml    # 默认端口；OpenXLab 启动命令另设 7860，访问需私有密码
     zbpack.json               # Zeabur 候选部署配置
     tests/test_core.py
     README.md
@@ -57,7 +57,7 @@ python -m pytest -q streamlit_readonly/tests
 
 - 仓库：`https://github.com/solviq87-cpu/v6-stock-system`
 - 分支：`streamlit-release`（不是 `dev`）
-- 应用组件：`Streamlit`，启动入口：`app.py`，端口：`7860`
+- 应用组件：`Streamlit`，启动入口：`app.py`，端口：`7860`（通过启动命令 `--server.port 7860` 指定）
 - 地区：如果控制台提供上海且符合免费资源条件，优先选上海；否则选实际可用的免费 CPU
 - 安全：在**平台环境变量**配置 `DASHBOARD_PASSWORD`，不可提交到 GitHub
 - 仅提供 AKShare 公开行情、条件选股和教学回测；未连接完整 V6/FAYO
@@ -84,3 +84,7 @@ python -m pytest -q streamlit_readonly/tests
 - 回测仅用于教学，未模拟停牌、涨跌停不可成交、复权/分红等，非专业回测。
 - 未部署到公网，手机/电脑连通性未测，亦未验证 OpenXLab/Zeabur 真实行情。
 - 下阶段若要复用 V6 核心数据，只能由原 V6 授权接口提供**脱敏、只读、带原始时间和来源的展示数据**，不复制策略代码或开启任何交易 API。详见同目录 `INTEGRATION_CONTRACT.md`。
+
+## Streamlit Community Cloud 端口说明
+
+Streamlit Community Cloud 默认监听 8501；为兼容平台健康检查，`.streamlit/config.toml` 不再锁定 7860。OpenXLab/Zeabur 如需 7860，使用上面注明的 `--server.port 7860` 启动命令。应用具体启动失败原因需查看平台日志，不可仅凭兼容改动判定已修复。
