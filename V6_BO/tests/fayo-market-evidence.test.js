@@ -67,3 +67,48 @@ test('native tracking keeps unknown statuses unknown and deduplicates repeated f
  assert.deepEqual(result.entries[0].windows.map(row=>row.pct),[null,null,null,null]);
  assert.equal(result.entries[0].windows[0].state,'unknown');assert.equal(result.entries[0].windows[1].state,'unknown');
 });
+
+test('decision brief accepts only exact original time and explicit independently verified research labels',async()=>{
+ const {projectDecisionBrief}=await api;
+ const ts=Date.parse('2026-11-19T05:00:00Z');
+ const review={status:'independently-verified',action:'buy',asOf:'2026-11-19',source:'v6-research',evidence:['dated-record']};
+ const first={code:'600519',name:'当日有证据样本',score:63,quoteAt:ts-15000,quoteSource:'eastmoney',decisionReview:review,aboveMa5:true,
+  issuerEvidence:{events:[{category:'risk-clue',title:'风险公告标题（正文待核验）',publishedAt:'2026-11-18T06:00:00Z'},
+   {category:'strength-clue',title:'利好标题线索',publishedAt:'2026-11-18T06:00:00Z'}]}};
+ const state={trading:true,snapshotFieldDays:{dashboard:'20261119'},dashboard:{snapshotDay:'20261119',
+  rows:[first,{code:'600519',name:'同股重复行'},null,
+   {code:'000001',name:'未来报价',score:NaN,quoteAt:ts+3000,action:'sell'}]}};
+ const value=projectDecisionBrief(state,{now:ts});
+ assert.equal(value.total,2);assert.deepEqual(value.counts,{buy:1,watch:1,sell:0});
+ assert.equal(value.items[0].quoteAt,first.quoteAt);
+ assert.match(value.items[0].positives.join('；'),/利好标题线索/);
+ assert.match(value.items[0].risks.join('；'),/风险公告标题/);
+ assert.equal(value.items[1].score,null);
+ assert.match(value.items[1].quoteStatus,/异常时点/);
+ const cases=[
+  {state:{...state,trading:false},time:ts},
+  {state:{...state,snapshotFieldDays:{dashboard:'20261118'}},time:ts},
+  {state,time:ts+1},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,poolDay:'20261118'}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,vendorQuoteAt:NaN}]}},time:ts},
+  {state:{...state,dashboard:{...state.dashboard,rows:[{...first,decisionReview:{...review,status:'unverified'}}]}},time:ts}
+ ];
+ for(const item of cases)assert.equal(projectDecisionBrief(item.state,{now:item.time}).counts.buy,0,
+  'stale, future, mismatched, unknown or unverified rows must remain watch only');
+ assert.equal(first.quoteAt,ts-15000,'the source object and timestamps stay untouched');
+});
+
+test('decision brief does not fabricate risk-free results, market breadth or buy calls from score alone',async()=>{
+ const {projectDecisionBrief}=await api,ts=Date.parse('2026-11-19T05:00:00Z');
+ assert.deepEqual(projectDecisionBrief({trading:true,dashboard:{rows:[]}},{now:ts}).counts,{buy:0,watch:0,sell:0});
+ const sample={trading:true,dashboard:{snapshotDay:'20261119',rows:[
+  {code:'600001',name:'高评分但缺核验',score:95,quoteAt:ts-1000,quoteSource:'eastmoney',
+   action:'buy',aboveMa5:true,mainInflow:888888888,issuerEvidence:{events:[null,{category:'strength-clue',title:'无时间不能使用'}]}}
+ ]}};
+ const result=projectDecisionBrief(sample,{now:ts});
+ assert.deepEqual(result.counts,{buy:0,watch:1,sell:0});
+ assert.match(result.items[0].risks.join('；'),/零风险/);
+ assert.doesNotMatch(result.items[0].positives.join('；'),/资金流入|无时间不能使用/);
+ assert.equal(result.items[0].score,95);
+ assert.equal(result.marketDay,'2026-11-19');
+});
