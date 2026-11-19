@@ -44,7 +44,7 @@ function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=
     sources:(previousMeta?.sources||[]).map(source=>({...source,status:source.providerComplete?'retained':source.status,
       lastAttempt:attemptedSources.find(attempt=>attempt.source===source.source)})),lastAttempt:{requestedDate:day,sources:attemptedSources}}};
  }
- const oldSource=name=>normalizeDay(previousMeta?.tradeDate)===day?(previousMeta.sources||[]).find(source=>source.source===name&&normalizeDay(source.tradeDate)===day&&
+ const oldSource=name=>day&&normalizeDay(previousMeta?.tradeDate)===day?(previousMeta.sources||[]).find(source=>source.source===name&&normalizeDay(source.tradeDate)===day&&
   (source.providerComplete||name==='eastmoney'&&previousRows.some(row=>(row.sources||[]).includes('eastmoney')&&normalizeDay(row.tradeDate)===day))):null;
  const oldEm=oldSource('eastmoney'),oldCls=oldSource('cls');
  const currentEmCodes=new Set(emRows.filter(row=>row.src==='em'&&/^\d{6}$/.test(row.code||'')).map(row=>row.code)),heldEmCodes=new Set();
