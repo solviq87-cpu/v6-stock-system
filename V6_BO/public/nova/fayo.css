@@ -1076,3 +1076,262 @@ body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
  .fy-terminal-quick{order:7}
  .fy-terminal-candidates{order:8}
 }
+
+/* ==================================================================
+   V6 USER TWO-REFERENCE LAYOUT / 2026-11-19
+   One product, one login and one source of truth. No sample market data.
+   Desktop/home matches terminal reference; /pulse/review matches review.
+   ================================================================== */
+:root{
+ --fy-bg:#07091d;--fy-surface:#12142f;--fy-raised:#221549;
+ --fy-border:#7253bb;--fy-text:#eff4ff;--fy-muted:#c1bddf;
+ --fy-pink:#ec55d9;--fy-violet:#a96eff;--fy-neon-blue:#299bff;
+}
+.fy-reference-shell{
+ background:radial-gradient(ellipse at 50% 1%,#522f9b35,transparent 46%),
+   linear-gradient(145deg,#060916,#0d0b25 55%,#070b1c);
+}
+.fy-reference-shell .fy-header{
+ background:linear-gradient(100deg,#060b23,#11102e 63%,#0b0a25);
+ border-bottom:1px solid #4853c9;box-shadow:0 3px 16px #5131c936;
+}
+.fy-reference-shell .fy-brand{min-width:0}
+.fy-reference-shell .fy-brand strong{font-size:21px;letter-spacing:.025em;white-space:nowrap}
+.fy-reference-shell .fy-brand small{font-size:9px;color:#c4b8eb;letter-spacing:.025em}
+.fy-reference-shell .fy-nav{display:none}
+.fy-reference-topnav{
+ display:flex;align-items:stretch;justify-content:center;flex:1 1 auto;
+ min-width:0;gap:3px;overflow-x:auto;scrollbar-width:none;
+}
+.fy-reference-topnav::-webkit-scrollbar{display:none}
+.fy-reference-topnav button{
+ flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+ flex-direction:column;gap:3px;min-width:52px;padding:6px 7px;
+ font-size:11px;font-weight:650;color:#b9c6eb;background:transparent;
+ border:1px solid transparent;border-radius:8px;white-space:nowrap;line-height:1.2;
+}
+.fy-reference-topnav button svg{width:18px;height:18px;color:#94c8ff}
+.fy-reference-topnav button:hover,.fy-reference-topnav button:focus-visible{
+ color:#fff;background:#282358;border-color:#6469d2
+}
+.fy-reference-topnav button[data-current=true]{
+ color:#fff;background:linear-gradient(145deg,#194caa,#11487b);
+ border-color:#398dff;box-shadow:0 0 14px #348de765
+}
+.fy-reference-topnav button[data-current=true] svg{color:#8bd7ff}
+.fy-reference-shell .fy-business-nav{
+ border-color:#5654b1;
+ background:linear-gradient(180deg,#121133,#0d193b);
+}
+.fy-reference-shell .fy-business-nav button{
+ border-color:transparent;background:transparent;color:#b7caee;
+ text-align:left;font-size:12px
+}
+.fy-reference-shell .fy-business-nav button[data-current=true]{
+ color:#fff;background:linear-gradient(110deg,#134a99,#1a3675);
+ border:1px solid #398dff;box-shadow:0 0 13px #3978d445
+}
+.fy-reference-shell .fy-main{max-width:2000px}
+.fy-reference-shell .fy-terminal{
+ display:flex;flex-direction:column;gap:12px;min-width:0
+}
+.fy-reference-shell .fy-terminal-title{
+ padding:12px 17px;min-height:0;border:1px solid #6765bd;
+ background:linear-gradient(110deg,#11173c,#221642 75%,#141735);
+ border-radius:10px;box-shadow:inset 0 1px 0 #b3baf52e
+}
+.fy-reference-shell .fy-terminal-title h1{
+ font-size:19px;margin:0;color:#f7f2ff;text-shadow:none
+}
+.fy-reference-shell .fy-terminal-title p{margin:3px 0 0;font-size:11px;color:#bec8ec}
+.fy-reference-shell .fy-terminal-title .fy-terminal-eyebrow{display:none}
+.fy-reference-shell .fy-terminal-actions .fy-button{min-height:34px;font-size:11px;padding:6px 10px}
+.fy-reference-shell .fy-terminal-provenance{
+ border-radius:9px;padding:8px 11px;gap:5px 12px;
+ background:#131838;border:1px solid #4d4d93
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker>div{
+ border:1px solid #2f6bcb;border-radius:10px;padding:9px 11px;
+ min-height:90px;min-width:0;background:linear-gradient(155deg,#0c2146,#181534)
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker strong{font-size:21px}
+.fy-reference-shell .fy-terminal-stats{gap:7px}
+.fy-reference-shell .fy-terminal-stat{border-radius:9px;min-height:82px;padding:10px 11px}
+.fy-reference-shell .fy-terminal-stat>strong{font-size:25px}
+.fy-reference-shell .fy-terminal-priorities{border-color:#6160ad;background:#171332}
+.fy-reference-shell .fy-terminal-priority{padding:10px 12px}
+.fy-reference-shell .fy-terminal-priority>strong{font-size:13px}
+.fy-reference-shell .fy-reference-topgrid,
+.fy-reference-shell .fy-reference-midgrid,
+.fy-reference-shell .fy-reference-lowergrid,
+.fy-reference-shell .fy-reference-review-footer{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch
+}
+.fy-reference-shell .fy-reference-topgrid{grid-template-columns:1.02fr 1.18fr 1fr}
+.fy-reference-shell .fy-reference-midgrid{grid-template-columns:1.1fr 1fr .8fr}
+.fy-reference-shell .fy-reference-lowergrid{grid-template-columns:1.55fr 1fr .85fr}
+.fy-reference-shell .fy-reference-topgrid>*,
+.fy-reference-shell .fy-reference-midgrid>*,
+.fy-reference-shell .fy-reference-lowergrid>*,
+.fy-reference-shell .fy-reference-review-footer>*{min-width:0}
+.fy-reference-shell .fy-reference-topgrid>.fy-section,
+.fy-reference-shell .fy-reference-midgrid>.fy-section,
+.fy-reference-shell .fy-reference-lowergrid>.fy-section,
+.fy-reference-shell .fy-reference-mini-module{
+ margin:0;min-width:0;border:1px solid #6954b2;border-radius:11px;
+ padding:13px;background:linear-gradient(145deg,#19183b,#17112e 70%,#161a3d);
+ box-shadow:inset 0 1px 0 #bc9ee72e,0 5px 14px #04051d8a;
+}
+.fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates{
+ background:linear-gradient(145deg,#1a133b,#171a42);
+ border-color:#8c50db
+}
+.fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates .fy-stock-grid{
+ display:grid;grid-template-columns:minmax(0,1fr);gap:6px;
+ max-height:280px;overflow:auto
+}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card{
+ padding:9px 11px;border-radius:8px;box-shadow:none
+}
+.fy-reference-shell .fy-reference-topgrid h2,
+.fy-reference-shell .fy-reference-midgrid h2,
+.fy-reference-shell .fy-reference-lowergrid h2{font-size:15px;color:#f5ebff}
+.fy-reference-shell .fy-reference-topgrid p,
+.fy-reference-shell .fy-reference-midgrid p,
+.fy-reference-shell .fy-reference-lowergrid p{font-size:11px;line-height:1.5}
+.fy-reference-shell .fy-reference-signal-body{display:grid;grid-template-columns:135px minmax(0,1fr);gap:10px}
+.fy-reference-shell .fy-reference-signal-ring{
+ width:135px;aspect-ratio:1;border:7px solid #aa4aa9;
+ border-right-color:#1d8ea2;border-bottom-color:#3577cf;
+ border-radius:50%;display:flex;flex-direction:column;justify-content:center;
+ align-items:center;text-align:center;gap:4px;padding:9px;
+ background:radial-gradient(circle,#24396a,#131b3d);
+ box-shadow:0 0 16px #ab52bb66,inset 0 0 20px #020c347a
+}
+.fy-reference-shell .fy-reference-signal-ring small{font-size:9px;color:#d4caff}
+.fy-reference-shell .fy-reference-signal-ring strong{font-size:16px;color:#4ce2ad}
+.fy-reference-shell .fy-reference-signal-ring span{font-size:9px;color:#bbcbe8;line-height:1.4}
+.fy-reference-shell .fy-reference-signal-notes p{
+ margin:5px 0 8px;padding-bottom:4px;border-bottom:1px solid #343968;
+ color:#c8d5ef;overflow-wrap:anywhere
+}
+.fy-reference-shell .fy-reference-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.fy-reference-shell .fy-reference-actions .fy-button{flex:1;min-width:0;min-height:38px;font-size:11px}
+.fy-reference-shell .fy-reference-flow{
+ display:grid;grid-template-columns:minmax(55px,1fr) minmax(36px,1.3fr) auto;
+ gap:8px;align-items:center;padding:6px 0;font-size:11px
+}
+.fy-reference-shell .fy-reference-flow>span{overflow-wrap:anywhere}
+.fy-reference-shell .fy-reference-flow-track{
+ display:block;height:9px;background:#17254e;border-radius:2px;overflow:hidden
+}
+.fy-reference-shell .fy-reference-flow-track>b{
+ display:block;height:100%;background:linear-gradient(90deg,#b63487,#f06bbb)
+}
+.fy-reference-shell .fy-reference-flow strong{font-size:11px;white-space:nowrap}
+.fy-reference-shell .fy-reference-news-body{display:grid;gap:7px}
+.fy-reference-shell .fy-reference-news-item{
+ border-bottom:1px solid #38305a;padding:6px 0
+}
+.fy-reference-shell .fy-reference-news-item strong{display:block;color:#e9ecff;font-size:11px;line-height:1.5}
+.fy-reference-shell .fy-reference-news-item small{display:block;color:#b2b1d7;font-size:10px;margin-top:4px}
+.fy-reference-shell .fy-reference-account-status{
+ font-size:13px;color:#a9d5ff;font-weight:650;padding:10px;border-radius:8px;
+ background:linear-gradient(125deg,#183059,#191a46)
+}
+.fy-reference-shell .fy-reference-chart-body{min-height:154px}
+.fy-reference-shell .fy-reference-chart-body svg{width:100%;height:170px}
+.fy-reference-shell .fy-reference-strategy-links{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px
+}
+.fy-reference-shell .fy-reference-strategy-links .fy-button{
+ min-width:0;min-height:42px;padding:7px;font-size:11px;
+ border-color:#7864c5;background:linear-gradient(135deg,#251657,#242054)
+}
+.fy-reference-shell .fy-reference-risk-list{
+ display:flex;flex-direction:column;gap:7px;font-size:11px;color:#b9e1d1
+}
+.fy-reference-shell .fy-reference-risk-list span:before{content:'✓';padding-right:7px;color:#48e3ad}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review{max-height:365px;overflow:hidden}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-list{
+ max-height:260px;overflow:auto
+}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-head{flex-wrap:wrap}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-head h2{font-size:14px}
+.fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(7,minmax(0,1fr))}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat{min-height:94px;text-align:center}
+.fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-context .fy-terminal-panels>.fy-section{
+ min-width:0;margin:0;max-height:270px;overflow:auto;padding:12px;
+ border-radius:10px;background:linear-gradient(135deg,#22174a,#121836)
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-review{margin:0}
+.fy-reference-shell .fy-reference-review .fy-terminal-review-list{max-height:440px;overflow:auto}
+.fy-reference-shell .fy-reference-review-footer{
+ grid-template-columns:repeat(6,minmax(0,1fr))
+}
+.fy-reference-shell .fy-reference-mini-module{
+ display:flex;flex-direction:column;align-items:stretch;gap:10px
+}
+.fy-reference-shell .fy-reference-mini-module strong{font-size:12px;color:#e6d9ff}
+.fy-reference-shell .fy-reference-mini-module .fy-button{margin-top:auto;min-height:36px}
+@media(max-width:1359px){
+ .fy-reference-topnav button{min-width:47px;padding:6px 4px;font-size:10px}
+ .fy-reference-shell .fy-brand strong{font-size:17px}
+ .fy-reference-shell .fy-brand small{font-size:8px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:112px;justify-self:center}
+ .fy-reference-shell .fy-reference-midgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-midgrid>.fy-terminal-review{grid-column:1/-1}
+}
+@media(max-width:1000px){
+ .fy-reference-topnav{display:none}
+ .fy-reference-shell .fy-reference-topgrid,
+ .fy-reference-shell .fy-reference-midgrid,
+ .fy-reference-shell .fy-reference-lowergrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-topgrid>.fy-terminal-candidates{grid-column:auto}
+ .fy-reference-shell .fy-reference-lowergrid>:first-child{grid-column:1/-1}
+ .fy-reference-shell .fy-reference-review-footer{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:650px){
+ .fy-reference-shell .fy-header{padding:9px 12px;min-height:62px;height:62px}
+ .fy-reference-shell .fy-brand strong{font-size:17px}
+ .fy-reference-shell .fy-brand small{font-size:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .fy-reference-shell .fy-business-nav{padding:7px 9px;gap:4px}
+ .fy-reference-shell .fy-business-nav button{padding:5px 10px;min-height:33px;font-size:10px;white-space:nowrap}
+ .fy-reference-shell .fy-terminal-title{padding:9px 11px;min-height:0}
+ .fy-reference-shell .fy-terminal-title h1{font-size:17px}
+ .fy-reference-shell .fy-terminal-title p{font-size:10px}
+ .fy-reference-shell .fy-terminal-actions{gap:4px}
+ .fy-reference-shell .fy-terminal-actions .fy-button{min-height:32px;font-size:10px;padding:5px 7px}
+ .fy-reference-shell .fy-terminal-index .fy-market-ticker{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-terminal-index .fy-market-ticker>div{min-height:88px;padding:9px}
+ .fy-reference-shell .fy-terminal-stat{min-height:65px;padding:8px}
+ .fy-reference-shell .fy-terminal-stat>strong{font-size:21px}
+ .fy-reference-shell .fy-reference-topgrid,
+ .fy-reference-shell .fy-reference-midgrid,
+ .fy-reference-shell .fy-reference-lowergrid{grid-template-columns:minmax(0,1fr);gap:8px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:125px minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:125px}
+ .fy-reference-shell .fy-reference-midgrid>.fy-terminal-review{grid-column:auto}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats>.fy-terminal-stat:first-child{grid-column:span 2}
+ .fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-review .fy-terminal-review-list{max-height:none}
+ .fy-reference-shell .fy-reference-review-footer{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-terminal-provenance{padding:6px 8px;font-size:9px}
+ .fy-reference-shell .fy-dock button{font-size:10px;min-width:0}
+}
+@media(max-width:360px){
+ .fy-reference-shell .fy-brand strong{font-size:15px}
+ .fy-reference-shell .fy-brand small{max-width:170px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:114px}
+}
