@@ -59,6 +59,27 @@ test('complete CLS-only evidence remains usable for review while all-source fail
  const input=sources(),first=mergeLimitReviewPools({...input,eastmoneyRows:[],eastmoneyMeta:null});assert.equal(first.rows.length,38);assert.equal(first.meta.source,'cls');assert.equal(first.meta.partial,true);
  const held=mergeLimitReviewPools({tradeDate:'2026-11-16',cls:{status:'unavailable'},previousRows:first.rows,previousMeta:first.meta});assert.equal(held.rows.length,first.rows.length);assert.equal(held.rows[0].receivedAt,first.rows[0].receivedAt);assert.equal(held.meta.tradeDate,'2026-11-13');assert.equal(held.meta.lastAttempt.requestedDate,'2026-11-16');
 });
+test('invalid requested trade day never accepts undated EM or CLS records as confirmed',()=>{
+ const emRows=[{code:'600111',name:'日期未知',src:'em',tradeDate:null,sourceTradeDate:null,receivedAt:now}];
+ const cls={status:'available',complete:true,tradeDate:null,totalCount:1,fetchedCount:1,uniqueCount:1,
+  items:[{code:'600112',name:'日期未知',src:'cls',tradeDate:null,sourceTradeDate:null,receivedAt:now}]};
+ for(const tradeDate of [null,undefined,'2026-02-30']){
+  const result=mergeLimitReviewPools({eastmoneyRows:emRows,eastmoneyMeta:{totalCount:1,receivedAt:now},cls,tradeDate});
+  assert.deepEqual(result.rows,[]);
+  assert.equal(result.meta.tradeDate,null);
+  assert.equal(result.meta.providerComplete,false);
+  assert.equal(result.meta.status,'unavailable');
+  assert.ok(result.meta.sources.every(source=>source.status!=='available'));
+ }
+ const previous=mergeLimitReviewPools(sources());
+ const retained=mergeLimitReviewPools({tradeDate:null,eastmoneyRows:emRows,eastmoneyMeta:{totalCount:1},
+  cls,previousRows:previous.rows,previousMeta:previous.meta});
+ assert.equal(retained.meta.status,'retained');
+ assert.equal(retained.meta.tradeDate,'2026-11-13');
+ assert.ok(retained.rows.every(row=>row.heldRecord===true&&row.currentSourceConfirmed===false&&
+  row.canTrade===false&&row.canNotify===false));
+});
+
 test('readonly display carries its own actual day without relabeling the frozen strategy snapshot',()=>{
  const first=mergeLimitReviewPools(sources()),current={ztReviewPool:first.rows,ztReviewPoolMeta:first.meta};
  const display={ztDay:'20261112',ztPool:[{code:'600001'}]};const selected=selectLimitReviewDisplay(current,display);assert.equal(selected.ztDay,'20261112');assert.equal(selected.ztReviewPoolMeta.tradeDate,'2026-11-13');
