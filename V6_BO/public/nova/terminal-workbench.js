@@ -306,12 +306,20 @@ export function renderTerminalOverview(ctx) {
   const bars=rawBars.filter(r=>r&&[r.open,r.close,r.high,r.low].every(valid)&&r.low<=Math.min(r.open,r.close)&&r.high>=Math.max(r.open,r.close)).slice(-42);
   if(bars.length>=6){
    const hi=Math.max(...bars.map(r=>r.high)),lo=Math.min(...bars.map(r=>r.low)),spread=hi-lo||1;
-   const coords=bars.map((r,i)=>({x:8+i*9,top:12+138*(hi-r.high)/spread,bottom:12+138*(hi-r.low)/spread,
-    a:12+138*(hi-r.open)/spread,b:12+138*(hi-r.close)/spread,up:r.close>=r.open}));
-   chartContent.replaceChildren(h('svg',{viewBox:'0 0 '+(bars.length*9+16)+' 174',role:'img','aria-label':'服务端实际指数OHLC价格图'},
-    coords.map(p=>h('g',{stroke:p.up?'#ff7381':'#3de5b0',fill:p.up?'#ff7381':'#3de5b0'},
-      h('line',{x1:p.x,x2:p.x,y1:p.top,y2:p.bottom}),
-      h('rect',{x:p.x-2.7,y:Math.min(p.a,p.b),width:5.4,height:Math.max(1,Math.abs(p.a-p.b))})))));
+   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+   svg.setAttribute('viewBox','0 0 '+(bars.length*9+16)+' 174');
+   svg.setAttribute('role','img');svg.setAttribute('aria-label','服务端实际指数OHLC价格图');
+   for(const [i,r] of bars.entries()){
+    const x=8+i*9,top=12+138*(hi-r.high)/spread,bottom=12+138*(hi-r.low)/spread;
+    const a=12+138*(hi-r.open)/spread,b=12+138*(hi-r.close)/spread;
+    const shade=r.close>=r.open?'#ff7381':'#3de5b0';
+    const line=document.createElementNS(svg.namespaceURI,'line');
+    for(const [k,v] of Object.entries({x1:x,x2:x,y1:top,y2:bottom,stroke:shade}))line.setAttribute(k,String(v));
+    const rect=document.createElementNS(svg.namespaceURI,'rect');
+    for(const [k,v] of Object.entries({x:x-2.7,y:Math.min(a,b),width:5.4,height:Math.max(1,Math.abs(a-b)),fill:shade}))rect.setAttribute(k,String(v));
+    svg.append(line,rect);
+   }
+   chartContent.replaceChildren(svg);
   }else chartContent.replaceChildren(empty('指数历史K线未就绪','现有首页未返回可核验的连续OHLC，不画假的上涨曲线。'));
   if(mismatch)status.append(h('strong',{class:'fy-terminal-warning'},'源端 '+source.reportedCount+' 只 / 本次明细 '+summary.rows.length+' 只；差额必须核查，不能混称全市场涨停。'));
   else if(reported!==null&&reported!==summary.rows.length)
@@ -387,6 +395,8 @@ export function renderReferenceReview(ctx) {
   moduleButton('AI策略研究','lab','strategies',ctx),
   button('刷新复盘',()=>ctx.refresh(),'primary'));
  details.querySelector('h2').textContent='每日复盘 · 涨停形态与归因';
+ const reviewAction=details.querySelector('.fy-terminal-review-head .fy-button');
+ if(reviewAction)reviewAction.replaceWith(moduleButton('查看完整原始复盘','pulse','review-details',ctx));
  const summary=summarizeReview(ctx.state?.review),coverage=reviewCoverage(ctx.state?.review);
  stats.replaceChildren(...referenceReviewStats(ctx.state?.review,summary,coverage.source).map(
   ([label,value,detail,kind])=>stat(label,value,detail,kind)));
