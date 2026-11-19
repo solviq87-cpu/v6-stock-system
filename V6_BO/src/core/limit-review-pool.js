@@ -27,15 +27,15 @@ module.exports={auditLimitPoolRows,buildLimitReviewPool};
 function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=[],previousMeta,tradeDate,
  isStrategyExcluded,isRecommendationExcluded}={}){
  const day=normalizeDay(tradeDate);
- let emRows=eastmoneyRows.filter(row=>row&&normalizeDay(row.tradeDate)===day&&
-  (row.src==='derive'||normalizeDay(row.sourceTradeDate)===day));
+ let emRows=day?eastmoneyRows.filter(row=>row&&normalizeDay(row.tradeDate)===day&&
+  (row.src==='derive'||normalizeDay(row.sourceTradeDate)===day)):[];
  const currentEmAudit=auditLimitPoolRows(emRows.filter(row=>row.src==='em'),{totalCount:eastmoneyMeta?.totalCount,tradeDate:day,receivedAt:eastmoneyMeta?.receivedAt});
- const clsAccepted=cls?.status==='available'&&cls.complete===true&&normalizeDay(cls.tradeDate)===day&&Array.isArray(cls.items)&&
+ const clsAccepted=!!day&&cls?.status==='available'&&cls.complete===true&&normalizeDay(cls.tradeDate)===day&&Array.isArray(cls.items)&&
   cls.items.every(row=>normalizeDay(row.tradeDate)===day&&normalizeDay(row.sourceTradeDate)===day);
  const attemptedSources=[{...currentEmAudit,status:emRows.some(row=>row.src==='em')?(currentEmAudit.providerComplete?'available':'partial'):'unavailable',includesST:'provider-defined'},
   {source:'cls',tradeDate:normalizeDay(cls?.tradeDate),totalCount:cls?.totalCount??null,fetchedCount:cls?.fetchedCount??0,
    uniqueCount:cls?.uniqueCount??0,receivedAt:cls?.receivedAt??null,providerComplete:clsAccepted,completenessScope:cls?.scope||'provider-up-pool-including-st',
-   includesST:true,status:clsAccepted?'available':cls?.status||'unavailable'}];
+   includesST:true,status:clsAccepted?'available':!day?'unavailable':cls?.status||'unavailable'}];
  if(!emRows.length&&!clsAccepted&&previousRows.length){
   const retainedSources=(previousMeta?.sources||[]).filter(source=>source.providerComplete).map(source=>source.source);
   return {rows:previousRows.map(row=>({...row,heldRecord:true,heldSources:row.sources||[],currentSourceConfirmed:false,recordStatus:'held-source-observation',
