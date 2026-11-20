@@ -5,14 +5,29 @@ import {h,button,empty,section,field,dateTime,dayLabel,note} from './ui.js';
 export function renderSourceReviewPool(ctx,stockRenderer){
  const stockCard=stockRenderer||((row,context)=>h('button',{type:'button',class:'fy-stock-card','data-code':row.code,onClick:()=>context.selectStock(row.code,row)},row.name||row.code,' · ',row.code));
  let evidence=dailyReviewEvidence(ctx.state||{}),page=0,query='',sector='',st='all';const size=25;
- const expanded=new Set();
- const detail=(key,label,...children)=>h('details',{class:'fy-details',open:expanded.has(key),onToggle:event=>{if(event.target.open)expanded.add(key);else expanded.delete(key);}},h('summary',{},label),...children);
+ const expanded=new Set(),currentDetails=new Map();
+ const detail=(key,label,...children)=>{
+  const node=h('details',{class:'fy-details',open:expanded.has(key),onToggle:()=>{
+   // Replaced elements can receive their queued native toggle after a refresh.
+   if(!node.isConnected||currentDetails.get(key)!==node||!view.contains(node))return;
+   if(node.open)expanded.add(key);else expanded.delete(key);
+  }},h('summary',{},label),...children);
+  currentDetails.set(key,node);return node;
+ };
  const view=h('div',{class:'fy-stack'}),search=h('input',{type:'search',placeholder:'搜索代码、名称或完整原因','aria-label':'搜索每日复盘'}),select=h('select',{'aria-label':'筛选复盘板块'}),summary=h('p',{class:'fy-note',role:'status'}),sourceInfo=h('div',{class:'fy-stack'}),boards=h('div',{class:'fy-grid two'}),body=h('div',{class:'fy-stack'}),position=h('span',{});
  const title=h('summary',{},'来源涨停复盘'),stFilter=h('select',{'aria-label':'筛选复盘 ST 范围'},[['all','全部股票（含 ST）'],['st','仅 ST'],['non-st','明确非 ST']].map(([value,label])=>h('option',{value},label)));
  const previous=button('上一页',()=>{page--;paint();}),next=button('下一页',()=>{page++;paint();});
  const level=row=>row.limitUpCount===1?'首板':row.limitUpCount===2?'二板':row.limitUpCount?row.limitUpCount+'连板':'连板数待核验';
  const roleLabel=value=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[value];
  const supplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
+ function captureExpansion(){
+  // The DOM open property changes before the asynchronous toggle notification.
+  // Read it before replacing either sector details or stock-card details.
+  for(const [key,node]of currentDetails){
+   if(!view.contains(node)){currentDetails.delete(key);continue;}
+   if(node.open)expanded.add(key);else expanded.delete(key);
+  }
+ }
  function reviewCard(row){
   const linked=row.linkedRecords.map(peer=>h('div',{class:'fy-item'},
    peer.code?button(peer.name+' '+peer.code,()=>ctx.selectStock(peer.code),'quiet'):h('strong',{},peer.name+' · 代码待核验'),
@@ -33,6 +48,7 @@ export function renderSourceReviewPool(ctx,stockRenderer){
     linked.length?linked:note('尚无同日复盘联动记录，不能据此断言不存在其他联动个股。')));
  }
  function paint(){
+  captureExpansion();
   const rows=evidence.rows.filter(row=>(st==='all'||st==='st'&&row.isST===true||st==='non-st'&&row.isST===false)&&(!sector||row.sectorTags.includes(sector)||(!row.sectorTags.length&&sector==='板块待核验'))&&(!query||[row.code,row.name,row.reason,...row.sectorTags].some(value=>String(value||'').toLowerCase().includes(query))));
   const pages=Math.max(1,Math.ceil(rows.length/size));page=Math.max(0,Math.min(page,pages-1));previous.disabled=page===0;next.disabled=page===pages-1;
   summary.textContent='原始交易日 '+dayLabel(evidence.day)+' · 可见复盘池 '+evidence.rows.length+' 只 · 当前筛选 '+rows.length+' 只 · 同日来源原因已匹配 '+evidence.reasonKnown+' 只'+(evidence.dateUnknown?' · 原始日期待核验 '+evidence.dateUnknown+' 只':'')+(evidence.excludedDateRows?' · 已隔离不同源日记录 '+evidence.excludedDateRows+' 条':'')+(!evidence.reviewMatched?' · 复盘归档日期未匹配，不套用旧原因或角色':'');
@@ -41,6 +57,7 @@ export function renderSourceReviewPool(ctx,stockRenderer){
  }
  function update(){
   if(ctx.signal?.aborted)return;
+  captureExpansion();
   evidence=dailyReviewEvidence(ctx.state||{});select.replaceChildren(h('option',{value:''},'全部板块'),...evidence.sectors.map(item=>h('option',{value:item.name},item.name+' · '+item.count+' 只')));if(sector&&!evidence.sectors.some(x=>x.name===sector))sector='';select.value=sector;
   const meta=evidence.sourceEvidence,count=value=>Number.isSafeInteger(value)&&value>=0?String(value):'待核验';
   title.textContent='来源涨停复盘 · '+evidence.rows.length+' 只 · '+dayLabel(evidence.day);

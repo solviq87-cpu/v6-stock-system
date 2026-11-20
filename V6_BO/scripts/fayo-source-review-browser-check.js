@@ -37,6 +37,7 @@ const server=http.createServer((req,res)=>{
     document.getElementById('mount').replaceChildren(renderDailyReview(window.context));
    });
    const source=page.locator('[data-source-review]');
+   assert.equal(await source.getAttribute('open'),null,'the source module starts folded');
    await source.locator(':scope > summary').click();
    await source.getByRole('status').filter({hasText:'可见复盘池'}).waitFor();
    assert.match(await source.innerText(),/可见复盘池 97/);
@@ -65,6 +66,29 @@ const server=http.createServer((req,res)=>{
    assert.equal(await source.getAttribute('open'),'');assert.equal(await source.getByRole('combobox',{name:'筛选复盘 ST 范围'}).inputValue(),'st');
    await source.getByRole('combobox',{name:'筛选复盘 ST 范围'}).selectOption('all');
    await source.getByRole('combobox',{name:'筛选复盘板块'}).selectOption('');await search.fill('600000');
+   const toggleRace=await page.evaluate(()=>{
+    const pool=document.querySelector('[data-source-review]');
+    const current=()=>[...pool.querySelectorAll('details')].find(node=>node.querySelector(':scope > summary')?.textContent.startsWith('乙板块 · '));
+    const update=()=>window.listeners.forEach(fn=>fn());
+    const check=(value,message)=>{if(!value)throw Error('deterministic details toggle race: '+message);};
+    const suppress=node=>node.addEventListener('toggle',event=>event.stopImmediatePropagation(),{capture:true});
+    let node=current();check(node&&!node.open,'sector starts folded');suppress(node);
+    const obsolete=node;node.open=true;update();
+    check(current().open,'opening survives synchronous refresh before toggle is delivered');
+    update();check(current().open,'opening survives consecutive refreshes');
+    node=current();suppress(node);node.open=false;update();
+    check(!current().open,'manual close survives synchronous refresh');
+    // A replaced element can still receive its queued toggle. It must not
+    // restore a stale expansion after the user closed the current element.
+    obsolete.open=true;obsolete.dispatchEvent(new Event('toggle'));update();
+    check(!current().open,'detached old toggle does not reopen a closed section');
+    node=current();suppress(node);node.open=true;update();update();
+    check(current().open,'reopening survives immediate consecutive refreshes');
+    node=current();suppress(node);node.open=false;update();
+    check(!current().open,'second close is retained');
+    pool.open=false;update();check(!pool.open,'module manual fold is retained');pool.open=true;
+    return {notificationSuppressed:true,consecutiveRefreshes:true,manualClose:true,lateDetachedToggle:false,moduleFold:true};
+   });
    const peerDetails=source.locator('details').filter({has:page.locator('summary',{hasText:'同板块关联涨停股 48 只'})});
    await peerDetails.locator(':scope > summary').click();
    assert.equal(await peerDetails.getByRole('button').count(),48);
@@ -73,6 +97,19 @@ const server=http.createServer((req,res)=>{
    assert.match(await source.innerText(),/不能据此断言当前仍封板/);
    assert.doesNotMatch(await source.innerText(),/原因已核验/);
    await page.evaluate(()=>window.listeners.forEach(fn=>fn()));assert.equal(await peerDetails.getAttribute('open'),'');
+   toggleRace.lateDetachedToggle=await page.evaluate(()=>{
+    const pool=document.querySelector('[data-source-review]');
+    const peer=()=>[...pool.querySelectorAll('details')].find(node=>node.querySelector(':scope > summary')?.textContent.startsWith('同板块关联涨停股 48 只'));
+    const update=()=>window.listeners.forEach(fn=>fn()),search=pool.querySelector('input[type="search"]');
+    const obsolete=peer();obsolete.open=false;update();
+    search.value='600096';search.dispatchEvent(new Event('input'));
+    // No notification is suppressed on this detached stock-card element.
+    // A stale toggle must not resurrect its expansion when the card returns.
+    obsolete.open=true;obsolete.dispatchEvent(new Event('toggle'));
+    search.value='600000';search.dispatchEvent(new Event('input'));
+    if(peer().open)throw Error('detached toggle resurrected a manually closed hidden stock section');
+    peer().open=true;update();return true;
+   });
    const sourceOverflow=await page.evaluate(()=>Math.max(0,document.documentElement.scrollWidth-innerWidth));assert.ok(sourceOverflow<=1,'source review must fit viewport: '+width+' / '+sourceOverflow);
    if(process.env.V6_UI_QA_DIR&&process.env.V6_UI_SCREENSHOTS!=='0'){
     fs.mkdirSync(process.env.V6_UI_QA_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.V6_UI_QA_DIR,'fayo-source-pool-'+width+'.png'),fullPage:true});
@@ -93,7 +130,7 @@ const server=http.createServer((req,res)=>{
    if(process.env.V6_UI_QA_DIR&&process.env.V6_UI_SCREENSHOTS!=='0'){
     fs.mkdirSync(process.env.V6_UI_QA_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.V6_UI_QA_DIR,'fayo-source-review-'+width+'.png'),fullPage:true});
    }
-   assert.deepEqual(errors,[]);report.viewports.push({width,uniqueSourceStocks:visible.size,pageSize:25,relatedStocks:48,newsItems:2,distinctSignalEvents:2,sourceOverflow,newsOverflow:overflow,apiRequests:0,pageErrors:errors});await page.close();
+   assert.deepEqual(errors,[]);report.viewports.push({width,uniqueSourceStocks:visible.size,pageSize:25,relatedStocks:48,newsItems:2,distinctSignalEvents:2,toggleRace,sourceOverflow,newsOverflow:overflow,apiRequests:0,pageErrors:errors});await page.close();
   }
   assert.deepEqual(report.unexpectedRequests,[]);
   if(process.env.V6_UI_QA_DIR){fs.mkdirSync(process.env.V6_UI_QA_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.V6_UI_QA_DIR,'fayo-source-review-report.json'),JSON.stringify(report,null,2)+'\n');}
