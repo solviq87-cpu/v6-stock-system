@@ -1720,7 +1720,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell .fy-reference-review .fy-table td {padding:4px 7px;font-size:11px}
 .fy-reference-shell .fy-reference-review .fy-table tr:nth-child(even) {background:#232144}
 .fy-reference-review .fy-table .fy-button {min-height:27px;padding:2px 6px;font-size:11px}
-.fy-reference-review-basis {display:block;min-width:96px}
+.fy-reference-review-basis {display:block;min-width:96px;max-width:38ch;white-space:normal;overflow-wrap:anywhere}
 .fy-reference-review-basis small {display:block;color:#b6c3e1;white-space:normal}
 .fy-reference-review .fy-terminal-chip[data-role="leader"] {background:#732539;color:#ffe4e8}
 .fy-reference-review .fy-terminal-chip[data-role="deputy"] {background:#773e25;color:#ffe0b0}
@@ -1843,6 +1843,19 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-market-count strong {font-size:17px}
 .fy-reference-shell .fy-main .fy-subnav button[aria-current="page"] {
  background:#214a83;border-color:#4789d1;color:#fff;
+}
+.fy-system-picks>.fy-view-heading {
+ display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.fy-system-picks>.fy-view-heading>.fy-button {flex:none;min-height:40px}
+.fy-system-picks-meta {display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;font-size:11px}
+.fy-system-picks-meta>.fy-note {margin:0}
+.fy-system-picks-tools {display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,140px) minmax(100px,140px);align-items:end;gap:8px}
+@media(max-width:500px) {
+ .fy-system-picks-tools {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-system-picks-tools>input {grid-column:1/-1}
+ .fy-system-picks .fy-stock-card {margin-bottom:0;padding:12px}
+ .fy-system-picks .fy-stock-grid {gap:8px}
 }
 @media(min-width:1360px){
  .fy-reference-shell:not([data-terminal-view="review"]) .fy-workspace-nav {
@@ -1981,6 +1994,8 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell .fy-reference-review .fy-table tbody tr:nth-child(odd) {background:#15172d}
 .fy-reference-review .fy-table td .fy-terminal-mobile-board {background:#542746;color:#ffc7d7;border-color:#704062}
 .fy-reference-review .fy-table td:last-child .fy-button {border:1px solid #7f52b6;background:linear-gradient(145deg,#62379a,#3c255e);color:#fff0fe}
+.fy-terminal-mobile-basis {display:grid;gap:3px}
+.fy-terminal-mobile-basis .fy-reference-review-basis {max-width:none}
 .fy-reference-ma {display:inline-block;border-radius:4px;padding:1px 6px;color:#ffb3ca;background:#50273e;white-space:nowrap}
 .fy-reference-ma[data-above="true"] {color:#6de4b6;background:#153e45}
 .fy-reference-shell button.fy-reference-mini-module {

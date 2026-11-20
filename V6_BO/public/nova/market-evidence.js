@@ -226,6 +226,15 @@ export function newsRows(state={},kind,{now=Date.now()}={}){
 }
 
 const reviewDay=value=>{const day=typeof value==='string'?value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):'';return validDay(day)?day:null;};
+export function limitReasonEvidence(row,text,tradeDate){
+ const day=reviewDay(tradeDate);
+ const reason=typeof text==='string'?text.trim():'';
+ const source=typeof row?.reasonSource==='string'?row.reasonSource.trim():'';
+ if(!day||!reason||!source||row.reasonDateStatus!=='matched'||reviewDay(row.reasonTradeDate)!==day)return null;
+ return {reason,reasonSource:source,reasonDay:day};
+}
+export const reviewSupplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>
+ ({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
 export function dailyReviewEvidence(state={}){
  const readonly=Array.isArray(state.ztReviewPool),sourceEvidence=readonly&&state.ztReviewPoolMeta&&typeof state.ztReviewPoolMeta==='object'&&!Array.isArray(state.ztReviewPoolMeta)?state.ztReviewPoolMeta:null;
  const day=reviewDay(readonly?sourceEvidence?.tradeDate:state.ztDay),reviewMatched=!!day&&reviewDay(state.review?.date)===day;
@@ -243,8 +252,7 @@ export function dailyReviewEvidence(state={}){
  const rows=[...pool.values()].map(row=>{
   const own=dates(row),sourceDay=own.conflict?null:own.day,dateMatched=!!day&&sourceDay===day;
   const review=dateMatched?reviews.get(row.code):null;
-  const knownReason=x=>dateMatched&&x?.reasonDateStatus==='matched'&&reviewDay(x.reasonTradeDate)===day&&typeof x.reasonSource==='string'&&x.reasonSource.trim();
-  const reasonRow=knownReason(row)&&typeof row.reason==='string'&&row.reason.trim()?row:knownReason(review)&&typeof review.reasonRaw==='string'&&review.reasonRaw.trim()?review:null;
+  const originalReason=dateMatched?(limitReasonEvidence(row,row.reason,day)||limitReasonEvidence(review,review?.reasonRaw,day)):null;
   const role=dateMatched?(row.role||review?.role):null;
   const sector=typeof row.sector==='string'?row.sector:'',sectorTags=[...new Set([...arr(row.sectorTags),sector].filter(value=>typeof value==='string'&&value.trim()).map(value=>value.trim()))];
   return {code:row.code,name:row.name||row.code,sector,sectorTags,day,sourceDay,dateMatched,isST:typeof row.isST==='boolean'?row.isST:/^\*?ST/i.test(String(row.name||'').trim())?true:null,
@@ -252,7 +260,7 @@ export function dailyReviewEvidence(state={}){
    heldSources:arr(row.heldSources).filter(value=>typeof value==='string'),sourceStatuses:row.sourceStatuses&&typeof row.sourceStatuses==='object'?{...row.sourceStatuses}:{},
    reasonSourceStatus:row.reasonSourceStatus||null,receivedAt:row.receivedAt??null,sourceEventAt:row.sourceEventAt??null,reasonReceivedAt:row.reasonReceivedAt??null,
    source:arr(row.sources).filter(value=>typeof value==='string').join(' + ')||row.src||row.quoteSource||'来源待核验',limitUpCount:Number.isInteger(row.limitUpCount)&&row.limitUpCount>0?row.limitUpCount:null,
-   reason:reasonRow?(reasonRow===row?row.reason:review.reasonRaw):null,reasonSource:reasonRow?.reasonSource||null,reasonDay:reasonRow?day:null,
+   reason:originalReason?.reason||null,reasonSource:originalReason?.reasonSource||null,reasonDay:originalReason?.reasonDay||null,
    role:['leader','deputy','mid','follow'].includes(role)?role:null,
    linkedRecords:arr(review?.peers).filter(peer=>{const own=dates(peer);return !own.conflict&&(!own.day||own.day===day);}).map(peer=>({name:typeof peer.n==='string'?peer.n:typeof peer.name==='string'?peer.name:'名称待核验',code:/^\d{6}$/.test(peer.code||'')?peer.code:null,limitUpCount:Number.isInteger(peer.lb)&&peer.lb>=0?peer.lb:null,role:['leader','deputy','mid','follow'].includes(peer.role)?peer.role:null,strong:peer.strong===true})),
    stock:{code:row.code,name:row.name,price:row.price,pct:row.pct,sector:row.sector,quoteAt:row.quoteAt,vendorQuoteAt:row.vendorQuoteAt,quoteSource:row.quoteSource||row.src,receivedAt:row.receivedAt},peers:[]};

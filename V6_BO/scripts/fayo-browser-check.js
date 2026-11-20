@@ -41,6 +41,7 @@ function respond(url,req,body){
  if(p==='/api/state'||p==='/api/mobile-digest'){
   const result=state();
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
+  if(phase==='system-picks-refresh')result.dashboard.rows=[...result.dashboard.rows,{...stocks[0],code:'600199',name:'合成刷新新增',score:98}];
   return result;
  }
  if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,price:11.11,vendorQuoteAt:sourceAt-1000,quoteAt:sourceAt-1000,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
@@ -277,6 +278,24 @@ const runChecks=async()=>{
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   if(width===390){
+    const beforePicks=requests.length;
+    await page.getByRole('button',{name:'查看系统精选',exact:true}).click();
+    await page.getByRole('heading',{name:'系统精选',exact:true}).waitFor();
+    const selected=page.locator('[aria-label="系统精选股票"]');
+    await selected.locator('[data-code="600101"]').waitFor();
+    assert.equal(await page.locator('.fy-workspace-nav button').first().textContent(),'系统精选');
+    phase='system-picks-refresh';
+    await page.getByRole('button',{name:'刷新结果',exact:true}).click();
+    await selected.locator('[data-code="600199"]').waitFor();
+    assert.match(await page.locator('[data-system-picks-read-time]').textContent(),/最近读取 \d/);
+    assert.ok(requests.slice(beforePicks).some(entry=>entry.path==='/api/state'&&entry.method==='GET'));
+    assert.ok(!requests.slice(beforePicks).some(entry=>['/api/quant-picks','/api/intraday-strong','/api/refresh'].includes(entry.path)),
+     'opening and refreshing system picks only reads the shared state');
+    phase='normal';
+    await navigate(page,'pulse','overview');
+    await page.locator('.fy-reference-home').waitFor();
+   }
    assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
    const fundPanel=page.locator('.fy-reference-funds');
    await fundPanel.getByRole('button',{name:'资金流出榜',exact:true}).click();

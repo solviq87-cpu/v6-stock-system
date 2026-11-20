@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | 首页 | 盘面总览、策略信号、精选预览、资讯和模拟盘概览，`/pulse/overview` | `terminal-workbench.js`、`market-evidence.js` | `server.js` 的共享状态投影 |
 | 行情 | 市场概览、全球行情、行情来源，`/pulse/market-overview`、`/pulse/global`、`/lab/sources` | `market.js`、`research.js`、`research-extensions.js` | `src/core/market-display-snapshot.js`、`src/core/quote-observation-view.js` |
-| 选股 | 全部候选、竞价、盘中动量、一进二、二进三、趋势、预选等股票池，`/opportunities/*` | `market.js` 的 `POOLS`、`market-evidence.js`、股票研究抽屉 | `server.js` 的候选池路由、`strategies/` |
+| 选股 | 系统精选、全部候选、竞价、盘中动量、一进二、二进三、趋势、预选等股票池，`/opportunities/*` | `market.js` 的 `POOLS`、`market-evidence.js`、股票研究抽屉 | `server.js` 的候选池路由、`strategies/` |
 | 策略 | 策略与因子、模型、研究档案、决策、市场记忆、明日计划，`/lab/strategies` 等及 `/pulse/plans` | `research.js`、`research-records.js`、`research-extensions.js`、`tactics-view.js` | `src/core/research-workspace*.js` |
 | 回测 | 历史回放、验证、成本与表现，`/lab/backtest` | `research.js`、`research-extensions.js` | `server.js` 的回测与研究接口、`src/core/eastmoney-historical-feed.js` |
 | 复盘 | 盘后总览、完整来源池、竞价复盘、历史学习和人工执行，`/pulse/review`、`/pulse/review-details`、`/pulse/auction-review`、`/lab/learning`、`/assets/closure` | `terminal-workbench.js`、`market.js`、`review-pool.js`、`manual-loop.js` | `src/core/limit-review-pool.js`、`src/core/manual-decision-loop.js` |
@@ -22,6 +22,7 @@
 
 ### 行情、选股、资讯与复盘的数据联动
 
+- 「选股 → 系统精选」与首页「今日精选」读取同一份云端精选结果，保留逐股命中依据。刷新读取时间、结果交易日与逐股报价时间各自显示。
 - 「行情数据与来源」和逐股研究抽屉的「核对」共用 `POST /api/quote-cross-check`。沪深 A 股在连续竞价时段由编辑者按需核对腾讯、东方财富、新浪。每个进程每 30 秒最多启动一轮，相同代码请求合并，各源沿用全局限速和 403/429 退避。
 - 核对使用原始沪深股价及前收盘价。同日、逐源报价不超过 15 秒且参与比较的时点相差不超过 5 秒。按 `multi-source-price-consensus.js` 报告一致、部分一致、冲突及来源不足。核对记录只供研究展示。
 - 选股和复盘里的研究抽屉保留点开的原股票池记录。共享快照和收盘留档携带各自的证据日期。混合或未知日期以逐条原时点为准。

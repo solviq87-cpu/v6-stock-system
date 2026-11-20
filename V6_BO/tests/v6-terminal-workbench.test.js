@@ -101,6 +101,20 @@ test('a stale sector classification cannot be merged into a new-day review',asyn
  assert.doesNotMatch(t,/旧版龙头/);
  await tick();ctx.controller.abort();
 });
+test('desktop and mobile show same-day supplier reasons separately from the review inference',async()=>{
+ dom();const {renderTerminalOverview}=await api,state=fixture(3);
+ Object.assign(state.review.items[0],{reasonRaw:'同日原始事件',reasonSource:'cls',reasonTradeDate:'2026-11-17',reasonDateStatus:'matched',reason:'推断不覆盖原文'});
+ Object.assign(state.review.items[1],{reasonRaw:'跨日旧原因',reasonSource:'ths',reasonTradeDate:'2026-11-16',reasonDateStatus:'matched',reason:'同板块放量线索'});
+ Object.assign(state.review.items[2],{reasonRaw:'缺来源的原因',reasonTradeDate:'2026-11-17',reasonDateStatus:'matched'});
+ const ctx=context(state),view=renderTerminalOverview(ctx);
+ for(const className of ['fy-terminal-desktop-table','fy-terminal-mobile-cards']){
+  const text=textOf(locate(view,node=>node.className===className));
+  assert.match(text,/涨停原因/);assert.match(text,/同日原始事件\s+财联社 · 2026-11-17\s+复盘推断 · 推断不覆盖原文/);
+  assert.match(text,/源端原因待核验\s+复盘推断 · 同板块放量线索/);
+  assert.doesNotMatch(text,/跨日旧原因|缺来源的原因/);
+ }
+ ctx.controller.abort();
+});
 test('homepage simulation totals use only the editor projection and keep missing values unknown',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(1);
  s.paper={pool:{equity:123456.78,cash:0,marketValue:null,totalPnl:-12.5}};
@@ -146,27 +160,26 @@ test('native shell uses approved business navigation and worker caches every eag
  assert.match(worker,/\/nova\/terminal-workbench\.js/);
 });
 
-test('home shows only three current-state candidates and leaves full pool research in its own workspace',async()=>{
+test('home previews three candidates from the same system picks list and links to it',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(2);
- s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,
-   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'}];
- s.pool=[{code:'600101',name:'重复候选不应两次展示'},...Array.from({length:5},(_,i)=>({
+ s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,score:95,
+   quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'},...Array.from({length:5},(_,i)=>({
    code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,
    quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'
  }))];
+ s.pool=[{code:'600110',name:'另一个交易日的备选池'}];
  const ctx=context(s),view=renderTerminalOverview(ctx);
  const host=locate(view,el=>el?.className==='fy-terminal-preview-cards');
  const cards=locate(host,el=>el?.className==='fy-stock-grid');
  assert.ok(host&&cards,'home keeps a real evidence-backed candidate preview');
  assert.equal(cards.children.length,3,'home only previews three candidates');
- assert.doesNotMatch(textOf(cards.children[1]),/结果日期 2026-11-17/,
-  'undated retained pool rows must not inherit a newer dashboard day');
+ assert.doesNotMatch(textOf(host),/另一个交易日的备选池/,'the same snapshot feeds both the preview and dedicated list');
  assert.match(textOf(host),/首页原始候选/);
  assert.match(textOf(host),/existing-source/,'original quote source is visible');
  assert.doesNotMatch(textOf(host),/其他候选4/,'the rest are not dumped on the homepage');
- const full=locate(view,el=>el?.tag==='button'&&textOf(el).trim()==='查看全部候选');
+ const full=locate(view,el=>el?.tag==='button'&&textOf(el).trim()==='查看系统精选');
  assert.ok(full,'full candidate workspace remains reachable');
- full.listeners.click();assert.deepEqual(ctx.navigations.at(-1),['opportunities','all']);
+ full.listeners.click();assert.deepEqual(ctx.navigations.at(-1),['opportunities','ranked']);
  await tick();assert.equal(ctx.calls.length,0,'landing does not automatically load remote strategy pools');
  ctx.controller.abort();
 });

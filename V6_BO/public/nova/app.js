@@ -37,10 +37,11 @@ const BUSINESS_NAV=[
 ];
 // Each route keeps its original renderer and permissions. This catalog owns
 // the public tab grouping, secondary navigation and feature search.
+const [systemPicksRoute,...otherPoolRoutes]=POOLS.map(([sub,label,,,access])=>[label,'opportunities',sub,access]);
 const WORKSPACE_ROUTES={
  首页:[],
  行情:[['市场概览','pulse','market-overview'],['全球行情','pulse','global'],['行情数据与来源','lab','sources']],
- 选股:[['全部候选','opportunities','all'],...POOLS.map(([sub,label,,,access])=>[label,'opportunities',sub,access])],
+ 选股:[systemPicksRoute,['全部候选','opportunities','all'],...otherPoolRoutes],
  策略:[['策略与因子','lab','strategies'],['研究决策','lab','desk'],['研究档案','lab','records'],['模型资料','lab','models'],['市场记忆','lab','memory'],['明日计划','pulse','plans']],
  回测:[['回测验证','lab','backtest']],
  复盘:[['盘后总览','pulse','review'],['完整来源池','pulse','review-details'],['竞价复盘','pulse','auction-review'],['历史学习','lab','learning'],['人工执行记录','assets','closure','edit']],
@@ -102,6 +103,7 @@ async function readPool(key,loader) {
 function context(signal) {
  return {
   get state(){return state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
+  get lastRead(){return lastRead;},
   signal,api,workspaceNavigation:true,refresh:()=>refresh(true),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
   readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);}
  };
