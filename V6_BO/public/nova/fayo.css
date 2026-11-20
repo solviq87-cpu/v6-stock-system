@@ -1844,6 +1844,19 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell .fy-main .fy-subnav button[aria-current="page"] {
  background:#214a83;border-color:#4789d1;color:#fff;
 }
+.fy-system-picks>.fy-view-heading {
+ display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.fy-system-picks>.fy-view-heading>.fy-button {flex:none;min-height:40px}
+.fy-system-picks-meta {display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;font-size:11px}
+.fy-system-picks-meta>.fy-note {margin:0}
+.fy-system-picks-tools {display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,140px) minmax(100px,140px);align-items:end;gap:8px}
+@media(max-width:500px) {
+ .fy-system-picks-tools {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-system-picks-tools>input {grid-column:1/-1}
+ .fy-system-picks .fy-stock-card {margin-bottom:0;padding:12px}
+ .fy-system-picks .fy-stock-grid {gap:8px}
+}
 @media(min-width:1360px){
  .fy-reference-shell:not([data-terminal-view="review"]) .fy-workspace-nav {
   margin-left:205px;margin-right:20px;

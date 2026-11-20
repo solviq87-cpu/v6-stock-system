@@ -156,7 +156,7 @@ export function renderOpportunities(route,ctx) {
  if(['relay-first','relay-second'].includes(route.sub))return renderRelayCard(ctx,route.sub);
  let active=POOLS.find(x=>x[0]===route.sub)||POOLS.find(x=>x[0]==='quant'),current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='';
  const curated=active[0]==='ranked';
- const view=h('div',{class:'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
+ const view=h('div',{class:curated?'fy-stack fy-system-picks':'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
  selector.value=active[0];selector.addEventListener('change',()=>ctx.navigate('opportunities',selector.value));
  const search=h('input',{type:'search',placeholder:'搜索名称、代码或板块','aria-label':'筛选股票池'});
  search.addEventListener('input',()=>{query=search.value.trim().toLowerCase();paint();});
@@ -165,13 +165,16 @@ export function renderOpportunities(route,ctx) {
  const sortSelect=h('select',{'aria-label':'股票池排序'},[['score','评分'],['pct','涨跌幅'],['original','原始顺序']].map(([value,label])=>h('option',{value},label)));
  sortSelect.addEventListener('change',()=>{sort=sortSelect.value;paint();});
  const loadMore=button('加载下一页',()=>load(true));loadMore.hidden=true;
- const readTime=curated?h('p',{class:'fy-muted','data-system-picks-read-time':'true'}):null;
+ const readTime=curated?h('time',{class:'fy-muted','data-system-picks-read-time':'true'}):null;
  const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh():load(),'primary');
- const heading=h('header',{class:'fy-view-heading'},curated?null:h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
-  h('h1',{},curated?active[1]:'让机会，各就其位。'),h('p',{},curated?active[2]:'发现、研究、跟踪，在一个工作流里衔接。'));
- if(!curated)view.append(simpleNavigation(ctx,active[0]));
- view.append(heading,h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
- if(readTime)view.append(readTime);
+ if(curated)view.append(
+  h('header',{class:'fy-view-heading'},h('div',{},h('h1',{},active[1]),h('p',{},active[2])),refreshResults),
+  h('div',{class:'fy-system-picks-meta'},status,readTime),
+  h('div',{class:'fy-system-picks-tools'},search,field('范围',boardSelect),field('排序',sortSelect)));
+ else view.append(simpleNavigation(ctx,active[0]),
+  h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
+   h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')),
+  h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
  view.append(summaryView,body,loadMore);
  function paint() {
   let rows=current.filter(r=>(!query||[r.name,r.code,r.sector].some(x=>String(x||'').toLowerCase().includes(query)))&&(board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code)));
@@ -211,7 +214,11 @@ export function renderOpportunities(route,ctx) {
    summaryView.replaceChildren(...['cycle','timing','feedback','sectorView'].filter(key=>data[key]).map(key=>h('details',{class:'fy-details'},h('summary',{},({cycle:'短线周期',timing:'时机反馈',feedback:'历史反馈',sectorView:'板块结构'})[key]),renderEvidence(data[key]))));
    const day=data.snapshotDay;
    status.textContent=active[1]+' · '+current.length+' 只'+(day?' · 原始交易日 '+dayLabel(day):' · 原始交易日待核验')+(data.isSnapshot||data.snapshotRetained?' · 保留快照':'');
-   if(readTime)readTime.textContent='最近读取 '+(ctx.lastRead?dateTime(ctx.lastRead):'待读取');
+   if(readTime){
+    const at=ctx.lastRead;
+    readTime.textContent='最近读取 '+(at?dateTime(at):'待读取');
+    if(at)readTime.setAttribute('datetime',new Date(at).toISOString());
+   }
    if(data.freezeUnavailable||data.note)status.textContent+=' · '+(data.note||'没有已保存的盘中结果');
    paint();
   }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message;status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
