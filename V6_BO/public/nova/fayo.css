@@ -1881,3 +1881,166 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 @media(display-mode:standalone) and (max-width:650px) {
  .fy-reference-shell .fy-header {padding-top:env(safe-area-inset-top,0px)}
 }
+
+/* Give the two reference pages distinct card hierarchy within the shared terminal. */
+.fy-reference-panel-icon {
+ display:inline-grid;place-items:center;flex:none;vertical-align:middle;
+ width:21px;height:21px;border:1px solid #547cc0;border-radius:6px;
+ color:#92e7ff;background:linear-gradient(145deg,#2c75b388,#101c41);
+ box-shadow:inset 0 1px #b1eaff58,0 0 10px #3675d048;
+}
+.fy-reference-panel-icon .fy-icon {width:14px;height:14px}
+.fy-reference-topgrid h2>.fy-reference-panel-icon,.fy-terminal-panels h2>.fy-reference-panel-icon {margin-right:7px}
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid>.fy-reference-signal {
+ border-color:#a64d79;
+ background:radial-gradient(ellipse at 17% 8%,#81264672,transparent 72%),linear-gradient(143deg,#2b1f42,#10182b 77%);
+ box-shadow:inset 0 1px #fa9cbd54,inset 0 -2px 13px #da428641,0 3px 11px #060a1d;
+}
+.fy-reference-signal .fy-reference-panel-icon {color:#ffb9db;border-color:#af588e;background:linear-gradient(145deg,#a74376,#431f4a)}
+.fy-reference-shell .fy-reference-signal-ring {
+ border:0;gap:1px;padding:8px;min-width:0;max-width:122px;aspect-ratio:1;
+ background:radial-gradient(circle closest-side,#10182d 82%,transparent 85%),conic-gradient(#4c4262 0 100%);
+ box-shadow:0 0 16px #b5307359;
+}
+.fy-reference-shell .fy-reference-signal-ring[data-valued="true"] {
+ background:radial-gradient(circle closest-side,#111a31 82%,transparent 85%),
+ conic-gradient(from 235deg,#ff7094 0,#f74c72 var(--fy-up-arc),#43dcad var(--fy-up-arc),#1d857f 100%);
+}
+.fy-reference-shell .fy-reference-signal-ring strong {color:#fff3fa;font-size:clamp(22px,2vw,31px);line-height:1.1;font-variant-numeric:tabular-nums}
+.fy-reference-shell .fy-reference-signal-ring small {color:#bcd2eb;font-size:9px}
+.fy-reference-signal-mood {color:#f6c9ed;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.fy-reference-shell .fy-reference-signal-notes p {border:0;margin:4px 0;padding:0;color:#dccfe5}
+.fy-reference-signal-facts {display:flex;gap:4px;flex-wrap:wrap}
+.fy-reference-signal-facts>span {padding:2px 6px;border-radius:4px;background:#171c36;border:1px solid #5a3b60;color:#e4cbec;font-size:10px}
+.fy-reference-signal .fy-reference-actions .fy-button:first-child {background:linear-gradient(180deg,#89456b,#51244d);border-color:#ae5c88}
+.fy-reference-signal .fy-reference-actions .fy-button:last-child {background:linear-gradient(180deg,#295db4,#1e3974);border-color:#477fd1}
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid>.fy-terminal-candidates {
+ background:linear-gradient(143deg,#22204c,#101a34 68%);border-color:#7155b5;box-shadow:inset 0 1px #b7a0f948;
+}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate:nth-child(even) {background:#1b2042}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate:nth-child(odd) {background:#151d37}
+.fy-reference-candidate-score {background:linear-gradient(140deg,#8c454c,#492038);color:#ffd2a4;font-variant-numeric:tabular-nums}
+.fy-reference-candidate-price {font-weight:700}
+.fy-reference-flow-switch .fy-button[aria-pressed="true"] {background:linear-gradient(180deg,#6b345d,#412949);border-color:#a15284}
+.fy-reference-shell .fy-reference-review .fy-terminal-title {
+ background:linear-gradient(100deg,#25204d,#14152e 48%,#211749);border-color:#6543a4;box-shadow:inset 0 1px #bd94f575;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-provenance {background:#171a36;border-color:#483c70}
+.fy-reference-shell[data-terminal-view="review"] .fy-reference-topnav [data-current="true"] {
+ background:linear-gradient(165deg,#6c38bd,#3b246d);border-color:#a376e0;box-shadow:0 0 16px #805cf266;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat {
+ background:radial-gradient(ellipse at 12% 0,#7b366971,transparent 65%),linear-gradient(145deg,#301228,#23162f 78%);
+ border-color:#8f569e;box-shadow:inset 0 1px #ce8bcb69,inset 0 -3px 15px #af427232;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.accent {
+ background:radial-gradient(ellipse at 16% 0,#a9446e9f,transparent 79%),linear-gradient(140deg,#581f42,#3b1226);
+ border-color:#ea6897;box-shadow:inset 0 1px #fac1ce8a,inset 0 -5px 18px #ee45714b;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.calm {
+ background:linear-gradient(145deg,#205762,#102037);box-shadow:inset 0 1px #66d5d599,inset 0 -3px 15px #0d716854;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat>strong {font-size:28px;line-height:1.08;font-variant-numeric:tabular-nums}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.accent>strong {font-size:34px}
+.fy-reference-shell .fy-reference-review .fy-terminal-context .fy-terminal-panels>.fy-section {
+ min-height:0;max-height:none;gap:4px;padding:8px 10px;border-color:#624da0;
+ background:linear-gradient(160deg,#231b48,#101933 81%);
+ box-shadow:inset 0 1px #bab2f25f,0 4px 12px #050817;
+}
+.fy-reference-review .fy-terminal-panels .fy-section-head {
+ margin:-8px -10px 3px;padding:8px 10px 6px;min-height:0;
+ border-bottom:1px solid #4c3d77;border-radius:10px 10px 0 0;background:linear-gradient(100deg,#433268,#252246 75%);
+}
+.fy-reference-review .fy-terminal-panels .fy-section-head h2 {font-size:15px;line-height:1.3}
+.fy-reference-review .fy-terminal-panels .fy-section-head p {margin-top:3px}
+.fy-reference-review .fy-reference-panel-icon {color:#eec0ff;border-color:#a274cf;background:linear-gradient(150deg,#9952be,#31244c)}
+.fy-reference-review .fy-terminal-panels .fy-button {margin-top:3px}
+.fy-reference-review .fy-terminal-panels .fy-terminal-lines {min-height:0}
+.fy-reference-review .fy-terminal-flow {min-height:30px}
+.fy-reference-review .fy-terminal-bar i {box-shadow:0 0 9px #f46f9f56}
+.fy-reference-rank-head,.fy-reference-shell .fy-reference-rank-head~.fy-reference-ranked {
+ display:grid;grid-template-columns:27px minmax(0,1fr) 55px 48px;align-items:center;gap:5px;
+}
+.fy-reference-rank-head {color:#d2bfef;padding:2px 0 4px;border-bottom:1px solid #54427e}
+.fy-reference-rank-head>small {font-size:10px}
+.fy-reference-review .fy-reference-ranked>span {color:#ff90af;font-variant-numeric:tabular-nums}
+.fy-reference-review .fy-reference-ranked:nth-child(even) {background:#262448a6}
+.fy-reference-review .fy-reference-ranked:nth-child(2) .fy-reference-rank {color:#ffedc2;background:linear-gradient(145deg,#ab762c,#653a20)}
+.fy-reference-review .fy-reference-ranked:nth-child(3) .fy-reference-rank {color:#def2ff;background:linear-gradient(145deg,#6580b3,#36466b)}
+.fy-reference-review .fy-reference-ranked:nth-child(4) .fy-reference-rank {color:#fff0d1;background:linear-gradient(145deg,#b36a41,#774027)}
+.fy-reference-role-legend {display:flex;gap:5px;flex-wrap:wrap;margin:0 0 5px}
+.fy-reference-role-legend .fy-terminal-chip {border-radius:10px;padding:2px 8px}
+.fy-reference-shell .fy-reference-review .fy-terminal-review {
+ border-color:#6b53a2;background:#15172f;box-shadow:inset 0 1px #b18edb60;
+}
+.fy-reference-review .fy-terminal-review-head {
+ padding:7px 9px;border:1px solid #51416e;border-radius:7px;
+ background:linear-gradient(100deg,#3b2e63,#25213f 65%);
+}
+.fy-reference-shell .fy-reference-review .fy-table th {background:#241f3c;color:#e2d6fb}
+.fy-reference-shell .fy-reference-review .fy-table tbody tr:nth-child(odd) {background:#15172d}
+.fy-reference-review .fy-table td .fy-terminal-mobile-board {background:#542746;color:#ffc7d7;border-color:#704062}
+.fy-reference-review .fy-table td:last-child .fy-button {border:1px solid #7f52b6;background:linear-gradient(145deg,#62379a,#3c255e);color:#fff0fe}
+.fy-reference-ma {display:inline-block;border-radius:4px;padding:1px 6px;color:#ffb3ca;background:#50273e;white-space:nowrap}
+.fy-reference-ma[data-above="true"] {color:#6de4b6;background:#153e45}
+.fy-reference-shell button.fy-reference-mini-module {
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+ min-height:58px;padding:8px;color:#f6ebff;text-align:left;cursor:pointer;
+ background:linear-gradient(135deg,#3c2b63,#1c1c3a 76%);
+}
+.fy-reference-mini-module small {display:block;color:#cfbde9;font-size:10px;line-height:1.3}
+.fy-reference-shell button.fy-reference-mini-module:hover {border-color:#b284ff}
+@media(min-width:1001px) {
+ .fy-reference-shell[data-terminal-view="review"] .fy-business-nav {display:none}
+ .fy-reference-shell[data-terminal-view="review"] .fy-connection-bar {display:none}
+ .fy-reference-shell[data-terminal-view="review"]>.fy-snapshot {padding-block:4px;margin-block:1px 0}
+ .fy-reference-shell[data-terminal-view="review"]>.fy-snapshot::before {height:12px}
+ .fy-reference-shell[data-terminal-view="review"] .fy-workspace-nav {padding-block:4px}
+ .fy-reference-shell[data-terminal-view="review"] .fy-workspace-nav button {min-height:29px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-title {min-height:42px;padding-block:4px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels {grid-template-columns:1.12fr .99fr .88fr;gap:8px}
+ .fy-reference-review .fy-terminal-panels .fy-section-head {padding-top:6px;padding-bottom:4px}
+ .fy-reference-review .fy-terminal-panels .fy-terminal-flow {min-height:26px}
+ .fy-reference-review .fy-terminal-panels .fy-terminal-flows {gap:3px}
+ .fy-reference-shell .fy-reference-review .fy-reference-rank-head~.fy-reference-ranked {min-height:27px;padding-block:3px}
+ .fy-reference-review .fy-terminal-sector {
+  display:grid;grid-template-columns:minmax(0,100px) minmax(0,1fr);align-items:center;
+  gap:6px;min-height:27px;margin:0;padding:2px 0;border-bottom:1px solid #302d50;
+ }
+ .fy-reference-review .fy-terminal-sector>.fy-terminal-line {min-height:0;border:0;gap:3px}
+ .fy-reference-review .fy-terminal-sector>.fy-terminal-line strong {font-size:11px}
+ .fy-reference-review .fy-terminal-sector>.fy-terminal-line span {font-size:9px;white-space:nowrap}
+ .fy-reference-review .fy-terminal-sector .fy-terminal-chip {padding:2px 5px;line-height:1.32}
+ .fy-reference-review .fy-terminal-sector .fy-terminal-chips {gap:3px;padding:0}
+}
+@media(max-width:700px) {
+ .fy-reference-shell[data-terminal-view="home"] .fy-connection-bar {display:none}
+ .fy-reference-shell[data-terminal-view="home"]>.fy-snapshot {margin-block:4px 0;padding-block:4px;border-radius:6px}
+ .fy-reference-home>.fy-reference-topgrid {order:0}
+ .fy-reference-home>.fy-terminal-title {order:1}
+ .fy-reference-shell .fy-reference-home .fy-reference-signal-ring {width:65px}
+ .fy-reference-signal-mood {font-size:15px}
+ .fy-reference-shell .fy-reference-signal-notes p {margin:3px 0;font-size:10px}
+ .fy-reference-shell .fy-reference-home .fy-reference-topgrid>.fy-reference-signal {padding:9px}
+ .fy-reference-mobile-links {gap:2px;padding:4px;background:linear-gradient(145deg,#172544,#0c142e)}
+ .fy-reference-mobile-links .fy-button {min-height:43px;padding-block:3px}
+ .fy-reference-mobile-links .fy-icon {width:24px;height:24px;background:linear-gradient(150deg,#398cf4,#193a9b);box-shadow:inset 0 1px #acd0ff90,0 0 9px #3d7bdc50}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+1) .fy-icon {background:linear-gradient(150deg,#f76096,#9a285f)}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+2) .fy-icon {background:linear-gradient(150deg,#37cfae,#176e7b)}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+4) .fy-icon {background:linear-gradient(150deg,#eaa34e,#995328)}
+ .fy-reference-shell .fy-reference-home .fy-terminal-preview-head .fy-terminal-hint {display:none}
+ .fy-reference-shell .fy-reference-home .fy-reference-candidate-head,
+ .fy-reference-shell .fy-reference-home .fy-reference-topgrid .fy-stock-card.fy-reference-candidate {
+  grid-template-columns:minmax(0,1.35fr) minmax(32px,.43fr) minmax(68px,.9fr) auto;gap:2px 5px;
+ }
+ .fy-reference-candidate-head>span:nth-child(2),.fy-reference-candidate-sector {display:none}
+ .fy-reference-candidate-name {display:flex;align-items:baseline;gap:4px}
+ .fy-reference-candidate-name small {font-size:9px}
+ .fy-reference-candidate-price {display:flex;align-items:baseline;gap:3px;flex-wrap:wrap}
+ .fy-reference-candidate-price small {font-size:9px}
+ .fy-reference-shell .fy-reference-home .fy-reference-topgrid .fy-stock-card.fy-reference-candidate {min-height:38px;padding:4px 6px}
+ .fy-reference-shell .fy-reference-home .fy-reference-funds-body>.fy-terminal-hint {margin:3px 0;font-size:10px}
+ .fy-reference-shell .fy-reference-home .fy-reference-flow {padding-block:2px;min-height:25px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stat>strong {font-size:21px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stat.accent>strong {font-size:28px}
+}
