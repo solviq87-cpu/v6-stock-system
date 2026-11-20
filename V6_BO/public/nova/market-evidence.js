@@ -120,7 +120,7 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
   };
   const clipped=value=>typeof value==='string'?value.trim().slice(0,120):'';
   const raw=Array.isArray(state?.dashboard?.rows)?state.dashboard.rows:[];
-  const marketDay=date(state?.snapshotFieldDays?.dashboard||state?.dashboard?.snapshotDay);
+ const marketDay=date(Object.hasOwn(state?.snapshotFieldDays||{},'dashboard')?state.snapshotFieldDays.dashboard:state?.dashboard?.snapshotDay);
   const seen=new Set(),items=[],counts={buy:0,watch:0,sell:0};
   const bounded=Number.isSafeInteger(limit)?Math.max(0,Math.min(limit,20)):3;
   for(const row of raw.slice(0,200)) {

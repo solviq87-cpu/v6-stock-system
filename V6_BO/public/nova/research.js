@@ -1,6 +1,7 @@
 import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
+import {quoteCrossCheckPanel} from './market.js';
 
 const arr=value=>Array.isArray(value)?value:[];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -200,6 +201,8 @@ function learning(ctx){
 }
 function sources(ctx){
   const root=n('div',undefined,'fy-stack'),code=symbolInput(ctx),provider=select([['auto','自动选择'],['eastmoney','东方财富'],['tencent','腾讯公开行情']]),days=input('number','120',{min:'30',max:'500',step:'1'});
+  const quoteCode=symbolInput(ctx);
+  root.append(box(null,null,field('核对股票代码',quoteCode),quoteCrossCheckPanel(ctx,()=>quoteCode.value.trim())));
   const capture=workbench(ctx,'建立逐股证据包','保留日K、原始来源、市场同日匹配、冻结判断与后续复访。',[field('证券代码',code),field('采集来源',provider),field('历史天数',days)]);
   capture.action('采集并研究',()=>{const historyDays=Number(days.value);if(!Number.isInteger(historyDays)||historyDays<30||historyDays>500)throw Error('历史天数须为30至500之间的整数。');return request(ctx,'/api/research/observe-stock',{symbol:symbolValue(code),provider:provider.value,historyDays,includeContext:true});},{kind:'primary'});
   capture.action('读取已存原始历史',()=>{if(provider.value==='auto')throw Error('读取已存历史时请明确选择来源。');return request(ctx,'/api/research/stock-observations?'+new URLSearchParams({symbol:symbolValue(code),provider:provider.value}));});

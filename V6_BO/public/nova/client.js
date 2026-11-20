@@ -6,8 +6,10 @@ export function retainMarket(previous,incoming) {
   if(!previous||!(incoming.trading===false||incoming.isSnapshot===true||incoming.dashboard?.isSnapshot===true))return incoming;
   const next={...incoming};
   // Server-owned review rows and their source metadata must never be restored independently.
-  const keepFieldDay=key=>{next.snapshotFieldDays={...next.snapshotFieldDays,[key]:previous.snapshotFieldDays?.[key]||previous.snapshotDay||''};};
-  for(const key of MARKET_FIELDS)if(!populated(next[key])&&populated(previous[key])){next[key]=previous[key];keepFieldDay(key);}
+  const keepFieldDay=(key,day='')=>{const fields=previous.snapshotFieldDays||{};next.snapshotFieldDays={...next.snapshotFieldDays,[key]:Object.hasOwn(fields,key)?fields[key]:day};};
+  for(const key of MARKET_FIELDS)if(!populated(next[key])&&populated(previous[key])){
+    next[key]=previous[key];keepFieldDay(key,key==='dashboard'?previous.dashboard.snapshotDay||previous.snapshotDay||'':'');
+  }
   // Relay rows are private. A server permission projection must clear them;
   // only an empty, still-authorized closed-session read may recover old rows.
   const relayDenied=incoming.role==='view'||incoming.readOnly===true||incoming.paper?.hidden===true||incoming.yier?.hidden===true||incoming.lianban?.hidden===true;
@@ -24,7 +26,7 @@ export function retainMarket(previous,incoming) {
     const dashboard={...incoming.dashboard};
     for(const key of ['rows','indices','strategies','counts','mood','pushes'])if(!populated(dashboard[key])&&populated(previous.dashboard[key]))dashboard[key]=previous.dashboard[key];
     if(!Array.isArray(incoming.dashboard.rows)||!incoming.dashboard.rows.length){
-      if(previous.dashboard.rows?.length){dashboard.counts=previous.dashboard.counts;dashboard.strategies=previous.dashboard.strategies;dashboard.snapshotDay=previous.dashboard.snapshotDay||previous.snapshotDay;dashboard.snapshotRetained=true;dashboard.isSnapshot=true;}
+      if(previous.dashboard.rows?.length){dashboard.counts=previous.dashboard.counts;dashboard.strategies=previous.dashboard.strategies;dashboard.snapshotDay=previous.dashboard.snapshotDay||previous.snapshotDay;dashboard.snapshotRetained=true;dashboard.isSnapshot=true;keepFieldDay('dashboard',dashboard.snapshotDay||'');}
     }
     next.dashboard=dashboard;
   }

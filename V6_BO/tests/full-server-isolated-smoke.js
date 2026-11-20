@@ -68,7 +68,7 @@ async function stop(child){
  if(child.exitCode===null&&child.signalCode===null){child.kill('SIGKILL');await exited;}
 }
 async function port(){return new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});}
-function get(port,url){return new Promise((resolve,reject)=>{const req=http.get({hostname:'127.0.0.1',port,path:url,timeout:1000},res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve({status:res.statusCode,body:b,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(Error('timeout')));});}
+function get(port,url,headers={}){return new Promise((resolve,reject)=>{const req=http.get({hostname:'127.0.0.1',port,path:url,headers,timeout:1000},res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve({status:res.statusCode,body:b,headers:res.headers}));});req.on('error',reject);req.on('timeout',()=>req.destroy(Error('timeout')));});}
 (async()=>{
  const before=sourceDataInventory(),fixture=isolatedFixture();let child,logs='',startError;
  try {
@@ -174,6 +174,13 @@ function get(port,url){return new Promise((resolve,reject)=>{const req=http.get(
   assert.ok(typeof authenticated.deviceToken==='string'&&authenticated.deviceToken.length>=16,
     'successful login did not issue an authorized device token');
   assert.ok(!goodLogin.body.includes('V6-FIXTURE-EDIT-ONLY-20261114'),'login response echoed plaintext password');
+  assert.equal(JSON.parse((await post('/api/quote-cross-check?code=600001',{})).body).locked,true);
+  assert.equal(JSON.parse((await get(p,'/api/stock-news-risk?code=600001')).body).locked,true);
+  const headers={Authorization:'Bearer '+authenticated.token};
+  const riskReply=await get(p,'/api/stock-news-risk?code=600001',headers),risk=JSON.parse(riskReply.body);
+  assert.equal(risk.code,'600001');assert.equal(risk.status,'unknown');assert.equal(risk.canRecommend,false);
+  assert.equal(riskReply.headers['cache-control'],'no-store');
+  assert.equal(JSON.parse((await get(p,'/api/quote-cross-check?code=600001',headers)).body).ok,false,'GET must never contact providers');
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
   console.log('PASS: 完整服务、绯曜原生入口/版本/业务路由映射、恢复资产、404与真实鉴权拒绝/登录');
  } finally {

@@ -106,7 +106,7 @@ test('malformed typed snapshot fields cannot break state response collection met
 });
 test('display session follows Shanghai market hours on UTC, Shanghai and US hosts',()=>{
  const source=fs.readFileSync(path.resolve(__dirname,'../server.js'),'utf8');
- const start=source.indexOf('function marketDisplaySession() {'),end=source.indexOf('function marketDisplayState()',start);
+ const start=source.indexOf('function marketDisplaySession('),end=source.indexOf('\nconst {createQuoteCrossCheck',start);
  const previous=process.env.TZ;
  try {
   for(const zone of ['UTC','Asia/Shanghai','America/Los_Angeles']) {
@@ -118,6 +118,23 @@ test('display session follows Shanghai market hours on UTC, Shanghai and US host
    }
   }
  } finally {if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
+});
+test('mixed or undated pools never borrow the index day, including older saved snapshots',t=>{
+ const h=fixture(t),monday=Date.parse('2026-11-16T10:00:00+08:00');h.setNow(monday);
+ const state={...market(),stocks:[{code:'600004',quoteAt:monday}],
+  candidatePool:[{code:'600001',quoteAt:friday},{code:'600002',quoteAt:monday}],
+  trendPool:[{code:'600001',price:10}],sectorsDay:'2026-11-13'};
+ const result=h.open().select(state,{openDay:true,trading:true});
+ assert.equal(result.meta.snapshotDay,'20261116');
+ assert.equal(result.meta.snapshotFieldDays.candidatePool,null);
+ assert.equal(result.meta.snapshotFieldDays.trendPool,null);
+ assert.equal(result.meta.snapshotFieldDays.sectors,'20261113');
+ const legacy=JSON.parse(fs.readFileSync(h.file,'utf8'));
+ legacy.fieldDays={candidatePool:'20261116',trendPool:'20261116'};fs.writeFileSync(h.file,JSON.stringify(legacy));
+ const restored=h.open().select({},{openDay:false});
+ assert.equal(restored.meta.snapshotFieldDays.candidatePool,null);
+ assert.equal(restored.meta.snapshotFieldDays.trendPool,null);
+ assert.equal(restored.state.candidatePool.length,2);
 });
 test('Monday open with only Friday quotes stays explicitly historical and preserves public plan cards',t=>{
  const h=fixture(t),store=h.open();const state={...market(),nextplan:{date:'20261113',plan:{picked:[{code:'600001',price:10}]}},idxDisc:{day:'20261113',signal:'review'},ztNameClanScans:{fixture:{total:1,hits:[{code:'600001'}]}}};

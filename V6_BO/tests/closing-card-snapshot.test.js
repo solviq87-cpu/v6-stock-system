@@ -140,6 +140,21 @@ test('pending computation crossing close cannot be remembered; force and nonempt
   assert.equal(s.read('intraday:all').value.items[0].price, 1);
   assert.equal(s.read('intraday:gem'), null);
 });
+test('restored card rows recover their own dating metadata instead of borrowing a newer frame', (t) => {
+  const x=setup(t),store=x.open(),friday=Date.parse('2026-11-13T14:58:00+08:00');
+  const saved={...frame(1),pool:[{code:'600001',price:1,quoteAt:friday}],
+    sectors:[{name:'合成板块'}],sectorsDay:'20261113'};
+  store.project('state',saved,x.context());
+  x.set(at('15:00:00'));
+  const current={...frame(99),snapshotFieldDays:{pool:day,dashboard:day,sectors:day,ztReviewPool:day}};
+  const restored=x.open().project('state',current,x.context());
+  assert.equal(restored.snapshotDay,day);
+  assert.equal(restored.snapshotFieldDays.pool,'20261113');
+  assert.equal(restored.snapshotFieldDays.candidatePool,'20261113');
+  assert.equal(restored.snapshotFieldDays.sectors,'20261113');
+  assert.equal(restored.snapshotFieldDays.dashboard,null);
+  assert.equal(restored.snapshotFieldDays.ztReviewPool,day,'unrestored review evidence keeps its own date');
+});
 test('unknown and prior-session quote days cannot seed a purported current-session snapshot', (t) => {
   const x = setup(t),
     s = x.open();

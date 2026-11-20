@@ -37,13 +37,30 @@ function populated(value) {
   }
   return value !== undefined && value !== null && value !== '' && value !== 0;
 }
+function marketFieldDay(key,state,now) {
+  const value=state[key];
+  const declared=key==='sectors'||key==='sectorsInd'?state.sectorsDay:
+    key==='ztPool'?state.ztDay:key==='ztReviewPool'?state.ztReviewPoolMeta?.tradeDate:null;
+  if(declared){
+    const day=String(declared).replaceAll('-','');
+    return validDay(day)&&day<=dayOf(now)?day:null;
+  }
+  const rows=Array.isArray(value)?value:value?.items||value?.rows||value?.strong;
+  if(!Array.isArray(rows)||!rows.length)return null;
+  const days=new Set(rows.map(row=>{
+    const at=row?.vendorQuoteAt??row?.quoteAt;
+    return Number.isSafeInteger(at)&&at>0&&at<=now?dayOf(at):null;
+  }));
+  return days.size===1?[...days][0]:null;
+}
 function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSessionDay=day=>![0,6].includes(new Date(day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6,8)+'T12:00:00Z').getUTCDay())}={}) {
   let saved = null, lastWrite=0, dirty=false;
   try {
     const data=JSON.parse(fs.readFileSync(file,'utf8'));
     if(data?.schemaVersion===1&&validDay(data.day)&&data.fields&&typeof data.fields==='object') {
-      saved={schemaVersion:1,day:data.day,capturedAt:data.capturedAt,
-        fields:Object.fromEntries(MARKET_FIELDS.filter(k=>k in data.fields&&validField(k,data.fields[k])).map(k=>[k,safe(data.fields[k])])),fieldDays:safe(data.fieldDays)||{},mood:safe(data.mood)};
+      const fields=Object.fromEntries(MARKET_FIELDS.filter(k=>k in data.fields&&validField(k,data.fields[k])).map(k=>[k,safe(data.fields[k])]));
+      saved={schemaVersion:1,day:data.day,capturedAt:data.capturedAt,fields,
+        fieldDays:Object.fromEntries(Object.keys(fields).map(key=>[key,marketFieldDay(key,fields,clock())])),mood:safe(data.mood)};
     }
   } catch(error) { if(error.code!=='ENOENT')onError('market-display-snapshot-read'); }
   function select(state, {trading=false, openDay=false, mood=null}={}) {
@@ -53,7 +70,7 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
     // A retained provider quote can seed an old installation, but cannot replace
     // Friday's durable snapshot with a weekend recomputation or a Sunday receipt.
     const liveWindow=require('./closing-card-snapshot').beforeClose(now);
-    const replaceCurrent=openDay&&liveWindow&&sourceDay===today;
+    const replaceCurrent=openDay&&liveWindow&&sourceDay===today&&(!saved||saved.day<=sourceDay);
     const fillClosed=saved?.day===sourceDay&&MARKET_FIELDS.some(key=>!populated(saved.fields[key])&&populated(state[key]));
     const canCapture=sourceDay && sourceDay<=today && ((!saved || saved.day<sourceDay&&replaceCurrent) || replaceCurrent || fillClosed&&!openDay);
     if(canCapture) {
@@ -62,8 +79,7 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
       for(const key of MARKET_FIELDS) if((replaceCurrent || !populated(fields[key])) && (populated(state[key]) || !(key in fields))) {
         if(state[key]!==undefined && validField(key,state[key])) {
           fields[key]=safe(state[key]);
-          const value=state[key], rows=Array.isArray(value)?value:(value?.items||value?.strong||[]);
-          fieldDays[key]=originalQuoteDay({candidatePool:rows},now)||sourceDay;
+          fieldDays[key]=marketFieldDay(key,state,now);
         }
       }
       const next={schemaVersion:1,day:sourceDay,capturedAt:now,fields,fieldDays,mood:(!replaceCurrent&&saved?.mood)||safe(mood)||null};
@@ -96,4 +112,4 @@ function createMarketDisplaySnapshot({file, clock=Date.now, onError=()=>{}, isSe
   }
   return {select};
 }
-module.exports={createMarketDisplaySnapshot,originalQuoteDay};
+module.exports={createMarketDisplaySnapshot,originalQuoteDay,marketFieldDay};
