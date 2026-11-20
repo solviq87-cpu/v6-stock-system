@@ -437,7 +437,7 @@ export function quoteCrossCheckPanel(ctx,readCode,signal=ctx.signal) {
 }
 
 export function createStockDrawer(ctx) {
- let controller=null,code='',row=null,boundEvidence=false,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
+ let controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  const overlay=h('div',{class:'fy-drawer-backdrop',hidden:true}),drawer=h('aside',{class:'fy-stock-drawer',role:'dialog','aria-modal':'true','aria-label':'股票研究面板',hidden:true,tabindex:'-1'}),title=h('h2',{class:'fy-drawer-title'}),quote=h('div',{class:'fy-drawer-quote'}),body=h('div',{class:'fy-drawer-body'}),meta=h('p',{class:'fy-quote-time'});
  const close=()=>{
   generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
@@ -517,10 +517,29 @@ export function createStockDrawer(ctx) {
   }catch(error){if(turn!==generation||error.name==='AbortError')return;if(tab==='chart')body.replaceChildren(empty('历史数据暂时未能读取',error.message),button('重新读取',()=>loadHistory(false)));}
   finally{if(turn===generation){historyLoading=false;if(loadQueued){loadQueued=false;loadHistory(true);}}}
  }
+ function displayQuote(observation) {
+  displayedQuoteAt=quoteAt(observation);
+  quote.replaceChildren(h('strong',{class:direction(observation.pct)},format(observation.price)),h('span',{class:direction(observation.pct)},percent(observation.pct)));
+  meta.textContent=quoteLabel(observation);
+ }
+ function update() {
+  if(drawer.hidden||!code)return;
+  const next=ctx.findStock(code);
+  if(next?.code!==code)return;
+  if(boundEvidence){
+   const at=quoteAt(next);
+   if(!Number.isFinite(next.price)||next.price<=0||!Number.isFinite(at)||at<=0||at>Date.now()||
+      (Number.isFinite(displayedQuoteAt)&&displayedQuoteAt<=Date.now()&&at<=displayedQuoteAt))return;
+  }else{
+   row=next;
+   title.textContent=symbolName(next)+' / '+code;
+  }
+  displayQuote(next);
+ }
  async function open(nextCode,nextRow) {
   if(!/^\d{6}$/.test(nextCode))return;previousFocus=document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
-  title.textContent=symbolName(row)+' / '+nextCode;quote.replaceChildren(h('strong',{class:direction(row.pct)},format(row.price)),h('span',{class:direction(row.pct)},percent(row.pct)));meta.textContent=quoteLabel(row);
+  title.textContent=symbolName(row)+' / '+nextCode;displayQuote(row);
   overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();
  }
- return {element:h('div',{class:'fy-drawer-layer'},overlay,drawer),open,close,update:()=>{if(drawer.hidden||!code||boundEvidence)return;const next=ctx.findStock(code);if(next){row=next;title.textContent=symbolName(next)+' / '+code;quote.replaceChildren(h('strong',{class:direction(row.pct)},format(row.price)),h('span',{class:direction(row.pct)},percent(row.pct)));meta.textContent=quoteLabel(row);}},clear:()=>{close();code='';row=null;daily=[];title.textContent='';quote.replaceChildren();meta.textContent='';body.replaceChildren();}};
+ return {element:h('div',{class:'fy-drawer-layer'},overlay,drawer),open,close,update,clear:()=>{close();code='';row=null;daily=[];title.textContent='';quote.replaceChildren();meta.textContent='';body.replaceChildren();}};
 }
