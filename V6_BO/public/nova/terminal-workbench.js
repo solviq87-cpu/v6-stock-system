@@ -20,6 +20,9 @@ function decisionStat(label,value,detail) {
 function moduleButton(label,view,sub,ctx) {
  return button(label,()=>ctx.navigate(view,sub),'secondary');
 }
+function panelTitle(label,key) {
+ return [h('span',{class:'fy-reference-panel-icon'},icon(key)),label];
+}
 function quotePreview(row,ctx) {
  const score=valid(row.score)?format(row.score,1):'—';
  const pct=percent(row.pct);
@@ -39,7 +42,7 @@ function referenceLinks(items,ctx,className) {
 }
 function renderPanels(state,summary,reviewDay,ctx) {
  const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
- const mainline=section('市场主线排行','按本次复盘明细归组',
+ const mainline=section(panelTitle('市场主线排行','pulse'),'仅按当前复盘明细的题材归组',
   summary.groups.length?
    h('div',{class:'fy-terminal-lines'},
     h('div',{class:'fy-reference-rank-head','aria-hidden':'true'},['排名','题材','涨停样本','最高板'].map(label=>h('small',{},label))),
@@ -63,7 +66,7 @@ function renderPanels(state,summary,reviewDay,ctx) {
     h('span',{},valid(group.count)?number(group.count)+' 只':'数量未知')),
    h('div',{class:'fy-terminal-chips'},members));
  });
- const board=section('涨停板 · 板块分类',
+ const board=section(panelTitle('涨停板 · 板块分类','spark'),
   '按源端题材与角色分类',
   roleItems.length?h('div',{class:'fy-terminal-lines'},
    h('div',{class:'fy-reference-role-legend','aria-label':'题材角色'},[['leader','龙头'],['deputy','龙二'],['mid','中军'],['follow','跟风']].map(([role,label])=>
@@ -88,8 +91,8 @@ function renderPanels(state,summary,reviewDay,ctx) {
   !marketDay?'大盘快照日期缺失，无法比较资金日期':
   sectorDay!==marketDay?'板块资金 '+sectorDay+' 与大盘 '+marketDay+' 不同日':
   reviewDay&&sectorDay!==reviewDay?'板块资金 '+sectorDay+' 与复盘 '+reviewDay+' 不同日':'';
- const flows=section('板块资金排行',
-  '净流入 · '+(sectorDay||'交易日待核验'),
+ const flows=section(panelTitle('板块资金排行','assets'),
+  '资金来源交易日 '+(sectorDay||'待核验'),
   !aligned?empty('资金来源交易日待核验',dateIssue+'；暂不展示排名，请进入原资金模块核对。'):
    capital.length?h('div',{class:'fy-terminal-flows'},capital.map(row=>
     h('div',{class:'fy-terminal-flow'},
@@ -98,9 +101,6 @@ function renderPanels(state,summary,reviewDay,ctx) {
      h('strong',{class:direction(row.value)},money(row.value))))):
     empty('尚无单位明确的板块资金数据','原资金模块可能有其他单位或缺失项，请核验数据来源与字段。'),
   moduleButton('查看资金证据','pulse','sectors',ctx));
- for(const [panel,key] of [[mainline,'pulse'],[board,'spark'],[flows,'assets']]){
-  const title=panel.querySelector('h2');title.prepend(h('span',{class:'fy-reference-panel-icon'},icon(key)));
- }
  return h('div',{class:'fy-terminal-panels'},mainline,board,flows);
 }
 function renderReviewRows(summary,ctx) {
@@ -228,7 +228,7 @@ export function renderTerminalOverview(ctx) {
  const candidatePreview=h('div',{class:'fy-terminal-preview-cards'});
  const candidates=h('section',{class:'fy-terminal-candidates fy-terminal-preview'},
   h('header',{class:'fy-terminal-preview-head'},
-   h('div',{},h('h2',{},'今日精选'),h('p',{class:'fy-terminal-hint'},'云端候选 · 按原始报价展示')),
+   h('div',{},h('h2',{},panelTitle('今日精选','spark')),h('p',{class:'fy-terminal-hint'},'云端候选 · 按原始报价展示')),
    moduleButton('查看全部候选','opportunities','all',ctx)),
   h('div',{class:'fy-reference-candidate-head','aria-hidden':'true'},['股票 / 代码','题材','评分','价格 / 涨幅','研判'].map(label=>h('span',{},label))),
   candidatePreview);
@@ -240,21 +240,17 @@ export function renderTerminalOverview(ctx) {
  const chartContent=h('div',{class:'fy-reference-chart-body'});
  const ladderContent=h('div',{class:'fy-reference-ladder-body'});
  const syncContent=h('div',{class:'fy-reference-sync-body'});
- const signalPanel=section('今日策略信号','',
+ const signalPanel=section(panelTitle('今日策略信号','pulse'),'',
   signalContent,h('div',{class:'fy-reference-actions'},
    moduleButton('查看风控','assets','risk',ctx),moduleButton('研究机会','opportunities','all',ctx)));
  signalPanel.classList.add('fy-reference-signal');
- for(const [panel,key] of [[signalPanel,'pulse'],[candidates,'spark']]){
-  panel.querySelector('h2').prepend(h('span',{class:'fy-reference-panel-icon'},icon(key)));
- }
  let flowMode='in';
  const flowButtons=['in','out'].map((mode,i)=>button(i===0?'资金流入榜':'资金流出榜',()=>{
   flowMode=mode;paintFunds(ctx.state||{},reviewDate(ctx.state?.review?.date));
  },'secondary'));
- const fundsPanel=section('板块资金流向','',h('div',{class:'fy-reference-flow-switch','aria-label':'资金排名方向'},flowButtons),fundsContent,
+ const fundsPanel=section(panelTitle('板块资金流向','assets'),'',h('div',{class:'fy-reference-flow-switch','aria-label':'资金排名方向'},flowButtons),fundsContent,
   moduleButton('查看全部资金','pulse','sectors',ctx));
  fundsPanel.classList.add('fy-reference-funds');
- fundsPanel.querySelector('h2').prepend(h('span',{class:'fy-reference-panel-icon'},icon('assets')));
  const ladderPanel=section('龙头梯队','按复盘板次排列',ladderContent,moduleButton('查看接力候选','opportunities','relay-first',ctx));
  const newsPanel=section('新闻因子','',newsContent,
   moduleButton('全部资讯','inbox','all',ctx));
