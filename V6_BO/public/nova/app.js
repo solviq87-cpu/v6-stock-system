@@ -1,5 +1,5 @@
 import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.js';
-import {createClient,getSession,saveSession,deviceId,retainMarket} from './client.js';
+import {createClient,getSession,saveSession,deviceId,retainMarket,createSnapshotPoller} from './client.js';
 import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS} from './market.js';
 import {renderTerminalOverview} from './terminal-workbench.js';
 
@@ -67,6 +67,7 @@ function snapshotStatus() {
  if(!connection||!snapshot)return;
  connection.textContent=!online?'连接中断 · 保留上次内容':lastRead?'最近读取 '+new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(lastRead):'正在读取云端';
  connection.dataset.offline=String(!online);
+ connection.title='可见页面每5秒读取同源云端状态，不代表行情源重新采集；报价仍按原始时点判断。';
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
@@ -124,7 +125,7 @@ async function renderRoute() {
  window.scrollTo({top:0,behavior:'instant'});
 }
 async function refresh(manual=false) {
- if(!role)return;
+ if(!role||(!manual&&document.visibilityState!=='visible'))return;
  if(refreshBusy){if(manual)refreshWanted=true;return;}
  refreshBusy=true;
  const controller=sessionController;
@@ -136,15 +137,15 @@ async function refresh(manual=false) {
   else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.();
-  if(manual)notify('已读取同一份云端状态');
+  if(manual)notify('已读取云端状态；报价是否更新须核对原始时点，本操作不启动重新采集');
  }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
  finally{refreshBusy=false;if(refreshWanted){refreshWanted=false;if(role)refresh(false);}}
 }
 function logout(message='') {
- gateGeneration++;role=null;state=null;lastRead=0;poolCache.clear();listeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();clearInterval(poll);drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;lastRead=0;poolCache.clear();listeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
- gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();sessionController=new AbortController();createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role)return;await renderRoute();subscribeChanges(sessionController);clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible')refresh(false);},15000);
+ gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:()=>refresh(false),signal:controller.signal});
 }
 async function subscribeChanges(controller) {
  // Fetch-based SSE keeps the credential in a header and retains periodic reads
@@ -163,7 +164,7 @@ async function subscribeChanges(controller) {
 }
 
 function showGate(message='') {
- const turn=++gateGeneration;clearInterval(poll);role=null;
+ const turn=++gateGeneration;poll?.();poll=null;role=null;
  const password=h('input',{type:'password',name:'password',autocomplete:'current-password',placeholder:'输入现有访问口令',required:true,maxlength:128}),name=h('input',{name:'device-name',autocomplete:'off',placeholder:'例如：我的手机',maxlength:80,value:'绯曜研究设备'}),mode=h('select',{'aria-label':'登录身份'},h('option',{value:'auto'},'自动识别身份'),h('option',{value:'edit'},'开发者'),h('option',{value:'view'},'只读观察者'));
  const status=note(message||'账户与历史继续使用原有服务，访问授权由服务端确认。');
  const submit=h('button',{type:'submit',class:'fy-button primary'},authInfo?.hasPassword===false?'创建口令并进入绯曜':'进入绯曜');
@@ -222,7 +223,6 @@ function openSearch() {
 addEventListener('hashchange',()=>{if(role)renderRoute();});
 addEventListener('offline',()=>{online=false;snapshotStatus();});
 addEventListener('online',()=>{if(role)refresh(false);});
-addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&role&&Date.now()-lastRead>15000)refresh(false);});
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'&&role){event.preventDefault();openSearch();}});
 (async()=>{
  try {

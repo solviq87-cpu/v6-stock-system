@@ -2,8 +2,10 @@ const MARKET_FIELDS=['dashboard','pool','global','external','sectors','auction',
 const populated=value=>Array.isArray(value)?value.length>0:value&&typeof value==='object'?Object.keys(value).length>0:value!=null;
 export function retainMarket(previous,incoming) {
   if(!incoming||typeof incoming!=='object')throw Error('服务端没有返回可用状态');
+  if(incoming.needAuth||incoming.needPassword||incoming.invalid||incoming.ok===false||(incoming.locked&&incoming.readOnly!==true)||(previous?.role&&incoming.role&&previous.role!==incoming.role))return incoming;
   if(!previous||!(incoming.trading===false||incoming.isSnapshot===true||incoming.dashboard?.isSnapshot===true))return incoming;
   const next={...incoming};
+  // Server-owned review rows and their source metadata must never be restored independently.
   const keepFieldDay=key=>{next.snapshotFieldDays={...next.snapshotFieldDays,[key]:previous.snapshotFieldDays?.[key]||previous.snapshotDay||''};};
   for(const key of MARKET_FIELDS)if(!populated(next[key])&&populated(previous[key])){next[key]=previous[key];keepFieldDay(key);}
   // Relay rows are private. A server permission projection must clear them;
@@ -29,6 +31,25 @@ export function retainMarket(previous,incoming) {
   return next;
 }
 export class ApiError extends Error { constructor(message,status=0,body=null){super(message);this.name='ApiError';this.status=status;this.body=body;} }
+// Five-second cadence reads only the existing authenticated cloud snapshot.
+// It does not call a market provider, trade or refresh the original quote time.
+export function createSnapshotPoller({read,signal,page=document,setInterval:repeat=globalThis.setInterval,clearInterval:cancel=globalThis.clearInterval}) {
+ let timer=null,busy=false,stopped=false;
+ const visible=()=>page.visibilityState==='visible';
+ const clear=()=>{if(timer!==null){cancel(timer);timer=null;}};
+ async function tick(){
+  if(stopped||signal?.aborted||!visible()||busy)return;
+  busy=true;try{await read();}finally{busy=false;}
+ }
+ const run=()=>{void tick().catch(()=>{});};
+ function visibility(){clear();if(stopped||signal?.aborted||!visible())return;timer=repeat(run,5000);run();}
+ function stop(){stopped=true;clear();page.removeEventListener('visibilitychange',visibility);signal?.removeEventListener('abort',stop);}
+ if(signal?.aborted)return stop;
+ page.addEventListener('visibilitychange',visibility);signal?.addEventListener('abort',stop,{once:true});
+ if(visible())timer=repeat(run,5000);
+ return stop;
+}
+
 export function getSession(){try{return localStorage.getItem('qd_device')||localStorage.getItem('qd_token')||'';}catch{return '';}}
 export function saveSession(token,role){try{localStorage.removeItem('qd_token');if(token)localStorage.setItem('qd_device',token);else localStorage.removeItem('qd_device');if(role)localStorage.setItem('qd_role',role);else localStorage.removeItem('qd_role');}catch{}}
 export function deviceId(){try{let id=localStorage.getItem('fayo.device');if(!id){id=crypto.randomUUID();localStorage.setItem('fayo.device',id);}return id;}catch{return 'fayo-'+Math.random().toString(36).slice(2);}}

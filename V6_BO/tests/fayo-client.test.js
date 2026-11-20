@@ -128,3 +128,15 @@ test('a semantic read-only denial does not revoke an otherwise valid reader sess
   assert.equal((await client.api('/api/state')).rows[0].code,'600101');
  }finally{global.location=originalLocation;global.fetch=originalFetch;}
 });
+test('readonly review rows and metadata remain one server-owned pair across closed-session failures and new dates',async()=>{
+ const {retainMarket}=await load(),previous={...oldState(),role:'edit',ztReviewPool:[{code:'600101',tradeDate:'2026-11-13'}],ztReviewPoolMeta:{tradeDate:'2026-11-13',status:'ready'}};
+ const retained={trading:false,ztReviewPool:previous.ztReviewPool,ztReviewPoolMeta:{...previous.ztReviewPoolMeta,status:'retained',lastAttempt:{requestedDate:'2026-11-16'}}};
+ assert.deepEqual(retainMarket(previous,retained).ztReviewPoolMeta,retained.ztReviewPoolMeta);
+ const empty={trading:false,ztReviewPool:[],ztReviewPoolMeta:{tradeDate:'2026-11-16',status:'unavailable'}};
+ const result=retainMarket(previous,empty);assert.deepEqual(result.ztReviewPool,[]);assert.equal(result.ztReviewPoolMeta.tradeDate,'2026-11-16','never attach old rows to fresh metadata');
+ for(const partial of [{ztReviewPool:[]},{ztReviewPoolMeta:{tradeDate:'2026-11-16'}},{}]){const response={trading:false,...partial},next=retainMarket(previous,response);assert.equal(next.ztReviewPool,response.ztReviewPool);assert.equal(next.ztReviewPoolMeta,response.ztReviewPoolMeta,'missing server pair fields are not independently restored');}
+});
+test('closed snapshots never restore previous identity data after auth failure or explicit role change',async()=>{
+ const {retainMarket}=await load(),previous={...oldState(),role:'edit',ztReviewPool:[{code:'600101'}],ztReviewPoolMeta:{tradeDate:'2026-11-13'}};
+ for(const denial of [{needAuth:true},{locked:true},{invalid:true},{ok:false},{role:'view'}]){const response={trading:false,...denial},result=retainMarket(previous,response);assert.equal(result.ztReviewPool,undefined);assert.equal(result.ztReviewPoolMeta,undefined);assert.equal(result.pool,undefined,'no prior snapshot is resurrected after identity denial/change');}
+});
