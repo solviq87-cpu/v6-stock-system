@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,dateTime,table,icon} from './ui.js';
-import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief} from './market.js';
+import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,systemPicks} from './market.js';
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier} from './market-evidence.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
@@ -235,7 +235,7 @@ export function renderTerminalOverview(ctx) {
  const candidates=h('section',{class:'fy-terminal-candidates fy-terminal-preview'},
   h('header',{class:'fy-terminal-preview-head'},
    h('div',{},h('h2',{},panelTitle('今日精选','spark')),h('p',{class:'fy-terminal-hint'},'云端候选 · 按原始报价展示')),
-   moduleButton('查看全部候选','opportunities','all',ctx)),
+   moduleButton('查看系统精选','opportunities','ranked',ctx)),
   h('div',{class:'fy-reference-candidate-head','aria-hidden':'true'},['股票 / 代码','题材','评分','价格 / 涨幅','研判'].map(label=>h('span',{},label))),
   candidatePreview);
  // New sections project the same authenticated state; they never fetch, mutate or simulate trading.
@@ -465,23 +465,7 @@ export function renderTerminalOverview(ctx) {
    moduleButton('查看完整策略研究','lab','desk',ctx));
   panelsHost.replaceChildren(renderPanels(state,summary,day,ctx));
   paintReview(summary);
-  // Landing-page preview is deliberately bounded and read-only. Full pool
-  // fetching, filters, strategy evidence and paging remain in opportunities/all.
-  // This avoids automatic remote pool requests just from opening the homepage.
-  const previewRows=new Map();
-  // Field dates are separate: never borrow a newer index/dashboard date for
-  // a retained pool row whose original pool date is unknown or older.
-  const previewGroups=[
-   [rowsFrom(state.dashboard?.rows),reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay)],
-   [rowsFrom(state.pool),reviewDate(state.snapshotFieldDays?.pool||state.poolDay)]
-  ];
-  for(const [items,sourceDay] of previewGroups){
-   for(const row of items){
-    if(!row?.code||previewRows.has(row.code))continue;
-    previewRows.set(row.code,{...row,poolDay:row.poolDay||sourceDay||undefined});
-   }
-  }
-  const preview=[...previewRows.values()].slice(0,3);
+  const preview=systemPicks(state).items.slice(0,3);
   candidatePreview.replaceChildren(preview.length?
    h('div',{class:'fy-stock-grid'},preview.map(row=>quotePreview(row,ctx))):
    empty('当前没有可核验的候选','查看完整机会工作区中的来源状态和原始依据；未返回不代表全市场没有机会。'));

@@ -14,6 +14,27 @@ const find=(el,predicate)=>predicate(el)?el:(el.children||[]).map(child=>find(ch
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function dom(){global.Node=El;global.document={createElement:tag=>new El(tag),createElementNS:(_ns,tag)=>new El(tag),createTextNode:textContent=>Object.assign(new El('text'),{textContent})};}
 function context(state,role='edit') {const controller=new AbortController(),calls=[],listeners=[];return {state,role,signal:controller.signal,calls,listeners,api:async url=>{calls.push(url);if(url.startsWith('/api/quant'))return {items:[],freezeUnavailable:true,note:'没有已保存的盘中卡片'};if(url.startsWith('/api/auction'))throw Error('源暂不可用');return {items:[]};},readPool:(_key,loader)=>loader(),refresh:async()=>{},navigate(){},selectStock(){},notify(){},onState:fn=>listeners.push(fn),controller};}
+test('system picks refresh in place and keep the source result and display read times separate',async()=>{
+ dom();const {renderOpportunities,systemPicks}=await api;
+ const at=Date.parse('2026-11-17T08:00:00+08:00');
+ const legacy={code:'600101',name:'合成旧候选',paths:['旧命中条件']};
+ const old=systemPicks({pool:[legacy],dashboard:{snapshotDay:'20261117'},snapshotDay:'20261117'});
+ assert.equal(old.snapshotDay,null);assert.equal(old.items[0].poolDay,undefined);assert.deepEqual(old.items[0].signals,['旧命中条件']);
+ const ctx=context({isSnapshot:true,pool:[legacy],snapshotFieldDays:{candidatePool:'20261116'}});
+ ctx.refresh=async()=>{
+  ctx.lastRead=at;
+  ctx.state={...ctx.state,dashboard:{rows:[{code:'600199',name:'刷新后新候选',quoteAt:at-1000,quoteSource:'fixture',score:99,signals:['新命中条件']}],snapshotDay:'20261117'}};
+  for(const update of ctx.listeners)await update();
+ };
+ const view=renderOpportunities({sub:'ranked'},ctx);
+ assert.match(text(view),/合成旧候选/);
+ assert.match(text(view),/原始交易日 2026-11-16/);
+ await find(view,el=>el?.tag==='button'&&text(el).trim()==='刷新结果').listeners.click();
+ assert.match(text(view),/刷新后新候选/);assert.match(text(view),/新命中条件/);
+ assert.match(text(view),/最近读取 2026\/11\/17/);assert.doesNotMatch(text(view),/合成旧候选/);
+ assert.deepEqual(ctx.calls,[],'the view does not request source scans');
+ ctx.controller.abort();
+});
 test('default home exposes each index original timestamp and single-source status',async()=>{
  dom();const {renderAllOpportunities}=await api;
  const ctx=context({dashboard:{indices:[{code:'1.000001',price:3584.58,pct:-.5,quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'tencent-index'}]}});
