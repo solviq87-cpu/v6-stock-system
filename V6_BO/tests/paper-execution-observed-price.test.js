@@ -5,6 +5,9 @@ function extract(start,end,context){const a=source.indexOf(start),b=source.index
 test('paper buy executes at the checked observation, not a different pool price',()=>{
  const acc={enabled:true,cash:10000,positions:{},trades:[]};const c={PAPER_CFG:{pool:{maxPos:1,name:'test'}},PAPER:{pool:acc},S:{ztCodes:new Set()},A:{isLimitUp:()=>false},Date,isReplica:()=>false,isContinuousTrading:()=>true,paperPxFresh:()=>10,paperAuthorityQuotes:()=>({600519:{price:10}}),paperEquity:()=>10000,paperFeeAmount:()=>5,paperLotOf:()=>100,skipAdd:()=>{},numNeutral:()=>0,dataCapOf:()=>100,savePaper:()=>true,pushPaperDigest:()=>{}};
  extract('function paperBuy(key, cands, pm, reasonOf)', '// ---------------- A股 T+1',c);
+ const skips=[];c.skipAdd=reason=>skips.push(reason);
+ c.paperBuy('pool',[{code:'600519',strategyId:'t10'}],new Map(),()=> 'test');
+ assert.deepEqual(skips,['buyTacticCap']);assert.equal(acc.trades.length,0);
  c.paperBuy('pool',[{code:'600519',name:'样本',price:20,pct:0}],new Map([['600519',20]]),()=> 'test');
  assert.equal(acc.trades.length,1);assert.equal(acc.trades[0].price,10);assert.equal(acc.positions['600519'].buyPrice,10);
 });

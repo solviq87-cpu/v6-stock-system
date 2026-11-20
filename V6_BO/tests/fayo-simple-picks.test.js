@@ -1,9 +1,6 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const root=path.join(__dirname,'../public/nova');
-const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const source=fs.readFileSync(path.join(root,'market.js'),'utf8').replace("'./ui.js'",JSON.stringify(uri(fs.readFileSync(path.join(root,'ui.js'),'utf8')))).replace("'./market-evidence.js'",JSON.stringify(uri(fs.readFileSync(path.join(root,'market-evidence.js'),'utf8'))));
-const api=import(uri(source));
+const test=require('node:test'),assert=require('node:assert/strict');
+const api=import('../public/nova/market.js');
 class El {
  constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.value='';this.hidden=false;this.disabled=false;this.dataset={};}
  append(...items){this.children.push(...items);}

@@ -5,12 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const dir=path.resolve(__dirname,'../public/nova');
 const read=name=>fs.readFileSync(path.join(dir,name),'utf8');
-const uri=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
-const UI=uri(read('ui.js'));
-const market=uri(read('market.js').replace("'./ui.js'",JSON.stringify(UI))
-  .replace("'./market-evidence.js'",JSON.stringify(uri(read('market-evidence.js')))));
-const api=import(uri(read('terminal-workbench.js').replace("'./ui.js'",JSON.stringify(UI))
-  .replace("'./market.js'",JSON.stringify(market))));
+const api=import('../public/nova/terminal-workbench.js');
 class El{
  constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.value='';this.hidden=false;this.disabled=false;this.dataset={};this.className='';}
  append(...items){this.children.push(...items);}
