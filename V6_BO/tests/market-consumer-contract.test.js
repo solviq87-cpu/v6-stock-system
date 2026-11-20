@@ -50,6 +50,19 @@ test('funds preserve a genuine zero and never borrow a price timestamp',()=>{
  assert.doesNotThrow(()=>contract.fundsObservationView({mainInflow:0,source:'eastmoney',sourceTimestamp:Number.MAX_SAFE_INTEGER},now));
 });
 
+test('sector funds require causal timestamps and keep stale observations dated',()=>{
+ const row={mainInflow:0,fundsSource:'eastmoney',fundsSourceTimestamp:now-15000};
+ for(const [received,age,status,reason] of [
+  [now,15000,'recent-unverified',null],[now,15001,'stale','stale-original-time'],
+  [now-15001,15000,'future','invalid-reception-time'],[now+1,1,'future','invalid-reception-time'],
+  [now,-1,'future','future-original-time'],[null,10,'unknown','missing-received-time']
+ ]){
+  const result=contract.fundsObservationView({...row,fundsRetrievedAt:received,fundsSourceTimestamp:now-age},now);
+  assert.equal(result.freshness,status);assert.equal(result.missingReason,reason);
+  assert.equal(result.value,0);assert.equal(result.canTrade,false);
+ }
+});
+
 test('full-A EM uses its own f124 while price time never becomes funds time',()=>{
  const c=run(em,['normalizeStock','observedFlowNumber','batchQuoteAtPublication']);
  const input={f12:'000001',f14:'fixture',f2:9,f62:0,f184:0,f124:(now-1000)/1000};

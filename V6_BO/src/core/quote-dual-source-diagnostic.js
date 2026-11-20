@@ -13,18 +13,25 @@ function session(now){
   ((minute>=570&&minute<690)||(minute>=780&&minute<900));
 }
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
-async function checkTwoPublicSources({code,now=Date.now(),probe=probePublicQuotes}={}){
+async function checkTwoPublicSources({code,now:fixedNow,clock=Date.now,probe=probePublicQuotes}={}){
  if(typeof code!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(code))
   throw Error('证券代码格式不合法');
  if(typeof probe!=='function')throw Error('探测器无效');
+ const readClock=fixedNow===undefined?clock:()=>fixedNow;
+ const startedAt=readClock();
  const base={schemaVersion:1,mode:'two-source-public-quote-diagnostic',
-  code,asOf:new Date(now).toISOString(),source1:'tencent',source2:'eastmoney',
+  code,asOf:new Date(startedAt).toISOString(),source1:'tencent',source2:'eastmoney',
   providerLicensed:false,exchangeVerified:false,calendarVerified:false,
   certifiedLive:false,canTrade:false,canNotify:false};
- if(!session(now))return {...base,status:'outside-weekday-session-window',
+ if(!session(startedAt))return {...base,status:'outside-weekday-session-window',
   discrepancyBps:null,quoteAt:null,sourceStatuses:[],
   note:'未处于中国大陆常规工作日连续竞价时段；节假日未认证，不进行联网探测。'};
- const raw=await probe({code,providers:['tencent','eastmoney']});
+ const raw=await probe({code,providers:['tencent','eastmoney'],clock:readClock});
+ const now=readClock();
+ if(now<startedAt)throw Error('检查时钟倒退');
+ base.asOf=new Date(now).toISOString();
+ if(!session(now))return {...base,status:'outside-weekday-session-window',
+  discrepancyBps:null,quoteAt:null,sourceStatuses:[],note:'采集结束时已离开交易时段。'};
  const projected=projectProbe(raw,now);
  const sources=projected.sources||[];
  const entries=['tencent','eastmoney'].map(id=>sources.find(s=>s.id===id));

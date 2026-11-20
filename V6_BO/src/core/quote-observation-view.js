@@ -58,10 +58,20 @@ function fundsObservationView(row,now=Date.now()){
  const quoteAt=Number.isSafeInteger(rawAt)&&rawAt>0&&rawAt<=8e15?rawAt:null;
  const rawReceived=row?.fundsRetrievedAt??row?.retrievedAt;
  const receivedAt=Number.isSafeInteger(rawReceived)&&rawReceived>0?rawReceived:null;
- const freshness=value===null||!source||quoteAt===null?'unknown':quoteAt>now?'future':now-quoteAt>15000?'stale':'recent-unverified';
+ let freshness='unknown';
+ let missingReason=null;
+ if(value===null)missingReason='missing-funds';
+ else if(!source)missingReason='missing-source';
+ else if(quoteAt===null)missingReason='missing-original-funds-time';
+ else if(quoteAt>now){freshness='future';missingReason='future-original-time';}
+ else if(receivedAt!==null&&(receivedAt>now||receivedAt<quoteAt)){
+   freshness='future';missingReason='invalid-reception-time';
+ }else if(now-quoteAt>15000){freshness='stale';missingReason='stale-original-time';}
+ else if(receivedAt===null)missingReason='missing-received-time';
+ else freshness='recent-unverified';
  return {value,source,quoteAt,receivedAt,tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null,
    mode:row?.fundsMethod||'unverified-funds',unit:row?.fundsUnit||row?.unit||null,freshness,
-   missingReason:value===null?'missing-funds':!source?'missing-source':quoteAt===null?'missing-original-funds-time':freshness==='future'?'future-original-time':freshness==='stale'?'stale-original-time':null,
+   missingReason,
    canTrade:false,canNotify:false,verifiedLive:false};
 }
 function klineObservation(snapshot,rows,{targetDate='',cacheLayer='unknown',cacheAt=null,lastAttemptAt=null,now=Date.now()}={}){
