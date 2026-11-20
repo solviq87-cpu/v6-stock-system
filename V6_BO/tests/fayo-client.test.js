@@ -57,6 +57,7 @@ test('revoked authorization aborts concurrent requests and late private response
    release=()=>resolve({ok:true,status:200,json:async()=>({ok:true,private:'must-not-return'})});
   });
   assert.equal(options.headers.Authorization,'Bearer fixture-token');
+  assert.equal(options.headers['X-QD-Token'],'fixture-token');
   assert.equal(options.cache,'no-store');
   return Promise.resolve({ok:true,status:200,json:async()=>({locked:true,needAuth:true,error:'revoked'})});
  };
@@ -80,6 +81,29 @@ test('the new transport refuses external services and URL credentials before mak
   await assert.rejects(client.api('https://example.invalid/api/state'),/当前服务/);
   await assert.rejects(client.api('/api/state?token=private'),/凭据/);
   assert.equal(calls,0);
+ }finally{global.location=originalLocation;global.fetch=originalFetch;}
+});
+test('the native client mirrors one bounded session to both headers and cannot reuse caller-supplied credentials',async()=>{
+ const {createClient}=await load(),originalLocation=global.location,originalFetch=global.fetch;
+ global.location={origin:'http://fayo.test'};
+ const calls=[];
+ global.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>({ok:true})};};
+ try{
+  const client=createClient({getToken:()=> 'fixture-current-session'});
+  await client.api('/api/state',{headers:{authorization:'Bearer stale-fixture', 'x-QD-token':'stale-fixture','X-Request-Id':'fixture-request'}});
+  assert.equal(calls[0].url.origin,'http://fayo.test');
+  assert.equal(calls[0].options.credentials,'same-origin');
+  assert.equal(calls[0].options.headers.Authorization,'Bearer fixture-current-session');
+  assert.equal(calls[0].options.headers['X-QD-Token'],'fixture-current-session');
+  assert.equal(calls[0].options.headers['X-Request-Id'],'fixture-request');
+  assert.equal(Object.keys(calls[0].options.headers).filter(key=>/^(authorization|x-qd-token)$/i.test(key)).length,2);
+  await createClient({getToken:()=>''}).api('/api/lock/status',{headers:{Authorization:'Bearer stale-fixture','x-qd-token':'stale-fixture'}});
+  assert.equal(Object.keys(calls[1].options.headers).some(key=>/^(authorization|x-qd-token)$/i.test(key)),false);
+  let denials=0;
+  for(const token of ['short','x'.repeat(257),'has whitespace',{}]){
+   await assert.rejects(createClient({getToken:()=>token,onUnauthorized:()=>denials++}).api('/api/state'),/授权格式/);
+  }
+  assert.equal(denials,4);assert.equal(calls.length,2,'invalid credentials never reach fetch');
  }finally{global.location=originalLocation;global.fetch=originalFetch;}
 });
 

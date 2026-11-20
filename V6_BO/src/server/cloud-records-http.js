@@ -5,7 +5,7 @@
  * Caller MUST inject actual device-session authorization and same-origin policy.
  */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
-const BEARER=/^Bearer ([A-Za-z0-9._~-]{8,256})$/i;
+const {sessionHeaderToken}=require('./session-header-token');
 const RECEIPT_ROUTE=/^\/api\/records\/receipts\/([A-Za-z0-9_-]{8,100})$/;
 const VALID_FIELDS=new Set(['name','title','author','content','expectedRevision','requestId']);
 function respond(res,status,body){
@@ -28,10 +28,10 @@ function createCloudRecordsHttpHandler({store,authenticate,sameOrigin,maxBytes=M
   if(url.search)return fail(res,400,'QUERY_CREDENTIALS_FORBIDDEN');
   if(!['GET','POST'].includes(req.method)||(receiptRoute&&req.method!=='GET'))return fail(res,405,'METHOD_NOT_ALLOWED');
   try{if(!sameOrigin(req))return fail(res,403,'CROSS_SITE_FORBIDDEN');}catch{return fail(res,403,'CROSS_SITE_FORBIDDEN');}
-  const match=typeof req.headers.authorization==='string'&&req.headers.authorization.match(BEARER);
-  if(!match)return fail(res,401,'LOGIN_REQUIRED');
+  const token=sessionHeaderToken(req,{strictBearerSpace:true});
+  if(!token)return fail(res,401,'LOGIN_REQUIRED');
   let role;
-  try{role=await authenticate(match[1],req);}catch{return fail(res,401,'LOGIN_REQUIRED');}
+  try{role=await authenticate(token,req);}catch{return fail(res,401,'LOGIN_REQUIRED');}
   if(role!=='edit')return fail(res,role==='view'?403:401,role==='view'?'READ_ONLY':'LOGIN_REQUIRED');
   if(receiptRoute){
    try{

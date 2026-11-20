@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin || request.method !== 'GET') return;
   // Credentials and source downloads are never offline resources, even when
   // the filename appears static.
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/srcpkg/') || request.headers.has('Authorization') ||
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/srcpkg/') || request.headers.has('Authorization') || request.headers.has('X-QD-Token') ||
       [...url.searchParams.keys()].some(key => /token|auth|password|sharecode/i.test(key))) {
     event.respondWith(networkOnly(request));
     return;

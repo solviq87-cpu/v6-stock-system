@@ -19966,6 +19966,7 @@ function requireEditor(res, tok, req) {
 // 认证限流和设备审计仅采信直连地址，或显式可信代理提交的完整转发链。
 // 未配置 QD_TRUSTED_PROXY_IPS 时，无论客户端发什么 XFF/X-Real-IP 都不能轮换限流 IP。
 const { clientIp } = require('./src/server/trusted-proxy-ip');
+const { sessionHeaderToken } = require('./src/server/session-header-token');
 // ⛔ 2026-10-07 删除 `behindProxy(req)`（本轮角度：算出来就没人再看过的数）。
 //    它判"是否经过反向代理"，方式是【看请求头里有没有 x-forwarded-*】—— 而请求头是客户端
 //    完全可控的，这道防线本来就形同虚设；真正的本机判据是下面的 isLocalReq（只看 socket 对端地址）。
@@ -20019,7 +20020,7 @@ function handle(req, res, u, body) {
   //    各路由取 token 的口径因此五花八门：有的只读 body、有的只读 query。只要前端那一处漏塞，
   //    requireEditor 就拿到空串 → 非本机一律判只读 → 表现是「点了没反应」，且没有任何报错。
   //    现在 isEditorReq 在实参为空时回落到这里，一处兜底覆盖所有路由（挂在 req 上，请求间不串）。
-  req.__tok = ((req.headers.authorization || '').match(/^Bearer\s+([A-Za-z0-9._~-]{8,256})$/i)||[])[1] ||
+  req.__tok = sessionHeaderToken(req) ||
     (u.searchParams && u.searchParams.get('token')) ||
     (() => { try { return (JSON.parse(body || '{}') || {}).token || ''; } catch { return ''; } })() || '';
   let p = u.pathname;
@@ -22167,7 +22168,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
   if(p==='/api/research/manual-loop'){
     const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
-    const bearer=((req.headers.authorization||'').match(/^Bearer\s+([A-Za-z0-9._~-]{8,256})$/i)||[])[1]||'';
+    const bearer=sessionHeaderToken(req);
     if(roleOf(bearer,clientIp(req))!=='edit')return reply(403,{ok:false,error:'人工执行记录需要编辑者身份'});
     if([...u.searchParams].length)return reply(400,{ok:false,error:'此私有接口不接受查询参数'});
     if(!['GET','POST'].includes(req.method))return reply(405,{ok:false,error:'仅允许GET或POST'});
@@ -22366,7 +22367,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   if (p === '/api/research/learning-runtime') {
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     // Use the native session/device ledger, with a header credential only.
-    const bearer=((req.headers.authorization||'').match(/^Bearer\s+([A-Za-z0-9._~-]{8,256})$/i)||[])[1]||'';
+    const bearer=sessionHeaderToken(req);
     if(roleOf(bearer,clientIp(req))!=='edit')return reply(403,{ok:false,locked:true,readOnly:true,error:'需要编辑者身份才能检查私有研究运行条件'});
     if(!['GET','POST'].includes(req.method))return reply(405,{ok:false,error:'仅允许GET或POST'});
     if([...u.searchParams].length)return reply(400,{ok:false,error:'运行检查不接受查询参数'});

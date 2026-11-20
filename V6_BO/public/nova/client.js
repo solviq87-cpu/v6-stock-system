@@ -61,12 +61,16 @@ export function createClient({onUnauthorized=()=>{},getToken=getSession}={}) {
     const url=new URL(path,location.origin);
     if(url.origin!==location.origin||!url.pathname.startsWith('/api/')&&!url.pathname.startsWith('/assets/'))throw new ApiError('只允许读取当前服务的接口');
     if([...url.searchParams.keys()].some(key=>/token|password|sharecode|secret/i.test(key)))throw new ApiError('凭据不能出现在链接中');
+    const token=getToken();
+    if(token&&(typeof token!=='string'||!/^[A-Za-z0-9._~-]{8,256}$/.test(token))){invalidate();onUnauthorized();throw new ApiError('访问授权格式无效，请重新登录',401);}
+    const headers={'Accept':'application/json',...options.headers};
+    // A caller cannot retain another identity in either authentication header.
+    for(const key of Object.keys(headers))if(/^(?:authorization|x-qd-token)$/i.test(key))delete headers[key];
+    if(token){headers.Authorization='Bearer '+token;headers['X-QD-Token']=token;}
     const controller=new AbortController(),turn=generation;
     pending.add(controller);
     const timeout=setTimeout(()=>controller.abort(new DOMException('请求超时','TimeoutError')),options.timeoutMs??(options.method&&options.method.toUpperCase()!=='GET'?60000:15000));
     if(options.signal){if(options.signal.aborted)controller.abort();else options.signal.addEventListener('abort',()=>controller.abort(),{once:true});}
-    const headers={'Accept':'application/json',...options.headers};
-    const token=getToken();if(token)headers.Authorization='Bearer '+token;
     const method=(options.method||'GET').toUpperCase();
     if(options.body!==undefined)headers['Content-Type']='application/json';
     try {

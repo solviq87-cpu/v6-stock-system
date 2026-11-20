@@ -46,5 +46,5 @@ ok(run('/api/research/disk-scan','read','POST','{}').locked,'read denied disk sc
 ok(run('/api/research/disk-ledger','read','POST','{}').locked,'read denied disk ledger');
 ok(!frontend.includes("'?token='"),'frontend does not place token in URL');
 ok(frontend.includes("'Authorization':'Bearer '"),'frontend bearer header');
-ok(server.includes("req.headers.authorization"),'server bearer token support');
+ok(server.includes('sessionHeaderToken(req)')&&fs.readFileSync(path.join(root,'src/server/session-header-token.js'),'utf8').includes('headers.authorization'),'server bearer token support uses the shared header-only parser');
 console.log('PASS '+count+' route-level authorization and input checks');
