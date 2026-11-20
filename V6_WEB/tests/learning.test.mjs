@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 const source = (file) => readFileSync(new URL('../dist/' + file, import.meta.url), 'utf8')
-test('离线教学规则、周期、风险门及页面使用同一快照', () => {
+test('离线教学规则、周期、风险门及页面使用同一快照', async () => {
   const w = new JSDOM(source('index.html'), { url: 'https://v6.test/', runScripts: 'outside-only' }).window
   try {
     for (const script of ['analysis.bundle', 'learning-view', 'research-app'])
@@ -59,8 +59,10 @@ test('离线教学规则、周期、风险门及页面使用同一快照', () =>
     assert.match(w.document.getElementById('demoMatches').textContent, /华东重机/)
     assert.ok(w.document.querySelectorAll('#demoReviews details').length === rows.length)
     const review = w.document.querySelector('#demoReviews details')
+    // Opening details queues its own event; await that real event before teardown.
+    const opened = new Promise((resolve) => review.addEventListener('toggle', resolve, { once: true }))
     review.open = true
-    review.dispatchEvent(new w.Event('toggle'))
+    await opened
     assert.equal(review.querySelectorAll('svg polyline').length, 4)
     const period = review.querySelector('select')
     period.value = '分时'
