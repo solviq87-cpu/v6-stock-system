@@ -16,25 +16,41 @@ test('actual push observer retains the frozen signal hash in the durable queue a
  const queue=require('../src/core/stock-observation-queue').readStockObservationQueue(root);assert.equal(queue.counts.total,1);
  assert.equal(queue.completed.length,0);assert.equal(record.canTrade,false);
 });
-function newsStats(stocks){
- const start=source.indexOf('const statOf = codes => {'),end=source.indexOf('const relCodeMap =',start);
- return new Function('D','A','fundsNumber',source.slice(start,end)+'\nreturn statOf;')({stocks},{isLimitUp:(_code,_name,pct)=>pct>=10},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
+const newsQuoteAt=Date.parse('2026-11-16T10:00:00+08:00');
+class NewsFixtureDate extends Date { static now(){return newsQuoteAt+1000;} }
+function newsViews(stocks,secStocks=new Map()){
+ const stateStart=source.indexOf('function buildDashboardState'),clockStart=source.indexOf('const asOf=Date.now();',stateStart);
+ const clockEnd=source.indexOf('// 精选池附',clockStart),start=source.indexOf('const relCodeMap =',clockEnd),end=source.indexOf('\n    return {',start);
+ assert.ok(clockStart>=0&&clockEnd>clockStart&&start>clockEnd&&end>start);
+ return new Function('D','A','fundsNumber','display','Date',source.slice(clockStart,clockEnd)+source.slice(start,end)+'\nreturn {statOf,relatedOf};')(
+  {stocks:stocks.map(row=>({quoteAt:newsQuoteAt,...row})),secStocks},
+  {isLimitUp:(_code,_name,pct)=>pct>=10,isJunkName:()=>false},v=>typeof v==='number'&&Number.isFinite(v)?v:null,
+  {meta:{snapshotDay:'20261116'}},NewsFixtureDate);
 }
 test('actual news statistics preserve missing pct/funds while true zero remains valid',()=>{
- let stats=newsStats([{code:'600000',price:10,pct:null,mainInflow:null}])(['600000']);
+ let stats=newsViews([{code:'600000',price:10,pct:null,mainInflow:null}]).statOf(['600000']);
  assert.equal(stats.avgPct,null);assert.equal(stats.mainSum,null);assert.equal(stats.up,null);assert.equal(stats.limit,null);
  assert.deepEqual(stats.availability,{pctKnown:0,fundsKnown:0,total:1,pctComplete:false,fundsComplete:false});
- stats=newsStats([{code:'600000',price:10,pct:0,mainInflow:0}])(['600000']);
+ stats=newsViews([{code:'600000',price:10,pct:0,mainInflow:0}]).statOf(['600000']);
  assert.equal(stats.avgPct,0);assert.equal(stats.mainSum,0);assert.equal(stats.up,0);assert.equal(stats.availability.fundsComplete,true);
- stats=newsStats([{code:'600000',price:10,pct:2,mainInflow:100},{code:'000001',price:5,pct:null,mainInflow:null}])(['600000','000001']);
+ stats=newsViews([{code:'600000',price:10,pct:2,mainInflow:100},{code:'000001',price:5,pct:null,mainInflow:null}]).statOf(['600000','000001']);
  assert.equal(stats.avgPct,null);assert.equal(stats.mainSum,null);assert.equal(stats.availability.pctKnown,1);assert.equal(stats.availability.fundsKnown,1);
 });
 test('actual related-news rows retain null pct rather than inventing a zero return',()=>{
- const start=source.indexOf('const relCodeMap ='),end=source.indexOf('\n    return {',start);
- assert.ok(start>=0&&end>start);
- const related=new Function('D','A','fundsNumber',source.slice(start,end)+'\nreturn relatedOf;')({stocks:[{code:'600000',price:10,pct:null}],secStocks:new Map([['fixture',{list:[{code:'000001',price:5,pct:null}]}]])},{isJunkName:()=>false},v=>typeof v==='number'&&Number.isFinite(v)?v:null);
+ const related=newsViews([{code:'600000',price:10,pct:null}],new Map([['fixture',{list:[{code:'000001',price:5,pct:null}]}]])).relatedOf;
  assert.equal(related({codes:['600000'],sectors:[]}).direct[0].pct,null);
  assert.equal(related({codes:[],sectors:['fixture']}).indirect[0].pct,null);
+});
+test('current news keeps known affected codes but excludes prior-day prices from this snapshot',()=>{
+ const {statOf,relatedOf}=newsViews([{code:'600000',price:10,pct:1,mainInflow:100},
+  {code:'000001',price:5,pct:99,mainInflow:500,quoteAt:newsQuoteAt-3*86400000}]);
+ const codes=['600000','000001','000002'];
+ const stats=statOf(codes);
+ assert.equal(stats.tradeDate,'20261116');assert.equal(stats.total,1);
+ assert.equal(stats.availability.total,3);assert.equal(stats.avgPct,null);assert.equal(stats.mainSum,null);
+ const {direct}=relatedOf({codes,sectors:[]});
+ assert.deepEqual(direct.map(row=>row.code),codes);
+ assert.deepEqual(direct.map(row=>row.price),[10,null,null]);
 });
 test('shared dashboard state removes retracted code/sector flags without rewriting raw history',t=>{
  const root=path.join(temporary(t),'news'),journal=require('../src/core/news-evidence-journal'),now=Date.now();

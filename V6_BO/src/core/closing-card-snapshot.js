@@ -4,6 +4,7 @@ const fs = require('node:fs'),
   path = require('node:path'),
   crypto = require('node:crypto');
 const { quoteObservationView } = require('./quote-observation-view');
+const { marketFieldDay } = require('./market-display-snapshot');
 const STATE_FIELDS = [
   'pool',
   'global',
@@ -279,12 +280,20 @@ function createClosingCardSnapshot({
     const e = read(key);
     if (!e) return { ...value, marketFrozen: true, freezeUnavailable: true };
     const { dashboard, ...fields } = e.value;
+    // Rebind the dates of every restored field to the same saved payload,
+    // including older files that did not persist individual field dates.
+    const now = clock(), snapshotFieldDays = { ...value.snapshotFieldDays };
+    for (const key of Object.keys(fields)) snapshotFieldDays[key] = marketFieldDay(key, fields, now);
+    if (Object.hasOwn(fields, 'pool')) snapshotFieldDays.candidatePool = snapshotFieldDays.pool;
+    if (dashboard && Object.hasOwn(dashboard, 'rows'))
+      snapshotFieldDays.dashboard = marketFieldDay('dashboard', { dashboard }, now);
     return {
       ...value,
       ...fields,
+      snapshotFieldDays,
       ...(dashboard
-        ? { dashboard: { ...value.dashboard, ...dashboard, ...e.meta,
-            indices: latestIndexObservations(dashboard.indices, value.dashboard?.indices, clock()),
+        ? { dashboard: { ...value.dashboard, ...dashboard, ...e.meta, snapshotFieldDays,
+            indices: latestIndexObservations(dashboard.indices, value.dashboard?.indices, now),
             indexSnapshotPolicy: 'latest-original-time' } }
         : {}),
       ...e.meta,

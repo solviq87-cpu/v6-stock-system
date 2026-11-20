@@ -38,8 +38,12 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
- if(p==='/api/state'||p==='/api/mobile-digest')return state();
- if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks,snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
+ if(p==='/api/state'||p==='/api/mobile-digest'){
+  const result=state();
+  result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
+  return result;
+ }
+ if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
   const end=url.searchParams.get('end'),limit=Math.min(240,Math.max(1,Number(url.searchParams.get('n')||120)));
@@ -49,6 +53,10 @@ function respond(url,req,body){
  if(p==='/api/search')return {ok:true,items:stocks,results:stocks};
  if(p==='/api/analyze')return {ok:true,code:url.searchParams.get('code'),name:'合成光谱1',price:12.3,pct:2.1,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider',signals:['合成趋势条件'],explanation:['合成历史依据'],score:86};
  if(p==='/api/kline-marks')return {ok:true,items:[]};
+ if(p==='/api/quote-cross-check')return {ok:true,code:url.searchParams.get('code'),status:'source-price-or-time-conflict',checkedAt:new Date(sourceAt).toISOString(),referencePrice:null,sourceStatuses:[
+  {provider:'tencent',status:'eligible-for-comparison',observedPrice:12.3,observedPreviousClose:12,quoteAt:sourceAt},
+  {provider:'eastmoney',status:'eligible-for-comparison',observedPrice:13,observedPreviousClose:12,quoteAt:sourceAt}]};
+ if(p==='/api/stock-news-risk')return {ok:true,code:url.searchParams.get('code'),status:'blocked',matches:[{association:'explicit-sector',sectors:['合成能源'],publishedAt:sourceAt,source:'合成快讯'}]};
  if(p==='/api/holdings')return {ok:true,items:[],summary:{capital:100000,totalCost:0,equity:100000},cfg:{stopPct:7,reducePct:4,takePct:15,maxPosPct:30},allTags:[],time:sourceAt};
  if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
  if(p==='/api/paper/ledger')return {ok:true,paper:{pool:{schemaVersion:1,mode:'authoritative-paper-readonly-projection',accountId:'pool',paperOnly:true,canSubmitOrders:false,canCancelOrders:false,accounting:{initialCash:100000,cash:88888.88,realizedPnl:345.67,positions:[{code:'600101',shares:100,basis:1230}],tradeCount:1,auditStatus:'passed'},events:[{type:'FILL_RECORDED',side:'BUY',code:'600101',shares:100,price:12.3,amount:1230,fee:5,t:sourceAt,tradeDate:'2026-11-13',timeQuality:'known'}]},pre:{accountId:'pre',accounting:{initialCash:50000,cash:50000,realizedPnl:0,positions:[],tradeCount:0,auditStatus:'passed'},events:[]}}};
@@ -372,6 +380,7 @@ const runChecks=async()=>{
    await originCard.click();
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
+   const beforeQuoteChecks=requests.filter(entry=>entry.path==='/api/quote-cross-check').length;
    await drawer.locator('.fy-chart svg').waitFor({state:'visible'});
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/2026[-/]11[-/]13/,'drawer preserves original provider date');
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/synthetic-friday-provider/,'drawer shows original provider');
@@ -393,6 +402,17 @@ const runChecks=async()=>{
    await originCard.evaluate(node=>{window.drawerOriginBeforeRefresh=node;});
    await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
    await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
+   await drawer.locator('[data-detail-tab="evidence"]').click();
+   assert.match(await drawer.innerText(),/仅此选股池保存的合成依据/,'cloud refresh cannot swap the selected pool evidence for the homepage row');
+   assert.equal(requests.filter(entry=>entry.path==='/api/quote-cross-check').length,beforeQuoteChecks,'shared refresh cannot start public quotation checks');
+   await drawer.locator('[data-detail-tab="sources"]').click();
+   await drawer.getByRole('button',{name:'核对报价',exact:true}).click();
+   await drawer.getByText(/来源价格或时点有冲突/).waitFor();
+   assert.ok(requests.some(entry=>entry.path==='/api/quote-cross-check'&&entry.method==='POST'&&entry.query.code==='600101'));
+   await drawer.getByRole('button',{name:'读取推送避险状态',exact:true}).click();
+   await drawer.getByText(/当前利空命中/).waitFor();
+   assert.match(await drawer.innerText(),/板块关联 合成能源/);
+   await drawer.locator('[data-detail-tab="chart"]').click();
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
@@ -469,9 +489,20 @@ const runChecks=async()=>{
    assert.match(await page.locator('.fy-main').innerText(),/600101/,'ledger reads authoritative accounting.positions');
    assert.match(await page.locator('.fy-main').innerText(),/345\.67/,'ledger reads authoritative realizedPnl');
    await page.screenshot({path:path.join(output,'fayo-ledger-'+width+'.png'),fullPage:false});
+   if(width===390){
+    await navigate(page,'inbox','all');
+    const article=page.locator('.fy-news-item').filter({hasText:'合成周末公告继续更新'});
+    await article.getByText('直接关联',{exact:true}).waitFor();
+    await article.getByText('板块间接关联（1 只）',{exact:true}).click();
+    await article.getByRole('button',{name:'合成光谱2 · 合成能源',exact:true}).click();
+    await drawer.locator('.fy-drawer-title').getByText(/600102/).waitFor();
+    await drawer.press('Escape');
+   }
    const workspaces=width===390||width===1366?await checkWorkspaceTabs(page,width):null;
    const browsing=requests.slice(before);
-   const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
+   const quoteChecks=browsing.filter(r=>r.path==='/api/quote-cross-check');
+   assert.equal(quoteChecks.length,1,'only the explicit quote check may contact suppliers');
+   const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&!['/api/online/beat','/api/quote-cross-check'].includes(r.path));
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
    // A five-second background GET may revoke access before a manual click can
    // start. Wait for the actual authorization gate instead of clicking a
