@@ -1,5 +1,9 @@
 'use strict';
 
+const fs=require('node:fs');
+const path=require('node:path');
+const {randomUUID}=require('node:crypto');
+
 const {requestResearchBytes}=require('./research-curl-bytes');
 const {fetchReviewLimitPool}=require('./public-market-context');
 const {normalizeDay,normalizeReasonEvidence,reasonMatchesDay}=require('./limit-reason-evidence');
@@ -81,14 +85,73 @@ async function fetchF10Reason(code,day){
  return text?{code,text,source:'同花顺 F10',url}:null;
 }
 
-function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,clock=Date.now}){
- let cache, pending;
+const retryInterval=2*60000;
+const readyInterval=5*60000;
+const keepSessions=4;
+const maxStoreBytes=8*1024*1024;
+const poolMatches=(pool,day)=>Boolean(day&&pool?.tradeDate===day&&Array.isArray(pool.records));
+const completePool=(pool,day)=>poolMatches(pool,day)&&pool.complete===true&&pool.totalCount===pool.records.length;
+
+function promotionPool(pool){
+ if(!completePool(pool,normalizeDay(pool?.tradeDate))||pool.records.length>10000)return null;
+ const seen=new Set();
+ const records=[];
+ for(const row of pool.records){
+  const symbol=row?.symbol;
+  if(!/^\d{6}$/.test(symbol||'')||seen.has(symbol)||height(row)===null)return null;
+  seen.add(symbol);
+  records.push({symbol,name:typeof row.name==='string'?row.name.slice(0,80):null,consecutiveLimits:height(row)});
+ }
+ return {tradeDate:pool.tradeDate,complete:true,totalCount:records.length,records};
+}
+
+function createPromotionStore(file){
+ let initial=[];
+ if(file){
+  try{
+   if(fs.statSync(file).size>maxStoreBytes)throw Error('snapshot exceeds size limit');
+   const source=JSON.parse(fs.readFileSync(file,'utf8'));
+   if(source?.version!==1||!Array.isArray(source.pools)||source.pools.length>keepSessions)throw Error('unexpected snapshot schema');
+   initial=source.pools.map(promotionPool).filter(Boolean);
+  }catch(error){
+   if(error.code!=='ENOENT')console.warn('[close-review] previous-session snapshot could not be read:',error.message);
+  }
+ }
+ let pools=new Map(initial.map(pool=>[pool.tradeDate,pool]));
+ let saved=file?JSON.stringify([...pools.values()]):'';
+ return {
+  get:day=>pools.get(day)||null,
+  remember(...observations){
+   for(const observation of observations){
+    const pool=promotionPool(observation);
+    if(pool)pools.set(pool.tradeDate,pool);
+   }
+   pools=new Map([...pools].sort(([a],[b])=>b.localeCompare(a)).slice(0,keepSessions));
+   if(!file||!pools.size)return;
+   const next=JSON.stringify([...pools.values()]);
+   if(next===saved)return;
+   const temp=file+'.'+randomUUID()+'.tmp';
+   try{
+    fs.mkdirSync(path.dirname(file),{recursive:true});
+    fs.writeFileSync(temp,JSON.stringify({version:1,pools:[...pools.values()]}),{flag:'wx',mode:0o600});
+    fs.renameSync(temp,file);
+    saved=next;
+   }catch(error){
+    console.warn('[close-review] previous-session snapshot could not be saved:',error.message);
+    try{fs.unlinkSync(temp);}catch{}
+   }
+  }
+ };
+}
+
+function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,clock=Date.now,poolFile}){
+ const previousPools=createPromotionStore(poolFile);
+ const days=new Map(), pending=new Map();
  return async function read(day,previousDay,{seatsReady}){
   const key=day+':'+seatsReady;
-  if(cache?.key===key&&clock()-cache.at<5*60000)return cache.report;
-  if(pending?.key===key)return pending.task;
-  const prior=cache?.report?.sealed;
-  const retainedPrevious=prior?.tradeDate===previousDay&&prior?.complete?prior:null;
+  const cached=days.get(day);
+  if(cached?.key===key&&clock()-cached.at<(cached.report.retryAfterMs??readyInterval))return cached.report;
+  if(pending.has(key))return pending.get(key);
   const task=(async()=>{
    const seats=new Map();
    const [reasonResult,sealedResult,brokenResult,previousResult,downResult,northResult,indexResult,seatResult]=await Promise.allSettled([
@@ -101,19 +164,16 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
     }}):null
    ]);
    const result=x=>x.status==='fulfilled'?x.value:null;
-   const sealed=result(sealedResult),broken=result(brokenResult),down=result(downResult);
-   const previous=result(previousResult)?.complete?result(previousResult):retainedPrevious;
-   const sealedCodes=new Set(sealed?.records.map(row=>row.symbol));
-   const compatible=sealed?.complete&&broken?.complete&&!broken.records.some(row=>sealedCodes.has(row.symbol));
-   const touched=compatible?sealed.records.length+broken.records.length:0;
+   const freshSealed=result(sealedResult),freshBroken=result(brokenResult),freshPrevious=result(previousResult);
+   const down=result(downResult);
    const reasons=[];
    for(const [code,row] of result(reasonResult)||[]){
     const normalized=normalizeReasonEvidence(row,{requestedDate:day,receivedAt:clock(),source:'ths'});
     if(/^\d{6}$/.test(code)&&reasonMatchesDay(normalized,day))reasons.push({code,text:normalized.reason,source:'同花顺涨停聚焦'});
    }
    const primaryCount=reasons.length;
-   const known=new Set(reasons.map(row=>row.code));
-   const priority=(sealed?.records||[]).filter(row=>!known.has(row.symbol))
+   const known=new Set([...reasons,...(days.get(day)?.report?.reasons||[])].map(row=>row.code));
+   const priority=(poolMatches(freshSealed,day)?freshSealed.records:[]).filter(row=>!known.has(row.symbol))
     .sort((a,b)=>(height(b)||0)-(height(a)||0)||(b.amountCny||0)-(a.amountCny||0)).slice(0,4);
    const backups=await Promise.allSettled(priority.map(row=>fetchReason(row.symbol,day)));
    for(const response of backups){
@@ -121,17 +181,62 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
     if(row)reasons.push(row);
    }
    const reasonChannels={primaryCount,f10Count:reasons.length-primaryCount,f10Attempted:priority.length};
-   const report={day,source:'东方财富',sealed,broken,reasons,reasonChannels,northTurnover:result(northResult),marketTurnover:marketTurnover(result(indexResult),day),
-    sealRate:touched?sealed.records.length/touched:null,
-    promotion:summarizePromotion(sealed,previous),
-    down:normalizeDay(String(down?.qdate||''))===day&&Number.isSafeInteger(down?.tc)&&down.tc>=0?down.tc:null,
-    seats:[...seats.values()].sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)),
-    seatsStatus:!seatsReady?'pending':!seats.size?'unavailable':seatResult.status==='rejected'?'partial':'observed'};
-   if(pending?.task===task)cache={key,at:clock(),report};
+   const priorBatch=days.get(day);
+   const older=priorBatch?.report;
+   const retained=[];
+   function recover(field,value){
+    if(value!=null)return value;
+    if(older?.[field]==null)return null;
+    retained.push(field);
+    return older[field];
+   }
+   function choosePool(field,fresh){
+    if(completePool(fresh,day))return fresh;
+    if(completePool(older?.[field],day))return recover(field,null);
+    return poolMatches(fresh,day)?fresh:null;
+   }
+   const sealed=choosePool('sealed',freshSealed);
+   const broken=choosePool('broken',freshBroken);
+   const previous=completePool(freshPrevious,previousDay)?freshPrevious:previousPools.get(previousDay);
+   previousPools.remember(completePool(freshSealed,day)?freshSealed:null,previous===freshPrevious?freshPrevious:null);
+   const sealedCodes=new Set(sealed?.records.map(row=>row.symbol));
+   const compatible=sealed?.complete&&broken?.complete&&!broken.records.some(row=>sealedCodes.has(row.symbol));
+   const touched=compatible?sealed.records.length+broken.records.length:0;
+   const freshSeatsStatus=!seatsReady?'pending':!seats.size?'unavailable':seatResult.status==='rejected'?'partial':'observed';
+   const keepSeats=older?.seats.length&&freshSeatsStatus!=='observed'&&(older.seatsStatus==='observed'||!seats.size);
+   if(keepSeats)retained.push('seats');
+   const mergedReasons=new Map(reasons.map(row=>[row.code,row]));
+   for(const row of older?.reasons||[]){
+    const fresh=mergedReasons.get(row.code);
+    if(!fresh||fresh.source==='同花顺 F10'&&row.source==='同花顺涨停聚焦'){
+     mergedReasons.set(row.code,row);
+     if(!retained.includes('reasons'))retained.push('reasons');
+    }
+   }
+   const promotion=summarizePromotion(sealed,previous);
+   if(promotion&&previous!==freshPrevious)retained.push('previousPool');
+   const freshDown=normalizeDay(String(down?.qdate||''))===day&&Number.isSafeInteger(down?.tc)&&down.tc>=0?down.tc:null;
+   const published=seatsReady||priorBatch?.key===day+':true';
+   const preservePublication=!seatsReady&&published;
+   const finalSeatsStatus=keepSeats||preservePublication?older.seatsStatus:freshSeatsStatus;
+   const missingReasons=sealed?.records.length>0&&mergedReasons.size===0;
+   const completeNow=compatible&&completePool(freshSealed,day)&&completePool(freshBroken,day)&&freshDown!==null&&
+    (!published||finalSeatsStatus==='observed')&&!missingReasons;
+   const report={day,source:'东方财富',sealed,broken,reasons:[...mergedReasons.values()],reasonChannels,retained,
+    retryAfterMs:completeNow?null:retryInterval,northTurnover:recover('northTurnover',result(northResult)),
+    marketTurnover:recover('marketTurnover',marketTurnover(result(indexResult),day)),
+    sealRate:touched?sealed.records.length/touched:null,promotion,
+    down:recover('down',freshDown),
+    seats:keepSeats?older.seats:[...seats.values()].sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)),
+    seatsStatus:finalSeatsStatus};
+   // A request started before the publication threshold may finish after a
+   // published request. Reuse its evidence without reverting the cache phase.
+   days.set(day,{key:day+':'+published,at:clock(),report});
+   if(days.size>keepSessions)days.delete([...days.keys()].sort()[0]);
    return report;
   })();
-  pending={key,task};
-  try{return await task;}finally{if(pending?.task===task)pending=null;}
+  pending.set(key,task);
+  try{return await task;}finally{pending.delete(key);}
  };
 }
 

@@ -702,10 +702,17 @@ async function fetchLhb(date, {onSeat, deadline=Infinity} = {}) {
     '&pageSize=500&sortColumns=BUY&sortTypes=-1&filter=(TRADE_DATE%3D%27' + date + '%27)';
   for (let p = 1; p <= 6; p++) {
     const timeout = Math.min(15000, deadline - Date.now());
-    if (timeout <= 0) break;
+    if (timeout <= 0) {
+      if (onSeat) throw Error('龙虎榜分页未读完');
+      break;
+    }
     const j = await curlGet(url(p), timeout);
     const d = j && j.result && j.result.data;
-    if (!d || !d.length) break;
+    if (!Array.isArray(d)) {
+      if (onSeat) throw Error('龙虎榜上游响应缺少明细');
+      break;
+    }
+    if (!d.length) break;
     for (const x of d) {
       onSeat?.(x);
       const code = String(x.SECURITY_CODE || '').trim();
@@ -722,6 +729,7 @@ async function fetchLhb(date, {onSeat, deadline=Infinity} = {}) {
       out.set(code, v);
     }
     if (d.length < 500) break;
+    if (p === 6 && onSeat) throw Error('龙虎榜超过分页上限');
   }
   for (const v of out.values()) {
     // 只留真实营业部，且按净买额降序（买一在前）

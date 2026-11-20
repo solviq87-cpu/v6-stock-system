@@ -11341,7 +11341,9 @@ function marketDisplayState() {
   return {...selected,state:require('./src/core/limit-review-pool').selectLimitReviewDisplay(S,selected.state)};
 }
 
-const readCloseReviewEvidence = require('./src/core/close-review-evidence').createCloseReviewReader({market:em});
+const readCloseReviewEvidence = require('./src/core/close-review-evidence').createCloseReviewReader({
+  market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
+});
 
 function dashboardPushMeta(includePrivate = false) {
   return {

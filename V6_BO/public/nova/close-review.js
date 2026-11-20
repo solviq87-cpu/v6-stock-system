@@ -21,6 +21,8 @@ const marketLink=['腾讯沪深指数报价','https://qt.gtimg.cn/q=sh000001,sz3
 const northLink=['东方财富沪深股通','https://data.eastmoney.com/hsgt/index.html'];
 const thsLink=['同花顺涨停聚焦','https://data.10jqka.com.cn/limit_up/'];
 const archiveNames={'002916':'深南电路'};
+const retainedLabels={sealed:'涨停池',broken:'炸板池',previousPool:'上一交易日涨停池',down:'跌停数',
+ marketTurnover:'沪深成交',northTurnover:'北向成交',seats:'龙虎榜',reasons:'涨停原因'};
 
 function timeLabel(value){
  const digits=typeof value==='string'?value.replaceAll(':',''):'';
@@ -54,7 +56,8 @@ function cloudReport(state,supplement){
  const fallbackRows=[...observations.values()];
  const pool=sealed?sealed.records.map(row=>({
   code:row.symbol,name:row.name,level:row.consecutiveLimits,firstSeal:row.firstSealTime,
-  lastSeal:row.lastSealTime,breakCount:row.breakCount,amount:row.amountCny,sector:row.industry
+  lastSeal:row.lastSealTime,breakCount:row.breakCount,amount:row.amountCny,sector:row.industry,
+  turnover:row.turnoverPct,floatCap:row.floatCapCny
  })):fallbackRows.map(row=>({
   code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector
  }));
@@ -65,14 +68,16 @@ function cloudReport(state,supplement){
    ?original.reasonRaw:ths(source?.reasonSource)&&source.reasonDay===day?source.reason:null;
   const useAcquired=!!acquired&&(acquired.source!=='同花顺 F10'||!existing);
   const official=useAcquired?acquired.text:existing;
+  const turnover=finite(row.turnover)&&row.turnover>=0?row.turnover:finite(provider?.turnover)&&provider.turnover>0?provider.turnover:null;
+  const floatCap=finite(row.floatCap)&&row.floatCap>0?row.floatCap:
+   finite(provider?.floatCap)&&provider.floatCap>0?provider.floatCap:null;
   return {...row,name:row.name||original?.name||row.code,
    level:Number.isSafeInteger(row.level)&&row.level>0?row.level:null,
    tags:[...new Set([original?.sector||row.sector,...arr(source?.sectorTags)].filter(Boolean))],
    amount:finite(row.amount)&&row.amount>0?row.amount:null,
    firstSeal:timeLabel(row.firstSeal??provider?.firstSeal),
    lastSeal:timeLabel(row.lastSeal??provider?.lastSeal),
-   breakCount:row.breakCount??provider?.breakCount,turnover:finite(provider?.turnover)&&provider.turnover>0?provider.turnover:null,
-   floatCap:finite(provider?.floatCap)&&provider.floatCap>0?provider.floatCap:null,
+   breakCount:row.breakCount??provider?.breakCount,turnover,floatCap,
    reason:typeof official==='string'?official.trim():null,reasonSource:useAcquired?acquired.source||'同花顺':'同花顺',reasonUrl:useAcquired?acquired.url:null};
  });
  const groups=new Map();
@@ -111,7 +116,7 @@ function cloudReport(state,supplement){
  const riskRows=rows.filter(row=>row.breakCount>0).sort((a,b)=>b.breakCount-a.breakCount);
  const top=rows.filter(row=>row.level===highest&&highest>=2).slice(0,4).map(row=>row.code);
  const named=match=>themes.flatMap(group=>Object.entries(group.roles||{}).filter(([,role])=>role===match).map(([code])=>code)).slice(0,4);
- return {day,rows,groups:themes,broken,failed,promotion,seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
+ return {day,rows,groups:themes,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
   sources:{market:providerLink,stocks:providerLink,seats:seatLink,themes:thsLink,north:northLink,turnover:marketLink},
   coverage:sealed?'梯队按东方财富同日涨停池。涨停及炸板统计采用同一供应商口径。':
    raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':'等待带有原始交易日期的服务端报告。',
@@ -167,8 +172,9 @@ export function renderCloseReview(ctx,additional){
   get state(){return ctx.state;},signal:ctx.signal,selectStock:(...args)=>ctx.selectStock(...args),onState:fn=>{updatePool=fn;}
  },stockCard);
  view.append(header,nav,cards,pool,additional);
- let selected='',activeKey='',activeDay='',supplement=null,requested='',requesting=false,failure='',fingerprint='';
+ let selected='',activeKey='',activeDay='',supplement=null,requesting=false,failure='',fingerprint='',renderedScope='';
  let selectedStock='',seatFilter='全部';
+ let recovery={key:'',attempts:0,retryAt:0};
 
  function project(){
   const serverDay=reviewDate(ctx.state?.review?.date);
@@ -190,13 +196,20 @@ export function renderCloseReview(ctx,additional){
  function paint(force=false){
   if(ctx.signal?.aborted)return;
   const {key,report}=project();
-  const current=JSON.stringify([key,report,requesting,failure,selectedStock,seatFilter]);
-  if(!force&&(current===fingerprint||cards.contains(document.activeElement)))return;
+  const scope=key+':'+report.day;
+  const current=JSON.stringify([scope,report,selectedStock,seatFilter]);
+  const sameScope=scope===renderedScope;
+  const focused=cards.contains(document.activeElement)?document.activeElement:null;
+  const focusKey=focused?.dataset.reviewControl;
+  const incomplete=supplement?.day===report.day&&supplement?.retryAfterMs>0;
+  const caption=requesting?'正在读取免费补充行情':failure||(incomplete?'服务端复盘 · 部分数据待补':'服务端复盘');
+  status.textContent=(report.day||'交易日待核验')+' · '+(key==='archive'?'收盘归档':caption);
+  if(!force&&(current===fingerprint||sameScope&&focused&&!focusKey))return;
   fingerprint=current;
+  renderedScope=scope;
   for(const item of cards.querySelectorAll('[data-review-detail]')){
    expanded.set(item.dataset.reportKey+':'+item.dataset.reviewDetail,item.open);
   }
-  status.textContent=(report.day||'交易日待核验')+' · '+(key==='archive'?'收盘归档':requesting?'正在读取免费补充行情':failure||'服务端复盘');
   const source=dailyReviewEvidence(ctx.state||{});
   pool.hidden=key==='archive'||source.day!==report.day;
   if(!pool.hidden)updatePool?.();
@@ -236,13 +249,14 @@ export function renderCloseReview(ctx,additional){
     h('div',{class:'fy-close-level-title'},h('strong',{},level?levelName(level):'板次待核验'),h('small',{},count(rows.length))),
     h('div',{class:'fy-close-stocks'},rows.map(row=>{
      const pick=button(row.name,()=>openReason(row.code),chosen?.code===row.code?'active':'quiet');
+     pick.dataset.reviewControl='stock:'+row.code;
      pick.setAttribute('aria-pressed',String(chosen?.code===row.code));
      return pick;
     }))));
    const next=levels[index+1]?.[0]??1;
    if(level-next>1)ladder.push(h('div',{class:'fy-close-level fy-close-gap'},h('span',{},level-1===next+1?levelName(next+1):levelName(next+1)+'至 '+levelName(level-1)),h('span',{},'当前名单空缺')));
   }
-  const reasons=chosen?h('article',{class:'fy-close-reason',tabindex:'-1','data-reason-selected':true},
+  const reasons=chosen?h('article',{class:'fy-close-reason',tabindex:'-1','data-reason-selected':true,'data-review-control':'reason'},
    h('div',{class:'fy-close-reason-heading'},h('div',{},h('h3',{},chosen.name,' ',h('small',{},chosen.code)),h('span',{class:'fy-muted'},chosen.tags.join(' / ')||'题材待核验')),
     button('个股详情',()=>ctx.selectStock(chosen.code,{code:chosen.code,name:chosen.name}))),
    h('p',{},h('strong',{},'同花顺涨停原因'),h('br'),h('span',{'data-reason-text':true},chosen.reason||'未取得该股同日的同花顺原标注。')),
@@ -272,6 +286,7 @@ export function renderCloseReview(ctx,additional){
     h('div',{class:'fy-close-kpis'},report.stats.map(([label,value,meta])=>
      h('article',{class:'fy-close-kpi'},h('span',{},label),h('strong',{},value),h('small',{},meta)))),
     h('p',{class:'fy-muted'},report.coverage),
+    report.retained?.length?h('p',{class:'fy-muted','data-retained-review':true},'使用已核实记录 · '+report.retained.join('、')):null,
     report.promotion?.length?h('p',{class:'fy-muted'},report.promotion.map(stage=>stage.level+' 进 '+(stage.level+1)+' '+stage.promoted+'/'+stage.total).join(' · ')):null,
     sourceLinks(report,['market','pools','ladder','turnover','north'])),
    card(1,'按涨停家数排序，同家数比较已核实的样本成交额。',
@@ -290,9 +305,10 @@ export function renderCloseReview(ctx,additional){
    card(3,key==='archive'?'当日榜、机构专用、互联互通和营业部分开查看。':'东方财富公开买方明细中的已观察席位。按上榜记录展示。',
     categories.length?h('div',{class:'fy-close-stocks','aria-label':'席位分类'},['全部',...categories].map(category=>{
      const filter=button(category,()=>{seatFilter=category;paint(true);[...cards.querySelectorAll('[data-seat-filter]')].find(node=>node.dataset.seatFilter===category)?.focus();},seatFilter===category?'active':'quiet');
-     filter.dataset.seatFilter=category;filter.setAttribute('aria-pressed',String(seatFilter===category));return filter;
+     filter.dataset.seatFilter=category;filter.dataset.reviewControl='seat:'+category;filter.setAttribute('aria-pressed',String(seatFilter===category));return filter;
     })):null,seatRows.length?h('ul',{class:'fy-close-seats'},seatRows):
      empty(report.seatsStatus==='pending'?'龙虎榜待当日公布':'暂无可核实的同日席位','可从公开榜单核对上榜日期。'),
+    report.seatsStatus==='partial'?h('p',{class:'fy-muted'},'龙虎榜有部分明细尚未获取。'):null,
     sourceLinks(report,['seats','aliases'])),
    card(4,null,renderItems(report.risks),sourceLinks(report,['pools','ladder'])),
    card(5,'逐项记录下一交易日的验证条件。',renderItems(report.watch))
@@ -301,7 +317,12 @@ export function renderCloseReview(ctx,additional){
    item.dataset.reportKey=key+':'+report.day;
    const detailKey=item.dataset.reportKey+':'+item.dataset.reviewDetail;
    if(expanded.has(detailKey))item.open=expanded.get(detailKey);
+   item.querySelector('summary').dataset.reviewControl=detailKey;
    item.addEventListener('toggle',()=>{if(item.isConnected)expanded.set(detailKey,item.open);});
+  }
+  if(focused){
+   const replacement=sameScope&&focusKey?[...cards.querySelectorAll('[data-review-control]')].find(node=>node.dataset.reviewControl===focusKey):null;
+   (replacement||dateSelect).focus({preventScroll:true});
   }
  }
  const expanded=new Map();
@@ -316,13 +337,27 @@ export function renderCloseReview(ctx,additional){
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
   if(day===today&&latestTime<'15:00')return;
   const requestKey=day+':'+(day!==today||latestTime>='18:00'?'published':'pre-publish');
-  if(!force&&requested===requestKey)return;
-  requested=requestKey;requesting=true;failure='';paint();
+  if(recovery.key!==requestKey)recovery={key:requestKey,attempts:0,retryAt:0};
+  if(!force&&recovery.attempts&&(recovery.attempts>=3||!recovery.retryAt||Date.now()<recovery.retryAt))return;
+  recovery.attempts++;
+  recovery.retryAt=0;
+  requesting=true;failure='';paint();
   try{
    const response=await ctx.api('/api/close-review-evidence?date='+day,{signal:ctx.signal,timeoutMs:42000});
-   if(response?.result?.day===day)supplement=response.result;
-   else failure='补充渠道未返回同日数据';
-  }catch(error){if(error.name!=='AbortError')failure='补充渠道暂不可用';}
+   if(response?.result?.day===day){
+    supplement=response.result;
+    const delay=supplement.retryAfterMs;
+    if(Number.isFinite(delay)&&delay>0)recovery.retryAt=Date.now()+Math.max(120000,delay);
+   }else{
+    failure='补充渠道未返回同日数据';
+    recovery.retryAt=Date.now()+120000;
+   }
+  }catch(error){
+   if(error.name!=='AbortError'){
+    failure='补充渠道暂不可用';
+    recovery.retryAt=Date.now()+120000;
+   }
+  }
   finally{
    requesting=false;paint();
    if(day!==reviewDate(ctx.state?.review?.date))void loadSupplement();

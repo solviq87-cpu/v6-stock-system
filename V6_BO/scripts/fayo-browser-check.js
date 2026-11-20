@@ -18,6 +18,7 @@ const candles=Array.from({length:900},(_,i)=>{
 const indices=[['1.000001','上证指数',3210.12,.9],['0.399001','深证成指',10020.32,-.6],['0.399006','创业板指',2100.45,1.2],['1.000688','科创50',1020.4,.3]].map(([code,name,price,pct])=>({code,name,price,pct,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider'}));
 let phase='normal',role='edit',holdAnalysis=false,heldAnalysisReply=null,holdMarks=false,heldMarksReply=null;
 const requests=[],resources=[];
+let returnRetainedReview=false;
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
@@ -42,6 +43,7 @@ function respond(url,req,body){
   sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
   broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
   sealRate:0.5,down:2,northTurnover:130e8,marketTurnover:1000e8,seatsStatus:'observed',
+  retained:returnRetainedReview?['sealed','northTurnover']:[],
   reasons:[{code:'600101',text:'合成同日原版理由'}],
   seats:[{code:'600101',name:'合成光谱1',dept:'机构专用',category:'机构专用',net:-40000}],
   promotion:{previousDay:'2026-11-12',stages:[{level:1,promoted:1,total:2}],failed:[]}}};
@@ -325,11 +327,21 @@ const runChecks=async()=>{
    assert.equal(await seats.locator('li').count(),4);
    assert.doesNotMatch(await seats.locator('li').allTextContents().then(rows=>rows.join('')),/深股通专用/);
    const reviewDate=closeReview.getByRole('combobox',{name:'复盘交易日'});
+   returnRetainedReview=false;
    await reviewDate.selectOption('cloud');
    await closeReview.getByText('合成同日原版理由',{exact:true}).waitFor();
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/50\.0%/);
    assert.match(await closeReview.locator('[data-review-section="ladder"]').innerText(),/合成光谱2/);
    assert.doesNotMatch(await closeReview.locator('[data-review-section="ladder"]').innerText(),/盛剑科技/);
+   await closeReview.locator('.fy-close-level').getByRole('button',{name:'合成光谱1',exact:true}).click();
+   assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true);
+   returnRetainedReview=true;
+   await closeReview.getByRole('button',{name:'刷新复盘',exact:true}).evaluate(node=>node.click());
+   await closeReview.locator('[data-retained-review]').waitFor();
+   assert.match(await closeReview.locator('[data-retained-review]').innerText(),/涨停池、北向成交/);
+   assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true,
+    'same-day recovery retains the selected reason and its keyboard focus');
+   returnRetainedReview=false;
    await reviewDate.selectOption('archive');
    await closeReview.locator('.fy-close-more > summary').click();
    await closeReview.locator('.fy-reference-review-footer').waitFor();

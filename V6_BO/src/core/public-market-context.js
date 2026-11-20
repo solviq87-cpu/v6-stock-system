@@ -41,7 +41,7 @@ function parsePool(json,{date,kind}){
  for(const row of data.pool){
   if(!row||typeof row.c!=='string'||!/^\d{6}$/.test(row.c)||seen.has(row.c)){invalidCount++;continue;}seen.add(row.c);
   const price=number(row.p),limit=number(row.ztp);
-  records.push({symbol:row.c,name:typeof row.n==='string'?row.n.slice(0,80):null,price:price===null?null:price/1000,changePct:number(row.zdp),amountCny:number(row.amount),industry:typeof row.hybk==='string'?row.hybk.slice(0,80):null,firstSealTime:poolTime(row.fbt),breakCount:number(row.zbc),...(kind==='sealed'?{lastSealTime:poolTime(row.lbt),sealedFundsCny:number(row.fund),consecutiveLimits:number(row.lbc)}:{limitUpPrice:limit===null?null:limit/1000})});
+  records.push({symbol:row.c,name:typeof row.n==='string'?row.n.slice(0,80):null,price:price===null?null:price/1000,changePct:number(row.zdp),amountCny:number(row.amount),industry:typeof row.hybk==='string'?row.hybk.slice(0,80):null,firstSealTime:poolTime(row.fbt),breakCount:number(row.zbc),...(kind==='sealed'?{lastSealTime:poolTime(row.lbt),sealedFundsCny:number(row.fund),consecutiveLimits:number(row.lbc),turnoverPct:number(row.hs),floatCapCny:number(row.ltsz)}:{limitUpPrice:limit===null?null:limit/1000})});
  }
  const sameDate=dateOK(tradeDate)&&tradeDate===date,complete=sameDate&&totalCount!==null&&totalCount===data.pool.length&&records.length===data.pool.length&&invalidCount===0;
  return {status:complete?'observed-unverified':'partial-evidence',complete,tradeDate,requestedDate:date,records,fetchedCount:data.pool.length,totalCount,partial:!complete,invalidCount,sourceTimestamp:null,dateMatched:sameDate,fieldMappingSource:SOURCES.pools,unit:'CNY',priceScale:'vendor-milliyuan-divided-by-1000'};
