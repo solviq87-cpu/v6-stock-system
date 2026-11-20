@@ -345,9 +345,14 @@ const runChecks=async()=>{
    const browsing=requests.slice(before);
    const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
+   // A five-second background GET may revoke access before a manual click can
+   // start. Wait for the actual authorization gate instead of clicking a
+   // button that correctly disappears when the revoked session is cleared.
+   const beforeRevocation=requests.length;
    phase='revoked';
-   await page.getByRole('button',{name:'刷新云端数据',exact:true}).click();
-   await page.locator('.fy-gate').waitFor({state:'visible'});
+   await page.locator('.fy-gate').waitFor({state:'visible',timeout:12000});
+   assert.ok(requests.slice(beforeRevocation).some(r=>r.path.startsWith('/api/')),
+    'a server denial, not a client-only route change, revokes the session');
    assert.equal(await page.locator('.fy-stock-card').count(),0,'authorization loss removes retained cards, not just their visibility');
    assert.equal(await page.locator('.fy-stock-drawer:visible').count(),0,'authorization loss removes stock lens');
    assert.doesNotMatch(await page.locator('body').innerText(),/合成光谱|88,888\.88/,'private/previous market content clears on revoke');
