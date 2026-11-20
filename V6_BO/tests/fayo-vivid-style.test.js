@@ -17,7 +17,7 @@ test('reference iteration favors useful source data and a compact three-panel/ta
   assert.ok(design.includes(token),token);
  assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
  assert.match(browser,/regions\.review\.top<810/);
- assert.match(browser,/regions\.panels\.top<regions\.review\.top&&regions\.review\.top<regions\.ticker\.top/);
+ assert.match(browser,/regions\.referenceTop\.top<regions\.review\.top/);
 });
 test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
  assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
@@ -41,14 +41,14 @@ test('colors carry meaning and readable dates, never blanket pink or hidden unkn
  assert.match(design,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
-test('second pass gives real sourced review priority over duplicate mobile navigation and index',()=>{
- const final=css.slice(css.lastIndexOf('/* V6 compact second pass'));
- assert.ok(final.length>900,'second pass must be present');
- assert.match(final,/\.fy-terminal-review\{order:5\}/);
- assert.match(final,/\.fy-terminal-index\{order:6\}/);
- assert.match(final,/\.fy-terminal-priority\[data-focus="market"\]/);
- assert.match(final,/\.fy-terminal-priority\[data-focus="opportunities"\]/);
+test('reference home keeps source counts and original market cards before the research sections',()=>{
+ const final=css.slice(css.lastIndexOf('/* The mobile first-fold counters'));
+ assert.ok(final.length>900,'reference first-fold ordering must be present');
+ assert.match(final,/\.fy-reference-home>\.fy-terminal-index\{order:3\}/);
+ assert.match(final,/\.fy-reference-home>\.fy-terminal-priorities\{order:4\}/);
+ assert.match(final,/\.fy-reference-home>\.fy-reference-topgrid\{order:5\}/);
+ assert.match(final,/\.fy-reference-home>\.fy-reference-midgrid\{order:6\}/);
  assert.match(browser,/phoneFocus,\['risk','next'\]/);
- assert.match(browser,/regions\.review\.top<regions\.ticker\.top/);
+ assert.match(browser,/regions\.stats\.bottom<regions\.ticker\.top/);
  assert.match(browser,/regions\.review\.top<810/);
 });

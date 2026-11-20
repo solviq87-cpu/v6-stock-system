@@ -281,7 +281,9 @@ export function renderTerminalOverview(ctx) {
     h('p',{},'涨停池来源：'+(source?'源端 '+number(source.reportedCount)+' 只':'源端数量待核验')),
     h('p',{},'价格来源与原时点：逐股查看证据')));
   const sectorDay=reviewDate(state.snapshotFieldDays?.sectors||state.sectorsDay);
-  const aligned=Boolean(sectorDay&&marketDay&&sectorDay===marketDay);
+  // The reference card uses the same original-day gate as the existing
+  // ranking: a newer review must never inherit older market/funds evidence.
+  const aligned=Boolean(sectorDay&&marketDay&&sectorDay===marketDay&&(!day||sectorDay===day));
   const sectorRows=Array.isArray(state.sectors)?state.sectors:Array.isArray(state.sectors?.items)?state.sectors.items:[];
   const flows=aligned?sectorRows.filter(r=>r&&typeof(r.name||r.sector)==='string'&&(valid(r.mainInflowYuan)||valid(r.netInflowYuan)))
    .map(r=>({name:r.name||r.sector,value:valid(r.mainInflowYuan)?r.mainInflowYuan:r.netInflowYuan}))

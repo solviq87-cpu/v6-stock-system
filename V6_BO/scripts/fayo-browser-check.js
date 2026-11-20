@@ -167,6 +167,7 @@ const runChecks=async()=>{
       ticker:b('.fy-terminal-index'),stats:b('.fy-terminal-stats'),
       focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
       review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
+      referenceTop:b('.fy-reference-topgrid'),referenceMiddle:b('.fy-reference-midgrid'),referenceLower:b('.fy-reference-lowergrid'),
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
@@ -187,15 +188,17 @@ const runChecks=async()=>{
     if(width===1366){
      assert.ok(regions.ticker.top<regions.stats.top&&regions.stats.top<regions.focus.top,
       'desktop index strip and statistics precede the compact decision strip');
-     assert.ok(regions.focus.top<regions.panels.top&&regions.panels.top<regions.review.top,
-      'desktop 3-column market rankings precede the full review table');
+     assert.ok(regions.focus.top<regions.referenceTop.top&&regions.referenceTop.top<regions.review.top,
+      'desktop reference signal, candidates and funds precede the original review table');
      assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
      assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
     }else{
-     assert.ok(regions.stats.top<regions.focus.top&&regions.focus.top<regions.panels.top,
-      'phone shows count, risk then sector ranking before secondary index charts');
-     assert.ok(regions.panels.top<regions.review.top&&regions.review.top<regions.ticker.top,
-      'iPhone sector rankings and per-stock review precede extended index cards');
+     assert.ok(regions.stats.bottom<regions.ticker.top,
+      'phone first-fold source counters precede original-time market index cards');
+     assert.ok(regions.ticker.top<regions.focus.top&&regions.focus.top<regions.referenceTop.top,
+      'phone reference index and risk precede the signal, candidate and funds sections');
+     assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
+      'phone original review remains between primary evidence and additional research modules');
      const phoneFocus=await page.evaluate(()=>
       [...document.querySelectorAll('.fy-terminal-priority')]
         .filter(node=>getComputedStyle(node).display!=='none')

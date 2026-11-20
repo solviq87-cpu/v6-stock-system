@@ -49,5 +49,5 @@ test('responsive screenshots have explicit desktop/sidebar, phone dock and separ
    'fy-reference-lowergrid','fy-reference-review-footer','fy-reference-review','fy-dock'])
   assert.ok(css.includes('.'+item)||css.includes(' '+item),'style group '+item);
  assert.match(css,/@media\(max-width:650px\) and \(orientation:portrait\)/);
- assert.match(css,/fy-reference-home>\.fy-terminal-stats\{order:2\}/);
+ assert.match(css,/\.fy-reference-home>\.fy-terminal-stats,\.fy-reference-review>\.fy-terminal-stats\{order:2\}/);
 });
