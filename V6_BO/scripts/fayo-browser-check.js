@@ -176,6 +176,7 @@ const runChecks=async()=>{
       main:getComputedStyle(document.querySelector('.fy-terminal')).display
      };
     });
+    fs.writeFileSync(path.join(output,'fayo-layout-'+width+'.json'),JSON.stringify(regions,null,2));
     assert.equal(regions.main,'flex','terminal uses same compact structural layout on both clients');
     assert.equal(regions.sourceCount,8,'original eight audited counters remain');
     assert.ok(regions.sourceVisible,'original date/source/unknown status must remain visible');

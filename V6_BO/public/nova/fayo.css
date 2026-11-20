@@ -1320,7 +1320,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell .fy-reference-topgrid>*,
 .fy-reference-shell .fy-reference-midgrid>*,
 .fy-reference-shell .fy-reference-lowergrid>*,
-.fy-reference-shell .fy-reference-review-footer>*{min-width:0}
+.fy-reference-shell .fy-reference-review-footer>*{min-width:0;order:0}
 .fy-reference-shell .fy-reference-topgrid>.fy-section,
 .fy-reference-shell .fy-reference-midgrid>.fy-section,
 .fy-reference-shell .fy-reference-lowergrid>.fy-section,
@@ -1419,6 +1419,13 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell .fy-reference-review-footer{
  grid-template-columns:repeat(6,minmax(0,1fr))
 }
+@media(min-width:1001px){
+ /* Dense desktop previews keep the actual review in view. Longer evidence
+  * and every candidate remain scrollable within their original panels. */
+ .fy-reference-shell .fy-reference-topgrid>.fy-section,
+ .fy-reference-shell .fy-reference-topgrid>.fy-terminal-candidates{max-height:250px;overflow:auto}
+ .fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates .fy-stock-grid{max-height:130px}
+}
 .fy-reference-shell .fy-reference-mini-module{
  display:flex;flex-direction:column;align-items:stretch;gap:10px
 }
@@ -1479,6 +1486,25 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
  .fy-reference-shell .fy-reference-signal-ring{width:114px}
 }
+
+/* Reference groups are direct flex children. Give them explicit desktop order
+ * so inherited compact styles cannot move whole grids ahead of provenance. */
+.fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title{order:0}
+.fy-reference-home>.fy-terminal-provenance,.fy-reference-review>.fy-terminal-provenance{order:1}
+.fy-reference-home>.fy-terminal-index{order:2}
+.fy-reference-home>.fy-terminal-stats{order:3}
+.fy-reference-home>.fy-terminal-priorities{order:4}
+.fy-reference-home>.fy-reference-topgrid{order:5}
+.fy-reference-home>.fy-reference-midgrid{order:6}
+.fy-reference-home>.fy-reference-lowergrid{order:7}
+.fy-reference-home>.fy-terminal-decisions{order:8}
+.fy-reference-home>.fy-terminal-context{order:9}
+.fy-reference-home>.fy-terminal-quick{order:10}
+.fy-reference-review>.fy-terminal-stats{order:2}
+.fy-reference-review>.fy-terminal-context{order:3}
+.fy-reference-review>.fy-terminal-review{order:4}
+.fy-reference-review>.fy-reference-review-footer{order:5}
+.fy-reference-review>.fy-terminal-quick{order:6}
 
 /* The mobile first-fold counters must not be displaced by newly added blocks. */
 @media(max-width:650px) and (orientation:portrait){
