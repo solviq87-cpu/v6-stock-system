@@ -22,6 +22,7 @@ function scanner(stocks) {
       neutralInputs.push({field, raw});
       return raw == null ? ({score: 50, profitRatio: 50, gap: 8}[field] ?? 0) : raw;
     },
+    reviewSnapshotFields: require('../src/core/recommendation-evidence-review').reviewQuoteSnapshotFields,
     klineRows: async () => [], console
   });
   vm.runInContext(section('function fundsNumber(', 'function fundsWindowSum(') +
