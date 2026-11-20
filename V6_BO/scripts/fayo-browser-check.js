@@ -304,6 +304,11 @@ const runChecks=async()=>{
    assert.match(await closeReview.locator('h1').innerText(),/A 股收盘复盘/);
    assert.equal(await closeReview.locator('[data-review-section]').count(),6,'all six review cards are present');
    assert.equal(await closeReview.locator('[data-review-section="mood"] .fy-close-kpi').count(),7);
+   const columns=await closeReview.locator('.fy-close-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
+   assert.equal(columns,width>780?2:1,'the review card grid is active in ordinary browser mode');
+   const metricColumns=await closeReview.locator('.fy-close-kpis').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
+   assert.equal(metricColumns,width<=450?2:width<=780?3:width<=1120?4:7,'market cards follow viewport-aware columns');
+
    assert.equal(await closeReview.locator('.fy-close-level button').count(),28,'the archive preserves the full sourced pool');
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/30 \/ 61/);
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/退潮/);
