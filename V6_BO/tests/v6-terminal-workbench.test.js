@@ -101,6 +101,20 @@ test('a stale sector classification cannot be merged into a new-day review',asyn
  assert.doesNotMatch(t,/旧版龙头/);
  await tick();ctx.controller.abort();
 });
+test('desktop and mobile show same-day supplier reasons separately from the review inference',async()=>{
+ dom();const {renderTerminalOverview}=await api,state=fixture(3);
+ Object.assign(state.review.items[0],{reasonRaw:'同日原始事件',reasonSource:'cls',reasonTradeDate:'2026-11-17',reasonDateStatus:'matched',reason:'推断不覆盖原文'});
+ Object.assign(state.review.items[1],{reasonRaw:'跨日旧原因',reasonSource:'ths',reasonTradeDate:'2026-11-16',reasonDateStatus:'matched',reason:'同板块放量线索'});
+ Object.assign(state.review.items[2],{reasonRaw:'缺来源的原因',reasonTradeDate:'2026-11-17',reasonDateStatus:'matched'});
+ const ctx=context(state),view=renderTerminalOverview(ctx);
+ for(const className of ['fy-terminal-desktop-table','fy-terminal-mobile-cards']){
+  const text=textOf(locate(view,node=>node.className===className));
+  assert.match(text,/涨停原因/);assert.match(text,/同日原始事件\s+财联社 · 2026-11-17\s+复盘推断 · 推断不覆盖原文/);
+  assert.match(text,/源端原因待核验\s+复盘推断 · 同板块放量线索/);
+  assert.doesNotMatch(text,/跨日旧原因|缺来源的原因/);
+ }
+ ctx.controller.abort();
+});
 test('homepage simulation totals use only the editor projection and keep missing values unknown',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(1);
  s.paper={pool:{equity:123456.78,cash:0,marketValue:null,totalPnl:-12.5}};
