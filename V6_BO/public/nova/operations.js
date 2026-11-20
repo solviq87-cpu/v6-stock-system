@@ -140,8 +140,18 @@ function newsFeed(ctx,kind) {
   let source=[];
   const readSource=()=>newsRows(ctx.state||{},kind);
   const host=el('div',{class:'fy-stack'});const search=input('news-search','','search',{placeholder:'搜索标题、股票或板块','aria-label':'筛选资讯'});const feed=el('div',{class:'fy-news-feed'});
-  const render=()=>{source=readSource();const q=search.value.trim().toLowerCase(),rows=source.filter(row=>[row.title,row.name,row.code,row.text,...arr(row.codes),...arr(row.sectors)].join(' ').toLowerCase().includes(q));feed.replaceChildren(rows.length?el('div',{class:'fy-timeline'},rows.map(row=>{
-    const title=row.title||row.name||row.text||'信号记录';const url=row.url||row.sourceUrl;return el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('time',{},date(row.publishedAt||row.quoteAt||row.t||row.time)),el('span',{class:'fy-tag'},row.direction||row.type||(arr(ctx.state?.badNews?.items).includes(row)?'风险线索':'资讯'))),el('h3',{},url?link(url,title):title),row.text&&row.text!==title&&el('p',{},row.text),row.reason&&el('p',{class:'fy-muted'},row.reason),el('div',{class:'fy-tagline'},arr(row.codes).map(code=>action(code,()=>ctx.selectStock(code),'text')),row.code&&action(row.code,()=>ctx.selectStock(row.code),'text'),arr(row.sectors).map(sector=>el('span',{class:'fy-tag'},sector))),row.source&&el('small',{},'来源 '+row.source));})):empty('当前没有匹配的资讯','休市期间资讯仍独立更新；行情快照与新闻发布时间分别展示。'));};search.addEventListener('input',render);render();
+  const related=row=>arr(row.related?.indirect).filter(stock=>/^\d{6}$/.test(stock.code||'')&&stock.via);
+  const render=()=>{source=readSource();const q=search.value.trim().toLowerCase(),rows=source.filter(row=>[row.title,row.name,row.code,row.text,...arr(row.codes),...arr(row.sectors),...related(row).flatMap(stock=>[stock.code,stock.name,stock.via])].join(' ').toLowerCase().includes(q));feed.replaceChildren(rows.length?el('div',{class:'fy-timeline'},rows.map(row=>{
+    const title=row.title||row.name||row.text||'信号记录',url=row.url||row.sourceUrl;
+    const direct=new Set([...arr(row.codes),row.code].filter(code=>/^\d{6}$/.test(code||'')));
+    const indirect=related(row).filter(stock=>!direct.has(stock.code));
+    const rawDirection=row.direction||row.type;
+    const label=({good:'利好线索',bad:'利空线索',neutral:'中性资讯','risk-clue':'风险线索','strength-clue':'利好线索'})[rawDirection]||rawDirection||'资讯';
+    return el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('time',{},date(row.publishedAt||row.quoteAt||row.t||row.time)),el('span',{class:'fy-tag'},label)),el('h3',{},url?link(url,title):title),row.text&&row.text!==title&&el('p',{},row.text),row.reason&&el('p',{class:'fy-muted'},row.reason),
+      direct.size>0&&el('div',{class:'fy-tagline'},el('small',{},kind==='signals'?'信号个股':'直接关联'),[...direct].map(code=>action(code,()=>ctx.selectStock(code),'text'))),
+      arr(row.sectors).length>0&&el('div',{class:'fy-tagline'},arr(row.sectors).map(sector=>el('span',{class:'fy-tag'},sector))),
+      indirect.length>0&&el('details',{class:'fy-details'},el('summary',{},'板块间接关联（'+indirect.length+' 只）'),el('div',{class:'fy-tagline'},indirect.map(stock=>action((stock.name||stock.code)+' · '+stock.via,()=>ctx.selectStock(stock.code),'text')))),
+      row.source&&el('small',{},'来源 '+row.source));})):empty('当前没有匹配的资讯','休市期间资讯仍独立更新；行情快照与新闻发布时间分别展示。'));};search.addEventListener('input',render);render();
   host.append(panel(kind==='alerts'?'风险线索':kind==='signals'?'信号轨迹':'资讯时间线','公告、新闻与行情分别核验，不把标题线索直接当作买卖指令。',el('div',{class:'fy-toolbar'},search,action('刷新资讯',()=>ctx.refresh())),feed));
   if(editor(ctx))host.append(el('div',{class:'fy-toolbar'},action('补发新闻摘要',()=>review(ctx,host,'发送新闻摘要','这会向当前配置的通知通道发送一份新闻汇总。',()=>mutation(ctx,'/api/news-digest',{holiday:ctx.state?.trading===false})))));
   ctx.onState?.(render);return host;
@@ -274,7 +284,7 @@ export function renderOperations(route,ctx) {
   const view=route.view,sub=route.sub||({assets:'overview',inbox:'all',settings:'preferences'}[view]);
   const host=el('div',{class:'fy-operations fy-stack','data-operations-view':view,'data-operations-sub':sub});
   const categories={assets:[['overview','资产总览'],['holdings','资产簿'],['risk','风险边界'],['paper','模拟跟踪'],['ledger','账务证据'],['daily-review','今日复盘'],['closure','人工执行记录'],['authority','主账户风控'],['history','变更与恢复']],inbox:[['all','资讯时间线'],['alerts','风险线索'],['signals','信号轨迹'],['push','投递追踪'],['compose','写通知']],settings:[['preferences','自动化偏好'],['diagnostics','运行状态'],['channels','通知路由'],['devices','设备'],['security','访问安全'],['source','受控源文件'],['release','发布收件箱']]};
-  host.append(subnav(ctx,view,categories[view]||[],sub));
+  if(!ctx.workspaceNavigation)host.append(subnav(ctx,view,categories[view]||[],sub));
   let content;
   if(view==='assets')content=sub==='daily-review'?renderDailyReview(ctx):sub==='closure'?renderManualLoop(ctx,{el,action,panel,field,input,select,notice,table,privateView,request,form,asyncRegion}):sub==='holdings'?holdings(ctx):sub==='risk'?holdings(ctx,true):sub==='paper'?paper(ctx):sub==='ledger'?paper(ctx,true):sub==='authority'?authority(ctx):sub==='history'?holdingHistory(ctx):overview(ctx);
   else if(view==='inbox')content=sub==='push'?pushLog(ctx):sub==='compose'?messageComposer(ctx):newsFeed(ctx,sub);

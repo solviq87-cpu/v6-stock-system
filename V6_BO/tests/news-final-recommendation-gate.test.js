@@ -274,7 +274,9 @@ test('a later queued-news veto does not release reservations for a batch already
 });
 
 test('a named bank company adverse event is not generalized to every bank stock',async t=>{
- const x=fixture(t);await x.refresh([x.raw({title:'招商银行收到警示函，利空',stockList:['1.600036']})]);
+ const x=fixture(t);x.c.S.sectors.push({name:'银行'});
+ await x.refresh([x.raw({title:'招商银行收到警示函，利空',stockList:['1.600036']})]);
+ assert.equal(x.c.S.news.badAll[0].sectors.length,0,'the news view does not expand a company mention into a whole-sector correlation');
  assert.equal(x.c.reviewRecommendationNews(x.row({code:'600036',sector:'银行'})).canRecommend,false,'the explicitly named company remains blocked');
  assert.equal(x.c.reviewRecommendationNews(x.row({code:'000001',sector:'银行'})).canRecommend,true,'a company-name substring is not an industry impact statement');
 });

@@ -11326,13 +11326,15 @@ function rememberMarketScan(kind,board,data) {
   const day=require('./src/core/market-display-snapshot').originalQuoteDay(S,Date.now());
   if(day&&marketDisplaySession().trading){marketResponseSnapshots.remember(kind,board,data,{day});closingCardSnapshots.remember(kind+':'+board,data,{session:marketDisplaySession(),sourceDay:day});}
 }
-function marketDisplaySession() {
-  const china=new Date(Date.now()+8*3600000),year=china.getUTCFullYear(),month=china.getUTCMonth(),date=china.getUTCDate();
+function marketDisplaySession(now=Date.now()) {
+  const china=new Date(now+8*3600000),year=china.getUTCFullYear(),month=china.getUTCMonth(),date=china.getUTCDate();
   const minute=china.getUTCHours()*60+china.getUTCMinutes();
   const day=String(year)+String(month+1).padStart(2,'0')+String(date).padStart(2,'0');
   const openDay=isTradeDay(new Date(year,month,date,12));
   return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
+const {createQuoteCrossCheck,supportsQuoteCheck}=require('./src/core/quote-cross-check');
+const checkStockQuote=createQuoteCrossCheck({isOpenDay:at=>marketDisplaySession(at).openDay});
 function marketDisplayState() {
   const session=marketDisplaySession();
   const selected=marketDisplaySnapshots.select(S,{trading:session.trading,openDay:session.openDay,mood:marketMood()});
@@ -13269,9 +13271,13 @@ function pushAuctionResonanceTop3(items) {
 
 function buildDashboardState(_stEdit = false) {
     const display=marketDisplayState(), D=display.state;
+    const asOf=Date.now();
+    const isSnapshotQuote=row=>Number.isSafeInteger(row?.quoteAt)&&row.quoteAt>0&&row.quoteAt<=asOf&&
+      new Date(row.quoteAt+28800000).toISOString().slice(0,10).replaceAll('-','')===display.meta.snapshotDay;
     // 精选池附：资金留存（10分钟主力净流入变化）+ 压力位/止损/止盈
     const pool = D.candidatePool.slice(0, 50).map(c => {
-      const h = D.inflowHistory.get(c.code);
+      const canEnrich=!display.meta.marketFrozen&&isSnapshotQuote(c);
+      const h = canEnrich ? D.inflowHistory.get(c.code) : null;
       let retain = null, retainWin = null, retainTxt = null;
       if (h && h.length >= 12 && fundsWindowDelta(h, h.length) !== null) {
         const t0 = Number(h[0] && h[0].t) || 0;
@@ -13283,7 +13289,7 @@ function buildDashboardState(_stEdit = false) {
         const wt = retainWinTxt(retainWin);
         retainTxt = (retain > 0 ? '+' : '') + retain + '万' + (wt ? '/' + wt : '');
       }
-      const k = D.klines.get(c.code);
+      const k = canEnrich ? D.klines.get(c.code) : null;
       const levels = k && k.rows ? A.computeLevels(k.rows, c.price, c.high, c.low) : null;
       return { ...c, retain, retainWin, retainTxt, levels, bad: newsWarnsCode(c.code) };
     });
@@ -13304,13 +13310,14 @@ function buildDashboardState(_stEdit = false) {
       for (const sn of (x.sectors || [])) secCnt[sn] = (secCnt[sn] || 0) + 1;
       for (const cd of (x.codes || [])) stCnt[cd] = (stCnt[cd] || 0) + 1;
     }
-    const nameOfCode = new Map(D.stocks.map(s => [s.code, s.name]));
+    const relCodeMap = new Map(D.stocks.map(s => [s.code, s]));
     // 每条消息的关联个股实时统计（涨幅/涨停家数/主力净流入合计），利好加推·利空减推的依据面板可视化
     const statOf = codes => {
-      const rel = (codes || []).map(cd => D.stocks.find(s => s.code === cd)).filter(s => s && s.price);
+      const linked=[...new Set(codes || [])];
+      const rel = linked.map(cd => relCodeMap.get(cd)).filter(s => s?.price&&isSnapshotQuote(s));
       if (!rel.length) return null;
       const pctKnown=rel.filter(s=>fundsNumber(s.pct)!==null),fundsKnown=rel.filter(s=>fundsNumber(s.mainInflow)!==null);
-      const pctComplete=pctKnown.length===rel.length,fundsComplete=fundsKnown.length===rel.length;
+      const pctComplete=pctKnown.length===linked.length,fundsComplete=fundsKnown.length===linked.length;
       const up = pctComplete?rel.filter(s => s.pct > 0).length:null;
       const down = pctComplete?rel.filter(s => s.pct < 0).length:null;
       // 涨停家数必须按板块限幅判：写死 >= 9.4 就永远数不到 ST（旧口径 5%、现 10% 里偏弱的）
@@ -13318,23 +13325,28 @@ function buildDashboardState(_stEdit = false) {
       const limit = pctComplete?rel.filter(s => A.isLimitUp(s.code, s.name, s.pct)).length:null;
       const avgPct = pctComplete?+(rel.reduce((a, s) => a + s.pct, 0) / rel.length).toFixed(1):null;
       const mainSum = fundsComplete?Math.round(rel.reduce((a, s) => a + s.mainInflow, 0)):null;
-      return { total: rel.length, up, down, limit, avgPct, mainSum,
-        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:rel.length,pctComplete,fundsComplete} };
+      return { total: rel.length, tradeDate:display.meta.snapshotDay, up, down, limit, avgPct, mainSum,
+        availability:{pctKnown:pctKnown.length,fundsKnown:fundsKnown.length,total:linked.length,pctComplete,fundsComplete} };
     };
-    const relCodeMap = new Map(D.stocks.map(s => [s.code, s]));
     // 每条消息的直接影响个股（新闻点名）+ 间接影响个股（新闻提到的板块成分股，涨幅强的在前）
     const relatedOf = x => {
-      const direct = (x.codes || []).map(cd => relCodeMap.get(cd)).filter(s => s && s.price)
-        .slice(0, 8).map(s => ({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: true }));
-      const dset = new Set(direct.map(d => d.code));
+      const dset = new Set((x.codes || []).filter(code=>/^\d{6}$/.test(code)));
+      const direct = [...dset].slice(0,8).map(code=>{
+        const stock=relCodeMap.get(code),sameDay=isSnapshotQuote(stock);
+        return {code,name:stock?.name||'',direct:true,price:sameDay?stock.price:null,
+          pct:sameDay?fundsNumber(stock.pct):null,quoteAt:sameDay?stock.quoteAt:null};
+      });
       const indirect = [];
       for (const nm of (x.sectors || [])) {
         const c = D.secStocks && D.secStocks.get(nm);
         if (!c || !c.list) continue;
         for (const s of c.list) {
+          if(!/^\d{6}$/.test(s?.code||''))continue;
           if (dset.has(s.code) || indirect.some(i => i.code === s.code)) continue;
           if (A.isJunkName(s.name) || s.code.startsWith('30') || s.code.startsWith('68')) continue;
-          indirect.push({ code: s.code, name: s.name, pct: fundsNumber(s.pct), price: s.price, direct: false, via: nm });
+          const stock=relCodeMap.get(s.code),sameDay=isSnapshotQuote(stock);
+          indirect.push({code:s.code,name:s.name,direct:false,via:nm,membershipObservedAt:c.time||null,
+            price:sameDay?stock.price:null,pct:sameDay?fundsNumber(stock.pct):null,quoteAt:sameDay?stock.quoteAt:null});
           if (indirect.length >= 8) break;
         }
         if (indirect.length >= 8) break;
@@ -13510,7 +13522,7 @@ function buildDashboardState(_stEdit = false) {
         time: D.news.time, riskSnapshot:newsRiskSnapshotView(),
         items: [...visibleNews.goodAll, ...visibleNews.neutralAll].sort((a, b) => (a.t < b.t ? 1 : -1)).slice(0, 30).map(x => ({ ...x, stat: statOf(x.codes), related: relatedOf(x) })),
         hotSectors: Object.entries(secCnt).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
-        hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: nameOfCode.get(code) || '', count }))
+        hotStocks: Object.entries(stCnt).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([code, count]) => ({ code, name: relCodeMap.get(code)?.name || '', count }))
       },
       // ⛔ 连板接力数据属私密策略，只读（观看）权限不可查看
       yier: _stEdit ? (D.yierYesterday || null) : { hidden: true },
@@ -15169,8 +15181,8 @@ function classifyNewsRows(raw, nameOf, neutralOnly) {
     const codes = [...new Set((Array.isArray(n.stockList)?n.stockList:[]).map(sl=>/^([013])\.(\d{6})$/.exec(String(sl))?.[2]).filter(Boolean))];
     if (neutralOnly && !codes.length) continue;
     const text = title + '\n' + body;
-    const sectors = [...new Set((S.sectors||[]).filter(s=>s.name&&s.name.length>=2&&text.includes(s.name)).map(s=>s.name))].slice(0,2);
-    out.push({id:n.code,t:n.showTime||'',...newsPublicationMetadata(n),title,summary,codes,
+    const sectors = [...new Set((S.sectors||[]).filter(s=>explicitNewsSectorMatch(text,s.name)).map(s=>s.name))].slice(0,2);
+    out.push({id:n.code,t:n.showTime||'',...newsPublicationMetadata(n),title,summary,codes,source:'eastmoney-fast-news',
       stocks:codes.map(c=>`${nameOf.get(c)||''}(${c})`),type:assessment.type,why:assessment.why,assessment,sectors});
   }
   return out;
@@ -18644,8 +18656,7 @@ async function init() {
       //    若先把 digestSentDate 打成今天，当天就再也不会重试 —— 新闻汇总静默消失。
       //    （这条铁律已落实到 holiday/weekend/bootCheck 三处，此处是漏改的那个。）
       try {
-        pushWecom(buildNewsDigest([dsLabel()], digestLabel(), 5));
-        digestSentDate = ds;
+        if(pushWecom(buildNewsDigest([dsLabel()], digestLabel(), 5))!==false)digestSentDate = ds;
       } catch (e) { console.error('[news] 每日汇总推送失败，保留今天重试机会:', (e && e.message) || e); }
     } else if (d.getDay() !== 0 && t >= 21 * 60 && t < 24 * 60 && !sentToday(digestSentDate, ds, /每日新闻汇总/, 21 * 60) && !newsReady()) {
       _digestDiag('每日新闻汇总', ds, S.news.badAll.length + S.news.goodAll.length + S.news.neutralAll.length);
@@ -18673,10 +18684,9 @@ async function init() {
       // 长假里的周日（如国庆 10/4）次日并不开盘，写成"开盘前必读"是误导 —— 按次日是否真开市决定措辞
       const wkLabel = isTradeDay(newsChinaClock(Date.now() + 86400000))
         ? '周末新闻汇总 · 开盘前必读' : '周末新闻汇总 · 休市要闻';
-      pushWecom(buildNewsDigest([sat, sun], wkLabel, 6), true);
-      weekendSentDate = ds;   // 先发后置位：发送被闸门拦下时当天还能重试
+      if(pushWecom(buildNewsDigest([sat, sun], wkLabel, 6), true)!==false)weekendSentDate = ds;
     } else if (d.getDay() === 0 && t >= 21 * 60 && t < 24 * 60 && !sentToday(weekendSentDate, ds, /周末新闻汇总/, 21 * 60) && !newsReady()) {
-      _digestDiag('周末新闻汇总', ds, S.news.badAll.length + S.news.goodAll.length + S.news.neutralAll.length());
+      _digestDiag('周末新闻汇总', ds, S.news.badAll.length + S.news.goodAll.length + S.news.neutralAll.length);
     }
   }, 20000);
 
@@ -20991,6 +21001,20 @@ function handle(req, res, u, body) {
       catch (e) { json(res, { ok: false, error: (e && e.message) || String(e), code }); }
     })();
     return;
+  }
+  if (p === '/api/stock-news-risk' && req.method === 'GET') {
+    res.setHeader('Cache-Control','no-store');
+    const code=u.searchParams.get('code');
+    if(!/^\d{6}$/.test(code||''))return json(res,{ok:false,error:'需要六位股票代码'});
+    const row=S.candidatePool.find(row=>row.code===code)||S.stocks.find(row=>row.code===code)||{code};
+    return json(res,{ok:true,...reviewRecommendationNews(row)});
+  }
+  if (p === '/api/quote-cross-check') {
+    if(!requireEditor(res,req.__tok,req))return;
+    res.setHeader('Cache-Control','no-store');
+    const code=u.searchParams.get('code');
+    if(req.method!=='POST'||!supportsQuoteCheck(code))return json(res,{ok:false,error:'需要通过 POST 提供沪深A股六位代码'});
+    return checkStockQuote(code).then(result=>json(res,{ok:true,...result}));
   }
   // 全市场「连续小阳线拉升」主动扫描（2026-09-30 用户要求：「你自己也都多看看有没有那种连续小阳线拉升的」）
   // 不只看趋势池里的票 —— 全A扫一遍，把"每天一点点往上抬"的票挑出来，顺带标市值与波动体检。

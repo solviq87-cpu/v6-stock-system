@@ -21,14 +21,23 @@ const requests=[],resources=[];
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
- return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ const sourcePanels={
+  sectorsDay:'20261113',ztDay:'20261113',
+  ztBySector:[{sector:'合成能源',count:2,stocks:[{...stocks[0],role:'leader'},{...stocks[2],role:'mid'}]},
+   {sector:'合成材料',count:1,stocks:[{...stocks[1],role:'leader'}]}],
+  indexKline:{items:candles.slice(-32).map((bar,i)=>{
+   const middle=3210+Math.sin(i*.7)*25+i*2;
+   const open=middle+Math.cos(i)*9,close=middle-Math.cos(i)*9;
+   return {date:bar.date,open,close,high:Math.max(open,close)+5,low:Math.min(open,close)-5};
+  })}
+ };
+ return {...sourcePanels,now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8,mainInflowYuan:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7,mainInflowYuan:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 function respond(url,req,body){
  const p=url.pathname;
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
- if(p==='/api/state'||p==='/api/mobile-digest')return state();
  if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
   sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
   broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
@@ -37,7 +46,12 @@ function respond(url,req,body){
   seats:[{code:'600101',name:'合成光谱1',dept:'机构专用',category:'机构专用',net:-40000}],
   promotion:{previousDay:'2026-11-12',stages:[{level:1,promoted:1,total:2}],failed:[]}}};
 
- if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks,snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
+ if(p==='/api/state'||p==='/api/mobile-digest'){
+  const result=state();
+  result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
+  return result;
+ }
+ if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
   const end=url.searchParams.get('end'),limit=Math.min(240,Math.max(1,Number(url.searchParams.get('n')||120)));
@@ -47,6 +61,10 @@ function respond(url,req,body){
  if(p==='/api/search')return {ok:true,items:stocks,results:stocks};
  if(p==='/api/analyze')return {ok:true,code:url.searchParams.get('code'),name:'合成光谱1',price:12.3,pct:2.1,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider',signals:['合成趋势条件'],explanation:['合成历史依据'],score:86};
  if(p==='/api/kline-marks')return {ok:true,items:[]};
+ if(p==='/api/quote-cross-check')return {ok:true,code:url.searchParams.get('code'),status:'source-price-or-time-conflict',checkedAt:new Date(sourceAt).toISOString(),referencePrice:null,sourceStatuses:[
+  {provider:'tencent',status:'eligible-for-comparison',observedPrice:12.3,observedPreviousClose:12,quoteAt:sourceAt},
+  {provider:'eastmoney',status:'eligible-for-comparison',observedPrice:13,observedPreviousClose:12,quoteAt:sourceAt}]};
+ if(p==='/api/stock-news-risk')return {ok:true,code:url.searchParams.get('code'),status:'blocked',matches:[{association:'explicit-sector',sectors:['合成能源'],publishedAt:sourceAt,source:'合成快讯'}]};
  if(p==='/api/holdings')return {ok:true,items:[],summary:{capital:100000,totalCost:0,equity:100000},cfg:{stopPct:7,reducePct:4,takePct:15,maxPosPct:30},allTags:[],time:sourceAt};
  if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
  if(p==='/api/paper/ledger')return {ok:true,paper:{pool:{schemaVersion:1,mode:'authoritative-paper-readonly-projection',accountId:'pool',paperOnly:true,canSubmitOrders:false,canCancelOrders:false,accounting:{initialCash:100000,cash:88888.88,realizedPnl:345.67,positions:[{code:'600101',shares:100,basis:1230}],tradeCount:1,auditStatus:'passed'},events:[{type:'FILL_RECORDED',side:'BUY',code:'600101',shares:100,price:12.3,amount:1230,fee:5,t:sourceAt,tradeDate:'2026-11-13',timeQuality:'known'}]},pre:{accountId:'pre',accounting:{initialCash:50000,cash:50000,realizedPnl:0,positions:[],tradeCount:0,auditStatus:'passed'},events:[]}}};
@@ -116,6 +134,38 @@ async function geometry(page,label){
  assert.ok(result.brandBox&&result.brandBox.top>=-1&&result.brandBox.left>=0&&result.brandBox.right<=result.width+1&&result.brandBox.height>0,label+' new brand mark and name stay in the visible header: '+JSON.stringify(result.brandBox));
  return result;
 }
+async function checkWorkspaceTabs(page,width){
+ const tabs=page.locator('.fy-reference-topnav');
+ const labels=await tabs.locator('[data-workspace-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceTab));
+ assert.deepEqual(labels,['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的']);
+ const grouped=[];
+ for(const label of labels){
+  await tabs.locator('[data-workspace-tab="'+label+'"]').click();
+  await page.waitForFunction(value=>document.querySelector('.fy-reference-shell')?.dataset.workspace===value&&
+   !!document.querySelector('.fy-main>:not(.fy-loading)'),label);
+  assert.equal(await tabs.locator('[data-current="true"]').count(),1);
+  assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+  assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+  await geometry(page,'workspace-'+label+'-'+width);
+  await page.screenshot({path:path.join(output,'workspace-'+label+'-'+width+'.png'),fullPage:false});
+  const nav=page.locator('.fy-workspace-nav');
+  const routes=await nav.locator('[data-workspace-route]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceRoute));
+  assert.equal(new Set(routes).size,routes.length,'each destination appears once within '+label);
+  if(await nav.isVisible()){
+   for(const child of routes){
+    await nav.locator('[data-workspace-route="'+child+'"]').click();
+    await page.waitForFunction(value=>location.hash==='#/'+value&&
+     document.querySelector('.fy-workspace-nav [aria-current="page"]')?.dataset.workspaceRoute===value&&
+     !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
+    assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+    assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    await geometry(page,'workspace-'+child+'-'+width);
+   }
+  }
+  grouped.push({label,routes});
+ }
+ return grouped;
+}
 const runChecks=async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
@@ -176,10 +226,11 @@ const runChecks=async()=>{
       focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
       review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
       referenceTop:b('.fy-reference-topgrid'),referenceMiddle:b('.fy-reference-midgrid'),referenceLower:b('.fy-reference-lowergrid'),
+      shortcuts:b('.fy-reference-mobile-links'),candidates:b('.fy-terminal-candidates'),funds:b('.fy-reference-funds'),
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
-      brand:b('.fy-header'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
+      brand:b('.fy-header .fy-brand'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
       down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
       main:getComputedStyle(document.querySelector('.fy-terminal')).display
      };
@@ -195,17 +246,17 @@ const runChecks=async()=>{
     const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
     assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
     if(width===1366){
-     assert.ok(regions.ticker.top<regions.stats.top&&regions.stats.top<regions.focus.top,
-      'desktop index strip and statistics precede the compact decision strip');
-     assert.ok(regions.focus.top<regions.referenceTop.top&&regions.referenceTop.top<regions.review.top,
-      'desktop reference signal, candidates and funds precede the original review table');
+     assert.ok(regions.ticker.bottom<regions.referenceTop.top&&regions.referenceTop.bottom<regions.referenceMiddle.top,
+      'desktop index strip leads the three primary cards, followed by the review and evidence row');
+     assert.equal(regions.candidates.top,regions.funds.top,'desktop candidates and funds share one row');
      assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
      assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
     }else{
-     assert.ok(regions.stats.bottom<regions.ticker.top,
-      'phone first-fold source counters precede original-time market index cards');
-     assert.ok(regions.ticker.top<regions.focus.top&&regions.focus.top<regions.referenceTop.top,
-      'phone reference index and risk precede the signal, candidate and funds sections');
+     assert.ok(regions.referenceTop.top<regions.shortcuts.top&&regions.shortcuts.bottom<regions.candidates.top&&
+      regions.candidates.bottom<regions.funds.top&&regions.funds.top<874,
+      'phone shows the signal, shortcuts, candidates and the start of funds in the reference order');
+     assert.ok(regions.stats.bottom<regions.ticker.top&&regions.ticker.top<regions.focus.top,
+      'phone retains audited counters, original-time indices and the risk strip below the primary dashboard');
      assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
       'phone original review remains between primary evidence and additional research modules');
      const phoneFocus=await page.evaluate(()=>
@@ -214,8 +265,7 @@ const runChecks=async()=>{
         .map(node=>node.dataset.focus));
      assert.deepEqual(phoneFocus,['risk','next'],
       'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
-     assert.ok(regions.stats.top<400&&regions.stats.bottom<780,
-      'iPhone first fold must show actual review numbers rather than big headers');
+     assert.ok(regions.candidates.top<600,'phone first fold contains actual candidates');
      assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
       'four compact count cards share the first phone row');
      assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
@@ -230,11 +280,19 @@ const runChecks=async()=>{
       mainLeft:b.left,navButtons:nav.querySelectorAll('button').length};
     });
     assert.equal(rail.position,'fixed','desktop must show a proper business left rail');
-    assert.ok(rail.left>=0&&rail.width>=170&&rail.width<=215,'business rail remains readable');
+    assert.ok(rail.left>=0&&rail.width>=140&&rail.width<=160,'business rail remains readable');
     assert.ok(rail.mainLeft>=rail.right,'workspace must not overlap navigation rail');
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
+   const fundPanel=page.locator('.fy-reference-funds');
+   await fundPanel.getByRole('button',{name:'资金流出榜',exact:true}).click();
+   await fundPanel.locator('.fy-reference-flow .fy-negative').waitFor({state:'visible'});
+   assert.match(await fundPanel.locator('.fy-reference-flow').innerText(),/合成材料/);
+   await fundPanel.getByRole('button',{name:'资金流入榜',exact:true}).click();
+   await fundPanel.locator('.fy-reference-flow .fy-positive').waitFor({state:'visible'});
+   assert.match(await fundPanel.locator('.fy-reference-flow').innerText(),/合成能源/);
    // User-provided first reference: real dedicated daily-review route, same data and session.
    const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
    await navigate(page,'pulse','review');
@@ -269,6 +327,21 @@ const runChecks=async()=>{
    await closeReview.locator('.fy-reference-review-footer').waitFor();
    assert.equal(await closeReview.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
     'existing research shortcuts remain available');
+   const reviewStats=closeReview.locator('.fy-close-more .fy-terminal-stats');
+   if(width<=430){
+    const boxes=await reviewStats.locator('.fy-terminal-stat').evaluateAll(cards=>cards.map(card=>{
+     const rect=card.getBoundingClientRect();return {top:rect.top,width:rect.width};
+    }));
+    assert.equal(boxes[0].top,boxes[2].top,'phone review groups the total, first and continued counts on row one');
+    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below');
+   }
+   const filters=page.locator('.fy-reference-review-filters');
+   await filters.getByRole('button',{name:'首板 3',exact:true}).click();
+   assert.equal(await filters.getByRole('button',{name:'首板 3',exact:true}).getAttribute('aria-pressed'),'true');
+   await filters.getByRole('button',{name:'有开板记录 0',exact:true}).click();
+   await page.getByText('该筛选下暂无复盘记录',{exact:true}).waitFor({state:'visible'});
+   await filters.getByRole('button',{name:'全部 3',exact:true}).click();
+   assert.equal(await closeReview.locator('.fy-close-more .fy-terminal-mobile-stock').count(),3);
    await closeReview.locator('.fy-close-more > summary').click();
    assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
     'navigating to review does not create a trade, scan, push or account mutation');
@@ -291,15 +364,15 @@ const runChecks=async()=>{
      const stat=document.querySelector('.fy-terminal-stats');
      const index=document.querySelector('.fy-terminal-index');
      const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
-     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,
-       firstStatVisible:!!a&&a.bottom>0&&a.top>=0&&a.top<innerHeight,
+     const c=document.querySelector('.fy-terminal-candidates')?.getBoundingClientRect();
+     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,candidateTop:c?.top,
        scrollTop:window.scrollY,viewport:innerHeight};
     });
     assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
     assert.equal(firstFold.statCount,8,'all original review counters are retained');
     assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
-    assert.ok(firstFold.firstStatVisible&&firstFold.statTop<firstFold.viewport*.8,
-      'first meaningful review counter should appear within the iPhone first fold');
+    assert.ok(firstFold.candidateTop<firstFold.viewport*.7,
+      'first meaningful candidate should appear within the iPhone first fold');
     assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
     assert.equal(actual.indexCards.length,4,'four existing source-timestamped indices remain available');
     assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row has two columns');
@@ -336,6 +409,7 @@ const runChecks=async()=>{
    await originCard.click();
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
+   const beforeQuoteChecks=requests.filter(entry=>entry.path==='/api/quote-cross-check').length;
    await drawer.locator('.fy-chart svg').waitFor({state:'visible'});
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/2026[-/]11[-/]13/,'drawer preserves original provider date');
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/synthetic-friday-provider/,'drawer shows original provider');
@@ -357,6 +431,17 @@ const runChecks=async()=>{
    await originCard.evaluate(node=>{window.drawerOriginBeforeRefresh=node;});
    await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
    await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
+   await drawer.locator('[data-detail-tab="evidence"]').click();
+   assert.match(await drawer.innerText(),/仅此选股池保存的合成依据/,'cloud refresh cannot swap the selected pool evidence for the homepage row');
+   assert.equal(requests.filter(entry=>entry.path==='/api/quote-cross-check').length,beforeQuoteChecks,'shared refresh cannot start public quotation checks');
+   await drawer.locator('[data-detail-tab="sources"]').click();
+   await drawer.getByRole('button',{name:'核对报价',exact:true}).click();
+   await drawer.getByText(/来源价格或时点有冲突/).waitFor();
+   assert.ok(requests.some(entry=>entry.path==='/api/quote-cross-check'&&entry.method==='POST'&&entry.query.code==='600101'));
+   await drawer.getByRole('button',{name:'读取推送避险状态',exact:true}).click();
+   await drawer.getByText(/当前利空命中/).waitFor();
+   assert.match(await drawer.innerText(),/板块关联 合成能源/);
+   await drawer.locator('[data-detail-tab="chart"]').click();
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
@@ -433,8 +518,20 @@ const runChecks=async()=>{
    assert.match(await page.locator('.fy-main').innerText(),/600101/,'ledger reads authoritative accounting.positions');
    assert.match(await page.locator('.fy-main').innerText(),/345\.67/,'ledger reads authoritative realizedPnl');
    await page.screenshot({path:path.join(output,'fayo-ledger-'+width+'.png'),fullPage:false});
+   if(width===390){
+    await navigate(page,'inbox','all');
+    const article=page.locator('.fy-news-item').filter({hasText:'合成周末公告继续更新'});
+    await article.getByText('直接关联',{exact:true}).waitFor();
+    await article.getByText('板块间接关联（1 只）',{exact:true}).click();
+    await article.getByRole('button',{name:'合成光谱2 · 合成能源',exact:true}).click();
+    await drawer.locator('.fy-drawer-title').getByText(/600102/).waitFor();
+    await drawer.press('Escape');
+   }
+   const workspaces=width===390||width===1366?await checkWorkspaceTabs(page,width):null;
    const browsing=requests.slice(before);
-   const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
+   const quoteChecks=browsing.filter(r=>r.path==='/api/quote-cross-check');
+   assert.equal(quoteChecks.length,1,'only the explicit quote check may contact suppliers');
+   const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&!['/api/online/beat','/api/quote-cross-check'].includes(r.path));
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
    // A five-second background GET may revoke access before a manual click can
    // start. Wait for the actual authorization gate instead of clicking a
@@ -450,7 +547,7 @@ const runChecks=async()=>{
    assert.equal(await page.evaluate(()=>localStorage.getItem('qd_device')),null,'revoked device token is cleared');
    assert.deepEqual(errors,[],'no application exceptions at '+width);
    assert.deepEqual(external,[],'no third-party data/font/model requests at '+width);
-   report.push({width,metrics,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
+   report.push({width,metrics,workspaces,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
    await context.close();
   }
   // Read-only access remains usable without attempting editor endpoints.
@@ -459,6 +556,9 @@ const runChecks=async()=>{
   await reader.addInitScript(()=>{localStorage.setItem('qd_device','fayo-synthetic-reader');localStorage.setItem('qd_role','view');});
   const readPage=await reader.newPage(),readerStart=requests.length;
   await readPage.goto(origin+'/');await readPage.locator('.fy-header').waitFor({state:'visible'});
+  await readPage.locator('.fy-reference-topnav [data-workspace-tab="选股"]').click();
+  await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/all"]').waitFor({state:'visible'});
+  assert.equal(await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/wash"]').count(),0);
   await navigate(readPage,'assets','holdings');
   await readPage.waitForFunction(()=>document.querySelector('.fy-main')?.textContent.includes('私人工作区'));
   await navigate(readPage,'settings','channels');
