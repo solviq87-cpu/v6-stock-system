@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {Readable}=require('node:stream');
 const {fetchEastmoneyHistory,parseKlines,secId}=require('../src/core/eastmoney-historical-feed');
+const {validateImport}=require('../src/core/market-data-center');
 const dates=Array.from({length:40},(_,i)=>new Date(Date.UTC(2025,0,i+1)).toISOString().slice(0,10));
 function payload(symbol,days=dates){return {data:{code:symbol,name:'样本',klines:days.map((d,i)=>`${d},${(10+i*.1).toFixed(2)},${(10+i*.1).toFixed(2)},${(10+i*.1+.2).toFixed(2)},${(10+i*.1-.2).toFixed(2)},10000,100000`)}};}
 const response=p=>({ok:true,status:200,headers:{get:k=>k==='content-type'?'application/json':null},body:Readable.from([Buffer.from(JSON.stringify(p))])});
@@ -21,6 +22,42 @@ test('公开日线获取器将供应商返回值转换为完整导入格式但�
  assert.equal(r.dataset.stocks[0].bars[0].amount,100000,'f57 amount stays CNY, not multiplied');
  assert.match(r.dataset.datasetId,/^em-qfq-v2-/);
  assert.equal(r.metadata.volumeUnit,'shares');
+});
+test('default and explicit qfq retain the pre-selector v2 identity accepted by existing import configuration',async()=>{
+ // Frozen ID generated before unadjusted support, not recomputed by this test.
+ const datasetId='em-qfq-v2-0b1a5d8852f243581984';
+ const input={symbols:['000001','600000'],start:dates[0],end:dates.at(-1),
+  fetchImpl:async(url)=>{
+   const params=new URL(url).searchParams;
+   assert.equal(params.get('fqt'),'1');
+   return response(payload(params.get('secid').split('.')[1]));
+  }};
+ for(const options of [input,{...input,priceAdjustment:'qfq'}]){
+  const result=await fetchEastmoneyHistory(options);
+  assert.equal(result.dataset.datasetId,datasetId);
+  assert.equal(result.metadata.datasetId,datasetId);
+  assert.doesNotThrow(()=>validateImport(result.dataset,{provider:'eastmoney-public-history',datasetId}));
+  assert.equal(result.dataset.priceAdjustment.mode,'qfq');
+  assert.equal(result.metadata.canTrade,false);
+ }
+});
+test('raw unadjusted imports keep their existing mode-specific v2 identity and cannot satisfy a qfq configuration',async()=>{
+ const result=await fetchEastmoneyHistory({symbols:['000001','600000'],start:dates[0],end:dates.at(-1),
+  priceAdjustment:'unadjusted',fetchImpl:async(url)=>{
+   const params=new URL(url).searchParams;
+   assert.equal(params.get('fqt'),'0');
+   const raw=payload(params.get('secid').split('.')[1]);
+   raw.data.klines=raw.data.klines.map(line=>{
+    const row=line.split(',');row[6]=String(Number(row[2])*Number(row[5])*100);return row.join(',');
+   });
+   return response(raw);
+  }});
+ assert.equal(result.dataset.datasetId,'em-unadjusted-v2-ea615d08abd6ce8c3e7b');
+ assert.equal(result.metadata.datasetId,result.dataset.datasetId);
+ assert.equal(result.dataset.priceAdjustment.mode,'unadjusted');
+ assert.throws(()=>validateImport(result.dataset,{provider:'eastmoney-public-history',
+  datasetId:'em-qfq-v2-0b1a5d8852f243581984'}),/行情来源与配置不一致/);
+ assert.equal(result.metadata.canTrade,false);
 });
 test('拒绝日期错位，绝不合成停牌交易日填平缺口',async()=>{
  await assert.rejects(()=>fetchEastmoneyHistory({symbols:['000001','600000'],start:dates[0],end:dates.at(-1),fetchImpl:async(url)=>{
