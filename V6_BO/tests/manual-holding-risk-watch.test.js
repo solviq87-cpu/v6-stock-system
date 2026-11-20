@@ -60,6 +60,21 @@ test('untrusted time and source reject quote-derived PnL instead of inventing ze
     'hand-entered concentration remains visible even when price is unavailable');
  }
 });
+test('a sub-second China-midnight boundary rejects previous-date quotes without relaxing freshness',()=>{
+ const now=Date.parse('2026-11-18T16:00:00.250Z');
+ const data=input();
+ data.quotes=[{...data.quotes[0],quoteAt:now-1500}];
+ const priorDay=evaluate(data,{now});
+ assert.equal(priorDay.counts.withRecentSourceQuote,0);
+ assert.equal(priorDay.positions[0].price,null);
+ assert.equal(priorDay.positions[0].drawdownFromCostPct,null);
+ assert.ok(priorDay.alerts.some(a=>a.id==='600001:quote-gap'));
+ data.quotes[0].quoteAt=now-100;
+ const sameDay=evaluate(data,{now});
+ assert.equal(sameDay.counts.withRecentSourceQuote,1);
+ assert.equal(sameDay.positions[0].price,8.8);
+});
+
 test('missing weights never mean 0% and negative profit does not hide research alerts',()=>{
  const data=input();data.positions[0].weightPct=undefined;
  const r=evaluate(data,{now});

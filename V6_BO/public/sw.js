@@ -2,8 +2,8 @@
 // market prices must always come from the server, including after revocation.
 const APP_VER = '20261116ac';
 const CACHE_PREFIX = 'quant-dashboard-m-';
-const CACHE_NAME = CACHE_PREFIX + APP_VER;
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261116ac', '/nova/app.js?v=20261116ac', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/terminal-workbench.js', '/nova/tactics-view.js', '/nova/data/tactics.js'];
+const CACHE_NAME = CACHE_PREFIX + APP_VER + '-source-review-1';
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261116ac', '/nova/app.js?v=20261116ac', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/tactics-view.js', '/nova/data/tactics.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin || request.method !== 'GET') return;
   // Credentials and source downloads are never offline resources, even when
   // the filename appears static.
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/srcpkg/') || request.headers.has('Authorization') ||
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/srcpkg/') || request.headers.has('Authorization') || request.headers.has('X-QD-Token') ||
       [...url.searchParams.keys()].some(key => /token|auth|password|sharecode/i.test(key))) {
     event.respondWith(networkOnly(request));
     return;

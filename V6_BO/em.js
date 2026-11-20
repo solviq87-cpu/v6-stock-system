@@ -476,13 +476,20 @@ function _srcWarn(tag, msg) {
 //    直接后果：复盘首行「涨停几只+连板梯队+最高板+主线+封单最强」整天没有，
 //    「板块效应/连板梯队/题材归类」三个模块同时零输出。现在补同花顺兜底。
 async function fetchZTPool(date) {
+  const normalizeDate = value => {
+    const raw=String(value??''),iso=/^\d{8}$/.test(raw)?raw.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):raw;
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso)&&Number.isFinite(Date.parse(iso))&&new Date(iso).toISOString().slice(0,10)===iso?iso:null;
+  };
+  const requestedDate=normalizeDate(date);
+  if(!requestedDate)return [];
   const u = `${EMX}/getTopicZTPool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt` +
     `&Pageindex=0&pagesize=1000&sort=fbt%3Aasc&date=${date}`;
   const parse = j => {
     if (!j || !j.data || !Array.isArray(j.data.pool)) return null;
     const requestedDay = String(date || '').replace(/-/g, '');
     const providerDay = String(j.data.qdate || '').replace(/-/g, '');
-    if (/^\d{8}$/.test(providerDay) && providerDay !== requestedDay) return null;
+    if (!/^\d{8}$/.test(providerDay) || providerDay !== requestedDay) return null;
+    const tradeDate=requestedDate,receivedAt=Date.now();
     // Keep provider total separately from returned rows; HTTP success is not completeness.
     const reported = j.data.tc;
     const poolEvidence = {source:'em', scope:'eastmoney-limit-up-pool',
@@ -491,7 +498,7 @@ async function fetchZTPool(date) {
       reportedCount:Number.isSafeInteger(reported) && reported >= 0 ? reported : null,
       returnedCount:j.data.pool.length,
       uniqueCount:new Set(j.data.pool.map(d => d && d.c).filter(c => /^\d{6}$/.test(c || ''))).size};
-    return j.data.pool.map(d => ({
+    const rows = j.data.pool.map(d => ({
       poolEvidence,
       code: d.c, name: d.n, price: d.p / 1000, pct: d.zdp,
       // ⛔ turnover 必须兜底：东财快讯偶发缺 hs 字段 → undefined 一路传到复盘里
@@ -506,8 +513,11 @@ async function fetchZTPool(date) {
       // hj2 轮：首次封板时间（HHMMSS，东财 fbt 字段），供 nextDayLimitProb 封板时间因子。
       //   同花顺兜底源无此字段 → 该处显式置 null（见 fetchZTPoolThs），绝不拿 0 冒充"缺数据"。
       firstSeal: d.fbt != null ? String(d.fbt).padStart(6, '0') : null,
-      src: 'em'
+      src: 'em', tradeDate, sourceTradeDate: tradeDate, sourceDateStatus: 'matched', receivedAt
     }));
+    rows.poolMeta = require('./src/core/limit-review-pool').auditLimitPoolRows(rows,{
+      totalCount:j.data.tc,tradeDate,receivedAt});
+    return rows;
   };
   try {
     const r = parse(await get(u));
@@ -529,7 +539,10 @@ async function fetchZTPool(date) {
     _srcWarn('涨停池·同花顺兜底抛错', `东财双通道已不通，同花顺兜底又抛错：${(e && e.message) || e} —— 返回空池，调用方须按「未确认」处理`);
     return [];
   }
-  if (t.length) return t;
+  // This adapter has no supplier session field. Retain rows as unknown-date
+  // observations, never turn the requested date into their source date.
+  if (t.length) return t.map(row => ({...row, tradeDate: null, sourceTradeDate: null,
+    sourceDateStatus: 'unknown', receivedAt: Date.now(), canTrade: false, canNotify: false}));
   _srcWarn('涨停池·三源全空', `东财 EMX 双通道 + 同花顺兜底均无数据（date=${date}）—— 返回空池，调用方须按「未确认」处理，⛔ 不可直接判今日无涨停`);
   return [];
 }

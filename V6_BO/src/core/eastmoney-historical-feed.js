@@ -79,7 +79,10 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  // Explicitly reject nonaligned sessions. Filling suspended bars with invented price is forbidden.
  if(stocks.some(s=>s.bars.at(-1).date!==last||s.bars.length!==stocks[0].bars.length||s.bars.some((b,i)=>b.date!==stocks[0].bars[i].date)))throw Error('沪深股票停牌或缺失K线导致交易日不一致，拒绝虚构补齐');
  // v2 reflects a BREAKING unit correction: never silently rewrite a v1 import.
- const provider='eastmoney-public-history',datasetId='em-'+priceAdjustment+'-v2-'+sha({symbols,start,end,last,priceAdjustment}).slice(0,20);
+ // qfq v2 predates the adjustment selector: retain its configured dataset identity.
+ // Nondefault modes keep their existing explicit mode key and separate prefix.
+ const identity=priceAdjustment==='qfq'?{symbols,start,end,last}:{symbols,start,end,last,priceAdjustment};
+ const provider='eastmoney-public-history',datasetId='em-'+priceAdjustment+'-v2-'+sha(identity).slice(0,20);
  const dataset={source:'imported',provider,datasetId,asOf:last,
   volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   priceAdjustment:{mode:priceAdjustment,provider:'eastmoney-public-history-fqt-'+(priceAdjustment==='qfq'?'1':'0')},stocks};

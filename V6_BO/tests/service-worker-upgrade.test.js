@@ -49,6 +49,9 @@ test('server revocation is returned unchanged; a previous successful API respons
 test('source downloads, credential URLs and Authorization assets never enter offline storage',async()=>{
  const w=worker();for(const url of ['/srcpkg/private.zip','/assets/export.js?token=private','/index.html?sharecode=private'])assert.equal((await w.get(url)).status,200);
  await w.get('/assets/secure.js',{headers:{Authorization:'Bearer private'}});assert.equal(w.stores.size,0);
+ await w.get('/assets/secure.js',{headers:{'X-QD-Token':'private-fixture'}});assert.equal(w.stores.size,0);
+ w.network(async()=>{throw Error('offline');});
+ assert.equal((await w.get('/assets/secure.js',{headers:{'X-QD-Token':'private-fixture'}})).status,503,'application-header responses never fall back to a public shell cache');
 });
 test('HTTP errors never silently fall back to old styles and cache quota failure preserves fresh response',async()=>{
  const w=worker();await w.get('/assets/app.css');w.network(async()=>new Response('unavailable',{status:503}));assert.equal((await w.get('/assets/app.css')).status,503);

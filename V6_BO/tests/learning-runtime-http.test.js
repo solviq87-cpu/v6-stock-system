@@ -5,10 +5,10 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
 const http=require('node:http'),net=require('node:net'),{spawn}=require('node:child_process');
 const source=path.resolve(__dirname,'..'),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
-function request(p,{route='/api/research/learning-runtime',token,method='GET',body}={}){
+function request(p,{route='/api/research/learning-runtime',token,method='GET',body,headers={}}={}){
  return new Promise((resolve,reject)=>{
   const bytes=body===undefined?null:Buffer.from(JSON.stringify(body));
-  const req=http.request({hostname:'127.0.0.1',port:p,path:route,method,timeout:10000,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{})}},res=>{
+  const req=http.request({hostname:'127.0.0.1',port:p,path:route,method,timeout:10000,headers:{...(token?{Authorization:'Bearer '+token}:{}),...headers,...(bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{})}},res=>{
    const parts=[];res.on('data',b=>parts.push(b));res.on('end',()=>{try{resolve({code:res.statusCode,headers:res.headers,body:JSON.parse(Buffer.concat(parts))});}catch{reject(Error('Expected JSON runtime response'));}});
   });req.once('error',reject);req.once('timeout',()=>req.destroy(Error('Runtime fixture timeout')));req.end(bytes);
  });
@@ -48,6 +48,9 @@ global.fetch=()=>{throw Error('fixture fetch denied');};
   assert.equal((await request(p,{route:'/api/research/learning-runtime?token='+editor})).code,403);
   assert.equal((await request(p,{method:'POST',body:{token:editor,probeModel:true}})).code,403);
   let r=await request(p,{token:editor});assert.equal(r.code,200);assert.equal(r.body.result.configuration.status,'unconfigured');assert.equal(r.body.result.model.status,'not-probed');assert.equal(registryCalls,0);
+  const appHeader=await request(p,{headers:{Authorization:'Basic synthetic-host-gateway','X-QD-Token':editor}});
+  assert.equal(appHeader.code,200);assert.equal(appHeader.body.result.configuration.status,'unconfigured');assert.equal(appHeader.body.result.model.status,'not-probed');assert.equal(registryCalls,0);
+  assert.equal((await request(p,{headers:{'X-QD-Token':viewer}})).code,403);
   assert.equal((await request(p,{token:editor,route:'/api/research/learning-runtime?probeModel=true'})).code,400);
   assert.equal((await request(p,{token:editor,method:'DELETE'})).code,405);
   for(const body of [{},{probeModel:false},{probeModel:true,url:'http://private.invalid'},{probeModel:true,token:editor},[],null])assert.equal((await request(p,{token:editor,method:'POST',body})).code,400);

@@ -198,7 +198,12 @@ test('same-day official issuer headline risks and timed market shock are linked 
  assert.equal(stale.eightPointFlow.dimensions.learning.marketShock.status,'unverified');
  assert.equal(stale.eightPointFlow.dimensions.learning.manualReviewPausedForShock,false);
 });
-test('private local CLI reports only holding risk counts and preserves journal across identical runs',()=>{
+test('private local CLI reports only holding risk counts and preserves journal across identical runs',t=>{
+ // The quote must be from the same China trading date. Date.now()-1500
+ // can cross midnight in CI and correctly fails the production day gate.
+ // Pin only this isolated test clock; do not weaken provider-time checks.
+ const fixedNow=Date.parse('2026-11-18T06:30:00Z');
+ t.mock.method(Date,'now',()=>fixedNow);
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
  const {run}=require('../scripts/eight-point-closure');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-eight-complete-'));

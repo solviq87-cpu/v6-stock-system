@@ -927,107 +927,6 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 }
 
 
-/* V6 reference palette: saturated magenta / violet with sapphire data accents, presentation only.
-   Provenance, unknown values, security gates and red-up/green-down are retained. */
-:root{
- --fy-bg:#100820;--fy-surface:#1a103b;--fy-raised:#2a1956;
- --fy-border:#8155bf;--fy-text:#fff4ff;--fy-muted:#d5bae8;
- --fy-faint:#b59acb;--fy-pink:#ff61b8;--fy-violet:#b37bff;
- --fy-mint:#3de5b0;--fy-red:#ff607d;
- --fy-neon-blue:#398dff;--fy-neon-violet:#aa6aff;--fy-neon-pink:#ff61ad;
-}
-body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
- radial-gradient(ellipse at 99% 19%,#713ae240,transparent 36%),
- linear-gradient(140deg,#0b0620,#190d34 56%,#0e0824);color:#fff4ff}
-.fy-header{background:linear-gradient(100deg,#160c34,#291447 52%,#201039);
- border-bottom:1px solid #a86aff;box-shadow:inset 0 -1px 0 #edb2ff4b,0 0 22px #9a3ee943}
-.fy-brand img{filter:drop-shadow(0 0 11px #a45affaa) drop-shadow(0 0 8px #20baff75)}
-.fy-brand small{color:#a4d1ff}
-.fy-nav,.fy-business-nav,.fy-dock{background:linear-gradient(160deg,#1a1040,#2c1750);border-color:#8659c6}
-.fy-business-nav button{background:linear-gradient(145deg,#31215d,#201439);border-color:#7250ae;color:#f4eaff}
-.fy-nav button[data-current=true],.fy-business-nav button[data-current=true],
-.fy-business-nav button[aria-current=page],.fy-dock button[data-current=true]{
- color:#fff;border-color:#df95ff;
- background:linear-gradient(135deg,#df46aa,#a43fde 58%,#6648c5);
- box-shadow:inset 0 1px 0 #ffe1f970,0 0 18px #ce51ed78,0 4px 14px #0008
-}
-.fy-button{background:linear-gradient(140deg,#4c2a76,#322052);border-color:#9565ce;color:#fbedff}
-.fy-button.primary{background:linear-gradient(125deg,#ed439f,#bc48d5 67%,#754dd1);
- border-color:#f59bdf;color:#fff;box-shadow:inset 0 1px 0 #ffe5fa6b,0 0 19px #d945cc69}
-.fy-button:hover:not(:disabled){background:#1c5bb7;border-color:#8ce2ff;box-shadow:0 0 17px #2e8bff66}
-.fy-terminal-title{background:radial-gradient(ellipse at 96% 2%,#ff58b35b,transparent 45%),
- linear-gradient(115deg,#5d286f,#492080 55%,#2a205e);
- border:1px solid #b473f0;
- box-shadow:inset 0 1px 0 #ffe6fa52,0 0 24px #aa53ec4a,0 10px 23px #0008}
-.fy-terminal-title h1{color:#fff;text-shadow:0 0 14px #7196ff70}
-.fy-terminal-title p{color:#c3dcf8}
-.fy-terminal-eyebrow{color:#8ae0ff}
-.fy-terminal-provenance{background:linear-gradient(115deg,#332056,#2b194d 60%,#211742);
- border:1px solid #825bc4;color:#e6d9f5;box-shadow:inset 0 1px 0 #e7baff44}
-.fy-terminal-provenance strong{color:#fff}
-.fy-terminal-provenance .fy-terminal-warning{color:#ffd5a0}
-.fy-terminal-evidence-tag{color:#4df0ba}
-.fy-snapshot,.fayo-app>.fy-snapshot{background:linear-gradient(110deg,#0c3965,#112d61);
- border-color:#448fde;color:#dff5ff}
-.fy-snapshot::before{background:#48dfff;box-shadow:0 0 14px #47cfff8c}
-.fy-terminal-index .fy-market-ticker>div{background:linear-gradient(150deg,#123773,#102651 69%,#1d204c);
- border:1px solid #367edf;box-shadow:inset 0 1px 0 #b0dfff49,0 6px 17px #0008}
-.fy-terminal-index .fy-market-ticker>div:nth-child(2){background:linear-gradient(150deg,#203477,#122857 70%,#1d2050)}
-.fy-terminal-index .fy-market-ticker>div:nth-child(3){background:linear-gradient(150deg,#282e78,#142558 69%,#341d59)}
-.fy-terminal-index .fy-market-ticker>div:has(.fy-positive){border-bottom-color:#ff557c;box-shadow:0 5px 16px #ee39733e,inset 0 1px 0 #ffc5dc44}
-.fy-terminal-index .fy-market-ticker>div:has(.fy-negative){border-bottom-color:#34e6b1;box-shadow:0 5px 16px #14d59a48,inset 0 1px 0 #a2ffe44f}
-.fy-market-ticker .fy-positive,.fy-market-ticker .fy-positive *,.fy-positive,.fy-up{color:#ff6d83}
-.fy-market-ticker .fy-negative,.fy-market-ticker .fy-negative *,.fy-negative,.fy-down{color:#43e8ae}
-.fy-terminal-index .fy-market-ticker>div strong:not(.fy-positive):not(.fy-negative){color:#fff}
-.fy-terminal-index .fy-market-ticker>div strong.fy-positive{color:#ff6d83;text-shadow:0 0 11px #ff507967}
-.fy-terminal-index .fy-market-ticker>div strong.fy-negative{color:#43e8ae;text-shadow:0 0 11px #34edac50}
-.fy-terminal-stats .fy-terminal-stat{background:linear-gradient(150deg,#4c278b,#332076 54%,#53256b);
- border:1px solid #a16bf2;box-shadow:inset 0 1px 0 #f0c9ff74,0 0 18px #bd65ef64,0 9px 17px #0008}
-.fy-terminal-stats .fy-terminal-stat:nth-child(2n){background:linear-gradient(145deg,#55268f,#31216c 62%,#312058);border-color:#9566e3}
-.fy-terminal-stats .fy-terminal-stat:nth-child(3n){background:linear-gradient(145deg,#792b87,#3d1d66 65%,#5c246d);border-color:#e476d5}
-.fy-terminal-stats .fy-terminal-stat.accent{background:linear-gradient(145deg,#7d317e,#47266f 61%,#23265f);
- border-color:#ff79c8;box-shadow:inset 0 1px 0 #ffddf585,0 0 20px #e14fab82,0 9px 17px #0007}
-.fy-terminal-stat>span{color:#f3e5ff}
-.fy-terminal-stat>strong{color:#ff9bc5;text-shadow:0 0 13px #ff66bc55}
-.fy-terminal-stat>small{color:#c4d7ff}
-.fy-terminal-panels>.fy-section,.fy-terminal-review,.fy-terminal-quick,.fy-terminal-candidates{
- background:radial-gradient(circle at 94% 0%,#863ab44a,transparent 50%),
- linear-gradient(155deg,#32205f,#1d1647 60%,#261744);
- border:1px solid #8e5cc9;box-shadow:inset 0 1px 0 #edd1ff42,0 0 13px #a24ddc2d,0 9px 22px #0006}
-.fy-terminal-panels>.fy-section:nth-child(1){border-color:#38a3f9;box-shadow:inset 0 1px 0 #b8ebff65,0 0 20px #078ee04c}
-.fy-terminal-panels>.fy-section:nth-child(2){border-color:#996dff;box-shadow:inset 0 1px 0 #d9b9ff59,0 0 20px #8d55ef52}
-.fy-terminal-panels>.fy-section:nth-child(3){border-color:#4689ff;box-shadow:inset 0 1px 0 #b3dcff5e,0 0 20px #288aff53}
-.fy-terminal-panels>.fy-section h2,.fy-terminal-review h2{color:#fff}
-.fy-terminal-line{border-color:#3768ab}.fy-terminal-line>span{color:#ff7895}
-.fy-terminal-chip,.fy-tag,.fy-pill{background:linear-gradient(125deg,#24488e,#412d89);
- border-color:#7773dd;color:#f1eaff}
-.fy-terminal-bar{background:#0d3760}
-.fy-terminal-bar i{background:linear-gradient(90deg,#f73577,#ff7e98);box-shadow:0 0 12px #ff588878}
-.fy-terminal-flow:has(>strong.fy-negative) .fy-terminal-bar i{background:linear-gradient(90deg,#129b75,#46e9b1)}
-.fy-terminal-review .fy-table th{background:#194285;color:#f2f8ff}
-.fy-terminal-review .fy-table td{color:#f3f8ff;border-color:#386ba5}
-.fy-terminal-candidates .fy-stock-card{background:linear-gradient(135deg,#183c7b,#101f4b);border-color:#3b79bf}
-.fy-terminal-shortcuts .fy-button{background:linear-gradient(125deg,#22488d,#1a2e71);border-color:#4f92e8}
-.fy-empty{background:#102853;border-color:#4279b9;color:#d0e5ff}
-.fy-quote-time,.fy-muted,.fy-terminal-review-head p,.fy-terminal-hint{color:#b7d1ed}
-.fy-dock{border-top:1px solid #a776e9;box-shadow:0 -8px 20px #7d3bbb49}
-@media(max-width:650px){
- .fy-terminal-stats .fy-terminal-stat{box-shadow:inset 0 1px 0 #dccaff68,0 0 14px #6257ff55,0 6px 13px #0007}
- .fy-terminal-panels>.fy-section,.fy-terminal-review{box-shadow:0 0 14px #2d80ff42,inset 0 1px 0 #a2d8ff55}
-}
-@media(prefers-reduced-motion:reduce){.fy-terminal-stat,.fy-terminal-index .fy-market-ticker>div{transition:none}}
-
-
-/* Keep the source-total card unmistakably magenta, even against the general
-   per-index gradient override. No positive/negative meaning is inferred. */
-.fy-terminal-stats .fy-terminal-stat.accent{
- background:linear-gradient(148deg,#783079,#49236e 65%,#1b2861);
- border-color:#ff78cd;
- box-shadow:inset 0 1px 0 #ffe0ff80,0 0 20px #f74db07a,0 8px 16px #0008;
-}
-.fy-terminal-stats .fy-terminal-stat.accent>strong{color:#ffa6d6}
-
-
 /* FAYO focus hierarchy, 2026-11-18.
    Four decision questions share one calm surface rather than four more dashboard cards.
    Source dates and uncertainty remain visible; underlying review and shortcuts stay intact. */
@@ -1075,4 +974,553 @@ body{background:radial-gradient(ellipse at 55% -18%,#b33bd73c,transparent 46%),
  .fy-terminal-review{order:6}
  .fy-terminal-quick{order:7}
  .fy-terminal-candidates{order:8}
+}
+
+
+/* V6 compact professional terminal · reference alignment iteration 1.
+ * Meaningful color only: blue navigation, red rising, green falling, amber
+ * source/risk uncertainty, violet research. No fabricated market figures.
+ * This layer replaces the indiscriminate magenta skin, not business views. */
+:root{
+ --fy-bg:#061026;--fy-surface:#0d2042;--fy-raised:#122c54;
+ --fy-border:#285b93;--fy-text:#eaf4ff;--fy-muted:#b0c8e3;
+ --fy-faint:#7897b9;--fy-pink:#ef78b4;--fy-violet:#8c8de6;
+ --fy-mint:#35daa7;--fy-red:#ff637e;--fy-neon-blue:#3a8bff;
+ --fy-neon-violet:#8994f0;--fy-neon-pink:#ef78b4;
+}
+body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);color:#eaf4ff}
+.fy-header{height:60px;padding:0 17px;gap:12px;background:#08172f;border-bottom:1px solid #245ca6;box-shadow:none}
+.fy-brand img{width:32px;height:32px;filter:drop-shadow(0 0 5px #438bff55)}
+.fy-brand strong,.fy-brand b{font-size:17px;letter-spacing:0}
+.fy-brand small{font-size:8px;color:#9cb6d4;margin-top:2px}
+.fy-nav{background:#0a1d39;border:1px solid #284a78}
+.fy-nav button,.fy-nav a{font-size:11px;min-height:34px;padding:5px 10px;color:#bcd0e8}
+.fy-nav button[data-current=true],.fy-nav button[aria-current=page]{
+ color:#fff;background:#1251a4;border-color:#3f91e5;box-shadow:inset 0 1px 0 #b1ddff35
+}
+.fy-actions{gap:7px}
+.fy-actions button{min-width:34px;min-height:34px;background:#102746;border-color:#315781;color:#e7f3ff}
+.fy-business-nav{background:#081a34;border-color:#285078;gap:3px}
+.fy-business-nav button{background:transparent;border:1px solid transparent;border-radius:6px;color:#c7d9f1}
+.fy-business-nav button[data-current=true],.fy-business-nav button[aria-current=page]{
+ background:linear-gradient(115deg,#1252ad,#173b75);border-color:#4a96e2;color:#fff;box-shadow:none
+}
+.fy-button,.fy-button.secondary{background:#12335c;border:1px solid #376ba2;color:#e8f4ff;border-radius:7px;box-shadow:none}
+.fy-button.primary{background:#1265c2;border:1px solid #5db1ed;color:#fff;box-shadow:none}
+.fy-button:hover:not(:disabled){background:#1b4b84;border-color:#65b9f8;box-shadow:none;transform:none}
+.fy-main{padding-top:10px}
+.fy-connection-bar{padding:3px 12px;font-size:9px;min-height:24px;color:#91b9de}
+.fayo-app>.fy-snapshot,.fy-snapshot{
+ font-size:10px;line-height:1.4;padding:5px 10px;background:#12345b;
+ border-color:#286cb0;color:#c8e7ff;box-shadow:none
+}
+.fy-snapshot::before{background:#39bce8;box-shadow:none}
+.fy-terminal{display:flex;flex-direction:column;gap:7px}
+.fy-terminal-title{order:0;min-width:0;min-height:47px;padding:6px 11px;gap:8px;border:0;border-bottom:1px solid #285b91;
+ border-radius:0;background:transparent;box-shadow:none}
+.fy-terminal-title h1{font-size:21px;line-height:1.25;margin:0;color:#f4f9ff;text-shadow:none}
+.fy-terminal-title p{display:none}
+.fy-terminal-eyebrow{font-size:9px;letter-spacing:.05em;color:#72beff}
+.fy-terminal-actions{gap:5px}
+.fy-terminal-actions .fy-button{min-height:31px;padding:5px 9px;font-size:10px}
+.fy-terminal-provenance{order:1;padding:4px 9px;border:1px solid #274e7a;border-radius:7px;
+ background:#0b2344;color:#b6cce7;font-size:9px;line-height:1.4;gap:4px 12px;box-shadow:none}
+.fy-terminal-provenance strong{font-size:10px;color:#e4f3ff}
+.fy-terminal-provenance .fy-terminal-warning{color:#ffd090}
+.fy-terminal-evidence-tag{color:#63e0b9}
+.fy-terminal-index{order:2;min-width:0}
+.fy-terminal-index .fy-market-ticker{gap:6px}
+.fy-terminal-index .fy-market-ticker>div{
+ gap:2px;padding:7px 10px;min-height:73px;border:1px solid #275a92;
+ border-radius:8px;background:linear-gradient(165deg,#102c52,#0b1b38);box-shadow:none
+}
+.fy-terminal-index .fy-market-ticker>div:nth-child(2),
+.fy-terminal-index .fy-market-ticker>div:nth-child(3),
+.fy-terminal-index .fy-market-ticker>div:nth-child(4){background:linear-gradient(165deg,#102c52,#0b1b38)}
+.fy-terminal-index .fy-market-ticker>div strong:not(.fy-positive):not(.fy-negative){color:#e9f6ff}
+.fy-terminal-index .fy-market-ticker>div strong.fy-positive{color:#ff7188;text-shadow:none}
+.fy-terminal-index .fy-market-ticker>div strong.fy-negative{color:#45e0ad;text-shadow:none}
+.fy-terminal-index .fy-market-ticker>div strong{font-size:18px;line-height:1.2}
+.fy-terminal-index .fy-market-ticker>div small{font-size:9px;line-height:1.18}
+.fy-terminal-index .fy-market-ticker>div .fy-quote-time{font-size:8px;line-height:1.22;color:#a3bedc}
+.fy-market-ticker .fy-positive,.fy-market-ticker .fy-positive *,.fy-positive,.fy-up{color:#ff7188}
+.fy-market-ticker .fy-negative,.fy-market-ticker .fy-negative *,.fy-negative,.fy-down{color:#45e0ad}
+.fy-terminal-stats{order:3;gap:6px}
+.fy-terminal-stats .fy-terminal-stat{
+ min-width:0;min-height:78px;padding:8px 9px;gap:3px;border-radius:8px;
+ border:1px solid #345e9b;background:linear-gradient(160deg,#152f60,#0c2142);box-shadow:none
+}
+.fy-terminal-stats .fy-terminal-stat:nth-child(2n),
+.fy-terminal-stats .fy-terminal-stat:nth-child(3n){background:linear-gradient(160deg,#152f60,#0c2142);border-color:#345e9b}
+.fy-terminal-stats .fy-terminal-stat.accent{background:linear-gradient(160deg,#3c244e,#192953);
+ border-color:#e275ad;box-shadow:inset 0 -2px 0 #ef78b444}
+.fy-terminal-stats .fy-terminal-stat>strong{font-size:clamp(19px,1.9vw,27px);line-height:1.1;color:#ff8297;text-shadow:none}
+.fy-terminal-stats .fy-terminal-stat.accent>strong{color:#ff9fc4}
+.fy-terminal-stat>span{font-size:10px;color:#d4e6fa}
+.fy-terminal-stat>small{font-size:9px;line-height:1.3;color:#a7c0df}
+.fy-terminal-priorities{
+ order:4;min-height:53px;grid-template-columns:repeat(4,minmax(0,1fr));
+ border:1px solid #294e84;border-radius:8px;background:#0b2140;box-shadow:none
+}
+.fy-terminal-priority{min-height:53px;padding:6px 11px;gap:2px;border-right-color:#2c4978}
+.fy-terminal-priority>span{font-size:9px;color:#a8c5e5;letter-spacing:0}
+.fy-terminal-priority>strong{font-size:12px;color:#ecf6ff;line-height:1.3}
+.fy-terminal-priority>small{font-size:9px;color:#9fb9d5;line-height:1.25}
+.fy-terminal-priority-risk{border-left:2px solid #e6a757}
+.fy-terminal-priority-risk>strong{color:#ffc280}
+.fy-terminal-priority-next .fy-button{min-height:29px;padding:3px 7px;font-size:10px}
+.fy-terminal-context{order:5}
+.fy-terminal-panels{gap:8px}
+.fy-terminal-panels>.fy-section{
+ min-height:158px;padding:10px 12px;border-radius:9px;
+ border:1px solid #315d9c;background:#0d2446;box-shadow:none
+}
+.fy-terminal-panels>.fy-section:nth-child(2){border-color:#655ead}
+.fy-terminal-panels>.fy-section:nth-child(3){border-color:#3575b2}
+.fy-terminal-panels>.fy-section>header{min-height:37px}
+.fy-terminal-panels>.fy-section>header h2{font-size:14px;color:#edf6ff}
+.fy-terminal-panels>.fy-section>header p{font-size:9px;line-height:1.25;color:#a2bedb}
+.fy-terminal-lines{margin:3px 0 6px}
+.fy-terminal-line{padding:5px 2px;border-color:#2b4874}
+.fy-terminal-line strong{font-size:11px;color:#e5f0ff}
+.fy-terminal-line>span{font-size:11px;color:#ff7e92}
+.fy-terminal-chip,.fy-tag,.fy-pill{background:#142e57;border-color:#375d90;color:#ddecff}
+.fy-terminal-chip small{color:#82c8ff}
+.fy-terminal-flows{gap:6px;margin:3px 0 7px}
+.fy-terminal-flow{font-size:10px;gap:6px}
+.fy-terminal-bar{height:8px;background:#1b3553}
+.fy-terminal-bar i{background:#eb6885;box-shadow:none}
+.fy-terminal-flow:has(>strong.fy-negative) .fy-terminal-bar i{background:#35c8a0}
+.fy-terminal-panels .fy-empty{min-height:52px;padding:8px 10px;gap:4px;background:#102e55;border:1px dashed #315b8e;border-radius:7px}
+.fy-terminal-panels .fy-empty-orbit{display:none}
+.fy-terminal-panels .fy-empty strong{font-size:11px}
+.fy-terminal-panels .fy-empty p{font-size:9px;line-height:1.3;margin:0}
+.fy-terminal-panels .fy-button{margin-top:auto;min-height:28px;padding:4px 8px;font-size:10px}
+.fy-terminal-review{order:6;margin:0;padding:10px 12px;border-radius:9px;
+ border:1px solid #346ca8;background:#0b2141;box-shadow:none}
+.fy-terminal-review-head h2{font-size:15px;margin:0 0 3px}
+.fy-terminal-review-head p{font-size:9px;line-height:1.3;color:#a9c4e4}
+.fy-terminal-review .fy-table th{background:#123564;color:#d0e5ff;font-size:10px}
+.fy-terminal-review .fy-table td{color:#eaf4ff;font-size:10px;border-color:#264770;padding:5px 7px}
+.fy-terminal-review .fy-table .fy-button{min-height:25px;font-size:10px;padding:2px 6px}
+.fy-terminal-desktop-table{max-height:300px}
+.fy-terminal-candidates{order:7;background:#0b2141;border-color:#2c5e96;box-shadow:none}
+.fy-terminal-candidates .fy-stock-card{background:#102b52;border-color:#346298;box-shadow:none}
+.fy-terminal-quick{order:8;padding:8px 12px;background:#0b2141;border:1px solid #305988;box-shadow:none}
+.fy-terminal-quick>summary{font-size:11px;color:#c4dfff}
+.fy-terminal-shortcuts .fy-button{min-height:36px;background:#14345e;border-color:#35649c}
+@media(min-width:1360px){
+ .fy-business-nav{top:60px;max-height:calc(100dvh - 60px);width:185px;padding:9px 7px}
+ .fy-business-nav button{min-height:34px;padding:6px 9px;font-size:10px;white-space:normal}
+ .fy-main,.fy-connection-bar{margin-left:185px}
+ .fayo-app>.fy-snapshot{margin-left:calc(185px + 20px)}
+}
+@media(max-width:1359px){.fy-main{padding:10px 14px 54px}}
+@media(max-width:1100px){.fy-terminal-panels{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+ .fy-header{height:56px;min-height:56px;padding:5px 11px;gap:8px}
+ .fy-brand img{width:27px;height:27px}
+ .fy-brand strong,.fy-brand b{font-size:16px}
+ .fy-brand small{font-size:8px}
+ .fy-actions button,.fy-actions .fy-button{min-width:31px;width:31px;height:32px;min-height:32px;padding:4px}
+ .fy-business-nav{max-height:45px;overflow-x:auto;flex-wrap:nowrap;padding:5px 9px;gap:4px}
+ .fy-business-nav button{flex:none;min-height:32px;padding:5px 8px;font-size:10px}
+ .fy-connection-bar{min-height:18px;padding:2px 10px;font-size:9px}
+ .fy-connection-bar>span:first-child{display:none} /* decorative caption only, live status retained */
+ .fayo-app>.fy-snapshot{width:calc(100% - 18px);margin:0 9px;font-size:9px;padding:4px 8px}
+ .fy-main{padding:7px 9px calc(86px + env(safe-area-inset-bottom,0px))}
+ .fy-terminal{gap:6px}
+ .fy-terminal-title{min-height:42px;padding:5px 4px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px}
+ .fy-terminal-title h1{font-size:18px}
+ .fy-terminal-title .fy-terminal-eyebrow{display:none}
+ .fy-terminal-actions{width:auto;gap:4px;justify-content:flex-start}
+ .fy-terminal-actions .fy-button{min-height:28px;padding:4px 6px;font-size:9px}
+ .fy-terminal-provenance{padding:4px 6px;font-size:9px;gap:3px 7px}
+ .fy-terminal-provenance strong{font-size:9px}
+ .fy-terminal-stats{order:2;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+ .fy-terminal-stats .fy-terminal-stat{min-height:72px;padding:7px 6px;gap:3px}
+ .fy-terminal-stats .fy-terminal-stat>strong{font-size:20px}
+ .fy-terminal-stat>span{font-size:9px;white-space:normal;line-height:1.2}
+ .fy-terminal-stat>small{font-size:8px;line-height:1.2}
+ .fy-terminal-priorities{order:3;grid-template-columns:repeat(2,minmax(0,1fr));min-height:0}
+ .fy-terminal-priority{min-height:42px;padding:5px 8px;gap:2px}
+ .fy-terminal-priority>strong{font-size:11px}
+ .fy-terminal-priority>small{font-size:8px}
+ .fy-terminal-context{order:4}
+ .fy-terminal-panels{grid-template-columns:1fr;gap:6px}
+ .fy-terminal-panels>.fy-section{min-height:100px;padding:9px 10px}
+ .fy-terminal-panels>.fy-section:last-child{grid-column:auto}
+ .fy-terminal-panels>.fy-section>header{min-height:29px}
+ .fy-terminal-panels>.fy-section>header h2{font-size:13px}
+ .fy-terminal-panels>.fy-section>header p{font-size:9px}
+ .fy-terminal-panels .fy-button{min-height:32px}
+ .fy-terminal-index{order:5}
+ .fy-terminal-index .fy-market-ticker{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+ .fy-terminal-index .fy-market-ticker>div{min-height:62px;padding:6px 8px;gap:2px}
+ .fy-terminal-index .fy-market-ticker>div strong{font-size:17px}
+ .fy-terminal-review{order:6;padding:9px}
+ .fy-terminal-candidates{order:7;padding:10px}
+ .fy-terminal-quick{order:8}
+ .fy-dock{padding:5px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+ .fy-dock button{min-height:43px}
+}
+@media(max-width:375px){
+ .fy-terminal-stats .fy-terminal-stat>strong{font-size:18px}
+ .fy-terminal-priority>small{font-size:8px}
+ .fy-terminal-actions .fy-button{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.fy-terminal-stat,.fy-terminal-index .fy-market-ticker>div{transition:none}}
+
+
+/* V6 compact second pass: real screenshot comparison at 1366 and 402.
+ * Remove duplicate above-the-fold UI, not functional routes or provenance. */
+@media(min-width:701px){
+ .fy-terminal-index .fy-market-ticker>div{min-height:60px;padding:5px 9px;gap:1px}
+ .fy-terminal-index .fy-market-ticker>div strong{font-size:17px}
+ .fy-terminal-index .fy-market-ticker>div small{font-size:8px;line-height:1.15}
+ .fy-terminal-stats .fy-terminal-stat{min-height:70px;padding:7px 9px;gap:2px}
+ .fy-terminal-priorities{min-height:44px}
+ .fy-terminal-priority{min-height:44px;padding:4px 9px;gap:1px}
+ .fy-terminal-priority>strong{font-size:11px}
+ .fy-terminal-priority>small{font-size:8px;line-height:1.15}
+ .fy-terminal-panels>.fy-section{min-height:135px;padding:8px 11px}
+ .fy-terminal-panels>.fy-section>header{min-height:31px}
+ .fy-terminal-lines{margin:2px 0 5px}
+ .fy-terminal-line{padding:4px 2px}
+ .fy-terminal-panels .fy-empty{min-height:42px;padding:6px 8px}
+ .fy-terminal-panels .fy-button{min-height:27px}
+}
+@media(max-width:700px){
+ .fy-connection-bar{min-height:15px;padding:1px 10px;font-size:8px}
+ .fy-terminal-title{min-height:31px;padding:3px 3px;flex-direction:row;flex-wrap:nowrap;gap:3px}
+ .fy-terminal-title h1{font-size:17px}
+ /* Detailed review and intelligent picks remain in the real business nav,
+    disclosure directory and native five-space dock. Avoid repeating buttons. */
+ .fy-terminal-title .fy-terminal-actions{width:auto;flex:none;margin-left:auto}
+ .fy-terminal-title .fy-terminal-actions .fy-button.secondary{display:none}
+ .fy-terminal-title .fy-terminal-actions .fy-button.primary{min-height:29px;padding:4px 7px}
+ /* Snapshot date and sourced count already convey market and opportunities;
+    retain the two distinct action items: explicit risk and next step. */
+ .fy-terminal-priority[data-focus="market"],
+ .fy-terminal-priority[data-focus="opportunities"]{display:none}
+ .fy-terminal-priorities{grid-template-columns:repeat(2,minmax(0,1fr));min-height:0}
+ .fy-terminal-priority{min-height:43px;padding:5px 8px;border-bottom:0}
+ .fy-terminal-priority-risk{border-left:2px solid #e6a757;border-right:1px solid #2c4978}
+ .fy-terminal-priority-next .fy-button{min-height:30px}
+ .fy-terminal-panels>.fy-section{min-height:0;padding:7px 9px}
+ .fy-terminal-panels>.fy-section>header{min-height:25px}
+ .fy-terminal-panels .fy-empty{min-height:40px;padding:6px 8px}
+ .fy-terminal-panels .fy-button{min-height:31px}
+ .fy-terminal-context{order:4}
+ .fy-terminal-review{order:5}
+ .fy-terminal-index{order:6}
+ .fy-terminal-candidates{order:7}
+ .fy-terminal-quick{order:8}
+}
+
+/* Integration layout: keep the source-backed daily review ahead of the
+ * added per-stock evidence section. Neither dataset nor its guards change. */
+.fy-terminal-decisions{order:7}
+/* ==================================================================
+   V6 USER TWO-REFERENCE LAYOUT / 2026-11-19
+   One product, one login and one source of truth. No sample market data.
+   Desktop/home matches terminal reference; /pulse/review matches review.
+   ================================================================== */
+:root{
+ --fy-bg:#07091d;--fy-surface:#12142f;--fy-raised:#221549;
+ --fy-border:#7253bb;--fy-text:#eff4ff;--fy-muted:#c1bddf;
+ --fy-pink:#ec55d9;--fy-violet:#a96eff;--fy-neon-blue:#398dff;
+}
+.fy-reference-shell{
+ background:radial-gradient(ellipse at 50% 1%,#522f9b35,transparent 46%),
+   linear-gradient(145deg,#060916,#0d0b25 55%,#070b1c);
+}
+.fy-reference-shell .fy-header{
+ background:linear-gradient(100deg,#060b23,#11102e 63%,#0b0a25);
+ border-bottom:1px solid #4853c9;box-shadow:0 3px 16px #5131c936;
+}
+.fy-reference-shell .fy-brand{min-width:0}
+.fy-reference-shell .fy-brand strong{font-size:21px;letter-spacing:.025em;white-space:nowrap}
+.fy-reference-shell .fy-brand small{font-size:9px;color:#c4b8eb;letter-spacing:.025em}
+.fy-reference-shell .fy-nav{display:none}
+.fy-reference-topnav{
+ display:flex;align-items:stretch;justify-content:center;flex:1 1 auto;
+ min-width:0;gap:3px;overflow-x:auto;scrollbar-width:none;
+}
+.fy-reference-topnav::-webkit-scrollbar{display:none}
+.fy-reference-topnav button{
+ flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+ flex-direction:column;gap:3px;min-width:52px;padding:6px 7px;
+ font-size:11px;font-weight:650;color:#b9c6eb;background:transparent;
+ border:1px solid transparent;border-radius:8px;white-space:nowrap;line-height:1.2;
+}
+.fy-reference-topnav button svg{width:18px;height:18px;color:#94c8ff}
+.fy-reference-topnav button:hover,.fy-reference-topnav button:focus-visible{
+ color:#fff;background:#282358;border-color:#6469d2
+}
+.fy-reference-topnav button[data-current=true]{
+ color:#fff;background:linear-gradient(145deg,#194caa,#11487b);
+ border-color:#398dff;box-shadow:0 0 14px #348de765
+}
+.fy-reference-topnav button[data-current=true] svg{color:#8bd7ff}
+.fy-reference-shell .fy-business-nav{
+ border-color:#5654b1;
+ background:linear-gradient(180deg,#121133,#0d193b);
+}
+.fy-reference-shell .fy-business-nav button{
+ border-color:transparent;background:transparent;color:#b7caee;
+ text-align:left;font-size:12px
+}
+.fy-reference-shell .fy-business-nav button[data-current=true]{
+ color:#fff;background:linear-gradient(110deg,#134a99,#1a3675);
+ border:1px solid #398dff;box-shadow:0 0 13px #3978d445
+}
+.fy-reference-shell .fy-main{max-width:2000px}
+.fy-reference-shell .fy-terminal{
+ display:flex;flex-direction:column;gap:12px;min-width:0
+}
+.fy-reference-shell .fy-terminal-title{
+ padding:12px 17px;min-height:0;border:1px solid #6765bd;
+ background:linear-gradient(110deg,#11173c,#221642 75%,#141735);
+ border-radius:10px;box-shadow:inset 0 1px 0 #b3baf52e
+}
+.fy-reference-shell .fy-terminal-title h1{
+ font-size:19px;margin:0;color:#f7f2ff;text-shadow:none
+}
+.fy-reference-shell .fy-terminal-title p{margin:3px 0 0;font-size:11px;color:#bec8ec}
+.fy-reference-shell .fy-terminal-title .fy-terminal-eyebrow{display:none}
+.fy-reference-shell .fy-terminal-actions .fy-button{min-height:34px;font-size:11px;padding:6px 10px}
+.fy-reference-shell .fy-terminal-provenance{
+ border-radius:9px;padding:8px 11px;gap:5px 12px;
+ background:#131838;border:1px solid #4d4d93
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker>div{
+ border:1px solid #2f6bcb;border-radius:10px;padding:9px 11px;
+ min-height:90px;min-width:0;background:linear-gradient(155deg,#0c2146,#181534)
+}
+.fy-reference-shell .fy-terminal-index .fy-market-ticker strong{font-size:21px}
+.fy-reference-shell .fy-terminal-stats{gap:7px}
+.fy-reference-shell .fy-terminal-stat{border-radius:9px;min-height:82px;padding:10px 11px}
+.fy-reference-shell .fy-terminal-stat>strong{font-size:25px}
+.fy-reference-shell .fy-terminal-priorities{border-color:#6160ad;background:#171332}
+.fy-reference-shell .fy-terminal-priority{padding:10px 12px}
+.fy-reference-shell .fy-terminal-priority>strong{font-size:13px}
+.fy-reference-shell .fy-reference-topgrid,
+.fy-reference-shell .fy-reference-midgrid,
+.fy-reference-shell .fy-reference-lowergrid,
+.fy-reference-shell .fy-reference-review-footer{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch
+}
+.fy-reference-shell .fy-reference-topgrid{grid-template-columns:1.02fr 1.18fr 1fr}
+.fy-reference-shell .fy-reference-midgrid{grid-template-columns:1.1fr 1fr .8fr}
+.fy-reference-shell .fy-reference-lowergrid{grid-template-columns:1.55fr 1fr .85fr}
+.fy-reference-shell .fy-reference-topgrid>*,
+.fy-reference-shell .fy-reference-midgrid>*,
+.fy-reference-shell .fy-reference-lowergrid>*,
+.fy-reference-shell .fy-reference-review-footer>*{min-width:0;order:0}
+.fy-reference-shell .fy-reference-topgrid>.fy-section,
+.fy-reference-shell .fy-reference-midgrid>.fy-section,
+.fy-reference-shell .fy-reference-lowergrid>.fy-section,
+.fy-reference-shell .fy-reference-mini-module{
+ margin:0;min-width:0;border:1px solid #6954b2;border-radius:11px;
+ padding:13px;background:linear-gradient(145deg,#19183b,#17112e 70%,#161a3d);
+ box-shadow:inset 0 1px 0 #bc9ee72e,0 5px 14px #04051d8a;
+}
+.fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates{
+ background:linear-gradient(145deg,#1a133b,#171a42);
+ border-color:#8c50db
+}
+.fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates .fy-stock-grid{
+ display:grid;grid-template-columns:minmax(0,1fr);gap:6px;
+ max-height:280px;overflow:auto
+}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card{
+ padding:9px 11px;border-radius:8px;box-shadow:none
+}
+.fy-reference-shell .fy-reference-topgrid h2,
+.fy-reference-shell .fy-reference-midgrid h2,
+.fy-reference-shell .fy-reference-lowergrid h2{font-size:15px;color:#f5ebff}
+.fy-reference-shell .fy-reference-topgrid p,
+.fy-reference-shell .fy-reference-midgrid p,
+.fy-reference-shell .fy-reference-lowergrid p{font-size:11px;line-height:1.5}
+.fy-reference-shell .fy-reference-signal-body{display:grid;grid-template-columns:135px minmax(0,1fr);gap:10px}
+.fy-reference-shell .fy-reference-signal-ring{
+ width:135px;aspect-ratio:1;border:7px solid #aa4aa9;
+ border-right-color:#1d8ea2;border-bottom-color:#3577cf;
+ border-radius:50%;display:flex;flex-direction:column;justify-content:center;
+ align-items:center;text-align:center;gap:4px;padding:9px;
+ background:radial-gradient(circle,#24396a,#131b3d);
+ box-shadow:0 0 16px #ab52bb66,inset 0 0 20px #020c347a
+}
+.fy-reference-shell .fy-reference-signal-ring small{font-size:9px;color:#d4caff}
+.fy-reference-shell .fy-reference-signal-ring strong{font-size:16px;color:#4ce2ad}
+.fy-reference-shell .fy-reference-signal-ring span{font-size:9px;color:#bbcbe8;line-height:1.4}
+.fy-reference-shell .fy-reference-signal-notes p{
+ margin:5px 0 8px;padding-bottom:4px;border-bottom:1px solid #343968;
+ color:#c8d5ef;overflow-wrap:anywhere
+}
+.fy-reference-shell .fy-reference-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.fy-reference-shell .fy-reference-actions .fy-button{flex:1;min-width:0;min-height:38px;font-size:11px}
+.fy-reference-shell .fy-reference-flow{
+ display:grid;grid-template-columns:minmax(55px,1fr) minmax(36px,1.3fr) auto;
+ gap:8px;align-items:center;padding:6px 0;font-size:11px
+}
+.fy-reference-shell .fy-reference-flow>span{overflow-wrap:anywhere}
+.fy-reference-shell .fy-reference-flow-track{
+ display:block;height:9px;background:#17254e;border-radius:2px;overflow:hidden
+}
+.fy-reference-shell .fy-reference-flow-track>b{
+ display:block;height:100%;background:linear-gradient(90deg,#b63487,#f06bbb)
+}
+.fy-reference-shell .fy-reference-flow strong{font-size:11px;white-space:nowrap}
+.fy-reference-shell .fy-reference-news-body{display:grid;gap:7px}
+.fy-reference-shell .fy-reference-news-item{
+ border-bottom:1px solid #38305a;padding:6px 0
+}
+.fy-reference-shell .fy-reference-news-item strong{display:block;color:#e9ecff;font-size:11px;line-height:1.5}
+.fy-reference-shell .fy-reference-news-item small{display:block;color:#b2b1d7;font-size:10px;margin-top:4px}
+.fy-reference-shell .fy-reference-account-status{
+ font-size:13px;color:#a9d5ff;font-weight:650;padding:10px;border-radius:8px;
+ background:linear-gradient(125deg,#183059,#191a46)
+}
+.fy-reference-shell .fy-reference-chart-body{min-height:154px}
+.fy-reference-shell .fy-reference-chart-body svg{width:100%;height:170px}
+.fy-reference-shell .fy-reference-strategy-links{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px
+}
+.fy-reference-shell .fy-reference-strategy-links .fy-button{
+ min-width:0;min-height:42px;padding:7px;font-size:11px;
+ border-color:#7864c5;background:linear-gradient(135deg,#251657,#242054)
+}
+.fy-reference-shell .fy-reference-risk-list{
+ display:flex;flex-direction:column;gap:7px;font-size:11px;color:#b9e1d1
+}
+.fy-reference-shell .fy-reference-risk-list span:before{content:'✓';padding-right:7px;color:#48e3ad}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review{max-height:365px;overflow:hidden}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-list{
+ max-height:260px;overflow:auto
+}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-head{flex-wrap:wrap}
+.fy-reference-shell .fy-reference-midgrid .fy-terminal-review-head h2{font-size:14px}
+.fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(7,minmax(0,1fr))}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat{min-height:94px;text-align:center}
+.fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-context .fy-terminal-panels>.fy-section{
+ min-width:0;margin:0;max-height:270px;overflow:auto;padding:12px;
+ border-radius:10px;background:linear-gradient(135deg,#22174a,#121836)
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-review{margin:0}
+.fy-reference-shell .fy-reference-review .fy-terminal-review-list{max-height:440px;overflow:auto}
+.fy-reference-shell .fy-reference-review-footer{
+ grid-template-columns:repeat(6,minmax(0,1fr))
+}
+@media(min-width:1001px){
+ /* Dense desktop previews keep the actual review in view. Longer evidence
+  * and every candidate remain scrollable within their original panels. */
+ .fy-reference-shell .fy-reference-topgrid>.fy-section,
+ .fy-reference-shell .fy-reference-topgrid>.fy-terminal-candidates{max-height:250px;overflow:auto}
+ .fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates .fy-stock-grid{max-height:130px}
+}
+.fy-reference-shell .fy-reference-mini-module{
+ display:flex;flex-direction:column;align-items:stretch;gap:10px
+}
+.fy-reference-shell .fy-reference-mini-module strong{font-size:12px;color:#e6d9ff}
+.fy-reference-shell .fy-reference-mini-module .fy-button{margin-top:auto;min-height:36px}
+@media(max-width:1359px){
+ .fy-reference-topnav button{min-width:47px;padding:6px 4px;font-size:10px}
+ .fy-reference-shell .fy-brand strong{font-size:17px}
+ .fy-reference-shell .fy-brand small{font-size:8px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:112px;justify-self:center}
+ .fy-reference-shell .fy-reference-midgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-midgrid>.fy-terminal-review{grid-column:1/-1}
+}
+@media(max-width:1000px){
+ .fy-reference-topnav{display:none}
+ .fy-reference-shell .fy-reference-topgrid,
+ .fy-reference-shell .fy-reference-midgrid,
+ .fy-reference-shell .fy-reference-lowergrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-topgrid>.fy-terminal-candidates{grid-column:auto}
+ .fy-reference-shell .fy-reference-lowergrid>:first-child{grid-column:1/-1}
+ .fy-reference-shell .fy-reference-review-footer{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:650px){
+ .fy-reference-shell .fy-header{padding:9px 12px;min-height:62px;height:62px}
+ .fy-reference-shell .fy-brand strong{font-size:17px}
+ .fy-reference-shell .fy-brand small{font-size:8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .fy-reference-shell .fy-business-nav{padding:7px 9px;gap:4px}
+ .fy-reference-shell .fy-business-nav button{padding:5px 10px;min-height:33px;font-size:10px;white-space:nowrap}
+ .fy-reference-shell .fy-terminal-title{padding:9px 11px;min-height:0}
+ .fy-reference-shell .fy-terminal-title h1{font-size:17px}
+ .fy-reference-shell .fy-terminal-title p{font-size:10px}
+ .fy-reference-shell .fy-terminal-actions{gap:4px}
+ .fy-reference-shell .fy-terminal-actions .fy-button{min-height:32px;font-size:10px;padding:5px 7px}
+ .fy-reference-shell .fy-terminal-index .fy-market-ticker{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-terminal-index .fy-market-ticker>div{min-height:88px;padding:9px}
+ .fy-reference-shell .fy-terminal-stat{min-height:65px;padding:8px}
+ .fy-reference-shell .fy-terminal-stat>strong{font-size:21px}
+ .fy-reference-shell .fy-reference-topgrid,
+ .fy-reference-shell .fy-reference-midgrid,
+ .fy-reference-shell .fy-reference-lowergrid{grid-template-columns:minmax(0,1fr);gap:8px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:125px minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:125px}
+ .fy-reference-shell .fy-reference-midgrid>.fy-terminal-review{grid-column:auto}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats>.fy-terminal-stat:first-child{grid-column:span 2}
+ .fy-reference-shell .fy-reference-review .fy-terminal-context>.fy-terminal-panels{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-review .fy-terminal-review-list{max-height:none}
+ .fy-reference-shell .fy-reference-review-footer{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-terminal-provenance{padding:6px 8px;font-size:9px}
+ .fy-reference-shell .fy-dock button{font-size:10px;min-width:0}
+}
+@media(max-width:360px){
+ .fy-reference-shell .fy-brand strong{font-size:15px}
+ .fy-reference-shell .fy-brand small{max-width:170px}
+ .fy-reference-shell .fy-reference-signal-body{grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-signal-ring{width:114px}
+}
+
+/* Reference groups are direct flex children. Give them explicit desktop order
+ * so inherited compact styles cannot move whole grids ahead of provenance. */
+.fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title{order:0}
+.fy-reference-home>.fy-terminal-provenance,.fy-reference-review>.fy-terminal-provenance{order:1}
+.fy-reference-home>.fy-terminal-index{order:2}
+.fy-reference-home>.fy-terminal-stats{order:3}
+.fy-reference-home>.fy-terminal-priorities{order:4}
+.fy-reference-home>.fy-reference-topgrid{order:5}
+.fy-reference-home>.fy-reference-midgrid{order:6}
+.fy-reference-home>.fy-reference-lowergrid{order:7}
+.fy-reference-home>.fy-terminal-decisions{order:8}
+.fy-reference-home>.fy-terminal-context{order:9}
+.fy-reference-home>.fy-terminal-quick{order:10}
+.fy-reference-review>.fy-terminal-stats{order:2}
+.fy-reference-review>.fy-terminal-context{order:3}
+.fy-reference-review>.fy-terminal-review{order:4}
+.fy-reference-review>.fy-reference-review-footer{order:5}
+.fy-reference-review>.fy-terminal-quick{order:6}
+
+/* The mobile first-fold counters must not be displaced by newly added blocks. */
+@media(max-width:650px) and (orientation:portrait){
+ .fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title{order:0}
+ .fy-reference-home>.fy-terminal-provenance,.fy-reference-review>.fy-terminal-provenance{order:1}
+ .fy-reference-home>.fy-terminal-stats,.fy-reference-review>.fy-terminal-stats{order:2}
+ .fy-reference-home>.fy-terminal-index{order:3}
+ .fy-reference-home>.fy-terminal-priorities{order:4}
+ .fy-reference-home>.fy-reference-topgrid{order:5}
+ .fy-reference-home>.fy-reference-midgrid{order:6}
+ .fy-reference-home>.fy-reference-lowergrid{order:7}
+ .fy-reference-home>.fy-terminal-decisions{order:8}
+ .fy-reference-home>.fy-terminal-context{order:9}
+ .fy-reference-home>.fy-terminal-quick{order:10}
+ .fy-reference-review>.fy-terminal-context{order:3}
+ .fy-reference-review>.fy-terminal-review{order:4}
+ .fy-reference-review>.fy-reference-review-footer{order:5}
+ .fy-reference-review>.fy-terminal-quick{order:6}
 }

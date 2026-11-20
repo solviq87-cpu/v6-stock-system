@@ -7,6 +7,7 @@ await build({
   bundle: true,
   format: 'iife',
   globalName: 'V6Research',
+  footer: {js: 'globalThis.V6Research = V6Research;'},
   platform: 'browser',
   target: ['es2022'],
   outfile: 'dist/assets/analysis.bundle.js',

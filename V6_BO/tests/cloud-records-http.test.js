@@ -52,6 +52,20 @@ test('missing, invalid, read-only device tokens and hostile origins cannot discl
  assert.equal((await get(f,'/api/records?sharecode=public-link',null)).status,400);
  assert.equal((await get(f,'/api/records?token=private-token', 'editor-token-123')).status,400);
 });
+test('application session header survives gateway Authorization removal without changing CAS identity or origin gates',async t=>{
+ const f=await testServer(t);
+ for(const headers of [{'X-QD-Token':'editor-token-123'},{Authorization:'Basic fixture-gateway','X-QD-Token':'editor-token-123'}]){
+  assert.equal((await get(f,'/api/records',null,{headers})).status,200);
+ }
+ assert.equal((await get(f,'/api/records','viewer-token-123',{headers:{'X-QD-Token':'editor-token-123'}})).status,403,'Bearer identity still takes precedence; no fallback upgrades a viewer');
+ assert.equal((await get(f,'/api/records','invalid-token-123',{headers:{'X-QD-Token':'editor-token-123'}})).status,401);
+ assert.equal((await get(f,'/api/records',null,{headers:{'X-QD-Token':'viewer-token-123'}})).status,403);
+ assert.equal((await get(f,'/api/records',null,{headers:{'X-QD-Token':'editor-token-123',Origin:'https://evil.fixture'}})).status,403);
+ assert.equal((await get(f,'/api/records?token=editor-token-123',null,{headers:{'X-QD-Token':'editor-token-123'}})).status,400);
+ assert.equal((await get(f,'/api/records',null,{headers:{'X-QD-Token':'short'}})).status,401);
+ assert.equal((await get(f,'/api/records',null,{headers:{Authorization:'Bearer  editor-token-123'}})).status,401,'the CAS adapter retains its original single-space Bearer syntax');
+ assert.equal(f.store.read().revision,1,'header compatibility does not initialize or modify account data');
+});
 test('authorized GET on absent authoritative account fails without default initialization',async t=>{
  const f=await testServer(t,{bootstrap:false}),r=await get(f);
  assert.equal(r.status,503);assert.equal(r.body.code,'AUTHORITATIVE_LEDGER_UNAVAILABLE');

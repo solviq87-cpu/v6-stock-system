@@ -154,26 +154,64 @@ const runChecks=async()=>{
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
    const metrics=await geometry(page,'pulse-'+width);
+   // Real DOM checks on both viewport types. A dense, legible terminal wins
+   // over simply painting every card purple or adding more glow.
    if([402,1366].includes(width)){
-    const vivid=await page.evaluate(()=>{
-      const css=s=>getComputedStyle(document.querySelector(s));
-      return {token:css(':root').getPropertyValue('--fy-neon-blue').trim(),
-        first:css('.fy-terminal-stat:nth-child(1)').backgroundImage,
-        second:css('.fy-terminal-stat:nth-child(2)').backgroundImage,
-        shadow:css('.fy-terminal-stat:nth-child(1)').boxShadow,
-        up:css('.fy-terminal-index .fy-market-ticker .fy-positive').color,
-        down:css('.fy-terminal-index .fy-market-ticker .fy-negative').color,
-        contextShadow:css('.fy-terminal-panels>.fy-section').boxShadow};
+    const regions=await page.evaluate(()=>{
+     const b=selector=>{const node=document.querySelector(selector);if(!node)return null;
+      const rect=node.getBoundingClientRect();return {top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right,
+       width:rect.width,height:rect.height,display:getComputedStyle(node).display};};
+     const colors=selector=>getComputedStyle(document.querySelector(selector)).color;
+     return {
+      title:b('.fy-terminal-title'),meta:b('.fy-terminal-provenance'),
+      ticker:b('.fy-terminal-index'),stats:b('.fy-terminal-stats'),
+      focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
+      review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
+      referenceTop:b('.fy-reference-topgrid'),referenceMiddle:b('.fy-reference-midgrid'),referenceLower:b('.fy-reference-lowergrid'),
+      sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
+      sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
+      statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
+      brand:b('.fy-header'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
+      down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
+      main:getComputedStyle(document.querySelector('.fy-terminal')).display
+     };
     });
-    assert.equal(vivid.token,'#398dff','reference blue must resolve');
-    assert.match(vivid.first,/linear-gradient/,'stats use saturated gradients');
-    assert.notEqual(vivid.first,vivid.second,'distinct card families');
-    assert.notEqual(vivid.shadow,'none','luminous stat edge');
-    assert.notEqual(vivid.contextShadow,'none','luminous context panel');
-    assert.notEqual(vivid.up,vivid.down,`index red-up / green-down must remain distinguishable: up=${vivid.up} down=${vivid.down}`);
-    const channels=color=>(color.match(/\d+/g)||[]).slice(0,3).map(Number);
-    const [rr,rg]=channels(vivid.up),[gr,gg]=channels(vivid.down);
-    assert.ok(rr>rg&&gg>gr,'index price must preserve red-up / green-down color channels');
+    fs.writeFileSync(path.join(output,'fayo-layout-'+width+'.json'),JSON.stringify(regions,null,2));
+    assert.equal(regions.main,'flex','terminal uses same compact structural layout on both clients');
+    assert.equal(regions.sourceCount,8,'original eight audited counters remain');
+    assert.ok(regions.sourceVisible,'original date/source/unknown status must remain visible');
+    assert.ok(regions.title.top<regions.meta.top,'title precedes provenance');
+    assert.ok(regions.decisions&&regions.review.top<regions.decisions.top,
+      'new evidence cards must follow the original daily review instead of pushing it below the first fold');
+    const rgb=v=>(v.match(/\d+/g)||[]).slice(0,3).map(Number);
+    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
+    assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
+    if(width===1366){
+     assert.ok(regions.ticker.top<regions.stats.top&&regions.stats.top<regions.focus.top,
+      'desktop index strip and statistics precede the compact decision strip');
+     assert.ok(regions.focus.top<regions.referenceTop.top&&regions.referenceTop.top<regions.review.top,
+      'desktop reference signal, candidates and funds precede the original review table');
+     assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
+     assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
+    }else{
+     assert.ok(regions.stats.bottom<regions.ticker.top,
+      'phone first-fold source counters precede original-time market index cards');
+     assert.ok(regions.ticker.top<regions.focus.top&&regions.focus.top<regions.referenceTop.top,
+      'phone reference index and risk precede the signal, candidate and funds sections');
+     assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
+      'phone original review remains between primary evidence and additional research modules');
+     const phoneFocus=await page.evaluate(()=>
+      [...document.querySelectorAll('.fy-terminal-priority')]
+        .filter(node=>getComputedStyle(node).display!=='none')
+        .map(node=>node.dataset.focus));
+     assert.deepEqual(phoneFocus,['risk','next'],
+      'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
+     assert.ok(regions.stats.top<400&&regions.stats.bottom<780,
+      'iPhone first fold must show actual review numbers rather than big headers');
+     assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
+      'four compact count cards share the first phone row');
+     assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
+    }
    }
    if(width>=1360){
     const rail=await page.evaluate(()=>{
@@ -189,6 +227,23 @@ const runChecks=async()=>{
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   // User-provided first reference: real dedicated daily-review route, same data and session.
+   const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
+   await navigate(page,'pulse','review');
+   await page.locator('.fy-reference-review').waitFor({state:'visible'});
+   assert.match(await page.locator('.fy-reference-review .fy-terminal-title').innerText(),/复盘.*学习/);
+   assert.equal(await page.locator('.fy-reference-review .fy-terminal-stats .fy-terminal-stat').count(),7,
+    'reference review keeps seven sourced cards without hard-coded values');
+   assert.equal(await page.locator('.fy-reference-review .fy-terminal-panels>.fy-section').count(),3,
+    'review shows mainline, actual board classification and source-dated funds');
+   assert.equal(await page.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
+    'six source-backed research entry cards remain accessible');
+   await geometry(page,'reference-review-'+width);
+   await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:false});
+   assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
+    'navigating to review does not create a trade, scan, push or account mutation');
+   await navigate(page,'pulse','overview');
+   await page.locator('.fy-reference-home .fy-terminal-stats .fy-terminal-stat').first().waitFor({state:'visible'});
    if(width===402){
     const actual=await page.evaluate(()=>{
      const indices=[...document.querySelectorAll('.fy-terminal-index .fy-market-ticker>div')]
@@ -266,6 +321,12 @@ const runChecks=async()=>{
    await page.waitForTimeout(80);
    assert.ok(requests.filter(r=>r.path==='/api/kline').length>priorPages,'older history reads actual service pages');
    assert.ok(requests.some(r=>r.path==='/api/kline'&&r.query.end),'history pagination uses an older-date boundary');
+   // Drive the real state-refresh listener while focus is inside the drawer.
+   // The opportunity board replaces its buttons, so the close path must resolve
+   // the same stock in the current DOM rather than focus a detached old node.
+   await originCard.evaluate(node=>{window.drawerOriginBeforeRefresh=node;});
+   await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
+   await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
@@ -345,9 +406,14 @@ const runChecks=async()=>{
    const browsing=requests.slice(before);
    const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
+   // A five-second background GET may revoke access before a manual click can
+   // start. Wait for the actual authorization gate instead of clicking a
+   // button that correctly disappears when the revoked session is cleared.
+   const beforeRevocation=requests.length;
    phase='revoked';
-   await page.getByRole('button',{name:'刷新云端数据',exact:true}).click();
-   await page.locator('.fy-gate').waitFor({state:'visible'});
+   await page.locator('.fy-gate').waitFor({state:'visible',timeout:12000});
+   assert.ok(requests.slice(beforeRevocation).some(r=>r.path.startsWith('/api/')),
+    'a server denial, not a client-only route change, revokes the session');
    assert.equal(await page.locator('.fy-stock-card').count(),0,'authorization loss removes retained cards, not just their visibility');
    assert.equal(await page.locator('.fy-stock-drawer:visible').count(),0,'authorization loss removes stock lens');
    assert.doesNotMatch(await page.locator('body').innerText(),/合成光谱|88,888\.88/,'private/previous market content clears on revoke');

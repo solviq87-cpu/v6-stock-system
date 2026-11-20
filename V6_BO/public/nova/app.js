@@ -1,19 +1,39 @@
 import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.js';
-import {createClient,getSession,saveSession,deviceId,retainMarket} from './client.js';
-import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS} from './market.js';
-import {renderTerminalOverview} from './terminal-workbench.js';
+import {createClient,getSession,saveSession,deviceId,retainMarket,createSnapshotPoller} from './client.js';
+import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS,renderDailyReview} from './market.js';
+import {renderTerminalOverview,renderReferenceReview} from './terminal-workbench.js';
 
 const root=document.getElementById('fayo-root');
 const MAIN=[['pulse','脉冲','pulse'],['opportunities','机会','spark'],['lab','实验室','lab'],['assets','资产','assets'],['settings','中枢','settings']];
+/* Two user-supplied reference screens. Labels are navigation only, never trading commands. */
+const REFERENCE_TOP=[
+ ['首页','pulse','overview','pulse'],['行情','pulse','global','pulse'],
+ ['选股','opportunities','all','spark'],['策略','lab','strategies','lab'],
+ ['回测','lab','backtest','lab'],['复盘','pulse','review','pulse'],
+ ['资讯','inbox','all','bell'],['资金流','pulse','sectors','pulse'],
+ ['风控','assets','risk','assets'],['模拟盘','assets','paper','assets'],
+ ['我的','assets','holdings','user']
+];
+const REFERENCE_MOBILE=[
+ ['首页','pulse','overview','pulse'],['行情','pulse','global','pulse'],
+ ['选股','opportunities','all','spark'],['复盘','pulse','review','lab'],
+ ['我的','assets','holdings','user']
+];
 // User-approved original V6 business navigation. Every entry points to an existing route;
 // the internal five-space model, authentication and all legacy recovery URLs remain intact.
 const BUSINESS_NAV=[
- ['盘面总览','pulse','overview'],['外国市场 · 选股核心','pulse','global'],
- ['我的持仓 · 盯盘与加减仓触发','assets','holdings'],['模拟盘','assets','paper'],
- ['消息面 · 数据联动','inbox','all'],['明日计划','pulse','plans'],
- ['我的十四条','opportunities','conditions'],['复盘 · 学习','pulse','review'],
- ['智能策略中心','lab','strategies'],['工具','settings','diagnostics'],
- ['发布看板','settings','release']
+ ['首页总览','pulse','overview'],['实时行情','pulse','market-overview'],
+ ['AI选股','opportunities','all'],['策略中心','lab','strategies'],
+ ['板块资金','pulse','sectors'],['新闻因子','inbox','all'],
+ ['涨停复盘','pulse','review'],['龙头榜','opportunities','relay-first'],
+ ['市场情绪','pulse','market-overview'],['K线图谱','pulse','market-overview'],
+ ['回测研究','lab','backtest'],['模拟交易','assets','paper'],
+ ['风控系统','assets','risk'],['资产账户','assets','holdings'],
+ ['系统设置','settings','preferences'],['外部市场 · 选股核心','pulse','global'],
+ ['明日计划','pulse','plans'],['我的十四条','opportunities','conditions'],
+ ['研究工作台','lab','desk'],['发布看板','settings','release'],
+ ['我的持仓 · 盯盘与加减仓触发','assets','holdings'],['消息面 · 数据联动','inbox','all'],
+ ['复盘 · 学习','pulse','review'],['工具','settings','diagnostics']
 ];
 const ALIASES={
  '/picks.html':['opportunities','quant'],'/auction-picks.html':['opportunities','auction'],
@@ -67,31 +87,37 @@ function snapshotStatus() {
  if(!connection||!snapshot)return;
  connection.textContent=!online?'连接中断 · 保留上次内容':lastRead?'最近读取 '+new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(lastRead):'正在读取云端';
  connection.dataset.offline=String(!online);
+ connection.title='可见页面每5秒读取同源云端状态，不代表行情源重新采集；报价仍按原始时点判断。';
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
  else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
 }
 function createFrame() {
- const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜 FAYO'),h('small',{},'天枢智策 V6')));
+ const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'AI量化选股 · 多策略 · 多源行情')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
  for(const[view,label,key]of MAIN){
   nav.append(h('button',{type:'button','data-fy-route':view,onClick:()=>navigate(view)},icon(key),h('span',{},label)));
-  dock.append(h('button',{type:'button','data-fy-route':view,onClick:()=>navigate(view)},icon(key),h('span',{},label)));
+  // Original internal five-space navigation remains available on wide views and via URLs.
  }
+ for(const [label,view,sub,key] of REFERENCE_MOBILE){
+  dock.append(h('button',{type:'button','data-fy-route':view,'data-fy-sub':sub,onClick:()=>navigate(view,sub)},icon(key),h('span',{},label)));
+ }
+ const referenceTop=h('nav',{class:'fy-reference-topnav','aria-label':'参考图主功能导航'},
+  REFERENCE_TOP.map(([label,view,sub,key])=>h('button',{type:'button','data-reference-view':view,'data-reference-sub':sub,onClick:()=>navigate(view,sub)},icon(key),h('span',{},label))));
  connection=h('span',{class:'fy-status','aria-live':'polite'});
  const search=button(icon('search'),openSearch,'quiet');search.setAttribute('aria-label','搜索股票与功能');search.setAttribute('aria-keyshortcuts','Control+K Meta+K');
  const refreshButton=button(icon('refresh'),()=>refresh(true),'quiet');refreshButton.setAttribute('aria-label','刷新云端数据');
  const inbox=button(icon('bell'),()=>navigate('inbox','all'),'quiet');inbox.setAttribute('aria-label','资讯与通知');
  const identity=button(icon('user'),openIdentity,'quiet');identity.setAttribute('aria-label','账户与授权');identity.setAttribute('title',role==='edit'?'管理者':'观察者');
  const actions=h('div',{class:'fy-actions'},search,refreshButton,inbox,identity);
- const header=h('header',{class:'fy-header'},brand,nav,actions);
+ const header=h('header',{class:'fy-header'},brand,referenceTop,nav,actions);
  const businessNav=h('nav',{class:'fy-business-nav','aria-label':'V6 原业务功能导航'},BUSINESS_NAV.map(([label,view,sub])=>
   h('button',{type:'button','data-business-view':view,'data-business-sub':sub,onClick:()=>navigate(view,sub)},label)));
  main=h('main',{class:'fy-main',id:'fayo-content',tabindex:'-1'});
  snapshot=h('div',{class:'fy-snapshot',role:'status',hidden:true});
  const meta=h('div',{class:'fy-connection-bar'},h('span',{},'你的投资研究空间'),connection);
- frame=h('div',{class:'fayo-app'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,businessNav,meta,snapshot,main,dock);
+ frame=h('div',{class:'fayo-app fy-reference-shell'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,businessNav,meta,snapshot,main,dock);
  root.replaceChildren(frame);
  drawer=createStockDrawer(context(null));root.append(drawer.element);
  snapshotStatus();
@@ -100,15 +126,22 @@ async function renderRoute() {
  if(!role||!main)return;
  route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
- frame.querySelectorAll('[data-fy-route]').forEach(node=>{const active=node.dataset.fyRoute===route.view;node.dataset.current=String(active);if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
+ frame.querySelectorAll('[data-fy-route]').forEach(node=>{const active=node.dataset.fyRoute===route.view&&(!node.dataset.fySub||node.dataset.fySub===route.sub);node.dataset.current=String(active);if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
  frame.querySelectorAll('[data-business-view]').forEach(node=>{
   const active=route.view===node.dataset.businessView&&route.sub===node.dataset.businessSub;
   node.dataset.current=String(active);
   if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');
  });
- document.title='天枢智策 V6 · '+(BUSINESS_NAV.find(x=>x[1]===route.view&&x[2]===route.sub)?.[0]||MAIN.find(x=>x[0]===route.view)?.[1]||'资讯')+' · FAYO';
+ frame.querySelectorAll('[data-reference-view]').forEach(node=>{
+  const active=node.dataset.referenceView===route.view&&node.dataset.referenceSub===route.sub;
+  node.dataset.current=String(active);
+  if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');
+ });
+ document.title='天枢智策 V6 · '+(BUSINESS_NAV.find(x=>x[1]===route.view&&x[2]===route.sub)?.[0]||MAIN.find(x=>x[0]===route.view)?.[1]||'资讯');
  try {
   if(route.view==='pulse'&&(!route.sub||route.sub==='overview'))main.replaceChildren(renderTerminalOverview(ctx));
+  else if(route.view==='pulse'&&route.sub==='review')main.replaceChildren(renderReferenceReview(ctx));
+  else if(route.view==='pulse'&&route.sub==='review-details')main.replaceChildren(renderDailyReview(ctx));
   else if(route.view==='pulse')main.replaceChildren(renderPulse(route,ctx));
   else if(route.view==='opportunities')main.replaceChildren(renderOpportunities(route,ctx));
   else {
@@ -124,7 +157,7 @@ async function renderRoute() {
  window.scrollTo({top:0,behavior:'instant'});
 }
 async function refresh(manual=false) {
- if(!role)return;
+ if(!role||(!manual&&document.visibilityState!=='visible'))return;
  if(refreshBusy){if(manual)refreshWanted=true;return;}
  refreshBusy=true;
  const controller=sessionController;
@@ -136,15 +169,15 @@ async function refresh(manual=false) {
   else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.();
-  if(manual)notify('已读取同一份云端状态');
+  if(manual)notify('已读取云端状态；报价是否更新须核对原始时点，本操作不启动重新采集');
  }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
  finally{refreshBusy=false;if(refreshWanted){refreshWanted=false;if(role)refresh(false);}}
 }
 function logout(message='') {
- gateGeneration++;role=null;state=null;lastRead=0;poolCache.clear();listeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();clearInterval(poll);drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;lastRead=0;poolCache.clear();listeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
- gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();sessionController=new AbortController();createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role)return;await renderRoute();subscribeChanges(sessionController);clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible')refresh(false);},15000);
+ gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:()=>refresh(false),signal:controller.signal});
 }
 async function subscribeChanges(controller) {
  // Fetch-based SSE keeps the credential in a header and retains periodic reads
@@ -163,7 +196,7 @@ async function subscribeChanges(controller) {
 }
 
 function showGate(message='') {
- const turn=++gateGeneration;clearInterval(poll);role=null;
+ const turn=++gateGeneration;poll?.();poll=null;role=null;
  const password=h('input',{type:'password',name:'password',autocomplete:'current-password',placeholder:'输入现有访问口令',required:true,maxlength:128}),name=h('input',{name:'device-name',autocomplete:'off',placeholder:'例如：我的手机',maxlength:80,value:'绯曜研究设备'}),mode=h('select',{'aria-label':'登录身份'},h('option',{value:'auto'},'自动识别身份'),h('option',{value:'edit'},'开发者'),h('option',{value:'view'},'只读观察者'));
  const status=note(message||'账户与历史继续使用原有服务，访问授权由服务端确认。');
  const submit=h('button',{type:'submit',class:'fy-button primary'},authInfo?.hasPassword===false?'创建口令并进入绯曜':'进入绯曜');
@@ -222,7 +255,6 @@ function openSearch() {
 addEventListener('hashchange',()=>{if(role)renderRoute();});
 addEventListener('offline',()=>{online=false;snapshotStatus();});
 addEventListener('online',()=>{if(role)refresh(false);});
-addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&role&&Date.now()-lastRead>15000)refresh(false);});
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'&&role){event.preventDefault();openSearch();}});
 (async()=>{
  try {
