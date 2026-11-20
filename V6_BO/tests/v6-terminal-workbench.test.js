@@ -7,7 +7,16 @@ const dir=path.resolve(__dirname,'../public/nova');
 const read=name=>fs.readFileSync(path.join(dir,name),'utf8');
 const api=import('../public/nova/terminal-workbench.js');
 class El{
- constructor(tag){this.tag=tag;this.children=[];this.listeners={};this.value='';this.hidden=false;this.disabled=false;this.dataset={};this.className='';}
+ constructor(tag){
+  this.tag=tag;this.children=[];this.listeners={};this.value='';this.hidden=false;this.disabled=false;this.dataset={};this.className='';
+  // Native reference views add/remove semantic classes after h() creates the
+  // element. Keep the test DOM's className and classList in sync like a browser.
+  this.classList={
+   add:(...tokens)=>{this.className=[...new Set([...this.className.split(/\s+/).filter(Boolean),...tokens])].join(' ');},
+   remove:(...tokens)=>{this.className=this.className.split(/\s+/).filter(token=>token&&!tokens.includes(token)).join(' ');},
+   contains:token=>this.className.split(/\s+/).includes(token)
+  };
+ }
  append(...items){this.children.push(...items);}
  replaceChildren(...items){this.children=items;}
  addEventListener(name,handler){this.listeners[name]=handler;}
@@ -116,7 +125,8 @@ test('native shell uses approved business navigation and worker caches every eag
  const app=read('app.js'),css=read('fayo.css'),worker=fs.readFileSync(path.join(dir,'../sw.js'),'utf8');
  assert.match(app,/renderTerminalOverview\(ctx\)/);
  assert.match(app,/BUSINESS_NAV=/);
- for(const label of ['盘面总览','我的十四条','复盘 · 学习','智能策略中心','发布看板'])assert.ok(app.includes(label));
+ for(const [label,view,sub] of [['首页总览','pulse','overview'],['我的十四条','opportunities','conditions'],['复盘 · 学习','pulse','review'],['策略中心','lab','strategies'],['发布看板','settings','release']])
+  assert.ok(app.includes("['"+label+"','"+view+"','"+sub+"']"),'approved route remains reachable: '+label);
  assert.match(css,/V6 DEEP BLUE TERMINAL/);
  assert.match(css,/max-width:650px/);
  assert.match(worker,/\/nova\/terminal-workbench\.js/);
