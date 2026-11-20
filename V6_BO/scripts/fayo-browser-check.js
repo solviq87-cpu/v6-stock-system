@@ -51,7 +51,7 @@ function respond(url,req,body){
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
   return result;
  }
- if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
+ if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,price:11.11,vendorQuoteAt:sourceAt-1000,quoteAt:sourceAt-1000,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
   const end=url.searchParams.get('end'),limit=Math.min(240,Math.max(1,Number(url.searchParams.get('n')||120)));
@@ -417,6 +417,7 @@ const runChecks=async()=>{
    await originCard.click();
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
+   assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11');
    const beforeQuoteChecks=requests.filter(entry=>entry.path==='/api/quote-cross-check').length;
    await drawer.locator('.fy-chart svg').waitFor({state:'visible'});
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/2026[-/]11[-/]13/,'drawer preserves original provider date');
@@ -440,6 +441,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
    await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
    await drawer.locator('[data-detail-tab="evidence"]').click();
+   assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'12.30');
    assert.match(await drawer.innerText(),/仅此选股池保存的合成依据/,'cloud refresh cannot swap the selected pool evidence for the homepage row');
    assert.equal(requests.filter(entry=>entry.path==='/api/quote-cross-check').length,beforeQuoteChecks,'shared refresh cannot start public quotation checks');
    await drawer.locator('[data-detail-tab="sources"]').click();
