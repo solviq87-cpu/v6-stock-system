@@ -46,6 +46,18 @@ function parsePool(json,{date,kind}){
  const sameDate=dateOK(tradeDate)&&tradeDate===date,complete=sameDate&&totalCount!==null&&totalCount===data.pool.length&&records.length===data.pool.length&&invalidCount===0;
  return {status:complete?'observed-unverified':'partial-evidence',complete,tradeDate,requestedDate:date,records,fetchedCount:data.pool.length,totalCount,partial:!complete,invalidCount,sourceTimestamp:null,dateMatched:sameDate,fieldMappingSource:SOURCES.pools,unit:'CNY',priceScale:'vendor-milliyuan-divided-by-1000'};
 }
+function limitPoolUrl(date,kind){
+ const sealed=kind==='sealed';
+ return url(sealed?ZT:ZB,{ut:'7eea3edcaed734bea9cbfc24409ed989',dpt:'wz.ztzt',Pageindex:'0',pagesize:sealed?'10000':'5000',sort:'fbt:asc',date:date.replaceAll('-','')});
+}
+async function fetchReviewLimitPool(date,kind,requestJson=requestPublicJson){
+ if(!dateOK(date)||!['sealed','broken'].includes(kind))throw Error('复盘池参数无效');
+ const requestUrl=limitPoolUrl(date,kind);
+ const response=await requestJson(requestUrl,{timeoutMs:12000,maxBytes:MAX_BYTES});
+ const pool=parsePool(response.json,{date,kind});
+ if(!pool.dateMatched)throw Error('复盘池返回了不同交易日');
+ return {...pool,source:'eastmoney',requestUrl};
+}
 async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={}, {now=Date.now,requestJson=requestPublicJson,retainRawEvidence=false,requestGovernor}={}){
  const clock=typeof now==='function'?now:()=>now,startedAt=clock();
  if(!Number.isSafeInteger(startedAt)||startedAt<=0)throw Error('采集时钟无效');
@@ -82,7 +94,7 @@ async function collectPublicContext({date,sectorCode,symbol,historyDays=120}={},
  await Promise.all(requests.map(row=>fetchOne(row)));
  const fallbackDates=[values.sectorFlow.lastTradeDate,values.stockFlow.lastTradeDate].filter(dateOK).sort();
  const observedFlowDate=values.marketFlow.lastTradeDate||fallbackDates.at(-1)||null,poolDate=explicitDate?date:observedFlowDate||date;
- const poolRequests=[['sealed',ZT,10000],['broken',ZB,5000]].map(([name,base,size])=>[name,url(base,{ut:'7eea3edcaed734bea9cbfc24409ed989',dpt:'wz.ztzt',Pageindex:'0',pagesize:String(size),sort:'fbt:asc',date:poolDate.replaceAll('-','')}),'pool']);
+ const poolRequests=['sealed','broken'].map(name=>[name,limitPoolUrl(poolDate,name),'pool']);
  await Promise.all(poolRequests.map(row=>fetchOne(row,poolDate)));
  const z=values.sealed,b=values.broken,overlap=z.records.some(r=>b.records.some(x=>x.symbol===r.symbol)),complete=z.partial===false&&b.partial===false&&z.tradeDate===b.tradeDate&&!overlap,n=z.records.length+b.records.length;
  const limitPools={status:complete?'observed-unverified':'unknown',complete,tradeDate:complete?z.tradeDate:null,sealed:z,broken:b,overlapDetected:overlap,sealRate:complete&&n>0?z.records.length/n:null,breakRate:complete&&n>0?b.records.length/n:null,limitUpToBrokenRatio:complete&&b.records.length>0?z.records.length/b.records.length:null,ratioDefinition:'sealed / unsealed-broken; sealRate=sealed/(sealed+unsealed-broken)',sourceTimestamp:null};
@@ -97,4 +109,4 @@ async function fetchPublicContext(options,dependencies){
  if(running)throw Error('公共市场研究采集已在运行');running=true;
  try{return await collectPublicContext(options,dependencies);}finally{running=false;}
 }
-module.exports={fetchPublicContext,requestPublicJson};
+module.exports={fetchPublicContext,requestPublicJson,fetchReviewLimitPool};

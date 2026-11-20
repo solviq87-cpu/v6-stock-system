@@ -694,17 +694,20 @@ function judgeWhale(d) {
   return { whale, named, popular, big, strong, net, reason: whale ? '游资席位' : (popular ? '人气席位·非游资' : '未达门槛') };
 }
 // 东财龙虎榜·买入席位明细。date='YYYY-MM-DD'。返回 Map<code,{depts,netBuy,whale,whaleNames,why}>
-async function fetchLhb(date) {
+async function fetchLhb(date, {onSeat, deadline=Infinity} = {}) {
   const out = new Map();
   if (!date) return out;
   const url = n => 'https://datacenter-web.eastmoney.com/api/data/v1/get' +
     '?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&pageNumber=' + n +
     '&pageSize=500&sortColumns=BUY&sortTypes=-1&filter=(TRADE_DATE%3D%27' + date + '%27)';
   for (let p = 1; p <= 6; p++) {
-    const j = await curlGet(url(p), 15000);
+    const timeout = Math.min(15000, deadline - Date.now());
+    if (timeout <= 0) break;
+    const j = await curlGet(url(p), timeout);
     const d = j && j.result && j.result.data;
     if (!d || !d.length) break;
     for (const x of d) {
+      onSeat?.(x);
       const code = String(x.SECURITY_CODE || '').trim();
       if (!code) continue;
       const v = out.get(code) || { depts: [], netBuy: 0 };
@@ -756,7 +759,7 @@ async function fetchLhb(date) {
 // ⛔ 2026-10-09 fy 轮：原来只拉 page=1 一页就收工 —— 云端实例实测只取到 12/69 只涨停原因
 //    （本地同代码 69/69 全有）。涨停原因少一片 = 复盘里一片「同花顺未取到」。
 //    改成与 fetchZTPoolThs 一致的分页拉取（最多 5 页 ×100），拿满为止。
-async function fetchZtReason(date) {
+async function fetchZtReason(date, {deadline=Infinity} = {}) {
   const out = new Map();
   const d = String(date || '').replace(/-/g, '');
   if (!d) return out;
@@ -767,7 +770,9 @@ async function fetchZtReason(date) {
     let j = null;
     // ⛔ 铁律③：原 catch (e) { break; } 静默跳过 —— 涨停原因兜底链挂了无日志，
     //    表现为「涨停原因整列空白」，排查时查不到是接口挂还是当日无数据。
-    try { j = await curlGet(u, 15000, 'https://data.10jqka.com.cn/'); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
+    const timeout = Math.min(15000, deadline - Date.now());
+    if (timeout <= 0) break;
+    try { j = await curlGet(u, timeout, 'https://data.10jqka.com.cn/'); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       _srcWarn('涨停原因·同花顺兜底拉取失败', `第 ${page} 页请求失败：${(e && e.message) || e}`);
       break;
     }
@@ -1750,7 +1755,10 @@ async function fetchIdxRt() {
         try { quoteAt=require('./src/core/public-market').timestamp(f[30]||''); } catch {}
         const observation=batchQuoteAtPublication({price,quoteSource:'tencent-index',quoteAt,receivedAt,canTrade:false},receivedAt);
         const pct = /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(f[32]) && Number.isFinite(Number(f[32])) ? Number(f[32]) : null;
-        out.push({code,name:NAME[code],pct,...observation,quoteMode:'index-observation',canNotify:false,
+        // Tencent's price/volume/turnover triplet reports exchange turnover in yuan.
+        const amount = /^\d+$/.test(f[35]?.split('/')[2]||'') ? Number(f[35].split('/')[2]) : null;
+        const turnoverAmountYuan=Number.isSafeInteger(amount)&&amount>0?amount:null;
+        out.push({code,name:NAME[code],pct,turnoverAmountYuan,...observation,quoteMode:'index-observation',canNotify:false,
           tradeDate:quoteAt?new Date(quoteAt+28800000).toISOString().slice(0,10):null});
       }
     }

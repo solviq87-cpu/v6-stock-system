@@ -2,6 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,table} from './ui.js';
+import {renderCloseReview} from './close-review.js';
 import {ticker,quoteLabel,stockCard,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief} from './market.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
@@ -382,7 +383,7 @@ export function renderTerminalOverview(ctx) {
 }
 
 /** The first reference image is a dedicated review screen, not a second application. */
-export function renderReferenceReview(ctx) {
+function renderReviewWorkspace(ctx) {
  const view=renderTerminalOverview(ctx);
  view.classList.remove('fy-reference-home');
  view.classList.add('fy-reference-review');
@@ -390,7 +391,7 @@ export function renderReferenceReview(ctx) {
  const stats=view.querySelector('.fy-terminal-stats'),panels=view.querySelector('.fy-terminal-context');
  const details=view.querySelector('.fy-terminal-review'),quick=view.querySelector('.fy-terminal-quick');
  title.querySelector('.fy-terminal-eyebrow').textContent='天枢智策 V6 / DAILY REVIEW';
- title.querySelector('h1').textContent='复盘 · 学习';
+ title.querySelector('h1').textContent='复盘资料与研究入口';
  title.querySelector('p').textContent='每日复盘 · 涨停形态与归因 · 仅呈现真实来源的复盘记录';
  title.querySelector('.fy-terminal-actions').replaceChildren(
   moduleButton('查看完整原始报告','pulse','review-details',ctx),
@@ -410,4 +411,12 @@ export function renderReferenceReview(ctx) {
   h('strong',{},label),moduleButton('进入',''+v,sub,ctx))));
  view.replaceChildren(title,status,stats,panels,details,footer,quick);
  return view;
+}
+
+export function renderReferenceReview(ctx) {
+ const more=h('details',{class:'fy-details fy-close-more'},h('summary',{},'更多复盘资料与研究入口'));
+ more.addEventListener('toggle',()=>{
+  if(more.open&&more.childElementCount===1&&!ctx.signal?.aborted)more.append(renderReviewWorkspace(ctx));
+ });
+ return renderCloseReview(ctx,more);
 }
