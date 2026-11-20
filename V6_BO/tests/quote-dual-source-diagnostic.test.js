@@ -57,3 +57,22 @@ test('weekend and out-of-session times never hit external networks',async()=>{
  assert.equal(r.status,'outside-weekday-session-window');
  await assert.rejects(()=>checkTwoPublicSources({code:'__bad__',now}),/代码/);
 });
+
+test('evaluate both feeds at completion, including elapsed time and session close',async()=>{
+ const read=async(start,end)=>{
+  let time=start;
+  const probe=async opts=>{
+   const report=await probeFactory().probe(opts);
+   report.generatedAt=end;
+   time=end;
+   return report;
+  };
+  return checkTwoPublicSources({code:'600001',clock:()=>time,probe});
+ };
+ assert.equal((await read(now,now+1000)).status,'sources-agree-unverified');
+ const expired=await read(now,now+14000);
+ assert.equal(expired.status,'insufficient-fresh-sources');
+ assert.equal(expired.asOf,new Date(now+14000).toISOString());
+ const lunch=Date.parse('2026-11-09T11:30:00+08:00');
+ assert.equal((await read(lunch-1000,lunch)).status,'outside-weekday-session-window');
+});
