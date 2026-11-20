@@ -223,6 +223,23 @@ const runChecks=async()=>{
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   // User-provided first reference: real dedicated daily-review route, same data and session.
+   const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
+   await navigate(page,'pulse','review');
+   await page.locator('.fy-reference-review').waitFor({state:'visible'});
+   assert.match(await page.locator('.fy-reference-review .fy-terminal-title').innerText(),/复盘.*学习/);
+   assert.equal(await page.locator('.fy-reference-review .fy-terminal-stats .fy-terminal-stat').count(),7,
+    'reference review keeps seven sourced cards without hard-coded values');
+   assert.equal(await page.locator('.fy-reference-review .fy-terminal-panels>.fy-section').count(),3,
+    'review shows mainline, actual board classification and source-dated funds');
+   assert.equal(await page.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
+    'six source-backed research entry cards remain accessible');
+   await geometry(page,'reference-review-'+width);
+   await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:false});
+   assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
+    'navigating to review does not create a trade, scan, push or account mutation');
+   await navigate(page,'pulse','overview');
+   await page.locator('.fy-reference-home .fy-terminal-stats .fy-terminal-stat').first().waitFor({state:'visible'});
    if(width===402){
     const actual=await page.evaluate(()=>{
      const indices=[...document.querySelectorAll('.fy-terminal-index .fy-market-ticker>div')]
