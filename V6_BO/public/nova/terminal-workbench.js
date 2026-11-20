@@ -31,7 +31,7 @@ function quotePreview(row,ctx) {
   h('span',{class:'fy-reference-candidate-score'},score),
   h('span',{class:'fy-reference-candidate-price '+direction(row.pct)},format(row.price),h('small',{},pct)),
   h('span',{class:'fy-reference-candidate-link'},'查看 ›'),
-  h('small',{class:'fy-reference-candidate-source'},row.poolDay?'结果日期 '+dayLabel(row.poolDay)+' · ':'',quoteLabel(row)));
+  h('small',{class:'fy-reference-candidate-source',title:quoteLabel(row)},row.poolDay?'结果 '+dayLabel(row.poolDay)+' · ':'',quoteLabel(row)));
 }
 function referenceLinks(items,ctx,className) {
  return h('nav',{class:className,'aria-label':'常用研究入口'},items.map(([label,view,sub,symbol])=>
@@ -39,9 +39,11 @@ function referenceLinks(items,ctx,className) {
 }
 function renderPanels(state,summary,reviewDay,ctx) {
  const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
- const mainline=section('市场主线排行','仅按当前复盘明细的题材归组，不能充当全市场排行',
+ const mainline=section('市场主线排行','按本次复盘明细归组',
   summary.groups.length?
-   h('div',{class:'fy-terminal-lines'},summary.groups.slice(0,5).map((g,i)=>
+   h('div',{class:'fy-terminal-lines'},
+    h('div',{class:'fy-reference-rank-head','aria-hidden':'true'},['排名','题材','涨停样本','最高板'].map(label=>h('small',{},label))),
+    summary.groups.slice(0,5).map((g,i)=>
     h('div',{class:'fy-terminal-line fy-reference-ranked'},h('b',{class:'fy-reference-rank'},i+1),
      h('strong',{},g.name),h('span',{},g.count+' 只'),h('small',{},g.highest?g.highest+' 板':'高度未知')))):
    empty('缺少复盘板块证据','保留未知，不根据股票名称猜测所属题材。'),
@@ -62,8 +64,10 @@ function renderPanels(state,summary,reviewDay,ctx) {
    h('div',{class:'fy-terminal-chips'},members));
  });
  const board=section('涨停板 · 板块分类',
-  '龙头 / 龙二 / 中军按服务端原始角色；未涨停的题材股也可能入围',
-  roleItems.length?h('div',{class:'fy-terminal-lines'},roleItems):
+  '按源端题材与角色分类',
+  roleItems.length?h('div',{class:'fy-terminal-lines'},
+   h('div',{class:'fy-reference-role-legend','aria-label':'题材角色'},[['leader','龙头'],['deputy','龙二'],['mid','中军'],['follow','跟风']].map(([role,label])=>
+    h('span',{class:'fy-terminal-chip','data-role':role},label))),roleItems):
    empty('没有可核验的同日板块分类','本次复盘 '+(reviewDay||'日期未知')+
     '，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
   moduleButton('查看全部板块','pulse','sectors',ctx));
@@ -85,7 +89,7 @@ function renderPanels(state,summary,reviewDay,ctx) {
   sectorDay!==marketDay?'板块资金 '+sectorDay+' 与大盘 '+marketDay+' 不同日':
   reviewDay&&sectorDay!==reviewDay?'板块资金 '+sectorDay+' 与复盘 '+reviewDay+' 不同日':'';
  const flows=section('板块资金排行',
-  '资金来源交易日 '+(sectorDay||'待核验')+' · 仅展示明确以元计的净流入，旧日与未知不补 0',
+  '净流入 · '+(sectorDay||'交易日待核验'),
   !aligned?empty('资金来源交易日待核验',dateIssue+'；暂不展示排名，请进入原资金模块核对。'):
    capital.length?h('div',{class:'fy-terminal-flows'},capital.map(row=>
     h('div',{class:'fy-terminal-flow'},
@@ -93,7 +97,10 @@ function renderPanels(state,summary,reviewDay,ctx) {
      h('span',{class:'fy-terminal-bar'},h('i',{style:'width:'+Math.max(3,100*Math.abs(row.value)/max).toFixed(1)+'%'})),
      h('strong',{class:direction(row.value)},money(row.value))))):
     empty('尚无单位明确的板块资金数据','原资金模块可能有其他单位或缺失项，请核验数据来源与字段。'),
-  moduleButton('查看资金证据','pulse','global',ctx));
+  moduleButton('查看资金证据','pulse','sectors',ctx));
+ for(const [panel,key] of [[mainline,'pulse'],[board,'spark'],[flows,'assets']]){
+  const title=panel.querySelector('h2');title.prepend(h('span',{class:'fy-reference-panel-icon'},icon(key)));
+ }
  return h('div',{class:'fy-terminal-panels'},mainline,board,flows);
 }
 function renderReviewRows(summary,ctx) {
@@ -106,7 +113,7 @@ function renderReviewRows(summary,ctx) {
   {label:'开板次数',value:row=>number(row.breakCount)},
   {label:'换手率',value:row=>valid(row.turnover)?format(row.turnover,1)+'%':'—'},
   {label:'主力净额',value:row=>h('span',{class:direction(row.mainInflow)},money(row.mainInflow))},
-  {label:'5 日线',value:row=>row.aboveMa5===true?'线上':row.aboveMa5===false?'线下':'—'},
+  {label:'5 日线',value:row=>typeof row.aboveMa5==='boolean'?h('span',{class:'fy-reference-ma', 'data-above':String(row.aboveMa5)},row.aboveMa5?'线上':'线下'):'—'},
   {label:'题材 / 依据',value:row=>h('span',{class:'fy-reference-review-basis'},row.sector||'题材待核验',
    typeof row.reason==='string'&&row.reason.trim()?h('small',{},row.reason):null)},
   {label:'操作',value:row=>button('K 线',()=>ctx.selectStock(row.code,row),'quiet')}
@@ -237,6 +244,9 @@ export function renderTerminalOverview(ctx) {
   signalContent,h('div',{class:'fy-reference-actions'},
    moduleButton('查看风控','assets','risk',ctx),moduleButton('研究机会','opportunities','all',ctx)));
  signalPanel.classList.add('fy-reference-signal');
+ for(const [panel,key] of [[signalPanel,'pulse'],[candidates,'spark']]){
+  panel.querySelector('h2').prepend(h('span',{class:'fy-reference-panel-icon'},icon(key)));
+ }
  let flowMode='in';
  const flowButtons=['in','out'].map((mode,i)=>button(i===0?'资金流入榜':'资金流出榜',()=>{
   flowMode=mode;paintFunds(ctx.state||{},reviewDate(ctx.state?.review?.date));
@@ -244,6 +254,7 @@ export function renderTerminalOverview(ctx) {
  const fundsPanel=section('板块资金流向','',h('div',{class:'fy-reference-flow-switch','aria-label':'资金排名方向'},flowButtons),fundsContent,
   moduleButton('查看全部资金','pulse','sectors',ctx));
  fundsPanel.classList.add('fy-reference-funds');
+ fundsPanel.querySelector('h2').prepend(h('span',{class:'fy-reference-panel-icon'},icon('assets')));
  const ladderPanel=section('龙头梯队','按复盘板次排列',ladderContent,moduleButton('查看接力候选','opportunities','relay-first',ctx));
  const newsPanel=section('新闻因子','',newsContent,
   moduleButton('全部资讯','inbox','all',ctx));
@@ -354,15 +365,18 @@ export function renderTerminalOverview(ctx) {
 
   // Price-sensitive visuals only use explicitly dated, source-valued records.
   const mood=state.dashboard?.mood||{};
-  const titleText=typeof mood.label==='string'&&mood.label.trim()?mood.label:'观望 · 研判待核验';
+ const titleText=typeof mood.label==='string'&&mood.label.trim()?mood.label:'待核验';
+ const upRatio=valid(mood.upRatio)&&mood.upRatio>=0&&mood.upRatio<=100?mood.upRatio:null;
   signalContent.replaceChildren(
-   h('div',{class:'fy-reference-signal-ring','aria-label':'市场研判并非交易许可'},
-    h('small',{},'市场研判'),h('strong',{},titleText),
-    h('span',{},'研究观察')),
+   h('div',{class:'fy-reference-signal-ring','data-valued':String(upRatio!==null),
+    style:upRatio!==null?'--fy-up-arc:'+upRatio+'%':null,'aria-label':upRatio===null?'上涨占比待核验':'上涨占比 '+upRatio+'%'},
+    h('strong',{},upRatio===null?'—':format(upRatio,0)+'%'),h('small',{},'上涨占比')),
    h('div',{class:'fy-reference-signal-notes'},
-    h('p',{},'市场状态：'+(state.trading===false?'最近交易日快照':state.trading===true?'交易时段 · 源时点待核验':'交易状态未知')),
-    h('p',{},'市场情绪：'+(typeof mood.note==='string'&&mood.note.trim()?mood.note:'尚无有效市场情绪依据')),
-    h('p',{},'涨停池来源：'+(source?'源端 '+number(source.reportedCount)+' 只':'源端数量待核验'))));
+    h('strong',{class:'fy-reference-signal-mood'},titleText),
+    h('p',{},typeof mood.note==='string'&&mood.note.trim()?mood.note:'市场情绪依据待核验'),
+    h('div',{class:'fy-reference-signal-facts'},
+     h('span',{},state.trading===false?'休市快照':state.trading===true?'交易时段':'时段待核验'),
+     h('span',{},source?'涨停源端 '+number(source.reportedCount)+' 只':'涨停源端待核验'))));
   paintFunds(state,day);
   const good=new Set(Array.isArray(state.goodNews?.items)?state.goodNews.items:[]);
   const bad=new Set(Array.isArray(state.badNews?.items)?state.badNews.items:[]);
@@ -497,11 +511,11 @@ export function renderReferenceReview(ctx) {
  stats.replaceChildren(...referenceReviewStats(ctx.state?.review,summary,coverage.source).map(
   ([label,value,detail,kind])=>stat(label,value,detail,kind)));
  const footer=h('div',{class:'fy-reference-review-footer'},[
-  ['选股核心','opportunities','all'],['涨停预选','opportunities','ztpre'],
-  ['板次日接力','opportunities','relay-first'],['趋势票池','opportunities','trend'],
-  ['盘中异动','opportunities','movement'],['风险控制','assets','risk']
- ].map(([label,v,sub])=>h('article',{class:'fy-reference-mini-module'},
-  h('strong',{},label),moduleButton('进入',''+v,sub,ctx))));
+  ['选股核心','opportunities','all','spark','候选与命中条件'],['涨停预选','opportunities','ztpre','pulse','涨停前形态'],
+  ['板次日接力','opportunities','relay-first','spark','首板与连板机会'],['趋势票池','opportunities','trend','pulse','趋势跟踪'],
+  ['盘中异动','opportunities','movement','pulse','量价变化与来源'],['风险控制','assets','risk','settings','账户风险边界']
+ ].map(([label,v,sub,key,detail])=>h('button',{class:'fy-reference-mini-module',type:'button',onClick:()=>ctx.navigate(v,sub)},
+  h('span',{class:'fy-reference-panel-icon'},icon(key)),h('span',{},h('strong',{},label),h('small',{},detail)),h('span',{'aria-hidden':'true'},'›'))));
  view.replaceChildren(title,status,stats,panels,details,footer,quick);
  return view;
 }
