@@ -1510,7 +1510,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 @media(max-width:650px) and (orientation:portrait){
  .fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title{order:0}
  .fy-reference-home>.fy-terminal-provenance,.fy-reference-review>.fy-terminal-provenance{order:1}
- .fy-reference-home>.fy-terminal-stats,.fy-reference-review>.fy-terminal-stats{order:2}
+ .fy-reference-review>.fy-terminal-stats{order:2}
  .fy-reference-home>.fy-terminal-index{order:3}
  .fy-reference-home>.fy-terminal-priorities{order:4}
  .fy-reference-home>.fy-reference-topgrid{order:5}
@@ -1523,4 +1523,282 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-reference-review>.fy-terminal-review{order:4}
  .fy-reference-review>.fy-reference-review-footer{order:5}
  .fy-reference-review>.fy-terminal-quick{order:6}
+}
+
+/* Home follows the blue terminal reference. The review page keeps its violet
+ * palette and a wide canvas for the report table. */
+.fy-reference-shell[data-terminal-view="home"] {
+ background:radial-gradient(ellipse at 75% 0,#15356b65,transparent 42%),#071122;
+}
+.fy-reference-shell[data-terminal-view="home"] .fy-header {
+ background:linear-gradient(100deg,#08132a,#060e1d 65%,#0c203e);
+ border-color:#285588;
+}
+.fy-reference-shell[data-terminal-view="home"] .fy-business-nav {
+ background:linear-gradient(180deg,#09162e,#0b1d38);
+ border-color:#2b4369;
+}
+.fy-reference-shell .fy-business-nav button {
+ display:flex;align-items:center;gap:8px;
+}
+.fy-reference-shell .fy-business-nav .fy-icon {
+ flex:none;width:15px;height:15px;color:#94c6fa;
+}
+.fy-reference-shell .fy-terminal {gap:8px}
+.fy-reference-shell .fy-terminal-title {padding:8px 12px}
+.fy-reference-shell .fy-terminal-provenance {padding:6px 9px}
+.fy-reference-shell .fy-reference-home .fy-terminal-title,
+.fy-reference-shell .fy-reference-home .fy-terminal-provenance {
+ background:#0e203b;border-color:#294a76;
+}
+.fy-reference-shell .fy-reference-home .fy-terminal-index .fy-market-ticker>div {
+ min-height:76px;padding:7px 10px;
+ background:linear-gradient(180deg,#0b1a32,#1b1d40);
+}
+.fy-reference-shell .fy-reference-home .fy-market-ticker>div:has(.fy-positive) {
+ background:linear-gradient(180deg,#0b1a32 56%,#3b1934);
+}
+.fy-reference-shell .fy-reference-home .fy-market-ticker>div:has(.fy-negative) {
+ background:linear-gradient(180deg,#0b1a32 56%,#123337);
+}
+.fy-reference-home>.fy-reference-topgrid {order:3}
+.fy-reference-home>.fy-reference-midgrid {order:4}
+.fy-reference-home>.fy-reference-lowergrid {order:5}
+.fy-reference-home>.fy-terminal-stats {order:6}
+.fy-reference-home>.fy-terminal-priorities {order:7}
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid {
+ grid-template-columns:minmax(0,1.05fr) minmax(0,1.22fr) minmax(0,.85fr);
+}
+.fy-reference-shell .fy-reference-home .fy-reference-midgrid {
+ grid-template-columns:minmax(0,1.45fr) minmax(0,.77fr) minmax(0,1fr) minmax(0,.77fr);
+}
+.fy-reference-shell .fy-reference-home .fy-reference-lowergrid {
+ grid-template-columns:minmax(0,1.8fr) minmax(0,1.1fr) minmax(0,.77fr) minmax(0,.62fr);
+}
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid>.fy-section,
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid>.fy-terminal-candidates,
+.fy-reference-shell .fy-reference-home .fy-reference-midgrid>.fy-section,
+.fy-reference-shell .fy-reference-home .fy-reference-lowergrid>.fy-section {
+ padding:10px;margin:0;border-color:#345d93;
+ background:linear-gradient(149deg,#122440,#0b1830 73%,#102342);
+}
+.fy-reference-shell .fy-reference-home .fy-section-head {
+ margin-bottom:8px;min-height:0;
+}
+.fy-reference-account-values {
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:5px 0;
+}
+.fy-reference-account-values dt {font-size:10px;color:#b2c7e9}
+.fy-reference-account-values dd {margin:1px 0 0;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.fy-reference-account-values>div {min-width:0}
+.fy-reference-sync-values {margin:0 0 9px}
+.fy-reference-sync-values>div {padding:5px 0;border-bottom:1px solid #263b5a}
+.fy-reference-sync-values dt {color:#b2c7e9;font-size:10px}
+.fy-reference-sync-values dd {margin:0;font-size:11px;font-weight:650}
+.fy-reference-shell .fy-reference-home .fy-section-head h2,
+.fy-reference-shell .fy-reference-home .fy-terminal-preview-head h2,
+.fy-reference-shell .fy-terminal-review-head h2 {font-size:15px}
+.fy-reference-shell .fy-reference-home .fy-reference-topgrid .fy-button {
+ min-height:30px;font-size:11px;padding:4px 8px;
+}
+.fy-reference-shell .fy-reference-home .fy-reference-midgrid .fy-terminal-review {
+ max-height:none;overflow:visible;grid-column:auto;
+}
+.fy-reference-shell .fy-reference-home .fy-reference-midgrid .fy-terminal-review-list {
+ max-height:166px;
+}
+.fy-reference-review-snapshot {
+ display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;margin:6px 0;
+ font-size:10px;color:#b2c7e9;
+}
+.fy-reference-review-snapshot strong {font-size:14px;color:#ff9ab5}
+.fy-reference-review-snapshot div {display:flex;gap:5px;flex-wrap:wrap;width:100%}
+.fy-reference-review-snapshot div span {padding:2px 6px;background:#203556;border-radius:5px}
+.fy-reference-review .fy-reference-review-snapshot {display:none}
+.fy-reference-home-details>summary {min-height:28px;font-size:11px}
+.fy-reference-home .fy-empty {min-height:0;padding:10px;margin:4px 0;gap:3px}
+.fy-reference-home .fy-empty-orbit {display:none}
+.fy-reference-home .fy-empty p {margin:0}
+.fy-reference-shell .fy-reference-home .fy-reference-review-filters {display:none}
+.fy-reference-shell .fy-reference-home .fy-terminal-review-head .fy-button {min-height:26px;padding:4px 7px}
+.fy-reference-shell .fy-reference-home .fy-terminal-review-head p {font-size:10px}
+.fy-reference-mobile-links {display:none}
+.fy-reference-shell .fy-reference-signal-body {
+ grid-template-columns:minmax(96px,35%) minmax(0,1fr);align-items:center;
+}
+.fy-reference-shell .fy-reference-signal-ring {
+ width:100%;max-width:140px;justify-self:center;
+ border-color:#d33364 #f7667e #214b7b #2cc5aa;border-width:5px;
+ background:radial-gradient(circle,#15294b,#0b1730);
+ box-shadow:0 0 17px #e1386d25;
+}
+.fy-reference-shell .fy-reference-signal-ring strong {font-size:clamp(12px,1.1vw,16px)}
+.fy-reference-shell .fy-reference-signal-notes p {font-size:11px;margin:3px 0;padding:4px 0}
+.fy-reference-shell .fy-terminal-preview-head {
+ flex-direction:row;gap:6px;padding-bottom:5px;margin-bottom:0;align-items:center;
+}
+.fy-reference-shell .fy-terminal-preview-head h2 {margin:0}
+.fy-reference-shell .fy-terminal-preview-head .fy-button {flex:none}
+.fy-reference-candidate-head,
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate {
+ display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr) minmax(30px,.5fr) minmax(46px,.75fr) auto;
+ gap:3px 7px;align-items:center;text-align:left;
+}
+.fy-reference-candidate-head {padding:5px 8px;background:#111f37;color:#b1c7e5;font-size:10px}
+.fy-reference-shell .fy-reference-topgrid .fy-terminal-candidates .fy-stock-grid {
+ max-height:none;overflow:visible;gap:0;
+}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate {
+ background:#11203a;border:1px solid transparent;border-bottom-color:#2b4368;
+ border-radius:0;margin:0;padding:5px 7px;width:100%;min-height:0;font-size:11px;line-height:1.25;
+}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate:nth-child(even) {background:#0e1b33}
+.fy-reference-shell .fy-reference-topgrid .fy-stock-card.fy-reference-candidate:hover {border-color:#4a91db;transform:none}
+.fy-reference-candidate-name,.fy-reference-candidate-price {min-width:0;font-variant-numeric:tabular-nums}
+.fy-reference-candidate-name strong {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f2f6ff}
+.fy-reference-candidate-name small,.fy-reference-candidate-price small {display:block;font-size:10px}
+.fy-reference-candidate-name small,.fy-reference-candidate-source {color:#afc1df}
+.fy-reference-candidate-sector,.fy-reference-candidate-score {
+ justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ padding:2px 4px;border-radius:4px;background:#302446;color:#ead8fb;
+}
+.fy-reference-candidate-score {background:#442439;color:#ffc8d4;font-weight:700}
+.fy-reference-candidate-link {color:#a9d7ff;white-space:nowrap}
+.fy-reference-candidate-source {grid-column:1/-1;font-size:9px;overflow-wrap:anywhere}
+.fy-reference-flow-switch {display:flex;gap:5px;margin:0 0 6px}
+.fy-reference-flow-switch .fy-button {flex:1;white-space:nowrap}
+.fy-reference-flow-switch .fy-button[aria-pressed="true"],
+.fy-reference-review-filters .fy-button[aria-pressed="true"] {
+ color:#fff;background:#244e91;border-color:#61a7fc;
+}
+.fy-reference-shell .fy-reference-flow:has(.fy-negative) .fy-reference-flow-track>b {
+ background:linear-gradient(90deg,#17796e,#59e0b5);
+}
+.fy-reference-shell .fy-reference-flow-track>b {background:linear-gradient(90deg,#ab2145,#fb779b)}
+.fy-reference-shell .fy-reference-ranked {
+ display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;gap:6px;min-height:30px;
+}
+.fy-reference-rank {
+ display:grid;place-items:center;width:20px;height:20px;border-radius:4px;
+ font-size:11px;color:#e9f4ff;background:#294885;
+}
+.fy-reference-ranked:first-child .fy-reference-rank {background:#7b4920;color:#ffdfa0}
+.fy-reference-ladder-body .fy-button {max-width:100%;min-height:26px;padding:2px 1px;text-align:left}
+.fy-reference-shell .fy-reference-news-item {display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px}
+.fy-reference-news-tag {
+ align-self:start;border-radius:4px;padding:1px 5px;background:#1d3e72;color:#dcecff;font-size:10px;
+}
+.fy-reference-news-tag.positive {background:#702239;color:#ffe0e6}
+.fy-reference-news-tag.negative {background:#145047;color:#bbffea}
+.fy-reference-shell .fy-reference-strategy-links {gap:6px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.fy-reference-shell .fy-reference-strategy-links .fy-button {padding:5px 3px}
+.fy-reference-strategy-links button>span,.fy-reference-mobile-links button>span {
+ display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.fy-reference-strategy-links .fy-icon {width:20px;height:20px;color:#a5c7ff}
+.fy-reference-shell .fy-reference-review .fy-terminal-stats {
+ grid-template-columns:1.7fr repeat(6,minmax(0,1fr));
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat {
+ place-items:center;min-height:76px;padding:6px 5px;gap:2px;
+ border-color:#754b9c;background:linear-gradient(140deg,#281840,#30152e);
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.accent {
+ background:linear-gradient(143deg,#652243,#39152f);border-color:#d66492;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.calm {
+ background:linear-gradient(143deg,#10344a,#102438);border-color:#328b9f;
+}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat.calm>strong {color:#6ce6cb}
+.fy-reference-shell .fy-reference-review .fy-terminal-stat>strong {color:#ffa7c5}
+.fy-reference-review-filters {display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.fy-reference-review-filters .fy-button {min-height:30px;padding:3px 8px;border-color:#55447b;font-size:11px}
+.fy-reference-review-filters .fy-button[aria-pressed="true"] {background:#593294;border-color:#a776f2}
+.fy-reference-review .fy-terminal-review-head {flex-wrap:wrap;gap:6px 10px}
+.fy-reference-review .fy-terminal-review-head>div:first-child {flex:1 1 330px}
+.fy-reference-shell .fy-reference-review .fy-table th,
+.fy-reference-shell .fy-reference-review .fy-table td {padding:4px 7px;font-size:11px}
+.fy-reference-shell .fy-reference-review .fy-table tr:nth-child(even) {background:#232144}
+.fy-reference-review .fy-table .fy-button {min-height:27px;padding:2px 6px;font-size:11px}
+.fy-reference-review-basis {display:block;min-width:96px}
+.fy-reference-review-basis small {display:block;color:#b6c3e1;white-space:normal}
+.fy-reference-review .fy-terminal-chip[data-role="leader"] {background:#732539;color:#ffe4e8}
+.fy-reference-review .fy-terminal-chip[data-role="deputy"] {background:#773e25;color:#ffe0b0}
+.fy-reference-review .fy-terminal-chip[data-role="mid"] {background:#624e21;color:#ffe9b0}
+.fy-reference-review .fy-terminal-chip[data-role="follow"] {background:#314567;color:#e3eeff}
+@media(min-width:1360px) {
+ .fy-reference-shell[data-terminal-view="home"] .fy-business-nav {width:150px}
+ .fy-reference-shell[data-terminal-view="home"] .fy-main,
+ .fy-reference-shell[data-terminal-view="home"] .fy-connection-bar {margin-left:150px;padding-inline:12px}
+ .fy-reference-shell[data-terminal-view="home"]>.fy-snapshot {margin-left:162px;margin-right:12px}
+ .fy-reference-shell[data-terminal-view="home"] .fy-reference-home .fy-terminal-title {
+  min-height:34px;padding:3px 8px;
+ }
+ .fy-reference-shell[data-terminal-view="home"] .fy-terminal-title h1 {font-size:16px}
+ .fy-reference-shell[data-terminal-view="home"] .fy-terminal-actions .fy-button {min-height:27px;padding:3px 8px}
+ .fy-reference-shell[data-terminal-view="review"] .fy-business-nav {
+  position:static;flex-direction:row;width:auto;max-height:none;overflow-x:auto;overflow-y:hidden;
+  padding:5px 12px;gap:5px;
+ }
+ .fy-reference-shell[data-terminal-view="review"] .fy-business-nav button {
+  flex:none;width:auto;white-space:nowrap;border-color:#4e427a;
+ }
+ .fy-reference-shell[data-terminal-view="review"] .fy-business-nav button[data-current="true"] {
+  background:#553193;border-color:#aa75f1;
+ }
+ .fy-reference-shell[data-terminal-view="review"] .fy-main,
+ .fy-reference-shell[data-terminal-view="review"] .fy-connection-bar {margin-left:0}
+ .fy-reference-shell[data-terminal-view="review"]>.fy-snapshot {margin-inline:20px;width:auto}
+}
+@media(max-width:1000px) {
+ .fy-reference-shell .fy-reference-home .fy-reference-topgrid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-home .fy-reference-midgrid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fy-reference-shell .fy-reference-home .fy-reference-lowergrid {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px) {
+ .fy-reference-shell[data-terminal-view="home"] .fy-business-nav button {gap:5px;padding-inline:6px}
+ .fy-reference-shell[data-terminal-view="home"] .fy-business-nav button {order:2}
+ .fy-reference-shell[data-terminal-view="home"] .fy-business-nav button:nth-child(-n+4) {order:0}
+ .fy-reference-shell[data-terminal-view="home"] .fy-business-nav [data-business-sub="review"] {order:1}
+ .fy-reference-home>.fy-terminal-title,.fy-reference-review>.fy-terminal-title {order:0}
+ .fy-reference-home>.fy-reference-topgrid {order:1}
+ .fy-reference-home>.fy-terminal-provenance {order:2}
+ .fy-reference-home>.fy-reference-midgrid {order:3}
+ .fy-reference-home>.fy-terminal-stats {order:4}
+ .fy-reference-home>.fy-terminal-index {order:5}
+ .fy-reference-home>.fy-terminal-priorities {order:6}
+ .fy-reference-home>.fy-reference-lowergrid {order:7}
+ .fy-reference-shell .fy-reference-home .fy-reference-topgrid,
+ .fy-reference-shell .fy-reference-home .fy-reference-midgrid,
+ .fy-reference-shell .fy-reference-home .fy-reference-lowergrid {grid-template-columns:minmax(0,1fr)}
+ .fy-reference-shell .fy-reference-home .fy-reference-midgrid .fy-terminal-review-list {max-height:none}
+ .fy-reference-shell .fy-reference-home .fy-reference-signal-body {
+  grid-template-columns:minmax(0,1fr) 77px;
+ }
+ .fy-reference-shell .fy-reference-home .fy-reference-signal-ring {grid-column:2;grid-row:1;width:77px;padding:3px}
+ .fy-reference-shell .fy-reference-home .fy-reference-signal-notes {grid-column:1;grid-row:1}
+ .fy-reference-shell .fy-reference-signal-notes p {margin:1px 0;padding:2px 0}
+ .fy-reference-shell .fy-reference-home .fy-reference-actions {margin-top:6px}
+ .fy-reference-shell .fy-reference-home .fy-terminal-preview-head .fy-button {align-self:center}
+ .fy-reference-mobile-links {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;
+  padding:6px;background:#0d1b32;border:1px solid #2c4777;border-radius:10px;
+ }
+ .fy-reference-mobile-links .fy-button {background:none;border-color:transparent;min-height:44px}
+ .fy-reference-mobile-links .fy-icon {width:24px;height:24px;padding:3px;border-radius:50%;background:#255288;color:#eaf4ff}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+1) .fy-icon {background:#8b365c}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+2) .fy-icon {background:#167177}
+ .fy-reference-mobile-links .fy-button:nth-child(4n+4) .fy-icon {background:#84502d}
+ .fy-reference-shell .fy-reference-home .fy-terminal-title {min-height:36px;padding:4px 8px}
+ .fy-reference-candidate-source {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats {
+  grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
+ }
+ .fy-reference-shell .fy-reference-review .fy-terminal-stat {min-height:62px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stat:first-child {grid-column:span 2}
+ .fy-reference-shell .fy-reference-review .fy-terminal-stats>.fy-terminal-stat:first-child>strong {font-size:27px}
+ .fy-reference-shell .fy-reference-review .fy-terminal-review-list {max-height:none}
+ .fy-reference-review>.fy-terminal-stats {order:1}
+ .fy-reference-review>.fy-terminal-provenance {order:2}
+ .fy-reference-review .fy-terminal-review-head>div:first-child {flex:0 1 auto}
 }

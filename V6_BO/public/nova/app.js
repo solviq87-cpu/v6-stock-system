@@ -91,7 +91,7 @@ function snapshotStatus() {
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
- else if(historical)snapshot.textContent='保留快照 / '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+'　行情与股票池保留最近交易日，新闻与公告继续更新。';
+ else if(historical)snapshot.textContent='最近交易日快照 '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+' · 新闻与公告继续更新';
 }
 function createFrame() {
  const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'AI量化选股 · 多策略 · 多源行情')));
@@ -113,7 +113,8 @@ function createFrame() {
  const actions=h('div',{class:'fy-actions'},search,refreshButton,inbox,identity);
  const header=h('header',{class:'fy-header'},brand,referenceTop,nav,actions);
  const businessNav=h('nav',{class:'fy-business-nav','aria-label':'V6 原业务功能导航'},BUSINESS_NAV.map(([label,view,sub])=>
-  h('button',{type:'button','data-business-view':view,'data-business-sub':sub,onClick:()=>navigate(view,sub)},label)));
+  h('button',{type:'button','data-business-view':view,'data-business-sub':sub,onClick:()=>navigate(view,sub)},
+   icon(({pulse:'pulse',opportunities:'spark',lab:'lab',inbox:'bell',assets:'assets',settings:'settings'})[view]),h('span',{},label))));
  main=h('main',{class:'fy-main',id:'fayo-content',tabindex:'-1'});
  snapshot=h('div',{class:'fy-snapshot',role:'status',hidden:true});
  const meta=h('div',{class:'fy-connection-bar'},h('span',{},'你的投资研究空间'),connection);
@@ -126,6 +127,8 @@ async function renderRoute() {
  if(!role||!main)return;
  route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
+ frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
+  route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
  frame.querySelectorAll('[data-fy-route]').forEach(node=>{const active=node.dataset.fyRoute===route.view&&(!node.dataset.fySub||node.dataset.fySub===route.sub);node.dataset.current=String(active);if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
  frame.querySelectorAll('[data-business-view]').forEach(node=>{
   const active=route.view===node.dataset.businessView&&route.sub===node.dataset.businessSub;
