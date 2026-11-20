@@ -21,7 +21,17 @@ const requests=[],resources=[];
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
- return {now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ const sourcePanels={
+  sectorsDay:'20261113',ztDay:'20261113',
+  ztBySector:[{sector:'合成能源',count:2,stocks:[{...stocks[0],role:'leader'},{...stocks[2],role:'mid'}]},
+   {sector:'合成材料',count:1,stocks:[{...stocks[1],role:'leader'}]}],
+  indexKline:{items:candles.slice(-32).map((bar,i)=>{
+   const middle=3210+Math.sin(i*.7)*25+i*2;
+   const open=middle+Math.cos(i)*9,close=middle-Math.cos(i)*9;
+   return {date:bar.date,open,close,high:Math.max(open,close)+5,low:Math.min(open,close)-5};
+  })}
+ };
+ return {...sourcePanels,now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8,mainInflowYuan:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7,mainInflowYuan:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 function respond(url,req,body){
  const p=url.pathname;
@@ -108,6 +118,38 @@ async function geometry(page,label){
  assert.ok(result.brandBox&&result.brandBox.top>=-1&&result.brandBox.left>=0&&result.brandBox.right<=result.width+1&&result.brandBox.height>0,label+' new brand mark and name stay in the visible header: '+JSON.stringify(result.brandBox));
  return result;
 }
+async function checkWorkspaceTabs(page,width){
+ const tabs=page.locator('.fy-reference-topnav');
+ const labels=await tabs.locator('[data-workspace-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceTab));
+ assert.deepEqual(labels,['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的']);
+ const grouped=[];
+ for(const label of labels){
+  await tabs.locator('[data-workspace-tab="'+label+'"]').click();
+  await page.waitForFunction(value=>document.querySelector('.fy-reference-shell')?.dataset.workspace===value&&
+   !!document.querySelector('.fy-main>:not(.fy-loading)'),label);
+  assert.equal(await tabs.locator('[data-current="true"]').count(),1);
+  assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+  assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+  await geometry(page,'workspace-'+label+'-'+width);
+  await page.screenshot({path:path.join(output,'workspace-'+label+'-'+width+'.png'),fullPage:false});
+  const nav=page.locator('.fy-workspace-nav');
+  const routes=await nav.locator('[data-workspace-route]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceRoute));
+  assert.equal(new Set(routes).size,routes.length,'each destination appears once within '+label);
+  if(await nav.isVisible()){
+   for(const child of routes){
+    await nav.locator('[data-workspace-route="'+child+'"]').click();
+    await page.waitForFunction(value=>location.hash==='#/'+value&&
+     document.querySelector('.fy-workspace-nav [aria-current="page"]')?.dataset.workspaceRoute===value&&
+     !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
+    assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+    assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    await geometry(page,'workspace-'+child+'-'+width);
+   }
+  }
+  grouped.push({label,routes});
+ }
+ return grouped;
+}
 const runChecks=async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
@@ -168,10 +210,11 @@ const runChecks=async()=>{
       focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
       review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
       referenceTop:b('.fy-reference-topgrid'),referenceMiddle:b('.fy-reference-midgrid'),referenceLower:b('.fy-reference-lowergrid'),
+      shortcuts:b('.fy-reference-mobile-links'),candidates:b('.fy-terminal-candidates'),funds:b('.fy-reference-funds'),
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
-      brand:b('.fy-header'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
+      brand:b('.fy-header .fy-brand'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
       down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
       main:getComputedStyle(document.querySelector('.fy-terminal')).display
      };
@@ -187,17 +230,17 @@ const runChecks=async()=>{
     const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
     assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
     if(width===1366){
-     assert.ok(regions.ticker.top<regions.stats.top&&regions.stats.top<regions.focus.top,
-      'desktop index strip and statistics precede the compact decision strip');
-     assert.ok(regions.focus.top<regions.referenceTop.top&&regions.referenceTop.top<regions.review.top,
-      'desktop reference signal, candidates and funds precede the original review table');
+     assert.ok(regions.ticker.bottom<regions.referenceTop.top&&regions.referenceTop.bottom<regions.referenceMiddle.top,
+      'desktop index strip leads the three primary cards, followed by the review and evidence row');
+     assert.equal(regions.candidates.top,regions.funds.top,'desktop candidates and funds share one row');
      assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
      assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
     }else{
-     assert.ok(regions.stats.bottom<regions.ticker.top,
-      'phone first-fold source counters precede original-time market index cards');
-     assert.ok(regions.ticker.top<regions.focus.top&&regions.focus.top<regions.referenceTop.top,
-      'phone reference index and risk precede the signal, candidate and funds sections');
+     assert.ok(regions.referenceTop.top<regions.shortcuts.top&&regions.shortcuts.bottom<regions.candidates.top&&
+      regions.candidates.bottom<regions.funds.top&&regions.funds.top<874,
+      'phone shows the signal, shortcuts, candidates and the start of funds in the reference order');
+     assert.ok(regions.stats.bottom<regions.ticker.top&&regions.ticker.top<regions.focus.top,
+      'phone retains audited counters, original-time indices and the risk strip below the primary dashboard');
      assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
       'phone original review remains between primary evidence and additional research modules');
      const phoneFocus=await page.evaluate(()=>
@@ -206,8 +249,7 @@ const runChecks=async()=>{
         .map(node=>node.dataset.focus));
      assert.deepEqual(phoneFocus,['risk','next'],
       'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
-     assert.ok(regions.stats.top<400&&regions.stats.bottom<780,
-      'iPhone first fold must show actual review numbers rather than big headers');
+     assert.ok(regions.candidates.top<600,'phone first fold contains actual candidates');
      assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
       'four compact count cards share the first phone row');
      assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
@@ -222,11 +264,19 @@ const runChecks=async()=>{
       mainLeft:b.left,navButtons:nav.querySelectorAll('button').length};
     });
     assert.equal(rail.position,'fixed','desktop must show a proper business left rail');
-    assert.ok(rail.left>=0&&rail.width>=170&&rail.width<=215,'business rail remains readable');
+    assert.ok(rail.left>=0&&rail.width>=140&&rail.width<=160,'business rail remains readable');
     assert.ok(rail.mainLeft>=rail.right,'workspace must not overlap navigation rail');
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
+   assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
+   const fundPanel=page.locator('.fy-reference-funds');
+   await fundPanel.getByRole('button',{name:'资金流出榜',exact:true}).click();
+   await fundPanel.locator('.fy-reference-flow .fy-negative').waitFor({state:'visible'});
+   assert.match(await fundPanel.locator('.fy-reference-flow').innerText(),/合成材料/);
+   await fundPanel.getByRole('button',{name:'资金流入榜',exact:true}).click();
+   await fundPanel.locator('.fy-reference-flow .fy-positive').waitFor({state:'visible'});
+   assert.match(await fundPanel.locator('.fy-reference-flow').innerText(),/合成能源/);
    // User-provided first reference: real dedicated daily-review route, same data and session.
    const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
    await navigate(page,'pulse','review');
@@ -238,6 +288,22 @@ const runChecks=async()=>{
     'review shows mainline, actual board classification and source-dated funds');
    assert.equal(await page.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
     'six source-backed research entry cards remain accessible');
+   const reviewStats=page.locator('.fy-reference-review .fy-terminal-stats');
+   if(width<=430){
+    const boxes=await reviewStats.locator('.fy-terminal-stat').evaluateAll(cards=>cards.map(card=>{
+     const rect=card.getBoundingClientRect();return {top:rect.top,width:rect.width};
+    }));
+    assert.equal(boxes[0].top,boxes[2].top,'phone review groups the total, first and continued counts on row one');
+    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below');
+   }
+   const filters=page.locator('.fy-reference-review-filters');
+   await filters.getByRole('button',{name:'首板 3',exact:true}).click();
+   assert.equal(await filters.getByRole('button',{name:'首板 3',exact:true}).getAttribute('aria-pressed'),'true');
+   await filters.getByRole('button',{name:'有开板记录 0',exact:true}).click();
+   await page.getByText('该筛选下暂无复盘记录',{exact:true}).waitFor({state:'visible'});
+   await filters.getByRole('button',{name:'全部 3',exact:true}).click();
+   assert.equal(await page.locator('.fy-reference-review .fy-terminal-mobile-stock').count(),3);
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await geometry(page,'reference-review-'+width);
    await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:false});
    assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
@@ -261,15 +327,15 @@ const runChecks=async()=>{
      const stat=document.querySelector('.fy-terminal-stats');
      const index=document.querySelector('.fy-terminal-index');
      const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
-     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,
-       firstStatVisible:!!a&&a.bottom>0&&a.top>=0&&a.top<innerHeight,
+     const c=document.querySelector('.fy-terminal-candidates')?.getBoundingClientRect();
+     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,candidateTop:c?.top,
        scrollTop:window.scrollY,viewport:innerHeight};
     });
     assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
     assert.equal(firstFold.statCount,8,'all original review counters are retained');
     assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
-    assert.ok(firstFold.firstStatVisible&&firstFold.statTop<firstFold.viewport*.8,
-      'first meaningful review counter should appear within the iPhone first fold');
+    assert.ok(firstFold.candidateTop<firstFold.viewport*.7,
+      'first meaningful candidate should appear within the iPhone first fold');
     assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
     assert.equal(actual.indexCards.length,4,'four existing source-timestamped indices remain available');
     assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row has two columns');
@@ -403,6 +469,7 @@ const runChecks=async()=>{
    assert.match(await page.locator('.fy-main').innerText(),/600101/,'ledger reads authoritative accounting.positions');
    assert.match(await page.locator('.fy-main').innerText(),/345\.67/,'ledger reads authoritative realizedPnl');
    await page.screenshot({path:path.join(output,'fayo-ledger-'+width+'.png'),fullPage:false});
+   const workspaces=width===390||width===1366?await checkWorkspaceTabs(page,width):null;
    const browsing=requests.slice(before);
    const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
@@ -420,7 +487,7 @@ const runChecks=async()=>{
    assert.equal(await page.evaluate(()=>localStorage.getItem('qd_device')),null,'revoked device token is cleared');
    assert.deepEqual(errors,[],'no application exceptions at '+width);
    assert.deepEqual(external,[],'no third-party data/font/model requests at '+width);
-   report.push({width,metrics,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
+   report.push({width,metrics,workspaces,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
    await context.close();
   }
   // Read-only access remains usable without attempting editor endpoints.
@@ -429,6 +496,9 @@ const runChecks=async()=>{
   await reader.addInitScript(()=>{localStorage.setItem('qd_device','fayo-synthetic-reader');localStorage.setItem('qd_role','view');});
   const readPage=await reader.newPage(),readerStart=requests.length;
   await readPage.goto(origin+'/');await readPage.locator('.fy-header').waitFor({state:'visible'});
+  await readPage.locator('.fy-reference-topnav [data-workspace-tab="选股"]').click();
+  await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/all"]').waitFor({state:'visible'});
+  assert.equal(await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/wash"]').count(),0);
   await navigate(readPage,'assets','holdings');
   await readPage.waitForFunction(()=>document.querySelector('.fy-main')?.textContent.includes('私人工作区'));
   await navigate(readPage,'settings','channels');

@@ -151,10 +151,19 @@ test('collapsible business modules preserve mobile/desktop interactions and loca
           assert.equal(ownHandlerKeptNode, true, `${view}: the collapse handler replaced its own DOM synchronously`);
           const key = await module.getAttribute('data-v6-module');
           const beforeWrites = f.writes;
-          await toggle.click();
-          assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
-          assert.equal(await module.evaluate(node => node.classList.contains('v6-module-collapsed')), true);
-          assert.equal(await module.evaluate(node => [...node.children].filter(child => !child.classList.contains('v6-module-header')).every(child => getComputedStyle(child).display === 'none')), true);
+          // Check the clicked node in the same task. The news and cloud render
+          // may replace it before a separate locator call reads the CSS.
+          const collapsed = await toggle.evaluate(button => {
+            const node = button.closest('[data-v6-module]');
+            button.click();
+            return {
+              expanded: button.getAttribute('aria-expanded'),
+              collapsed: node.classList.contains('v6-module-collapsed'),
+              childrenHidden: [...node.children].filter(child => !child.classList.contains('v6-module-header'))
+                .every(child => getComputedStyle(child).display === 'none')
+            };
+          });
+          assert.deepEqual(collapsed, { expanded: 'false', collapsed: true, childrenHidden: true }, `${view} toggle hides its body and exposes the collapsed state`);
           assert.equal(f.writes, beforeWrites, 'presentation collapse wrote the cloud ledger');
           await toggle.focus();
           await page.keyboard.press('Enter');

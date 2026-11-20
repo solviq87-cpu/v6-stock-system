@@ -17,14 +17,15 @@ test('reference iteration favors useful source data and a compact three-panel/ta
   assert.ok(design.includes(token),token);
  assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
  assert.match(browser,/regions\.review\.top<810/);
- assert.match(browser,/regions\.referenceTop\.top<regions\.review\.top/);
+ assert.match(browser,/regions\.referenceTop\.bottom<regions\.referenceMiddle\.top/);
 });
 test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
  assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
  assert.match(design,/\.fy-terminal-priorities\{order:3/);
  assert.match(design,/\.fy-terminal-index\{order:5/);
  assert.match(browser,/regions\.sourceCount,8/);
- assert.match(browser,/regions\.stats\.top<400/);
+ assert.match(browser,/regions\.candidates\.top<600/);
+ assert.match(browser,/boxes\[0\]\.top,boxes\[2\]\.top/);
  assert.match(design,/\.fy-terminal-provenance/);
  assert.match(design,/\.fy-terminal-priority-risk/);
 });

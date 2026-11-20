@@ -1,6 +1,6 @@
 # 绯曜 FAYO
 
-**当前产品（2026-11-15）**：正式入口已切换为独立原生前端「绯曜 FAYO」，包括五个工作空间、机会看板、全局股票研究面板、九个研究工作区及原生资产/中枢流程。新品牌、页面、样式和控制器位于 [`V6_BO/public/nova/`](V6_BO/public/nova/)，不加载旧界面或 iframe。已有账户、数据与业务服务保留。见[重建与验证](FAYO_PRODUCT_REBUILD_20261115.md)及[117项功能迁移审查](V6_BO/docs/FAYO_FUNCTION_MIGRATION_20261115.json)。下文保留历史工程与运行说明；源码和测试不等于已上线。
+**当前产品（2026-11-15）**：正式入口已切换为独立原生前端「绯曜 FAYO」，包括五个工作空间、机会看板、全局股票研究面板、九个研究工作区及原生资产/中枢流程。新品牌、页面、样式和控制器位于 [`V6_BO/public/nova/`](V6_BO/public/nova/)，不加载旧界面或 iframe。已有账户、数据与业务服务保留。见[重建与验证](FAYO_PRODUCT_REBUILD_20261115.md)及[117项功能迁移审查](V6_BO/docs/FAYO_FUNCTION_MIGRATION_20261115.json)。下文保留历史工程与运行说明；源码和测试不等于已上线。 各标签的入口与维护位置见[页面与代码归类](V6_BO/docs/V6_WORKSPACE_TABS.md)。
 
 **正式 UI 与免费本机更新（2026-11-15）**：桌面、手机和业务内页共用现有权限/API/账户；新增默认只检查的 WSL 安全更新器和私网配置审计。参阅 [界面验收](UI_REDESIGN_ACCEPTANCE.md)、[Windows/WSL与手机操作](ZERO_COST_HOST_DEPLOYMENT.md)、[更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)。代码和隔离测试不代表用户电脑、手机或真实账户已经上线。
 

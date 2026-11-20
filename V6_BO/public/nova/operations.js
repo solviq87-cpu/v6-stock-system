@@ -274,7 +274,7 @@ export function renderOperations(route,ctx) {
   const view=route.view,sub=route.sub||({assets:'overview',inbox:'all',settings:'preferences'}[view]);
   const host=el('div',{class:'fy-operations fy-stack','data-operations-view':view,'data-operations-sub':sub});
   const categories={assets:[['overview','资产总览'],['holdings','资产簿'],['risk','风险边界'],['paper','模拟跟踪'],['ledger','账务证据'],['daily-review','今日复盘'],['closure','人工执行记录'],['authority','主账户风控'],['history','变更与恢复']],inbox:[['all','资讯时间线'],['alerts','风险线索'],['signals','信号轨迹'],['push','投递追踪'],['compose','写通知']],settings:[['preferences','自动化偏好'],['diagnostics','运行状态'],['channels','通知路由'],['devices','设备'],['security','访问安全'],['source','受控源文件'],['release','发布收件箱']]};
-  host.append(subnav(ctx,view,categories[view]||[],sub));
+  if(!ctx.workspaceNavigation)host.append(subnav(ctx,view,categories[view]||[],sub));
   let content;
   if(view==='assets')content=sub==='daily-review'?renderDailyReview(ctx):sub==='closure'?renderManualLoop(ctx,{el,action,panel,field,input,select,notice,table,privateView,request,form,asyncRegion}):sub==='holdings'?holdings(ctx):sub==='risk'?holdings(ctx,true):sub==='paper'?paper(ctx):sub==='ledger'?paper(ctx,true):sub==='authority'?authority(ctx):sub==='history'?holdingHistory(ctx):overview(ctx);
   else if(view==='inbox')content=sub==='push'?pushLog(ctx):sub==='compose'?messageComposer(ctx):newsFeed(ctx,sub);

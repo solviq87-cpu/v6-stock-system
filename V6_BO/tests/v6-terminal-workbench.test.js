@@ -101,6 +101,20 @@ test('a stale sector classification cannot be merged into a new-day review',asyn
  assert.doesNotMatch(t,/旧版龙头/);
  await tick();ctx.controller.abort();
 });
+test('homepage simulation totals use only the editor projection and keep missing values unknown',async()=>{
+ dom();const {renderTerminalOverview}=await api,s=fixture(1);
+ s.paper={pool:{equity:123456.78,cash:0,marketValue:null,totalPnl:-12.5}};
+ const editor=context(s),viewer=context(s,'view'),hidden=context({...s,paper:{...s.paper,hidden:true}});
+ const panel=view=>locate(view,el=>el?.className==='fy-reference-account-body');
+ const content=ctx=>textOf(panel(renderTerminalOverview(ctx)));
+ const totals=content(editor);
+ assert.match(totals,/总权益\s+123,456\.78/);
+ assert.match(totals,/可用资金\s+0\.00/);
+ assert.match(totals,/持仓市值\s+—/);
+ assert.doesNotMatch(content(viewer),/123,456\.78/);
+ assert.doesNotMatch(content(hidden),/123,456\.78/);
+ for(const ctx of [editor,viewer,hidden])ctx.controller.abort();
+});
 test('real V6 module links route to existing review, strategies, simulated account and holdings',async()=>{
  dom();const {renderTerminalOverview}=await api,ctx=context(fixture(3));
  const view=renderTerminalOverview(ctx);
