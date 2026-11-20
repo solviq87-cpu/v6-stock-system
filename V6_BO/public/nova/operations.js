@@ -1,3 +1,4 @@
+import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
 import {renderManualLoop} from './manual-loop.js';
 /* FAYO operations: independent presentation over the existing account authority.
@@ -137,7 +138,7 @@ function renderLedgerAccount(account,key) {
 }
 function newsFeed(ctx,kind) {
   let source=[];
-  const readSource=()=>{const state=ctx.state||{},good=arr(state.goodNews?.items),bad=arr(state.badNews?.items),signals=arr(state.signals);return kind==='alerts'?bad:kind==='signals'?signals:[...good,...bad].sort((a,b)=>String(b.publishedAt||b.t||'').localeCompare(String(a.publishedAt||a.t||'')));};
+  const readSource=()=>newsRows(ctx.state||{},kind);
   const host=el('div',{class:'fy-stack'});const search=input('news-search','','search',{placeholder:'搜索标题、股票或板块','aria-label':'筛选资讯'});const feed=el('div',{class:'fy-news-feed'});
   const render=()=>{source=readSource();const q=search.value.trim().toLowerCase(),rows=source.filter(row=>[row.title,row.name,row.code,row.text,...arr(row.codes),...arr(row.sectors)].join(' ').toLowerCase().includes(q));feed.replaceChildren(rows.length?el('div',{class:'fy-timeline'},rows.map(row=>{
     const title=row.title||row.name||row.text||'信号记录';const url=row.url||row.sourceUrl;return el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('time',{},date(row.publishedAt||row.quoteAt||row.t||row.time)),el('span',{class:'fy-tag'},row.direction||row.type||(arr(ctx.state?.badNews?.items).includes(row)?'风险线索':'资讯'))),el('h3',{},url?link(url,title):title),row.text&&row.text!==title&&el('p',{},row.text),row.reason&&el('p',{class:'fy-muted'},row.reason),el('div',{class:'fy-tagline'},arr(row.codes).map(code=>action(code,()=>ctx.selectStock(code),'text')),row.code&&action(row.code,()=>ctx.selectStock(row.code),'text'),arr(row.sectors).map(sector=>el('span',{class:'fy-tag'},sector))),row.source&&el('small',{},'来源 '+row.source));})):empty('当前没有匹配的资讯','休市期间资讯仍独立更新；行情快照与新闻发布时间分别展示。'));};search.addEventListener('input',render);render();

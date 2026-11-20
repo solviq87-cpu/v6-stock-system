@@ -1,5 +1,6 @@
+import {renderSourceReviewPool} from './review-pool.js';
 import { phaseLabel, stockTactics } from './tactics-view.js';
-import {aggregateCandles,movingAverages,projectForwardTracking,projectDecisionBrief} from './market-evidence.js';
+import {aggregateCandles,movingAverages,projectForwardTracking,projectDecisionBrief,stockReasons,requirePoolReady} from './market-evidence.js';
 export {projectDecisionBrief};
 import {h,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
 
@@ -39,7 +40,7 @@ const quoteAt=row=>row?.vendorQuoteAt??row?.quoteAt??row?.quoteTimestamp;
 const quoteSource=row=>row?.quoteSource||row?.source||row?.quoteProvider||'来源待核验';
 export function quoteLabel(row) {const at=quoteAt(row);return Number.isFinite(at)&&at>0?dateTime(at)+' · '+quoteSource(row)+(at>Date.now()?' · 时点异常':Date.now()-at>15000?' · 历史报价':' · 原始报价'):'报价时点待核验 · '+quoteSource(row);}
 const symbolName=row=>row?.name||row?.code||'未选择';
-const reasons=row=>{const primary=Array.isArray(row?.hit)?row.hit.map(x=>typeof x==='string'?x:x.text||x.label||x.id).filter(Boolean):Array.isArray(row?.signals)?row.signals:Array.isArray(row?.explanation)?row.explanation:Array.isArray(row?.why)?row.why:[];return primary.length?primary:[row?.reason,row?.why,row?.note,row?.washNote,row?.via].filter(x=>typeof x==='string'&&x);};
+const reasons=stockReasons;
 export function stockCard(row,ctx) {
  const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,row)},
   h('div',{class:'fy-stock-head'},h('div',{},h('strong',{},symbolName(row)),h('span',{class:'fy-muted'},row.code)),h('span',{class:'fy-score-ring'},typeof row.score==='number'?format(row.score,1):typeof row.prob==='number'?format(row.prob,1):row.result||'待评估',h('small',{},typeof row.score==='number'?'评分':typeof row.prob==='number'?'原概率':row.result?'原状态':''))),
@@ -193,6 +194,7 @@ export function renderOpportunities(route,ctx) {
     const params=active[0]==='matches'?new URLSearchParams({limit:String(max),...(append&&cursor?{cursor}:{})}):new URLSearchParams({board:requestedBoard,max:String(max)});
     data=await ctx.readPool(active[0]+':'+requestedBoard,()=>ctx.api(active[3]+'?'+params,{signal:ctx.signal,timeoutMs:60000}));
     if(ctx.signal.aborted||turn!==loadGeneration)return;
+    requirePoolReady(data);
     if(append&&snapshotIdentity&&data.snapshotId&&data.snapshotId!==snapshotIdentity){cursor='';ctx.notify('扫描快照已更新，将读取新的第一页');load(false);return;}
     snapshotIdentity=data.snapshotId||snapshotIdentity;
     const incoming=unique(rowsFrom(data.items||data)).map(row=>data.forwardTracking&&!row.forwardTracking?{...row,forwardTracking:data.forwardTracking}:row);current=append?unique([...current,...incoming]):incoming;
@@ -280,6 +282,7 @@ export function renderAllOpportunities(ctx) {
    if(pool[0]==='wash'&&ctx.state?.trading!==false)return {label:pool[1],private:true,data:{items:[],note:'盘中自动汇总暂不读取此池；可在更多筛选中单独查看'}};
    const params=pool[0]==='matches'?'limit=50':'board=all&max=50';
    const data=await ctx.readPool(pool[0]+':all',()=>ctx.api(pool[3]+'?'+params,{signal:ctx.signal,timeoutMs:60000}));
+   requirePoolReady(data);
    return {label:pool[1],private:pool[4]==='edit',data};
   }));
   if(ctx.signal?.aborted||turn!==generation)return;
@@ -345,14 +348,16 @@ export function reviewCoverage(review) {
   sourceIncomplete:source?source.reportedCount!==source.uniqueCount||source.returnedCount!==source.uniqueCount:null};
 }
 export function renderDailyReview(ctx) {
- const output=h('div',{class:'fy-stack'});
+ let updateSource;
+ const sourceContext={get state(){return ctx.state;},signal:ctx.signal,selectStock:(...args)=>ctx.selectStock(...args),onState:fn=>{updateSource=fn;}};
+ const output=h('div',{class:'fy-stack'}),sourcePool=renderSourceReviewPool(sourceContext,stockCard);
  const openRow=row=>button((row.name||row.code)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet');
  const metric=(label,value)=>h('div',{class:'fy-kpi'},h('span',{},label),h('strong',{},value));
  function paint(){
   if(ctx.signal?.aborted||output.contains(document.activeElement))return;
   const state=ctx.state||{},review=state.review,day=reviewDate(review?.date),today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
   const summary=summarizeReview(review),coverage=reviewCoverage(review),current=day===today,marketDay=reviewDate(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay);
-  if(!review){output.replaceChildren(empty('今日复盘尚未生成','等待服务端收盘行情与复盘任务，刷新只读取实际结果。'));return;}
+  if(!review){output.replaceChildren(empty('今日复盘尚未生成','等待服务端收盘行情与复盘任务，刷新只读取实际结果。'),sourcePool);return;}
   const dateNote=current?'原始交易日 '+day+' · 生成于 '+(review.time||'时间待核验'):day?'今天的报告尚未返回，下面保留 '+day+' 的原报告。':'报告缺少原始日期，不能标记为今日复盘。';
   const summaryPanel=section(current?'今日复盘':day?'最近复盘 · '+day:'日期待核验的复盘',dateNote,
    h('div',{class:'fy-grid two'},metric('复盘股票',summary.rows.length+' 只'),metric('首板',summary.first+' 只'),metric('连板',summary.continued+' 只'),metric('最高连板',summary.highest==null?'未知':summary.highest+' 板')),
@@ -381,12 +386,12 @@ export function renderDailyReview(ctx) {
     return h('article',{class:'fy-item'},h('h3',{},pool[1]),ctx.role!=='edit'?note('此候选池需要管理者身份'):sameDay&&data.items.length?h('div',{class:'fy-stack'},data.items.slice(0,3).map(row=>h('div',{},openRow(row),h('p',{},reasons(row).join('；')||'未返回选择依据，暂不作判断。')))):note('暂无与本次复盘同日的候选'+(data.snapshotDay?'；最近结果日期 '+dayLabel(data.snapshotDay):'')),button('查看'+pool[1],()=>ctx.navigate('opportunities',key)));
    })),h('p',{class:'fy-muted'},'竞价、成交量和板块延续需在下一交易日由新数据确认；条件未确认前保持观察。'));
   const records=section('完整复盘清单','点击股票查看原始依据与走势',summary.rows.length?renderEvidence(summary.rows.map(row=>({...row,poolDay:day})),ctx):empty('尚无复盘股票明细',review.note||'源数据未就绪或尚未生成明细，不能认定为今日无涨停。'));
-  output.replaceChildren(summaryPanel,coveragePanel,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
+  output.replaceChildren(summaryPanel,coveragePanel,sourcePool,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
  }
  const refreshButton=button('刷新复盘',async()=>{refreshButton.disabled=true;try{await ctx.refresh();paint();}finally{refreshButton.disabled=false;}},'primary');
  const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),phaseLabel(),refreshButton,output,
   h('details',{class:'fy-details'},h('summary',{},'更多记录'),button('人工交易执行记录',()=>ctx.navigate('assets','closure')),button('历史学习',()=>ctx.navigate('lab','learning'))));
- ctx.onState?.(paint);paint();return view;
+ ctx.onState?.(()=>{updateSource?.();paint();});paint();return view;
 }
 
 const aggregate=aggregateCandles;
