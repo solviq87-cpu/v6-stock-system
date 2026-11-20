@@ -1802,3 +1802,82 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-reference-review>.fy-terminal-provenance {order:2}
  .fy-reference-review .fy-terminal-review-head>div:first-child {flex:0 1 auto}
 }
+
+/* All authenticated routes share the reference header and tab vocabulary. */
+.fy-reference-shell {
+ background:radial-gradient(ellipse at 75% 0,#15356b65,transparent 42%),#071122;
+}
+.fy-reference-shell .fy-header {
+ background:linear-gradient(100deg,#08132a,#060e1d 65%,#0c203e);border-color:#285588;
+}
+.fy-reference-shell[data-workspace="复盘"] {
+ background:radial-gradient(ellipse at 70% 0,#3d25683d,transparent 48%),#0b0d21;
+}
+.fy-mobile-tab-label {display:none}
+.fy-workspace-nav {
+ display:flex;align-items:center;gap:5px;overflow:auto;scrollbar-width:thin;
+ padding:7px 1px;min-width:0;margin:0 14px;
+}
+.fy-workspace-nav button {
+ flex:none;min-height:34px;padding:4px 10px;
+ border:1px solid #294b78;border-radius:6px;background:#0e203d;
+ color:#c6dcf5;font-size:11px;white-space:nowrap;
+}
+.fy-workspace-nav button:hover,.fy-workspace-nav button[aria-current="page"] {
+ border-color:#57a6ff;background:#1d4781;color:#fff;
+}
+.fy-reference-shell[data-workspace="复盘"] .fy-workspace-nav button[aria-current="page"] {
+ border-color:#a078ed;background:#553391;
+}
+.fy-reference-shell .fy-main>.fy-stack:not(.fy-terminal) {gap:10px}
+.fy-reference-shell .fy-main .fy-view-heading {
+ border:1px solid #2d507a;background:linear-gradient(110deg,#122441,#0c1a30);
+ border-radius:9px;padding:10px 12px;margin:0;
+}
+.fy-reference-shell .fy-main .fy-view-heading h1 {font-size:20px;line-height:1.35;margin:0}
+.fy-reference-shell .fy-main .fy-view-heading p {margin:3px 0 0;color:#adc5e8}
+.fy-reference-shell .fy-main .fy-section.fy-panel {border-radius:10px}
+.fy-reference-shell .fy-main>.fy-stack:not(.fy-terminal)>.fy-section {margin:0;padding:12px}
+.fy-market-count {display:grid;gap:2px;text-align:left}
+.fy-market-count small {color:#bbd1ef}
+.fy-market-count strong {font-size:17px}
+.fy-reference-shell .fy-main .fy-subnav button[aria-current="page"] {
+ background:#214a83;border-color:#4789d1;color:#fff;
+}
+@media(min-width:1360px){
+ .fy-reference-shell:not([data-terminal-view="review"]) .fy-workspace-nav {
+  margin-left:205px;margin-right:20px;
+ }
+}
+@media(max-width:1359px) {
+ .fy-reference-shell .fy-business-nav {display:none}
+}
+@media(max-width:1000px) {
+ .fy-reference-shell .fy-header {
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:start;
+  height:auto;min-height:0;padding:0;gap:0;overflow:visible;
+ }
+ .fy-reference-shell .fy-brand,.fy-reference-shell .fy-actions {margin:0 10px;min-height:57px}
+ .fy-reference-shell .fy-brand {grid-column:1;grid-row:1}
+ .fy-reference-shell .fy-actions {grid-column:2;grid-row:1}
+ .fy-reference-shell .fy-reference-topnav {
+  display:flex;grid-row:2;grid-column:1/-1;min-width:0;max-width:100%;
+  justify-content:flex-start;gap:4px;overflow:auto;
+  padding:4px 8px;border-top:1px solid #2a4c78;background:#0b1931;
+ }
+ .fy-reference-shell .fy-reference-topnav button {
+  flex-direction:row;min-height:34px;min-width:auto;gap:5px;padding:4px 7px;font-size:11px;
+ }
+ .fy-reference-shell .fy-reference-topnav button svg {width:15px;height:15px}
+ .fy-mobile-tab-label {display:inline}
+ .fy-desktop-tab-label {display:none}
+}
+@media(max-width:700px) {
+ .fy-workspace-nav {margin:0 9px;padding-block:5px}
+ .fy-workspace-nav button {min-height:36px;padding:3px 8px}
+ .fy-reference-shell .fy-main .fy-view-heading h1 {font-size:17px}
+ .fy-reference-shell .fy-main .fy-view-heading {padding:7px 9px}
+}
+@media(display-mode:standalone) and (max-width:650px) {
+ .fy-reference-shell .fy-header {padding-top:env(safe-area-inset-top,0px)}
+}

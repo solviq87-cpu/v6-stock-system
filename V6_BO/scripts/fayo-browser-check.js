@@ -118,6 +118,38 @@ async function geometry(page,label){
  assert.ok(result.brandBox&&result.brandBox.top>=-1&&result.brandBox.left>=0&&result.brandBox.right<=result.width+1&&result.brandBox.height>0,label+' new brand mark and name stay in the visible header: '+JSON.stringify(result.brandBox));
  return result;
 }
+async function checkWorkspaceTabs(page,width){
+ const tabs=page.locator('.fy-reference-topnav');
+ const labels=await tabs.locator('[data-workspace-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceTab));
+ assert.deepEqual(labels,['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的']);
+ const grouped=[];
+ for(const label of labels){
+  await tabs.locator('[data-workspace-tab="'+label+'"]').click();
+  await page.waitForFunction(value=>document.querySelector('.fy-reference-shell')?.dataset.workspace===value&&
+   !!document.querySelector('.fy-main>:not(.fy-loading)'),label);
+  assert.equal(await tabs.locator('[data-current="true"]').count(),1);
+  assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+  assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+  await geometry(page,'workspace-'+label+'-'+width);
+  await page.screenshot({path:path.join(output,'workspace-'+label+'-'+width+'.png'),fullPage:false});
+  const nav=page.locator('.fy-workspace-nav');
+  const routes=await nav.locator('[data-workspace-route]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceRoute));
+  assert.equal(new Set(routes).size,routes.length,'each destination appears once within '+label);
+  if(await nav.isVisible()){
+   for(const child of routes){
+    await nav.locator('[data-workspace-route="'+child+'"]').click();
+    await page.waitForFunction(value=>location.hash==='#/'+value&&
+     document.querySelector('.fy-workspace-nav [aria-current="page"]')?.dataset.workspaceRoute===value&&
+     !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
+    assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+    assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    await geometry(page,'workspace-'+child+'-'+width);
+   }
+  }
+  grouped.push({label,routes});
+ }
+ return grouped;
+}
 const runChecks=async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
@@ -182,7 +214,7 @@ const runChecks=async()=>{
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
-      brand:b('.fy-header'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
+      brand:b('.fy-header .fy-brand'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
       down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
       main:getComputedStyle(document.querySelector('.fy-terminal')).display
      };
@@ -437,6 +469,7 @@ const runChecks=async()=>{
    assert.match(await page.locator('.fy-main').innerText(),/600101/,'ledger reads authoritative accounting.positions');
    assert.match(await page.locator('.fy-main').innerText(),/345\.67/,'ledger reads authoritative realizedPnl');
    await page.screenshot({path:path.join(output,'fayo-ledger-'+width+'.png'),fullPage:false});
+   const workspaces=width===390||width===1366?await checkWorkspaceTabs(page,width):null;
    const browsing=requests.slice(before);
    const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&r.path!=='/api/online/beat');
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
@@ -454,7 +487,7 @@ const runChecks=async()=>{
    assert.equal(await page.evaluate(()=>localStorage.getItem('qd_device')),null,'revoked device token is cleared');
    assert.deepEqual(errors,[],'no application exceptions at '+width);
    assert.deepEqual(external,[],'no third-party data/font/model requests at '+width);
-   report.push({width,metrics,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
+   report.push({width,metrics,workspaces,requests:browsing.length,checks:['new-native-shell','five-workspaces','workflow-board','source-date','three-period-chart','older-history','focus-return','local-filter','weekend-retention','accounting-schema','no-automatic-writes','revocation-clears','no-external-egress']});
    await context.close();
   }
   // Read-only access remains usable without attempting editor endpoints.
@@ -463,6 +496,9 @@ const runChecks=async()=>{
   await reader.addInitScript(()=>{localStorage.setItem('qd_device','fayo-synthetic-reader');localStorage.setItem('qd_role','view');});
   const readPage=await reader.newPage(),readerStart=requests.length;
   await readPage.goto(origin+'/');await readPage.locator('.fy-header').waitFor({state:'visible'});
+  await readPage.locator('.fy-reference-topnav [data-workspace-tab="选股"]').click();
+  await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/all"]').waitFor({state:'visible'});
+  assert.equal(await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/wash"]').count(),0);
   await navigate(readPage,'assets','holdings');
   await readPage.waitForFunction(()=>document.querySelector('.fy-main')?.textContent.includes('私人工作区'));
   await navigate(readPage,'settings','channels');

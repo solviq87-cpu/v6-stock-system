@@ -283,5 +283,5 @@ export function renderResearch(route,ctx){
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
   const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','学习进度'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
   const nav=fyNode('nav',{class:'fy-subnav','aria-label':'实验室工作区'},choices.map(([key,label])=>{const control=fyAction(label,()=>ctx.navigate('lab',key),key===active?'primary':'quiet');control.setAttribute('aria-current',key===active?'page':'false');return control;}));
-  return fyNode('div',{class:'fy-stack'},nav,renders[active](ctx));
+  return fyNode('div',{class:'fy-stack'},ctx.workspaceNavigation?null:nav,renders[active](ctx));
 }
