@@ -321,6 +321,12 @@ const runChecks=async()=>{
    await page.waitForTimeout(80);
    assert.ok(requests.filter(r=>r.path==='/api/kline').length>priorPages,'older history reads actual service pages');
    assert.ok(requests.some(r=>r.path==='/api/kline'&&r.query.end),'history pagination uses an older-date boundary');
+   // Drive the real state-refresh listener while focus is inside the drawer.
+   // The opportunity board replaces its buttons, so the close path must resolve
+   // the same stock in the current DOM rather than focus a detached old node.
+   await originCard.evaluate(node=>{window.drawerOriginBeforeRefresh=node;});
+   await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
+   await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');

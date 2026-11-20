@@ -413,7 +413,14 @@ function chart(rows) {
 export function createStockDrawer(ctx) {
  let controller=null,code='',row=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  const overlay=h('div',{class:'fy-drawer-backdrop',hidden:true}),drawer=h('aside',{class:'fy-stock-drawer',role:'dialog','aria-modal':'true','aria-label':'股票研究面板',hidden:true,tabindex:'-1'}),title=h('h2',{class:'fy-drawer-title'}),quote=h('div',{class:'fy-drawer-quote'}),body=h('div',{class:'fy-drawer-body'}),meta=h('p',{class:'fy-quote-time'});
- const close=()=>{generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');previousFocus?.focus?.();};
+ const close=()=>{
+  generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
+  // A shared-state refresh may replace the originating opportunity while the
+  // drawer is open. Restore the same stock in the current DOM in that case.
+  const origin=previousFocus?.isConnected?previousFocus:
+   [...document.querySelectorAll('.fy-stock-card[data-code="'+code+'"]')].find(node=>!node.disabled&&node.getClientRects().length);
+  origin?.focus?.();
+ };
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
  for(const[key,label]of [['chart','走势'],['evidence','依据'],['company','公告'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
