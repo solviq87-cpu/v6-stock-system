@@ -1,3 +1,4 @@
+import { phaseLabel, stockTactics } from './tactics-view.js';
 import {aggregateCandles,movingAverages,projectForwardTracking,projectDecisionBrief} from './market-evidence.js';
 export {projectDecisionBrief};
 import {h,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
@@ -383,7 +384,7 @@ export function renderDailyReview(ctx) {
   output.replaceChildren(summaryPanel,coveragePanel,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
  }
  const refreshButton=button('刷新复盘',async()=>{refreshButton.disabled=true;try{await ctx.refresh();paint();}finally{refreshButton.disabled=false;}},'primary');
- const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),refreshButton,output,
+ const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),phaseLabel(),refreshButton,output,
   h('details',{class:'fy-details'},h('summary',{},'更多记录'),button('人工交易执行记录',()=>ctx.navigate('assets','closure')),button('历史学习',()=>ctx.navigate('lab','learning'))));
  ctx.onState?.(paint);paint();return view;
 }
@@ -423,7 +424,7 @@ export function createStockDrawer(ctx) {
    const controls=h('div',{class:'fy-tabs'},[['day','日 K'],['month','月 K'],['year','年 K']].map(([key,label])=>h('button',{type:'button','data-period':key,'aria-pressed':String(period===key),onClick:()=>{period=key;paint();if(key!=='day')loadHistory(true);}},label)));
    const bars=aggregate(daily,period);body.replaceChildren(controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):'正在读取已有历史…'),button('加载更早的历史',()=>loadHistory(true),'quiet'));
   }else if(tab==='evidence'){
-   body.replaceChildren(section('实际命中与风险','只展示当前返回的条件',reasons(row).length?h('ol',{class:'fy-evidence-list'},reasons(row).map(r=>h('li',{},r))):empty('尚未返回逐条命中依据','可以在实验室读取同股研究档案。')),renderEvidence(row?.conditions||row?.conditionEvidence||row?.conditionInputs||row?.items||null),h('details',{class:'fy-details'},h('summary',{},'完整研究记录'),renderEvidence(row)));
+   body.replaceChildren(stockTactics(code),section('实际命中与风险','只展示当前返回的条件',reasons(row).length?h('ol',{class:'fy-evidence-list'},reasons(row).map(r=>h('li',{},r))):empty('尚未返回逐条命中依据','可以在实验室读取同股研究档案。')),renderEvidence(row?.conditions||row?.conditionEvidence||row?.conditionInputs||row?.items||null),h('details',{class:'fy-details'},h('summary',{},'完整研究记录'),renderEvidence(row)));
   }else if(tab==='company'){
    const issuer=row?.issuerEvidence;body.replaceChildren(section('公司原始公告','公告时间与价格时点分别核验',issuer?.events?.length?h('div',{class:'fy-stack'},issuer.events.map(item=>h('article',{class:'fy-item'},safeLink(item.url,item.title),h('p',{class:'fy-muted'},dateTime(item.publishedAt)+' · '+(item.reason||'标题线索'))))):empty('没有匹配的公告证据','没有记录不代表该公司没有风险。')));
   }else if(tab==='tracking'){

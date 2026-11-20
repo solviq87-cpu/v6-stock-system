@@ -1,3 +1,4 @@
+import { tacticsCenter } from './tactics-view.js';
 /* Additional native research paths. Every action is explicit and uses the
    existing service contract; no legacy page/controller is loaded. */
 import {h,button,section,field,note,empty,table,format,dateTime,safeLink} from './ui.js';
@@ -105,7 +106,7 @@ function sectorRelations(ctx){
 
 export function appendResearchExtensions(root,route,ctx){
  if(!root||ctx.signal?.aborted)return root;
- if(route.sub==='strategies')root.append(referenceStats(ctx),strategyDashboard(ctx));
+ if(route.sub==='strategies')root.append(tacticsCenter(),referenceStats(ctx),strategyDashboard(ctx));
  if(route.sub==='backtest')root.append(legacyBacktest(ctx),nativeReplay(ctx));
  if(route.sub==='sources')root.append(renderWorkbookImport(ctx),sectorRelations(ctx));
  if(route.sub==='desk')root.append(riskCenter(ctx));

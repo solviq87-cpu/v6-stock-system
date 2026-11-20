@@ -1958,6 +1958,7 @@ const SKIP_RULE = {
   empRetiredScale: 'prob 退役刻度样本（ig 前旧/中两代标定，与新刻度不是同一把尺子）',
   buyHeld: '已持有（同票不重复买）',
   buyNoPrice: '取不到有效价',
+  buyTacticCap: '环境不允许：战法仓位上限为空仓',
   buyStalePrice: '没有实时行情（陈旧价不成交）',
   buyMonitorCapacity: '持仓已达监控容量（暂停自动买入）',
   buySealed: '已封涨停（一字板买不进）',
@@ -14334,6 +14335,14 @@ function paperBuy(key, cands, pm, reasonOf) {
   if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); return; }
   const bought = [],executionQuotes=paperAuthorityQuotes();
   for (const c of cands) {
+    // Resolve public demo tactics against the same frozen universe used by the research view.
+    let tacticCap = c.cap;
+    if (/^t(?:0[1-9]|[12][0-9]|3[0-6])$/.test(c.strategyId)) {
+      const { demoQuotes, demoMarket, evaluateUniverse } = require('./public/nova/data/tactics.js');
+      const stock = evaluateUniverse(demoQuotes, demoMarket).find(item => item.quote.code === c.code);
+      tacticCap = stock?.results[c.strategyId]?.cap ?? '空仓';
+    }
+    if (c.cap === '空仓' || tacticCap === '空仓') { skipAdd('buyTacticCap'); continue; }
     if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); break; }
     if (Object.keys(acc.positions).length >= cfg.maxPos) { skipAdd('buyHeld'); break; }
     // ⛔ dv 轮：这几处 continue 以前完全静默 —— 面板只显示"暂无持仓（等待新信号）"，
