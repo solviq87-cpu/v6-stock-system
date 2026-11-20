@@ -123,6 +123,9 @@ async function geometry(page,label){
    iframeCount:document.querySelectorAll('iframe').length,
    oldShells:document.querySelectorAll('.vx-shell,.vx-sidebar,.workspace-header,#vx-dashboard').length,
    offenders:[...document.querySelectorAll('body *')].filter(visible).map(node=>({tag:node.tagName,cls:typeof node.className==='string'?node.className:'svg',right:node.getBoundingClientRect().right,width:node.getBoundingClientRect().width})).filter(node=>node.right>innerWidth+1).slice(0,15),
+   reviewOverflow:[...document.querySelectorAll('[data-close-review] *')].filter(visible)
+    .filter(node=>node.getBoundingClientRect().right>innerWidth+1).slice(0,10)
+    .map(node=>({tag:node.tagName,className:node.className,right:node.getBoundingClientRect().right})),
    brand:document.querySelector('.fy-header')?.innerText||'',
    brandBox:(()=>{const r=document.querySelector('.fy-brand')?.getBoundingClientRect();return r?{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}:null;})()};
  });

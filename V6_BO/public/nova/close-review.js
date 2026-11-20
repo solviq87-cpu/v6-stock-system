@@ -155,9 +155,9 @@ export function renderCloseReview(ctx,additional){
   refresh.disabled=true;
   try{await ctx.refresh();await loadSupplement(true);}finally{refresh.disabled=false;}
  },'primary');
- const header=h('header',{class:'fy-terminal-title fy-close-hero'},
+ const header=h('header',{class:'fy-close-hero'},
   h('div',{},h('h1',{},'A 股收盘复盘'),status),
-  h('div',{class:'fy-terminal-actions'},dateSelect,
+  h('div',{class:'fy-close-actions'},dateSelect,
    button('原始报告',()=>ctx.navigate('pulse','review-details')),refresh));
  const cards=h('div',{class:'fy-close-grid'});
  const nav=h('nav',{class:'fy-close-nav','aria-label':'复盘章节'},headings.map(([key,,label])=>
@@ -311,7 +311,7 @@ export function renderCloseReview(ctx,additional){
  async function loadSupplement(force=false){
   const day=reviewDate(ctx.state?.review?.date);
   const current=activeKey==='cloud'&&day;
-  if(!current||!ctx.api||requesting)return;
+  if(!current||ctx.signal?.aborted||!ctx.api||requesting)return;
   const latestTime=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
   if(day===today&&latestTime<'15:00')return;

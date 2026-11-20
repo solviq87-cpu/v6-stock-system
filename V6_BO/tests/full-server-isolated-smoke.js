@@ -88,7 +88,7 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
-  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/fayo.css']) {
+  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/close-review.js','/nova/data/close-review-20261120.js','/nova/fayo.css']) {
     const response=await get(p,asset);
     assert.equal(response.status,200,'release asset must be reachable: '+asset);
     assert.match(response.headers['cache-control'],/no-store/,'release asset must bypass the HTTP cache: '+asset);
@@ -177,6 +177,12 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   assert.equal(JSON.parse((await post('/api/quote-cross-check?code=600001',{})).body).locked,true);
   assert.equal(JSON.parse((await get(p,'/api/stock-news-risk?code=600001')).body).locked,true);
   const headers={Authorization:'Bearer '+authenticated.token};
+  const invalidReview='/api/close-review-evidence?date=2000-01-01';
+  const reviewDenied=JSON.parse((await get(p,invalidReview)).body);
+  assert.ok(reviewDenied.locked===true||reviewDenied.needAuth===true,'close evidence must require an authorized session');
+  const reviewMissing=await get(p,invalidReview,headers);
+  assert.equal(reviewMissing.status,404,'a non-current date cannot start a vendor request');
+
   const riskReply=await get(p,'/api/stock-news-risk?code=600001',headers),risk=JSON.parse(riskReply.body);
   assert.equal(risk.code,'600001');assert.equal(risk.status,'unknown');assert.equal(risk.canRecommend,false);
   assert.equal(riskReply.headers['cache-control'],'no-store');

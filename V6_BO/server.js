@@ -22978,18 +22978,22 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   }
 
   if (p === '/api/close-review-evidence') {
-    if (req.method !== 'GET') return json(res,{ok:false,error:'仅允许 GET'},405);
-    if (!isLocalReq(req) && !roleOf(req.__tok || '',clientIp(req))) return json(res,{ok:false,needAuth:true},401);
+    const reply=(status,data)=>{
+      res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+      return res.end(JSON.stringify(data));
+    };
+    if (req.method !== 'GET') return reply(405,{ok:false,error:'仅允许 GET'});
+    if (!isLocalReq(req) && !roleOf(req.__tok || '',clientIp(req))) return reply(401,{ok:false,needAuth:true});
     const {day:today,minute,openDay}=marketDisplaySession();
     const {normalizeDay}=require('./src/core/limit-reason-evidence');
     const day=normalizeDay(S.review?.date);
     const todayDate=normalizeDay(today);
     const latest=openDay&&minute>=900?todayDate:prevTradeDay(todayDate+'T12:00:00');
-    if(!day||day!==latest||u.searchParams.get('date')!==day)return json(res,{ok:false,error:'当前尚无此交易日的收盘复盘'},404);
+    if(!day||day!==latest||u.searchParams.get('date')!==day)return reply(404,{ok:false,error:'当前尚无此交易日的收盘复盘'});
     const previousDay=prevTradeDay(day+'T12:00:00');
     return readCloseReviewEvidence(day,previousDay,{seatsReady:day!==todayDate||minute>=1080})
-      .then(result=>json(res,{ok:true,result}))
-      .catch(()=>json(res,{ok:false,error:'收盘补充渠道暂不可用'},502));
+      .then(result=>reply(200,{ok:true,result}))
+      .catch(()=>reply(502,{ok:false,error:'收盘补充渠道暂不可用'}));
   }
 
   if (p === '/api/state') {

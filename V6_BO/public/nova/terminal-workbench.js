@@ -487,7 +487,6 @@ function renderReviewWorkspace(ctx) {
  preview.replaceWith(preview.querySelector('.fy-terminal-review-list'));
  title.querySelector('.fy-terminal-eyebrow').textContent='天枢智策 V6 / DAILY REVIEW';
  title.querySelector('h1').textContent='复盘资料与研究入口';
- title.querySelector('p').textContent='每日复盘 · 涨停形态与归因 · 仅呈现真实来源的复盘记录';
  title.querySelector('.fy-terminal-actions').replaceChildren(
   moduleButton('查看完整原始报告','pulse','review-details',ctx),
   moduleButton('AI策略研究','lab','strategies',ctx),

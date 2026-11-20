@@ -1881,11 +1881,12 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 @media(display-mode:standalone) and (max-width:650px) {
  .fy-reference-shell .fy-header {padding-top:env(safe-area-inset-top,0px)}
 /* A-share close review */
-.fy-close-review{--close-border:#42436b;--close-card:#141831;--close-subtle:#10152b;display:grid;gap:14px;min-width:0}
+.fy-close-review{--close-border:#42436b;--close-card:#141831;--close-subtle:#10152b;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
 .fy-close-review .fy-close-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:18px 20px;border:1px solid var(--close-border);border-radius:14px;background:linear-gradient(115deg,#202552,#181833 65%,#29183e)}
 .fy-close-hero h1{font-size:clamp(22px,3vw,32px);letter-spacing:.02em;margin:0}
 .fy-close-hero .fy-close-status{display:block;color:var(--fy-muted);margin:4px 0 0;font-size:13px}
-.fy-close-hero .fy-terminal-actions .fy-button.secondary{display:inline-flex}
+.fy-close-actions{display:flex;max-width:100%;min-width:0;flex-wrap:wrap;align-items:center;gap:7px}
+.fy-close-actions .fy-button{min-height:36px;padding:5px 9px}
 .fy-close-hero select{width:auto;max-width:100%;min-height:36px;padding:6px 10px}
 .fy-close-nav,.fy-close-stocks,.fy-close-links{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}
 .fy-close-nav .fy-button{border:1px solid var(--close-border);background:#151931;padding-inline:12px;min-height:34px}
@@ -1939,7 +1940,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 @media(max-width:450px){
  .fy-close-review{gap:10px}
  .fy-close-review .fy-close-hero,.fy-close-grid>[data-review-section]{padding:12px}
- .fy-close-hero .fy-terminal-actions{display:flex;flex-wrap:wrap;gap:7px}
+ .fy-close-actions{width:100%}
  .fy-close-kpis,.fy-close-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
  .fy-close-nav{gap:5px}
  .fy-close-nav .fy-button{font-size:11px;padding:3px 8px}
