@@ -9807,7 +9807,14 @@ function msgGate(text, manual) {
   const used = MSG_STAT.by[kind] || 0;
   if (used >= cap) return { ok: false, kind, why: `今日【${kind}】已推 ${used} 条，上限 ${cap} 条${_cold ? '（偏冷环境·额度减半）' : ''}` };
   MSG_STAT.total++; MSG_STAT.by[kind] = used + 1;
-  return { ok: true, kind };
+  let reserved = true;
+  return { ok: true, kind, release() {
+    if (!reserved || MSG_STAT.day !== d) return;
+    reserved = false;
+    MSG_STAT.total--;
+    if (MSG_STAT.by[kind] > 1) MSG_STAT.by[kind]--;
+    else delete MSG_STAT.by[kind];
+  } };
 }
 
 // ⛔⛔ 返回值语义（2026-10-06 补）：**本轮是否已终结** —— true=可以置位闭锁，false=值得下轮重试。
@@ -9819,7 +9826,7 @@ function msgGate(text, manual) {
 //
 //    ⚠️ 关键区分：不是"拦下就重试"，只有【会自行解除】的闸门才值得重试。
 //      · 夜间静默 → false（时段一过自动解除，重试有意义）
-//      · 条数闸门 → true（MSG_STAT 按**天**重置，当日额度当天不会恢复，重试只是空转）
+//      · 条数闸门 → true（本轮消息已记流水，避免重复运行整轮选股消耗数据源）
 //      · 副本拦截 → true（副本设计上永不外发；返回 false 会让本地副本每 20 秒重跑一次
 //                        复盘（拉涨停池 + 补拉K线）直到午夜，等于自己打自己的数据源）
 //      · 无通道   → true（配置问题，重试一万次也发不出去；已进面板流水）
@@ -9894,8 +9901,24 @@ function pushAll(text, force, opts) {
     console.log('[少而精] 拦截 ' + _mg.kind + '：' + _mg.why);
     pushLog('🚫 条数闸门', text, _extra({ note: _mg.why + '（内容已进面板推送流水，完整榜单见面板）' }));
     _pushLast = { ret: true, sent: false, why: '条数闸门：' + (_mg.why || ''), t: Date.now() };
-    return true;   // 额度按天重置，当天重试无用 → 本轮终结（内容已进面板流水）
+    return true;   // 额度按天重置，拦截后本轮终结（内容已进面板流水）
   }
+  // 只有确认未发送时才撤销消息额度、个股占位和模块配额。回执未知时保留占位，避免重复投递。
+  const _undo = opts && opts.undo;
+  let _released=false;
+  const _release = (why) => {
+    if (_released) return;
+    _released=true;
+    _mg.release?.();
+    try {
+      govReleaseAll(_undo || []);
+      if (opts && opts.modDay) {
+        const ms = Array.isArray(opts.modDay) ? opts.modDay : [opts.modDay];
+        for (const mm of ms) modDayRelease(mm);
+      }
+      pushLog('↩️ 占位已退回', text, _extra({ note: '未发送（' + why + '），消息额度和相关占位已退回' }));
+    } catch (e) { console.error('[gov] 占位回滚失败:', e && e.message); }
+  };
   if (inQuietHours() && !force) {
     const _q2 = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
     const _q = quietWindow();
@@ -9903,6 +9926,7 @@ function pushAll(text, force, opts) {
     console.log('[夜间静默 ' + _q2(_qs) + '-' + _q2(_qe) + '] 拦截推送:', text.slice(0, 50).replace(/\n/g, ' '));
     pushLog('夜间静默拦截', text, _extra({ note: '静默时段 ' + _q2(_qs) + '-' + _q2(_qe) }));
     _pushLast = { ret: false, sent: false, why: '夜间静默', t: Date.now() };
+    _release('夜间静默');
     return false;   // 夜间静默拦下：没发出去
   }
   if (typeof process!=='undefined'&&process.env.V6_AUTO_STOCK_OBSERVATIONS==='1'&&typeof queuePushedStockObservations==='function') {
@@ -9925,24 +9949,6 @@ function pushAll(text, force, opts) {
   //    没配私密通道则记录私密未送达，不改发公共通道。
   //    ⚠️ 位置很讲究：必须排在副本拦截/条数闸门/夜间静默/面板推送【之后】，
   //       这样私密化只是"换个收件人"，不会顺手把静默和额度一起绕过去。
-  // ⛔⛔ 2026-10-06（本轮角度：占位与送达的原子性）：确认没送到 → 把这一批占位退回去。
-  //   见 govRelease 的注释：额度/冷却/去重/模块配额是**发送之前**就占上的，
-  //   发送失败若不退回，这条消息当天就永久消失（下一轮会因为"已推过"直接跳过它）。
-  //   只在确认未发送时退回占位；私密通道结果未知保留去重，任何失败均不改发群。
-  const _undo = opts && opts.undo;
-  let _released=false;
-  const _release = (why) => {
-    if (_released) return;
-    _released=true;
-    try {
-      govReleaseAll(_undo || []);
-      if (opts && opts.modDay) {
-        const ms = Array.isArray(opts.modDay) ? opts.modDay : [opts.modDay];
-        for (const mm of ms) modDayRelease(mm);
-      }
-      pushLog('↩️ 占位已退回', text, _extra({ note: '发送失败（' + why + '），额度/冷却/去重已撤销，下一轮会补推' }));
-    } catch (e) { console.error('[gov] 占位回滚失败:', e && e.message); }
-  };
   const _newsBeforeSend = delivery.requiresNewsReview ? () => {
     const review=recommendationNewsReview(delivery.newsRows);
     if(review.canRecommend)return {ok:true};

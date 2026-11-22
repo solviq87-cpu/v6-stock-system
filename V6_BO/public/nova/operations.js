@@ -170,8 +170,20 @@ function newsFeed(ctx,kind) {
 }
 function pushLog(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});let only='';
-  const container=el('div');const load=async()=>{container.replaceChildren(notice('正在读取投递轨迹…'));try{const data=await request(ctx,'/api/push-log?n=200'+(only?'&only=sent':''));if(ctx.signal?.aborted)return;container.replaceChildren(el('div',{class:'fy-metrics'},metric('今日实际送达',fmt(data.sentToday,0)),metric('流水总数',fmt(data.count,0)),metric('本次显示',fmt(data.shown,0)),metric('实例身份',data.replica?'副本':'主实例')),arr(data.log).length?el('div',{class:'fy-timeline'},arr(data.log).map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明')))):empty('尚无通知流水'));}catch(error){if(!ctx.signal?.aborted)failure(container,error,load);}};
-  const filter=select('push-delivery',[['','全部状态'],['sent','仅实际送达']],'');filter.addEventListener('change',()=>{only=filter.value;load();});host.append(panel('投递追踪','“请求已接收”与“已经送达”是两种状态。',el('div',{class:'fy-toolbar'},filter,action('重新读取',load)),container));queueMicrotask(load);return host;
+  const container=el('div');
+  const load=async()=>{
+    container.replaceChildren(notice('正在读取投递轨迹…'));
+    try{
+      const data=await request(ctx,'/api/push-log?n=200'+(only?'&only=sent':''));
+      if(ctx.signal?.aborted)return;
+      const instance=data.replica===true?'副本':data.replica===false?'主实例':'待核验';
+      const metrics=el('div',{class:'fy-metrics'},metric('今日外发记录',fmt(data.sentToday,0),'含回执未知'),metric('流水总数',fmt(data.count,0)),metric('本次显示',fmt(data.shown,0)),metric('实例身份',instance));
+      const rows=arr(data.log);
+      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明')))):empty('尚无通知流水');
+      container.replaceChildren(el('div',{class:'fy-stack'},data.replica===true?notice('当前是副本，自动飞书推送已停用。'):null,metrics,timeline));
+    }catch(error){if(!ctx.signal?.aborted)failure(container,error,load);}
+  };
+  const filter=select('push-delivery',[['','全部状态'],['sent','外发记录（含回执未知）']],'');filter.addEventListener('change',()=>{only=filter.value;load();});host.append(panel('投递追踪','查看通道回执和各道推送门槛的处理结果。',el('div',{class:'fy-toolbar'},filter,action('重新读取',load)),container));queueMicrotask(load);return host;
 }
 function messageComposer(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});const title=input('title','','text',{required:true,maxlength:40});const content=el('textarea',{class:'fy-input',name:'text',required:true,maxlength:4000,rows:7});const channel=select('channel',[['private','个人私密通道']],'private');
@@ -194,7 +206,9 @@ function preferences(ctx) {
 }
 function channels(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'}),state=ctx.state||{};
+  const pushRole=ctx.auth?.pushRole;
   host.append(el('div',{class:'fy-metrics'},metric('公共通道',state.wecomReady||state.feishuReady?'已配置':'未就绪',state.feishuMask||''),metric('私密通道',state.feishuSecReady?'已配置':'待核对',state.feishuSecMask||''),metric('邮件通道',state.mailReady?'已配置':'待核对')));
+  if(pushRole==='replica')host.append(notice('当前是副本，自动飞书推送已停用。'));
   for(const [kind,label,hookKey,secretKey,verifyKey]of [['public','公共通知','feishuWebhook','feishuSecret','verify'],['private','私密通知','feishuSecWebhook','feishuSecSecret','secVerify']]){
     const hook=input('hook','','url',{required:true,autocomplete:'off',placeholder:'粘贴新的飞书机器人地址'}),secret=input('secret','','password',{autocomplete:'new-password'});
     const card=form(label+'路由','新配置先发送一条通道体检，成功后服务端才切换。地址和密钥不会回显。',[field('机器人地址',hook),field('签名密钥',secret)],'预览切换',async values=>{const body={[hookKey]:String(values.get('hook')).trim(),[secretKey]:String(values.get('secret')).trim(),[verifyKey]:true};review(ctx,host,'验证并切换'+label,'将向新机器人发送一条体检消息；验证成功后更新通道。',async()=>{const r=await mutation(ctx,'/api/config',body);hook.value='';secret.value='';await ctx.refresh();return{...r,msg:r.fsNote||'通知路由已更新'};});return{note:'请在上方确认通道体检。'};});

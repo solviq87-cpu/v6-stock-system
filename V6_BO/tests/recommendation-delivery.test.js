@@ -10,17 +10,20 @@ function engine(){
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
  const c=vm.createContext({Date:Clock,require:createRequire(serverPath),process:{env:{}},console:{log(){},error(){},warn(){}},S:{config:{}},
   FSQ:{createQueue:send=>require('../feishuq').createQueue(send,{minGap:0,sleep:(_ms,callback)=>callback()})},
-  redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>false,msgGate:()=>({ok:true}),inQuietHours:()=>false,
+  redactSecrets:x=>x,extractStockCodes:()=>['000001'],inManualPush:()=>false,isReplica:()=>false,inQuietHours:()=>false,
+  todayStr:()=>new Clock().toISOString().slice(0,10),_govCfg:key=>key==='pushDailyMsgs'?1:0,
+  quietWindow:()=>({}),_hhmm:(_value,defaultValue)=>defaultValue,
   sseSendEdit(){},sseSend(){},privReady:()=>true,feishuSecId:()=> 'send-mock',feishuSecMask:()=> 'send-mock',
   feishuProbe:async(_id,_secret,text)=>{sends.push(text);return {ok:true};},pushLog:(...args)=>logs.push(args),_pushLast:{},
   govReleaseAll:list=>releases.push(...list),modDayRelease:mod=>releases.push(mod),
   INTRADAY:{buf:new Map(),parts:[],firstAt:at,lastSent:0},INTRADAY_MAX_ITEMS:4,ALERT_RANK:{},alertScore:()=>1,
   buildAlertsReport:()=> '现价10 · 当前可买 · 参考止损9.7'});
  require('./helpers/news-known-empty-fixture').install(c);
- for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday'])vm.runInContext(fn(name),c);
+ for(const name of ['reviewRecommendation','reviewedRows','reviewSnapshotFields','freezeRecommendationRows','recommendationSendOptions','prepareRecommendationDelivery','pushAll','flushIntraday','sendResultUnknown'])vm.runInContext(fn(name),c);
+ vm.runInContext(source.slice(source.indexOf('const MSG_CAP ='),source.indexOf('// ⛔⛔ 返回值语义')),c);
  const queueStart=source.indexOf('const _fsPrivateQueue ='),queueEnd=source.indexOf('// opts.priority',queueStart);
  vm.runInContext(source.slice(queueStart,queueEnd),c);
- return {c,sends,logs,releases,set:value=>{now=value;}};
+ return {c,sends,logs,releases,quota:vm.runInContext('MSG_STAT',c),set:value=>{now=value;}};
 }
 test('actual final sender rechecks same original row, and a fresh approved recommendation still sends',async()=>{
  const e=engine(),r=row(),opts=e.c.recommendationSendOptions([r],{private:true});
@@ -52,4 +55,54 @@ test('manual resend is an explicit historical observation even when its original
  const e=engine(),opts=e.c.recommendationSendOptions([row()],{private:true},true);
  assert.equal(e.c.pushAll('当前可买 参考止损9.7',true,opts),true);await new Promise(setImmediate);
  assert.match(e.sends[0],/手动历史重发/);assert.doesNotMatch(e.sends[0],/当前可买|参考止损9\.7/);
+});
+for(const stoppedBy of ['missing private channel','quiet hours','definitive refusal']){
+ test(stoppedBy+' returns message quota so another approved recommendation can send',async()=>{
+  const e=engine(),{c,quota}=e,accepted=c.feishuProbe;
+  const message='盘中推送 · 已审核候选';
+  const opts=c.recommendationSendOptions([row()],{undo:['stock'],modDay:'pool'});
+  c.privReady=()=>stoppedBy!=='missing private channel';
+  c.inQuietHours=()=>stoppedBy==='quiet hours';
+  c.feishuProbe=async()=>({ok:false,msg:'code=19021'});
+  assert.equal(c.pushAll(message,false,opts),stoppedBy==='definitive refusal');
+  await new Promise(setImmediate);
+  assert.equal(quota.total,0);
+  assert.equal(quota.by['盘中'],undefined);
+  assert.deepEqual(e.releases,['stock','pool']);
+
+  c.privReady=()=>true;
+  c.inQuietHours=()=>false;
+  c.feishuProbe=accepted;
+  assert.equal(c.pushAll(message,false,opts),true);
+  await new Promise(setImmediate);
+  assert.deepEqual(e.sends,[message]);
+  assert.equal(quota.total,1);
+  assert.equal(quota.by['盘中'],1);
+ });
+}
+test('an unknown private receipt retains the quota and cannot trigger an automatic duplicate',async()=>{
+ const e=engine(),{c,quota}=e;
+ let attempts=0;
+ c.feishuProbe=async()=>{attempts++;return {ok:false,msg:'ETIMEDOUT'};};
+ const opts=c.recommendationSendOptions([row()],{undo:['stock'],modDay:'pool'});
+ assert.equal(c.pushAll('盘中推送 · 已审核候选',false,opts),true);
+ await new Promise(setImmediate);
+ assert.equal(quota.total,1);
+ assert.deepEqual(e.releases,[]);
+ assert.equal(c.pushAll('盘中推送 · 已审核候选',false,opts),true);
+ assert.equal(attempts,1);
+ assert.equal(quota.blocked,1);
+});
+test('a late refusal leaves the next day quota intact',async()=>{
+ const e=engine(),{c,quota}=e;
+ let refuse;
+ c.feishuProbe=()=>new Promise(resolve=>{refuse=resolve;});
+ assert.equal(c.pushAll('盘中推送 · 已审核候选',false,c.recommendationSendOptions([row()],{})),true);
+ await new Promise(setImmediate);
+ e.set(at+86400000);
+ assert.equal(c.msgGate('盘中推送 · 新交易日').ok,true);
+ refuse({ok:false,msg:'code=19021'});
+ await new Promise(setImmediate);
+ assert.equal(quota.total,1);
+ assert.equal(quota.by['盘中'],1);
 });
