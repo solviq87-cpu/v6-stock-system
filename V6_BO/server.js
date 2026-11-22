@@ -11385,6 +11385,22 @@ const readCloseReviewEvidence = require('./src/core/close-review-evidence').crea
   market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
 });
 
+let shortlineSourceReader;
+function readShortlineSource(input) {
+  if(!shortlineSourceReader){
+    const {createShortlineV6Reader}=require('./src/research/shortline-v6-data');
+    const {normalizeDay}=require('./src/core/limit-reason-evidence');
+    const previousTradeDay=day=>prevTradeDay(day+'T12:00:00');
+    const getLatestClosedDay=()=>{
+      const {day,minute,openDay}=marketDisplaySession(),date=normalizeDay(day);
+      return openDay&&minute>=910?date:previousTradeDay(date);
+    };
+    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,readCloseReviewEvidence,previousTradeDay,getLatestClosedDay,
+      fetchIndexKline:(secid,n)=>em.fetchKline(secid,n)});
+  }
+  return shortlineSourceReader(input);
+}
+
 function dashboardPushMeta(includePrivate = false) {
   return {
     pushLast: includePrivate ? pushLast() : null,
@@ -18998,7 +19014,7 @@ async function init() {
 }
 
 // ---------------- HTTP 服务 ----------------
-const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 
 // ---------------- 实时推送通道（SSE）：大单流入/涨停候选一旦命中立刻推到面板，不等5秒轮询 ----------------
 const SSE = new Set();       // 所有在线页面
@@ -19158,6 +19174,11 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
+      const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
+        session:marketDisplaySession,isReplica,pool:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],
+        readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
+        root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research')
+      });
       let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
         const session=marketDisplaySession();marketDisplayState();
@@ -19170,7 +19191,7 @@ const _httpBootstrap = createDashboardServer({
             const save=(kind,job)=>Promise.resolve(job).then(value=>marketCardResponse(kind,'all',value));
             Promise.allSettled([save('quant',quantPicksScan({max:50,board:'all'})),save('auction',auctionResonanceScan({max:50,board:'all'})),save('intraday',intradayStrongScan({max:50,board:'all'})),save('shortline',analyzeShortline(S,em))]);
           }
-        }else closingCardSnapshots.flush(true);
+        }else {closingCardSnapshots.flush(true);runShortlineClose().catch(()=>console.error('[shortline] 收盘研究待下次重试'));}
       }catch{console.error('[display-snapshot] capture-failed');}},30000);
       displaySnapshotTimer.unref();
       init().catch(e => console.error('[init]', e));
@@ -22219,6 +22240,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return json(res, { ok: true, role: hit.role, deviceToken: _dt, token: _tk });
   }
 
+  if(p==='/api/research/shortline'){
+    const options={body,url:u,root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research'),
+      authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica,
+      job:require('./src/server/research-workspace-job').runWorkspaceJob,
+      readSource:readShortlineSource};
+    return require('./src/server/shortline-http').shortlineHttp(req,res,options);
+  }
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
@@ -23752,7 +23780,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
     // HTML、JS、CSS 与 Service Worker 每次重新获取：保证前端修复（角色自动识别 / 精选池缩小 / 持仓显示 / SW 版本）即时生效，不被浏览器旧缓存挡住。
     // sw.js 原随其它 .js 走 else 分支 max-age=300，发布新版本后 SW 脚本更新最多延迟 5 分钟（微信 WebView / PWA standalone 尤甚）；现与 HTML 同列 no-store（H1，保活链路·刷新与本地存活专项）。
-    if (ext === '.html' || ext === '.js' || ext === '.css' || p === '/' || p === '/sw.js') {
+    if (ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.css' || p === '/' || p === '/sw.js') {
       headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
       headers['Pragma'] = 'no-cache';
       headers['Expires'] = '0';

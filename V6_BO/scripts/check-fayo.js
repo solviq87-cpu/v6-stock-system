@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const source=path.resolve(__dirname,'../public/nova');
-const files=fs.readdirSync(source).filter(file=>file.endsWith('.js')).sort();
+const files=fs.readdirSync(source,{recursive:true}).filter(file=>/\.m?js$/.test(file)).sort();
 if(!files.length)throw Error('FAYO native frontend modules are missing');
 for(const file of files){
  const checked=spawnSync(process.execPath,['--check','--input-type=module'],{input:fs.readFileSync(path.join(source,file),'utf8'),encoding:'utf8',timeout:10000,maxBuffer:65536});

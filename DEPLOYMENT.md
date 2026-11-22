@@ -12,9 +12,40 @@
 | 指定 WorkBuddy 静态站 | 源码 `V6_WEB/workbuddy/index.html`，由 `V6_BO/scripts/build-workbuddy-static.js` 生成带源码版本的单文件 HTML。现有发布者负责发布并读回校验。 | 本轮为 Node 推送修复。静态站承载浏览器页面，完整后台、持久化任务及飞书外发由独立服务负责。 [静态站发布](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md) |
 | 独立只读行情预览 | `streamlit_readonly/`。公开行情、教学筛选和回测的部署入口是 `streamlit-release` 分支的 `app.py`。 | 源码已补合入 `dev`。独立预览的线上状态以实际托管服务为准。 [预览部署](streamlit_readonly/README_RELEASE.md) |
 | Web 教学预览 | `V6_WEB/src/` 与 `V6_WEB/scripts/` 构建 `V6_WEB/dist/`。适合独立静态预览。 | 由本目录的构建脚本生成，正式 Node 应用使用上方原生页面入口。 |
-| A 股短线研究台 | `ashare-strategy-lab/`。Node.js 20+ 下执行 `sh deploy.sh`，Windows 用 `start.cmd`，静态部署使用该目录的 `public/`。与 V6 后台同机时可指定 `PORT=8899`。 | 版本 `1.0.0`，内置 95 项规则。手工录入、模拟校验和浏览器本地复盘独立运行。 [短线研究台部署](ashare-strategy-lab/DEPLOYMENT.md) |
+| A 股短线研究台 | 正式入口集成于上方 V6 后台与绯曜研究工作区，前后端通过同源接口 `/api/research/shortline` 工作。 | 需部署完整 V6 版本。[部署与验收](#短线研究台部署与验收) |
+| 短线研究台 1.0.0 兼容归档 | `ashare-strategy-lab/` 保存原独立版、20 项测试及旧版部署说明。 | 旧版浏览器记录按原域名、端口、浏览器导出留档。[原版操作说明](ashare-strategy-lab/README.md) |
 
 运行包的完整文件列表以包内 `manifest.json` 为准。`source.json` 记录精确 Git 提交，`SHA256SUMS.txt` 可逐文件验证。部署前应在独立目录验包并验证启动。已有实例升级前备份运行目录，保留私有配置、设备授权、持仓、模拟盘、订单账本及推送流水，之后按既有更新器验收或回滚。 [更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)
+
+## 短线研究台部署与验收
+
+研究页面依赖同一 V6 实例的身份权限、数据和研究 API。随完整版本交付 `V6_BO/server.js`、`V6_BO/src/`、`V6_BO/public/nova/` 及主应用其余资源。自动打包从精确 Git 提交读取源码，所有新增 JS、MJS、JSON 等静态资源与后端引擎均需在该提交中。运行包逐文件指纹见 `manifest.json` 和 `SHA256SUMS.txt`。
+
+使用 V6 编辑者账户访问 `/#/lab/shortline-overview` 或移动端 `/m#/lab/shortline-overview`。从现有导航进入：
+
+| 工作内容 | 研究区子路由 |
+| --- | --- |
+| 战法校验、记录与规则 | `shortline-new`、`shortline-checks`、`shortline-library` |
+| 人工交易学习、参数候选与审批 | `shortline-trades`、`shortline-versions` |
+| K 线历史回测 | `shortline-backtest`，合成教学数据位于 `/nova/shortline/sample-kline.csv` |
+| 结构化复盘与纪律 | `shortline-review`、`shortline-mistakes` |
+
+同一 V6 实例的编辑者设备共享私人研究档案，查看角色和未登录用户无权读取。主实例接受写入，副本对编辑者开放读取。默认档案位于 `V6_BO/data/shortline-research/research.json`，Linux 直接启动时可用 `V6_SHORTLINE_DIR` 指定私有目录。Windows/WSL 安装器使用安装目录下的 `app/data/shortline-research/`。单独挂载时将该目录纳入冷备与恢复预演，保留所有者、目录 0700 和文件 0600 权限。升级或回滚前停止写入，恢复后先核对版本与摘要再开放编辑。
+
+交易日北京时间 15:15 起，运行中的主实例使用现有收盘快照循环，按候选池和趋势池每分钟至多处理一只标的。系统使用原始行情日期，查重后保存校验、复盘和学习证据。对 V6 已结算模拟成交核对来源、开仓批次、时间和净成本后，按成交标识去重导入。该流程无需浏览器保持打开。休市、缺数和副本角色在相应门禁处停止。
+
+**已有 Windows/WSL 节点**使用现有更新器安装通过 CI 的完整版本。首次安装和回滚沿用一键包说明。停旧写者并冷备整个私有运行目录，保留旧包及源码 SHA；备份包含配置、鉴权、持仓、研究记录及数据目录。[Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) · [更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)
+
+**已有 Linux 云主机**可使用 Linux Node.js 22.6+、Python 3、`flock`，将同一个完整版本部署到已有 V6 服务。新的隔离目录可从仓库根目录启动：
+
+```bash
+npm --prefix V6_BO ci --omit=dev --no-audit --no-fund
+HOST=127.0.0.1 PORT=8787 npm start
+```
+
+同源反向代理对外提供 HTTPS，根路径、`/m`、`/nova/` 和 `/api/` 均指向这一个后台。使用持久磁盘和专用服务账户运行，登录时沿用 V6 设备授权。独立前端静态托管及旧版 8899 实例不能代替同源研究 API。目标机实际网络连通性、设备登录和数据迁移需在目标环境验证。
+
+登录后分别在电脑和手机进入同一档案。在隔离主实例用教学数据冻结一份计划并保存执行，刷新另一台设备，确认计划、纪律事实和解释可重读。再以查看角色验证私有档案被拒绝，在副本验证写入被拒绝。使用缺失行情验证情绪返回“未判定”，用样例 CSV 检查信号日期与收益窗口后导出。参数版本仅在五道验证完成并获人工批准后变更。
 
 ## 历史文件和运行时数据
 
@@ -29,6 +60,7 @@
 
 | 时间与版本 | 本轮变更和验证 | 部署及回滚状态 |
 | --- | --- | --- |
+| 2026-11-22 · 原生短线研究台集成 | 源码基线 `7f0c882`。现有绯曜导航、同源权限及私有研究档案覆盖四个模块。Windows 打包器纳入已提交的 `public/nova/` 和 `src/` 文件；静态审阅包内联研究样式和 CSV。 | 目标实例版本待部署核实。回退使用当前部署节点的上一完整版本及该次升级前的研究数据备份。 |
 | 2026-11-22 · 短线研究台 `1.0.0` | 独立源码的 18 个文件与已交付的 ZIP 逐文件一致。专项测试 20 项，已验解压启动与纯静态运行。 [研究台源码](ashare-strategy-lab/) | 独立研究应用。交付包 `TianShu-Ashare-Strategy-Lab-1.0.0.zip` 的 SHA-256 为 `c372d9070a0c08c774fd48aabb837811cd0869d3b3c08a7ee130de8a00003f1b`。目标服务器验收待完成。回退此版本只需停止独立服务并使用上一部署目录。 |
 | 2026-11-22 · 固定部署交接入口 | 电脑、手机管理者首页的状态栏固定部署交接链接。仓库首页置顶，智能助手接手命令首行提示。手机选股快捷入口压成两列，系统精选刷新后在结果旁更新读取时间。关闭个股研究面板后，焦点随结果刷新留在原股票。 [代码变更 #334](https://github.com/solviq87-cpu/v6-stock-system/pull/334) | 影响原生网页和仓库续接命令。正式 WorkBuddy 后端仍运行 `20261116ac`，应用内入口随下一次完整部署生效。恢复时按 Windows 更新器记录的上一版本回滚。 |
 | 2026-11-22 · 已合并 `c7bc7b33` | 飞书明确拒收、未配私密通道或静默拦截时退回消息额度。通知设置及投递追踪提示当前副本停用自动外发。推送专项 63 项、本地全量 4,403 项及 GitHub 合并前检查通过。 [代码变更 #332](https://github.com/solviq87-cpu/v6-stock-system/pull/332) | Windows/WSL 包 `TianShuV6-Windows-OneClick-1a7d915.zip` 已构建，1,151 项文件校验通过。构建源码 `1a7d91501839579941e49991f306ebc7e7a9fa64` 与合并提交的文件树一致。本轮未切换线上后端或角色，回滚时使用更新器记录的前一版本及私有运行备份。 |

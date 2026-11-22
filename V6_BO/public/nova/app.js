@@ -42,9 +42,9 @@ const WORKSPACE_ROUTES={
  首页:[],
  行情:[['市场概览','pulse','market-overview'],['全球行情','pulse','global'],['行情数据与来源','lab','sources']],
  选股:[systemPicksRoute,['全部候选','opportunities','all'],...otherPoolRoutes],
- 策略:[['策略与因子','lab','strategies'],['研究决策','lab','desk'],['研究档案','lab','records'],['模型资料','lab','models'],['市场记忆','lab','memory'],['明日计划','pulse','plans']],
- 回测:[['回测验证','lab','backtest']],
- 复盘:[['盘后总览','pulse','review'],['完整来源池','pulse','review-details'],['竞价复盘','pulse','auction-review'],['历史学习','lab','learning'],['人工执行记录','assets','closure','edit']],
+ 策略:[['策略与因子','lab','strategies'],['研究决策','lab','desk'],['研究档案','lab','records'],['模型资料','lab','models'],['市场记忆','lab','memory'],['明日计划','pulse','plans'],['短线研究总览','lab','shortline-overview','edit'],['短线自动校验','lab','shortline-new','edit'],['校验记录','lab','shortline-checks','edit'],['95项战法因子','lab','shortline-library','edit'],['参数验证与审批','lab','shortline-versions','edit']],
+ 回测:[['回测验证','lab','backtest'],['K线样本回测','lab','shortline-backtest','edit']],
+ 复盘:[['盘后总览','pulse','review'],['完整来源池','pulse','review-details'],['竞价复盘','pulse','auction-review'],['历史学习','lab','learning'],['人工执行记录','assets','closure','edit'],['交易样本学习','lab','shortline-trades','edit'],['结构化复盘','lab','shortline-review','edit'],['纪律与错题','lab','shortline-mistakes','edit']],
  资讯:[['新闻与公告','inbox','all'],['利空线索','inbox','alerts'],['策略信号','inbox','signals'],['新闻证据','lab','evidence'],['投递追踪','inbox','push','edit'],['写通知','inbox','compose','edit']],
  资金流:[['板块强度与资金','pulse','sectors']],
  风控:[['持仓风控','assets','risk','edit'],['主账户风控','assets','authority','edit']],
@@ -80,7 +80,9 @@ function notify(message,tone='') {
 }
 function parseRoute() {
  const hash=location.hash.slice(1);
- if(hash.startsWith('/')){const[view='pulse',sub='']=hash.slice(1).split('/');if([...MAIN.map(x=>x[0]),'inbox'].includes(view))return {view,sub};}
+ if(hash.startsWith('/')){const[view='pulse',sub='',code='',date='']=hash.slice(1).split('/');
+  if(view==='lab'&&sub==='shortline-new'&&/^\d{6}$/.test(code))return {view,sub,code,date};
+  if([...MAIN.map(x=>x[0]),'inbox'].includes(view))return {view,sub};}
  if(LEGACY_ANCHORS[hash])return {view:LEGACY_ANCHORS[hash][0],sub:LEGACY_ANCHORS[hash][1]};
  const alias=ALIASES[location.pathname]||['pulse','overview'];return {view:alias[0],sub:alias[1]};
 }
@@ -158,7 +160,7 @@ function createFrame() {
 }
 async function renderRoute() {
  if(!role||!main)return;
- route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();fastMoveListeners.clear();fastFrame=null;fastReadAt=0;routeController=new AbortController();
+ route=parseRoute();if(route.view==='lab'&&!workspaceIndex.has('lab/'+route.sub))route.sub='desk';routeController?.abort();listeners.clear();fastMoveListeners.clear();fastFrame=null;fastReadAt=0;routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
  frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
   route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
@@ -191,7 +193,7 @@ async function renderRoute() {
   else if(route.view==='pulse')main.replaceChildren(renderPulse(route,ctx));
   else if(route.view==='opportunities')main.replaceChildren(renderOpportunities(route,ctx));
   else {
-   main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在打开工作空间…'));
+   main.replaceChildren(h('div',{class:'fy-loading',role:'status','data-pending-route':route.sub.startsWith('shortline-')?'shortline':null},'正在打开工作空间…'));
    const module=route.view==='lab'?await import('./research.js'):await import('./operations.js');
    if(controller.signal.aborted)return;
    const view=route.view==='lab'?await module.renderResearch(route,ctx):await module.renderOperations(route,ctx);
@@ -211,7 +213,7 @@ async function refresh(manual=false,{showSuccess=true}={}) {
   const incoming=await api('/api/state',{signal:controller?.signal});
   if(!role||controller?.signal.aborted)return;
   state=retainMarket(state,incoming);lastRead=Date.now();online=true;snapshotStatus();
-  if(!main?.firstElementChild||main.firstElementChild.classList.contains('fy-loading'))await renderRoute();
+  if(!main?.firstElementChild||main.firstElementChild.matches('.fy-loading:not([data-pending-route])'))await renderRoute();
   else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.();

@@ -565,7 +565,9 @@ export function createStockDrawer(ctx) {
  let controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  let leadershipKey='';
  const overlay=h('div',{class:'fy-drawer-backdrop',hidden:true}),drawer=h('aside',{class:'fy-stock-drawer',role:'dialog','aria-modal':'true','aria-label':'股票研究面板',hidden:true,tabindex:'-1'}),title=h('h2',{class:'fy-drawer-title'}),quote=h('div',{class:'fy-drawer-quote'}),body=h('div',{class:'fy-drawer-body'}),meta=h('p',{class:'fy-quote-time'});
+ const shortline=h('section',{class:'fy-drawer-shortline',hidden:true,'aria-live':'polite','aria-label':'短线校验'});
  const close=()=>{
+  shortline.replaceChildren();shortline.hidden=true;
   generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
   // A shared-state refresh may replace the originating opportunity while the
   // drawer is open. Restore the same stock in the current DOM in that case.
@@ -576,7 +578,7 @@ export function createStockDrawer(ctx) {
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
  for(const[key,label]of [['chart','走势'],['evidence','依据'],['leadership','带动性'],['company','公告'],['sources','核对'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
- drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title),closeButton),quote,meta,tabNav,body,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
+ drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title),closeButton),quote,meta,shortline,tabNav,body,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
  overlay.addEventListener('click',close);
  drawer.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();close();}
@@ -706,10 +708,30 @@ export function createStockDrawer(ctx) {
   }
   displayQuote(next);
  }
+ async function checkShortline(symbol,sourceRow,signal,turn){
+  shortline.replaceChildren();shortline.hidden=!ctx.canEdit;
+  if(!ctx.canEdit)return;
+  const current=()=>!signal.aborted&&turn===generation&&code===symbol&&!drawer.hidden&&ctx.canEdit;
+  shortline.append(note('正在读取该股同期校验…'));
+  try{
+   const {stockCheckAt}=await import('./shortline-host.mjs');
+   if(!current())return;
+   const snapshot=await stockCheckAt(ctx,symbol,sourceRow,signal);
+   if(!current()||!snapshot||snapshot.code!==symbol)return;
+   const r=snapshot.record;
+   const details=button('查看完整校验',()=>{
+    if(!current())return;
+    close();ctx.navigate('lab','shortline-new/'+symbol+(snapshot.date?'/'+snapshot.date:''));
+   },'quiet');
+   shortline.replaceChildren(h('div',{class:'fy-inline'},h('strong',{},'短线校验'),h('small',{},snapshot.date||'暂无收盘日期'),details),
+    r?h('p',{},(r.strategy||'未匹配')+' · '+(r.emotion?.stage||'未判定')+' · '+(r.status||'待校验')):note('暂无该股同期校验记录'),
+    ...(r?.risks?.length?[h('small',{},r.risks.slice(0,2).join('；'))]:[]));
+  }catch(error){if(current())shortline.replaceChildren(note('短线证据未能读取 · '+error.message));}
+ }
  async function open(nextCode,nextRow,trigger) {
   if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
   title.textContent=symbolName(row)+' / '+nextCode;displayQuote(row);
-  overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();
+  overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();void checkShortline(nextCode,row,controller.signal,generation);
  }
  return {element:h('div',{class:'fy-drawer-layer'},overlay,drawer),open,close,update,isOpen:()=>!drawer.hidden,clear:()=>{close();code='';row=null;daily=[];title.textContent='';quote.replaceChildren();meta.textContent='';body.replaceChildren();}};
 }

@@ -282,6 +282,10 @@ function models(ctx){
 }
 
 export function renderResearch(route,ctx){
+  if(route.sub.startsWith('shortline-')){
+    if(!ctx.canEdit)return empty('需要研究编辑权限','请使用已获批的编辑设备登录。');
+    return import('./shortline-host.mjs').then(({renderShortline})=>renderShortline(route,ctx));
+  }
   const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence};
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
   const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','学习进度'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];

@@ -1,0 +1,15 @@
+/* Loaded in this workspace's shadow tree. Dynamic forms retain their own layout. */
+:host{display:block;min-width:0;color-scheme:light;--text:#2c2439;--ink:#282438;--muted:#746b83;--border:#ded8e6;--primary:#7557bb;--accent:#7557bb;--violet:#7557bb;--red:#ae3b59;--green:#187d67;--bg:#f7f4fa;color:var(--ink);font:15px/1.6 system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+*{box-sizing:border-box}[hidden]{display:none!important}.sheet-body{min-width:0;background:var(--bg);padding:clamp(10px,1.6vw,24px);border-radius:14px}
+h1,h2,h3,h4,p{margin:0}h2{font-size:20px}h3{font-size:16px}small,.sub,.muted{color:var(--muted);font-size:13px}
+.panel{min-width:0;background:white;border:1px solid var(--border);border-radius:11px;padding:18px}
+input,select,textarea,button{font:inherit;color:inherit}button,select,a{cursor:pointer}button:disabled{cursor:default;opacity:.52}
+input:not([type=checkbox]):not([type=radio]),select,textarea{min-width:0;max-width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;padding:8px 10px}
+button,.btn{border:1px solid var(--border);border-radius:6px;background:#fff;padding:7px 12px;line-height:1.45;text-decoration:none;color:var(--ink);font-size:14px}
+.btn,.primary{display:inline-flex;align-items:center;justify-content:center;gap:6px}.primary{background:var(--primary);border-color:var(--primary);color:white}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #8662b9;outline-offset:2px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:5px;font-size:14px}
+.table-wrap{overflow:auto;max-width:100%}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #ece8ee}th{font-weight:600;background:#f6f4f9;color:#706478}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:#f0e9fa;color:#7858ad;font-size:13px}
+svg{max-width:100%}.icon{vertical-align:middle;flex:none}summary{cursor:pointer;min-height:36px}a{color:var(--primary)}
+@media(max-width:600px){.grid2{grid-template-columns:minmax(0,1fr)}.sheet-body{padding:9px}button,.btn{min-height:40px}th,td{padding:8px}.table-wrap{overscroll-behavior-x:contain}}
