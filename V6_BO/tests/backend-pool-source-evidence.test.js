@@ -76,7 +76,8 @@ function admission(rows,{prior=[{code:'600001',tradeDate:'2026-11-12'}],stocks=[
  const deriveStart=server.indexOf('  // kc 轮：东财/同花顺涨停池接口盘后',firstEnd),commitEnd=server.indexOf('    S.ztDay = _ztDay;',deriveStart)+'    S.ztDay = _ztDay;'.length;
  const code=server.slice(start,firstEnd)+server.slice(deriveStart,commitEnd)+'\n}\nreturn {zt};\n}';
  const state={ztPool:prior,ztDay:'20261112',stocks};
- const ctx=vm.createContext({Date:Clock,S:state,_dataDayOk:true,dataTradeDay:async()=> '2026-11-13',console:quiet,
+ const readMarketSource=require('../src/core/market-source-cadence').createMarketSourceCadence(Clock.now);
+ const ctx=vm.createContext({Date:Clock,S:state,_dataDayOk:true,dataTradeDay:async()=> '2026-11-13',console:quiet,readMarketSource,SECTORS_ZT_MS:10000,
  require:name=>name==='./src/core/cls-limit-up-pool'?{fetchClsLimitPool:async()=>cls}:require('node:module').createRequire(path.join(root,'server.js'))(name),
  em:{fetchSectorFlow:async()=>[],fetchZTPool:async()=>rows},reviewSnapshotFields:snapshot,
  marketReady:()=>true,deriveLimitUpMissed:()=>derived,enrichMissedStreak:async()=>{},enrichZTPoolMeta:async()=>{},A:{ztDroppedOf:()=>[],countsInZtTally:()=>true,isJunkName:()=>false}});
@@ -85,6 +86,9 @@ function admission(rows,{prior=[{code:'600001',tradeDate:'2026-11-12'}],stocks=[
 test('accepted limit pool map reaches committed rows with source-bound fact/research evidence',async()=>{
  const a=admission([{code:'600000',src:'em',tradeDate:'2026-11-13',sourceTradeDate:'2026-11-13',receivedAt:now-1000}]);await a.run();
  const row=a.state.ztPool[0];assert.equal(row.factEvidence.tradeDate,'2026-11-13');assert.equal(row.researchEvidence.receivedAt,now-1000);assert.equal(a.state.ztDay,'20261113');
+ assert.equal(a.state.ztPoolFetchedAt,now-1000);
+ await a.run();
+ assert.equal(a.state.ztPoolFetchedAt,now-1000);
 });
 test('wrong or unknown source day retains previous valid pool even with undated reconstruction candidates',async()=>{
  for(const patch of [{tradeDate:'2026-11-12'},{tradeDate:null},{tradeDate:'2026-11-13',src:'ths'}]){

@@ -226,6 +226,81 @@ export function newsRows(state={},kind,{now=Date.now()}={}){
 }
 
 const reviewDay=value=>{const day=typeof value==='string'?value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):'';return validDay(day)?day:null;};
+function firstSealTime(value,day,receivedAt){
+ if(typeof value!=='string'||!/^\d{6}$/.test(value))return null;
+ const time=value.match(/../g).join(':'),at=Date.parse(day+'T'+time+'+08:00');
+ // The opening match and the two trading sessions share the same provider field.
+ const session=time==='09:25:00'||time>='09:30:00'&&time<='11:30:00'||time>='13:00:00'&&time<='15:00:00';
+ return session&&at<=receivedAt?time:null;
+}
+
+export function sectorLeadershipEvidence(state={},now=Date.now()){
+ const meta=state.ztReviewPoolMeta,day=reviewDay(meta?.tradeDate),sources=arr(meta?.sources);
+ const source=sources.find(item=>item?.source==='eastmoney');
+ const sourceAt=source?.receivedAt;
+ const received=at=>Number.isSafeInteger(at)&&chinaDay(at)>=day&&at<=now;
+ const current=day&&reviewDay(source?.tradeDate)===day&&['available','partial'].includes(source?.status)&&
+  received(sourceAt);
+ const secondSource=current&&sources.find(item=>item?.source==='cls'&&item.status==='available'&&
+  item.providerComplete===true&&reviewDay(item.tradeDate)===day&&received(item.receivedAt));
+ const members=new Map(),industries=new Map(),duplicates=new Set();
+ if(current)for(const row of arr(state.ztReviewPool)){
+  const batch=row?.poolEvidence;
+  // Retained or reconstructed records cannot supply timings from the current response.
+  if(row?.src!=='em'||typeof row.code!=='string'||!/^\d{6}$/.test(row.code)||row.heldRecord===true||
+    row.sourceStatuses?.eastmoney!==source.status||!arr(row.sources).includes('eastmoney')||
+    reviewDay(row.tradeDate)!==day||reviewDay(row.sourceTradeDate)!==day||batch?.source!=='em'||
+    batch.scope!=='eastmoney-limit-up-pool'||reviewDay(batch.tradeDate)!==day||batch.receivedAt!==sourceAt)continue;
+  if(members.has(row.code)){duplicates.add(row.code);continue;}
+  members.set(row.code,{code:row.code,name:row.name||row.code,industry:typeof row.sector==='string'?row.sector.trim():'',
+   firstSeal:firstSealTime(row.firstSeal,day,sourceAt),
+   crossListed:row.sourceStatuses?.cls==='available'&&row.clsObservation?.source==='cls'&&
+    reviewDay(row.clsObservation.tradeDate)===day&&row.clsObservation.receivedAt===secondSource?.receivedAt});
+ }
+ for(const code of duplicates)members.delete(code);
+ for(const member of members.values()){
+  if(!member.industry||['-','--','未知','板块待核验'].includes(member.industry))continue;
+  if(!industries.has(member.industry))industries.set(member.industry,[]);
+  industries.get(member.industry).push(member);
+ }
+ const complete=source?.status==='available'&&source.providerComplete===true&&!duplicates.size&&
+  source.totalCount===members.size&&source.uniqueCount===members.size;
+ return stock=>{
+  const dates=[stock?.poolDay,stock?.sourceTradeDate,stock?.tradeDate].filter(value=>value!=null&&value!=='').map(reviewDay);
+  const tradeDate=dates.length?dates[0]:chinaDay(stock?.vendorQuoteAt??stock?.quoteAt);
+  if(!tradeDate||dates.some(date=>date!==tradeDate))return {status:'pending',tradeDate:null,reason:'个股原始交易日待核验'};
+  if(!current||tradeDate!==day)return {status:'pending',tradeDate,reason:'缺少与个股同日的东方财富涨停批次'};
+  const own=members.get(stock?.code),industry=own?.industry,group=industries.get(industry);
+  if(!own||!group)return {status:'pending',tradeDate,reason:own?'来源行业待核验':'个股在该批次缺少可核验的涨停记录'};
+  const peers=group.filter(member=>member.code!==own.code),timed=peers.filter(member=>member.firstSeal);
+  const earlier=own.firstSeal?timed.filter(member=>member.firstSeal<own.firstSeal):[];
+  const tied=own.firstSeal?timed.filter(member=>member.firstSeal===own.firstSeal):[];
+  const later=own.firstSeal?timed.filter(member=>member.firstSeal>own.firstSeal):[];
+  later.sort((a,b)=>a.firstSeal.localeCompare(b.firstSeal)||a.code.localeCompare(b.code));
+  // Count-based research display within one provider's industry and limit-up scope.
+  // A missing clock can change the ordering, so it prevents a strength label.
+  let status='pending',reason=null;
+  if(!own.firstSeal)reason='个股首封时间待核验';
+  else if(!complete)reason='来源批次覆盖不完整，先后仅供样本核对';
+  else if(timed.length!==peers.length)reason='部分同业首封时间待核验';
+  else if(earlier.length)status='following';
+  else if(tied.length)status='tied';
+  else status=later.length>=4?'early-spread':'early-limited';
+  return {status,reason,tradeDate,industry,sourceAt,complete,firstSeal:own.firstSeal,peerCount:peers.length,
+   timedCount:timed.length,earlierCount:earlier.length,tiedCount:tied.length,later,
+   crossListed:secondSource?own.crossListed:null,crossListedPeers:secondSource?peers.filter(member=>member.crossListed).length:null};
+ };
+}
+
+export function limitReasonEvidence(row,text,tradeDate){
+ const day=reviewDay(tradeDate);
+ const reason=typeof text==='string'?text.trim():'';
+ const source=typeof row?.reasonSource==='string'?row.reasonSource.trim():'';
+ if(!day||!reason||!source||row.reasonDateStatus!=='matched'||reviewDay(row.reasonTradeDate)!==day)return null;
+ return {reason,reasonSource:source,reasonDay:day};
+}
+export const reviewSupplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>
+ ({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
 export function dailyReviewEvidence(state={}){
  const readonly=Array.isArray(state.ztReviewPool),sourceEvidence=readonly&&state.ztReviewPoolMeta&&typeof state.ztReviewPoolMeta==='object'&&!Array.isArray(state.ztReviewPoolMeta)?state.ztReviewPoolMeta:null;
  const day=reviewDay(readonly?sourceEvidence?.tradeDate:state.ztDay),reviewMatched=!!day&&reviewDay(state.review?.date)===day;
@@ -243,8 +318,7 @@ export function dailyReviewEvidence(state={}){
  const rows=[...pool.values()].map(row=>{
   const own=dates(row),sourceDay=own.conflict?null:own.day,dateMatched=!!day&&sourceDay===day;
   const review=dateMatched?reviews.get(row.code):null;
-  const knownReason=x=>dateMatched&&x?.reasonDateStatus==='matched'&&reviewDay(x.reasonTradeDate)===day&&typeof x.reasonSource==='string'&&x.reasonSource.trim();
-  const reasonRow=knownReason(row)&&typeof row.reason==='string'&&row.reason.trim()?row:knownReason(review)&&typeof review.reasonRaw==='string'&&review.reasonRaw.trim()?review:null;
+  const originalReason=dateMatched?(limitReasonEvidence(row,row.reason,day)||limitReasonEvidence(review,review?.reasonRaw,day)):null;
   const role=dateMatched?(row.role||review?.role):null;
   const sector=typeof row.sector==='string'?row.sector:'',sectorTags=[...new Set([...arr(row.sectorTags),sector].filter(value=>typeof value==='string'&&value.trim()).map(value=>value.trim()))];
   return {code:row.code,name:row.name||row.code,sector,sectorTags,day,sourceDay,dateMatched,isST:typeof row.isST==='boolean'?row.isST:/^\*?ST/i.test(String(row.name||'').trim())?true:null,
@@ -252,10 +326,10 @@ export function dailyReviewEvidence(state={}){
    heldSources:arr(row.heldSources).filter(value=>typeof value==='string'),sourceStatuses:row.sourceStatuses&&typeof row.sourceStatuses==='object'?{...row.sourceStatuses}:{},
    reasonSourceStatus:row.reasonSourceStatus||null,receivedAt:row.receivedAt??null,sourceEventAt:row.sourceEventAt??null,reasonReceivedAt:row.reasonReceivedAt??null,
    source:arr(row.sources).filter(value=>typeof value==='string').join(' + ')||row.src||row.quoteSource||'来源待核验',limitUpCount:Number.isInteger(row.limitUpCount)&&row.limitUpCount>0?row.limitUpCount:null,
-   reason:reasonRow?(reasonRow===row?row.reason:review.reasonRaw):null,reasonSource:reasonRow?.reasonSource||null,reasonDay:reasonRow?day:null,
+   reason:originalReason?.reason||null,reasonSource:originalReason?.reasonSource||null,reasonDay:originalReason?.reasonDay||null,
    role:['leader','deputy','mid','follow'].includes(role)?role:null,
    linkedRecords:arr(review?.peers).filter(peer=>{const own=dates(peer);return !own.conflict&&(!own.day||own.day===day);}).map(peer=>({name:typeof peer.n==='string'?peer.n:typeof peer.name==='string'?peer.name:'名称待核验',code:/^\d{6}$/.test(peer.code||'')?peer.code:null,limitUpCount:Number.isInteger(peer.lb)&&peer.lb>=0?peer.lb:null,role:['leader','deputy','mid','follow'].includes(peer.role)?peer.role:null,strong:peer.strong===true})),
-   stock:{code:row.code,name:row.name,price:row.price,pct:row.pct,sector:row.sector,quoteAt:row.quoteAt,vendorQuoteAt:row.vendorQuoteAt,quoteSource:row.quoteSource||row.src,receivedAt:row.receivedAt},peers:[]};
+   stock:{code:row.code,name:row.name,price:row.price,pct:row.pct,sector:row.sector,poolDay:dateMatched?day:null,quoteAt:row.quoteAt,vendorQuoteAt:row.vendorQuoteAt,quoteSource:row.quoteSource||row.src,receivedAt:row.receivedAt},peers:[]};
  });
  const groups=new Map();for(const row of rows)for(const key of row.sectorTags.length?row.sectorTags:['板块待核验']){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
  for(const row of rows)if(row.sectorTags.length&&row.dateMatched){
