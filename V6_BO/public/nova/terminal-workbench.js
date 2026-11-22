@@ -105,7 +105,8 @@ function renderPanels(state,summary,reviewDay,ctx) {
 }
 function renderReviewRows(summary,ctx,tradeDate) {
  const data=summary.rows.slice(0,200);
- const open=row=>button(nameOf(row)+' '+row.code,()=>ctx.selectStock(row.code,row),'quiet');
+ const select=row=>ctx.selectStock(row.code,{...row,poolDay:row.poolDay||tradeDate});
+ const open=row=>button(nameOf(row)+' '+row.code,()=>select(row),'quiet');
  const reasonView=row=>{
   const source=limitReasonEvidence(row,row.reasonRaw,tradeDate);
   const inference=typeof row.reason==='string'?row.reason.trim():'';
@@ -123,7 +124,7 @@ function renderReviewRows(summary,ctx,tradeDate) {
   {label:'5 日线',value:row=>typeof row.aboveMa5==='boolean'?h('span',{class:'fy-reference-ma', 'data-above':String(row.aboveMa5)},row.aboveMa5?'线上':'线下'):'—'},
   {label:'题材',value:row=>row.sector||'待核验'},
   {label:'涨停原因',value:reasonView},
-  {label:'操作',value:row=>button('K 线',()=>ctx.selectStock(row.code,row),'quiet')}
+  {label:'操作',value:row=>button('K 线',()=>select(row),'quiet')}
  ];
  if(!data.length)return empty('暂无可核验的涨停明细','没有数据不代表没有涨停；请检查源端池、返回上限和复盘任务。');
  const mobile=data.map(row=>{

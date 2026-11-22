@@ -18,10 +18,25 @@ const candles=Array.from({length:900},(_,i)=>{
 const indices=[['1.000001','上证指数',3210.12,.9],['0.399001','深证成指',10020.32,-.6],['0.399006','创业板指',2100.45,1.2],['1.000688','科创50',1020.4,.3]].map(([code,name,price,pct])=>({code,name,price,pct,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider'}));
 let phase='normal',role='edit',holdAnalysis=false,heldAnalysisReply=null,holdMarks=false,heldMarksReply=null;
 const requests=[],resources=[];
+function leadershipFixture(){
+ const {mergeLimitReviewPools}=require('../src/core/limit-review-pool');
+ const tradeDate='2026-11-13';
+ const poolEvidence={source:'em',scope:'eastmoney-limit-up-pool',tradeDate,receivedAt:sourceAt};
+ const eastmoneyRows=['092500','093105','094620','103014','131502'].map((firstSeal,i)=>({
+  code:i===0?stocks[0].code:String(601100+i),name:i===0?stocks[0].name:'合成同业'+i,
+  sector:'合成能源',firstSeal,tradeDate,sourceTradeDate:tradeDate,src:'em',poolEvidence
+ }));
+ const cls={status:'available',complete:true,tradeDate,receivedAt:sourceAt,totalCount:2,fetchedCount:2,uniqueCount:2,
+  items:eastmoneyRows.slice(0,2).map(row=>({...row,src:'cls',receivedAt:sourceAt}))};
+ const pool=mergeLimitReviewPools({eastmoneyRows,cls,tradeDate,
+  eastmoneyMeta:{totalCount:phase==='system-picks-refresh'?6:5,receivedAt:sourceAt}});
+ return {ztReviewPool:pool.rows,ztReviewPoolMeta:pool.meta};
+}
 function state(){
  const rows=phase==='empty'?[]:stocks;
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
  const sourcePanels={
+  ...leadershipFixture(),
   sectorsDay:'20261113',ztDay:'20261113',
   ztBySector:[{sector:'合成能源',count:2,stocks:[{...stocks[0],role:'leader'},{...stocks[2],role:'mid'}]},
    {sector:'合成材料',count:1,stocks:[{...stocks[1],role:'leader'}]}],
@@ -278,16 +293,33 @@ const runChecks=async()=>{
     assert.ok(rail.navButtons>=11,'all original business destinations remain');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
-   if(width===390){
+   if(width===390||width===1440){
     const beforePicks=requests.length;
     await page.getByRole('button',{name:'查看系统精选',exact:true}).click();
     await page.getByRole('heading',{name:'系统精选',exact:true}).waitFor();
     const selected=page.locator('[aria-label="系统精选股票"]');
     await selected.locator('[data-code="600101"]').waitFor();
     assert.equal(await page.locator('.fy-workspace-nav button').first().textContent(),'系统精选');
+    const pick=selected.locator('[data-code="600101"]');
+    assert.match(await pick.locator('[data-sector-leadership="early-spread"]').textContent(),/先封后扩散/);
+    await pick.click();
+    const lens=page.getByRole('dialog',{name:'股票研究面板'});
+    const beforeLeadership=requests.length;
+    await lens.getByRole('button',{name:'带动性',exact:true}).click();
+    const panel=lens.locator('[data-leadership-panel]');
+    assert.match(await panel.innerText(),/本股首封 09:25:00.*晚于本股 4 只/);
+    assert.match(await panel.innerText(),/财联社同日收录 · 本股已收录 · 同业 1 \/ 4 只/);
+    await panel.getByText('查看随后封板的同业',{exact:true}).click();
+    assert.match(await panel.locator('ul').innerText(),/合成同业1 601101 · 09:31:05/);
+    assert.ok(requests.slice(beforeLeadership).every(entry=>['/api/state','/api/kline'].includes(entry.path)&&entry.method==='GET'),
+     'stock leadership reads the shared state and never starts an additional scan');
+    await lens.locator('.fy-tabs').evaluate(tabs=>{tabs.scrollLeft=0;});
+    await page.screenshot({path:path.join(output,'fayo-leadership-'+width+'.png'),fullPage:false});
+    await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
     phase='system-picks-refresh';
     await page.getByRole('button',{name:'刷新结果',exact:true}).click();
     await selected.locator('[data-code="600199"]').waitFor();
+    assert.match(await pick.locator('[data-sector-leadership="pending"]').textContent(),/待核验/);
     assert.match(await page.locator('[data-system-picks-read-time]').textContent(),/最近读取 \d/);
     assert.ok(requests.slice(beforePicks).some(entry=>entry.path==='/api/state'&&entry.method==='GET'));
     assert.ok(!requests.slice(beforePicks).some(entry=>['/api/quant-picks','/api/intraday-strong','/api/refresh'].includes(entry.path)),
@@ -330,6 +362,14 @@ const runChecks=async()=>{
    await page.getByText('该筛选下暂无复盘记录',{exact:true}).waitFor({state:'visible'});
    await filters.getByRole('button',{name:'全部 3',exact:true}).click();
    assert.equal(await page.locator('.fy-reference-review .fy-terminal-mobile-stock').count(),3);
+   if(width===390||width===1440){
+    const stock=page.getByRole('button',{name:'合成光谱1 600101',exact:true}).filter({visible:true});
+    await stock.click();
+    const lens=page.getByRole('dialog',{name:'股票研究面板'});
+    await lens.getByRole('button',{name:'带动性',exact:true}).click();
+    assert.match(await lens.locator('[data-sector-leadership="early-spread"]').innerText(),/先封后扩散/);
+    await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
+   }
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await geometry(page,'reference-review-'+width);
    await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:false});

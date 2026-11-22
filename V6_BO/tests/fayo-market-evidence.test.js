@@ -3,6 +3,77 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const modulePath=path.resolve(__dirname,'../public/nova/market-evidence.js');
 const api=import('data:text/javascript;base64,'+fs.readFileSync(modulePath).toString('base64'));
 const now=Date.parse('2026-11-15T12:00:00Z');
+
+function leadershipState(firstSeals=['092500','093002','094000','103000','130000'],{totalCount=firstSeals.length,day='2026-11-13'}={}){
+ const {mergeLimitReviewPools}=require('../src/core/limit-review-pool');
+ const receivedAt=Date.parse(day+'T15:05:00+08:00');
+ const poolEvidence={source:'em',scope:'eastmoney-limit-up-pool',tradeDate:day,receivedAt};
+ const eastmoneyRows=firstSeals.map((firstSeal,index)=>({src:'em',code:String(600101+index),name:'合成股票'+index,
+  sector:'合成材料',tradeDate:day,sourceTradeDate:day,firstSeal,poolEvidence}));
+ const cls={status:'available',complete:true,tradeDate:day,receivedAt,totalCount:2,fetchedCount:2,uniqueCount:2,
+  items:[eastmoneyRows[0],eastmoneyRows[1]].map(row=>({...row,src:'cls',sector:'另一题材',receivedAt}))};
+ const result=mergeLimitReviewPools({eastmoneyRows,eastmoneyMeta:{totalCount,receivedAt},cls,tradeDate:day});
+ return {ztReviewPool:result.rows,ztReviewPoolMeta:result.meta};
+}
+
+test('同业带动性比较同一东方财富涨停批次的首封，财联社只核对同日收录',async()=>{
+ const {sectorLeadershipEvidence}=await api;
+ const state=leadershipState();
+ const read=sectorLeadershipEvidence(state,now);
+ const early=read({code:'600101',poolDay:'20261113',sector:'另一个候选主题'});
+ assert.equal(early.status,'early-spread');
+ assert.equal(early.industry,'合成材料');
+ assert.equal(early.firstSeal,'09:25:00');
+ assert.equal(early.peerCount,4);
+ assert.equal(early.timedCount,4);
+ assert.deepEqual(early.later.map(peer=>peer.firstSeal),['09:30:02','09:40:00','10:30:00','13:00:00']);
+ assert.equal(early.crossListed,true);
+ assert.equal(early.crossListedPeers,1);
+ const after=read({code:'600102',vendorQuoteAt:Date.parse('2026-11-13T07:00:00Z')});
+ assert.equal(after.status,'following');
+ assert.equal(after.earlierCount,1);
+ assert.equal(read({code:'600111',poolDay:'20261113'}).status,'pending');
+ assert.equal(read({code:'600101',poolDay:'2026-11-12'}).status,'pending');
+ assert.equal(read({code:'600101',poolDay:'20261113',tradeDate:'2026-11-12'}).status,'pending');
+ state.ztReviewPool[1].clsObservation.receivedAt-=60000;
+ assert.equal(sectorLeadershipEvidence(state,now)({code:'600101',poolDay:'20261113'}).crossListedPeers,0);
+ const cls=state.ztReviewPoolMeta.sources.find(item=>item.source==='cls');
+ cls.status='retained';
+ const withoutCls=sectorLeadershipEvidence(state,now)({code:'600101',poolDay:'20261113'});
+ assert.equal(withoutCls.status,'early-spread');
+ assert.equal(withoutCls.crossListed,null);
+});
+
+test('带动性区分同秒、覆盖不足、旧批次及缺失时点，剔除自身和其他行业',async()=>{
+ const {sectorLeadershipEvidence}=await api;
+ const stock={code:'600101',poolDay:'20261113'};
+ const read=state=>sectorLeadershipEvidence(state,now)(stock);
+ const tied=read(leadershipState(['093000','093000','094000','100000','102000','110000']));
+ assert.equal(tied.status,'tied');
+ assert.equal(tied.tiedCount,1);
+ assert.equal(tied.later.length,4);
+ const narrow=leadershipState();
+ narrow.ztReviewPool[1].sector='其他行业';
+ assert.equal(read(narrow).status,'early-limited');
+ assert.equal(read(narrow).peerCount,3);
+ const partial=read(leadershipState(undefined,{totalCount:7}));
+ assert.equal(partial.status,'pending');
+ assert.equal(partial.later.length,4);
+ const missing=read(leadershipState(['092500','093002','000000','120000','130000','096000']));
+ assert.equal(missing.status,'pending');
+ assert.equal(missing.timedCount,2);
+ assert.equal(missing.peerCount,5);
+ const stale=leadershipState();
+ stale.ztReviewPool[1].sourceStatuses.eastmoney='retained';
+ stale.ztReviewPool[2].poolEvidence={...stale.ztReviewPool[2].poolEvidence,receivedAt:stale.ztReviewPool[2].poolEvidence.receivedAt-60000};
+ assert.equal(read(stale).status,'pending');
+ assert.deepEqual(read(stale).later.map(peer=>peer.code),['600104','600105']);
+ const duplicate=leadershipState();
+ duplicate.ztReviewPool.push(duplicate.ztReviewPool[0]);
+ assert.equal(read(duplicate).status,'pending');
+ const future=leadershipState();
+ assert.equal(sectorLeadershipEvidence(future,Date.parse('2026-11-13T10:00:00+08:00'))(stock).status,'pending');
+});
 const candle=(date,close,volume=100)=>({date,open:close,high:close+1,low:close-1,close,volume});
 
 test('native candles reject invalid/future sessions and prices without inventing zero volume',async()=>{
