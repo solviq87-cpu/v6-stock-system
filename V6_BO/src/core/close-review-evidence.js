@@ -278,7 +278,9 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
    const completeNow=compatible&&completePool(freshSealed,day)&&completePool(freshBroken,day)&&freshDown!==null&&
     (!published||finalSeatsStatus==='observed')&&!missingReasons;
    const brief=result(briefResult);
-   const report={day,source:'东方财富',thsBrief:recover('thsBrief',brief?.day===day?brief:null),sealed,broken,reasons:[...mergedReasons.values()],reasonChannels,retained,
+   const freshEvidence=poolMatches(freshSealed,day)||poolMatches(freshBroken,day)||freshDown!==null||
+    reasons.length>0||seats.size>0||brief?.day===day||Number.isFinite(result(northResult))||Number.isFinite(marketTurnover(result(indexResult),day));
+   const report={day,receivedAt:freshEvidence?clock():older?.receivedAt??null,source:'东方财富',thsBrief:recover('thsBrief',brief?.day===day?brief:null),sealed,broken,reasons:[...mergedReasons.values()],reasonChannels,retained,
     retryAfterMs:completeNow?null:retryInterval,northTurnover:recover('northTurnover',result(northResult)),
     marketTurnover:recover('marketTurnover',marketTurnover(result(indexResult),day)),
     sealRate:touched?sealed.records.length/touched:null,promotion,

@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261122ay'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261122az'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -14519,14 +14519,9 @@ function paperBuy(key, cands, pm, reasonOf) {
   if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); return; }
   const bought = [],executionQuotes=paperAuthorityQuotes();
   for (const c of cands) {
-    // Resolve public demo tactics against the same frozen universe used by the research view.
-    let tacticCap = c.cap;
-    if (/^t(?:0[1-9]|[12][0-9]|3[0-6])$/.test(c.strategyId)) {
-      const { demoQuotes, demoMarket, evaluateUniverse } = require('./public/nova/data/tactics.js');
-      const stock = evaluateUniverse(demoQuotes, demoMarket).find(item => item.quote.code === c.code);
-      tacticCap = stock?.results[c.strategyId]?.cap ?? '空仓';
-    }
-    if (c.cap === '空仓' || tacticCap === '空仓') { skipAdd('buyTacticCap'); continue; }
+    // Public reference rules do not publish executable candidate receipts.
+    const referenceOnly=/^t(?:0[1-9]|[12][0-9]|3[0-6])$/.test(c.strategyId);
+    if (c.cap === '空仓' || referenceOnly) { skipAdd('buyTacticCap'); continue; }
     if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); break; }
     if (Object.keys(acc.positions).length >= cfg.maxPos) { skipAdd('buyHeld'); break; }
     // ⛔ dv 轮：这几处 continue 以前完全静默 —— 面板只显示"暂无持仓（等待新信号）"，
@@ -23174,20 +23169,25 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const {normalizeDay}=require('./src/core/limit-reason-evidence');
     const todayDate=normalizeDay(today);
     const latest=openDay&&minute>=900?todayDate:prevTradeDay(todayDate+'T12:00:00');
-    const day=u.searchParams.get('date');
-    if(!latest||day!==latest){
-      const stored=latest&&day&&day<latest&&readCloseReviewEvidence.retained(day);
-      const study=latest&&day&&day<latest?dabankeReview.peek(day):null;
-      return stored||study?reply(200,{ok:true,result:{...stored,day,dabanke:study},archived:true}):reply(404,{ok:false,error:'服务端尚未归档该交易日的复盘'});
+    const history=require('./src/core/close-review-history');
+    const recent=history.recentCloseDays(latest,previousResearchDay);
+    if(u.searchParams.get('list')==='1'){
+      const directories=['close-review-reports','dabanke-reviews'].map(name=>path.join(__dirname,'data',name));
+      const archived=history.archivedDays(directories,latest,d=>isTradeDay(new Date(d+'T12:00:00')));
+      return reply(200,{ok:true,latestDay:latest,recentDays:recent,archivedDays:archived});
     }
-    const previousDay=prevTradeDay(day+'T12:00:00');
-    return Promise.allSettled([readCloseReviewEvidence(day,previousDay,{seatsReady:day!==todayDate||minute>=1080}),
-      process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:dabankeReview.refresh(day)])
-      .then(([core,extra])=>{
-        const study=extra.status==='fulfilled'?extra.value:dabankeReview.peek(day);
-        if(core.status==='rejected'&&!study)throw core.reason;
-        return reply(200,{ok:true,result:{...core.value,day,dabanke:study}});
-      })
+    const day=u.searchParams.get('date')??latest;
+    if(!history.validDate(day)||day>latest||!isTradeDay(new Date(day+'T12:00:00'))){
+      return reply(404,{ok:false,error:'请选择已收盘的交易日'});
+    }
+    const study=process.env.V6_ISOLATED_BOOT_SMOKE==='1'?{peek:d=>dabankeReview.peek(d),refresh:d=>dabankeReview.peek(d)}:dabankeReview;
+    return history.selectedClose({day,latest,recent,previousDay:previousResearchDay,seatsReady:day!==todayDate||minute>=1080,
+      readCore:readCloseReviewEvidence,readStudy:study}).then(async result=>{
+      if(!result)return reply(recent.includes(day)?503:404,{ok:false,error:recent.includes(day)?'公开渠道尚未返回这一天的收盘回执':'服务端尚未归档该交易日的复盘'});
+      const extraFacts=result.dabanke?require('./src/research/dabanke-review').stockFacts(result.dabanke,Date.now()):null;
+      const emotion=await marketRecovery().emotionForDay(day).catch(()=>null);
+      return reply(200,{ok:true,result:{...result,extraFacts,emotion},archived:day<latest});
+    })
       .catch(()=>reply(502,{ok:false,error:'收盘补充渠道暂不可用'}));
   }
 
@@ -23886,6 +23886,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // FAYO owns every current product entry; former documents are recovery-only.
   const fayoEntries = new Set(['/', '/m', '/index.html', '/mobile.html', '/picks.html', '/auction-picks.html', '/research.html', '/model-library.html', '/v6-studio.html', '/v6-matches.html', '/v6-research.html', '/v6-validation.html', '/v6-paper.html', '/v6-market-radar.html', '/reference-dashboard.html', '/nova/']);
   if (fayoEntries.has(p)) p = '/nova/index.html';
+  // In-place upgrades can leave removed public files on disk. Historical reports are API-only.
+  if (/^\/nova\/data\/(?:close-review-\d{8}|tactics)\.js$/.test(p)) {
+    res.writeHead(404,{'Cache-Control':'no-store'});return res.end();
+  }
   else if (/^\/legacy\/(?:[a-z0-9-]+\.html|m)$/.test(p)) p = p === '/legacy/m' ? '/mobile.html' : p.slice('/legacy'.length);
   // Legacy documents stay directly testable without being an active product entry.
   if (p === '/m') p = '/mobile.html';   // 手机速览页入口（2026-10-17）

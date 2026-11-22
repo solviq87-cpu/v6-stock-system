@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const engine=import('../public/nova/data/tactics.js');
+const engine=Promise.all([import('../public/nova/tactics.js'),import('./helpers/public-tactics-fixture.mjs')]).then(([rules,fixture])=>({...rules,...fixture}));
 test('演示快照、表字段与共振排序可重现',async()=>{
   const {demoQuotes,demoMarket,evaluateUniverse,tactics,factors}=await engine;
   assert.equal(tactics.length,36);
