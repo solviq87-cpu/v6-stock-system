@@ -11395,7 +11395,7 @@ function readShortlineSource(input) {
       const {day,minute,openDay}=marketDisplaySession(),date=normalizeDay(day);
       return openDay&&minute>=910?date:previousTradeDay(date);
     };
-    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,readCloseReviewEvidence,previousTradeDay,getLatestClosedDay,
+    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,fetchAuctionTicks:auctionTicksFor,readCloseReviewEvidence,previousTradeDay,getLatestClosedDay,
       fetchIndexKline:(secid,n)=>em.fetchKline(secid,n)});
   }
   return shortlineSourceReader(input);

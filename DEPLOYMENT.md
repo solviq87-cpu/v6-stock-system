@@ -66,7 +66,26 @@ HOST=127.0.0.1 PORT=8787 npm start
 | 2026-11-22 · 已合并 `c7bc7b33` | 飞书明确拒收、未配私密通道或静默拦截时退回消息额度。通知设置及投递追踪提示当前副本停用自动外发。推送专项 63 项、本地全量 4,403 项及 GitHub 合并前检查通过。 [代码变更 #332](https://github.com/solviq87-cpu/v6-stock-system/pull/332) | Windows/WSL 包 `TianShuV6-Windows-OneClick-1a7d915.zip` 已构建，1,151 项文件校验通过。构建源码 `1a7d91501839579941e49991f306ebc7e7a9fa64` 与合并提交的文件树一致。本轮未切换线上后端或角色，回滚时使用更新器记录的前一版本及私有运行备份。 |
 | 2026-11-22 · 线上只读核实 | 用户当前 WorkBuddy `20261116ac` 为副本，私密飞书已配置，流水有 11 月 20 日涨停复盘的副本拦截。历史后端公开接口显示 `20261110cr` 自报主实例。 | 历史主实例的候选与投递流水仍须经该实例授权核验。下次正式发布后在接收端核实真实送达，并将验收结果记回本表。 |
 
-最近已构建的 Windows/WSL 包 SHA-256 为 `fecf70084b63e3803a6382cb6a8c98aa64d5899ed38fd81d8cc91b5cedee0a29`。
+功能提交 `8e4c46c` 的本地后台全量 TAP 为 **4,459 项通过，0 失败、0 跳过**，含短线专项 56 项。运行环境为 Node 22.23.5，将原生 Python 与装有模型依赖的 Python 分离，并使用 PowerShell 7.4.13 运行启动器专项。另行通过旧独立版 20 项、Windows 包测试 13 项、完整工程包测试 5 项、Web 构建及 41 项测试、FAYO 静态构建 9 项。完整服务隔离启动、鉴权、双端入口和源文件校验通过。用户设备、生产账户、实际网络与正式外发仍待现场验收。
+
+短线集成运行包和完整源码归档来自 `8e4c46c7fb860c1720c58ba20b4c4921e7923df4`。本地逐文件核验结果如下。
+
+| 交付包 | 文件范围与验证 | SHA-256 |
+| --- | --- | --- |
+| `FAYO-V6-Windows-WSL-8e4c46c.zip` | 4,940,056 字节，1,141 个运行文件。18 个短线专用文件与 Git 源逐字节一致，已验证清单和包内全部哈希。Linux 隔离安装从 ZIP 初始化、启动 Smoke、读取双端首页、研究 MJS 与 CSV、核对未授权锁定并停止，出站记录为零。 | `d7cbc786a859e370d9e5ea0b1edc5fc7385e93c8174999c7233d55253b0c2088` |
+| `FAYO-V6-full-source-8e4c46c.zip` | 89,875,905 字节，3,541 个 Git 追踪文件，含完整 V6 工程、测试与独立版 1.0.0 原始档。已逐文件执行工程包 verify。 | `4161cd92607508d8fc88f5e5eebd6dc7c7ed874eb0c9de3d794c7487f06dc0a9` |
+
+从该提交重建可在仓库根目录执行，输出目录选用尚无同名文件的位置。
+
+```bash
+release_sha=8e4c46c7fb860c1720c58ba20b4c4921e7923df4
+python3 V6_BO/scripts/build-windows-host-bundle.py --repo . --sha "$release_sha" --output /tmp/FAYO-V6-Windows-WSL-8e4c46c.zip
+python3 V6_BO/scripts/build-complete-engineering-bundle.py build --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source-8e4c46c.zip
+python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source-8e4c46c.zip
+```
+
+历史版本 Windows/WSL 包（来源 `1a7d915`）的 SHA-256 为 `fecf70084b63e3803a6382cb6a8c98aa64d5899ed38fd81d8cc91b5cedee0a29`。
+
 
 ## 每次改代码都更新本页
 
