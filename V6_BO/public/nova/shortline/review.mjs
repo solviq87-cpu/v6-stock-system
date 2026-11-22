@@ -1,6 +1,8 @@
 import { emotion, marketAsOf } from './market.mjs';
 import { signals, similarCases } from './backtest.mjs';
 import { stats } from './learning.mjs';
+import { selectedSample,qualityOptions,setOptions,flatLines,recordSource,sampleLabel } from './journal-data.mjs';
+import {reviewFactorReferences,presentReference} from './model-context.mjs';
 import { icon } from './icons.mjs';
 
 const list = v => Array.isArray(v) ? v : v == null || v === '' ? [] : [v];
@@ -58,13 +60,15 @@ function nameTags(t) {
 function signalRows(state, date) {
   return list(state.bars).length ? signals(state,date).filter(r=>day(r.date)<=date) : [];
 }
-function reviewContext(s,date,period,deep) {
+function reviewContext(s,date,period,deep,quality,set) {
   const at=s.v6Observation?.latestClosed===true&&s.v6Observation.day===date?(s.v6Observation.observedAtMs||s.v6Observation.observedAt):s.marketResearchAsOf?.day===date?s.marketResearchAsOf.knownAt:undefined;
   const visible=marketAsOf(s,date,at);
   const base=periodRows(s,date,period,visible);
+  base.trades=base.trades.filter(t=>selectedSample(t,quality,set));
+  base.checks=base.checks.filter(t=>selectedSample(t,quality,set));
   const mood=emotion(visible,date,at);
   const exact=base.market.find(x=>x.date===date);
-  const allSignals=signalRows(s,date), sigs=allSignals.filter(r=>day(r.date)>=base.start);
+  const allSignals=signalRows(s,date).filter(r=>selectedSample(r,quality,set)), sigs=allSignals.filter(r=>day(r.date)>=base.start);
   const recent=sigs.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
   const peers=deep && recent ? similarCases(s,recent,recent.date) : null;
   return {...base,mood,exact,sigs,allSignals,recent,peers};
@@ -106,17 +110,18 @@ function tradeLines(state,t,deep,allSignals,historyCache) {
   for (const n of list(state.explanations).filter(n=>n.tradeId===t.id)) lines.push('人工解释 · '+n.text);
   return lines;
 }
-export function mistakeSummary(state,date='9999-12-31') {
-  const trades=list(state.trades).filter(t=>tradeEnd(t)<=date);
+export function mistakeSummary(state,date='9999-12-31',quality='all',set='all') {
+  const trades=list(state.trades).filter(t=>tradeEnd(t)<=date&&selectedSample(t,quality,set));
   const since=new Date(date==='9999-12-31'?(trades.map(tradeEnd).sort().at(-1)||'2000-01-01'):date);
   if(Number.isFinite(+since)) since.setUTCDate(since.getUTCDate()-29);
   const start=Number.isFinite(+since)?since.toISOString().slice(0,10):'';
   const sample=trades.filter(t=>tradeEnd(t)>=start);
   return countLabels(sample,t=>[...labels(t.violations),...(Number(t.pnl)<0?labels(t.knownRiskFactors):[])]).map(([label,count])=>({label,count}));
 }
-export function buildReview(state,{date,period='day',depth='brief'}) {
+export function buildReview(state,{date,period='day',depth='brief',quality='all',set='all'}) {
+  if(!Object.hasOwn(qualityOptions,quality)||!Object.hasOwn(setOptions,set))throw Error('样本筛选无效');
   if (!['brief','deep'].includes(depth)) throw Error('请选择复盘深度');
-  const {start,end,market,checks,trades,mood,exact:m,sigs,allSignals,recent,peers}=reviewContext(state,date,period,depth==='deep'||period!=='day');
+  const {start,end,market,checks,trades,mood,exact:m,sigs,allSignals,recent,peers}=reviewContext(state,date,period,depth==='deep'||period!=='day',quality,set);
   const deep=depth==='deep', groups=[], add=(title,lines)=>groups.push({title,lines:lines.filter(Boolean)});
   const tags=distinct([...market.flatMap(x=>themesOf(x).map(t=>t.name)),...(mood.stage==='未判定'?[]:[mood.stage]),...trades.flatMap(nameTags),...checks.flatMap(x=>[x.strategy,x.name,x.code,...labels(x.risks)])]).map(String);
   add('盘面与指数',m?[
@@ -128,6 +133,21 @@ export function buildReview(state,{date,period='day',depth='brief'}) {
   add('题材与重点标的',[...(themesOf(m).length?themesOf(m).map(themeLine):['当日尚无题材记录。']),
     ...checks.map(c=>idText(c)+' ｜ '+value(c.role||c.strategy)+' ｜ '+value(c.status)+' ｜ '+(labels(c.risks).join('、')||'未记录风险')),
     ...sigs.slice(-8).map(r=>idText(r)+' ｜ '+value(r.strategy)+' ｜ '+value(r.type))]);
+  const receipts=list(state.importedLimitPools).filter(b=>b.tradeDate>=start&&b.tradeDate<=end&&Number.isFinite(b.knownAt)&&b.knownAt<=Date.now());
+  const stockLinks={};
+  const nThemes=Math.max(1,themesOf(m).length);
+  checks.forEach((r,i)=>{stockLinks[nThemes+i]={page:'structure',code:r.code,date:r.date,strategy:r.strategy,ref:r.id};});
+  sigs.slice(-8).forEach((r,i)=>{stockLinks[nThemes+checks.length+i]={page:'backtest',code:r.code,date:day(r.date),strategy:r.strategy,ref:r.id};});
+  groups.at(-1).links=stockLinks;
+  const references=reviewFactorReferences(checks,state.catalog,Math.min(Date.now(),Date.parse(end+'T23:59:59.999+08:00'))).slice(0,deep?18:6);
+  if(references.length){
+    add('因子代号复核',references.map(presentReference));
+    groups.at(-1).links=Object.fromEntries(references.map((r,i)=>[i,{page:'dictionary',date:end,factor:r.code,ref:r.code}]));
+  }
+  if(receipts.length)add('涨停列表原始资料',receipts.map(b=>b.tradeDate+' · '+b.source+' · '+b.scope+' · 已列 '+b.rows.length+' 只 · 原题材 '+(distinct(b.rows.map(r=>r.theme)).slice(0,20).join('、')||'未提供')+' · 取得 '+b.availableAt+(b.knownAt>Date.parse(b.tradeDate+'T15:00:00+08:00')?' · 收盘后补录资料。':' · 收盘时已取得。')+'覆盖范围限导入清单。'));
+  const flats=list(state.flatRecords).filter(r=>r.end>=start&&r.end<=end&&selectedSample(r,quality,set));
+  if(flats.length)add('空仓手记与区间基准',flats.flatMap(r=>flatLines(state,r)));
+  if(quality!=='all'||set!=='all')add('样本筛选',['本期校验、交易与信号按 '+qualityOptions[quality]+' / '+setOptions[set]+' 统计。相似历史分布沿用信号发生时的规则样本库。']);
   if(period!=='day') {
     let lastStage=null,lastTheme=null;
     const events=[];
@@ -141,7 +161,9 @@ export function buildReview(state,{date,period='day',depth='brief'}) {
     add('情绪与主线时间轴',events.length?events:['本周期没有盘面记录。']);
   }
   const historyCache=new Map();
-  add('个人交易复盘',trades.length?trades.flatMap(t=>tradeLines(state,t,deep,allSignals,historyCache)):['本周期暂无已结算交易。']);
+  const lines=[],links={};
+  for(const t of trades){links[lines.length]={page:'trades',code:t.code,date:tradeEnd(t),strategy:t.strategy,ref:t.id};lines.push(...tradeLines(state,t,deep,allSignals,historyCache));}
+  add('个人交易复盘',lines.length?lines:['本周期暂无已结算交易。']);groups.at(-1).links=links;
   if(deep||period!=='day') {
     const eligible=trades.filter(t=>t.repeatable!==false);
     add('战法绩效与环境适配',eligible.length?
@@ -182,8 +204,8 @@ export function reviewAction(state,action,payload={}) {
   const date=payload.date, createdAt=new Date().toISOString();
   state.notes??=[];state.checkins??=[];
   if(action==='review:generate'){
-    const r=buildReview(state,{date,period:payload.period,depth:payload.depth});
-    const n={id:newId(),date,kind:r.depth,period:r.period,text:r.text,title:r.title,tags:r.tags,createdAt};
+    const r=buildReview(state,{date,period:payload.period,depth:payload.depth,quality:payload.quality,set:payload.set});
+    const n={id:newId(),date,kind:r.depth,period:r.period,qualityFilter:payload.quality||'all',sampleSetFilter:payload.set||'all',text:r.text,title:r.title,tags:r.tags,createdAt};
     state.notes.push(n);return n;
   }
   if(action==='review:checkin'){
@@ -262,10 +284,10 @@ function reportPng(report) {
     const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='复盘-'+report.end+(lines.length>perPage?'-'+(Math.floor(offset/perPage)+1):'')+'.png';a.click();
   }
 }
-function archiveMarkup(notes,query) {
-  const q=query.trim().toLocaleLowerCase(),filtered=notes.filter(n=>[n.text,n.title,n.date,kinds[n.kind],...labels(n.tags)].join(' ').toLocaleLowerCase().includes(q));
+function archiveMarkup(notes,query,ref) {
+  const q=query.trim().toLocaleLowerCase(),filtered=notes.filter(n=>[n.id,n.tradeId,n.text,n.title,n.date,kinds[n.kind],...labels(n.tags)].join(' ').toLocaleLowerCase().includes(q));
   if(!filtered.length)return empty(q?'没有匹配的复盘记录。':'暂无归档，可生成复盘或添加人工批注。');
-  return filtered.map(n=>'<details class="rv-note"><summary><b>'+formEsc(n.title||kinds[n.kind]||'复盘笔记')+'</b> <span class="rv-sub">'+formEsc(n.date)+'</span> '+labels(n.tags).slice(0,4).map(t=>'<span class="rv-tag">'+formEsc(t)+'</span>').join('')+'</summary><pre>'+formEsc(n.text)+'</pre></details>').join('');
+  return filtered.map(n=>'<details class="rv-note"'+(n.id===ref?' open':'')+'><summary><b>'+formEsc(n.title||kinds[n.kind]||'复盘笔记')+'</b> <span class="rv-sub">'+formEsc(n.date)+'</span> '+labels(n.tags).slice(0,4).map(t=>'<span class="rv-tag">'+formEsc(t)+'</span>').join('')+'</summary><pre>'+formEsc(n.text)+'</pre></details>').join('');
 }
 function checkStats(rows) {
   const rules=rows.flatMap(r=>Object.values(r.rules||{})).filter(x=>['遵守','违反'].includes(x));
@@ -286,70 +308,76 @@ function openCheckin(ui,date,done) {
     field('执行说明（选填）','<textarea name="text" maxlength="2000" rows="3">'+formEsc(prev?.text||'')+'</textarea>'),
     async fd=>{await ui.save('review:checkin',{date,rules:Object.fromEntries(guardRules.map((r,i)=>[r,fd.get('rule'+i)])),text:fd.get('text')});done();});
 }
-function detailedCases(s,cutoff,side) {
+function detailedCases(s,cutoff,side,quality,set) {
   const isLoss=side==='failure';
-  const trades=list(s.trades).filter(t=>tradeEnd(t)<=cutoff && number(t.pnl)!=null && (isLoss?t.pnl<=-5:t.pnl>=5));
-  let rows=trades.map(t=>({date:tradeEnd(t),name:idText(t),strategy:t.strategy,source:'人工交易',ret:t.pnl,features:distinct([...labels(t.knownRiskFactors),...labels(t.factors)]),discipline:labels(t.violations).join('、')||'未记录违规'}));
+  const trades=list(s.trades).filter(t=>selectedSample(t,quality,set)&&tradeEnd(t)<=cutoff && number(t.pnl)!=null && (isLoss?t.pnl<=-5:t.pnl>=5));
+  let rows=trades.map(t=>({date:tradeEnd(t),code:t.code,ref:t.id,route:'trades',name:idText(t),strategy:t.strategy,source:recordSource(t),sampleSet:sampleLabel(t),ret:t.pnl,features:distinct([...labels(t.knownRiskFactors),...labels(t.factors)]),discipline:labels(t.violations).join('、')||'未记录违规'}));
   for(const sig of signalRows(s,cutoff)) {
     const o=sig.outcomes?.[5],ret=number(o?.close);
-    if(ret==null||day(o.end)>cutoff||!(isLoss?ret<=-5:ret>=5))continue;
-    rows.push({date:sig.date,name:idText(sig),strategy:sig.strategy,source:'K 线 T+5',ret,features:distinct([...labels(sig.risks),...labels(sig.features?.shape),...labels(sig.features?.volume)]),discipline:'—'});
+    if(!selectedSample({...sig,blackSwan:sig.blackSwan||o?.blackSwan,extreme:sig.extreme||o?.extreme,sampleSet:o?.sampleSet||sig.sampleSet},quality,set)||ret==null||day(o.end)>cutoff||!(isLoss?ret<=-5:ret>=5))continue;
+    rows.push({date:sig.date,code:sig.code,ref:sig.id,route:'backtest',name:idText(sig),strategy:sig.strategy,source:'K 线 T+5 · '+(sig.sampleSource||'回测规则'),sampleSet:sampleLabel(sig),ret,features:distinct([...labels(sig.risks),...labels(sig.features?.shape),...labels(sig.features?.volume)]),discipline:'—'});
   }
   return rows.sort((a,b)=>b.date.localeCompare(a.date));
 }
 export function renderReview(ui,mode='review') {
   const isMistakes=mode==='mistakes',s=ui.state;
   let date=day(ui.date||[...list(s.market).map(t=>t.date),...list(s.trades).map(tradeEnd),...list(s.checks).map(t=>t.date)].filter(vDate).sort().at(-1)||new Date().toISOString());
-  let period='day',depth='brief',caseSide='failure',archiveQuery='',page=0,caseQuery='';
+  let period='day',depth='brief',quality=Object.hasOwn(qualityOptions,ui.sampleFilter)?ui.sampleFilter:'all',set='all',caseSide='failure',archiveQuery=ui.ref||ui.factor||ui.strategy||'',page=0,caseQuery=ui.factor||ui.strategy||ui.stock||'';
   function draw() {
     const s=ui.state, ro=ui.root;
     let report,cases;
-    if(!isMistakes) report=buildReview(s,{date,period,depth});
+    if(!isMistakes) report=buildReview(s,{date,period,depth,quality,set});
     const notes=list(s.notes).slice().reverse().filter(n=>isMistakes?n.kind==='mistake'&&n.date<=date:n.date<=date);
     const ck=list(s.checkins).filter(r=>r.date<=date),cc=checkStats(ck);
     const chooseDate='<label class="rv-row rv-sub">截至日期 <input aria-label="复盘截止日期" value="'+date+'" type="date" data-rdate required></label>';
+    const picker=(label,key,choices,current)=>'<label class="rv-row rv-sub">'+label+' <select data-review-filter="'+key+'">'+Object.entries(choices).map(([v,l])=>opt(v,l,current===v)).join('')+'</select></label>';
+    const sampleFilters=picker('样本质量','quality',qualityOptions,quality)+picker('样本集','set',setOptions,set);
     let body;
     if(!isMistakes){
       const metrics=[['市场情绪',report.totals.stage],['校验记录',report.totals.checks+' 条'],['已结算交易',report.totals.trades+' 笔'],['历史信号',report.totals.signals+' 个']];
-      body='<section class="panel rv-tools"><div class="rv-row">'+tabset('period',periods,period)+chooseDate+'</div><div class="rv-actions">'+button('brief','生成简短复盘',false,'file')+button('deep','生成深度复盘',true,'activity')+'</div></section>'+
+      body='<section class="panel rv-tools"><div class="rv-row">'+tabset('period',periods,period)+chooseDate+sampleFilters+'</div><div class="rv-actions">'+button('brief','生成简短复盘',false,'file')+button('deep','生成深度复盘',true,'activity')+'</div></section>'+
         '<div class="rv-metrics">'+metrics.map(([k,v])=>'<div class="rv-metric"><span>'+k+'</span><strong>'+formEsc(v)+'</strong></div>').join('')+'</div>'+
-        '<section class="panel"><div class="rv-title"><div><h2>'+formEsc(report.title)+'</h2><span class="rv-sub">'+report.start+(report.end!==report.start?' 至 '+report.end:'')+'</span></div><div class="rv-actions">'+button('md','Markdown',false,'download')+button('png','图片',false,'download')+button('csv','CSV',false,'download')+'</div></div><div class="rv-doc">'+
-        report.groups.map(g=>'<section><h3>'+icon('file',16)+formEsc(g.title)+'</h3><ul>'+g.lines.map(l=>'<li>'+formEsc(l)+'</li>').join('')+'</ul></section>').join('')+'</div></section>';
+        '<section class="panel"><div class="rv-title"><div><h2>'+formEsc(report.title)+'</h2><span class="rv-sub">'+report.start+(report.end!==report.start?' 至 '+report.end:'')+'</span></div><div class="rv-actions">'+button('zip','当日 ZIP',false,'download')+button('md','Markdown',false,'download')+button('png','图片',false,'download')+button('csv','CSV',false,'download')+'</div></div><div class="rv-doc">'+
+        report.groups.map((g,gi)=>'<section><h3>'+icon('file',16)+formEsc(g.title)+'</h3><ul>'+g.lines.map((l,i)=>'<li>'+formEsc(l)+(g.links?.[i]?.code?' <button class="btn" type="button" data-review-link="'+gi+'-'+i+'">'+({backtest:'回看信号',trades:'查看交易',structure:'同期题材'}[g.links[i].page])+'</button>':'')+'</li>').join('')+'</ul></section>').join('')+'</div></section>';
     }else{
-      const top=mistakeSummary(s,date);
-      cases=detailedCases(s,date,caseSide);
+      const top=mistakeSummary(s,date,quality,set);
+      cases=detailedCases(s,date,caseSide,quality,set);
       const common=countLabels(cases,c=>c.features).filter(x=>x[1]>=2);
-      body='<section class="panel rv-tools">'+chooseDate+'<div class="rv-actions">'+button('mistake','记录错题',true,'plus')+'</div></section>'+
+      body='<section class="panel rv-tools">'+chooseDate+sampleFilters+'<div class="rv-actions">'+button('mistake','记录错题',true,'plus')+'</div></section>'+
         '<section class="panel"><div class="rv-title"><h2>近 30 日高频坑点</h2><span class="rv-sub">执行偏离与亏损样本中的风险</span></div>' + (top.length?'<div class="rv-chips">'+top.slice(0,12).map(({label,count})=>'<span class="rv-tag">'+formEsc(label)+' · '+count+' 次</span>').join('')+'</div>':empty('此时间段暂无已记录的纪律偏离或亏损风险标签。'))+'</section>';
       body+='<section class="panel"><div class="rv-title"><h2>历史案例库</h2>'+tabset('caseside',{failure:'大亏样本',success:'高盈利样本'},caseSide)+'</div><div class="rv-tools"><input class="rv-search" data-casequery aria-label="检索案例" placeholder="检索标的、战法或因子" value="'+formEsc(caseQuery)+'"><span class="rv-sub">'+(caseSide==='failure'?'收益 ≤ −5%':'收益 ≥ +5%')+' · 人工交易与 T+5 收盘收益</span></div><div data-caselist></div><div class="rv-chips"><span class="rv-sub">重复出现的因子</span>'+ (common.length?common.slice(0,8).map(([k,n])=>'<span class="rv-tag">'+formEsc(k)+' × '+n+'</span>').join(''):'<span class="rv-sub">样本不足</span>')+'</div></section>';
     }
     body+='<section class="panel"><div class="rv-title"><h2>交易纪律打卡</h2>'+button('checkin','填写打卡',false,'check')+'</div><div class="rv-row"><strong>'+cc.rate+'</strong><span class="rv-sub">历史执行率 · 已遵守 '+cc.pass+' / '+cc.total+' 项</span></div>'+
       (ck.some(r=>r.date===date)?'<div class="rv-chips">'+Object.entries(ck.find(r=>r.date===date).rules).map(([k,v])=>'<span class="rv-tag">'+formEsc(k)+' · '+formEsc(v)+'</span>').join('')+'</div>':'<p class="rv-sub">所选日期尚未打卡</p>')+'</section>'+
-      '<section class="panel"><div class="rv-title"><h2>'+(isMistakes?'错题记录':'复盘归档')+'</h2>'+button('note',isMistakes?'增加记录':'添加批注',false,'plus')+'</div><input class="rv-search" data-query placeholder="搜索战法、周期、题材、标的或原因" aria-label="检索复盘笔记" value="'+formEsc(archiveQuery)+'"><div data-notes>'+archiveMarkup(notes,archiveQuery)+'</div></section>';
+      '<section class="panel"><div class="rv-title"><h2>'+(isMistakes?'错题记录':'复盘归档')+'</h2>'+button('note',isMistakes?'增加记录':'添加批注',false,'plus')+'</div><input class="rv-search" data-query placeholder="搜索战法、周期、题材、标的或原因" aria-label="检索复盘笔记" value="'+formEsc(archiveQuery)+'"><div data-notes>'+archiveMarkup(notes,archiveQuery,ui.ref)+'</div></section>';
     ro.innerHTML=reviewStyles+'<div class="rev">'+body+'</div>';
     const find=q=>ro.querySelector(q);
     find('[data-rdate]').onchange=e=>{if(vDate(e.target.value)){date=e.target.value;page=0;draw();}};
-    find('[data-query]').oninput=e=>{archiveQuery=e.target.value;find('[data-notes]').innerHTML=archiveMarkup(notes,archiveQuery);};
+    find('[data-query]').oninput=e=>{archiveQuery=e.target.value;find('[data-notes]').innerHTML=archiveMarkup(notes,archiveQuery,ui.ref);};
     if(isMistakes){
       function caseTable(){
         const q=caseQuery.trim().toLowerCase(), rows=cases.filter(r=>[r.name,r.strategy,...r.features].join(' ').toLowerCase().includes(q)),max=Math.max(1,Math.ceil(rows.length/20));
         page=Math.min(page,max-1);
-        find('[data-caselist]').innerHTML=rows.length?table(['标的 / 日期','来源','战法','收益','纪律记录'],rows.slice(page*20,(page+1)*20).map(r=>[formEsc(r.name)+'<small>'+formEsc(r.date)+'</small>',formEsc(r.source),formEsc(r.strategy),'<b class="'+(r.ret>0?'rv-pos':'rv-neg')+'">'+pct(r.ret)+'</b>',formEsc(r.discipline)]))+'<div class="rv-row" style="margin:12px 0">'+(page>0?button('prev','上一页'):'')+'<span class="rv-sub">'+(page+1)+' / '+max+' 页 · '+rows.length+' 条</span>'+(page+1<max?button('next','下一页'):'')+button('casescsv','导出案例',false,'download')+'</div>':empty('暂无符合条件的已结算案例。');
+        find('[data-caselist]').innerHTML=rows.length?table(['标的 / 日期','来源','战法','收益','纪律记录'],rows.slice(page*20,(page+1)*20).map((r,i)=>['<button class="btn" data-case-open="'+(page*20+i)+'">'+formEsc(r.name)+'</button><small>'+formEsc(r.date)+'</small>',formEsc(r.source),formEsc(r.strategy),'<b class="'+(r.ret>0?'rv-pos':'rv-neg')+'">'+pct(r.ret)+'</b>',formEsc(r.discipline)]))+'<div class="rv-row" style="margin:12px 0">'+(page>0?button('prev','上一页'):'')+'<span class="rv-sub">'+(page+1)+' / '+max+' 页 · '+rows.length+' 条</span>'+(page+1<max?button('next','下一页'):'')+button('casescsv','导出案例',false,'download')+'</div>':empty('暂无符合条件的已结算案例。');
+        for(const b of ro.querySelectorAll('[data-case-open]'))b.onclick=()=>{const r=rows[Number(b.dataset.caseOpen)];ui.open(r.route,{code:r.code,date:day(r.date),sample:quality,strategy:r.strategy||'',factor:ui.factor||'',ref:r.ref});};
         const bind=(a,fn)=>{const b=find('[data-review="'+a+'"]');if(b)b.onclick=fn;};
         bind('prev',()=>{page--;caseTable();});bind('next',()=>{page++;caseTable();});
-        bind('casescsv',()=>downloadCsv(ui,(caseSide==='failure'?'大亏':'盈利')+'案例.csv',[['日期','标的','战法','来源','收益(%)','同现因子','纪律偏离'],...rows.map(r=>[r.date,r.name,r.strategy,r.source,r.ret,r.features.join('、'),r.discipline])]));
+        bind('casescsv',()=>downloadCsv(ui,(caseSide==='failure'?'大亏':'盈利')+'案例.csv',[['日期','标的','战法','来源','样本集','收益(%)','同现因子','纪律偏离'],...rows.map(r=>[r.date,r.name,r.strategy,r.source,r.sampleSet,r.ret,r.features.join('、'),r.discipline])]));
       }
       caseTable();
       find('[data-casequery]').oninput=e=>{caseQuery=e.target.value;page=0;caseTable();};
     }
     ro.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period;draw();});
     ro.querySelectorAll('[data-caseside]').forEach(b=>b.onclick=()=>{caseSide=b.dataset.caseside;page=0;draw();});
+    for(const b of ro.querySelectorAll('[data-review-link]'))b.onclick=()=>{const [gi,i]=b.dataset.reviewLink.split('-');const d=report.groups[gi]?.links?.[i];if(d)ui.open(d.page,{code:d.code,date:d.date,sample:quality,strategy:d.strategy||ui.strategy||'',factor:d.factor||ui.factor||'',ref:d.ref||''});};
+    ro.querySelectorAll('[data-review-filter]').forEach(b=>b.onchange=()=>{if(b.dataset.reviewFilter==='quality'){quality=b.value;ui.setSample?.(quality);}else set=b.value;page=0;draw();});
     const actions={
+      zip:async()=>{const {dailyExport}=await import('./journal.mjs');ui.download('V6-复盘-'+date+'.zip',dailyExport(s,date,{quality,set}),'application/zip');},
       note:()=>openAnnotation(ui,date,isMistakes,draw),mistake:()=>openAnnotation(ui,date,true,draw),checkin:()=>openCheckin(ui,date,draw),
       md:()=>ui.download('复盘-'+date+'.md',report.text,'text/markdown;charset=utf-8'),png:()=>reportPng(report),
       csv:()=>downloadCsv(ui,'复盘-'+date+'.csv',[['起始日期','截止日期','复盘栏目','内容'],...report.groups.flatMap(g=>g.lines.map(l=>[report.start,report.end,g.title,l]))])
     };
-    for(const k of ['brief','deep'])actions[k]=async()=>{await ui.save('review:generate',{date,period,depth:k});depth=k;draw();ui.toast('复盘已生成并归档');};
+    for(const k of ['brief','deep'])actions[k]=async()=>{await ui.save('review:generate',{date,period,depth:k,quality,set});depth=k;draw();ui.toast('复盘已生成并归档');};
     ro.querySelectorAll('[data-review]').forEach(b=>{const fn=actions[b.dataset.review];if(fn)b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){ui.toast(e.message);}finally{b.disabled=false;}};});
   }
   draw();

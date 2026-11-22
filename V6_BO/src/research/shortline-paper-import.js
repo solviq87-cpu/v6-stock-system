@@ -158,6 +158,7 @@ function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNT
       report.issues.push(key+' 模拟账本未通过完整性核对');continue;
     }
     for(const sample of samples){
+      if(state.ledgerStartAt&&sample.paperSettlement.entryFills.some(f=>f.time<=state.ledgerStartAt))continue;
       const old=records.get(sample.id);
       if(old){
         if(old.source===source&&old.sourceFingerprint===sample.sourceFingerprint)report.existing++;

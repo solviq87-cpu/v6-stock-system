@@ -1,6 +1,6 @@
 // The private archive holds actual provider receipts. Dated observations may
 // arrive days after the exchange session; their receipt time stays intact.
-import {labelHistory,HORIZONS} from './kline-factor-engine.js';
+import {labelHistory,debounceLearningSamples,HORIZONS} from './kline-factor-engine.js';
 
 const finite=Number.isFinite;
 const nullable=n=>finite(n)?n:null;
@@ -9,12 +9,14 @@ const validDay=d=>typeof d==='string'&&/^\d{4}-\d\d-\d\d$/.test(d)&&finite(Date.
 function instant(value){
   if(Number.isSafeInteger(value)&&value>0)return value;
   if(typeof value!=='string')return NaN;
+  if(validDay(value))return Date.parse(value+'T15:00:00+08:00');
   if(/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d$/.test(value))return Date.parse(value.replace(' ','T')+':00+08:00');
   if(/T.*(?:Z|[+-]\d\d:\d\d)$/.test(value))return Date.parse(value);
   return NaN;
 }
 function receipt(r,now){
-  const at=instant(r.knownAt??r.availableAt);
+  const times=[r.knownAt,r.availableAt].filter(x=>x!=null).map(instant);
+  const at=times.length&&times.every(finite)?Math.max(...times):NaN;
   return validDay(r.date)&&r.source&&at>=Date.parse(r.date+'T15:00:00+08:00')&&at<=now?at:null;
 }
 function isPriceBar(r){
@@ -88,14 +90,14 @@ export function syncedSeries(data,code){
     const bar=rows[i],closes=data.checks.get(code+'|'+bar.date)||[];
     const until=closes.filter(at=>at>=bar.at).sort((a,b)=>a-b)[0]??bar.at;
     if(beijingDay(until)!==bar.date){late++;continue;}
-    const past=rows.slice(Math.max(0,i-60),i+1).filter(r=>r.at<=until);
+    const past=[];for(let j=i;j>=0&&past.length<61;j--)if(rows[j].at<=until)past.push(rows[j]);past.reverse();
     const window=past.concat(rows.slice(i+1,i+1+Math.max(...HORIZONS))),market=[],sector=[];
     const normalized=window.map(r=>{
       const boundary=r.date<=bar.date?until:data.now,m=marketAt(data,r.date,boundary),s=sectorAt(data,r,m,boundary);
       if(m)market.push(m);if(s)sector.push(s);
       return {...r,type:'stock',sector:s?.code||r.sector||'',blackSwan:typeof r.blackSwan==='boolean'?r.blackSwan:null,repeatable:typeof r.repeatable==='boolean'?r.repeatable:null};
     });
-    const sample=labelHistory(normalized,sector,market)[past.length-1];
+    const sample=labelHistory(normalized,sector,market,[],{decisionAt:new Map([[bar.date,until]]),deferWindow:true})[past.length-1];
     // The private archive may have only scattered daily market captures.
     // A sparse calendar cannot establish the Nth subsequent trading session.
     const present=new Set(market.map(m=>m.date));
@@ -103,5 +105,5 @@ export function syncedSeries(data,code){
     sample.signalAvailableAt=new Date(until).toISOString();samples.push(sample);
   }
   const last=rows.at(-1),market=last?marketAt(data,last.date,data.now):null;
-  return {rows,samples,late,marketDays:dates.size,market,sector:last?sectorAt(data,last,market,data.now):null};
+  return {rows,samples:debounceLearningSamples(samples,rows),late,marketDays:dates.size,market,sector:last?sectorAt(data,last,market,data.now):null};
 }

@@ -298,6 +298,24 @@ export function renderTerminalOverview(ctx) {
   h('div',{class:'fy-reference-midgrid'},reviewHost,ladderPanel,newsPanel,accountPanel),
   h('div',{class:'fy-reference-lowergrid'},chartPanel,strategiesPanel,riskPanel,syncPanel),
   decisionsHost,panelsHost,quick);
+ if(ctx.canEdit===true){
+  const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
+  // Preserve the original desktop and mobile panel order and first paint.
+  research.setAttribute('style','order:11');research.setAttribute('data-home-research','performance');view.append(research);
+  let observer=null;
+  const authorized=()=>ctx.canEdit===true&&!ctx.signal?.aborted;
+  const hide=()=>{observer?.disconnect();research.hidden=true;body.replaceChildren();};
+  const mount=()=>{observer?.disconnect();if(!authorized()){hide();return;}
+    import('./shortline/home-performance.mjs').then(m=>{if(authorized())return m.mountHomePerformance(body,ctx);})
+      .catch(()=>{if(authorized())body.replaceChildren(h('p',{class:'fy-muted'},'绩效视图尚未加载。'));});
+  };
+  ctx.signal?.addEventListener('abort',hide,{once:true});
+  ctx.onState?.(()=>{if(!authorized())hide();});
+  if(typeof IntersectionObserver==='function'){
+   observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))mount();},{rootMargin:'200px'});
+   observer.observe(research);
+  }else queueMicrotask(mount);
+ }
  function paintFunds(state,day) {
   const sectorDay=reviewDate(state.snapshotFieldDays?.sectors||state.sectorsDay);
   // The reference card uses the same original-day gate as the existing

@@ -1,5 +1,10 @@
+import {factorDictionary} from './factor-dictionary.mjs';
+import {confirmedFact} from './pressure.mjs';
+
+import {isTestSample} from './sample-quality.mjs';
 import {predict} from './learning.mjs';
-import {deriveCheckInput} from './backtest.mjs';
+import {deriveCheckInput,applyLiveSignalWindow} from './backtest.mjs';
+import {settingsAt,blacklistReason,calendarWarnings} from './settings.mjs';
 
 const metrics = [
   ['upLimit','涨停家数',0,10000,true], ['downLimit','跌停家数',0,10000,true],
@@ -66,7 +71,8 @@ function visibleDays(days,date,at) {
   return [...values.values()].map(x=>x.day).sort((a,b)=>a.date.localeCompare(b.date));
 }
 export function marketAsOf(state,date,at){
-  return visibleDays([...(state.marketHistory||[]),...(state.market||[])],date,at);
+  const rows=[...(state.marketHistory||[]),...(state.market||[])];
+  return visibleDays(state.scope==='live'?rows.filter(r=>!isTestSample(r)):rows,date,at);
 }
 
 // All windows end at the specified close. A missing observation is never a zero.
@@ -85,6 +91,18 @@ export function emotion(days=[],date,asOf) {
   for(const [key,label] of metrics){
     const unit=['breakRate','leader','diffusion'].includes(key)?'%':'';
     evidence.push(label+'：'+window.map(d=>hasValue(d[key])?d[key]+unit:'缺失').join(' → '));
+  }
+  // Only traced, already-received attributions supplement the six market votes.
+  const cutoff=knowledgeCutoff(asOf||date+' 15:00');
+  const attributed=window.find(d=>d.date===date)?.breakAttributions||{};
+  let displayed=0;
+  for(const [code,row] of Object.entries(attributed).sort(([a],[b])=>a.localeCompare(b))){
+    if(displayed>=6)break;
+    if(!/^\d{6}$/.test(code)||row?.code!==code||typeof row.status!=='string'||!row.status||row.status==='未判定'||
+       row.eventTime?.slice(0,10)!==date||!(knowledgeCutoff(row.eventTime)<=knowledgeCutoff(row.knownAt))||
+       !(knowledgeCutoff(row.knownAt)<=cutoff)||!Array.isArray(row.evidence))continue;
+    const trace=row.evidence.filter(x=>typeof x==='string'&&x.trim()).slice(0,3);
+    if(trace.length){evidence.push('个股炸板归因补充 '+code+' '+row.status.slice(0,80)+' · '+trace.map(x=>x.slice(0,180)).join('；'));displayed++;}
   }
   if(missing.length)return result;
   const [a,b,t]=window.map(day=>Object.fromEntries(metrics.map(([k])=>[k,Number(day[k])])));
@@ -135,6 +153,7 @@ export function validate(state,input,options={}) {
   const risks=[],facts=[],blocks=new Set(),add=r=>{if(!risks.includes(r))risks.push(r)};
   const asOf=options.asOf?stampText(options.asOf):date+' 15:00';
   const observedAt=options.asOf||asOf;
+  const settings=settingsAt(state,observedAt);
   const available=marketAsOf(state,date,observedAt);
   const market=available.find(x=>x.date===date);
   const em=emotion(available,date,observedAt);
@@ -142,6 +161,12 @@ export function validate(state,input,options={}) {
   const limit=(v,reason)=>{cap=Math.min(cap,v);add(reason)};
   const exclude=(set,reason)=>{for(const id of set) blocks.add(id);add(reason)};
   const stop=reason=>limit(0,reason);
+  const stockEvidence=options.stockEvidence?.code===code && String(options.stockEvidence.date||'').slice(0,10)===date?options.stockEvidence:{};
+  const blacklist=blacklistReason(settings,{...stockEvidence,code,name:stockEvidence.name||name,sector:input.theme||stockEvidence.sector,asOf:observedAt});
+  if(blacklist)stop(blacklist);
+  for(const key of settings.blockedFactors)if(selected.has(key))stop('自定义禁用因子 '+key);
+  for(const reason of calendarWarnings(settings,market,date,observedAt,stockEvidence))limit(settings.calendarCap,reason);
+
   if(!market||!trends.includes(market.trend))stop('缺少当日全A趋势');
   if(em.stage==='未判定')stop('情绪未判定，待补证后再校验');
   if(em.stage==='退潮'){limit(5,'退潮期降仓并暂停接力');exclude(relay,'退潮期过滤接力战法')}
@@ -188,7 +213,7 @@ export function validate(state,input,options={}) {
     return finite(day?.indexChange,-100,100)&&Number(day.indexChange)<0;
   }))exclude(relay,'全A连续至少三日收跌，暂停接力');
   const cutoff=Date.parse(asOf.replace(' ','T')+':00+08:00');
-  const visibleTrades=(state.trades||[]).filter(t=>!t.paperSettlement&&!t.accountId&&(!t.createdAt||Date.parse(t.createdAt)<=cutoff));
+  const visibleTrades=(state.trades||[]).filter(t=>!t.paperSettlement&&!t.accountId&&(state.scope==='demo'||!isTestSample(t))&&(!t.createdAt||Date.parse(t.createdAt)<=cutoff));
   const realized=new Map();
   for(const t of visibleTrades){
     const d=String(t.exitTime||'').slice(0,10);
@@ -204,6 +229,7 @@ export function validate(state,input,options={}) {
     if(hasValue(input[k])&&!finite(input[k],0,100))throw Error('仓位须为 0 至 100 的百分比');
     if(hasValue(input[k]))positions[k]=Number(input[k]);
   }
+  positions.singleCap=Math.min(positions.singleCap,settings.maxPosition);
   if(positions.stockHeld>positions.themeHeld||positions.themeHeld>positions.totalHeld)throw Error('已有仓位须满足单标的 ≤ 同题材 ≤ 组合总仓位');
   const totalCeiling=Math.min(positions.totalCap,em.stage==='退潮'?15:em.stage==='冰点'?20:100);
   const room=Math.max(0,Math.min(positions.singleCap-positions.stockHeld,positions.themeCap-positions.themeHeld,totalCeiling-positions.totalHeld));
@@ -211,17 +237,35 @@ export function validate(state,input,options={}) {
   const eligible=matches.filter(r=>!blocks.has(r.id));
   if(!eligible.length)stop(matches.length?'已匹配战法与周期或指数约束不一致':'尚无完整匹配的体系内战法');
   const activeParams=state.activeParameters||{};
-  const factors=[...new Set(chosen.flatMap(r=>r.seen))];
+  const factors=[...new Set([...chosen.flatMap(r=>r.seen),...(options.factorCodes||[])])];
   // Providers can publish a closed snapshot after its signal day. Keep outcome learning
   // strictly before that signal close even when the fact snapshot has a later timestamp.
   const performanceCutoff=asOf<date+' 15:00'?asOf:date+' 15:00';
   const prediction=options.skipPrediction===true?null:predict(state,{factors,strategy:eligible[0]?.name||matches[0]?.name||'',trend:market?.trend,asOf:performanceCutoff.replace(' ','T')});
   if(prediction?.risk && prediction.risk!=='历史样本可供参考' && prediction.risk!=='同类样本不足')add(String(prediction.risk));
-  return {date,code,name,asOf,theme:String(input.theme||market?.theme||'').trim().slice(0,80),selected:[...selected],factors,market:market?{...market}:null,emotion:em,risks,facts,...positions,mainline:input.mainline!==false,strongSector:input.strongSector===true,
+  return {date,code,name,asOf,settingsVersion:settings.version,settingsPreset:settings.preset,theme:String(input.theme||market?.theme||'').trim().slice(0,80),selected:[...selected],factors,market:market?{...market}:null,emotion:em,risks,facts,...positions,mainline:input.mainline!==false,strongSector:input.strongSector===true,
     strategy:matches.map(r=>r.name).join('、')||'未匹配',matches:matches.map(r=>r.name),eligible:eligible.map(r=>r.name),position:Math.max(0,Math.floor(cap*100)/100),status:cap<=0?'暂缓开仓':cap<=10?'轻仓试错':'符合开仓条件',prediction,version:prediction?.version||activeParams.version||'基准规则'};
 }
 
 const portfolioKeys=['singleCap','themeCap','totalCap','stockHeld','themeHeld','totalHeld'];
+
+function confirmedCodes(state,code,date){
+ const obs=state.v6Observation;
+ if(!obs||obs.code!==code||obs.day!==date||obs.stock?.code!==code||
+    !Number.isSafeInteger(obs.observedAtMs)||obs.observedAtMs>Date.now())return [];
+ const stock=obs.stock,cut=obs.latestClosed===true&&obs.latestClosedDay===date?obs.observedAtMs:
+   Math.min(obs.observedAtMs,Date.parse(date+'T15:00:00+08:00')),verified=new Set();
+ for(const key of stock.factorCodes||[]){
+   const proof=stock.factorEvidence?.[key];
+   if(proof?.tradeDate===date&&Number.isSafeInteger(proof.knownAt)&&proof.knownAt<=cut&&proof.text)verified.add(key);
+ }
+ if(stock.pressure?.code===code&&stock.pressure.day===date&&stock.pressure.knownAt<=cut)
+   for(const f of stock.pressure.facts||[]){
+     if(confirmedFact(f,code,date,cut)&&f.factorCode)verified.add(f.factorCode);
+   }
+ const registry=factorDictionary(state.catalog).byCode;
+ return [...verified].filter(key=>registry.has(key)&&!key.startsWith('YZ-')).sort();
+}
 
 export function autoValidate(state,input) {
   const code=String(input?.code||'').trim(),date=input?.date;
@@ -229,16 +273,19 @@ export function autoValidate(state,input) {
   const query={code,date};
   for(const key of portfolioKeys)if(hasValue(input[key]))query[key]=input[key];
   const observed=deriveCheckInput(state,{code,date});
+  const factorCodes=confirmedCodes(state,code,date);
+  const evidence=state.v6Observation?.stock?.factorEvidence||{};
+  const factorObservations=Object.fromEntries(factorCodes.filter(k=>evidence[k]).map(k=>[k,evidence[k]]));
   const result=validate(state,{
     ...query,name:observed.name||code,theme:observed.theme||'',
     selected:observed.selected||[],mainline:observed.mainline===true,strongSector:observed.strongSector===true
-  },{asOf:observed.observedAtMs||observed.asOf});
-  return {
-    ...result,
+  },{asOf:observed.observedAtMs||observed.asOf,stockEvidence:observed.stockEvidence,factorCodes});
+  return applyLiveSignalWindow(state,{
+    ...result,factorCodes,factorObservations,
     strategy:result.matches.length?result.strategy:'未判定',
     recognition:observed.recognition,capture:observed.capture,
     method:'行情自动识别'
-  };
+  },observed.observedAtMs||observed.asOf);
 }
 
 const css=`<style>

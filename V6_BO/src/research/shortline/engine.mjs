@@ -2,8 +2,18 @@ import {autoValidate,normalizeMarket} from '../../../public/nova/shortline/marke
 import {learningAction} from '../../../public/nova/shortline/learning.mjs';
 import {backtestAction} from '../../../public/nova/shortline/backtest.mjs';
 import {reviewAction} from '../../../public/nova/shortline/review.mjs';
+import {settingsAction} from '../../../public/nova/shortline/settings.mjs';
+import {importAction} from '../../../public/nova/shortline/import-wizard.mjs';
+import {journalAction} from '../../../public/nova/shortline/journal-data.mjs';
 export function mutate(state,action,payload){
  if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('记录格式无效');
+ if(action.startsWith('settings:'))return settingsAction(state,action,payload);
+ if(action==='import:ths'){
+   const result=importAction(state,action,payload);
+   if(result.count>0&&payload.kind==='kline')learningAction(state,'learn:auto-candidate',{});
+   return result;
+ }
+ if(action.startsWith('journal:'))return journalAction(state,action,payload);
  if(action==='market'){
   const row=normalizeMarket(payload);
   const previous=state.market.find(x=>x.date===row.date);
@@ -16,7 +26,8 @@ export function mutate(state,action,payload){
   state.market=state.market.filter(x=>x.date!==row.date).concat(row).sort((a,b)=>a.date.localeCompare(b.date));return row;
  }
  if(action==='check'){
-  const r={...autoValidate(state,payload),id:crypto.randomUUID(),createdAt:new Date().toISOString()};state.checks.push(r);return r;
+  const r={...autoValidate(state,payload),id:crypto.randomUUID(),createdAt:new Date().toISOString()};
+  state.checks.push(r);return r;
  }
  if(action.startsWith('learn:'))return learningAction(state,action,payload);
  if(action.startsWith('k:')){const result=backtestAction(state,action,payload);learningAction(state,'learn:auto-candidate',{});return result}

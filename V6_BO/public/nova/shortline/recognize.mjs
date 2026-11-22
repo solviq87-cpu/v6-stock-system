@@ -4,7 +4,10 @@ const known=x=>x!=null && x!=='' && x!=='缺失';
 const mean=a=>a.reduce((n,v)=>n+v,0)/a.length;
 const pct=(a,b)=>(a/b-1)*100;
 const fmt=n=>numeric(n)?Number(n.toFixed(2)):'—';
-export function inferEvidence(b,history,f,market,stage,sector,catalog){
+export function inferEvidence(b,history,f,market,stage,sector,catalog,settings={}){
+ const minTurn=settings.turnoverMin??2,maxTurn=settings.turnoverMax??20;
+ const minVolume=settings.breakoutVolumeRatio??1.3,minAssist=settings.minAssist??2;
+ const minSeal=settings.minSealRatio??3,minAmount=settings.minDailyAmount??1e7;
  const facts=new Map(),previous=history.at(-1),days=history.slice(-20),last5=history.slice(-5);
  const daily=b.date.length===10,has20=daily&&days.length===20,has60=daily&&history.length>=59;
  function check(keys,available,pass,source){
@@ -14,12 +17,12 @@ export function inferEvidence(b,history,f,market,stage,sector,catalog){
  const main=Boolean(b.sector&&b.sector===market.theme&&market.themeType==='主线');
  const lead=f.sectorLeader!=='缺失'?f.sectorLeader:market.theme===b.sector?market.themeLeader:null;
  const core=lead===b.name||lead===b.code,assist=f.sectorAssists??(b.sector===market.theme?market.assistCount:null);
- const healthy=numeric(b.turnover)&&b.turnover>=2&&b.turnover<=20;
+ const healthy=numeric(b.turnover)&&b.turnover>=minTurn&&b.turnover<=maxTurn;
  const themeKnown=known(f.themeCycle),active=themeKnown&&['发酵','高潮'].includes(f.themeCycle);
  const strong=sector.change>0||f.resonance==='题材指数共振';
  check('1:0 33:0',known(b.sector)&&known(market.theme)&&known(market.themeType),main,'标的题材 '+b.sector+'；盘面'+market.themeType+' '+market.theme);
- check('1:1 42:1 19:1',numeric(assist),assist>=2,'板块助攻 '+assist+' 只（至少 2 只）');
- check('1:2 6:2 13:3 17:2 23:4 42:2',numeric(b.turnover),healthy,'当日换手 '+fmt(b.turnover)+'%，健康区间 2%–20%');
+ check('1:1 42:1 19:1',numeric(assist),assist>=minAssist,'板块助攻 '+assist+' 只（配置下限 '+minAssist+' 只）');
+ check('1:2 6:2 13:3 17:2 23:4 42:2',numeric(b.turnover),healthy,'当日换手 '+fmt(b.turnover)+'%，配置区间 '+minTurn+'%–'+maxTurn+'%');
  check('1:3 5:2 27:3 44:3 45:4',known(lead),core,'同期板块龙头 '+lead);
  check('19:0',known(lead)&&known(market.themeType)&&known(b.sector),core&&main,'主线 '+market.theme+'，板块龙头 '+lead);
  check('6:0 15:3 4:3 21:3 41:3 7:1',numeric(sector.change)||known(f.resonance),strong,'板块涨幅 '+fmt(sector.change)+'%，指数共振记录 '+f.resonance);
@@ -34,23 +37,23 @@ export function inferEvidence(b,history,f,market,stage,sector,catalog){
  const prices=history.map(x=>x.close).concat(b.close),ma60=has60?mean(prices.slice(-60)):null;
  check('15:0',has60,f.maState==='多头排列'&&f.ma20>ma60,'收盘均线 MA5 / 10 / 20 / 60：'+[f.ma5,f.ma10,f.ma20,ma60].map(fmt).join(' / '));
  check('33:4',daily&&numeric(f.ma20),f.maState==='多头排列','5/10/20日均线 '+f.maState);
- check('15:2 4:1',has20&&numeric(f.ratio),f.structure==='突破'&&f.ratio>=1.3,'平台结构 '+f.structure+'；相对前 5 日均量 '+fmt(f.ratio)+' 倍（至少 1.3 倍）');
+ check('15:2 4:1',has20&&numeric(f.ratio),f.structure==='突破'&&f.ratio>=minVolume,'平台结构 '+f.structure+'；相对前 5 日均量 '+fmt(f.ratio)+' 倍（配置下限 '+minVolume+'）');
  let peak=0,dd=0;for(const x of days){peak=Math.max(peak,x.high);dd=Math.max(dd,100*(1-x.low/peak))}
  check('15:4',has20,dd<=10,'前 20 日高低价最大回撤 '+fmt(dd)+'%（上限 10%）');
  check('4:0',has20,width<=12&&mean(last5.map(x=>x.volume))<=mean(days.map(x=>x.volume))*.8,'20 日平台宽度 '+fmt(width)+'%，前 5 日均量不高于平台均量八成');
  check('33:1',daily&&numeric(f.ma20),b.low<=f.ma20*1.01&&b.close>=f.ma20,'最低 '+fmt(b.low)+'，收盘 '+fmt(b.close)+'，20日均线 '+fmt(f.ma20));
  check('5:3 22:2',daily&&numeric(f.ma10),f.structure==='回踩','日线结构 '+f.structure+'，10日均线 '+fmt(f.ma10));
  check('5:4 33:2',daily&&numeric(f.ratio)&&previous,f.ratio<=.75&&b.close>=b.open&&b.close>=previous?.close*.99,'量比 '+fmt(f.ratio)+'，收盘 '+fmt(b.close)+'，开盘 '+fmt(b.open));
- check('29:3',numeric(f.ratio),f.ratio>=1.3,'前 5 根均量比 '+fmt(f.ratio));
+ check('29:3',numeric(f.ratio),f.ratio>=minVolume,'前 5 根均量比 '+fmt(f.ratio));
  check('21:1',numeric(b.lockedRatio),b.lockedRatio<=15,'上方套牢盘占比 '+fmt(b.lockedRatio)+'%');
- check('21:2',previous&&numeric(b.chipPeak)&&numeric(f.ratio),previous?.close<=b.chipPeak&&b.close>b.chipPeak&&f.ratio>=1.3,'筹码峰 '+fmt(b.chipPeak)+'，收盘 '+fmt(b.close)+'，量比 '+fmt(f.ratio));
+ check('21:2',previous&&numeric(b.chipPeak)&&numeric(f.ratio),previous?.close<=b.chipPeak&&b.close>b.chipPeak&&f.ratio>=minVolume,'筹码峰 '+fmt(b.chipPeak)+'，收盘 '+fmt(b.close)+'，量比 '+fmt(f.ratio));
  check('32:0',has20&&numeric(b.turnover),f.position==='高位'&&b.turnover>=20,'区间位置 '+f.position+'，换手 '+fmt(b.turnover)+'%');
  check('32:1',numeric(b.limitUp),b.close<b.limitUp,'收盘 '+b.close+'，涨停价 '+b.limitUp);
  check('32:2',numeric(b.turnover)&&numeric(b.limitUp),b.turnover>=20&&b.low<b.high&&b.close<b.limitUp,'换手 '+fmt(b.turnover)+'%，日内存在价格分歧');
  check('32:3',themeKnown&&numeric(f.themeAge),active&&f.themeAge>=2,'题材 '+f.themeCycle+'，启动 '+fmt(f.themeAge)+' 天');
  check('41:0',known(b.announcementType),['业绩预增','重组','资产注入'].includes(b.announcementType),'截至收盘的公告类别 '+b.announcementType);
  for(const [key,field,min,max,label] of [
- ['14:0','auctionGap',.5,7,'竞价高开幅度（%）'],['14:1','auctionRatio',1.5,Infinity,'竞价量比'],['14:2','auctionAmount',20000000,Infinity,'竞价成交额（元）'],['14:3','sectorAuctionUpPct',60,100,'板块竞价上涨占比（%）'],['14:4','auctionNetBuy',0.01,Infinity,'竞价净主动买额（元）'],['1:4','sealRatio',3,100,'封单额占当日成交额（%）']
+ ['14:0','auctionGap',.5,7,'竞价高开幅度（%）'],['14:1','auctionRatio',1.5,Infinity,'竞价量比'],['14:2','auctionAmount',20000000,Infinity,'竞价成交额（元）'],['14:3','sectorAuctionUpPct',60,100,'板块竞价上涨占比（%）'],['14:4','auctionNetBuy',0.01,Infinity,'竞价净主动买额（元）'],['1:4','sealRatio',minSeal,100,'封单额占当日成交额（%）']
  ])check(key,numeric(b[field]),b[field]>=min&&b[field]<=max,label+' '+fmt(b[field])+'，阈值 '+min+(max<Infinity?'–'+max:' 以上'));
  check('1:5 42:0',numeric(b.streak)&&numeric(market.height),b.streak>=2&&b.streak===market.height,'个股连板 '+fmt(b.streak)+'，全市场最高 '+fmt(market.height));
  check('42:3',known(b.regulationStatus),b.regulationStatus==='正常','监管状态 '+b.regulationStatus);
@@ -82,12 +85,12 @@ export function inferEvidence(b,history,f,market,stage,sector,catalog){
  check('7:4',known(f.volumeRun),f.volumeRun==='持续放量','近三根量能 '+f.volumeRun);
  check('9:1',numeric(sector.change),sector.change>0,'同期板块涨幅 '+fmt(sector.change)+'%');
  check('9:3',numeric(b.amount),b.amount>=1e8,'当日成交额 '+fmt(b.amount/1e8)+' 亿元（至少 1 亿元）');
- check('10:2',numeric(f.ratio)&&numeric(f.change)&&prior,b.low<prior?.close&&f.change>0&&f.ratio>=1.3,'盘中跌破昨收后收红，涨幅 '+fmt(f.change)+'%，量比 '+fmt(f.ratio));
+ check('10:2',numeric(f.ratio)&&numeric(f.change)&&prior,b.low<prior?.close&&f.change>0&&f.ratio>=minVolume,'盘中跌破昨收后收红，涨幅 '+fmt(f.change)+'%，量比 '+fmt(f.ratio));
  check('29:1',auction,b.auctionGap<0,'竞价低开 '+fmt(b.auctionGap)+'%');
  check('34:0',numeric(b.limitDown)&&numeric(b.low),b.low===b.limitDown,'最低价 '+fmt(b.low)+'，跌停价 '+fmt(b.limitDown));
  check('34:2',numeric(b.limitDown)&&numeric(b.close)&&numeric(b.low),b.low===b.limitDown&&b.close>b.low,'触及跌停后收于 '+fmt(b.close));
- check('45:0',daily&&prior&&numeric(prior.streak)&&numeric(assist),prior?.streak===1&&assist>=2,'昨日连板数 '+fmt(prior?.streak)+'，板块助攻 '+fmt(assist));
- check('45:1',daily&&numeric(b.streak)&&numeric(f.ratio)&&numeric(b.limitUp),b.streak===2&&upBoard&&b.low<b.limitUp&&f.ratio>=1.3,'连板数 '+fmt(b.streak)+'，最高封板且换手，量比 '+fmt(f.ratio));
+ check('45:0',daily&&prior&&numeric(prior.streak)&&numeric(assist),prior?.streak===1&&assist>=minAssist,'昨日连板数 '+fmt(prior?.streak)+'，板块助攻 '+fmt(assist));
+ check('45:1',daily&&numeric(b.streak)&&numeric(f.ratio)&&numeric(b.limitUp),b.streak===2&&upBoard&&b.low<b.limitUp&&f.ratio>=minVolume,'连板数 '+fmt(b.streak)+'，最高封板且换手，量比 '+fmt(f.ratio));
  check('45:2',prior&&numeric(prior.sectorAssists)&&numeric(assist),assist>prior?.sectorAssists,'板块助攻 '+fmt(prior?.sectorAssists)+' → '+fmt(assist));
  check('45:3',known(market.themeType)&&known(b.sector),main,'收盘主线 '+market.theme+'，个股板块 '+b.sector);
  check('2:0',prior2&&known(prior2.sectorLeader),prior2?.sectorLeader===b.name||prior2?.sectorLeader===b.code,'断板前板块龙头 '+prior2?.sectorLeader);
@@ -98,15 +101,15 @@ export function inferEvidence(b,history,f,market,stage,sector,catalog){
  check('18:0',stage!=='未判定',stage==='冰点','市场周期 '+stage);
  check('3:0',stage!=='未判定'&&themeKnown,stage==='发酵'&&active,'市场与题材阶段 '+stage+' / '+f.themeCycle);
  check('3:4',numeric(b.limitDown)&&numeric(b.low),b.low>b.limitDown,'最低价 '+fmt(b.low)+'，跌停价 '+fmt(b.limitDown));
- check('3:1',daily&&history.length>=5&&numeric(f.ratio),last5.every(r=>r.close>=r.open)&&b.close<b.open&&f.ratio>=1.3,'前五日阳线、当日首阴且量比 '+fmt(f.ratio));
+ check('3:1',daily&&history.length>=5&&numeric(f.ratio),last5.every(r=>r.close>=r.open)&&b.close<b.open&&f.ratio>=minVolume,'前五日阳线、当日首阴且量比 '+fmt(f.ratio));
  check('25:0 48:2',known(b.announcementType),['业绩预增','重组','资产注入','重大订单','政策利好'].includes(b.announcementType),'已公开消息类别 '+b.announcementType);
  check('48:0',has60,pct(b.close,history.at(-59)?.close)<=-20,'近60日涨幅 '+fmt(pct(b.close,history.at(-59)?.close))+'%');
  check('48:1',has20,mean(last5.map(x=>x.volume))<mean(days.map(x=>x.volume))*.75&&f.position==='低位','前五日均量相对平台均量、20日区间位置 '+f.position);
  check('48:3',numeric(f.change)&&numeric(f.ratio),f.ratio>=1.5&&f.change>=3,'当日涨幅 '+fmt(f.change)+'%，量比 '+fmt(f.ratio));
- check('1:4',numeric(b.sealRatio)&&numeric(b.limitUp),upBoard&&b.sealRatio>=3,'封板收盘 '+fmt(b.close)+'，封单额占当日成交额 '+fmt(b.sealRatio)+'%');
+ check('1:4',numeric(b.sealRatio)&&numeric(b.limitUp),upBoard&&b.sealRatio>=minSeal,'封板收盘 '+fmt(b.close)+'，封单额占当日成交额 '+fmt(b.sealRatio)+'%');
  check('24:0 44:0',numeric(market.indexChange)&&numeric(sector.change),market.indexChange<=-2&&sector.change<=-2,'全A涨幅 '+fmt(market.indexChange)+'%，板块涨幅 '+fmt(sector.change)+'%');
  check('44:1',numeric(f.change),Math.abs(f.change)<=1,'个股涨幅 '+fmt(f.change)+'%（±1%）');
- check('57:0',daily&&numeric(b.amount),b.amount<1e7,'日成交额 '+fmt(b.amount/1e4)+' 万元（低于1000万元）');
+ check('57:0',daily&&numeric(b.amount),b.amount<minAmount,'日成交额 '+fmt(b.amount/1e4)+' 万元（配置下限 '+fmt(minAmount/1e4)+' 万元）');
  check('46:1',numeric(assist)&&numeric(b.limitUp),b.high===b.low&&upBoard&&assist===0,'一字涨停且板块助攻为零');
  check('11:1',numeric(b.sectorBreakPct),b.sectorBreakPct>=45,'板块炸板率 '+fmt(b.sectorBreakPct)+'%（至少45%）');
  check('20:0',daily&&prior&&prevBoard&&numeric(b.limitUp)&&numeric(b.streak)&&prior2,upBoard&&b.streak>=3&&b.volume<prior?.volume&&prior?.volume<prior2?.volume,'连续缩量涨停，当日高度 '+fmt(b.streak));
