@@ -23182,7 +23182,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     }
     const study=process.env.V6_ISOLATED_BOOT_SMOKE==='1'?{peek:d=>dabankeReview.peek(d),refresh:d=>dabankeReview.peek(d)}:dabankeReview;
     return history.selectedClose({day,latest,recent,previousDay:previousResearchDay,seatsReady:day!==todayDate||minute>=1080,
-      readCore:readCloseReviewEvidence,readStudy:study}).then(async result=>{
+      readCore:readCloseReviewEvidence,readStudy:study,serveAfterMs:350}).then(async result=>{
       if(!result)return reply(recent.includes(day)?503:404,{ok:false,error:recent.includes(day)?'公开渠道尚未返回这一天的收盘回执':'服务端尚未归档该交易日的复盘'});
       const extraFacts=result.dabanke?require('./src/research/dabanke-review').stockFacts(result.dabanke,Date.now()):null;
       const emotion=await marketRecovery().emotionForDay(day).catch(()=>null);

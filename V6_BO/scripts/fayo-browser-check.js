@@ -77,8 +77,8 @@ function respond(url,req,body){
    seats:records.slice(0,5).map((r,i)=>({code:r.symbol,name:r.name,dept:i<4?'机构专用':'深股通专用',category:i<4?'机构专用':'互联互通',net:i*10000})),seatsStatus:'observed'}};
  }
  if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
-  sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
-  broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
+  sealed:{tradeDate:'2026-11-13',complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
+  broken:{tradeDate:'2026-11-13',complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
   sealRate:0.5,down:2,northTurnover:130e8,marketTurnover:1000e8,seatsStatus:'observed',
   retained:returnRetainedReview?['sealed','northTurnover']:[],
   reasons:[{code:'600101',text:'合成同日原版理由'}],

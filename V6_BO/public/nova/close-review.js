@@ -45,7 +45,7 @@ function cloudReport(state,supplement){
  const extra=supplement?.day===day?supplement:null;
  const sameStudy=day&&extra?.dabanke?.day===day?extra.dabanke:null;
  const index=sameStudy?.index,external=closingLadder(index,day);
- const sealed=extra?.sealed?.complete?extra.sealed:null;
+ const sealed=extra?.sealed?.complete&&extra.sealed.tradeDate===day?extra.sealed:null;
  const acquiredReasons=new Map(arr(extra?.reasons).map(row=>[row.code,row]));
  const observations=new Map(summary.rows.filter(row=>[row.tradeDate,row.sourceTradeDate].every(value=>!value||reviewDate(value)===day)).map(row=>[row.code,row]));
  const fallbackRows=[...observations.values()];
@@ -96,7 +96,7 @@ function cloudReport(state,supplement){
  const prior=arr(promotion).filter(stage=>stage.level>=2);
  const promoted=prior.reduce((sum,stage)=>sum+stage.promoted,0);
  const eligible=prior.reduce((sum,stage)=>sum+stage.total,0);
- const broken=extra?.broken?.complete?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):external.broken??null;
+ const broken=extra?.broken?.complete&&extra.broken.tradeDate===day?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):external.broken??null;
  const failed=extra?.promotion?.failed?.map(row=>[row.code,row.name,null,row.level])??external.failed??null;
  const upCount=sealed?.totalCount??coverage.source?.reportedCount;
  const distribution=external.distribution;
@@ -398,7 +398,7 @@ export function renderCloseReview(ctx,additional){
     if(data?.result?.day!==day)throw Error('交易日不匹配');
     const receipt=data.result;
     receipts.set(day,receipt);
-    delay=receipt.retryAfterMs>0?Math.max(120000,receipt.retryAfterMs):receipt.sealed?.complete?Infinity:300000;
+    delay=receipt.refreshPending?5000:receipt.retryAfterMs>0?Math.max(120000,receipt.retryAfterMs):receipt.sealed?.complete?Infinity:300000;
     if(day===today)delay=Math.min(delay,afterSeats?3600000:300000);
    }catch{
     if(!ctx.signal?.aborted)failures.set(day,receipts.has(day)?'沿用该日收盘回执，联网后自动补采':'正在重连该日公开来源');

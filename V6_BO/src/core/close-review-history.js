@@ -39,7 +39,7 @@ function hasCloseEvidence(report,day){
     report.thsBrief?.day===day||Boolean(report.reasons?.length||report.seats?.length);
 }
 
-async function selectedClose({day,latest,recent,previousDay,seatsReady,readCore,readStudy}){
+async function selectedClose({day,latest,recent,previousDay,seatsReady,readCore,readStudy,serveAfterMs}){
   if(!validDate(day)||!latest||day>latest)return null;
   const archived=day<latest;
   const retainedCore=readCore.retained(day),retainedStudy=readStudy.peek(day);
@@ -48,13 +48,27 @@ async function selectedClose({day,latest,recent,previousDay,seatsReady,readCore,
   if(archived&&!recent.includes(day)){
     return core||study?{...core,day,dabanke:study}:null;
   }
-  const [a,b]=await Promise.allSettled([
-    archived&&core?.sealed?.complete&&core.retryAfterMs===null?core:readCore(day,previousDay(day),{seatsReady}),
-    readStudy.refresh(day)
-  ]);
-  const result=a.status==='fulfilled'&&hasCloseEvidence(a.value,day)?a.value:core;
-  const extra=b.status==='fulfilled'&&b.value?.day===day?b.value:study;
-  if(!hasCloseEvidence(result,day)&&extra?.day!==day)return null;
-  return {...result,day,dabanke:extra};
+  let report=core,extra=study,signalReceipt;
+  const available=new Promise(resolve=>{signalReceipt=resolve;});
+  const compose=()=>report||extra?{...report,day,dabanke:extra}:null;
+  if(compose())signalReceipt();
+  const completed=Promise.allSettled([
+    (async()=>{
+      const fresh=archived&&core?.sealed?.complete&&core.retryAfterMs===null?core:await readCore(day,previousDay(day),{seatsReady});
+      if(hasCloseEvidence(fresh,day)){report=fresh;signalReceipt();}
+    })(),
+    (async()=>{
+      const fresh=await readStudy.refresh(day);
+      if(fresh?.day===day){extra=fresh;signalReceipt();}
+    })()
+  ]).then(compose);
+  if(!Number.isFinite(serveAfterMs))return completed;
+  // A slow supplier must not keep an already received same-day report off screen.
+  let timer;
+  const grace=new Promise(resolve=>{timer=setTimeout(resolve,serveAfterMs);});
+  try{
+    return await Promise.race([completed,Promise.all([grace,available]).then(()=>({...compose(),refreshPending:true}))]);
+  }finally{clearTimeout(timer);}
+
 }
 module.exports={validDate,recentCloseDays,archivedDays,selectedClose};

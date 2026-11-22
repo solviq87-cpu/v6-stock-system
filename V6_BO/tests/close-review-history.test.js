@@ -43,3 +43,15 @@ test('observed close conditions change with the actual K line and reject a futur
  assert.deepEqual(dailyConditions([...bars.slice(0,-1),{...bars.at(-1),knownAt:close+1}],fri,close),[]);
  assert.deepEqual(dailyConditions(bars,'2026-11-23',close),[]);
 });
+
+test('a slow supplementary provider cannot delay a dated receipt or replace it with another day',async()=>{
+ let finish;
+ const slow=new Promise(resolve=>{finish=resolve;});
+ const readCore=Object.assign(()=>slow,{retained:()=>null});
+ const readStudy={peek:()=>null,refresh:async day=>({day,index:{day}})};
+ const first=await selectedClose({...opts,day:thu,readCore,readStudy,serveAfterMs:5});
+ assert.equal(first.refreshPending,true);assert.equal(first.dabanke.day,thu);assert.equal(first.down,undefined);
+ finish({day:thu,down:3});
+ const next=await selectedClose({...opts,day:thu,readCore,readStudy,serveAfterMs:5});
+ assert.equal(next.down,3);assert.equal(next.refreshPending,undefined);
+});
