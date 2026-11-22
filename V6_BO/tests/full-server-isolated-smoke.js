@@ -88,11 +88,13 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
-  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/close-review.js','/nova/data/close-review-20261120.js','/nova/fayo.css']) {
+  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/close-review.js','/nova/tactics.js','/nova/fayo.css']) {
     const response=await get(p,asset);
     assert.equal(response.status,200,'release asset must be reachable: '+asset);
     assert.match(response.headers['cache-control'],/no-store/,'release asset must bypass the HTTP cache: '+asset);
   }
+  const retired=await get(p,'/nova/data/close-review-20261120.js');
+  assert.equal(retired.status,404,'retired hardcoded review asset cannot be served');
   const releaseVersion=JSON.parse(status.body).appVer;
   const nativeVersion=response=>response.body.match(/<meta\b[^>]*\bname=["']application-version["'][^>]*\bcontent=["']([^"']+)["']/i)?.[1];
   function nativeEntry(response,url){

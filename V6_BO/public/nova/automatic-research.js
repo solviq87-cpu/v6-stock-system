@@ -9,7 +9,7 @@ export function researchCode(ctx){
 export function readAutomatic(ctx,symbol=researchCode(ctx)){
  const scope=ctx.signal||ctx;
  const cache=requests.get(scope)||new Map();requests.set(scope,cache);
- const key=(closeSessionDay(ctx.state)||'live')+'/'+symbol,prior=cache.get(key);
+ const state=ctx.state||{},key=[closeSessionDay(state)||'live',symbol,state.marketRecovery?.closeWatch?.knownAt||'',state.dabanke?.revision||''].join('/'),prior=cache.get(key);
  if(prior&&prior.until>Date.now())return prior.job;
  const job=ctx.api('/api/research/automatic-evidence'+(symbol?'?symbol='+encodeURIComponent(symbol):''),{signal:ctx.signal,timeoutMs:55000})
   .then(data=>{
@@ -17,7 +17,7 @@ export function readAutomatic(ctx,symbol=researchCode(ctx)){
    if(!x?.stock?.bars?.length||symbol&&x.symbol!==symbol)throw Error('此标的的行情正在同步');
    return x;
   }).catch(e=>{if(cache.get(key)?.job===job)cache.delete(key);throw e;});
- cache.set(key,{job,until:Date.now()+60000});return job;
+ cache.set(key,{job,until:Date.now()+60000});if(cache.size>32)cache.delete(cache.keys().next().value);return job;
 }
 export function automaticSummary(x){
  return {symbol:x.symbol,name:x.name,tradeDate:x.tradeDate,provider:x.provider,status:x.name+' '+x.symbol+' · '+x.tradeDate,

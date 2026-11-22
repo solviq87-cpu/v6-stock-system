@@ -1,6 +1,6 @@
 import {dabankePanels,closingLadder} from './dabanke-view.js';
 import {groupRoles,sectorRoles,roleBadge} from './stock-roles.js';
-import {h,button,empty,section,format,money,percent,direction,safeLink} from './ui.js';
+import {h,button,empty,section,format,money,percent,dateTime,direction,safeLink} from './ui.js';
 import {reviewDate,reviewCoverage,summarizeReview,stockCard,closeSessionDay,distributionPanel,publishedReasons} from './market.js';
 import {dailyReviewEvidence,recoveredMetric} from './market-evidence.js';
 import {renderSourceReviewPool} from './review-pool.js';
@@ -21,7 +21,6 @@ const seatLink=['东方财富龙虎榜','https://data.eastmoney.com/stock/traded
 const marketLink=['腾讯沪深指数报价','https://qt.gtimg.cn/q=sh000001,sz399001'];
 const northLink=['东方财富沪深股通','https://data.eastmoney.com/hsgt/index.html'];
 const thsLink=['同花顺涨停聚焦','https://data.10jqka.com.cn/limit_up/'];
-const archiveNames={'002916':'深南电路'};
 const retainedLabels={sealed:'涨停池',broken:'炸板池',previousPool:'上一交易日涨停池',down:'跌停数',
  marketTurnover:'沪深成交',northTurnover:'北向成交',seats:'龙虎榜',reasons:'涨停原因'};
 
@@ -31,17 +30,6 @@ function timeLabel(value){
   ?digits.replace(/(..)(..)(..)/,'$1:$2:$3'):null;
 }
 const rate=(numerator,denominator)=>denominator?format(numerator/denominator*100,1)+'%':'—';
-
-function archivedReport(archive,supplement){
- const reasons=new Map(arr(supplement?.day===archive.day?supplement.reasons:null).map(r=>[r.code,r]));
- return {...archive,dabanke:supplement?.day===archive.day?supplement.dabanke:null,rows:archive.rows.map(row=>{
-  const match=reasons.get(row.code);
-  return match?{...row,reason:match.text,reasonSource:match.source,reasonUrl:match.url}:row;
- }),
-  seats:archive.seats.map(([code,name,dept,net])=>({
-   code,name,dept,net,category:dept.startsWith('营业部')?'营业部':dept==='深股通专用'?'互联互通':dept
-  }))};
-}
 
 function cloudReport(state,supplement){
  const day=closeSessionDay(state)||reviewDate(state.review?.date);
@@ -55,8 +43,9 @@ function cloudReport(state,supplement){
     (!row.sourceTradeDate||!row.tradeDate||reviewDate(row.sourceTradeDate)===reviewDate(row.tradeDate))&&
     !row.heldRecord&&row.currentSourceConfirmed!==false).map(row=>[row.code,row])):new Map();
  const extra=supplement?.day===day?supplement:null;
- const index=extra?.dabanke?.index,external=closingLadder(index,day);
- const sealed=extra?.sealed?.complete?extra.sealed:null;
+ const sameStudy=day&&extra?.dabanke?.day===day?extra.dabanke:null;
+ const index=sameStudy?.index,external=closingLadder(index,day);
+ const sealed=extra?.sealed?.complete&&extra.sealed.tradeDate===day?extra.sealed:null;
  const acquiredReasons=new Map(arr(extra?.reasons).map(row=>[row.code,row]));
  const observations=new Map(summary.rows.filter(row=>[row.tradeDate,row.sourceTradeDate].every(value=>!value||reviewDate(value)===day)).map(row=>[row.code,row]));
  const fallbackRows=[...observations.values()];
@@ -107,7 +96,7 @@ function cloudReport(state,supplement){
  const prior=arr(promotion).filter(stage=>stage.level>=2);
  const promoted=prior.reduce((sum,stage)=>sum+stage.promoted,0);
  const eligible=prior.reduce((sum,stage)=>sum+stage.total,0);
- const broken=extra?.broken?.complete?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):external.broken??null;
+ const broken=extra?.broken?.complete&&extra.broken.tradeDate===day?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):external.broken??null;
  const failed=extra?.promotion?.failed?.map(row=>[row.code,row.name,null,row.level])??external.failed??null;
  const upCount=sealed?.totalCount??coverage.source?.reportedCount;
  const distribution=external.distribution;
@@ -119,7 +108,7 @@ function cloudReport(state,supplement){
  const riskRows=rows.filter(row=>row.breakCount>0).sort((a,b)=>b.breakCount-a.breakCount);
  const top=rows.filter(row=>row.level===highest&&highest>=2).slice(0,4).map(row=>row.code);
  const named=match=>themes.flatMap(group=>Object.entries(group.roles||{}).filter(([,role])=>role===match).map(([code])=>code)).slice(0,4);
- return {day,rows,groups:themes,dabanke:extra?.dabanke,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
+ return {day,rows,groups:themes,dabanke:sameStudy,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
   sources:{market:providerLink,stocks:providerLink,seats:seatLink,ladder:external.sealed?['打板客同日复盘',index.url]:null,themes:extra?.thsBrief?.day===day?['同花顺每日复盘',extra.thsBrief.url]:thsLink,north:northLink,turnover:marketLink},
   coverage:sealed?'梯队按东方财富同日涨停池。涨停及炸板统计采用同一供应商口径。':
    raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':external.rows?'梯队来自打板客同日短线池，按全组封板数量核对。':'正在读取该交易日的公开复盘。',
@@ -127,6 +116,7 @@ function cloudReport(state,supplement){
    '同花顺涨停聚焦未返回可核实的同日原标注。F10 复核 '+extra.reasonChannels.f10Count+' / '+extra.reasonChannels.f10Attempted+' 只前排样本。':
    rows.some(row=>row.reason)?'逐股列出同日原标注及来源，同花顺优先。':
    '尚未取得与本交易日匹配的同花顺逐股原标注。可展开来源涨停池核对渠道。',
+  phaseProof:state.marketRecovery?.emotion?.date===day?state.marketRecovery.emotion:null,
   phase:state.marketRecovery?.emotion?.date===day?recoveredMetric(state.marketRecovery,'emotion',day)?.value:null,
   phaseNote:state.marketRecovery?.emotion?.date===day&&recoveredMetric(state.marketRecovery,'emotion',day)?
     '多日收盘证据 · 置信度 '+state.marketRecovery.emotion.confidence+'%':
@@ -166,7 +156,7 @@ export function renderCloseReview(ctx,additional){
  const dateSelect=h('select',{'aria-label':'复盘交易日'});
  const refresh=button('刷新复盘',async()=>{
   refresh.disabled=true;
-  try{await ctx.refresh();await loadSupplement(true);}finally{refresh.disabled=false;}
+  try{if(!selected)await ctx.refresh();await loadDates(true);await loadSupplement(true);}finally{refresh.disabled=false;}
  },'primary');
  const header=h('header',{class:'fy-close-hero'},
   h('div',{},h('h1',{},'A 股收盘复盘'),status),
@@ -180,50 +170,75 @@ export function renderCloseReview(ctx,additional){
   get state(){return ctx.state;},signal:ctx.signal,selectStock:(...args)=>ctx.selectStock(...args),onState:fn=>{updatePool=fn;}
  },stockCard);
  view.append(header,nav,cards,pool,additional);
- let selected='',activeKey='',activeDay='',supplement=null,requesting=false,failure='',fingerprint='',renderedScope='';
- let selectedStock='',seatFilter='全部',archive=null,archiveEvidence=null,selection=0;
- let recovery={key:'',attempts:0,retryAt:0};
+ let selected='',activeKey='',activeDay='',fingerprint='',renderedScope='';
+ let selectedStock='',seatFilter='全部',latest='',listed=[],listKey='',listAt=0,listRequest=null;
+ const receipts=new Map(),pending=new Map(),failures=new Map(),refreshAt=new Map();
+ let timer,archived=[],backupFor='',backupDay='',backupRequest;
+ const stateDay=()=>closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
+ const currentDay=()=>selected||latest||stateDay();
+ const dayOK=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toJSON()?.slice(0,10)===d;
 
+ function hasDatedState(day){
+  const state=ctx.state||{};
+  return (reviewDate(state.review?.date)===day&&summarizeReview(state.review).rows.length>0)||
+   state.marketRecovery?.closeWatch?.day===day||state.dabanke?.day===day&&Boolean(state.dabanke.revision);
+ }
  function project(){
-  const serverDay=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
-  const defaultKey='cloud';
-  const key=selected==='archive'&&archive?'archive':defaultKey;
-  const options=[['cloud',(serverDay||'最近交易日')+' · 自动复盘'],['archive','2026-11-20 · 人工整理的历史资料']];
+  const target=currentDay();
+  const standby=!selected&&target===backupFor&&backupDay&&!receipts.has(target)&&!hasDatedState(target);
+  const day=standby?backupDay:target,key=selected||standby?'archive':'cloud';
+  const options=[['cloud',(latest||stateDay()||'最近交易日')+' · 自动复盘'],
+   ...listed.filter(d=>d!==latest).map(d=>[d,d+' · 历史收盘'])];
   const optionKey=JSON.stringify(options);
   if(dateSelect.dataset.options!==optionKey){
    dateSelect.replaceChildren(...options.map(([value,label])=>h('option',{value},label)));
    dateSelect.dataset.options=optionKey;
   }
-  dateSelect.value=key;
-  const day=key==='archive'?archive.day:serverDay;
+  dateSelect.value=selected||'cloud';
   if(activeKey!==key||activeDay!==day){selectedStock='';seatFilter='全部';activeKey=key;activeDay=day;}
-  const report=key==='archive'?archivedReport(archive,archiveEvidence):cloudReport(ctx.state||{},supplement);
-  return {key,report};
+  const receipt=receipts.get(day);
+  const distribution=receipt?.dabanke?.index?.distribution;
+  const state=ctx.state||{};
+  const base=!selected&&day===stateDay()?state:{closeSession:{day}};
+  const viewState={...base,marketRecovery:{...base.marketRecovery,referenceDay:day,
+   emotion:receipt?.emotion?.date===day?receipt.emotion:base.marketRecovery?.emotion,
+   coverage:[...arr(base.marketRecovery?.coverage),...(distribution?[distribution]:[])]}};
+  const report=cloudReport(viewState,receipt);
+  return {key,report,viewState};
  }
 
  function paint(force=false){
   if(ctx.signal?.aborted)return;
-  const {key,report}=project();
+  const {key,report,viewState}=project();
   const scope=key+':'+report.day;
   const current=JSON.stringify([scope,report,selectedStock,seatFilter]);
   const sameScope=scope===renderedScope;
   const focused=cards.contains(document.activeElement)?document.activeElement:null;
   const focusKey=focused?.dataset.reviewControl;
-  const incomplete=supplement?.day===report.day&&supplement?.retryAfterMs>0;
-  const caption=requesting?'正在读取免费补充行情':failure||(incomplete?'服务端复盘 · 部分数据待补':'服务端复盘');
-  status.textContent=(report.day||'交易日待核验')+' · '+(key==='archive'?'收盘归档':caption);
+  const held=!selected&&report.day&&report.day!==currentDay();
+  const caption=held?'已存收盘 · 正在补采 '+currentDay():failures.get(report.day)||(pending.has(report.day)?'正在同步收盘回执':key==='archive'?'历史收盘':'自动复盘');
+  const receipt=receipts.get(report.day);
+  const arrived=Math.max(receipt?.receivedAt||0,receipt?.dabanke?.knownAt||0);
+  status.textContent=[report.day,caption,arrived&&arrived<=Date.now()?'资料取得 '+dateTime(arrived):''].filter(Boolean).join(' · ');
   if(!force&&(current===fingerprint||sameScope&&focused&&!focusKey))return;
   fingerprint=current;
   renderedScope=scope;
   for(const item of cards.querySelectorAll('[data-review-detail]')){
    expanded.set(item.dataset.reportKey+':'+item.dataset.reviewDetail,item.open);
   }
-  const dbk=dabankePanels(report.dabanke,ctx);
+  const openStock=(code,row={})=>{
+   const member=report.rows.find(r=>r.code===code);
+   const closeRole=report.groups.find(g=>g.roleInfo?.[code])?.roleInfo[code];
+   ctx.selectStock(code,{...member,...row,code,poolDay:report.day,...(key==='archive'?{historicalClose:true,closeRole,closeFact:receipt?.extraFacts?.[code]}: {})});
+  };
+  const scoped={state:viewState,selectStock:openStock};
+  const dbk=dabankePanels(report.dabanke,scoped);
+  additional.hidden=key==='archive';
   const source=dailyReviewEvidence(ctx.state||{});
   pool.hidden=key==='archive'||source.day!==report.day;
   if(!pool.hidden)updatePool?.();
   const names=new Map([...report.rows.map(row=>[row.code,row.name]),...arr(report.failed),...arr(report.broken),...report.seats.map(row=>[row.code,row.name])]);
-  const stock=code=>{const name=names.get(code)||(key==='archive'?archiveNames[code]:null);return button(h('span',{},name||code),()=>ctx.selectStock(code,{code,name}),'quiet');};
+  const stock=code=>{const name=names.get(code);return button(h('span',{},name||code),()=>openStock(code,{name}),'quiet');};
   const list=items=>h('div',{class:'fy-close-stocks'},items.map(stock));
   const card=(index,description,...children)=>{
    const [id,title]=headings[index];
@@ -267,8 +282,8 @@ export function renderCloseReview(ctx,additional){
   }
   const reasons=chosen?h('article',{class:'fy-close-reason',tabindex:'-1','data-reason-selected':true,'data-review-control':'reason'},
    h('div',{class:'fy-close-reason-heading'},h('div',{},h('h3',{},chosen.name,' ',h('small',{},chosen.code)),h('span',{class:'fy-muted'},chosen.tags.join(' / ')||'题材待核验')),
-    button('个股详情',()=>ctx.selectStock(chosen.code,{code:chosen.code,name:chosen.name}))),
-   h('p',{},h('strong',{},'同花顺涨停原因'),h('br'),h('span',{'data-reason-text':true},chosen.reason||'未取得该股同日的同花顺原标注。')),
+    button('个股详情',()=>openStock(chosen.code,chosen))),
+   h('p',{},h('strong',{},'涨停原因'),h('br'),h('span',{'data-reason-text':true},chosen.reason||'公开来源尚未披露该股当日原因。')),
    h('dl',{class:'fy-close-facts'},[
     ['连板高度',levelName(chosen.level)],['首次封板',chosen.firstSeal||'—'],['最后封板',chosen.lastSeal||'—'],
     ['开板次数',count(chosen.breakCount,' 次')],['换手率',finite(chosen.turnover)?format(chosen.turnover,2)+'%':'—'],
@@ -283,7 +298,7 @@ export function renderCloseReview(ctx,additional){
    items===null?h('p',{class:'fy-muted'},'名单未取得。'):!items.length?h('p',{class:'fy-muted'},'同口径没有记录。'):
     h('div',{class:'fy-close-stocks'},items.map(([code,name,pct,level])=>
      button(h('span',{},name||code,withLevel&&level?' · 昨 '+levelName(level):'',finite(pct)?h('b',{class:direction(pct)},' '+percent(pct)):null),
-      ()=>ctx.selectStock(code,{code,name}),'quiet'))));
+      ()=>openStock(code,{name}),'quiet'))));
   const categories=[...new Set(report.seats.map(row=>row.category))];
   const visibleSeats=report.seats.filter(row=>seatFilter==='全部'||row.category===seatFilter);
   const seatRows=visibleSeats.map(row=>h('li',{},h('div',{},stock(row.code),h('small',{},row.dept,row.reason?' · '+row.reason:'')),
@@ -292,8 +307,11 @@ export function renderCloseReview(ctx,additional){
    h('article',{},h('h3',{},label),h('p',{},description),codes.length?list(codes):null)));
   cards.replaceChildren(
    card(0,null,
-    distributionPanel(ctx.state||{},report.day),
+    distributionPanel(viewState,report.day),
     h('div',{class:'fy-close-phase'},h('strong',{},report.phase||'收盘情绪观测'),h('p',{},report.phaseNote)),
+    report.phaseProof?.evidence?.length||report.phaseProof?.missing?.length?h('details',{class:'fy-details','data-review-detail':'emotion'},
+     h('summary',{},'情绪判据与数据覆盖'),h('ul',{},arr(report.phaseProof.evidence).map(x=>h('li',{},x))),
+     report.phaseProof.missing?.length?h('p',{},'待补采字段　'+report.phaseProof.missing.join('、')):null):null,
     h('div',{class:'fy-close-kpis'},report.stats.map(([label,value,meta])=>
      h('article',{class:'fy-close-kpi'},h('span',{},label),h('strong',{},value),h('small',{},meta)))),
     h('p',{class:'fy-muted'},report.coverage),
@@ -301,7 +319,7 @@ export function renderCloseReview(ctx,additional){
     report.promotion?.length?h('p',{class:'fy-muted'},report.promotion.map(stage=>stage.level+' 进 '+(stage.level+1)+' '+stage.promoted+'/'+stage.total).join(' · ')):null,
     ...dbk.mood,sourceLinks(report,['market','pools','ladder','turnover','north'])),
    card(1,'按涨停家数排序，同家数比较已核实的样本成交额。',
-    publishedReasons(ctx.state||{},ctx,report),
+    publishedReasons(viewState,scoped,report),
     groups.length?h('div',{class:'fy-close-themes'},groups.map(group=>
      h('details',{class:'fy-close-theme','data-review-detail':'theme:'+group.name,open:groups.indexOf(group)<1},
       h('summary',{},h('div',{},h('strong',{},group.name),h('small',{},group.classification)),
@@ -339,58 +357,94 @@ export function renderCloseReview(ctx,additional){
  }
  const expanded=new Map();
  cards.addEventListener('focusout',()=>queueMicrotask(()=>paint()));
- dateSelect.addEventListener('change',async()=>{
-  const choice=dateSelect.value,id=++selection;
-  if(choice==='archive'&&!archive){
-   try{archive=(await import('./data/close-review-20261120.js')).archive;}
-   catch{if(id===selection&&!ctx.signal?.aborted){dateSelect.value='cloud';status.textContent='历史文档暂不可用，可继续查看自动复盘';}return;}
-  }
-  if(id!==selection||ctx.signal?.aborted)return;
-  selected=choice;paint(true);
-  if(choice!=='archive'){void loadSupplement();return;}
-  if(archiveEvidence||!ctx.api)return;
-  try{
-   const data=supplement?.day===archive.day?supplement:(await ctx.api('/api/close-review-evidence?date='+archive.day,{signal:ctx.signal,timeoutMs:42000})).result;
-   if(data?.day===archive.day){archiveEvidence=data;if(id===selection&&!ctx.signal?.aborted)paint();}
-  }catch{/* The original dated research document remains available. */}
+ dateSelect.addEventListener('change',()=>{
+  selected=dateSelect.value==='cloud'?'':dateSelect.value;
+  clearTimeout(timer);paint(true);void loadSupplement();
  });
 
- async function loadSupplement(force=false){
-  const day=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
-  const current=activeKey==='cloud'&&day;
-  if(!current||ctx.signal?.aborted||!ctx.api||requesting)return;
-  const latestTime=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit'}).format(new Date());
-  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
-  if(day===today&&latestTime<'15:00')return;
-  const revision=ctx.state?.dabanke?.day===day?ctx.state.dabanke.revision||'':'';
-  const requestKey=day+':'+(day!==today||latestTime>='18:00'?'published':'pre-publish')+':'+revision;
-  if(recovery.key!==requestKey)recovery={key:requestKey,attempts:0,retryAt:0};
-  if(!force&&recovery.attempts&&(recovery.attempts>=3||!recovery.retryAt||Date.now()<recovery.retryAt))return;
-  recovery.attempts++;
-  recovery.retryAt=0;
-  requesting=true;failure='';paint();
+ async function readBackup(target){
+  if(selected||!dayOK(target)||receipts.has(target)||hasDatedState(target)||backupRequest||backupFor===target)return;
+  const day=archived.find(d=>d<target);
+  if(!day)return;
+  backupRequest=target;
   try{
-   const response=await ctx.api('/api/close-review-evidence?date='+day,{signal:ctx.signal,timeoutMs:42000});
-   if(response?.result?.day===day){
-    supplement=response.result;
-    const delay=supplement.retryAfterMs;
-    if(Number.isFinite(delay)&&delay>0)recovery.retryAt=Date.now()+Math.max(120000,delay);
-   }else{
-    failure='补充渠道未返回同日数据';
-    recovery.retryAt=Date.now()+120000;
-   }
-  }catch(error){
-   if(error.name!=='AbortError'){
-    failure='补充渠道暂不可用';
-    recovery.retryAt=Date.now()+120000;
-   }
-  }
-  finally{
-   requesting=false;paint();
-   if(day!==(closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date))||revision!==(ctx.state?.dabanke?.day===day?ctx.state.dabanke.revision||'':''))void loadSupplement();
-  }
+   const data=receipts.get(day)||((await ctx.api('/api/close-review-evidence?date='+day+'&retained=1',{signal:ctx.signal,timeoutMs:12000})).result);
+   if(data?.day!==day||ctx.signal?.aborted||selected||currentDay()!==target||receipts.has(target))return;
+   receipts.set(day,data);backupFor=target;backupDay=day;paint();
+  }catch{/* Keep the requested date and retry on the next connection. */}
+  finally{backupRequest=null;}
  }
- ctx.onState?.(()=>{paint();void loadSupplement();});
- paint();void loadSupplement();
+
+ async function loadDates(force=false){
+  if(ctx.signal?.aborted||!ctx.api)return;
+  const key=stateDay()||'live';
+  if(listRequest)return listRequest;
+  if(!force&&key===listKey&&Date.now()<listAt)return;
+  listKey=key;
+  listRequest=(async()=>{
+   try{
+    const data=await ctx.api('/api/close-review-evidence?list=1',{signal:ctx.signal,timeoutMs:10000});
+    if(ctx.signal?.aborted||!dayOK(data?.latestDay))return;
+    latest=data.latestDay;archived=arr(data.archivedDays).filter(d=>dayOK(d)&&d<=latest).sort().reverse();
+    listed=[...new Set([...arr(data.recentDays),...arr(data.archivedDays)].filter(d=>dayOK(d)&&d<=latest))].sort().reverse();
+    if(selected&&!listed.includes(selected))selected='';
+    listAt=Date.now()+300000;
+    paint();void loadSupplement();
+    if(!archived.includes(latest))void readBackup(latest);
+   }catch{/* The last dated state remains available while the calendar reconnects. */}
+   finally{if(listAt<=Date.now())listAt=Date.now()+30000;listRequest=null;}
+  })();return listRequest;
+ }
+
+ function retryVisible(day,delay){
+  clearTimeout(timer);
+  if(day!==currentDay()||ctx.signal?.aborted||!Number.isFinite(delay))return;
+  timer=setTimeout(wake,Math.min(Math.max(0,delay),2147483647));
+ }
+ async function loadSupplement(force=false){
+  const day=currentDay();
+  if(!dayOK(day)||ctx.signal?.aborted||!ctx.api)return;
+  if(pending.has(day))return pending.get(day);
+  const now=Date.now(),today=new Date(now+28800000).toISOString().slice(0,10);
+  if(Date.parse(day+'T15:00:00+08:00')>now)return;
+  const revision=ctx.state?.dabanke?.day===day?ctx.state.dabanke.revision||'':'';
+  const afterSeats=now>=Date.parse(day+'T18:00:00+08:00');
+  const stamp=day+':'+revision+':'+afterSeats,prior=refreshAt.get(day);
+  if(!force&&prior?.stamp===stamp&&now<prior.next){retryVisible(day,prior.next-now);return;}
+  failures.delete(day);
+  const job=Promise.resolve().then(async()=>{
+   let delay=120000;
+   try{
+    const data=await ctx.api('/api/close-review-evidence?date='+encodeURIComponent(day),{signal:ctx.signal,timeoutMs:42000});
+    if(ctx.signal?.aborted)return;
+    if(data?.result?.day!==day)throw Error('交易日不匹配');
+    const receipt=data.result;
+    receipts.set(day,receipt);if(backupFor===day){backupFor='';backupDay='';}
+    delay=receipt.refreshPending?5000:receipt.retryAfterMs>0?Math.max(120000,receipt.retryAfterMs):receipt.sealed?.complete?Infinity:300000;
+    if(day===today)delay=Math.min(delay,afterSeats?3600000:300000);
+   }catch{
+    if(!ctx.signal?.aborted){
+     failures.set(day,receipts.has(day)?'沿用该日收盘回执，联网后自动补采':'正在重连该日公开来源');
+     if(day===currentDay()&&!selected&&!receipts.has(day))void readBackup(day);
+    }
+   }finally{
+    pending.delete(day);refreshAt.set(day,{stamp,next:Date.now()+delay});
+    if(!ctx.signal?.aborted&&currentDay()===day){paint();retryVisible(day,delay);}
+   }
+  });
+  pending.set(day,job);paint();return job;
+ }
+ function wake(){
+  if(ctx.signal?.aborted||globalThis.document?.hidden||globalThis.navigator?.onLine===false)return;
+  void loadDates();void loadSupplement();
+ }
+ const reconnect=()=>{
+  listAt=0;refreshAt.delete(currentDay());
+  wake();
+ };
+ ctx.signal?.addEventListener('abort',()=>clearTimeout(timer),{once:true});
+ if(ctx.signal){globalThis.addEventListener?.('online',reconnect,{signal:ctx.signal});document.addEventListener('visibilitychange',wake,{signal:ctx.signal});}
+ ctx.onState?.(()=>{paint();wake();});
+ paint();wake();
  return view;
 }

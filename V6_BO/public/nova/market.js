@@ -1,6 +1,6 @@
 import {sectorRoles,roleBadge,observedBadge} from './stock-roles.js';
 import {renderSourceReviewPool} from './review-pool.js';
-import { phaseLabel, stockTactics } from './tactics-view.js';
+import { stockTactics } from './tactics-view.js';
 import {aggregateCandles,movingAverages,projectForwardTracking,projectDecisionBrief,stockReasons,requirePoolReady,sectorLeadershipEvidence,dailyReviewEvidence,newsRows,reviewSupplier,recoveredMetric,marketPhaseName,observedCoverage,coverageValues,coverageCount,turnoverLabel,closeDistribution,limitReasonEvidence} from './market-evidence.js';
 export {projectDecisionBrief};
 import {h,updateReadout,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
@@ -871,7 +871,7 @@ export function renderDailyReview(ctx) {
   output.replaceChildren(summaryPanel,coveragePanel,sourcePool,market,sectors,section('涨停板 · 板块分类','龙头 / 龙二 / 中军 / 跟风沿用服务端分类；题材强势可包含未涨停股。每板最多返回 10 只，涨停总数与展示数口径不同。',sectorRoleCards(state,day,ctx)),ladder,seals,risks,plans,section('次日计划 · 条件与风险','保留原计划的依据、确认条件与失效条件',nextPlanCards(state,day,ctx)),records,h('details',{class:'fy-details'},h('summary',{},'原始报告与覆盖证据'),renderEvidence(review,ctx)));
  }
  const refreshButton=button('刷新复盘',async()=>{refreshButton.disabled=true;try{await ctx.refresh();paint();}finally{refreshButton.disabled=false;}},'primary');
- const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),phaseLabel(),refreshButton,output,
+ const view=h('div',{class:'fy-stack'},h('header',{class:'fy-view-heading'},h('h1',{},'今日复盘')),simpleNavigation(ctx,'review'),refreshButton,output,
   h('details',{class:'fy-details'},h('summary',{},'更多记录'),button('人工交易执行记录',()=>ctx.navigate('assets','closure')),button('历史学习',()=>ctx.navigate('lab','learning'))));
  ctx.onState?.(()=>{updateSource?.();paint();});paint();return view;
 }
@@ -920,7 +920,7 @@ export function quoteCrossCheckPanel(ctx,readCode,signal=ctx.signal) {
 }
 
 export function createStockDrawer(ctx) {
- let controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,marketQuoteAtOpen=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
+ let historySource='',controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,marketQuoteAtOpen=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  let leadershipKey='';
  const overlay=h('div',{class:'fy-drawer-backdrop',hidden:true}),drawer=h('aside',{class:'fy-stock-drawer',role:'dialog','aria-modal':'true','aria-label':'股票研究面板',hidden:true,tabindex:'-1'}),title=h('h2',{class:'fy-drawer-title'}),quote=h('div',{class:'fy-drawer-quote'}),body=h('div',{class:'fy-drawer-body'}),meta=h('p',{class:'fy-quote-time'});
  const shortline=h('section',{class:'fy-drawer-shortline',hidden:true,'aria-live':'polite','aria-label':'短线校验'});
@@ -965,22 +965,25 @@ export function createStockDrawer(ctx) {
  }
  function paint() {
   const day=reviewDate(row?.poolDay||row?.tradeDate)||(Number.isSafeInteger(quoteAt(row))?new Date(quoteAt(row)+28800000).toISOString().slice(0,10):'');
-  const roleInfo=sectorRoles(ctx.state,day,row?.sector||row?.industry).get(code);
+  const roleInfo=row?.historicalClose?row.closeRole:sectorRoles(ctx.state,day,row?.sector||row?.industry).get(code);
   const roleKey=JSON.stringify([code,day,roleInfo]);
   if(sectorChip.dataset.key!==roleKey){
    sectorChip.dataset.key=roleKey;sectorChip.hidden=!roleInfo;
    sectorChip.replaceChildren(...(roleInfo?[roleBadge(roleInfo),h('small',{},[roleInfo.evidence,roleInfo.also?.evidence].filter(Boolean).join(' · '))]:[]));
   }
-  tabNav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.detailTab===tab)));
+  tabNav.querySelectorAll('button').forEach(b=>{
+   b.hidden=Boolean(row?.historicalClose&&!['chart','evidence'].includes(b.dataset.detailTab));
+   b.setAttribute('aria-pressed',String(b.dataset.detailTab===tab));
+  });
   if(tab==='chart'){
    const controls=h('div',{class:'fy-tabs'},[['day','日 K'],['month','月 K'],['year','年 K']].map(([key,label])=>h('button',{type:'button','data-period':key,'aria-pressed':String(period===key),onClick:()=>{period=key;paint();if(key!=='day')loadHistory(true);}},label)));
    const bars=aggregate(daily,period);body.replaceChildren(controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):'正在读取已有历史…'),button('加载更早的历史',()=>loadHistory(true),'quiet'));
   }else if(tab==='evidence'){
-   const review=dailyReviewEvidence(ctx.state||{}).rows.find(item=>item.code===code&&item.reasonDay===day);
+   const review=row?.historicalClose?row:dailyReviewEvidence(ctx.state||{}).rows.find(item=>item.code===code&&item.reasonDay===day);
    const source=ctx.state?.dabanke;
-   const dbk=source?.day===day&&source.knownAt<=Date.now()?source.facts?.[code]:null;
+   const dbk=row?.historicalClose?row.closeFact:source?.day===day&&source.knownAt<=Date.now()?source.facts?.[code]:null;
    const watchCode=code,signal=controller.signal;
-   const watch=ctx.canEdit&&button('加入自选监控',async()=>{
+   const watch=ctx.canEdit&&!row?.historicalClose&&button('加入自选监控',async()=>{
     watch.disabled=true;
     try{
      const result=await ctx.api('/api/fast-stock-moves/watch',{method:'POST',body:{code:watchCode,enabled:true},signal});
@@ -994,7 +997,7 @@ export function createStockDrawer(ctx) {
      dbk.dragon&&'龙虎榜第 '+dbk.dragon.rank+' 名 · '+dbk.dragon.span.start+' 至 '+dbk.dragon.span.end+' · 披露买入 '+money(dbk.dragon.buy)+' · 净额 '+money(dbk.dragon.net)].filter(Boolean).join(' · ')):document.createDocumentFragment(),
     Number.isFinite(row?.risePct)?section('近一分钟异动',day,h('p',{},'+'+format(row.risePct,2)+'% / '+Math.round(row.spanMs/1000)+' 秒 · '+quoteLabel(row))):document.createDocumentFragment(),
     section('涨停原因',day,review?.reason?h('p',{},review.reason+' · '+reviewSupplier(review.reasonSource)):note('当前没有该股同日的原始涨停原因')),
-    ...(watch?[watch]:[]),stockTactics(code),section('实际命中与风险','只展示当前返回的条件',reasons(row).length?h('ol',{class:'fy-evidence-list'},reasons(row).map(r=>h('li',{},r))):empty('尚未返回逐条命中依据','可以在实验室读取同股研究档案。')),renderEvidence(row?.conditions||row?.conditionEvidence||row?.conditionInputs||row?.items||null),h('details',{class:'fy-details'},h('summary',{},'完整研究记录'),renderEvidence(row)));
+    ...(watch?[watch]:[]),stockTactics(daily,day,Date.now(),historySource),section('实际命中与风险','只展示当前返回的条件',reasons(row).length?h('ol',{class:'fy-evidence-list'},reasons(row).map(r=>h('li',{},r))):empty('尚未返回逐条命中依据','可以在实验室读取同股研究档案。')),renderEvidence(row?.conditions||row?.conditionEvidence||row?.conditionInputs||row?.items||null),h('details',{class:'fy-details'},h('summary',{},'完整研究记录'),renderEvidence(row)));
   }else if(tab==='leadership'){
    paintLeadership();
   }else if(tab==='company'){
@@ -1043,7 +1046,9 @@ export function createStockDrawer(ctx) {
   const turn=generation,currentController=controller;if(!code)return;
   if(historyLoading){if(older)loadQueued=true;return;}historyLoading=true;
   try {
-   let end=older&&daily.length?daily[0].date:'';let pages=0;
+   const cutoff=row?.historicalClose?row.poolDay:null;
+   let end=older&&daily.length?daily[0].date:cutoff?new Date(Date.parse(cutoff+'T00:00:00Z')+86400000).toISOString().slice(0,10):'';
+   let pages=0;
    do{
     const params=new URLSearchParams({code,n:'240',...(end?{end}:{})});
     const result=await ctx.api('/api/kline?'+params,{signal:currentController.signal,timeoutMs:60000});
@@ -1051,12 +1056,20 @@ export function createStockDrawer(ctx) {
     if(result.code&&String(result.code)!==params.get('code'))throw Error('返回K线与所选股票代码不一致');
     const rows=Array.isArray(result.rows)?result.rows:Array.isArray(result.data)?result.data:[];
     if(!rows.length)break;
-    const previous=daily.length;daily=aggregate([...daily,...rows],'day');
+    const previous=daily.length;
+    const observed=aggregate(rows,'day').filter(b=>!cutoff||b.date<=cutoff);
+    if(!observed.length)break;
+    historySource=result.dataQuality?.source||result.source||historySource;
+    daily=aggregate([...daily,...observed],'day');
+    if(cutoff&&daily.at(-1)?.date===cutoff){
+     quote.hidden=false;meta.hidden=false;quote.textContent=format(daily.at(-1).close);
+     meta.textContent=[cutoff,'收盘价',historySource].filter(Boolean).join(' · ');
+    }
     if(daily.length===previous)break;
     end=daily[0]?.date||'';pages++;
     if(!older||period==='day'||rows.length<240)break;
    }while(pages<8&&daily.length<1920);
-   if(tab==='chart')paint();
+   if(tab==='chart'||tab==='evidence')paint();
   }catch(error){if(turn!==generation||error.name==='AbortError')return;if(tab==='chart')body.replaceChildren(empty('历史数据暂时未能读取',error.message),button('重新读取',()=>loadHistory(false)));}
   finally{if(turn===generation){historyLoading=false;if(loadQueued){loadQueued=false;loadHistory(true);}}}
  }
@@ -1069,7 +1082,7 @@ export function createStockDrawer(ctx) {
   meta.textContent=quoteLabel(observation);
  }
  function update({manual=false}={}) {
-  if(drawer.hidden||!code)return;
+  if(drawer.hidden||!code||row?.historicalClose)return;
   const next=ctx.findStock(code);
   if(next?.code===code&&!boundEvidence){row=next;title.textContent=symbolName(next)+' / '+code;}
   if(tab==='leadership')paintLeadership();
@@ -1146,15 +1159,17 @@ export function createStockDrawer(ctx) {
   }catch(error){if(current())shortline.replaceChildren(...(links?[links]:[]),recoveryDisclosure(ctx.state),h('details',{class:'fy-details'},h('summary',{},'同期校验读取记录'),note(error.message)));}
  }
  async function open(nextCode,nextRow,trigger) {
-  if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
+  if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historySource='';historyLoading=false;loadQueued=false;period='day';tab='chart';
   const baseline=ctx.findStock(nextCode),baselineAt=quoteAt(baseline);
   marketQuoteAtOpen=Number.isFinite(baseline?.price)&&baseline.price>0&&Number.isFinite(baselineAt)&&baselineAt>0&&baselineAt<=Date.now()?baselineAt:null;
   title.textContent=symbolName(row)+' / '+nextCode;displayedQuoteAt=null;quote.replaceChildren();meta.textContent='';quote.hidden=true;meta.hidden=true;displayQuote(row);
-  if(quote.hidden&&baseline?.code===nextCode){
+  if(!row.historicalClose&&quote.hidden&&baseline?.code===nextCode){
    displayQuote(baseline);
    if(!quote.hidden)meta.textContent='同标的独立报价 · '+meta.textContent;
   }
-  overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();void checkShortline(nextCode,row,controller.signal,generation);
+  overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();
+  if(row.historicalClose){shortline.replaceChildren();shortline.hidden=true;}
+  else void checkShortline(nextCode,row,controller.signal,generation);
  }
  return {element:h('div',{class:'fy-drawer-layer'},overlay,drawer),open,close,update,isOpen:()=>!drawer.hidden,clear:()=>{close();code='';row=null;daily=[];title.textContent='';quote.replaceChildren();meta.textContent='';body.replaceChildren();}};
 }

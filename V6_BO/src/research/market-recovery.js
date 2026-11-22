@@ -104,6 +104,14 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
       thsBrief:state.thsBrief?.day===referenceDay?state.thsBrief:null,
       ...(state.emotion?.date>referenceDay?{emotion:null}:{})};
   }
+  async function emotionForDay(day){
+    const asOf=clock();
+    const rows=marketValues(state.history.filter(r=>r.date<=day)).filter(r=>r.knownAt<=asOf);
+    if(!rows.length||rows.at(-1).date!==day)return null;
+    const {emotion}=await import('../../public/nova/shortline/market.mjs');
+    const proof=emotion(rows,day,asOf);
+    return {...proof,value:proof.stage,source:'V6 多日收盘证据',date:day,knownAt:Math.max(...rows.map(r=>r.knownAt))};
+  }
   let detailJob=null,detailRetryAfter=0,retryDay='',retryDelay=30000;
   function needsFlags(r){return typeof r.aboveMa5!=='boolean'||typeof r.breakHigh!=='boolean';}
   function warmDetails(){
@@ -224,6 +232,6 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
     busy=run(day).finally(()=>{busy=null;});
     return busy;
   }
-  return {display,tick,rows:day=>day===cachedDay?cachedRows:[]};
+  return {display,tick,emotionForDay,rows:day=>day===cachedDay?cachedRows:[]};
 }
 module.exports={createMarketRecovery,mergePublicRows,fields,wall};

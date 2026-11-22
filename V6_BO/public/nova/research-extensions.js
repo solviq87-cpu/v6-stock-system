@@ -108,7 +108,7 @@ function sectorRelations(ctx){
 
 export function appendResearchExtensions(root,route,ctx){
  if(!root||ctx.signal?.aborted)return root;
- if(route.sub==='strategies')root.append(tacticsCenter(),referenceStats(ctx),strategyDashboard(ctx));
+ if(route.sub==='strategies')root.append(tacticsCenter(ctx),referenceStats(ctx),strategyDashboard(ctx));
  if(route.sub==='backtest')root.append(legacyBacktest(ctx),nativeReplay(ctx));
  if(route.sub==='sources')root.append(renderWorkbookImport(ctx),sectorRelations(ctx));
  if(route.sub==='desk')root.append(riskCenter(ctx));

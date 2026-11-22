@@ -8,7 +8,7 @@ const server=http.createServer((req,res)=>{
  if(pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');return res.end('<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/nova/fayo.css"></head><body><main id="mount"></main></body></html>');}
  // The current market module imports this nested, checked-in demonstration
  // dataset. Keep the fixture restricted to its existing modules and this file.
- if(!/^\/nova\/[\w.-]+$/.test(pathname)&&!['/nova/data/tactics.js','/nova/data/close-review-20261120.js','/nova/shortline/quote-links.mjs'].includes(pathname)){res.writeHead(404);return res.end();}
+ if(!/^\/nova\/[\w.-]+$/.test(pathname)&&pathname!=='/nova/shortline/quote-links.mjs'){res.writeHead(404);return res.end();}
  try{res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(path.join(root,pathname)));}catch{res.writeHead(404);res.end();}
 });
 (async()=>{
