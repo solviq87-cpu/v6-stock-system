@@ -6,6 +6,7 @@ import workspaceStore from '../../core/research-workspace-store.js';
 import accountLock from '../../core/account-process-lock.js';
 import marketData from '../../core/market-data-center.js';
 import {mutate} from './engine.mjs';
+import minuteArchive from '../shortline-minute-archive.js';
 
 const catalogFile=fileURLToPath(new URL('../../../public/nova/shortline/catalog.json',import.meta.url));
 const arrays=['market','marketHistory','checks','plans','trades','explanations','candidates','versions','notes','bars','corrections','checkins'];
@@ -26,11 +27,23 @@ function load(root){
     if(!stat.isFile()||stat.mode&0o077||stat.size>archiveLimit)throw Error();
     const {digest,state}=JSON.parse(fs.readFileSync(fd,'utf8'));
     if(hash(state)!==digest||state.schemaVersion!==1||!Number.isSafeInteger(state.revision)||state.revision<1||arrays.some(k=>!Array.isArray(state[k])))throw Error();
+    attachMinuteBars(root,state);
     return state;
   }catch{throw error('私有研究档案校验失败，请检查受控备份',503);}finally{fs.closeSync(fd);}
 }
+// Bind the selected day for validation and learning without copying minute
+// arrays into research.json, its digest, or unrelated background writes.
+function attachMinuteBars(root,state){
+  const obs=state.v6Observation;
+  if(!obs)return;
+  let rows;
+  Object.defineProperty(obs,'minuteBars',{configurable:true,enumerable:false,get(){
+    return rows??=minuteArchive.readMinuteBars(root,obs);
+  }});
+}
 function responseState(state,catalog,replica){
-  return {...state,catalog,permissions:{role:'edit',replica,canWrite:!replica}};
+  const obs=state.v6Observation;
+  return {...state,...(obs?{v6Observation:{...obs,minuteBars:obs.minuteBars||[]}}:{}),catalog,permissions:{role:'edit',replica,canWrite:!replica}};
 }
 function checkFingerprint(check){
   const {id,createdAt,observedAt,asOf,sourceFingerprint,...facts}=check;
@@ -40,8 +53,16 @@ async function syncAdapters(){
   const [{default:source},{default:paper}]=await Promise.all([import('../shortline-v6-data.js'),import('../shortline-paper-import.js')]);
   return {applySource:source.applyShortlineV6Source,readSettlements:paper.importSettledPaperTrades};
 }
-function applySnapshot(state,snapshot,{applySource,readSettlements}){
-  const info=applySource(state,snapshot);
+function applySnapshot(state,snapshot,{applySource,readSettlements},root){
+  const {minuteBars=[],bars=[],...capture}=snapshot;
+  const daily=[],minutes=[...minuteBars];
+  for(const row of bars){
+    if(['stock','sector'].includes(row.role)&&['1m','5m'].includes(row.period))minutes.push(row);
+    else daily.push(row);
+  }
+  const minuteReport=minutes.length?minuteArchive.saveMinuteBars(root,capture,minutes):{added:0,confirmed:0,conflicts:0};
+  const info=applySource(state,{...capture,bars:daily});
+  if(minuteReport.conflicts)info.missing=[...(info.missing||[]),'分钟行情与首次冻结值冲突 '+minuteReport.conflicts+' 条，使用首次记录'];
   // Only the account service's sealed fills can create a tagged paper sample.
   // The request cannot choose an account file, inject trades or supply an as-of clock.
   const settlements=readSettlements(state);
@@ -49,6 +70,7 @@ function applySnapshot(state,snapshot,{applySource,readSettlements}){
   const latestClosed=snapshot.latestClosed===true&&day===latestClosedDay;
   state.v6Observation={code,day,name:name||stock.name||code,stock,observedAt,observedAtMs:snapshot.observedAtMs,latestClosed,latestClosedDay:latestClosedDay||null,
     asOf:latestClosed?observedAt:day+' 15:00',missing:info.missing||[],evidence:info.evidence||[]};
+  attachMinuteBars(root,state);
   const record=mutate(state,'check',{date:day,code,name:state.v6Observation.name});
   const fingerprint=checkFingerprint(record);
   const prior=state.checks.slice(0,-1).find(c=>c.sourceFingerprint===fingerprint);
@@ -57,7 +79,7 @@ function applySnapshot(state,snapshot,{applySource,readSettlements}){
   const candidate=mutate(state,'learn:auto-candidate',{});
   for(const exitDay of new Set(settlements.exitDays||[]))if(exitDay!==day)refreshDailyReview(state,exitDay);
   const note=refreshDailyReview(state,day);
-  return {...info,settlements,code,day,name:state.v6Observation.name,stock,missing:state.v6Observation.missing,
+  return {...info,minuteReport,settlements,code,day,name:state.v6Observation.name,stock,missing:state.v6Observation.missing,
     observedAt,checkId:(prior||record).id,reviewId:note.id,candidateId:candidate?.id||null};
 }
 function refreshDailyReview(state,day){
@@ -108,6 +130,23 @@ export async function syncManualLedger(root,ledgerRoot,accountDir){
     return {changed,revision:state.revision,imported:result.imported+paper.imported,retry:!!(result.issues?.length||paper.issues.length)};
   });
 }
+// Market-only recovery also runs when the user's research and candidate pools are empty.
+export async function saveRecoveredMarket(root,rows,day){
+  const {applyShortlineV6Source}=await import('../shortline-v6-data.js');
+  const dir=workspaceStore.privateRoot(root,true);
+  return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
+    const state=load(dir);
+    const changed=applyShortlineV6Source(state,{day,bars:[],market:rows,missing:[],evidence:[],latestClosed:false});
+    if(changed.daysAdded||changed.daysRevised){
+      state.catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
+      const now=Date.now();
+      state.marketResearchAsOf={day,knownAt:now};
+      refreshDailyReview(state,day);
+      persist(dir,state);
+    }
+    return {revision:state.revision};
+  });
+}
 export async function shortlineJob({root,replica=false,input,snapshot}){
   const catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
   if(!input)return {ok:true,state:responseState(load(root),catalog,replica)};
@@ -120,7 +159,7 @@ export async function shortlineJob({root,replica=false,input,snapshot}){
     state.catalog=catalog;
     let result;
     try{
-      if(input.action==='v6:sync')result=applySnapshot(state,snapshot,apply);
+      if(input.action==='v6:sync')result=applySnapshot(state,snapshot,apply,dir);
       else {
         result=mutate(state,input.action,input.payload);
         const day=affectedDay(state,input.action,result);

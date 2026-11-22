@@ -358,7 +358,7 @@ export function deriveCheckInput(state,input){
  const {facts,main,strong}=inferEvidence(b,history,f,market,stage,sector,state.catalog);
  const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
  b.frozenPlan=planAt(state.plans,code,date,seconds);
- const minutes=(state.bars||[]).filter(r=>r.date.length>10 && r.date.slice(0,10)===date &&
+ const minutes=[...(state.bars||[]),...(current?obs.minuteBars||[]:[])].filter(r=>r.date.length>10 && r.date.slice(0,10)===date &&
    (r.role==='sector'?(r.sector||r.code)===b.sector:(!r.role||r.role==='stock')&&(r.code===code||b.sector&&r.sector===b.sector)));
  completeEvidence({b,history,f,market,stage,sector,catalog:state.catalog,intraday:minutes,marketSeries,asOf:point},facts);
  // Derived upstream only from the trusted V6 close snapshot, never the submitted check request.
@@ -464,12 +464,14 @@ export function renderBacktest(ui){
   const {state,root}=ui;
   if(!views.has(ui))views.set(ui,{...initialView,symbol:ui.stock||'',asOf:ui.date||''});
   const v=views.get(ui);
-  const raw=(state.bars||[]).filter(b=>!b.role||b.role==='stock');
+  const raw=[...(state.bars||[]),...(state.v6Observation?.minuteBars||[])].filter(b=>!b.role||b.role==='stock');
   const last=raw.reduce((d,b)=>b.date>d?b.date:d,'').slice(0,10);
   const asOf=v.asOf||last||new Date().toISOString().slice(0,10);
   const observed=state.v6Observation;
-  const displayCut=observed?.latestClosed&&observed.day===asOf?observed.observedAt:cutoff(asOf);
-  const included=raw.filter(b=>stamp(b.date)<=cutoff(asOf) && knownBy(b,displayCut));
+  const replayAt=observed?.day===asOf&&Number.isSafeInteger(observed.observedAtMs)?observed.observedAtMs:null;
+  const dayCut=cutoff(asOf);
+  const included=raw.filter(b=>stamp(b.date)<=dayCut && (knownBy(b,dayCut)||
+    replayAt&&b.code===observed.code&&knownBy(b,replayAt)));
   const names=new Map(included.map(b=>[b.code,b.name]));
   const symbol=names.has(v.symbol)?v.symbol:[...names.keys()].sort()[0]||'';
   const periods=uniq(included.filter(b=>b.code===symbol).map(b=>b.period||'日K'));
@@ -505,7 +507,9 @@ export function renderBacktest(ui){
     body='<p class="k-note">以 '+esc(selected.date+' '+selected.name)+' 为查询时点。五项特征需完整，至少三项相同。结果按相似度、日期排序，五日收益用于成功与失败分栏。</p>'+(result.missing.length?'<p>缺失 '+esc(result.missing.join('、'))+'</p>':'')+'<div class="grid2">'+side('成功案例',result.success)+side('失败案例',result.failure)+'</div>'+distTable(result.distributions);
   }else body='<p class="k-empty">请选择一个信号或导入历史 K 线。</p>';
   const chartBars=bars.filter(b=>!selected || b.date<=selected.date);
-  root.innerHTML=uiCSS+'<div class="kdesk"><div class="panel"><div class="k-head"><div><h3>历史行情研究库</h3><div class="sub">'+included.length+' 根 K 线 · '+names.size+' 只标的</div></div><div class="k-head-actions"><a class="btn" href="/nova/shortline/sample-kline.csv" download>示例 CSV</a><button class="btn" id="kExport">导出报告</button><button class="btn primary" id="kImport">导入 K 线</button></div></div><div class="k-filters"><label>观察截止<input type="date" id="kDate" value="'+esc(asOf)+'"></label><label>研究标的<select id="kSymbol">'+[...names].sort().map(([c,n])=>'<option value="'+esc(c)+'" '+(symbol===c?'selected':'')+'>'+esc(n+' · '+c)+'</option>').join('')+'</select></label><label>周期<select id="kPeriod">'+opts(periods,period)+'</select></label></div></div><div class="k-metrics">'+metric('历史信号',list.length,'筛选后含人工标注')+metric('五日胜率',display(ds.winRate),'成熟可观察样本 '+ds.n+' 条')+metric('五日收益中位数',display(ds.median),'次交易日开盘为基准')+metric('最大已结算回撤',display(equity.drawdown),'五日持有 · 非重叠 '+equity.n+' 笔')+'</div><div class="panel"><div class="k-head"><h3>'+esc(names.get(symbol)||'行情走势')+' <span class="sub">'+esc(symbol+' · '+period)+'</span></h3><span class="sub">'+esc(chartBars.at(-1)?.date||'待导入')+'</span></div>'+candleChart(chartBars,selected?.id,new Set(signalsForSymbol.map(s=>s.id)))+'<div class="k-chartfoot"><span>紫点为信号日 · 下图为成交量</span><span>回看日期 <select id="kSnapshot" aria-label="回看K线日期">'+bars.slice().reverse().map(b=>'<option value="'+esc(barKey(b))+'" '+(barKey(b)===selected?.id?'selected':'')+'>'+esc(b.date)+'</option>').join('')+'</select></span></div></div><div class="panel"><div class="k-tabs">'+[['signals','信号记录'],['distribution','收益分布'],['factors','因子分析'],['similar','相似案例']].map(([id,s])=>'<button data-ktab="'+id+'" class="'+(v.tab===id?'active':'')+'">'+s+'</button>').join('')+'</div>'+body+'</div><div class="panel"><div class="k-head"><h3>信号时点快照</h3><button id="kCorrection" class="btn" '+(!selected?'disabled':'')+'>修正标注</button></div>'+details+'</div></div>';
+  const replay=chartBars.some(b=>!knownBy(b,dayCut));
+  const chartNote=replay?'事后行情回放 · 采集截至 '+esc(observed.observedAt)+'（北京时间）':'紫点为信号日 · 下图为成交量';
+  root.innerHTML=uiCSS+'<div class="kdesk"><div class="panel"><div class="k-head"><div><h3>历史行情研究库</h3><div class="sub">'+included.length+' 根 K 线 · '+names.size+' 只标的</div></div><div class="k-head-actions"><a class="btn" href="/nova/shortline/sample-kline.csv" download>示例 CSV</a><button class="btn" id="kExport">导出报告</button><button class="btn primary" id="kImport">导入 K 线</button></div></div><div class="k-filters"><label>观察截止<input type="date" id="kDate" value="'+esc(asOf)+'"></label><label>研究标的<select id="kSymbol">'+[...names].sort().map(([c,n])=>'<option value="'+esc(c)+'" '+(symbol===c?'selected':'')+'>'+esc(n+' · '+c)+'</option>').join('')+'</select></label><label>周期<select id="kPeriod">'+opts(periods,period)+'</select></label></div></div><div class="k-metrics">'+metric('历史信号',list.length,'筛选后含人工标注')+metric('五日胜率',display(ds.winRate),'成熟可观察样本 '+ds.n+' 条')+metric('五日收益中位数',display(ds.median),'次交易日开盘为基准')+metric('最大已结算回撤',display(equity.drawdown),'五日持有 · 非重叠 '+equity.n+' 笔')+'</div><div class="panel"><div class="k-head"><h3>'+esc(names.get(symbol)||'行情走势')+' <span class="sub">'+esc(symbol+' · '+period)+'</span></h3><span class="sub">'+esc(chartBars.at(-1)?.date||'待导入')+'</span></div>'+candleChart(chartBars,selected?.id,new Set(signalsForSymbol.map(s=>s.id)))+'<div class="k-chartfoot"><span>'+chartNote+'</span><span>回看日期 <select id="kSnapshot" aria-label="回看K线日期">'+bars.slice().reverse().map(b=>'<option value="'+esc(barKey(b))+'" '+(barKey(b)===selected?.id?'selected':'')+'>'+esc(b.date)+'</option>').join('')+'</select></span></div></div><div class="panel"><div class="k-tabs">'+[['signals','信号记录'],['distribution','收益分布'],['factors','因子分析'],['similar','相似案例']].map(([id,s])=>'<button data-ktab="'+id+'" class="'+(v.tab===id?'active':'')+'">'+s+'</button>').join('')+'</div>'+body+'</div><div class="panel"><div class="k-head"><h3>信号时点快照</h3><button id="kCorrection" class="btn" '+(!selected?'disabled':'')+'>修正标注</button></div>'+details+'</div></div>';
   on('#kSnapshot','change',e=>{v.id=e.target.value;redraw();});
   on('#kDate','change',e=>{if(e.target.value){v.asOf=e.target.value;v.page=0;v.id='';redraw();}});
   for(const [q,key] of [['#kSymbol','symbol'],['#kPeriod','period'],['#kQuality','quality'],['#kFactorMode','factorMode']])on(q,'change',e=>{v[key]=e.target.value;v.page=0;v.id='';redraw();});

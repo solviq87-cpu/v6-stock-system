@@ -340,3 +340,57 @@ export function dailyReviewEvidence(state={}){
  const sectors=[...groups].map(([name,items])=>({name,count:items.length,logic:[...new Set(items.map(row=>row.reason).filter(Boolean))]}));
  return {day,reviewMatched,rows,sectors,readonly,sourceEvidence,excludedDateRows,reasonKnown:rows.filter(row=>row.reason).length,dateUnknown:rows.filter(row=>!row.dateMatched).length};
 }
+
+// Presentation only. Recovered observations never enter the decision or trading engine.
+const recoveryLimits={adv:[0,20000],dec:[0,20000],upLimit:[0,20000],downLimit:[0,20000],breakRate:[0,100],height:[0,100],amount:[0,1e8],leader:[-100,1000],diffusion:[0,100],premium:[-100,1000],indexChange:[-100,1000]};
+const phases=['冰点','发酵','高潮','分歧','退潮'];
+const countMetrics=new Set(['adv','dec','upLimit','downLimit','height']);
+export function recoveredMetric(recovery,key,day=recovery?.referenceDay,asOf=Date.now()){
+ const row=key==='emotion'?recovery?.emotion:recovery?.metrics?.[key];
+ if(!validDay(day)||!row||!validDay(row.date)||row.date>day||row.date>chinaDay(asOf)||
+    !finite(row.knownAt)||row.knownAt<=0||row.knownAt>asOf||row.date>chinaDay(row.knownAt)||typeof row.source!=='string'||!row.source.trim())return null;
+ const bounds=recoveryLimits[key],v=row.value;
+ if(bounds){if(!finite(v)||v<bounds[0]||v>bounds[1]||countMetrics.has(key)&&!Number.isSafeInteger(v))return null;}
+ else if(key==='emotion'){if(!phases.includes(v)||!finite(row.confidence)||row.confidence<0||row.confidence>100)return null;}
+ else if(['trend','sh','cy'].includes(key)){if(!['多头','震荡','空头'].includes(v))return null;}
+ else if(typeof v!=='string'||!v.trim()||['未知','未判定','待判定'].includes(v.trim()))return null;
+ return {...row,historical:row.date!==day};
+}
+export const marketPhaseName=value=>phases.includes(value)?value:'';
+export function observedCoverage(recovery,day=recovery?.referenceDay,asOf=Date.now()){
+ if(!validDay(day)||!Array.isArray(recovery?.coverage))return [];
+ const scopes=new Map();
+ for(const raw of recovery.coverage){
+  if(!raw||!validDay(raw.day)||raw.day>day||!raw.scope?.trim?.()||!raw.source?.trim?.()||
+     !finite(raw.knownAt)||raw.knownAt<=0||raw.knownAt>asOf||raw.day>chinaDay(raw.knownAt)||
+     !Number.isSafeInteger(raw.observed)||raw.observed<1||raw.total!=null&&(!Number.isSafeInteger(raw.total)||raw.total<raw.observed))continue;
+  const numbers={};for(const key of ['adv','dec','flat'])if(Number.isSafeInteger(raw[key])&&raw[key]>=0&&raw[key]<=raw.observed)numbers[key]=raw[key];
+  if(Object.values(numbers).reduce((a,b)=>a+b,0)>raw.observed)continue;
+  const memberCounts=Object.keys(numbers).length>0;
+  if(finite(raw.change)&&raw.change>=-100&&raw.kind==='sector'&&raw.observed===1&&!memberCounts)numbers.change=raw.change;
+  if(finite(raw.meanChange)&&raw.meanChange>=-100&&memberCounts)numbers.meanChange=raw.meanChange;
+  if(finite(raw.amountCny)&&raw.amountCny>=0)numbers.amountCny=raw.amountCny;
+  const key=JSON.stringify([raw.scope,raw.kind,raw.source]),previous=scopes.get(key);
+  if(!previous||previous.day<raw.day||previous.day===raw.day&&previous.knownAt<raw.knownAt)scopes.set(key,{scope:raw.scope,source:raw.source,day:raw.day,knownAt:raw.knownAt,
+   observed:raw.observed,total:raw.total??null,complete:raw.complete===true&&raw.observed===raw.total,...numbers});
+ }
+ return [...scopes.values()].sort((a,b)=>b.day.localeCompare(a.day)||b.observed-a.observed);
+}
+export const turnoverLabel=r=>/沪深两市/.test([r?.scope,r?.source].filter(Boolean).join(' '))?'沪深两市成交额':'成交额';
+export function coverageValues(row){
+ const signed=v=>(v>0?'+':'')+v.toLocaleString('zh-CN',{maximumFractionDigits:2})+'%';
+ return [row.change!=null?'板块指数涨跌幅 '+signed(row.change):'',row.meanChange!=null?'已核个股等权平均涨跌幅 '+signed(row.meanChange):'',row.adv!=null?'上涨 '+row.adv+' 家':'',row.dec!=null?'下跌 '+row.dec+' 家':'',row.flat!=null?'平盘 '+row.flat+' 家':'',
+  row.amountCny!=null?'成交额 '+(row.amountCny/1e8).toLocaleString('zh-CN',{maximumFractionDigits:2})+' 亿元':''].filter(Boolean).join(' · ');
+}
+
+export const coverageCount=row=>'已核 '+row.observed+(row.total!=null?' / '+row.total:'')+(['adv','dec','flat'].some(k=>row[k]!=null)?' 只':' 条');
+export function archivedStockQuote(bars,code,day=chinaDay(Date.now()),asOf=Date.now()){
+ if(!/^\d{6}$/.test(code)||!validDay(day))return null;
+ let best=null;
+ for(const r of Array.isArray(bars)?bars:[]){
+  if(r.code!==code||r.role!=='stock'||r.period!=='日K'||!validDay(r.date)||r.date>day||typeof r.source!=='string'||!r.source.trim()||
+     !finite(r.close)||r.close<=0||!Number.isSafeInteger(r.knownAt)||r.knownAt<=0||r.knownAt>asOf||r.date>chinaDay(r.knownAt))continue;
+  if(!best||r.date>best.date||r.date===best.date&&r.knownAt>best.knownAt)best={value:r.close,date:r.date,source:r.source,knownAt:r.knownAt};
+ }
+ return best;
+}

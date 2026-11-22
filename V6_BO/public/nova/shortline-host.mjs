@@ -1,5 +1,6 @@
 import { h, button, note } from './ui.js';
-import { rowsFrom } from './market.js';
+import { archivedStockQuote } from './market-evidence.js';
+import { rowsFrom,recoveryDisclosure } from './market.js';
 
 const endpoint='/api/research/shortline';
 const pages={
@@ -48,7 +49,7 @@ export function createResearchSession(ctx,state){
     Object.assign(state,data.state);
     return state;
   }
-  async function save(action,payload){
+  async function save(action,payload,attempt=0){
     active();
     if(!state.permissions?.canWrite)throw Error(writeRequired);
     try{
@@ -57,7 +58,7 @@ export function createResearchSession(ctx,state){
       Object.assign(state,data.state);
       return data.result;
     }catch(error){
-      if(error.status===409){await refresh();throw Error('另一台设备已更新档案，已重读最新版本，请重新核对后保存。');}
+      if(error.status===409){await refresh();if(action==='v6:sync'&&attempt<2&&state.permissions?.canWrite)return save(action,payload,attempt+1);throw Error('另一台设备已更新档案，已重读最新版本，请重新核对后保存。');}
       throw error;
     }
   }
@@ -66,7 +67,7 @@ export function createResearchSession(ctx,state){
     if(!stockCode(code)||date&&!day(date))throw Error('请输入六位股票代码与有效交易日');
     const key=code+'/'+(date||'latest'),now=Date.now();
     if(inFlight.has(key))return inFlight.get(key);
-    if(!force && (storedOn(state,code,date)||recentLoads.has(key)&&now-recentLoads.get(key)<retryWindow))return {code,day:date||state.v6Observation?.day,reused:true};
+    if(!force && (storedOn(state,code,date)||state.v6Observation?.code===code&&(!date||state.v6Observation.day===date)&&recentLoads.has(key)&&now-recentLoads.get(key)<retryWindow))return {code,day:date||state.v6Observation?.day,reused:true};
     if(!state.permissions?.canWrite)return {code,day:date,replica:true,reused:true};
     const request=save('v6:sync',{code,...(date?{day:date}:{})}).then(result=>{
       for(const [k,t] of recentLoads)if(now-t>=retryWindow)recentLoads.delete(k);
@@ -91,7 +92,11 @@ export async function stockCheckAt(ctx,code,row,signal){
   // A read-only replica can display its latest dated assessment for this stock.
   const records=(state.checks||[]).filter(c=>c.code===code&&(!checkedDay||c.date===checkedDay));
   const record=records.sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0];
-  return {code,date:checkedDay||record?.date||'',record,missing:result?.missing||[],replica:!!result?.replica};
+  const previousRecord=record?null:(state.checks||[]).filter(c=>c.code===code&&day(c.date)&&c.date<checkedDay&&
+    c.status&&c.createdAt&&Number.isFinite(Date.parse(c.createdAt))&&Date.parse(c.createdAt)<=Date.now())
+    .sort((a,b)=>b.date.localeCompare(a.date)||Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
+  const quote=archivedStockQuote(state.bars,code,checkedDay||undefined);
+  return {code,date:checkedDay||record?.date||'',record,previousRecord,quote,recovery:state.marketRecovery,missing:result?.missing||[],replica:!!result?.replica};
 }
 function download(name,content,type){
   const url=URL.createObjectURL(new Blob([content],{type:type||'text/plain;charset=utf-8'}));
@@ -147,18 +152,22 @@ export async function renderShortline(route,ctx){
   if(page==='overview'){root.classList.add('shortline-overview');shadow.append(h('link',{rel:'stylesheet',href:'/nova/shortline/overview.css'}));}
   shadow.append(h('link',{rel:'stylesheet',href:'/nova/shortline-sheet.css'}),root);
   const target=stockCode(route.code)?{code:route.code,date:day(route.date)}:researchTarget(ctx,state);
+  if(page==='overview'&&!day(route.date)&&day(state.marketRecovery?.referenceDay))target.date=state.marketRecovery.referenceDay;
   const syncStatus=note(''),statusText=(message)=>{if(!ctx.signal.aborted)syncStatus.textContent=message;};
-  const ui={state,root,stock:target.code,date:target.date,esc,download,modal:modalFor(ctx,state,wrap),save:session.save,
+  const recoveryBox=h('div',{},recoveryDisclosure(state));
+  const updateRecovery=()=>{if(ctx.signal.aborted)return;const open=recoveryBox.firstChild?.open;const replacement=recoveryDisclosure(state);replacement.open=!!open;recoveryBox.replaceChildren(replacement);};
+  const ui={state,root,stock:target.code,date:target.date,esc,download,modal:modalFor(ctx,state,wrap),
+    async save(action,payload){const result=await session.save(action,payload);updateRecovery();return result;},
     open:page=>{if(Object.hasOwn(pages,page))ctx.navigate('lab','shortline-'+page);},
     toast:(message)=>{if(!ctx.signal.aborted)ctx.notify(message);},
-    async refresh(){await session.refresh();if(!ctx.signal.aborted)render(ui);},
+    async refresh(){await session.refresh();if(!ctx.signal.aborted){updateRecovery();render(ui);}},
     async loadEvidence(code,date,force=false){
       const result=await session.loadEvidence(code,date,force);
       if(!ctx.signal.aborted){
+        updateRecovery();
         const retrieved=day(result?.day)||day(date);
         if(!ui.date&&retrieved)ui.date=retrieved;
-        statusText([code,retrieved,result?.replica?'只读副本':result?.reused?'使用已读取的档案':'同期证据已核对',
-          result?.missing?.length?'缺失 '+result.missing.length+' 项':''].filter(Boolean).join(' · '));
+        statusText([code,retrieved,result?.replica?'只读副本':result?.reused?'使用已读取的档案':'已读取同期研究档案'].filter(Boolean).join(' · '));
       }
       return result;
     }};
@@ -173,7 +182,7 @@ export async function renderShortline(route,ctx){
   sync.disabled=!state.permissions?.canWrite;
   const reload=button('刷新研究档案',async()=>{reload.disabled=true;try{await ui.refresh();statusText('已读取当前服务保存的研究档案');}catch(e){statusText(e.message);}finally{reload.disabled=false;}},'quiet');
   const controls=h('div',{class:'fy-inline'},codeField,sync,reload);
-  wrap.append(h('header',{class:'fy-card fy-shortline-head'},h('div',{},h('h1',{},pages[page]),syncStatus),controls),body);
+  wrap.append(h('header',{class:'fy-card fy-shortline-head'},h('div',{},h('h1',{},pages[page]),syncStatus),controls),recoveryBox,body);
   statusText(state.permissions?.canWrite?'已读取 V6 研究档案':'当前副本提供已保存档案的只读核查。');
   // Resolve the source day from a dated V6 snapshot or let the source identify its latest close.
   if(target.code && ['overview','new','checks','review','backtest'].includes(page)){

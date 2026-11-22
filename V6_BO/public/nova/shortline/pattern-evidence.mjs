@@ -206,7 +206,7 @@ function sameMinute(a,b){
 function minuteRows(series,b,cutoff,role='stock'){
   const day=dateOf(b.date);
   const rows=series.filter(r=>dateOf(r?.date)===day && /^\d{4}-\d\d-\d\d \d\d:\d\d$/.test(r.date) &&
-    (r.role||'stock')===role && (role==='stock'?r.code===b.code:role==='sector'?(r.sector||r.code)===b.sector:true) &&
+    (!r.membershipKnownAt||time(r.membershipKnownAt)<=cutoff) && (r.role||'stock')===role && (role==='stock'?r.code===b.code:role==='sector'?(r.sector||r.code)===b.sector:true) &&
     time(r.date)<=Math.min(time(b.date,true),cutoff) && visible(r,cutoff) &&
     [r.open,r.high,r.low,r.close].every(v=>finite(v)&&v>0)&&r.high>=Math.max(r.open,r.close)&&r.low<=Math.min(r.open,r.close));
   const partitions=new Map();

@@ -3,7 +3,7 @@ const {sessionHeaderToken}=require('./session-header-token');
 const {sameOriginOk}=require('./request-security');
 const keys=new Set(['revision','action','payload']);
 function plain(x){return x!==null&&typeof x==='object'&&!Array.isArray(x);}
-async function shortlineHttp(req,res,{body,url,authenticate,isReplica,root,readSource,job}){
+async function shortlineHttp(req,res,{body,url,authenticate,isReplica,root,readSource,job,recoveryDisplay}){
  const reply=(httpStatus,value)=>{
   res.writeHead(httpStatus,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
   res.end(JSON.stringify(value));
@@ -31,6 +31,7 @@ async function shortlineHttp(req,res,{body,url,authenticate,isReplica,root,readS
  }
  const result=await job({action:'shortline',root,input,snapshot,replica:isReplica()});
  const {httpStatus,...data}=result;
+ if(data.ok&&data.state&&recoveryDisplay)data.state={...data.state,marketRecovery:recoveryDisplay()};
  return reply(httpStatus||(data.ok?200:422),data);
 }
 module.exports={shortlineHttp};
