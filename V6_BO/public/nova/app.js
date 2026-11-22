@@ -225,7 +225,7 @@ async function subscribeChanges(controller) {
  while(role&&!controller.signal.aborted) {
   try {
    const token=getSession(),query=new URLSearchParams({dev:deviceId(),dname:'绯曜设备'});
-   const response=await fetch('/api/stream?'+query,{headers:{Accept:'text/event-stream',...(token?{Authorization:'Bearer '+token}:{})},cache:'no-store',signal:controller.signal});
+   const response=await fetch('/api/stream?'+query,{headers:{Accept:'text/event-stream',...(token?{Authorization:'Bearer '+token,'X-QD-Token':token}:{})},cache:'no-store',signal:controller.signal});
    if(!response.ok||!response.headers.get('content-type')?.includes('text/event-stream'))return;
    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
    while(role&&!controller.signal.aborted){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>131072)buffer=buffer.slice(-65536);let end;while((end=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,end);buffer=buffer.slice(end+2);if(event.includes('data:')&&Date.now()-lastRead>1000)refresh(false);}}
