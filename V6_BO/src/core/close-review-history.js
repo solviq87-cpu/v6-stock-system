@@ -39,16 +39,20 @@ function hasCloseEvidence(report,day){
     report.thsBrief?.day===day||Boolean(report.reasons?.length||report.seats?.length);
 }
 
+function retainedClose(day,readCore,readStudy){
+  if(!validDate(day))return null;
+  const report=readCore.retained(day),extra=readStudy.peek(day);
+  const core=hasCloseEvidence(report,day)?report:null,study=extra?.day===day?extra:null;
+  return core||study?{...core,day,dabanke:study}:null;
+}
+
 async function selectedClose({day,latest,recent,previousDay,seatsReady,readCore,readStudy,serveAfterMs}){
   if(!validDate(day)||!latest||day>latest)return null;
   const archived=day<latest;
-  const retainedCore=readCore.retained(day),retainedStudy=readStudy.peek(day);
-  const core=hasCloseEvidence(retainedCore,day)?retainedCore:null;
-  const study=retainedStudy?.day===day?retainedStudy:null;
-  if(archived&&!recent.includes(day)){
-    return core||study?{...core,day,dabanke:study}:null;
-  }
-  let report=core,extra=study,signalReceipt;
+  const retained=retainedClose(day,readCore,readStudy);
+  if(archived&&!recent.includes(day))return retained;
+  const core=hasCloseEvidence(retained,day)?retained:null;
+  let report=core,extra=retained?.dabanke||null,signalReceipt;
   const available=new Promise(resolve=>{signalReceipt=resolve;});
   const compose=()=>report||extra?{...report,day,dabanke:extra}:null;
   if(compose())signalReceipt();
@@ -71,4 +75,4 @@ async function selectedClose({day,latest,recent,previousDay,seatsReady,readCore,
   }finally{clearTimeout(timer);}
 
 }
-module.exports={validDate,recentCloseDays,archivedDays,selectedClose};
+module.exports={validDate,recentCloseDays,archivedDays,retainedClose,selectedClose};

@@ -76,18 +76,20 @@ function respond(url,req,body){
    down:9,reasons:records.slice(0,2).map((r,i)=>({code:r.symbol,text:i?'合成归档依据乙':'合成归档依据甲',source:'同花顺涨停聚焦'})),
    seats:records.slice(0,5).map((r,i)=>({code:r.symbol,name:r.name,dept:i<4?'机构专用':'深股通专用',category:i<4?'机构专用':'互联互通',net:i*10000})),seatsStatus:'observed'}};
  }
+ if(p==='/api/close-review-evidence'&&phase==='close-outage')return {ok:false,error:'合成的供应商断连'};
  if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
   sealed:{tradeDate:'2026-11-13',complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
   broken:{tradeDate:'2026-11-13',complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
   sealRate:0.5,down:2,northTurnover:130e8,marketTurnover:1000e8,seatsStatus:'observed',
   retained:returnRetainedReview?['sealed','northTurnover']:[],
-  reasons:[{code:'600101',text:'合成同日原版理由'}],
+  reasons:[{code:'600101',text:returnRetainedReview?'合成同日源端更新的理由':'合成同日原版理由'}],
   seats:[{code:'600101',name:'合成光谱1',dept:'机构专用',category:'机构专用',net:-40000}],
   promotion:{previousDay:'2026-11-12',stages:[{level:1,promoted:1,total:2}],failed:[]}}};
 
  if(p==='/api/state'||p==='/api/mobile-digest'){
   const result=state();
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
+  if(phase==='close-outage'){result.review=null;result.ztReviewPoolMeta=null;result.ztReviewPool=[];}
   if(phase==='news-refresh')result.goodNews.items.push({title:'合成刷新后的新公告',source:'synthetic-news',publishedAt:'2026-11-15T08:10:00+08:00'});
   if(phase==='system-picks-refresh')result.dashboard.rows=[...result.dashboard.rows,{...stocks[0],code:'600199',name:'合成刷新新增',score:98}];
   return result;
@@ -487,12 +489,25 @@ const runChecks=async()=>{
    await closeReview.locator('.fy-close-level').getByRole('button',{name:'合成光谱1',exact:true}).click();
    assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true);
    returnRetainedReview=true;
-   await closeReview.getByRole('button',{name:'刷新复盘',exact:true}).evaluate(node=>node.click());
+   await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+   await closeReview.locator('[data-reason-selected]').getByText('合成同日源端更新的理由',{exact:true}).waitFor();
    await closeReview.locator('[data-retained-review]').waitFor();
    assert.match(await closeReview.locator('[data-retained-review]').innerText(),/涨停池、北向成交/);
    assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true,
     'same-day recovery retains the selected reason and its keyboard focus');
    returnRetainedReview=false;
+   if(width===390||width===1366){
+    phase='close-outage';
+    const cold=await context.newPage();
+    await cold.goto(origin+'/#/pulse/review');
+    await cold.locator('.fy-close-status').filter({hasText:'2026-11-12 · 已存收盘 · 正在补采 2026-11-13'}).waitFor();
+    assert.equal(await cold.locator('.fy-close-level button').count(),28);
+    phase='normal';
+    await cold.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await cold.locator('[data-reason-selected]').getByText('合成同日原版理由',{exact:true}).waitFor();
+    assert.equal(await cold.locator('.fy-close-level button').count(),1);
+    await cold.close();await page.bringToFront();
+   }
    await closeReview.locator('.fy-close-more > summary').click();
    await closeReview.locator('.fy-reference-review-footer').waitFor();
    assert.equal(await closeReview.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,

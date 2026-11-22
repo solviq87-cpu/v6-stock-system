@@ -173,13 +173,20 @@ export function renderCloseReview(ctx,additional){
  let selected='',activeKey='',activeDay='',fingerprint='',renderedScope='';
  let selectedStock='',seatFilter='全部',latest='',listed=[],listKey='',listAt=0,listRequest=null;
  const receipts=new Map(),pending=new Map(),failures=new Map(),refreshAt=new Map();
- let timer;
+ let timer,archived=[],backupFor='',backupDay='',backupRequest;
  const stateDay=()=>closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
  const currentDay=()=>selected||latest||stateDay();
  const dayOK=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toJSON()?.slice(0,10)===d;
 
+ function hasDatedState(day){
+  const state=ctx.state||{};
+  return (reviewDate(state.review?.date)===day&&summarizeReview(state.review).rows.length>0)||
+   state.marketRecovery?.closeWatch?.day===day||state.dabanke?.day===day&&Boolean(state.dabanke.revision);
+ }
  function project(){
-  const day=currentDay(),key=selected?'archive':'cloud';
+  const target=currentDay();
+  const standby=!selected&&target===backupFor&&backupDay&&!receipts.has(target)&&!hasDatedState(target);
+  const day=standby?backupDay:target,key=selected||standby?'archive':'cloud';
   const options=[['cloud',(latest||stateDay()||'最近交易日')+' · 自动复盘'],
    ...listed.filter(d=>d!==latest).map(d=>[d,d+' · 历史收盘'])];
   const optionKey=JSON.stringify(options);
@@ -208,7 +215,8 @@ export function renderCloseReview(ctx,additional){
   const sameScope=scope===renderedScope;
   const focused=cards.contains(document.activeElement)?document.activeElement:null;
   const focusKey=focused?.dataset.reviewControl;
-  const caption=failures.get(report.day)||(pending.has(report.day)?'正在同步收盘回执':key==='archive'?'历史收盘':'自动复盘');
+  const held=!selected&&report.day&&report.day!==currentDay();
+  const caption=held?'已存收盘 · 正在补采 '+currentDay():failures.get(report.day)||(pending.has(report.day)?'正在同步收盘回执':key==='archive'?'历史收盘':'自动复盘');
   const receipt=receipts.get(report.day);
   const arrived=Math.max(receipt?.receivedAt||0,receipt?.dabanke?.knownAt||0);
   status.textContent=[report.day,caption,arrived&&arrived<=Date.now()?'资料取得 '+dateTime(arrived):''].filter(Boolean).join(' · ');
@@ -354,6 +362,19 @@ export function renderCloseReview(ctx,additional){
   clearTimeout(timer);paint(true);void loadSupplement();
  });
 
+ async function readBackup(target){
+  if(selected||!dayOK(target)||receipts.has(target)||hasDatedState(target)||backupRequest||backupFor===target)return;
+  const day=archived.find(d=>d<target);
+  if(!day)return;
+  backupRequest=target;
+  try{
+   const data=receipts.get(day)||((await ctx.api('/api/close-review-evidence?date='+day+'&retained=1',{signal:ctx.signal,timeoutMs:12000})).result);
+   if(data?.day!==day||ctx.signal?.aborted||selected||currentDay()!==target||receipts.has(target))return;
+   receipts.set(day,data);backupFor=target;backupDay=day;paint();
+  }catch{/* Keep the requested date and retry on the next connection. */}
+  finally{backupRequest=null;}
+ }
+
  async function loadDates(force=false){
   if(ctx.signal?.aborted||!ctx.api)return;
   const key=stateDay()||'live';
@@ -364,11 +385,12 @@ export function renderCloseReview(ctx,additional){
    try{
     const data=await ctx.api('/api/close-review-evidence?list=1',{signal:ctx.signal,timeoutMs:10000});
     if(ctx.signal?.aborted||!dayOK(data?.latestDay))return;
-    latest=data.latestDay;
+    latest=data.latestDay;archived=arr(data.archivedDays).filter(d=>dayOK(d)&&d<=latest).sort().reverse();
     listed=[...new Set([...arr(data.recentDays),...arr(data.archivedDays)].filter(d=>dayOK(d)&&d<=latest))].sort().reverse();
     if(selected&&!listed.includes(selected))selected='';
     listAt=Date.now()+300000;
     paint();void loadSupplement();
+    if(!archived.includes(latest))void readBackup(latest);
    }catch{/* The last dated state remains available while the calendar reconnects. */}
    finally{if(listAt<=Date.now())listAt=Date.now()+30000;listRequest=null;}
   })();return listRequest;
@@ -397,11 +419,14 @@ export function renderCloseReview(ctx,additional){
     if(ctx.signal?.aborted)return;
     if(data?.result?.day!==day)throw Error('交易日不匹配');
     const receipt=data.result;
-    receipts.set(day,receipt);
+    receipts.set(day,receipt);if(backupFor===day){backupFor='';backupDay='';}
     delay=receipt.refreshPending?5000:receipt.retryAfterMs>0?Math.max(120000,receipt.retryAfterMs):receipt.sealed?.complete?Infinity:300000;
     if(day===today)delay=Math.min(delay,afterSeats?3600000:300000);
    }catch{
-    if(!ctx.signal?.aborted)failures.set(day,receipts.has(day)?'沿用该日收盘回执，联网后自动补采':'正在重连该日公开来源');
+    if(!ctx.signal?.aborted){
+     failures.set(day,receipts.has(day)?'沿用该日收盘回执，联网后自动补采':'正在重连该日公开来源');
+     if(day===currentDay()&&!selected&&!receipts.has(day))void readBackup(day);
+    }
    }finally{
     pending.delete(day);refreshAt.set(day,{stamp,next:Date.now()+delay});
     if(!ctx.signal?.aborted&&currentDay()===day){paint();retryVisible(day,delay);}
@@ -414,7 +439,7 @@ export function renderCloseReview(ctx,additional){
   void loadDates();void loadSupplement();
  }
  const reconnect=()=>{
-  listAt=0;if(failures.has(currentDay()))refreshAt.delete(currentDay());
+  listAt=0;refreshAt.delete(currentDay());
   wake();
  };
  ctx.signal?.addEventListener('abort',()=>clearTimeout(timer),{once:true});
