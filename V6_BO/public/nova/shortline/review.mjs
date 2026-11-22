@@ -59,7 +59,7 @@ function signalRows(state, date) {
   return list(state.bars).length ? signals(state,date).filter(r=>day(r.date)<=date) : [];
 }
 function reviewContext(s,date,period,deep) {
-  const at=s.v6Observation?.latestClosed===true&&s.v6Observation.day===date?s.v6Observation.observedAt:undefined;
+  const at=s.v6Observation?.latestClosed===true&&s.v6Observation.day===date?(s.v6Observation.observedAtMs||s.v6Observation.observedAt):undefined;
   const visible=marketAsOf(s,date,at);
   const base=periodRows(s,date,period,visible);
   const mood=emotion(visible,date,at);

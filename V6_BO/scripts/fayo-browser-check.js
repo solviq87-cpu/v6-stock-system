@@ -474,7 +474,7 @@ const runChecks=async()=>{
      const rect=card.getBoundingClientRect();return {top:rect.top,width:rect.width};
     }));
     assert.equal(boxes[0].top,boxes[2].top,'phone review groups the total, first and continued counts on row one');
-    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below');
+    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below: '+JSON.stringify(boxes));
    }
    const filters=page.locator('.fy-reference-review-filters');
    await filters.getByRole('button',{name:'首板 3',exact:true}).click();
@@ -567,6 +567,12 @@ const runChecks=async()=>{
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11');
+   if(width===402){
+    await originCard.evaluate(node=>{window.poolCardBeforeQuotePoll=node;});
+    await page.waitForFunction(()=>!window.poolCardBeforeQuotePoll.isConnected);
+    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11',
+     'rereading the same dashboard observation keeps the selected pool quote');
+   }
    const beforeQuoteChecks=requests.filter(entry=>entry.path==='/api/quote-cross-check').length;
    await drawer.locator('.fy-chart svg').waitFor({state:'visible'});
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/2026[-/]11[-/]13/,'drawer preserves original provider date');
@@ -605,6 +611,14 @@ const runChecks=async()=>{
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
    assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'focus returns to the selected opportunity');
+   // Drive an ordinary polling cycle after Escape. The board may repaint, but
+   // the focused button must stay connected and continue to open the latest evidence.
+   await originCard.evaluate(node=>{
+    window.focusedStockAfterEscape=node;window.boardBeforeBackgroundPoll=node.closest('.fy-pool-board');
+   });
+   await page.waitForFunction(()=>!window.boardBeforeBackgroundPoll.isConnected);
+   assert.equal(await originCard.evaluate(node=>node===window.focusedStockAfterEscape&&node===document.activeElement),true,
+    'background polling retains the exact focused stock button');
    await originCard.evaluate(node=>{window.drawerOriginAfterClose=node;});
    await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
    await page.waitForFunction(()=>window.drawerOriginAfterClose?.isConnected===false);

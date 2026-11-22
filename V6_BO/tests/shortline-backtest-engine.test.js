@@ -6,7 +6,7 @@ const {parseKCsv,backtestAction,signals,kLearningRows,similarCases,equityStats}=
 const catalog=JSON.parse(readFileSync(new URL('../public/nova/shortline/catalog.json',require('node:url').pathToFileURL(__filename).href)));
 const csv=readFileSync(new URL('../public/nova/shortline/sample-kline.csv',require('node:url').pathToFileURL(__filename).href),'utf8');
 const example=()=>({catalog,bars:parseKCsv(csv),market:[],corrections:[]});
-const allFactors=id=>catalog.find(c=>c.id===id).factors.map((_,i)=>id+':'+i).join('|');
+const auctionEvidence={auctionGap:2,auctionRatio:2,auctionAmount:30000000,sectorAuctionUpPct:80,auctionNetBuy:100000};
 
 test('CSV import deduplicates identical records and rejects a conflicting batch atomically',()=>{
   const s={catalog,bars:[]};
@@ -73,9 +73,9 @@ test('later signal corrections leave causal report and training rows unchanged',
   assert.deepEqual(kLearningRows(s),rows);
 });
 
-test('complete strategy checkboxes remain blocked under absent market evidence; shocks excluded from learning',()=>{
+test('automatically detected auction strategy remains blocked under absent market evidence; shocks excluded from learning',()=>{
   const s=example(),b=s.bars[40],signalId=['stock',b.code,b.period,b.date].join('/');
-  b.selected=allFactors(15);
+  Object.assign(b,auctionEvidence);
   let row=signals(s).find(x=>x.id===signalId);
   assert.equal(row.gate.position,0);
   assert.equal(row.type,'受限观察');
@@ -87,7 +87,7 @@ test('complete strategy checkboxes remain blocked under absent market evidence; 
 });
 
 test('late market revisions and daily closing context stay unavailable to historical and intraday signals',()=>{
-  const s=example(),b=s.bars[50];b.selected=allFactors(15);delete b.indexTrend;
+  const s=example(),b=s.bars[50];Object.assign(b,auctionEvidence);delete b.indexTrend;
   s.market=[{date:b.date,trend:'空头',availableAt:'2030-01-01 15:00'}];
   s.marketHistory=[{date:b.date,trend:'多头',availableAt:b.date+' 15:00'}];
   assert.equal(signals(s,b.date).find(r=>r.code===b.code&&r.date===b.date).features.indexTrend,'多头');
@@ -99,4 +99,10 @@ test('late market revisions and daily closing context stay unavailable to histor
 test('drawdown uses chronological non-overlapping settlements',()=>{
   const r=(date,end,close)=>({date,code:'000001',outcomes:{5:{end,close}}});
   assert.deepEqual(equityStats([r('2025-01-07','2025-01-14',-20),r('2025-01-02','2025-01-08',-90),r('2025-01-01','2025-01-07',10)]),{n:2,drawdown:-20,totalReturn:-12});
+});
+
+test('strategy IDs in historical annotations cannot create an unsupported signal',()=>{
+  const s={catalog,bars:[{date:'2025-04-01',code:'000001',name:'测试',period:'日K',open:10,high:10.3,low:9.9,close:10.2,volume:60,selected:'14:0|14:1|14:2|14:3|14:4'}]};
+  assert.deepEqual(signals(s),[]);
+  assert.throws(()=>backtestAction({...s,scope:'live'},'k:import',{csv}),/教学数据/);
 });

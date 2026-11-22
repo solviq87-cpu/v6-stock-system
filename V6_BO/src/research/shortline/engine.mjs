@@ -9,7 +9,7 @@ export function mutate(state,action,payload){
   const previous=state.market.find(x=>x.date===row.date);
   const nowCN=new Date(Date.now()+8*3600000).toISOString().slice(0,16).replace('T',' ');
   if(row.date+' 15:00'>nowCN)throw Error('仅支持已收盘的交易日期');
-  row.availableAt=previous?nowCN:row.date+' 15:00';
+  row.availableAt=nowCN;
   row.recordedAt=new Date().toISOString();
   row.source=previous?'人工修订':'人工历史收盘观测';
   if(previous)(state.marketHistory||=[]).push(previous);

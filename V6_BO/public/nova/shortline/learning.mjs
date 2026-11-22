@@ -50,7 +50,7 @@ function known(r) {return unique([...words(r.factors),...words(r.knownRiskFactor
 function rowsFor(state,asOf=localTime(),strict=false) {
   const cut=asOf.length===10 ? asOf+'T00:00' : asOf.slice(0,16);
   const manual=(state.trades || []).filter(t=>t.repeatable!==false && !t.blackSwan && t.quality!=='黑天鹅' && (!strict || t.snapshotVerified===true) && (t.exitTime||t.exitDate+'T15:00')<cut && (!strict || !t.createdAt || localTime(Date.parse(t.createdAt))<cut)).map(t=>strict?{...t,strategies:[t.strategy],labels:t.frozenLabels||{}}:t);
-  const rows=typeof kLearningRows==='function' ? kLearningRows(state,asDate(cut)) : [];
+  const rows=typeof kLearningRows==='function' ? kLearningRows(state,cut.replace('T',' ')) : [];
   return [...manual,...rows.filter(r=>!r.blackSwan&&(r.exitDate+'T15:00')<cut).map(r=>({...r,trend:r.trend||r.indexTrend||r.environment,factors:words(r.factors)}))];
 }
 function factorSet(r) {
@@ -90,7 +90,10 @@ function archivePlan(state,p) {
   if(checked?.date>tradeDay||checked?.createdAt>frozenAt)throw Error('校验记录晚于计划冻结时点');
   const visible=marketAsOf(state,tradeDay,tradingTime),close=visible.at(-1);
   const labels=close?{cycle:emotion(visible,close.date).stage,volume:close.volume,indexPosition:close.indexPosition,resonance:close.resonance,theme:close.themeType}:{cycle:'未判定'};
-  const plan={id:id('plan'),labels,frozenAt,code,name:required(p.name,'标的名称',40),strategy,entryMax,maxPosition:num(p.maxPosition,'仓位上限',0.01,100),stop,target,holdUntil,logic:required(p.logic,'开仓逻辑',2000),expectedRR:round((target-entryMax)/(entryMax-stop)),checkId:checked?.id||null,trend:required(p.trend,'指数趋势',20),factors:unique([...words(p.factors),...words(checked?.factors)]),knownRiskFactors:unique([...words(p.knownRiskFactors),...words(checked?.risks)])};
+  const intendedDate=p.intendedDate?asDate(stamp(p.intendedDate+'T09:30','计划执行日期')):null;
+  if(intendedDate && intendedDate<tradeDay)throw Error('计划执行日期早于冻结时间');
+  const expectedAuctionGap=p.expectedAuctionGap!=null&&p.expectedAuctionGap!==''?num(p.expectedAuctionGap,'预期竞价涨幅',-100,100):null;
+  const plan={id:id('plan'),labels,frozenAt,code,intendedDate,expectedAuctionGap,name:required(p.name,'标的名称',40),strategy,entryMax,maxPosition:num(p.maxPosition,'仓位上限',0.01,100),stop,target,holdUntil,logic:required(p.logic,'开仓逻辑',2000),expectedRR:round((target-entryMax)/(entryMax-stop)),checkId:checked?.id||null,trend:required(p.trend,'指数趋势',20),factors:unique([...words(p.factors),...words(checked?.factors)]),knownRiskFactors:unique([...words(p.knownRiskFactors),...words(checked?.risks)])};
   state.plans.push(plan); return plan;
 }
 export function auditTrade(plan,t) {
@@ -102,7 +105,7 @@ export function auditTrade(plan,t) {
     for(const rule of ['追高','超仓','违反止损','过早离场'])record(rule,'资料不足','缺少事前冻结基准');
     return list;
   }
-  record('计划外交易',plan.code!==t.code||plan.strategy!==t.strategy?'触发':'符合','计划 '+plan.code+' / '+plan.strategy+'；执行 '+t.code+' / '+t.strategy);
+  record('计划外交易',plan.code!==t.code?'触发':t.strategy==='未判定'?'资料不足':(t.strategies||[t.strategy]).includes(plan.strategy)?'符合':'触发','计划 '+plan.code+' / '+plan.strategy+'；执行 '+t.code+' / '+t.strategy);
   if(plan.code!==t.code) {
     for(const rule of ['追高','超仓','违反止损','过早离场'])record(rule,'资料不足','实际标的与冻结计划不同，缺少该标的对应基准');
     return list;
@@ -119,25 +122,39 @@ export function auditTrade(plan,t) {
   else record('过早离场','触发','实际 '+t.exitTime+'，计划最早 '+plan.holdUntil);
   return list;
 }
-const labelKeys=['volume','indexPosition','breadth','resonance','cycle','breakRate','downLimit','premium','height','leader','theme','ladder','themeDays','assist','duration','identity','stockPosition','turnover','stockVolume','chip','overhang','support','auction','overnight','emotional','anticipation','overstay','inModel','sourceSet','reviewReason'];
+function dayGap(a,b){return (Date.parse(b)-Date.parse(a))/86400000;}
 function closeTrade(state,p){
-  const plan=p.planId?(state.plans||[]).find(v=>v.id===p.planId):null;
-  if(p.planId&&!plan)throw Error('关联计划不存在');
   const entryTime=stamp(p.entryTime,'买入时间'),exitTime=stamp(p.exitTime,'卖出时间');
+  const at=Date.parse(entryTime+':00+08:00'),day=asDate(entryTime),code=symbol(p.code);
+  const matchingPlans=(state.plans||[]).filter(v=>v.code===code&&Date.parse(v.frozenAt)<=at&&(v.intendedDate||asDate(localTime(Date.parse(v.frozenAt))))===day);
+  const plan=p.planId?(state.plans||[]).find(v=>v.id===p.planId):matchingPlans.length===1?matchingPlans[0]:null;
+  if(p.planId&&!plan)throw Error('关联计划不存在');
+  const visible=marketAsOf(state,day,entryTime),last=visible.at(-1);
+  const lastSession=last?.date||day;
+  const check=(state.checks||[]).filter(c=>c.code===code&&Date.parse(c.createdAt)<=at&&c.date<=day&&dayGap(c.date,day)<=7&&
+    (!c.asOf||c.asOf.replace(' ','T')<=entryTime)&&(c.date===lastSession||c.date===day||plan?.checkId===c.id))
+    .sort((a,b)=>b.date.localeCompare(a.date)||Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
+  const strategies=check?.matches||[];
+  const detected=strategies[0]||'未判定',feature=check?.capture?.features||{};
   if(exitTime<=entryTime || exitTime>localTime())throw Error('卖出时间须晚于买入，且不得晚于当前时间');
   if(plan && Date.parse(plan.frozenAt)>Date.parse(entryTime+':00+08:00'))throw Error('只能关联买入之前已冻结的计划');
   const entryPrice=num(p.entryPrice,'买入均价',0.001,100000),exitPrice=num(p.exitPrice,'卖出均价',0.001,100000);
   const shares=num(p.shares,'数量',1,1e10),cost=num(p.cost??0,'总费用',0,1e10);
   if(!Number.isSafeInteger(shares))throw Error('成交数量应为整数股');
   const pnlAmount=round((exitPrice-entryPrice)*shares-cost), pnl=round(pnlAmount/(entryPrice*shares)*100);
-  const code=symbol(p.code), matches=(state.trades||[]).some(t=>t.code===code&&t.entryTime===entryTime&&t.exitTime===exitTime&&t.entryPrice===entryPrice&&t.exitPrice===exitPrice&&t.shares===shares&&t.cost===cost);
+  const matches=(state.trades||[]).some(t=>t.code===code&&t.entryTime===entryTime&&t.exitTime===exitTime&&t.entryPrice===entryPrice&&t.exitPrice===exitPrice&&t.shares===shares&&t.cost===cost);
   if(matches)throw Error('相同成交记录已存在');
-  const labels=Object.fromEntries(labelKeys.filter(k=>p[k]!=null&&p[k]!=='').map(k=>[k,String(p[k]).slice(0,200)]));
-  const t={id:id('trade'),createdAt:now(),planId:plan?.id||null,planStatus:plan?'已冻结':(p.planStatus==='无开仓计划'?p.planStatus:'历史补录'),code,name:required(p.name,'股票名称',40),entryTime,exitTime,date:asDate(entryTime),exitDate:asDate(exitTime),entryPrice,exitPrice,shares,cost,position:num(p.position,'实际仓位',0.01,100),holdDays:Math.floor((Date.parse(asDate(exitTime))-Date.parse(asDate(entryTime)))/86400000),pnl,pnlAmount,repeatable:!['黑天鹅','不可复制极端行情'].includes(p.quality),blackSwan:p.quality==='黑天鹅',quality:p.quality||'可重复样本',exitReason:required(p.exitReason,'离场类型'),strategy:required(p.strategy,'实际战法'),strategies:unique([p.strategy,...words(p.strategies)]),factors:plan?plan.factors:words(p.factors),knownRiskFactors:plan?plan.knownRiskFactors:words(p.knownRiskFactors),trend:plan?plan.trend:required(p.trend,'指数环境'),stopAction:p.stopAction||'缺少记录',labels,snapshotVerified:!!plan&&plan.code===code&&plan.strategy===p.strategy};
-  const available=marketAsOf(state,t.date,entryTime),prior=available.at(-1);
-  t.labels.cycle=plan?.labels?.cycle||(prior?emotion(available,prior.date).stage:'未判定');
+  const labels=Object.fromEntries(Object.entries({volume:last?.volume,indexPosition:last?.indexPosition,breadth:last?.breadth,
+    resonance:feature.resonance,breakRate:last?.breakRate,downLimit:last?.downLimit,premium:last?.premium,height:last?.height,
+    theme:last?.themeType,ladder:feature.ladder,themeDays:feature.themeAge,assist:feature.sectorAssists,stockPosition:feature.position,
+    turnover:feature.turnover,stockVolume:feature.volume,chip:feature.chipPeak,overhang:feature.lockedRatio}).filter(([,v])=>v!=null&&v!=='缺失'));
+  const heldBars=(state.bars||[]).filter(b=>(b.role||'stock')==='stock'&&b.code===code&&b.date.slice(0,10)>=day&&b.date.slice(0,10)<=asDate(exitTime));
+  const shock=heldBars.some(b=>b.blackSwan && !['0','false','否','无'].includes(String(b.blackSwan).trim()));
+  const quality=shock?'黑天鹅':p.quality||'可重复样本';
+  const t={id:id('trade'),createdAt:now(),planId:plan?.id||null,planStatus:plan?'已冻结':(p.planStatus==='无开仓计划'?p.planStatus:'历史补录'),code,name:required(p.name,'股票名称',40),entryTime,exitTime,date:asDate(entryTime),exitDate:asDate(exitTime),entryPrice,exitPrice,shares,cost,position:num(p.position,'实际仓位',0.01,100),holdDays:Math.floor((Date.parse(asDate(exitTime))-Date.parse(asDate(entryTime)))/86400000),pnl,pnlAmount,repeatable:!['黑天鹅','不可复制极端行情'].includes(quality),blackSwan:quality==='黑天鹅',quality,exitReason:required(p.exitReason,'离场类型'),strategy:detected,strategies,checkId:check?.id||null,factors:check?.factors||plan?.factors||[],knownRiskFactors:check?.risks||plan?.knownRiskFactors||[],trend:check?.market?.trend||last?.trend||plan?.trend||'未记录',stopAction:p.stopAction||'缺少记录',labels,snapshotVerified:Boolean(check&&strategies.length)};
+  t.labels.cycle=check?.emotion?.stage||plan?.labels?.cycle||(last?emotion(visible,last.date,entryTime).stage:'未判定');
   t.labels.overnight=t.date!==t.exitDate?'是':'否';
-  t.frozenLabels=plan?.labels||{};
+  t.frozenLabels={...(plan?.labels||{}),...labels,cycle:t.labels.cycle};
   t.disciplineFacts=auditTrade(plan,t);
   t.violations=t.disciplineFacts.filter(r=>r.status==='触发').map(r=>r.rule);
   t.reviewable=t.disciplineFacts.some(r=>r.status==='触发'||r.status==='符合');
@@ -269,22 +286,32 @@ function sel(k,l,values){return field(k,l,'<select name="'+k+'">'+opts(values)+'
 const textArea=(k,l,v='')=>field(k,l,'<textarea name="'+k+'" rows="2">'+E(v)+'</textarea>');
 const grid=html=>'<div class="grid2 learn-form">'+html+'</div>';
 const fold=(label,html)=>'<details class="learn-fold"><summary>'+E(label)+'</summary>'+html+'</details>';
-const catalogStrategies=s=>(s.catalog||[]).filter(x=>x.kind==='strategy').map(x=>x.name);
-const trendOptions=['多头','震荡','空头','未记录'];
 const labelGroups=[
  ['大盘与情绪标签',[['volume','全A量能',['放量上涨','缩量上涨','放量下跌','缩量阴跌']],['indexPosition','指数位置',['低位企稳','中间震荡','高位承压']],['breadth','涨跌家数结构',['普涨','分化','普跌','赚指数不赚钱']],['resonance','共振状态',['题材指数共振','题材独立背离']],['breakRate','炸板率（%）'],['downLimit','跌停数量'],['premium','昨日涨停溢价（%）'],['height','连板高度'],['leader','高标状态',['健康','滞涨','核按钮']]]],
  ['题材、量价与筹码',[['theme','题材属性',['主线','支线','轮动题材','消息一日游']],['ladder','题材梯队'],['themeDays','启动天数'],['assist','板块助攻数量'],['duration','题材持续性'],['identity','龙头辨识度'],['stockPosition','个股位置',['低位','中位','高位']],['turnover','换手状态',['低换手','健康换手','巨量换手']],['stockVolume','量能结构',['缩量','温和放量','爆量']],['chip','筹码峰位置'],['overhang','套牢盘占比（%）'],['support','分时承接'],['auction','竞价高低开 / 量比 / 抢筹']]],
  ['行为与归因标注',[['inModel','模式内交易',['是','否']],['emotional','情绪化交易',['是','否']],['anticipation','提前预判',['是','否']],['overstay','格局超时',['是','否']],['reviewReason','人工结果归因'],['sourceSet','样本集名称']]]
 ];
 function planForm(s,current){
- const sf=s.checks||[];
- const options=unique([current?.eligible?.[0]||current?.matches?.[0]||'未判定',...catalogStrategies(s)]);
- return grid(input('name','标的名称',current?.name,'text',true)+input('code','股票代码',current?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+sel('strategy','计划战法',options)+sel('trend','全A环境',unique([current?.market?.trend||'未记录',...trendOptions]))+input('entryMax','开仓价格上限（元）','','number',true,'step="0.001" min="0.001"')+input('maxPosition','单标的仓位上限（%）',current?.position||'','number',true,'step=".01" min=".01" max="100"')+input('stop','计划止损（元）','','number',true,'step=".001" min=".001"')+input('target','计划止盈（元）','','number',true,'step=".001" min=".001"')+input('holdUntil','最早计划离场（可选）','','datetime-local')+field('checkId','关联开仓校验','<select name="checkId"><option value="">无关联</option>'+sf.slice(-200).reverse().map(r=>'<option value="'+E(r.id)+'" '+(r.id===current?.id?'selected':'')+'>'+E([r.date,r.code,r.name].join(' '))+'</option>').join('')+'</select>'))+textArea('logic','开仓逻辑（必填）')+textArea('factors','事前可观测因子（逗号分隔）')+textArea('knownRiskFactors','事前风险因子（逗号分隔）')+'<p class="learn-hint">系统记录冻结时刻。该计划仅可关联冻结后发生的成交。</p>';
+ const context=current?'<input type="hidden" name="checkId" value="'+E(current.id)+'">':'';
+ const strategy=current?.eligible?.[0]||current?.matches?.[0]||'未判定';
+ return context+grid(input('name','标的名称',current?.name,'text',true)+input('code','股票代码',current?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+
+   input('strategy','校验识别战法',strategy,'text',true,'readonly')+input('trend','全A环境',current?.market?.trend||'未记录','text',true,'readonly')+
+   input('entryMax','开仓价格上限（元）','','number',true,'step="0.001" min="0.001"')+input('maxPosition','单标的仓位上限（%）',current?.position||'','number',true,'step=".01" min=".01" max="100"')+
+   input('stop','计划止损（元）','','number',true,'step=".001" min=".001"')+input('target','计划止盈（元）','','number',true,'step=".001" min=".001"')+
+   input('intendedDate','计划执行日期（可选）','','date')+input('expectedAuctionGap','预期竞价涨幅（可选，%）','','number',false,'step=".01" min="-100" max="100"')+
+   input('holdUntil','最早计划离场（可选）','','datetime-local'))+textArea('logic','开仓逻辑（必填）')+'<p class="learn-hint">系统保存冻结时间和当时的校验依据。</p>';
 }
 function tradeForm(s,plan){
  const start=plan?localTime(Math.max(Date.parse(plan.frozenAt)+60000,Date.now()-2*86400000)):localTime(Date.now()-86400000);
- const tags=labelGroups.map(([group,fields])=>fold(group,grid(fields.map(([k,l,values])=>values?sel(k,l,['未记录',...values]):input(k,l)).join('')))).join('');
- return (plan?'<input type="hidden" name="planId" value="'+E(plan.id)+'"><p class="learn-hint">已关联冻结计划 · '+E(plan.name+' / '+plan.strategy)+'</p>':'')+grid(input('name','标的名称',plan?.name,'text',true)+input('code','股票代码',plan?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+input('entryTime','买入时间（北京时间）',start,'datetime-local',true)+input('exitTime','卖出时间（北京时间）',localTime(),'datetime-local',true)+input('entryPrice','买入均价（元）','','number',true,'step=".001" min=".001"')+input('exitPrice','卖出均价（元）','','number',true,'step=".001" min=".001"')+input('shares','成交数量（股）','','number',true,'step="1" min="1"')+input('cost','合计交易费用（元）',0,'number',true,'step=".01" min="0"')+input('position','实际仓位（%）','','number',true,'step=".01" min=".01" max="100"')+sel('strategy','实际执行战法',unique([plan?.strategy,...catalogStrategies(s),'模式外交易']))+sel('quality','样本质量',['可重复样本','黑天鹅','不可复制极端行情'])+sel('exitReason','离场类型',['计划止盈','计划止损','主动离场','被动割肉','到期离场'])+sel('stopAction','可核验的止损执行',['缺少记录','未触发','触发并执行','可成交后继续持有','封死无法成交'])+(plan?'':sel('planStatus','计划存档',['历史补录','无开仓计划'])+sel('trend','全A趋势',trendOptions)))+fold('因子与多战法标注',textArea('strategies','其他匹配战法（逗号分隔）')+(plan?'<p>沿用计划中冻结的因子与风险标签。</p>':textArea('factors','盘面因子（逗号分隔）')+textArea('knownRiskFactors','风险因子（逗号分隔）')))+tags+textArea('explanation','人工主观解释（可选）');
+ return (plan?'<input type="hidden" name="planId" value="'+E(plan.id)+'"><p class="learn-hint">已关联冻结计划 · '+E(plan.name)+'</p>':'')+
+   grid(input('name','标的名称',plan?.name,'text',true)+input('code','股票代码',plan?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+
+   input('entryTime','买入时间（北京时间）',start,'datetime-local',true)+input('exitTime','卖出时间（北京时间）',localTime(),'datetime-local',true)+
+   input('entryPrice','买入均价（元）','','number',true,'step=".001" min=".001"')+input('exitPrice','卖出均价（元）','','number',true,'step=".001" min=".001"')+
+   input('shares','成交股数','','number',true,'step="1" min="1"')+input('cost','合计交易费用（元）',0,'number',true,'step=".01" min="0"')+
+   input('position','实际仓位（%）','','number',true,'step=".01" min=".01" max="100"')+
+   sel('exitReason','离场记录',['未记录','计划止盈','计划止损','主动离场','被动割肉','到期离场'])+
+   sel('stopAction','可核验的止损执行',['缺少记录','未触发','触发并执行','可成交后继续持有','封死无法成交']))+
+   '<p class="learn-hint">系统按买入时已归档的校验记录识别战法、环境和风险。多笔计划无法唯一对应时保留待核实。</p>'+textArea('explanation','人工主观解释（可选）');
 }
 function csv(rows,cols){const quote=v=>{const s=Array.isArray(v)?v.join(' / '):String(v??'');return '"'+(/^[=+@\t\r]/.test(s) || /^-[^\d]/.test(s)?"'":'')+s.replace(/"/g,'""')+'"'};return '\uFEFF'+[cols.map(([k,l])=>quote(l)).join(','),...rows.map(r=>cols.map(([k])=>quote(r[k])).join(','))].join('\r\n');}
 function table(headers,rows,empty='暂无样本记录'){return '<div class="table-wrap"><table><thead><tr>'+headers.map(x=>'<th>'+E(x)+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+headers.length+'" class="learn-empty">'+E(empty)+'</td></tr>')+'</tbody></table></div>';}

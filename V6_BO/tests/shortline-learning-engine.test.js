@@ -84,3 +84,15 @@ test('跨验证分界的持仓、延后登记的收益从训练中清除',()=>{
   assert.equal(c.counts[0],baseCandidate.counts[0]-2);
   assert.deepEqual(c.counts.slice(1),baseCandidate.counts.slice(1));
 });
+
+test('人工成交自动取得事前存档的战法和环境，迟到与不同标的不能参与归类',()=>{
+ const checks=[{id:'original',code:base.code,date:'2024-01-31',createdAt:'2024-01-31T07:30:00Z',asOf:'2024-01-31 15:29',
+   matches:['竞价模式战法'],market:{trend:'多头'},risks:['风险样例'],factors:['量能'],capture:{features:{turnover:'健康换手'}}}];
+ const state={checks:[...checks,{...checks[0],id:'late',createdAt:'2024-02-01T03:00:00Z',matches:['后来修订']},
+  {...checks[0],id:'other',code:'600002',matches:['他股战法']}],market:[{date:'2024-01-31',trend:'多头'}]};
+ const r=learningAction(state,'learn:trade',{...base,strategy:undefined,trend:undefined});
+ assert.equal(r.strategy,'竞价模式战法');assert.equal(r.checkId,'original');assert.equal(r.snapshotVerified,true);
+ assert.equal(r.labels.turnover,'健康换手');assert.deepEqual(r.knownRiskFactors,['风险样例']);
+ const no=learningAction({},'learn:trade',{...base,strategy:'盘后猜测',trend:undefined});
+ assert.equal(no.strategy,'未判定');assert.equal(no.snapshotVerified,false);
+});

@@ -60,7 +60,7 @@ HOST=127.0.0.1 PORT=8787 npm start
 
 | 时间与版本 | 本轮变更和验证 | 部署及回滚状态 |
 | --- | --- | --- |
-| 2026-11-22 · 原生短线研究台集成 | 源码基线 `7f0c882`。现有绯曜导航、同源权限及私有研究档案覆盖四个模块。Windows 打包器纳入已提交的 `public/nova/` 和 `src/` 文件；静态审阅包内联研究样式和 CSV。 | 目标实例版本待部署核实。回退使用当前部署节点的上一完整版本及该次升级前的研究数据备份。 |
+| 2026-11-22 · 原生短线研究台集成 `20261122at` | 基于 `dev@1b06be5` 合入已有 K 线学习页，编辑者自动取得后台同步的行情。当前发布代码见 [#337](https://github.com/solviq87-cpu/v6-stock-system/pull/337)。现有绯曜导航、同源权限及私有研究档案覆盖四个模块。Windows 打包器纳入已提交的 `public/nova/` 和 `src/` 文件；静态审阅包内联研究样式和 CSV。 | 目标实例版本待部署核实。回退使用当前部署节点的上一完整版本及该次升级前的研究数据备份。 |
 | 2026-11-22 · K线统一学习 `20261122as` | 复盘→历史学习聚合历史K线、人工样本、原战法/回测和学习进度；复用原权限及人工日志。21 项 K 线专项、9 项原生打包、Web 构建与 41 项测试及隔离启动通过。完整回归与三视口浏览器结果以本次 PR 的 CI 为准。 [合并记录](V6_BO/docs/KLINE_FACTOR_LEARNING_REVIEW_20261122.md) | 本次只合并源码，未切换线上后端、角色或静态发布者。历史CSV仍为浏览器当前会话研究数据，需导出；不自动修改生产权重。恢复可回退本次 PR 或使用上一完整部署目录与私有运行备份。 |
 | 2026-11-22 · 短线研究台 `1.0.0` | 独立源码的 18 个文件与已交付的 ZIP 逐文件一致。专项测试 20 项，已验解压启动与纯静态运行。 [研究台源码](ashare-strategy-lab/) | 独立研究应用。交付包 `TianShu-Ashare-Strategy-Lab-1.0.0.zip` 的 SHA-256 为 `c372d9070a0c08c774fd48aabb837811cd0869d3b3c08a7ee130de8a00003f1b`。目标服务器验收待完成。回退此版本只需停止独立服务并使用上一部署目录。 |
 | 2026-11-22 · 固定部署交接入口 | 电脑、手机管理者首页的状态栏固定部署交接链接。仓库首页置顶，智能助手接手命令首行提示。手机选股快捷入口压成两列，系统精选刷新后在结果旁更新读取时间。关闭个股研究面板后，焦点随结果刷新留在原股票。 [代码变更 #334](https://github.com/solviq87-cpu/v6-stock-system/pull/334) | 影响原生网页和仓库续接命令。正式 WorkBuddy 后端仍运行 `20261116ac`，应用内入口随下一次完整部署生效。恢复时按 Windows 更新器记录的上一版本回滚。 |
@@ -69,7 +69,7 @@ HOST=127.0.0.1 PORT=8787 npm start
 
 功能提交 `8e4c46c` 的本地后台全量 TAP 为 **4,459 项通过，0 失败、0 跳过**，含短线专项 56 项。运行环境为 Node 22.23.5，将原生 Python 与装有模型依赖的 Python 分离，并使用 PowerShell 7.4.13 运行启动器专项。另行通过旧独立版 20 项、Windows 包测试 13 项、完整工程包测试 5 项、Web 构建及 41 项测试、FAYO 静态构建 9 项。完整服务隔离启动、鉴权、双端入口和源文件校验通过。用户设备、生产账户、实际网络与正式外发仍待现场验收。
 
-短线集成运行包和完整源码归档来自 `8e4c46c7fb860c1720c58ba20b4c4921e7923df4`。本地逐文件核验结果如下。
+以下是首轮集成的验证记录，早于 `20261122at` 的源码合并。该轮运行包和完整源码归档来自 `8e4c46c7fb860c1720c58ba20b4c4921e7923df4`。本地逐文件核验结果如下。
 
 | 交付包 | 文件范围与验证 | SHA-256 |
 | --- | --- | --- |
@@ -79,10 +79,10 @@ HOST=127.0.0.1 PORT=8787 npm start
 从该提交重建可在仓库根目录执行，输出目录选用尚无同名文件的位置。
 
 ```bash
-release_sha=8e4c46c7fb860c1720c58ba20b4c4921e7923df4
-python3 V6_BO/scripts/build-windows-host-bundle.py --repo . --sha "$release_sha" --output /tmp/FAYO-V6-Windows-WSL-8e4c46c.zip
-python3 V6_BO/scripts/build-complete-engineering-bundle.py build --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source-8e4c46c.zip
-python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source-8e4c46c.zip
+release_sha=$(git rev-parse HEAD)
+python3 V6_BO/scripts/build-windows-host-bundle.py --repo . --sha "$release_sha" --output /tmp/FAYO-V6-Windows-WSL.zip
+python3 V6_BO/scripts/build-complete-engineering-bundle.py build --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source.zip
+python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha "$release_sha" --output /tmp/FAYO-V6-full-source.zip
 ```
 
 历史版本 Windows/WSL 包（来源 `1a7d915`）的 SHA-256 为 `fecf70084b63e3803a6382cb6a8c98aa64d5899ed38fd81d8cc91b5cedee0a29`。

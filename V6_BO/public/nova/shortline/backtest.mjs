@@ -1,7 +1,16 @@
 // Historical features use bars at or before the observation. Forward labels are
 // calculated separately and are never inputs to detection or similarity ranking.
 import {inferEvidence} from './recognize.mjs';
-import { emotion, marketAsOf, validate } from './market.mjs';
+import {addPatternEvidence,parsePatternColumns} from './pattern-evidence.mjs';
+import {addIndexEvidence} from './index-evidence.mjs';
+import {addStockRiskEvidence,riskNumericFields,riskTextFields} from './stock-risk-evidence.mjs';
+
+function completeEvidence(input,facts){
+  addPatternEvidence(input,facts);
+  addIndexEvidence(input,facts);
+  addStockRiskEvidence(input,facts);
+}
+import { emotion, marketAsOf, validate, knownBy, knowledgeCutoff } from './market.mjs';
 
 const HORIZONS = [1, 2, 3, 5, 10];
 const DIMENSIONS = ['shape', 'volume', 'turnover', 'indexTrend', 'themeCycle'];
@@ -13,6 +22,8 @@ const pct = (x, y) => (x / y - 1) * 100;
 const rounded = n => Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
 const display = (n, unit = '%') => Number.isFinite(n) ? n.toFixed(2) + unit : '—';
 const stamp = s => s.length === 10 ? s + ' 15:00' : s;
+const ceilingMinute=t=>new Date(Math.ceil(t/60000)*60000+8*36e5).toISOString().slice(0,16).replace('T',' ');
+const actualAvailability=b=>b.knownAt!=null?ceilingMinute(Math.max(knowledgeCutoff(b.knownAt),knowledgeCutoff(b.availableAt||b.date))):stamp(b.availableAt||b.date);
 const cutoff = s => s.length === 10 ? s + ' 23:59' : s;
 const uniq = a => [...new Set(a.filter(Boolean))];
 const compare = (a,b) => a < b ? -1 : a > b ? 1 : 0;
@@ -59,7 +70,7 @@ export function parseKCsv(csv) {
     if((p.name||'').length>60 || (p.period||'').length>20)fail('名称或周期字段过长');
     if(!p.code || p.code.length>48 || (role==='stock'&&!/^\d{6}$/.test(p.code)))fail('个股代码需为六位数字');
     let b={role,date:p.date,code:p.code,name:p.name||p.code,period:p.period||(p.date.length>10?'分时':'日K'),availableAt:p.availableAt||p.date};
-    for(const k of ['open','high','low','close','volume','amount','turnover','lockedRatio','sectorAssists','themeAge','chipPeak','limitUp','limitDown','streak','sealRatio','auctionRatio','auctionAmount','sectorAuctionUpPct','floatCap','listingDays','unlockPct30d','sectorBreakPct']){
+    for(const k of ['open','high','low','close','volume','amount','turnover','lockedRatio','sectorAssists','themeAge','chipPeak','limitUp','limitDown','streak','sealRatio','auctionRatio','auctionAmount','sectorAuctionUpPct','floatCap','listingDays','unlockPct30d','sectorBreakPct',...riskNumericFields]){
       if(p[k]==null || p[k]===''){if(['open','high','low','close','volume'].includes(k))fail(k+' 缺值');continue;}
       const n=Number(String(p[k]).replace(/%$/,''));
       if(!Number.isFinite(n)||n<0||(['open','close','low','high'].includes(k)&&n===0))fail(k+' 数值无效');
@@ -69,16 +80,17 @@ export function parseKCsv(csv) {
       if(p[k]!=null&&p[k]!==''){const n=Number(p[k]);if(!Number.isFinite(n))fail(k+' 数值无效');b[k]=n}
     }
     if(b.high<Math.max(b.open,b.low,b.close)||b.low>Math.min(b.open,b.close)||b.turnover>100||b.lockedRatio>100)fail('价格或百分比范围异常');
-    for(const k of ['indexTrend','sector','themeCycle','indexVolume','breadth','resonance','indexLevel','ladder','sectorLeader','blackSwan','risks','selected','events','quality','chipExchange','indexCode','announcementType','regulationStatus','newsStatus','sessionOpen','sessionClose']){
+    for(const k of ['indexTrend','sector','themeCycle','indexVolume','breadth','resonance','indexLevel','ladder','sectorLeader','blackSwan','risks','selected','events','quality','chipExchange','indexCode','announcementType','regulationStatus','newsStatus','sessionOpen','sessionClose',...riskTextFields]){
       if(p[k]){if(p[k].length>800)fail('字段过长');b[k]=p[k];}
     }
-    return b;
+    return Object.assign(b,parsePatternColumns(p));
   });
 }
 
 export function backtestAction(state,action,payload={}){
   if(action==='k:import'){
     const incoming=parseKCsv(payload.csv);
+    if(state.scope==='live' && incoming.some(b=>b.quality==='教学样本'||/^合成教学样本/.test(b.name)))throw Error('教学数据仅用于说明 CSV 格式，真实研究档案需要实际行情');
     const allowed=new Set((state.catalog||[]).flatMap(c=>c.factors.map((_,i)=>c.id+':'+i)));
     for(const b of incoming)if(split(b.selected).some(x=>!allowed.has(x)))throw Error('包含未知因子编号：'+b.code+' '+b.date);
     const existing=new Map((state.bars||[]).map(b=>[barKey(b),b]));
@@ -104,7 +116,7 @@ export function backtestAction(state,action,payload={}){
     // in an earlier as-of query or in the causal training view.
     const now=new Date(Date.now()+8*36e5).toISOString().slice(0,16).replace('T',' ');
     if(strategy && ![...(state.catalog||[]).filter(c=>c.kind==='strategy').map(c=>c.name),'放量突破观察','缩量回踩观察','低位承接观察','放量加速观察','高位兑现观察'].includes(strategy))throw Error('请选择已定义的战法或技术形态');
-    const entry={id:payload.id,mode:payload.mode,strategy,reason,recordedAt:now};
+    const entry={id:payload.id,date:b.date,mode:payload.mode,strategy,reason,recordedAt:now};
     (state.corrections||=[]).push(entry);return entry;
   }
   throw Error('未知 K 线操作');
@@ -122,27 +134,27 @@ function groups(bars){
 function extract(b,history,ctx){
   history=history.slice(-20);
   const prev=history.at(-1), closes=history.map(v=>v.close), prices=[...closes,b.close];
-  const ma=n=>prices.length>=n ? mean(prices.slice(-n)) : null;
+  const ma=n=>Number.isFinite(b.close)&&prices.length>=n ? mean(prices.slice(-n)) : null;
   const ma5=ma(5), ma10=ma(10), ma20=ma(20);
   const range=b.high-b.low, body=b.close-b.open, change=prev ? pct(b.close,prev.close):null;
   const prevVol=history.length>=5?mean(history.slice(-5).map(x=>x.volume)):null;
-  const vr=prevVol>0?b.volume/prevVol:null;
+  const vr=Number.isFinite(b.volume)&&prevVol>0?b.volume/prevVol:null;
   const turn=b.turnover == null?MISSING:b.turnover<2?'低换手':b.turnover>20?'巨量换手':'健康换手';
-  const shape=prev && b.low>prev.high?'跳空高开':prev && b.high<prev.low?'跳空低开':!range||Math.abs(body)<=range*.1?'十字星':b.high-Math.max(b.open,b.close)>range*.55?'长上影':Math.min(b.open,b.close)-b.low>range*.55?'长下影':Math.abs(pct(b.close,b.open))>=3?(body>0?'大阳线':'大阴线'):(body>=0?'小阳线':'小阴线');
+  const shape=![b.open,b.close,b.high,b.low].every(Number.isFinite)?MISSING:prev && b.low>prev.high?'跳空高开':prev && b.high<prev.low?'跳空低开':!range||Math.abs(body)<=range*.1?'十字星':b.high-Math.max(b.open,b.close)>range*.55?'长上影':Math.min(b.open,b.close)-b.low>range*.55?'长下影':Math.abs(pct(b.close,b.open))>=3?(body>0?'大阳线':'大阴线'):(body>=0?'小阳线':'小阴线');
   const max20=history.length>=20?Math.max(...history.map(x=>x.high)):null, min20=history.length>=20?Math.min(...history.map(x=>x.low)):null;
-  const zone = max20!=null && max20!==min20?(b.close-min20)/(max20-min20):null;
-  const structure=max20==null?MISSING:b.close>max20?'突破':b.close<min20?'破位':ma10 && b.low<=ma10*1.01 && b.close>=ma10?'回踩':max20/min20<1.12?'横盘箱体':'区间整理';
+  const zone = Number.isFinite(b.close) && max20!=null && max20!==min20?(b.close-min20)/(max20-min20):null;
+  const structure=max20==null||![b.close,b.low].every(Number.isFinite)?MISSING:b.close>max20?'突破':b.close<min20?'破位':ma10 && b.low<=ma10*1.01 && b.close>=ma10?'回踩':max20/min20<1.12?'横盘箱体':'区间整理';
   const volume=vr==null?MISSING:vr>=2.5?'爆量':vr>=1.3?'放量':vr<=.75?'缩量':'平量';
   const vseq=history.slice(-2).concat(b).map(i=>i.volume);
   return {shape,position:zone==null?MISSING:zone<.33?'低位':zone>.67?'高位':'中位',volume,turnover:turn,indexTrend:b.indexTrend||ctx.indexTrend||MISSING,themeCycle:b.themeCycle||ctx.themeCycle||MISSING,maState:ma20==null?MISSING:ma5>ma10&&ma10>ma20?'多头排列':ma5<ma10&&ma10<ma20?'空头排列':'缠绕震荡',ma5,ma10,ma20,
     d5:ma5?rounded(pct(b.close,ma5)):null,d10:ma10?rounded(pct(b.close,ma10)):null,d20:ma20?rounded(pct(b.close,ma20)):null,
-    structure,ratio:rounded(vr),change:rounded(change),relation:prev?'价'+(b.close>=prev.close?'涨':'跌')+'量'+(b.volume>=prev.volume?'增':'缩'):MISSING,
-    volumeRun:vseq.length<3?MISSING:vseq[0]<vseq[1]&&vseq[1]<vseq[2]?'持续放量':vseq[0]>vseq[1]&&vseq[1]>vseq[2]?'持续缩量':'交替',
+    structure,ratio:rounded(vr),change:rounded(change),relation:prev&&[b.close,b.volume,prev.close,prev.volume].every(Number.isFinite)?'价'+(b.close>=prev.close?'涨':'跌')+'量'+(b.volume>=prev.volume?'增':'缩'):MISSING,
+    volumeRun:vseq.length<3||!vseq.every(Number.isFinite)?MISSING:vseq[0]<vseq[1]&&vseq[1]<vseq[2]?'持续放量':vseq[0]>vseq[1]&&vseq[1]>vseq[2]?'持续缩量':'交替',
     indexVolume:b.indexVolume||ctx.indexVolume||MISSING,breadth:b.breadth||ctx.breadth||MISSING,resonance:b.resonance||ctx.resonance||MISSING,indexLevel:b.indexLevel||ctx.indexLevel||MISSING,
     sectorAssists:b.sectorAssists??ctx.sectorAssists??null,themeAge:b.themeAge??ctx.themeAge??null,ladder:b.ladder||ctx.ladder||MISSING,sectorLeader:b.sectorLeader||ctx.sectorLeader||MISSING,
     chipPeak:b.chipPeak??null,lockedRatio:b.lockedRatio??null,chipExchange:b.chipExchange||MISSING};
 }
-function classify(f,b,catalog,ids=new Set(split(b.selected))){
+function classify(f,b,catalog,ids=new Set()){
   const matched=ids.size?catalog.filter(c=>c.kind==='strategy'&&c.factors.length&&c.factors.every((_,i)=>ids.has(c.id+':'+i))).map(c=>c.name):[];
   if(matched.length)return {strategy:matched[0],strategies:matched,type:'确认信号'};
   // These are partial technical setups, never full discretionary strategy matches.
@@ -159,12 +171,12 @@ function dailyGroups(series){
   for(const b of series){
     const day=b.date.slice(0,10);
     let s=sessions.at(-1);
-    if(s?.day!==day){s={day,open:b.open,close:b.close,high:b.high,low:b.low,events:new Set(),available:stamp(b.availableAt||b.date),black:false};indices.set(day,sessions.length);sessions.push(s);}
+    if(s?.day!==day){s={day,open:b.open,close:b.close,high:b.high,low:b.low,events:new Set(),available:actualAvailability(b),black:false};indices.set(day,sessions.length);sessions.push(s);}
     s.fullOpen ??= b.date.length===10 || truth(b.sessionOpen) || ['09:30','09:31'].includes(b.date.slice(11));
     s.fullClose ||= b.date.length===10 || truth(b.sessionClose) || b.date.endsWith('15:00');
     s.limitUp=b.limitUp ?? s.limitUp;s.limitDown=b.limitDown ?? s.limitDown;
     s.close=b.close;s.high=Math.max(s.high,b.high);s.low=Math.min(s.low,b.low);
-    s.black ||= isBlack(b.blackSwan);s.available=[s.available,stamp(b.availableAt||b.date)].sort().at(-1);
+    s.black ||= isBlack(b.blackSwan);s.available=[s.available,actualAvailability(b)].sort().at(-1);
     split(b.events).forEach(e=>s.events.add(e));
 
   }
@@ -200,8 +212,8 @@ function contextMaps(state,by){
     if(!['sector','index'].includes(series[0].role))continue;
     for(let i=0;i<series.length;i++){
       const b=series[i],point=stamp(b.date), period=b.period||'日K';
-      if(stamp(b.availableAt||b.date)>point)continue;
-      const prior=series.slice(Math.max(0,i-20),i).filter(x=>stamp(x.availableAt||x.date)<=point);
+      if(!knownBy(b,point))continue;
+      const prior=series.slice(Math.max(0,i-20),i).filter(x=>knownBy(x,point));
       const f=extract(b,prior,{});
       const info={...b,change:f.change,derivedMA:f.maState};
       if(b.role==='index'){
@@ -214,14 +226,50 @@ function contextMaps(state,by){
   }
   return {indices,sectors,market,versions};
 }
+function intradayGroups(bars){
+  const bySession=new Map();
+  for(const row of bars){
+    if(row.date.length<=10 || row.role==='index')continue;
+    const key=[row.date.slice(0,10),row.role||'stock',row.role==='sector'?(row.sector||row.code):row.code].join('/');
+    if(!bySession.has(key))bySession.set(key,[]);
+    bySession.get(key).push(row);
+    if((row.role||'stock')==='stock' && row.sector){
+      const peers=row.date.slice(0,10)+'/peers/'+row.sector;
+      if(!bySession.has(peers))bySession.set(peers,[]);
+      bySession.get(peers).push(row);
+    }
+  }
+  return bySession;
+}
+function sessionRows(bySession,b){
+  const day=b.date.slice(0,10);
+  const stocks=bySession.get(day+'/stock/'+b.code)||[];
+  const sector=bySession.get(day+'/sector/'+b.sector)||[];
+  const peers=(bySession.get(day+'/peers/'+b.sector)||[]).filter(r=>r.code!==b.code);
+  return [...stocks,...sector,...peers];
+}
+function decisionMarket(rows,day,point){
+  const recent=rows.slice(-4);
+  const prior=recent.findLast(r=>r.date<day);
+  const previousStage=prior?emotion(rows,prior.date,point).stage:'未判定';
+  return {stage:emotion(recent,day,point).stage,
+    series:recent.map(r=>r===prior?{...r,stage:previousStage}:r)};
+}
+function planAt(plans,code,day,decision){
+  const eligible=(plans||[]).filter(p=>p.code===code && typeof p.frozenAt==='string' && Number.isFinite(Date.parse(p.frozenAt))).map(p=>({p,at:new Date(Date.parse(p.frozenAt)+8*36e5).toISOString().slice(0,19).replace('T',' ')}))
+    .filter(({p,at})=>(p.intendedDate||at.slice(0,10))===day && at<=decision);
+  if(eligible.length!==1)return null;
+  const {p}=eligible[0];
+  return {code,strategy:p.strategy,holdUntil:p.holdUntil,entryPrice:p.entryMax,stopPrice:p.stop,targetPrice:p.target,expectedAuctionGap:p.expectedAuctionGap,frozenAt:p.frozenAt};
+}
 function observations(state,asOf,options={}){
   const until=cutoff(asOf), raw=(state.bars||[]).filter(b=>stamp(b.date)<=until), by=groups(raw), context=contextMaps(state,by), result=[];
-  const archived=new Map(),stages=new Map();
+  const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw);
   for(const check of state.checks||[]){
     if(!check.capture||!check.createdAt||!check.matches?.length)continue;
     const registered=new Date(check.createdAt).getTime();
     if(!Number.isFinite(registered))continue;
-    const registeredAt=new Date(registered+8*3600000).toISOString().slice(0,16).replace('T',' ');
+    const registeredAt=ceilingMinute(registered);
     const time=[registeredAt,check.asOf].sort().at(-1);
     const key=check.code+'/'+check.date;
     if(time<=until&&(!archived.has(key)||archived.get(key).time>time))archived.set(key,{check,time});
@@ -242,7 +290,7 @@ function observations(state,asOf,options={}){
           risks:check.risks,gate:{status:check.status,position:check.position,eligible:check.eligible},blackSwan:isBlack(b.blackSwan),quality:b.quality||'标准样本',outcomes:labels(days,b,until,time),edit:null});
         continue;
       }
-      if(stamp(b.availableAt||b.date)>point)continue;
+      if(!knownBy(b,point))continue;
       const day=b.date.slice(0,10),period=b.period||'日K';
       const market=marketAsOf({market:context.market.get(day)||[]},day,point).at(-1)||{};
       const indices=context.indices.get(period+'/'+b.date)||[];
@@ -253,14 +301,14 @@ function observations(state,asOf,options={}){
         if(index.change>0 && sector.change>0)ctx.resonance='题材指数共振';
         if(index.change<0 && sector.change>0)ctx.resonance='题材独立背离';
       }
-      const history=series.slice(Math.max(0,i-60),i).filter(x=>stamp(x.availableAt||x.date)<=point);
+      const history=series.slice(Math.max(0,i-60),i).filter(x=>knownBy(x,point));
       const features=extract(b,history,ctx);
-      if(!stages.has(point))stages.set(point,emotion(marketAsOf({market:context.versions},day,point),day,point).stage);
-      const stage=stages.get(point);
+      if(!stages.has(point))stages.set(point,decisionMarket(marketAsOf({market:context.versions},day,point),day,point));
+      const {stage,series:marketSeries}=stages.get(point);
       const inferred=inferEvidence(b,history,features,market,stage,sector,state.catalog||[]);
+      const frozenPlan=planAt(state.plans,b.code,day,point+':00');
+      completeEvidence({b:{...b,frozenPlan},history,f:features,market,stage,sector,catalog:state.catalog||[],intraday:sessionRows(minutes,b),marketSeries,asOf:point},inferred.facts);
       const keys=new Set([...inferred.facts].filter(([,v])=>v.pass).map(([k])=>k));
-      // Historical CSV annotations are retained as explicit supplied evidence.
-      for(const k of split(b.selected))keys.add(k);
       let {strategy,strategies,type}=classify(features,b,state.catalog||[],keys);
       const complete=(state.catalog||[]).some(c=>c.kind==='strategy'&&c.name===strategy);
       const originalStrategy=strategy, originalType=type;
@@ -277,10 +325,7 @@ function observations(state,asOf,options={}){
       }
       if(!strategy && !options.all)continue;
       const risks=[...split(b.risks),...(gate?.risks||[])];
-      if(b.selected){
-        const ids=new Set(split(b.selected));
-        for(const c of state.catalog||[])if(c.kind==='avoid'&&c.factors.some((_,j)=>ids.has(c.id+':'+j)))risks.push(c.name);
-      }
+      for(const c of state.catalog||[])if(c.kind==='avoid'&&c.factors.some((_,j)=>keys.has(c.id+':'+j)))risks.push(c.name);
       if(features.turnover==='巨量换手')risks.push('换手异常');
       if(features.themeCycle==='退潮')risks.push('题材退潮');
       const isX=isBlack(b.blackSwan)||b.quality==='不可复制';
@@ -295,13 +340,14 @@ export function deriveCheckInput(state,input){
  const obs=state.v6Observation||{},current=obs.code===code&&obs.day===date;
  const wall=String(obs.observedAt||'').replace('T',' ').slice(0,16);
  const asOf=current&&obs.latestClosed===true&&validDate(wall)&&wall>=stamp(date)?wall:stamp(date);
- const raw=(state.bars||[]).filter(b=>b.date.length===10&&b.date<=date&&stamp(b.availableAt||b.date)<=asOf);
+ const point=current&&obs.latestClosed===true&&wall===asOf&&Number.isFinite(obs.observedAtMs)?obs.observedAtMs:asOf;
+ const raw=(state.bars||[]).filter(b=>b.date.length===10&&b.date<=date&&knownBy(b,point));
  const stocks=raw.filter(b=>(!b.role||b.role==='stock')&&b.code===code).sort((a,b)=>compare(a.date,b.date));
  const history=stocks.filter(b=>b.date<date).slice(-60),bar=stocks.find(b=>b.date===date);
- const marketRows=marketAsOf(state,date,asOf),market=marketRows.find(r=>r.date===date)||{},stage=emotion(marketRows,date,asOf).stage;
+ const marketRows=marketAsOf(state,date,point),market=marketRows.find(r=>r.date===date)||{},{stage,series:marketSeries}=decisionMarket(marketRows,date,point);
  const stock=current&&obs.latestClosed&&wall<=asOf&&obs.stock?.code===code?obs.stock:{};
  const b={...bar,date,code,name:bar?.name||stock.name||code};
- for(const [key,value] of Object.entries({close:stock.price,turnover:stock.turnover,sector:stock.theme||stock.sector,amount:stock.amount,sectorAssists:stock.sectorAssists,sectorLeader:stock.sectorLeader,ladder:stock.ladder,resonance:stock.resonance,limitUp:stock.limitUp,streak:stock.consecutiveLimits,sealRatio:stock.sealRatio})){
+ for(const [key,value] of Object.entries({close:stock.price,turnover:stock.turnover,sector:stock.theme||stock.sector,amount:stock.amount,sectorAssists:stock.sectorAssists,sectorLeader:stock.sectorLeader,ladder:stock.ladder,ladderComplete:stock.ladderComplete,announcements:stock.announcements,firstSealTime:stock.firstSealTime,auctionGap:stock.auctionGap,breakCount:stock.breakCount,resonance:stock.resonance,limitUp:stock.limitUp,streak:stock.consecutiveLimits,sealRatio:stock.sealRatio})){
   if(value!=null&&b[key]==null)b[key]=value;
  }
  const sectorRows=raw.filter(r=>r.role==='sector'&&b.sector&&(r.sector||r.code)===b.sector).sort((a,b)=>compare(a.date,b.date));
@@ -310,6 +356,11 @@ export function deriveCheckInput(state,input){
  if(Number.isFinite(stock.sectorChange))sector.change=stock.sectorChange;
  const f=extract(b,history.slice(-20),{...sector,indexTrend:market.trend,themeCycle:sector.themeCycle});
  const {facts,main,strong}=inferEvidence(b,history,f,market,stage,sector,state.catalog);
+ const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
+ b.frozenPlan=planAt(state.plans,code,date,seconds);
+ const minutes=(state.bars||[]).filter(r=>r.date.length>10 && r.date.slice(0,10)===date &&
+   (r.role==='sector'?(r.sector||r.code)===b.sector:(!r.role||r.role==='stock')&&(r.code===code||b.sector&&r.sector===b.sector)));
+ completeEvidence({b,history,f,market,stage,sector,catalog:state.catalog,intraday:minutes,marketSeries,asOf:point},facts);
  // Derived upstream only from the trusted V6 close snapshot, never the submitted check request.
  for(const key of stock.selected||[]){if(!facts.has(key))facts.set(key,{pass:true,source:'V6 同期收盘池与梯队记录'})}
  const selected=[...facts].filter(([,fact])=>fact.pass).map(([k])=>k);
@@ -325,7 +376,7 @@ export function deriveCheckInput(state,input){
  if(!bar)missing.push('当日可见的完整日 K');if(history.length<20)missing.push('至少 20 根之前的日 K');
  if(!knownFeature(b.sector))missing.push('标的所属题材');if(!market.date)missing.push('同日市场收盘快照');
  if(!selected.length)missing.push('足以识别战法的盘面证据');
- return {code,date,name:b.name,theme:b.sector||'',selected,mainline:stock.mainline??main,strongSector:stock.strongSector??strong,asOf,
+ return {code,date,name:b.name,theme:b.sector||'',selected,mainline:stock.mainline??main,strongSector:stock.strongSector??strong,asOf,observedAtMs:typeof point==='number'?point:null,
  capture:current&&obs.latestClosed===true&&bar?{features:f,context:{sectorChange:sector.change??null,indexChange:market.indexChange??null}}:null,
  recognition:{evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8)}};
 }
@@ -418,7 +469,7 @@ export function renderBacktest(ui){
   const asOf=v.asOf||last||new Date().toISOString().slice(0,10);
   const observed=state.v6Observation;
   const displayCut=observed?.latestClosed&&observed.day===asOf?observed.observedAt:cutoff(asOf);
-  const included=raw.filter(b=>stamp(b.date)<=cutoff(asOf) && stamp(b.availableAt||b.date)<=displayCut);
+  const included=raw.filter(b=>stamp(b.date)<=cutoff(asOf) && knownBy(b,displayCut));
   const names=new Map(included.map(b=>[b.code,b.name]));
   const symbol=names.has(v.symbol)?v.symbol:[...names.keys()].sort()[0]||'';
   const periods=uniq(included.filter(b=>b.code===symbol).map(b=>b.period||'日K'));
@@ -474,7 +525,7 @@ export function renderBacktest(ui){
       redraw();
     });
   }
-  on('#kImport','click',()=>ui.modal('导入历史 K 线','<label class="field">CSV 文件<input type="file" accept=".csv,text/csv" name="csv" required></label><p class="k-note">UTF-8 编码，每次最多 2 MiB。必填 date、code、open、high、low、close、volume。价格使用当日原始口径。日线日期或分钟结束时间均为北京时间。</p><details><summary>同期数据与标签字段</summary><p class="k-note">可选 amount、turnover、indexTrend、sector、themeCycle、indexVolume、indexLevel、breadth、resonance、sectorAssists、themeAge、ladder、sectorLeader、chipPeak、lockedRatio、chipExchange、risks、blackSwan、selected、events。selected 填目录编号:因子索引，多个值用 | 分隔。events 可记录封板、断板、反包、二波、核按钮。缺失数据保持空白。</p><p class="k-note">role=index / sector 可导入同期指数、板块记录。按相同结束时间对齐，sector 与个股题材相同。availableAt 可记录晚于收盘的实际可用时间。分时周期用 period 区分。默认以 09:30/09:31 和 15:00 确认交易日首末K线，其他周期可用 sessionOpen、sessionClose 标明开收盘。导入前核对样本的历史可用性。</p></details><a class="btn" href="/nova/shortline/sample-kline.csv" download>下载合成教学样本</a>',async form=>{const file=form.get('csv');if(!file?.size)throw Error('请选择 CSV 文件');if(file.size>2*1024*1024)throw Error('文件超过 2 MiB');const csv=await file.text();if(new TextEncoder().encode(JSON.stringify({revision:state.revision,action:'k:import',payload:{csv}})).length>2*1024*1024)throw Error('请求超过 2 MiB，请按交易日拆批导入');const saved=await ui.save('k:import',{csv});v.asOf='';v.id='';v.page=0;ui.toast('已导入 '+saved.count+' 根 K 线，重复 '+saved.duplicates+' 根');redraw();}));
+  on('#kImport','click',()=>ui.modal('导入历史 K 线','<label class="field">CSV 文件<input type="file" accept=".csv,text/csv" name="csv" required></label><p class="k-note">UTF-8 编码，每次最多 2 MiB。必填 date、code、open、high、low、close、volume。价格使用当日原始口径。日线日期或分钟结束时间均为北京时间。</p><details><summary>同期数据与标签字段</summary><p class="k-note">可选 amount、turnover、indexTrend、sector、themeCycle、indexVolume、indexLevel、breadth、resonance、sectorAssists、themeAge、ladder、sectorLeader、chipPeak、lockedRatio、chipExchange、risks、blackSwan、events。系统按原始量价和同期证据识别战法。events 可记录封板、断板、反包、二波、核按钮。缺失数据保持空白。</p><p class="k-note">role=index / sector 可导入同期指数、板块记录。按相同结束时间对齐，sector 与个股题材相同。availableAt 可记录晚于收盘的实际可用时间。分时周期用 period 区分。默认以 09:30/09:31 和 15:00 确认交易日首末K线，其他周期可用 sessionOpen、sessionClose 标明开收盘。导入前核对样本的历史可用性。</p></details><a class="btn" href="/nova/shortline/sample-kline.csv" download>下载 CSV 格式示例</a>',async form=>{const file=form.get('csv');if(!file?.size)throw Error('请选择 CSV 文件');if(file.size>2*1024*1024)throw Error('文件超过 2 MiB');const csv=await file.text();if(new TextEncoder().encode(JSON.stringify({revision:state.revision,action:'k:import',payload:{csv}})).length>2*1024*1024)throw Error('请求超过 2 MiB，请按交易日拆批导入');const saved=await ui.save('k:import',{csv});v.asOf='';v.id='';v.page=0;ui.toast('已导入 '+saved.count+' 根 K 线，重复 '+saved.duplicates+' 根');redraw();}));
   on('#kCorrection','click',()=>{if(!selected)return;ui.modal('修正历史信号','<p class="k-note">'+esc(selected.date+' · '+selected.name+' · '+(selected.strategy||'尚无信号'))+'</p><label class="field">修正类型<select name="mode">'+opts(['更正信号','补记信号','撤销信号'],selected.strategy?'更正信号':'补记信号')+'</select></label><label class="field">战法<select name="strategy">'+opts(uniq([selected.strategy,...(state.catalog||[]).filter(x=>x.kind==='strategy').map(c=>c.name)]),selected.strategy)+'</select></label><label class="field">修正依据<textarea name="reason" required maxlength="500"></textarea></label><p class="k-note">修正保留原始行情和登记时间。请将观察截止日调至登记日或之后查看新标注。</p>',async f=>{await ui.save('k:correct',{id:selected.id,...Object.fromEntries(f)});v.asOf=new Date(Date.now()+8*36e5).toISOString().slice(0,10);ui.toast('修正记录已存档');redraw();});});
   on('#kExport','click',()=>{
     const header=['信号日期','标的','代码','题材','战法','类型','风险','样本质量',...DIM_NAMES,...HORIZONS.flatMap(h=>[h+'日收盘收益%',h+'日最高收益%',h+'日最低收益%',h+'日成熟日期',h+'日跟踪事件'])];

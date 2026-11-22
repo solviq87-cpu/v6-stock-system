@@ -44,8 +44,9 @@ const reasons=stockReasons;
 const sectorLeadershipLabel=status=>({
  'early-spread':'较强线索 · 先封后扩散','early-limited':'同业封板扩散有限',following:'已有同业先封',tied:'同刻封板',pending:'待核验'
 })[status];
+const stockCardObservations=new WeakMap();
 export function stockCard(row,ctx) {
- const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,row,card)},
+ const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,stockCardObservations.get(card),card)},
   h('div',{class:'fy-stock-head'},h('div',{},h('strong',{},symbolName(row)),h('span',{class:'fy-muted'},row.code)),h('span',{class:'fy-score-ring'},typeof row.score==='number'?format(row.score,1):typeof row.prob==='number'?format(row.prob,1):row.result||'待评估',h('small',{},typeof row.score==='number'?'评分':typeof row.prob==='number'?'原概率':row.result?'原状态':''))),
   h('div',{class:'fy-stock-meta'},h('strong',{class:direction(row.pct)},format(row.price)),h('span',{class:direction(row.pct)},percent(row.pct)),h('span',{class:'fy-muted'},row.sector||row.industry||'板块待核验')),
   row.poolLabels?.length&&h('div',{class:'fy-reason-tags'},row.poolLabels.map(label=>h('span',{class:'fy-tag'},label))),
@@ -57,6 +58,7 @@ export function stockCard(row,ctx) {
   row.at&&h('small',{class:'fy-muted'},'原信号 '+dateTime(row.at)),
   h('small',{class:'fy-quote-time'},quoteLabel(row)),
   h('span',{class:'fy-stock-open'},'打开研究面板 ',icon('arrow')));
+ stockCardObservations.set(card,row);
  return card;
 }
 export function replaceKeepingStockFocus(host,...children) {
@@ -64,6 +66,29 @@ export function replaceKeepingStockFocus(host,...children) {
  const code=focused?.classList?.contains('fy-stock-card')&&host.contains(focused)?focused.dataset.code:'';
  host.replaceChildren(...children);
  if(/^\d{6}$/.test(code))host.querySelector('button.fy-stock-card[data-code="'+code+'"]')?.focus({preventScroll:true});
+}
+// A background poll can finish between Escape and the next keyboard action.
+// Keep the focused button connected while replacing the board, and update the
+// observation its click handler opens even if only the underlying evidence changed.
+function refreshPoolList(host,background,children){
+ const focused=document.activeElement;
+ if(!background||!host.contains(focused)||!stockCardObservations.has(focused)){
+  replaceKeepingStockFocus(host,...children);return;
+ }
+ const selector='button.fy-stock-card[data-code="'+focused.dataset.code+'"]';
+ const incoming=children.map(node=>node.querySelector(selector)).find(Boolean);
+ if(!incoming){replaceKeepingStockFocus(host,...children);return;}
+ const previous=[...host.childNodes];
+ stockCardObservations.set(focused,stockCardObservations.get(incoming));
+ focused.setAttribute('aria-label',incoming.getAttribute('aria-label'));
+ if(!focused.isEqualNode(incoming))focused.replaceChildren(...incoming.childNodes);
+ host.append(...children);
+ const parent=incoming.parentElement;
+ if(typeof parent.moveBefore==='function')parent.moveBefore(focused,incoming);
+ else parent.insertBefore(focused,incoming);
+ incoming.remove();
+ previous.forEach(node=>node.remove());
+ if(document.activeElement!==focused)focused.focus({preventScroll:true});
 }
 const roleLabel=row=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[row?.role]||'角色待核验';
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -253,11 +278,12 @@ export function renderOpportunities(route,ctx) {
    h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
  }
  view.append(summaryView,body,loadMore);
- function paint() {
+ function paint(background=false) {
+  const replaceList=(...children)=>refreshPoolList(body,background,children);
   let rows=current.filter(r=>(!query||[r.name,r.code,r.sector].some(x=>String(x||'').toLowerCase().includes(query)))&&(board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code)));
   if(sort!=='original')rows=[...rows].sort((a,b)=>(Number.isFinite(b[sort])?b[sort]:-Infinity)-(Number.isFinite(a[sort])?a[sort]:-Infinity));
   if(curated){
-   replaceKeepingStockFocus(body,rows.length?h('div',{class:'fy-stock-grid','aria-label':'系统精选股票'},rows.map(row=>stockCard(row,ctx))):
+   replaceList(rows.length?h('div',{class:'fy-stock-grid','aria-label':'系统精选股票'},rows.map(row=>stockCard(row,ctx))):
     empty(query||board!=='all'?'当前筛选没有匹配':'系统尚未返回精选候选'));
    return;
   }
@@ -265,7 +291,7 @@ export function renderOpportunities(route,ctx) {
   const groups=[['正在探索',rows.filter(r=>!signal(r)&&!r.focused),'研究候选'],['重点跟踪',rows.filter(r=>!signal(r)&&r.focused),'重点关注'],['已有信号',rows.filter(signal),'已返回的策略信号']];
   const populatedGroups=groups.filter(([,list])=>list.length);
   const stageStrip=h('div',{class:'fy-stage-strip','aria-label':'观察阶段数量'},groups.map(([label,list])=>h('span',{class:'fy-stage-chip'},label,h('b',{},list.length))));
-  replaceKeepingStockFocus(body,stageStrip,populatedGroups.length?h('div',{class:'fy-pool-board fy-lanes-'+populatedGroups.length},populatedGroups.map(([label,list,description])=>h('section',{class:'fy-pool-column'},h('header',{},h('h2',{},label),h('span',{class:'fy-tag'},list.length)),h('p',{class:'fy-muted'},description),h('div',{class:'fy-stock-grid'},list.map(r=>stockCard(r,ctx)))))):empty('当前筛选没有匹配','可切换观察池或筛选范围；已有历史结果不会被伪造为实时。'));
+  replaceList(stageStrip,populatedGroups.length?h('div',{class:'fy-pool-board fy-lanes-'+populatedGroups.length},populatedGroups.map(([label,list,description])=>h('section',{class:'fy-pool-column'},h('header',{},h('h2',{},label),h('span',{class:'fy-tag'},list.length)),h('p',{class:'fy-muted'},description),h('div',{class:'fy-stock-grid'},list.map(r=>stockCard(r,ctx)))))):empty('当前筛选没有匹配','可切换观察池或筛选范围；已有历史结果不会被伪造为实时。'));
  }
  function paintFastMoves() {
   if(!fastMoves||fastMoves.contains(document.activeElement)&&document.activeElement.tagName!=='SUMMARY')return;
@@ -276,7 +302,7 @@ export function renderOpportunities(route,ctx) {
   fastMoves.replaceChildren(fastMovesPanel(source,ctx,active[0]==='auction',expanded));
   if(focused)fastMoves.querySelector('[data-fast-section="'+focused+'"] summary')?.focus({preventScroll:true});
  }
- async function load(append=false) {
+ async function load(append=false,background=false) {
   const state=ctx.state||{},turn=++loadGeneration,requestedBoard=board;
   paintFastMoves();
   loadMore.disabled=true;
@@ -307,11 +333,11 @@ export function renderOpportunities(route,ctx) {
     if(at)readTime.setAttribute('datetime',new Date(at).toISOString());
    }
    if(data.freezeUnavailable||data.note)status.textContent+=' · '+(data.note||'没有已保存的盘中结果');
-   paint();
+   paint(background);
   }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message;status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
   finally{if(turn===loadGeneration)loadMore.disabled=false;}
  }
- ctx.onState?.(()=>load());
+ ctx.onState?.((_,options)=>load(false,options?.manual===false));
  if(fastMoves)ctx.onFastMoves?.(paintFastMoves);
  load();
  return view;
@@ -562,7 +588,7 @@ export function quoteCrossCheckPanel(ctx,readCode,signal=ctx.signal) {
 }
 
 export function createStockDrawer(ctx) {
- let controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
+ let controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,marketQuoteAtOpen=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  let leadershipKey='';
  const overlay=h('div',{class:'fy-drawer-backdrop',hidden:true}),drawer=h('aside',{class:'fy-stock-drawer',role:'dialog','aria-modal':'true','aria-label':'股票研究面板',hidden:true,tabindex:'-1'}),title=h('h2',{class:'fy-drawer-title'}),quote=h('div',{class:'fy-drawer-quote'}),body=h('div',{class:'fy-drawer-body'}),meta=h('p',{class:'fy-quote-time'});
  const shortline=h('section',{class:'fy-drawer-shortline',hidden:true,'aria-live':'polite','aria-label':'短线校验'});
@@ -695,7 +721,7 @@ export function createStockDrawer(ctx) {
   quote.replaceChildren(h('strong',{class:direction(observation.pct)},format(observation.price)),h('span',{class:direction(observation.pct)},percent(observation.pct)));
   meta.textContent=quoteLabel(observation);
  }
- function update() {
+ function update({manual=false}={}) {
   if(drawer.hidden||!code)return;
   const next=ctx.findStock(code);
   if(next?.code===code&&!boundEvidence){row=next;title.textContent=symbolName(next)+' / '+code;}
@@ -703,6 +729,9 @@ export function createStockDrawer(ctx) {
   if(next?.code!==code)return;
   if(boundEvidence){
    const at=quoteAt(next);
+   // Re-reading an unchanged dashboard is not a new quote. Retain the selected
+   // pool's original observation until the feed advances or the user refreshes.
+   if(!manual&&Number.isFinite(marketQuoteAtOpen)&&at<=marketQuoteAtOpen)return;
    if(!Number.isFinite(next.price)||next.price<=0||!Number.isFinite(at)||at<=0||at>Date.now()||
       (Number.isFinite(displayedQuoteAt)&&displayedQuoteAt<=Date.now()&&at<=displayedQuoteAt))return;
   }
@@ -730,6 +759,8 @@ export function createStockDrawer(ctx) {
  }
  async function open(nextCode,nextRow,trigger) {
   if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
+  const baseline=ctx.findStock(nextCode),baselineAt=quoteAt(baseline);
+  marketQuoteAtOpen=Number.isFinite(baseline?.price)&&baseline.price>0&&Number.isFinite(baselineAt)&&baselineAt>0&&baselineAt<=Date.now()?baselineAt:null;
   title.textContent=symbolName(row)+' / '+nextCode;displayQuote(row);
   overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();void checkShortline(nextCode,row,controller.signal,generation);
  }

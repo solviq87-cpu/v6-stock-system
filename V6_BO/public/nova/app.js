@@ -206,7 +206,7 @@ async function renderRoute() {
 }
 async function refresh(manual=false,{showSuccess=true}={}) {
  if(!role||(!manual&&document.visibilityState!=='visible'))return;
- if(refreshBusy){if(manual)refreshWanted=true;return;}
+ if(refreshBusy){if(manual)refreshWanted={showSuccess:showSuccess||!!refreshWanted?.showSuccess};return;}
  refreshBusy=true;
  const controller=sessionController;
  try {
@@ -215,11 +215,11 @@ async function refresh(manual=false,{showSuccess=true}={}) {
   state=retainMarket(state,incoming);lastRead=Date.now();online=true;snapshotStatus();
   if(!main?.firstElementChild||main.firstElementChild.matches('.fy-loading:not([data-pending-route])'))await renderRoute();
   else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
-  for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
-  drawer?.update?.();
+  for(const listener of [...listeners])try{listener(state,{manual});}catch(error){console.error('FAYO view update failed',error.name);}
+  drawer?.update?.({manual});
   if(manual&&showSuccess)notify('已读取云端状态，报价原始时点见页面');
  }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
- finally{refreshBusy=false;if(refreshWanted){refreshWanted=false;if(role)refresh(false);}}
+ finally{refreshBusy=false;if(refreshWanted){const queued=refreshWanted;refreshWanted=false;if(role)refresh(true,queued);}}
 }
 async function refreshAutomatically() {
  if(!role||document.visibilityState!=='visible')return;
@@ -240,7 +240,7 @@ async function refreshAutomatically() {
  }finally{fastBusy=false;}
 }
 function logout(message='') {
- gateGeneration++;role=null;state=null;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
  gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:refreshAutomatically,signal:controller.signal});

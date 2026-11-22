@@ -42,14 +42,24 @@ export function normalizeMarket(row) {
 }
 
 // Use Beijing wall-clock timestamps throughout the daily market snapshot archive.
-const stampText=t=>String(t||'').replace('T',' ').slice(0,16);
+const stampText=t=>typeof t==='number'&&Number.isFinite(t)?new Date(t+8*36e5).toISOString().slice(0,16).replace('T',' '):String(t||'').replace('T',' ').slice(0,16);
+export function knowledgeCutoff(value){
+  if(Number.isFinite(value))return value;
+  let s=String(value||'').replace(' ','T');
+  if(s.length===10)s+='T15:00';
+  return Date.parse(/(?:Z|[+-]\d\d:\d\d)$/.test(s)?s:s+'+08:00');
+}
+export function knownBy(row,point){
+  const cutoff=knowledgeCutoff(point);
+  return (row.knownAt==null || knowledgeCutoff(row.knownAt)<=cutoff) && knowledgeCutoff(row.availableAt||row.date)<=cutoff;
+}
 function visibleDays(days,date,at) {
   const point=stampText(at||date+' 15:00');
   const values=new Map();
   for(const day of days||[]){
     if(!validDate(day.date)||day.date>date)continue;
     const observed=stampText(day.availableAt||day.date+' 15:00');
-    if(!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(observed)||observed>point)continue;
+    if(!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(observed)||observed>point||!knownBy(day,at||point))continue;
     const previous=values.get(day.date);
     if(!previous||previous.stamp<=observed)values.set(day.date,{stamp:observed,day});
   }
@@ -121,9 +131,10 @@ export function validate(state,input,options={}) {
   const matches=chosen.filter(r=>r.kind==='strategy'&&r.seen.length===r.factors.length);
   const risks=[],facts=[],blocks=new Set(),add=r=>{if(!risks.includes(r))risks.push(r)};
   const asOf=options.asOf?stampText(options.asOf):date+' 15:00';
-  const available=marketAsOf(state,date,asOf);
+  const observedAt=options.asOf||asOf;
+  const available=marketAsOf(state,date,observedAt);
   const market=available.find(x=>x.date===date);
-  const em=emotion(available,date,asOf);
+  const em=emotion(available,date,observedAt);
   let cap=20;
   const limit=(v,reason)=>{cap=Math.min(cap,v);add(reason)};
   const exclude=(set,reason)=>{for(const id of set) blocks.add(id);add(reason)};
@@ -174,7 +185,7 @@ export function validate(state,input,options={}) {
     return finite(day?.indexChange,-100,100)&&Number(day.indexChange)<0;
   }))exclude(relay,'全A连续至少三日收跌，暂停接力');
   const cutoff=Date.parse(asOf.replace(' ','T')+':00+08:00');
-  const visibleTrades=(state.trades||[]).filter(t=>!t.accountId&&(!t.createdAt||Date.parse(t.createdAt)<=cutoff));
+  const visibleTrades=(state.trades||[]).filter(t=>!t.paperSettlement&&!t.accountId&&(!t.createdAt||Date.parse(t.createdAt)<=cutoff));
   const realized=new Map();
   for(const t of visibleTrades){
     const d=String(t.exitTime||'').slice(0,10);
@@ -218,7 +229,7 @@ export function autoValidate(state,input) {
   const result=validate(state,{
     ...query,name:observed.name||code,theme:observed.theme||'',
     selected:observed.selected||[],mainline:observed.mainline===true,strongSector:observed.strongSector===true
-  },{asOf:observed.asOf});
+  },{asOf:observed.observedAtMs||observed.asOf});
   return {
     ...result,
     strategy:result.matches.length?result.strategy:'未判定',
