@@ -535,7 +535,8 @@ const runChecks=async()=>{
    await page.screenshot({path:path.join(output,'fayo-opportunities-'+width+'.png'),fullPage:false});
 
    const originCard=page.locator('.fy-stock-card[data-code="600101"]').first();
-   await originCard.click();
+   await page.getByRole('searchbox',{name:'筛选股票池',exact:true}).focus();
+   await originCard.evaluate(node=>node.click()); // Touch browsers can activate a card without focusing it.
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11');
@@ -577,6 +578,10 @@ const runChecks=async()=>{
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
    assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'focus returns to the selected opportunity');
+   await originCard.evaluate(node=>{window.drawerOriginAfterClose=node;});
+   await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
+   await page.waitForFunction(()=>window.drawerOriginAfterClose?.isConnected===false);
+   assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'the next list refresh preserves the restored stock focus');
    if(width===1366){
     await originCard.click();
     await drawer.locator('[data-detail-tab="marks"]').click();

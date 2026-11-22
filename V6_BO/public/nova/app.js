@@ -93,7 +93,7 @@ function findStock(code) {
  const candidates=[...rowsFrom(state?.dashboard?.rows),...rowsFrom(state?.pool),...rowsFrom(state?.trendPool),...[...poolCache.values()].flatMap(value=>rowsFrom(value.items||value))];
  return candidates.find(row=>row.code===code)||null;
 }
-function selectStock(code,row){if(!role)return;selectedStock=code;drawer.open(code,row);}
+function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
 async function readPool(key,loader) {
  const result=await loader();
  const items=rowsFrom(result?.items||result);
