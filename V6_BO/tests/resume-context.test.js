@@ -4,6 +4,10 @@ const fs=require('node:fs'), os=require('node:os'), path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {checkpoint,resume}=require('../../scripts/resume-context');
 const start='<!-- CURRENT_CHECKPOINT_START -->',end='<!-- CURRENT_CHECKPOINT_END -->';
+test('the checked-in handoff has a usable current checkpoint',()=>{
+  const document=fs.readFileSync(path.resolve(__dirname,'../../HANDOFF.md'),'utf8');
+  assert.ok(checkpoint(document).length>0);
+});
 test('resume reads only one bounded current checkpoint, excluding historical payloads',()=>{
   assert.equal(checkpoint(`intro\n${start}\ncurrent\n${end}\n${'old'.repeat(100000)}`),'current');
   for(const text of ['missing',`${start}${end}`,`${end}x${start}`,`${start}a${end}${start}`,`${start}a${end}${end}`,`${start}${'x'.repeat(4001)}${end}`])
