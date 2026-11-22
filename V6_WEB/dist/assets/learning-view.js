@@ -131,7 +131,7 @@
       }
     }
     detail.addEventListener('toggle', () => {
-      if (detail.open) draw()
+      if (detail.open && detail.isConnected) draw()
     })
     periods.onchange = draw
     detail.append(periods, plot)

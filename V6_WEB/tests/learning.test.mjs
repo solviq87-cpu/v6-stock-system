@@ -68,6 +68,12 @@ test('离线教学规则、周期、风险门及页面使用同一快照', async
     period.value = '分时'
     period.dispatchEvent(new w.Event('change'))
     assert.match(review.querySelector('svg').getAttribute('aria-label'), /分时/)
+    const detached = w.document.querySelectorAll('#demoReviews details')[1]
+    const dismissedToggle = new Promise((resolve) => detached.addEventListener('toggle', resolve, { once: true }))
+    detached.open = true
+    detached.remove()
+    await dismissedToggle
+    assert.equal(detached.querySelector('svg'), null, 'a queued toggle cannot redraw an unmounted review')
     w.document.getElementById('demoPick').click()
     assert.equal(
       w.document.querySelectorAll('#demoStocks tbody tr').length,

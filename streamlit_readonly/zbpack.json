@@ -1,0 +1,10 @@
+{
+  "python": {
+    "version": "3.12",
+    "package_manager": "pip"
+  },
+  "streamlit": {
+    "entry": "app.py"
+  },
+  "start_command": "python -m streamlit run app.py --server.address 0.0.0.0 --server.port 7860 --server.headless true"
+}
