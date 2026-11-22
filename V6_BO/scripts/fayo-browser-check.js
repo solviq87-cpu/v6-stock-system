@@ -347,11 +347,13 @@ const runChecks=async()=>{
     await lens.locator('.fy-tabs').evaluate(tabs=>{tabs.scrollLeft=0;});
     await page.screenshot({path:path.join(output,'fayo-leadership-'+width+'.png'),fullPage:false});
     await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
+    await page.locator('.fy-toast').waitFor({state:'hidden'});
     phase='system-picks-refresh';
     await page.getByRole('button',{name:'刷新结果',exact:true}).click();
     await selected.locator('[data-code="600199"]').waitFor();
     assert.match(await pick.locator('[data-sector-leadership="pending"]').textContent(),/待核验/);
     assert.match(await page.locator('[data-system-picks-read-time]').textContent(),/最近读取 \d/);
+    assert.equal(await page.locator('.fy-toast').isVisible(),false,'system pick refresh reports inline without covering the results');
     assert.ok(requests.slice(beforePicks).some(entry=>entry.path==='/api/state'&&entry.method==='GET'));
     assert.ok(!requests.slice(beforePicks).some(entry=>['/api/quant-picks','/api/intraday-strong','/api/refresh'].includes(entry.path)),
      'opening and refreshing system picks only reads the shared state');
@@ -517,6 +519,11 @@ const runChecks=async()=>{
    }
    await navigate(page,'opportunities','quant');
    await page.waitForFunction(()=>document.querySelectorAll('.fy-pool-board .fy-stock-card').length===8);
+   assert.equal(await page.locator('.fy-main h1').innerText(),'量化发现');
+   if(width<=700){
+    const positions=await page.getByRole('navigation',{name:'常用卡片'}).getByRole('button').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+    assert.ok(positions.length===4&&positions[0]===positions[1]&&positions[2]===positions[3]&&positions[0]<positions[2],'four mobile shortcuts fit into two rows');
+   }
    assert.equal(await page.locator('.fy-stage-chip').count(),3,'all three workflow stage counts remain visible');
    assert.equal(await page.locator('.fy-pool-column').count(),1,'only populated stages consume card space');
    assert.equal(await page.locator('.fy-pool-column .fy-empty').count(),0,'empty stage panels never push actual opportunities below the fold');
@@ -524,6 +531,7 @@ const runChecks=async()=>{
    assert.equal(await page.locator('img[src="x"]').count(),0,'provider names are text, never executable markup');
    assert.equal(await page.evaluate(()=>window.fayoInjected),undefined,'provider strings cannot execute');
    await geometry(page,'opportunities-'+width);
+   await page.locator('.fy-toast').waitFor({state:'hidden'});
    await page.screenshot({path:path.join(output,'fayo-opportunities-'+width+'.png'),fullPage:false});
 
    const originCard=page.locator('.fy-stock-card[data-code="600101"]').first();

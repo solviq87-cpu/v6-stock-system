@@ -622,6 +622,10 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 .fy-quote-time,.fy-muted{color:#839bb6}
 .fy-stock-card:hover{background:#19314c;border-color:#4c8aba}
 .fy-connection-bar .fy-status{color:#b6cee6}
+.fy-connection-bar>.fy-deployment-guide{display:none;min-height:30px;padding:2px 9px;font-size:11px}
+.fy-reference-shell[data-terminal-view="home"] .fy-has-deployment-guide>.fy-connection-caption{display:none}
+.fy-reference-shell[data-terminal-view="home"] .fy-connection-bar>.fy-deployment-guide{display:inline-flex}
+.fy-reference-shell[data-terminal-view="home"] .fy-has-deployment-guide>.fy-status{font-size:11px}
 .fy-dock{background:#081b31;border-color:#285277}
 .fy-dock button[data-current=true]{color:#79c7ff}
 .fy-terminal{gap:14px}
@@ -635,7 +639,6 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 .fy-terminal-eyebrow{font-size:9px;letter-spacing:.12em;color:#76b9ec;font-weight:700}
 .fy-terminal-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .fy-terminal-actions .fy-button{min-height:36px;font-size:11px;padding:6px 12px}
-.fy-terminal>.fy-terminal-deployment{order:-1;align-self:flex-end;min-height:36px;padding:4px 10px}
 .fy-terminal-provenance{
   display:flex;flex-wrap:wrap;align-items:center;gap:5px 16px;
   padding:10px 15px;border-radius:8px;border:1px solid #2c4968;
@@ -2030,7 +2033,8 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-reference-review .fy-terminal-sector .fy-terminal-chips {gap:3px;padding:0}
 }
 @media(max-width:700px) {
- .fy-reference-shell[data-terminal-view="home"] .fy-connection-bar {display:none}
+ .fy-reference-shell[data-terminal-view="home"] .fy-connection-bar:not(.fy-has-deployment-guide) {display:none}
+ .fy-grid.fy-pick-shortcuts {grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
  .fy-reference-shell[data-terminal-view="home"]>.fy-snapshot {margin-block:4px 0;padding-block:4px;border-radius:6px}
  .fy-reference-home>.fy-reference-topgrid {order:0}
  .fy-reference-home>.fy-terminal-title {order:1}

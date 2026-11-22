@@ -235,17 +235,16 @@ export function renderOpportunities(route,ctx) {
  sortSelect.addEventListener('change',()=>{sort=sortSelect.value;paint();});
  const loadMore=button('加载下一页',()=>load(true));loadMore.hidden=true;
  const readTime=curated?h('time',{class:'fy-muted','data-system-picks-read-time':'true'}):null;
- const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh():load(),'primary');
+ const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh({showSuccess:false}):load(),'primary');
  if(curated)view.append(
   h('header',{class:'fy-view-heading'},h('div',{},h('h1',{},active[1]),h('p',{},active[2])),refreshResults),
   h('div',{class:'fy-system-picks-meta'},status,readTime),
   h('div',{class:'fy-system-picks-tools'},search,field('范围',boardSelect),field('排序',sortSelect)));
  else {
-  if(fastMovesCard)view.append(h('header',{class:'fy-view-heading'},h('h1',{},active[1])),fastMovesCard,simpleNavigation(ctx,active[0]));
-  else view.append(simpleNavigation(ctx,active[0]),
-   h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
-    h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')));
-  view.append(h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
+  view.append(h('header',{class:'fy-view-heading'},h('h1',{},active[1])));
+  if(fastMovesCard)view.append(fastMovesCard);
+  view.append(simpleNavigation(ctx,active[0]),
+   h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
  }
  view.append(summaryView,body,loadMore);
  function paint() {
@@ -360,7 +359,7 @@ export function combinePoolResults(entries,now=Date.now()) {
   poolLabels:[...new Set(item.proofs.map(proof=>proof.pool))],poolEvidence:item.proofs}));
 }
 function simpleNavigation(ctx,active='all') {
- return h('nav',{class:'fy-grid two','aria-label':'常用卡片'},
+ return h('nav',{class:'fy-grid two fy-pick-shortcuts','aria-label':'常用卡片'},
   [['all','全部选股','opportunities'],['review','今日复盘','pulse'],['relay-first','一进二','opportunities'],['relay-second','二进三','opportunities']]
    .map(([key,label,view])=>button(label,()=>ctx.navigate(view,key),active===key?'primary':'secondary')));
 }

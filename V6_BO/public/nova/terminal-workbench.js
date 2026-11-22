@@ -182,8 +182,6 @@ function referenceReviewStats(review,summary,source) {
 
 export function renderTerminalOverview(ctx) {
  const view=h('div',{class:'fy-terminal fy-stack','data-v6-workbench':'true'});
- const deployment=ctx.role==='edit'?h('a',{class:'fy-terminal-deployment fy-button secondary',
-  href:'https://github.com/solviq87-cpu/v6-stock-system/blob/dev/DEPLOYMENT.md',target:'_blank',rel:'noopener noreferrer'},'部署交接文档'):null;
  const title=h('header',{class:'fy-terminal-title'},
   h('div',{},h('span',{class:'fy-terminal-eyebrow'},'FAYO / V6'),h('h1',{},'盘面总览')),
   h('div',{class:'fy-terminal-actions'},
@@ -287,7 +285,6 @@ export function renderTerminalOverview(ctx) {
   ['龙头榜','opportunities','relay-first','spark'],['K线图谱','pulse','market-overview','pulse'],
   ['回测','lab','backtest','lab'],['模拟盘','assets','paper','assets']
  ],ctx,'fy-reference-mobile-links');
- if(deployment)view.append(deployment);
  view.append(title,status,indexHost,statsHost,prioritiesHost,
   h('div',{class:'fy-reference-topgrid'},signalPanel,mobileLinks,candidates,fundsPanel),
   h('div',{class:'fy-reference-midgrid'},reviewHost,ladderPanel,newsPanel,accountPanel),
