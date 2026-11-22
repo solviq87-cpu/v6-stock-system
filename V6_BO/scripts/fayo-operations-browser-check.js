@@ -25,7 +25,7 @@ const server=http.createServer((req,res)=>{
    const account={cash:100000,equity:100000,initial:100000,realized:0,totalPnl:0,totalPct:0,positions:[],trades:[],enabled:true};
    window.renderRoute=(view,sub,role='edit')=>{
     window.routeController?.abort();window.routeController=new AbortController();window.stateListeners=[];
-    const ctx={role,passwordCreated:()=>{window.firstPasswordInitialized=true;},auth:window.setupMode?{hasPassword:false}:undefined,onState:fn=>window.stateListeners.push(fn),signal:window.routeController.signal,state:{snapshotDay:'20261116',snapshotFieldDays:{pool:''},pool:[{code:'600101',name:'原日期未知的保留票',price:10}],paper:{pool:account,pre:account},cfgSet:{quiet:{kind:'bool',label:'静默',value:false},refreshSecs:{kind:'num',label:'刷新间隔',value:15}},cfgRange:{scoreGate:{label:'门槛',cur:50,min:0,max:100}},goodNews:{items:[{title:'合成资讯',publishedAt:'2026-11-13T15:00:00+08:00'}]},badNews:{items:[]}},notify:(...args)=>window.notices.push(args),navigate:()=>{},selectStock:()=>{},refresh:async()=>{},api:async(p,options={})=>{
+    const ctx={role,passwordCreated:()=>{window.firstPasswordInitialized=true;},auth:{hasPassword:!window.setupMode,pushRole:'replica'},onState:fn=>window.stateListeners.push(fn),signal:window.routeController.signal,state:{snapshotDay:'20261116',snapshotFieldDays:{pool:''},pool:[{code:'600101',name:'原日期未知的保留票',price:10}],paper:{pool:account,pre:account},cfgSet:{quiet:{kind:'bool',label:'静默',value:false},refreshSecs:{kind:'num',label:'刷新间隔',value:15}},cfgRange:{scoreGate:{label:'门槛',cur:50,min:0,max:100}},goodNews:{items:[{title:'合成资讯',publishedAt:'2026-11-13T15:00:00+08:00'}]},badNews:{items:[]}},notify:(...args)=>window.notices.push(args),navigate:()=>{},selectStock:()=>{},refresh:async()=>{},api:async(p,options={})=>{
      window.calls.push({path:p,method:options.method||'GET',body:options.body});
      if(options.signal?.aborted)throw new DOMException('aborted','AbortError');
      if(options.method==='POST'){
@@ -39,7 +39,7 @@ const server=http.createServer((req,res)=>{
      if(p.startsWith('/api/source?'))return{ok:true,file:new URL(p,location.origin).searchParams.get('file'),content:'const first = 1;'};
      if(p==='/api/release/requests')return{ok:true,requests:[{file:'a.json',summary:'合成请求甲'},{file:'b.json',summary:'合成请求乙'}]};
      if(p==='/api/lock/status')return{ok:true,role:'edit',hasPassword:true,hasViewPassword:true};
-     if(p.startsWith('/api/push-log'))return{ok:true,count:0,shown:0,sentToday:0,log:[]};
+     if(p.startsWith('/api/push-log'))return{ok:true,replica:true,count:0,shown:0,sentToday:0,log:[]};
      return{ok:true,items:[],list:[]};
     }};
     window.activeContext=ctx;document.getElementById('mount').replaceChildren(view==='pulse'?renderMarket({view,sub},ctx):view==='opportunities'?renderOpportunities({view,sub},ctx):renderOperations({view,sub},ctx));
@@ -47,6 +47,11 @@ const server=http.createServer((req,res)=>{
   });
   const cases={assets:['overview','holdings','risk','paper','ledger','authority','history'],inbox:['all','alerts','signals','push','compose'],settings:['preferences','diagnostics','channels','devices','security','source','release']};
   for(const [view,subs]of Object.entries(cases))for(const sub of subs){await page.evaluate(([view,sub])=>window.renderRoute(view,sub),[view,sub]);await page.waitForTimeout(30);assert.equal(await page.locator('.fy-operations').count(),1);assert.ok((await page.locator('#mount').innerText()).length>30,view+'/'+sub+' meaningful content');}
+  for(const [view,sub]of [['inbox','push'],['settings','channels']]){
+   await page.evaluate(([view,sub])=>window.renderRoute(view,sub),[view,sub]);
+   await page.getByText('当前是副本，自动飞书推送已停用。',{exact:true}).waitFor();
+   if(sub==='push')assert.match(await page.locator('#mount').innerText(),/今日外发记录[\s\S]*含回执未知/);
+  }
   assert.deepEqual(await page.evaluate(()=>window.calls.filter(c=>c.method!=='GET')),[],'navigation must never mutate or send');
   for(const [sub,key]of [['sectors','sectors'],['global','global'],['plans','nextplan'],['review','review']]){
    await page.evaluate(sub=>window.renderRoute('pulse',sub),sub);

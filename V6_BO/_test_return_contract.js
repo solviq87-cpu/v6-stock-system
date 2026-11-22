@@ -114,7 +114,7 @@ group('[2] 周末汇总 / 假期全景：错过多补不回来，必须免配额
 // ══ [3] pushAll 的返回值语义 ════════════════════════════════════════════════
 group('[3] pushAll 返回值语义：false 只留给「会自行解除」的闸门');
 ok('夜间静默（且非 force）→ false', /if \(inQuietHours\(\) && !force\)[\s\S]{0,700}?return false;/.test(src));
-ok('条数闸门拦下 → true（额度按天重置，重试是空转）',
+ok('条数闸门拦下 → true（该轮结束，避免重复扫描）',
   /if \(!_mg\.ok\) \{[\s\S]{0,300}?return true;/.test(src));
 // ⛔ dl 轮改判据：原来钉 {0,600} / {0,200} 的字符窗口，本轮在这两处 return true 之前
 //    各插了一行 _pushLast（登记「返回 true 但没送达」），窗口被撑爆 → 假红。
@@ -184,7 +184,7 @@ for (let i = 0; i < lines.length; i++) {
 ok(`⛔ 所有带推送的 *SentDate 置位都在推送之后（共 ${checked} 处）`, bad === 0 && checked >= 4);
 // ⛔ 2026-10-08 改判据：复盘/次日计划加了 opts.private=true 走私密通道，正则跟着认新写法
 ok('复盘的置位写在 pushAll 之后', /if \(pushAll\(buildReviewMessage\(\), true, \{ private: true \}\) !== false\) reviewSentDate = ds;/.test(src));
-ok('次日计划的置位写在 pushAll 之后', /if \(pushAll\(buildNextPlanMessage\(\), true, \{ private: true \}\) !== false\) nextPlanSentDate = ds;/.test(src));
+ok('次日计划的置位写在带新闻检查的 pushAll 之后', /if \(pushAll\(buildNextPlanMessage\(\), true, nextPlanNewsOptions\(\)\) !== false\) nextPlanSentDate = ds;/.test(src));
 // 反证：先置位后发会被闸门吃掉且当天不再重试
 ok('反证：若先置位，被条数闸门拦下时"今天已发"已打上 → 当天不会重试（所以顺序不能反）',
   /条数闸门[\s\S]{0,400}?return true;/.test(src));
