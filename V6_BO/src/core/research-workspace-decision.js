@@ -14,10 +14,10 @@ function strategyVersions(){
  const files={fourteen:['../../myrules.js','../../analysis.js'],bazi:['../../bazi.js','../../analysis.js'],gpt:['multi-strategy-engine.js','strategy-engine.js','market-regime.js','../../strategies/a-share-strategy-pack.json'],python:['python-three-round-evidence.js']};
  return Object.fromEntries(Object.entries(files).map(([id,names])=>[id,id+'/'+digest(names.map(f=>fs.readFileSync(path.join(__dirname,f),'utf8'))).slice(0,16)]));
 }
-function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvidence,benchmarkEvidence,marketLinkageEvidence}={}){
+function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvidence,benchmarkEvidence,marketLinkageEvidence}={},{publicHistory=false}={}){
  const r=result||{},stock=r.stock,at=r.asOf,bundle=r.evidenceBundle;
  if(!stock||!/^\d{6}$/.test(stock.symbol)||!time(at)||!known(stock.observedAt,at)||
-  !Array.isArray(stock.bars)||stock.bars.length>500||!['eastmoney','tencent'].includes(stock.provider)||stock.source!==stock.provider||stock.priceBasis!=='unadjusted')throw Error('需要带身份和时点的已归档股票');
+  !Array.isArray(stock.bars)||stock.bars.length>500||!(['eastmoney','tencent'].includes(stock.provider)||publicHistory&&stock.provider==='sina')||stock.source!==stock.provider||stock.priceBasis!=='unadjusted')throw Error('需要带身份和时点的已归档股票');
  if(at>Date.now()||stock.bars.some((b,i)=>!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||i&&stock.bars[i-1].date>=b.date||
   !['open','high','low','close'].every(k=>finite(b[k])&&b[k]>0)||b.high<Math.max(b.open,b.close,b.low)||b.low>Math.min(b.open,b.close,b.high)||!finite(b.volume)||b.volume<0))throw Error('归档K线顺序、价格或成交量无效');
  const bars=stock.bars.filter(b=>known(b.knownAt,at)&&b.date<=day(at)&&Date.parse(b.date+'T15:10:00+08:00')<=at&&b.knownAt>=Date.parse(b.date+'T15:10:00+08:00'));

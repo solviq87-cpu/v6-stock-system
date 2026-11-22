@@ -1,3 +1,4 @@
+import {readAutomatic,researchCode} from './automatic-research.js';
 import {activeBook,bookHeaders} from './shortline/book-session.mjs';
 import {linkedPage,sampleFor} from './shortline/context.mjs';
 import {normalizeCSV,labelHistory,applyCorrections,analyzeFactors,freezeSplit,HORIZONS} from './kline-factor-engine.js';
@@ -102,7 +103,7 @@ export function renderKlineLearning(ctx){
     }catch(e){if(turn===revision&&!ctx.signal?.aborted)status.textContent=`追加失败：${e?.message||'CSV校验未通过'}；原有样本与修正未改变。`;}
     finally{if(turn===revision)setBusy(false);}
   });
-  files.append(wrap('div','fy-toolbar',load,appendNew));root.append(files,status);
+  files.append(wrap('div','fy-toolbar',load,appendNew));root.append(wrap('details','fy-details',node('summary','使用自己的历史 CSV（可选）'),files),status);
   const editPanel=block('人工修正自动信号','同一战法可连续纠错，报告保留每次动作及理由；不会写入生产模型。',target,wrap('div','fy-grid',field('战法',correctionStrategy),field('动作',actionType),field('修正依据',reason)));
   const save=button('保存本次人工修正',()=>{
     if(ctx.signal?.aborted||busy)return;
@@ -150,10 +151,10 @@ export function renderKlineLearning(ctx){
     ],filtered.slice(0,100)));
     if(selected){const newer=effective.find(x=>x.id===selected.id);if(newer){selected=newer;showSample(newer);}else detail.replaceChildren();}else detail.replaceChildren();
   }
-  function paintArchive(requested=ctx.stock){
+  function paintArchive(requested=ctx.stock,preserveFilter=false){
     if(!canEdit()||!dataset)return;
     const codes=[...dataset.stocks.keys()];
-    const code=codes.includes(requested)?requested:codes[0];
+    const code=requested?(codes.includes(requested)?requested:''):codes[0];
     synced.replaceChildren(node('h2','V6 已同步日线'));
     if(!code){synced.append(node('p','尚无带来源与收盘时点的 V6 未复权日线。','fy-muted'));return;}
     const choose=sel(codes.map(c=>[c,(dataset.stocks.get(c).at(-1).name||c)+' · '+c]));
@@ -162,7 +163,7 @@ export function renderKlineLearning(ctx){
     const {rows,samples:causal,late,market,sector}=syncedSeries(dataset,code),latest=rows.at(-1);
     sourceMode='synced';records={stock:rows,market:[],sector:[],minute:[]};samples=causal;
     corrections=[];selected=null;reason.value='';target.textContent='未选择要修正的K线';frozenSplit=freezeSplit(samples,{embargo:5});
-    sourceFiles={source:'V6 私有短线档案',book,revision:dataset.revision,code};sampleScope.value='all';
+    sourceFiles={source:'V6 私有短线档案',book,revision:dataset.revision,code};if(!preserveFilter)sampleScope.value='all';
     synced.append(field('已同步标的',choose),miniCandles(rows.slice(-60)),facts([
       ['原始交易日',latest.date],['开 / 高 / 低 / 收', [latest.open,latest.high,latest.low,latest.close].map(x=>fmt(x)).join(' / ')],
       ['成交量（股） / 成交额（元）',out(latest.volume)+' / '+out(latest.amount)],['换手率',out(latest.turnover,'%')],
@@ -173,17 +174,49 @@ export function renderKlineLearning(ctx){
       (!causal.some(s=>s.market)?' 缺少同期可用的全A证据。':'')+(!causal.some(s=>s.sector)?' 缺少同期可用的板块证据。':'');
     refresh();
   }
-  async function readArchive(){
+  const closeDay=()=>ctx.state?.closeSession?.day||ctx.state?.marketRecovery?.referenceDay||'';
+  const archiveKey=()=>[book,closeDay(),ctx.stock||''].join('/');
+  let lastArchiveKey='',retryAt=0,reading=false;
+  const inUse=()=>busy||sourceMode==='csv'||!!(reason.value||corrections.length||selected||root.matches?.(':focus-within'));
+  function clearSynced(){
+    dataset=null;synced.replaceChildren();
+    if(sourceMode!=='synced')return;
+    sourceMode='';records={stock:[],market:[],sector:[],minute:[]};samples=[];selected=null;report=null;corrections=[];sourceFiles={};frozenSplit=null;
+    target.textContent='未选择要修正的K线';reason.value='';refresh();
+  }
+  async function readArchive(background=false){
     if(!canEdit()||typeof ctx.api!=='function'||sourceMode==='csv')return;
     const turn=++sourceToken,requestedBook=book;
-    synced.replaceChildren(node('h2','V6 已同步日线'),node('p','正在读取私有研究档案…','fy-muted'));
+    lastArchiveKey=archiveKey();reading=true;retryAt=0;
+    if(!background||!dataset)synced.replaceChildren(node('h2','V6 已同步日线'),node('p','正在读取私有研究档案…','fy-muted'));
     try{
       const response=await ctx.api('/api/research/shortline',{method:'GET',signal:ctx.signal,headers:bookHeaders(requestedBook)});
       if(turn!==sourceToken||!canEdit()||activeBook()!==requestedBook)return;
       const returnedBook=response?.state?.book?.id??'main';
-      if(response?.ok!==true||response.state?.permissions?.role!=='edit'||returnedBook!==requestedBook)throw Error();
-      dataset=syncedDataset(response.state);paintArchive(ctx.stock||dataset.observation?.code);
-    }catch{if(turn===sourceToken&&canEdit())synced.replaceChildren(node('h2','V6 已同步日线'),node('p','当前无法读取私有档案，可继续使用本地 CSV。','fy-muted'));}
+      if(response?.ok!==true||response.state?.permissions?.role!=='edit'||returnedBook!==requestedBook){
+        clearSynced();
+        synced.replaceChildren(node('h2','V6 已同步日线'),node('p','无法读取私有档案，请核对当前账户授权。','fy-muted'));
+        return;
+      }
+      let next=syncedDataset(response.state);
+      const code=ctx.stock||(background&&sourceFiles.code)||next.observation?.code||researchCode(ctx);
+      if(requestedBook!=='demo'&&(!next.stocks.size||code&&(!next.stocks.has(code)||next.stocks.get(code).at(-1).date<closeDay()))){
+        const x=await readAutomatic(ctx,code);
+        if(turn!==sourceToken||!canEdit()||activeBook()!==requestedBook||sourceMode==='csv')return;
+        const bars=x.stock.bars.map(b=>({...b,role:'stock',period:'日K',code:x.symbol,name:x.name,source:'V6/'+x.provider,priceBasis:'unadjusted',volumeUnit:'shares'}));
+        const existing=(response.state.bars||[]).filter(b=>b.role==='stock'&&b.code===x.symbol);
+        const recorded=new Set(existing.filter(b=>b.period==='日K'||b.date?.length===10).map(b=>b.date));
+        next=syncedDataset({...response.state,bars:[...(response.state.bars||[]),...bars.filter(b=>!recorded.has(b.date))]});
+        if(background&&inUse()){lastArchiveKey='';return;}
+        dataset=next;paintArchive(x.symbol,background);
+      }else{
+        if(background&&inUse()){lastArchiveKey='';return;}
+        if(background&&dataset?.revision===next.revision&&sourceFiles.code===code&&records.stock.at(-1)?.date===next.stocks.get(code)?.at(-1)?.date)return;
+        dataset=next;paintArchive(code,background);
+      }
+    }catch{
+      if(turn===sourceToken&&canEdit()){retryAt=Date.now()+60000;if(!dataset)synced.replaceChildren(node('h2','V6 已同步日线'),node('p','连接恢复后自动重读行情档案。','fy-muted'));}
+    }finally{if(turn===sourceToken)reading=false;}
   }
   for(const element of [strategy,environment,quality,horizon,symbol,sampleScope,sampleDate])element.addEventListener(element===symbol?'input':'change',()=>{
     if(element===quality)sampleFor(book,sharedQuality());
@@ -201,18 +234,15 @@ export function renderKlineLearning(ctx){
     openBacktest.disabled=!canEdit();
     save.disabled=busy||!canEdit();
     if(!canEdit()){
-      reason.value='';sourceToken++;dataset=null;synced.replaceChildren();
-      if(sourceMode==='synced'){
-        sourceMode='';records={stock:[],market:[],sector:[],minute:[]};samples=[];selected=null;report=null;corrections=[];sourceFiles={};frozenSplit=null;
-        target.textContent='未选择要修正的K线';status.textContent='当前身份只能使用本地 CSV。';refresh();
-      }
+      reason.value='';sourceToken++;clearSynced();
     }else if((!lastAuthorized||changedBook)&&typeof ctx.api==='function'&&sourceMode!=='csv'){
       if(!linkPanel.parentNode&&typeof ctx.navigate==='function')root.append(linkPanel);
       if(!synced.parentNode)root.append(synced);void readArchive();
-    }
+    }else if(!reading&&!inUse()&&globalThis.navigator?.onLine!==false&&(lastArchiveKey!==archiveKey()||retryAt&&Date.now()>=retryAt))void readArchive(true);
     lastAuthorized=canEdit();
   });
   ctx.signal?.addEventListener('abort',()=>{revision++;sourceToken++;dataset=null;samples=[];records={stock:[],sector:[],market:[],minute:[]};corrections=[];selected=null;report=null;sourceFiles={};frozenSplit=null;for(const source of [stocks,sectors,markets,minutes,more])source.file.value='';setBusy(false);root.replaceChildren();},{once:true});
+  if(ctx.signal)globalThis.addEventListener?.('online',()=>{lastArchiveKey='';if(!reading&&!inUse())void readArchive(true);},{signal:ctx.signal});
   setBusy(false);void readArchive();
   return root;
 }

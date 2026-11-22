@@ -89,6 +89,7 @@ async function geometry(page, label) {
       const tabs = page.getByRole('navigation', { name: '智能学习中心分区', exact: true });
       await tabs.getByRole('button', { name: '已有学习进度', exact: true }).waitFor();
       assert.equal(await tabs.evaluate(nav => nav.querySelectorAll('button').length), 4);
+      await page.getByText('使用自己的历史 CSV（可选）',{exact:true}).click();
       await page.getByLabel('历史日K CSV（必选）', { exact: true }).setInputFiles(file('synthetic-stock.csv', stockCSV));
       await page.getByLabel('同期板块 CSV', { exact: true }).setInputFiles(file('synthetic-sector.csv', sectorCSV));
       await page.getByLabel('同期全A指数 CSV', { exact: true }).setInputFiles(file('synthetic-market.csv', marketCSV));
@@ -129,6 +130,8 @@ async function geometry(page, label) {
       await tabs.getByRole('button', { name: '战法校验与回测', exact: true }).click();
       for (const name of ['规则交叉检验', '战法实验台', '历史实验', '四套策略的独立归属', '原生策略逐日回放'])
         await page.getByRole('heading', { name, exact: true }).waitFor();
+      await page.getByRole('heading', { name: '模拟账本尚无记录', exact: true }).waitFor();
+      assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/paper-account'));
       await geometry(page, 'verify-tab-' + width);
       await tabs.getByRole('button', { name: '已有学习进度', exact: true }).click();
       await page.getByRole('heading', { name: '学习进度与复访', exact: true }).waitFor();

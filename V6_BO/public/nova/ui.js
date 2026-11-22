@@ -1,10 +1,51 @@
+const eventBindings=new WeakMap();
+function bindEvent(node,name,handler){
+ let events=eventBindings.get(node);
+ if(!events){events=new Map();eventBindings.set(node,events);}
+ if(!events.has(name))node.addEventListener(name,event=>events.get(name)?.(event));
+ events.set(name,handler);
+}
+// Update presentation nodes in place. Keys keep the same security's row and
+// keyboard focus across rank changes. Disclosure and form state belong to the reader.
+export function updateReadout(parent,...children){
+ const incoming=children.flat().filter(node=>node instanceof Node);
+ if(!parent.firstChild){
+  if(parent.children?.length&&parent.replaceChildren)parent.replaceChildren(...incoming);
+  else parent.append(...incoming);
+  return;
+ }
+ const key=node=>node?.nodeType===1?(node.dataset?.code||node.id||node.getAttribute('data-fast-section')||''):'';
+ function sync(host,nodes){
+  const keyed=new Map([...host.children].filter(node=>key(node)).map(node=>[key(node),node]));
+  for(const [index,next] of nodes.entries()){
+   let old=host.childNodes[index];
+   const id=key(next),same=id&&keyed.get(id);
+   if(same&&same!==old){
+    if(host.moveBefore)host.moveBefore(same,old||null);else host.insertBefore(same,old||null);
+    old=same;
+   }
+   if(!old){host.append(next);continue;}
+   if(old===next)continue;
+   if(old.nodeName!==next.nodeName||key(old)!==id){host.insertBefore(next,old);if(!key(old)||!nodes.some(n=>key(n)===key(old)))old.remove();continue;}
+   if(old.nodeType===3){if(old.data!==next.data)old.data=next.data;continue;}
+   if(old.nodeType!==1||old.matches('input,textarea,select'))continue;
+   const managed=eventBindings.get(next);
+   if(managed)for(const [name,fn] of managed)bindEvent(old,name,fn);
+   for(const attr of [...old.attributes])if(attr.name!=='open'&&!next.hasAttribute(attr.name))old.removeAttribute(attr.name);
+   for(const {name,value} of next.attributes)if(name!=='open'&&old.getAttribute(name)!==value)old.setAttribute(name,value);
+   sync(old,[...next.childNodes]);
+  }
+  while(host.childNodes.length>nodes.length)host.lastChild.remove();
+ }
+ sync(parent,incoming);
+}
 export function h(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   for (const [key,value] of Object.entries(attrs || {})) {
     if (value === null || value === undefined || value === false) continue;
     if (key === 'class' || key === 'className') node.className=value;
     else if (key === 'dataset') Object.assign(node.dataset,value);
-    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(),value);
+    else if (key.startsWith('on') && typeof value === 'function') bindEvent(node,key.slice(2).toLowerCase(),value);
     else if (key === 'value') node.value=value;
     else if (key === 'checked' || key === 'disabled' || key === 'hidden' || key === 'open') node[key]=!!value;
     else node.setAttribute(key,value===true?'':String(value));

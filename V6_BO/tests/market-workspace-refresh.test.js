@@ -50,6 +50,14 @@ test('one collection feeds both clients, prefers original THS reasons and surviv
 test('fresh Sunday workspaces share the dated close, 28 THS causes, and actual first and second boards without creating strategy hits',async()=>{
  const {projectClosingWorkspace,closingWatch,systemPicks,summarizeReview}=await import('../public/nova/market.js');
  const input={closeSession:{day,cards:{}},trading:false,pool:[],review:null,ztPool:[],marketRecovery:{referenceDay:day}};
+ assert.equal(closingWatch(input,now),null,'a new installation cannot display a front-end sample as the real Friday pool');
+ const items=Array.from({length:28},(_,i)=>({code:String(600000+i),name:'同日样本'+i,level:i<25?1:i===25?2:4,
+  breakCount:0,firstSealTime:'09:35:00',refs:[{name:'同日板块'}]}));
+ const pool={date:day,source:'独立测试供应商',scope:'收盘涨停池',knownAt:now,complete:true,totalCount:items.length,sealed:items};
+ const recovery=createMarketRecovery({getDay:()=>day,clock:()=>now,save:async()=>true,collect:async()=>({
+  rows:[{date:day,knownAt:now,upLimit:28,structurePools:[pool]}],closeReasons:items.map(x=>({code:x.code,day,source:'同花顺涨停聚焦',text:'批次原文 '+x.code}))
+ })});
+ await recovery.tick();input.marketRecovery=recovery.display();
  const projection=projectClosingWorkspace(input,now),watch=closingWatch(input,now),s=summarizeReview(projection.review);
  assert.equal(watch.items.length,28);assert.equal(watch.items.filter(r=>r.reasonRaw&&r.reasonSource==='同花顺涨停聚焦').length,28);
  assert.deepEqual([s.first,s.continued,s.highest],[25,3,4]);assert.equal(watch.items.filter(r=>r.level===2).length,1);

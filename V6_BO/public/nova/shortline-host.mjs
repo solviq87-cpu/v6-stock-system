@@ -3,7 +3,8 @@ import { linkedPage,sampleFor } from './shortline/context.mjs';
 import { activeBook,selectBook,bookHeaders,replaceArchive } from './shortline/book-session.mjs';
 import { thsStockLink,thsBoardLink } from './shortline/quote-links.mjs';
 import { archivedStockQuote } from './market-evidence.js';
-import { rowsFrom,recoveryDisclosure } from './market.js';
+import { onResearchRead } from './automatic-research.js';
+import { rowsFrom,recoveryDisclosure,selectResearchPicks } from './market.js';
 
 const endpoint='/api/research/shortline';
 const pages={
@@ -26,9 +27,9 @@ export function researchTarget(ctx,archive){
     [native.trendPool,native.snapshotFieldDays?.trendPool]
   ].flatMap(([pool,sourceDay])=>rowsFrom(pool).map(row=>({...row,sourceDay})));
   const selected=stockCode(ctx.stock), chosen=selected?pools.find(r=>r.code===selected):pools[0];
-  const code=selected||chosen?.code||stockCode(archive.checks?.at(-1)?.code)||stockCode(archive.bars?.find(b=>b.role==='stock')?.code);
+  const code=selected||selectResearchPicks(native).items[0]?.code||chosen?.code||stockCode(archive.checks?.at(-1)?.code)||stockCode(archive.bars?.find(b=>b.role==='stock')?.code);
   const codeDay=day(chosen?.tradeDate)||day(chosen?.quoteDate)||day(chosen?.poolDay);
-  return {code,date:codeDay||day(chosen?.sourceDay)||(!chosen?day(native.snapshotDay):''),name:chosen?.name||''};
+  return {code,date:day(native.closeSession?.day)||(code===chosen?.code?codeDay||day(chosen?.sourceDay):'')||(!chosen?day(native.snapshotDay):''),name:chosen?.name||''};
 }
 function storedOn(state,code,date) {
   const source=state.v6Observation;
@@ -214,17 +215,16 @@ export async function renderShortline(route,ctx){
   const select=h('select',{'aria-label':'当前研究账户'},(state.books||[]).map(b=>h('option',{value:b.id},b.name)));
   select.value=book;select.addEventListener('change',()=>ui.switchBook(select.value,page));
   const controls=h('div',{class:'fy-inline'},select,...(book==='demo'?[]:[codeField,sync]),reload,button('账户与初始化',()=>ui.open('setup'),'quiet'));
-  wrap.append(h('header',{class:'fy-card fy-shortline-head'},h('div',{},h('h1',{},pages[page]),syncStatus),controls),recoveryBox,body);
-  statusText(state.permissions?.canWrite?'已读取 V6 研究档案':'当前副本提供已保存档案的只读核查。');
+  wrap.append(h('header',{class:'fy-card fy-shortline-head'},h('div',{},h('h1',{},pages[page]),syncStatus),h('details',{class:'fy-details'},h('summary',{},'切换标的或账户'),controls)),recoveryBox,body);
+  statusText(state.permissions?.canWrite?[target.code,target.date,'V6 自动同步'].filter(Boolean).join(' · '):'当前副本提供已保存档案的只读核查。');
   if(book==='demo'){
     recoveryBox.hidden=true;
     statusText('教学演示 · 此账户的记录和绩效独立保存');
   }
-  if(page!=='setup'&&(!state.trades?.length||!state.bars?.length)){
-    const guide=h('aside',{class:'fy-card fy-shortline-guide'},h('strong',{},'开始积累研究样本'),
-      h('div',{class:'fy-inline'},!state.bars?.length?button('导入 K 线或同花顺数据',()=>ui.open('import'),'quiet'):null,
-        !state.trades?.length?button('录入交易样本',()=>ui.open('trades'),'quiet'):null,
-        state.permissions?.canWrite?button('载入独立演示库',()=>ui.demo(),'quiet'):null));
+  if(page==='setup'&&(!state.trades?.length||!state.bars?.length)){
+    const guide=h('details',{class:'fy-details fy-shortline-guide'},h('summary',{},'旧资料、个人交易与教学演示'),
+      button('导入 K 线或同花顺数据',()=>ui.open('import'),'quiet'),button('录入交易样本',()=>ui.open('trades'),'quiet'),
+      state.permissions?.canWrite?button('载入独立演示库',()=>ui.demo(),'quiet'):null);
     wrap.insertBefore(guide,body);
   }
   root.addEventListener('click',e=>{
@@ -243,13 +243,25 @@ export async function renderShortline(route,ctx){
   if(!ctx.signal.aborted)render(ui);
   // Render the archive and cold-start actions first. A slow provider may finish
   // after the researcher has already started editing or moved to another page.
-  if(book!=='demo'&&target.code&&['overview','new','checks','review','backtest','pressure','structure'].includes(page)&&!ctx.signal.aborted){
-    let edited=false;
-    for(const event of ['input','change','pointerdown','keydown'])wrap.addEventListener(event,()=>{edited=true;},{once:true,capture:true,signal:ctx.signal});
-    void ui.loadEvidence(target.code,target.date).then(result=>{
-      if(ctx.signal.aborted||result?.reused||result?.degraded||ui.stock!==target.code)return;
-      if(!edited&&!wrap.querySelector('dialog[open]'))render(ui);
-    },e=>{if(!ctx.signal.aborted)statusText('行情正在重试，可继续使用已有档案 · '+e.message);});
+  if(book!=='demo'&&!ctx.signal.aborted){
+    let running=false,editing=false;
+    root.addEventListener('input',()=>{editing=true;});
+    root.addEventListener('change',()=>{editing=true;});
+    onResearchRead(ctx,async()=>{
+      if(running||editing||ctx.signal.aborted||wrap.querySelector('dialog[open]'))return;
+      const focused=shadow.activeElement;
+      if(focused?.matches('input,textarea,select,[contenteditable]'))return;
+      const targetNow=stockCode(route.code)?target:researchTarget(ctx,state);
+      if(!targetNow.code)return;
+      running=true;
+      try{
+        const result=await ui.loadEvidence(targetNow.code,targetNow.date);
+        if(ctx.signal.aborted||editing||wrap.querySelector('dialog[open]')||shadow.activeElement?.matches('input,textarea,select,[contenteditable]'))return;
+        ui.stock=targetNow.code;ui.date=day(result?.day)||targetNow.date;codeField.value=ui.stock;
+        if(!result?.reused&&!result?.degraded)render(ui);
+      }catch(error){if(!ctx.signal.aborted)statusText('已保留本次档案，联网后自动重读 · '+error.message);}
+      finally{running=false;}
+    });
   }
   return wrap;
 }

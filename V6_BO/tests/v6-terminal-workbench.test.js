@@ -173,7 +173,7 @@ test('real V6 module links route to existing review, strategies, simulated accou
  assert.equal(shortcuts.children.filter(el=>el?.tag==='button').length,12,
   'progressive disclosure preserves every business shortcut and its handler');
  for(const [label,expected] of [
-  ['详细复盘',['pulse','review']],['选股核心',['opportunities','all']],
+  ['详细复盘',['pulse','review']],['选股核心',['opportunities','ranked']],
   ['模拟盘',['assets','paper']],['我的持仓',['assets','holdings']],
   ['十四条选股',['opportunities','conditions']]
  ]){
@@ -197,9 +197,9 @@ test('native shell uses approved business navigation and worker caches every eag
 
 test('home previews three candidates from the same system picks list and links to it',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(2);
- s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,score:95,
+ s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,score:95,signals:['放量突破'],
    quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'},...Array.from({length:5},(_,i)=>({
-   code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,
+   code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,signals:['同日量能条件'],
    quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'
  }))];
  s.pool=[{code:'600110',name:'另一个交易日的备选池'}];
@@ -223,18 +223,18 @@ test('all received review rows are available on desktop and on-demand mobile, wi
  dom();const {renderTerminalOverview}=await api;
  const ctx=context(fixture(33)),view=renderTerminalOverview(ctx);
  const desktop=locate(view,el=>el?.className==='fy-terminal-desktop-table');
- const mobile=locate(view,el=>el?.className==='fy-terminal-mobile-cards');
- assert.ok(desktop&&mobile);
+ const mobile=()=>locate(view,el=>el?.className==='fy-terminal-mobile-cards');
+ assert.ok(desktop&&mobile());
  assert.match(textOf(desktop),/复盘股票32/,'33rd real row is present on desktop');
- assert.doesNotMatch(textOf(mobile),/复盘股票32/,'mobile preview starts with 12 rows');
- const expand=locate(view,el=>el?.className?.includes?.('fy-terminal-review-expand'));
- assert.ok(expand,'more rows must have a real interactive control');
- assert.equal(expand['aria-expanded'],'false');
- expand.listeners.click();
- assert.match(textOf(mobile),/复盘股票32/,'mobile can reveal all received rows');
- assert.equal(expand['aria-expanded'],'true');
- expand.listeners.click();
- assert.doesNotMatch(textOf(mobile),/复盘股票32/,'mobile can collapse large list');
+ assert.doesNotMatch(textOf(mobile()),/复盘股票32/,'mobile preview starts with 12 rows');
+ const expand=()=>locate(view,el=>el?.className?.includes?.('fy-terminal-review-expand'));
+ assert.ok(expand(),'more rows must have a real interactive control');
+ assert.equal(expand()['aria-expanded'],'false');
+ expand().listeners.click();
+ assert.match(textOf(mobile()),/复盘股票32/,'mobile can reveal all received rows');
+ assert.equal(expand()['aria-expanded'],'true');
+ expand().listeners.click();
+ assert.doesNotMatch(textOf(mobile()),/复盘股票32/,'mobile can collapse large list');
  assert.match(textOf(view),/未独立核实的题材不是涨停因果证明/);
  await tick();ctx.controller.abort();
 });

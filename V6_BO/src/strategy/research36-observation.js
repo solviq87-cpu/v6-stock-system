@@ -8,13 +8,14 @@ const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite
 const close=d=>Date.parse(d+'T15:00:00+08:00');
 const hash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const range=(dates,last,n)=>{const i=dates.indexOf(last);return i>=n-1?dates.slice(i-n+1,i+1):[];};
-function compileObservation(observation,{tradingDates=[],config={}}={}){
+function compileObservation(observation,{tradingDates=[],config={},publicHistory=false}={}){
  settings(config);const {stock,asOf}=observation||{};
  if(!stock||typeof stock.symbol!=='string'||!/^\d{6}$/.test(stock.symbol)||!clock(asOf))throw Error('股票观察身份或时点无效');
  const code=stock.symbol,issues=[],features={},bars=[];
  const source=stock.source,version=observation.observation?.observationHash;
  const calendarOK=Array.isArray(tradingDates)&&tradingDates.length>0&&tradingDates.length<=20000&&tradingDates.every((d,i)=>day(d)&&(!i||d>tradingDates[i-1]));
- const recordOK=stock.simulated!==true&&stock.retracted!==true&&hash(version)&&['eastmoney','tencent'].includes(source)&&stock.provider===source&&stock.priceBasis==='unadjusted'&&
+ const supportedSource=['eastmoney','tencent'].includes(source)||publicHistory&&source==='sina';
+ const recordOK=stock.simulated!==true&&stock.retracted!==true&&hash(version)&&supportedSource&&stock.provider===source&&stock.priceBasis==='unadjusted'&&
   clock(stock.observedAt)&&stock.observedAt<=asOf&&Array.isArray(stock.bars)&&stock.bars.length<=500;
  if(!recordOK)issues.push('观察档案、来源、价格口径或接收时点不完整');
  if(!calendarOK)issues.push('缺少有序交易日历，不能将缺失日线当连续交易日');

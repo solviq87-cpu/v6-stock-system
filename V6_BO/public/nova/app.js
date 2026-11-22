@@ -9,7 +9,7 @@ const MAIN=[['pulse','脉冲','pulse'],['opportunities','机会','spark'],['lab'
 /* Two user-supplied reference screens. Labels are navigation only, never trading commands. */
 const REFERENCE_TOP=[
  ['首页','pulse','overview','pulse'],['行情','pulse','market-overview','pulse'],
- ['选股','opportunities','all','spark'],['策略','lab','strategies','lab'],
+ ['选股','opportunities','ranked','spark'],['策略','lab','strategies','lab'],
  ['回测','lab','backtest','lab'],['复盘','pulse','review','pulse'],
  ['资讯','inbox','all','bell'],['资金流','pulse','sectors','pulse'],
  ['风控','assets','risk','assets'],['模拟盘','assets','paper','assets'],
@@ -17,14 +17,14 @@ const REFERENCE_TOP=[
 ];
 const REFERENCE_MOBILE=[
  ['首页','pulse','overview','pulse'],['行情','pulse','market-overview','pulse'],
- ['选股','opportunities','all','spark'],['复盘','pulse','review','lab'],
+ ['选股','opportunities','ranked','spark'],['复盘','pulse','review','lab'],
  ['我的','assets','holdings','user']
 ];
 // User-approved original V6 business navigation. Every entry points to an existing route;
 // the internal five-space model, authentication and all legacy recovery URLs remain intact.
 const BUSINESS_NAV=[
  ['首页总览','pulse','overview'],['实时行情','pulse','market-overview'],
- ['AI选股','opportunities','all'],['策略中心','lab','strategies'],
+ ['AI选股','opportunities','ranked'],['策略中心','lab','strategies'],
  ['板块资金','pulse','sectors'],['新闻因子','inbox','all'],
  ['涨停复盘','pulse','review'],['龙头榜','opportunities','relay-first'],
  ['市场情绪','pulse','market-overview'],['K线图谱','pulse','market-overview'],
@@ -171,7 +171,7 @@ async function renderRoute() {
  const controller=routeController,ctx=context(controller.signal);
  frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
   route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
- const sub=route.sub||({opportunities:'all',assets:'overview',inbox:'all',settings:'preferences'}[route.view]||'');
+ const sub=route.sub||({opportunities:'ranked',assets:'overview',inbox:'all',settings:'preferences'}[route.view]||'');
  const workspace=workspaceFor(route.view,sub);
  frame.dataset.workspace=workspace;
  frame.querySelectorAll('.fy-nav [data-fy-route]').forEach(node=>{const active=node.dataset.fyRoute===route.view&&(!node.dataset.fySub||node.dataset.fySub===route.sub);node.dataset.current=String(active);if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
@@ -221,7 +221,6 @@ async function refresh(manual=false,{showSuccess=true}={}) {
   if(!role||controller?.signal.aborted)return;
   state=retainMarket(state,incoming);lastRead=Date.now();online=true;snapshotStatus();
   if(!main?.firstElementChild||main.firstElementChild.matches('.fy-loading:not([data-pending-route])'))await renderRoute();
-  else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state,{manual});}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.({manual});
   if(manual&&showSuccess)notify('已读取云端状态，报价原始时点见页面');
@@ -231,7 +230,7 @@ async function refresh(manual=false,{showSuccess=true}={}) {
 async function refreshAutomatically() {
  if(!role||document.visibilityState!=='visible')return;
  const isFastRoute=route.view==='opportunities'&&['auction','movement'].includes(route.sub);
- if(state?.marketClock?.trading===false||!isFastRoute||drawer?.isOpen()||!lastRead||Date.now()-lastRead>=30000)return refresh(false);
+ if(state?.marketClock?.trading===false||!isFastRoute||drawer?.isOpen()||!lastRead||Date.now()-lastRead>=10000)return refresh(false);
  if(fastBusy||Date.now()-fastReadAt<4000)return;
  fastBusy=true;
  const controller=routeController,started=performance.now();

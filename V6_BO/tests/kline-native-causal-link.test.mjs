@@ -69,3 +69,20 @@ test('GET and native-to-formal handoff use the research book and filters; a prio
   defers[1]({ok:true,state:{book:{id:'main'},permissions:{role:'edit'},bars:[secret]}});
   await new Promise(r=>setImmediate(r));assert.doesNotMatch(page.textContent,/上个账户的样本/);assert.match(page.textContent,/无法读取私有档案/);
 });
+
+test('the open K-line view follows the close date without repeating archive reads on quote ticks',async t=>{
+  const previous={document:globalThis.document,Node:globalThis.Node};selectBook('main');
+  globalThis.Node=El;globalThis.document={createElement:k=>new El(k),createElementNS:(_,k)=>new El(k),createTextNode:v=>{const e=new El('text');e.textContent=v;return e;}};
+  t.after(()=>{Object.assign(globalThis,previous);selectBook('main');});
+  const calls=[],listeners=[],ctx={role:'edit',stock:'600000',state:{closeSession:{day:days[0]}},signal:new AbortController().signal,
+    onState:f=>listeners.push(f),api:async p=>{
+      assert.equal(p,'/api/research/shortline');const day=ctx.state.closeSession.day;calls.push(day);
+      const bars=data().stock.filter(b=>b.date<=day).map(b=>({...b,role:'stock',source:'V6/test',priceBasis:'unadjusted',volumeUnit:'shares',knownAt:Date.parse(b.date+'T15:11:00+08:00')}));
+      return {ok:true,state:{revision:3,book:{id:'main'},permissions:{role:'edit'},bars}};
+    }};
+  const page=renderKlineLearning(ctx);
+  const done=()=>new Promise(r=>setImmediate(r));await done();
+  for(const cb of listeners)cb();await done();assert.deepEqual(calls,[days[0]]);
+  ctx.state.closeSession.day=days[1];for(const cb of listeners)cb();await done();
+  assert.deepEqual(calls,[days[0],days[1]]);assert.ok(page.textContent.includes(days[1]));
+});
