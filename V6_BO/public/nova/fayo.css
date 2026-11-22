@@ -635,6 +635,7 @@ input::placeholder,textarea::placeholder{color:#7e98b7}
 .fy-terminal-eyebrow{font-size:9px;letter-spacing:.12em;color:#76b9ec;font-weight:700}
 .fy-terminal-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .fy-terminal-actions .fy-button{min-height:36px;font-size:11px;padding:6px 12px}
+.fy-terminal>.fy-terminal-deployment{order:-1;align-self:flex-end;min-height:36px;padding:4px 10px}
 .fy-terminal-provenance{
   display:flex;flex-wrap:wrap;align-items:center;gap:5px 16px;
   padding:10px 15px;border-radius:8px;border:1px solid #2c4968;

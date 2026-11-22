@@ -22,6 +22,7 @@ test('resume shows actual local SHA and dirty state without claiming remote veri
   const sha=git(['rev-parse','HEAD']);git(['update-ref','refs/remotes/origin/dev',sha]);
   fs.writeFileSync(path.join(root,'change.txt'),'CONTENTS_MUST_NOT_BE_READ');
   const result=resume(root);
+  assert.equal(result.split('\n')[0],'部署交接（接手前先读）=DEPLOYMENT.md');
   assert.ok(result.includes(sha));assert.match(result,/落后0，领先0/);assert.match(result,/change\.txt/);
   assert.match(result,/不能证明远端 CI/);assert.doesNotMatch(result,/HISTORICAL_CONTENT|CONTENTS_MUST_NOT/);
   assert.ok(result.length<6000);

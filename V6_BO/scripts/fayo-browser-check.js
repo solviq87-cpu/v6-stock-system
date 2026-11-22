@@ -220,6 +220,11 @@ const runChecks=async()=>{
    await page.goto(origin+'/');
    await page.locator('.fy-header').waitFor({state:'visible'});
    await page.locator('.fy-stock-card[data-code="600101"]').first().waitFor({state:'visible'});
+   const deployment=page.getByRole('link',{name:'部署交接文档',exact:true});
+   assert.equal(await deployment.getAttribute('href'),'https://github.com/solviq87-cpu/v6-stock-system/blob/dev/DEPLOYMENT.md');
+   assert.equal(await deployment.getAttribute('rel'),'noopener noreferrer');
+   const deploymentBox=await deployment.boundingBox();
+   assert.ok(deploymentBox&&deploymentBox.y>=0&&deploymentBox.y+deploymentBox.height<=page.viewportSize().height,'editor opens the deployment guide from the first screen at '+width);
    const stream=await streamRequest;
    assert.equal(stream.headers()['x-qd-token'],'fayo-synthetic-session','stream also authenticates when the gateway owns Authorization');
    assert.ok(!new URL(stream.url()).searchParams.has('token'),'stream credentials stay in headers');
@@ -678,6 +683,8 @@ const runChecks=async()=>{
   await reader.addInitScript(()=>{localStorage.setItem('qd_device','fayo-synthetic-reader');localStorage.setItem('qd_role','view');});
   const readPage=await reader.newPage(),readerStart=requests.length;
   await readPage.goto(origin+'/');await readPage.locator('.fy-header').waitFor({state:'visible'});
+  await readPage.locator('.fy-reference-home').waitFor({state:'visible'});
+  assert.equal(await readPage.getByRole('link',{name:'部署交接文档',exact:true}).count(),0,'viewer has no editor deployment shortcut');
   await readPage.locator('.fy-reference-topnav [data-workspace-tab="选股"]').click();
   await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/all"]').waitFor({state:'visible'});
   assert.equal(await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/wash"]').count(),0);
