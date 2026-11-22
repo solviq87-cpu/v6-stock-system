@@ -2,6 +2,9 @@ import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
 import {quoteCrossCheckPanel} from './market.js';
+import {renderManualLearning} from './operations.js';
+import {renderKlineLearning} from './kline-learning-view.js';
+import {appendResearchExtensions} from './research-extensions.js';
 
 const arr=value=>Array.isArray(value)?value:[];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -189,7 +192,7 @@ function backtest(ctx){
   paper.action('追加导入的历史',async()=>{const input=await imported.read();return request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'append',history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})});});
   root.append(paper.body);return root;
 }
-function learning(ctx){
+function learningStatus(ctx){
   const root=n('div',undefined,'fy-stack'),limit=input('number','30',{min:'1',max:'60',step:'1'}),progress=workbench(ctx,'学习进度与复访','只把具备独立目标日证据的研究计入完成；历史匹配频率与实际收益分开。',[field('本次最多处理',limit)]);
   const render=data=>{const s=data.status||data.result||data,c=s.counts||{};return append(n('div',undefined,'fy-stack'),metrics([['总记录',c.total??'未知'],['待到期',c.pending??'未知'],['已验证',c.matured??'未知'],['无效证据',c.invalid??'未知']]),evidenceTree(s));};
   progress.action('读取学习进度',()=>request(ctx,'/api/learn-status'),{render});
@@ -198,6 +201,29 @@ function learning(ctx){
   runtime.action('检查当前运行条件',()=>request(ctx,'/api/research/learning-runtime'),{render:data=>evidenceTree(data.result||data)});
   runtime.action('核对本地模型摘要',()=>request(ctx,'/api/research/learning-runtime',{probeModel:true}),{render:data=>evidenceTree(data.result||data)});
   runtime.action('读取研究代理状态',()=>request(ctx,'/api/research/agent-status'));root.append(runtime.body);return root;
+}
+function learning(ctx){
+  const root=n('div',undefined,'fy-stack'),tabs=n('nav',undefined,'fy-tabs'),content=n('div',undefined,'fy-stack');
+  tabs.setAttribute('aria-label','智能学习中心分区');
+  const sections=[
+    ['history','历史K线样本'],['manual','人工交易样本'],['verify','战法校验与回测'],['progress','已有学习进度']
+  ];
+  const buttons=new Map(),panes=new Map();
+  const verification=()=>{
+    const strategyPane=strategies(ctx),backtestPane=backtest(ctx);
+    appendResearchExtensions(strategyPane,{sub:'strategies'},ctx);
+    appendResearchExtensions(backtestPane,{sub:'backtest'},ctx);
+    return append(n('div',undefined,'fy-stack'),strategyPane,backtestPane);
+  };
+  const choose=key=>{
+    if(ctx.signal?.aborted)return;
+    for(const [name,control] of buttons){control.classList.toggle('active',name===key);control.setAttribute('aria-current',name===key?'page':'false');}
+    if(!panes.has(key))panes.set(key,key==='history'?renderKlineLearning(ctx):key==='manual'?renderManualLearning(ctx):key==='verify'?verification():learningStatus(ctx));
+    content.replaceChildren(panes.get(key));
+  };
+  for(const [key,label] of sections){const control=btn(label,()=>choose(key),'secondary');buttons.set(key,control);tabs.append(control);}
+  root.append(box('战法验证与智能学习中心','三类研究共用当前权限入口；历史CSV暂在浏览器分析，人工交易复盘仍使用原服务端私有账本。原策略与生产权重不受影响。'),tabs,content);
+  choose('history');return root;
 }
 function sources(ctx){
   const root=n('div',undefined,'fy-stack'),code=symbolInput(ctx),provider=select([['auto','自动选择'],['eastmoney','东方财富'],['tencent','腾讯公开行情']]),days=input('number','120',{min:'30',max:'500',step:'1'});
@@ -284,7 +310,7 @@ function models(ctx){
 export function renderResearch(route,ctx){
   const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence};
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
-  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','学习进度'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
+  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
   const nav=fyNode('nav',{class:'fy-subnav','aria-label':'实验室工作区'},choices.map(([key,label])=>{const control=fyAction(label,()=>ctx.navigate('lab',key),key===active?'primary':'quiet');control.setAttribute('aria-current',key===active?'page':'false');return control;}));
   return fyNode('div',{class:'fy-stack'},ctx.workspaceNavigation?null:nav,renders[active](ctx));
 }

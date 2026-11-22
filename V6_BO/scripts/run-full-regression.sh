@@ -26,8 +26,8 @@ if [[ -z "${V6_MODEL_PYTHON:-}" && -x /opt/pyvenv/bin/python3 ]]; then
 fi
 printf 'Node: %s\nNative Python: %s\nML Python: %s\n' "$NODE_BIN" "$NATIVE_PYTHON" "${V6_MODEL_PYTHON:-python3 (may lack scikit-learn)}"
 if [[ "${V6_TEST_REPORTER:-tap}" == "tap" ]]; then
-  "$NODE_BIN" --test --test-reporter=tap --test-concurrency="${V6_TEST_CONCURRENCY:-6}" --test-timeout=120000 tests/*.test.js | tee "$TMP_BIN/full.tap"
+  "$NODE_BIN" --test --test-reporter=tap --test-concurrency="${V6_TEST_CONCURRENCY:-6}" --test-timeout=120000 tests/*.test.js tests/*.test.mjs | tee "$TMP_BIN/full.tap"
   "$NODE_BIN" scripts/verify-tap-completeness.js "$TMP_BIN/full.tap"
 else
-  "$NODE_BIN" --test --test-reporter="${V6_TEST_REPORTER}" --test-concurrency="${V6_TEST_CONCURRENCY:-6}" --test-timeout=120000 tests/*.test.js
+  "$NODE_BIN" --test --test-reporter="${V6_TEST_REPORTER}" --test-concurrency="${V6_TEST_CONCURRENCY:-6}" --test-timeout=120000 tests/*.test.js tests/*.test.mjs
 fi
