@@ -30,9 +30,10 @@ test('采集保留 240 个交易分钟，核对 48 个同分钟价格并忽略�
  const requests=[];
  const report=await collect(async url=>{
   requests.push(url);
+  if(url.includes('10jqka.com.cn'))return {status:200,raw:Buffer.from('quotebridge_v6_realhead_hs_600519_last('+JSON.stringify({items:{updateTime:day+' 15:30','10':'10.00'}})+')')};
   return url.includes('gtimg.cn')?minutesResponse('600519',['0930 9.90',...minutes.map(m=>m+' 10.00'),'1530 11.00']):sinaResponse();
  });
- assert.equal(requests.length,2);
+ assert.equal(requests.length,3);
  assert.ok(requests.every(url=>new URL(url).protocol==='https:'));
  assert.equal(report.canTrade,false);
  assert.equal(report.membershipVerified,false);
@@ -45,6 +46,8 @@ test('采集保留 240 个交易分钟，核对 48 个同分钟价格并忽略�
  assert.equal(sina.identity,'requested-symbol');
  assert.equal(comparison.matches,48);
  assert.equal(comparison.closeAgrees,true);
+ assert.equal(report.stocks[0].thsCloseReference.matchesBoth,true);
+ assert.equal(report.stocks[0].thsCloseReference.providerUpdatedAt,Date.parse(day+'T15:30:00+08:00'));
  assert.match(tencent.sha256,/^[a-f0-9]{64}$/);
 });
 

@@ -8,6 +8,7 @@ const {createHash}=require('node:crypto');
 const {aShareCalendarDate}=require('../src/core/a-share-calendar');
 const {normalizeDay}=require('../src/core/limit-reason-evidence');
 const {timestamp:quoteTimestamp}=require('../src/core/public-market');
+const {parseThsRealhead}=require('../src/core/ths-snapshot-evidence');
 const {requestResearchBytes,createResearchRequest}=require('../src/core/research-curl-bytes');
 
 const minuteLabel=index=>String(Math.floor(index/60)).padStart(2,'0')+':'+String(index%60).padStart(2,'0');
@@ -24,7 +25,8 @@ function sourceUrls(symbol){
  return {
   tencent:'https://web.ifzq.gtimg.cn/appstock/app/minute/query?'+new URLSearchParams({code:symbol}),
   sina:'https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20series=/CN_MarketDataService.getKLineData?'+
-   new URLSearchParams({symbol,scale:'5',ma:'no',datalen:'48'})
+   new URLSearchParams({symbol,scale:'5',ma:'no',datalen:'48'}),
+  ths:'https://d.10jqka.com.cn/v6/realhead/hs_'+symbol.slice(2)+'/last.js'
  };
 }
 
@@ -102,6 +104,15 @@ async function captureIntraday({tradeDate,codes},{request=requestResearchBytes,r
     throw Error('原始响应或采集时间无效');
    receipt={receivedAt,bytes:raw.length,sha256:createHash('sha256').update(raw).digest('hex')};
    const text=raw.toString('utf8').trim();
+   if(source==='ths'){
+    const reading=parseThsRealhead(text,symbol.slice(2),receivedAt);
+    if(!reading)throw Error('同花顺快照证券身份无效');
+    const {items,providerUpdatedAt,providerTradeDate}=reading;
+    const lastPrice=price(items['10']);
+    const dated=providerTradeDate===tradeDate;
+    return {source,url,...receipt,providerUpdatedAt,providerTradeDate,status:!providerTradeDate?'time-unknown':!dated?'date-mismatch':'daily-snapshot',
+     price:dated?lastPrice:null,nativeActiveBuy:dated?items['14']??null:null,nativeActiveSell:dated?items['15']??null:null};
+   }
    // Unwrap only a returned array. Never execute provider JavaScript.
    const json=JSON.parse(source==='sina'?(text.match(/\(\s*(\[[\s\S]*\])\s*\)\s*;?$/)?.[1]||text):text);
    const series=source==='tencent'?tencentRows(json,symbol,tradeDate,receivedAt):sinaRows(json,tradeDate,receivedAt);
@@ -115,8 +126,12 @@ async function captureIntraday({tradeDate,codes},{request=requestResearchBytes,r
  const stocks=[];
  for(const code of codes){
   const symbol=symbolCode(code),urls=sourceUrls(symbol);
-  const [tencent,sina]=await Promise.all([collect('tencent',urls.tencent,symbol),collect('sina',urls.sina,symbol)]);
-  stocks.push({code,tencent,sina,comparison:comparePrices(tencent,sina)});
+  const [tencent,sina,ths]=await Promise.all(Object.keys(urls).map(source=>collect(source,urls[source],symbol)));
+  const comparison=comparePrices(tencent,sina);
+  const thsCloseReference=ths.price!=null&&ths.providerUpdatedAt>=timestamp(tradeDate,'15:00')&&comparison.close?
+   {price:ths.price,providerUpdatedAt:ths.providerUpdatedAt,
+    matchesBoth:ths.price===comparison.close.tencent&&ths.price===comparison.close.sina}:null;
+  stocks.push({code,tencent,sina,ths,comparison,thsCloseReference});
  }
  return {schemaVersion:1,tradeDate,startedAt:now,receivedAt:clock(),mode:'one-shot-intraday-price-research',
   membershipVerified:false,verifiedLive:false,canTrade:false,stocks};
@@ -136,8 +151,8 @@ async function main([tradeDate,output,...codes]){
   await fs.writeFile(file,JSON.stringify(report,null,2)+'\n',{mode:0o600,flag:'wx'});
   await fs.link(file,destination);
  }finally{await fs.rm(staging,{recursive:true,force:true});}
- process.stdout.write(JSON.stringify({tradeDate,output:destination,stocks:report.stocks.map(({code,tencent,sina,comparison})=>({
-  code,tencent:tencent.captured??null,sina:sina.captured??null,compared:comparison.coverage,matches:comparison.matches,close:comparison.close
+ process.stdout.write(JSON.stringify({tradeDate,output:destination,stocks:report.stocks.map(({code,tencent,sina,comparison,thsCloseReference})=>({
+  code,tencent:tencent.captured??null,sina:sina.captured??null,compared:comparison.coverage,matches:comparison.matches,close:comparison.close,thsCloseReference
  }))})+'\n');
 }
 

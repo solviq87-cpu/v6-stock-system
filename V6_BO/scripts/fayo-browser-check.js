@@ -37,6 +37,8 @@ function state(){
  const dashboard={observedAt:Date.now(),indexObservedAt:sourceAt,source:'合成浏览器数据 · 非真实行情',snapshotDay:phase==='empty'?'20261115':'20261113',snapshotRetained:true,isSnapshot:true,trading:false,indices:phase==='empty'?[]:indices,rows,counts:{candidates:rows.length,focused:3,signals:2,risk:1},mood:{upRatio:62,label:'休市观察',note:'保留合成周五快照'},strategies:[{label:'十四条选股',count:3},{label:'八字口诀',count:2},{label:'GPT 五策略',count:1},{label:'Python 三轮筛选',count:2}],pushes:{items:rows.slice(0,2).map(row=>({...row,stage:'history',triggerAt:sourceAt,sentAt:sourceAt,sendStatus:'sent'}))}};
  const sourcePanels={
   ...leadershipFixture(),
+  fastStockMoves:{tradeDate:'2026-11-13',phase:'afternoon',checkedAt:sourceAt-300000,requested:12,observed:8,comparable:5,count:1,thresholdPct:1,
+   items:[{...stocks[0],basePrice:12.1,risePct:1.653,spanMs:8000,quoteAt:sourceAt-300000,vendorQuoteAt:sourceAt-300000}]},
   sectorsDay:'20261113',ztDay:'20261113',
   ztBySector:[{sector:'合成能源',count:2,stocks:[{...stocks[0],role:'leader'},{...stocks[2],role:'mid'}]},
    {sector:'合成材料',count:1,stocks:[{...stocks[1],role:'leader'}]}],
@@ -325,6 +327,18 @@ const runChecks=async()=>{
     assert.ok(!requests.slice(beforePicks).some(entry=>['/api/quant-picks','/api/intraday-strong','/api/refresh'].includes(entry.path)),
      'opening and refreshing system picks only reads the shared state');
     phase='normal';
+    await navigate(page,'opportunities','movement');
+    const fastMoves=page.locator('[data-fast-stock-moves]');
+    await fastMoves.waitFor({state:'visible'});
+    assert.match(await fastMoves.innerText(),/有效报价 8 \/ 12 只 · 可比较 5 只/);
+    assert.match(await fastMoves.innerText(),/\+1\.65% \/ 8 秒/);
+    assert.match(await fastMoves.innerText(),/历史观察/);
+    const moveSummary=page.getByText('重点股 · 近一分钟涨速',{exact:true});
+    await moveSummary.click();await fastMoves.waitFor({state:'hidden'});
+    await moveSummary.click();await fastMoves.waitFor({state:'visible'});
+    await page.locator('.fy-toast').waitFor({state:'hidden'});
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+    await page.screenshot({path:path.join(output,'fayo-fast-stock-moves-'+width+'.png'),fullPage:false});
     await navigate(page,'pulse','overview');
     await page.locator('.fy-reference-home').waitFor();
    }
