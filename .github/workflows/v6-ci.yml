@@ -307,6 +307,9 @@ jobs:
           test -f package.json || { echo 'V6_BO/package.json missing'; exit 1; }
           npm run check
           npm test
+      - name: Verify independent A-share strategy lab
+        working-directory: ashare-strategy-lab
+        run: npm test
       - name: Eight-point integration regression (offline evidence only)
         id: eightpointcheck
         run: node --test tests/eight-point-flow.test.js tests/research-watch-journal.test.js tests/research-explanation-ui.test.js tests/manual-holding-risk-watch.test.js tests/research-rule-weight-review.test.js
