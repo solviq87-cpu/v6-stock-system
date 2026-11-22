@@ -24,7 +24,8 @@ test('tencent merge keeps unknown money flow as null and preserves genuine zero'
    {code:'000002',name:'B',price:11}
   ]
  };
- const fetchAllStocksTx=loadFunction('async function fetchAllStocksTx(base) {','function normalizeStock(d)','fetchAllStocksTx',context);
+ loadFunction('function batchQuoteAtPublication(row, now) {','function batchQuoteWarn','batchQuoteAtPublication',context);
+ const fetchAllStocksTx=loadFunction('async function fetchAllStocksTx(','function normalizeStock(d)','fetchAllStocksTx',context);
  const base=[{code:'000001',mainInflow:undefined,mainPct:null},{code:'000002',mainInflow:0,mainPct:0}];
  while(base.length<1000)base.push({code:String(base.length+1).padStart(6,'0')});
  const out=await fetchAllStocksTx(base);
@@ -34,6 +35,33 @@ test('tencent merge keeps unknown money flow as null and preserves genuine zero'
  assert.equal(unknown.mainPct,null);
  assert.equal(zero.mainInflow,0);
  assert.equal(zero.mainPct,0);
+});
+
+test('全市场补价只访问缺报价的代码，慢批次结束时再次校验原时点',async()=>{
+ const at=Date.parse('2026-11-20T10:00:00+08:00');
+ let now=at,requested;
+ class Clock extends Date{static now(){return now;}}
+ const raw={code:'000001',price:10,pct:1,quoteAt:at,receivedAt:at,quoteSource:'eastmoney',canTrade:true};
+ const unknown={code:'000002',price:11,pct:1,quoteAt:null,receivedAt:at,quoteSource:'eastmoney',mainInflow:0};
+ // The cache predates the first symbol in the supplier's current result.
+ const codes=Array.from({length:1000},(_,i)=>String(i+2).padStart(6,'0'));
+ const context={Date:Clock,FULL_MIN_OK:4000,loadUniverse:()=>codes,
+  fetchBatchSnapshotTx:async query=>{
+   requested=query;now+=20000;
+   return [{code:'000002',price:12,quoteAt:now,receivedAt:now,quoteSource:'tencent',canTrade:true}];
+  }};
+ loadFunction('function batchQuoteAtPublication(row, now) {','function batchQuoteWarn','batchQuoteAtPublication',context);
+ const fill=loadFunction('async function fetchAllStocksTx(','function normalizeStock(d)','fetchAllStocksTx',context);
+ const [retained,filled]=await fill([raw,unknown]);
+ assert.equal(requested.length,1000);
+ assert.equal(requested[0],'000002');
+ assert.equal(retained.quoteAt,at);
+ assert.equal(retained.receivedAt,at);
+ assert.equal(retained.quoteFreshness,'stale');
+ assert.equal(retained.canTrade,false);
+ assert.equal(filled.quoteSource,'tencent');
+ assert.equal(filled.mainInflow,0);
+ assert.equal(filled.quoteAt,now);
 });
 
 test('sina source records unknown money flow as null instead of fabricated zero',async()=>{

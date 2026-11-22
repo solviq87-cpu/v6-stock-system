@@ -137,7 +137,11 @@ const UNIVERSE_CACHE = path.join(__dirname, '.universe_cache.json');
 const FULL_MIN_OK = 4000;   // 达到这个条数才认为全量拉取成功（⛔ 实测新浪 hs_a 全量=4600只含北交所；东财盘中部分页仅~2900~3200，必须高于此阈值才接受，否则会被部分页误当全集）
 const FULL_MIN_USE = 800;   // 低于这个条数才认为彻底失败
 
-async function fetchAllStocks() {
+function fetchAllStocks() {
+  return dedup('allStocks', fetchAllStocksOnce);
+}
+
+async function fetchAllStocksOnce() {
   // ⛔ 2026-10-09 修（用户第4次投诉"市场温度只有2900只"）：
   //    根因 = 东财全A分页盘中约50%随机断连，只拿到~29页≈3190只，而旧代码 FULL_MIN_OK=2500
   //    把这份【部分页】当"全量"接受并写进 universe → 全市场广度永远只有~2900~3200只。
@@ -145,27 +149,28 @@ async function fetchAllStocks() {
   //          ② FULL_MIN_OK 提到 4800，东财部分页不再被误判为全量；
   //          ③ 东财降为兜底，腾讯补价兜底。
   //    数据准确性：新浪 HQ 为实时行情标准源，pct/现价/流通市值均准确；北交所(8/4/92)一并纳入（全量）。
+  let best = [], lastErr = null;
   // ① 首选：新浪全A（含北交所，全量、稳定）
   try {
     const s = await fetchAllStocksSina();
     if (s && s.length >= FULL_MIN_OK) { saveUniverse(s.map(x => x.code)); return s; }
-    if (s && s.length) console.error('[em] 新浪全A仅 ' + s.length + ' 只（不足' + FULL_MIN_OK + '），转东财兜底');
+    if (s && s.length) {
+      best = s;
+      console.error('[em] 新浪全A仅 ' + s.length + ' 只（不足' + FULL_MIN_OK + '），转东财兜底');
+    }
   } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; console.error('[em] 新浪全A异常，转东财:', e && e.message); }
 
-  // ② 兜底：东财全量分页（受随机断连影响，可能不全）
-  let best = [], lastErr = null;
-  for (let round = 0; round < 2; round++) {
-    try {
-      const r = await fetchAllStocksEM();
-      if (r && r.length >= FULL_MIN_OK) { saveUniverse(r.map(x => x.code)); return r; }
-      if (r && r.length > best.length) best = r;
-    } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; lastErr = e; }
-    if (round === 0) await delay(1000);
-  }
-  // ③ 东财不全 → 用缓存全集 + 腾讯批量快照补价（腾讯 qt.gtimg.cn 60只一批，交易时段稳定得多）
+  // ② 东财只跑一轮，分页器自带缺页重试。保留两路中覆盖较大的单源快照。
+  let eastmoney = [];
+  try {
+    eastmoney = (await fetchAllStocksEM()) || [];
+    if (eastmoney.length >= FULL_MIN_OK) return eastmoney;
+    if (eastmoney.length > best.length) best = eastmoney;
+  } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; lastErr = e; }
+  // ③ 腾讯使用已缓存的代码清单补价。资金字段仍以东财原记录为依据。
   if (best.length || fs.existsSync(UNIVERSE_CACHE)) {
     try {
-      const filled = await fetchAllStocksTx(best);
+      const filled = await fetchAllStocksTx(eastmoney, best);
       if (filled && filled.length >= FULL_MIN_OK) return filled;
       if (filled && filled.length > best.length) best = filled;
     } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; console.error('[em] 腾讯补价失败:', e.message); }
@@ -207,37 +212,38 @@ async function fetchAllStocksEM() {
   const BUDGET = 120000;                      // 60页在共享1秒预算下仍有完成机会；到期不再派页
   const left = () => BUDGET - (Date.now() - T0);
   const pages = new Array(EM_PAGES).fill(null);
-  let total = 0, cursor = 0;
+  let total = 0, cursor = 0, consecutiveFailures = 0, stopped = false;
+  const recordPage = (i, j) => {
+    if (Array.isArray(j?.data?.diff) && j.data.diff.length) {
+      pages[i] = j.data.diff;
+      if (j.data.total) total = Math.max(total, j.data.total);
+      consecutiveFailures = 0;
+    } else if (!total || i < Math.ceil(total / 100)) {
+      if (++consecutiveFailures >= 4) stopped = true;
+    }
+  };
   const worker = async () => {
-    for (;;) {
+    while (!stopped) {
       const i = cursor++;
-      if (i >= EM_PAGES || left() < 2000) return;
+      if (i >= EM_PAGES || (total && i >= Math.ceil(total / 100)) || left() < 2000) return;
       try {
-        const j = await getPaged(EM_PAGE_URL(i + 1), 5000, 2);
-        if (j && j.data && j.data.diff && j.data.diff.length) {
-          pages[i] = j.data.diff;
-          if (j.data.total) total = Math.max(total, j.data.total);
-        }
-      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
+        recordPage(i, await getPaged(EM_PAGE_URL(i + 1), 5000, 2));
+      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; recordPage(i, null); }
     }
   };
   await Promise.all(Array.from({ length: CONC }, worker));
 
   // ② 串行补漏（最多 2 轮，只补真正需要的页，超预算就收工）
-  for (let round = 0; round < 2 && left() > 2000; round++) {
+  for (let round = 0; round < 2 && left() > 2000 && !stopped; round++) {
     const needPages = total ? Math.min(EM_PAGES, Math.ceil(total / 100)) : EM_PAGES;
     const miss = [];
     for (let i = 0; i < needPages; i++) if (!pages[i]) miss.push(i);
     if (!miss.length) break;
     for (const i of miss) {
-      if (left() < 1500) break;
+      if (left() < 1500 || stopped) break;
       try {
-        const j = await getPaged(EM_PAGE_URL(i + 1), 6000, 3);
-        if (j && j.data && j.data.diff && j.data.diff.length) {
-          pages[i] = j.data.diff;
-          if (j.data.total) total = Math.max(total, j.data.total);
-        }
-      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
+        recordPage(i, await getPaged(EM_PAGE_URL(i + 1), 6000, 3));
+      } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e; recordPage(i, null); }
       await delay(60);
     }
   }
@@ -260,21 +266,37 @@ async function getPaged(url, timeout = 9000, attempts = 3) {
 }
 
 // 腾讯批量快照补价：拿东财已到手的代码 + 磁盘缓存的全集，向腾讯取整场行情
-async function fetchAllStocksTx(base) {
-  let codes = (base || []).map(x => x.code).filter(Boolean);
-  if (codes.length < FULL_MIN_OK) {
-    const cached = loadUniverse();
-    if (cached.length > codes.length) codes = cached;
-  }
+async function fetchAllStocksTx(base, universeRows = base) {
+  const validCode = code => typeof code === 'string' && /^\d{6}$/.test(code);
+  const supplied = [...(universeRows || []), ...(base || [])].map(row => row?.code).filter(validCode);
+  let codes = [...new Set(supplied)];
+  if (codes.length < FULL_MIN_OK) codes = [...new Set([...codes, ...loadUniverse().filter(validCode)])];
   if (codes.length < 1000) return [];
-  const rows = await fetchBatchSnapshotTx(codes.slice(0, 6000));
-  if (!rows || !rows.length) return [];
-  // 腾讯没有主力净流入，用东财已到手的数据补回去
+  codes = codes.slice(0, 6000);
+  // Reuse only native, current quote rows. Unknown-date list prices still need a quote.
   const emMap = new Map();
   for (const x of (base || [])) emMap.set(x.code, x);
-  return rows.map(r => {
+  const now = Date.now();
+  const quotes = new Map();
+  for (const code of codes) {
+    const row = emMap.get(code);
+    if (row?.quoteSource === 'eastmoney' && batchQuoteAtPublication(row, now).quoteFreshness === 'recent-unverified' &&
+        Number.isFinite(row.pct)) quotes.set(code, row);
+  }
+  const missing = codes.filter(code => !quotes.has(code));
+  const rows = missing.length ? await fetchBatchSnapshotTx(missing) : [];
+  for (const row of rows || []) if (!quotes.has(row.code)) quotes.set(row.code, row);
+  // Retained row stamps never change. Reassess freshness after all batches finish.
+  const completedAt = Date.now();
+  return codes.filter(code => quotes.has(code)).map(code => {
+    const r = quotes.get(code);
+    const current = batchQuoteAtPublication(r, completedAt);
+    const quote = {...current, canNotify: current.canTrade,
+      quoteMissingReason: current.quoteFreshness === 'recent-unverified' ? null : current.quoteFreshness};
+    if (r === emMap.get(code)) return quote;
+    // 腾讯没有主力净流入，用东财已到手的数据补回去
     const e = emMap.get(r.code);
-    if (!e) return r;
+    if (!e) return quote;
     const toObservedNumber = v => {
       if (v === null || v === undefined) return null;
       if (typeof v === 'string' && v.trim() === '') return null;
@@ -282,7 +304,7 @@ async function fetchAllStocksTx(base) {
       return Number.isFinite(n) ? n : null;
     };
     return {
-      ...r,
+      ...quote,
       mainInflow: toObservedNumber(e.mainInflow),
       mainPct: toObservedNumber(e.mainPct),
       fundsSource: e.fundsSource || null, fundsMethod: e.fundsMethod || null,

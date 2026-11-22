@@ -158,6 +158,26 @@ test('healthy 60-page full-market retrieval remains possible under the shared on
   assert.deepEqual(h.starts.map(row => row.at), Array.from({length: 60}, (_, i) => i * 1000));
 });
 
+test('a sustained full-market 503 stops the sweep before reopening all missing pages', async () => {
+  const h = fixture({respond: () => ({status:503})});
+  const result = h.api.fetchAllStocksEM();
+  await h.advance(20000);
+  assert.equal((await result).length,0);
+  assert.ok(h.starts.length<=16,'bounded already-queued requests may finish');
+  assert.ok(h.starts.every(row=>Number(new URL(row.url).searchParams.get('pn'))<=8));
+});
+
+test('automatic and concurrent full-market callers share one supplier round', async () => {
+  const h = fixture({respond: () => ({status:429})});
+  const primary = h.api.fetchAllStocks(), concurrent = h.api.fetchAllStocks();
+  assert.equal(primary,concurrent);
+  const outcome = rejected(primary);
+  await h.advance(1000);
+  assert.equal((await outcome).status,429);
+  assert.equal(h.starts.length,1);
+  assert.match(h.starts[0].url,/sina\.com\.cn/);
+});
+
 test('bulk and individual Kline requests share the canonical in-flight entry', async () => {
   const rows = Array.from({length: 7}, (_, n) => `2026-11-${String(n + 1).padStart(2, '0')},10,10,11,9,100,100000,2,0,0,1`);
   const h = fixture({respond: () => ({body: JSON.stringify({data: {name: 'fixture', klines: rows}})})});
