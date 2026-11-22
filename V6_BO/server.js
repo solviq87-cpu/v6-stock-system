@@ -5276,7 +5276,7 @@ async function rebuildPool() {
   const trendRej = { cap: 0, jumpy: 0, other: 0 };
   for (const { s, k } of t2) {
     const thsF = thsTrend && thsTrend.get(s.code);
-    const t = A.trendPoolCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price, mainInflow: s.mainInflow, thsNetAmt: currentThsSnapshot(thsF) ? thsF.netAmt : null, floatCap: s.floatCap, code: s.code, name: s.name });
+    const t = A.trendPoolCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price, mainInflow: s.mainInflow, thsNetAmt: thsF && currentThsSnapshot(thsF) ? thsF.netAmt : null, floatCap: s.floatCap, code: s.code, name: s.name });
     if (t && !t.ok && (t.capOk === false || t.jumpy)) {
       if (t.capOk === false) trendRej.cap++;
       if (t.jumpy) trendRej.jumpy++;

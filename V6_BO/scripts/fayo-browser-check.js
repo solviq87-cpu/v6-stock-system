@@ -58,6 +58,7 @@ function respond(url,req,body){
  if(p==='/api/state'||p==='/api/mobile-digest'){
   const result=state();
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
+  if(phase==='news-refresh')result.goodNews.items.push({title:'合成刷新后的新公告',source:'synthetic-news',publishedAt:'2026-11-15T08:10:00+08:00'});
   if(phase==='system-picks-refresh')result.dashboard.rows=[...result.dashboard.rows,{...stocks[0],code:'600199',name:'合成刷新新增',score:98}];
   return result;
  }
@@ -569,7 +570,11 @@ const runChecks=async()=>{
     const article=page.locator('.fy-news-item').filter({hasText:'合成周末公告继续更新'});
     await article.getByText('直接关联',{exact:true}).waitFor();
     await article.getByText('板块间接关联（1 只）',{exact:true}).click();
+    phase='news-refresh';
+    await page.getByRole('button',{name:'刷新资讯',exact:true}).click();
+    await page.getByText('合成刷新后的新公告',{exact:true}).waitFor();
     await article.getByRole('button',{name:'合成光谱2 · 合成能源',exact:true}).click();
+    phase='normal';
     await drawer.locator('.fy-drawer-title').getByText(/600102/).waitFor();
     await drawer.press('Escape');
    }

@@ -134,7 +134,7 @@ function monitor() {
     const a=source.indexOf('function '+name+'('),b=source.indexOf('\n}\n',a);
     assert.ok(a>=0&&b>a,name);vm.runInContext(source.slice(a,b+2),c);
   }
-  vm.runInContext(section('async function tick()', '\nfunction countStreak(h)'), c);
+  vm.runInContext(section('const observeFastStockMoves =', '\nfunction countStreak(h)'), c);
   return {c, async run(at, rows) { now = at; response = rows; await c.tick(); }};
 }
 

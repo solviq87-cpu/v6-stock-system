@@ -159,7 +159,7 @@ test('real tick archives its later reservation before enqueue while keeping the 
  vm.runInContext(section(source,'function fundsNumber(','const { analyzeShortline }'),c);
  vm.runInContext(section(source,'function countStreak(h)','function sectorZTCountFor('),c);
  c.S.inflowHistory.set(stock.code,Array.from({length:11},(_,i)=>c.fundsHistoryObservation({...stock,mainInflow:(i+1)*1e7,fundsRetrievedAt:at-(11-i)*5000},at-(11-i)*5000)));
- vm.runInContext(section(source,'async function tick()','\nfunction countStreak(h)'),c);
+ vm.runInContext(section(source,'const observeFastStockMoves =','\nfunction countStreak(h)'),c);
  await c.tick();assert.equal(c.S.loop.lastError,null);assert.equal(c.enqueued.length,1);
  const signal=c.enqueued[0],archive=Journal.readEvidence(dir,{date:'2026-11-13',code:stock.code,id:signal.signalId}).records[0].evidence;
  assert.equal(archive.triggerAt,at);assert.equal(archive.governanceEvidence.evaluatedAt,at+10);assert.equal(archive.capturedAt,at+10);
