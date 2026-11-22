@@ -1,3 +1,4 @@
+import {selectResearchPicks} from './market.js';
 import {h,button,section,field,note,empty} from './ui.js';
 import {parseStockList,parseStockJson,normalizeCode,workbookPayload,MAX_BYTES,MAX_WORKBOOK_BYTES} from './workbook.js';
 
@@ -49,5 +50,12 @@ export function renderWorkbookImport(ctx,{onSelect}={}) {
   function clear(){text.value='';file.value='';invalidate('清单已清空。',true);}
   ctx.signal?.addEventListener('abort',clear,{once:true});
   for(const event of ['offline','pagehide'])window.addEventListener(event,clear,{...(ctx.signal?{signal:ctx.signal}:{})});
-  return section('股票清单入口','保留前导零、交易所校验、重复和未识别项；导入名称不代表身份已核验。',field('粘贴清单',text),field('或选择文件',file),sheetField,h('div',{class:'fy-inline'},preview,button('清空',clear,'quiet')),status,output);
+  const automatic=h('div',{class:'fy-stack'});
+  function showCurrent(){
+    const picks=selectResearchPicks(ctx.state||{});
+    automatic.replaceChildren(note(picks.day?picks.day+' · '+picks.label:'正在读取 V6 候选池'),...picks.items.map(row=>button((row.name||row.code)+' '+row.code,()=>onSelect?onSelect(row.code,row):ctx.selectStock(row.code,row),'quiet')));
+  }
+  showCurrent();ctx.onState?.(showCurrent);
+  return section('股票清单入口','自动跟随 V6 精选标的。',automatic,
+    h('details',{class:'fy-details'},h('summary',{},'使用自己的股票清单（可选）'),field('粘贴清单',text),field('或选择文件',file),sheetField,h('div',{class:'fy-inline'},preview,button('清空',clear,'quiet')),status,output));
 }

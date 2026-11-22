@@ -275,8 +275,9 @@ function authority(ctx) {
     if(!fields.some(([key])=>riskPolicy[key]!==null))throw Error('至少填写一项风险边界。');
     review(ctx,host,'保存账户风险边界','将更新 '+p.accountId+' 的风险配置，预检版本 '+before.revision+'；不会创建或成交任何委托。',async()=>{ensure(p);const result=await call(p,'configure',{configuration:{expectedRevision:before.revision,riskPolicy}});if(live(p))show(result);return{msg:'统一风险边界已保存'};});return{note:'请在上方核对并确认。'};
   }));
+  const optional=el('details',{class:'fy-details'},el('summary',{},'补充账户结算或风险凭据（可选）'));host.append(optional);
   const settlementFile=input('settlement','','file',{accept:'.json,application/json'});settlementFile.addEventListener('change',()=>{generation++;preview=null;});
-  host.append(form('权益结算凭据','导入已有的公司行为结算凭据，服务端会核对账户版本与证据。',[field('结算 JSON',settlementFile)],'预览权益结算',async()=>{
+  optional.append(form('权益结算凭据','导入已有的公司行为结算凭据，服务端会核对账户版本与证据。',[field('结算 JSON',settlementFile)],'预览权益结算',async()=>{
     const p=plan(),file=settlementFile.files[0];if(!file||file.size>1024*1024)throw Error('请选择1MB以内的结算凭据。');const settlement=JSON.parse(await file.text());ensure(p);const before=await call(p,'read');
     review(ctx,host,'导入权益结算','将以 '+file.name+' 结算 '+p.accountId+'，账户版本 '+before.revision+'。',async()=>{ensure(p);if(settlementFile.files[0]!==file)throw Error('结算文件已更换，请重新预览。');const result=await call(p,'settle',{settlement,expectedRevision:before.revision});show(result);return{msg:'权益结算已入账'};});return{note:'请在上方核对并确认。'};
   }));
@@ -285,7 +286,7 @@ function authority(ctx) {
     review(ctx,host,'导入 '+stored.records.length+' 条风险证据','目标账户 '+stored.accountId+' · 预检版本 '+stored.revision+'。证据齐备不代表允许开仓。',async()=>{ensure(stored);if(preview!==stored||evidenceFile.files[0]!==stored.file)throw Error('预检上下文已变更。');preview=null;importButton.disabled=true;const result=await call(stored,'import-risk-evidence-batch',{expectedRevision:stored.revision,evidenceList:stored.records});show(result);return{msg:'证据批次已导入'};});
   },'primary');importButton.disabled=true;
   evidenceFile.addEventListener('change',()=>{generation++;preview=null;importButton.disabled=true;evidenceOutput.replaceChildren();});
-  host.append(panel('风险证据入库','只有同一账户、同一文件的有效预检才能导入；每批1至100条。',field('证据 JSON 数组',evidenceFile),el('div',{class:'fy-toolbar'},action('预检文件',async()=>{
+  optional.append(panel('风险证据入库','只有同一账户、同一文件的有效预检才能导入；每批1至100条。',field('证据 JSON 数组',evidenceFile),el('div',{class:'fy-toolbar'},action('预检文件',async()=>{
     const p=plan(),file=evidenceFile.files[0];try{preview=null;importButton.disabled=true;if(!file||file.size>2*1024*1024)throw Error('请选择2MB以内的证据数组。');const records=JSON.parse(await file.text());if(!Array.isArray(records)||!records.length||records.length>100)throw Error('文件必须包含1至100条证据数组。');ensure(p);const before=await call(p,'read'),result=await call(p,'preview-risk-evidence-import',{expectedRevision:before.revision,evidenceList:records});ensure(p);if(evidenceFile.files[0]!==file)return;preview={...p,file,records,revision:result.accountRevision};importButton.disabled=false;evidenceOutput.replaceChildren(notice('预检通过 · 新增 '+text(result.imported)+' 条 · 重复 '+text(result.unchanged)+' 条 · 尚未导入'));}catch(error){if(live(p))evidenceOutput.replaceChildren(notice(error.message));}
   }),importButton),evidenceOutput));
   const day=input('tradeDate','','date',{required:true}),symbol=input('symbol',ctx.stock||'','text',{required:true,pattern:'[0-9]{6}',maxlength:6});

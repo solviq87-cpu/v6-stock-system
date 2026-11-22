@@ -67,6 +67,8 @@ function respond(url,req,body){
    fastStockMoves:{...fast,fetchMs:480,sources:[{source:'eastmoney',observed:8,medianAgeMs:1500,p95AgeMs:2200}],
     recentItems:[{...fast.items[0],code:stocks[2].code,name:stocks[2].name,detectedAt:sourceAt-5000}]}};
  }
+ if(p==='/api/close-review-evidence'&&url.searchParams.get('date')==='2026-11-20')return {ok:true,result:{day:'2026-11-20',
+  reasons:[{code:'002579',text:'合成归档依据甲',source:'同花顺涨停聚焦'},{code:'000607',text:'合成归档依据乙',source:'同花顺涨停聚焦'}]}};
  if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
   sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
   broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
@@ -117,6 +119,12 @@ function respond(url,req,body){
   }
   return {ok:true,state:{...shortlineArchive,permissions:{canWrite:true,replica:false,role:'edit'}},result};
  }
+ if(p==='/api/research/automatic-evidence'){
+  const symbol=url.searchParams.get('symbol')||'600101',tradeDate='2026-11-13';
+  return {ok:true,result:{symbol,name:'自动采集测试股票',tradeDate,asOf:sourceAt,provider:'tencent',source:'合成服务回包',stock:{symbol,bars:[{date:tradeDate,close:12}]},
+   observations:[{name:'收盘价',value:12,unit:'元'}],systems:['十四条','八字口诀','GPT 五策略','Python 三轮'].map(label=>({label,known:2,total:4,support:[{label:'服务回包中的规则依据'}]})),
+   research36:{evaluations:[],status:'测试观察已读取'},tradeDates:[tradeDate]}};
+ }
  if(p==='/api/research/workspace')return {ok:true,result:{runs:[],total:0,items:[],selectedRun:null,preferences:{revision:0,value:{}},presets:[],timeline:[]}};
  if(p==='/api/learn-status')return {ok:true,status:{counts:{total:0,pending:0,matured:0},operation:{state:'idle'}}};
  if(p==='/api/research/learning-runtime')return {ok:true,result:{mode:'v6-learning-runtime-preflight',configuration:{status:'unconfigured'},overall:'unconfigured',current:{status:'unconfigured'},model:{status:'disabled'},lastRun:null}};
@@ -152,6 +160,11 @@ const server=http.createServer((req,res)=>{
 
 function automaticResearchRead(entry) {
  const body=entry.body;
+ if(entry.method==='POST'&&body){
+  if(['/api/research/decision-pipeline','/api/research/live-market'].includes(entry.path))return Object.keys(body).length===0;
+  if(entry.path==='/api/research/public-factors')return body.schemaVersion===1&&body.stocks?.length===1;
+  if(entry.path==='/api/research/linked-intelligence')return body.schemaVersion===1&&body.stocks?.length===1;
+ }
  return entry.method==='POST'&&entry.path==='/api/research/shortline'&&body?.action==='v6:sync'&&
    Number.isSafeInteger(body.revision)&&/^\d{6}$/.test(body.payload?.code||'')&&
    Object.keys(body.payload).every(key=>['code','day'].includes(key))&&
@@ -213,6 +226,12 @@ async function checkWorkspaceTabs(page,width){
      !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
     assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
     assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    if(child==='lab/strategies'){
+     const rules=page.locator('.fy-strategy-workbenches>section').first();
+     await rules.getByText('自动采集测试股票',{exact:false}).first().waitFor();
+     assert.equal(await rules.getByText('2 / 4 项有证据',{exact:true}).count(),4);
+     assert.equal(await page.locator('.fy-main input[type="file"]:visible').count(),0);
+    }
     await geometry(page,'workspace-'+child+'-'+width);
    }
   }
@@ -433,6 +452,7 @@ const runChecks=async()=>{
    assert.equal(metricColumns,width<=450?2:width<=780?3:width<=1120?4:7,'market cards follow viewport-aware columns');
 
    await closeReview.getByRole('combobox',{name:'复盘交易日'}).selectOption('archive');
+   await closeReview.locator('.fy-close-level button').nth(27).waitFor();
    assert.equal(await closeReview.locator('.fy-close-level button').count(),28,'the archive preserves the full sourced pool');
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/30 \/ 61/);
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/退潮/);
@@ -440,10 +460,10 @@ const runChecks=async()=>{
    await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:true});
    await closeReview.locator('.fy-close-level').getByRole('button',{name:'中京电子',exact:true}).click();
    let reason=closeReview.locator('[data-reason-selected]');
-   assert.match(await reason.innerText(),/高阶HDI\+算力\+存储/);
+   await reason.getByText('合成归档依据甲',{exact:true}).waitFor();
    assert.match(await reason.innerText(),/09:36:24/);
    await closeReview.locator('.fy-close-level').getByRole('button',{name:'华媒控股',exact:true}).click();
-   assert.match(await reason.innerText(),/AI漫剧\+文化传媒\+杭州国资/);
+   await reason.getByText('合成归档依据乙',{exact:true}).waitFor();
    const seats=closeReview.locator('[data-review-section="seats"]');
    await seats.getByRole('button',{name:'机构专用',exact:true}).click();
    assert.equal(await seats.locator('li').count(),4);
@@ -570,7 +590,8 @@ const runChecks=async()=>{
    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11');
    if(width===402){
     await originCard.evaluate(node=>{window.poolCardBeforeQuotePoll=node;});
-    await page.waitForFunction(()=>!window.poolCardBeforeQuotePoll.isConnected);
+    await page.waitForResponse(r=>r.url().endsWith('/api/state'));
+    assert.equal(await originCard.evaluate(node=>node===window.poolCardBeforeQuotePoll&&node.isConnected),true);
     assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11',
      'rereading the same dashboard observation keeps the selected pool quote');
    }
@@ -591,11 +612,10 @@ const runChecks=async()=>{
    assert.ok(requests.filter(r=>r.path==='/api/kline').length>priorPages,'older history reads actual service pages');
    assert.ok(requests.some(r=>r.path==='/api/kline'&&r.query.end),'history pagination uses an older-date boundary');
    // Drive the real state-refresh listener while focus is inside the drawer.
-   // The opportunity board replaces its buttons, so the close path must resolve
-   // the same stock in the current DOM rather than focus a detached old node.
+   // The same stock button stays connected while the quote updates behind the drawer.
    await originCard.evaluate(node=>{window.drawerOriginBeforeRefresh=node;});
-   await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
-   await page.waitForFunction(()=>window.drawerOriginBeforeRefresh?.isConnected===false);
+   await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/state')),page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click())]);
+   assert.equal(await originCard.evaluate(node=>node===window.drawerOriginBeforeRefresh&&node.isConnected),true);
    await drawer.locator('[data-detail-tab="evidence"]').click();
    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'12.30');
    assert.match(await drawer.innerText(),/仅此选股池保存的合成依据/,'cloud refresh cannot swap the selected pool evidence for the homepage row');
@@ -617,12 +637,13 @@ const runChecks=async()=>{
    await originCard.evaluate(node=>{
     window.focusedStockAfterEscape=node;window.boardBeforeBackgroundPoll=node.closest('.fy-pool-board');
    });
-   await page.waitForFunction(()=>!window.boardBeforeBackgroundPoll.isConnected);
+   await page.waitForResponse(r=>r.url().endsWith('/api/state'));
+   await page.waitForFunction(()=>window.boardBeforeBackgroundPoll.isConnected&&document.activeElement===window.focusedStockAfterEscape);
    assert.equal(await originCard.evaluate(node=>node===window.focusedStockAfterEscape&&node===document.activeElement),true,
     'background polling retains the exact focused stock button');
    await originCard.evaluate(node=>{window.drawerOriginAfterClose=node;});
-   await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
-   await page.waitForFunction(()=>window.drawerOriginAfterClose?.isConnected===false);
+   await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/state')),page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click())]);
+   await page.waitForFunction(()=>window.drawerOriginAfterClose?.isConnected===true);
    assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'the next list refresh preserves the restored stock focus');
    if(width===1366){
     await originCard.click();

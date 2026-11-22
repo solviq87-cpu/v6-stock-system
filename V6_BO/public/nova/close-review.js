@@ -2,7 +2,6 @@ import {h,button,empty,section,format,money,percent,direction,safeLink} from './
 import {reviewDate,reviewCoverage,summarizeReview,stockCard,closeSessionDay,distributionPanel,publishedReasons} from './market.js';
 import {dailyReviewEvidence} from './market-evidence.js';
 import {renderSourceReviewPool} from './review-pool.js';
-import {archive} from './data/close-review-20261120.js';
 
 const headings=[
  ['mood','市场情绪总览','市场情绪'],['themes','题材主线划分','题材主线'],
@@ -31,8 +30,12 @@ function timeLabel(value){
 }
 const rate=(numerator,denominator)=>denominator?format(numerator/denominator*100,1)+'%':'—';
 
-function archivedReport(){
- return {...archive,
+function archivedReport(archive,supplement){
+ const reasons=new Map(arr(supplement?.day===archive.day?supplement.reasons:null).map(r=>[r.code,r]));
+ return {...archive,rows:archive.rows.map(row=>{
+  const match=reasons.get(row.code);
+  return match?{...row,reason:match.text,reasonSource:match.source,reasonUrl:match.url}:row;
+ }),
   seats:archive.seats.map(([code,name,dept,net])=>({
    code,name,dept,net,category:dept.startsWith('营业部')?'营业部':dept==='深股通专用'?'互联互通':dept
   }))};
@@ -57,7 +60,7 @@ function cloudReport(state,supplement){
  const pool=sealed?sealed.records.map(row=>({
   code:row.symbol,name:row.name,level:row.consecutiveLimits,firstSeal:row.firstSealTime,
   lastSeal:row.lastSealTime,breakCount:row.breakCount,amount:row.amountCny,sector:row.industry,
-  turnover:row.turnoverPct,floatCap:row.floatCapCny
+  turnover:row.turnoverPct,sealAmount:row.sealedFundsCny,floatCap:row.floatCapCny
  })):fallbackRows.map(row=>({
   code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector,firstSeal:row.firstSeal,lastSeal:row.lastSeal,breakCount:row.breakCount
  }));
@@ -68,7 +71,7 @@ function cloudReport(state,supplement){
    ?original.reasonRaw:ths(source?.reasonSource)&&source.reasonDay===day?source.reason:null;
   const useAcquired=!!acquired&&(acquired.source!=='同花顺 F10'||!existing);
   const official=useAcquired?acquired.text:existing;
-  const turnover=finite(row.turnover)&&row.turnover>=0?row.turnover:finite(provider?.turnover)&&provider.turnover>0?provider.turnover:null;
+  const turnover=[row.turnover,original?.turnover,provider?.turnover].find(v=>finite(v)&&v>=0&&v<=100);
   const floatCap=finite(row.floatCap)&&row.floatCap>0?row.floatCap:
    finite(provider?.floatCap)&&provider.floatCap>0?provider.floatCap:null;
   return {...row,name:row.name||original?.name||row.code,
@@ -78,6 +81,8 @@ function cloudReport(state,supplement){
    firstSeal:timeLabel(row.firstSeal??provider?.firstSeal),
    lastSeal:timeLabel(row.lastSeal??provider?.lastSeal),
    breakCount:row.breakCount??provider?.breakCount,turnover,floatCap,
+   sealAmount:[row.sealAmount,original?.sealAmount,provider?.sealAmount].find(v=>finite(v)&&v>=0),
+   mainInflow:[original?.mainInflow,provider?.mainInflow].find(finite),flowSource:original?.flowSource||provider?.flowSource,
    reason:typeof official==='string'?official.trim():null,reasonSource:useAcquired?acquired.source||'同花顺':'同花顺',reasonUrl:useAcquired?acquired.url:null};
  });
  const groups=new Map();
@@ -173,14 +178,14 @@ export function renderCloseReview(ctx,additional){
  },stockCard);
  view.append(header,nav,cards,pool,additional);
  let selected='',activeKey='',activeDay='',supplement=null,requesting=false,failure='',fingerprint='',renderedScope='';
- let selectedStock='',seatFilter='全部';
+ let selectedStock='',seatFilter='全部',archive=null,archiveEvidence=null,selection=0;
  let recovery={key:'',attempts:0,retryAt:0};
 
  function project(){
   const serverDay=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
-  const defaultKey=serverDay&&serverDay!==archive.day?'cloud':'archive';
-  const key=selected||defaultKey;
-  const options=[['archive',archive.day+' · 收盘归档'],...(serverDay?[['cloud',serverDay+' · 服务端复盘']]:[])];
+  const defaultKey='cloud';
+  const key=selected==='archive'&&archive?'archive':defaultKey;
+  const options=[['cloud',(serverDay||'最近交易日')+' · 自动复盘'],['archive','2026-11-20 · 人工整理的历史资料']];
   const optionKey=JSON.stringify(options);
   if(dateSelect.dataset.options!==optionKey){
    dateSelect.replaceChildren(...options.map(([value,label])=>h('option',{value},label)));
@@ -189,7 +194,7 @@ export function renderCloseReview(ctx,additional){
   dateSelect.value=key;
   const day=key==='archive'?archive.day:serverDay;
   if(activeKey!==key||activeDay!==day){selectedStock='';seatFilter='全部';activeKey=key;activeDay=day;}
-  const report=key==='archive'?archivedReport():cloudReport(ctx.state||{},supplement);
+  const report=key==='archive'?archivedReport(archive,archiveEvidence):cloudReport(ctx.state||{},supplement);
   return {key,report};
  }
 
@@ -214,7 +219,7 @@ export function renderCloseReview(ctx,additional){
   pool.hidden=key==='archive'||source.day!==report.day;
   if(!pool.hidden)updatePool?.();
   const names=new Map([...report.rows.map(row=>[row.code,row.name]),...arr(report.failed),...arr(report.broken),...report.seats.map(row=>[row.code,row.name])]);
-  const stock=code=>button(h('span',{},names.get(code)||archiveNames[code]||code),()=>ctx.selectStock(code,{code,name:names.get(code)||archiveNames[code]}),'quiet');
+  const stock=code=>{const name=names.get(code)||(key==='archive'?archiveNames[code]:null);return button(h('span',{},name||code),()=>ctx.selectStock(code,{code,name}),'quiet');};
   const list=items=>h('div',{class:'fy-close-stocks'},items.map(stock));
   const card=(index,description,...children)=>{
    const [id,title]=headings[index];
@@ -263,8 +268,9 @@ export function renderCloseReview(ctx,additional){
    h('dl',{class:'fy-close-facts'},[
     ['连板高度',levelName(chosen.level)],['首次封板',chosen.firstSeal||'—'],['最后封板',chosen.lastSeal||'—'],
     ['开板次数',count(chosen.breakCount,' 次')],['换手率',finite(chosen.turnover)?format(chosen.turnover,2)+'%':'—'],
-    ['成交额',money(chosen.amount)]
-   ].map(([label,value])=>h('div',{},h('dt',{},label),h('dd',{},value)))),
+    ['成交额',money(chosen.amount)],['封单金额',money(chosen.sealAmount)],['主力净额',money(chosen.mainInflow)]
+   ].filter(([,value])=>value!=='—').map(([label,value])=>h('div',{},h('dt',{},label),h('dd',{},value)))),
+   chosen.flowSource&&h('small',{class:'fy-muted'},chosen.flowSource+' · '+report.day),
    chosen.streak&&h('p',{class:'fy-muted'},'区间累计 '+chosen.streak),
    chosen.reasonUrl?safeLink(chosen.reasonUrl,chosen.reasonSource):chosen.reason?h('small',{class:'fy-muted'},chosen.reasonSource+' · '+report.day):
     safeLink('https://basic.10jqka.com.cn/'+chosen.code+'/event.html','核对同花顺 F10')):null;
@@ -329,7 +335,21 @@ export function renderCloseReview(ctx,additional){
  }
  const expanded=new Map();
  cards.addEventListener('focusout',()=>queueMicrotask(()=>paint()));
- dateSelect.addEventListener('change',()=>{selected=dateSelect.value;paint(true);void loadSupplement();});
+ dateSelect.addEventListener('change',async()=>{
+  const choice=dateSelect.value,id=++selection;
+  if(choice==='archive'&&!archive){
+   try{archive=(await import('./data/close-review-20261120.js')).archive;}
+   catch{if(id===selection&&!ctx.signal?.aborted){dateSelect.value='cloud';status.textContent='历史文档暂不可用，可继续查看自动复盘';}return;}
+  }
+  if(id!==selection||ctx.signal?.aborted)return;
+  selected=choice;paint(true);
+  if(choice!=='archive'){void loadSupplement();return;}
+  if(archiveEvidence||!ctx.api)return;
+  try{
+   const data=supplement?.day===archive.day?supplement:(await ctx.api('/api/close-review-evidence?date='+archive.day,{signal:ctx.signal,timeoutMs:42000})).result;
+   if(data?.day===archive.day){archiveEvidence=data;if(id===selection&&!ctx.signal?.aborted)paint();}
+  }catch{/* The original dated research document remains available. */}
+ });
 
  async function loadSupplement(force=false){
   const day=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);

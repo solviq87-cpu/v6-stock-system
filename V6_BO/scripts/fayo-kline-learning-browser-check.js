@@ -89,6 +89,7 @@ async function geometry(page, label) {
       const tabs = page.getByRole('navigation', { name: '智能学习中心分区', exact: true });
       await tabs.getByRole('button', { name: '已有学习进度', exact: true }).waitFor();
       assert.equal(await tabs.evaluate(nav => nav.querySelectorAll('button').length), 4);
+      await page.getByText('使用自己的历史 CSV（可选）',{exact:true}).click();
       await page.getByLabel('历史日K CSV（必选）', { exact: true }).setInputFiles(file('synthetic-stock.csv', stockCSV));
       await page.getByLabel('同期板块 CSV', { exact: true }).setInputFiles(file('synthetic-sector.csv', sectorCSV));
       await page.getByLabel('同期全A指数 CSV', { exact: true }).setInputFiles(file('synthetic-market.csv', marketCSV));

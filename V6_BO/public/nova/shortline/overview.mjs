@@ -2,7 +2,6 @@ import {icon} from './icons.mjs';
 import {emotion,marketAsOf,knowledgeCutoff} from './market.mjs';
 import {mistakeSummary} from './review.mjs';
 import {recoveredMetric,marketPhaseName,observedCoverage,coverageValues,coverageCount,turnoverLabel,closeDistribution} from '../market-evidence.js';
-import {archive} from '../data/close-review-20261120.js';
 const phase=['冰点','发酵','高潮','分歧','退潮'];
 const round=n=>Math.round(n*100)/100;
 const val=x=>x!=null?Number(x).toLocaleString('en-US',{maximumFractionDigits:2}):'—';
@@ -74,7 +73,7 @@ function gauge(em,label){const p=em.confidence/100;let ticks='';for(let i=0;i<23
 export function renderOverview(ui){
  const {state:s,root,esc}=ui,{date,cut,rows,metrics:observations,stage,rule:em,coverage}=overviewEvidence(s,ui.date);
  const metrics=[{key:'upLimit',label:'专题池涨停家数',unit:'家',color:'#8c79df',tone:'purple',symbol:'trend'},{key:'breakRate',label:'专题池炸板率',unit:'%',color:'#57b69c',tone:'teal',symbol:'pulse'},{key:'height',label:'最高连板',unit:'板',color:'#e7ad66',tone:'orange',symbol:'stack'},{key:'amount',label:'成交额',unit:'亿',color:'#6899df',tone:'blue',symbol:'wallet'}];
- const broad=closeDistribution(s.marketRecovery,date,cut,archive.distribution);
+ const broad=closeDistribution(s.marketRecovery,date,cut);
  const eligibleChecks=s.checks.filter(r=>r.date<=date);
  const records=[...eligibleChecks].sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,5);
  const columns=['校验标的','匹配战法','市场周期','仓位上限','校验结果','校验日期',''];

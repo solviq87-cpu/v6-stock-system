@@ -156,14 +156,15 @@ export function renderImport(ui){
   return result;
  }
  function draw(){
+  const expanded=root.querySelector('[data-optional-import]')?.open||!!table;
   const batches=(ui.state.importBatches||[]).slice(-8).reverse();
-  root.innerHTML='<section class="panel"><h2>同花顺 CSV 导入</h2><div class="grid2"><label class="field">导入对象<select data-kind>'+option('pool','涨停列表',kind)+option('kline','历史 K 线',kind)+'</select></label><label class="field">选择 CSV / 制表符文本<input data-file type="file" accept=".csv,.txt,.tsv,text/csv"></label></div>'+
+  root.innerHTML='<section class="panel"><h2>自动同步行情</h2><p>'+esc([ui.stock,ui.date].filter(Boolean).join(' · '))+' · 已归档 '+(ui.state.bars||[]).length+' 根行情记录</p><details data-optional-import '+(expanded?'open':'')+'><summary>使用自己的同花顺 CSV（可选）</summary><h3>同花顺 CSV 导入</h3><div class="grid2"><label class="field">导入对象<select data-kind>'+option('pool','涨停列表',kind)+option('kline','历史 K 线',kind)+'</select></label><label class="field">选择 CSV / 制表符文本<input data-file type="file" accept=".csv,.txt,.tsv,text/csv"></label></div>'+
    '<details><summary>同花顺导出路径、格式与示例</summary><p>电脑客户端在「行情 → 涨停聚焦／涨停分析」选交易日，打开涨停个股列表后使用表格右键或工具菜单的「数据导出」。K 线可从个股历史行情表或「系统 → 数据导出」选择证券、周期和不复权行情。各版本菜单名称可能不同，以客户端实际导出功能为准。</p><p>选择表格数据（含列名），保存为 CSV 或制表符文本。只有 Excel 导出时可在表格软件中另存 CSV。支持 UTF-8、GBK/GB18030 和带字节序标记的 UTF-16。六位代码须保留前导零。</p><button class="btn" data-example>下载本类格式示例</button></details>'+
    '<p>每批最多 2 MiB / 20,000 行。已存在的相同记录会跳过，冲突或无效行将阻止整批写入。可知时间按服务器实际接收时点保存。</p>'+
    (table?'<h3>'+esc(fileName)+' · '+table.rows.length+' 行</h3><div class="grid2">'+fields[kind].map(k=>'<label class="field">'+fieldLabels[k]+'<select data-map="'+k+'">'+option(-1,'此列未提供',map[k])+table.headers.map((h,i)=>option(i,(i+1)+' · '+h,map[k])).join('')+'</select></label>').join('')+'</div>'+
     (kind==='pool'?'<label class="field">无日期列时，填写该导出列表的原交易日<input type="date" data-option="tradeDate" value="'+esc(defaults.tradeDate)+'"></label>':'<div class="grid2"><label class="field">证券类型'+select('role',[['stock','个股'],['index','指数']])+'</label><label class="field">K 线周期'+select('period',['日K','1分钟','5分钟','15分钟','30分钟','60分钟'].map(x=>[x,x]))+'</label><label class="field">单标的文件无代码列时的六位代码<input data-option="defaultCode" maxlength="6" value="'+esc(defaults.defaultCode)+'"></label><label class="field">源文件价格口径'+select('priceBasis',[['','请选择'],['unadjusted','已确认不复权']])+'</label><label class="field">源文件成交量单位'+select('volumeUnit',[['','请选择'],['shares','股'],['lots','手（每手 100 股）']])+'</label><label class="field">源文件成交额单位'+select('amountUnit',[['','未提供'],['yuan','元'],['wan','万元'],['yi','亿元']])+'</label></div>')+
     '<div><button class="btn" data-validate>预览并逐行检查</button> <button class="btn primary" data-save>校验并导入整批</button></div><div data-preview></div>':'')+
-    '<p role="status" data-feedback>'+esc(feedback)+'</p></section><section class="panel"><h2>最近导入</h2>'+batches.map(b=>'<p>'+esc(b.availableAt)+' · '+esc(b.fileName)+' · 新增 '+b.count+' 条 · 重复 '+b.duplicates+' 条</p>').join('')+'</section>';
+    '<p role="status" data-feedback>'+esc(feedback)+'</p></details></section><section class="panel"><h2>最近导入</h2>'+batches.map(b=>'<p>'+esc(b.availableAt)+' · '+esc(b.fileName)+' · 新增 '+b.count+' 条 · 重复 '+b.duplicates+' 条</p>').join('')+'</section>';
   root.querySelector('[data-kind]').onchange=e=>{seq++;kind=e.target.value;table=null;csv='';fileName='';feedback='';draw();};
   root.querySelector('[data-example]').onclick=()=>ui.download('同花顺-'+kind+'-格式示例.csv','\uFEFF'+examples[kind],'text/csv;charset=utf-8');
   root.querySelector('[data-file]').onchange=async e=>{

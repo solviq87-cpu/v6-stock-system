@@ -4,6 +4,7 @@ import {renderRecords} from './research-records.js';
 import {quoteCrossCheckPanel} from './market.js';
 import {renderManualLearning} from './operations.js';
 import {renderKlineLearning} from './kline-learning-view.js';
+import {researchCode,readAutomatic,automaticSummary,onResearchRead} from './automatic-research.js';
 import {appendResearchExtensions} from './research-extensions.js';
 
 const arr=value=>Array.isArray(value)?value:[];
@@ -65,13 +66,18 @@ function renderReport(result,ctx){
   if(!r||typeof r!=='object')return empty('尚无完整研究结果','本次服务未返回可核验的结果。');
   const overview=['status','tradeDate','date','source','provider','asOf','totalScanned','accepted','selected','note','reason','warning'].filter(key=>r[key]!==undefined&&r[key]!==null&&typeof r[key]!=='object').map(key=>[labels[key]||key,key==='asOf'?clock(r[key]):r[key]]);
   if(overview.length)el.append(facts(overview));
+  if(r.observations?.length)el.append(metrics(r.observations.map(o=>[o.name,o.value+' '+o.unit])));
+  if(Array.isArray(r.systems))for(const sys of r.systems){
+    const reasons=[...(sys.support||[]),...(sys.opposition||[])].slice(0,3).map(v=>v.label||v.reason).filter(Boolean);
+    el.append(box(sys.label,sys.known+' / '+sys.total+' 项有证据',n('p',reasons.join(' · ')||'已有 '+sys.known+' 项可核对；独立结论随归档补齐。'),detail('查看逐项依据',evidenceTree(sys))));
+  }
   if(r.stock&&typeof r.stock==='object'){
     const stock=r.stock,bars=arr(stock.bars),last=bars.at(-1);
     el.append(box((stock.name||'研究股票')+' '+(stock.symbol||stock.code||''),'来源、价格基准与覆盖日期独立核对。',facts([['数据源',stock.provider||stock.source],['价格基准',stock.priceBasis],['日K数量',bars.length||'未返回'],['最后交易日',last?.date||r.history?.lastDate],['档案时点',clock(stock.observedAt||r.asOf)]])));
   }
   const breadth=r.breadth||r.market?.breadth;
   if(breadth)el.append(metrics([['市场覆盖率',finite(breadth.coverage)?number(breadth.coverage*100)+'%':'未知'],['上涨 / 下跌',val(breadth.up)+' / '+val(breadth.down)],['上涨占比',finite(breadth.breadthScore)?number(breadth.breadthScore)+'%':'未知'],['市场环境',typeof r.regime==='string'?r.regime:r.regime?.regime||r.market?.regime?.regime||'待证据']]));
-  if(r.systems&&typeof r.systems==='object')el.append(append(n('div',undefined,'fy-grid'),...Object.entries(r.systems).map(([key,system])=>box(system?.name||({fourteen:'十四条',bazi:'八字口诀',gpt:'GPT 五策略',python:'Python 三轮'}[key]||key),val(system?.status||system?.verdict),evidenceTree(system)))));
+  if(r.systems&&!Array.isArray(r.systems)&&typeof r.systems==='object')el.append(append(n('div',undefined,'fy-grid'),...Object.entries(r.systems).map(([key,system])=>box(system?.name||({fourteen:'十四条',bazi:'八字口诀',gpt:'GPT 五策略',python:'Python 三轮'}[key]||key),val(system?.status||system?.verdict),evidenceTree(system)))));
   const m=r.metrics||r.backtest?.metrics||r.report?.metrics;
   if(m)el.append(metrics([['期末研究资产',number(m.finalEquity)],['研究收益率',finite(m.returnPct)?number(m.returnPct)+'%':'未知'],['最大回撤',finite(m.maxDrawdownPct)?number(m.maxDrawdownPct)+'%':'未知'],['已平仓笔数',m.closedTrades??'未知']]));
   const rows=r.ranked||r.items||r.candidateIntersection?.items||r.stocks;
@@ -85,23 +91,26 @@ function renderReport(result,ctx){
   return el;
 }
 function workbench(ctx,title,description,inputs=[]){
-  const status=n('output','尚未执行；不会自动发起采集或研究。','fy-note');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+  const status=n('output','可查看已归档数据或运行本项研究。','fy-note');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   const actions=toolbar(),output=n('div',undefined,'fy-stack'),body=box(title,description,append(n('div',undefined,'fy-grid'),...inputs),actions,status,output);
-  let revision=0;
+  let revision=0,edited=false;
   const current=turn=>!ctx.signal?.aborted&&turn===revision;
-  function invalidate(){revision++;output.replaceChildren();status.textContent='研究输入已变化，请重新执行。';}
+  function invalidate(){revision++;edited=true;status.textContent='已保留自定义输入，可运行本次研究。';}
   body.addEventListener('input',event=>{if(event.target.matches('input,select,textarea'))invalidate();});
   body.addEventListener('change',event=>{if(event.target.matches('input,select,textarea'))invalidate();});
   ctx.signal?.addEventListener('abort',()=>{revision++;output.replaceChildren();},{once:true});
   function action(label,handler,options={}){
+    let fingerprint='';
     const button=btn(label,async()=>{
-      const turn=++revision;button.disabled=true;output.replaceChildren();status.textContent='正在处理，请稍候…';
-      try{const data=await handler({current:()=>current(turn)});if(!current(turn))return;output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));status.textContent=options.message||'研究完成，请核对原始来源与时间。';}
+      const turn=++revision;button.disabled=true;if(!output.firstChild)status.textContent='正在读取研究数据…';
+      try{const data=await handler({current:()=>current(turn)});if(!current(turn))return;const next=JSON.stringify(data);
+        if(!options.auto||next!==fingerprint||!output.firstChild){output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));fingerprint=next;}
+        status.textContent=options.message||'已读取研究结果';}
       catch(error){if(current(turn))status.textContent=error?.name==='AbortError'?'请求已停止。':(error?.message||'请求未完成。');}
       finally{if(!ctx.signal?.aborted)button.disabled=false;}
     },options.kind||'secondary');
     if(options.editor!==false&&!['dev','developer','editor','edit','admin'].includes(ctx.role)){button.disabled=true;button.title='需要研究编辑权限，请从账户入口验证身份';}
-    actions.append(button);return button;
+    actions.append(button);if(options.auto)onResearchRead(ctx,()=>{if(!edited&&!button.disabled&&!body.matches(':focus-within')&&!output.querySelector('details[open]'))button.click();});return button;
   }
   return {body,output,status,actions,action,invalidate,current};
 }
@@ -109,14 +118,21 @@ function importEvidence(label='选择历史证据 JSON',max=7*1024*1024){
   const file=input('file','',{accept:'.json,application/json'}),text=n('textarea');text.rows=7;text.placeholder='可粘贴完整的历史证据 JSON，保留来源和原始时间。';
   const notes=n('p','尚未导入证据。','fy-muted');
   file.addEventListener('change',()=>{notes.textContent=file.files?.[0]?file.files[0].name+' · '+Math.round(file.files[0].size/1024)+' KiB':'尚未导入证据。';});
-  const element=append(n('div',undefined,'fy-stack'),field(label,file),notes,detail('或粘贴完整证据',text));
+  const element=detail('补充自己的历史资料（可选）',field(label,file),notes,detail('或粘贴完整证据',text));
   async function read(){const selected=file.files?.[0];if(selected&&selected.size>max)throw Error('证据文件超过 '+Math.round(max/1024)+' KiB，请缩小范围。');const raw=selected?await selected.text():text.value;if(!raw.trim())throw Error('请先导入实际历史证据；系统不会生成示例数据代替真实输入。');const data=JSON.parse(raw);if(!data||typeof data!=='object'||Array.isArray(data))throw Error('证据必须为 JSON 对象。');return data;}
-  return {element,read,file,text};
+  return {element,read,file,text,chosen:()=>!!(file.files?.length||text.value.trim())};
 }
-function symbolInput(ctx){return input('text',ctx.stock||'',{inputmode:'numeric',maxlength:'6',pattern:'[0-9]{6}',placeholder:'六位证券代码'});}
+function symbolInput(ctx){return input('text',researchCode(ctx),{inputmode:'numeric',maxlength:'6',pattern:'[0-9]{6}',placeholder:'六位证券代码'});}
 function symbolValue(el,optional=false){const value=el.value.trim();if(optional&&!value)return '';if(!/^\d{6}$/.test(value))throw Error('请输入六位证券代码。');return value;}
 function request(ctx,path,body){return ctx.api(path,body===undefined?{signal:ctx.signal}:{method:'POST',body,signal:ctx.signal});}
 
+function automaticMarket(ctx){
+ const recovery=ctx.state?.marketRecovery,day=recovery?.referenceDay,points=recovery?.metrics||{};
+ const values=[['adv','上涨家数','家'],['dec','下跌家数','家'],['upLimit','涨停','家'],['downLimit','跌停','家'],['breakRate','炸板率','%']];
+ const observations=values.flatMap(([key,name,unit])=>points[key]?.date===day&&Number.isFinite(points[key].value)?[{name,value:points[key].value,unit}]:[]);
+ if(observations.length)return {result:{tradeDate:day,source:'V6 收盘盘面',observations}};
+ return request(ctx,'/api/research/live-market',{});
+}
 function desk(ctx){
   const root=n('div',undefined,'fy-stack');
   const flow=n('div',undefined,'fy-grid lab-flow');
@@ -125,23 +141,24 @@ function desk(ctx){
   const coverage=input('number','',{min:'1',max:'100',step:'1',placeholder:'使用服务端默认值'}),scores=importEvidence('可选：独立市场评分证据',1024*1024);
   const w=workbench(ctx,'从市场到候选，一次串联','读取现有候选池，保留原排名；按行情、策略、风险与历史检验展开证据。',[field('最小覆盖率 %',coverage),detail('独立评分输入',scores.element)]);
   async function decisionPayload(){let payload={};if(scores.file.files?.length||scores.text.value.trim()){const input=await scores.read();for(const key of ['scores','scoreSource','scoreDate','minCoverage'])if(Object.hasOwn(input,key))payload[key]=input[key];}if(coverage.value!=='')payload.minCoverage=Number(coverage.value)/100;return payload;}
-  w.action('运行决策链',async()=>request(ctx,'/api/research/decision-pipeline',await decisionPayload()),{kind:'primary'});
+  w.action('运行决策链',async()=>request(ctx,'/api/research/decision-pipeline',await decisionPayload()),{kind:'primary',auto:true});
   w.action('只看公开市场交集',async()=>request(ctx,'/api/research/live-market',await decisionPayload()));
   w.action('读取市场宽度',()=>request(ctx,'/api/research/eastmoney-breadth',{}));
   root.append(w.body);
   const observed=importEvidence('市场观测证据',1024*1024);
-  const o=workbench(ctx,'观测市场环境','使用导入的原始股票截面；覆盖率、缺失和来源分别核对。',[observed.element]);
-  o.action('验证市场观测',async()=>request(ctx,'/api/research/observed-regime',await observed.read()));root.append(o.body);
+  const o=workbench(ctx,'观测市场环境','自动读取盘面宽度，核对交易日、覆盖范围及来源。',[observed.element]);
+  o.action('验证市场观测',async()=>observed.chosen()?request(ctx,'/api/research/observed-regime',await observed.read()):automaticMarket(ctx),{auto:true});root.append(o.body);
   return root;
 }
 function strategies(ctx){
   const root=n('div',undefined,'fy-stack fy-strategy-workbenches'),imported=importEvidence('四套策略的独立输入',256*1024);
-  const four=workbench(ctx,'规则交叉检验','十四条、八字口诀、GPT 五策略与 Python 三轮分别展示，不相加为一个伪总分。',[imported.element]);
-  four.action('对照四套规则',async()=>request(ctx,'/api/research/rule-comparison',await imported.read()),{kind:'primary'});
+  const four=workbench(ctx,'规则交叉检验','自动读取当前研究标的，逐项显示四套规则的依据。',[imported.element]);
+  four.action('对照四套规则',async()=>{if(imported.chosen())return request(ctx,'/api/research/rule-comparison',await imported.read());const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),systems:x.systems}};},{kind:'primary',auto:true});
   root.append(four.body);
   const code=symbolInput(ctx),file=importEvidence('可选：36 项规则证据',256*1024),catalog=n('div',undefined,'fy-grid');let config={};
   const study=workbench(ctx,'战法实验台','修改本次研究阈值与权重，保留生产参数。缺少证据的条件保持未知。',[field('研究股票',code),file.element]);
   study.body.insertBefore(catalog,study.actions);
+  study.action('当前标的规则结果',async()=>{const x=await readAutomatic(ctx,symbolValue(code,true)||undefined);return {result:x.research36};},{auto:true});
   study.action('载入规则目录',()=>request(ctx,'/api/research/strategy36'),{render:data=>{
     catalog.replaceChildren();config={};
     for(const s of arr(data.catalog?.strategies)){
@@ -158,44 +175,47 @@ function strategies(ctx){
       card.append(n('p','失效条件：'+val(s.invalidation),'fy-muted'));catalog.append(card);
     }return n('p','规则目录已载入。修改仅用于这次实验。','fy-note');
   }});
-  study.action('采集并检验所选股票',()=>request(ctx,'/api/research/strategy36/observe',{symbol:symbolValue(code),config}));
-  study.action('检验导入证据',async()=>request(ctx,'/api/research/strategy36',{...await file.read(),config}));root.append(study.body);
-  const factors=importEvidence('公开因子输入'),factor=workbench(ctx,'因子与研究代理','读取研究代理状态或计算导入的公开因子；不改变生产权重。',[factors.element]);
+  study.action('采集并检验所选股票',async()=>request(ctx,'/api/research/strategy36/observe',{symbol:symbolValue(code,true)||(await readAutomatic(ctx)).symbol,config}));
+  file.element.append(study.action('检验导入证据',async()=>request(ctx,'/api/research/strategy36',{...await file.read(),config})));root.append(study.body);
+  const factors=importEvidence('公开因子输入'),factor=workbench(ctx,'因子与研究代理','展示本次行情的量价因子及可核对的输入。',[factors.element]);
   factor.action('读取代理状态',()=>request(ctx,'/api/research/agent-status'));
-  factor.action('计算公开因子',async()=>request(ctx,'/api/research/public-factors',await factors.read()));root.append(factor.body);
+  factor.action('计算公开因子',async()=>{if(factors.chosen())return request(ctx,'/api/research/public-factors',await factors.read());const x=await readAutomatic(ctx);const report=await request(ctx,'/api/research/public-factors',{schemaVersion:1,asOf:x.tradeDate,observedAt:x.asOf,tradingDates:x.tradeDates,stocks:[x.stock]});return {result:{...automaticSummary(x),adjustedFactors:report.result}};},{auto:true});root.append(factor.body);
   const adaptive=importEvidence('带来源与可用时点的自适应证据',1800*1024),ad=workbench(ctx,'自适应研究','比较不同市场状态下的研究表现，缺失原生证据不补造。',[adaptive.element]);
-  ad.action('读取最新归档',()=>request(ctx,'/api/research/adaptive-latest'));
-  ad.action('运行自适应研究',async()=>request(ctx,'/api/research/adaptive-market',await adaptive.read()));root.append(ad.body);
+  ad.action('读取最新归档',async()=>{const a=await request(ctx,'/api/research/adaptive-latest');if(a.result)return a;const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),note:'当前量价观测 · 自适应研究按已归档样本计算'}};},{auto:true});
+  ad.action('运行自适应研究',async()=>{if(adaptive.chosen())return request(ctx,'/api/research/adaptive-market',await adaptive.read());const x=await readAutomatic(ctx);return request(ctx,'/api/research/adaptive-market',{schemaVersion:1,source:'imported',version:'v6-observation-1',provider:x.provider,asOf:x.tradeDate,decisionAt:new Date(x.asOf).toISOString(),stocks:[{...x.stock,bars:x.stock.bars.map(b=>({...b,knownAt:new Date(b.knownAt).toISOString()}))}]});});root.append(ad.body);
   return root;
 }
 function backtest(ctx){
   const root=n('div',undefined,'fy-stack'),imported=importEvidence('导入历史研究数据'),codes=input('text','',{placeholder:'600519,000001'}),validate=input('checkbox'),linkedRules=input('checkbox'),quality=input('checkbox');
   const w=workbench(ctx,'历史实验','将选股、账本、收益、回撤和规则检验放在同一条证据链。回测不等于实际收益。',[imported.element,toolbar(field('验证公开规则',validate),field('加入联动规则',linkedRules),field('加入质量规则',quality))]);
+  async function historyInput(){if(imported.chosen())return imported.read();const x=await readAutomatic(ctx);return x.history?{history:x.history}:{observation:automaticSummary(x)};}
+  const preview=input=>({result:{...input.observation,note:input.observation.note+'；较晚取得的行情供查看，逐日回测使用当时已经归档的连续交易日。'}});
+  w.action('查看本期历史数据',async()=>{const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),causalBars:x.history?.stocks[0].bars.length||0}};},{auto:true});
   w.action('运行完整实验',async()=>{
-    const input=await imported.read(),payload=input.history?{...input}:{history:input};
+    const input=await historyInput();if(input.observation)return preview(input);const payload=input.history?{...input}:{history:input};
     if(validate.checked||linkedRules.checked||quality.checked)payload.validatePublicRules=true;
     if(linkedRules.checked||quality.checked)payload.publicRuleAuditOptions={...(payload.publicRuleAuditOptions||{}),...(linkedRules.checked?{includeLinkedRules:true}:{}),...(quality.checked?{includeQualityRules:true}:{})};
     return request(ctx,'/api/research/complete-run',payload);
   },{kind:'primary'});
-  w.action('仅扫描形态与条件',async()=>request(ctx,'/api/research/scan',await imported.read()));
-  w.action('仅重建研究账本',async()=>request(ctx,'/api/research/ledger',await imported.read()));
-  w.action('原策略历史对照',async()=>request(ctx,'/api/reference-strategy-research',await imported.read()));
+  w.action('仅扫描形态与条件',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/scan',(i.history||i));});
+  w.action('仅重建研究账本',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/ledger',(i.history||i));});
+  w.action('原策略历史对照',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/reference-strategy-research',(i.history?i:{history:i}));});
   root.append(w.body);
   const cache=workbench(ctx,'服务端历史库','读取已有日K或明确更新历史。每个来源的缺失、陈旧与拒绝原因分别保留。',[field('股票代码（逗号分隔）',codes)]);
   const codesValue=()=>codes.value.split(/[\s,，]+/).map(x=>x.trim()).filter(Boolean);
   for(const [label,path]of [['内存形态扫描','cache-scan'],['内存账本实验','cache-ledger'],['磁盘形态扫描','disk-scan'],['磁盘账本实验','disk-ledger']])cache.action(label,()=>request(ctx,'/api/research/'+path,path.startsWith('cache')?{limit:50}:{codes:codesValue()}));
   cache.action('保存指定历史到磁盘',()=>{const values=codesValue();if(!values.length||values.some(x=>!/^\d{6}$/.test(x)))throw Error('请指定有效的六位代码。');return request(ctx,'/api/research/disk-save',{codes:values});});
   cache.action('明确更新历史K线',()=>{const values=codesValue();if(!values.length||values.some(x=>!/^\d{6}$/.test(x)))throw Error('请指定要更新的六位代码。');return request(ctx,'/api/research/history-refresh',{codes:values});});
-  cache.action('读取数据能力',()=>request(ctx,'/api/research/capabilities'));root.append(cache.body);
+  cache.action('读取数据能力',()=>request(ctx,'/api/research/capabilities'),{auto:true});root.append(cache.body);
   const account=input('text','research',{maxlength:'64'}),paper=workbench(ctx,'研究模拟账本','独立历史研究账户，保留日历、费用、冲突与重复记账检查。',[field('研究账户ID',account)]);
-  paper.action('恢复账本',()=>request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'read'}));
-  paper.action('追加导入的历史',async()=>{const input=await imported.read();return request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'append',history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})});});
+  paper.action('恢复账本',()=>request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'read'}),{auto:true});
+  paper.action('追加历史至模拟账本',async()=>{const input=await historyInput();if(input.observation)return preview(input);return request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'append',history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})});});
   root.append(paper.body);return root;
 }
 function learningStatus(ctx){
   const root=n('div',undefined,'fy-stack'),limit=input('number','30',{min:'1',max:'60',step:'1'}),progress=workbench(ctx,'学习进度与复访','只把具备独立目标日证据的研究计入完成；历史匹配频率与实际收益分开。',[field('本次最多处理',limit)]);
   const render=data=>{const s=data.status||data.result||data,c=s.counts||{};return append(n('div',undefined,'fy-stack'),metrics([['总记录',c.total??'未知'],['待到期',c.pending??'未知'],['已验证',c.matured??'未知'],['无效证据',c.invalid??'未知']]),evidenceTree(s));};
-  progress.action('读取学习进度',()=>request(ctx,'/api/learn-status'),{render});
+  progress.action('读取学习进度',()=>request(ctx,'/api/learn-status'),{render,auto:true});
   progress.action('处理已到期证据',()=>{const value=Number(limit.value);if(!Number.isInteger(value)||value<1||value>60)throw Error('每次处理数量需要在1到60之间。');return request(ctx,'/api/learn-status',{force:true,limit:value});},{render});root.append(progress.body);
   const runtime=workbench(ctx,'本地研究运行条件','当前预检、模型摘要与上次运行记录分别呈现，不把历史成功当作后台仍在运行。');
   runtime.action('检查当前运行条件',()=>request(ctx,'/api/research/learning-runtime'),{render:data=>evidenceTree(data.result||data)});
@@ -231,7 +251,7 @@ function sources(ctx){
   root.append(box(null,null,field('核对股票代码',quoteCode),quoteCrossCheckPanel(ctx,()=>quoteCode.value.trim())));
   const capture=workbench(ctx,'建立逐股证据包','保留日K、原始来源、市场同日匹配、冻结判断与后续复访。',[field('证券代码',code),field('采集来源',provider),field('历史天数',days)]);
   capture.action('采集并研究',()=>{const historyDays=Number(days.value);if(!Number.isInteger(historyDays)||historyDays<30||historyDays>500)throw Error('历史天数须为30至500之间的整数。');return request(ctx,'/api/research/observe-stock',{symbol:symbolValue(code),provider:provider.value,historyDays,includeContext:true});},{kind:'primary'});
-  capture.action('读取已存原始历史',()=>{if(provider.value==='auto')throw Error('读取已存历史时请明确选择来源。');return request(ctx,'/api/research/stock-observations?'+new URLSearchParams({symbol:symbolValue(code),provider:provider.value}));});
+  capture.action('读取已存原始历史',async()=>{if(provider.value==='auto'){const x=await readAutomatic(ctx,symbolValue(code,true)||undefined);return {result:{...automaticSummary(x),stock:x.stock}};}return request(ctx,'/api/research/stock-observations?'+new URLSearchParams({symbol:symbolValue(code),provider:provider.value}));},{auto:true});
   capture.action('读取采集和复访队列',()=>request(ctx,'/api/research/stock-observation-status'));root.append(capture.body);
   let catalogue=[],chosen=new Set();const category=select([['industry','行业'],['concept','概念']]),search=input('search','',{placeholder:'名称或BK代码'}),choices=n('div',undefined,'fy-grid'),selected=n('p','已选 0 / 6','fy-muted');
   const sectors=workbench(ctx,'行业与概念取证','先读取板块目录，再明确选择最多六个板块。成员归属只属于本次观测，不回填历史。',[field('目录类别',category),field('搜索目录',search)]);
@@ -241,7 +261,7 @@ function sources(ctx){
   }}
   category.addEventListener('change',renderChoices);search.addEventListener('input',renderChoices);
   function sectorRender(data){const r=data.result||data,rows=Array.isArray(r.catalogue)?r.catalogue:arr(r.catalogue?.records);if(rows.length){catalogue=rows.filter(b=>['industry','concept'].includes(b.category)&&/^BK\d{4}$/.test(b.code));chosen.clear();selected.textContent='已选 0 / 6';renderChoices();}return evidenceTree(r);}
-  sectors.action('读取服务端已存板块',()=>request(ctx,'/api/research/public-sectors'),{render:sectorRender});
+  sectors.action('读取服务端已存板块',()=>request(ctx,'/api/research/public-sectors'),{render:sectorRender,auto:true});
   sectors.action('联网获取板块目录',()=>request(ctx,'/api/research/public-sectors',{}),{render:sectorRender});
   sectors.action('采集已选板块',()=>{if(!chosen.size)throw Error('请先从目录选择板块。');return request(ctx,'/api/research/public-sectors',{boards:[...chosen].map(value=>{const [category,code]=value.split(':');return {category,code};})});},{render:sectorRender});root.append(sectors.body);return root;
 }
@@ -257,7 +277,8 @@ function memory(ctx){
   });
   code.addEventListener('input',()=>publicContext=null);sector.addEventListener('input',()=>publicContext=null);day.addEventListener('input',()=>publicContext=null);root.append(memory.body);
   const imported=importEvidence('带来源和原始时点的联动证据',2*1024*1024),persist=input('checkbox'),linkedStudy=workbench(ctx,'市场、板块与个股联动','独立证据共同支持研究；不改变原始生产排名。保存研究需要显式选择。',[imported.element,field('保存本次研究版本',persist)]);
-  linkedStudy.action('分析联动证据',async()=>{const payload=await imported.read();if(payload.schemaVersion!==1||!Number.isSafeInteger(payload.asOf)||!Array.isArray(payload.tradeDates)||!Array.isArray(payload.stocks))throw Error('需要schemaVersion:1、asOf、tradeDates和stocks原始字段。');payload.persist=persist.checked;if(!Object.hasOwn(payload,'publicContext')&&publicContext)payload.publicContext=publicContext;return request(ctx,'/api/research/linked-intelligence',payload);},{kind:'primary'});root.append(linkedStudy.body);return root;
+  linkedStudy.action('分析联动证据',async()=>{const x=imported.chosen()?null:await readAutomatic(ctx,symbolValue(code,true)||researchCode(ctx));const payload=x?{schemaVersion:1,asOf:x.asOf,tradeDates:x.tradeDates,stocks:[x.stock],...(x.publicContext?{publicContext:x.publicContext}:{})}:await imported.read();if(payload.schemaVersion!==1||!Number.isSafeInteger(payload.asOf)||!Array.isArray(payload.tradeDates)||!Array.isArray(payload.stocks))throw Error('需要schemaVersion:1、asOf、tradeDates和stocks原始字段。');payload.persist=persist.checked;if(!Object.hasOwn(payload,'publicContext')&&publicContext)payload.publicContext=publicContext;return request(ctx,'/api/research/linked-intelligence',payload);},{kind:'primary'});
+  linkedStudy.action('查看当前联动观察',async()=>{const x=await readAutomatic(ctx);const r=await request(ctx,'/api/research/linked-intelligence',{schemaVersion:1,asOf:x.asOf,tradeDates:x.tradeDates,stocks:[x.stock],publicContext:x.publicContext,persist:false});return {result:{...automaticSummary(x),linkage:r.result}};},{auto:true});root.append(linkedStudy.body);return root;
 }
 function evidence(ctx){
   const code=symbolInput(ctx),w=workbench(ctx,'原文证据室','发布、接收、修订与撤稿分别留痕；来源摘要与完整原文不混淆。',[field('证券代码（留空查看全部）',code)]);

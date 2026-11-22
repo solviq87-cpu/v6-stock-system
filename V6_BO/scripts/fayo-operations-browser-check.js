@@ -66,7 +66,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.getByText('更新后的任务状态',{exact:true}).isVisible(),true,'diagnostics do not freeze at route-open time');
   await page.evaluate(()=>window.renderRoute('opportunities','ranked'));
   const datedStatus=await page.locator('#mount .fy-note').innerText();
-  assert.match(datedStatus,/系统精选.*1 只/);
+  assert.match(datedStatus,/系统精选.*0 只/);
   assert.doesNotMatch(datedStatus,/\d{4}[-/]?\d{2}[-/]?\d{2}|实时行情/,'an undated result cannot acquire the latest read date or a live label');
   assert.doesNotMatch(await page.locator('#mount .fy-note').innerText(),/2026[-/]11[-/]16/);
   await page.evaluate(()=>window.renderRoute('settings','preferences'));

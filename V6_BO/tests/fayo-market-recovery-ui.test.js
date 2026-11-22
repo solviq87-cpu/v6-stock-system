@@ -78,7 +78,7 @@ test('public market shows one collection entry with source outcomes and dated sc
   class Element {
     constructor(tag){this.tag=tag;this.children=[];}
     get textContent(){return this.children.map(x=>x instanceof Element?x.textContent:x).join(' ');}
-    append(value){this.children.push(value);}
+    append(...values){this.children.push(...values);}
     setAttribute(k,v){this[k]=v;}
     addEventListener(){}
   }

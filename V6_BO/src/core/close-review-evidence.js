@@ -174,11 +174,36 @@ function createPromotionStore(file){
  };
 }
 
-function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,fetchBrief,clock=Date.now,poolFile}){
+function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,fetchBrief,clock=Date.now,poolFile,reportDirectory,canPersist=()=>true}){
  const previousPools=createPromotionStore(poolFile);
  const days=new Map(), pending=new Map();
- return async function read(day,previousDay,{seatsReady}){
+ function retained(day){
+  if(!day||normalizeDay(day)!==day)return null;
+  const memory=days.get(day)?.report;
+  if(memory||!reportDirectory)return memory||null;
+  try{
+   const file=path.join(reportDirectory,day+'.json');
+   const stat=fs.lstatSync(file);if(!stat.isFile()||stat.size>maxStoreBytes)return null;
+   const report=JSON.parse(fs.readFileSync(file,'utf8'));
+   return report.day===day&&completePool(report.sealed,day)&&Array.isArray(report.reasons)&&Array.isArray(report.seats)?report:null;
+  }catch{return null;}
+ }
+ function saveReport(report){
+  if(!reportDirectory||!canPersist()||!completePool(report.sealed,report.day))return;
+  const file=path.join(reportDirectory,report.day+'.json'),tmp=file+'.'+randomUUID()+'.tmp';
+  try{
+   const bytes=JSON.stringify(report);if(Buffer.byteLength(bytes)>maxStoreBytes)return;
+   fs.mkdirSync(reportDirectory,{recursive:true,mode:0o700});
+   fs.writeFileSync(tmp,bytes,{flag:'wx',mode:0o600});fs.renameSync(tmp,file);
+  }catch{try{fs.unlinkSync(tmp);}catch{}}
+ }
+ async function read(day,previousDay,{seatsReady}){
+  if(!day||normalizeDay(day)!==day)throw Error('交易日格式无效');
   const key=day+':'+seatsReady;
+  if(!days.has(day)){
+   const report=retained(day);
+   if(report)days.set(day,{key:day+':'+(report.seatsStatus==='observed'),at:0,report});
+  }
   const cached=days.get(day);
   if(cached?.key===key&&clock()-cached.at<(cached.report.retryAfterMs??readyInterval))return cached.report;
   if(pending.has(key))return pending.get(key);
@@ -249,7 +274,7 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
    const published=seatsReady||priorBatch?.key===day+':true';
    const preservePublication=!seatsReady&&published;
    const finalSeatsStatus=keepSeats||preservePublication?older.seatsStatus:freshSeatsStatus;
-   const missingReasons=sealed?.records.length>0&&mergedReasons.size===0;
+   const missingReasons=sealed?.records.some(row=>!mergedReasons.has(row.symbol));
    const completeNow=compatible&&completePool(freshSealed,day)&&completePool(freshBroken,day)&&freshDown!==null&&
     (!published||finalSeatsStatus==='observed')&&!missingReasons;
    const brief=result(briefResult);
@@ -263,12 +288,14 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
    // A request started before the publication threshold may finish after a
    // published request. Reuse its evidence without reverting the cache phase.
    days.set(day,{key:day+':'+published,at:clock(),report});
+   saveReport(report);
    if(days.size>keepSessions)days.delete([...days.keys()].sort()[0]);
    return report;
   })();
   pending.set(key,task);
   try{return await task;}finally{pending.delete(key);}
- };
+ }
+ return Object.assign(read,{retained});
 }
 
 module.exports={createCloseReviewReader,summarizePromotion,seatFrom,marketTurnover,reasonFromF10,thsDailyBrief,fetchThsDailyBrief};

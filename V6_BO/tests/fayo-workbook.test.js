@@ -47,7 +47,7 @@ const descendants=node=>[node,...node.children.flatMap(descendants)];
 async function setup(request){
  global.Node=Node;global.document={createElement:tag=>new Node(tag),createTextNode:text=>{const node=new Node('#text');node.textContent=text;return node;}};global.window=new Node('window');
  const uiUrl=url(fs.readFileSync(path.join(root,'ui.js'),'utf8'));
- const source=fs.readFileSync(path.join(root,'workbook-view.js'),'utf8').replace("'./ui.js'",JSON.stringify(uiUrl)).replace("'./workbook.js'",JSON.stringify(parserUrl));
+ const source=fs.readFileSync(path.join(root,'workbook-view.js'),'utf8').replace("'./ui.js'",JSON.stringify(uiUrl)).replace("'./workbook.js'",JSON.stringify(parserUrl)).replace("'./market.js'",JSON.stringify(require('node:url').pathToFileURL(path.join(root,'market.js')).href));
  const {renderWorkbookImport}=await import(url(source));const controller=new AbortController(),selected=[],calls=[];
  const panel=renderWorkbookImport({role:'edit',signal:controller.signal,api:async(p,o)=>{calls.push({p,o});return request(p,o);},selectStock:code=>selected.push(code)});
  const nodes=descendants(panel),find=predicate=>nodes.find(predicate);
