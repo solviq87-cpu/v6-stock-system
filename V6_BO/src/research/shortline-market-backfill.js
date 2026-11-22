@@ -156,7 +156,7 @@ function defaults(clock){
       return thsBook(pages,day);
     },
     async agu(day){return aguBook(await requestText('https://agu-app.com/daily/'+day),day,clock());},
-    async ladder(day){return ladderChanges(await requestText('https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html'),day,clock());},
+    async ladder(day){const page=await require('./dabanke-requests').fetchDabankePage('https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html');return ladderChanges(page.raw.toString('utf8'),day,page.receivedAt??clock());},
     async east(day,kind){
       if(kind==='sealed'||kind==='broken')return fetchReviewLimitPool(day,kind);
       const sourceUrl=emUrl(day,kind),j=JSON.parse(await requestText(sourceUrl)),d=j?.data;

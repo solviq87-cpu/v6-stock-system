@@ -50,7 +50,7 @@ function currentMeasures(stock){
  if(bars.length>=20)values.push({name:'最近20根收盘均价',value:+(bars.slice(-20).reduce((s,b)=>s+b.close,0)/20).toFixed(2),unit:'元'});
  return values;
 }
-function createAutomaticResearch({paths,getDay,defaultSymbol,closeMember,canPersist=()=>true,clock=Date.now,fetchHistory=fetchResearchHistory,
+function createAutomaticResearch({paths,getDay,defaultSymbol,closeMember,publicReview,canPersist=()=>true,clock=Date.now,fetchHistory=fetchResearchHistory,
  readStored=readObservedStock,retain=retainStockObservation,calendar=readResearchCalendar,
  readBundle=readResearchEvidenceBundle,readWorkspace=workspaceView}){
  const cache=new Map(),pending=new Map();
@@ -93,14 +93,18 @@ function createAutomaticResearch({paths,getDay,defaultSymbol,closeMember,canPers
   const observationHash=record?.observationHash||record?.observations?.at(-1)?.observationHash;
   const research36=compileObservation({stock,asOf,marketContext,observation:{observationHash}},{tradingDates:tradeDates,publicHistory:true}).result;
   return {symbol,name:stock.name||symbol,source,provider:stock.provider,tradeDate:date,requestedDay:day,asOf,stock,
-   observations:currentMeasures(stock),history,tradeDates,publicContext,systems:decision.systems,research36,canTrade:false};
+   observations:currentMeasures(stock),publicReview:publicReview?.(symbol,date,clock())||null,history,tradeDates,publicContext,systems:decision.systems,research36,canTrade:false};
  }
  return async function automatic(symbol){
   if(symbol!=null&&symbol!==''&&!codeOK(symbol))throw Error('研究标的代码无效');
   const day=getDay();symbol=symbol||await defaultSymbol(day);
   if(!codeOK(symbol))throw Error('最近交易日的候选池正在同步');
   const key=day+'/'+symbol,hit=cache.get(key);
-  if(hit&&hit.until>clock())return hit.value;
+  if(hit&&hit.until>clock()){
+   if(!publicReview)return hit.value;
+   const latest=publicReview(symbol,hit.value.tradeDate,clock())||null;
+   return {...hit.value,publicReview:latest};
+  }
   if(pending.has(key))return pending.get(key);
   if(pending.size>=6)throw Error('已有研究数据正在同步，请稍候');
   const work=load(symbol,day).then(value=>{

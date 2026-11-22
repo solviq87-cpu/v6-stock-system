@@ -408,7 +408,7 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
       thsBrief:inputs.report?.thsBrief?.day===day?inputs.report.thsBrief:null,
       closeDetails:(confirmedPool(inputs.report?.sealed,day)||[]).map(r=>({code:r.symbol,day,
         source:inputs.report.sealed.source||'东方财富涨停池',knownAt:now,
-        price:r.price,amount:r.amountCny,turnover:r.turnoverPct,sealAmount:r.sealedFundsCny,lastSeal:sealTime(r.lastSealTime),firstSeal:sealTime(r.firstSealTime)})),
+        price:r.price,amount:r.amountCny,floatCap:r.floatCapCny,turnover:r.turnoverPct,sealAmount:r.sealedFundsCny,lastSeal:sealTime(r.lastSealTime),firstSeal:sealTime(r.firstSealTime)})),
       closeReasons:[...(width?.closeReasons||[]),...(inputs.report?.reasons||[]).map(r=>({...r,day}))],
       coverage:[...(width?.coverage||[]),...(base?.localBreadth?[base.localBreadth]:[])]};
   }

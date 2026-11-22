@@ -152,7 +152,7 @@ function marketDistribution(html,day,knownAt,{intraday=false}={}){
   if(bins.size!==11||bins.get('flat')!==flat||sum(['limit_up','over_7','up_5_7','up_3_5','up_0_3'])!==adv||
     sum(['limit_down','below_7','down_5_7','down_3_5','down_0_3'])!==dec)return null;
   return {kind:intraday?'market-distribution-intraday':'market-distribution',scope:'沪深京 A 股（含 ST）',source:intraday?'打板客盘中涨跌分布':'打板客收盘涨跌分布',day,knownAt,quoteAt,
-    observed,total,adv,dec,flat,upLimit:bins.get('limit_up'),downLimit:bins.get('limit_down')};
+    observed,total,adv,dec,flat,upLimit:bins.get('limit_up'),downLimit:bins.get('limit_down'),buckets:Object.fromEntries(bins)};
 }
 function leguWidth(html,day,knownAt){
   const times=[...html.matchAll(/<span class="market-activity-time">([^<]*)<\/span>/g)];
@@ -186,8 +186,9 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
     if(latest)urls.push('https://www.dabanke.com/');
     for(const url of urls){
       try{
-        const response=await send(url,{timeoutMs:8000,processTimeoutMs:9000,maxBytes:1048576});
-        const record=marketDistribution(response.raw.toString('utf8'),day,clock());
+        const fetchPage=request===requestResearchBytes&&!requestGovernor?require('./dabanke-requests').fetchDabankePage:send;
+        const response=await fetchPage(url,{timeoutMs:8000,processTimeoutMs:9000,maxBytes:2*1024*1024});
+        const record=marketDistribution(response.raw.toString('utf8'),day,response.receivedAt??clock());
         if(record)return record;
       }catch(error){if(isMarketRestrictionError(error))break;}
     }
@@ -377,7 +378,7 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
 
 // Poll one shared provider receipt across clients. A source outage preserves the
 // original dated observation and backs off until the next eligible market read.
-function createWorkingDistribution({request=requestResearchBytes,clock=Date.now}={}){
+function createWorkingDistribution({request=require('./dabanke-requests').fetchDabankePage,clock=Date.now}={}){
   let sessionDay=null,saved=null,inflight=null,retryAt=0;
   return function read(session){
     const day=session.day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
@@ -385,8 +386,8 @@ function createWorkingDistribution({request=requestResearchBytes,clock=Date.now}
     const now=clock();
     if(session.trading&&!inflight&&now>=retryAt&&aShareCalendarDate(now)===day){
       retryAt=now+30000;
-      const job=Promise.resolve().then(()=>request('https://www.dabanke.com/index-'+session.day+'.html',{timeoutMs:5500,maxBytes:512*1024})).then(({raw})=>{
-        const result=marketDistribution(raw.toString('utf8'),day,clock(),{intraday:true});
+      const job=Promise.resolve().then(()=>request('https://www.dabanke.com/index-'+session.day+'.html',{timeoutMs:5500,maxBytes:2*1024*1024})).then(({raw,receivedAt})=>{
+        const result=marketDistribution(raw.toString('utf8'),day,receivedAt??clock(),{intraday:true});
         if(sessionDay===day&&result&&(!saved||result.quoteAt>=saved.quoteAt))saved=result;
       }).catch(()=>{}).finally(()=>{if(inflight===job)inflight=null;});
       inflight=job;
