@@ -96,9 +96,13 @@ function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPu
       if(rows.some(r=>r.date===day&&fields.some(k=>valueOk(k,r[k]))))state.lastSuccessAt=now;
       const durable=rows.length&&!isReplica()?await save(rows,day):true;
       cachedDay=day;cachedRows=rows;
-      const hasBreadth=last?.metrics.adv&&last.metrics.dec || state.coverage?.some(x=>x.day===day&&numeric(x.adv)&&numeric(x.dec));
-      const hasAmount=last?.metrics.amount||state.coverage?.some(x=>x.day===day&&numeric(x.amountCny));
-      const complete=hasBreadth&&hasAmount&&last&&essential.filter(k=>!['adv','dec','amount'].includes(k)).every(k=>last.metrics[k])&&available.filter(r=>r.date<=day&&['upLimit','downLimit','breakRate','height','leader','diffusion'].every(k=>numeric(r[k]))).length>=3;
+      const currentCoverage=(state.coverage||[]).filter(x=>x.day===day&&x.complete&&x.observed===x.total);
+      const hasBreadth=last?.metrics.adv&&last.metrics.dec||currentCoverage.some(x=>x.kind==='breadth'&&x.scope.startsWith('沪深两市交易股票')&&numeric(x.adv)&&numeric(x.dec));
+      const hasAmount=last?.metrics.amount||currentCoverage.some(x=>x.kind==='amount'&&x.scope==='沪深两市成交额'&&numeric(x.amountCny));
+      const sessions=available.slice(-3);
+      const continuous=sessions.length===3&&sessions.at(-1).date===day&&sessions.every((r,i)=>
+        (!i||!r.previousDay||r.previousDay===sessions[i-1].date)&&['upLimit','downLimit','breakRate','height','leader','diffusion'].every(k=>numeric(r[k])));
+      const complete=hasBreadth&&hasAmount&&last&&continuous&&essential.filter(k=>!['adv','dec','amount'].includes(k)).every(k=>last.metrics[k]);
       if(!durable)throw Error('等待研究归档');
       state.phase=complete?'ready':'partial';
       misses=complete?0:misses+1;

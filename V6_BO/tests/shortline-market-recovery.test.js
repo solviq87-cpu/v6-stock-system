@@ -63,3 +63,17 @@ test('同日冲突时保留连续统计的指标及其原口径，公开成交�
  assert.equal(service.display().metrics.amount.scope,'沪深两市成交额');
  assert.equal(service.display().metrics.amount.value,14222.004229375);
 });
+
+test('所选板块和单一交易所仍可展示，继续补取两市统计及最近连续交易日',async()=>{
+ const rows=fixture().map(row=>({...row,amount:null,adv:null,dec:null}));
+ const coverage=[{kind:'sector',scope:'电子板块',amountCny:1,adv:1,dec:0},
+   {kind:'amount',scope:'上交所股票成交日概况 · 产品 01',amountCny:10}].map(x=>({...x,day:today,source:'原始来源',knownAt:now,observed:1,total:1,complete:true}));
+ const run=async (rows,coverage)=>{
+   const r=createMarketRecovery({getDay:()=>today,clock:()=>now,collect:async()=>({rows,coverage}),save:async()=>true});
+   await r.tick();return r.display();
+ };
+ const partial=await run(rows,coverage);
+ assert.equal(partial.phase,'partial');assert.equal(partial.coverage.length,2);assert.ok(partial.nextRetryAt-now<4*3600000);
+ const discontinuous=fixture();discontinuous[0].date='2026-11-16';discontinuous[1].previousDay=before;
+ assert.equal((await run(discontinuous,[])).phase,'partial');
+});

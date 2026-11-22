@@ -342,10 +342,11 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
   async function readMarket(day){
     const previous=normalizeDay(await previousTradeDay?.(day)),state=getState()||{};
     const inputs=await baseline(day,previous);
+    const latestClosedDay=normalizeDay(await getLatestClosedDay?.());
     const base=buildSnapshot({code:'',day,latestClosedDay:day,history:null,state,...inputs,now:clock()}).market.find(r=>r.date===day);
     const parts=await Promise.allSettled([
       marketBackfill?marketBackfill({day,review:inputs.report,previousPool:inputs.previousPool,clsPool:state.ztReviewPool}):null,
-      breadthFallback?breadthFallback({day,latestClosedDay:day,state,needBreadth:base?.adv==null||base?.dec==null,needAmount:base?.amount==null}):null
+      breadthFallback?breadthFallback({day,latestClosedDay,state,needBreadth:base?.adv==null||base?.dec==null,needAmount:base?.amount==null}):null
     ]);
     const sentiment=parts[0].value,width=parts[1].value,now=clock();
     const byDate=new Map();
