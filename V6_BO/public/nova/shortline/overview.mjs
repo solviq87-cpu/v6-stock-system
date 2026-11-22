@@ -1,7 +1,8 @@
 import {icon} from './icons.mjs';
 import {emotion,marketAsOf,knowledgeCutoff} from './market.mjs';
 import {mistakeSummary} from './review.mjs';
-import {recoveredMetric,marketPhaseName,observedCoverage,coverageValues,coverageCount,turnoverLabel} from '../market-evidence.js';
+import {recoveredMetric,marketPhaseName,observedCoverage,coverageValues,coverageCount,turnoverLabel,closeDistribution} from '../market-evidence.js';
+import {archive} from '../data/close-review-20261120.js';
 const phase=['冰点','发酵','高潮','分歧','退潮'];
 const round=n=>Math.round(n*100)/100;
 const val=x=>x!=null?Number(x).toLocaleString('en-US',{maximumFractionDigits:2}):'—';
@@ -18,7 +19,7 @@ function spark(data,color,id){
  const d=pathLine(pts);return '<svg aria-hidden="true" class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><defs><linearGradient id="sp'+id+'" x2="0" y2="1"><stop stop-color="'+color+'" stop-opacity=".22"/><stop offset="1" stop-color="'+color+'" stop-opacity=".01"/></linearGradient></defs><path d="'+d+' L99 30H1Z" fill="url(#sp'+id+')"/><path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="1.8"/></svg>'
 }
 function displayTime(ms){return new Date(ms+8*36e5).toISOString().slice(0,16).replace('T',' ');}
-const otherMetrics={adv:['上涨家数','家'],dec:['下跌家数','家'],downLimit:['跌停家数','家'],leader:['高标反馈','%'],diffusion:['题材扩散度','%'],premium:['昨日涨停溢价','%'],trend:['全A趋势',''],sh:['上证趋势',''],cy:['创业板趋势',''],theme:['主线题材','']};
+const otherMetrics={adv:['上涨家数','家'],dec:['下跌家数','家'],downLimit:['专题池跌停家数','家'],leader:['高标反馈','%'],diffusion:['题材扩散度','%'],premium:['昨日涨停溢价','%'],trend:['全A趋势',''],sh:['上证趋势',''],cy:['创业板趋势',''],theme:['主线题材','']};
 const observedMetricKeys=['upLimit','breakRate','height','amount',...Object.keys(otherMetrics)];
 export function overviewEvidence(s,requestedDay,now=Date.now()){
  const last=s.market?.at(-1)?.date,recovery=s.marketRecovery,latest=s.v6Observation;
@@ -43,7 +44,7 @@ export function overviewEvidence(s,requestedDay,now=Date.now()){
  const provedRows=rows.filter(r=>r.source&&(r.knownAt!=null||r.availableAt));
  const rule=emotion(provedRows,date,cut),publicEmotion=recoveredMetric(recovery,'emotion',date,cut);
  const stage=marketPhaseName(rule.stage)?{value:rule.stage,date,confidence:rule.confidence,source:'多日收盘规则',knownAt:Math.max(...provedRows.slice(-3).map(r=>knowledgeCutoff(r.knownAt??r.availableAt)))}:publicEmotion;
- return {date,rows:provedRows,metrics,stage,rule,coverage:observedCoverage(recovery,date,cut)};
+ return {date,cut,rows:provedRows,metrics,stage,rule,coverage:observedCoverage(recovery,date,cut)};
 }
 function metric(obs,{key,label,unit,color,tone,symbol},esc){
  if(!obs)return '';
@@ -71,8 +72,9 @@ function chart(ui,windowSize,sourceRows){
 function gauge(em,label){const p=em.confidence/100;let ticks='';for(let i=0;i<23;i++){const a=Math.PI*(1-i/22),rad=i%2?74:71;ticks+='<line x1="'+(112+79*Math.cos(a))+'" y1="'+(105-79*Math.sin(a))+'" x2="'+(112+rad*Math.cos(a))+'" y2="'+(105-rad*Math.sin(a))+'" stroke="#d0cbeb" stroke-width="1.3"/>'}
  return '<div class="gauge"><svg viewBox="0 0 224 116"><defs><linearGradient id="arc"><stop stop-color="#d8d1ff"/><stop offset=".45" stop-color="#a49aef"/><stop offset="1" stop-color="#6756cb"/></linearGradient></defs><path d="M18 105 A94 94 0 0 1 206 105" pathLength="100" fill="none" stroke="#edeaf7" stroke-width="11" stroke-linecap="round"/><path d="M18 105 A94 94 0 0 1 206 105" pathLength="100" stroke-dasharray="'+(p*100)+' 101" fill="none" stroke="url(#arc)" stroke-width="11" stroke-linecap="round"/>'+ticks+'</svg><div class="gauge-val"><b>'+em.stage+'</b><small>'+label+'</small></div></div>'}
 export function renderOverview(ui){
- const {state:s,root,esc}=ui,{date,rows,metrics:observations,stage,rule:em,coverage}=overviewEvidence(s,ui.date);
- const metrics=[{key:'upLimit',label:'涨停家数',unit:'家',color:'#8c79df',tone:'purple',symbol:'trend'},{key:'breakRate',label:'市场炸板率',unit:'%',color:'#57b69c',tone:'teal',symbol:'pulse'},{key:'height',label:'最高连板',unit:'板',color:'#e7ad66',tone:'orange',symbol:'stack'},{key:'amount',label:'成交额',unit:'亿',color:'#6899df',tone:'blue',symbol:'wallet'}];
+ const {state:s,root,esc}=ui,{date,cut,rows,metrics:observations,stage,rule:em,coverage}=overviewEvidence(s,ui.date);
+ const metrics=[{key:'upLimit',label:'专题池涨停家数',unit:'家',color:'#8c79df',tone:'purple',symbol:'trend'},{key:'breakRate',label:'专题池炸板率',unit:'%',color:'#57b69c',tone:'teal',symbol:'pulse'},{key:'height',label:'最高连板',unit:'板',color:'#e7ad66',tone:'orange',symbol:'stack'},{key:'amount',label:'成交额',unit:'亿',color:'#6899df',tone:'blue',symbol:'wallet'}];
+ const broad=closeDistribution(s.marketRecovery,date,cut,archive.distribution);
  const eligibleChecks=s.checks.filter(r=>r.date<=date);
  const records=[...eligibleChecks].sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0,5);
  const columns=['校验标的','匹配战法','市场周期','仓位上限','校验结果','校验日期',''];
@@ -81,10 +83,11 @@ export function renderOverview(ui){
  const extra=Object.entries(otherMetrics).flatMap(([k,[label,unit]])=>{
   const r=observations[k];return r?['<p><b>'+esc(label)+' '+esc(r.value)+esc(unit)+'</b><br><small>'+(r.historical?'上次有效 · ':'')+esc(r.date)+' · '+esc(r.source)+' · 取得 '+esc(displayTime(r.knownAt))+'</small></p>']:[];
  });
- const plot=chartSources.length?'<section class="panel chart-panel"><div class="panel-title"><h2 class="card-title">'+icon('chart')+'市场情绪走势</h2><div class="segments"><button data-days="10">近10日</button><button data-days="20" class="active">近20日</button></div></div><div class="legend">涨停家数 / 跌停家数</div><div class="plotbox"></div><div class="chart-foot">'+esc(chartSources.join('、'))+' · 交易日收盘统计</div></section>':'';
+ const plot=chartSources.length?'<section class="panel chart-panel"><div class="panel-title"><h2 class="card-title">'+icon('chart')+'市场情绪走势</h2><div class="segments"><button data-days="10">近10日</button><button data-days="20" class="active">近20日</button></div></div><div class="legend">专题池涨停家数 / 跌停家数</div><div class="plotbox"></div><div class="chart-foot">'+esc(chartSources.join('、'))+' · 交易日收盘统计</div></section>':'';
  const phaseCard=stage?'<section class="panel cycle-panel"><div class="panel-title"><h2 class="card-title">'+icon('compass')+(stage.date===date?'情绪周期识别':'最近已判定周期')+'</h2><button data-info aria-label="判定依据">'+icon('info')+'</button></div><div class="cycle-body">'+gauge({stage:stage.value,confidence:stage.confidence},stage.date===date?'当日情绪周期':'归档情绪周期')+'<p>'+esc(stage.date)+' · '+esc(stage.source)+'</p><small>依据截至 '+esc(displayTime(stage.knownAt))+'</small></div></section>':'';
  const table=records.map((r,i)=>'<tr class="record-row" data-record="'+i+'"><td><div class="cellstock"><span class="monogram m'+i%4+'">'+esc(r.name?.slice(0,1))+'</span><div>'+esc(r.name)+'<small>'+esc(r.code)+'</small></div></div></td><td>'+esc(r.strategy==='未判定'?'':r.strategy)+'</td><td>'+esc(marketPhaseName(r.emotion?.stage))+'</td><td>'+val(r.position)+'%</td><td>'+esc(r.status)+'</td><td>'+esc(r.date)+'</td><td><button aria-label="校验详情">'+icon('chev',14)+'</button></td></tr>').join('');
  root.innerHTML='<div class="metrics">'+metrics.map(c=>metric(observations[c.key],c,esc)).join('')+'</div>'+
+  (broad?'<section class="panel"><h2>'+esc(broad.scope)+' · 收盘分布</h2><p>上涨 '+val(broad.adv)+' 家 · 下跌 '+val(broad.dec)+' 家 · 平盘 '+val(broad.flat)+' 家</p><p>涨停 '+val(broad.upLimit)+' 家 · 跌停 '+val(broad.downLimit)+' 家</p><small>'+esc(broad.day)+' · 有效 '+val(broad.observed)+' / '+val(broad.total)+' 只 · '+esc(broad.source)+'</small></section>':'')+
   (extra.length?'<section class="panel"><h2>盘面观测</h2>'+extra.join('')+'</section>':'')+
   (coverage.length?'<section class="panel"><h2>分范围收盘观测</h2>'+coverage.map(r=>'<p><b>'+esc(r.scope)+'</b> · '+esc(coverageValues(r))+'<br><small>'+esc(coverageCount(r))+' · '+esc(r.day)+' · '+esc(r.source)+' · 取得 '+esc(displayTime(r.knownAt))+'</small></p>').join('')+'</section>':'')+
   (plot||phaseCard?'<div class="visuals">'+plot+phaseCard+'</div>':'')+

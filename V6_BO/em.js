@@ -811,13 +811,20 @@ async function fetchZtReason(date, {deadline=Infinity} = {}) {
       if (page === 1) _srcWarn('涨停原因·同花顺兜底无数据', `第 1 页即返回空（date=${d}）—— 可能当日无涨停，也可能接口改版/反爬，需人工核对`);
       break;
     }
+    const {normalizeDay}=require('./src/core/limit-reason-evidence');
+    const batchDay=normalizeDay(j.data.date),requestedDay=normalizeDay(d);
     for (const x of info) {
       const code = String(x.code || '').trim();
-      if (!code) continue;
+      if (!/^\d{6}$/.test(code)) continue;
+      const lastSeal=Number(x.last_limit_up_time)*1000;
+      const sealDay=Number.isSafeInteger(lastSeal)&&lastSeal>=946684800000&&lastSeal<=Date.now()
+        ?new Date(lastSeal+28800000).toISOString().slice(0,10):null;
+      if((batchDay&&batchDay!==requestedDay)||(sealDay&&sealDay!==requestedDay))continue;
       out.set(code, {
         name: String(x.name || '').trim(),
         reason: String(x.reason_type || '').trim(),   // 例："电力人工智能+能源数字化+股份划转完成"
         highDays: x.high_days,                        // "首板" / "2板" ...
+        reasonTradeDate:batchDay||sealDay,
         sealAmount: +(x.order_amount || 0),           // 封单额(元)
         firstTime: x.first_limit_up_time ? new Date(+x.first_limit_up_time * 1000) : null
       });

@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261122av'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261122aw'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -11339,6 +11339,7 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   file:path.join(__dirname,'data','market-response-snapshots.json'),
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
+const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
 const closingCardSnapshots=require('./src/core/closing-card-snapshot').createClosingCardSnapshot({file:path.join(__dirname,'data','closing-card-snapshots.json'),onError:code=>console.error('[closing-cards] '+code)});
 function marketCardContext(){const session=marketDisplaySession();return {session,sourceDay:marketDisplayState().meta.snapshotDay};}
 function marketCardState(kind,value){
@@ -11354,11 +11355,12 @@ function marketCardResponse(kind,board,value,max){const context=marketCardContex
   return closedMarketCard(kind,board,max);
 }
 function closedMarketCard(kind,board,max){
-  const exact=closingCardSnapshots.read(kind+':'+board),old=exact||(board!=='all'?closingCardSnapshots.read(kind+':all'):null);
+  const exact=closingCardSnapshots.read(kind+':'+board),all=board!=='all'?closingCardSnapshots.read(kind+':all'):null;
+  const old=all&&(!exact||all.meta.snapshotDay>exact.meta.snapshotDay)?all:exact;
   let result=old?{...old.value,...old.meta}:null;
-  if(result&&!exact){const belongs=row=>(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row?.code||'');result={...result,board,boardFallback:true,completeForBoard:false,sourceBoard:'all',items:(result.items||[]).filter(belongs)};if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(g=>({...g,picks:(g.picks||[]).filter(belongs)})).filter(g=>g.picks.length);result.count=result.items.length;}
+  if(result&&old!==exact){const belongs=row=>(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row?.code||'');result={...result,board,boardFallback:true,completeForBoard:false,sourceBoard:'all',items:(result.items||[]).filter(belongs)};if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(g=>({...g,picks:(g.picks||[]).filter(belongs)})).filter(g=>g.picks.length);result.count=result.items.length;}
   if(!result&&['quant','auction'].includes(kind)){const legacy=marketResponseSnapshots.read(kind,board,{max:max||50});if(legacy)result={...legacy,marketFrozen:true};}
-  if(!result)result={items:[],candidates:[],count:0,board,marketFrozen:true,isSnapshot:true,snapshotRetained:false,snapshotDay:marketDisplayState().meta.snapshotDay,freezeUnavailable:true,canTrade:false,canNotify:false,note:'没有已保存的盘中卡片；收盘后不重算或补造收盘前状态'};
+  if(!result)result={items:[],candidates:[],board,marketFrozen:true,isSnapshot:true,snapshotRetained:false,snapshotDay:null,freezeUnavailable:true,canTrade:false,canNotify:false,note:'本池尚无盘中归档'};
   if(Number.isFinite(max)&&Array.isArray(result.items))result.items=result.items.slice(0,Math.max(1,Math.floor(max)));
   return result;
 }
@@ -11377,6 +11379,20 @@ function marketDisplaySession(now=Date.now()) {
   const openDay=isTradeDay(new Date(year,month,date,12));
   return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
+function sharedMarketRead(kind,edit) {
+  const session=marketDisplaySession();
+  const day=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
+  if(day&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1')void marketRecovery().tick().catch(()=>{});
+  const state=marketCardState(kind,kind==='state'?buildDashboardState(edit):buildMobileDigest(edit));
+  state.marketClock={trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
+  if(!day)return {...state,closeSession:null,marketDistribution:process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session)};
+  // Read already archived cards, including the first page of the complete scan.
+  // This path never runs a strategy, writes to a portfolio or sends an alert.
+  const keys=['quant','auction','intraday',...(edit?['wash','preseal','shortline']:[])];
+  const cards=Object.fromEntries(keys.map(key=>[key,closedMarketCard(key,'all',50)]));
+  cards.matches=v6MatchesSnapshotStore.page({limit:50,cursor:''});
+  return {...state,closeSession:{day,cards}};
+}
 const {createQuoteCrossCheck,supportsQuoteCheck}=require('./src/core/quote-cross-check');
 const checkStockQuote=createQuoteCrossCheck({isOpenDay:at=>marketDisplaySession(at).openDay});
 function marketDisplayState() {
@@ -11386,7 +11402,7 @@ function marketDisplayState() {
 }
 
 const readCloseReviewEvidence = require('./src/core/close-review-evidence').createCloseReviewReader({
-  market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
+  market:em,fetchBrief:require('./src/core/close-review-evidence').fetchThsDailyBrief,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
 });
 
 function shortlineResearchDir(){return process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research');}
@@ -11424,6 +11440,7 @@ function marketRecovery(){
   if(!publicMarketRecovery){
     const {createMarketRecovery}=require('./src/research/market-recovery');
     publicMarketRecovery=createMarketRecovery({getDay:latestResearchClose,isReplica:()=>!researchPrimary(),replicaPublicReads:true,
+      onCollected:day=>sseSend('close-snapshot',{day}),
       file:process.env.V6_MARKET_RECOVERY_FILE||path.join(__dirname,'data','market-recovery-public.json'),
       collect:day=>shortlineReader().readMarket(day),
       save:async (rows,day)=>(await require('./src/server/research-workspace-job').runWorkspaceJob({
@@ -23111,10 +23128,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if (!isLocalReq(req) && !roleOf(req.__tok || '',clientIp(req))) return reply(401,{ok:false,needAuth:true});
     const {day:today,minute,openDay}=marketDisplaySession();
     const {normalizeDay}=require('./src/core/limit-reason-evidence');
-    const day=normalizeDay(S.review?.date);
     const todayDate=normalizeDay(today);
     const latest=openDay&&minute>=900?todayDate:prevTradeDay(todayDate+'T12:00:00');
-    if(!day||day!==latest||u.searchParams.get('date')!==day)return reply(404,{ok:false,error:'当前尚无此交易日的收盘复盘'});
+    const day=u.searchParams.get('date');
+    if(!latest||day!==latest)return reply(404,{ok:false,error:'当前尚无此交易日的收盘复盘'});
     const previousDay=prevTradeDay(day+'T12:00:00');
     return readCloseReviewEvidence(day,previousDay,{seatsReady:day!==todayDate||minute>=1080})
       .then(result=>reply(200,{ok:true,result}))
@@ -23122,7 +23139,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   }
 
   if (p === '/api/state') {
-    return json(res, marketCardState('state',buildDashboardState(isEditorReq(req,''))));
+    return json(res, sharedMarketRead('state',isEditorReq(req,'')));
   }
   if (p === '/api/fast-stock-moves' && req.method === 'GET') {
     const servedAt = Date.now(), session = marketDisplaySession(servedAt);
@@ -23195,7 +23212,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // 手机速览页 /m 的精简数据源：只下发「一眼结论」所需字段（几十 KB 内）。
   // ⛔ 复用 /api/state 同源数据，不新写聚合口径（见 buildMobileDigest 注释）。
   if (p === '/api/mobile-digest') {
-    return json(res, marketCardState('mobile',buildMobileDigest(isEditorReq(req, ''))));
+    return json(res, sharedMarketRead('mobile',isEditorReq(req, '')));
   }
   // 手机速览页「量化选股」卡片数据源。
   // ⛔ js 轮（2026-10-22，用户原话「把这个上面的功能设置成只读也可见」+截图）：量化选股/竞价共振

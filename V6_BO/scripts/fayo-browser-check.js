@@ -293,8 +293,8 @@ const runChecks=async()=>{
       sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
       sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
       statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
-      brand:b('.fy-header .fy-brand'),up:colors('.fy-terminal-index .fy-market-ticker .fy-positive'),
-      down:colors('.fy-terminal-index .fy-market-ticker .fy-negative'),
+      brand:b('.fy-header .fy-brand'),up:colors('.fy-overview-index.fy-positive'),
+      down:colors('.fy-overview-index.fy-negative'),
       main:getComputedStyle(document.querySelector('.fy-terminal')).display
      };
     });
@@ -316,10 +316,10 @@ const runChecks=async()=>{
      assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
     }else{
      assert.ok(regions.referenceTop.top<regions.shortcuts.top&&regions.shortcuts.bottom<regions.candidates.top&&
-      regions.candidates.bottom<regions.funds.top&&regions.funds.top<874,
-      'phone shows the signal, shortcuts, candidates and the start of funds in the reference order');
-     assert.ok(regions.stats.bottom<regions.ticker.top&&regions.ticker.top<regions.focus.top,
-      'phone retains audited counters, original-time indices and the risk strip below the primary dashboard');
+      regions.candidates.bottom<regions.funds.top&&regions.ticker.top<500,
+      'phone shows the signal, shortcuts, candidates and funds in the reference order');
+     assert.ok(regions.ticker.top<regions.referenceTop.top&&regions.ticker.bottom<regions.focus.top,
+      'the mobile first fold leads with indices, market conditions and risk');
      assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
       'phone original review remains between primary evidence and additional research modules');
      const phoneFocus=await page.evaluate(()=>
@@ -328,7 +328,7 @@ const runChecks=async()=>{
         .map(node=>node.dataset.focus));
      assert.deepEqual(phoneFocus,['risk','next'],
       'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
-     assert.ok(regions.candidates.top<600,'phone first fold contains actual candidates');
+     assert.ok(regions.ticker.bottom<874,'phone first fold contains the complete six-card overview');
      assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
       'four compact count cards share the first phone row');
      assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
@@ -432,6 +432,7 @@ const runChecks=async()=>{
    const metricColumns=await closeReview.locator('.fy-close-kpis').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
    assert.equal(metricColumns,width<=450?2:width<=780?3:width<=1120?4:7,'market cards follow viewport-aware columns');
 
+   await closeReview.getByRole('combobox',{name:'复盘交易日'}).selectOption('archive');
    assert.equal(await closeReview.locator('.fy-close-level button').count(),28,'the archive preserves the full sourced pool');
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/30 \/ 61/);
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/退潮/);
@@ -442,7 +443,7 @@ const runChecks=async()=>{
    assert.match(await reason.innerText(),/高阶HDI\+算力\+存储/);
    assert.match(await reason.innerText(),/09:36:24/);
    await closeReview.locator('.fy-close-level').getByRole('button',{name:'华媒控股',exact:true}).click();
-   assert.match(await reason.innerText(),/未取得该股同日的同花顺原标注/);
+   assert.match(await reason.innerText(),/AI漫剧\+文化传媒\+杭州国资/);
    const seats=closeReview.locator('[data-review-section="seats"]');
    await seats.getByRole('button',{name:'机构专用',exact:true}).click();
    assert.equal(await seats.locator('li').count(),4);
@@ -450,7 +451,7 @@ const runChecks=async()=>{
    const reviewDate=closeReview.getByRole('combobox',{name:'复盘交易日'});
    returnRetainedReview=false;
    await reviewDate.selectOption('cloud');
-   await closeReview.getByText('合成同日原版理由',{exact:true}).waitFor();
+   await closeReview.locator('[data-reason-selected]').getByText('合成同日原版理由',{exact:true}).waitFor();
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/50\.0%/);
    assert.match(await closeReview.locator('[data-review-section="ladder"]').innerText(),/合成光谱2/);
    assert.doesNotMatch(await closeReview.locator('[data-review-section="ladder"]').innerText(),/盛剑科技/);
@@ -499,7 +500,7 @@ const runChecks=async()=>{
    await page.locator('.fy-reference-home .fy-terminal-stats .fy-terminal-stat').first().waitFor({state:'visible'});
    if(width===402){
     const actual=await page.evaluate(()=>{
-     const indices=[...document.querySelectorAll('.fy-terminal-index .fy-market-ticker>div')]
+     const indices=[...document.querySelectorAll('.fy-terminal-index .fy-overview-six>article')]
       .map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width};});
      return {width:innerWidth,devicePixelRatio,visibleReview:[...document.querySelectorAll('.fy-terminal-mobile-stock')]
       .filter(node=>getComputedStyle(node).display!=='none').length,
@@ -520,13 +521,13 @@ const runChecks=async()=>{
     });
     assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
     assert.equal(firstFold.statCount,8,'all original review counters are retained');
-    assert.ok(firstFold.statTop<firstFold.indexTop,'phone review counters must precede the index grid');
-    assert.ok(firstFold.candidateTop<firstFold.viewport*.7,
-      'first meaningful candidate should appear within the iPhone first fold');
+    assert.ok(firstFold.indexTop<firstFold.statTop,'phone index and climate cards lead the detailed audit counters');
+    assert.ok(firstFold.indexTop<firstFold.viewport*.7,
+      'market overview should appear within the iPhone first fold');
     assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
-    assert.equal(actual.indexCards.length,4,'four existing source-timestamped indices remain available');
-    assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row has two columns');
-    assert.ok(actual.indexCards[2].top>actual.indexCards[0].top,'iPhone shows second row of indices');
+    assert.equal(actual.indexCards.length,6,'three indices and three market cards are visible');
+    assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row aligns across three columns');
+    assert.ok(actual.indexCards[3].top>actual.indexCards[0].top,'iPhone shows second row of indices');
     assert.equal(actual.stickyDock,'fixed','phone navigation stays accessible near the home indicator');
     await page.setViewportSize({width:402,height:714});
     await geometry(page,'iphone17pro-safari-compact-402x714');

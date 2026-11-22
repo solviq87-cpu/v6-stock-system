@@ -1,7 +1,7 @@
 import {readContext} from './shortline/context.mjs';
 import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.js';
 import {createClient,getSession,saveSession,deviceId,retainMarket,createSnapshotPoller} from './client.js';
-import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS,renderDailyReview} from './market.js';
+import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS,renderDailyReview,reviewDate,projectClosingWorkspace} from './market.js';
 import {renderTerminalOverview,renderReferenceReview} from './terminal-workbench.js';
 
 const root=document.getElementById('fayo-root');
@@ -97,17 +97,20 @@ function findStock(code) {
  return candidates.find(row=>row.code===code)||null;
 }
 function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
-async function readPool(key,loader) {
- const result=await loader();
+async function readPool(key,loader,{append=false}={}) {
+ const [kind,board]=key.split(':');
+ const archived=board==='all'&&!append&&state?.closeSession?.cards?.[kind];
+ const result=archived||await loader();
  const items=rowsFrom(result?.items||result);
  const previous=poolCache.get(key),closed=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true||result?.isSnapshot===true;
- if(!items.length&&closed&&rowsFrom(previous?.items||previous).length)return {...previous,isSnapshot:true,snapshotRetained:true,note:'保留上次有效的最近交易日结果'};
- if(items.length)poolCache.set(key,result);
+ const verifiedEmpty=result?.completeForScope===true||Boolean(archived&&!archived.freezeUnavailable&&archived.snapshotRetained&&reviewDate(archived.snapshotDay)===state.closeSession.day&&archived.count===0);
+ if(!append&&!items.length&&closed&&!verifiedEmpty&&rowsFrom(previous?.items||previous).length)return {...previous,isSnapshot:true,snapshotRetained:true,note:'上次有效结果'};
+ if(!append&&(items.length||result?.snapshotRetained||result?.completeForScope))poolCache.set(key,result);
  return result;
 }
 function context(signal) {
  return {
-  get state(){return state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
+  get state(){return ['pulse','opportunities'].includes(route.view)?projectClosingWorkspace(state):state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
   get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
   signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
   readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
@@ -122,7 +125,10 @@ function snapshotStatus() {
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
- else if(historical)snapshot.textContent='最近交易日快照 '+dayLabel(state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay)+' · 新闻与公告继续更新';
+ else if(historical){
+  const day=state.closeSession?.day||state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay||state.marketRecovery?.referenceDay;
+  snapshot.textContent=(day?'最近交易日 '+dayLabel(day):'正在同步交易日')+' · 新闻与公告继续更新';
+ }
 }
 function createFrame() {
  const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'AI量化选股 · 多策略 · 多源行情')));
@@ -225,7 +231,7 @@ async function refresh(manual=false,{showSuccess=true}={}) {
 async function refreshAutomatically() {
  if(!role||document.visibilityState!=='visible')return;
  const isFastRoute=route.view==='opportunities'&&['auction','movement'].includes(route.sub);
- if(!isFastRoute||drawer?.isOpen()||!lastRead||Date.now()-lastRead>=30000)return refresh(false);
+ if(state?.marketClock?.trading===false||!isFastRoute||drawer?.isOpen()||!lastRead||Date.now()-lastRead>=30000)return refresh(false);
  if(fastBusy||Date.now()-fastReadAt<4000)return;
  fastBusy=true;
  const controller=routeController,started=performance.now();
@@ -244,7 +250,13 @@ function logout(message='') {
  gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
- gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:refreshAutomatically,signal:controller.signal});
+ gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;if(!state)await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);
+ let followups=0;
+ const pending=()=>state?.closeSession&&['scheduled','searching','partial'].includes(state.marketRecovery?.phase)&&state.marketRecovery?.closeWatch?.day!==state.closeSession.day;
+ poll=createSnapshotPoller({signal:controller.signal,
+  read:async()=>{if(pending())followups++;await refreshAutomatically();},
+  delay:()=>state?.marketClock?.trading===false&&state.marketClock.nextOpenAt?
+   Math.max(1000,Math.min(state.marketClock.nextOpenAt-Date.now(),pending()&&followups<2?20000:Infinity)):5000});
  if(role==='edit')void import('./shortline/web-notices.mjs').then(m=>{
   if(!controller.signal.aborted&&role==='edit')m.startNoticePolling(context(controller.signal));
  }).catch(()=>{});
@@ -258,7 +270,7 @@ async function subscribeChanges(controller) {
    const response=await fetch('/api/stream?'+query,{headers:{Accept:'text/event-stream',...(token?{Authorization:'Bearer '+token,'X-QD-Token':token}:{})},cache:'no-store',signal:controller.signal});
    if(!response.ok||!response.headers.get('content-type')?.includes('text/event-stream'))return;
    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
-   while(role&&!controller.signal.aborted){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>131072)buffer=buffer.slice(-65536);let end;while((end=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,end);buffer=buffer.slice(end+2);if(event.includes('data:')&&Date.now()-lastRead>1000)refreshAutomatically();}}
+   while(role&&!controller.signal.aborted){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>131072)buffer=buffer.slice(-65536);let end;while((end=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,end);buffer=buffer.slice(end+2);if(!event.includes('data:'))continue;const type=/^event:\s*([^\s]+)/m.exec(event)?.[1];if(type==='close-snapshot'&&state?.closeSession)void refresh(false);else if(Date.now()-lastRead>1000&&(state?.marketClock?.trading!==false||['news','announcement'].includes(type)))void refreshAutomatically();}}
   }catch(error){if(controller.signal.aborted)return;}
   if(controller.signal.aborted||!role)return;
   await new Promise(resolve=>setTimeout(resolve,5000));
@@ -325,12 +337,13 @@ function openSearch() {
 }
 addEventListener('hashchange',()=>{if(role)renderRoute();});
 addEventListener('offline',()=>{online=false;snapshotStatus();});
-addEventListener('online',()=>{if(role)refresh(false);});
+addEventListener('online',()=>{if(!role&&getSession())void restoreSession();});
 document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'&&role){event.preventDefault();openSearch();}});
-(async()=>{
+async function restoreSession(){
  try {
   const status=await api('/api/lock/status');authInfo=status;
   if(status.role||status.local)await enter(status.role||'edit');else showGate();
  }catch(error){showGate(error.message);}
- if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-})();
+}
+void restoreSession();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});

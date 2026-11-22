@@ -14,8 +14,9 @@ test('provider completeness requires tc equality and unique valid records, never
 });
 test('full API state builds an uncropped read-only review pool and its provenance together',()=>{
  const route=server.slice(server.indexOf("if (p === '/api/state')"),server.indexOf("if (p === '/api/reference-indexes')"));
- assert.match(route,/marketCardState\('state',buildDashboardState\(isEditorReq\(req,''\)\)\)/,
+ assert.match(route,/sharedMarketRead\('state',isEditorReq\(req,''\)\)/,
   'real state route must call the shared authenticated state builder');
+ assert.match(fn(server,'sharedMarketRead'),/marketCardState\(kind,kind==='state'\?buildDashboardState\(edit\):buildMobileDigest\(edit\)\)/);
  const builder=server.slice(server.indexOf('function buildDashboardState('),server.indexOf('// ──',server.indexOf('function buildDashboardState(')+32));
  assert.match(builder,/ztReviewPool:\s*D\.ztReviewPool\s*\|\|\s*\[\]/,
   'state returns the saved full source pool, not its strategy subset');

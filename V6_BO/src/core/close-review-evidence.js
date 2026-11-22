@@ -76,6 +76,36 @@ function reasonFromF10(html,day){
  return unique.length===1?unique[0]:null;
 }
 
+function thsDailyBrief(html,day,knownAt){
+ if(normalizeDay(day)!==day||!Number.isSafeInteger(knownAt)||knownAt<Date.parse(day+'T15:00:00+08:00'))return null;
+ const packet=String(html);
+ // The page first sets a static default, then assigns its actual session.
+ const date=[...packet.matchAll(/\bGlobal\.date\s*=\s*["'](\d{8})["']/g)].at(-1)?.[1];
+ if(normalizeDay(date)!==day||!packet.includes('复盘必读'))return null;
+ const block=id=>{
+  const value=packet.match(new RegExp('<div\\s+id=["\']block_'+id+'["\'][^>]*>([\\s\\S]{1,3500}?)<\\/div>','i'))?.[1]||'';
+  return value.replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();
+ };
+ const summary=block(1887),focus=block(1890);
+ if(!summary||!/(?:收盘|收报|收涨|收跌)/.test(summary))return null;
+ return {day,knownAt,source:'同花顺每日复盘',summary:summary.slice(0,220),
+  themes:[...new Set(focus.split(/[、，,；;]/).map(s=>s.trim()).filter(s=>s&&s.length<=36))].slice(0,12),
+  url:'https://stock.10jqka.com.cn/fupan/'+date+'.shtml'};
+}
+async function fetchThsDailyBrief(day,clock=Date.now){
+ if(normalizeDay(day)!==day)return null;
+ const root='https://stock.10jqka.com.cn/fupan/';
+ for(const url of [root+day.replaceAll('-','')+'.shtml',root]){
+  try{
+   const response=await requestResearchBytes(url,{timeoutMs:5500,maxBytes:512*1024});
+   const encoding=/charset\s*=\s*["']?utf-8/i.test(response.raw.subarray(0,4096).toString('ascii'))?'utf-8':'gbk';
+   const brief=thsDailyBrief(new TextDecoder(encoding).decode(response.raw),day,clock());
+   if(brief)return brief;
+  }catch(error){if(error?.code==='MARKET_RESTRICTED')break;}
+ }
+ return null;
+}
+
 async function fetchF10Reason(code,day){
  if(!/^\d{6}$/.test(code))return null;
  const url='https://basic.10jqka.com.cn/'+code+'/event.html';
@@ -144,7 +174,7 @@ function createPromotionStore(file){
  };
 }
 
-function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,clock=Date.now,poolFile}){
+function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchReason=fetchF10Reason,fetchBrief,clock=Date.now,poolFile}){
  const previousPools=createPromotionStore(poolFile);
  const days=new Map(), pending=new Map();
  return async function read(day,previousDay,{seatsReady}){
@@ -154,14 +184,14 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
   if(pending.has(key))return pending.get(key);
   const task=(async()=>{
    const seats=new Map();
-   const [reasonResult,sealedResult,brokenResult,previousResult,downResult,northResult,indexResult,seatResult]=await Promise.allSettled([
+   const [reasonResult,sealedResult,brokenResult,previousResult,downResult,northResult,indexResult,seatResult,briefResult]=await Promise.allSettled([
     market.fetchZtReason(day,{deadline:clock()+16000}),
     fetchPool(day,'sealed'),fetchPool(day,'broken'),previousDay?fetchPool(previousDay,'sealed'):null,
     market.fetchDTCount(day.replaceAll('-','')),northTurnover(day,market.get),market.fetchIdxRt(),
     seatsReady?market.fetchLhb(day,{deadline:clock()+16000,onSeat:raw=>{
      const row=seatFrom(raw,day);
      if(row)seats.set(JSON.stringify(row),row);
-    }}):null
+    }}):null, fetchBrief?fetchBrief(day,clock):null
    ]);
    const result=x=>x.status==='fulfilled'?x.value:null;
    const freshSealed=result(sealedResult),freshBroken=result(brokenResult),freshPrevious=result(previousResult);
@@ -222,7 +252,8 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
    const missingReasons=sealed?.records.length>0&&mergedReasons.size===0;
    const completeNow=compatible&&completePool(freshSealed,day)&&completePool(freshBroken,day)&&freshDown!==null&&
     (!published||finalSeatsStatus==='observed')&&!missingReasons;
-   const report={day,source:'东方财富',sealed,broken,reasons:[...mergedReasons.values()],reasonChannels,retained,
+   const brief=result(briefResult);
+   const report={day,source:'东方财富',thsBrief:recover('thsBrief',brief?.day===day?brief:null),sealed,broken,reasons:[...mergedReasons.values()],reasonChannels,retained,
     retryAfterMs:completeNow?null:retryInterval,northTurnover:recover('northTurnover',result(northResult)),
     marketTurnover:recover('marketTurnover',marketTurnover(result(indexResult),day)),
     sealRate:touched?sealed.records.length/touched:null,promotion,
@@ -240,4 +271,4 @@ function createCloseReviewReader({market,fetchPool=fetchReviewLimitPool,fetchRea
  };
 }
 
-module.exports={createCloseReviewReader,summarizePromotion,seatFrom,marketTurnover,reasonFromF10};
+module.exports={createCloseReviewReader,summarizePromotion,seatFrom,marketTurnover,reasonFromF10,thsDailyBrief,fetchThsDailyBrief};

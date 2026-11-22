@@ -24,7 +24,7 @@ test('phone contains eight real counters in two compact rows with source/risk la
  assert.match(design,/\.fy-terminal-priorities\{order:3/);
  assert.match(design,/\.fy-terminal-index\{order:5/);
  assert.match(browser,/regions\.sourceCount,8/);
- assert.match(browser,/regions\.candidates\.top<600/);
+ assert.match(browser,/regions\.ticker\.bottom<874/);
  assert.match(browser,/boxes\[0\]\.top,boxes\[2\]\.top/);
  assert.match(design,/\.fy-terminal-provenance/);
  assert.match(design,/\.fy-terminal-priority-risk/);
@@ -50,6 +50,6 @@ test('reference home keeps source counts and original market cards before the re
  assert.match(final,/\.fy-reference-home>\.fy-reference-topgrid\{order:5\}/);
  assert.match(final,/\.fy-reference-home>\.fy-reference-midgrid\{order:6\}/);
  assert.match(browser,/phoneFocus,\['risk','next'\]/);
- assert.match(browser,/regions\.stats\.bottom<regions\.ticker\.top/);
+ assert.match(browser,/regions\.ticker\.bottom<regions\.focus\.top/);
  assert.match(browser,/regions\.review\.top<810/);
 });

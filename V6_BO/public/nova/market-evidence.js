@@ -357,11 +357,20 @@ export function recoveredMetric(recovery,key,day=recovery?.referenceDay,asOf=Dat
  return {...row,historical:row.date!==day};
 }
 export const marketPhaseName=value=>phases.includes(value)?value:'';
+export function closeDistribution(recovery,day=recovery?.referenceDay,asOf=Date.now(),archive){
+ if(!validDay(day))return null;
+ const rows=[...(recovery?.coverage||[]),archive].filter(r=>
+  r?.kind==='market-distribution'&&r.day===day&&r.source&&r.scope&&r.quoteAt>=Date.parse(day+'T15:00:00+08:00')&&
+  chinaDay(r.quoteAt)===day&&r.quoteAt<=r.knownAt&&r.knownAt<=asOf&&
+  ['adv','dec','flat','observed','total','upLimit','downLimit'].every(k=>Number.isSafeInteger(r[k])&&r[k]>=0)&&
+  r.observed>0&&r.total>=r.observed&&r.adv+r.dec+r.flat===r.observed&&r.upLimit<=r.adv&&r.downLimit<=r.dec);
+ return rows.sort((a,b)=>b.quoteAt-a.quoteAt||b.knownAt-a.knownAt)[0]||null;
+}
 export function observedCoverage(recovery,day=recovery?.referenceDay,asOf=Date.now()){
  if(!validDay(day)||!Array.isArray(recovery?.coverage))return [];
  const scopes=new Map();
  for(const raw of recovery.coverage){
-  if(!raw||!validDay(raw.day)||raw.day>day||!raw.scope?.trim?.()||!raw.source?.trim?.()||
+  if(!raw||raw.kind==='market-distribution'||!validDay(raw.day)||raw.day>day||!raw.scope?.trim?.()||!raw.source?.trim?.()||
      !finite(raw.knownAt)||raw.knownAt<=0||raw.knownAt>asOf||raw.day>chinaDay(raw.knownAt)||
      !Number.isSafeInteger(raw.observed)||raw.observed<1||raw.total!=null&&(!Number.isSafeInteger(raw.total)||raw.total<raw.observed))continue;
   const numbers={};for(const key of ['adv','dec','flat'])if(Number.isSafeInteger(raw[key])&&raw[key]>=0&&raw[key]<=raw.observed)numbers[key]=raw[key];

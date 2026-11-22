@@ -53,7 +53,7 @@ test('review production projection preserves exact reason provenance independent
 });
 test('the real THS mapper retains full supplier first-limit time as the date evidence input',async()=>{
  const emSource=fs.readFileSync(path.join(root,'em.js'),'utf8'),start=emSource.indexOf('async function fetchZtReason('),end=emSource.indexOf('\n}',start)+2;
- const at=Date.parse('2026-11-16T09:31:00+08:00');const c=vm.createContext({Date,curlGet:async()=>({data:{info:[{code:'600000',reason_type:'原始原因',first_limit_up_time:at/1000}]}}),_srcWarn(){}});
+ const at=Date.parse('2026-11-16T09:31:00+08:00');const c=vm.createContext({Date,require:require('node:module').createRequire(path.join(root,'em.js')),curlGet:async()=>({data:{info:[{code:'600000',reason_type:'原始原因',first_limit_up_time:at/1000}]}}),_srcWarn(){}});
  vm.runInContext(emSource.slice(start,end),c);const mapped=(await c.fetchZtReason('20261116')).get('600000');assert.equal(mapped.firstTime.getTime(),at);
  const {normalizeReasonEvidence}=require('../src/core/limit-reason-evidence');assert.equal(normalizeReasonEvidence(mapped,{requestedDate:'20261116',receivedAt:monday,source:'ths'}).reasonTradeDate,'2026-11-16');
 });

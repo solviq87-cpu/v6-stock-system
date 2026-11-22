@@ -2147,3 +2147,45 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 @media(max-width:600px){.fy-shortline-modal .grid2{grid-template-columns:minmax(0,1fr)!important}.fy-shortline-head .fy-inline{flex-wrap:wrap}.fy-shortline-head{align-items:flex-start}}
 .fy-drawer-shortline{margin:0 16px 12px;background:var(--fy-surface);border:1px solid var(--fy-border);border-radius:10px;padding:10px 12px;min-width:0}
 .fy-drawer-shortline .fy-inline{justify-content:space-between;gap:4px}.fy-drawer-shortline p{margin:4px 0}.fy-drawer-shortline small{color:var(--fy-muted)}
+
+/* Shared closing-session workspace, on desktop and mobile. */
+.fy-reference-shell .fy-reference-home>.fy-terminal-index {display:block;order:-1;width:100%;min-width:0}
+.fy-overview-six {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fy-overview-six>article,.fy-distribution,.fy-close-watch {min-width:0;border:1px solid #314b66;border-radius:10px;background:#112238;padding:12px}
+.fy-overview-six h3,.fy-distribution h3,.fy-close-watch h3 {font-size:15px;line-height:1.3;margin:0 0 6px;color:#deeafa}
+.fy-overview-six p,.fy-distribution p {margin:5px 0;line-height:1.45}
+.fy-overview-six small,.fy-close-watch small {display:block;font-size:11px;color:#afbed0}
+.fy-overview-index>div {display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.fy-overview-index strong {font-size:clamp(18px,2vw,26px);font-variant-numeric:tabular-nums;line-height:1.2}
+.fy-overview-index svg {display:block;height:27px;width:100%;margin:3px 0}
+.fy-breadth-gauge {width:90px;height:45px;border-radius:90px 90px 0 0;position:relative;display:grid;align-items:end;text-align:center;isolation:isolate;background:conic-gradient(from 270deg at 50% 100%,#ed819c 0 var(--breadth),#345069 var(--breadth) 180deg,transparent 180deg)}
+.fy-breadth-gauge:before {content:"";position:absolute;inset:7px 7px 0;background:#112238;border-radius:90px 90px 0 0;z-index:-1}
+.fy-breadth-gauge strong {font-size:18px;line-height:1.2}
+.fy-reference-shell .fy-reference-home .fy-reference-signal-body,.fy-reference-shell .fy-reference-signal-body {display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.fy-signal-summary {display:flex;align-items:center;gap:12px}
+.fy-signal-summary .fy-reference-signal-notes {min-width:0;flex:1}
+.fy-signal-metrics {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr));gap:8px}
+.fy-count-strip {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,58px),1fr));gap:8px}
+.fy-count-strip span,.fy-count-strip strong {display:block}
+.fy-count-strip span {font-size:12px;color:#adbed1}
+.fy-count-strip strong {font-size:clamp(16px,2vw,21px);font-variant-numeric:tabular-nums}
+.fy-coverage>article {display:grid;gap:3px;padding:8px 0;border-top:1px solid #324357;font-size:13px}
+.fy-coverage>article strong {font-size:14px}
+.fy-coverage small,.fy-distribution small,.fy-observed-value small {font-size:11px;overflow-wrap:anywhere}
+.fy-observed-value {min-width:0}
+.fy-observed-value strong {font-size:clamp(16px,2vw,21px);line-height:1.25;overflow-wrap:normal}
+.fy-close-watch .fy-watch-row {display:grid;grid-template-columns:minmax(6em,1fr) minmax(0,1fr) auto;align-items:center;gap:3px 8px;text-align:left;width:100%;background:transparent;color:inherit;border:0;border-top:1px solid #31465b;border-radius:0;padding:8px 0}
+.fy-watch-row .fy-watch-reason {grid-column:1/-1;color:#c1d7ea;overflow-wrap:anywhere}
+.fy-close-watch .fy-watch-row b {font-size:12px}
+@media(max-width:660px) {
+ .fy-overview-six {gap:6px}
+ .fy-overview-six>article {padding:8px}
+ .fy-overview-six h3 {font-size:13px}
+ .fy-overview-six small {font-size:10px}
+ .fy-overview-index b {font-size:12px}
+ .fy-overview-six .fy-breadth-gauge {width:72px;height:36px}
+}
+@media(max-width:359px){.fy-overview-six {grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fy-published-reason {display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:3px 8px;border-top:1px solid #31465b;padding:8px 0;font-size:13px}
+.fy-published-reason small {grid-column:2}
+.fy-published-reason .fy-button {white-space:normal;font-size:12px;padding:2px 4px}

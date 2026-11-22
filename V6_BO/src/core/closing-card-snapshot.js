@@ -94,6 +94,20 @@ function beforeClose(now) {
     m = d.getUTCHours() * 60 + d.getUTCMinutes();
   return (m >= 555 && m <= 690) || (m >= 780 && m < 900);
 }
+// Lunch is part of today's session. Only pre-open, exchange holidays and
+// after-close reads use the shared end-of-day bundle.
+function closeDisplayDay(session,previousDay) {
+  const day=session.day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+  if(!session.openDay||session.minute<555)return previousDay(day);
+  return session.minute>=900?day:null;
+}
+function nextMarketOpenAt(session,nextDay){
+  if(session.trading)return null;
+  const day=session.day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+  if(session.openDay&&session.minute<555)return Date.parse(day+'T09:15:00+08:00');
+  if(session.openDay&&session.minute>690&&session.minute<780)return Date.parse(day+'T13:00:00+08:00');
+  return Date.parse(nextDay(day)+'T09:15:00+08:00')||null;
+}
 function clean(v, depth = 0) {
   if (depth > 24) throw Error('snapshot depth');
   if (v === null || ['string', 'boolean'].includes(typeof v)) return v;
@@ -305,6 +319,8 @@ function createClosingCardSnapshot({
 module.exports = {
   createClosingCardSnapshot,
   beforeClose,
+  closeDisplayDay,
+  nextMarketOpenAt,
   STATE_FIELDS,
   DASHBOARD_FIELDS,
 };

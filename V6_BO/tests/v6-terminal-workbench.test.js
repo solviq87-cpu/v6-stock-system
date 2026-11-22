@@ -21,6 +21,12 @@ class El{
  replaceChildren(...items){this.children=items;}
  addEventListener(name,handler){this.listeners[name]=handler;}
  setAttribute(key,value){this[key]=value;}
+ get childElementCount(){return this.children.filter(x=>x.tag!=='text').length;}
+ get firstElementChild(){return this.children.find(x=>x.tag!=='text');}
+ querySelectorAll(selector){
+  const all=this.children.flatMap(child=>[child,...(child.querySelectorAll?.('*')||[])]);
+  return selector==='*'?all:all.filter(child=>selector==='details'?child.tag==='details':selector==='details[open]'&&child.tag==='details'&&child.open);
+ }
  contains(){return false;}
 }
 function dom(){
@@ -90,7 +96,7 @@ test('no review data, no source count and no price timestamp do not become fabri
  const stats=locate(view,el=>el.classList?.contains('fy-terminal-stats'));
  assert.equal(stats.children.length,0,'unobserved source totals never appear as zero or empty metric cards');
  const ticker=locate(view,el=>el.classList?.contains('fy-market-ticker'));
- assert.equal(ticker.children.length,0,'quotes without a verifiable original time never get price tiles');
+ assert.equal(ticker?.children.length||0,0,'quotes without a verifiable original time never get price tiles');
  assert.doesNotMatch(textOf(ticker),/实时|原始报价|历史报价/);
  assert.doesNotMatch(t,/3,678\.91|6,789\.12|源端涨停\s*0/);
  assert.equal(t.match(/行情来源与补采状态/g)?.length,1,'collection status is accessible from one disclosure');
