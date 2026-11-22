@@ -76,6 +76,9 @@ export function emotion(days=[],date,asOf) {
   if(!validDate(date)){missing.push('判定日期');return result}
   const window=visibleDays(days,date,asOf).slice(-3);
   if(!window.some(d=>d.date===date))missing.push(date+' 当日收盘观测');
+  for(let i=1;i<window.length;i++){
+    if(window[i].previousDay&&window[i].previousDay!==window[i-1].date)missing.push('交易日序列间隔 '+window[i].previousDay);
+  }
   if(window.length<3)missing.push('至少3个交易日的收盘观测（已录入'+window.length+'日）');
   for(const day of window)for(const [key,label,min,max,integer] of metrics)
     if(!finite(day[key],min,max,integer))missing.push(day.date+' '+label);
@@ -294,11 +297,12 @@ function exportRows(ui,records){
 
 function resultHTML(r){
   const p=r.prediction||{},market=r.market||{};
-  const snapshot=[['全A趋势',market.trend],['上证趋势',market.sh],['创业板趋势',market.cy],['上涨家数',market.adv],['下跌家数',market.dec],['成交额（亿元）',market.amount]];
+  const phase=['冰点','发酵','高潮','分歧','退潮'].includes(r.emotion?.stage)?r.emotion.stage:'';
+  const snapshot=[['全A趋势',market.trend],['上证趋势',market.sh],['创业板趋势',market.cy],['上涨家数',market.adv],['下跌家数',market.dec],[market.fieldSources?.amount?.scope==='沪深两市成交额'?'沪深两市成交额（亿元）':'成交额（亿元）',market.amount]];
   return '<div class="mk-spaced"><div class="mk-head"><h3>校验结果</h3><span class="tag">'+esc(r.status)+'</span></div>'+
-  '<div class="mk-metrics"><div><div class="mk-label">新增仓位上限</div><div class="mk-num">'+esc(r.position)+'%</div></div><div><div class="mk-label">情绪周期</div><div class="mk-num">'+esc(r.emotion?.stage||'未判定')+'</div></div><div><div class="mk-label">匹配战法</div><div class="mk-num">'+(r.matches?.length??0)+'</div></div></div>'+
-  '<div class="mk-note '+(r.position===0?'mk-warn':'')+'">'+(r.risks?.length?r.risks.map(x=>'<div>'+esc(x)+'</div>').join(''):'通过已录入的盘面和纪律校验')+'</div>'+
-  '<div><h4>匹配明细</h4><div class="mk-evidence"><div>完整命中 · '+esc(r.strategy)+'</div><div>周期与指数适配 · '+esc(r.eligible?.join('、')||'暂无')+'</div></div></div>'+
+  '<div class="mk-metrics"><div><div class="mk-label">新增仓位上限</div><div class="mk-num">'+esc(r.position)+'%</div></div>'+(phase?'<div><div class="mk-label">情绪周期</div><div class="mk-num">'+esc(phase)+'</div></div>':'')+'<div><div class="mk-label">匹配战法</div><div class="mk-num">'+(r.matches?.length??0)+'</div></div></div>'+
+  '<details class="mk-note '+(r.position===0?'mk-warn':'')+'"><summary>校验依据与风控条款</summary>'+(r.risks?.length?r.risks.map(x=>'<div>'+esc(x)+'</div>').join(''):'通过已录入的盘面和纪律校验')+'</details>'+
+  (r.matches?.length?'<div><h4>匹配明细</h4><div class="mk-evidence">'+esc(r.matches.join('、'))+'</div></div>':'')+
   '<details><summary>同期盘面快照</summary><div class="mk-metrics">'+snapshot.map(([label,value])=>'<div><div class="mk-label">'+label+'</div><div>'+esc(hasValue(value)?value:'缺失')+'</div></div>').join('')+'</div></details>'+
   '<details><summary>情绪判定证据 <span>规则一致率 '+esc(r.emotion?.confidence??0)+'%</span></summary>'+evidenceHTML(r.emotion||{})+'</details>'+
   '<details><summary>历史同类样本 <span>'+esc(p.n??0)+' 笔</span></summary><div class="mk-evidence"><div>'+esc(p.risk||'')+'</div><div>历史胜率 · '+(p.winRate==null?'样本不足':esc(p.winRate)+'%')+'</div><div>历史盈亏比 · '+esc(p.payoff??'样本不足')+'</div><div>估计收益 · '+(p.expectedReturn==null?'样本不足':esc(p.expectedReturn)+'%')+'</div><div>参数版本 · '+esc(r.version||'基准规则')+'</div></div></details></div>';
@@ -310,8 +314,8 @@ function recognitionHTML(rec){
   const partial=candidates.filter(c=>(c.missing?.length||c.failed?.length)&&
     (Array.isArray(c.matched)?c.matched.length>0:Number(c.matched)>0));
   return '<section class="mk-panel mk-spaced"><h3>自动识别依据</h3><details open><summary>观测证据 <span>'+evidence.length+' 项</span></summary><div class="mk-evidence">'+list(evidence,'暂无可核实的观测')+'</div></details>'+
-    '<details '+(missing.length?'open':'')+'><summary>缺失证据 <span>'+missing.length+' 项</span></summary><div class="mk-evidence">'+list(missing,'已提供系统列出的观测字段')+'</div></details>'+
-    '<details '+(partial.length?'open':'')+'><summary>接近匹配的战法 <span>'+partial.length+' 组</span></summary><div class="mk-evidence">'+(partial.length?partial.map(c=>{
+    '<details><summary>缺失证据 <span>'+missing.length+' 项</span></summary><div class="mk-evidence">'+list(missing,'已提供系统列出的观测字段')+'</div></details>'+
+    '<details><summary>接近匹配的战法 <span>'+partial.length+' 组</span></summary><div class="mk-evidence">'+(partial.length?partial.map(c=>{
       const matched=Array.isArray(c.matched)?c.matched.length:c.matched;
       return '<details><summary>'+esc(c.name)+'<span>已命中 '+esc(matched)+' 项</span></summary><div class="mk-evidence">'+(Array.isArray(c.matched)?'<div>已命中 · '+esc(c.matched.join('、'))+'</div>':'')+(c.missing?.length?'<div>待补证 · '+esc(c.missing.join('、'))+'</div>':'')+(c.failed?.length?'<div>未满足 · '+esc(c.failed.join('、'))+'</div>':'')+'</div></details>';
     }).join(''):'暂无具备部分条件的战法')+'</div></details></section>';
@@ -402,7 +406,7 @@ export function renderMarket(ui,mode='check'){
     const q=find(root,'.mk-search').value.trim();
     filtered=records.filter(r=>[r.date,r.code,r.name,r.strategy,r.theme].join(' ').includes(q));
     find(root,'[data-count]').textContent=filtered.length+' 条记录';
-    table.innerHTML=filtered.length?filtered.map((r,i)=>'<tr><td>'+esc(r.date)+'</td><td><b>'+esc(r.name)+'</b> <span class="mk-sub">'+esc(r.code)+'</span></td><td>'+esc(r.strategy)+'</td><td>'+esc(r.emotion?.stage||'未判定')+'</td><td><span class="tag">'+esc(r.status)+'</span></td><td>'+esc(r.position)+'%</td><td>'+button('详情',i)+'</td></tr>').join(''):'<tr><td colspan="7"><div class="mk-blank">暂无符合条件的校验记录</div></td></tr>';
+    table.innerHTML=filtered.length?filtered.map((r,i)=>'<tr><td>'+esc(r.date)+'</td><td><b>'+esc(r.name)+'</b> <span class="mk-sub">'+esc(r.code)+'</span></td><td>'+esc(r.strategy==='未判定'?'':r.strategy)+'</td><td>'+esc(r.emotion?.stage==='未判定'?'':r.emotion?.stage||'')+'</td><td><span class="tag">'+esc(r.status)+'</span></td><td>'+esc(r.position)+'%</td><td>'+button('详情',i)+'</td></tr>').join(''):'<tr><td colspan="7"><div class="mk-blank">暂无符合条件的校验记录</div></td></tr>';
   }
   table.onclick=e=>{
     const row=filtered[e.target.closest('button')?.dataset.mk];if(!row)return;

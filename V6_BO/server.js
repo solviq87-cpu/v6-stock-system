@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261122at'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261122au'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -11408,20 +11408,42 @@ function manualResearchProjection(){
     }finally{pending=false;}
   };
 }
-let shortlineSourceReader;
-function readShortlineSource(input) {
+const previousResearchDay=day=>prevTradeDay(day+'T12:00:00');
+function latestResearchClose(){
+  const {day,minute,openDay}=marketDisplaySession(),date=require('./src/core/limit-reason-evidence').normalizeDay(day);
+  return openDay&&minute>=910?date:previousResearchDay(date);
+}
+let shortlineSourceReader,publicMarketRecovery;
+function marketRecovery(){
+  if(!publicMarketRecovery){
+    const {createMarketRecovery}=require('./src/research/market-recovery');
+    publicMarketRecovery=createMarketRecovery({getDay:latestResearchClose,isReplica,replicaPublicReads:true,
+      file:process.env.V6_MARKET_RECOVERY_FILE||path.join(__dirname,'data','market-recovery-public.json'),
+      collect:day=>shortlineReader().readMarket(day),
+      save:async (rows,day)=>(await require('./src/server/research-workspace-job').runWorkspaceJob({
+        action:'shortline-public-market',root:shortlineResearchDir(),rows,day
+      })).ok});
+  }
+  return publicMarketRecovery;
+}
+function shortlineReader(){
   if(!shortlineSourceReader){
     const {createShortlineV6Reader}=require('./src/research/shortline-v6-data');
-    const {normalizeDay}=require('./src/core/limit-reason-evidence');
-    const previousTradeDay=day=>prevTradeDay(day+'T12:00:00');
-    const getLatestClosedDay=()=>{
-      const {day,minute,openDay}=marketDisplaySession(),date=normalizeDay(day);
-      return openDay&&minute>=910?date:previousTradeDay(date);
-    };
-    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,fetchAuctionTicks:auctionTicksFor,readCloseReviewEvidence,previousTradeDay,getLatestClosedDay,
-      fetchIndexKline:(secid,n)=>em.fetchKline(secid,n)});
+    const {createShortlineQuoteFallback}=require('./src/research/shortline-quote-fallback');
+    const {createMarketBackfill}=require('./src/research/shortline-market-backfill');
+    const {createBreadthFallback}=require('./src/research/shortline-breadth-fallback');
+    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,fetchAuctionTicks:auctionTicksFor,readCloseReviewEvidence,
+      previousTradeDay:previousResearchDay,getLatestClosedDay:latestResearchClose,fetchIndexKline:(secid,n)=>em.fetchKline(secid,n),
+      quoteFallback:createShortlineQuoteFallback(),marketBackfill:createMarketBackfill({previousTradeDay:previousResearchDay}),
+      breadthFallback:createBreadthFallback(),recoveredRows:day=>day===latestResearchClose()?marketRecovery().tick():[]});
   }
-  return shortlineSourceReader(input);
+  return shortlineSourceReader;
+}
+async function readShortlineSource(input){
+  const recovery=marketRecovery(),day=input.day||latestResearchClose();
+  // The stock and market use their own provider quotas and share in-flight reads.
+  if(day===latestResearchClose())void recovery.tick().catch(()=>{});
+  return shortlineReader()(input);
 }
 
 function dashboardPushMeta(includePrivate = false) {
@@ -13437,6 +13459,7 @@ function buildDashboardState(_stEdit = false) {
     return {
       dashboard: {...require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(D),display.mood,Date.now(),dashboardPushMeta(_stEdit)),...display.meta},
       ...display.meta,
+      marketRecovery:marketRecovery().display(),
       now: Date.now(), trading: display.meta.trading,
       loop: D.loop,
       auction: D.auction,
@@ -13644,6 +13667,7 @@ function buildMobileDigest(includePrivate = false) {
   }
   return {
     dashboard: {...require('./src/core/dashboard-view').dashboardView(newsEvidenceVisibleState(D),mood,Date.now(),dashboardPushMeta(includePrivate)),...display.meta},
+    marketRecovery:marketRecovery().display(),
     now: Date.now(),
     trading: display.meta.trading,
     ready: marketReady(),
@@ -19203,9 +19227,11 @@ const _httpBootstrap = createDashboardServer({
         root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research')
       });
       const syncManualResearch=manualResearchProjection();
+      void marketRecovery().tick().catch(()=>{});
       let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
         const session=marketDisplaySession();marketDisplayState();
+        void marketRecovery().tick().catch(()=>{});
         syncManualResearch().catch(()=>console.error('[shortline] 人工执行记录待下次同步'));
         if(session.trading){
           marketCardState('state',buildDashboardState(false));marketCardState('mobile',buildMobileDigest(false));
@@ -22269,7 +22295,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const options={body,url:u,root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research'),
       authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica,
       job:require('./src/server/research-workspace-job').runWorkspaceJob,
-      readSource:readShortlineSource};
+      readSource:readShortlineSource,recoveryDisplay:()=>marketRecovery().display()};
     return require('./src/server/shortline-http').shortlineHttp(req,res,options);
   }
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.

@@ -19,7 +19,7 @@ function fixture() {
   const report={day,sealed,broken:pooled(day,[{symbol:'600003'}]),down:4,marketTurnover:2.3e12};
   const prev=pooled(prior,[{symbol:code,consecutiveLimits:2},{symbol:'600002',consecutiveLimits:1}]);
   const state={stocks:[code,'600002'].map((c,i)=>({code:c,name:'样本',price:11.5,pct:i===0?4:2,quoteSource:'source',quoteAt:quote,receivedAt:quote+1000})),
-    breadth:{[day]:{day,at:quote,n:5000,up:3355,down:1250}},
+    breadth:{[day]:{day,at:quote,sourceDay:day,source:'已核对行情样本',complete:true,n:5000,up:3355,down:1250}},
     ztReviewPoolMeta:{sources:[{source:'cls',status:'available',providerComplete:true,tradeDate:day,receivedAt:now}]},
     ztReviewPool:[code,'600002'].map(code=>({code,tradeDate:day,sources:['cls'],clsObservation:{tradeDate:day,receivedAt:now},plates:[{name:'机器人'}]}))};
   const index=(id)=>({name:({'1.000985':'中证全指','1.000001':'上证指数','0.399006':'创业板指'})[id],src:'em',receivedAt:now,rows:days.map((date,i)=>({date,close:400+i,volume:100+i}))});

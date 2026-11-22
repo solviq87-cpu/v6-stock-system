@@ -35,6 +35,10 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
   }
+  if(p.action==='shortline-public-market'){
+    const {saveRecoveredMarket}=await import('../research/shortline/store.mjs');
+    return {ok:true,result:await saveRecoveredMarket(p.root,p.rows,p.day)};
+  }
   if(p.action==='shortline-manual-ledger'){
     const {syncManualLedger}=await import('../research/shortline/store.mjs');
     return {ok:true,result:await syncManualLedger(p.shortlineRoot,p.root,p.accountDir)};

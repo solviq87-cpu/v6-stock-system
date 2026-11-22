@@ -5,6 +5,7 @@
 function createShortlineCloseRunner({session, isReplica, pool, readSource, job, root, clock=Date.now}) {
   let pending=false,lastDay='',nextAt=0;
   const handled=new Set(),attempted=new Map();
+  const observed=market=>market&&['upLimit','downLimit','height','breakRate','leader','diffusion'].every(k=>Number.isFinite(market[k]))&&!!market.trend;
   return async function tick(){
     const now=clock(), s=session();
     if(pending||isReplica()||!s.openDay||s.minute<915||now<nextAt)return;
@@ -17,13 +18,13 @@ function createShortlineCloseRunner({session, isReplica, pool, readSource, job, 
     try{
       const archive=await job({action:'shortline',root,replica:false});
       if(!archive.ok||isReplica())return;
-      const previous=archive.state.checks.find(c=>c.code===code&&c.date===day&&c.sourceFingerprint&&c.market?.date===day);
+      const previous=archive.state.checks.find(c=>c.code===code&&c.date===day&&c.sourceFingerprint&&c.market?.date===day&&observed(c.market));
       if(previous){handled.add(code);return;}
       const snapshot=await readSource({code,day});
       if(isReplica()||!snapshot?.latestClosed||snapshot.day!==day||snapshot.code!==code)return;
       const result=await job({action:'shortline',root,replica:false,snapshot,
         input:{action:'v6:sync',revision:archive.state.revision,payload:{code,day}}});
-      if(result.ok)handled.add(code);
+      if(result.ok&&(!Array.isArray(snapshot.market)||observed(snapshot.market.find(m=>m.date===day))))handled.add(code);
     }finally{pending=false;}
   };
 }

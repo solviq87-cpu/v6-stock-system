@@ -15,7 +15,7 @@ test('official desktop and phone native entry, service and worker use a single r
  assert.ok(native,'official native entry release metadata is required');
  assert.equal(server,native[1]);
  assert.equal(server,sw);
- assert.equal(server,'20261122at');
+ assert.equal(server,'20261122au');
  for(const resource of ['/nova/app.js','/nova/fayo.css']){
   assert.ok(read('public/nova/index.html').includes(resource+'?v='+server),'native '+resource+' cache query matches this release');
   assert.ok(read('public/sw.js').includes(resource+'?v='+server),'worker precaches this release of '+resource);
