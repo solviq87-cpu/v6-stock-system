@@ -21,6 +21,22 @@ test(
     const viewer = await f.request('/api/state', 'GET', null, f.viewerToken);
     assert.equal(viewer.body.fastStockMoves.items[0].code, '600000');
     assert.equal(viewer.body.fastStockMoves.requested, 1);
+    const fastRoute='/api/fast-stock-moves',watchRoute=fastRoute+'/watch';
+    const light=await f.request(fastRoute,'GET',null,f.viewerToken);
+    assert.deepEqual(light.body.fastStockMoves,viewer.body.fastStockMoves);
+    assert.equal(light.body.schemaVersion,1);
+    assert.equal(light.body.pool,undefined);
+    assert.ok(Buffer.byteLength(light.raw)<Buffer.byteLength(viewer.raw)/3);
+    assert.equal(light.body.providerLimits,undefined);
+    assert.equal(light.headers['cache-control'],'no-store');
+    assert.equal((await f.request(fastRoute)).body.fastStockMoves.items[0].code,'600009');
+    assert.equal((await f.request(watchRoute,'POST',{code:'600000',enabled:true},f.viewerToken)).body.readOnly,true);
+    const follow=await f.request(watchRoute,'POST',{code:'600000',enabled:true,name:'篡改简称'});
+    assert.deepEqual(follow.body.items,[{code:'600000',name:'隔离测试0'}]);
+    assert.deepEqual((await f.request(watchRoute)).body.items,follow.body.items);
+    assert.equal((await f.request(watchRoute,'GET',null,f.viewerToken)).body.readOnly,true);
+    assert.equal((fs.statSync(path.join(f.tmp,'data','fast-stock-watch.json')).mode&0o777),0o600);
+    assert.deepEqual((await f.request(watchRoute,'POST',{code:'600000',enabled:false})).body.items,[]);
     const mobile = await f.request('/api/mobile-digest');
     assert.equal(mobile.body.dashboard.rows[0].price, 1);
     // Preseal is a market card that can be observed before close; its auth is retained.
@@ -54,6 +70,9 @@ test(
     assert.equal(closedViewer.body.fastStockMoves.items[0].code, '600000');
     assert.equal(closedViewer.body.fastStockMoves.requested, 1);
     assert.equal(closedViewer.body.privateFastStockMoves, undefined);
+    const lightClosed=await f.request(fastRoute,'GET',null,f.viewerToken);
+    assert.deepEqual(lightClosed.body.fastStockMoves,closedViewer.body.fastStockMoves);
+    assert.equal(lightClosed.body.isSnapshot,true);
     for (const route of [
       'quant-picks',
       'auction-resonance',

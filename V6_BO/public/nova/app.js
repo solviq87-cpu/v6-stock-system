@@ -70,6 +70,8 @@ const ALIASES={
 const LEGACY_ANCHORS={holdSec1:['assets','holdings'],holdSec2:['assets','holdings'],'v6-paper':['assets','paper'],'v6-market':['pulse','sectors'],'v6-stock':['opportunities','quant'],'v6-news':['inbox','all'],'v6-plan':['pulse','plans'],'v6-review':['pulse','review'],'v6-strategy':['lab','strategies'],'v6-release':['settings','release'],'workspace-settings':['settings','preferences'],researchWorkspace:['lab','records'],decisionWorkspace:['lab','desk'],newsEvidence:['lab','evidence'],stockCapture:['lab','sources'],linkedIntelligence:['lab','memory'],completeHeading:['lab','backtest'],learningWorkbench:['lab','learning']};
 let authInfo=null,state=null,role=null,route={view:'pulse',sub:'overview'},selectedStock=(/^\d{6}$/.test(new URLSearchParams(location.search).get('symbol')||'')?new URLSearchParams(location.search).get('symbol'):''),frame=null,main=null,workspaceNav=null,connection=null,snapshot=null,toast=null,drawer=null,routeController=null,sessionController=null,refreshBusy=false,refreshWanted=false,online=true,lastRead=0,poll=null,searchController=null,gateGeneration=0;
 const poolCache=new Map(),listeners=new Set();
+const fastMoveListeners=new Set();
+let fastFrame=null,fastBusy=false,fastReadAt=0;
 const client=createClient({onUnauthorized:()=>logout('本次授权已失效，请重新登录。')});
 const api=(path,options)=>client.api(path,options);
 function notify(message,tone='') {
@@ -103,16 +105,17 @@ async function readPool(key,loader) {
 function context(signal) {
  return {
   get state(){return state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
-  get lastRead(){return lastRead;},
+  get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
   signal,api,workspaceNavigation:true,refresh:()=>refresh(true),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
-  readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);}
+  readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
+  onFastMoves(fn){fastMoveListeners.add(fn);signal?.addEventListener('abort',()=>fastMoveListeners.delete(fn),{once:true});}
  };
 }
 function snapshotStatus() {
  if(!connection||!snapshot)return;
  connection.textContent=!online?'连接中断 · 保留上次内容':lastRead?'最近读取 '+new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(lastRead):'正在读取云端';
  connection.dataset.offline=String(!online);
- connection.title='可见页面每5秒读取同源云端状态，不代表行情源重新采集；报价仍按原始时点判断。';
+ connection.title='最近完整状态读取时间。异动卡另有轻量读取时间，报价仍按原始时点判断。';
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
  snapshot.hidden=!state||(!historical&&online);
  if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
@@ -152,7 +155,7 @@ function createFrame() {
 }
 async function renderRoute() {
  if(!role||!main)return;
- route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();routeController=new AbortController();
+ route=parseRoute();if(route.view==='lab'&&!['desk','records','strategies','backtest','learning','models','sources','memory','evidence'].includes(route.sub))route.sub='desk';routeController?.abort();listeners.clear();fastMoveListeners.clear();fastFrame=null;fastReadAt=0;routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
  frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
   route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
@@ -213,11 +216,29 @@ async function refresh(manual=false) {
  }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
  finally{refreshBusy=false;if(refreshWanted){refreshWanted=false;if(role)refresh(false);}}
 }
+async function refreshAutomatically() {
+ if(!role||document.visibilityState!=='visible')return;
+ const isFastRoute=route.view==='opportunities'&&['auction','movement'].includes(route.sub);
+ if(!isFastRoute||drawer?.isOpen()||!lastRead||Date.now()-lastRead>=30000)return refresh(false);
+ if(fastBusy||Date.now()-fastReadAt<4000)return;
+ fastBusy=true;
+ const controller=routeController,started=performance.now();
+ try {
+  const frame=await api('/api/fast-stock-moves',{signal:controller.signal,timeoutMs:4000});
+  if(controller.signal.aborted||!role)return;
+  if(frame.schemaVersion!==1||!Number.isFinite(frame.servedAt))return refresh(false);
+  fastReadAt=Date.now();
+  fastFrame={...frame,readAt:fastReadAt,readMs:performance.now()-started};
+  for(const listener of [...fastMoveListeners])listener();
+ }catch {
+  if(role&&!controller.signal.aborted)await refresh(false);
+ }finally{fastBusy=false;}
+}
 function logout(message='') {
- gateGeneration++;role=null;state=null;lastRead=0;poolCache.clear();listeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
- gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:()=>refresh(false),signal:controller.signal});
+ gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);poll=createSnapshotPoller({read:refreshAutomatically,signal:controller.signal});
 }
 async function subscribeChanges(controller) {
  // Fetch-based SSE keeps the credential in a header and retains periodic reads
@@ -228,7 +249,7 @@ async function subscribeChanges(controller) {
    const response=await fetch('/api/stream?'+query,{headers:{Accept:'text/event-stream',...(token?{Authorization:'Bearer '+token,'X-QD-Token':token}:{})},cache:'no-store',signal:controller.signal});
    if(!response.ok||!response.headers.get('content-type')?.includes('text/event-stream'))return;
    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
-   while(role&&!controller.signal.aborted){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>131072)buffer=buffer.slice(-65536);let end;while((end=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,end);buffer=buffer.slice(end+2);if(event.includes('data:')&&Date.now()-lastRead>1000)refresh(false);}}
+   while(role&&!controller.signal.aborted){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>131072)buffer=buffer.slice(-65536);let end;while((end=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,end);buffer=buffer.slice(end+2);if(event.includes('data:')&&Date.now()-lastRead>1000)refreshAutomatically();}}
   }catch(error){if(controller.signal.aborted)return;}
   if(controller.signal.aborted||!role)return;
   await new Promise(resolve=>setTimeout(resolve,5000));

@@ -253,13 +253,13 @@ function createClosingCardSnapshot({
     flush();
     return true;
   }
-  function read(key) {
+  function read(key, field) {
     const now = clock(),
       e = saved[key];
     flush(!beforeClose(now));
     if (!e || e.capturedAt > now || e.day > dayOf(now)) return null;
     return {
-      value: clean(e.value),
+      value: clean(field === undefined ? e.value : e.value[field]),
       meta: {
         marketFrozen: true,
         isSnapshot: true,

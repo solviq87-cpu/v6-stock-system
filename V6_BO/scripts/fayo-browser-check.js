@@ -56,6 +56,12 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
+ if(p==='/api/fast-stock-moves'){
+  const fast=state().fastStockMoves;
+  return {schemaVersion:1,servedAt:Date.now(),trading:false,isSnapshot:true,
+   fastStockMoves:{...fast,fetchMs:480,sources:[{source:'eastmoney',observed:8,medianAgeMs:1500,p95AgeMs:2200}],
+    recentItems:[{...fast.items[0],code:stocks[2].code,name:stocks[2].name,detectedAt:sourceAt-5000}]}};
+ }
  if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
   sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
   broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
@@ -354,6 +360,18 @@ const runChecks=async()=>{
     const moveSummary=page.getByText('重点股 · 近一分钟涨速',{exact:true});
     await moveSummary.click();await fastMoves.waitFor({state:'hidden'});
     await moveSummary.click();await fastMoves.waitFor({state:'visible'});
+    const fresh=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/fast-stock-moves');
+    await fresh;
+    await fastMoves.locator('[data-fast-read-time]').waitFor();
+    await fastMoves.getByText('采集质量与限流',{exact:true}).click();
+    assert.match(await fastMoves.innerText(),/中位 1\.5 秒/);
+    await fastMoves.getByText(/该快照前的近期异动/).click();
+    const hit=fastMoves.getByRole('button',{name:'合成光谱3 600103'});
+    await hit.click();
+    await lens.locator('[data-detail-tab="evidence"]').click();
+    assert.match(await lens.innerText(),/近一分钟异动/);
+    assert.match(await lens.innerText(),/涨停原因/);
+    await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
     await page.locator('.fy-toast').waitFor({state:'hidden'});
     await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
     await page.screenshot({path:path.join(output,'fayo-fast-stock-moves-'+width+'.png'),fullPage:false});

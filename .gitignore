@@ -47,3 +47,4 @@ V6_BO/data/manual-decision-loop/
 
 # Server-owned market card display snapshot; not source or account authority.
 V6_BO/data/closing-card-snapshots.json
+V6_BO/data/fast-stock-watch.json*

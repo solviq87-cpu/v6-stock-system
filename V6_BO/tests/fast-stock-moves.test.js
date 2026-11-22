@@ -58,3 +58,24 @@ test('覆盖之外、冲突重复和超过一分钟的基准不会生成异动',
  assert.equal(observe(codes,[row(base+70000,111),row(base+70000,112)],base+70500).observed,0);
  assert.equal(observe(codes,[row(base+75000,110,{code:'600000'})],base+75500).observed,0);
 });
+
+test('近期异动留存三分钟并保留事件时点，采集诊断区分失败与有效覆盖',()=>{
+ const observe=createFastStockMoves();
+ observe(codes,[row(base,100)],base+500);
+ const caught=observe(codes,[row(base+5000,102)],base+5500,{startedAt:base+5200});
+ assert.deepEqual(caught.sources,[{source:'tencent',observed:1,medianAgeMs:500,p95AgeMs:500}]);
+ assert.equal(caught.fetchMs,300);
+ observe(codes,[row(base+5000,102)],base+6500); // same source time cannot extend the event
+ const after=observe(codes,[],base+10500,{failed:true});
+ assert.equal(after.items.length,0);
+ assert.equal(after.recentItems[0].detectedAt,base+5500);
+ assert.equal(after.recentItems[0].quoteAt,base+5000);
+ assert.equal(after.sessionTotals[0].failedRounds,1);
+ assert.equal(after.sessionTotals[0].requested,8);
+ assert.equal(after.sessionTotals[0].observed,3);
+ assert.equal(observe(codes,[],base+185500).recentItems.length,0);
+ const afternoon=observe(codes,[],at('13:00:05'));
+ assert.deepEqual(afternoon.sessionTotals.map(row=>row.phase),['morning','afternoon']);
+ const nextOpen=Date.parse('2026-11-23T09:15:05+08:00');
+ assert.deepEqual(observe(codes,[],nextOpen).sessionTotals.map(row=>row.phase),['auction-revocable']);
+});
