@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,dateTime,table,icon} from './ui.js';
-import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,systemPicks,replaceKeepingStockFocus,recoveryDisclosure,observedMarketValues,coveragePanel,closeSessionDay,closingWatch,closingWatchPanel,distributionPanel,marketOverviewCards} from './market.js';
+import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,systemPicks,replaceKeepingStockFocus,recoveryDisclosure,observedMarketValues,coveragePanel,closeSessionDay,closingWatch,closingWatchPanel,distributionPanel,marketOverviewCards,publishedReasons} from './market.js';
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier,recoveredMetric} from './market-evidence.js';
 import {renderCloseReview} from './close-review.js';
 
@@ -179,11 +179,11 @@ function referenceReviewStats(review,summary,source) {
  const knownMA=summary.rows.filter(row=>typeof row.aboveMa5==='boolean');
  const proofCount=summary.rows.filter(row=>limitReasonEvidence(row,row.reasonRaw,review?.date)).length;
  return [
-  [source?'来源池涨停总数':'复盘涨停样本',source?number(source.reportedCount):number(summary.rows.length),source?'源端 '+number(source.returnedCount)+' 条 · 明细 '+number(summary.rows.length)+' 只':review?.displayScope||'本次复盘明细','accent'],
+  [source?'来源池涨停总数':'复盘涨停样本',source?number(source.reportedCount):review?number(summary.rows.length):'—',source?'源端 '+number(source.returnedCount)+' 条 · 明细 '+number(summary.rows.length)+' 只':review?.displayScope||'本次复盘明细','accent'],
   ['首板',review?number(summary.first):'—','本次复盘样本'],
   ['连板',review?number(summary.continued):'—','本次复盘样本'],
   ['题材数',review?number(summary.groups.length):'—','按已返回明细归组'],
-  ['开板记录',review?number(summary.opened.length):'—','不是全市场炸板率','calm'],
+  ['开板记录',summary.rows.some(r=>Number.isInteger(r.breakCount))?number(summary.opened.length):'—','不是全市场炸板率','calm'],
   knownMA.length?['5日线上',number(knownMA.filter(r=>r.aboveMa5).length),'已核 '+knownMA.length+' 只']:['已核涨停原因',number(proofCount),'同日来源标注'],
   knownHigh.length?['破前高',number(knownHigh.filter(r=>r.breakHigh).length),'已核 '+knownHigh.length+' 只']:['最高连板',summary.highest?number(summary.highest)+' 板':'—','已知梯队']
  ];
@@ -243,11 +243,12 @@ export function renderTerminalOverview(ctx) {
    ['明日计划','pulse','plans'],['消息面','inbox','all']
   ].map(([label,module,sub])=>moduleButton(label,module,sub,ctx))));
  const candidatePreview=h('div',{class:'fy-terminal-preview-cards'});
+ const candidateHead=h('div',{class:'fy-reference-candidate-head','aria-hidden':'true'},['股票 / 代码','题材','评分','价格 / 涨幅','研判'].map(label=>h('span',{},label)));
  const candidates=h('section',{class:'fy-terminal-candidates fy-terminal-preview'},
   h('header',{class:'fy-terminal-preview-head'},
    h('div',{},h('h2',{},panelTitle('今日精选','spark')),h('p',{class:'fy-terminal-hint'},'云端候选 · 按原始报价展示')),
    moduleButton('查看系统精选','opportunities','ranked',ctx)),
-  h('div',{class:'fy-reference-candidate-head','aria-hidden':'true'},['股票 / 代码','题材','评分','价格 / 涨幅','研判'].map(label=>h('span',{},label))),
+  candidateHead,
   candidatePreview);
  // New sections project the same authenticated state; they never fetch, mutate or simulate trading.
  const signalContent=h('div',{class:'fy-reference-signal-body'});
@@ -406,7 +407,7 @@ export function renderTerminalOverview(ctx) {
  const upRatio=marketDay&&(mood.source||state.dashboard?.source)&&valid(mood.upRatio)&&mood.upRatio>=0&&mood.upRatio<=100?mood.upRatio:null;
  const observations=observedMarketValues(recovery,[['breakRate','炸板率','%'],['downLimit','跌停',' 家'],['adv','上涨',' 家'],['dec','下跌',' 家'],['amount','成交额',' 亿元'],['trend','全A趋势',''],['sh','上证趋势',''],['cy','创业板趋势',''],['leader','高标反馈','%'],['diffusion','题材扩散度','%'],['premium','昨日涨停溢价','%'],['theme','题材','']]);
  const scopes=coveragePanel(recovery);
- const target=closeSessionDay(state),distribution=distributionPanel(state);
+ const target=closeSessionDay(state),distribution=distributionPanel(state),reasonList=publishedReasons(state,ctx);
  const marketNotes=[classified?h('strong',{class:'fy-reference-signal-mood'},(classified.historical?'最近已判定 · ':'')+classified.value+' · '+classified.date+' · '+classified.source+' · 取得 '+dateTime(classified.knownAt)):null,
    upRatio!==null?h('p',{},'市场宽度 · '+marketDay+' · '+(mood.source||state.dashboard.source)):null,
    h('div',{class:'fy-reference-signal-facts'},state.trading===false?h('span',{},'休市快照'):null,source?h('span',{},'涨停源端 '+number(source.reportedCount)+' 只'):null)];
@@ -420,10 +421,10 @@ export function renderTerminalOverview(ctx) {
    h('div',{class:'fy-reference-signal-notes'},marketNotes))]:[]),...(distribution?[distribution]:[]),
    ...(!distribution&&observations.length?[h('div',{class:'fy-signal-metrics'},observations.slice(0,2))]:[]),
    ...((distribution?observations.length:observations.length>2)?[h('details',{class:'fy-details'},h('summary',{},'更多收盘观测'),h('div',{class:'fy-signal-metrics'},observations.slice(distribution?0:2)))]:[]),
-   ...(scopes?[scopes]:[]));
+   ...(scopes?[scopes]:[]),...(reasonList?[h('details',{class:'fy-details'},h('summary',{},'逐股涨停原因与同花顺复盘'),reasonList)]:[]));
   for(const d of signalContent.querySelectorAll('details'))if(expanded.has(d.firstElementChild?.textContent))d.open=true;
  }
- signalPanel.hidden=!distribution&&upRatio===null&&!classified&&!source&&!observations.length&&!scopes;
+ signalPanel.hidden=!reasonList&&!distribution&&upRatio===null&&!classified&&!source&&!observations.length&&!scopes;
   paintFunds(state,day);
   const good=new Set(Array.isArray(state.goodNews?.items)?state.goodNews.items:[]);
   const bad=new Set(Array.isArray(state.badNews?.items)?state.badNews.items:[]);
@@ -515,7 +516,7 @@ export function renderTerminalOverview(ctx) {
   panelsHost.replaceChildren(renderPanels(state,summary,day,ctx));
   paintReview(summary);
   const preview=systemPicks(state).items.slice(0,3),watch=!preview.length?closingWatch(state):null;
-  candidates.querySelector('.fy-reference-candidate-head').hidden=!preview.length;
+  candidateHead.hidden=!preview.length;
   replaceKeepingStockFocus(candidatePreview,preview.length?
    h('div',{class:'fy-stock-grid'},preview.map(row=>quotePreview(row,ctx))):
    watch?closingWatchPanel(watch,ctx,{limit:3}):empty('等待精选归档','云端返回结果后自动显示。'));

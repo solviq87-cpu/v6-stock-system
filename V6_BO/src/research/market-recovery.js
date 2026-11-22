@@ -51,21 +51,29 @@ function closeWatchFrom(rows,day,now,reasons,previous){
     p.sealed.every(x=>/^\d{6}$/.test(x?.code))&&new Set(p.sealed.map(x=>x.code)).size===p.totalCount);
   const withLevels=p=>p.sealed.every(r=>Number.isSafeInteger(r.level)&&r.level>0);
   const pool=valid.sort((a,b)=>Number(withLevels(b))-Number(withLevels(a)))[0];
-  if(!pool)return null;
+  const prior=previous?.day===day&&previous.complete&&Array.isArray(previous.items)?previous:null;
+  if(!pool&&!prior)return null;
   const byCode=new Map((previous?.day===day?previous.items:[]).filter(r=>r.reasonRaw).map(r=>[r.code,r]));
   const priority=source=>source==='同花顺涨停聚焦'?3:source==='同花顺 F10'?2:1;
+  const members=new Set((pool?.sealed||prior.items).map(x=>x.code));
+  let changed=false;
   for(const r of reasons||[]){
-    if(r.day!==day||!['同花顺涨停聚焦','同花顺 F10','财联社'].includes(r.source)||typeof r.text!=='string'||!r.text.trim()||
+    if(!members.has(r.code)||r.day!==day||!['同花顺涨停聚焦','同花顺 F10','财联社'].includes(r.source)||typeof r.text!=='string'||!r.text.trim()||
        priority(byCode.get(r.code)?.reasonSource)>priority(r.source))continue;
-    byCode.set(r.code,{reasonRaw:r.text.trim().slice(0,700),reasonSource:r.source,reasonDateStatus:'matched',reasonTradeDate:day});
+    const text=r.text.trim().slice(0,700),old=byCode.get(r.code);
+    if(old?.reasonRaw===text&&old.reasonSource===r.source)continue;
+    changed=true;
+    byCode.set(r.code,{reasonRaw:text,reasonSource:r.source,reasonDateStatus:'matched',reasonTradeDate:day,reasonKnownAt:now});
   }
-  return {day,knownAt:pool.knownAt,source:pool.source,scope:pool.scope,complete:true,items:pool.sealed.map(r=>({
+  const proof=code=>Object.fromEntries(['reasonRaw','reasonSource','reasonDateStatus','reasonTradeDate','reasonKnownAt'].filter(k=>byCode.get(code)?.[k]!=null).map(k=>[k,byCode.get(code)[k]]));
+  if(!pool)return changed?{...prior,knownAt:now,items:prior.items.map(row=>({...row,...proof(row.code)}))}:null;
+  return {day,knownAt:changed?now:pool.knownAt,source:pool.source,scope:pool.scope,complete:true,items:pool.sealed.map(r=>({
     code:r.code,name:typeof r.name==='string'?r.name.slice(0,64):r.code,
     level:Number.isSafeInteger(r.level)&&r.level>0?r.level:null,
     sector:r.refs?.find(x=>typeof x?.name==='string')?.name?.slice(0,80)||'',
     firstSeal:typeof r.firstSealTime==='string'?r.firstSealTime.slice(0,8):null,
     breakCount:Number.isSafeInteger(r.breakCount)&&r.breakCount>=0?r.breakCount:null,
-    ...(byCode.has(r.code)?Object.fromEntries(['reasonRaw','reasonSource','reasonDateStatus','reasonTradeDate'].map(k=>[k,byCode.get(r.code)[k]])):{})
+    ...proof(r.code)
   }))};
 }
 function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=()=>false,replicaPublicReads=false,file,clock=Date.now}){
@@ -93,6 +101,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=
     const referenceDay=day||status.referenceDay;
     return {...status,referenceDay,phase:referenceDay!==status.referenceDay?'scheduled':status.phase,metrics,
       closeWatch:state.closeWatch?.day===referenceDay?state.closeWatch:null,
+      thsBrief:state.thsBrief?.day===referenceDay?state.thsBrief:null,
       ...(state.emotion?.date>referenceDay?{emotion:null}:{})};
   }
   async function run(day){
@@ -104,6 +113,8 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=
       mergePublicRows(state,rows,day,now);
       const watch=closeWatchFrom(rows,day,now,result.closeReasons,state.closeWatch);
       if(watch)state.closeWatch=watch;
+      const brief=result.thsBrief;
+      if(brief?.day===day&&brief.source==='同花顺每日复盘'&&brief.knownAt<=now&&brief.knownAt>=Date.parse(day+'T15:00:00+08:00'))state.thsBrief=brief;
       if(result.indexSeries?.length){
         const series=new Map((state.indexSeries||[]).filter(r=>r.day===day).map(r=>[r.code,r]));
         for(const r of result.indexSeries)if(r.day===day&&r.knownAt<=now)series.set(r.code,r);
@@ -143,7 +154,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=
       misses=complete?0:misses+1;
       state.nextRetryAt=now+(complete?4*3600000:Math.min(30,2**Math.min(misses,5))*60000);
       if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
-      if(rows.length||result.coverage?.length)onCollected(day);
+      if(rows.length||result.coverage?.length||watch||brief?.day===day)onCollected(day);
       return rows;
     }catch{
       misses++;state.phase='partial';state.nextRetryAt=clock()+Math.min(30,2**Math.min(misses,5))*60000;
@@ -155,7 +166,9 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=
     if(isReplica()&&clock()-lastDiskRead>=60000){lastDiskRead=clock();loadPublic();}
     if(isReplica()&&!replicaPublicReads||!dayOk(day))return Promise.resolve([]);
     if(busy)return busy;
-    if(state.referenceDay===day&&state.phase==='ready'&&state.closeWatch?.day===day&&state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day))
+    if(state.referenceDay===day&&state.phase==='ready'&&state.closeWatch?.day===day&&
+       state.closeWatch.items.every(r=>r.reasonSource==='同花顺涨停聚焦'||r.reasonSource==='同花顺 F10')&&
+       state.thsBrief?.day===day&&['1.000001','0.399001','0.399006'].every(code=>state.indexSeries?.some(v=>v.day===day&&v.code===code))&&state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day))
       return Promise.resolve(cachedDay===day?cachedRows:[]);
     if(state.referenceDay===day&&clock()<state.nextRetryAt)return Promise.resolve(cachedDay===day?cachedRows:[]);
     if(state.referenceDay!==day)misses=0;

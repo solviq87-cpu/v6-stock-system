@@ -432,6 +432,7 @@ const runChecks=async()=>{
    const metricColumns=await closeReview.locator('.fy-close-kpis').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
    assert.equal(metricColumns,width<=450?2:width<=780?3:width<=1120?4:7,'market cards follow viewport-aware columns');
 
+   await closeReview.getByRole('combobox',{name:'复盘交易日'}).selectOption('archive');
    assert.equal(await closeReview.locator('.fy-close-level button').count(),28,'the archive preserves the full sourced pool');
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/30 \/ 61/);
    assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/退潮/);

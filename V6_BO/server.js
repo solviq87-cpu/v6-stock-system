@@ -11354,9 +11354,10 @@ function marketCardResponse(kind,board,value,max){const context=marketCardContex
   return closedMarketCard(kind,board,max);
 }
 function closedMarketCard(kind,board,max){
-  const exact=closingCardSnapshots.read(kind+':'+board),old=exact||(board!=='all'?closingCardSnapshots.read(kind+':all'):null);
+  const exact=closingCardSnapshots.read(kind+':'+board),all=board!=='all'?closingCardSnapshots.read(kind+':all'):null;
+  const old=all&&(!exact||all.meta.snapshotDay>exact.meta.snapshotDay)?all:exact;
   let result=old?{...old.value,...old.meta}:null;
-  if(result&&!exact){const belongs=row=>(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row?.code||'');result={...result,board,boardFallback:true,completeForBoard:false,sourceBoard:'all',items:(result.items||[]).filter(belongs)};if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(g=>({...g,picks:(g.picks||[]).filter(belongs)})).filter(g=>g.picks.length);result.count=result.items.length;}
+  if(result&&old!==exact){const belongs=row=>(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row?.code||'');result={...result,board,boardFallback:true,completeForBoard:false,sourceBoard:'all',items:(result.items||[]).filter(belongs)};if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(g=>({...g,picks:(g.picks||[]).filter(belongs)})).filter(g=>g.picks.length);result.count=result.items.length;}
   if(!result&&['quant','auction'].includes(kind)){const legacy=marketResponseSnapshots.read(kind,board,{max:max||50});if(legacy)result={...legacy,marketFrozen:true};}
   if(!result)result={items:[],candidates:[],board,marketFrozen:true,isSnapshot:true,snapshotRetained:false,snapshotDay:null,freezeUnavailable:true,canTrade:false,canNotify:false,note:'本池尚无盘中归档'};
   if(Number.isFinite(max)&&Array.isArray(result.items))result.items=result.items.slice(0,Math.max(1,Math.floor(max)));
@@ -11400,7 +11401,7 @@ function marketDisplayState() {
 }
 
 const readCloseReviewEvidence = require('./src/core/close-review-evidence').createCloseReviewReader({
-  market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
+  market:em,fetchBrief:require('./src/core/close-review-evidence').fetchThsDailyBrief,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
 });
 
 function shortlineResearchDir(){return process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research');}

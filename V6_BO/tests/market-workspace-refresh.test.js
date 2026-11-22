@@ -45,3 +45,22 @@ test('fresh Sunday workspaces share the dated close, 28 THS causes, and actual f
  assert.ok(projection.ztBySector.length);assert.equal(input.review,null);assert.deepEqual(systemPicks(projection).items,[]);
  assert.equal(closingWatch({...input,closeSession:{day:'2026-11-23'}},now),null);
 });
+
+test('late THS evidence enriches the saved same-day members even when the pool provider is offline',async()=>{
+ let at=now,n=0;
+ const pool={date:day,scope:'专题池',source:'样本来源',knownAt:at,totalCount:1,complete:true,sealed:[{code:'600001',name:'样本',level:1}]};
+ const recovery=createMarketRecovery({getDay:()=>day,clock:()=>at,save:async()=>true,
+  collect:async()=>++n===1?{rows:[{date:day,knownAt:at,upLimit:1,structurePools:[pool]}]}:
+   {rows:[],closeReasons:['600001','600002'].map(code=>({code,day,text:'后补原文',source:'同花顺涨停聚焦'}))}});
+ await recovery.tick();at+=3600000;await recovery.tick();
+ const watch=recovery.display().closeWatch;
+ assert.equal(watch.knownAt,at);assert.deepEqual(watch.items.map(x=>[x.code,x.reasonRaw,x.reasonKnownAt]),[['600001','后补原文',at]]);
+});
+test('native THS daily review accepts the published session and close text only',()=>{
+ const {thsDailyBrief}=require('../src/core/close-review-evidence');
+ const html='<h1>复盘必读</h1><script>Global.date="20130109"; Global.date="20261120";</script><div id="block_1887">截至收盘，指数下跌。</div><div id="block_1890">芯片、PCB、芯片</div>';
+ const brief=thsDailyBrief(html,day,now);
+ assert.deepEqual(brief.themes,['芯片','PCB']);assert.match(brief.url,/20261120[.]shtml$/);assert.equal(brief.knownAt,now);
+ assert.equal(thsDailyBrief(html,'2026-11-19',now),null);assert.equal(thsDailyBrief(html.replace('收盘','午间'),day,now),null);
+ assert.equal(thsDailyBrief(html,day,Date.parse(day+'T14:59:00+08:00')),null);
+});

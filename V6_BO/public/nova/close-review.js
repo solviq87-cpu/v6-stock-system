@@ -1,5 +1,5 @@
 import {h,button,empty,section,format,money,percent,direction,safeLink} from './ui.js';
-import {reviewDate,reviewCoverage,summarizeReview,stockCard,distributionPanel,publishedReasons} from './market.js';
+import {reviewDate,reviewCoverage,summarizeReview,stockCard,closeSessionDay,distributionPanel,publishedReasons} from './market.js';
 import {dailyReviewEvidence} from './market-evidence.js';
 import {renderSourceReviewPool} from './review-pool.js';
 import {archive} from './data/close-review-20261120.js';
@@ -13,7 +13,7 @@ const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const count=(value,suffix=' 只')=>Number.isSafeInteger(value)&&value>=0?value+suffix:'—';
 const levelName=level=>level===1?'首板':Number.isSafeInteger(level)?level+' 板':'板次待核验';
 const arr=value=>Array.isArray(value)?value:[];
-const ths=value=>/^(?:ths|10jqka|同花顺(?:涨停聚焦|F10)?)$/i.test(value||'');
+const ths=value=>/^(?:ths|10jqka|同花顺(?:涨停聚焦|\s*F10)?)$/i.test(value||'');
 const signedMoney=value=>value>0?'+'+money(value):money(value);
 const providerLink=['东方财富涨停板行情','https://quote.eastmoney.com/ztb/'];
 const seatLink=['东方财富龙虎榜','https://data.eastmoney.com/stock/tradedetail.html'];
@@ -39,8 +39,8 @@ function archivedReport(){
 }
 
 function cloudReport(state,supplement){
- const day=reviewDate(state.review?.date);
- const raw=day?state.review:null;
+ const day=closeSessionDay(state)||reviewDate(state.review?.date);
+ const raw=day&&reviewDate(state.review?.date)===day?state.review:null;
  const coverage=reviewCoverage(raw);
  const summary=summarizeReview(raw);
  const evidence=dailyReviewEvidence(state);
@@ -59,7 +59,7 @@ function cloudReport(state,supplement){
   lastSeal:row.lastSealTime,breakCount:row.breakCount,amount:row.amountCny,sector:row.industry,
   turnover:row.turnoverPct,floatCap:row.floatCapCny
  })):fallbackRows.map(row=>({
-  code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector
+  code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector,firstSeal:row.firstSeal,lastSeal:row.lastSeal,breakCount:row.breakCount
  }));
  const rows=pool.map(row=>{
   const original=observations.get(row.code),source=sourceRows.get(row.code),provider=providerRows.get(row.code);
@@ -116,8 +116,8 @@ function cloudReport(state,supplement){
  const riskRows=rows.filter(row=>row.breakCount>0).sort((a,b)=>b.breakCount-a.breakCount);
  const top=rows.filter(row=>row.level===highest&&highest>=2).slice(0,4).map(row=>row.code);
  const named=match=>themes.flatMap(group=>Object.entries(group.roles||{}).filter(([,role])=>role===match).map(([code])=>code)).slice(0,4);
- return {day,rows,groups:themes,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
-  sources:{market:providerLink,stocks:providerLink,seats:seatLink,themes:thsLink,north:northLink,turnover:marketLink},
+ return {day,rows,groups:themes,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
+  sources:{market:providerLink,stocks:providerLink,seats:seatLink,themes:extra?.thsBrief?.day===day?['同花顺每日复盘',extra.thsBrief.url]:thsLink,north:northLink,turnover:marketLink},
   coverage:sealed?'梯队按东方财富同日涨停池。涨停及炸板统计采用同一供应商口径。':
    raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':'等待带有原始交易日期的服务端报告。',
   reasonStatus:extra?.reasonChannels?.primaryCount===0?
@@ -177,10 +177,10 @@ export function renderCloseReview(ctx,additional){
  let recovery={key:'',attempts:0,retryAt:0};
 
  function project(){
-  const serverDay=reviewDate(ctx.state?.review?.date);
-  const defaultKey=serverDay&&serverDay>archive.day?'cloud':'archive';
+  const serverDay=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
+  const defaultKey=serverDay&&serverDay!==archive.day?'cloud':'archive';
   const key=selected||defaultKey;
-  const options=[['archive',archive.day+' · 收盘归档'],['cloud',(serverDay||'日期待核验')+' · 服务端复盘']];
+  const options=[['archive',archive.day+' · 收盘归档'],...(serverDay?[['cloud',serverDay+' · 服务端复盘']]:[])];
   const optionKey=JSON.stringify(options);
   if(dateSelect.dataset.options!==optionKey){
    dateSelect.replaceChildren(...options.map(([value,label])=>h('option',{value},label)));
@@ -332,7 +332,7 @@ export function renderCloseReview(ctx,additional){
  dateSelect.addEventListener('change',()=>{selected=dateSelect.value;paint(true);void loadSupplement();});
 
  async function loadSupplement(force=false){
-  const day=reviewDate(ctx.state?.review?.date);
+  const day=closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date);
   const current=activeKey==='cloud'&&day;
   if(!current||ctx.signal?.aborted||!ctx.api||requesting)return;
   const latestTime=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit'}).format(new Date());
@@ -362,7 +362,7 @@ export function renderCloseReview(ctx,additional){
   }
   finally{
    requesting=false;paint();
-   if(day!==reviewDate(ctx.state?.review?.date))void loadSupplement();
+   if(day!==(closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date)))void loadSupplement();
   }
  }
  ctx.onState?.(()=>{paint();void loadSupplement();});

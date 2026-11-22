@@ -32,7 +32,8 @@ test('reference review is sourced from the same dashboard and preserves original
  assert.match(source,/summarizeReview\(ctx\.state\?\.review\)/);
  assert.match(source,/referenceReviewStats/);
  assert.match(source,/moduleButton\('查看完整原始报告','pulse','review-details',ctx\)/);
- assert.match(source,/源端数量未核验时不填/);
+ assert.match(source,/source\?'来源池涨停总数':'复盘涨停样本'/);
+ assert.match(source,/source\?number\(source\.reportedCount\):review\?number\(summary\.rows\.length\)/);
  assert.match(source,/不是全市场炸板率/);
 });
 

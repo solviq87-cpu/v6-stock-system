@@ -405,6 +405,7 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
         return v?[{code,name:v.name,source:v.source,knownAt:v.receivedAt,day,trend:v.trend,change:v.change,
           bars:raw.rows.filter(b=>b.date<=day).slice(-20).map(b=>[b.date,b.close])}]:[];
       }),
+      thsBrief:inputs.report?.thsBrief?.day===day?inputs.report.thsBrief:null,
       closeReasons:[...(width?.closeReasons||[]),...(inputs.report?.reasons||[]).map(r=>({...r,day}))],
       coverage:[...(width?.coverage||[]),...(base?.localBreadth?[base.localBreadth]:[])]};
   }

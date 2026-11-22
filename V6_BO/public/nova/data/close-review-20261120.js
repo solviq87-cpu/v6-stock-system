@@ -83,6 +83,7 @@ const indexSeries = [
 export const archive = {
  indexSeries,
  day:'2026-11-20',
+ thsBrief:{"day":"2026-11-20","knownAt":1795352355289,"source":"同花顺每日复盘","summary":"A股三大指数今日集体下跌，截至收盘，上证指数跌1.23%，深证成指跌3.09%，创业板指跌3.54%，北证50跌4.85%，科创50指数跌3.12%。全市场成交额14311亿元，较上日放量1165亿元，全市场超5200只个股下跌。","themes":["国产芯片","PCB","大农业"],"url":"https://stock.10jqka.com.cn/fupan/20261120.shtml"},
  distribution:{kind:'market-distribution',day:'2026-11-20',scope:'沪深京 A 股（含 ST）',source:'打板客收盘涨跌分布',
   quoteAt:Date.parse('2026-11-20T15:41:35+08:00'),knownAt:Date.parse('2026-11-22T20:24:00+08:00'),
   total:5580,observed:5572,adv:313,dec:5236,flat:23,upLimit:30,downLimit:68},
