@@ -18,6 +18,7 @@ const candles=Array.from({length:900},(_,i)=>{
 const indices=[['1.000001','上证指数',3210.12,.9],['0.399001','深证成指',10020.32,-.6],['0.399006','创业板指',2100.45,1.2],['1.000688','科创50',1020.4,.3]].map(([code,name,price,pct])=>({code,name,price,pct,quoteAt:sourceAt,quoteSource:'synthetic-friday-provider'}));
 let phase='normal',role='edit',holdAnalysis=false,heldAnalysisReply=null,holdMarks=false,heldMarksReply=null;
 const requests=[],resources=[];
+let returnRetainedReview=false;
 function leadershipFixture(){
  const {mergeLimitReviewPools}=require('../src/core/limit-review-pool');
  const tradeDate='2026-11-13';
@@ -55,6 +56,15 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
+ if(p==='/api/close-review-evidence')return {ok:true,result:{day:'2026-11-13',
+  sealed:{complete:true,totalCount:1,records:[{symbol:'600101',name:'合成光谱1',consecutiveLimits:2,firstSealTime:'093005',breakCount:0,amountCny:1e8,industry:'合成能源'}]},
+  broken:{complete:true,totalCount:1,records:[{symbol:'600102',name:'合成光谱2',changePct:2.3}]},
+  sealRate:0.5,down:2,northTurnover:130e8,marketTurnover:1000e8,seatsStatus:'observed',
+  retained:returnRetainedReview?['sealed','northTurnover']:[],
+  reasons:[{code:'600101',text:'合成同日原版理由'}],
+  seats:[{code:'600101',name:'合成光谱1',dept:'机构专用',category:'机构专用',net:-40000}],
+  promotion:{previousDay:'2026-11-12',stages:[{level:1,promoted:1,total:2}],failed:[]}}};
+
  if(p==='/api/state'||p==='/api/mobile-digest'){
   const result=state();
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
@@ -134,6 +144,9 @@ async function geometry(page,label){
    iframeCount:document.querySelectorAll('iframe').length,
    oldShells:document.querySelectorAll('.vx-shell,.vx-sidebar,.workspace-header,#vx-dashboard').length,
    offenders:[...document.querySelectorAll('body *')].filter(visible).map(node=>({tag:node.tagName,cls:typeof node.className==='string'?node.className:'svg',right:node.getBoundingClientRect().right,width:node.getBoundingClientRect().width})).filter(node=>node.right>innerWidth+1).slice(0,15),
+   reviewOverflow:[...document.querySelectorAll('[data-close-review] *')].filter(visible)
+    .filter(node=>node.getBoundingClientRect().right>innerWidth+1).slice(0,10)
+    .map(node=>({tag:node.tagName,className:node.className,right:node.getBoundingClientRect().right})),
    brand:document.querySelector('.fy-header')?.innerText||'',
    brandBox:(()=>{const r=document.querySelector('.fy-brand')?.getBoundingClientRect();return r?{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}:null;})()};
  });
@@ -354,15 +367,53 @@ const runChecks=async()=>{
    // User-provided first reference: real dedicated daily-review route, same data and session.
    const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
    await navigate(page,'pulse','review');
-   await page.locator('.fy-reference-review').waitFor({state:'visible'});
-   assert.match(await page.locator('.fy-reference-review .fy-terminal-title').innerText(),/复盘.*学习/);
-   assert.equal(await page.locator('.fy-reference-review .fy-terminal-stats .fy-terminal-stat').count(),7,
-    'reference review keeps seven sourced cards without hard-coded values');
-   assert.equal(await page.locator('.fy-reference-review .fy-terminal-panels>.fy-section').count(),3,
-    'review shows mainline, actual board classification and source-dated funds');
-   assert.equal(await page.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
-    'six source-backed research entry cards remain accessible');
-   const reviewStats=page.locator('.fy-reference-review .fy-terminal-stats');
+   const closeReview=page.locator('[data-close-review]');
+   await closeReview.waitFor({state:'visible'});
+   assert.match(await closeReview.locator('h1').innerText(),/A 股收盘复盘/);
+   assert.equal(await closeReview.locator('[data-review-section]').count(),6,'all six review cards are present');
+   assert.equal(await closeReview.locator('[data-review-section="mood"] .fy-close-kpi').count(),7);
+   const columns=await closeReview.locator('.fy-close-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
+   assert.equal(columns,width>780?2:1,'the review card grid is active in ordinary browser mode');
+   const metricColumns=await closeReview.locator('.fy-close-kpis').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
+   assert.equal(metricColumns,width<=450?2:width<=780?3:width<=1120?4:7,'market cards follow viewport-aware columns');
+
+   assert.equal(await closeReview.locator('.fy-close-level button').count(),28,'the archive preserves the full sourced pool');
+   assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/30 \/ 61/);
+   assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/退潮/);
+   await geometry(page,'close-review-'+width);
+   await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:true});
+   await closeReview.locator('.fy-close-level').getByRole('button',{name:'中京电子',exact:true}).click();
+   let reason=closeReview.locator('[data-reason-selected]');
+   assert.match(await reason.innerText(),/高阶HDI\+算力\+存储/);
+   assert.match(await reason.innerText(),/09:36:24/);
+   await closeReview.locator('.fy-close-level').getByRole('button',{name:'华媒控股',exact:true}).click();
+   assert.match(await reason.innerText(),/未取得该股同日的同花顺原标注/);
+   const seats=closeReview.locator('[data-review-section="seats"]');
+   await seats.getByRole('button',{name:'机构专用',exact:true}).click();
+   assert.equal(await seats.locator('li').count(),4);
+   assert.doesNotMatch(await seats.locator('li').allTextContents().then(rows=>rows.join('')),/深股通专用/);
+   const reviewDate=closeReview.getByRole('combobox',{name:'复盘交易日'});
+   returnRetainedReview=false;
+   await reviewDate.selectOption('cloud');
+   await closeReview.getByText('合成同日原版理由',{exact:true}).waitFor();
+   assert.match(await closeReview.locator('[data-review-section="mood"]').innerText(),/50\.0%/);
+   assert.match(await closeReview.locator('[data-review-section="ladder"]').innerText(),/合成光谱2/);
+   assert.doesNotMatch(await closeReview.locator('[data-review-section="ladder"]').innerText(),/盛剑科技/);
+   await closeReview.locator('.fy-close-level').getByRole('button',{name:'合成光谱1',exact:true}).click();
+   assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true);
+   returnRetainedReview=true;
+   await closeReview.getByRole('button',{name:'刷新复盘',exact:true}).evaluate(node=>node.click());
+   await closeReview.locator('[data-retained-review]').waitFor();
+   assert.match(await closeReview.locator('[data-retained-review]').innerText(),/涨停池、北向成交/);
+   assert.equal(await closeReview.locator('[data-reason-selected]').evaluate(node=>node===document.activeElement),true,
+    'same-day recovery retains the selected reason and its keyboard focus');
+   returnRetainedReview=false;
+   await reviewDate.selectOption('archive');
+   await closeReview.locator('.fy-close-more > summary').click();
+   await closeReview.locator('.fy-reference-review-footer').waitFor();
+   assert.equal(await closeReview.locator('.fy-reference-review-footer .fy-reference-mini-module').count(),6,
+    'existing research shortcuts remain available');
+   const reviewStats=closeReview.locator('.fy-close-more .fy-terminal-stats');
    if(width<=430){
     const boxes=await reviewStats.locator('.fy-terminal-stat').evaluateAll(cards=>cards.map(card=>{
      const rect=card.getBoundingClientRect();return {top:rect.top,width:rect.width};
@@ -376,18 +427,16 @@ const runChecks=async()=>{
    await filters.getByRole('button',{name:'有开板记录 0',exact:true}).click();
    await page.getByText('该筛选下暂无复盘记录',{exact:true}).waitFor({state:'visible'});
    await filters.getByRole('button',{name:'全部 3',exact:true}).click();
-   assert.equal(await page.locator('.fy-reference-review .fy-terminal-mobile-stock').count(),3);
+   assert.equal(await closeReview.locator('.fy-close-more .fy-terminal-mobile-stock').count(),3);
    if(width===390||width===1440){
-    const stock=page.getByRole('button',{name:'合成光谱1 600101',exact:true}).filter({visible:true});
+    const stock=closeReview.locator('.fy-close-more').getByRole('button',{name:'合成光谱1 600101',exact:true}).filter({visible:true});
     await stock.click();
     const lens=page.getByRole('dialog',{name:'股票研究面板'});
     await lens.getByRole('button',{name:'带动性',exact:true}).click();
     assert.match(await lens.locator('[data-sector-leadership="early-spread"]').innerText(),/先封后扩散/);
     await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
    }
-   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
-   await geometry(page,'reference-review-'+width);
-   await page.screenshot({path:path.join(output,'fayo-reference-review-'+width+'.png'),fullPage:false});
+   await closeReview.locator('.fy-close-more > summary').click();
    assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
     'navigating to review does not create a trade, scan, push or account mutation');
    await navigate(page,'pulse','overview');
