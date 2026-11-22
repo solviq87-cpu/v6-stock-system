@@ -1,3 +1,4 @@
+import {sectorRoles,roleBadge,recordedRole,observedBadge} from './stock-roles.js';
 // V6 unified financial terminal: presentation only.
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
@@ -31,7 +32,7 @@ function panelTitle(label,key) {
  return [h('span',{class:'fy-reference-panel-icon'},icon(key)),label];
 }
 function quotePreview(row,ctx) {
- const score=valid(row.score)?format(row.score,1):'—';
+ const score=observedBadge(row)?.value||'';
  const pct=percent(row.pct);
  const reasons=stockReasons(row).join('；');
  const card=h('button',{type:'button',class:'fy-stock-card fy-reference-candidate','data-code':row.code,
@@ -63,10 +64,12 @@ function renderPanels(state,summary,reviewDay,ctx) {
  const roleDay=reviewDate(state.snapshotFieldDays?.ztBySector||state.ztDay);
  const roleRows=reviewDay&&roleDay===reviewDay?roles.slice(0,5):[];
  const roleItems=roleRows.map(group=>{
+  const rolesByCode=sectorRoles(state,reviewDay,group.sector);
   const members=(Array.isArray(group.stocks)?group.stocks:[]).slice(0,4).map(row=>{
-   const role=({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[row.role]||null;
-   return h('span',{class:'fy-terminal-chip','data-role':role?row.role:null},row.name||row.code||'名称未知',
-    role?h('small',{},' · '+role):null);
+   const info=rolesByCode.get(row.code)||recordedRole(row,group.sector);
+   const attrs={class:'fy-terminal-chip',title:info?.evidence};
+   const parts=[row.name||row.code,roleBadge(info)||((row.lb??row.level)>0?h('small',{},(row.lb??row.level)+'板'):null)];
+   return row.code?h('button',{...attrs,type:'button',onClick:()=>ctx.selectStock(row.code,{...row,sector:group.sector,poolDay:reviewDay})},...parts):h('span',attrs,...parts);
   });
   return h('div',{class:'fy-terminal-sector'},
    h('div',{class:'fy-terminal-line'},
@@ -78,7 +81,7 @@ function renderPanels(state,summary,reviewDay,ctx) {
   '按源端题材与角色分类',
   roleItems.length?h('div',{class:'fy-terminal-lines'},
    h('div',{class:'fy-reference-role-legend','aria-label':'题材角色'},[['leader','龙头'],['deputy','龙二'],['mid','中军'],['follow','跟风']].map(([role,label])=>
-    h('span',{class:'fy-terminal-chip','data-role':role},label))),roleItems):
+    roleBadge({key:role,label,evidence:'板块角色'}))),roleItems):
    empty('没有可核验的同日板块分类','本次复盘 '+(reviewDay||'日期未知')+
     '，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
   moduleButton('查看全部板块','pulse','sectors',ctx));

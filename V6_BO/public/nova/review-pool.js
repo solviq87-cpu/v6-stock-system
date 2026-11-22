@@ -1,3 +1,4 @@
+import {sectorRoles,roleBadge} from './stock-roles.js';
 import {dailyReviewEvidence,reviewSupplier as supplier} from './market-evidence.js';
 import {h,button,empty,section,field,dateTime,dayLabel,note} from './ui.js';
 
@@ -28,10 +29,12 @@ export function renderSourceReviewPool(ctx,stockRenderer){
   }
  }
  function reviewCard(row){
+  const roles=sectorRoles(ctx.state,evidence.day);
+  const mark=peer=>roleBadge(roles.get(peer.code))||(roleLabel(peer.role)?roleBadge({key:peer.role,label:roleLabel(peer.role),evidence:'同日板块分类记录'}):null);
   const linked=row.linkedRecords.map(peer=>h('div',{class:'fy-item'},
    peer.code?button(peer.name+' '+peer.code,()=>ctx.selectStock(peer.code),'quiet'):h('strong',{},peer.name+' · 代码待核验'),
    h('p',{},peer.limitUpCount===0?'后台记录：未涨停强势观察':level(peer)),
-   h('small',{class:'fy-muted'},peer.role?'后台角色推断：'+roleLabel(peer.role)+'（未独立核验）':'角色待核验')));
+   mark(peer)));
   return section(row.name+' · '+row.code,level(row)+' · '+(row.sectorTags.join(' / ')||'板块待核验'),
    (row.heldRecord||row.currentSourceConfirmed===false)&&note('保留旧来源证据，本次未确认；不能据此断言当前仍封板。','warn'),
    (row.heldRecord||row.currentSourceConfirmed===false)&&h('p',{class:'fy-muted'},'保留来源 '+row.heldSources.map(supplier).join('、')+' · 原接收时点 '+dateTime(row.receivedAt)+' · 原事件时点 '+dateTime(row.sourceEventAt)),
@@ -39,7 +42,7 @@ export function renderSourceReviewPool(ctx,stockRenderer){
    h('p',{},'涨停原因：'+(row.reason||'待核验，尚无同交易日的原始原因证据')),
    h('p',{class:'fy-muted'},'原始交易日 '+dayLabel(row.sourceDay)+' · 池来源 '+supplier(row.source)+' · 原因来源 '+supplier(row.reasonSource)+' · 原因日期 '+dayLabel(row.reasonDay)),
    row.reasonSourceStatus==='retained'&&h('p',{class:'fy-muted'},'原因来源本次未确认，保留原始证据 · 原接收时点 '+dateTime(row.reasonReceivedAt)),
-   h('p',{class:'fy-muted'},row.role?'后台角色推断：'+roleLabel(row.role)+'（未独立核验）':'角色待核验'),
+   mark(row),
    detail(row.code+':peers','同板块关联涨停股 '+row.peers.length+' 只（完整可见池）',
     row.peers.length?h('div',{class:'fy-inline'},row.peers.map(peer=>button(peer.name+' '+peer.code+' · '+level(peer)+' · '+peer.sharedTags.join(' / '),()=>ctx.selectStock(peer.code,evidence.rows.find(x=>x.code===peer.code)?.stock),'quiet'))):note(row.dateMatched?'没有同日同板块的其他可见涨停股。':'原始日期或板块缺失，关联关系待核验。')),
    detail(row.code+':linked','后台联动补充 '+linked.length+' 条（来源限量记录）',

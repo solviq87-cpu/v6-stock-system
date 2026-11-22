@@ -396,7 +396,8 @@ const runChecks=async()=>{
     phase='system-picks-refresh';
     await page.getByRole('button',{name:'刷新结果',exact:true}).click();
     await selected.locator('[data-code="600199"]').waitFor();
-    assert.match(await pick.locator('[data-sector-leadership="pending"]').textContent(),/待核验/);
+    assert.equal(await pick.locator('[data-sector-leadership="pending"]').count(),0,'an unverified sector inference is omitted from the pick');
+    assert.doesNotMatch(await pick.innerText(),/待评估/);
     assert.match(await page.locator('[data-system-picks-read-time]').textContent(),/最近读取 \d/);
     assert.equal(await page.locator('.fy-toast').isVisible(),false,'system pick refresh reports inline without covering the results');
     assert.ok(requests.slice(beforePicks).some(entry=>entry.path==='/api/state'&&entry.method==='GET'));

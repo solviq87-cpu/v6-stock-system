@@ -151,7 +151,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
         state.closeWatch={...current,items:current.items.map(row=>{
           const old=prior.get(row.code)||{},d=details.get(row.code),out={...old,...row};
           if(d){
-            for(const k of ['price','amount','turnover','sealAmount'])if(Number.isFinite(d[k])&&d[k]>=0&&(k!=='turnover'||d[k]<=100))out[k]=d[k];
+            for(const k of ['price','amount','floatCap','turnover','sealAmount'])if(Number.isFinite(d[k])&&d[k]>=0&&(k!=='turnover'||d[k]<=100))out[k]=d[k];
             if(d.lastSeal)out.lastSeal=d.lastSeal;if(d.firstSeal)out.firstSeal=d.firstSeal;
             out.detailSource=d.source;out.detailKnownAt=d.knownAt;
           }
@@ -171,7 +171,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
         const retained=new Map();
         const rows=[...(state.coverage||[]),...result.coverage].filter(x=>x&&dayOk(x.day)&&x.day<=day&&Number.isSafeInteger(x.knownAt)&&x.knownAt<=now)
           .sort((a,b)=>a.day.localeCompare(b.day)||a.knownAt-b.knownAt);
-        for(const x of rows)retained.set(x.kind+'/'+x.scope,Object.fromEntries(['kind','scope','source','day','observed','total','adv','dec','flat','upLimit','downLimit','quoteAt','amountCny','change','meanChange','knownAt','complete']
+        for(const x of rows)retained.set(x.kind+'/'+x.scope,Object.fromEntries(['kind','scope','source','day','observed','total','adv','dec','flat','upLimit','downLimit','buckets','quoteAt','amountCny','change','meanChange','knownAt','complete']
           .filter(k=>x[k]!=null).map(k=>[k,x[k]])));
         state.coverage=[...retained.values()].sort((a,b)=>b.day.localeCompare(a.day)||b.knownAt-a.knownAt).slice(0,12);
       }
@@ -216,7 +216,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
     if(busy)return busy;
     warmDetails();
     if(state.referenceDay===day&&state.phase==='ready'&&state.closeWatch?.day===day&&
-       state.closeWatch.items.every(r=>(r.reasonSource==='同花顺涨停聚焦'||r.reasonSource==='同花顺 F10')&&Number.isFinite(r.turnover)&&Number.isFinite(r.sealAmount))&&
+       state.closeWatch.items.every(r=>(r.reasonSource==='同花顺涨停聚焦'||r.reasonSource==='同花顺 F10')&&Number.isFinite(r.turnover)&&Number.isFinite(r.sealAmount)&&Number.isFinite(r.floatCap))&&
        state.thsBrief?.day===day&&['1.000001','0.399001','0.399006'].every(code=>state.indexSeries?.some(v=>v.day===day&&v.code===code))&&state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day))
       return Promise.resolve(cachedDay===day?cachedRows:[]);
     if(state.referenceDay===day&&clock()<state.nextRetryAt)return Promise.resolve(cachedDay===day?cachedRows:[]);

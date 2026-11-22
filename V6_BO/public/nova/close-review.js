@@ -1,6 +1,8 @@
+import {dabankePanels} from './dabanke-view.js';
+import {groupRoles,sectorRoles,roleBadge} from './stock-roles.js';
 import {h,button,empty,section,format,money,percent,direction,safeLink} from './ui.js';
 import {reviewDate,reviewCoverage,summarizeReview,stockCard,closeSessionDay,distributionPanel,publishedReasons} from './market.js';
-import {dailyReviewEvidence} from './market-evidence.js';
+import {dailyReviewEvidence,recoveredMetric} from './market-evidence.js';
 import {renderSourceReviewPool} from './review-pool.js';
 
 const headings=[
@@ -32,7 +34,7 @@ const rate=(numerator,denominator)=>denominator?format(numerator/denominator*100
 
 function archivedReport(archive,supplement){
  const reasons=new Map(arr(supplement?.day===archive.day?supplement.reasons:null).map(r=>[r.code,r]));
- return {...archive,rows:archive.rows.map(row=>{
+ return {...archive,dabanke:supplement?.day===archive.day?supplement.dabanke:null,rows:archive.rows.map(row=>{
   const match=reasons.get(row.code);
   return match?{...row,reason:match.text,reasonSource:match.source,reasonUrl:match.url}:row;
  }),
@@ -64,13 +66,14 @@ function cloudReport(state,supplement){
  })):fallbackRows.map(row=>({
   code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector,firstSeal:row.firstSeal,lastSeal:row.lastSeal,breakCount:row.breakCount
  }));
+ const ladderLogic=new Map((extra?.dabanke?.index?.day===day?extra.dabanke.index.tiers||[]:[]).flatMap(t=>t.members.filter(r=>r.reasonDay===day&&r.reason).map(r=>[r.code,r.reason])));
  const rows=pool.map(row=>{
   const original=observations.get(row.code),source=sourceRows.get(row.code),provider=providerRows.get(row.code);
   const acquired=acquiredReasons.get(row.code);
   const existing=ths(original?.reasonSource)&&original.reasonDateStatus==='matched'&&reviewDate(original.reasonTradeDate)===day
    ?original.reasonRaw:ths(source?.reasonSource)&&source.reasonDay===day?source.reason:null;
   const useAcquired=!!acquired&&(acquired.source!=='同花顺 F10'||!existing);
-  const official=useAcquired?acquired.text:existing;
+  const official=(useAcquired?acquired.text:existing)||ladderLogic.get(row.code);
   const turnover=[row.turnover,original?.turnover,provider?.turnover].find(v=>finite(v)&&v>=0&&v<=100);
   const floatCap=finite(row.floatCap)&&row.floatCap>0?row.floatCap:
    finite(provider?.floatCap)&&provider.floatCap>0?provider.floatCap:null;
@@ -83,7 +86,7 @@ function cloudReport(state,supplement){
    breakCount:row.breakCount??provider?.breakCount,turnover,floatCap,
    sealAmount:[row.sealAmount,original?.sealAmount,provider?.sealAmount].find(v=>finite(v)&&v>=0),
    mainInflow:[original?.mainInflow,provider?.mainInflow].find(finite),flowSource:original?.flowSource||provider?.flowSource,
-   reason:typeof official==='string'?official.trim():null,reasonSource:useAcquired?acquired.source||'同花顺':'同花顺',reasonUrl:useAcquired?acquired.url:null};
+   reason:typeof official==='string'?official.trim():null,reasonSource:useAcquired?acquired.source||'同花顺':existing?'同花顺':ladderLogic.has(row.code)?'打板客同日梯队':null,reasonUrl:useAcquired?acquired.url:null};
  });
  const groups=new Map();
  for(const row of rows){
@@ -93,22 +96,11 @@ function cloudReport(state,supplement){
   groups.get(name).push(row);
  }
  const themes=[...groups].map(([name,items])=>{
-  const roles={};
-  const max=Math.max(0,...items.map(row=>row.level||0));
-  const leaders=items.filter(row=>row.level===max);
-  const first=leaders.length===1?leaders[0]:null;
-  if(first&&max>1&&first.firstSeal&&items.every(row=>row===first||row.level&&row.firstSeal&&first.firstSeal<row.firstSeal)){
-   roles[first.code]='龙头候选';
-  }
-  const mid=[...items].filter(row=>row!==first&&row.amount&&row.floatCap&&
-   extra?.seats?.some(seat=>seat.code===row.code&&seat.category==='机构专用'&&seat.net>0))
-   .sort((a,b)=>b.amount-a.amount)[0];
-  if(mid&&items.every(row=>row===mid||row.amount&&row.floatCap&&mid.amount>=row.amount&&mid.floatCap>=row.floatCap))roles[mid.code]='中军候选';
-  if(first&&roles[first.code]&&first.reason)for(const row of items){
-   if(!roles[row.code]&&row.level===1&&row.reason&&row.firstSeal>first.firstSeal&&
-     row.reason.split(/[+＋、]/).some(tag=>tag.trim()&&first.reason.split(/[+＋、]/).includes(tag)))roles[row.code]='补涨候选';
-  }
-  return {name,codes:items.map(row=>row.code),roles,classification:items.length===1?'独立样本':'强度待核验'};
+  const local=groupRoles(items,name),shared=sectorRoles(state,day,name);
+  const roleInfo=Object.fromEntries(items.map(row=>[row.code,shared.get(row.code)||local.get(row.code)]).filter(([,info])=>info));
+  const roles=Object.fromEntries(Object.entries(roleInfo).map(([code,info])=>[code,info.label]));
+  return {name,codes:items.map(row=>row.code),roles,roleInfo,classification:items.length===1?'单只封板':items.length+'只封板'};
+
  });
  const promotion=extra?.promotion?.stages;
  const prior=arr(promotion).filter(stage=>stage.level>=2);
@@ -121,15 +113,18 @@ function cloudReport(state,supplement){
  const riskRows=rows.filter(row=>row.breakCount>0).sort((a,b)=>b.breakCount-a.breakCount);
  const top=rows.filter(row=>row.level===highest&&highest>=2).slice(0,4).map(row=>row.code);
  const named=match=>themes.flatMap(group=>Object.entries(group.roles||{}).filter(([,role])=>role===match).map(([code])=>code)).slice(0,4);
- return {day,rows,groups:themes,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
+ return {day,rows,groups:themes,dabanke:extra?.dabanke,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
   sources:{market:providerLink,stocks:providerLink,seats:seatLink,themes:extra?.thsBrief?.day===day?['同花顺每日复盘',extra.thsBrief.url]:thsLink,north:northLink,turnover:marketLink},
   coverage:sealed?'梯队按东方财富同日涨停池。涨停及炸板统计采用同一供应商口径。':
    raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':'等待带有原始交易日期的服务端报告。',
   reasonStatus:extra?.reasonChannels?.primaryCount===0?
    '同花顺涨停聚焦未返回可核实的同日原标注。F10 复核 '+extra.reasonChannels.f10Count+' / '+extra.reasonChannels.f10Attempted+' 只前排样本。':
-   rows.some(row=>row.reason)?'涨停原因仅使用已匹配本交易日的同花顺原标注。':
+   rows.some(row=>row.reason)?'逐股列出同日原标注及来源，同花顺优先。':
    '尚未取得与本交易日匹配的同花顺逐股原标注。可展开来源涨停池核对渠道。',
-  phase:null,phaseNote:'当前缺少足够的同口径跨日证据，情绪阶段待判断。',
+  phase:state.marketRecovery?.emotion?.date===day?recoveredMetric(state.marketRecovery,'emotion',day)?.value:null,
+  phaseNote:state.marketRecovery?.emotion?.date===day&&recoveredMetric(state.marketRecovery,'emotion',day)?
+    '多日收盘证据 · 置信度 '+state.marketRecovery.emotion.confidence+'%':
+    extra?.dabanke?.index?.ecology?.length?'打板客同日封板与晋级数据见下方短线池。':'按已核对的交易日展示盘面事实。',
   stats:[
    ['涨停 / 跌停',count(upCount,'')+' / '+count(extra?.down,''),'东方财富供应商口径'],
    ['收盘炸板',broken?count(broken.length):'—','盘中触板，收盘未封住'],
@@ -145,7 +140,7 @@ function cloudReport(state,supplement){
   ],
   watch:[
    ['龙头承接','比较高位股开盘后的涨跌、成交与首次分歧时的板块宽度。',top],
-   ['中军支撑','检验高成交标的相对板块涨跌及量能变化。',named('中军候选')],
+   ['中军支撑','检验高成交标的相对板块涨跌及量能变化。',named('中军')],
    ['新题材卡位','验证是否出现同源归因的多个涨停股及连续晋级。',[]],
    ['断板修复','检查断板股回撤是否收敛、再触板后能否维持。',failed?.slice(0,4).map(row=>row[0])||[]]
   ]
@@ -215,6 +210,7 @@ export function renderCloseReview(ctx,additional){
   for(const item of cards.querySelectorAll('[data-review-detail]')){
    expanded.set(item.dataset.reportKey+':'+item.dataset.reviewDetail,item.open);
   }
+  const dbk=dabankePanels(report.dabanke,ctx);
   const source=dailyReviewEvidence(ctx.state||{});
   pool.hidden=key==='archive'||source.day!==report.day;
   if(!pool.hidden)updatePool?.();
@@ -295,7 +291,7 @@ export function renderCloseReview(ctx,additional){
     h('p',{class:'fy-muted'},report.coverage),
     report.retained?.length?h('p',{class:'fy-muted','data-retained-review':true},'使用已核实记录 · '+report.retained.join('、')):null,
     report.promotion?.length?h('p',{class:'fy-muted'},report.promotion.map(stage=>stage.level+' 进 '+(stage.level+1)+' '+stage.promoted+'/'+stage.total).join(' · ')):null,
-    sourceLinks(report,['market','pools','ladder','turnover','north'])),
+    ...dbk.mood,sourceLinks(report,['market','pools','ladder','turnover','north'])),
    card(1,'按涨停家数排序，同家数比较已核实的样本成交额。',
     publishedReasons(ctx.state||{},ctx,report),
     groups.length?h('div',{class:'fy-close-themes'},groups.map(group=>
@@ -305,21 +301,21 @@ export function renderCloseReview(ctx,additional){
       h('div',{class:'fy-close-track','aria-hidden':'true'},h('span',{style:'width:'+100*group.codes.length/themeMax+'%'})),
       group.note&&h('p',{},group.note),
       h('div',{class:'fy-close-stocks'},group.codes.map(code=>
-       button(h('span',{},names.get(code)||code,group.roles?.[code]?h('b',{},' · '+group.roles[code]):null),
+       button(h('span',{},names.get(code)||code,group.roleInfo?.[code]?roleBadge(group.roleInfo[code]):group.roles?.[code]?h('b',{},' · '+group.roles[code]):null),
         ()=>openReason(code),'quiet')))))):empty('暂无同日题材样本'),
-    sourceLinks(report,['themes','sectors'])),
+    ...dbk.themes,sourceLinks(report,['themes','sectors'])),
    card(2,report.reasonStatus,ladder.length?ladder:empty('暂无同日连板明细'),reasons,
-    incidents('收盘炸板',report.broken),incidents('昨日高位断板',report.failed,true),sourceLinks(report,['stocks','ladder'])),
+    ...dbk.ladder,incidents('收盘炸板',report.broken),incidents('昨日高位断板',report.failed,true),sourceLinks(report,['stocks','ladder'])),
    card(3,key==='archive'?'当日榜、机构专用、互联互通和营业部分开查看。':'东方财富公开买方明细中的已观察席位。按上榜记录展示。',
-    categories.length?h('div',{class:'fy-close-stocks','aria-label':'席位分类'},['全部',...categories].map(category=>{
+    ...dbk.seats,categories.length?h('div',{class:'fy-close-stocks','aria-label':'席位分类'},['全部',...categories].map(category=>{
      const filter=button(category,()=>{seatFilter=category;paint(true);[...cards.querySelectorAll('[data-seat-filter]')].find(node=>node.dataset.seatFilter===category)?.focus();},seatFilter===category?'active':'quiet');
      filter.dataset.seatFilter=category;filter.dataset.reviewControl='seat:'+category;filter.setAttribute('aria-pressed',String(seatFilter===category));return filter;
     })):null,seatRows.length?h('ul',{class:'fy-close-seats'},seatRows):
-     empty(report.seatsStatus==='pending'?'龙虎榜待当日公布':'暂无可核实的同日席位','可从公开榜单核对上榜日期。'),
+     dbk.seats.length?null:empty(report.seatsStatus==='pending'?'龙虎榜待当日公布':'暂无可核实的同日席位','可从公开榜单核对上榜日期。'),
     report.seatsStatus==='partial'?h('p',{class:'fy-muted'},'龙虎榜有部分明细尚未获取。'):null,
     sourceLinks(report,['seats','aliases'])),
-   card(4,null,renderItems(report.risks),sourceLinks(report,['pools','ladder'])),
-   card(5,'逐项记录下一交易日的验证条件。',renderItems(report.watch))
+   card(4,null,...dbk.risks,renderItems(report.risks),sourceLinks(report,['pools','ladder'])),
+   card(5,'逐项记录下一交易日的验证条件。',renderItems(report.watch),...dbk.watch)
   );
   for(const item of cards.querySelectorAll('[data-review-detail]')){
    item.dataset.reportKey=key+':'+report.day;
@@ -358,7 +354,8 @@ export function renderCloseReview(ctx,additional){
   const latestTime=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
   if(day===today&&latestTime<'15:00')return;
-  const requestKey=day+':'+(day!==today||latestTime>='18:00'?'published':'pre-publish');
+  const revision=ctx.state?.dabanke?.day===day?ctx.state.dabanke.revision||'':'';
+  const requestKey=day+':'+(day!==today||latestTime>='18:00'?'published':'pre-publish')+':'+revision;
   if(recovery.key!==requestKey)recovery={key:requestKey,attempts:0,retryAt:0};
   if(!force&&recovery.attempts&&(recovery.attempts>=3||!recovery.retryAt||Date.now()<recovery.retryAt))return;
   recovery.attempts++;
@@ -382,7 +379,7 @@ export function renderCloseReview(ctx,additional){
   }
   finally{
    requesting=false;paint();
-   if(day!==(closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date)))void loadSupplement();
+   if(day!==(closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.review?.date))||revision!==(ctx.state?.dabanke?.day===day?ctx.state.dabanke.revision||'':''))void loadSupplement();
   }
  }
  ctx.onState?.(()=>{paint();void loadSupplement();});
