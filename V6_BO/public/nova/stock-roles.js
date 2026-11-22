@@ -83,6 +83,6 @@ export function observedBadge(row,fact){
  const boards=level(row);
  if(Number.isInteger(boards)&&boards>0)return {value:boards===1?'首板':boards+'连板',caption:fact?.performance||'收盘记录'};
  if(fact?.status)return {value:fact.performance||fact.status,caption:fact.tier};
- if(typeof row.result==='string'&&row.result.trim()&&!/待评估|待核验|未知|待判定/.test(row.result))return {value:row.result,caption:'原状态'};
+ if(typeof row.result==='string'&&row.result.trim()&&!/[待未]评估|待核验|未知|待判定/.test(row.result))return {value:row.result,caption:'原状态'};
  return null;
 }

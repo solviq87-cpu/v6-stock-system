@@ -20,10 +20,11 @@ const readerPaths=t=>{
 };
 
 test('automatic research coalesces reads, follows the next session and never re-dates late history',async t=>{
- const paths=readerPaths(t);let day=friday,fetches=0;
+ const paths=readerPaths(t);let day=friday,fetches=0,publicRecord=null;
  t.mock.method(Date,'now',()=>close(day));
  const run=createAutomaticResearch({paths:()=>paths,getDay:()=>day,clock:()=>close(day),defaultSymbol:()=>symbol,
-  calendar:()=>({tradeDates:calendar}),closeMember:()=>({name:'测试标的',knownAt:close(day),level:2,breakCount:0}),
+  calendar:()=>({tradeDates:calendar}),publicReview:(_code,date)=>publicRecord?.day===date?publicRecord:null,
+  closeMember:()=>({name:'测试标的',knownAt:close(day),level:2,breakCount:0}),
   fetchHistory:async()=>{
    fetches++;const bars=calendar.filter(d=>d<=day).map(d=>bar(d,close(day)));
    return {status:'observed-unverified',priceBasis:'unadjusted',units:{volume:'shares'},retrievedAt:close(day),
@@ -33,7 +34,11 @@ test('automatic research coalesces reads, follows the next session and never re-
  assert.equal(first.name,'测试标的');assert.equal(first.tradeDate,friday);assert.equal(first.systems.length,4);
  assert.equal(first.research36.evaluations.length,36);assert.equal(first.research36.pipeline.barsUsed,first.stock.bars.length);
  assert.equal(first.history,null);assert.equal(first.canTrade,false);
+ publicRecord={day:friday,facts:{status:'封住'}};
+ const supplemented=await run(symbol);assert.equal(supplemented.publicReview,publicRecord);
+ assert.equal(supplemented.research36,first.research36);assert.equal(fetches,1);
  day=monday;const next=await run();assert.equal(next.tradeDate,monday);assert.equal(fetches,2);assert.equal(next.history,null);
+ assert.equal(next.publicReview,null);
  assert.equal(next.stock.bars.find(b=>b.date===friday).knownAt,close(friday));
  await assert.rejects(run('../600001'),/代码/);
 });

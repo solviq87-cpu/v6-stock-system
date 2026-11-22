@@ -446,6 +446,7 @@ const runChecks=async()=>{
    await closeReview.waitFor({state:'visible'});
    assert.match(await closeReview.locator('h1').innerText(),/A 股收盘复盘/);
    assert.equal(await closeReview.locator('[data-review-section]').count(),6,'all six review cards are present');
+   await closeReview.getByText('0 只可晋级',{exact:true}).waitFor();
    assert.equal(await closeReview.locator('[data-review-section="mood"] .fy-close-kpi').count(),7);
    const columns=await closeReview.locator('.fy-close-grid').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length);
    assert.equal(columns,width>780?2:1,'the review card grid is active in ordinary browser mode');

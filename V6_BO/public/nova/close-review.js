@@ -137,7 +137,7 @@ function cloudReport(state,supplement){
    finite(extra?.sealRate)?['封板率',format(extra.sealRate*100,1)+'%','东方财富 · 同源涨停数 / 触板总数']:
     external.sealed&&['封板率',rate(external.sealed.success,external.sealed.total),'打板客 · 短线池不含 ST'],
    ['最高连板',highest?levelName(highest):'—','已返回名单高度'],
-   ['昨日连板晋级',rate(promoted,eligible),eligible?promoted+' / '+eligible+' · 昨日至少二板':'等待两日同口径名单'],
+   Array.isArray(promotion)&&['昨日连板晋级',eligible?rate(promoted,eligible):'0 只可晋级',eligible?promoted+' / '+eligible+' · 昨日至少二板':'上个交易日的完整名单中没有二板及以上标的'],
    finite(extra?.marketTurnover)?['沪深成交',money(extra.marketTurnover),'腾讯沪深收盘报价合计']:
     finite(external.market?.amount)&&[external.market.amountLabel,external.market.amountText,'打板客 · 沪深北三个市场合计'],
    ['北向成交',money(extra?.northTurnover),finite(extra?.northTurnover)?'沪股通及深股通成交合计':'尚无已核实的北向成交额']

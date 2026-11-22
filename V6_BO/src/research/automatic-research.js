@@ -100,7 +100,11 @@ function createAutomaticResearch({paths,getDay,defaultSymbol,closeMember,publicR
   const day=getDay();symbol=symbol||await defaultSymbol(day);
   if(!codeOK(symbol))throw Error('最近交易日的候选池正在同步');
   const key=day+'/'+symbol,hit=cache.get(key);
-  if(hit&&hit.until>clock())return hit.value;
+  if(hit&&hit.until>clock()){
+   if(!publicReview)return hit.value;
+   const latest=publicReview(symbol,hit.value.tradeDate,clock())||null;
+   return {...hit.value,publicReview:latest};
+  }
   if(pending.has(key))return pending.get(key);
   if(pending.size>=6)throw Error('已有研究数据正在同步，请稍候');
   const work=load(symbol,day).then(value=>{
