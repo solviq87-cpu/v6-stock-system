@@ -1,12 +1,27 @@
 'use strict';
 // Archive validation and aggregation must not block quote polling on the server.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
-let active=false;
+// Desktop/mobile can open the same private archive concurrently. Share only
+// identical reads; run at most one worker and keep writes gated while busy.
+const reads=new Map();
+let tail=null;
+const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload){
- if(active)return Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
- active=true;
+ const readOnly=!payload.input&&(payload.action==='shortline'||payload.action==='manual-loop');
+ const key=readOnly?JSON.stringify(payload):null;
+ if(key&&reads.has(key))return reads.get(key);
+ if(tail&&(!readOnly||reads.size>=2))return busy();
+ const task=(tail||Promise.resolve()).then(()=>runWorker(payload)).finally(()=>{
+  if(key)reads.delete(key);
+  if(tail===task)tail=null;
+ });
+ if(key)reads.set(key,task);
+ tail=task;
+ return task;
+}
+function runWorker(payload){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);try{await worker?.terminate();}finally{active=false;resolve(value);}};
+  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);try{await worker?.terminate();}finally{resolve(value);}};
   try{worker=new Worker(__filename,{workerData:{...payload,__v6ResearchWorkspaceJob:true},resourceLimits:{maxOldGenerationSizeMb:384}});
    worker.once('message',finish);worker.once('error',()=>finish({ok:false,httpStatus:503,error:'研究档案任务未完成，原档案保留'}));
    worker.once('exit',()=>finish({ok:false,httpStatus:503,error:'研究档案任务已停止，原档案保留'}));
@@ -16,7 +31,26 @@ function runWorkspaceJob(payload){
 }
 if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerData,W=require('../core/research-workspace');Promise.resolve().then(async()=>{
  try{
-  if(p.action==='manual-loop'){const M=require('../core/manual-decision-loop');try{return {ok:true,result:p.input?M.execute(p.root,p.input,p.options):M.view(p.root,p.options)};}catch(e){return {ok:false,httpStatus:e.code==='LOOP_CONFLICT'?409:422,error:/^LOOP_/.test(e.code||'')?e.message:'闭环输入或私有档案校验失败，原记录保留'};}}
+  if(p.action==='shortline'){
+    try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
+    catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
+  }
+  if(p.action==='shortline-manual-ledger'){
+    const {syncManualLedger}=await import('../research/shortline/store.mjs');
+    return {ok:true,result:await syncManualLedger(p.shortlineRoot,p.root,p.accountDir)};
+  }
+  if(p.action==='manual-loop'){
+    const M=require('../core/manual-decision-loop');
+    try{
+      const result=p.input?M.execute(p.root,p.input,p.options):M.view(p.root,p.options);
+      if(p.input&&p.shortlineRoot){
+        // The source commit is durable even if the derived archive is busy.
+        try{await (await import('../research/shortline/store.mjs')).syncManualLedger(p.shortlineRoot,p.root);}
+        catch{return {ok:true,result,shortlineSync:'待后台重试'};}
+      }
+      return {ok:true,result};
+    }catch(e){return {ok:false,httpStatus:e.code==='LOOP_CONFLICT'?409:422,error:/^LOOP_/.test(e.code||'')?e.message:'闭环输入或私有档案校验失败，原记录保留'};}
+  }
   if(p.action==='view'){const view=W.workspaceView(p.root,p.query,{accounts:p.accounts,quotes:new Map(p.quotes||[]),now:p.now});return {ok:true,result:p.export?W.exportResearch(view):view};}
   if(p.action==='review')return await W.reviewStored(p.input,p.options);
   if(p.action==='forecast')return W.saveModelForecast(p.root,p.input);

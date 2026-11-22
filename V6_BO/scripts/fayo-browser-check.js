@@ -51,6 +51,11 @@ function state(){
  };
  return {...sourcePanels,now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8,mainInflowYuan:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7,mainInflowYuan:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
+const shortlineArchive={
+ revision:0,scope:'live',market:[],marketHistory:[],checks:[],plans:[],trades:[],bars:[],notes:[],
+ checkins:[],versions:[],candidates:[],explanations:[],corrections:[],
+ catalog:JSON.parse(fs.readFileSync(path.join(publicRoot,'nova/shortline/catalog.json'),'utf8'))
+};
 function respond(url,req,body){
  const p=url.pathname;
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
@@ -100,6 +105,18 @@ function respond(url,req,body){
  if(p==='/api/release/requests')return {ok:true,requests:[],items:[]};
  if(p==='/api/source')return {ok:true,file:url.searchParams.get('file')||'server.js',content:'// synthetic source fixture'};
  if(p==='/api/lock/phone')return {ok:true,bound:false};
+ if(p==='/api/research/shortline'){
+  if(role!=='edit'||!req.headers.authorization)return {ok:false,error:'需要研究编辑授权'};
+  let result=null;
+  if(req.method==='POST'){
+   if(body?.revision!==shortlineArchive.revision||body?.action!=='v6:sync')return {ok:false,error:'fixture action or revision mismatch'};
+   const {code,day='2026-11-13'}=body.payload;
+   shortlineArchive.v6Observation={code,day,observedAtMs:Date.now(),stock:{code,name:'浏览器合成研究样本'}};
+   shortlineArchive.checks.push({id:'browser-'+(++shortlineArchive.revision),code,date:day,name:'浏览器合成研究样本',strategy:'未匹配',status:'暂缓开仓',position:0,emotion:{stage:'未判定'},risks:['合成观测缺失']});
+   result={code,day,missing:['完整盘面']};
+  }
+  return {ok:true,state:{...shortlineArchive,permissions:{canWrite:true,replica:false,role:'edit'}},result};
+ }
  if(p==='/api/research/workspace')return {ok:true,result:{runs:[],total:0,items:[],selectedRun:null,preferences:{revision:0,value:{}},presets:[],timeline:[]}};
  if(p==='/api/learn-status')return {ok:true,status:{counts:{total:0,pending:0,matured:0},operation:{state:'idle'}}};
  if(p==='/api/research/learning-runtime')return {ok:true,result:{mode:'v6-learning-runtime-preflight',configuration:{status:'unconfigured'},overall:'unconfigured',current:{status:'unconfigured'},model:{status:'disabled'},lastRun:null}};
@@ -128,11 +145,18 @@ const server=http.createServer((req,res)=>{
   if(!file.startsWith(publicRoot+path.sep))throw Error('outside root');
   resources.push(url.pathname);
   const ext=path.extname(file);
-  res.setHeader('Content-Type',ext==='.css'?'text/css':ext==='.js'?'application/javascript':ext==='.json'?'application/json':ext==='.svg'?'image/svg+xml':'text/html; charset=utf-8');
+  res.setHeader('Content-Type',ext==='.css'?'text/css':['.js','.mjs'].includes(ext)?'application/javascript':ext==='.json'?'application/json':ext==='.svg'?'image/svg+xml':'text/html; charset=utf-8');
   res.end(fs.readFileSync(file));
  }catch{res.writeHead(404);res.end();}
 });
 
+function automaticResearchRead(entry) {
+ const body=entry.body;
+ return entry.method==='POST'&&entry.path==='/api/research/shortline'&&body?.action==='v6:sync'&&
+   Number.isSafeInteger(body.revision)&&/^\d{6}$/.test(body.payload?.code||'')&&
+   Object.keys(body.payload).every(key=>['code','day'].includes(key))&&
+   (!body.payload.day||/^\d{4}-\d{2}-\d{2}$/.test(body.payload.day));
+}
 async function navigate(page,view,sub='') {
  const control=page.locator('[data-fy-route="'+view+'"]:visible').first();
  if(await control.count())await control.click();
@@ -335,6 +359,8 @@ const runChecks=async()=>{
     assert.match(await pick.locator('[data-sector-leadership="early-spread"]').textContent(),/先封后扩散/);
     await pick.click();
     const lens=page.getByRole('dialog',{name:'股票研究面板'});
+    await lens.getByRole('button',{name:'查看完整校验'}).waitFor();
+    assert.match(await lens.locator('.fy-drawer-shortline').innerText(),/暂缓开仓/);
     const beforeLeadership=requests.length;
     await lens.getByRole('button',{name:'带动性',exact:true}).click();
     const panel=lens.locator('[data-leadership-panel]');
@@ -394,7 +420,7 @@ const runChecks=async()=>{
    await fundPanel.locator('.fy-reference-flow .fy-positive').waitFor({state:'visible'});
    assert.match(await fundPanel.locator('.fy-reference-flow').innerText(),/合成能源/);
    // User-provided first reference: real dedicated daily-review route, same data and session.
-   const writesBeforeReview=requests.filter(r=>r.method!=='GET').length;
+   const beforeReview=requests.length;
    await navigate(page,'pulse','review');
    const closeReview=page.locator('[data-close-review]');
    await closeReview.waitFor({state:'visible'});
@@ -448,7 +474,7 @@ const runChecks=async()=>{
      const rect=card.getBoundingClientRect();return {top:rect.top,width:rect.width};
     }));
     assert.equal(boxes[0].top,boxes[2].top,'phone review groups the total, first and continued counts on row one');
-    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below');
+    assert.ok(boxes[0].width>boxes[1].width*1.8&&boxes[3].top>boxes[0].top,'the total card is wide and the other four counts are below: '+JSON.stringify(boxes));
    }
    const filters=page.locator('.fy-reference-review-filters');
    await filters.getByRole('button',{name:'首板 3',exact:true}).click();
@@ -466,8 +492,9 @@ const runChecks=async()=>{
     await lens.getByRole('button',{name:'关闭股票研究面板'}).click();
    }
    await closeReview.locator('.fy-close-more > summary').click();
-   assert.equal(requests.filter(r=>r.method!=='GET').length,writesBeforeReview,
-    'navigating to review does not create a trade, scan, push or account mutation');
+   const reviewWrites=requests.slice(beforeReview).filter(r=>r.method!=='GET');
+   assert.ok(reviewWrites.every(r=>automaticResearchRead(r)&&r.body.payload.code==='600101')&&reviewWrites.length<=1,
+    'only the opened stock can archive a shortline observation; review navigation does not trade, scan, push or mutate accounts');
    await navigate(page,'pulse','overview');
    await page.locator('.fy-reference-home .fy-terminal-stats .fy-terminal-stat').first().waitFor({state:'visible'});
    if(width===402){
@@ -540,6 +567,12 @@ const runChecks=async()=>{
    const drawer=page.locator('.fy-stock-drawer');
    await drawer.waitFor({state:'visible'});
    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11');
+   if(width===402){
+    await originCard.evaluate(node=>{window.poolCardBeforeQuotePoll=node;});
+    await page.waitForFunction(()=>!window.poolCardBeforeQuotePoll.isConnected);
+    assert.equal(await drawer.locator('.fy-drawer-quote strong').innerText(),'11.11',
+     'rereading the same dashboard observation keeps the selected pool quote');
+   }
    const beforeQuoteChecks=requests.filter(entry=>entry.path==='/api/quote-cross-check').length;
    await drawer.locator('.fy-chart svg').waitFor({state:'visible'});
    assert.match(await drawer.locator('.fy-quote-time').innerText(),/2026[-/]11[-/]13/,'drawer preserves original provider date');
@@ -578,6 +611,14 @@ const runChecks=async()=>{
    await drawer.press('Escape');
    assert.equal(await drawer.isVisible(),false,'Escape closes the stock research panel');
    assert.equal(await originCard.evaluate(node=>document.activeElement===node),true,'focus returns to the selected opportunity');
+   // Drive an ordinary polling cycle after Escape. The board may repaint, but
+   // the focused button must stay connected and continue to open the latest evidence.
+   await originCard.evaluate(node=>{
+    window.focusedStockAfterEscape=node;window.boardBeforeBackgroundPoll=node.closest('.fy-pool-board');
+   });
+   await page.waitForFunction(()=>!window.boardBeforeBackgroundPoll.isConnected);
+   assert.equal(await originCard.evaluate(node=>node===window.focusedStockAfterEscape&&node===document.activeElement),true,
+    'background polling retains the exact focused stock button');
    await originCard.evaluate(node=>{window.drawerOriginAfterClose=node;});
    await page.evaluate(()=>document.querySelector('button[aria-label="刷新云端数据"]').click());
    await page.waitForFunction(()=>window.drawerOriginAfterClose?.isConnected===false);
@@ -670,8 +711,8 @@ const runChecks=async()=>{
    const workspaces=width===390||width===1366?await checkWorkspaceTabs(page,width):null;
    const browsing=requests.slice(before);
    const quoteChecks=browsing.filter(r=>r.path==='/api/quote-cross-check');
-   assert.equal(quoteChecks.length,1,'only the explicit quote check may contact suppliers');
-   const mutations=browsing.filter(r=>r.method!=='GET'&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&!['/api/online/beat','/api/quote-cross-check'].includes(r.path));
+   assert.equal(quoteChecks.length,1,'the independent quote comparison requires one explicit request');
+   const mutations=browsing.filter(r=>r.method!=='GET'&&!automaticResearchRead(r)&&!(r.path==='/api/research/order-account'&&['read','audit'].includes(r.body?.action))&&!(r.path==='/api/research/paper-account'&&r.body?.action==='read')&&!['/api/online/beat','/api/quote-cross-check'].includes(r.path));
    assert.deepEqual(mutations,[],'normal navigation never submits account, scan, publish or notification actions');
    // A five-second background GET may revoke access before a manual click can
    // start. Wait for the actual authorization gate instead of clicking a

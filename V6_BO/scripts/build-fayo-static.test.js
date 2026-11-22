@@ -13,9 +13,10 @@ function fixture(){
  fs.writeFileSync(path.join(frontend,'index.html'),source);
  fs.writeFileSync(path.join(frontend,'fayo.css'),'body{background:#100917;color:#fff}.mark{background:url("/nova/mark.svg")}');
  fs.writeFileSync(path.join(frontend,'mark.svg'),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M1 1h6v6H1z" fill="#f8c"/></svg>');
- fs.writeFileSync(path.join(frontend,'app.js'),`import {label} from './ui.js';\nglobalThis.fayoArtifactTest={label,mark:'/nova/mark.svg',literal:'</script><script>literal()',catalog:()=>fetch('/assets/model-library-catalog.json').then(r=>r.json()),catalogURL:()=>fetch(new URL('/assets/model-library-catalog.json',location.origin)).then(r=>r.json()),catalogRequest:()=>fetch(new Request(new URL('/assets/model-library-catalog.json',location.origin))).then(r=>r.json()),catalogPost:()=>fetch(new Request(new URL('/assets/model-library-catalog.json',location.origin),{method:'POST'})),state:options=>fetch('/api/state',options),lazy:()=>import('./lazy.js').then(m=>m.value)};\nif('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});`);
+ fs.writeFileSync(path.join(frontend,'app.js'),`import {label} from './ui.js';\nglobalThis.fayoArtifactTest={label,mark:'/nova/mark.svg',literal:'</script><script>literal()',catalog:()=>fetch('/assets/model-library-catalog.json').then(r=>r.json()),catalogURL:()=>fetch(new URL('/assets/model-library-catalog.json',location.origin)).then(r=>r.json()),catalogRequest:()=>fetch(new Request(new URL('/assets/model-library-catalog.json',location.origin))).then(r=>r.json()),catalogPost:()=>fetch(new Request(new URL('/assets/model-library-catalog.json',location.origin),{method:'POST'})),state:options=>fetch('/api/state',options),lazy:()=>import('./lazy.mjs').then(m=>m.value)};\nif('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});`);
+ fs.writeFileSync(path.join(frontend,'shortline-sheet.css'),'section{display:block}');
  fs.writeFileSync(path.join(frontend,'ui.js'),"export const label='绯曜 FAYO';");
- fs.writeFileSync(path.join(frontend,'lazy.js'),"export const value='native evidence';");
+ fs.writeFileSync(path.join(frontend,'lazy.mjs'),"export const value='native evidence'; export const sheet='/nova/shortline-sheet.css';");
  const catalogFile=path.join(dir,'catalog.json');
  fs.writeFileSync(catalogFile,JSON.stringify({schemaVersion:1,reviewDate:'2026-11-15',entries:[{id:'A01',name:'公开 </script> 资料'}]}));
  return {dir,frontendDir:frontend,catalogFile,source,outputFile:path.join(dir,'review.html'),close:()=>fs.rmSync(dir,{recursive:true,force:true})};
@@ -32,7 +33,7 @@ test('native modules, dynamic imports, CSS, logo and public catalog become one s
   assert.match(built.html,/data:image\/svg\+xml;base64,/);
   assert.doesNotMatch(built.html,/<script[^>]*\bsrc=|<link[^>]*href=["']\//i);
   assert.doesNotMatch(script(built.html),/import\s*\(|navigator\.serviceWorker\.register\(/);
-  assert.ok(built.sources.some(s=>s.file==='lazy.js'));assert.ok(built.sources.every(s=>/^[a-f\d]{64}$/.test(s.sha256)));
+  assert.ok(built.sources.some(s=>s.file==='shortline-sheet.css'));assert.ok(built.sources.some(s=>s.file==='lazy.mjs'));assert.ok(built.sources.every(s=>/^[a-f\d]{64}$/.test(s.sha256)));
   assert.equal(fs.readFileSync(path.join(f.frontendDir,'index.html'),'utf8'),f.source,'canonical entry untouched');
   // The existing protected publisher validator remains unchanged and accepts
   // this file as --source; this test's SHA is synthetic, never a deployment.
@@ -109,6 +110,12 @@ test('the actual native FAYO source passes the unchanged static publisher valida
   assert.match(built.html,/<title>绯曜 FAYO/);assert.equal(built.embeddedCatalogCount,53);assert.ok(built.sizeBytes<2*1024*1024);
   assert.ok(built.sources.every(s=>s.file==='../assets/model-library-catalog.json'||!s.file.includes('..')));
   assert.ok(built.sources.some(s=>s.file==='research.js'));assert.ok(built.sources.some(s=>s.file==='operations.js'));
+  for (const resource of ['shortline-sheet.css','shortline/overview.css','shortline/sample-kline.csv']) {
+    const expected=fs.readFileSync(path.join(__dirname,'../public/nova',resource)).toString('base64');
+    assert.ok(built.sources.some(source=>source.file===resource),resource+' recorded in build manifest');
+    assert.ok(built.html.includes(';base64,'+expected),resource+' is available offline');
+    assert.ok(!built.html.includes('/nova/'+resource),resource+' no longer requires a separate request');
+  }
   assert.doesNotThrow(()=>validateArtifact(built.html));
   const release=buildWorkBuddyStatic({sourceFile:outputFile,sha:'b'.repeat(40)});assert.equal(parseStaticRelease(release.html).scope,'static-frontend-only');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}

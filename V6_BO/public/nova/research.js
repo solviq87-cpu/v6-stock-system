@@ -222,7 +222,7 @@ function learning(ctx){
     content.replaceChildren(panes.get(key));
   };
   for(const [key,label] of sections){const control=btn(label,()=>choose(key),'secondary');buttons.set(key,control);tabs.append(control);}
-  root.append(box('战法验证与智能学习中心','三类研究共用当前权限入口；历史CSV暂在浏览器分析，人工交易复盘仍使用原服务端私有账本。原策略与生产权重不受影响。'),tabs,content);
+  root.append(box('战法验证与智能学习中心','授权后自动读取 V6 同步行情。已核对的人工成交回流到短线样本和复盘；本地 CSV 可在当前浏览器分析。'),tabs,content);
   choose('history');return root;
 }
 function sources(ctx){
@@ -308,6 +308,10 @@ function models(ctx){
 }
 
 export function renderResearch(route,ctx){
+  if(route.sub.startsWith('shortline-')){
+    if(!ctx.canEdit)return empty('需要研究编辑权限','请使用已获批的编辑设备登录。');
+    return import('./shortline-host.mjs').then(({renderShortline})=>renderShortline(route,ctx));
+  }
   const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence};
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
   const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];

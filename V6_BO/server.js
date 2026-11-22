@@ -276,7 +276,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261122as'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261122at'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -11385,6 +11385,45 @@ const readCloseReviewEvidence = require('./src/core/close-review-evidence').crea
   market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
 });
 
+function shortlineResearchDir(){return process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research');}
+function manualResearchLedgerDir(){return process.env.V6_MANUAL_DECISION_LOOP_DIR||path.join(__dirname,'data','manual-decision-loop');}
+function manualResearchProjection(){
+  let lastSignature='',pending=false,nextAt=0;
+  return async function tick(){
+    if(isReplica()||pending||Date.now()<nextAt)return;
+    nextAt=Date.now()+60_000;
+    const root=manualResearchLedgerDir();
+    const accountDir=process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts');
+    const components=[root,path.join(accountDir,'pool.json'),path.join(accountDir,'pre.json')].map(file=>{
+      try{const stat=fs.statSync(file);return [stat.ino,stat.mtimeMs,stat.size].join('/');}
+      catch(e){if(e.code==='ENOENT')return '';throw e;}
+    });
+    if(!components.some(Boolean))return;
+    const signature=components.join('|');
+    if(signature===lastSignature||isReplica())return;
+    pending=true;
+    try{
+      const result=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline-manual-ledger',root,accountDir,shortlineRoot:shortlineResearchDir()});
+      if(result.ok&&!result.result?.retry)lastSignature=signature;
+    }finally{pending=false;}
+  };
+}
+let shortlineSourceReader;
+function readShortlineSource(input) {
+  if(!shortlineSourceReader){
+    const {createShortlineV6Reader}=require('./src/research/shortline-v6-data');
+    const {normalizeDay}=require('./src/core/limit-reason-evidence');
+    const previousTradeDay=day=>prevTradeDay(day+'T12:00:00');
+    const getLatestClosedDay=()=>{
+      const {day,minute,openDay}=marketDisplaySession(),date=normalizeDay(day);
+      return openDay&&minute>=910?date:previousTradeDay(date);
+    };
+    shortlineSourceReader=createShortlineV6Reader({getState:()=>S,fetchAuctionTicks:auctionTicksFor,readCloseReviewEvidence,previousTradeDay,getLatestClosedDay,
+      fetchIndexKline:(secid,n)=>em.fetchKline(secid,n)});
+  }
+  return shortlineSourceReader(input);
+}
+
 function dashboardPushMeta(includePrivate = false) {
   return {
     pushLast: includePrivate ? pushLast() : null,
@@ -18998,7 +19037,7 @@ async function init() {
 }
 
 // ---------------- HTTP 服务 ----------------
-const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 
 // ---------------- 实时推送通道（SSE）：大单流入/涨停候选一旦命中立刻推到面板，不等5秒轮询 ----------------
 const SSE = new Set();       // 所有在线页面
@@ -19158,9 +19197,16 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
+      const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
+        session:marketDisplaySession,isReplica,pool:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],
+        readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
+        root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research')
+      });
+      const syncManualResearch=manualResearchProjection();
       let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
         const session=marketDisplaySession();marketDisplayState();
+        syncManualResearch().catch(()=>console.error('[shortline] 人工执行记录待下次同步'));
         if(session.trading){
           marketCardState('state',buildDashboardState(false));marketCardState('mobile',buildMobileDigest(false));
           marketCardResponse('preseal','all',presealAggregate());
@@ -19170,7 +19216,7 @@ const _httpBootstrap = createDashboardServer({
             const save=(kind,job)=>Promise.resolve(job).then(value=>marketCardResponse(kind,'all',value));
             Promise.allSettled([save('quant',quantPicksScan({max:50,board:'all'})),save('auction',auctionResonanceScan({max:50,board:'all'})),save('intraday',intradayStrongScan({max:50,board:'all'})),save('shortline',analyzeShortline(S,em))]);
           }
-        }else closingCardSnapshots.flush(true);
+        }else {closingCardSnapshots.flush(true);runShortlineClose().catch(()=>console.error('[shortline] 收盘研究待下次重试'));}
       }catch{console.error('[display-snapshot] capture-failed');}},30000);
       displaySnapshotTimer.unref();
       init().catch(e => console.error('[init]', e));
@@ -22219,6 +22265,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return json(res, { ok: true, role: hit.role, deviceToken: _dt, token: _tk });
   }
 
+  if(p==='/api/research/shortline'){
+    const options={body,url:u,root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research'),
+      authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica,
+      job:require('./src/server/research-workspace-job').runWorkspaceJob,
+      readSource:readShortlineSource};
+    return require('./src/server/shortline-http').shortlineHttp(req,res,options);
+  }
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
@@ -22234,7 +22287,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     let input;
     if(req.method==='POST'){try{input=JSON.parse(body||'');if(!input||typeof input!=='object'||Array.isArray(input))throw Error();}catch{return reply(400,{ok:false,error:'执行记录格式无效'});}}
     const raw=HD.raw,riskPolicy=Object.fromEntries(['stopPct','reducePct','takePct','maxPosPct'].filter(k=>raw[k]!==undefined).map(k=>[k,raw[k]]));
-    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'manual-loop',root:process.env.V6_MANUAL_DECISION_LOOP_DIR||path.join(__dirname,'data','manual-decision-loop'),input,
+    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'manual-loop',root:manualResearchLedgerDir(),shortlineRoot:shortlineResearchDir(),input,
       options:{workspaceRoot:stockObservationOptions().workspaceRoot,riskPolicy,validationFile:process.env.V6_MANUAL_LOOP_VALIDATION_INPUT||null}})
       .then(({httpStatus,...value})=>reply(httpStatus||(value.ok?200:422),value)).catch(()=>reply(503,{ok:false,error:'执行记录任务未完成，原记录保留'}));
   }
@@ -23752,7 +23805,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
     // HTML、JS、CSS 与 Service Worker 每次重新获取：保证前端修复（角色自动识别 / 精选池缩小 / 持仓显示 / SW 版本）即时生效，不被浏览器旧缓存挡住。
     // sw.js 原随其它 .js 走 else 分支 max-age=300，发布新版本后 SW 脚本更新最多延迟 5 分钟（微信 WebView / PWA standalone 尤甚）；现与 HTML 同列 no-store（H1，保活链路·刷新与本地存活专项）。
-    if (ext === '.html' || ext === '.js' || ext === '.css' || p === '/' || p === '/sw.js') {
+    if (ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.css' || p === '/' || p === '/sw.js') {
       headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
       headers['Pragma'] = 'no-cache';
       headers['Expires'] = '0';

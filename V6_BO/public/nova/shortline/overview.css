@@ -1,0 +1,75 @@
+/* Loaded only inside the native research workspace shadow root. */
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.panel,.metric{background:white;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 4px #26345303}
+.panel{padding:19px 21px;min-width:0}
+.metric{padding:16px 16px 14px;min-width:0;overflow:hidden}
+.stat-title{gap:9px;font-weight:580;font-size:14px;color:#555d73}
+.tile-icon{width:32px;height:32px;display:inline-grid;place-items:center;border-radius:9px}
+.purple{background:#eeeafd;color:#7662dc}
+.teal{background:#dff4ee;color:#249c87}
+.orange{background:#fff0e1;color:#d78d41}
+.blue{background:#e7efff;color:#5289d0}
+.metric-val{display:flex;align-items:baseline;gap:5px;margin:9px 0 5px;font:650 31px/1.2 Inter,Arial,sans-serif;letter-spacing:-.9px}
+.unit{font:500 13px system-ui;color:#777e91;letter-spacing:0}
+.stat-bottom{display:flex;align-items:center;justify-content:space-between;gap:3px;height:25px}
+.change{font-size:12px;color:#82899b;white-space:nowrap}
+.change b{color:#26947e;font-weight:600}
+.spark{width:36%;height:28px;max-width:100px}
+.visuals{display:grid;grid-template-columns:minmax(0,1.92fr) minmax(265px,1fr);gap:16px;margin-top:17px}
+.panel-title{justify-content:space-between;gap:10px}
+.card-title{gap:9px;font-size:17px;font-weight:680;letter-spacing:-.3px}
+.card-title>.icon{color:#7b6bda}
+.card-sub{font-size:12px;color:#8a90a0;margin-top:5px}
+.segments{display:inline-flex;padding:3px;background:#f3f4f8;border:1px solid #ecedf2;border-radius:7px;gap:1px}
+.segments button{border:0;background:transparent;font-size:12px;color:#737a8d;padding:4px 9px;border-radius:5px}
+.segments button.active{background:white;color:var(--primary);font-weight:600;box-shadow:0 1px 4px #28325315}
+.legend{gap:17px;font-size:12px;color:#697085;margin-top:16px}
+.legend span{display:flex;align-items:center;gap:6px}
+.swatch{width:16px;height:3px;border-radius:4px}
+.plotbox{height:194px;position:relative;margin:6px -2px 0}
+.plotbox svg{width:100%;height:100%;overflow:visible}
+.plot-tip{position:absolute;pointer-events:none;z-index:1;padding:6px 10px;background:#313347;color:white;font-size:12px;border-radius:6px;white-space:pre-line}
+.chart-foot{gap:6px;font-size:12px;color:#8a91a1;margin-top:4px}
+.cycle-panel{padding-bottom:14px}
+.cycle-body{display:flex;flex-direction:column;align-items:center}
+.gauge{position:relative;width:218px;height:116px;margin:8px auto 2px}
+.gauge svg{width:100%;height:100%}
+.gauge-val{position:absolute;bottom:2px;width:100%;text-align:center;line-height:1.2}
+.gauge-val b{display:block;font-size:26px;color:var(--primary);margin-bottom:4px}
+.gauge-val small{font-size:12px}
+.phase-steps{display:flex;justify-content:space-between;width:100%;gap:4px;margin:7px 0 13px}
+.phase-steps span{flex:1;text-align:center;font-size:12px;color:#9399a8;padding:3px 0;border-radius:5px}
+.phase-steps .active{color:#6656d0;background:#f0edff;font-weight:650}
+.evidence{width:100%;border-top:1px solid #eceef3;padding-top:10px;font-size:13px;color:#656e80}
+.evidence p{display:flex;gap:7px;margin:3px 0;align-items:center}
+.evidence p:before{content:"";height:5px;width:5px;flex:none;background:#9789e6;border-radius:50%}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 8px;font-size:12px;line-height:1.5;background:#f0f0f7;color:#677089}
+.tag.green{background:#e6f6ef;color:#278365}
+.tag.violet{background:#f0edfc;color:#755fc4}
+.tag.amber{background:#fff3df;color:#a97a20}
+.tag.red{background:#fff0ee;color:#b45753}
+.record-panel{padding:0;overflow:hidden;margin-top:17px}
+.record-head{padding:16px 21px;display:flex;align-items:center;justify-content:space-between}
+.record-head .card-title small{background:#f3f4f8;padding:2px 7px;border-radius:5px;font-weight:400;color:#737b91}
+.linkbtn{border:0;background:none;font-size:13px;color:#7160ce;display:inline-flex;align-items:center;gap:5px}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:14px;white-space:nowrap}th{font-weight:500;color:#737c90;font-size:12px;background:#f8f9fc}td,th{border-bottom:1px solid #edf0f5;padding:11px 13px}
+tr:last-child td{border-bottom:0}
+.record-panel td:first-child,.record-panel th:first-child{padding-left:21px}
+.cellstock{gap:10px;font-size:14px;font-weight:600}
+.cellstock small{display:block;font:11px/1.5 Arial,sans-serif;color:#9096a5;letter-spacing:.5px}
+.monogram{display:grid;place-items:center;width:32px;height:32px;border-radius:7px;font-size:14px;color:#7b68c9;background:#eeeafb}
+.monogram.m1{color:#4c8eae;background:#e8f2fa}
+.monogram.m2{color:#519c83;background:#e6f4ed}
+.monogram.m3{color:#bd8c51;background:#fcf2e7}
+.num{font-family:Inter,Arial,sans-serif;font-variant-numeric:tabular-nums}
+.row-more{border:0;background:transparent;color:#858da1;padding:5px}
+.record-row{cursor:pointer}
+.record-row:hover{background:#fafaff}
+@media(max-width:900px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.visuals{grid-template-columns:1fr}
+.gauge{margin:8px auto}}@media(max-width:600px){.metrics{gap:8px}
+.metric{padding:10px}
+.metric-val{font-size:24px}
+.panel-title{flex-wrap:wrap}
+.plotbox{height:168px}
+.record-panel{overflow-x:auto}}.shortline-overview .panel-title,.shortline-overview .card-title,.shortline-overview .legend,.shortline-overview .cellstock,.shortline-overview .stat-title,.shortline-overview .chart-foot{display:flex;align-items:center}

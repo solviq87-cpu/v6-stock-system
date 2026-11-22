@@ -1,5 +1,5 @@
 import {normalizeCSV,labelHistory,applyCorrections,analyzeFactors,freezeSplit,HORIZONS} from './kline-factor-engine.js';
-/** Research-only, local CSV workspace. The manual execution ledger remains server-side. */
+import {syncedDataset,syncedSeries} from './kline-synced-history.js';
 const node=(tag,text='',className='')=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==null)el.textContent=text;return el;};
 const wrap=(tag,className,...children)=>{const el=node(tag,null,className);for(const item of children.flat())if(item)el.append(item);return el;};
 const button=(label,fn,kind='secondary')=>{const b=node('button',label,'fy-button '+kind);b.type='button';b.addEventListener('click',fn);return b;};
@@ -37,12 +37,15 @@ export function renderKlineLearning(ctx){
   const actionType=sel([['add','补充标注'],['remove','撤销错误标注']]),reason=input('text',{maxlength:300,placeholder:'注明原始证据或撤销原因','aria-label':'人工修正原因'}),target=node('strong','未选择要修正的K线');
   for(const [control,label]of [[strategy,'战法筛选'],[environment,'大盘状态'],[quality,'样本质量'],[horizon,'跟踪期限'],[sampleScope,'样本范围'],[correctionStrategy,'修正战法'],[actionType,'修正动作']])control.setAttribute('aria-label',label);
   let records={stock:[],sector:[],market:[],minute:[]},samples=[],corrections=[],selected=null,report=null,revision=0,busy=false,sourceFiles={},frozenSplit=null;
+  let dataset=null,sourceMode='',sourceToken=0,lastAuthorized=ctx.role==='edit';
+  const synced=node('section',null,'fy-panel fy-stack');
   const canEdit=()=>ctx.role==='edit'&&!ctx.signal?.aborted;
+  if(canEdit()&&typeof ctx.api==='function')root.append(synced);
   function setBusy(value){busy=value;load.disabled=appendNew.disabled=value||Boolean(ctx.signal?.aborted);save.disabled=value||!canEdit();exported.disabled=value||!report||Boolean(ctx.signal?.aborted);}
   const files=block('导入真实历史证据','CSV需含代码、日期、OHLC；板块与全A按交易日对齐。缺失市场/板块/黑天鹅人工核验不自动补造。',wrap('div','fy-grid',stocks.element,sectors.element,markets.element,minutes.element),more.element);
   const load=button('导入并自动标注',async()=>{
     if(busy||ctx.signal?.aborted)return;
-    const turn=++revision;setBusy(true);status.textContent='正在本机校验CSV及历史日期…';
+    const turn=++revision;sourceToken++;setBusy(true);status.textContent='正在本机校验CSV及历史日期…';
     try{
       const chosen={stock:stocks.file.files?.[0],sector:sectors.file.files?.[0],market:markets.file.files?.[0],minute:minutes.file.files?.[0],append:more.file.files?.[0]};
       if(!chosen.stock)throw Error('必须先导入历史日K CSV');
@@ -52,7 +55,8 @@ export function renderKlineLearning(ctx){
       const keys=new Set(stock.map(x=>`${x.code}|${x.date}`));for(const item of append){const k=`${item.code}|${item.date}`;if(keys.has(k))throw Error('追加K线存在重复样本 '+k);keys.add(k);}
       const next={stock:stock.concat(append),sector,market,minute},tagged=labelHistory(next.stock,next.sector,next.market,next.minute),split=freezeSplit(tagged,{embargo:5});
       // Commit a complete import together; failed replacements keep the last usable evidence.
-      records=next;samples=tagged;frozenSplit=split;corrections=[];selected=null;reason.value='';target.textContent='未选择要修正的K线';
+      records=next;sourceMode='csv';samples=tagged;frozenSplit=split;corrections=[];selected=null;reason.value='';target.textContent='未选择要修正的K线';
+      if(canEdit()&&typeof ctx.api==='function'){synced.replaceChildren(node('h2','V6 已同步日线'),node('p','当前使用本地 CSV，文件仅在此浏览器会话中处理。','fy-muted'));}
       sourceFiles={stock:chosen.stock.name,sector:chosen.sector?.name??null,market:chosen.market?.name??null,minute:chosen.minute?.name??null,appendedStock:chosen.append?[chosen.append.name]:[]};
       status.textContent=`已生成${samples.length}条历史标签；${sector.length?'已':'未'}提供同期板块，${market.length?'已':'未'}提供同期全A；页面刷新前请导出纠错档案。`;
       refresh();
@@ -60,6 +64,7 @@ export function renderKlineLearning(ctx){
   },'primary');
   const appendNew=button('追加新日K并重新计算',async()=>{
     if(busy||ctx.signal?.aborted)return;
+    if(sourceMode==='synced'){status.textContent='请先导入本地初始日K，再追加本地文件。';return;}
     if(!records.stock.length){status.textContent='请先导入初始日K与同期市场证据。';return;}
     const file=more.file.files?.[0];if(!file){status.textContent='请在追加日K CSV处选择新文件。';return;}
     if(file.size>6*1024*1024){status.textContent='追加文件超过6MiB。';return;}
@@ -91,9 +96,9 @@ export function renderKlineLearning(ctx){
   const exported=button('导出回测学习报告 JSON',()=>{
     if(ctx.signal?.aborted||busy)return;
     if(!report){status.textContent='请先导入样本并计算';return;}
-    const reviewed=applyCorrections(samples,corrections),compact=s=>({id:s.id,name:s.name,date:s.date,bar:s.bar,labels:s.labels,signals:s.signals,quality:s.quality,risk:s.risk,observed:s.observed});
+    const reviewed=applyCorrections(samples,corrections),compact=s=>({id:s.id,name:s.name,date:s.date,bar:s.bar,signalAvailableAt:s.signalAvailableAt??null,labels:s.labels,signals:s.signals,quality:s.quality,risk:s.risk,observed:s.observed});
     exportJSON('V6_KLINE_LEARNING_'+new Date().toISOString().slice(0,10)+'.json',{
-      mode:'offline-observational-research',generatedAt:new Date().toISOString(),sourceFiles,
+      mode:sourceMode==='synced'?'v6-synced-observational-research':'offline-observational-research',generatedAt:new Date().toISOString(),sourceFiles,
       methodology:'收盘基准观察，不是可成交收益或正式回测',report,corrections,
       samples:reviewed.filter(s=>s.quality!=='black-swan').map(compact),blackSwanSamples:reviewed.filter(s=>s.quality==='black-swan').map(compact)});
     status.textContent='已生成可复核JSON报告；请妥善保管，系统未自动上传或持久保存。';
@@ -124,9 +129,53 @@ export function renderKlineLearning(ctx){
     ],filtered.slice(0,100)));
     if(selected){const newer=effective.find(x=>x.id===selected.id);if(newer){selected=newer;showSample(newer);}else detail.replaceChildren();}else detail.replaceChildren();
   }
+  function paintArchive(requested=ctx.stock){
+    if(!canEdit()||!dataset)return;
+    const codes=[...dataset.stocks.keys()];
+    const code=codes.includes(requested)?requested:codes[0];
+    synced.replaceChildren(node('h2','V6 已同步日线'));
+    if(!code){synced.append(node('p','尚无带来源与收盘时点的 V6 未复权日线。','fy-muted'));return;}
+    const choose=sel(codes.map(c=>[c,(dataset.stocks.get(c).at(-1).name||c)+' · '+c]));
+    choose.value=code;choose.setAttribute('aria-label','选择已同步标的');
+    choose.addEventListener('change',()=>{if(!busy&&canEdit())paintArchive(choose.value);});
+    const {rows,samples:causal,late,market,sector}=syncedSeries(dataset,code),latest=rows.at(-1);
+    sourceMode='synced';records={stock:rows,market:[],sector:[],minute:[]};samples=causal;
+    corrections=[];selected=null;reason.value='';target.textContent='未选择要修正的K线';frozenSplit=freezeSplit(samples,{embargo:5});
+    sourceFiles={source:'V6 私有短线档案',revision:dataset.revision,code};sampleScope.value='all';
+    synced.append(field('已同步标的',choose),miniCandles(rows.slice(-60)),facts([
+      ['原始交易日',latest.date],['开 / 高 / 低 / 收', [latest.open,latest.high,latest.low,latest.close].map(x=>fmt(x)).join(' / ')],
+      ['成交量（股） / 成交额（元）',out(latest.volume)+' / '+out(latest.amount)],['换手率',out(latest.turnover,'%')],
+      ['归档全A趋势',market?.marketTrend],['同期板块 / 助攻',sector?sector.code+' / '+out(sector.assistCount):null],
+      ['全A证据可知时间',market?.asOf],['板块证据可知时间',sector?.asOf],['行情来源',latest.source],['数据可知时间（北京时间）',new Date(latest.at+28800000).toISOString().slice(0,19).replace('T',' ')]
+    ]));
+    status.textContent='读取 '+rows.length+' 根已同步日线，其中 '+causal.length+' 根可还原信号时点；'+late+' 根迟到行情仅供事后图表及其可知时点之后的计算。'+
+      (!causal.some(s=>s.market)?' 缺少同期可用的全A证据。':'')+(!causal.some(s=>s.sector)?' 缺少同期可用的板块证据。':'');
+    refresh();
+  }
+  async function readArchive(){
+    if(!canEdit()||typeof ctx.api!=='function'||sourceMode==='csv')return;
+    const turn=++sourceToken;
+    synced.replaceChildren(node('h2','V6 已同步日线'),node('p','正在读取私有研究档案…','fy-muted'));
+    try{
+      const response=await ctx.api('/api/research/shortline',{method:'GET',signal:ctx.signal});
+      if(turn!==sourceToken||!canEdit())return;
+      if(response?.ok!==true||response.state?.permissions?.role!=='edit')throw Error();
+      dataset=syncedDataset(response.state);paintArchive(ctx.stock||dataset.observation?.code);
+    }catch{if(turn===sourceToken&&canEdit())synced.replaceChildren(node('h2','V6 已同步日线'),node('p','当前无法读取私有档案，可继续使用本地 CSV。','fy-muted'));}
+  }
   for(const element of [strategy,environment,quality,horizon,symbol,sampleScope,sampleDate])element.addEventListener(element===symbol?'input':'change',refresh);
-  ctx.onState?.(()=>{save.disabled=busy||!canEdit();if(!canEdit())reason.value='';});
-  ctx.signal?.addEventListener('abort',()=>{revision++;samples=[];records={stock:[],sector:[],market:[],minute:[]};corrections=[];selected=null;report=null;sourceFiles={};frozenSplit=null;for(const source of [stocks,sectors,markets,minutes,more])source.file.value='';setBusy(false);root.replaceChildren();},{once:true});
-  setBusy(false);
+  ctx.onState?.(()=>{
+    save.disabled=busy||!canEdit();
+    if(!canEdit()){
+      reason.value='';sourceToken++;dataset=null;synced.replaceChildren();
+      if(sourceMode==='synced'){
+        sourceMode='';records={stock:[],market:[],sector:[],minute:[]};samples=[];selected=null;report=null;corrections=[];sourceFiles={};frozenSplit=null;
+        target.textContent='未选择要修正的K线';status.textContent='当前身份只能使用本地 CSV。';refresh();
+      }
+    }else if(!lastAuthorized&&typeof ctx.api==='function'&&sourceMode!=='csv'){if(!synced.parentNode)root.append(synced);void readArchive();}
+    lastAuthorized=canEdit();
+  });
+  ctx.signal?.addEventListener('abort',()=>{revision++;sourceToken++;dataset=null;samples=[];records={stock:[],sector:[],market:[],minute:[]};corrections=[];selected=null;report=null;sourceFiles={};frozenSplit=null;for(const source of [stocks,sectors,markets,minutes,more])source.file.value='';setBusy(false);root.replaceChildren();},{once:true});
+  setBusy(false);void readArchive();
   return root;
 }

@@ -26,6 +26,8 @@ class HostBundle(unittest.TestCase):
         self.put('_runtime.js', 'module.exports = 1;\n')
         self.put('package.json', '{"name":"isolated-fixture"}')
         self.put('src/core/runtime.js', 'module.exports = 2;\n')
+        self.put('public/nova/shortline/fixture.mjs', 'export const revision = 1;\n')
+        self.put('src/server/shortline-fixture.mjs', 'export const handler = true;\n')
         for name in ['config.json', 'access.json', 'paper.json', 'holdings.json', 'data/history.json', 'durable/ledger.json']:
             self.put(name, 'TRACKED-PRIVATE-FIXTURE-DO-NOT-SHIP')
         self.controls = self.bo / 'deploy/windows-host'
@@ -66,6 +68,8 @@ class HostBundle(unittest.TestCase):
         prefix = 'tian-shu-windows-host/'
         self.assertEqual(files[prefix+'payload/server.js'], b"require('./_runtime');\n")
         self.assertIn(prefix+'payload/_runtime.js', files)
+        self.assertEqual(files[prefix+'payload/public/nova/shortline/fixture.mjs'], b'export const revision = 1;\n')
+        self.assertEqual(files[prefix+'payload/src/server/shortline-fixture.mjs'], b'export const handler = true;\n')
         self.assertFalse(any(b'PRIVATE-FIXTURE' in raw for raw in files.values()))
         self.assertFalse(any('/data/' in name or name.endswith('/access.json') for name in files))
         self.assertEqual(result['sourceSha'], self.sha)

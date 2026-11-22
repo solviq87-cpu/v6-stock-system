@@ -38,6 +38,9 @@ function validateCatalog(catalog){
     ids.add(entry.id);
   }
 }
+function validateStyles(styles){
+  for(const match of styles.matchAll(/(?:@import\s+(?:url\()?\s*|url\(\s*)(['"]?)([^'"\s)]+)\1/gi))if(!/^(?:data:|#)/i.test(match[2]))throw Error('FAYO artifact has an external CSS asset');
+}
 function validateArtifact(html){
   if(Buffer.byteLength(html)>MAX_BYTES||!/^\s*<!doctype html\s*>/i.test(html)||!html.includes('绯曜')||!html.includes('FAYO')||!html.includes('fayo-artifact-scope'))throw Error('FAYO artifact identity is invalid');
   // Validate markup, rather than rejecting functional source/download links
@@ -52,7 +55,7 @@ function validateArtifact(html){
     /https?:\/\/[^\s/'"<>]+:[^\s/@'"<>]+@/i.test(html))throw Error('FAYO artifact contains a possible embedded credential');
   if(/(?:api\.openai\.com|\bopenai[_-]api[_-]key\b)/i.test(html))throw Error('OpenAI runtime API access is forbidden');
   const styles=[...html.matchAll(/<style\b[^>]*>([^]*?)<\/style\s*>/gi)].map(match=>match[1]).join('\n');
-  for(const match of styles.matchAll(/(?:@import\s+(?:url\()?\s*|url\(\s*)(['"]?)([^'"\s)]+)\1/gi))if(!/^(?:data:|#)/i.test(match[2]))throw Error('FAYO artifact has an external CSS asset');
+  validateStyles(styles);
   return html;
 }
 
@@ -76,12 +79,22 @@ async function buildFayoStatic({frontendDir=FRONTEND,catalogFile=CATALOG,outputF
     bundle:true,write:false,metafile:true,format:'iife',platform:'browser',target:'es2020',
     charset:'utf8',sourcemap:false,legalComments:'none',minify:false,logLevel:'silent',
     plugins:[{name:'fayo-standalone-source',setup(builder){
-      builder.onLoad({filter:/\.js$/},args=>{
+      builder.onLoad({filter:/\.m?js$/},args=>{
         const real=fs.realpathSync(args.path);
         if(!inside(sourceRoot,real))throw Error('FAYO static entry may import only the independent frontend');
         let contents=regular(real);
         snapshots.set(path.relative(sourceRoot,real).split(path.sep).join('/'),hash(contents));
         contents=contents.replace(/(['"])\/nova\/mark\.svg\1/g,()=>safeJSON(icon));
+        // Shadow-tree styles and the CSV download are loaded by JS on a running V6 server.
+        // The single-file review artifact carries those same public bytes and source hashes.
+        contents=contents.replace(/\/nova\/(shortline-sheet\.css|shortline\/overview\.css|shortline\/sample-kline\.csv)(?=['"])/g,(_match,file)=>{
+          const asset=fs.realpathSync(path.join(sourceRoot,file));
+          if(!inside(sourceRoot,asset))throw Error('FAYO static asset escapes the native frontend');
+          const raw=regular(asset),isCss=file.endsWith('.css');
+          if(isCss)validateStyles(raw);
+          snapshots.set(file,hash(raw));
+          return 'data:'+(isCss?'text/css':'text/csv')+';charset=utf-8;base64,'+Buffer.from(raw).toString('base64');
+        });
         // A review document must not register a service worker on its host.
         contents=contents.replace(/navigator\.serviceWorker\.register\(\s*(['"])\/sw\.js\1\s*\)/g,'Promise.resolve(null)');
         return {contents,loader:'js'};

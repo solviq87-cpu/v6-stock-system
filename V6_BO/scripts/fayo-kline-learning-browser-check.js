@@ -63,7 +63,16 @@ async function geometry(page, label) {
         localStorage.setItem('qd_role', 'edit');
       }, f.token);
       const page = await context.newPage();
-      const errors = [], external = [], calls = [];
+      const errors = [], external = [], calls = [], responses = [];
+      page.on('response', response => {
+        if (response.status() < 400) return;
+        const url = new URL(response.url());
+        responses.push(response.text().then(raw => {
+          let detail='';
+          try { detail=JSON.parse(raw).error||''; } catch {}
+          errors.push(response.status()+' '+response.request().method()+' '+url.pathname+' '+String(detail).slice(0,160));
+        }, () => errors.push(response.status()+' '+url.pathname)));
+      });
       page.on('pageerror', error => errors.push(error.message));
       page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
       page.on('request', request => {
@@ -78,7 +87,8 @@ async function geometry(page, label) {
       await page.goto(origin + '/#/lab/learning');
       await page.getByRole('heading', { name: '战法验证与智能学习中心', exact: true }).waitFor();
       const tabs = page.getByRole('navigation', { name: '智能学习中心分区', exact: true });
-      assert.equal(await tabs.getByRole('button').count(), 4);
+      await tabs.getByRole('button', { name: '已有学习进度', exact: true }).waitFor();
+      assert.equal(await tabs.evaluate(nav => nav.querySelectorAll('button').length), 4);
       await page.getByLabel('历史日K CSV（必选）', { exact: true }).setInputFiles(file('synthetic-stock.csv', stockCSV));
       await page.getByLabel('同期板块 CSV', { exact: true }).setInputFiles(file('synthetic-sector.csv', sectorCSV));
       await page.getByLabel('同期全A指数 CSV', { exact: true }).setInputFiles(file('synthetic-market.csv', marketCSV));
@@ -148,8 +158,11 @@ async function geometry(page, label) {
       assert.equal(report.sourceFiles.stock, 'synthetic-stock.csv');
       assert.deepEqual(report.sourceFiles.appendedStock, ['synthetic-more.csv']);
       assert.ok(!report.samples.find(item => item.date === dates[59]).signals.some(item => item.name === '弱转强'));
+      assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/shortline'),
+        'native historical learning reads the authorized shortline archive');
       assert.equal(calls.filter(call => call.method !== 'GET').length, 0,
         'local import, corrections and tab changes never write an account or upload CSV');
+      await Promise.all(responses);
       assert.deepEqual(errors, [], 'no browser errors at ' + width);
       assert.deepEqual(external, [], 'no external requests at ' + width);
       const final = await geometry(page, 'exported-history-' + width);
