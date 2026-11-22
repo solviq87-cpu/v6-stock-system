@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {closeDisplayDay,nextMarketOpenAt}=require('../src/core/closing-card-snapshot');
-const {marketDistribution}=require('../src/research/shortline-breadth-fallback');
+const {marketDistribution,createWorkingDistribution}=require('../src/research/shortline-breadth-fallback');
 const {createMarketRecovery}=require('../src/research/market-recovery');
 const day='2026-11-20',now=Date.parse('2026-11-22T22:00:00+08:00');
 const previous=()=>day;
@@ -14,7 +14,7 @@ test('Shanghai close and next wake respect weekends, preopen, lunch, and the exc
  assert.equal(closeDisplayDay({...monday,minute:900},previous),'2026-11-23');
  assert.equal(closeDisplayDay({day:'20261005',openDay:false,minute:800},()=>'2026-09-30'),'2026-09-30');
 });
-test('market-wide close validates all eleven exclusive bins, date, session, and denominator',()=>{
+test('market-wide close and intraday validate all bins, original session, age and one shared collection',async()=>{
  const names=['limit_up','over_7','up_5_7','up_3_5','up_0_3','flat','down_0_3','down_3_5','down_5_7','below_7','limit_down'];
  const values=[30,0,0,0,283,23,5168,0,0,0,68];
  const html='<h2 id="home-market-distribution-title">全市场涨跌分布</h2><span>'+day+'</span>截至 '+day+' 15:41:35 沪深京 A 股 · 含 ST <strong class="home-market-state is-final">收盘数据</strong> 有效 5572 / 5580 </header>'+
@@ -24,6 +24,17 @@ test('market-wide close validates all eleven exclusive bins, date, session, and 
  assert.deepEqual([record.adv,record.flat,record.dec,record.upLimit,record.downLimit,record.observed,record.total],[313,23,5236,30,68,5572,5580]);
  for(const wrong of [html.replace('is-final','live'),html.replace('15:41:35','11:00:00'),html.replace('5572 /','5580 /'),html.replace('limit_up','limit_down')])assert.equal(marketDistribution(wrong,day,now),null);
  assert.equal(marketDistribution(html,'2026-11-19',now),null);
+ let at=Date.parse(day+'T10:10:00+08:00'),calls=0;
+ const live=html.replace('is-final','is-live').replace('收盘数据','盘中').replace('15:41:35','10:09:00');
+ assert.equal(marketDistribution(live,day,at,{intraday:true}).upLimit,30);
+ assert.equal(marketDistribution(live,day,at+20*60000,{intraday:true}),null);
+ assert.equal(marketDistribution(html,day,now,{intraday:true}),null);
+ const read=createWorkingDistribution({clock:()=>at,request:async()=>{calls++;return {raw:Buffer.from(live)};}});
+ const session={day:'20261120',openDay:true,trading:true,minute:610};
+ assert.equal(read(session),null);assert.equal(read(session),null);
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);assert.equal(read(session).observed,5572);
+ at+=120000;assert.equal(read({...session,trading:false,minute:720}).upLimit,30);
+ assert.equal(read({day:'20261122',openDay:false,trading:false,minute:800}),null);assert.equal(calls,1);
 });
 test('one collection feeds both clients, prefers original THS reasons and survives empty retries',async()=>{
  let clock=now,calls=0;

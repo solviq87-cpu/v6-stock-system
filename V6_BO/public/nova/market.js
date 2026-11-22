@@ -161,22 +161,29 @@ export function coveragePanel(recovery){
   h('small',{},coverageCount(r)+' · '+r.day+' · '+r.source),
   h('small',{},'取得 '+dateTime(r.knownAt)))));
 }
-export function distributionPanel(state,day=closeSessionDay(state)||state.marketRecovery?.referenceDay){
- const r=closeDistribution(state.marketRecovery,day,Date.now(),savedCloseReview.distribution);
+function sessionDistribution(state,day,live=true){
+ const r=state.marketDistribution,now=Date.now();
+ if(live&&!state.closeSession&&r?.kind==='market-distribution-intraday'&&r.day===new Date(now+28800000).toISOString().slice(0,10)&&r.quoteAt<=r.knownAt&&r.knownAt<=now)return r;
+ return closeDistribution(state.marketRecovery,day,now,savedCloseReview.distribution);
+}
+export function distributionPanel(state,requestedDay){
+ const day=requestedDay||closeSessionDay(state)||state.marketRecovery?.referenceDay;
+ const r=sessionDistribution(state,day,requestedDay===undefined);
  if(!r)return null;
- const other=day===savedCloseReview.day?savedCloseReview.stats.find(([label])=>label==='收评涨停 / 跌停'):null;
- return h('section',{class:'fy-distribution','aria-label':'全市场收盘分布'},h('h3',{},r.scope+' · 收盘'),
-  h('p',{class:'fy-muted'},r.day+' · 取得有效行情 '+format(r.observed,0)+' / '+format(r.total,0)+' 只'),
+ const intraday=r.kind==='market-distribution-intraday';
+ const other=!intraday&&r.day===savedCloseReview.day?savedCloseReview.stats.find(([label])=>label==='收评涨停 / 跌停'):null;
+ return h('section',{class:'fy-distribution','aria-label':intraday?'全市场盘中分布':'全市场收盘分布'},h('h3',{},r.scope+(intraday?' · 盘中':' · 收盘')),
+  h('p',{class:'fy-muted'},(intraday?dateTime(r.quoteAt):r.day)+' · 取得有效行情 '+format(r.observed,0)+' / '+format(r.total,0)+' 只'),
   h('div',{class:'fy-count-strip'},[['上涨',r.adv],['下跌',r.dec],['平盘',r.flat],['涨停',r.upLimit],['跌停',r.downLimit]].map(([label,n])=>
    h('div',{},h('span',{},label),h('strong',{},format(n,0))))),
   h('details',{class:'fy-details'},h('summary',{},'统计来源与口径'),
    h('p',{},r.source+' · '+dateTime(r.quoteAt)+' · '+(r.total-r.observed)+' 只未计入涨跌分布。涨停计入上涨，跌停计入下跌。'),
-   safeLink('https://www.dabanke.com/index-'+r.day.replaceAll('-','')+'.html','逐项核对收盘分布'),
+   safeLink('https://www.dabanke.com/index-'+r.day.replaceAll('-','')+'.html',intraday?'逐项核对盘中分布':'逐项核对收盘分布'),
    other?h('p',{},other[2]+'另报涨停 / 跌停 '+other[1]+' 家。',safeLink(savedCloseReview.sources.market[1],'收评原文')):null));
 }
 export function marketOverviewCards(state){
  const target=closeSessionDay(state),recovery=state.marketRecovery,day=target||recovery?.referenceDay;
- const wide=closeDistribution(recovery,day,Date.now(),savedCloseReview.distribution);
+ const wide=sessionDistribution(state,day);
  const histories=[...(recovery?.indexSeries||[]),...(savedCloseReview.indexSeries||[])].filter(v=>v.day===day&&v.knownAt<=Date.now());
  const summary=summarizeReview(state.review),mood=recoveredMetric(recovery,'emotion',day),trend=recoveredMetric(recovery,'trend',day);
  const indices=[['1.000001','上证指数'],['0.399001','深证成指'],['0.399006','创业板指']].map(([code,name])=>{
@@ -201,9 +208,9 @@ export function marketOverviewCards(state){
  const nativeDay=Number.isSafeInteger(at)&&at>0&&at<=Date.now()?new Date(at+28800000).toISOString().slice(0,10):null;
  const currentDay=new Date(Date.now()+28800000).toISOString().slice(0,10);
  const current=!target&&state.marketClock?.trading===true&&nativeDay===currentDay&&native?.scope?.sample>0;
- const fromLive=current&&Number.isFinite(native.upRatio)&&native.upRatio>=0&&native.upRatio<=100;
+ const fromLive=wide?.kind!=='market-distribution-intraday'&&current&&Number.isFinite(native.upRatio)&&native.upRatio>=0&&native.upRatio<=100;
  const breadth=fromLive?native.upRatio:wide?.observed>0?100*wide.adv/wide.observed:null;
- const env=trend&&trend.date===day?trend.value:histories.find(r=>r.code==='1.000985')?.trend;
+ const env=wide?.kind==='market-distribution-intraday'?null:trend&&trend.date===day?trend.value:histories.find(r=>r.code==='1.000985')?.trend;
  const breadthEnvironment=fromLive?(breadth>=70?'普涨':native.downN/native.scope.sample>=.7?'普跌':'涨跌分化'):wide&&(wide.dec/wide.observed>=.7?'普跌':wide.adv/wide.observed>=.7?'普涨':'涨跌分化');
  const riskCount=state.dashboard?.counts?.risk,shSeries=histories.find(r=>r.code==='1.000001');
  const closes=(shSeries?.bars||[]).map(b=>b[1]).filter(v=>Number.isFinite(v)&&v>0);
@@ -217,7 +224,7 @@ export function marketOverviewCards(state){
   h('article',{},h('h3',{},'风险提示'),
    Number.isInteger(riskCount)?h('p',{},'高风险候选 ',h('b',{},riskCount+' 只')):null,
    Array.isArray(state.abMove?.items)?h('p',{},'异动预警 ',h('b',{},new Set(state.abMove.items.filter(r=>r.code).map(r=>r.code)).size+' 只')):null,
-   wide?h('p',{},'全市场跌停 ',h('b',{},wide.downLimit+' 家'),!target?h('small',{},wide.day):null):null,
+   wide?h('p',{},'全市场跌停 ',h('b',{},wide.downLimit+' 家'),!target?h('small',{},wide.kind==='market-distribution-intraday'?dateTime(wide.quoteAt):wide.day):null):null,
    closes.length>1?h('p',{title:shSeries.day+' · '+shSeries.source},'上证近 '+closes.length+' 日最大回撤 ',h('b',{},format(drawdown,1)+'%')):null,
    summary.rows.some(r=>Number.isInteger(r.breakCount))?h('p',{},'样本开板回封 ',h('b',{},summary.opened.length+' 只')):null,
    !Number.isInteger(riskCount)&&!wide&&!summary.rows.length?h('small',{},'正在同步风险记录'):null));

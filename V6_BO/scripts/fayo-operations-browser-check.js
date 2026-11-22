@@ -8,7 +8,7 @@ const server=http.createServer((req,res)=>{
  if(pathname==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');return res.end('<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/nova/fayo.css"></head><body><main id="mount"></main></body></html>');}
  // The current market module imports this nested, checked-in demonstration
  // dataset. Keep the fixture restricted to its existing modules and this file.
- if(!/^\/nova\/[\w.-]+$/.test(pathname)&&pathname!=='/nova/data/tactics.js'){res.writeHead(404);return res.end();}
+ if(!/^\/nova\/[\w.-]+$/.test(pathname)&&!['/nova/data/tactics.js','/nova/data/close-review-20261120.js','/nova/shortline/quote-links.mjs'].includes(pathname)){res.writeHead(404);return res.end();}
  try{res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(path.join(root,pathname)));}catch{res.writeHead(404);res.end();}
 });
 (async()=>{
@@ -65,7 +65,9 @@ const server=http.createServer((req,res)=>{
   await page.evaluate(()=>{window.activeContext.state.taskState={note:'更新后的任务状态'};window.stateListeners.forEach(fn=>fn());});
   assert.equal(await page.getByText('更新后的任务状态',{exact:true}).isVisible(),true,'diagnostics do not freeze at route-open time');
   await page.evaluate(()=>window.renderRoute('opportunities','ranked'));
-  assert.match(await page.locator('#mount .fy-note').innerText(),/原始交易日待核验/,'unknown retained source day is never replaced by the date of the newest read');
+  const datedStatus=await page.locator('#mount .fy-note').innerText();
+  assert.match(datedStatus,/系统精选.*1 只/);
+  assert.doesNotMatch(datedStatus,/\d{4}[-/]?\d{2}[-/]?\d{2}|实时行情/,'an undated result cannot acquire the latest read date or a live label');
   assert.doesNotMatch(await page.locator('#mount .fy-note').innerText(),/2026[-/]11[-/]16/);
   await page.evaluate(()=>window.renderRoute('settings','preferences'));
   const configBefore=await page.evaluate(()=>window.calls.filter(c=>c.path==='/api/config').length);

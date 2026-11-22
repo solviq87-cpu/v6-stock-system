@@ -11378,13 +11378,14 @@ function marketDisplaySession(now=Date.now()) {
   const openDay=isTradeDay(new Date(year,month,date,12));
   return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
+const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();
   const day=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
   if(day&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1')void marketRecovery().tick().catch(()=>{});
   const state=marketCardState(kind,kind==='state'?buildDashboardState(edit):buildMobileDigest(edit));
   state.marketClock={trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
-  if(!day)return {...state,closeSession:null};
+  if(!day)return {...state,closeSession:null,marketDistribution:process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session)};
   // Read already archived cards, including the first page of the complete scan.
   // This path never runs a strategy, writes to a portfolio or sends an alert.
   const keys=['quant','auction','intraday',...(edit?['wash','preseal','shortline']:[])];

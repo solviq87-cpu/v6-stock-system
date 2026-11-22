@@ -125,13 +125,20 @@ async function defaultSnapshot(clock,governor){
   return {...snapshot,scope:SCOPE};
 }
 const LEGU='https://www.legulegu.com/stockdata/market-activity';
-function marketDistribution(html,day,knownAt){
+function marketDistribution(html,day,knownAt,{intraday=false}={}){
   const block=html.match(/<h2 id="home-market-distribution-title">全市场涨跌分布<\/h2>([\s\S]*?)<\/section>/)?.[1];
-  if(!block||!block.includes('沪深京 A 股 · 含 ST')||!/<strong class="home-market-state is-final">\s*收盘数据\s*<\/strong>/.test(block))return null;
+  if(!block||!block.includes('沪深京 A 股 · 含 ST'))return null;
+  const final=/<strong class="home-market-state is-final">\s*收盘数据\s*<\/strong>/.test(block);
+  if(intraday?final:!final)return null;
   const head=block.split('</header>')[0],stamp=/截至 (\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d)/.exec(head);
   const size=/有效\s*(\d+)\s*\/\s*(\d+)/.exec(head);
   const quoteAt=stamp&&Date.parse(stamp[1]+'T'+stamp[2]+'+08:00');
-  if(!head.includes('<span>'+day+'</span>')||stamp?.[1]!==day||!dated(quoteAt,day,knownAt)||!size)return null;
+  if(!head.includes('<span>'+day+'</span>')||stamp?.[1]!==day||!size)return null;
+  if(intraday){
+    const time=stamp[2].slice(0,5);
+    const inSession=(time>='09:15'&&time<='11:30')||(time>='13:00'&&time<'15:00');
+    if(!inSession||aShareCalendarDate(knownAt)!==day||!Number.isSafeInteger(quoteAt)||quoteAt>knownAt||knownAt-quoteAt>15*60000)return null;
+  }else if(!dated(quoteAt,day,knownAt))return null;
   const observed=Number(size[1]),total=Number(size[2]);
   const headline=name=>{const m=block.match(new RegExp('class="market-total-'+name+'">[^<]*<strong>(\\d+)</strong>'));return m?Number(m[1]):null;};
   const adv=headline('rise'),flat=headline('flat'),dec=headline('fall');
@@ -144,7 +151,7 @@ function marketDistribution(html,day,knownAt){
   const sum=keys=>keys.reduce((n,key)=>n+(bins.get(key)??NaN),0);
   if(bins.size!==11||bins.get('flat')!==flat||sum(['limit_up','over_7','up_5_7','up_3_5','up_0_3'])!==adv||
     sum(['limit_down','below_7','down_5_7','down_3_5','down_0_3'])!==dec)return null;
-  return {kind:'market-distribution',scope:'沪深京 A 股（含 ST）',source:'打板客收盘涨跌分布',day,knownAt,quoteAt,
+  return {kind:intraday?'market-distribution-intraday':'market-distribution',scope:'沪深京 A 股（含 ST）',source:intraday?'打板客盘中涨跌分布':'打板客收盘涨跌分布',day,knownAt,quoteAt,
     observed,total,adv,dec,flat,upLimit:bins.get('limit_up'),downLimit:bins.get('limit_down')};
 }
 function leguWidth(html,day,knownAt){
@@ -354,4 +361,24 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
     return result;
   };
 }
-module.exports={createBreadthFallback,marketDistribution};
+
+// Poll one shared provider receipt across clients. A source outage preserves the
+// original dated observation and backs off until the next eligible market read.
+function createWorkingDistribution({request=requestResearchBytes,clock=Date.now}={}){
+  let sessionDay=null,saved=null,inflight=null,retryAt=0;
+  return function read(session){
+    const day=session.day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+    if(sessionDay!==day){sessionDay=day;saved=null;inflight=null;retryAt=0;}
+    const now=clock();
+    if(session.trading&&!inflight&&now>=retryAt&&aShareCalendarDate(now)===day){
+      retryAt=now+30000;
+      const job=Promise.resolve().then(()=>request('https://www.dabanke.com/index-'+session.day+'.html',{timeoutMs:5500,maxBytes:512*1024})).then(({raw})=>{
+        const result=marketDistribution(raw.toString('utf8'),day,clock(),{intraday:true});
+        if(sessionDay===day&&result&&(!saved||result.quoteAt>=saved.quoteAt))saved=result;
+      }).catch(()=>{}).finally(()=>{if(inflight===job)inflight=null;});
+      inflight=job;
+    }
+    return !session.openDay||session.minute<555||session.minute>=900?null:saved;
+  };
+}
+module.exports={createBreadthFallback,marketDistribution,createWorkingDistribution};
