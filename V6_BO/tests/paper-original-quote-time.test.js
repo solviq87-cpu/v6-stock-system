@@ -72,14 +72,15 @@ test('late responses cannot replace a newer cached observation or extend its lif
 
 test('monitoring includes a held stock after it leaves the candidate pool', async () => {
   const start = source.indexOf("const { monitorPlan, monitorCoverage }", source.indexOf('async function tick()'));
-  const end = source.indexOf('monitorCodes = codes;', start);
+  const end = source.indexOf('S.loop.monitorNextOffset = plan.nextOffset;', start);
   assert.ok(start >= 0 && end > start);
   const c = {
     S: { loop: {}, candidatePool: Array.from({ length: 100 }, (_, i) => ({ code: String(i).padStart(6, '0') })), sectors: [] },
-    PAPER: { a: { positions: { '600519': { shares: 100 } } } }, Set
+    PAPER: { a: { positions: { '600519': { shares: 100 } } } },
+    fastStockWatch: { read: () => [] }, Set
   };
   c.require=c.require||require('node:module').createRequire(require.resolve('../server.js'));vm.createContext(c);
-  const codes = vm.runInContext(`(() => { ${source.slice(start, end)}; return codes; })()`, c);
+  const codes = vm.runInContext(`(() => { let monitorCodes; ${source.slice(start, end)}; return monitorCodes; })()`, c);
   assert.equal(codes[0], '600519');
   assert.equal(codes.length, 101);
 });
