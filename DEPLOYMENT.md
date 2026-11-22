@@ -12,6 +12,7 @@
 | 指定 WorkBuddy 静态站 | 源码 `V6_WEB/workbuddy/index.html`，由 `V6_BO/scripts/build-workbuddy-static.js` 生成带源码版本的单文件 HTML。现有发布者负责发布并读回校验。 | 本轮为 Node 推送修复。静态站承载浏览器页面，完整后台、持久化任务及飞书外发由独立服务负责。 [静态站发布](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md) |
 | 独立只读行情预览 | `streamlit_readonly/`。公开行情、教学筛选和回测的部署入口是 `streamlit-release` 分支的 `app.py`。 | 源码已补合入 `dev`。独立预览的线上状态以实际托管服务为准。 [预览部署](streamlit_readonly/README_RELEASE.md) |
 | Web 教学预览 | `V6_WEB/src/` 与 `V6_WEB/scripts/` 构建 `V6_WEB/dist/`。适合独立静态预览。 | 由本目录的构建脚本生成，正式 Node 应用使用上方原生页面入口。 |
+| A 股短线研究台 | `ashare-strategy-lab/`。Node.js 20+ 下执行 `sh deploy.sh`，Windows 用 `start.cmd`，静态部署使用该目录的 `public/`。与 V6 后台同机时可指定 `PORT=8899`。 | 版本 `1.0.0`，内置 95 项规则。手工录入、模拟校验和浏览器本地复盘独立运行。 [短线研究台部署](ashare-strategy-lab/DEPLOYMENT.md) |
 
 运行包的完整文件列表以包内 `manifest.json` 为准。`source.json` 记录精确 Git 提交，`SHA256SUMS.txt` 可逐文件验证。部署前应在独立目录验包并验证启动。已有实例升级前备份运行目录，保留私有配置、设备授权、持仓、模拟盘、订单账本及推送流水，之后按既有更新器验收或回滚。 [更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)
 
@@ -28,6 +29,7 @@
 
 | 时间与版本 | 本轮变更和验证 | 部署及回滚状态 |
 | --- | --- | --- |
+| 2026-11-22 · 短线研究台 `1.0.0` | 独立源码的 18 个文件与已交付的 ZIP 逐文件一致。专项测试 20 项，已验解压启动与纯静态运行。 [研究台源码](ashare-strategy-lab/) | 独立研究应用。交付包 `TianShu-Ashare-Strategy-Lab-1.0.0.zip` 的 SHA-256 为 `c372d9070a0c08c774fd48aabb837811cd0869d3b3c08a7ee130de8a00003f1b`。目标服务器验收待完成。回退此版本只需停止独立服务并使用上一部署目录。 |
 | 2026-11-22 · 固定部署交接入口 | 电脑、手机管理者首页的状态栏固定部署交接链接。仓库首页置顶，智能助手接手命令首行提示。手机选股快捷入口压成两列，系统精选刷新后在结果旁更新读取时间。关闭个股研究面板后，焦点随结果刷新留在原股票。 [代码变更 #334](https://github.com/solviq87-cpu/v6-stock-system/pull/334) | 影响原生网页和仓库续接命令。正式 WorkBuddy 后端仍运行 `20261116ac`，应用内入口随下一次完整部署生效。恢复时按 Windows 更新器记录的上一版本回滚。 |
 | 2026-11-22 · 已合并 `c7bc7b33` | 飞书明确拒收、未配私密通道或静默拦截时退回消息额度。通知设置及投递追踪提示当前副本停用自动外发。推送专项 63 项、本地全量 4,403 项及 GitHub 合并前检查通过。 [代码变更 #332](https://github.com/solviq87-cpu/v6-stock-system/pull/332) | Windows/WSL 包 `TianShuV6-Windows-OneClick-1a7d915.zip` 已构建，1,151 项文件校验通过。构建源码 `1a7d91501839579941e49991f306ebc7e7a9fa64` 与合并提交的文件树一致。本轮未切换线上后端或角色，回滚时使用更新器记录的前一版本及私有运行备份。 |
 | 2026-11-22 · 线上只读核实 | 用户当前 WorkBuddy `20261116ac` 为副本，私密飞书已配置，流水有 11 月 20 日涨停复盘的副本拦截。历史后端公开接口显示 `20261110cr` 自报主实例。 | 历史主实例的候选与投递流水仍须经该实例授权核验。下次正式发布后在接收端核实真实送达，并将验收结果记回本表。 |

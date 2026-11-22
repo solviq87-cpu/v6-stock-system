@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="A股短线策略条件校验、全A指数环境和复盘记录。">
+  <title>天枢智策 · A 股短线研究台</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main-heading">跳到主要内容</a>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <span><strong>天枢智策</strong><small>A 股短线研究台</small></span>
+      </a>
+      <nav class="navigation" aria-label="研究工作区">
+        <a href="#overview" data-page="overview"><span class="nav-icon overview-icon" aria-hidden="true"></span><span>分析总览</span></a>
+        <a href="#input" data-page="input"><span class="nav-icon input-icon" aria-hidden="true"></span><span>证据录入</span></a>
+        <a href="#rules" data-page="rules"><span class="nav-icon rules-icon" aria-hidden="true"></span><span>因子校验</span></a>
+        <a href="#history" data-page="history"><span class="nav-icon history-icon" aria-hidden="true"></span><span>复盘记录</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="local-dot" aria-hidden="true"></span>
+        <span>本地研究<small>记录保存在本浏览器</small></span>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <span id="breadcrumb">研究台 / 分析总览</span>
+        <span class="topbar-state"><span class="local-dot" aria-hidden="true"></span>本地计算</span>
+      </header>
+      <main id="main" class="main" tabindex="-1">
+        <p>正在加载本地研究台…</p>
+        <noscript>请启用 JavaScript 后打开研究台。</noscript>
+      </main>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
