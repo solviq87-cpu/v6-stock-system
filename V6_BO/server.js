@@ -11339,6 +11339,7 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   file:path.join(__dirname,'data','market-response-snapshots.json'),
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
+const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
 const closingCardSnapshots=require('./src/core/closing-card-snapshot').createClosingCardSnapshot({file:path.join(__dirname,'data','closing-card-snapshots.json'),onError:code=>console.error('[closing-cards] '+code)});
 function marketCardContext(){const session=marketDisplaySession();return {session,sourceDay:marketDisplayState().meta.snapshotDay};}
 function marketCardState(kind,value){
@@ -11378,7 +11379,6 @@ function marketDisplaySession(now=Date.now()) {
   const openDay=isTradeDay(new Date(year,month,date,12));
   return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
-const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();
   const day=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
