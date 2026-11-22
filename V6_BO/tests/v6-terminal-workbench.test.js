@@ -82,15 +82,44 @@ test('approved V6 layout uses actual review rows and keeps source 37 / analyzed 
  ctx.controller.abort();
 });
 test('no review data, no source count and no price timestamp do not become fabricated zero or live quote',async()=>{
- dom();const {renderTerminalOverview}=await api,ctx=context({trading:false,dashboard:{indices:[]},review:null,sectors:[{name:'疑似资金板块',mainInflow:120000000}]});
+ dom();const {renderTerminalOverview}=await api,ctx=context({trading:false,dashboard:{indices:[
+  {code:'1.000001',price:3678.91,quoteSource:'无原始时点的来源'},
+  {code:'0.399001',price:6789.12,quoteSource:'未来时点的来源',quoteAt:Date.now()+3600000}
+ ]},review:null,sectors:[{name:'疑似资金板块',mainInflow:120000000}]});
  const view=renderTerminalOverview(ctx),t=textOf(view);
- assert.match(t,/源端涨停总数尚未核验/);
- assert.match(t,/源端涨停\s*—/);
+ const stats=locate(view,el=>el.classList?.contains('fy-terminal-stats'));
+ assert.equal(stats.children.length,0,'unobserved source totals never appear as zero or empty metric cards');
+ const ticker=locate(view,el=>el.classList?.contains('fy-market-ticker'));
+ assert.equal(ticker.children.length,0,'quotes without a verifiable original time never get price tiles');
+ assert.doesNotMatch(textOf(ticker),/实时|原始报价|历史报价/);
+ assert.doesNotMatch(t,/3,678\.91|6,789\.12|源端涨停\s*0/);
+ assert.equal(t.match(/行情来源与补采状态/g)?.length,1,'collection status is accessible from one disclosure');
+ assert.match(t,/等待服务端采集回执/);
+ assert.match(t,/最近交易日快照/);
  assert.match(t,/暂无可核验的涨停明细/);
  assert.match(t,/资金来源交易日待核验/);
- assert.match(t,/报价时点待核验/);
  assert.doesNotMatch(t,/1\.20 亿/,'unknown-unit amount must not be converted to Yuan');
  await tick();ctx.controller.abort();
+});
+test('overview keeps expanded collection details on a background refresh and displays the original date of each recovered value',async()=>{
+ dom();const {renderTerminalOverview}=await api;
+ const date='2026-11-17',previous='2026-11-16',knownAt=Date.parse(date+'T16:00:00+08:00');
+ const clock=Date.now;Date.now=()=>knownAt+60000;
+ const ctx=context({trading:false,marketRecovery:{referenceDay:date,phase:'searching',lastAttemptAt:knownAt}});
+ try{
+  const view=renderTerminalOverview(ctx),details=()=>locate(view,el=>el.classList?.contains('fy-recovery-status'));
+  assert.equal(!!details().open,false);
+  details().open=true;
+  ctx.state.marketRecovery={referenceDay:date,phase:'partial',lastAttemptAt:knownAt,sources:[{name:'原始供应商甲',status:'retrying'}],
+   metrics:{upLimit:{value:0,date:previous,source:'历史收盘供应商乙',knownAt}}};
+  ctx.listeners.forEach(paint=>paint());
+  assert.equal(details().open,true);
+  assert.match(textOf(details()),/原始供应商甲 · 等待重试/);
+  const stats=locate(view,el=>el.classList?.contains('fy-terminal-stats'));
+  assert.equal(stats.children.length,1);
+  assert.match(textOf(stats),/源端涨停\s+0\s+上次有效 · 2026-11-16 · 历史收盘供应商乙/);
+  assert.doesNotMatch(textOf(stats),/上次有效 · 2026-11-17/);
+ }finally{Date.now=clock;ctx.controller.abort();}
 });
 test('a stale sector classification cannot be merged into a new-day review',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(2);

@@ -255,6 +255,7 @@ export function renderTerminalOverview(ctx) {
  const chartContent=h('div',{class:'fy-reference-chart-body'});
  const ladderContent=h('div',{class:'fy-reference-ladder-body'});
  const syncContent=h('div',{class:'fy-reference-sync-body'});
+ let recoveryDetails;
  const signalPanel=section(panelTitle('今日策略信号','pulse'),'',
   signalContent,h('div',{class:'fy-reference-actions'},
    moduleButton('查看风控','assets','risk',ctx),moduleButton('研究机会','opportunities','all',ctx)));
@@ -325,8 +326,10 @@ export function renderTerminalOverview(ctx) {
   const state=ctx.state||{},review=state.review,summary=summarizeReview(review),coverage=reviewCoverage(review);
   const day=reviewDate(review?.date),source=coverage.source,reported=valid(review?.ztN)?review.ztN:null;
   const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
-  const disclosure=recoveryDisclosure(state);disclosure.open=!!syncContent.querySelector('.fy-recovery-status')?.open;
-  syncContent.replaceChildren(disclosure,h('dl',{class:'fy-reference-sync-values'},
+  const previousOpen=!!recoveryDetails?.open;
+  recoveryDetails=recoveryDisclosure(state);
+  recoveryDetails.open=previousOpen;
+  syncContent.replaceChildren(recoveryDetails,h('dl',{class:'fy-reference-sync-values'},
    ...(marketDay?[h('div',{},h('dt',{},'行情快照'),h('dd',{},marketDay))]:[]),
    h('div',{},h('dt',{},'当前会话'),h('dd',{},ctx.role==='edit'?'编辑':'只读'))));
   status.replaceChildren(
