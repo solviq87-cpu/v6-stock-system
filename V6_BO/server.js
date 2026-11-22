@@ -11385,6 +11385,29 @@ const readCloseReviewEvidence = require('./src/core/close-review-evidence').crea
   market:em,poolFile:path.join(__dirname,'data','close-review-limit-pools.json')
 });
 
+function shortlineResearchDir(){return process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research');}
+function manualResearchLedgerDir(){return process.env.V6_MANUAL_DECISION_LOOP_DIR||path.join(__dirname,'data','manual-decision-loop');}
+function manualResearchProjection(){
+  let lastSignature='',pending=false,nextAt=0;
+  return async function tick(){
+    if(isReplica()||pending||Date.now()<nextAt)return;
+    nextAt=Date.now()+60_000;
+    const root=manualResearchLedgerDir();
+    const accountDir=process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts');
+    const components=[root,path.join(accountDir,'pool.json'),path.join(accountDir,'pre.json')].map(file=>{
+      try{const stat=fs.statSync(file);return [stat.ino,stat.mtimeMs,stat.size].join('/');}
+      catch(e){if(e.code==='ENOENT')return '';throw e;}
+    });
+    if(!components.some(Boolean))return;
+    const signature=components.join('|');
+    if(signature===lastSignature||isReplica())return;
+    pending=true;
+    try{
+      const result=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline-manual-ledger',root,accountDir,shortlineRoot:shortlineResearchDir()});
+      if(result.ok&&!result.result?.retry)lastSignature=signature;
+    }finally{pending=false;}
+  };
+}
 let shortlineSourceReader;
 function readShortlineSource(input) {
   if(!shortlineSourceReader){
@@ -19179,9 +19202,11 @@ const _httpBootstrap = createDashboardServer({
         readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
         root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research')
       });
+      const syncManualResearch=manualResearchProjection();
       let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
         const session=marketDisplaySession();marketDisplayState();
+        syncManualResearch().catch(()=>console.error('[shortline] 人工执行记录待下次同步'));
         if(session.trading){
           marketCardState('state',buildDashboardState(false));marketCardState('mobile',buildMobileDigest(false));
           marketCardResponse('preseal','all',presealAggregate());
@@ -22262,7 +22287,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     let input;
     if(req.method==='POST'){try{input=JSON.parse(body||'');if(!input||typeof input!=='object'||Array.isArray(input))throw Error();}catch{return reply(400,{ok:false,error:'执行记录格式无效'});}}
     const raw=HD.raw,riskPolicy=Object.fromEntries(['stopPct','reducePct','takePct','maxPosPct'].filter(k=>raw[k]!==undefined).map(k=>[k,raw[k]]));
-    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'manual-loop',root:process.env.V6_MANUAL_DECISION_LOOP_DIR||path.join(__dirname,'data','manual-decision-loop'),input,
+    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'manual-loop',root:manualResearchLedgerDir(),shortlineRoot:shortlineResearchDir(),input,
       options:{workspaceRoot:stockObservationOptions().workspaceRoot,riskPolicy,validationFile:process.env.V6_MANUAL_LOOP_VALIDATION_INPUT||null}})
       .then(({httpStatus,...value})=>reply(httpStatus||(value.ok?200:422),value)).catch(()=>reply(503,{ok:false,error:'执行记录任务未完成，原记录保留'}));
   }

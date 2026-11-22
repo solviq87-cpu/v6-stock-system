@@ -222,7 +222,7 @@ function learning(ctx){
     content.replaceChildren(panes.get(key));
   };
   for(const [key,label] of sections){const control=btn(label,()=>choose(key),'secondary');buttons.set(key,control);tabs.append(control);}
-  root.append(box('战法验证与智能学习中心','三类研究共用当前权限入口；历史CSV暂在浏览器分析，人工交易复盘仍使用原服务端私有账本。原策略与生产权重不受影响。'),tabs,content);
+  root.append(box('战法验证与智能学习中心','授权后自动读取 V6 同步行情。已核对的人工成交回流到短线样本和复盘；本地 CSV 可在当前浏览器分析。'),tabs,content);
   choose('history');return root;
 }
 function sources(ctx){

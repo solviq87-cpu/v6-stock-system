@@ -8,7 +8,10 @@ const {shortlineHttp}=require('../src/server/shortline-http');
 const endpoint='/api/research/shortline';
 test('V6 real private research route uses native account, revision CAS, durable observations and empty initialization',{timeout:45000},async t=>{
  const f=await createFixture({count:1});t.after(()=>f.close());
- const first=await f.request(endpoint);
+ // Native page hydration and independent desktop/mobile reads share a worker.
+ const [manual,first,second]=await Promise.all([f.request('/api/research/manual-loop'),f.request(endpoint),f.request(endpoint)]);
+ assert.equal(manual.status,200,JSON.stringify(manual.body));assert.equal(second.status,200,JSON.stringify(second.body));
+ assert.deepEqual(first.body,second.body);
  assert.equal(first.status,200,JSON.stringify(first.body));assert.equal(first.body.ok,true);
  assert.equal(first.body.state.scope,'live');assert.equal(first.body.state.catalog.length,95);
  assert.equal(first.body.state.trades.length,0);assert.equal(first.body.state.bars.length,0);

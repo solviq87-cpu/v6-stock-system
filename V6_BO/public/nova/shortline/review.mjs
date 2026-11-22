@@ -84,7 +84,7 @@ function tradeLines(state,t,deep,allSignals,historyCache) {
   const lines=[idText(t)+' ｜ '+(t.strategy||'战法未录')+' ｜ '+result+' '+pct(t.pnl)+' ｜ '+(labels(t.violations).join('、')||(t.reviewable?'已核记录未见违规':'纪律证据待核'))];
   if (!deep) return lines;
   lines.push(plan?'冻结计划 '+value(plan.frozenAt)+'，逻辑 '+value(plan.logic)+'，计划上限价 '+value(plan.entryMax)+'，仓位上限 '+value(plan.maxPosition,'%')+'，止损 '+value(plan.stop)+'，止盈 '+value(plan.target)+'，预期盈亏比 '+value(plan.expectedRR):'开仓计划未关联，计划内执行情况待核。');
-  if(check) lines.push('开仓校验 '+check.status+'，模拟仓位上限 '+value(check.position,'%')+'，勾选 '+(labels(check.factors||check.selected).join('、')||'无')+'，命中风险 '+(labels(check.risks).join('、')||'无'));
+  if(check) lines.push('开仓校验 '+check.status+'，模拟仓位上限 '+value(check.position,'%')+'，识别因子 '+(labels(check.factors||check.selected).join('、')||'无')+'，命中风险 '+(labels(check.risks).join('、')||'无'));
   lines.push('实际入场 '+value(t.entryTime)+'，离场 '+value(t.exitTime)+'，执行仓位 '+value(t.position,'%')+'，离场原因 '+value(t.exitReason));
   for (const f of list(t.disciplineFacts)) lines.push('执行证据 · '+[f.rule,f.status,f.evidence].filter(Boolean).join(' ｜ '));
   const point=String(t.entryTime||'').replace('T',' ').slice(0,16);

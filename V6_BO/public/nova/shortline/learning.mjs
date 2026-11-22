@@ -358,6 +358,13 @@ export function renderLearning(ui,mode='trades'){
       if(tab==='ledger'){
         const rows=selected(),begin=ledgerPage*30;
         html+=panel('交易样本',button('export','导出 CSV')+button('trade','录入已结算交易',true),'<div class="learn-actions" style="justify-content:flex-start;margin-bottom:10px"><input id="learn-search" aria-label="搜索样本" placeholder="搜索标的、代码、因子" value="'+E(q)+'"><select id="learn-filter" aria-label="筛选交易">'+['全部样本','标准样本','大亏案例','违规样本','质量隔离'].map(x=>'<option '+(filter===x?'selected':'')+'>'+x+'</option>').join('')+'</select><span class="learn-small">大亏阈值 ≤ −5%</span></div>'+sampleTable(rows.slice(begin,begin+30))+pager(begin,rows.length,30,'ledger'));
+        const sourceLinks=(s.manualLoopLinks||[]).filter(r=>!q||[r.code,r.name].some(v=>String(v||'').includes(q)));
+        if(sourceLinks.length){
+          const statuses={frozen:'计划已冻结',holding:'持仓中','needs-reconciliation':'待对账',reconciled:'对账一致',reviewed:'已复盘','not-executed':'未执行'};
+          html+=panel('V6 人工执行账本','',table(['标的','执行状态','成交笔数','样本归档'],
+            sourceLinks.slice(0,100).map(r=>[E(r.name)+' · '+E(r.code),E(statuses[r.status]||r.status),val(r.fillCount),
+            r.tradeId?link('view:'+r.tradeId,'查看已结算样本'):E((r.missing||[]).join('、')||'等待成交与对账')])));
+        }
       }else if(tab==='plans'){
         html+=panel('冻结的开仓计划',button('plan','新建并冻结计划',true),table(['冻结时间（北京时间）','标的','战法','开仓上限','仓位上限','止损 / 止盈','执行记录'],plans.map(p=>[E(localTime(Date.parse(p.frozenAt)).replace('T',' ')),link('planinfo:'+p.id,p.name)+'<br><small>'+E(p.code)+'</small>',E(p.strategy),val(p.entryMax),val(p.maxPosition,'%'),E(p.stop+' / '+p.target),link('execute:'+p.id,'登记成交')]),'尚无冻结计划。开仓前记录价格、仓位和离场条件。'));
       }else if(tab==='study'){

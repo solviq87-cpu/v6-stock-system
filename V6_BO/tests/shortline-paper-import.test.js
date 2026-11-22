@@ -121,3 +121,17 @@ test('授权行情同步自动归集已结算模拟样本、生成离场日复�
   const second=await shortlineJob({root,input:{action:'v6:sync',revision:read.state.revision,payload:{code:stock.code}},snapshot});
   assert.equal(second.result.settlements.existing,1);assert.deepEqual(second.state.trades,first.state.trades);
 });
+
+test('主实例的账本轮询在无候选、未打开网页时也会生成模拟样本和离场日复盘',async t=>{
+  const x=setup(t),root=path.join(x.dir,'research'),manual=path.join(x.dir,'absent-manual');
+  const {syncManualLedger,shortlineJob}=await import('../src/research/shortline/store.mjs');
+  x.service.initialize(100000);
+  x.fill('round-b','buy',10,100,'2026-11-04T10:00:00','trend-v1');
+  x.fill('round-s','sell',11,100,'2026-11-05T10:05:00');
+  const first=await syncManualLedger(root,manual,x.dir);
+  assert.equal(first.imported,1);assert.equal(first.revision,1);
+  const second=await syncManualLedger(root,manual,x.dir);
+  assert.equal(second.changed,false);assert.equal(second.revision,1);
+  const saved=await shortlineJob({root});assert.equal(saved.state.trades.length,1);
+  assert.ok(saved.state.notes.some(n=>n.date==='2026-11-05'));
+});

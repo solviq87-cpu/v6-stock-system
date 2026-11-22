@@ -77,6 +77,37 @@ function affectedDay(state,action,result){
     return state.bars.slice(-result.count).reduce((day,b)=>day>b.date.slice(0,10)?day:b.date.slice(0,10),'');
   }
 }
+function persist(dir,state){
+  delete state.catalog;
+  delete state.permissions;
+  state.revision++;
+  const raw=JSON.stringify({digest:hash(state),state});
+  if(Buffer.byteLength(raw)>archiveLimit)throw error('研究档案超过 64 MiB，保留已有记录',413);
+  marketData.atomicWrite(path.join(dir,'research.json'),raw);
+}
+
+// An internal projection of V6's append-only manual ledger. Its clock and root
+// are supplied by the native service. Browsers cannot submit this operation.
+export async function syncManualLedger(root,ledgerRoot,accountDir){
+  const manualPresent=fs.existsSync(ledgerRoot);
+  if(!manualPresent&&!accountDir)return {changed:false};
+  const {importManualDecisionLoop}=await import('../shortline-manual-import.js');
+  const {importSettledPaperTrades}=await import('../shortline-paper-import.js');
+  const dir=workspaceStore.privateRoot(root,true);
+  return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
+    const state=load(dir);
+    const result=manualPresent?importManualDecisionLoop(state,{root:ledgerRoot}):{changed:false,imported:0,exitDays:[]};
+    const paper=accountDir?importSettledPaperTrades(state,{accountDir}):{imported:0,exitDays:[],issues:[]};
+    const changed=result.changed||paper.imported>0;
+    if(changed){
+      state.catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
+      for(const day of new Set([...(result.exitDays||[]),...paper.exitDays]))refreshDailyReview(state,day);
+      mutate(state,'learn:auto-candidate',{});
+      persist(dir,state);
+    }
+    return {changed,revision:state.revision,imported:result.imported+paper.imported,retry:!!(result.issues?.length||paper.issues.length)};
+  });
+}
 export async function shortlineJob({root,replica=false,input,snapshot}){
   const catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
   if(!input)return {ok:true,state:responseState(load(root),catalog,replica)};
@@ -101,12 +132,7 @@ export async function shortlineJob({root,replica=false,input,snapshot}){
         }
       }
     }catch(e){throw error(e.message,422);}
-    delete state.catalog;
-    delete state.permissions;
-    state.revision++;
-    const raw=JSON.stringify({digest:hash(state),state});
-    if(Buffer.byteLength(raw)>archiveLimit)throw error('研究档案超过 64 MiB，保留已有记录',413);
-    marketData.atomicWrite(path.join(dir,'research.json'),raw);
+    persist(dir,state);
     return {ok:true,state:responseState(state,catalog,replica),result:result??null};
   });
 }
