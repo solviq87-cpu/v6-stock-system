@@ -1,5 +1,5 @@
 import {h,button,empty,section,format,money,percent,direction,safeLink} from './ui.js';
-import {reviewDate,reviewCoverage,summarizeReview,stockCard} from './market.js';
+import {reviewDate,reviewCoverage,summarizeReview,stockCard,distributionPanel,publishedReasons} from './market.js';
 import {dailyReviewEvidence} from './market-evidence.js';
 import {renderSourceReviewPool} from './review-pool.js';
 import {archive} from './data/close-review-20261120.js';
@@ -282,7 +282,8 @@ export function renderCloseReview(ctx,additional){
    h('article',{},h('h3',{},label),h('p',{},description),codes.length?list(codes):null)));
   cards.replaceChildren(
    card(0,null,
-    h('div',{class:'fy-close-phase'},h('strong',{},report.phase||'阶段待判断'),h('p',{},report.phaseNote)),
+    distributionPanel(ctx.state||{},report.day),
+    h('div',{class:'fy-close-phase'},h('strong',{},report.phase||'收盘情绪观测'),h('p',{},report.phaseNote)),
     h('div',{class:'fy-close-kpis'},report.stats.map(([label,value,meta])=>
      h('article',{class:'fy-close-kpi'},h('span',{},label),h('strong',{},value),h('small',{},meta)))),
     h('p',{class:'fy-muted'},report.coverage),
@@ -290,6 +291,7 @@ export function renderCloseReview(ctx,additional){
     report.promotion?.length?h('p',{class:'fy-muted'},report.promotion.map(stage=>stage.level+' 进 '+(stage.level+1)+' '+stage.promoted+'/'+stage.total).join(' · ')):null,
     sourceLinks(report,['market','pools','ladder','turnover','north'])),
    card(1,'按涨停家数排序，同家数比较已核实的样本成交额。',
+    publishedReasons(ctx.state||{},ctx,report),
     groups.length?h('div',{class:'fy-close-themes'},groups.map(group=>
      h('details',{class:'fy-close-theme','data-review-detail':'theme:'+group.name,open:groups.indexOf(group)<1},
       h('summary',{},h('div',{},h('strong',{},group.name),h('small',{},group.classification)),

@@ -15,6 +15,7 @@ const SINA = 'https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20series=/CN_Market
 const indices = {
   '1.000985': /^中证全指(?:指数)?$/,
   '1.000001': /^(上证指数|上证综指|上证综合指数)$/,
+  '0.399001': /^(深证成指|深证成份指数|深证成指指数)$/,
   '0.399006': /^创业板指(?:数)?$/
 };
 const dateOK = s => typeof s === 'string' && /^\d{4}-\d\d-\d\d$/.test(s) &&
@@ -124,21 +125,31 @@ function checkReference(ref,inst,day,rows,receivedAt,required) {
 }
 function createShortlineQuoteFallback({request=requestResearchBytes,clock=Date.now,requestGovernor}={}) {
   const send=createResearchRequest(request,requestResearchBytes,requestGovernor);
+  let indexQuotes;
+  function closingIndexQuotes(){
+    if(!indexQuotes||clock()-indexQuotes.at>=300000){
+      const task=send('https://qt.gtimg.cn/q=sh000001,sz399001,sz399006,sh000985',{timeoutMs:10000,maxBytes:65536})
+        .then(result=>new TextDecoder('gbk').decode(result.raw)).catch(error=>{indexQuotes=null;throw error;});
+      indexQuotes={at:clock(),task};
+    }
+    return indexQuotes.task;
+  }
   async function collect(inst,day,plans,kind,reference) {
     const attempts=[];
     const failure = () => ({rows:[],...(kind==='minutes'?{bars:[]}:{}),attempts,src:null,receivedAt:null});
     const start=clock();
     if(!assessDailyBarFinality(day,{observedAt:start,now:start}).usable)return failure();
-    for(const {provider,target,parse} of plans) {
+    for(const {provider,target,parse,timeoutMs=4000} of plans) {
       const attempt={provider,requestUrl:target};
       attempts.push(attempt);
       try {
-        const response=await send(target,{timeoutMs:4000,processTimeoutMs:5500,maxBytes:600000});
-        const receivedAt=clock(),raw=response?.raw;
+        const response=await send(target,{timeoutMs,processTimeoutMs:timeoutMs+1000,maxBytes:600000});
+        let receivedAt=clock();const raw=response?.raw;
         requireThat(Number.isSafeInteger(receivedAt) && receivedAt>=start && Buffer.isBuffer(raw) && raw.length<=600000,'无有效响应或采集时刻');
         const rawHash=createHash('sha256').update(raw).digest('hex');
         Object.assign(attempt,{receivedAt,rawHash});
-        const {name,rows,step}=parse(raw.toString('utf8'));
+        const {name,rows,step}=await parse(raw.toString('utf8'));
+        if(provider==='sina-tencent'){receivedAt=clock();attempt.receivedAt=receivedAt;}
         if(kind==='minutes' && inst.role==='stock')checkReference(reference,inst,day,rows,receivedAt,provider==='sina');
         const src='V6/'+provider, period=step?step+'m':'日K';
         const volumeUnit=inst.role==='stock'?'shares':provider+'-index-volume';
@@ -164,6 +175,20 @@ function createShortlineQuoteFallback({request=requestResearchBytes,clock=Date.n
       parse(raw){const {name,data}=txData(inst,raw);return {name,rows:dailyRows(data.day,day,count,false)};}});
     plans.push({provider:'eastmoney',target:emKline(inst,day,101,count),
       parse(raw){const {name,data}=emData(inst,raw);return {name,rows:dailyRows(data.klines?.map(s=>s.split(',')),day,count,true)};}});
+    if(inst.role==='index')plans.push({provider:'sina-tencent',timeoutMs:11000,target:url(SINA.replace('series=','_series='),{symbol:inst.key,scale:'240',ma:'no',datalen:String(count)}),
+      async parse(raw){
+        const packet=/\bvar _series=\((\[[\s\S]*\])\);?\s*$/.exec(raw);
+        requireThat(packet,'新浪日K响应格式不符');
+        const rows=dailyRows(JSON.parse(packet[1]).map(b=>[b.day,b.open,b.close,b.high,b.low,b.volume]),day,count,false);
+        const response=await closingIndexQuotes();
+        const fields=[...response.matchAll(/^v_([a-z]{2}\d{6})="([^"]+)";?\s*$/gm)].find(m=>m[1]===inst.key);
+        requireThat(fields?.[1]===inst.key,'腾讯核对指数身份不符');
+        const f=fields[2].split('~'),at=require('../core/public-market').timestamp(f[30]);
+        requireThat(f[2]===inst.code&&at>=Date.parse(day+'T15:00:00+08:00')&&at<=clock()&&
+          new Date(at+28800000).toISOString().slice(0,10)===day&&Math.abs(number(f[3])-rows.at(-1).close)<0.0051&&
+          Math.abs(number(f[4])-rows.at(-2).close)<0.0051,'两源指数收盘或前收不一致');
+        return {name:identityName(inst,f[1]),rows};
+      }});
     return collect(inst,day,plans,'daily');
   }
   function readIntraday({secid,day,name,reference}={}) {

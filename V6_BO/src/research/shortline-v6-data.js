@@ -24,7 +24,8 @@ const fullPrice = b => b && [b.open,b.high,b.low,b.close].every(v => finite(v) &
 const INDEX = [
   ['trend','1.000985',/^中证全指(?:指数)?$/],
   ['sh','1.000001',/^(?:上证指数|上证综指|上证综合指数)$/],
-  ['cy','0.399006',/^创业板指(?:数)?$/]
+  ['cy','0.399006',/^创业板指(?:数)?$/],
+  ['sz','0.399001',/^(?:深证成指|深证成份指数|深证成指指数)$/]
 ];
 
 function confirmedPool(pool, day) {
@@ -359,7 +360,7 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
       ...INDEX.map(async ([,id,label])=>{
         const cached=typeof fetchIndexKline==='function'?await once('index/'+id+'/'+aShareCalendarDate(clock()),()=>fetchIndexKline(id,120)):null;
         if(indexState(cached?.value,label,day,clock())||!quoteFallback)return cached?.value;
-        const alternate=await once('verified-index/'+id+'/'+day,()=>quoteFallback.readIndex({secid:id,day,count:120,name:({'1.000985':'中证全指','1.000001':'上证指数','0.399006':'创业板指'})[id]}));
+        const alternate=await once('verified-index/'+id+'/'+day,()=>quoteFallback.readIndex({secid:id,day,count:120,name:({'1.000985':'中证全指','1.000001':'上证指数','0.399006':'创业板指','0.399001':'深证成指'})[id]}));
         return alternate?.value;
       })
     ]);
@@ -376,7 +377,7 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
     }
     const parts=await Promise.allSettled([
       marketBackfill?marketBackfill({day,review:inputs.report,previousPool:inputs.previousPool,clsPool:state.ztReviewPool}):null,
-      breadthFallback?breadthFallback({day,latestClosedDay,state,needBreadth:base?.adv==null||base?.dec==null,needAmount:base?.amount==null}):null
+      breadthFallback?breadthFallback({day,latestClosedDay,state,needBreadth:base?.adv==null||base?.dec==null,needAmount:base?.amount==null,includeDistribution:true}):null
     ]);
     const sentiment=parts[0].value,width=parts[1].value,now=clock();
     const byDate=new Map();
@@ -399,6 +400,12 @@ function createShortlineV6Reader({getState,readCloseReviewEvidence,fetchHistory=
     if(!sentiment?.rows?.length&&marketBackfill)sources.push({name:'涨跌停与历史反馈',status:'retrying'});
     if(!Object.keys(valid).length&&!(width?.coverage||[]).some(x=>x.day===day&&(finite(x.adv)||finite(x.amountCny)))&&!base?.adv&&breadthFallback)sources.push({name:'市场宽度与成交额',status:'retrying'});
     return {rows:[...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date)),sources:[...new Map(sources.map(s=>[s.name,s])).values()],
+      indexSeries:INDEX.flatMap(([,code,label],i)=>{
+        const raw=inputs.indexResults[i],v=indexState(raw,label,day,now);
+        return v?[{code,name:v.name,source:v.source,knownAt:v.receivedAt,day,trend:v.trend,change:v.change,
+          bars:raw.rows.filter(b=>b.date<=day).slice(-20).map(b=>[b.date,b.close])}]:[];
+      }),
+      closeReasons:[...(width?.closeReasons||[]),...(inputs.report?.reasons||[]).map(r=>({...r,day}))],
       coverage:[...(width?.coverage||[]),...(base?.localBreadth?[base.localBreadth]:[])]};
   }
   async function read({code,day,previousDay}={}){

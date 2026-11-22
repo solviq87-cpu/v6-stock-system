@@ -41,7 +41,34 @@ function marketValues(history){
   return history.map(r=>({...Object.fromEntries(Object.entries(r.metrics).map(([k,v])=>[k,v.value])),date:r.date,previousDay:r.previousDay,
     knownAt:Math.max(...Object.values(r.metrics).map(v=>v.knownAt))}));
 }
-function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPublicReads=false,file,clock=Date.now}){
+// The collector has already reconciled the dated supplier batches. Share one complete
+// population with every screen, preserving board heights and the scope of that batch.
+function closeWatchFrom(rows,day,now,reasons,previous){
+  const pools=rows.filter(r=>r.date===day).flatMap(r=>r.structurePools||[]);
+  const valid=pools.filter(p=>p.date===day&&p.complete===true&&typeof p.source==='string'&&p.source.trim()&&
+    typeof p.scope==='string'&&p.scope.trim()&&Number.isSafeInteger(p.knownAt)&&p.knownAt>=Date.parse(day+'T15:00:00+08:00')&&p.knownAt<=now&&
+    Array.isArray(p.sealed)&&p.sealed.length===p.totalCount&&p.sealed.length<=1500&&
+    p.sealed.every(x=>/^\d{6}$/.test(x?.code))&&new Set(p.sealed.map(x=>x.code)).size===p.totalCount);
+  const withLevels=p=>p.sealed.every(r=>Number.isSafeInteger(r.level)&&r.level>0);
+  const pool=valid.sort((a,b)=>Number(withLevels(b))-Number(withLevels(a)))[0];
+  if(!pool)return null;
+  const byCode=new Map((previous?.day===day?previous.items:[]).filter(r=>r.reasonRaw).map(r=>[r.code,r]));
+  const priority=source=>source==='同花顺涨停聚焦'?3:source==='同花顺 F10'?2:1;
+  for(const r of reasons||[]){
+    if(r.day!==day||!['同花顺涨停聚焦','同花顺 F10','财联社'].includes(r.source)||typeof r.text!=='string'||!r.text.trim()||
+       priority(byCode.get(r.code)?.reasonSource)>priority(r.source))continue;
+    byCode.set(r.code,{reasonRaw:r.text.trim().slice(0,700),reasonSource:r.source,reasonDateStatus:'matched',reasonTradeDate:day});
+  }
+  return {day,knownAt:pool.knownAt,source:pool.source,scope:pool.scope,complete:true,items:pool.sealed.map(r=>({
+    code:r.code,name:typeof r.name==='string'?r.name.slice(0,64):r.code,
+    level:Number.isSafeInteger(r.level)&&r.level>0?r.level:null,
+    sector:r.refs?.find(x=>typeof x?.name==='string')?.name?.slice(0,80)||'',
+    firstSeal:typeof r.firstSealTime==='string'?r.firstSealTime.slice(0,8):null,
+    breakCount:Number.isSafeInteger(r.breakCount)&&r.breakCount>=0?r.breakCount:null,
+    ...(byCode.has(r.code)?Object.fromEntries(['reasonRaw','reasonSource','reasonDateStatus','reasonTradeDate'].map(k=>[k,byCode.get(r.code)[k]])):{})
+  }))};
+}
+function createMarketRecovery({collect,save,getDay,onCollected=()=>{},isReplica=()=>false,replicaPublicReads=false,file,clock=Date.now}){
   let state={history:[],sources:[],referenceDay:null,phase:'scheduled',lastAttemptAt:null,lastSuccessAt:null,nextRetryAt:0},busy=null,misses=0;
   let readMtime=0,lastDiskRead=-Infinity;
   function loadPublic(){
@@ -65,6 +92,7 @@ function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPu
     const {history,...status}=state;
     const referenceDay=day||status.referenceDay;
     return {...status,referenceDay,phase:referenceDay!==status.referenceDay?'scheduled':status.phase,metrics,
+      closeWatch:state.closeWatch?.day===referenceDay?state.closeWatch:null,
       ...(state.emotion?.date>referenceDay?{emotion:null}:{})};
   }
   async function run(day){
@@ -74,12 +102,19 @@ function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPu
       if(isReplica()&&!replicaPublicReads)return [];
       const now=clock(),rows=(result.rows||[]).filter(r=>r.date<=day&&Number.isSafeInteger(r.knownAt)&&r.knownAt<=now);
       mergePublicRows(state,rows,day,now);
+      const watch=closeWatchFrom(rows,day,now,result.closeReasons,state.closeWatch);
+      if(watch)state.closeWatch=watch;
+      if(result.indexSeries?.length){
+        const series=new Map((state.indexSeries||[]).filter(r=>r.day===day).map(r=>[r.code,r]));
+        for(const r of result.indexSeries)if(r.day===day&&r.knownAt<=now)series.set(r.code,r);
+        state.indexSeries=[...series.values()];
+      }
       state.sources=(result.sources||[]).slice(0,36).map(s=>({name:sourceName(s,'V6 原始数据'),status:s.status==='available'?'available':'retrying'}));
       if(Array.isArray(result.coverage)){
         const retained=new Map();
         const rows=[...(state.coverage||[]),...result.coverage].filter(x=>x&&dayOk(x.day)&&x.day<=day&&Number.isSafeInteger(x.knownAt)&&x.knownAt<=now)
           .sort((a,b)=>a.day.localeCompare(b.day)||a.knownAt-b.knownAt);
-        for(const x of rows)retained.set(x.kind+'/'+x.scope,Object.fromEntries(['kind','scope','source','day','observed','total','adv','dec','flat','amountCny','change','meanChange','knownAt','complete']
+        for(const x of rows)retained.set(x.kind+'/'+x.scope,Object.fromEntries(['kind','scope','source','day','observed','total','adv','dec','flat','upLimit','downLimit','quoteAt','amountCny','change','meanChange','knownAt','complete']
           .filter(k=>x[k]!=null).map(k=>[k,x[k]])));
         state.coverage=[...retained.values()].sort((a,b)=>b.day.localeCompare(a.day)||b.knownAt-a.knownAt).slice(0,12);
       }
@@ -108,6 +143,7 @@ function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPu
       misses=complete?0:misses+1;
       state.nextRetryAt=now+(complete?4*3600000:Math.min(30,2**Math.min(misses,5))*60000);
       if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
+      if(rows.length||result.coverage?.length)onCollected(day);
       return rows;
     }catch{
       misses++;state.phase='partial';state.nextRetryAt=clock()+Math.min(30,2**Math.min(misses,5))*60000;
@@ -119,6 +155,8 @@ function createMarketRecovery({collect,save,getDay,isReplica=()=>false,replicaPu
     if(isReplica()&&clock()-lastDiskRead>=60000){lastDiskRead=clock();loadPublic();}
     if(isReplica()&&!replicaPublicReads||!dayOk(day))return Promise.resolve([]);
     if(busy)return busy;
+    if(state.referenceDay===day&&state.phase==='ready'&&state.closeWatch?.day===day&&state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day))
+      return Promise.resolve(cachedDay===day?cachedRows:[]);
     if(state.referenceDay===day&&clock()<state.nextRetryAt)return Promise.resolve(cachedDay===day?cachedRows:[]);
     if(state.referenceDay!==day)misses=0;
     busy=run(day).finally(()=>{busy=null;});

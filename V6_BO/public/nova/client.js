@@ -35,20 +35,26 @@ export function retainMarket(previous,incoming) {
 export class ApiError extends Error { constructor(message,status=0,body=null){super(message);this.name='ApiError';this.status=status;this.body=body;} }
 // Five-second cadence reads only the existing authenticated cloud snapshot.
 // It does not call a market provider, trade or refresh the original quote time.
-export function createSnapshotPoller({read,signal,page=document,setInterval:repeat=globalThis.setInterval,clearInterval:cancel=globalThis.clearInterval}) {
- let timer=null,busy=false,stopped=false;
- const visible=()=>page.visibilityState==='visible';
+export function createSnapshotPoller({read,signal,page=document,network=globalThis.window,delay=()=>5000,setInterval:repeat=globalThis.setInterval,clearInterval:cancel=globalThis.clearInterval}) {
+ let timer=null,busy=false,stopped=false,cadence=0;
+ const visible=()=>page.visibilityState==='visible'&&network?.navigator?.onLine!==false;
  const clear=()=>{if(timer!==null){cancel(timer);timer=null;}};
+ function schedule(){
+  if(stopped||signal?.aborted||!visible()){clear();return;}
+  const ms=Math.max(1000,Math.min(2147483647,delay()));
+  if(timer!==null&&cadence===ms)return;
+  clear();cadence=ms;timer=repeat(run,ms);
+ }
  async function tick(){
   if(stopped||signal?.aborted||!visible()||busy)return;
-  busy=true;try{await read();}finally{busy=false;}
+  busy=true;try{await read();}finally{busy=false;schedule();}
  }
  const run=()=>{void tick().catch(()=>{});};
- function visibility(){clear();if(stopped||signal?.aborted||!visible())return;timer=repeat(run,5000);run();}
- function stop(){stopped=true;clear();page.removeEventListener('visibilitychange',visibility);signal?.removeEventListener('abort',stop);}
+ function visibility(){clear();if(stopped||signal?.aborted||!visible())return;schedule();run();}
+ function stop(){stopped=true;clear();page.removeEventListener('visibilitychange',visibility);network?.removeEventListener('online',visibility);network?.removeEventListener('offline',clear);signal?.removeEventListener('abort',stop);}
  if(signal?.aborted)return stop;
  page.addEventListener('visibilitychange',visibility);signal?.addEventListener('abort',stop,{once:true});
- if(visible())timer=repeat(run,5000);
+ network?.addEventListener('online',visibility);network?.addEventListener('offline',clear);schedule();
  return stop;
 }
 
