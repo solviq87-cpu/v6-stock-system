@@ -300,7 +300,7 @@ export function limitReasonEvidence(row,text,tradeDate){
  return {reason,reasonSource:source,reasonDay:day};
 }
 export const reviewSupplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>
- ({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
+ ({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',tencent:'腾讯',sina:'新浪',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
 export function dailyReviewEvidence(state={}){
  const readonly=Array.isArray(state.ztReviewPool),sourceEvidence=readonly&&state.ztReviewPoolMeta&&typeof state.ztReviewPoolMeta==='object'&&!Array.isArray(state.ztReviewPoolMeta)?state.ztReviewPoolMeta:null;
  const day=reviewDay(readonly?sourceEvidence?.tradeDate:state.ztDay),reviewMatched=!!day&&reviewDay(state.review?.date)===day;

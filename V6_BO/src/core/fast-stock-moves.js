@@ -5,6 +5,7 @@ const {aShareCalendarDate}=require('./a-share-calendar');
 const WINDOW_MS=60000;
 const MIN_GAP_MS=5000;
 const THRESHOLD_PCT=1;
+const RECENT_MS=180000;
 
 function phaseAt(at){
  const bj=new Date(at+28800000),m=bj.getUTCHours()*60+bj.getUTCMinutes();
@@ -16,10 +17,12 @@ function phaseAt(at){
 }
 
 function createFastStockMoves(){
- const history=new Map();
- function observe(codes,rows,now){
+ const history=new Map(),recent=new Map(),sessions=new Map();
+ let day='';
+ function observe(codes,rows,now,{startedAt=now,failed=false}={}){
   const phase=phaseAt(now),tradeDate=aShareCalendarDate(now),observations=new Map(),seen=new Set(),duplicates=new Set();
   const requested=new Set(codes),items=[];
+  if(day!==tradeDate){recent.clear();sessions.clear();day=tradeDate;}
   let comparable=0;
   if(phase)for(const row of rows){
    if(!requested.has(row?.code))continue;
@@ -30,8 +33,11 @@ function createFastStockMoves(){
   }
   for(const code of duplicates)observations.delete(code);
   for(const code of history.keys())if(!observations.has(code))history.delete(code);
+  const agesBySource=new Map();
   for(const [code,row] of observations){
    const {quoteAt,price,quoteSource}=row;
+   if(!agesBySource.has(quoteSource))agesBySource.set(quoteSource,[]);
+   agesBySource.get(quoteSource).push(now-quoteAt);
    const recorded=history.get(code),latest=recorded?.points.at(-1);
    const same=recorded?.tradeDate===tradeDate&&recorded.phase===phase&&recorded.source===quoteSource;
    // A provenance change, backward clock, conflicting same-timestamp observation,
@@ -54,13 +60,33 @@ function createFastStockMoves(){
    comparable++;
    const risePct=(price/base.price-1)*100;
    if(!Number.isFinite(risePct)||risePct+1e-10<THRESHOLD_PCT)continue;
-   items.push({code,name:name||code,price,pct:Number.isFinite(row.pct)?row.pct:null,
+   const item={code,name:name||code,price,pct:Number.isFinite(row.pct)?row.pct:null,
     risePct:Number(risePct.toFixed(3)),basePrice:base.price,baseAt:base.at,
-    spanMs,quoteAt,vendorQuoteAt:quoteAt,receivedAt:row.receivedAt,quoteSource,canTrade:false,canNotify:false});
+    spanMs,quoteAt,vendorQuoteAt:quoteAt,receivedAt:row.receivedAt,quoteSource,canTrade:false,canNotify:false};
+   items.push(item);
+   const previous=recent.get(code);
+   // Repeated delivery of an unchanged supplier timestamp cannot extend retention.
+   if(previous?.quoteAt!==quoteAt||previous?.phase!==phase)recent.set(code,{...item,phase,detectedAt:now});
   }
   items.sort((a,b)=>b.risePct-a.risePct||b.quoteAt-a.quoteAt||a.code.localeCompare(b.code));
+  for(const [code,item] of recent)if(!requested.has(code)||item.phase!==phase||now-item.detectedAt>=RECENT_MS)recent.delete(code);
+  const currentCodes=new Set(items.map(item=>item.code));
+  const recentItems=[...recent.values()].filter(item=>!currentCodes.has(item.code))
+   .sort((a,b)=>b.detectedAt-a.detectedAt||a.code.localeCompare(b.code)).slice(0,20);
+  if(phase){
+   const old=sessions.get(phase)||{phase,rounds:0,requested:0,observed:0,comparable:0,failedRounds:0};
+   sessions.set(phase,{phase,rounds:old.rounds+1,requested:old.requested+requested.size,
+    observed:old.observed+observations.size,comparable:old.comparable+comparable,
+    failedRounds:old.failedRounds+Number(failed),checkedAt:now});
+  }
+  const sources=[...agesBySource].map(([source,ages])=>{
+   ages.sort((a,b)=>a-b);
+   return {source,observed:ages.length,medianAgeMs:ages[Math.ceil(ages.length*0.5)-1],
+    p95AgeMs:ages[Math.ceil(ages.length*0.95)-1]};
+  });
   return {tradeDate,phase,checkedAt:now,requested:requested.size,observed:observations.size,comparable,
-   count:items.length,items:items.slice(0,20),windowSeconds:WINDOW_MS/1000,thresholdPct:THRESHOLD_PCT};
+   count:items.length,items:items.slice(0,20),recentItems,sources,fetchMs:Math.max(0,now-startedAt),
+   failed,sessionTotals:[...sessions.values()],windowSeconds:WINDOW_MS/1000,thresholdPct:THRESHOLD_PCT};
  }
  return observe;
 }

@@ -156,6 +156,7 @@ function createMarketRequestGovernor({
   function bucketFor(provider) {
     if (!buckets.has(provider)) buckets.set(provider, {
       provider, active: 0, queue: [], lastStartAt: null,
+      responses403: 0, responses429: 0,
       cooldownUntil: 0, restrictionStatus: null, timer: null
     });
     return buckets.get(provider);
@@ -297,6 +298,8 @@ function createMarketRequestGovernor({
     if (status !== 429 && status !== 403) return;
     if (!refreshState()) throw unavailableError(provider);
     const bucket = bucketFor(provider), at = now();
+    if (status === 403) bucket.responses403++;
+    else bucket.responses429++;
     const minimum = status === 429 ? cooldown429Ms : cooldown403Ms;
     bucket.cooldownUntil = Math.max(bucket.cooldownUntil, at + Math.max(minimum, retryAfterMs(headers, at)));
     bucket.restrictionStatus = status;
@@ -312,6 +315,8 @@ function createMarketRequestGovernor({
       provider, active: bucket ? bucket.active : 0, queued: bucket ? bucket.queue.length : 0,
       cooldownUntil: stateUnavailable ? Number.MAX_SAFE_INTEGER : bucket ? bucket.cooldownUntil : 0,
       cooldownLeftMs: stateUnavailable ? Number.MAX_SAFE_INTEGER : bucket ? Math.max(0, bucket.cooldownUntil - now()) : 0,
+      restrictionStatus: bucket?.restrictionStatus ?? null,
+      responses403: bucket?.responses403 ?? 0, responses429: bucket?.responses429 ?? 0,
       lastStartAt: bucket ? bucket.lastStartAt : null, stateUnavailable
     });
   }

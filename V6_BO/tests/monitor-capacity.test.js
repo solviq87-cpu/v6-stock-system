@@ -14,18 +14,19 @@ const positions = n => Object.fromEntries(codes(n).map(code => [code, { shares: 
 // account writes, network or notifications. Preserve state between invocations.
 function monitor(n, respond = requested => requested.map(code => ({ code, price: 10,
   quoteAt: now - 1000, receivedAt: now, quoteSource: 'tencent', canTrade: true }))) {
-  const requests = [];
+  const requests = [], ingested = [], watch = [];
   const c = vm.createContext({ require: productionRequire, Date: { now: () => now },
     S: { loop: { running: false }, candidatePool: [{ code: '000001' }], sectors: [], inflowHistory: new Map() },
     PAPER: { pool: { positions: positions(n) }, pre: { positions: {} } }, monitorCodes: [],
-    ingestPx() {},
+    fastStockWatch: { read: () => watch.map(code => ({ code })) },
+    ingestPx(rows) { ingested.push(Array.from(rows, row => row.code)); },
     em: { async fetchBatchSnapshot(requested) { requests.push(Array.from(requested)); return respond(requested); } }
   });
   const a = source.indexOf('const observeFastStockMoves =');
   const b = source.indexOf('    const alerts = [];', a);
   assert.ok(a >= 0 && b > a);
   vm.runInContext(source.slice(a, b) + '\n} finally { S.loop.running = false; } }', c);
-  return { c, requests, run: () => c.tick() };
+  return { c, requests, ingested, watch, run: () => c.tick() };
 }
 
 test('normal monitoring keeps pool-external holdings before candidates and deduplicates across accounts', async () => {
@@ -43,10 +44,24 @@ test('normal monitoring keeps pool-external holdings before candidates and dedup
 
 test('221 holdings rotate within the unchanged 220-symbol budget instead of starving the last stock', async () => {
   const h = monitor(221);
+  h.watch.push('300001');
   await h.run(); await h.run();
   assert.ok(h.requests.every(request => request.length === 220));
   assert.equal(new Set(h.requests.flat()).size, 221);
   assert.ok(h.requests.every(request => !request.includes('000001')), 'holdings retain priority');
+  assert.ok(h.requests.every(request => !request.includes('300001')));
+});
+
+test('private watch uses spare capacity without entering strategy prices or public coverage', async () => {
+  const h = monitor(1);
+  h.watch.push('300001');
+  await h.run();
+  assert.deepEqual(h.requests[0], ['600000', '000001', '300001']);
+  assert.deepEqual(h.ingested[0], ['600000', '000001']);
+  assert.equal(h.c.S.fastStockMoves.watchRequested, 1);
+  assert.equal(h.c.S.fastStockMoves.observed, 3);
+  assert.equal(h.c.S.marketFastStockMoves.observed, 1);
+  assert.equal(h.c.S.marketFastStockMoves.watchRequested, undefined);
 });
 
 test('overflow records an explicit incomplete snapshot and retains original quote ages', async () => {

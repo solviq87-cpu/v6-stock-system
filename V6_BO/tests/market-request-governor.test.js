@@ -204,7 +204,12 @@ test('state is a detached read-only snapshot without raw URLs or response header
   assert.equal(before.lastStartAt, null);
   assert.throws(() => { before.queued = 100; }, TypeError);
   const snapshot = governor.state(EM);
-  assert.deepEqual(Object.keys(snapshot).sort(), ['active', 'cooldownLeftMs', 'cooldownUntil', 'lastStartAt', 'provider', 'queued', 'stateUnavailable']);
+  assert.deepEqual(Object.keys(snapshot).sort(), ['active', 'cooldownLeftMs', 'cooldownUntil', 'lastStartAt', 'provider', 'queued', 'responses403', 'responses429', 'restrictionStatus', 'stateUnavailable']);
+  assert.throws(() => governor.checkResponse(EM, 429, {}));
+  assert.throws(() => governor.checkResponse(EM, 403, {}));
+  assert.equal(governor.state(EM).responses429, 1);
+  assert.equal(governor.state(EM).responses403, 1);
+  assert.equal(governor.state(EM).restrictionStatus, 403);
   assert.ok(!JSON.stringify(snapshot).includes('secret'));
   assert.ok(!JSON.stringify(snapshot).includes('eastmoney.com'));
   assert.equal(isMarketRestrictionError(Error('429')), false);

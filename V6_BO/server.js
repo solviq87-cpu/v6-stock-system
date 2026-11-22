@@ -6279,13 +6279,15 @@ function inferLeader() {
 
 // ---------------- 3. 5秒监控循环 ----------------
 let monitorCodes = [];
+const { createFastStockWatch, isWatchCode, MAX_WATCH } = require('./src/core/fast-stock-watch');
+const fastStockWatch = createFastStockWatch(path.join(__dirname, 'data', 'fast-stock-watch.json'));
 const observeFastStockMoves = require('./src/core/fast-stock-moves').createFastStockMoves();
 const observeMarketFastStockMoves = require('./src/core/fast-stock-moves').createFastStockMoves();
-function publishFastStockMoves(plan, rows, now) {
-  const moves = observeFastStockMoves(plan.codes, rows, now);
-  const marketMoves = observeMarketFastStockMoves(plan.marketCodes, rows, now);
+function publishFastStockMoves(plan, rows, now, timing) {
+  const moves = observeFastStockMoves(plan.codes, rows, now, timing);
+  const marketMoves = observeMarketFastStockMoves(plan.marketCodes, rows, now, timing);
   if (moves.phase) {
-    S.fastStockMoves = moves;
+    S.fastStockMoves = {...moves, watchRequested:plan.watchRequested, watchTotal:plan.watchTotal};
     S.marketFastStockMoves = marketMoves;
   }
 }
@@ -6298,29 +6300,35 @@ async function tick() {
     //    把各板块领涨股（东财板块流给的 leaderCode，前20个板块）并入监控集，让板块强势股也能被盘中扫描。
     // 持仓优先取原时点可核验的报价；即使已经移出候选池，止损巡检也不能失去覆盖。
     const { monitorPlan, monitorCoverage } = require('./src/core/monitor-capacity');
-    const plan = monitorPlan(PAPER, S.candidatePool, S.sectors, S.loop.monitorNextOffset);
+    let watch = [];
+    try { watch = fastStockWatch.read().map(item => item.code); }
+    catch { /* A damaged optional watch must not stop the holding patrol. */ }
+    const plan = monitorPlan(PAPER, S.candidatePool, S.sectors, S.loop.monitorNextOffset, watch);
     const codes = plan.codes;
-    monitorCodes = codes;
+    monitorCodes = plan.strategyCodes;
     S.loop.monitorNextOffset = plan.nextOffset;
     S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetching');
     // A capacity-deferred symbol is a sampling gap, not an uninterrupted funds window.
-    const requestedCodes = new Set(codes);
+    const requestedCodes = new Set(plan.strategyCodes);
     for (const code of S.inflowHistory.keys()) if (!requestedCodes.has(code)) S.inflowHistory.delete(code);
+    const startedAt = Date.now();
     let snaps;
     try { snaps = await em.fetchBatchSnapshot(codes); }
     catch (e) {
       S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
-      publishFastStockMoves(plan, [], Date.now());
+      publishFastStockMoves(plan, [], Date.now(), {startedAt, failed:true});
       for (const code of codes) S.inflowHistory.delete(code);
       throw e;
     }
     S.loop.monitor = monitorCoverage(plan, snaps, Date.now(), 'observed', PAPER);
+    const now = Date.now();
+    publishFastStockMoves(plan, snaps, now, {startedAt});
+    // Watch-only quotes cannot alter the price table, strategy or paper inputs.
+    snaps = snaps.filter(row => requestedCodes.has(row.code));
     // An omitted stock is an observation gap, even when other stocks succeeded.
     const returnedCodes = new Set(snaps.map(row => row.code));
-    for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
+    for (const code of requestedCodes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
-    const now = Date.now();
-    publishFastStockMoves(plan, snaps, now);
     const alerts = [];
     for (const s of snaps) {
       if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
@@ -23014,6 +23022,32 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
 
   if (p === '/api/state') {
     return json(res, marketCardState('state',buildDashboardState(isEditorReq(req,''))));
+  }
+  if (p === '/api/fast-stock-moves' && req.method === 'GET') {
+    const servedAt = Date.now(), session = marketDisplaySession(servedAt);
+    const cached = session.trading ? null : closingCardSnapshots.read('state:all','marketFastStockMoves');
+    const publicMoves = cached?.value ?? S.marketFastStockMoves ?? null;
+    const edit = isEditorReq(req, '');
+    const fastStockMoves = edit ? S.fastStockMoves ?? publicMoves : publicMoves;
+    res.setHeader('Cache-Control', 'no-store');
+    return json(res, { schemaVersion:1, servedAt, trading:session.trading, isSnapshot:!session.trading,
+      fastStockMoves, ...(edit ? { providerLimits:em.backoffStats().marketRequests } : {}) });
+  }
+  if (p === '/api/fast-stock-moves/watch' && ['GET','POST'].includes(req.method)) {
+    if (!requireEditor(res, req.__tok, req)) return;
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      if (req.method === 'GET') return json(res, { ok:true, items:fastStockWatch.read(), limit:MAX_WATCH });
+      if (isReplica()) return json(res, { ok:false, error:'请在主服务调整自选' });
+      const input = JSON.parse(body || '{}');
+      if (!isWatchCode(input?.code) || typeof input.enabled !== 'boolean')
+        return json(res, { ok:false, error:'请选择有效的 A 股代码与关注状态' });
+      const code = input.code;
+      const name = S.stocks.find(item => item.code === code)?.name || S.candidatePool.find(item => item.code === code)?.name;
+      return json(res, { ok:true, items:fastStockWatch.set(code,input.enabled,name), limit:MAX_WATCH });
+    } catch (error) {
+      return json(res, { ok:false, error:error.message==='watch capacity' ? '自选监控最多 '+MAX_WATCH+' 只' : '自选监控暂不可用' });
+    }
   }
   // V6 参考图首页四大指数：使用腾讯公开行情快照；缺失/异常时返回 unavailable，绝不填充演示数字。
   if (p === '/api/reference-indexes') {

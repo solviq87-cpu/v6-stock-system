@@ -5,7 +5,7 @@ function heldCodes(accounts) {
   return [...new Set(Object.values(accounts || {}).flatMap(account =>
     Object.keys(account?.positions || {}).filter(code => /^\d{6}$/.test(code))))];
 }
-function monitorPlan(accounts, candidates, sectors, offset = 0) {
+function monitorPlan(accounts, candidates, sectors, offset = 0, watch = []) {
   const held = heldCodes(accounts);
   // Normal-sized portfolios retain their existing request order. Oversized
   // portfolios rotate a stable order, without increasing the provider budget.
@@ -24,8 +24,13 @@ function monitorPlan(accounts, candidates, sectors, offset = 0) {
   ].filter(code => typeof code === 'string' && /^\d{6}$/.test(code)));
   const heldSet = new Set(held);
   for (const code of optional) if (requested.size < MONITOR_CAPACITY) requested.add(code);
-  return { codes: [...requested], held, nextOffset,
-    marketCodes: [...requested].filter(code => optional.has(code)),
+  const strategyCodes = [...requested];
+  // An optional watch may fill spare places once the existing strategy and
+  // holding plan has been allocated. Its quotes are for observation only.
+  for (const code of watch) if (requested.size < MONITOR_CAPACITY) requested.add(code);
+  return { codes: [...requested], strategyCodes, held, nextOffset,
+    watchRequested: watch.filter(code => requested.has(code)).length, watchTotal: watch.length,
+    marketCodes: strategyCodes.filter(code => optional.has(code)),
     optional: [...optional].filter(code => !heldSet.has(code)) };
 }
 function monitorCoverage(plan, rows, now, status = 'observed', accounts = null) {
