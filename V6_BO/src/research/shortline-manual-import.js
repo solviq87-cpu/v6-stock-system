@@ -115,6 +115,7 @@ function importManualDecisionLoop(state,{root=process.env.V6_MANUAL_DECISION_LOO
   const existing=new Map((state.trades||[]).map(t=>[t.id,t]));
   const links=[],changedRows=new Map(),withdrawn=new Set(),days=new Set(),notes=[];
   for(const p of view.plans){
+    if(state.ledgerStartAt&&p.frozenAt<=state.ledgerStartAt)continue;
     const rowId=idOf(p),old=existing.get(rowId);
     if(old && !(old.source===SOURCE&&old.manualDecision?.planId===p.id)){
       report.issues.push('原生计划编号与其他来源样本冲突，原投影保留');return report;

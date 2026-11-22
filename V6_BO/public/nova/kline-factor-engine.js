@@ -1,3 +1,5 @@
+import {selectSignalWindow} from './shortline/signal-window.mjs';
+import {settingsAt} from './shortline/settings.mjs';
 /**
  * V6 historical K-line research engine. Point-in-time observations only.
  * No production weights, trade permissions or broker interfaces are exposed.
@@ -126,12 +128,16 @@ const pct = (a,b) => known(a)&&known(b)&&b>0 ? round(100*(a/b-1)) : null;
 function closeAtLimit(r) { return known(r?.limitUp) && known(r.close) ? Math.round(r.close*100) === Math.round(r.limitUp*100) : null; }
 // A date prefix is not an evidence timestamp. Daily inputs must declare a valid,
 // completed Shanghai session; this validates the declaration, not its provider.
-function completedEvidence(row,date) {
-  if(!row?.source||typeof row.asOf!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.asOf)||!day(row.asOf.slice(0,10)))return false;
-  const stamp=Date.parse(row.asOf);
-  if(!Number.isFinite(stamp)||stamp>Date.now())return false;
-  const china=new Date(stamp+8*60*60*1000).toISOString();
-  return china.slice(0,10)===date&&china.slice(11,16)>='15:00';
+function originalClock(row){
+  if(!row?.source||typeof row.asOf!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(row.asOf)||!day(row.asOf.slice(0,10)))return NaN;
+  return Date.parse(row.asOf);
+}
+function historyVisible(row,cutoff){
+  const t=originalClock(row);
+  return Number.isFinite(t)&&t>=Date.parse(row.date+'T15:00:00+08:00')&&t<=cutoff;
+}
+function completedEvidence(row,date,cutoff=Date.now()){
+  return historyVisible(row,cutoff)&&new Date(originalClock(row)+8*3600000).toISOString().slice(0,10)===date;
 }
 const OUTCOME_NAMES = {'首板套利':'first-board','连板接力':'relay','断板反包':'reclaim','龙头首阴':'leader-red','弱转强':'weak-strong','二波启动':'second-wave','龙头战法':'leader'};
 function features(rows,i,market,sector){
@@ -167,10 +173,18 @@ function features(rows,i,market,sector){
 }
 function intradayEvidence(minuteBars,prev,limitUp) {
   if(!minuteBars?.length||!prev||!known(prev.close))return null;
-  const seq=[...minuteBars].sort((a,b)=>a.time.localeCompare(b.time));
+  let seq=[...minuteBars].sort((a,b)=>a.time.localeCompare(b.time));
   const periods=[...new Set(seq.map(x=>x.period))];
-  if(periods.length!==1 || seq[0].time>'09:35' || seq.at(-1).time<'14:55' ||
-     seq.length<(periods[0].includes('5')?40:180))return null;
+  if(periods.length!==1)return null;
+  const step=periods[0].includes('5')?5:1,size=240/step;
+  // Declared start-stamped and end-stamped series both exist. Require a
+  // complete grid of the chosen convention; an auction anchor is separate.
+  if(seq.length===size+1&&seq[0].time==='09:30')seq=seq.slice(1);
+  const offset=seq[0]?.time==='09:30'?0:step;
+  if(seq.length!==size||!seq.every((r,i)=>{
+    const minute=(i<size/2?570:780)+(i%(size/2))*step+offset;
+    return r.time===String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
+  }))return null;
   const low=Math.min(...seq.filter(x=>x.time<='13:30').map(x=>x.low));
   const intermediate=seq.filter(x=>x.time>='10:30'&&x.time<='14:00');
   const half=known(limitUp)&&intermediate.some(x=>x.close>=prev.close*1.03&&x.close<limitUp*.99);
@@ -206,47 +220,85 @@ function excursions(rows, i, horizon, marketTradingDays, dayIndex, barsByDate, m
   const base=rows[i].close,high=Math.max(...after.map(x=>x.high)),low=Math.min(...after.map(x=>x.low));
   let peak=base,draw=0;
   for(const x of after){peak=Math.max(peak,x.close);draw=Math.max(draw,100*(peak-x.close)/peak);}
-  return {horizon,endDate:after.at(-1).date,highestPct:pct(high,base),lowestPct:pct(low,base),closePct:pct(after.at(-1).close,base),
+  return {horizon,containsShock:after.some(x=>x.blackSwan===true||x.repeatable===false),
+    knownAt:new Date(Math.max(...after.flatMap(x=>[originalClock(x),originalClock(marketByDate.get(x.date))]))).toISOString(),
+    endDate:after.at(-1).date,highestPct:pct(high,base),lowestPct:pct(low,base),closePct:pct(after.at(-1).close,base),
     pathMaxDrawdownPct:round(draw),drawdownBasis:'仅每日收盘价的峰谷回撤（非日内最大回撤）',
     calendarBasis:'导入全A日期序列，尚未由权威交易日历独立校准',entry:'信号收盘价观察基准，无次日成交模拟',
     sealed:null,closedAtLimit:closeAtLimit(after[0]),broken:closeAtLimit(rows[i])===null||closeAtLimit(after[0])===null?null:closeAtLimit(rows[i])===true&&closeAtLimit(after[0])===false,
     rebound:null,secondWave:null,limitDownCrash:null};
 }
 function indexed(rows) { const by=new Map();for(const r of rows){if(!by.has(r.code))by.set(r.code,[]);by.get(r.code).push(r);}return by; }
-export function labelHistory(stocks, sectors = [], markets = [], minutes = []) {
+export function labelHistory(stocks, sectors = [], markets = [], minutes = [],{decisionAt,deferWindow=false}={}) {
   if (!Array.isArray(stocks)||!stocks.length)throw Error('需要至少一条历史日K');
   const sectorMap=indexed(sectors),minuteMap=new Map();
   for(const x of minutes){const key=`${x.code}|${x.date}`;if(!minuteMap.has(key))minuteMap.set(key,[]);minuteMap.get(key).push(x);}
   const marketRows=[...markets].sort((a,b)=>a.date.localeCompare(b.date));
-  for(let i=0;i<marketRows.length;i++)marketRows[i]={...marketRows[i],prevClose:i?marketRows[i-1].close:null};
+  for(let i=0;i<marketRows.length;i++)marketRows[i]={...marketRows[i],prevClose:i&&historyVisible(marketRows[i-1],originalClock(marketRows[i]))?marketRows[i-1].close:null};
   const mm=new Map(marketRows.map(x=>[x.date,x]));
   const marketTradingDays=marketRows.map(x=>x.date),dayIndex=new Map(marketTradingDays.map((d,i)=>[d,i]));
-  const sc=new Map();for(const [key,rows] of sectorMap){const sorted=[...rows].sort((a,b)=>a.date.localeCompare(b.date));sc.set(key,new Map(sorted.map((r,i)=>[r.date,{...r,prevClose:i?sorted[i-1].close:null}])));}
+  const sc=new Map();for(const [key,rows] of sectorMap){const sorted=[...rows].sort((a,b)=>a.date.localeCompare(b.date));sc.set(key,new Map(sorted.map((r,i)=>[r.date,{...r,prevClose:i&&historyVisible(sorted[i-1],originalClock(r))?sorted[i-1].close:null}])));}
   const samples=[];
   for(const [code,rows] of indexed(stocks)){
     rows.sort((a,b)=>a.date.localeCompare(b.date));
     const barsByDate=new Map(rows.map(x=>[x.date,x]));
     for(let i=0;i<rows.length;i++){
-      const r=rows[i],m=mm.get(r.date),s=sc.get(r.sector)?.get(r.date),f=features(rows,i,m,s);
-      const intraday=intradayEvidence(minuteMap.get(`${code}|${r.date}`),rows[i-1],r.limitUp);
-      const risk=f.risk, quality=r.blackSwan===true?'black-swan':r.repeatable===true&&r.blackSwan===false&&r.suspended!==true&&r.volume!==0&&[r,m,s].every(x=>completedEvidence(x,r.date))?'standard':'pending-review';
-      samples.push({id:`${code}|${r.date}`,code,name:r.name,date:r.date,bar:{...r},sector:s??null,market:m??null,
-        labels:{...f,intraday:intraday||null},signals:candidateSignals(rows,i,f,intraday),risk,quality,observed:HORIZONS.map(n=>excursions(rows,i,n,marketTradingDays,dayIndex,barsByDate,mm)),
-        history:rows.slice(Math.max(0,i-19),i+1).map(b=>({date:b.date,open:b.open,high:b.high,low:b.low,close:b.close,volume:b.volume}))});
+      const r=rows[i],at=decisionAt?.get(r.date)??originalClock(r);
+      const certified=completedEvidence(r,r.date,at)&&Number.isFinite(at)&&at<=Date.now();
+      const contextBefore=row=>certified&&completedEvidence(row,r.date,at)?row:null;
+      const m=contextBefore(mm.get(r.date)),s=contextBefore(sc.get(r.sector)?.get(r.date));
+      const past=[];
+      for(let j=i-1;certified&&j>=0&&past.length<60;j--)if(historyVisible(rows[j],at))past.push(rows[j]);
+      const current=certified?r:{date:r.date,open:r.open,high:r.high,low:r.low,close:r.close,volume:r.volume,source:r.source};
+      const series=past.reverse().concat(current),last=series.length-1;
+      const f=features(series,last,m,s);
+      const supplied=minuteMap.get(code+'|'+r.date)||[];
+      const usable=certified?supplied.filter(x=>x.source&&(!x.asOf||
+        originalClock(x)>=Date.parse(x.date+'T'+x.time+':00+08:00')&&originalClock(x)<=at)):[];
+      const intraday=intradayEvidence(usable,series[last-1],r.limitUp);
+      // A bar timestamp is an exchange observation, not proof of receipt.
+      // Time-only minute CSVs remain viewable; candidate rules require receipts.
+      if(intraday)intraday.receiptsVerified=usable.every(x=>Number.isFinite(originalClock(x)));
+      const risk=f.risk,quality=r.blackSwan===true?'black-swan':r.repeatable===true&&r.blackSwan===false&&r.suspended!==true&&r.volume!==0&&m&&s?'standard':'pending-review';
+      samples.push({id:code+'|'+r.date,code,name:r.name,date:r.date,bar:{...r},sector:s,market:m,
+        signalAvailableAt:certified?new Date(at).toISOString():null,
+        labels:{...f,intraday:intraday||null},signals:certified?candidateSignals(series,last,f,intraday?.receiptsVerified?intraday:null):[],
+        risk,quality,observed:HORIZONS.map(n=>certified?excursions(rows,i,n,marketTradingDays,dayIndex,barsByDate,mm):null),
+        history:series.slice(-20).map(b=>({date:b.date,open:b.open,high:b.high,low:b.low,close:b.close,volume:b.volume}))});
     }
   }
-  return samples.sort((a,b)=>a.date.localeCompare(b.date)||a.code.localeCompare(b.code));
+  samples.sort((a,b)=>a.date.localeCompare(b.date)||a.code.localeCompare(b.code));
+  return deferWindow?samples:debounceLearningSamples(samples,stocks);
+}
+export function debounceLearningSamples(samples,bars){
+  const groups=indexed(bars),timelines=new Map(),width=settingsAt({}).debounceBars;
+  return samples.map(sample=>{
+    if(!sample.signals.length)return sample;
+    if(!timelines.has(sample.code)){
+      const series=groups.get(sample.code).slice().sort((a,b)=>a.date.localeCompare(b.date));
+      timelines.set(sample.code,{series,index:new Map(series.map((b,i)=>[b.date,i])),accepted:new Map()});
+    }
+    const {series,index,accepted}=timelines.get(sample.code);
+    const {keep,suppressed}=selectSignalWindow(sample.signals.map(x=>x.name),index.get(sample.date),series,accepted,Date.parse(sample.signalAvailableAt),width,historyVisible);
+    return {...sample,signals:sample.signals.filter(x=>keep.includes(x.name)),debounceBars:width,suppressedStrategies:suppressed};
+  });
 }
 export function applyCorrections(samples, corrections = []) {
-  const map=new Map();for(const x of corrections){if(!x||!/^\d{6}\|\d{4}-\d{2}-\d{2}$/.test(x.id)||typeof x.strategy!=='string'||!x.reason?.trim()||!['add','remove'].includes(x.action))throw Error('人工修正缺少样本、战法、动作或原因');map.set(`${x.id}|${x.strategy}`,x);}
+  const bySample=new Map();
+  for(const x of corrections){
+    if(!x||!/^\d{6}\|\d{4}-\d{2}-\d{2}$/.test(x.id)||typeof x.strategy!=='string'||!x.reason?.trim()||!['add','remove'].includes(x.action))throw Error('人工修正缺少样本、战法、动作或原因');
+    if(!bySample.has(x.id))bySample.set(x.id,new Map());
+    bySample.get(x.id).set(x.strategy,x);
+  }
   return samples.map(s=>{
     let signals=s.signals.map(x=>({...x}));
-    for(const [key,c] of map)if(key.startsWith(s.id+'|')){
+    const local=bySample.get(s.id);
+    for(const c of local?.values()||[]){
       const existing=signals.find(x=>x.name===c.strategy);
       if(c.action==='remove')signals=signals.filter(x=>x.name!==c.strategy);
       else if(!existing)signals.push({name:c.strategy,key:'manual',phase:'人工校正',why:c.reason,verification:'人工标注，未独立核验'});
     }
-    return {...s,signals};
+    return {...s,signals,...(local?.size?{hasRetrospectiveAnnotation:true}:{})};
   });
 }
 const wilson=(win,total)=>{if(!total)return null;const p=win/total,z=1.96,den=1+z*z/total,mid=(p+z*z/(2*total))/den,margin=z*Math.sqrt((p*(1-p)+z*z/(4*total))/total)/den;return {lowPct:round(100*(mid-margin),2),highPct:round(100*(mid+margin),2)};};
@@ -273,7 +325,7 @@ export function analyzeFactors(samples,{horizon=3,minimum=20,embargo=5,split}={}
   const boundaries=split??freezeSplit(samples,{embargo}),{trainingEnd:trainEnd,holdoutStart:cut}=boundaries;
   if(!Number.isInteger(boundaries.embargoTradingDates)||boundaries.embargoTradingDates<0||boundaries.embargoTradingDates>20||
     (samples.length&&(!day(trainEnd)||!day(cut)||trainEnd>cut)))throw Error('冻结样本外区间无效');
-  const valid=samples.filter(s=>s.quality==='standard' && s.signals.length && s.observed.find(o=>o?.horizon===horizon));
+  const valid=samples.filter(s=>s.quality==='standard' && s.signals.length && s.observed.find(o=>o?.horizon===horizon&&!o.containsShock));
   const train=valid.filter(s=>s.date<trainEnd&&s.observed.find(o=>o?.horizon===horizon)?.endDate<trainEnd),holdout=valid.filter(s=>s.date>=cut);
   const allSignals=samples.filter(s=>s.signals.length);
   const groups=(items, keyFn)=>{
@@ -292,11 +344,14 @@ export function analyzeFactors(samples,{horizon=3,minimum=20,embargo=5,split}={}
       ? round(Math.max(-.3,Math.min(.3, (x.winRatePct-baseWin)/100 * x.matured/(x.matured+50))),4):null,
       note:'探索性经验差异，仅训练窗生成；无实盘权重写入'}));
   const negatives=factors.concat(combinations).filter(x=>x.matured>=minimum&&x.loss5Pct>=30).map(x=>({...x,warning:'历史高亏损关联，不等于因果关系'}));
-  return {schemaVersion:1,canTrade:false,productionWeightsChanged:false,verifiedLive:false,
+  const annotated=samples.some(s=>s.hasRetrospectiveAnnotation);
+  return {schemaVersion:1,canTrade:false,productionWeightsChanged:false,verifiedLive:false,eligibleForPromotion:false,
+    studyBasis:annotated?'人工事后标注的教学对照':'自动候选收盘价观察',
+    trainingUsesRetrospectiveAnnotations:annotated,
     horizon,minimum,split:{trainingEnd:trainEnd,holdoutStart:cut,embargoTradingDates:boundaries.embargoTradingDates},
     counts:{bars:samples.length,signalBars:allSignals.length,blackSwans:samples.filter(x=>x.quality==='black-swan').length,
       pending:samples.filter(x=>x.quality==='pending-review').length,training:train.length,holdout:holdout.length},
     descriptive:summarize(allSignals,horizon),training:summarize(train,horizon),outOfSample:summarize(holdout,horizon),
     factors:researchWeights,combinations,negativeCombinations:negatives,holdoutFactors:outSample,
-    limitations:['黑天鹅与待人工复核质量样本不参与研究权重','统计因子只基于事前信息，后续标签只作结果','有重叠持有期的样本，非独立交易','后续N日依据导入全A交易日期序列；股票停牌或无对应K线则结果未知' ,'权重只用于研究展示，不写生产策略','缺失的筹码/分钟线/市场/板块字段保持未知','未认证源与未复权可成交价格不能用于生产验证']};
+    limitations:[...(annotated?['本次显式传入经人工修改的研究集，仅用于事后教学比较，结果不得用于训练或晋级']:[]),'黑天鹅与待人工复核质量样本不参与研究权重','统计因子只基于事前信息，后续标签只作结果','有重叠持有期的样本，非独立交易','后续N日依据导入全A交易日期序列；股票停牌或无对应K线则结果未知' ,'权重只用于研究展示，不写生产策略','缺失的筹码/分钟线/市场/板块字段保持未知','未认证源与未复权可成交价格不能用于生产验证']};
 }

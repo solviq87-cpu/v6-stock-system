@@ -181,6 +181,27 @@ export function renderPulse(route,ctx) {
     validBreadth?h('div',{class:'fy-climate'},h('strong',{},percent(mood.upRatio)),h('span',{},'上涨家数占比 · '+marketDay+' · '+moodSource)):null):null));
 
 }
+function externalQuoteLink(link){
+ return link?h('a',{class:'fy-button quiet',href:link.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},link.label+' ↗'):null;
+}
+function boardPicker(state,boardLink,pick){
+ const data=state.sectors,rows=Array.isArray(data)?data:data?.items||[];
+ const industry=new Set((state.sectorsInd||[]).map(b=>b.code));
+ const entries=rows.map(r=>{
+  const name=r?.name||r?.sector||'';
+  const kind=industry.has(r?.code)||['industry','行业'].includes(r?.category||r?.kind)?'industry':
+    ['concept','概念'].includes(r?.category||r?.kind)?'theme':'unknown';
+  const link=boardLink({name,kind});
+  return link?{key:JSON.stringify([r.code||'',name]),name,rawCode:r.code,link}:null;
+ }).filter(Boolean);
+ if(!entries.length)return null;
+ const items=[...new Map(entries.map(r=>[r.key,r])).values()];
+ const select=h('select',{'aria-label':'选择核对板块'},items.map(r=>h('option',{value:r.key},r.name+(r.rawCode?' · '+r.rawCode:''))));
+ const dest=h('span',{});const set=r=>{pick.key=r.key;select.value=r.key;dest.replaceChildren(externalQuoteLink(r.link));};
+ set(items.find(r=>r.key===pick.key)||items[0]);
+ select.addEventListener('change',()=>{const item=items.find(r=>r.key===select.value);if(item)set(item);});
+ return h('div',{class:'fy-inline'},h('label',{},'板块行情 ',select),dest);
+}
 export function renderMarket(route,ctx) {
  const sub=route.sub||'sectors';
  if(sub==='review')return renderDailyReview(ctx);
@@ -196,7 +217,9 @@ export function renderMarket(route,ctx) {
  const datasetKeys=sub==='sectors'?[['板块强度','sectors'],['涨停题材','ztBySector'],['市场主线','mainline'],['板块联动','extLink']]:sub==='global'?[['全球市场','global'],['外部资金与商品','external'],['外围预选','preselect'],['资金异动','bigMoney']]:sub==='plans'?[['下一交易日计划','nextplan'],['十四条判定','myrules'],['启动前埋伏','pre'],['补涨线索','buzhang']]:[['复盘','review'],['历史学习','learn'],['学习记录','learnHistory'],['宽度与纪律','breadth']];
  const datasets=h('div',{class:'fy-grid two'});
  let pendingPaint=false;
- const paintDatasets=()=>{if(ctx.signal?.aborted)return;if(datasets.contains(document.activeElement)){pendingPaint=true;return;}pendingPaint=false;datasets.replaceChildren(...datasetKeys.map(([title,key])=>section(title,'同一份服务端市场状态',renderEvidence(ctx.state?.[key],ctx))));};
+ const boardPick={key:''};let boardLink=null;
+ const paintDatasets=()=>{if(ctx.signal?.aborted)return;if(datasets.contains(document.activeElement)){pendingPaint=true;return;}pendingPaint=false;datasets.replaceChildren(...datasetKeys.map(([title,key])=>section(title,'同一份服务端市场状态',key==='sectors'&&boardLink?boardPicker(ctx.state||{},boardLink,boardPick):null,renderEvidence(ctx.state?.[key],ctx))));};
+ if(sub==='sectors')import('./shortline/quote-links.mjs').then(m=>{boardLink=m.thsBoardLink;paintDatasets();}).catch(()=>{});
  datasets.addEventListener('focusout',()=>queueMicrotask(()=>{if(pendingPaint)paintDatasets();}));
  paintDatasets();ctx.onState?.(paintDatasets);
  view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),datasets);
@@ -780,39 +803,60 @@ export function createStockDrawer(ctx) {
    const info=recoveredMetric(recovery,'emotion',date||recovery?.referenceDay);
    return info?h('p',{class:'fy-muted'},(info.historical?'上次市场周期 · ':'市场周期 · ')+info.value+' · '+info.date+' · '+info.source+' · 取得 '+dateTime(info.knownAt)):null;
   };
-  if(!ctx.canEdit){
-   const context=marketContext(ctx.state?.marketRecovery,reviewDate(sourceRow?.poolDay||sourceRow?.tradeDate));
-   if(context)shortline.append(context);shortline.append(recoveryDisclosure(ctx.state));return;
-  }
-  const current=()=>!signal.aborted&&turn===generation&&code===symbol&&!drawer.hidden&&ctx.canEdit;
-  shortline.append(note('正在读取该股同期校验…'));
+  const live=()=>!signal.aborted&&turn===generation&&code===symbol&&!drawer.hidden;
+  const current=()=>live()&&ctx.canEdit;
+  const sourceDay=reviewDate(sourceRow?.poolDay||sourceRow?.tradeDate||sourceRow?.quoteDate);
+  let links=null;
   try{
-   const {stockCheckAt}=await import('./shortline-host.mjs');
-   if(!current())return;
+   const {thsStockLink,thsBoardLink}=await import('./shortline/quote-links.mjs');
+   if(!live())return;
+   const name=sourceRow?.sector||sourceRow?.industry;
+   links=h('div',{class:'fy-inline','aria-label':'外部行情核对'},externalQuoteLink(thsStockLink(symbol)),
+     name?externalQuoteLink(thsBoardLink({name,kind:sourceRow?.industry===name?'industry':'unknown'})):null);
+  }catch{/* The native chart and evidence remain usable without external navigation. */}
+  if(!live())return;
+  if(!ctx.canEdit){
+   const context=marketContext(ctx.state?.marketRecovery,sourceDay);
+   if(links)shortline.append(links);if(context)shortline.append(context);shortline.append(recoveryDisclosure(ctx.state));return;
+  }
+  if(links)shortline.append(links);shortline.append(note('正在读取该股同期校验…'));
+  try{
+   const [{stockCheckAt},{linkedPage,sampleFor},{activeBook}]=await Promise.all([import('./shortline-host.mjs'),import('./shortline/context.mjs'),import('./shortline/book-session.mjs')]);
+   const book=activeBook();if(!current())return;
    const snapshot=await stockCheckAt(ctx,symbol,sourceRow,signal);
-   if(!current()||!snapshot||snapshot.code!==symbol)return;
+   if(!current()||activeBook()!==book||!snapshot||snapshot.code!==symbol)return;
+   function openResearch(page,strategy){
+    if(!current()||activeBook()!==book)return;
+    const sub=linkedPage(page,{code:symbol,date:snapshot.date||sourceDay,sample:sampleFor(book),strategy});
+    close();ctx.navigate('lab',sub);
+   }
+   if(snapshot.demo){
+    shortline.replaceChildren(h('strong',{},'行情来自正式盘面；当前为演示研究账户'),
+      h('div',{class:'fy-inline'},button('查看演示研究账户',()=>openResearch('overview'),'quiet'),
+        button('查看演示同题材梯队',()=>openResearch('structure'),'quiet')),...(links?[links]:[]));
+    return;
+   }
    const r=snapshot.record;
    if(quote.hidden&&snapshot.quote){
     const q=snapshot.quote;
     quote.replaceChildren(h('strong',{},format(q.value)));quote.hidden=false;meta.hidden=false;
     meta.textContent='归档日K收盘 · '+q.date+' · '+q.source+' · 取得 '+dateTime(q.knownAt);
    }
-   const details=button('查看完整校验',()=>{
-    if(!current())return;
-    close();ctx.navigate('lab','shortline-new/'+symbol+(snapshot.date?'/'+snapshot.date:''));
-   },'quiet');
+   const details=button('查看完整校验',()=>openResearch('new'),'quiet');
    const phase=marketPhaseName(r?.emotion?.stage),strategy=r?.strategy&&!['未匹配','未判定'].includes(r.strategy)?r.strategy:'';
    const proof=[strategy,phase,r?.status].filter(Boolean).join(' · ');
    const recovery=snapshot.recovery||ctx.state?.marketRecovery;
    const publicPhase=!phase&&marketContext(recovery,snapshot.date);
    const prev=snapshot.previousRecord;
-   shortline.replaceChildren(h('div',{class:'fy-inline'},h('strong',{},'短线校验'),h('small',{},snapshot.date||''),details),
+   shortline.replaceChildren(h('div',{class:'fy-inline'},h('strong',{},'短线校验'),h('small',{},snapshot.date||''),details,
+     button('同题材梯队',()=>openResearch('structure'),'quiet'),
+     button('历史回测',()=>openResearch('backtest',strategy),'quiet')),...(links?[links]:[]),
     ...(proof?[h('p',{},proof)]:[]),
     ...(publicPhase?[publicPhase]:[]),
     ...(prev?[h('p',{class:'fy-muted'},'历史校验记录 · '+prev.date+' · '+(prev.method||'V6 校验存档')+' · '+prev.status+' · 归档 '+dateTime(prev.createdAt))]:[]),
     ...(r?.risks?.length?[h('details',{class:'fy-details'},h('summary',{},'校验依据与风险'),h('p',{},r.risks.join('；')))]:[]),
     recoveryDisclosure({marketRecovery:recovery}));
-  }catch(error){if(current())shortline.replaceChildren(recoveryDisclosure(ctx.state),h('details',{class:'fy-details'},h('summary',{},'同期校验读取记录'),note(error.message)));}
+  }catch(error){if(current())shortline.replaceChildren(...(links?[links]:[]),recoveryDisclosure(ctx.state),h('details',{class:'fy-details'},h('summary',{},'同期校验读取记录'),note(error.message)));}
  }
  async function open(nextCode,nextRow,trigger) {
   if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';

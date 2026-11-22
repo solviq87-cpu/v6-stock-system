@@ -1,9 +1,10 @@
 // Only the public application shell is available offline. Private responses and
 // market prices must always come from the server, including after revocation.
-const APP_VER = '20261122au';
+const APP_VER = '20261122av';
 const CACHE_PREFIX = 'quant-dashboard-m-';
 const CACHE_NAME = CACHE_PREFIX + APP_VER + '-source-review-1';
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261122au', '/nova/app.js?v=20261122au', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/close-review.js', '/nova/data/close-review-20261120.js', '/nova/tactics-view.js', '/nova/data/tactics.js'];
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261122av', '/nova/app.js?v=20261122av', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/close-review.js', '/nova/data/close-review-20261120.js', '/nova/tactics-view.js', '/nova/data/tactics.js',
+  '/nova/shortline/context.mjs'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
@@ -75,4 +76,23 @@ self.addEventListener('fetch', event => {
   const asset = /\.(?:html|js|css|png|jpg|jpeg|gif|svg|woff2?|ico)$/.test(url.pathname) ||
     url.pathname === '/manifest.json';
   if (entry || asset) event.respondWith(publicShell(request));
+});
+
+// Push requests have empty bodies. Device banners never include private market
+// or research details; the application retrieves these after editor login.
+self.addEventListener('push',event=>{
+  event.waitUntil(self.registration.showNotification('绯曜研究提醒',{
+    body:'登录研究台查看最新复盘与提醒。',tag:'fayo-shortline-research',data:{researchNotice:true}
+  }));
+});
+self.addEventListener('notificationclick',event=>{
+  if(event.notification?.data?.researchNotice!==true)return;
+  event.notification.close();
+  const target=new URL('/#/lab/shortline-settings',self.location.origin).href;
+  event.waitUntil((async()=>{
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const tab=windows.find(w=>new URL(w.url).origin===self.location.origin&&['/','/m','/index.html','/mobile.html'].includes(new URL(w.url).pathname));
+    if(tab){await tab.navigate(target);return tab.focus();}
+    return self.clients.openWindow(target);
+  })());
 });

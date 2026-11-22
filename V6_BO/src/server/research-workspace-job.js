@@ -2,17 +2,22 @@
 // Archive validation and aggregation must not block quote polling on the server.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
 // Desktop/mobile can open the same private archive concurrently. Share only
-// identical reads; run at most one worker and keep writes gated while busy.
+// identical reads. One private edit can wait behind a hydration read or
+// foreground notification poll; its revision is still checked in the worker.
 const reads=new Map();
-let tail=null;
+let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload){
  const readOnly=!payload.input&&(payload.action==='shortline'||payload.action==='manual-loop');
- const key=readOnly?JSON.stringify(payload):null;
+ const edit=payload.action==='shortline'&&Boolean(payload.input);
+ const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
- if(tail&&(!readOnly||reads.size>=2))return busy();
+ const canQueueEdit=edit&&!waitingEdit&&reads.size>0;
+ if(tail&&(readOnly?reads.size>=2:!canQueueEdit))return busy();
+ if(edit){waitingEdit=true;epoch++;}
  const task=(tail||Promise.resolve()).then(()=>runWorker(payload)).finally(()=>{
   if(key)reads.delete(key);
+  if(edit)waitingEdit=false;
   if(tail===task)tail=null;
  });
  if(key)reads.set(key,task);
@@ -34,6 +39,10 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
+  }
+  if(p.action==='shortline-web-notices'){
+    const {runBookNotices}=await import('../research/shortline/store.mjs');
+    return {ok:true,result:await runBookNotices(p)};
   }
   if(p.action==='shortline-public-market'){
     const {saveRecoveredMarket}=await import('../research/shortline/store.mjs');

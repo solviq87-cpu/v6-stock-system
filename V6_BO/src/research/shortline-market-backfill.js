@@ -2,6 +2,7 @@
 
 const {fetchReviewLimitPool}=require('../core/public-market-context');
 const {requestResearchBytes}=require('../core/research-curl-bytes');
+const {canonicalTheme,references,sealTime}=require('../../public/nova/shortline/structure-core');
 const {normalizeDay}=require('../core/limit-reason-evidence');
 
 const asDay=value=>normalizeDay(value);
@@ -61,7 +62,10 @@ function thsBook(pages,day){
     for(const row of d.info){
       const t=Number(row.last_limit_up_time)*1000;
       if(!symbol(row.code)||!positive(t)||dayOf(t)!==day||t>Date.parse(day+'T15:05:00+08:00'))return;
-      records.push({symbol:row.code,consecutiveLimits:streak(row.high_days),tags:tags(row.reason_type)});
+      const first=Number(row.first_limit_up_time)*1000;
+      records.push({symbol:row.code,name:row.name,consecutiveLimits:streak(row.high_days),tags:tags(row.reason_type),price:row.latest,
+        changePct:row.change_rate,breakCount:row.open_num,lastSealTime:sealTime(new Date(t+28800000).toISOString().slice(11,19)),
+        firstSealTime:positive(first)&&first<=t&&dayOf(first)===day?sealTime(new Date(first+28800000).toISOString().slice(11,19)):null});
     }
   }
   const up=data.limit_up_count?.today,down=data.limit_down_count?.today;
@@ -100,7 +104,7 @@ function aguBook(html,day,now){
   for(const m of table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)){
     const c=[...m[1].matchAll(/<td>([\s\S]*?)<\/td>/g)].map(x=>htmlText(x[1]));if(!c.length)continue;
     const id=/^(\d{6})\.(?:SH|SZ|BJ)$/.exec(c[1]);if(c.length!==7||!id)return;
-    records.push({symbol:id[1],consecutiveLimits:namedFull?(ladderNames.get(id[1])||1):streak(c[2]),tags:tags(c[5])});
+    records.push({symbol:id[1],name:c[0],firstSealTime:sealTime(c[3]),breakCount:/^\d+$/.test(c[4])?+c[4]:null,consecutiveLimits:namedFull?(ladderNames.get(id[1])||1):streak(c[2]),tags:tags(c[5])});
   }
   if(records.length!==up||new Set(records.map(r=>r.symbol)).size!==up||[...ladderNames.keys()].some(s=>!records.some(r=>r.symbol===s)))return;
   const checkListed=(name,n)=>{const ids=[...section(name).matchAll(/href="\/daily\/stocks\/(\d{6})\.(?:SH|SZ|BJ)"/g)].map(m=>m[1]);return ids.length===n&&new Set(ids).size===n?ids:null;};
@@ -109,7 +113,7 @@ function aguBook(html,day,now){
   const y=/昨日涨停股（剔除 ST、退市与北交所）\s*(\d+) 只，其中 (\d+) 只有收盘价，今日平均 ([+-]?[\d.]+)%/.exec(returnText);
   const prior=/href="\/daily\/(\d{4}-\d\d-\d\d)">上一交易日 \1</.exec(html)?.[1];
   return {previousDay:prior,sealed:pool(day,records,'Agu 每日收盘复盘',aguScope,url,{sourceUpdatedAt:updated}),
-    brokenCount:brokenIds&&!brokenIds.some(s=>records.some(r=>r.symbol===s))?broken:null,
+    brokenIds,downIds,brokenCount:brokenIds&&!brokenIds.some(s=>records.some(r=>r.symbol===s))?broken:null,
     down:downIds?down:null,
     publishedPremium:y&&+y[1]>0&&y[1]===y[2]&&pct(+y[3])?{n:+y[1],value:+y[3],previousDay:prior}:null};
 }
@@ -119,7 +123,7 @@ function ladderChanges(html,day,now){
   if(stamp?.[1]!==day)return;
   const sourceUpdatedAt=Date.parse(day+'T'+stamp[2]+'+08:00');
   if(!positive(sourceUpdatedAt)||sourceUpdatedAt<Date.parse(day+'T15:00:00+08:00')||sourceUpdatedAt>now)return;
-  const changes=new Map();
+  const changes=new Map(),outcomes={};
   for(const section of html.matchAll(/<section[^>]* class="ladder-view-tier"[^>]*>([\s\S]*?)<\/section>/g)){
     if(!/<h3>\d+进\d+<\/h3>/.test(section[1]))continue;
     const blocks=section[1].split(/(?=<div class="stock-line )/);
@@ -130,9 +134,11 @@ function ladderChanges(html,day,now){
       if(!pct(v))continue;
       if(changes.has(code))return;
       changes.set(code,v);
+      const status=/^<div class="stock-line status-(success|failed|opened)"/.exec(block)?.[1];
+      if(status)outcomes[code]={change:v,sealed:status==='success',providerStatus:status};
     }
   }
-  return {changes,source:'打板客收盘连板梯队',sourceUrl:'https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html',sourceUpdatedAt,tradeDate:day};
+  return {changes,outcomes,source:'打板客收盘连板梯队',sourceUrl:'https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html',sourceUpdatedAt,tradeDate:day};
 }
 function emUrl(day,kind){
   const endpoint=kind==='down'?'getTopicDTPool':'getYesterdayZTPool';
@@ -158,7 +164,7 @@ function defaults(clock){
       const attrs={source:'东方财富'+(kind==='down'?'跌停池':'昨日涨停表现池'),scope:emScope,sourceUrl,tradeDate:day};
       if(kind==='down')return {...attrs,n:d.tc};
       const changes=new Map(d.pool.filter(r=>pct(r.zdp)).map(r=>[r.c,r.zdp]));
-      return {...attrs,changes};
+      return {...attrs,changes,outcomes:Object.fromEntries(d.pool.filter(r=>pct(r.zdp)&&positive(r.p)&&positive(r.ztp)&&Number.isFinite(r.amount)&&r.amount>0).map(r=>[r.c,{change:r.zdp,close:r.p/1000,upLimit:r.ztp/1000,sealed:r.p===r.ztp}]))};
     }
   };
 }
@@ -249,7 +255,7 @@ function createMarketBackfill({previousTradeDay,clock=Date.now,providers={}}={})
         const matched=p.records.filter(r=>codes.has(r.symbol));
         if(matched.length!==codes.size||!matched.every(r=>positive(r.consecutiveLimits)))continue;
         const height=Math.max(...matched.map(r=>r.consecutiveLimits));
-        return {height,meta,leaders:matched.filter(r=>r.consecutiveLimits===height).map(r=>r.symbol),first:matched.filter(r=>r.consecutiveLimits===1).map(r=>r.symbol)};
+        return {height,meta,levels:new Map(matched.map(r=>[r.symbol,r.consecutiveLimits])),leaders:matched.filter(r=>r.consecutiveLimits===height).map(r=>r.symbol),first:matched.filter(r=>r.consecutiveLimits===1).map(r=>r.symbol)};
       }
     }
     for(const [i,d] of sessions.slice(0,3).entries()){
@@ -262,6 +268,31 @@ function createMarketBackfill({previousTradeDay,clock=Date.now,providers={}}={})
       if(b?.selected){
         const {selected,selMeta,ths,agu,t,a,ref}=b;
         const codes=selected.records.map(x=>x.symbol),h=positions(b);
+        const provider=selected.scope===thsScope?'ths':selected.scope===aguScope?'agu':'eastmoney';
+        const aguMembers=agu?.sealed?.records||[],thsMembers=ths?.sealed?.records||[];
+        const tagSources=[[thsMembers,'ths',t.receivedAt],[aguMembers,'agu',a.receivedAt]];
+        function frame(raw,id,heights,receivedAt,brokenCount){
+          const ids=new Set(raw.records.map(x=>x.symbol));
+          const knownAt=Math.max(receivedAt,heights?.meta?.receivedAt||0,...tagSources.filter(x=>x[0].length).map(x=>x[2]));
+          const verifiedBroken=Number.isSafeInteger(brokenCount)&&agu?.brokenCount===brokenCount&&Array.isArray(agu.brokenIds)&&agu.brokenIds.length===brokenCount&&
+            agu.sealed.totalCount===ids.size&&agu.sealed.records.every(x=>ids.has(x.symbol));
+          const members=raw.records.map(x=>{
+            const refs=references(x.industry,{provider:id,kind:'industry'});let first=sealTime(x.firstSealTime),name=x.name;
+            for(const [items,provider] of tagSources){
+              const other=items.find(u=>u.symbol===x.symbol);
+              if(other){refs.push(...references(other.tags||[],{provider}));first||=sealTime(other.firstSealTime);name||=other.name;}
+            }
+            return {code:x.symbol,name:name||x.symbol,level:heights?.levels.get(x.symbol)??x.consecutiveLimits,firstSealTime:first,lastSealTime:sealTime(x.lastSealTime),
+              close:x.price,upLimit:x.price,change:x.changePct,breakCount:x.breakCount,refs:references(refs)};
+          });
+          return {date:d,previousDay:p||null,provider:id+'-backfill',source:raw.source,scope:raw.scope,complete:true,totalCount:ids.size,knownAt,sealed:members,
+            brokenComplete:verifiedBroken,broken:verifiedBroken?agu.brokenIds.map(code=>({code,source:'Agu 每日收盘复盘'})):[],outcomes:{}};
+        }
+        r.structurePools=[frame(selected,provider,h,selMeta.receivedAt,b.broken?.n)];
+        if(ths&&provider!=='ths'){
+          const heights=positions({...b,selected:ths.sealed,selMeta:ref(ths.sealed,t.receivedAt)});
+          r.structurePools.push(frame(ths.sealed,'ths',heights,t.receivedAt,ths.brokenCount));
+        }
         field('upLimit',codes.length,'源方总数与逐股代码去重后相符',[selMeta],{n:codes.length});
         if(h)field('height',h.height,'逐股核对当日连续封板天数',[selMeta,h.meta],{n:codes.length});
         if(b.broken&&codes.length+b.broken.n>0)field('breakRate',round(100*b.broken.n/(codes.length+b.broken.n)),'未封炸板数 /（收盘封板数 + 未封炸板数）',[selMeta,b.broken.meta],{sealed:codes.length,broken:b.broken.n});
@@ -274,7 +305,7 @@ function createMarketBackfill({previousTradeDay,clock=Date.now,providers={}}={})
         }
         for(const entry of [thsTags,cls,aguTags]){
           if(!entry||!codes.length)continue;
-          const [items,meta,basis]=entry,map=new Map(items.map(x=>[x.symbol,x.tags])),counts=new Map();
+          const [items,meta,basis]=entry,map=new Map(items.map(x=>[x.symbol,x.tags?.map(canonicalTheme)])),counts=new Map();
           if(map.size!==items.length||!codes.every(code=>map.get(code)?.length))continue;
           for(const code of codes)for(const tag of new Set(map.get(code)))counts.set(tag,(counts.get(tag)||0)+1);
           const withPeers=codes.filter(code=>map.get(code).some(tag=>counts.get(tag)>=2)).length;
@@ -286,6 +317,12 @@ function createMarketBackfill({previousTradeDay,clock=Date.now,providers={}}={})
         const prev=old.selected.records.map(x=>x.symbol),h=positions(old),cohorts=[['premium',prev],['leader',h?.height>=2?h.leaders:[]],['firstBoardPremium',h?.first||[]]];
         const settle=(packet)=>{
           const obj=packet.value;if(!obj||obj.tradeDate!==d||!(obj.changes instanceof Map))return;
+          for(const frame of r.structurePools||[]){
+            if(!obj.outcomes)continue;
+            const ids=frame.provider==='ths-backfill'&&old.ths?old.ths.sealed.records.map(x=>x.symbol):prev;
+            for(const code of ids){const o=obj.outcomes[code];if(o&&!frame.outcomes[code])frame.outcomes[code]={...o,source:obj.source,knownAt:packet.receivedAt};}
+            frame.knownAt=Math.max(frame.knownAt,packet.receivedAt);
+          }
           for(const [key,ids] of cohorts){
             if(Object.hasOwn(r,key)||!ids.length||!ids.every(id=>pct(obj.changes.get(id))))continue;
             const sources=[old.selMeta,b.ref(obj,packet.receivedAt)];
@@ -306,7 +343,7 @@ function createMarketBackfill({previousTradeDay,clock=Date.now,providers={}}={})
       missing.push(...r.missing.map(label=>d+' '+label));
       const sources=Object.values(r.fieldSources).flatMap(f=>f.sources),names=[...new Set(sources.map(s=>s.source))];
       if(sources.length){
-        r.knownAt=Math.max(...sources.map(s=>s.receivedAt));r.availableAt=cnTime(r.knownAt);
+        r.knownAt=Math.max(...sources.map(s=>s.receivedAt),...(r.structurePools||[]).map(f=>f.knownAt));r.availableAt=cnTime(r.knownAt);
         r.source='历史补采／'+names.join('、');rows.push(r);
         evidence.push(d+' '+Object.keys(r.fieldSources).map(k=>keys[k]||'昨日首板溢价').join('、')+'；来源 '+names.join('、'));
       }

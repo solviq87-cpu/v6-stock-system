@@ -1,5 +1,10 @@
 import { kLearningRows } from './backtest.mjs';
 import { emotion,marketAsOf } from './market.mjs';
+import { settingsAt } from './settings.mjs';
+import { pressureLearningTags } from './pressure.mjs';
+import { isTestSample,sampleMatches } from './sample-quality.mjs';
+import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
+export {stats,renderLearningSnapshot};
 
 const MINUTE = /^\d{4}-\d\d-\d\dT\d\d:\d\d$/;
 const stages = ['训练集验证','时间外验证','样本外测试','成本压力校验','风险检查'];
@@ -11,7 +16,7 @@ const unique = xs => [...new Set(xs.filter(Boolean))];
 const words = x => unique((Array.isArray(x) ? x : String(x || '').split(/[,，、\n]/)).map(t => String(t).trim().slice(0,100))).slice(0,64);
 const id = prefix => prefix + '-' + crypto.randomUUID();
 const avg = xs => xs.length ? xs.reduce((a,b) => a+b,0)/xs.length : null;
-const lastVersion = state => [...(state.versions || [])].reverse().find(v => v.approvedAt && v.weights) || null;
+const lastVersion = state => [...(state.versions || [])].reverse().find(v => v.approvedAt && v.weights&&(state.scope==='demo'||v.sampleScope!=='demo')) || null;
 function required(s,label,max=200) {
   const v = String(s ?? '').trim();
   if (!v || v.length > max) throw Error('请填写有效的' + label);
@@ -34,28 +39,51 @@ function symbol(s) {
 function ordered(rows) {
   return [...rows].filter(t => t.pnl!=null && Number.isFinite(+t.pnl)).sort((a,b) => String(a.exitTime || a.exitDate || a.date).localeCompare(String(b.exitTime || b.exitDate || b.date)));
 }
-export function stats(rows) {
-  const sample=ordered(rows), results=sample.map(t=>+t.pnl);
-  const wins=results.filter(x=>x>0), losses=results.filter(x=>x<0);
-  let equity=1,peak=1,drawdown=0;
-  for (const r of sample) {
-    // Closed-trade normalized curve, with a separate slot per realized return.
-    equity*=Math.max(0,1+Number(r.pnl)/100*(Number.isFinite(+r.position)&&r.position!=null ? +r.position/100 : 1));
-    peak=Math.max(peak,equity); drawdown=Math.max(drawdown,(peak-equity)/peak*100);
-  }
-  return {n:results.length,wins:wins.length,losses:losses.length,winRate:results.length?round(100*wins.length/results.length):null,lossRate:results.length?round(100*losses.length/results.length):null,payoff:wins.length&&losses.length?round(avg(wins)/-avg(losses)):null,expectedReturn:round(avg(results)),maxDrawdown:results.length?round(drawdown):null,worst:results.length?round(Math.min(...results)):null};
-}
 function strategyList(r) {return words(r.strategies?.length ? r.strategies : r.strategy);}
-function known(r) {return unique([...words(r.factors),...words(r.knownRiskFactors)]);}
-function rowsFor(state,asOf=localTime(),strict=false) {
-  const cut=asOf.length===10 ? asOf+'T00:00' : asOf.slice(0,16);
-  const manual=(state.trades || []).filter(t=>t.repeatable!==false && !t.blackSwan && t.quality!=='黑天鹅' && (!strict || t.snapshotVerified===true) && (t.exitTime||t.exitDate+'T15:00')<cut && (!strict || !t.createdAt || localTime(Date.parse(t.createdAt))<cut)).map(t=>strict?{...t,strategies:[t.strategy],labels:t.frozenLabels||{}}:t);
-  const rows=typeof kLearningRows==='function' ? kLearningRows(state,cut.replace('T',' ')) : [];
-  return [...manual,...rows.filter(r=>!r.blackSwan&&(r.exitDate+'T15:00')<cut).map(r=>({...r,trend:r.trend||r.indexTrend||r.environment,factors:words(r.factors)}))];
+const dictionaryCode=k=>/^[A-Z]{2,6}-\d{2,4}$/.test(k);
+function evidenceCodes(check,at){return check&&Number.isFinite(Date.parse(check.createdAt))&&Date.parse(check.createdAt)<=at&&(!check.asOf||instant(check.asOf)<=at)?words(check.factorCodes).filter(dictionaryCode):[];}
+function known(r) {return unique([...words(r.factors),...words(r.knownRiskFactors),...words(r.customTags).map(t=>'自定义·'+t)]);}
+function cutAt(input=Date.now()){
+  if(typeof input==='number'||typeof input==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/i.test(input)){
+    const ms=typeof input==='number'?input:Date.parse(input);
+    return Number.isFinite(ms)?localTime(ms):'';
+  }
+  const s=String(input||'').replace(' ','T');
+  const minute=/^\d{4}-\d{2}-\d{2}$/.test(s)?s+'T00:00':s.slice(0,16);
+  return MINUTE.test(minute)&&Number.isFinite(Date.parse(minute+'Z'))&&new Date(minute+'Z').toISOString().slice(0,16)===minute?minute:'';
+}
+function instant(s){
+  if(typeof s==='number')return s;
+  if(typeof s==='string'&&/(?:Z|[+-]\d\d:\d\d)$/i.test(s))return Date.parse(s);
+  const point=cutAt(s);return point?Date.parse(point+':00+08:00'):NaN;
+}
+function policyAt(state,asOf){
+  const s=settingsAt(state,asOf);
+  return {decayEnabled:s.decayEnabled===true,decayHalfLifeDays:s.decayHalfLifeDays||120,settingsVersion:s.version,asOf};
+}
+function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includeTest=false}={}) {
+  const cut=cutAt(asOf),end=instant(asOf);
+  if(!cut||!Number.isFinite(end))return [];
+  const allowTests=state.scope==='demo'||includeTest===true;
+  const accept=r=>sampleMatches(r,selection)&&(allowTests||!isTestSample(r));
+  const manual=[],checks=new Map((state.checks||[]).map(c=>[c.id,c]));
+  for(const r of state.trades||[]){
+    if(!accept(r)||strict&&r.snapshotVerified!==true)continue;
+    const exit=cutAt(r.exitTime||(r.exitDate||r.date)+'T15:00');
+    const original=r.createdAt??r.recordedAt??'',captured=cutAt(original);
+    if(!exit||!captured||instant(exit)>end||instant(original)>end)continue;
+    const check=checks.get(r.checkId);
+    const codes=check?.code===r.code?evidenceCodes(check,instant(r.entryTime)):[];
+    manual.push({...r,factors:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
+  }
+  const kr=kLearningRows(state,cut.replace('T',' '),{includeTests:allowTests,quality:selection});
+  const k=kr.filter(r=>accept(r)&&cutAt(r.exitTime||r.exitDate+'T15:00')&&cutAt(r.exitTime||r.exitDate+'T15:00')<cut).map(r=>({...r,
+    labelKnownAt:cutAt(r.exitTime||r.exitDate+'T15:00'),trend:r.trend||r.indexTrend||r.environment,factors:unique([...words(r.factors),...pressureLearningTags(state,r,r.decisionAt)])}));
+  return [...manual,...k];
 }
 function factorSet(r) {
-  const labelNames={cycle:'情绪',volume:'指数量能',indexPosition:'指数位置',breadth:'广度',resonance:'共振',theme:'题材',ladder:'梯队',identity:'辨识度',stockPosition:'个股位置',turnover:'换手',stockVolume:'个股量能',support:'承接'};
-  const tags=Object.entries(labelNames).filter(([k])=>r.labels?.[k]&&!['未记录','未判定'].includes(r.labels[k])).map(([k,l])=>l+'·'+r.labels[k]);
+  const labelNames={cycle:'情绪',volume:'指数量能',indexPosition:'指数位置',breadth:'广度',resonance:'共振',theme:'题材',ladder:'梯队',identity:'辨识度',stockPosition:'个股位置',turnover:'换手',stockVolume:'个股量能',support:'承接',shape:'K线形态',structure:'平台结构',maState:'均线排列',volumeRun:'连续量能',relation:'量价关系',themeCycle:'题材周期',chipExchange:'筹码交换'};
+  const tags=Object.entries(labelNames).filter(([k])=>r.labels?.[k]&&!['未记录','未判定','缺失','—'].includes(r.labels[k])).map(([k,l])=>l+'·'+r.labels[k]);
   return unique([...known(r),...tags,...strategyList(r).map(x=>'战法·'+x),...(r.trend?['环境·'+r.trend]:[])]);
 }
 function weightedScore(weights,factors) {
@@ -63,11 +91,11 @@ function weightedScore(weights,factors) {
   return vals.length?round(vals.reduce((a,b)=>a+b,0)/Math.sqrt(vals.length)):0;
 }
 export function predict(state,input={}) {
-  const cut=input.asOf || localTime(), factors=words(input.factors), scope=strategyList(input);
-  const v=[...(state.versions||[])].reverse().find(v=>v.approvedAt && v.weights && localTime(Date.parse(v.approvedAt))<cut);
-  const rows=rowsFor(state,cut,true).filter(r=>(!input.trend||input.trend===r.trend)&&(!scope.length||strategyList(r).some(s=>scope.includes(s)))&&factors.every(f=>known(r).includes(f)));
+  const asOf=input.asOf||Date.now(),cut=cutAt(asOf), factors=words(input.factors), scope=strategyList(input);
+  const v=[...(state.versions||[])].reverse().find(v=>(state.scope==='demo'||v.sampleScope!=='demo')&&v.approvedAt && v.weights && Date.parse(v.approvedAt)<=instant(asOf));
+  const rows=rowsFor(state,asOf,true).filter(r=>(!input.trend||input.trend===r.trend)&&(!scope.length||strategyList(r).some(s=>scope.includes(s)))&&factors.every(f=>known(r).includes(f)));
   const gate=v?.strategyThresholds?.[scope[0]]??v?.threshold??-Infinity;
-  const s=stats(rows), score=weightedScore(v?.weights||{},factorSet(input));
+  const s=stats(rows,policyAt(state,cut)), score=weightedScore(v?.weights||{},factorSet(input));
   const support=v?.minSupport||6;
   return {...s,score,version:v?.number||0,risk:s.n<support?'同类样本不足':s.lossRate>=60?'同类组合亏损频率偏高':score<=gate?'低于已审批候选评分阈值':'历史样本可供参考'};
 }
@@ -93,7 +121,10 @@ function archivePlan(state,p) {
   const intendedDate=p.intendedDate?asDate(stamp(p.intendedDate+'T09:30','计划执行日期')):null;
   if(intendedDate && intendedDate<tradeDay)throw Error('计划执行日期早于冻结时间');
   const expectedAuctionGap=p.expectedAuctionGap!=null&&p.expectedAuctionGap!==''?num(p.expectedAuctionGap,'预期竞价涨幅',-100,100):null;
-  const plan={id:id('plan'),labels,frozenAt,code,intendedDate,expectedAuctionGap,name:required(p.name,'标的名称',40),strategy,entryMax,maxPosition:num(p.maxPosition,'仓位上限',0.01,100),stop,target,holdUntil,logic:required(p.logic,'开仓逻辑',2000),expectedRR:round((target-entryMax)/(entryMax-stop)),checkId:checked?.id||null,trend:required(p.trend,'指数趋势',20),factors:unique([...words(p.factors),...words(checked?.factors)]),knownRiskFactors:unique([...words(p.knownRiskFactors),...words(checked?.risks)])};
+  const allowedTags=settingsAt(state,frozenAt).customTags||[];
+  const customTags=words(p.customTags);
+  if(customTags.some(t=>!allowedTags.includes(t)))throw Error('自定义标签须在计划冻结时已经启用');
+  const plan={id:id('plan'),customTags,sampleSet:state.scope==='demo'||isTestSample(p)||isTestSample(checked)?'test':'real',labels,frozenAt,code,intendedDate,expectedAuctionGap,name:required(p.name,'标的名称',40),strategy,entryMax,maxPosition:num(p.maxPosition,'仓位上限',0.01,100),stop,target,holdUntil,logic:required(p.logic,'开仓逻辑',2000),expectedRR:round((target-entryMax)/(entryMax-stop)),checkId:checked?.id||null,trend:required(p.trend,'指数趋势',20),factors:unique([...words(p.factors).filter(k=>!dictionaryCode(k)),...words(checked?.factors),...evidenceCodes(checked,Date.parse(frozenAt))]),knownRiskFactors:unique([...words(p.knownRiskFactors),...words(checked?.risks)])};
   state.plans.push(plan); return plan;
 }
 export function auditTrade(plan,t) {
@@ -126,12 +157,13 @@ function dayGap(a,b){return (Date.parse(b)-Date.parse(a))/86400000;}
 function closeTrade(state,p){
   const entryTime=stamp(p.entryTime,'买入时间'),exitTime=stamp(p.exitTime,'卖出时间');
   const at=Date.parse(entryTime+':00+08:00'),day=asDate(entryTime),code=symbol(p.code);
-  const matchingPlans=(state.plans||[]).filter(v=>v.code===code&&Date.parse(v.frozenAt)<=at&&(v.intendedDate||asDate(localTime(Date.parse(v.frozenAt))))===day);
+  const practice=state.scope==='demo'||p.sampleSet==='test';
+  const matchingPlans=(state.plans||[]).filter(v=>(practice||!isTestSample(v))&&v.code===code&&Date.parse(v.frozenAt)<=at&&(v.intendedDate||asDate(localTime(Date.parse(v.frozenAt))))===day);
   const plan=p.planId?(state.plans||[]).find(v=>v.id===p.planId):matchingPlans.length===1?matchingPlans[0]:null;
   if(p.planId&&!plan)throw Error('关联计划不存在');
   const visible=marketAsOf(state,day,entryTime),last=visible.at(-1);
   const lastSession=last?.date||day;
-  const check=(state.checks||[]).filter(c=>c.code===code&&Date.parse(c.createdAt)<=at&&c.date<=day&&dayGap(c.date,day)<=7&&
+  const check=(state.checks||[]).filter(c=>(practice||isTestSample(plan)||!isTestSample(c))&&c.code===code&&Date.parse(c.createdAt)<=at&&c.date<=day&&dayGap(c.date,day)<=7&&
     (!c.asOf||c.asOf.replace(' ','T')<=entryTime)&&(c.date===lastSession||c.date===day||plan?.checkId===c.id))
     .sort((a,b)=>b.date.localeCompare(a.date)||Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
   const strategies=check?.matches||[];
@@ -142,16 +174,21 @@ function closeTrade(state,p){
   const shares=num(p.shares,'数量',1,1e10),cost=num(p.cost??0,'总费用',0,1e10);
   if(!Number.isSafeInteger(shares))throw Error('成交数量应为整数股');
   const pnlAmount=round((exitPrice-entryPrice)*shares-cost), pnl=round(pnlAmount/(entryPrice*shares)*100);
-  const matches=(state.trades||[]).some(t=>t.code===code&&t.entryTime===entryTime&&t.exitTime===exitTime&&t.entryPrice===entryPrice&&t.exitPrice===exitPrice&&t.shares===shares&&t.cost===cost);
+  const matches=(state.trades||[]).some(t=>t.code===code&&t.entryTime===entryTime&&t.exitTime===exitTime&&t.entryPrice===entryPrice&&t.exitPrice===exitPrice&&t.shares===shares&&t.cost===cost&&isTestSample(t)===(practice||isTestSample(plan)||isTestSample(check)));
   if(matches)throw Error('相同成交记录已存在');
   const labels=Object.fromEntries(Object.entries({volume:last?.volume,indexPosition:last?.indexPosition,breadth:last?.breadth,
     resonance:feature.resonance,breakRate:last?.breakRate,downLimit:last?.downLimit,premium:last?.premium,height:last?.height,
     theme:last?.themeType,ladder:feature.ladder,themeDays:feature.themeAge,assist:feature.sectorAssists,stockPosition:feature.position,
-    turnover:feature.turnover,stockVolume:feature.volume,chip:feature.chipPeak,overhang:feature.lockedRatio}).filter(([,v])=>v!=null&&v!=='缺失'));
-  const heldBars=(state.bars||[]).filter(b=>(b.role||'stock')==='stock'&&b.code===code&&b.date.slice(0,10)>=day&&b.date.slice(0,10)<=asDate(exitTime));
-  const shock=heldBars.some(b=>b.blackSwan && !['0','false','否','无'].includes(String(b.blackSwan).trim()));
-  const quality=shock?'黑天鹅':p.quality||'可重复样本';
-  const t={id:id('trade'),createdAt:now(),planId:plan?.id||null,planStatus:plan?'已冻结':(p.planStatus==='无开仓计划'?p.planStatus:'历史补录'),code,name:required(p.name,'股票名称',40),entryTime,exitTime,date:asDate(entryTime),exitDate:asDate(exitTime),entryPrice,exitPrice,shares,cost,position:num(p.position,'实际仓位',0.01,100),holdDays:Math.floor((Date.parse(asDate(exitTime))-Date.parse(asDate(entryTime)))/86400000),pnl,pnlAmount,repeatable:!['黑天鹅','不可复制极端行情'].includes(quality),blackSwan:quality==='黑天鹅',quality,exitReason:required(p.exitReason,'离场类型'),strategy:detected,strategies,checkId:check?.id||null,factors:check?.factors||plan?.factors||[],knownRiskFactors:check?.risks||plan?.knownRiskFactors||[],trend:check?.market?.trend||last?.trend||plan?.trend||'未记录',stopAction:p.stopAction||'缺少记录',labels,snapshotVerified:Boolean(check&&strategies.length)};
+    turnover:feature.turnover,stockVolume:feature.volume,chip:feature.chipPeak,overhang:feature.lockedRatio,
+    shape:feature.shape,structure:feature.structure,maState:feature.maState,volumeRun:feature.volumeRun,
+    relation:feature.relation,themeCycle:feature.themeCycle,chipExchange:feature.chipExchange,leader:feature.sectorLeader}).filter(([,v])=>v!=null&&v!=='缺失'));
+  const heldBars=(state.bars||[]).filter(b=>(practice||isTestSample(plan)||!isTestSample(b))&&(b.role||'stock')==='stock'&&b.code===code&&b.date.slice(0,10)>=day&&b.date.slice(0,10)<=asDate(exitTime));
+  const shock=heldBars.some(b=>sampleMatches(b,'blackSwan'));
+  if(p.sampleSet!=null&&!['test','real'].includes(p.sampleSet))throw Error('样本用途须为正式或测试');
+  const extreme=p.quality==='不可复制极端行情'||heldBars.some(b=>sampleMatches(b,'extreme'));
+  const quality=shock||p.quality==='黑天鹅'?'黑天鹅':extreme?'不可复制极端行情':'可重复样本';
+  const sampleSet=state.scope==='demo'||p.sampleSet==='test'||isTestSample(plan)||isTestSample(check)||heldBars.some(isTestSample)?'test':'real';
+  const t={id:id('trade'),customTags:words(plan?.customTags),sampleSet,extreme,createdAt:now(),planId:plan?.id||null,planStatus:plan?'已冻结':(p.planStatus==='无开仓计划'?p.planStatus:'历史补录'),code,name:required(p.name,'股票名称',40),entryTime,exitTime,date:asDate(entryTime),exitDate:asDate(exitTime),entryPrice,exitPrice,shares,cost,position:num(p.position,'实际仓位',0.01,100),holdDays:Math.floor((Date.parse(asDate(exitTime))-Date.parse(asDate(entryTime)))/86400000),pnl,pnlAmount,repeatable:!['黑天鹅','不可复制极端行情'].includes(quality),blackSwan:quality==='黑天鹅',quality,exitReason:required(p.exitReason,'离场类型'),strategy:detected,strategies,checkId:check?.id||null,factors:unique([...words(check?.factors||plan?.factors),...evidenceCodes(check,at),...pressureLearningTags(state,{code,date:day},entryTime)]),knownRiskFactors:check?.risks||plan?.knownRiskFactors||[],trend:check?.market?.trend||last?.trend||plan?.trend||'未记录',stopAction:p.stopAction||'缺少记录',labels,snapshotVerified:Boolean(check&&strategies.length)};
   t.labels.cycle=check?.emotion?.stage||plan?.labels?.cycle||(last?emotion(visible,last.date,entryTime).stage:'未判定');
   t.labels.overnight=t.date!==t.exitDate?'是':'否';
   t.frozenLabels={...(plan?.labels||{}),...labels,cycle:t.labels.cycle};
@@ -159,36 +196,47 @@ function closeTrade(state,p){
   t.violations=t.disciplineFacts.filter(r=>r.status==='触发').map(r=>r.rule);
   t.reviewable=t.disciplineFacts.some(r=>r.status==='触发'||r.status==='符合');
   t.attribution=attribution(t);
+  const explanation=p.explanation?{id:id('note'),tradeId:t.id,text:required(p.explanation,'主观解释',3000),createdAt:now()}:null;
   state.trades.push(t);
-  if(p.explanation)state.explanations.push({id:id('note'),tradeId:t.id,text:required(p.explanation,'主观解释',3000),createdAt:now()});
+  if(explanation)state.explanations.push(explanation);
   return t;
 }
-function groupStats(rows,getKeys){
+function groupStats(rows,getKeys,policy={}){
   const m=new Map();
   for(const r of rows)for(const k of unique(getKeys(r))) {
     if(!m.has(k))m.set(k,[]);m.get(k).push(r);
   }
-  return [...m].map(([key,values])=>({key,...stats(values)})).sort((a,b)=>b.n-a.n||b.expectedReturn-a.expectedReturn);
+  return [...m].map(([key,values])=>({key,...stats(values,policy)})).sort((a,b)=>b.n-a.n||b.expectedReturn-a.expectedReturn);
 }
-export function study(rows){
-  const active=rows.filter(r=>r.repeatable!==false&&!r.blackSwan),single=groupStats(active,factorSet);
+export function study(rows,policy={},options={}){
+  const active=rows.filter(r=>sampleMatches(r,options.selection||'standard')&&(options.includeTest===true||!isTestSample(r)));
+  const single=groupStats(active,factorSet,policy);
   const leaders=new Set(single.slice(0,14).map(s=>s.key));
   const combinations=groupStats(active,r=>{
     const fs=factorSet(r).filter(x=>leaders.has(x)).sort(),keys=[];
     for(let i=0;i<fs.length;i++)for(let j=i+1;j<fs.length;j++){
       keys.push(fs[i]+' + '+fs[j]);for(let k=j+1;k<fs.length;k++)keys.push(fs[i]+' + '+fs[j]+' + '+fs[k]);
     }return keys;
-  });
-  const byTrend=groupStats(active,r=>strategyList(r).map(s=>s+' / '+(r.trend||'未记录')));
-  const risk=groupStats(active,r=>[String(words(r.knownRiskFactors).length)+' 项风险叠加']);
+  },policy);
+  const byTrend=groupStats(active,r=>strategyList(r).map(s=>s+' / '+(r.trend||'未记录')) ,policy);
+  const risk=groupStats(active,r=>[String(words(r.knownRiskFactors).length)+' 项风险叠加'],policy);
   const frequent=[...single,...combinations].filter(x=>x.n>=6);
   const best=frequent.filter(x=>x.expectedReturn>0&&x.winRate>=60).sort((a,b)=>b.expectedReturn-a.expectedReturn);
   const danger=frequent.filter(x=>x.expectedReturn<0&&x.lossRate>=60).sort((a,b)=>a.expectedReturn-b.expectedReturn);
   return {single,combinations,byTrend,risk,best,danger};
 }
-function closedAt(r){return r.exitTime || (r.exitDate || r.date)+'T15:00';}
+function closedAt(r){return cutAt(r.exitTime || (r.exitDate || r.date)+'T15:00');}
+const performanceFactors=r=>factorSet(r).filter(f=>!f.startsWith('战法·')&&!f.startsWith('环境·'));
+export function learningSnapshot(state,options={}){
+  const moment=options.asOf??Date.now(),asOf=cutAt(moment);
+  if(!asOf)throw Error('无效的绩效观察时间');
+  const policy=policyAt(state,asOf),rows=rowsFor(state,moment,false,options);
+  return {asOf,decay:policy,totals:stats(rows,policy),factorByTrend:groupedPerformance(rows,performanceFactors,'factor',policy),
+    strategyByTrend:groupedPerformance(rows,strategyList,'strategy',policy),alerts:decayAlerts(rows,performanceFactors,asOf,t=>policyAt(state,t)),
+    attribution:attributionCloud(rows)};
+}
 function buildCandidate(state,automatic=false){
-  const all=rowsFor(state,localTime(),true).map(r=>r.snapshotVerified?{...r,strategies:[r.strategy]}:r);
+  const all=rowsFor(state,Date.now(),true).map(r=>r.snapshotVerified?{...r,strategies:[r.strategy]}:r);
   const previous=state.candidates?.at(-1);
   // A tested holdout is never reused for a new parameter-search attempt.
   const raw=all.filter(r=>!previous?.end || r.date>previous.end);
@@ -201,26 +249,27 @@ function buildCandidate(state,automatic=false){
   const validation=raw.filter(r=>r.date>=a&&r.date<b&&availableBefore(r,b));
   const test=raw.filter(r=>r.date>=b);
   if(train.length<12||validation.length<6||test.length<6)return unavailable('清除跨分界持仓后样本不足，训练 / 时间外 / 样本外至少需要 12 / 6 / 6 条。');
-  const groups=groupStats(train,factorSet).filter(g=>g.n>=4), baseline=stats(train);
+  // The time weighting policy and the fit are frozen before the first holdout.
+  const trainCut=new Date(Date.parse(a+'T00:00:00Z')-60000).toISOString().slice(0,16);
+  const policy=policyAt(state,trainCut);
+  const groups=groupStats(train,factorSet,policy).filter(g=>g.n>=4), baseline=stats(train,policy);
   // Priors shrink sparse factors back toward the training mean.
-  const weights=Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.n/(g.n+8))))]));
+  const weights=Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.effectiveN/(g.effectiveN+8))))]));
   const reviewRefs=(state.notes||[]).filter(n=>n.factor&&Object.hasOwn(weights,n.factor)&&n.tradeId&&n.createdAt&&localTime(Date.parse(n.createdAt))<a&&train.some(r=>r.id===n.tradeId&&factorSet(r).includes(n.factor)));
   // Review hypotheses count only if already recorded and backed by an actual training feature.
   for(const f of unique(reviewRefs.map(n=>n.factor))) {
     const linked=new Set(reviewRefs.filter(n=>n.factor===f).map(n=>n.tradeId));
     if(linked.size>=3) {
-      const score=stats(train.filter(t=>linked.has(t.id))).expectedReturn;
+      const score=stats(train.filter(t=>linked.has(t.id)),policy).expectedReturn;
       weights[f]=round(weights[f]+Math.max(-0.25,Math.min(0.25,(score-baseline.expectedReturn)/10)));
     }
   }
-  const scores=train.map(r=>weightedScore(weights,factorSet(r))).sort((x,y)=>x-y);
-  const threshold=Math.max(0,scores[Math.floor((scores.length-1)*0.25)]),minSupport=6;
+  const score=r=>weightedScore(weights,factorSet(r));
+  const threshold=Math.max(0,weightedQuartile(train,score,policy)),minSupport=6;
   const strategyThresholds=Object.create(null);
   for (const strat of unique(train.flatMap(strategyList))) {
     const group=train.filter(r=>strategyList(r).includes(strat));
-    if(group.length<12)continue;
-    const local=group.map(r=>weightedScore(weights,factorSet(r))).sort((x,y)=>x-y);
-    strategyThresholds[strat]=Math.max(threshold,local[Math.floor((local.length-1)*0.25)]);
+    if(group.length>=12)strategyThresholds[strat]=Math.max(threshold,weightedQuartile(group,score,policy));
   }
   const passRows=rows=>rows.filter(r=>weightedScore(weights,factorSet(r))>(strategyThresholds[r.strategy]??threshold));
   const steps=[];
@@ -231,12 +280,13 @@ function buildCandidate(state,automatic=false){
   let chosen=[];
   for(const [i,origin] of [train,validation,test].entries()){
     chosen=passRows(origin);
-    const s=stats(chosen),base=stats(origin),dates=unique(chosen.map(r=>r.date));
+    const evaluation={...policy,asOf:i===0?trainCut:i===1?b:localTime()};
+    const s=stats(chosen,evaluation),base=stats(origin,evaluation),dates=unique(chosen.map(r=>r.date));
     const pass=s.n>=minSupport&&dates.length>=3&&s.expectedReturn>0&&s.expectedReturn>=base.expectedReturn&&(i!==0||Object.values(weights).some(x=>x>0));
     if(!gate(i,pass,'选中 '+s.n+' / '+base.n+' 条，'+dates.length+' 个信号日，均值 '+val(s.expectedReturn,'%')+'，同期基准 '+val(base.expectedReturn,'%')+'。要求至少 6 条、3 日且均值为正并达到基准。'))break;
   }
   if(steps.length===3&&steps.at(-1).status==='通过'){
-    const stressed=stats(chosen.map(r=>({...r,pnl:r.pnl-0.6})));
+    const stressed=stats(chosen.map(r=>({...r,pnl:r.pnl-0.6})),{...policy,asOf:localTime()});
     gate(3,stressed.expectedReturn>0,'样本外每次加扣 0.60 个百分点，净均值 '+val(stressed.expectedReturn,'%')+'，须大于零。');
   }
   if(steps.length===4&&steps.at(-1).status==='通过'){
@@ -245,7 +295,7 @@ function buildCandidate(state,automatic=false){
     gate(4,tail.maxDrawdown<=20&&tail.worst>=-10&&concentration<=0.5,'单位仓位回撤 '+val(tail.maxDrawdown,'%')+'（≤20%），最差单笔 '+val(tail.worst,'%')+'（≥−10%），单标的占比 '+val(round(concentration*100),'%')+'（≤50%）。');
   }
   while(steps.length<stages.length)steps.push({name:stages[steps.length],status:'未运行',evidence:'等待前置环节通过'});
-  const candidate={id:id('candidate'),createdAt:now(),baseVersion:lastVersion(state)?.number||0,start:days[0],trainEnd:a,validationEnd:b,end:raw.map(r=>asDate(closedAt(r))).sort().at(-1),weights,threshold,strategyThresholds,minSupport,steps,status:steps.every(s=>s.status==='通过')?'待人工审批':'验证未通过',counts:[train.length,validation.length,test.length],sourceIds:raw.map(r=>r.id),reviewRefs:reviewRefs.map(n=>n.id)};
+  const candidate={id:id('candidate'),sampleScope:state.scope==='demo'?'demo':'live',decay:policy,createdAt:now(),baseVersion:lastVersion(state)?.number||0,start:days[0],trainEnd:a,validationEnd:b,end:raw.map(r=>asDate(closedAt(r))).sort().at(-1),weights,threshold,strategyThresholds,minSupport,steps,status:steps.every(s=>s.status==='通过')?'待人工审批':'验证未通过',counts:[train.length,validation.length,test.length],sourceIds:[...train,...validation,...test].map(r=>r.id),reviewRefs:reviewRefs.map(n=>n.id)};
   state.candidates.push(candidate);return candidate;
 }
 export function learningAction(state,action,p={}){
@@ -256,8 +306,9 @@ export function learningAction(state,action,p={}){
     const t=closeTrade(state,p);buildCandidate(state,true);return t;
   }
   if(action==='learn:note'){
-    if(!state.trades.some(t=>t.id===p.tradeId))throw Error('交易不存在');
-    const record={id:id('note'),tradeId:p.tradeId,text:required(p.text,'主观解释',3000),createdAt:now()};state.explanations.push(record);return record;
+    const target=p.planId&&!p.tradeId?{planId:p.planId}:{tradeId:p.tradeId};
+    if(target.tradeId?!state.trades.some(t=>t.id===p.tradeId):!state.plans.some(t=>t.id===p.planId))throw Error('对应的冻结计划或成交不存在');
+    const record={id:id('note'),...target,text:required(p.text,'主观解释',3000),createdAt:now()};state.explanations.push(record);return record;
   }
   if(action==='learn:candidate')return buildCandidate(state);
   if(action==='learn:auto-candidate')return buildCandidate(state,true);
@@ -266,11 +317,12 @@ export function learningAction(state,action,p={}){
     if(!c || c.status!=='待人工审批'||c.steps.length!==5||!c.steps.every((s,i)=>s.name===stages[i]&&s.status==='通过'))throw Error('仅允许审批五项验证均已通过的候选');
     const reviewer=required(p.reviewer,'审批人',50),reason=required(p.reason,'审批意见',2000);
     if(!['approve','reject'].includes(p.decision))throw Error('请选择审批结论');
+    if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isTestSample(r)&&c.sourceIds?.includes(r.id))))throw Error('含测试样本的候选仅用于演示档案');
     const prev=lastVersion(state)?.number||0;
     if(p.decision==='approve' && c.baseVersion!==prev)throw Error('基线版本已变更，请基于当前版本重新验证');
     c.decision={reviewer,reason,at:now()};
     if(p.decision==='reject'){c.status='人工驳回';return c;}
-    const ver={id:id('version'),number:prev+1,candidateId:c.id,approvedAt:c.decision.at,reviewer,reason,weights:{...c.weights},strategyThresholds:{...c.strategyThresholds},minSupport:c.minSupport,threshold:c.threshold};
+    const ver={id:id('version'),sampleScope:c.sampleScope||'live',decay:c.decay,number:prev+1,candidateId:c.id,approvedAt:c.decision.at,reviewer,reason,weights:{...c.weights},strategyThresholds:{...c.strategyThresholds},minSupport:c.minSupport,threshold:c.threshold};
     state.versions.push(ver);c.status='已晋级';return ver;
   }
   throw Error('未知学习操作');
@@ -293,8 +345,10 @@ const labelGroups=[
 ];
 function planForm(s,current){
  const context=current?'<input type="hidden" name="checkId" value="'+E(current.id)+'">':'';
+ const custom=settingsAt(s).customTags||[];
  const strategy=current?.eligible?.[0]||current?.matches?.[0]||'未判定';
- return context+grid(input('name','标的名称',current?.name,'text',true)+input('code','股票代码',current?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+
+ const tags=custom.length?field('customTags','计划标签（可多选）','<select name="customTags" multiple>'+opts(custom)+'</select>'):'';
+ return context+tags+grid(input('name','标的名称',current?.name,'text',true)+input('code','股票代码',current?.code,'text',true,'pattern="[0-9]{6}" maxlength="6"')+
    input('strategy','校验识别战法',strategy,'text',true,'readonly')+input('trend','全A环境',current?.market?.trend||'未记录','text',true,'readonly')+
    input('entryMax','开仓价格上限（元）','','number',true,'step="0.001" min="0.001"')+input('maxPosition','单标的仓位上限（%）',current?.position||'','number',true,'step=".01" min=".01" max="100"')+
    input('stop','计划止损（元）','','number',true,'step=".001" min=".001"')+input('target','计划止盈（元）','','number',true,'step=".001" min=".001"')+
@@ -309,6 +363,8 @@ function tradeForm(s,plan){
    input('entryPrice','买入均价（元）','','number',true,'step=".001" min=".001"')+input('exitPrice','卖出均价（元）','','number',true,'step=".001" min=".001"')+
    input('shares','成交股数','','number',true,'step="1" min="1"')+input('cost','合计交易费用（元）',0,'number',true,'step=".01" min="0"')+
    input('position','实际仓位（%）','','number',true,'step=".01" min=".01" max="100"')+
+   field('sampleSet','样本用途','<select name="sampleSet">'+(s.scope==='demo'?'<option value="test">演示练习</option>':'<option value="real">正式样本</option><option value="test">测试样本</option>')+'</select>')+
+   sel('quality','样本质量',['可重复样本','黑天鹅','不可复制极端行情'])+
    sel('exitReason','离场记录',['未记录','计划止盈','计划止损','主动离场','被动割肉','到期离场'])+
    sel('stopAction','可核验的止损执行',['缺少记录','未触发','触发并执行','可成交后继续持有','封死无法成交']))+
    '<p class="learn-hint">系统按买入时已归档的校验记录识别战法、环境和风险。多笔计划无法唯一对应时保留待核实。</p>'+textArea('explanation','人工主观解释（可选）');
@@ -319,39 +375,48 @@ const panel=(label,action,body)=>'<section class="panel learn-panel"><div class=
 const style='<style>.learn-shell{display:grid;gap:18px}.learn-panel{padding:20px;min-width:0}.learn-heading,.learn-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.learn-heading{margin-bottom:16px}.learn-heading h3{margin:0;font-size:17px}.learn-actions{justify-content:flex-end}.learn-shell table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}.learn-shell th,.learn-shell td{padding:12px 10px;font-size:14px;border-bottom:1px solid #e6e9ed}.learn-shell th{color:#64748b;font-weight:500}.learn-shell .table-wrap{overflow:auto}.learn-empty,.learn-hint{color:#697386}.learn-empty{text-align:center;padding:30px!important}.learn-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.learn-metric{padding:16px}.learn-metric small{color:#667085;font-size:13px}.learn-metric b{font-family:Arial,sans-serif;display:block;font-size:25px;margin:6px 0}.learn-fold{padding:10px 0;border-bottom:1px solid #e4e9ed}.learn-fold summary{cursor:pointer;font-size:14px;font-weight:600}.learn-shell .tag{white-space:nowrap}.learn-form{gap:12px}.learn-tabs{display:flex;gap:6px;flex-wrap:wrap}.learn-shell .active-tab{background:var(--primary);color:white}.learn-cell-link{border:none;background:none;color:var(--primary);cursor:pointer;padding:0;font:inherit}.learn-small{font-size:13px;color:#697386}.learn-stage{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px 0;border-bottom:1px solid #dae4df}.learn-stage p{grid-column:1/-1;margin:0;color:#62716c;font-size:14px}.learn-shell input,.learn-shell select{max-width:100%}@media(max-width:720px){.learn-metrics{grid-template-columns:repeat(2,1fr)}.learn-panel{padding:14px}}</style>';
 const metricsBar=xs=>'<div class="learn-metrics">'+xs.map(([k,v])=>'<div class="panel learn-metric"><small>'+E(k)+'</small><b>'+E(v)+'</b></div>').join('')+'</div>';
 const link=(key,label)=>'<button type="button" class="learn-cell-link" data-learnaction="'+E(key)+'">'+E(label)+'</button>';
-function sampleTable(rows){return table(['成交日期','标的','战法 / 环境','仓位','净收益','纪律触发','样本质量'],rows.map(t=>[E(t.date),link('view:'+t.id,t.name)+'<br><small>'+E(t.code)+'</small>',E(t.strategy)+'<br><small>'+E(t.trend)+'</small>',val(t.position,'%'),'<b style="color:'+(t.pnl>0?'var(--red)':t.pnl<0?'var(--green)':'inherit')+'">'+val(t.pnl,'%')+'</b>',E((t.violations||[]).join('、') || (t.reviewable?'无已证实违规':'待核验')),E(t.quality||'未标注')]));}
+function sampleTable(rows){return table(['成交日期','标的','战法 / 环境','仓位','净收益','纪律触发','样本质量'],rows.map(t=>[E(t.date),link('view:'+t.id,t.name)+'<br><small>'+E(t.code)+'</small>',E(t.strategy)+'<br><small>'+E(t.trend)+'</small>',val(t.position,'%'),'<b style="color:'+(t.pnl>0?'var(--red)':t.pnl<0?'var(--green)':'inherit')+'">'+val(t.pnl,'%')+'</b>',E((t.violations||[]).join('、') || (t.reviewable?'无已证实违规':'待核验')),E((isTestSample(t)?'测试 · ':'')+(t.quality||'未标注'))]));}
 function viewStats(groups){return table(['因子 / 条件','样本数','胜率','亏损概率','盈亏比','平均净收益','已实现回撤'],groups.map(g=>[E(g.key),val(g.n),val(g.winRate,'%'),val(g.lossRate,'%'),val(g.payoff),val(g.expectedReturn,'%'),val(g.maxDrawdown,'%')]));}
-const exportTradeCols=[['date','入场日'],['name','名称'],['code','股票代码'],['strategy','战法'],['trend','指数趋势'],['entryTime','入场时刻'],['exitTime','退出时刻'],['holdDays','持有自然日'],['position','仓位%'],['pnl','净盈亏%'],['pnlAmount','净盈亏金额'],['factors','因子'],['violations','触发纪律'],['quality','样本质量']];
+const exportTradeCols=[['sampleSet','样本用途'],['date','入场日'],['name','名称'],['code','股票代码'],['strategy','战法'],['trend','指数趋势'],['entryTime','入场时刻'],['exitTime','退出时刻'],['holdDays','持有自然日'],['position','仓位%'],['pnl','净盈亏%'],['pnlAmount','净盈亏金额'],['factors','因子'],['violations','触发纪律'],['quality','样本质量']];
 function formTradeValues(s,p) {
   const out={...p,overnight:asDate(p.entryTime)!==asDate(p.exitTime)?'是':'否'};
   return out;
 }
 export function renderLearning(ui,mode='trades'){
-  const s=ui.state, root=ui.root;
-  let tab=mode==='versions'?'versions':'ledger',filter='全部样本',q='',group='single',groupPage=0,ledgerPage=0;
-  let trades,plans,candidates,versions;
+  let s=ui.state;const root=ui.root;
+  let tab=mode==='versions'?'versions':'ledger',filter='全部样本',q=ui.strategy||ui.factor||'',group='single',groupPage=0,ledgerPage=0;
+  let trades,plans,candidates,versions,performance=null;
+  let includeTest=false,selection=ui.sampleFilter||'standard',perfFactor=ui.factor||'',perfStrategy=ui.strategy||'',perfTrend='';
+  const perfFilter=(field,values,chosen)=>'<select id="learn-perf-'+field+'" aria-label="'+({factor:'选择因子',strategy:'选择战法',trend:'选择环境'})[field]+'"><option value="">'+({factor:'所有因子',strategy:'所有战法',trend:'所有环境'})[field]+'</option>'+values.map(v=>'<option '+(chosen===v?'selected ':'')+'value="'+E(v)+'">'+E(v)+'</option>').join('')+'</select>';
+  const qualityOptions={all:'全部质量',standard:'标准样本',blackSwan:'仅黑天鹅',extreme:'仅极端行情',excludeBlackSwan:'排除黑天鹅',excludeExtreme:'排除极端行情'};
+  const controls=()=>'<div class="learn-actions" style="justify-content:flex-start">'+(s.scope==='demo'?'<span class="tag">演示档案 · 练习统计</span>':'<label><input type="checkbox" id="learn-tests" '+(includeTest?'checked':'')+'> 统计包含测试样本</label>')+
+    '<label>样本质量 <select id="learn-quality">'+Object.entries(qualityOptions).map(([k,v])=>'<option value="'+k+'" '+(selection===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label></div>';
+  const perf=()=>performance||=learningSnapshot(s,{includeTest,selection});
   const current=()=>[...(s.checks||[])].reverse().find(r=>r.code===ui.stock&&(!ui.date||r.date===ui.date));
   function snapshot(){
+    s=ui.state;performance=null;
     trades=ordered(s.trades||[]).reverse();plans=[...(s.plans||[])].reverse();
     candidates=[...(s.candidates||[])].reverse();versions=[...(s.versions||[])].filter(v=>v.approvedAt).reverse();
   }
   snapshot();
   let reportRows=null, report=null;
   function analysis(){
-    if(!report){reportRows=rowsFor(s);report=study(reportRows);}
+    if(!report){reportRows=rowsFor(s,Date.now(),false,{includeTest,selection});report=study(reportRows,policyAt(s,localTime()),{includeTest:includeTest||s.scope==='demo',selection});}
     return report;
   }
-  const selected=()=>trades.filter(t=>(!q||[t.code,t.name,t.strategy,...(t.factors||[])].join(' ').includes(q)) && (filter==='全部样本'||filter==='大亏案例'&&t.pnl<=-5||filter==='违规样本'&&t.violations?.length||filter==='质量隔离'&&(t.repeatable===false||t.blackSwan)||filter==='标准样本'&&t.repeatable!==false&&!t.blackSwan));
+  const selected=()=>trades.filter(t=>(s.scope==='demo'||includeTest||!isTestSample(t))&&sampleMatches(t,selection)&&(!q||[t.code,t.name,t.strategy,...(t.factors||[])].join(' ').includes(q)) && (filter==='全部样本'||filter==='大亏案例'&&t.pnl<=-5||filter==='违规样本'&&t.violations?.length||filter==='质量隔离'&&(t.repeatable===false||t.blackSwan)||filter==='标准样本'&&t.repeatable!==false&&!t.blackSwan));
   function main(){
-    const total=stats(trades),ss=trades.filter(t=>t.reviewable);
-    const count=total.n===trades.length?total.n:trades.length;
-    const mainTabs='<div class="learn-tabs">'+[['ledger','交易台账'],['plans','冻结计划'],['study','因子统计'],['forecast','同类样本预估']].map(([k,l])=>'<button type="button" class="btn '+(tab===k?'active-tab':'')+'" data-learnaction="tab:'+k+'">'+l+'</button>').join('')+'</div>';
-    let html='';
+    const visible=trades.filter(r=>(s.scope==='demo'||includeTest||!isTestSample(r))&&sampleMatches(r,selection));
+    const total=stats(visible,policyAt(s,localTime())),ss=visible.filter(t=>t.reviewable);
+    const count=total.n;
+    const mainTabs='<div class="learn-tabs">'+[['ledger','交易台账'],['plans','冻结计划'],['study','因子统计'],['performance','绩效预览'],['forecast','同类样本预估']].map(([k,l])=>'<button type="button" class="btn '+(tab===k?'active-tab':'')+'" data-learnaction="tab:'+k+'">'+l+'</button>').join('')+'</div>';
+    let html=controls();
     if(mode==='versions'){
       const ver=versions[0],latest=candidates[0];
       html+=metricsBar([['运行版本',ver?'V'+ver.number:'基础规则'],['候选方案',candidates.length],['待人工审批',candidates.filter(c=>c.status==='待人工审批').length],['已晋级版本',versions.length]]);
       html+=panel('候选参数',button('candidate','生成并验证候选',true),table(['生成日期','训练 / 时间外 / 样本外','权重数量','状态','验证记录'],candidates.map(c=>[E(asDate(c.createdAt)),E(c.counts?.join(' / ')),Object.keys(c.weights||{}).length,E(c.status),link('candidate:'+c.id,'查看验证')]),'尚无可验证候选。需累积时点可核验的已成熟样本。'));
       html+=panel('验证与审批顺序','',stages.map((l,i)=>'<div class="learn-stage"><b>'+E(l)+'</b><span class="tag">'+E(latest?.steps?.[i]?.status||'等待样本')+'</span><p>'+E(latest?.steps?.[i]?.evidence||['仅从训练段学习因子权重，冻结选样阈值和训练参数。','验证较晚时段的收益，清除跨越分界的未平仓样本。','在独立留出时段检验已冻结的候选参数。','逐笔增加双边成本与滑点，检验净收益。','检查单笔尾部损失、曲线回撤和标的集中度。'][i])+'</p></div>').join('')+'<p class="learn-hint">五项通过后进入人工审批。审批将保存操作人、意见和版本生效时间。</p>');
+      html+=renderLearningSnapshot(perf());
       html+=panel('版本记录','',table(['版本','生效时间','审批人','审批意见'],versions.map(v=>['V'+E(v.number),E(localTime(Date.parse(v.approvedAt)).replace('T',' ')),E(v.reviewer),E(v.reason)]),'当前使用基础规则'));
     }else{
       html+=metricsBar([['已结算样本',count],['样本胜率',val(total.winRate,'%')],['平均盈亏比',val(total.payoff)],['可核验样本纪律达标率',ss.length?val(round(100*ss.filter(t=>!t.violations?.length).length/ss.length),'%'):'—']])+ mainTabs;
@@ -367,9 +432,14 @@ export function renderLearning(ui,mode='trades'){
         }
       }else if(tab==='plans'){
         html+=panel('冻结的开仓计划',button('plan','新建并冻结计划',true),table(['冻结时间（北京时间）','标的','战法','开仓上限','仓位上限','止损 / 止盈','执行记录'],plans.map(p=>[E(localTime(Date.parse(p.frozenAt)).replace('T',' ')),link('planinfo:'+p.id,p.name)+'<br><small>'+E(p.code)+'</small>',E(p.strategy),val(p.entryMax),val(p.maxPosition,'%'),E(p.stop+' / '+p.target),link('execute:'+p.id,'登记成交')]),'尚无冻结计划。开仓前记录价格、仓位和离场条件。'));
+      }else if(tab==='performance'){
+        const view=perf(),groups={...view,factorByTrend:view.factorByTrend.filter(r=>(!perfTrend||r.trend===perfTrend)&&(!perfFactor||r.factor===perfFactor)),
+          strategyByTrend:view.strategyByTrend.filter(r=>(!perfTrend||r.trend===perfTrend)&&(!perfStrategy||r.strategy===perfStrategy))};
+        html+='<div class="learn-actions">'+perfFilter('factor',unique(view.factorByTrend.map(r=>r.factor)),perfFactor)+perfFilter('strategy',unique(view.strategyByTrend.map(r=>r.strategy)),perfStrategy)+perfFilter('trend',['多头','震荡','空头'],perfTrend)+'</div>';
+        html+=renderLearningSnapshot(groups,{compact:false})||panel('因子与战法绩效','','<p>当前过滤条件下尚无已收录的成熟样本。</p>');
       }else if(tab==='study'){
         const r=analysis(),groups={single:'单因子',combinations:'双 / 多因子组合',byTrend:'环境适配',risk:'风险叠加',best:'高收益组合',danger:'负向组合'},rows=r[group]||[];
-        html+=panel('样本因子统计',button('exportStudy','导出组合')+button('exportCases','导出关联案例'),'<div class="learn-actions" style="justify-content:flex-start;margin-bottom:8px"><select id="learn-group" aria-label="统计维度">'+Object.entries(groups).map(([k,l])=>'<option value="'+k+'" '+(group===k?'selected':'')+'>'+l+'</option>').join('')+'</select><small>纳入 '+reportRows.length+' 条可重复交易或五日K线样本</small></div>'+viewStats(rows.slice(groupPage*30,groupPage*30+30))+pager(groupPage*30,rows.length,30,'group')+'<p class="learn-hint">组合统计取出现最多的 14 项因子。高收益 / 负向组合至少 6 例，对应胜率 / 亏损率达到 60%。回撤按离场顺序和记录仓位计算归一化曲线。</p>');
+        html+=panel('样本因子统计',button('exportStudy','导出组合')+button('exportCases','导出关联案例'),'<div class="learn-actions" style="justify-content:flex-start;margin-bottom:8px"><select id="learn-group" aria-label="统计维度">'+Object.entries(groups).map(([k,l])=>'<option value="'+k+'" '+(group===k?'selected':'')+'>'+l+'</option>').join('')+'</select><small>纳入 '+reportRows.length+' 条已成熟交易或五日K线样本</small></div>'+viewStats(rows.slice(groupPage*30,groupPage*30+30))+pager(groupPage*30,rows.length,30,'group')+'<p class="learn-hint">组合统计取出现最多的 14 项因子。高收益 / 负向组合至少 6 例，对应胜率 / 亏损率达到 60%。回撤按离场顺序和记录仓位计算归一化曲线。</p>');
       }else{
         const record=current(), p=record?.prediction;
         html+=panel('同类样本预估','',p?'<p>'+E(record.name)+' · '+E(record.strategy)+' · '+E(record.asOf||record.date)+'</p>'+metricsBar([['已成熟样本',val(p.n)],['历史胜率',val(p.winRate,'%')],['历史盈亏比',val(p.payoff)],['均值收益',val(p.expectedReturn,'%')]])+'<p class="learn-hint">'+E(p.risk)+'</p>':'<p class="learn-hint">当前标的暂无可见校验，取得同期证据后自动更新。</p>');
@@ -387,14 +457,15 @@ export function renderLearning(ui,mode='trades'){
   }
   function form(title,body,action,transform=x=>x){
     ui.modal(title,body,async fd=>{
-      await ui.save(action,transform(Object.fromEntries(fd)));
+      const payload=Object.fromEntries(fd);if(fd.has('customTags'))payload.customTags=fd.getAll('customTags');
+      await ui.save(action,transform(payload));
       if(action==='learn:trade')tab='ledger';
       snapshot();report=null;reportRows=null;main();ui.toast('已保存记录');
     });
   }
   function candidateInfo(c){
     const audit=c.steps.map(step=>'<div class="learn-stage"><b>'+E(step.name)+'</b><span>'+E(step.status)+'</span><p>'+E(step.evidence)+'</p></div>').join('');
-    const body='<p>'+E(c.start)+' 至 '+E(c.end)+' · 基线 V'+E(c.baseVersion)+'</p><p class="learn-small">时间外起点 '+E(c.trainEnd)+'，样本外起点 '+E(c.validationEnd)+'</p>'+audit+fold('候选因子权重与阈值',table(['因子','候选权重'],Object.entries(c.weights).map(([k,v])=>[E(k),val(v)]))+table(['战法','专属评分门槛'],Object.entries(c.strategyThresholds||{}).map(([k,v])=>[E(k),val(v)]),'采用共用评分阈值')+'<p>选样要求评分大于 '+val(c.threshold)+'，最少 '+val(c.minSupport)+' 条。</p>')+(c.decision?'<p>审批记录 · '+E(c.decision.reviewer)+' · '+E(c.decision.reason)+'</p>':'');
+    const body='<p>'+E(c.decay?.decayEnabled?'训练半衰期 '+c.decay.decayHalfLifeDays+' 天':'训练样本等权')+' · '+E(c.sampleScope==='demo'?'演示档案':'正式档案')+'</p><p>'+E(c.start)+' 至 '+E(c.end)+' · 基线 V'+E(c.baseVersion)+'</p><p class="learn-small">时间外起点 '+E(c.trainEnd)+'，样本外起点 '+E(c.validationEnd)+'</p>'+audit+fold('候选因子权重与阈值',table(['因子','候选权重'],Object.entries(c.weights).map(([k,v])=>[E(k),val(v)]))+table(['战法','专属评分门槛'],Object.entries(c.strategyThresholds||{}).map(([k,v])=>[E(k),val(v)]),'采用共用评分阈值')+'<p>选样要求评分大于 '+val(c.threshold)+'，最少 '+val(c.minSupport)+' 条。</p>')+(c.decision?'<p>审批记录 · '+E(c.decision.reviewer)+' · '+E(c.decision.reason)+'</p>':'');
     if(c.status!=='待人工审批')return showInfo('候选验证记录',body);
     form('审核候选参数',body+grid(input('reviewer','审批人','','text',true)+sel('decision','人工决定',['驳回候选','批准晋级']))+textArea('reason','审批意见（必填）'),'learn:decision',p=>({...p,id:c.id,decision:p.decision==='批准晋级'?'approve':'reject'}));
   }
@@ -405,7 +476,7 @@ export function renderLearning(ui,mode='trades'){
         if(key==='tab'){tab=arg;main();return;}
         if(key.startsWith('ledger')||key.startsWith('group')){if(key.startsWith('ledger'))ledgerPage+=key.endsWith('next')?1:-1;else groupPage+=key.endsWith('next')?1:-1;main();return;}
         if(key==='plan')return form('冻结开仓计划',planForm(s,current()),'learn:plan');
-        if(key==='planinfo'){const p=plans.find(t=>t.id===arg);return showInfo('开仓计划 · '+p.name,table(['字段','存档内容'],[['标的',E(p.code+' / '+p.name)],['计划战法',E(p.strategy)],['开仓逻辑',E(p.logic)],['预期盈亏比',val(p.expectedRR)],['最早计划离场',E(p.holdUntil||'未限制')],['开仓因子',E(p.factors?.join('、'))],['风险标签',E(p.knownRiskFactors?.join('、'))],['校验存档',E(p.checkId||'无关联')]]));}
+        if(key==='planinfo'){const p=plans.find(t=>t.id===arg);const ns=(s.explanations||[]).filter(n=>n.planId===arg);return form('开仓计划 · '+p.name,table(['字段','存档内容'],[['标的',E(p.code+' / '+p.name)],['计划战法',E(p.strategy)],['开仓逻辑',E(p.logic)],['预期盈亏比',val(p.expectedRR)],['最早计划离场',E(p.holdUntil||'未限制')],['开仓因子',E(p.factors?.join('、'))],['风险标签',E(p.knownRiskFactors?.join('、'))],['校验存档',E(p.checkId||'无关联')],['冻结标签',E((p.customTags||[]).join('、')||'无')]])+fold('追加备注（'+ns.length+'）',ns.map(n=>'<p>'+E(n.text)+'</p>').join(''))+textArea('text','补充备注'),'learn:note',data=>({...data,planId:p.id}));}
         if(key==='trade'||key==='execute')return form(key==='trade'?'录入交易样本':'登记计划执行',tradeForm(s,key==='execute'?plans.find(t=>t.id===arg):null),'learn:trade',p=>formTradeValues(s,p));
         if(key==='view'){
           const t=trades.find(t=>t.id===arg);
@@ -426,7 +497,13 @@ export function renderLearning(ui,mode='trades'){
     });
     const search=root.querySelector('#learn-search');
     if(search)search.oninput=()=>{q=search.value;ledgerPage=0;const pos=search.selectionStart;main();const next=root.querySelector('#learn-search');next.focus();next.setSelectionRange(pos,pos);};
-    const filterEl=root.querySelector('#learn-filter');if(filterEl)filterEl.onchange=()=>{filter=filterEl.value;ledgerPage=0;main();};
+    const filterEl=root.querySelector('#learn-filter');if(filterEl)filterEl.onchange=()=>{filter=filterEl.value;if(filter==='质量隔离')selection='all';if(filter==='标准样本')selection='standard';ui.setSample?.(selection);ledgerPage=0;reportRows=report=performance=null;main();};
+    const resetStudy=()=>{groupPage=ledgerPage=0;reportRows=report=performance=null;main();};
+    const testToggle=root.querySelector('#learn-tests');if(testToggle)testToggle.onchange=()=>{includeTest=testToggle.checked;resetStudy();};
+    for(const k of ['factor','strategy','trend']){
+      const el=root.querySelector('#learn-perf-'+k);if(el)el.onchange=()=>{if(k==='factor')perfFactor=el.value;else if(k==='strategy')perfStrategy=el.value;else perfTrend=el.value;main();};
+    }
+    const quality=root.querySelector('#learn-quality');if(quality)quality.onchange=()=>{selection=quality.value;ui.setSample?.(selection);filter='全部样本';resetStudy();};
     const g=root.querySelector('#learn-group');if(g)g.onchange=()=>{group=g.value;groupPage=0;main();};
 
   }
