@@ -1,4 +1,4 @@
-import {dabankePanels} from './dabanke-view.js';
+import {dabankePanels,closingLadder} from './dabanke-view.js';
 import {groupRoles,sectorRoles,roleBadge} from './stock-roles.js';
 import {h,button,empty,section,format,money,percent,direction,safeLink} from './ui.js';
 import {reviewDate,reviewCoverage,summarizeReview,stockCard,closeSessionDay,distributionPanel,publishedReasons} from './market.js';
@@ -55,6 +55,7 @@ function cloudReport(state,supplement){
     (!row.sourceTradeDate||!row.tradeDate||reviewDate(row.sourceTradeDate)===reviewDate(row.tradeDate))&&
     !row.heldRecord&&row.currentSourceConfirmed!==false).map(row=>[row.code,row])):new Map();
  const extra=supplement?.day===day?supplement:null;
+ const index=extra?.dabanke?.index,external=closingLadder(index,day);
  const sealed=extra?.sealed?.complete?extra.sealed:null;
  const acquiredReasons=new Map(arr(extra?.reasons).map(row=>[row.code,row]));
  const observations=new Map(summary.rows.filter(row=>[row.tradeDate,row.sourceTradeDate].every(value=>!value||reviewDate(value)===day)).map(row=>[row.code,row]));
@@ -63,9 +64,9 @@ function cloudReport(state,supplement){
   code:row.symbol,name:row.name,level:row.consecutiveLimits,firstSeal:row.firstSealTime,
   lastSeal:row.lastSealTime,breakCount:row.breakCount,amount:row.amountCny,sector:row.industry,
   turnover:row.turnoverPct,sealAmount:row.sealedFundsCny,floatCap:row.floatCapCny
- })):fallbackRows.map(row=>({
+ })):fallbackRows.length?fallbackRows.map(row=>({
   code:row.code,name:row.name,level:row.limitUpCount,amount:row.amount,sector:row.sector,firstSeal:row.firstSeal,lastSeal:row.lastSeal,breakCount:row.breakCount
- }));
+ })):external.rows||[];
  const ladderLogic=new Map((extra?.dabanke?.index?.day===day?extra.dabanke.index.tiers||[]:[]).flatMap(t=>t.members.filter(r=>r.reasonDay===day&&r.reason).map(r=>[r.code,r.reason])));
  const rows=pool.map(row=>{
   const original=observations.get(row.code),source=sourceRows.get(row.code),provider=providerRows.get(row.code);
@@ -102,21 +103,26 @@ function cloudReport(state,supplement){
   return {name,codes:items.map(row=>row.code),roles,roleInfo,classification:items.length===1?'单只封板':items.length+'只封板'};
 
  });
- const promotion=extra?.promotion?.stages;
+ const promotion=extra?.promotion?.stages||external.stages;
  const prior=arr(promotion).filter(stage=>stage.level>=2);
  const promoted=prior.reduce((sum,stage)=>sum+stage.promoted,0);
  const eligible=prior.reduce((sum,stage)=>sum+stage.total,0);
- const broken=extra?.broken?.complete?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):null;
- const failed=extra?.promotion?.failed.map(row=>[row.code,row.name,null,row.level])??null;
+ const broken=extra?.broken?.complete?extra.broken.records.map(row=>[row.symbol,row.name,row.changePct]):external.broken??null;
+ const failed=extra?.promotion?.failed?.map(row=>[row.code,row.name,null,row.level])??external.failed??null;
  const upCount=sealed?.totalCount??coverage.source?.reportedCount;
+ const distribution=external.distribution;
+ const coreLimits=Number.isSafeInteger(sealed?.totalCount)&&Number.isSafeInteger(extra?.down);
+ const limitStat=coreLimits?['涨停 / 跌停',sealed.totalCount+' / '+extra.down,'东方财富专题池口径']:
+   distribution?['涨停 / 跌停',distribution.upLimit+' / '+distribution.downLimit,distribution.scope+' · 打板客']:
+   Number.isSafeInteger(upCount)?['涨停',count(upCount),sealed?'东方财富专题池口径':'原始复盘覆盖']:null;
  const highest=rows.reduce((height,row)=>Math.max(height,row.level||0),0);
  const riskRows=rows.filter(row=>row.breakCount>0).sort((a,b)=>b.breakCount-a.breakCount);
  const top=rows.filter(row=>row.level===highest&&highest>=2).slice(0,4).map(row=>row.code);
  const named=match=>themes.flatMap(group=>Object.entries(group.roles||{}).filter(([,role])=>role===match).map(([code])=>code)).slice(0,4);
  return {day,rows,groups:themes,dabanke:extra?.dabanke,thsBrief:extra?.thsBrief||state.marketRecovery?.thsBrief,broken,failed,promotion,retained:arr(extra?.retained).map(key=>retainedLabels[key]).filter(Boolean),seats:arr(extra?.seats),seatsStatus:extra?.seatsStatus,
-  sources:{market:providerLink,stocks:providerLink,seats:seatLink,themes:extra?.thsBrief?.day===day?['同花顺每日复盘',extra.thsBrief.url]:thsLink,north:northLink,turnover:marketLink},
+  sources:{market:providerLink,stocks:providerLink,seats:seatLink,ladder:external.sealed?['打板客同日复盘',index.url]:null,themes:extra?.thsBrief?.day===day?['同花顺每日复盘',extra.thsBrief.url]:thsLink,north:northLink,turnover:marketLink},
   coverage:sealed?'梯队按东方财富同日涨停池。涨停及炸板统计采用同一供应商口径。':
-   raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':'等待带有原始交易日期的服务端报告。',
+   raw?'梯队按原始复盘返回的股票。源端总数与分析明细分别保留。':external.rows?'梯队来自打板客同日短线池，按全组封板数量核对。':'正在读取该交易日的公开复盘。',
   reasonStatus:extra?.reasonChannels?.primaryCount===0?
    '同花顺涨停聚焦未返回可核实的同日原标注。F10 复核 '+extra.reasonChannels.f10Count+' / '+extra.reasonChannels.f10Attempted+' 只前排样本。':
    rows.some(row=>row.reason)?'逐股列出同日原标注及来源，同花顺优先。':
@@ -126,14 +132,16 @@ function cloudReport(state,supplement){
     '多日收盘证据 · 置信度 '+state.marketRecovery.emotion.confidence+'%':
     extra?.dabanke?.index?.ecology?.length?'打板客同日封板与晋级数据见下方短线池。':'按已核对的交易日展示盘面事实。',
   stats:[
-   ['涨停 / 跌停',count(upCount,'')+' / '+count(extra?.down,''),'东方财富供应商口径'],
-   ['收盘炸板',broken?count(broken.length):'—','盘中触板，收盘未封住'],
-   ['封板率',finite(extra?.sealRate)?format(extra.sealRate*100,1)+'%':'—','同源涨停数 / 触板总数'],
+   limitStat,
+   ['收盘炸板',broken?count(broken.length):'—',extra?.broken?.complete?'东方财富 · 盘中触板，收盘未封住':'打板客 · 短线池不含 ST'],
+   finite(extra?.sealRate)?['封板率',format(extra.sealRate*100,1)+'%','东方财富 · 同源涨停数 / 触板总数']:
+    external.sealed&&['封板率',rate(external.sealed.success,external.sealed.total),'打板客 · 短线池不含 ST'],
    ['最高连板',highest?levelName(highest):'—','已返回名单高度'],
    ['昨日连板晋级',rate(promoted,eligible),eligible?promoted+' / '+eligible+' · 昨日至少二板':'等待两日同口径名单'],
-   ['沪深成交',money(extra?.marketTurnover),finite(extra?.marketTurnover)?'腾讯沪深收盘报价合计':'尚无已核实的两市收盘总成交'],
+   finite(extra?.marketTurnover)?['沪深成交',money(extra.marketTurnover),'腾讯沪深收盘报价合计']:
+    finite(external.market?.amount)&&[external.market.amountLabel,external.market.amountText,'打板客 · 沪深北三个市场合计'],
    ['北向成交',money(extra?.northTurnover),finite(extra?.northTurnover)?'沪股通及深股通成交合计':'尚无已核实的北向成交额']
-  ],
+  ].filter(item=>item&&item[1]!=='—'),
   risks:[
    ['盘中开板后回封',riskRows.length?'已返回名单中 '+riskRows.length+' 只收盘封住，但盘中有开板记录。':'暂无可核实的回封样本。',riskRows.slice(0,5).map(row=>row.code)],
    ['昨日高位断板',failed?failed.length+' 只昨日至少二板的股票未完成连续晋级。':'等待上一交易日完整池以核对。',failed?.slice(0,4).map(row=>row[0])||[]]
@@ -302,7 +310,7 @@ export function renderCloseReview(ctx,additional){
       group.note&&h('p',{},group.note),
       h('div',{class:'fy-close-stocks'},group.codes.map(code=>
        button(h('span',{},names.get(code)||code,group.roleInfo?.[code]?roleBadge(group.roleInfo[code]):group.roles?.[code]?h('b',{},' · '+group.roles[code]):null),
-        ()=>openReason(code),'quiet')))))):empty('暂无同日题材样本'),
+        ()=>openReason(code),'quiet')))))):dbk.themes.length?null:empty('暂无同日题材样本'),
     ...dbk.themes,sourceLinks(report,['themes','sectors'])),
    card(2,report.reasonStatus,ladder.length?ladder:empty('暂无同日连板明细'),reasons,
     ...dbk.ladder,incidents('收盘炸板',report.broken),incidents('昨日高位断板',report.failed,true),sourceLinks(report,['stocks','ladder'])),

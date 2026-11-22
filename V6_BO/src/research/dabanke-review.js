@@ -6,6 +6,7 @@ const {parseIndex,origin,dayUrl}=require('./dabanke-index');
 const {parsePocket,parseDisclosures,fullUrl}=require('./dabanke-disclosures');
 const {fetchDabankePage}=require('./dabanke-requests');
 const fingerprint=x=>createHash('sha256').update(JSON.stringify(x,(key,v)=>key==='knownAt'?undefined:v)).digest('hex').slice(0,16);
+const completedClose=r=>Boolean(r?.index?.tiers&&r.index.signals&&r.index.ecology&&r.index.themes&&r?.pocket?.dragon&&r?.disclosures);
 function stockFacts(report,asOf){
   const facts={};
   const add=(code,fields)=>{if(/^\d{6}$/.test(code))Object.assign(facts[code]??={},fields);};
@@ -89,9 +90,13 @@ function createDabankeReview({directory,canPersist=()=>true,clock=Date.now,reque
     const key=day+'/'+mode,old=peek(day,mode);
     if(pending.has(key))return pending.get(key);
     if(now<(retryAt.get(key)||0))return Promise.resolve(old);
+    if(!intraday&&day<today&&completedClose(old)){
+      if(unsaved.has(old)){saveObserved(old);retryAt.set(key,now+120000);}
+      return Promise.resolve(old);
+    }
     for(const [k,time] of retryAt)if(time<=now&&!pending.has(k))retryAt.delete(k);
     const job=collect(day,intraday,old).then(v=>{
-      const complete=v?.index?.tiers&&v.index.signals&&v.index.ecology&&v.index.themes&&v?.pocket?.dragon&&v?.disclosures;
+      const complete=completedClose(v);
       retryAt.set(key,clock()+(intraday?30000:complete?4*3600000:2*60000));return v;
     }).catch(()=>{retryAt.set(key,clock()+60000);return old;}).finally(()=>pending.delete(key));
     pending.set(key,job);return job;

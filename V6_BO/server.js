@@ -11372,13 +11372,6 @@ function rememberMarketScan(kind,board,data) {
   const day=require('./src/core/market-display-snapshot').originalQuoteDay(S,Date.now());
   if(day&&marketDisplaySession().trading){marketResponseSnapshots.remember(kind,board,data,{day});closingCardSnapshots.remember(kind+':'+board,data,{session:marketDisplaySession(),sourceDay:day});}
 }
-function marketDisplaySession(now=Date.now()) {
-  const china=new Date(now+8*3600000),year=china.getUTCFullYear(),month=china.getUTCMonth(),date=china.getUTCDate();
-  const minute=china.getUTCHours()*60+china.getUTCMinutes();
-  const day=String(year)+String(month+1).padStart(2,'0')+String(date).padStart(2,'0');
-  const openDay=isTradeDay(new Date(year,month,date,12));
-  return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
-}
 const dabankeReview=require('./src/research/dabanke-review').createDabankeReview({
   directory:path.join(__dirname,'data','dabanke-reviews'),canPersist:()=>!isReplica(),
   onChange:day=>sseSend('close-snapshot',{day})
@@ -11389,6 +11382,13 @@ function sharedDabanke(session,closedDay){
   const mode=closedDay?'收盘':'盘中';
   if(closedDay||session.trading)void dabankeReview.refresh(day,{intraday:!closedDay}).catch(()=>{});
   return dabankeReview.summary(day,mode);
+}
+function marketDisplaySession(now=Date.now()) {
+  const china=new Date(now+8*3600000),year=china.getUTCFullYear(),month=china.getUTCMonth(),date=china.getUTCDate();
+  const minute=china.getUTCHours()*60+china.getUTCMinutes();
+  const day=String(year)+String(month+1).padStart(2,'0')+String(date).padStart(2,'0');
+  const openDay=isTradeDay(new Date(year,month,date,12));
+  return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();

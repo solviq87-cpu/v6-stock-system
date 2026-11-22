@@ -147,3 +147,33 @@ test('stock badges distinguish tied leaders, deputy, comparable float-cap and am
   assert.equal(observedBadge({level:1}).value,'首板');
   assert.equal(observedBadge({result:'待评估'}),null);
 });
+
+test('a first-board failure with an explicit broken seal joins the failed-seal pool; breadth keeps its population', async () => {
+  const {closingLadder}=await import('../public/nova/dabanke-view.js');
+  const html=indexPage.replace('1进2','首板').replace('晋级 0 / 1','封住 0 / 1')
+    .replace('昨日晋级','当日封板').replace('0/2只','0/1只')
+    .replace('<div class="ladder-stock-reason">','<span class="ladder-performance">炸板</span><div class="ladder-stock-reason">');
+  const parsed=parseIndex(html,day,asOf);
+  assert.equal(parsed.tiers[0].members[0].status,'炸板');
+  const fallback=closingLadder(parsed,day);
+  assert.deepEqual(fallback.broken,[[symbol,'合成甲',-4]]);
+  assert.deepEqual(fallback.rows,[]);
+  assert.equal(fallback.sealed.total,1);
+  assert.equal(fallback.distribution,null);
+  assert.deepEqual(closingLadder(parsed,'2026-01-06'),{});
+  assert.deepEqual(closingLadder({...parsed,mode:'盘中'},day),{});
+  assert.equal(closingLadder({...parsed,tiers:[]},day).broken,null);
+});
+
+test('a complete past close reopens without polling any supplier after a server restart', async t => {
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'v6-closed-weekend-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const settled={day,mode:'收盘',version:1,knownAt:asOf,revision:'archived',
+    index:{day,knownAt:asOf,tiers:[],signals:{groups:[]},ecology:[],themes:[]},
+    pocket:{day,knownAt:asOf,dragon:{rows:[]}},disclosures:{day,knownAt:asOf,rows:[]}};
+  fs.writeFileSync(path.join(directory,day+'.json'),JSON.stringify(settled));
+  let calls=0;
+  const service=createDabankeReview({directory,clock:()=>asOf+86400000,request:async()=>{calls++;throw Error('offline');}});
+  assert.deepEqual(await service.refresh(day),settled);
+  assert.equal(calls,0);
+});

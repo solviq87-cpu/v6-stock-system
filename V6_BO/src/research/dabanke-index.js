@@ -46,7 +46,8 @@ function parseTiers(root,day){
       const details=byClass(node,'ladder-stock-reason'),p=tags(details,'p')[0],reasonDay=/资料日期\s*·\s*(\d{4}-\d\d-\d\d)/.exec(one(p,'small'))?.[1];
       const reason=dayOk(reasonDay)&&reasonDay<=day?clean((p?.children||[]).filter(n=>typeof n==='string').join(' ')):'';
       const performance=byClass(node,'ladder-performance'),firstSeal=/首封\s*(\d\d:\d\d:\d\d)/.exec(performance?.attrs.title||'')?.[1];
-      members.push({code,name:named(node,'stock-name'),status:({success:'封住',opened:'炸板',failed:'未晋级',suspended:'停牌'})[status],change:numberPct(named(node,'stock-change')),
+      const outcome=status==='failed'&&text(performance)==='炸板'?'炸板':({success:'封住',opened:'炸板',failed:'未晋级',suspended:'停牌'})[status];
+      members.push({code,name:named(node,'stock-name'),status:outcome,change:numberPct(named(node,'stock-change')),
         ...(performance?{performance:text(performance)}:{}),...(firstSeal?{firstSeal}:{}),...(reason?{reason,reasonDay}:{}),
         ...(/10日\d+板/.test(named(node,'ladder-history'))?{history:named(node,'ladder-history')}:{}),
         ...(named(node,'ladder-new-high')==='60日新高'?{newHigh:true}:{})});

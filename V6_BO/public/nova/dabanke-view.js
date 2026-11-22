@@ -10,6 +10,26 @@ const fact=(key,value,detail)=>h('div',{class:'fy-dbk-fact'},h('small',{},key),h
 const fold=(key,label,...nodes)=>h('details',{class:'fy-details','data-review-detail':'dbk:'+key},h('summary',{},label),...nodes);
 const source=(r,caption)=>r?h('small',{class:'fy-dbk-source'},[r.day,caption||r.source,'取得 '+dateTime(r.knownAt)].join(' · '),' ',safeLink(r.url,'原始页面')):null;
 const listing=rows=>h('ul',{class:'fy-dbk-list'},rows);
+export function closingLadder(index,day){
+ if(!day||!index||index.day!==day||index.mode!=='收盘'||!Number.isSafeInteger(index.knownAt)||index.knownAt>Date.now())return {};
+ const ecology=index.ecology||[],tiers=index.tiers||[];
+ const sealed=ecology.find(item=>item.label==='当日封板');
+ const stages=tiers.filter(t=>/^\d+进\d+$/.test(t.name)).map(t=>({level:Number(t.name.split('进')[0]),promoted:t.success,total:t.total}));
+ const yesterday=ecology.find(item=>item.label==='连板晋级');
+ const checkedStages=yesterday&&stages.reduce((n,s)=>n+s.total,0)===yesterday.total&&stages.reduce((n,s)=>n+s.promoted,0)===yesterday.success;
+ const rows=[],broken=[],failed=[];
+ for(const tier of tiers){
+  const [previous,target]=tier.name.split('进').map(Number);
+  for(const member of tier.members){
+   if(member.status==='封住')rows.push({...member,level:tier.name==='首板'?1:target});
+   if(member.status==='炸板'||member.performance==='炸板')broken.push([member.code,member.name,member.change]);
+   if(previous>=2&&['炸板','未晋级'].includes(member.status))failed.push([member.code,member.name,member.change,previous]);
+  }
+ }
+ const sources=sealed&&rows.length===sealed.success&&new Set(rows.map(r=>r.code)).size===rows.length;
+ return {sealed,rows:sources?rows:null,broken:sources&&broken.length===sealed.total-sealed.success?broken:null,
+  stages:checkedStages?stages:null,failed:checkedStages?failed:null,distribution:index.distribution,market:index.market};
+}
 export function dabankePanels(report,ctx){
  const out={mood:[],themes:[],ladder:[],seats:[],risks:[],watch:[]};
  if(!report?.day||report.knownAt>Date.now())return out;
