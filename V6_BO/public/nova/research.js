@@ -207,8 +207,10 @@ function backtest(ctx){
   cache.action('保存指定历史到磁盘',()=>{const values=codesValue();if(!values.length||values.some(x=>!/^\d{6}$/.test(x)))throw Error('请指定有效的六位代码。');return request(ctx,'/api/research/disk-save',{codes:values});});
   cache.action('明确更新历史K线',()=>{const values=codesValue();if(!values.length||values.some(x=>!/^\d{6}$/.test(x)))throw Error('请指定要更新的六位代码。');return request(ctx,'/api/research/history-refresh',{codes:values});});
   cache.action('读取数据能力',()=>request(ctx,'/api/research/capabilities'),{auto:true});root.append(cache.body);
-  const account=input('text','research',{maxlength:'64'}),paper=workbench(ctx,'研究模拟账本','独立历史研究账户，保留日历、费用、冲突与重复记账检查。',[field('研究账户ID',account)]);
-  paper.action('恢复账本',()=>request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'read'}),{auto:true});
+  const account=input('text','research',{maxlength:'40'}),paper=workbench(ctx,'研究模拟账本','独立历史研究账户，保留日历、费用、冲突与重复记账检查。',[field('研究账户ID',account)]);
+  paper.action('恢复账本',()=>request(ctx,'/api/research/paper-account?accountId='+encodeURIComponent(account.value.trim())),{
+    auto:true,render:data=>data.empty?empty('模拟账本尚无记录','首次追加已验证的历史后，这里会自动显示模拟持仓和收益。'):renderReport(data,ctx)
+  });
   paper.action('追加历史至模拟账本',async()=>{const input=await historyInput();if(input.observation)return preview(input);return request(ctx,'/api/research/paper-account',{accountId:account.value.trim(),action:'append',history:input.history||input,...(input.paperConfig?{config:input.paperConfig}:{})});});
   root.append(paper.body);return root;
 }

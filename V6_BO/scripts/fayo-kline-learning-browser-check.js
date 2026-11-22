@@ -130,6 +130,8 @@ async function geometry(page, label) {
       await tabs.getByRole('button', { name: '战法校验与回测', exact: true }).click();
       for (const name of ['规则交叉检验', '战法实验台', '历史实验', '四套策略的独立归属', '原生策略逐日回放'])
         await page.getByRole('heading', { name, exact: true }).waitFor();
+      await page.getByRole('heading', { name: '模拟账本尚无记录', exact: true }).waitFor();
+      assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/paper-account'));
       await geometry(page, 'verify-tab-' + width);
       await tabs.getByRole('button', { name: '已有学习进度', exact: true }).click();
       await page.getByRole('heading', { name: '学习进度与复访', exact: true }).waitFor();

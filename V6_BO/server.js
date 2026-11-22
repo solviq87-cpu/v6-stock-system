@@ -22606,16 +22606,18 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return require('./src/server/research-job').runResearchJob(payload).then(result=>json(res,result,result.ok?200:422));
   }
   if (p === '/api/research/paper-account') {
-    if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
+    res.setHeader('Cache-Control','no-store');
+    if(!['GET','POST'].includes(req.method))return json(res,{ok:false,error:'仅允许GET或POST'},405);
     if(!requireEditor(res,req.__tok,req))return;
     try {
-      const payload=JSON.parse(body||'{}');
-      if(!/^[a-zA-Z0-9_-]{1,40}$/.test(payload.accountId||''))throw Error('账户ID无效');
+      const payload=req.method==='GET'?{action:'read',accountId:u.searchParams.get('accountId')}:JSON.parse(body||'{}');
+      if(typeof payload.accountId!=='string'||!/^[a-zA-Z0-9_-]{1,40}$/.test(payload.accountId))throw Error('账户ID无效');
       const path=require('node:path'),fs=require('node:fs');
       const file=path.join(process.env.V6_PAPER_ACCOUNTS_DIR||path.join(__dirname,'data','paper-accounts'),payload.accountId+'.json');
       const {buildSession,loadSession,saveSession,summary}=require('./src/core/paper-session');
       const previous=fs.existsSync(file)?loadSession(file):null;
       if(payload.action==='read'){
+        if(!previous&&req.method==='GET')return json(res,{ok:true,empty:true,account:null,report:null});
         if(!previous)throw Error('账户不存在');
         return json(res,{ok:true,account:summary(previous),report:previous.report});
       }
