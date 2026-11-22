@@ -1,4 +1,4 @@
-import {dailyReviewEvidence} from './market-evidence.js';
+import {dailyReviewEvidence,reviewSupplier as supplier} from './market-evidence.js';
 import {h,button,empty,section,field,dateTime,dayLabel,note} from './ui.js';
 
 // Read-only source union. This does not alter the strategy pool, orders or notifications.
@@ -19,7 +19,6 @@ export function renderSourceReviewPool(ctx,stockRenderer){
  const previous=button('上一页',()=>{page--;paint();}),next=button('下一页',()=>{page++;paint();});
  const level=row=>row.limitUpCount===1?'首板':row.limitUpCount===2?'二板':row.limitUpCount?row.limitUpCount+'连板':'连板数待核验';
  const roleLabel=value=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[value];
- const supplier=value=>String(value||'来源待核验').split(/\s*\+\s*/).map(name=>({eastmoney:'东方财富',em:'东方财富',cls:'财联社',ths:'同花顺',derive:'历史行情重建','dated-stock-reconstruction':'历史行情重建'})[name]||name).join(' + ');
  function captureExpansion(){
   // The DOM open property changes before the asynchronous toggle notification.
   // Read it before replacing either sector details or stock-card details.

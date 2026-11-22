@@ -5,10 +5,10 @@ export {projectDecisionBrief};
 import {h,button,empty,section,field,format,money,percent,direction,dateTime,dayLabel,note,icon,safeLink,table} from './ui.js';
 
 export const POOLS=[
+ ['ranked','系统精选','查看系统筛选结果、原评分和命中条件','state:pool'],
  ['quant','量化发现','四策略与实际命中条件','/api/quant-picks'],
  ['auction','竞价引力','开盘前共振线索','/api/auction-resonance'],
  ['intraday','盘中动量','量价异动观察','/api/intraday-strong'],
- ['ranked','多因子榜','综合评分与服务端现有排行','state:pool'],
  ['relay-first','一进二','首板次日的实际候选','state:yierList','edit'],
  ['relay-second','二进三','二板晋级三板的实际候选','state:lianbanList','edit'],
  ['relay-next','连板接力（含高板）','连板梯队与板块依据','state:lianbanList','edit'],
@@ -154,8 +154,9 @@ export function renderEvidence(data,ctx,depth=0) {
 export function renderOpportunities(route,ctx) {
  if(!route.sub||route.sub==='all')return renderAllOpportunities(ctx);
  if(['relay-first','relay-second'].includes(route.sub))return renderRelayCard(ctx,route.sub);
- let active=POOLS.find(x=>x[0]===route.sub)||POOLS[0],current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='';
- const view=h('div',{class:'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
+ let active=POOLS.find(x=>x[0]===route.sub)||POOLS.find(x=>x[0]==='quant'),current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='';
+ const curated=active[0]==='ranked';
+ const view=h('div',{class:curated?'fy-stack fy-system-picks':'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
  selector.value=active[0];selector.addEventListener('change',()=>ctx.navigate('opportunities',selector.value));
  const search=h('input',{type:'search',placeholder:'搜索名称、代码或板块','aria-label':'筛选股票池'});
  search.addEventListener('input',()=>{query=search.value.trim().toLowerCase();paint();});
@@ -164,10 +165,25 @@ export function renderOpportunities(route,ctx) {
  const sortSelect=h('select',{'aria-label':'股票池排序'},[['score','评分'],['pct','涨跌幅'],['original','原始顺序']].map(([value,label])=>h('option',{value},label)));
  sortSelect.addEventListener('change',()=>{sort=sortSelect.value;paint();});
  const loadMore=button('加载下一页',()=>load(true));loadMore.hidden=true;
- view.append(simpleNavigation(ctx,active[0]),h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')),h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),button('读取最新结果',()=>load(),'primary')),status,summaryView,body,loadMore);
+ const readTime=curated?h('time',{class:'fy-muted','data-system-picks-read-time':'true'}):null;
+ const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh():load(),'primary');
+ if(curated)view.append(
+  h('header',{class:'fy-view-heading'},h('div',{},h('h1',{},active[1]),h('p',{},active[2])),refreshResults),
+  h('div',{class:'fy-system-picks-meta'},status,readTime),
+  h('div',{class:'fy-system-picks-tools'},search,field('范围',boardSelect),field('排序',sortSelect)));
+ else view.append(simpleNavigation(ctx,active[0]),
+  h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
+   h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')),
+  h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
+ view.append(summaryView,body,loadMore);
  function paint() {
   let rows=current.filter(r=>(!query||[r.name,r.code,r.sector].some(x=>String(x||'').toLowerCase().includes(query)))&&(board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code)));
   if(sort!=='original')rows=[...rows].sort((a,b)=>(Number.isFinite(b[sort])?b[sort]:-Infinity)-(Number.isFinite(a[sort])?a[sort]:-Infinity));
+  if(curated){
+   body.replaceChildren(rows.length?h('div',{class:'fy-stock-grid','aria-label':'系统精选股票'},rows.map(row=>stockCard(row,ctx))):
+    empty(query||board!=='all'?'当前筛选没有匹配':'系统尚未返回精选候选'));
+   return;
+  }
   const signal=r=>Array.isArray(r.signals)&&r.signals.length||['triggered','sent','pending'].includes(r.stage);
   const groups=[['正在探索',rows.filter(r=>!signal(r)&&!r.focused),'研究候选'],['重点跟踪',rows.filter(r=>!signal(r)&&r.focused),'重点关注'],['已有信号',rows.filter(signal),'已返回的策略信号']];
   const populatedGroups=groups.filter(([,list])=>list.length);
@@ -182,7 +198,7 @@ export function renderOpportunities(route,ctx) {
   try {
    let data;
    if(active[3].startsWith('state:')) {
-    data=poolStateResult(active,state);
+    data=curated?systemPicks(state):poolStateResult(active,state);
     current=unique(data.items);
    } else {
     const params=active[0]==='matches'?new URLSearchParams({limit:String(max),...(append&&cursor?{cursor}:{})}):new URLSearchParams({board:requestedBoard,max:String(max)});
@@ -198,6 +214,11 @@ export function renderOpportunities(route,ctx) {
    summaryView.replaceChildren(...['cycle','timing','feedback','sectorView'].filter(key=>data[key]).map(key=>h('details',{class:'fy-details'},h('summary',{},({cycle:'短线周期',timing:'时机反馈',feedback:'历史反馈',sectorView:'板块结构'})[key]),renderEvidence(data[key]))));
    const day=data.snapshotDay;
    status.textContent=active[1]+' · '+current.length+' 只'+(day?' · 原始交易日 '+dayLabel(day):' · 原始交易日待核验')+(data.isSnapshot||data.snapshotRetained?' · 保留快照':'');
+   if(readTime){
+    const at=ctx.lastRead;
+    readTime.textContent='最近读取 '+(at?dateTime(at):'待读取');
+    if(at)readTime.setAttribute('datetime',new Date(at).toISOString());
+   }
    if(data.freezeUnavailable||data.note)status.textContent+=' · '+(data.note||'没有已保存的盘中结果');
    paint();
   }catch(error){if(ctx.signal.aborted||turn!==loadGeneration)return;if(error.body?.status==='snapshot-changed'){cursor='';load(false);return;}status.textContent=error.message;status.className='fy-note error';if(!current.length)body.replaceChildren(empty('此次读取未完成',error.message));ctx.notify(error.message,'error');}
@@ -224,6 +245,18 @@ export function poolStateResult(pool,state) {
  const day=key==='yierList'?state.yierAsOf:key==='lianbanList'?state.lianbanAsOf:
   key==='ztPool'?state.ztDay:dates.length===1?dates[0]:dates.length?null:state.snapshotFieldDays?.[field];
  return {items,snapshotDay:reviewDate(day)||null,isSnapshot:state.isSnapshot||state.dashboard?.isSnapshot};
+}
+export function systemPicks(state={}) {
+ const dashboardRows=rowsFrom(state.dashboard?.rows),useDashboard=dashboardRows.length>0;
+ const dates=state.snapshotFieldDays||{};
+ const day=reviewDate(useDashboard?
+  (Object.hasOwn(dates,'dashboard')?dates.dashboard:state.dashboard?.snapshotDay):
+  (Object.hasOwn(dates,'pool')?dates.pool:Object.hasOwn(dates,'candidatePool')?dates.candidatePool:state.poolDay));
+ const base=useDashboard?dashboardRows:rowsFrom(state.pool);
+ const items=unique(base).map(row=>({...row,poolDay:reviewDate(row.poolDay)||day||undefined,
+  signals:row.signals||row.paths,explanation:row.explanation||(typeof row.pathWhy==='string'?[row.pathWhy]:row.pathWhy)}))
+  .sort((a,b)=>(Number.isFinite(b.score)?b.score:-Infinity)-(Number.isFinite(a.score)?a.score:-Infinity));
+ return {items,snapshotDay:day,isSnapshot:state.isSnapshot||state.dashboard?.isSnapshot};
 }
 export function combinePoolResults(entries,now=Date.now()) {
  const byCode=new Map();
@@ -258,7 +291,7 @@ export function renderAllOpportunities(ctx) {
  const refreshButton=button('刷新结果',async()=>{await ctx.refresh();await loadRemote(true);},'primary');
  const allowed=()=>POOLS.filter(pool=>pool[4]!=='edit'||ctx.role==='edit');
  function entries(){const state=ctx.state||{};return [
-  ...allowed().filter(pool=>pool[3].startsWith('state:')&&pool[0]!=='relay-second').map(pool=>({label:pool[1],data:poolStateResult(pool,state)})),
+  ...allowed().filter(pool=>pool[3].startsWith('state:')&&pool[0]!=='relay-second').map(pool=>({label:pool[0]==='ranked'?'候选池快照':pool[1],data:poolStateResult(pool,state)})),
   {label:'首页候选',data:{items:state.dashboard?.rows||[],snapshotDay:state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay}},
   ...remote.filter(entry=>!entry.private||ctx.role==='edit')];}
  function paint(){
