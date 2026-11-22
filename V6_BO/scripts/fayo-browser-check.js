@@ -210,9 +210,13 @@ const runChecks=async()=>{
    page.on('pageerror',error=>errors.push(error.message));
    await page.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin!==origin){external.push(url.href);return route.abort();}return route.continue();});
    const before=requests.length;
+   const streamRequest=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/stream');
    await page.goto(origin+'/');
    await page.locator('.fy-header').waitFor({state:'visible'});
    await page.locator('.fy-stock-card[data-code="600101"]').first().waitFor({state:'visible'});
+   const stream=await streamRequest;
+   assert.equal(stream.headers()['x-qd-token'],'fayo-synthetic-session','stream also authenticates when the gateway owns Authorization');
+   assert.ok(!new URL(stream.url()).searchParams.has('token'),'stream credentials stay in headers');
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
 
    const focusTexts=await page.locator('.fy-terminal-priority').allTextContents();

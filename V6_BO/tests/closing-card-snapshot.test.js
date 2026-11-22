@@ -120,6 +120,17 @@ test('throttled last frame is fsynced at close and survives a new process/store'
   );
   assert.equal(fs.statSync(x.file).mode & 0o777, 0o600);
 });
+test('restoring an older mixed-scope fast-move cache discards its stock list', (t) => {
+  const x = setup(t);
+  fs.writeFileSync(x.file, JSON.stringify({schemaVersion:1,entries:{'state:all':{
+    day,capturedAt:at('14:59:40'),value:{...frame(1),fastStockMoves:{items:[{code:'600009'}]}}
+  }}}), {mode:0o600});
+  x.set(at('15:00:00'));
+  const result = x.open().project('state', frame(99), x.context());
+  assert.equal(result.pool[0].price, 1);
+  assert.equal(result.fastStockMoves, undefined);
+  assert.equal(result.marketFastStockMoves, undefined);
+});
 test('pending computation crossing close cannot be remembered; force and nonempty recalculation do not bypass freeze', (t) => {
   const x = setup(t),
     s = x.open();

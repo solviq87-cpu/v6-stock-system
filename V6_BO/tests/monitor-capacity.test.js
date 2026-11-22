@@ -18,10 +18,11 @@ function monitor(n, respond = requested => requested.map(code => ({ code, price:
   const c = vm.createContext({ require: productionRequire, Date: { now: () => now },
     S: { loop: { running: false }, candidatePool: [{ code: '000001' }], sectors: [], inflowHistory: new Map() },
     PAPER: { pool: { positions: positions(n) }, pre: { positions: {} } }, monitorCodes: [],
+    ingestPx() {},
     em: { async fetchBatchSnapshot(requested) { requests.push(Array.from(requested)); return respond(requested); } }
   });
   const a = source.indexOf('const observeFastStockMoves =');
-  const b = source.indexOf('    ingestPx(snaps);', a);
+  const b = source.indexOf('    const alerts = [];', a);
   assert.ok(a >= 0 && b > a);
   vm.runInContext(source.slice(a, b) + '\n} finally { S.loop.running = false; } }', c);
   return { c, requests, run: () => c.tick() };
@@ -32,6 +33,12 @@ test('normal monitoring keeps pool-external holdings before candidates and dedup
   h.c.PAPER.pre.positions = positions(1);
   await h.run();
   assert.deepEqual(h.requests[0], ['600000', '000001']);
+  assert.equal(h.c.S.fastStockMoves.observed, 2);
+  assert.equal(h.c.S.marketFastStockMoves.observed, 1);
+  h.c.S.candidatePool.push({code:'600000'});
+  await h.run();
+  assert.deepEqual(h.requests[1], ['600000', '000001']);
+  assert.equal(h.c.S.marketFastStockMoves.observed, 2, 'both stocks are now nominated independently of the holdings');
 });
 
 test('221 holdings rotate within the unchanged 220-symbol budget instead of starving the last stock', async () => {

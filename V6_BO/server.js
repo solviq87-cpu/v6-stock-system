@@ -6280,9 +6280,14 @@ function inferLeader() {
 // ---------------- 3. 5秒监控循环 ----------------
 let monitorCodes = [];
 const observeFastStockMoves = require('./src/core/fast-stock-moves').createFastStockMoves();
-function publishFastStockMoves(codes, rows, now) {
-  const moves = observeFastStockMoves(codes, rows, now);
-  if (moves.phase) S.fastStockMoves = moves;
+const observeMarketFastStockMoves = require('./src/core/fast-stock-moves').createFastStockMoves();
+function publishFastStockMoves(plan, rows, now) {
+  const moves = observeFastStockMoves(plan.codes, rows, now);
+  const marketMoves = observeMarketFastStockMoves(plan.marketCodes, rows, now);
+  if (moves.phase) {
+    S.fastStockMoves = moves;
+    S.marketFastStockMoves = marketMoves;
+  }
 }
 async function tick() {
   if (S.loop.running) return;
@@ -6305,7 +6310,7 @@ async function tick() {
     try { snaps = await em.fetchBatchSnapshot(codes); }
     catch (e) {
       S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
-      publishFastStockMoves(codes, [], Date.now());
+      publishFastStockMoves(plan, [], Date.now());
       for (const code of codes) S.inflowHistory.delete(code);
       throw e;
     }
@@ -6315,7 +6320,7 @@ async function tick() {
     for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const now = Date.now();
-    publishFastStockMoves(codes, snaps, now);
+    publishFastStockMoves(plan, snaps, now);
     const alerts = [];
     for (const s of snaps) {
       if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
@@ -11318,7 +11323,14 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
 });
 const closingCardSnapshots=require('./src/core/closing-card-snapshot').createClosingCardSnapshot({file:path.join(__dirname,'data','closing-card-snapshots.json'),onError:code=>console.error('[closing-cards] '+code)});
 function marketCardContext(){const session=marketDisplaySession();return {session,sourceDay:marketDisplayState().meta.snapshotDay};}
-function marketCardState(kind,value){return closingCardSnapshots.project(kind,value,marketCardContext());}
+function marketCardState(kind,value){
+  const context=marketCardContext();
+  if(kind!=='state')return closingCardSnapshots.project(kind,value,context);
+  // Keep the authenticated overlay outside the shared cache, including on close.
+  const {privateFastStockMoves,...shared}=value;
+  const {marketFastStockMoves,...state}=closingCardSnapshots.project(kind,shared,context);
+  return {...state,fastStockMoves:privateFastStockMoves||marketFastStockMoves||null};
+}
 function marketCardResponse(kind,board,value,max){const context=marketCardContext();
   if(context.session.trading){closingCardSnapshots.remember(kind+':'+board,value,context);return value;}
   return closedMarketCard(kind,board,max);
@@ -13487,7 +13499,8 @@ function buildDashboardState(_stEdit = false) {
       mainline: D.mainline,
       bigMoney: D.bigMoney,
       abMove: D.abMove || null,
-      fastStockMoves: D.fastStockMoves || null,
+      marketFastStockMoves: D.marketFastStockMoves || null,
+      ...(_stEdit ? {privateFastStockMoves:D.fastStockMoves||null}:{}),
       extLink: D.extLink,
       learn: {
         samples: D.learn.samples, hits: D.learn.hits, buckets: D.learn.buckets,

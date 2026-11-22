@@ -39,13 +39,22 @@ function createFastStockMoves(){
    let points=same&&(latest.at<quoteAt||latest.at===quoteAt&&latest.price===price)?recorded.points:[];
    points=points.filter(point=>quoteAt-point.at<=WINDOW_MS);
    if(points.at(-1)?.at!==quoteAt)points.push({at:quoteAt,price});
-   history.set(code,{tradeDate,phase,source:quoteSource,points});
-   const base=points[0],spanMs=quoteAt-base.at;
-   if(spanMs<MIN_GAP_MS)continue;
+   const rawName=typeof row.name==='string'?row.name.trim():'';
+   const name=rawName&&rawName!==code?rawName:(same?recorded.name:null);
+   history.set(code,{tradeDate,phase,source:quoteSource,points,name});
+   // A drop early in the window can hide a short rebound if the oldest quote
+   // is the only baseline. Use the lowest eligible quote; ties use the latest.
+   let base=null;
+   for(const point of points){
+    if(quoteAt-point.at<MIN_GAP_MS)break;
+    if(!base||point.price<=base.price)base=point;
+   }
+   if(!base)continue;
+   const spanMs=quoteAt-base.at;
    comparable++;
    const risePct=(price/base.price-1)*100;
    if(!Number.isFinite(risePct)||risePct+1e-10<THRESHOLD_PCT)continue;
-   items.push({code,name:row.name||code,price,pct:Number.isFinite(row.pct)?row.pct:null,
+   items.push({code,name:name||code,price,pct:Number.isFinite(row.pct)?row.pct:null,
     risePct:Number(risePct.toFixed(3)),basePrice:base.price,baseAt:base.at,
     spanMs,quoteAt,vendorQuoteAt:quoteAt,receivedAt:row.receivedAt,quoteSource,canTrade:false,canNotify:false});
   }

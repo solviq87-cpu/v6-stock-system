@@ -85,12 +85,13 @@ group('[3] 真的跑一遍 _want：只读身份下写类模块一律不成立');
 const WANT_SRC = (RF.code.match(/const _want = \(m\) =>[^\n]*/) || [''])[0];
 const RO_SRC = (RF.code.match(/const RO_MODS\s*=\s*\[[^\]]*\]/) || [''])[0];
 const ED_SRC = (RF.code.match(/const ED_MODS\s*=\s*\[[^\]]*\]/) || [''])[0];
+const FROZEN_SRC = (RF.code.match(/const frozenModules\s*=\s*new Set\(\[[^\]]*\]\)/) || [''])[0];
 ok('切到 _want 定义', !!WANT_SRC, WANT_SRC || '未匹配到');
-if (WANT_SRC && RO_SRC && ED_SRC) {
-  // 原样执行线上那段代码：mod / _rfEdit 作为形参注入，语义完全来自 server.js。
-  // mk(mod, edit) 返回一个「查询函数」want(m) —— 即在 (module=mod, 身份=edit) 这次请求下，
-  // 第 m 个模块会不会被排进任务列表。
-  const mk = (mod, edit) => new Function('mod', '_rfEdit', RO_SRC + '\n' + ED_SRC + '\n' + WANT_SRC + '\nreturn (mm) => _want(mm);')(mod, edit);
+ok('读取休市冻结名单', !!FROZEN_SRC);
+if (WANT_SRC && RO_SRC && ED_SRC && FROZEN_SRC) {
+  // Execute the production predicate for both open and closed sessions.
+  const mk = (mod, edit, frozen = false) => new Function('mod', '_rfEdit', 'frozenCards',
+    [RO_SRC, ED_SRC, FROZEN_SRC, WANT_SRC, 'return (mm) => _want(mm);'].join('\n'))(mod, edit, frozen);
   const roNames = (RO_SRC.match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
   const edNames = (ED_SRC.match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
 
@@ -111,6 +112,9 @@ if (WANT_SRC && RO_SRC && ED_SRC) {
     ['global', 'sectors', 'auction'].every(m => mk('all', false)(m) === true));
   ok('只读 mod=all 时 paper / review / news 全部剔除',
     ['paper', 'review', 'news'].every(m => mk('all', false)(m) === false));
+  ok('休市全部刷新跳过冻结的行情计算',
+    ['global', 'auction', 'pool'].every(m => !mk('all', true, true)(m) && !mk('all', false, true)(m)));
+  ok('休市复盘仍受开发者身份限制', mk('review', true, true)('review') && !mk('review', false, true)('review'));
 }
 
 group('[4] 只读身份不能靠「全部刷新」绕过去：all 分支里的补跑也带身份门');
@@ -154,19 +158,29 @@ group('[8] token 取值通道：前端有两套传法，路由漏读一套也不
 // 前端：window.fetch 补丁把 token 拼在 **URL** 上；面板里那些「必须带 token」的调用又各自往
 // **body** 里塞一份（历史写法）。各路由只读其中一套 → 前端那一处漏塞，requireEditor 拿到空串
 // → 非本机一律判只读 → 面板「点了没反应」，且没有任何报错（本项目最难自查的故障形态）。
-const HANDLE_HEAD = (SVK.match(/req\.__tok = [\s\S]{0,300}?let p = u\.pathname;/) || [''])[0];
-ok('handle 里统一解析凭证并挂在 req 上', /req\.__tok\s*=/.test(SVK));
-ok('Bearer 优先，query 和 body 依次回退', /req\.__tok = \(\(req\.headers\.authorization/.test(SVK) && /\|\|\s*\(u\.searchParams && u\.searchParams\.get\('token'\)\)/.test(SVK));
-ok('query 为空时回落到 body', /\|\|\s*\(\(\) => \{ try \{ return \(JSON\.parse\(body \|\| '\{\}'\) \|\| \{\}\)\.token/.test(SVK));
+const TOKEN_SRC = (SVK.match(/req\.__tok = [\s\S]*?(?=\n\s*let p = u\.pathname;)/) || [''])[0];
+ok('handle 里统一解析凭证并挂在 req 上', !!TOKEN_SRC);
+if (TOKEN_SRC) {
+  const { sessionHeaderToken } = require('./src/server/session-header-token');
+  const readToken = new Function('req', 'u', 'body', 'sessionHeaderToken', TOKEN_SRC + '\nreturn req.__tok;');
+  const token = (headers, query = 'fixture-query') => readToken(
+    { headers }, { searchParams: new URLSearchParams(query ? { token: query } : {}) },
+    JSON.stringify({ token: 'fixture-body' }), sessionHeaderToken
+  );
+  ok('Bearer 优先于应用请求头、query 和 body',
+    token({ authorization: 'Bearer fixture-bearer', 'x-qd-token': 'fixture-app' }) === 'fixture-bearer');
+  ok('托管网关自有 Authorization 时仍读取应用请求头',
+    token({ authorization: 'Basic fixture-gateway', 'x-qd-token': 'fixture-app' }) === 'fixture-app');
+  ok('应用请求头为空时回落到 query，query 为空时回落到 body',
+    token({}) === 'fixture-query' && token({}, '') === 'fixture-body');
+}
 ok('req.__tok 的赋值在路由分发之前', SVK.indexOf('req.__tok =') >= 0 && SVK.indexOf('const isAsset =') >= 0 && SVK.indexOf('req.__tok =') < SVK.indexOf('const isAsset ='), '否则部分路由读不到');
 
-const ISE_SRC = (SVK.match(/function isEditorReq\(req, tok\) \{[^\n]*\n?/) || [''])[0] ||
-  (SVK.match(/function isEditorReq\(req, tok\) \{[\s\S]{0,200}?\}/) || [''])[0];
-ok('isEditorReq 在实参为空时回落到 req.__tok', /tok \|\| \(req && req\.__tok\)/.test(SVK));
-if (/tok \|\| \(req && req\.__tok\)/.test(SVK)) {
-  // 真跑一遍：把依赖全部换成 mock，只验证「凭证从哪来」这一件事
+const ISE_SRC = (SVK.match(/function isEditorReq\(req, tok\) \{[^\n]*\}/) || [''])[0];
+ok('读取 isEditorReq 的实际身份判据', !!ISE_SRC);
+if (ISE_SRC) {
   const isEd = new Function('roleOf', 'isLocalReq', 'clientIp',
-    'function isEditorReq(req, tok) { return isLocalReq(req) || roleOf(tok || (req && req.__tok) || "", clientIp(req)) === "edit"; }\nreturn isEditorReq;'
+    ISE_SRC + '\nreturn isEditorReq;'
   )(
     (t) => (t === 'EDIT' ? 'edit' : t === 'VIEW' ? 'view' : null),
     () => false,                 // 强制走 roleOf 分支（模拟线上：非本机直连）
@@ -185,16 +199,23 @@ group('[9] 只读身份的可见性边界：私密数据不能从「一锅端」
 // 里面混着模拟盘双账户的现金 / 权益 / 逐票持仓 / 成交记录 —— 同一个私密等级，一个口子挡着、
 // 另一个口子敞开。这类泄露不会报错，只读设备的面板只是"照常显示"，没有任何异常迹象。
 const ST = segOf('/api/state');
-ok('/api/state 里有身份判据', /isEditorReq\s*\(/.test(ST.code), '段起始行 ' + ST.start);
-ok('模拟盘按身份裁剪（非开发者不回明细）',
-  /paper:\s*_stEdit\s*\?\s*\{[^\n]*mkPaper\([^\n]*\}\s*:\s*\{[^\n]*hidden:\s*true/.test(ST.code));
-ok('只读分支不调用 mkPaper（不返回现金/持仓/成交）', (() => {
-  // 取 paper 那一行，看 hidden:true 之后还有没有 mkPaper —— 有就是只读也把明细算出来了
-  const line = (ST.code.match(/paper:[^\n]*/) || [''])[0];
-  const hi = line.indexOf('hidden: true');
-  return hi > 0 && !/mkPaper/.test(line.slice(hi));
-})(), (ST.code.match(/paper:[^\n]*/) || [''])[0]);
-ok('开发者分支仍返回完整两个账户', /mkPaper\('pool'\)/.test(ST.code) && /mkPaper\('pre'\)/.test(ST.code));
+ok('/api/state 将编辑身份传入仪表盘数据投影',
+  /buildDashboardState\(isEditorReq\(req,\s*''\)\)/.test(ST.code), '段起始行 ' + ST.start);
+const dashboard = SVK.slice(SVK.indexOf('function buildDashboardState('), SVK.indexOf('function buildMobileDigest('));
+const paperSource = (dashboard.match(/^\s*paper:\s*([^\n]+),$/m) || [])[1];
+ok('读取仪表盘的模拟盘投影', !!paperSource);
+if (paperSource) {
+  const projectPaper = new Function('_stEdit', 'mkPaper', 'isReplica', 'return (' + paperSource + ');');
+  const calls = [];
+  const mkPaper = lane => { calls.push(lane); return { lane }; };
+  const view = projectPaper(false, mkPaper, () => false);
+  ok('模拟盘按身份裁剪（非开发者不回明细）',
+    view.hidden === true && view.pool === null && view.pre === null);
+  ok('只读分支不调用 mkPaper（不返回现金/持仓/成交）', calls.length === 0);
+  const edit = projectPaper(true, mkPaper, () => false);
+  ok('开发者分支仍返回完整两个账户',
+    edit.pool?.lane === 'pool' && edit.pre?.lane === 'pre' && calls.join(',') === 'pool,pre');
+}
 ok('/api/holdings 的 GET 挡住了只读（真实持仓）', (() => {
   // ⚠️ 别写 roleOf\([^)]*\)：clientIp(req) 里的内层括号会把匹配截断
   const H = segOf('/api/holdings');
