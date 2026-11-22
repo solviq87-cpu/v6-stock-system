@@ -1580,6 +1580,9 @@ const SECTORS_ZT_MS = 10 * 1000;      // 板块涨停池 —— jc 轮用户确�
 //   jc 轮（2026-10-20）：30s → 10s，并新增 sectorsAgeSec 下发让面板/手机可见「几秒前」；若东财限流则自动退避沿用旧数据。
 //   TODO：腾讯/同花顺板块流作为辅助校验源（当前仅东财主源）。
 const BIGMONEY_SCAN_MS = 30 * 1000;   // 大单流入识别
+const THS_ACTIVE_SCAN_MAX = 12;       // 逐股接口，按供应商 1s 起步间隔限量
+const {currentThsSnapshot} = require('./src/core/ths-snapshot-evidence');
+const {aShareCalendarDate} = require('./src/core/a-share-calendar');
 const POOL_REBUILD_MS = 5 * 60 * 1000;// 精选池重算
 const MYRULES_SCAN_MS = 6 * 60 * 1000;// 十四条选股体系重算（K线较重，与精选池错峰）
 const HOLD_WATCH_MS = 30 * 1000;      // 持仓盯盘（面板那句「平台30秒盯盘」同读这一处）
@@ -5260,7 +5263,8 @@ async function rebuildPool() {
   });
   if (lackFund.length) {
     try {
-      thsTrend = await em.fetchThsActiveBatch(lackFund.map(({ s }) => s.code).slice(0, 160));
+      const leaders = [...lackFund].sort((a,b)=>(b.s.amount||0)-(a.s.amount||0)).slice(0,THS_ACTIVE_SCAN_MAX);
+      thsTrend = await em.fetchThsActiveBatch(leaders.map(({s})=>s.code));
       if (thsTrend && thsTrend.size) console.log(`[trend] 同花顺外盘/内盘兜底 ${thsTrend.size}/${lackFund.length} 只（东财资金接口限流中）`);
     } catch (e) { console.error('[trend] 同花顺兜底失败:', e.message); }
   }
@@ -5272,7 +5276,7 @@ async function rebuildPool() {
   const trendRej = { cap: 0, jumpy: 0, other: 0 };
   for (const { s, k } of t2) {
     const thsF = thsTrend && thsTrend.get(s.code);
-    const t = A.trendPoolCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price, mainInflow: s.mainInflow, thsNetAmt: thsF ? thsF.netAmt : null, floatCap: s.floatCap, code: s.code, name: s.name });
+    const t = A.trendPoolCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price, mainInflow: s.mainInflow, thsNetAmt: thsF && currentThsSnapshot(thsF) ? thsF.netAmt : null, floatCap: s.floatCap, code: s.code, name: s.name });
     if (t && !t.ok && (t.capOk === false || t.jumpy)) {
       if (t.capOk === false) trendRej.cap++;
       if (t.jumpy) trendRej.jumpy++;
@@ -6275,6 +6279,11 @@ function inferLeader() {
 
 // ---------------- 3. 5秒监控循环 ----------------
 let monitorCodes = [];
+const observeFastStockMoves = require('./src/core/fast-stock-moves').createFastStockMoves();
+function publishFastStockMoves(codes, rows, now) {
+  const moves = observeFastStockMoves(codes, rows, now);
+  if (moves.phase) S.fastStockMoves = moves;
+}
 async function tick() {
   if (S.loop.running) return;
   S.loop.running = true;
@@ -6296,6 +6305,7 @@ async function tick() {
     try { snaps = await em.fetchBatchSnapshot(codes); }
     catch (e) {
       S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
+      publishFastStockMoves(codes, [], Date.now());
       for (const code of codes) S.inflowHistory.delete(code);
       throw e;
     }
@@ -6305,6 +6315,7 @@ async function tick() {
     for (const code of codes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const now = Date.now();
+    publishFastStockMoves(codes, snaps, now);
     const alerts = [];
     for (const s of snaps) {
       if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
@@ -6821,9 +6832,11 @@ async function scanBigMoneyInner() {
   let source = base.filter(s => fundsNumber(s.mainPct) !== null).length > 0 ? 'em' : 'none';
   let ths = null;
   if (source === 'none') {
-    const cand = [...base].sort((a, b) => (b.amount || 0) - (a.amount || 0)).slice(0, 160); // 只查交投最活跃的
+    const cand = [...base].sort((a, b) => (b.amount || 0) - (a.amount || 0)).slice(0, THS_ACTIVE_SCAN_MAX);
     try {
       ths = await em.fetchThsActiveBatch(cand.map(s => s.code));
+      const receivedAt = Date.now();
+      for (const [code, row] of ths) if (!currentThsSnapshot(row, receivedAt)) ths.delete(code);
       if (ths.size) source = 'ths';
       console.log(`[bigmoney] 同花顺外盘/内盘补齐主动买盘 ${ths.size}/${cand.length} 只`);
     } catch (e) { console.error('[bigmoney] 同花顺兜底失败:', e.message); }
@@ -7246,11 +7259,12 @@ async function klineFlowOf(code) {
       //    不拿 0 冒充缺失字段，显式标 source='ths' + note 说明口径差异。
       try {
         const th = await em.fetchThsActive(c);
-        if (th && (fundsNumber(th.netAmt) !== null || fundsNumber(th.activePct) !== null)) {
+        if (th?.providerTradeDate === aShareCalendarDate(Date.now()) && (fundsNumber(th.netAmt) !== null || fundsNumber(th.activePct) !== null)) {
           rec.data = {
             source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
             mainPct: fundsNumber(th.activePct),                             // 主动买占比（与东财主力净占比量级可比）
             today: fundsRounded(th.netAmt),                 // 主动净买额（元）
+            providerUpdatedAt: th.providerUpdatedAt, providerTradeDate: th.providerTradeDate,
             superNet: null, bigNet: null, midNet: null, smallNet: null,
             note: '东财资金流未返回，已用同花顺主动净买占比兜底（无超大/大/中/小单四级拆分）',
           };
@@ -13469,6 +13483,7 @@ function buildDashboardState(_stEdit = false) {
       mainline: D.mainline,
       bigMoney: D.bigMoney,
       abMove: D.abMove || null,
+      fastStockMoves: D.fastStockMoves || null,
       extLink: D.extLink,
       learn: {
         samples: D.learn.samples, hits: D.learn.hits, buckets: D.learn.buckets,
@@ -17559,7 +17574,7 @@ async function init() {
     else if (m === 15 * 60) await pushDigest('close');
   }), 60 * 1000);
   // 每页 100 只、供应商至少间隔 1s。全 A 一轮需近一分钟，留出一轮间隔供其他任务和失败恢复。
-  setInterval(guard('allStocks', async () => { if (isTradingTime()) { try { setAllStocks(await em.fetchAllStocks()); } catch {} } }), 120 * 1000);
+  setInterval(guard('allStocks', async () => { if (isTradingTime()) { try { setAllStocks(await em.fetchAllStocks()); } catch {} } }), 90 * 1000);
   // ⛔ if 轮：A股四大指数 15s 实时 —— 市场情绪卡的秒级分量（全A快照 2 分钟一轮是数据源限制，
   //    指数不是；两路各标各的数据时刻，挂在情绪卡上让「实时到什么程度」可见）。
   setInterval(guard('idxRt', async () => { if (isDataWindow()) { const r = await em.fetchIdxRt(); if (r && r.length) S.idxRt = { at: Date.now(), items: r }; } }), 15 * 1000);
@@ -17604,7 +17619,7 @@ async function init() {
   }, 60 * 1000);
   // 主力大单流入识别推送（独立高频：每 BIGMONEY_SCAN_MS 扫描全市场快照，30分钟去重）
   // ⛔ 周期写在这行下面、面板那句话由 panelNotes() 产出 —— 别再两处各写一个数字（de 轮）
-  setInterval(async () => { if (isDataWindow()) { try { await scanBigMoneyPush(); } catch (e) { console.error('[bigmoney]', e.message); } } }, BIGMONEY_SCAN_MS);
+  setInterval(guard('bigmoney', async () => { if (isTradingTime()) { try { await scanBigMoneyPush(); } catch (e) { console.error('[bigmoney]', e.message); } } }), BIGMONEY_SCAN_MS);
   // jn 轮：涨幅异动扫描，每 2 分钟扫一次（内部 60 秒缓存），结果写入 S.abMove 供面板展示
   setInterval(guard('abmove', async () => { if (isDataWindow()) { try { S.abMove = await scanAbnormalMove(); } catch (e) { console.error('[abmove]', e && e.message); } } }), 2 * 60 * 1000);
   setInterval(guard('ztSentinel', () => ztSentinelTick()), 10 * 1000);   // ly：45s→10s——秒封板从拉到封只有几秒，粗轮询物理上拦不住；10s×差分=封板秒报
@@ -18153,19 +18168,16 @@ async function init() {
     const A0 = 9 * 3600 + 15 * 60;            // 9:15:00 竞价开始
     const A1 = 9 * 3600 + 25 * 60 + 30;       // 9:25:30 竞价撮合已完成，停止实时刷新
     if (sod < A0 || sod > A1) return;
-    // 12 秒刷新：原先放宽到 30 秒是因为全量拉取动辄 30~40 秒（根源是 Node keep-alive
-    // 复用被服务端关掉的旧连接，见 em.js EM_AGENT）。修好后全量只要 3~5 秒，可以恢复到高频实时。
-    // 触发东财限流时自动放宽到 48 秒（emBackoffGap），避免越限越拉、越拉越限。
-    if (auctionLiveBusy || Date.now() - auctionLiveAt < emBackoffGap(12000)) return;
+    // This is the broad auction pass. The existing 5s monitor separately shows dated price moves.
+    if (auctionLiveBusy || Date.now() - auctionLiveAt < emBackoffGap(60000)) return;
     auctionLiveBusy = true; auctionLiveAt = Date.now();
     (async () => {
       try {
-        await captureAuction(true);            // force：必须拉最新快照，竞价虚拟匹配价变化很快
-        if (S.auction) {
-          S.auction.live = true;
-          S.auction.stage = sod < 9 * 3600 + 20 * 60 ? '可撤单' : '不可撤单';
-          S.auction.nextIn = 12;
-        }
+        const prior = S.auction;
+        await captureAuction(true);
+        // An unchanged snapshot or a probe finishing after the match is not a new indicative quote.
+        if (S.auction === prior || ![1,2].includes(S.auction?.phase)) return;
+        S.auction.nextIn = 60;
         try { sseSend('auction', { time: S.auction && S.auction.time, live: true, strong: ((S.auction && S.auction.strong) || []).length }); } catch {}
         console.log('[竞价实时] ' + (S.auction && S.auction.time) + ' 强势 ' + ((S.auction && S.auction.strong) || []).length + ' 只 · ' + (S.auction && S.auction.stage));
       } catch (e) { console.error('[竞价实时] 失败:', e && e.message); }
@@ -18226,7 +18238,7 @@ async function init() {
     auctionPrevBusy = true;
     (async () => {
       try {
-        // 不 force 重拉：9:15-9:25 的 auctionLive 每 12 秒已经在刷 S.auction，
+        // 不 force 重拉：9:15-9:25 的 auctionLive 已在按全市场节奏刷 S.auction，
         // 再用 force 全量拉一次纯属重复开销（还可能撞上东财限流）。
         const au = S.auction;
         const rc = (au && au.validCount) || 0;

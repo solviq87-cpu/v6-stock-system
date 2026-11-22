@@ -137,11 +137,19 @@ function renderLedgerAccount(account,key) {
   return panel(account.name||(key==='pool'?'策略跟踪账本':'机会预选账本'),'账务投影来自账户权威，不创建第二本账。',metrics,table([['资产',r=>text(r.name||r.code)],['持有股数',r=>fmt(r.shares??r.quantity,0)],['可售股数',r=>fmt(r.sellableShares??r.sellable,0)],['账面成本',r=>yuan(r.cost??r.basis)],['估值',r=>yuan(r.marketValue??r.market)]],positions),el('h3',{},'账务事件'),table([['事件时间',r=>date(r.t||r.at||r.ts||r.time||r.tradeDate)],['报价时点',r=>date(r.quoteAt)],['类型',r=>text(r.type||r.side)],['资产',r=>text(r.code||r.symbol)],['金额',r=>yuan(r.amount??r.value)],['说明',r=>text(r.reason||r.note)]],events));
 }
 function newsFeed(ctx,kind) {
-  let source=[];
-  const readSource=()=>newsRows(ctx.state||{},kind);
+  let displayed='',pending=false;
   const host=el('div',{class:'fy-stack'});const search=input('news-search','','search',{placeholder:'搜索标题、股票或板块','aria-label':'筛选资讯'});const feed=el('div',{class:'fy-news-feed'});
   const related=row=>arr(row.related?.indirect).filter(stock=>/^\d{6}$/.test(stock.code||'')&&stock.via);
-  const render=()=>{source=readSource();const q=search.value.trim().toLowerCase(),rows=source.filter(row=>[row.title,row.name,row.code,row.text,...arr(row.codes),...arr(row.sectors),...related(row).flatMap(stock=>[stock.code,stock.name,stock.via])].join(' ').toLowerCase().includes(q));feed.replaceChildren(rows.length?el('div',{class:'fy-timeline'},rows.map(row=>{
+  const recordKey=row=>JSON.stringify([row.id||row.eventId,row.url||row.sourceUrl,row.title||row.name||row.text,row.publishedAt||row.quoteAt||row.t||row.time,row.source,row.code]);
+  const render=()=>{
+   const q=search.value.trim().toLowerCase(),rows=newsRows(ctx.state||{},kind).filter(row=>[row.title,row.name,row.code,row.text,...arr(row.codes),...arr(row.sectors),...related(row).flatMap(stock=>[stock.code,stock.name,stock.via])].join(' ').toLowerCase().includes(q));
+   const content=JSON.stringify(rows.map(row=>[recordKey(row),row.text,row.reason,row.direction||row.type,row.codes,row.sectors,
+    related(row).map(stock=>[stock.code,stock.name,stock.via])]));
+   if(content===displayed){pending=false;return;}
+   if(feed.contains(document.activeElement)){pending=true;return;}
+   const expanded=new Set([...feed.querySelectorAll('details[open][data-news-record]')].map(node=>node.dataset.newsRecord));
+   displayed=content;pending=false;
+   feed.replaceChildren(rows.length?el('div',{class:'fy-timeline'},rows.map(row=>{
     const title=row.title||row.name||row.text||'信号记录',url=row.url||row.sourceUrl;
     const direct=new Set([...arr(row.codes),row.code].filter(code=>/^\d{6}$/.test(code||'')));
     const indirect=related(row).filter(stock=>!direct.has(stock.code));
@@ -150,8 +158,12 @@ function newsFeed(ctx,kind) {
     return el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('time',{},date(row.publishedAt||row.quoteAt||row.t||row.time)),el('span',{class:'fy-tag'},label)),el('h3',{},url?link(url,title):title),row.text&&row.text!==title&&el('p',{},row.text),row.reason&&el('p',{class:'fy-muted'},row.reason),
       direct.size>0&&el('div',{class:'fy-tagline'},el('small',{},kind==='signals'?'信号个股':'直接关联'),[...direct].map(code=>action(code,()=>ctx.selectStock(code),'text'))),
       arr(row.sectors).length>0&&el('div',{class:'fy-tagline'},arr(row.sectors).map(sector=>el('span',{class:'fy-tag'},sector))),
-      indirect.length>0&&el('details',{class:'fy-details'},el('summary',{},'板块间接关联（'+indirect.length+' 只）'),el('div',{class:'fy-tagline'},indirect.map(stock=>action((stock.name||stock.code)+' · '+stock.via,()=>ctx.selectStock(stock.code),'text')))),
-      row.source&&el('small',{},'来源 '+row.source));})):empty('当前没有匹配的资讯','休市期间资讯仍独立更新；行情快照与新闻发布时间分别展示。'));};search.addEventListener('input',render);render();
+      indirect.length>0&&el('details',{class:'fy-details','data-news-record':recordKey(row),open:expanded.has(recordKey(row))},el('summary',{},'板块间接关联（'+indirect.length+' 只）'),el('div',{class:'fy-tagline'},indirect.map(stock=>action((stock.name||stock.code)+' · '+stock.via,()=>ctx.selectStock(stock.code),'text')))),
+      row.source&&el('small',{},'来源 '+row.source));})):empty('当前没有匹配的资讯','休市期间资讯仍独立更新；行情快照与新闻发布时间分别展示。'));
+  };
+  search.addEventListener('input',render);
+  feed.addEventListener('focusout',()=>queueMicrotask(()=>{if(pending)render();}));
+  render();
   host.append(panel(kind==='alerts'?'风险线索':kind==='signals'?'信号轨迹':'资讯时间线','公告、新闻与行情分别核验，不把标题线索直接当作买卖指令。',el('div',{class:'fy-toolbar'},search,action('刷新资讯',()=>ctx.refresh())),feed));
   if(editor(ctx))host.append(el('div',{class:'fy-toolbar'},action('补发新闻摘要',()=>review(ctx,host,'发送新闻摘要','这会向当前配置的通知通道发送一份新闻汇总。',()=>mutation(ctx,'/api/news-digest',{holiday:ctx.state?.trading===false})))));
   ctx.onState?.(render);return host;

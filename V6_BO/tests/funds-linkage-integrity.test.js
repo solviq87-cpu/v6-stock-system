@@ -71,10 +71,11 @@ test('sector aggregation counts known zero but never mixes THS or unmarked funds
 });
 
 test('K-line funds consumer keeps partial EM evidence unknown and handles THS zero without substitution', async () => {
-  const ctx = context({Date, Map, KL_FLOW_TTL: 60000, _klFlowCache: new Map(),
+  const {aShareCalendarDate}=require('../src/core/a-share-calendar');
+  const ctx = context({Date, Map, aShareCalendarDate, KL_FLOW_TTL: 60000, _klFlowCache: new Map(),
     em: {fetchBatchFlowEM: async () => [{pct: null, today: 0, bigNet: 0,
       fundsMethod: 'vendor-order-size-estimate', retrievedAt: 123}],
-      fetchThsActive: async () => ({netAmt: 0, activePct: 0})}});
+      fetchThsActive: async () => ({netAmt: 0, activePct: 0,providerTradeDate:aShareCalendarDate(),providerUpdatedAt:Date.now()})}});
   vm.runInContext(extract(server, 'async function klineFlowOf(code)', '// 洗盘 vs 出货'), ctx);
   const first = (await ctx.klineFlowOf('000001')).data;
   assert.equal(first.today, 0);
@@ -88,6 +89,8 @@ test('K-line funds consumer keeps partial EM evidence unknown and handles THS ze
   assert.equal(fallback.today, 0);
   assert.equal(fallback.mainPct, 0);
   assert.equal(fallback.superNet, null);
+  ctx.em.fetchThsActive=async()=>({netAmt:999,activePct:50});
+  assert.equal((await ctx.klineFlowOf('000003')).data,null);
 });
 
 test('trend funds check distinguishes unknown history from three positive days', () => {

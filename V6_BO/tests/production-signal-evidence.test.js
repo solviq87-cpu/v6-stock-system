@@ -201,7 +201,7 @@ test('actual tick freezes a causal funds condition, raw provenance and archive b
  vm.runInContext(section('function fundsNumber(','const { analyzeShortline }'),c);
  vm.runInContext(section('function countStreak(h)','function sectorZTCountFor('),c);
  c.S.inflowHistory.set('000001',Array.from({length:11},(_,i)=>c.fundsHistoryObservation({...stock,mainInflow:(i+1)*1e7,fundsRetrievedAt:at-(11-i)*5000},at-(11-i)*5000)));
- vm.runInContext(section('async function tick()','\nfunction countStreak(h)'),c);
+ vm.runInContext(section('const observeFastStockMoves =','\nfunction countStreak(h)'),c);
  await c.tick();assert.equal(c.S.loop.lastError,null);
  assert.equal(c.enqueued.length,1);const signal=c.enqueued[0];
  assert.equal(signal.type,'大单快速流入');assert.equal(signal.quoteAt,stock.quoteAt);assert.equal(signal.quoteSource,'eastmoney');

@@ -38,6 +38,7 @@ const STATE_FIELDS = [
   'mainline',
   'bigMoney',
   'abMove',
+  'fastStockMoves',
   'extLink',
   'preselect',
   'pre',

@@ -14,6 +14,9 @@ function section(start, end) {
 function api(records) {
   const calls = [];
   const ctx = vm.createContext({THS_HEAD: 'https://ths.invalid/', Date: {now: () => retrievedAt},
+    dedup:(_, get)=>get(), require:name=>{
+      assert.equal(name,'./src/core/ths-snapshot-evidence');return require('../src/core/ths-snapshot-evidence');
+    },
     thsGet: async url => {
       const code = url.match(/\/(\d{6})\/last\.js$/)[1];
       calls.push(code);
@@ -94,4 +97,17 @@ test('THS estimate provenance never treats receipt time or price as a supplier f
   assert.equal(row.retrievedAt, retrievedAt);
   assert.equal(row.sourceTimestamp, null);
   assert.equal(row.quoteAt, undefined);
+});
+
+test('THS uses the original updateTime for same-session routing, separate from the service clock', async () => {
+  const {currentThsSnapshot}=require('../src/core/ths-snapshot-evidence');
+  const row=await api({'000001': {...valid(), time:'2026-11-13 10:00:00 北京时间',updateTime:'2026-11-12 15:30'}}).fetchThsActive('000001');
+  assert.equal(row.providerTradeDate,'2026-11-12');
+  assert.equal(row.sourceTimestamp,null);
+  assert.equal(currentThsSnapshot(row,retrievedAt),false);
+  const current=await api({'000001': {...valid(),updateTime:'2026-11-13 09:59'}}).fetchThsActive('000001');
+  assert.equal(currentThsSnapshot(current,retrievedAt),true);
+  assert.equal(currentThsSnapshot(current,retrievedAt+180000),false);
+  const future=await api({'000001': {...valid(),updateTime:'2026-11-13 10:01'}}).fetchThsActive('000001');
+  assert.equal(future.providerUpdatedAt,null);
 });

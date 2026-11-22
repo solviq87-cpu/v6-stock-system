@@ -156,11 +156,28 @@ export function renderEvidence(data,ctx,depth=0) {
  const entries=Object.entries(data).filter(([key])=>!/(?:token|password|secret|credential|webhook|authCode|machineKey)/i.test(key));
  return h('dl',{class:'fy-facts'},entries.map(([key,value])=>h('div',{},h('dt',{},labels[key]||key),h('dd',{},typeof value==='object'&&value? h('details',{class:'fy-details'},h('summary',{},Array.isArray(value)?value.length+' 条记录':'查看详情'),renderEvidence(value,ctx,depth+1)):typeof value==='number'?format(value,key==='count'||key==='total'?0:2):value==null?'未知':String(value)))));
 }
+function fastMovesPanel(state,ctx,auctionOnly){
+ const data=state.fastStockMoves;
+ const auction=data?.phase?.startsWith('auction-');
+ if(!data?.phase||auctionOnly&&!auction)return empty('当前没有可比较的重点股时点');
+ const cached=state.trading===false||state.isSnapshot===true||Date.now()-data.checkedAt>15000;
+ const status=(cached?'历史观察 · ':'')+dayLabel(data.tradeDate)+' · '+dateTime(data.checkedAt);
+ return h('div',{class:'fy-stack'},h('p',{class:'fy-muted'},(auction?'集合竞价虚拟匹配价 · ':'盘中报价 · ')+status),
+  h('p',{class:'fy-muted'},'有效报价 '+data.observed+' / '+data.requested+' 只 · 可比较 '+data.comparable+' 只 · 达到 '+data.thresholdPct+'% '+data.count+' 只'),
+  data.items?.length?h('div',{class:'fy-stack'},data.items.map(row=>h('div',{class:'fy-item'},
+   h('div',{class:'fy-inline'},button(symbolName(row)+' '+row.code,()=>ctx.selectStock(row.code,{...row,poolDay:data.tradeDate}),'quiet'),
+    h('strong',{class:'fy-positive'},'+'+format(row.risePct,2)+'% / '+Math.round(row.spanMs/1000)+' 秒')),
+   h('small',{class:'fy-muted'},format(row.basePrice)+' → '+format(row.price)+' · '+quoteLabel(row))))):
+   empty(data.comparable?'这轮未见达到门槛的重点股':'待取得两个同源时点'));
+}
+
 export function renderOpportunities(route,ctx) {
  if(!route.sub||route.sub==='all')return renderAllOpportunities(ctx);
  if(['relay-first','relay-second'].includes(route.sub))return renderRelayCard(ctx,route.sub);
  let active=POOLS.find(x=>x[0]===route.sub)||POOLS.find(x=>x[0]==='quant'),current=[],query='',board='all',sort='score',cursor='',max=50,loadGeneration=0,snapshotIdentity='';
  const curated=active[0]==='ranked';
+ const fastMoves=['movement','auction'].includes(active[0])?h('div',{'data-fast-stock-moves':''}):null;
+ const fastMovesCard=fastMoves?h('details',{class:'fy-details fy-panel',open:true},h('summary',{},'重点股 · 近一分钟涨速'),fastMoves):null;
  const view=h('div',{class:curated?'fy-stack fy-system-picks':'fy-stack'}),body=h('div'),summaryView=h('div',{class:'fy-pool-summary'}),status=h('p',{class:'fy-note',role:'status'}),selector=h('select',{'aria-label':'选择股票池'},POOLS.map(([key,label])=>h('option',{value:key,selected:key===active[0]},label)));
  selector.value=active[0];selector.addEventListener('change',()=>ctx.navigate('opportunities',selector.value));
  const search=h('input',{type:'search',placeholder:'搜索名称、代码或板块','aria-label':'筛选股票池'});
@@ -176,10 +193,13 @@ export function renderOpportunities(route,ctx) {
   h('header',{class:'fy-view-heading'},h('div',{},h('h1',{},active[1]),h('p',{},active[2])),refreshResults),
   h('div',{class:'fy-system-picks-meta'},status,readTime),
   h('div',{class:'fy-system-picks-tools'},search,field('范围',boardSelect),field('排序',sortSelect)));
- else view.append(simpleNavigation(ctx,active[0]),
-  h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
-   h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')),
-  h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
+ else {
+  if(fastMovesCard)view.append(h('header',{class:'fy-view-heading'},h('h1',{},active[1])),fastMovesCard,simpleNavigation(ctx,active[0]));
+  else view.append(simpleNavigation(ctx,active[0]),
+   h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
+    h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')));
+  view.append(h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
+ }
  view.append(summaryView,body,loadMore);
  function paint() {
   let rows=current.filter(r=>(!query||[r.name,r.code,r.sector].some(x=>String(x||'').toLowerCase().includes(query)))&&(board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code)));
@@ -197,6 +217,7 @@ export function renderOpportunities(route,ctx) {
  }
  async function load(append=false) {
   const state=ctx.state||{},turn=++loadGeneration,requestedBoard=board;
+  if(fastMoves&&!fastMoves.contains(document.activeElement))fastMoves.replaceChildren(fastMovesPanel(state,ctx,active[0]==='auction'));
   loadMore.disabled=true;
   if(active[4]==='edit'&&ctx.role!=='edit'){body.replaceChildren(empty('该观察池需要开发者权限','行情与公开选股池仍可正常浏览。'));return;}
   status.textContent='正在读取 '+active[1]+'…';

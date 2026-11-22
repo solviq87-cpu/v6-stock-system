@@ -20,7 +20,7 @@ function monitor(n, respond = requested => requested.map(code => ({ code, price:
     PAPER: { pool: { positions: positions(n) }, pre: { positions: {} } }, monitorCodes: [],
     em: { async fetchBatchSnapshot(requested) { requests.push(Array.from(requested)); return respond(requested); } }
   });
-  const a = source.indexOf('async function tick()');
+  const a = source.indexOf('const observeFastStockMoves =');
   const b = source.indexOf('    ingestPx(snaps);', a);
   assert.ok(a >= 0 && b > a);
   vm.runInContext(source.slice(a, b) + '\n} finally { S.loop.running = false; } }', c);

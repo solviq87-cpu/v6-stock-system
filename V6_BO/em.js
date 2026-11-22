@@ -1825,10 +1825,15 @@ function thsGet(url, timeout = 8000) {
   }).then(bytes => bytes.toString('utf8'));
 }
 async function fetchThsActive(code) {
+  if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return null;
+  return dedup('ths:active:'+code, () => fetchThsActiveOnce(code));
+}
+async function fetchThsActiveOnce(code) {
   const text = await thsGet(`${THS_HEAD}${code}/last.js`);
-  const m = /quotebridge_v6_realhead_hs_\w+_last\(([\s\S]*)\)/.exec(text);
-  if (!m) return null;
-  const items = (JSON.parse(m[1]) || {}).items || {};
+  const retrievedAt = Date.now();
+  const snapshot = require('./src/core/ths-snapshot-evidence').parseThsRealhead(text, code, retrievedAt);
+  if (!snapshot) return null;
+  const {items, providerUpdatedAt, providerTradeDate} = snapshot;
   const outer = observedFlowCount(items['14']);   // 外盘（主动买入股数）
   const inner = observedFlowCount(items['15']);   // 内盘（主动卖出股数）
   const vol = observedFlowCount(items['13']);     // 成交量(股)
@@ -1858,7 +1863,7 @@ async function fetchThsActive(code) {
     // 主动买占比 = 净主动买额 / 当日成交额（与东财"主力净占比"量级可比）
     activePct,
     source: 'ths', upstream: 'ths', fundsMethod: 'vendor-active-order-estimate',
-    retrievedAt: Date.now(), sourceTimestamp: null
+    retrievedAt, providerUpdatedAt, providerTradeDate, sourceTimestamp: null
   };
 }
 // 批量拉取（限制并发，避免被网关 502）
