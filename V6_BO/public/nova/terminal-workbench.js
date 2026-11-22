@@ -2,7 +2,7 @@
 // All figures come from the existing authenticated state and retain their original evidence.
 // No synthetic quotes, trade actions or new backend contracts are introduced here.
 import {h,button,empty,section,format,money,percent,direction,dayLabel,dateTime,table,icon} from './ui.js';
-import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,systemPicks} from './market.js';
+import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,systemPicks,replaceKeepingStockFocus} from './market.js';
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier} from './market-evidence.js';
 import {renderCloseReview} from './close-review.js';
 
@@ -28,14 +28,15 @@ function quotePreview(row,ctx) {
  const score=valid(row.score)?format(row.score,1):'—';
  const pct=percent(row.pct);
  const reasons=stockReasons(row).join('；');
- return h('button',{type:'button',class:'fy-stock-card fy-reference-candidate','data-code':row.code,
-  'aria-label':'研究 '+nameOf(row),onClick:()=>ctx.selectStock(row.code,row)},
+ const card=h('button',{type:'button',class:'fy-stock-card fy-reference-candidate','data-code':row.code,
+  'aria-label':'研究 '+nameOf(row),onClick:()=>ctx.selectStock(row.code,row,card)},
   h('span',{class:'fy-reference-candidate-name'},h('strong',{},nameOf(row)),h('small',{},row.code)),
   h('span',{class:'fy-reference-candidate-sector',title:reasons||null},row.sector||row.industry||'板块待核验'),
   h('span',{class:'fy-reference-candidate-score'},score),
   h('span',{class:'fy-reference-candidate-price '+direction(row.pct)},format(row.price),h('small',{},pct)),
   h('span',{class:'fy-reference-candidate-link'},'查看 ›'),
   h('small',{class:'fy-reference-candidate-source',title:quoteLabel(row)},row.poolDay?'结果 '+dayLabel(row.poolDay)+' · ':'',quoteLabel(row)));
+ return card;
 }
 function referenceLinks(items,ctx,className) {
  return h('nav',{class:className,'aria-label':'常用研究入口'},items.map(([label,view,sub,symbol])=>
@@ -468,7 +469,7 @@ export function renderTerminalOverview(ctx) {
   panelsHost.replaceChildren(renderPanels(state,summary,day,ctx));
   paintReview(summary);
   const preview=systemPicks(state).items.slice(0,3);
-  candidatePreview.replaceChildren(preview.length?
+  replaceKeepingStockFocus(candidatePreview,preview.length?
    h('div',{class:'fy-stock-grid'},preview.map(row=>quotePreview(row,ctx))):
    empty('当前没有可核验的候选','查看完整机会工作区中的来源状态和原始依据；未返回不代表全市场没有机会。'));
  }

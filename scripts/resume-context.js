@@ -30,7 +30,7 @@ function resume(root) {
   const status=git(['status','--porcelain=v1','--untracked-files=normal']);
   const lines=status?status.split('\n'):[];
   const files=lines.slice(0,12).map(x=>x.slice(0,180)).join('\n') || '干净';
-  return [`当前分支=${branch.slice(0,200)}`,`HEAD=${head}`,remote,
+  return ['部署交接（接手前先读）=DEPLOYMENT.md',`当前分支=${branch.slice(0,200)}`,`HEAD=${head}`,remote,
     `工作区（${lines.length}项，最多显示12项）：\n${files}`,
     '上述 Git 状态为本地实读；本命令不联网，不能证明远端 CI、合并或生产发布。',
     '\n当前检查点（历史快照，先与上方实际 SHA 核对）：',note].join('\n');

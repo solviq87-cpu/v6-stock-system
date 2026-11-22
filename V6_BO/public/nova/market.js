@@ -45,7 +45,7 @@ const sectorLeadershipLabel=status=>({
  'early-spread':'较强线索 · 先封后扩散','early-limited':'同业封板扩散有限',following:'已有同业先封',tied:'同刻封板',pending:'待核验'
 })[status];
 export function stockCard(row,ctx) {
- const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,row)},
+ const card=h('button',{type:'button',class:'fy-stock-card','data-code':row.code,'aria-label':'研究 '+symbolName(row),onClick:()=>ctx.selectStock(row.code,row,card)},
   h('div',{class:'fy-stock-head'},h('div',{},h('strong',{},symbolName(row)),h('span',{class:'fy-muted'},row.code)),h('span',{class:'fy-score-ring'},typeof row.score==='number'?format(row.score,1):typeof row.prob==='number'?format(row.prob,1):row.result||'待评估',h('small',{},typeof row.score==='number'?'评分':typeof row.prob==='number'?'原概率':row.result?'原状态':''))),
   h('div',{class:'fy-stock-meta'},h('strong',{class:direction(row.pct)},format(row.price)),h('span',{class:direction(row.pct)},percent(row.pct)),h('span',{class:'fy-muted'},row.sector||row.industry||'板块待核验')),
   row.poolLabels?.length&&h('div',{class:'fy-reason-tags'},row.poolLabels.map(label=>h('span',{class:'fy-tag'},label))),
@@ -58,6 +58,12 @@ export function stockCard(row,ctx) {
   h('small',{class:'fy-quote-time'},quoteLabel(row)),
   h('span',{class:'fy-stock-open'},'打开研究面板 ',icon('arrow')));
  return card;
+}
+export function replaceKeepingStockFocus(host,...children) {
+ const focused=document.activeElement;
+ const code=focused?.classList?.contains('fy-stock-card')&&host.contains(focused)?focused.dataset.code:'';
+ host.replaceChildren(...children);
+ if(/^\d{6}$/.test(code))host.querySelector('button.fy-stock-card[data-code="'+code+'"]')?.focus({preventScroll:true});
 }
 const roleLabel=row=>({leader:'龙头',deputy:'龙二',mid:'中军',follow:'跟风'})[row?.role]||'角色待核验';
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -235,24 +241,23 @@ export function renderOpportunities(route,ctx) {
  sortSelect.addEventListener('change',()=>{sort=sortSelect.value;paint();});
  const loadMore=button('加载下一页',()=>load(true));loadMore.hidden=true;
  const readTime=curated?h('time',{class:'fy-muted','data-system-picks-read-time':'true'}):null;
- const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh():load(),'primary');
+ const refreshResults=button(curated?'刷新结果':'读取最新结果',()=>curated?ctx.refresh({showSuccess:false}):load(),'primary');
  if(curated)view.append(
   h('header',{class:'fy-view-heading'},h('div',{},h('h1',{},active[1]),h('p',{},active[2])),refreshResults),
   h('div',{class:'fy-system-picks-meta'},status,readTime),
   h('div',{class:'fy-system-picks-tools'},search,field('范围',boardSelect),field('排序',sortSelect)));
  else {
-  if(fastMovesCard)view.append(h('header',{class:'fy-view-heading'},h('h1',{},active[1])),fastMovesCard,simpleNavigation(ctx,active[0]));
-  else view.append(simpleNavigation(ctx,active[0]),
-   h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / OPPORTUNITY FIELD'),
-    h('h1',{},'让机会，各就其位。'),h('p',{},'发现、研究、跟踪，在一个工作流里衔接。')));
-  view.append(h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
+  view.append(h('header',{class:'fy-view-heading'},h('h1',{},active[1])));
+  if(fastMovesCard)view.append(fastMovesCard);
+  view.append(simpleNavigation(ctx,active[0]),
+   h('div',{class:'fy-opportunity-toolbar'},field('观察池',selector),search,field('范围',boardSelect),field('排序',sortSelect),refreshResults),status);
  }
  view.append(summaryView,body,loadMore);
  function paint() {
   let rows=current.filter(r=>(!query||[r.name,r.code,r.sector].some(x=>String(x||'').toLowerCase().includes(query)))&&(board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code)));
   if(sort!=='original')rows=[...rows].sort((a,b)=>(Number.isFinite(b[sort])?b[sort]:-Infinity)-(Number.isFinite(a[sort])?a[sort]:-Infinity));
   if(curated){
-   body.replaceChildren(rows.length?h('div',{class:'fy-stock-grid','aria-label':'系统精选股票'},rows.map(row=>stockCard(row,ctx))):
+   replaceKeepingStockFocus(body,rows.length?h('div',{class:'fy-stock-grid','aria-label':'系统精选股票'},rows.map(row=>stockCard(row,ctx))):
     empty(query||board!=='all'?'当前筛选没有匹配':'系统尚未返回精选候选'));
    return;
   }
@@ -260,7 +265,7 @@ export function renderOpportunities(route,ctx) {
   const groups=[['正在探索',rows.filter(r=>!signal(r)&&!r.focused),'研究候选'],['重点跟踪',rows.filter(r=>!signal(r)&&r.focused),'重点关注'],['已有信号',rows.filter(signal),'已返回的策略信号']];
   const populatedGroups=groups.filter(([,list])=>list.length);
   const stageStrip=h('div',{class:'fy-stage-strip','aria-label':'观察阶段数量'},groups.map(([label,list])=>h('span',{class:'fy-stage-chip'},label,h('b',{},list.length))));
-  body.replaceChildren(stageStrip,populatedGroups.length?h('div',{class:'fy-pool-board fy-lanes-'+populatedGroups.length},populatedGroups.map(([label,list,description])=>h('section',{class:'fy-pool-column'},h('header',{},h('h2',{},label),h('span',{class:'fy-tag'},list.length)),h('p',{class:'fy-muted'},description),h('div',{class:'fy-stock-grid'},list.map(r=>stockCard(r,ctx)))))):empty('当前筛选没有匹配','可切换观察池或筛选范围；已有历史结果不会被伪造为实时。'));
+  replaceKeepingStockFocus(body,stageStrip,populatedGroups.length?h('div',{class:'fy-pool-board fy-lanes-'+populatedGroups.length},populatedGroups.map(([label,list,description])=>h('section',{class:'fy-pool-column'},h('header',{},h('h2',{},label),h('span',{class:'fy-tag'},list.length)),h('p',{class:'fy-muted'},description),h('div',{class:'fy-stock-grid'},list.map(r=>stockCard(r,ctx)))))):empty('当前筛选没有匹配','可切换观察池或筛选范围；已有历史结果不会被伪造为实时。'));
  }
  function paintFastMoves() {
   if(!fastMoves||fastMoves.contains(document.activeElement)&&document.activeElement.tagName!=='SUMMARY')return;
@@ -360,7 +365,7 @@ export function combinePoolResults(entries,now=Date.now()) {
   poolLabels:[...new Set(item.proofs.map(proof=>proof.pool))],poolEvidence:item.proofs}));
 }
 function simpleNavigation(ctx,active='all') {
- return h('nav',{class:'fy-grid two','aria-label':'常用卡片'},
+ return h('nav',{class:'fy-grid two fy-pick-shortcuts','aria-label':'常用卡片'},
   [['all','全部选股','opportunities'],['review','今日复盘','pulse'],['relay-first','一进二','opportunities'],['relay-second','二进三','opportunities']]
    .map(([key,label,view])=>button(label,()=>ctx.navigate(view,key),active===key?'primary':'secondary')));
 }
@@ -387,7 +392,7 @@ export function renderAllOpportunities(ctx) {
   const all=combinePoolResults(entries()),rows=all.filter(row=>!query||[row.name,row.code,row.sector].some(value=>String(value||'').toLowerCase().includes(query)));
   // Scores from different strategies are not calibrated against one another.
   status.textContent='已汇总 '+all.length+' 只候选 · 各股票池自动合并去重'+(busy?' · 正在读取更多结果…':'');
-  output.replaceChildren(rows.length?h('div',{class:'fy-stock-grid'},rows.slice(0,shown).map(row=>stockCard(row,ctx))):empty(query?'没有匹配这次搜索的股票':'暂未取得候选结果',query?'清空搜索即可查看全部已返回结果。':'下方显示各数据源状态；未取到数据不等于没有符合条件的股票。'));
+  replaceKeepingStockFocus(output,rows.length?h('div',{class:'fy-stock-grid'},rows.slice(0,shown).map(row=>stockCard(row,ctx))):empty(query?'没有匹配这次搜索的股票':'暂未取得候选结果',query?'清空搜索即可查看全部已返回结果。':'下方显示各数据源状态；未取到数据不等于没有符合条件的股票。'));
   more.hidden=shown>=rows.length;more.textContent='显示更多股票（剩余 '+Math.max(0,rows.length-shown)+' 只）';
   diagnostics.replaceChildren(...remote.map(entry=>h('p',{class:'fy-muted'},entry.label+'：'+(entry.error||entry.data?.note||rowsFrom(entry.data).length+' 只')+(entry.data?.hasMore?' · 还有分页结果，请在“全部命中”中继续查看':'')+(entry.data?.snapshotDay?' · '+dayLabel(entry.data.snapshotDay):''))),
    h('p',{class:'fy-muted'},'汇总当前服务已返回的候选，不代表全市场全部股票；单接口有返回上限。各池日期和依据分别保留，收盘后不补造盘中结果。'));
@@ -564,9 +569,9 @@ export function createStockDrawer(ctx) {
   generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
   // A shared-state refresh may replace the originating opportunity while the
   // drawer is open. Restore the same stock in the current DOM in that case.
-  const origin=previousFocus?.isConnected?previousFocus:
+  const origin=previousFocus?.isConnected&&previousFocus.getClientRects().length?previousFocus:
    [...document.querySelectorAll('.fy-stock-card[data-code="'+code+'"]')].find(node=>!node.disabled&&node.getClientRects().length);
-  origin?.focus?.();
+  origin?.focus?.({preventScroll:true});
  };
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
@@ -701,8 +706,8 @@ export function createStockDrawer(ctx) {
   }
   displayQuote(next);
  }
- async function open(nextCode,nextRow) {
-  if(!/^\d{6}$/.test(nextCode))return;previousFocus=document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
+ async function open(nextCode,nextRow,trigger) {
+  if(!/^\d{6}$/.test(nextCode))return;previousFocus=trigger||document.activeElement;generation++;controller?.abort();controller=new AbortController();code=nextCode;boundEvidence=nextRow?.code===nextCode;row=(boundEvidence?nextRow:ctx.findStock(nextCode))||{code:nextCode};daily=[];historyLoading=false;loadQueued=false;period='day';tab='chart';
   title.textContent=symbolName(row)+' / '+nextCode;displayQuote(row);
   overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();
  }

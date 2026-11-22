@@ -93,7 +93,7 @@ function findStock(code) {
  const candidates=[...rowsFrom(state?.dashboard?.rows),...rowsFrom(state?.pool),...rowsFrom(state?.trendPool),...[...poolCache.values()].flatMap(value=>rowsFrom(value.items||value))];
  return candidates.find(row=>row.code===code)||null;
 }
-function selectStock(code,row){if(!role)return;selectedStock=code;drawer.open(code,row);}
+function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
 async function readPool(key,loader) {
  const result=await loader();
  const items=rowsFrom(result?.items||result);
@@ -106,7 +106,7 @@ function context(signal) {
  return {
   get state(){return state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
   get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
-  signal,api,workspaceNavigation:true,refresh:()=>refresh(true),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
+  signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
   readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
   onFastMoves(fn){fastMoveListeners.add(fn);signal?.addEventListener('abort',()=>fastMoveListeners.delete(fn),{once:true});}
  };
@@ -147,7 +147,10 @@ function createFrame() {
  main=h('main',{class:'fy-main',id:'fayo-content',tabindex:'-1'});
  workspaceNav=h('nav',{class:'fy-workspace-nav','aria-label':'当前标签功能',hidden:true});
  snapshot=h('div',{class:'fy-snapshot',role:'status',hidden:true});
- const meta=h('div',{class:'fy-connection-bar'},h('span',{},'你的投资研究空间'),connection);
+ const deploymentGuide=role==='edit'?h('a',{class:'fy-deployment-guide fy-button secondary',
+  href:'https://github.com/solviq87-cpu/v6-stock-system/blob/dev/DEPLOYMENT.md',target:'_blank',rel:'noopener noreferrer'},'部署交接文档'):null;
+ const meta=h('div',{class:deploymentGuide?'fy-connection-bar fy-has-deployment-guide':'fy-connection-bar'},
+  h('span',{class:'fy-connection-caption'},'你的投资研究空间'),deploymentGuide,connection);
  frame=h('div',{class:'fayo-app fy-reference-shell'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,businessNav,meta,snapshot,workspaceNav,main,dock);
  root.replaceChildren(frame);
  drawer=createStockDrawer(context(null));root.append(drawer.element);
@@ -199,7 +202,7 @@ async function renderRoute() {
  }catch(error){if(controller.signal.aborted)return;main.replaceChildren(empty('该工作空间暂时未能打开',error.message),button('重新打开',renderRoute));notify(error.message,'error');}
  window.scrollTo({top:0,behavior:'instant'});
 }
-async function refresh(manual=false) {
+async function refresh(manual=false,{showSuccess=true}={}) {
  if(!role||(!manual&&document.visibilityState!=='visible'))return;
  if(refreshBusy){if(manual)refreshWanted=true;return;}
  refreshBusy=true;
@@ -212,7 +215,7 @@ async function refresh(manual=false) {
   else if(route.view==='pulse'&&route.sub==='market-overview'&&!main.contains(document.activeElement))main.replaceChildren(renderPulse(route,context(routeController.signal)));
   for(const listener of [...listeners])try{listener(state);}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.();
-  if(manual)notify('已读取云端状态；报价是否更新须核对原始时点，本操作不启动重新采集');
+  if(manual&&showSuccess)notify('已读取云端状态，报价原始时点见页面');
  }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
  finally{refreshBusy=false;if(refreshWanted){refreshWanted=false;if(role)refresh(false);}}
 }
