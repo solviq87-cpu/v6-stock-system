@@ -17,6 +17,10 @@ test(
     const first = await f.request('/api/state');
     assert.equal(first.body.pool[0].price, 1, JSON.stringify(first.body));
     assert.equal(first.body.trading, true);
+    assert.equal(first.body.fastStockMoves.items[0].code, '600009');
+    const viewer = await f.request('/api/state', 'GET', null, f.viewerToken);
+    assert.equal(viewer.body.fastStockMoves.items[0].code, '600000');
+    assert.equal(viewer.body.fastStockMoves.requested, 1);
     const mobile = await f.request('/api/mobile-digest');
     assert.equal(mobile.body.dashboard.rows[0].price, 1);
     // Preseal is a market card that can be observed before close; its auth is retained.
@@ -45,6 +49,11 @@ test(
     const phone = await f.request('/api/mobile-digest');
     assert.equal(phone.body.dashboard.rows[0].price, 2);
     assert.equal(phone.body.snapshotDay, '20261116');
+    assert.equal(closed.body.fastStockMoves.items[0].code, '600009');
+    const closedViewer = await f.request('/api/state', 'GET', null, f.viewerToken);
+    assert.equal(closedViewer.body.fastStockMoves.items[0].code, '600000');
+    assert.equal(closedViewer.body.fastStockMoves.requested, 1);
+    assert.equal(closedViewer.body.privateFastStockMoves, undefined);
     for (const route of [
       'quant-picks',
       'auction-resonance',
@@ -85,5 +94,6 @@ test(
     assert.equal(saved.entries['state:all'].value.pool[0].price, 2);
     assert.equal(saved.entries['state:all'].capturedAt, at('14:59:50'));
     assert.doesNotMatch(JSON.stringify(saved), new RegExp(f.token));
+    assert.doesNotMatch(JSON.stringify(saved), /仅模拟持仓夹具/);
   },
 );

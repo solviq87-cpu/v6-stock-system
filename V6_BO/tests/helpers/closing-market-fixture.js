@@ -17,6 +17,8 @@ async function createClosingFixture() {
   const inject = `\nconst fixtureStage=()=>Date.now()<${at('14:59:50')}?1:Date.now()<${at('15:00:00')}?2:99;const fixtureRow=()=>({code:'600000',name:'合成收盘验收',price:fixtureStage(),pct:fixtureStage(),quoteAt:${at('14:59:30')},quoteSource:'synthetic-test-only',score:80});
 S.stocks=S.stocks.map(x=>({...x,quoteAt:${at('14:59:30')},quoteSource:'synthetic-test-only'}));S.stocksAt=${at('14:59:30')};
 Object.defineProperty(S,'candidatePool',{enumerable:true,configurable:true,get:()=>[fixtureRow()]});Object.defineProperty(S,'global',{enumerable:true,configurable:true,get:()=>[{code:'test',price:fixtureStage()}]});
+S.marketFastStockMoves={tradeDate:'2026-11-16',phase:'afternoon',items:[fixtureRow()],requested:1};
+S.fastStockMoves={tradeDate:'2026-11-16',phase:'afternoon',items:[{...fixtureRow(),code:'600009',name:'仅模拟持仓夹具'}],requested:2};
 Object.defineProperty(S,'review',{enumerable:true,configurable:true,get:()=>({date:'20261116',value:fixtureStage()})});Object.defineProperty(S,'yierList',{enumerable:true,configurable:true,get:()=>[fixtureRow()]});Object.defineProperty(S,'lianbanList',{enumerable:true,configurable:true,get:()=>[fixtureRow()]});\n`;
   source = source.replace(anchor, anchor + inject);
   f = await createFixture({ count: 1, serverSource: source, clockFile: clock });

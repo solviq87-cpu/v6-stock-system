@@ -23,6 +23,19 @@ test('重点股在完整一分钟之前可显示涨速线索和真实覆盖',()=
  assert.equal(result.items[0].canNotify,false);
 });
 
+test('回落后再快涨可用窗口内低位作比较，并保留同源简称',()=>{
+ const observe=createFastStockMoves();
+ observe(codes,[row(base,100)],base+500);
+ observe(codes,[row(base+5000,98)],base+5500);
+ observe(codes,[row(base+8000,97,{name:''})],base+8500);
+ const result=observe(codes,[row(base+10000,99.1,{name:'600519'})],base+10500);
+ assert.equal(result.count,1);
+ assert.equal(result.items[0].basePrice,98,'相距不足五秒的最低价不参比');
+ assert.equal(result.items[0].spanMs,5000);
+ assert.equal(result.items[0].risePct,1.122);
+ assert.equal(result.items[0].name,'样本股');
+});
+
 test('来源、竞价阶段、缺行和过期改变时重新开始观察',()=>{
  const observe=createFastStockMoves();
  const run=(time,price,overrides)=>observe(codes,[row(time,price,overrides)],time+500);

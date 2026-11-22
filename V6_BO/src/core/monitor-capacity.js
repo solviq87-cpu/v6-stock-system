@@ -25,6 +25,7 @@ function monitorPlan(accounts, candidates, sectors, offset = 0) {
   const heldSet = new Set(held);
   for (const code of optional) if (requested.size < MONITOR_CAPACITY) requested.add(code);
   return { codes: [...requested], held, nextOffset,
+    marketCodes: [...requested].filter(code => optional.has(code)),
     optional: [...optional].filter(code => !heldSet.has(code)) };
 }
 function monitorCoverage(plan, rows, now, status = 'observed', accounts = null) {

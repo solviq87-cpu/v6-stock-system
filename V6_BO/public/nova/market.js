@@ -165,7 +165,7 @@ function fastMovesPanel(state,ctx,auctionOnly){
  return h('div',{class:'fy-stack'},h('p',{class:'fy-muted'},(auction?'集合竞价虚拟匹配价 · ':'盘中报价 · ')+status),
   h('p',{class:'fy-muted'},'有效报价 '+data.observed+' / '+data.requested+' 只 · 可比较 '+data.comparable+' 只 · 达到 '+data.thresholdPct+'% '+data.count+' 只'),
   data.items?.length?h('div',{class:'fy-stack'},data.items.map(row=>h('div',{class:'fy-item'},
-   h('div',{class:'fy-inline'},button(symbolName(row)+' '+row.code,()=>ctx.selectStock(row.code,{...row,poolDay:data.tradeDate}),'quiet'),
+   h('div',{class:'fy-inline'},button(row.name&&row.name!==row.code?row.name+' '+row.code:row.code,()=>ctx.selectStock(row.code,{...row,poolDay:data.tradeDate}),'quiet'),
     h('strong',{class:'fy-positive'},'+'+format(row.risePct,2)+'% / '+Math.round(row.spanMs/1000)+' 秒')),
    h('small',{class:'fy-muted'},format(row.basePrice)+' → '+format(row.price)+' · '+quoteLabel(row))))):
    empty(data.comparable?'这轮未见达到门槛的重点股':'待取得两个同源时点'));
