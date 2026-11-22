@@ -182,7 +182,10 @@ export function renderKlineLearning(ctx){
       const response=await ctx.api('/api/research/shortline',{method:'GET',signal:ctx.signal,headers:bookHeaders(requestedBook)});
       if(turn!==sourceToken||!canEdit()||activeBook()!==requestedBook)return;
       const returnedBook=response?.state?.book?.id??'main';
-      if(response?.ok!==true||response.state?.permissions?.role!=='edit'||returnedBook!==requestedBook)throw Error();
+      if(response?.ok!==true||response.state?.permissions?.role!=='edit'||returnedBook!==requestedBook){
+        synced.replaceChildren(node('h2','V6 已同步日线'),node('p','无法读取私有档案，请核对当前账户授权。','fy-muted'));
+        return;
+      }
       dataset=syncedDataset(response.state);
       const code=ctx.stock||dataset.observation?.code||researchCode(ctx);
       if(requestedBook!=='demo'&&(!dataset.stocks.size||code&&!dataset.stocks.has(code))){

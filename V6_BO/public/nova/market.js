@@ -712,6 +712,8 @@ export function projectClosingWorkspace(state,now=Date.now()){
   const reason=prior&&/^同花顺|^ths$/.test(prior.reasonSource)?prior:fresh||prior;
   const metrics=Object.fromEntries(['price','sealAmount','turnover','mainInflow','amount','breakCount'].filter(k=>Number.isFinite(r[k])).map(k=>[k,r[k]]));
   return {...r,...existing,...metrics,sector:existing.sector||r.sector,tradeDate:day,sourceTradeDate:day,
+   aboveMa5:typeof r.aboveMa5==='boolean'?r.aboveMa5:existing.aboveMa5,
+   breakHigh:typeof r.breakHigh==='boolean'?r.breakHigh:(existing.breakHigh??existing.brokeHighHold),
    limitUpCount:existing.limitUpCount??r.level,breakCount:existing.breakCount??r.breakCount,
    ...(reason?{reasonRaw:reason.reason,reason:reason.reason,reasonSource:reason.reasonSource,reasonDateStatus:'matched',reasonTradeDate:day}:{})};
  });

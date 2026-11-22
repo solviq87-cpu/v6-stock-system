@@ -11443,6 +11443,7 @@ function marketRecovery(){
     publicMarketRecovery=createMarketRecovery({getDay:latestResearchClose,isReplica:()=>!researchPrimary(),replicaPublicReads:true,
       onCollected:day=>sseSend('close-snapshot',{day}),
       readFlow:require('./src/research/close-stock-details').fetchCloseFlow,
+      readFlags:require('./src/research/close-stock-details').fetchCloseFlags,
       file:process.env.V6_MARKET_RECOVERY_FILE||path.join(__dirname,'data','market-recovery-public.json'),
       collect:day=>shortlineReader().readMarket(day),
       save:async (rows,day)=>(await require('./src/server/research-workspace-job').runWorkspaceJob({

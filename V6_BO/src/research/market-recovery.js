@@ -76,7 +76,7 @@ function closeWatchFrom(rows,day,now,reasons,previous){
     ...proof(r.code)
   }))};
 }
-function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,isReplica=()=>false,replicaPublicReads=false,file,clock=Date.now}){
+function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,readFlags,isReplica=()=>false,replicaPublicReads=false,file,clock=Date.now}){
   let state={history:[],sources:[],referenceDay:null,phase:'scheduled',lastAttemptAt:null,lastSuccessAt:null,nextRetryAt:0},busy=null,misses=0;
   let readMtime=0,lastDiskRead=-Infinity;
   function loadPublic(){
@@ -104,29 +104,37 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,i
       thsBrief:state.thsBrief?.day===referenceDay?state.thsBrief:null,
       ...(state.emotion?.date>referenceDay?{emotion:null}:{})};
   }
-  let flowJob=null,flowRetryAfter=0;
-  function warmFlows(){
+  let detailJob=null,detailRetryAfter=0,retryDay='',retryDelay=30000;
+  function needsFlags(r){return typeof r.aboveMa5!=='boolean'||typeof r.breakHigh!=='boolean';}
+  function warmDetails(){
     const watch=state.closeWatch,day=getDay();
-    if(!readFlow||flowJob||!watch||watch.day!==day||clock()<flowRetryAfter)return;
-    const todo=watch.items.filter(r=>!Number.isFinite(r.mainInflow));
+    if(retryDay!==day){retryDay=day;detailRetryAfter=0;retryDelay=30000;}
+    if(detailJob||!watch||watch.day!==day||clock()<detailRetryAfter)return;
+    const todo=watch.items.filter(r=>readFlow&&!Number.isFinite(r.mainInflow)||readFlags&&needsFlags(r));
     if(!todo.length)return;
-    flowJob=(async()=>{
+    detailJob=(async()=>{
       for(let i=0;i<todo.length&&getDay()===day;i+=3){
-        const results=await Promise.allSettled(todo.slice(i,i+3).map(r=>readFlow(r.code,day)));
-        if(state.closeWatch?.day!==day||getDay()!==day)return;
-        const batch=new Map(results.flatMap((r,index)=>{
-          const x=r.value;
-          return x?.day===day&&x.code===todo[i+index].code&&Number.isFinite(x.mainInflow)&&x.flowSource&&
-            Number.isSafeInteger(x.flowKnownAt)&&x.flowKnownAt>=Date.parse(day+'T15:00:00+08:00')&&x.flowKnownAt<=clock()?[[x.code,x]]:[];
+        const writes=new Map();
+        await Promise.all(todo.slice(i,i+3).map(async row=>{
+          const [flow,flags]=await Promise.allSettled([
+            readFlow&&!Number.isFinite(row.mainInflow)?readFlow(row.code,day):null,
+            readFlags&&needsFlags(row)?readFlags(row.code,day):null
+          ]);
+          const same=(x,time)=>x?.day===day&&x.code===row.code&&Number.isSafeInteger(x[time])&&x[time]>=Date.parse(day+'T15:00:00+08:00')&&x[time]<=clock();
+          const f=flow.value,b=flags.value,fields={};
+          if(same(f,'flowKnownAt')&&Number.isFinite(f.mainInflow)&&f.flowSource)Object.assign(fields,{mainInflow:f.mainInflow,flowSource:f.flowSource,flowKnownAt:f.flowKnownAt});
+          if(same(b,'barKnownAt')&&typeof b.aboveMa5==='boolean'&&typeof b.breakHigh==='boolean'&&b.barSource)Object.assign(fields,{aboveMa5:b.aboveMa5,breakHigh:b.breakHigh,barSource:b.barSource,barKnownAt:b.barKnownAt});
+          if(Object.keys(fields).length)writes.set(row.code,fields);
         }));
-        if(!batch.size)continue;
+        if(state.closeWatch?.day!==day||getDay()!==day)return;
+        if(!writes.size)continue;
         const current=state.closeWatch;
-        state.closeWatch={...current,knownAt:Math.max(current.knownAt,...[...batch.values()].map(x=>x.flowKnownAt)),
-          items:current.items.map(row=>batch.has(row.code)?{...row,...batch.get(row.code)}:row)};
+        state.closeWatch={...current,knownAt:Math.max(current.knownAt,...[...writes.values()].map(x=>Math.max(x.flowKnownAt||0,x.barKnownAt||0))),
+          items:current.items.map(row=>writes.has(row.code)?{...row,...writes.get(row.code)}:row)};
         if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
         onCollected(day);
       }
-    })().catch(()=>{}).finally(()=>{flowRetryAfter=clock()+300000;flowJob=null;});
+    })().catch(()=>{}).finally(()=>{if(day===getDay()){detailRetryAfter=clock()+retryDelay;retryDelay=Math.min(300000,retryDelay*2);}detailJob=null;});
   }
   async function run(day){
     const attempt=clock();state={...state,referenceDay:day,phase:'searching',lastAttemptAt:attempt};
@@ -149,7 +157,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,i
           }
           return out;
         })};
-        warmFlows();
+        warmDetails();
       }
       const brief=result.thsBrief;
       if(brief?.day===day&&brief.source==='同花顺每日复盘'&&brief.knownAt<=now&&brief.knownAt>=Date.parse(day+'T15:00:00+08:00'))state.thsBrief=brief;
@@ -190,7 +198,9 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,i
       if(!durable)throw Error('等待研究归档');
       state.phase=complete?'ready':'partial';
       misses=complete?0:misses+1;
-      state.nextRetryAt=now+(complete?4*3600000:Math.min(30,2**Math.min(misses,5))*60000);
+      const covered=state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day);
+      const published=state.thsBrief?.day===day&&state.closeWatch?.day===day&&state.closeWatch.items.every(r=>r.reasonRaw);
+      state.nextRetryAt=now+(complete&&covered&&published?4*3600000:Math.min(30,2**Math.min(misses||1,5))*60000);
       if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
       if(rows.length||result.coverage?.length||watch||brief?.day===day)onCollected(day);
       return rows;
@@ -204,7 +214,7 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,i
     if(isReplica()&&clock()-lastDiskRead>=60000){lastDiskRead=clock();loadPublic();}
     if(isReplica()&&!replicaPublicReads||!dayOk(day))return Promise.resolve([]);
     if(busy)return busy;
-    warmFlows();
+    warmDetails();
     if(state.referenceDay===day&&state.phase==='ready'&&state.closeWatch?.day===day&&
        state.closeWatch.items.every(r=>(r.reasonSource==='同花顺涨停聚焦'||r.reasonSource==='同花顺 F10')&&Number.isFinite(r.turnover)&&Number.isFinite(r.sealAmount))&&
        state.thsBrief?.day===day&&['1.000001','0.399001','0.399006'].every(code=>state.indexSeries?.some(v=>v.day===day&&v.code===code))&&state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day))

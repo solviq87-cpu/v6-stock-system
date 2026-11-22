@@ -1,5 +1,7 @@
 'use strict';
 const {requestResearchBytes}=require('../core/research-curl-bytes');
+const {fetchResearchHistory}=require('./public-history-fallback');
+const {reviewFlags}=require('../../analysis');
 
 function numeric(value){
  if(typeof value==='number')return Number.isFinite(value)?value:null;
@@ -28,4 +30,15 @@ async function fetchCloseFlow(code,day,{request=requestResearchBytes,clock=Date.
  }
  return null;
 }
-module.exports={fetchCloseFlow};
+async function fetchCloseFlags(code,day,{history=fetchResearchHistory,clock=Date.now}={}){
+ const cutoff=Date.parse(day+'T15:10:00+08:00');
+ if(!Number.isFinite(cutoff)||clock()<cutoff)return null;
+ const result=await history({symbol:code,historyDays:30,provider:'auto'}),stock=result?.stock;
+ if(result?.status!=='observed-unverified'||result.priceBasis!=='unadjusted'||stock?.symbol!==code||!Array.isArray(stock?.bars)||
+   !Number.isSafeInteger(result.retrievedAt)||result.retrievedAt<cutoff||result.retrievedAt>clock())return null;
+ const bars=stock.bars.filter(b=>b.date<=day&&Number.isSafeInteger(b.knownAt)&&b.knownAt<=result.retrievedAt);
+ if(bars.at(-1)?.date!==day||bars.some((b,i)=>i>0&&b.date<=bars[i-1].date||!Number.isFinite(b.close)||b.close<=0||!Number.isFinite(b.high)||b.high<b.close))return null;
+ const flags=reviewFlags(bars,bars.at(-1).close);
+ return flags?{code,day,aboveMa5:flags.aboveMa5,breakHigh:flags.brokeHighHold,barSource:stock.provider,barKnownAt:result.retrievedAt}:null;
+}
+module.exports={fetchCloseFlow,fetchCloseFlags};

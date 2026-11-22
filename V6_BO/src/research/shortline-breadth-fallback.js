@@ -3,7 +3,7 @@
 // All inputs here are public market quotes or dated public membership evidence.
 // A provider's trade date, its quote time and the local receipt time are distinct.
 const {fetchEastmoneySnapshot}=require('../core/eastmoney-market-snapshot');
-const {marketRequests}=require('../core/market-request-governor');
+const {marketRequests,isMarketRestrictionError}=require('../core/market-request-governor');
 const {createResearchRequest,requestResearchBytes}=require('../core/research-curl-bytes');
 const {aShareCalendarDate,assessDailyBarFinality}=require('../core/a-share-calendar');
 const {CLS_LIMIT_POOL_URL,normalizeClsLimitPool}=require('../core/cls-limit-up-pool');
@@ -181,6 +181,18 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
     cache.set(key,slot);return slot.promise;
   }
   async function wire(target){return (await send(target,{timeoutMs:6000,processTimeoutMs:7000,maxBytes:400000})).raw;}
+  async function closeDistribution(day,latest){
+    const urls=['https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html'];
+    if(latest)urls.push('https://www.dabanke.com/');
+    for(const url of urls){
+      try{
+        const response=await send(url,{timeoutMs:8000,processTimeoutMs:9000,maxBytes:1048576});
+        const record=marketDistribution(response.raw.toString('utf8'),day,clock());
+        if(record)return record;
+      }catch(error){if(isMarketRestrictionError(error))break;}
+    }
+    return null;
+  }
   async function fetchSubset(codes,day,scope,total,kind){
     if(!codes.length)return null;
     const key=codes.join(','),wanted=new Set(codes.map(c=>marketCode(c)+c));
@@ -332,9 +344,10 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
     const result={market:{},sector:null,coverage:[],fieldSources:{},sources:[],evidence:[],missing:[],knownAt:null};
     if(!hasClose(day,clock())){result.missing.push('已收盘交易日');return result;}
     const live=latestClosedDay===day;
+    const distributionRequest=includeDistribution?once('distribution/'+day,()=>closeDistribution(day,live)):null;
     const [br,am,se,distribution]=await Promise.all([
       needBreadth?breadth(day,state,live):null,needAmount?amount(day,live):[],sector(day,state,live,sectorCode,sectorName,sectorMembers),
-      includeDistribution?once('distribution/'+day,async()=>marketDistribution((await wire('https://www.dabanke.com/index-'+day.replaceAll('-','')+'.html')).toString('utf8'),day,clock())):null
+      distributionRequest
     ]);
     result.coverage.push(...(br?.coverage||[]),...am,...(se.coverage?[se.coverage]:[]));
     if(distribution)result.coverage.push(distribution);

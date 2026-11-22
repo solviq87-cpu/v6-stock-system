@@ -129,7 +129,7 @@ function renderReviewRows(summary,ctx,tradeDate,expanded=false,onExpand=()=>{}) 
   {label:'封单金额',value:row=>measured(row.sealAmount,money)},
   {label:'开板次数',value:row=>measured(row.breakCount,number)},
   {label:'换手率',value:row=>valid(row.turnover)?format(row.turnover,2)+'%':'来源补采中'},
-  {label:'主力净额',value:row=>h('span',{class:direction(row.mainInflow)},measured(row.mainInflow,money))},
+  {label:'主力净额',value:row=>h('span',{class:direction(row.mainInflow)},measured(row.mainInflow,money),row.flowSource&&h('small',{class:'fy-muted'},' · '+row.flowSource))},
   {label:'5 日线',value:row=>typeof row.aboveMa5==='boolean'?h('span',{class:'fy-reference-ma', 'data-above':String(row.aboveMa5)},row.aboveMa5?'线上':'线下'):'均线采集中'},
   {label:'题材',value:row=>row.sector||'待核验'},
   {label:'涨停原因',value:reasonView},

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {createAutomaticResearch,causalHistory}=require('../src/research/automatic-research');
 const {fetchResearchHistory}=require('../src/research/public-history-fallback');
-const {fetchCloseFlow}=require('../src/research/close-stock-details');
+const {fetchCloseFlow,fetchCloseFlags}=require('../src/research/close-stock-details');
 const {createCloseReviewReader}=require('../src/core/close-review-evidence');
 const {validateUpload}=require('../src/strategy/research-upload-validator');
 
@@ -57,6 +57,14 @@ test('net flow joins require the requested security and day, keep zero and signe
  const fallback=await query(east('600002',friday,150),[{opendate:friday,daima:'sh'+symbol,r0_net:'-123.40'}]);
  assert.equal(fallback.mainInflow,-123.4);assert.match(fallback.flowSource,/新浪/);
  assert.equal(await query(east(symbol,monday,33),[{opendate:friday,daima:'sh600003',r0_net:45}]),null);
+});
+test('daily review uses the signal close for its five-day mean and preceding twenty-bar high',async()=>{
+ const make=(date,index)=>({...bar(date),high:index===calendar.length-2?22:12,close:index===calendar.length-2?20:11});
+ const bars=calendar.map(make);bars.at(-1).high=500;bars.at(-1).close=490;
+ const capture={status:'observed-unverified',priceBasis:'unadjusted',retrievedAt:close(monday),stock:{symbol,provider:'sina',bars}};
+ const result=await fetchCloseFlags(symbol,friday,{history:async()=>capture,clock:()=>close(monday)});
+ assert.equal(result.day,friday);assert.equal(result.aboveMa5,true);assert.equal(result.breakHigh,true);
+ assert.equal(result.barKnownAt,close(monday));assert.equal(await fetchCloseFlags('600002',friday,{history:async()=>capture,clock:()=>close(monday)}),null);
 });
 test('two dated provider reports preserve different reasons for the same stock across a restart',async t=>{
  const {reportDirectory}=readerPaths(t);let day=friday;
