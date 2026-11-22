@@ -15621,6 +15621,7 @@ function aggregateSectorFlowFromStocks() {
 }
 
 // ---------------- 5. 定时任务 ----------------
+const readMarketSource = require('./src/core/market-source-cadence').createMarketSourceCadence();
 async function refreshSectorsZT() {
   // ⛔ 涨停池是**按日期参数**拉的：这份池子属于哪一天，由这里传进去的日期决定，与"现在"无关。
   //    把它记下来（S.ztDay），下游所有「板块 N 只涨停」才敢带日子说话（见 ztDayTag）。
@@ -15636,10 +15637,15 @@ async function refreshSectorsZT() {
   const _ztDay = _dataDay.replace(/-/g, '');
   S.ztDayProbed = _dataDayOk;
   const _previousZtByCode = new Map([...(S.ztReviewPool || []),...(S.ztPool || [])].map(row => [row.code,row]));
-  // 各接口独立容错：板块流被限流时不能拖死涨停池/复盘
-  const [r1, r2, r3, r4] = await Promise.allSettled([
-    em.fetchSectorFlow(2), em.fetchSectorFlow(3), em.fetchZTPool(_ztDay), // 周末自动回退最近交易日
-    require('./src/core/cls-limit-up-pool').fetchClsLimitPool({date:_ztDay})
+  const beijing = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  const sourceSession = _ztDay + (beijing.getUTCHours() >= 15 ? ':close' : ':session');
+  // First-seal/limit prices and slower board/review data have separate collection cadences.
+  const [r1, r2, r3, r4] = await Promise.all([
+    readMarketSource('industry-flow', sourceSession, 60000, () => em.fetchSectorFlow(2)),
+    readMarketSource('concept-flow', sourceSession, 60000, () => em.fetchSectorFlow(3)),
+    readMarketSource('limit-up-clock', sourceSession, SECTORS_ZT_MS, () => em.fetchZTPool(_ztDay)),
+    readMarketSource('cls-review-pool', sourceSession, 60000,
+      () => require('./src/core/cls-limit-up-pool').fetchClsLimitPool({date:_ztDay}))
   ]);
   const ind = r1.status === 'fulfilled' ? r1.value : null;
   const con = r2.status === 'fulfilled' ? r2.value : null;
@@ -15656,17 +15662,17 @@ async function refreshSectorsZT() {
     zt = r3.value.map(row => ({...row,
       researchEvidence:{tradeDate:row.sourceTradeDate,source:row.src,receivedAt:row.receivedAt},
       factEvidence:{kind:'provider-limit-up-pool-record',tradeDate:row.sourceTradeDate,source:row.src,observedAt:row.receivedAt}}));
-    S.ztPoolFetchedAt = observedAt; S.ztPoolFetchOk = true;
-    S.ztPoolSourceStatus = {status:'ready',requestedTradeDate,sourceTradeDate:zt[0].sourceTradeDate,receivedAt:observedAt};
+    S.ztPoolFetchedAt = zt[0].receivedAt; S.ztPoolFetchOk = true;
+    S.ztPoolSourceStatus = {status:'ready',requestedTradeDate,sourceTradeDate:zt[0].sourceTradeDate,receivedAt:zt[0].receivedAt};
     S.ztPoolObservations = [];
   } else {
     S.ztPoolFetchOk = false;
     S.ztPoolSourceStatus = {status:'unavailable',reason:r3.status === 'rejected' ? 'source-failed' :
       Array.isArray(r3.value) && r3.value.length ? 'source-date-unverified' : 'source-empty-unconfirmed',
-      requestedTradeDate,receivedAt:observedAt};
+      requestedTradeDate,receivedAt:r3.finishedAt};
     S.ztPoolObservations = (r3.status === 'fulfilled' && Array.isArray(r3.value) ? r3.value : []).map(row => ({...row,
       factEvidence:null,researchEvidence:null,canTrade:false,canNotify:false}));
-    console.warn('[ztPool] 源交易日未知、错日或数据未确认 → 不判定「今日无涨停」，沿用上次有效池/复盘');
+    if (!r3.reused) console.warn('[ztPool] 源交易日未知、错日或数据未确认 → 不判定「今日无涨停」，沿用上次有效池/复盘');
   }
   // Snapshot reconstruction also needs the same original stock row's date.
   // Missing-date Sina lists cannot acquire a date from this request.
@@ -15698,8 +15704,10 @@ async function refreshSectorsZT() {
   //    独立容错：跌停池拉了失败绝不拖死涨停池主流程；拉不到就保持旧值/空值，marketMood 退回自算并标注。
   try {
     if (typeof em.fetchDTCount === 'function') {
-      const _dt = await em.fetchDTCount(_ztDay);
-      if (_dt && String(_dt.qdate) === String(_ztDay)) S.dtPool = { day: _ztDay, tc: _dt.tc, at: Date.now() };
+    const outcome = await readMarketSource('limit-down-count', sourceSession, SECTORS_ZT_MS, () => em.fetchDTCount(_ztDay));
+    if (outcome.status === 'rejected' && !outcome.reused) throw outcome.reason;
+    const _dt = outcome.value;
+    if (!outcome.reused && _dt && String(_dt.qdate) === String(_ztDay)) S.dtPool = { day: _ztDay, tc: _dt.tc, at: Date.now() };
     }
   } catch (e) { console.warn('[dtPool] 跌停池拉取失败（不影响主流程）:', (e && e.message) || e); }
   // ⛔ if 轮：行业板块单独留份 + 记下拉取时刻/归属日 —— 全市场主力净流入的唯一口径来源
@@ -15707,7 +15715,7 @@ async function refreshSectorsZT() {
   // ⛔ ig 轮（#262）：归属日用数据探测日，不再用 todayStr()——盘前 todayStr 是今天，
   //    而板块流此时服务的是上一交易日收盘的资金数据（与涨停池同一个病，一起治）。
   const _markInd = arr => {
-    if (arr && arr.length) { S.sectorsInd = arr; S.sectorsAt = Date.now(); S.sectorsDay = _ztDay; }
+    if (!r1.reused && arr && arr.length) { S.sectorsInd = arr; S.sectorsAt = arr[0].retrievedAt || observedAt; S.sectorsDay = _ztDay; }
   };
   // sectors.json 落盘改带 {at, day, rows, ind}：重启后「主力流向」仍讲得出是哪一天的资金
   const _writeSectors = rows => {
@@ -15732,34 +15740,15 @@ async function refreshSectorsZT() {
       atomicWrite(histPath, JSON.stringify(trimmed));
     } catch (e) { console.error('[sectors] 历史摘要落盘失败:', (e && e.message) || e); }
   };
-  if (ind && con && ind.length && con.length) {
-    const all = [...ind, ...con].sort((a, b) => (b.mainInflow || 0) - (a.mainInflow || 0));
-    S.sectors = all;
+  if ((!r1.reused && ind?.length) || (!r2.reused && con?.length)) {
+    const rows = [...(ind || []), ...(con || [])].sort((a, b) => (b.mainInflow || 0) - (a.mainInflow || 0));
+    S.sectors = rows;
     _markInd(ind);
-    // 全量落盘（原来是 slice(0,120)）：丢掉概念板块会让补涨龙在重启后整体失灵，见上面 sectors.json 加载处的注释
-    _writeSectors(all);
-    _recordSectorHistory(all);
-  } else if ((ind && ind.length) || (con && con.length)) {
-    const part = [...(ind || []), ...(con || [])].sort((a, b) => (b.mainInflow || 0) - (a.mainInflow || 0));
-    if (part.length) S.sectors = part;
-    _markInd(ind);
-    _writeSectors(part);
-    _recordSectorHistory(part);
-  } else if (!S.sectors.length) {
-    // 行业/概念流被限流时兜底重拉一次（凌晨/限流期常见），保补涨龙与板块栏有源
-    try {
-      const [b1, b2] = await Promise.all([em.fetchSectorFlow(2), em.fetchSectorFlow(3)]);
-      if (b1.length && b2.length) {
-        S.sectors = [...b1, ...b2].sort((a, b) => (b.mainInflow || 0) - (a.mainInflow || 0));
-        _markInd(b1);
-        _writeSectors(S.sectors);
-        _recordSectorHistory(S.sectors);
-      }
-    } catch (e) {
-      // ⛔ 2026-10-06 修：板块流被限流时这是唯一的兜底重拉，失败被静默吞掉后
-      //    板块栏与补涨龙整段无源，而没有任何一行日志能说明为什么。
-      console.error('[sectors] 板块流兜底重拉失败（板块栏/补涨龙可能无源）:', (e && e.message) || e);
-    }
+    _writeSectors(rows);
+    _recordSectorHistory(rows);
+  }
+  for (const [label, outcome] of [['行业', r1], ['概念', r2]]) {
+    if (outcome.status === 'rejected' && !outcome.reused) console.warn('[sectors] ' + label + '板块流获取失败:', outcome.reason?.message || '未知原因');
   }
   // 同源个股子集观察，仅保留明确东财订单大小口径，不视为独立来源核验。
   try {
@@ -17502,7 +17491,7 @@ async function init() {
   }, 15000);
   extData.initExternalData(S, { isPrimary: !isReplica(), intervalMs: 60 * 1000 }); // ⛔ 外部数据源：北向/商品/两融，双实例各自从其 IP 抓，失败保留旧值不抹空
   // 启动重试：遇到限流/网络问题时等待重试，最多40分钟
-  for (let i = 1; i <= 40; i++) {
+  for (let i = 1; i <= 40 && isTradingTime(); i++) {
     try {
       console.log(`[init] 第${i}次尝试：拉取全A列表...`);
       const fresh = await em.fetchAllStocks();
@@ -17548,16 +17537,18 @@ async function init() {
   //    面板看上去只是「没数据」，实际是整套自动化都没在跑）。
   (async () => {
     compactDeviceRegistry(); // hz 轮：启动时自动清理设备台账垃圾（access.json 不进发布包，只能靠代码自净）
-    await initStep('板块涨停', () => refreshSectorsZT(), 90000);
-    await initStep('精选池', () => rebuildPool(), 300000); // 实测冷启动约 149s，别卡在临界值上
-    await initStep('竞价快照', () => captureAuction(false), 60000);
+    if (isTradingTime()) await initStep('板块涨停', () => refreshSectorsZT(), 90000);
+    if (S.stocks.length || isTradingTime()) {
+      await initStep('精选池', () => rebuildPool(), 300000); // 实测冷启动约 149s，别卡在临界值上
+      await initStep('竞价快照', () => captureAuction(false), 60000);
+    }
     await initStep('外围指数', () => refreshGlobal(), 60000);
     console.log('[init] 首轮数据完成');
   })();
 
-  // 定时器：5秒主循环 / 30秒板块涨停 / 6分钟全A / 5分钟精选池 / 60秒外围 —— 全部限定在窗口内
+  // 高频涨跌停记录与慢节奏板块资金分开。午休或休市保留快照。
   setInterval(() => { if (isDataWindow() && isTradingTime()) tick(); }, TICK_MS);
-  setInterval(guard('sectorsZT', async () => { if (isDataWindow()) await refreshSectorsZT(); }), SECTORS_ZT_MS);
+  setInterval(guard('sectorsZT', async () => { if (isTradingTime()) await refreshSectorsZT(); }), SECTORS_ZT_MS);
   // 盘面摘要三档定时推送（早盘 9:30 / 午盘 11:30 / 收盘 15:00）：每分钟检查一次时点。
   // ⛔ 三重保险：guard 防重入 + sentToday 幂等（内存闭锁 + 落盘流水）+ 只在交易日触发。
   setInterval(guard('digest', async () => {
@@ -17567,10 +17558,8 @@ async function init() {
     else if (m === 11 * 60 + 30) await pushDigest('noon');
     else if (m === 15 * 60) await pushDigest('close');
   }), 60 * 1000);
-  // ⛔ 2026-10-08 修（第112项任务）：全市场刷新从6分钟缩短到2分钟，让价格更及时。
-  //   用户反馈「好多股票价格更新不及时」，尤其是竞价期间（9:15-9:25）虚拟匹配价变化很快，
-  //   6分钟延迟会漏掉很多突然冲到接近涨停的票。
-  setInterval(guard('allStocks', async () => { if (isDataWindow()) { try { setAllStocks(await em.fetchAllStocks()); } catch {} } }), 60 * 1000);   // lp：数据及时性硬指标——全A快照 2min→60s（交易时段）
+  // 每页 100 只、供应商至少间隔 1s。全 A 一轮需近一分钟，留出一轮间隔供其他任务和失败恢复。
+  setInterval(guard('allStocks', async () => { if (isTradingTime()) { try { setAllStocks(await em.fetchAllStocks()); } catch {} } }), 120 * 1000);
   // ⛔ if 轮：A股四大指数 15s 实时 —— 市场情绪卡的秒级分量（全A快照 2 分钟一轮是数据源限制，
   //    指数不是；两路各标各的数据时刻，挂在情绪卡上让「实时到什么程度」可见）。
   setInterval(guard('idxRt', async () => { if (isDataWindow()) { const r = await em.fetchIdxRt(); if (r && r.length) S.idxRt = { at: Date.now(), items: r }; } }), 15 * 1000);
