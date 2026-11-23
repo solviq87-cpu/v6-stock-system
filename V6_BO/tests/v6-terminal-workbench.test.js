@@ -159,7 +159,7 @@ test('homepage simulation totals use only the editor projection and keep missing
  const totals=content(editor);
  assert.match(totals,/总权益\s+123,456\.78/);
  assert.match(totals,/可用资金\s+0\.00/);
- assert.match(totals,/持仓市值\s+—/);
+ assert.doesNotMatch(totals,/持仓市值/);
  assert.doesNotMatch(content(viewer),/123,456\.78/);
  assert.doesNotMatch(content(hidden),/123,456\.78/);
  for(const ctx of [editor,viewer,hidden])ctx.controller.abort();

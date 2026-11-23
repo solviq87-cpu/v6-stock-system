@@ -194,11 +194,12 @@ export function distributionPanel(state,requestedDay){
    h('p',{},r.source+' · '+dateTime(r.quoteAt)+' · '+(r.total-r.observed)+' 只未计入涨跌分布。涨停计入上涨，跌停计入下跌。'),
    safeLink('https://www.dabanke.com/index-'+r.day.replaceAll('-','')+'.html',intraday?'逐项核对盘中分布':'逐项核对收盘分布')));
 }
-export function marketOverviewCards(state){
+export function marketOverviewParts(state,{homeDay}={}){
  const target=closeSessionDay(state),recovery=state.marketRecovery,day=target||recovery?.referenceDay;
  const wide=sessionDistribution(state,day);
  const histories=(recovery?.indexSeries||[]).filter(v=>v.day===day&&v.knownAt<=Date.now());
  const summary=summarizeReview(state.review),mood=recoveredMetric(recovery,'emotion',day),trend=recoveredMetric(recovery,'trend',day);
+ const indexAvailability=[];
  const indices=[['1.000001','上证指数'],['0.399001','深证成指'],['0.399006','创业板指']].map(([code,name])=>{
   const series=histories.find(v=>v.code===code),bars=series?.bars||[],quote=state.dashboard?.indices?.find(v=>v.code===code);
   const at=quoteAt(quote),stamp=Number.isSafeInteger(at)&&at>0&&at<=Date.now()?new Date(at+28800000).toISOString().slice(0,10):null;
@@ -216,11 +217,15 @@ export function marketOverviewCards(state){
   }
   const quoteKind=useQuote?(target?'原始报价':Date.now()-at>15000?'最近报价':'盘中报价'):'最近收盘';
   const provider=useQuote?indexProvider(quoteSource(quote)):series?.source;
+  indexAvailability.push({name,ready:Number.isFinite(price)});
+  const compactTime=useQuote&&homeDay&&stamp===homeDay;
+  const quoteTime=useQuote?dateTime(at):series?.day;
   return h('article',{class:'fy-overview-index '+direction(change),'data-index':code},h('h3',{},name),
    h('div',{},h('strong',{},Number.isFinite(price)?format(price):'同步中'),Number.isFinite(change)?h('b',{},percent(change)):null),chart,
    useQuote||series?h('small',{class:'fy-index-meta','data-index-quote-at':useQuote?String(at):null},
-    h('time',{datetime:useQuote?new Date(at).toISOString():series.day},useQuote?dateTime(at):series.day),
-    [quoteKind,provider].filter(Boolean).join(' · ')):null,
+    h('time',{datetime:useQuote?new Date(at).toISOString():series.day,title:compactTime?quoteTime:null},
+     compactTime?quoteTime.split(' ').at(-1):quoteTime),
+    [compactTime&&quoteKind==='盘中报价'?null:quoteKind,provider].filter(Boolean).join(' · ')):null,
    chart?h('small',{},(useQuote&&stamp!==series.day?'截至 '+series.day+' · ':'')+'近 '+bars.length+' 日收盘'):null);
  });
  const native=state.dashboard?.mood,at=native?.scope?.snapAt;
@@ -237,20 +242,28 @@ export function marketOverviewCards(state){
  const closes=(shSeries?.bars||[]).map(b=>b[1]).filter(v=>Number.isFinite(v)&&v>0);
  let peak=0,drawdown=0;
  for(const close of closes){peak=Math.max(peak,close);drawdown=Math.max(drawdown,(1-close/peak)*100);}
- return h('div',{class:'fy-overview-six','aria-label':'市场总览六卡'},indices,
-  h('article',{},h('h3',{},'市场情绪'),breadth!==null?h('div',{class:'fy-breadth-gauge',style:'--breadth:'+Math.round(breadth*1.8)+'deg'},h('strong',{},format(breadth,1)+'%')):null,
-   sealing?h('small',{},'短线池封板 '+sealing.display+' · 打板客'):null,
-   h('small',{},[fromLive?'盘中行情样本上涨占比':breadth!==null?'沪深京上涨占比':'',mood?mood.date+' '+mood.value:''].filter(Boolean).join(' · ')||'正在核对多日情绪证据')),
-  h('article',{},h('h3',{},'市场环境判断'),h('strong',{},(fromLive&&breadthEnvironment)||env||breadthEnvironment||'收盘环境观察'),
+ const breadthLabel=fromLive?'盘中行情样本上涨占比':breadth!==null?'沪深京上涨占比':'';
+ const sentiment=h('article',{},h('h3',{},'市场情绪'),breadth!==null?h('div',{class:'fy-breadth-gauge',style:'--breadth:'+Math.round(breadth*1.8)+'deg'},h('strong',{},format(breadth,1)+'%')):null,
+   h('small',{class:'fy-home-breadth-basis'},[breadthLabel,mood?mood.date+' '+mood.value:''].filter(Boolean).join(' · ')||(!sealing?'正在核对多日情绪证据':'')),
+   sealing?h('small',{},'短线池封板 '+sealing.display+' · 打板客'):null);
+ const judgment=(fromLive&&breadthEnvironment)||env||breadthEnvironment;
+ const environment=h('article',{},h('h3',{},'市场环境判断'),h('strong',{},judgment||'收盘环境观察'),
    external?.market?.amount!=null?h('small',{},external.market.amountLabel+' '+external.market.amountText+' · 打板客'):null,
-   h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?day+' 收盘 · 中证全指 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势')),
-  h('article',{class:'fy-overview-risk'},h('h3',{},'风险提示'),
+   h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?day+' 收盘 · 中证全指 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势'));
+ const risk=h('article',{class:'fy-overview-risk'},h('h3',{},'风险提示'),
    Number.isInteger(riskCount)?h('p',{},'高风险候选 ',h('b',{},riskCount+' 只')):null,
    Array.isArray(state.abMove?.items)?h('p',{},'异动预警 ',h('b',{},new Set(state.abMove.items.filter(r=>r.code).map(r=>r.code)).size+' 只')):null,
    wide?h('p',{},'全市场跌停 ',h('b',{},wide.downLimit+' 家'),!target?h('small',{},wide.kind==='market-distribution-intraday'?dateTime(wide.quoteAt):wide.day):null):null,
    closes.length>1?h('p',{title:shSeries.day+' · '+shSeries.source},'上证近 '+closes.length+' 日最大回撤 ',h('b',{},format(drawdown,1)+'%')):null,
    summary.rows.some(r=>Number.isInteger(r.breakCount))?h('p',{},'样本开板回封 ',h('b',{},summary.opened.length+' 只')):null,
-   !Number.isInteger(riskCount)&&!wide&&!summary.rows.length?h('small',{},'正在同步风险记录'):null));
+   !Number.isInteger(riskCount)&&!wide&&!summary.rows.length?h('small',{},'正在同步风险记录'):null);
+ return {indices,indexAvailability,sentiment,environment,risk,hasSentiment:breadth!==null||!!sealing||!!(mood&&mood.value!=='未判定'),
+  hasEnvironment:!!judgment,
+  hasRisk:Number.isInteger(riskCount)||!!wide||Array.isArray(state.abMove?.items)||closes.length>1||summary.rows.some(r=>Number.isInteger(r.breakCount))};
+}
+export function marketOverviewCards(state){
+ const {indices,sentiment,environment,risk}=marketOverviewParts(state);
+ return h('div',{class:'fy-overview-six','aria-label':'市场总览六卡'},indices,sentiment,environment,risk);
 }
 export function ticker(state,{verifiedOnly=false}={}) {
  const labels={'1.000001':'上证指数','0.399001':'深证成指','0.399006':'创业板指','1.000688':'科创 50'};

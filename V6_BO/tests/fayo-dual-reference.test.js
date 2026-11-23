@@ -28,7 +28,7 @@ test('reference review is sourced from the same dashboard and preserves original
  for(const title of ['市场情绪总览','题材主线划分','完整连板梯队','龙虎榜梳理','市场矛盾与风险','下一交易日观察清单'])
   assert.ok(close.includes(title),title);
  assert.match(close,/supplement\?\.day===day/);
- assert.match(source,/const view=renderTerminalOverview\(ctx\)/);
+ assert.match(source,/const view=renderTerminalOverview\(ctx,\{reviewOnly:true\}\)/);
  assert.match(source,/summarizeReview\(ctx\.state\?\.review\)/);
  assert.match(source,/referenceReviewStats/);
  assert.match(source,/moduleButton\('查看完整原始报告','pulse','review-details',ctx\)/);
