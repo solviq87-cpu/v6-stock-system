@@ -1,3 +1,5 @@
+// A-share schedules and legacy local date constructors use exchange time on every host.
+process.env.TZ = 'Asia/Shanghai';
 // 量化看盘平台 - 主服务
 // 流水线: 基础筛选评分 → 竞价/板块/龙头 → 5秒资金监控 → 涨停概率>80%信号 → 飞书推送
 // ── 崩溃兜底（根治 Windows 崩溃弹窗）：任何未捕获异常/未处理拒绝只记录日志，进程继续存活 ──
@@ -276,7 +278,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261122az'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261123aa'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -11340,6 +11342,12 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
 const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
+const sessionIndices=require('./src/core/session-index-feed').createSessionIndexFeed({
+  primary:()=>em.fetchIdxRt(),onUpdate:indices=>{S.idxRt=indices;}
+});
+const readAuctionDisplay=require('./src/research/auction-display').createAuctionDisplay({
+  directory:path.join(__dirname,'data','auction-observations'),canPersist:()=>!isReplica(),readIndicative:em.fetchAuctionTicks
+});
 const closingCardSnapshots=require('./src/core/closing-card-snapshot').createClosingCardSnapshot({file:path.join(__dirname,'data','closing-card-snapshots.json'),onError:code=>console.error('[closing-cards] '+code)});
 function marketCardContext(){const session=marketDisplaySession();return {session,sourceDay:marketDisplayState().meta.snapshotDay};}
 function marketCardState(kind,value){
@@ -11390,14 +11398,38 @@ function marketDisplaySession(now=Date.now()) {
   const openDay=isTradeDay(new Date(year,month,date,12));
   return {day,minute,openDay,trading:openDay&&((minute>=555&&minute<=690)||(minute>=780&&minute<900))};
 }
+function sessionAuctionDisplay(session,closedDay,recovery){
+  const day=closedDay||require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+  const previousDay=previousResearchDay(day),network=process.env.V6_ISOLATED_BOOT_SMOKE!=='1';
+  if(network&&session.trading&&session.minute<570&&!closedDay&&recovery?.closeWatch?.day!==previousDay)
+    void dabankeReview.refresh(previousDay).catch(()=>{});
+  return readAuctionDisplay({session,day,index:dabankeReview.peek(day,closedDay?'收盘':'盘中')?.index,
+    previousDay,previousWatch:recovery?.closeWatch,previousIndex:dabankeReview.peek(previousDay)?.index,network});
+}
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();
   const day=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
   if(day&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1')void marketRecovery().tick().catch(()=>{});
   const state=marketCardState(kind,kind==='state'?buildDashboardState(edit):buildMobileDigest(edit));
   state.dabanke=sharedDabanke(session,day);
-  state.marketClock={trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
-  if(!day)return {...state,closeSession:null,marketDistribution:process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session)};
+  state.auctionObservations=sessionAuctionDisplay(session,day,state.marketRecovery);
+  if(!day&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
+    const feed=sessionIndices.read(session);
+    state.indexChannels=feed.channels;
+    if(feed.indices.length){
+      const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+      const {latestIndexObservations}=require('./src/core/closing-card-snapshot');
+      const rows=latestIndexObservations([], [...feed.indices,...(state.dashboard.indices||[])],Date.now()).filter(r=>r.tradeDate===today);
+      state.dashboard={...state.dashboard,indices:rows,indexObservedAt:Math.max(...rows.map(r=>r.receivedAt))};
+    }
+  }
+  state.marketClock={day:require('./src/core/limit-reason-evidence').normalizeDay(session.day),trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
+  if(!day){
+    const latest=process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session);
+    const parsed=dabankeReview.peek(state.marketClock.day,'盘中')?.index?.distribution;
+    return {...state,closeSession:null,breadthChannel:workingDistribution.receipt(),
+      marketDistribution:parsed&&(!latest||parsed.quoteAt>latest.quoteAt)?parsed:latest};
+  }
   // Read already archived cards, including the first page of the complete scan.
   // This path never runs a strategy, writes to a portfolio or sends an alert.
   const keys=['quant','auction','intraday',...(edit?['wash','preseal','shortline']:[])];
@@ -11909,7 +11941,7 @@ async function auctionResonanceScan(opts = {}) {
       const gain = auc ? auc.auctionPct : (+stock.pct || 0);
       if (gain != null) {
         score += Math.min(12, Math.max(0, gain * 2));
-        reasons.push(`${auc ? '竞价' : '开盘'}涨幅 ${gain.toFixed(2)}%`);
+        reasons.push(`${auc ? '竞价' : '盘中'}涨幅 ${gain.toFixed(2)}%`);
       }
 
       if (auc && auc.auctionAmount) {
@@ -17709,7 +17741,7 @@ async function init() {
   setInterval(guard('allStocks', async () => { if (isTradingTime()) { try { setAllStocks(await em.fetchAllStocks()); } catch {} } }), 90 * 1000);
   // ⛔ if 轮：A股四大指数 15s 实时 —— 市场情绪卡的秒级分量（全A快照 2 分钟一轮是数据源限制，
   //    指数不是；两路各标各的数据时刻，挂在情绪卡上让「实时到什么程度」可见）。
-  setInterval(guard('idxRt', async () => { if (isDataWindow()) { const r = await em.fetchIdxRt(); if (r && r.length) S.idxRt = { at: Date.now(), items: r }; } }), 15 * 1000);
+  // The independent exchange-session clock starts the index collector on listen.
   // oa 轮：指数纪律警示（2026-10-29 用户交易纪律铁律·警示参考）——上证指数(000001)日K，
   //   收盘>昨日最高=可做(entry) / 收盘<昨日最低=不可做·次日休息(exit) / 其余=观望(flat)。
   //   ⛔ 只作警示提示进情绪卡，不接模拟盘、不自动交易；K线判不出→null 显式不判。
@@ -19259,6 +19291,9 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
+      const readSessionIndices=()=>sessionIndices.read(marketDisplaySession());
+      readSessionIndices();
+      setInterval(readSessionIndices,5000).unref();
       const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
         session:marketDisplaySession,isReplica:()=>!researchPrimary(),pool:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],requirePressure:true,
         readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
@@ -19272,7 +19307,9 @@ const _httpBootstrap = createDashboardServer({
       let displayWarmDay='';
       const displaySnapshotTimer=setInterval(()=>{try{
         const session=marketDisplaySession();marketDisplayState();
-        sharedDabanke(session,require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay));
+        const closedDay=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
+        sharedDabanke(session,closedDay);
+        if(session.trading)sessionAuctionDisplay(session,closedDay,marketRecovery().display());
         void notifyResearch().catch(()=>console.error('[shortline] 网页通知将在下轮重试'));
         void marketRecovery().tick().catch(()=>{});
         syncManualResearch().catch(()=>console.error('[shortline] 人工执行记录待下次同步'));
@@ -23306,14 +23343,17 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const force = isEditorReq(req) && ((u.searchParams.get('force') === '1') || (req.method === 'POST'));
     const max = Math.min(50, Math.max(1, +(u.searchParams.get('max') || 20)));
     const board = ['main', 'gem'].includes(u.searchParams.get('board')) ? u.searchParams.get('board') : 'all';
-    if(retainMarketCardResponse(res,'auction',board,max))return json(res,closedMarketCard('auction',board,max));
+    const session=marketDisplaySession(),closedDay=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
+    sharedDabanke(session,closedDay);
+    const auctionObservations=sessionAuctionDisplay(session,closedDay,marketRecovery().display());
+    if(retainMarketCardResponse(res,'auction',board,max))return json(res,{...closedMarketCard('auction',board,max),auctionObservations});
     const frozen = !marketDisplaySession().trading ? marketResponseSnapshots.read('auction',board,{max}) : null;
-    if(frozen)return json(res,frozen);
+    if(frozen)return json(res,{...frozen,auctionObservations});
     (async () => {
       // lm：哨兵动态（起涨/冲板/封板事件流水）随竞价卡下发，速览页可见
       try { const d = await auctionResonanceScan({ force, max, board }); if (d && !d.locked) d.sentinel = (S.ztSentLog || []).filter(x => isMainBoardCode(x.code)).slice(0, 12);  // 哨兵动态只留主板（60/000/001/002/003）
-        json(res, d); }
-      catch (e) { json(res, { count: 0, items: [], note: '计算失败：' + (e && e.message) }); }
+        json(res, {...d,auctionObservations}); }
+      catch (e) { json(res, { count: 0, items: [], auctionObservations, note: '计算失败：' + (e && e.message) }); }
     })();
     return;
   }

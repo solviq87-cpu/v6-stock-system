@@ -379,20 +379,25 @@ function createBreadthFallback({clock=Date.now,request=requestResearchBytes,requ
 // Poll one shared provider receipt across clients. A source outage preserves the
 // original dated observation and backs off until the next eligible market read.
 function createWorkingDistribution({request=require('./dabanke-requests').fetchDabankePage,clock=Date.now}={}){
-  let sessionDay=null,saved=null,inflight=null,retryAt=0;
-  return function read(session){
+  let sessionDay=null,saved=null,inflight=null,retryAt=0,receipt=null;
+  function read(session){
     const day=session.day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
-    if(sessionDay!==day){sessionDay=day;saved=null;inflight=null;retryAt=0;}
+    if(sessionDay!==day){sessionDay=day;saved=null;inflight=null;retryAt=0;receipt=null;}
     const now=clock();
     if(session.trading&&!inflight&&now>=retryAt&&aShareCalendarDate(now)===day){
       retryAt=now+30000;
-      const job=Promise.resolve().then(()=>request('https://www.dabanke.com/index-'+session.day+'.html',{timeoutMs:5500,maxBytes:2*1024*1024})).then(({raw,receivedAt})=>{
+      const job=Promise.resolve().then(()=>request('https://www.dabanke.com/index-'+session.day+'.html',{timeoutMs:10000,maxBytes:2*1024*1024})).then(({raw,receivedAt})=>{
         const result=marketDistribution(raw.toString('utf8'),day,receivedAt??clock(),{intraday:true});
-        if(sessionDay===day&&result&&(!saved||result.quoteAt>=saved.quoteAt))saved=result;
-      }).catch(()=>{}).finally(()=>{if(inflight===job)inflight=null;});
+        if(sessionDay!==day)return;
+        receipt={source:'打板客盘中分布',status:result?'observed':'invalid-response',checkedAt:clock(),quoteAt:result?.quoteAt||null};
+        if(result&&(!saved||result.quoteAt>=saved.quoteAt))saved=result;
+      }).catch(error=>{if(sessionDay===day)receipt={source:'打板客盘中分布',status:'unavailable',checkedAt:clock(),
+        reason:error.code==='MARKET_RESTRICTED'?'供应商限流':error.code==='MARKET_QUEUE_TIMEOUT'?'请求排队超时':Number(error.code)===28?'等待供应商返回超时':'连接未完成'};}).finally(()=>{if(inflight===job)inflight=null;});
       inflight=job;
     }
     return !session.openDay||session.minute<555||session.minute>=900?null:saved;
-  };
+  }
+  read.receipt=()=>receipt;
+  return read;
 }
 module.exports={createBreadthFallback,marketDistribution,createWorkingDistribution};

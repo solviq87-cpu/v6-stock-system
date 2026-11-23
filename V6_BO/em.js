@@ -1221,7 +1221,7 @@ async function fetchAuctionTicks(code, targetTradeDate) {
   const u = `${EMH}/api/qt/stock/trends2/get?secid=${secid}&fields1=${f1}&fields2=${f2}&iscr=1&ndays=1`;
   const j = await get(u, 8000);
   const d = j && j.data;
-  if (!d || !Array.isArray(d.trends) || !d.trends.length) return null;
+  if (!d || (d.code!=null && d.code!==code) || !Array.isArray(d.trends) || !d.trends.length) return null;
   const number = value => {
     if (typeof value !== 'number' && (typeof value !== 'string' || !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))) return null;
     const n = Number(value);
@@ -1254,7 +1254,7 @@ async function fetchAuctionTicks(code, targetTradeDate) {
   if (!bars.length) return null;
   bars.sort((a, b) => a.quoteAt - b.quoteAt);
   // The supplier's session survives weekends; reception time never supplies its date.
-  return { preClose, bars, tradeDate: [...dates][0], quoteSource: 'eastmoney-auction', receivedAt };
+  return { code, preClose, bars, tradeDate: [...dates][0], quoteSource: 'eastmoney-auction', receivedAt };
 }
 
 // 常规分时（东财 trends2，不带 iscr=1 → 取 09:30–15:00 连续竞价段每分钟的价/均价/量）
