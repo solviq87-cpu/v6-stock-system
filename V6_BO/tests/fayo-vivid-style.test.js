@@ -16,15 +16,15 @@ test('reference iteration favors useful source data and a compact three-panel/ta
  for(const token of ['.fy-terminal-index{order:2','.fy-terminal-stats{order:3','.fy-terminal-context{order:5','.fy-terminal-review{order:6'])
   assert.ok(design.includes(token),token);
  assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
- assert.match(browser,/regions\.review\.top<810/);
- assert.match(browser,/regions\.referenceTop\.bottom<regions\.referenceMiddle\.top/);
+ assert.match(browser,/regions\.market\.bottom<=regions\.opportunity\.top/);
+ assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
 });
 test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
  assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
  assert.match(design,/\.fy-terminal-priorities\{order:3/);
  assert.match(design,/\.fy-terminal-index\{order:5/);
  assert.match(browser,/regions\.sourceCount,8/);
- assert.match(browser,/regions\.ticker\.bottom<874/);
+ assert.match(browser,/regions\.risk\.top<page\.viewportSize/);
  assert.match(browser,/boxes\[0\]\.top,boxes\[2\]\.top/);
  assert.match(design,/\.fy-terminal-provenance/);
  assert.match(design,/\.fy-terminal-priority-risk/);
@@ -42,14 +42,10 @@ test('colors carry meaning and readable dates, never blanket pink or hidden unkn
  assert.match(design,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
-test('reference home keeps source counts and original market cards before the research sections',()=>{
- const final=css.slice(css.lastIndexOf('/* The mobile first-fold counters'));
- assert.ok(final.length>900,'reference first-fold ordering must be present');
- assert.match(final,/\.fy-reference-home>\.fy-terminal-index\{order:3\}/);
- assert.match(final,/\.fy-reference-home>\.fy-terminal-priorities\{order:4\}/);
- assert.match(final,/\.fy-reference-home>\.fy-reference-topgrid\{order:5\}/);
- assert.match(final,/\.fy-reference-home>\.fy-reference-midgrid\{order:6\}/);
- assert.match(browser,/phoneFocus,\['risk','next'\]/);
- assert.match(browser,/regions\.ticker\.bottom<regions\.focus\.top/);
- assert.match(browser,/regions\.review\.top<810/);
+test('home groups the trading session before research on desktop and phone',()=>{
+ assert.match(css,/\.fy-reference-home\.fy-home-layout\s*\{\s*display:grid/);
+ assert.match(css,/\.fy-home-research\[open\]>/);
+ assert.match(browser,/regions\.opportunity\.bottom<=regions\.risk\.top/);
+ assert.match(browser,/regions\.opportunity\.top,regions\.risk\.top/);
+ assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
 });

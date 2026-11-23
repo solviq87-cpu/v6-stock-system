@@ -159,7 +159,7 @@ test('homepage simulation totals use only the editor projection and keep missing
  const totals=content(editor);
  assert.match(totals,/总权益\s+123,456\.78/);
  assert.match(totals,/可用资金\s+0\.00/);
- assert.match(totals,/持仓市值\s+—/);
+ assert.doesNotMatch(totals,/持仓市值/);
  assert.doesNotMatch(content(viewer),/123,456\.78/);
  assert.doesNotMatch(content(hidden),/123,456\.78/);
  for(const ctx of [editor,viewer,hidden])ctx.controller.abort();
@@ -301,4 +301,31 @@ test('decision panel shows real dated good/bad evidence, watch counts and no aut
  assert.match(display,/已有策略条件/);
  assert.ok(ctx.calls.every(call=>!['POST','PUT','DELETE'].includes(call.options?.method)));
  ctx.controller.abort();
+});
+
+test('homepage dates compact and full sector evidence without dating an undated report',async()=>{
+ dom();const {renderTerminalOverview}=await api;
+ const row={code:'000001',name:'已返回标的',sector:'源端板块',limitUpCount:2};
+ const digest={trading:true,snapshotDay:'20261123',dashboard:{snapshotDay:'20261123'},sectorsDay:'20261123',
+  sectors:[{name:'同日资金',netInflowYuan:200000000}],ztPool:{day:'20261123',count:95,top:[row,row]}};
+ const check=(s,assertions)=>{
+  const ctx=context(s),view=renderTerminalOverview(ctx);
+  try{assertions(textOf(locate(view,n=>n?.className==='fy-terminal-context')),textOf(locate(view,n=>n?.className==='fy-terminal-provenance')));}
+  finally{ctx.controller.abort();}
+ };
+ check(digest,(cards,status)=>{
+  assert.match(cards,/速览涨停池节选 · 2026-11-23/);assert.match(cards,/源端板块\s+1 只/);
+  assert.match(cards,/已返回标的/);assert.match(cards,/同日资金/);assert.match(cards,/2\.00 亿/);
+  assert.doesNotMatch(cards,/日期未知|95 只/);assert.match(status,/盘面参考交易日 2026-11-23/);assert.doesNotMatch(status,/原始复盘日期/);
+ });
+ const full={...digest,ztPool:[],ztDay:'20261123',ztBySector:[{sector:'已核分类',count:2,stocks:[{...row,lb:2}]}]};
+ check(full,cards=>{assert.match(cards,/同日涨停板块分类 · 2026-11-23/);assert.match(cards,/已核分类\s+2 只/);});
+ check({...full,ztDay:'',snapshotFieldDays:{ztBySector:'20261123'}},cards=>assert.match(cards,/已核分类/));
+ check({...full,review:{date:'20261120',items:[]}},cards=>assert.doesNotMatch(cards,/已核分类|同日资金|2\.00 亿/));
+ check({...full,ztDay:'',snapshotFieldDays:{ztBySector:'20261120'},sectorsDay:'20261120'},cards=>{
+  assert.doesNotMatch(cards,/已核分类|同日资金|2\.00 亿/);assert.match(cards,/2026-11-23，板块分类 2026-11-20/);
+ });
+ check({...digest,ztPool:{top:[row]},review:{items:[row]}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
+ check({...digest,ztPool:{day:'20261123',top:[{...row,sourceTradeDate:'20261120'}]}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
+ check({...digest,snapshotFieldDays:{ztPool:'20261120'}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
 });

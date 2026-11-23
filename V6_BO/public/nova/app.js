@@ -141,7 +141,7 @@ function revealCurrentTab(nav) {
  else if(item.right>right)nav.scrollLeft+=item.right-right+4;
 }
 function createFrame() {
- const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'AI量化选股 · 多策略 · 多源行情')));
+ const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜 FAYO'),h('small',{},'投资研究空间')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
  for(const[view,label,key]of MAIN){
   nav.append(h('button',{type:'button','data-fy-route':view,onClick:()=>navigate(view)},icon(key),h('span',{},label)));
@@ -203,7 +203,6 @@ async function renderRoute() {
   else node.removeAttribute('aria-current');
  });
  const destinations=WORKSPACE_ROUTES[workspace].filter(([, , ,access])=>access!=='edit'||role==='edit');
- const activeLabel=destinations.find(([,view,target])=>view===route.view&&target===sub)?.[0];
  workspaceNav.hidden=destinations.length<2;
  if(workspaceNav.dataset.workspace!==workspace){
   workspaceNav.dataset.workspace=workspace;
@@ -216,7 +215,7 @@ async function renderRoute() {
  }
  revealCurrentTab(frame.querySelector('.fy-reference-topnav'));
  revealCurrentTab(workspaceNav);
- document.title='天枢智策 V6 · '+(activeLabel||workspace);
+ document.title='绯曜 FAYO · 投资研究空间';
  window.scrollTo({top:0,behavior:'instant'});
  try {
   if(route.view==='pulse'&&(!route.sub||route.sub==='overview'))main.replaceChildren(renderTerminalOverview(ctx));

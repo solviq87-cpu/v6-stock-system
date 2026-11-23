@@ -188,6 +188,54 @@ async function navigate(page,view,sub='') {
  if(sub)await page.evaluate(({view,sub})=>{location.hash='#/'+view+'/'+sub;},{view,sub});
  await page.waitForFunction(view=>location.hash.startsWith('#/'+view),view);
 }
+async function checkHomeUpdates(page){
+ const result=await page.evaluate(async()=>{
+  const {renderTerminalOverview}=await import('/nova/terminal-workbench.js');
+  const callbacks=[],day='2026-11-13',at=Date.parse(day+'T09:25:00+08:00');
+  const ctx={state:{trading:false,snapshotDay:day,sectors:[],dashboard:{snapshotDay:day}},
+   role:'edit',canEdit:false,onState:fn=>callbacks.push(fn),navigate:()=>{},selectStock:()=>{}};
+  const home=renderTerminalOverview(ctx);
+  const find=(root,name)=>[...root.querySelectorAll('.fy-home-empty')].find(d=>d.firstElementChild.querySelector('strong')?.textContent===name);
+  const emptyLabels=[...home.querySelectorAll('.fy-home-empty:not([open])>summary strong')].map(el=>el.textContent);
+  const selected=()=>home.querySelector('.fy-home-tabs [aria-pressed=true]').textContent;
+  const refresh=()=>callbacks.forEach(fn=>fn());
+  const funds=find(home,'板块资金');funds.open=true;
+  const repeat=()=>find(home,'板块资金')===funds&&funds.open;
+  const valid={code:'000001',name:'竞价校验样本',day,quoteAt:at,knownAt:at+1000,sealSource:'隔离测试'};
+  ctx.state.auctionObservations={day,phase:'matched',items:[{...valid,code:'000002',knownAt:Date.now()+60000},
+   {...valid,code:'000003',quoteAt:at-86400000},valid]};
+  refresh();
+  const available=selected(),codes=[...home.querySelectorAll('.fy-home-opportunity [data-code]')].map(el=>el.dataset.code);
+  const stayedOpen=repeat();
+  home.querySelector('.fy-home-tabs button').click();
+  const chosenFold=find(home.querySelector('.fy-home-opportunity'),'精选');chosenFold.open=true;
+  ctx.state.sectorsDay=day;ctx.state.sectors=[{name:'资金校验样本',netInflowYuan:10000}];refresh();
+  const restored=!find(home,'板块资金')&&home.querySelector('.fy-reference-funds').textContent.includes('资金校验样本');
+  const keptChoice=selected()==='精选'&&chosenFold.open&&chosenFold===find(home.querySelector('.fy-home-opportunity'),'精选');
+  ctx.state.sectorsDay='2026-11-12';refresh();
+  const staleFold=!!find(home,'板块资金')&&!find(home,'板块资金').open;
+  const atTime=time=>Date.parse(day+'T'+time+':00+08:00');
+  const phaseTab=(trading,time,nextOpenAt)=>{
+   const state={trading,now:atTime(time),closeSession:null,marketClock:{day,trading,nextOpenAt},
+    auctionObservations:{day,phase:'before-match',indicative:[{...valid,source:'隔离测试',openPct:1,quoteAt:atTime('09:16'),knownAt:atTime('09:16')}]},
+    fastStockMoves:{tradeDate:day,checkedAt:atTime('09:16'),items:[{...valid,source:'隔离测试',spanMs:7000,risePct:1,quoteAt:atTime('09:16')}]}
+   };
+   const screen=renderTerminalOverview({...ctx,state,onState:()=>{}});
+   return [screen.querySelector('.fy-home-stamp').textContent,screen.querySelector('.fy-home-tabs [aria-pressed=true]').textContent];
+  };
+  return {emptyLabels,available,codes,stayedOpen,restored,keptChoice,staleFold,
+   auction:phaseTab(true,'09:18',null),session:phaseTab(true,'10:30',null),lunch:phaseTab(false,'12:00',atTime('13:00'))};
+ });
+ for(const name of ['精选','市场情绪','市场环境','板块资金','板块资金排行','市场主线','涨停板分类','收盘与策略精选'])
+  assert.ok(result.emptyLabels.includes(name),'collapsed evidence status for '+name);
+ assert.deepEqual(result.auction,['集合竞价 · 2026-11-13','竞价引力']);
+ assert.deepEqual(result.session,['盘中 · 2026-11-13','盘中异动']);
+ assert.deepEqual(result.lunch,['午间休市 · 2026-11-13','竞价引力']);
+ assert.equal(result.available,'竞价引力');
+ assert.deepEqual(result.codes,['000001'],'only a same-day observation already knowable is presented');
+ assert.ok(result.stayedOpen&&result.restored&&result.keptChoice&&result.staleFold,'ordinary data updates preserve the disclosure and chosen channel, and show or collapse funds as evidence changes');
+}
+
 async function geometry(page,label){
  const result=await page.evaluate(()=>{
   const visible=node=>{const r=node.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(node).visibility!=='hidden';};
@@ -310,7 +358,10 @@ const runChecks=async()=>{
    const streamRequest=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/stream');
    await page.goto(origin+'/');
    await page.locator('.fy-header').waitFor({state:'visible'});
-   await page.locator('.fy-stock-card[data-code="600101"]').first().waitFor({state:'visible'});
+   assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
+   assert.equal(await page.locator('.fy-brand strong').innerText(),'绯曜 FAYO');
+   assert.equal(await page.locator('.fy-brand small').innerText(),'投资研究空间');
+   await page.locator('.fy-home-opportunity .fy-home-stock').first().waitFor({state:'visible'});
    const deployment=page.getByRole('link',{name:'部署交接文档',exact:true});
    assert.equal(await deployment.getAttribute('href'),'https://github.com/solviq87-cpu/v6-stock-system/blob/dev/DEPLOYMENT.md');
    assert.equal(await deployment.getAttribute('rel'),'noopener noreferrer');
@@ -321,12 +372,16 @@ const runChecks=async()=>{
    assert.ok(!new URL(stream.url()).searchParams.has('token'),'stream credentials stay in headers');
    assert.equal(await page.locator('.fy-nav [data-fy-route]').count(),5,'five entirely new primary workspaces');
 
+   if(width===402)await checkHomeUpdates(page);
    const focusTexts=await page.locator('.fy-terminal-priority').allTextContents();
    assert.equal(focusTexts.length,4,'overview answers market, opportunity, risk and next-action questions');
    assert.match(focusTexts[0],/最近交易日快照/,'closed-market snapshot must not be called live');
    assert.match(focusTexts[1],/复盘明细 3 条/,'opportunity count is sourced from the retained review');
    assert.match(focusTexts[2],/原始报价须逐股核验/,'matched totals do not certify live prices');
    assert.match(focusTexts[3],/查看机会证据/,'next action opens research, not a trade');
+   const moreResearch=page.locator('.fy-home-research > summary');
+   assert.equal(await page.locator('.fy-home-research').evaluate(e=>e.open),false);
+   await moreResearch.click();
    const secondaryDetails=page.locator('details.fy-terminal-quick');
    assert.equal(await secondaryDetails.evaluate(element=>element.open),false,'secondary business tools begin collapsed');
    await secondaryDetails.locator('summary').click();
@@ -336,79 +391,35 @@ const runChecks=async()=>{
    assert.equal(await secondaryDetails.evaluate(element=>element.open),false,
     'business disclosure closes without altering permissions or route');
 
+   await moreResearch.click();
    // The disclosure interaction may scroll the page. Capture the actual first fold,
    // not a convenient mid-page viewport that silently misses the key decisions.
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
-   if(width<500){
-    assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');
-    const cards=await page.locator('.fy-overview-six').first().evaluate(host=>[...host.children].map(node=>{
-     const box=node.getBoundingClientRect();return {y:box.y,width:box.width,overflow:node.scrollWidth-node.clientWidth};
-    }));
-    assert.equal(cards.length,6);
-    assert.ok(cards.slice(0,3).every(card=>card.y===cards[0].y&&card.overflow<=1),'three index quotes fit side by side');
-    assert.ok(cards[5].width>2*cards[0].width&&cards[5].y>cards[4].y,'the risk summary uses its own row');
-   }
+   if(width<500)assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5);
    const metrics=await geometry(page,'pulse-'+width);
-   // Real DOM checks on both viewport types. A dense, legible terminal wins
-   // over simply painting every card purple or adding more glow.
-   if([402,1366].includes(width)){
-    const regions=await page.evaluate(()=>{
-     const b=selector=>{const node=document.querySelector(selector);if(!node)return null;
-      const rect=node.getBoundingClientRect();return {top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right,
-       width:rect.width,height:rect.height,display:getComputedStyle(node).display};};
-     const colors=selector=>getComputedStyle(document.querySelector(selector)).color;
-     return {
-      title:b('.fy-terminal-title'),meta:b('.fy-terminal-provenance'),
-      ticker:b('.fy-terminal-index'),stats:b('.fy-terminal-stats'),
-      focus:b('.fy-terminal-priorities'),panels:b('.fy-terminal-context'),
-      review:b('.fy-terminal-review'),decisions:b('.fy-terminal-decisions'),firstPanel:b('.fy-terminal-panels>.fy-section'),
-      referenceTop:b('.fy-reference-topgrid'),referenceMiddle:b('.fy-reference-midgrid'),referenceLower:b('.fy-reference-lowergrid'),
-      shortcuts:b('.fy-reference-mobile-links'),candidates:b('.fy-terminal-candidates'),funds:b('.fy-reference-funds'),
-      sourceCount:document.querySelectorAll('.fy-terminal-stat').length,
-      sourceVisible:getComputedStyle(document.querySelector('.fy-terminal-provenance')).display!=='none',
-      statRow0:[...document.querySelectorAll('.fy-terminal-stat')].slice(0,4).map(e=>e.getBoundingClientRect().top),
-      brand:b('.fy-header .fy-brand'),up:colors('.fy-overview-index.fy-positive'),
-      down:colors('.fy-overview-index.fy-negative'),
-      main:getComputedStyle(document.querySelector('.fy-terminal')).display
-     };
-    });
-    fs.writeFileSync(path.join(output,'fayo-layout-'+width+'.json'),JSON.stringify(regions,null,2));
-    assert.equal(regions.main,'flex','terminal uses same compact structural layout on both clients');
-    assert.equal(regions.sourceCount,8,'original eight audited counters remain');
-    assert.ok(regions.sourceVisible,'original date/source/unknown status must remain visible');
-    assert.ok(regions.title.top<regions.meta.top,'title precedes provenance');
-    assert.ok(regions.decisions&&regions.review.top<regions.decisions.top,
-      'new evidence cards must follow the original daily review instead of pushing it below the first fold');
-    const rgb=v=>(v.match(/\d+/g)||[]).slice(0,3).map(Number);
-    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
-    assert.ok(rr>rg&&gg>gr,'index quotes retain true red-up / green-down semantics');
-    if(width===1366){
-     assert.ok(regions.ticker.bottom<regions.referenceTop.top&&regions.referenceTop.bottom<regions.referenceMiddle.top,
-      'desktop index strip leads the three primary cards, followed by the review and evidence row');
-     assert.equal(regions.candidates.top,regions.funds.top,'desktop candidates and funds share one row');
-     assert.ok(regions.review.top<810,'desktop real review table must begin above 810px: '+regions.review.top);
-     assert.ok(regions.firstPanel.height<270,'empty/short market cards must not waste an entire desktop screen');
-    }else{
-     assert.ok(regions.referenceTop.top<regions.shortcuts.top&&regions.shortcuts.bottom<regions.candidates.top&&
-      regions.candidates.bottom<regions.funds.top&&regions.ticker.top<500,
-      'phone shows the signal, shortcuts, candidates and funds in the reference order');
-     assert.ok(regions.ticker.top<regions.referenceTop.top&&regions.ticker.bottom<regions.focus.top,
-      'the mobile first fold leads with indices, market conditions and risk');
-     assert.ok(regions.referenceTop.top<regions.review.top&&regions.review.top<regions.referenceLower.top,
-      'phone original review remains between primary evidence and additional research modules');
-     const phoneFocus=await page.evaluate(()=>
-      [...document.querySelectorAll('.fy-terminal-priority')]
-        .filter(node=>getComputedStyle(node).display!=='none')
-        .map(node=>node.dataset.focus));
-     assert.deepEqual(phoneFocus,['risk','next'],
-      'phone retains nonduplicated risk and next-step actions; market/date/count remain in real panels');
-     assert.ok(regions.ticker.bottom<874,'phone first fold contains the complete six-card overview');
-     assert.ok(Math.abs(regions.statRow0[0]-regions.statRow0[3])<2,
-      'four compact count cards share the first phone row');
-     assert.ok(regions.brand.height<=70,'phone header is compact enough for actual market data');
-    }
-   }
+   const regions=await page.locator('.fy-home-layout').evaluate(home=>{
+    const box=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width};};
+    return {headings:[...home.querySelectorAll(':scope > .fy-home-section')].map(el=>el.getAttribute('aria-label')),
+     market:box(home.querySelector('.fy-home-market')),opportunity:box(home.querySelector('.fy-home-opportunity')),
+     risk:box(home.querySelector('.fy-home-risk')),more:box(home.querySelector('.fy-home-research')),
+     indices:[...home.querySelectorAll('.fy-home-indices article')].map(box),
+     sourceCount:home.querySelectorAll('.fy-home-research .fy-terminal-stat').length,
+     up:getComputedStyle(home.querySelector('.fy-overview-index.fy-positive')).color,
+     down:getComputedStyle(home.querySelector('.fy-overview-index.fy-negative')).color};
+   });
+   fs.writeFileSync(path.join(output,'fayo-layout-'+width+'.json'),JSON.stringify(regions,null,2));
+   assert.deepEqual(regions.headings,['大盘一眼看','今日机会','风险与持仓']);
+   assert.equal(regions.indices.length,3);
+   assert.ok(regions.indices.every(b=>b.top===regions.indices[0].top&&b.width>70));
+   assert.equal(regions.sourceCount,8);
+   assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.risk.bottom);
+   if(width>=1000)assert.equal(regions.opportunity.top,regions.risk.top);
+   else assert.ok(regions.opportunity.bottom<=regions.risk.top);
+   if(width===402||width===1366)assert.ok(regions.risk.top<page.viewportSize().height-50,'risk is visible on the first screen');
+   const rgb=v=>v.match(/\d+/g).slice(0,3).map(Number);
+   const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
+   assert.ok(rr>rg&&gg>gr,'index quotes retain red-up / green-down semantics');
    if(width>=1360){
     const rail=await page.evaluate(()=>{
      const nav=document.querySelector('.fy-business-nav');
@@ -488,6 +499,7 @@ const runChecks=async()=>{
     await page.locator('.fy-reference-home').waitFor();
    }
    assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
+   await moreResearch.click();
    const fundPanel=page.locator('.fy-reference-funds');
    await fundPanel.getByRole('button',{name:'资金流出榜',exact:true}).click();
    await fundPanel.locator('.fy-reference-flow .fy-negative').waitFor({state:'visible'});
@@ -587,38 +599,20 @@ const runChecks=async()=>{
    assert.ok(reviewWrites.every(r=>automaticResearchRead(r)&&r.body.payload.code==='600101')&&reviewWrites.length<=1,
     'only the opened stock can archive a shortline observation; review navigation does not trade, scan, push or mutate accounts');
    await navigate(page,'pulse','overview');
-   await page.locator('.fy-reference-home .fy-terminal-stats .fy-terminal-stat').first().waitFor({state:'visible'});
+   await page.locator('.fy-home-market').waitFor({state:'visible'});
    if(width===402){
-    const actual=await page.evaluate(()=>{
-     const indices=[...document.querySelectorAll('.fy-terminal-index .fy-overview-six>article')]
-      .map(node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width};});
-     return {width:innerWidth,devicePixelRatio,visibleReview:[...document.querySelectorAll('.fy-terminal-mobile-stock')]
-      .filter(node=>getComputedStyle(node).display!=='none').length,
-      tableDisplay:getComputedStyle(document.querySelector('.fy-terminal-desktop-table')).display,
-      indexCards:indices,stickyDock: getComputedStyle(document.querySelector('.fy-dock')).position};
-    });
-    assert.equal(actual.width,402,'iPhone 17 Pro content uses 402 CSS px width');
-    assert.equal(actual.devicePixelRatio,3,'iPhone 17 Pro browser emulation uses DPR 3');
-    assert.ok(actual.visibleReview>=3,'real mobile review cards are displayed at the target size');
-
-    const firstFold=await page.evaluate(()=>{
-     const stat=document.querySelector('.fy-terminal-stats');
-     const index=document.querySelector('.fy-terminal-index');
-     const a=stat?.getBoundingClientRect(),b=index?.getBoundingClientRect();
-     const c=document.querySelector('.fy-terminal-candidates')?.getBoundingClientRect();
-     return {statTop:a?.top,indexTop:b?.top,statCount:stat?.children.length,candidateTop:c?.top,
-       scrollTop:window.scrollY,viewport:innerHeight};
-    });
-    assert.equal(firstFold.scrollTop,0,'iPhone first-fold test starts at actual scroll origin');
-    assert.equal(firstFold.statCount,8,'all original review counters are retained');
-    assert.ok(firstFold.indexTop<firstFold.statTop,'phone index and climate cards lead the detailed audit counters');
-    assert.ok(firstFold.indexTop<firstFold.viewport*.7,
-      'market overview should appear within the iPhone first fold');
-    assert.equal(actual.tableDisplay,'none','mobile cards replace desktop wide table at 402px');
-    assert.equal(actual.indexCards.length,6,'three indices and three market cards are visible');
-    assert.equal(actual.indexCards[0].top,actual.indexCards[1].top,'iPhone first index row aligns across three columns');
-    assert.ok(actual.indexCards[3].top>actual.indexCards[0].top,'iPhone shows second row of indices');
-    assert.equal(actual.stickyDock,'fixed','phone navigation stays accessible near the home indicator');
+    const initial=await page.evaluate(()=>({width:innerWidth,dpr:devicePixelRatio,scroll:scrollY,
+     indexTop:document.querySelector('.fy-home-indices').getBoundingClientRect().top,
+     dock:getComputedStyle(document.querySelector('.fy-dock')).position}));
+    assert.equal(initial.width,402);assert.equal(initial.dpr,3);assert.equal(initial.scroll,0);
+    assert.ok(initial.indexTop<page.viewportSize().height*.7);
+    assert.equal(initial.dock,'fixed');
+    await moreResearch.click();
+    await page.locator('.fy-reference-home-details > summary').click();
+    assert.ok(await page.locator('.fy-terminal-mobile-stock:visible').count()>=3);
+    assert.equal(await page.locator('.fy-terminal-desktop-table').isVisible(),false);
+    await moreResearch.click();
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
     await page.setViewportSize({width:402,height:714});
     await geometry(page,'iphone17pro-safari-compact-402x714');
     await page.screenshot({path:path.join(output,'iphone17pro-402x714.png'),fullPage:false});
@@ -626,6 +620,7 @@ const runChecks=async()=>{
     await geometry(page,'iphone17pro-landscape-874x402');
     await page.screenshot({path:path.join(output,'iphone17pro-landscape-874x402.png'),fullPage:false});
     await page.setViewportSize({width:402,height:874});
+    await moreResearch.click();
     phase='coverage-gap';
     await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('源端覆盖不完整'));
@@ -638,6 +633,7 @@ const runChecks=async()=>{
    await navigate(page,'opportunities','quant');
    await page.waitForFunction(()=>document.querySelectorAll('.fy-pool-board .fy-stock-card').length===8);
    assert.equal(await page.locator('.fy-main h1').innerText(),'量化发现');
+   assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
    if(width<=700){
     const positions=await page.getByRole('navigation',{name:'常用卡片'}).getByRole('button').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
     assert.ok(positions.length===4&&positions[0]===positions[1]&&positions[2]===positions[3]&&positions[0]<positions[2],'four mobile shortcuts fit into two rows');
