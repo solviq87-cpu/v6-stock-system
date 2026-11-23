@@ -250,16 +250,17 @@ export function marketOverviewParts(state,{homeDay}={}){
  const environment=h('article',{},h('h3',{},'市场环境判断'),h('strong',{},judgment||'收盘环境观察'),
    external?.market?.amount!=null?h('small',{},external.market.amountLabel+' '+external.market.amountText+' · 打板客'):null,
    h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?day+' 收盘 · 中证全指 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势'));
+ const hasBreaks=summary.rows.some(r=>Number.isInteger(r.breakCount));
+ const hasRisk=Number.isInteger(riskCount)||!!wide||Array.isArray(state.abMove?.items)||closes.length>1||hasBreaks;
  const risk=h('article',{class:'fy-overview-risk'},h('h3',{},'风险提示'),
    Number.isInteger(riskCount)?h('p',{},'高风险候选 ',h('b',{},riskCount+' 只')):null,
    Array.isArray(state.abMove?.items)?h('p',{},'异动预警 ',h('b',{},new Set(state.abMove.items.filter(r=>r.code).map(r=>r.code)).size+' 只')):null,
    wide?h('p',{},'全市场跌停 ',h('b',{},wide.downLimit+' 家'),!target?h('small',{},wide.kind==='market-distribution-intraday'?dateTime(wide.quoteAt):wide.day):null):null,
    closes.length>1?h('p',{title:shSeries.day+' · '+shSeries.source},'上证近 '+closes.length+' 日最大回撤 ',h('b',{},format(drawdown,1)+'%')):null,
-   summary.rows.some(r=>Number.isInteger(r.breakCount))?h('p',{},'样本开板回封 ',h('b',{},summary.opened.length+' 只')):null,
-   !Number.isInteger(riskCount)&&!wide&&!summary.rows.length?h('small',{},'正在同步风险记录'):null);
+   hasBreaks?h('p',{},'样本开板回封 ',h('b',{},summary.opened.length+' 只')):null,
+   !hasRisk?h('small',{},'正在同步风险记录'):null);
  return {indices,indexAvailability,sentiment,environment,risk,hasSentiment:breadth!==null||!!sealing||!!(mood&&mood.value!=='未判定'),
-  hasEnvironment:!!judgment,
-  hasRisk:Number.isInteger(riskCount)||!!wide||Array.isArray(state.abMove?.items)||closes.length>1||summary.rows.some(r=>Number.isInteger(r.breakCount))};
+  hasEnvironment:!!judgment,hasRisk};
 }
 export function marketOverviewCards(state){
  const {indices,sentiment,environment,risk}=marketOverviewParts(state);

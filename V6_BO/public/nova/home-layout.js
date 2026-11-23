@@ -96,11 +96,16 @@ export function createTradingHome(ctx,accountPanel){
    updateReadout(detail,fold);
    return;
   }
-  const b=({row,why,source},i)=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
-   onClick:event=>ctx.selectStock(row.code,row,event.currentTarget)},
+  const channel=active;
+  const stock=({row,why,source},i)=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
+   onClick:event=>{chosen=channel;ctx.selectStock(row.code,row,event.currentTarget);}},
    h('strong',{},row.name||row.code),h('small',{},row.code),i===0?h('span',{class:'fy-home-pick-source'},source):null,
    h('span',{class:'fy-home-pick-why'},why));
-  updateReadout(detail,b(rows[0],0),...(rows.length>1?[h('details',{class:'fy-home-other'},h('summary',{},'更多同类观察 · '+(Math.min(rows.length,3)-1)+' 只'),rows.slice(1,3).map((r,i)=>b(r,i+1)))]:[]));
+  const others=rows.slice(1,3);
+  const more=others.length?h('details',{class:'fy-home-other',id:'fy-home-other-'+channel,
+   onToggle:event=>{if(event.currentTarget.open)chosen=channel;}},
+   h('summary',{},'更多同类观察 · '+others.length+' 只'),others.map((r,i)=>stock(r,i+1))):null;
+  updateReadout(detail,stock(rows[0],0),more);
  }
  function paint(state,picks,hasAccount,positions){
   const session=sessionOf(state),parts=marketOverviewParts(state,{homeDay:session.day});

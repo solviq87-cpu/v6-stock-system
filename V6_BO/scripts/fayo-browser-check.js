@@ -213,11 +213,24 @@ async function checkHomeUpdates(page){
   const restored=!find(home,'板块资金')&&home.querySelector('.fy-reference-funds').textContent.includes('资金校验样本');
   const keptChoice=selected()==='精选'&&chosenFold.open&&chosenFold===find(home.querySelector('.fy-home-opportunity'),'精选');
   ctx.state.sectorsDay='2026-11-12';refresh();
-  return {emptyLabels,available,codes,stayedOpen,restored,keptChoice,
-   staleFold:!!find(home,'板块资金')&&!find(home,'板块资金').open};
+  const staleFold=!!find(home,'板块资金')&&!find(home,'板块资金').open;
+  const atTime=time=>Date.parse(day+'T'+time+':00+08:00');
+  const phaseTab=(trading,time,nextOpenAt)=>{
+   const state={trading,now:atTime(time),closeSession:null,marketClock:{day,trading,nextOpenAt},
+    auctionObservations:{day,phase:'before-match',indicative:[{...valid,source:'隔离测试',openPct:1,quoteAt:atTime('09:16'),knownAt:atTime('09:16')}]},
+    fastStockMoves:{tradeDate:day,checkedAt:atTime('09:16'),items:[{...valid,source:'隔离测试',spanMs:7000,risePct:1,quoteAt:atTime('09:16')}]}
+   };
+   const screen=renderTerminalOverview({...ctx,state,onState:()=>{}});
+   return [screen.querySelector('.fy-home-stamp').textContent,screen.querySelector('.fy-home-tabs [aria-pressed=true]').textContent];
+  };
+  return {emptyLabels,available,codes,stayedOpen,restored,keptChoice,staleFold,
+   auction:phaseTab(true,'09:18',null),session:phaseTab(true,'10:30',null),lunch:phaseTab(false,'12:00',atTime('13:00'))};
  });
  for(const name of ['精选','市场情绪','市场环境','板块资金','板块资金排行','市场主线','涨停板分类','收盘与策略精选'])
   assert.ok(result.emptyLabels.includes(name),'collapsed evidence status for '+name);
+ assert.deepEqual(result.auction,['集合竞价 · 2026-11-13','竞价引力']);
+ assert.deepEqual(result.session,['盘中 · 2026-11-13','盘中异动']);
+ assert.deepEqual(result.lunch,['午间休市 · 2026-11-13','竞价引力']);
  assert.equal(result.available,'竞价引力');
  assert.deepEqual(result.codes,['000001'],'only a same-day observation already knowable is presented');
  assert.ok(result.stayedOpen&&result.restored&&result.keptChoice&&result.staleFold,'ordinary data updates preserve the disclosure and chosen channel, and show or collapse funds as evidence changes');
