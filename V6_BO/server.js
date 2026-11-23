@@ -11413,17 +11413,17 @@ function sharedMarketRead(kind,edit) {
   const state=marketCardState(kind,kind==='state'?buildDashboardState(edit):buildMobileDigest(edit));
   state.dabanke=sharedDabanke(session,day);
   state.auctionObservations=sessionAuctionDisplay(session,day,state.marketRecovery);
-  if(!day&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
+  const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+  if((!day||day===today)&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
     const feed=sessionIndices.read(session);
     state.indexChannels=feed.channels;
     if(feed.indices.length){
-      const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
       const {latestIndexObservations}=require('./src/core/closing-card-snapshot');
       const rows=latestIndexObservations([], [...feed.indices,...(state.dashboard.indices||[])],Date.now()).filter(r=>r.tradeDate===today);
       state.dashboard={...state.dashboard,indices:rows,indexObservedAt:Math.max(...rows.map(r=>r.receivedAt))};
     }
   }
-  state.marketClock={day:require('./src/core/limit-reason-evidence').normalizeDay(session.day),trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
+  state.marketClock={day:today,trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
   if(!day){
     const latest=process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session);
     const parsed=dabankeReview.peek(state.marketClock.day,'盘中')?.index?.distribution;

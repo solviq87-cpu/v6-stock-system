@@ -31,7 +31,7 @@ async function fetchSinaIndices(){
 // Readers and the background clock share each supplier request. Publish each
 // provider independently so a slow or failed request cannot hold up its peer.
 function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,onUpdate=()=>{}}){
-  let day=null,quotes=new Map(),channels=new Map();
+  let day=null,quotes=new Map(),channels=new Map(),nextCloseCheck=0;
   function valid(row,now){
     return codes.has(row?.code)&&Number.isFinite(row.price)&&row.price>0&&
       Number.isSafeInteger(row.quoteAt)&&row.quoteAt>0&&row.quoteAt<=row.receivedAt&&
@@ -65,7 +65,7 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     }).finally(()=>{state.pending=null;});
   }
   function read(session){
-    if(day!==session.day){day=session.day;quotes=new Map();channels=new Map();}
+    if(day!==session.day){day=session.day;quotes=new Map();channels=new Map();nextCloseCheck=0;}
     const now=clock();
     if(session.trading){
       pull('tencent-index',primary,5000);
@@ -75,6 +75,13 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
       // Healthy primary: check the fallback once a minute. On degradation it
       // may be retried at the normal quote cadence, subject to supplier limits.
       if(!secondary||!primaryHealthy||now-(secondary.checkedAt||0)>=60000)pull('sina-index',backup,5000);
+    }else if(session.openDay&&session.minute>=900&&session.minute<905&&now>=nextCloseCheck){
+      // The 15:00 closing print may arrive just after the live window has ended.
+      const cutoff=Date.parse(day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')+'T15:00:00+08:00');
+      if([...quotes.values()].filter(row=>row.quoteAt>=cutoff).length<codes.size){
+        nextCloseCheck=now+60000;
+        pull('tencent-index',primary,5000);pull('sina-index',backup,5000);
+      }
     }
     return {day:session.day,indices:[...quotes.values()].map(r=>({...r,...quoteObservationView(r,now)})),
       channels:[...channels].map(([source,{status,checkedAt,quoteAt,count}])=>({source,status,checkedAt,quoteAt,count}))};

@@ -202,7 +202,8 @@ export function marketOverviewCards(state){
  const indices=[['1.000001','上证指数'],['0.399001','深证成指'],['0.399006','创业板指']].map(([code,name])=>{
   const series=histories.find(v=>v.code===code),bars=series?.bars||[],quote=state.dashboard?.indices?.find(v=>v.code===code);
   const at=quoteAt(quote),stamp=Number.isSafeInteger(at)&&at>0&&at<=Date.now()?new Date(at+28800000).toISOString().slice(0,10):null;
-  const useQuote=stamp&&Number.isFinite(quote.price)&&quote.price>0&&(quote.source||quote.quoteSource||quote.quoteProvider)&&(target?stamp===target:stamp===(state.marketClock?.day||new Date(Date.now()+28800000).toISOString().slice(0,10)));
+  const hasClosingBar=!!target&&bars.at(-1)?.[0]===target&&Number.isFinite(bars.at(-1)?.[1]);
+  const useQuote=stamp&&(!hasClosingBar||at>=Date.parse(target+'T15:00:00+08:00'))&&Number.isFinite(quote.price)&&quote.price>0&&(quote.source||quote.quoteSource||quote.quoteProvider)&&(target?stamp===target:stamp===(state.marketClock?.day||new Date(Date.now()+28800000).toISOString().slice(0,10)));
   const price=useQuote?quote.price:bars.at(-1)?.[1],change=useQuote?quote.pct:series?.change;
   let chart=null;
   if(bars.length>1){
@@ -240,7 +241,7 @@ export function marketOverviewCards(state){
    h('small',{},[fromLive?'盘中行情样本上涨占比':breadth!==null?'沪深京上涨占比':'',mood?mood.date+' '+mood.value:''].filter(Boolean).join(' · ')||'正在核对多日情绪证据')),
   h('article',{},h('h3',{},'市场环境判断'),h('strong',{},(fromLive&&breadthEnvironment)||env||breadthEnvironment||'收盘环境观察'),
    external?.market?.amount!=null?h('small',{},external.market.amountLabel+' '+external.market.amountText+' · 打板客'):null,
-   h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?'中证全指 · 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势')),
+   h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?day+' 收盘 · 中证全指 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势')),
   h('article',{},h('h3',{},'风险提示'),
    Number.isInteger(riskCount)?h('p',{},'高风险候选 ',h('b',{},riskCount+' 只')):null,
    Array.isArray(state.abMove?.items)?h('p',{},'异动预警 ',h('b',{},new Set(state.abMove.items.filter(r=>r.code).map(r=>r.code)).size+' 只')):null,
@@ -425,10 +426,10 @@ function auctionOpeningPanel(tape,ctx,{board='all',query=''}={}){
  return h('section',{class:'fy-panel fy-stack','aria-label':'开盘集合竞价观察'},h('h2',{},indicative?'集合竞价指示价':'09:25 集合竞价观察'),
   h('p',{class:'fy-muted'},tape.day+' · '+tape.scope+(shown.length?' · 展示 '+shown.length+' / '+rows.length+' 只':'')),
   shown.length?h('div',{class:'fy-stock-grid'},shown.map(r=>h('article',{class:'fy-stock-card','data-auction-code':r.code},
-   h('button',{type:'button',class:'fy-button quiet',onClick:e=>ctx.selectStock(r.code,r,e.currentTarget)},r.name+' '+r.code),
-   h('strong',{},indicative?'指示涨幅 '+percent(r.openPct):r.sealSource?'09:25 封板':'昨日梯队 · 竞价高开 '+percent(r.openPct)),
+   h('div',{class:'fy-stock-head'},h('button',{type:'button',class:'fy-button quiet',onClick:e=>ctx.selectStock(r.code,r,e.currentTarget)},r.name+' '+r.code),
+    h('span',{class:'fy-tag'},indicative?'指示涨幅 '+percent(r.openPct):r.sealSource?'09:25 封板':'昨日梯队 · 竞价高开 '+percent(r.openPct))),
    indicative?h('p',{},'指示价 '+format(r.price)+' 元'):r.source?h('p',{},'成交 '+format(r.price)+' 元 · '+percent(r.openPct)+' · '+money(r.amountYuan)+'元'):null,
-   h('small',{class:'fy-muted'},[r.sealSource,r.source].filter(Boolean).join(' / ')),
+   h('div',{class:'fy-muted'},[r.sealSource,r.source].filter(Boolean).join(' / ')),
    h('small',{class:'fy-muted'},(indicative?'指示报价 ':r.source?'撮合成交 ':'封板 ')+dateTime(r.quoteAt)+' · 回执 '+dateTime(r.knownAt))))):
    h('p',{class:'fy-muted'},tape.phase==='before-match'?'09:25 撮合后自动显示开盘结果。':query||board!=='all'?'此范围暂无符合条件的竞价记录。':
      tape.printCount?'已核对 '+tape.printCount+' 只开盘成交，本范围暂未出现封板或高开 2% 的记录。':'正在核对同日逐笔成交与竞价封板回执。'));

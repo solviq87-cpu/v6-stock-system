@@ -65,3 +65,13 @@ test('pre-match indicative quotes expire, and never become executed auction volu
  const r=read(input);assert.equal(r.indicative[0].openPct,5);assert.equal(r.indicative[0].amountYuan,undefined);assert.deepEqual(r.items,[]);
  now=tick;const next=read({...input,session:{...session,minute:565}});assert.deepEqual(next.indicative,[]);assert.deepEqual(next.items,[]);
 });
+test('one closing observation is collected after 15:00 and weekends start no quote jobs',async()=>{
+ let now=at('15:00:07'),calls=0;
+ const codes=['1.000001','0.399001','0.399006','1.000688'];
+ const feed=createSessionIndexFeed({clock:()=>now,primary:async()=>{calls++;return codes.map(code=>({
+   code,price:100,pct:0,receivedAt:now,quoteAt:at('15:00:00'),quoteSource:'tencent-index'}));},backup:async()=>[]});
+ const closed={...session,minute:900,trading:false};
+ feed.read(closed);await flush();assert.equal(feed.read(closed).indices.length,4);
+ now+=61000;feed.read({...closed,minute:901});await flush();assert.equal(calls,1);
+ now=at('10:00:00','2026-11-28');feed.read({...closed,day:'20261128',minute:600,openDay:false});await flush();assert.equal(calls,1);
+});
