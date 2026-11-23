@@ -412,7 +412,7 @@ export function renderTerminalOverview(ctx) {
  const marketNotes=[classified?h('strong',{class:'fy-reference-signal-mood'},(classified.historical?'最近已判定 · ':'')+classified.value+' · '+classified.date+' · '+classified.source+' · 取得 '+dateTime(classified.knownAt)):null,
    upRatio!==null?h('p',{},'市场宽度 · '+marketDay+' · '+(mood.source||state.dashboard.source)):null,
    h('div',{class:'fy-reference-signal-facts'},state.trading===false?h('span',{},'休市快照'):null,source?h('span',{},'涨停源端 '+number(source.reportedCount)+' 只'):null)];
- const signature=JSON.stringify([target,marketDay,state.trading,upRatio,source?.reportedCount,classified,recovery?.metrics,recovery?.coverage,!!distribution]);
+ const signature=JSON.stringify([target,marketDay,state.trading,upRatio,source?.reportedCount,classified,recovery?.metrics,recovery?.coverage,state.marketDistribution,mood.scope?.snapAt,mood.upN,mood.downN,state.dabanke?.revision,!!distribution]);
  if(signalSignature!==signature){
   signalSignature=signature;
   const showFacts=upRatio!==null||classified||source||(!distribution&&state.trading===false);

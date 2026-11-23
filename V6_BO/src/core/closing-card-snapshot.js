@@ -318,6 +318,7 @@ function createClosingCardSnapshot({
 }
 module.exports = {
   createClosingCardSnapshot,
+  latestIndexObservations,
   beforeClose,
   closeDisplayDay,
   nextMarketOpenAt,

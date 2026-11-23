@@ -104,7 +104,7 @@ async function readPool(key,loader,{append=false}={}) {
  const items=rowsFrom(result?.items||result);
  const previous=poolCache.get(key),closed=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true||result?.isSnapshot===true;
  const verifiedEmpty=result?.completeForScope===true||Boolean(archived&&!archived.freezeUnavailable&&archived.snapshotRetained&&reviewDate(archived.snapshotDay)===state.closeSession.day&&archived.count===0);
- if(!append&&!items.length&&closed&&!verifiedEmpty&&rowsFrom(previous?.items||previous).length)return {...previous,isSnapshot:true,snapshotRetained:true,note:'上次有效结果'};
+ if(!append&&!items.length&&closed&&state?.marketClock?.trading!==true&&!verifiedEmpty&&rowsFrom(previous?.items||previous).length)return {...previous,isSnapshot:true,snapshotRetained:true,note:'上次有效结果'};
  if(!append&&(items.length||result?.snapshotRetained||result?.completeForScope))poolCache.set(key,result);
  return result;
 }

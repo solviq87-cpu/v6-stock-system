@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "private-research",
-  "reviewedOn": "2026-11-06",
+  "reviewedOn": "2026-11-23",
   "sources": [
     {"id":"baostock","adapter":"optional-python","upstream":"baostock","access":"enabled-private-research","evidence":"https://pypi.org/project/baostock/","reason":"发布方明确说明免费中国股票数据、面向量化研究；仍遵守官方访问规则，不转发、不作零法律风险保证"},
     {"id":"ashare","adapter":"optional-python","upstream":"sina/tencent","access":"permission-pending","reason":"SDK封装不新增上游许可，需核实原项目与数据用途"},
@@ -13,7 +13,7 @@
     {"id":"sina","adapter":"public-quotes","upstream":"sina","access":"permission-pending"},
     {"id":"ifind","adapter":"authorized-normalized-gateway","upstream":"ifind","access":"credentials-required"},
     {"id":"choice","adapter":"authorized-normalized-gateway","upstream":"eastmoney","access":"credentials-required"},
-    {"id":"itick","adapter":"not-implemented","upstream":"itick","access":"credentials-and-plan-required"},
+    {"id":"itick","adapter":"itick-stock-quote.js","upstream":"itick","access":"credentials-and-plan-required"},
     {"id":"joinquant","adapter":"not-implemented","upstream":"joinquant","access":"credentials-and-plan-required"},
     {"id":"tushare","adapter":"not-implemented","upstream":"tushare","access":"credentials-and-plan-required"},
     {"id":"openbb","adapter":"framework-not-feed","upstream":"provider-dependent","access":"provider-dependent"}
