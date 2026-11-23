@@ -328,6 +328,13 @@ export function renderMarket(route,ctx) {
  if(sub==='auction-review') {
   const code=h('input',{name:'code',inputmode:'numeric',pattern:'[0-9]{6}',placeholder:'六位股票代码',value:ctx.stock||'',required:true});
   const date=h('input',{name:'date',type:'date',value:closeSessionDay(ctx.state||{})||reviewDate(ctx.state?.auction?.date)||''}),output=h('div'),archive=h('div');
+  const logButton=button('读取最近竞价流水',async()=>{
+   if(logButton.disabled)return;
+   logButton.disabled=true;logButton.textContent='正在读取竞价流水…';
+   try{const result=await ctx.api('/api/auction-log?n=80',{signal:ctx.signal});if(!ctx.signal.aborted)output.replaceChildren(renderEvidence(result));}
+   catch(error){if(!ctx.signal.aborted)ctx.notify(error.message,'error');}
+   finally{logButton.disabled=false;logButton.textContent='读取最近竞价流水';}
+  });
   const paintAuction=()=>{
    const state=ctx.state||{},card=state.closeSession?.cards?.auction,items=rowsFrom(card?.items);
    const live=state.auction;
@@ -338,7 +345,7 @@ export function renderMarket(route,ctx) {
     opening?[]:[h('p',{class:'fy-muted'},'正在读取当日竞价流水。')]));
   };
   paintAuction();ctx.onState?.(paintAuction);
-  view.append(section('开盘前发生了什么','竞价原始记录与逐股复盘',archive,h('form',{class:'fy-form',onSubmit:async e=>{e.preventDefault();try{const q=new URLSearchParams({code:code.value,date:date.value});const r=await ctx.api('/api/auction-review?'+q,{signal:ctx.signal});output.replaceChildren(renderEvidence(r));}catch(error){ctx.notify(error.message,'error');}}},h('div',{class:'fy-grid two'},field('股票代码',code),field('交易日',date)),h('button',{type:'submit',class:'fy-button primary'},'读取竞价复盘')),button('读取最近竞价流水',async()=>{try{const r=await ctx.api('/api/auction-log?n=80',{signal:ctx.signal});output.replaceChildren(renderEvidence(r));}catch(error){ctx.notify(error.message,'error');}}),output));
+  view.append(section('开盘前发生了什么','竞价原始记录与逐股复盘',archive,h('form',{class:'fy-form',onSubmit:async e=>{e.preventDefault();try{const q=new URLSearchParams({code:code.value,date:date.value});const r=await ctx.api('/api/auction-review?'+q,{signal:ctx.signal});output.replaceChildren(renderEvidence(r));}catch(error){ctx.notify(error.message,'error');}}},h('div',{class:'fy-grid two'},field('股票代码',code),field('交易日',date)),h('button',{type:'submit',class:'fy-button primary'},'读取竞价复盘')),logButton,output));
   return view;
  }
  const datasetKeys=sub==='sectors'?[['板块强度','sectors'],['涨停题材','ztBySector'],['市场主线','mainline'],['板块联动','extLink']]:sub==='global'?[['全球市场','global'],['外部资金与商品','external'],['外围预选','preselect'],['资金异动','bigMoney']]:sub==='plans'?[['下一交易日计划','nextplan'],['十四条判定','myrules'],['启动前埋伏','pre'],['补涨线索','buzhang']]:[['复盘','review'],['历史学习','learn'],['学习记录','learnHistory'],['宽度与纪律','breadth']];
@@ -355,9 +362,9 @@ export function renderMarket(route,ctx) {
   ctx.onState?.(()=>updateReadout(radar,marketOverviewCards(ctx.state||{})));
   const status=h('small',{class:'fy-muted',role:'status'}),receipt=h('div');
   const details=h('details',{class:'fy-details'},h('summary',{},'查看四大指数原始回执'),status,receipt);
-  let reading=false;
+  let reading=false,lastReceiptAt=-Infinity;
   details.addEventListener('toggle',async()=>{
-   if(!details.open||reading)return;
+   if(!details.open||reading||performance.now()-lastReceiptAt<5000)return;
    reading=true;status.textContent='正在读取指数回执…';
    try{
     const result=await ctx.api('/api/reference-indexes',{signal:ctx.signal});
@@ -369,6 +376,7 @@ export function renderMarket(route,ctx) {
      Number.isFinite(row.previousClose)?h('small',{},'昨收 '+format(row.previousClose)):null,
      h('small',{},'源端 '+dateTime(quoteAt(row)))));
     receipt.replaceChildren(...cards,h('details',{class:'fy-details'},h('summary',{},'查看原始字段'),renderEvidence(result)));
+    if(quotes.length)lastReceiptAt=performance.now();
     status.textContent=[indexProvider(result.source),quotes.length+' 个指数有原始报价',result.asOf?'取回于 '+dateTime(result.asOf):''].filter(Boolean).join(' · ');
    }catch(error){if(!ctx.signal.aborted)status.textContent=error.message;}
    finally{reading=false;}

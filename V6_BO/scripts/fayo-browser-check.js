@@ -358,6 +358,9 @@ const runChecks=async()=>{
    const streamRequest=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/stream');
    await page.goto(origin+'/');
    await page.locator('.fy-header').waitFor({state:'visible'});
+   assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
+   assert.equal(await page.locator('.fy-brand strong').innerText(),'绯曜 FAYO');
+   assert.equal(await page.locator('.fy-brand small').innerText(),'投资研究空间');
    await page.locator('.fy-home-opportunity .fy-home-stock').first().waitFor({state:'visible'});
    const deployment=page.getByRole('link',{name:'部署交接文档',exact:true});
    assert.equal(await deployment.getAttribute('href'),'https://github.com/solviq87-cpu/v6-stock-system/blob/dev/DEPLOYMENT.md');
@@ -630,6 +633,7 @@ const runChecks=async()=>{
    await navigate(page,'opportunities','quant');
    await page.waitForFunction(()=>document.querySelectorAll('.fy-pool-board .fy-stock-card').length===8);
    assert.equal(await page.locator('.fy-main h1').innerText(),'量化发现');
+   assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
    if(width<=700){
     const positions=await page.getByRole('navigation',{name:'常用卡片'}).getByRole('button').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
     assert.ok(positions.length===4&&positions[0]===positions[1]&&positions[2]===positions[3]&&positions[0]<positions[2],'four mobile shortcuts fit into two rows');
