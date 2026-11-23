@@ -140,7 +140,11 @@ function createAuctionDisplay({directory,canPersist=()=>true,clock=Date.now,read
         for(const code of batch)s.attempts.set(code,now+300000);
         Promise.allSettled(batch.map(c=>readPrint(c,day))).then(results=>{
           const rows=results.filter(v=>v.status==='fulfilled'&&v.value).map(v=>v.value);
-          update(s,rows);s.channels.print={status:rows.length?'observed':'no-matched-print',count:rows.length,checkedAt:clock()};
+          const failures=results.filter(v=>v.status==='rejected');
+          const httpStatuses=[...new Set(failures.map(v=>v.reason?.response?.status).filter(n=>Number.isInteger(n)&&n>=400&&n<=599))];
+          const status=failures.length===batch.length?'unavailable':failures.length?'partial':rows.length?'observed':'no-matched-print';
+          update(s,rows);
+          s.channels.print={status,count:rows.length,requested:batch.length,failed:failures.length,httpStatuses,checkedAt:clock()};
         }).finally(()=>{s.printBusy=false;});
       }
     }

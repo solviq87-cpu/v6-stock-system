@@ -89,7 +89,7 @@ function parseRoute() {
 }
 function navigate(view,sub='') {
  const target='#/'+view+(sub?'/'+sub:'');
- if(location.hash===target){if(role)renderRoute();return;}
+ if(location.hash===target)return;
  location.hash=target;
 }
 function findStock(code) {
@@ -130,6 +130,16 @@ function snapshotStatus() {
   snapshot.textContent=(day?'最近交易日 '+dayLabel(day):'正在同步交易日')+' · 新闻与公告继续更新';
  }
 }
+function revealCurrentTab(nav) {
+ if(!nav.clientWidth||nav.scrollWidth<=nav.clientWidth)return;
+ const tab=nav.querySelector('[aria-current]');
+ if(!tab)return;
+ const bounds=nav.getBoundingClientRect(),item=tab.getBoundingClientRect();
+ const left=bounds.left+nav.clientLeft,right=left+nav.clientWidth;
+ // Move this strip only. A tab reached from the dock or a link must not scroll the document.
+ if(item.left<left)nav.scrollLeft+=item.left-left-4;
+ else if(item.right>right)nav.scrollLeft+=item.right-right+4;
+}
 function createFrame() {
  const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'天枢智策 V6'),h('small',{},'AI量化选股 · 多策略 · 多源行情')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
@@ -162,6 +172,12 @@ function createFrame() {
   h('span',{class:'fy-connection-caption'},'你的投资研究空间'),deploymentGuide,connection);
  frame=h('div',{class:'fayo-app fy-reference-shell'},h('a',{class:'fy-skip',href:'#fayo-content'},'跳转到主要内容'),header,businessNav,meta,snapshot,workspaceNav,main,dock);
  root.replaceChildren(frame);
+ let previousWidth=window.innerWidth;
+ window.addEventListener('resize',()=>{
+  if(window.innerWidth===previousWidth)return;
+  previousWidth=window.innerWidth;
+  revealCurrentTab(referenceTop);revealCurrentTab(workspaceNav);
+ },{signal:sessionController.signal});
  drawer=createStockDrawer(context(null));root.append(drawer.element);
  snapshotStatus();
 }
@@ -189,10 +205,19 @@ async function renderRoute() {
  const destinations=WORKSPACE_ROUTES[workspace].filter(([, , ,access])=>access!=='edit'||role==='edit');
  const activeLabel=destinations.find(([,view,target])=>view===route.view&&target===sub)?.[0];
  workspaceNav.hidden=destinations.length<2;
- workspaceNav.replaceChildren(...destinations.map(([label,view,target])=>h('button',{type:'button',
-  'data-workspace-route':view+'/'+target,'aria-current':view===route.view&&target===sub?'page':null,
-  onClick:()=>navigate(view,target)},label)));
+ if(workspaceNav.dataset.workspace!==workspace){
+  workspaceNav.dataset.workspace=workspace;
+  workspaceNav.replaceChildren(...destinations.map(([label,view,target])=>h('button',{type:'button',
+   'data-workspace-route':view+'/'+target,onClick:()=>navigate(view,target)},label)));
+ }
+ for(const tab of workspaceNav.children){
+  if(tab.dataset.workspaceRoute===route.view+'/'+sub)tab.setAttribute('aria-current','page');
+  else tab.removeAttribute('aria-current');
+ }
+ revealCurrentTab(frame.querySelector('.fy-reference-topnav'));
+ revealCurrentTab(workspaceNav);
  document.title='天枢智策 V6 · '+(activeLabel||workspace);
+ window.scrollTo({top:0,behavior:'instant'});
  try {
   if(route.view==='pulse'&&(!route.sub||route.sub==='overview'))main.replaceChildren(renderTerminalOverview(ctx));
   else if(route.view==='pulse'&&route.sub==='review')main.replaceChildren(renderReferenceReview(ctx));
@@ -200,7 +225,7 @@ async function renderRoute() {
   else if(route.view==='pulse')main.replaceChildren(renderPulse(route,ctx));
   else if(route.view==='opportunities')main.replaceChildren(renderOpportunities(route,ctx));
   else {
-   main.replaceChildren(h('div',{class:'fy-loading',role:'status','data-pending-route':route.sub.startsWith('shortline-')?'shortline':null},'正在打开工作空间…'));
+   main.replaceChildren(h('div',{class:'fy-loading',role:'status','data-pending-route':route.view+'/'+sub},'正在打开工作空间…'));
    const module=route.view==='lab'?await import('./research.js'):await import('./operations.js');
    if(controller.signal.aborted)return;
    const view=route.view==='lab'?await module.renderResearch(route,ctx):await module.renderOperations(route,ctx);
@@ -209,7 +234,6 @@ async function renderRoute() {
    if(route.view==='lab'){const extra=await import('./research-extensions.js');if(!controller.signal.aborted)extra.appendResearchExtensions(view,route,ctx);}
   }
  }catch(error){if(controller.signal.aborted)return;main.replaceChildren(empty('该工作空间暂时未能打开',error.message),button('重新打开',renderRoute));notify(error.message,'error');}
- window.scrollTo({top:0,behavior:'instant'});
 }
 async function refresh(manual=false,{showSuccess=true}={}) {
  if(!role||(!manual&&document.visibilityState!=='visible'))return;

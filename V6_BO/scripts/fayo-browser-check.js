@@ -88,12 +88,14 @@ function respond(url,req,body){
 
  if(p==='/api/state'||p==='/api/mobile-digest'){
   const result=state();
+  if(phase==='radar-refresh')result.dashboard.counts.risk=7;
   result.goodNews.items[0].related={indirect:[{code:'600102',name:'合成光谱2',via:'合成能源',membershipObservedAt:sourceAt}]};
   if(phase==='close-outage'){result.review=null;result.ztReviewPoolMeta=null;result.ztReviewPool=[];}
   if(phase==='news-refresh')result.goodNews.items.push({title:'合成刷新后的新公告',source:'synthetic-news',publishedAt:'2026-11-15T08:10:00+08:00'});
   if(phase==='system-picks-refresh')result.dashboard.rows=[...result.dashboard.rows,{...stocks[0],code:'600199',name:'合成刷新新增',score:98}];
   return result;
  }
+ if(p==='/api/reference-indexes')return {ok:true,asOf:new Date(sourceAt).toISOString(),source:'合成指数回执',items:{sh:indices[0]}};
  if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,price:11.11,vendorQuoteAt:sourceAt-1000,quoteAt:sourceAt-1000,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
@@ -214,6 +216,28 @@ async function checkWorkspaceTabs(page,width){
  const tabs=page.locator('.fy-reference-topnav');
  const labels=await tabs.locator('[data-workspace-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceTab));
  assert.deepEqual(labels,['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的']);
+ // A deep link has no click that would bring its button into view for us.
+ for(const route of ['lab/shortline-pressure','settings/release']){
+  await page.evaluate(path=>{location.hash='#/'+path;},route);
+  await page.waitForFunction(path=>document.querySelector('.fy-workspace-nav [aria-current]')?.dataset.workspaceRoute===path,route);
+  for(const strip of [tabs,page.locator('.fy-workspace-nav')]){
+   assert.equal(await strip.evaluate(nav=>{
+    const area=nav.getBoundingClientRect(),tab=nav.querySelector('[aria-current]').getBoundingClientRect();
+    return tab.left>=area.left-1&&tab.right<=area.right+1;
+   }),true,width+'px deep link reveals the active tab for '+route);
+  }
+ }
+ const security=page.locator('[data-workspace-route="settings/security"]');
+ await security.focus();await security.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('.fy-workspace-nav [aria-current]')?.dataset.workspaceRoute==='settings/security');
+ assert.ok(await security.evaluate(node=>node===document.activeElement),'switching within a workspace keeps keyboard focus');
+ const home=page.locator('.fy-dock [data-workspace-tab="首页"]');
+ if(await home.isVisible()){
+  await home.click();
+  await page.waitForFunction(()=>document.querySelector('.fy-reference-shell').dataset.workspace==='首页');
+  assert.ok(await tabs.evaluate(nav=>nav.querySelector('[aria-current]').getBoundingClientRect().left>=nav.getBoundingClientRect().left),
+   'using the mobile dock brings the first tab back on screen');
+ }
  const grouped=[];
  for(const label of labels){
   await tabs.locator('[data-workspace-tab="'+label+'"]').click();
@@ -224,6 +248,21 @@ async function checkWorkspaceTabs(page,width){
   assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
   await geometry(page,'workspace-'+label+'-'+width);
   await page.screenshot({path:path.join(output,'workspace-'+label+'-'+width+'.png'),fullPage:false});
+  if(label==='资金流'){
+   const summary=page.getByText('查看四大指数原始回执',{exact:true});
+   const evidence=page.locator('details').filter({has:summary});
+   const count=requests.filter(r=>r.path==='/api/reference-indexes').length;
+   await summary.click();await evidence.locator('.fy-index-receipt-row').getByText('上证指数',{exact:true}).waitFor();
+   assert.match(await evidence.locator('[role="status"]').innerText(),/合成指数回执 · 1 个指数有原始报价 · 取回于/);
+   const risk=page.locator('.fy-overview-risk'),card=await risk.elementHandle();
+   phase='radar-refresh';
+   await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+   await risk.getByText('7 只',{exact:true}).waitFor();
+   assert.ok(await card.evaluate(node=>node.isConnected),'market updates keep the existing radar card');
+   assert.ok(await evidence.evaluate(node=>node.open),'the raw receipt stays open through state refresh');
+   assert.equal(requests.filter(r=>r.path==='/api/reference-indexes').length,count+1,'a state tick reuses the opened receipt');
+   phase='normal';
+  }
   const nav=page.locator('.fy-workspace-nav');
   const routes=await nav.locator('[data-workspace-route]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceRoute));
   assert.equal(new Set(routes).size,routes.length,'each destination appears once within '+label);
@@ -301,7 +340,15 @@ const runChecks=async()=>{
    // not a convenient mid-page viewport that silently misses the key decisions.
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
-   if(width<500){assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');}
+   if(width<500){
+    assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5,'mobile primary destinations share the new five-space model');
+    const cards=await page.locator('.fy-overview-six').first().evaluate(host=>[...host.children].map(node=>{
+     const box=node.getBoundingClientRect();return {y:box.y,width:box.width,overflow:node.scrollWidth-node.clientWidth};
+    }));
+    assert.equal(cards.length,6);
+    assert.ok(cards.slice(0,3).every(card=>card.y===cards[0].y&&card.overflow<=1),'three index quotes fit side by side');
+    assert.ok(cards[5].width>2*cards[0].width&&cards[5].y>cards[4].y,'the risk summary uses its own row');
+   }
    const metrics=await geometry(page,'pulse-'+width);
    // Real DOM checks on both viewport types. A dense, legible terminal wins
    // over simply painting every card purple or adding more glow.
