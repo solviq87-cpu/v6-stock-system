@@ -214,12 +214,14 @@ export function marketOverviewCards(state){
    line.setAttribute('points',values.map((v,i)=>[i*160/(values.length-1),hi===lo?13:24-(v-lo)/(hi-lo)*22].join(',')).join(' '));
    line.setAttribute('fill','none');line.setAttribute('stroke','currentColor');line.setAttribute('stroke-width','2');chart.append(line);
   }
+  const quoteKind=useQuote?(target?'原始报价':Date.now()-at>15000?'最近报价':'盘中报价'):'最近收盘';
+  const provider=useQuote?indexProvider(quoteSource(quote)):series?.source;
   return h('article',{class:'fy-overview-index '+direction(change),'data-index':code},h('h3',{},name),
    h('div',{},h('strong',{},Number.isFinite(price)?format(price):'同步中'),Number.isFinite(change)?h('b',{},percent(change)):null),chart,
-   h('small',{'data-index-quote-at':useQuote?String(at):null},[useQuote?dateTime(at):series?.day,
-    useQuote?(target?'原始报价':Date.now()-at>15000?'最近报价':'盘中报价'):series?'最近收盘':'',
-    useQuote?indexProvider(quoteSource(quote)):series?.source].filter(Boolean).join(' · ')),
-   chart?h('small',{},'走势截至 '+series.day+' · 近 '+bars.length+' 日收盘'):null);
+   useQuote||series?h('small',{class:'fy-index-meta','data-index-quote-at':useQuote?String(at):null},
+    h('time',{datetime:useQuote?new Date(at).toISOString():series.day},useQuote?dateTime(at):series.day),
+    [quoteKind,provider].filter(Boolean).join(' · ')):null,
+   chart?h('small',{},(useQuote&&stamp!==series.day?'截至 '+series.day+' · ':'')+'近 '+bars.length+' 日收盘'):null);
  });
  const native=state.dashboard?.mood,at=native?.scope?.snapAt;
  const nativeDay=Number.isSafeInteger(at)&&at>0&&at<=Date.now()?new Date(at+28800000).toISOString().slice(0,10):null;
@@ -242,7 +244,7 @@ export function marketOverviewCards(state){
   h('article',{},h('h3',{},'市场环境判断'),h('strong',{},(fromLive&&breadthEnvironment)||env||breadthEnvironment||'收盘环境观察'),
    external?.market?.amount!=null?h('small',{},external.market.amountLabel+' '+external.market.amountText+' · 打板客'):null,
    h('small',{},fromLive?'盘中上涨 '+native.upN+' 家 · 同批 '+native.scope.sample+' 只':env?day+' 收盘 · 中证全指 5 / 10 / 20 日均线':wide?'上涨 '+wide.adv+' 家 · 下跌 '+wide.dec+' 家':'正在读取指数趋势')),
-  h('article',{},h('h3',{},'风险提示'),
+  h('article',{class:'fy-overview-risk'},h('h3',{},'风险提示'),
    Number.isInteger(riskCount)?h('p',{},'高风险候选 ',h('b',{},riskCount+' 只')):null,
    Array.isArray(state.abMove?.items)?h('p',{},'异动预警 ',h('b',{},new Set(state.abMove.items.filter(r=>r.code).map(r=>r.code)).size+' 只')):null,
    wide?h('p',{},'全市场跌停 ',h('b',{},wide.downLimit+' 家'),!target?h('small',{},wide.kind==='market-distribution-intraday'?dateTime(wide.quoteAt):wide.day):null):null,
@@ -336,8 +338,22 @@ export function renderMarket(route,ctx) {
  view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),datasets);
  if(sub==='sectors'){
   const radar=h('div',{},marketOverviewCards(ctx.state||{}));
-  ctx.onState?.(()=>{if(!radar.contains(document.activeElement))radar.replaceChildren(marketOverviewCards(ctx.state||{}));});
-  view.append(section('指数雷达','价格、时间、来源与覆盖范围分别核验',button('读取指数证据',async()=>{try{const result=await ctx.api('/api/reference-indexes',{signal:ctx.signal});if(!ctx.signal.aborted)radar.replaceChildren(renderEvidence(result));}catch(error){if(!ctx.signal.aborted)ctx.notify(error.message,'error');}},'primary'),radar));
+  ctx.onState?.(()=>updateReadout(radar,marketOverviewCards(ctx.state||{})));
+  const status=h('small',{class:'fy-muted',role:'status'}),receipt=h('div');
+  const details=h('details',{class:'fy-details'},h('summary',{},'查看四大指数原始回执'),status,receipt);
+  let reading=false;
+  details.addEventListener('toggle',async()=>{
+   if(!details.open||reading)return;
+   reading=true;status.textContent='正在读取指数回执…';
+   try{
+    const result=await ctx.api('/api/reference-indexes',{signal:ctx.signal});
+    if(ctx.signal.aborted)return;
+    receipt.replaceChildren(renderEvidence(result));
+    status.textContent=result.asOf?'取回于 '+dateTime(result.asOf):'';
+   }catch(error){if(!ctx.signal.aborted)status.textContent=error.message;}
+   finally{reading=false;}
+  });
+  view.append(section('指数雷达','',radar,details));
  }
  if(ctx.role==='edit')view.append(section('刷新专项数据','主动重算与普通读取分别操作',h('div',{class:'fy-inline'},[['sectors','板块'],['global','全球'],['auction','竞价'],['pool','候选'],['ext','外围联动'],['yier','一进二'],['lianban','连板']].map(([module,label])=>button(label+'重算',async()=>{try{await ctx.api('/api/refresh',{method:'POST',body:{module}});await ctx.refresh();ctx.notify('专项刷新已提交');}catch(error){ctx.notify(error.message,'error');}})))));
  return view;
