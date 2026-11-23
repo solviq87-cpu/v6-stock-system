@@ -125,7 +125,7 @@ export function nextPlanCards(state,day,ctx) {
    Array.isArray(row.invalid)&&h('p',{},'失效条件：'+row.invalid.join('；')))):empty('同日计划没有候选'),
   note('展示现有模型计划，价位为生成时参考；需结合下一交易日新行情确认，未确认时不执行。'));
 }
-const indexProvider=source=>({'tencent-index':'腾讯指数','sina-index':'新浪指数'})[source]||source;
+const indexProvider=source=>({'tencent-index':'腾讯指数','tencent-qt':'腾讯行情','sina-index':'新浪指数'})[source]||source;
 export function recoveryDisclosure(state){
  const r=state?.marketRecovery;
  const phase=({scheduled:'等待调度',searching:'正在采集',partial:'已取得部分观测',ready:'本轮已完成'})[r?.phase];
@@ -348,8 +348,14 @@ export function renderMarket(route,ctx) {
    try{
     const result=await ctx.api('/api/reference-indexes',{signal:ctx.signal});
     if(ctx.signal.aborted)return;
-    receipt.replaceChildren(renderEvidence(result));
-    status.textContent=result.asOf?'取回于 '+dateTime(result.asOf):'';
+    const quotes=Object.values(result.items||{}).filter(row=>row?.name&&row.price>0&&Number.isFinite(row.price)&&
+     Number.isSafeInteger(quoteAt(row))&&quoteAt(row)>0&&quoteAt(row)<=Date.now()&&row.quoteStatus!=='future');
+    const cards=quotes.map(row=>h('article',{class:'fy-index-receipt-row'},h('strong',{},row.name),
+     h('b',{class:direction(row.changePct)},format(row.price),Number.isFinite(row.changePct)?'　'+percent(row.changePct):''),
+     Number.isFinite(row.previousClose)?h('small',{},'昨收 '+format(row.previousClose)):null,
+     h('small',{},'源端 '+dateTime(quoteAt(row)))));
+    receipt.replaceChildren(...cards,h('details',{class:'fy-details'},h('summary',{},'查看原始字段'),renderEvidence(result)));
+    status.textContent=[indexProvider(result.source),quotes.length+' 个指数有原始报价',result.asOf?'取回于 '+dateTime(result.asOf):''].filter(Boolean).join(' · ');
    }catch(error){if(!ctx.signal.aborted)status.textContent=error.message;}
    finally{reading=false;}
   });
@@ -439,6 +445,8 @@ function auctionOpeningPanel(tape,ctx,{board='all',query=''}={}){
  const rows=((indicative?tape.indicative:tape.items)||[]).filter(r=>r.day===tape.day&&r.quoteAt<=r.knownAt&&r.knownAt<=Date.now()&&
   (board==='all'||(board==='gem'?/^30/:/^(00|60)/).test(r.code))&&(!query||(r.name+' '+r.code).toLowerCase().includes(query)));
  const shown=rows.slice(0,5);
+ const last=tape.channels?.print;
+ const failed=last?.failed>0;
  return h('section',{class:'fy-panel fy-stack','aria-label':'开盘集合竞价观察'},h('h2',{},indicative?'集合竞价指示价':'09:25 集合竞价观察'),
   h('p',{class:'fy-muted'},tape.day+' · '+tape.scope+(shown.length?' · 展示 '+shown.length+' / '+rows.length+' 只':'')),
   shown.length?h('div',{class:'fy-stock-grid'},shown.map(r=>h('article',{class:'fy-stock-card','data-auction-code':r.code},
@@ -447,8 +455,12 @@ function auctionOpeningPanel(tape,ctx,{board='all',query=''}={}){
    indicative?h('p',{},'指示价 '+format(r.price)+' 元'):r.source?h('p',{},'成交 '+format(r.price)+' 元 · '+percent(r.openPct)+' · '+money(r.amountYuan)+'元'):null,
    h('div',{class:'fy-muted'},[r.sealSource,r.source].filter(Boolean).join(' / ')),
    h('small',{class:'fy-muted'},(indicative?'指示报价 ':r.source?'撮合成交 ':'封板 ')+dateTime(r.quoteAt)+' · 回执 '+dateTime(r.knownAt))))):
-   h('p',{class:'fy-muted'},tape.phase==='before-match'?'09:25 撮合后自动显示开盘结果。':query||board!=='all'?'此范围暂无符合条件的竞价记录。':
-     tape.printCount?'已核对 '+tape.printCount+' 只开盘成交，本范围暂未出现封板或高开 2% 的记录。':'正在核对同日逐笔成交与竞价封板回执。'));
+   indicative?h('p',{class:'fy-muted'},'09:25 撮合后自动显示开盘结果。'):
+    query||board!=='all'?h('p',{class:'fy-muted'},'已取得的记录中，此范围暂无匹配。'):
+    tape.printCount?h('p',{class:'fy-muted'},'已核对 '+tape.printCount+' 只开盘成交，本范围暂未出现封板或高开 2% 的记录。'):
+    failed?null:h('p',{class:'fy-muted'},'正在核对同日逐笔成交与竞价封板回执。'),
+  !indicative&&failed?h('p',{class:'fy-muted'},'开盘价量核对 · 本轮 '+last.failed+' / '+last.requested+' 个标的取数失败',
+   last.httpStatuses?.length?'（HTTP '+last.httpStatuses.join('、')+'）':'',' · '+dateTime(last.checkedAt)):null);
 }
 export function renderOpportunities(route,ctx) {
  if(route.sub==='all')return renderAllOpportunities(ctx);

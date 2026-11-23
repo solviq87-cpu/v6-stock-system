@@ -19131,7 +19131,7 @@ async function init() {
 }
 
 // ---------------- HTTP 服务 ----------------
-const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const MIME = { '.json': 'application/json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------------- 实时推送通道（SSE）：大单流入/涨停候选一旦命中立刻推到面板，不等5秒轮询 ----------------
 const SSE = new Set();       // 所有在线页面

@@ -252,7 +252,8 @@ async function checkWorkspaceTabs(page,width){
    const summary=page.getByText('查看四大指数原始回执',{exact:true});
    const evidence=page.locator('details').filter({has:summary});
    const count=requests.filter(r=>r.path==='/api/reference-indexes').length;
-   await summary.click();await evidence.getByText('合成指数回执',{exact:true}).waitFor();
+   await summary.click();await evidence.locator('.fy-index-receipt-row').getByText('上证指数',{exact:true}).waitFor();
+   assert.match(await evidence.locator('[role="status"]').innerText(),/合成指数回执 · 1 个指数有原始报价 · 取回于/);
    const risk=page.locator('.fy-overview-risk'),card=await risk.elementHandle();
    phase='radar-refresh';
    await page.evaluate(()=>window.dispatchEvent(new Event('online')));

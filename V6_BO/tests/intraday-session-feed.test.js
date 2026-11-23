@@ -65,6 +65,25 @@ test('pre-match indicative quotes expire, and never become executed auction volu
  const r=read(input);assert.equal(r.indicative[0].openPct,5);assert.equal(r.indicative[0].amountYuan,undefined);assert.deepEqual(r.items,[]);
  now=tick;const next=read({...input,session:{...session,minute:565}});assert.deepEqual(next.indicative,[]);assert.deepEqual(next.items,[]);
 });
+test('auction receipts distinguish provider failures from completed comparisons and keep known seals',async()=>{
+ let now=readAt,mode='offline';
+ const read=createAuctionDisplay({clock:()=>now,readSeals:async()=>[],readPrint:async symbol=>{
+  if(mode==='offline'||mode==='mixed'&&symbol!==code)throw Object.assign(Error('channel refused'),{response:{status:501}});
+  return mode==='mixed'?openingPrint(code,day,wire,datedMinute(),now):null;
+ }});
+ const members=[{code,name,firstSeal:'09:25:00'},{code:'000002',name:'另一标的',firstSeal:'09:25:00'}];
+ const input={day,session,index:{day,knownAt:readAt,tiers:[{name:'1进2',members}]}};
+ read(input);await flush();
+ let tape=read(input);
+ assert.equal(tape.items.length,2);assert.equal(tape.printCount,0);
+ assert.deepEqual(tape.channels.print,{status:'unavailable',count:0,requested:2,failed:2,httpStatuses:[501],checkedAt:now});
+ now+=300001;mode='mixed';read(input);await flush();tape=read(input);
+ assert.equal(tape.printCount,1);
+ assert.deepEqual(tape.channels.print,{status:'partial',count:1,requested:2,failed:1,httpStatuses:[501],checkedAt:now});
+ now+=300001;mode='empty';read(input);await flush();tape=read(input);
+ assert.equal(tape.channels.print.status,'no-matched-print');assert.equal(tape.channels.print.failed,0);
+ assert.equal(tape.printCount,1);assert.equal(tape.items.length,2);
+});
 test('one closing observation is collected after 15:00 and weekends start no quote jobs',async()=>{
  let now=at('15:00:07'),calls=0;
  const codes=['1.000001','0.399001','0.399006','1.000688'];

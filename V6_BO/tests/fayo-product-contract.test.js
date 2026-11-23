@@ -34,7 +34,9 @@ test('every existing product entry serves the independent FAYO application witho
   assert.doesNotMatch(JSON.stringify(manifest.body),/天枢|v6-reference/i,'new install metadata must not retain the previous brand');
   for(const icon of manifest.body?.icons||[]){
    assert.ok(icon.src.startsWith('/nova/'),'installed app uses the new mark');
-   assert.equal((await service.request(icon.src,'GET',null,'')).status,200,'new brand mark is available');
+   const asset=await service.request(icon.src,'GET',null,'');
+   assert.equal(asset.status,200,'new brand mark is available');
+   assert.equal(asset.headers['content-type'].split(';')[0],icon.type,'the browser can decode the declared image type');
   }
   // An open application document never grants access to account/order state.
   const denied=await service.request('/api/state','GET',null,'invalid-fayo-session');
