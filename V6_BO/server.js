@@ -3807,10 +3807,10 @@ const isTradingTime = () => {
 //   的撮合价是瞬时/指示价，拿它触发止盈止损=在失真价上误成交。模拟盘自动买卖只在连续竞价执行。
 //   ⛔ 不动 isTradingTime()：tick/similar/pre/补涨龙/竞价快照等 11 处要靠它覆盖竞价时段抓数据，
 //     只把模拟盘自动成交这道闸门单独收紧到连续竞价（见 paperBuy / paperCheckAll）。
-const isContinuousTrading = () => {
-  if (!isTradeDay(new Date())) return false;
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
-  return (m >= 9 * 60 + 30 && m <= 11 * 60 + 30) || (m >= 13 * 60 && m <= 14 * 60 + 57);
+const isContinuousTrading = (at = new Date()) => {
+  if (!isTradeDay(at)) return false;
+  const minute = at.getHours() * 60 + at.getMinutes();
+  return (minute >= 570 && minute < 690) || (minute >= 780 && minute < 897);
 };
 // 收盘后（交易日15:00之后）才生成/更新复盘
 const isAfterClose = () => {
@@ -4736,7 +4736,26 @@ function laLogic(c) {
   return `自学依据: ${c.laWhy} → 次日涨≥3% ${c.laP}%（全市场基准${c.laBase}%）`;
 }
 
-async function rebuildPool() {
+const loadSystemPickRules = () => import('./public/nova/system-picks.mjs');
+async function followSystemPicks(picked, poolDay) {
+  if (isReplica() || !isContinuousTrading()) return;
+  const tradeDay = aShareCalendarDate();
+  const {pickReasons, topSystemPicks, systemPickDay} = await loadSystemPickRules();
+  const now = Date.now();
+  const ranked = topSystemPicks(picked.filter(row => systemPickDay(row,poolDay,now)===tradeDay &&
+    !S.news?.badCodes?.has?.(row.code) && pickReasons(row).length));
+  if (!ranked.length) return;
+  // Use committed primary fills as the durable day+symbol marker. A rejected
+  // quote, full account or failed journal commit can be retried next scan.
+  refreshPaperAuthority();
+  const account = PAPER.pool;
+  const filled = new Set(account.trades.filter(t => t.side === '买入' && Number.isSafeInteger(t.t) &&
+    aShareCalendarDate(t.t) === tradeDay && /^系统精选[（(]/.test(t.reason)).map(t => t.code));
+  const pending = ranked.filter(row => !filled.has(row.code) && !account.positions[row.code]);
+  if (pending.length) paperBuy('pool', pending, paperPrices(), c => `系统精选(评分${c.score})`);
+}
+
+async function rebuildPool({follow = false} = {}) {
   if (!S.stocks.length) { setAllStocks(await em.fetchAllStocks()); }
   const all = S.stocks.filter(s =>
     !A.isJunkName(s.name) && !s.name.includes('N') && !s.name.includes('C ') &&
@@ -5187,6 +5206,10 @@ async function rebuildPool() {
   picked = picked.slice(0, POOL_CAP);
   if (beforeCapN > POOL_CAP) console.log(`[pool] 过闸 ${beforeCapN} 只，按最终顺序取前 ${POOL_CAP} 只入池（池上限）`);
   S.candidatePool = picked;
+  if (follow) {
+    try { await followSystemPicks(picked,tradeKey); }
+    catch (error) { console.error('[paper/pool] 精选跟单未完成',error.message); }
+  }
   // ⛔ 陈旧监控接线（2026-10-27 选股体系会话）：精选池此前只登记 STALE_RULE(L3719) 却从不调 staleMark，
   //    导致面板恒显「未产出」(t=0) 掩盖真实产出。rebuildPool 跑完即标记 fresh(有票)/empty(宁缺毋滥空池)，
   //    与 ztPool/sectors 等数组池口径一致（数组池 .time 不挂，line 显示「更新于 」同源行为，非本改引入）。
@@ -5253,7 +5276,7 @@ async function rebuildPool() {
       //    'pool' 在 empcalib 里属 EMP_EARLY（未启动类），标定拿不到档就无法进化。
       for (const c of fresh) logSignal('pool', c.code, c.name, c.price, c.score, learningSignalExtra(c, { score: c.score, paths: c.paths || [] }));
       // 模拟盘A·跟单盘：新进池标的自动买入（paperBuy内部自动排除利空股）
-      paperBuy('pool', fresh, paperPrices(), c => `新进检测池(评分${c.score})`);
+      // Delivery quotas apply to notifications only.
     }
   }
   S.prevPoolCodes = new Set(picked.map(c => c.code));
@@ -11496,6 +11519,7 @@ function marketRecovery(){
   }
   return publicMarketRecovery;
 }
+const readDrawerMinutes=require('./src/research/drawer-minutes').createDrawerMinutes();
 function shortlineReader(){
   if(!shortlineSourceReader){
     const {createShortlineV6Reader}=require('./src/research/shortline-v6-data');
@@ -12103,6 +12127,17 @@ async function auctionResonanceScan(opts = {}) {
 //   北交所：3 日累计 ≥ 40% 为「顶异动」，≥ 32% 为「临近异动」
 const ABMOVE_CACHE_MS = 60 * 1000;
 let _abMoveCache = { ts: 0, data: null, busy: false };
+function notifyAbnormalMoves(result) {
+  if (!feishuSecReady() || isReplica() || !isContinuousTrading() || !result?.items?.length) return;
+  const today = aShareCalendarDate();
+  const eligible = reviewedRows(result.items.filter(row=>row.evidenceDay===today && Number.isFinite(row.gain)));
+  const batch = govTrim(govFilter('abmove', eligible), 3);
+  if (!batch.length) return;
+  const lines = batch.map(row => row.name+'('+row.code+') 近三日上涨 '+row.gain+'%，'+
+    (row.status==='top'?'达到':'接近')+row.threshold+'% 观察阈值');
+  pushAll('异动预警 · '+today+'\n'+lines.join('\n'), false,
+    recommendationSendOptions(batch,{private:true,undo:batch.$undo||[]}));
+}
 function abMoveThreshold(code) {
   const c = String(code || '');
   if (c.startsWith('30') || c.startsWith('68')) return 30;                    // 创业板 / 科创板
@@ -12136,6 +12171,7 @@ async function scanAbnormalMove(opts = {}) {
       items.push({
         code: s.code, name: s.name,
         price: +s.price || 0, pct: +(s.pct || 0),
+        ...reviewSnapshotFields(s), evidenceDay:r1.date,
         gain: +gain.toFixed(2), threshold, nearThr,
         status: gain >= threshold ? 'top' : 'near',
         days: 3,
@@ -14912,6 +14948,7 @@ function paperSnap(key, pmPaper) {
     }),
     // ⛔ du 轮：只给 30 笔却报"对账 N 笔"，用户会以为看到的就是全部。
     //    现在把真实总数与本次下发条数一起交出去，前端才说得清"共 N 笔，此处显示最近 M 笔"。
+    realizedSeries:require('./src/core/paper-realized-series').paperRealizedSeries(acc),
     trades: acc.trades.slice(0, 30), tradesTotal: (acc.trades || []).length, tradesShown: Math.min(30, (acc.trades || []).length),
     // ⛔ 2026-10-08 补（cz 轮）：把"账户 vs 流水"的对账结果一起带出去。
     //    这个数以前只活在两处各自的记忆里，谁也没跟谁对过；现在面板与 API 都能看到，
@@ -17718,7 +17755,7 @@ async function init() {
     compactDeviceRegistry(); // hz 轮：启动时自动清理设备台账垃圾（access.json 不进发布包，只能靠代码自净）
     if (isTradingTime()) await initStep('板块涨停', () => refreshSectorsZT(), 90000);
     if (S.stocks.length || isTradingTime()) {
-      await initStep('精选池', () => rebuildPool(), 300000); // 实测冷启动约 149s，别卡在临界值上
+      await initStep('精选池', () => rebuildPool({follow:true}), 300000); // 实测冷启动约 149s，别卡在临界值上
       await initStep('竞价快照', () => captureAuction(false), 60000);
     }
     await initStep('外围指数', () => refreshGlobal(), 60000);
@@ -17785,7 +17822,7 @@ async function init() {
   // ⛔ 周期写在这行下面、面板那句话由 panelNotes() 产出 —— 别再两处各写一个数字（de 轮）
   setInterval(guard('bigmoney', async () => { if (isTradingTime()) { try { await scanBigMoneyPush(); } catch (e) { console.error('[bigmoney]', e.message); } } }), BIGMONEY_SCAN_MS);
   // jn 轮：涨幅异动扫描，每 2 分钟扫一次（内部 60 秒缓存），结果写入 S.abMove 供面板展示
-  setInterval(guard('abmove', async () => { if (isDataWindow()) { try { S.abMove = await scanAbnormalMove(); } catch (e) { console.error('[abmove]', e && e.message); } } }), 2 * 60 * 1000);
+  setInterval(guard('abmove', async () => { if (isDataWindow()) { try { S.abMove = await scanAbnormalMove(); notifyAbnormalMoves(S.abMove); } catch (e) { console.error('[abmove]', e && e.message); } } }), 2 * 60 * 1000);
   setInterval(guard('ztSentinel', () => ztSentinelTick()), 10 * 1000);   // ly：45s→10s——秒封板从拉到封只有几秒，粗轮询物理上拦不住；10s×差分=封板秒报
   // 相似走势跟随：找跟强势股形态像的票并推送，每10分钟扫一次（同股60分钟去重）
   setInterval(guard('similar', async () => { if (isDataWindow() && isTradingTime() && !inQuietHours()) { try { await scanSimilarPush(); } catch (e) { console.error('[similar]', e.message); } } }), 10 * 60 * 1000);
@@ -17835,7 +17872,7 @@ async function init() {
   // 首屏立刻出一次结果（不等第一个2分钟周期）
   scanBigMoney(true).catch(() => {});
   scanAbnormalMove(true).then(d => { S.abMove = d; }).catch(() => {});
-  setInterval(guard('pool', async () => { if (isDataWindow()) { try { await rebuildPool(); } catch (e) { console.error('[pool]', e.message); } } }), POOL_REBUILD_MS);
+  setInterval(guard('pool', async () => { if (isDataWindow()) { try { await rebuildPool({follow:true}); } catch (e) { console.error('[pool]', e.message); } } }), POOL_REBUILD_MS);
   // ⛔ 2026-10-09 fq 修：用户的「十四条」选股体系以前只在面板点🔄「十四条」时跑（server.js:13791 的手动刷新），
   //    普通运行下 S.myrules 永远是初始空对象 {count:0,items:[]} → 面板卡片恒空（用户投诉「14条卡片一直没票」）。
   //    现在挂成定时任务，且与手动刷新共用 guard('myrules') 这把锁（互斥，不会并发打数据源）。
@@ -21034,6 +21071,10 @@ function handle(req, res, u, body) {
   if (p === '/api/kline' && req.method === 'GET') {
     const code = String(u.searchParams.get('code') || '').replace(/[^0-9A-Za-z]/g, '');
     if (!/^[0-9]{6}$/.test(code)) return json(res, { ok: false, error: '股票代码格式不正确（应为6位数字）' });
+    if (u.searchParams.get('period')==='minute') {
+      return readDrawerMinutes(code,u.searchParams.get('day')).then(result=>json(res,{ok:true,...result,
+        offlineTheme:typeof S.themeMap?.[code]==='string'?S.themeMap[code]:null}));
+    }
     (async () => {
       try {
         if (isReplica()) { try { await pullKlineDownstream(code); } catch (e) {} } // ho 轮：先向线上拉权威日K，再读（拉到即一致，拉不到静默沿用本地）
@@ -21052,6 +21093,7 @@ function handle(req, res, u, body) {
         );
         json(res, {
           ok: true, code, name: stockNameOf(code), ...page,
+          offlineTheme:typeof S.themeMap?.[code]==='string'?S.themeMap[code]:null,
           ma: page.rows.length ? klineMaOf(page.rows) : null,
           dataQuality:require('./src/core/quote-observation-view').klineObservation(
             _klineReadMeta.get(code)?.snapshot||S.klines.get(code),rows,{...(_klineReadMeta.get(code)||{}),now:Date.now()}),

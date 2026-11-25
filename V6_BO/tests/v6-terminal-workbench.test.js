@@ -293,7 +293,7 @@ test('decision panel shows real dated good/bad evidence, watch counts and no aut
  const display=textOf(panel);
  assert.match(display,/逐股决策仪表盘/);
  assert.match(display,/买入研究标签\s*0/);
- assert.match(display,/观望 \/ 待核验\s*1/);
+ assert.match(display,/仅供观察\s*1/);
  assert.match(display,/明确利空公告标题/);
  assert.match(display,/明确利好公告标题/);
  assert.match(display,/原始行情日 2026-11-17/);
@@ -328,4 +328,11 @@ test('homepage dates compact and full sector evidence without dating an undated 
  check({...digest,ztPool:{top:[row]},review:{items:[row]}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
  check({...digest,ztPool:{day:'20261123',top:[{...row,sourceTradeDate:'20261120'}]}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
  check({...digest,snapshotFieldDays:{ztPool:'20261120'}},cards=>assert.doesNotMatch(cards,/已返回标的|源端板块/));
+});
+
+test('closing snapshot preserves the intraday identity of an earlier index quote',async()=>{
+ dom();const {marketOverviewParts}=await import('../public/nova/market.js');
+ const day='2026-11-06',at=Date.parse(day+'T10:15:00+08:00');
+ const parts=marketOverviewParts({closeSession:{day},marketClock:{trading:false},dashboard:{indices:[{code:'1.000001',price:3210,pct:1,quoteAt:at,quoteSource:'fixture'}]}});
+ assert.match(textOf(parts.indices[0]),/盘中/);assert.doesNotMatch(textOf(parts.indices[0]),/收盘/);
 });

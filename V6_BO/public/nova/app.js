@@ -1,3 +1,4 @@
+import {createQuoteTrail} from './stock-timeline.js';
 import {readContext} from './shortline/context.mjs';
 import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.js';
 import {createClient,getSession,saveSession,deviceId,retainMarket,createSnapshotPoller} from './client.js';
@@ -5,21 +6,14 @@ import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS,renderD
 import {renderTerminalOverview,renderReferenceReview} from './terminal-workbench.js';
 
 const root=document.getElementById('fayo-root');
+const quoteTrail=createQuoteTrail();
 const MAIN=[['pulse','脉冲','pulse'],['opportunities','机会','spark'],['lab','实验室','lab'],['assets','资产','assets'],['settings','中枢','settings']];
 /* Two user-supplied reference screens. Labels are navigation only, never trading commands. */
 const REFERENCE_TOP=[
- ['首页','pulse','overview','pulse'],['行情','pulse','market-overview','pulse'],
- ['选股','opportunities','ranked','spark'],['策略','lab','strategies','lab'],
- ['回测','lab','backtest','lab'],['复盘','pulse','review','pulse'],
- ['资讯','inbox','all','bell'],['资金流','pulse','sectors','pulse'],
- ['风控','assets','risk','assets'],['模拟盘','assets','paper','assets'],
- ['我的','assets','holdings','user']
+ ['大盘','pulse','overview','pulse'],['机会','opportunities','ranked','spark'],
+ ['我的票','assets','holdings','user'],['提醒','inbox','all','bell'],['复盘','pulse','review','lab']
 ];
-const REFERENCE_MOBILE=[
- ['首页','pulse','overview','pulse'],['行情','pulse','market-overview','pulse'],
- ['选股','opportunities','ranked','spark'],['复盘','pulse','review','lab'],
- ['我的','assets','holdings','user']
-];
+const REFERENCE_MOBILE=REFERENCE_TOP;
 // User-approved original V6 business navigation. Every entry points to an existing route;
 // the internal five-space model, authentication and all legacy recovery URLs remain intact.
 const BUSINESS_NAV=[
@@ -59,7 +53,19 @@ function workspaceFor(view,sub){
  if(view==='assets'&&sub==='daily-review')return '复盘';
  return workspaceIndex.get(view+'/'+sub)||({pulse:'行情',opportunities:'选股',lab:'策略',assets:'我的',inbox:'资讯',settings:'我的'})[view];
 }
-const mobileLabels={首页:'首页总览',行情:'实时行情',选股:'AI选股',策略:'策略中心',回测:'回测研究',复盘:'涨停复盘',资讯:'新闻资讯',资金流:'板块资金',风控:'风控系统'};
+const mobileLabels={};
+const primaryOf={首页:'大盘',行情:'大盘',资金流:'大盘',选股:'机会',我的:'我的票',模拟盘:'我的票',风控:'我的票',资讯:'提醒',策略:'复盘',回测:'复盘',复盘:'复盘'};
+function secondary(leaf,view,sub){
+ const r=WORKSPACE_ROUTES,lab=['实验室','lab','strategies'];
+ if(['策略','回测'].includes(leaf)||view==='opportunities'&&sub==='scan')return [lab,...r.策略.filter(x=>x[2]!=='strategies'),...r.回测,['全市场评分','opportunities','scan'],['返回复盘','pulse','review']];
+ switch(primaryOf[leaf]){
+  case '大盘':return [['首页总览','pulse','overview'],...r.行情,...r.资金流];
+  case '机会':return [...r.选股.filter(x=>x[2]!=='scan'),lab];
+  case '我的票':return [...r.我的,...r.模拟盘,...r.风控];
+  case '提醒':return [...r.资讯,['飞书通知','settings','channels','edit']];
+  default:return [r.复盘[0],lab,...r.复盘.slice(1)];
+ }
+}
 const ALIASES={
  '/picks.html':['opportunities','quant'],'/auction-picks.html':['opportunities','auction'],
  '/research.html':['lab','desk'],'/model-library.html':['lab','models'],
@@ -93,7 +99,7 @@ function navigate(view,sub='') {
  location.hash=target;
 }
 function findStock(code) {
- const candidates=[...rowsFrom(state?.dashboard?.rows),...rowsFrom(state?.pool),...rowsFrom(state?.trendPool),...[...poolCache.values()].flatMap(value=>rowsFrom(value.items||value))];
+ const candidates=[...rowsFrom(state?.dashboard?.rows),...rowsFrom(state?.pool),...rowsFrom(state?.trendPool),...rowsFrom(state?.ztPool),...rowsFrom(state?.ztReviewPool),...[...poolCache.values()].flatMap(value=>rowsFrom(value.items||value))];
  return candidates.find(row=>row.code===code)||null;
 }
 function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
@@ -113,7 +119,7 @@ function context(signal) {
   get state(){return ['pulse','opportunities'].includes(route.view)?projectClosingWorkspace(state):state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
   get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
   signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
-  readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
+  quoteTrail,readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
   onFastMoves(fn){fastMoveListeners.add(fn);signal?.addEventListener('abort',()=>fastMoveListeners.delete(fn),{once:true});}
  };
 }
@@ -123,12 +129,12 @@ function snapshotStatus() {
  connection.dataset.offline=String(!online);
  connection.title='最近完整状态读取时间。异动卡另有轻量读取时间，报价仍按原始时点判断。';
  const historical=state?.trading===false||state?.isSnapshot===true||state?.dashboard?.isSnapshot===true;
- snapshot.hidden=!state||(!historical&&online);
- if(!online)snapshot.textContent='连接暂时中断 · 当前保留上次成功读取的快照，恢复网络后自动核对。';
- else if(historical){
-  const day=state.closeSession?.day||state.dashboard?.snapshotDay||state.snapshotFieldDays?.dashboard||state.snapshotDay||state.marketRecovery?.referenceDay;
-  snapshot.textContent=(day?'最近交易日 '+dayLabel(day):'正在同步交易日')+' · 新闻与公告继续更新';
- }
+ const tradeDay=reviewDate(historical?(state?.closeSession?.day||state?.dashboard?.snapshotDay||state?.snapshotFieldDays?.dashboard||state?.snapshotDay||state?.marketRecovery?.referenceDay):
+   (state?.marketClock?.day||state?.dashboard?.snapshotDay||state?.snapshotDay));
+ snapshot.hidden=false;
+ snapshot.textContent='数据基准日 · '+(tradeDay||(!lastRead?'加载中…':'源端未提供交易日'))+
+  (!online?' · 连接中断，保留上次快照':historical?' · 最近交易日快照':state?.trading===true?' · 今日盘中':'');
+
 }
 function revealCurrentTab(nav) {
  if(!nav.clientWidth||nav.scrollWidth<=nav.clientWidth)return;
@@ -141,6 +147,7 @@ function revealCurrentTab(nav) {
  else if(item.right>right)nav.scrollLeft+=item.right-right+4;
 }
 function createFrame() {
+ quoteTrail.clear();
  const brand=h('a',{class:'fy-brand',href:'#/pulse/overview','aria-label':'绯曜 FAYO 首页'},h('img',{src:'/nova/mark.svg',width:'40',height:'40',alt:''}),h('span',{},h('strong',{},'绯曜 FAYO'),h('small',{},'投资研究空间')));
  const nav=h('nav',{class:'fy-nav','aria-label':'主要工作空间'}),dock=h('nav',{class:'fy-dock','aria-label':'手机主要工作空间'});
  for(const[view,label,key]of MAIN){
@@ -150,7 +157,7 @@ function createFrame() {
  for(const [label,view,sub,key] of REFERENCE_MOBILE){
   dock.append(h('button',{type:'button','data-fy-route':view,'data-fy-sub':sub,'data-workspace-tab':label,onClick:()=>navigate(view,sub)},icon(key),h('span',{},label)));
  }
- const referenceTop=h('nav',{class:'fy-reference-topnav','aria-label':'参考图主功能导航'},
+ const referenceTop=h('nav',{class:'fy-reference-topnav','aria-label':'主要导航'},
   REFERENCE_TOP.map(([label,view,sub,key])=>h('button',{type:'button','data-reference-view':view,'data-reference-sub':sub,'data-workspace-tab':label,onClick:()=>navigate(view,sub)},icon(key),
    h('span',{class:'fy-desktop-tab-label'},label),h('span',{class:'fy-mobile-tab-label'},mobileLabels[label]||label))));
  connection=h('span',{class:'fy-status','aria-live':'polite'});
@@ -197,15 +204,16 @@ async function renderRoute() {
   if(active)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');
  });
  frame.querySelectorAll('[data-workspace-tab]').forEach(node=>{
-  const active=node.dataset.workspaceTab===workspace;
+  const active=node.dataset.workspaceTab===(route.view==='opportunities'&&sub==='scan'?'复盘':primaryOf[workspace]);
   node.dataset.current=String(active);
   if(active)node.setAttribute('aria-current','true');
   else node.removeAttribute('aria-current');
  });
- const destinations=WORKSPACE_ROUTES[workspace].filter(([, , ,access])=>access!=='edit'||role==='edit');
+ const destinations=secondary(workspace,route.view,sub).filter(([, , ,access])=>access!=='edit'||role==='edit');
  workspaceNav.hidden=destinations.length<2;
- if(workspaceNav.dataset.workspace!==workspace){
-  workspaceNav.dataset.workspace=workspace;
+ const navKey=destinations.map(x=>x[1]+'/'+x[2]).join('|');
+ if(workspaceNav.dataset.workspace!==navKey){
+  workspaceNav.dataset.workspace=navKey;
   workspaceNav.replaceChildren(...destinations.map(([label,view,target])=>h('button',{type:'button',
    'data-workspace-route':view+'/'+target,onClick:()=>navigate(view,target)},label)));
  }
@@ -242,7 +250,9 @@ async function refresh(manual=false,{showSuccess=true}={}) {
  try {
   const incoming=await api('/api/state',{signal:controller?.signal});
   if(!role||controller?.signal.aborted)return;
-  state=retainMarket(state,incoming);lastRead=Date.now();online=true;snapshotStatus();
+  state=retainMarket(state,incoming);
+  for(const row of [...rowsFrom(incoming.dashboard?.rows),...rowsFrom(incoming.pool),...rowsFrom(incoming.ztPool)])quoteTrail.add(row);
+  lastRead=Date.now();online=true;snapshotStatus();
   if(!main?.firstElementChild||main.firstElementChild.matches('.fy-loading:not([data-pending-route])'))await renderRoute();
   for(const listener of [...listeners])try{listener(state,{manual});}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.({manual});
@@ -269,7 +279,7 @@ async function refreshAutomatically() {
  }finally{fastBusy=false;}
 }
 function logout(message='') {
- gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;quoteTrail.clear();poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
  gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;if(!state)await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);

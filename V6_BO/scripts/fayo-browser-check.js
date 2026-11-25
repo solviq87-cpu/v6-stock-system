@@ -99,6 +99,11 @@ function respond(url,req,body){
  if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,price:11.11,vendorQuoteAt:sourceAt-1000,quoteAt:sourceAt-1000,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
+  if(url.searchParams.get('period')==='minute'){
+   const code=url.searchParams.get('code'),day=url.searchParams.get('day');
+   return {code,day,status:'observed',offlineTheme:'隔离测试题材',minuteBars:['09:31','09:32'].map((m,i)=>({
+    code,role:'stock',date:day+' '+m,close:12+i/10,knownAt:sourceAt,source:'合成分钟来源',period:'1m'}))};
+  }
   const end=url.searchParams.get('end'),limit=Math.min(240,Math.max(1,Number(url.searchParams.get('n')||120)));
   const rows=candles.filter(row=>!end||row.date<end).slice(-limit);
   return {ok:true,code:url.searchParams.get('code'),rows,asOf:'2026-11-13',source:'synthetic-friday-provider',dataQuality:{tradeDate:'2026-11-13',source:'synthetic-friday-provider',freshness:'snapshot-only'}};
@@ -111,7 +116,7 @@ function respond(url,req,body){
   {provider:'eastmoney',status:'eligible-for-comparison',observedPrice:13,observedPreviousClose:12,quoteAt:sourceAt}]};
  if(p==='/api/stock-news-risk')return {ok:true,code:url.searchParams.get('code'),status:'blocked',matches:[{association:'explicit-sector',sectors:['合成能源'],publishedAt:sourceAt,source:'合成快讯'}]};
  if(p==='/api/holdings')return {ok:true,items:[],summary:{capital:100000,totalCost:0,equity:100000},cfg:{stopPct:7,reducePct:4,takePct:15,maxPosPct:30},allTags:[],time:sourceAt};
- if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
+ if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',realizedSeries:[{day:'2026-11-12',value:0},{day:'2026-11-13',value:345.67}],cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
  if(p==='/api/paper/ledger')return {ok:true,paper:{pool:{schemaVersion:1,mode:'authoritative-paper-readonly-projection',accountId:'pool',paperOnly:true,canSubmitOrders:false,canCancelOrders:false,accounting:{initialCash:100000,cash:88888.88,realizedPnl:345.67,positions:[{code:'600101',shares:100,basis:1230}],tradeCount:1,auditStatus:'passed'},events:[{type:'FILL_RECORDED',side:'BUY',code:'600101',shares:100,price:12.3,amount:1230,fee:5,t:sourceAt,tradeDate:'2026-11-13',timeQuality:'known'}]},pre:{accountId:'pre',accounting:{initialCash:50000,cash:50000,realizedPnl:0,positions:[],tradeCount:0,auditStatus:'passed'},events:[]}}};
  if(p==='/api/push-log')return {ok:true,items:[]};
  if(p==='/api/lock/devices'||p==='/api/devices')return {ok:true,items:[],devices:[],online:[]};
@@ -263,7 +268,7 @@ async function geometry(page,label){
 async function checkWorkspaceTabs(page,width){
  const tabs=page.locator('.fy-reference-topnav');
  const labels=await tabs.locator('[data-workspace-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.workspaceTab));
- assert.deepEqual(labels,['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的']);
+ assert.deepEqual(labels,['大盘','机会','我的票','提醒','复盘']);
  // A deep link has no click that would bring its button into view for us.
  for(const route of ['lab/shortline-pressure','settings/release']){
   await page.evaluate(path=>{location.hash='#/'+path;},route);
@@ -279,7 +284,7 @@ async function checkWorkspaceTabs(page,width){
  await security.focus();await security.press('Enter');
  await page.waitForFunction(()=>document.querySelector('.fy-workspace-nav [aria-current]')?.dataset.workspaceRoute==='settings/security');
  assert.ok(await security.evaluate(node=>node===document.activeElement),'switching within a workspace keeps keyboard focus');
- const home=page.locator('.fy-dock [data-workspace-tab="首页"]');
+ const home=page.locator('.fy-dock [data-workspace-tab="大盘"]');
  if(await home.isVisible()){
   await home.click();
   await page.waitForFunction(()=>document.querySelector('.fy-reference-shell').dataset.workspace==='首页');
@@ -287,16 +292,20 @@ async function checkWorkspaceTabs(page,width){
    'using the mobile dock brings the first tab back on screen');
  }
  const grouped=[];
- for(const label of labels){
-  await tabs.locator('[data-workspace-tab="'+label+'"]').click();
-  await page.waitForFunction(value=>document.querySelector('.fy-reference-shell')?.dataset.workspace===value&&
-   !!document.querySelector('.fy-main>:not(.fy-loading)'),label);
+ for(const [label,branch] of [...labels.map(label=>[label,null]),['复盘','lab/strategies'],['大盘','pulse/sectors']]){
+  const openParent=async()=>{
+   await tabs.locator('[data-workspace-tab="'+label+'"]').click();
+   if(branch)await page.locator('[data-workspace-route="'+branch+'"]').click();
+   await page.waitForFunction(value=>document.querySelector('.fy-reference-topnav [aria-current]')?.dataset.workspaceTab===value&&
+    !!document.querySelector('.fy-main>:not(.fy-loading)'),label);
+  };
+  await openParent();
   assert.equal(await tabs.locator('[data-current="true"]').count(),1);
   assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
   assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
   await geometry(page,'workspace-'+label+'-'+width);
   await page.screenshot({path:path.join(output,'workspace-'+label+'-'+width+'.png'),fullPage:false});
-  if(label==='资金流'){
+  if(branch==='pulse/sectors'){
    const summary=page.getByText('查看四大指数原始回执',{exact:true});
    const evidence=page.locator('details').filter({has:summary});
    const count=requests.filter(r=>r.path==='/api/reference-indexes').length;
@@ -316,12 +325,18 @@ async function checkWorkspaceTabs(page,width){
   assert.equal(new Set(routes).size,routes.length,'each destination appears once within '+label);
   if(await nav.isVisible()){
    for(const child of routes){
+    if(!await nav.locator('[data-workspace-route="'+child+'"]').count())await openParent();
     await nav.locator('[data-workspace-route="'+child+'"]').click();
     await page.waitForFunction(value=>location.hash==='#/'+value&&
      document.querySelector('.fy-workspace-nav [aria-current="page"]')?.dataset.workspaceRoute===value&&
      !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
-    assert.equal(await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab'),label);
+    assert.ok(['lab/strategies','settings/channels','opportunities/scan'].includes(child)||await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab')===label);
     assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    if(child==='assets/paper'){
+     await page.getByRole('img',{name:'模拟账户已实现收益曲线'}).waitFor();
+     assert.match(await page.locator('.fy-observed-line figcaption').first().innerText(),/345.67/);
+    }
+    if(child==='inbox/all')await page.getByText(/私密飞书 · 未配置/).waitFor();
     if(child==='lab/strategies'){
      const rules=page.locator('.fy-strategy-workbenches>section').first();
      await rules.getByText('自动采集测试股票',{exact:false}).first().waitFor();
@@ -356,7 +371,7 @@ const runChecks=async()=>{
    await page.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin!==origin){external.push(url.href);return route.abort();}return route.continue();});
    const before=requests.length;
    const streamRequest=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/stream');
-   await page.goto(origin+'/');
+   await page.goto(origin+(width<500?'/m':'/'));
    await page.locator('.fy-header').waitFor({state:'visible'});
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
    assert.equal(await page.locator('.fy-brand strong').innerText(),'绯曜 FAYO');
@@ -396,6 +411,20 @@ const runChecks=async()=>{
    // not a convenient mid-page viewport that silently misses the key decisions.
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
+   assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'home-20261123-2');
+   const featured=page.locator('.fy-home-featured');
+   assert.equal(await featured.locator('button:visible').count(),3);
+   assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
+   assert.match(await featured.innerText(),/系统精选 · 3 只/);
+   await featured.locator('button').nth(2).click();
+   const symbolLens=page.getByRole('dialog',{name:'股票研究面板'});
+   await symbolLens.getByRole('heading',{name:'分时走势'}).waitFor();
+   await symbolLens.getByRole('img',{name:'原始分时价格'}).waitFor();
+   await symbolLens.getByText('所属题材 · 隔离测试题材').waitFor();
+   await symbolLens.locator('.fy-drawer-summary').getByText(/近期公告/).waitFor();
+   assert.match(await symbolLens.locator('.fy-drawer-title').innerText(),/600103/);
+   await page.keyboard.press('Escape');
    if(width<500)assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5);
    const metrics=await geometry(page,'pulse-'+width);
    const regions=await page.locator('.fy-home-layout').evaluate(home=>{
@@ -416,7 +445,7 @@ const runChecks=async()=>{
    assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.risk.bottom);
    if(width>=1000)assert.equal(regions.opportunity.top,regions.risk.top);
    else assert.ok(regions.opportunity.bottom<=regions.risk.top);
-   if(width===402||width===1366)assert.ok(regions.risk.top<page.viewportSize().height-50,'risk is visible on the first screen');
+   if(width===1366)assert.ok(regions.risk.top<page.viewportSize().height-50,'risk is visible alongside all recommendations on desktop');
    const rgb=v=>v.match(/\d+/g).slice(0,3).map(Number);
    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
    assert.ok(rr>rg&&gg>gr,'index quotes retain red-up / green-down semantics');
@@ -428,15 +457,13 @@ const runChecks=async()=>{
      return {position:getComputedStyle(nav).position,left:a.left,right:a.right,width:a.width,
       mainLeft:b.left,navButtons:nav.querySelectorAll('button').length};
     });
-    assert.equal(rail.position,'fixed','desktop must show a proper business left rail');
-    assert.ok(rail.left>=0&&rail.width>=140&&rail.width<=160,'business rail remains readable');
-    assert.ok(rail.mainLeft>=rail.right,'workspace must not overlap navigation rail');
-    assert.ok(rail.navButtons>=11,'all original business destinations remain');
+    assert.equal(rail.width,0,'daily workspace uses five shared destinations');
+    assert.ok(rail.navButtons>=11,'original routes remain in the feature catalog');
    }
    await page.screenshot({path:path.join(output,'fayo-pulse-'+width+'.png'),fullPage:false});
    if(width===390||width===1440){
     const beforePicks=requests.length;
-    await page.getByRole('button',{name:'查看系统精选',exact:true}).click();
+    await page.getByRole('button',{name:'查看全部推荐 →',exact:true}).click();
     await page.getByRole('heading',{name:'系统精选',exact:true}).waitFor();
     const selected=page.locator('[aria-label="系统精选股票"]');
     await selected.locator('[data-code="600101"]').waitFor();
@@ -622,12 +649,12 @@ const runChecks=async()=>{
     await page.setViewportSize({width:402,height:874});
     await moreResearch.click();
     phase='coverage-gap';
-    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-header button[aria-label="刷新云端数据"]').click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('源端覆盖不完整'));
     assert.match(await page.locator('[data-focus="risk"]').innerText(),/37|33/,'source mismatch is never presented as a verified total');
     assert.match(await page.locator('[data-focus="next"]').innerText(),/核对复盘缺口/,'missing upstream members changes the next step to review');
     phase='normal';
-    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-header button[aria-label="刷新云端数据"]').click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('原始报价须逐股核验'));
    }
    await navigate(page,'opportunities','quant');
@@ -827,7 +854,7 @@ const runChecks=async()=>{
   await readPage.goto(origin+'/');await readPage.locator('.fy-header').waitFor({state:'visible'});
   await readPage.locator('.fy-reference-home').waitFor({state:'visible'});
   assert.equal(await readPage.getByRole('link',{name:'部署交接文档',exact:true}).count(),0,'viewer has no editor deployment shortcut');
-  await readPage.locator('.fy-reference-topnav [data-workspace-tab="选股"]').click();
+  await readPage.locator('.fy-reference-topnav [data-workspace-tab="机会"]').click();
   await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/all"]').waitFor({state:'visible'});
   assert.equal(await readPage.locator('.fy-workspace-nav [data-workspace-route="opportunities/wash"]').count(),0);
   await navigate(readPage,'assets','holdings');

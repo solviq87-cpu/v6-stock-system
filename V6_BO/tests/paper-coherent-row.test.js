@@ -81,3 +81,40 @@ test('sell with only a price mark leaves holdings intact and old pre-mutated sel
  const oldStyle={...x.app.legacy(),cash:10994.5,realized:-5.5,positions:{},trades:[{t:now,side:'卖出',code:'600000',price:10,shares:100,amount:1000,fee:5.5,basis:1000,pnl:-5.5}]};
  x.c.PAPER.pool=oldStyle;assert.equal(x.c.savePaper('sync','pool'),false);assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.c.PAPER.pool.cash,10000);assert.equal(x.c.PAPER.pool.realized,0);assert.equal(x.c.PAPER.pool.positions['600000'].shares,100);assert.equal(x.c.PAPER.pool.trades.length,0);assert.equal(x.notices.length,0);
 });
+
+test('scheduled system picks commit once to A with the same three codes as the dashboard; display reads cannot buy',async t=>{
+ const x=harness(t,{stocks:[]}),rules=await import('../public/nova/system-picks.mjs');
+ const {selectResearchPicks}=await import('../public/nova/market.js');
+ const date='2026-11-06',prices=Array.from({length:7},(_,i)=>wire({code:'60000'+i,score:90-i,
+  name:i===0?'*ST排除':'测试股票'+i,paths:['温和连阳'],...(i===1?{buyHeld:true}:i===2?{riskBlocked:true}:{})}));
+ x.c.PAPER_CFG.pool.maxPos=3;x.c.loadSystemPickRules=async()=>rules;
+ x.c.aShareCalendarDate=(at=now)=>serverRequire('./src/core/a-share-calendar').aShareCalendarDate(at);
+ vm.runInContext(section('async function followSystemPicks','async function rebuildPool'),x.c);
+ const expected=['600003','600004','600005'];
+ const display=()=>selectResearchPicks({trading:true,pool:prices,poolDay:date},{now});
+ assert.deepEqual(display().items.map(r=>r.code),expected);
+ const scan=()=>x.c.followSystemPicks(prices,date);
+ x.c.isContinuousTrading=()=>false;x.c.ingestPx(prices);await scan();assert.equal(x.app.read().account.events.length,0);
+ x.c.isContinuousTrading=()=>true;x.c.isReplica=()=>true;await scan();assert.equal(x.app.read().account.events.length,0);
+ x.c.isReplica=()=>false;x.c.S.lastPx.clear();await scan();assert.equal(x.app.read().account.events.length,0,'unusable quotes never consume the daily marker');
+ x.c.ingestPx(prices);await Promise.all([scan(),scan()]);
+ const book=x.app.read();assert.deepEqual(Object.keys(book.account.positions).sort(),expected);
+ assert.equal(book.account.cash,985);assert.equal(book.account.events.length,3);
+ assert.ok(book.account.events.every(e=>/^系统精选\(评分\d+\)$/.test(e.reason)));
+ const freshService=createPaperApplicationService({file:x.file,clock:()=>now,calendar:{isOpen:d=>d===date}});
+ x.c.PAPER.pool=freshService.legacy();
+ await scan();display();assert.equal(x.app.read().revision,book.revision);
+ const before=fs.readFileSync(x.file);
+ x.c.PAPER.pool.positions={};x.c.PAPER.pool.cash=10000;
+ await scan();assert.deepEqual(fs.readFileSync(x.file),before,'durable same-day fills independently prevent repurchase');
+ assert.match(source,/S\.candidatePool = picked;\s*if \(follow\) \{\s*try \{ await followSystemPicks\(picked,tradeKey\)/);
+ assert.match(source,/mod === 'pool'\) tasks.push\(_g\('pool', \(\) => rebuildPool\(\)\)\)/);
+ assert.doesNotMatch(source,/paperBuy\('pool',\s*fresh/);
+});
+
+test('realized curve uses dated ledger fills, including zero and an earlier opening balance',()=>{
+ const {paperRealizedSeries}=serverRequire('./src/core/paper-realized-series');
+ const a='2026-11-04',b='2026-11-05';
+ assert.deepEqual(paperRealizedSeries({realized:50,trades:[{tradeDate:b,side:'卖出',pnl:-5},{tradeDate:a,side:'买入'},{tradeDate:b,side:'卖出',pnl:0}]},now),[{day:a,value:55},{day:b,value:50}]);
+ assert.deepEqual(paperRealizedSeries({realized:4,trades:[{side:'卖出',tradeDate:a,pnl:null}]},now),[]);
+});

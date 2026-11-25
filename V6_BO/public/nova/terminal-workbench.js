@@ -312,7 +312,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
  const ladderPanel=section('龙头梯队','按复盘板次排列',ladderContent,moduleButton('查看接力候选','opportunities','relay-first',ctx));
  const newsPanel=section('新闻因子','',newsContent,
   moduleButton('全部资讯','inbox','all',ctx));
- const accountPanel=section('我的账户','',accountContent,
+ const accountPanel=section('我的账户','',h('span',{class:'fy-tag fy-paper-label'},'模拟盘'),accountContent,
   h('div',{class:'fy-reference-actions'},
    moduleButton('查看持仓','assets','holdings',ctx),moduleButton('模拟盘','assets','paper',ctx)));
  const chartPanel=section('大盘 K 线','',chartContent,
@@ -494,7 +494,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
   const accountValues=[['总权益',paper?.equity],['可用资金',paper?.cash],['持仓市值',paper?.marketValue],['累计盈亏',paper?.totalPnl]];
   const hasPositions=Array.isArray(paper?.positions),hasAccount=hasPositions||accountValues.some(([,value])=>valid(value));
   updateReadout(accountContent,...(hasAccount?[
-   h('small',{class:'fy-muted'},'模拟盘 · 策略跟踪'),
+   h('small',{class:'fy-muted'},'A · 跟单盘'),
    h('dl',{class:'fy-reference-account-values'},accountValues.filter(([,value])=>valid(value)).map(([label,value])=>
     h('div',{},h('dt',{},label),h('dd',{class:label==='累计盈亏'?direction(value):null},format(value)))))
   ]:[h('div',{class:'fy-reference-account-status'},ctx.role==='edit'?'暂无模拟盘估值':'观察者 · 资产已隐藏')]));
@@ -544,7 +544,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
     (digest.truncated?' · 仅统计服务端前200条':'') ),
    h('div',{class:'fy-grid four'},
     decisionStat('买入研究标签',digest.total?number(digest.counts.buy):'—','需同源原时点及真实服务端核验'),
-    decisionStat('观望 / 待核验',digest.total?number(digest.counts.watch):'—','旧报价和普通评分不能升级'),
+    decisionStat('仅供观察',digest.total?number(digest.counts.watch):'—','现有证据只支持观察'),
     decisionStat('卖出研究标签',digest.total?number(digest.counts.sell):'—','服务端声明不等于交易认证')),
    digest.items.length?h('div',{class:'fy-stack'},
     digest.items.map(item=>h('article',{class:'fy-item','data-code':item.code},

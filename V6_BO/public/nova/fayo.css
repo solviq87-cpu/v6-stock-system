@@ -2332,3 +2332,28 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-home-opportunity-detail {margin-top:6px}
  .fy-home-risk>header {flex-wrap:wrap}
 }
+
+/* Desktop and mobile share one set of daily destinations. */
+.fy-reference-shell .fy-business-nav,.fy-reference-shell .fy-nav { display:none }
+.fy-reference-shell[data-terminal-view] .fy-main,.fy-reference-shell[data-terminal-view] .fy-connection-bar,.fy-reference-shell[data-terminal-view] .fy-snapshot { margin-inline:auto }
+.fy-reference-shell .fy-snapshot { position:sticky;top:var(--fy-header-height,54px);z-index:9;background:#10243b;border-color:#375976;font-variant-numeric:tabular-nums }
+.fy-home-featured{display:grid;gap:7px;margin:8px 0 14px}
+.fy-home-section .fy-home-featured button.fy-home-stock{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 9px;align-items:baseline;text-align:left}
+.fy-home-featured .fy-home-pick-why{grid-column:1/-1}
+.fy-home-pick-score{color:#a8d6ff;font-size:13px}
+.fy-reference-shell .fy-home-opportunity>header .fy-button.primary{background:#165cb0;color:white;border:1px solid #6eacfa;border-radius:8px;padding:6px 12px;min-height:35px}
+.fy-home-risk .fy-home-risk-facts,.fy-home-risk .fy-home-portfolio{border:1px solid #36506b;border-radius:9px;padding:9px;margin-top:8px}
+.fy-drawer-summary{display:grid;gap:4px;padding:10px 16px;min-width:0}
+.fy-drawer-summary p,.fy-observed-line{margin:0}
+.fy-observed-line svg{width:100%;max-height:105px;color:#76b8ff}
+.fy-observed-line figcaption{font-size:12px;color:#a4bed7}
+.fy-term{display:inline-flex;position:relative;border:1px solid #728aa6;border-radius:50%;width:18px;height:18px;align-items:center;justify-content:center;font-size:11px;text-decoration:none;cursor:help}
+.fy-term:focus::after,.fy-term:hover::after{content:attr(data-help);position:absolute;top:100%;left:-65px;width:190px;background:#142b45;color:white;border:1px solid #748da8;border-radius:6px;padding:8px;z-index:12}
+@media(max-width:760px){.fy-reference-shell .fy-snapshot{top:calc(env(safe-area-inset-top,0px) + 90px)}}
+
+@media(max-width:760px){
+ .fy-home-section .fy-home-featured button.fy-home-stock{padding:5px 8px;grid-template-columns:auto minmax(0,1fr) auto}
+ .fy-home-featured .fy-home-stock>strong{font-size:16px}
+ .fy-home-featured .fy-home-pick-why{font-size:13px}
+ .fy-home-layout>.fy-terminal-title{display:none}
+}
