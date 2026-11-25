@@ -340,7 +340,10 @@ test('real provenance-shaped archive can produce research IC and bounded candida
   assert.equal(report.quality.components.find(row => row.id === 'realtime').value, null);
   assert.equal(report.feedback.validationBridge.generateAction, 'learn:candidate');
   assert.equal(report.feedback.validationBridge.approvalAction, 'learn:decision');
-  assert.equal(report.feedback.validationBridge.proposalImportSupported, false);
+  assert.equal(report.feedback.validationBridge.proposalImportSupported, true);
+  assert.equal(report.feedback.validationBridge.ready, false);
+  assert.ok(report.feedback.validationBridge.missing.some(reason => reason.includes('36')));
+  assert.match(report.feedback.proposalFingerprint, /^[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(archive), before);
 });
 

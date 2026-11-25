@@ -241,27 +241,35 @@ export function learningSnapshot(state,options={}){
     strategyByTrend:groupedPerformance(rows,strategyList,'strategy',policy),alerts:decayAlerts(rows,performanceFactors,asOf,t=>policyAt(state,t)),
     attribution:attributionCloud(rows)};
 }
-function buildCandidate(state,automatic=false){
-  const all=rowsFor(state,Date.now(),true).map(r=>r.snapshotVerified?{...r,strategies:[r.strategy]}:r);
+function buildCandidate(state,automatic=false,centerProposal=null){
+  const clock=centerProposal?.now??Date.now();
+  const all=rowsFor(state,clock,true).map(r=>r.snapshotVerified?{...r,strategies:[r.strategy]}:r);
   const previous=state.candidates?.at(-1);
   // A tested holdout is never reused for a new parameter-search attempt.
-  const raw=all.filter(r=>!previous?.end || r.date>previous.end);
+  const ranges=centerProposal?.ranges;
+  const allowedTradeIds=centerProposal?new Set(centerProposal.matureTradeIds):null;
+  if(ranges&&previous?.end&&ranges.train.start<=previous.end)throw Error('中心提案包含已经测试过的留出时段，请等待新的独立窗口');
+  const raw=all.filter(r=>(!previous?.end || r.date>previous.end)&&(!ranges||r.date>=ranges.train.start&&r.date<=ranges.test.end&&allowedTradeIds.has(r.id)));
   const days=unique(raw.map(r=>r.date)).sort();
   function unavailable(msg){if(automatic)return null;throw Error(msg);}
   if(days.length<15||raw.length<36)return unavailable('需至少 36 条已成熟的时点样本，覆盖 15 个独立信号日。重复使用过的验证时段已排除。');
-  const a=days[Math.floor(days.length*0.55)], b=days[Math.floor(days.length*0.78)];
+  const a=ranges?.validation.start||days[Math.floor(days.length*0.55)], b=ranges?.test.start||days[Math.floor(days.length*0.78)];
+  if(centerProposal&&(instant(centerProposal.baselineApprovedAt)>=instant(a)||!Number.isFinite(centerProposal.maxTrainingLabelKnownAt)||centerProposal.maxTrainingLabelKnownAt>=instant(a)))
+    throw Error('中心拟合或获批基线晚于首个留出日，不能把后来可知的权重用于该验证窗口');
   const availableBefore=(r,boundary)=>asDate(closedAt(r))<boundary&&(!r.createdAt||localTime(Date.parse(r.createdAt))<boundary);
-  const train=raw.filter(r=>r.date<a&&availableBefore(r,a));
-  const validation=raw.filter(r=>r.date>=a&&r.date<b&&availableBefore(r,b));
-  const test=raw.filter(r=>r.date>=b);
+  const inRange=(r,phase)=>!ranges||r.date>=ranges[phase].start&&r.date<=ranges[phase].end;
+  const train=raw.filter(r=>r.date<a&&inRange(r,'train')&&availableBefore(r,a));
+  const validation=raw.filter(r=>r.date>=a&&r.date<b&&inRange(r,'validation')&&availableBefore(r,b));
+  const test=raw.filter(r=>r.date>=b&&inRange(r,'test'));
   if(train.length<12||validation.length<6||test.length<6)return unavailable('清除跨分界持仓后样本不足，训练 / 时间外 / 样本外至少需要 12 / 6 / 6 条。');
   // The time weighting policy and the fit are frozen before the first holdout.
   const trainCut=new Date(Date.parse(a+'T00:00:00Z')-60000).toISOString().slice(0,16);
   const policy=policyAt(state,trainCut);
   const groups=groupStats(train,factorSet,policy).filter(g=>g.n>=4), baseline=stats(train,policy);
   // Priors shrink sparse factors back toward the training mean.
-  const weights=Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.effectiveN/(g.effectiveN+8))))]));
-  const reviewRefs=(state.notes||[]).filter(n=>n.factor&&Object.hasOwn(weights,n.factor)&&n.tradeId&&n.createdAt&&localTime(Date.parse(n.createdAt))<a&&train.some(r=>r.id===n.tradeId&&factorSet(r).includes(n.factor)));
+  const weights=centerProposal?{...centerProposal.weights}:Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.effectiveN/(g.effectiveN+8))))]));
+  if(centerProposal&&centerProposal.changedFactorIds.some(key=>!groups.some(group=>group.key===key)))throw Error('中心调整因子缺少原训练集中的同名已观察特征，禁止猜测映射');
+  const reviewRefs=centerProposal?[]:(state.notes||[]).filter(n=>n.factor&&Object.hasOwn(weights,n.factor)&&n.tradeId&&n.createdAt&&localTime(Date.parse(n.createdAt))<a&&train.some(r=>r.id===n.tradeId&&factorSet(r).includes(n.factor)));
   // Review hypotheses count only if already recorded and backed by an actual training feature.
   for(const f of unique(reviewRefs.map(n=>n.factor))) {
     const linked=new Set(reviewRefs.filter(n=>n.factor===f).map(n=>n.tradeId));
@@ -286,13 +294,13 @@ function buildCandidate(state,automatic=false){
   let chosen=[];
   for(const [i,origin] of [train,validation,test].entries()){
     chosen=passRows(origin);
-    const evaluation={...policy,asOf:i===0?trainCut:i===1?b:localTime()};
+    const evaluation={...policy,asOf:i===0?trainCut:i===1?b:localTime(clock)};
     const s=stats(chosen,evaluation),base=stats(origin,evaluation),dates=unique(chosen.map(r=>r.date));
     const pass=s.n>=minSupport&&dates.length>=3&&s.expectedReturn>0&&s.expectedReturn>=base.expectedReturn&&(i!==0||Object.values(weights).some(x=>x>0));
     if(!gate(i,pass,'选中 '+s.n+' / '+base.n+' 条，'+dates.length+' 个信号日，均值 '+val(s.expectedReturn,'%')+'，同期基准 '+val(base.expectedReturn,'%')+'。要求至少 6 条、3 日且均值为正并达到基准。'))break;
   }
   if(steps.length===3&&steps.at(-1).status==='通过'){
-    const stressed=stats(chosen.map(r=>({...r,pnl:r.pnl-0.6})),{...policy,asOf:localTime()});
+    const stressed=stats(chosen.map(r=>({...r,pnl:r.pnl-0.6})),{...policy,asOf:localTime(clock)});
     gate(3,stressed.expectedReturn>0,'样本外每次加扣 0.60 个百分点，净均值 '+val(stressed.expectedReturn,'%')+'，须大于零。');
   }
   if(steps.length===4&&steps.at(-1).status==='通过'){
@@ -302,7 +310,30 @@ function buildCandidate(state,automatic=false){
   }
   while(steps.length<stages.length)steps.push({name:stages[steps.length],status:'未运行',evidence:'等待前置环节通过'});
   const candidate={id:id('candidate'),sampleScope:state.scope==='demo'?'demo':'live',decay:policy,createdAt:now(),baseVersion:lastVersion(state)?.number||0,start:days[0],trainEnd:a,validationEnd:b,end:raw.map(r=>asDate(closedAt(r))).sort().at(-1),weights,threshold,strategyThresholds,minSupport,steps,status:steps.every(s=>s.status==='通过')?'待人工审批':'验证未通过',counts:[train.length,validation.length,test.length],sourceIds:[...train,...validation,...test].map(r=>r.id),reviewRefs:reviewRefs.map(n=>n.id)};
+  if(centerProposal)candidate.centerFeedback={proposalFingerprint:centerProposal.proposalFingerprint,sourceFold:centerProposal.sourceFold,
+    dictionaryVersion:centerProposal.dictionaryVersion,baselineFingerprint:centerProposal.baselineFingerprint,
+    trainingFingerprint:centerProposal.trainingFingerprint,inputEvidenceFingerprint:centerProposal.inputEvidenceFingerprint,
+    calendarEvidenceFingerprint:centerProposal.calendarEvidenceFingerprint,
+    ranges:structuredClone(ranges),changedFactorIds:[...centerProposal.changedFactorIds],sameProposedWeights:true};
   state.candidates.push(candidate);return candidate;
+}
+
+// Server-only bridge callers reconstruct this object from the locked archive.
+// No learningAction accepts client weights or this internal proposal argument.
+export function validateCenterCandidate(state,proposal){
+  if(!proposal||state.scope==='demo'||!proposal.weights||!proposal.ranges||!Array.isArray(proposal.matureTradeIds)||
+      !Array.isArray(proposal.changedFactorIds)||!proposal.changedFactorIds.length||
+      !/^[a-f0-9]{64}$/.test(proposal.proposalFingerprint)||proposal.baselineVersion!==lastVersion(state)?.number)
+    throw Error('中心提案的服务端来源或获批基线无效');
+  for(const phase of ['train','validation','test']){
+    const range=proposal.ranges[phase];
+    if(!range||!/^\d{4}-\d{2}-\d{2}$/.test(range.start)||!/^\d{4}-\d{2}-\d{2}$/.test(range.end)||range.start>range.end)
+      throw Error('中心提案的验证时段无效');
+  }
+  if(!(proposal.ranges.train.end<proposal.ranges.validation.start&&proposal.ranges.validation.end<proposal.ranges.test.start)||
+      Object.values(proposal.weights).some(value=>typeof value!=='number'||!Number.isFinite(value)))throw Error('中心提案的权重或隔离窗口无效');
+  for(const key of ['candidates','versions'])state[key]||=[];
+  return buildCandidate(state,false,proposal);
 }
 export function learningAction(state,action,p={}){
   if(!p||typeof p!=='object')throw Error('输入格式无效');

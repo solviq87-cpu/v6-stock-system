@@ -104,47 +104,98 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
     price:committed.price,shares:committed.quantity,msg:'已通过原模拟门禁并核对持久成交；退出仍按原账户止损规则'};
 }
 
-function paperExecutionScore({book,plans=[],day,now=Date.now()}) {
+function paperExecutionScore({book,plans=[],observations=[],day,now=Date.now()}) {
   if (!dateOk(day)) throw Error('执行评分日期无效');
+  const observer=require('./paper-plan-observer');
+  const {fillEvidenceOf}=require('./paper-fill-evidence');
+  if (!Array.isArray(observations)||observations.length>observer.MAX_RECORDS) throw Error('执行评分观察数量无效');
+  const validObservations=[],knownObservations=new Set();
+  for(const record of observations){
+    observer.validateObservation(record,{now});
+    if(record.day===day&&!knownObservations.has(record.fingerprint)){
+      knownObservations.add(record.fingerprint);validObservations.push(record);
+    }
+  }
   const closed = now >= Date.parse(day+'T15:00:00+08:00');
+  const cutoff=Math.min(now,Date.parse(day+'T15:00:00+08:00'));
   const rows=[], index=new Map(plans.filter(p=>{
     try{validatePlan(p,now);return p.intendedDate<=day;}catch{return false;}
   }).map(p=>[p.id,p]));
-  const events=[...(book?.archives||[]),book].filter(Boolean).flatMap(p=>p.account?.events||[]);
-  const seen=new Set();
-  for(const e of events){
-    if(!e.eventId||seen.has(e.eventId))throw Error('成交流水缺少唯一事件编号');
-    seen.add(e.eventId);
-  }
+  const events=observer.ledgerEvents(book);
+  const reference=record=>({id:record.fingerprint,source:record.source,quoteAt:record.quoteAt,
+    receivedAt:record.receivedAt,observedAt:record.observedAt,price:record.price});
   for(const plan of index.values()){
-    const entries=events.filter(e=>e.side==='buy'&&planIdOf(e.reason)===plan.id&&e.symbol===plan.code);
-    const entry=entries[0],at=entry?executionTimeOf(entry):null;
+    const context=observer.planLedgerContext(book,plan,cutoff,events);
+    const {entry}=context,at=entry?executionTimeOf(entry):null;
     if(plan.intendedDate!==day && (!entry||entry.tradeDate>day))continue;
-    // An older position only belongs to this day's review while still held or
-    // if it has a sale on this day. Never attach a later round trip by code.
-    const sells=entry?events.filter(e=>e.side==='sell'&&e.symbol===plan.code&&
-      executionTimeOf(e)>at&&e.tradeDate<=day).sort((a,b)=>executionTimeOf(a)-executionTimeOf(b)):[];
-    const sell=sells[0];
-    if(plan.intendedDate!==day&&sell?.tradeDate<day)continue;
+    if(context.closedAt&&aShareCalendarDate(context.closedAt)<day)continue;
+    const samples=validObservations.filter(r=>r.planId===plan.id).sort((a,b)=>a.observedAt-b.observedAt||a.quoteAt-b.quoteAt);
+    for(const record of samples){
+      observer.validateObservation(record,{now,day,plan});
+      const expectedEntry=entry&&at<=record.observedAt?entry:null;
+      const remaining=expectedEntry?entry.quantity-context.sells.filter(s=>executionTimeOf(s)<=record.observedAt).reduce((n,s)=>n+s.quantity,0):0;
+      if(record.entryEventId!==(expectedEntry?.eventId||null)||record.remainingQuantity!==remaining)
+        throw Error('计划观察与原账户成交批次或剩余数量不一致');
+    }
     const facts=[];
-    if(!entry)facts.push({rule:'按计划买入',status:'资料不足',evidence:'尚无关联的持久买入成交；缺少全天区间触发证据，不能判定漏买'});
-    else if(entries.length!==1||!at||at<Date.parse(plan.frozenAt)||entry.tradeDate!==plan.intendedDate||
+    const begin=Math.max(Date.parse(plan.frozenAt),observer.sessions(day)[0][0]);
+    const end=Math.min(cutoff,observer.sessions(day).at(-1)[1],context.closedAt||Infinity);
+    const coverage=end>begin?observer.observationCoverage(samples,{day,from:begin,to:end,now}):
+      {status:'insufficient',complete:false,samples:0,gapCount:1,gaps:[],scope:observer.SCOPE,note:'有效观察时段尚未开始'};
+    if(!entry){
+      const touches=samples.filter(r=>r.price>=plan.entryMin&&r.price<=plan.entryMax);
+      const window=observer.hasObservedWindow(samples,r=>r.price>=plan.entryMin&&r.price<=plan.entryMax&&r.entry.allowed===true);
+      if(!closed||!coverage.complete)facts.push({rule:'按计划买入',status:'资料不足',evidence:
+        !closed?'待收盘核对冻结计划及采样覆盖':'尚无关联的持久买入成交；采样覆盖不足，不能判定漏买'});
+      else if(window)facts.push({rule:'按计划买入',status:'触发',evidence:'连续两次原始报价进入冻结区间且原模拟买入预检允许；收盘原账本没有关联成交',observations:window.map(reference)});
+      else if(!touches.length)facts.push({rule:'按计划买入',status:'符合',evidence:'冻结后的有效时段采样已覆盖，已观察报价均未进入买入区间；未买入符合计划'});
+      else if(touches.every(r=>r.entry.allowed===false))facts.push({rule:'按计划买入',status:'不适用',evidence:'已观察的区间触发均被原门禁拦截：'+touches.at(-1).entry.reason,observations:[reference(touches.at(-1))]});
+      else facts.push({rule:'按计划买入',status:'资料不足',evidence:'已观察到区间触及，但缺少连续可用窗口或完整原买入预检；不能判定漏买',observations:[reference(touches.at(-1))]});
+    }
+    else if(context.ambiguous||context.entries.length!==1||!at||at<Date.parse(plan.frozenAt)||entry.tradeDate!==plan.intendedDate||
       !finite(entry.price))facts.push({rule:'按计划买入',status:'资料不足',evidence:'成交与事前冻结计划的时点关联未完成核对'});
     else facts.push({rule:'按计划买入',status:entry.price>=plan.entryMin&&entry.price<=plan.entryMax?'符合':'触发',
       evidence:`原账本成交 ${entry.price} 元；冻结区间 ${plan.entryMin}–${plan.entryMax} 元`,eventId:entry.eventId});
     if(!entry)facts.push({rule:'按计划止损',status:'不适用',evidence:'该计划没有买入成交'});
     else if(entry.tradeDate===day)facts.push({rule:'按计划止损',status:'不适用',evidence:'当日开仓受原 A 股 T+1 限制，不要求当日卖出'});
-    else facts.push({rule:'按计划止损',status:'资料不足',evidence:sell?
-      `原账户已于 ${sell.tradeDate} 以 ${sell.price} 元卖出；缺少计划止损触发及可成交窗口证据，不能推断执行及时性`:
-      '仍按原账户 ATR / 移动止损巡检；缺少计划止损触发及可成交窗口证据'});
-    rows.push({planId:plan.id,code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,facts});
+    else {
+      const active=samples.filter(r=>r.entryEventId===entry.eventId&&r.remainingQuantity>0);
+      const touches=active.filter(r=>r.price<=plan.stop);
+      const window=observer.hasObservedWindow(active,r=>r.price<=plan.stop&&r.exit.allowed===true);
+      const closingSells=context.closedAt?context.sells.filter(s=>executionTimeOf(s)<=context.closedAt):[];
+      const firstAvailable=window?.[0]||touches.find(r=>r.exit.allowed===true);
+      // A later repeated quote cannot erase an earlier missed stop window.
+      const timely=firstAvailable&&context.closedAt>=firstAvailable.observedAt&&
+        context.closedAt-firstAvailable.observedAt<=observer.MAX_GAP_MS&&closingSells.filter(s=>executionTimeOf(s)>firstAvailable.observedAt)
+          .reduce((sum,s)=>sum+(fillEvidenceOf(s)?s.quantity:0),0)===firstAvailable.remainingQuantity?firstAvailable:null;
+      const stopFills=context.sells.filter(s=>s.price<=plan.stop&&fillEvidenceOf(s));
+      if(context.ambiguous||!coverage.complete||!closed)facts.push({rule:'按计划止损',status:'资料不足',evidence:
+        context.ambiguous||(!closed?'待收盘核对实际离场和计划观察':'缺少完整采样覆盖或可成交窗口证据，不能判断漏止损；原账户退出规则保持')});
+      else if(timely)facts.push({rule:'按计划止损',status:'符合',evidence:'观察到止损触及及原模拟可用窗口，关联批次在15秒采样窗口内已全部卖出',
+        observations:[reference(timely)],eventIds:closingSells.map(s=>s.eventId)});
+      else if(window)facts.push({rule:'按计划止损',status:'触发',evidence:context.remaining>0?
+        '连续两次止损触及且原模拟约束允许卖出，收盘仍有本计划剩余持仓':
+        '连续两次止损触及且原模拟约束允许卖出，关联批次未在该采样窗口内全部退出',observations:window.map(reference),
+        remainingQuantity:context.remaining,eventIds:context.sells.map(s=>s.eventId)});
+      else if(!touches.length&&!stopFills.length)facts.push({rule:'按计划止损',status:'符合',evidence:'持仓有效时段采样已覆盖，已观察报价均未触及冻结止损位'});
+      else if(!touches.length&&stopFills.length&&context.closedAt&&context.closedAt-executionTimeOf(stopFills[0])<=observer.MAX_GAP_MS)
+        facts.push({rule:'按计划止损',status:'符合',evidence:'原账本保留止损价成交证据并在同一15秒采样窗口清仓；此前已覆盖采样未见更早止损触及',eventIds:closingSells.map(s=>s.eventId)});
+      else if(touches.length&&touches.every(r=>r.exit.allowed===false))facts.push({rule:'按计划止损',status:'不适用',
+        evidence:'已观察的止损触及均被原模拟约束拦截：'+touches.at(-1).exit.reason,observations:[reference(touches.at(-1))]});
+      else facts.push({rule:'按计划止损',status:'资料不足',evidence:'已出现止损价触及或部分卖出，但可用窗口、完整离场或时点证据不足；不推断漏止损',
+        observations:touches.slice(-1).map(reference),eventIds:context.sells.map(s=>s.eventId)});
+    }
+    rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,
+      remainingQuantity:context.remaining,coverage,facts});
   }
   const facts=rows.flatMap(r=>r.facts),assessed=facts.filter(f=>['符合','触发'].includes(f.status));
   const unknown=facts.filter(f=>f.status==='资料不足').length,passed=assessed.filter(f=>f.status==='符合').length;
   return {day,closed,score:closed&&assessed.length&&!unknown?Math.round(passed/assessed.length*100):null,
     assessed:assessed.length,passed,unknown,notApplicable:facts.filter(f=>f.status==='不适用').length,
     status:!closed?'待收盘':!rows.length?'无冻结计划':unknown?'证据待补齐':'已核验',rows,
-    note:'评分只核对事前冻结计划与原账户持久成交；缺失的触发和可成交窗口不计为通过。'};
+    observation:{records:validObservations.length,plans:rows.length,coveredPlans:rows.filter(r=>r.coverage.complete).length,
+      scope:observer.SCOPE,note:'5秒巡检、15秒最大采样间隔；仅核对原模拟约束，不保证真实盘口成交或采样之间走势'},
+    note:'评分核对事前冻结计划、原账户持久成交及独立报价观察；采样缺口不归责漏买或漏止损，原交易规则保持。'};
 }
 
 module.exports={executeDecisionPlan,paperExecutionScore,validatePlan,planFill,planIdOf,decisionPlanPayload,authoritativePlanMatches,bindAuthoritativePlan};

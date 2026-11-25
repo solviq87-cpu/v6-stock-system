@@ -556,6 +556,11 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
       ranges: Object.fromEntries(Object.entries(phaseDays).map(([phase, dates]) => [phase, {start: dates[0], end: dates.at(-1), tradingDays: dates.length, samples: phases[phase].length}])),
       purgeTradingDays: s.purgeTradingDays, raw, orthogonal, orthogonalization: model,
       redundancy: redundancyReport(phases.train, trainingIds, raw.train, config.factors.minCrossSection, config), strata,
+      maxTrainingLabelKnownAt: phases.train.length ? Math.max(...phases.train.map(row => row.labelKnownAt)) : null,
+      calendarEvidenceFingerprint: hash(alignment.calendars),
+      inputEvidenceFingerprint: hash(Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
+        rows.map(row => ({id: row.id, market: row.market, code: row.code, day: row.day, signalAt: row.signalAt,
+          values: row.values, labelKnownAt: row.labelKnownAt, priceEvidence: row.priceEvidence, evidence: row.evidence}))]))),
       trainLabelCutoff: new Date(trainCutoff).toISOString(), validationLabelCutoff: new Date(validationCutoff).toISOString(),
       productionWeightsChanged: false, canTrade: false});
   }
@@ -566,7 +571,7 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
     note: '训练、验证、测试按交易日分层，边界清除 t→t+1 重叠标签；正交化与权重建议只拟合训练集；收益是未扣费标签 IC，既有账本回测及批准门禁仍生效。'};
 }
 
-function feedbackReport(archive, walkforward, gate, now, config) {
+function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
   const plans = new Map((archive?.plans || []).filter(row => real(row) && row.id).map(row => [row.id, row]));
   const trades = [], excluded = [];
   for (const trade of archive?.trades || []) {
@@ -594,7 +599,7 @@ function feedbackReport(archive, walkforward, gate, now, config) {
       evidence: {trainingIC: metric.meanIC, validationIC: validation?.meanIC ?? null, testIC: test?.meanIC ?? null,
         matureRelatedTrades: trades.filter(row => (row.factors || []).includes(id)).length},
       redundancySuppressed: duplicate, approvalRequired: true, productionWeightsChanged: false,
-      nextGate: '原 learn:candidate 验证与 learn:decision 人工批准流程；本报告不写入该流程、不绕过其门禁'});
+      nextGate: '服务端复算同一提案并经过原五项验证，再由 learn:decision 人工批准；读取本报告不写入档案'});
   }
   const reasons = new Map();
   for (const row of gate.rejected) {
@@ -602,20 +607,45 @@ function feedbackReport(archive, walkforward, gate, now, config) {
     if (!reasons.has(row.reason)) reasons.set(row.reason, []);
     reasons.get(row.reason).push(row);
   }
-  const qualityCandidates = [...reasons].map(([reason, evidence]) => ({status: 'pending-validation', type: 'quality-evidence-review',
+  const qualityCandidates = [...reasons].map(([reason, evidence]) => ({status: 'source-evidence-recorded', type: 'quality-evidence-review',
     reason, affectedRecords: evidence.length, evidence: evidence.slice(0, 12), evidenceFingerprint: hash(evidence),
-    proposedScore: null, approvalRequired: true, productionWeightsChanged: false}));
+    proposedScore: quality.score, scoreStatus: quality.status, scoreRole: 'current-evidence-derived-Q', proposedComponents: quality.components.map(row => ({id: row.id,
+      value: row.value, weight: row.weight, evidence: row.evidence})), qualityEvidenceFingerprint: hash(quality.components),
+    appliedToCenterQuality: true, changesOriginalGates: false, approvalRequired: false, productionWeightsChanged: false,
+    note: '附本次原始审计复算的 Q 及各分量：可比较冲突进入一致性，OHLCV 异常进入异常分量，时点违规继续隔离。未知仍为空，不按策略输赢改分或改变固定权重。'}));
+  const baseline = approved ? {number: approved.number, approvedAt: approved.approvedAt, weights: approved.weights,
+    threshold: approved.threshold, strategyThresholds: approved.strategyThresholds, minSupport: approved.minSupport} : null;
+  const compatible = candidates.filter(row => finite(row.baselineWeight) && finite(row.candidateWeight) && row.candidateWeight !== row.baselineWeight);
+  const proposal = latest && compatible.length && baseline ? {schemaVersion: 1, day,
+    dictionaryVersion: archive?.dictionaryVersion || null, catalogFingerprint: hash(installedCatalog),
+    archiveRevision: Number.isSafeInteger(archive?.revision) ? archive.revision : null,
+    baselineVersion: baseline.number, baselineFingerprint: hash(baseline), baselineApprovedAt: baseline.approvedAt,
+    sourceFold: latest.id, ranges: latest.ranges, trainingFingerprint: latest.orthogonalization.trainingFingerprint,
+    maxTrainingLabelKnownAt: latest.maxTrainingLabelKnownAt, inputEvidenceFingerprint: latest.inputEvidenceFingerprint,
+    calendarEvidenceFingerprint: latest.calendarEvidenceFingerprint,
+    matureTradeEvidenceFingerprint: hash(trades.map(row => ({trade: row, frozenPlan: plans.get(row.planId)}))),
+    changes: compatible.map(row => ({factorId: row.factorId, baselineWeight: row.baselineWeight,
+      candidateWeight: row.candidateWeight, multiplier: row.multiplier})), matureTradeIds: trades.map(row => row.id).sort()} : null;
+  const proposalFingerprint = proposal ? hash(proposal) : null;
+  const missing = [!approved && '缺少原已审批权重基线', !latest && '缺少有效后复权 walk-forward 窗口',
+    !compatible.length && '缺少与原获批因子同名且有实际调整的提案', !archive?.dictionaryVersion && '缺少因子词典版本',
+    trades.length < 36 && '需至少 36 条有事前冻结计划的成熟成交'].filter(Boolean);
   const strata = {standard: 0, blackSwan: 0, extreme: 0};
   for (const row of trades) { const key = row.blackSwan === true || row.quality === '黑天鹅' ? 'blackSwan' :
     row.extreme === true || row.repeatable === false || row.quality === '不可复制极端行情' ? 'extreme' : 'standard'; strata[key]++; }
   return {status: candidates.length || qualityCandidates.length ? 'candidates-pending-validation' : trades.length ? 'observed-no-new-candidate' : 'missing-mature-review-evidence',
     matureTrades: trades.length, excludedTrades: excluded, strata, candidates, qualityCandidates,
+    proposal, proposalFingerprint, archiveRevision: Number.isSafeInteger(archive?.revision) ? archive.revision : null,
+    qualityFeedback: {mode: 'verified-source-evidence', score: quality.score, status: quality.status,
+      components: quality.components, evidenceFingerprint: hash(quality.components), affectedRecords: qualityCandidates.reduce((n, row) => n + row.affectedRecords, 0),
+      fixedWeights: {...config.quality.weights}, appliedToCenterQuality: true, strategyProfitChangesQuality: false, changesOriginalGates: false},
     archivedCandidates: (archive?.candidates || []).filter(row => real(row) && row.sampleScope !== 'demo' && instant(row.createdAt) !== null && instant(row.createdAt) <= now)
       .slice(-20).map(row => ({id: row.id, createdAt: row.createdAt, status: row.status, baseVersion: row.baseVersion, counts: row.counts})),
-    validationBridge: {endpoint: '/api/research/shortline', generateAction: 'learn:candidate', automaticAction: 'learn:auto-candidate',
+    validationBridge: {endpoint: '/api/decision-center/feedback', generateAction: 'learn:candidate', importAction: 'learn:center-feedback', automaticAction: 'learn:auto-candidate',
       approvalAction: 'learn:decision', approveDecision: 'approve', requiresCurrentRevision: true, requiresEditorRole: true,
-      proposalImportSupported: false, readReportWrites: false, originalAutomaticLoopChanged: false,
-      note: '原入口按同一档案重新生成并经过五项验证，再由原人工审批入口晋级。中心提案只供审查，原生成器尚无直接导入外部权重协议。'},
+      proposalImportSupported: true, ready: Boolean(proposal) && !missing.length, missing,
+      readReportWrites: false, originalAutomaticLoopChanged: false,
+      note: '只接受日期、档案版本和提案指纹；服务端从同一档案与历史证据复算全部权重，沿用原五项验证、留出期隔离和人工审批。缺少同名获批权重、成熟成交或独立窗口时阻断。'},
     approvalRequired: true, productionWeightsChanged: false, canTrade: false};
 }
 
@@ -729,7 +759,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
     orthogonalization: walkforward.folds.at(-1)?.orthogonalization || {status: 'missing-training-window', parameters: [], suppressed: []},
     redundancy: walkforward.folds.at(-1)?.redundancy || {status: 'missing-training-window', pairs: [], suppressedFactors: []},
     note: '95 战法按原档案条件证据接入；只分析已量化且当时可见的因子，不把未命中或缺项记为零。全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
-  const feedback = feedbackReport(archive, walkforward, backtest, now, config);
+  const feedback = feedbackReport(archive, walkforward, backtest, now, config, quality, day);
   const templates = {status: extracted.catalog.length ? 'observed-catalog' : 'missing-catalog',
     commandEngine: config.templates.engine, supportedQueries: ['近5日主力净流入前5的芯片股', '精选评分前3', '共振分前3'],
     scope: '当前已接收候选池，非全市场排名；只支持已有字段与可追溯历史。',

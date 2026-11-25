@@ -12,7 +12,7 @@ const output=process.env.FAYO_INTELLIGENCE_QA_DIR||(process.env.V6_UI_QA_DIR?pat
 fs.mkdirSync(output,{recursive:true});
 const initialDay='2026-11-25',nextDay='2026-11-26';
 let phase='missing-flows';
-const requests=[],writes=[],projectionChecks=[];
+const requests=[],writes=[],validationSubmissions=[],projectionChecks=[];
 function evidence(){
   const day=phase==='next-day'?nextDay:initialDay,now=Date.parse(day+'T10:00:00+08:00');
   const stocks=[{code:'600000',name:'观测甲',sector:'芯片',price:10,pct:2,mktcap:3000000000},
@@ -36,6 +36,11 @@ function researchPayload(){
   assert.equal(JSON.stringify(archive),before,'research projection is read only');
   assert.equal(result.authority,'fayo-intelligence-research');
   assert.equal(result.quality.score,null);assert.equal(result.templates.groups.length,6);
+  result.historySupply={receipts:0,rows:0,sources:[],missing:['逐日源端原始时刻'],status:'missing-receipts'};
+  // This isolated presentation fixture exercises the new submit control. Real
+  // proposal generation and five-gate writes are covered by worker/HTTP tests.
+  if(phase==='feedback-ready')Object.assign(result.feedback,{proposalFingerprint:'a'.repeat(64),archiveRevision:7,
+    validationBridge:{ready:true,missing:[],note:'隔离界面提案，仅测试请求字段与审批导航'}});
   projectionChecks.push({kind:'research',day,unchanged:true});return {ok:true,result};
 }
 function harness(viewer=false){
@@ -49,7 +54,7 @@ function harness(viewer=false){
   let selected={code:'600000',day:'${initialDay}'};
   const ctx={signal:controller.signal,canEdit:${viewer?'false':'true'},role:'${viewer?'view':'edit'}',
     get decisionSelection(){return selected;},
-    async api(url,options={}){reads.push({url,method:options.method||'GET'});const response=await fetch(url,{method:options.method||'GET',signal:options.signal});return response.json();},
+    async api(url,options={}){reads.push({url,method:options.method||'GET'});const response=await fetch(url,{method:options.method||'GET',signal:options.signal,...(options.body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(options.body)}:{})});return response.json();},
     onDecisionSelection(callback){listeners.add(callback);return()=>listeners.delete(callback);},
     selectStock(code,row){clicks.push({code,row});},navigate(view,sub){navigations.push({view,sub});}};
   const center=createIntelligenceCenter(ctx),radar=createDrawerRadar(ctx,()=>selected);
@@ -61,6 +66,12 @@ function harness(viewer=false){
 function reply(res,status,type,value){res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store'});res.end(value);}
 const server=http.createServer((req,res)=>{
   const u=new URL(req.url,'http://127.0.0.1');requests.push({method:req.method,path:u.pathname,query:u.search});
+  if(req.method==='POST'&&u.pathname==='/api/decision-center/feedback'){
+    let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
+      validationSubmissions.push(JSON.parse(body));
+      reply(res,200,'application/json',JSON.stringify({ok:true,result:{candidateId:'isolated-center-candidate',status:'验证未通过',productionWeightsChanged:false}}));
+    });return;
+  }
   if(req.method!=='GET'){writes.push({method:req.method,path:u.pathname});return reply(res,405,'application/json',JSON.stringify({ok:false}));}
   if(u.pathname==='/favicon.ico')return reply(res,204,'text/plain','');
   if(u.pathname==='/'||u.pathname==='/m')return reply(res,200,'text/html; charset=utf-8',harness(u.searchParams.get('role')==='view'));
@@ -104,6 +115,9 @@ async function run(){
         assert.equal(await page.locator('.fy-flow-sankey svg').count(),0);
         assert.match(await page.locator('.fy-intelligence-charts').innerText(),/板块净额不能证明资金来源与去向/);
         assert.match(await page.locator('.fy-intelligence-research').innerText(),/Q 尚未完整/);
+        assert.equal(await page.getByRole('button',{name:'验证本次反馈提案',exact:true}).isDisabled(),true,'missing research cannot submit a proposal');
+        await page.getByText('后复权历史采集依据',{exact:true}).click();
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/逐日源端原始时刻/);
         for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 六类战法模板','L5 · 复盘反馈'])
           assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:heading,exact:true}).count(),1);
         assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L2 · 六类战法模板'}).locator('..').locator('ul > li').count(),6);
@@ -134,8 +148,20 @@ async function run(){
         assert.ok(reads.every(row=>row.method==='GET'));assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
         await page.screenshot({path:path.join(output,'intelligence-'+viewport.width+'-observed-flows.png'),fullPage:true});
         await page.locator('.fy-intelligence-research').screenshot({path:path.join(output,'research-'+viewport.width+'.png')});
+        phase='feedback-ready';await page.getByRole('button',{name:'刷新中心证据',exact:true}).click();
+        const submit=page.getByRole('button',{name:'验证本次反馈提案',exact:true});
+        await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='验证本次反馈提案'&&!b.disabled));
+        const before=validationSubmissions.length;await submit.click();
+        await page.locator('[data-candidate-id="isolated-center-candidate"]').waitFor();
+        assert.equal(await submit.isDisabled(),true,'the committed reference cannot be resubmitted from the old report');
+        assert.equal(validationSubmissions.length,before+1);
+        assert.deepEqual(validationSubmissions.at(-1),{day:initialDay,revision:7,proposalFingerprint:'a'.repeat(64)},'the browser sends only the server proposal reference');
+        await page.getByRole('button',{name:'查看验证与审批',exact:true}).click();
+        assert.deepEqual(await page.evaluate(()=>intelligenceHarness.navigations.at(-1)),{view:'lab',sub:'shortline-versions'});
+        assert.deepEqual(errors,[]);
         report.views.push({...viewport,lazyReads:2,heatmapAreas:areas,knownRadarAxes:3,missingRadarAxes:6,
-          missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,apiReads:reads.length,overflow,errors});
+          missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,apiReads:reads.length,
+          feedbackReferenceOnly:true,feedbackApprovalRoute:'shortline-versions',overflow,errors});
       }catch(error){
         fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText());
         await page.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});throw error;
@@ -150,9 +176,9 @@ async function run(){
       assert.match(await page.locator('.fy-intelligence-research').innerText(),/原编辑身份权限/);
       report.viewerPrivateReads=0;
     }finally{await context.close();}
-    assert.deepEqual(writes,[]);report.passed=true;report.writes=0;report.projectionChecks=projectionChecks;
+    assert.deepEqual(writes,[]);report.passed=true;report.unexpectedWrites=0;report.fixtureFeedbackSubmissions=validationSubmissions.length;report.projectionChecks=projectionChecks;
     fs.writeFileSync(path.join(output,'intelligence-browser-report.json'),JSON.stringify(report,null,2));
-    process.stdout.write(JSON.stringify({passed:true,output,views:report.views,viewerPrivateReads:0,writes:0},null,2)+'\n');
+    process.stdout.write(JSON.stringify({passed:true,output,views:report.views,viewerPrivateReads:0,unexpectedWrites:0,fixtureFeedbackSubmissions:validationSubmissions.length},null,2)+'\n');
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 }
 run().catch(error=>{process.stderr.write(String(error.stack||error)+'\n');process.exitCode=1;});

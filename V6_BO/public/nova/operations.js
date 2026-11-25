@@ -162,12 +162,20 @@ function paperPlanDraft(ctx,host,onExecuted) {
   }
   ctx.onDecisionSelection?.(paint);paint();return box;
 }
-function executionScorePanel(score,error,ctx){
+function executionScorePanel(score,error,ctx,observer){
   if(!score)return panel('收盘执行评分','与原模拟账户收益同时核对',notice(error||'执行证据尚未返回，保留未知。'));
   return panel('收盘执行评分 · '+score.day,score.note,
     el('div',{class:'fy-metrics'},metric('执行评分',score.score==null?score.status:score.score+' 分'),
       metric('已核验项目',score.assessed),metric('证据待补齐',score.unknown)),
     score.closed===false?notice('收盘后生成评分，盘中结果不作为当日最终成绩。'):null,
+    observer?notice('计划条件记录 '+(observer.recordCount??0)+' 条 · 私密飞书 '+
+      (observer.privateChannel==='configured'?'已配置，送达以原投递流水为准':'未配置')+
+      '，原提醒额度继续生效。按原始报价采样；断线缺口和无法核对的可成交窗口保留未知。'):null,
+    arr(observer?.history?.coverage?.excludedSymbols).length?notice('历史日线来源仅覆盖沪深；以下标的尚未覆盖：'+observer.history.coverage.excludedSymbols.join('、')):null,
+    observer?.lastError?notice(observer.lastError):null,
+    arr(observer?.alerts).length?el('details',{class:'fy-advanced'},el('summary',{},'计划触发与原始时点'),
+      table([['标的',r=>(r.name||r.code)+' '+r.code],['条件',r=>({entry:'买入区间',stop:'止损位',target:'目标价'})[r.kind]||r.kind],
+        ['报价',r=>yuan(r.price)],['原始时点',r=>date(r.quoteAt)],['来源',r=>text(r.source)],['依据',r=>text(r.reason)]],arr(observer.alerts))):null,
     arr(score.rows).length?table([['标的',r=>action((r.name||r.code)+' '+r.code,()=>ctx.selectStock(r.code,{code:r.code,name:r.name,tradeDate:score.day}),'text')],
       ['核验项',r=>r.fact.rule],['结论',r=>r.fact.status],['依据',r=>r.fact.evidence]],arr(score.rows).flatMap(r=>arr(r.facts).map(fact=>({...r,fact})))):
       notice('该日期没有可核对的事前冻结计划，不能据此生成满分。'));
@@ -198,7 +206,7 @@ function paper(ctx,ledger=false) {
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
       card.append(el('h3',{},'已实现收益曲线'),el('small',{},'按成交日累计，单位为元，未计持仓浮盈。'),
         curve.length?priceLine(curve,'模拟账户已实现收益曲线',{timeLabel:p=>p.day}):empty('暂无可核实的成交流水'));
-      if(key==='pool')card.append(executionScorePanel(data.executionScore?.paper?.[key],data.executionScore?.error||data.executionScore?.note,ctx));
+      if(key==='pool')card.append(executionScorePanel(data.executionScore?.paper?.[key],data.executionScore?.error||data.executionScore?.note,ctx,data.executionScore?.observer));
       card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
       card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
       const audit=account.audit||{};card.append(notice(audit.replica?'当前是副本视图，账户以主实例为准。':audit.ok===true?'账户与流水核对通过':audit.incomplete?'对账证据不完整，保留未知。':audit.note||'账户对账状态待核验'));
