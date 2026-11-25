@@ -1,5 +1,11 @@
 # 天枢智策 V6｜统一任务总表
 
+## 当前78项增强任务入口（2026-11-26）
+
+原78项的统一复核附表为 [FAYO_78_TASK_AUDIT_20261126.md](docs/FAYO_78_TASK_AUDIT_20261126.md)，基线为 `dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9`。每项分别记录代码、接线、真实数据、测试、部署和运行；已登记两份完整补充方案，第三份已收部分与第四份新增细则继续按原编号增补。01—66职责有可查证据，67标题有据，68—78保留未知和恢复条件；分母固定78，不能按PR数或测试数给完成率。
+
+本聊天交付独立缺口补丁及集成复核，原第一组仍负责最终合并。活动PR继承、冲突、实际失败和本批修复见 [补充复核记录](docs/FAYO_SUPPLEMENT_REVIEW_20261126.md)，精确本地验证见 [验证摘要](docs/validation/fayo-supplement-20261126/README.md)。下文V6-001—012及现场24项属于历史索引，继续保留，不能当作原78项重新编号。
+
 > 2026-11-15 新授权覆盖双主页冻结：完整正式 UI、Windows/WSL 安全更新与免费私网访问的当前验收入口是 [UI_REDESIGN_ACCEPTANCE.md](UI_REDESIGN_ACCEPTANCE.md)、[ZERO_COST_HOST_DEPLOYMENT.md](ZERO_COST_HOST_DEPLOYMENT.md)、[SAFE_AUTO_UPDATE_OPERATIONS.md](SAFE_AUTO_UPDATE_OPERATIONS.md)。下文是历史任务账，不代表本次生产已上线；真实用户设备、账户迁移与重启恢复仍待现场验收。
 
 **研究恢复与成绩单（2026-11-15北京时间）**：[草稿、导入文件与证据一致性](V6_BO/docs/RESEARCH_RECOVERY_INTEGRITY_20261115.md)：清除/改选文件后旧读取不再复活；偏好重读保留本页修改，冲突显式核对并保留服务端CAS；成绩单固定首次接收的信号，行情窗口滚动不删除已有合格结果。本地全量3779通过/0失败/3可选跳过，最终精确head CI与合并见本分支PR；未发布生产。

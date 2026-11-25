@@ -13,7 +13,6 @@ const section = (src, from, to) => {
   assert.ok(start >= 0 && end > start, 'Missing GitHub event ' + from + ' or ' + to);
   return src.slice(start, end);
 };
-const paths = block => Array.from(block.matchAll(/^      - '([^']+)'$/gm), match => match[1]);
 
 test('every push of a nonarchive V6 code branch invokes full CI', () => {
   const src = workflow('v6-ci.yml');
@@ -32,10 +31,9 @@ test('UI changes on any code branch get a browser check per push', () => {
   const push = section(src, 'push', 'pull_request');
   const pr = section(src, 'pull_request', 'workflow_dispatch');
   assert.match(push, /branches:\s*\['\*\*',\s*'!archive\/\*\*'\]/);
-  assert.deepEqual(paths(push), paths(pr));
-  assert.ok(paths(push).includes('V6_BO/public/**'));
-  assert.ok(paths(push).includes('V6_WEB/workbuddy/**'));
-  assert.ok(paths(push).includes('.github/workflows/v6-ui-browser.yml'));
+  assert.doesNotMatch(push, /^\s+paths(?:-ignore)?:/m, 'A required browser check must run for backend-only pushes too');
+  assert.doesNotMatch(pr, /^\s+paths(?:-ignore)?:/m, 'A required browser check must not leave non-UI PRs pending');
+  assert.match(pr, /branches:\s*\[dev,\s*"fix\/\*\*"\]/);
   assert.match(src, /^  visual-geometry:\s*$/m);
 });
 

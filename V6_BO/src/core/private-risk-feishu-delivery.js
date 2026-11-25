@@ -11,6 +11,9 @@ const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex')
 const chinaDay=now=>new Date(now+8*3600000).toISOString().slice(0,10);
 const HOST='open.feishu.cn';
 const MAX_HISTORY=64,MAX_DAILY_SENDS=12,COOLDOWN_MS=120000;
+// Only opaque per-event hashes are retained. Bound the journal even when all
+// 100 observed holdings have both loss and concentration alerts.
+const MAX_STATE_BYTES=1024*1024;
 
 function prepareRiskSummary(report,{now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0||!report||
@@ -42,14 +45,21 @@ function prepareRiskSummary(report,{now=Date.now()}={}){
  const day=chinaDay(now),codes=alerts.filter(a=>a.severity!=='unknown')
    .map(a=>a.code).sort();
  // Hash private event IDs without persisting or disclosing securities or positions.
- const privateEventIds=alerts.filter(a=>a.severity!=='unknown').map(a=>a.id).sort();
- if(privateEventIds.some(id=>typeof id!=='string'||id.length>128))throw Error('风险事件ID无效');
- const fingerprint=sha({day,counts,codes,privateEventIds});
+ const privateEventIds=alerts.map(a=>a.id);
+ if(privateEventIds.some(id=>typeof id!=='string'||!id.length||id.length>128)||
+   new Set(privateEventIds).size!==privateEventIds.length)throw Error('风险事件ID无效或重复');
+ const events=alerts.filter(a=>a.severity!=='unknown').map(a=>({id:a.id,code:a.code,severity:a.severity}))
+   .sort((a,b)=>a.id.localeCompare(b.id));
+ // Keep severity attached to its object. Independent sorted bags of IDs and
+ // levels collide when A improves while B becomes critical in the same tick.
+ const fingerprint=sha({day,counts,events});
+ const aggregateFingerprint=sha({day,counts,codes,privateEventIds:events.map(a=>a.id).sort()});
+ const criticalEventKeys=events.filter(a=>a.severity==='critical').map(a=>sha(a)).sort();
  const legacyFingerprint=sha({day,counts,codes});
  const message='V6 本机只读风险观察（'+day+'）\n高风险 '+counts.critical+
    ' 条，普通风险 '+counts.warning+' 条，未知/待核验 '+counts.unknown+
    ' 条；观察持仓 '+count+' 只。\n数据来源与报价未经独立认证，消息不代表券商持仓或交易指令。请到自己的本机页面核对。';
- return {day,counts,fingerprint,legacyFingerprint,message,actionable:counts.critical+counts.warning>0,
+ return {day,counts,fingerprint,aggregateFingerprint,legacyFingerprint,criticalEventKeys,message,actionable:counts.critical+counts.warning>0,
    containsPositions:false,canTrade:false,sourceVerified:false};
 }
 function checkUrl(value){
@@ -71,7 +81,7 @@ function checkState(file){
  let stat=null;
  try{stat=fs.lstatSync(file);}
  catch(e){if(e.code!=='ENOENT')throw e;}
- if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>32768))
+ if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>MAX_STATE_BYTES))
   throw Error('去重记录不安全');
  return file;
 }
@@ -80,7 +90,11 @@ function validateEvent(x){
   /^[a-f0-9]{64}$/.test(x.fingerprint||'')&&
   ['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)&&
   Number.isSafeInteger(x.at)&&x.at>0&&Number.isSafeInteger(x.critical)&&
-  x.critical>=0&&x.critical<=100&&(x.legacy===undefined||x.legacy===true);
+  x.critical>=0&&x.critical<=200&&(x.legacy===undefined||x.legacy===true)&&
+  (x.eventIdentityVersion===undefined&&x.criticalEventKeys===undefined||
+   x.eventIdentityVersion===2&&Array.isArray(x.criticalEventKeys)&&
+   x.criticalEventKeys.length===x.critical&&new Set(x.criticalEventKeys).size===x.critical&&
+   x.criticalEventKeys.every(key=>typeof key==='string'&&/^[a-f0-9]{64}$/.test(key)));
 }
 function readState(file){
  if(!fs.existsSync(file))return null;
@@ -110,7 +124,7 @@ function writeState(file,history){
    history.some(x=>!validateEvent(x)))throw Error('风险去重历史无效');
  const base={schemaVersion:2,mode,history};
  const body=JSON.stringify({...base,digest:sha(base)})+'\n';
- if(Buffer.byteLength(body)>32768)throw Error('风险去重记录超限');
+ if(Buffer.byteLength(body)>MAX_STATE_BYTES)throw Error('风险去重记录超限');
  const tmp=file+'.'+process.pid+'.tmp';
  let fd;
  try{
@@ -136,22 +150,30 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
   const prior=readState(file)?.history||[];
   const matching=prior.find(x=>x.day===summary.day&&
-   (x.fingerprint===summary.fingerprint||(x.legacy===true&&x.fingerprint===summary.legacyFingerprint)));
+   (x.fingerprint===summary.fingerprint||
+    x.eventIdentityVersion===undefined&&x.fingerprint===summary.aggregateFingerprint||
+    x.legacy===true&&x.fingerprint===summary.legacyFingerprint));
   if(matching)
    return {status:'deduplicated-'+matching.status,canTrade:false,
-    gatewayAccepted:matching.status==='gateway-accepted',deliveredToDevice:false,
+    gatewayAccepted:matching.eventIdentityVersion===2&&matching.status==='gateway-accepted',deliveredToDevice:false,
+    previousGatewayAccepted:matching.status==='gateway-accepted',
+    legacyIdentityUnverified:matching.eventIdentityVersion===undefined,
     counts:summary.counts};
   const today=prior.filter(x=>x.day===summary.day);
   if(today.length>=MAX_DAILY_SENDS)
    return {status:'daily-limit',canTrade:false,gatewayAccepted:false,
     deliveredToDevice:false,counts:summary.counts};
   const last=today.at(-1);
-  // New critical risk can bypass cooldown, not a repeated digest.
-  if(last&&now-last.at<COOLDOWN_MS&&summary.counts.critical<=last.critical)
+  const knownCritical=new Set(today.flatMap(x=>x.criticalEventKeys||[]));
+  const newCritical=summary.criticalEventKeys.some(key=>!knownCritical.has(key));
+  // Ordinary changes beside a critical event still cool down. A different
+  // critical object must not disappear merely because the total did not rise.
+  if(last&&now-last.at<COOLDOWN_MS&&!newCritical)
    return {status:'cooldown',canTrade:false,gatewayAccepted:false,
     deliveredToDevice:false,counts:summary.counts};
   const record={day:summary.day,fingerprint:summary.fingerprint,
-   status:'pending-unknown',at:now,critical:summary.counts.critical};
+   status:'pending-unknown',at:now,critical:summary.counts.critical,
+   eventIdentityVersion:2,criticalEventKeys:summary.criticalEventKeys};
   // Retain today's complete history. Drop only older days when space is needed.
   const older=prior.filter(x=>x.day!==summary.day).slice(-(MAX_HISTORY-1-today.length));
   const history=[...older,...today,record];

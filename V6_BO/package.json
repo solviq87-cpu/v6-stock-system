@@ -10,7 +10,7 @@
     "research:linkages": "node scripts/run-six-linkages.js",
     "check:tactics": "tsc --noEmit",
     "build:tactics": "tsc",
-    "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js && node scripts/check-fayo.js",
+    "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js && node scripts/check-fayo.js && node scripts/audit-fayo-integration-gates.js",
     "start:legacy": "node server.js",
     "check:strategy": "node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js",
     "smoke:strategy": "node scripts/strategy-smoke.js",

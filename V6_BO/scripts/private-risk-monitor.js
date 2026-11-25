@@ -51,6 +51,7 @@ function createRiskMonitor(config,{run=runOnce,env=process.env}={}){
     throw Error('异常运行状态');
    return {mode:'private-risk-monitor',status,
     gatewayAccepted:r.gatewayAccepted===true,deliveredToDevice:false,
+    legacyIdentityUnverified:r.legacyIdentityUnverified===true,
     canTrade:false,counts:({positions:r.counts?.positions??0,
      warning:r.counts?.warning??0,critical:r.counts?.critical??0,
      unknown:r.counts?.unknown??0})};
