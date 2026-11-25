@@ -73,7 +73,7 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   assert.ok(ready.body.result.dependencies.every(x=>x.ready===false));
   const again=await request(port,'/api/system/readiness',editor);
   assert.deepEqual(again.body.result.components.map(x=>x.lastSuccessAt),ready.body.result.components.map(x=>x.lastSuccessAt));
-  assert.doesNotMatch(JSON.stringify(ready.body),new RegExp(privateDir.replace(/[.*+?^${}()|[\]\\]/g,'\\  assert.equal((await request(port,'/api/research/risk-center?advanced=1',editor,'POST')).status,405);')));
+  assert.doesNotMatch(JSON.stringify(ready.body),new RegExp(privateDir.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
   assert.equal((await request(port,'/api/research/risk-center?advanced=1',editor,'POST')).status,405);
   const read=await request(port,'/api/research/risk-center?advanced=1&root=/tmp/forged&historyRoot=/tmp/forged&portfolioContext=forged',editor);
   assert.equal(read.status,200,JSON.stringify(read.body));assert.match(read.headers['cache-control'],/no-store/);
