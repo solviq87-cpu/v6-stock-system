@@ -12,32 +12,50 @@ const precise=n=>finite(n)&&Number.isSafeInteger(money(n))&&Math.abs(n*100-money
 const digest=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const round=x=>finite(x)?+x.toFixed(8):null;
 const mean=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
-const real=row=>row&&!['test','demo'].includes(row.sampleSet)&&!['test','demo'].includes(row.scope)&&
-  !['test','demo'].includes(row.sampleScope)&&row.synthetic!==true&&row.mock!==true&&row.quality!=='教学样本'&&
-  ![true,1,'true','1','是'].includes(row.testSample)&&![true,1,'true','1','是'].includes(row.isTest)&&
-  !/^合成教学样本/.test(row.name||'')&&!/(?:^|[-_: /])(fixture|simulated|synthetic|mock|demo)(?:$|[-_: /])/i.test(String(row.source||''));
+const real=require('../../public/nova/shortline/numeric-factors').realEvidence;
 const settings={minTrades:5,stressSlippageBps:[0,5,10,20],stressFeeMultipliers:[1,2],maximumIndividualLossPct:20};
+const identity=x=>typeof x==='string'&&x.length>0&&x.length<=500&&x.trim()===x;
+const centPrice=x=>finite(x)&&Number.isSafeInteger(money(x))&&
+  Math.abs(x*100-money(x))<=Number.EPSILON*Math.max(1,Math.abs(x*100))*2;
+
+// Native FIFO allocates rounded remaining cents, so historical fractional-cent
+// prices cannot be reconstructed from an individual closed leg alone. Exact
+// cent prices have no such allocation residual. Keep that evidence distinction
+// instead of rejecting valid native splits or inventing a rounding tolerance.
+function settlementContent(proof,planId){
+  const {accountId,symbol,exitEventId,exitOrderId,exitTimestamp,exitQuantity,exitPrice,tradeDate,
+    exitGrossCents,exitFeeCents,costBasisCents,realizedCents}=proof;
+  return {accountId,symbol,exitEventId,exitOrderId,exitTimestamp,exitQuantity,exitPrice,tradeDate,
+    exitGrossCents,exitFeeCents,costBasisCents,realizedCents,planId,
+    entryFills:proof.entryFills.map(({eventId,orderId,time,price,quantity,grossCents,costCents})=>
+      ({eventId,orderId,time,price,quantity,grossCents,costCents}))};
+}
 
 function verifiedSettlement(trade,plan,now) {
+  if(!trade||typeof trade!=='object')return {reason:'missing-prior-verified-plan'};
   const p=trade.paperSettlement,entry=time(trade.entryTimestamp),exit=time(trade.exitTimestamp),recorded=time(trade.createdAt),frozen=time(plan?.frozenAt);
-  if(!real(trade)||!real(plan)||trade.planVerified!==true||trade.snapshotVerified!==true||!plan||trade.code!==plan.code||
+  if(!real(trade)||!real(plan)||!identity(trade.id)||!identity(plan?.id)||trade.planVerified!==true||trade.snapshotVerified!==true||!plan||trade.code!==plan.code||
       trade.planId!==plan.id||frozen===null||entry===null||frozen>entry)return {reason:'missing-prior-verified-plan'};
   if(exit===null||recorded===null||exit<=entry||recorded<exit||recorded>now)return {reason:'unmatured-or-unrecorded-settlement'};
-  if(!p||p.symbol!==trade.code||p.exitTimestamp!==exit||trade.sourceFingerprint!==digest(p)||
+  if(!p||!['pool','pre'].includes(p.accountId)||!identity(p.exitEventId)||!identity(p.exitOrderId)||
+      p.tradeDate!==day(exit)||p.symbol!==trade.code||p.exitTimestamp!==exit||trade.sourceFingerprint!==digest(p)||
       !Array.isArray(p.entryFills)||!p.entryFills.length||p.entryFills.length>500||
       !Number.isSafeInteger(p.exitQuantity)||p.exitQuantity<=0||!finite(p.exitPrice)||p.exitPrice<=0||
-      !Number.isSafeInteger(p.exitGrossCents)||p.exitGrossCents!==money(p.exitPrice*p.exitQuantity)||
+      !Number.isSafeInteger(p.exitGrossCents)||p.exitGrossCents<=0||p.exitGrossCents!==money(p.exitPrice*p.exitQuantity)||
       !Number.isSafeInteger(p.exitFeeCents)||p.exitFeeCents<0||!Number.isSafeInteger(p.costBasisCents)||p.costBasisCents<=0||
       !Number.isSafeInteger(p.realizedCents))return {reason:'missing-or-inconsistent-original-ledger-proof'};
-  if(p.entryFills.some(leg=>!Number.isSafeInteger(leg.quantity)||leg.quantity<=0||!Number.isSafeInteger(leg.grossCents)||leg.grossCents<=0||
-      !Number.isSafeInteger(leg.costCents)||leg.costCents<leg.grossCents||!time(leg.time)||leg.time>=exit||day(leg.time)>=day(exit))||
+  if(p.entryFills.some(leg=>!leg||!identity(leg.eventId)||!identity(leg.orderId)||!finite(leg.price)||leg.price<=0||
+      !Number.isSafeInteger(leg.quantity)||leg.quantity<=0||!Number.isSafeInteger(leg.grossCents)||leg.grossCents<=0||
+      (centPrice(leg.price)&&leg.grossCents!==money(leg.price*leg.quantity))||
+      !Number.isSafeInteger(leg.costCents)||leg.costCents<leg.grossCents||!Number.isSafeInteger(leg.time)||!time(leg.time)||leg.time>=exit||day(leg.time)>=day(exit))||
+      new Set(p.entryFills.map(row=>row.eventId)).size!==p.entryFills.length||
       Math.min(...p.entryFills.map(row=>row.time))!==entry||
       p.entryFills.reduce((sum,row)=>sum+row.quantity,0)!==p.exitQuantity||
       p.entryFills.reduce((sum,row)=>sum+row.costCents,0)!==p.costBasisCents)
     return {reason:'settlement-quantity-basis-or-t-plus-one-mismatch'};
   const entryGross=p.entryFills.reduce((sum,row)=>sum+row.grossCents,0),cost=p.costBasisCents-entryGross+p.exitFeeCents,
     net=p.exitGrossCents-p.exitFeeCents-p.costBasisCents;
-  if(net!==p.realizedCents||!precise(trade.cost)||money(trade.cost)!==cost||!precise(trade.pnlAmount)||money(trade.pnlAmount)!==net||
+  if(![entryGross,cost,net].every(Number.isSafeInteger)||net!==p.realizedCents||!precise(trade.cost)||money(trade.cost)!==cost||!precise(trade.pnlAmount)||money(trade.pnlAmount)!==net||
       !precise(trade.costBasis)||money(trade.costBasis)!==p.costBasisCents||trade.shares!==p.exitQuantity)
     return {reason:'recorded-cost-or-net-pnl-mismatch'};
   const quality=trade.blackSwan===true||trade.quality==='黑天鹅'?'black-swan':
@@ -46,7 +64,9 @@ function verifiedSettlement(trade,plan,now) {
     entryGrossCents:entryGross,exitGrossCents:p.exitGrossCents,costBasisCents:p.costBasisCents,costCents:cost,netCents:net,
     strategy:plan.strategy||trade.strategy||'unknown',regime:plan.trend||trade.trend||'unknown',
     cycle:plan.frozenSnapshot?.emotion?.stage||trade.frozenLabels?.cycle||trade.frozenLabels?.emotion||'unknown',quality,
-    fingerprint:trade.sourceFingerprint,canTrade:false}};
+    fingerprint:trade.sourceFingerprint,settlementIdentity:digest([p.accountId,p.exitEventId]),
+    settlementContentFingerprint:digest(settlementContent(p,plan.id)),
+    entryPriceEvidence:p.entryFills.every(leg=>centPrice(leg.price))?'exact-cent-price-reconciled':'fifo-allocation-not-replayed',canTrade:false}};
 }
 function settledPnlAttribution(rows,{slippageBps=0,feeMultiplier=1}={}) {
  const sum=fn=>rows.reduce((a,r)=>a+fn(r),0);
@@ -72,7 +92,9 @@ function summary(rows,{slippageBps=0,feeMultiplier=1}={}) {
     attribution:settledPnlAttribution(rows,{slippageBps,feeMultiplier}),
     slippageBps,feeMultiplier,executionBasis:'original-unadjusted-verified-simulation-fills',
     returnBasis:'per-settlement-cost-basis',riskBasis:'cumulative-settled-pnl; no-continuous-equity-series',
-    note:'原账本费用已扣；压力只叠加额外双边滑点及费用。累计结算盈亏回撤不冒充全账户权益最大回撤。'};
+    entryPriceEvidence:{exactCentPriceReconciled:rows.filter(r=>r.entryPriceEvidence==='exact-cent-price-reconciled').length,
+      fifoAllocationNotReplayed:rows.filter(r=>r.entryPriceEvidence==='fifo-allocation-not-replayed').length},
+    note:'原账本费用已扣；压力只叠加额外双边滑点及费用。高精度价格的FIFO拆分缺原批次分摊链，未逐批重放；累计结算盈亏回撤不冒充全账户权益最大回撤。'};
 }
 function stress(rows,config=settings) {
   const scenarios=[];
@@ -88,12 +110,29 @@ function stress(rows,config=settings) {
 }
 function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
   if(!Number.isSafeInteger(now)||now<=0)throw Error('执行验证时钟无效');
-  const plans=new Map((archive?.plans||[]).filter(real).map(row=>[row.id,row])),accepted=[],excluded=[],seen=new Set();
-  for(const trade of archive?.scope==='demo'?[]:archive?.trades||[]) {
-    const result=verifiedSettlement(trade,plans.get(trade.planId),now);
-    if(result.reason){excluded.push({id:trade.id||null,reason:result.reason});continue;}
-    if(seen.has(result.row.fingerprint)){excluded.push({id:trade.id,reason:'duplicate-ledger-settlement'});continue;}
-    seen.add(result.row.fingerprint);accepted.push(result.row);
+  const plans=new Map((archive?.plans||[]).filter(real).map(row=>[row.id,row])),accepted=[],excluded=[],seen=new Set(),attempts=[],events=new Map(),claims=new Map(),verifiedCounts=new Map();
+  for(const trade of real(archive)?archive.trades||[]:[]) {
+    const p=trade?.paperSettlement;
+    if(real(trade)&&p&&['pool','pre'].includes(p.accountId)&&identity(p.exitEventId)){
+      const key=digest([p.accountId,p.exitEventId]);claims.set(key,(claims.get(key)||0)+1);
+    }
+    const result=verifiedSettlement(trade,plans.get(trade?.planId),now);
+    attempts.push({id:trade?.id||null,...result});
+    if(result.reason)continue;
+    const row=result.row;
+    if(!events.has(row.settlementIdentity))events.set(row.settlementIdentity,new Set());
+    events.get(row.settlementIdentity).add(row.settlementContentFingerprint);
+    verifiedCounts.set(row.settlementIdentity,(verifiedCounts.get(row.settlementIdentity)||0)+1);
+  }
+  const seenEvents=new Set();
+  for(const result of attempts){
+    if(result.reason){excluded.push({id:result.id,reason:result.reason});continue;}
+    const row=result.row;
+    if(events.get(row.settlementIdentity).size>1||claims.get(row.settlementIdentity)>verifiedCounts.get(row.settlementIdentity)){
+      excluded.push({id:row.id,reason:'conflicting-ledger-settlement'});continue;
+    }
+    if(seen.has(row.fingerprint)||seenEvents.has(row.settlementIdentity)){excluded.push({id:row.id,reason:'duplicate-ledger-settlement'});continue;}
+    seen.add(row.fingerprint);seenEvents.add(row.settlementIdentity);accepted.push(row);
   }
   const standard=accepted.filter(row=>row.quality==='standard');
   const strata=Object.fromEntries(['standard','black-swan','extreme'].map(key=>[key,summary(accepted.filter(row=>row.quality===key))]));

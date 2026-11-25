@@ -514,7 +514,7 @@ const style='<style>.learn-shell{display:grid;gap:18px}.learn-panel{padding:20px
 const metricsBar=xs=>'<div class="learn-metrics">'+xs.map(([k,v])=>'<div class="panel learn-metric"><small>'+E(k)+'</small><b>'+E(v)+'</b></div>').join('')+'</div>';
 const link=(key,label)=>'<button type="button" class="learn-cell-link" data-learnaction="'+E(key)+'">'+E(label)+'</button>';
 function sampleTable(rows){return table(['成交日期','标的','战法 / 环境','仓位','净收益','纪律触发','样本质量'],rows.map(t=>[E(t.date),link('view:'+t.id,t.name)+'<br><small>'+E(t.code)+'</small>',E(t.strategy)+'<br><small>'+E(t.trend)+'</small>',val(t.position,'%'),'<b style="color:'+(t.pnl>0?'var(--red)':t.pnl<0?'var(--green)':'inherit')+'">'+val(t.pnl,'%')+'</b>',E((t.violations||[]).join('、') || (t.reviewable?'无已证实违规':'待核验')),E((isTestSample(t)?'测试 · ':'')+(t.quality||'未标注'))]));}
-function viewStats(groups){return table(['因子 / 条件','样本数','胜率','亏损概率','盈亏比','平均净收益','已实现回撤'],groups.map(g=>[E(g.key),val(g.n),val(g.winRate,'%'),val(g.lossRate,'%'),val(g.payoff),val(g.expectedReturn,'%'),val(g.maxDrawdown,'%')]));}
+function viewStats(groups){return table(['因子 / 条件','样本数','历史胜率','历史亏损率','盈亏比','平均净收益','已实现回撤'],groups.map(g=>[E(g.key),val(g.n),val(g.winRate,'%'),val(g.lossRate,'%'),val(g.payoff),val(g.expectedReturn,'%'),val(g.maxDrawdown,'%')]));}
 const exportTradeCols=[['sampleSet','样本用途'],['date','入场日'],['name','名称'],['code','股票代码'],['strategy','战法'],['trend','指数趋势'],['entryTime','入场时刻'],['exitTime','退出时刻'],['holdDays','持有自然日'],['position','仓位%'],['pnl','净盈亏%'],['pnlAmount','净盈亏金额'],['factors','因子'],['violations','触发纪律'],['quality','样本质量']];
 function formTradeValues(s,p) {
   const out={...p,overnight:asDate(p.entryTime)!==asDate(p.exitTime)?'是':'否'};

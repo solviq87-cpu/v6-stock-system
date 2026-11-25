@@ -119,7 +119,7 @@ function cloudReport(state,supplement){
   phaseProof:state.marketRecovery?.emotion?.date===day?state.marketRecovery.emotion:null,
   phase:state.marketRecovery?.emotion?.date===day?recoveredMetric(state.marketRecovery,'emotion',day)?.value:null,
   phaseNote:state.marketRecovery?.emotion?.date===day&&recoveredMetric(state.marketRecovery,'emotion',day)?
-    '多日收盘证据 · 置信度 '+state.marketRecovery.emotion.confidence+'%':
+    '多日收盘证据 · 规则判定分 '+state.marketRecovery.emotion.confidence+' / 100（非胜率）':
     extra?.dabanke?.index?.ecology?.length?'打板客同日封板与晋级数据见下方短线池。':'按已核对的交易日展示盘面事实。',
   stats:[
    limitStat,

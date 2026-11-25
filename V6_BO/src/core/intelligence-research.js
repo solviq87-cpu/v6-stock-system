@@ -814,7 +814,7 @@ function templateGroups(catalog, observations) {
 }
 
 function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars = null, quotes = [], frozenObservations = [], historyCoverage = null,
-  calendar = null, marketCalendars = {}, config = defaults} = {}) {
+  calendar = null, marketCalendars = {}, config = defaults, probabilityResearch = null} = {}) {
   checkedConfig(config);
   if (!Number.isSafeInteger(now) || now <= 0 || now >= 8e15 || !dayOk(day) || day > chinaDay(now) || !Array.isArray(quotes) || quotes.length > 200)
     throw Error('中心研究日期、时钟或逐股报价证据无效');
@@ -949,6 +949,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
       missing:evaluated.missing,validationStatus:evaluated.validationStatus,affectsResonance:false});
   }
   const governance = require('./fayo-research-governance').buildGovernance({archive:archive?{...archive,catalog:extracted.catalog}:null,samples:aligned.samples,walkforward,quality,execution:executionValidation,feedback,now});
+  governance.probabilityResearch = probabilityResearch;
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
     adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates, governance,

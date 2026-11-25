@@ -1903,7 +1903,7 @@ const PROB_KIND = {
   pre:   { kind: 'score', label: '埋伏研究排序分', why: '手工条件与形态排序分（20~88），不是封板概率' }
 };
 function probKindOf(type) { const d = PROB_KIND[type]; return d ? d.kind : 'prob'; }
-function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型概率'; }
+function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型事件估计（未独立校准）'; }
 // 实测档的键：概率类与评分类各一套（键结构兼容旧表，评分类另起前缀）
 // ⛔⛔ B1 轮（2026-10-17）：auczt 用【自己的类型键】，不共用族群键。
 //    它的回验目标是【当日封板】（hx 口径例外）、prob 是诚实刻度（ig 起 9/20 两档），
@@ -22959,6 +22959,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
     try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
+      governance:require('./src/core/research-governance-cache').read(),
       state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
       agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
     catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
@@ -23649,6 +23650,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return require('./src/server/research-workspace-job').runWorkspaceJob({action:'intelligence-research',root:shortlineResearchDir(),
       historyRoot:centerHistoryDir(),book:'main',replica:isReplica(),day,now:Date.now(),quotes:Object.values(input.crossChecksByCode||{})}).then(result=>{
       if(!requireEditor(res,req.__tok,req))return;
+      require('./src/core/research-governance-cache').remember(result.ok===true?result.result:null);
       if(result.ok===true&&result.result?.feedback)result.result.feedback.automation=decisionFeedbackRuntime().status();
       return json(res,result,req);
     });

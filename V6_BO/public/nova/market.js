@@ -256,7 +256,7 @@ export function marketOverviewParts(state,{homeDay}={}){
  const emotion=mood&&mood.date===(target||currentDay)?mood:null;
  const needed=[['upLimit','涨停家数'],['downLimit','跌停家数'],['breakRate','炸板率'],['height','连板高度'],['leader','高标反馈'],['diffusion','题材扩散度']];
  const missing=needed.filter(([key])=>{const value=recoveredMetric(recovery,key,target||currentDay);return !value||value.date!==(target||currentDay);}).map(x=>x[1]);
- const emotionText=emotion?'当前处于'+emotion.value+'阶段，置信度 '+format(emotion.confidence,0)+'%。':
+ const emotionText=emotion?'当前处于'+emotion.value+'阶段，规则判定分 '+format(emotion.confidence,0)+' / 100（非胜率）。':
   '数据不足，暂不判断。'+(missing.length?'还需核对 '+missing.join('、')+' 的多日记录。':'现有多日记录尚未形成一致的周期证据。');
  const sentiment=h('article',{},h('h3',{},'市场情绪 ',glossary('情绪周期','用多个交易日的涨跌停、炸板、高标和题材扩散判断短线情绪。')),
    h('p',{},emotionText),breadth!==null?h('div',{class:'fy-breadth-gauge',style:'--breadth:'+Math.round(breadth*1.8)+'deg'},h('strong',{},format(breadth,1)+'%')):null,
@@ -447,7 +447,7 @@ export function renderEvidence(data,ctx,depth=0) {
  if(data==null||Array.isArray(data)&&!data.length)return empty('尚无该项历史记录','保留真实缺数状态，数据就绪后在这里显示。');
  if(depth>6)return h('span',{class:'fy-muted'},'展开上层证据查看详情');
  if(typeof data!=='object')return h('p',{},String(data));
- const labels={name:'名称',code:'代码',pct:'涨跌幅',price:'快照价',score:'评分',mainInflow:'主力净额',time:'时间',source:'来源',note:'说明',reason:'依据',day:'交易日',date:'日期',prob:'概率',count:'数量',items:'明细',rows:'记录',picked:'候选',plan:'计划',strong:'强势观察',status:'状态',total:'合计'};
+ const labels={name:'名称',code:'代码',pct:'涨跌幅',price:'快照价',score:'评分',mainInflow:'主力净额',time:'时间',source:'来源',note:'说明',reason:'依据',day:'交易日',date:'日期',prob:'原始研究值（口径见来源）',count:'数量',items:'明细',rows:'记录',picked:'候选',plan:'计划',strong:'强势观察',status:'状态',total:'合计'};
  if(Array.isArray(data)) {
   const stocks=ctx?rowsFrom(data):[],records=stocks.length?stocks:data,size=stocks.length?12:40;
   const list=h('div',{class:stocks.length?'fy-stock-grid':'fy-list'}),more=button('显示更多记录',()=>appendMore(),'quiet');let shown=0;

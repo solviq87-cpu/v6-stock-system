@@ -66,8 +66,14 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     if(!archive.ok)return archive;
     const input=require('../core/center-history').composeCenterResearchInputs(archive.state,
       p.historyRoot||require('node:path').join(p.root,'center-history'),{day:p.day,now:p.now});
+    let probabilityResearch;
+    try{probabilityResearch=require('../core/probability-reliability-store').readProbabilityResearch(
+      require('node:path').join(p.root,'probability-research'),{scope:'formal',asOf:p.now});}
+    catch{probabilityResearch={schemaVersion:1,mode:'fayo-probability-journal-v1',scope:'formal',asOf:p.now,status:'unavailable',
+      plans:[],reason:'概率研究存证不可读或完整性校验失败，不能判断校准效果',researchOnly:true,
+      calibrationCertified:false,canTrade:false,canApprove:false,canNotify:false,productionWeightsChanged:false};}
     const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes,
-      ...input.research});
+      ...input.research,probabilityResearch});
     result.historySupply=input.historySupply;
     return {ok:true,result};
   }
