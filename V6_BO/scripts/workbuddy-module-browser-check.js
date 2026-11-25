@@ -166,8 +166,18 @@ test('collapsible business modules preserve mobile/desktop interactions and loca
           assert.deepEqual(collapsed, { expanded: 'false', collapsed: true, childrenHidden: true }, `${view} toggle hides its body and exposes the collapsed state`);
           assert.equal(f.writes, beforeWrites, 'presentation collapse wrote the cloud ledger');
           await toggle.focus();
+          // A real news/market render can land after focus and before Enter.
+          // Force the same full-render path instead of relying on that race.
+          const refreshedFocus = await page.evaluate(() => {
+            const previous = document.activeElement, key = previous?.dataset.moduleToggle;
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+            return { key, replaced: !previous.isConnected, focusedKey: document.activeElement?.dataset.moduleToggle || null };
+          });
+          assert.equal(refreshedFocus.replaced, true, `${view}: the keyboard check must cover a real full render`);
+          assert.equal(refreshedFocus.focusedKey, refreshedFocus.key, `${view}: refresh lost the focused module toggle`);
           await page.keyboard.press('Enter');
-          assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+          assert.equal(await toggle.getAttribute('aria-expanded'), 'true', `${view}: Enter must expand the focused module after refresh`);
+          assert.equal(f.writes, beforeWrites, 'keyboard expansion wrote the cloud ledger');
 
           await page.locator('[data-module-all="collapse"]').click();
           assert.equal(await page.locator('#main [data-module-toggle][aria-expanded="true"]').count(), 0);

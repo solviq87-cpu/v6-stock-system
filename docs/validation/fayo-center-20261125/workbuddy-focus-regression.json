@@ -1,0 +1,33 @@
+{
+  "fixtureOnly": true,
+  "productionDeployed": false,
+  "baseSha": "a4b6e4d182c214d4d3e31db8d4101a94bb1b945a",
+  "scenario": "Focus a real module toggle, force the existing same-view full render, preserve focus by module key, then use native Enter to expand without account writes.",
+  "beforeFix": {
+    "log": "workbuddy-forced-focus-before.tap",
+    "sha256": "975cba488f8e40d51e97f1718e3545353812b67cc5f7fe20b0f10cf0f71bbdea",
+    "tests": 3,
+    "pass": 0,
+    "fail": 3,
+    "skipped": 0,
+    "cancelled": 0
+  },
+  "beforeFixFailedViewports": [
+    390,
+    1440
+  ],
+  "afterFix": {
+    "log": "workbuddy-focus-final.tap",
+    "sha256": "87a9fc1dcc97dbacbb0137c8d0dd41af9ce318a1d1c93d3ecde534af66451030",
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skipped": 0,
+    "cancelled": 0
+  },
+  "afterFixViewports": [
+    390,
+    1440
+  ],
+  "behavior": "Only the same view and module retain keyboard focus. No change to original click, storage, timers, transport, account or publisher rules."
+}

@@ -10,6 +10,7 @@
 | final-targeted-verification.json | 最终专项 98 项全部通过；语法检查 63 个原生前端模块。 |
 | regression-evidence-summary.json | 完整回归首次运行、未完成文件补跑及失败组恢复的实际记录，明确不是一次连续全绿。 |
 | full-regression-tail-files.json | 补跑的 33 个测试文件，463 项全部通过；与首段去重后共覆盖 4,725 个已报告用例。 |
+| workbuddy-focus-regression.json | 旧 WorkBuddy 同页刷新丢失键盘焦点的双端确定性反证，以及三套浏览器检查 10/10 通过的修复回执。 |
 | paper-gate-hashes.json | 原五个交易/持久化函数相对 PR #347 基线逐字节未变。 |
 | before-source-verification.json | 基线完整源码 ZIP 的 3,642 个 Git 跟踪文件校验；不含生产私有数据或完整 Git 历史。 |
 | local-log-checksums.json | 原始本地测试日志的字节数与 SHA-256。 |

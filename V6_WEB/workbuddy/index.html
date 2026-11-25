@@ -2373,11 +2373,14 @@ function riskView(){const p=C.calcPortfolio(state),alerts=C.riskAlerts(state);re
 function render(){
  if(!ready)return;
  const tableScroll=window.V6TableScroll?.capture(view,render);if(window.V6TableScroll&&!tableScroll)return;
+ const focusedModule=$('#main').contains(document.activeElement)?document.activeElement?.dataset.moduleToggle:null;
  updateMarketStatus();
  $('#navigation').innerHTML=navs.map(([id,label,icon],i)=>`<a class="nav-link${view===id?' active':''}" href="#${id}" ${view===id?'aria-current="page"':''}><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></span><span>${label}</span><span class="nav-number">0${i+1}</span></a>`).join('');
  $('#breadcrumb').textContent=navs.find(n=>n[0]===view)[1];document.title='天枢智策 · '+navs.find(n=>n[0]===view)[1]+' — V6 选股系统';
  const banner=!cloud?`<div class="notice error connection-banner" role="alert"><strong>当前为只读模式，云端尚未确认。</strong><br>${esc(cloudError)}。点击右上角「同步」重试；未成功保存的操作不会更新云端。</div>`:'';
  $('#main').innerHTML=banner+({home,scanner:scannerView,factors:factorsView,watchlist:watchlistView,strategies:strategiesView,picks:picksView,portfolio,risk:riskView}[view])();window.V6ModuleCollapse?.enhance(view);window.V6TableScroll?.restore(tableScroll);renderBusy();
+ // Module keys include the view: refresh preserves keyboard intent, navigation does not steal focus.
+ if(focusedModule)[...$('#main').querySelectorAll('[data-module-toggle]')].find(button=>button.dataset.moduleToggle===focusedModule)?.focus({preventScroll:true});
  if(view==='scanner')scheduleBattleScan();
 }
 function openTrade(symbol=C.stocks[0]?.symbol,side='buy'){
