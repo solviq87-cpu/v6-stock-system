@@ -298,9 +298,9 @@ function buildExpectationStudy(input={}, options={}) {
     for (const e of expectations) {
       const delta=a.value-e.value, sign=typeof a.higherIsBetter==='boolean'?Math.sign(delta)*(a.higherIsBetter?1:-1):null;
       const reaction=a.priceReaction, rp=provenance(reaction,asOf);
-      const validReaction=rp&&time(reaction.startAt)&&time(reaction.endAt)&&reaction.startAt>=a.announcementAt&&
+      const validReaction=rp&&reaction.symbol===a.symbol&&reaction.retracted!==true&&time(reaction.startAt)&&time(reaction.endAt)&&reaction.startAt>=a.announcementAt&&
         reaction.endAt>reaction.startAt&&reaction.endAt<=reaction.firstKnownAt&&
-        [reaction.startPrice,reaction.endPrice].every(x=>finite(x)&&x>0)&&reaction.priceBasis==='unadjusted'&&reaction.corporateAction===false;
+        [reaction.startPrice,reaction.endPrice].every(x=>finite(x)&&x>0)&&finite(100*(reaction.endPrice/reaction.startPrice-1))&&reaction.priceBasis==='unadjusted'&&reaction.corporateAction===false;
       const priceReaction=validReaction?{returnPct:round(100*(reaction.endPrice/reaction.startPrice-1)),startAt:reaction.startAt,endAt:reaction.endAt,evidence:rp}:null;
       rows.push({id:a.id+'|'+e.source+'|'+e.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,
         expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),
@@ -401,6 +401,7 @@ function depthMetrics(row) {
 function buildDepthResearch(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.depth,asOf,'盘口证据',500), rows=[], rejected=[...selected.rejected], risks=[];
   for (const r of selected.rows) {
+    if (r.retracted===true) continue;
     const base={id:r.id,symbol:symbol(r.symbol)?r.symbol:null,granularity:r.granularity||'unknown',evidence:provenance(r,asOf),
       metrics:null,auction:null,queuePosition:null,principalIntent:null,missing:[]};
     if (!symbol(r.symbol)||!['depth-snapshot','trade-ticks','auction-indicative','quote-snapshot'].includes(r.granularity)) {
@@ -568,7 +569,8 @@ function buildThemeCrowding(input={}, options={}) {
     if(new Set(stocks.map(s=>s?.symbol)).size!==stocks.length){rejected.push({id:t.id,reason:'duplicate-theme-member-observation'});continue;}
     for (const s of stocks) {
       if (!symbol(s?.symbol)||!members.has(s.symbol)||seen.has(s.symbol)||!time(s.quoteAt)||s.quoteAt>t.snapshotAt||
-          aShareCalendarDate(s.quoteAt)!==aShareCalendarDate(t.snapshotAt)||!text(s.source,160)||fake(s.source)) continue;
+          aShareCalendarDate(s.quoteAt)!==aShareCalendarDate(t.snapshotAt)||!text(s.source,160)||fake(s.source)||
+          s.retracted===true||['synthetic','fixture','simulated','mock'].some(k=>s[k]===true)||['test','demo','synthetic'].includes(s.sampleSet)) continue;
       seen.add(s.symbol);valid.push(s);
     }
     const complete=valid.length===t.members.length;

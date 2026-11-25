@@ -240,3 +240,9 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 ### 2026-11-26 续接：原48计划采集、原计划观察及持久化阶段的实际链路
 
 基线 `8c43a947e6af2afe5136481fb52aa61d2660a6c9`。原 `runtime-trace` 仅增加原后台/计划观察的阶段白名单，接入已有 `decision-center-background` 与 `decision-evidence-runtime` 的实际调用，保留原单任务/分钟、去重、主实例、权限、15秒上下文与持久化前置条件；采集失败、缺证分别标记，不以完成回调推断网关受理或实际送达。原 `notification.dispatch` 仅表示调用原私密通知接口，回执仍由原系统维护。新增隔离专项3项。未增调度器、交易或发送入口，未修改账本、策略或发布流程。当前为源码及测试接线，待新提交CI实际回执；不据此标记48完成，原tick/pool根、跨worker归集、通知队列/回执、授权诊断和实测端到端覆盖仍待核验。
+
+
+## 2026-11-26 · 全面进化方案第一阶段：原68/70/72研究证据真实性
+- 父 `866fa0daedb8f20489b6ddf1becf4fa8ec157edd`。修复实际复现的异股价格反应、撤回盘口和模拟题材成员。价反应必须同证券、未撤回且有限收益；撤回仅自当时可见版本生效；题材完整分母不变，污染成员不计有效覆盖。原策略、权威账本、15秒门禁、权限及发布机制不变。
+- 隔离运行包中目标原blob `5ec56c89f7fd59c5d1a8f8ed707f245d87751668` 与最新父树相同。实测 `TZ=Asia/Shanghai node --test tests/deep-research-evidence-integrity.test.js` 修前0通过/3失败、修后3通过/0失败/0跳过；`node --check src/core/deep-research-evidence.js` 通过。修改后源码blob `2af42b5eafc52f942ed2b8b62c88c9aee0f98c35`、专项blob `903fff384f1179adaee5f4e2ae06900cb6484be1`。原正向夹具补齐证券身份，原断言保留。日志SHA256：前 `9349615847c3b1d575d52fccdda69faebcb0f930d5831d95990b19ec8d7bbb30`，后 `ec48c86a597c74a075e03e72af1946fb5518fc1180a92d7ea4c97000bde9e98c`。
+- GitHub DNS仍不可达，未完整checkout，未运行整套原测试、全量或浏览器/真实HTTP。新候选精确CI待确认；未合入dev、未部署或外发。原76/78及其他缺口继续按本次全面进化方案推进。回退仅反向候选代码，不覆盖原数据。

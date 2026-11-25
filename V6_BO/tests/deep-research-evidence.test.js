@@ -170,7 +170,7 @@ test('missing expectations, incompatible units and zero expectations do not fabr
 });
 
 test('price reaction classification uses a mature sourced interval and retains causal uncertainty',()=>{
-  const priceReaction=proof('reaction',t2,{startAt:t1,endAt:t2,startPrice:10,endPrice:9,priceBasis:'unadjusted',corporateAction:false});
+  const priceReaction=proof('reaction',t2,{symbol:'600000',startAt:t1,endAt:t2,startPrice:10,endPrice:9,priceBasis:'unadjusted',corporateAction:false});
   const r=D.buildExpectationStudy({expectations:[expected()],actuals:[actual({priceReaction})]},{asOf:t2});
   assert.equal(r.rows[0].priceResponseCase,'positive-surprise-negative-response');assert.equal(r.rows[0].priceReaction.returnPct,-10);
   const early=D.buildExpectationStudy({expectations:[expected()],actuals:[actual({priceReaction})]},{asOf:t1});
