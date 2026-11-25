@@ -8,10 +8,12 @@ const fail=message=>{throw Error(message);};
 
 /** Called under the original archive lock. Neither weights nor validation
  * results are supplied by HTTP, and the original approval reducer is retained. */
-export function applyCenterFeedback(state,{day,now=Date.now(),proposalFingerprint,bars=null,calendar=null,marketCalendars={},config}={}){
+export function applyCenterFeedback(state,{day,now=Date.now(),proposalFingerprint,bars=null,calendar=null,marketCalendars={},
+  frozenObservations=[],historyCoverage=null,config}={}){
   if(state.scope==='demo'||!Number.isSafeInteger(state.revision)||state.revision<0)fail('中心反馈只接受主研究档案');
   if(typeof proposalFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(proposalFingerprint))fail('中心提案指纹无效，请重新读取');
-  const report=research.buildIntelligenceResearch({day,now,archive:{...state,dictionaryVersion},bars,calendar,marketCalendars,...(config?{config}:{})});
+  const report=research.buildIntelligenceResearch({day,now,archive:{...state,dictionaryVersion},bars,calendar,marketCalendars,
+    frozenObservations,historyCoverage,...(config?{config}:{})});
   const {feedback}=report,proposal=feedback.proposal;
   if(!proposal||feedback.proposalFingerprint!==proposalFingerprint)fail('中心提案或原始证据已变化，请重新读取后验证');
   if(proposal.archiveRevision!==state.revision||proposal.dictionaryVersion!==dictionaryVersion)fail('档案或因子词典版本不匹配');

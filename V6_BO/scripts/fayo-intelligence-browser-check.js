@@ -20,6 +20,7 @@ function evidence(){
       quoteAt:now-1000,receivedAt:now-500,quoteSource:'tencent',quoteMode:'public-live-unverified'}));
   const selected={...stocks[0],score:85,baziDims:{trend:0,fund:60},baziWhy:{trend:'已观测的原趋势分为零',fund:'原资金维度分'}};
   const state={stocks,candidatePool:[selected],sectors:[{name:'芯片',mainInflow:1000000}],
+    sectorsInd:[{name:'芯片',mainInflow:0,source:'eastmoney',unit:'CNY',retrievedAt:now-1000,sourceTimestamp:null,tradeDate:null}],
     marketRecovery:{emotion:{date:day,value:'修复',knownAt:now-20000,source:'原多日情绪引擎'}}};
   if(phase!=='missing-flows')state.fundFlowLinks={day,knownAt:now-2000,unit:'CNY',kind:'observed-transfer',source:'原来源去向明细',links:[
     {from:'来源甲',to:'芯片',amount:100000},{from:'来源乙',to:'消费',amount:50000}]};
@@ -37,6 +38,8 @@ function researchPayload(){
   assert.equal(result.authority,'fayo-intelligence-research');
   assert.equal(result.quality.score,null);assert.equal(result.templates.groups.length,6);
   result.historySupply={receipts:0,rows:0,sources:[],missing:['逐日源端原始时刻'],status:'missing-receipts'};
+  result.historyIntake={status:'no-admitted-hfq-evidence',codes:['600000'],captures:1,admittedRows:0,
+    sourceStatus:[{code:'600000',day,source:'baostock',status:'missing-dependency',receivedAt:now-1000}],missing:['独立后复权原始数据']};
   // This isolated presentation fixture exercises the new submit control. Real
   // proposal generation and five-gate writes are covered by worker/HTTP tests.
   if(phase==='feedback-ready')Object.assign(result.feedback,{proposalFingerprint:'a'.repeat(64),archiveRevision:7,
@@ -47,9 +50,10 @@ function harness(viewer=false){
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>绯曜智能图谱隔离验收</title><link rel="stylesheet" href="/nova/fayo.css">
   <style>body{margin:0;padding:24px;background:#140f1c;color:#f5eafa}main{max-width:1220px;margin:auto;min-width:0}.qa-banner{color:#b6a2bf;font-size:13px;margin-bottom:20px}#drawer-proof{margin-top:20px}@media(max-width:600px){body{padding:12px}}</style></head>
-  <body><main><h1>绯曜 FAYO · 智能图谱验收</h1><p class="qa-banner">隔离测试输入 · 使用真实图表与研究投影函数 · 不连接账户与推送</p><div id="center"></div><div id="drawer-proof"></div></main>
+  <body><main><h1>绯曜 FAYO · 智能图谱验收</h1><p class="qa-banner">隔离测试输入 · 使用真实图表与研究投影函数 · 不连接账户与推送</p><div id="center"></div><div id="drawer-proof"></div><div id="operations-proof"></div></main>
   <script type="module">
   import {createIntelligenceCenter,createDrawerRadar} from '/nova/intelligence-view.mjs';
+  import {renderOperations} from '/nova/operations.js';
   const controller=new AbortController(),listeners=new Set(),reads=[],clicks=[],navigations=[];
   let selected={code:'600000',day:'${initialDay}'};
   const ctx={signal:controller.signal,canEdit:${viewer?'false':'true'},role:'${viewer?'view':'edit'}',
@@ -60,6 +64,8 @@ function harness(viewer=false){
   const center=createIntelligenceCenter(ctx),radar=createDrawerRadar(ctx,()=>selected);
   document.querySelector('#center').append(center);document.querySelector('#drawer-proof').append(radar);
   window.intelligenceHarness={reads,clicks,navigations,setDay(day){selected={...selected,day};for(const callback of listeners)callback();radar.refresh();},
+    showPaperObserver(){document.querySelector('#operations-proof').replaceChildren(renderOperations({view:'assets',sub:'paper'},
+      {...ctx,decisionSelection:null,workspaceNavigation:true,state:{closeSession:{day:'${initialDay}'},paper:{mirror:false}}}));},
     abort(){controller.abort();},ready:true};
   </script></body></html>`;
 }
@@ -81,6 +87,22 @@ const server=http.createServer((req,res)=>{
       {ok:true,authority:value.authority,day:value.day,radar:value.radar}:value));
   }
   if(u.pathname==='/api/decision-center/research')return reply(res,200,'application/json',JSON.stringify(researchPayload()));
+  // Presentation-only account responses verify coexistence of the observer and
+  // durable-order views. No paper write endpoint is available in this harness.
+  if(u.pathname==='/api/paper')return reply(res,200,'application/json',JSON.stringify({ok:true,paper:{pool:{
+    name:'隔离模拟账户',enabled:true,equity:100000,cash:100000,totalPnl:0,totalPct:0,initial:100000,
+    positions:[],trades:[],realizedSeries:[]}}}));
+  if(u.pathname==='/api/paper/conditional-orders')return reply(res,200,'application/json',JSON.stringify({ok:true,revision:1,
+    notificationOwner:'plan-observer',engine:{enabled:true,privateChannel:'unconfigured'},orders:[{
+      id:'isolated-order',planId:'isolated-plan',code:'600000',name:'隔离计划',day:initialDay,status:'executed',canCancel:false,
+      createdAt:Date.parse(initialDay+'T09:45:00+08:00'),expiresAt:Date.parse(initialDay+'T14:57:00+08:00'),
+      lastReason:'隔离展示回执',fill:{eventId:'isolated-fill',price:10,shares:100,tradeDate:initialDay},
+      alerts:[{kind:'stop',day:initialDay,status:'delegated',owner:'plan-observer',recordedAt:Date.parse(initialDay+'T10:00:00+08:00')}],observations:[]
+    }]}));
+  if(u.pathname==='/api/paper/execution-score')return reply(res,200,'application/json',JSON.stringify({ok:true,
+    paper:{pool:{day:initialDay,closed:false,score:null,status:'awaiting-close',assessed:0,unknown:1,rows:[],note:'隔离执行观察'}},
+    observer:{...(phase==='observer-zero-count'?{recordCount:0}:{}),privateChannel:'unconfigured',alerts:[],
+      history:{coverage:{excludedSymbols:['920001']}},lastError:'隔离来源缺项：没有连续可成交窗口'}}));
   const file=path.resolve(publicRoot,'.'+u.pathname);
   if(!u.pathname.startsWith('/nova/')||!file.startsWith(publicRoot+path.sep)||!fs.existsSync(file))return reply(res,404,'text/plain','missing');
   return reply(res,200,file.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8',fs.readFileSync(file));
@@ -114,11 +136,17 @@ async function run(){
         assert.equal(await radar.locator('svg circle[cx="160"][cy="132"]').count(),1,'observed zero is distinct from a missing score');
         assert.equal(await page.locator('.fy-flow-sankey svg').count(),0);
         assert.match(await page.locator('.fy-intelligence-charts').innerText(),/板块净额不能证明资金来源与去向/);
+        await page.getByText('已取得的板块净额 · 不代表跨板块转移',{exact:true}).click();
+        assert.match(await page.locator('.fy-intelligence-charts').innerText(),/供应商未提供/);
+        assert.match(await page.locator('.fy-intelligence-charts').innerText(),/资金源端时点缺失/);
         assert.match(await page.locator('.fy-intelligence-research').innerText(),/Q 尚未完整/);
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/原始历史采集：1 只股票 · 0 条通过核验/);
+        await page.getByText('后复权原始来源与采集回执',{exact:true}).click();
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/BaoStock Python 依赖未安装/);
         assert.equal(await page.getByRole('button',{name:'验证本次反馈提案',exact:true}).isDisabled(),true,'missing research cannot submit a proposal');
         await page.getByText('后复权历史采集依据',{exact:true}).click();
         assert.match(await page.locator('.fy-intelligence-research').innerText(),/逐日源端原始时刻/);
-        for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 六类战法模板','L5 · 复盘反馈'])
+        for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 原账本执行与成本压力','L2 · 六类战法模板','L5 · 复盘反馈'])
           assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:heading,exact:true}).count(),1);
         assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L2 · 六类战法模板'}).locator('..').locator('ul > li').count(),6);
         assert.equal((await page.locator('.fy-intelligence-research').innerText()).includes('undefined'),false);
@@ -158,9 +186,25 @@ async function run(){
         assert.deepEqual(validationSubmissions.at(-1),{day:initialDay,revision:7,proposalFingerprint:'a'.repeat(64)},'the browser sends only the server proposal reference');
         await page.getByRole('button',{name:'查看验证与审批',exact:true}).click();
         assert.deepEqual(await page.evaluate(()=>intelligenceHarness.navigations.at(-1)),{view:'lab',sub:'shortline-versions'});
+        phase='observer-missing-count';await page.evaluate(()=>intelligenceHarness.showPaperObserver());
+        const operations=page.locator('#operations-proof');
+        await operations.getByText(/计划条件记录 数量未知/).waitFor();
+        assert.match(await operations.innerText(),/隔离来源缺项：没有连续可成交窗口/);
+        assert.match(await operations.innerText(),/920001/);
+        assert.match(await operations.innerText(),/预警由计划观察统一处理/);
+        await operations.getByText('计划预警与私密通道回执',{exact:true}).click();
+        assert.match(await operations.innerText(),/已交由计划观察统一处理/);
+        assert.equal((await operations.innerText()).includes('私密通道接口已确认接收'),false,'delegated is not an accepted delivery receipt');
+        phase='observer-zero-count';await page.evaluate(()=>intelligenceHarness.showPaperObserver());
+        await operations.getByText(/计划条件记录 0 条/).waitFor();
+        assert.equal((await operations.innerText()).includes('计划条件记录 数量未知'),false,'an original observed zero remains distinct from absence');
+        await page.screenshot({path:path.join(output,'observer-'+viewport.width+'.png'),fullPage:true});
         assert.deepEqual(errors,[]);
         report.views.push({...viewport,lazyReads:2,heatmapAreas:areas,knownRadarAxes:3,missingRadarAxes:6,
-          missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,apiReads:reads.length,
+          missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,
+          apiReads:await page.evaluate(()=>intelligenceHarness.reads.filter(row=>row.method==='GET').length),
+          netObservationsSeparate:true,historyIntakePreserved:true,ledgerCostPressurePreserved:true,
+          observationUnknownPreserved:true,observationZeroPreserved:true,delegatedAlertNotDelivered:true,
           feedbackReferenceOnly:true,feedbackApprovalRoute:'shortline-versions',overflow,errors});
       }catch(error){
         fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText());

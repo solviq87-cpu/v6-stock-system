@@ -4,6 +4,7 @@
 // can only call the existing paperBuy path, then report its committed fill.
 const {aShareCalendarDate} = require('./a-share-calendar');
 const {executionTimeOf} = require('./paper-fill-evidence');
+const {digest}=require('./research-workspace-store');
 const PLAN_PREFIX = '作战台计划[';
 const planIdOk = value => typeof value === 'string' && /^plan-[0-9a-f-]{36}$/.test(value);
 const reasonOf = plan => `${PLAN_PREFIX}${plan.id}] ${plan.code} · 原账户风控`;
@@ -104,11 +105,45 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
     price:committed.price,shares:committed.quantity,msg:'已通过原模拟门禁并核对持久成交；退出仍按原账户止损规则'};
 }
 
-function paperExecutionScore({book,plans=[],observations=[],day,now=Date.now()}) {
+// Conditional intents retain only actual trigger windows, not full-session
+// samples. Preserve that evidence without treating it as sampling coverage.
+function conditionalStopEvidence({plan,context,conditionalOrders,day,now}){
+  const {entry}=context,at=executionTimeOf(entry),points=[],seen=new Set();
+  for(const order of conditionalOrders||[]){
+    if(order.planId!==plan.id||order.code!==plan.code||order.fill?.eventId!==entry.eventId)continue;
+    for(const observation of order.observations||[]){
+      const {fingerprint,...payload}=observation;
+      if(fingerprint!==digest(payload)||payload.kind!=='stop'||payload.planId!==plan.id||payload.code!==plan.code||
+        payload.entryEventId!==entry.eventId||payload.day!==day||payload.originalFreshGate!==true||payload.continuous!==true||
+        payload.sellable!==true||!Number.isSafeInteger(payload.observedAt)||payload.observedAt<at||payload.observedAt>now||
+        !Number.isSafeInteger(payload.quoteAt)||payload.quoteAt<Date.parse(plan.frozenAt)||payload.quoteAt>payload.observedAt||payload.observedAt-payload.quoteAt>15000||
+        !Number.isSafeInteger(payload.receivedAt)||payload.receivedAt<payload.quoteAt||payload.receivedAt>payload.observedAt||
+        aShareCalendarDate(payload.quoteAt)!==day||!finite(payload.price)||payload.price>plan.stop||
+        !finite(payload.lowerLimit)||!finite(payload.upperLimit)||payload.price<=payload.lowerLimit||payload.price>=payload.upperLimit||
+        typeof payload.source!=='string'||!payload.source||/mock|synthetic|fixture|demo/i.test(payload.source))continue;
+      const key=[plan.id,entry.eventId,day,payload.source,payload.quoteAt,payload.price].join('/');
+      if(seen.has(key))continue;seen.add(key);
+      points.push({...payload,fingerprint});
+    }
+  }
+  points.sort((a,b)=>a.observedAt-b.observedAt);
+  const first=points[0],sells=context.sells||[],{fillEvidenceOf}=require('./paper-fill-evidence');
+  let timely=false,remaining=null;
+  if(first&&!context.ambiguous){
+    remaining=entry.quantity-sells.filter(s=>executionTimeOf(s)<=first.observedAt).reduce((sum,s)=>sum+s.quantity,0);
+    timely=remaining>0&&context.remaining===0&&context.closedAt>=first.observedAt&&
+      context.closedAt-first.observedAt<=15000&&aShareCalendarDate(context.closedAt)===day&&
+      sells.filter(s=>executionTimeOf(s)>first.observedAt&&fillEvidenceOf(s)).reduce((sum,s)=>sum+s.quantity,0)===remaining;
+  }
+  return {points,timely,remaining,first};
+}
+
+function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[],day,now=Date.now()}) {
   if (!dateOk(day)) throw Error('执行评分日期无效');
   const observer=require('./paper-plan-observer');
   const {fillEvidenceOf}=require('./paper-fill-evidence');
   if (!Array.isArray(observations)||observations.length>observer.MAX_RECORDS) throw Error('执行评分观察数量无效');
+  if(!Array.isArray(conditionalOrders)||conditionalOrders.length>2000)throw Error('执行评分条件记录数量无效');
   const validObservations=[],knownObservations=new Set();
   for(const record of observations){
     observer.validateObservation(record,{now});
@@ -163,13 +198,25 @@ function paperExecutionScore({book,plans=[],observations=[],day,now=Date.now()})
       const touches=active.filter(r=>r.price<=plan.stop);
       const window=observer.hasObservedWindow(active,r=>r.price<=plan.stop&&r.exit.allowed===true);
       const closingSells=context.closedAt?context.sells.filter(s=>executionTimeOf(s)<=context.closedAt):[];
-      const firstAvailable=window?.[0]||touches.find(r=>r.exit.allowed===true);
+      const conditional=conditionalStopEvidence({plan,context,conditionalOrders,day,now:cutoff});
+      const sampledFirst=touches.find(r=>r.exit.allowed===true);
+      const firstAvailable=[sampledFirst,conditional.first].filter(Boolean).sort((a,b)=>a.observedAt-b.observedAt)[0];
       // A later repeated quote cannot erase an earlier missed stop window.
       const timely=firstAvailable&&context.closedAt>=firstAvailable.observedAt&&
         context.closedAt-firstAvailable.observedAt<=observer.MAX_GAP_MS&&closingSells.filter(s=>executionTimeOf(s)>firstAvailable.observedAt)
-          .reduce((sum,s)=>sum+(fillEvidenceOf(s)?s.quantity:0),0)===firstAvailable.remainingQuantity?firstAvailable:null;
+          .reduce((sum,s)=>sum+(fillEvidenceOf(s)?s.quantity:0),0)===
+          (firstAvailable.remainingQuantity??conditional.remaining)?firstAvailable:null;
       const stopFills=context.sells.filter(s=>s.price<=plan.stop&&fillEvidenceOf(s));
-      if(context.ambiguous||!coverage.complete||!closed)facts.push({rule:'按计划止损',status:'资料不足',evidence:
+      // Old intent records can prove a specific prompt, complete exit. They
+      // cannot repair a gap in the full observer or prove an unobserved day.
+      if(!samples.length&&closed&&conditional.timely){
+        const sell=context.sells.at(-1),point=conditional.first;
+        facts.push({rule:'按计划止损',status:'符合',eventId:sell.eventId,eventIds:context.sells.map(s=>s.eventId),
+          evidence:`原报价 ${point.price} 元触及冻结止损，关联原买入批次在 ${context.closedAt-point.observedAt} 毫秒内已全部卖出；仅核验该已记录窗口，不代表全天采样完整`,
+          observationScope:'recorded-trigger-window',sessionCoverageComplete:false,
+          trigger:{source:point.source,quoteAt:point.quoteAt,observedAt:point.observedAt,price:point.price}});
+      }
+      else if(context.ambiguous||!coverage.complete||!closed)facts.push({rule:'按计划止损',status:'资料不足',evidence:
         context.ambiguous||(!closed?'待收盘核对实际离场和计划观察':'缺少完整采样覆盖或可成交窗口证据，不能判断漏止损；原账户退出规则保持')});
       else if(timely)facts.push({rule:'按计划止损',status:'符合',evidence:'观察到止损触及及原模拟可用窗口，关联批次在15秒采样窗口内已全部卖出',
         observations:[reference(timely)],eventIds:closingSells.map(s=>s.eventId)});
@@ -177,10 +224,10 @@ function paperExecutionScore({book,plans=[],observations=[],day,now=Date.now()})
         '连续两次止损触及且原模拟约束允许卖出，收盘仍有本计划剩余持仓':
         '连续两次止损触及且原模拟约束允许卖出，关联批次未在该采样窗口内全部退出',observations:window.map(reference),
         remainingQuantity:context.remaining,eventIds:context.sells.map(s=>s.eventId)});
-      else if(!touches.length&&!stopFills.length)facts.push({rule:'按计划止损',status:'符合',evidence:'持仓有效时段采样已覆盖，已观察报价均未触及冻结止损位'});
-      else if(!touches.length&&stopFills.length&&context.closedAt&&context.closedAt-executionTimeOf(stopFills[0])<=observer.MAX_GAP_MS)
+      else if(!touches.length&&!conditional.points.length&&!stopFills.length)facts.push({rule:'按计划止损',status:'符合',evidence:'持仓有效时段采样已覆盖，已观察报价均未触及冻结止损位'});
+      else if(!touches.length&&!conditional.points.length&&stopFills.length&&context.closedAt&&context.closedAt-executionTimeOf(stopFills[0])<=observer.MAX_GAP_MS)
         facts.push({rule:'按计划止损',status:'符合',evidence:'原账本保留止损价成交证据并在同一15秒采样窗口清仓；此前已覆盖采样未见更早止损触及',eventIds:closingSells.map(s=>s.eventId)});
-      else if(touches.length&&touches.every(r=>r.exit.allowed===false))facts.push({rule:'按计划止损',status:'不适用',
+      else if(!conditional.points.length&&touches.length&&touches.every(r=>r.exit.allowed===false))facts.push({rule:'按计划止损',status:'不适用',
         evidence:'已观察的止损触及均被原模拟约束拦截：'+touches.at(-1).exit.reason,observations:[reference(touches.at(-1))]});
       else facts.push({rule:'按计划止损',status:'资料不足',evidence:'已出现止损价触及或部分卖出，但可用窗口、完整离场或时点证据不足；不推断漏止损',
         observations:touches.slice(-1).map(reference),eventIds:context.sells.map(s=>s.eventId)});

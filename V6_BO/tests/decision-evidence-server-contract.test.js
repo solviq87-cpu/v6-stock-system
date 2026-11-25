@@ -109,15 +109,15 @@ test('production YYYYMMDD market session is normalized before reaching the core,
   assert.equal(context.centerEvidenceRuntime(), context.centerEvidenceRuntime()); assert.equal(x.factoryCalls(), 1);
 });
 
-test('production historical collection waits until 16:00 on an open day and uses a dated previous close on weekends', async () => {
+test('production observer delegates history to the single bounded background collector', async () => {
   const x = await setup();
-  for (const time of ['09:30:00', '15:00:00', '15:10:00', '15:59:59']) {
-    x.set({now: at(day, time)}); assert.equal(x.options.historyDay(), null, time);
-  }
-  x.set({now: at(day, '16:00:00')}); assert.equal(x.options.historyDay(), day);
-  x.set({now: at('2026-11-28', '10:00:00')});
-  assert.equal(x.context.marketDisplaySession(x.now()).day, '20261128');
-  assert.equal(x.options.session(x.now()).continuous, false); assert.equal(x.options.historyDay(), '2026-11-27');
+  assert.equal(x.options.historyDay,undefined);assert.equal(x.options.historySymbols,undefined);assert.equal(x.options.collectHistory,undefined);
+  assert.equal((source.match(/decisionBackground\(\)\.tick\(\)/g)||[]).length,1);
+  assert.doesNotMatch(source,/centerEvidenceRuntime\(\)\.tickHistory\(/);
+  const background=section('function decisionBackground(){','let _paperConditionalStore');
+  assert.equal((background.match(/action:'intelligence-history-collect'/g)||[]).length,1);
+  assert.match(background,/historyCandidates:/);assert.match(background,/collectFinancials:/);
+  assert.equal(x.calls.history.length,0);
 });
 
 test('real server readContext shares its post-await clock with original quote evidence, entry/exit checks and the real observer', async () => {
@@ -224,16 +224,13 @@ test('production holding-risk classification requires a stop or target alert tie
   }
 });
 
-test('actual factory binds private research and history paths and keeps notifications on original primary private channel', async () => {
+test('actual factory binds private research, delegates history and keeps notifications on original primary private channel', async () => {
   const x = await setup(); assert.equal(x.options.store, x.store);
   await x.options.readArchive();
   assert.equal(x.calls.archive[0].action, 'shortline'); assert.equal(x.calls.archive[0].book, 'main');
   assert.equal(x.calls.archive[0].root, '/private-fixture/shortline-research'); assert.equal(x.calls.archive[0].replica, false);
-  await x.options.collectHistory({symbols: ['600000'], start: day, end: day});
-  assert.equal(x.calls.history[0].input.root, '/private-fixture/shortline-research/center-history');
-  assert.equal(x.calls.history[0].input.allowNetwork, true); assert.equal(x.calls.history[0].canWrite, true);
-  x.set({replica: true}); await x.options.collectHistory({symbols: ['600000'], start: day, end: day});
-  assert.equal(x.calls.history[1].input.replica, true); assert.equal(x.calls.history[1].canWrite, false);
+  assert.equal(x.options.collectHistory,undefined);assert.equal(x.calls.history.length,0);
+  x.set({replica: true});
   const alert = {id: 'trigger-id', kind: 'entry', day, code: '600000', name: '隔离测试', price: 10, source: 'tencent',
     quoteAt: x.wire.quoteAt, reason: '真实原始时点'};
   x.set({configured: true}); assert.equal(x.options.sendPrivate(alert), false); assert.equal(x.calls.push.length, 0);
@@ -243,6 +240,14 @@ test('actual factory binds private research and history paths and keeps notifica
   assert.equal(force, false); assert.equal(delivery.private, true); assert.equal(delivery.sseEdit, true);
   assert.equal(delivery.signalRefs[0].ts, x.wire.quoteAt); assert.equal(delivery.signalRefs[0].signalId, alert.id);
   assert.match(message, new RegExp(new Date(x.wire.quoteAt).toISOString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(message,/成交以原账本为准/);assert.doesNotMatch(message,/尚未下单/);
+});
+
+test('production conditional queue delegates every notification to the common plan observer',()=>{
+  const run=section('async function runPaperConditionalOrders(){','function buildMobileDigest(');
+  assert.match(run,/notificationOwner:'plan-observer'/);
+  assert.doesNotMatch(run,/\bnotify\s*:/);
+  assert.doesNotMatch(source,/function notifyPaperConditional\(/);
 });
 
 function privatePushHarness({requiresNewsReview = false} = {}) {

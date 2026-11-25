@@ -69,3 +69,9 @@ test('active observations retain today and original held lots, excluding closed,
  book.archives=[{account:{events:book.account.events}}];book.account.events=[];
  assert.deepEqual(selectActivePlans(plans,book,day),[today]);
 });
+test('unbound legacy history remains delegated and never starts a competing collection loop',async()=>{
+ const x=setup({historyDay:undefined,historySymbols:undefined,collectHistory:undefined});
+ assert.equal(x.runtime.status().history.status,'delegated');assert.equal(x.runtime.status().history.owner,'decision-center-background');
+ await x.runtime.tickHistory();assert.equal(x.counts().collections,0);
+ await x.runtime.tick();assert.equal(x.counts().writes,1);
+});

@@ -13,6 +13,13 @@ V6_RESEARCH_CACHE_DIR=/opt/v6/data/research-kline-cache
 V6_NATIVE_PYTHON=/usr/bin/python3
 # Optional ML Python with requirements-models.txt installed:
 V6_MODEL_PYTHON=
+# Optional research-source Python with requirements-research-sources.txt installed.
+# Missing BaoStock leaves HFQ history incomplete; it never relaxes source gates.
+V6_PYTHON=
+# Optional private center stores. Leave unset to keep data/ under the existing installation.
+# Include any externally mounted values in the original node's cold backup.
+# V6_CENTER_HISTORY_DIR=/opt/v6/data/intelligence-center-history
+# V6_PAPER_CONDITIONAL_DIR=/opt/v6/data/paper-conditional-orders
 
 V6_ORDER_ACCOUNTS_DIR=/opt/v6/data/order-accounts
 # Password for offline encrypted backups only; supply privately when invoking CLI:

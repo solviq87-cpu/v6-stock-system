@@ -1,0 +1,746 @@
+TAP version 13
+# Subtest: centre HFQ Python collector enforces explicit adjustment, bounded complete SDK streams and original clocks offline
+ok 1 - centre HFQ Python collector enforces explicit adjustment, bounded complete SDK streams and original clocks offline
+  ---
+  duration_ms: 402.214519
+  type: 'test'
+  ...
+# Subtest: HFQ adapters explicitly request the provider adjustment and retain actual receipts, raw bytes and units
+ok 2 - HFQ adapters explicitly request the provider adjustment and retain actual receipts, raw bytes and units
+  ---
+  duration_ms: 8.046311
+  type: 'test'
+  ...
+# Subtest: wrong securities, adjustment claims, unordered days, unknown amount and future receipts fail closed
+ok 3 - wrong securities, adjustment claims, unordered days, unknown amount and future receipts fail closed
+  ---
+  duration_ms: 3.721092
+  type: 'test'
+  ...
+# Subtest: the independent archive persists both sources, retains first values and exposes later revisions without overwriting
+ok 4 - the independent archive persists both sources, retains first values and exposes later revisions without overwriting
+  ---
+  duration_ms: 135.008458
+  type: 'test'
+  ...
+# Subtest: a later provider capture never certifies an old signal; a new same-day freeze can mature on the actual next day
+ok 5 - a later provider capture never certifies an old signal; a new same-day freeze can mature on the actual next day
+  ---
+  duration_ms: 98.925616
+  type: 'test'
+  ...
+# Subtest: persisted signals remain pending after their stock leaves the current pool and finish only on an admitted next-day label
+ok 6 - persisted signals remain pending after their stock leaves the current pool and finish only on an admitted next-day label
+  ---
+  duration_ms: 50.933327
+  type: 'test'
+  ...
+# Subtest: pending history never repairs an old signal with a later receipt but can freeze a current-day check
+ok 7 - pending history never repairs an old signal with a later receipt but can freeze a current-day check
+  ---
+  duration_ms: 19.091479
+  type: 'test'
+  ...
+# Subtest: pending history scans a bounded rotating page and reports omitted codes without depending on current selection
+ok 8 - pending history scans a bounded rotating page and reports omitted codes without depending on current selection
+  ---
+  duration_ms: 38.093563
+  type: 'test'
+  ...
+# Subtest: source conflicts remain quarantined with raw evidence and bounded persisted retry state
+ok 9 - source conflicts remain quarantined with raw evidence and bounded persisted retry state
+  ---
+  duration_ms: 59.274192
+  type: 'test'
+  ...
+# Subtest: complete same-day intake, replicas and provider closing time do not repeat physical requests
+ok 10 - complete same-day intake, replicas and provider closing time do not repeat physical requests
+  ---
+  duration_ms: 19.813514
+  type: 'test'
+  ...
+# Subtest: missing dependencies and failed sources never create synthetic history or calendar
+ok 11 - missing dependencies and failed sources never create synthetic history or calendar
+  ---
+  duration_ms: 15.903338
+  type: 'test'
+  ...
+# Subtest: a process lock covers the physical collection so simultaneous callers cannot bypass the daily budget
+ok 12 - a process lock covers the physical collection so simultaneous callers cannot bypass the daily budget
+  ---
+  duration_ms: 25.00826
+  type: 'test'
+  ...
+# Subtest: hash corruption and symlink archives fail closed instead of silently returning empty research
+ok 13 - hash corruption and symlink archives fail closed instead of silently returning empty research
+  ---
+  duration_ms: 15.562486
+  type: 'test'
+  ...
+# Subtest: private research worker reads independent HFQ history without writing the original research archive
+ok 14 - private research worker reads independent HFQ history without writing the original research archive
+  ---
+  duration_ms: 539.541616
+  type: 'test'
+  ...
+# Subtest: only the primary collects, one research task per minute and no history before close
+ok 15 - only the primary collects, one research task per minute and no history before close
+  ---
+  duration_ms: 57.84841
+  type: 'test'
+  ...
+# Subtest: failed evidence stays missing and retries are bounded; a busy collector never overlaps
+ok 16 - failed evidence stays missing and retries are bounded; a busy collector never overlaps
+  ---
+  duration_ms: 20.351543
+  type: 'test'
+  ...
+# Subtest: holidays and lunch never start collection and next day has its own close evidence
+ok 17 - holidays and lunch never start collection and next day has its own close evidence
+  ---
+  duration_ms: 0.756937
+  type: 'test'
+  ...
+# Subtest: a prior frozen signal keeps its outcome collection after it leaves every current pool
+ok 18 - a prior frozen signal keeps its outcome collection after it leaves every current pool
+  ---
+  duration_ms: 0.586231
+  type: 'test'
+  ...
+# Subtest: pending history is paged and retains unresolved codes without confusing per-code retries
+ok 19 - pending history is paged and retains unresolved codes without confusing per-code retries
+  ---
+  duration_ms: 2.645635
+  type: 'test'
+  ...
+# Subtest: an archive lookup cannot overlap and a role change during the lookup cannot dispatch collectors
+ok 20 - an archive lookup cannot overlap and a role change during the lookup cannot dispatch collectors
+  ---
+  duration_ms: 24.264002
+  type: 'test'
+  ...
+# Subtest: a partial financial capture remains incomplete and retries instead of entering the six-hour success cache
+ok 21 - a partial financial capture remains incomplete and retries instead of entering the six-hour success cache
+  ---
+  duration_ms: 2.839747
+  type: 'test'
+  ...
+# Subtest: a new trading day clears retries but continues the bounded archive scan cursor
+ok 22 - a new trading day clears retries but continues the bounded archive scan cursor
+  ---
+  duration_ms: 3.61375
+  type: 'test'
+  ...
+# Subtest: financial bridge evaluates frozen actual report features without changing their receipt clocks
+ok 23 - financial bridge evaluates frozen actual report features without changing their receipt clocks
+  ---
+  duration_ms: 107.243926
+  type: 'test'
+  ...
+# Subtest: missing, future, mismatched, stale and synthetic financial features never receive a partial perfect score
+ok 24 - missing, future, mismatched, stale and synthetic financial features never receive a partial perfect score
+  ---
+  duration_ms: 3.48686
+  type: 'test'
+  ...
+# Subtest: actual zero and negative financial values are assessed as values rather than missing data
+ok 25 - actual zero and negative financial values are assessed as values rather than missing data
+  ---
+  duration_ms: 3.026237
+  type: 'test'
+  ...
+# Subtest: liquidity keeps quote source time and known zero while rejecting missing units or wrong dates
+ok 26 - liquidity keeps quote source time and known zero while rejecting missing units or wrong dates
+  ---
+  duration_ms: 1.887176
+  type: 'test'
+  ...
+# Subtest: risk score traces the original plan and account and disclaims gap and T+1 execution risk
+ok 27 - risk score traces the original plan and account and disclaims gap and T+1 execution risk
+  ---
+  duration_ms: 3.04808
+  type: 'test'
+  ...
+# Subtest: archive reader requires both dataset source references, fails on corruption and bounds cached reads
+ok 28 - archive reader requires both dataset source references, fails on corruption and bounds cached reads
+  ---
+  duration_ms: 1.731833
+  type: 'test'
+  ...
+# Subtest: a later capture without financials cannot hide an archived report; as-of, identity, stale-report and full-chain corruption checks remain
+ok 29 - a later capture without financials cannot hide an archived report; as-of, identity, stale-report and full-chain corruption checks remain
+  ---
+  duration_ms: 40.546579
+  type: 'test'
+  ...
+# Subtest: financial reader verifies both original private raw files and rejects deletion, corruption, links and open permissions after cache expiry
+ok 30 - financial reader verifies both original private raw files and rejects deletion, corruption, links and open permissions after cache expiry
+  ---
+  duration_ms: 32.800911
+  type: 'test'
+  ...
+# Subtest: real receipt bridge reaches all four council views and all nine radar axes through the decision center
+ok 31 - real receipt bridge reaches all four council views and all nine radar axes through the decision center
+  ---
+  duration_ms: 45.514569
+  type: 'test'
+  ...
+# Subtest: page reads return immediately, coalesce codes and expose only completed independent evidence
+ok 32 - page reads return immediately, coalesce codes and expose only completed independent evidence
+  ---
+  duration_ms: 31.527266
+  type: 'test'
+  ...
+# Subtest: new codes queue during an active flight and bounded batches remain strictly serial
+ok 33 - new codes queue during an active flight and bounded batches remain strictly serial
+  ---
+  duration_ms: 42.973706
+  type: 'test'
+  ...
+# Subtest: expired projections disappear until revalidated and do not acquire a fresh source clock
+ok 34 - expired projections disappear until revalidated and do not acquire a fresh source clock
+  ---
+  duration_ms: 23.457369
+  type: 'test'
+  ...
+# Subtest: invalidation during a flight discards that generation and queues its replacement once
+ok 35 - invalidation during a flight discards that generation and queues its replacement once
+  ---
+  duration_ms: 19.063477
+  type: 'test'
+  ...
+# Subtest: clock rollback cannot reuse a later verification or a later pending response
+ok 36 - clock rollback cannot reuse a later verification or a later pending response
+  ---
+  duration_ms: 27.256779
+  type: 'test'
+  ...
+# Subtest: capacity pins pending work, limits input and allows later cache eviction without expanding workers
+ok 37 - capacity pins pending work, limits input and allows later cache eviction without expanding workers
+  ---
+  duration_ms: 29.963798
+  type: 'test'
+  ...
+# Subtest: reader failures are private, back off, and reject mismatched or future returned evidence
+ok 38 - reader failures are private, back off, and reject mismatched or future returned evidence
+  ---
+  duration_ms: 44.136945
+  type: 'test'
+  ...
+# Subtest: timeout aborts work, ignores late success and never overlaps an uncooperative injected reader
+ok 39 - timeout aborts work, ignores late success and never overlaps an uncooperative injected reader
+  ---
+  duration_ms: 55.217265
+  type: 'test'
+  ...
+# Subtest: close cancels queued and active work and does not publish any late result
+ok 40 - close cancels queued and active work and does not publish any late result
+  ---
+  duration_ms: 15.257707
+  type: 'test'
+  ...
+# Subtest: real worker reads a nonexistent archive without creating files or directories
+ok 41 - real worker reads a nonexistent archive without creating files or directories
+  ---
+  duration_ms: 124.096671
+  type: 'test'
+  ...
+# Subtest: real worker keeps original receipt clocks and invalidation rechecks changed raw bytes
+ok 42 - real worker keeps original receipt clocks and invalidation rechecks changed raw bytes
+  ---
+  duration_ms: 244.781253
+  type: 'test'
+  ...
+# Subtest: mini K keeps original retrieval time, security and qfq basis
+ok 43 - mini K keeps original retrieval time, security and qfq basis
+  ---
+  duration_ms: 4.696438
+  type: 'test'
+  ...
+# Subtest: mini K rejects absent/future clocks, unknown adjustment, wrong symbol and contradictory daily rows
+ok 44 - mini K rejects absent/future clocks, unknown adjustment, wrong symbol and contradictory daily rows
+  ---
+  duration_ms: 0.95824
+  type: 'test'
+  ...
+# Subtest: cost stress recalculates actual ledger fees and additive slippage without using adjusted-price labels
+ok 45 - cost stress recalculates actual ledger fees and additive slippage without using adjusted-price labels
+  ---
+  duration_ms: 33.434352
+  type: 'test'
+  ...
+# Subtest: unlinked plans, later freezes, inconsistent cost and changed proof cannot become mature execution evidence
+ok 46 - unlinked plans, later freezes, inconsistent cost and changed proof cannot become mature execution evidence
+  ---
+  duration_ms: 2.363762
+  type: 'test'
+  ...
+# Subtest: original millisecond fill times are used instead of minute display strings and T+1 is independently checked
+ok 47 - original millisecond fill times are used instead of minute display strings and T+1 is independently checked
+  ---
+  duration_ms: 0.61266
+  type: 'test'
+  ...
+# Subtest: WF phase validation cannot reuse a settlement first recorded after the holdout boundary
+ok 48 - WF phase validation cannot reuse a settlement first recorded after the holdout boundary
+  ---
+  duration_ms: 1.388406
+  type: 'test'
+  ...
+# Subtest: black-swan and nonrepeatable trades remain separately visible and cannot pad normal validation samples
+ok 49 - black-swan and nonrepeatable trades remain separately visible and cannot pad normal validation samples
+  ---
+  duration_ms: 0.680452
+  type: 'test'
+  ...
+# Subtest: duplicate settlement proofs and future collection times cannot inflate validation
+ok 50 - duplicate settlement proofs and future collection times cannot inflate validation
+  ---
+  duration_ms: 0.71209
+  type: 'test'
+  ...
+# Subtest: demo, teaching and flagged samples never enter execution costs; original frozen cycle labels are retained
+ok 51 - demo, teaching and flagged samples never enter execution costs; original frozen cycle labels are retained
+  ---
+  duration_ms: 0.54576
+  type: 'test'
+  ...
+# Subtest: full research report exposes actual execution validation even when HFQ IC history is insufficient
+ok 52 - full research report exposes actual execution validation even when HFQ IC history is insufficient
+  ---
+  duration_ms: 7.277196
+  type: 'test'
+  ...
+# Subtest: Q uses the specified five weights; unknowns remain null and are not renormalized
+ok 53 - Q uses the specified five weights; unknowns remain null and are not renormalized
+  ---
+  duration_ms: 5.296639
+  type: 'test'
+  ...
+# Subtest: configuration fixes adjustment boundaries and cannot relax feedback approval
+ok 54 - configuration fixes adjustment boundaries and cannot relax feedback approval
+  ---
+  duration_ms: 0.446551
+  type: 'test'
+  ...
+# Subtest: same code/day/hfq sources enter the centre dataset with an original source price
+ok 55 - same code/day/hfq sources enter the centre dataset with an original source price
+  ---
+  duration_ms: 10.838237
+  type: 'test'
+  ...
+# Subtest: outlier is excluded by a unique majority; two conflicting sources produce no averaged price
+ok 56 - outlier is excluded by a unique majority; two conflicting sources produce no averaged price
+  ---
+  duration_ms: 1.083228
+  type: 'test'
+  ...
+# Subtest: same raw publisher cannot become two independent sources through wrapper aliases
+ok 57 - same raw publisher cannot become two independent sources through wrapper aliases
+  ---
+  duration_ms: 0.553712
+  type: 'test'
+  ...
+# Subtest: legacy unadjusted/qfq, unknown clocks, wrong units, and future evidence cannot become hfq
+ok 58 - legacy unadjusted/qfq, unknown clocks, wrong units, and future evidence cannot become hfq
+  ---
+  duration_ms: 0.951811
+  type: 'test'
+  ...
+# Subtest: missing or mismatched code/day/adjustment stays separated rather than cross-pollinated
+ok 59 - missing or mismatched code/day/adjustment stays separated rather than cross-pollinated
+  ---
+  duration_ms: 0.365689
+  type: 'test'
+  ...
+# Subtest: live diagnostic adds a conflict block only from fresh original quote clocks
+ok 60 - live diagnostic adds a conflict block only from fresh original quote clocks
+  ---
+  duration_ms: 2.89469
+  type: 'test'
+  ...
+# Subtest: partial agreement rejects the candidate outlier source and contradictory report status is not trusted
+ok 61 - partial agreement rejects the candidate outlier source and contradictory report status is not trusted
+  ---
+  duration_ms: 5.488938
+  type: 'test'
+  ...
+# Subtest: cross-market dates use an exact intersection with original calendar provenance
+ok 62 - cross-market dates use an exact intersection with original calendar provenance
+  ---
+  duration_ms: 1.244811
+  type: 'test'
+  ...
+# Subtest: archive next-day evidence retains its own knowledge clock and cannot invent a missing edge
+ok 63 - archive next-day evidence retains its own knowledge clock and cannot invent a missing edge
+  ---
+  duration_ms: 1.957742
+  type: 'test'
+  ...
+# Subtest: factor extraction preserves numeric evidence and does not turn missing rule conditions into zero
+ok 64 - factor extraction preserves numeric evidence and does not turn missing rule conditions into zero
+  ---
+  duration_ms: 0.877078
+  type: 'test'
+  ...
+# Subtest: t→t+1 uses exact next trading day and original signal/label knowledge times
+ok 65 - t→t+1 uses exact next trading day and original signal/label knowledge times
+  ---
+  duration_ms: 13.137492
+  type: 'test'
+  ...
+# Subtest: missing next-day or retrospective corrected signal price never substitutes a later return label
+ok 66 - missing next-day or retrospective corrected signal price never substitutes a later return label
+  ---
+  duration_ms: 1.275577
+  type: 'test'
+  ...
+# Subtest: misdated or shifted explicit session clocks cannot move the next-open cutoff beyond a known answer
+ok 67 - misdated or shifted explicit session clocks cannot move the next-open cutoff beyond a known answer
+  ---
+  duration_ms: 0.863538
+  type: 'test'
+  ...
+# Subtest: intraday target bars cannot mature a next-day close label, even with apparently complete OHLCV
+ok 68 - intraday target bars cannot mature a next-day close label, even with apparently complete OHLCV
+  ---
+  duration_ms: 0.807724
+  type: 'test'
+  ...
+# Subtest: orthogonalization fits training only, removes exact redundancy, and leaves missing values unresolved
+ok 69 - orthogonalization fits training only, removes exact redundancy, and leaves missing values unresolved
+  ---
+  duration_ms: 1.312232
+  type: 'test'
+  ...
+# Subtest: walk-forward purges boundary labels and freezes train parameters before both holdouts
+ok 70 - walk-forward purges boundary labels and freezes train parameters before both holdouts
+  ---
+  duration_ms: 30.475845
+  type: 'test'
+  ...
+# Subtest: phase label availability is enforced and thin cross-sections cannot report a successful validation
+ok 71 - phase label availability is enforced and thin cross-sections cannot report a successful validation
+  ---
+  duration_ms: 15.340743
+  type: 'test'
+  ...
+# Subtest: a stricter configured redundancy cutoff can only tighten the original research suppression gate
+ok 72 - a stricter configured redundancy cutoff can only tighten the original research suppression gate
+  ---
+  duration_ms: 11.734684
+  type: 'test'
+  ...
+# Subtest: empty archive reports missing evidence and six explicit existing-rule groups without fabricated candidates
+ok 73 - empty archive reports missing evidence and six explicit existing-rule groups without fabricated candidates
+  ---
+  duration_ms: 7.389835
+  type: 'test'
+  ...
+# Subtest: existing consensus reports are consumed read-only and never refetched or written into quotes
+ok 74 - existing consensus reports are consumed read-only and never refetched or written into quotes
+  ---
+  duration_ms: 2.385885
+  type: 'test'
+  ...
+# Subtest: real provenance-shaped archive can produce research IC and bounded candidates without changing approved weights
+ok 75 - real provenance-shaped archive can produce research IC and bounded candidates without changing approved weights
+  ---
+  duration_ms: 63.069479
+  type: 'test'
+  ...
+# Subtest: three-to-four has a complete independent definition and emits only evidence-backed unvalidated observations
+ok 76 - three-to-four has a complete independent definition and emits only evidence-backed unvalidated observations
+  ---
+  duration_ms: 5.1842
+  type: 'test'
+  ...
+# Subtest: three-to-four does not fill missing seal, turnover or calendar evidence
+ok 77 - three-to-four does not fill missing seal, turnover or calendar evidence
+  ---
+  duration_ms: 1.11112
+  type: 'test'
+  ...
+# Subtest: three-to-four blocks late prior pools, mixed-day backfill and disagreeing raw close prices
+ok 78 - three-to-four blocks late prior pools, mixed-day backfill and disagreeing raw close prices
+  ---
+  duration_ms: 1.142406
+  type: 'test'
+  ...
+# Subtest: three-to-four observed failed conditions stay distinct from unknown and do not claim historical validation
+ok 79 - three-to-four observed failed conditions stay distinct from unknown and do not claim historical validation
+  ---
+  duration_ms: 0.42638
+  type: 'test'
+  ...
+# Subtest: five existing-rule templates now evaluate complete condition records and explicit board identities
+ok 80 - five existing-rule templates now evaluate complete condition records and explicit board identities
+  ---
+  duration_ms: 19.169586
+  type: 'test'
+  ...
+# Subtest: template names or partial matches cannot replace missing original per-condition evidence
+ok 81 - template names or partial matches cannot replace missing original per-condition evidence
+  ---
+  duration_ms: 0.804529
+  type: 'test'
+  ...
+# Subtest: one-to-two refuses a prior board first known after today opened and missing calendar edges
+ok 82 - one-to-two refuses a prior board first known after today opened and missing calendar edges
+  ---
+  duration_ms: 4.15273
+  type: 'test'
+  ...
+# Subtest: known emotion requires its original market timing and explanatory evidence
+ok 83 - known emotion requires its original market timing and explanatory evidence
+  ---
+  duration_ms: 0.581945
+  type: 'test'
+  ...
+# Subtest: latest recorded condition failure removes the current observation without accumulating duplicate votes
+ok 84 - latest recorded condition failure removes the current observation without accumulating duplicate votes
+  ---
+  duration_ms: 3.95317
+  type: 'test'
+  ...
+# Subtest: research API groups expose all six evaluator states without claiming out-of-sample certification
+ok 85 - research API groups expose all six evaluator states without claiming out-of-sample certification
+  ---
+  duration_ms: 7.097205
+  type: 'test'
+  ...
+# Subtest: durable intent is bound to its original plan, device, password generation and instance
+ok 86 - durable intent is bound to its original plan, device, password generation and instance
+  ---
+  duration_ms: 2.280857
+  type: 'test'
+  ...
+# Subtest: revocation and device removal stop queued execution without changing access state
+ok 87 - revocation and device removal stop queued execution without changing access state
+  ---
+  duration_ms: 1.025411
+  type: 'test'
+  ...
+# Subtest: password-only sessions never persist credentials and cannot resume after the original process loses them
+ok 88 - password-only sessions never persist credentials and cannot resume after the original process loses them
+  ---
+  duration_ms: 1.202767
+  type: 'test'
+  ...
+# Subtest: local intent stays within the original local exemption and never becomes a cloud authorization
+ok 89 - local intent stays within the original local exemption and never becomes a cloud authorization
+  ---
+  duration_ms: 0.425479
+  type: 'test'
+  ...
+# Subtest: real HTTP queue is private, read-only until explicitly created, and the background adapter commits once through the original ledger
+ok 90 - real HTTP queue is private, read-only until explicitly created, and the background adapter commits once through the original ledger
+  ---
+  duration_ms: 1962.455558
+  type: 'test'
+  ...
+# Subtest: outside-range and stale prices keep a durable intent waiting; cancellation cannot later fill
+ok 91 - outside-range and stale prices keep a durable intent waiting; cancellation cannot later fill
+  ---
+  duration_ms: 1372.728233
+  type: 'test'
+  ...
+# Subtest: revoking the device through the original HTTP API stops its queued intent before any original buy
+ok 92 - revoking the device through the original HTTP API stops its queued intent before any original buy
+  ---
+  duration_ms: 1258.103267
+  type: 'test'
+  ...
+# Subtest: a changed strategy batch or removed candidate cannot execute an older frozen plan through the HTTP background path
+ok 93 - a changed strategy batch or removed candidate cannot execute an older frozen plan through the HTTP background path
+  ---
+  duration_ms: 1413.290891
+  type: 'test'
+  ...
+# Subtest: original full-position and minimum-lot budget gates reject queued execution without extra ledger events
+ok 94 - original full-position and minimum-lot budget gates reject queued execution without extra ledger events
+  ---
+  duration_ms: 2996.812399
+  type: 'test'
+  ...
+# Subtest: original T+1 sale ends monitoring and a later same-stock round trip cannot inherit the earlier plan
+ok 95 - original T+1 sale ends monitoring and a later same-stock round trip cannot inherit the earlier plan
+  ---
+  duration_ms: 1479.041583
+  type: 'test'
+  ...
+# Subtest: empty reads create no files; explicit intents persist without disclosing authorization and retries stay idempotent
+ok 96 - empty reads create no files; explicit intents persist without disclosing authorization and retries stay idempotent
+  ---
+  duration_ms: 29.282908
+  type: 'test'
+  ...
+# Subtest: missing, stale, future, wrong-day, suspended, partial and sealed quotes never invoke execution; original gate rejection stays pending
+ok 97 - missing, stale, future, wrong-day, suspended, partial and sealed quotes never invoke execution; original gate rejection stays pending
+  ---
+  duration_ms: 55.326455
+  type: 'test'
+  ...
+# Subtest: lunch pauses, replicas do not write, expiry and cancellation cannot revive on restart
+ok 98 - lunch pauses, replicas do not write, expiry and cancellation cannot revive on restart
+  ---
+  duration_ms: 33.979701
+  type: 'test'
+  ...
+# Subtest: revocation is checked again immediately before execution, and never resumes an unauthorized order silently
+ok 99 - revocation is checked again immediately before execution, and never resumes an unauthorized order silently
+  ---
+  duration_ms: 12.838353
+  type: 'test'
+  ...
+# Subtest: resetting the original account epoch cancels earlier pending intentions without touching its new balance
+ok 100 - resetting the original account epoch cancels earlier pending intentions without touching its new balance
+  ---
+  duration_ms: 20.128637
+  type: 'test'
+  ...
+# Subtest: only a matching original durable fill marks success; restart and duplicate ticks cannot buy twice
+ok 101 - only a matching original durable fill marks success; restart and duplicate ticks cannot buy twice
+  ---
+  duration_ms: 31.924218
+  type: 'test'
+  ...
+# Subtest: process death after original commit but before intent acknowledgement reconciles instead of buying again
+ok 102 - process death after original commit but before intent acknowledgement reconciles instead of buying again
+  ---
+  duration_ms: 136.466954
+  type: 'test'
+  ...
+# Subtest: original quote triggers record T+1/window evidence and private delivery acceptance is not called delivered
+ok 103 - original quote triggers record T+1/window evidence and private delivery acceptance is not called delivered
+  ---
+  duration_ms: 19.471651
+  type: 'test'
+  ...
+# Subtest: two processes racing the same intent share the OS lock and produce one original account callback
+ok 104 - two processes racing the same intent share the OS lock and produce one original account callback
+  ---
+  duration_ms: 235.504217
+  type: 'test'
+  ...
+# Subtest: a verified stop window plus original sale is scored; corrupted, blocked or absent observations stay unknown
+ok 105 - a verified stop window plus original sale is scored; corrupted, blocked or absent observations stay unknown
+  ---
+  duration_ms: 13.750863
+  type: 'test'
+  ...
+# Subtest: damaged intent files, mismatched frozen plan and unsafe paths fail closed without invoking account execution
+ok 106 - damaged intent files, mismatched frozen plan and unsafe paths fail closed without invoking account execution
+  ---
+  duration_ms: 9.638884
+  type: 'test'
+  ...
+# (node:118) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/scratch/6b9ec285f52b/v6-audit/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /workspace/scratch/6b9ec285f52b/v6-audit/V6_BO/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: bounded grammar accepts the requested five-day chip query and normalizes fullwidth digits
+ok 107 - bounded grammar accepts the requested five-day chip query and normalizes fullwidth digits
+  ---
+  duration_ms: 4.786653
+  type: 'test'
+  ...
+# Subtest: unsupported conditions and historical score windows fail visibly instead of dropping clauses
+ok 108 - unsupported conditions and historical score windows fail visibly instead of dropping clauses
+  ---
+  duration_ms: 2.02294
+  type: 'test'
+  ...
+# Subtest: compound conditions preserve every comparison and normalize percentages and CNY amount units
+ok 109 - compound conditions preserve every comparison and normalize percentages and CNY amount units
+  ---
+  duration_ms: 1.068085
+  type: 'test'
+  ...
+# Subtest: compound ranking excludes failed conditions, retains original evidence and never turns missing values into zero
+ok 110 - compound ranking excludes failed conditions, retains original evidence and never turns missing values into zero
+  ---
+  duration_ms: 29.396595
+  type: 'test'
+  ...
+# Subtest: compound filters require their own original quote clocks and cannot silently assume normal trade status
+ok 111 - compound filters require their own original quote clocks and cannot silently assume normal trade status
+  ---
+  duration_ms: 1.273113
+  type: 'test'
+  ...
+# Subtest: the read projection preserves original daily dates, unknown amounts and knownAt without altering state
+ok 112 - the read projection preserves original daily dates, unknown amounts and knownAt without altering state
+  ---
+  duration_ms: 0.935726
+  type: 'test'
+  ...
+# Subtest: a complete five-trading-day history ranks chip/semiconductor samples with original evidence
+ok 113 - a complete five-trading-day history ranks chip/semiconductor samples with original evidence
+  ---
+  duration_ms: 1.145962
+  type: 'test'
+  ...
+# Subtest: today funds cannot impersonate five days and incomplete coverage stays explicit
+ok 114 - today funds cannot impersonate five days and incomplete coverage stays explicit
+  ---
+  duration_ms: 0.762836
+  type: 'test'
+  ...
+# Subtest: unknown/zero/negative funds remain distinct and never become a positive inflow candidate
+ok 115 - unknown/zero/negative funds remain distinct and never become a positive inflow candidate
+  ---
+  duration_ms: 0.752581
+  type: 'test'
+  ...
+# Subtest: duplicate dates, mixed sources, future receipts and unverified units invalidate a funds window
+ok 116 - duplicate dates, mixed sources, future receipts and unverified units invalidate a funds window
+  ---
+  duration_ms: 2.406496
+  type: 'test'
+  ...
+# Subtest: the projection rejects future, synthetic and missing acquisition times without inventing timestamps
+ok 117 - the projection rejects future, synthetic and missing acquisition times without inventing timestamps
+  ---
+  duration_ms: 0.464438
+  type: 'test'
+  ...
+# Subtest: missing trading calendar does not treat five observed records as five consecutive trading days
+ok 118 - missing trading calendar does not treat five observed records as five consecutive trading days
+  ---
+  duration_ms: 0.413791
+  type: 'test'
+  ...
+# Subtest: old dates, source-less quotes and blocked candidates cannot enter same-day score results
+ok 119 - old dates, source-less quotes and blocked candidates cannot enter same-day score results
+  ---
+  duration_ms: 0.787414
+  type: 'test'
+  ...
+# Subtest: score and resonance rankings use independent strategy membership rather than repeated factors
+ok 120 - score and resonance rankings use independent strategy membership rather than repeated factors
+  ---
+  duration_ms: 1.015646
+  type: 'test'
+  ...
+# Subtest: source date remains the closed-session day and limits are enforced by the projection
+ok 121 - source date remains the closed-session day and limits are enforced by the projection
+  ---
+  duration_ms: 2.000616
+  type: 'test'
+  ...
+# Subtest: command UI loads only on submit, reuses same-day history and exposes no mutating API
+ok 122 - command UI loads only on submit, reuses same-day history and exposes no mutating API
+  ---
+  duration_ms: 17.399136
+  type: 'test'
+  ...
+1..122
+# tests 122
+# suites 0
+# pass 122
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12228.504415

@@ -2406,7 +2406,7 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-decision-card{flex:0 0 91%;scroll-snap-align:start;padding:9px;gap:5px}.fy-decision-card:only-child{flex-basis:100%}
  .fy-decision-empty{width:100%;flex:0 0 100%;padding:18px 8px}.fy-decision-empty strong{font-size:18px}
  .fy-decision-stock strong{font-size:19px}.fy-decision-mini{min-height:45px}.fy-decision-mini svg{height:32px}.fy-decision-reason{min-height:0}
- .fy-decision-execution{display:block;margin-top:6px;padding:6px 0}.fy-decision-checklist{gap:3px 20px;margin-top:5px;font-size:10px}
+ .fy-decision-execution{display:flex;gap:10px;margin-top:6px;padding:6px 0}.fy-decision-checklist{gap:3px 20px;margin-top:0;font-size:10px}
  .fy-decision-coverage{font-size:10px}.fy-decision-board>.fy-details{margin-block:5px}
  .fy-command-selection .fy-toolbar{display:flex;flex-wrap:wrap}.fy-command-selection input{flex-basis:100%}
 }

@@ -8,7 +8,7 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research'].includes(payload.action);
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback';
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
@@ -26,14 +26,14 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const feedback=payload.action==='intelligence-feedback';
+  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
-  if(feedback&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始提案写入'});
-  const permit=feedback?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
+  if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
+  const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
   const finish=async value=>{if(done)return;done=true;clearTimeout(timer);try{await worker?.terminate();}finally{resolve(value);}};
   try{worker=new Worker(__filename,{workerData:{...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})},resourceLimits:{maxOldGenerationSizeMb:384}});
    worker.on('message',value=>{
-    if(feedback&&value?.__v6CenterCommitAuthorization===true){
+    if(guarded&&value?.__v6CenterCommitAuthorization===true){
       const control=new Int32Array(permit);Atomics.store(control,0,!done&&allowed()?1:-1);Atomics.notify(control,0);return;
     }
     void finish(value);
@@ -45,6 +45,16 @@ function runWorker(payload,authorize){
 }
 if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerData,W=require('../core/research-workspace');Promise.resolve().then(async()=>{
  try{
+  const authorizedCheckpoint=()=>{
+    if(!(p.__v6CenterCommitPermit instanceof SharedArrayBuffer))return false;
+    const control=new Int32Array(p.__v6CenterCommitPermit);
+    // Every checkpoint requires a fresh answer. A grant before a slow supplier
+    // request cannot authorize a later write after the role is revoked.
+    Atomics.store(control,0,0);
+    parentPort.postMessage({__v6CenterCommitAuthorization:true});
+    Atomics.wait(control,0,0,5000);
+    return Atomics.load(control,0)===1;
+  };
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
@@ -52,11 +62,26 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
   if(p.action==='intelligence-research'){
     const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});
     if(!archive.ok)return archive;
-    const history=require('../core/intelligence-history').composeCenterHistory(archive.state,p.historyRoot,{day:p.day,now:p.now});
+    const input=require('../core/center-history').composeCenterResearchInputs(archive.state,
+      p.historyRoot||require('node:path').join(p.root,'center-history'),{day:p.day,now:p.now});
     const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes,
-      bars:history.bars,calendar:history.calendar});
-    result.historySupply=history.summary;
+      ...input.research});
+    result.historySupply=input.historySupply;
     return {ok:true,result};
+  }
+  if(p.action==='intelligence-history-collect'){
+    if(p.replica)return {ok:false,httpStatus:403,error:'副本不能采集或写入中心研究历史'};
+    const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:false});
+    if(!archive.ok)return archive;
+    const result=await require('../core/center-history').collectCenterHistory({root:p.historyRoot,code:p.code,day:p.day,
+      historyDays:p.historyDays,replica:false,archive:archive.state},{canWrite:authorizedCheckpoint});
+    return {ok:true,result};
+  }
+  if(p.action==='intelligence-history-pending'){
+    const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});
+    if(!archive.ok)return archive;
+    return require('../core/center-history').readPendingCenterHistory({root:p.historyRoot,archive:archive.state,
+      day:p.day,now:p.now,cursor:p.cursor});
   }
   if(p.action==='intelligence-feedback'){
     if(p.replica)return {ok:false,httpStatus:409,error:'副本不能验证中心提案'};
@@ -64,18 +89,12 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     try{
       const archive=await shortlineJob({root:p.root,book:'main',replica:false});
       if(!archive.ok)return archive;
-      const history=require('../core/intelligence-history').composeCenterHistory(archive.state,p.historyRoot,{day:p.day,now:p.now});
-      if(history.summary?.status==='invalid-history-store')return {ok:false,httpStatus:422,error:'中心历史证据链校验失败，拒绝提交反馈提案'};
-      const beforeCenterCommit=()=>{
-        if(!(p.__v6CenterCommitPermit instanceof SharedArrayBuffer))return false;
-        const control=new Int32Array(p.__v6CenterCommitPermit);
-        parentPort.postMessage({__v6CenterCommitAuthorization:true});
-        Atomics.wait(control,0,0,5000);
-        return Atomics.load(control,0)===1;
-      };
+      const input=require('../core/center-history').composeCenterResearchInputs(archive.state,
+        p.historyRoot||require('node:path').join(p.root,'center-history'),{day:p.day,now:p.now});
+      if(input.historySupply?.status==='invalid-history-store')return {ok:false,httpStatus:422,error:'中心历史证据链校验失败，拒绝提交反馈提案'};
       const saved=await shortlineJob({root:p.root,book:'main',replica:false,
         input:{revision:p.revision,action:'learn:center-feedback',payload:{}},
-        centerFeedback:{day:p.day,now:p.now,proposalFingerprint:p.proposalFingerprint,bars:history.bars,calendar:history.calendar},beforeCenterCommit});
+        centerFeedback:{day:p.day,now:p.now,proposalFingerprint:p.proposalFingerprint,...input.research},beforeCenterCommit:authorizedCheckpoint});
       return {ok:true,result:saved.result,revision:saved.state.revision};
     }catch(error){return {ok:false,httpStatus:error.httpStatus||422,error:error.message||'中心提案证据未通过原验证'};}
   }

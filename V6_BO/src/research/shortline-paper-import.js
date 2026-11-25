@@ -7,6 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
+const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
 const money = n => Math.round((n + Number.EPSILON) * 100);
@@ -66,6 +67,48 @@ function closedSample(accountId, sell, legs, sellTime, observed, names) {
   };
 }
 
+// Link only the plan identifier carried by the verified original buy event.
+// Matching a later plan by stock/date would manufacture a pre-trade decision.
+function linkDecisionPlan(sample, state, events, now) {
+  if(sample.paperSettlement.accountId!=='pool'||state.scope==='demo')return sample;
+  const legs=sample.paperSettlement.entryFills;
+  const entries=legs.map(leg=>events.get(leg.eventId));
+  if(entries.some((event,i)=>!event||event.side!=='buy'||event.symbol!==sample.code||executionTimeOf(event)!==legs[i].time))return sample;
+  const ids=entries.map(event=>planIdOf(event.reason));
+  if(ids.some(id=>!id)||new Set(ids).size!==1)return sample;
+  const matches=(state.plans||[]).filter(plan=>plan.id===ids[0]);
+  if(matches.length!==1)return sample;
+  const plan=matches[0],at=Math.min(...legs.map(leg=>leg.time)),basis=plan.decisionEvidence;
+  try{validatePlan(plan,now);}catch{return sample;}
+  const frozen=Date.parse(plan.frozenAt);
+  if(plan.code!==sample.code||frozen>at||entries.some(event=>event.tradeDate!==plan.intendedDate)||
+    !Number.isSafeInteger(basis?.calculatedAt)||basis.calculatedAt>frozen||
+    !Number.isSafeInteger(basis?.strategyAt)||basis.strategyAt<=0||basis.strategyAt>frozen||
+    !Number.isSafeInteger(basis?.quoteBasis?.quoteAt)||basis.quoteBasis.quoteAt<=0||basis.quoteBasis.quoteAt>frozen||
+    typeof basis?.quoteBasis?.source!=='string'||!basis.quoteBasis.source)return sample;
+  const frozenCheck=(state.checks||[]).find(check=>check.id===plan.checkId&&check.code===plan.code&&
+    Number.isFinite(Date.parse(check.createdAt))&&Date.parse(check.createdAt)<=frozen);
+  const strings=value=>[...new Set((Array.isArray(value)?value:[]).filter(item=>typeof item==='string'&&item&&item.length<=100))].slice(0,64);
+  const codes=strings(frozenCheck?.factorCodes).filter(code=>/^[A-Z]{2,6}-\d{2,4}$/.test(code));
+  const within=legs.every(leg=>leg.price>=plan.entryMin&&leg.price<=plan.entryMax);
+  const facts=[
+    {rule:'计划外交易',status:'符合',evidence:'原账本买入事件关联事前冻结计划 '+plan.id},
+    {rule:'追高',status:within?'符合':'触发',evidence:'各买入批次与冻结区间 '+plan.entryMin+'–'+plan.entryMax+' 元逐笔核对'},
+    {rule:'超仓',status:'资料不足',evidence:'原结算记录没有买入前权益快照，不用当前权益反推历史仓位'},
+    {rule:'违反止损',status:'资料不足',evidence:'需关联当时原始报价触发与可成交窗口，卖出结果不证明及时止损'},
+    {rule:'过早离场',status:plan.holdUntil?'资料不足':'不适用',evidence:plan.holdUntil?'需核对离场时点与原计划豁免条件':'冻结计划未限制最早离场时间'}
+  ];
+  return {...sample,sampleSet:'real',planId:plan.id,planStatus:'已冻结',planVerified:true,
+    planLinkedAt:new Date(now).toISOString(),entryTimestamp:at,exitTimestamp:sample.paperSettlement.exitTimestamp,
+    strategy:plan.strategy,strategies:[plan.strategy],trend:plan.trend||'未判定',
+    factors:strings([...(plan.factors||[]),...codes]),knownRiskFactors:strings(plan.knownRiskFactors),
+    checkId:frozenCheck?.id||null,customTags:strings(plan.customTags),
+    frozenLabels:structuredClone(plan.labels||{}),labels:{...sample.labels,...structuredClone(plan.labels||{})},
+    snapshotVerified:true,reviewable:true,disciplineFacts:facts,violations:facts.filter(f=>f.status==='触发').map(f=>f.rule),
+    decisionLink:{planId:plan.id,decisionId:plan.decisionId,planFingerprint:digest(plan),
+      entryEventIds:entries.map(event=>event.eventId),knownAt:now,factorsMissing:!strings([...(plan.factors||[]),...codes]).length}};
+}
+
 // Rebuild FIFO exactly at the ledger's cent precision. Unknown opening lots,
 // corporate entitlements and date-only fills consume volume but cannot supply
 // an invented entry time or cost. Subsequent independently closed lots remain usable.
@@ -120,7 +163,7 @@ function projectSymbol(book, accountId, symbol, fills, actions, now, report, nam
   return out;
 }
 
-function accountSamples(book,key,now,report){
+function accountSamples(book,key,now,report,state){
   const result=[];
   for(const period of [...(book.archives||[]),book]){
     const ledger=period.account;
@@ -137,13 +180,15 @@ function accountSamples(book,key,now,report){
       if(!actions.has(e.symbol))actions.set(e.symbol,[]);
       actions.get(e.symbol).push(e);
     }
-    for(const [symbol,rows] of groups)result.push(...projectSymbol(period,key,symbol,rows,actions.get(symbol)||[],now,report,names));
+    const events=new Map(ledger.events.map(event=>[event.eventId,event]));
+    for(const [symbol,rows] of groups)result.push(...projectSymbol(period,key,symbol,rows,actions.get(symbol)||[],now,report,names)
+      .map(sample=>linkDecisionPlan(sample,state,events,now)));
   }
   return result;
 }
 
 function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNTS_DIR||path.resolve(__dirname,'../../data/order-accounts'),now=Date.now()}={}){
-  const report={imported:0,existing:0,skipped:0,missing:0,issues:[],exitDays:[]};
+  const report={imported:0,updated:0,existing:0,skipped:0,missing:0,issues:[],exitDays:[]};
   const records=new Map(state.trades.map(t=>[t.id,t])),days=new Set();
   for(const key of ['pool','pre']){
     const file=path.join(accountDir,key+'.json');
@@ -152,7 +197,7 @@ function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNT
       fs.lstatSync(file); // No constructors or directory creation for absent accounts.
       const book=createPaperApplicationService({file}).read();
       if(book.paperOnly!==true||book.brokerConnected!==false)throw Error('模拟账本身份无效');
-      samples=accountSamples(book,key,now,report);
+      samples=accountSamples(book,key,now,report,state);
     }catch(e){
       if(e.code==='ENOENT'){report.missing++;continue;}
       report.issues.push(key+' 模拟账本未通过完整性核对');continue;
@@ -161,7 +206,15 @@ function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNT
       if(state.ledgerStartAt&&sample.paperSettlement.entryFills.some(f=>f.time<=state.ledgerStartAt))continue;
       const old=records.get(sample.id);
       if(old){
-        if(old.source===source&&old.sourceFingerprint===sample.sourceFingerprint)report.existing++;
+        if(old.source===source&&old.sourceFingerprint===sample.sourceFingerprint){
+          if(!old.planVerified&&sample.planVerified){
+            // Repair only this derived projection; retain its first collection
+            // time and use today's knowledge time for the newly linked evidence.
+            const next={...sample,firstCollectedAt:old.firstCollectedAt||old.createdAt};
+            state.trades[state.trades.indexOf(old)]=next;records.set(next.id,next);
+            report.updated++;days.add(next.exitDate);
+          }else report.existing++;
+        }
         else{report.skipped++;report.issues.push(key+' 成交编号对应的归档内容冲突');}
         continue;
       }

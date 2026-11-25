@@ -230,3 +230,43 @@ test('a role change before commit leaves no visible evidence and an identical im
   assert.equal((await resumed.append({...batch, now})).alerts.length, 0);
   assert.equal((await resumed.read({day: exitDay})).records.length, 1);
 });
+
+test('conditional execution and whole-plan observations share one alert identity and only the observer dispatches',async t=>{
+  const {createConditionalOrderStore}=require('../src/core/paper-conditional-orders');
+  const {createDecisionEvidenceRuntime}=require('../src/server/decision-evidence-runtime');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'plan-observer-owner-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const state=book(),plan=frozen(),sent=[];let now=stamp(entryDay,'10:01:00'),oldSends=0;
+  const queue=createConditionalOrderStore({root:path.join(dir,'conditions'),clock:()=>now});
+  queue.create({requestId:'observer-owner-1234',plan,authorization:{principal:'isolated-device',gen:1}},{readBook:()=>clone(state)});
+  now=stamp(exitDay,'10:00:00');
+  const quoteFor=()=>quote(exitDay,now,9.3);
+  queue.tick({now,day:exitDay,replica:false,continuous:true,authorized:()=>true,planFor:()=>plan,quoteFor,
+    readBook:()=>clone(state),execute:()=>assert.fail('already entered'),exitAllowedFor:()=>({allowed:true}),notify:()=>{oldSends++;}});
+  const condition=queue.read().orders[0],observerStore=createPaperPlanObservationStore({root:path.join(dir,'observations'),clock:()=>now,canWrite:()=>true});
+  const runtime=createDecisionEvidenceRuntime({clock:()=>now,isPrimary:()=>true,session:()=>({day:exitDay,continuous:true}),
+    readArchive:async()=>({ok:true,state:{plans:[plan]}}),readContext:async()=>({book:state,quotes:{'600000':quoteFor()},calendar,now,
+      exitEligibilityByPlan:{[plan.id]:{allowed:true,reason:'原账户退出巡检已核对',checkedAt:now,quoteAt:now}}}),
+    observe:observePaperPlans,store:observerStore,privateReady:()=>true,sendPrivate:async alert=>sent.push(alert)});
+  await runtime.tick();now+=5000;await runtime.tick();
+  assert.equal(oldSends,0);assert.equal(sent.length,1);assert.equal(condition.alerts[0].status,'delegated');
+  assert.equal(condition.alerts[0].observerAlertId,sent[0].id);assert.equal(sent[0].entryEventId,'buy-plan');
+  const stored=await observerStore.read({day:exitDay});assert.equal(stored.records.length,2);assert.equal(stored.alerts.length,1);
+});
+
+test('both evidence inputs score the original lot once and sparse intent triggers never repair a full-observer gap',async t=>{
+  const {createConditionalOrderStore}=require('../src/core/paper-conditional-orders');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'plan-score-both-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const state=book(),plan=frozen();let now=stamp(entryDay,'10:01:00');
+  const queue=createConditionalOrderStore({root:path.join(dir,'conditions'),clock:()=>now});
+  queue.create({requestId:'score-both-1234',plan,authorization:{principal:'isolated-device',gen:1}},{readBook:()=>clone(state)});
+  const trigger=stamp(exitDay,'10:00:00'),exit=trigger+5000;
+  const samples=fullSamples({state,until:exit,price:at=>at>=trigger?9.3:10});now=trigger;
+  queue.tick({now,day:exitDay,replica:false,continuous:true,authorized:()=>true,planFor:()=>plan,quoteFor:()=>quote(exitDay,now,9.3),
+    readBook:()=>clone(state),execute:()=>assert.fail('already entered'),exitAllowedFor:()=>({allowed:true})});
+  sell(state,exit,200);const order=queue.read().orders[0];
+  const inputs={book:state,plans:[plan],observations:samples,conditionalOrders:[order,order],day:exitDay,now:stamp(exitDay,'15:01:00')};
+  const combined=paperExecutionScore(inputs);assert.equal(combined.score,100);assert.equal(combined.rows.length,1);
+  assert.equal(combined.rows[0].facts.length,2);assert.equal(combined.rows[0].coverage.samples,samples.length);
+  const gap=paperExecutionScore({...inputs,observations:samples.filter((_,i)=>i!==10)});
+  assert.equal(gap.score,null);assert.equal(gap.rows[0].coverage.complete,false);
+});

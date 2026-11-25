@@ -19,7 +19,7 @@ function setup(t){
     service.submit({orderId:id,side,quantity,symbol,limitPrice:price,tradeDate,...(strategyId?{strategyId}:{})});
     return service.fill(id,id+'-fill',quote);
   }
-  return {dir,file,state,service,fill,run:(time='2026-11-13T15:00:00+08:00')=>importSettledPaperTrades(state,{accountDir:dir,now:Date.parse(time)})};
+  return {dir,file,state,service,fill,setTime:value=>{now=value;},run:(time='2026-11-13T15:00:00+08:00')=>importSettledPaperTrades(state,{accountDir:dir,now:Date.parse(time)})};
 }
 test('对账本已结算的分批成交重建FIFO含费成本；回流幂等且源文件保持原字节',t=>{
   const x=setup(t);
@@ -134,4 +134,55 @@ test('主实例的账本轮询在无候选、未打开网页时也会生成模�
   assert.equal(second.changed,false);assert.equal(second.revision,1);
   const saved=await shortlineJob({root});assert.equal(saved.state.trades.length,1);
   assert.ok(saved.state.notes.some(n=>n.date==='2026-11-05'));
+});
+
+function automaticPlan(x,{index=1,at=Date.parse('2026-11-04T10:00:15+08:00')}={}){
+ const {bindAuthoritativePlan,decisionPlanPayload}=require('../src/core/paper-decision-plan');
+ const day=aShareCalendarDate(at),card={authority:'fayo-decision-center',decisionId:String(index).repeat(64),code:'600000',day,
+  calculatedAt:at-6000,strategyAt:at-30000,quoteBasis:{source:'tencent',quoteAt:at-7000,receivedAt:at-6500,price:10},
+  strategyBasis:{day,score:88},plan:{buyLow:9.8,buyHigh:10.1,stop:9,target:12,positionPct:19.6}};
+ return bindAuthoritativePlan({id:'plan-00000000-0000-4000-8000-'+String(index).padStart(12,'0'),sampleSet:'real',
+  frozenAt:new Date(at-5000).toISOString(),factors:['YZ-08'],labels:{cycle:'回暖'},...decisionPlanPayload(card)},card);
+}
+function nativeBuy(x,plan,at=Date.parse('2026-11-04T10:00:15+08:00')){
+ x.setTime(at);const current=x.service.legacy(),old=current.positions['600000'];
+ const shares=(old?.shares||0)+100,basis=(old?.basis||0)+1005;
+ const trade={t:at,side:'买入',code:'600000',name:'已冻结计划',price:10,shares:100,amount:1000,fee:5,pnl:null,reason:'作战台计划['+plan.id+'] 600000 · 原账户风控'};
+ const next={...current,cash:current.cash-1005,positions:{...current.positions,'600000':{code:'600000',name:'已冻结计划',shares,basis,buyPrice:10,buyTs:at,lastPrice:10,peak:0,reason:trade.reason}},trades:[trade,...current.trades]};
+ const quote={symbol:'600000',price:10,quoteAt:at,timestamp:at,receivedAt:at,quoteSource:'tencent',provider:'tencent',mode:'public-live-unverified',
+  tradeDate:aShareCalendarDate(at),volume:1000000,volumeUnit:'shares',upperLimit:20,lowerLimit:5,suspended:false,tradable:true};
+ return x.service.saveLegacy(next,x.service.read().revision,{quotes:{'600000':quote}});
+}
+function roundTrip(x,plan){
+ x.service.adoptLegacy({initial:100000,cash:100000,enabled:true,positions:{},trades:[],realized:0});
+ nativeBuy(x,plan);x.fill('exit-linked','sell',11,100,'2026-11-05T11:00:00');
+}
+test('决策模拟平仓通过原买入事件关联事前冻结计划，保留精确时点和实际因子，不修改账本',t=>{
+ const x=setup(t),plan=automaticPlan(x);x.state.plans.push(plan);roundTrip(x,plan);
+ const before=fs.readFileSync(x.file);assert.equal(x.run().imported,1);
+ const row=x.state.trades[0];assert.equal(row.planId,plan.id);assert.equal(row.planVerified,true);assert.equal(row.snapshotVerified,true);
+ assert.deepEqual(row.factors,['YZ-08']);assert.equal(row.frozenLabels.cycle,'回暖');assert.equal(row.planStatus,'已冻结');
+ assert.equal(row.entryTimestamp,Date.parse('2026-11-04T10:00:15+08:00'));assert.ok(Date.parse(plan.frozenAt)>Date.parse(row.entryTime+':00+08:00'));
+ assert.ok(Date.parse(plan.frozenAt)<row.entryTimestamp);assert.equal(row.exitTimestamp,Date.parse('2026-11-05T11:00:00+08:00'));
+ assert.equal(row.decisionLink.entryEventIds[0],row.paperSettlement.entryFills[0].eventId);assert.equal(row.disciplineFacts[0].status,'符合');
+ assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.run().existing,1);
+});
+test('未来冻结、改股改价或不唯一计划不关联；禁止凭股票和日期猜计划',t=>{
+ for(const change of [p=>({...p,frozenAt:'2026-11-04T10:00:16+08:00'}),p=>({...p,code:'600001'}),p=>({...p,entryMax:20}),p=>null]){
+  const x=setup(t),plan=automaticPlan(x);roundTrip(x,plan);const invalid=change(plan);if(invalid)x.state.plans.push(invalid);
+  assert.equal(x.run().imported,1);assert.equal(x.state.trades[0].planId,null);assert.equal(x.state.trades[0].snapshotVerified,false);
+ }
+ const x=setup(t),plan=automaticPlan(x);roundTrip(x,plan);x.state.plans.push(plan,structuredClone(plan));x.run();assert.equal(x.state.trades[0].planId,null);
+});
+test('同股多计划合并卖出不套用单一计划，已导入衍生记录可安全补关联且重读幂等',t=>{
+ const x=setup(t),a=automaticPlan(x),b=automaticPlan(x,{index:2,at:Date.parse('2026-11-04T10:01:15+08:00')});
+ x.service.adoptLegacy({initial:100000,cash:100000,enabled:true,positions:{},trades:[],realized:0});
+ x.state.plans.push(a,b);nativeBuy(x,a);nativeBuy(x,b,Date.parse('2026-11-04T10:01:15+08:00'));
+ x.fill('mixed-exit','sell',11,200,'2026-11-05T11:00:00');x.run();assert.equal(x.state.trades[0].planId,null);
+ const y=setup(t),p=automaticPlan(y);roundTrip(y,p);y.run('2026-11-06T15:00:00+08:00');
+ const initial=structuredClone(y.state.trades[0]),ledger=fs.readFileSync(y.file);y.state.plans.push(p);
+ const repair=y.run('2026-11-09T15:00:00+08:00');assert.equal(repair.imported,0);assert.equal(repair.updated,1);
+ const linked=y.state.trades[0];assert.equal(linked.id,initial.id);assert.equal(linked.sourceFingerprint,initial.sourceFingerprint);
+ assert.equal(linked.firstCollectedAt,initial.createdAt);assert.ok(linked.createdAt>initial.createdAt);assert.equal(linked.planId,p.id);
+ assert.equal(y.run().existing,1);assert.deepEqual(fs.readFileSync(y.file),ledger);
 });

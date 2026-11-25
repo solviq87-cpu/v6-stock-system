@@ -56,17 +56,18 @@ function planLedgerContext(book, plan, now, all = ledgerEvents(book)) {
     entry.tradeDate !== plan.intendedDate || !quantity(entry.quantity) || entry.quantity === 0 || !finite(entry.price);
   if (invalid) return {entry, entries: matches.map(x => x.event), sells: [], remaining: null,
     closedAt: null, ambiguous: '成交与事前冻结计划的时点或数量关联未完成核对', current: first.period === book};
-  let remaining = entry.quantity, closedAt = null, ambiguous = null;
+  let remaining = entry.quantity, closedAt = null, ambiguous = null, previousAt = first.at;
   const sells = [], rows = all.filter(x => x.periodIndex === first.periodIndex && x.event.symbol === plan.code);
   const start = rows.findIndex(x => x.event.eventId === entry.eventId);
   for (const row of rows.slice(start + 1)) {
+    if (remaining === 0) break; // A later round trip is a different position.
     if (!stamp(row.at) || !quantity(row.event.quantity) || row.event.quantity === 0) {
       if (remaining > 0) ambiguous = '同股后续成交流水缺少可靠时点或数量';
       break;
     }
     if (row.at > now) continue;
-    if (row.at < first.at) { ambiguous = '同股成交流水时点倒序'; break; }
-    if (remaining === 0) break; // A later round trip is a different position.
+    if (row.at < previousAt) { ambiguous = '同股成交流水时点倒序'; break; }
+    previousAt = row.at;
     if (row.event.side === 'buy') { ambiguous = '本计划尚未清仓时出现同股追加买入，批次归属不明'; break; }
     if (row.event.side !== 'sell' || row.event.quantity > remaining) { ambiguous = '卖出数量与本计划剩余持仓不一致'; break; }
     remaining -= row.event.quantity;

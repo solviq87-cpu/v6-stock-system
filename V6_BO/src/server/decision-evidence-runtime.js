@@ -22,7 +22,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
   observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory}) {
   let plans=[],loadedAt=0,epoch=0,observing=false,collecting=false,historyKey='',attempts=0,nextHistoryAt=0;
   const state={status:'waiting',lastObservedAt:null,planCount:0,activePlanCount:0,lastError:null,
-    history:{status:'waiting',day:null,attempts:0}};
+    history:{status:typeof collectHistory==='function'?'waiting':'delegated',owner:typeof collectHistory==='function'?'legacy-optional':'decision-center-background',day:null,attempts:0}};
   const status=()=>({...state,history:{...state.history},privateChannel:privateReady()?'configured':'unconfigured',
     observationOnly:true,accountMutated:false});
   function invalidate(){loadedAt=0;epoch++;}
@@ -32,7 +32,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     if(!initial.continuous)return status();
     observing=true;
     try{
-      if(!loadedAt||clock()-loadedAt>=60000){
+      if(!loadedAt||clock()<loadedAt||clock()-loadedAt>=60000){
         const version=epoch,archive=await readArchive();
         if(!isPrimary())return status();
         if(version!==epoch)return status();
@@ -65,7 +65,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     return status();
   }
   async function tickHistory(){
-    if(collecting||!isPrimary()||typeof collectHistory!=='function')return status();
+    if(collecting||!isPrimary()||typeof collectHistory!=='function'||typeof historyDay!=='function'||typeof historySymbols!=='function')return status();
     const day=historyDay();
     if(!day)return status();
     if(historyKey!==day){historyKey=day;attempts=0;nextHistoryAt=0;}

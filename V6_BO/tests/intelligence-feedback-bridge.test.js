@@ -126,3 +126,29 @@ test('原私有档案锁和revision保护中心导入；直接HTTP形状、副�
   assert.equal(imported.result.status,'待人工审批');assert.equal(imported.state.versions.length,1);
   assert.equal((await shortlineJob({root})).state.candidates[0].centerFeedback.proposalFingerprint,r.feedback.proposalFingerprint);
 });
+
+test('中心实际新冻结观察完整传入反馈重算，不能退回旧check或丢失history上下文',async()=>{
+  const x=await fixture(),[{applyCenterFeedback}]=await modules;
+  const original=research.extractArchiveResearchInputs(x.state,{now:x.now}).observations;
+  const frozenObservations=original.map(row=>{
+    const signalAt=at(row.day,'16:05:00');
+    return {...row,id:'center-'+row.id,originCheckId:row.id,originalSignalAt:row.signalAt,signalAt,
+      recordedAt:new Date(signalAt).toISOString(),asOf:new Date(signalAt).toISOString(),captureProtocol:'center-hfq-history-v1'};
+  });
+  const bars=x.state.bars.map(row=>({...row,source:row.source==='eastmoney'?'eastmoney-public-history':row.source,
+    observedAt:at(row.date,'16:00:00'),knownAt:at(row.date,'16:00:00'),sourceTimestamp:null,
+    periodEndAt:at(row.date),sourceDate:row.date,observationKind:'historical-daily-bar',captureProtocol:'center-hfq-history-v1',
+    rawHash:digest({testReceipt:row}),rawRowHash:digest(row),firstKnownBasis:'actual-provider-receipt',canTrade:false}));
+  const input={day:x.day,now:at(x.day,'16:10:00'),bars,calendar:x.calendar,frozenObservations,
+    historyCoverage:{protocol:'center-hfq-history-v1',codes:['600000','600001','600002','600003','600004'],admittedRows:bars.length}};
+  const viewed=research.buildIntelligenceResearch({...input,archive:x.state});
+  assert.equal(viewed.feedback.validationBridge.ready,true);
+  assert.ok(viewed.factors.rejectionReasons['signal-price-first-known-after-signal']>0,'old check is not backdated');
+  const fingerprint=viewed.feedback.proposalFingerprint;
+  assert.throws(()=>applyCenterFeedback(clone(x.state),{...input,frozenObservations:[],proposalFingerprint:fingerprint}),/变化/);
+  const state=clone(x.state),result=applyCenterFeedback(state,{...input,proposalFingerprint:fingerprint});
+  assert.equal(result.proposalFingerprint,fingerprint);assert.equal(result.status,'待人工审批');
+  assert.equal(state.candidates[0].centerFeedback.sameProposedWeights,true);
+  assert.equal(state.candidates[0].centerFeedback.inputEvidenceFingerprint,viewed.feedback.proposal.inputEvidenceFingerprint);
+  assert.equal(state.versions.length,1);
+});

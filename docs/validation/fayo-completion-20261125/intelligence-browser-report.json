@@ -1,0 +1,188 @@
+{
+  "fixtureOnly": true,
+  "backend": [
+    "buildIntelligenceVisuals",
+    "buildIntelligenceResearch"
+  ],
+  "views": [
+    {
+      "width": 1366,
+      "height": 1000,
+      "path": "/",
+      "lazyReads": 2,
+      "heatmapAreas": [
+        {
+          "code": "600000",
+          "area": 302400,
+          "fill": "#d1658f"
+        },
+        {
+          "code": "600001",
+          "area": 100800,
+          "fill": "#348b79"
+        }
+      ],
+      "knownRadarAxes": 3,
+      "missingRadarAxes": 6,
+      "missingFlowsLeftBlank": true,
+      "observedFlowCount": 2,
+      "updatedClickDay": "2026-11-26",
+      "apiReads": 16,
+      "netObservationsSeparate": true,
+      "historyIntakePreserved": true,
+      "ledgerCostPressurePreserved": true,
+      "observationUnknownPreserved": true,
+      "observationZeroPreserved": true,
+      "delegatedAlertNotDelivered": true,
+      "feedbackReferenceOnly": true,
+      "feedbackApprovalRoute": "shortline-versions",
+      "overflow": 0,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "path": "/m",
+      "lazyReads": 2,
+      "heatmapAreas": [
+        {
+          "code": "600000",
+          "area": 302400,
+          "fill": "#d1658f"
+        },
+        {
+          "code": "600001",
+          "area": 100800,
+          "fill": "#348b79"
+        }
+      ],
+      "knownRadarAxes": 3,
+      "missingRadarAxes": 6,
+      "missingFlowsLeftBlank": true,
+      "observedFlowCount": 2,
+      "updatedClickDay": "2026-11-26",
+      "apiReads": 16,
+      "netObservationsSeparate": true,
+      "historyIntakePreserved": true,
+      "ledgerCostPressurePreserved": true,
+      "observationUnknownPreserved": true,
+      "observationZeroPreserved": true,
+      "delegatedAlertNotDelivered": true,
+      "feedbackReferenceOnly": true,
+      "feedbackApprovalRoute": "shortline-versions",
+      "overflow": 0,
+      "errors": []
+    }
+  ],
+  "viewerPrivateReads": 0,
+  "passed": true,
+  "unexpectedWrites": 0,
+  "fixtureFeedbackSubmissions": 2,
+  "projectionChecks": [
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    }
+  ]
+}

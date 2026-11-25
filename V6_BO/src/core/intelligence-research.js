@@ -9,7 +9,7 @@ const defaults = require('../../config/intelligence-center.json');
 const installedCatalog = require('../../public/nova/shortline/catalog.json');
 const {resolveUpstream, sourceLineage} = require('./data-source-lineage');
 const {fuseMultiSourcePrices} = require('./multi-source-price-consensus');
-const {evaluateThreeToFour} = require('./intelligence-templates');
+const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-templates');
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
@@ -225,7 +225,18 @@ function recordView(row) {
     volumeUnit: row?.volumeUnit || null, amountUnit: row?.amountUnit || null,
     open: row?.open, high: row?.high, low: row?.low, close: row?.close, volume: row?.volume, amount: row?.amount,
     suspended: row?.suspended, sampleSet: row?.sampleSet, evidenceId: row?.evidenceId || row?.id || null,
+    observationKind: row?.observationKind, captureProtocol: row?.captureProtocol,
+    periodEndAt: row?.periodEndAt, sourceDate: row?.sourceDate, rawHash: row?.rawHash, rawRowHash: row?.rawRowHash,
+    firstKnownBasis: row?.firstKnownBasis, sourceTimestamp: row?.sourceTimestamp, canTrade: row?.canTrade,
     original: row};
+}
+function capturedHistoricalBar(row) {
+  return row.observationKind === 'historical-daily-bar' && row.captureProtocol === 'center-hfq-history-v1' &&
+    ['eastmoney-public-history', 'baostock'].includes(row.source) && row.adjustment === 'hfq' &&
+    row.sourceDate === row.day && row.market === 'CN' && row.periodEndAt === Date.parse(row.day + 'T15:00:00+08:00') &&
+    /^[a-f0-9]{64}$/.test(row.rawHash || '') && /^[a-f0-9]{64}$/.test(row.rawRowHash || '') &&
+    row.firstKnownBasis === 'actual-provider-receipt' && row.sourceTimestamp === null && row.canTrade === false &&
+    instant(row.observedAt) === instant(row.knownAt);
 }
 function shapeReason(row) {
   if (![row.open, row.high, row.low, row.close, row.volume, row.amount].every(finite)) return 'missing-ohlcv-amount';
@@ -237,8 +248,14 @@ function shapeReason(row) {
 const gap = (a, b, scale) => Math.abs(a - b) / Math.max(Math.abs(a), Math.abs(b), 1e-9) * scale;
 function compatible(a, b, config) {
   const c = config.consistency;
+  const historicalA = capturedHistoricalBar(a), historicalB = capturedHistoricalBar(b);
+  // Historical daily providers describe the same bar period. Their actual
+  // receipts remain separate knowledge clocks; neither is a live quote clock.
+  if (historicalA !== historicalB) return false;
+  const comparisonTimeA = historicalA ? a.periodEndAt : instant(a.observedAt);
+  const comparisonTimeB = historicalB ? b.periodEndAt : instant(b.observedAt);
   if (a.currency !== b.currency || a.volumeUnit !== b.volumeUnit || a.amountUnit !== b.amountUnit ||
-      a.suspended !== b.suspended || Math.abs(instant(a.observedAt) - instant(b.observedAt)) > c.maxTimestampGapMs) return false;
+      a.suspended !== b.suspended || Math.abs(comparisonTimeA - comparisonTimeB) > c.maxTimestampGapMs) return false;
   return ['open', 'high', 'low', 'close'].every(k => gap(a[k], b[k], 10000) <= c.priceToleranceBps) &&
     gap(a.volume, b.volume, 100) <= c.volumeTolerancePct && gap(a.amount, b.amount, 100) <= c.amountTolerancePct;
 }
@@ -265,7 +282,8 @@ function auditCenterInputs(records = [], {purpose = 'backtest', now = Date.now()
       identity.market && identity.market !== 'GLOBAL' && identity.market !== row.market ? 'source-market-mismatch' :
       known === null || observed === null ? 'missing-original-time' :
       known > now || observed > known ? 'future-or-backdated-time' :
-      chinaDay(observed) !== row.day && row.market === 'CN' ? 'source-day-mismatch' :
+      row.observationKind === 'historical-daily-bar' && !capturedHistoricalBar(row) ? 'invalid-historical-receipt-evidence' :
+      chinaDay(observed) !== row.day && row.market === 'CN' && !capturedHistoricalBar(row) ? 'source-day-mismatch' :
       purpose !== 'liveExecution' && sessionClose === null ? 'missing-market-close-evidence' :
       purpose !== 'liveExecution' && (observed < sessionClose || known < sessionClose || now < sessionClose) ? 'incomplete-daily-close-evidence' :
       purpose === 'liveExecution' && (now - observed > config.quality.maxAgeMs || chinaDay(now) !== row.day) ? 'stale-live-evidence' :
@@ -575,7 +593,8 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
   const plans = new Map((archive?.plans || []).filter(row => real(row) && row.id).map(row => [row.id, row]));
   const trades = [], excluded = [];
   for (const trade of archive?.trades || []) {
-    const plan = plans.get(trade.planId), created = instant(trade.createdAt), entry = instant(trade.entryTime), exit = instant(trade.exitTime), frozen = instant(plan?.frozenAt);
+    const plan = plans.get(trade.planId), created = instant(trade.createdAt),
+      entry = instant(trade.entryTimestamp ?? trade.entryTime), exit = instant(trade.exitTimestamp ?? trade.exitTime), frozen = instant(plan?.frozenAt);
     const reason = !real(trade) || archive?.scope === 'demo' ? 'non-real-sample' : !plan || frozen === null || entry === null || frozen > entry || plan.code !== trade.code ? 'missing-prior-frozen-plan' :
       created === null || exit === null || exit <= entry || exit > created || created > now || !finite(trade.pnl) ? 'unmatured-or-unrecorded-trade' : null;
     if (reason) { excluded.push({id: trade.id || null, reason}); continue; }
@@ -675,18 +694,30 @@ function templateGroups(catalog, observations) {
   });
 }
 
-function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars = null, quotes = [],
+function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars = null, quotes = [], frozenObservations = [], historyCoverage = null,
   calendar = null, marketCalendars = {}, config = defaults} = {}) {
   checkedConfig(config);
   if (!Number.isSafeInteger(now) || now <= 0 || now >= 8e15 || !dayOk(day) || day > chinaDay(now) || !Array.isArray(quotes) || quotes.length > 200)
     throw Error('中心研究日期、时钟或逐股报价证据无效');
   const extracted = extractArchiveResearchInputs(archive, {now}), records = bars === null ? extracted.bars : bars;
+  // Only the independent intake's actual same-day freeze can establish a new
+  // signal after a later price receipt. The old check is never backdated/edited.
+  if (!Array.isArray(frozenObservations) || frozenObservations.length > MAX_CHECKS) throw Error('中心冻结因子记录超限');
+  for (const row of frozenObservations) {
+    if (row?.captureProtocol !== 'center-hfq-history-v1' || !real(row) || row.market !== 'CN' ||
+        !/^\d{6}$/.test(row.code || '') || !dayOk(row.day) || !row.id || !row.originCheckId ||
+        !Number.isSafeInteger(row.signalAt) || row.signalAt > now || chinaDay(row.signalAt) !== row.day ||
+        instant(row.recordedAt) !== row.signalAt || !row.values || Object.values(row.values).some(value=>!finite(value)) ||
+        !row.evidence || Object.entries(row.values).some(([id])=>instant(row.evidence[id]?.knownAt) === null ||
+          instant(row.evidence[id].knownAt) > row.signalAt)) throw Error('中心冻结因子缺少原始同日证据');
+  }
+  const observations = [...extracted.observations, ...frozenObservations];
   const calendars = {...marketCalendars}; if (!calendars.CN) {
     const cn = calendar || extractArchiveCalendar(archive, {now}); if (cn) calendars.CN = cn;
   }
   const backtest = auditCenterInputs(records, {purpose: 'backtest', now, config, marketCalendars: calendars});
   const display = auditCenterInputs(records, {purpose: 'display', now, config, marketCalendars: calendars});
-  const aligned = alignFactorOutcomes(extracted.observations, backtest, calendars, {now});
+  const aligned = alignFactorOutcomes(observations, backtest, calendars, {now});
   const walkforward = buildWalkForward(aligned.samples, aligned.alignment, {config, now});
   const threeToFour = evaluateThreeToFour(archive, {day, now, calendar: calendars.CN, config});
   const quoteDiagnostics = [];
@@ -706,6 +737,13 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   const timed = views.filter(row => instant(row.knownAt) !== null && instant(row.observedAt) !== null && instant(row.observedAt) <= instant(row.knownAt) && instant(row.knownAt) <= now);
   const completeRows = views.filter(row => fields.every(key => finite(row[key]))), comparisonRows = backtest.comparisons.filter(row => row.independentSources >= 2 && !['duplicate-upstream-evidence', 'too-many-source-records'].includes(row.status));
   const currentQuoteChecks = quoteDiagnostics.filter(row => row.centerGate && row.centerGate.status !== 'unknown');
+  // Rejected intake records never enter the research-price set, but cannot
+  // disappear from its data-quality denominator. Count each latest code/day
+  // comparison once and avoid counting its admitted copy a second time.
+  const intakeQuality=historyCoverage?.intakeQuality;
+  const otherComparisons=intakeQuality?comparisonRows.filter(row=>!row.observations.some(value=>value.captureProtocol==='center-hfq-history-v1')):comparisonRows;
+  const historicalCompared=otherComparisons.length+(intakeQuality?.comparableGroups||0),
+    historicalConsistent=otherComparisons.filter(row=>row.status==='admitted').length+(intakeQuality?.consistentGroups||0);
   const originalQuotes = quoteDiagnostics.flatMap(report => (Array.isArray(report.sourceStatuses) ? report.sourceStatuses : []).filter(row => {
     const checkedAt = instant(report.checkedAt), originalAt = instant(row.quoteAt);
     return checkedAt !== null && checkedAt <= now && Number.isSafeInteger(row.quoteAt) && originalAt !== null && originalAt <= checkedAt &&
@@ -729,10 +767,11 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
         note: '历史日 K 的快速接收不能冒充当前实时报价；无原始逐股时点时保持未知。'}},
     completeness: {value: views.length ? views.reduce((sum, row) => sum + fields.filter(key => finite(row[key])).length, 0) / (views.length * fields.length) : null,
       evidence: {records: views.length, requiredFields: fields}},
-    consistency: {value: comparisonRows.length + currentQuoteChecks.length ?
-      (comparisonRows.filter(row => row.status === 'admitted').length + currentQuoteChecks.filter(row => row.centerGate.status === 'observed-agreement').length) /
-        (comparisonRows.length + currentQuoteChecks.length) : null,
-      evidence: {purpose: 'backtest-and-current-quote-checks', comparableGroups: comparisonRows.length, currentQuoteChecks: currentQuoteChecks.length,
+    consistency: {value: historicalCompared + currentQuoteChecks.length ?
+      (historicalConsistent + currentQuoteChecks.filter(row => row.centerGate.status === 'observed-agreement').length) /
+        (historicalCompared + currentQuoteChecks.length) : null,
+      evidence: {purpose: 'backtest-and-current-quote-checks', comparableGroups: historicalCompared, currentQuoteChecks: currentQuoteChecks.length,
+        intake: intakeQuality||null,
         missingOrExcludedGroups: backtest.comparisons.length - comparisonRows.length}},
     continuity: {value: continuity.length ? continuity.reduce((sum, row) => sum + row.present, 0) / continuity.reduce((sum, row) => sum + row.expected, 0) : null,
       evidence: {series: continuity.length, basis: 'explicit-calendar-between-observed-endpoints'}},
@@ -750,16 +789,27 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   quality.liveQuotes = quoteDiagnostics;
   quality.sources = [...new Set(views.map(row => row.source))].map(source => ({source,
     records: views.filter(row => row.source === source).length, adjustments: [...new Set(views.filter(row => row.source === source).map(row => row.originalAdjustment))]}));
-  const factorIds = [...new Set(extracted.observations.flatMap(row => Object.keys(row.values)))].sort();
+  const factorIds = [...new Set(observations.flatMap(row => Object.keys(row.values)))].sort();
   const factors = {status: aligned.samples.length ? 'observed' : 'missing-aligned-samples',
     dictionaryVersion: archive?.dictionaryVersion || null, catalogRules: extracted.catalog.length,
-    measuredFactors: factorIds.length, factorIds, observationCount: extracted.observations.length, alignedSamples: aligned.samples.length,
+    measuredFactors: factorIds.length, factorIds, observationCount: observations.length, alignedSamples: aligned.samples.length,
+    sampleUniverse:{scope:'bounded-observed-research-subset',codes:historyCoverage?.codes||null,
+      omittedCodes:historyCoverage?.omittedCodes||0,omittedEarlierObservations:historyCoverage?.omittedEarlierObservations||0,
+      fullMarketCertification:false},
     label: aligned.label, rejectionReasons: Object.fromEntries([...new Set(aligned.rejected.map(row => row.reason))].map(reason => [reason, aligned.rejected.filter(row => row.reason === reason).length])),
     rejectedChecks: extracted.rejected.slice(0, 20), descriptive: factorMetrics(aligned.samples, factorIds, config.factors.minCrossSection),
     orthogonalization: walkforward.folds.at(-1)?.orthogonalization || {status: 'missing-training-window', parameters: [], suppressed: []},
     redundancy: walkforward.folds.at(-1)?.redundancy || {status: 'missing-training-window', pairs: [], suppressedFactors: []},
-    note: '95 战法按原档案条件证据接入；只分析已量化且当时可见的因子，不把未命中或缺项记为零。全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
+    note: '95 战法按原档案条件证据接入；只分析已量化且当时可见的因子，不把未命中或缺项记为零。IC 限于本次有界研究样本子集，不代表全市场或全部95项认证；全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
   const feedback = feedbackReport(archive, walkforward, backtest, now, config, quality, day);
+  if (historyCoverage?.rejectedRecords > 0) feedback.qualityCandidates.push({status:'source-evidence-recorded',type:'history-intake-quality-review',
+    reason:'独立历史采集存在未通过多源准入的记录',affectedRecords:historyCoverage.rejectedRecords,
+    evidence:historyCoverage.rejectionExamples || [],evidenceIsBoundedSample:true,proposedScore:quality.score,
+    proposedComponents:quality.components,qualityEvidenceFingerprint:hash(quality.components),
+    appliedToCenterQuality:true,changesOriginalGates:false,approvalRequired:false,productionWeightsChanged:false});
+  if(feedback.qualityCandidates.length)feedback.status='candidates-pending-validation';
+  feedback.qualityFeedback.affectedRecords=feedback.qualityCandidates.reduce((count,row)=>count+row.affectedRecords,0);
+  const executionValidation = require('./intelligence-execution-validation').buildExecutionValidation(archive,walkforward,{now});
   const templates = {status: extracted.catalog.length ? 'observed-catalog' : 'missing-catalog',
     commandEngine: config.templates.engine, supportedQueries: ['近5日主力净流入前5的芯片股', '精选评分前3', '共振分前3'],
     scope: '当前已接收候选池，非全市场排名；只支持已有字段与可追溯历史。',
@@ -771,12 +821,18 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   Object.assign(templates.groups.find(group => group.id === 'three-to-four'), {definition: threeToFour.definition,
     observationCount: threeToFour.observations.length, evidenceStatus: threeToFour.status,
     missing: threeToFour.missing.length ? threeToFour.missing : ['等待独立样本外验证'], validationStatus: 'not-oos-validated'});
+  for (const evaluated of evaluateTemplateLibrary(archive,{day,now,calendar:calendars.CN,catalog:extracted.catalog})) {
+    const group=templates.groups.find(row=>row.id===evaluated.definition.id);
+    Object.assign(group,{status:'implemented-evidence-evaluator',definition:evaluated.definition,evidenceStatus:evaluated.status,
+      evaluations:evaluated.evaluations,observations:evaluated.observations,observationCount:evaluated.observations.length,
+      missing:evaluated.missing,validationStatus:evaluated.validationStatus,affectsResonance:false});
+  }
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
-    adjustment: {...config.adjustment}, quality, factors, walkforward, feedback, templates,
-    crossMarket: aligned.alignment,
+    adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates,
+    crossMarket: aligned.alignment, historyIntake: historyCoverage,
     coverage: {archivePresent: Boolean(archive), rawBars: records.length, recordedChecks: archive?.checks?.length || 0,
-      realFactorObservations: extracted.observations.length, admittedHfqGroups: backtest.admittedGroups,
+      realFactorObservations: observations.length, admittedHfqGroups: backtest.admittedGroups,
       alignedFactorSamples: aligned.samples.length, missing: [!records.length && '原始行情', !backtest.admittedGroups && '同口径 hfq 多源证据',
         !aligned.alignment.days.length && '原交易日历与 knownAt', !extracted.observations.length && '冻结因子观测', !walkforward.folds.length && 'walk-forward 所需交易日'].filter(Boolean)},
     originalGatesChanged: false, productionWeightsChanged: false, canTrade: false, canNotify: false};

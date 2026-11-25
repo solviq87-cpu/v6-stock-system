@@ -1,10 +1,11 @@
 import {h,button,format,money,dateTime,updateReadout} from './ui.js';
 import {readDecisionBoard,stockConclusion} from './decision-model.mjs';
 import {createCommandSelection} from './command-selection.mjs';
+import {readDecisionMiniKline} from './decision-mini-kline.mjs';
 
 const dayOf=value=>typeof value==='string'?value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):'';
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
-const price=value=>finite(value)?format(value)+' 元':'待核验';
+const price=value=>finite(value)?format(value)+' 元':'缺少后台价位';
 function planEvidence(card){
  const lineage=card.lineage||{},council=card.council||{};
  const fields=[['buyLow','买区下沿'],['buyHigh','买区上沿'],['stop','止损位'],['target','目标价'],['positionPct','仓位']];
@@ -100,7 +101,8 @@ export function createDecisionHome(ctx){
     h('div',{},h('dt',{},'建议仓位上限'),h('dd',{},format(plan.positionPct,1)+'%'))),
    h('figure',{class:'fy-decision-mini','data-mini-code':card.code},
     record?.rows?.length?miniCandles(record.rows):h('p',{},record?.error||'日 K 读取中…'),
-    h('figcaption',{},record?.rows?.length?record.rows[0].date+' 至 '+record.rows.at(-1).date+' · '+record.source:'沿用历史行情接口')),
+    h('figcaption',{},record?.rows?.length?record.rows[0].date+' 至 '+record.rows.at(-1).date+' · 前复权 · '+record.source+
+     ' · 取得于 '+dateTime(record.receivedAt)+'（日线日期，非实时价）':'沿用历史行情接口')),
    h('div',{class:'fy-decision-actions'},button('查看依据',open,'quiet'),
     ctx.canEdit?button('加入模拟盘',()=>ctx.prefillPaper?.(card),'primary'):h('small',{},'当前身份仅可查看')),
    h('small',{class:'fy-decision-proof'},card.day+' · '+dateTime(card.vendorQuoteAt??card.quoteAt)+' · '+(card.quoteSource||card.source||'')),planEvidence(card));
@@ -114,15 +116,7 @@ export function createDecisionHome(ctx){
    const end=new Date(Date.parse(card.day+'T00:00:00Z')+86400000).toISOString().slice(0,10);
    const result=await ctx.api('/api/kline?'+new URLSearchParams({code:card.code,n:'28',end}),{signal:ctx.signal,timeoutMs:12000});
    if(!active())return;
-   if(String(result.code||'')!==card.code)throw Error('日 K 返回的股票不一致');
-   const source=result.dataQuality?.source||result.source;
-   const received=result.dataQuality?.receivedAt;
-   if(!source||received!=null&&(!finite(received)||received>Date.now()))throw Error('日 K 来源或时点待核验');
-   const rows=(result.rows||result.data||[]).filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')&&r.date<=card.day&&
-    ['open','close','high','low'].every(k=>finite(r[k])&&r[k]>0)&&r.high>=Math.max(r.open,r.close)&&r.low<=Math.min(r.open,r.close)&&r.high>=r.low);
-   const unique=[...new Map(rows.map(r=>[r.date,r])).values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-24);
-   if(!unique.length)throw Error('暂无可核实的日 K');
-   history.set(key,{rows:unique,source});
+   history.set(key,readDecisionMiniKline(result,{code:card.code,day:card.day,now:Date.now()}));
   }catch(error){if(active())history.set(key,{error:error.name==='AbortError'?'日 K 暂未返回':error.message});}
   finally{pending.delete(key);if(active())paintCards();}
  }

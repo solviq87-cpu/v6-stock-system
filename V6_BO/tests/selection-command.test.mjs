@@ -27,8 +27,45 @@ test('bounded grammar accepts the requested five-day chip query and normalizes f
 });
 
 test('unsupported conditions and historical score windows fail visibly instead of dropping clauses', () => {
-  for (const query of ['近5日评分前3', '评分前3且涨幅大于2', '明日保证涨停', '评分前0', '评分前99', '近11日主力净流入前5', '评分共振前3', ''])
+  for (const query of ['近5日评分前3', '评分前3且利润大于2', '明日保证涨停', '评分前0', '评分前99', '近11日主力净流入前5', '评分共振前3', ''])
     assert.equal(parseSelectionCommand(query).ok, false, query);
+});
+
+test('compound conditions preserve every comparison and normalize percentages and CNY amount units',()=>{
+  const query=parseSelectionCommand('近５日主力净流入前５的芯片股，评分至少８０且涨幅小于５％且成交额大于１亿元且排除ST');
+  assert.equal(query.ok,true);assert.equal(query.days,5);assert.equal(query.theme,'芯片');
+  assert.deepEqual(query.filters.map(f=>[f.metric,f.op,f.value]),[['score','>=',80],['pct','<',5],['amount','>',1e8],['notST','exclude',undefined]]);
+  assert.equal(parseSelectionCommand('评分前3且共振>=2').filters[0].value,2);
+  for(const text of ['评分前3且换手率小于2亿元','评分前3或者共振前3','评分前3且未知条件','评分前3且精选评分大于101',
+    '评分前3且共振大于2.5','评分前3且涨幅小于5%且保证明天盈利','评分前3且不含次新'])
+    assert.equal(parseSelectionCommand(text).ok,false,text);
+});
+
+test('compound ranking excludes failed conditions, retains original evidence and never turns missing values into zero',()=>{
+  const args=scenario();
+  args.state.pool.forEach(row=>Object.assign(row,{receivedAt:now-500,quoteMode:'public-live-unverified',pct:3,amount:2e8,turnover:2,suspended:false}));
+  args.state.pool[0].pct=6;
+  const query='近5日主力净流入前5的芯片股且评分至少80且涨幅小于5%且成交额大于1亿元且排除停牌';
+  const value=evaluateSelectionCommand(query,{...args,now});
+  assert.deepEqual(value.items.map(row=>row.code),['600002']);assert.equal(value.coverage.filtered,1);
+  assert.equal(value.items[0].commandConditions.length,4);assert.match(value.items[0].selectionWhy,/涨幅.*实际 3%.*原时点/);
+  args.state.pool[1].amount=null;
+  const missing=evaluateSelectionCommand(query,{...args,now});
+  assert.equal(missing.status,'data-missing');assert.equal(missing.coverage.missing,1);assert.match(missing.message,/成交额.*原值、单位或时点/);
+  args.state.pool[1].amount=0;
+  const zero=evaluateSelectionCommand(query,{...args,now});assert.equal(zero.status,'no-match');assert.equal(zero.coverage.missing,0);
+});
+
+test('compound filters require their own original quote clocks and cannot silently assume normal trade status',()=>{
+  const state={marketClock:{day},pool:[stock('600001',{pct:2,amount:1e8,quoteMode:'public-live-unverified'})]};
+  assert.equal(evaluateSelectionCommand('评分前3且涨幅大于1%',{state,now}).status,'data-missing');
+  state.pool[0].receivedAt=now-500;
+  assert.equal(evaluateSelectionCommand('评分前3且涨幅大于1%',{state,now}).items.length,1);
+  assert.equal(evaluateSelectionCommand('评分前3且排除停牌',{state,now}).status,'data-missing');
+  state.pool[0].suspended=false;
+  assert.equal(evaluateSelectionCommand('评分前3且排除停牌',{state,now}).items.length,1);
+  state.pool[0].amountUnit='USD';
+  assert.equal(evaluateSelectionCommand('评分前3且成交额大于1万元',{state,now}).items.length,0);
 });
 
 test('the read projection preserves original daily dates, unknown amounts and knownAt without altering state', () => {

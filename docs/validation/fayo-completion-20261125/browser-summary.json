@@ -1,0 +1,194 @@
+{
+  "completedAt": "2026-11-25T12:24:36.397848+00:00",
+  "scope": "Final integrated working tree; isolated fixture/HTTP browser validation; no production data or notification delivery",
+  "passed": true,
+  "runtimeCodeEditedByThisValidation": false,
+  "decision": {
+    "passed": true,
+    "views": [
+      {
+        "width": 1366,
+        "height": 900,
+        "path": "/",
+        "firstPlanMs": 520,
+        "shape": {
+          "titleTop": 346.03125,
+          "planBottom": 590.265625,
+          "checklistTop": 827.25,
+          "checklistBottom": 845.390625,
+          "usableBottom": 900,
+          "height": 900,
+          "overflow": 0
+        },
+        "linkedCode": "600001",
+        "linkedDay": "2026-11-16",
+        "scrollRestored": true,
+        "horizontalScrollRestored": true,
+        "savedHorizontal": 0,
+        "reasoningRestored": true,
+        "linkingPaperMutations": 0,
+        "paperMutations": 3,
+        "errors": []
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "path": "/m",
+        "firstPlanMs": 303,
+        "shape": {
+          "titleTop": 337,
+          "planBottom": 549.578125,
+          "checklistTop": 752.15625,
+          "checklistBottom": 768.65625,
+          "usableBottom": 783.3125,
+          "height": 844,
+          "overflow": 0
+        },
+        "linkedCode": "600001",
+        "linkedDay": "2026-11-16",
+        "scrollRestored": true,
+        "horizontalScrollRestored": true,
+        "savedHorizontal": 326,
+        "reasoningRestored": true,
+        "linkingPaperMutations": 0,
+        "paperMutations": 3,
+        "errors": []
+      }
+    ],
+    "rejectionInstances": 4,
+    "raceChecks": 2,
+    "conditionalOrders": [
+      {
+        "path": "/",
+        "code": "600001",
+        "day": "2026-11-16",
+        "status": "cancelled",
+        "explicitCreate": true,
+        "explicitCancel": true,
+        "originalAccountLedgerUnchanged": true,
+        "actions": [
+          "preparePlan",
+          "queuePlan",
+          "cancelConditionalOrder"
+        ]
+      },
+      {
+        "path": "/m",
+        "code": "600001",
+        "day": "2026-11-16",
+        "status": "cancelled",
+        "explicitCreate": true,
+        "explicitCancel": true,
+        "originalAccountLedgerUnchanged": true,
+        "actions": [
+          "preparePlan",
+          "queuePlan",
+          "cancelConditionalOrder"
+        ]
+      }
+    ],
+    "ledgerUnchanged": true,
+    "report": "decision/decision-browser-report.json"
+  },
+  "intelligence": {
+    "passed": true,
+    "views": [
+      {
+        "width": 1366,
+        "height": 1000,
+        "path": "/",
+        "lazyReads": 2,
+        "heatmapAreas": [
+          {
+            "code": "600000",
+            "area": 302400,
+            "fill": "#d1658f"
+          },
+          {
+            "code": "600001",
+            "area": 100800,
+            "fill": "#348b79"
+          }
+        ],
+        "knownRadarAxes": 3,
+        "missingRadarAxes": 6,
+        "missingFlowsLeftBlank": true,
+        "observedFlowCount": 2,
+        "updatedClickDay": "2026-11-26",
+        "apiReads": 16,
+        "netObservationsSeparate": true,
+        "historyIntakePreserved": true,
+        "ledgerCostPressurePreserved": true,
+        "observationUnknownPreserved": true,
+        "observationZeroPreserved": true,
+        "delegatedAlertNotDelivered": true,
+        "feedbackReferenceOnly": true,
+        "feedbackApprovalRoute": "shortline-versions",
+        "overflow": 0,
+        "errors": []
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "path": "/m",
+        "lazyReads": 2,
+        "heatmapAreas": [
+          {
+            "code": "600000",
+            "area": 302400,
+            "fill": "#d1658f"
+          },
+          {
+            "code": "600001",
+            "area": 100800,
+            "fill": "#348b79"
+          }
+        ],
+        "knownRadarAxes": 3,
+        "missingRadarAxes": 6,
+        "missingFlowsLeftBlank": true,
+        "observedFlowCount": 2,
+        "updatedClickDay": "2026-11-26",
+        "apiReads": 16,
+        "netObservationsSeparate": true,
+        "historyIntakePreserved": true,
+        "ledgerCostPressurePreserved": true,
+        "observationUnknownPreserved": true,
+        "observationZeroPreserved": true,
+        "delegatedAlertNotDelivered": true,
+        "feedbackReferenceOnly": true,
+        "feedbackApprovalRoute": "shortline-versions",
+        "overflow": 0,
+        "errors": []
+      }
+    ],
+    "viewerPrivateReads": 0,
+    "unexpectedWrites": 0,
+    "fixtureFeedbackSubmissions": 2,
+    "inputProjectionsUnchanged": true,
+    "inputProjectionChecks": 21,
+    "report": "intelligence/intelligence-browser-report.json"
+  },
+  "operations": {
+    "passed": true,
+    "elapsedMs": 4151,
+    "report": "operations/operations-run.json",
+    "log": "operations/operations-browser.log"
+  },
+  "general": {
+    "passed": true,
+    "elapsedMs": 141604,
+    "scenarioCount": 8,
+    "viewportWidths": [
+      320,
+      390,
+      402,
+      768,
+      1366,
+      1920
+    ],
+    "report": "general/fayo-browser-report.json",
+    "run": "general/general-run.json"
+  },
+  "failures": []
+}
