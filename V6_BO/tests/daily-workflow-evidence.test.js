@@ -40,3 +40,14 @@ test('abnormal movement alerts require a configured private channel, a primary t
  assert.equal(sent.length,1);assert.equal(sent[0].options.private,true);assert.equal(sent[0].force,false);
  assert.deepEqual(Array.from(sent[0].options.batch,r=>r.code),[code]);
 });
+
+test('the shared simulated execution clock stops at lunch and the start of the closing auction',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
+ const fn=source.slice(source.indexOf('const isContinuousTrading ='),source.indexOf('// 收盘后（交易日15:00之后）'));
+ let open=true;
+ const run=vm.runInNewContext(fn+'\nisContinuousTrading',{isTradeDay:()=>open});
+ for(const [hm,want] of [['09:29',false],['09:30',true],['11:29',true],['11:30',false],['12:59',false],['13:00',true],['14:56',true],['14:57',false],['15:00',false]]){
+  const [hour,minute]=hm.split(':').map(Number);assert.equal(run({getHours:()=>hour,getMinutes:()=>minute}),want,hm);
+ }
+ open=false;assert.equal(run({getHours:()=>10,getMinutes:()=>0}),false);
+});

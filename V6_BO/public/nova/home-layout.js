@@ -70,7 +70,7 @@ export function createTradingHome(ctx,accountPanel){
  const detail=h('div',{class:'fy-home-opportunity-detail'}),tabList=h('div',{class:'fy-home-tabs',role:'group','aria-label':'机会类型'});
  let chosen=null,lastLists=null,lastSession=null;
  const controls=new Map(channels.map(([key,label])=>[key,h('button',{type:'button',disabled:key==='relay-first'&&ctx.role!=='edit',
-  onClick:()=>{chosen=key;paintSelection();}},label)]));
+  title:({auction:'开盘前集合竞价的同批观测',movement:'盘中短时间价格变动', 'relay-first':'前一交易日首板，观察能否接续第二板'})[key],onClick:()=>{chosen=key;paintSelection();}},label)]));
  tabList.append(...controls.values());
  const go=button('查看全部推荐 →',()=>ctx.navigate('opportunities','ranked'),'primary');
  const featured=h('div',{class:'fy-home-featured','aria-label':'系统精选'});
@@ -128,7 +128,8 @@ export function createTradingHome(ctx,accountPanel){
   }
   lastSession=session;lastLists=opportunityLists(state,picks,session,ctx.role==='edit');
   const selected=lastLists.ranked.filter(item=>item.row.pickSource==='V6 策略命中');
-  updateReadout(featured,h('h3',{},'系统精选 · '+selected.length+' 只'),
+  updateReadout(featured,h('h3',{},'系统精选 · '+selected.length+' 只 ',
+    h('abbr',{class:'fy-term',tabindex:'0',title:'评分用于比较候选排序，最高展示三只。','aria-label':'什么是精选评分','data-help':'评分用于比较候选排序，最高展示三只。'},'?')),
    ...(selected.length?selected.map(({row,why})=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
     onClick:event=>ctx.selectStock(row.code,row,event.currentTarget)},h('strong',{},row.name||row.code),h('small',{},row.code),
     h('b',{class:'fy-home-pick-score'},Number.isFinite(row.score)?row.score+' 分':'源端未提供评分'),

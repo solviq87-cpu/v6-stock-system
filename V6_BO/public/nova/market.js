@@ -1039,6 +1039,7 @@ export function quoteCrossCheckPanel(ctx,readCode,signal=ctx.signal) {
 export function createStockDrawer(ctx) {
  let historySource='',controller=null,code='',row=null,boundEvidence=false,displayedQuoteAt=null,marketQuoteAtOpen=null,period='day',tab='chart',daily=[],generation=0,previousFocus=null,historyLoading=false,loadQueued=false;
  let leadershipKey='',historyPending=false,minutesPending=false,minutesError='',offlineTheme='',archived=new Map(),livePoints=new Map(),themes=[],chartDay='';
+ const minuteSlot=h('div',{class:'fy-minute-slot'});
  const overview=h('section',{class:'fy-drawer-summary','aria-label':'个股概况'});
  function paintSummary(){
   const state=ctx.state||{},now=Date.now(),historical=row?.historicalClose;
@@ -1117,7 +1118,7 @@ export function createStockDrawer(ctx) {
   });
   if(tab==='chart'){
    const controls=h('div',{class:'fy-tabs'},[['day','日 K'],['month','月 K'],['year','年 K']].map(([key,label])=>h('button',{type:'button','data-period':key,'aria-pressed':String(period===key),onClick:()=>{period=key;paint();if(key!=='day')loadHistory(true);}},label)));
-   const bars=aggregate(daily,period);body.replaceChildren(intraday(),controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):historyPending?'日 K 加载中…':'该股没有已返回的日 K 记录。'),button('加载更早的历史',()=>loadHistory(true),'quiet'));
+   const bars=aggregate(daily,period);updateReadout(minuteSlot,intraday());body.replaceChildren(minuteSlot,controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):historyPending?'日 K 加载中…':'该股没有已返回的日 K 记录。'),button('加载更早的历史',()=>loadHistory(true),'quiet'));
   }else if(tab==='evidence'){
    const review=row?.historicalClose?row:dailyReviewEvidence(ctx.state||{}).rows.find(item=>item.code===code&&item.reasonDay===day);
    const source=ctx.state?.dabanke;
@@ -1189,15 +1190,15 @@ export function createStockDrawer(ctx) {
   try{
    const query=new URLSearchParams({code,period:'minute',day});
    const result=await ctx.api('/api/kline?'+query,{signal:request.signal,timeoutMs:25000});
-   if(request.signal.aborted||turn!==generation)return;
+   if(request.signal.aborted||turn!==generation||day!==chartDay)return;
    if(result.code===code&&result.day===day){
     const points=archivePoints(result.minuteBars,code,day);
     if(points.size>archived.size)archived=points;
     if(result.offlineTheme){offlineTheme=result.offlineTheme;paintSummary();}
     if(['busy','unavailable'].includes(result.status))minutesError='本次分时读取未完成，已保留现有观测。';
    }
-  }catch(error){if(turn===generation&&!request.signal.aborted)minutesError='分时来源本次未响应。';}
-  finally{if(turn===generation&&!request.signal.aborted){minutesPending=false;if(tab==='chart')paint();}}
+  }catch(error){if(turn===generation&&!request.signal.aborted&&day===chartDay)minutesError='分时来源本次未响应。';}
+  finally{if(turn===generation&&!request.signal.aborted&&day===chartDay){minutesPending=false;if(tab==='chart')updateReadout(minuteSlot,intraday());}}
  }
  async function loadHistory(older=false) {
   const turn=generation,currentController=controller;if(!code)return;
@@ -1250,7 +1251,7 @@ export function createStockDrawer(ctx) {
    if(!livePoints.has(point.source))livePoints.set(point.source,new Map());
    const points=livePoints.get(point.source),previous=points.get(point.minute);
    if(!previous||point.at>=previous.at)points.set(point.minute,point);
-   if(!drawer.hidden&&tab==='chart')paint();
+   if(!drawer.hidden&&tab==='chart')updateReadout(minuteSlot,intraday());
   }
   displayedQuoteAt=stamp;
   quote.hidden=false;meta.hidden=false;
@@ -1270,6 +1271,11 @@ export function createStockDrawer(ctx) {
    if(!manual&&Number.isFinite(marketQuoteAtOpen)&&at<=marketQuoteAtOpen)return;
    if(!Number.isFinite(next.price)||next.price<=0||!Number.isFinite(at)||at<=0||at>Date.now()||
       (Number.isFinite(displayedQuoteAt)&&displayedQuoteAt<=Date.now()&&at<=displayedQuoteAt))return;
+  }
+  const newDay=reviewDate(ctx.state?.marketClock?.day),stamp=quoteAt(next);
+  if(newDay&&newDay!==chartDay&&ctx.state?.marketClock?.trading===true&&Number.isSafeInteger(stamp)&&stamp>0&&stamp<=Date.now()&&
+    new Date(stamp+28800000).toISOString().slice(0,10)===newDay){
+   chartDay=newDay;livePoints=ctx.quoteTrail?.read(code,newDay)||new Map();archived=new Map();themes=[];minutesPending=false;minutesError='';
   }
   displayQuote(next);
  }

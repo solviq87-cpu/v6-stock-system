@@ -3807,10 +3807,10 @@ const isTradingTime = () => {
 //   的撮合价是瞬时/指示价，拿它触发止盈止损=在失真价上误成交。模拟盘自动买卖只在连续竞价执行。
 //   ⛔ 不动 isTradingTime()：tick/similar/pre/补涨龙/竞价快照等 11 处要靠它覆盖竞价时段抓数据，
 //     只把模拟盘自动成交这道闸门单独收紧到连续竞价（见 paperBuy / paperCheckAll）。
-const isContinuousTrading = () => {
-  if (!isTradeDay(new Date())) return false;
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
-  return (m >= 9 * 60 + 30 && m <= 11 * 60 + 30) || (m >= 13 * 60 && m <= 14 * 60 + 57);
+const isContinuousTrading = (at = new Date()) => {
+  if (!isTradeDay(at)) return false;
+  const minute = at.getHours() * 60 + at.getMinutes();
+  return (minute >= 570 && minute < 690) || (minute >= 780 && minute < 897);
 };
 // 收盘后（交易日15:00之后）才生成/更新复盘
 const isAfterClose = () => {

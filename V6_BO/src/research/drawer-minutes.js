@@ -19,10 +19,11 @@ function createDrawerMinutes({reader=createShortlineQuoteFallback(),clock=Date.n
   const slot={pending:true,until:0};active++;
   slot.job=Promise.resolve().then(()=>reader.readIntraday({secid:(code.startsWith('6')?'1.':'0.')+code,day}))
    .then(data=>{
-    const minuteBars=(data?.bars||[]).filter(row=>row.role==='stock'&&row.code===code&&row.date.startsWith(day+' ')&&
+    const minuteBars=(data?.bars||[]).filter(row=>row?.role==='stock'&&row.code===code&&typeof row.date==='string'&&row.date.startsWith(day+' ')&&
      Number.isSafeInteger(row.knownAt)&&row.knownAt<=clock());
     slot.until=clock()+(minuteBars.length?900000:30000);
-    return {code,day,status:minuteBars.length?'observed':'empty',minuteBars};
+    const status=minuteBars.length?'observed':data?.attempts?.some(a=>a.status==='unavailable')?'unavailable':'empty';
+    return {code,day,status,minuteBars};
    }).catch(()=>{slot.until=clock()+30000;return empty('unavailable');})
    .finally(()=>{active--;slot.pending=false;});
   cache.set(key,slot);

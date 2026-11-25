@@ -11,7 +11,7 @@ const server=http.createServer((req,res)=>{
  try{
   const file=fs.realpathSync(path.resolve(root,'.'+pathname));
   if(!file.startsWith(root+path.sep)||!fs.statSync(file).isFile())throw Error('outside public root');
-  res.setHeader('Content-Type',file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':'application/octet-stream');res.end(fs.readFileSync(file));
+  res.setHeader('Content-Type',file.endsWith('.css')?'text/css':/\.m?js$/.test(file)?'text/javascript':'application/octet-stream');res.end(fs.readFileSync(file));
  }catch{res.writeHead(404);res.end();}
 });
 (async()=>{
