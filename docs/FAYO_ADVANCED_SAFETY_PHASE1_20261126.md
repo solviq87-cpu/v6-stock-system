@@ -26,3 +26,12 @@
 - 新增 core/advanced-account-risk.js、server/advanced-account-risk-job.js、tests/advanced-account-risk.test.js；server.js 仅原风险中心接口一处最小替换；research-extensions.js 仅新增派生报告展示。没有修改原账户服务、纸面成交、通知、策略、数据门禁和角色控制。
 - 新增四组隔离 JS 断言已执行（同一基线 quote gate、交易费用与阶段一函数实际源码）；Node worker 读原临时账户/损坏副本/并发/角色专项已写入测试但当前环境未运行。全量静态、HTTP、浏览器、生产和最终六组合并验证以精确 SHA CI 及隔离现场回执为准。
 - 共享文件 HANDOFF/DEPLOYMENT 与 #353/#355 均有更新；最终组保留全部阶段记录、合并后重新运行原门禁和全量验证。新增接口为只读派生合同，不作为交易授权或模型认证。若第一组增强原风险中心或 worker 池，接入同一合同或迁移消费者，不能平行维护第二套。
+
+
+## 阶段三 · 57 唯一写者并发缺口修复（兼及49/50/54）
+
+审查原 process-file-lock.js：两个旧锁恢复者都可能先读取同一死亡PID，再分别 unlink；后到者可误删前者刚创建的新锁，导致多个写者。释放时原代码无条件 unlink，也未保留锁身份。此处复用原 account-process-lock.js 的 Linux flock 机制，不增加独立锁系统，不改成交规则、现金、持仓、账本格式、事务内容或设备角色。稳定 file.guard 先锁后恢复/清除原 file.lock PID标记，释放前校验标记 inode，私有不透明句柄阻止重复释放，未知/损坏/符号链接标记拒绝清理；flock 帮助进程5秒上限。原 withAccountLock 的调用方式与原执行门禁保持，新增内部 acquireAccountGuard 供现有两处离线事务/账本调用复用。process-file-lock 的返回值从数字描述符变为不透明句柄，仓库内两个调用点只传给 releaseProcessLock，不依赖其形态，未改其业务代码。
+
+本地 Node v22.16.0 + util-linux flock，两个源码 node --check 成功，node --test tests/process-file-lock-race.test.js：4/4 通过，0 失败，含两个进程对 SIGKILL 死亡持锁者并发恢复、账户/事务共用内核锁、旧句柄重复释放、损坏/符号链接证据拒绝清理。首次测试脚本内嵌子进程字符串转义错误，修正后重新执行全四项通过。下列实际测试文件 Git blob SHA：account-process-lock.js 9343f4994ed524f8e3ffad6712f76fd7be1e2a60；process-file-lock.js c347f7cc0184ce3bd6b4a74f669c669ecaf34406；process-file-lock-race.test.js f3e92b50a90ba4ae717622e9112e5e7d9952c002。
+
+边界：本机 Linux/WSL 同一支持 flock 的卷；不证明跨主机互斥、租约栅栏或生产主副切换。升级/回滚须停止所有旧/新写者，禁止混跑旧PID锁协议，绝不能在运行时删除 .guard。未知旧锁保全并核对；不可由本次测试声称实盘、跨机唯一写入、完整故障演练或备份恢复已经完成。
