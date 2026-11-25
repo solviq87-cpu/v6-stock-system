@@ -117,14 +117,34 @@ test('combined read model preserves all authority boundaries and does not mutate
  const r=W.buildEvolutionWorkflow({archive,events,asOf:NOW,code:'600001',calendar:{day:'2026-11-25',isOpen:true}});assert.equal(r.canTrade,false);assert.equal(r.accountMutated,false);assert.equal(r.autoPromotion,false);assert.deepEqual(archive,before);assert.equal(r.trades.rows.length,1);assert.equal(r.lifecycle.rows.length,1);
 });
 
-test('authorization is checked inside the original lock immediately before persistence, and rejection leaves no event or stage file',()=>{
- const p=root(),input={requestId:'authority-recheck-one',expectedRevision:0,value:W.defaultEvolutionPreferences()};let calls=0;
- assert.throws(()=>W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>{calls++;assert.ok(fs.existsSync(path.join(p,'workspace.guard')));assert.deepEqual(S.readEvents(p),[]);assert.equal(fs.readdirSync(p).some(n=>n.startsWith('.stage-')),false);return false;}}),e=>e.code==='WORKSPACE_AUTH_REVOKED');
- assert.equal(calls,1);assert.deepEqual(S.readEvents(p),[]);assert.deepEqual(fs.readdirSync(p),['workspace.guard']);
+test('authorization is checked before directory creation, within the original lock and after fsync; rejection never publishes an event',()=>{
+ const p=root(),input={requestId:'authority-recheck-one',expectedRevision:0,value:W.defaultEvolutionPreferences()};
+ let calls=0;
+ assert.throws(()=>W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>{calls++;return false;}}),e=>e.code==='WORKSPACE_AUTHORIZATION'&&e.httpStatus===403);
+ assert.equal(calls,1);assert.deepEqual(S.readEvents(p),[]);
+ assert.equal(fs.existsSync(path.join(p,'workspace.guard')),false);
+ calls=0;
+ assert.throws(()=>W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>{
+  if(++calls===1)return true;
+  assert.ok(fs.existsSync(path.join(p,'workspace.guard')));assert.deepEqual(S.readEvents(p),[]);
+  assert.equal(fs.readdirSync(p).some(n=>n.startsWith('.stage-')),false);return false;
+ }}),e=>e.code==='WORKSPACE_AUTHORIZATION'&&e.httpStatus===403);
+ assert.equal(calls,2);assert.deepEqual(S.readEvents(p),[]);assert.deepEqual(fs.readdirSync(p),['workspace.guard']);
+ calls=0;
+ assert.throws(()=>W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>{
+  if(++calls<3)return true;
+  assert.ok(fs.existsSync(path.join(p,'workspace.guard')));
+  assert.ok(fs.readdirSync(p).some(n=>n.startsWith('.stage-')));
+  assert.deepEqual(S.readEvents(p),[]);return false;
+ }}),e=>e.code==='WORKSPACE_AUTHORIZATION'&&e.httpStatus===403);
+ assert.equal(calls,3);assert.deepEqual(S.readEvents(p),[]);assert.deepEqual(fs.readdirSync(p),['workspace.guard']);
  assert.throws(()=>W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>Promise.resolve(true)}),/授权/);
  const saved=W.saveEvolutionPreferences(p,input,{now:NOW,beforeCommit:()=>true});assert.equal(saved.revision,1);
- assert.throws(()=>W.saveEvolutionPreferences(p,{...input,requestId:'authority-recheck-two'},{now:NOW,beforeCommit:()=>{throw Error('stale revision must fail first');}}),/版本冲突/);
- assert.equal(S.readEvents(p).length,1);
+ calls=0;
+ assert.throws(()=>W.saveEvolutionPreferences(p,{...input,requestId:'authority-recheck-two'},{now:NOW,beforeCommit:()=>{
+  if(++calls===1)return true;throw Error('stale revision must fail before the final authorization checkpoint');
+ }}),/版本冲突/);
+ assert.equal(calls,1);assert.equal(S.readEvents(p).length,1);
 });
 test('candidate selection filters history while preserving the full current universe, and repeated missing evidence does not erase an invalidation',()=>{
  const events=[screen(1,'2026-11-16','selected'),screen(2,'2026-11-17','unknown'),screen(3,'2026-11-18','unknown'),screen(4,'2026-11-19','selected'),screen(5,'2026-11-20','selected',1,'600002')];

@@ -3,6 +3,7 @@
 // no unbounded queue, no account details or error strings in runtime metrics.
 const fs=require('node:fs'),path=require('node:path');
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 const {performance}=require('node:perf_hooks');
 const {accountExitDiagnostics,unavailable}=require('../core/advanced-account-risk');
 const {aShareCalendarDate}=require('../core/a-share-calendar');
@@ -122,19 +123,21 @@ function runAdvancedAccountRiskJob(input){
  if(active)return Promise.resolve(empty('busy'));
  let bounded;try{bounded=boundedContext(input,Date.now());}catch{return Promise.resolve(empty('invalid-context'));}
  if(!bounded)return Promise.resolve(empty('invalid-context'));
+ const lease=workerBudget.tryAcquire('advanced-account-risk');
+ if(!lease)return Promise.resolve(empty('busy'));
  active=true;const start=performance.now();
  return new Promise(resolve=>{
   let worker,timer,done=false;
   const finish=async result=>{
    if(done)return;done=true;clearTimeout(timer);
-   try{await worker?.terminate();}catch{}finally{
+   try{await lease.stop();}finally{
     active=false;
     samples.push({ms:Math.round(performance.now()-start),status:result.status});if(samples.length>128)samples.shift();
     resolve({...result,telemetry:metrics()});
    }
   };
   try{
-   worker=new Worker(__filename,{workerData:{kind:mode,input:bounded},resourceLimits:{maxOldGenerationSizeMb:128}});
+   worker=lease.watch(new Worker(__filename,lease.options({kind:mode,input:bounded})));
    worker.once('message',finish);
    worker.once('error',()=>finish(empty('worker-error')));
    worker.once('exit',()=>finish(empty('worker-exit')));

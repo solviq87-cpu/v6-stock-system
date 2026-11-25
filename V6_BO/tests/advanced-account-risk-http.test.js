@@ -22,6 +22,7 @@ function request({method='GET',advanced=true,editor=true,replica=false,query=''}
   requireEditor:()=>{state.authChecks++;if(state.editor)return true;res.writeHead(403,{'Cache-Control':'no-store'});res.end(JSON.stringify({ok:false,locked:true}));return false;},
   require:name=>{
    if(name==='./src/core/research-risk-center')return {readResearchRiskCenter:()=>{state.reads++;return {mode:'research-risk-center-readonly',canTrade:false,canNotify:false,supports:[],contra:[],missing:[]};}};
+   if(name==='./src/core/research-governance-cache')return {read:()=>null};
    if(name==='./src/core/monitor-capacity')return {heldCodes:()=>[]};
    if(name==='./src/core/advanced-account-risk')return {selectAdvancedRiskQuotes:()=>({})};
    if(name==='./src/server/advanced-account-risk-job')return {runAdvancedAccountRiskJob:input=>{state.jobs.push(input);return pending;}};

@@ -1,16 +1,19 @@
 'use strict';
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 const active=new Set();
 function runStockObservationJob(payload,options={}){
  const group=options.jobGroup==='automatic'?'automatic':'interactive';
  if(active.has(group))return Promise.resolve({ok:false,error:'股票观察任务正在运行'});
+ const lease=workerBudget.tryAcquire('stock-observation');
+ if(!lease)return Promise.resolve({ok:false,error:'股票观察任务正在运行'});
  active.add(group);
  return new Promise(resolve=>{
   let worker,timer,done=false,progress=null;
-  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);try{if(worker)await worker.terminate();}finally{
+  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);try{await lease.stop();}finally{
    if(!options.action&&options.workspaceRoot&&!result.ok)result.diagnosticId=require('../core/research-workspace').saveDiagnostic(options,{symbol:payload?.symbol||null,provider:payload?.provider||null,status:'failed',stages:progress||[],errorCode:'CAPTURE_JOB_FAILED',retry:'原始档案保留；检查最后阶段后使用原入口重试'});
    active.delete(group);resolve(result);}};
-  try{worker=new Worker(__filename,{workerData:{payload,options,__v6StockObservationJob:true},resourceLimits:{maxOldGenerationSizeMb:192}});
+  try{worker=lease.watch(new Worker(__filename,lease.options({payload,options,__v6StockObservationJob:true})));
    worker.on('message',message=>{if(message?.progress){progress=message.progress;return;}void finish(message);});worker.once('error',()=>finish({ok:false,error:'股票观察任务未完成'}));
    worker.once('exit',()=>finish({ok:false,error:'股票观察任务已停止'}));
    timer=setTimeout(()=>finish({ok:false,error:'股票观察任务超过55秒'}),55000);
