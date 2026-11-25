@@ -279,7 +279,7 @@ async function refreshAutomatically() {
  }finally{fastBusy=false;}
 }
 function logout(message='') {
- gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
+ gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;quoteTrail.clear();poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {
  gateGeneration++;role=nextRole==='edit'?'edit':'view';sessionController?.abort();poll?.();poll=null;sessionController=new AbortController();const controller=sessionController;createFrame();main.replaceChildren(h('div',{class:'fy-loading',role:'status'},'正在读取你的云端状态…'));await refresh(false);if(!role||controller.signal.aborted)return;if(!state)await renderRoute();if(!role||controller.signal.aborted)return;subscribeChanges(controller);

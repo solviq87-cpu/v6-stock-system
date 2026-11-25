@@ -1,13 +1,16 @@
 // Shared by the V6 pool scanner and both dashboard entry points.
 export function eligiblePick(row) {
-  return !!row && /^\d{6}$/.test(row.code) && !/(?:^|\*)ST|退市/i.test(row.name || '') &&
+  return !!row && /^\d{6}$/.test(row.code) && !/^(?:S\*?ST|\*+\s*ST|ST)|退市/i.test(row.name || '') &&
     !['excluded','blocked','bad','riskBlocked','riskWarning','isST','halt','suspended','synthetic','simulated','fixture','mock','blacklisted','buyHeld','heldRecord'].some(key => row[key] === true) &&
     !row.heldRecord && row.canOpen !== false && row.currentSourceConfirmed !== false &&
-    row.cap !== '空仓' && row.decisionReview?.action !== 'sell';
+    row.tradable !== false && row.selectionEvidenceStatus !== 'incomplete' && row.cap !== '空仓' && row.decisionReview?.action !== 'sell';
 }
 
 export function pickReasons(row) {
-  const values = [row.hit, row.signals || row.paths, row.explanation || row.pathWhy, row.reasons, row.why]
+  const explanation=row.explanation||row.pathWhy;
+  const details=explanation && typeof explanation==='object' && !Array.isArray(explanation)
+    ? (row.signals||row.paths||[]).map(name=>explanation[name]) : explanation;
+  const values = [details, row.hit, row.signals || row.paths, row.reasons, row.why]
     .flatMap(value => Array.isArray(value) ? value : typeof value === 'string' ? [value] : []);
   return [...new Set(values.map(value => typeof value === 'string' ? value : value?.text || value?.label || value?.id)
     .filter(value => typeof value === 'string' && value.trim()))];

@@ -219,7 +219,7 @@ export function marketOverviewParts(state,{homeDay}={}){
   }
   const today=new Date(Date.now()+28800000).toISOString().slice(0,10);
   const actual=useQuote?stamp:series?.day;
-  const lastSession=reviewDate(state.marketClock?.previousDay||state.marketClock?.lastTradingDay||state.marketRecovery?.referenceDay);
+  const lastSession=reviewDate(state.marketClock?.previousDay||state.marketClock?.lastTradingDay||state.marketRecovery?.referenceDay||state.closeSession?.day);
   const quoteKind=useQuote&&!target?'今日盘中':actual===today?'今日收盘':actual&&actual===lastSession?'上一交易日收盘':'最近有效收盘';
   const provider=useQuote?indexProvider(quoteSource(quote)):series?.source;
   indexAvailability.push({name,ready:Number.isFinite(price)});
@@ -655,7 +655,7 @@ export function systemPicks(state={}) {
  const day=originals.size===1&&[...originals][0]||declared;
  const leadership=sectorLeadershipEvidence(state);
  const items=unique(base).map(row=>{
-  const poolDay=systemPickDay(row,day)||undefined;
+  const poolDay=row.poolDay||systemPickDay(row,day)||undefined;
   return {...row,poolDay,sectorLeadership:leadership({...row,poolDay}).status,
    signals:row.signals||row.paths,explanation:row.explanation||(typeof row.pathWhy==='string'?[row.pathWhy]:row.pathWhy)};
  })
@@ -1223,6 +1223,17 @@ export function createStockDrawer(ctx) {
      quote.hidden=false;meta.hidden=false;quote.textContent=format(daily.at(-1).close);
      meta.textContent=[cutoff,'收盘价',historySource].filter(Boolean).join(' · ');
     }
+    if(!cutoff&&quote.hidden&&historySource){
+     const received=result.dataQuality?.receivedAt,asOf=Math.min(Date.now(),Number.isSafeInteger(received)?received:Date.now());
+     const closed=daily.filter(b=>b.date<new Date(asOf+28800000).toISOString().slice(0,10)||
+      received&&Date.parse(b.date+'T15:00:00+08:00')<=asOf);
+     const last=closed.at(-1),prev=closed.at(-2);
+     if(last?.close>0){
+      const pct=prev?.close>0?(last.close/prev.close-1)*100:null;
+      quote.hidden=false;meta.hidden=false;quote.replaceChildren(h('strong',{},format(last.close)),Number.isFinite(pct)?h('span',{class:direction(pct)},percent(pct)):h('small',{},'缺同口径前收'));
+      meta.textContent=last.date+' · 最近收盘 · '+historySource;
+     }
+    }
     if(daily.length===previous)break;
     end=daily[0]?.date||'';pages++;
     if(!older||period==='day'||rows.length<240)break;
@@ -1337,6 +1348,10 @@ export function createStockDrawer(ctx) {
   historyPending=true;minutesPending=false;minutesError='';offlineTheme='';themes=[];archived=new Map();livePoints=ctx.quoteTrail?.read(nextCode,chartDay)||new Map();paintSummary();
   marketQuoteAtOpen=Number.isFinite(baseline?.price)&&baseline.price>0&&Number.isFinite(baselineAt)&&baselineAt>0&&baselineAt<=Date.now()?baselineAt:null;
   title.textContent=symbolName(row)+' / '+nextCode;displayedQuoteAt=null;quote.replaceChildren();meta.textContent='';quote.hidden=true;meta.hidden=true;displayQuote(row);
+  const valuation=row.valuationQuote;
+  if(!row.historicalClose&&quote.hidden&&valuation?.valuationKind==='observed-price'){
+   displayQuote({...valuation,price:row.lastPrice,code:nextCode});
+  }
   if(!row.historicalClose&&quote.hidden&&baseline?.code===nextCode){
    displayQuote(baseline);
    if(!quote.hidden)meta.textContent='同标的独立报价 · '+meta.textContent;

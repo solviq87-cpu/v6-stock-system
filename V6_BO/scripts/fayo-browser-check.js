@@ -99,6 +99,11 @@ function respond(url,req,body){
  if(p==='/api/quant-picks'||p==='/api/auction-resonance')return {ok:true,asOf:sourceAt,board:url.searchParams.get('board')||'all',count:stocks.length,items:phase==='empty'?[]:stocks.map((stock,index)=>index===0?{...stock,price:11.11,vendorQuoteAt:sourceAt-1000,quoteAt:sourceAt-1000,hit:[...stock.hit,{text:'仅此选股池保存的合成依据'}]}:stock),snapshotDay:'20261113',snapshotRetained:true,isSnapshot:true,note:'合成周五完成的扫描'};
  if(p==='/api/v6/matches')return {ok:true,snapshotId:'synthetic-friday',scope:'quant-picks-six-rules',asOf:sourceAt,totalStocks:stocks.length,totalSignals:16,items:stocks,hasMore:false,nextCursor:null};
  if(p==='/api/kline'){
+  if(url.searchParams.get('period')==='minute'){
+   const code=url.searchParams.get('code'),day=url.searchParams.get('day');
+   return {code,day,status:'observed',offlineTheme:'隔离测试题材',minuteBars:['09:31','09:32'].map((m,i)=>({
+    code,role:'stock',date:day+' '+m,close:12+i/10,knownAt:sourceAt,source:'合成分钟来源',period:'1m'}))};
+  }
   const end=url.searchParams.get('end'),limit=Math.min(240,Math.max(1,Number(url.searchParams.get('n')||120)));
   const rows=candles.filter(row=>!end||row.date<end).slice(-limit);
   return {ok:true,code:url.searchParams.get('code'),rows,asOf:'2026-11-13',source:'synthetic-friday-provider',dataQuality:{tradeDate:'2026-11-13',source:'synthetic-friday-provider',freshness:'snapshot-only'}};
@@ -410,6 +415,8 @@ const runChecks=async()=>{
    await featured.locator('button').nth(2).click();
    const symbolLens=page.getByRole('dialog',{name:'股票研究面板'});
    await symbolLens.getByRole('heading',{name:'分时走势'}).waitFor();
+   await symbolLens.getByRole('img',{name:'原始分时价格'}).waitFor();
+   await symbolLens.getByText('所属题材 · 隔离测试题材').waitFor();
    await symbolLens.locator('.fy-drawer-summary').getByText(/近期公告/).waitFor();
    assert.match(await symbolLens.locator('.fy-drawer-title').innerText(),/600103/);
    await page.keyboard.press('Escape');
@@ -637,12 +644,12 @@ const runChecks=async()=>{
     await page.setViewportSize({width:402,height:874});
     await moreResearch.click();
     phase='coverage-gap';
-    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-header button[aria-label="刷新云端数据"]').click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('源端覆盖不完整'));
     assert.match(await page.locator('[data-focus="risk"]').innerText(),/37|33/,'source mismatch is never presented as a verified total');
     assert.match(await page.locator('[data-focus="next"]').innerText(),/核对复盘缺口/,'missing upstream members changes the next step to review');
     phase='normal';
-    await page.locator('.fy-terminal-actions').getByRole('button',{name:'刷新云端数据',exact:true}).click();
+    await page.locator('.fy-header button[aria-label="刷新云端数据"]').click();
     await page.waitForFunction(()=>document.querySelector('[data-focus="risk"]')?.textContent.includes('原始报价须逐股核验'));
    }
    await navigate(page,'opportunities','quant');

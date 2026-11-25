@@ -18,7 +18,7 @@ function fn(source,name){
 }
 function run(source,names,extra={}){
  const c=vm.createContext({Date:Clock,console:{log(){},error(){},warn(){}},
-  require:name=>{assert.equal(name,'./src/core/quote-observation-view');return contract;},...extra});
+  require:name=>{if(name==='./src/core/paper-realized-series')return require('../src/core/paper-realized-series');assert.equal(name,'./src/core/quote-observation-view');return contract;},...extra});
  vm.runInContext(names.map(name=>fn(source,name)).join('\n'),c);return c;
 }
 

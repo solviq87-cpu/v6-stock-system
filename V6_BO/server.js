@@ -5206,7 +5206,10 @@ async function rebuildPool({follow = false} = {}) {
   picked = picked.slice(0, POOL_CAP);
   if (beforeCapN > POOL_CAP) console.log(`[pool] 过闸 ${beforeCapN} 只，按最终顺序取前 ${POOL_CAP} 只入池（池上限）`);
   S.candidatePool = picked;
-  if (follow) await followSystemPicks(picked,tradeKey);
+  if (follow) {
+    try { await followSystemPicks(picked,tradeKey); }
+    catch (error) { console.error('[paper/pool] 精选跟单未完成',error.message); }
+  }
   // ⛔ 陈旧监控接线（2026-10-27 选股体系会话）：精选池此前只登记 STALE_RULE(L3719) 却从不调 staleMark，
   //    导致面板恒显「未产出」(t=0) 掩盖真实产出。rebuildPool 跑完即标记 fresh(有票)/empty(宁缺毋滥空池)，
   //    与 ztPool/sectors 等数组池口径一致（数组池 .time 不挂，line 显示「更新于 」同源行为，非本改引入）。
