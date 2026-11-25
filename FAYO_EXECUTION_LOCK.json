@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "repository": "solviq87-cpu/v6-stock-system",
   "purpose": "Single execution ownership for the unified FAYO 01–78 continuation; never a deployment controller.",
-  "state": "idle",
-  "owner": null,
-  "generation": 2,
-  "startedAt": null,
+  "state": "running",
+  "owner": "fayo-auto-2fced35d-1c94-8325-a20d-a8d753849052",
+  "generation": 3,
+  "startedAt": "2026-11-25T19:17:44.020434Z",
   "checkpointBranch": "fix/fayo-paused-account-safety-bridge-20261126",
   "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
   "blockedFingerprint": null,
@@ -23,5 +23,6 @@
   },
   "checkpointSha": "ffd80165d28a5ae3716f62dca6c913d2e6111531",
   "checkpointPr": 368,
-  "checkpointNote": "Current isolated unified integration: tasks 67-78 source and interfaces, original locked authorization and reconciliation, failure-inclusive runtime windows, and shared worker budget. Verify current head's full CI and remaining exact PR deltas. No final acceptance or production release."
+  "checkpointNote": "Current isolated unified integration: tasks 67-78 source and interfaces, original locked authorization and reconciliation, failure-inclusive runtime windows, and shared worker budget. Verify current head's full CI and remaining exact PR deltas. No final acceptance or production release.",
+  "runId": "2fced35d-1c94-8325-a20d-a8d753849052"
 }
