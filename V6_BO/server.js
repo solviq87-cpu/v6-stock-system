@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const em = require('./em');
+const RuntimeTrace = require('./src/core/runtime-trace');
 const {classifyFeishuReceipt} = require('./src/core/feishu-receipt');
 const probabilityContract = require('./src/core/probability-contract');
 const LearningIntegrity = require('./src/core/learning-outcome-integrity');
@@ -4762,7 +4763,9 @@ function fundHistoryCache(){
     cache:S.fundDays,fetchHistory:(code,days)=>em.fetchFundFlowDays(code,days)});
 }
 async function rebuildPool({follow = false} = {}) {
-  if (!S.stocks.length) { setAllStocks(await em.fetchAllStocks()); }
+  const runtimeTrace = typeof RuntimeTrace === 'undefined' ? null : RuntimeTrace;
+  const collectHistory = run => runtimeTrace ? runtimeTrace.async('market.history',run) : run();
+  if (!S.stocks.length) { setAllStocks(await (runtimeTrace ? runtimeTrace.async('market.universe',()=>em.fetchAllStocks()) : em.fetchAllStocks())); }
   const all = S.stocks.filter(s =>
     !A.isJunkName(s.name) && !s.name.includes('N') && !s.name.includes('C ') &&
     (!s.listedDate || listedDaysAgo(s.listedDate) == null || listedDaysAgo(s.listedDate) >= 30) && s.price > 0 && // 上市满30日；备用源无上市日期时放行
@@ -4784,7 +4787,7 @@ async function rebuildPool({follow = false} = {}) {
   const tradeKey = await dataTradeDay();
   const todayDash = `${todayStr().slice(0, 4)}-${todayStr().slice(4, 6)}-${todayStr().slice(6, 8)}`;
   let kdone = 0, kHit = 0, kStale = 0;
-  await em.pool(codes, async code => {
+  await collectHistory(()=>em.pool(codes, async code => {
     if (Date.now() - _poolT0 > _poolBudget) return null;   // 超预算就放弃剩余，用已拿到的先出池
     if (S.klines.has(code)) return S.klines.get(code);
     // 先尝试磁盘缓存：以「K线最后一根的交易日」判定新鲜度（周末/节假日也能复用，避免重复拉全市场）
@@ -4820,7 +4823,7 @@ async function rebuildPool({follow = false} = {}) {
     if (++kdone % 100 === 0) console.log(`[pool] K线进度 ${kdone}/${codes.length}`);
     if (!(k && k.rows && k.rows.length) && stale) { klineSet(code, stale); kStale++; return stale; }
     return k;
-  }, 20);
+  }, 20));
 
   console.log(`[pool] K线完成 ${kdone} 只，磁盘缓存命中 ${kHit} 只 / 陈旧兜底 ${kStale} 只，数据源最新交易日 ${tradeKey}`);
 
@@ -4835,21 +4838,21 @@ async function rebuildPool({follow = false} = {}) {
   const fundsCodes=[...codes].sort((a,b)=>Number(fundsPriority.has(b))-Number(fundsPriority.has(a))||
     (fundsCache.status(a)?.at||0)-(fundsCache.status(b)?.at||0)||a.localeCompare(b));
   let fdone = 0;
-  await em.pool(fundsCodes, async code => {
+  await collectHistory(()=>em.pool(fundsCodes, async code => {
     if(Date.now()>=fundsDeadline)return S.fundDays.get(code)||null;
     try {
       const f = await fundsCache.read(code,{day:tradeKey,days:10});
       if (++fdone % 100 === 0) console.log(`[pool] 资金流进度 ${fdone}/${codes.length}`);
       return f;
     } catch { return null; }
-  }, 10);
+  }, 10));
 
   // push2 批量主力资金兜底通道：fflow 历史接口被反爬时，用快照级 当日/5日/10日 主力净流入补齐
   S.flow5d = S.flow5d || new Map();
   const flowMiss = codes.filter(c => !S.fundDays.has(c));
   if (flowMiss.length) {
     try {
-      const flows = await em.fetchBatchFlowEM(flowMiss);
+      const flows = await collectHistory(()=>em.fetchBatchFlowEM(flowMiss));
       for (const f of flows) {
         S.flow5d.set(f.code, f);
         const s = set.get(f.code);
@@ -4893,8 +4896,14 @@ async function rebuildPool({follow = false} = {}) {
   const total = t2.length;
 
   const scored = [];
+  // Time the actual original scoring/selection calls. A lazy batch records no
+  // factor span when the provider supplied no usable rows.
+  const selectPool = () => {
+  const factorTrace = runtimeTrace?.batch('factor.evaluate');
+  try {
   for (let i = 0; i < t2.length; i++) {
     const { s, k, t2d } = t2[i];
+    const evaluateFactors = () => {
     const profitRatio = A.calcProfitRatio(k.rows);
     const zt90 = k.rows.slice(-90).filter(r => A.isLimitUp(s.code, s.name, r.pct)).length;
     // gm 轮：近5日涨停基因（次日涨停率约40%的最强单一因子）—— 与回测/学习同一把尺子
@@ -4903,6 +4912,9 @@ async function rebuildPool({follow = false} = {}) {
       rows: k.rows, profitRatio, turnoverRank2d: i + 1, total,
       mainPct: s.mainPct, pct: s.pct, zt90, zt5
     });
+    return {profitRatio,zt90,zt5,score,detail,_scoreBasis};
+    };
+    const {profitRatio,zt90,zt5,score,detail,_scoreBasis} = factorTrace ? factorTrace.run(evaluateFactors) : evaluateFactors();
     // ---- 选股路径标记：每条路径同时记录「触发它的真实数据」，面板直接显示为什么选中 ----
     const last5 = k.rows.slice(-5);
     const paths = [], pathWhy = {};
@@ -5218,7 +5230,12 @@ async function rebuildPool({follow = false} = {}) {
   const beforeCapN = picked.length;
   picked = picked.slice(0, POOL_CAP);
   if (beforeCapN > POOL_CAP) console.log(`[pool] 过闸 ${beforeCapN} 只，按最终顺序取前 ${POOL_CAP} 只入池（池上限）`);
-  S.candidatePool = picked;
+  return picked;
+  } finally { factorTrace?.end(); }
+  };
+  const picked = runtimeTrace ? runtimeTrace.sync('strategy.evaluate',selectPool) : selectPool();
+  const publishCandidates = () => { S.candidatePool = picked; for (const row of picked) runtimeTrace?.associate(row); };
+  if(runtimeTrace)runtimeTrace.sync('candidate.publish',publishCandidates);else publishCandidates();
   if (follow) {
     try { await followSystemPicks(picked,tradeKey); }
     catch (error) { console.error('[paper/pool] 精选跟单未完成',error.message); }
@@ -6334,7 +6351,7 @@ function publishFastStockMoves(plan, rows, now, timing) {
   }
 }
 async function tick() {
-  if (S.loop.running) return;
+  if (S.loop.running) { if(typeof RuntimeTrace!=='undefined')RuntimeTrace.markCurrent('skipped','ALREADY_RUNNING');return; }
   S.loop.running = true;
   try {
     // ⛔ 2026-10-09 修（用户"板块强势股一个没推 / 盘中不推优质票"）：原监控池只有精选池前100只，
@@ -6355,7 +6372,7 @@ async function tick() {
     for (const code of S.inflowHistory.keys()) if (!requestedCodes.has(code)) S.inflowHistory.delete(code);
     const startedAt = Date.now();
     let snaps;
-    try { snaps = await em.fetchBatchSnapshot(codes); }
+    try { snaps = await (typeof RuntimeTrace==='undefined' ? em.fetchBatchSnapshot(codes) : RuntimeTrace.async('market.snapshot',()=>em.fetchBatchSnapshot(codes))); }
     catch (e) {
       S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
       publishFastStockMoves(plan, [], Date.now(), {startedAt, failed:true});
@@ -6372,6 +6389,9 @@ async function tick() {
     for (const code of requestedCodes) if (!returnedCodes.has(code)) S.inflowHistory.delete(code);
     ingestPx(snaps); // 5秒级tick价并入全市场价表（模拟盘成交/估值用最新价）
     const alerts = [];
+    const evaluateAlerts = () => {
+    const factorTrace = typeof RuntimeTrace==='undefined' ? null : RuntimeTrace.batch('factor.evaluate');
+    try {
     for (const s of snaps) {
       if(!require('./src/core/quote-observation-view').quoteUseEligibility(s,now).canNotify){S.inflowHistory.delete(s.code);continue;}
       // 记录资金轨迹（保留10分钟）
@@ -6391,7 +6411,7 @@ async function tick() {
         const poolItem = S.candidatePool.find(c => c.code === s.code);
         const ztInSector = sectorZTCountFor(s);
         const gap = numGapRaw(s.code, s.name, s.pct); // 取不到为 null，下面门槛显式排除
-        const prob = A.limitUpProbability({
+        const evaluateProbability = () => A.limitUpProbability({
           score: numNeutral('score', poolItem ? poolItem.score : null),
           mainPct: numNeutral('mainPct', s.mainPct),
           profitRatio: numNeutral('profitRatio', poolItem ? poolItem.profitRatio : null),
@@ -6399,6 +6419,7 @@ async function tick() {
           sectorZT: ztInSector, gap: numNeutral('gap', gap),
           turnover: numNeutral('turnover', s.turnover), inflowStreakMin: streakMin
         });
+        const prob = factorTrace ? factorTrace.run(evaluateProbability) : evaluateProbability();
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
         // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
@@ -6516,6 +6537,9 @@ async function tick() {
         });
       }
     }
+    } finally { factorTrace?.end(); }
+    };
+    if(typeof RuntimeTrace!=='undefined')RuntimeTrace.sync('strategy.evaluate',evaluateAlerts);else evaluateAlerts();
     // 去重推送——同一轮触发的信号聚合为一条精美快报
     // ⚠️ 强势信号（封板/涨停概率≥90/主力净占比>8）用 3 分钟短窗口，允许重复推送，
     //    避免"最凶的那几只"被 10 分钟去重挡住后彻底失联。
@@ -6700,6 +6724,7 @@ async function tick() {
     S.loop.lastError = null;
   } catch (e) {
     S.loop.lastError = String(e && e.message || e);
+    if(typeof RuntimeTrace!=='undefined')RuntimeTrace.markCurrent('failed','STAGE_FAILED');
   } finally {
     S.loop.running = false;
   }
@@ -8998,6 +9023,7 @@ function govTake(code, type, strong, prob, row) {
     model: { rawValue: finite(prob), rawKind: 'unknown', fusedValue: null, fusedKind: 'unknown', target: 'unknown' },
     review: null, followRole: null, probabilityFloor: null, d5: null, ev: null, reservationBefore: null };
   const finish = (result, reason) => {
+    if(result.ok!==true&&typeof RuntimeTrace!=='undefined')RuntimeTrace.markCurrent('blocked','RISK_REJECTED');
     try {
       const value = JSON.parse(JSON.stringify({ ...trace, evaluatedAt: Date.now(), decision: { allow: result.ok === true, reason, why: text(result.why), reservationNo: finite(result.no) } }));
       const freeze = item => { if (item && typeof item === 'object') { for (const child of Object.values(item)) freeze(child); Object.freeze(item); } return item; };

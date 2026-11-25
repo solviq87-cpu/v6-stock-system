@@ -13,11 +13,7 @@ function codeVersion(){
   commit:/^[a-f0-9]{40}$/.test(process.env.V6_SOURCE_COMMIT||'')?process.env.V6_SOURCE_COMMIT:null};
 }
 function trace(){
- const stages=[];
- return {stages,async asyncStage(name,fn){const startedAt=Date.now(),start=performance.now();try{const v=await fn();stages.push({stage:name,status:'completed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2)});return v;}
-  catch(e){stages.push({stage:name,status:'failed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2),errorCode:'STAGE_FAILED'});throw e;}},
- syncStage(name,fn){const startedAt=Date.now(),start=performance.now();try{const v=fn();stages.push({stage:name,status:'completed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2)});return v;}
-  catch(e){stages.push({stage:name,status:'failed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2),errorCode:'STAGE_FAILED'});throw e;}}};
+ return require('./runtime-trace').createStageTrace();
 }
 function saveObservation(result,options,{requestId,stages=[]}={}){
  const data=decision.buildWorkspaceDecision(result),root=rootOf(options);
