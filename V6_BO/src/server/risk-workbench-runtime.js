@@ -2,7 +2,7 @@
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {buildRiskWorkbench,filterRiskWorkbench,riskForPlanAlert}=require('../core/risk-workbench');
-const {buildEffectiveRiskEvidence}=require('../core/effective-risk-evidence');
+const {buildEffectiveRiskEvidence,freshMark}=require('../core/effective-risk-evidence');
 const {buildRiskActionEvidence}=require('../core/risk-action-evidence');
 const {createRiskAlertLifecycle,normalizeRiskReceipt,normalizeRisk}=require('../core/risk-alert-lifecycle');
 const {digest}=require('../core/research-workspace-store');
@@ -64,11 +64,21 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   async function read({accountId='pool',code=null,actor=null}={}) {
     if(!['pool','pre'].includes(accountId))throw Error('未知原账户');
     await refreshEvidence();
-    const now=clock(),current=session(now),missing=[];
-    let book=null,quotes={},equity=null,history=null,rules=null,actions=null,stress=null,research=null,market={};
-    try{if(!isPrimary())throw Error('副本');book=readBook(accountId);}catch{missing.push('未取得该实例的原权威账户；副本估值不冒充主账本');}
-    try{quotes=readQuotes();}catch{missing.push('原逐票报价不可用');}
+    const now=clock(),current=session(now),missing=[],authorityChecks=[];
+    let book=null,quotes={},equity=null,history=null,rules=null,actions=null,stress=null,research=null,market={},bookRead=false;
+    try{if(!isPrimary())throw Error('副本');book=readBook(accountId);bookRead=true;
+    }catch{missing.push('未取得该实例的原权威账户；副本估值不冒充主账本');
+      if(isPrimary())authorityChecks.push({kind:'authority-unavailable',source:'original-paper-account-service',checkedAt:clock(),success:false});}
+    let quotesRead=false;
+    try{quotes=readQuotes();quotesRead=true;}catch{missing.push('原逐票报价不可用');
+      authorityChecks.push({kind:'quote-reader-failed',source:'original-quote-reader',checkedAt:clock(),success:false});}
     try{equity=buildAccountEquityEvidence({book,accountId,quotes,now});}catch{missing.push('权威账户权益证据无法核验');}
+    if(bookRead)authorityChecks.push({kind:'authority-unavailable',source:'original-paper-account-service',checkedAt:clock(),success:true,
+      recoveryConfirmed:Boolean(equity?.accountEpoch)&&equity?.cashMovements?.status==='reconciled'});
+    if(quotesRead)authorityChecks.push({kind:'quote-reader-failed',source:'original-quote-reader',checkedAt:clock(),success:true,
+      dataAt:Math.max(0,...Object.values(quotes||{}).map(row=>Number.isSafeInteger(row?.quoteAt)?row.quoteAt:0))||null,
+      recoveryConfirmed:equity?.status==='complete'&&Object.entries(quotes||{}).some(([symbol,row])=>
+        freshMark(row,symbol,now).usable)});
     if(equity?.accountEpoch)try{history=equityStore.read({accountId,accountEpoch:equity.accountEpoch,now,limit:500});}
     catch{missing.push('权益观察档缺失或损坏；禁止静默修复或从已结算曲线补造回撤');}
     try{rules=buildEffectiveRiskEvidence({book,quotes,now,calendar,accountId,automaticPolicy:readAutomaticPolicy(accountId)});}
@@ -92,9 +102,9 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     try{system=readSystem()||{};}catch{missing.push('原系统状态不可读取');}
     try{strategy=readStrategy();}catch{missing.push('上游策略风险结论不可读取，尚未取得校准或衰减证据');}
     if(status.lastError&&!Object.values(status.accountErrors).some(Boolean))missing.push(status.lastError);
-    const report=buildRiskWorkbench({accountId,now,equity,equityHistory:history,rules,actions,stress,research,market,
+    const report=buildRiskWorkbench({accountId,now:clock(),equity,equityHistory:history,rules,actions,stress,research,market,
       classifications:classification,strategy,alerts:alertView,
-      planAlerts:accountId==='pool'?planAlerts:[],system:{...system,replica:!isPrimary(),missing:[...list(system.missing),...missing],
+      planAlerts:accountId==='pool'?planAlerts:[],system:{...system,replica:!isPrimary(),authorityChecks,missing:[...list(system.missing),...missing],
         observationHealth:['pool','pre'].filter(id=>status.accountChecks[id]!==null).map(id=>({accountId:id,
           error:status.accountErrors[id],checkedAt:status.accountChecks[id],summary:status.lastError}))}});
     report.runtime={...status,accountErrors:{...status.accountErrors},accountChecks:{...status.accountChecks},
@@ -141,9 +151,19 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
         const view=notifications.read(key),latest=view.groups.find(row=>row.rootCauseId===risk.rootCauseId);
         if(!latest||latest.muted||latest.observationGap||latest.status!==risk.status||latest.notificationEventId!==reservation.eventId)
           return {ok:false,why:'风险已更新、静音或观察缺档，原排队消息不再外发'};
-        const book=readBook(key.accountId),quotes=readQuotes();
+        const book=readBook(key.accountId);let quotes={},quoteReadFailed=false;
+        try{quotes=readQuotes();}catch{quoteReadFailed=true;}
         const current=buildAccountEquityEvidence({book,accountId:key.accountId,quotes,now:at});
         if(current.accountEpoch!==key.accountEpoch)return {ok:false,why:'原账户期间已变化'};
+        // An actual reader exception can be reported without consuming its
+        // nonexistent price. Recheck that same exception and the original
+        // account period; this grants no trading or holding-risk exemption.
+        if(risk.authorityEvidence?.kind==='quote-reader-failed'){
+          if(risk.status==='active'&&!quoteReadFailed)return {ok:false,why:'原报价读取故障已变化，旧故障通知暂停'};
+          if(risk.status==='resolved'&&(quoteReadFailed||current.status!=='complete'||
+            !Object.entries(quotes||{}).some(([symbol,row])=>freshMark(row,symbol,at).usable)))
+            return {ok:false,why:'原报价链尚无完整有效恢复证据'};
+        }else if(quoteReadFailed)return {ok:false,why:'原报价读取失败，不能复核旧价格通知'};
         if(isPlanRisk&&risk.priceDependent){
           const plan=plans.find(row=>row.id===risk.references?.planId),kind=risk.references?.kind;
           if(!plan||!['entry','stop','target'].includes(kind))return {ok:false,why:'原冻结计划或条件引用缺失'};

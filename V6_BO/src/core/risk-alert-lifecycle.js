@@ -6,6 +6,7 @@ const fs = require('node:fs'), path = require('node:path');
 const {withAccountLock} = require('./account-process-lock');
 const {privateRoot, canonical, digest} = require('./research-workspace-store');
 const {atomicWrite} = require('./market-data-center');
+const {riskState,copyStateEvidence,lastValidRisk,resolutionCheck,reductionCheck}=require('./risk-state-contract');
 const MAX_GROUPS = 2000, MAX_EVENTS = 20000, MAX_BYTES = 32 * 1024 * 1024;
 const COOLDOWN_MS = 120000, QUEUE_CONFIRMATION_MS = 30000, MAX_DAILY_SENDS = 12;
 const LEVEL = {unknown: 0, info: 1, warning: 2, critical: 3};
@@ -57,10 +58,10 @@ function normalizeRisk(row, now) {
   // A missing row, old price or "no alert" is never evidence of resolution.
   const status = row.status === 'resolved' && !sourceUsable ? 'unknown' : row.status;
   const references = {};
-  for (const field of ['planId', 'observationId', 'alertId', 'entryEventId', 'ruleId', 'policyVersion', 'kind'])
+  for (const field of ['planId', 'observationId', 'alertId', 'entryEventId', 'ruleId', 'policyVersion', 'strategyVersion', 'inputVersion', 'kind'])
     if (textOk(row.references?.[field], 240)) references[field] = row.references[field];
   if (Array.isArray(row.references?.orderIds)) references.orderIds = strings(row.references.orderIds, '订单引用');
-  return canonical({id: row.id, rootCauseId: row.rootCauseId, category: row.category,
+  const normalized={id: row.id, rootCauseId: row.rootCauseId, category: row.category,
     object: {type: row.object.type, id: row.object.id, label: textOk(row.object.label, 240) ? row.object.label : row.object.id},
     severity: row.severity, evidenceStatus: row.evidenceStatus, executionStatus: row.executionStatus,
     facts, sourceAt: row.sourceAt, source: row.source, impact: row.impact,
@@ -72,7 +73,8 @@ function normalizeRisk(row, now) {
     sources: Array.isArray(row.sources) ? row.sources.slice(0, 40).map(source => ({
       source: textOk(source?.source, 240) ? source.source : '来源未知', sourceAt: timeOk(source?.sourceAt) ? source.sourceAt : null})) : [],
     planId: textOk(row.planId, 240) ? row.planId : null, orderId: textOk(row.orderId, 240) ? row.orderId : null,
-    eventId: textOk(row.eventId, 240) ? row.eventId : null});
+    eventId: textOk(row.eventId, 240) ? row.eventId : null,...copyStateEvidence(row)};
+  return canonical({...normalized,...riskState(normalized,now)});
 }
 
 function groupRows(rows) {
@@ -90,7 +92,9 @@ function groupRows(rows) {
       risks.some(row => row.status === 'active') ? 'active' : 'unknown';
     const evidenceStatus = risks.every(row => row.evidenceStatus === 'available') ? 'available' :
       ['conflict', 'stale', 'missing', 'unknown', 'partial'].find(value => risks.some(row => row.evidenceStatus === value));
-    return {rootCauseId, severity, classification: classOf(severity), status, evidenceStatus, risks};
+    return {rootCauseId, severity, classification: classOf(severity), status, evidenceStatus, risks,
+      riskLevel:Math.max(0,...risks.map(row=>row.riskLevel||0))||null,
+      assessmentState:status==='resolved'?'not-triggered':risks.some(row=>row.assessmentState==='risk-detected')?'risk-detected':'unable-to-assess'};
   }).sort((a, b) => a.rootCauseId.localeCompare(b.rootCauseId));
 }
 
@@ -132,6 +136,28 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       for (const row of group.risks) normalizeRisk(row, state.updatedAt);
       for (const event of group.events) if (!hashOk(event.id) || !timeOk(event.at) ||
         !['first-seen', 'escalated', 'resolved', 'reopened'].includes(event.kind)) throw Error('风险提醒生命周期损坏');
+      if(group.levelChanges!==undefined){
+        if(!Array.isArray(group.levelChanges))throw Error('风险降级历史格式无效');
+        eventCount+=group.levelChanges.length;
+        for(const change of group.levelChanges){
+          if(!hashOk(change.id)||change.kind!=='deescalated'||!timeOk(change.at)||
+            ![1,2,3,4].includes(change.from)||![1,2,3,4].includes(change.to)||change.to>=change.from||
+            !hashOk(change.evidenceFingerprint)||!Array.isArray(change.evidence)||
+            digest(change.evidence)!==change.evidenceFingerprint)throw Error('风险降级历史损坏');
+          for(const row of change.evidence)normalizeRisk(row,change.at);
+        }
+      }
+      if(group.notificationAdmission&&(!hashOk(group.notificationAdmission.eventId)||!timeOk(group.notificationAdmission.at)||
+        !['daily-limit','cooldown'].includes(group.notificationAdmission.status)||!textOk(group.notificationAdmission.reason,600)||
+        !(group.notificationAdmission.retryAt===null||timeOk(group.notificationAdmission.retryAt))))throw Error('提醒通道限额回执损坏');
+      if(group.lastValidRisk&&(!timeOk(group.lastValidRisk.sourceAt)||![1,2,3,4].includes(group.lastValidRisk.riskLevel)||
+        !Array.isArray(group.lastValidRisk.risks)||!group.lastValidRisk.risks.length))throw Error('上次有效风险证据损坏');
+      // Upgrade the derived view in memory only. Evaluate old evidence at its
+      // recorded observation time, never at this restart's wall clock.
+      if(!Object.hasOwn(group,'lastValidRisk')){
+        const at=group.lastSeenAt;
+        group.lastValidRisk=lastValidRisk(group.risks.map(row=>normalizeRisk(row,at)),at);
+      }
     }
     if (eventCount > MAX_EVENTS) throw Error('风险提醒事件数量超限');
     for (const delivery of state.deliveries) {
@@ -147,7 +173,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
   function save(state, now) {
     if (state.updatedAt !== null && now < state.updatedAt) throw Error('风险提醒时钟回退，保留原记录');
     if (state.groups.length > MAX_GROUPS || state.deliveries.length > MAX_EVENTS ||
-        state.groups.reduce((n, group) => n + group.events.length, 0) > MAX_EVENTS) throw Error('风险提醒证据已达上限，请归档；原记录不删');
+        state.groups.reduce((n, group) => n + group.events.length + (group.levelChanges?.length||0), 0) > MAX_EVENTS) throw Error('风险提醒证据已达上限，请归档；原记录不删');
     state.revision++; state.updatedAt = now;
     const raw = JSON.stringify({...state, fingerprint: digest(state)}) + '\n';
     if (Buffer.byteLength(raw) > MAX_BYTES) throw Error('风险提醒证据已达容量，保留原记录');
@@ -171,16 +197,19 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
     const now = nowOf(), actorKey = textOk(actor, 240) ? digest(actor) : null;
     const groups = state.groups.map(group => {
       const event = group.events.at(-1), delivery = state.deliveries.find(row => row.eventId === event.id);
+      const admission=!delivery&&group.notificationAdmission?.eventId===event.id?group.notificationAdmission:null;
       const categoryMute = state.preferences[group.classification + 'MutedUntil'];
       const mutedUntil = Math.max(group.mutedUntil || 0, categoryMute || 0) || null;
       const viewed = actorKey ? group.viewedBy[actorKey] || null : null;
       return {...clone(group), viewedBy: undefined, viewedAt: viewed?.at || null,
         viewed: Boolean(viewed && viewed.revision === group.revision), mutedUntil, muted: mutedUntil > now,
-        notificationEventId: event.id, notification: deliveryView(delivery, now), restrictionsStillApply: true,
+        notificationEventId: event.id, notification: {...deliveryView(delivery, now),
+          admissionStatus:admission?.status||null,admissionReason:admission?.reason||null,
+          admissionAt:admission?.at||null,retryAt:admission?.retryAt||null,automaticTransportRetry:false},restrictionsStillApply: true,
         stationVisible: true, notificationOnlyMute: true};
     }).sort((a, b) => (a.status === 'resolved') - (b.status === 'resolved') || LEVEL[b.severity] - LEVEL[a.severity] || b.lastSeenAt - a.lastSeenAt);
     return {schemaVersion: 1, ...identity(state), revision: state.revision, updatedAt: state.updatedAt,
-      groups, preferences: clone(state.preferences), notificationCandidates: groups.filter(group => !group.muted && group.notification.status === 'not-queued')
+      groups, preferences: clone(state.preferences), notificationCandidates: groups.filter(group => !group.muted && group.notification.status === 'not-queued'&&group.notificationSuppressedEventId!==group.notificationEventId)
         .map(group => ({rootCauseId: group.rootCauseId, eventId: group.notificationEventId, classification: group.classification})),
       preferencesUpdatedAt: state.preferenceEvents.at(-1)?.at || null,
       canTrade: false, ledgerOwned: false, receiverConfirmationSupported: false};
@@ -189,8 +218,9 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
   function eventFor(state, group, kind, now) {
     const event = {id: digest([state.accountId, state.accountEpoch, group.rootCauseId, group.events.length + 1, kind]),
       kind, at: now, severity: group.severity, evidenceStatus: group.evidenceStatus, riskIds: group.risks.map(row => row.id),
+      riskLevel:group.riskLevel??null,assessmentState:group.assessmentState||'unable-to-assess',
       evidenceFingerprint: digest(group.risks), evidence: clone(group.risks)};
-    group.events.push(event); return event;
+    group.events.push(event);group.notificationSuppressedEventId=null;return event;
   }
   function observe(input) {
     const key = identity(input), now = input.observedAt ?? nowOf();
@@ -200,7 +230,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
     return locked(key, state => {
       if (state.updatedAt !== null && now < state.updatedAt) throw Error('风险观察时点倒序');
       let changed = false; const present = new Set();
-      for (const incoming of next) {
+      for (let incoming of next) {
         present.add(incoming.rootCauseId);
         let group = state.groups.find(row => row.rootCauseId === incoming.rootCauseId);
         if (!group) {
@@ -208,26 +238,61 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           if (incoming.status === 'resolved') continue;
           group = {...incoming, id: digest([key, incoming.rootCauseId]), firstSeenAt: now, lastSeenAt: now, lastCheckedAt: now,
             maxSeverity: incoming.severity, revision: 1, occurrence: 1, observationGap: false, resolvedAt: null,
-            mutedUntil: null, viewedBy: {}, events: []};
+            maxRiskLevel:incoming.riskLevel,lastValidRisk:lastValidRisk(incoming.risks,now),resolutionBlockedReason:null,
+            resolutionBaselineAt:Math.max(0,...incoming.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now,
+            mutedUntil: null, viewedBy: {}, events: [],levelChanges:[]};
           eventFor(state, group, 'first-seen', now); state.groups.push(group); changed = true; continue;
         }
-        const oldStatus = group.status, oldMax = group.maxSeverity;
+        const oldStatus = group.status, oldMax = group.maxSeverity,oldRiskLevel=group.riskLevel||group.lastValidRisk?.riskLevel||null;
+        const oldMaxRiskLevel=group.maxRiskLevel||group.lastValidRisk?.riskLevel||0;
+        let resolutionBlockedReason=null;
+        if(oldStatus!=='resolved'&&incoming.status==='resolved'){
+          const checked=resolutionCheck(incoming,group.lastValidRisk||{risks:group.risks,
+            sourceAt:group.resolutionBaselineAt||Math.max(0,...group.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||group.firstSeenAt},now);
+          if(!checked.allowed){resolutionBlockedReason=checked.reason;
+            incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
+        }
+        if(oldStatus!=='resolved'&&incoming.status==='active'&&group.lastValidRisk&&incoming.riskLevel!==null&&
+          incoming.riskLevel<group.lastValidRisk.riskLevel){
+          const checked=reductionCheck(incoming,group.lastValidRisk,now);
+          if(!checked.allowed){resolutionBlockedReason='不能确认风险降级：'+checked.reason;
+            incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
+        }
         const sameEvidence = digest({risks: group.risks, status: group.status, observationGap: group.observationGap}) ===
           digest({risks: incoming.risks, status: incoming.status, observationGap: false});
         if (sameEvidence && group.lastSeenAt === now) continue;
-        const comparable = risks => risks.map(({sourceAt, sources, ...row}) => ({...row,
+        const withoutTimes=(value,fields)=>value?Object.fromEntries(Object.entries(value).filter(([key])=>!fields.includes(key))):value;
+        const comparable = risks => risks.map(({sourceAt,dataAt,sources,...row}) => ({...row,
+          riskContract:withoutTimes(row.riskContract,['sourceAt','dataAt']),
+          authorityEvidence:withoutTimes(row.authorityEvidence,['observedAt']),
+          actionEvidence:withoutTimes(row.actionEvidence,['checkedAt']),
+          recoveryEvidence:withoutTimes(row.recoveryEvidence,['checkedAt']),
           sources: sources.map(({source}) => source)}));
         const meaningfulChange = digest({risks: comparable(group.risks), status: oldStatus, observationGap: group.observationGap}) !==
           digest({risks: comparable(incoming.risks), status: incoming.status, observationGap: false});
-        Object.assign(group, incoming, {lastSeenAt: now, lastCheckedAt: now, observationGap: false});
+        Object.assign(group, incoming, {lastSeenAt: now, lastCheckedAt: now, observationGap: false,resolutionBlockedReason});
+        const currentValid=lastValidRisk(incoming.risks,now);
+        if(currentValid&&(!group.lastValidRisk||currentValid.sourceAt>=group.lastValidRisk.sourceAt))group.lastValidRisk=currentValid;
         if (meaningfulChange) group.revision++;
         if (oldStatus === 'resolved' && incoming.status !== 'resolved') {
-          group.occurrence++; group.maxSeverity = incoming.severity; group.resolvedAt = null;
+          group.occurrence++; group.maxSeverity = incoming.severity;group.maxRiskLevel=incoming.riskLevel; group.resolvedAt = null;
           eventFor(state, group, 'reopened', now);
         } else if (oldStatus !== 'resolved' && incoming.status === 'resolved') {
           group.resolvedAt = now; eventFor(state, group, 'resolved', now);
-        } else if (incoming.status !== 'resolved' && LEVEL[incoming.severity] > LEVEL[oldMax]) {
-          group.maxSeverity = incoming.severity; eventFor(state, group, 'escalated', now);
+        } else if (incoming.status !== 'resolved' && (LEVEL[incoming.severity] > LEVEL[oldMax]||(incoming.riskLevel||0)>oldMaxRiskLevel||
+          oldRiskLevel!==null&&incoming.riskLevel>oldRiskLevel)) {
+          if(LEVEL[incoming.severity]>LEVEL[oldMax])group.maxSeverity = incoming.severity;
+          group.maxRiskLevel=Math.max(oldMaxRiskLevel,incoming.riskLevel||0)||null;
+          const event=eventFor(state,group,'escalated',now);
+          event.bypassGeneralCooldown=LEVEL[incoming.severity]>LEVEL[oldMax]||incoming.riskLevel>=3;
+        } else if(incoming.status!=='resolved'&&incoming.riskLevel!==null&&oldRiskLevel!==null&&incoming.riskLevel<oldRiskLevel&&currentValid){
+          // Keep the original notification-event enum readable by #359.
+          // A lower grade is history, not a new outward notification event.
+          group.levelChanges=group.levelChanges||[];
+          group.levelChanges.push({id:digest([key,group.rootCauseId,'deescalated',group.levelChanges.length+1]),
+            kind:'deescalated',at:now,from:oldRiskLevel,to:incoming.riskLevel,
+            evidenceFingerprint:digest(group.risks),evidence:clone(group.risks)});
+          group.notificationSuppressedEventId=group.events.at(-1).id;
         }
         changed = true;
       }
@@ -235,6 +300,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         if (present.has(group.rootCauseId) || group.status === 'resolved') continue;
         if (!group.observationGap) { group.revision++; changed = true; }
         group.observationGap = true; group.status = 'unknown'; group.evidenceStatus = 'missing'; group.lastCheckedAt = now;
+        group.riskLevel=null;group.assessmentState='unable-to-assess';group.resolutionBlockedReason='后续观察缺档，保留上次有效风险及原限制';
       }
       if (changed) save(state, now);
       return {...view(state, input.actor), changed};
@@ -283,13 +349,22 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       const previous = state.deliveries.find(row => row.eventId === event.id);
       if (previous) return {reserved: false, ...deliveryView(previous, now), eventId: event.id};
       if (group.observationGap) return {reserved: false, status: 'observation-gap', deliveryId: null};
+      if (group.notificationSuppressedEventId===event.id) return {reserved: false, status: 'deescalated', deliveryId: null};
       const mutedUntil = Math.max(group.mutedUntil || 0, state.preferences[group.classification + 'MutedUntil'] || 0);
       if (mutedUntil > now) return {reserved: false, status: 'muted', deliveryId: null, mutedUntil};
       const today = state.deliveries.filter(row => dayOf(row.queuedAt) === dayOf(now) && row.classification === group.classification);
-      if (today.length >= MAX_DAILY_SENDS) return {reserved: false, status: 'daily-limit', deliveryId: null};
+      const limited=(status,reason,retryAt=null)=>{
+        const record={eventId:event.id,status,reason,retryAt};
+        const prior=group.notificationAdmission;
+        if(!prior||digest({...prior,at:undefined})!==digest(record)){
+          group.notificationAdmission={...record,at:now};save(state,now);
+        }
+        return {reserved:false,status,deliveryId:null,reason,retryAt};
+      };
+      if (today.length >= MAX_DAILY_SENDS) return limited('daily-limit','原私密通道本分类每日限额已达到；本事件未排队、未发送，站内风险及限制继续保留');
       const last = today.at(-1);
-      if (last && now - last.queuedAt < COOLDOWN_MS && event.kind !== 'escalated' && group.classification !== 'critical')
-        return {reserved: false, status: 'cooldown', deliveryId: null, retryAt: last.queuedAt + COOLDOWN_MS};
+      if (last && now - last.queuedAt < COOLDOWN_MS && !(event.kind==='escalated'&&event.bypassGeneralCooldown!==false) && group.classification !== 'critical')
+        return limited('cooldown','原私密通道普通提醒冷却中；本事件未排队、未发送，严重升级不受普通冷却延迟',last.queuedAt + COOLDOWN_MS);
       const delivery = {id: digest([event.id, 'private-original-queue']), eventId: event.id, rootCauseId: group.rootCauseId,
         classification: group.classification, status: 'queued', queuedAt: now, updatedAt: now, receipts: [],
         attemptsReserved: 1, transport: 'original-private-push-chain'};

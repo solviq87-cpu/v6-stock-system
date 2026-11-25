@@ -6,6 +6,9 @@ const {chromium}=require('playwright');
 const {fixture,BASE}=require('../tests/helpers/account-equity-fixture');
 const {createPaperApplicationService}=require('../src/core/paper-application-service');
 const {createRiskWorkbenchRuntime}=require('../src/server/risk-workbench-runtime');
+const {VERSION:stateVersion}=require('../src/core/risk-state-contract');
+const {createRiskAlertLifecycle,MAX_DAILY_SENDS}=require('../src/core/risk-alert-lifecycle');
+const {riskRow}=require('../src/core/risk-workbench');
 const publicRoot=path.resolve(__dirname,'../public');
 const output=process.env.FAYO_RISK_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-risk-browser-'));
 const cleanups=[],f=fixture({after:fn=>cleanups.push(fn)}),day='2026-11-23',calendar={isOpen:()=>true};
@@ -14,14 +17,15 @@ f.buy('600000',100,10);f.buy('600001',100,10);
 f.service.submit({orderId:'risk-ui-pending',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:day});
 f.service.configure({expectedRevision:f.service.read().revision,riskPolicy:{version:'risk-ui-original-policy-v1',maxGrossExposurePct:1}});
 const pre=createPaperApplicationService({file:path.join(f.root,'pre.json'),clock:()=>f.now,calendar});pre.initialize(500000);
-let stale=false,unavailable=false;
+let stale=false,unavailable=false,policyUnavailable=false;
 const runtime=createRiskWorkbenchRuntime({root:path.join(f.root,'derived'),clock:()=>f.now,isPrimary:()=>true,planEnabled:()=>true,
   readBook:key=>key==='pool'?f.service.read():pre.read(),readQuotes:()=>Object.fromEntries(['600000','600001'].map(code=>[code,
     f.quote(code,10,{timestamp:f.now-(stale?16000:0),quoteAt:f.now-(stale?16000:0),receivedAt:f.now,tradeDate:day})])),
   readResearch:()=>({market:{quotes:{total:2,recent:stale?0:2},receivedAt:f.now},supports:[],contra:[],missing:[],
     manualHoldings:{status:'unconfigured',positions:[],alerts:[]},strategyDecay:{status:'unknown',reason:'独立成熟样本不足，校准状态未知'}}),
   readPlans:async()=>({ok:true,state:{plans:[]}}),readObservations:async()=>({records:[],alerts:[]}),
-  readAutomaticPolicy:()=>({maxPos:5,sl:-.03,tp:.08,expireDays:4}),readOriginalExitChecks:()=>({}),
+  readAutomaticPolicy:()=>{if(policyUnavailable)throw Error('isolated policy module failure');
+    return {maxPos:5,sl:-.03,tp:.08,expireDays:4};},readOriginalExitChecks:()=>({}),
   readMarket:()=>({classificationSnapshot:{day,knownAt:BASE-1000,facts:{600000:{themes:['共同题材','其他题材']},600001:{themes:['共同题材']}}}}),
   calendar,session:()=>({day,continuous:true}),privateReady:()=>false,
   sendPrivate:()=>{throw Error('browser fixture cannot send real notifications');}});
@@ -74,7 +78,7 @@ async function main(){
             document.getElementById('mount').replaceChildren(node);
           };
         },f.now);
-        stale=false;await page.evaluate(()=>window.showRisk());
+        stale=false;policyUnavailable=false;await page.evaluate(()=>window.showRisk());
         await page.locator('[data-risk-root="rule/maxGrossExposurePct"]').waitFor();
         const text=await page.locator('#mount').innerText();
         assert.match(text,/未成交买单敞口/);assert.match(text,/1,000/);assert.match(text,/当前精确权益/);
@@ -82,6 +86,12 @@ async function main(){
         assert.match(text,/未配置 \/ 未启用/);assert.match(text,/网关受理仍未证明接收端收到/);
         assert.equal(await page.locator('[data-risk-severity="critical"]').count(),1);
         const root=page.locator('[data-risk-root="rule/maxGrossExposurePct"]'),riskId=await root.getAttribute('data-risk-id');
+        assert.equal(await root.getAttribute('data-risk-level'),'3');
+        assert.equal(await root.getAttribute('data-risk-assessment'),'risk-detected');
+        assert.equal(await root.getAttribute('data-risk-contract'),stateVersion);
+        assert.match(await root.innerText(),/三级：风险触发/);assert.match(await root.innerText(),/证据完整/);
+        assert.match(await root.innerText(),/数据有效/);assert.match(await root.innerText(),/动作被阻止/);
+        assert.match(await root.innerText(),/原提醒：关键风险/);
         if(await root.getByRole('button',{name:'标为已查看',exact:true}).count())await root.getByRole('button',{name:'标为已查看',exact:true}).click();
         await root.getByRole('button',{name:'已查看',exact:true}).waitFor();
         if(await root.getByRole('button',{name:'恢复通知',exact:true}).count()){
@@ -117,6 +127,25 @@ async function main(){
         await page.locator('[data-risk-root="rule/maxGrossExposurePct"]').waitFor();
         stale=true;await page.getByRole('button',{name:'刷新风险',exact:true}).click();
         await page.waitForFunction(()=>[...document.querySelectorAll('.fy-metric')].some(node=>node.textContent.includes('当前精确权益')&&node.querySelector('strong')?.textContent==='未知'));
+        const missing=page.locator('[data-risk-root="rule/maxGrossExposurePct"]');
+        assert.equal(await missing.getAttribute('data-risk-assessment'),'unable-to-assess');
+        assert.equal(await missing.getAttribute('data-risk-level'),'');
+        assert.equal(await missing.getAttribute('data-risk-contract'),stateVersion);
+        assert.equal(await missing.getAttribute('data-risk-id'),riskId);
+        assert.match(await missing.innerText(),/上次有效风险：三级：风险触发/);
+        assert.match(await missing.innerText(),/原风险未解除/);
+        await missing.scrollIntoViewIfNeeded();
+        await page.screenshot({path:path.join(output,'risk-stale-'+viewport.width+'.png'),fullPage:false});
+        stale=false;policyUnavailable=true;await page.getByRole('button',{name:'刷新风险',exact:true}).click();
+        await page.waitForFunction(()=>document.querySelector('[data-risk-root="rule/maxGrossExposurePct"]')?.textContent.includes('原模块未返回'));
+        assert.equal(await missing.getAttribute('data-risk-id'),riskId);
+        assert.match(await missing.innerText(),/上次有效风险：三级：风险触发/);
+        await page.evaluate(()=>window.showRisk('home'));
+        const retainedHome=page.locator('[data-risk-root="rule/maxGrossExposurePct"]');await retainedHome.waitFor({state:'visible'});
+        assert.equal(await retainedHome.getAttribute('data-risk-id'),riskId);
+        assert.equal(await retainedHome.getAttribute('data-risk-assessment'),'unable-to-assess');
+        assert.match(await retainedHome.innerText(),/原模块未返回|原风险未解除/);
+        policyUnavailable=false;
         const beforeViewer=requests.length;await page.evaluate(()=>window.showRisk('risk','view'));
         await page.getByText('这是你的私人工作区',{exact:true}).waitFor();assert.equal(requests.length,beforeViewer);
         assert.doesNotMatch(await page.locator('#mount').innerText(),/100,000|500,000|50\.00 万|600000/);
@@ -135,13 +164,49 @@ async function main(){
         });
         assert.equal(requestIsolation,true,'an old stock request abort or late response must not cancel or replace the new stock');
         views.push({...viewport,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
-          failedReadClearsReport:true,viewerPrivateReads:0,requestIsolation});
+          failedReadClearsReport:true,viewerPrivateReads:0,requestIsolation,stateVersion,
+          fourDimensions:true,lastValidLevel:3,staleNeverCleared:true,omittedUpstreamKeepsHomeRisk:true});
       }finally{await page.close();}
     }
+    // Exercise a real bounded admission refusal, then read its normal API/UI
+    // projection. These are isolated reservations; no transport is enabled.
+    stale=false;
+    const current=await runtime.read({accountId:'pool'}),key={accountId:'pool',accountEpoch:current.accountEpoch};
+    const lifecycle=createRiskAlertLifecycle({root:path.join(f.root,'derived','notifications'),clock:()=>f.now,canWrite:()=>true});
+    let state=lifecycle.read(key);
+    lifecycle.setMuted({...key,rootCauseId:'rule/maxGrossExposurePct',actor:'isolated-browser',expectedRevision:state.revision,mutedUntil:null});
+    for(let index=0;index<MAX_DAILY_SENDS;index++){
+      const row=riskRow({rootCauseId:'isolated-quota/'+index,category:'system',object:{type:'account',id:'pool'},
+        severity:'critical',evidenceStatus:'available',source:'isolated-browser-quota',sourceAt:f.now,status:'active',
+        facts:['隔离配额验证记录'],impact:'仅验证通知预留上限'},f.now);
+      lifecycle.observe({...key,risks:[row],observedAt:f.now,complete:false});
+      assert.equal(lifecycle.reserveDelivery({...key,rootCauseId:row.rootCauseId}).reserved,true);
+    }
+    assert.equal(lifecycle.reserveDelivery({...key,rootCauseId:'rule/maxGrossExposurePct'}).status,'daily-limit');
+    const quotaPage=await browser.newPage({viewport:{width:390,height:844}});
+    try{
+      quotaPage.on('pageerror',error=>errors.push(error.message));
+      await quotaPage.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():(external.push(route.request().url()),route.abort()));
+      await quotaPage.goto(origin+'/m');
+      await quotaPage.evaluate(async()=>{
+        const {renderRiskWorkbench}=await import('/nova/risk-workbench-view.mjs');
+        const node=renderRiskWorkbench({role:'edit',onState:()=>{},api:async url=>
+          (await fetch(url,{headers:{'X-Fixture-Role':'edit'}})).json()});
+        document.getElementById('mount').replaceChildren(node);
+      });
+      const card=quotaPage.locator('[data-risk-root="rule/maxGrossExposurePct"]');
+      await card.waitFor({state:'visible'});await card.locator('summary').click();
+      assert.match(await card.innerText(),/未排队 · 已达每日限额/);
+      assert.match(await card.innerText(),/本事件未排队、未发送/);
+      assert.match(await card.innerText(),/尚无接收证据/);
+      await card.scrollIntoViewIfNeeded();await quotaPage.screenshot({path:path.join(output,'risk-daily-limit-390.png'),fullPage:false});
+    }finally{await quotaPage.close();}
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+    assert.equal(views[0].matchingRiskId,views[1].matchingRiskId);
+    assert.equal(views[0].stateVersion,views[1].stateVersion);
     for(const [file,bytes] of authoritativeFiles)assert.deepEqual(fs.readFileSync(path.join(f.root,file)),bytes,'UI cannot mutate original accounts');
     assert.deepEqual([...new Set(requests.filter(row=>row.method!=='GET').map(row=>row.path))],['/api/risk-workbench/alerts']);
-    const report={passed:true,fixtureOnly:true,originalAuthorityUnchanged:true,realMessagesSent:0,views};
+    const report={passed:true,fixtureOnly:true,originalAuthorityUnchanged:true,realMessagesSent:0,dailyLimitVisible:true,views};
     fs.writeFileSync(path.join(output,'risk-browser-report.json'),JSON.stringify(report,null,2));process.stdout.write(JSON.stringify({output,...report},null,2)+'\n');
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));for(const clean of cleanups)clean();}
 }

@@ -17,7 +17,8 @@ test('reference iteration favors useful source data and a compact three-panel/ta
   assert.ok(design.includes(token),token);
  assert.match(design,/\.fy-terminal-panels>\.fy-section\{\s*min-height:158px/);
  assert.match(browser,/regions\.market\.bottom<=regions\.opportunity\.top/);
- assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
+ assert.match(browser,/regions\.more\.top>=regions\.opportunity\.bottom/);
+ assert.match(browser,/regions\.retainedRiskInResearch,true/);
 });
 test('phone keeps eight real counters and risk labels beneath the decision-first fold',()=>{
  assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
@@ -46,7 +47,8 @@ test('colors carry meaning and readable dates, never blanket pink or hidden unkn
 test('home groups the trading session before research on desktop and phone',()=>{
  assert.match(css,/\.fy-reference-home\.fy-home-layout\s*\{\s*display:grid/);
  assert.match(css,/\.fy-home-research\[open\]>/);
- assert.match(browser,/regions\.opportunity\.bottom<=regions\.risk\.top/);
- assert.match(browser,/regions\.opportunity\.top,regions\.risk\.top/);
- assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
+ assert.match(browser,/regions\.summary\.bottom<=regions\.market\.top/);
+ assert.match(browser,/regions\.more\.top>=regions\.opportunity\.bottom/);
+ assert.match(browser,/\.fy-home-research \.fy-home-risk'\)\.waitFor\(\{state:'visible'\}\)/);
+ assert.match(browser,/headlineRisk\.getAttribute\('data-risk-id'\)/);
 });

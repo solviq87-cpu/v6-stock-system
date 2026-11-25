@@ -8,10 +8,20 @@ const percent=value=>finite(value)?format(value,2)+'%':'未知';
 const edit=ctx=>ctx.role==='edit'||ctx.role===undefined&&ctx.canEdit===true;
 const category={data:'数据',market:'市场',stock:'个股',portfolio:'组合',strategy:'策略',execution:'执行',system:'系统'};
 const severity={critical:'关键风险',warning:'需要处理',unknown:'风险未知',info:'一般信息'};
+const levels={1:'一级：风险苗头',2:'二级：风险积累',3:'三级：风险触发',4:'四级：紧急防御'};
+const assessment={'risk-detected':'命中已定义风险','not-triggered':'未命中已定义风险','unable-to-assess':'无法评估'};
+const evidenceStates={complete:'证据完整',partial:'证据部分完整',conflict:'证据存在冲突',unverified:'证据尚未验证'};
+const dataStates={valid:'数据有效',stale:'数据过期',missing:'数据缺失',interrupted:'数据断流'};
+const actionStates={allowed:'动作检查允许',blocked:'动作被阻止',unconfirmed:'动作无法确认'};
+const contractMissing={'original-evidence-time':'原始证据时间','first-knowable-time':'首次可知时间','rule-version':'规则版本',
+  'input-version':'输入快照版本',
+  'validated-accumulation-window-or-effective-rule':'已验证的积累窗口或生效规则依据','current-action-permission':'当前原后端动作许可'};
 const evidence={available:'证据可用',partial:'部分证据',missing:'证据缺失',stale:'证据过期',conflict:'来源冲突',unknown:'证据未知'};
 const execution={'not-applicable':'不涉及执行','condition-triggered':'条件触发',allowed:'当前检查允许',submitted:'已提交',
   'partially-filled':'部分成交',filled:'成交完成',failed:'失败','pending-reconciliation':'待核对',observing:'继续观察',unknown:'执行未知'};
 const delivery={'not-queued':'未排队',queued:'已排队','gateway-accepted':'网关已受理','gateway-rejected':'网关拒绝',unconfirmed:'结果未确认','receiver-confirmed':'接收端已确认'};
+const notificationLabel=value=>[delivery[value?.status]||'尚无回执',
+  value?.admissionStatus==='daily-limit'?'已达每日限额':value?.admissionStatus==='cooldown'?'普通提醒冷却中':null].filter(Boolean).join(' · ');
 const metric=(label,value,note)=>h('div',{class:'fy-metric'},h('span',{},label),h('strong',{},value),note?h('small',{},note):null);
 const section=(title,...children)=>h('section',{class:'fy-panel'},h('h2',{},title),...children);
 const note=text=>h('p',{class:'fy-muted',role:'status'},text);
@@ -31,19 +41,35 @@ async function read(ctx,{accountId='pool',code,signal}={}){
 
 function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
   const group=list(report.alerts?.groups).find(row=>row.rootCauseId===risk.rootCauseId);
+  const previous=risk.lastValidRisk||group?.lastValidRisk;
+  const currentLabel=levels[risk.riskLevel]||assessment[risk.assessmentState]||'无法评估';
   const card=h('article',{class:'fy-risk-item','data-risk-id':risk.id,'data-risk-root':risk.rootCauseId,
-    'data-risk-severity':risk.severity,'data-risk-state':risk.status},
+    'data-risk-severity':risk.severity,'data-risk-state':risk.status,'data-risk-level':risk.riskLevel??'',
+    'data-risk-assessment':risk.assessmentState||'unable-to-assess','data-risk-contract':risk.riskContract?.version||'unknown'},
     h('div',{class:'fy-item-head'},h('strong',{},risk.object?.label||risk.object?.id||'风险事项'),
-      h('span',{class:'fy-tag'},risk.status==='resolved'?'已解除观察':severity[risk.severity]||'风险未知')),
-    h('div',{class:'fy-risk-statuses'},h('span',{},evidence[risk.evidenceStatus]||'证据未知'),
-      h('span',{},execution[risk.executionStatus]||'执行未知'),group?.muted?h('span',{},'通知静音 · 站内限制保留'):null),
+      h('span',{class:'fy-tag'},currentLabel)),
+    h('div',{class:'fy-risk-statuses'},h('span',{},evidenceStates[risk.evidenceState]||'证据尚未验证'),
+      h('span',{},dataStates[risk.dataState]||'数据缺失'),h('span',{},actionStates[risk.actionState]||'动作无法确认'),
+      ['warning','critical'].includes(risk.severity)?h('span',{},'原提醒：'+severity[risk.severity]):null,
+      risk.executionStatus!=='not-applicable'?h('span',{},execution[risk.executionStatus]||'执行未知'):null,
+      group?.muted?h('span',{},'通知静音 · 站内限制保留'):null),
     h('p',{},risk.facts?.[0]||'缺少具体事实'),
     h('p',{class:'fy-muted'},'影响：'+risk.impact),
-    risk.restrictions?.length?h('p',{},'当前限制：'+risk.restrictions.join('；')):null);
+    risk.restrictions?.length?h('p',{},'当前限制：'+risk.restrictions.join('；')):null,
+    risk.assessmentState==='not-triggered'?note('仅表示本次检查未发现已定义条件，不代表没有风险。'):null,
+    risk.assessmentState==='unable-to-assess'?note('当前无法评估：'+(evidenceStates[risk.evidenceState]||'证据尚未验证')+' / '+
+      (dataStates[risk.dataState]||'数据缺失')+'；本次原始数据时间：'+dateTime(risk.riskContract?.dataAt??risk.sourceAt)):null,
+    previous&&(risk.assessmentState==='unable-to-assess'||group?.observationGap)?note('上次有效风险：'+
+      (levels[previous.riskLevel]||'等级未知')+' · '+dateTime(previous.sourceAt)+'；当前无法继续判断，原风险未解除。'):null,
+    risk.resolutionBlockedReason||group?.resolutionBlockedReason?note(risk.resolutionBlockedReason||group.resolutionBlockedReason):null);
   const details=h('details',{class:'fy-details',id:'risk-proof-'+risk.id},h('summary',{},'来源、检查与解除条件'),
     h('ul',{},list(risk.facts).slice(1).map(value=>h('li',{},value))),
     h('dl',{class:'fy-detail-grid'},detail('来源',risk.source),detail('来源时点',dateTime(risk.sourceAt)),
+      detail('首次可知时间',dateTime(risk.riskContract?.firstKnowableAt)),detail('原始数据时间',dateTime(risk.riskContract?.dataAt)),
+      detail('本次评估时间',dateTime(report.generatedAt)),
       detail('建议检查',list(risk.checks).join('；')),detail('解除条件',list(risk.releaseConditions).join('；')),
+      detail('动作核验原因',list(risk.actionReasons).join('；')),detail('规则版本',risk.riskContract?.ruleVersion||'尚未取得'),
+      detail('待补证据',list(risk.riskContract?.missing).map(value=>contractMissing[value]||value).join('；')||'本合同必需字段已取得'),
       detail('后续状态',risk.followUp||risk.status)),
     list(risk.sources).length>1?table(['证据来源','来源时点'],risk.sources.map(row=>[row.source,dateTime(row.sourceAt)])):null,
     list(risk.evidenceReferences).length?table(['原计划 / 观察','开仓事件 / 规则','原订单'],risk.evidenceReferences.map(ref=>[
@@ -52,8 +78,9 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
     risk.references?.planId?note('原计划 '+risk.references.planId):null,
     list(risk.references?.orderIds).length?note('原订单 '+risk.references.orderIds.join('、')):null,
     group?h('dl',{class:'fy-detail-grid'},detail('首次出现',dateTime(group.firstSeenAt)),detail('最后观察',dateTime(group.lastSeenAt)),
-      detail('查看状态',group.viewed?'已查看':'未查看'),detail('通知状态',delivery[group.notification?.status]||'尚无回执'),
+      detail('查看状态',group.viewed?'已查看':'未查看'),detail('通知状态',notificationLabel(group.notification)),
       detail('接收端确认',group.notification?.receiverConfirmed?'已有确认':'尚无接收证据')):note('尚未持久记录提醒生命周期'),
+    group?.notification?.admissionReason?note(group.notification.admissionReason):null,
     group?.observationGap?note('后续观察缺档，尚未解除原风险。'):null);
   card.append(details);
   if(!compact&&group&&ctx&&onUpdate){
@@ -198,7 +225,7 @@ export function renderRiskWorkbench(ctx){
     if(!report||!edit(ctx)||ctx.signal?.aborted)return;
     const open=new Set([...content.querySelectorAll('details[open][id]')].map(node=>node.id));
     const active=report.risks.filter(row=>row.status!=='resolved'&&(!activeCategory||row.category===activeCategory));
-    const urgent=active.filter(row=>['critical','warning'].includes(row.severity));
+    const urgent=active.filter(row=>['critical','warning'].includes(row.severity)||row.riskLevel>0||row.lastValidRisk?.riskLevel>0);
     const primary=(urgent.length?urgent:active).slice(0,urgent.length?5:2),primaryIds=new Set(primary.map(row=>row.id));
     const secondary=active.filter(row=>!primaryIds.has(row.id));
     const lifecycle=list(report.alerts?.groups),represented=new Set(report.risks.map(row=>row.rootCauseId));
@@ -210,6 +237,8 @@ export function renderRiskWorkbench(ctx){
       secondary.length?h('details',{class:'fy-details',id:'risk-other-evidence'},h('summary',{},'其他风险与证据缺口（'+secondary.length+'）'),
         ...secondary.map(row=>riskCard(row,report,{ctx,onUpdate:load}))):null,
       ...unseen.flatMap(group=>list(group.risks).slice(0,1).map(row=>riskCard({...row,status:'unknown',evidenceStatus:'unknown',
+        riskLevel:null,assessmentState:'unable-to-assess',evidenceState:'unverified',dataState:'missing',actionState:'unconfirmed',
+        lastValidRisk:group.lastValidRisk,
         facts:['后续观察缺档，原风险未解除',...row.facts]},report,{ctx,onUpdate:load}))),
       !active.length?note('此范围未返回待处理事项；其他证据仍可在下方核对。'):null);
     const history=h('details',{class:'fy-details',id:'risk-resolved'},h('summary',{},'已解除与一般证据'),
@@ -225,8 +254,9 @@ export function renderRiskWorkbench(ctx){
       section('提醒与查看闭环',note('静音只影响通知，站内风险和原后端限制继续保留。'),
         h('div',{class:'fy-toolbar'},button('一般信息静音30分钟',()=>mute('general'),'quiet'),button('关键风险静音30分钟',()=>mute('critical'),'quiet')),
         table(['根因','首次出现','生命周期','通知','查看'],lifecycle.map(row=>[row.risks?.[0]?.facts?.[0]||row.rootCauseId,
-          dateTime(row.firstSeenAt),list(row.events).map(e=>({'first-seen':'首次',escalated:'升级',resolved:'解除',reopened:'再次出现'})[e.kind]||e.kind).join(' → '),
-          delivery[row.notification?.status]||'未知',row.viewed?'已查看':'未查看'])),
+          dateTime(row.firstSeenAt),[...list(row.events),...list(row.levelChanges)].sort((a,b)=>a.at-b.at)
+            .map(e=>({'first-seen':'首次',escalated:'升级',deescalated:'降级',resolved:'解除',reopened:'再次出现'})[e.kind]||e.kind).join(' → '),
+          notificationLabel(row.notification),row.viewed?'已查看':'未查看'])),
         note('网关受理仍未证明接收端收到；本页不提供伪造接收确认的入口。')),
       report.manualHoldings?section('手工申报持仓观察',note(report.manualHoldings.label),
         note('状态 '+report.manualHoldings.status+' · 未认证为权威账户'),button('管理原申报持仓',()=>ctx.navigate('assets','holdings'),'quiet')):null);
@@ -241,7 +271,7 @@ export function renderRiskWorkbench(ctx){
   }
   filters.append(button('全部',()=>{activeCategory='';render();},'quiet'),...Object.entries(category).map(([id,label])=>button(label,()=>{activeCategory=id;render();},'quiet')));
   chooser.addEventListener('change',()=>{accountId=chooser.value;report=null;content.replaceChildren(unknown('正在读取所选原账户…'));void load();});
-  host.append(section('统一风险工作台',note('严重程度、证据可用程度与执行状态分别展示。'),h('div',{class:'fy-toolbar'},chooser,button('刷新风险',load,'quiet')),filters),content);
+  host.append(section('统一风险工作台',note('风险等级、证据状态、数据状态与动作状态分别展示；具体提交仍由原后端核验。'),h('div',{class:'fy-toolbar'},chooser,button('刷新风险',load,'quiet')),filters),content);
   ctx.onState?.(()=>{if(!busy&&Date.now()-lastRead>=10000)void load();});
   ctx.signal?.addEventListener('abort',()=>{epoch++;report=null;content.replaceChildren();},{once:true});
   queueMicrotask(load);return host;
