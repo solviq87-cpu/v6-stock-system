@@ -1,5 +1,67 @@
 # FAYO 研究治理与六组集成交接（2026-11-26）
 
+## 最新状态：按用户指令保存并暂停
+
+用户要求原78项任务及四份补充方案的剩余工作由其选定的统一接续聊天承担。本聊天现在只保存已经完成和做到一半的成果，交接完成后停止新增开发、修改、合并和发布。此前“原第一组最终集成”以及下文历史合并建议不再构成本聊天的执行安排。所有代码、分支、PR与历史记录保留。
+
+| 项目 | 本次交接状态 |
+|---|---|
+| 本组原任务 | 07、08、09、10、12、13、21、24、25、26、28 |
+| 分支与PR | `feat/fayo-research-governance-20261126` → dev；[#353](https://github.com/solviq87-cpu/v6-stock-system/pull/353)，保持草稿、未合并 |
+| 最新核对主线 | `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，最近合并仍为#352 |
+| 已验证恢复点 | `c3c26519b005db219265c5b9b5718d8d053d8928`；本次保存提交以此为父，精确新SHA见PR顶部 |
+| 已落盘但未验证 | `V6_BO/src/core/fayo-research-governance.js`、`V6_BO/tests/fayo-model-governance-integration.test.js`，32行新增、4行删除；模型风险回读必须晚于或等于实际首次封存 |
+| 在途事务 | 本组无本地测试、dev合并或生产发布在运行；没有未收尾生产事务 |
+| 自动续跑 | 本次可见自动任务查询为空；没有发现本聊天专用开发续跑任务，未变更既有生产发布机制 |
+
+### 已保存补丁与验证边界
+
+模型比较内部 `readProspectiveReview` 的 context 向后兼容增加 `closedAt`，来自已经校验的 `prospectiveResult.closedAt`。回执要求 `closedAt <= risk.evaluatedAt <= receipt.knownAt <= now`。原试验和结果日志格式、原五关、人工批准及已批准模型不改写。新增一项测试覆盖实际延迟封存前的回执拒绝、等于封存时点及其后可通过、未来时点拒绝和只读不改档案。
+
+**该补丁与测试已经写入，但修改后测试尚未执行。** 用户要求暂停后未启动新的专项、全量或浏览器验证；`git diff --check`只检查保存内容格式，不证明功能通过。
+
+修改前的隔离Node复现退出码0：`labelsThrough=1711850400000`，实际 `closedAt=1711850410000`，原风险 `evaluatedAt=1711850400001`、`knownAt=1711850400002`，旧实现仍返回 `approvalEligible=true`、`portfolioRiskCertified=true`。这证明验证函数的时间合同缺口；当前生产尚未接通可信适配器，不代表生产发生过模型升级。
+
+原恢复点c3的真实证据仍保留：[30项GitHub检查](https://github.com/solviq87-cpu/v6-stock-system/pull/353/checks)、[全量后端日志](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45664827728/job/139384034946)。该SHA远端5049/5049通过、0失败、0跳过；本地5045通过、4个原可选环境跳过。原Web41项、HTTP/缓存5项、双端研究页和六视口八场景验证的完整记录见下文，均不能代替本次新增提交的验证。
+
+### 本轮已复现但尚未修复
+
+以下使用隔离协议样例或纯内存夹具，未使用真实账户、未认证行情或收益。复现工具均正常退出；输出保留于本轮回执，下列数值作为可复核交接记录。暂停后不继续实施。
+
+| 原模块与问题 | 实际观察 | 接续方下一步 |
+|---|---|---|
+| `probability-reliability-store.js` 正式/测试串用 | 合法test登记及评价链复制到formal目录后，正式摘要计1个计划、1次试验，并标成源码版本研究；formal重复评价返回accepted/reused，但report.scope仍为test | `project(events, expectedScope)`逐条核对命名空间，含拒绝事件，并在所有重试快速返回之前校验；覆盖两个方向、混合链和原合法日志兼容 |
+| `probability-reliability-sources.js` 精确3%标签 | 原观察基准收69、次日高71.07，`high/close`为1.0299999999999998，标签错误为false；71.06/71.08分别为false/true | 对有限十进制做准确交叉比较，覆盖恰好/上下边界和现有合法高精度价格；不使用粗epsilon或新增两位小数门槛 |
+| 原概率store及CLI锁前时钟 | 无显式options.now：14:59:59.999进入，历史读取后15:00:00.001仍接受ztToday冻结并倒记进入时间；59,999ms年龄跨到60,001ms也接受 | CLI不固定传锁前now；锁内重放及来源读取完成后核对实际冻结时点、阶段、收盘边界与新鲜度，保留隔离测试时钟合同；不改共享账户锁或通用存储 |
+| `intelligence-execution-validation.js` 重复计划身份 | 同一plan.id的不同strategy/trend由Map最后条覆盖，交换顺序改变策略/环境归因，仍接收1笔，输出fingerprint同为`18e399a5219a6aed679f0a015be81b6da0fea5c99833976a627e68905ae9ec95` | 核对重复计划策略，隔离冲突计划关联成交，令归因证据身份可追溯；保留原结算去重及完整分母 |
+
+概率store、sources、CLI及其测试本轮没有编辑；执行归因模块也没有编辑。不能将上述问题标成已修复。
+
+### 已讨论但尚未实现的兼容接口
+
+原概率摘要已按计划提供模型/目标/来源策略指纹、原评估时间及校准/保留期的samples、days、Brier、log loss、ECE等诊断。拟在原只读投影中透传原evaluate事件hash为 `evaluationEvidenceFingerprint`、原计划 `horizonTradingDays`，以及已封存report的 `expectedValidation`、`oneTimeHoldout`、`modelProvenanceGap`、`sourceAttestation`。未评价时应为null；新requestId重复读取同一封存评价仍返回原事件身份，不新建日志或重封结果。
+
+**这些字段尚未实施。** 原 `outcomes/coverage` 是存证数量，可能包含最终来源复核剔除的标签，不能当作有效成熟样本数；`validationRaw.samples`与`validationCalibrated.samples`是同一保留集，不能相加。读取 `asOf`不能替代原 `evaluatedAt`。`modelParametersVerified/calibrationCertified`继续false，不能通过新增摘要字段获得认证。
+
+### 已有总管分工与新增跨组依赖
+
+[总管已在PR发布四项接口归属](https://github.com/solviq87-cpu/v6-stock-system/pull/353#issuecomment-7170524457)：完整排名前观察由原数据/观察职责接续；可信风险回读由风险执行#359牵头、账户#356与本组配合；原信号参数/训练血缘及唯一signal→plan→settlement由#357牵头；账户/权益/摘要身份由#359和#356统一。该评论是分工记录，不代表各组已签收或接口已经完成。后续执行以用户选定的统一接续聊天安排为准。
+
+本轮固定审查#363 `d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49`、#356 `ba4f2703715e58e676c62decbbe521731d073703`：
+
+- 73的声明型收益估计忽略反证元数据。纯内存测试把声明expectedReturn设0.8并明确标为未认证`model-estimate/ztNext`，仍返回`research-candidate`、missing为空，候选字段0.624；显式test/synthetic估计同样被接收。75仍返回`stable-in-tested-range`。这不是实际收益，也不是自动概率转收益或交易绕过；canTrade仍false。应由73/75负责方校验目标、周期、单位、费用口径、有效成熟样本和原回执，并处理`candidates[].estimate`的嵌套来源与时间。
+- 78当前collect没有填strategy，所以成熟样本/收益/回撤/模型误差仍为null。其四个无身份标量不能承载本组描述性诊断；后续接线需保留原计划、模型、事件目标、阶段、指标名、有效样本、评估时间、回执指纹与false认证标志。不能用一个ECE/Brier数值消除模型校准认证缺口，不能把成交均值收益当组合净收益或权益回撤。
+- 固定SHA的`git merge-tree --write-tree --name-only`：c3+#363冲突为`DEPLOYMENT.md`、`V6_BO/server.js`、`V6_BO/src/core/research-risk-center.js`；#356 ba4+#363冲突为`V6_BO/public/nova/research-extensions.js`、`V6_BO/server.js`、`V6_BO/src/core/paper-application-service.js`。两次exit1，仅文本检查，未实际合并或测试合并树。新保存提交及未来HEAD仍需重新核对。
+- 风险接口需并存`governance`和`deepResearch`可选参数，保留#356异步`advancedAccounts`及响应前授权复核。共享追加存储、worker授权、浏览器工作流和资源缓存版本仍由统一接续方协调，旧合并建议不能直接执行。
+
+### 恢复与接手顺序
+
+改动前完整Git bundle已验证，SHA-256为`74a24c280472790d2d4026ae38e66340d6bad0314e10743bb0a1a7e7866c32f6`；c3及所有原分支/提交继续保留在GitHub。该源码检查点不替代生产卷冷备。最新保存提交保留未验证补丁，保持草稿，不为交接合并或发布。
+
+接续方先核对PR最新HEAD及本节，运行已保存的模型治理边界测试及相关原专项，再处理上述未修复项与原接口依赖。最终组合仍需全量、HTTP、双端、权限、安全、账户/账本一致性与恢复验证；生产条件和真实样本缺口单独保留。本聊天交接完成即待命，不继续执行这些后续步骤。
+
+## 以下为前序开发快照（保留历史，不代表当前职责或最新验证）
+
 本组负责 **07、08、09、10、12、13、21、24、25、26、28**，独立 PR [#353](https://github.com/solviq87-cpu/v6-stock-system/pull/353)，目标 `dev`。基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，工作分支 `feat/fayo-research-governance-20261126`。第一组“数据可靠性、运行监测与架构整理”负责最终集成、66项总清单和合并后完整验收；本组提供11项的代码、测试及依赖证据。
 
 本次已取得完整源码并在本地运行原验证流程。前一阶段环境无法克隆的记录仅适用于当时，不作为当前限制。生产 data/durable、权威账本、配置及设备凭据未取得；源码与隔离测试不等于目标节点冷备或生产验收。没有生产切换、模型批准、账户权限修改、实盘或真实通知发送。

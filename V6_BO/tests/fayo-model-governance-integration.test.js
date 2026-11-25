@@ -128,6 +128,31 @@ test('trial registration retains rejected/overlapping attempts and never backfil
  assert.equal(TRIAL_POLICY.observationCalendarDays,60);assert.equal(TRIAL_POLICY.settlementWaitCalendarDays,30);
 });
 
+test('native risk review must follow the actual delayed trial seal, including equality and future-time boundaries',async()=>{
+ const x=await fixture(),closedAt=x.now+10000,reviewNow=closedAt+10000;
+ closeModelTrials(x.state,{now:closedAt});
+ assert.equal(x.candidate.prospectiveResult.closedAt,closedAt);
+ const before=numeric.stable(x.state),review=(evaluatedAt,knownAt)=>modelComparison(x.state,{now:reviewNow,readProspectiveReview:ctx=>{
+  assert.equal(ctx.closedAt,closedAt,'the native adapter receives the actual seal time as an additive context field');
+  const receipt=trustedReceipt(ctx);receipt.risk.evaluatedAt=evaluatedAt;receipt.knownAt=knownAt;return receipt;
+ }});
+ for(const [evaluatedAt,knownAt] of [
+  [x.candidate.prospectiveTrial.labelsThrough+1,x.candidate.prospectiveTrial.labelsThrough+2],
+  [closedAt-1,closedAt],[closedAt,closedAt-1],
+  [reviewNow+1,reviewNow+1],[reviewNow+1,reviewNow]
+ ]){
+  const report=review(evaluatedAt,knownAt);
+  assert.equal(report.status,'invalid-native-review-receipt');
+  assert.equal(report.approvalEligible,false);assert.equal(report.portfolioRiskCertified,false);
+ }
+ for(const [evaluatedAt,knownAt] of [[closedAt,closedAt],[closedAt,reviewNow],[reviewNow,reviewNow]]){
+  const report=review(evaluatedAt,knownAt);
+  assert.equal(report.status,'independent-prospective-review-supported');
+  assert.equal(report.approvalEligible,true);assert.equal(report.canApprove,false);
+ }
+ assert.equal(numeric.stable(x.state),before,'review checks never rewrite the sealed result or approved model');
+});
+
 test('original locked approval path rejects payload receipts and retains baseline; trusted native evidence still needs human five-gate approval',async t=>{
  const x=await fixture();t.mock.timers.enable({apis:['Date'],now:x.now});const [, {shortlineJob}]=await modules;
  const root=directory(t,x.state),payload={id:x.candidate.id,decision:'approve',reviewer:'测试编辑者',reason:'单元测试中核对原五关与前瞻回执',readProspectiveReview:trustedReceipt.toString(),approvalEligible:true};
