@@ -130,6 +130,28 @@ function emotionCycle(data){
 function evidenceDetails(label,value){
  return detail(label,h('pre',{class:'fy-intelligence-evidence'},JSON.stringify(value,null,2)));
 }
+function feedbackValidation(report,ctx){
+ const feedback=report.feedback||{},bridge=feedback.validationBridge||{},status=paragraph('');
+ const ready=bridge.ready===true&&/^[a-f0-9]{64}$/.test(feedback.proposalFingerprint||'')&&Number.isSafeInteger(feedback.archiveRevision);
+ const submit=button('验证本次反馈提案',async()=>{
+  if(!ready||submit.disabled||ctx.signal?.aborted)return;
+  submit.disabled=true;status.textContent='正在用原研究档案复算并验证本次提案…';
+  try{
+   const response=await ctx.api('/api/decision-center/feedback',{method:'POST',signal:ctx.signal,timeoutMs:60000,
+    body:{day:report.day,revision:feedback.archiveRevision,proposalFingerprint:feedback.proposalFingerprint}});
+   if(ctx.signal?.aborted)return;
+   if(response?.ok!==true||!response.result?.candidateId)throw Error(response?.error||'未取得原验证流程回执');
+   const result=response.result;
+   status.textContent='原验证结果：'+result.status+'。请在验证与审批中核对五项结果及审批记录。';
+   status.dataset.candidateId=result.candidateId;
+   ctx.notify?.('中心提案已进入原验证流程，生产权重尚未改变。','info');
+  }catch(error){if(ctx.signal?.aborted)return;status.textContent=error.message+'；刷新中心证据后重试。';}
+ },'primary');
+ submit.disabled=!ready;
+ return h('div',{},paragraph(bridge.note||'反馈沿用原验证与批准流程。'),
+  !ready?paragraph('暂不能提交：'+(list(bridge.missing).join('；')||'缺少可核对的中心提案、档案版本或指纹。')):null,
+  h('div',{class:'fy-inline'},submit,button('查看验证与审批',()=>ctx.navigate('lab','shortline-versions'),'quiet')),status);
+}
 function researchPanels(report,ctx){
  const q=report.quality||{},f=report.factors||{},w=report.walkforward||{},feedback=report.feedback||{},templates=report.templates||{};
  const qItems=list(q.components),metrics=Object.values(f.descriptive||{}),folds=list(w.folds);
@@ -138,6 +160,11 @@ function researchPanels(report,ctx){
   panel('L1 · 数据质量',h('strong',{class:'fy-intelligence-number'},finite(q.score)?'Q '+format(q.score,1):'Q 尚未完整'),
    paragraph(q.formula),h('ul',{},qItems.map(item=>h('li',{},item.label+' '+(finite(item.value)?format(item.value*100,1)+'%':'缺数据')+' · 权重 '+format(item.weight*100,0)+'%'))),
    paragraph(q.note),paragraph('看盘：'+gateText(q.gates?.display)+'；回测：'+gateText(q.gates?.backtest)),
+   report.historySupply?detail('后复权历史采集依据',h('div',{},
+    paragraph('已留存 '+(report.historySupply.receipts??0)+' 份原始回执 · '+(report.historySupply.rows??0)+' 条日线 · '+list(report.historySupply.sources).join('、')),
+    paragraph(report.historySupply.note||'尚无独立后复权回执；缺少来源和时点时不进入研究样本。'),
+    paragraph('缺项：'+(list(report.historySupply.missing).join('；')||'请以逐源核验结果为准')),
+    evidenceDetails('采集时间、来源与隔离记录',report.historySupply))):null,
    evidenceDetails('逐源偏离、拒绝原因与原始时点',q)),
   panel('L2 · 因子有效性与去冗余',paragraph('原战法目录 '+(f.catalogRules??'未知')+' 项 · 已有量化观测 '+(f.measuredFactors??'未知')+' 项 · 对齐样本 '+(f.alignedSamples??'未知')+' 条'),
    paragraph(f.label||'t 日因子预测 t+1 起收益；缺真实样本时不生成 IC。'),paragraph(f.note),
@@ -152,7 +179,7 @@ function researchPanels(report,ctx){
    paragraph(templates.scope),evidenceDetails('战法条件与已观察次数',templates)),
   panel('L5 · 复盘反馈',paragraph('成熟复盘 '+(feedback.matureTrades??'未知')+' 条 · 因子调整候选 '+list(feedback.candidates).length+' 条 · 数据质量复核 '+list(feedback.qualityCandidates).length+' 条'),
    paragraph('反馈保留为待验证候选，沿用原权重验证与批准流程。当前生产因子权重没有被自动改写。'),
-   button('打开原复盘学习',()=>ctx.navigate('lab','learning'),'quiet'),evidenceDetails('复盘依据与候选变更',feedback))
+   feedbackValidation(report,ctx),evidenceDetails('复盘依据与候选变更',feedback))
  ];
 }
 

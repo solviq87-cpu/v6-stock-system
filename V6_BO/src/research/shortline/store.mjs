@@ -172,7 +172,7 @@ export async function saveRecoveredMarket(root,rows,day){
 }
 // The main account keeps its original path. Named books and fixtures can never
 // select an upstream ledger or a filesystem path supplied by the client.
-export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan}){
+export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan,centerFeedback,beforeCenterCommit}){
   if(!bookIdOk(book))throw error('无效研究账户',400);
   const scope=book==='demo'?'demo':'live',main=book==='main';
   const master=load(root),books=booksOf(master),current=books.find(b=>b.id===book);
@@ -212,6 +212,8 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
   }
   const notice=input.action.startsWith('notice:')||input.action.startsWith('settings:')||input.action==='book:reset'?await import('./web-notices.mjs'):null;
   const apply=input.action==='v6:sync'?await syncAdapters():null;
+  // Existing archive reads do not depend on the optional centre configuration.
+  const center=input.action==='learn:center-feedback'&&centerFeedback?await import('./center-feedback.mjs'):null;
   return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
     let state=load(dir,scope),retiredMinuteDir=null;
     if(input.revision!==state.revision)throw error('另一台设备已更改档案，请重新读取后再提交',409);
@@ -240,7 +242,11 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
         state={...initial(scope),revision:state.revision,books:state.books,settingsHistory:state.settingsHistory,
           settingsProfiles:state.settingsProfiles,ledgerStartAt:Date.now(),minuteGeneration:crypto.randomUUID(),resetLocked:false};
         result={book,reset:true};
+      }else if(input.action==='learn:center-feedback'){
+        if(!main||!centerFeedback||decisionPlan||Object.keys(p).length)throw Error('中心反馈只能由服务端专用入口复算，客户端不得提交权重或授权标志');
+        result=center.applyCenterFeedback(state,centerFeedback);
       }else{
+        if(centerFeedback)throw Error('中心反馈服务端上下文与操作不匹配');
         if(decisionPlan&&(!main||input.action!=='learn:plan'))throw Error('服务器决策计划只能冻结到原主研究档案');
         result=mutate(state,input.action,p);
         // Only the native paper adapter supplies this internal job argument.
@@ -256,6 +262,11 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
         }
       }
     }catch(e){throw error(e.message,422);}
+    if(centerFeedback){
+      let authorized=false;
+      try{authorized=typeof beforeCenterCommit==='function'&&beforeCenterCommit()===true;}catch{}
+      if(!authorized)throw error('中心提案提交前编辑授权或主实例角色已变化，原档案保留',403);
+    }
     // Optional fields of v1 archives are absent on older installations.
     persist(dir,state);
     // Report a committed revision even if a secondary cleanup fails. The

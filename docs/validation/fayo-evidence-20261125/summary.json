@@ -1,0 +1,176 @@
+{
+  "baseline": "7427debbcda37cbf6183af6e2627fc5fad02e301",
+  "frontendRevision": "center-20261125-2",
+  "appVersion": "20261123ab",
+  "recordedAt": "2026-11-25T11:54:17.545581+00:00",
+  "fixtureOnly": true,
+  "productionDeployed": false,
+  "productionColdBackupPerformed": false,
+  "realMessagesSent": 0,
+  "regression": {
+    "command": "RUNNER_TEMP=/tmp V6_MODEL_PYTHON=\"$CODEX_PRIMARY_RUNTIME_PYTHON\" V6_TEST_CONCURRENCY=6 npm test",
+    "tests": 4819,
+    "pass": 4815,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "todo": 0,
+    "durationMs": 94462.60085,
+    "tapSha256": "9929de7e1084f710b44fcd23262669027c31bd8efd4020c8ad6b8bcec9a7d92d",
+    "skips": [
+      "ok 1128 - actual PowerShell wrapper handles paths with spaces, opens only a verified page, and cleans temporary controls # SKIP",
+      "ok 2081 - 五类模型通过同一研究入口、筛选条件和成本账本完成比较 # SKIP 需要 requirements-models-optional.txt",
+      "ok 2321 - 可选 lightgbm 对含负收益标签的固定数据产生确定性回归输出 # SKIP lightgbm 未安装；安装 tools/requirements-models-optional.txt 后运行",
+      "ok 2323 - 可选 xgboost 对含负收益标签的固定数据产生确定性回归输出 # SKIP xgboost 未安装；安装 tools/requirements-models-optional.txt 后运行"
+    ]
+  },
+  "syntax": {
+    "command": "npm run check",
+    "nativeModules": 63,
+    "passed": true,
+    "logSha256": "52279d123396fd7768f213e0bfff962192cdda21fcb21871895361c2ee44537b"
+  },
+  "nativeBrowser": {
+    "scenarios": 8,
+    "viewports": 6,
+    "passed": true,
+    "logSha256": "f96984a13ef714056833d70e8b52d22a8f29cc2757094e5281d3f08d217d7ef8"
+  },
+  "backup": {
+    "name": "dev-7427de-before-evidence.bundle",
+    "sha256": "7d726826b7e08fdb8359ea75d2c5546401ce1c87c039264f76009a6ed1a737c5",
+    "verified": true,
+    "completeGitHistory": true,
+    "productionDataIncluded": false
+  },
+  "sourceFiles": [
+    {
+      "path": "V6_BO/public/nova/index.html",
+      "sha256": "03f6aa54536ac89bd98e10b5fefbf06263aa3379282403946ac174c4b3628f66"
+    },
+    {
+      "path": "V6_BO/public/nova/intelligence-view.mjs",
+      "sha256": "bb7910ac98d6dd2907b841c8f5918c4e92a2655016ca8ff5a2adf6362ec8cb3f"
+    },
+    {
+      "path": "V6_BO/public/nova/operations.js",
+      "sha256": "affeb499d73dc36760c05b4da746a6e8d4e63e386f614ef5a2008a673651144d"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/learning.mjs",
+      "sha256": "c90db453a9f520903021457d0bc8532cda72bb04efcae3273cc82b37e1eb1406"
+    },
+    {
+      "path": "V6_BO/public/sw.js",
+      "sha256": "467742845be599b3026bd61ca185c7c4bdedba1864524afed6e7a9847ef90ea0"
+    },
+    {
+      "path": "V6_BO/scripts/collect-center-hfq-baostock.py",
+      "sha256": "daccb4a70cceab7aad73cc201ef6ca7c886b7ad0894537dd4f96fc7a4481325c"
+    },
+    {
+      "path": "V6_BO/scripts/collect-center-history.js",
+      "sha256": "02beb9e3cb1cb9ba12dbb8984cee322162dbe22a8adb1af8c289c14716431088"
+    },
+    {
+      "path": "V6_BO/scripts/fayo-browser-check.js",
+      "sha256": "cebbccb369a141915e3d3bde53b07508fa20a05e1f1438bb8a855db3587d59a7"
+    },
+    {
+      "path": "V6_BO/scripts/fayo-intelligence-browser-check.js",
+      "sha256": "8d19a968da4f9014f502c957189024421cf3a81e76035bf04614f48f831c8259"
+    },
+    {
+      "path": "V6_BO/server.js",
+      "sha256": "4b63a0b41328660f7a3fcb5e23ac148371ab9e55e1ceddfc043651d549ffdc70"
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-history.js",
+      "sha256": "a7d41ed319f09af35c543d976fa5da84a67e71a7ad496b50e7b7e942b201c2a7"
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "sha256": "8a676bbe708fa0982502de60c082bbb508ea350889c60162a34bb79c6200e108"
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "sha256": "ba17a96dbf3ea296dfb2c355dd180c20e9745216f17a8450e26c9696634bc39b"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-entry-check.js",
+      "sha256": "33e02dbf1ea1a311adcd79b2b45fc8480a11e6f1073b770c49dec04445fad12e"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observation-store.js",
+      "sha256": "e1408842e44903d86713af886e3e35376fbbb85c6d9f88df129e52bd31e30f59"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "sha256": "395267b1ba462e19b57d6f3ae038216f7e6a1e1a76728f71f407bd6244c406b5"
+    },
+    {
+      "path": "V6_BO/src/research/shortline/center-feedback.mjs",
+      "sha256": "d334c981f831cb961a20f107fd8f9bfe49b0405503ae2667dbecb95037374079"
+    },
+    {
+      "path": "V6_BO/src/research/shortline/store.mjs",
+      "sha256": "ae29df7761f02ea084ee35533ab210584b01b9060e878db24fd59513641a9e41"
+    },
+    {
+      "path": "V6_BO/src/server/decision-evidence-runtime.js",
+      "sha256": "819c0e763fc28c25a6faef91f18688623aa99acc606a19d561d8888c5ccf8e04"
+    },
+    {
+      "path": "V6_BO/src/server/decision-feedback-http.js",
+      "sha256": "c05686cbacd0c7e9e2040112b67359cb3521f53af4471a5ae7c36203b7f4143d"
+    },
+    {
+      "path": "V6_BO/src/server/research-workspace-job.js",
+      "sha256": "222e8a4c706244d1d91fec2758da954ecc48157b97625fe04d3fe7d61201ea24"
+    },
+    {
+      "path": "V6_BO/tests/decision-evidence-integration.test.js",
+      "sha256": "a373dabd5b5debf89ad4c49ae060c80321c9bd24047623de3f76486f2286c0d7"
+    },
+    {
+      "path": "V6_BO/tests/decision-evidence-runtime.test.js",
+      "sha256": "885f0b6d089966a34800e4d2e968c321390ce304fe2f2fb61a3e3f09b2f10fea"
+    },
+    {
+      "path": "V6_BO/tests/decision-evidence-server-contract.test.js",
+      "sha256": "6bb05c6948cad6c354abdfb57480f70df95346449f3df888b924f1bde07996d2"
+    },
+    {
+      "path": "V6_BO/tests/decision-feedback-http.test.js",
+      "sha256": "6a1c672b8b5bc6f726d89d33a09625b318d43790d9a2d58e35e330088c1b77a3"
+    },
+    {
+      "path": "V6_BO/tests/helpers/intelligence-feedback-fixture.js",
+      "sha256": "ae99c85fa2b832f2341f62b504050e3694c39795e06cd7a1b9eba9ad07b2c081"
+    },
+    {
+      "path": "V6_BO/tests/intelligence-feedback-bridge.test.js",
+      "sha256": "1cf95cd22b7297ee67b2120c90c6152cafed6d00d9507c096238608d522126c7"
+    },
+    {
+      "path": "V6_BO/tests/intelligence-history.test.js",
+      "sha256": "9c0e967b5fb3d949fbc9cfa77abf6416080517399d3b9b663fba2fd093d75bc2"
+    },
+    {
+      "path": "V6_BO/tests/intelligence-research.test.js",
+      "sha256": "3ae60f59078c54999a8648687813cd4ab69371b0ae610549f3ceae5c3653c01c"
+    },
+    {
+      "path": "V6_BO/tests/paper-plan-entry-check.test.js",
+      "sha256": "78ee32b87cd2469f01a211328d5af388ca872bb1da5272723ccdd4e0b13d7280"
+    },
+    {
+      "path": "V6_BO/tests/paper-plan-observer.test.js",
+      "sha256": "35314bc7171ebc6905859f74eb0c4d16ee2ca8a51166f3d7a78b197da2db897e"
+    },
+    {
+      "path": "V6_BO/tests/test_center_hfq_collector.py",
+      "sha256": "86c640a6e0eb5245ad936a7ead50bb2be40b9031408ffcb23e03a45f629c33c2"
+    }
+  ]
+}
