@@ -6,6 +6,7 @@ import workspaceStore from '../../core/research-workspace-store.js';
 import accountLock from '../../core/account-process-lock.js';
 import marketData from '../../core/market-data-center.js';
 import decisionPlans from '../../core/paper-decision-plan.js';
+import governance from '../../core/fayo-research-governance.js';
 import {mutate} from './engine.mjs';
 import minuteArchive from '../shortline-minute-archive.js';
 import {bookIdOk,booksOf,bookPath,createBook} from './workbooks.mjs';
@@ -259,7 +260,20 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
           delete planInput.checkId;
           if(research.payload.checkId)planInput.checkId=research.payload.checkId;
         }
+        // Existing editor, replica and revision gates apply. Keep the five original
+        // validation stages; a numeric upgrade additionally needs fresh paired
+        // settlement evidence before the existing human approval is consumed.
+        let prospectiveReview=null;
+        if(book!=='demo'&&input.action==='learn:decision'&&p.decision==='approve'){
+          const candidate=state.candidates.find(c=>c.id===p.id);
+          const current=[...state.versions].reverse().find(v=>v.approvedAt&&v.sampleScope!=='demo');
+          if(candidate?.numericModel&&current?.numericModel){
+            prospectiveReview=governance.modelComparison({...state,dictionaryVersion},{candidateId:p.id,now:Date.now()});
+            if(!prospectiveReview.reviewSupported)throw Error('数值候选尚无独立成熟同口径净结算增益及成本风险边界，保留当前获批版本');
+          }
+        }
         result=mutate(state,input.action,planInput);
+        if(prospectiveReview&&result)result.prospectiveReview={schemaVersion:1,evidenceFingerprint:prospectiveReview.evidenceFingerprint,days:prospectiveReview.days,pairedRows:prospectiveReview.pairedRows,meanGainPp:prospectiveReview.meanGainPp,policy:prospectiveReview.policy,reviewSupported:true,portfolioRiskCertified:false};
         // Only the native paper adapter supplies this internal job argument.
         // The browser research route never accepts or forwards an authority flag.
         if(decisionPlan){

@@ -948,9 +948,10 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
       evaluations:evaluated.evaluations,observations:evaluated.observations,observationCount:evaluated.observations.length,
       missing:evaluated.missing,validationStatus:evaluated.validationStatus,affectsResonance:false});
   }
+  const governance = require('./fayo-research-governance').buildGovernance({archive:archive?{...archive,catalog:extracted.catalog}:null,samples:aligned.samples,walkforward,quality,execution:executionValidation,feedback,now});
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
-    adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates,
+    adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates, governance,
     crossMarket: aligned.alignment, historyIntake: historyCoverage,
     coverage: {archivePresent: Boolean(archive), rawBars: records.length, recordedChecks: archive?.checks?.length || 0,
       realFactorObservations: observations.length, admittedHfqGroups: backtest.admittedGroups,

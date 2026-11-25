@@ -110,7 +110,7 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
   return {status:standard.length?'observed-verified-simulation-settlements':'missing-verified-frozen-settlements',
     method:'frozen-plan-and-original-ledger-cost-validation',acceptedTrades:accepted.length,standardTrades:standard.length,
     excludedCount:excluded.length,excluded:excluded.slice(-40),settings:{...settings,stressSlippageBps:[...settings.stressSlippageBps],
-      stressFeeMultipliers:[...settings.stressFeeMultipliers]},strata,byRegime:groups('regime'),byCycle:groups('cycle'),
+      stressFeeMultipliers:[...settings.stressFeeMultipliers]},strata,byRegime:groups('regime'),byCycle:groups('cycle'),byStrategy:groups('strategy'),
     overall:stress(standard),folds,fingerprint:digest(accepted.map(row=>({id:row.id,planId:row.planId,fingerprint:row.fingerprint}))),
     canTrade:false,canApprove:false,productionWeightsChanged:false,
     note:'只验证已经发生且与事前计划匹配的原模拟结算；hfq 次日标签 IC 不当作成交收益。正式晋级仍需原五项验证及人工批准。'};
