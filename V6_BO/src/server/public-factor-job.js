@@ -1,5 +1,6 @@
 'use strict';
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 function analyzePublicFactors(input){
  if(input?.schemaVersion!==1||!Array.isArray(input.stocks)||input.stocks.length<1||input.stocks.length>100)
   throw Error('需要1至100只股票的带来源历史');
@@ -14,12 +15,14 @@ function analyzePublicFactors(input){
 let active=false;
 function runPublicFactorJob(payload){
  if(active)return Promise.resolve({ok:false,error:'研究任务正在运行'});
+ const lease=workerBudget.tryAcquire('public-factor');
+ if(!lease)return Promise.resolve({ok:false,error:'研究任务正在运行'});
  active=true;
  return new Promise(resolve=>{
   let worker,timer,done=false;
-  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);try{if(worker)await worker.terminate();}finally{active=false;resolve(result);}};
+  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();active=false;resolve(result);};
   try{
-   worker=new Worker(__filename,{workerData:{kind:'public-factor-job',payload},resourceLimits:{maxOldGenerationSizeMb:192}});
+   worker=lease.watch(new Worker(__filename,lease.options({kind:'public-factor-job',payload})));
    worker.once('message',finish);worker.once('error',()=>finish({ok:false,error:'因子计算失败'}));
    worker.once('exit',()=>finish({ok:false,error:'因子计算已停止'}));
    timer=setTimeout(()=>finish({ok:false,error:'因子计算超过时限'}),10000);

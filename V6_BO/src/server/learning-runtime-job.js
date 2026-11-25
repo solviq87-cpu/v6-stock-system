@@ -1,19 +1,22 @@
 'use strict';
 // Current-input inspection can be expensive; keep it off the quote polling thread.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 let active=false;
 function runLearningRuntimeJob({probeModel=false}={}){
  if(typeof probeModel!=='boolean')return Promise.resolve({ok:false,httpStatus:400,error:'运行检查参数无效'});
  if(active)return Promise.resolve({ok:false,httpStatus:503,error:'运行检查正在进行，请稍后重试'});
+ const lease=workerBudget.tryAcquire('learning-runtime');
+ if(!lease)return Promise.resolve({ok:false,httpStatus:503,error:'运行检查正在进行，请稍后重试'});
  active=true;
  return new Promise(resolve=>{
   let worker,timer,settled=false;
   const finish=async result=>{
    if(settled)return;settled=true;clearTimeout(timer);
-   try{await worker?.terminate();}catch{}finally{active=false;resolve(result);}
+   await lease.stop();active=false;resolve(result);
   };
   try{
-   worker=new Worker(__filename,{workerData:{kind:'learning-runtime',probeModel},resourceLimits:{maxOldGenerationSizeMb:192}});
+   worker=lease.watch(new Worker(__filename,lease.options({kind:'learning-runtime',probeModel})));
    worker.once('message',result=>finish(result));
    worker.once('error',()=>finish({ok:false,httpStatus:503,error:'运行检查未完成，请稍后重试'}));
    worker.once('exit',()=>finish({ok:false,httpStatus:503,error:'运行检查已停止，请稍后重试'}));

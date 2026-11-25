@@ -1,6 +1,7 @@
 'use strict';
 // Archive validation and aggregation must not block quote polling on the server.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 // Desktop/mobile can open the same private archive concurrently. Share only
 // identical reads. One private edit can wait behind a hydration read or
 // foreground notification poll; its revision is still checked in the worker.
@@ -30,9 +31,11 @@ function runWorker(payload,authorize){
     payload.action==='shortline'&&Boolean(payload.decisionPlan);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
+  const lease=workerBudget.tryAcquire('research-workspace');
+  if(!lease)return resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
-  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);try{await worker?.terminate();}finally{resolve(value);}};
-  try{worker=new Worker(__filename,{workerData:{...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})},resourceLimits:{maxOldGenerationSizeMb:384}});
+  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();resolve(value);};
+  try{worker=lease.watch(new Worker(__filename,lease.options({...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})})));
    worker.on('message',value=>{
     if(guarded&&value?.__v6CenterCommitAuthorization===true){
       const control=new Int32Array(permit);Atomics.store(control,0,!done&&allowed()?1:-1);Atomics.notify(control,0);return;
