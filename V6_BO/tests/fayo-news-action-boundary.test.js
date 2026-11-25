@@ -54,7 +54,7 @@ function holdings(title,{good=true,bad=false,locked=false}={}){
   writeFileSync(){writes++;},renameSync(){writes++;},existsSync:()=>false};
  const S={stocks:[],news:{goodCodes:new Set(good?[code]:[]),badCodes:new Set(bad?[code]:[]),
   goodAll:good?[{title,codes:[code]}]:[],badAll:bad?[{title,codes:[code]}]:[],neutralAll:[]}};
- const api=require('../holdings')({fs:io,path,dir:'/synthetic-only',S,em:{},sseSend(){},sseSendEdit(){},pushAll(){pushes++;}});
+ const api=require('../holdings')({fs:io,path,dir:'/synthetic-only',S,em:{},newsContext:()=>({...S.news,evidenceStatus:'available'}),sseSend(){},sseSendEdit(){},pushAll(){pushes++;}});
  const rows=Array.from({length:12},(_,i)=>({close:i===11?3.93:3.8+i*.03,high:i===5?4.15:3.85+i*.03}));
  return {run:snap=>api.verdict(code,{price:3.93,pct:0,mainInflow:-1200000,mainPct:-2.1,...snap},rows,{positionPct:30}),counts:()=>({writes,pushes})};
 }

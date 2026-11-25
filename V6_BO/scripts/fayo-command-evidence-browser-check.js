@@ -10,7 +10,7 @@ const output=process.env.FAYO_COMMAND_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir
 fs.mkdirSync(output,{recursive:true});
 async function run(){
  let fixture,browser;
- const report={scope:'isolated native browser and actual durable template API',views:[],requests:[],external:[]};
+ const report={scope:'isolated native browser and actual durable template API; timings are local measurements, not production acceptance',views:[],requests:[],external:[]};
  try{
   fixture=await createFixture({count:3});
   for(const file of ['public-model-comparison-20261114.json','intelligence-center.json'])
@@ -21,31 +21,36 @@ async function run(){
   for(const viewport of [{width:1366,height:900,path:'/'},{width:390,height:844,path:'/m'}]){
    const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'});
    await context.addInitScript(token=>{localStorage.setItem('qd_device',token);localStorage.setItem('qd_role','edit');},fixture.token);
-   const page=await context.newPage(),errors=[],reads=[];
+   const page=await context.newPage(),errors=[],reads=[],saves=[];
    page.on('pageerror',e=>errors.push(e.message));
    page.on('request',r=>{if(r.method()==='POST')report.requests.push({path:new URL(r.url()).pathname,action:r.postDataJSON()?.action});});
    await page.route('**/*',route=>{if(new URL(route.request().url()).origin!==origin){report.external.push(route.request().url());return route.abort();}return route.continue();});
-   await page.goto(origin+viewport.path,{waitUntil:'domcontentloaded'});
-   const panel=page.locator('#fy-decision-query');await panel.waitFor({timeout:15000});await panel.locator(':scope > summary').click();
+   const started=performance.now();await page.goto(origin+viewport.path,{waitUntil:'domcontentloaded'});
+   const panel=page.locator('#fy-decision-query');await panel.waitFor({timeout:5000});
+   const nativeHomeReadyMs=Math.round(performance.now()-started);
+   assert.ok(nativeHomeReadyMs<5000,'native home and query entry must be available within the original five-second budget');
+   const navigation=await page.evaluate(()=>({domContentLoadedMs:Math.round(performance.getEntriesByType('navigation')[0]?.domContentLoadedEventEnd||0),firstContentfulPaintMs:performance.getEntriesByName('first-contentful-paint')[0]?.startTime??null}));
+   await panel.locator(':scope > summary').click();
    const read=async()=>{
     for(let attempt=0;attempt<3;attempt++){
-     const response=page.waitForResponse(r=>new URL(r.url()).pathname===endpoint&&new URL(r.url()).searchParams.get('mode')==='templates');
+     const started=performance.now(),response=page.waitForResponse(r=>new URL(r.url()).pathname===endpoint&&new URL(r.url()).searchParams.get('mode')==='templates');
      await panel.getByRole('button',{name:'读取共享模板',exact:true}).click();
-     const received=await response,value=await received.json();reads.push({status:received.status(),ok:value.ok,error:value.error||null});
+     const received=await response,value=await received.json();reads.push({status:received.status(),ok:value.ok,error:value.error||null,elapsedMs:Math.round(performance.now()-started)});
      if(value.ok)return value.result;
      assert.equal(received.status(),503,'only a reported bounded-worker busy response may be retried');
      await page.waitForTimeout(150);
     }
     throw Error('shared template reader stayed busy: '+JSON.stringify(reads));
    };
-   await read();pages.push({page,panel,errors,reads,read,viewport});
+   await read();pages.push({page,panel,errors,reads,saves,read,viewport,nativeHomeReadyMs,navigation});
   }
   const [desktop,mobile]=pages,raw='精选评分前7且涨幅小于4%';
   const save=async view=>{
-   const response=view.page.waitForResponse(r=>new URL(r.url()).pathname===endpoint&&r.request().method()==='POST');
+   const started=performance.now(),response=view.page.waitForResponse(r=>new URL(r.url()).pathname===endpoint&&r.request().method()==='POST');
    await view.panel.getByRole('button',{name:'保存本次条件',exact:true}).click();
    const r=await response,result=await r.json();
    await view.page.waitForFunction(()=>{const x=[...document.querySelectorAll('#fy-decision-query button')].find(b=>b.textContent==='保存本次条件');return x&&!x.disabled;});
+   view.saves.push({status:r.status(),ok:result.ok,elapsedMs:Math.round(performance.now()-started)});
    return {status:r.status(),...result};
   };
   await desktop.panel.getByRole('textbox',{name:'一句话选股指令',exact:true}).fill(raw);
@@ -57,6 +62,14 @@ async function run(){
   const stale=await save(mobile);assert.equal(stale.ok,false,'another device must not silently overwrite a newer revision');
   assert.equal(await mobile.panel.getByRole('textbox',{name:'一句话选股指令',exact:true}).inputValue(),raw);
   await mobile.read();
+  const beforeReloadWrites=report.requests.length;
+  await mobile.page.reload({waitUntil:'domcontentloaded'});await mobile.panel.waitFor();
+  await mobile.panel.locator(':scope > summary').evaluate(node=>{node.parentElement.open=true;});
+  const afterReload=await mobile.read();assert.equal(afterReload.templates[0].raw,raw);assert.equal(afterReload.templates[0].revision,2);
+  await mobile.panel.getByRole('button',{name:raw,exact:true}).click();
+  assert.equal(await mobile.panel.getByRole('textbox',{name:'一句话选股指令',exact:true}).inputValue(),raw);
+  assert.equal(await mobile.panel.locator('.fy-command-results').textContent(),'','restoring a saved template after refresh does not execute it');
+  assert.equal(report.requests.length,beforeReloadWrites,'refresh and reapplying a shared template issue no write request');
   let held;await mobile.page.route('**/api/selection-command/context?*',route=>{held=route;});
   await mobile.panel.getByRole('textbox',{name:'一句话选股指令',exact:true}).fill('近5日主力净流入前5且评分至少80');
   await mobile.panel.getByRole('button',{name:'筛选股票',exact:true}).click();
@@ -68,13 +81,13 @@ async function run(){
   await mobile.page.waitForTimeout(100);
   assert.equal(await mobile.panel.locator('.fy-command-results').textContent(),'','late data cannot restore the old result');
   const persisted=await fixture.request(endpoint+'?mode=templates');assert.equal(persisted.body.result.templates.length,1);assert.equal(persisted.body.result.templates[0].revision,2);
-  for(const {page,viewport,errors,reads}of pages){
+  for(const {page,viewport,errors,reads,saves,nativeHomeReadyMs,navigation}of pages){
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false,JSON.stringify(viewport));assert.deepEqual(errors,[]);
    await page.screenshot({path:path.join(output,'command-'+viewport.width+'.png'),fullPage:true});
-   report.views.push({path:viewport.path,width:viewport.width,overflow,pageErrors:errors.length,reads});
+   report.views.push({path:viewport.path,width:viewport.width,overflow,pageErrors:errors.length,nativeHomeReadyMs,navigation,reads,saves});
   }
   assert.deepEqual(report.external,[]);assert.ok(report.requests.every(r=>r.path===endpoint&&r.action==='save-template'),JSON.stringify(report.requests));
-  report.checks=['desktop-to-mobile shared read','explicit screening','stale revision preserves input','immediate clause invalidation','late response isolation','no trade or notification request'];
+  report.checks=['desktop-to-mobile shared read','explicit screening','stale revision preserves input','refresh restores the same durable template without writes','immediate clause invalidation','late response isolation','no trade or notification request'];
   fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({...report,output},null,2));
  }finally{await browser?.close();await fixture?.close();}
 }

@@ -5,8 +5,10 @@
 - 唯一主线：`solviq87-cpu/v6-stock-system` 的 `dev`；本轮核验基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，最新合并为 #352。
 - 原分工：11、15、16、17、19、27。独立分支 `feat/fayo-evidence-workbench-20261126-complete`，目标 PR [#358](https://github.com/solviq87-cpu/v6-stock-system/pull/358) → `dev`。
 - 开发中复核发现 #355 已关闭，由 #358 接续。保留 #358 原提交 `70be46b5d5e05c02f9d2fe353df072c62f065ef4` 的完整有效成果；本轮只补缺陷、边界与验收，没有把旧候选的另一套模板或回放实现移入。
-- 本轮版本：`20261126ab`；电脑 `/`、手机 `/m` 同源入口修订 `evidence-20261126-2`，SW 后缀 `evidence-workbench-2`。历史恢复页面保持原字节。
-- 本组代码验收与六组合并验收分开记录。最终集成仍由第一组负责；生产冷备、真实数据覆盖、现场性能及最终合并 SHA 的验证尚待完成。
+- 本轮继续开发版本：`20261126ac`；电脑 `/`、手机 `/m` 同源入口修订 `evidence-20261126-3`，SW 后缀 `evidence-workbench-3`。历史恢复页面保持原字节。下文旧版验证记录明确保留为历史，不能用其结果认证本轮提交。
+- 本组代码验收与最终合并验收分开记录。用户已将任务总表、最终集成、合并安排、最终验收和交付跟踪交由新聊天 **“绯曜 FAYO｜总管与最终交付”**；覆盖原第一组安排。本组继续六项原任务，不独立安排主线合并。生产沿用既有唯一发布机制；本组没有正在进行的合并或发布事务。
+
+本轮继续工作从已发布 `1c5675e70fc48c1666894b5e17c6d6961660ba16` 建立隔离工作分支 `fix/fayo-evidence-finalize-20261126`，增量继续更新原 PR #358。已验证完整源码 Git bundle，SHA-256 `c6807d4ec4173b391f9701b4e3ce14cb7dd03762132512844faa60c21daba259`，仅作为源码恢复检查点，不替代生产私有卷冷备。
 
 统一任务与跨组依赖见 [66 项集成状态清单](FAYO_66_INTEGRATION_STATUS_20261126.md)。清单逐项指向原组任务文档和 PR；未取得原任务书或实际证据的编号保持待核验，不凭排除法认定完成。
 
@@ -20,10 +22,19 @@
 | 15 | 同日个股、板块、指数与新闻、研究、计划、风险、成交时间轴；股票详情、研究记录和新闻页复用同组件；不同指数或方法版本断开连线；320px 原图保持约220px高 | `src/core/research-interaction-workbench.js` 的 `dailySeries/newsMarkers/readReplay`；`src/core/paper-execution-report-store.js`；`public/nova/evidence-workbench.mjs` | `fayo-replay-boundaries.test.js`、原日报/工作台测试、三尺寸真实浏览器；缺分钟或同窗口证据保持缺失，生产覆盖与延迟待验证 |
 | 16 | 原确定性中文语法、条件卡、范围解释及候选池筛选；服务器私有 CAS 模板跨端读回；应用模板不自动查询，版本冲突保留输入；编辑时立即废弃旧结果 | `public/nova/command-selection.mjs`；`research-interaction-workbench.js` 的 `readTemplates/saveTemplate`；原 workspace store/worker | `fayo-evidence-workbench.test.js`、`research-workspace-http.test.js`、共享模板浏览器；全市场范围未接通时明确拒绝，不以候选池冒充全市场 |
 | 17 | 支持依据、反证、缺项、失效条件、历史分组五问共用原封存规则；模型只有明确配置及显式操作才调用，检查真实模型 ID、引用与回执后授权，失败保留规则结果 | `public/nova/research-review.mjs`、`research-records.js`、`evidence-workbench.mjs`；`research-interaction-workbench.js` 的 `similarSamples/explain` | `fayo-research-discipline-boundaries.test.js` 与研究浏览器；#357 五维相似样本适配仍为 `pending-integration`，原条件分组不是个股胜率，真实模型质量待验 |
-| 19 | 只读原模拟结算、冻结计划、原持久日报及本人日志；核对账户、指纹、版本、事件引用和时点；后续处理只追踪同一计划、同一规则版本 | `research-interaction-workbench.js` 的 `paperBinding/manualBinding/reportDisciplineRows/readDiscipline/followups`；`evidence-workbench.mjs` | 原账户服务→原结算导入→复盘投影的真实模块链测试；原日报与双端浏览器；缺完整权益、盘中可成交窗口或豁免证据时未知，不以亏损归因策略错误 |
+| 19 | 只读原模拟结算、冻结计划、原持久日报及本人日志；核对账户、指纹、版本、事件引用和时点；同计划后续处理与已读范围内的首个后续新计划分别展示 | `research-interaction-workbench.js` 的 `paperBinding/manualBinding/reportDisciplineRows/readDiscipline/followups`；`evidence-workbench.mjs` | 原账户服务→原冻结计划→原持久日报→复盘投影的实际模块链；缺账户身份、版本、原事件或可成交窗口时未知；新计划符合不抹掉原问题、不认证习惯改善 |
 | 27 | 删除标题标签对分数、概率估计与正面推送阈值的捷径；正面标题不能把原止损、减仓、回撤、退出降成持有；停牌只读明确报价字段 | `server.js` 原策略与推送函数；`holdings.js` 原持仓判断 | `fayo-news-action-boundary.test.js`、原 `_test_auction.js`、`_test_fix0929.js`；原负面风险、报价质量、锁定、T+1、账户和执行门禁保留 |
 
 ## 本轮缺陷修复及原架构复用
+
+### 接续 #358 的六项边界修复
+
+1. 新闻回放保留截点当前版本、撤稿、替代版本与研究支持状态；后续修订移除证券关联时，不再借用该股的公司、行业、持仓或冻结计划。原新闻采集与时间合同保持。
+2. 回放响应核对所选研究版本和板块；返回后只保存证券、截点、缩放、图层和展开日期等导航偏好，重新读取同一身份后恢复位置，不缓存私有历史证据。切换证券不继承另一只股票的历史时点。
+3. 模型配置读取与显式模型调用互斥；换问题、关闭视图或撤权会使晚到回答失效，按钮可恢复。模型回执还须匹配证券、runId、截点、问题、实际调用标志、模型 ID 与引用。未知或晚到条件的数值、阈值、运算符不进入模型提示；重复引用拒绝。
+4. 中文条件中的单个“或”也显式报告不支持；模板刷新和跨端重读保留原 revision，应用模板不自动执行筛选或写账户。
+5. 纪律来源各自降级：结算档案损坏不遮蔽仍有效的本人日志或持久日报。另核对同账户、同来源、同证券、同规则版本的首个后续新计划；先按原冻结时点选择，再看其证据，不能跳过未知计划选更晚的成功计划。原问题状态保留。
+6. 系统精选复用原新闻核验结果，持仓判断复用原新闻链的当前投影；过期、撤回、身份不符的标题不能依靠旧集合继续改变结论。正面新闻不能屏蔽原持仓兜底判断。旧消息说明改为“关键词归类/板块关联线索（待核实）”，保留原唯一发送者和去重逻辑；本轮没有发真实消息。原持仓缓存20秒仍在，不能声称已有卡片在外部撤稿时零延迟更新。
 
 ### 提交时授权与原持久化
 
@@ -54,7 +65,7 @@
 | GET | `mode=model-status` | 明确配置状态与模型 ID；不调用模型 |
 | GET | `mode=replay&symbol=600000&asOf=<Unix毫秒>&window=7|14|30[&runId=<hash>][&board=<code>]` | 截点前原封存证据；不回填今日行情，不交易 |
 | GET | `mode=similar&symbol=...&runId=...&asOf=...` | 同版本、条件签名、市场分组和来源的原前向评测描述；原五维相似引擎适配未完成时明确标记 |
-| GET | `mode=discipline[&symbol=...][&asOf=...]` | 原结算、本人日志和最近60日内最多20份原执行日报；最多500行及300条跟踪，不生成第二份权威纪律记录 |
+| GET | `mode=discipline[&symbol=...][&asOf=...]` | 原结算、本人日志和最近60日内最多20个交易日的原执行日报；展示各日最新版本，后续计划核对读取原有界版本；最多500行及300条跟踪，不生成第二份权威纪律记录 |
 | POST | `action=save-template, raw, requestId, expectedRevision` | 原确定性解析，最多160字、50个模板；CAS追加私有研究配置，冲突不覆盖 |
 | POST | `action=explain, symbol, runId, asOf, question` | `support/opposition/missing/invalidation/history`；明确调用可选本地模型，只有研究输出 |
 
@@ -65,6 +76,9 @@
 - 原新闻 GET 增加 `asOf/offset`；未传时仍走原调用。首次和后续分页都核对实际请求截点，未来时间、重复参数和错误类型拒绝。
 - `createPaperExecutionReportStore(...).snapshots({day, asOf, limit=20})` 返回 `{day, asOf, total, complete, versions}`，`limit` 为1–128。回放显式读取128版上限，只读复用原 `reports()` 完整校验，不另建目录或报告格式。
 - `appendEvent(..., {beforeCommit})`、`saveSettings(..., {beforeCommit})`、`reviewStored(..., {beforeCommit})`、`saveModelForecast(..., {beforeCommit})` 为可选附加合同；现有不传回调的原调用保持兼容。
+- 模型引用增加 `ruleId/rule/version/evidenceStatus/missingReason/refs`，原数值只在同截点证据完整时进入模型提示。`evidenceStatus` 为 `observed/incomplete/missing`，不改变模型回答的研究权限。
+- 纪律 `followups[]` 保留原 `followup`，兼容增加原 `accountId/planFrozenAt` 与 `nextPlanCheck`。后者含 `status/label/scope/accountId/source/code/planId/planVersion/planFrozenAt/rule/ruleVersion/date/knownAt/ref/refs/evidence/reason/note`；状态为 `observed/unknown/not-ready`，scope 固定 `read-archive-window-same-account-source-symbol`。只有同账户、来源、证券、规则版本及原引用均匹配，并满足“原问题 knownAt < 新计划 frozenAt <= 新核验 knownAt <= 查看 asOf”，才显示后续原核验符合或再次触发。未取得计划时保留具体缺口；本人日志没有权威账户身份时不做跨计划匹配。
+- 后续计划先按冻结时间选择，再检查原事实，不能跳过缺核验或已从最新日报移除的第一份计划。复用每日报原128版本上限，读取时去重同一计划身份，最多20,000种身份，超出时该核对明确未就绪且不选择候选；原事实和同计划跟踪继续可读。仅对返回的最多300条事项做后续核对，不新增文件、消息或账户写入。
 
 ### #357 相似样本依赖
 
@@ -80,7 +94,9 @@
 
 失败先停新写者，保全升级后的成交、研究、预测、日报、模板及日志，再核对增量后回切完整旧程序与原卷；不能用旧账本覆盖新增成交或重放通知。保存的 Git bundle 只用于源码恢复，不替代生产数据冷备；已关闭 #355 的本地候选检查点 `a2662404d17742e1c889b3d693d31d2898def20a` 不作为部署版本。
 
-## 验证记录
+## 历史验证记录：已发布检查点 `1c5675e…`
+
+本节是前次 `20261126ab / evidence-20261126-2` 的验收历史；接续候选另以本轮冻结源码和新 CI 记录为准。
 
 本地 Node `24.22.3`；原 CI 使用 Node22，最终须读取新提交的实际 CI，不沿用 #358 旧 head 的30项成功。测试数据均为隔离、明确标记的合成档案，不作为行情、收益、概率、生产成交或真实模型效果。
 
@@ -116,7 +132,7 @@ npm test
 ## 尚未完成的依赖与最终验收门槛
 
 1. #357 五维相似样本与本组研究截点的正式适配；#353 策略治理和 #359 统一风险的同身份消费。缺少绑定证据继续未知。
-2. 第一组实际 PR 与剩余原任务编号的证据核验；当前66项清单不是全部完成声明。五组候选顺序、文本冲突及语义冲突见统一清单，最终顺序须加入第一组实际改动后复核。
+2. 其余原任务编号和最新各组 PR 的证据核验移交新总管；当前66项索引不是全部完成声明。历史文本冲突及语义依赖见统一清单，最终顺序由总管按最新提交决定，本组不执行最终主线合并。
 3. 所有组在最新 `dev` 集成后的全量回归、接口、电脑/手机浏览器、安全、权限、账户及原账本一致性验证。本组单独结果或局部组合45项不能替代这一门槛。
 4. 真实公告/分钟/板块/指数与成交档案覆盖、目标设备联通、现场耗时与生产冷备恢复回执；可选真实语言模型的配置、回执和质量验证。
 

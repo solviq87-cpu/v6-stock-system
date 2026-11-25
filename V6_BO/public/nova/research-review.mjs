@@ -30,9 +30,10 @@ export function sealedResearchConditions(r){
        [{id,source:e.source,field:e.field??null,value:e.value??null,sourceTimestamp:e.sourceTimestamp??null,periodEnd:e.periodEnd??null,availableAt:e.availableAt,receivedAt:e.receivedAt,evidenceRef:e.evidenceRef}]:[];
    });
    const backed=ids.length>0&&refs.length===ids.length&&counts.get(c.id)===1&&text(c.version)&&c.coverageOnly!==true;
+   const known=backed&&['pass','fail'].includes(c.status);
    return {id:c.id,name:c.name||c.field||c.id,system:c.system,version:c.version??null,
-     status:backed&&['pass','fail'].includes(c.status)?c.status:'unknown',archivedStatus:c.status,
-     field:c.field??null,op:c.op??null,threshold:c.threshold??null,value:c.value??null,coverageOnly:c.coverageOnly===true,
+     status:known?c.status:'unknown',archivedStatus:c.status,
+     field:c.field??null,op:known?c.op??null:null,threshold:known?c.threshold??null:null,value:known?c.value??null:null,coverageOnly:c.coverageOnly===true,
      reason:c.reason??null,invalidation:c.invalidation??null,evidence:refs,
      currentValidity:'unknown',refs:[...(text(r.id)?['research:'+r.id]:[]),'condition:'+c.id,...refs.map(e=>e.evidenceRef)],
      missing:backed&&['pass','fail'].includes(c.status)?null:'原规则版本、有效证据引用、时点或独立判定不完整'};

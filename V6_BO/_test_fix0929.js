@@ -70,6 +70,7 @@ const rows = Array.from({ length: 12 }, (_, i) => ({ close: i === 11 ? 3.93 : 3.
 const snap = { price: 3.93, pct: 0, mainInflow: -1200000, mainPct: -2.1 };
 const run = (S, quote = snap) => require('./holdings')({
   fs: mockFs, path: require('path'), dir: __dirname, S, em: {},
+  newsContext: () => ({...S.news,evidenceStatus:'available'}),
   sseSend: () => {}, sseSendEdit: () => {}, pushAll: () => {}
 }).verdict('600293', quote, rows, { positionPct: 30 });
 

@@ -1,9 +1,9 @@
 // Only the public application shell is available offline. Private responses and
 // market prices must always come from the server, including after revocation.
-const APP_VER = '20261126ab';
+const APP_VER = '20261126ac';
 const CACHE_PREFIX = 'quant-dashboard-m-';
-const CACHE_NAME = CACHE_PREFIX + APP_VER + '-evidence-workbench-2';
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261126ab-evidence2', '/nova/app.js?v=20261126ab-evidence2', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js',
+const CACHE_NAME = CACHE_PREFIX + APP_VER + '-evidence-workbench-3';
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261126ac-evidence3', '/nova/app.js?v=20261126ac-evidence3', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js',
   '/nova/automatic-research.js', '/nova/stock-roles.js', '/nova/dabanke-view.js', '/nova/shortline/context.mjs',
   '/nova/decision-view.mjs', '/nova/decision-sector-context.mjs', '/nova/execution-evidence.mjs', '/nova/shortline/numeric-factors.js', '/nova/shortline/numeric-factors.mjs', '/nova/decision-mini-kline.mjs', '/nova/decision-model.mjs', '/nova/command-selection.mjs', '/nova/intelligence-view.mjs', '/nova/evidence-workbench.mjs', '/nova/event-research.mjs', '/nova/research-review.mjs'];
 

@@ -27,11 +27,11 @@ const server=http.createServer(async(req,res)=>{
 });
 (async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
- const report={fixtureOnly:true,realArchiveReaders:true,version,revision,externalRequests:[],viewports:[]};
+ const report={fixtureOnly:true,realArchiveReaders:true,timingScope:'local loopback UI and original archive handlers; not production latency',version,revision,externalRequests:[],viewports:[]};
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox']});const origin='http://127.0.0.1:'+server.address().port;
   for(const width of [320,390,1440]){
-   const page=await browser.newPage({viewport:{width,height:960}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
+   const page=await browser.newPage({viewport:{width,height:960}}),errors=[],timings={};page.on('pageerror',error=>errors.push(error.message));
    await page.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():(report.externalRequests.push(route.request().url()),route.abort()));await page.goto(origin);
    assert.equal(await page.locator('meta[name="application-version"]').getAttribute('content'),version);assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),revision);
    await page.evaluate(async fixture=>{
@@ -55,18 +55,21 @@ const server=http.createServer(async(req,res)=>{
    assert.deepEqual(await page.evaluate(()=>window.apiCalls),[]);await cutoff.fill(cutoffText);
    await page.evaluate(()=>{window.controls.wrongCutoff=true;});await read.click();await page.getByText('新闻回执未通过截点核验',{exact:true}).waitFor();
    assert.equal(await page.locator('[data-evidence-replay]').count(),0,'a mismatched first cutoff cannot render private data');
-   await page.evaluate(()=>{window.controls.wrongCutoff=false;});await read.click();await page.getByText(/版本 55 条/).waitFor();
+   await page.evaluate(()=>{window.controls.wrongCutoff=false;});let started=performance.now();await read.click();await page.getByText(/版本 55 条/).waitFor();
+   timings.newsFirstPageMs=Math.round(performance.now()-started);
    await page.getByRole('button',{name:'更早版本',exact:true}).click();await page.getByText('隔离新闻撤稿',{exact:true}).waitFor();
    assert.equal(await page.getByRole('button',{name:'更早版本',exact:true}).count(),0);
    const pages=await page.evaluate(()=>window.apiCalls.filter(c=>c.url.startsWith('/api/research/news-evidence')).map(c=>Object.fromEntries(new URL(c.url,location.origin).searchParams)));
    assert.equal(pages.at(-1).offset,'50');assert.equal(pages.at(-1).asOf,pages.at(-2).asOf);
    let replay=page.locator('[data-evidence-replay]');
    assert.equal(await replay.getByLabel('回放截点 北京时间').inputValue(),cutoffText);
-   await replay.getByRole('button',{name:'读取联动回放',exact:true}).click();await replay.getByRole('img').waitFor();
+   started=performance.now();await replay.getByRole('button',{name:'读取联动回放',exact:true}).click();await replay.getByRole('img').waitFor();
+   timings.replayReadMs=Math.round(performance.now()-started);
    const chartHeight=(await replay.getByRole('img').boundingBox()).height;assert.ok(chartHeight>=219,'mobile chart must retain readable height');
    assert.equal(await replay.locator('svg line[stroke="#68d4df"]').count(),1,'only the two matching index identities connect');
-   await replay.getByRole('button',{name:x.day+' 证据',exact:true}).click();
+   started=performance.now();await replay.getByRole('button',{name:x.day+' 证据',exact:true}).click();
    assert.match(await replay.innerText(),/模拟成交 · buy/);assert.match(await replay.innerText(),/15:30:00/);assert.match(await replay.innerText(),new RegExp(x.reports[1].reportHash));
+   timings.eventDetailMs=Math.round(performance.now()-started);
    const olderDay=new Date(x.runs[1].recordedAt+28800000).toISOString().slice(0,10);await replay.getByRole('button',{name:olderDay+' 证据',exact:true}).click();
    assert.match(await replay.innerText(),/隔离迟到新闻1亿元/);assert.match(await replay.innerText(),/10:00:00/);assert.match(await replay.innerText(),/14:00:00/);
    const overflow=await page.evaluate(()=>Math.max(0,document.documentElement.scrollWidth-innerWidth));assert.ok(overflow<=1,'replay must fit viewport '+width+' / '+overflow);
@@ -79,10 +82,22 @@ const server=http.createServer(async(req,res)=>{
    await code.fill('600000');await read.click();await page.getByText(/版本 55 条/).waitFor();await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
    assert.equal(await page.locator('[data-evidence-replay]').count(),0);assert.equal(await page.getByText(/版本 55 条/).count(),0,'offline clears original news page too');
    await page.evaluate(()=>window.renderFixture('replay'));replay=page.locator('[data-evidence-replay]');await replay.getByRole('button',{name:'读取联动回放',exact:true}).click();await replay.getByRole('img').waitFor();
+   await replay.getByLabel('缩放可见日期范围').evaluate(node=>{node.value='7';node.dispatchEvent(new Event('input',{bubbles:true}));});
+   await replay.getByRole('button',{name:'板块',exact:true}).click();
+   await replay.getByRole('button',{name:x.day+' 证据',exact:true}).click();
+   const saved=await page.evaluate(()=>({...window.memory.replayContext}));assert.equal(saved.zoom,7);assert.equal(saved.selectedDay,x.day);assert.equal(saved.enabled.includes('sector'),false);
+   const beforeReturn=await page.evaluate(()=>window.apiCalls.length);await page.evaluate(()=>window.renderFixture('replay'));
+   assert.equal(await page.evaluate(()=>window.apiCalls.length),beforeReturn,'returning restores only view controls, never automatically reads or executes');
+   assert.equal(await replay.getByRole('img').count(),0,'private evidence is reread, not restored from a stale DOM cache');
+   started=performance.now();await replay.getByRole('button',{name:'读取联动回放',exact:true}).click();await replay.getByRole('img').waitFor();
+   assert.equal(await replay.getByLabel('缩放可见日期范围').inputValue(),'7');
+   assert.equal(await replay.getByRole('button',{name:'板块',exact:true}).getAttribute('aria-pressed'),'false');
+   assert.match(await replay.locator('h3').last().innerText(),new RegExp('^'+x.day+' · \\d+ 条原档案标记$'));
+   timings.returnAndRereadMs=Math.round(performance.now()-started);
    await page.evaluate(()=>window.dispatchEvent(new Event('offline')));assert.equal(await replay.getByRole('img').count(),0);assert.match(await replay.innerText(),/私有回放已清空/);
    await replay.getByRole('button',{name:'读取联动回放',exact:true}).click();await replay.getByRole('img').waitFor();await page.evaluate(()=>window.abort.abort());assert.equal(await replay.getByRole('img').count(),0);
    await page.evaluate(()=>{window.apiCalls=[];window.renderFixture('replay','view');});assert.equal(await page.getByRole('button',{name:'读取联动回放',exact:true}).isDisabled(),true);assert.deepEqual(await page.evaluate(()=>window.apiCalls),[]);
-   assert.deepEqual(errors,[]);report.viewports.push({width,overflow,chartHeight,firstCutoffChecked:true,newsPagingFrozen:true,identityBoundary:true,earliestFillReceipt:true,sourceNewsClock:true,staleDetachedSuppressed:true,offlineCleared:true,abortCleared:true,viewerPrivate:true,pageErrors:errors});await page.close();
+   assert.deepEqual(errors,[]);report.viewports.push({width,overflow,chartHeight,timings,firstCutoffChecked:true,newsPagingFrozen:true,identityBoundary:true,earliestFillReceipt:true,sourceNewsClock:true,viewControlsRestored:true,staleDetachedSuppressed:true,offlineCleared:true,abortCleared:true,viewerPrivate:true,pageErrors:errors});await page.close();
   }
   assert.ok(requests.every(r=>r.method==='GET'));assert.deepEqual(report.externalRequests,[]);report.archiveReadRequests=requests.length;
   if(process.env.V6_UI_QA_DIR){fs.mkdirSync(process.env.V6_UI_QA_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.V6_UI_QA_DIR,'fayo-replay-boundaries-report.json'),JSON.stringify(report,null,2)+'\n');}console.log(JSON.stringify(report));

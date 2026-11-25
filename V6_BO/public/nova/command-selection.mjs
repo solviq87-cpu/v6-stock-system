@@ -76,7 +76,7 @@ export function parseSelectionCommand(input){
  const normalized=digits(input).trim().replace(/[。！!？?]+$/g,'').replace(/\s+/g,'');
  if(/^(?:并且|而且|同时|且|[，,；;])|(?:并且|而且|同时|且|[，,；;])$|(?:并且|而且|同时|且|[，,；;])(?:并且|而且|同时|且|[，,；;])/.test(normalized))return unsupported('存在空白条件，请补齐或删除后再执行。');
  if(normalized.length>160)return unsupported('指令最多160字，可使用一个排序条件和至多6个筛选条件。');
- if(/或者|或是|\|\||\bOR\b|明天|明日|保证|必涨|自动买|自动卖/i.test(normalized))return unsupported('暂不解析“或”、未来涨幅或自动买卖要求；可用“且”连接可核验条件。');
+ if(/或|\|\||\bOR\b|明天|明日|保证|必涨|自动买|自动卖/i.test(normalized))return unsupported('暂不解析“或”、未来涨幅或自动买卖要求；可用“且”连接可核验条件。');
  const clauses=normalized.split(/并且|而且|同时|且|[，,；;]/).filter(Boolean);
  if(clauses.length===1)return parseRankingCommand(input);
  if(clauses.length>7)return unsupported('一次最多包含一个排序条件与6个筛选条件。');
