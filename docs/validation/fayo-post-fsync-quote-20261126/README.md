@@ -66,3 +66,7 @@ PR #356 将原 `mutate` 的发布步骤提取为 `publish(next, previousRevision
 - 实际：5034项，5030通过，0失败/取消，4项原环境可选跳过；退出码0，TAP完整性通过。原日志SHA-256为`d48bdc5875fcb398616376cf8883fa54c8fb2c479b49622d720bf7f9947c03da`，未提交原始日志。跳过为PowerShell启动器、可选五类模型比较、LightGBM、XGBoost，未关闭测试。
 - 独立审查只运行新增7例：7/7通过；独立进程替换为#361原atomicWrite后3通过/4失败，均为预期必须拒绝的过期买卖和跨日场景；工作树不变。
 - 本补丁HEAD的远端CI和与#356组合全量待核，未部署或外发；#361旧绿色不代表本补丁最终验收。
+
+## 依赖PR检查触发修复
+
+提交#364后实际发现：目标为`audit/fayo-risk-integration-20261126`，旧三个PR workflow的分支过滤不含audit，因此仅push检查不能提供对应PR逐提交覆盖。最小修复为三个workflow统一加入既有audit/integration分支族，并让真实UI覆盖feat/chore等已有叠加目标；不删除任何作业或失败门禁。新增反例要求dev/main/feat/fix/chore/audit/integration均触发完整PR检查，精确新提交远端仍须实读。

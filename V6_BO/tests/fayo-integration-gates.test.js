@@ -118,7 +118,9 @@ test('continue-on-error on the browser step cannot certify the required gate', t
 
 test('the required browser workflow must include dev and retain fail-fast execution', t => {
   const root = fixture(t);
-  replace(root, uiFile, '    branches: [dev, "fix/**"]', '    branches: [main, "fix/**"]');
+  const current = fs.readFileSync(path.join(root, uiFile), 'utf8');
+  const prBranches = current.match(/  pull_request:\n(    branches: \[[^\n]+\])/)[1];
+  replace(root, uiFile, prBranches, prBranches.replace(/(?:^|[ ,])dev(?=[,\]])/, ' missing-dev'));
   replace(root, uiFile, '          set -euo pipefail\n          node scripts/fayo-browser-check.js', '          set +e\n          node scripts/fayo-browser-check.js');
   rejects(root, 'required-check-dev-not-guaranteed');
   rejects(root, 'browser-script-can-ignore-failure');
