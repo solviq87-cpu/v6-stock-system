@@ -22874,6 +22874,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return require('./src/server/evolution-http').evolutionHttp(req,res,{body,url:u,paths,
       root:shortlineResearchDir(),workspaceRoot:paths.workspaceRoot,
       authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica:()=>!researchPrimary(),
+      // Read the original whole quote; the research worker retains its provider
+      // time and rechecks freshness. No daily close or receipt-time substitution.
+      readQuote:code=>{const quote=S.lastPx?.get(code)?.wireQuote;return quote?{...quote}:null;},
       job:require('./src/server/research-workspace-job').runWorkspaceJob,
       calendarFor:asOf=>{
         const result=require('./src/core/research-calendar-source').readResearchCalendar({asOf,calendarFile:paths.calendarFile});

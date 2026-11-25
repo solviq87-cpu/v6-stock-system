@@ -145,6 +145,42 @@ test('fusion retains all eight predefined variants and uses common denominators 
   assert.ok(group.variants.every(v => v.commonSamples === 40));
   assert.equal(result.productionWeightsChanged, false); assert.equal(result.promotion, 'never');
 });
+test('strategy risk and equal-weight fusion use common costs and a date-only nonoverlapping paper path', () => {
+  const net = [10, -20, 5, -5, 20, -10, 1, 2], input = rows(net.length);
+  for (let i = 0; i < net.length; i++) for (const r of input.slice(i * 4, (i + 1) * 4)) Object.assign(r, {
+    signalDate: day(i * 7), entryDate: day(i * 7 + 1), exitDate: day(i * 7 + 6),
+    signalAt: at(i * 7), recordedAt: at(i * 7) + 1, outcomeKnownAt: at(i * 7 + 6),
+    verdict: r.system === SYSTEMS[0] ? 'pass' : 'fail', netReturnPct: net[i], priceReturnPct: net[i] + .5
+  });
+  const options = { asOf: at(100) }, competition = S.strategyCompetition(input, options).groups[0];
+  const full = competition.systems[0].pathStatistics;
+  const expected = net.reduce((equity, value) => equity * (1 + value / 100), 1);
+  assert.ok(Math.abs(full.totalReturnPct - 100 * (expected - 1)) < 1e-12);
+  assert.ok(Math.abs(full.maxDrawdownPct - 20.2) < 1e-10);
+  assert.equal(full.nonOverlappingPeriods, 8); assert.equal(full.excludedOverlappingPeriods, 0);
+  assert.equal(full.accountEquity, false); assert.equal(full.independentObservations, false);
+  assert.equal(full.meanCostDragPct, .5); assert.equal(full.stability.firstHalfMeanPct, -2.5);
+  assert.equal(full.stability.secondHalfMeanPct, 3.25);
+  const fusion = S.fusionStudy(input, options).groups[0], equal = fusion.equalWeight;
+  assert.equal(fusion.variants.length, 8); assert.equal(fusion.predefinedFusionConfigurations, 9);
+  assert.equal(fusion.singleStrategies.length, 4); assert.equal(equal.meanExposurePct, 25);
+  assert.equal(equal.meanCostDragPct, .125);
+  assert.deepEqual(equal.series.map(p => p.value), net.map(value => value / 4));
+  assert.deepEqual(fusion.singleStrategies[0].pathStatistics, full);
+  assert.ok(fusion.singleStrategies.slice(1).every(s => s.meanExposurePct === 0 && s.pathStatistics.maxDrawdownPct === 0));
+  assert.deepEqual(S.fusionStudy(input.slice().reverse(), options).groups[0], fusion);
+});
+test('overlapping labels are never compounded as reusable capital and short paths retain unknown stability', () => {
+  const competition = S.strategyCompetition(rows(), { asOf: at(80) }).groups[0], risk = competition.systems[0].pathStatistics;
+  assert.equal(risk.nonOverlappingPeriods, 7); assert.equal(risk.excludedOverlappingPeriods, 33);
+  assert.ok(Math.abs(risk.totalReturnPct - ((1 - .025) ** 7 - 1) * 100) < 1e-10);
+  const short = S.strategyCompetition(rows(3), { asOf: at(80) }).groups[0].systems[0].pathStatistics;
+  assert.equal(short.nonOverlappingPeriods, 1); assert.equal(short.periodVolatilityPct, null);
+  assert.equal(short.stability.status, 'not-evaluated'); assert.equal(short.stability.halfMeanDifferencePct, null);
+  const invalid = rows(1); invalid.forEach(r => { r.netReturnPct = -101; r.priceReturnPct = -99; });
+  const unavailable = S.strategyCompetition(invalid, { asOf: at(80) }).groups[0].systems[0].pathStatistics;
+  assert.equal(unavailable.status, 'not-evaluated'); assert.equal(unavailable.maxDrawdownPct, null);
+});
 test('DSR matches an independent Python statistics.NormalDist oracle and deflates increasing trial search', () => {
   const returns = Array.from({ length: 20 }, () => [-.02, .01, .03, -.01, .04, .005]).flat();
   const options = { returns, trialSharpes: [-.1, 0, .1, .2, .3], completeTrialHistory: true, independentObservations: true };
@@ -204,6 +240,13 @@ test('benchmarks use the actual ledger, frozen universe, same window and costs w
     buyHold: { symbol: '600000', knownAt: stamp, source: 'predeclared-fixture' } };
   const result = S.benchmarkComparison(h, cfg), equal = result.entries.find(e => e.id === 'frozen-equal-weight');
   assert.equal(result.entries[0].metrics.returnPct, 0); assert.equal(equal.closedTrades, 2);
+  const direct = require('../src/strategy/research-v2-position-ledger-backtest').ledgerBacktest({ ...h, stocks: h.stocks,
+    feeBps: 8, slippageBps: 10, sellTaxBps: 5 });
+  assert.deepEqual(result.nativeStrategy.metrics, direct.metrics);
+  assert.equal(result.nativeStrategy.equity.length, equal.equity.length);
+  assert.equal(result.comparisons[0].netReturnDifferencePct, direct.metrics.returnPct);
+  assert.equal(result.comparisons[1].drawdownDifferencePct, direct.metrics.maxDrawdownPct - equal.metrics.maxDrawdownPct);
+  assert.equal(result.comparisons[3].netReturnDifferencePct, null);
   assert.equal(equal.equity.length, result.entries[0].equity.length); assert.equal(result.entries.find(e => e.id === 'index-proxy').status, 'not-evaluated');
   const locked = structuredClone(h); locked.stocks[0].bars[61].open = locked.stocks[0].bars[61].high = Math.round(locked.stocks[0].bars[60].close * 110) / 100;
   const blocked = S.benchmarkComparison(locked, cfg).entries.find(e => e.id === 'buy-and-hold');
@@ -235,6 +278,8 @@ test('non-synthetic benchmarks and perturbations cannot fabricate executable pri
   const h = history(70, 1); h.source = 'imported';
   const result = S.benchmarkComparison(h, { buyHold: { symbol: '600000', knownAt: at(59), source: 'frozen' } });
   assert.equal(result.entries[0].metrics.returnPct, 0); assert.equal(result.entries[2].status, 'not-evaluated');
+  assert.equal(result.nativeStrategy.status, 'not-evaluated');
+  assert.ok(result.comparisons.every(x => x.netReturnDifferencePct === null && x.drawdownDifferencePct === null));
   assert.equal(S.sensitivityStudy(h).status, 'not-evaluated');
 });
 test('EMA/MACD batch, incremental and serialized restart are independent paths; cold history actually changes the answer', () => {
@@ -293,6 +338,15 @@ test('paper expectancy reconciles original actual importer receipts, costs and i
   assert.equal(S.tradeExpectation([tampered], { asOf: now }).n, 0); assert.equal(result.source, 'verified-simulation-settlements');
   assert.equal(S.tradeExpectation([row, tampered], { asOf: now }).n, 0);
   assert.deepEqual(S.tradeExpectation([row, tampered], { asOf: now }), S.tradeExpectation([tampered, row], { asOf: now }));
+  const later = { ...structuredClone(tampered), createdAt: new Date(now + 1000).toISOString() };
+  const historical = S.tradeExpectation([row, later], { asOf: now });
+  assert.equal(historical.n, 1); assert.equal(historical.mean, result.mean);
+  assert.equal(S.tradeExpectation([row, later], { asOf: now + 1000 }).n, 0);
+  for (const marker of [{ sampleSet: 'demo' }, { sampleSet: 'test' }, { synthetic: true }, { replicable: false },
+    { quality: '演示样本' }, { quality: '黑天鹅' }, { extremeMarket: true }]) {
+    const isolated = S.tradeExpectation([row, { ...tampered, ...marker }], { asOf: now });
+    assert.equal(isolated.n, 1); assert.equal(isolated.mean, result.mean);
+  }
 });
 test('manual expectancy consumes the real canonical-hash journal importer and remains distinct from broker certification', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'evolution-stat-manual-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -318,6 +372,24 @@ test('manual expectancy consumes the real canonical-hash journal importer and re
   assert.equal(result.realizedAmount, 89); assert.equal(result.costBasisAmount, 1005);
   assert.ok(Math.abs(result.mean - 89 / 1005 * 100) < 1e-10);
   assert.notEqual(archive.trades[0].sourceFingerprint, digest(archive.trades[0].manualDecision));
+  const future = structuredClone(archive.trades[0]);
+  future.manualDecision.reconciledAt = now + 1000; future.createdAt = new Date(now + 1000).toISOString();
+  future.sourceFingerprint = W.digest(future.manualDecision);
+  assert.equal(S.tradeExpectation([...archive.trades, future], { asOf: now }).n, 1);
+  assert.equal(S.tradeExpectation([...archive.trades, future], { asOf: now + 1000 }).n, 0);
+  // Isolated numerical receipt fixture, never written to a production account.
+  const paperSettlement = { accountId: 'pool', symbol: '600001', exitEventId: 'isolated-paper-exit', exitOrderId: 'isolated-paper-sell',
+    exitTimestamp: cn('2026-08-18T10:00:00'), tradeDate: '2026-08-18', exitQuantity: 100, exitPrice: 9,
+    exitGrossCents: 90000, exitFeeCents: 500, costBasisCents: 100500, realizedCents: -11000,
+    entryFills: [{ eventId: 'isolated-paper-buy', orderId: 'isolated-paper-entry', quantity: 100, price: 10,
+      grossCents: 100000, costCents: 100500, time: cn('2026-08-17T10:00:00') }] };
+  const paperRow = { source: 'V6 模拟成交', sourceFingerprint: digest(paperSettlement), paperSettlement, createdAt: new Date(now).toISOString(),
+    code: '600001', shares: 100, pnl: -11000 / 100500 * 100, pnlAmount: -110, costBasis: 1005 };
+  const mixed = S.tradeExpectation([...archive.trades, paperRow], { asOf: now });
+  assert.equal(mixed.n, 2); assert.equal(mixed.aggregationStatus, 'separate-sources');
+  assert.equal(mixed.mean, null); assert.equal(mixed.realizedAmount, null); assert.equal(mixed.lossCount, null);
+  assert.equal(mixed.groups.find(g => g.source === 'verified-simulation-settlements').lossCount, 1);
+  assert.equal(mixed.groups.find(g => g.source === 'reconciled-manual-import').realizedAmount, 89);
 });
 test('async diagnostic orchestration runs actual native/indicator/ledger paths with bounded options', async () => {
   const input = nativeInputs(history(70, 1));

@@ -32,6 +32,9 @@ async function main(){
    await root.getByRole('button',{name:'保存双端布局',exact:true}).waitFor({state:'visible'});
    await page.waitForFunction(()=>{const b=[...document.querySelectorAll('.fy-evolution button')].find(b=>b.textContent==='保存双端布局');return b&&!b.disabled;});
    assert.equal(await root.locator('details[data-section]').count(),6);
+   await root.locator('details[data-section=market]').evaluate(el=>el.open=true);
+   for(const title of ['财务披露与风险','估值与行业对照','信号时效'])assert.equal(await root.getByRole('heading',{name:title,exact:true}).count(),1);
+   assert.match(await root.locator('details[data-section=market]').innerText(),/审计|股权/);
    await root.locator('details[data-section=lifecycle]').evaluate(el=>el.open=true);
    const search=root.getByRole('searchbox',{name:'候选搜索'});
    if(id==='desktop'){
@@ -39,6 +42,13 @@ async function main(){
     assert.match(await root.locator('details[data-section=lifecycle]').innerText(),/<img src=x onerror=alert\(1\)>/);
     assert.equal(await root.locator('details[data-section=lifecycle] img').count(),0);assert.equal(injected,false);
     await search.fill('');await root.getByLabel('研究证券代码',{exact:true}).fill('600001');
+    await root.getByRole('button',{name:'刷新证据',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('.fy-evolution output')?.textContent.includes('证据时点'));
+    assert.match(await root.locator('output').innerText(),/600001/);
+    await root.getByLabel('观察窗口',{exact:true}).selectOption('20');
+    assert.equal(await root.getByRole('button',{name:'导出私有报告',exact:true}).isDisabled(),true);
+    assert.match(await root.locator('output').innerText(),/当前报告仍属于 600001/);
+    await root.getByLabel('观察窗口',{exact:true}).selectOption('5');
     await root.getByRole('button',{name:'刷新证据',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.fy-evolution output')?.textContent.includes('证据时点'));
     await root.getByText('我的布局与筛选模板',{exact:true}).click();
@@ -77,9 +87,11 @@ async function main(){
    await root.getByRole('button',{name:'恢复已保存布局',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.fy-evolution output')?.textContent.includes('布局版本'));
    await root.locator('details[data-section=research]').evaluate(el=>el.open=true);
    await root.getByRole('button',{name:'运行因果与稳定性检查',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.fy-evolution output')?.textContent.includes('检查已结束并保存'));
-   assert.match(await root.locator('details[data-section=research]').innerText(),/缺少封存历史/);
+   assert.match(await root.locator('details[data-section=research]').innerText(),/缺少封存行情/);
    const downloaded=page.waitForEvent('download');await root.getByRole('button',{name:'导出私有报告',exact:true}).click();const download=await downloaded;
    const file=path.join(output,id+'-report.json');await download.saveAs(file);const exported=JSON.parse(fs.readFileSync(file));assert.equal(exported.canTrade,false);assert.equal(exported.mode,'fayo-intelligence-evolution');
+   assert.equal(exported.statistics.diagnostics.modelCausality.python.status,'not-evaluated');
+   assert.equal(exported.statistics.diagnostics.modelCausality.python.executed,false);
    const size=await page.evaluate(()=>({viewport:innerWidth,document:document.documentElement.scrollWidth}));assert.ok(size.document<=size.viewport+1,JSON.stringify(size));
    await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(output,id+'.png'),fullPage:false});
    report.views.push({id,entry,viewport,overflow:false,sections:6,restoredRevision:savedRevision,exported:true,diagnosticStored:true,staleWriteRejected:true,navigationDraftRetained:true});

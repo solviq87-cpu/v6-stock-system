@@ -8,7 +8,7 @@ const { validateDataset, validateBacktestConfig } = require('./historical-valida
 const { ledgerBacktest } = require('../strategy/research-v2-position-ledger-backtest');
 const { universeObservation } = require('./historical-universe');
 const { assertUnadjustedExecutionPriceBasis } = require('./historical-execution-price-basis');
-const { isTestSample } = require('../../public/nova/shortline/sample-quality.mjs');
+const { isTestSample, sampleMatches } = require('../../public/nova/shortline/sample-quality.mjs');
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const date = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x)) && new Date(x).toISOString().slice(0, 10) === x;
 const stamp = x => Number.isSafeInteger(x) && x >= 0 && x <= 8640000000000000 - 86400000;
@@ -136,19 +136,52 @@ function researchSignalDays(events, { asOf = Date.now() } = {}) {
   }
   return [...days].sort();
 }
-function seriesFor(group, predicate) {
+function seriesFor(group, exposureFor) {
   const dates = new Map();
   for (const r of group.rows) {
     const key = [r.entryDate, r.exitDate].join('/');
-    if (!dates.has(key)) dates.set(key, { entryDate: r.entryDate, exitDate: r.exitDate, returns: [] });
-    dates.get(key).returns.push(predicate(r) ? r.netReturnPct : 0);
+    if (!dates.has(key)) dates.set(key, { entryDate: r.entryDate, exitDate: r.exitDate, returns: [], gross: [], exposures: [] });
+    const exposure = Number(exposureFor(r));
+    if (!finite(exposure) || exposure < 0 || exposure > 1) throw Error('研究组合暴露必须在 0 至 1 之间');
+    const window = dates.get(key);
+    window.returns.push(exposure * r.netReturnPct); window.gross.push(exposure * r.priceReturnPct); window.exposures.push(exposure);
   }
-  return [...dates.values()].map(x => ({ entryDate: x.entryDate, exitDate: x.exitDate, value: mean(x.returns) })).sort((a, b) => a.entryDate.localeCompare(b.entryDate));
+  return [...dates.values()].map(x => ({ entryDate: x.entryDate, exitDate: x.exitDate, value: mean(x.returns), grossValue: mean(x.gross),
+    costDragPct: mean(x.gross) - mean(x.returns), exposurePct: 100 * mean(x.exposures) }))
+    .sort((a, b) => a.entryDate.localeCompare(b.entryDate) || a.exitDate.localeCompare(b.exitDate));
 }
 function nonOverlapping(series) {
   const out = []; let end = '';
   for (const r of series) if (r.entryDate > end) { out.push(r); end = r.exitDate; }
   return out;
+}
+/** Do not compound overlapping forward labels as though they were an account.
+ * Choose windows only by dates, then report this explicitly separate paper path.
+ * Non-overlap removes simultaneous capital reuse; it does not establish IID data. */
+function pathStatistics(series) {
+  const periods = nonOverlapping(series), values = periods.map(x => x.value);
+  if (!values.length || values.some(x => !finite(x) || x < -100)) return unavailable('没有完整且有限的共同非重叠收益路径', {
+    totalReturnPct: null, maxDrawdownPct: null, periodVolatilityPct: null });
+  let equity = 1, peak = 1, maxDrawdownPct = 0;
+  for (const value of values) {
+    equity *= 1 + value / 100;
+    if (!finite(equity)) return unavailable('研究路径复合值超出有限数值范围', { totalReturnPct: null, maxDrawdownPct: null, periodVolatilityPct: null });
+    peak = Math.max(peak, equity); maxDrawdownPct = Math.max(maxDrawdownPct, (peak - equity) / peak * 100);
+  }
+  const half = Math.floor(values.length / 2), enough = values.length >= 4, v = variance(values);
+  const firstHalfMeanPct = enough ? mean(values.slice(0, half)) : null, secondHalfMeanPct = enough ? mean(values.slice(half)) : null;
+  return report({ status: 'descriptive-only', totalReturnPct: 100 * (equity - 1), maxDrawdownPct,
+    periodVolatilityPct: finite(v) ? Math.sqrt(v) : null, nonOverlappingPeriods: periods.length,
+    excludedOverlappingPeriods: series.length - periods.length, window: { entryDate: periods[0].entryDate, exitDate: periods.at(-1).exitDate },
+    meanNetReturnPct: mean(values), meanCostDragPct: mean(periods.map(x => x.costDragPct)),
+    positivePeriodFraction: values.filter(x => x > 0).length / values.length,
+    stability: { status: enough ? 'descriptive-only' : 'not-evaluated', firstHalfMeanPct, secondHalfMeanPct,
+      halfMeanDifferencePct: enough ? secondHalfMeanPct - firstHalfMeanPct : null,
+      reason: enough ? null : '至少需要四个非重叠区间才能比较前后两段' },
+    estimator: 'date-selected-nonoverlapping-compounded-paper-exposure', pathSelection: 'earliest-entry-then-exit; no outcome selection',
+    accountEquity: false, independentObservations: false,
+    limitations: ['仅使用按日期选择的非重叠共同区间，未纳入区间内逐日估值，回撤可能低估盘中及日内风险',
+      '这是纸面暴露路径而非权威账户净值；不把非重叠等同于统计独立，也不年化不规则区间收益'] });
 }
 function strategyCompetition(rows, options = {}) {
   const common = commonCohorts(rows, options);
@@ -159,13 +192,15 @@ function strategyCompetition(rows, options = {}) {
       return { system, commonSamples: group.rows.length, passed: selected.length, rejected: group.rows.length - selected.length,
         exposurePct: 100 * selected.length / group.rows.length, commonDateCount: series.length,
         meanNetReturnPct: mean(series.map(x => x.value)), selectedOutcome: distribution(selected.map(r => r.netReturnPct)),
-        series, nonOverlappingPeriods: nonOverlapping(series).length };
+        series, nonOverlappingPeriods: nonOverlapping(series).length, pathStatistics: pathStatistics(series),
+        meanCostDragPct: mean(series.map(x => x.costDragPct)) };
     });
     const enough = group.rows.length >= 30 && dates.size >= 10 && group.regime !== 'unknown';
     const ordered = systems.slice().sort((a, b) => b.meanNetReturnPct - a.meanNetReturnPct || a.system.localeCompare(b.system));
     for (const system of systems) system.rank = enough ? 1 + ordered.filter(x => x.meanNetReturnPct > system.meanNetReturnPct).length : null;
     return { ...group, rows: undefined, commonSamples: group.rows.length, commonDates: dates.size, distinctSymbols: symbols.size,
       status: group.regime === 'unknown' ? 'unknown-environment' : enough ? 'descriptive-only' : 'insufficient-common-samples', systems,
+      rankingCriterion: 'common-window-mean-net-return',
       estimator: 'equal-candidate exposure then equal-window mean; rejected signal holds cash; shared mature denominator' };
   });
   return report({ status: groups.length ? 'research-only' : 'not-evaluated', groups, exclusions: common.exclusions,
@@ -204,16 +239,31 @@ function fusionStudy(rows, options = {}) {
     const variants = models.map(({ predicate, ...m }) => {
       const series = seriesFor(g, predicate), selected = g.rows.filter(predicate);
       return { ...m, commonSamples: g.rows.length, passed: selected.length, meanNetReturnPct: mean(series.map(x => x.value)),
-        outcome: distribution(selected.map(r => r.netReturnPct)), series };
+        outcome: distribution(selected.map(r => r.netReturnPct)), meanCostDragPct: mean(series.map(x => x.costDragPct)),
+        pathStatistics: pathStatistics(series), series };
     });
     const baseline = variants.find(x => x.id === 'votes-3');
     for (const v of variants) if (v.id.startsWith('without-')) v.deltaFromMajorityPct = v.meanNetReturnPct - baseline.meanNetReturnPct;
-    return { id: g.id, regime: g.regime, versions: g.versions, commonSamples: g.rows.length, pairs, variants,
+    const allocation = (id, exposureFor) => {
+      const series = seriesFor(g, exposureFor);
+      return { id, commonSamples: g.rows.length, meanNetReturnPct: mean(series.map(x => x.value)),
+        meanCostDragPct: mean(series.map(x => x.costDragPct)), meanExposurePct: mean(series.map(x => x.exposurePct)),
+        pathStatistics: pathStatistics(series), series };
+    };
+    const singleStrategies = SYSTEMS.map(system => ({ system, ...allocation(system, r => r.verdicts[system] === 'pass') }));
+    const equalWeight = { ...allocation('equal-strategy-weight', r => votes(r) / SYSTEMS.length),
+      strategyWeights: Object.fromEntries(SYSTEMS.map(s => [s, 1 / SYSTEMS.length])),
+      estimator: 'equal capital per original strategy; same candidate denominator and cash for each rejected signal',
+      costTreatment: 'linear allocation of original paper exposure net costs; does not model new orders or minimum-fee netting' };
+    return { id: g.id, regime: g.regime, versions: g.versions, commonSamples: g.rows.length, pairs, variants, singleStrategies, equalWeight,
+      predefinedFusionConfigurations: variants.length + 1,
       voteHistogram: [0, 1, 2, 3, 4].map(count => ({ votes: count, n: g.rows.filter(r => votes(r) === count).length })) };
   });
   return report({ status: groups.length ? 'descriptive-only' : 'not-evaluated', groups, exclusions: common.exclusions,
     reason: groups.length ? null : '缺少四策略共同成熟样本', promotion: 'never',
-    limitations: ['融合及消融使用相同候选与现金分母；不选择最优变体', '常数信号或收益的相关系数未知；重叠样本不用于显著性声明', '八种研究变体均须计入后续试验披露，不变更生产四策略'] });
+    limitations: ['融合及消融使用相同候选与现金分母；不选择最优变体', '常数信号或收益的相关系数未知；重叠样本不用于显著性声明',
+      '八种门槛/消融变体及一种等权融合均须计入后续试验披露，不变更生产四策略',
+      '等权融合沿用单位暴露成本按权重分配，不冒充真实组合撮合或最小手续费优化'] });
 }
 
 // Bailey & López de Prado (2014), equations (2), (3): unannualized Sharpe.
@@ -315,15 +365,24 @@ function tradeExpectation(rows = [], { asOf = Date.now() } = {}) {
   const accepted = [], seen = new Set(), excluded = {};
   const skip = reason => { excluded[reason] = (excluded[reason] || 0) + 1; };
   const identities = new Map(), conflicted = new Set();
+  const isolated = row => !row || testObservation(row) || row.quality === '演示样本' || !sampleMatches(row, 'standard') || row.replicable === false || row.repeatable === false;
+  const visible = row => {
+    const recorded = Date.parse(row?.createdAt), known = row?.manualDecision?.reconciledAt ?? row?.paperSettlement?.exitTimestamp;
+    return Number.isFinite(recorded) && recorded <= asOf && stamp(known) && known <= asOf;
+  };
   const identity = row => row?.manualDecision ? 'manual/' + row.manualDecision.reconciliationId : row?.paperSettlement ?
     [row.paperSettlement.accountId, row.paperSettlement.exitEventId].join('/') : null;
   for (const row of rows) {
+    // A later correction or teaching copy cannot erase a settlement from an
+    // earlier point-in-time population. Visible conflicting receipts still
+    // quarantine the whole identity, including malformed reconciliation claims.
+    if (isolated(row) || !visible(row)) continue;
     const key = identity(row); if (!key) continue;
     const value = row.sourceFingerprint;
     if (identities.has(key) && identities.get(key) !== value) conflicted.add(key); else identities.set(key, value);
   }
   for (const row of rows) {
-    if (!row || ['demo', 'test'].includes(row.sampleSet) || row.quality === '演示样本' || row.blackSwan === true || row.extreme === true || row.replicable === false || row.repeatable === false) { skip('isolated-sample'); continue; }
+    if (isolated(row)) { skip('isolated-sample'); continue; }
     if (conflicted.has(identity(row))) { skip('conflicting-settlement'); continue; }
     if (row.manualDecision) {
       const p = row.manualDecision, hex = x => typeof x === 'string' && /^[a-f0-9]{64}$/.test(x);
@@ -374,9 +433,12 @@ function tradeExpectation(rows = [], { asOf = Date.now() } = {}) {
     weightedNetReturnPct: entries.length ? 100 * entries.reduce((n, r) => n + r.realizedCents, 0) / entries.reduce((n, r) => n + r.costBasisCents, 0) : null });
   // Manual declarations and authoritative simulation receipts retain separate populations.
   const homogeneous = sources.length <= 1 ? accepted : [];
+  const aggregate = summarize(homogeneous);
+  if (sources.length > 1) Object.assign(aggregate, { lossCount: null, flatCount: null, tailCount: null, realizedAmount: null, costBasisAmount: null });
   return report({ status: accepted.length ? 'descriptive-only' : 'not-evaluated', source: sources.length === 1 ? sources[0] : 'separate-settlement-sources',
     reason: accepted.length ? null : '尚无可核对费用、成本基数及结算回执的模拟成交', ...distribution(accepted.map(r => r.net)),
-    ...summarize(homogeneous), n: accepted.length, totalVerifiedSettlements: accepted.length, groups: sources.map(source => ({ source, ...summarize(accepted.filter(r => r.source === source)) })),
+    ...aggregate, aggregationStatus: sources.length > 1 ? 'separate-sources' : 'homogeneous',
+    n: accepted.length, totalVerifiedSettlements: accepted.length, groups: sources.map(source => ({ source, ...summarize(accepted.filter(r => r.source === source)) })),
     distinctSymbols: new Set(accepted.map(r => r.symbol)).size, excluded,
     brokerVerified: false, limitations: ['模拟结算、本人申报对账与信号纸面标签分源，不能合并为券商认证实盘业绩', '按结算事件去重；未平仓收益不填零', '聚合成交存在同股、同期及仓位依赖，不把逐笔数量当作独立样本'] });
 }
@@ -486,12 +548,25 @@ function benchmarkComparison(history, { frozenUniverse = history?.frozenUniverse
     proxyRules.feeFingerprint === hash(options.feeSchedules || costs(history)) && typeof proxyRules.source === 'string' && proxyRules.source.length > 0;
   entries.push(verifiedProxy && evidence.status !== 'not-evaluated' ? hold('index-proxy', [indexProxy.symbol]) :
     { id: 'index-proxy', ...unavailable('原始指数不能当可成交资产；需同池可交易指数 ETF、费用与规则证据') });
-  return report({ status: 'research-only', entries, window: { signalDate, entryDate: dates[options.start + 1], endDate: dates[options.end] },
+  // Run the original scanner on exactly the benchmark ledger window. A separate
+  // sensitivity experiment must not silently stand in for this strategy result.
+  const nativeStrategy = evidence.status !== 'not-evaluated' ? { ...ledgerSummary('native-strategy', ledgerBacktest(options)),
+    selection: 'existing-research-v2-universe-scanner', holdDays: options.holdDays } : { id: 'native-strategy', ...unavailable(evidence.reason) };
+  const comparisons = entries.map(entry => {
+    const comparable = nativeStrategy.status === 'research-only' && entry.status === 'research-only';
+    return { benchmark: entry.id, status: comparable ? 'descriptive-only' : 'not-evaluated',
+      netReturnDifferencePct: comparable ? nativeStrategy.metrics.returnPct - entry.metrics.returnPct : null,
+      drawdownDifferencePct: comparable ? nativeStrategy.metrics.maxDrawdownPct - entry.metrics.maxDrawdownPct : null,
+      reason: comparable ? null : entry.reason || nativeStrategy.reason || '缺少同窗可比较结果' };
+  });
+  return report({ status: 'research-only', entries, nativeStrategy, comparisons, window: { signalDate, entryDate: dates[options.start + 1], endDate: dates[options.end] },
     costModel: { ...costs(history), feeSource: history.feeSchedules ? 'dated-fee-schedule' : 'proportional-per-side',
       feeSchedules: history.feeSchedules || null, feeFingerprint: hash(history.feeSchedules || costs(history)) }, scope: symbols, frozenUniverse: membership ? frozenUniverse : null, executionEvidence: evidence,
     engine: 'existing-research-v2-position-ledger-backtest', dataFingerprint: hash(history),
     limitations: ['次日开盘、整手、T+1、涨跌停、流动性、公司行为及账户风控均复用原研究账本',
-      '等权为初始目标权重，整手与不可成交会留下现金；不按事后表现换股', '窗口末卖出受阻仍持仓估值，不伪造成交或扣成已结算收益', 'ETF 费用和限制必须由该工具原始输入提供；股票默认制度不构成 ETF 规则认证'] });
+      '等权为初始目标权重，整手与不可成交会留下现金；不按事后表现换股', '窗口末卖出受阻仍持仓估值，不伪造成交或扣成已结算收益',
+      '差值为原扫描策略减基准；回撤差值为负表示样本内回撤更小，不认证样本外增益',
+      'ETF 费用和限制必须由该工具原始输入提供；股票默认制度不构成 ETF 规则认证'] });
 }
 
 function sensitivityStudy(history, { scenarios } = {}) {
@@ -627,9 +702,12 @@ function diagnosticInputsFromEvents(events, history, { asOf = Date.now() } = {})
   }
   return { snapshots, pythonEvidence, source: 'first-server-receipt-native-inputs', nativeEvidenceCount: Object.keys(snapshots).length + Object.keys(pythonEvidence).length, exclusions };
 }
-async function runEvolutionDiagnostics({ history, snapshots = {}, pythonEvidence = {}, announcements = [], labels = [], cutoff, asOf = Date.now(), options = {} } = {}) {
+async function runEvolutionDiagnostics({ history, archive = {}, trustedPython = null, snapshots = {}, pythonEvidence = {}, announcements = [], labels = [], cutoff, asOf = Date.now(), options = {} } = {}) {
   if (!stamp(asOf)) throw Error('诊断截至时点无效');
-  if (!history) return unavailable('缺少封存历史，未执行模型或生成替代行情');
+  const deadlineAt = Date.now() + 45000;
+  const { modelCausalDiagnostics } = require('./evolution-model-causality');
+  if (!history) return unavailable('缺少封存行情；数值档案诊断与Python运行状态分别列示', {
+    modelCausality: await modelCausalDiagnostics({ archive, asOf, trustedPython, deadlineAt }) });
   boundedHistory(history);
   if (history.asOf > new Date(asOf + 28800000).toISOString().slice(0, 10)) return unavailable('历史行情晚于诊断查询时点');
   const { nativeCausalDiagnostics, indicatorPathDiagnostics } = require('./research-causal-diagnostics');
@@ -639,8 +717,12 @@ async function runEvolutionDiagnostics({ history, snapshots = {}, pythonEvidence
   const benchmarks = benchmarkComparison(history, options.benchmarks);
   await new Promise(resolve => setImmediate(resolve));
   const robustness = sensitivityStudy(history, options.sensitivity);
-  return report({ status: causal.status === 'fail' || indicators.some(x => x.status === 'fail') ? 'fail' : 'research-only', asOf,
-    dataFingerprint: hash(history), causal, indicators, benchmarks, robustness, inspectedConfigurations: robustness.inspectedConfigurations || 0 });
+  const modelCausality = await modelCausalDiagnostics({ archive, history, trustedPython, asOf,
+    cutoff: cutoff || history.stocks[0].bars.at(-2)?.date, deadlineAt });
+  return report({ status: causal.status === 'fail' || modelCausality.status === 'fail' || indicators.some(x => x.status === 'fail') ? 'fail' : 'research-only', asOf,
+    dataFingerprint: hash(history), causal, modelCausality,
+    allModelsCausalityVerified: causal.status === 'pass' && modelCausality.status === 'pass',
+    indicators, benchmarks, robustness, inspectedConfigurations: robustness.inspectedConfigurations || 0 });
 }
 module.exports = { buildEvolutionStatistics, runEvolutionDiagnostics, workspaceStatisticalRows, commonCohorts, strategyCompetition,
   fusionStudy, deflatedSharpe, probabilityOfBacktestOverfitting, blockBootstrap, tradeExpectation, benchmarkComparison, sensitivityStudy, overfittingStudy, readEvolutionTrialInputs, diagnosticInputsFromEvents, researchSignalDays };

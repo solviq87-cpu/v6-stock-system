@@ -120,7 +120,7 @@ function settlementNumeric(state,row,check){
     settlementFingerprint:fingerprint({entryPrice:row.entryPrice,exitPrice:row.exitPrice,shares:row.shares,cost:row.cost,pnl:row.pnl,
       pnlAmount:row.pnlAmount,returnBasis,originalSettlement:row.paperSettlement||null})}:null;
 }
-function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includeTest=false}={}) {
+function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includeTest=false,numericOnly=false}={}) {
   const cut=cutAt(asOf),end=instant(asOf);
   if(!cut||!Number.isFinite(end))return [];
   const allowTests=state.scope==='demo'||includeTest===true;
@@ -136,13 +136,17 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
     const signalKey=check?.code+'/'+check?.id;
     const numericFactors=numericSignals.has(signalKey)?null:settlementNumeric(state,r,check);
     if(numericFactors)numericSignals.add(signalKey);
-    manual.push({...r,numericFactors,factors:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
+    manual.push({...r,numericFactors,factors:numericOnly?[]:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
   }
+  if(numericOnly)return manual.filter(row=>row.numericFactors);
   const kr=kLearningRows(state,cut.replace('T',' '),{includeTests:allowTests,quality:selection});
   const k=kr.filter(r=>accept(r)&&cutAt(r.exitTime||r.exitDate+'T15:00')&&cutAt(r.exitTime||r.exitDate+'T15:00')<cut).map(r=>({...r,
     labelKnownAt:cutAt(r.exitTime||r.exitDate+'T15:00'),trend:r.trend||r.indexTrend||r.environment,factors:unique([...words(r.factors),...pressureLearningTags(state,r,r.decisionAt)])}));
   return [...manual,...k];
 }
+// Read-only diagnostics use the same settlement provenance and time gates as
+// candidate fitting; exposing this projection does not approve or persist a model.
+export function readLearningRows(state,asOf=Date.now(),{numericOnly=false}={}) { return rowsFor(state,asOf,true,{numericOnly}); }
 function factorSet(r) {
   const labelNames={cycle:'情绪',volume:'指数量能',indexPosition:'指数位置',breadth:'广度',resonance:'共振',theme:'题材',ladder:'梯队',identity:'辨识度',stockPosition:'个股位置',turnover:'换手',stockVolume:'个股量能',support:'承接',shape:'K线形态',structure:'平台结构',maState:'均线排列',volumeRun:'连续量能',relation:'量价关系',themeCycle:'题材周期',chipExchange:'筹码交换'};
   const tags=Object.entries(labelNames).filter(([k])=>r.labels?.[k]&&!['未记录','未判定','缺失','—'].includes(r.labels[k])).map(([k,l])=>l+'·'+r.labels[k]);

@@ -8,21 +8,28 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {evaluatePythonEvidence}=require('./python-three-round-evidence');
-function executePythonNative(history,{script,python='python3',timeoutMs=5000,maxOutputBytes=262144}={}){
+function executePythonNative(history,{script,python='python3',timeoutMs=5000,maxOutputBytes=262144,targetDates=null,totalTimeoutMs=null,expectedScriptSha256=null}={}){
  validateDataset(history);
  if(typeof script!=='string'||!path.isAbsolute(script)||!fs.statSync(script).isFile())throw Error('必须指定可信的Python原生策略脚本绝对路径');
  if(typeof python!=='string'||!/^(python3(?:\.\d+)?|python|[A-Za-z]:[\\/][\w .\\/-]+python(?:3(?:\.\d+)?)?\.exe|\/[\w./-]+)$/.test(python))throw Error('Python解释器路径无效');
  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>120000)throw Error('Python执行超时配置无效');
  if(!Number.isInteger(maxOutputBytes)||maxOutputBytes<1024||maxOutputBytes>1048576)throw Error('Python输出限制无效');
+ if(totalTimeoutMs!==null&&(!Number.isInteger(totalTimeoutMs)||totalTimeoutMs<100||totalTimeoutMs>120000))throw Error('Python总执行预算无效');
+ const dates=history.stocks[0].bars.map(b=>b.date);
+ if(targetDates!==null&&(!Array.isArray(targetDates)||!targetDates.length||targetDates.length>20||new Set(targetDates).size!==targetDates.length||targetDates.some(d=>!dates.includes(d))))throw Error('Python目标日期不属于封存历史');
  const scriptSha256=crypto.createHash('sha256').update(fs.readFileSync(script)).digest('hex');
+ if(expectedScriptSha256!==null&&(!/^[a-f0-9]{64}$/.test(expectedScriptSha256)||expectedScriptSha256!==scriptSha256))throw Error('Python原生脚本版本已变化');
+ const deadline=totalTimeoutMs===null?Infinity:Date.now()+totalTimeoutMs;
  const evidence={};let calls=0;
  for(const stock of history.stocks){
   const symbol=String(stock.symbol||stock.code);
   for(let i=0;i<stock.bars.length;i++){
    const date=stock.bars[i].date;
    if(!date)throw Error('Python原生执行要求带日期的行情');
+   if(targetDates!==null&&!targetDates.includes(date))continue;
+   const remaining=deadline-Date.now();if(remaining<1)throw Error('Python总执行预算已耗尽');
    const input=JSON.stringify({schemaVersion:1,symbol,date,observedThrough:date,source:history.source,bars:stock.bars.slice(0,i+1)});
-   const result=spawnSync(python,[script],{input,encoding:'utf8',timeout:timeoutMs,maxBuffer:maxOutputBytes,windowsHide:true,shell:false,env:{PATH:process.env.PATH||'',PYTHONDONTWRITEBYTECODE:'1'}});
+   const result=spawnSync(python,[script],{input,encoding:'utf8',timeout:Math.min(timeoutMs,remaining),killSignal:'SIGKILL',maxBuffer:maxOutputBytes,windowsHide:true,shell:false,env:{PATH:process.env.PATH||'',PYTHONDONTWRITEBYTECODE:'1'}});
    if(result.error)throw Error(`Python原生执行失败 ${symbol}/${date}: ${result.error.code||result.error.message}`);
    if(result.status!==0)throw Error(`Python原生执行退出异常 ${symbol}/${date}: code ${result.status}`);
    let output;try{output=JSON.parse(result.stdout);}catch{throw Error(`Python输出不是JSON ${symbol}/${date}`);}
@@ -32,6 +39,7 @@ function executePythonNative(history,{script,python='python3',timeoutMs=5000,max
    calls++;
   }
  }
+ if(crypto.createHash('sha256').update(fs.readFileSync(script)).digest('hex')!==scriptSha256)throw Error('Python原生脚本执行期间发生变化');
  return {evidence,execution:{mode:'operator-supplied-python-native',calls,script:path.basename(script),scriptSha256,verifiedStrategyRules:false,warning:'仅执行操作者明确提供的可信Python策略；需要单独审计其规则和数据来源'}};
 }
 module.exports={executePythonNative};

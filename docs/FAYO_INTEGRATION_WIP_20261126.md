@@ -165,3 +165,34 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
   - `V6_BO/public/nova/market.js` `348fab038f9e1a52b8e3c070eeb4817533fbcdf2`
 - 只保留原隔离组合版本标识、SW缓存和对应版本断言（源分支的独立版本号变更不移植），发布版本待最终统一；所有新增实际浏览器断言保留，不改CI workflow。前一批本地7项和18断言证据仅适用该批，不声称本批本地测试或全量已跑。源分支精确head原CI/UI均成功，源独立证据不认证组合。新组合必须按新精确SHA运行CI、全量、浏览器及后续真实验收。
 - 五维相似样本仍须与#357同标的同信号同档案版本绑定，#353结算证据、#356/#359风险合同、#361/#364/#365报价与通知保护及#363/#366增量继续保留；原18/20/22/23/29/48/78等缺口不因此关闭。真实运行、权限、源数据、物理设备及连续交易日验收未知。回退仅反向本批候选文件，保留原组分支、已有数据与原发布入口。
+
+## 2026-11-26 · #357 最新演化和诊断增量
+- 父 `e3af77f474b03bdf5063e72fc59c2d024395d16f`，源 `acf4a0ab407d516f167b308739823edfa9050866`，旧接入 `03d314dcec9c528d7fc46fe21c5a11939dc015d8`。原演化证据、六阶段流程、模型因果扰动/缺失、原生模型缓存和私有诊断边界及测试直接纳入（干净blob才整体采用）。共享learning保留原结算校验并增加只读numericOnly投影；server只增加原wireQuote读取、不改原始quoteAt及权限；共享worker在原预算和原多动作队列上新增固定错误消息映射，保留WORKSPACE_AUTH_REVOKED及WORKSPACE_AUTHORIZATION两种403；worker测试追加而非替换原目录/锁/fsync复核；工作流测试保留已有测试并追加原新hunk。
+- 保留#360更强的124步阶预热fixture和同种子反例（源#357也已覆盖该反例）；隔离应用、SW与前端版本标识不采用单组号。保留原组文档和验证记录，不把源组结果当组合结果。本批文件：
+  - `V6_BO/public/nova/evolution-view.js` `fecf9d37ee2973dc2d81ebb220e23f9d74c1c5cf`
+  - `V6_BO/public/nova/shortline/learning.mjs` `c03c623cf3b7d17f450c138d6d02e80aabb80447`
+  - `V6_BO/scripts/fayo-evolution-browser-check.js` `a29dfe5e733ca9394bc1ec10424cd85cf6624d32`
+  - `V6_BO/server.js` `445fee0d39a89132a0623ef5c35e218f78b901a6`
+  - `V6_BO/src/core/evolution-market-evidence.js` `d63d8da476c64e2172c7bab303a93fabd4ad8bd0`
+  - `V6_BO/src/core/evolution-model-causality.js` `b494f184da19575092b0ca8c72e3b1966e05f228`
+  - `V6_BO/src/core/evolution-operating-evidence.js` `8abd81af4e10da860ba30ca66e6d30da3531f35f`
+  - `V6_BO/src/core/evolution-research-statistics.js` `b155d750ec60e18dd01340e320ff84aea4be1d43`
+  - `V6_BO/src/core/evolution-workflow.js` `78fc43a50ea66e623182764f07a89066723783e0`
+  - `V6_BO/src/core/intelligence-evolution.js` `17367fd11f062a6f47efd9af103b241f9265bbb6`
+  - `V6_BO/src/core/python-native-bridge.js` `c3f8a861309ca1e6e93226aacc58f4ad00993057`
+  - `V6_BO/src/server/evolution-http.js` `3b84b5053fec2a190d98a57942593df018e76a0a`
+  - `V6_BO/src/server/research-workspace-job.js` `315548b234c85e7e48cf2c1cc4816434f93f8a2e`
+  - `V6_BO/tests/evolution-http.test.js` `06d165fb8a4be9cb5fedffd6083592651b75d307`
+  - `V6_BO/tests/evolution-market-safety.test.js` `a3adda01bed3d133cda353aa44fc085b8832a796`
+  - `V6_BO/tests/evolution-model-cache.test.js` `56ce48a635ebc74c0b5199050c1ca117008f4791`
+  - `V6_BO/tests/evolution-model-causality.test.js` `ebf5afad94ba85a7e75d98908cd7f6533328a1aa`
+  - `V6_BO/tests/evolution-operating-evidence.test.js` `5eb949e0bf84f1bddf2a04a615e5d03326488145`
+  - `V6_BO/tests/evolution-operating-safety.test.js` `f320765be5f11d38a85cec755d3f02c1cbc93147`
+  - `V6_BO/tests/evolution-sources-http.test.js` `b8bc94e187d714e00325d8650e2c84f5f620ad8b`
+  - `V6_BO/tests/evolution-statistics.test.js` `0fb293fb56c7457d4d0ef9bc67e3cc4226038d0b`
+  - `V6_BO/tests/evolution-workflow-worker.test.js` `7f48b32c43bc3e4547c5f8e919bd10a75b76b20a`
+  - `V6_BO/tests/evolution-workflow.test.js` `5ab1b00fd34b89dd870e418b6a9294f77115ff0a`
+  - `V6_BO/tests/python-native-bridge.test.js` `ebfdd869342c6cb0dd8b886006f094f95cad5bd0`
+  - `docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md` `d5aadfc3afea8844f8ab2763727317c54cc8d142`
+  - `docs/validation/fayo-evolution-20261126/README.md` `b3b3523dd978c10dc2976d2e28bf6fcfd692cc61`
+- 本批使用GitHub精确blob及唯一上下文hunk合并；本地仅前批隔离测试已实际执行，本批尚未本地运行，需新SHA CI/全量/浏览器。五维相似样本与#358原研究截点正式绑定仍待，#359/#361后续共享合同及原18/20/22/23/29/48/78采样保留未验收。生产、外部数据及真实运行未认证。回退只反向候选增量，不改原数据、分支、发布入口或执行锁。
