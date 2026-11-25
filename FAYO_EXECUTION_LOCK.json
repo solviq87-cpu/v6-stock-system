@@ -21,7 +21,7 @@
     "previousBlobSha": "289feb254d21491cf71160a39589ef96f4551769",
     "previousExecutionStoppedVerified": false
   },
-  "checkpointSha": "3c1b7e4d3d0ec51a54df8a24d90b141e5b6a5dfc",
+  "checkpointSha": "ffd80165d28a5ae3716f62dca6c913d2e6111531",
   "checkpointPr": 368,
-  "checkpointNote": "Existing isolated integration candidate; CI and final dev merge pending. Continue by verifying current exact head and read-only recovery records. This does not authorize production release or take ownership."
+  "checkpointNote": "Current isolated unified integration: tasks 67-78 source and interfaces, original locked authorization and reconciliation, failure-inclusive runtime windows, and shared worker budget. Verify current head's full CI and remaining exact PR deltas. No final acceptance or production release."
 }
