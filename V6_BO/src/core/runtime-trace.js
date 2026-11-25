@@ -8,7 +8,9 @@ const {isMainThread}=require('node:worker_threads');
 const STAGES=new Set(['task.tick','task.pool','market.snapshot','market.universe','market.history',
  'factor.evaluate','strategy.evaluate','candidate.publish','risk.entry','risk.notification',
  'paper.transaction','paper.publish','paper.buy','paper.sell','notification.digest',
- 'notification.queue','notification.attempt','notification.delivery','research.stage']);
+ 'notification.queue','notification.attempt','notification.delivery','research.stage',
+ 'task.decision-background','task.decision-evidence','market.financials','risk.plan-context',
+ 'risk.plan-observation','risk.plan-persist','notification.dispatch']);
 const GROUPS=['market','factor','strategy','candidate','risk','paper','notification'];
 const CODES=new Set(['STAGE_FAILED','SOURCE_UNAVAILABLE','RISK_REJECTED','BUSINESS_REJECTED',
  'NO_CHANGE','NOTIFICATION_BLOCKED','QUEUE_FULL','DELIVERY_UNKNOWN','DELIVERY_FAILED',

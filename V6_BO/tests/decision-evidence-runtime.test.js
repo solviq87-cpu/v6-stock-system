@@ -75,3 +75,37 @@ test('unbound legacy history remains delegated and never starts a competing coll
  await x.runtime.tickHistory();assert.equal(x.counts().collections,0);
  await x.runtime.tick();assert.equal(x.counts().writes,1);
 });
+
+test('plan trace measures committed observation, not delivery; read-only and duplicate alerts do not dispatch',async()=>{
+ const {createRuntimeTrace}=require('../src/core/runtime-trace');
+ const trace=createRuntimeTrace({clock:()=>time});
+ const x=setup({trace});x.set({primary:false,configured:true});await x.runtime.tick();
+ assert.equal(trace.read().spans.length,0);
+ x.set({primary:true});await x.runtime.tick();await x.runtime.tick();
+ assert.equal(x.counts().writes,2);assert.equal(x.counts().sends,1);
+ const rows=trace.read().spans,roots=rows.filter(r=>r.stage==='task.decision-evidence');
+ assert.equal(roots.length,2);
+ for(const root of roots){
+  const stages=rows.filter(r=>r.traceId===root.traceId&&r.parentSpanId===root.spanId);
+  assert.ok(stages.some(r=>r.stage==='risk.plan-context'));
+  assert.ok(stages.some(r=>r.stage==='risk.plan-observation'));
+  assert.ok(stages.some(r=>r.stage==='risk.plan-persist'));
+ }
+ const dispatched=rows.filter(r=>r.stage==='notification.dispatch');
+ assert.equal(dispatched.length,1);assert.equal(dispatched[0].status,'unknown');
+ assert.equal(dispatched[0].reasonCode,'DELIVERY_UNKNOWN');
+ assert.equal(rows.some(r=>r.stage==='notification.delivery'),false);
+ assert.equal(trace.read().active,0);
+});
+test('persistence failure traces the failed original stage and never creates a dispatch span',async()=>{
+ const {createRuntimeTrace}=require('../src/core/runtime-trace');
+ const trace=createRuntimeTrace({clock:()=>time});
+ const x=setup({trace,store:{async append(){throw Error('private persistence detail');}}});
+ x.set({configured:true});await x.runtime.tick();
+ const rows=trace.read().spans;
+ assert.equal(rows.find(r=>r.stage==='risk.plan-persist').status,'failed');
+ assert.equal(rows.find(r=>r.stage==='task.decision-evidence').status,'failed');
+ assert.equal(rows.some(r=>r.stage.startsWith('notification.')),false);
+ assert.equal(x.counts().sends,0);assert.equal(trace.read().active,0);
+ assert.doesNotMatch(JSON.stringify(rows),/private persistence detail/);
+});

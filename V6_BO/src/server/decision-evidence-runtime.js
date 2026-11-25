@@ -1,4 +1,5 @@
 'use strict';
+const runtimeTrace=require('../core/runtime-trace');
 const {planIdOf}=require('../core/paper-decision-plan');
 
 // A past plan is relevant only while its original purchase lot is still held.
@@ -19,7 +20,7 @@ function selectActivePlans(plans,book,day){
 }
 // The scheduler observes frozen research plans. It has no order mutation API.
 function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArchive,readContext,
-  observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory}) {
+  observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory,trace=runtimeTrace}) {
   let plans=[],loadedAt=0,epoch=0,observing=false,collecting=false,historyKey='',attempts=0,nextHistoryAt=0;
   const state={status:'waiting',lastObservedAt:null,lastAttemptAt:null,lastSuccessAt:null,planCount:0,activePlanCount:0,lastError:null,
     history:{status:typeof collectHistory==='function'?'waiting':'delegated',owner:typeof collectHistory==='function'?'legacy-optional':'decision-center-background',day:null,attempts:0}};
@@ -31,6 +32,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     const initial=session(clock());
     if(!initial.continuous)return status();
     observing=true;state.lastAttemptAt=clock();
+    return trace.async('task.decision-evidence',async root=>{
     try{
       if(!loadedAt||clock()<loadedAt||clock()-loadedAt>=60000){
         const version=epoch,archive=await readArchive();
@@ -40,17 +42,22 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
         plans=archive.state.plans.filter(p=>p.decisionAuthority==='fayo-decision-center');
         loadedAt=clock();state.planCount=plans.length;
       }
-      if(!plans.length){state.status='no-plans';state.activePlanCount=0;state.lastError=null;return status();}
-      const context=await readContext(plans),now=clock(),current=session(now);
+      if(!plans.length){root.mark('skipped','NO_CANDIDATE');state.status='no-plans';state.activePlanCount=0;state.lastError=null;return status();}
+      const context=await trace.async('risk.plan-context',()=>readContext(plans)),now=clock(),current=session(now);
       if(!isPrimary()||!current.continuous||current.day!==initial.day)return status();
       const observedAt=context.now??now;
       if(!Number.isSafeInteger(observedAt)||observedAt>now||now-observedAt>15000)throw Error('原报价观察上下文已过期');
       const activePlans=selectActivePlans(plans,context.book,current.day);
       state.activePlanCount=activePlans.length;
-      if(!activePlans.length){state.status='no-active-plans';state.lastError=null;return status();}
-      const result=observe({...context,plans:activePlans,day:current.day,now:observedAt,continuous:current.continuous});
+      if(!activePlans.length){root.mark('skipped','NO_CANDIDATE');state.status='no-active-plans';state.lastError=null;return status();}
+      const result=trace.sync('risk.plan-observation',span=>{
+        const value=observe({...context,plans:activePlans,day:current.day,now:observedAt,continuous:current.continuous});
+        if(!value.records.length)span.mark('unknown','SOURCE_UNAVAILABLE');
+        return value;
+      });
       if(!isPrimary())return status();
-      const committed=await store.append({records:result.records,alerts:result.alerts,now:observedAt});
+      const committed=await trace.async('risk.plan-persist',()=>store.append({records:result.records,alerts:result.alerts,now:observedAt}));
+      if(!result.records.length)root.mark('unknown','SOURCE_UNAVAILABLE');
       state.status=result.records.length?'observing':'missing-current-evidence';
       state.lastObservedAt=observedAt;state.lastError=null;
       if(result.records.length)state.lastSuccessAt=observedAt;
@@ -59,11 +66,17 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
         // after restart, a missing webhook, a role change or an uncertain send.
         if(!isPrimary()||!privateReady()||clock()-alert.quoteAt>15000)continue;
         if(session(clock()).day!==alert.day||!session(clock()).continuous)continue;
-        try{await sendPrivate(alert);}catch{/* The existing private channel owns delivery receipts. */}
+        try{await trace.async('notification.dispatch',async span=>{
+          const accepted=await sendPrivate(alert);
+          // Callback completion is not a gateway receipt or actual delivery.
+          if(accepted===false)span.mark('blocked','NOTIFICATION_BLOCKED');
+          else if(accepted!==true)span.mark('unknown','DELIVERY_UNKNOWN');
+        });}catch{/* The existing private channel owns delivery receipts. */}
       }
-    }catch(error){state.status='evidence-unavailable';state.lastError=String(error?.message||'观察证据暂不可用').slice(0,180);}
+    }catch(error){root.fail(error);state.status='evidence-unavailable';state.lastError=String(error?.message||'观察证据暂不可用').slice(0,180);}
     finally{observing=false;}
     return status();
+    });
   }
   async function tickHistory(){
     if(collecting||!isPrimary()||typeof collectHistory!=='function'||typeof historyDay!=='function'||typeof historySymbols!=='function')return status();

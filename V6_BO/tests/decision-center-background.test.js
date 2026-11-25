@@ -106,3 +106,20 @@ test('a new trading day clears retries but continues the bounded archive scan cu
   await worker.tick();now+=86400000;day='20261126';await worker.tick();
   assert.deepEqual(cursors,[0,40]);
 });
+
+test('actual background collection and incomplete receipts use one bounded parent trace without extra dispatch',async()=>{
+ const {createRuntimeTrace}=require('../src/core/runtime-trace');
+ let now=Date.parse('2026-11-25T16:00:00+08:00'),calls=0;
+ const trace=createRuntimeTrace({clock:()=>now});
+ const worker=createDecisionCenterBackground({trace,clock:()=>now,enabled:()=>true,isPrimary:()=>true,
+  session:()=>({openDay:true,trading:false,minute:960,day:'20261125'}),candidates:()=>['600000'],
+  collectHistory:async()=>{calls++;return {ok:false,privatePayload:'must not enter trace'};},
+  collectFinancials:async()=>assert.fail('history must retain priority')});
+ await worker.tick();await worker.tick();
+ assert.equal(calls,1);
+ const rows=trace.read().spans,root=rows.find(r=>r.stage==='task.decision-background'),stage=rows.find(r=>r.stage==='market.history');
+ assert.ok(root&&stage);assert.equal(root.traceId,stage.traceId);assert.equal(stage.parentSpanId,root.spanId);
+ assert.equal(stage.status,'unknown');assert.equal(root.status,'unknown');
+ assert.equal(trace.read().active,0);
+ assert.doesNotMatch(JSON.stringify(rows),/600000|must not enter trace/);
+});
