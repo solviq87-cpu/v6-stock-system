@@ -11535,6 +11535,15 @@ function centerEvidenceEnabled(){
   catch{return false;}
 }
 let decisionEvidenceRuntime,decisionPlanObservationStore;
+// A bounded projection of receipts already produced by the original plan
+// observer. The risk GET never starts a second archive scan or execution path.
+let advancedOriginalPlanReceipts=null;
+function advancedOriginalPortfolioContext(now){
+  const current=advancedOriginalPlanReceipts;
+  if(!current||isReplica()||!isContinuousTrading()||current.day!==aShareCalendarDate(now)||
+    current.checkedAt>now||now-current.checkedAt>5000)return {plans:{pool:[],pre:[]},planChecks:{pool:{},pre:{}},classifications:{}};
+  return {plans:{pool:current.plans,pre:[]},planChecks:{pool:current.checks,pre:{}},classifications:{}};
+}
 function planObservationStore(){
   return decisionPlanObservationStore??=require('./src/core/paper-plan-observation-store').createPaperPlanObservationStore({
     root:path.join(shortlineResearchDir(),'plan-observations'),canWrite:()=>!isReplica()&&centerEvidenceEnabled()});
@@ -11611,6 +11620,8 @@ function centerEvidenceRuntime(){
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
+      advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
+        checks:Object.fromEntries(activePlans.slice(0,20).map(plan=>[plan.id,entryEligibilityByPlan[plan.id]]))};
       return {book,quotes,calendar:paperAuthorityCalendar,entryEligibilityByPlan,exitEligibilityByPlan,now};
     },
     observe:input=>{
@@ -22858,13 +22869,16 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     }catch{return reply(422,{ok:false,status:'unknown',error:'新闻证据不可用、完整性校验失败或查询参数无效'});}
   }
   if(p==='/api/research/order-account'){
-    if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
+    res.setHeader('Cache-Control','no-store');
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='POST')return reply(405,{ok:false,error:'仅允许POST'});
     if(!requireEditor(res,req.__tok,req))return;
     try{
       const b=JSON.parse(body||'{}');if(!/^[A-Za-z0-9_-]{1,40}$/.test(b.accountId||''))throw Error('账户ID无效');
-      if(isReplica()&&!['read','audit','risk-evidence-status','preview-risk-evidence-import'].includes(b.action))throw Error('副本实例禁止写入权威订单账户');
+      const readOnly=['read','audit','reconcile','risk-evidence-status','preview-risk-evidence-import'].includes(b.action);
+      if(isReplica()&&!readOnly)throw Error('副本实例禁止写入权威订单账户');
       const file=path.join(process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts'),b.accountId+'.json');
-      const service=require('./src/core/paper-application-service').createPaperApplicationService({file,calendar:paperAuthorityCalendar});
+      const service=require('./src/core/paper-application-service').createPaperApplicationService({file,calendar:paperAuthorityCalendar,readOnly});
       let result;
       if(b.action==='initialize')result=service.initialize(b.initialCash);
       else if(b.action==='submit')result=service.submit(b.order,{riskContext:b.riskContext});
@@ -22876,11 +22890,17 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       else if(b.action==='configure')result=service.configure(b.configuration);
       else if(b.action==='settle')result=service.settle(b.settlement,b.expectedRevision);
       else if(b.action==='audit')result=service.audit(b.pagination);
+      else if(b.action==='reconcile')result=service.reconcile();
+      else if(b.action==='set-defense'){
+        if(Buffer.byteLength(body||'','utf8')>4096)throw Error('防御审批请求过大');
+        const actor='editor-'+require('node:crypto').createHash('sha256').update(String(req.__tok||'original-local-editor')).digest('hex').slice(0,20);
+        result=service.setDefensiveControl({expectedRevision:b.expectedRevision,state:b.state,reason:b.reason,acknowledge:b.acknowledge,actor});
+      }
       else if(b.action==='cancel')result=service.cancel(b.orderId,b.eventId);
       else if(b.action==='read')result=service.read();
       else throw Error('未知账户操作');
-      return json(res,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
-    }catch(e){return json(res,{ok:false,error:String(e.message).slice(0,200)},400);}
+      return reply(200,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
+    }catch(e){return reply(400,{ok:false,error:String(e.message).slice(0,200)});}
   }
   if (p==='/api/research/stock-observation-status') {
     if(!requireEditor(res,req.__tok,req))return;
@@ -22965,11 +22985,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if(u.searchParams.get('advanced')!=='1')return reply(200,{ok:true,result});
       // Add an optional read-only projection, using existing editor and role gates.
       const requestAt=Date.now(),day=aShareCalendarDate(requestAt),replica=isReplica();
-      const codes=require('./src/core/monitor-capacity').heldCodes(PAPER);
+      const portfolioContext=replica?{}:advancedOriginalPortfolioContext(requestAt);
+      const codes=[...new Set([...require('./src/core/monitor-capacity').heldCodes(PAPER),...(portfolioContext.plans?.pool||[]).map(plan=>plan.code)])].slice(0,220);
       const quotes=replica?{}:require('./src/core/advanced-account-risk').selectAdvancedRiskQuotes({
         codes,stocks:S.stocks,lastPx:S.lastPx,now:requestAt,limitFor:limitPctOfCode});
       return require('./src/server/advanced-account-risk-job').runAdvancedAccountRiskJob({
         root:path.resolve(process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts')),
+        historyRoot:path.resolve(centerHistoryDir()),portfolioContext,
         day,requestAt,replica,marketOpen:paperAuthorityCalendar.isOpen(day)===true,continuous:isContinuousTrading(),quotes})
         .then(advancedAccounts=>{
           if(!requireEditor(res,req.__tok,req))return;

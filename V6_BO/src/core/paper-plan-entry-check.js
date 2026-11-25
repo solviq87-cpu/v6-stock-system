@@ -8,9 +8,15 @@ const {createFillEvidence} = require('./paper-fill-evidence');
 function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot, feeFor} = {}) {
   const {now, quote, book, account, policy, equity, plan} = input;
   const result = (allowed, reason, extra = {}) => ({allowed, reason, checkedAt: now,
-    quoteAt: quote?.quoteAt ?? null, accountRevision: book?.revision ?? null,
+    quoteAt: quote?.quoteAt ?? null,quotePrice:quote?.price??null,quoteSource:quote?.quoteSource??null,accountRevision: book?.revision ?? null,
+    planId:plan?.id??null,decisionId:plan?.decisionId??null,
+    maxPositionPct:Number.isFinite(plan?.maxPosition)&&Number.isFinite(input.authoritative?.plan?.positionPct)?Math.min(plan.maxPosition,input.authoritative.plan.positionPct):null,
     scope: 'original-paper-account-observation', ...extra});
   if (!book || typeof feeFor !== 'function') return result(null, '原账户预检资料尚未齐备');
+  try {
+    if(require('./account-safety-state').defensiveStatus(book).state==='restricted')
+      return result(false,'原账户防御状态限制新增风险，尚未取得明确解除审批');
+  } catch { return result(null,'原账户防御状态完整性尚未核验'); }
   const reachedBuy = Symbol('original-plan-adapter-accepted');
   try {
     const checked = executeDecisionPlan({...input, readBook: () => book, buy() { throw reachedBuy; }});

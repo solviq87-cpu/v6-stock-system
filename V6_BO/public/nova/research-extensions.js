@@ -1,5 +1,6 @@
 import {readAutomatic,automaticSummary} from './automatic-research.js';
 import { tacticsCenter } from './tactics-view.js';
+import {renderAdvancedAccountRisk} from './advanced-risk-view.js';
 /* Additional native research paths. Every action is explicit and uses the
    existing service contract; no legacy page/controller is loaded. */
 import {h,button,section,field,note,empty,table,format,dateTime,safeLink} from './ui.js';
@@ -46,25 +47,6 @@ function strategyDashboard(ctx){
   return h('div',{class:'fy-stack'},facts([['读取时点',dateTime(data.updatedAt)],['市场状态',data.regime],['评分口径', '现有策略引擎；原始时点和默认字段需单独核对']]),deck,details);
  });return p.root;
 }
-function advancedAccountRisk(data){
- const valid=data?.mode==='advanced-account-risk-readonly'&&data.canTrade===false&&data.writesAccount===false;
- const root=section('权威模拟账户 · 退出与对账观察','原账户服务读校验与只读派生证据；可卖量、费用估计均非成交保证，完整对账和正式执行仍以原后台为准。');
- if(!valid){root.append(note('高级账户风险证据尚未取得；保留未知。'));return root;}
- root.append(facts([['读取状态',({observed:'已读取，非完整对账',incomplete:'部分证据不足',replica:'副本，需核对原主实例',busy:'已有读取任务，未排队',timeout:'读取超时','role-changed':'实例角色已变化'})[data.status]||'证据不足'],['本进程读取样本',data.telemetry?.sampleCount],['读取 P50 / P95 (ms)',data.telemetry?.sampleCount?val(data.telemetry.p50Ms)+' / '+val(data.telemetry.p95Ms):'未知']]));
- const fmt=x=>finite(x)?format(x,2):'未知';
- for(const a of arr(data.accounts)){
-  const title=a.account==='pool'?'精选模拟账户':a.account==='pre'?'预选模拟账户':'原模拟账户';
-  const box=section(title,a.status==='observed-unverified'?'原账本版本 '+val(a.revision)+' · '+dateTime(a.checkedAt):'原账户校验或诊断证据不足，不据此执行任何操作。');
-  box.append(facts([['对账观察',a.originalReadValidation===true?'通过原读取校验，未完成全量对账':'未知 / 需核对'],['现金',fmt(a.cash)],['估计冻结资金',fmt(a.reservedCash)],['估计可用资金',fmt(a.availableCash)],['原始报价权益估计',fmt(a.equity)]]));
-  const rows=arr(a.positions);
-  box.append(rows.length?table([{label:'代码',value:x=>x.symbol},{label:'持有',value:x=>val(x.quantity)},{label:'可卖批次',value:x=>val(x.sellable)},{label:'卖单冻结',value:x=>val(x.orderFrozen)},{label:'假设一次退出费用',value:x=>fmt(x.estimatedFee)},{label:'原始报价',value:x=>x.quoteAt?dateTime(x.quoteAt)+' / '+val(x.quoteStatus):'未知'}],rows):empty(a.status==='observed-unverified'?'原账本未发现持仓':'持仓未知'));
-  const alerts=[...arr(a.alerts),...rows.flatMap(row=>arr(row.alerts))];
-  if(alerts.length)box.append(h('details',{class:'fy-details'},h('summary',{},'风险依据与解除条件 · '+alerts.length),...alerts.map(x=>h('article',{class:'fy-item'},h('strong',{},val(x.object)+' · '+({critical:'严重',high:'高',warning:'警告'})[x.severity]),facts([['触发依据',x.basis],['当前限制',x.restriction],['建议检查',x.check],['解除条件',x.release]])))));
-  root.append(box);
- }
- root.append(note('交易时段外不会产生执行意图；流动性容量、实际市场冲击与成交能力仍待原历史/盘口证据。'));
- return root;
-}
 function riskCenter(ctx){
  const p=pane(ctx,'交叉风险观察','市场来源、手工持仓、新闻修订与研究状态共同核对。缺失项保持未知。');
  p.action('读取交叉风险证据',()=>ctx.api('/api/research/risk-center?advanced=1',{signal:ctx.signal,timeoutMs:15000}),data=>{
@@ -72,7 +54,7 @@ function riskCenter(ctx){
   const q=r.market?.quotes,summary=metric([['近期原始报价',q?q.recent+' / '+q.total:'未知'],['过期报价',q?.stale??'未知'],['未来时点',q?.future??'未知'],['缺失时点',q?.unknown??'未知']]);
   const holdings=r.manualHoldings||{},news=r.news||{};
   const items=h('div',{class:'fy-grid'},...[[r.supports,'已有观察'],[r.contra,'冲突与限制'],[r.missing,'缺失证据']].map(([rows,title])=>section(title,'',rows.length?h('ul',{},rows.map(row=>h('li',{},row.message||'证据说明未知'))):empty('尚无充分证据'))));
-  return h('div',{class:'fy-stack'},summary,items,advancedAccountRisk(r.advancedAccounts),section('手工持仓观察','成本和权重来自手工申报，不表示已读取真实账户。',table([{label:'代码',value:x=>x.symbol},{label:'成本涨跌',value:x=>finite(x.drawdownFromCostPct)?format(x.drawdownFromCostPct)+'%':'未知'},{label:'申报仓位',value:x=>finite(x.weightPct)?format(x.weightPct)+'%':'未知'}],arr(holdings.positions))),section('新闻证据修订','撤稿和已替代版本不能继续作为支持依据。',facts([['当前事件',news.summary?.currentEvents],['已撤稿',news.summary?.retractedEvents],['未知事件',news.summary?.unknownEvents]]),...arr(news.rows).map(row=>h('article',{class:'fy-item'},h('strong',{},row.title||'标题未知'),h('p',{},val(row.source)+' · '+(row.current?'当前版本':'已被后续替代')+' · '+dateTime(row.publishedAt)),row.url&&safeLink(row.url,'原始来源')))),facts([['研究代理',r.researchAgent?.status],['代理资料日',r.researchAgent?.sourceDay],['策略衰减',r.strategyDecay?.reason||'证据不足，保持未知'],['生成',dateTime(r.generatedAt)]]));
+  return h('div',{class:'fy-stack'},summary,items,renderAdvancedAccountRisk(ctx,r.advancedAccounts,{onChanged:message=>p.invalidate(message)}),section('手工持仓观察','成本和权重来自手工申报，不表示已读取真实账户。',table([{label:'代码',value:x=>x.symbol},{label:'成本涨跌',value:x=>finite(x.drawdownFromCostPct)?format(x.drawdownFromCostPct)+'%':'未知'},{label:'申报仓位',value:x=>finite(x.weightPct)?format(x.weightPct)+'%':'未知'}],arr(holdings.positions))),section('新闻证据修订','撤稿和已替代版本不能继续作为支持依据。',facts([['当前事件',news.summary?.currentEvents],['已撤稿',news.summary?.retractedEvents],['未知事件',news.summary?.unknownEvents]]),...arr(news.rows).map(row=>h('article',{class:'fy-item'},h('strong',{},row.title||'标题未知'),h('p',{},val(row.source)+' · '+(row.current?'当前版本':'已被后续替代')+' · '+dateTime(row.publishedAt)),row.url&&safeLink(row.url,'原始来源')))),facts([['研究代理',r.researchAgent?.status],['代理资料日',r.researchAgent?.sourceDay],['策略衰减',r.strategyDecay?.reason||'证据不足，保持未知'],['生成',dateTime(r.generatedAt)]]));
  },{needEdit:true});return p.root;
 }
 function legacyBacktest(ctx){

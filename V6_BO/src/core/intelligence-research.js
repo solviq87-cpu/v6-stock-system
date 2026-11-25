@@ -222,6 +222,10 @@ function recordView(row) {
   return {code: String(row?.code || row?.symbol || ''), day: row?.day || row?.date, market: row?.market || 'CN',
     adjustment: canonicalAdjustment(originalAdjustment), originalAdjustment, source: row?.source || row?.provider || null,
     upstreamGroup: row?.upstreamGroup, knownAt: row?.knownAt ?? row?.retrievedAt ?? row?.receivedAt ?? null,
+    // A quarantined receipt can become usable only after a later reviewed
+    // admission. Keep the source/receipt clocks intact; availability is a
+    // separate clock and must also be respected by historical decisions.
+    availableAt: row && Object.hasOwn(row,'availableAt') ? row.availableAt : row?.knownAt ?? row?.retrievedAt ?? row?.receivedAt ?? null,
     observedAt: row?.observedAt ?? row?.sourceTimestamp ?? null, currency: row?.currency || null,
     volumeUnit: row?.volumeUnit || null, amountUnit: row?.amountUnit || null,
     open: row?.open, high: row?.high, low: row?.low, close: row?.close, volume: row?.volume, amount: row?.amount,
@@ -273,7 +277,7 @@ function auditCenterInputs(records = [], {purpose = 'backtest', now = Date.now()
   const expected = config.adjustment[purpose], groups = new Map(), rejected = [], admitted = [];
   const calendars = Object.fromEntries(Object.entries(marketCalendars).map(([market, value]) => [market, calendarView(value, now, market)]));
   for (const original of records) {
-    const row = recordView(original), known = instant(row.knownAt), observed = instant(row.observedAt);
+    const row = recordView(original), known = instant(row.knownAt), observed = instant(row.observedAt), available = instant(row.availableAt);
     const identity = sourceIdentity(row);
     const sessionClose = purpose === 'liveExecution' ? null : marketClose(calendars[row.market], row.market, row.day);
     let reason = !real(original) ? 'non-real-sample' :
@@ -283,6 +287,7 @@ function auditCenterInputs(records = [], {purpose = 'backtest', now = Date.now()
       identity.market && identity.market !== 'GLOBAL' && identity.market !== row.market ? 'source-market-mismatch' :
       known === null || observed === null ? 'missing-original-time' :
       known > now || observed > known ? 'future-or-backdated-time' :
+      available === null || available < known || available > now ? 'unavailable-or-backdated-admission' :
       row.observationKind === 'historical-daily-bar' && !capturedHistoricalBar(row) ? 'invalid-historical-receipt-evidence' :
       chinaDay(observed) !== row.day && row.market === 'CN' && !capturedHistoricalBar(row) ? 'source-day-mismatch' :
       purpose !== 'liveExecution' && sessionClose === null ? 'missing-market-close-evidence' :
@@ -322,7 +327,7 @@ function auditCenterInputs(records = [], {purpose = 'backtest', now = Date.now()
     comparisons.push(comparison);
     if (matched.length) {
       const representative = [...matched].sort((a, b) => instant(b.knownAt) - instant(a.knownAt) || a.source.localeCompare(b.source))[0];
-      admitted.push({...reference(representative), consensusKnownAt: Math.max(...matched.map(row => instant(row.knownAt))),
+      admitted.push({...reference(representative), consensusKnownAt: Math.max(...matched.map(row => instant(row.availableAt))),
         supportingSources: [...support], evidence: matched.map(reference), canTrade: false});
     }
     for (const row of rows.filter(row => !support.has(row.source))) rejected.push({code, day, source: row.source,

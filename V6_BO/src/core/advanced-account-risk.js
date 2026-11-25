@@ -4,6 +4,7 @@
 const {quoteUseEligibility,quoteSnapshotFields}=require('./quote-observation-view');
 const {tradingFees}=require('./trading-fees');
 const {exitRisk}=require('./advanced-portfolio-evidence');
+const {reconcileAccountSnapshot,defensiveStatus}=require('./account-safety-state');
 const MAX_HOLDINGS=220;
 const qty=x=>Number.isSafeInteger(x)&&x>=0;
 const num=x=>typeof x==='number'&&Number.isFinite(x);
@@ -38,7 +39,7 @@ function selectAdvancedRiskQuotes({codes,stocks,lastPx,now,limitFor}){
  }
  return out;
 }
-function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quotes={}}={}){
+function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quotes={},portfolioContext,portfolioContextStatus}={}){
  if(!['pool','pre'].includes(account)||!dateOk(day)||!Number.isSafeInteger(now)||now<=0||typeof marketOpen!=='boolean'||typeof continuous!=='boolean'||continuous&&!marketOpen)return unavailable(account,'INVALID_CONTEXT');
  if(!book||book.paperOnly!==true||book.brokerConnected!==false||!Number.isSafeInteger(book.revision)||book.revision<1||!book.account||!num(book.account.cash)||book.account.cash<0||!book.orders||typeof book.orders!=='object'||Array.isArray(book.orders)||!book.account.positions||typeof book.account.positions!=='object'||Array.isArray(book.account.positions)||!Array.isArray(book.account.events))return unavailable(account,'INVALID_BOOK');
  const entries=Object.entries(book.account.positions),orders=Object.values(book.orders);
@@ -74,7 +75,7 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   let total=0,eligible=0,reservedLots=0;
   for(const lot of p.lots){
    const reserved=lot?.reserved??0;
-   if(!qty(lot?.quantity)||!qty(reserved)||reserved>lot.quantity||!dateOk(lot.buyDate)||lot.buyDate>day||lot.sellableDate!=null&&(!dateOk(lot.sellableDate)||lot.sellableDate<=lot.buyDate))return unavailable(account,'INVALID_LOT');
+   if(!qty(lot?.quantity)||!qty(reserved)||reserved>lot.quantity||!dateOk(lot.buyDate)||lot.buyDate>day||lot.sellableDate!=null&&(!dateOk(lot.sellableDate)||lot.sellableDate<lot.buyDate))return unavailable(account,'INVALID_LOT');
    total+=lot.quantity;reservedLots+=reserved;
    if(lot.sellableDate?lot.sellableDate<=day:lot.buyDate<day)eligible+=lot.quantity-reserved;
   }
@@ -103,9 +104,23 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
  if(!feesComplete)alerts.push(issue('CASH_RESERVATION_UNKNOWN','high','原待买委托费率或预算证据不足',account,'不确认可用资金；建议核对原委托','核对生效费率及未终结委托','原冻结资金可核对'));
  const marksComplete=markedCount===positions.length&&num(markedValue);
  if(!marksComplete)alerts.push(issue('VALUATION_UNKNOWN','high','缺少逐股可用原始报价',account,'不确认当前权益及仓位','核对原报价门禁','全部持仓取得合规原始报价'));
- return {account,status:'observed-unverified',revision:book.revision,checkedAt:now,day,marketOpen,continuous,originalReadValidation:true,
+ const result={account,status:'observed-unverified',revision:book.revision,checkedAt:now,day,marketOpen,continuous,originalReadValidation:true,
   completeReconciliation:false,diagnosticChecks:'order-fill-identity/lot-quantity/reservation',cash:book.account.cash,reservedCash:feesComplete?money(reservedCash):null,
   availableCash:feesComplete?money(book.account.cash-reservedCash):null,equity:marksComplete?money(book.account.cash+markedValue):null,
   positions,alerts,canTrade:false,writesAccount:false};
+ result.reconciliation=reconcileAccountSnapshot(book,{tradeDate:day});
+ try{result.defensive=defensiveStatus(book);}catch{result.defensive={state:'unknown',reason:'DEFENSIVE_STATE_UNAVAILABLE',originalEntryGatesRemain:true};}
+ // Selecting a few live quotes must not load the historical research engine
+ // into the server request path. The actual report is evaluated in the worker.
+ try{result.portfolioEvidence=require('./advanced-portfolio-runtime').buildAdvancedPortfolioReport({book,diagnostic:result,account,day,now,quotes,portfolioContext,portfolioContextStatus});}
+ catch{result.portfolioEvidence={status:'unknown',reason:'PORTFOLIO_EVIDENCE_UNAVAILABLE',canTrade:false,writesAccount:false,automaticSwitch:false};}
+ for(const row of positions){
+  const extra=result.portfolioEvidence.exits?.find(x=>x.symbol===row.symbol);
+  if(!extra)continue;
+  row.estimatedMarketImpact=extra.estimatedMarketImpact;row.conditionalSessions=extra.conditionalSessions;row.estimatedExitCost=extra.estimatedExitCost;
+  row.historicalDailyShares=extra.historicalDailyShares;row.liquidityEvidence=extra.liquidityEvidence;row.scenarioVersion=extra.scenarioVersion;
+  row.alerts=[...row.alerts.filter(a=>a.code!=='LIQUIDITY_EXIT'),...(extra.alerts||[]).filter(a=>a.code==='LIQUIDITY_EXIT')];
+ }
+ return result;
 }
 module.exports={selectAdvancedRiskQuotes,accountExitDiagnostics,unavailable};
