@@ -2357,3 +2357,48 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-home-featured .fy-home-pick-why{font-size:13px}
  .fy-home-layout>.fy-terminal-title{display:none}
 }
+
+/* Daily decisions lead both entry points; the complete research workspace follows. */
+.fy-home-layout>.fy-terminal-title{display:none}
+.fy-battle-home{grid-column:1/-1;min-width:0;display:grid;gap:10px;padding:16px;border:1px solid #725075;border-radius:14px;background:linear-gradient(140deg,#28152d,#151b32 78%);color:#f5eafa}
+.fy-battle-heading,.fy-battle-weather,.fy-battle-open,.fy-battle-actions,.fy-linked-sector header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fy-battle-heading h1{font-size:24px;margin:0;line-height:1.25}.fy-battle-heading small{color:#c6b2ce;font-size:12px}
+.fy-battle-weather{justify-content:flex-start;border:1px solid #675175;background:#2a233c;border-radius:10px;padding:9px 12px;min-width:0}
+.fy-battle-weather strong{white-space:nowrap;font-size:17px}.fy-battle-weather p{margin:0;font-size:13px;line-height:1.5}
+.fy-weather-light{flex:0 0 12px;height:12px;border-radius:50%;background:#e6bb76;box-shadow:0 0 13px #e6bb7644}
+.fy-battle-weather[data-tone="green"] .fy-weather-light{background:#7edabf;box-shadow:0 0 13px #7edabf55}
+.fy-battle-weather[data-tone="red"] .fy-weather-light{background:#fa90b1;box-shadow:0 0 13px #fa90b155}
+.fy-battle-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
+.fy-battle-card{min-width:0;border:1px solid #705074;border-radius:12px;background:#1b1b31;padding:12px;display:flex;flex-direction:column;gap:7px}
+.fy-battle-card[data-selected="true"]{border-color:#f1a7d3;box-shadow:0 0 0 1px #f1a7d3}
+.fy-battle-open{border:0;background:none;color:inherit;text-align:left;padding:0;width:100%;min-height:42px;cursor:pointer}
+button.fy-battle-open{display:flex;margin:0;box-shadow:none;border-radius:6px}
+.fy-battle-open>span:first-child{display:grid;gap:2px}.fy-battle-open strong{font-size:18px}.fy-battle-open small{font-size:11px;color:#cab7d2}
+.fy-battle-score{flex:0 0 auto;color:#ffd1e8;font-size:25px;font-weight:750;text-align:right}.fy-battle-score small{display:block;font-weight:400}
+.fy-battle-tags{display:flex;gap:6px;flex-wrap:wrap;font-size:11px}.fy-battle-tags>*{border-radius:5px;padding:3px 6px;background:#34263f;color:#e8c4ef}.fy-battle-tags b{background:#53304c;color:#ffd4ec}
+.fy-battle-reason{margin:0;line-height:1.5;font-size:13px;overflow-wrap:anywhere}
+.fy-battle-plan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:2px 0;padding:9px 0;border-block:1px solid #42324f}
+.fy-battle-plan dt{color:#cab7d2;font-size:11px}.fy-battle-plan dd{margin:3px 0 0;font-size:15px;font-variant-numeric:tabular-nums;font-weight:650;overflow-wrap:anywhere}
+.fy-battle-mini{height:54px;display:flex;align-items:center;min-width:0}.fy-battle-mini svg{width:100%;height:54px}
+.fy-battle-source{color:#b9a8c8;font-size:10px;line-height:1.4;overflow-wrap:anywhere}.fy-battle-actions{margin-top:auto;gap:6px}.fy-battle-actions .fy-button{min-height:35px;padding:5px 9px;font-size:12px}
+.fy-battle-actions .primary{background:#a84d80;color:#fff;border-color:#e7a4d1}.fy-battle-status{margin:0;color:#c4b2d0;font-size:11px}
+.fy-battle-empty{grid-column:1/-1;border:1px dashed #785c81;border-radius:10px;padding:22px;text-align:center;min-width:0}.fy-battle-empty strong{font-size:20px}.fy-battle-empty p{font-size:13px;color:#ccbcd5;margin:8px 0 0}
+.fy-battle-checklist{border-top:1px solid #503c5d;padding-top:10px}.fy-battle-checklist summary{cursor:pointer;font-size:15px;line-height:1.4}.fy-battle-checklist summary>span{font-size:12px;color:#c5b4cf;margin-left:14px}.fy-battle-checklist ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 20px;padding:0 0 0 20px;margin:8px 0 0}.fy-battle-checklist li{font-size:12px;padding-left:2px}.fy-battle-checklist li strong,.fy-battle-checklist li span{display:block;line-height:1.5}.fy-battle-checklist li span{color:#c5b4cf}
+.fy-battle-checklist>.fy-button{margin-top:6px;font-size:12px;min-height:30px}
+.fy-battle-evidence summary{font-size:12px;color:#cab9d4;cursor:pointer}.fy-battle-evidence p{font-size:12px;margin:6px 0;line-height:1.5}
+.fy-battle-tools{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px}.fy-battle-tools>*{min-width:0}
+.fy-battle-stock-nav{display:none;gap:4px;overflow:auto}.fy-battle-stock-nav button{white-space:nowrap;font-size:12px;min-height:30px;padding:4px 7px}
+.fy-linked-sector{min-width:0;border:1px solid #65456c;border-radius:10px;padding:11px;background:#252037}.fy-linked-sector p{font-size:13px;margin:6px 0}.fy-linked-sector small{color:#c5afd0;font-size:11px}.fy-linked-sector header{flex-wrap:wrap}
+.fy-paper-decision .fy-field input{width:100%;min-width:0}.fy-paper-decision input[readonly]{color:#cbbbd4;background:#252236}.fy-paper-decision .fy-button{margin:8px 7px 0 0}.fy-paper-decision .fy-selection-identity{font-size:17px;font-weight:650}
+.fy-stock-conclusion{margin:8px 16px;padding:9px 12px;border-left:3px solid #7edabf;border-radius:7px;background:#25233a}.fy-stock-conclusion p{margin:3px 0;font-size:13px;line-height:1.5}.fy-stock-conclusion small{font-size:11px;color:#c4b2d0}.fy-stock-conclusion[data-tone="amber"]{border-color:#e6bb76}.fy-stock-conclusion[data-tone="red"]{border-color:#fa90b1}
+@media(max-width:760px){
+ .fy-battle-home{padding:10px;gap:7px;border-radius:11px}.fy-battle-heading h1{font-size:20px}.fy-battle-heading small{font-size:11px}
+ .fy-battle-weather{padding:7px 9px;flex-wrap:wrap;gap:5px 8px}.fy-battle-weather p{font-size:12px;flex:1;min-width:160px}
+ .fy-battle-cards{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;gap:9px;padding:1px 1px 5px}
+ .fy-battle-card{flex:0 0 calc(100% - 12px);scroll-snap-align:start;padding:9px;gap:3px}.fy-battle-card:only-child{flex-basis:100%}
+ .fy-battle-stock-nav{display:flex}.fy-battle-stock-nav[hidden]{display:none}.fy-battle-reason{font-size:12px}.fy-battle-plan{padding:6px 0;gap:5px 10px}.fy-battle-plan dd{font-size:14px}
+ .fy-battle-mini,.fy-battle-mini svg{height:30px}.fy-battle-source{font-size:10px}.fy-battle-empty{width:100%;padding:20px 12px}
+ .fy-battle-checklist{grid-row:3;padding-top:5px}.fy-battle-checklist summary{font-size:13px}.fy-battle-checklist summary>span{display:block;margin:3px 0 0;font-size:11px}
+ .fy-battle-checklist ol{grid-template-columns:minmax(0,1fr);gap:4px}.fy-battle-checklist li strong{display:inline;margin-right:6px}.fy-battle-checklist li span{display:inline}
+ .fy-battle-tools{grid-template-columns:minmax(0,1fr)}.fy-battle-status{font-size:10px}.fy-paper-decision .fy-grid{grid-template-columns:minmax(0,1fr)}
+}

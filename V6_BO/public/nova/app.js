@@ -4,6 +4,7 @@ import {h,button,field,formButton,icon,note,empty,dateTime,dayLabel} from './ui.
 import {createClient,getSession,saveSession,deviceId,retainMarket,createSnapshotPoller} from './client.js';
 import {renderPulse,renderOpportunities,createStockDrawer,rowsFrom,POOLS,renderDailyReview,reviewDate,projectClosingWorkspace} from './market.js';
 import {renderTerminalOverview,renderReferenceReview} from './terminal-workbench.js';
+import {createDecisionSelection,workflowDay} from './decision-workflow.js';
 
 const root=document.getElementById('fayo-root');
 const quoteTrail=createQuoteTrail();
@@ -102,7 +103,31 @@ function findStock(code) {
  const candidates=[...rowsFrom(state?.dashboard?.rows),...rowsFrom(state?.pool),...rowsFrom(state?.trendPool),...rowsFrom(state?.ztPool),...rowsFrom(state?.ztReviewPool),...[...poolCache.values()].flatMap(value=>rowsFrom(value.items||value))];
  return candidates.find(row=>row.code===code)||null;
 }
-function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
+const decisionSelection=createDecisionSelection(),routeMemory=new Map();
+let renderedRouteKey='';
+function selectStock(code,row,trigger){
+ if(!role)return;
+ selectedStock=code;
+ const source=row||findStock(code)||{};
+ const at=source.vendorQuoteAt??source.quoteAt;
+ const day=workflowDay(source.workflowDay||source.poolDay||source.tradeDate)||
+  (Number.isSafeInteger(at)&&at>0&&at<=Date.now()?new Date(at+28800000).toISOString().slice(0,10):null);
+ if(!day||!decisionSelection.select({...source,code,day,row:source}))decisionSelection.clear();
+ drawer.open(code,row,trigger);
+}
+function selectDecision(candidate,trigger,{open=true}={}){
+ if(!role)return null;
+ const selected=decisionSelection.select(candidate);
+ if(!selected){decisionSelection.clear();selectedStock='';drawer?.close();notify('候选的股票或日期已变化，请刷新后重选。');return null;}
+ selectedStock=selected.code;
+ if(open)drawer.open(selected.code,selected.row,trigger);
+ return selected;
+}
+function prefillPaper(candidate){
+ if(role!=='edit')return;
+ if(!selectDecision(candidate,null,{open:false}))return;
+ drawer?.close();navigate('assets','paper');
+}
 async function readPool(key,loader,{append=false}={}) {
  const [kind,board]=key.split(':');
  const archived=board==='all'&&!append&&state?.closeSession?.cards?.[kind];
@@ -117,8 +142,9 @@ async function readPool(key,loader,{append=false}={}) {
 function context(signal) {
  return {
   get state(){return ['pulse','opportunities'].includes(route.view)?projectClosingWorkspace(state):state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
-  get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
-  signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
+  get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},get selection(){return decisionSelection.value;},
+  signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,selectDecision,prefillPaper,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
+  onSelection(fn){return decisionSelection.subscribe(fn,signal);},
   quoteTrail,readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
   onFastMoves(fn){fastMoveListeners.add(fn);signal?.addEventListener('abort',()=>fastMoveListeners.delete(fn),{once:true});}
  };
@@ -190,8 +216,14 @@ function createFrame() {
 }
 async function renderRoute() {
  if(!role||!main)return;
+ if(renderedRouteKey&&!main.querySelector('[data-pending-route]')){
+  routeMemory.set(renderedRouteKey,{scroll:window.scrollY,details:[...main.querySelectorAll('details')].filter(node=>node.open)
+   .map(node=>node.id||node.querySelector('summary')?.textContent).filter(Boolean)});
+  if(routeMemory.size>20)routeMemory.delete(routeMemory.keys().next().value);
+ }
  route=parseRoute();if(route.view==='lab'&&!workspaceIndex.has('lab/'+route.sub))route.sub='desk';routeController?.abort();listeners.clear();fastMoveListeners.clear();fastFrame=null;fastReadAt=0;routeController=new AbortController();
  const controller=routeController,ctx=context(controller.signal);
+ const memoryKey=JSON.stringify(route),remembered=routeMemory.get(memoryKey);
  frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
   route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
  const sub=route.sub||({opportunities:'ranked',assets:'overview',inbox:'all',settings:'preferences'}[route.view]||'');
@@ -240,6 +272,12 @@ async function renderRoute() {
    main.replaceChildren(view);
    if(route.view==='lab'){const extra=await import('./research-extensions.js');if(!controller.signal.aborted)extra.appendResearchExtensions(view,route,ctx);}
   }
+  renderedRouteKey=memoryKey;
+  if(remembered)requestAnimationFrame(()=>{
+   if(controller.signal.aborted)return;
+   for(const node of main.querySelectorAll('details'))node.open=remembered.details.includes(node.id||node.querySelector('summary')?.textContent);
+   requestAnimationFrame(()=>{if(!controller.signal.aborted)window.scrollTo({top:remembered.scroll,behavior:'instant'});});
+  });
  }catch(error){if(controller.signal.aborted)return;main.replaceChildren(empty('该工作空间暂时未能打开',error.message),button('重新打开',renderRoute));notify(error.message,'error');}
 }
 async function refresh(manual=false,{showSuccess=true}={}) {
@@ -257,7 +295,13 @@ async function refresh(manual=false,{showSuccess=true}={}) {
   for(const listener of [...listeners])try{listener(state,{manual});}catch(error){console.error('FAYO view update failed',error.name);}
   drawer?.update?.({manual});
   if(manual&&showSuccess)notify('已读取云端状态，报价原始时点见页面');
- }catch(error){if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();if(manual)notify(error.message,'error');}
+ }catch(error){
+  if(!role||controller?.signal.aborted)return;online=false;snapshotStatus();
+  // Re-evaluate display freshness even while the retained snapshot cannot refresh.
+  for(const listener of [...listeners])try{listener(state,{manual:false,offline:true});}catch{}
+  drawer?.update?.({manual:false});
+  if(manual)notify(error.message,'error');
+ }
  finally{refreshBusy=false;if(refreshWanted){const queued=refreshWanted;refreshWanted=false;if(role)refresh(true,queued);}}
 }
 async function refreshAutomatically() {
@@ -279,6 +323,7 @@ async function refreshAutomatically() {
  }finally{fastBusy=false;}
 }
 function logout(message='') {
+ decisionSelection.clear();routeMemory.clear();renderedRouteKey='';
  gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;quoteTrail.clear();poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {

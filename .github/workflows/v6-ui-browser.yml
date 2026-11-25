@@ -11,6 +11,8 @@ on:
       - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-battle-browser-check.js'
+      - 'V6_BO/src/core/paper-decision-command.js'
       - 'V6_BO/scripts/fayo-operations-browser-check.js'
       - 'V6_BO/scripts/fayo-manual-loop-browser-check.js'
       - 'V6_BO/scripts/fayo-kline-learning-browser-check.js'
@@ -50,6 +52,8 @@ on:
       - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-battle-browser-check.js'
+      - 'V6_BO/src/core/paper-decision-command.js'
       - 'V6_BO/scripts/fayo-operations-browser-check.js'
       - 'V6_BO/scripts/fayo-manual-loop-browser-check.js'
       - 'V6_BO/scripts/fayo-kline-learning-browser-check.js'
@@ -172,6 +176,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/fayo-browser-check.js
+          node scripts/fayo-battle-browser-check.js
           node scripts/fayo-operations-browser-check.js
           node scripts/fayo-source-review-browser-check.js
           node scripts/fayo-manual-loop-browser-check.js
@@ -227,6 +232,7 @@ jobs:
             echo ''
             echo 'Chrome 真实排版 + 隔离本地测试数据；320/375/390/393/430/1024 手机及 1366/1536/1920 电脑 CSS 视口。'
             echo '新FAYO独立应用：五空间导航、机会看板、股票抽屉、登录/撤权、休市空响应保留、19个原生业务分区、确认计划冻结；320/390/768/1366/1920实际排版。'
+            echo '今日作战台专项：320/390 /m、1366 /；5秒候选与空仓、最多3票/共振、同股同日三处联动、旧图竞态、返回恢复、只预填零委托、原账户规则提交、未知回执锁重试、未配置飞书零发送。'
             echo '随后运行保留旧页面的历史回归（含原七项底栏）；历史通过不作为新产品认证。截图见本次 Artifacts（7天保留）。'
             echo ''
             echo '**未做**：线上 WorkBuddy 实际部署，iOS Safari/Android 真机触摸体验，股票报价真实性、飞书送达，用户对新粉紫设计的视觉确认。'

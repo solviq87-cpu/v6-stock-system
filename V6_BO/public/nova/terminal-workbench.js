@@ -7,6 +7,7 @@ import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,pro
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier,recoveredMetric} from './market-evidence.js';
 import {createTradingHome,homeEmpty,adaptivePanel} from './home-layout.js';
 import {renderCloseReview} from './close-review.js';
+import {createBattleHome} from './battle-home.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -346,7 +347,8 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
    strategiesPanel,decisionsHost,riskPanel,syncPanel,mobileLinks,quick);
   const more=h('details',{class:'fy-home-research'},h('summary',{},h('strong',{},'更多研究'),
    h('span',{},'复盘、策略与同步')),researchBody);
-  view.append(title,home.market,home.opportunity,home.risk,more);
+  const battle=createBattleHome(ctx);
+  view.append(title,battle.element,home.market,home.opportunity,home.risk,more);
   if(ctx.canEdit===true){
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);

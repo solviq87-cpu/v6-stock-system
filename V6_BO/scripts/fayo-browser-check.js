@@ -412,7 +412,11 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'home-20261123-2');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'battle-20261125-1');
+   const battle=page.locator('[data-battle-home]');
+   assert.equal(await battle.count(),1,'the current home includes the decision workbench');
+   assert.match(await battle.locator('.fy-battle-empty').innerText(),/今天空仓，等待信号/,
+    'historical synthetic fixtures never become live buy candidates');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
@@ -445,7 +449,8 @@ const runChecks=async()=>{
    assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.risk.bottom);
    if(width>=1000)assert.equal(regions.opportunity.top,regions.risk.top);
    else assert.ok(regions.opportunity.bottom<=regions.risk.top);
-   if(width===1366)assert.ok(regions.risk.top<page.viewportSize().height-50,'risk is visible alongside all recommendations on desktop');
+   if(width===1366)assert.ok(regions.risk.width>0&&regions.risk.bottom>regions.risk.top,
+    'the original risk panel remains available below the new decision workbench');
    const rgb=v=>v.match(/\d+/g).slice(0,3).map(Number);
    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
    assert.ok(rr>rg&&gg>gr,'index quotes retain red-up / green-down semantics');

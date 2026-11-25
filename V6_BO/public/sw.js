@@ -2,9 +2,10 @@
 // market prices must always come from the server, including after revocation.
 const APP_VER = '20261123ab';
 const CACHE_PREFIX = 'quant-dashboard-m-';
-const CACHE_NAME = CACHE_PREFIX + APP_VER + '-daily-workflow-1';
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261123ab-daily1', '/nova/app.js?v=20261123ab-daily1', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js',
-  '/nova/automatic-research.js', '/nova/stock-roles.js', '/nova/dabanke-view.js', '/nova/shortline/context.mjs'];
+const CACHE_NAME = CACHE_PREFIX + APP_VER + '-battle-workflow-1';
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261123ab-battle1', '/nova/app.js?v=20261123ab-battle1', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js',
+  '/nova/battle-home.js', '/nova/battle-model.js', '/nova/decision-workflow.js', '/nova/workflow-tools.js',
+  '/nova/automatic-research.js', '/nova/stock-roles.js', '/nova/dabanke-view.js', '/nova/shortline/context.mjs', '/nova/shortline/sample-quality.mjs'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))

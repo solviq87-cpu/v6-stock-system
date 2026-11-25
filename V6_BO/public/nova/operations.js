@@ -2,6 +2,8 @@ import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
 import {renderManualLoop} from './manual-loop.js';
+import {renderPaperDraft} from './decision-workflow.js';
+import {renderExecutionScore} from './workflow-tools.js';
 /* FAYO operations: independent presentation over the existing account authority.
    No old page, controller, stylesheet or account replica is embedded here. */
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -114,6 +116,7 @@ function holdings(ctx,risk=false) {
 function holdingHistory(ctx) {if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});host.append(asyncRegion(ctx,()=>request(ctx,'/api/holdings/ops?n=100'),(data,reload)=>el('div',{class:'fy-stack'},panel('资产变更轨迹','服务端留存的变更与备份，恢复前可先核对时间。',table([['发生时间',row=>date(row.at||row.ts||row.time)],['操作',row=>text(row.action||row.type||row.op)],['资产',row=>text(row.code||arr(row.codes).join('、'))],['记录',row=>text(row.note||row.msg||row.detail)]],arr(data.ops))),panel('可恢复快照','恢复会替换当前资产簿，操作前需要确认。',arr(data.snapshots).length?el('div',{class:'fy-list'},arr(data.snapshots).map(snapshot=>{const file=typeof snapshot==='string'?snapshot:snapshot.file||snapshot.name;return el('article',{class:'fy-item'},el('strong',{},text(file)),el('span',{},date(snapshot.at||snapshot.ts||snapshot.time)),action('恢复这一份',()=>review(ctx,host,'恢复资产簿快照',text(file)+' 将替换当前资产簿，请核对快照日期与账户。',()=>mutation(ctx,'/api/holdings/restore',{file},reload)),'danger'));})):empty('当前没有可恢复快照')))));return host;}
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
+  if(!ledger)host.append(renderPaperDraft(ctx));
   host.append(asyncRegion(ctx,()=>request(ctx,ledger?'/api/paper/ledger':'/api/paper'),(data,reload)=>{
     const records=data.paper||{};return el('div',{class:'fy-stack'},['pool','pre'].map(key=>{
       const account=records[key];if(!account)return panel(key==='pool'?'策略跟踪账户':'机会预选账户','',empty('账户数据尚未返回'));
@@ -124,6 +127,7 @@ function paper(ctx,ledger=false) {
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
       card.append(el('h3',{},'已实现收益曲线'),el('small',{},'按成交日累计，单位为元，未计持仓浮盈。'),
         curve.length?priceLine(curve,'模拟账户已实现收益曲线',{timeLabel:p=>p.day}):empty('暂无可核实的成交流水'));
+      if(key==='pool')card.append(renderExecutionScore(ctx,{accountKey:key,account}));
       card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
       card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
       const audit=account.audit||{};card.append(notice(audit.replica?'当前是副本视图，账户以主实例为准。':audit.ok===true?'账户与流水核对通过':audit.incomplete?'对账证据不完整，保留未知。':audit.note||'账户对账状态待核验'));

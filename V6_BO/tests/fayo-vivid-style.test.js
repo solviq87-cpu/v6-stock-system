@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const css=fs.readFileSync(path.resolve(__dirname,'../public/nova/fayo.css'),'utf8');
 const browser=fs.readFileSync(path.resolve(__dirname,'../scripts/fayo-browser-check.js'),'utf8');
+const battleBrowser=fs.readFileSync(path.resolve(__dirname,'../scripts/fayo-battle-browser-check.js'),'utf8');
 const design=css.slice(css.lastIndexOf('/* V6 compact professional terminal'));
 function luminance(hex){
  const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
@@ -24,7 +25,8 @@ test('phone contains eight real counters in two compact rows with source/risk la
  assert.match(design,/\.fy-terminal-priorities\{order:3/);
  assert.match(design,/\.fy-terminal-index\{order:5/);
  assert.match(browser,/regions\.sourceCount,8/);
- assert.match(browser,/regions\.risk\.top<page\.viewportSize/);
+ assert.match(battleBrowser,/result\.weather\.bottom<result\.height/);
+ assert.match(battleBrowser,/result\.plan\.bottom<result\.height-50/);
  assert.match(browser,/boxes\[0\]\.top,boxes\[2\]\.top/);
  assert.match(design,/\.fy-terminal-provenance/);
  assert.match(design,/\.fy-terminal-priority-risk/);

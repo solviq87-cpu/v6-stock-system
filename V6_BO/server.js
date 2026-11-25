@@ -13921,6 +13921,7 @@ function pushDigest(kind) {
 
 // ---------------- 4.5 模拟盘：双账户自动交易（A跟单池10万 / B预选盘50万） ----------------
 const PAPER_FILE = path.join(__dirname, 'paper.json');
+const {paperDecisionPolicy,submitPaperDecision}=require('./src/core/paper-decision-command');
 // 账户配置：tp 止盈线 / sl 止损线 / expireDays 持有N个【交易日】且收益<2%则换股 / maxPos 最大同时持仓
 // ⛔ 2026-10-07 改（本轮角度：以为是一回事、其实是两回事的时间点）：这里原写「N 个自然日」，
 //    代码也照着用 `(Date.now() - buyTs)/86400000` 数自然日 —— 两边一致，但**语义本身是错的**：
@@ -14932,6 +14933,7 @@ function paperSnap(key, pmPaper) {
   const eq = paperEquity(key, pmPaper);
   return {
     enabled: acc.enabled, name: cfg.name, initial: cfg.initial, cash: acc.cash, realized: acc.realized,
+    policy:typeof paperDecisionPolicy==='function'?paperDecisionPolicy(cfg,{atrMultiplier:ATR_STOP_K,atrStopMaxPct:ATR_STOP_MAX_PCT}):null,
     equity: +eq.toFixed(2), marketValue: +(eq - acc.cash).toFixed(2),
     totalPnl: +(eq - cfg.initial).toFixed(2), totalPct: +((eq / cfg.initial - 1) * 100).toFixed(2),
     positions: Object.values(acc.positions).map(pp => {
@@ -23623,6 +23625,19 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     try {
       const c = JSON.parse(body || '{}');
       if(!requireEditor(res,c.token,req))return;
+      if(c.action==='submitDecision'){
+        if(Buffer.byteLength(body||'','utf8')>8192)return json(res,{ok:false,status:'blocked',filled:false,queued:false,error:'模拟决策请求超过8KiB'});
+        return submitPaperDecision(c,{
+          now:()=>Date.now(),isReplica,isContinuousTrading,
+          policy:key=>paperDecisionPolicy(PAPER_CFG[key],{atrMultiplier:ATR_STOP_K,atrStopMaxPct:ATR_STOP_MAX_PCT}),
+          candidates:()=>Array.isArray(S.candidatePool)?S.candidatePool:[],
+          newsBlocked:code=>S.news?.badCodes?.has?.(code)===true,
+          readAccount:key=>{refreshPaperAuthority(true);return {account:PAPER[key],revision:_paperAuthorityRevision[key]};},
+          executionQuotes:paperAuthorityQuotes,
+          skipCounts:()=>({..._skipTally.by}),skipLabel:skipWhy,
+          execute:(key,candidate,reason)=>paperBuy(key,[candidate],paperPrices(),()=>reason)
+        }).then(result=>json(res,result),()=>json(res,{ok:false,status:'receipt-unavailable',filled:null,queued:false,error:'模拟决策回执不可用，请刷新权威账户核对后再操作。'}));
+      }
       refreshPaperAuthority();
       const key = c.account === 'pre' ? 'pre' : 'pool';
       if (c.action === 'reset') {

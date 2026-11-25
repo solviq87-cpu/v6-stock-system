@@ -88,7 +88,8 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   const parsed=JSON.parse(status.body);assert.ok(typeof parsed==='object');
   assert.ok(!Object.hasOwn(parsed,'devPwd')&&!Object.hasOwn(parsed,'viewPwd'));
   const index=await get(p,'/');assert.equal(index.status,200);assert.match(index.body,/<!doctype html|<html/i);
-  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/close-review.js','/nova/tactics.js','/nova/fayo.css']) {
+  for (const asset of ['/sw.js','/nova/app.js','/nova/client.js','/nova/ui.js','/nova/market.js','/nova/market-evidence.js','/nova/close-review.js','/nova/tactics.js','/nova/fayo.css',
+    '/nova/battle-home.js','/nova/battle-model.js','/nova/decision-workflow.js','/nova/workflow-tools.js']) {
     const response=await get(p,asset);
     assert.equal(response.status,200,'release asset must be reachable: '+asset);
     assert.match(response.headers['cache-control'],/no-store/,'release asset must bypass the HTTP cache: '+asset);
