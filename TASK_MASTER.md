@@ -1,8 +1,8 @@
 # 天枢智策 V6｜统一任务总表
 
-## 2026-11-26 · 六组66项工程：风险中心组登记
+## 2026-11-26 · 风险中心组登记与总管交接
 
-本组负责 **01、02、03、04、05、14、30**，已落实际后端、原生双端视图和专项测试，交付 [PR #359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。组内回归/浏览器及精确提交 CI 见 [本轮验证](docs/validation/fayo-risk-20261126/README.md)，逐项代码、测试、接口与未完成依赖见 [风险组合同](docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md)。连续全历史最大回撤、未暴露的外部资金流、策略组新结果 adapter 和真实接收确认仍明确未知。其他59项不由本组重复建设，不能由本组七项的隔离结果推定全部66项完成。第一组在最终合并版本建立统一清单、检查六组依赖并重跑完整验证。生产部署及真实送达未验收。
+本组负责 **01、02、03、04、05、14、30**，已落实际后端、原生双端视图和专项测试，交付 [PR #359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。组内回归/浏览器及精确提交 CI 见 [本轮验证](docs/validation/fayo-risk-20261126/README.md)，逐项代码、测试、接口与未完成依赖见 [风险组合同](docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md)。连续全历史最大回撤、未暴露的外部资金流、策略组新结果 adapter 和真实接收确认仍明确未知。其他原任务沿用原编号和负责人，不由本组重复建设；本组七项的隔离结果不能推定全部任务完成。总管在最终合并版本建立统一清单、检查六组依赖并重跑完整验证。生产部署及真实送达未验收。
 
 > 2026-11-15 新授权覆盖双主页冻结：完整正式 UI、Windows/WSL 安全更新与免费私网访问的当前验收入口是 [UI_REDESIGN_ACCEPTANCE.md](UI_REDESIGN_ACCEPTANCE.md)、[ZERO_COST_HOST_DEPLOYMENT.md](ZERO_COST_HOST_DEPLOYMENT.md)、[SAFE_AUTO_UPDATE_OPERATIONS.md](SAFE_AUTO_UPDATE_OPERATIONS.md)。下文是历史任务账，不代表本次生产已上线；真实用户设备、账户迁移与重启恢复仍待现场验收。
 

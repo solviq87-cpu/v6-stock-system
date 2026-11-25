@@ -16,7 +16,7 @@
 
 本文所列代码和测试入口存在于本组工作区；列出测试名称不表示该测试已在最终集成 SHA 运行。没有根据本文确认生产部署、线上恢复、GitHub CI、实盘或真实消息送达。现场结论必须分别绑定精确 SHA、实际节点、授权配置和真实回执。
 
-第一组负责最终集成。其他组的草稿 PR 在本次只读核对中没有被合并、覆盖、重写或标记验收通过。最终集成必须重新读取最新 dev 和各 PR 的当前 HEAD。
+2026-11-26 用户将原第一组的最终集成职责移交给新建的“绯曜 FAYO｜总管与最终交付”。总管统一任务总表、最终集成、合并安排、验收和交付跟踪；本组继续原七项并提交独立 PR，不独立安排主线合并。当前没有合并或生产发布进行中，既有唯一发布机制保持，不新建发布入口。其他组的草稿 PR 在本次只读核对中没有被合并、覆盖、重写或标记验收通过。最终集成必须重新读取最新 dev 和各 PR 的当前 HEAD。
 
 ## 2. 单一权威与原门禁复用
 
@@ -256,7 +256,7 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | [#356 高级资金风险](https://github.com/solviq87-cpu/v6-stock-system/pull/356) | d50395972e9ae693a37e934dab785234c654e250 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/d50395972e9ae693a37e934dab785234c654e250/docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。现已包含原只读 advancedAccounts 接线与原写锁安全修复；server.js 增量扩展 /api/research/risk-center?advanced=1，另有受限 worker。权益/可卖/冻结/费用需核对同一原快照，不能成为第二套生效风控。锁协议升级另需停写，不能混跑新旧写者，本组没有替代其锁修复。 |
 | [#357 智能增强](https://github.com/solviq87-cpu/v6-stock-system/pull/357) | 9a1132264a191091ea526cba698177f2b5d0c703 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/9a1132264a191091ea526cba698177f2b5d0c703/docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)。returnStudy.expectation、similarCases.neighbours / excursions 和因果诊断属于成熟信号纸面研究；净期望、尾部样本均值和区间高低不能替代实际成交、连续账户回撤、概率认证或止盈止损触发顺序。 |
 
-#356 的 advancedAccounts.mode 为 advanced-account-risk-readonly，各账户使用 account、revision、checkedAt、equity、sellable、orderFrozen 等字段；当前不是 fayo-risk-workbench-v1，也没有本组完整 epoch / 封存权益协议。第一组如接入，必须保留现有消费者兼容，验证同一账户、原修订/指纹与时间后生成单一适配结果。无法证明同一原快照时保持独立“未核验诊断”，不能覆盖本组 equity、rules 或 actions。
+#356 的 advancedAccounts.mode 为 advanced-account-risk-readonly，各账户使用 account、revision、checkedAt、equity、sellable、orderFrozen 等字段；当前不是 fayo-risk-workbench-v1，也没有本组完整 epoch / 封存权益协议。总管如接入，必须保留现有消费者兼容，验证同一账户、原修订/指纹与时间后生成单一适配结果。无法证明同一原快照时保持独立“未核验诊断”，不能覆盖本组 equity、rules 或 actions。
 
 #356 的 cashFlowPerformance 需要每次外部资金流前后原权益边界；本组当前原账户未暴露此类事件，不能用 reset、相邻采样或人为归因凑出 TWR / XIRR。其 tailRisk 需要同日对齐历史总收益，其单标签行业/题材分组也不能替换本组多题材重叠。两组固定压力假设均须保留版本、范围和未校准说明。
 
@@ -268,9 +268,11 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 
 以本组冻结源码的独立临时 Git index 快照运行 `git merge-tree --write-tree`；没有修改共享 index、工作区、HEAD、分支或远端，没有真正合并。文档仍在收尾，因此此结果是冲突定位，不能替代最终集成 SHA 验收。
 
-与 #358 `70be46b5d5e05c02f9d2fe353df072c62f065ef4` 有六处文本冲突：DEPLOYMENT.md、HANDOFF.md、public/nova/index.html、public/nova/market.js、public/sw.js、scripts/fayo-browser-check.js（源码路径均位于 V6_BO）。market.js 须同时保留本组 stockRisk 节点与对方“联动回放”页签；SW 目录须同时缓存 risk-workbench-view.mjs、evidence-workbench.mjs、event-research.mjs、research-review.mjs。入口修订、查询版本、缓存名及浏览器严格版本断言由第一组一次统一；两份交接保留双方有效记录。operations.js、server.js 和缓存契约虽可自动合并，仍须检查最终运行结果。
+与 #358 `70be46b5d5e05c02f9d2fe353df072c62f065ef4` 有六处文本冲突：DEPLOYMENT.md、HANDOFF.md、public/nova/index.html、public/nova/market.js、public/sw.js、scripts/fayo-browser-check.js（源码路径均位于 V6_BO）。market.js 须同时保留本组 stockRisk 节点与对方“联动回放”页签；SW 目录须同时缓存 risk-workbench-view.mjs、evidence-workbench.mjs、event-research.mjs、research-review.mjs。入口修订、查询版本、缓存名及浏览器严格版本断言由总管一次统一；两份交接保留双方有效记录。operations.js、server.js 和缓存契约虽可自动合并，仍须检查最终运行结果。
 
 与 #356 `d50395972e9ae693a37e934dab785234c654e250` 无文本冲突，但 advancedAccounts 仅由原 HTTP `?advanced=1` 返回；本组 runtime 直接读取原 readResearchRiskCenter，不会自动消费该 HTTP 投影。其 account / revision / checkedAt 缺本组 epoch / authoritySnapshotFingerprint，仍属显式适配依赖。原写锁升级独立保留，停写与同卷恢复另验；自动合并成功不等于语义已统一。
+
+供总管决定合并顺序的依赖约束：先确认最新主线的数据/账户/锁门禁及升级边界；本组提供统一权益与动作证据后，再接策略及高级研究消费者。#358 与本组的双端接线无强制先后，但六处冲突须合并保留、一起统一版本和缓存。#357 的纸面研究保持原独立语义。最后在总管选定的完整合并 SHA 验证全量、HTTP、双端、权限与账本一致性，再按既有唯一机制安排生产验收。
 
 ## 10. 七项任务的代码与验证映射
 
@@ -296,20 +298,20 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | V6_BO/public/nova/operations.js | 风险工作区接入并保留原研究风险入口。#358 承接原 executionEvidencePanel 纪律复盘；保留其 import、日报视图和本组风险路由两个增量。 |
 | market.js、terminal-workbench.js | 个股/首页接同一风险摘要，旧研究内容转入可展开区域；保留原候选同源和全部路由，不增加客户端风控计算。 |
 | risk-workbench-view.mjs、fayo.css | 独立风险展示与限定范围样式；与其他组 UI 合并时维持键盘/窄屏可用、晚到响应失效和隐私清理。 |
-| public/nova/index.html、public/sw.js | 第一组统一 application-version、frontend-revision、模块缓存入口及版本，不各组互相覆盖缓存号。锁定的 public/index.html、public/mobile.html 和旧恢复控制器字节继续按原契约核验。 |
+| public/nova/index.html、public/sw.js | 总管统一 application-version、frontend-revision、模块缓存入口及版本，不各组互相覆盖缓存号。锁定的 public/index.html、public/mobile.html 和旧恢复控制器字节继续按原契约核验。 |
 | scripts/fayo-browser-check.js | #358 与本组均有严格 frontend-revision 断言；统一最终修订后保留双方新增夹具和功能检查，不用删断言消除冲突。 |
 | paper-plan-observer.js | 只增加原纯检查的导出；不得替换原观察/卖出逻辑或生成第二次计划提醒。 |
 | feishuq.js、private-risk-feishu-delivery.js | 保留原队列和角色/通道门禁，区分明确拒绝与不确定结果；不能在整文件合并时恢复对未知回执的重复发送。 |
-| HANDOFF.md、DEPLOYMENT.md | 各 PR 都有阶段记录；第一组逐条保留，统一更新当前检查点、真实部署状态、完整验证与恢复证据，不用一组历史摘要覆盖其他组新记录。 |
+| HANDOFF.md、DEPLOYMENT.md | 各 PR 都有阶段记录；总管逐条保留，统一更新当前检查点、真实部署状态、完整验证与恢复证据，不用一组历史摘要覆盖其他组新记录。 |
 | 测试与工作流 | 原全量通配和 TAP 完整性检查继续保留；新增风险浏览器脚本并入既有双端验证。旧首页断言仅对齐参考权益及新的只读风险 GET，原隐私/缺值/三候选同源与历史字节断言不删。 |
 
 本组另修正 managed-publisher-runtime.test.js 的 fixture 临时父目录规范化：平台 /var/tmp 为符号链接时先解析真实路径后创建测试目录。生产发布器的 symlink 拒绝、完整性、所有者与权限门禁保持原样；不能把这项环境修正当作发布能力验证。
 
 ## 12. 最终集成验证与恢复
 
-第一组应在最终合并工作分支、精确 HEAD 上执行原 npm run check、npm test（保留 scripts/run-full-regression.sh 与 TAP 完整性检查）、受影响专项、真实隔离 HTTP 与原全套双端浏览器验证。新风险脚本的复现入口是 V6_BO/scripts/fayo-risk-browser-check.js；它不是所有页面验收的替代。策略、研究、通知、权限、账本、版本/缓存与锁定历史字节的原回归必须一并重跑。
+总管应在最终合并工作分支、精确 HEAD 上执行原 npm run check、npm test（保留 scripts/run-full-regression.sh 与 TAP 完整性检查）、受影响专项、真实隔离 HTTP 与原全套双端浏览器验证。新风险脚本的复现入口是 V6_BO/scripts/fayo-risk-browser-check.js；它不是所有页面验收的替代。策略、研究、通知、权限、账本、版本/缓存与锁定历史字节的原回归必须一并重跑。
 
-合并前重新读取每个 PR 当前 HEAD，逐项核对 66 项的真实完成/依赖/未知状态。**组内绿色、旧 SHA 绿色、只通过新增测试，均不能代替第一组最终全量和双端验收。** 当前合同中尚未接通的 adapter 和真实数据缺口应进入最终逐项状态，不以演示输入或代码存在消除。
+合并前重新读取每个 PR 当前 HEAD，按现有任务总表原编号逐项核对真实完成/依赖/未知状态。**组内绿色、旧 SHA 绿色、只通过新增测试，均不能代替总管最终全量和双端验收。** 当前合同中尚未接通的 adapter 和真实数据缺口应进入最终逐项状态，不以演示输入或代码存在消除。
 
 源码恢复使用本组验证过的基线 bundle / 精确 Git 提交，在独立恢复分支逐块回退本组增量，保留其他组提交。生产若未来部署，先按 DEPLOYMENT / HANDOFF 完成现场冷备、停写协调和账本校验；源码 bundle 不是生产数据冷备。
 

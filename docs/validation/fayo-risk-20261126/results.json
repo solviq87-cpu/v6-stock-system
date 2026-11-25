@@ -532,5 +532,14 @@
     "docs/validation/fayo-risk-20261126/README.md",
     "docs/validation/fayo-risk-20261126/protected-functions.json",
     "docs/validation/fayo-risk-20261126/results.json"
-  ]
+  ],
+  "integrationOwner": "绯曜 FAYO｜总管与最终交付",
+  "responsibilityChange": {
+    "userInstructedDate": "2026-11-26",
+    "previousOwner": "原第一组",
+    "groupRetainsOriginalTasks": true,
+    "mergeInProgress": false,
+    "productionPublishInProgress": false,
+    "existingSolePublisherPreserved": true
+  }
 }
