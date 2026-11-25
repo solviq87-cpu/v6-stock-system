@@ -57,7 +57,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const next=result.snapshot;if(next.legacy)next.legacy=projectLegacy(next);next.revision=(s?.revision||0)+1;delete next.fingerprint;next.fingerprint=hash(next);
   const encoded=JSON.stringify(next)+'\n';if(Buffer.byteLength(encoded)>20*1024*1024)throw Error('账户快照超过20MiB上限，拒绝覆盖原文件');
   if(result.validateBeforeWrite)result.validateBeforeWrite();
-  atomicWrite(file,encoded);return next;
+  atomicWrite(file,encoded,{beforeRename:result.validateBeforeWrite});return next;
  });}
  function evidenceFormat(s){if(s.fillEvidenceVersion===undefined){s.fillEvidenceVersion=1;s.legacyFillEvidenceCount=s.account.events.length;}}
  function initialize(cash){if(typeof cash!=='number'||!Number.isFinite(cash)||cash<=0||cash>1e12)throw Error('初始资金无效');return mutate(s=>{if(s)throw Error('账户已经存在');const account={schemaVersion:1,cash,positions:{},events:[],eventHashes:{}};account.fingerprint=ledgerHash(account);return {snapshot:{schemaVersion:1,initialCash:cash,feePolicy:{...feePolicy},account,orders:{},paperOnly:true,brokerConnected:false}};});}
