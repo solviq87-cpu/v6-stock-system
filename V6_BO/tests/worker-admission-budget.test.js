@@ -86,3 +86,16 @@ test('an unbound child cannot manufacture a new independent budget',{timeout:100
  finally{await worker.terminate();}
  assert.equal(active(),0);
 });
+
+
+test('release provenance shares the original bounded background slots and cannot borrow the risk slot',async()=>{
+ const first=budget.tryAcquire('research-workspace'),second=budget.tryAcquire('release-provenance');
+ try{
+  assert.ok(first&&second);
+  assert.equal(budget.tryAcquire('release-provenance'),null);
+  assert.equal(budget.stats().background.active,2);
+  assert.equal(budget.stats().background.declaredOldGenerationSizeMb,480);
+  const risk=budget.tryAcquire('advanced-account-risk');assert.ok(risk);await risk.stop();
+ }finally{await first?.stop();await second?.stop();}
+ const next=budget.tryAcquire('release-provenance');assert.ok(next);await next.stop();
+});

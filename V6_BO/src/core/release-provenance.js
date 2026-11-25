@@ -5,6 +5,7 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const {spawnSync} = require('node:child_process');
 const {Worker,isMainThread,parentPort,workerData} = require('node:worker_threads');
+const workerBudget=require('../server/worker-admission-budget');
 const SHA = /^[a-f0-9]{40}$/, HASH = /^[a-f0-9]{64}$/;
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const mutableSeeds = new Set(['themeMap.json', 'external_data.json', 'pushgov.json', 'changes_state.json']);
@@ -172,13 +173,15 @@ function inspectReleaseProvenance({appRoot = path.resolve(__dirname, '../..'), n
 
 function inspectReleaseProvenanceAsync({appRoot = path.resolve(__dirname, '../..'), now = Date.now(),running=null} = {}) {
   return new Promise(resolve => {
+    const lease=workerBudget.tryAcquire('release-provenance');
     let worker, timer, done = false;
-    const finish = value => { if(done)return;done=true;clearTimeout(timer);if(worker)void worker.terminate();resolve(value); };
+    const finish = async value => { if(done)return;done=true;clearTimeout(timer);if(lease)await lease.stop();resolve(value); };
     const unavailable = () => finish({schemaVersion:1,task:77,status:'verification-unavailable',verifiedInstalled:false,sourceSha:null,
       checkedAt:new Date(now).toISOString(),signatureVerified:false,ciVerified:false,reason:'release-worker-unavailable-or-deadline'});
+    if(!lease){void unavailable();return;}
     try {
-      worker = new Worker(__filename,{workerData:{job:'inspect-release-provenance',appRoot,now,running},
-        resourceLimits:{maxOldGenerationSizeMb:96,maxYoungGenerationSizeMb:16,stackSizeMb:4}});
+      const options=lease.options({job:'inspect-release-provenance',appRoot,now,running});
+      worker = lease.watch(new Worker(__filename,{...options,resourceLimits:{...options.resourceLimits,maxYoungGenerationSizeMb:16,stackSizeMb:4}}));
       timer=setTimeout(unavailable,8000);timer.unref();
       worker.once('message',finish);worker.once('error',unavailable);worker.once('exit',()=>{if(!done)unavailable();});
     } catch { unavailable(); }

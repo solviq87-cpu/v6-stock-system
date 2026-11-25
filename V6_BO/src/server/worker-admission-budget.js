@@ -7,7 +7,7 @@ const KEY='__v6WorkerAdmissionBudgetV1',MAGIC=0x56364231n,MAX_ID=0x7fffffffn;
 const definitions=Object.freeze({
  research:256,'adaptive-research':256,'research-workspace':384,
  'stock-observation':192,'public-factor':192,'linked-intelligence':192,
- 'learning-runtime':192,'decision-financial-cache':192,'advanced-account-risk':128
+ 'learning-runtime':192,'decision-financial-cache':192,'release-provenance':96,'advanced-account-risk':128
 });
 const names=Object.keys(definitions),HEADER=8,LENGTH=HEADER+names.length*2;
 // Slots 2/3 belong exclusively to background work; slot 4 is reserved for risk.

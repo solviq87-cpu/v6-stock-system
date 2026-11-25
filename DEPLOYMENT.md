@@ -307,3 +307,5 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 - 七维30项评价及有限错误注入原代码、证据和两级只读命令已纳入 #368 隔离候选；真实评价输入尚须从原运行/研究/安全回执独立核验，不能据此授权交易或发布。见 [七维质量补充](docs/FAYO_PRODUCT_QUALITY_SUPPLEMENT_20261126.md)。
 
 - 原48追踪候选只观察内存阶段及原研究/原账户调用，不新增账户、通知或生产发布入口；仅实际执行的跨度计入，缺失保持未知。未完成全链验收。
+
+- 原67—78深度研究与运行验收接入隔离候选；沿用原研究私有档案、原权限、原账户及打包入口。验证worker使用54共享预算，失败与缺档不计有效天数但保留固定窗口。不得把读取成功当外部对账或实际通过。见 [原交接](docs/FAYO_DEEP_RESEARCH_20261126.md) 和 [当前WIP](docs/FAYO_INTEGRATION_WIP_20261126.md)。

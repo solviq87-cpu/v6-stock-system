@@ -175,11 +175,12 @@ function summarizeDay(day, rows, now, criteria) {
   // runtime calendar and quote audit evidence cannot certify a real day.
   const live=rows.filter(row=>row.liveEligible&&row.calendar?.runtimeEligible===true&&
     row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.freshQuotes>0),liveSet=new Set(live),slots=new Set(live.map(r=>r.slot));
+  const attempts=rows.filter(row=>liveSet.has(row)||row.attemptEligible===true&&row.calendar?.runtimeEligible===true&&SHA.test(row.sourceSha||'')&&row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.nonLiveQuotes===0&&Array.isArray(row.exclusions)&&row.exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded'].includes(reason)));
   const morning = [...slots].filter(n => n < 24).length, afternoon = [...slots].filter(n => n >= 24).length;
   const ended = day < aShareCalendarDate(now) || day === aShareCalendarDate(now) && new Date(now + 8 * 3600000).getUTCHours() >= 16;
   const fullCoverage = slots.size >= criteria.minimumSlots && morning >= criteria.minimumSessionSlots && afternoon >= criteria.minimumSessionSlots &&
     slots.has(0) && slots.has(23) && slots.has(24) && slots.has(47);
-  const sourceShas = [...new Set(live.map(r => r.sourceSha))], profileHashes = [...new Set(rows.map(r => r.criteriaHash))];
+  const sourceShas = [...new Set(attempts.map(r => r.sourceSha))], profileHashes = [...new Set(rows.map(r => r.criteriaHash))];
   const metric = (fn, values = live) => values.map(fn).filter(v => v !== null && v !== undefined);
   const latencies = metric(r => r.metrics.system.collectionMs).sort((a,b) => a-b);
   const latest = live.at(-1)?.metrics || rows.at(-1)?.metrics || null;
@@ -205,7 +206,7 @@ function summarizeDay(day, rows, now, criteria) {
   if (p95 !== null && p95 > criteria.maximumCollectionP95Ms) failures.push('collection-latency');
   if (live.some(r => r.metrics.risk.falseNegatives > 0)) failures.push('risk-false-negative-observed');
   if (live.some(r => r.metrics.risk.deliveryDelayMs > criteria.maximumDeliveryDelayMs)) failures.push('notification-delay');
-  if (live.some(r => r.metrics.execution.reconciled === false)) failures.push('account-reconciliation-failed');
+  if (attempts.some(r => r.metrics.execution.reconciled === false)) failures.push('account-reconciliation-failed');
   if (live.some(r => r.metrics.execution.recoveryVerified === false)) failures.push('recovery-not-verified');
   if (live.some(r => r.metrics.clients.permissionsConsistent === false || r.metrics.clients.featuresConsistent === false ||
       r.metrics.clients.desktopVersion && r.metrics.clients.mobileVersion && r.metrics.clients.apiVersion &&
@@ -214,7 +215,7 @@ function summarizeDay(day, rows, now, criteria) {
   if (criteria.maximumDrawdownPct !== null && latest?.strategy.maxDrawdownPct > criteria.maximumDrawdownPct) failures.push('drawdown-limit');
   if (criteria.maximumCalibrationError !== null && latest?.strategy.calibrationError > criteria.maximumCalibrationError) failures.push('calibration-limit');
   return {day,status:!rows.length?'missing':!ended?'in-progress':!live.length?'excluded':!fullCoverage?'observed-partial':failures.length?'observed-with-failures':unknown.length?'observed-awaiting-evidence':'observed-reviewable',
-    samples:rows.length,liveSamples:live.length,excludedSamples:rows.length-live.length,slots:slots.size,morningSlots:morning,afternoonSlots:afternoon,
+    samples:rows.length,liveSamples:live.length,attemptSamples:attempts.length,excludedSamples:rows.length-live.length,slots:slots.size,morningSlots:morning,afternoonSlots:afternoon,
     completeObservation:ended && fullCoverage,sourceShas,criteriaHashes:profileHashes,
     firstObservedAt:rows[0]?.observedAt || null,lastObservedAt:rows.at(-1)?.observedAt || null,
     collectionP95Ms:p95,minimumFreshCoverage:live.length && live.every(r=>r.metrics.market.freshCoverage!==null)?Math.min(...live.map(r=>r.metrics.market.freshCoverage)):null,
@@ -244,7 +245,7 @@ function buildUnifiedTaskStatus(evidence = []) {
 }
 
 function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),canWrite=()=>false,collect=async()=>({}),clock=Date.now,running=null,
-  calendar=({asOf})=>readResearchCalendar({asOf}),release=({now})=>inspectReleaseProvenanceAsync({appRoot,now,running}),criteria={},env=process.env,taskEvidence=[]}={}) {
+  calendar=({asOf})=>readResearchCalendar({asOf}),release=({now})=>inspectReleaseProvenanceAsync({appRoot,now,running}),criteria={},env=process.env,taskEvidence=[],liveCollector=false}={}) {
   privateRoot(root); const profile = criteriaProfile(criteria), profileHash = digest(profile);
   if (typeof canWrite !== 'function' || typeof collect !== 'function' || typeof clock !== 'function' || typeof calendar !== 'function' || typeof release !== 'function') throw Error('acceptance-invalid-adapter');
   let busy = false, lastTick = null, lastError = null, lastObservedAt = null, cachedRelease=null, releaseCheckedAt=null;
@@ -265,7 +266,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
       if (!cachedRelease || releaseCheckedAt > now || now-releaseCheckedAt >= 300000) {cachedRelease=await release({now});releaseCheckedAt=now;}
       const proof=cachedRelease;
       if(cal.runtimeEligible!==true)exclusions.push('calendar-not-runtime-eligible');
-      if (env.V6_ISOLATED_BOOT_SMOKE === '1' || env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT || snapshot?.mode !== 'live') exclusions.push('isolated-replay-or-unidentified-run');
+      if (env.V6_ISOLATED_BOOT_SMOKE === '1' || env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT || !(snapshot?.mode === 'live'||collectFailed&&liveCollector===true)) exclusions.push('isolated-replay-or-unidentified-run');
       if (proof?.verifiedInstalled !== true || !SHA.test(proof?.sourceSha || '')) exclusions.push('verified-installation-required');
       if (!metrics.market.freshQuotes) exclusions.push('no-original-fresh-market-evidence');
       if (collectFailed) exclusions.push('collector-failure');
@@ -284,7 +285,11 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
         const body = {schemaVersion:1,kind:'server-runtime-observation',origin:'server-collector',sequence:rows.length+1,previous:previous?.fingerprint || null,
           day,observedAt:now,slot,sourceSha:SHA.test(proof?.sourceSha || '')?proof.sourceSha:null,criteriaHash:profileHash,
           calendar:{source:cal.source,hash:cal.hash,runtimeEligible:cal.runtimeEligible,sourceAuthenticated:cal.sourceAuthenticated},
-          releaseCheckedAt,liveEligible:exclusions.length===0,exclusions,collectFailed,metrics,businessRecordsMutated:false};
+          releaseCheckedAt,liveEligible:exclusions.length===0,
+          // A verified live collector may attempt and fail. Preserve the day in
+          // the original review window without counting it as valid coverage.
+          attemptEligible:exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded'].includes(reason))&&metrics.market.nonLiveQuotes===0,
+          exclusions,collectFailed,metrics,businessRecordsMutated:false};
         const row = {...body,fingerprint:digest(body)}, bytes=JSON.stringify(row)+'\n', file=path.join(root,day+'.jsonl');
         if (Buffer.byteLength(bytes)>16384) throw Error('acceptance-record-limit');
         const fd=fs.openSync(file,fs.constants.O_CREAT|fs.constants.O_WRONLY|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW,0o600);
@@ -301,7 +306,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
   async function report() {
     const now=clock();privateRoot(root);const names=listDays(root), byDay=new Map();
     for(const day of names){const rows=readDay(root,day);if(rows.some(r=>r.observedAt>now))throw Error('acceptance-future-record');byDay.set(day,summarizeDay(day,rows,now,profile));await yieldTurn();}
-    const cal=calendarView(await calendar({asOf:now}),now),first=names.find(d=>byDay.get(d).liveSamples>0)||null,today=aShareCalendarDate(now);
+    const cal=calendarView(await calendar({asOf:now}),now),first=names.find(d=>byDay.get(d).attemptSamples>0)||null,today=aShareCalendarDate(now);
     const currentMinute=new Date(now+8*3600000).getUTCHours()*60+new Date(now+8*3600000).getUTCMinutes();
     const expected=first&&cal.available?cal.tradeDates.filter(day=>day>=first&&day<=today):[];
     const days=expected.map(day=>byDay.get(day)||summarizeDay(day,[],now,profile));

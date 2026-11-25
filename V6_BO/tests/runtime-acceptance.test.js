@@ -138,3 +138,28 @@ test('existing-group PR references can be retained without inventing their task 
  assert.equal(row.title,null);assert.equal(row.sourceSha,null);assert.deepEqual(row.code.evidence,[reference]);
  for(const axis of ['code','interface','realData','validation','deployed','observation'])assert.equal(row[axis].status,'unknown');
 });
+
+
+test('failed actual installed collection fixes the original review window without earning a complete live day',async t=>{
+ let failing=true;
+ const f=fixture(t,{liveCollector:true,collect:async({now})=>{
+  if(failing)throw Error('source unreachable');
+  return {mode:'live',market:{expectedSymbols:1,attempts:1,successes:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]}};
+ }});
+ const failure=await f.ops.tick();assert.equal(failure.recorded,true);assert.equal(failure.liveEligible,false);
+ failing=false;
+ for(const day of days.slice(1))await fullDay(f,day);
+ f.setNow(at(days.at(-1),16,0));
+ const report=await f.ops.report();
+ assert.equal(report.observedTradingDays,5);assert.equal(report.elapsedTradingDays,6);
+ assert.equal(report.stages[0].from,days[0]);assert.equal(report.stages[0].to,days[4]);
+ assert.equal(report.stages[0].completeObservationDays,4);assert.equal(report.stages[0].passed,false);
+ assert.ok(report.stages[0].blockers.includes('collector-failure'));assert.ok(report.stages[0].blockers.includes('incomplete-observation-day'));
+ const excluded=report.days.find(x=>x.day===days[0]);assert.equal(excluded.liveSamples,0);assert.equal(excluded.attemptSamples,1);
+});
+test('a failed isolated collector never starts the real trading-day window',async t=>{
+ const f=fixture(t,{liveCollector:true,env:{NODE_ENV:'production',V6_ISOLATED_BOOT_SMOKE:'1'},collect:async()=>{throw Error('fixture failure');}});
+ const receipt=await f.ops.tick();assert.equal(receipt.liveEligible,false);
+ f.setNow(at(days[4],16,0));const report=await f.ops.report();
+ assert.equal(report.observedTradingDays,0);assert.equal(report.elapsedTradingDays,0);assert.equal(report.excludedDayEvidence[0].attemptSamples,0);
+});
