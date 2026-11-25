@@ -127,3 +127,11 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 ### 原77/78运行与预算后续接线
 
 原主实例安装和日历合格时，失败采集尝试固定进入真实验收窗口；不计入有效行情日，不能以随后成功日覆盖或删去失败。隔离、回放、未认证安装、无运行日历仍不开始真实窗口。原账户对账使用pool/pre的原对账结果。release-provenance使用既有共享后台worker准入（96MiB V8老生代声明），保留独立风险槽，不增线程/发布入口。新增失败首日、隔离失败和共享预算专项，尚须精确head验证。外部对账、授权、实盘收益、双端真实终端、生产部署、5/20/60交易日均不认证。
+
+
+### 2026-11-26 统一接续：#353 实际封存时点门禁（原07/08/09/10/12/13/21/24/25/26/28组内增量）
+
+- 组合基线 `ffd80165d28a5ae3716f62dca6c913d2e6111531` 的 33 项现有检查均成功，7 个工作流成功，包括 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45680827310)、[UI geometry](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45680827233)、[Windows](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45680827147)。这些属于旧组合精确SHA，不是78项真实验收。
+- #353 已明确暂停交接，最新 `e6b411bca1ff605a159cdbc8b86c1a65b9f269fa` 29项检查成功。三个文件在当前组合与其父 `c3c26519b005db219265c5b9b5718d8d053d8928` 的原blob及文件模式完全一致；直接纳入原组的精确源码、边界测试、完整交接记录，不覆盖共享文件的其他组成果。实际风险评审及回执不得早于候选实际封存 closedAt，而不是仅早于计划标签截止；保留原五关、人工审批、未来时点拒绝及原模型版本。新测试覆盖延迟封存、相等边界、未来时间及无状态改写。独立CI: [#353 verify](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45674249280)。
+- 现有自动执行环境有 Git 2.47.3、Node v22.16.0、Python 3.13.5，但未挂载继承的仓库，`git ls-remote https://github.com/solviq87-cpu/v6-stock-system.git refs/heads/dev` 实际失败：Could not resolve host: github.com。仅通过 GitHub 对象接口恢复精确增量，未执行本地专项或全量；当前新组合必须核查独立CI。专项命令：`node --test V6_BO/tests/fayo-model-governance-integration.test.js`。恢复继承工作区后以新组合SHA checkout，运行原 npm check、全量及双端浏览器。
+- #356 最新预演 helper/专项测试已与组合blob完全一致，勿重复移植。#357/#358/#359/#361 的最新差异仍须逐文件核对、不能整文件覆盖共享风险/行情/权限。#364已关闭，原beforeRename与#365保护保留并复核；18/20/22/23/29/48及78真实采样等剩余按原编号继续。当前dev仍为 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，无主线合并或生产发布；外部数据、真实运行、账户及设备验收未知，保持原唯一发布者。回退本批只需在候选上反向应用这三个文件及交接增量，不删除任何业务数据或改旧组分支。

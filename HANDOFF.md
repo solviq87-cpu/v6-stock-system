@@ -737,3 +737,6 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-intelligence-evolution-20261126`，[PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357)。本组 31–36、43–47、59–66 共 19 项已补齐独立模块、原私有档案接入及双端 `#/lab/evolution` 工作台。相强/多周期、相似样本、候选/反证、四策略/融合、原结算复盘、基准/稳健性/DSR/PBO、因果/预热、财务/时效、AI 合同和六阶段流程均保留缺项与原交易门禁。个性化设置沿原链 CAS 保存；诊断绑定历史、实现及窗口，撤权在锁内复核。详见 [逐项实现与接口](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) 和 [实际验证记录](docs/validation/fayo-evolution-20261126/README.md)。
 
 主应用版本保持 `20261125ad`，本组原生资源修订 `20261125ad-evolution1`、SW 后缀 `evolution-1`；第一组统一整合全部 66 项、重新验证及同步最终发布版本。本组没有合并其他组 PR、生产切换或外发消息。新 `candidate-lifecycle` / `evolution-preferences` 记录继续使用原私有研究链；旧 reader 不认识新类型，回滚须先保全新链并在隔离副本验证兼容，不能删事件或覆盖新成交。原部署检查点及其他组交接保持。
+
+
+- 2026-11-26 统一接续 #368：纳入 #353 最新实际封存时间门禁及原测试（原组07/08/09/10/12/13/21/24/25/26/28），基线 `ffd80165d28a5ae3716f62dca6c913d2e6111531` 已核对33项检查成功，新组合待CI；缺继承工作区、无法直接 clone，未本地全量、未合入dev、未部署。见 [现有WIP](docs/FAYO_INTEGRATION_WIP_20261126.md)。

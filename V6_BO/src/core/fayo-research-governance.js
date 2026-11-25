@@ -164,10 +164,13 @@ function validNativeReview(receipt,context){
  // Hashes alone do not establish authority. This receipt is accepted only from
  // the server-internal reader passed below, never from an HTTP payload or an
  // archive field. That reader must verify the original journals and risk result.
- if(!receipt||receipt.schemaVersion!==1||receipt.source!=='original-research-and-risk-services'||
+ // A delayed first close must not reuse a review from before the result was
+ // actually sealed, even if the planned label deadline had already passed.
+ const closedAt=time(context.closedAt);
+ if(closedAt===null||!receipt||receipt.schemaVersion!==1||receipt.source!=='original-research-and-risk-services'||
     receipt.trialFingerprint!==context.trial.fingerprint||receipt.evidenceFingerprint!==context.evidenceFingerprint||
     receipt.currentFingerprint!==context.trial.binding.currentFingerprint||receipt.candidateFingerprint!==context.trial.binding.candidateFingerprint||
-    time(receipt.knownAt)===null||time(receipt.knownAt)>context.now||time(receipt.knownAt)<context.trial.labelsThrough)return false;
+    time(receipt.knownAt)===null||time(receipt.knownAt)>context.now||time(receipt.knownAt)<closedAt)return false;
  const c=receipt.cohort,r=receipt.risk;
  return c?.source==='original-model-independent-observation-journal'&&digest(c.fingerprint)&&
   c.selection==='before-model-ranking'&&c.complete===true&&time(c.registeredAt)!==null&&time(c.registeredAt)<=context.trial.registeredAt&&
@@ -176,7 +179,7 @@ function validNativeReview(receipt,context){
   r?.source==='original-authoritative-risk-engine'&&digest(r.fingerprint)&&digest(r.policyFingerprint)&&
   r.evidenceFingerprint===context.evidenceFingerprint&&r.currentFingerprint===context.trial.binding.currentFingerprint&&
   r.candidateFingerprint===context.trial.binding.candidateFingerprint&&time(r.evaluatedAt)!==null&&
-  time(r.evaluatedAt)>=context.trial.labelsThrough&&time(r.evaluatedAt)<=time(receipt.knownAt)&&r.passed===true&&r.limitsUnchanged===true&&r.portfolioRiskCertified===true;
+  time(r.evaluatedAt)>=closedAt&&time(r.evaluatedAt)<=time(receipt.knownAt)&&r.passed===true&&r.limitsUnchanged===true&&r.portfolioRiskCertified===true;
 }
 function modelComparison(archive,{now=Date.now(),candidateId,closing=false,readProspectiveReview}={}){
  const empty={status:'missing-compatible-current-and-candidate',candidateId:null,currentVersion:null,pairedRows:0,days:0,descriptiveGain:false,reviewSupported:false,approvalEligible:false,canTrade:false,canApprove:false,portfolioRiskCertified:false};
@@ -242,7 +245,7 @@ function modelComparison(archive,{now=Date.now(),candidateId,closing=false,readP
  if(!coverage.complete)return {...result,status:'incomplete-prospective-cohort'};
  if(!comparison.descriptiveGain)return result;
  if(typeof readProspectiveReview!=='function')return {...result,status:'missing-independent-cohort-and-original-risk-review'};
- const context={trial:structuredClone(trial),evidenceFingerprint,planIds,now};
+ const context={trial:structuredClone(trial),evidenceFingerprint,planIds,closedAt:time(saved.closedAt),now};
  const priorReviewState=hash({current,candidate,plans:archive.plans,checks:archive.checks,trades:archive.trades});
  let receipt;
  try{receipt=readProspectiveReview(structuredClone(context));}catch{return {...result,status:'native-review-unavailable'};}
