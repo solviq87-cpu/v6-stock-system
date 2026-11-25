@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import workspaceStore from '../../core/research-workspace-store.js';
 import accountLock from '../../core/account-process-lock.js';
 import marketData from '../../core/market-data-center.js';
+import decisionPlans from '../../core/paper-decision-plan.js';
 import {mutate} from './engine.mjs';
 import minuteArchive from '../shortline-minute-archive.js';
 import {bookIdOk,booksOf,bookPath,createBook} from './workbooks.mjs';
@@ -171,7 +172,7 @@ export async function saveRecoveredMarket(root,rows,day){
 }
 // The main account keeps its original path. Named books and fixtures can never
 // select an upstream ledger or a filesystem path supplied by the client.
-export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded}){
+export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan}){
   if(!bookIdOk(book))throw error('无效研究账户',400);
   const scope=book==='demo'?'demo':'live',main=book==='main';
   const master=load(root),books=booksOf(master),current=books.find(b=>b.id===book);
@@ -240,7 +241,13 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
           settingsProfiles:state.settingsProfiles,ledgerStartAt:Date.now(),minuteGeneration:crypto.randomUUID(),resetLocked:false};
         result={book,reset:true};
       }else{
+        if(decisionPlan&&(!main||input.action!=='learn:plan'))throw Error('服务器决策计划只能冻结到原主研究档案');
         result=mutate(state,input.action,p);
+        // Only the native paper adapter supplies this internal job argument.
+        // The browser research route never accepts or forwards an authority flag.
+        if(decisionPlan){
+          decisionPlans.bindAuthoritativePlan(result,decisionPlan);
+        }
         const day=affectedDay(state,input.action,result);
         if(day)refreshDailyReview(state,day);
         if(input.action==='learn:decision'){

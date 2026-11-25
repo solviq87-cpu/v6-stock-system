@@ -1,0 +1,212 @@
+import {h,button,format,money,dateTime,updateReadout,table} from './ui.js';
+
+const finite=value=>typeof value==='number'&&Number.isFinite(value);
+const list=value=>Array.isArray(value)?value:[];
+const score=value=>finite(value)?format(value,1):'缺数据';
+const templateStatus=value=>({'related-existing-rules':'已有相关战法','implemented-evidence-evaluator':'证据核验已接入',
+ 'missing-catalog-rules':'缺少对应战法目录'})[value]||'等待专项证据';
+const sourceLine=value=>[value?.source,value?.knownAt||value?.sourceAt?dateTime(value.knownAt||value.sourceAt):null].filter(Boolean).join(' · ');
+const svgNode=(name,attrs={})=>{
+ const node=document.createElementNS('http://www.w3.org/2000/svg',name);
+ for(const [key,value]of Object.entries(attrs))node.setAttribute(key,String(value));
+ return node;
+};
+const label=(svg,x,y,text,attrs={})=>{const node=svgNode('text',{x,y,...attrs});node.textContent=text;svg.append(node);return node;};
+const detail=(title,children,id)=>h('details',{class:'fy-details',...(id?{id}: {})},h('summary',{},title),children);
+const paragraph=text=>h('p',{class:'fy-muted'},text);
+const panel=(title,...children)=>h('section',{class:'fy-intelligence-panel'},h('h3',{},title),...children);
+
+// Recursive partitions conserve area exactly. No missing or small security is
+// replaced with a fabricated "other" value, and labels never determine area.
+export function marketRectangles(items,{x=0,y=0,width=960,height=420}={}){
+ const rows=list(items).filter(row=>finite(row.marketCapYuan)&&row.marketCapYuan>0);
+ const output=[];
+ function partition(values,x,y,width,height){
+  if(!values.length)return;
+  if(values.length===1){output.push({...values[0],x,y,width,height});return;}
+  const total=values.reduce((sum,row)=>sum+row.marketCapYuan,0);
+  let split=1,left=values[0].marketCapYuan;
+  while(split<values.length-1&&Math.abs(total/2-(left+values[split].marketCapYuan))<Math.abs(total/2-left)){
+   left+=values[split++].marketCapYuan;
+  }
+  const fraction=left/total;
+  if(width>=height){
+   partition(values.slice(0,split),x,y,width*fraction,height);
+   partition(values.slice(split),x+width*fraction,y,width*(1-fraction),height);
+  }else{
+   partition(values.slice(0,split),x,y,width,height*fraction);
+   partition(values.slice(split),x,y+height*fraction,width,height*(1-fraction));
+  }
+ }
+ partition(rows,x,y,width,height);return output;
+}
+
+export function marketHeatmap(data,ctx){
+ const items=list(data?.items);
+ if(!items.length)return paragraph(data?.note||'缺少同日的总市值、涨跌幅与行情时点。');
+ const svg=svgNode('svg',{viewBox:'0 0 960 420',role:'img','aria-label':'全市场总市值与涨跌热力图'});
+ for(const cell of marketRectangles(items)){
+  const color=cell.pct>0?'#d1658f':cell.pct<0?'#348b79':'#73637c';
+  const group=svgNode('g',{'data-code':cell.code,'data-observation':JSON.stringify(cell)});
+  const rect=svgNode('rect',{x:cell.x,y:cell.y,width:cell.width,height:cell.height,fill:color,stroke:'#21162d','stroke-width':.5});
+  const title=svgNode('title');
+  title.textContent=cell.name+' '+cell.code+' · '+format(cell.pct)+'% · 总市值 '+money(cell.marketCapYuan)+'元 · '+sourceLine(cell);
+  rect.append(title);group.append(rect);
+  if(cell.width>65&&cell.height>26){
+   const clipId='fy-map-'+cell.code;
+   const clip=svgNode('clipPath',{id:clipId});clip.append(svgNode('rect',{x:cell.x+3,y:cell.y,width:cell.width-6,height:cell.height}));
+   group.append(clip);
+   label(group,cell.x+cell.width/2,cell.y+cell.height/2-2,cell.name,{'text-anchor':'middle','font-size':12,fill:'#fff','clip-path':'url(#'+clipId+')'});
+   if(cell.height>40)label(group,cell.x+cell.width/2,cell.y+cell.height/2+14,format(cell.pct)+'%',{'text-anchor':'middle','font-size':11,fill:'#fff'});
+  }
+  group.addEventListener('click',event=>{
+   // updateReadout retains keyed SVG nodes; read the current attributes rather
+   // than closing over yesterday's row on a subsequent refresh.
+   const current=JSON.parse(event.currentTarget.getAttribute('data-observation'));
+   ctx.selectStock?.(current.code,{...current,poolDay:current.day,quoteSource:current.source,receivedAt:current.knownAt,canTrade:false});
+  });
+  svg.append(group);
+ }
+ return h('figure',{class:'fy-market-map'},svg,h('figcaption',{},data.scope+' · '+items.length+' 只 · 面积＝总市值，红涨绿跌'),
+  detail('查看逐股数字、来源与时点',table([
+   {label:'股票',value:r=>button(r.name+' '+r.code,()=>ctx.selectStock?.(r.code,{...r,poolDay:r.day,quoteSource:r.source,receivedAt:r.knownAt}),'quiet')},
+   {label:'总市值（元）',value:r=>money(r.marketCapYuan)},{label:'涨跌',value:r=>format(r.pct)+'%'},{label:'原始来源与时点',value:sourceLine}
+  ],items)));
+}
+
+export function nineAxisRadar(data){
+ const axes=list(data?.axes),cx=160,cy=132,radius=85;
+ if(axes.length!==9)return paragraph('九维评分未返回；缺失值不补零。');
+ const svg=svgNode('svg',{viewBox:'0 0 320 272',role:'img','aria-label':'个股九维证据雷达'});
+ const point=(i,r)=>({x:cx+Math.sin(i*Math.PI*2/9)*r,y:cy-Math.cos(i*Math.PI*2/9)*r});
+ for(const size of [.25,.5,.75,1])svg.append(svgNode('polygon',{points:axes.map((_,i)=>{const p=point(i,radius*size);return p.x+','+p.y;}).join(' '),fill:'none',stroke:'#493451','stroke-width':1}));
+ const scores=[];
+ axes.forEach((axis,i)=>{
+  const end=point(i,radius),caption=point(i,radius+24);
+  svg.append(svgNode('line',{x1:cx,y1:cy,x2:end.x,y2:end.y,stroke:'#493451','stroke-dasharray':'3 3'}));
+  label(svg,caption.x,caption.y,axis.label,{'text-anchor':'middle','dominant-baseline':'middle','font-size':11,fill:'#d8c5e0'});
+  if(finite(axis.value)&&axis.value>=0&&axis.value<=100){
+   const p=point(i,radius*axis.value/100);scores.push(p.x+','+p.y);
+   svg.append(svgNode('circle',{cx:p.x,cy:p.y,r:3.5,fill:'#f1a4cd'}));
+  }
+ });
+ if(scores.length===9)svg.append(svgNode('polygon',{points:scores.join(' '),fill:'#d87db326',stroke:'#ef9fc9','stroke-width':1.5}));
+ return h('div',{class:'fy-nine-radar','data-code':data.code,'data-day':data.day},svg,
+  paragraph((data.name||data.code)+' · '+data.day+' · '+data.known+'/9 维有证据。'+data.note),
+  detail('九维评分与依据',h('dl',{},axes.map(axis=>h('div',{},h('dt',{},axis.label+' · '+score(axis.value)),h('dd',{},axis.reason,
+   ...(list(axis.sourceTimes).length?axis.sourceTimes.map(item=>paragraph(sourceLine(item))):[paragraph(sourceLine(axis))])))))));
+}
+
+function flowSankey(data){
+ const links=list(data?.links);
+ if(!links.length)return paragraph(data?.note||'缺少可追溯的真实资金去向明细。');
+ const total=links.reduce((sum,row)=>sum+row.amount,0),left=new Map(),right=new Map();
+ if(!finite(total)||total<=0)return paragraph('资金流向金额缺失。');
+ for(const row of links){left.set(row.from,(left.get(row.from)||0)+row.amount);right.set(row.to,(right.get(row.to)||0)+row.amount);}
+ const height=Math.max(300,Math.max(left.size,right.size)*34),gap=12;
+ const scale=(height-40-Math.max(left.size-1,right.size-1)*gap)/total;
+ const layout=map=>{let y=20;return new Map([...map].map(([name,amount])=>{const value={name,amount,y,height:amount*scale,used:0};y+=value.height+gap;return [name,value];}));};
+ const sources=layout(left),targets=layout(right),svg=svgNode('svg',{viewBox:'0 0 800 '+height,role:'img','aria-label':'有原始来源与去向的资金桑基图'});
+ for(const row of links){
+  const from=sources.get(row.from),to=targets.get(row.to),width=row.amount*scale,a=from.y+from.used+width/2,b=to.y+to.used+width/2;
+  from.used+=width;to.used+=width;
+  const line=svgNode('path',{d:'M 180 '+a+' C 340 '+a+', 460 '+b+', 620 '+b,fill:'none',stroke:'#d986b166','stroke-width':width});
+  const title=svgNode('title');title.textContent=row.from+' → '+row.to+' · '+money(row.amount)+'元 · '+sourceLine(row);line.append(title);svg.append(line);
+ }
+ for(const [side,nodes]of [[0,sources],[1,targets]])for(const node of nodes.values()){
+  const x=side?620:172;svg.append(svgNode('rect',{x,y:node.y,width:8,height:node.height,fill:side?'#8db8ba':'#ee9ec8'}));
+  label(svg,side?636:164,node.y+node.height/2,node.name,{'text-anchor':side?'start':'end','dominant-baseline':'middle','font-size':12,fill:'#e8d7ee'});
+ }
+ return h('figure',{class:'fy-flow-sankey'},svg,h('figcaption',{},data.note),detail('资金流向原始金额与来源',
+  table([{label:'来源',value:r=>r.from},{label:'去向',value:r=>r.to},{label:'金额（元）',value:r=>money(r.amount)},{label:'证据',value:sourceLine}],links)));
+}
+
+function emotionCycle(data){
+ const steps=['冰点','回暖','高潮','退潮'];
+ return h('div',{class:'fy-emotion-cycle'},h('ol',{},steps.map(name=>h('li',{'data-active':String(data?.phase===name)},name))),
+  paragraph(data?.phase?data.phase+' · '+data.day+' · '+sourceLine(data):data?.note||'缺少多日情绪周期证据'));
+}
+
+function evidenceDetails(label,value){
+ return detail(label,h('pre',{class:'fy-intelligence-evidence'},JSON.stringify(value,null,2)));
+}
+function researchPanels(report,ctx){
+ const q=report.quality||{},f=report.factors||{},w=report.walkforward||{},feedback=report.feedback||{},templates=report.templates||{};
+ const qItems=list(q.components),metrics=Object.values(f.descriptive||{}),folds=list(w.folds);
+ const gateText=gate=>gate?(({hfq:'后复权',qfq:'前复权'})[gate.expectedAdjustment]||'复权口径缺失')+' · '+(gate.admittedGroups??'未知')+' 组可用 / '+(gate.excludedRecords??'未知')+' 条被排除':'缺少可验证样本';
+ return [
+  panel('L1 · 数据质量',h('strong',{class:'fy-intelligence-number'},finite(q.score)?'Q '+format(q.score,1):'Q 尚未完整'),
+   paragraph(q.formula),h('ul',{},qItems.map(item=>h('li',{},item.label+' '+(finite(item.value)?format(item.value*100,1)+'%':'缺数据')+' · 权重 '+format(item.weight*100,0)+'%'))),
+   paragraph(q.note),paragraph('看盘：'+gateText(q.gates?.display)+'；回测：'+gateText(q.gates?.backtest)),
+   evidenceDetails('逐源偏离、拒绝原因与原始时点',q)),
+  panel('L2 · 因子有效性与去冗余',paragraph('原战法目录 '+(f.catalogRules??'未知')+' 项 · 已有量化观测 '+(f.measuredFactors??'未知')+' 项 · 对齐样本 '+(f.alignedSamples??'未知')+' 条'),
+   paragraph(f.label||'t 日因子预测 t+1 起收益；缺真实样本时不生成 IC。'),paragraph(f.note),
+   metrics.length?table([{label:'因子',value:r=>r.factorId||r.id},{label:'平均 IC',value:r=>score(r.meanIC)},{label:'有效交易日',value:r=>r.days??r.icDays??'缺数据'}],metrics):paragraph('尚无满足时点、复权与跨源核验要求的因子 IC。'),
+   evidenceDetails('正交参数、相关性与因子原始统计',{orthogonalization:f.orthogonalization,redundancy:f.redundancy,descriptive:f.descriptive,rejectionReasons:f.rejectionReasons})),
+  panel('L2 · 滚动样本外验证',paragraph('已形成 '+folds.filter(fold=>fold.status==='evaluated').length+' 个可核验窗口；训练、验证、测试之间保留隔离交易日。'),
+   paragraph(w.note||'使用后复权价格与真实日历；训练参数冻结后才应用到验证、测试。'),
+   ...folds.map((fold,i)=>detail('窗口 '+(i+1)+' · '+fold.status,evidenceDetails('日期、IC 与分层结果',fold))),
+   evidenceDetails('样本、日期交集与窗口依据',{alignment:report.crossMarket,coverage:report.coverage,walkforward:w})),
+  panel('L2 · 六类战法模板',h('ul',{},list(templates.groups).map(group=>h('li',{},h('strong',{},group.name||group.label),
+    ' · '+templateStatus(group.status),paragraph(group.note||group.missing?.join('；')||'沿用原战法条件与校验')))),
+   paragraph(templates.scope),evidenceDetails('战法条件与已观察次数',templates)),
+  panel('L5 · 复盘反馈',paragraph('成熟复盘 '+(feedback.matureTrades??'未知')+' 条 · 因子调整候选 '+list(feedback.candidates).length+' 条 · 数据质量复核 '+list(feedback.qualityCandidates).length+' 条'),
+   paragraph('反馈保留为待验证候选，沿用原权重验证与批准流程。当前生产因子权重没有被自动改写。'),
+   button('打开原复盘学习',()=>ctx.navigate('lab','learning'),'quiet'),evidenceDetails('复盘依据与候选变更',feedback))
+ ];
+}
+
+export function createIntelligenceCenter(ctx){
+ const status=h('p',{class:'fy-muted',role:'status'}),charts=h('div',{class:'fy-intelligence-charts'}),research=h('div',{class:'fy-intelligence-research'});
+ const host=detail('智能处理中心 · 数据质量、市场图谱与复盘反馈',
+  h('div',{class:'fy-intelligence-body'},h('div',{class:'fy-inline'},paragraph('按需读取真实证据'),button('刷新中心证据',()=>load(true),'quiet')),status,charts,research),'fy-intelligence-center');
+ host.classList.add('fy-intelligence-center');
+ let generation=0,loading=false,loaded=false;
+ const active=()=>!ctx.signal?.aborted;
+ async function load(force=false){
+  if(!active()||loading||loaded&&!force)return;
+  loading=true;const turn=++generation,selection=ctx.decisionSelection;
+  status.textContent='正在读取市场原始图谱与研究档案…';
+  const query=selection?new URLSearchParams({code:selection.code,day:selection.day}):new URLSearchParams();
+  const tasks=[ctx.api('/api/decision-center/visuals?'+query,{signal:ctx.signal,timeoutMs:15000}),
+   ctx.canEdit?ctx.api('/api/decision-center/research',{signal:ctx.signal,timeoutMs:45000}):Promise.resolve(null)];
+  const results=await Promise.allSettled(tasks);
+  if(!active()||turn!==generation)return;
+  loading=false;loaded=true;
+  const visual=results[0].status==='fulfilled'?results[0].value:null;
+  if(visual?.ok===true&&visual.authority==='fayo-intelligence-visuals'&&(!selection||visual.day===selection.day&&visual.radar?.code===selection.code)){
+   updateReadout(charts,panel('市场情绪周期',emotionCycle(visual.emotion)),panel('个股九维雷达',nineAxisRadar(visual.radar)),
+    panel('全市场热力图',marketHeatmap(visual.heatmap,ctx)),panel('资金桑基图',flowSankey(visual.sankey)));
+  }else updateReadout(charts,paragraph(visual?.error||'市场图谱尚未取得同日、可核实的源数据。'));
+  const result=results[1].status==='fulfilled'?results[1].value:null,report=result?.result;
+  if(report?.authority==='fayo-intelligence-research'&&result.ok===true){
+   updateReadout(research,...researchPanels(report,ctx));status.textContent='研究日 '+report.day+' · 计算于 '+dateTime(report.generatedAt)+' · 研究结果不授予交易权限';
+  }else{
+   updateReadout(research,paragraph(ctx.canEdit?'研究档案未能读取，缺少结果不会填成零分。':'研究档案沿用原编辑身份权限。'));
+   status.textContent=visual?.day?'市场数据日 '+visual.day:'数据证据尚未齐备';
+  }
+ }
+ host.addEventListener('toggle',()=>{if(host.open)void load();});
+ ctx.onDecisionSelection?.(()=>{loaded=false;if(host.open){generation++;loading=false;void load();}});
+ return host;
+}
+
+export function createDrawerRadar(ctx,current){
+ const status=h('div'),host=detail('个股九维雷达',status,'fy-drawer-radar');
+ let turn=0,lastKey='';
+ async function load(){
+  const selected=current(),key=selected.code+':'+selected.day;
+  if(!host.open||!selected.code||key===lastKey)return;
+  const request=++turn;updateReadout(status,paragraph('正在读取同股、同日评分依据…'));
+  try{
+   const value=await ctx.api('/api/decision-center/visuals?'+new URLSearchParams({section:'radar',code:selected.code,day:selected.day}),{signal:ctx.signal,timeoutMs:12000});
+   const latest=current();
+   if(request!==turn||ctx.signal?.aborted||latest.code+':'+latest.day!==key)return;
+   if(value?.ok!==true||value.authority!=='fayo-intelligence-visuals'||value.radar?.code!==selected.code||value.day!==selected.day)throw Error(value?.error||'雷达股票或日期与所选计划不一致。');
+   lastKey=key;updateReadout(status,nineAxisRadar(value.radar));
+  }catch(error){if(request===turn&&!ctx.signal?.aborted)updateReadout(status,paragraph(error.message));}
+ }
+ host.addEventListener('toggle',()=>{if(host.open)void load();});
+ host.refresh=()=>{const selected=current();if(lastKey&&lastKey!==selected.code+':'+selected.day){lastKey='';turn++;updateReadout(status,paragraph('选择已切换，等待读取该股依据。'));}if(host.open)void load();};
+ return host;
+}

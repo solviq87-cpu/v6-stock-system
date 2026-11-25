@@ -19,12 +19,13 @@ test('reference iteration favors useful source data and a compact three-panel/ta
  assert.match(browser,/regions\.market\.bottom<=regions\.opportunity\.top/);
  assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
 });
-test('phone contains eight real counters in two compact rows with source/risk labels',()=>{
+test('phone keeps eight real counters and risk labels beneath the decision-first fold',()=>{
  assert.match(design,/\.fy-terminal-stats\{order:2;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
  assert.match(design,/\.fy-terminal-priorities\{order:3/);
  assert.match(design,/\.fy-terminal-index\{order:5/);
  assert.match(browser,/regions\.sourceCount,8/);
- assert.match(browser,/regions\.risk\.top<page\.viewportSize/);
+ // The current user brief puts weather and authoritative plans above the retained risk section.
+ assert.match(browser,/regions\.decision\.top>=0&&regions\.weather\.bottom<page\.viewportSize/);
  assert.match(browser,/boxes\[0\]\.top,boxes\[2\]\.top/);
  assert.match(design,/\.fy-terminal-provenance/);
  assert.match(design,/\.fy-terminal-priority-risk/);

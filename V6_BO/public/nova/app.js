@@ -77,6 +77,10 @@ const ALIASES={
 const LEGACY_ANCHORS={holdSec1:['assets','holdings'],holdSec2:['assets','holdings'],'v6-paper':['assets','paper'],'v6-market':['pulse','sectors'],'v6-stock':['opportunities','quant'],'v6-news':['inbox','all'],'v6-plan':['pulse','plans'],'v6-review':['pulse','review'],'v6-strategy':['lab','strategies'],'v6-release':['settings','release'],'workspace-settings':['settings','preferences'],researchWorkspace:['lab','records'],decisionWorkspace:['lab','desk'],newsEvidence:['lab','evidence'],stockCapture:['lab','sources'],linkedIntelligence:['lab','memory'],completeHeading:['lab','backtest'],learningWorkbench:['lab','learning']};
 let authInfo=null,state=null,role=null,route={view:'pulse',sub:'overview'},selectedStock=(/^\d{6}$/.test(new URLSearchParams(location.search).get('symbol')||'')?new URLSearchParams(location.search).get('symbol'):''),frame=null,main=null,workspaceNav=null,connection=null,snapshot=null,toast=null,drawer=null,routeController=null,sessionController=null,refreshBusy=false,refreshWanted=false,online=true,lastRead=0,poll=null,searchController=null,gateGeneration=0;
 const poolCache=new Map(),listeners=new Set();
+const decisionPools={},decisionListeners=new Set(),viewMemories=new Map();
+let decisionSelection=null,decisionOrigin='pulse/overview',activeViewKey='';
+const decisionDataListeners=new Set();
+let decisionPayload=null,decisionPending=null,decisionReadAt=0;
 const fastMoveListeners=new Set();
 let fastFrame=null,fastBusy=false,fastReadAt=0;
 const client=createClient({onUnauthorized:()=>logout('本次授权已失效，请重新登录。')});
@@ -103,6 +107,51 @@ function findStock(code) {
  return candidates.find(row=>row.code===code)||null;
 }
 function selectStock(code,row,trigger){if(!role)return;selectedStock=code;drawer.open(code,row,trigger);}
+function rememberView(){
+ if(!main||!activeViewKey)return;
+ const memory=viewMemories.get(activeViewKey)||{};
+ memory.scrollY=window.scrollY;
+ const cards=main.querySelector('.fy-decision-cards');
+ if(cards)memory.decisionScrollLeft=cards.scrollLeft;
+ memory.open=[...main.querySelectorAll('details[open]')].map(node=>node.id||node.querySelector('summary')?.textContent).filter(Boolean);
+ viewMemories.set(activeViewKey,memory);
+}
+function restoreView(controller,key){
+ const memory=viewMemories.get(key);if(!memory)return;
+ requestAnimationFrame(()=>{
+  if(controller.signal.aborted||activeViewKey!==key)return;
+  for(const node of main.querySelectorAll('details'))if(memory.open?.includes(node.id||node.querySelector('summary')?.textContent))node.open=true;
+  requestAnimationFrame(()=>{if(!controller.signal.aborted&&activeViewKey===key)window.scrollTo({top:memory.scrollY||0,behavior:'instant'});});
+ });
+}
+function setDecision(value){
+ if(!role||!/^\d{6}$/.test(value?.code||'')||!/^\d{4}-\d{2}-\d{2}$/.test(value?.day||''))return null;
+ const source=value.row||value,plan={...value.plan};
+ const row={...source,poolDay:value.day,decisionDay:value.day,decisionPlan:plan};
+ if(activeViewKey==='pulse/overview'){rememberView();decisionOrigin=activeViewKey;}
+ decisionSelection={code:value.code,day:value.day,row,plan,authority:value.authority||plan.authority,
+  decisionId:value.decisionId||plan.decisionId};selectedStock=value.code;
+ for(const fn of [...decisionListeners])try{fn(decisionSelection);}catch(error){console.error('FAYO selection update failed',error.name);}
+ return decisionSelection;
+}
+function chooseDecision(card,trigger){const selection=setDecision(card);if(selection)drawer?.open(selection.code,selection.row,trigger);}
+function prefillPaper(card){if(!role||role!=='edit')return;const selection=setDecision(card);if(!selection)return;drawer?.close();navigate('assets','paper');}
+function returnToDecision(){drawer?.close();const [view,sub]=decisionOrigin.split('/');navigate(view||'pulse',sub||'overview');}
+async function loadDecisionCenter(){
+ if(!role)return null;
+ if(decisionPending)return decisionPending;
+ if(decisionPayload&&Date.now()-decisionReadAt<2500)return decisionPayload;
+ const controller=sessionController,session=gateGeneration;
+ const pending=(async()=>{
+  const value=await api('/api/decision-center',{signal:controller?.signal,timeoutMs:4500});
+  if(!role||controller?.signal.aborted||session!==gateGeneration)return null;
+  decisionPayload=value;decisionReadAt=Date.now();
+  for(const fn of [...decisionDataListeners])try{fn(value);}catch(error){console.error('FAYO decision readout failed',error.name);}
+  drawer?.update?.();return value;
+ })();
+ decisionPending=pending;
+ try{return await pending;}finally{if(decisionPending===pending)decisionPending=null;}
+}
 async function readPool(key,loader,{append=false}={}) {
  const [kind,board]=key.split(':');
  const archived=board==='all'&&!append&&state?.closeSession?.cards?.[kind];
@@ -118,7 +167,13 @@ function context(signal) {
  return {
   get state(){return ['pulse','opportunities'].includes(route.view)?projectClosingWorkspace(state):state;},get auth(){return authInfo;},get role(){return role;},get canEdit(){return role==='edit';},get stock(){return selectedStock;},
   get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
+  get decisionSelection(){return decisionSelection;},get decisionPools(){return decisionPools;},
+  get decisionPayload(){return decisionPayload;},get decisionResonance(){return decisionPayload?.resonanceByCode||null;},loadDecisionCenter,
+  get viewMemory(){if(!viewMemories.has(activeViewKey))viewMemories.set(activeViewKey,{});return viewMemories.get(activeViewKey);},
   signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
+  chooseDecision,prefillPaper,returnToDecision,closeStock:()=>drawer?.close(),setDecisionPool(key,value){decisionPools[key]=value;},
+  onDecisionSelection(fn){decisionListeners.add(fn);signal?.addEventListener('abort',()=>decisionListeners.delete(fn),{once:true});return ()=>decisionListeners.delete(fn);},
+  onDecisionCenter(fn){decisionDataListeners.add(fn);signal?.addEventListener('abort',()=>decisionDataListeners.delete(fn),{once:true});return ()=>decisionDataListeners.delete(fn);},
   quoteTrail,readPool,onState(fn){listeners.add(fn);signal?.addEventListener('abort',()=>listeners.delete(fn),{once:true});return ()=>listeners.delete(fn);},
   onFastMoves(fn){fastMoveListeners.add(fn);signal?.addEventListener('abort',()=>fastMoveListeners.delete(fn),{once:true});}
  };
@@ -190,7 +245,9 @@ function createFrame() {
 }
 async function renderRoute() {
  if(!role||!main)return;
+ rememberView();
  route=parseRoute();if(route.view==='lab'&&!workspaceIndex.has('lab/'+route.sub))route.sub='desk';routeController?.abort();listeners.clear();fastMoveListeners.clear();fastFrame=null;fastReadAt=0;routeController=new AbortController();
+ activeViewKey=route.view+'/'+(route.sub||'overview');
  const controller=routeController,ctx=context(controller.signal);
  frame.dataset.terminalView=route.view==='pulse'&&route.sub==='review'?'review':
   route.view==='pulse'&&(!route.sub||route.sub==='overview')?'home':'';
@@ -241,6 +298,7 @@ async function renderRoute() {
    if(route.view==='lab'){const extra=await import('./research-extensions.js');if(!controller.signal.aborted)extra.appendResearchExtensions(view,route,ctx);}
   }
  }catch(error){if(controller.signal.aborted)return;main.replaceChildren(empty('该工作空间暂时未能打开',error.message),button('重新打开',renderRoute));notify(error.message,'error');}
+ restoreView(controller,activeViewKey);
 }
 async function refresh(manual=false,{showSuccess=true}={}) {
  if(!role||(!manual&&document.visibilityState!=='visible'))return;
@@ -279,6 +337,7 @@ async function refreshAutomatically() {
  }finally{fastBusy=false;}
 }
 function logout(message='') {
+ decisionSelection=null;decisionPayload=null;decisionPending=null;decisionReadAt=0;decisionDataListeners.clear();decisionListeners.clear();viewMemories.clear();activeViewKey='';for(const key of Object.keys(decisionPools))delete decisionPools[key];
  gateGeneration++;role=null;state=null;refreshWanted=false;lastRead=0;fastFrame=null;fastReadAt=0;quoteTrail.clear();poolCache.clear();listeners.clear();fastMoveListeners.clear();routeController?.abort();sessionController?.abort();client.invalidate();poll?.();poll=null;drawer?.clear();drawer=null;searchController?.abort();document.querySelector('.fy-command-layer')?.remove();saveSession('','');selectedStock='';showGate(message);
 }
 async function enter(nextRole) {

@@ -2357,3 +2357,81 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-home-featured .fy-home-pick-why{font-size:13px}
  .fy-home-layout>.fy-terminal-title{display:none}
 }
+
+/* Decision center: the actionable reading sequence precedes the preserved workspaces. */
+.fy-reference-shell .fy-home-layout>.fy-decision-board{grid-column:1/-1;order:-1;min-width:0;padding:18px;border:1px solid #765177;border-radius:16px;background:linear-gradient(120deg,#281a30,#141f34 75%)}
+.fy-decision-board>header,.fy-decision-linked>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fy-decision-board h1{font-size:23px;line-height:1.3;margin:3px 0 10px;color:#f6e9f4}
+.fy-decision-kicker{font-size:10px;letter-spacing:.16em;color:#d6a8cb}
+.fy-decision-board small{font-size:11px;color:#bbbed1}
+.fy-decision-weather{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;background:#263446;border:1px solid #516076;margin-bottom:12px}
+.fy-decision-weather p{margin:0;font-size:13px;color:#d7deeb;line-height:1.5}
+.fy-decision-weather>strong{white-space:nowrap;font-size:17px}
+.fy-weather-light{width:11px;height:11px;flex:0 0 11px;background:#b8bac4;border-radius:50%;box-shadow:0 0 0 4px #ffffff0a}
+.fy-decision-weather[data-weather=green] .fy-weather-light{background:#71d5b1;box-shadow:0 0 12px #71d5b14d}
+.fy-decision-weather[data-weather=yellow] .fy-weather-light{background:#e6c679}
+.fy-decision-weather[data-weather=red] .fy-weather-light{background:#f08b9f}
+.fy-decision-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;align-items:stretch}
+.fy-decision-card{min-width:0;border:1px solid #5b4763;border-radius:12px;background:#172436;padding:12px;display:flex;flex-direction:column;gap:9px;transition:border-color .15s}
+.fy-decision-card[data-selected=true]{border-color:#f0a5d1;box-shadow:0 0 0 1px #f0a5d140}
+.fy-decision-stock{width:100%;display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;border:0;background:transparent;color:inherit;padding:0;cursor:pointer}
+.fy-decision-stock>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fy-decision-stock strong{font-size:20px;color:#f7edf5;overflow-wrap:anywhere}
+.fy-decision-score{align-items:flex-end;color:#f2b4da}.fy-decision-score b{font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
+.fy-decision-tags{display:flex;flex-wrap:wrap;gap:4px}.fy-decision-tags>*{padding:2px 6px;border-radius:4px;font-size:10px;background:#29374f;color:#cbd7ee}.fy-decision-tags>b{color:#edb9df;background:#59334f}
+.fy-decision-reason{font-size:12px;line-height:1.5;margin:0;min-height:36px;color:#d0d9e9}
+.fy-decision-plan{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px 6px;margin:0;padding:9px 0;border-block:1px solid #ffffff10}
+.fy-decision-plan div{min-width:0}.fy-decision-plan dt{font-size:10px;color:#acb9cf}.fy-decision-plan dd{font-size:15px;font-variant-numeric:tabular-nums;color:#f0e5ee;margin:3px 0 0;white-space:nowrap}
+.fy-decision-plan .fy-decision-buy{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:6px}.fy-decision-buy dd{font-size:19px;color:#f4b8d8}
+.fy-decision-mini{margin:0;min-height:70px;display:grid;align-content:center}.fy-decision-mini svg{width:100%;height:58px}.fy-decision-mini p{margin:0;color:#aabbcf;font-size:12px}.fy-decision-mini figcaption{font-size:9px;color:#a8b7cd;line-height:1.4}
+.fy-decision-actions{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto}
+.fy-reference-shell .fy-decision-actions .fy-button{min-height:36px;padding:6px 10px;font-size:12px}
+.fy-reference-shell .fy-decision-actions .primary{background:#75496c;border:1px solid #cc86b0;color:#fff1fa}
+.fy-decision-proof{overflow-wrap:anywhere;line-height:1.4}
+.fy-decision-evidence{font-size:11px;line-height:1.5;margin:0;padding:0}.fy-decision-evidence summary{color:#e7b8d5;cursor:pointer}.fy-decision-evidence p{margin:6px 0;overflow-wrap:anywhere}.fy-decision-evidence ul{padding-left:17px}.fy-decision-evidence dl{display:grid;gap:6px}.fy-decision-evidence dd{margin:0;color:#b9c5d7}.fy-decision-evidence dt{color:#edc0df}
+.fy-decision-execution{display:flex;gap:15px;align-items:baseline;margin-top:12px;padding:9px 0;border-bottom:1px solid #ffffff14;font-size:12px}.fy-decision-execution>strong{white-space:nowrap;color:#ebc7df}
+.fy-decision-checklist{display:flex;flex-wrap:wrap;gap:8px 24px;margin:0;padding-left:18px;color:#cbd4e3;font-size:11px}
+.fy-decision-coverage{font-size:11px;color:#aebed3;line-height:1.5;margin:9px 0}
+.fy-decision-empty{grid-column:1/-1;padding:25px 12px;text-align:center;border:1px dashed #77617a;border-radius:10px;background:#1b2637}.fy-decision-empty strong{font-size:21px;color:#edc7df}.fy-decision-empty p{font-size:12px;color:#bfccdd;line-height:1.6}
+.fy-decision-board>.fy-details,.fy-decision-query{font-size:12px;margin-block:8px}.fy-decision-board>.fy-details summary,.fy-decision-query>summary{color:#e0bfd7}
+.fy-decision-linked{border:1px solid #6c4e6d;border-radius:9px;padding:10px;margin:10px 0;background:#23243a;min-width:0}.fy-decision-linked[hidden]{display:none}.fy-decision-linked p{font-size:12px;line-height:1.55;overflow-wrap:anywhere;margin:6px 0}.fy-decision-linked header{flex-wrap:wrap}.fy-decision-linked header strong{font-size:13px;color:#f0c6e1}
+.fy-stock-drawer>.fy-decision-linked{margin-inline:16px}
+.fy-stock-conclusion{padding:10px;background:#293040;border:1px solid #76627b;border-radius:9px;display:grid;gap:5px}.fy-stock-conclusion>strong{color:#efb3d6;font-size:16px}.fy-stock-conclusion>span{font-size:12px;line-height:1.5}.fy-stock-conclusion dl{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:3px 0}.fy-stock-conclusion dt{font-size:10px;color:#b6bad0}.fy-stock-conclusion dd{font-size:11px;margin:1px 0;overflow-wrap:anywhere;line-height:1.5}
+.fy-command-selection input{min-width:0;flex:1}.fy-command-stock{display:grid;grid-template-columns:1fr auto;gap:4px;width:100%;text-align:left;margin-block:6px;padding:9px;border:1px solid #5f4a6d;background:#1a2a40;border-radius:7px;color:#e1dfed}.fy-command-stock p,.fy-command-stock small{grid-column:1/-1}
+@media(max-width:760px){
+ .fy-reference-shell .fy-home-layout>.fy-decision-board{padding:11px;border-radius:12px}
+ .fy-decision-board h1{font-size:20px;margin-bottom:7px}.fy-decision-kicker{display:none}
+ .fy-decision-weather{display:grid;grid-template-columns:11px auto 1fr;gap:7px;padding:8px;margin-bottom:8px}.fy-decision-weather p{font-size:11px}.fy-decision-weather>strong{font-size:15px}
+ .fy-decision-cards{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:9px;padding-bottom:5px;overscroll-behavior-inline:contain}
+ .fy-decision-card{flex:0 0 91%;scroll-snap-align:start;padding:9px;gap:5px}.fy-decision-card:only-child{flex-basis:100%}
+ .fy-decision-empty{width:100%;flex:0 0 100%;padding:18px 8px}.fy-decision-empty strong{font-size:18px}
+ .fy-decision-stock strong{font-size:19px}.fy-decision-mini{min-height:45px}.fy-decision-mini svg{height:32px}.fy-decision-reason{min-height:0}
+ .fy-decision-execution{display:block;margin-top:6px;padding:6px 0}.fy-decision-checklist{gap:3px 20px;margin-top:5px;font-size:10px}
+ .fy-decision-coverage{font-size:10px}.fy-decision-board>.fy-details{margin-block:5px}
+ .fy-command-selection .fy-toolbar{display:flex;flex-wrap:wrap}.fy-command-selection input{flex-basis:100%}
+}
+
+/* Lazy evidence panels keep the five-second decision path independent of analytics. */
+.fy-reference-shell .fy-home-layout>.fy-intelligence-center{grid-column:1/-1;min-width:0;border:1px solid #604869;border-radius:12px;background:#1c2134;padding:13px}
+.fy-intelligence-center>summary{font-size:14px;font-weight:600;color:#e6bddc;cursor:pointer}
+.fy-intelligence-body{padding-top:12px;min-width:0}.fy-intelligence-body>p{margin:8px 0}
+.fy-intelligence-charts,.fy-intelligence-research{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.fy-intelligence-panel{min-width:0;padding:14px;border:1px solid #493b58;border-radius:10px;background:#182337;font-size:12px;line-height:1.6}
+.fy-intelligence-panel h3{font-size:15px;margin:0 0 10px;color:#efc8e1}.fy-intelligence-panel p{margin:7px 0;overflow-wrap:anywhere}.fy-intelligence-panel ul{padding-left:18px}
+.fy-intelligence-charts>.fy-intelligence-panel:nth-child(3),.fy-intelligence-research>.fy-intelligence-panel:last-child{grid-column:1/-1}
+.fy-intelligence-number{font-size:24px;color:#f1b8da;font-variant-numeric:tabular-nums}.fy-intelligence-evidence{max-height:380px;overflow:auto;font-size:10px;padding:10px;background:#121b2b;color:#bdc9db;white-space:pre-wrap;overflow-wrap:anywhere}
+.fy-market-map,.fy-flow-sankey{margin:0}.fy-market-map svg,.fy-flow-sankey svg{display:block;width:100%;height:auto}.fy-market-map g{cursor:pointer}.fy-market-map figcaption,.fy-flow-sankey figcaption{font-size:11px;color:#b4bed0;margin-top:8px}
+.fy-market-map .fy-table-wrap{max-height:340px;overflow:auto}.fy-market-map .fy-table-wrap .fy-button{font-size:11px;min-height:26px}
+.fy-nine-radar{min-width:0}.fy-nine-radar svg{display:block;width:100%;max-height:272px}.fy-nine-radar dl{display:grid;gap:8px}.fy-nine-radar dd{margin:0;color:#bdc7d8}.fy-nine-radar dt{color:#e9bfdc}
+.fy-emotion-cycle ol{list-style:none;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.fy-emotion-cycle li{border:1px solid #665170;text-align:center;border-radius:8px;padding:12px 3px;color:#b5a8c4}
+.fy-emotion-cycle li[data-active=true]{color:#fff1fa;background:#724564;border-color:#e9a1ce}
+#fy-drawer-radar{margin:7px 16px;padding:8px 10px;border:1px solid #5b4269;border-radius:8px;font-size:12px}#fy-drawer-radar>summary{cursor:pointer;color:#e9bddd}
+@media(max-width:760px){
+ .fy-intelligence-charts,.fy-intelligence-research{grid-template-columns:minmax(0,1fr)}
+ .fy-intelligence-panel{padding:11px}.fy-intelligence-center>summary{font-size:13px}
+ .fy-decision-evidence{font-size:10px}
+ .fy-market-map svg text{font-size:30px}
+ .fy-market-map svg g>text+text{display:none}
+ .fy-flow-sankey svg text{font-size:26px}
+}

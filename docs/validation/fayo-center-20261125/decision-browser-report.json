@@ -1,0 +1,87 @@
+{
+  "fixtureOnly": true,
+  "backend": "native decisionCenterInput / buildDecisionCenter",
+  "day": "2026-11-16",
+  "views": [
+    {
+      "width": 1366,
+      "height": 900,
+      "path": "/",
+      "firstPlanMs": 465,
+      "shape": {
+        "titleTop": 346.03125,
+        "planBottom": 590.265625,
+        "checklistTop": 827.25,
+        "checklistBottom": 845.390625,
+        "usableBottom": 900,
+        "height": 900,
+        "overflow": 0
+      },
+      "linkedCode": "600001",
+      "linkedDay": "2026-11-16",
+      "scrollRestored": true,
+      "horizontalScrollRestored": true,
+      "savedHorizontal": 0,
+      "reasoningRestored": true,
+      "paperMutations": 0,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "path": "/m",
+      "firstPlanMs": 301,
+      "shape": {
+        "titleTop": 337,
+        "planBottom": 549.578125,
+        "checklistTop": 762.765625,
+        "checklistBottom": 779.265625,
+        "usableBottom": 783.3125,
+        "height": 844,
+        "overflow": 0
+      },
+      "linkedCode": "600001",
+      "linkedDay": "2026-11-16",
+      "scrollRestored": true,
+      "horizontalScrollRestored": true,
+      "savedHorizontal": 326,
+      "reasoningRestored": true,
+      "paperMutations": 0,
+      "errors": []
+    }
+  ],
+  "rejections": [
+    {
+      "path": "/",
+      "case": "tampered-plan",
+      "text": "今天空仓，等待信号\n\n后台候选的原始报价或完整计划未通过复核，等待更新。"
+    },
+    {
+      "path": "/",
+      "case": "stale-package",
+      "text": "今天空仓，等待信号\n\n后台决策日期或时点已失效，等待重新核验。"
+    },
+    {
+      "path": "/m",
+      "case": "tampered-plan",
+      "text": "今天空仓，等待信号\n\n后台候选的原始报价或完整计划未通过复核，等待更新。"
+    },
+    {
+      "path": "/m",
+      "case": "stale-package",
+      "text": "今天空仓，等待信号\n\n后台决策日期或时点已失效，等待重新核验。"
+    }
+  ],
+  "races": [
+    {
+      "path": "/",
+      "status": "old stock reply rejected; selected code and day retained"
+    },
+    {
+      "path": "/m",
+      "status": "old stock reply rejected; selected code and day retained"
+    }
+  ],
+  "ledgerUnchanged": true,
+  "passed": true
+}

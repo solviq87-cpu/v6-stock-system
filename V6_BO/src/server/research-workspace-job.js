@@ -8,7 +8,7 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload){
- const readOnly=!payload.input&&(payload.action==='shortline'||payload.action==='manual-loop');
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
@@ -39,6 +39,12 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
+  }
+  if(p.action==='intelligence-research'){
+    const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});
+    if(!archive.ok)return archive;
+    const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes});
+    return {ok:true,result};
   }
   if(p.action==='shortline-web-notices'){
     const {runBookNotices}=await import('../research/shortline/store.mjs');

@@ -1,0 +1,3344 @@
+{
+  "scope": "real new FAYO modules and CSS; synthetic isolated HTTP only; no actual account/market/physical-device certification",
+  "report": [
+    {
+      "width": 402,
+      "metrics": {
+        "width": 402,
+        "scrollWidth": 402,
+        "duplicateIds": [],
+        "docks": 1,
+        "iframeCount": 0,
+        "oldShells": 0,
+        "offenders": [
+          {
+            "tag": "BUTTON",
+            "cls": "",
+            "right": 406,
+            "width": 95
+          }
+        ],
+        "reviewOverflow": [],
+        "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+        "brandBox": {
+          "left": 10,
+          "right": 227,
+          "top": 0,
+          "bottom": 57,
+          "width": 217,
+          "height": 57
+        }
+      },
+      "workspaces": null,
+      "requests": 52,
+      "checks": [
+        "new-native-shell",
+        "five-workspaces",
+        "workflow-board",
+        "source-date",
+        "three-period-chart",
+        "older-history",
+        "focus-return",
+        "local-filter",
+        "weekend-retention",
+        "accounting-schema",
+        "no-automatic-writes",
+        "revocation-clears",
+        "no-external-egress"
+      ]
+    },
+    {
+      "width": 768,
+      "metrics": {
+        "width": 768,
+        "scrollWidth": 768,
+        "duplicateIds": [],
+        "docks": 0,
+        "iframeCount": 0,
+        "oldShells": 0,
+        "offenders": [
+          {
+            "tag": "TABLE",
+            "cls": "fy-table",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "THEAD",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TR",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TH",
+            "cls": "",
+            "right": 801,
+            "width": 52.59375
+          },
+          {
+            "tag": "TBODY",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TR",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TD",
+            "cls": "",
+            "right": 801,
+            "width": 52.59375
+          },
+          {
+            "tag": "BUTTON",
+            "cls": "fy-button quiet",
+            "right": 789.40625,
+            "width": 34
+          },
+          {
+            "tag": "TR",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TD",
+            "cls": "",
+            "right": 801,
+            "width": 52.59375
+          },
+          {
+            "tag": "BUTTON",
+            "cls": "fy-button quiet",
+            "right": 789.40625,
+            "width": 34
+          },
+          {
+            "tag": "TR",
+            "cls": "",
+            "right": 801,
+            "width": 760
+          },
+          {
+            "tag": "TD",
+            "cls": "",
+            "right": 801,
+            "width": 52.59375
+          },
+          {
+            "tag": "BUTTON",
+            "cls": "fy-button quiet",
+            "right": 789.40625,
+            "width": 34
+          }
+        ],
+        "reviewOverflow": [],
+        "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+        "brandBox": {
+          "left": 10,
+          "right": 565,
+          "top": 0,
+          "bottom": 57,
+          "width": 555,
+          "height": 57
+        }
+      },
+      "workspaces": null,
+      "requests": 42,
+      "checks": [
+        "new-native-shell",
+        "five-workspaces",
+        "workflow-board",
+        "source-date",
+        "three-period-chart",
+        "older-history",
+        "focus-return",
+        "local-filter",
+        "weekend-retention",
+        "accounting-schema",
+        "no-automatic-writes",
+        "revocation-clears",
+        "no-external-egress"
+      ]
+    },
+    {
+      "width": 1366,
+      "metrics": {
+        "width": 1366,
+        "scrollWidth": 1366,
+        "duplicateIds": [],
+        "docks": 0,
+        "iframeCount": 0,
+        "oldShells": 0,
+        "offenders": [],
+        "reviewOverflow": [],
+        "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+        "brandBox": {
+          "left": 17,
+          "right": 166.765625,
+          "top": 9,
+          "bottom": 49.984375,
+          "width": 149.765625,
+          "height": 40.984375
+        }
+      },
+      "workspaces": [
+        {
+          "label": "大盘",
+          "routes": [
+            "pulse/overview",
+            "pulse/market-overview",
+            "pulse/global",
+            "lab/sources",
+            "pulse/sectors"
+          ]
+        },
+        {
+          "label": "机会",
+          "routes": [
+            "opportunities/ranked",
+            "opportunities/all",
+            "opportunities/quant",
+            "opportunities/auction",
+            "opportunities/intraday",
+            "opportunities/relay-first",
+            "opportunities/relay-second",
+            "opportunities/relay-next",
+            "opportunities/movement",
+            "opportunities/conditions",
+            "opportunities/focused",
+            "opportunities/matches",
+            "opportunities/trend",
+            "opportunities/ztpre",
+            "opportunities/steady",
+            "opportunities/smallyang",
+            "opportunities/pre",
+            "opportunities/buzhang",
+            "opportunities/limits",
+            "opportunities/wash",
+            "opportunities/preseal",
+            "opportunities/shortline",
+            "lab/strategies"
+          ]
+        },
+        {
+          "label": "我的票",
+          "routes": [
+            "assets/holdings",
+            "assets/overview",
+            "assets/history",
+            "settings/preferences",
+            "settings/diagnostics",
+            "settings/channels",
+            "settings/devices",
+            "settings/security",
+            "settings/source",
+            "settings/release",
+            "assets/paper",
+            "assets/ledger",
+            "assets/risk",
+            "assets/authority"
+          ]
+        },
+        {
+          "label": "提醒",
+          "routes": [
+            "inbox/all",
+            "inbox/alerts",
+            "inbox/signals",
+            "lab/evidence",
+            "inbox/push",
+            "inbox/compose",
+            "settings/channels"
+          ]
+        },
+        {
+          "label": "复盘",
+          "routes": [
+            "pulse/review",
+            "lab/strategies",
+            "pulse/review-details",
+            "pulse/auction-review",
+            "lab/learning",
+            "assets/closure",
+            "lab/shortline-trades",
+            "lab/shortline-review",
+            "lab/shortline-mistakes",
+            "lab/shortline-journal",
+            "lab/shortline-setup"
+          ]
+        },
+        {
+          "label": "复盘",
+          "routes": [
+            "lab/strategies",
+            "lab/desk",
+            "lab/records",
+            "lab/models",
+            "lab/memory",
+            "pulse/plans",
+            "lab/shortline-overview",
+            "lab/shortline-new",
+            "lab/shortline-checks",
+            "lab/shortline-library",
+            "lab/shortline-versions",
+            "lab/shortline-settings",
+            "lab/shortline-dictionary",
+            "lab/shortline-structure",
+            "lab/shortline-pressure",
+            "lab/backtest",
+            "lab/shortline-backtest",
+            "lab/shortline-import",
+            "opportunities/scan",
+            "pulse/review"
+          ]
+        },
+        {
+          "label": "大盘",
+          "routes": [
+            "pulse/overview",
+            "pulse/market-overview",
+            "pulse/global",
+            "lab/sources",
+            "pulse/sectors"
+          ]
+        }
+      ],
+      "requests": 149,
+      "checks": [
+        "new-native-shell",
+        "five-workspaces",
+        "workflow-board",
+        "source-date",
+        "three-period-chart",
+        "older-history",
+        "focus-return",
+        "local-filter",
+        "weekend-retention",
+        "accounting-schema",
+        "no-automatic-writes",
+        "revocation-clears",
+        "no-external-egress"
+      ]
+    },
+    {
+      "width": 1920,
+      "metrics": {
+        "width": 1920,
+        "scrollWidth": 1920,
+        "duplicateIds": [],
+        "docks": 0,
+        "iframeCount": 0,
+        "oldShells": 0,
+        "offenders": [],
+        "reviewOverflow": [],
+        "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+        "brandBox": {
+          "left": 17,
+          "right": 166.765625,
+          "top": 9,
+          "bottom": 49.984375,
+          "width": 149.765625,
+          "height": 40.984375
+        }
+      },
+      "workspaces": null,
+      "requests": 42,
+      "checks": [
+        "new-native-shell",
+        "five-workspaces",
+        "workflow-board",
+        "source-date",
+        "three-period-chart",
+        "older-history",
+        "focus-return",
+        "local-filter",
+        "weekend-retention",
+        "accounting-schema",
+        "no-automatic-writes",
+        "revocation-clears",
+        "no-external-egress"
+      ]
+    },
+    {
+      "kind": "readonly",
+      "width": 390,
+      "checks": [
+        "restricted-features-explained",
+        "no-private-endpoint-attempt",
+        "valid-reader-session-retained",
+        "native-identity-switch",
+        "prior-session-and-views-cleared"
+      ]
+    },
+    {
+      "kind": "fresh-login",
+      "width": 390,
+      "checks": [
+        "new-gate",
+        "wrong-password-denied",
+        "real-login-form",
+        "token-only-persistence",
+        "password-cleared"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "6d0564c1-cd4a-4d07-b763-ac6114f890e3",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 0,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-12"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 1,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600101"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-12-15"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-01-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quote-cross-check",
+      "query": {
+        "code": "600101"
+      },
+      "method": "POST",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stock-news-risk",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/holdings",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/ledger",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "f6c9f00d-85ec-4086-91ff-5cab76c214ea",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 2,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-12"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 3,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600101"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-12-15"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-01-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quote-cross-check",
+      "query": {
+        "code": "600101"
+      },
+      "method": "POST",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stock-news-risk",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/ledger",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "ec03299a-d3f5-41ce-aa0a-1c75b97ae9b7",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 4,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-12"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "ec03299a-d3f5-41ce-aa0a-1c75b97ae9b7",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-12",
+        "retained": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 5,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600101"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-12-15"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-01-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quote-cross-check",
+      "query": {
+        "code": "600101"
+      },
+      "method": "POST",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stock-news-risk",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline-marks",
+      "query": {
+        "code": "600101",
+        "date": "2026-11-12"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/analyze",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/analyze",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600102",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600102",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 6,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600102"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/ledger",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/release/requests",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/public-sectors",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/auction-resonance",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/intraday-strong",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/v6/matches",
+      "query": {
+        "limit": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/shortline",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/preseal",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/wash-trend",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/auction-resonance",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/intraday-strong",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/v6/matches",
+      "query": {
+        "limit": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/wash-trend",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/preseal",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/shortline",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/adaptive-latest",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/public-factors",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "schemaVersion": 1,
+        "asOf": "2026-11-13",
+        "observedAt": 1794553200000,
+        "tradingDates": [
+          "2026-11-13"
+        ],
+        "stocks": [
+          {
+            "symbol": "600102",
+            "bars": [
+              {
+                "date": "2026-11-13",
+                "close": 12
+              }
+            ]
+          }
+        ]
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/holdings",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/holdings/ops",
+      "query": {
+        "n": "100"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/devices",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/devices",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/release/requests",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/execution-score",
+      "query": {
+        "date": "2026-11-25"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/ledger",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/holdings",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/push-log",
+      "query": {
+        "n": "200"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/adaptive-latest",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/public-factors",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "schemaVersion": 1,
+        "asOf": "2026-11-13",
+        "observedAt": 1794553200000,
+        "tradingDates": [
+          "2026-11-13"
+        ],
+        "stocks": [
+          {
+            "symbol": "600102",
+            "bars": [
+              {
+                "date": "2026-11-13",
+                "close": 12
+              }
+            ]
+          }
+        ]
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/manual-loop",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/adaptive-latest",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/public-factors",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "schemaVersion": 1,
+        "asOf": "2026-11-13",
+        "observedAt": 1794553200000,
+        "tradingDates": [
+          "2026-11-13"
+        ],
+        "stocks": [
+          {
+            "symbol": "600102",
+            "bars": [
+              {
+                "date": "2026-11-13",
+                "close": 12
+              }
+            ]
+          }
+        ]
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/workspace",
+      "query": {
+        "offset": "0",
+        "limit": "20",
+        "status": "all",
+        "minScore": "0",
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/linked-intelligence",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "schemaVersion": 1,
+        "asOf": 1794553200000,
+        "tradeDates": [
+          "2026-11-13"
+        ],
+        "stocks": [
+          {
+            "symbol": "600102",
+            "bars": [
+              {
+                "date": "2026-11-13",
+                "close": 12
+              }
+            ]
+          }
+        ],
+        "persist": false
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/capabilities",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/paper-account",
+      "query": {
+        "accountId": "research"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/reference-indexes",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/automatic-evidence",
+      "query": {
+        "symbol": "600102"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/public-sectors",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/reference-indexes",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "d6ce62f9-fef8-4318-aef7-acb045c1455f",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600103",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 7,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-12"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "list": "1"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/close-review-evidence",
+      "query": {
+        "date": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "period": "minute",
+        "day": "2026-11-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 8,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600101"
+        }
+      },
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-12-15"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2025-01-13"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/kline",
+      "query": {
+        "code": "600101",
+        "n": "240",
+        "end": "2024-05-28"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quote-cross-check",
+      "query": {
+        "code": "600101"
+      },
+      "method": "POST",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stock-news-risk",
+      "query": {
+        "code": "600101"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/paper/ledger",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-reader"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-reader"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-reader"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "6f8646a7-2abc-434a-af14-a1ef9ac871db",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-reader"
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": ""
+    },
+    {
+      "path": "/api/lock/unlock",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "password": "wrong-synthetic-password",
+        "role": "auto",
+        "fp": "c0c41491-8eee-4423-ad03-5e46d9fafaff",
+        "name": "绯曜研究设备"
+      },
+      "authorization": ""
+    },
+    {
+      "path": "/api/lock/unlock",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "password": "synthetic-fayo-password",
+        "role": "auto",
+        "fp": "c0c41491-8eee-4423-ad03-5e46d9fafaff",
+        "name": "绯曜研究设备"
+      },
+      "authorization": ""
+    },
+    {
+      "path": "/api/lock/status",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/decision-center",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/stream",
+      "query": {
+        "dev": "c0c41491-8eee-4423-ad03-5e46d9fafaff",
+        "dname": "绯曜设备"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    }
+  ],
+  "resources": [
+    "/m",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/dabanke-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/shortline/home-performance.mjs",
+    "/nova/shortline/quote-links.mjs",
+    "/nova/shortline/ths-board-directory.mjs",
+    "/nova/shortline-host.mjs",
+    "/nova/research.js",
+    "/nova/research-records.js",
+    "/nova/operations.js",
+    "/nova/kline-learning-view.js",
+    "/nova/research-extensions.js",
+    "/nova/manual-loop.js",
+    "/nova/workbook-view.js",
+    "/nova/kline-factor-engine.js",
+    "/nova/kline-synced-history.js",
+    "/nova/workbook.js",
+    "/nova/shortline/signal-window.mjs",
+    "/nova/shortline/settings.mjs",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/dabanke-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/shortline/home-performance.mjs",
+    "/nova/shortline/quote-links.mjs",
+    "/nova/shortline/ths-board-directory.mjs",
+    "/nova/shortline-host.mjs",
+    "/nova/research.js",
+    "/nova/research-records.js",
+    "/nova/operations.js",
+    "/nova/kline-learning-view.js",
+    "/nova/research-extensions.js",
+    "/nova/workbook-view.js",
+    "/nova/kline-factor-engine.js",
+    "/nova/kline-synced-history.js",
+    "/nova/manual-loop.js",
+    "/nova/workbook.js",
+    "/nova/shortline/signal-window.mjs",
+    "/nova/shortline/settings.mjs",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/client.js",
+    "/nova/ui.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/dabanke-view.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/shortline/home-performance.mjs",
+    "/nova/shortline/quote-links.mjs",
+    "/nova/shortline/ths-board-directory.mjs",
+    "/nova/shortline-host.mjs",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/review-pool.js",
+    "/nova/system-picks.mjs",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/dabanke-view.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/research.js",
+    "/nova/research-records.js",
+    "/nova/operations.js",
+    "/nova/kline-learning-view.js",
+    "/nova/research-extensions.js",
+    "/nova/kline-factor-engine.js",
+    "/nova/kline-synced-history.js",
+    "/nova/workbook-view.js",
+    "/nova/manual-loop.js",
+    "/nova/shortline/signal-window.mjs",
+    "/nova/shortline/settings.mjs",
+    "/nova/workbook.js",
+    "/nova/shortline/pressure.mjs",
+    "/nova/shortline/sample-quality.mjs",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/learning.mjs",
+    "/nova/shortline/backtest.mjs",
+    "/nova/shortline/market.mjs",
+    "/nova/shortline/factor-performance.mjs",
+    "/nova/shortline/backtest-analytics.mjs",
+    "/nova/shortline/recognize.mjs",
+    "/nova/shortline/pattern-evidence.mjs",
+    "/nova/shortline/index-evidence.mjs",
+    "/nova/shortline/stock-risk-evidence.mjs",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/review.mjs",
+    "/nova/shortline/journal-data.mjs",
+    "/nova/shortline/model-context.mjs",
+    "/nova/shortline/icons.mjs",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/journal.mjs",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/preflight.mjs",
+    "/nova/shortline-sheet.css",
+    "/assets/model-library-catalog.json",
+    "/nova/shortline/overview.mjs",
+    "/nova/shortline/overview.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/structure.mjs",
+    "/nova/shortline/structure-core.js",
+    "/nova/shortline/structure-events.mjs",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline-sheet.css",
+    "/nova/shortline/import-wizard.mjs",
+    "/nova/shortline-sheet.css",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/dabanke-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/shortline/home-performance.mjs",
+    "/nova/shortline/quote-links.mjs",
+    "/nova/shortline/ths-board-directory.mjs",
+    "/nova/shortline-host.mjs",
+    "/nova/research.js",
+    "/nova/research-records.js",
+    "/nova/operations.js",
+    "/nova/kline-learning-view.js",
+    "/nova/research-extensions.js",
+    "/nova/manual-loop.js",
+    "/nova/workbook-view.js",
+    "/nova/kline-factor-engine.js",
+    "/nova/kline-synced-history.js",
+    "/nova/workbook.js",
+    "/nova/shortline/signal-window.mjs",
+    "/nova/shortline/settings.mjs",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/dabanke-view.js",
+    "/nova/operations.js",
+    "/nova/manual-loop.js",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
+    "/nova/client.js",
+    "/nova/market.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
+    "/nova/dabanke-view.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs"
+  ]
+}

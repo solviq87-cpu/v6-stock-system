@@ -412,7 +412,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'home-20261123-2');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-1');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
@@ -425,6 +425,7 @@ const runChecks=async()=>{
    await symbolLens.locator('.fy-drawer-summary').getByText(/近期公告/).waitFor();
    assert.match(await symbolLens.locator('.fy-drawer-title').innerText(),/600103/);
    await page.keyboard.press('Escape');
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    if(width<500)assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5);
    const metrics=await geometry(page,'pulse-'+width);
    const regions=await page.locator('.fy-home-layout').evaluate(home=>{
@@ -432,6 +433,7 @@ const runChecks=async()=>{
     return {headings:[...home.querySelectorAll(':scope > .fy-home-section')].map(el=>el.getAttribute('aria-label')),
      market:box(home.querySelector('.fy-home-market')),opportunity:box(home.querySelector('.fy-home-opportunity')),
      risk:box(home.querySelector('.fy-home-risk')),more:box(home.querySelector('.fy-home-research')),
+     decision:box(home.querySelector('.fy-decision-board')),weather:box(home.querySelector('.fy-decision-weather')),
      indices:[...home.querySelectorAll('.fy-home-indices article')].map(box),
      sourceCount:home.querySelectorAll('.fy-home-research .fy-terminal-stat').length,
      up:getComputedStyle(home.querySelector('.fy-overview-index.fy-positive')).color,
@@ -445,7 +447,7 @@ const runChecks=async()=>{
    assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.risk.bottom);
    if(width>=1000)assert.equal(regions.opportunity.top,regions.risk.top);
    else assert.ok(regions.opportunity.bottom<=regions.risk.top);
-   if(width===1366)assert.ok(regions.risk.top<page.viewportSize().height-50,'risk is visible alongside all recommendations on desktop');
+   assert.ok(regions.decision.top>=0&&regions.weather.bottom<page.viewportSize().height-50,'current decision and market weather are visible on the first screen');
    const rgb=v=>v.match(/\d+/g).slice(0,3).map(Number);
    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
    assert.ok(rr>rg&&gg>gr,'index quotes retain red-up / green-down semantics');
@@ -631,11 +633,14 @@ const runChecks=async()=>{
     const initial=await page.evaluate(()=>({width:innerWidth,dpr:devicePixelRatio,scroll:scrollY,
      indexTop:document.querySelector('.fy-home-indices').getBoundingClientRect().top,
      dock:getComputedStyle(document.querySelector('.fy-dock')).position}));
-    assert.equal(initial.width,402);assert.equal(initial.dpr,3);assert.equal(initial.scroll,0);
-    assert.ok(initial.indexTop<page.viewportSize().height*.7);
+    assert.equal(initial.width,402);assert.equal(initial.dpr,3);assert.ok(initial.scroll>=0,'return navigation preserves the prior reading position');
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+    const firstWeather=await page.locator('.fy-decision-weather').boundingBox();
+    assert.ok(firstWeather.y+firstWeather.height<page.viewportSize().height*.7,'today’s decision weather remains in the first screen');
     assert.equal(initial.dock,'fixed');
-    await moreResearch.click();
-    await page.locator('.fy-reference-home-details > summary').click();
+    if(!await moreResearch.evaluate(element=>element.parentElement.open))await moreResearch.click();
+    const restoredHomeDetails=page.locator('.fy-reference-home-details > summary');
+    if(!await restoredHomeDetails.evaluate(element=>element.parentElement.open))await restoredHomeDetails.click();
     assert.ok(await page.locator('.fy-terminal-mobile-stock:visible').count()>=3);
     assert.equal(await page.locator('.fy-terminal-desktop-table').isVisible(),false);
     await moreResearch.click();

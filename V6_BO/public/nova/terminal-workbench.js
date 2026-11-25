@@ -6,6 +6,8 @@ import {h,updateReadout,button,empty,section,format,money,percent,direction,dayL
 import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,projectDecisionBrief,selectResearchPicks,researchPickPanel,replaceKeepingStockFocus,recoveryDisclosure,observedMarketValues,coveragePanel,closeSessionDay,closingWatch,closingWatchPanel,distributionPanel,publishedReasons} from './market.js';
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier,recoveredMetric} from './market-evidence.js';
 import {createTradingHome,homeEmpty,adaptivePanel} from './home-layout.js';
+import {createDecisionHome} from './decision-view.mjs';
+import {createIntelligenceCenter} from './intelligence-view.mjs';
 import {renderCloseReview} from './close-review.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
@@ -227,7 +229,7 @@ function referenceReviewStats(review,summary,source) {
 export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
  const view=h('div',{class:'fy-terminal fy-stack','data-v6-workbench':'true'});
  const title=h('header',{class:'fy-terminal-title'},
-  h('div',{},h('span',{class:'fy-terminal-eyebrow'},'FAYO / V6'),h('h1',{},'盘面总览')),
+  h('div',{},h('span',{class:'fy-terminal-eyebrow'},'FAYO / V6'),h(reviewOnly?'h1':'h2',{},'盘面总览')),
   h('div',{class:'fy-terminal-actions'},
    moduleButton('详细复盘','pulse','review',ctx),
    moduleButton('智能选股','opportunities','ranked',ctx),
@@ -341,12 +343,12 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
   view.append(title,status,statsHost,panelsHost,reviewHost,quick);
  }else{
   view.classList.add('fy-home-layout');
-  const researchBody=h('div',{class:'fy-home-research-body'},status,indexHost,statsHost,prioritiesHost,
+  const researchBody=h('div',{class:'fy-home-research-body'},title,status,indexHost,statsHost,prioritiesHost,
    signalPanel,candidateSlot.host,fundsSlot.host,reviewHost,panelsHost,ladderPanel,newsPanel,chartPanel,
    strategiesPanel,decisionsHost,riskPanel,syncPanel,mobileLinks,quick);
   const more=h('details',{class:'fy-home-research'},h('summary',{},h('strong',{},'更多研究'),
    h('span',{},'复盘、策略与同步')),researchBody);
-  view.append(title,home.market,home.opportunity,home.risk,more);
+  view.append(createDecisionHome(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),more);
   if(ctx.canEdit===true){
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);

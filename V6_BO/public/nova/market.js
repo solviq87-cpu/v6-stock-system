@@ -1,4 +1,6 @@
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
+import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
+import {createDrawerRadar} from './intelligence-view.mjs';
 import {eligiblePick,pickReasons,topSystemPicks,systemPickDay} from './system-picks.mjs';
 import {sectorRoles,roleBadge,observedBadge} from './stock-roles.js';
 import {renderSourceReviewPool} from './review-pool.js';
@@ -371,7 +373,8 @@ export function renderMarket(route,ctx) {
  if(sub==='sectors')import('./shortline/quote-links.mjs').then(m=>{boardLink=m.thsBoardLink;paintDatasets();}).catch(()=>{});
  datasets.addEventListener('focusout',()=>queueMicrotask(()=>{if(pendingPaint)paintDatasets();}));
  paintDatasets();ctx.onState?.(paintDatasets);
- view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),datasets);
+ view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),
+  sub==='sectors'?linkedDecisionPanel(ctx):null,datasets);
  if(sub==='sectors'){
   const radar=h('div',{},marketOverviewCards(ctx.state||{}));
   ctx.onState?.(()=>updateReadout(radar,marketOverviewCards(ctx.state||{})));
@@ -1042,6 +1045,8 @@ export function createStockDrawer(ctx) {
  let leadershipKey='',historyPending=false,minutesPending=false,minutesError='',offlineTheme='',archived=new Map(),livePoints=new Map(),themes=[],chartDay='';
  const minuteSlot=h('div',{class:'fy-minute-slot'});
  const overview=h('section',{class:'fy-drawer-summary','aria-label':'个股概况'});
+ const decisionLinks=linkedDecisionPanel(ctx,{compact:true,when:selected=>selected.code===code&&selected.day===chartDay&&!!row?.decisionPlan});
+ const decisionRadar=createDrawerRadar(ctx,()=>({code,day:chartDay}));
  function paintSummary(){
   const state=ctx.state||{},now=Date.now(),historical=row?.historicalClose;
   const fact=state.dabanke?.day===chartDay&&state.dabanke.knownAt<=now?state.dabanke.facts?.[code]:null;
@@ -1053,10 +1058,13 @@ export function createStockDrawer(ctx) {
    .sort((a,b)=>new Date(b.publishedAt)-new Date(a.publishedAt));
   const uniqueEvents=[...new Map(events.map(e=>[e.url,e])).values()].slice(0,3);
   const why=[row?.selectionWhy,...pickReasons(row||{}),row?.reasonRaw,row?.reason,fact?.logic].find(x=>typeof x==='string'&&x.trim());
-  updateReadout(overview,h('strong',{},why||'当前没有可核实的入选依据。'),
+  const conclusion=ctx.decisionPayload?.conclusions?.[code]||row?.conclusion;
+  updateReadout(overview,conclusionBar({...row,conclusion},{day:chartDay,now}),h('strong',{},why||'当前没有可核实的入选依据。'),
    h('p',{class:'fy-muted'},tags.length?'所属题材 · '+tags.join(' / '):row?.sector?'所属行业或板块 · '+row.sector:'本股暂无已记录题材'),
    h('details',{class:'fy-details',id:'fy-stock-notices-'+code},h('summary',{},'近期公告 · '+uniqueEvents.length+' 条'),
     uniqueEvents.length?uniqueEvents.map(e=>h('p',{},safeLink(e.url,e.title),' · '+dateTime(e.publishedAt))):h('p',{},'本次公告源中没有该股的匹配记录。')));
+  decisionLinks.refresh();
+  decisionRadar.refresh();
  }
  function intraday(){
   const groups=[...livePoints.values(),archived].filter(x=>x.size).sort((a,b)=>b.size-a.size);
@@ -1079,7 +1087,7 @@ export function createStockDrawer(ctx) {
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
  for(const[key,label]of [['chart','走势'],['evidence','依据'],['leadership','带动性'],['company','公告'],['sources','核对'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
- drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
+ drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,decisionLinks,decisionRadar,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
  overlay.addEventListener('click',close);
  drawer.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();close();}
@@ -1205,7 +1213,7 @@ export function createStockDrawer(ctx) {
   const turn=generation,currentController=controller;if(!code)return;
   if(historyLoading){if(older)loadQueued=true;return;}historyLoading=true;
   try {
-   const cutoff=row?.historicalClose?row.poolDay:null;
+   const cutoff=row?.historicalClose||row?.decisionPlan?row.poolDay:null;
    let end=older&&daily.length?daily[0].date:cutoff?new Date(Date.parse(cutoff+'T00:00:00Z')+86400000).toISOString().slice(0,10):'';
    let pages=0;
    do{
@@ -1221,7 +1229,7 @@ export function createStockDrawer(ctx) {
     if(!observed.length)break;
     historySource=result.dataQuality?.source||result.source||historySource;
     daily=aggregate([...daily,...observed],'day');
-    if(cutoff&&daily.at(-1)?.date===cutoff){
+    if(row?.historicalClose&&cutoff&&daily.at(-1)?.date===cutoff){
      quote.hidden=false;meta.hidden=false;quote.textContent=format(daily.at(-1).close);
      meta.textContent=[cutoff,'收盘价',historySource].filter(Boolean).join(' · ');
     }
@@ -1261,8 +1269,16 @@ export function createStockDrawer(ctx) {
   meta.textContent=quoteLabel(observation);
  }
  function update({manual=false}={}) {
-  if(drawer.hidden||!code||row?.historicalClose)return;
+  if(drawer.hidden||!code)return;
+  paintSummary();
+  if(row?.historicalClose)return;
   const next=ctx.findStock(code);
+  // A decision is pinned to its original symbol and trading date. Midnight or
+  // an arriving next-session quote must not silently move the linked plan.
+  if(row?.decisionPlan){
+   const nextAt=quoteAt(next);
+   if(!Number.isSafeInteger(nextAt)||new Date(nextAt+28800000).toISOString().slice(0,10)!==chartDay)return;
+  }
   if(next?.code===code&&!boundEvidence){row=next;title.textContent=symbolName(next)+' / '+code;}
   if(tab==='leadership')paintLeadership();
   if(next?.code!==code)return;
