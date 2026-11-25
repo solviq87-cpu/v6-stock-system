@@ -350,10 +350,10 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
   view.classList.add('fy-home-layout');
   const researchBody=h('div',{class:'fy-home-research-body'},title,status,indexHost,statsHost,prioritiesHost,
    signalPanel,candidateSlot.host,fundsSlot.host,reviewHost,panelsHost,ladderPanel,newsPanel,chartPanel,
-   strategiesPanel,decisionsHost,riskPanel,home.risk,syncPanel,mobileLinks,quick);
+   strategiesPanel,decisionsHost,riskPanel,syncPanel,mobileLinks,quick);
   const more=h('details',{class:'fy-home-research'},h('summary',{},h('strong',{},'更多研究'),
    h('span',{},'复盘、策略与同步')),researchBody);
-  view.append(createDecisionHome(ctx),createRiskSummary(ctx),home.market,home.opportunity,createIntelligenceCenter(ctx),...(ctx.canEdit?[renderEvolutionPriority(ctx)]:[]),more);
+  view.append(createDecisionHome(ctx),createRiskSummary(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),...(ctx.canEdit?[renderEvolutionPriority(ctx)]:[]),more);
   if(ctx.canEdit===true){
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);

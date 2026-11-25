@@ -2477,6 +2477,8 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-risk-item[data-risk-severity="unknown"]{border-left:3px solid #aaa1ca}
 .fy-risk-statuses{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted,#aaa0b8);margin-top:8px}
 .fy-risk-summary .fy-risk-item{padding:12px}.fy-risk-summary{min-width:0}
+/* The actionable risk summary is independent of the three original home regions. */
+.fy-reference-shell .fy-home-layout>.fy-risk-summary{grid-column:1/-1}
 [data-risk-workbench] .fy-detail-grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 [data-risk-workbench] .fy-panel,[data-risk-workbench] .fy-details{min-width:0}
 [data-risk-workbench] .fy-table-wrap{max-width:100%;overflow-x:auto}

@@ -85,3 +85,7 @@ node --test --test-name-pattern='same-snapshot|missing controls|previously appro
 在不可变暂停树 `e2eb4130f423a85162939328f3b85beecb659ea6` 上复用 #366 `0dbd214a21ec60c1d8d1062ab66d034ec0ef00e5` 的后端四级状态合同及关联测试；五个依赖文件的原基线 blob 与暂停树一致。新增接线从一次原账户快照计算安全风险，核对权威快照和内部账本指纹、账户及权益版本；同一风险工作台展示防御和对账根因，原提醒队列发送前复验当前原防御回执及对账指纹。新增坏指纹、迟到投递及断连反例。原账本、执行门禁、权限和通知发送者不改变。
 
 当前为隔离代码候选。当前环境无法直接 clone 私有仓库，未执行本地完整 Node 回归。以原 GitHub CI 核对实际结果；专项命令 `node --test V6_BO/tests/risk-workbench-account-safety-integration.test.js V6_BO/tests/risk-state-contract.test.js V6_BO/tests/risk-alert-lifecycle.test.js V6_BO/tests/risk-workbench-runtime-notifications.test.js`。#359 最新 `ed3c3da` 与 #366 前端及其他差异仍须按段合并；#356/#353/#358 等最新交接未全纳入。不得作为最终集成或生产版本。原执行锁不改、不占用原分支；不合并dev或发布。回退为不采用此隔离候选，旧 refs 全保留。
+
+### 组合浏览器首轮失败后的修复
+
+#368 初始提交 `32ba45a2f150795b10f698e934cead5629c122f4` 的 push/PR visual-geometry 均失败；PR job 139426990736 在 `scripts/fayo-browser-check.js:455` 实际只见“大盘一眼看”“今日机会”两个直接区域。合并风险优先摘要时旧 `home.risk` 被放入折叠的更多研究，改变原三分区布局。本次恢复风险与持仓为首页直接区域，保留独立的优先风险摘要，并使该摘要通栏，避免挤占电脑双列。保留原几何断言及全部既有测试，不降低验收标准。当前修复候选须由精确新 head 的 CI 重新核验；尚未运行本地浏览器，不宣称通过。仍未部署、不修改交易/账本或发布机制。
