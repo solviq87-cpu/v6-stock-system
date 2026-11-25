@@ -11,6 +11,7 @@ const {inspectReleaseProvenanceAsync} = require('./release-provenance');
 const {quoteObservationView,quoteSourceAllowsUse}=require('./quote-observation-view');
 const SHA = /^[a-f0-9]{40}$/, HASH = /^[a-f0-9]{64}$/;
 const DAY = /^\d{4}-\d\d-\d\d$/, MAX_DAY_BYTES = 2 * 1024 * 1024, MAX_DAYS = 400, MAX_SAMPLES = 600;
+const validDay = day => typeof day === 'string' && DAY.test(day) && Number.isFinite(Date.parse(day+'T00:00:00Z')) && new Date(day+'T00:00:00Z').toISOString().slice(0,10) === day;
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const count = value => Number.isSafeInteger(value) && value >= 0 && value <= 1e9 ? value : null;
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -99,13 +100,14 @@ function calendarView(value, now) {
   if (!value) return unavailable;
   const metadata = value.metadata || {}, dates = value.tradeDates;
   const qualification={runtimeEligible:metadata.runtimeEligible===true,sourceAuthenticated:truth(metadata.sourceAuthenticated??metadata.verifiedExternal)};
+  if (metadata.from!=null&&!validDay(metadata.from)||metadata.to!=null&&!validDay(metadata.to)||metadata.from&&metadata.to&&metadata.from>metadata.to) return unavailable;
   if (value.status === 'available' && Array.isArray(dates) && dates.length <= 1000 &&
-      dates.every(d => DAY.test(d)) && typeof metadata.source === 'string') return {available:true,...qualification,
+      dates.every(d => validDay(d)&&(!metadata.from||d>=metadata.from)&&(!metadata.to||d<=metadata.to)) && typeof metadata.source === 'string') return {available:true,...qualification,
     source: version(metadata.source), hash: HASH.test(metadata.sha256 || '') ? metadata.sha256 : null,
     tradeDates: [...new Set(dates)].sort(), from:metadata.from || null, to:metadata.to || null};
   // Existing authority-calendar object can be injected by the server. It is not
   // accepted from an HTTP body; the same explicit calendar checks each date.
-  if (typeof value.isOpen === 'function' && DAY.test(metadata.from || '') && DAY.test(metadata.to || '') &&
+  if (typeof value.isOpen === 'function' && validDay(metadata.from) && validDay(metadata.to) &&
       typeof metadata.source === 'string') {
     const tradeDates = [], limit = Math.min(Date.parse(metadata.to), now), start = Date.parse(metadata.from);
     if (!Number.isFinite(start) || limit - start > 1000 * 86400000) return unavailable;
@@ -200,6 +202,7 @@ function summarizeDay(day, rows, now, criteria) {
   const fullCoverage = slots.size >= criteria.minimumSlots && morning >= criteria.minimumSessionSlots && afternoon >= criteria.minimumSessionSlots &&
     slots.has(0) && slots.has(23) && slots.has(24) && slots.has(47);
   const sourceShas = [...new Set(attempts.map(r => r.sourceSha))], profileHashes = [...new Set(rows.map(r => r.criteriaHash))];
+  const calendarVersions=[...new Map(attempts.map(r=>[JSON.stringify([r.calendar?.source??null,r.calendar?.hash??null]),{source:r.calendar?.source??null,hash:r.calendar?.hash??null}])).values()];
   const metric = (fn, values = attempts) => values.map(fn).filter(v => v !== null && v !== undefined);
   // A failed but qualified live attempt is part of the observation population.
   // Keep the previous successful snapshot separate; never substitute it for
@@ -244,7 +247,7 @@ function summarizeDay(day, rows, now, criteria) {
   if (criteria.maximumCalibrationError !== null && latest?.strategy.calibrationError > criteria.maximumCalibrationError) failures.push('calibration-limit');
   return {day,status:!rows.length?'missing':!ended?'in-progress':!live.length?'excluded':!fullCoverage?'observed-partial':failures.length?'observed-with-failures':unknown.length?'observed-awaiting-evidence':'observed-reviewable',
     samples:rows.length,liveSamples:live.length,attemptSamples:attempts.length,excludedSamples:rows.length-live.length,slots:slots.size,morningSlots:morning,afternoonSlots:afternoon,
-    completeObservation:ended && fullCoverage,sourceShas,criteriaHashes:profileHashes,
+    completeObservation:ended && fullCoverage,sourceShas,criteriaHashes:profileHashes,calendarVersions,
     firstObservedAt:rows[0]?.observedAt || null,lastObservedAt:rows.at(-1)?.observedAt || null,
     collectionP95Ms:p95,minimumFreshCoverage:attempts.length&&attempts.every(r=>r.metrics.market.freshCoverage!=null)?Math.min(...attempts.map(r=>r.metrics.market.freshCoverage)):null,
     unknown,failures:[...new Set(failures)],latest,latestLive,
@@ -339,16 +342,32 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
   async function report() {
     const now=clock();privateRoot(root);const names=listDays(root), byDay=new Map();
     for(const day of names){const rows=readDay(root,day);if(rows.some(r=>r.observedAt>now))throw Error('acceptance-future-record');byDay.set(day,summarizeDay(day,rows,now,profile));await yieldTurn();}
-    const cal=calendarView(await calendar({asOf:now}),now),first=names.find(d=>byDay.get(d).attemptSamples>0)||null,today=aShareCalendarDate(now);
+    let cal;
+    try{cal=calendarView(await calendar({asOf:now}),now);}catch{cal=calendarView(null,now);}
+    const attemptedDays=names.filter(d=>byDay.get(d).attemptSamples>0),first=attemptedDays[0]||null,today=aShareCalendarDate(now);
     const currentMinute=new Date(now+8*3600000).getUTCHours()*60+new Date(now+8*3600000).getUTCMinutes();
-    const expected=first&&cal.available?cal.tradeDates.filter(day=>day>=first&&day<=today):[];
-    const days=expected.map(day=>byDay.get(day)||summarizeDay(day,[],now,profile));
+    const expected=first&&cal.available&&cal.runtimeEligible?cal.tradeDates.filter(day=>day>=first&&day<=today):[];
+    const expectedSet=new Set(expected),omittedAttemptDays=cal.available&&cal.runtimeEligible?attemptedDays.filter(day=>!expectedSet.has(day)):[];
+    const comparable=cal.available&&cal.runtimeEligible&&typeof cal.source==='string'&&HASH.test(cal.hash||'');
+    const versionMismatchDays=comparable?attemptedDays.filter(day=>byDay.get(day).calendarVersions.some(v=>typeof v.source==='string'&&HASH.test(v.hash||'')&&(v.source!==cal.source||v.hash!==cal.hash))):[];
+    const unverifiedVersionDays=attemptedDays.filter(day=>!comparable||byDay.get(day).calendarVersions.some(v=>typeof v.source!=='string'||!HASH.test(v.hash||'')));
+    const windowCoverageConfirmed=first===null?null:!!(comparable&&validDay(cal.from)&&validDay(cal.to)&&cal.from<=first&&cal.to>=today&&!omittedAttemptDays.length&&!versionMismatchDays.length&&!unverifiedVersionDays.length);
+    // A later calendar must not erase an originally qualified attempt (even a
+    // failed one), or silently reset the five/twenty/sixty-day review window.
+    // Without comparable calendar evidence these are known days, not a complete
+    // elapsed trading-day population. No stored journal is rewritten.
+    const population=[...new Set([...expected,...attemptedDays])].sort();
+    const days=population.map(day=>byDay.get(day)||summarizeDay(day,[],now,profile));
     const completed=days.filter(d=>d.day<today||d.day===today&&currentMinute>=960);
     const criteriaReady=['minimumMatureSamples','maximumDrawdownPct','maximumCalibrationError'].every(k=>profile[k]!==null);
     const stages=[5,20,60].map(target=>{
       const window=completed.slice(0,target),reached=window.length>=target;
       const blockers=[...new Set(window.flatMap(d=>[...d.failures,...d.unknown.map(s=>'unknown:'+s)]))];
       if(cal.runtimeEligible!==true)blockers.push('calendar-not-runtime-eligible');
+      if(windowCoverageConfirmed===false)blockers.push('calendar-window-coverage-unverified');
+      if(omittedAttemptDays.length)blockers.push('calendar-attempt-days-omitted');
+      if(versionMismatchDays.length)blockers.push('calendar-version-changed-requires-review');
+      if(unverifiedVersionDays.length)blockers.push('calendar-version-evidence-unverified');
       if(!criteriaReady)blockers.push('strategy-acceptance-criteria-not-established');
       if(window.some(d=>!d.completeObservation))blockers.push('incomplete-observation-day');
       if(new Set(window.flatMap(d=>d.sourceShas)).size>1)blockers.push('multiple-versions-require-comparability-review');
@@ -362,9 +381,10 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
     return {schemaVersion:1,task:78,generatedAt:new Date(now).toISOString(),kind:'real-runtime-acceptance',criteria:profile,criteriaHash:profileHash,
       calendar:{status:!cal.available?'unavailable':cal.runtimeEligible?'available':'research-only',source:cal.source,hash:cal.hash,
         runtimeEligible:cal.runtimeEligible,sourceAuthenticated:cal.sourceAuthenticated,
+        windowCoverageConfirmed,omittedAttemptDays,versionMismatchDays,unverifiedVersionDays,
         restriction:cal.runtimeEligible?null:'calendar-not-runtime-eligible'},
       observedTradingDays:days.filter(d=>d.liveSamples>0).length,completeObservationDays:completed.filter(d=>d.completeObservation).length,
-      elapsedTradingDays:completed.length,missingTradingDays:completed.filter(d=>d.status==='missing').map(d=>d.day),
+      elapsedTradingDays:completed.length,elapsedTradingDaysComplete:windowCoverageConfirmed,missingTradingDays:completed.filter(d=>d.status==='missing').map(d=>d.day),
       isolatedOrUnverifiedDays:names.filter(d=>!byDay.get(d).liveSamples),excludedDayEvidence:names.filter(d=>!byDay.get(d).liveSamples).map(d=>byDay.get(d)),days,stages,versionSegments:segments,
       tasks:buildUnifiedTaskStatus(taskEvidence),businessRecordsMutated:false,longTermAccepted:false,
       distinctions:{warning:'observation only',queued:'not delivery',delivered:'receipt required',intent:'not an order',submittedOrder:'not a fill',confirmedFill:'original execution evidence only'},
