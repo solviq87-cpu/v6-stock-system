@@ -586,9 +586,13 @@ export function similarCases(state,target,asOf=target?.decisionAt||target?.date)
   if(point>cutoff(asOf))throw Error('查询信号晚于观察截止时点');
   const missing=DIMENSIONS.flatMap((k,i)=>!target.features?.[k] || target.features[k]===MISSING?[DIM_NAMES[i]]:[]);
   const candidates=missing.length?[]:observations(state,point,{causal:true,sampleSet:isTestSample(target)?'test':'real'}).filter(s=>s.id!==target.id&&(s.decisionAt||stamp(s.date))<point && sampleMatches(s,'standard') && isTestSample(s)===isTestSample(target) && DIMENSIONS.every(k=>s.features[k]!==MISSING)).map(s=>({...s,similarity:DIMENSIONS.filter(k=>s.features[k]===target.features[k]).length/5})).filter(s=>s.similarity>=.6).sort((a,b)=>b.similarity-a.similarity||compare(b.date,a.date));
-  const distributions=Object.fromEntries([1,3,5,10].map(h=>[h,distribution(candidates.filter(s=>sampleMatches(withOutcomeQuality(s,s.outcomes[h]),'standard')).map(s=>s.outcomes[h]?.close))]));
-  const mature=candidates.filter(s=>s.outcomes[5]!=null&&sampleMatches(withOutcomeQuality(s,s.outcomes[5]),'standard'));
-  return {success:mature.filter(s=>s.outcomes[5].close>0),failure:mature.filter(s=>s.outcomes[5].close<0),neutral:mature.filter(s=>s.outcomes[5].close===0),distributions,missing};
+  // Similarity ranking precedes outcome eligibility. Preserve censored neighbours.
+  const matureFor=h=>candidates.filter(s=>s.outcomes[h]!=null&&sampleMatches(withOutcomeQuality(s,s.outcomes[h]),'standard')&&(isTestSample(target)||!isTestSample(s.outcomes[h])));
+  const distributions=Object.fromEntries([1,3,5,10].map(h=>[h,distribution(matureFor(h).map(s=>s.outcomes[h].close))]));
+  const excursions=Object.fromEntries([1,3,5,10].map(h=>{const rows=matureFor(h);return [h,{n:rows.length,unavailable:candidates.length-rows.length,high:distribution(rows.map(s=>s.outcomes[h].high)),low:distribution(rows.map(s=>s.outcomes[h].low))}];}));
+  const mature=matureFor(5),ids=new Set(mature.map(s=>s.id));
+  const neighbours=candidates.map(s=>({id:s.id,code:s.code,name:s.name,date:s.date,similarity:s.similarity,available:ids.has(s.id),outcome:ids.has(s.id)?s.outcomes[5]:null}));
+  return {success:mature.filter(s=>s.outcomes[5].close>0),failure:mature.filter(s=>s.outcomes[5].close<0),neutral:mature.filter(s=>s.outcomes[5].close===0),distributions,missing,neighbours,excursions};
 }
 
 export function equityStats(rows,horizon=5){
@@ -656,16 +660,18 @@ function researchPanel(rows,v,end,compareView,setReport){
   const a=returnStudy(rows,{...settings,selector:groupA});
   const note='<p class="k-note">以信号后首个有行情交易日的开盘价计入，仅统计在同一区间内已结算且收益已可知的样本。1 bp = 0.01%，费用两侧均分、滑点按单边计算。收益窗口若出现突发冲击，样本质量按窗口事后分组。组合收益与最大回撤采用单仓非重叠净值，开仓时间相同依信号时刻、代码排序。</p>';
   if(!compareView){
+    const e=a.expectation;
+    const expectation='<div class="k-metrics">'+metric('平均净盈利',display(e.averageWin),'成本后正收益样本')+metric('平均净亏损',display(e.averageLoss),'成本后负收益样本')+metric('盈亏比',display(e.payoff,''),'平均盈利 / 平均亏损绝对值')+metric('最差5%均值',display(e.tailMean5Pct),'尾部 '+e.tailCount+' 条样本')+'</div><p class="k-note">净期望 '+display(e.netExpectancy)+' · 独立入场日期 '+e.distinctEntryDays+' 天。按信号纸面测算，样本可能重叠；不是实际成交、概率认证或未来收益。</p>';
     const max=Math.max(1,...a.bins.map(b=>b.n));
     const chart='<figure class="k-hist"><figcaption>T + '+v.horizon+' 净收益分布 · '+a.n+' 条成熟样本</figcaption><div class="k-hist-bars">'+a.bins.map(({label,n})=>'<div aria-label="'+esc(label+'，'+n+' 条样本')+'"><div class="k-hist-track"><span style="height:'+Math.round(100*n/max)+'%"></span><b>'+n+'</b></div><small>'+esc(label)+'</small></div>').join('')+'</div></figure>';
     const dist=Object.fromEntries(HORIZONS.map(h=>{
       const report=returnStudy(rows,{...settings,horizon:h,selector:groupA});
       return [h,{...report}];
     }));
-    setReport([['净收益区间','样本数'],...a.bins.map(b=>[b.label,b.n]),[],
+    setReport([['净收益区间','样本数'],...a.bins.map(b=>[b.label,b.n]),[],['净期望','平均净盈利','平均净亏损','盈亏比','最差5%均值','尾部样本','独立入场日期'],[e.netExpectancy,e.averageWin,e.averageLoss,e.payoff,e.tailMean5Pct,e.tailCount,e.distinctEntryDays],[],
       ['窗口','分组','成熟样本','净胜率%','平均毛收益%','平均净收益%','最大已结算回撤%'],
       ...Object.entries(dist).map(([h,d])=>[h,groupA||'全部',d.n,d.winRate,d.gross,d.net,d.maxDrawdown])]);
-    return filter+'<div class="k-filters">'+pickA+'<button class="btn" id="kAnalysisExport">导出分布统计</button></div>'+chart+'<div class="table-wrap"><table><thead><tr><th>窗口</th><th>成熟样本</th><th>净胜率</th><th>平均毛收益</th><th>平均净收益</th><th>最大回撤</th></tr></thead><tbody>'+Object.entries(dist).map(([h,d])=>'<tr><td>T + '+h+'</td><td>'+d.n+'</td><td>'+display(d.winRate)+'</td><td>'+display(d.gross)+'</td><td>'+display(d.net)+'</td><td>'+display(d.maxDrawdown)+'</td></tr>').join('')+'</tbody></table></div>'+note;
+    return filter+'<div class="k-filters">'+pickA+'<button class="btn" id="kAnalysisExport">导出分布统计</button></div>'+expectation+chart+'<div class="table-wrap"><table><thead><tr><th>窗口</th><th>成熟样本</th><th>净胜率</th><th>平均毛收益</th><th>平均净收益</th><th>最大回撤</th></tr></thead><tbody>'+Object.entries(dist).map(([h,d])=>'<tr><td>T + '+h+'</td><td>'+d.n+'</td><td>'+display(d.winRate)+'</td><td>'+display(d.gross)+'</td><td>'+display(d.net)+'</td><td>'+display(d.maxDrawdown)+'</td></tr>').join('')+'</tbody></table></div>'+note;
   }
   const b=returnStudy(rows,{...settings,selector:groupB});
   const measures=[['成熟样本','n','笔'],['平均毛收益','gross'],['平均费用与滑点损耗','friction'],['平均净收益','net'],['净胜率','winRate'],['非重叠已结算','settled','笔'],['组合净收益','totalReturn'],['最大已结算回撤','maxDrawdown']];
@@ -678,7 +684,7 @@ function researchPanel(rows,v,end,compareView,setReport){
   setReport([['同区间指标','A 组 '+(groupA||'全部'),'B 组 '+(groupB||'全部')],
     ...measures.map(([label,key])=>[label,a[key],b[key]]),[],['压力测试分组','往返费用 bp','单边滑点 bp','成熟样本','平均净收益%','非重叠结算笔数','组合净收益%','最大回撤%'],
     ...stress.map(r=>[r.selector||'全部',r.costBps,r.slipBps,r.n,r.net,r.settled,r.totalReturn,r.maxDrawdown])]);
-  return filter+'<div class="k-filters"><button class="btn" id="kAnalysisExport">导出对照与压力统计</button>'+pickA+'<label>B 组<select id="kGroupB">'+options(groupB)+'</select></label></div>'+comparison+note+pressure;
+  return filter+'<div class="k-filters"><button class="btn" id="kAnalysisExport">导出对照与压力统计</button>'+pickA+'<label>B 组<select id="kGroupB">'+options(groupB)+'</select></label></div>'+comparison+'<p class="k-note">现金参考：0%（不计利息、无交易）。指数及等权基准需相同范围的可执行行情，当前未核验。</p>'+note+pressure;
 }
 
 export function renderBacktest(ui){
@@ -738,7 +744,9 @@ export function renderBacktest(ui){
   }else if(v.tab==='similar' && selected){
     const result=similarCases(state,selected);
     const side=(title,rows)=>'<div><h4>'+title+' · '+rows.length+'</h4>'+(rows.slice(0,8).map(r=>'<div class="k-case"><button class="k-link" data-kcase="'+esc(r.id)+'">'+esc(r.date+' '+r.name)+'</button> · '+esc(r.sector)+'<br>'+esc(r.strategy)+' · 匹配 '+Math.round(r.similarity*5)+'/5 · 5日 '+display(r.outcomes[5].close)+'</div>').join('')||'<p class="k-empty">没有已成熟的同类案例。</p>')+'</div>';
-    body='<p class="k-note">以 '+esc(selected.date+' '+selected.name)+' 为查询时点。五项特征需完整，至少三项相同。结果按相似度、日期排序，五日收益用于成功与失败分栏。</p>'+(result.missing.length?'<p>缺失 '+esc(result.missing.join('、'))+'</p>':'')+'<div class="grid2">'+side('成功案例',result.success)+side('失败案例',result.failure)+'</div>'+distTable(result.distributions);
+    const coverage='<p class="k-note">匹配 '+result.neighbours.length+' 条；五日标签可用 '+result.excursions[5].n+' 条，未成熟或质量不合格 '+result.excursions[5].unavailable+' 条。相似度不是上涨概率；区间高低不证明止盈止损先后。</p>';
+    const neighbours='<div class="table-wrap"><table><thead><tr><th>前20条相似样本</th><th>匹配度</th><th>五日收盘</th><th>区间最高</th><th>区间最低</th></tr></thead><tbody>'+result.neighbours.slice(0,20).map(r=>'<tr><td>'+esc(r.date+' '+r.name)+'</td><td>'+Math.round(r.similarity*5)+'/5</td><td>'+(r.available?display(r.outcome.close):'未成熟/不合格')+'</td><td>'+display(r.outcome?.high)+'</td><td>'+display(r.outcome?.low)+'</td></tr>').join('')+'</tbody></table></div>';
+    body='<p class="k-note">以 '+esc(selected.date+' '+selected.name)+' 为查询时点。五项特征需完整，至少三项相同。结果按相似度、日期排序，五日收益仅用于结算后分组。</p>'+(result.missing.length?'<p>缺失 '+esc(result.missing.join('、'))+'</p>':'')+coverage+neighbours+'<div class="grid2">'+side('成功案例',result.success)+side('失败案例',result.failure)+side('持平案例',result.neutral)+'</div>'+distTable(result.distributions);
   }else body='<p class="k-empty">系统按已归档行情检索历史信号。</p>';
   const chartBars=bars.filter(b=>!selected || b.date<=selected.date);
   const replay=chartBars.some(b=>!knownBy(b,dayCut));

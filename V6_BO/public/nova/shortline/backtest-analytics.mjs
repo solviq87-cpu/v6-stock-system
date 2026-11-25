@@ -55,7 +55,14 @@ export function returnStudy(signals,options){
     free=r.exit;settled++;
   }
   const gross=mean(cohort.map(r=>r.gross)),net=mean(returns),n=cohort.length;
-  return {n,settled,gross,net,friction:n?gross-net:null,winRate:n?100*wins/n:null,
+  const gains=returns.filter(x=>x>1e-10),losses=returns.filter(x=>x< -1e-10);
+  const averageWin=mean(gains),averageLoss=mean(losses);
+  const tailCount=n?Math.ceil(n*.05):0;
+  // Conditional signal-level estimates, not fills or portfolio statistics.
+  const expectation={averageWin,averageLoss,payoff:averageWin!==null&&averageLoss!==null?averageWin/Math.abs(averageLoss):null,
+    netExpectancy:net,tailMean5Pct:tailCount?mean([...returns].sort((x,y)=>x-y).slice(0,tailCount)):null,tailCount,
+    distinctEntryDays:new Set(cohort.map(r=>r.entry)).size,lossCount:losses.length,flatCount:n-gains.length-losses.length};
+  return {n,settled,gross,net,friction:n?gross-net:null,winRate:n?100*wins/n:null,expectation,
     totalReturn:settled?(funds-1)*100:null,maxDrawdown:settled?maxDrawdown:null,bins,costBps,slipBps};
 }
 export function stressStudies(signals,options,selectors){
