@@ -225,7 +225,29 @@ export function createCommandSelection(ctx) {
   const preview = h('div',{class:'fy-stack','aria-live':'polite','data-selection-preview':'true'});
   const memory = ctx.viewMemory || {};
   const saved = h('div',{class:'fy-inline'});
-  const save = button('保存本次条件（当前会话）',()=>{const q=parseSelectionCommand(input.value);if(!q.ok){preview.replaceChildren(note(q.error));return;}memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);paintSaved();},'quiet');
+  const editor=()=>ctx.role==='edit'||ctx.canEdit===true;
+  const templateStatus=h('p',{class:'fy-muted','aria-live':'polite'});
+  let templateTurn=0;
+  async function loadSaved(){
+    const turn=++templateTurn;
+    try{const response=await ctx.api('/api/research/workspace?panel=templates',{signal:ctx.signal});
+      if(!alive()||turn!==templateTurn||!editor())return;
+      if(!response?.ok||!Array.isArray(response.result?.templates))throw Error('模板未就绪');
+      memory.commandTemplates=response.result.templates.map(x=>x.command).filter(x=>parseSelectionCommand(x).ok);
+      paintSaved();templateStatus.textContent='已读取服务器保存的条件，两端共用。';
+    }catch(error){if(alive()&&turn===templateTurn){memory.commandTemplates=[];paintSaved();templateStatus.textContent=error.message||'读取失败';}}
+  }
+  const loadTemplates=editor()?button('读取已保存条件',loadSaved,'quiet'):null;
+  const save = button(editor()?'保存条件到研究档案':'保存本次条件（当前会话）',async()=>{
+    const q=parseSelectionCommand(input.value);if(!q.ok||q.explicitAllMarket){preview.replaceChildren(note(q.error||'全市场范围未就绪'));return;}
+    if(!editor()){memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);paintSaved();return;}
+    const turn=++templateTurn;save.disabled=true;
+    try{const response=await ctx.api('/api/research/workspace',{method:'POST',signal:ctx.signal,body:{action:'fayo-save-command',value:q.raw,requestId:globalThis.crypto?.randomUUID?.()||'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2)}});
+      if(!alive()||turn!==templateTurn||!editor())return;
+      if(!response?.ok)throw Error(response?.error||'保存未完成');await loadSaved();
+    }catch(error){if(alive()&&turn===templateTurn)templateStatus.textContent=error.message||'保存失败，未写入';}
+    finally{if(alive())save.disabled=false;}
+  },'quiet');
   function setCommand(value){input.value=value;invalidateCommand();input.focus?.();}
   function paintSaved(){saved.replaceChildren(...(memory.commandTemplates||[]).map(value=>button(value,()=>setCommand(value),'quiet')));}
   function previewCommand(){
@@ -248,7 +270,7 @@ export function createCommandSelection(ctx) {
   const form = h('form', {class: 'fy-toolbar', onSubmit: event => {event.preventDefault();submit();}}, input, run);
   const host = h('details', {class: 'fy-details fy-command-selection'}, h('summary', {}, '一句话选股'),
     h('p', {class: 'fy-muted'}, '在已接收候选中排序，可用“且”连接评分、共振、涨幅、换手率、股价、成交额、市值及排除ST/停牌条件。缺少任一条件的依据就不纳入结果。'), form,
-    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => setCommand(example), 'quiet')),save), saved, preview, result);
+    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => setCommand(example), 'quiet')),save,loadTemplates), templateStatus, saved, preview, result);
   let generation = 0, lastQuery = null, history = null, historyAt = 0;
   const alive = () => !ctx.signal?.aborted;
   input.addEventListener('input',invalidateCommand);paintSaved();
@@ -296,6 +318,6 @@ export function createCommandSelection(ctx) {
     if (history && history.day !== selectionCommandDay(ctx.state || {})) history = null;
     if(!preview.matches?.(':focus-within'))previewCommand();paint(lastQuery);
   });
-  ctx.signal?.addEventListener('abort', () => {generation++;history = null;}, {once: true});
+  ctx.signal?.addEventListener('abort', () => {generation++;templateTurn++;history = null;}, {once: true});
   return host;
 }

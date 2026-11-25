@@ -95,7 +95,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
  const compared=query.compareId?runs.find(e=>e.hash===query.compareId):null;
  if(query.compareId&&!compared)throw Error('对照版本不存在或晚于回放时点');
  const symbol=query.symbol||latest?.data.symbol||null,preferences=events.filter(e=>e.kind==='preferences').at(-1),presetMap=new Map();
- for(const e of events.filter(e=>e.kind==='preset'))presetMap.set(e.data.name,e);
+ for(const e of events.filter(e=>e.kind==='preset'&&e.data.scope!=='selection-command-only'))presetMap.set(e.data.name,e);
  const screen=query.screenId?events.find(e=>e.kind==='screen'&&e.hash===query.screenId):events.filter(e=>e.kind==='screen').at(-1);
  if(query.screenId&&!screen)throw Error('筛选版本不存在或晚于回放时点');
  let screenRows=screen?.data.rows||[];

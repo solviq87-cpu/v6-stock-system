@@ -1166,7 +1166,7 @@ export function createStockDrawer(ctx) {
   });
   if(tab==='chart'){
    const controls=h('div',{class:'fy-tabs'},[['day','日 K'],['month','月 K'],['year','年 K']].map(([key,label])=>h('button',{type:'button','data-period':key,'aria-pressed':String(period===key),onClick:()=>{period=key;paint();if(key!=='day')loadHistory(true);}},label)));
-   const bars=aggregate(daily,period);updateReadout(minuteSlot,intraday());body.replaceChildren(minuteSlot,controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):historyPending?'日 K 加载中…':'该股没有已返回的日 K 记录。'),button('加载更早的历史',()=>loadHistory(true),'quiet'));
+   const bars=aggregate(daily,period);updateReadout(minuteSlot,intraday());body.replaceChildren(minuteSlot,controls,h('div',{class:'fy-chart'},chart(bars.slice(-90))),h('p',{class:'fy-muted'},daily.length?'实际日线 '+daily.length+' 条 · '+(period==='day'?'原始日线':'仅聚合已有日线；当前周期可能尚未结束'):historyPending?'日 K 加载中…':'该股没有已返回的日 K 记录。'),button('加载更早的历史',()=>loadHistory(true),'quiet'),ctx.canEdit&&ctx.navigate?button('同股研究证据回放',()=>{const target=code,cut=row?.historicalClose&&/^\d{4}-\d{2}-\d{2}$/.test(chartDay)?'/'+chartDay:'';close();ctx.navigate('lab','records/'+target+cut);},'quiet'):null);
   }else if(tab==='evidence'){
    const review=row?.historicalClose?row:dailyReviewEvidence(ctx.state||{}).rows.find(item=>item.code===code&&item.reasonDay===day);
    const source=ctx.state?.dabanke;

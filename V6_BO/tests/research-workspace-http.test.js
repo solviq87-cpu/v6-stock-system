@@ -37,6 +37,12 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   r=await request(port,'/api/research/workspace',editor,settings);assert.equal(r.status,200);assert.equal(r.body.revision,1);assert.equal((await request(port,'/api/research/workspace',editor,settings)).body.reused,true);
   assert.equal((await request(port,'/api/research/workspace',editor,{...settings,requestId:'http_settings_002'})).status,409);
   assert.equal((await request(port,'/api/research/workspace',editor,{...settings,requestId:'http_settings_003',value:{apiKey:'never-save'}})).status,409);
+  const command={action:'fayo-save-command',value:'精选评分前3且涨幅小于5%',requestId:'http_cmd_001'};
+  assert.equal((await request(port,'/api/research/workspace?panel=templates',viewer)).status,403);
+  assert.equal((await request(port,'/api/research/workspace',viewer,command)).status,403);
+  const cmd=await request(port,'/api/research/workspace',editor,command);assert.equal(cmd.body.ok,true,JSON.stringify(cmd.body));
+  assert.equal((await request(port,'/api/research/workspace',editor,command)).body.result.reused,true);
+  assert.equal((await request(port,'/api/research/workspace?panel=templates&url=bad',editor)).status,422);
   const {fixture}=require('./helpers/research-workspace-fixtures'),f=fixture();f.stock.bars=f.stock.bars.map(b=>Object.fromEntries(['date','open','high','low','close','volume','amount'].map(k=>[k,b[k]])));
   const scan=await request(port,'/api/research/scan',editor,{stocks:[{symbol:'600000',name:'合成HTTP扫描',feed:{source:'imported',timestamp:Date.now()},bars:f.stock.bars.slice(-30)}]});
   assert.equal(scan.body.ok,true);assert.equal(scan.body.result.workspace.status,'saved');
@@ -45,6 +51,12 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   assert.equal((await request(port,'/api/research/workspace',editor,review)).body.reused,true);
   await stop();port=await boot();fs.writeFileSync(guard,'read/export/replay');
   r=await request(port,'/api/research/workspace?symbol=600000&runId='+runId,editor);assert.equal(r.body.result.runs.total,1);assert.equal(r.body.result.screening.inputTotal,1);assert.equal(r.body.result.screening.rows[0].symbol,'600000');assert.equal(r.body.result.preferences.value.objective,settings.value.objective);assert.equal(r.body.result.preferences.revision,1);assert.equal(r.body.result.diagnostics.at(-1).stages.at(-1).stage,'封存研究结果');
+  const savedTemplates=await request(port,'/api/research/workspace?panel=templates',editor);
+  assert.equal(savedTemplates.body.ok,true);assert.equal(savedTemplates.body.result.templates[0].command,command.value);assert.equal(savedTemplates.body.result.canTrade,false);
+  const historicNews=await request(port,'/api/research/workspace?panel=news&symbol=600000&asOf='+Date.now(),editor);
+  assert.equal(historicNews.body.ok,true,JSON.stringify(historicNews.body));assert.equal(historicNews.body.result.canTrade,false);
+  const linkedReplay=await request(port,'/api/research/workspace?panel=replay&symbol=600000&runId='+runId,editor);
+  assert.equal(linkedReplay.body.ok,true,JSON.stringify(linkedReplay.body));assert.equal(linkedReplay.body.result.symbol,'600000');assert.equal(linkedReplay.body.result.runId,runId);assert.equal(linkedReplay.body.result.canTrade,false);
   const ex=await request(port,'/api/research/workspace?symbol=600000&export=1',editor);assert.equal(ex.body.result.run.id,runId);for(const text of [editor,viewer,root,observations,'"positions"'])assert.ok(!JSON.stringify(ex.body).includes(text));
   fs.writeFileSync(slow,'hold archive worker');let completed=false;const pending=request(port,'/api/research/workspace',editor).then(r=>{completed=true;return r;});
   try{for(let i=0;i<300&&!logs.includes('WORKSPACE_WORKER_HELD');i++)await pause(10);assert.ok(logs.includes('WORKSPACE_WORKER_HELD'),'archive query runs in bounded worker');

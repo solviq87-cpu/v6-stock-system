@@ -291,18 +291,31 @@ function memory(ctx){
 function evidence(ctx){
   const code=symbolInput(ctx),cutoff=input('datetime-local',''),w=workbench(ctx,'原文证据室','发布、接收、修订与撤稿分别留痕；来源摘要与完整原文不混淆。',[field('证券代码（留空查看全部）',code),field('历史截点（北京时间，留空查看当前）',cutoff)]);
   for(const control of [code,cutoff])control.addEventListener('input',()=>w.output.replaceChildren());
-  w.action('读取新闻与公告证据',()=>{w.output.replaceChildren();return request(ctx,'/api/research/news-evidence'+(code.value.trim()?'?symbol='+symbolValue(code):''));},{kind:'primary',render:data=>{
+  w.action('读取新闻与公告证据',()=>{w.output.replaceChildren();const q=new URLSearchParams({panel:'news',...(code.value.trim()?{symbol:symbolValue(code)}:{}),...(cutoff.value?{asOf:String(Date.parse(cutoff.value+':00+08:00'))}:{})});return request(ctx,'/api/research/workspace?'+q);},{kind:'primary',render:data=>{
     const r=data.result||data,root=n('div',undefined,'fy-stack'),s=r.summary||{};
-    const now=Date.now(),asOf=cutoff.value?Date.parse(cutoff.value+':00+08:00'):now;
+    const asOf=r.asOf,clientNow=Date.now();
+    if(!Number.isSafeInteger(asOf)||asOf>clientNow+30000||cutoff.value&&asOf!==Date.parse(cutoff.value+':00+08:00'))return empty('新闻截点未通过核对');
+    const now=Math.max(clientNow,asOf);
     const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
     if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
     else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
-    root.append(n('p',projection.missing.join('；'),'fy-muted'));
+    root.append(n('p',projection.missing.join('；')+' · 返回 '+arr(r.rows).length+' / '+val(r.total)+' 个版本','fy-muted'));
     if(projection.status==='unknown')return root;
     for(const event of projection.rows){
       const row=event.row;
       const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'供应商摘要':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效时间',clock(event.effectiveAt)],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
       card.append(detail('分析线索与待核实事项',facts(event.clues.map(x=>[x.label,x.quote])),n('p',event.missing.join('；'),'fy-muted'),n('p','关键词仅供核对，不代表利好、利空或执行资格。','fy-note')));
+      const fields={subject:'主体',industry:'行业',eventType:'事件类型',scale:'规模',effectiveAt:'生效安排',progress:'进展',disclosureKind:'披露性质'};
+      if(arr(e.structured).length)card.append(detail('来源声明的结构化事实（仍未独立核实）',...e.structured.filter(x=>fields[x.field]).map(x=>facts([[fields[x.field],x.value],['原文引用',x.quote]]))));
+      if(row.supportStatus==='security-removed')card.append(n('p','最新版本已移除本次查询的证券关联，不能再作为该证券的当前催化。','fy-note'));
+      for(const code of event.subjects){
+        const assoc=r.context?.[code];if(!assoc||assoc.symbol!==code)continue;
+        const children=[facts([['公司',assoc.name],['行业/板块',arr(assoc.industries).map(x=>x.name).join('、')],['研究引用',assoc.companySource?.runId],['持仓核验时间',clock(assoc.currentHoldings?.asOf)],['当前原账本持仓',assoc.currentHoldings?arr(assoc.currentHoldings.accounts).map(x=>x.account+' v'+x.revision).join('、')||'该两本原账户无此持仓':'未知/历史不借用当前持仓'],['原日报日',assoc.report?.day],['原日报引用',assoc.report?.reportHash]])];
+        for(const x of arr(assoc.industries))children.push(facts([['板块来源',x.source],['板块数据日',x.tradeDate],['已知时点',clock(x.knownAt)],['研究引用',x.runId]]));
+        for(const x of arr(assoc.frozenPlans))children.push(facts([['日报冻结计划',x.planId],['版本',x.version],['执行状态',x.state],['剩余数量',x.remainingQuantity]]));
+        for(const x of arr(assoc.currentPlans))children.push(facts([['当前冻结计划',x.id],['计划日期',x.day],['冻结时点',clock(Date.parse(x.frozenAt))],['版本',x.version]]));
+        card.append(detail('关联主体与账户证据 '+code,...children,n('p',assoc.note,'fy-muted')));
+      }
       if(e.url)card.append(linked('查看原始来源',e.url));
       card.append(detail('正文与版本链',n('p',e.body||'正文缺失'),facts([['版本',row.sequence],['原文指纹',e.bodyHash],['前版',e.supersedes],['不确定性',arr(e.uncertainty).join('；')]]),
         ...event.versions.slice(0,-1).reverse().map(prior=>detail('前版 '+prior.sequence+' · '+clock(prior.recordedAt),n('p',prior.evidence.title),n('p',prior.evidence.body||'正文缺失'),facts([['发布',clock(prior.evidence.publishedAt)],['接收',clock(prior.evidence.receivedAt)],['修订',clock(prior.evidence.revisedAt)],['原文指纹',prior.evidence.bodyHash],['原始来源',prior.evidence.source]]),prior.evidence.url?linked('前版原始来源',prior.evidence.url):null))));root.append(card);

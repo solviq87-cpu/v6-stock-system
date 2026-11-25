@@ -30,7 +30,7 @@ function safeUrl(v){
 }
 function normalize(input,{now=Date.now()}={}){
  if(!timestamp(now)||!input||typeof input!=='object'||Array.isArray(input))throw Error('INVALID_NEWS_INPUT');
- const allowed=['schemaVersion','source','eventId','sourceRevisionId','kind','supersedes','url','title','body','bodyScope','securities','publishedAt','receivedAt','revisedAt'];
+ const allowed=['schemaVersion','source','eventId','sourceRevisionId','kind','supersedes','url','title','body','bodyScope','securities','publishedAt','receivedAt','revisedAt','structured'];
  if(Object.keys(input).some(k=>!allowed.includes(k))||input.schemaVersion!==1||
  !identity(input.source)||!identity(input.eventId)||!identity(input.sourceRevisionId)||
  !['original','revised','retracted'].includes(input.kind)||!text(input.title,1000)||
@@ -46,6 +46,13 @@ function normalize(input,{now=Date.now()}={}){
  revisedAt!==null&&publishedAt!==null&&revisedAt<publishedAt))throw Error('INVALID_REVISION_CHAIN_OR_TIME');
  const bodyScope=input.bodyScope||'declared-body';
  if(!['declared-body','provider-summary'].includes(bodyScope))throw Error('INVALID_BODY_SCOPE');
+ const structured=input.structured;
+ // Optional source-declared fields. No new property on legacy records.
+ if(structured!==undefined&&(!Array.isArray(structured)||structured.length>20||bodyScope!=='declared-body'||
+   structured.some(x=>!x||typeof x!=='object'||Array.isArray(x)||Object.keys(x).some(k=>!['field','value','quote'].includes(k))||
+     !['subject','industry','eventType','scale','effectiveAt','progress','disclosureKind'].includes(x.field)||
+     !text(x.value,200)||!text(x.quote,1000)||!input.body.includes(x.quote)||!x.quote.includes(x.value))))
+   throw Error('INVALID_STRUCTURED_NEWS_QUOTE');
  const url=safeUrl(input.url),bodyHash=crypto.createHash('sha256').update(input.body).digest('hex');
  const uncertainty=['SOURCE_NOT_INDEPENDENTLY_VERIFIED','LOCAL_CLOCK_NOT_ATTESTED'];
  if(publishedAt===null)uncertainty.push('UNKNOWN_ORIGINAL_PUBLICATION_TIME');
@@ -55,7 +62,7 @@ function normalize(input,{now=Date.now()}={}){
  if(bodyScope==='provider-summary')uncertainty.push('SUMMARY_ONLY');
  return {schemaVersion:1,source:input.source,eventId:input.eventId,sourceRevisionId:input.sourceRevisionId,
  kind:input.kind,supersedes:input.supersedes,url,title:input.title,body:input.body,bodyScope,bodyHash,
- securities:input.securities.slice().sort(),publishedAt,receivedAt:input.receivedAt,revisedAt,uncertainty};
+ securities:input.securities.slice().sort(),publishedAt,receivedAt:input.receivedAt,revisedAt,uncertainty,...(structured===undefined?{}:{structured:structured.map(x=>({field:x.field,value:x.value,quote:x.quote}))})};
 }
 function readFile(file){
  const fd=fs.openSync(safePath(file),fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
@@ -134,15 +141,17 @@ function appendBatch(root=ROOT,inputs,{now=Date.now()}={}){
   return {schemaVersion:1,mode:'local-news-evidence-import',results,...FLAGS};
  }finally{fs.closeSync(fd);fs.unlinkSync(lock);}
 }
-function query(root=ROOT,{symbol=null,limit=50,now=Date.now()}={}){
- if(symbol!==null&&!/^\d{6}$/.test(symbol)||!Number.isSafeInteger(limit)||limit<1||limit>200)throw Error('INVALID_NEWS_QUERY');
- const all=readJournal(root,{now}),latest=new Map(all.map(e=>[key(e.evidence),e.eventHash]));
- const rows=all.filter(e=>symbol===null||e.evidence.securities.includes(symbol)).map(e=>{
+function query(root=ROOT,{symbol=null,limit=50,now=Date.now(),asOf=now,includeAssociated=false}={}){
+ if(symbol!==null&&!/^\d{6}$/.test(symbol)||!Number.isSafeInteger(limit)||limit<1||limit>200||!timestamp(asOf)||asOf>now||typeof includeAssociated!=='boolean')throw Error('INVALID_NEWS_QUERY');
+ const all=readJournal(root,{now}).filter(e=>e.recordedAt<=asOf),latest=new Map(all.map(e=>[key(e.evidence),e.eventHash]));
+ const associated=new Set(includeAssociated&&symbol!==null?all.filter(e=>e.evidence.securities.includes(symbol)).map(e=>key(e.evidence)):[]);
+ const rows=all.filter(e=>symbol===null||e.evidence.securities.includes(symbol)||associated.has(key(e.evidence))).map(e=>{
   const current=latest.get(key(e.evidence))===e.eventHash,x=e.evidence;
   const unknown=x.uncertainty.some(s=>s.startsWith('UNKNOWN_')||s.startsWith('MISSING_')||s==='SUMMARY_ONLY');
-  return {...e,current,eligibleForResearchSupport:current&&x.kind!=='retracted'&&!unknown,
-   usableAsResearchSupport:current&&x.kind!=='retracted'&&!unknown,
-   supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':unknown?'unknown':'source-declared-unverified'};
+  const removed=symbol!==null&&!x.securities.includes(symbol);
+  return {...e,current,eligibleForResearchSupport:current&&x.kind!=='retracted'&&!unknown&&!removed,
+   usableAsResearchSupport:current&&x.kind!=='retracted'&&!unknown&&!removed,
+   supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':removed?'security-removed':unknown?'unknown':'source-declared-unverified'};
  });
  const current=rows.filter(e=>e.current);
  return {schemaVersion:1,mode:'news-evidence-readonly',total:rows.length,rows:rows.slice(-limit).reverse(),

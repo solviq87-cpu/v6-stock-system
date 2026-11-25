@@ -39,9 +39,9 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
       ['事件类型线索',/重大合同|订单|中标|并购|重组|回购|减持|增持|业绩预告|立案|处罚|停牌|复牌|分红/]
     ].flatMap(([label,re])=>{const match=clueText.match(re);return match?[{label,quote:match[0]}]:[];});
     const amounts=[...body.matchAll(/[+-]?\d+(?:\.\d+)?\s*(?:亿元|万元|元|万股|亿股|%|％)/g)].slice(0,8).map(m=>m[0]);
-    const missing=['独立正式披露核验、主体名称及行业归属待核对','金额与有效时间必须由原文语境核验，不能由关键词认定','持仓、冻结计划及交易状态未接入本新闻投影'];
+    const missing=['独立正式披露核验、主体名称及行业归属待核对','金额与有效时间必须由原文语境核验，不能由关键词认定','持仓及冻结计划须查看对应原账本/日报关联，缺失保持未知'];
     if(!chainComplete)missing.push('返回范围内缺少完整修订链');
-    if(currentView&&asOf===now&&row.current===false)missing.push('此版本并非后台全档案的当前版本；可能存在筛选范围外修订，不能作为当前催化');
+    if(currentView&&row.current===false)missing.push('此版本并非后台全档案的当前版本；可能存在筛选范围外修订，不能作为当前催化');
     if(!e.publishedAt)missing.push('原始发布时间未知');
     if(!body||e.bodyScope==='provider-summary')missing.push('完整原文待核对');
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,

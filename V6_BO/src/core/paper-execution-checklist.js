@@ -125,6 +125,9 @@ function buildPaperExecutionChecklist({day, now = Date.now(), plans = [], book =
     item.remainingQuantity = context.remaining;
     if (context.entry) item.entry = {eventId:context.entry.eventId, source:'original-paper-ledger',
       executionAt:executionTimeOf(context.entry), tradeDate:context.entry.tradeDate, price:context.entry.price, quantity:context.entry.quantity};
+    // Additive receipt-only contract; do not infer fills or create another ledger.
+    item.exits = context.ambiguous ? [] : context.sells.map(event=>({eventId:event.eventId,source:'original-paper-ledger',
+      executionAt:executionTimeOf(event),tradeDate:event.tradeDate,price:event.price,quantity:event.quantity}));
     item.observation = {count:records.length, lastObservedAt:records.at(-1)?.observedAt || null,
       source:'plan-observations', fingerprint:sequenceFingerprint(records.map(r => r.fingerprint)),
       riskStatus:records.length?'observed-points-only':'unknown',

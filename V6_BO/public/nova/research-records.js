@@ -1,3 +1,4 @@
+import {renderReplayPanel} from './fayo-workbench-view.mjs';
 import {questions,explainSealedResearch} from './research-review.mjs';
 import {onResearchRead} from './automatic-research.js';
 /* Native research archive: all writes keep the server's version and identity gates. */
@@ -26,9 +27,9 @@ const requestId=()=>globalThis.crypto?.randomUUID?.()||`fayo-${Date.now()}-${Mat
 export function renderRecords(ctx){
  const root=n('div',null,'research-records');
  const status=n('p','选择股票或直接读取已有研究档案。读取不会采集行情。','status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
- const symbol=input('search',typeof ctx.stock==='string'?ctx.stock:ctx.stock?.code||'','六位代码，可留空');symbol.maxLength=6;
+ const symbol=input('search',ctx.researchTarget?.code||(typeof ctx.stock==='string'?ctx.stock:ctx.stock?.code||''),'六位代码，可留空');symbol.maxLength=6;
  const provider=select([['eastmoney','东方财富'],['tencent','腾讯']]);
- const at=input('datetime-local');const state=select([['all','全部状态'],['selected','已入选'],['rejected','未入选'],['unknown','证据不足']]);
+ const at=input('datetime-local',ctx.researchTarget?.date?ctx.researchTarget.date+'T23:59':'');const state=select([['all','全部状态'],['selected','已入选'],['rejected','未入选'],['unknown','证据不足']]);
  const minScore=input('number','0');minScore.min='0';minScore.max='100';
  const batch=select([['','最新筛选批次']]),comparison=select([['','不对照其他版本']]);
  const filters=append(n('div',null,'fields'),field('股票',symbol),field('比较来源',provider),field('历史时点 · 北京时间',at),field('条件状态',state),field('最低评分',minScore),field('筛选批次',batch),field('版本对照',comparison));
@@ -94,11 +95,39 @@ export function renderRecords(ctx){
    const checks=list(r.conditions).map(c=>{const d=detail(`${c.name||c.field} · ${value(c.status)}`,facts({'条件':`${value(c.field)} ${value(c.op)} ${value(c.threshold)}`,'观察值':c.value,'判断理由':c.reason,'失效条件':c.invalidation}));
     for(const id of list(c.evidenceIds)){const e=evidence.get(id);if(e)d.append(facts({'证据来源':e.source,'来源原始时点':clock(e.sourceTimestamp),'覆盖期终点':clock(e.periodEnd),'首次可用':clock(e.availableAt),'接收时点':clock(e.receivedAt),'缺失原因':e.missingReason,'封存引用':e.evidenceRef}));}return d;});body.append(card('判断依据',...checks));
    const answers=n('div',null,'detail-grid');answers.setAttribute('aria-live','polite');
-   const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,()=>{
+   const generated=n('div',null,'detail-grid');generated.setAttribute('aria-live','polite');
+   let question=null,answerTurn=0;
+   const current=turn=>turn===answerTurn&&!ctx.signal?.aborted&&answers.isConnected!==false&&view?.selectedRun?.id===r.id;
+   async function answer(key){
+     question=key;const turn=++answerTurn;generated.replaceChildren();
      const a=explainSealedResearch(view,key);answers.replaceChildren(n('p',a.reason,'muted'));
-     for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略版本':row.version,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'证据缺口':row.missing}),...row.evidence.map(e=>facts({'证据引用':e.evidenceRef,'来源':e.source,'原始时点':clock(e.sourceTimestamp),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
-   })));
-   body.append(card('研究证据五问',n('p','规则解释 · 本次未调用外部模型，模型配置及可用性未核验。只读原封存档案，不改变策略或交易。','muted'),ask,answers));
+     if(key==='history'){
+       try{
+         const q=new URLSearchParams({panel:'history',symbol:r.symbol,runId:r.id,asOf:String(view.asOf)});
+         const response=await ctx.api('/api/research/workspace?'+q,{signal:ctx.signal,timeoutMs:55000});
+         if(!current(turn))return;
+         const x=response.result;if(x?.symbol!==r.symbol||x.runId!==r.id||x.asOf!==view.asOf||x.canTrade!==false)throw Error('样本证据身份不一致');
+         answers.replaceChildren(n('p',x.reason,'muted'));
+         for(const g of list(x.groups))answers.append(detail(g.system+' · '+g.horizon+'日',facts({'策略版本':g.version,'样本数':g.count,'独立信号日':g.independentSignalDays,'成本估计数':g.estimatedCount,'成本后均值 %':g.meanNetReturnPct})));
+         for(const s of list(x.samples))answers.append(detail(s.symbol+' · '+s.signalDate,facts({'样本状态':s.status,'策略版本':s.version,'入场日':s.entryDate,'退出日':s.exitDate,'价格变化 %':s.priceReturnPct,'成本估计 %':s.netReturnPct,'原信号档案':s.runId,'入场档案':s.entryOutcomeRunId,'退出档案':s.exitOutcomeRunId,'可知时点':clock(s.knownAt)})));
+       }catch(error){if(current(turn))answers.append(n('p',error.message||'同类样本暂不可用','muted'));}return;
+     }
+     for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略版本':row.version,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'证据缺口':row.missing}),...row.evidence.map(e=>facts({'证据ID':e.id,'证据引用':e.evidenceRef,'来源':e.source,'原始时点':clock(e.sourceTimestamp),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
+   }
+   const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,()=>void answer(key))));
+   const model=button('调用已配置的本地研究模型',async()=>{
+     if(!question||question==='history'){generated.replaceChildren(n('p','请先选择前四类证据追问；同类样本使用原确定性检验。','muted'));return;}
+     const turn=++answerTurn;generated.replaceChildren(n('p','正在核对模型配置及原证据…','muted'));model.disabled=true;
+     try{
+       const response=await ctx.api('/api/research/workspace',{method:'POST',signal:ctx.signal,body:{action:'fayo-explain',symbol:r.symbol,runId:r.id,asOf:view.asOf,question}});
+       if(!current(turn))return;const x=response.result;
+       if(x?.canTrade!==false||x.rule?.runId!==r.id||x.rule?.symbol!==r.symbol||x.rule?.asOf!==view.asOf)throw Error('模型回执与原研究版本不一致');
+       generated.replaceChildren(n('p',x.status==='completed'?'模型生成内容 · '+x.model:(x.reason||'模型未就绪；保留规则解释'),'muted'));
+       for(const c of list(x.claims))generated.append(detail(c.text,facts({'引用证据ID':list(c.refs).join('、')})));
+     }catch(error){if(current(turn))generated.replaceChildren(n('p',(error.message||'模型未就绪')+'；原规则解释保留。','muted'));}
+     finally{if(!ctx.signal?.aborted)model.disabled=false;}
+   });
+   body.append(card('研究证据五问',n('p','规则解释与实际模型调用分开。只有明确点击模型按钮才请求已授权的本地适配器；全部为只读研究。','muted'),ask,answers,model,generated));
    const refs=detail('原始来源与版本');for(const ref of list(r.sourceRefs))refs.append(facts({'来源':ref.source,'内容指纹':ref.hash}),ref.url?link(ref.url,'打开原始来源'):n('span','来源地址未知'));body.append(refs);
   }else if(activeTab==='timeline'){
    body.append(card('判断轨迹',...list(view.timeline).map(item=>detail(`${item.tradeDate||'日期未知'} · ${clock(item.asOf)}`,facts({'来源':item.provider,'目标日':item.targetDate,'比较状态':item.changes?.status}),...list(item.changes?.systemChanges).map(c=>row(value(c.system),`${value(c.before)} → ${value(c.after)}`)),...list(item.changes?.changes).map(c=>row(c.name||c.condition,`${value(c.kind)} · ${value(c.before)} → ${value(c.after)}`))))));
@@ -109,6 +138,7 @@ export function renderRecords(ctx){
   }else if(activeTab==='market'){
    body.append(card('市场与题材位置',facts({'市场环境':r?.regime,'环境含义':r?.regimeMeaning,'范围与缺口':view.marketPosition?.reason}),...list(view.marketPosition?.boards).map(b=>detail(`${b.name} · ${value(b.phase)}`,facts({'角色':b.role,'数据日':b.tradeDate,'成员覆盖':`${value(b.observedMembers)} / ${value(b.memberCount)}`,'同日位置':b.rank,'阶段依据':b.phaseBasis,'角色依据':b.roleBasis}),...list(b.history).map(x=>row(x.date,`${value(x.changePct)}%`))))));
    const market=view.marketLinkage;if(market)body.append(card('大盘—板块—个股证据',facts({'状态':market.status,'交易日':market.tradeDate,'相同市场日':market.sameMarketTradeDate,'限制':market.limitation||market.reason}),...list(market.boards||market.industryBoards).map(x=>detail(x.name||x.code,facts({'板块类型':x.category,'相对收益':x.return,'证据时点':clock(x.knownAt)})))));
+   if(r)body.append(renderReplayPanel(ctx,view));
   }else if(activeTab==='scorecard'){
    body.append(card('策略前向成绩',...list(view.scorecard?.groups).map(g=>detail(`${value(g.system)} · ${value(g.regime)} · ${g.horizon}日`,facts({'状态':g.status,'策略版本':g.version,'原始 / 通过 / 拒绝 / 未知':`${g.total} / ${g.passed} / ${g.rejected} / ${g.unknown}`,'待到期':g.pending,'缺少后续证据':g.missing,'可观察价格样本':g.observedPriceCount,'成本化样本':g.modeledCount,'独立股票数':g.distinctSymbols,'独立信号日':g.independentSignalDays,'非重叠窗口':g.nonOverlappingWindows,'平均价格变化 %':g.averagePriceReturnPct,'成本后估计 %':g.averageNetReturnPct,'同口径超额 %':g.excessReturnPct}))),...list(view.scorecard?.limitations).map(text=>n('p',text,'muted'))));
    const f=view.forecastEvaluation||{};body.append(card('模型前向评测',facts({'状态':f.status,'输入比较口径':f.inputComparison,'配置组数':f.groupTotal,'记录总数':f.total}),...list(f.groups).map(g=>detail(`${g.model?.id||'未知模型'} / ${g.model?.revision||'未知版本'} · ${g.horizon}日`,facts({'状态':g.status,'已到期 / 待到期 / 缺价':`${g.matured} / ${g.pending} / ${g.missing}`,'绝对误差 MAE':g.mae,'前值基线误差':g.naiveMae,'趋势基线误差':g.driftMae,'相对基线误差':g.relativeMae,'分位数损失':g.pinballLoss,'区间覆盖 %':g.intervalCoveragePct,'目标覆盖 %':g.nominalCoveragePct,'区间宽度':g.meanIntervalWidth,'独立信号日':g.signalDays,'后续修订':g.revisedOutcomes}))),...list(f.pairs?.rows).map(p=>detail(`${p.modelA?.id} ↔ ${p.modelB?.id} · ${p.horizon}日`,facts({'同输入配对样本':p.samples,'MAE A':p.maeA,'MAE B':p.maeB,'误差差值 A−B':p.deltaMaeAminusB}))),...list(f.rows).map(x=>row(`${x.symbol} ${x.targetDate}`,`${value(x.status)} · 预测 ${value(x.point)} / 实际 ${value(x.actual)} · 误差 ${value(x.absoluteError)}`)),...list(f.limitations).map(text=>n('p',text,'muted'))));

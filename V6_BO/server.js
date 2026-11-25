@@ -5936,7 +5936,7 @@ function auctionScoreOf(x, ctx) {
     // ①-2 板块共振闸：同板块昨日涨停 <2 只 → 孤板高开易一日游，共振弱则扣分（已有共振加分的反面约束）
     if ((r.secZT || 0) < 2) { s += auctionResonanceAdj(r.secZT); risk.push('板块共振弱·孤板高开易一日游'); factors.push('板块共振弱'); }
   }
-  if (S.news && S.news.goodCodes && newsSupportsCode(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
+  // Positive news text is a research clue only; no score uplift without an approved evidence-backed strategy.
   const fc = x.floatCap || 0;
   // ① 选股纪律：市值曲线更陡——大票显著罚、小盘显著奖（ik 轮实证候选中位 75→98亿漂移拖累命中）
   // ⛔ kv 轮（2026-10-24）实证补档：旧曲线在 300亿~1000亿 区间是**零惩罚的洞**（旧 -14/-9/-4 三档
@@ -6400,10 +6400,10 @@ async function tick() {
           turnover: numNeutral('turnover', s.turnover), inflowStreakMin: streakMin
         });
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
-        // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
+        // 未独立核实的正面新闻仅供展示；保留原利空避险门槛
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
         const badHit = newsWarnsCode(s.code);
-        const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
+        const pushTh = probThreshold() * 100 * (badHit ? 1.15 : 1); // Positive headlines never lower the original threshold.
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
         // ⛔ 2026-10-08 修：gap>0.2%太松，回调到0.5%（比原来严格、但不至于一票难求）
         if (bullishIntent && probC > pushTh && gap != null && gap > 0.5 && !(badHit && probC < 92)) {
@@ -10407,7 +10407,7 @@ function riseProbOf(s, opt) {
   else if ((s.pct || 0) >= 5) p -= 4;
   if (o.up3) p += 6;                             // 连续 3 日上涨（趋势惯性）
   if (o.fund3d) p += 5;                          // 三日资金净流入
-  if (o.goodHit) p += 6;                         // 利好催化
+  // Unverified positive-news clues do not increase a probability estimate.
   if (o.badHit) p -= 12;                         // 利空压制
   return Math.max(15, Math.min(92, Math.round(p)));
 }
@@ -10420,7 +10420,7 @@ function riskNoteOf(s, opt) {
   else if ((s.pct || 0) >= 5) r.push('涨幅偏高，注意回落');
   if (o.gap != null && o.gap > 0 && o.gap < 1) r.push(`距涨停仅${o.gap.toFixed(1)}%，封板不确定`);
   if ((s.mainPct || 0) < 0) r.push('主力净流出');
-  if (o.goodHit) r.push('✅ 利好关联');
+  if (o.goodHit) r.push('利好线索（未独立核实，不加分）');
   return r.length ? r.join(' | ') : '暂无特殊风险';
 }
 // 参考止损：现价 -3%，跌破即离场
@@ -15792,7 +15792,7 @@ async function refreshNews() {
     S.news.bad = S.news.badAll.slice(0, 40);
     S.news.good = S.news.goodAll.slice(0, 40);
     S.news.badCodes = new Set(S.news.badAll.flatMap(x => x.codes));
-    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 利好关联股（推送门槛降低=加推）
+    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 利好线索关联股（只读展示，不降低推送门槛）
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
@@ -17005,7 +17005,7 @@ function scanYiEr() {
     const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
     const _mainPct = snap ? (snap.mainPct || 0) : 0;
     if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-    if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 3; why.push('利好催化'); }
+    // Positive news classification remains display-only, not probability evidence.
     // ⛔ 主线强度接入（2026-10-08 重构）：主线强则票强，主线弱则个体难独活
     //    按主线聚合统计，不再被「电池/电池技术/储能概念/锂电池概念」多个板块名拆散
     const secStrength = themeStrengthOf(z);
@@ -17200,7 +17200,7 @@ function scanLianbanRelay() {
       const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
       const _mainPct = snap ? (snap.mainPct || 0) : 0;
       if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-      if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 2; why.push('利好'); }
+      // Positive news classification remains display-only, not probability evidence.
       if (level >= 3 && maxLb < 7) { prob -= 10; why.push('高度不足·谨慎'); }
       // ⛔ 主线强度接入（2026-10-08 重构）：按主线聚合，不再被多个板块名拆散
       const secStrength = themeStrengthOf(z);
@@ -22786,6 +22786,30 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'私有研究记录需要编辑权限'},403);
     const options=stockObservationOptions(),workspace=require('./src/core/research-workspace'),root=workspace.rootOf(options);
     const job=payload=>require('./src/server/research-workspace-job').runWorkspaceJob(payload).then(result=>{const {httpStatus,...value}=result;reply(value,httpStatus||(result.ok?200:422));}).catch(()=>reply({ok:false,error:'研究档案任务未完成，原档案保留'},503));
+    const fayoJob=payload=>{
+      const holdings={status:'unknown',asOf:Date.now(),accounts:[]};
+      if(payload.query?.panel==='news'&&!Object.hasOwn(payload.query,'asOf')&&!isReplica())try{
+        for(const account of ['pool','pre']){
+          if(!_paperAuthority[account])throw Error('原账本未就绪');
+          const book=_paperAuthority[account].read();
+          holdings.accounts.push({account,revision:book.revision,codes:Object.keys(book.account.positions||{}).filter(code=>/^\d{6}$/.test(code)&&book.account.positions[code].quantity>0)});
+        }
+        holdings.asOf=Date.now();holdings.status='observed';
+      }catch{holdings.accounts=[];}
+      return require('./src/server/research-workspace-job').runWorkspaceJob({action:'fayo-workbench',root,newsRoot:NEWS_EVIDENCE_ROOT,
+        reportRoot:path.join(shortlineResearchDir(),'execution-reports'),shortlineRoot:shortlineResearchDir(),manualRoot:manualResearchLedgerDir(),
+        signalRoot:process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence'),replica:isReplica(),holdings,...payload},
+        {authorize:()=>isEditorReq(req,req.__tok)&&!isReplica()}).then(result=>{
+          if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'研究授权已失效'},403);
+          const {httpStatus,...value}=result;return reply(value,httpStatus||(result.ok?200:422));
+        }).catch(()=>reply({ok:false,error:'研究证据工作台暂不可用，原档案保留'},503));
+    };
+    if(req.method==='GET'&&u.searchParams.has('panel')){
+      if(body||[...u.searchParams.keys()].some(k=>u.searchParams.getAll(k).length!==1))return reply({ok:false,error:'查询参数无效'},422);
+      const query=Object.fromEntries([...u.searchParams].filter(([k])=>k!=='token'));
+      try{require('./src/core/fayo-workbench').queryInput(query);}catch{return reply({ok:false,error:'研究面板参数无效'},422);}
+      return fayoJob({query});
+    }
     if(req.method==='GET'){
       try{
         const allowed=['symbol','runId','compareId','screenId','asOf','offset','limit','status','minScore','export','token'];
@@ -22801,6 +22825,10 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(req.method!=='POST')return reply({ok:false,error:'仅允许GET或POST'},405);
     if(Buffer.byteLength(body||'','utf8')>64*1024)return reply({ok:false,error:'研究操作超过64KiB'},413);
     let input;try{input=JSON.parse(body||'{}');if(!input||Array.isArray(input)||typeof input!=='object')throw Error();}catch{return reply({ok:false,error:'研究参数格式无效'},400);}
+    if(['fayo-save-command','fayo-explain'].includes(input.action)){
+      if(isReplica())return reply({ok:false,error:'副本只读，请在原主实例操作'},409);
+      return fayoJob({input});
+    }
     if(input.action==='review'){
       if(Object.keys(input).some(k=>!['action','symbol','provider','requestId','nativeEvidence'].includes(k)))return reply({ok:false,error:'未知研究参数'},422);
       return job({action:'review',input,options});

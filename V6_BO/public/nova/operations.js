@@ -1,3 +1,4 @@
+import {renderDisciplinePanel} from './fayo-workbench-view.mjs';
 import {projectDiscipline} from './research-review.mjs';
 import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
@@ -272,6 +273,7 @@ function executionEvidencePanel(payload,ctx){
       versions.versions.length?table([['版本',row=>'v'+row.reportVersion],['保存时点',row=>date(row.recordedAt)],
        ['证据状态',row=>text(row.status)],['执行评分',row=>row.score==null?'证据未齐':fmt(row.score,1)+' 分']],versions.versions):null));
   }else box.append(notice(data.error||saved.reason),notice('尚未取得所选日期的持久日报版本；当前读取结果不代表已归档。'));
+  box.append(renderDisciplinePanel(ctx,day));
   const runtime=data.reportRuntime;
   if(runtime){
     const status={'waiting-close':'等待收盘后核对','disabled-or-replica':'需在已启用的原主实例生成','missing-session':'市场时钟待核对',

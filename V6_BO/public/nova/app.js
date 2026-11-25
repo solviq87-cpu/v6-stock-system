@@ -92,6 +92,7 @@ function notify(message,tone='') {
 function parseRoute() {
  const hash=location.hash.slice(1);
  if(hash.startsWith('/')){const [pathname,query='']=hash.slice(1).split('?'),[view='pulse',sub='',code='',date='']=pathname.split('/');
+  if(view==='lab'&&sub==='records'&&/^\d{6}$/.test(code))return {view,sub,code,...(/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date?{date}:{})};
   if(view==='lab'&&sub.startsWith('shortline-'))return {view,sub,...(/^\d{6}$/.test(code)?{code,date}:{}),...readContext(query)};
   if([...MAIN.map(x=>x[0]),'inbox'].includes(view))return {view,sub};}
  if(LEGACY_ANCHORS[hash])return {view:LEGACY_ANCHORS[hash][0],sub:LEGACY_ANCHORS[hash][1]};
@@ -169,6 +170,7 @@ function context(signal) {
   get lastRead(){return lastRead;},get fastFrame(){return fastFrame;},
   get decisionSelection(){return decisionSelection;},get decisionPools(){return decisionPools;},
   get decisionPayload(){return decisionPayload;},get decisionResonance(){return decisionPayload?.resonanceByCode||null;},loadDecisionCenter,
+  get researchTarget(){return route.view==='lab'&&route.sub==='records'?{code:route.code,date:route.date}:null;},
   get viewMemory(){if(!viewMemories.has(activeViewKey))viewMemories.set(activeViewKey,{});return viewMemories.get(activeViewKey);},
   signal,api,workspaceNavigation:true,refresh:options=>refresh(true,options),navigate,selectStock,findStock,notify,logout,passwordCreated:()=>{authInfo={...authInfo,hasPassword:true};},
   chooseDecision,prefillPaper,returnToDecision,closeStock:()=>drawer?.close(),setDecisionPool(key,value){decisionPools[key]=value;},
