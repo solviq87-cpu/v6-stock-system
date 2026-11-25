@@ -11604,6 +11604,8 @@ function centerEvidenceRuntime(){
       const {heldCodes,MONITOR_CAPACITY}=require('./src/core/monitor-capacity');
       const entryEligibilityByPlan={},exitEligibilityByPlan={};
       const activePlans=require('./src/server/decision-evidence-runtime').selectActivePlans(plans,book,aShareCalendarDate(now));
+      const previewAccount=require('./src/core/paper-plan-entry-check').boundedAutomaticEntryPreview(
+        input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes}));
       for(const plan of activePlans){
         const candidate=S.candidatePool.find(row=>row.code===plan.code),quote=quotes[plan.code];
         const sealedUp=Boolean(S.ztCodes?.has(plan.code)||candidate&&candidate.pct!=null&&
@@ -11617,7 +11619,7 @@ function centerEvidenceRuntime(){
         },{sealedUp,heldCount:heldCodes({...PAPER,pool:account}).length,monitorCapacity:MONITOR_CAPACITY,lot:paperLotOf(plan.code),
           feeFor:(side,amount)=>require('./src/core/trading-fees').tradingFees({side,quantity:1,price:amount,tradeDate:aShareCalendarDate(now),
             policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total,
-          previewAccount:input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes})});
+          previewAccount});
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }

@@ -5,7 +5,25 @@
 const {executeDecisionPlan} = require('./paper-decision-plan');
 const {createFillEvidence} = require('./paper-fill-evidence');
 const {isAutomaticEntryPreview} = require('./paper-application-service');
+const {performance} = require('node:perf_hooks');
 const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+// Additional policy observations must not repeat synchronous account validation
+// for every archived active plan. Keep the original observer/exits intact, but
+// stop this optional preview work after a bounded count or elapsed batch time.
+// This is cooperative admission; an already-running synchronous read is not
+// preempted and cannot be described as a hard CPU deadline.
+function boundedAutomaticEntryPreview(preview,{maxChecks=20,maxElapsedMs=200,clock=()=>performance.now()}={}){
+  if(typeof preview!=='function'||typeof clock!=='function'||!Number.isSafeInteger(maxChecks)||maxChecks<1||maxChecks>20||
+    !Number.isFinite(maxElapsedMs)||maxElapsedMs<=0||maxElapsedMs>200)throw Error('原账户预演观察预算无效');
+  const startedAt=clock();let lastAt=startedAt,checks=0,exhausted=!Number.isFinite(startedAt);
+  return input=>{
+    const now=clock();
+    exhausted=exhausted||!Number.isFinite(now)||now<lastAt||now-startedAt>=maxElapsedMs||checks>=maxChecks;
+    if(exhausted){const error=Error('原账户预演观察预算已用尽');error.code='READONLY_PREVIEW_BUDGET_EXHAUSTED';throw error;}
+    lastAt=now;checks++;return preview(input);
+  };
+}
 
 function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot, feeFor, previewAccount} = {}) {
   const {now, quote, book, account, policy, equity, plan} = input;
@@ -74,9 +92,10 @@ function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot
     }
     return result(true, '同一原始报价满足当前计划及原模拟账户可核对约束；不代表真实盘口可成交',
       {quantity, fee, accountFingerprint: book.fingerprint || null,...(accountPreview?{accountPreview}:{})});
-  } catch {
+  } catch(error) {
+    if(error?.code==='READONLY_PREVIEW_BUDGET_EXHAUSTED')return result(null,'原账户预演观察预算已用尽，等待下一轮原报价观察');
     return result(null, '原费用或报价血缘未完成核验，不能确认可成交窗口');
   }
 }
 
-module.exports = {inspectPaperPlanEntry};
+module.exports = {inspectPaperPlanEntry,boundedAutomaticEntryPreview};
