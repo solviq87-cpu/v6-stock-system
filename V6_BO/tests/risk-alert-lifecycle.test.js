@@ -170,6 +170,20 @@ test('root and class mute affect only notification, retain site risks and requir
   const unmuted = store.setMuted({...key, classification: 'general', mutedUntil: null, actor: 'editor', expectedRevision: latest.revision});
   assert.equal(unmuted.groups.find(group => group.rootCauseId === 'quote:600001').muted, false);
 }));
+test('root and category mute keep separate evidence so clearing one scope cannot claim to unmute the other', () => space(({store, now}) => {
+  let state=observe(store),rootCauseId='quote:600001';
+  state=store.setMuted({...key,rootCauseId,mutedUntil:now()+60000,actor:'editor',expectedRevision:state.revision});
+  state=store.setMuted({...key,classification:'general',mutedUntil:now()+120000,actor:'editor',expectedRevision:state.revision});
+  assert.equal(state.groups[0].rootMutedUntil,now()+60000);
+  assert.equal(state.groups[0].categoryMutedUntil,now()+120000);
+  state=store.setMuted({...key,rootCauseId,mutedUntil:null,actor:'editor',expectedRevision:state.revision});
+  assert.equal(state.groups[0].rootMutedUntil,null);assert.equal(state.groups[0].muted,true);
+  assert.equal(state.groups[0].mutedUntil,now()+120000);
+  assert.equal(store.reserveDelivery({...key,rootCauseId}).status,'muted');
+  state=store.setMuted({...key,classification:'general',mutedUntil:null,actor:'editor',expectedRevision:state.revision});
+  assert.equal(state.groups[0].categoryMutedUntil,null);assert.equal(state.groups[0].muted,false);
+  assert.equal(state.groups[0].restrictionsStillApply,true);assert.equal(state.groups[0].stationVisible,true);
+}));
 test('cooldown, daily cap and superseded lifecycle events make oscillating alerts bounded', () => space(({store, advance}) => {
   observe(store); const old = store.read(key).groups[0].notificationEventId;
   store.reserveDelivery({...key, rootCauseId: 'quote:600001'});
@@ -230,6 +244,17 @@ test('old queue retries only definite rate rejection; uncertain 429 and thrown e
     }, {minGap: 0, retry: 2, sleep: (_ms, run) => run(), setTimer: () => 1, clearTimer() {}});
     queue.send('isolated-risk', () => { settled++; });
     assert.equal(calls, mode === 'definite' ? 3 : 1); assert.equal(settled, 1); assert.equal(queue.running, false);
+  }
+});
+test('transport failures or indeterminate HTTP errors containing rate-limit text cannot be retried as definite rejection',()=>{
+  for(const reason of ['ETIMEDOUT','ECONNREFUSED','EPIPE','ENOTFOUND','EAI_AGAIN','EHOSTUNREACH','ENETUNREACH',
+    '请求超时','请求失败','响应 aborted','Premature close','HTTP 408','HTTP 502']){
+    let calls=0,callbacks=0;
+    const queue=createQueue((_text,callback)=>{calls++;callback(false,reason+' while reading HTTP 429 too many requests');},
+      {minGap:0,retry:2,sleep:(_ms,run)=>run(),setTimer:()=>1,clearTimer(){}});
+    queue.send('isolated-risk',()=>{callbacks++;});
+    assert.equal(calls,1,reason);assert.equal(callbacks,1);assert.equal(queue.running,false);
+    assert.equal(queue.stats().retried,0);
   }
 });
 test('old sender result normalization requires affirmative gateway evidence and never invents receiver proof', () => {

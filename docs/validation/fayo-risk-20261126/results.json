@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 1,
+  "repository": "solviq87-cpu/v6-stock-system",
+  "target": "dev",
+  "branch": "feat/fayo-risk-center-20261126",
+  "pullRequest": "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+  "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "continuedFromSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+  "finalCommitAndCiEvidence": "Exact final PR head and workflow links are read back and recorded in the PR body; no self-referential commit hash is embedded here.",
+  "scope": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    14,
+    30
+  ],
+  "sourceManifest": {
+    "trackedFileCount": 2254,
+    "sha256": "6a6565a20ffcebfceac190e0d2abb02a976e8fff063a51b4f489461c7cc688ce",
+    "unchangedDuringFinalRegression": true,
+    "method": "git ls-files V6_BO; SHA-256 per tracked .js/.mjs/.cjs/.json/.css/.html/.py/.sh file; Python json.dumps(sort_keys=True,indent=2) plus final LF"
+  },
+  "runtime": {
+    "node": "v24.22.3",
+    "playwright": "1.57.0",
+    "chromium": "158.0.8127.0",
+    "font": "Noto Sans CJK SC"
+  },
+  "fullRegression": {
+    "log": "full-regression.tap",
+    "sha256": "491acbee84d4671a923fef38e30e57f3dc3cdba51e988d279de24e58b5fe4b91",
+    "tests": 5129,
+    "pass": 5125,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "todo": 0,
+    "duration_ms": 265275.868157,
+    "command": "npm test",
+    "concurrency": 2,
+    "startedAt": "2026-11-25T17:26:25.743530+00:00",
+    "finishedAt": "2026-11-25T17:30:51.586314+00:00",
+    "exitCode": 0,
+    "logSha256": "491acbee84d4671a923fef38e30e57f3dc3cdba51e988d279de24e58b5fe4b91",
+    "tapCompletenessPassed": true
+  },
+  "targeted": {
+    "aggregationAndQueue": {
+      "log": "root-closure-final.tap",
+      "sha256": "a6b6ede048bb1430e9893fe768e16f26b7561b5c0024d3a22157453ec149f919",
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 11575.348523
+    },
+    "originalActionsAndNotificationChain": {
+      "log": "actions-notifications-regression.tap",
+      "sha256": "495705a45290531b722f01bb4664a653d52f4ccadc9c6df068a32e257285af91",
+      "tests": 165,
+      "pass": 165,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 10695.893028
+    },
+    "isolatedHttpAndRecovery": {
+      "log": "risk-http-final.tap",
+      "sha256": "6031bd972dfa284cb965e6da948b7c30b1f189880dee540547044da3519a9669",
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 24794.285678
+    },
+    "uiContracts": {
+      "log": "risk-ui-final-unit.log",
+      "sha256": "46fb58ca6f4738d24a6cb33013de3db54e8807992039c14b9821df3d7e1327ec",
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 934.093367
+    },
+    "unchangedHostIsolated": {
+      "log": "windows-host-final-isolated.tap",
+      "sha256": "dc7b49ecf1af76af04ce9b86e3f1707b02d0841a69185edc0f44875d25c090ed",
+      "tests": 25,
+      "pass": 25,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 5855.067003
+    }
+  },
+  "check": {
+    "passed": true,
+    "nativeModules": 69,
+    "logSha256": "7d2069bb8c83efd48c04b69ce8d84b440815698d30490353ef3a6b931ec9a634"
+  },
+  "fullServerSmoke": {
+    "passed": true,
+    "isolated": true,
+    "logSha256": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1"
+  },
+  "protectedFunctions": {
+    "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+    "count": 19,
+    "allEqual": true,
+    "evidence": "protected-functions.json",
+    "sha256": "7948865dcaa7f9be60a6dcbefea8befb8e7f2e4e5e7ac42ab83373eff2607e28"
+  },
+  "browsers": {
+    "commandCount": 34,
+    "scriptCount": 36,
+    "initialPassedCommands": 33,
+    "initialFailedCommands": 1,
+    "allCommandsHaveSuccessfulReceiptsAfterRerun": true,
+    "firstRunCommands": [
+      {
+        "command": "node scripts/verify-browser-clock.js",
+        "exitCode": 0,
+        "seconds": 0.116,
+        "logSha256": "8854095668c8d5690085509689eb46469624abf3a2712e6ef9eec43cf81ec5ea"
+      },
+      {
+        "command": "node scripts/fayo-browser-check.js",
+        "exitCode": 0,
+        "seconds": 156.365,
+        "logSha256": "a9014a0a2d96ec2396de5e765cc5426928d0b31a7a7e8a651d54243299cc2eca"
+      },
+      {
+        "command": "node scripts/fayo-decision-browser-check.js",
+        "exitCode": 0,
+        "seconds": 32.062,
+        "logSha256": "73cb9e71a6436044dee88869ce3a3e6af2b11a2215e038b5cc31f16df9ce5cf9"
+      },
+      {
+        "command": "node scripts/fayo-execution-browser-check.js",
+        "exitCode": 0,
+        "seconds": 4.989,
+        "logSha256": "adf4a51cefff82de196f32f37f723664d2e38eca34e85f78df925dc066b14c1b"
+      },
+      {
+        "command": "node scripts/fayo-risk-browser-check.js",
+        "exitCode": 0,
+        "seconds": 5.387,
+        "logSha256": "00c77521fa1373de982607e3b82291aa3c4942dfe36d1a8b32eea9fce46584af"
+      },
+      {
+        "command": "node scripts/fayo-intelligence-browser-check.js",
+        "exitCode": 0,
+        "seconds": 8.636,
+        "logSha256": "6b598caa25b83328497df6f52ce7c601511bfe03d17448034fb8c22538f2804f"
+      },
+      {
+        "command": "node scripts/fayo-operations-browser-check.js",
+        "exitCode": 0,
+        "seconds": 4.501,
+        "logSha256": "9c740310ae29b2b2be5160018e5357fee4b9ee96a00b4471b2865d287877d29b"
+      },
+      {
+        "command": "node scripts/fayo-source-review-browser-check.js",
+        "exitCode": 0,
+        "seconds": 8.337,
+        "logSha256": "2fdd10ec4c1c6c72cc238c0a1d9bdc0591c85bef1ddb3ec449a8c7c16602a98a"
+      },
+      {
+        "command": "node scripts/fayo-manual-loop-browser-check.js",
+        "exitCode": 0,
+        "seconds": 29.221,
+        "logSha256": "a615cc995c4ec460525ed540b04925394371340528519fc5a0ba61f71f0c12f2"
+      },
+      {
+        "command": "node scripts/fayo-kline-learning-browser-check.js",
+        "exitCode": 0,
+        "seconds": 19.995,
+        "logSha256": "c382461ced49e92ade267262a1e514c2a1ea14e448f8bd2ec14fb97655c23291"
+      },
+      {
+        "command": "node scripts/fayo-close-freeze-browser-check.js",
+        "exitCode": 0,
+        "seconds": 4.358,
+        "logSha256": "eebadfd3c4e66efd099b8f9fd11670e4e9bdf8bd2bcf8b2f7131118d90c14c6a"
+      },
+      {
+        "command": "node scripts/ui-unified-workspace-browser-check.js",
+        "exitCode": 0,
+        "seconds": 55.01,
+        "logSha256": "470b56dcf0b499e289e0acbe2ee9f3d03c9ce463ad16be1395782d7efb813ff3"
+      },
+      {
+        "command": "node scripts/ui-original-workspace-browser-check.js",
+        "exitCode": 0,
+        "seconds": 9.948,
+        "logSha256": "9bafae0548a35b2224110bc9ff108a54f73ec2be9c4b8338b510c97857d5c0a8"
+      },
+      {
+        "command": "node scripts/ui-mobile-roles-browser-check.js",
+        "exitCode": 0,
+        "seconds": 7.562,
+        "logSha256": "970a5227893b927ab2a47a6e4aaaf6bc1088aeaffa8bd57f3d739588230ccd91"
+      },
+      {
+        "command": "node scripts/ui-cache-upgrade-browser-check.js",
+        "exitCode": 0,
+        "seconds": 1.951,
+        "logSha256": "09dbd32e4c4a010fa1def8bca99b9c09a6d7858b06771daa1a086c6690d7151c"
+      },
+      {
+        "command": "node scripts/ui-reference-browser-check.js",
+        "exitCode": 0,
+        "seconds": 10.057,
+        "logSha256": "5227085f7ec8835232662249053c3fcf841bba68255087aa96582d0562d2ca44"
+      },
+      {
+        "command": "node scripts/ui-picks-three-k-browser-check.js",
+        "exitCode": 0,
+        "seconds": 15.723,
+        "logSha256": "1805bd63cc5a40d27fb30f9634d843852cc0cae2b052b6cc457d89e810d9e548"
+      },
+      {
+        "command": "node scripts/ui-stream-recovery-browser-check.js",
+        "exitCode": 0,
+        "seconds": 5.158,
+        "logSha256": "dc2a9d20d9eb7bc2bf46bdf268d95b89e1673b8ef3b97b1f946030c5b256c1a9"
+      },
+      {
+        "command": "node scripts/ui-stock-list-import-browser-check.js",
+        "exitCode": 0,
+        "seconds": 19.678,
+        "logSha256": "6c638b221fdffa655be6c04cbe27ca387e8e3a58951f2fa7fafac90bb6211d0d"
+      },
+      {
+        "command": "node scripts/ui-research-decision-review-check.js",
+        "exitCode": 0,
+        "seconds": 15.863,
+        "logSha256": "e5cd6cf56694f4f81040d0f627f57ce9ff23c826ffad47ff9bf9496efeb2b31d"
+      },
+      {
+        "command": "node scripts/ui-research-workspace-check.js",
+        "exitCode": 0,
+        "seconds": 35.398,
+        "logSha256": "d30f23e9b902300ba62d52c19f276c14b727ee8a6d4020b05319bf11debb64be"
+      },
+      {
+        "command": "node scripts/ui-model-forecast-check.js",
+        "exitCode": 0,
+        "seconds": 13.712,
+        "logSha256": "abca9ddf53bb04e6379a85dbcc6d1c3c37a4ff4bda5a483ff6ac22b21d3ad9a8"
+      },
+      {
+        "command": "node scripts/ui-model-library-check.js",
+        "exitCode": 0,
+        "seconds": 28.356,
+        "logSha256": "3bc3fbcbb2aaa4462a55db5a6af2c1b1a897eae2c8ff4d146611abc31bdbb20b"
+      },
+      {
+        "command": "node scripts/ui-research-summary-cards-check.js",
+        "exitCode": 0,
+        "seconds": 44.239,
+        "logSha256": "0858633a3e5e4df7f0a807b1e97229d4f2a933a4fded0a80739f619cb17c70c5"
+      },
+      {
+        "command": "node scripts/ui-research-selection-check.js",
+        "exitCode": 0,
+        "seconds": 51.903,
+        "logSha256": "c72158309f7b00d5c4e9d58c3a1eaa0ba14a1865ecdb7716250eb4eeacaf4b86"
+      },
+      {
+        "command": "node scripts/ui-research-navigation-check.js",
+        "exitCode": 0,
+        "seconds": 23.359,
+        "logSha256": "2117ae9b1874804a11ef0681f6b26b0ae2c857687a86a7f0546fa6f1d47d2bf4"
+      },
+      {
+        "command": "node scripts/ui-research-tab-race-check.js",
+        "exitCode": 0,
+        "seconds": 38.468,
+        "logSha256": "e66bb051aa539627de916b04392640b804cd4b12a30ed0ee8a13ec090a569b26"
+      },
+      {
+        "command": "node scripts/ui-research-recovery-check.js",
+        "exitCode": 0,
+        "seconds": 59.552,
+        "logSha256": "02f2eb776300cede86b0745e90f7d63a651b63432434ac440ce39b0f9ac1ef83"
+      },
+      {
+        "command": "node scripts/ui-research-context-check.js",
+        "exitCode": 0,
+        "seconds": 31.699,
+        "logSha256": "c98efc2d927be01a8b209c362e7e34e2197e51ae9350ee3261892f9c4aaa9252"
+      },
+      {
+        "command": "node scripts/ui-market-linkage-check.js",
+        "exitCode": 0,
+        "seconds": 22.114,
+        "logSha256": "0caf6fde2f2f767e824594ca30bb122b4e530439d989f507f87bb2299d0dd281"
+      },
+      {
+        "command": "node scripts/ui-learning-workbench-check.js",
+        "exitCode": 0,
+        "seconds": 47.009,
+        "logSha256": "6a94ab779433e146fa37ce8db4295b0bfd26fc77ddb61383625e22cf33c291be"
+      },
+      {
+        "command": "node scripts/ui-model-library-context-check.js",
+        "exitCode": 0,
+        "seconds": 20.578,
+        "logSha256": "226305fabeb69eff32acfaab7ebed178064cfe37af7fc83466164c08930b580f"
+      },
+      {
+        "command": "node scripts/ui-research36-check.js",
+        "exitCode": 0,
+        "seconds": 11.561,
+        "logSha256": "37d448ffd4036a7909dd9efe890b724061d2d2d05b9114cb6b607af275c94e1b"
+      },
+      {
+        "command": "node --test scripts/workbuddy-static-browser-check.js scripts/workbuddy-module-browser-check.js scripts/workbuddy-news-browser-check.js",
+        "exitCode": 1,
+        "seconds": 38.483,
+        "logSha256": "7e9588917494d3883650604c7e8253bc11eb298ab01f0ba90d6380df693be513"
+      }
+    ],
+    "finalOriginalWorkbuddyRerun": {
+      "log": "workbuddy-original-final.log",
+      "sha256": "418377099ee2fbc3b8d07de414598d39ed0c13b840211cb391909773dc7524a1",
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 61091.038173
+    },
+    "finalRiskReport": {
+      "passed": true,
+      "fixtureOnly": true,
+      "originalAuthorityUnchanged": true,
+      "realMessagesSent": 0,
+      "views": [
+        {
+          "width": 1366,
+          "height": 1000,
+          "path": "/",
+          "matchingRiskId": "risk-3d437a6c6ce4567b4df5c9d5",
+          "accountIsolation": true,
+          "staleUnknown": true,
+          "muteKeepsRestriction": true,
+          "categoryMuteRestored": true,
+          "failedReadClearsReport": true,
+          "viewerPrivateReads": 0,
+          "requestIsolation": true,
+          "privacyAndAccounts": {
+            "accountIsolation": true,
+            "revokedClearsImmediately": true,
+            "lateRevokedSummaryHidden": true
+          },
+          "unknownConfiguration": {
+            "unknown": true,
+            "invalid": true,
+            "notUnconfigured": true
+          }
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "path": "/m",
+          "matchingRiskId": "risk-3d437a6c6ce4567b4df5c9d5",
+          "accountIsolation": true,
+          "staleUnknown": true,
+          "muteKeepsRestriction": true,
+          "categoryMuteRestored": true,
+          "failedReadClearsReport": true,
+          "viewerPrivateReads": 0,
+          "requestIsolation": true,
+          "privacyAndAccounts": {
+            "accountIsolation": true,
+            "revokedClearsImmediately": true,
+            "lateRevokedSummaryHidden": true
+          },
+          "unknownConfiguration": {
+            "unknown": true,
+            "invalid": true,
+            "notUnconfigured": true
+          }
+        }
+      ]
+    },
+    "finalRiskReportSha256": "e40c969d1344bd0bf957b5bafa41701e12febc845ce92c5971c89fca20ef508a",
+    "finalOperations": {
+      "passed": true,
+      "nativeViews": 19,
+      "narrowRoutes": 38,
+      "logSha256": "9c740310ae29b2b2be5160018e5357fee4b9ee96a00b4471b2865d287877d29b"
+    },
+    "genericScenarios": 8,
+    "genericWidths": [
+      320,
+      390,
+      402,
+      768,
+      1366,
+      1920
+    ],
+    "realDeviceVerified": false
+  },
+  "observedFailures": [
+    {
+      "run": "initial implementation",
+      "tests": 5089,
+      "pass": 5074,
+      "fail": 11,
+      "skipped": 4,
+      "resolution": "VM fixture wiring, preserved UI/version contracts and real temp fixture parent; original production guards retained"
+    },
+    {
+      "run": "before browser contract correction",
+      "log": "full-regression-before-ui-contract-fix.tap",
+      "sha256": "82df5ab9efb5b8b9dff7c5ed0757e2b8ba2249d8b35ccf5e8fdc9ce7731712cf",
+      "tests": 5129,
+      "pass": 5123,
+      "fail": 2,
+      "cancelled": 0,
+      "skipped": 4,
+      "todo": 0,
+      "duration_ms": 595428.70957,
+      "resolution": "Two old geometry assertions updated to preserved actual layout and revalidated"
+    },
+    {
+      "run": "frozen source concurrency 6",
+      "log": "full-regression-concurrency6.tap",
+      "sha256": "d1bd2f92f75b148708fb52f9cd60ca564951cc092815f78cef94ab8b92d28875",
+      "tests": 5129,
+      "pass": 5124,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 4,
+      "todo": 0,
+      "duration_ms": 186609.804454,
+      "resolution": "Unchanged host test failed immediate health check; isolated 25/25 and complete concurrency 2 rerun passed; no production/test/timeout changes; intermittent root cause not certified"
+    },
+    {
+      "run": "pinned browser initial",
+      "test": "WorkBuddy 1440px picks collapse",
+      "sourceAndTestIdenticalToDev": true,
+      "originalFinalRerunPassed": 10,
+      "rootCauseConfirmed": false,
+      "originalTestsModified": false
+    }
+  ],
+  "skippedOriginalEnvironmentCases": [
+    "PowerShell wrapper: pwsh unavailable",
+    "Five-model comparison: optional model dependencies unavailable",
+    "LightGBM deterministic regression: package unavailable",
+    "XGBoost deterministic regression: package unavailable"
+  ],
+  "recovery": {
+    "checkpoint": "checkpoint/risk-start-20261126",
+    "sourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "bundleVerified": true,
+    "bundleSha256": "0884590518afde995ce321b6a9edce5bae2b0044e0517a51c1fae747d7db800d",
+    "productionColdBackup": false
+  },
+  "productionDeployed": false,
+  "realMessagesSent": 0,
+  "realTradingEnabled": false,
+  "finalSixGroupIntegrationVerified": false,
+  "remainingEvidence": [
+    "Original authority does not expose external cash-flow events",
+    "Continuous full-history account maximum drawdown and between-sample extrema remain unknown",
+    "Strategy governance adapter and advanced-account projection require cross-group integration",
+    "Real classification/data coverage and stress calibration require actual observations",
+    "Trusted recipient receipts and real-channel delivery unverified",
+    "Production cold backup, deployment, device and final combined-SHA acceptance unverified"
+  ],
+  "changedFiles": [
+    ".github/workflows/v6-ui-browser.yml",
+    "DEPLOYMENT.md",
+    "HANDOFF.md",
+    "RELEASE_QUEUE.md",
+    "TASK_MASTER.md",
+    "V6_BO/feishuq.js",
+    "V6_BO/public/nova/fayo.css",
+    "V6_BO/public/nova/index.html",
+    "V6_BO/public/nova/market.js",
+    "V6_BO/public/nova/operations.js",
+    "V6_BO/public/nova/risk-workbench-view.mjs",
+    "V6_BO/public/nova/terminal-workbench.js",
+    "V6_BO/public/sw.js",
+    "V6_BO/scripts/fayo-browser-check.js",
+    "V6_BO/scripts/fayo-risk-browser-check.js",
+    "V6_BO/server.js",
+    "V6_BO/src/core/account-equity-evidence.js",
+    "V6_BO/src/core/effective-risk-evidence.js",
+    "V6_BO/src/core/notification-delivery-view.js",
+    "V6_BO/src/core/paper-plan-observer.js",
+    "V6_BO/src/core/portfolio-stress-evidence.js",
+    "V6_BO/src/core/private-risk-feishu-delivery.js",
+    "V6_BO/src/core/risk-action-evidence.js",
+    "V6_BO/src/core/risk-alert-lifecycle.js",
+    "V6_BO/src/core/risk-workbench.js",
+    "V6_BO/src/server/risk-workbench-runtime.js",
+    "V6_BO/tests/account-equity-evidence.test.js",
+    "V6_BO/tests/decision-evidence-server-contract.test.js",
+    "V6_BO/tests/effective-risk-evidence.test.js",
+    "V6_BO/tests/fayo-vivid-style.test.js",
+    "V6_BO/tests/helpers/account-equity-fixture.js",
+    "V6_BO/tests/managed-publisher-runtime.test.js",
+    "V6_BO/tests/notification-delivery-view.test.js",
+    "V6_BO/tests/portfolio-stress-evidence.test.js",
+    "V6_BO/tests/research-cache-version-parity.test.js",
+    "V6_BO/tests/risk-action-evidence.test.js",
+    "V6_BO/tests/risk-alert-lifecycle.test.js",
+    "V6_BO/tests/risk-workbench-http.test.js",
+    "V6_BO/tests/risk-workbench-runtime-isolation.test.js",
+    "V6_BO/tests/risk-workbench-runtime-notifications.test.js",
+    "V6_BO/tests/risk-workbench.test.js",
+    "V6_BO/tests/v6-terminal-workbench.test.js",
+    "WORK_LOG.md",
+    "docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md",
+    "docs/validation/fayo-risk-20261126/README.md",
+    "docs/validation/fayo-risk-20261126/protected-functions.json",
+    "docs/validation/fayo-risk-20261126/results.json"
+  ]
+}

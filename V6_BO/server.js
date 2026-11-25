@@ -22999,7 +22999,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(req.method!=='POST')return reply(405,{ok:false,error:'提醒状态更新仅允许POST'});
     if(isReplica())return reply(403,{ok:false,readOnly:true,error:'副本只读，原主实例负责提醒状态'});
     let input;try{input=JSON.parse(body||'');}catch{return reply(400,{ok:false,error:'提醒状态参数无效'});}
-    if(!input||Array.isArray(input)||Object.keys(input).some(key=>!['action','accountId','accountEpoch','rootCauseId','classification','mutedUntil','expectedRevision'].includes(key)))
+    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!['action','accountId','accountEpoch','rootCauseId','classification','mutedUntil','expectedRevision'].includes(key)))
       return reply(400,{ok:false,error:'仅允许查看状态或通知静音，不接受交易或接收端确认'});
     return riskWorkbenchRuntime().update(input,{actor,authorized:()=>isEditorReq(req,req.__tok)}).then(result=>isEditorReq(req,req.__tok)?reply(200,{ok:true,result}):reply(403,{ok:false,locked:true,error:'授权已失效'}))
       .catch(()=>reply(409,{ok:false,error:'提醒状态或账户期间已变化，请刷新后重试'}));

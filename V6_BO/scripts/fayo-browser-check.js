@@ -4,6 +4,7 @@
 // transport. Prices are deliberately marked synthetic and never production.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+const {buildRiskWorkbench,filterRiskWorkbench}=require('../src/core/risk-workbench');
 const publicRoot=path.resolve(__dirname,'../public');
 const releaseVersion=fs.readFileSync(path.join(publicRoot,'nova/index.html'),'utf8').match(/<meta name="application-version" content="([^"]+)"/)[1];
 const output=process.env.FAYO_QA_DIR||process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-browser-'));
@@ -65,6 +66,13 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
+ if(p==='/api/risk-workbench'){
+  if(role!=='edit'||!req.headers.authorization)return {ok:false,error:'需要风险编辑授权'};
+  // This generic layout fixture has no authoritative account. Exercise the real
+  // unknown-risk contract; the dedicated risk browser verifies funded accounts.
+  return {ok:true,result:filterRiskWorkbench(buildRiskWorkbench({accountId:url.searchParams.get('account')||'pool',
+   now:Date.now(),system:{replica:true}}),url.searchParams.get('code'))};
+ }
  if(p==='/api/fast-stock-moves'){
   const fast=state().fastStockMoves;
   return {schemaVersion:1,servedAt:Date.now(),trading:false,isSnapshot:true,
@@ -419,7 +427,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-3');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'risk-20261126-1');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
@@ -439,7 +447,8 @@ const runChecks=async()=>{
     const box=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width};};
     return {headings:[...home.querySelectorAll(':scope > .fy-home-section')].map(el=>el.getAttribute('aria-label')),
      market:box(home.querySelector('.fy-home-market')),opportunity:box(home.querySelector('.fy-home-opportunity')),
-     risk:box(home.querySelector('.fy-home-risk')),more:box(home.querySelector('.fy-home-research')),
+     risk:box(home.querySelector('.fy-risk-summary')),more:box(home.querySelector('.fy-home-research')),
+     retainedRiskInResearch:!!home.querySelector('.fy-home-research .fy-home-risk'),
      decision:box(home.querySelector('.fy-decision-board')),weather:box(home.querySelector('.fy-decision-weather')),
      indices:[...home.querySelectorAll('.fy-home-indices article')].map(box),
      sourceCount:home.querySelectorAll('.fy-home-research .fy-terminal-stat').length,
@@ -447,13 +456,16 @@ const runChecks=async()=>{
      down:getComputedStyle(home.querySelector('.fy-overview-index.fy-negative')).color};
    });
    fs.writeFileSync(path.join(output,'fayo-layout-'+width+'.json'),JSON.stringify(regions,null,2));
-   assert.deepEqual(regions.headings,['大盘一眼看','今日机会','风险与持仓']);
+   assert.deepEqual(regions.headings,['大盘一眼看','今日机会']);
+   assert.equal(regions.retainedRiskInResearch,true,'the original risk and portfolio tools remain in the research disclosure');
+   assert.match(await page.locator('.fy-home-layout > .fy-risk-summary').innerText(),/当前精确权益未知/,
+    'the homepage consumes the same backend unknown-risk result');
    assert.equal(regions.indices.length,3);
    assert.ok(regions.indices.every(b=>b.top===regions.indices[0].top&&b.width>70));
    assert.equal(regions.sourceCount,8);
-   assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.risk.bottom);
-   if(width>=1000)assert.equal(regions.opportunity.top,regions.risk.top);
-   else assert.ok(regions.opportunity.bottom<=regions.risk.top);
+   assert.ok(regions.decision.bottom<=regions.risk.top&&regions.risk.bottom<=regions.market.top,
+    'the shared risk summary follows the decision and precedes the market details');
+   assert.ok(regions.market.bottom<=regions.opportunity.top&&regions.more.top>=regions.opportunity.bottom);
    assert.ok(regions.decision.top>=0&&regions.weather.bottom<page.viewportSize().height-50,'current decision and market weather are visible on the first screen');
    const rgb=v=>v.match(/\d+/g).slice(0,3).map(Number);
    const [rr,rg]=rgb(regions.up),[gr,gg]=rgb(regions.down);
@@ -534,8 +546,8 @@ const runChecks=async()=>{
     await navigate(page,'pulse','overview');
     await page.locator('.fy-reference-home').waitFor();
    }
-   assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
    await moreResearch.click();
+   assert.match(await page.locator('.fy-reference-account-values').innerText(),/100,000\.00/);
    const fundPanel=page.locator('.fy-reference-funds');
    await fundPanel.getByRole('button',{name:'资金流出榜',exact:true}).click();
    await fundPanel.locator('.fy-reference-flow .fy-negative').waitFor({state:'visible'});

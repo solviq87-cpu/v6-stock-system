@@ -3,6 +3,7 @@
 // A common presentation contract over existing authority/evidence readers. No
 // caller of this module can submit an order, change a rule, or repair a ledger.
 const crypto = require('node:crypto');
+const {validateEquityEvidence} = require('./account-equity-evidence');
 const VERSION = 'fayo-risk-workbench-20261126-v1';
 const list = value => Array.isArray(value) ? value : [];
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -23,6 +24,15 @@ function missingText(value){
   const code=typeof value==='string'?value:value?.code;
   const message=REASONS[code]||text(value?.message||value?.reason)||text(code);
   return [value?.symbol,message].filter(Boolean).join(' · ');
+}
+
+function boundedSummary(row) {
+  const coverage={};
+  for(const field of ['facts','restrictions','checks','releaseConditions']){
+    const all=list(row[field]);coverage[field]={total:all.length,shown:all.length>40?39:all.length,complete:all.length<=40};
+    if(all.length>40)row[field]=[...all.slice(0,39),'另有 '+(all.length-39)+' 条，请展开对应完整证据。'];
+  }
+  return {...row,summaryCoverage:coverage};
 }
 
 function riskRow(input) {
@@ -68,6 +78,21 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     throw Error('风险子报告与原账户不一致');
   for(const item of [equityHistory,stress,alerts])if(equity?.accountEpoch&&item?.accountEpoch&&item.accountEpoch!==equity.accountEpoch)
     throw Error('风险子报告与原账户期间不一致');
+  if(equity){
+    validateEquityEvidence(equity);
+    if(equity.observedAt!==now)throw Error('当前风险报告必须使用同一时点的权益证据，历史观察不能重新标为当前');
+    for(const item of [rules,actions])if(item){
+      if(item.accountId!==accountId||item.accountRevision!==equity.source.accountRevision||
+          item.accountEpoch!==equity.accountEpoch||
+          item.authoritySnapshotFingerprint!==equity.source.snapshotFingerprint)
+        throw Error('风险规则或动作与原账户快照不一致');
+    }
+    if(stress&&(stress.equityEvidenceId!==equity.fingerprint||
+        stress.authoritySnapshotFingerprint!==equity.source.snapshotFingerprint||stress.asOf!==equity.observedAt))
+      throw Error('压力结果与同一权益证据不一致');
+  }
+  for(const item of [rules,actions,stress])if(item&&item.generatedAt!==now)
+    throw Error('当前风险子报告时点不一致');
   const risks=[],add=input=>risks.push(riskRow(input));
   const account={type:'account',id:accountId,label:accountId==='pool'?'A·跟单盘':'B·预选盘'};
   const equityComplete=equity?.status==='complete';
@@ -87,7 +112,7 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
       source:p.quote?.quoteSource||p.quote?.source||p.quote?.provider,sourceAt:p.quote?.quoteAt,
       impact:'该持仓估值与依赖实时价格的风险判断受影响',restrictions:good?[]:['不得借用接收时刻、旧价或其他周期价格触发退出'],
       checks:['核对原始报价、来源及冲突回执'],releaseConditions:['同标的原始报价通过原门禁且冲突已核对'],
-      status:good?'resolved':'unknown',priceDependent:true});
+      status:good?'resolved':'unknown',priceDependent:true,references:{kind:'position-valuation'}});
   }
   const quoteCounts=research?.market?.quotes;
   add({rootCauseId:'market/evidence',category:'market',object:{type:'market',id:'A-share',label:'A股市场'},
@@ -98,24 +123,71 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     impact:'市场风险结论的覆盖和来源认证尚有限制',restrictions:['数据不足保持未知；不以缺数判定安全'],
     checks:['展开市场统计范围与逐票原始时点'],releaseConditions:['取得完整、同口径、可校验的市场证据'],status:'unknown'});
   for(const conflict of list(market.conflicts)) {
-    const at=time(conflict.generatedAt)||time(conflict.quoteAt)||time(conflict.checkedAt)||Date.parse(conflict.checkedAt||'');
+    // A new projection time cannot renew the original diagnostic observation.
+    const at=conflict.checkedAt!=null?(time(conflict.checkedAt)||Date.parse(conflict.checkedAt)):time(conflict.quoteAt);
     if(!/conflict|ambiguous/.test(conflict.status||''))continue;
     const fresh=finite(at)&&at<=now&&now-at<=15000;
     add({rootCauseId:'quote/'+conflict.code,category:'data',object:{type:'security',id:conflict.code,label:conflict.code},
       evidenceStatus:fresh?'conflict':'stale',severity:fresh?'warning':'unknown',facts:['多源价格或时点核对：'+conflict.status],
       source:'原独立来源报价诊断',sourceAt:at,impact:'来源冲突尚未取得可用一致性证据',
       restrictions:['暂停消费该次冲突数据的新判断','保留原交易门禁'],checks:['核对各供应商原始价、时点与统计口径'],
-      releaseConditions:['新的独立报价回执通过原一致性校验'],status:fresh?'active':'unknown',priceDependent:true});
+      releaseConditions:['新的独立报价回执通过原一致性校验'],status:fresh?'active':'unknown',priceDependent:true,
+      references:{kind:'source-consensus'}});
+  }
+  // Persisted incidents need positive evidence of resolution. In particular,
+  // disappearance from a diagnostic cache and absence of a holding mean
+  // different things; neither proves independent sources agree again.
+  for(const group of list(alerts?.groups).filter(group=>group.rootCauseId?.startsWith('quote/'))){
+    const code=group.rootCauseId.slice('quote/'.length);
+    if(!/^\d{6}$/.test(code))continue;
+    const previous=list(group.risks),hadConsensus=previous.some(row=>row.references?.kind==='source-consensus'||
+      row.source==='原独立来源报价诊断'||list(row.sources).some(source=>source.source==='原独立来源报价诊断'));
+    const diagnostic=list(market.conflicts).find(row=>row?.code===code);
+    const currentConflict=list(market.conflicts).some(row=>row?.code===code&&/conflict|ambiguous/.test(row.status||''));
+    if(hadConsensus&&group.status==='resolved')continue;
+    if(hadConsensus&&!currentConflict){
+      let gate=null;
+      try{gate=require('./intelligence-research').decisionCrosscheckGate(diagnostic,{code,day:equity?.day||new Date(now+28800000).toISOString().slice(0,10),now});}catch{}
+      const clear=gate?.status==='observed-agreement'&&gate.canAdmit===true&&diagnostic?.status==='sources-agree-unverified';
+      const checkedAt=typeof diagnostic?.checkedAt==='number'?diagnostic.checkedAt:Date.parse(diagnostic?.checkedAt||'');
+      add({rootCauseId:group.rootCauseId,category:'data',object:{type:'security',id:code,label:code},
+        severity:clear?'info':'unknown',evidenceStatus:clear?'available':'missing',
+        facts:clear?['新的原多源回执通过既有一致性检查；来源认证及交易门禁仍独立保留']:
+          ['此前来源冲突尚无新的完整一致性回执；单源价格恢复或诊断消失不表示冲突已解除'],
+        source:'原独立来源报价诊断',sourceAt:clear?checkedAt:null,
+        impact:clear?'本次已核对的来源分歧解除；不新增报价使用权限':'来源冲突的后续状态未知',
+        restrictions:['沿用原数据与执行门禁，不以缺失回执恢复依赖冲突数据的新判断'],
+        checks:['核对同一标的的独立供应商、原始报价时点与原一致性结果'],
+        releaseConditions:['新的完整多源回执通过既有一致性检查'],status:clear?'resolved':'unknown',
+        priceDependent:true,references:{kind:'source-consensus',sourceEvidence:gate?.sourceEvidence||[]}});
+      continue;
+    }
+    const positionOnly=previous.length>0&&previous.every(row=>row.references?.kind==='position-valuation')&&!hadConsensus;
+    const activeSymbols=rules?.occupancy?.activeOrderSymbols;
+    if(!positionOnly||!equity||!Array.isArray(activeSymbols)||activeSymbols.includes(code)||
+        list(equity.positions).some(position=>position.symbol===code&&position.quantity>0)||currentConflict||
+        risks.some(row=>row.rootCauseId===group.rootCauseId))continue;
+    add({rootCauseId:group.rootCauseId,category:'data',object:{type:'security',id:code,label:code},
+      severity:'info',evidenceStatus:'available',facts:['原权威账户已无该标的持仓或未完成委托，持仓估值缺口不再适用'],
+      source:'原权威账户快照',sourceAt:equity.observedAt,
+      impact:'只解除该账户持仓估值的适用范围，不证明市场报价、来源或其他风险已恢复',
+      restrictions:['原市场来源及交易门禁保持；重新持有或挂单须重新核验'],
+      checks:['核对原成交、当前持仓及活动委托'],
+      releaseConditions:['同一账户期间的权威快照证明该标的没有剩余持仓和活动委托'],
+      status:'resolved',priceDependent:false,references:{kind:'position-valuation',accountRevision:equity.source.accountRevision}});
   }
   if(!rules)add({rootCauseId:'account/policy',category:'system',object:account,severity:'unknown',evidenceStatus:'missing',
     facts:['账户实际生效配置尚不可读'],source:'原账户风控策略',impact:'不能证明任何新增展示限额已启用',
     restrictions:['保留原账户执行门禁'],checks:['读取权威账户版本和策略变更记录'],releaseConditions:['取得同一账户实际生效策略'],status:'unknown'});
   for(const rule of list(rules?.rules)) {
-    const configured=rule.enabled===true&&rule.configurationStatus==='active',known=finite(rule.used)&&configured;
+    const configured=rule.enabled===true&&rule.configurationStatus==='active',known=finite(rule.used)&&configured&&rule.evidenceStatus==='available';
     const breach=known&&rule.exceeded===true;
+    const configurationLabel=configured?'已启用，版本 '+rules.policyVersion:
+      rule.configurationStatus==='not-configured'?'未配置':rule.configurationStatus==='disabled'?'已停用':
+      rule.configurationStatus==='invalid'?'配置未通过核验':'配置未知';
     add({rootCauseId:'rule/'+rule.id,category:rule.id?.toLowerCase().includes('strategy')?'strategy':'portfolio',object:account,
       severity:breach?'critical':known?'info':'unknown',evidenceStatus:known?'available':rule.evidenceStatus||'unknown',
-      facts:[rule.label+'：'+(configured?'已启用，版本 '+rules.policyVersion:'未配置或未启用'),
+      facts:[rule.label+'：'+configurationLabel,
         configured?'限额 '+rule.limit+' '+rule.unit+'；占用 '+(finite(rule.used)?rule.used:'未知')+'；剩余 '+(finite(rule.remaining)?rule.remaining:'未知'):'页面展示不表示该项限制已启用',...list(rule.missing)],
       source:'原权威账户 riskPolicy',sourceAt:rules.generatedAt,
       impact:breach?'当前风险占用达到或超出原限制':'按原账户有效配置核对风险占用',
@@ -171,6 +243,20 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     impact:'这些持仓可能在共同题材退潮情景中同时承压；主题重叠不等于统计相关性',
     restrictions:['压力假设不新增交易权限，不表示最大可能损失保证'],checks:['核对题材分类时点、价格覆盖和暂不可卖仓位'],
     releaseConditions:['新的同口径分类与仓位证据不再显示该重叠'],status:'active'});
+  const completeClassification=stress?.current===true&&stress.asOf===now&&stress.status==='observed'&&
+    stress.classificationCoverage?.classified===stress.classificationCoverage?.positions&&
+    list(stress.classifications).every(row=>row.status==='available')&&!list(stress.missing).length;
+  if(completeClassification)for(const group of list(alerts?.groups).filter(group=>group.rootCauseId?.startsWith('theme/'))){
+    const theme=group.rootCauseId.slice('theme/'.length);
+    if(!theme||risks.some(row=>row.rootCauseId===group.rootCauseId))continue;
+    add({rootCauseId:group.rootCauseId,category:'portfolio',object:account,severity:'info',evidenceStatus:'available',
+      facts:['完整的当前分类与权威仓位证据不再显示共同题材 '+theme+' 的多仓重叠'],
+      source:'原归档分类与同一权威权益证据',sourceAt:stress.asOf,
+      impact:'只解除该题材的当前分类重叠；不代表统计相关性或其他组合风险消失',
+      restrictions:['保留原组合限额及执行门禁'],checks:['核对完整分类覆盖、原来源时点及全部持仓'],
+      releaseConditions:['完整当前分类不再显示该题材两只及以上持仓重叠'],
+      status:'resolved',references:{kind:'theme-overlap',equityEvidenceId:stress.equityEvidenceId}});
+  }
   const strategyEvidence=strategy||research?.strategyDecay||{status:'unknown',reason:'策略组尚未提供经校验的收益衰减或模型校准结果'};
   const strategyKnown=['available','observed','validated'].includes(strategyEvidence.status)&&time(strategyEvidence.knownAt)&&strategyEvidence.knownAt<=now&&strategyEvidence.version&&strategyEvidence.source;
   const strategyState=strategyKnown&&['active','resolved','unknown'].includes(strategyEvidence.riskStatus)?strategyEvidence.riskStatus:'unknown';
@@ -208,14 +294,30 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     if(!prior){grouped.set(row.rootCauseId,{...row,relatedRiskIds:[row.id],sources:[{source:row.source,sourceAt:row.sourceAt}],evidenceReferences:[row.references]});continue;}
     const rank=r=>r.status==='resolved'?10:SEVERITY[r.severity];
     const chosen=rank(row)<rank(prior)?row:prior;
+    // Severity, evidence and execution answer different questions. A severe
+    // historical trigger must not turn a conflicting original order into an
+    // executable action merely because its severity sorts before "unknown".
+    const unresolved=[prior,row].filter(item=>item.status!=='resolved');
+    const relevant=unresolved.length?unresolved:[prior,row];
+    const evidenceStatus=['conflict','stale','missing','unknown','partial','available']
+      .find(status=>relevant.some(item=>item.evidenceStatus===status))||'unknown';
+    const reconciliation=relevant.some(item=>item.executionStatus==='pending-reconciliation');
+    const executionStates=new Set(relevant.map(item=>item.executionStatus));
+    const executionStatus=reconciliation?'pending-reconciliation':
+      executionStates.has('unknown')?'unknown':
+      ['partially-filled','submitted','failed','condition-triggered','allowed','observing','filled','not-applicable']
+        .find(status=>executionStates.has(status))||'unknown';
+    const status=reconciliation?'unknown':unresolved.some(item=>item.status==='active')?'active':
+      unresolved.length?'unknown':'resolved';
     grouped.set(row.rootCauseId,{...chosen,id:prior.id,relatedRiskIds:[...new Set([...prior.relatedRiskIds,row.id])],
+      evidenceStatus,executionStatus,status,
       facts:[...new Set([...prior.facts,...row.facts])],restrictions:[...new Set([...prior.restrictions,...row.restrictions])],
       checks:[...new Set([...prior.checks,...row.checks])],releaseConditions:[...new Set([...prior.releaseConditions,...row.releaseConditions])],
       sources:[...prior.sources,{source:row.source,sourceAt:row.sourceAt}],
       evidenceReferences:[...prior.evidenceReferences,row.references],
       references:{...prior.references,...row.references,orderIds:[...new Set([...list(prior.references?.orderIds),...list(row.references?.orderIds)])]}});
   }
-  const rows=[...grouped.values()].sort((a,b)=>(a.status==='resolved')-(b.status==='resolved')||SEVERITY[a.severity]-SEVERITY[b.severity]||a.rootCauseId.localeCompare(b.rootCauseId));
+  const rows=[...grouped.values()].map(boundedSummary).sort((a,b)=>(a.status==='resolved')-(b.status==='resolved')||SEVERITY[a.severity]-SEVERITY[b.severity]||a.rootCauseId.localeCompare(b.rootCauseId));
   const active=rows.filter(r=>r.status!=='resolved');
   return {schemaVersion:1,protocol:'fayo-risk-workbench-v1',version:VERSION,generatedAt:now,account,
     accountEpoch:equity?.accountEpoch||null,accountRevision:equity?.source?.accountRevision??null,

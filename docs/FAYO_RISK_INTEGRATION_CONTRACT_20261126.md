@@ -8,9 +8,9 @@
 | --- | --- |
 | 仓库、目标分支 | solviq87-cpu/v6-stock-system，dev |
 | 开工及本次远端复核基线 | b9b44474be7fd27732e37d868ed64dbfddd3e8e9 |
-| 本组独立分支 | feat/fayo-risk-center-20261126 |
+| 本组独立分支与 PR | feat/fayo-risk-center-20261126；[#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。续接工作区分支 feat/fayo-risk-closure-20261126 以原 PR HEAD 为祖先，普通快进更新同一 PR |
 | 本组工作区入口版本 | 20261126aa；最终集成组须统一协调正式入口与缓存版本 |
-| 本次远端合同读取时点 | 2026-11-25 16:33:22 UTC，即北京时间 2026-11-26 00:33:22 |
+| 本次远端合同读取日期 | 北京时间 2026-11-26；本轮复核原 PR HEAD 为 86a5bf4787f2b5a1746fffc11b9a60a06b5e387f，提交前再次检查远端未被其他写者推进 |
 | 开工源码恢复证据 | 根组已建立并验证源码 bundle；其位置、最终提交 SHA、PR 与恢复步骤由本组最终验证/交接记录保管 |
 | 验证记录职责 | 专项、全量回归、隔离 HTTP、双端浏览器的实际命令、结果、日志及未测范围由根组单独维护验证文档；本文不复制容易过期的通过数量 |
 
@@ -90,6 +90,8 @@ POST /api/risk-workbench/alerts
 
 静音的确定语义是 notificationOnlyMute:true、stationVisible:true、restrictionsStillApply:true；它不撤销原后端限制、不隐藏站内风险、不删订单、观察或业务入口。
 
+alerts 的 rootMutedUntil、categoryMutedUntil 分别说明根因与类别静音；mutedUntil 保留两者合并后的生效期限。清除根因静音不清除类别静音。请求体必须为对象；布尔、数字、字符串、未知字段和接收回执输入全部拒绝。
+
 ## 4. 风险行与三维状态
 
 每行至少保留以下字段。首页、个股卡、风险工作区及通知从同一 builder 的结果消费，不各自推算风险。
@@ -114,6 +116,10 @@ category 为 data、market、stock、portfolio、strategy、execution、system�
 
 固定根因例子包括 rule/maxPositionPct、quote/600000、account/valuation、plan/&lt;planId&gt;/stop、plan/&lt;planId&gt;/target。止损与目标分别保留稳定根因；旧根因缺档不能被当作解除。完整退出需原成交与订单匹配，解除来源时点采用实际退出证据；当前无新报价不抹掉已发生的完整成交。
 
+同根因合并分别保留最严重风险、最不足证据及实际执行状态；严重的历史触发不能覆盖当前待核对或未知执行。摘要 facts / restrictions / checks / releaseConditions 最多显示 39 条及一条明确展开提示，summaryCoverage 说明总数与截断；完整原权益缺项和引用仍在子报告，不因持仓较多而写坏提醒档案。
+
+quote 根因的 references.kind 区分 position-valuation 与 source-consensus。前者只有在同一有效权威快照已无该持仓且已核验无该股活跃订单时，才解除其账户适用性；这不证明市场报价恢复。后者必须重新通过原 decisionCrosscheckGate 的完整独立来源一致证据，且 checkedAt 不早于原根因；诊断消失、单源、新生成时间不能证明解除。已解除历史不会因缓存暂缺重新制造事件。题材根因解除须当前分类覆盖完整且确已无该重叠；缺档保持未知。
+
 所有金额为原账户人民币口径，数量为股；带 Pct 后缀通常为百分数而非 0–1 比例，仍须按对应字段说明读取。未知数值使用 null，不能用零、空数组或无提醒替代风险结论。
 
 ## 5. 账户实际生效规则与动作证据
@@ -126,6 +132,12 @@ category 为 data、market、stock、portfolio、strategy、execution、system�
 
 未终结买单按剩余数量乘原委托价进入风险敞口，冻结现金计入原费率；已成交部分只在原持仓体现。未成交买单不计入持仓权益。原自动账户的最大持仓只数、止损、止盈和持有天数放在 automaticRules，不能冒充统一百分比规则。
 
+显式 tradeDate 与原 quoteAt 所属上海日期冲突时，限额占用与权益均保留未知；不能在同一输入上将权益判为未知却称规则估值可用。
+
+规则与动作携带 accountEpoch、authoritySnapshotFingerprint；统一 builder 要求它们与封存权益的 accountId / revision / epoch / 原快照指纹全部相符，缺字段也拒绝绑定。rules / actions / stress 的生成时点必须对应本次报告，压力还需绑定同一 equity 指纹，不能把旧子报告包装为当前结果。
+
+occupancy.activeOrderSymbols 是已核验的全部非终态买卖单代码（六位字符串、去重排序）；无单为 []，原单状态、方向、代码或引用无效为 null。解除及发送前复核消费此字段，不另算订单资格。automaticRules.enabled 仅在原完整 maxPos / tp / sl / expireDays 和显式原 enabled 可核对时给出布尔值，缺配置保持 unknown，不能误写 disabled。
+
 前收盘回撤/单日亏损暂停属于原限额语义，与第 6 节的连续权益观察不同。展示模块没有更改任何阈值；提交、补单、成交或原自动路径仍在原事务内重新检查当时敞口和规则。
 
 ### 5.2 实际可执行性
@@ -136,13 +148,17 @@ constraints 保留 remainingQuantity、sellableQuantity、todayLockedQuantity、
 
 没有冻结计划的权威持仓仍显示可卖、冻结、时段及报价约束，planId 为 null、计划阈值未知；不会生成计划、默认止损价或交易许可。多个买入批次难以唯一关联、订单/成交不一致或观察缺档时保留待核对/未知。手工申报持仓不进入该可卖核对。
 
+已全部退出的原批次只保留该批次原成交对应的订单引用；后续同股买入及退出不改变旧计划的完成状态。原订单缺少独立提交时点时，同日未与该批次成交关联的终态订单不能凭代码和日期附到新计划。无计划持仓的部分成交也只从成功核对的原成交事件提取 fills；缺原事件时保留待核对，不从订单数量补造成交。
+
 计划止损价始终是触发依据；实际成交价只来自原成交回执。行情故障不使用旧价推导自动清仓。
+
+权益与动作复用同一 positionAvailability：批次保留全部冻结数量，可卖仅来自成熟批次扣除对应冻结和原活动卖单；异常日期、批次数量不一致、无法核对的终态使数量未知。原快照或账本验证失败时保留原引用但标记待核对，不输出允许执行或可信当前价格。部分退出后撤单或较小卖单已全成，仍跟踪剩余仓位与真实成交引用。
 
 ## 6. 统一权益证据与组合回撤
 
 ### 6.1 封存报告
 
-[account-equity-evidence.js](../V6_BO/src/core/account-equity-evidence.js) 导出 buildAccountEquityEvidence、validateEquityEvidence、buildEquityHistory、createAccountEquityEvidenceStore。
+[account-equity-evidence.js](../V6_BO/src/core/account-equity-evidence.js) 导出 buildAccountEquityEvidence、validateEquityEvidence、buildEquityHistory、createAccountEquityEvidenceStore，以及共用的 accountEpochOf、valuationMarkOf、positionAvailability。复用这些只读校验器，不建立第二套权威状态。
 
 协议 fayo-account-equity-evidence-v1 的核心字段为：
 
@@ -166,6 +182,8 @@ constraints 保留 remainingQuantity、sellableQuantity、todayLockedQuantity、
 
 **continuousAccountMaxDrawdownPct 当前明确为 null。** 已观察采样点无法证明采样间极值与全部历史覆盖，不能将 observedMaxDrawdownPct、已结算盈亏曲线或策略回测回撤改名为连续账户最大回撤。历史读取默认有界，报告截断必须一同展示。
 
+默认 maxObservationGapMs=90000 下，最后一个采样超过 90 秒时 currentObservedDrawdownPct 为 null；latestObservedDrawdownPct 保留最后真实采样值，其原时点由 history.to / points.at(-1).at 给出。前端将权益称为“核验时点权益”，不会用刷新时点抹掉原 quoteAt 或把采样间隔解释为持续精确估值。
+
 权益观察默认写入 V6_BO/data/risk-evidence/equity/&lt;accountId&gt;/&lt;accountEpoch&gt;/&lt;day&gt;，实际根可由原服务端 V6_RISK_EVIDENCE_DIR 指定。只有原主实例后台 tick 追加；GET 不补写。提醒派生资料位于同一根的 notifications。两个账户独立记录失败，单个派生档损坏不阻断另一账户观察；恢复不补造失去的历史。
 
 ### 6.3 策略组消费约定
@@ -185,6 +203,8 @@ constraints 保留 remainingQuantity、sellableQuantity、todayLockedQuantity、
 当前固定假设版本为 fayo-stress-research-20261126-v1，明确来源为本仓库需求 14 的研究情景：组合跳空 10%、共同题材退潮 15%、流动性恶化价格冲击 5%，可卖部分额外清算成本 300 bps。它们未经市场概率校准，不是已启用风险阈值。改变数值必须改变假设版本并重新验证，不能沿用同版本覆盖原假设。
 
 estimatedLoss 只有在对应覆盖完整时给值；部分证据保留 coveredLossEstimate 与 missingSymbols。潜在可卖和暂不可卖损失分别显示，不能把不可卖仓位算成已经清仓。未成交买单仍由 rules.occupancy 管理；当前持仓压力情景 includesPendingOrders:false，不能误称已包含未来成交组合。任何情景都不保证成交或最大可能损失。
+
+压力 asOf 固定为 equity.observedAt，generatedAt 才是生成时点。current 检查本次观察和已估值仓的原 quoteAt 是否在原 15 秒资格内；新生成报告不会刷新旧报价。缺价仓另由 status / missing / 情景 estimatedLoss 体现覆盖缺口，current=true 不等于覆盖完整。权益、限额占用和压力共用报价身份、时点、日期及冲突检查。
 
 ## 8. 提醒生命周期与可靠投递
 
@@ -206,6 +226,8 @@ estimatedLoss 只有在对应覆盖完整时给值；部分证据保留 coveredL
 持久预留先于原队列调用；相同生命周期事件只有一次预留。重启、重复观察和不确定回执不创建无限重发。原队列只对可明确判定的限流拒绝保留原有限重试规则，不对网络未知结果补发。新生命周期还受分类每日上限与一般冷却约束；当前模块常量分别为每类每日 12 次、一般 120 秒，升级/关键风险有明确分支，不能由前端绕过。
 
 活跃计划提醒仍由原 plan observer 在持久观察提交后触发；后台通用 tick 不成为第二个活跃计划提醒生产者。出队前再次核验主实例、通道、静音、epoch、原启用状态、当前计划持仓/报价和条件。无真实来源或失效报价不产生新的价格敏感退出提醒。
+
+原 observePlans 回调仅使缓存失效；展示与发送必须从原持久观察读取 record fingerprint 与 alert digest，内存预览或写入失败不能伪装已落档。原计划档读取失败时保留引用，但暂停依据缓存产生新条件。出队还复核原规则版本/占用，以及报价、题材、来源冲突的解除证据。account/valuation 汇总只在站内展示，逐票根因沿原通知链外发，避免同一报价缺失占用两次冷却。带“429”文本的超时或不确定 HTTP 错误不等同于明确限流拒绝。
 
 ## 9. 跨组消费合同及已核对的 PR
 
@@ -230,8 +252,8 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | PR | 已读精确 HEAD | 与本组有关的合同与合并注意 |
 | --- | --- | --- |
 | [#353 研究治理](https://github.com/solviq87-cpu/v6-stock-system/pull/353) | 301641650c0246d29142b8c9e16165064cfa1f2c | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/301641650c0246d29142b8c9e16165064cfa1f2c/docs/FAYO_RESEARCH_GOVERNANCE_20261126.md)。intelligence-execution-validation 新增原净结算 attribution / byStrategy，portfolioEquity 和缺失的市场、行业、仓位、实际滑点、延迟、未成交归因仍为 null；需要消费本组统一权益/动作。strategy-health-monitor、fayo-research-governance 的离线诊断和概率合同不等同于本组风险行，须保留纸面/未认证语义后显式适配。 |
-| [#355 研究证据](https://github.com/solviq87-cpu/v6-stock-system/pull/355) | fa551abb934d7a7f3730f3d9a2913964f00b3279 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/fa551abb934d7a7f3730f3d9a2913964f00b3279/docs/FAYO_EVIDENCE_WORKBENCH_20261126.md)。operations.js 新增持久执行日报的 projectDiscipline，直接与本组风险路由共享文件。保留其 reportHash、reportVersion、planVersion、事实和原引用；本组当前动作不能替代已封存日报或被反推成行为评价。该 PR 替代 #354，不能重复合并两份同一增量。 |
-| [#356 高级资金风险](https://github.com/solviq87-cpu/v6-stock-system/pull/356) | 5321fe24b06efadcf0f7ffd8e7a9daa18e352701 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/5321fe24b06efadcf0f7ffd8e7a9daa18e352701/docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。本次复核已由阶段一 fae63e75c60698dbcaa5165b6726eabe342f3b5b 前进到阶段二。server.js 为原 /api/research/risk-center?advanced=1 增量返回 advancedAccounts，research-extensions.js 增加只读诊断展示，另有受限 worker。与本组存在权益/可卖/冻结/费用的语义重叠，需显式核对同一原快照，不能成为第二套生效风控或第二个风险工作台。 |
+| [#358 研究证据](https://github.com/solviq87-cpu/v6-stock-system/pull/358) | 70be46b5d5e05c02f9d2fe353df072c62f065ef4 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/70be46b5d5e05c02f9d2fe353df072c62f065ef4/docs/FAYO_EVIDENCE_WORKBENCH_20261126.md)。承接原 #355 全部提交，增加时点新闻、时间轴、选股模板与原日报改进跟踪。与本组共享 server.js、market.js、operations.js、入口及缓存版本和交接文档；保留 reportHash、reportVersion、planVersion、原引用与双方入口。原 #354/#355 是前序增量，不重复合并。 |
+| [#356 高级资金风险](https://github.com/solviq87-cpu/v6-stock-system/pull/356) | d50395972e9ae693a37e934dab785234c654e250 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/d50395972e9ae693a37e934dab785234c654e250/docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。现已包含原只读 advancedAccounts 接线与原写锁安全修复；server.js 增量扩展 /api/research/risk-center?advanced=1，另有受限 worker。权益/可卖/冻结/费用需核对同一原快照，不能成为第二套生效风控。锁协议升级另需停写，不能混跑新旧写者，本组没有替代其锁修复。 |
 | [#357 智能增强](https://github.com/solviq87-cpu/v6-stock-system/pull/357) | 9a1132264a191091ea526cba698177f2b5d0c703 | [固定版本合同](https://github.com/solviq87-cpu/v6-stock-system/blob/9a1132264a191091ea526cba698177f2b5d0c703/docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)。returnStudy.expectation、similarCases.neighbours / excursions 和因果诊断属于成熟信号纸面研究；净期望、尾部样本均值和区间高低不能替代实际成交、连续账户回撤、概率认证或止盈止损触发顺序。 |
 
 #356 的 advancedAccounts.mode 为 advanced-account-risk-readonly，各账户使用 account、revision、checkedAt、equity、sellable、orderFrozen 等字段；当前不是 fayo-risk-workbench-v1，也没有本组完整 epoch / 封存权益协议。第一组如接入，必须保留现有消费者兼容，验证同一账户、原修订/指纹与时间后生成单一适配结果。无法证明同一原快照时保持独立“未核验诊断”，不能覆盖本组 equity、rules 或 actions。
@@ -242,6 +264,14 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 
 上游需提供逐票原始报价时间和使用资格、独立来源冲突回执、当时时点有效的行业/多题材版本、权威账户与计划档案。引用必须能绑定原来源、代码、日期、首次可知时间及原记录指纹；未拿到的字段用缺项表示。题材首次观察不是正式公告生效时间，新闻标题也不是成交或风险解除证据。
 
+### 9.5 本次实际合并预检
+
+以本组冻结源码的独立临时 Git index 快照运行 `git merge-tree --write-tree`；没有修改共享 index、工作区、HEAD、分支或远端，没有真正合并。文档仍在收尾，因此此结果是冲突定位，不能替代最终集成 SHA 验收。
+
+与 #358 `70be46b5d5e05c02f9d2fe353df072c62f065ef4` 有六处文本冲突：DEPLOYMENT.md、HANDOFF.md、public/nova/index.html、public/nova/market.js、public/sw.js、scripts/fayo-browser-check.js（源码路径均位于 V6_BO）。market.js 须同时保留本组 stockRisk 节点与对方“联动回放”页签；SW 目录须同时缓存 risk-workbench-view.mjs、evidence-workbench.mjs、event-research.mjs、research-review.mjs。入口修订、查询版本、缓存名及浏览器严格版本断言由第一组一次统一；两份交接保留双方有效记录。operations.js、server.js 和缓存契约虽可自动合并，仍须检查最终运行结果。
+
+与 #356 `d50395972e9ae693a37e934dab785234c654e250` 无文本冲突，但 advancedAccounts 仅由原 HTTP `?advanced=1` 返回；本组 runtime 直接读取原 readResearchRiskCenter，不会自动消费该 HTTP 投影。其 account / revision / checkedAt 缺本组 epoch / authoritySnapshotFingerprint，仍属显式适配依赖。原写锁升级独立保留，停写与同卷恢复另验；自动合并成功不等于语义已统一。
+
 ## 10. 七项任务的代码与验证映射
 
 本节“已接入”描述本组代码范围；历史覆盖、跨组适配和现场验证仍按最后一列保留。测试结果以根组独立验证记录为准。
@@ -251,7 +281,7 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | 01 统一风险工作台 | 七类风险统一后端、首页/个股/风险页同源、三维状态与事实/解除条件已接入 | risk-workbench.js、risk-workbench-runtime.js、risk-workbench-view.mjs、server.js 与原生入口 | risk-workbench.test.js、risk-workbench-http.test.js、v6-terminal-workbench.test.js、fayo-risk-browser-check.js | 策略新治理报告专用 adapter、真实市场/系统覆盖与最终集成双端复验 |
 | 02 生效风控配置 | 只读展示原安装版本、限额、占用、余额和缺项；未成交买单沿原占用口径 | effective-risk-evidence.js；原 common-entry-risk / portfolio-risk-gate / paper-application-service | effective-risk-evidence.test.js、dated-fees-common-risk.test.js、paper-application-service.test.js、risk-workbench-http.test.js | 各真实账户未配置项保持未配置；真实行业/策略/前收盘证据完整性待现场核对 |
 | 03 权益与回撤 | 原账户派生权益、事件指纹、费用/已结算/浮盈亏分离、期间隔离与采样回撤已接入 | account-equity-evidence.js、risk-workbench-runtime.js | account-equity-evidence.test.js、risk-workbench-runtime-isolation.test.js、risk-workbench-http.test.js | 连续采样间极值仍未知；原外部出入金事件未暴露；#353 归因消费及 #356 资金流边界待适配 |
-| 04 风险动作可执行性 | 原计划与无计划权威持仓约束、T+1/冻结/时段/报价/流动性、订单与成交状态已接入 | risk-action-evidence.js；复用 paper-plan-observer | risk-action-evidence.test.js、paper-plan-observer.test.js、paper-order-state-machine.test.js、risk-workbench.test.js | 现场报价/可卖/流动性回执与多批次关联覆盖；#355 日报继续使用其原封存证据 |
+| 04 风险动作可执行性 | 原计划与无计划权威持仓约束、T+1/冻结/时段/报价/流动性、订单与成交状态已接入 | risk-action-evidence.js；复用 paper-plan-observer | risk-action-evidence.test.js、paper-plan-observer.test.js、paper-order-state-machine.test.js、risk-workbench.test.js | 现场报价/可卖/流动性回执与多批次关联覆盖；#358 日报继续使用其原封存证据 |
 | 05 提醒闭环 | 根因、首次/升级/解除/重开、设备查看、分类静音、持久预留与原队列回执已接入 | risk-alert-lifecycle.js、risk-workbench-runtime.js、feishuq.js、private-risk-feishu-delivery.js | risk-alert-lifecycle.test.js、risk-workbench-runtime-notifications.test.js、risk-workbench-http.test.js | 当前无可信接收端确认 adapter；真实通道配置和实际送达须单独现场确认 |
 | 14 重叠与压力 | 多题材同仓识别、时点分类、跳空/退潮/流动性情景、覆盖及可卖分解已接入 | portfolio-stress-evidence.js、account-equity-evidence.js | portfolio-stress-evidence.test.js、risk-workbench.test.js、fayo-risk-browser-check.js | 完整当时分类、独立历史校准、真实相关性与高级尾部风险输入未认证 |
 | 30 降噪与清理 | 同根因合并、保留事实与来源、首页待办优先、证据展开和通知独立静音已接入 | risk-workbench.js、risk-alert-lifecycle.js、risk-workbench-view.mjs、terminal-workbench.js | risk-workbench.test.js、risk-alert-lifecycle.test.js、v6-terminal-workbench.test.js、risk-workbench-http.test.js、双端浏览器脚本 | 最终六组合并后的重复入口、未知措辞、角色清理与实际移动端体验重验 |
@@ -263,10 +293,11 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | 文件/区域 | 本组增量与合并约束 |
 | --- | --- |
 | V6_BO/server.js | 新 runtime 构造器、两个 HTTP 路由、原计划提醒接线、后台派生观察和入口版本。#356 修改相邻的原研究风险路由；逐块保留两个合同，不整文件覆盖。原主副角色、异步身份复核、原交易路径与统一账户实例不能回退。 |
-| V6_BO/public/nova/operations.js | 风险工作区接入并保留原研究风险入口。#355 在原 executionEvidencePanel 增加纪律复盘；保留其 import、日报视图和本组风险路由两个增量。 |
+| V6_BO/public/nova/operations.js | 风险工作区接入并保留原研究风险入口。#358 承接原 executionEvidencePanel 纪律复盘；保留其 import、日报视图和本组风险路由两个增量。 |
 | market.js、terminal-workbench.js | 个股/首页接同一风险摘要，旧研究内容转入可展开区域；保留原候选同源和全部路由，不增加客户端风控计算。 |
 | risk-workbench-view.mjs、fayo.css | 独立风险展示与限定范围样式；与其他组 UI 合并时维持键盘/窄屏可用、晚到响应失效和隐私清理。 |
 | public/nova/index.html、public/sw.js | 第一组统一 application-version、frontend-revision、模块缓存入口及版本，不各组互相覆盖缓存号。锁定的 public/index.html、public/mobile.html 和旧恢复控制器字节继续按原契约核验。 |
+| scripts/fayo-browser-check.js | #358 与本组均有严格 frontend-revision 断言；统一最终修订后保留双方新增夹具和功能检查，不用删断言消除冲突。 |
 | paper-plan-observer.js | 只增加原纯检查的导出；不得替换原观察/卖出逻辑或生成第二次计划提醒。 |
 | feishuq.js、private-risk-feishu-delivery.js | 保留原队列和角色/通道门禁，区分明确拒绝与不确定结果；不能在整文件合并时恢复对未知回执的重复发送。 |
 | HANDOFF.md、DEPLOYMENT.md | 各 PR 都有阶段记录；第一组逐条保留，统一更新当前检查点、真实部署状态、完整验证与恢复证据，不用一组历史摘要覆盖其他组新记录。 |

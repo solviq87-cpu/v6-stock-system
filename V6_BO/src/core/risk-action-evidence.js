@@ -6,12 +6,11 @@ const {aShareCalendarDate} = require('./a-share-calendar');
 const observer = require('./paper-plan-observer');
 const {validatePlan} = require('./paper-decision-plan');
 const {executionTimeOf} = require('./paper-fill-evidence');
+const {positionAvailability, accountEpochOf} = require('./account-equity-evidence');
 
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const qty = x => Number.isSafeInteger(x) && x >= 0;
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
-const dateOk = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) &&
-  Number.isFinite(Date.parse(x)) && new Date(x).toISOString().slice(0,10) === x;
 const unique = xs => [...new Set(xs)];
 const NOTES = ['计划止损价是触发依据，实际成交价须以原成交回执为准。',
   '当前可卖数量与观察到的风险不自动提交订单；原权限、时段、报价与账户门禁在执行时重新检查。'];
@@ -20,31 +19,23 @@ function lotAvailability(book, code, day) {
   const position = book?.account?.positions?.[code];
   if (!position) return {sellableQuantity: 0, todayLockedQuantity: 0, frozenQuantity: 0, missing: []};
   const result = {sellableQuantity: null, todayLockedQuantity: null, frozenQuantity: null, missing: []};
-  const lots = position.lots;
-  if (!qty(position.quantity) || !Array.isArray(lots) || lots.some(l => !qty(l.quantity) || !qty(l.reserved || 0) ||
-      (l.reserved || 0) > l.quantity || !dateOk(l.buyDate) || l.buyDate > day || l.sellableDate != null && !dateOk(l.sellableDate)) ||
-      lots.reduce((sum,l) => sum + l.quantity, 0) !== position.quantity || !plain(book?.orders)) {
+  if (!qty(position.quantity) || !plain(book?.orders)) {
     result.missing.push('缺少一致的原持仓批次、T+1日期或冻结证据'); return result;
   }
-  let available = 0, locked = 0, frozenLots = 0, frozenOrders = 0;
-  for (const lot of lots) {
-    frozenLots += lot.reserved || 0;
-    const matured = lot.sellableDate ? lot.sellableDate <= day : lot.buyDate < day;
-    if (matured) available += lot.quantity - (lot.reserved || 0);
-    else locked += lot.quantity;
+  try {
+    // Equity, stress and execution views use the same original-lot projection.
+    // The action adapter only supplies the existing Chinese display labels.
+    const shared = positionAvailability(position, code, book.orders, day);
+    const labels = {POSITION_LOT_QUANTITY_UNVERIFIED:'原持仓与批次数量未完成核对',
+      POSITION_LOT_SELLABILITY_UNVERIFIED:'原持仓批次T+1日期或冻结数量未完成核对',
+      FROZEN_SELL_STATE_UNVERIFIED:'原委托终态证据不完整',
+      FROZEN_SELL_QUANTITY_UNVERIFIED:'原卖单剩余冻结数量未知',
+      FROZEN_SELL_QUANTITY_CONFLICT:'冻结卖单超过原可卖批次，须先核对账户'};
+    return {sellableQuantity: shared.sellableQuantity, todayLockedQuantity: shared.todayBlockedQuantity,
+      frozenQuantity: shared.frozenQuantity, missing: shared.sellabilityReasons.map(reason => labels[reason] || '原可卖批次尚未核对')};
+  } catch {
+    result.missing.push('缺少一致的原持仓批次、T+1日期或冻结证据'); return result;
   }
-  for (const item of Object.values(book.orders)) {
-    if (!plain(item?.order) || typeof item.state?.terminal !== 'boolean') {
-      result.missing.push('原委托终态证据不完整'); return result;
-    }
-    if (!item.state.terminal && item.order.symbol === code && item.order.side === 'sell') {
-      if (!qty(item.state.remainingQuantity)) { result.missing.push('原卖单剩余冻结数量未知'); return result; }
-      frozenOrders += item.state.remainingQuantity;
-    }
-  }
-  if (frozenOrders > available) { result.missing.push('冻结卖单超过原可卖批次，须先核对账户'); return result; }
-  return {sellableQuantity: available - frozenOrders, todayLockedQuantity: locked,
-    frozenQuantity: frozenLots + frozenOrders, missing: []};
 }
 
 function orderEvidence(book, context, code, now) {
@@ -54,11 +45,17 @@ function orderEvidence(book, context, code, now) {
   const orders = context.period?.orders || book.orders;
   for (const [key, item] of Object.entries(orders)) {
     const order = item?.order, state = item?.state;
-    if (order?.symbol !== code || order.side !== 'sell' || !context.current && !ids.has(order.orderId)) continue;
+    if (order?.symbol !== code || order.side !== 'sell') continue;
     if (order.tradeDate < context.entry.tradeDate || order.tradeDate > aShareCalendarDate(now)) continue;
-    // In a single, unambiguous original purchase lot, outstanding sells reserve
-    // that holding. No synthetic planId is inserted into the original order.
-    if (!ids.has(order.orderId) && !context.current) continue;
+    if (!ids.has(order.orderId)) {
+      // Closing a lot also closes its order association. Later same-symbol round
+      // trips never belong to that plan, even in the same account/reset period.
+      if (!context.current || !(context.remaining > 0)) continue;
+      // Original orders have a trade date but no submission timestamp. A
+      // terminal, unlinked order on the entry day cannot prove it followed this
+      // entry. Matched partial/complete fills above keep their exact references.
+      if (state?.terminal === true && order.tradeDate === context.entry.tradeDate) continue;
+    }
     if (!state || !['pending','partial','filled','canceled','rejected'].includes(state.status) ||
         key !== order.orderId || !qty(state.remainingQuantity) || !qty(state.filledQuantity) || !Array.isArray(item.events)) {
       missing.push('原退出委托状态未完成核对：' + (order?.orderId || key)); continue;
@@ -100,25 +97,38 @@ function unplannedHoldingAction({book, code, quotes, now, day, session, continuo
     notes: [...NOTES, '此行是权威账户持仓，手工申报持仓不进入该可卖核对。']};
   const ids = new Set((position.lots || []).map(l => l.sourceEventId));
   const entry = ids.size === 1 ? book.account.events.find(e => e.eventId === [...ids][0] && e.side === 'buy' && e.symbol === code) : null;
+  const entryIndex = entry ? book.account.events.indexOf(entry) : -1;
   if (entry) { item.entryEventId = entry.eventId; item.sourceAt = executionTimeOf(entry); }
   for (const row of Object.values(book.orders)) {
-    if (row?.order?.symbol !== code || row.order.side !== 'sell' || row.state?.terminal !== false) continue;
+    if (row?.order?.symbol !== code || row.order.side !== 'sell' || typeof row.state?.terminal !== 'boolean') continue;
     const {order, state} = row;
     const fills = (row.events || []).filter(e => e.type === 'fill');
+    const actualFills = fills.map(e => book.account.events.find(actual => actual.eventId === e.eventId &&
+      actual.orderId === order.orderId && actual.side === 'sell' && actual.symbol === code &&
+      actual.quantity === e.quantity && actual.price === e.price && executionTimeOf(actual) !== null && executionTimeOf(actual) <= now));
+    // A canceled or completed partial exit still belongs to the remaining
+    // original lot. No terminal order from an earlier round trip is attached.
+    if (state.terminal && !(entry && (order.tradeDate > entry.tradeDate || actualFills.some(actual => actual &&
+      book.account.events.indexOf(actual) > entryIndex && executionTimeOf(actual) >= executionTimeOf(entry))))) continue;
     const consistent = qty(state.remainingQuantity) && qty(state.filledQuantity) &&
-      fills.reduce((sum,e) => sum + e.quantity, 0) === state.filledQuantity && fills.every(e =>
-      book.account.events.some(actual => actual.eventId === e.eventId && actual.orderId === order.orderId &&
-        actual.quantity === e.quantity && actual.price === e.price && executionTimeOf(actual) !== null && executionTimeOf(actual) <= now));
+      fills.reduce((sum,e) => sum + e.quantity, 0) === state.filledQuantity &&
+      new Set(fills.map(e => e.eventId)).size === fills.length && actualFills.every(Boolean);
     item.orders.push({orderId: order.orderId, status: state.status, side: 'sell', quantity: order.quantity,
       remainingQuantity: state.remainingQuantity, filledQuantity: state.filledQuantity, limitPrice: order.limitPrice,
       tradeDate: order.tradeDate, eventIds: fills.map(e => e.eventId), evidenceStatus: consistent ? 'available' : 'conflict',
       association: 'original-account-symbol', source: 'original-paper-order'});
     if (!consistent) item.missing.push('原退出订单与成交事件待核对：' + order.orderId);
+    else for (const actual of actualFills) {
+      item.fills.push({eventId: actual.eventId, orderId: actual.orderId, quantity: actual.quantity,
+        price: actual.price, executionAt: executionTimeOf(actual), source: 'original-paper-ledger'});
+      item.sourceAt = Math.max(item.sourceAt || 0, executionTimeOf(actual));
+    }
   }
   item.orderIds = item.orders.map(row => row.orderId);
   if (item.orders.some(row => row.evidenceStatus === 'conflict')) item.status = 'pending-reconciliation';
-  else if (item.orders.some(row => row.status === 'partial')) item.status = 'partially-filled';
+  else if (item.fills.length || item.orders.some(row => row.status === 'partial')) item.status = 'partially-filled';
   else if (item.orders.some(row => row.status === 'pending')) item.status = 'submitted';
+  else if (item.orders.some(row => row.status === 'rejected')) item.status = 'failed';
   try {
     const quote = quotes[code];
     if (quote?.sourceConflict === true || quote?.conflict === true) throw Error('当前报价来源冲突');
@@ -266,7 +276,27 @@ function buildRiskActionEvidence({book = null, plans = [], observations = [], qu
     for (const [code, position] of Object.entries(book.account.positions)) if (position?.quantity > 0 && !represented.has(code))
       items.push(unplannedHoldingAction({book,code,quotes,now,day,session,continuous,originalExitChecks,accountId}));
   }
-  return {schemaVersion: 1, accountId, accountRevision: Number.isSafeInteger(book?.revision) ? book.revision : null,
+  let accountEpoch = null;
+  try { accountEpoch = accountEpochOf(book, accountId); } catch {}
+  if (!accountEpoch) {
+    const reason = '原权威账户身份、期间或快照指纹未通过核验，动作证据须待核对';
+    missing.push(reason);
+    for (const item of items) {
+      item.status = 'pending-reconciliation'; item.sourceAt = null; item.continueObserving = null;
+      item.execution = {allowed: null, reason, evidenceStatus: 'unknown', checkedAt: now};
+      item.condition = {status: 'unknown', kind: null, price: null, source: null, quoteAt: null, observedAt: null};
+      Object.assign(item.constraints, {remainingQuantity: null, sellableQuantity: null, todayLockedQuantity: null, frozenQuantity: null});
+      item.constraints.price = {...item.constraints.price, current: null, source: null, quoteAt: null};
+      item.constraints.liquidity = {...item.constraints.liquidity, usedVolume: null, capacityQuantity: null};
+      item.orders = item.orders.map(row => ({...row, evidenceStatus: 'unknown'}));
+      item.fills = item.fills.map(row => ({...row, evidenceStatus: 'unknown'}));
+      item.missing = unique([...item.missing, reason]);
+    }
+  }
+  return {schemaVersion: 1, accountId, accountEpoch,
+    authorityStatus: accountEpoch ? 'verified' : 'unknown',
+    authoritySnapshotFingerprint: accountEpoch ? book.fingerprint : null,
+    accountRevision: Number.isSafeInteger(book?.revision) ? book.revision : null,
     generatedAt: now, source: 'original-paper-plan-and-account', items,
     missing: unique([...missing, ...items.flatMap(item => item.missing)]), readOnly: true, canTrade: false};
 }

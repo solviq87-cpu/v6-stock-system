@@ -12,6 +12,7 @@ const evidence={available:'证据可用',partial:'部分证据',missing:'证据�
 const execution={'not-applicable':'不涉及执行','condition-triggered':'条件触发',allowed:'当前检查允许',submitted:'已提交',
   'partially-filled':'部分成交',filled:'成交完成',failed:'失败','pending-reconciliation':'待核对',observing:'继续观察',unknown:'执行未知'};
 const delivery={'not-queued':'未排队',queued:'已排队','gateway-accepted':'网关已受理','gateway-rejected':'网关拒绝',unconfirmed:'结果未确认','receiver-confirmed':'接收端已确认'};
+const configuration={active:'已启用','not-configured':'未配置 / 未启用',invalid:'配置未通过验证',unknown:'配置未知'};
 const metric=(label,value,note)=>h('div',{class:'fy-metric'},h('span',{},label),h('strong',{},value),note?h('small',{},note):null);
 const section=(title,...children)=>h('section',{class:'fy-panel'},h('h2',{},title),...children);
 const note=text=>h('p',{class:'fy-muted',role:'status'},text);
@@ -19,6 +20,7 @@ const detail=(label,value)=>h('div',{},h('dt',{},label),h('dd',{},value));
 function table(headers,rows){return h('div',{class:'fy-table-wrap'},h('table',{class:'fy-table'},
   h('thead',{},h('tr',{},headers.map(label=>h('th',{},label)))),h('tbody',{},rows.map(row=>h('tr',{},row.map(value=>h('td',{},value??'未知')))))));}
 const unknown=message=>note(message||'风险证据尚不可用，当前风险未知。');
+let viewSequence=0;
 
 async function read(ctx,{accountId='pool',code,signal}={}){
   if(!edit(ctx))throw Error('编辑身份可查看账户风险');
@@ -29,7 +31,7 @@ async function read(ctx,{accountId='pool',code,signal}={}){
   return reply.result;
 }
 
-function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
+function riskCard(risk,report,{ctx,compact=false,onUpdate,scope='workbench'}={}){
   const group=list(report.alerts?.groups).find(row=>row.rootCauseId===risk.rootCauseId);
   const card=h('article',{class:'fy-risk-item','data-risk-id':risk.id,'data-risk-root':risk.rootCauseId,
     'data-risk-severity':risk.severity,'data-risk-state':risk.status},
@@ -40,7 +42,7 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
     h('p',{},risk.facts?.[0]||'缺少具体事实'),
     h('p',{class:'fy-muted'},'影响：'+risk.impact),
     risk.restrictions?.length?h('p',{},'当前限制：'+risk.restrictions.join('；')):null);
-  const details=h('details',{class:'fy-details',id:'risk-proof-'+risk.id},h('summary',{},'来源、检查与解除条件'),
+  const details=h('details',{class:'fy-details',id:'risk-proof-'+scope+'-'+risk.id},h('summary',{},'来源、检查与解除条件'),
     h('ul',{},list(risk.facts).slice(1).map(value=>h('li',{},value))),
     h('dl',{class:'fy-detail-grid'},detail('来源',risk.source),detail('来源时点',dateTime(risk.sourceAt)),
       detail('建议检查',list(risk.checks).join('；')),detail('解除条件',list(risk.releaseConditions).join('；')),
@@ -58,6 +60,7 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
   card.append(details);
   if(!compact&&group&&ctx&&onUpdate){
     const act=async(action,extra={})=>{
+      if(!edit(ctx)||ctx.signal?.aborted)return;
       try{
         const result=await ctx.api('/api/risk-workbench/alerts',{method:'POST',signal:ctx.signal,
           body:{action,accountId:report.account.id,accountEpoch:report.accountEpoch,rootCauseId:risk.rootCauseId,
@@ -66,17 +69,24 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate}={}){
         await onUpdate();
       }catch(error){if(!ctx.signal?.aborted)ctx.notify?.(error.message,'error');}
     };
-    card.append(h('div',{class:'fy-toolbar'},button(group.viewed?'已查看':'标为已查看',()=>act('view'),'quiet'),
-      button(group.muted?'恢复通知':'静音30分钟',()=>act('mute',{mutedUntil:group.muted?null:Date.now()+30*60000}),'quiet')));
+    const categoryMuted=(report.alerts?.preferences?.[group.classification+'MutedUntil']||0)>Date.now();
+    const rootMuted=(group.rootMutedUntil??(!categoryMuted?group.mutedUntil:0))>Date.now();
+    const muteButton=button(categoryMuted&&!rootMuted?'已随类别静音':rootMuted?'恢复通知':'静音30分钟',
+      ()=>act('mute',{mutedUntil:rootMuted?null:Date.now()+30*60000}),'quiet');
+    muteButton.disabled=categoryMuted&&!rootMuted;
+    card.append(h('div',{class:'fy-toolbar'},button(group.viewed?'已查看':'标为已查看',()=>act('view'),'quiet'),muteButton));
+    if(categoryMuted)card.append(note('所属提醒类别仍在静音；可在“提醒与查看闭环”恢复该类别通知。'));
   }
   return card;
 }
 
 export function createRiskSummary(ctx,{title='需要处理的风险',code=null,autoload=true}={}){
+  const scope='summary-'+(++viewSequence);
   const host=h('section',{class:'fy-panel fy-risk-summary','data-risk-summary':true},h('h2',{},title));
   let epoch=0,controller=null,lastRead=0,currentCode=code;
   function clear(){epoch++;controller?.abort();host.replaceChildren(h('h2',{},title));host.hidden=true;}
   async function refresh(options={}){
+    const changed=options.code!==undefined&&options.code!==currentCode;
     if(options.code!==undefined)currentCode=options.code;
     if(!edit(ctx)){clear();return;}
     const selected=currentCode,turn=++epoch;controller?.abort();controller=new AbortController();
@@ -84,19 +94,21 @@ export function createRiskSummary(ctx,{title='需要处理的风险',code=null,a
     const active=controller;
     options.signal?.addEventListener('abort',()=>active.abort(),{once:true});
     host.hidden=false;
+    if(changed)host.replaceChildren(h('h2',{},title),unknown('正在读取所选标的风险…'));
     try{
       const report=await read(ctx,{code:selected,signal:active.signal});
       if(turn!==epoch||active.signal.aborted||ctx.signal?.aborted||!edit(ctx))return;
       lastRead=Date.now();const risks=report.risks.filter(row=>row.status!=='resolved');
       updateReadout(host,h('h2',{},title),note(report.account.label+' · '+dateTime(report.generatedAt)),
-        ...risks.slice(0,3).map(row=>riskCard(row,report,{compact:true})),
+        ...risks.slice(0,3).map(row=>riskCard(row,report,{compact:true,scope})),
         !risks.length?note('本次未返回待处理事项；仅代表已核对的证据范围。'):null,
         note('需处理 '+report.summary.actionable+' 项 · 证据未知 '+report.summary.unknown+' 项'),
         button('打开风险中心',()=>ctx.navigate('assets','risk'),'quiet'));
-    }catch(error){if(turn===epoch&&!active.signal.aborted&&!ctx.signal?.aborted)updateReadout(host,h('h2',{},title),unknown(error.message));}
+    }catch(error){if(!edit(ctx))clear();else if(turn===epoch&&!active.signal.aborted&&!ctx.signal?.aborted)updateReadout(host,h('h2',{},title),unknown(error.message));}
   }
   ctx.signal?.addEventListener('abort',clear,{once:true});
-  if(autoload){queueMicrotask(()=>refresh());ctx.onState?.(()=>{if(Date.now()-lastRead>=10000)void refresh();});}
+  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(autoload&&Date.now()-lastRead>=10000)void refresh();});
+  if(autoload)queueMicrotask(()=>refresh());
   host.refresh=refresh;host.clear=clear;return host;
 }
 
@@ -104,7 +116,7 @@ function equityPanel(report){
   const e=report.equity,history=report.equityHistory?.history;
   return section('账户权益与观察回撤',
     note('来源为原权威模拟账户。手工申报持仓单独保留，不并入此权益。'),
-    h('div',{class:'fy-metrics'},metric('当前精确权益',e?.status==='complete'?yuan(e.equity):'未知',
+    h('div',{class:'fy-metrics'},metric('核验时点权益',e?.status==='complete'?yuan(e.equity):'未知',
       '有效估值 '+(e?.coverage?.pricedPositions??'未知')+' / '+(e?.coverage?.positions??'未知')+' 个持仓'),
       metric('已结算盈亏',yuan(e?.settledPnl),'原成交及公司行为证据'),metric('持仓浮盈亏',yuan(e?.unrealizedPnl),'缺报价保留未知'),
       metric('已观察最大回撤',percent(history?.observedMaxDrawdownPct),'仅覆盖已记录采样时点')),
@@ -126,9 +138,9 @@ function equityPanel(report){
 function rulePanel(report){
   const rules=report.rules,auto=rules?.automaticRules;
   return section('当前账户实际生效规则',
-    note('规则版本 '+(rules?.policyVersion||'未配置统一限额')+' · 测量 '+dateTime(rules?.generatedAt)),
+    note('规则版本 '+(rules?.policyVersion||(rules?.policyConfigured===false?'未配置统一限额':'配置版本未知'))+' · 测量 '+dateTime(rules?.generatedAt)),
     table(['规则','状态','限额','占用','剩余','证据'],list(rules?.rules).map(row=>[
-      row.label,row.configurationStatus==='active'?'已启用':'未配置 / 未启用',row.enabled?val(row.limit)+' '+row.unit:'未启用',
+      row.label,configuration[row.configurationStatus]||'配置未知',row.enabled?val(row.limit)+' '+row.unit:row.configurationStatus==='not-configured'?'未启用':'未知',
       val(row.used),val(row.remaining),[evidence[row.evidenceStatus],...list(row.missing)].filter(Boolean).join('；')])),
     h('div',{class:'fy-metrics'},metric('持仓风险占用',yuan(rules?.occupancy?.heldValue)),metric('未成交买单敞口',yuan(rules?.occupancy?.pendingBuyValue)),
       metric('委托冻结资金',yuan(rules?.occupancy?.reservedCash)),metric('剩余可用资金',yuan(rules?.occupancy?.availableCash))),
@@ -148,7 +160,7 @@ function actionPanel(report){
       h('dl',{class:'fy-detail-grid'},detail('可卖数量',val(row.constraints?.sellableQuantity)+' 股'),
         detail('当日买入限制',val(row.constraints?.todayLockedQuantity)+' 股'),detail('冻结数量',val(row.constraints?.frozenQuantity)+' 股'),
         detail('剩余持仓',val(row.constraints?.remainingQuantity)+' 股'),
-        detail('连续竞价',row.constraints?.session?.continuous===true?'当前属于连续竞价':'当前不满足连续竞价条件'),
+        detail('连续竞价',row.constraints?.session?.continuous===true?'当前属于连续竞价':row.constraints?.session?.continuous===false?'当前不满足连续竞价条件':'交易时段未知'),
         detail('当前核验价',yuan(row.constraints?.price?.current)),detail('计划止损',yuan(row.constraints?.price?.stop)),detail('计划目标',yuan(row.constraints?.price?.target)),
         detail('原流动性可参与数量',val(row.constraints?.liquidity?.capacityQuantity)+' 股'),
         detail('原始报价',dateTime(row.constraints?.price?.quoteAt))),
@@ -205,7 +217,7 @@ export function renderRiskWorkbench(ctx){
     const unseen=lifecycle.filter(row=>row.status!=='resolved'&&!represented.has(row.rootCauseId));
     const riskList=section('需要处理的事项',note(report.account.label+' · 来源读取 '+dateTime(report.generatedAt)),
       h('div',{class:'fy-metrics'},metric('需要处理',String(report.summary.actionable)),metric('证据未知',String(report.summary.unknown)),
-        metric('私密通知',report.runtime?.privateChannel==='configured'?'已配置':'未配置','无接收证据不称送达')),
+        metric('私密通知',report.runtime?.privateChannel==='configured'?'已配置':report.runtime?.privateChannel==='unconfigured'?'未配置':'配置未知','无接收证据不称送达')),
       ...primary.map(row=>riskCard(row,report,{ctx,onUpdate:load})),
       secondary.length?h('details',{class:'fy-details',id:'risk-other-evidence'},h('summary',{},'其他风险与证据缺口（'+secondary.length+'）'),
         ...secondary.map(row=>riskCard(row,report,{ctx,onUpdate:load}))):null,
@@ -214,16 +226,20 @@ export function renderRiskWorkbench(ctx){
       !active.length?note('此范围未返回待处理事项；其他证据仍可在下方核对。'):null);
     const history=h('details',{class:'fy-details',id:'risk-resolved'},h('summary',{},'已解除与一般证据'),
       ...report.risks.filter(row=>row.status==='resolved').map(row=>riskCard(row,report,{ctx,onUpdate:load})));
-    const mute=async classification=>{
+    const mute=async(classification,mutedUntil)=>{
+      if(!report||!edit(ctx)||ctx.signal?.aborted)return;
       try{const result=await ctx.api('/api/risk-workbench/alerts',{method:'POST',signal:ctx.signal,
         body:{action:'mute',accountId,accountEpoch:report.accountEpoch,classification,
-          mutedUntil:Date.now()+30*60000,expectedRevision:report.alerts?.revision}});
+          mutedUntil,expectedRevision:report.alerts?.revision}});
         if(result.ok!==true)throw Error(result.error||'静音状态未更新');await load();}
       catch(error){ctx.notify?.(error.message,'error');}
     };
     updateReadout(content,riskList,history,equityPanel(report),rulePanel(report),actionPanel(report),stressPanel(report),
       section('提醒与查看闭环',note('静音只影响通知，站内风险和原后端限制继续保留。'),
-        h('div',{class:'fy-toolbar'},button('一般信息静音30分钟',()=>mute('general'),'quiet'),button('关键风险静音30分钟',()=>mute('critical'),'quiet')),
+        h('div',{class:'fy-toolbar'},...Object.entries({general:'一般信息',critical:'关键风险'}).map(([classification,label])=>{
+          const muted=(report.alerts?.preferences?.[classification+'MutedUntil']||0)>Date.now();
+          return button(muted?'恢复'+label+'通知':label+'静音30分钟',()=>mute(classification,muted?null:Date.now()+30*60000),'quiet');
+        })),
         table(['根因','首次出现','生命周期','通知','查看'],lifecycle.map(row=>[row.risks?.[0]?.facts?.[0]||row.rootCauseId,
           dateTime(row.firstSeenAt),list(row.events).map(e=>({'first-seen':'首次',escalated:'升级',resolved:'解除',reopened:'再次出现'})[e.kind]||e.kind).join(' → '),
           delivery[row.notification?.status]||'未知',row.viewed?'已查看':'未查看'])),
@@ -232,7 +248,9 @@ export function renderRiskWorkbench(ctx){
         note('状态 '+report.manualHoldings.status+' · 未认证为权威账户'),button('管理原申报持仓',()=>ctx.navigate('assets','holdings'),'quiet')):null);
     for(const node of content.querySelectorAll('details[id]'))if(open.has(node.id))node.open=true;
   };
+  function clear(){epoch++;report=null;busy=false;content.replaceChildren(unknown('编辑身份可查看账户风险与提醒记录。'));}
   async function load(){
+    if(!edit(ctx)||ctx.signal?.aborted){clear();return;}
     const turn=++epoch,account=accountId;busy=true;
     try{const value=await read(ctx,{accountId:account});if(turn!==epoch||ctx.signal?.aborted||!edit(ctx))return;
       report=value;lastRead=Date.now();render();}
@@ -242,7 +260,7 @@ export function renderRiskWorkbench(ctx){
   filters.append(button('全部',()=>{activeCategory='';render();},'quiet'),...Object.entries(category).map(([id,label])=>button(label,()=>{activeCategory=id;render();},'quiet')));
   chooser.addEventListener('change',()=>{accountId=chooser.value;report=null;content.replaceChildren(unknown('正在读取所选原账户…'));void load();});
   host.append(section('统一风险工作台',note('严重程度、证据可用程度与执行状态分别展示。'),h('div',{class:'fy-toolbar'},chooser,button('刷新风险',load,'quiet')),filters),content);
-  ctx.onState?.(()=>{if(!busy&&Date.now()-lastRead>=10000)void load();});
+  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(!busy&&Date.now()-lastRead>=10000)void load();});
   ctx.signal?.addEventListener('abort',()=>{epoch++;report=null;content.replaceChildren();},{once:true});
   queueMicrotask(load);return host;
 }

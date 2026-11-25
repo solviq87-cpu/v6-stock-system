@@ -2,7 +2,7 @@
 
 ## 2026-11-26 · 风险中心组独立待集成项
 
-分支 `feat/fayo-risk-center-20261126`，基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，目标 `dev`，应用 `20261126aa`。负责01/02/03/04/05/14/30，未合并、未生产发布。活跃并行PR与接口重叠按 [风险组合同](docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md) 核对；精确本组提交、PR、CI/全量/HTTP/双端证据见 [验证记录](docs/validation/fayo-risk-20261126/README.md)。原第一组负责最终集成，必须以最终合并SHA重新验证账户/账本/权限/设备/行情与通知，不能复用各组通过次数代替集成验收。
+分支 `feat/fayo-risk-center-20261126`，基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，目标 `dev`，应用 `20261126aa`，[PR #359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。负责01/02/03/04/05/14/30，未合并、未生产发布。活跃 #353/#356/#357/#358 与接口重叠按 [风险组合同](docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md) 核对；原 #355 的有效成果已由 #358 承接。精确本组提交、CI/全量/HTTP/双端证据见 [验证记录](docs/validation/fayo-risk-20261126/README.md)。原第一组负责最终集成，必须以最终合并 SHA 重新验证账户/账本/权限/设备/行情与通知，不能复用各组通过次数代替集成验收。
 
 **研究恢复与成绩单（2026-11-15北京时间）**：[草稿、导入文件与证据一致性](V6_BO/docs/RESEARCH_RECOVERY_INTEGRITY_20261115.md)：清除/改选文件后旧读取不再复活；偏好重读保留本页修改，冲突显式核对并保留服务端CAS；成绩单固定首次接收的信号，行情窗口滚动不删除已有合格结果。本地全量3779通过/0失败/3可选跳过，最终精确head CI与合并见本分支PR；未发布生产。
 

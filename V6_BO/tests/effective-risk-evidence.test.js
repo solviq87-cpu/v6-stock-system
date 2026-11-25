@@ -3,6 +3,8 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const {buildEffectiveRiskEvidence} = require('../src/core/effective-risk-evidence');
 const {createPaperApplicationService} = require('../src/core/paper-application-service');
+const {buildAccountEquityEvidence} = require('../src/core/account-equity-evidence');
+const {fixture: authorityFixture, sealBook} = require('./helpers/account-equity-fixture');
 
 const now = Date.parse('2026-11-26T10:00:00+08:00'), day = '2026-11-26';
 const calendar = {isOpen: d => ['2026-11-25', day].includes(d)};
@@ -10,11 +12,13 @@ const feePolicy = {version:'original-test-fees-v1',feeBps:3,minFee:5,sellTaxBps:
 const quote = (symbol='600000', patch={}) => ({symbol,price:10,quoteAt:now,receivedAt:now,timestamp:now,
   quoteSource:'tencent',provider:'tencent',mode:'public-live-unverified',...patch});
 const entry = {eventId:'entry',orderId:'buy',symbol:'600000',side:'buy',quantity:100,price:10,tradeDate:'2026-11-25',realizedPnl:0};
-function book(policy=null) { return {revision:7,feePolicy,riskPolicy:policy,legacy:{enabled:true},orders:{buy:{
+function book(policy=null) { return {schemaVersion:1,paperOnly:true,brokerConnected:false,initialCash:10000,
+  revision:7,feePolicy,riskPolicy:policy,legacy:{enabled:true},orders:{buy:{
   order:{orderId:'buy',symbol:'600000',side:'buy',quantity:100,limitPrice:10,strategyId:'strategy-a',tradeDate:'2026-11-25'},
   state:{terminal:true,status:'filled',remainingQuantity:0}}},account:{cash:9000,events:[entry],
   positions:{'600000':{quantity:100,lots:[{quantity:100,sourceEventId:'entry',buyDate:'2026-11-25'}]}}}}; }
-const report = (b, extra={}) => buildEffectiveRiskEvidence({book:b,quotes:{'600000':quote()},now,calendar,...extra});
+const report = (b, extra={}) => buildEffectiveRiskEvidence({book:b ? sealBook(structuredClone(b)) : null,
+  quotes:{'600000':quote()},now,calendar,...extra});
 const rule = (view,id) => view.rules.find(row=>row.id===id);
 function pending(b, quantity=100, price=10) { b.orders.pending={order:{orderId:'pending',symbol:'600000',side:'buy',quantity,
   limitPrice:price,tradeDate:day,strategyId:'strategy-a'},state:{terminal:false,status:'pending',remainingQuantity:quantity},events:[]};return b; }
@@ -29,6 +33,17 @@ test('an existing automatic account card never enables an unconfigured unified r
   assert.ok(r.rules.every(x=>!x.enabled&&x.configurationStatus==='not-configured'&&x.remaining===null));
   assert.equal(r.automaticRules.parameters.maxPos,5);assert.equal(r.automaticRules.enabled,true);
   assert.equal(r.canTrade,false);assert.equal(JSON.stringify(b),before);
+});
+
+test('automatic rule cards require the original account enabled flag and all original parameters',()=>{
+  const automaticPolicy={maxPos:5,sl:-.03,tp:.08,expireDays:4};
+  const b=book();delete b.legacy.enabled;
+  assert.equal(report(b,{automaticPolicy}).automaticRules.enabled,null);
+  b.legacy.enabled=false;
+  assert.equal(report(b,{automaticPolicy}).automaticRules.enabled,false);
+  b.legacy.enabled=true;
+  const partial=report(b,{automaticPolicy:{maxPos:5}}).automaticRules;
+  assert.equal(partial.enabled,null);assert.equal(partial.configurationStatus,'unknown');assert.ok(partial.missing.length);
 });
 
 test('the exact installed version, configuration instant and disabled rules are projected',()=>{
@@ -46,7 +61,7 @@ test('pending buys consume exposure and cash fees without being counted as equit
   assert.equal(r.occupancy.reservedCash,1005);assert.equal(r.occupancy.availableCash,7995);
   assert.deepEqual(r.occupancy.pendingOrderIds,['pending']);assert.equal(rule(r,'maxPositionPct').used,20);
   assert.equal(rule(r,'maxPositionPct').exceeded,true);assert.equal(rule(r,'maxPositionPct').remaining,0);
-  b.orders.pending.state.remainingQuantity=0;b.orders.pending.state.terminal=true;
+  b.orders.pending.state.remainingQuantity=0;b.orders.pending.state.terminal=true;b.orders.pending.state.status='filled';
   assert.equal(report(b).occupancy.pendingBuyValue,0);
 });
 
@@ -71,6 +86,96 @@ test('missing, 15001ms old, future, wrong-source and simulation quotes preserve 
   }
   const edge=report(b,{quotes:{'600000':quote('600000',{quoteAt:now-15000,timestamp:now-15000})}});
   assert.equal(edge.occupancy.equity,10000);
+});
+
+test('explicit quote tradeDate conflicts stay unknown in both actual limits and equity evidence',t=>{
+  const f=authorityFixture(t);f.buy();
+  f.service.configure({expectedRevision:f.service.read().revision,riskPolicy:{version:'date-conflict-v1',maxPositionPct:20}});
+  const b=f.service.read(),before=JSON.stringify(b),q=f.quote('600000',10,{tradeDate:'2026-11-22',timestamp:f.now});
+  const r=buildEffectiveRiskEvidence({book:b,quotes:{'600000':q},now:f.now});
+  const equity=buildAccountEquityEvidence({book:b,quotes:{'600000':q},now:f.now,accountId:'pool'});
+  assert.equal(r.quoteEvidence[0].usable,false);assert.equal(r.quoteEvidence[0].evidenceStatus,'conflict');
+  assert.equal(rule(r,'maxPositionPct').evidenceStatus,'conflict');
+  assert.equal(rule(r,'maxPositionPct').used,null);assert.equal(rule(r,'maxPositionPct').remaining,null);
+  assert.equal(r.occupancy.equity,null);assert.equal(equity.equity,null);
+  assert.ok(equity.missing.some(row=>row.code==='QUOTE_SOURCE_CONFLICT'));
+  const current={...q,tradeDate:'2026-11-23'};
+  const known=buildEffectiveRiskEvidence({book:b,quotes:{'600000':current},now:f.now});
+  assert.equal(known.quoteEvidence[0].usable,true);assert.equal(known.occupancy.equity,99995);
+  assert.equal(JSON.stringify(b),before);
+});
+
+test('actual limits and equity share authority identity and fail closed on damaged authority',t=>{
+  const f=authorityFixture(t);f.buy();
+  f.service.configure({expectedRevision:f.service.read().revision,riskPolicy:{version:'identity-v1',maxPositionPct:20}});
+  const b=f.service.read(),quotes={600000:f.quote()},before=JSON.stringify(b);
+  const r=buildEffectiveRiskEvidence({book:b,quotes,now:f.now,accountId:'pool'});
+  const equity=buildAccountEquityEvidence({book:b,quotes,now:f.now,accountId:'pool'});
+  assert.equal(r.accountEpoch,equity.accountEpoch);assert.equal(r.authoritySnapshotFingerprint,equity.source.snapshotFingerprint);
+  assert.equal(r.accountRevision,equity.source.accountRevision);assert.equal(JSON.stringify(b),before);
+  b.account.cash+=1;
+  const damaged=buildEffectiveRiskEvidence({book:b,quotes,now:f.now,accountId:'pool'});
+  assert.equal(damaged.accountEpoch,null);assert.equal(damaged.authoritySnapshotFingerprint,null);
+  assert.equal(damaged.policyConfigured,null);assert.equal(damaged.rules[0].configurationStatus,'unknown');
+  assert.equal(damaged.occupancy.equity,null);assert.equal(damaged.occupancy.pendingBuyValue,null);
+});
+
+test('conflicting evidence and absent stock identity cannot disagree with the shared equity valuation',t=>{
+  const f=authorityFixture(t);f.buy();
+  f.service.configure({expectedRevision:f.service.read().revision,riskPolicy:{version:'shared-mark-v1',maxPositionPct:20}});
+  const b=f.service.read();
+  for (const q of [f.quote('600000',10,{evidenceStatus:'conflict'}),f.quote('600000',10,{symbol:null}),
+    [f.quote(),f.quote('600000',11)]]) {
+    const quotes=new Map([['600000',q]]);
+    const r=buildEffectiveRiskEvidence({book:b,quotes,now:f.now,accountId:'pool'});
+    const equity=buildAccountEquityEvidence({book:b,quotes,now:f.now,accountId:'pool'});
+    assert.equal(equity.equity,null);assert.equal(r.occupancy.equity,null);assert.equal(rule(r,'maxPositionPct').used,null);
+    assert.equal(rule(r,'maxPositionPct').exceeded,null);
+  }
+});
+
+test('partial order reservations reuse the actual order-day commission without charging its minimum twice',t=>{
+  const f=authorityFixture(t);
+  f.service.configure({expectedRevision:f.service.read().revision,feeSchedules:[{...feePolicy,
+    version:'order-day-v1',effectiveFrom:'2026-11-01',commissionScope:'order-day'}]});
+  f.service.submit({orderId:'partial-fees',symbol:'600000',side:'buy',quantity:300,limitPrice:10,tradeDate:'2026-11-23'});
+  f.service.fill('partial-fees','partial-fees-fill',{symbol:'600000',source:'simulated',provider:'isolated-equity-test',
+    tradeDate:'2026-11-23',timestamp:f.now,price:10,volumeUnit:'shares',volume:10000,
+    upperLimit:11,lowerLimit:9,suspended:false,tradable:true});
+  const b=f.service.read(),r=buildEffectiveRiskEvidence({book:b,quotes:{600000:f.quote()},now:f.now});
+  assert.equal(b.orders['partial-fees'].state.remainingQuantity,200);
+  assert.equal(r.occupancy.pendingBuyValue,2000);assert.equal(r.occupancy.reservedCash,2000);
+  assert.equal(r.occupancy.availableCash,b.account.cash-2000);assert.equal(r.occupancy.equity,99995);
+});
+
+test('active order symbols cover original pending buys and sells once, then exclude confirmed terminal orders',t=>{
+  const f=authorityFixture(t);f.buy('600000',300,10);f.setNow(f.now+86400000);
+  const read=()=>buildEffectiveRiskEvidence({book:f.service.read(),quotes:{600000:f.quote()},now:f.now});
+  assert.deepEqual(read().occupancy.activeOrderSymbols,[]);
+  f.service.submit({orderId:'active-sell',symbol:'600000',side:'sell',quantity:100,limitPrice:10,tradeDate:'2026-11-24'});
+  f.service.submit({orderId:'active-buy-same',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:'2026-11-24'});
+  f.service.submit({orderId:'active-buy-other',symbol:600001,side:'buy',quantity:100,limitPrice:10,tradeDate:'2026-11-24'});
+  const before=fs.readFileSync(path.join(f.root,'authority.json'),'utf8');
+  assert.deepEqual(read().occupancy.activeOrderSymbols,['600000','600001']);
+  assert.equal(fs.readFileSync(path.join(f.root,'authority.json'),'utf8'),before);
+  f.service.cancel('active-buy-other','cancel-other');
+  assert.deepEqual(read().occupancy.activeOrderSymbols,['600000']);
+  f.service.cancel('active-buy-same','cancel-same');
+  assert.deepEqual(read().occupancy.activeOrderSymbols,['600000']);
+  f.service.cancel('active-sell','cancel-sell');
+  assert.deepEqual(read().occupancy.activeOrderSymbols,[]);
+});
+
+test('unknown order state, stock code or side cannot masquerade as no active orders',t=>{
+  const f=authorityFixture(t);
+  f.service.submit({orderId:'active-buy',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:'2026-11-23'});
+  for (const corrupt of [item=>delete item.state.terminal,item=>item.state.status='unknown',
+    item=>item.state.terminal=true,item=>delete item.order.symbol,item=>item.order.side='unknown']) {
+    const b=f.service.read();corrupt(b.orders['active-buy']);sealBook(b);
+    const r=buildEffectiveRiskEvidence({book:b,quotes:{},now:f.now});
+    assert.equal(r.occupancy.activeOrderSymbols,null);assert.ok(r.missing.length);
+  }
+  assert.equal(buildEffectiveRiskEvidence({book:null,now:f.now}).occupancy.activeOrderSymbols,null);
 });
 
 test('classification, strategy attribution, loss limits and evidence references use original point-in-time imports',()=>{

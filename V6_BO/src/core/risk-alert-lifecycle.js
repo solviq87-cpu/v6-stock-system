@@ -176,6 +176,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       const viewed = actorKey ? group.viewedBy[actorKey] || null : null;
       return {...clone(group), viewedBy: undefined, viewedAt: viewed?.at || null,
         viewed: Boolean(viewed && viewed.revision === group.revision), mutedUntil, muted: mutedUntil > now,
+        rootMutedUntil: group.mutedUntil || null, categoryMutedUntil: categoryMute || null,
         notificationEventId: event.id, notification: deliveryView(delivery, now), restrictionsStillApply: true,
         stationVisible: true, notificationOnlyMute: true};
     }).sort((a, b) => (a.status === 'resolved') - (b.status === 'resolved') || LEVEL[b.severity] - LEVEL[a.severity] || b.lastSeenAt - a.lastSeenAt);

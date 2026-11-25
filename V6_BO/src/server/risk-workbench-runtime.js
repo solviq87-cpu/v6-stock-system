@@ -22,28 +22,41 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   const notifications=createRiskAlertLifecycle({root:path.join(root,'notifications'),clock,canWrite:isPrimary});
   let plans=[],plansAt=0,plansError='冻结计划尚未读取',planLoad=null,observedDay='',observationAt=0;
   let observations=[],planAlerts=[],observationError=null,busy=false;
+  let observationGeneration=0,observationsCachedGeneration=-1,observationRevision=null;
   const status={lastObservedAt:null,lastError:null,accountErrors:{pool:null,pre:null},
     accountChecks:{pool:null,pre:null},privateChannel:'unconfigured',readOnly:true};
   const samples=new Map();
 
+  function cacheCommittedObservations(value,day,at,generation) {
+    if(!value||!Array.isArray(value.records)||!Array.isArray(value.alerts)||value.day!=null&&value.day!==day)
+      throw Error('原持久观察回包无效');
+    if(day!==aShareCalendarDate(clock()))return;
+    const revision=Number.isSafeInteger(value.revision)?value.revision:null;
+    if(observedDay===day&&revision!==null&&observationRevision!==null&&revision<observationRevision)return;
+    const latest=new Map();
+    for(const row of value.records)if(!latest.has(row.planId)||latest.get(row.planId).observedAt<row.observedAt)latest.set(row.planId,row);
+    observations=[...latest.values()];planAlerts=value.alerts;observationAt=at;observedDay=day;
+    observationRevision=revision;observationsCachedGeneration=generation;observationError=null;
+  }
+
   async function refreshEvidence() {
     const now=clock(),day=aShareCalendarDate(now);
     if(planLoad)return planLoad;
-    if(plansAt&&now>=plansAt&&now-plansAt<60000&&observedDay===day)return;
+    const plansDue=!plansAt||now<plansAt||now-plansAt>=60000;
+    const observationsDue=observedDay!==day||!observationAt||now<observationAt||now-observationAt>=60000||
+      observationsCachedGeneration!==observationGeneration;
+    if(!plansDue&&!observationsDue)return;
+    const generation=observationGeneration;
     planLoad=(async()=>{
-      try{
+      if(plansDue)try{
         const archive=await readPlans();
         if(!archive?.ok||!Array.isArray(archive.state?.plans))throw Error('原冻结计划档案不可用');
         plans=archive.state.plans.filter(p=>p?.decisionAuthority==='fayo-decision-center');
         plansAt=clock();plansError=null;
       }catch{plansError='原冻结计划档案不可读；计划观察与执行覆盖未知';}
-      try{
+      if(observationsDue)try{
         const value=await readObservations({day,now:clock()});
-        if(observedDay!==day||observationAt<=(value.records?.at(-1)?.observedAt||0)){
-          const latest=new Map();for(const row of list(value.records))if(!latest.has(row.planId)||latest.get(row.planId).observedAt<row.observedAt)latest.set(row.planId,row);
-          observations=[...latest.values()];planAlerts=list(value.alerts);observationAt=clock();observedDay=day;
-        }
-        observationError=null;
+        cacheCommittedObservations(value,day,clock(),generation);
       }catch{observationError='原计划观察档不可读，不能确认缺档期间是否触发条件';}
     })().finally(()=>{planLoad=null;});
     return planLoad;
@@ -77,6 +90,15 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
       const accountPlans=accountId==='pool'?plans:[];
       actions=buildRiskActionEvidence({book,plans:accountPlans,observations:accountId==='pool'?observations:[],quotes,now,calendar,
         continuous:current.continuous,originalExitChecks:readOriginalExitChecks(accountId,accountPlans,book,quotes,now),accountId});
+      if(plansError&&accountId==='pool'){
+        // Retain the original cached references for diagnosis, but a failed
+        // authoritative plan read cannot authorize a new condition judgment.
+        actions.missing=[...new Set([...actions.missing,plansError])];
+        actions.items=actions.items.map(item=>!item.planId?item:{...item,status:'pending-reconciliation',
+          condition:{status:'unknown',kind:null,price:null,source:null,quoteAt:null,observedAt:null},
+          execution:{allowed:null,reason:plansError,evidenceStatus:'missing',checkedAt:now},
+          missing:[...new Set([...item.missing,plansError])]});
+      }
     }catch{missing.push('原风险动作和执行限制证据不可核验');}
     try{research=readResearch(now);}catch{missing.push('原研究风险证据不可用');}
     try{market=readMarket(now);}catch{missing.push('原市场及分类回执不可用');}
@@ -94,7 +116,7 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     if(status.lastError&&!Object.values(status.accountErrors).some(Boolean))missing.push(status.lastError);
     const report=buildRiskWorkbench({accountId,now,equity,equityHistory:history,rules,actions,stress,research,market,
       classifications:classification,strategy,alerts:alertView,
-      planAlerts:accountId==='pool'?planAlerts:[],system:{...system,replica:!isPrimary(),missing:[...list(system.missing),...missing],
+      planAlerts:accountId==='pool'&&!plansError&&!observationError?planAlerts:[],system:{...system,replica:!isPrimary(),missing:[...list(system.missing),...missing],
         observationHealth:['pool','pre'].filter(id=>status.accountChecks[id]!==null).map(id=>({accountId:id,
           error:status.accountErrors[id],checkedAt:status.accountChecks[id],summary:status.lastError}))}});
     report.runtime={...status,accountErrors:{...status.accountErrors},accountChecks:{...status.accountChecks},
@@ -105,10 +127,9 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
 
   function observePlans(result) {
     const records=list(result?.records);if(!records.length)return;
-    const day=records[0].day;
-    const latest=new Map(observedDay===day?observations.map(x=>[x.planId,x]):[]);
-    for(const row of records)if(!latest.has(row.planId)||latest.get(row.planId).observedAt<row.observedAt)latest.set(row.planId,row);
-    observations=[...latest.values()];planAlerts=list(result.alerts);observedDay=day;observationAt=clock();observationError=null;
+    // This callback runs before the original store append. It can invalidate
+    // the persisted view, but cannot turn a preview into stored trigger history.
+    observationGeneration++;
   }
   function receipt(key,deliveryId,result) {
     try{notifications.recordReceipt({...key,deliveryId,...normalizeRiskReceipt(result)});}
@@ -116,6 +137,10 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   }
   function dispatch(report,risk,{planAlert=false}={}) {
     if(!report.accountEpoch||!isPrimary()||!privateReady())return false;
+    // The aggregate valuation row stays visible in the station. Per-security
+    // quote causes and actual rule rows own their existing private reminders;
+    // a second summary clearance must not consume their ordinary cooldown.
+    if(risk.rootCauseId==='account/valuation')return false;
     const isPlanRisk=Boolean(risk.references?.planId)||risk.rootCauseId.startsWith('plan/');
     if(isPlanRisk&&(planEnabled()!==true||plansError||observationError))return false;
     // The original plan observer remains the single owner of active condition
@@ -144,6 +169,36 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
         const book=readBook(key.accountId),quotes=readQuotes();
         const current=buildAccountEquityEvidence({book,accountId:key.accountId,quotes,now:at});
         if(current.accountEpoch!==key.accountEpoch)return {ok:false,why:'原账户期间已变化'};
+        if(risk.rootCauseId.startsWith('rule/')){
+          const effective=buildEffectiveRiskEvidence({book,quotes,now:at,calendar,accountId:key.accountId,
+            automaticPolicy:readAutomaticPolicy(key.accountId)});
+          const rule=effective.rules.find(row=>row.id===risk.references?.ruleId);
+          if(!rule||effective.policyVersion!==risk.references?.policyVersion||rule.enabled!==true||
+            rule.configurationStatus!=='active'||rule.evidenceStatus!=='available'||
+            !Number.isFinite(rule.used)||(risk.status==='active'?rule.exceeded!==true:rule.exceeded!==false))
+            return {ok:false,why:'原生效规则或占用已变化，旧超限或解除提示不再外发'};
+        }
+        if(risk.status==='resolved'&&!risk.priceDependent&&risk.rootCauseId.startsWith('quote/')&&risk.references?.kind==='position-valuation'){
+          const code=risk.object.id,quote=quotes[code];
+          const effective=buildEffectiveRiskEvidence({book,quotes,now:at,calendar,accountId:key.accountId,
+            automaticPolicy:readAutomaticPolicy(key.accountId)});
+          const activeSymbols=effective.occupancy.activeOrderSymbols;
+          if(current.positions.some(position=>position.symbol===code&&position.quantity>0)||
+            !Array.isArray(activeSymbols)||activeSymbols.includes(code))
+            return {ok:false,why:'原账户已重新出现该票持仓或未完成委托，旧估值适用性解除不再外发'};
+          if(quote?.sourceConflict===true||quote?.conflict===true||
+            list(readMarket(at)?.conflicts).some(row=>row?.code===code&&/conflict|ambiguous/.test(row.status||'')))
+            return {ok:false,why:'该票仍有独立来源冲突，持仓变化不解除市场证据风险'};
+        }
+        if(risk.status==='resolved'&&risk.rootCauseId.startsWith('theme/')){
+          const market=readMarket(at),freshStress=buildPortfolioStressEvidence({equity:current,
+            classifications:classifications(market,current),now:at}),theme=risk.rootCauseId.slice('theme/'.length);
+          if(freshStress.current!==true||freshStress.asOf!==at||freshStress.status!=='observed'||
+            freshStress.classificationCoverage.classified!==freshStress.classificationCoverage.positions||
+            freshStress.classifications.some(row=>row.status!=='available')||freshStress.missing.length||
+            freshStress.groups.some(group=>group.theme===theme&&group.positionCount>=2))
+            return {ok:false,why:'当前题材分类或持仓重新出现重叠或证据缺口，旧解除提示暂停'};
+        }
         if(isPlanRisk&&risk.priceDependent){
           const plan=plans.find(row=>row.id===risk.references?.planId),kind=risk.references?.kind;
           if(!plan||!['entry','stop','target'].includes(kind))return {ok:false,why:'原冻结计划或条件引用缺失'};
@@ -156,8 +211,23 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
             context.entry!==null&&context.remaining>0&&(kind==='stop'?quote.price<=plan.stop:quote.price>=plan.target);
           if(risk.status==='active'&&!stillTriggered||risk.status==='resolved'&&stillTriggered)
             return {ok:false,why:'原计划已有更新报价或持仓，旧触发或解除条件不再成立'};
+        }else if(isPlanRisk&&risk.status==='resolved'){
+          const plan=plans.find(row=>row.id===risk.references?.planId);
+          if(!plan)return {ok:false,why:'原已退出计划引用不可核对'};
+          const context=planObserver.planLedgerContext(book,plan,at);
+          if(context.ambiguous||!context.entry||context.entry.eventId!==risk.references?.entryEventId||
+            context.remaining!==0||!Number.isSafeInteger(context.closedAt)||context.closedAt!==risk.sourceAt)
+            return {ok:false,why:'原计划退出证据已出现关联缺口，旧完成提示不再外发'};
         }else if(risk.priceDependent){
-          if(risk.evidenceStatus==='conflict'){
+          if(risk.status==='resolved'&&risk.references?.kind==='source-consensus'){
+            const diagnostic=list(readMarket(at)?.conflicts).find(row=>row?.code===risk.object.id);
+            const gate=require('../core/intelligence-research').decisionCrosscheckGate(diagnostic,
+              {code:risk.object.id,day:aShareCalendarDate(at),now:at});
+            const checkedAt=typeof diagnostic?.checkedAt==='number'?diagnostic.checkedAt:Date.parse(diagnostic?.checkedAt||'');
+            if(diagnostic?.status!=='sources-agree-unverified'||gate.status!=='observed-agreement'||gate.canAdmit!==true||
+              !Number.isSafeInteger(checkedAt)||checkedAt<risk.sourceAt||checkedAt>at||at-checkedAt>15000)
+              return {ok:false,why:'原多源一致性回执缺失、失效或再次分歧，单源报价不解除此前来源冲突'};
+          }else if(risk.evidenceStatus==='conflict'){
             // A conflict warning reports the conflict itself. Recheck that
             // diagnostic instead of requiring its unusable price to pass.
             const conflict=list(readMarket(at)?.conflicts).find(row=>row?.code===risk.object.id&&/conflict|ambiguous/.test(row.status||''));
@@ -204,11 +274,21 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   async function sendPlanAlert(alert) {
     if(!isPrimary()||planEnabled()!==true)return false;
     try{
+      if(!alert||alert.day!==aShareCalendarDate(clock()))return false;
+      // The observation callback also feeds the display cache before the
+      // original append has committed. Only the persisted original record and
+      // trigger authorize a notification reservation; the cache is not proof.
+      const generation=observationGeneration;
+      const persisted=await readObservations({day:alert.day,now:clock()});
+      const committedRecord=list(persisted?.records).find(row=>row.fingerprint===alert.observationId);
+      if(!committedRecord||!list(persisted?.alerts).some(row=>digest(row)===digest(alert)))return false;
+      cacheCommittedObservations(persisted,alert.day,clock(),generation);
       const report=await read({accountId:'pool'}),now=clock();
       if(!report.accountEpoch||!isPrimary()||planEnabled()!==true||plansError||observationError||!alert||alert.day!==aShareCalendarDate(now)||
           !Number.isSafeInteger(alert.quoteAt)||alert.quoteAt>now||now-alert.quoteAt>15000)return false;
       const plan=plans.find(row=>row.id===alert.planId),record=observations.find(row=>row.fingerprint===alert.observationId);
       if(!plan||!record)return false;
+      if(digest(record)!==digest(committedRecord))return false;
       planObserver.validateObservation(record,{now,plan,day:alert.day});
       if(!planObserver.alertsForRecord(record).some(row=>digest(row)===digest(alert)))return false;
       const derived=riskForPlanAlert(alert),risk=report.risks.find(r=>r.rootCauseId===derived.rootCauseId)||derived;

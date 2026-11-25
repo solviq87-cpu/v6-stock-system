@@ -28,7 +28,7 @@
 // 重试多少次都一样，必须立即回调失败，别把队列堵死。
 // A bare business code is not proof of rate limiting (9499 can be a bad request).
 const RETRYABLE = /too many requests?|\b429\b|\b11232\b/i;
-const UNKNOWN = /结果未知|未确认|timeout|timed?\s*out|socket|ECONNRESET|断连|回执.*矛盾/i;
+const UNKNOWN = /结果未知|未确认|超时|未回调|timeout|timed?\s*out|ETIMEDOUT|ESOCKETTIMEDOUT|socket|ECONN|EPIPE|ENOTFOUND|EAI_AGAIN|EHOST|ENET|网络异常|请求失败|Premature|aborted|断连|回执.*矛盾|HTTP\s+(?:408|5\d\d)\b/i;
 
 function createQueue(sendOnce, opt) {
   const o = opt || {};

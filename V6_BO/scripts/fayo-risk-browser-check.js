@@ -77,7 +77,7 @@ async function main(){
         stale=false;await page.evaluate(()=>window.showRisk());
         await page.locator('[data-risk-root="rule/maxGrossExposurePct"]').waitFor();
         const text=await page.locator('#mount').innerText();
-        assert.match(text,/未成交买单敞口/);assert.match(text,/1,000/);assert.match(text,/当前精确权益/);
+        assert.match(text,/未成交买单敞口/);assert.match(text,/1,000/);assert.match(text,/核验时点权益/);
         assert.match(text,/已结算盈亏/);assert.match(text,/持仓浮盈亏/);assert.match(text,/连续全账户最大回撤/);
         assert.match(text,/未配置 \/ 未启用/);assert.match(text,/网关受理仍未证明接收端收到/);
         assert.equal(await page.locator('[data-risk-severity="critical"]').count(),1);
@@ -89,6 +89,16 @@ async function main(){
         }
         await root.getByRole('button',{name:'静音30分钟',exact:true}).click();await root.getByRole('button',{name:'恢复通知',exact:true}).waitFor();
         assert.match(await root.innerText(),/通知静音 · 站内限制保留/);
+        await root.getByRole('button',{name:'恢复通知',exact:true}).click();await root.getByRole('button',{name:'静音30分钟',exact:true}).waitFor();
+        await page.getByRole('button',{name:'关键风险静音30分钟',exact:true}).click();
+        await page.getByRole('button',{name:'恢复关键风险通知',exact:true}).waitFor();
+        assert.equal(await root.getByRole('button',{name:'已随类别静音',exact:true}).isDisabled(),true,
+          'a root-level control cannot pretend it removed a category mute');
+        assert.match(await root.innerText(),/当前限制/);
+        await page.getByRole('button',{name:'恢复关键风险通知',exact:true}).click();
+        await root.getByRole('button',{name:'静音30分钟',exact:true}).waitFor();
+        assert.doesNotMatch(await root.innerText(),/通知静音/);
+        await root.getByRole('button',{name:'静音30分钟',exact:true}).click();await root.getByRole('button',{name:'恢复通知',exact:true}).waitFor();
         await page.locator('#risk-stress-assumptions summary').click();
         assert.match(await page.locator('#risk-stress-assumptions').innerText(),/价格冲击/);
         assert.match(await page.locator('#risk-stress-assumptions').innerText(),/100/);
@@ -112,11 +122,11 @@ async function main(){
         await page.getByText('隔离风险读取失败',{exact:true}).waitFor();
         await page.getByRole('button',{name:'组合',exact:true}).click();
         assert.equal(await page.locator('[data-risk-id]').count(),0,'filtering after read failure cannot resurrect a stale current-risk report');
-        assert.doesNotMatch(await page.locator('#mount').innerText(),/当前精确权益/);
+        assert.doesNotMatch(await page.locator('#mount').innerText(),/核验时点权益/);
         unavailable=false;await page.getByRole('button',{name:'刷新风险',exact:true}).click();
         await page.locator('[data-risk-root="rule/maxGrossExposurePct"]').waitFor();
         stale=true;await page.getByRole('button',{name:'刷新风险',exact:true}).click();
-        await page.waitForFunction(()=>[...document.querySelectorAll('.fy-metric')].some(node=>node.textContent.includes('当前精确权益')&&node.querySelector('strong')?.textContent==='未知'));
+        await page.waitForFunction(()=>[...document.querySelectorAll('.fy-metric')].some(node=>node.textContent.includes('核验时点权益')&&node.querySelector('strong')?.textContent==='未知'));
         const beforeViewer=requests.length;await page.evaluate(()=>window.showRisk('risk','view'));
         await page.getByText('这是你的私人工作区',{exact:true}).waitFor();assert.equal(requests.length,beforeViewer);
         assert.doesNotMatch(await page.locator('#mount').innerText(),/100,000|500,000|50\.00 万|600000/);
@@ -127,15 +137,51 @@ async function main(){
           const pending=[],old=new AbortController(),next=new AbortController();
           const node=createRiskSummary({role:'edit',navigate:()=>{},api:(url,{signal})=>new Promise(resolve=>pending.push({resolve,signal}))},{autoload:false});
           document.getElementById('mount').replaceChildren(node);
+          const initial=node.refresh({code:'600000'});pending.shift().resolve(responses[0]);await initial;
           const a=node.refresh({code:'600000',signal:old.signal}),b=node.refresh({code:'600001',signal:next.signal});
+          const clearedWhileLoading=!node.querySelector('[data-risk-id]');
           old.abort();const isolated=!pending[1].signal.aborted;
           pending[1].resolve(responses[1]);await b;const latest=node.textContent;
           pending[0].resolve(responses[0]);await a;
-          return isolated&&node.textContent===latest&&latest.length>20;
+          return clearedWhileLoading&&isolated&&node.textContent===latest&&latest.length>20;
         });
         assert.equal(requestIsolation,true,'an old stock request abort or late response must not cancel or replace the new stock');
+        const privacyAndAccounts=await page.evaluate(async()=>{
+          const {renderRiskWorkbench,createRiskSummary}=await import('/nova/risk-workbench-view.mjs');
+          const responses=await Promise.all(['pool','pre'].map(account=>fetch('/api/risk-workbench?account='+account,
+            {headers:{'X-Fixture-Role':'edit'}}).then(res=>res.json())));
+          const pending=[],listeners=[];let role='edit';
+          const ctx={get role(){return role;},get canEdit(){return role==='edit';},navigate:()=>{},
+            onState:fn=>listeners.push(fn),api:(_path,options)=>new Promise(resolve=>pending.push({resolve,options}))};
+          const node=renderRiskWorkbench(ctx);document.getElementById('mount').replaceChildren(node);
+          await Promise.resolve();
+          const chooser=node.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));
+          pending[1].resolve(responses[1]);await new Promise(resolve=>setTimeout(resolve,0));
+          const latest=node.textContent;pending[0].resolve(responses[0]);await new Promise(resolve=>setTimeout(resolve,0));
+          const accountIsolation=node.textContent===latest&&latest.includes('50.00 万')&&!latest.includes('1,000.00');
+          const beforeRevoke=pending.length;role='view';listeners.forEach(fn=>fn());
+          const revokedClearsImmediately=!node.querySelector('[data-risk-id]')&&!node.textContent.includes('50.00 万')&&pending.length===beforeRevoke;
+          role='edit';const summary=createRiskSummary(ctx,{autoload:false});document.getElementById('mount').append(summary);
+          const job=summary.refresh();const response=pending.at(-1);role='view';listeners.forEach(fn=>fn());response.resolve(responses[0]);await job;
+          return {accountIsolation,revokedClearsImmediately,lateRevokedSummaryHidden:summary.hidden&&!summary.querySelector('[data-risk-id]')};
+        });
+        assert.deepEqual(privacyAndAccounts,{accountIsolation:true,revokedClearsImmediately:true,lateRevokedSummaryHidden:true});
+        const unknownConfiguration=await page.evaluate(async()=>{
+          const {renderRiskWorkbench}=await import('/nova/risk-workbench-view.mjs');
+          const response=await fetch('/api/risk-workbench?account=pool',{headers:{'X-Fixture-Role':'edit'}}).then(res=>res.json());
+          response.result.rules={policyConfigured:null,policyVersion:null,rules:[
+            {label:'不可读配置的限额',configurationStatus:'unknown',enabled:false,limit:null,used:null,remaining:null,evidenceStatus:'missing'},
+            {label:'校验失败的限额',configurationStatus:'invalid',enabled:false,limit:null,used:null,remaining:null,evidenceStatus:'conflict'}]};
+          response.result.runtime={privateChannel:'unknown'};
+          const node=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>response});document.getElementById('mount').replaceChildren(node);
+          await new Promise(resolve=>setTimeout(resolve,0));
+          const panel=[...node.querySelectorAll('section')].find(e=>e.querySelector('h2')?.textContent==='当前账户实际生效规则');
+          return {unknown:panel.textContent.includes('配置版本未知')&&panel.textContent.includes('配置未知'),
+            invalid:panel.textContent.includes('配置未通过验证'),notUnconfigured:!panel.textContent.includes('未配置 / 未启用')};
+        });
+        assert.deepEqual(unknownConfiguration,{unknown:true,invalid:true,notUnconfigured:true});
         views.push({...viewport,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
-          failedReadClearsReport:true,viewerPrivateReads:0,requestIsolation});
+          categoryMuteRestored:true,failedReadClearsReport:true,viewerPrivateReads:0,requestIsolation,privacyAndAccounts,unknownConfiguration});
       }finally{await page.close();}
     }
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);

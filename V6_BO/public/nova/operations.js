@@ -320,7 +320,7 @@ function paper(ctx,ledger=false) {
       if(ledger)return renderLedgerAccount(account,key,ctx);
       const card=panel(account.name||(key==='pool'?'策略跟踪账户':'机会预选账户'),account.enabled===false?'自动跟踪已暂停':'保留策略、T+1与报价门禁');
       const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账面参考权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('参考累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))));
-      card.append(notice('报价缺失时以上估值可能沿用历史时点；风险中心分别核验当前精确权益、已结算与持仓浮盈亏。'),action('查看权益与风险证据',()=>ctx.navigate('assets','risk')));
+      card.append(notice('报价缺失时以上估值可能沿用历史时点；风险中心分别展示核验时点权益、已结算与持仓浮盈亏。'),action('查看权益与风险证据',()=>ctx.navigate('assets','risk')));
       if(quote)card.append(notice(quote.note||quote.label||'账户估值沿用原始行情快照'));
       card.append(el('div',{class:'fy-toolbar'},action(account.enabled===false?'恢复策略跟踪':'暂停策略跟踪',()=>review(ctx,host,'切换策略跟踪状态',account.enabled===false?'恢复后，现有策略将在满足服务端交易与风控门禁时继续模拟跟踪。':'暂停后不再由该模拟账户继续自动跟踪。',()=>mutation(ctx,'/api/paper',{account:key,action:'toggle'},reload)),'primary'),action('刷新账户',()=>{scoreCache=null;scoreAt=0;return reload();})));
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));

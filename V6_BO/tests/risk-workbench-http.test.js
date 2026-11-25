@@ -164,7 +164,7 @@ test('view and mute update notification state only while station risks, limits a
 test('forged receipt, arbitrary mutations, invalid bodies, stale revisions and cross-account epochs are rejected without writes',{timeout:45000},async t=>{
   const f=await fixture(t);await f.tick();const pool=await read(f),pre=await read(f,'pre'),before=hashes(f.tmp);
   const base={accountId:'pool',accountEpoch:pool.accountEpoch,expectedRevision:pool.alerts.revision,rootCauseId:pool.alerts.groups[0].rootCauseId};
-  for(const input of [null,[],{...base,action:'receiver-confirmed'},{...base,action:'view',receiverReceipt:{confirmed:true}},
+  for(const input of [null,true,42,'arbitrary',[],{...base,action:'receiver-confirmed'},{...base,action:'view',receiverReceipt:{confirmed:true}},
     {...base,action:'trade'},{...base,action:'view',price:1},{...base,action:'mute',mutedUntil:-1},
     {...base,action:'view',accountEpoch:pre.accountEpoch},{...base,action:'view',expectedRevision:pool.alerts.revision+10}]){
     const response=await f.request('/api/risk-workbench/alerts','POST',input);

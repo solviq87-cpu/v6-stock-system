@@ -42,6 +42,18 @@ test('sellability uses original lots and active sell reservations, preserving a 
   assert.equal(e.source.fillCount,2);assert.equal(e.settledPnl,-7.17);
 });
 
+test('frozen lot totals retain same-day restrictions and malformed order states make availability unknown',t=>{
+  const f=fixture(t);f.buy('600000',300,10);
+  const book=f.service.read();book.account.positions['600000'].lots[0].reserved=100;sealBook(book);
+  const e=observe(f,{book});
+  assert.equal(e.positions[0].sellableQuantity,0);assert.equal(e.positions[0].todayBlockedQuantity,300);
+  assert.equal(e.positions[0].frozenQuantity,100);
+  delete book.orders['buy-1'].state.terminal;sealBook(book);
+  const unknown=observe(f,{book}).positions[0];
+  assert.equal(unknown.sellableQuantity,null);assert.equal(unknown.frozenQuantity,null);
+  assert.ok(unknown.reasons.includes('FROZEN_SELL_STATE_UNVERIFIED'));
+});
+
 test('corporate dividend is settled investment income, not an external deposit adjustment',t=>{
   const f=fixture(t);f.buy();f.setNow(BASE+86400000);let book=f.service.read();
   f.service.settle({eventId:'dividend-1',actionId:'company-action-1',sourceRecordId:'statement-1',kind:'cash-dividend',symbol:'600000',
@@ -68,6 +80,8 @@ test('observed drawdown is based on total equity and labels gaps independently f
   assert.equal(h.status,'observed');assert.equal(h.points[1].equity,b.equity);
   const late=buildEquityHistory({observations:[a,b],accountId:'pool',accountEpoch:a.accountEpoch,now:f.now+MAX_GAP_MS+1});
   assert.equal(late.status,'gaps');assert.ok(late.gaps.some(g=>g.code==='OBSERVATION_NOT_CURRENT'));
+  assert.equal(late.currentObservedDrawdownPct,null);assert.equal(late.latestObservedDrawdownPct,h.currentObservedDrawdownPct);
+  assert.equal(late.points[1].drawdownPct,h.points[1].drawdownPct);
 });
 
 test('missing valuation breaks the observed segment and does not silently connect through unavailable samples',t=>{
