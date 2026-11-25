@@ -79,3 +79,9 @@ node --test --test-name-pattern='same-snapshot|missing controls|previously appro
 本次只保存源码和本地 Git 历史；源码快照不是现场私有卷备份。未操作生产节点、权限、主副角色或真实通知。四策略、原账户及权威账本仍由原链路负责。122 条来源登记中候选保持未接通、授权未知、无持续观察证明。
 
 5、20、60 个交易日观察、真实部署、冷备恢复、真实送达、最终版本双端一致性及预测效果均未认证。恢复开发时应先复核本文件、最新总管安排和精确输入 SHA，再处理已登记半成品；不得把此次 WIP 保存或 PR 创建当成集成完成。
+
+## 隔离续接候选：原01/02/03/04/05/14/30/49（非最终集成）
+
+在不可变暂停树 `e2eb4130f423a85162939328f3b85beecb659ea6` 上复用 #366 `0dbd214a21ec60c1d8d1062ab66d034ec0ef00e5` 的后端四级状态合同及关联测试；五个依赖文件的原基线 blob 与暂停树一致。新增接线从一次原账户快照计算安全风险，核对权威快照和内部账本指纹、账户及权益版本；同一风险工作台展示防御和对账根因，原提醒队列发送前复验当前原防御回执及对账指纹。新增坏指纹、迟到投递及断连反例。原账本、执行门禁、权限和通知发送者不改变。
+
+当前为隔离代码候选。当前环境无法直接 clone 私有仓库，未执行本地完整 Node 回归。以原 GitHub CI 核对实际结果；专项命令 `node --test V6_BO/tests/risk-workbench-account-safety-integration.test.js V6_BO/tests/risk-state-contract.test.js V6_BO/tests/risk-alert-lifecycle.test.js V6_BO/tests/risk-workbench-runtime-notifications.test.js`。#359 最新 `ed3c3da` 与 #366 前端及其他差异仍须按段合并；#356/#353/#358 等最新交接未全纳入。不得作为最终集成或生产版本。原执行锁不改、不占用原分支；不合并dev或发布。回退为不采用此隔离候选，旧 refs 全保留。

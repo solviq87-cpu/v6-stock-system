@@ -182,8 +182,28 @@ test('cooldown, daily cap and superseded lifecycle events make oscillating alert
   }
   advance(120000); observe(store, [risk({id: 'extra', rootCauseId: 'extra'})]);
   assert.equal(store.reserveDelivery({...key, rootCauseId: 'extra'}).status, 'daily-limit');
+  const limited=store.read(key),notice=limited.groups.find(group=>group.rootCauseId==='extra').notification;
+  assert.equal(notice.status,'not-queued');assert.equal(notice.admissionStatus,'daily-limit');
+  assert.match(notice.admissionReason,/每日限额/);assert.equal(notice.receiverConfirmed,false);
+  assert.equal(notice.automaticTransportRetry,false);
+  assert.equal(store.reserveDelivery({...key,rootCauseId:'extra'}).status,'daily-limit');
+  assert.equal(store.read(key).revision,limited.revision,'repeated limited checks do not grow the journal or reserve a retry');
   advance(1000); observe(store, [risk({severity: 'critical'})]);
   assert.equal(store.reserveDelivery({...key, rootCauseId: 'quote:600001', eventId: old}).status, 'superseded');
+}));
+
+test('ordinary cooldown reasons persist through restart without creating a delivery or suppressing severe escalation',()=>space(({store,restart,advance})=>{
+ observe(store);store.reserveDelivery({...key,rootCauseId:'quote:600001'});advance(1000);
+ observe(store,[risk({id:'risk-second',rootCauseId:'quote:600002'})]);
+ const blocked=store.reserveDelivery({...key,rootCauseId:'quote:600002'});
+ assert.equal(blocked.status,'cooldown');assert.ok(blocked.retryAt>epoch+1000);
+ const persisted=restart().read(key).groups.find(group=>group.rootCauseId==='quote:600002').notification;
+ assert.equal(persisted.status,'not-queued');assert.equal(persisted.admissionStatus,'cooldown');
+ assert.match(persisted.admissionReason,/严重升级不受/);assert.equal(persisted.deliveryId,null);
+ advance(1);observe(store,[risk({id:'risk-second',rootCauseId:'quote:600002',severity:'critical'})]);
+ assert.equal(store.reserveDelivery({...key,rootCauseId:'quote:600002'}).reserved,true);
+ const sent=restart().read(key).groups.find(group=>group.rootCauseId==='quote:600002').notification;
+ assert.equal(sent.status,'queued');assert.equal(sent.admissionStatus,null);assert.equal(sent.receiverConfirmed,false);
 }));
 test('corrupt evidence, linked files, clock rollback and replica writes fail closed before reserving', () => space(({store, root, setPrimary}) => {
   observe(store); setPrimary(false);

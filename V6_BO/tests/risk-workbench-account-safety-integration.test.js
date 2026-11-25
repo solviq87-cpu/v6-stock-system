@@ -8,15 +8,17 @@ const {buildAccountSafetyRiskEvidence}=require('../src/core/account-safety-risk-
 const {appendDefensiveEvent}=require('../src/core/account-safety-state');
 const {fixture,sealBook}=require('./helpers/account-equity-fixture');
 
-function harness(t) {
-  const f=fixture(t),calendar={isOpen:()=>true};let reads=0,unavailable=false;
+function harness(t,{allowPrivate=false}={}) {
+  const f=fixture(t),calendar={isOpen:()=>true},sent=[];let reads=0,unavailable=false;
   const options={root:path.join(f.root,'risk'),clock:()=>f.now,isPrimary:()=>true,
     readBook:()=>{reads++;if(unavailable)throw Error('isolated authority unavailable');return f.service.read();},
     readQuotes:()=>({'600000':f.quote()}),readResearch:()=>({}),
     readPlans:async()=>({ok:true,state:{plans:[]}}),readObservations:()=>({records:[],alerts:[]}),
     readAutomaticPolicy:()=>null,readOriginalExitChecks:()=>({}),readMarket:()=>({}),readSystem:()=>({}),
     readStrategy:()=>null,calendar,session:()=>({continuous:true,day:aShareCalendarDate(f.now)}),
-    planEnabled:()=>false,privateReady:()=>false,sendPrivate:()=>{throw Error('real sending forbidden');}};
+    planEnabled:()=>false,privateReady:()=>allowPrivate,sendPrivate:(message,options)=>{
+      if(!allowPrivate)throw Error('real sending forbidden');sent.push({message,options});return true;
+    }};
   let runtime=createRiskWorkbenchRuntime(options);
   const order=(id,patch={})=>({orderId:id,symbol:'600000',side:'buy',quantity:100,limitPrice:10,
     tradeDate:aShareCalendarDate(f.now),...patch});
@@ -27,7 +29,7 @@ function harness(t) {
       publishedAt:new Date(f.now-1000).toISOString(),knownAt:new Date(f.now).toISOString(),
       priorEquity,priorPeak:100000,previousEquity:100000},f.service.read().revision);
   };
-  return {f,order,addClose,get runtime(){return runtime;},get reads(){return reads;},resetReads:()=>{reads=0;},
+  return {f,order,addClose,sent,get runtime(){return runtime;},get reads(){return reads;},resetReads:()=>{reads=0;},
     unavailable:value=>{unavailable=value;},restart:()=>{runtime=createRiskWorkbenchRuntime(options);}};
 }
 const row=(report,root)=>report.risks.find(risk=>risk.rootCauseId===root);
@@ -138,4 +140,46 @@ test('defense projection does not turn a new-risk restriction into a blanket sel
     source:'simulated',suspended:false,tradable:true,volumeUnit:'shares',volume:1000000,upperLimit:11,lowerLimit:9});
   assert.equal(app.read().account.positions['600000'].quantity,0);
   assert.equal(app.reconcile().defensive.state,'restricted');
+});
+
+
+test('forged original snapshot fingerprint cannot certify a restriction or recovery',t=>{
+  const h=harness(t),app=h.f.service;
+  app.setDefensiveControl({expectedRevision:app.read().revision,state:'restricted',reason:'隔离防御'});
+  const book=app.read();book.fingerprint='0'.repeat(64);
+  const view=buildAccountSafetyRiskEvidence({book,now:h.f.now});
+  assert.equal(view.accountRevision,null);
+  assert.ok(view.risks.every(risk=>risk.status==='unknown'&&risk.actionEvidence.allowed===null));
+});
+
+test('private queue rechecks the original defense receipt before a delayed delivery',async t=>{
+  const h=harness(t,{allowPrivate:true}),app=h.f.service;
+  app.setDefensiveControl({expectedRevision:app.read().revision,state:'restricted',reason:'隔离延迟发送检查'});
+  await h.runtime.tick();
+  const queued=h.sent.find(entry=>entry.message.includes('A·跟单盘')&&entry.message.includes('原账户防御限制已锁存'));
+  assert.ok(queued,'original defense restriction must reach the existing private queue');
+  assert.equal(queued.options.beforeSend().ok,true);
+  h.f.setNow(h.f.now+1000);
+  app.setDefensiveControl({expectedRevision:app.read().revision,state:'open',reason:'明确批准恢复',acknowledge:'RELEASE_DEFENSIVE_RESTRICTION'});
+  assert.equal(queued.options.beforeSend().ok,false,'do not deliver a stale restriction after the original receipt changes');
+  await h.runtime.tick();
+  const report=await h.runtime.read({accountId:'pool'});
+  assert.equal(row(report,'account/defensive-control').status,'resolved');
+  const persisted=report.alerts.groups.find(group=>group.rootCauseId==='account/defensive-control');
+  assert.equal(persisted.risks[0].references.defensiveReceipt,app.reconcile().defensive.receipt);
+  assert.equal(persisted.risks[0].references.accountRevision,app.read().revision);
+  const before=JSON.stringify(app.read());await h.runtime.read({accountId:'pool'});assert.equal(JSON.stringify(app.read()),before);
+});
+
+test('unavailable original authority cannot turn a latched defense into an all-clear row',async t=>{
+  const h=harness(t),app=h.f.service;
+  app.setDefensiveControl({expectedRevision:app.read().revision,state:'restricted',reason:'隔离断连'});
+  await h.runtime.tick();h.unavailable(true);
+  const unavailable=await h.runtime.read({accountId:'pool'});
+  assert.equal(row(unavailable,'account/defensive-control').status,'unknown');
+  assert.equal(row(unavailable,'system/authority-unavailable').riskLevel,4);
+  assert.equal(unavailable.canTrade,false);
+  h.unavailable(false);
+  const restored=await h.runtime.read({accountId:'pool'});
+  assert.equal(row(restored,'account/defensive-control').status,'active');
 });

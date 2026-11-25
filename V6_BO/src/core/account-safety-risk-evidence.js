@@ -2,15 +2,24 @@
 
 // A read-only projection of the same original snapshot used by the account
 // service. It delegates the actual rules; it never owns a second safety policy.
+const crypto=require('node:crypto');
 const {reconcileAccountSnapshot,defensiveStatus}=require('./account-safety-state');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const VERSION='fayo-original-account-safety-view-1';
 const time=value=>Number.isSafeInteger(value)&&value>0&&value<8e15;
+const rawHash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function verifiedBook(book){
+  if(!book||book.schemaVersion!==1||!Number.isSafeInteger(book.revision)||book.revision<1||
+    !book.account||book.paperOnly!==true||book.brokerConnected!==false||!/^[a-f0-9]{64}$/.test(book.fingerprint||''))return false;
+  try{
+    const {fingerprint,...payload}=book,{cash,positions,events}=book.account;
+    return rawHash(payload)===fingerprint&&rawHash({cash,positions,events})===book.account.fingerprint;
+  }catch{return false;}
+}
 
 function buildAccountSafetyRiskEvidence({book=null,accountId='pool',now=Date.now()}={}) {
   if(!['pool','pre'].includes(accountId)||!time(now))throw Error('原账户安全投影参数无效');
-  const known=book?.schemaVersion===1&&Number.isSafeInteger(book.revision)&&book.revision>0&&
-    /^[a-f0-9]{64}$/.test(book.fingerprint||'');
+  const known=verifiedBook(book);
   const account={type:'account',id:accountId,label:accountId==='pool'?'A·跟单盘':'B·预选盘'};
   const references={accountRevision:known?book.revision:null,inputVersion:known?book.fingerprint:null,
     projectionVersion:VERSION,authority:'original-paper-account',affectedAction:'new-exposure'};

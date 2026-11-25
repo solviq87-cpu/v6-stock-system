@@ -12,7 +12,7 @@ const {aShareCalendarDate}=require('../src/core/a-share-calendar');
 
 async function harness(t,{onSend}={}){
   const f=fixture(t),day=aShareCalendarDate(f.now),root=path.join(f.root,'risk');
-  let primary=true,enabled=true,configured=true,price=10,conflict=false,quoteFields={},quotesMissing=false;
+  let primary=true,enabled=true,configured=true,price=10,conflict=false,quoteFields={},quotesMissing=false,quoteReaderFailed=false;
   let currentBook=()=>f.service.read();
   const card={authority:'fayo-decision-center',decisionId:'a'.repeat(64),code:'600000',day,name:'隔离计划',
     calculatedAt:BASE-15000,strategyAt:BASE-60000,quoteBasis:{source:'tencent',quoteAt:BASE-15000},
@@ -30,7 +30,8 @@ async function harness(t,{onSend}={}){
   const observationStore=createPaperPlanObservationStore({root:path.join(f.root,'observations'),clock:()=>f.now,canWrite:()=>primary});
   const calendar={isOpen:()=>true},sent=[];
   const opts={root,clock:()=>f.now,isPrimary:()=>primary,planEnabled:()=>enabled,privateReady:()=>configured,
-    readBook:()=>currentBook(),readQuotes:()=>quotesMissing?{}:({600000:quote()}),readPlans:async()=>({ok:true,state:{plans:[plan]}}),
+    readBook:()=>currentBook(),readQuotes:()=>{if(quoteReaderFailed)throw Error('isolated quote reader failure');
+      return quotesMissing?{}:({600000:quote()});},readPlans:async()=>({ok:true,state:{plans:[plan]}}),
     readObservations:input=>observationStore.read(input),readResearch:()=>({}),readAutomaticPolicy:()=>null,
     readOriginalExitChecks:()=>({[plan.id]:{allowed:true,reason:'原隔离退出检查已通过',checkedAt:f.now,quoteAt:f.now}}),
     readMarket:()=>({conflicts:conflict?[{code:'600000',status:'conflict',checkedAt:f.now}]:[]}),
@@ -52,7 +53,8 @@ async function harness(t,{onSend}={}){
     changeAccount:()=>{const other=require('../src/core/paper-application-service').createPaperApplicationService({
       file:path.join(f.root,'reset-account.json'),clock:()=>f.now,calendar});other.initialize(200000);currentBook=()=>other.read();},
     primary:value=>{primary=value;},enabled:value=>{enabled=value;},configured:value=>{configured=value;},
-    price:value=>{price=value;},conflict:value=>{conflict=value;},quoteFields:value=>{quoteFields=value;},missingQuotes:value=>{quotesMissing=value;}};
+    price:value=>{price=value;},conflict:value=>{conflict=value;},quoteFields:value=>{quoteFields=value;},missingQuotes:value=>{quotesMissing=value;},
+    failQuoteReader:value=>{quoteReaderFailed=value;}};
 }
 
 test('committed plan alerts use original rows and one reservation across callback repeats and runtime restart',async t=>{
@@ -97,7 +99,8 @@ test('queued non-plan price clearances recheck current missing, stale and confli
   for(const change of ['missing','stale','sourceConflict','conflict']){
     const h=await harness(t);h.f.buy();h.quoteFields({sourceConflict:true});
     await h.runtime.tick();assert.equal(h.sent.length,0);
-    h.quoteFields({});await h.runtime.tick();
+    h.quoteFields({});await h.runtime.tick();assert.equal(h.sent.filter(row=>row.message.includes('解除观察')).length,0);
+    h.f.setNow(h.f.now+1);await h.runtime.tick();
     const clearances=h.sent.filter(row=>row.message.includes('解除观察'));
     assert.ok(clearances.length>=2);assert.ok(clearances.every(row=>row.options.beforeSend().ok));
     if(change==='missing')h.missingQuotes(true);
@@ -154,6 +157,45 @@ test('ordinary background risks share lifecycle and receipts without a second ac
   for(const row of h.sent)row.options.onReceipt({ok:false,msg:'HTTP 429'});
   await h.runtime.tick();assert.equal(h.sent.length,2);
   assert.equal(h.lifecycle().read(h.key).groups.find(row=>row.rootCauseId==='quote/600000').notification.status,'gateway-rejected');
+});
+
+test('a proven quote-reader outage uses the original sender and rechecks the same failure without inventing a price or delivery',async t=>{
+ const h=await harness(t);h.f.buy();h.failQuoteReader(true);
+ const before=fs.readFileSync(path.join(h.f.root,'authority.json'),'utf8');
+ const report=await h.runtime.read({accountId:'pool'}),incident=report.risks.find(r=>r.rootCauseId==='system/quote-reader-failed');
+ assert.equal(incident.riskLevel,4);assert.equal(incident.dataState,'interrupted');assert.equal(incident.evidenceState,'complete');
+ assert.equal(incident.actionState,'unconfirmed');assert.equal(incident.priceDependent,false);
+ await h.runtime.tick();const notices=h.sent.filter(r=>r.message.includes('已记录本次后端错误事实'));
+ assert.equal(notices.length,2);assert.ok(notices.every(r=>r.options.beforeSend().ok));
+ assert.ok(notices.every(r=>!r.options.holdingRisk&&r.options.signalRefs.length===0));
+ const group=h.lifecycle().read(h.key).groups.find(r=>r.rootCauseId===incident.rootCauseId);
+ assert.equal(group.notification.status,'queued');assert.equal(group.notification.receiverConfirmed,false);
+ await h.restart().tick();assert.equal(h.sent.filter(r=>r.message.includes('已记录本次后端错误事实')).length,2);
+ h.failQuoteReader(false);assert.ok(notices.every(r=>r.options.beforeSend().ok===false));
+ h.failQuoteReader(true);h.primary(false);assert.ok(notices.every(r=>r.options.beforeSend().ok===false));
+ assert.equal(fs.readFileSync(path.join(h.f.root,'authority.json'),'utf8'),before);
+});
+
+test('quote-reader recovery needs newer matching proof and current original quotes, with old outage records retained',async t=>{
+ const h=await harness(t);h.f.buy();h.failQuoteReader(true);await h.runtime.tick();
+ h.failQuoteReader(false);await h.runtime.tick();
+ let group=h.lifecycle().read(h.key).groups.find(r=>r.rootCauseId==='system/quote-reader-failed');
+ assert.equal(group.status,'unknown');assert.equal(group.lastValidRisk.riskLevel,4);
+ h.f.setNow(h.f.now+1);h.missingQuotes(true);await h.runtime.tick();
+ group=h.lifecycle().read(h.key).groups.find(r=>r.rootCauseId==='system/quote-reader-failed');
+ assert.equal(group.status,'unknown');assert.equal(group.resolvedAt,null);
+ h.missingQuotes(false);await h.runtime.tick();
+ group=h.lifecycle().read(h.key).groups.find(r=>r.rootCauseId==='system/quote-reader-failed');
+ assert.equal(group.status,'resolved');assert.equal(group.events.at(-1).kind,'resolved');
+ assert.equal(group.lastValidRisk.riskLevel,4);assert.equal(group.events[0].evidence[0].dataState,'interrupted');
+ // The original general-message cooldown still applies to a clearance; only
+ // a severe escalation bypasses it. State recovery itself is immediate.
+ const sentClearances=()=>h.sent.filter(r=>r.message.includes('解除观察')&&r.message.includes('原后端已完成对应恢复核验'));
+ for(let attempt=0;attempt<6&&sentClearances().length<2;attempt++){
+  h.f.setNow(h.f.now+120001);await h.runtime.tick();
+ }
+ const clearances=sentClearances();assert.equal(clearances.length,2);assert.ok(clearances.every(r=>r.options.beforeSend().ok));
+ h.quoteFields({quoteAt:h.f.now-15001});assert.ok(clearances.every(r=>r.options.beforeSend().ok===false));
 });
 
 test('HTTP-facing notification updates require the currently authoritative account epoch and CAS revision',async t=>{
