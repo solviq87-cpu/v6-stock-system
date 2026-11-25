@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Offline, read-only evidence reconciliation across the 120 registered routes.
+ * Offline, read-only evidence reconciliation across the registered routes.
  * A route listing is not a feed connection. The input is a previously saved
  * ONE-SHOT probe, not a network request or an authority to switch sources.
  * No quote prices, secrets, URLs or raw upstream bytes are copied into output.
@@ -66,17 +66,19 @@ function inspectProbe(snapshot,now){
   }else if(quote!==null||row.price!==null||row.previousClose!==null||row.quoteAgeMs!==null)
    throw Error('失败或未请求记录不能携带可用行情');
   if(snapshot.status==='outside-weekday-session-window'&&
-      (row.status!=='not-requested'||row.elapsedMs!==0)||
+      (row.status!=='not-requested'||row.elapsedMs!==0||row.httpStatus!==null)||
      snapshot.status!=='outside-weekday-session-window'&&row.status==='not-requested')
    throw Error('健康快照休市和请求状态冲突');
   const age=now-ended;
+  const attempted=row.status!=='not-requested';
   const current= snapshot.status==='completed-unverified'&&
      row.status==='fresh-source-unverified'&&age<=15000&&
      now-quote<=15000&&session(now);
   observations.set(row.provider,{
     lastProbeStatus:row.status,reportAt:new Date(ended).toISOString(),
     probeAgeMs:age,originalQuoteAgeMs:quote===null?null:now-quote,
-    state:current?'recent-original-quote-unverified':
+    attempted,successfulQuoteObservation:withQuote,
+    state:!attempted?'not-requested':current?'recent-original-quote-unverified':
       snapshot.status==='clock-regressed'?'clock-regressed':
       age>15000?'historical-probe-only':
       row.status==='fresh-source-unverified'?'quote-expired-at-audit':row.status,
@@ -84,7 +86,8 @@ function inspectProbe(snapshot,now){
   });
  }
  return {observations,report:{code:snapshot.code,reportAt:new Date(ended).toISOString(),
-  status:snapshot.status,ageMs:now-ended,providerCount:observations.size}};
+  status:snapshot.status,ageMs:now-ended,providerCount:observations.size,
+  attemptedProviderCount:[...observations.values()].filter(x=>x.attempted).length}};
 }
 function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
  if(!validMs(asOf))throw Error('数据源审核时钟无效');
@@ -93,6 +96,8 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
  const byAccess={},byEvidenceState={},byMarket={};
  const routes=registry.sources.map(source=>{
   const probe=observations.get(source.id);
+  const attempted=probe?.attempted===true;
+  const successfulQuote=attempted?probe.successfulQuoteObservation:null;
   const state=probe?.state??'not-probed';
   byAccess[source.access]=(byAccess[source.access]||0)+1;
   byEvidenceState[state]=(byEvidenceState[state]||0)+1;
@@ -100,29 +105,48 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
   return {id:source.id,market:source.market,dataClass:source.dataClass,
    access:source.access,upstreamGroup:source.upstreamGroup,
    upstreamUnique:!source.upstreamGroup.startsWith('multi:'),
-   observedOnThisExactRoute:!!probe,observationState:state,
+   reportedOnThisExactRoute:!!probe,attemptedOnThisExactRoute:attempted,
+   // Compatibility name: an observation means an actual attempt, including a
+   // failed response. A no-fetch report row is not an endpoint observation.
+   observedOnThisExactRoute:attempted,observationState:state,
+   successfulQuoteObservation:successfulQuote,
+   recentQuoteAtAudit:attempted?probe.recentAtAudit:null,
    lastProbeStatus:probe?.lastProbeStatus??null,
-   lastObservedAt:probe?.reportAt??null,
+   lastReportedAt:probe?.reportAt??null,
+   lastObservedAt:attempted?probe.reportAt:null,
    originalQuoteAgeMs:probe?.originalQuoteAgeMs??null,
-   licensedForLive:false,exchangeVerified:false,canTrade:false,
+   phases:{registration:'registered',report:probe?'reported':'not-reported',
+    attempt:attempted?'attempted':probe?'not-requested':'unknown',
+    singleQuote:successfulQuote===true?'observed-unverified':attempted?'no-usable-quote':'unknown',
+    sustainedAvailability:'unknown',authorization:'unknown',productionActivation:'unknown'},
+   sustainedAvailabilityVerified:null,observationWindow:null,effectiveObservationDays:null,
+   licensedForLive:null,productionEnabled:null,exchangeVerified:false,canTrade:false,
    activeByThisAudit:false};
  });
+ const reported=routes.filter(x=>x.reportedOnThisExactRoute);
  const probed=routes.filter(x=>x.observedOnThisExactRoute);
  const observedUpstreams=[...new Set(probed.map(x=>x.upstreamGroup))].sort();
- return {schemaVersion:1,mode:'read-only-registered-source-readiness-evidence',
+ return {schemaVersion:2,mode:'read-only-registered-source-readiness-evidence',
   auditedAt:new Date(asOf).toISOString(),
-  status:report?'observational-evidence-unverified':'registry-only-no-probe',
+  status:probed.length?'observational-evidence-unverified':report?'report-only-no-attempt':'registry-only-no-probe',
   summary:{registeredRoutes:catalog.routeCount,
+   reportedExactRoutes:reported.length,
+   attemptedExactRoutes:probed.length,
    observedExactRoutes:probed.length,
+   successfulQuoteObservations:routes.filter(x=>x.successfulQuoteObservation===true).length,
+   recentQuotesAtAudit:routes.filter(x=>x.recentQuoteAtAudit===true).length,
+   unreportedRoutes:routes.length-reported.length,
+   unattemptedRoutes:routes.length-probed.length,
    unobservedRoutes:routes.length-probed.length,
    observedUpstreamLabels:observedUpstreams.length,
    independentlyAuthenticatedPublishers:0,
-   licensedLiveSources:0,productionActiveSourcesVerified:0,
+   licensedLiveSources:0,licensedLiveSourcesVerified:0,
+   sustainedAvailabilitySourcesVerified:0,productionActiveSourcesVerified:0,
    guardedResearchRoutes:byAccess['guarded-research']||0,
    byAccess,byMarket,byEvidenceState},
   probe:report,routes,canTrade:false,canNotify:false,canTrain:false,
   verifiedLive:false,providerIndependenceVerified:false,autoEnableNewProviders:false,
   qualityProvesPriceAccuracy:false,
-  note:'登记、受控研究接口和单次网页探测各有不同证据门槛。只按确切来源ID核对，不把共用上游的SDK算成已探测或独立来源；超过15秒的快照只是历史记录。本报告不发网络请求、不开启任何来源或交易，也不证明许可、真实开市与长期可用率。'};
+  note:'有报告行、实际尝试、取得一次可校验但未认证的报价、审核时仍在15秒内分别统计。observedExactRoutes仅为attemptedExactRoutes兼容别名，失败尝试不等于成功；not-requested不计尝试。只按确切来源ID核对，不把同上游SDK算成已探测或独立来源。持续稳定、授权与生产启用保持unknown/null；各Verified计数和licensedLiveSources=0仅表示本证据没有证明，不断言实际系统全部未授权或未启用。本报告不联网、不启用来源或交易，不证明真实开市与长期可用率。'};
 }
 module.exports={auditRegisteredSourceReadiness};

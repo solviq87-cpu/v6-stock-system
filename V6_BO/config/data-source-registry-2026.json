@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "scope": "source-discovery-and-research-governance",
-  "updatedOn": "2026-11-15",
+  "updatedOn": "2026-11-26",
   "productionEntitlementGranted": false,
   "autoEnableNewProviders": false,
   "defaultCanTrade": false,
@@ -34,8 +34,8 @@
       "market": "CN",
       "access": "permission-review",
       "adapter": "public-quote-probe",
-      "evidenceUrl": "https://github.com/zxygithub/baostock",
-      "note": ""
+      "evidenceUrl": "https://finance.sina.com.cn/",
+      "note": "Publisher identity only; public quote API availability, terms and data entitlement remain unverified. The former BaoStock third-party repository was unrelated evidence."
     },
     {
       "id": "baostock",
@@ -44,8 +44,8 @@
       "market": "CN",
       "access": "guarded-research",
       "adapter": "optional-research-sources.py",
-      "evidenceUrl": "https://github.com/zxygithub/baostock",
-      "note": ""
+      "evidenceUrl": "https://pypi.org/project/baostock/",
+      "note": "SDK publisher package links to www.baostock.com; the zxygithub SQLite downloader is a separate third-party project, not the provider SDK. Existing guarded research scope unchanged."
     },
     {
       "id": "mootdx",
@@ -1206,6 +1206,53 @@
       "adapter": "candidate",
       "evidenceUrl": "https://www.bankofcanada.ca/valet/docs",
       "note": "Bank Canada Valet API official datasets"
+    },
+    {
+      "id": "tickflow",
+      "upstreamGroup": "multi:tickflow-unverified",
+      "dataClass": "market-data-research-candidate",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://docs.tickflow.org/zh-Hans/quickstart",
+      "note": "Documentation-only candidate. Anonymous free server provides historical daily-or-longer bars, not intraday quotes. Registered Free is a separate credential-gated service. No API calls, credentials, enabled adapter or original-publisher independence certified.",
+      "documentationReview": {
+        "reviewedOn": "2026-11-26",
+        "references": ["https://tickflow.org/pricing/", "https://docs.tickflow.org/zh-Hans/faq", "https://tickflow.org/legal/terms/"],
+        "stage": "documentation-reviewed",
+        "adapterImplemented": false,
+        "enabledByRegistration": false,
+        "authorizationVerified": null,
+        "productionEnabled": null,
+        "sustainedAvailabilityVerified": null,
+        "anonymousHistory": {"intradayUpdates": false, "quoteAvailable": false, "requestsPerMinute": null, "frequency": "daily-or-longer"},
+        "registeredFree": {"credentialsRequired": true, "requestsPerMinuteDeclared": 10, "symbolsPerRequestDeclared": 5, "universeQuery": false},
+        "dataContract": {"sourceTimeFieldDeclared": "timestamp", "sourceTimeUnitDeclared": "milliseconds", "sourceTimeSemanticsVerified": null, "originalQuoteAt": null, "delayMs": null, "delayed": null, "historicalAdjustmentDefaultDeclared": "forward-proportional", "adjustmentVerified": null, "volumeUnit": null, "canTrade": false},
+        "unresolved": ["original upstream publisher", "operating legal identity", "terms body", "quote timestamp semantics", "actual freshness and coverage", "volume units"]
+      }
+    },
+    {
+      "id": "ashareapi",
+      "upstreamGroup": "multi:ashareapi-unverified",
+      "dataClass": "market-data-research-candidate",
+      "market": "GLOBAL",
+      "access": "registered-only",
+      "adapter": "candidate",
+      "evidenceUrl": "https://ashareapi.com/docs/endpoints/quote/",
+      "note": "Distinct from mpquant/Ashare. Anonymous quote documentation declares a five-minute refresh and date-only original time, insufficient for the original 15-second execution gate. Paid access does not establish original quote time or entitlement. No requests or activation performed.",
+      "documentationReview": {
+        "reviewedOn": "2026-11-26",
+        "references": ["https://ashareapi.com/endpoints/", "https://ashareapi.com/terms/", "https://github.com/ashareapi/ashareapi-python"],
+        "stage": "documentation-reviewed",
+        "adapterImplemented": false,
+        "enabledByRegistration": false,
+        "authorizationVerified": null,
+        "productionEnabled": null,
+        "sustainedAvailabilityVerified": null,
+        "anonymousLimits": {"automatedRequestsPerMinuteDeclared": 2, "browserRequestsPerMinuteDeclared": 5, "maximumBarsDeclared": 250, "dailyRowsDeclared": 100000, "quoteRefreshSecondsDeclared": 300, "symbolsPerRequestVerified": null},
+        "dataContract": {"sourceTimeFieldDeclared": "date", "sourceTimeKindDeclared": "trading-date-only", "sourceTimeSemanticsVerified": null, "originalQuoteAt": null, "delayMs": null, "delayed": null, "staleAgeOriginDeclared": "provider-last-successful-fetch-not-original-quote-time", "dailyAdjustmentDeclared": "forward-adjusted", "minuteAdjustmentDeclared": "unadjusted", "adjustmentVerified": null, "quoteVolumeUnitDeclared": "100-share-lot", "volumeUnit": null, "amountUnitDeclared": "CNY", "canTrade": false},
+        "unresolved": ["original upstream publisher", "operating legal identity", "original intraday quote time", "single-symbol versus batch documentation conflict", "actual coverage and latency", "redistribution and execution entitlement"]
+      }
     }
   ],
   "researchRepositories": [
@@ -1220,9 +1267,9 @@
       "finding": "Eastmoney downstream wrapper"
     },
     {
-      "name": "BaoStock",
+      "name": "BaoStock SQLite downloader (third-party)",
       "url": "https://github.com/zxygithub/baostock",
-      "finding": "provider protocol includes volume shares, amount CNY, adjustment and trading status"
+      "finding": "Third-party downloader, not the BaoStock provider SDK. Official package identity is https://pypi.org/project/baostock/; no authorization or connectivity inherited from this repository."
     },
     {
       "name": "Ashare",

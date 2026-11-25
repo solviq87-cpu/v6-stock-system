@@ -46,7 +46,8 @@
     "research:sector:close:freeze": "npm --prefix V6_BO run research:sector:close:freeze --",
     "research:sector:pair:register": "npm --prefix V6_BO run research:sector:pair:register --",
     "news:evidence": "npm --prefix V6_BO run news:evidence --",
-    "research:learning:status": "npm --prefix V6_BO run research:learning:status --"
+    "research:learning:status": "npm --prefix V6_BO run research:learning:status --",
+    "data:sources:readiness": "npm --prefix V6_BO run data:sources:readiness --"
   },
   "engines": {
     "node": ">=22.6"

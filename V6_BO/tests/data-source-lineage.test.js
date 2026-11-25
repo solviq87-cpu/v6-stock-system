@@ -7,7 +7,7 @@ const legacy=require('../config/data-source-catalog.json');
 const {sourceLineage,resolveUpstream,validateRegistry,sourceSummary}=require('../src/core/data-source-lineage');
 test('wide source inventory is registered and tied to original publishers rather than counting SDK aliases',()=>{
  const r=validateRegistry();
- assert.equal(r.routeCount,120);assert.ok(r.claimedUpstreamGroups>=70);
+ assert.equal(r.routeCount,registry.sources.length);assert.ok(r.claimedUpstreamGroups>=70);
  assert.ok(registry.researchRepositories.length>=30);
  assert.equal(r.underlyingProvidersVerified,0);
  assert.equal(r.authorizedLiveFeedsVerified,0);
@@ -65,7 +65,7 @@ test('all registered routes have source evidence, controlled permissions and no 
 test('dedicated registry audit is real executable and explicitly not a live connectivity test',()=>{
  const data=JSON.parse(execFileSync(process.execPath,[path.resolve(__dirname,'../scripts/audit-data-source-lineage.js')],{encoding:'utf8'}));
  assert.equal(data.ok,true);
- assert.equal(data.routeCount,120);
+ assert.equal(data.routeCount,registry.sources.length);
  assert.equal(data.authorizedLiveFeedsVerified,0);
  assert.equal(data.canTrade,false);
 });
@@ -85,7 +85,7 @@ test('isolated server without mounted registry keeps bootable module but refuses
 
 test('official SEC, ECB, BOJ and Treasury routes count underlying publishers, not duplicate SDKs',()=>{
  const s=validateRegistry();
- assert.equal(s.routeCount,120);assert.equal(s.canTrade,false);
+ assert.equal(s.routeCount,registry.sources.length);assert.equal(s.canTrade,false);
  for(const id of ['sec-edgar','ecb','boj-statistics','us-treasury-fiscal','us-eia','japan-estat']){
   assert.equal(sourceLineage(id).known,true,id);
   assert.equal(sourceLineage(id).active,false,id);
@@ -104,4 +104,35 @@ test('official SEC, ECB, BOJ and Treasury routes count underlying publishers, no
  assert.equal(sourceLineage('sec-edgar').verifiedIndependent,false);
  assert.equal(registry.sources.find(x=>x.id==='sec-edgar').adapter,'sec-companyfacts.js');
  assert.equal(registry.sources.find(x=>x.id==='ecb').adapter,'ecb-fx-daily.js');
+});
+
+test('new documentary candidates keep unknown upstream/time/entitlement and cannot inherit a live adapter',()=>{
+ for(const id of ['tickflow','ashareapi']){
+  const route=registry.sources.find(s=>s.id===id),lineage=sourceLineage(id),review=route.documentationReview;
+  assert.equal(route.access,'registered-only');assert.equal(route.adapter,'candidate');assert.equal(lineage.upstreamAmbiguous,true);
+  assert.equal(resolveUpstream(id).group,null);assert.equal(lineage.canTrade,false);assert.equal(lineage.active,false);
+  assert.equal(review.stage,'documentation-reviewed');assert.equal(review.adapterImplemented,false);assert.equal(review.enabledByRegistration,false);
+  for(const key of ['authorizationVerified','productionEnabled','sustainedAvailabilityVerified'])assert.equal(review[key],null,key);
+  for(const key of ['originalQuoteAt','sourceTimeSemanticsVerified','delayMs','delayed','adjustmentVerified','volumeUnit'])assert.equal(review.dataContract[key],null,key);
+  assert.equal(review.dataContract.canTrade,false);
+ }
+ const tick=registry.sources.find(s=>s.id==='tickflow').documentationReview;
+ assert.equal(tick.anonymousHistory.quoteAvailable,false);assert.equal(tick.anonymousHistory.intradayUpdates,false);
+ assert.equal(tick.registeredFree.credentialsRequired,true);assert.equal(tick.registeredFree.requestsPerMinuteDeclared,10);
+ const ashare=registry.sources.find(s=>s.id==='ashareapi').documentationReview;
+ assert.equal(ashare.anonymousLimits.automatedRequestsPerMinuteDeclared,2);assert.equal(ashare.anonymousLimits.quoteRefreshSecondsDeclared,300);
+ assert.equal(ashare.dataContract.sourceTimeKindDeclared,'trading-date-only');
+ assert.equal(sourceLineage('ashare').adapter,'optional-research-sources.py');
+ assert.equal(registry.sources.find(s=>s.id==='sina').evidenceUrl,'https://finance.sina.com.cn/');
+ assert.equal(registry.sources.find(s=>s.id==='baostock').evidenceUrl,'https://pypi.org/project/baostock/');
+});
+
+// Frozen from dev b9b4447 before adding candidates, not generated from the current registry.
+test('the original 120 source identities survive documentary candidate additions',()=>{
+ const baseline=require('./fixtures/source-registry-120-ids.json');
+ const ids=new Set(registry.sources.map(s=>s.id));
+ assert.equal(baseline.ids.length,120);
+ assert.equal(new Set(baseline.ids).size,120);
+ for(const id of baseline.ids)assert.ok(ids.has(id),'original route retained: '+id);
+ assert.ok(ids.has('tickflow'));assert.ok(ids.has('ashareapi'));
 });
