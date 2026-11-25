@@ -25,10 +25,10 @@ function harness(t) {
   const f=fixture(t),calendar={isOpen:()=>true},root=path.join(f.root,'risk');
   const pre=createPaperApplicationService({file:path.join(f.root,'pre-authority.json'),clock:()=>f.now,calendar});
   pre.initialize(200000);
-  let primary=true,sendCount=0;
+  let primary=true,sendCount=0,pendingPlans=null;
   const options={root,clock:()=>f.now,isPrimary:()=>primary,
     readBook:accountId=>(accountId==='pool'?f.service:pre).read(),readQuotes:()=>({}),
-    readResearch:()=>({}),readPlans:async()=>({ok:true,state:{plans:[]}}),
+    readResearch:()=>({}),readPlans:async()=>{const waiting=pendingPlans;pendingPlans=null;if(waiting)await waiting;return {ok:true,state:{plans:[]}};},
     readObservations:()=>({records:[],alerts:[]}),readAutomaticPolicy:()=>null,readOriginalExitChecks:()=>({}),
     readMarket:()=>({}),readSystem:()=>({}),readStrategy:()=>null,calendar,
     session:()=>({continuous:true,day:aShareCalendarDate(f.now)}),planEnabled:()=>false,
@@ -43,7 +43,7 @@ function harness(t) {
     return {file,restore:()=>fs.writeFileSync(file,original)};
   }
   return {f,root,authority,damage,get runtime(){return runtime;},get sendCount(){return sendCount;},
-    primary:value=>{primary=value;},restart:()=>{runtime=createRiskWorkbenchRuntime(options);return runtime;}};
+    primary:value=>{primary=value;},pausePlans:()=>{let release;pendingPlans=new Promise(r=>release=r);return release;},restart:()=>{runtime=createRiskWorkbenchRuntime(options);return runtime;}};
 }
 
 const activeSystemFacts=report=>report.risks.filter(row=>row.category==='system'&&row.status!=='resolved').flatMap(row=>row.facts||[]);
@@ -139,4 +139,17 @@ test('restart revalidates a corrupt account journal, preserves the sibling histo
   const pre=await h.runtime.read({accountId:'pre'});assert.equal(pre.equityHistory.observations.length,2);
   assert.equal(pre.equityHistory.latest.observedAt,h.f.now);visibleRuntimeFailure(await h.runtime.read({accountId:'pool'}));
   assert.equal(fs.readFileSync(broken.file,'utf8'),'{}');assert.deepEqual(h.authority(),authority);assert.equal(h.sendCount,0);
+});
+
+
+test('a current risk pass has its own two-account completion receipt; in-flight or revoked observations cannot reuse history',async t=>{
+ const {buildSystemReadiness}=require('../src/core/system-readiness');
+ const h=harness(t),authority=h.authority();const ready=()=>buildSystemReadiness({now:h.f.now,risk:h.runtime.status()}).components.find(r=>r.id==='risk-observation');
+ const first=await h.runtime.tick();assert.equal(ready().status,'normal');assert.equal(first.completedSequence,first.attemptSequence);
+ h.f.setNow(BASE+60000);let release=h.pausePlans();const running=h.runtime.tick();
+ assert.equal(h.runtime.status().running,true);assert.equal(ready().status,'unverified');assert.equal(h.runtime.status().lastObservedAt,first.lastObservedAt);
+ release();const second=await running;assert.equal(second.running,false);assert.equal(second.completedSequence,second.attemptSequence);assert.equal(ready().status,'normal');
+ h.f.setNow(BASE+120000);release=h.pausePlans();const revoked=h.runtime.tick();h.primary(false);release();await revoked;
+ assert.notEqual(h.runtime.status().completedSequence,h.runtime.status().attemptSequence);assert.equal(h.runtime.status().lastObservedAt,second.lastObservedAt);
+ h.primary(true);assert.notEqual(ready().status,'normal');assert.deepEqual(h.authority(),authority);assert.equal(h.sendCount,0);
 });

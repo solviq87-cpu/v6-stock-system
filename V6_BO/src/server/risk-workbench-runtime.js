@@ -24,9 +24,10 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   let plans=[],plansAt=0,plansError='冻结计划尚未读取',planLoad=null,observedDay='',observationAt=0;
   let observations=[],planAlerts=[],observationError=null,busy=false;
   let observationGeneration=0,observationsCachedGeneration=-1,observationRevision=null;
-  const status={lastObservedAt:null,lastError:null,accountErrors:{pool:null,pre:null},
+  const status={lastObservedAt:null,lastAttemptAt:null,running:false,attemptSequence:0,completedSequence:null,lastError:null,accountErrors:{pool:null,pre:null},
     accountChecks:{pool:null,pre:null},privateChannel:'unconfigured',readOnly:true};
   const samples=new Map();
+  const snapshotStatus=()=>({...status,accountErrors:{...status.accountErrors},accountChecks:{...status.accountChecks}});
 
   function cacheCommittedObservations(value,day,at,generation) {
     if(!value||!Array.isArray(value.records)||!Array.isArray(value.alerts)||value.day!=null&&value.day!==day)
@@ -334,13 +335,15 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     }catch{status.lastError='计划风险提醒证据无法核验，原观察保留且不补发未知条件';return false;}
   }
   async function tick() {
-    if(busy||!isPrimary())return {...status};busy=true;
-    status.privateChannel=privateReady()?'configured':'unconfigured';
+    if(busy||!isPrimary())return snapshotStatus();busy=true;status.running=true;
+    status.lastAttemptAt=clock();const attempt=++status.attemptSequence,completed=new Set();
     try{
+      status.privateChannel=privateReady()?'configured':'unconfigured';
       for(const accountId of ['pool','pre']){
         if(!isPrimary())break;
         try{
         const report=await read({accountId});
+        if(!isPrimary())break;
         if(!report.accountEpoch)throw Error('原账户期间无法核验');
         // Sampling retains an explicit cadence; reads and page refreshes never
         // create observations or earn continuity that was not observed.
@@ -351,15 +354,20 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
         const view=notifications.observe({accountId,accountEpoch:report.accountEpoch,risks:report.risks,observedAt:clock(),complete:true});
         const candidates=new Set(list(view.notificationCandidates).map(g=>g.rootCauseId));
         for(const risk of report.risks)if(candidates.has(risk.rootCauseId))dispatch(report,risk);
-        status.accountErrors[accountId]=null;
+        status.accountErrors[accountId]=null;completed.add(accountId);
         }catch{status.accountErrors[accountId]=accountId+' 派生风险观察未完成；保留原账户、原门禁和已预留通知记录';}
         status.accountChecks[accountId]=clock();
       }
       status.lastError=Object.values(status.accountErrors).filter(Boolean).join('；')||null;
-      if(!status.lastError&&isPrimary())status.lastObservedAt=clock();
-    }
-    finally{busy=false;}
-    return {...status,accountErrors:{...status.accountErrors},accountChecks:{...status.accountChecks}};
+      const finishedAt=clock();
+      if(!status.lastError&&isPrimary()&&completed.size===2&&Number.isSafeInteger(status.lastAttemptAt)&&
+         Number.isSafeInteger(finishedAt)&&finishedAt>=status.lastAttemptAt&&['pool','pre'].every(id=>
+           Number.isSafeInteger(status.accountChecks[id])&&status.accountChecks[id]>=status.lastAttemptAt&&status.accountChecks[id]<=finishedAt)){
+        status.lastObservedAt=finishedAt;status.completedSequence=attempt;
+      }
+    }catch{status.lastError='原风险观察状态暂不可用';}
+    finally{busy=false;status.running=false;}
+    return snapshotStatus();
   }
   async function update(input,{actor,authorized=()=>false}={}) {
     const permitted=()=>{if(typeof authorized!=='function'||authorized()!==true)throw Error('当前编辑授权已失效，提醒状态未修改');};
@@ -374,6 +382,6 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     if(input.action==='view')return notifications.markViewed({...common,rootCauseId:input.rootCauseId});
     return notifications.setMuted({...common,rootCauseId:input.rootCauseId,classification:input.classification,mutedUntil:input.mutedUntil});
   }
-  return {read,tick,update,observePlans,sendPlanAlert,invalidate:()=>{plansAt=0;},status:()=>({...status})};
+  return {read,tick,update,observePlans,sendPlanAlert,invalidate:()=>{plansAt=0;},status:snapshotStatus};
 }
 module.exports={createRiskWorkbenchRuntime};

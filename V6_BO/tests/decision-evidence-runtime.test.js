@@ -8,7 +8,7 @@ function setup(patch={}){
  const dependencies={clock:()=>now,isPrimary:()=>primary,session:()=>({day,continuous}),
   readArchive:async()=>{archiveReads++;return {ok:true,state:{plans:[{id:'p',intendedDate:day,decisionAuthority:'fayo-decision-center'}]}};},
   readContext:async()=>({now:now-1}),observe:input=>{observations.push(input);return {records:[{id:now}],alerts:[{id:'entry',day,quoteAt:now-500}]};},
-  store:{async append(batch){writes++;records.push(...batch.records);const alerts=batch.alerts.filter(a=>!seen.has(a.id));alerts.forEach(a=>seen.add(a.id));return {alerts};}},
+  store:{async append(batch){writes++;records.push(...batch.records);const alerts=batch.alerts.filter(a=>!seen.has(a.id));alerts.forEach(a=>seen.add(a.id));return {added:batch.records.length,duplicate:0,alerts};}},
   privateReady:()=>configured,sendPrivate:async()=>{sends++;},historyDay:()=>day,historySymbols:()=>['600000','600001','600002','600003'],
   collectHistory:async input=>{collections++;return {status:'collected',summary:{symbols:input.symbols},missing:['原始源端时刻']};},...patch};
  const runtime=createDecisionEvidenceRuntime(dependencies);
@@ -120,16 +120,28 @@ test('invalidating an archive while a plan context is in flight prevents stale o
 });
 test('committed alert with a missing or future original quote time never dispatches',async()=>{
  for(const quoteAt of [undefined,null,NaN,time+1,time-15001]){
-  const x=setup({store:{async append(){return {alerts:[{id:'bad',day,quoteAt}]};}}});
+  const x=setup({store:{async append(){return {added:1,duplicate:0,alerts:[{id:'bad',day,quoteAt}]};}}});
   x.set({configured:true});await x.runtime.tick();assert.equal(x.counts().sends,0);
  }
- const valid=setup({store:{async append(){return {alerts:[{id:'valid',day,quoteAt:time-15000}]};}}});
+ const valid=setup({store:{async append(){return {added:1,duplicate:0,alerts:[{id:'valid',day,quoteAt:time-15000}]};}}});
  valid.set({configured:true});await valid.runtime.tick();assert.equal(valid.counts().sends,1);
 });
 test('invalidation during persistence retains committed records but blocks stale outbound reminders',async()=>{
  let release;
  const x=setup({store:{append:()=>new Promise(r=>{release=r;})}});
  x.set({configured:true});const running=x.runtime.tick();await new Promise(setImmediate);
- x.runtime.invalidate();release({alerts:[{id:'committed',day,quoteAt:time}]});
+ x.runtime.invalidate();release({added:1,duplicate:0,alerts:[{id:'committed',day,quoteAt:time}]});
  await running;assert.equal(x.counts().sends,0);assert.equal(x.observations.length,1);
+});
+
+
+test('plan health uses a completed current persistence receipt rather than a previous observation',async()=>{
+ const {buildSystemReadiness}=require('../src/core/system-readiness');
+ let read=0,release;const x=setup({readContext:async()=>++read===2?new Promise(r=>release=r):({now:time-1})});
+ const ready=()=>buildSystemReadiness({now:time,plans:x.runtime.status()}).components.find(r=>r.id==='plan-observer');
+ await x.runtime.tick();assert.equal(ready().status,'normal');assert.equal(x.runtime.status().completedSequence,x.runtime.status().attemptSequence);
+ const running=x.runtime.tick();await new Promise(setImmediate);assert.equal(ready().status,'unverified');
+ x.runtime.invalidate();release({now:time-1});await running;assert.equal(ready().status,'unverified');assert.equal(x.counts().writes,1);
+ assert.notEqual(x.runtime.status().completedSequence,x.runtime.status().attemptSequence);
+ await x.runtime.tick();assert.equal(ready().status,'normal');assert.equal(x.counts().writes,2);
 });

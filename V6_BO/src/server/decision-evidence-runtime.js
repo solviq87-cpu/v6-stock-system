@@ -22,17 +22,17 @@ function selectActivePlans(plans,book,day){
 function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArchive,readContext,
   observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory,trace=runtimeTrace}) {
   let plans=[],loadedAt=0,epoch=0,observing=false,collecting=false,historyKey='',attempts=0,nextHistoryAt=0;
-  const state={status:'waiting',lastObservedAt:null,lastAttemptAt:null,lastSuccessAt:null,planCount:0,activePlanCount:0,lastError:null,
+  const state={status:'waiting',lastObservedAt:null,lastAttemptAt:null,lastSuccessAt:null,lastCompletedAt:null,attemptSequence:0,completedSequence:null,planCount:0,activePlanCount:0,lastError:null,
     history:{status:typeof collectHistory==='function'?'waiting':'delegated',owner:typeof collectHistory==='function'?'legacy-optional':'decision-center-background',day:null,attempts:0}};
-  const status=()=>({...state,history:{...state.history},privateChannel:privateReady()?'configured':'unconfigured',
+  const status=()=>({...state,running:observing,history:{...state.history},privateChannel:privateReady()?'configured':'unconfigured',
     observationOnly:true,accountMutated:false});
-  function invalidate(){loadedAt=0;epoch++;}
+  function invalidate(){loadedAt=0;epoch++;state.completedSequence=null;}
   async function tick(){
     if(observing||!isPrimary())return status();
     const initial=session(clock());
     if(!initial.continuous)return status();
-    observing=true;state.lastAttemptAt=clock();const tickEpoch=epoch;
-    return trace.async('task.decision-evidence',async root=>{
+    observing=true;state.lastAttemptAt=clock();const tickEpoch=epoch,attempt=++state.attemptSequence;
+    await trace.async('task.decision-evidence',async root=>{
     try{
       if(!loadedAt||clock()<loadedAt||clock()-loadedAt>=60000){
         const version=epoch,archive=await readArchive();
@@ -57,10 +57,21 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
       const beforePersist=session(clock());
       if(tickEpoch!==epoch||!isPrimary()||!beforePersist.continuous||beforePersist.day!==initial.day){root.mark('blocked','BUSINESS_REJECTED');return status();}
       const committed=await trace.async('risk.plan-persist',()=>store.append({records:result.records,alerts:result.alerts,now:observedAt}));
+      // A returned callback alone is not proof that the original archive
+      // accepted every observation. Count newly persisted and exact duplicates.
+      const validReceipt=Number.isSafeInteger(committed?.added)&&committed.added>=0&&
+        Number.isSafeInteger(committed?.duplicate)&&committed.duplicate>=0&&
+        committed.added+committed.duplicate===result.records.length&&Array.isArray(committed.alerts);
+      if(!validReceipt){root.mark('unknown','SOURCE_UNAVAILABLE');state.status='observation-receipt-unverified';return status();}
+      const completedAt=clock(),completedSession=session(completedAt);
+      if(tickEpoch!==epoch||!isPrimary()||!completedSession.continuous||completedSession.day!==initial.day||
+         !Number.isSafeInteger(completedAt)||completedAt<state.lastAttemptAt||completedAt<observedAt){
+        root.mark('blocked','BUSINESS_REJECTED');state.status='observation-receipt-unverified';return status();
+      }
       if(!result.records.length)root.mark('unknown','SOURCE_UNAVAILABLE');
       state.status=result.records.length?'observing':'missing-current-evidence';
       state.lastObservedAt=observedAt;state.lastError=null;
-      if(result.records.length)state.lastSuccessAt=observedAt;
+      if(result.records.length){state.lastSuccessAt=observedAt;state.lastCompletedAt=completedAt;state.completedSequence=attempt;}
       for(const alert of committed.alerts||[]){
         // Dedupe is committed before dispatch. Never replay an old condition
         // after restart, a missing webhook, a role change or an uncertain send.
@@ -79,6 +90,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     finally{observing=false;}
     return status();
     });
+    return status();
   }
   async function tickHistory(){
     if(collecting||!isPrimary()||typeof collectHistory!=='function'||typeof historyDay!=='function'||typeof historySymbols!=='function')return status();

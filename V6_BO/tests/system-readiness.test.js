@@ -74,7 +74,7 @@ test('a completed yielding periodic task needs its own success receipt, not an o
 });
 
 test('risk health requires both original account checks to belong to the completed observation',()=>{
- const inspect=patch=>row(buildSystemReadiness({now,risk:{lastObservedAt:now-20,accountChecks:{pool:now-30,pre:now-25},...patch}}),'risk-observation');
+ const inspect=patch=>row(buildSystemReadiness({now,risk:{running:false,attemptSequence:2,completedSequence:2,lastAttemptAt:now-40,lastObservedAt:now-20,accountChecks:{pool:now-30,pre:now-25},...patch}}),'risk-observation');
  assert.equal(inspect({}).status,'normal');
  for(const checks of [{pool:now-30},{pool:now-10,pre:now-25},{pool:now-30,pre:now+1}]){
   const actual=inspect({accountChecks:checks});assert.equal(actual.status,'unverified');
@@ -82,4 +82,24 @@ test('risk health requires both original account checks to belong to the complet
   assert.equal(actual.lastSuccessAt,now-20);assert.equal(actual.riskSafetyCertified,false);
  }
  assert.equal(inspect({accountErrors:{pre:'private /tmp/account'}}).status,'failed');
+});
+
+
+test('historical completion receipts cannot certify an in-flight or mismatched current task',()=>{
+ const risk={running:false,attemptSequence:3,completedSequence:3,lastAttemptAt:now-40,lastObservedAt:now-10,accountChecks:{pool:now-30,pre:now-20}};
+ const plan={status:'observing',running:false,attemptSequence:2,completedSequence:2,lastAttemptAt:now-20,lastCompletedAt:now-5,lastSuccessAt:now-21};
+ const a={kind:'history',code:'600000',day:'2026-11-25',at:now-50};
+ const background={running:false,lastAttempt:a,lastResult:{...a,status:'collected',completedAt:now-20},lastSuccessAt:now-20};
+ const attemptHash='a'.repeat(64),feedback={status:'submitted',running:false,lastAttempt:{day:'2026-11-25',recordedAt:now-30,attemptHash},lastResult:{day:'2026-11-25',attemptHash,status:'submitted',recordedAt:now-10},lastSuccessAt:now-10};
+ const inspect=(key,value,id)=>row(buildSystemReadiness({now,[key]:value}),id);
+ assert.equal(inspect('risk',risk,'risk-observation').status,'normal');
+ for(const patch of [{running:true},{completedSequence:2},{lastAttemptAt:now-25},{attemptSequence:undefined}])assert.equal(inspect('risk',{...risk,...patch},'risk-observation').status,'unverified');
+ assert.equal(inspect('plans',plan,'plan-observer').status,'normal');
+ for(const patch of [{running:true},{completedSequence:1},{lastCompletedAt:now-30},{lastSuccessAt:now+1}])assert.equal(inspect('plans',{...plan,...patch},'plan-observer').status,'unverified');
+ assert.equal(inspect('background',background,'history-financial').status,'normal');
+ assert.equal(inspect('background',{...background,lastAttempt:{...a,at:now-5}},'history-financial').status,'unverified');
+ assert.equal(inspect('background',{...background,lastSuccessAt:now-21},'history-financial').status,'unverified');
+ assert.equal(inspect('feedback',feedback,'feedback').status,'normal');
+ assert.equal(inspect('feedback',{...feedback,lastAttempt:{...feedback.lastAttempt,attemptHash:'b'.repeat(64)}},'feedback').status,'unverified');
+ assert.equal(inspect('feedback',{...feedback,lastResult:{status:'unrecorded-next-day'}},'feedback').status,'unverified');
 });

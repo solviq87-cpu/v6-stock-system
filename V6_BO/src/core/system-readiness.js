@@ -74,26 +74,39 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
  // The runtime seals lastObservedAt only after both original accounts were
  // checked without error. During a subsequent partial pass or after a clock
  // inconsistency, retain history without claiming the current pass is healthy.
- const riskSuccess=ts(risk?.lastObservedAt,now);
- const completeRiskChecks=['pool','pre'].every(id=>{
-  const at=ts(risk?.accountChecks?.[id],now);return at!==null&&riskSuccess!==null&&at<=riskSuccess;
+ const currentSequence=value=>value?.running===false&&Number.isSafeInteger(value.attemptSequence)&&
+  value.attemptSequence>0&&value.completedSequence===value.attemptSequence;
+ const riskSuccess=ts(risk?.lastObservedAt,now),riskAttempt=ts(risk?.lastAttemptAt,now);
+ const completeRiskChecks=currentSequence(risk)&&riskAttempt!==null&&riskSuccess!==null&&['pool','pre'].every(id=>{
+  const at=ts(risk?.accountChecks?.[id],now);return at!==null&&at>=riskAttempt&&at<=riskSuccess;
  });
  const riskStatus=replica?'unconfigured':riskError?'failed':completeRiskChecks?'normal':'unverified';
  components.push(component('risk-observation','原风险观察流程',riskStatus,['账户风险显示','风险提醒'],now,{
-  attempt:maxTime(Object.values(risk?.accountChecks||{}),now),success:riskSuccess,
+  attempt:riskAttempt??maxTime(Object.values(risk?.accountChecks||{}),now),success:riskSuccess,
   ...(riskStatus==='unverified'&&riskSuccess?{reason:'RISK_ACCOUNT_RECEIPTS_UNVERIFIED',missing:['两类原账户检查未与本轮完成回执共同核验'],nextAction:'等待原风险观察完成，并核对两类账户回执'}:{}),
   extra:{riskSafetyCertified:false}}));
+ const planAttempt=ts(plans?.lastAttemptAt,now),planDone=ts(plans?.lastCompletedAt,now),planSuccess=ts(plans?.lastSuccessAt,now);
+ const planCurrent=currentSequence(plans)&&planAttempt!==null&&planDone!==null&&planSuccess!==null&&planDone>=planAttempt&&planDone>=planSuccess;
  const pstatus=replica?'unconfigured':plans?.status==='evidence-unavailable'||plans?.lastError?'failed':
-  plans?.status==='observing'&&ts(plans.lastSuccessAt,now)?'normal':plans?.status==='missing-current-evidence'?'missing-data':'unverified';
+  plans?.status==='observing'&&planCurrent?'normal':plans?.status==='missing-current-evidence'?'missing-data':'unverified';
  components.push(component('plan-observer','冻结计划原观察',pstatus,['计划','风险动作','观察通知'],now,{
   attempt:plans?.lastAttemptAt,success:plans?.lastSuccessAt}));
- const last=background?.lastResult;
+ const last=background?.lastResult,backgroundAttempt=background?.lastAttempt;
+ const backgroundAt=ts(backgroundAttempt?.at,now),backgroundDone=ts(last?.completedAt,now);
+ const backgroundCurrent=background?.running===false&&backgroundAt!==null&&backgroundDone!==null&&
+  backgroundDone>=backgroundAt&&backgroundDone===ts(background.lastSuccessAt,now)&&
+  ['kind','code','day','at'].every(key=>backgroundAttempt[key]!=null&&backgroundAttempt[key]===last?.[key]);
  const bstatus=replica?'unconfigured':last?.status==='unavailable'||background?.status==='unavailable'?'failed':
-  last?.status==='incomplete'?'missing-data':last?.status==='collected'&&ts(background?.lastSuccessAt,now)&&background?.running!==true?'normal':'unverified';
+  last?.status==='incomplete'?'missing-data':last?.status==='collected'&&backgroundCurrent?'normal':'unverified';
  components.push(component('history-financial','原历史与财报后台采集',bstatus,['研究证据','历史回验'],now,{
   attempt:background?.lastAttempt?.at,success:background?.lastSuccessAt}));
+ const feedbackAttempt=feedback?.lastAttempt,feedbackResult=feedback?.lastResult;
+ const feedbackAt=ts(feedbackAttempt?.recordedAt,now),feedbackDone=ts(feedbackResult?.recordedAt,now);
+ const feedbackCurrent=feedback?.running===false&&feedbackAt!==null&&feedbackDone!==null&&feedbackDone>=feedbackAt&&
+  feedbackDone===ts(feedback.lastSuccessAt,now)&&feedbackResult?.status==='submitted'&&
+  /^[a-f0-9]{64}$/.test(feedbackAttempt?.attemptHash||'')&&feedbackAttempt.attemptHash===feedbackResult.attemptHash&&feedbackAttempt.day===feedbackResult.day;
  const fstatus=replica||feedback?.status==='disabled-or-replica'?'unconfigured':feedback?.status==='unavailable'?'failed':
-  feedback?.status==='submitted'&&ts(feedback?.lastSuccessAt,now)?'normal':
+  feedback?.status==='submitted'&&feedbackCurrent?'normal':
   ['insufficient-evidence','missing-calendar','missing-session','validation-rejected'].includes(feedback?.status)?'missing-data':'unverified';
  components.push(component('feedback','原反馈送验',fstatus,['模型研究','人工审批'],now,{
   attempt:feedback?.lastAttempt?.recordedAt,success:feedback?.lastSuccessAt,extra:{approvalCertified:false}}));
