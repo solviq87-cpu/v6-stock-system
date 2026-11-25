@@ -7,6 +7,21 @@ const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads')
 const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
+// Diagnostics read private files and may receive native filesystem/JSON errors.
+// Only fixed application messages may cross the worker's private HTTP boundary.
+const diagnosticMessages=new Set([
+ '同请求ID内容冲突','需要有效的研究请求ID','研究查询时点无效','研究时点无效','研究证券无效',
+ '诊断截至时点无效','原生诊断档案输入无效','禁止保存未来研究',
+ '研究历史目录损坏或超限','研究历史链缺失','研究历史完整性校验失败','研究文件权限或容量无效',
+ '研究路径禁止符号链接','研究目录须为0700','私有研究档案校验失败，请检查受控备份',
+ '研究档案达到容量，请归档后继续','单次研究记录超过2MiB','研究档案超过128MiB','研究记录时钟回退，未改写历史',
+ '交互诊断最多 20 只、600 根且总计 6000 根历史'
+]);
+function diagnosticFailure(error){
+ if(error?.code==='WORKSPACE_AUTH_REVOKED')return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存诊断'};
+ if(error?.code==='DIAGNOSTIC_IMPLEMENTATION_UNAVAILABLE')return {ok:false,httpStatus:422,error:'诊断实现版本不可核验，不能复用或保存旧诊断'};
+ return {ok:false,httpStatus:422,error:diagnosticMessages.has(error?.message)?error.message:'研究诊断输入或私有档案校验失败，原记录保留'};
+}
 function runWorkspaceJob(payload,{authorize}={}){
  const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evolution'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input)||['intelligence-feedback','evolution-preferences','evolution-diagnostics'].includes(payload.action);
@@ -67,7 +82,7 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
   if(p.action==='evolution-diagnostics'){
     if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存诊断'};
     try{return await require('../core/intelligence-evolution').runStoredEvolutionDiagnostics(p,{beforeCommit:authorizedCheckpoint});}
-    catch(error){return {ok:false,httpStatus:error.code==='WORKSPACE_AUTH_REVOKED'?403:422,error:error.message};}
+    catch(error){return diagnosticFailure(error);}
   }
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob({...p,

@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {auditPointInTime,indicatorWarmup}=require('../src/core/research-causal-diagnostics');
+const {barsToIndicators,ema}=require('../src/strategy/historical-indicators');
 const {returnStudy}=require('../public/nova/shortline/backtest-analytics.mjs');
 const {signals,parseKCsv,similarCases}=require('../public/nova/shortline/backtest.mjs');
 const fs=require('node:fs'),path=require('node:path');
@@ -26,10 +27,26 @@ test('warmup requires strictly longer reference and reports instability',()=>{
  const bars=Array.from({length:150},(_,i)=>{const close=i<120?100:10;return {date:new Date(Date.UTC(2024,0,i+1)).toISOString().slice(0,10),open:close,high:close+1,low:close-1,close,volume:10000};});
  const r=indicatorWarmup(bars,{lengths:[26,150]});
  assert.equal(r.checks[0].status,'fail');assert.equal(r.checks[1].status,'not-evaluated');
+ const full=barsToIndicators(bars),truncated=barsToIndicators(bars.slice(-26));
+ assert.equal(truncated.macd.dif,0);assert.ok(full.macd.dif<0);
+ const macd=r.checks[0].differences.find(x=>x.key==='macdDif');
+ assert.equal(macd.status,'fail');assert.equal(macd.delta,Math.abs(full.macd.dif-truncated.macd.dif));
+ assert.equal(r.checks[0].differences.find(x=>x.key==='ma20').status,'pass');
  const stable=bars.map(b=>({...b,open:10,high:11,low:9,close:10}));
  assert.equal(indicatorWarmup(stable,{lengths:[60]}).status,'pass');
  assert.equal(indicatorWarmup(stable.slice(0,20)).status,'not-evaluated');
  assert.equal(indicatorWarmup(stable.reverse()).status,'not-evaluated');
+});
+test('warmup passes when truncated history retains the same recursive seed',()=>{
+ // Preserve PR #360's counterexample: a flat prefix leaves the recursive
+ // state unchanged, so a short window can legitimately match the full path.
+ const bars=Array.from({length:150},(_,i)=>{const close=i<125?100:10;return {date:new Date(Date.UTC(2024,0,i+1)).toISOString().slice(0,10),open:close,high:close+1,low:close-1,close,volume:10000};});
+ const short=bars.slice(-26),closes=bars.map(b=>b.close),shortCloses=short.map(b=>b.close);
+ for(const period of [12,26])assert.equal(ema(closes,period).at(-1),ema(shortCloses,period).at(-1));
+ const full=barsToIndicators(bars),truncated=barsToIndicators(short);
+ assert.deepEqual(full.macd,truncated.macd);assert.deepEqual(full.kdj,truncated.kdj);
+ const result=indicatorWarmup(bars,{lengths:[26]});
+ assert.equal(result.status,'pass');assert.ok(result.checks[0].differences.every(x=>x.delta===0&&x.status==='pass'));
 });
 test('net payoff and tail exposure respect mature labels and unknowns',()=>{
  const make=(id,close)=>({id,code:'600000',date:'2025-01-01',decisionAt:'2025-01-01 15:00',outcomes:{5:{close,entry:'2025-01-02',end:'2025-01-08',availableAt:'2025-01-08 15:00'}}});

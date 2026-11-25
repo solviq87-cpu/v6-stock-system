@@ -5,6 +5,14 @@ const arr=x=>Array.isArray(x)?x:[];
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const pct=x=>finite(x)?format(x)+'%':'待证据';
 const label={all:'全部',selected:'入选',observe:'观察',upgraded:'升级',downgraded:'降级',rejected:'淘汰',reentered:'重新入选',invalidated:'失效',unknown:'未知',pass:'通过',fail:'未通过',partial:'部分可用',observed:'已观察',closed:'已闭合',current:'当前阶段',upcoming:'尚未开始',elapsed:'时段已过',missing:'缺少证据',available:'可用','not-evaluated':'尚不可评估','not-validated':'尚未验证','insufficient-data':'证据不足','insufficient-sample':'样本不足','observed-research-only':'研究观察','calendar-unknown':'日历未知','open-day':'交易日','closed-day':'休市','price-path-only':'价格路径观察',aligned:'方向一致',conflict:'存在分歧',up:'向上',down:'向下',flat:'横向',expired:'已过期',valid:'原条件有效',invalid:'失效','requires-review':'待核查',day:'日线',week:'周线',month:'月线',minute:'分时',evaluated:'已评估'};
+Object.assign(label,{'requires-revalidation':'需要重新核验','research-valid':'研究条件仍有效','research-revalidated':'已完成研究复核',
+ 'inside-range':'原计划区间内','outside-range':'超出原计划区间','stop-condition':'触及原止损条件','target-condition':'触及原目标条件',
+ 'not-applicable':'不适用','clues-only':'仅有待核验线索','unverified-clue':'待核验线索',comparable:'同口径可比','not-comparable':'当前口径不可比',
+ pending:'等待原回执',unavailable:'原证据不可用','separate-sources':'按来源分别统计',
+ pathStatistics:'区间路径风险',equalWeight:'四策略等权研究',singleStrategies:'四套原策略',comparisons:'原策略与基准差值',
+ nativeStrategy:'原策略同窗结果',netReturnDifferencePct:'净收益差（百分点）',maxDrawdownDifferencePct:'回撤差（百分点）',
+ predefinedFusionConfigurations:'事先定义的融合配置数',meanCostDragPct:'平均成本拖累（百分点）',accountEquity:'是否为权威账户净值',
+ independentObservations:'是否已证明统计独立',source:'来源',reason:'原因',status:'状态',evidence:'证据',coverage:'覆盖范围'});
 const sections={workflow:'交易日研究流程',market:'市场、财务与信号',lifecycle:'候选与反向证据',research:'检验、竞争与融合',trades:'成交深度复盘',ai:'AI 质量与安全'};
 const columns={code:'代码',name:'名称',status:'状态',relativeStrength:'相对强度',risk:'风险原因',score:'原评分',date:'观察日期',strategy:'策略',source:'来源',knownAt:'取得时间'};
 const priorityNames={risk:'风险与失效条件',workflow:'当前研究阶段',candidates:'候选跟踪',market:'市场相对强度',research:'验证进度',trades:'成交复盘'};
@@ -34,7 +42,7 @@ function reportSummary(report){
 }
 function riskSummary(r){
  const counter=r.workflow?.counterEvidence,validity=r.market?.signalValidity;
- return [...arr(counter?.opposition).map(x=>x.reason||x.text),...arr(validity?.reasons)].filter(Boolean).join('；')||'缺少可核对的风险结论，请检查来源与失效条件。';
+ return [...arr(counter?.opposition).map(x=>x.reason||x.text),...arr(r.market?.financialHealth?.risks).map(x=>x.reason),...arr(validity?.reasons)].filter(Boolean).join('；')||'缺少可核对的风险结论，请检查来源与失效条件。';
 }
 function priorityCard(id,r){
  const w=r.workflow||{},s=r.statistics||{};
@@ -75,13 +83,16 @@ export function renderEvolution(ctx){
  async function load({saved=false}={}){
   const turn=++epoch;status.textContent='读取截至所选时点的研究证据…';reload.disabled=true;
   try{
-   const r=await ctx.api('/api/research/evolution?'+query(),{signal:ctx.signal});if(!current(turn))return;
+   const requested=query(),r=await ctx.api('/api/research/evolution?'+requested,{signal:ctx.signal});if(!current(turn))return;
    if(!r.ok||r.result?.mode!=='fayo-intelligence-evolution')throw Error(r.error||'研究报告不可用。');
    data=r.result;diagnostics=null;
+   // The original archive chooses the initial symbol. Read that explicit
+   // symbol once more so the server can attach its existing live quote.
+   if(!requested.has('symbol')&&/^\d{6}$/.test(data.code||'')){symbol.value=data.code;return await load({saved});}
    if((!loaded&&!memory.evolution)||saved){draft={...defaults(),...data.workflow.preferences.value};revision=data.workflow.preferences.revision;if(!revision)draft.expanded=['workflow','market','lifecycle'];dirty=false;pending=null;}
    applyControls();if(!symbol.value)symbol.value=data.code||draft.selectedCode;
    loaded=true;renderSettings();render();
-   status.textContent=(dirty?'证据已刷新，未保存的布局仍保留。':'已读取 · 布局版本 '+revision)+' · 证据时点 '+dateTime(data.asOf);
+   status.textContent=(dirty?'证据已刷新，未保存的布局仍保留。':'已读取 · 布局版本 '+revision)+' · 研究证券 '+(data.code||'未选择')+' · 证据时点 '+dateTime(data.asOf);
    exportButton.disabled=save.disabled=diagnosticButton.disabled=false;
    if(saved||!memory.evolution)requestAnimationFrame(()=>{if(current(turn))window.scrollTo({top:draft.scrollTop,behavior:'instant'});});
   }catch(error){if(current(turn)){status.textContent=error.message||'读取失败，已有输入保留。';if(!data)panels.replaceChildren(empty('研究档案暂不可用','可稍后重新读取；当前输入仍保留。'));}}
@@ -115,7 +126,10 @@ export function renderEvolution(ctx){
    button('在原回测继续',()=>{const code=symbol.value.trim();ctx.navigate('lab','shortline-backtest'+(/^\d{6}$/.test(code)?'/'+code:''));},'quiet'),
    button('查看原结构化复盘',()=>{const code=symbol.value.trim();ctx.navigate('lab','shortline-review'+(/^\d{6}$/.test(code)?'/'+code:''));},'quiet')));
  root.append(controls,summary,details('我的布局与筛选模板',settings),panels);
- for(const el of [symbol,at,horizon])el.addEventListener('change',()=>{epoch++;reload.disabled=false;diagnosticButton.disabled=!loaded;changed();});
+ for(const el of [symbol,at,horizon])el.addEventListener('change',()=>{
+  epoch++;reload.disabled=false;diagnosticButton.disabled=exportButton.disabled=true;changed();
+  status.textContent='查询条件已改变，请点击“刷新证据”。'+(data?'当前报告仍属于 '+(data.code||'未选择证券')+' · '+dateTime(data.asOf):'');
+ });
  for(const el of [search,state,group])el.addEventListener(el===search?'input':'change',event=>{draft.search=search.value;draft.status=state.value;draft.activeGroup=group.value;changed();if(!event.isComposing)render();});
  search.addEventListener('compositionend',()=>{draft.search=search.value;changed();render();});
  ctx.signal?.addEventListener('abort',()=>{memory.evolution={draft:capture(),revision,dirty,symbol:symbol.value,at:at.value,horizon:horizon.value};epoch++;data=null;diagnostics=null;panels.replaceChildren();summary.replaceChildren();settings.replaceChildren();},{once:true});
@@ -148,13 +162,26 @@ export function renderEvolution(ctx){
   summary.replaceChildren(...draft.homepagePriority.map(id=>priorityCard(id,data)));
   const stages=arr(w.workflow?.stages);
   const workflow=panel('workflow',text(w.workflow?.calendarStatus)+' · '+text(w.workflow?.day),
-   h('div',{class:'fy-evolution-stages'},stages.map(row=>h('article',{class:'fy-evolution-stage '+(row.status==='current'?'is-current':'')},h('h3',{},row.label||row.name||row.id),h('p',{},text(row.status)+' · '+(row.evidenceCount||0)+' 项证据'),h('p',{class:'fy-muted'},row.reason),button('打开相关记录',()=>ctx.navigate('lab',row.id==='post-market'?'shortline-review':'records'),'quiet')))),details('阶段来源与时点',evidence(w.workflow)));
+   h('div',{class:'fy-evolution-stages'},stages.map(row=>h('article',{class:'fy-evolution-stage '+(row.status==='current'?'is-current':'')},
+    h('h3',{},row.label||row.name||row.id),h('p',{},text(row.status)+' · '+(row.evidenceCount||0)+' 条来源引用'),h('p',{class:'fy-muted'},row.reason),
+    details('阶段证据与待办',h('p',{},'阶段截止：'+dateTime(row.evaluatedThrough)),
+     ...arr(row.sections).map(part=>details(part.title+' · '+text(part.status)+' ('+part.count+')',part.note?h('p',{},part.note):null,
+      arr(part.missing).length?list(part.missing):null,evidence(part.rows))),
+     arr(row.nextChecks).length?section('待处理事项','',list(row.nextChecks)):null,
+     arr(row.originalRiskItems).length?section('原日报未解决风险','',evidence(row.originalRiskItems)):null),
+    button('打开相关记录',()=>ctx.navigate('lab',row.id==='post-market'?'shortline-review':'records'),'quiet')))),details('阶段来源与时点',evidence(w.workflow)));
   const rs=m.relativeStrength||{},mt=m.multiTimeframe||{},fin=m.financialHealth||{},valid=m.signalValidity||{};
   const market=panel('market',text(rs.status)+' · '+text(valid.status),
    section('相对强弱',reportSummary(rs),rowTable([['基准',x=>x.label+' '+x.id],['窗口',x=>x.window+' 日'],['个股',x=>pct(x.stockReturnPct)],['基准收益',x=>pct(x.benchmarkReturnPct)],['超额百分点',x=>finite(x.excessPct)?format(x.excessPct):'待证据'],['识别 / 缺失',x=>arr(x.tags).join('、')||arr(x.missing).join('；')||text(x.status)]],rs.comparisons),details('因子与独立增量验证',evidence(rs.independentGain))),
    section('多周期确认与冲突',reportSummary(mt),rowTable([['周期',x=>text(x.period)],['状态',x=>text(x.status)],['方向',x=>text(x.direction)],['变化',x=>pct(x.returnPct)],['最后闭合',x=>x.latest?.cycleEnd||'待证据'],['未闭合 / 缺失',x=>arr(x.incompleteCycles).join('、')||'—']],mt.frames),list(mt.conflicts),details('多周期独立增量验证',evidence(mt.independentGain))),
    section('财务健康',`${fin.coverage?.observed||0} / ${fin.coverage?.total||0} 项有原始证据`,rowTable([['指标',x=>x.label],['数值',x=>finite(x.value)?format(x.value)+' '+(x.unit||''):'未知'],['风险',x=>text(x.risk)],['报告 / 可得时间',x=>x.evidence?x.evidence.reportDate+' · '+dateTime(x.evidence.availableAt):'缺少原始回执']],fin.metrics),details('财报修订及原有九轴证据',evidence(fin))),
-   section('信号时效',text(valid.status),facts([['原判断时间',dateTime(valid.decisionAt)],['失效时间',dateTime(valid.expiresAt)]]),list(valid.reasons),details('条件变化与重新核验',evidence(valid))));
+   section('财务披露与风险','审计、股权变化、减值和重大风险分别核验；公告标题保留为线索。',
+    rowTable([['类别',x=>x.label],['核验状态',x=>text(x.status)],['已核对内容',x=>arr(x.items).map(i=>i.auditLabel||i.description).join('；')||x.missingReason||'未知'],['线索',x=>arr(x.clues).map(i=>i.title).join('；')||'未取得'],['原始来源',x=>details('披露及修订回执',evidence(x))]],fin.disclosures?.categories)),
+   section('估值与行业对照','仅比较同期、同口径并有归属版本的行业样本。',
+    rowTable([['指标',x=>x.label],['个股数值',x=>finite(x.value)?format(x.value)+(x.unit==='percent'?'%':' 倍'):'未知'],['原观察时间',x=>dateTime(x.observedAt)],['行业中位数',x=>finite(x.industryComparison?.value)?format(x.industryComparison.value):'未知'],['核验',x=>text(x.industryComparison?.status)+' · '+(x.industryComparison?.reason||'待证据')]],fin.valuation?.metrics)),
+   section('信号时效',text(valid.status),facts([['原判断时间',dateTime(valid.decisionAt)],['失效时间',dateTime(valid.expiresAt)]]),list(valid.reasons),
+    details('冻结价格核验',facts([['状态',text(valid.priceReview?.status)],['原买入下沿',valid.priceReview?.entryMin],['原买入上沿',valid.priceReview?.entryMax],['原始报价',valid.priceReview?.price],['报价时点',dateTime(valid.priceReview?.quoteAt)],['来源',valid.priceReview?.source]]),h('p',{},valid.priceReview?.reason||'尚无原计划报价核验'),h('p',{class:'fy-muted'},'价格、区间和核验结果均来自原后端；此页不生成交易资格。')),
+    details('条件变化与重新核验',evidence(valid))));
   const lc=w.lifecycle||{},counter=w.counterEvidence||{},selectedGroup=draft.groups.find(g=>g.id===group.value),q=search.value.trim().toLowerCase();
   const candidates=arr(lc.current).filter(row=>(state.value==='all'||row.state===state.value)&&(!selectedGroup||selectedGroup.symbols.includes(row.code))&&(!q||[row.code,row.name,row.reason].join(' ').toLowerCase().includes(q)));
   const getters={code:x=>button(x.code,()=>{symbol.value=x.code;draft.selectedCode=x.code;changed();void load();},'quiet'),name:x=>x.name||'—',status:x=>text(x.state),relativeStrength:x=>x.code===data.code&&rs.comparisons?.find(x=>x.window===5)?.excessPct!=null?format(rs.comparisons.find(x=>x.window===5).excessPct)+' 点':'选择个股后核对',risk:x=>x.reason||'待证据',score:x=>x.score??'未知',date:x=>x.day||'未知',strategy:x=>x.version||'未知',source:x=>x.provenance||'未知',knownAt:x=>dateTime(x.recordedAt)};

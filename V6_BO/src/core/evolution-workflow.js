@@ -6,6 +6,7 @@ const crypto=require('node:crypto');
 const store=require('./research-workspace-store');
 const {summarizeConditions,summarizeRuleDisagreement}=require('./research-decision-review');
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {validateObservation,alertsForRecord}=require('./paper-plan-observer');
 const FLAGS={...store.FLAGS,accountMutated:false,autoPromotion:false};
 const SCHEMA='fayo-evolution-workflow-v1';
 const arr=x=>Array.isArray(x)?x:[];
@@ -30,6 +31,31 @@ const plain=x=>x&&typeof x==='object'&&!Array.isArray(x)&&[Object.prototype,null
 const bounded=(xs,n,name)=>{if(!Array.isArray(xs)||xs.length>n)throw Error(name+'记录数量无效');return xs;};
 const visibleEvent=(event,at)=>hashOk(event?.hash)&&known(event.recordedAt,at)&&(!time(event.data?.asOf)||event.data.asOf<=at);
 const teaching=x=>['test','demo'].includes(x?.sampleSet)||x?.simulated===true||/synthetic|fixture|mock|demo|simulated|教学|测试/i.test(String(x?.source||x?.sampleSource||''));
+const sourceInstruction=/忽略.{0,12}(?:指令|规则|限制)|绕过.{0,12}(?:风控|权限|审批)|(?:ignore|disregard|override)\s+(?:(?:all|any|the|previous|prior|system|safety)\s+)*(?:instructions?|rules?|prompts?|safeguards?)|(?:bypass|disable)\s+(?:(?:the|all)\s+)*(?:risk|permission|approval|safety)|system\s*prompt/i;
+const sensitiveKey=/^(?:api[_ -]?key|sharecode|password|passwd|pwd|authorization|bearer|cookie|set-cookie|access[_ -]?token|refresh[_ -]?token|device[_ -]?token|session[_ -]?(?:id|token)|token|credentials?|secret|private[_ -]?key|phone|mobile|email)$/i;
+const sensitiveText=/(?:api[_ -]?key|sharecode|password|passwd|access[_ -]?token|refresh[_ -]?token|device[_ -]?token|private[_ -]?key|secret|cookie|phone|mobile|email)["']?\s*[:=]\s*["']?\S|\bbearer\s+[A-Za-z0-9._~+\/-]+|(?:^|\D)1[3-9]\d{9}(?!\d)/i;
+function anyText(value,match,depth=0){
+ if(depth>32)return true;
+ if(typeof value==='string')return match(value);
+ if(Array.isArray(value))return value.some(v=>anyText(v,match,depth+1));
+ return plain(value)&&Object.entries(value).some(([key,v])=>match(key)||anyText(v,match,depth+1));
+}
+function containsSecret(value,depth=0){
+ if(depth>32)return true;
+ if(typeof value==='string')return sensitiveText.test(value);
+ if(Array.isArray(value))return value.some(v=>containsSecret(v,depth+1));
+ return plain(value)&&Object.entries(value).some(([key,v])=>sensitiveKey.test(key)||containsSecret(v,depth+1));
+}
+function usableResearchEvidence(e,code,asOf){
+ if(!plain(e)||!hashOk(e.id)||e.retracted===true||e.withdrawn===true||e.conflict===true||e.invalidated===true||teaching(e)||
+  e.status!==undefined&&!['observed','observed-unverified','derived-unverified','available','verified'].includes(e.status))return false;
+ const available=timestamp(e.availableAt??e.knownAt),received=timestamp(e.receivedAt??e.knownAt);
+ return (!code||(e.symbol===code||e.code===code)&&(e.symbol==null||e.symbol===code)&&(e.code==null||e.code===code))&&
+  available!==null&&received!==null&&available<=received&&received<=asOf&&
+  ['knownAt','recordedAt','publishedAt','retractedAt','statusKnownAt'].every(k=>e[k]==null||known(e[k],asOf))&&
+  (e.periodEnd==null||known(e.periodEnd,Math.min(available,received)))&&
+  !['retractedAt','withdrawnAt','invalidatedAt'].some(k=>e[k]!=null);
+}
 
 const STATUSES=['all','selected','observe','upgraded','downgraded','rejected','reentered','invalidated','unknown'];
 const COLUMNS=['code','name','status','relativeStrength','risk','score','date','strategy','source','knownAt'];
@@ -156,13 +182,13 @@ function buildCounterEvidence(run,asOf=Date.now()){
  atOf(asOf);
  const d=run?.data||run||{},code=d.symbol||d.code||null;
  const decisionAt=time(d.asOf)&&d.asOf<=asOf?d.asOf:asOf;
- const evidence=arr(d.evidence).filter(e=>plain(e)&&hashOk(e.id)&&e.symbol===code&&e.status!=='unknown'&&e.value!==null&&e.value!==undefined&&known(e.availableAt,decisionAt)&&known(e.receivedAt,decisionAt)&&(!e.periodEnd||known(e.periodEnd,decisionAt)));
+ const evidence=arr(d.evidence).filter(e=>usableResearchEvidence(e,code,decisionAt)&&e.value!==null&&e.value!==undefined);
  const byId=new Map(),conflicts=new Set();
  for(const e of evidence){if(byId.has(e.id)&&store.digest(byId.get(e.id))!==store.digest(e))conflicts.add(e.id);byId.set(e.id,e);}
  for(const id of conflicts)byId.delete(id);
  const rows=arr(d.conditions).filter(plain).map(c=>{
-  const ids=arr(c.evidenceIds),valid=ids.length>0&&ids.every(id=>byId.has(id))&&ids.some(id=>store.digest(byId.get(id).value)===store.digest(c.value??null));
-  return {...c,status:valid&&['pass','fail'].includes(c.status)?c.status:'unknown',evidenceIds:valid?ids:[],reason:valid?text(c.reason):'条件缺少同股、截止时点可得的来源引用'};
+  const ids=arr(c.evidenceIds),unsafe=anyText(c,s=>sourceInstruction.test(s))||containsSecret(c),valid=!unsafe&&ids.length>0&&new Set(ids).size===ids.length&&ids.every(id=>byId.has(id))&&ids.some(id=>store.digest(byId.get(id).value)===store.digest(c.value??null));
+  return {...c,...(unsafe?{name:'来源文字待核验',field:null,value:null,invalidation:null}:{}),status:valid&&['pass','fail'].includes(c.status)?c.status:'unknown',evidenceIds:valid?ids:[],reason:unsafe?'来源含指令式或敏感文字，仅作待核验资料':valid?text(c.reason):'条件缺少同股、截止时点可得的来源引用'};
  });
  const projected=summarizeConditions(rows.filter(r=>!r.coverageOnly).map(r=>({id:r.id,name:r.name||r.field,family:r.system,invalidation:r.invalidation,
   checks:[{field:r.field||r.id,value:r.status==='unknown'?null:r.value,pass:r.status==='unknown'?null:r.status==='pass',missing:r.status==='unknown'?r.reason:null,op:r.op,threshold:r.threshold,
@@ -284,24 +310,28 @@ function evaluateResearchAnswer(answer,{evidence=[],code,asOf=Date.now()}={}){
  atOf(asOf);const checks=[];
  const add=(id,pass,reason)=>checks.push({id,status:pass?'pass':'fail',reason});
  const allowed=['code','status','claims','probability','actions',...Object.keys(FLAGS)];
+ const claimFields=['id','text','polarity','value','operator','threshold','evidenceIds','reason','invalidation','system','version','status','probability'];
  let boundedAnswer=false;
- try{boundedAnswer=plain(answer)&&Object.keys(answer).every(k=>allowed.includes(k))&&['observed','insufficient-data'].includes(answer.status)&&Array.isArray(answer.claims)&&answer.claims.length<=200&&answer.claims.every(c=>plain(c)&&['observed','unknown'].includes(c.status)&&typeof c.text==='string'&&c.text.length<=2000)&&JSON.stringify(store.canonical(answer)).length<=200000;}catch{}
+ try{boundedAnswer=plain(answer)&&Object.keys(answer).every(k=>allowed.includes(k))&&['observed','insufficient-data'].includes(answer.status)&&Array.isArray(answer.claims)&&answer.claims.length<=200&&answer.claims.every(c=>plain(c)&&Object.keys(c).every(k=>claimFields.includes(k))&&['observed','unknown'].includes(c.status)&&typeof c.text==='string'&&c.text.length<=2000&&
+  ['reason','invalidation','id','system','version','operator','polarity'].every(k=>c[k]==null||typeof c[k]==='string'&&c[k].length<=2000)&&
+  (c.evidenceIds===undefined||Array.isArray(c.evidenceIds)&&c.evidenceIds.length<=100&&c.evidenceIds.every(hashOk)&&new Set(c.evidenceIds).size===c.evidenceIds.length))&&JSON.stringify(store.canonical(answer)).length<=200000;}catch{}
  add('bounded-structure',boundedAnswer,'输出必须为有界结构化研究解释');
  if(!boundedAnswer)return {status:'fail',checks,mode:'deterministic-contract-evaluation',modelInvoked:false,...FLAGS};
  const refs=new Map(),conflicts=new Set();
  for(const e of arr(evidence).filter(e=>plain(e)&&hashOk(e.id))){if(refs.has(e.id)&&store.digest(refs.get(e.id))!==store.digest(e))conflicts.add(e.id);refs.set(e.id,e);}
- const claims=arr(answer.claims),usable=id=>{const e=refs.get(id);return e&&!conflicts.has(id)&&e.status!=='unknown'&&(!code||(e.symbol===code||e.code===code)&&(e.symbol==null||e.symbol===code)&&(e.code==null||e.code===code))&&known(e.availableAt??e.knownAt,asOf)&&known(e.receivedAt??e.knownAt,asOf)&&(!e.periodEnd||known(e.periodEnd,asOf));};
+ const claims=arr(answer.claims),usable=id=>!conflicts.has(id)&&usableResearchEvidence(refs.get(id),code,asOf);
  const factual=claims.filter(c=>c?.status!=='unknown');
  add('same-symbol',answer.code===code,'解释对象必须与原证据证券一致');
- add('no-trading-authority',answer.canTrade===false&&answer.canNotify===false&&answer.productionWeightsChanged===false&&answer.accountMutated!==true&&answer.autoPromotion!==true&&(!answer.actions||Array.isArray(answer.actions)&&answer.actions.length===0),'研究解释没有下单、通知或修改权重的权限');
+ add('no-trading-authority',answer.canTrade===false&&answer.canNotify===false&&answer.productionWeightsChanged===false&&(answer.accountMutated===undefined||answer.accountMutated===false)&&(answer.autoPromotion===undefined||answer.autoPromotion===false)&&(!answer.actions||Array.isArray(answer.actions)&&answer.actions.length===0),'研究解释没有下单、通知或修改权重的权限');
  add('claim-citations',factual.every(c=>arr(c.evidenceIds).length&&c.evidenceIds.every(usable)),'每条事实必须引用同股且当时可得的来源');
  add('quoted-value-faithfulness',factual.every(c=>c.value===undefined||arr(c.evidenceIds).some(id=>usable(id)&&store.digest(refs.get(id).value??null)===store.digest(c.value))),'直接引述的字段值必须与引用回执一致');
  add('no-unknown-as-zero',claims.every(c=>c.status!=='unknown'||c.value==null),'缺失结论不得填成零值或肯定判断');
- add('no-implied-probability',answer.probability==null&&claims.every(c=>c.probability==null&&!/(?:上涨|涨停|盈利|获利|赚钱|收益)概率\s*[:：]?\s*\d|必涨|稳赚|保证收益/.test(text(c.text,2000))),'匹配度和规则分不伪装成上涨概率或收益保证');
+ add('no-implied-probability',answer.probability==null&&claims.every(c=>c.probability==null&&!anyText(c,s=>/(?:上涨|涨停|盈利|获利|赚钱|收益)概率\s*[:：]?\s*\d|必涨|稳赚|保证收益|guaranteed\s+(?:profit|return)|will\s+definitely\s+(?:rise|profit)/i.test(s))),'匹配度和规则分不伪装成上涨概率或收益保证');
  add('refusal-on-missing',factual.length>0||answer.status==='insufficient-data','证据不足时明确无法判断');
- add('no-secret-output',!/\b(?:api[_ -]?key|sharecode|password|bearer)\b\s*[:=]/i.test(JSON.stringify(answer)),'输出不得包含凭据字段');
- add('no-source-instructions',claims.every(c=>!/忽略.{0,8}(?:指令|规则)|绕过.{0,8}(?:风控|权限)|ignore (?:all |previous )?instructions|system prompt/i.test(text(c.text,2000))),'来源中的命令文字不能变成系统行为或投资理由');
- return {schemaVersion:1,status:checks.every(c=>c.status==='pass')?'pass':'fail',checks,mode:'deterministic-contract-evaluation',modelInvoked:false,...FLAGS};
+ add('no-secret-output',!containsSecret(answer),'输出所有字段不得包含已识别的凭据或私人联系信息');
+ add('no-source-instructions',!anyText(claims,s=>sourceInstruction.test(s)),'来源中的命令文字不能变成系统行为或投资理由');
+ return {schemaVersion:1,status:checks.every(c=>c.status==='pass')?'pass':'fail',checks,mode:'deterministic-contract-evaluation',modelInvoked:false,
+  scope:'schema-citation-time-and-known-output-patterns',limitations:['规则合同检查通过不代表原始来源真实、事实语义全部正确或外部大模型质量认证','未执行外部文字中的指令；没有模型、交易、通知或审批能力'],...FLAGS};
 }
 function answerFromCounter(counter){return {code:counter.code,status:counter.status==='insufficient-data'?'insufficient-data':'observed',claims:[...counter.support,...counter.opposition].map(c=>({...c,status:'observed'})),probability:null,...FLAGS};}
 function evaluateCounterEvidence(counter,run,asOf){
@@ -321,7 +351,7 @@ const STAGES=[
  {id:'close',name:'收盘',start:'14:57:00',end:'15:15:00',task:'等待完整日线、原成交与收盘快照'},
  {id:'post-market',name:'盘后',start:'15:15:00',end:'23:59:59',task:'读取执行日报、单笔复盘与原验证反馈'}
 ];
-function sixStageWorkflow({archive={},events=[],calendar={},asOf=Date.now()}={}){
+function sixStageWorkflow({archive={},events=[],calendar={},asOf=Date.now(),lifecycle=null,tradeReview=null}={}){
  atOf(asOf);const day=aShareCalendarDate(asOf),minute=new Date(asOf+28800000).toISOString().slice(11,19);
  const calendarTime=calendar.knownAt??calendar.observedAt;
  const calendarKnown=calendarTime==null||known(calendarTime,asOf);
@@ -331,32 +361,175 @@ function sixStageWorkflow({archive={},events=[],calendar={},asOf=Date.now()}={})
  const open=calendarKnown?(explicit??(covered?dates.includes(day):null)):null;
  let active=minute<'09:15:00'?'pre-market':minute<'09:30:00'?'auction':minute>='11:30:00'&&minute<'13:00:00'?'midday':minute<'14:57:00'?'intraday':minute<'15:15:00'?'close':'post-market';
  if(open!==true)active=open===false?'closed':'unknown-calendar';
- const plans=arr(archive.plans).filter(p=>(p.intendedDate||timestamp(p.frozenAt)&&aShareCalendarDate(timestamp(p.frozenAt)))===day&&known(p.frozenAt,asOf));
- const scans=screenSnapshots(events,asOf).filter(e=>aShareCalendarDate(e.data.asOf||e.recordedAt)===day);
- const bars=[...arr(archive.bars),...arr(archive.v6Observation?.minuteBars)].filter(b=>String(b.date).slice(0,10)===day&&known(b.knownAt,asOf)&&known(b.availableAt||(String(b.date).length===10?cn(day):b.date),asOf)&&known(String(b.date).length===10?cn(day):b.date,asOf));
- const market=[...arr(archive.marketHistory),...arr(archive.market)].filter(r=>r.date===day&&known(r.knownAt??r.recordedAt,asOf));
- const reports=[...arr(archive.executionReports),...(archive.executionReport?[archive.executionReport]:[])].filter(r=>r.day===day&&known(r.recordedAt,asOf));
- const feedback=arr(archive.feedbackRuns).filter(r=>(r.day||r.date)===day&&known(r.recordedAt??r.createdAt,asOf));
- const counts={'pre-market':plans.length,'auction':bars.filter(b=>String(b.date).slice(11,16)>='09:15'&&String(b.date).slice(11,16)<='09:25').length,
-  intraday:scans.length+bars.filter(b=>String(b.date).length>10).length,midday:scans.filter(e=>new Date((e.data.asOf||e.recordedAt)+28800000).toISOString().slice(11,16)<='11:30').length,
-  close:market.length+bars.filter(b=>String(b.date).length===10&&asOf>=cn(day,'15:10:00')).length,'post-market':reports.length+feedback.length};
+ const real=row=>archive.scope!=='demo'&&plain(row)&&!teaching(row);
+ const received=row=>{
+  const values=['knownAt','receivedAt','recordedAt','createdAt','observedAtMs'].filter(k=>row?.[k]!=null).map(k=>timestamp(row[k]));
+  return values.length&&values.every(time)?Math.max(...values):null;
+ };
+ const src=row=>text(row?.source||row?.provider||row?.quoteSource,160);
+ const ref=(kind,id,eventAt,knownAt,source,detail={})=>({kind,id:String(id),eventAt,knownAt,source,detail});
+ const projectionId=(kind,row)=>'projection:'+store.digest({kind,row});
+ const plans=arr(archive.plans).filter(p=>real(p)&&codeOk(p.code)&&(p.intendedDate||timestamp(p.frozenAt)&&aShareCalendarDate(timestamp(p.frozenAt)))===day&&
+  known(p.frozenAt,asOf)&&(received(p)===null||received(p)<=asOf)).map(p=>ref('plan',p.id||projectionId('plan',p),timestamp(p.frozenAt),Math.max(timestamp(p.frozenAt),received(p)||0),'original-frozen-plan',
+   {code:p.code,name:text(p.name,80),intendedDate:p.intendedDate||day,entryMin:finite(p.entryMin)?p.entryMin:null,entryMax:finite(p.entryMax)?p.entryMax:null,
+    stop:finite(p.stop)?p.stop:null,target:finite(p.target)?p.target:null,decisionId:hashOk(p.decisionId)?p.decisionId:null,
+    note:'原后端冻结值；计划存在不表示当前有效、已成交或获准执行'}));
+ const scans=screenSnapshots(events,asOf).filter(e=>real(e)&&real(e.data)&&time(e.data.asOf)&&e.data.asOf<=e.recordedAt&&aShareCalendarDate(e.data.asOf)===day)
+  .map(e=>ref('screen',e.hash,e.data.asOf,e.recordedAt,text(e.data.provenance,160)||'original-screening-journal',
+   {total:e.data.rows.length,selected:e.data.rows.filter(r=>r.status==='selected').length,rejected:e.data.rows.filter(r=>r.status==='rejected').length,
+    unknown:e.data.rows.filter(r=>!['selected','rejected'].includes(r.status)).length,version:e.data.codeVersion?.fingerprint||null}));
+ const barRefs=[],barSeen=new Set();
+ for(const b of [...arr(archive.bars),...arr(archive.v6Observation?.minuteBars)]){
+  const daily=dateOk(b?.date),ended=daily?cn(b.date):timestamp(b?.date),receivedAt=received(b),available=timestamp(b?.availableAt)||ended;
+  if(!real(b)||!src(b)||!time(ended)||aShareCalendarDate(ended)!==day||receivedAt===null||ended>receivedAt||receivedAt>asOf||available<ended||available>asOf||b.closed===false)continue;
+  const id=projectionId('market-bar',b);if(barSeen.has(id))continue;barSeen.add(id);
+  barRefs.push(ref(daily?'daily-bar':'minute-bar',id,ended,receivedAt,src(b),{code:codeOk(b.code)?b.code:null,period:b.period||null,priceBasis:b.priceBasis||null,
+   close:finite(b.close)?b.close:null,referenceBasis:'digest-of-original-archived-row',note:'已记录行情点，不认证阶段完整覆盖或可成交性'}));
+ }
+ const markets=[...arr(archive.marketHistory),...arr(archive.market)].filter(r=>real(r)&&src(r)&&dateOk(r.date)&&r.date<=day&&received(r)!==null&&received(r)<=asOf&&
+  received(r)>=cn(r.date)&&known(r.availableAt||cn(r.date),asOf)).map(r=>ref('market-close',projectionId('market-close',r),cn(r.date),received(r),src(r),
+   {day:r.date,stage:text(r.stage||r.emotion?.stage,100)||null,referenceBasis:'digest-of-original-archived-row'}));
+ const news=[],observation=archive.v6Observation;
+ const observationKnown=received({...observation,observedAtMs:timestamp(observation?.observedAtMs??observation?.observedAt)});
+ const issuerRows=real(observation)&&real(observation.stock)&&codeOk(observation.code)&&
+  (!observation.stock.code||observation.stock.code===observation.code)&&observationKnown!==null&&observationKnown<=asOf?
+  arr(observation.stock.announcements).filter(row=>row?.code===observation.code).map(row=>({row,parentKnown:observationKnown,issuerClue:true})):[];
+ for(const {row,parentKnown=0,issuerClue=false} of [...arr(archive.news),...arr(archive.announcements)].map(row=>({row})).concat(issuerRows)){
+  const published=timestamp(row?.publishedAt??row?.publicationAt),receipt=received(row),revisionKnown=timestamp(row?.statusKnownAt??row?.revisionKnownAt);
+  const knownAt=receipt===null?null:Math.max(receipt,parentKnown,revisionKnown||0);
+  if(!real(row)||!src(row)||!time(published)||knownAt===null||published>receipt||knownAt>asOf||published<cn(day,'00:00:00')-3*86400000||
+   (row.statusKnownAt!=null||row.revisionKnownAt!=null)&&revisionKnown===null)continue;
+  news.push(ref('news',row.id||row.eventId||projectionId('news',row),published,knownAt,src(row),
+   {title:text(row.title,300),code:codeOk(row.code||row.symbol)?row.code||row.symbol:null,retracted:row.retracted===true||row.status==='retracted',
+    revisionId:text(row.revisionId||row.sourceRevisionId,160)||null,referenceBasis:row.id||row.eventId?'original-event-id':'digest-of-original-archived-row',
+    contentRole:'untrusted-source-material',evidenceLevel:issuerClue?'headline-unverified':'source-unverified',verified:false,
+    note:issuerClue?'原个股公告标题仅为待核验线索，未核实正文；不执行原文指令，不认定影响方向或交易资格':'仅保存来源文字和修订状态；不执行消息中的指令，不推导利好或交易资格'}));
+ }
+ const planObservations=[];
+ for(const row of arr(archive.planObservations)){
+  if(!real(row))continue;
+  try{validateObservation(row,{now:asOf,day});}catch{continue;}
+  planObservations.push(ref('plan-observation',row.fingerprint,row.quoteAt,row.observedAt,row.source,
+   {code:row.code,planId:row.planId,planVersion:row.planVersion,price:row.price,quoteAt:row.quoteAt,receivedAt:row.receivedAt,
+    entryMin:row.entryMin,entryMax:row.entryMax,stop:row.stop,target:row.target,entryEventId:row.entryEventId,remainingQuantity:row.remainingQuantity,
+    entry:{allowed:row.entry.allowed,reason:text(row.entry.reason)},exit:{allowed:row.exit.allowed,reason:text(row.exit.reason)},
+    originalAlerts:alertsForRecord(row).map(a=>({kind:a.kind,availability:a.availability,reason:text(a.reason),observationId:a.observationId})),
+    note:'原计划观察回执及当时门禁判断；历史报价和当时允许状态不代表当前可成交或获准交易'}));
+ }
+ // These are receipts read by the original stores, never reports generated by
+ // this GET. A report lacking its store identity cannot certify a close result.
+ const reports=[...arr(archive.executionReports),...(archive.executionReport?[archive.executionReport]:[])].filter(r=>real(r)&&r.status==='observed'&&r.day===day&&
+  known(r.recordedAt,asOf)&&r.recordedAt>=cn(day)&&hashOk(r.reportHash)&&r.report?.protocol==='paper-execution-daily-report-v1'&&r.report.day===day&&r.report.calculatedAt===r.recordedAt&&
+  r.report.canTrade===false&&r.report.canNotify===false&&r.report.accountMutated===false)
+  .map(r=>ref('execution-report',r.reportHash,cn(day),r.recordedAt,'original-execution-report-store',
+   {day:r.day,reportVersion:r.reportVersion,status:text(r.report.score?.status,80)||'unknown',
+    items:arr(r.report.checklist?.items).slice(0,100).map(i=>({planId:i.planId,code:i.code,state:text(i.state,60),reason:text(i.reason),
+     entryEventId:text(i.entry?.eventId,160)||null,remainingQuantity:Number.isSafeInteger(i.remainingQuantity)?i.remainingQuantity:null,
+     risk:arr(i.risk).slice(0,30).map(x=>({kind:text(x.kind,80),reason:text(x.reason||x.message),observationId:text(x.observationId,160)||null})),missing:arr(i.missing).map(x=>text(x)).filter(Boolean)})),
+    itemCount:arr(r.report.checklist?.items).length,note:'原执行日报版本；已复盘不表示已遵守计划或风险解除'}));
+ const feedback=arr(archive.feedbackRuns).filter(r=>real(r)&&r.protocol==='fayo-feedback-scheduler-v1'&&r.action==='result'&&
+  dateOk(r.day)&&r.day<=day&&r.runDay===day&&known(r.recordedAt,asOf)&&r.asOf===r.recordedAt&&hashOk(r.hash)&&hashOk(r.attemptHash)&&
+  ['insufficient-evidence','awaiting-approval','duplicate-proposal','submitted','validation-rejected','unavailable'].includes(r.status))
+  .map(r=>ref('feedback-result',r.hash,r.recordedAt,r.recordedAt,'original-feedback-run-store',
+   {targetDay:r.day,status:r.status,reason:text(r.reason),attemptHash:r.attemptHash,candidateId:text(r.candidateId,160)||null,
+    proposalFingerprint:hashOk(r.proposalFingerprint)?r.proposalFingerprint:null,validationStatus:text(r.validationStatus,80)||null,
+    note:'只显示原验证尝试及回执，不把提交、重试或待审批当作生产晋级'}));
+ const notes=[...arr(archive.notes),...arr(archive.checkins)].filter(r=>real(r)&&received(r)!==null&&received(r)<=asOf&&(r.day||r.date)===day)
+  .map(r=>ref('personal-review',r.id||projectionId('personal-review',r),received(r),received(r),'original-personal-review',
+   {day,note:'已存在本人复盘记录；不把文字记录认证为实际成交或完整研究结论'}));
+ const source=(key,count)=>{
+  const input=archive.workflowSources?.[key],status=['observed','pending','missing','unavailable'].includes(input?.status)?input.status:count?'observed':'missing';
+  const counters=Object.fromEntries(['attempts','pending'].filter(k=>Number.isSafeInteger(input?.[k])&&input[k]>=0).map(k=>[k,input[k]]));
+  return {status,count,...counters,reason:text(input?.reason)|| (status==='unavailable'?'原始档案暂不可读取，不能以空结果代替':status==='pending'?'原验证尝试已记录，尚待结果回执':count?'已读取截至时点的原始回执':'尚无该来源在截止时点可核对的回执')};
+ };
+ const sources={executionReports:source('executionReports',reports.length),feedbackRuns:source('feedbackRuns',feedback.length),planObservations:source('planObservations',planObservations.length),news:source('news',news.length)};
+ const currentLifecycle=lifecycle||candidateLifecycle(events,{archive,asOf});
+ // The stock detail owns a filtered history, while the day's workflow still
+ // shows every observed security's latest state, including rejected stocks.
+ const lifecycleScope=currentLifecycle.scope?.historyCode?'latest-state-per-observed-security':'all-retained-candidate-changes';
+ const transitionRows=currentLifecycle.scope?.historyCode?currentLifecycle.current:currentLifecycle.rows;
+ const transitions=arr(transitionRows).filter(r=>r.day===day&&known(r.recordedAt,asOf)).map(r=>ref('candidate-change',r.id,r.at,r.recordedAt,r.provenance||'original-screening-journal',
+  {code:r.code,state:r.state,previousState:r.previousState,reason:text(r.reason),version:r.version,sourceId:r.sourceId,
+   omittedFromLatest:r.omittedFromLatest===true,scope:lifecycleScope,followup:arr(r.outcomes).map(x=>({horizon:x.horizon,status:x.status,reason:x.reason}))}));
+ const safeRows=rows=>rows.slice().sort((a,b)=>(b.knownAt||0)-(a.knownAt||0)||String(a.id||'').localeCompare(String(b.id||''))).slice(0,100);
  const stages=STAGES.map(s=>{
-  const start=cn(day,s.start),end=cn(day,s.end),current=s.id===active;
+  const start=cn(day,s.start),end=cn(day,s.end),current=s.id===active,through=Math.min(asOf,end);
+  const visible=rows=>rows.filter(r=>r.knownAt<=through);
+  const inPeriod=(rows,from,to)=>visible(rows).filter(r=>r.eventAt>=from&&r.eventAt<to);
+  const currentPlans=visible(plans),knownNews=visible(news),currentScans=visible(scans),currentChanges=visible(transitions),knownReports=visible(reports),knownFeedback=visible(feedback),knownPlanObservations=visible(planObservations);
+  const morningEnd=cn(day,'11:30:00'),morningBars=inPeriod(barRefs.filter(r=>r.kind==='minute-bar'),cn(day,'09:30:00'),morningEnd+1);
+  const auctionBars=inPeriod(barRefs.filter(r=>r.kind==='minute-bar'),cn(day,'09:15:00'),cn(day,'09:25:00')+1);
+  const continuousBars=visible(barRefs.filter(r=>r.kind==='minute-bar')).filter(r=>r.eventAt>=cn(day,'09:30:00')&&r.eventAt<=cn(day)&&!(r.eventAt>morningEnd&&r.eventAt<cn(day,'13:00:00')));
+  const oldMarkets=visible(markets).filter(r=>r.detail.day<day),latestOldDay=oldMarkets.map(r=>r.detail.day).sort().at(-1);
+  const daily=visible([...markets.filter(r=>r.detail.day===day),...barRefs.filter(r=>r.kind==='daily-bar')]).filter(r=>r.eventAt>=cn(day));
+  const sections=[];
+  const section=(id,title,rows,missingReason,note)=>{
+   const unique=[...new Map(rows.map(r=>[r.kind+':'+r.id,r])).values()];
+   const value={id,title,status:unique.length?'observed':'missing',count:unique.length,rows:safeRows(unique),truncated:unique.length>100,note:note||null,
+    missing:unique.length?[]:[missingReason]};sections.push(value);return value;
+  };
+  const planNote='仅展示原冻结计划；必须由原后台重新核对原始报价、条件、账户和风险门禁';
+  if(s.id==='pre-market'){
+   section('market-background','最近已收盘市场背景',oldMarkets.filter(r=>r.detail.day===latestOldDay),'缺少当时可知的上一交易日市场背景','各来源保留原交易日，不将昨收当作今日盘面');
+   section('announcements','已知新闻与公告',knownNews,'尚无当前时间窗内可核对的新闻公告','原文只作待核验资料，保留撤稿和修订状态');
+   section('plans','待观察的原冻结计划',currentPlans,'尚无当日原冻结计划，允许空仓等待',planNote);
+  }else if(s.id==='auction'){
+   section('auction-evidence','实际竞价时点证据',auctionBars,'尚无09:15—09:25的真实竞价证据','分钟覆盖不等于完整竞价逐笔或成交认证');
+   section('candidate-changes','竞价候选变化',inPeriod(currentChanges,cn(day,'09:15:00'),cn(day,'09:30:00')),'尚无竞价阶段的原筛选变更');
+   section('plans','盘前冻结假设',currentPlans.filter(r=>r.eventAt<cn(day,'09:30:00')),'尚无竞价结束前的冻结计划',planNote);
+  }else if(s.id==='intraday'){
+   section('market-observations','已知盘中行情点',continuousBars,'缺少当前原始盘中证据','任何旧观察点都不能被本投影标成实时可成交报价');
+   section('plan-observations','原计划触发及门禁观察',knownPlanObservations,'尚无当时可知的原计划观察回执','只读原观察记录，保留原拒绝或待核验原因；不认证连续覆盖或执行结果');
+   section('candidate-changes','入选、落选及失效变化',currentChanges,'尚无当日候选变化','同时保留失败与落选，不只显示成功候选');
+   section('plans','原计划及待核验条件',currentPlans,'没有可核对计划时继续观望',planNote);
+  }else if(s.id==='midday'){
+   section('morning-market','上午实际观察',morningBars,'缺少上午原始行情观察');
+   section('plan-observations','上午原计划观察与待核验项',knownPlanObservations.filter(r=>r.eventAt<=morningEnd),'尚无上午原计划观察回执','原时点允许或拒绝状态均不表示下午条件保持不变');
+   section('morning-screening','上午筛选结果',currentScans.filter(r=>r.eventAt<=morningEnd),'缺少上午原筛选回执','实际落盘时间晚于午间截止的结果不能回填上午已知结论');
+   section('candidate-changes','上午保留、降级与淘汰',currentChanges.filter(r=>r.eventAt<=morningEnd),'缺少上午可核对的候选变化');
+  }else if(s.id==='close'){
+   section('closed-market','完整收盘证据',daily,'等待已闭合当日日线和收盘回执','15:00以前绝不产生收盘结果');
+   section('candidate-results','当日入选与落选记录',currentChanges,'尚无当日候选记录','后续收益只有原成熟路径可用时展示；未成熟不填零');
+   section('execution-reports','原持久执行日报',knownReports,'尚无该时点已生成的原执行日报','较晚生成或修订的日报只在首次可知后出现');
+  }else{
+   section('execution-reports','原模拟成交、风险与计划偏差',knownReports,'原执行日报尚未生成或未接通','读取原报告，不重算另一套成交、账户或风险状态');
+   section('personal-review','个人复盘记录',visible(notes),'尚无当日个人复盘记录');
+   section('validation-feedback','成熟样本核验与改进候选',knownFeedback,'尚无原反馈验证尝试的结果回执','提交原五关与人工批准分开，失败、缺证据和待审批均保留');
+  }
+  if(s.id!=='pre-market')section('announcements','当时已知新闻与公告线索',knownNews,'尚无当前时间窗内可核对的新闻公告','原文仅为待核验资料；不把标题分类当作经核实事件或执行指令');
+  const evidenceCount=sections.reduce((n,section)=>n+section.count,0);
+  const missing=sections.flatMap(x=>x.missing),nextChecks=[];
+  if(open===null)missing.unshift('交易日历及已知时间尚未核实');
+  if(['pre-market','auction','intraday','midday'].includes(s.id))nextChecks.push('在原风险工作台核对当前持仓与原账户风险；本投影不授予交易资格');
+  if(['auction','intraday','midday'].includes(s.id))nextChecks.push('按原数据门禁重新核对原始报价、信号有效期及题材变化');
+  const riskItems=knownReports.flatMap(r=>r.detail.items.filter(i=>i.state==='risk-pending'||i.missing.length||i.risk.length).map(i=>({...i,reportHash:r.id,knownAt:r.knownAt})));
+  if(riskItems.length)nextChecks.push('原日报仍有风险或证据不足条目，按原风险原因和解除条件复核');
+  if(knownFeedback.some(r=>r.detail.status==='awaiting-approval'))nextChecks.push('原候选等待人工审批，保持现有生产策略与风控参数');
+  if(knownFeedback.some(r=>['validation-rejected','insufficient-evidence','unavailable'].includes(r.detail.status)))nextChecks.push('检查原验证失败或缺证据回执，不以反复试验替代独立样本');
+  if(s.id==='post-market'&&(sources.feedbackRuns.status==='pending'||sources.feedbackRuns.pending>0))nextChecks.push('原验证尝试尚待结果回执，不能标为验证通过或完成');
+  if(['intraday','midday'].includes(s.id)&&knownPlanObservations.some(r=>r.detail.originalAlerts.some(a=>a.availability!=='allowed')))nextChecks.push('原计划观察存在门禁拦截或待核验项；按原回执原因核对，不将触发当成成交');
+  for(const key of ['executionReports','feedbackRuns'])if(sources[key].status==='unavailable'&&['close','post-market'].includes(s.id))missing.push(sources[key].reason);
+  if(sources.planObservations.status==='unavailable'&&['intraday','midday'].includes(s.id))missing.push(sources.planObservations.reason);
   const status=open===null?'calendar-unknown':open===false?'closed':current?'current':asOf<start?'upcoming':'elapsed';
-  return {...s,day,startAt:start,endAt:end,status,evidenceCount:counts[s.id],evidenceStatus:counts[s.id]?'observed':'missing',
-   reason:open===null?'缺少该日可用日历，不能推断交易时段':open===false?'日历确认休市；保留原日快照并继续查阅已知消息':counts[s.id]?'读取原档案中截至所选时点的证据':'尚未取得该阶段对应证据；时间经过不表示工作完成',canTrade:false};
+  return {...s,label:s.name,day,startAt:start,endAt:end,evaluatedThrough:through,status,evidenceCount,evidenceStatus:evidenceCount?'observed':'missing',sections,
+   evidenceCountMeaning:'已知来源引用数，不是独立样本数或完整阶段覆盖',referenceLimitPerSection:100,
+   missing:uniq(missing),nextChecks:uniq(nextChecks),originalRiskItems:safeRows(riskItems),completion:'not-certified',
+   reason:open===null?'缺少该日可用日历；已知证据仍按实际时点列出':open===false?'日历确认休市；保留原日背景及已知新闻，不生成交易环节结果':evidenceCount?'已知 '+evidenceCount+' 条原档案引用；'+missing.length+' 项证据仍待核对，时间经过不表示工作完成':'尚未取得该阶段对应证据；时间经过不表示工作完成',canTrade:false};
  });
  return {day,asOf,timezone:'Asia/Shanghai',active,calendarStatus:open===null?'unknown':open?'open-day':'closed-day',calendarSource:text(calendar.source,160)||null,stages,
-  evidence:{plans:plans.map(p=>p.id),screenings:scans.map(e=>e.hash),reports:reports.map(r=>r.reportHash||r.id).filter(Boolean),feedback:feedback.map(r=>r.id||r.hash).filter(Boolean)},...FLAGS};
+  sources,knownNews:safeRows(news),newsCount:news.length,scope:'original-evidence-projection-no-independent-account-or-risk-engine',
+  tradeReview:tradeReview?{settled:tradeReview.counts?.settled??0,unverified:tradeReview.counts?.unverified??0,notExecuted:tradeReview.counts?.notExecuted??0,
+   note:'原结算深度复盘摘要，未平仓和缺证据记录不填成零收益'}:null,
+  evidence:{plans:plans.map(p=>p.id),screenings:scans.map(e=>e.id),reports:reports.map(r=>r.id),feedback:feedback.map(r=>r.id),planObservations:planObservations.map(r=>r.id)},...FLAGS};
 }
 function buildEvolutionWorkflow({archive={},events=[],asOf=Date.now(),code,ledger={},calendar={}}={}){
  atOf(asOf);bounded(events,10000,'研究历史');if(code!==undefined&&code!==''&&!codeOk(code))throw Error('研究证券代码无效');
  const visible=events.filter(e=>visibleEvent(e,asOf));
  const run=visible.filter(e=>e.kind==='analysis'&&(!code||e.data.symbol===code)).sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence).at(-1)||null;
- const counterEvidence=buildCounterEvidence(run?.data||{symbol:code||null},asOf);
- return {schemaVersion:1,protocol:SCHEMA,asOf,code:code||run?.data.symbol||null,lifecycle:candidateLifecycle(visible,{archive,asOf,code}),counterEvidence,
-  trades:tradeDeepReview({archive,ledger,asOf,code}),aiEvaluation:evaluateCounterEvidence(counterEvidence,run?.data,asOf),
-  workflow:sixStageWorkflow({archive,events:visible,calendar,asOf}),preferences:preferencesFromEvents(visible,asOf),...FLAGS};
+ const counterEvidence=buildCounterEvidence(run?.data||{symbol:code||null},asOf),lifecycle=candidateLifecycle(visible,{archive,asOf,code}),trades=tradeDeepReview({archive,ledger,asOf,code});
+ return {schemaVersion:1,protocol:SCHEMA,asOf,code:code||run?.data.symbol||null,lifecycle,counterEvidence,
+  trades,aiEvaluation:evaluateCounterEvidence(counterEvidence,run?.data,asOf),
+  workflow:sixStageWorkflow({archive,events:visible,calendar,asOf,lifecycle,tradeReview:trades}),preferences:preferencesFromEvents(visible,asOf),...FLAGS};
 }
 module.exports={SCHEMA,STATUSES,COLUMNS,SECTIONS,defaultEvolutionPreferences,preferenceInput,readEvolutionPreferences,saveEvolutionPreferences,
  recordCandidateTransitions,candidateLifecycle,buildCounterEvidence,tradeDeepReview,evaluateResearchAnswer,evaluateCounterEvidence,sixStageWorkflow,buildEvolutionWorkflow};

@@ -1,5 +1,7 @@
 # 天枢智策 V6 交接入口
 
+当前开发交接以文末 [补充（二）续接与职责移交](#fayo-evolution-current-handoff) 为准：本组只负责 31–36、43–47、59–66 共 19 项，最终集成、合并和统一验收已交“绯曜 FAYO｜总管与最终交付”。本组当前没有主线合并或生产部署事务；下方原部署检查点和历史验证记录继续保留。
+
 <!-- CURRENT_CHECKPOINT_START -->
 
 ## 当前检查点 · 2026-11-25 · 联动与执行闭环 `20261125ad`
@@ -589,8 +591,55 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 **默认行为**：先读、查重、增量开发、测试、登记、再审核。不要让用户重复为同一任务耗费额度。
 
 
+<a id="fayo-evolution-current-handoff"></a>
+
+## 2026-11-26 智能研究进化补充（二）· 当前续接与职责移交（未发布）
+
+### 本组范围、恢复点与真实状态
+
+用户最新安排将统一任务总表、最终代码集成、合并安排、整体验收及交付跟踪交给新聊天 **“绯曜 FAYO｜总管与最终交付”**，覆盖此前“原第一组负责最终集成”的分工。本组继续完成 **31、32、33、34、35、36、43、44、45、46、47、59、60、61、62、63、64、65、66，共 19 项** 的开发、测试、修复和交接；不自行确定主线合并顺序，不合并其他组 PR。当前没有本组正在进行的主线合并或生产部署事务。
+
+| 定位 | 本次续接已知值 |
+| --- | --- |
+| 仓库与目标 | `solviq87-cpu/v6-stock-system` → `dev` |
+| 已核对 dev 基线 | `b9b44474be7fd27732e37d868ed64dbfddd3e8e9` |
+| 本组工作分支与 PR | `feat/fayo-intelligence-evolution-20261126` · [#357](https://github.com/solviq87-cpu/v6-stock-system/pull/357) |
+| 续接前远端 HEAD | `03d314dcec9c528d7fc46fe21c5a11939dc015d8`；这是旧恢复点，不是本轮修复后的最终提交 |
+| 续接前源码恢复包 | 已核验 Git bundle，SHA-256 `d73c836ecd8e115662158c826305049e556f77e212c567af612c0bd5e5225937`；不包含生产私有卷，不代替节点冷备 |
+| 应用及本轮原生资源 | `APP_VER=20261125ad`；资源修订 `20261125ad-evolution2`；SW 后缀 `evolution-2` |
+| 当前交付状态 | 未发布；最终提交 SHA、最终全量计数与统一验收结果尚待形成，不沿用旧提交绿色检查 |
+
+本轮继续修复财务健康与估值披露投影、信号价格区间及原始报价时点、真实日报/反馈/计划观察的六阶段接线、AI 引用与输出合同，以及结算时点和策略统计边界。复用原研究链、原成熟样本、原计划、原结算和原审批，不新增权威行情、账户、交易、风险或通知模块。规则评测不冒充外部模型调用；真实样本不足继续返回未知。电脑 `/#/lab/evolution` 与手机 `/m#/lab/evolution` 共用 `/api/research/evolution`。
+
+本轮冻结源码完整回归 **5153 项：5149 通过、0 失败、4 个既有条件跳过**，退出 0、153.306 秒，原 TAP 完整性通过；进化专项 **156/156**。静态（原 69 个前端模块与 26 个改动 JS）、隔离 HTTP/worker、研究工作台电脑 1440×1000 与手机 390×844、原 FAYO 8 场景/6 宽度、原决策及条件单双端均已通过，原权威账本字节不变。严格成熟时点缓存、嵌套未来证据、损坏私有档案脱敏已修并独立复核。最终提交 SHA、推送和对应 CI 结果见 [PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357)；本组结果不替代总管最终合并版本验收。逐项代码与边界见 [实现与接口](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)，复现与证据见 [验证索引](docs/validation/fayo-evolution-20261126/README.md)。真实数据接通、模型效果验证和生产运行状态分别取证。
+
+### 交新总管协调的 PR 依赖与共享文件
+
+下表为本次只读核对快照，不是合并安排。执行集成前由总管重新获取最新 `dev`、各 PR HEAD、检查结果和实际差异；单个 PR 对 `dev` 可合并不证明各 PR 组合无冲突。
+
+| PR 与核对 HEAD | 接口边界及需保留的成果 | 与本组主要共享处 / 待协调事项 |
+| --- | --- | --- |
+| [#353](https://github.com/solviq87-cpu/v6-stock-system/pull/353) · `c3c26519b005db219265c5b9b5718d8d053d8928` | 原策略治理、概率校准、试验预算、独立归因；复用原研究接口的 `governance`、正式/测试样本分区及原审批 | `server.js`、`src/server/research-workspace-job.js`；统一试验与样本身份，研究排名不自动替换生产策略 |
+| [#356](https://github.com/solviq87-cpu/v6-stock-system/pull/356) · `fd3caeeef55b1cad63be14764a47e11a695c0b2e` | 原账户防御、组合风险、历史证券及数据治理 | `server.js`、浏览器 workflow；与 #359 绑定同一次原账户 epoch/指纹，不能重算另一套生效风险 |
+| [#358](https://github.com/solviq87-cpu/v6-stock-system/pull/358) · `1c5675e70fc48c1666894b5e17c6d6961660ba16` | 已继承关闭的 #355；原新闻、模板、解释、回放与复盘接口 | `research-workspace.js` / store / job、`manual-decision-loop.js`、`research.js`、`server.js`、入口/SW；逐段保留锁内及最终发布前授权、历史时点语义。本组相似样本与其 `runId/target/revision/asOf` 正式绑定仍须协调，不把同条件分组冒充行情相似检索 |
+| [#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359) · `86a5bf4787f2b5a1746fffc11b9a60a06b5e387f` | 原 `/api/risk-workbench` 权益、风险、执行约束和提醒 | `server.js`、`terminal-workbench.js`、`fayo.css`、入口/SW；显示原风险状态和原因，本组研究信号或历史观察不代表获准执行 |
+| [#360](https://github.com/solviq87-cpu/v6-stock-system/pull/360) · `aecebd190075269cb5af588afc9ace4819954558` | 依赖本组旧 `9a113226…` 的任务 44 预热测试增量，核对时仍冲突 | 保留 125/25 同初值通过反例及有效细分断言；本组已修正为 120/30 的失败夹具不可被旧整文件覆盖。承接和后续 PR 处理交总管核对 |
+| [#361](https://github.com/solviq87-cpu/v6-stock-system/pull/361) · `5ea32ac70a753ecf6880757630d219c05c2417df` | 原报价最终写入前门禁、风险升级身份及检查门禁 | 浏览器 workflow；其最终报价核验与 #356 的 `publish/atomicWrite` 结构须同时保留，研究层检查不替代原成交提交门禁 |
+| [#362](https://github.com/solviq87-cpu/v6-stock-system/pull/362) · `a72f953c93e25a8a26ac784ecd7b68eaa7d71465` | 原来源真实性、AKShare 兼容、06/18/20/22/23/29 交接 | 两份根交接文档；登记数、请求尝试、有效报价、持续运行和授权分别取证，不将来源登记视为真实接通 |
+| [#363](https://github.com/solviq87-cpu/v6-stock-system/pull/363) · `d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49` | 67—78 既有增量的外部 PR 说明 | `server.js`、workspace store/job、入口/SW、浏览器 workflow；其编号和分工仅记录为外部 PR 信息，不扩大本次 19 项授权，后续职责由用户与总管确认 |
+
+上述 PR 均可能修改 `HANDOFF.md` / `DEPLOYMENT.md`；浏览器 workflow、入口及 SW 应保留各组有效模块和验收脚本，按实际差异统一资源版本。不得以旧整文件覆盖其他组成果，也不重复合并 #358 已继承的 #355。最终合并 SHA 的全量、HTTP、双端、安全、权限和账户/账本一致性验收由总管统一组织，本组配合修复和提供证据。
+
+### 发布与恢复边界
+
+继续使用 [DEPLOYMENT](DEPLOYMENT.md) 的既有完整程序发布流程和唯一发布者，不新建发布入口，不提高模型、账户或设备权限。当前未生产切换、未开实盘、未外发真实消息。原 `candidate-lifecycle` / `evolution-preferences` 和新增诊断仍在原私有研究链；执行日报、反馈和计划观察只读消费原档案。回滚先停全部写者并保全新研究事件、成交及原卷，隔离验证旧 reader 的兼容性，禁止删事件、重写哈希链或以旧账本覆盖新流水。源码 bundle 不代替生产冷备和恢复回执。
+
+<details><summary>本组前次交接记录：历史 evolution1 资源与原第一组分工，已由上方续接说明替代</summary>
+
 ## 2026-11-26 智能研究进化补充（二）· 19 项实现与验收
 
 基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-intelligence-evolution-20261126`，[PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357)。本组 31–36、43–47、59–66 共 19 项已补齐独立模块、原私有档案接入及双端 `#/lab/evolution` 工作台。相强/多周期、相似样本、候选/反证、四策略/融合、原结算复盘、基准/稳健性/DSR/PBO、因果/预热、财务/时效、AI 合同和六阶段流程均保留缺项与原交易门禁。个性化设置沿原链 CAS 保存；诊断绑定历史、实现及窗口，撤权在锁内复核。详见 [逐项实现与接口](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) 和 [实际验证记录](docs/validation/fayo-evolution-20261126/README.md)。
 
 主应用版本保持 `20261125ad`，本组原生资源修订 `20261125ad-evolution1`、SW 后缀 `evolution-1`；第一组统一整合全部 66 项、重新验证及同步最终发布版本。本组没有合并其他组 PR、生产切换或外发消息。新 `candidate-lifecycle` / `evolution-preferences` 记录继续使用原私有研究链；旧 reader 不认识新类型，回滚须先保全新链并在隔离副本验证兼容，不能删事件或覆盖新成交。原部署检查点及其他组交接保持。
+
+</details>

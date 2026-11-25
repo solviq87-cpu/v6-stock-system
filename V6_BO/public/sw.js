@@ -2,8 +2,8 @@
 // market prices must always come from the server, including after revocation.
 const APP_VER = '20261125ad';
 const CACHE_PREFIX = 'quant-dashboard-m-';
-const CACHE_NAME = CACHE_PREFIX + APP_VER + '-evolution-1';
-const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261125ad-evolution1', '/nova/app.js?v=20261125ad-evolution1', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js', '/nova/evolution-view.js',
+const CACHE_NAME = CACHE_PREFIX + APP_VER + '-evolution-2';
+const PRECACHE = ['/', '/m', '/manifest.json', '/nova/mark.svg', '/nova/fayo.css?v=20261125ad-evolution2', '/nova/app.js?v=20261125ad-evolution2', '/nova/client.js', '/nova/ui.js', '/nova/market.js', '/nova/market-evidence.js', '/nova/review-pool.js', '/nova/terminal-workbench.js', '/nova/home-layout.js', '/nova/system-picks.mjs', '/nova/stock-timeline.js', '/nova/close-review.js', '/nova/tactics-view.js', '/nova/tactics.js', '/nova/evolution-view.js',
   '/nova/automatic-research.js', '/nova/stock-roles.js', '/nova/dabanke-view.js', '/nova/shortline/context.mjs',
   '/nova/decision-view.mjs', '/nova/decision-sector-context.mjs', '/nova/execution-evidence.mjs', '/nova/shortline/numeric-factors.js', '/nova/shortline/numeric-factors.mjs', '/nova/decision-mini-kline.mjs', '/nova/decision-model.mjs', '/nova/command-selection.mjs', '/nova/intelligence-view.mjs'];
 

@@ -1,6 +1,8 @@
 # 天枢智策 V6 部署清单
 
-更新日期 2026-11-25（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
+更新日期 2026-11-26（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
+
+本组最新开发交接见 [补充（二）当前续接](#fayo-evolution-current-deployment)。31–36、43–47、59–66 共 19 项仍未发布，本组冻结源码全量与双端隔离验证已通过；最终集成、合并安排及整体验收由“绯曜 FAYO｜总管与最终交付”负责。本组当前没有主线合并或生产部署事务，既有唯一发布机制和历史发布记录保留。
 
 仓库首页、两级 `AGENTS.md`、`npm run context:resume` 和正式应用管理者首页都固定指向这份文档。应用首页打开 `dev` 上的当前文档，访问权限由 GitHub 私有仓库管理。
 
@@ -194,6 +196,46 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 3. 正式发布完成后记实际目标、运行版本、校验结果和回滚位置。保留重要上一版本记录，以便找回可运行的包和确认实际发布差异。凭据与私人数据只写在私有回执。
 
 
+<a id="fayo-evolution-current-deployment"></a>
+
+## 2026-11-26 智能研究进化补充（二）· 当前续接与发布边界（未发布）
+
+本组只负责 **31–36、43–47、59–66，共 19 项** 的开发、测试、修复与交接。用户已将统一总表、最终代码集成、合并安排、统一验收和交付跟踪移交 **“绯曜 FAYO｜总管与最终交付”**，覆盖此前原第一组负责最终集成的安排。本组不自行安排主线合并；当前没有本组正在进行的合并或部署事务。生产继续使用本页既有完整 V6_BO 发布流程和唯一发布者，没有新增发布入口。
+
+| 项目 | 本次续接状态 |
+| --- | --- |
+| 仓库、分支与 PR | `solviq87-cpu/v6-stock-system` · `feat/fayo-intelligence-evolution-20261126` → `dev` · [#357](https://github.com/solviq87-cpu/v6-stock-system/pull/357) |
+| 已核对 dev 基线 | `b9b44474be7fd27732e37d868ed64dbfddd3e8e9` |
+| 续接前远端恢复点 | `03d314dcec9c528d7fc46fe21c5a11939dc015d8`；不作为本轮最终提交 |
+| 已核验源码恢复包 SHA-256 | `d73c836ecd8e115662158c826305049e556f77e212c567af612c0bd5e5225937`；不包含生产私有卷 |
+| 主应用与本轮资源 | `APP_VER=20261125ad`；native asset `20261125ad-evolution2`；SW 后缀 `evolution-2` |
+| 运行入口 | 电脑 `/#/lab/evolution`、手机 `/m#/lab/evolution`；同源私有 `/api/research/evolution` |
+| 发布与验证 | **未发布**；本组冻结源码全量 5153 项（5149 通过、0 失败、4 个原条件跳过），专项 156/156，静态、真实隔离 HTTP/worker、研究及原业务双端浏览器通过，原账本不变。最终 SHA/精确头 CI 见 PR #357；生产运行回执未形成，最终组合仍需总管重新验收 |
+
+本轮增量继续消费原财报/公告、冻结计划及原始报价、原执行日报、反馈回执和计划观察，并修复研究统计时点和 AI 输出合同。工作流按首次可知时间显示证据，反馈等待不计完成、未收盘不产生收盘结果；规则质量检查不等于外部模型效果认证。复用既有行情、账本、风控、执行和通知链，不改变原审批。代码完成、真实数据接通、成熟样本效果与生产运行分别验收，不以旧 SHA 检查或隔离测试替代当前最终结果。实际结果在 [实现与边界](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) 和 [验证索引](docs/validation/fayo-evolution-20261126/README.md) 按对应版本记录。
+
+### 由新总管协调的依赖和集成复核
+
+| 关联 PR | 需复用的合同与共享文件 | 集成时需核对 |
+| --- | --- | --- |
+| [#353](https://github.com/solviq87-cpu/v6-stock-system/pull/353) | 原策略治理、试验预算、概率校准；`server.js`、research workspace job | 正式/测试样本及试验身份一致，原审批保持，不建第二套研究权威记录 |
+| [#356](https://github.com/solviq87-cpu/v6-stock-system/pull/356) / [#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359) | 原账户、风险、权益及报价约束；`server.js`、原生首页/CSS、入口/SW、浏览器 workflow | 同一原账户 epoch/快照/报价，保留实际门禁；研究信号不表示允许交易或风险解除 |
+| [#358](https://github.com/solviq87-cpu/v6-stock-system/pull/358) | 已继承 #355；原新闻、解释、回放、模板与复盘；workspace/store/job、manual loop、research.js、server、入口/SW | 保留双方事件类型与最终提交授权；相似样本与 `runId/target/revision/asOf` 绑定需正式适配，不重复合并 #355 |
+| [#360](https://github.com/solviq87-cpu/v6-stock-system/pull/360) | 本组旧提交上的预热夹具增量 | 保留有效同初值反例及断言，避免用旧文件覆盖已修正夹具；冲突处理与 PR 后续状态交总管核对 |
+| [#361](https://github.com/solviq87-cpu/v6-stock-system/pull/361) | 原报价最终提交、风险升级身份与检查门禁；浏览器 workflow | 与 #356 的原账户写入重构同时保留最终 `atomicWrite` 前报价核验，研究检查不替代它 |
+| [#362](https://github.com/solviq87-cpu/v6-stock-system/pull/362) | 原行情来源真实性与 SDK 兼容；两份交接文档 | 来源登记、请求尝试、有效回执、授权及持续生产分别记录，缺真实接通不认证效果 |
+| [#363](https://github.com/solviq87-cpu/v6-stock-system/pull/363) | 外部 PR 的 67—78 既有增量说明；server、workspace store/job、入口/SW、浏览器 workflow | 新编号和分工仅作为外部 PR 信息，不扩大本次 19 项授权；后续职责交用户与总管确认 |
+
+准确核对 HEAD 与完整共享文件边界见 [本轮 HANDOFF](HANDOFF.md#fayo-evolution-current-handoff)。上表不决定合并顺序；总管在集成时重新获取最新 PR 与 `dev`，按实际差异保留有效代码、权限复核和全部验收脚本，统一资源版本，并对最终合并 SHA 重跑完整验收。本组配合本组接口和缺口修复，不以各分支分别通过代替组合验证。
+
+### 原私有档案与恢复
+
+仍沿用原 `V6_RESEARCH_WORKSPACE_DIR` 与 `V6_SHORTLINE_DIR`：分组、模板、布局和候选关联保存在原研究哈希链，执行日报、反馈和计划观察分别读取原 `execution-reports/`、`feedback-runs/`、`plan-observations/`。本次没有新增权威账本或新的通知发送者。读取/导出受原编辑、设备、主副角色和在途撤权保护，缺损档案显示不可用，不用空结果代替通过。
+
+本组没有执行生产冷备、切换、实盘或真实消息外发。实际发布须由既有机制使用最终核验的同一 SHA 完整程序，不能仅替换页面；目标节点停全部同卷写者并冷备程序、原私有卷、授权、研究、账本和日志。恢复先保全新增事件与成交，在隔离副本核对旧 reader 兼容，禁止删除新事件、重写哈希链或用旧账本覆盖新流水。源码 bundle 不代替生产冷备，现场权限、真实报价、性能和送达仍需真实回执。
+
+<details><summary>本组前次部署交接：历史 evolution1 资源与原第一组分工，已由上方续接说明替代</summary>
+
 ## 2026-11-26 智能研究进化补充（二）· 19 项（未发布）
 
 [PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357) 在 `dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9` 上补齐本组 19 项，入口为原电脑/手机研究工作区 `#/lab/evolution`，私有同源接口 `/api/research/evolution`。完整应用继续使用上方原部署入口；该改动同时包含后端、worker 和页面，集成后须使用同一精确 SHA 的完整程序。原账户、行情、风控、人工批准和唯一发布者不变。[实现与边界](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) · [测试与双端证据](docs/validation/fayo-evolution-20261126/README.md)
@@ -201,3 +243,5 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 未新增私有运行根目录：分组/模板/布局、候选关联与诊断保存到原 `V6_RESEARCH_WORKSPACE_DIR` 哈希链，使用原 CAS、容量与锁内撤权检查。原人工执行记录只按历史时点读取。已有 factor agent 配置可由 `V6_FACTOR_AGENT_CONFIG_FILE` 指向其原私有绝对路径作只读试验审计；缺少配置/成熟收益矩阵时保持不可评估。
 
 本分组保持主应用版本 `20261125ad`，资源修订为 `20261125ad-evolution1`、SW 后缀 `evolution-1`；最终版本、所有 66 项集成和生产验收由第一组统一处理。没有执行生产冷备、切换、真实交易或消息外发。回切旧程序前须保全新增研究事件链并验证旧 reader 对新类型的兼容；不得删除新事件重写 hash chain，也不得用旧账本覆盖新流水。
+
+</details>

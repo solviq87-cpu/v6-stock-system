@@ -18,6 +18,11 @@ function known(row,asOf){
  const times=['knownAt','receivedAt','recordedAt','createdAt','observedAtMs','observedAt','frozenAt'].filter(k=>row?.[k]!=null).map(k=>instant(row[k]));
  return times.length>0&&times.every(at=>at!==null&&at<=asOf);
 }
+function causalQuote(quote,code,asOf){
+ if(!quote||quote.code!==code||!Number.isSafeInteger(quote.quoteAt)||!Number.isSafeInteger(quote.receivedAt))return null;
+ const times=['quoteAt','timestamp','receivedAt','knownAt','recordedAt'].filter(k=>quote[k]!=null).map(k=>instant(quote[k]));
+ return times.every(at=>at!==null&&at<=asOf)?quote:null;
+}
 function causalArchive(archive,asOf){
  const out={...archive};
  for(const key of ['checks','plans','trades','explanations','candidates','versions','notes','checkins','market','marketHistory','bars','corrections','executionReports','feedbackRuns','manualLoopLinks'])
@@ -25,6 +30,32 @@ function causalArchive(archive,asOf){
  if(!known(archive.v6Observation,asOf))delete out.v6Observation;
  if(!known(archive.executionReport,asOf))delete out.executionReport;
  return out;
+}
+function modelDiagnosticArchive(archive,asOf){
+ const visible=causalArchive(archive,asOf),out={};
+ // Bind only inputs used by the original numeric learning projection. A later
+ // preference, report or account revision must not rewrite a past model audit.
+ for(const key of ['scope','sampleSet','sampleScope','testSample','isTest','synthetic','mock','source','sampleSource','provider','quality','name','dictionaryVersion','catalog'])
+  if(Object.hasOwn(visible,key))out[key]=visible[key];
+ for(const key of ['checks','plans','trades','bars'])out[key]=visible[key];
+ return out;
+}
+function modelCacheProjection(value,asOf){
+ if(Array.isArray(value))return value.map(item=>modelCacheProjection(item,asOf)).filter(item=>item!==undefined);
+ if(!value||typeof value!=='object')return value;
+ const times=['knownAt','receivedAt','recordedAt','createdAt','observedAtMs','observedAt','frozenAt','availableAt','asOf'].filter(key=>Object.hasOwn(value,key));
+ if(times.some(key=>instant(value[key])===null||instant(value[key])>asOf))return undefined;
+ return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,modelCacheProjection(item,asOf)]).filter(([,item])=>item!==undefined));
+}
+async function modelDiagnosticIdentity(archive,asOf,trustedPython,history=null){
+ const input=modelDiagnosticArchive(archive,asOf),cutoff=history?.stocks?.[0]?.bars?.at(-2)?.date;
+ const cutoffAt=cutoff?Math.min(asOf,Date.parse(cutoff+'T23:59:59.999+08:00')):asOf;
+ const effective=await require('./evolution-model-causality').numericDiagnosticInputState({archive:input,cutoffAt});
+ // Use the original reader's actual temporal eligibility, including its strict
+ // settlementKnownAt < cutoff boundary. Milliseconds with identical eligible
+ // evidence remain reusable. Do not alter source objects or frozen checksums.
+ return fingerprint({archive:modelCacheProjection(input,asOf),numeric:modelCacheProjection(effective,asOf),
+  cutoffDay:chinaDay(cutoffAt),python:trustedPython.identity});
 }
 function evidenceBars(archive,events,asOf){
  const byIdentity=new Map(),quarantined=new Set(),diagnostics={sourceRows:0,duplicates:0,lateEnrichmentsOmitted:0,workspaceReceiptFloorApplied:0,rejected:0,quarantinedRows:0,conflicts:[]};
@@ -103,7 +134,7 @@ function historyFrom(events,code,asOf,calendar={}){
  const tradeDates=Array.isArray(calendar?.tradeDates)?calendar.tradeDates:rows(latest.data.tradeDates);
  return causalHistory({...latest.data,bars},tradeDates);
 }
-async function buildEvolutionReport({archive={},events=[],code,asOf=Date.now(),calendar={},financials=null,financialMissing=null,ledger={},preferences=null,history=null,trialInputs=null,options={}}={}){
+async function buildEvolutionReport({archive={},events=[],code,asOf=Date.now(),calendar={},financials=null,financialMissing=null,latestQuote=null,ledger={},preferences=null,history=null,trialInputs=null,options={}}={}){
  if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>Date.now())throw Error('研究时点无效');
  if(code!==undefined&&code!==''&&!/^\d{6}$/.test(code))throw Error('研究证券无效');
  calendar=calendar||{};
@@ -118,16 +149,21 @@ async function buildEvolutionReport({archive={},events=[],code,asOf=Date.now(),c
  const symbols=new Map();
  for(const row of [...visible.bars,...visible.checks,...visible.plans])if(/^\d{6}$/.test(row.code)&&(!row.role||row.role==='stock'))symbols.set(row.code,row.name||row.code);
  for(const e of visibleEvents)if(e.kind==='analysis')symbols.set(e.data.symbol,e.data.name||e.data.symbol);
- const market=require('./evolution-market-evidence').buildEvolutionMarketEvidence({archive:visible,code,asOf,financials,
-  signal:visible.plans.filter(p=>p.code===code).at(-1)||visible.checks.filter(c=>c.code===code).at(-1),
+ const signal=visible.plans.filter(p=>p.code===code).at(-1)||visible.checks.filter(c=>c.code===code).at(-1);
+ const latestObservation=rows(archive.planObservations).filter(row=>row.code===code&&row.planId===signal?.id&&
+  Number.isSafeInteger(row.observedAt)&&row.observedAt<=asOf).sort((a,b)=>b.observedAt-a.observedAt)[0]||null;
+ const market=require('./evolution-market-evidence').buildEvolutionMarketEvidence({archive:visible,code,asOf,financials,signal,
+  latestQuote:causalQuote(latestQuote,code,asOf),latestObservation,
   latestEvidence:visible.checks.filter(c=>c.code===code).at(-1),calendar});
  if(financialMissing&&!financials)market.financialHealth={...market.financialHealth,sourceReason:financialMissing};
  const originalHistory=history||historyFrom(visibleEvents,code,asOf,calendar),historyFingerprint=fingerprint(originalHistory);
  const nativeInputsFingerprint=fingerprint(require('./evolution-research-statistics').diagnosticInputsFromEvents(visibleEvents,originalHistory,{asOf}));
+ const trustedPython=require('./evolution-model-causality').readTrustedPythonConfig();
+ const modelInputsFingerprint=await modelDiagnosticIdentity(archive,asOf,trustedPython,originalHistory);
  const implementationFingerprint=require('./evolution-diagnostic-version').diagnosticImplementationFingerprint();
  const diagnostic=visibleEvents.findLast(e=>e.kind==='diagnostic'&&e.data.protocol==='evolution-diagnostics-v1'&&e.data.code===code&&
   e.data.historyFingerprint===historyFingerprint&&e.data.nativeInputsFingerprint===nativeInputsFingerprint&&
-  e.data.implementationFingerprint===implementationFingerprint&&e.data.horizon===(options.horizon||5));
+  e.data.modelInputsFingerprint===modelInputsFingerprint&&e.data.implementationFingerprint===implementationFingerprint&&e.data.horizon===(options.horizon||5));
  const statistics=await require('./evolution-research-statistics').buildEvolutionStatistics({archive:visible,events:visibleEvents,
   asOf,history:originalHistory,trialInputs,options:{...options,...(diagnostic?{diagnostics:diagnostic.data.result}:{})}});
  if(trialInputs)statistics.overfitting.archive={status:trialInputs.status,source:trialInputs.source||null,reason:trialInputs.reason||null,
@@ -141,15 +177,15 @@ async function buildEvolutionReport({archive={},events=[],code,asOf=Date.now(),c
  const similar=selected?similarCases(visible,selected,point):{status:'not-evaluated',reason:'尚无当时已取得证据的历史观察',neighbours:[],success:[],failure:[],neutral:[],missing:[]};
  const sources={archiveRevision:archive.revision??0,visibleBars:visible.bars.length,visibleChecks:visible.checks.length,visibleEvents:visibleEvents.length,
   observedThrough:visible.bars.reduce((d,b)=>b.date>d?b.date:d,''),selectedCode:code,day:chinaDay(asOf),barEvidence:visible.bars.evidenceDiagnostics,
-  implementationFingerprint,diagnosticRecord:diagnostic?.hash||null};
+  implementationFingerprint,modelInputsFingerprint,pythonIdentity:trustedPython.identity,diagnosticRecord:diagnostic?.hash||null};
  const result={schemaVersion:1,mode:'fayo-intelligence-evolution',asOf,code,symbols:[...symbols].map(([code,name])=>({code,name})),
   sources,market,similar,statistics,workflow,...flags};
  result.fingerprint=fingerprint(result);
  result.visibleEvidenceFingerprint=fingerprint({asOf,code,market,similar,statistics,workflow,
-  historyFingerprint,nativeInputsFingerprint,implementationFingerprint});
+  historyFingerprint,nativeInputsFingerprint,modelInputsFingerprint,implementationFingerprint});
  return result;
 }
-async function readEvolutionReport({root,workspaceRoot,paths={},query={},calendar,replica=false,now=Date.now()}={}){
+async function readEvolutionReport({root,workspaceRoot,paths={},query={},calendar,latestQuote=null,replica=false,now=Date.now()}={}){
  const {shortlineJob}=await import('../research/shortline/store.mjs');
  const archive=await shortlineJob({root,book:'main',replica});
  if(!archive.ok)return archive;
@@ -167,7 +203,8 @@ async function readEvolutionReport({root,workspaceRoot,paths={},query={},calenda
  try{const statistics=require('./evolution-research-statistics');trialInputs=statistics.readEvolutionTrialInputs({asOf,configFile:paths.factorConfigFile,
   modelDir:paths.factorModelDir,captureDir:paths.factorCaptureDir,signalDays:statistics.researchSignalDays(events,{asOf})});}
  catch{trialInputs={status:'not-evaluated',reason:'原试验档案完整性校验未通过，不能计算过拟合验证',trialReports:[],signalDays:[]};}
- const result=await buildEvolutionReport({archive:archive.state,events,code,asOf,calendar,financials,financialMissing,preferences,
+ const operating=await require('./evolution-operating-evidence').readEvolutionOperatingEvidence({root,asOf});
+ const result=await buildEvolutionReport({archive:{...archive.state,...operating},events,code,asOf,calendar,financials,financialMissing,preferences,latestQuote,
   trialInputs,ledger:paths.manualLedgerRoot?require('./manual-decision-loop').view(paths.manualLedgerRoot,{asOf,workspaceRoot}):{},options:{horizon:query.horizon||5}});
  return {ok:true,result};
 }
@@ -181,16 +218,23 @@ async function runStoredEvolutionDiagnostics({root,workspaceRoot,query={},input=
   return {ok:true,result:previous.data.result,recordedAt:previous.recordedAt,recordId:previous.hash,reused:true,...flags};
  }
  const asOf=query.asOf??now,events=store.readEvents(workspaceRoot,{asOf});
+ const {shortlineJob}=await import('../research/shortline/store.mjs');
+ const stored=await shortlineJob({root,book:'main',replica});
+ if(!stored.ok)return stored;
+ const archive=modelDiagnosticArchive(stored.state,asOf);
  const prefs=require('./evolution-workflow').readEvolutionPreferences(workspaceRoot,{asOf});
- const code=query.code||prefs.value.selectedCode||events.findLast(e=>e.kind==='analysis')?.data.symbol||'';
+ const visible=causalArchive(stored.state,asOf);
+ const code=query.code||prefs.value.selectedCode||visible.v6Observation?.code||visible.checks.at(-1)?.code||events.findLast(e=>e.kind==='analysis')?.data.symbol||'';
  const history=historyFrom(events,code,asOf,calendar),historyFingerprint=fingerprint(history),horizon=query.horizon||5;
  const implementationFingerprint=require('./evolution-diagnostic-version').diagnosticImplementationFingerprint();
  const statistics=require('./evolution-research-statistics');
  const nativeInputs=statistics.diagnosticInputsFromEvents(events,history,{asOf});
  const nativeInputsFingerprint=fingerprint(nativeInputs);
- const result=await statistics.runEvolutionDiagnostics({history:history?{...history,holdDays:horizon}:null,asOf,...nativeInputs});
- const event=store.appendEvent(workspaceRoot,'diagnostic',{protocol:'evolution-diagnostics-v1',code,asOf,horizon,commandFingerprint,historyFingerprint,nativeInputsFingerprint,implementationFingerprint,result},
+ const trustedPython=require('./evolution-model-causality').readTrustedPythonConfig();
+ const modelInputsFingerprint=await modelDiagnosticIdentity(stored.state,asOf,trustedPython,history);
+ const result=await statistics.runEvolutionDiagnostics({history:history?{...history,holdDays:horizon}:null,archive,trustedPython,asOf,...nativeInputs});
+ const event=store.appendEvent(workspaceRoot,'diagnostic',{protocol:'evolution-diagnostics-v1',code,asOf,horizon,commandFingerprint,historyFingerprint,nativeInputsFingerprint,modelInputsFingerprint,implementationFingerprint,result},
   {requestId:input.requestId,now:Date.now(),beforeCommit});
  return {ok:true,result,recordedAt:event.recordedAt,recordId:event.hash,reused:event.reused,...flags};
 }
-module.exports={buildEvolutionReport,readEvolutionReport,runStoredEvolutionDiagnostics,causalArchive,evidenceBars,historyFrom};
+module.exports={buildEvolutionReport,readEvolutionReport,runStoredEvolutionDiagnostics,causalArchive,evidenceBars,historyFrom,causalQuote,modelDiagnosticArchive,modelDiagnosticIdentity};

@@ -16,7 +16,7 @@ function parseQuery(url,now){
  if(url.searchParams.has('export')&&!['0','1'].includes(url.searchParams.get('export')))throw Error('导出参数无效');
  return {...query,asOf:query.asOf??now,export:url.searchParams.get('export')==='1'};
 }
-async function evolutionHttp(req,res,{body='',url,root,workspaceRoot,paths={},authenticate,isReplica,job,clock=Date.now,calendarFor}={}){
+async function evolutionHttp(req,res,{body='',url,root,workspaceRoot,paths={},authenticate,isReplica,job,clock=Date.now,calendarFor,readQuote}={}){
  body=body??'';
  const reply=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
  const fail=(status,error)=>reply(status,{ok:false,error});
@@ -46,7 +46,10 @@ async function evolutionHttp(req,res,{body='',url,root,workspaceRoot,paths={},au
  }catch(e){return fail(400,e instanceof SyntaxError?'请求须为 JSON 对象':e.message);}
  const mayWrite=()=>authorized()&&!isReplica();
  try{
+  const quote=!input&&query.code?readQuote?.(query.code,query.asOf)||null:null;
+  const latestQuote=quote&&quote.code===query.code&&['quoteAt','receivedAt'].every(k=>Number.isSafeInteger(quote[k])&&quote[k]>0&&quote[k]<=query.asOf)?quote:null;
   const result=await job({action:input?'evolution-'+input.action:'evolution',root,workspaceRoot,paths,query,input,now,replica:isReplica(),
+   latestQuote,
    calendar:calendarFor?.(query.asOf)||null},{authorize:mayWrite});
   // The device can be revoked while an archive worker is reading private data.
   if(!authorized())return reply(403,{ok:false,locked:true,error:'设备授权已变化，请重新登录后读取'});

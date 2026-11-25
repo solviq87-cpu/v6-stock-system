@@ -2,13 +2,14 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {evolutionHttp,parseQuery}=require('../src/server/evolution-http');
 const now=Date.parse('2026-11-20T16:00:00+08:00');
-async function call({method='GET',query='',body='',headers={},role='edit',replica=false,job,authenticate}={}){
+async function call({method='GET',query='',body='',headers={},role='edit',replica=false,job,authenticate,readQuote}={}){
  const calls=[];let status,result,responseHeaders;
  const req={method,headers:{host:'fayo.test',authorization:'Bearer fixture-token',...headers},socket:{}};
  const res={writeHead:(s,h)=>{status=s;responseHeaders=h;},end:raw=>{result=JSON.parse(raw);}};
  await evolutionHttp(req,res,{body:typeof body==='string'?body:JSON.stringify(body),url:new URL('http://fayo.test/api/research/evolution'+query),
   root:'/private/shortline',workspaceRoot:'/private/workspace',paths:{evidenceRoot:'/private/evidence'},
   authenticate:authenticate||(()=>role),isReplica:()=>replica,clock:()=>now,calendarFor:at=>({knownAt:at,source:'fixture'}),
+  readQuote,
   job:async(p,options)=>{calls.push(p);return job?job(p,options):{ok:true,result:{fixture:true}};}});
  return {status,result,headers:responseHeaders,calls};
 }
@@ -46,4 +47,15 @@ test('diagnostics use bounded server inputs and primary authorization',async()=>
 });
 test('worker failures never reveal private filesystem details',async()=>{
  const r=await call({job:async()=>{throw Error('/private/credentials/secret-value');}});assert.equal(r.status,503);assert.doesNotMatch(JSON.stringify(r.result),/credentials|secret-value/);
+});
+test('original quotes are read only after authorization and validated symbol selection',async()=>{
+ const quote={code:'600001',price:10,quoteAt:now-5000,receivedAt:now-4000,quoteSource:'tencent',quoteMode:'public-live-unverified'},reads=[];
+ const readQuote=(code,asOf)=>{reads.push({code,asOf});return quote;};
+ const valid=await call({query:'?symbol=600001',readQuote});
+ assert.equal(valid.status,200);assert.deepEqual(valid.calls[0].latestQuote,quote);assert.deepEqual(reads,[{code:'600001',asOf:now}]);
+ for(const args of [{role:'view',query:'?symbol=600001'},{query:'?symbol=../secret'},{query:'?symbol=600001&price=1'},{query:''},
+  {method:'POST',body:{action:'diagnostics',requestId:'diagnostic_quote_1',symbol:'600001'}}])await call({...args,readQuote});
+ assert.equal(reads.length,1,'no anonymous, client-supplied quote, unselected symbol or write can invoke a quote read');
+ const historical=await call({query:'?symbol=600001&asOf='+String(now-6000),readQuote});
+ assert.equal(historical.calls[0].latestQuote,null,'a current wire quote cannot replace historical plan observations');
 });

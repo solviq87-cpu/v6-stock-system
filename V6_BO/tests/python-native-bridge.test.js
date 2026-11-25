@@ -12,3 +12,10 @@ test('bridge rejects fabricated future observation from Python',()=>withScript(h
 test('bridge rejects Python output that is not JSON',()=>withScript('print("not json")\n',script=>assert.throws(()=>executePythonNative(history,{script}),/不是JSON/)));
 test('bridge rejects Python runtime failure',()=>withScript('import sys\nsys.exit(3)\n',script=>assert.throws(()=>executePythonNative(history,{script}),/退出异常/)));
 test('bridge requires explicit absolute trusted script',()=>assert.throws(()=>executePythonNative(history,{script:'untrusted.py'}),/绝对路径/));
+test('bounded target-date execution preserves the full prefix and rejects invalid dates, budgets or code identity',()=>withScript(header+`assert len(x['bars'])==32\nprint(json.dumps({'symbol':x['symbol'],'date':x['date'],'observedThrough':x['date'],'evaluatorVersion':'python-native/v1','provenance':'python-runtime:trusted-local-script','rounds':[{'round':i,'verdict':'unknown','observedThrough':x['date'],'reason':'explicit target with full history'} for i in (1,2,3)]}))\n`,script=>{
+ const options={script,targetDates:[dates.at(-1)],totalTimeoutMs:2000};
+ assert.equal(executePythonNative(history,options).execution.calls,1);
+ for(const targetDates of [[],[dates[0],dates[0]],['2099-01-01']])assert.throws(()=>executePythonNative(history,{...options,targetDates}),/目标日期/);
+ assert.throws(()=>executePythonNative(history,{...options,totalTimeoutMs:0}),/总执行预算/);
+ assert.throws(()=>executePythonNative(history,{...options,expectedScriptSha256:'0'.repeat(64)}),/版本已变化/);
+}));
