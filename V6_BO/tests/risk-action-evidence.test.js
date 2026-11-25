@@ -144,6 +144,52 @@ test('repeated reads and serialized restart evidence keep the same plan, order a
   assert.equal(b.account.events.length,2);assert.deepEqual(r.items[0].orderIds,['sell-order']);
 });
 
+test('real numeric exit orders and fills keep planned and unplanned constraints aligned after restart',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'risk-action-numeric-exit-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));let clockNow=time(entryDay);
+  const file=path.join(root,'authority.json'),calendar={isOpen:()=>true};
+  let service=createPaperApplicationService({file,clock:()=>clockNow,calendar});
+  const p=plan(),initial={initial:100000,enabled:true,cash:100000,realized:0,positions:{},trades:[]};
+  const opening=service.adoptLegacy(initial);
+  const trade={t:clockNow,side:'买入',code,name:'隔离测试',price:10,shares:200,amount:2000,fee:5,basis:2005,pnl:null,
+    reason:'作战台计划['+p.id+'] '+code+' · 原账户风控'};
+  service.saveLegacy({...initial,cash:97995,positions:{[code]:{code,name:'隔离测试',shares:200,buyPrice:10,buyTs:clockNow,basis:2005}},trades:[trade]},
+    opening.revision,{quotes:{[code]:quote(clockNow,10)}});
+  clockNow=time(day);
+  const snapshot=plans=>{
+    const check={allowed:true,reason:'原退出巡检允许',checkedAt:clockNow,quoteAt:clockNow};
+    return buildRiskActionEvidence({book:service.read(),plans,quotes:{[code]:quote(clockNow)},now:clockNow,calendar,continuous:true,
+      originalExitChecks:{[p.id]:check,[code]:check}}).items[0];
+  };
+  service.submit({orderId:'numeric-exit',symbol:Number(code),side:'sell',quantity:200,limitPrice:9.3,tradeDate:day});
+  for (const plans of [[p],[]]) {
+    const pending=snapshot(plans);
+    assert.equal(pending.status,'submitted');assert.deepEqual(pending.orderIds,['numeric-exit']);
+    assert.equal(pending.constraints.frozenQuantity,200);assert.equal(pending.constraints.sellableQuantity,0);
+    assert.equal(pending.execution.allowed,false);
+  }
+  service.fill('numeric-exit','numeric-partial',{symbol:Number(code),source:'simulated',provider:'isolated-numeric-exit',tradeDate:day,timestamp:clockNow,
+    price:10,volumeUnit:'shares',volume:10000,upperLimit:11,lowerLimit:9,suspended:false,tradable:true});
+  for (const plans of [[p],[]]) {
+    const partial=snapshot(plans);
+    assert.equal(partial.status,'partially-filled');assert.equal(partial.constraints.remainingQuantity,100);
+    assert.equal(partial.constraints.frozenQuantity,100);assert.equal(partial.constraints.sellableQuantity,0);
+    assert.equal(partial.execution.allowed,false);assert.equal(partial.constraints.liquidity.usedVolume,100);
+    assert.deepEqual(partial.fills.map(fill=>fill.eventId),['numeric-partial']);assert.equal(partial.continueObserving,true);
+  }
+  service.cancel('numeric-exit','numeric-cancel');
+  const before=fs.readFileSync(file,'utf8'),expected=[[p],[]].map(snapshot);
+  for (const remaining of expected) {
+    assert.equal(remaining.status,'partially-filled');assert.equal(remaining.constraints.frozenQuantity,0);
+    assert.equal(remaining.constraints.sellableQuantity,100);assert.equal(remaining.execution.allowed,true);
+    assert.deepEqual(remaining.orderIds,['numeric-exit']);assert.deepEqual(remaining.fills.map(fill=>fill.eventId),['numeric-partial']);
+  }
+  assert.equal(service.read().orders['numeric-exit'].order.symbol,Number(code));
+  assert.equal(service.read().account.events.at(-1).symbol,Number(code));
+  service=createPaperApplicationService({file,clock:()=>clockNow,calendar});
+  assert.deepEqual([[p],[]].map(snapshot),expected);assert.equal(fs.readFileSync(file,'utf8'),before);
+});
+
 test('unplanned authoritative holdings show actual sellable constraints without inventing a stop plan',()=>{
   const b=book();b.account.events[0].reason='原自动跟单';
   sealBook(b);
@@ -156,6 +202,17 @@ test('unplanned authoritative holdings show actual sellable constraints without 
   sealBook(opening);
   const unknown=view(opening,{plans:[]}).items[0];assert.equal(unknown.constraints.sellableQuantity,200);
   assert.equal(unknown.execution.allowed,null);assert.equal(unknown.condition.kind,null);
+});
+
+test('a real numeric purchase keeps its original unplanned entry reference and sellable evidence',t=>{
+  const {fixture,BASE}=require('./helpers/account-equity-fixture');
+  const f=fixture(t);f.buy(Number(code),200,10);f.setNow(BASE+86400000);
+  const b=f.service.read(),before=JSON.stringify(b),check={allowed:true,reason:'原退出巡检允许',checkedAt:f.now,quoteAt:f.now};
+  const x=buildRiskActionEvidence({book:b,plans:[],quotes:{[code]:quote(f.now)},now:f.now,calendar:{isOpen:()=>true},continuous:true,
+    originalExitChecks:{[code]:check}}).items[0];
+  assert.equal(x.entryEventId,'fill-1');assert.equal(x.planId,null);assert.equal(x.condition.kind,null);
+  assert.equal(x.constraints.sellableQuantity,200);assert.equal(x.execution.allowed,true);
+  assert.equal(b.account.events[0].symbol,Number(code));assert.equal(JSON.stringify(b),before);
 });
 
 test('an unplanned partial exit keeps matched fills and remaining observation after its order is canceled or completed',()=>{

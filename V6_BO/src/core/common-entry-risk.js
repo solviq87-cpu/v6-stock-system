@@ -18,7 +18,9 @@ function evaluateEntryRisk({policy=null,side='buy',symbol,strategyId,quantity,pr
   for(const p of pending){const value=p.quantity*p.price;if(!finite(value)||value<0){unknown=true;continue;}values.push({...p,value});}
   const equity=cash+gross,addition=quantity*price;
   if(unknown||!finite(equity)||equity<=0)fail('MISSING_POSITION_MARKS');else{
-   const sum=fn=>values.filter(fn).reduce((n,p)=>n+p.value,0);exposure.equity=equity;exposure.gross=sum(()=>true)+addition;exposure.single=sum(p=>p.symbol===symbol)+addition;
+   // Order reducers accept numeric six-digit codes; comparison must share the
+   // string-keyed holdings identity without rewriting the original evidence.
+   const sum=fn=>values.filter(fn).reduce((n,p)=>n+p.value,0);exposure.equity=equity;exposure.gross=sum(()=>true)+addition;exposure.single=sum(p=>String(p.symbol)===String(symbol))+addition;
    if(policy.maxPositionPct!=null&&exposure.single/equity*100>policy.maxPositionPct+1e-9)fail('SINGLE_POSITION_LIMIT');
    if(policy.maxGrossExposurePct!=null&&exposure.gross/equity*100>policy.maxGrossExposurePct+1e-9)fail('GROSS_EXPOSURE_LIMIT');
    if(policy.maxSectorPct!=null){if(!label(sectors[symbol])||values.some(p=>!label(sectors[p.symbol])))fail('MISSING_SECTOR_CLASSIFICATION');else{exposure.sector=sum(p=>sectors[p.symbol]===sectors[symbol])+addition;if(exposure.sector/equity*100>policy.maxSectorPct+1e-9)fail('SECTOR_EXPOSURE_LIMIT');}}

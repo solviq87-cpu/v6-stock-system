@@ -45,7 +45,7 @@ function orderEvidence(book, context, code, now) {
   const orders = context.period?.orders || book.orders;
   for (const [key, item] of Object.entries(orders)) {
     const order = item?.order, state = item?.state;
-    if (order?.symbol !== code || order.side !== 'sell') continue;
+    if (String(order?.symbol) !== String(code) || order.side !== 'sell') continue;
     if (order.tradeDate < context.entry.tradeDate || order.tradeDate > aShareCalendarDate(now)) continue;
     if (!ids.has(order.orderId)) {
       // Closing a lot also closes its order association. Later same-symbol round
@@ -96,15 +96,15 @@ function unplannedHoldingAction({book, code, quotes, now, day, session, continuo
     missing: [...missing, '该权威持仓没有可关联的冻结计划，计划阈值及触发状态未知'], continueObserving: true,
     notes: [...NOTES, '此行是权威账户持仓，手工申报持仓不进入该可卖核对。']};
   const ids = new Set((position.lots || []).map(l => l.sourceEventId));
-  const entry = ids.size === 1 ? book.account.events.find(e => e.eventId === [...ids][0] && e.side === 'buy' && e.symbol === code) : null;
+  const entry = ids.size === 1 ? book.account.events.find(e => e.eventId === [...ids][0] && e.side === 'buy' && String(e.symbol) === String(code)) : null;
   const entryIndex = entry ? book.account.events.indexOf(entry) : -1;
   if (entry) { item.entryEventId = entry.eventId; item.sourceAt = executionTimeOf(entry); }
   for (const row of Object.values(book.orders)) {
-    if (row?.order?.symbol !== code || row.order.side !== 'sell' || typeof row.state?.terminal !== 'boolean') continue;
+    if (String(row?.order?.symbol) !== String(code) || row.order.side !== 'sell' || typeof row.state?.terminal !== 'boolean') continue;
     const {order, state} = row;
     const fills = (row.events || []).filter(e => e.type === 'fill');
     const actualFills = fills.map(e => book.account.events.find(actual => actual.eventId === e.eventId &&
-      actual.orderId === order.orderId && actual.side === 'sell' && actual.symbol === code &&
+      actual.orderId === order.orderId && actual.side === 'sell' && String(actual.symbol) === String(code) &&
       actual.quantity === e.quantity && actual.price === e.price && executionTimeOf(actual) !== null && executionTimeOf(actual) <= now));
     // A canceled or completed partial exit still belongs to the remaining
     // original lot. No terminal order from an earlier round trip is attached.
@@ -135,7 +135,7 @@ function unplannedHoldingAction({book, code, quotes, now, day, session, continuo
     const evidence = observer.quoteEvidence(quote, code, day, now);
     item.constraints.price = {current: quote.price, stop: null, target: null, upperLimit: quote.upperLimit,
       lowerLimit: quote.lowerLimit, source: evidence.source, quoteAt: evidence.quoteAt};
-    const used = book.account.events.filter(e => e.symbol === code && e.tradeDate === day).reduce((sum,e) => sum + e.quantity, 0);
+    const used = book.account.events.filter(e => String(e.symbol) === String(code) && e.tradeDate === day).reduce((sum,e) => sum + e.quantity, 0);
     if (qty(used)) { item.constraints.liquidity.usedVolume = used; item.constraints.liquidity.capacityQuantity = Math.max(0, Math.floor((quote.volume * .01 - used) / 100) * 100); }
     if (entry) {
       const check = observer.sellEligibility(book, {entry, remaining: position.quantity, current: true, ambiguous: null},
@@ -243,7 +243,7 @@ function buildRiskActionEvidence({book = null, plans = [], observations = [], qu
         const kind = context.entry && context.remaining > 0 ? quote.price <= plan.stop ? 'stop' : quote.price >= plan.target ? 'target' : null : null;
         item.condition = {status: kind ? 'triggered' : 'not-triggered', kind, price: quote.price,
           source: evidence.source, quoteAt: evidence.quoteAt, observedAt: now};
-        const used = book.account.events.filter(e => e.symbol === plan.code && e.tradeDate === day).reduce((sum,e) => sum + e.quantity, 0);
+        const used = book.account.events.filter(e => String(e.symbol) === String(plan.code) && e.tradeDate === day).reduce((sum,e) => sum + e.quantity, 0);
         if (qty(used)) { item.constraints.liquidity.usedVolume = used; item.constraints.liquidity.capacityQuantity = Math.max(0, Math.floor((quote.volume * .01 - used) / 100) * 100); }
         const checked = observer.sellEligibility(book, context, quote, day, now, originalExitChecks[plan.id]);
         item.execution = {allowed: checked.allowed, reason: checked.reason,

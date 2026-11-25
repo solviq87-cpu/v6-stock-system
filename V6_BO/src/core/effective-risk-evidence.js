@@ -83,7 +83,7 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
     if (!remaining) continue;
     const value = remaining * order.limitPrice;
     pendingBuyValue += value; pendingOrderIds.push(order.orderId);
-    pending.push({symbol: order.symbol, quantity: remaining, price: order.limitPrice, value,
+    pending.push({symbol: String(order.symbol), quantity: remaining, price: order.limitPrice, value,
       strategyId: order.strategyId || null, orderId: order.orderId});
     try {
       const fee = tradingFees({side: 'buy', quantity: remaining, price: order.limitPrice,

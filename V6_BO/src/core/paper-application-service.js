@@ -113,7 +113,9 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    if(order.liquidateOddLot===true&&order.quantity!==(s.account.positions[order.symbol]?.quantity||0))throw Error('零股清仓必须覆盖全部剩余持仓');
    const lots=s.account.positions[order.symbol]?.lots||[];
    const available=lots.filter(l=>l.sellableDate?l.sellableDate<=order.tradeDate:l.buyDate<order.tradeDate).reduce((n,l)=>n+l.quantity-(l.reserved||0),0);
-   const frozen=Object.values(s.orders).filter(x=>x.order.side==='sell'&&x.order.symbol===order.symbol&&!x.state.terminal).reduce((n,x)=>n+x.state.remainingQuantity,0);
+   // read() verifies reducer state.symbol; raw order/fill types remain intact
+   // for persisted request hashes and idempotent replay of existing records.
+   const frozen=Object.values(s.orders).filter(x=>x.order.side==='sell'&&x.state.symbol===state.symbol&&!x.state.terminal).reduce((n,x)=>n+x.state.remainingQuantity,0);
    if(state.quantity>available-frozen)throw Error('可卖数量不足或T+1限制');
   }
   const entryRisk=checkRisk(s,order,riskContext);
@@ -126,7 +128,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const now=clock();if(!quote||quote.symbol!==item.order.symbol||!['imported','simulated'].includes(quote.source)||!validDate(quote.tradeDate)||quote.tradeDate!==require('./a-share-calendar').aShareCalendarDate(quote.timestamp)||quote.tradeDate<item.order.tradeDate||quote.tradeDate< (s.lastTradeDate||'')||!Number.isFinite(quote.timestamp)||quote.timestamp>now||now-quote.timestamp>180000||quote.suspended!==false||quote.tradable!==true||quote.volumeUnit!=='shares'||!Number.isFinite(quote.volume)||quote.volume<=0||![quote.price,quote.upperLimit,quote.lowerLimit].every(v=>Number.isFinite(v)&&v>0)||quote.lowerLimit>=quote.upperLimit||quote.price<=quote.lowerLimit||quote.price>=quote.upperLimit)throw Error('行情过期、不完整或触及交易限制');
   if(item.state.terminal)throw Error('终态订单不可成交');
   const side=item.order.side;if(side==='buy'&&quote.price>item.order.limitPrice||side==='sell'&&quote.price<item.order.limitPrice)throw Error('价格超出委托保护');
-  const used=s.account.events.filter(e=>e.symbol===quote.symbol&&e.tradeDate===quote.tradeDate).reduce((n,e)=>n+e.quantity,0);
+  const used=s.account.events.filter(e=>String(e.symbol)===item.state.symbol&&e.tradeDate===quote.tradeDate).reduce((n,e)=>n+e.quantity,0);
   const capacity=quote.volume*maxParticipationPct/100-used;const quantity=item.order.side==='sell'&&item.order.liquidateOddLot===true&&capacity>=item.state.remainingQuantity?item.state.remainingQuantity:Math.min(item.state.remainingQuantity,Math.floor(capacity/100)*100);if(quantity<=0)throw Error('成交量参与率不足');
   const entryRisk=checkRisk(s,{...item.order,tradeDate:quote.tradeDate,quantity,limitPrice:quote.price},quote.riskContext||{observedAt:quote.timestamp,marks:quote.marks||{}},orderId);
   const feeEvidence=feeFor(s,side,quantity,quote.price,quote.tradeDate,item.events.filter(e=>e.type==='fill')),fee=feeEvidence.total;
@@ -159,13 +161,13 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    if(!['买入','卖出'].includes(t.side)||!Number.isSafeInteger(t.shares)||t.shares<=0||t.shares%100||!Number.isFinite(t.price)||t.price<=0||!Number.isFinite(t.fee)||t.fee<0||!Number.isFinite(t.t)||t.t>clock()||clock()-t.t>180000)throw Error('新成交记录缺少可靠时点，禁止重放历史修改');
    const date=require('./a-share-calendar').aShareCalendarDate(t.t),q=quotes[t.code];
    if(!q||!Number.isFinite(q.price)||Math.abs(t.price-q.price)>Math.max(.01,q.price*.001)||q.tradeDate!==date||!calendar?.isOpen(date)||q.suspended!==false||q.tradable!==true||q.volumeUnit!=='shares'||!Number.isFinite(q.volume)||q.volume<=0||!Number.isFinite(q.timestamp)||q.timestamp>clock()||clock()-q.timestamp>180000||!Number.isFinite(q.upperLimit)||!Number.isFinite(q.lowerLimit)||t.price>=q.upperLimit||t.price<=q.lowerLimit)throw Error('自动成交行情缺失、过期或触及交易限制');
-   const used=s.account.events.filter(e=>e.symbol===t.code&&e.tradeDate===date).reduce((n,e)=>n+e.quantity,0);
+   const used=s.account.events.filter(e=>String(e.symbol)===String(t.code)&&e.tradeDate===date).reduce((n,e)=>n+e.quantity,0);
    if(used+t.shares>q.volume*maxParticipationPct/100)throw Error('自动成交超过量参与率');
    const order={orderId:id,symbol:t.code,side:t.side==='买入'?'buy':'sell',quantity:t.shares,limitPrice:t.price,tradeDate:date};
    const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,x.order.tradeDate).total,0);
    if(order.side==='buy'&&t.price*t.shares+t.fee>s.account.cash-reserved)throw Error('自动成交侵犯挂单冻结资金');
    if(order.side==='sell'){
-    const frozen=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='sell'&&x.order.symbol===t.code).reduce((n,x)=>n+x.state.remainingQuantity,0);
+    const frozen=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='sell'&&x.state.symbol===String(t.code)).reduce((n,x)=>n+x.state.remainingQuantity,0);
     if(t.shares+frozen>(s.account.positions[t.code]?.quantity||0))throw Error('自动成交侵犯挂单冻结持仓');
    }
    const feeEvidence=feeFor(s,order.side,t.shares,t.price,date);if(Math.abs(feeEvidence.total-t.fee)>.011)throw Error('自动成交费用与生效费率不一致');
@@ -189,7 +191,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   if(old){if(old.requestHash!==hash(event))throw Error('权益事件ID内容冲突');return {snapshot:s,noChange:true};}
   if(s.revision!==expectedRevision)throw Error('权益结算账户版本冲突');
   if(event.effectiveDate!==(require('./a-share-calendar').aShareCalendarDate(clock()))||event.effectiveDate<(s.lastTradeDate||''))throw Error('主账户权益只能按当前日期顺序入账');
-  if(Object.values(s.orders).some(x=>!x.state.terminal&&x.order.symbol===event.symbol))throw Error('权益结算前必须撤销该股票未完成委托');
+  if(Object.values(s.orders).some(x=>!x.state.terminal&&x.state.symbol===String(event.symbol)))throw Error('权益结算前必须撤销该股票未完成委托');
   const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,x.order.tradeDate,x.events).total,0);
   if(s.account.cash+event.cashDelta<reserved)throw Error('权益认购不能使用冻结资金');
   const result=applySettlement(s.account,event,{now:clock()});s.account=result.account;s.account.fingerprint=ledgerHash(s.account);s.corporateEvents=[...(s.corporateEvents||[]),{...result.record,accountRevision:s.revision+1}];s.lastTradeDate=event.effectiveDate;return {snapshot:s};

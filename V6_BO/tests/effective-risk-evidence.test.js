@@ -166,6 +166,25 @@ test('active order symbols cover original pending buys and sells once, then excl
   assert.deepEqual(read().occupancy.activeOrderSymbols,[]);
 });
 
+test('numeric and string orders for one stock share the installed concentration bucket without rewriting authority',t=>{
+  const f=authorityFixture(t);f.buy('600000',300,10);
+  f.service.configure({expectedRevision:f.service.read().revision,
+    riskPolicy:{version:'mixed-symbol-v1',maxPositionPct:20,maxGrossExposurePct:40}});
+  const riskContext={observedAt:f.now,marks:{600000:10}};
+  f.service.submit({orderId:'numeric-buy',symbol:600000,side:'buy',quantity:200,limitPrice:10,tradeDate:'2026-11-23'},{riskContext});
+  f.service.submit({orderId:'string-buy',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:'2026-11-23'},{riskContext});
+  const file=path.join(f.root,'authority.json'),before=fs.readFileSync(file);
+  const b=f.service.read(),r=buildEffectiveRiskEvidence({book:b,quotes:{600000:f.quote()},now:f.now});
+  const single=rule(r,'maxPositionPct');
+  assert.equal(single.evidenceStatus,'available');assert.equal(single.buckets.length,1);
+  assert.equal(single.buckets[0].id,'600000');assert.equal(single.buckets[0].value,6000);
+  assert.equal(single.used,Math.round(6000/r.occupancy.equity*100*1e6)/1e6);
+  assert.deepEqual(single.missing,[]);assert.deepEqual(single.reasonCodes,[]);
+  assert.equal(r.occupancy.pendingBuyValue,3000);assert.deepEqual(r.occupancy.activeOrderSymbols,['600000']);
+  assert.equal(b.orders['numeric-buy'].order.symbol,600000);
+  assert.deepEqual(fs.readFileSync(file),before);
+});
+
 test('unknown order state, stock code or side cannot masquerade as no active orders',t=>{
   const f=authorityFixture(t);
   f.service.submit({orderId:'active-buy',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:'2026-11-23'});

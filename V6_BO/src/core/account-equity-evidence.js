@@ -64,7 +64,9 @@ function positionAvailability(position, symbol, orders, day) {
     if (!item?.order || typeof item.state?.terminal!=='boolean') {
       reasons.push('FROZEN_SELL_STATE_UNVERIFIED');continue;
     }
-    if (item.order?.symbol!==symbol || item.order?.side!=='sell' || item.state?.terminal===true) continue;
+    // The original order reducer accepts six-digit numeric symbols but retains
+    // their input type. Compare identities without rewriting authority records.
+    if (String(item.order?.symbol)!==String(symbol) || item.order?.side!=='sell' || item.state?.terminal===true) continue;
     const quantity=item.state?.remainingQuantity;
     if (!Number.isSafeInteger(quantity) || quantity<0) reasons.push('FROZEN_SELL_QUANTITY_UNVERIFIED');
     else frozen+=quantity;

@@ -22,6 +22,23 @@ function table(headers,rows){return h('div',{class:'fy-table-wrap'},h('table',{c
 const unknown=message=>note(message||'风险证据尚不可用，当前风险未知。');
 let viewSequence=0;
 
+// A disconnected page cannot retain current private execution evidence. Route
+// disposal removes every listener; pageshow rereads after a bfcache return.
+function watchConnectivity(ctx,invalidate,refresh){
+  let online=globalThis.navigator?.onLine!==false,pageActive=true;
+  const events=new AbortController(),available=()=>online&&pageActive&&!events.signal.aborted&&!ctx.signal?.aborted;
+  const listen=(name,fn)=>globalThis.addEventListener?.(name,fn,{signal:events.signal});
+  const resume=()=>{if(available()&&edit(ctx))refresh();};
+  listen('offline',()=>{online=false;invalidate('连接已断开，当前风险待重新核对。');});
+  listen('pagehide',()=>{pageActive=false;invalidate('页面已离开，风险证据需重新读取。');});
+  listen('online',()=>{online=true;resume();});
+  listen('pageshow',()=>{pageActive=true;online=globalThis.navigator?.onLine!==false;resume();});
+  function dispose(){events.abort();ctx.signal?.removeEventListener('abort',dispose);}
+  ctx.signal?.addEventListener('abort',dispose,{once:true});
+  if(ctx.signal?.aborted)dispose();
+  return {available,dispose};
+}
+
 async function read(ctx,{accountId='pool',code,signal}={}){
   if(!edit(ctx))throw Error('编辑身份可查看账户风险');
   const query=new URLSearchParams({account:accountId});if(code)query.set('code',code);
@@ -83,33 +100,41 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate,scope='workbench'}={})
 export function createRiskSummary(ctx,{title='需要处理的风险',code=null,autoload=true}={}){
   const scope='summary-'+(++viewSequence);
   const host=h('section',{class:'fy-panel fy-risk-summary','data-risk-summary':true},h('h2',{},title));
-  let epoch=0,controller=null,lastRead=0,currentCode=code;
-  function clear(){epoch++;controller?.abort();host.replaceChildren(h('h2',{},title));host.hidden=true;}
+  let epoch=0,controller=null,lastRead=0,currentCode=code,requested=autoload,scopeSignal=null;
+  function invalidate(message){
+    epoch++;controller?.abort();lastRead=0;
+    host.replaceChildren(h('h2',{},title),...(message&&requested?[unknown(message)]:[]));host.hidden=!message||!requested;
+  }
+  function clear(){requested=false;scopeSignal=null;invalidate();}
+  const connection=watchConnectivity(ctx,message=>edit(ctx)?invalidate(message):clear(),()=>{if(requested)void refresh();});
   async function refresh(options={}){
     const changed=options.code!==undefined&&options.code!==currentCode;
     if(options.code!==undefined)currentCode=options.code;
-    if(!edit(ctx)){clear();return;}
+    if(options.signal!==undefined)scopeSignal=options.signal;
+    if(!edit(ctx)||ctx.signal?.aborted||scopeSignal?.aborted){clear();return;}
+    requested=true;
+    if(!connection.available()){invalidate('连接已断开，当前风险待重新核对。');return;}
     const selected=currentCode,turn=++epoch;controller?.abort();controller=new AbortController();
-    if(options.signal?.aborted||ctx.signal?.aborted)return clear();
-    const active=controller;
-    options.signal?.addEventListener('abort',()=>active.abort(),{once:true});
+    const active=controller,requestScope=scopeSignal,cancel=()=>active.abort();
+    requestScope?.addEventListener('abort',cancel,{once:true});
     host.hidden=false;
     if(changed)host.replaceChildren(h('h2',{},title),unknown('正在读取所选标的风险…'));
     try{
       const report=await read(ctx,{code:selected,signal:active.signal});
-      if(turn!==epoch||active.signal.aborted||ctx.signal?.aborted||!edit(ctx))return;
+      if(turn!==epoch||active.signal.aborted||!connection.available()||!edit(ctx))return;
       lastRead=Date.now();const risks=report.risks.filter(row=>row.status!=='resolved');
       updateReadout(host,h('h2',{},title),note(report.account.label+' · '+dateTime(report.generatedAt)),
         ...risks.slice(0,3).map(row=>riskCard(row,report,{compact:true,scope})),
         !risks.length?note('本次未返回待处理事项；仅代表已核对的证据范围。'):null,
         note('需处理 '+report.summary.actionable+' 项 · 证据未知 '+report.summary.unknown+' 项'),
         button('打开风险中心',()=>ctx.navigate('assets','risk'),'quiet'));
-    }catch(error){if(!edit(ctx))clear();else if(turn===epoch&&!active.signal.aborted&&!ctx.signal?.aborted)updateReadout(host,h('h2',{},title),unknown(error.message));}
+    }catch(error){if(!edit(ctx))clear();else if(turn===epoch&&!active.signal.aborted&&connection.available())updateReadout(host,h('h2',{},title),unknown(error.message));}
+    finally{requestScope?.removeEventListener('abort',cancel);}
   }
   ctx.signal?.addEventListener('abort',clear,{once:true});
-  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(autoload&&Date.now()-lastRead>=10000)void refresh();});
+  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(autoload&&connection.available()&&Date.now()-lastRead>=10000)void refresh();});
   if(autoload)queueMicrotask(()=>refresh());
-  host.refresh=refresh;host.clear=clear;return host;
+  host.refresh=refresh;host.clear=clear;host.dispose=()=>{connection.dispose();clear();};return host;
 }
 
 function equityPanel(report){
@@ -201,13 +226,14 @@ function stressPanel(report){
 export function renderRiskWorkbench(ctx){
   const host=h('div',{class:'fy-stack','data-risk-workbench':true});
   if(!edit(ctx))return h('section',{class:'fy-empty'},h('h2',{},'这是你的私人工作区'),note('编辑身份可查看账户风险与提醒记录。'));
-  let accountId='pool',epoch=0,activeCategory='',lastRead=0,busy=false;
+  let accountId='pool',epoch=0,activeCategory='',lastRead=0,busy=false,controller=null;
   const chooser=h('select',{class:'fy-input','aria-label':'风险账户'},h('option',{value:'pool'},'A·跟单盘'),h('option',{value:'pre'},'B·预选盘'));
   const content=h('div',{class:'fy-stack'},unknown('正在读取原账户风险证据…'));
   const filters=h('div',{class:'fy-toolbar','aria-label':'风险范围'});
   let report=null;
+  const connection=watchConnectivity(ctx,clear,()=>{void load();});
   const render=()=>{
-    if(!report||!edit(ctx)||ctx.signal?.aborted)return;
+    if(!report||!edit(ctx)||!connection.available())return;
     const open=new Set([...content.querySelectorAll('details[open][id]')].map(node=>node.id));
     const active=report.risks.filter(row=>row.status!=='resolved'&&(!activeCategory||row.category===activeCategory));
     const urgent=active.filter(row=>['critical','warning'].includes(row.severity));
@@ -248,19 +274,24 @@ export function renderRiskWorkbench(ctx){
         note('状态 '+report.manualHoldings.status+' · 未认证为权威账户'),button('管理原申报持仓',()=>ctx.navigate('assets','holdings'),'quiet')):null);
     for(const node of content.querySelectorAll('details[id]'))if(open.has(node.id))node.open=true;
   };
-  function clear(){epoch++;report=null;busy=false;content.replaceChildren(unknown('编辑身份可查看账户风险与提醒记录。'));}
+  function clear(message='编辑身份可查看账户风险与提醒记录。'){
+    epoch++;controller?.abort();report=null;busy=false;lastRead=0;content.replaceChildren(unknown(message));
+  }
   async function load(){
     if(!edit(ctx)||ctx.signal?.aborted){clear();return;}
+    if(!connection.available()){clear('连接已断开，当前风险待重新核对。');return;}
     const turn=++epoch,account=accountId;busy=true;
-    try{const value=await read(ctx,{accountId:account});if(turn!==epoch||ctx.signal?.aborted||!edit(ctx))return;
+    controller?.abort();const active=controller=new AbortController();
+    try{const value=await read(ctx,{accountId:account,signal:active.signal});if(turn!==epoch||active.signal.aborted||!connection.available()||!edit(ctx))return;
       report=value;lastRead=Date.now();render();}
-    catch(error){if(turn===epoch&&!ctx.signal?.aborted){report=null;content.replaceChildren(unknown(error.message));}}
+    catch(error){if(turn===epoch&&!active.signal.aborted&&connection.available()){report=null;content.replaceChildren(unknown(error.message));}}
     finally{if(turn===epoch)busy=false;}
   }
   filters.append(button('全部',()=>{activeCategory='';render();},'quiet'),...Object.entries(category).map(([id,label])=>button(label,()=>{activeCategory=id;render();},'quiet')));
   chooser.addEventListener('change',()=>{accountId=chooser.value;report=null;content.replaceChildren(unknown('正在读取所选原账户…'));void load();});
   host.append(section('统一风险工作台',note('严重程度、证据可用程度与执行状态分别展示。'),h('div',{class:'fy-toolbar'},chooser,button('刷新风险',load,'quiet')),filters),content);
-  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(!busy&&Date.now()-lastRead>=10000)void load();});
-  ctx.signal?.addEventListener('abort',()=>{epoch++;report=null;content.replaceChildren();},{once:true});
+  ctx.onState?.(()=>{if(!edit(ctx))clear();else if(connection.available()&&!busy&&Date.now()-lastRead>=10000)void load();});
+  ctx.signal?.addEventListener('abort',()=>{clear();content.replaceChildren();},{once:true});
+  host.dispose=()=>{connection.dispose();clear();content.replaceChildren();};
   queueMicrotask(load);return host;
 }

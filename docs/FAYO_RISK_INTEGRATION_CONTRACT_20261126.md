@@ -8,8 +8,8 @@
 | --- | --- |
 | 仓库、目标分支 | solviq87-cpu/v6-stock-system，dev |
 | 开工及本次远端复核基线 | b9b44474be7fd27732e37d868ed64dbfddd3e8e9 |
-| 本组独立分支与 PR | feat/fayo-risk-center-20261126；[#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。续接工作区分支 feat/fayo-risk-closure-20261126 以原 PR HEAD 为祖先，普通快进更新同一 PR |
-| 本组工作区入口版本 | 20261126aa；最终集成组须统一协调正式入口与缓存版本 |
+| 本组独立分支与 PR | feat/fayo-risk-center-20261126；[#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359)。恢复原本地 34e0c18、7f8515d 后在独立副本续接，工作区分支已对齐原 PR，普通快进更新同一 PR |
+| 本组工作区入口版本 | 20261126ab；最终集成组须统一协调正式入口与缓存版本 |
 | 本次远端合同读取日期 | 北京时间 2026-11-26；本轮复核原 PR HEAD 为 86a5bf4787f2b5a1746fffc11b9a60a06b5e387f，提交前再次检查远端未被其他写者推进 |
 | 开工源码恢复证据 | 根组已建立并验证源码 bundle；其位置、最终提交 SHA、PR 与恢复步骤由本组最终验证/交接记录保管 |
 | 验证记录职责 | 专项、全量回归、隔离 HTTP、双端浏览器的实际命令、结果、日志及未测范围由根组单独维护验证文档；本文不复制容易过期的通过数量 |
@@ -26,13 +26,23 @@
 | --- | --- | --- |
 | paper-application-service 与原账户读校验 | 从原 _paperAuthority 的 read() 取得 pool/pre 快照；权益报告保留原 revision 和指纹 | 不接受客户端自报现金、持仓、规则或交易资格 |
 | common-entry-risk、portfolio-risk-gate、imported-risk-evidence | 读取实际安装的 riskPolicy、策略变更、行业及前收盘证据；沿原风控口径展示占用 | 原 submit、fill、saveLegacy 锁内检查继续裁决；页面展示不代表新规则已启用 |
-| paper-plan-observer | 复用原 quoteEvidence、sellEligibility、planLedgerContext 和已存观察 | 本组仅导出并调用原纯检查，不改变原 T+1、时段、价格及流动性规则 |
+| paper-plan-observer | 复用原 quoteEvidence、sellEligibility、planLedgerContext 和已存观察 | 扩展原纯检查导出，并修正合法数值/字符串股票代码的同股匹配；原 T+1、时段、价格及流动性规则保持 |
 | 原冻结计划、条件意图、执行清单和日报 | 保留 planId、entryEventId、orderId、成交及观察引用 | 提醒、条件意图、已提交订单、部分成交和完整退出分别留证；不由风险页面重新提交交易 |
 | 原行情使用门禁与逐票原始时点 | 当前估值和退出观察核验来源、报价时点、日期及冲突 | 接收时刻不替代报价时刻；旧价、未来价和冲突价不产生新止损判断 |
 | 原设备授权、编辑身份与主副角色 | HTTP 沿原 requireEditor；异步返回前复核身份；状态写入前再次授权核验 | 副本不冒充主账本；在途撤权后不得返回私有报告或修改提醒 |
 | 原私密通知队列、冷却及持久去重 | 为同一风险生命周期增加持久预留与真实回执，仍调用原 pushAll / 私密队列 | 不启用新通道，不转发到公共通道；缺接收证据不称送达 |
 
 实现入口：[风险 runtime](../V6_BO/src/server/risk-workbench-runtime.js)、[统一报告](../V6_BO/src/core/risk-workbench.js)、[服务端接线](../V6_BO/server.js)。
+
+### 2.1 续接修复：同一股票的原始类型差异
+
+原订单 reducer 接受 `600000` 与 `"600000"`，其 `state.symbol` 均为同一六位代码，但原 `order.symbol` 和成交字段保留输入类型。原服务及部分只读投影直接做严格类型比较，会漏算同票未成交敞口、卖单冻结、已用成交量或原计划退出关联。续接修复只在比较/分组时使用核验后的同股身份，不重写原订单、成交、报价证据、幂等指纹或历史账本。
+
+修复覆盖原 `common-entry-risk`、`paper-application-service`、`paper-plan-observer` 与本组权益、实际规则和动作投影。原提交、成交、公司权益结算仍走原事务；拒绝后权威文件应逐字节不变。新增隔离原服务回归覆盖混合类型、部分成交、撤单与重启。此处是原门禁的实际修复，不能再泛称所有原账户/风控模块对 dev 无字节差异；原19个具名函数的历史保护记录仅覆盖记录中列出的函数。
+
+### 2.2 续接修复：断网与页面恢复
+
+首页/个股风险摘要和完整风险页在 `offline`、`pagehide` 时清空旧私有报告，取消请求并使旧代次失效。离线不继续显示当前执行资格，晚到响应不能恢复旧判断。`online`、`pageshow` 按当前角色和新请求重新核验，销毁视图时卸载监听；关闭的个股抽屉不会因重连自动打开。服务端原风险门禁、站内风险来源与静音语义保持。
 
 ## 3. HTTP 接口
 
@@ -300,7 +310,8 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 | risk-workbench-view.mjs、fayo.css | 独立风险展示与限定范围样式；与其他组 UI 合并时维持键盘/窄屏可用、晚到响应失效和隐私清理。 |
 | public/nova/index.html、public/sw.js | 总管统一 application-version、frontend-revision、模块缓存入口及版本，不各组互相覆盖缓存号。锁定的 public/index.html、public/mobile.html 和旧恢复控制器字节继续按原契约核验。 |
 | scripts/fayo-browser-check.js | #358 与本组均有严格 frontend-revision 断言；统一最终修订后保留双方新增夹具和功能检查，不用删断言消除冲突。 |
-| paper-plan-observer.js | 只增加原纯检查的导出；不得替换原观察/卖出逻辑或生成第二次计划提醒。 |
+| paper-plan-observer.js | 扩展原纯检查导出及数值/字符串同股匹配；保留原计划归属、批次、时段、T+1和流动性裁决，不生成第二次计划提醒。 |
+| paper-application-service.js、common-entry-risk.js | 本组新增同股身份匹配修复。与 #356 的写锁/publish、费用及策略归属和 #361 的最终原始报价复核逐块保留；不得用任一整文件覆盖其余门禁。 |
 | feishuq.js、private-risk-feishu-delivery.js | 保留原队列和角色/通道门禁，区分明确拒绝与不确定结果；不能在整文件合并时恢复对未知回执的重复发送。 |
 | HANDOFF.md、DEPLOYMENT.md | 各 PR 都有阶段记录；总管逐条保留，统一更新当前检查点、真实部署状态、完整验证与恢复证据，不用一组历史摘要覆盖其他组新记录。 |
 | 测试与工作流 | 原全量通配和 TAP 完整性检查继续保留；新增风险浏览器脚本并入既有双端验证。旧首页断言仅对齐参考权益及新的只读风险 GET，原隐私/缺值/三候选同源与历史字节断言不删。 |
