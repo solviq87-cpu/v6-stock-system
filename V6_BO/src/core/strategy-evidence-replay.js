@@ -25,8 +25,9 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
  const windows={inSample:[],outOfSample:[],unassigned:[]};
  for(const r of base.records){
   const idx=dates.indexOf(r.signalDate);
-  const entry=idx+1,exit=idx+2;
-  const group=split===undefined?'unassigned':exit<split?'inSample':entry>=split?'outOfSample':'unassigned';
+  const exit=idx+2;
+  // Require the signal itself to occur inside the holdout; purge boundary-crossing labels.
+  const group=split===undefined?'unassigned':exit<split?'inSample':idx>=split?'outOfSample':'unassigned';
   windows[group].push(r);
  }
  const stats=records=>Object.fromEntries(SYSTEMS.map(system=>{

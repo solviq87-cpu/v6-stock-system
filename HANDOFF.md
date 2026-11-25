@@ -2,6 +2,10 @@
 
 <!-- CURRENT_CHECKPOINT_START -->
 
+### 2026-11-26 研究组阶段一（独立 PR，待整合）
+
+基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-research-governance-20261126`。见 [研究可信度交接](docs/FAYO_RESEARCH_GOVERNANCE_20261126.md)。本地新概率模块五项隔离测试通过；全量、HTTP、双端以及真实样本待验证。原部署检查点仍有效，本轮无生产切换。
+
 ## 当前检查点 · 2026-11-25 · 联动与执行闭环 `20261125ad`
 
 ### 给部署软件复制这一段

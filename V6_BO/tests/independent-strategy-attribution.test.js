@@ -10,3 +10,19 @@ test('dated native evidence yields strictly later execution and cost-aware retur
 test('reject duplicates, fake provenance and unrecognized strategy',()=>{assert.throws(()=>attributeIndependentStrategies(history,{evidence:[signal,signal]}),/重复/);assert.throws(()=>attributeIndependentStrategies(history,{evidence:[{...signal,provenance:''}]}),/来源/);assert.throws(()=>attributeIndependentStrategies(history,{evidence:[{...signal,system:'invented'}]}),/无效/);});
 test('unknown and final-session signals never create fake trades',()=>{const r=attributeIndependentStrategies(history,{evidence:[{...signal,verdict:'unknown'},{...signal,date:dates[39]}]});assert.equal(r.systems.fourteen.paperTrades,0);assert.equal(r.systems.fourteen.winRatePct,null);});
 test('offline closure exposes four independent unavailable states without changing ranking',()=>{const r=runOfflineResearchClosure(history);assert.equal(r.strategyAttribution.systems.python.status,'not-evaluated');assert.equal(r.canTrade,false);assert.equal(r.ranking.length,1);});
+
+test('independent attribution rejects adjusted execution prices',()=>{
+ assert.throws(()=>attributeIndependentStrategies({...history,priceBasis:'hfq'},{evidence:[signal]}),/未复权/);
+});
+test('opening locked limits and suspended rows cannot be estimated fills',()=>{
+ const locked=structuredClone(history),b=locked.stocks[0].bars[34],prior=locked.stocks[0].bars[33];
+ b.open=Math.round(prior.close*110)/100;b.high=b.open+.01;b.low=prior.close;b.close=prior.close;
+ assert.equal(attributeIndependentStrategies(locked,{evidence:[signal]}).records[0].outcome.status,'blocked');
+ const halted=structuredClone(history);halted.stocks[0].bars[34].suspended=true;
+ assert.equal(attributeIndependentStrategies(halted,{evidence:[signal]}).records[0].outcome.status,'blocked');
+});
+test('a 20 percent board uses the original opening-price gate, not a fixed 10 percent rule',()=>{
+ const board=structuredClone(history),stock=board.stocks[0],b=stock.bars[34],prior=stock.bars[33];
+ stock.market='chinext';b.open=b.close=b.high=b.low=Math.round(prior.close*110)/100;
+ assert.equal(attributeIndependentStrategies(board,{evidence:[signal]}).records[0].outcome.status,'paper-estimate');
+});
