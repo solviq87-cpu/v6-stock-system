@@ -592,3 +592,7 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 ## 2026-11-26 智能研究进化补充（二）独立阶段记录
 
 基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-intelligence-evolution-20261126`。32、43、44、46、63 部分增量，其余本轮未完成。保留当前部署检查点与其他组成果；真实效果、全量验收、生产冷备/发布未验证。逐项状态与接口见 [阶段报告](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)。
+
+## 2026-11-26 · 原44项预热测试依赖补丁
+
+`fix/fayo-warmup-fixture-20261126` 基于#357精确head `9a1132264a191091ea526cba698177f2b5d0c703`，仅修正错误预热夹具并保留同递归种子应通过的反例，生产算法不变。修改前5项4通过/1失败，修正后含相关因果/回测/指标测试42项通过。代码、实际数值与验证范围见 [补丁说明](docs/FAYO_WARMUP_FIXTURE_20261126.md)。供原智能增强组接纳；最终合并由原第一组协调。没有部署、运行数据或版本迁移。
