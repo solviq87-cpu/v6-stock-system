@@ -123,3 +123,30 @@ test('actual background collection and incomplete receipts use one bounded paren
  assert.equal(trace.read().active,0);
  assert.doesNotMatch(JSON.stringify(rows),/600000|must not enter trace/);
 });
+
+test('late history lookup cannot dispatch or advance its cursor across the trading-day boundary',async()=>{
+ let now=Date.parse('2026-11-25T16:00:00+08:00'),day='20261125',release;
+ const calls=[],cursors=[];
+ const worker=createDecisionCenterBackground({clock:()=>now,enabled:()=>true,isPrimary:()=>true,
+  session:()=>({openDay:true,trading:false,minute:960,day}),candidates:()=>[],
+  historyCandidates:({cursor})=>{cursors.push(cursor);return cursors.length===1?new Promise(r=>{release=r;}):
+   Promise.resolve({ok:true,codes:['600001'],coverage:{nextCursor:40}});},
+  collectHistory:async v=>{calls.push(v);return {ok:true,result:{status:'admitted'}};},
+  collectFinancials:async()=>assert.fail('no current candidate')});
+ const first=worker.tick();await new Promise(setImmediate);
+ now+=86400000;day='20261126';release({ok:true,codes:['600000'],coverage:{nextCursor:999}});
+ await first;assert.equal(calls.length,0);assert.equal(worker.status().lastAttempt,null);
+ await worker.tick();assert.deepEqual(cursors,[0,0]);
+ assert.equal(calls.length,1);assert.equal(calls[0].day,'2026-11-26');assert.equal(calls[0].code,'600001');
+});
+test('disabled collector while awaiting archive does not consume its real attempt budget',async()=>{
+ let now=Date.parse('2026-11-26T16:00:00+08:00'),enabled=true,release,reads=0,calls=0;
+ const worker=createDecisionCenterBackground({clock:()=>now,enabled:()=>enabled,isPrimary:()=>true,
+  session:()=>({openDay:true,trading:false,minute:960,day:'20261126'}),candidates:()=>['600000'],
+  historyCandidates:()=>++reads===1?new Promise(r=>{release=r;}):Promise.resolve([]),
+  collectHistory:async()=>{calls++;return {ok:true,result:{status:'admitted'}};},
+  collectFinancials:async()=>assert.fail('history must take priority')});
+ const first=worker.tick();await new Promise(setImmediate);
+ enabled=false;release([]);await first;assert.equal(calls,0);assert.equal(worker.status().lastAttempt,null);
+ enabled=true;now+=60000;await worker.tick();assert.equal(calls,1);
+});

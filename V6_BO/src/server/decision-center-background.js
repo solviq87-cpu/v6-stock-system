@@ -39,10 +39,14 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
     // signal still needs its outcome after it leaves today's candidate pool.
     nextAt=now+60000;pending=true;state.running=true;
     return trace.async('task.decision-background',async root=>{
+    const stillEligible=()=>{const live=session();return enabled()&&isPrimary()&&live?.openDay&&
+      normalizeDay(live.day)===currentDay&&Number.isSafeInteger(clock())&&clock()>=now&&
+      (live.minute>=960)===afterClose&&(afterClose||live.trading);};
     try {
       if(afterClose&&(historyCache.day!==day||now<historyCache.at||now-historyCache.at>=5*60000)){
         try{
           const result=await historyCandidates({day,now,cursor:historyCache.cursor});
+          if(!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
           if(Array.isArray(result)||result?.ok===true&&Array.isArray(result.codes)){
             const nextCursor=result?.coverage?.nextCursor;
             const retained=[...historyCache.codes,...(Array.isArray(result)?result:result.codes)].filter(code=>{
@@ -54,18 +58,19 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
           }
         }catch{ root.mark('unknown','SOURCE_UNAVAILABLE'); /* Retain prior pending codes; collector evidence remains unchanged. */ }
       }
+      if(!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
       const historyCodes=afterClose?codesOf([...historyCache.codes,...codes].filter(code=>due('history',code,now))):[];
       const tasks=[...historyCodes.map(code=>({kind:'history',code})),...codes.map(code=>({kind:'financials',code}))]
         .filter(task=>due(task.kind,task.code,now));
       if(!tasks.length){root.mark('skipped','NO_CANDIDATE');return null;}
       const task=tasks[0],key=task.kind+'/'+task.code,prior=attempts.get(key);
-      const row={at:now,count:(prior?.success?0:prior?.count||0)+1,success:false};
-      attempts.set(key,row);state.lastAttempt={kind:task.kind,code:task.code,day,at:now};
-      // Recheck immediately before dispatch. The worker independently validates
-      // inputs; a later role change never turns research results into quotes.
-      if (!enabled() || !isPrimary()){root.mark('blocked','BUSINESS_REJECTED');return null;}
+      // Recheck before admission; rejected attempts must not consume retries.
+      if (!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
+      const dispatchAt=clock();
+      const row={at:dispatchAt,count:(prior?.success?0:prior?.count||0)+1,success:false};
+      attempts.set(key,row);state.lastAttempt={kind:task.kind,code:task.code,day,at:dispatchAt};
       await trace.async(task.kind==='history'?'market.history':'market.financials',async span=>{
-        const result=await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now});
+        const result=await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now:dispatchAt});
         row.success=successful(task.kind,result,task,clock());
         if(!row.success)span.mark('unknown','SOURCE_UNAVAILABLE');
       });

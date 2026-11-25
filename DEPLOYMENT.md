@@ -332,4 +332,4 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 
 ## 全面进化方案 · 第十条健康回执完整性（原06/22/49）
 
-仅增强现有运行就绪度只读输出：拒绝来源明确冲突、错误成功时点及尚未完成的两账户观察冒充正常。现有接口、版本与权限不变，无新增生产依赖。见 [隔离验证记录](docs/FAYO_INTEGRATION_WIP_20261126.md) 末节。组合CI、双端、实际部署与持续运行待核验；不修改发布器及任何自动任务。
+仅增强现有运行就绪度只读输出：拒绝来源明确冲突、错误成功时点及尚未完成的两账户观察冒充正常。现有接口、版本与权限不变，无新增生产依赖。见 [隔离验证记录](docs/validation/fayo-health-receipt-integrity-20261126/README.md)。组合CI、双端、实际部署与持续运行待核验；不修改发布器及任何自动任务。

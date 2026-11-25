@@ -31,20 +31,19 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     if(observing||!isPrimary())return status();
     const initial=session(clock());
     if(!initial.continuous)return status();
-    observing=true;state.lastAttemptAt=clock();
+    observing=true;state.lastAttemptAt=clock();const tickEpoch=epoch;
     return trace.async('task.decision-evidence',async root=>{
     try{
       if(!loadedAt||clock()<loadedAt||clock()-loadedAt>=60000){
         const version=epoch,archive=await readArchive();
-        if(!isPrimary())return status();
-        if(version!==epoch)return status();
+        if(!isPrimary()||version!==epoch){root.mark('blocked','BUSINESS_REJECTED');return status();}
         if(!archive?.ok||!Array.isArray(archive.state?.plans))throw Error('冻结计划档案尚未读取');
         plans=archive.state.plans.filter(p=>p.decisionAuthority==='fayo-decision-center');
         loadedAt=clock();state.planCount=plans.length;
       }
       if(!plans.length){root.mark('skipped','NO_CANDIDATE');state.status='no-plans';state.activePlanCount=0;state.lastError=null;return status();}
       const context=await trace.async('risk.plan-context',()=>readContext(plans)),now=clock(),current=session(now);
-      if(!isPrimary()||!current.continuous||current.day!==initial.day)return status();
+      if(tickEpoch!==epoch||!isPrimary()||!current.continuous||current.day!==initial.day){root.mark('blocked','BUSINESS_REJECTED');return status();}
       const observedAt=context.now??now;
       if(!Number.isSafeInteger(observedAt)||observedAt>now||now-observedAt>15000)throw Error('原报价观察上下文已过期');
       const activePlans=selectActivePlans(plans,context.book,current.day);
@@ -55,7 +54,8 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
         if(!value.records.length)span.mark('unknown','SOURCE_UNAVAILABLE');
         return value;
       });
-      if(!isPrimary())return status();
+      const beforePersist=session(clock());
+      if(tickEpoch!==epoch||!isPrimary()||!beforePersist.continuous||beforePersist.day!==initial.day){root.mark('blocked','BUSINESS_REJECTED');return status();}
       const committed=await trace.async('risk.plan-persist',()=>store.append({records:result.records,alerts:result.alerts,now:observedAt}));
       if(!result.records.length)root.mark('unknown','SOURCE_UNAVAILABLE');
       state.status=result.records.length?'observing':'missing-current-evidence';
@@ -64,8 +64,10 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
       for(const alert of committed.alerts||[]){
         // Dedupe is committed before dispatch. Never replay an old condition
         // after restart, a missing webhook, a role change or an uncertain send.
-        if(!isPrimary()||!privateReady()||clock()-alert.quoteAt>15000)continue;
-        if(session(clock()).day!==alert.day||!session(clock()).continuous)continue;
+        const dispatchAt=clock(),dispatchSession=session(dispatchAt);
+        if(tickEpoch!==epoch||!isPrimary()||!privateReady()||!Number.isSafeInteger(alert?.quoteAt)||
+           alert.quoteAt<=0||alert.quoteAt>dispatchAt||dispatchAt-alert.quoteAt>15000)continue;
+        if(dispatchSession.day!==initial.day||dispatchSession.day!==alert.day||!dispatchSession.continuous)continue;
         try{await trace.async('notification.dispatch',async span=>{
           const accepted=await sendPrivate(alert);
           // Callback completion is not a gateway receipt or actual delivery.
