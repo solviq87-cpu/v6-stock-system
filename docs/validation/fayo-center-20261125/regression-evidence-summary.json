@@ -1,0 +1,87 @@
+{
+  "recordedAt": "2026-11-25T08:53:24.870649+00:00",
+  "initialRun": {
+    "log": "full-regression.log",
+    "reported": 4278,
+    "failed": 8,
+    "completed": false,
+    "exitCode": 130,
+    "reason": "Stopped after a failed DOM assertion skipped aborting the new interval; completed results retained."
+  },
+  "remainderRun": {
+    "log": "full-regression-tail.log",
+    "fileManifest": "full-regression-tail-files.json",
+    "reported": 463,
+    "passed": 463,
+    "failed": 0,
+    "tapComplete": true
+  },
+  "overlapReported": 16,
+  "coveredReportedCases": 4725,
+  "failureGroups": [
+    {
+      "group": "managed-publisher-runtime",
+      "initialFailures": 4,
+      "cause": "/var/tmp is a symlink in this environment; the existing private-release verifier correctly rejects it.",
+      "resolution": "Use the test-supported RUNNER_TEMP=/tmp (real path outside a worktree). No code or tests changed.",
+      "recheck": "managed-runtime-environment-recheck.log",
+      "pass": 13,
+      "fail": 0
+    },
+    {
+      "group": "paper-decision-plan HTTP",
+      "initialFailures": 1,
+      "cause": "Concurrent stricter center evidence contract needed original quoteAt in levels, original account snapshot time, and the isolated fixture public configuration.",
+      "resolution": "Root added original source projection; the isolated fixture copies actual public intelligence-center configuration.",
+      "recheck": "paper-integration-recheck.log",
+      "pass": 17,
+      "fail": 0
+    },
+    {
+      "group": "v6-terminal-workbench",
+      "initialFailures": 2,
+      "cause": "Legacy title and detailed-review route moved, and assertion failures skipped timer cleanup.",
+      "resolution": "Root retained original title and route under More Research and unreferenced the Node timer; homepage remains decision-first.",
+      "recheck": "full-regression-tail.log",
+      "pass": 16,
+      "fail": 0
+    },
+    {
+      "group": "fayo-product-contract",
+      "initialFailures": 1,
+      "cause": "New eager module dependencies missing from the offline shell cache.",
+      "resolution": "Complete eager module graph including intelligence-view.mjs is in the worker shell; final 98-case targeted run includes both product contract tests.",
+      "recheck": "final-center-regression.tap",
+      "passCount": 2,
+      "failCount": 0
+    }
+  ],
+  "originalGateHashes": "paper-gate-hashes.json",
+  "note": "This evidence is a completed reported-case union plus targeted failure recovery, not a single uninterrupted all-green full run. Newly added modules after the initial launch need their targeted checks.",
+  "allEightInitialFailuresRecoveredByTargetedChecks": true,
+  "additionalReadOnlyAudit": {
+    "unitLog": "visuals-final-recheck.log",
+    "unitCases": 7,
+    "unitPass": 7,
+    "browserReport": "browser-intelligence/intelligence-browser-report.json",
+    "browserPassed": true,
+    "viewports": [
+      {
+        "width": 1366,
+        "height": 1000,
+        "path": "/",
+        "overflow": 0,
+        "errors": []
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "path": "/m",
+        "overflow": 0,
+        "errors": []
+      }
+    ],
+    "browserWrites": 0,
+    "privateArchiveReadsForViewer": 0
+  }
+}

@@ -1,0 +1,158 @@
+#!/usr/bin/env node
+'use strict';
+// Browser-only acceptance over actual presentation modules and actual backend
+// projections. Every upstream row is an isolated test input; no production
+// server, account file, notification channel or collector is started.
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),os=require('node:os');
+const assert=require('node:assert/strict'),{chromium}=require('playwright');
+const {buildIntelligenceVisuals}=require('../src/core/intelligence-visuals');
+const {buildIntelligenceResearch}=require('../src/core/intelligence-research');
+const root=path.resolve(__dirname,'..'),publicRoot=path.join(root,'public');
+const output=process.env.FAYO_INTELLIGENCE_QA_DIR||(process.env.V6_UI_QA_DIR?path.join(process.env.V6_UI_QA_DIR,'intelligence-center'):fs.mkdtempSync(path.join(os.tmpdir(),'fayo-intelligence-browser-')));
+fs.mkdirSync(output,{recursive:true});
+const initialDay='2026-11-25',nextDay='2026-11-26';
+let phase='missing-flows';
+const requests=[],writes=[],projectionChecks=[];
+function evidence(){
+  const day=phase==='next-day'?nextDay:initialDay,now=Date.parse(day+'T10:00:00+08:00');
+  const stocks=[{code:'600000',name:'观测甲',sector:'芯片',price:10,pct:2,mktcap:3000000000},
+    {code:'600001',name:'观测乙',sector:'消费',price:20,pct:-1,mktcap:1000000000}].map(row=>({...row,poolDay:day,
+      quoteAt:now-1000,receivedAt:now-500,quoteSource:'tencent',quoteMode:'public-live-unverified'}));
+  const selected={...stocks[0],score:85,baziDims:{trend:0,fund:60},baziWhy:{trend:'已观测的原趋势分为零',fund:'原资金维度分'}};
+  const state={stocks,candidatePool:[selected],sectors:[{name:'芯片',mainInflow:1000000}],
+    marketRecovery:{emotion:{date:day,value:'修复',knownAt:now-20000,source:'原多日情绪引擎'}}};
+  if(phase!=='missing-flows')state.fundFlowLinks={day,knownAt:now-2000,unit:'CNY',kind:'observed-transfer',source:'原来源去向明细',links:[
+    {from:'来源甲',to:'芯片',amount:100000},{from:'来源乙',to:'消费',amount:50000}]};
+  return {day,now,state};
+}
+function chartPayload(code='600000'){
+  const {day,now,state}=evidence(),before=JSON.stringify(state),result=buildIntelligenceVisuals(state,{cards:[]},{day,now,code});
+  assert.equal(JSON.stringify(state),before,'visuals projection is read only');
+  projectionChecks.push({kind:'visuals',day,unchanged:true});return result;
+}
+function researchPayload(){
+  const {day,now}=evidence(),archive={scope:'live',checks:[],plans:[],trades:[],versions:[],candidates:[]};
+  const before=JSON.stringify(archive),result=buildIntelligenceResearch({day,now,archive});
+  assert.equal(JSON.stringify(archive),before,'research projection is read only');
+  assert.equal(result.authority,'fayo-intelligence-research');
+  assert.equal(result.quality.score,null);assert.equal(result.templates.groups.length,6);
+  projectionChecks.push({kind:'research',day,unchanged:true});return {ok:true,result};
+}
+function harness(viewer=false){
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>绯曜智能图谱隔离验收</title><link rel="stylesheet" href="/nova/fayo.css">
+  <style>body{margin:0;padding:24px;background:#140f1c;color:#f5eafa}main{max-width:1220px;margin:auto;min-width:0}.qa-banner{color:#b6a2bf;font-size:13px;margin-bottom:20px}#drawer-proof{margin-top:20px}@media(max-width:600px){body{padding:12px}}</style></head>
+  <body><main><h1>绯曜 FAYO · 智能图谱验收</h1><p class="qa-banner">隔离测试输入 · 使用真实图表与研究投影函数 · 不连接账户与推送</p><div id="center"></div><div id="drawer-proof"></div></main>
+  <script type="module">
+  import {createIntelligenceCenter,createDrawerRadar} from '/nova/intelligence-view.mjs';
+  const controller=new AbortController(),listeners=new Set(),reads=[],clicks=[],navigations=[];
+  let selected={code:'600000',day:'${initialDay}'};
+  const ctx={signal:controller.signal,canEdit:${viewer?'false':'true'},role:'${viewer?'view':'edit'}',
+    get decisionSelection(){return selected;},
+    async api(url,options={}){reads.push({url,method:options.method||'GET'});const response=await fetch(url,{method:options.method||'GET',signal:options.signal});return response.json();},
+    onDecisionSelection(callback){listeners.add(callback);return()=>listeners.delete(callback);},
+    selectStock(code,row){clicks.push({code,row});},navigate(view,sub){navigations.push({view,sub});}};
+  const center=createIntelligenceCenter(ctx),radar=createDrawerRadar(ctx,()=>selected);
+  document.querySelector('#center').append(center);document.querySelector('#drawer-proof').append(radar);
+  window.intelligenceHarness={reads,clicks,navigations,setDay(day){selected={...selected,day};for(const callback of listeners)callback();radar.refresh();},
+    abort(){controller.abort();},ready:true};
+  </script></body></html>`;
+}
+function reply(res,status,type,value){res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store'});res.end(value);}
+const server=http.createServer((req,res)=>{
+  const u=new URL(req.url,'http://127.0.0.1');requests.push({method:req.method,path:u.pathname,query:u.search});
+  if(req.method!=='GET'){writes.push({method:req.method,path:u.pathname});return reply(res,405,'application/json',JSON.stringify({ok:false}));}
+  if(u.pathname==='/favicon.ico')return reply(res,204,'text/plain','');
+  if(u.pathname==='/'||u.pathname==='/m')return reply(res,200,'text/html; charset=utf-8',harness(u.searchParams.get('role')==='view'));
+  if(u.pathname==='/api/decision-center/visuals'){
+    const value=chartPayload(u.searchParams.get('code')||'600000');
+    return reply(res,200,'application/json',JSON.stringify(u.searchParams.get('section')==='radar'?
+      {ok:true,authority:value.authority,day:value.day,radar:value.radar}:value));
+  }
+  if(u.pathname==='/api/decision-center/research')return reply(res,200,'application/json',JSON.stringify(researchPayload()));
+  const file=path.resolve(publicRoot,'.'+u.pathname);
+  if(!u.pathname.startsWith('/nova/')||!file.startsWith(publicRoot+path.sep)||!fs.existsSync(file))return reply(res,404,'text/plain','missing');
+  return reply(res,200,file.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8',fs.readFileSync(file));
+});
+async function run(){
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const origin='http://127.0.0.1:'+server.address().port;
+  let browser;const report={fixtureOnly:true,backend:['buildIntelligenceVisuals','buildIntelligenceResearch'],views:[]};
+  try{
+    browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+    for(const viewport of [{width:1366,height:1000,path:'/'},{width:390,height:844,path:'/m'}]){
+      phase='missing-flows';
+      const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'}),page=await context.newPage();
+      const errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));
+      await page.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin!==origin){external.push(u.origin);return route.abort();}return route.continue();});
+      try{
+        await page.goto(origin+viewport.path,{waitUntil:'networkidle'});
+        await page.waitForFunction(()=>window.intelligenceHarness?.ready);
+        assert.equal(await page.evaluate(()=>intelligenceHarness.reads.length),0,'collapsed charts and radar issue no API reads');
+        await page.locator('#fy-intelligence-center > summary').click();
+        await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L5 · 复盘反馈',exact:true}).waitFor();
+        assert.equal(await page.evaluate(()=>intelligenceHarness.reads.length),2,'one visuals read and one research read on expansion');
+        const areas=await page.locator('.fy-market-map svg > g[data-code]').evaluateAll(groups=>groups.map(group=>{
+          const rect=group.querySelector(':scope > rect');return {code:group.dataset.code,area:Number(rect.getAttribute('width'))*Number(rect.getAttribute('height')),fill:rect.getAttribute('fill')};}));
+        assert.equal(areas.length,2);assert.ok(Math.abs(areas[0].area/areas[1].area-3)<1e-9,'heatmap area follows the actual 3:1 market caps');
+        assert.ok(Math.abs(areas.reduce((sum,row)=>sum+row.area,0)-960*420)<1e-6,'heatmap conserves total area');
+        assert.equal(areas.find(row=>row.code==='600000').fill,'#d1658f');assert.equal(areas.find(row=>row.code==='600001').fill,'#348b79');
+        const radar=page.locator('#fy-intelligence-center .fy-nine-radar');
+        assert.equal(await radar.locator('svg circle').count(),3,'only three observed values produce marks, including the real zero');
+        assert.equal(await radar.locator('svg polygon:not([fill="none"])').count(),0,'six unknown axes do not close a polygon');
+        assert.equal(await radar.locator('svg circle[cx="160"][cy="132"]').count(),1,'observed zero is distinct from a missing score');
+        assert.equal(await page.locator('.fy-flow-sankey svg').count(),0);
+        assert.match(await page.locator('.fy-intelligence-charts').innerText(),/板块净额不能证明资金来源与去向/);
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/Q 尚未完整/);
+        for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 六类战法模板','L5 · 复盘反馈'])
+          assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:heading,exact:true}).count(),1);
+        assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L2 · 六类战法模板'}).locator('..').locator('ul > li').count(),6);
+        assert.equal((await page.locator('.fy-intelligence-research').innerText()).includes('undefined'),false);
+        const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=1,'no page-level horizontal overflow');
+        await page.screenshot({path:path.join(output,'intelligence-'+viewport.width+'-missing-flows.png'),fullPage:true});
+        await page.locator('.fy-market-map svg g[data-code="600000"]').click();
+        assert.equal(await page.evaluate(()=>intelligenceHarness.clicks.at(-1).row.poolDay),initialDay);
+
+        phase='observed-flows';await page.getByRole('button',{name:'刷新中心证据',exact:true}).click();
+        await page.locator('.fy-flow-sankey svg').waitFor();
+        // A horizontal SVG path has a zero-height geometric bounding box even
+        // when its positive stroke width is visibly rendered.
+        await page.locator('.fy-flow-sankey svg path').first().waitFor({state:'attached'});
+        const widths=await page.locator('.fy-flow-sankey svg path').evaluateAll(nodes=>nodes.map(n=>Number(n.getAttribute('stroke-width'))));
+        assert.equal(widths.length,2);assert.ok(Math.abs(widths[0]/widths[1]-2)<1e-9,'Sankey stroke widths follow actual 100000:50000 amounts');
+        await page.locator('#fy-drawer-radar > summary').click();
+        await page.locator('#fy-drawer-radar .fy-nine-radar[data-day="'+initialDay+'"]').waitFor();
+
+        phase='next-day';await page.evaluate(day=>intelligenceHarness.setDay(day),nextDay);
+        await page.locator('#fy-intelligence-center .fy-nine-radar[data-day="'+nextDay+'"]').waitFor();
+        await page.locator('#fy-drawer-radar .fy-nine-radar[data-day="'+nextDay+'"]').waitFor();
+        await page.locator('.fy-market-map svg g[data-code="600000"]').click();
+        const clicked=await page.evaluate(()=>intelligenceHarness.clicks.at(-1));
+        assert.equal(clicked.code,'600000');assert.equal(clicked.row.poolDay,nextDay,'same-code refreshed SVG uses the current day, not the old closure');
+        assert.equal(clicked.row.quoteAt,Date.parse(nextDay+'T10:00:00+08:00')-1000);
+        const reads=await page.evaluate(()=>intelligenceHarness.reads);
+        assert.ok(reads.every(row=>row.method==='GET'));assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+        await page.screenshot({path:path.join(output,'intelligence-'+viewport.width+'-observed-flows.png'),fullPage:true});
+        await page.locator('.fy-intelligence-research').screenshot({path:path.join(output,'research-'+viewport.width+'.png')});
+        report.views.push({...viewport,lazyReads:2,heatmapAreas:areas,knownRadarAxes:3,missingRadarAxes:6,
+          missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,apiReads:reads.length,overflow,errors});
+      }catch(error){
+        fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText());
+        await page.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});throw error;
+      }finally{await context.close();}
+    }
+    const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),page=await context.newPage();
+    try{
+      phase='missing-flows';await page.goto(origin+'/m?role=view',{waitUntil:'networkidle'});
+      await page.locator('#fy-intelligence-center > summary').click();await page.locator('.fy-market-map svg').waitFor();
+      const reads=await page.evaluate(()=>intelligenceHarness.reads);
+      assert.equal(reads.filter(r=>r.url.startsWith('/api/decision-center/research')).length,0,'viewer presentation does not request the private archive');
+      assert.match(await page.locator('.fy-intelligence-research').innerText(),/原编辑身份权限/);
+      report.viewerPrivateReads=0;
+    }finally{await context.close();}
+    assert.deepEqual(writes,[]);report.passed=true;report.writes=0;report.projectionChecks=projectionChecks;
+    fs.writeFileSync(path.join(output,'intelligence-browser-report.json'),JSON.stringify(report,null,2));
+    process.stdout.write(JSON.stringify({passed:true,output,views:report.views,viewerPrivateReads:0,writes:0},null,2)+'\n');
+  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+}
+run().catch(error=>{process.stderr.write(String(error.stack||error)+'\n');process.exitCode=1;});

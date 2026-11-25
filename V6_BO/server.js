@@ -11461,7 +11461,27 @@ function sharedMarketRead(kind,edit) {
   return {...state,closeSession:{day,cards}};
 }
 const {createQuoteCrossCheck,supportsQuoteCheck}=require('./src/core/quote-cross-check');
-const checkStockQuote=createQuoteCrossCheck({isOpenDay:at=>marketDisplaySession(at).openDay});
+const decisionCrossChecks=new Map();
+const readStockCrossCheck=createQuoteCrossCheck({isOpenDay:at=>marketDisplaySession(at).openDay});
+const checkStockQuote=async code=>{
+  const result=await readStockCrossCheck(code);
+  // Retain the diagnostic exactly as observed. It may exclude a centre input;
+  // it can never certify a feed, replace a quote or grant trading permission.
+  if(result?.mode==='multi-source-price-consensus-research'&&result.code===code){
+    decisionCrossChecks.set(code,result);
+    while(decisionCrossChecks.size>60)decisionCrossChecks.delete(decisionCrossChecks.keys().next().value);
+  }
+  return result;
+};
+let decisionCrossCheckCursor=0;
+async function sampleDecisionCrossChecks(){
+  if(isReplica()||!marketDisplaySession().trading)return;
+  try{if(JSON.parse(fs.readFileSync(path.join(__dirname,'config','intelligence-center.json'),'utf8')).enabled!==true)return;}catch{return;}
+  const codes=[...new Set((S.candidatePool||[]).slice(0,3).map(row=>row.code).filter(supportsQuoteCheck))];
+  if(!codes.length)return;
+  // Uses the existing global 30-second governor and independent original rows.
+  await checkStockQuote(codes[decisionCrossCheckCursor++%codes.length]);
+}
 function marketDisplayState() {
   const session=marketDisplaySession();
   const selected=marketDisplaySnapshots.select(S,{trading:session.trading,openDay:session.openDay,mood:marketMood()});
@@ -13756,6 +13776,39 @@ function buildDashboardState(_stEdit = false) {
     };
 }
 
+// Read-only decision projection. The strategy anchor and latest whole quote
+// are separate evidence records; account ingestion and order gates are untouched.
+function decisionCenterInput(includePrivate=false) {
+  const display=sharedMarketRead('state',includePrivate),now=Date.now();
+  // The regular dashboard deliberately retains a last useful display pool.
+  // An executable decision must use the CURRENT strategy membership instead:
+  // a newly empty/revoked pool must not be revived by current quote prices.
+  const state={...display,pool:(S.candidatePool||[]).slice(0,50).map(row=>({...row,bad:newsWarnsCode(row.code)}))};
+  const day=new Date(now+28800000).toISOString().slice(0,10),decisionQuotes=[],decisionLevels={};
+  for(const candidate of state.pool||[]) {
+    const quote=S.lastPx?.get(candidate.code)?.wireQuote;
+    if(!quote||quote.code!==candidate.code)continue;
+    decisionQuotes.push({...quote});
+    const history=S.klines.get(candidate.code),source=history?.src||history?.source,sourceAt=history?.receivedAt;
+    if(!history||history.adjust!=='qfq'||!source||!Number.isSafeInteger(sourceAt)||sourceAt<=0||sourceAt>now)continue;
+    const bars=(history.rows||[]).filter(bar=>/^\d{4}-\d{2}-\d{2}$/.test(bar.date||'')&&bar.date<=day&&
+      ['open','high','low','close'].every(key=>typeof bar[key]==='number'&&Number.isFinite(bar[key])&&bar[key]>0)&&
+      (bar.knownAt==null||bar.knownAt<=now));
+    if(bars.length<25)continue;
+    const levels=A.computeLevels(bars,quote.price);
+    if(levels)decisionLevels[candidate.code]={levels,code:quote.code,price:quote.price,quoteAt:quote.quoteAt,
+      source,sourceAt,asOf:now,throughDay:bars.at(-1).date,adjustment:'qfq'};
+  }
+  return {...state,decisionQuotes,decisionLevels,crossChecksByCode:Object.fromEntries(decisionCrossChecks),
+    decisionAccountEvidence:includePrivate&&state.paper?.pool&&Number.isSafeInteger(state.now)?
+      {source:'原模拟账户服务端快照',sourceAt:state.now,kind:'server-account-snapshot'}:null,
+    decisionPools:{auction:_auctionResonanceCache.get('all')?.data||state.closeSession?.cards?.auction||null}};
+}
+async function decisionCenterFor(includePrivate=false) {
+  const input=decisionCenterInput(includePrivate);
+  return require('./src/core/decision-center').buildDecisionCenter(input,{now:Date.now()});
+}
+
 function buildMobileDigest(includePrivate = false) {
   const display=marketDisplayState(), D=display.state;
   const mood = display.mood;
@@ -14932,6 +14985,8 @@ function paperSnap(key, pmPaper) {
   const eq = paperEquity(key, pmPaper);
   return {
     enabled: acc.enabled, name: cfg.name, initial: cfg.initial, cash: acc.cash, realized: acc.realized,
+    executionPolicy: {maxPositions:cfg.maxPos,allocationPct:98/cfg.maxPos,
+      stopLossPct:cfg.sl*100,takeProfitPct:cfg.tp*100,stopMode:'account-atr-trailing'},
     equity: +eq.toFixed(2), marketValue: +(eq - acc.cash).toFixed(2),
     totalPnl: +(eq - cfg.initial).toFixed(2), totalPct: +((eq / cfg.initial - 1) * 100).toFixed(2),
     positions: Object.values(acc.positions).map(pp => {
@@ -19331,6 +19386,7 @@ const _httpBootstrap = createDashboardServer({
       const readSessionIndices=()=>sessionIndices.read(marketDisplaySession());
       readSessionIndices();
       setInterval(readSessionIndices,5000).unref();
+      setInterval(()=>{void sampleDecisionCrossChecks().catch(()=>{});},30000).unref();
       const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
         session:marketDisplaySession,isReplica:()=>!researchPrimary(),pool:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],requirePressure:true,
         readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
@@ -21065,6 +21121,19 @@ function handle(req, res, u, body) {
       } catch (e) { json(res, { ok: false, error: (e && e.message) || String(e) }); }
     })();
     return;
+  }
+  // Project existing daily-funds receipts only; this read never starts a scan.
+  if (p === '/api/selection-command/context' && req.method === 'GET') {
+    const raw=u.searchParams.get('days')||'5';
+    if(!/^(?:[1-9]|10)$/.test(raw)){
+      res.writeHead(422,{'Content-Type':'application/json','Cache-Control':'no-store'});
+      return res.end(JSON.stringify({ok:false,error:'资金窗口须为 1–10 个交易日。'}));
+    }
+    const display=marketDisplayState();
+    const result=require('./src/core/command-selection-view').commandSelectionContext(
+      {...S,candidatePool:display.state.candidatePool},
+      {day:display.meta.snapshotDay,days:Number(raw),now:Date.now(),isTradingDay:day=>isTradeDay(new Date(day+'T12:00:00+08:00'))});
+    res.setHeader('Cache-Control','no-store');return json(res,result,req);
   }
   // 两个接口：/api/kline 给日K+均线（任何已登录设备可见，行情数据不涉私密），
   // /api/kline-marks 给两层标注（模拟盘成交层按 requireEditor 裁，只读设备只看算法层 —— 与持仓铁律一致）。
@@ -23274,6 +23343,38 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   if (p === '/api/state') {
     return json(res, sharedMarketRead('state',isEditorReq(req,'')));
   }
+  if (p === '/api/decision-center' && req.method === 'GET') {
+    res.setHeader('Cache-Control','no-store');
+    const privateDecision=isEditorReq(req,'');
+    return decisionCenterFor(privateDecision).then(result=>{
+      if(privateDecision&&!requireEditor(res,req.__tok,req))return;
+      return json(res,{ok:true,...result},req);
+    })
+      .catch(()=>json(res,{ok:false,error:'后端决策尚未完成，请查看行情来源与缺项。'},req));
+  }
+  if (p === '/api/decision-center/visuals' && req.method === 'GET') {
+    const code=u.searchParams.get('code')||'',part=u.searchParams.get('section')||'all',requestedDay=u.searchParams.get('day')||'';
+    if(code&&!/^\d{6}$/.test(code)||!['all','radar'].includes(part)||requestedDay&&!/^\d{4}-\d{2}-\d{2}$/.test(requestedDay))return json(res,{ok:false,error:'请选择有效股票、日期与图表范围'},req);
+    res.setHeader('Cache-Control','no-store');
+    const privateDecision=isEditorReq(req,''),input=decisionCenterInput(privateDecision);
+    return require('./src/core/decision-center').buildDecisionCenter(input,{now:Date.now()}).then(decision=>{
+      if(privateDecision&&!requireEditor(res,req.__tok,req))return;
+      const day=input.closeSession?.day||input.marketClock?.day||input.snapshotDay;
+      if(requestedDay&&requestedDay!==day)return json(res,{ok:false,error:'图表原始数据日期为 '+(day||'未知')+'，与所选计划日期不一致。',day},req);
+      const result=require('./src/core/intelligence-visuals').buildIntelligenceVisuals({...S,marketRecovery:input.marketRecovery},decision,{day,now:Date.now(),code});
+      return json(res,part==='radar'?{ok:true,authority:result.authority,day:result.day,radar:result.radar}:result,req);
+    }).catch(()=>json(res,{ok:false,error:'图表依据尚未完成核验'},req));
+  }
+  if (p === '/api/decision-center/research' && req.method === 'GET') {
+    if(!requireEditor(res,req.__tok,req))return;
+    const input=decisionCenterInput(true),day=input.closeSession?.day||input.marketClock?.day;
+    res.setHeader('Cache-Control','private, no-store');
+    return require('./src/server/research-workspace-job').runWorkspaceJob({action:'intelligence-research',root:shortlineResearchDir(),
+      book:'main',replica:isReplica(),day,now:Date.now(),quotes:Object.values(input.crossChecksByCode||{})}).then(result=>{
+      if(!requireEditor(res,req.__tok,req))return;
+      return json(res,result,req);
+    });
+  }
   if (p === '/api/fast-stock-moves' && req.method === 'GET') {
     const servedAt = Date.now(), session = marketDisplaySession(servedAt);
     const cached = session.trading ? null : closingCardSnapshots.read('state:all','marketFastStockMoves');
@@ -23613,6 +23714,26 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return json(res, { ok: false, error: '账务证据不完整，已拒绝生成可能误导的统一视图' });
     }
   }
+  if (p === '/api/paper/execution-score' && req.method === 'GET') {
+    res.setHeader('Cache-Control','private, no-store');
+    if (!requireEditor(res,req.__tok,req)) return;
+    if (isReplica()) return json(res,{ok:true,replica:true,paper:null,note:'当前为副本，执行评分需核对原主实例完整账本'});
+    return (async()=>{
+    try {
+      const day=u.searchParams.get('date')||aShareCalendarDate();
+      if ([...u.searchParams.keys()].some(key=>key!=='date') || u.searchParams.getAll('date').length>1 ||
+          !paperAuthorityCalendar.isOpen(day) || day>aShareCalendarDate()) throw Error('请选择已开始的有效交易日');
+      const archive=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false});
+      if (!archive.ok || !archive.state) throw Error('事前冻结计划尚未完成校验');
+      if (!requireEditor(res,req.__tok,req)) return;
+      if (isReplica()) throw Error('实例角色已变化，请重新读取主实例');
+      refreshPaperAuthority();
+      const score=require('./src/core/paper-decision-plan').paperExecutionScore,now=Date.now();
+      return json(res,{ok:true,day,paper:Object.fromEntries(['pool','pre'].map(key=>[key,
+        score({book:_paperAuthority[key].read(),plans:key==='pool'?archive.state.plans:[],day,now})]))});
+    } catch(error) { return json(res,{ok:false,error:'执行评分不可用：'+error.message}); }
+    })();
+  }
   if (p === '/api/paper' && req.method === 'GET') {
     if (!isEditorReq(req, '')) return json(res, { ok: false, error: '模拟盘账户属私密数据，只读（观看）权限不可查看' });
     const _pm = paperPrices();
@@ -23625,6 +23746,51 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if(!requireEditor(res,c.token,req))return;
       refreshPaperAuthority();
       const key = c.account === 'pre' ? 'pre' : 'pool';
+      if (c.action === 'preparePlan') {
+        return (async()=>{try {
+          if(isReplica())throw Error('副本不可冻结模拟计划，请在原主实例核对');
+          if(c.account!=='pool'||!/^\d{6}$/.test(c.code||'')||!/^\d{4}-\d{2}-\d{2}$/.test(c.day||'')||
+             !/^[a-f0-9]{64}$/.test(c.decisionId||'')||Object.keys(c).some(k=>!['action','account','code','day','decisionId','token'].includes(k)))
+            throw Error('计划准备只接受股票、日期和服务器决策编号');
+          const decisions=await decisionCenterFor(true);
+          const card=decisions.cards.find(value=>value.code===c.code&&value.day===c.day&&value.decisionId===c.decisionId);
+          if(!card)throw Error('后端决策已变化或失效，请刷新今日作战台');
+          const job=require('./src/server/research-workspace-job').runWorkspaceJob;
+          const archive=await job({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false});
+          if(!archive.ok||!archive.state)throw Error('原研究计划档案暂不可用');
+          if(!requireEditor(res,c.token,req))return;
+          if(isReplica())throw Error('实例角色已变化，未冻结计划');
+          const model=require('./src/core/paper-decision-plan');
+          const previous=archive.state.plans.find(p=>model.authoritativePlanMatches(p,card));
+          if(previous)return json(res,{ok:true,plan:previous,reused:true,msg:'已读取同一冻结计划，尚未提交买入'});
+          const saved=await job({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false,decisionPlan:card,
+            input:{revision:archive.state.revision,action:'learn:plan',payload:model.decisionPlanPayload(card)}});
+          if(!saved.ok||!saved.result)throw Error(saved.error||'计划冻结回执尚未确认');
+          return json(res,{ok:true,plan:saved.result,reused:false,msg:'后端条件计划已冻结，尚未提交买入'});
+        }catch(error){return json(res,{ok:false,error:'计划未准备：'+error.message});}})();
+      }
+      if (c.action === 'executePlan') {
+        return (async()=>{try {
+        if (isReplica()) throw Error('副本不可确认模拟买入，请在原主实例核对');
+        const archive=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false});
+        if (!archive.ok || !archive.state) throw Error('事前冻结计划读取失败');
+        const rules=await loadSystemPickRules();
+        const decisions=await decisionCenterFor(true);
+        if (!requireEditor(res,c.token,req)) return;
+        refreshPaperAuthority();
+        const plan=archive.state.plans.find(value=>value.id===c.planId);
+        const candidate=S.candidatePool.find(value=>value.code===plan?.code);
+        const result=require('./src/core/paper-decision-plan').executeDecisionPlan({input:c,plan,
+          now:Date.now(),day:aShareCalendarDate(),replica:isReplica(),continuous:isContinuousTrading(),
+          candidate,eligiblePick:row=>rules.eligiblePick(row)&&rules.pickReasons(row).length>0,
+          systemPickDay:rules.systemPickDay,poolDay:null,newsBlocked:plan?newsWarnsCode(plan.code):true,
+          account:PAPER.pool,policy:PAPER_CFG.pool,equity:paperEquity('pool',paperPrices()),
+          authoritative:decisions.cards.find(value=>value.code===plan?.code&&value.day===plan?.intendedDate),
+          quote:paperAuthorityQuotes()[plan?.code],readBook:()=>_paperAuthority.pool.read(),
+          buy:(row,reason)=>paperBuy('pool',[row],paperPrices(),()=>reason)});
+        return json(res,result);
+        }catch(error){return json(res,{ok:false,error:'模拟计划未成交：'+error.message});}})();
+      }
       if (c.action === 'reset') {
         if (!requireEditor(res, c.token, req)) return;
         PAPER[key] = { cash: PAPER_CFG[key].initial, realized: 0, enabled: true, positions: {}, trades: [] };

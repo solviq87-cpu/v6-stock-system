@@ -68,9 +68,9 @@ export function createTradingHome(ctx,accountPanel){
  const market=h('section',{class:'fy-home-section fy-home-market','aria-label':'大盘一眼看'},
   h('header',{},h('h2',{},'大盘一眼看'),stamp),indexHost,climate);
  const detail=h('div',{class:'fy-home-opportunity-detail'}),tabList=h('div',{class:'fy-home-tabs',role:'group','aria-label':'机会类型'});
- let chosen=null,lastLists=null,lastSession=null;
+ let chosen=ctx.viewMemory?.homeChannel||null,lastLists=null,lastSession=null;
  const controls=new Map(channels.map(([key,label])=>[key,h('button',{type:'button',disabled:key==='relay-first'&&ctx.role!=='edit',
-  title:({auction:'开盘前集合竞价的同批观测',movement:'盘中短时间价格变动', 'relay-first':'前一交易日首板，观察能否接续第二板'})[key],onClick:()=>{chosen=key;paintSelection();}},label)]));
+  title:({auction:'开盘前集合竞价的同批观测',movement:'盘中短时间价格变动', 'relay-first':'前一交易日首板，观察能否接续第二板'})[key],onClick:()=>{chosen=key;if(ctx.viewMemory)ctx.viewMemory.homeChannel=key;paintSelection();}},label)]));
  tabList.append(...controls.values());
  const go=button('查看全部推荐 →',()=>ctx.navigate('opportunities','ranked'),'primary');
  const featured=h('div',{class:'fy-home-featured','aria-label':'系统精选'});

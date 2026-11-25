@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "ruleVersion": "fayo-center-v1",
+  "adjustment": {
+    "display": "qfq",
+    "backtest": "hfq",
+    "liveExecution": "none"
+  },
+  "weather": {
+    "positionCaps": {"green": 20, "yellow": 10, "red": 0, "unknown": 0}
+  },
+  "quality": {
+    "weights": {"realtime": 0.35, "completeness": 0.25, "consistency": 0.20, "continuity": 0.10, "anomaly": 0.10},
+    "unknownValue": null,
+    "maxAgeMs": 15000,
+    "requiredFields": ["open", "high", "low", "close", "volume", "amount"]
+  },
+  "consistency": {
+    "priceToleranceBps": 30,
+    "previousCloseToleranceBps": 5,
+    "volumeTolerancePct": 5,
+    "amountTolerancePct": 5,
+    "maxTimestampGapMs": 5000,
+    "minIndependentSources": 2,
+    "conflictPolicy": "exclude-from-center-research"
+  },
+  "factors": {
+    "minCrossSection": 5,
+    "minIcDays": 15,
+    "redundancyAbsCorrelation": 0.92,
+    "maxCandidateWeightChange": 0.08,
+    "orthogonalization": "training-only-modified-gram-schmidt"
+  },
+  "walkforward": {
+    "trainDays": 60,
+    "validationDays": 20,
+    "testDays": 20,
+    "stepDays": 20,
+    "purgeTradingDays": 1,
+    "maxFolds": 8,
+    "marketDateAlignment": "intersection"
+  },
+  "feedback": {
+    "mode": "candidate-only",
+    "approvalRequired": true,
+    "productionWeightsChanged": false
+  },
+  "templates": {
+    "engine": "bounded-local-rules",
+    "metrics": ["main-net-inflow", "selection-score", "strategy-resonance"],
+    "maximumTradingDays": 10,
+    "maximumResults": 20,
+    "threeToFour": {
+      "ruleVersion": "CENTER-3TO4-v1",
+      "minimumThemeAssists": 2,
+      "minimumSealRatioPct": 3,
+      "minimumTurnoverPct": 2,
+      "maximumTurnoverPct": 20,
+      "minimumVolumeRatio": 1.3,
+      "volumeLookbackTradingDays": 5
+    }
+  }
+}

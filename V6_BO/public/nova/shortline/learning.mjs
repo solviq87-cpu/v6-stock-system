@@ -110,8 +110,10 @@ function archivePlan(state,p) {
   const code=symbol(p.code),strategy=required(p.strategy,'计划战法');
   if(checked && checked.code!==code)throw Error('关联的校验记录与计划标的不一致');
   const entryMax=num(p.entryMax,'开仓价格上限',0.001,100000);
+  const entryMin=p.entryMin==null||p.entryMin===''?null:num(p.entryMin,'开仓价格下限',0.001,100000);
   const stop=num(p.stop,'止损价格',0.001,100000), target=num(p.target,'止盈价格',0.001,100000);
   if(!(stop<entryMax && target>entryMax))throw Error('价格应满足止损位 < 入场上限 < 止盈位');
+  if(entryMin!==null && !(stop<entryMin && entryMin<=entryMax))throw Error('价格应满足止损位 < 入场下限 ≤ 入场上限');
   const frozenAt=now(), holdUntil=p.holdUntil?stamp(p.holdUntil,'最早计划离场时间'):'';
   if(holdUntil && holdUntil<=localTime(Date.parse(frozenAt)))throw Error('计划离场时间应晚于冻结时间');
   const tradingTime=localTime(Date.parse(frozenAt)),tradeDay=asDate(tradingTime);
@@ -125,6 +127,10 @@ function archivePlan(state,p) {
   const customTags=words(p.customTags);
   if(customTags.some(t=>!allowedTags.includes(t)))throw Error('自定义标签须在计划冻结时已经启用');
   const plan={id:id('plan'),customTags,sampleSet:state.scope==='demo'||isTestSample(p)||isTestSample(checked)?'test':'real',labels,frozenAt,code,intendedDate,expectedAuctionGap,name:required(p.name,'标的名称',40),strategy,entryMax,maxPosition:num(p.maxPosition,'仓位上限',0.01,100),stop,target,holdUntil,logic:required(p.logic,'开仓逻辑',2000),expectedRR:round((target-entryMax)/(entryMax-stop)),checkId:checked?.id||null,trend:required(p.trend,'指数趋势',20),factors:unique([...words(p.factors).filter(k=>!dictionaryCode(k)),...words(checked?.factors),...evidenceCodes(checked,Date.parse(frozenAt))]),knownRiskFactors:unique([...words(p.knownRiskFactors),...words(checked?.risks)])};
+  if(entryMin!==null)plan.entryMin=entryMin;
+  if(p.decisionId!=null||p.decisionAuthority!=null){
+    throw Error('权威决策计划须通过服务端准备入口生成');
+  }
   state.plans.push(plan); return plan;
 }
 export function auditTrade(plan,t) {

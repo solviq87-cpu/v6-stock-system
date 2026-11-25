@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "cases": 98,
+  "failed": 0,
+  "nativeFrontendModules": 63,
+  "fixtureOnly": true,
+  "productionDeployed": false,
+  "externalMessagesSent": false,
+  "logs": {
+    "targetedTAPSha256": "a4fdbdb1f7e8c3d979a896f8d085aede340ed78e6e2016f17414bbf9e58383b9",
+    "syntaxCheckSha256": "52279d123396fd7768f213e0bfff962192cdda21fcb21871895361c2ee44537b"
+  },
+  "command": "RUNNER_TEMP=/tmp node --test --test-reporter=tap --test-concurrency=2 tests/fayo-decision-model.test.js tests/intelligence-research.test.js tests/intelligence-visuals.test.js tests/selection-command.test.mjs tests/paper-decision-plan.test.js tests/paper-decision-plan-http.test.js tests/fayo-product-contract.test.js tests/v6-terminal-workbench.test.js"
+}

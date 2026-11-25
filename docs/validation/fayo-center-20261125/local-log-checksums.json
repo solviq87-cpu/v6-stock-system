@@ -1,0 +1,30 @@
+{
+  "full-regression.log": {
+    "sha256": "8ccaf9a1d9b4064f1e3df6f25eb11188222df433de46e189b7b162554d576ea1",
+    "bytes": 1026146
+  },
+  "full-regression-tail.log": {
+    "sha256": "5d7687bd9578bc363484025ad2c57bff4161cd502f5ff2b21142f3329de9f91d",
+    "bytes": 110471
+  },
+  "managed-runtime-environment-recheck.log": {
+    "sha256": "cb126374c67b658980f96724aa2d03a5347ebaee5fab60783e8240080aa3cb00",
+    "bytes": 1327
+  },
+  "paper-integration-recheck.log": {
+    "sha256": "0412e3d868e1bf6577b6476093e9a81b94b98be44f1e1c38a37107b42769f920",
+    "bytes": 2031
+  },
+  "final-center-regression.tap": {
+    "sha256": "a4fdbdb1f7e8c3d979a896f8d085aede340ed78e6e2016f17414bbf9e58383b9",
+    "bytes": 26246
+  },
+  "final-check.log": {
+    "sha256": "52279d123396fd7768f213e0bfff962192cdda21fcb21871895361c2ee44537b",
+    "bytes": 424
+  },
+  "fayo-browser-existing-final.log": {
+    "sha256": "7f7c5c5dc3fdbd7a7dfc12994734fc9c95913641fceee21a59b7bac27d9ce5fb",
+    "bytes": 176
+  }
+}

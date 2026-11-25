@@ -1,0 +1,194 @@
+#!/usr/bin/env node
+'use strict';
+// Isolated upstream fixtures exercise the real server projection, decision
+// endpoint, native / and /m application, and original account services. No test
+// prices or fixture endpoints are added to production. Browser transport is
+// altered only in explicitly named rejection and late-response experiments.
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const assert=require('node:assert/strict'),{chromium}=require('playwright');
+const {createFixture}=require('../tests/helpers/v6-studio-fixture');
+const root=path.resolve(__dirname,'..'),day='2026-11-16',now=Date.parse(day+'T14:00:00+08:00');
+const output=process.env.FAYO_DECISION_QA_DIR||(process.env.V6_UI_QA_DIR?path.join(process.env.V6_UI_QA_DIR,'decision-center'):
+ fs.mkdtempSync(path.join(os.tmpdir(),'fayo-decision-browser-')));
+fs.mkdirSync(output,{recursive:true});
+
+function seedSource(){
+ const source=fs.readFileSync(path.join(root,'server.js'),'utf8');
+ const entry='function handle(req, res, u, body) {',projection="const display=sharedMarketRead('state',includePrivate),now=Date.now();";
+ assert.equal(source.split(entry).length,2,'single disposable handle seed');
+ assert.equal(source.split(projection).length,2,'single upstream weather projection');
+ return source.replace(entry,entry+`
+    if(!S.decisionBrowserSeedRows){
+      const day='${day}',at=Date.now();
+      const rows=Array.from({length:3},(_,i)=>({code:String(600000+i),name:'隔离决策验证'+(i+1),price:10.4+i,pct:4,
+        preClose:10+i,open:10.3+i,high:10.6+i,low:10.2+i,volume:1000000,amount:(10.4+i)*1000000,
+        score:88-i,paths:['横盘放量'],pathWhy:{横盘放量:'隔离验证中的原策略量价依据'},poolDay:day,sector:'芯片',
+        baziDims:{trend:82,fund:78},baziWhy:{trend:['原均线方向向上','原量价条件成立']},
+        quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,quoteAt:at-1000,receivedAt:at-500}));
+      S.decisionBrowserSeedRows=rows;S.stocks=rows;S.stocksAt=at-500;ingestPx(rows);
+      S.sectors=[{name:'芯片',pct:1.2,mainInflow:100000000,mainInflowYuan:100000000}];S.sectorsDay=day.replaceAll('-','');
+      for(const [i,row] of rows.entries()){
+        const bars=Array.from({length:30},(_,n)=>({date:new Date(Date.parse(day)-(29-n)*86400000).toISOString().slice(0,10),
+          open:10.2+i,high:11+i,low:10+i,close:10.2+i,volume:100000,amount:(10.2+i)*100000}));
+        klineSet(row.code,{rows:bars,src:'tencent',adjust:'qfq',receivedAt:at-2000});
+      }
+    }
+    const decisionBrowserControl=path.join(__dirname,'decision-browser-phase.json');
+    const decisionBrowserPhase=fs.existsSync(decisionBrowserControl)?JSON.parse(fs.readFileSync(decisionBrowserControl,'utf8')).phase:'valid';
+    S.candidatePool=decisionBrowserPhase==='empty'?[]:S.decisionBrowserSeedRows;
+  `).replace(projection,`const now=Date.now(),display={...sharedMarketRead('state',includePrivate),
+    marketDistribution:{kind:'market-distribution-intraday',source:'打板客',scope:'沪深京 A 股',day:'${day}',
+      quoteAt:now-30000,knownAt:now-20000,adv:3000,dec:1000,flat:100,observed:4100,total:4100,upLimit:70,downLimit:10},
+    dabanke:{day:'${day}',knownAt:now-20000,ecology:[{label:'当日封板',success:70,total:90}]}};`);
+}
+
+async function run(){
+ const clockDir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-decision-clock-')),clockFile=path.join(clockDir,'clock');
+ fs.writeFileSync(clockFile,String(now));
+ let fixture,browser;
+ const report={fixtureOnly:true,backend:'native decisionCenterInput / buildDecisionCenter',day,views:[],rejections:[],races:[]};
+ try{
+  fixture=await createFixture({count:3,serverSource:seedSource(),clockFile});
+  fs.copyFileSync(path.join(root,'config/intelligence-center.json'),path.join(fixture.tmp,'config/intelligence-center.json'));
+  const phaseFile=path.join(fixture.tmp,'decision-browser-phase.json');
+  const phase=value=>fs.writeFileSync(phaseFile,JSON.stringify({phase:value}));
+  const origin='http://127.0.0.1:'+fixture.port;
+  const ledgerPaths=['pool','pre'].map(key=>path.join(fixture.tmp,'data/order-accounts',key+'.json'));
+  await fixture.request('/api/paper');
+  const ledgers=ledgerPaths.map(file=>fs.readFileSync(file));
+  const authority=(await fixture.request('/api/decision-center')).body;
+  assert.equal(authority.authority,'fayo-decision-center');assert.equal(authority.cards.length,3,JSON.stringify(authority.reasons));
+  const expected=new Map(authority.cards.map(card=>[card.code,card]));
+  browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+  for(const viewport of [{width:1366,height:900,path:'/'},{width:390,height:844,path:'/m'}]){
+   phase('valid');
+   // Keep interception on the page transport for the explicit tamper/race cases.
+   // The general product browser suite separately exercises the normal worker.
+   const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'});
+   await context.addInitScript(({token,at})=>{
+    localStorage.setItem('qd_device',token);localStorage.setItem('qd_role','edit');
+    const OriginalDate=Date;window.__decisionTestNow=at;
+    window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:[window.__decisionTestNow]));}static now(){return window.__decisionTestNow;}};
+   },{token:fixture.token,at:now});
+   const page=await context.newPage(),errors=[],external=[],writes=[],reads=[];
+   let mode='valid',holdCode=null,held=null;
+   page.on('pageerror',error=>errors.push(error.message));
+   page.on('request',request=>{const url=new URL(request.url());if(request.method()==='POST')writes.push({path:url.pathname,body:request.postDataJSON()});
+    else if(url.pathname==='/api/kline')reads.push(url.pathname+url.search);});
+   await page.route('**/*',async route=>{
+    const url=new URL(route.request().url());
+    if(url.origin!==origin){external.push(url.origin);return route.abort();}
+    if(url.pathname==='/api/decision-center'&&mode!=='valid'){
+     const response=await route.fetch(),payload=await response.json();
+     if(mode==='tampered-plan'&&payload.cards[0])payload.cards[0].plan.stop=payload.cards[0].plan.target+1;
+     if(mode==='stale-package')payload.calculatedAt=now-15001;
+     return route.fulfill({response,json:payload});
+    }
+    if(url.pathname==='/api/kline'&&url.searchParams.get('code')===holdCode&&url.searchParams.get('n')==='240'){
+     holdCode=null;held={route};return;
+    }
+    return route.continue();
+   });
+   try{
+    const started=performance.now();
+    await page.goto(origin+viewport.path,{waitUntil:'domcontentloaded'});
+    await page.locator('.fy-decision-card').first().waitFor({timeout:5000});
+    const elapsed=performance.now()-started;
+    assert.ok(elapsed<5000,viewport.path+' actionable plans appear within five seconds: '+elapsed);
+    assert.equal(await page.locator('.fy-decision-card').count(),3);
+    const shape=await page.locator('.fy-decision-card').first().evaluate(node=>{
+     const plan=node.querySelector('.fy-decision-plan').getBoundingClientRect(),title=node.querySelector('.fy-decision-stock').getBoundingClientRect();
+     const checklist=node.closest('.fy-decision-board').querySelector('.fy-decision-checklist li').getBoundingClientRect();
+     const dock=document.querySelector('.fy-dock')?.getBoundingClientRect();
+     return {titleTop:title.top,planBottom:plan.bottom,checklistTop:checklist.top,checklistBottom:checklist.bottom,
+      usableBottom:dock?.height>0?Math.min(innerHeight,dock.top):innerHeight,height:innerHeight,overflow:document.documentElement.scrollWidth-innerWidth};
+    });
+    assert.ok(shape.titleTop>=0&&shape.planBottom<=shape.height,viewport.path+' first plan is visible without scrolling: '+JSON.stringify(shape));
+    assert.ok(shape.checklistTop>=0&&shape.checklistBottom<=shape.usableBottom,viewport.path+' first execution checklist item is visible above navigation: '+JSON.stringify(shape));
+    assert.ok(shape.overflow<=1,viewport.path+' no horizontal overflow');
+    await page.locator('.fy-decision-card [data-mini-code] svg').first().waitFor({timeout:5000});
+    assert.match(await page.locator('.fy-decision-board').innerText(),/未配置/);
+    await page.screenshot({path:path.join(output,'decision-'+viewport.width+'-initial.png'),fullPage:true});
+    const card=page.locator('.fy-decision-card[data-code="600001"]'),button=card.locator('.fy-decision-stock');
+    await page.locator('#fy-decision-rules summary').click();
+    await button.scrollIntoViewIfNeeded();const savedScroll=await page.evaluate(()=>scrollY);
+    const savedHorizontal=await page.locator('.fy-decision-cards').evaluate(node=>node.scrollLeft);
+    if(viewport.width<600)assert.ok(savedHorizontal>0,'mobile second card selects an actual horizontal position');
+    await button.click();
+    const drawer=page.locator('.fy-stock-drawer');
+    await drawer.waitFor({state:'visible'});
+    assert.match(await drawer.locator('.fy-drawer-title').innerText(),/600001/);
+    const selected=expected.get('600001');
+    await drawer.locator('[data-decision-sector="600001"][data-day="'+day+'"]').waitFor();
+    await drawer.locator('[data-decision-paper="600001"][data-day="'+day+'"]').waitFor();
+    assert.equal(await drawer.locator('[data-conclusion]').getAttribute('data-conclusion'),'可关注');
+    await drawer.getByRole('button',{name:'查看板块资金',exact:true}).click();
+    await page.locator('.fy-main [data-decision-sector="600001"][data-day="'+day+'"]').waitFor();
+    await page.locator('.fy-main').getByRole('button',{name:'查看模拟盘预填',exact:true}).click();
+    const draft=page.locator('[data-paper-plan][data-code="600001"][data-day="'+day+'"]');
+    await draft.waitFor();
+    for(const key of ['buyLow','buyHigh','stop','target','positionPct']){
+     assert.equal(Number(await draft.locator('[name="'+key+'"]').inputValue()),selected.plan[key],key+' stays server-owned');
+     assert.equal(await draft.locator('[name="'+key+'"]').getAttribute('readonly'),'');
+    }
+    assert.equal(await draft.locator('[name="planDay"]').inputValue(),day);
+    await draft.getByRole('button',{name:'返回今日作战台',exact:true}).click();
+    await page.locator('.fy-decision-card[data-code="600001"][data-selected="true"]').waitFor();
+    await page.waitForFunction(top=>Math.abs(scrollY-top)<4,savedScroll);
+    await page.waitForFunction(left=>Math.abs((document.querySelector('.fy-decision-cards')?.scrollLeft??-10000)-left)<3,savedHorizontal);
+    assert.equal(await page.locator('#fy-decision-rules').evaluate(node=>node.open),true,'expanded reasoning restored');
+    assert.equal(writes.filter(r=>r.path==='/api/paper').length,0,'linking and prefilling do not purchase or freeze a plan');
+
+    // A late, aborted original-stock request may not repaint the newly selected
+    // code/date or the linked sector and paper plan.
+    const lateHistory=(await fixture.request('/api/kline?code=600000&n=28&end=2026-11-17')).body;
+    assert.equal(lateHistory.code,'600000');holdCode='600000';
+    await page.locator('.fy-decision-card[data-code="600000"] .fy-decision-stock').click();
+    await page.waitForFunction(()=>document.querySelector('.fy-drawer-title')?.textContent.includes('600000'));
+    for(let n=0;n<100&&!held;n++)await new Promise(resolve=>setTimeout(resolve,20));
+    assert.ok(held,'first stock request held: '+JSON.stringify(reads));
+    await drawer.getByRole('button',{name:'关闭股票研究面板',exact:true}).click();
+    await page.locator('.fy-decision-card[data-code="600002"] .fy-decision-stock').click();
+    await page.waitForFunction(()=>document.querySelector('.fy-drawer-title')?.textContent.includes('600002'));
+    try{await held.route.fulfill({json:{...lateHistory,offlineTheme:'晚到的 A 股票不得覆盖 B'}});}catch{/* aborted transport is an expected safe result */}
+    held=null;
+    await drawer.locator('[data-decision-paper="600002"][data-day="'+day+'"]').waitFor();
+    assert.equal((await drawer.innerText()).includes('晚到的 A 股票不得覆盖 B'),false);
+    assert.equal(await drawer.locator('[data-decision-sector="600001"]').count(),0);
+    await drawer.getByRole('button',{name:'关闭股票研究面板',exact:true}).click();
+    report.races.push({path:viewport.path,status:'old stock reply rejected; selected code and day retained'});
+
+    for(const rejected of ['tampered-plan','stale-package']){
+     mode=rejected;await page.reload({waitUntil:'domcontentloaded'});
+     await page.locator('.fy-decision-empty').waitFor({timeout:5000});
+     const reason=rejected==='tampered-plan'?'完整计划未通过复核':'日期或时点已失效';
+     await page.waitForFunction(message=>document.querySelector('.fy-decision-empty')?.textContent.includes(message),reason,{timeout:5000});
+     assert.equal(await page.locator('.fy-decision-card').count(),0,rejected+' never produces cards');
+     report.rejections.push({path:viewport.path,case:rejected,text:await page.locator('.fy-decision-empty').innerText()});
+    }
+    mode='valid';phase('empty');await page.reload({waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>document.querySelector('.fy-decision-empty')?.textContent.includes('没有源端策略候选'),null,{timeout:5000});
+    assert.equal(await page.locator('.fy-decision-card').count(),0,'empty upstream remains empty');
+    assert.match(await page.locator('.fy-decision-empty').innerText(),/今天空仓，等待信号/);
+    await page.screenshot({path:path.join(output,'decision-'+viewport.width+'-empty.png'),fullPage:true});
+    assert.deepEqual(errors,[],'no browser errors');assert.deepEqual(external,[],'no external browser requests');
+    report.views.push({...viewport,firstPlanMs:Math.round(elapsed),shape,linkedCode:'600001',linkedDay:day,scrollRestored:true,horizontalScrollRestored:true,savedHorizontal,
+     reasoningRestored:true,paperMutations:writes.filter(r=>r.path==='/api/paper').length,errors});
+   }catch(error){
+    fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText()+'\n'+JSON.stringify(errors));
+    await page.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});throw error;
+   }finally{if(held)try{await held.route.abort();}catch{}await context.close();}
+  }
+  for(const [i,file] of ledgerPaths.entries())assert.deepEqual(fs.readFileSync(file),ledgers[i],'browser verification cannot change '+path.basename(file));
+  report.ledgerUnchanged=true;report.passed=true;
+  for(const width of [1366,390])for(const extension of ['txt','png'])fs.rmSync(path.join(output,'failure-'+width+'.'+extension),{force:true});
+  fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify(report,null,2));
+  process.stdout.write(JSON.stringify({passed:true,output,views:report.views,rejections:report.rejections.length,races:report.races.length,ledgerUnchanged:true},null,2)+'\n');
+ }catch(error){
+  fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify({...report,passed:false,error:String(error.message||error)},null,2));
+  throw error;
+ }finally{
+  if(browser)await browser.close();if(fixture)await fixture.close();fs.rmSync(clockDir,{recursive:true,force:true});
+ }
+}
+run().catch(error=>{process.stderr.write(String(error.stack||error)+'\n');process.exitCode=1;});

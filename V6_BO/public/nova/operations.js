@@ -112,9 +112,83 @@ function holdings(ctx,risk=false) {
   }));return host;
 }
 function holdingHistory(ctx) {if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});host.append(asyncRegion(ctx,()=>request(ctx,'/api/holdings/ops?n=100'),(data,reload)=>el('div',{class:'fy-stack'},panel('资产变更轨迹','服务端留存的变更与备份，恢复前可先核对时间。',table([['发生时间',row=>date(row.at||row.ts||row.time)],['操作',row=>text(row.action||row.type||row.op)],['资产',row=>text(row.code||arr(row.codes).join('、'))],['记录',row=>text(row.note||row.msg||row.detail)]],arr(data.ops))),panel('可恢复快照','恢复会替换当前资产簿，操作前需要确认。',arr(data.snapshots).length?el('div',{class:'fy-list'},arr(data.snapshots).map(snapshot=>{const file=typeof snapshot==='string'?snapshot:snapshot.file||snapshot.name;return el('article',{class:'fy-item'},el('strong',{},text(file)),el('span',{},date(snapshot.at||snapshot.ts||snapshot.time)),action('恢复这一份',()=>review(ctx,host,'恢复资产簿快照',text(file)+' 将替换当前资产簿，请核对快照日期与账户。',()=>mutation(ctx,'/api/holdings/restore',{file},reload)),'danger'));})):empty('当前没有可恢复快照')))));return host;}
+function paperPlanDraft(ctx,host,onExecuted) {
+  const box=el('section',{class:'fy-panel fy-paper-plan','aria-label':'条件计划预填','data-paper-plan':true});
+  let signature='',frozen=null;
+  const back=()=>typeof ctx.returnToDecision==='function'?ctx.returnToDecision():ctx.navigate('pulse','overview');
+  const keyOf=selection=>JSON.stringify([selection?.code,selection?.day,selection?.decisionId,selection?.plan]);
+  const current=key=>!ctx.signal?.aborted&&keyOf(ctx.decisionSelection)===key;
+  function paint(){
+    const selection=ctx.decisionSelection,plan=selection?.plan,key=keyOf(selection);
+    if(key===signature)return;
+    signature=key;frozen=null;host.querySelector('[data-operation-review]')?.remove();
+    if(!selection?.code||!plan){
+      box.replaceChildren(el('h2',{},'条件计划预填'),notice('在今日作战台选择标的，即可在这里核对同股、同日计划。'),
+        action('回到今日作战台',back));return;
+    }
+    box.dataset.code=selection.code;box.dataset.day=selection.day;
+    const good=/^\d{6}$/.test(selection.code)&&/^\d{4}-\d{2}-\d{2}$/.test(selection.day||'')&&
+      selection.authority==='fayo-decision-center'&&/^[a-f0-9]{64}$/.test(selection.decisionId||'')&&
+      [plan.buyLow,plan.buyHigh,plan.stop,plan.target,plan.positionPct].every(v=>number(v)!==null)&&
+      plan.stop>0&&plan.stop<plan.buyLow&&plan.buyLow<=plan.buyHigh&&plan.buyHigh<plan.target&&plan.positionPct>0&&plan.positionPct<=100;
+    const fields=el('div',{class:'fy-form-grid'},
+      field('股票',input('planStock',selection.code+' '+(selection.row?.name||''),'text',{readonly:true})),
+      field('计划交易日',input('planDay',selection.day,'text',{readonly:true})),
+      field('买入下限（元）',input('buyLow',plan.buyLow,'number',{readonly:true})),
+      field('买入上限（元）',input('buyHigh',plan.buyHigh,'number',{readonly:true})),
+      field('计划止损（元）',input('stop',plan.stop,'number',{readonly:true})),
+      field('计划目标（元）',input('target',plan.target,'number',{readonly:true})),
+      field('仓位上限 %',input('positionPct',plan.positionPct,'number',{readonly:true}),plan.positionBasis||'沿用原模拟账户等权预算，费用及整手仍由原门禁核对'));
+    const submit=action('核对并确认模拟买入',()=>{
+      if(!current(key))return ctx.notify('已切换标的，请核对当前计划','info');
+      review(ctx,host,'确认 '+(selection.row?.name||selection.code)+' 的条件计划',
+        `${selection.day} · ${selection.code} · 买入 ${plan.buyLow}–${plan.buyHigh} 元，仓位上限 ${fmt(plan.positionPct)}%。确认后先冻结计划，再检查当前报价；条件不符不成交，也不排入后台队列。计划止损 ${plan.stop} 元用于复盘核对，实际退出继续采用原账户 ATR / 移动止损。`,async()=>{
+        if(!current(key))throw Error('页面或所选标的已变化，请重新核对');
+        if(!frozen){
+          const saved=await mutation(ctx,'/api/paper',{action:'preparePlan',account:'pool',code:selection.code,
+            day:selection.day,decisionId:selection.decisionId});
+          frozen=saved.plan;
+        }
+        if(!current(key)||!frozen?.id)throw Error('计划已保留，请重新核对当前标的；本次未提交买入');
+        const response=await mutation(ctx,'/api/paper',{action:'executePlan',account:'pool',planId:frozen.id});
+        if(current(key))await onExecuted?.();
+        return response;
+      });
+    },'primary',{disabled:!good||ctx.state?.paper?.mirror===true});
+    box.replaceChildren(el('h2',{},'条件计划预填 · 待确认'),fields,
+      notice('计划止损用于事后核对；实际自动退出仍按原账户 ATR / 移动止损。'),
+      ...(!good?[notice('计划条件不完整，请回到作战台等待完整信号。')]:[]),
+      el('div',{class:'fy-toolbar'},submit,action('返回今日作战台',back)));
+  }
+  ctx.onDecisionSelection?.(paint);paint();return box;
+}
+function executionScorePanel(score,error,ctx){
+  if(!score)return panel('收盘执行评分','与原模拟账户收益同时核对',notice(error||'执行证据尚未返回，保留未知。'));
+  return panel('收盘执行评分 · '+score.day,score.note,
+    el('div',{class:'fy-metrics'},metric('执行评分',score.score==null?score.status:score.score+' 分'),
+      metric('已核验项目',score.assessed),metric('证据待补齐',score.unknown)),
+    score.closed===false?notice('收盘后生成评分，盘中结果不作为当日最终成绩。'):null,
+    arr(score.rows).length?table([['标的',r=>action((r.name||r.code)+' '+r.code,()=>ctx.selectStock(r.code,{code:r.code,name:r.name,tradeDate:score.day}),'text')],
+      ['核验项',r=>r.fact.rule],['结论',r=>r.fact.status],['依据',r=>r.fact.evidence]],arr(score.rows).flatMap(r=>arr(r.facts).map(fact=>({...r,fact})))):
+      notice('该日期没有可核对的事前冻结计划，不能据此生成满分。'));
+}
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
-  host.append(asyncRegion(ctx,()=>request(ctx,ledger?'/api/paper/ledger':'/api/paper'),(data,reload)=>{
+  let reloadAccounts=null,scoreCache=null,scoreAt=0,scoreDay='';
+  if(!ledger)host.append(paperPlanDraft(ctx,host,async()=>{scoreCache=null;scoreAt=0;await reloadAccounts?.();ctx.refresh?.();}));
+  const load=async()=>{
+    const data=await request(ctx,ledger?'/api/paper/ledger':'/api/paper');
+    if(ledger)return data;
+    const day=ctx.decisionSelection?.day||ctx.state?.closeSession?.day||ctx.state?.marketClock?.day||new Date(Date.now()+28800000).toISOString().slice(0,10);
+    if(!scoreCache||scoreDay!==day||Date.now()-scoreAt>30000){
+      try{scoreCache=await request(ctx,'/api/paper/execution-score?'+new URLSearchParams({date:day}));}
+      catch(error){scoreCache={error:error.message};}
+      scoreAt=Date.now();scoreDay=day;
+    }
+    return {...data,executionScore:scoreCache};
+  };
+  host.append(asyncRegion(ctx,load,(data,reload)=>{
+    reloadAccounts=reload;
     const records=data.paper||{};return el('div',{class:'fy-stack'},['pool','pre'].map(key=>{
       const account=records[key];if(!account)return panel(key==='pool'?'策略跟踪账户':'机会预选账户','',empty('账户数据尚未返回'));
       if(ledger)return renderLedgerAccount(account,key,ctx);
@@ -124,6 +198,7 @@ function paper(ctx,ledger=false) {
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
       card.append(el('h3',{},'已实现收益曲线'),el('small',{},'按成交日累计，单位为元，未计持仓浮盈。'),
         curve.length?priceLine(curve,'模拟账户已实现收益曲线',{timeLabel:p=>p.day}):empty('暂无可核实的成交流水'));
+      if(key==='pool')card.append(executionScorePanel(data.executionScore?.paper?.[key],data.executionScore?.error||data.executionScore?.note,ctx));
       card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
       card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
       const audit=account.audit||{};card.append(notice(audit.replica?'当前是副本视图，账户以主实例为准。':audit.ok===true?'账户与流水核对通过':audit.incomplete?'对账证据不完整，保留未知。':audit.note||'账户对账状态待核验'));

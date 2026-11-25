@@ -1,0 +1,27 @@
+{
+  "paperBuy": {
+    "unchanged": true,
+    "before": "428e4be9e1a02acd00d5b69c413339c95b7859b16c70b1d9851c48a208c74436",
+    "after": "428e4be9e1a02acd00d5b69c413339c95b7859b16c70b1d9851c48a208c74436"
+  },
+  "paperCheck": {
+    "unchanged": true,
+    "before": "bf5ed772f94442a30d20ec6659e161406536f856b172f2668eb61d2149f5bf5c",
+    "after": "bf5ed772f94442a30d20ec6659e161406536f856b172f2668eb61d2149f5bf5c"
+  },
+  "paperSell": {
+    "unchanged": true,
+    "before": "01fa9c0538e6fde90d68b0d930a6fcab2d696be8b57231211da02a57848caa55",
+    "after": "01fa9c0538e6fde90d68b0d930a6fcab2d696be8b57231211da02a57848caa55"
+  },
+  "savePaper": {
+    "unchanged": true,
+    "before": "f25337c680b0c5616c4671787b05d74c5df92408c0a0be290742df59967d2968",
+    "after": "f25337c680b0c5616c4671787b05d74c5df92408c0a0be290742df59967d2968"
+  },
+  "followSystemPicks": {
+    "unchanged": true,
+    "before": "c2c30e71e38f7727f792d33c9c487c7ed611bd42ae3da68448c73338610b0158",
+    "after": "c2c30e71e38f7727f792d33c9c487c7ed611bd42ae3da68448c73338610b0158"
+  }
+}
