@@ -29,7 +29,7 @@ test('a severity swap between two objects is a distinct event despite unchanged 
 });
 test('a different critical object bypasses ordinary cooldown and remains reserved after restart', () => workspace(async stateFile => {
   let calls = 0;
-  const fetchImpl = async () => { calls++; return {ok: true, json: async () => ({code: 0})}; };
+  const fetchImpl = async () => { calls++; return {ok: true, status: 200, json: async () => ({code: 0})}; };
   const send = (levels, now) => sendPrivateRiskSummary({report: report(levels, now), now,
     stateFile, webhookUrl, fetchImpl, enableDelivery: true});
   assert.equal((await send([['600001', 'critical'], ['600002', 'warning']], epoch)).status, 'gateway-accepted');
@@ -50,7 +50,7 @@ test('unknown delivery of a new critical object is never retried after restart',
 }));
 test('changes to ordinary risks do not keep bypassing cooldown beside the same critical object', () => workspace(async stateFile => {
   let calls = 0;
-  const fetchImpl = async () => { calls++; return {ok: true, json: async () => ({code: 0})}; };
+  const fetchImpl = async () => { calls++; return {ok: true, status: 200, json: async () => ({code: 0})}; };
   const send = (symbol, now) => sendPrivateRiskSummary({report: report([['600001', 'critical'], [symbol, 'warning']], now), now,
     stateFile, webhookUrl, fetchImpl, enableDelivery: true});
   assert.equal((await send('600002', epoch)).status, 'gateway-accepted');
