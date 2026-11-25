@@ -8,8 +8,8 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
- const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback';
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evolution'].includes(payload.action);
+ const edit=payload.action==='shortline'&&Boolean(payload.input)||['intelligence-feedback','evolution-preferences','evolution-diagnostics'].includes(payload.action);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
  const canQueueEdit=edit&&!waitingEdit&&reads.size>0;
@@ -26,7 +26,7 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
+  const guarded=['intelligence-feedback','intelligence-history-collect','evolution-preferences','evolution-diagnostics'].includes(payload.action)||
     payload.action==='shortline'&&Boolean(payload.decisionPlan);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
@@ -56,6 +56,19 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     Atomics.wait(control,0,0,5000);
     return Atomics.load(control,0)===1;
   };
+  if(p.action==='evolution')return require('../core/intelligence-evolution').readEvolutionReport(p);
+  if(p.action==='evolution-preferences'){
+    if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存偏好'};
+    try{
+      const result=require('../core/evolution-workflow').saveEvolutionPreferences(p.workspaceRoot,p.input,{now:Date.now(),beforeCommit:authorizedCheckpoint});
+      return {ok:true,result,researchOnly:true};
+    }catch(error){return {ok:false,httpStatus:error.code==='WORKSPACE_AUTH_REVOKED'?403:/版本冲突|conflict/i.test(error.message)?409:422,error:error.message};}
+  }
+  if(p.action==='evolution-diagnostics'){
+    if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存诊断'};
+    try{return await require('../core/intelligence-evolution').runStoredEvolutionDiagnostics(p,{beforeCommit:authorizedCheckpoint});}
+    catch(error){return {ok:false,httpStatus:error.code==='WORKSPACE_AUTH_REVOKED'?403:422,error:error.message};}
+  }
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob({...p,
       ...(p.decisionPlan?{beforeDecisionCommit:authorizedCheckpoint}:{})});}

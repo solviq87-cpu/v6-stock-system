@@ -6,6 +6,7 @@ import {renderManualLearning} from './operations.js';
 import {renderKlineLearning} from './kline-learning-view.js';
 import {researchCode,readAutomatic,automaticSummary,onResearchRead} from './automatic-research.js';
 import {appendResearchExtensions} from './research-extensions.js';
+import {renderEvolution} from './evolution-view.js';
 
 const arr=value=>Array.isArray(value)?value:[];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -340,9 +341,9 @@ export function renderResearch(route,ctx){
     if(!ctx.canEdit)return empty('需要研究编辑权限','请使用已获批的编辑设备登录。');
     return import('./shortline-host.mjs').then(({renderShortline})=>renderShortline(route,ctx));
   }
-  const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence};
+  const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence,evolution:renderEvolution};
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
-  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
+  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],...(ctx.canEdit?[['evolution','研究进化工作台']]:[]),['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
   const nav=fyNode('nav',{class:'fy-subnav','aria-label':'实验室工作区'},choices.map(([key,label])=>{const control=fyAction(label,()=>ctx.navigate('lab',key),key===active?'primary':'quiet');control.setAttribute('aria-current',key===active?'page':'false');return control;}));
   return fyNode('div',{class:'fy-stack'},ctx.workspaceNavigation?null:nav,renders[active](ctx));
 }

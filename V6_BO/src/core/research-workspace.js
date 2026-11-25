@@ -57,7 +57,11 @@ async function reviewStored(input,options,{read}={}){
 function saveScreen(root,result,provenance){
  try{const data=decision.screeningRecord(result,{provenance});data.codeVersion=codeVersion();
   const e=store.appendEvent(root,'screen',data,{requestId:'scan_'+crypto.randomBytes(16).toString('hex')});
-  return {status:'saved',runId:e.hash,sequence:e.sequence,...store.FLAGS};
+  // The original screen is the source of truth, including every rejected row.
+  // A failed optional projection cannot erase the frozen screening evidence.
+  let lifecycleStatus='saved';
+  try{require('./evolution-workflow').recordCandidateTransitions(root,{sourceId:e.hash});}catch{lifecycleStatus='source-retained';}
+  return {status:'saved',runId:e.hash,sequence:e.sequence,lifecycleStatus,...store.FLAGS};
  }catch{return {status:'failed',error:'筛选结果封存未完成，原扫描结果保留',...store.FLAGS};}
 }
 function saveSettings(root,input){

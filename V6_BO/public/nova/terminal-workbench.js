@@ -10,6 +10,7 @@ import {createDecisionHome} from './decision-view.mjs';
 import {projectSectorFlows} from './decision-sector-context.mjs';
 import {createIntelligenceCenter} from './intelligence-view.mjs';
 import {renderCloseReview} from './close-review.js';
+import {renderEvolutionPriority} from './evolution-view.js';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -351,7 +352,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
    strategiesPanel,decisionsHost,riskPanel,syncPanel,mobileLinks,quick);
   const more=h('details',{class:'fy-home-research'},h('summary',{},h('strong',{},'更多研究'),
    h('span',{},'复盘、策略与同步')),researchBody);
-  view.append(createDecisionHome(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),more);
+  view.append(createDecisionHome(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),...(ctx.canEdit?[renderEvolutionPriority(ctx)]:[]),more);
   if(ctx.canEdit===true){
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);

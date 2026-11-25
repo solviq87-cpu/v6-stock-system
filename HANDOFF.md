@@ -589,6 +589,8 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 **默认行为**：先读、查重、增量开发、测试、登记、再审核。不要让用户重复为同一任务耗费额度。
 
 
-## 2026-11-26 智能研究进化补充（二）独立阶段记录
+## 2026-11-26 智能研究进化补充（二）· 19 项实现与验收
 
-基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-intelligence-evolution-20261126`。32、43、44、46、63 部分增量，其余本轮未完成。保留当前部署检查点与其他组成果；真实效果、全量验收、生产冷备/发布未验证。逐项状态与接口见 [阶段报告](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)。
+基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；分支 `feat/fayo-intelligence-evolution-20261126`，[PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357)。本组 31–36、43–47、59–66 共 19 项已补齐独立模块、原私有档案接入及双端 `#/lab/evolution` 工作台。相强/多周期、相似样本、候选/反证、四策略/融合、原结算复盘、基准/稳健性/DSR/PBO、因果/预热、财务/时效、AI 合同和六阶段流程均保留缺项与原交易门禁。个性化设置沿原链 CAS 保存；诊断绑定历史、实现及窗口，撤权在锁内复核。详见 [逐项实现与接口](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) 和 [实际验证记录](docs/validation/fayo-evolution-20261126/README.md)。
+
+主应用版本保持 `20261125ad`，本组原生资源修订 `20261125ad-evolution1`、SW 后缀 `evolution-1`；第一组统一整合全部 66 项、重新验证及同步最终发布版本。本组没有合并其他组 PR、生产切换或外发消息。新 `candidate-lifecycle` / `evolution-preferences` 记录继续使用原私有研究链；旧 reader 不认识新类型，回滚须先保全新链并在隔离副本验证兼容，不能删事件或覆盖新成交。原部署检查点及其他组交接保持。

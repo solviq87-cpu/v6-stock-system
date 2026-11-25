@@ -22754,6 +22754,20 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return json(res, { ok: true, role: hit.role, deviceToken: _dt, token: _tk });
   }
 
+  if(p==='/api/research/evolution'){
+    const paths={...stockObservationOptions(),manualLedgerRoot:manualResearchLedgerDir(),factorConfigFile:process.env.V6_FACTOR_AGENT_CONFIG_FILE||undefined};
+    return require('./src/server/evolution-http').evolutionHttp(req,res,{body,url:u,paths,
+      root:shortlineResearchDir(),workspaceRoot:paths.workspaceRoot,
+      authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica:()=>!researchPrimary(),
+      job:require('./src/server/research-workspace-job').runWorkspaceJob,
+      calendarFor:asOf=>{
+        const result=require('./src/core/research-calendar-source').readResearchCalendar({asOf,calendarFile:paths.calendarFile});
+        const day=new Date(asOf+8*3600000).toISOString().slice(0,10),knownAt=Date.parse(result.metadata?.knowledgeAvailableAt);
+        return {status:result.status,day,tradeDates:result.tradeDates,source:result.metadata?.source||null,from:result.metadata?.from,to:result.metadata?.to,
+          knownAt:Number.isSafeInteger(knownAt)?knownAt:null,isOpen:result.status==='available'?result.tradeDates.includes(day):null,
+          tradingDay:day,reason:result.reason||null};
+      }});
+  }
   if(p==='/api/research/shortline'){
     const options={body,url:u,root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research'),
       authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica:()=>!researchPrimary(),

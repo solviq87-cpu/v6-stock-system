@@ -23,6 +23,8 @@ import { emotion, marketAsOf, validate, knownBy, knowledgeCutoff } from './marke
 const HORIZONS = [1, 2, 3, 5, 10];
 const DIMENSIONS = ['shape', 'volume', 'turnover', 'indexTrend', 'themeCycle'];
 const DIM_NAMES = ['K线形态', '量能', '换手', '全A趋势', '题材周期'];
+const SIMILAR_EXTRA = [['position','位置'],['amountState','成交额'],['relativeStrength','相对强弱'],['auctionState','竞价'],['intradayState','盘中结构'],['knownNews','当时已知消息']];
+const band=(v,negative=-1,positive=1)=>!Number.isFinite(v)?'缺失':v<negative?'偏弱':v>positive?'偏强':'平稳';
 const MISSING = '缺失';
 const allTime = '9999-12-31';
 const mean = a => a.length ? a.reduce((n, v) => n + v, 0) / a.length : null;
@@ -194,7 +196,15 @@ function extract(b,history,ctx,settings={}){
   const structure=max20==null||![b.close,b.low].every(Number.isFinite)?MISSING:b.close>max20?'突破':b.close<min20?'破位':ma10 && b.low<=ma10*1.01 && b.close>=ma10?'回踩':max20/min20<1.12?'横盘箱体':'区间整理';
   const volume=vr==null?MISSING:vr>=2.5?'爆量':vr>=1.3?'放量':vr<=.75?'缩量':'平量';
   const vseq=history.slice(-2).concat(b).map(i=>i.volume);
+  const amounts=history.slice(-5).map(i=>i.amount),amountMean=amounts.length===5&&amounts.every(Number.isFinite)?mean(amounts):null;
+  const amountRatio=Number.isFinite(b.amount)&&amountMean>0?b.amount/amountMean:null;
+  const indexChange=Number.isFinite(ctx.indexChange)?ctx.indexChange:null;
+  const time=stamp(b.date).slice(11,16),intraday=[];
+  if(time>='09:45'&&Number.isFinite(b.first15mChange))intraday.push('早盘'+band(b.first15mChange));
+  if(time>='15:00'&&Number.isFinite(b.last30mChange))intraday.push('尾盘'+band(b.last30mChange));
   return {shape,position:zone==null?MISSING:zone<.33?'低位':zone>.67?'高位':'中位',volume,turnover:turn,indexTrend:b.indexTrend||ctx.indexTrend||MISSING,themeCycle:b.themeCycle||ctx.themeCycle||MISSING,maState:ma20==null?MISSING:ma5>ma10&&ma10>ma20?'多头排列':ma5<ma10&&ma10<ma20?'空头排列':'缠绕震荡',ma5,ma10,ma20,
+    amountState:amountRatio==null?MISSING:amountRatio>=1.3?'放额':amountRatio<=.75?'缩额':'平额',relativeStrength:change!=null&&indexChange!=null?band(change-indexChange):MISSING,
+    auctionState:time>='09:25'?band(b.auctionGap):MISSING,intradayState:intraday.join(' / ')||MISSING,knownNews:[b.announcementType,b.newsStatus].filter(Boolean).join(' / ')||MISSING,
     d5:ma5?rounded(pct(b.close,ma5)):null,d10:ma10?rounded(pct(b.close,ma10)):null,d20:ma20?rounded(pct(b.close,ma20)):null,
     structure,ratio:rounded(vr),change:rounded(change),relation:prev&&[b.close,b.volume,prev.close,prev.volume].every(Number.isFinite)?'价'+(b.close>=prev.close?'涨':'跌')+'量'+(b.volume>=prev.volume?'增':'缩'):MISSING,
     volumeRun:vseq.length<3||!vseq.every(Number.isFinite)?MISSING:vseq[0]<vseq[1]&&vseq[1]<vseq[2]?'持续放量':vseq[0]>vseq[1]&&vseq[1]>vseq[2]?'持续缩量':'交替',
@@ -341,7 +351,7 @@ function purposeArchive(state,requested=state[researchPartition]||'real'){
     {...obs,minuteBars:(obs.minuteBars||[]).filter(matches)}:null;
   return slice;
 }
-function observations(state,asOf,options={}){
+export function observations(state,asOf,options={}){
   state=purposeArchive(state,options.sampleSet);
   const until=cutoff(asOf), raw=(state.bars||[]).filter(b=>officialReceipt(state,b)&&stamp(b.date)<=until&&knownBy(b,until)), by=groups(raw), context=contextMaps(state,by), result=[];
   const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw);
@@ -381,7 +391,7 @@ function observations(state,asOf,options={}){
       const indices=context.indices.get(period+'/'+b.date)||[];
       const index=indices.find(x=>x.code===b.indexCode)||(indices.length===1?indices[0]:{});
       const sector=context.sectors.get([b.sector||'',period,b.date].join('/'))||{};
-      const ctx={indexTrend:index.indexTrend||market.trend,indexVolume:index.indexVolume||market.volume,indexLevel:index.indexLevel||market.indexPosition,breadth:market.breadth||index.breadth,...sector};
+      const ctx={indexTrend:index.indexTrend||market.trend,indexVolume:index.indexVolume||market.volume,indexLevel:index.indexLevel||market.indexPosition,breadth:market.breadth||index.breadth,...sector,indexChange:index.change??market.indexChange};
       if(!ctx.resonance && Number.isFinite(index.change) && Number.isFinite(sector.change)){
         if(index.change>0 && sector.change>0)ctx.resonance='题材指数共振';
         if(index.change<0 && sector.change>0)ctx.resonance='题材独立背离';
@@ -494,7 +504,7 @@ export function deriveCheckInput(state,input){
  if(sector.close&&sectorRows.length>=2)sector.change=pct(sector.close,sectorRows.at(-2).close);
  if(Number.isFinite(stock.sectorChange))sector.change=stock.sectorChange;
  const settings=settingsAt(state,point);
- const f=extract(b,history.slice(-20),{...sector,indexTrend:market.trend,themeCycle:sector.themeCycle},settings);
+ const f=extract(b,history.slice(-20),{...sector,indexTrend:market.trend,themeCycle:sector.themeCycle,indexChange:market.indexChange},settings);
  const {facts,main,strong}=inferEvidence(b,history,f,market,stage,sector,state.catalog,settings);
  const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
  b.frozenPlan=planAt(state.plans,code,date,seconds);
@@ -585,14 +595,23 @@ export function similarCases(state,target,asOf=target?.decisionAt||target?.date)
   const point=target.decisionAt||stamp(target.date);
   if(point>cutoff(asOf))throw Error('查询信号晚于观察截止时点');
   const missing=DIMENSIONS.flatMap((k,i)=>!target.features?.[k] || target.features[k]===MISSING?[DIM_NAMES[i]]:[]);
-  const candidates=missing.length?[]:observations(state,point,{causal:true,sampleSet:isTestSample(target)?'test':'real'}).filter(s=>s.id!==target.id&&(s.decisionAt||stamp(s.date))<point && sampleMatches(s,'standard') && isTestSample(s)===isTestSample(target) && DIMENSIONS.every(k=>s.features[k]!==MISSING)).map(s=>({...s,similarity:DIMENSIONS.filter(k=>s.features[k]===target.features[k]).length/5})).filter(s=>s.similarity>=.6).sort((a,b)=>b.similarity-a.similarity||compare(b.date,a.date));
+  const optionalMissing=SIMILAR_EXTRA.filter(([k])=>!knownFeature(target.features?.[k])).map(([,name])=>name);
+  const dimensions=[...DIMENSIONS,...SIMILAR_EXTRA.filter(([k])=>knownFeature(target.features?.[k])).map(([k])=>k)];
+  const eligible=missing.length?[]:observations(state,point,{causal:true,sampleSet:isTestSample(target)?'test':'real'}).filter(s=>s.id!==target.id&&(s.decisionAt||stamp(s.date))<point && sampleMatches(s,'standard') && isTestSample(s)===isTestSample(target));
+  const compared=eligible.filter(s=>DIMENSIONS.every(k=>knownFeature(s.features?.[k]))).map(s=>{
+    const comparable=dimensions.filter(k=>knownFeature(s.features[k])),matched=comparable.filter(k=>s.features[k]===target.features[k]);
+    // Keep a fixed query-side denominator. A candidate with fewer observations
+    // must never obtain a higher rank merely by having missing dimensions.
+    return {...s,similarity:matched.length/dimensions.length,similarityCoverage:{matched:matched.length,comparable:comparable.length,total:dimensions.length,missing:dimensions.filter(k=>!knownFeature(s.features[k]))}};
+  });
+  const candidates=compared.filter(s=>s.similarity>=.6).sort((a,b)=>b.similarity-a.similarity||compare(b.date,a.date)||compare(a.id,b.id));
   // Similarity ranking precedes outcome eligibility. Preserve censored neighbours.
   const matureFor=h=>candidates.filter(s=>s.outcomes[h]!=null&&sampleMatches(withOutcomeQuality(s,s.outcomes[h]),'standard')&&(isTestSample(target)||!isTestSample(s.outcomes[h])));
   const distributions=Object.fromEntries([1,3,5,10].map(h=>[h,distribution(matureFor(h).map(s=>s.outcomes[h].close))]));
   const excursions=Object.fromEntries([1,3,5,10].map(h=>{const rows=matureFor(h);return [h,{n:rows.length,unavailable:candidates.length-rows.length,high:distribution(rows.map(s=>s.outcomes[h].high)),low:distribution(rows.map(s=>s.outcomes[h].low))}];}));
   const mature=matureFor(5),ids=new Set(mature.map(s=>s.id));
-  const neighbours=candidates.map(s=>({id:s.id,code:s.code,name:s.name,date:s.date,similarity:s.similarity,available:ids.has(s.id),outcome:ids.has(s.id)?s.outcomes[5]:null}));
-  return {success:mature.filter(s=>s.outcomes[5].close>0),failure:mature.filter(s=>s.outcomes[5].close<0),neutral:mature.filter(s=>s.outcomes[5].close===0),distributions,missing,neighbours,excursions};
+  const neighbours=candidates.map(s=>({id:s.id,code:s.code,name:s.name,date:s.date,similarity:s.similarity,coverage:s.similarityCoverage,available:ids.has(s.id),outcome:ids.has(s.id)?s.outcomes[5]:null}));
+  return {success:mature.filter(s=>s.outcomes[5].close>0),failure:mature.filter(s=>s.outcomes[5].close<0),neutral:mature.filter(s=>s.outcomes[5].close===0),distributions,missing,optionalMissing,dimensions,coverage:{eligible:eligible.length,comparable:compared.length,incomplete:eligible.length-compared.length,matched:candidates.length,mature:mature.length,unavailable:candidates.length-mature.length},neighbours,excursions,version:'causal-similarity-2'};
 }
 
 export function equityStats(rows,horizon=5){
@@ -743,10 +762,10 @@ export function renderBacktest(ui){
     body='<div class="k-filters"><label>排序<select id="kFactorMode">'+opts(['样本覆盖','高风险组合','条件边界'],v.factorMode)+'</select></label></div><div class="table-wrap"><table><thead><tr><th>因子 / 组合</th><th>样本</th><th>胜率</th><th>平均收益</th><th>盈亏比</th><th>亏损 ≥5%</th><th>最深不利波动</th></tr></thead><tbody>'+factors.slice(0,40).map(f=>'<tr><td>'+'<button class="k-link" data-kroute="structure" data-factor="'+esc(f.key)+'">'+esc(f.key)+'</button></td><td>'+f.n+'</td><td>'+display(f.winRate)+'</td><td>'+display(f.mean)+'</td><td>'+display(f.ratio,'')+'</td><td>'+display(f.deepLoss)+'</td><td>'+display(f.worst)+'</td></tr>').join('')+'</tbody></table></div><p class="k-note">'+(factors.length?'展示当前筛选的前 '+Math.min(factors.length,40)+' 项。':'此范围内暂无可报告组合。')+' 条件边界要求至少 20 条成熟样本、10 个独立日期、正均值及 60% 胜率，仅作待验证候选。</p>';
   }else if(v.tab==='similar' && selected){
     const result=similarCases(state,selected);
-    const side=(title,rows)=>'<div><h4>'+title+' · '+rows.length+'</h4>'+(rows.slice(0,8).map(r=>'<div class="k-case"><button class="k-link" data-kcase="'+esc(r.id)+'">'+esc(r.date+' '+r.name)+'</button> · '+esc(r.sector)+'<br>'+esc(r.strategy)+' · 匹配 '+Math.round(r.similarity*5)+'/5 · 5日 '+display(r.outcomes[5].close)+'</div>').join('')||'<p class="k-empty">没有已成熟的同类案例。</p>')+'</div>';
-    const coverage='<p class="k-note">匹配 '+result.neighbours.length+' 条；五日标签可用 '+result.excursions[5].n+' 条，未成熟或质量不合格 '+result.excursions[5].unavailable+' 条。相似度不是上涨概率；区间高低不证明止盈止损先后。</p>';
-    const neighbours='<div class="table-wrap"><table><thead><tr><th>前20条相似样本</th><th>匹配度</th><th>五日收盘</th><th>区间最高</th><th>区间最低</th></tr></thead><tbody>'+result.neighbours.slice(0,20).map(r=>'<tr><td>'+esc(r.date+' '+r.name)+'</td><td>'+Math.round(r.similarity*5)+'/5</td><td>'+(r.available?display(r.outcome.close):'未成熟/不合格')+'</td><td>'+display(r.outcome?.high)+'</td><td>'+display(r.outcome?.low)+'</td></tr>').join('')+'</tbody></table></div>';
-    body='<p class="k-note">以 '+esc(selected.date+' '+selected.name)+' 为查询时点。五项特征需完整，至少三项相同。结果按相似度、日期排序，五日收益仅用于结算后分组。</p>'+(result.missing.length?'<p>缺失 '+esc(result.missing.join('、'))+'</p>':'')+coverage+neighbours+'<div class="grid2">'+side('成功案例',result.success)+side('失败案例',result.failure)+side('持平案例',result.neutral)+'</div>'+distTable(result.distributions);
+    const side=(title,rows)=>'<div><h4>'+title+' · '+rows.length+'</h4>'+(rows.slice(0,8).map(r=>'<div class="k-case"><button class="k-link" data-kcase="'+esc(r.id)+'">'+esc(r.date+' '+r.name)+'</button> · '+esc(r.sector)+'<br>'+esc(r.strategy)+' · 匹配 '+r.similarityCoverage.matched+'/'+r.similarityCoverage.total+' · 5日 '+display(r.outcomes[5].close)+'</div>').join('')||'<p class="k-empty">没有已成熟的同类案例。</p>')+'</div>';
+    const coverage='<p class="k-note">可比 '+result.coverage.comparable+' / '+result.coverage.eligible+' 条，基础特征缺失 '+result.coverage.incomplete+' 条；匹配 '+result.neighbours.length+' 条。五日标签可用 '+result.excursions[5].n+' 条，未成熟或质量不合格 '+result.excursions[5].unavailable+' 条。相似度不是上涨概率；区间高低不证明止盈止损先后。</p>';
+    const neighbours='<div class="table-wrap"><table><thead><tr><th>前20条相似样本</th><th>匹配 / 可比 / 总维度</th><th>五日收盘</th><th>区间最高</th><th>区间最低</th></tr></thead><tbody>'+result.neighbours.slice(0,20).map(r=>'<tr><td>'+esc(r.date+' '+r.name)+'</td><td>'+r.coverage.matched+' / '+r.coverage.comparable+' / '+r.coverage.total+'</td><td>'+(r.available?display(r.outcome.close):'未成熟/不合格')+'</td><td>'+display(r.outcome?.high)+'</td><td>'+display(r.outcome?.low)+'</td></tr>').join('')+'</tbody></table></div>';
+    body='<p class="k-note">以 '+esc(selected.date+' '+selected.name)+' 为查询时点。基础五项需完整；可用的位置、成交额、相对强弱、竞价、盘中和消息共 '+result.dimensions.length+' 维参与匹配，匹配至少60%。结果按相似度、日期排序，五日收益仅用于结算后分组。</p>'+(result.missing.length?'<p>缺失 '+esc(result.missing.join('、'))+'</p>':'')+(result.optionalMissing.length?'<p class="k-note">查询扩展维度缺失：'+esc(result.optionalMissing.join('、'))+'</p>':'')+coverage+neighbours+'<div class="grid2">'+side('成功案例',result.success)+side('失败案例',result.failure)+side('持平案例',result.neutral)+'</div>'+distTable(result.distributions);
   }else body='<p class="k-empty">系统按已归档行情检索历史信号。</p>';
   const chartBars=bars.filter(b=>!selected || b.date<=selected.date);
   const replay=chartBars.some(b=>!knownBy(b,dayCut));

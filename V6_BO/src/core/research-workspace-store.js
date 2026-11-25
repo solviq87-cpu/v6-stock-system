@@ -4,6 +4,9 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {withAccountLock}=require('./account-process-lock');
 const FLAGS={researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false};
 const MAX_EVENTS=2000,MAX_EVENT=2*1024*1024,MAX_TOTAL=128*1024*1024;
+// Additive research projections share the original private hash chain and lock.
+// They never write the account ledger or alter the old preference contract.
+const EVENT_KINDS=['analysis','screen','preferences','preset','diagnostic','manual-loop','evolution-preferences','candidate-lifecycle'];
 function canonical(value,depth=0){
  if(depth>32)throw Error('研究记录嵌套超限');
  if(value===null||typeof value==='boolean'||typeof value==='string'||typeof value==='number'&&Number.isFinite(value))return value;
@@ -40,14 +43,15 @@ function readEvents(root,{asOf=Date.now()}={}){
   try{const s=fs.fstatSync(fd);bytes+=s.size;if(!s.isFile()||s.mode&0o077||s.size>MAX_EVENT||bytes>MAX_TOTAL)throw Error('研究文件权限或容量无效');e=JSON.parse(fs.readFileSync(fd,'utf8'));}finally{fs.closeSync(fd);}
   const {hash,...body}=e;
   if(e.schemaVersion!==1||e.sequence!==i+1||e.previousHash!==(previous?.hash??null)||digest(body)!==hash||
-    !['analysis','screen','preferences','preset','diagnostic','manual-loop'].includes(e.kind)||
+    !EVENT_KINDS.includes(e.kind)||
     !Number.isSafeInteger(e.recordedAt)||e.recordedAt<=0||e.recordedAt>Date.now()||previous&&e.recordedAt<previous.recordedAt||
     Object.keys(FLAGS).some(k=>e[k]!==FLAGS[k]))throw Error('研究历史完整性校验失败');
   previous=e;if(e.recordedAt<=asOf&&(!Number.isSafeInteger(e.data?.asOf)||e.data.asOf<=asOf))out.push(e);
  }return out;
 }
-function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}={}){
- if(!['analysis','screen','preferences','preset','diagnostic','manual-loop'].includes(kind)||!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('研究记录类型或时点无效');
+function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now(),beforeCommit}={}){
+ if(!EVENT_KINDS.includes(kind)||!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('研究记录类型或时点无效');
+ if(beforeCommit!==undefined&&typeof beforeCommit!=='function')throw Error('研究提交授权核验无效');
  if(typeof requestId!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(requestId))throw Error('需要有效的研究请求ID');
  const clean=canonical(data),inputHash=digest({kind,data:clean});
  if(Number.isSafeInteger(clean.asOf)&&clean.asOf>now)throw Error('禁止保存未来研究');
@@ -66,6 +70,9 @@ function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}=
   const event={...body,hash:digest(body)},raw=encode(event);
   if(Buffer.byteLength(raw)>MAX_EVENT)throw Error('单次研究记录超过2MiB');
   if(events.reduce((n,e)=>n+Buffer.byteLength(encode(e)),0)+Buffer.byteLength(raw)>MAX_TOTAL)throw Error('研究档案超过128MiB');
+  // Re-check write authority under the same lock after reading and encoding the
+  // complete chain. A queued request cannot persist after its role is revoked.
+  if(beforeCommit&&beforeCommit()!==true){const error=Error('编辑授权或主实例角色已变化，未保存研究记录');error.code='WORKSPACE_AUTH_REVOKED';throw error;}
   const temp=path.join(dir,'.stage-'+crypto.randomBytes(12).toString('hex')),target=path.join(dir,String(event.sequence).padStart(6,'0')+'.json');let fd;
   try{fd=fs.openSync(temp,'wx',0o600);fs.writeFileSync(fd,raw);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(temp,target);
    const d=fs.openSync(dir,'r');try{fs.fsyncSync(d);}finally{fs.closeSync(d);}

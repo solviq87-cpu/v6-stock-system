@@ -194,6 +194,10 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 3. 正式发布完成后记实际目标、运行版本、校验结果和回滚位置。保留重要上一版本记录，以便找回可运行的包和确认实际发布差异。凭据与私人数据只写在私有回执。
 
 
-## 2026-11-26 智能研究进化补充（二）阶段一（未发布）
+## 2026-11-26 智能研究进化补充（二）· 19 项（未发布）
 
-复用原短线研究页与私有研究接口，增量研究分析字段、相似案例覆盖与因果/预热诊断；无新增私有运行目录或交易权限。见 [阶段报告](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md)。完整应用仍沿用原部署入口；完整回归、隔离HTTP、双端浏览器、生产验证未执行，禁止依据本阶段稿切换生产。
+[PR #357](https://github.com/solviq87-cpu/v6-stock-system/pull/357) 在 `dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9` 上补齐本组 19 项，入口为原电脑/手机研究工作区 `#/lab/evolution`，私有同源接口 `/api/research/evolution`。完整应用继续使用上方原部署入口；该改动同时包含后端、worker 和页面，集成后须使用同一精确 SHA 的完整程序。原账户、行情、风控、人工批准和唯一发布者不变。[实现与边界](docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md) · [测试与双端证据](docs/validation/fayo-evolution-20261126/README.md)
+
+未新增私有运行根目录：分组/模板/布局、候选关联与诊断保存到原 `V6_RESEARCH_WORKSPACE_DIR` 哈希链，使用原 CAS、容量与锁内撤权检查。原人工执行记录只按历史时点读取。已有 factor agent 配置可由 `V6_FACTOR_AGENT_CONFIG_FILE` 指向其原私有绝对路径作只读试验审计；缺少配置/成熟收益矩阵时保持不可评估。
+
+本分组保持主应用版本 `20261125ad`，资源修订为 `20261125ad-evolution1`、SW 后缀 `evolution-1`；最终版本、所有 66 项集成和生产验收由第一组统一处理。没有执行生产冷备、切换、真实交易或消息外发。回切旧程序前须保全新增研究事件链并验证旧 reader 对新类型的兼容；不得删除新事件重写 hash chain，也不得用旧账本覆盖新流水。

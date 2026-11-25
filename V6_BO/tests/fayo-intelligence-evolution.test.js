@@ -21,7 +21,9 @@ test('audit detects leak and refuses unchanged perturbation',()=>{
  assert.equal(auditPointInTime({input,cutoff:'x',evaluate:s=>s.rows,variants:[{name:'noop',mutate:s=>s}]}).status,'not-evaluated');
 });
 test('warmup requires strictly longer reference and reports instability',()=>{
- const bars=Array.from({length:150},(_,i)=>{const close=i<125?100:10;return {date:new Date(Date.UTC(2024,0,i+1)).toISOString().slice(0,10),open:close,high:close+1,low:close-1,close,volume:10000};});
+ // The transition must precede the last-26 seed; otherwise both paths start at
+ // 100 and the old fixture has exactly identical EMA history by construction.
+ const bars=Array.from({length:150},(_,i)=>{const close=i<120?100:10;return {date:new Date(Date.UTC(2024,0,i+1)).toISOString().slice(0,10),open:close,high:close+1,low:close-1,close,volume:10000};});
  const r=indicatorWarmup(bars,{lengths:[26,150]});
  assert.equal(r.checks[0].status,'fail');assert.equal(r.checks[1].status,'not-evaluated');
  const stable=bars.map(b=>({...b,open:10,high:11,low:9,close:10}));
