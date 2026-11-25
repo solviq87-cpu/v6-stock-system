@@ -1,0 +1,266 @@
+{
+  "protocol": "fayo-risk-pairwise-merge-preflight-v1",
+  "observedAtUtc": "2026-11-25T17:53:53.161Z",
+  "baselineSha": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+  "latestConfirmedDevSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "method": "git merge-tree --write-tree --name-only --messages; generated temporary Git tree objects only",
+  "boundaries": {
+    "performedActualMerge": false,
+    "updatedHead": false,
+    "updatedRefs": false,
+    "updatedIndex": false,
+    "changedWorktree": false,
+    "published": false,
+    "notFinalIntegrationValidation": true
+  },
+  "pairs": [
+    {
+      "pr": 353,
+      "ref": "review/pr353",
+      "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        "HANDOFF.md"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 356,
+      "ref": "review/pr356",
+      "head": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 357,
+      "ref": "review/pr357",
+      "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/nova/terminal-workbench.js",
+        "V6_BO/public/sw.js"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 358,
+      "ref": "review/pr358",
+      "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/nova/market.js",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 361,
+      "ref": "review/pr361",
+      "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "HANDOFF.md",
+        "TASK_MASTER.md",
+        "V6_BO/src/core/paper-application-service.js"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 362,
+      "ref": "review/pr362",
+      "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        "HANDOFF.md"
+      ],
+      "exitCode": 1
+    },
+    {
+      "pr": 363,
+      "ref": "review/pr363",
+      "head": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "base": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+      "conflictFiles": [
+        "DEPLOYMENT.md",
+        "RELEASE_QUEUE.md",
+        "TASK_MASTER.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js",
+        "V6_BO/server.js",
+        "WORK_LOG.md"
+      ],
+      "exitCode": 1
+    }
+  ],
+  "additionalPairs": [
+    {
+      "leftRef": "review/pr356",
+      "leftSha": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "rightRef": "review/pr361",
+      "rightSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "conflictFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "HANDOFF.md",
+        "V6_BO/src/core/paper-application-service.js"
+      ],
+      "exitCode": 1
+    }
+  ],
+  "semanticFindings": [
+    {
+      "id": "pr356-numeric-reconciliation",
+      "severity": "blocks-combined-account-compatibility",
+      "files": [
+        "V6_BO/src/core/account-safety-state.js",
+        "V6_BO/src/core/paper-application-service.js"
+      ],
+      "finding": "#356 account service text auto-merges with risk d1dabdb. Its new read/publish reconciliation rejects valid numeric-symbol purchase lots and splits numeric/string keys in quantity-flow and pending-sell maps.",
+      "evidence": {
+        "type": "isolated-readonly-projection-probe",
+        "sourceRef": "review/pr356",
+        "rows": [
+          {
+            "symbol": "600000",
+            "symbolType": "string",
+            "rawOrderSymbol": "600000",
+            "rawEventSymbol": "600000",
+            "historical": {
+              "status": "consistent",
+              "reasons": []
+            },
+            "withOpening": {
+              "status": "consistent",
+              "reasons": []
+            },
+            "originalBookUnchanged": true
+          },
+          {
+            "symbol": 600000,
+            "symbolType": "number",
+            "rawOrderSymbol": 600000,
+            "rawEventSymbol": 600000,
+            "historical": {
+              "status": "mismatch",
+              "reasons": [
+                "ORPHAN_PURCHASE_LOT"
+              ]
+            },
+            "withOpening": {
+              "status": "mismatch",
+              "reasons": [
+                "ORPHAN_PURCHASE_LOT",
+                "POSITION_QUANTITY_FLOW_MISMATCH"
+              ]
+            },
+            "originalBookUnchanged": true
+          }
+        ]
+      },
+      "minimalDirection": "Normalize symbol identities only when joining lot origins, reserved-sell Map keys and expected-position Map keys. Keep raw order/event/fillEvidence fields and fingerprints unchanged; retain reconciliation, readonly, defensive restrictions, and new process-lock protocol.",
+      "requiredVerification": [
+        "numeric/string mixed purchases and exits through the combined authority service",
+        "pending exposure, T+1, original duplicate-event and cash/fill consistency",
+        "restart and both old snapshots without opening seal and new snapshots with opening seal"
+      ]
+    },
+    {
+      "id": "pr361-final-quote-and-symbol",
+      "severity": "manual-hunk-preservation-required",
+      "files": [
+        "V6_BO/src/core/paper-application-service.js"
+      ],
+      "finding": "Risk d1dabdb versus #361 conflicts at the automatic saveLegacy quote-check/used-volume lines. Both requireCurrentAutomaticQuote(q,clock()); newExecutionQuotes.push(q) and String(e.symbol)===String(t.code) must remain.",
+      "minimalDirection": "Retain #361 15-second original-quote validation, collected newExecutionQuotes and prewrite callback, plus risk canonical symbol identity in pending sells, used volume, concentration and settlement interlock. Do not replace either patch with whole older file."
+    },
+    {
+      "id": "pr356-pr361-publish-scope",
+      "severity": "blocks-combined-publish",
+      "files": [
+        "V6_BO/src/core/paper-application-service.js"
+      ],
+      "finding": "Extra #356 vs #361 merge-tree exposes an automatically placed if(result.validateBeforeWrite) inside publish(next,previousRevision), where result is out of scope. Constructor also conflicts between readOnly parameter and quote guard insertion.",
+      "minimalDirection": "Keep readOnly plus requireCurrentAutomaticQuote. Pass the validation callback explicitly from mutate(result.snapshot, result.validateBeforeWrite) into publish and invoke it immediately before atomicWrite under the original account lock. Defensive-latch-only publishes have no new fills and need no quote callback. Preserve reconciliation, restrictions and stop-writers lock upgrade requirements.",
+      "tested": false
+    },
+    {
+      "id": "pr358-stock-drawer-and-cache",
+      "severity": "manual-hunk-preservation-required",
+      "files": [
+        "V6_BO/public/nova/market.js",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js",
+        ".github/workflows/v6-ui-browser.yml"
+      ],
+      "finding": "Stock drawer conflict is a single adjacent tab/append hunk: risk supplies stockRisk and #358 supplies replay tab. Imports, privacy clear/revocation and replay code otherwise auto-merge.",
+      "minimalDirection": "Keep both stockRisk node and replay tab; retain risk cleanup on close/revocation and late-response guards. Precache risk-workbench-view.mjs plus evidence-workbench.mjs/event-research.mjs/research-review.mjs. Select one coherent final version/cache key and strict browser assertions. Keep FAYO_RISK_QA_DIR and FAYO_COMMAND_QA_DIR, plus both existing scenario commands."
+    },
+    {
+      "id": "pr357-home-and-cache",
+      "severity": "manual-hunk-preservation-required",
+      "files": [
+        "V6_BO/public/nova/terminal-workbench.js",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        ".github/workflows/v6-ui-browser.yml"
+      ],
+      "finding": "Home imports and append conflict between createRiskSummary and renderEvolutionPriority. Risk moves older home.risk into expandable research body; blindly taking the other append line moves/removes that same DOM node.",
+      "minimalDirection": "Keep unified actionable createRiskSummary, preserve legacy risk evidence in expandable research content, add authorized renderEvolutionPriority without duplicate risk surfaces. Preserve all tests and evolution-view.js plus risk module in cache."
+    },
+    {
+      "id": "pr363-deep-research-routes",
+      "severity": "manual-hunk-preservation-required",
+      "files": [
+        "V6_BO/server.js",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js",
+        "DEPLOYMENT.md",
+        "RELEASE_QUEUE.md",
+        "TASK_MASTER.md",
+        "WORK_LOG.md"
+      ],
+      "finding": "#363 paper-application-service.js auto-merges; its only hunk is readonly executionLimits() returning the original maxParticipationPct. server conflict joins risk GET/alerts and deep research routes into one alternative block, plus RUNNING_RELEASE insertion.",
+      "minimalDirection": "Keep separate complete route blocks for /api/risk-workbench and /api/research/deep with each authorization/async revalidation. Keep RUNNING_RELEASE and original limits getter; do not recompute or assume a different participation cap. Precache deep-research.js and risk module, and unify cache/strict frontend revision assertions."
+    },
+    {
+      "id": "pr361-browser-gate",
+      "severity": "preserve-real-required-check",
+      "files": [
+        ".github/workflows/v6-ui-browser.yml"
+      ],
+      "finding": "#361 removes UI paths filters so backend code changes receive browser validation; conflict with risk branch's path entries must not restore omission of backend-only runs.",
+      "minimalDirection": "Retain #361 trigger coverage and both groups' browser scenarios/artifact paths. A workflow edit is not proof of remote ruleset enforcement."
+    },
+    {
+      "id": "pr353-pr362-docs-and-adapters",
+      "severity": "coordination-dependency",
+      "files": [
+        "HANDOFF.md",
+        "DEPLOYMENT.md"
+      ],
+      "finding": "#353 and #362 conflict only in HANDOFF at these exact refs. Source readiness changes do not certify live trade permission; research adapters still need exact account epoch/revision/fingerprint/asOf binding.",
+      "minimalDirection": "Append and reconcile current records without overwriting another group's history. Keep original task IDs and truthful unknown status until dedicated runtime adapter and data evidence exist."
+    }
+  ],
+  "globalConstraints": [
+    "This is pairwise conflict localization, not a selected merge order or a final integration branch.",
+    "No full file replacement with older PR versions; preserve every effective code/test hunk.",
+    "Final combined SHA needs full regression, isolated HTTP, desktop/mobile browser, permission/revocation, account/ledger and lock upgrade validation.",
+    "Production remains on the existing sole release mechanism; this review did not deploy or send notifications."
+  ]
+}

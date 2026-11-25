@@ -255,7 +255,7 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 
 这不是策略结论认证器。策略组负责收益衰减、模型校准、样本筛选、试验预算与人工晋级；本组保留原结论含义、未知原因及版本。当前主服务尚未接入 #353 新治理结果的专用 readStrategy adapter，不能把该 PR 的存在当作策略证据已就绪。不得将纸面恶化线索强制映射为“已验证策略失效”，也不得借风险显示自动调参。
 
-### 9.3 本次只读核对快照
+### 9.3 前轮只读核对快照（保留历史）
 
 下表的 HEAD 是实际读取时点的远端结果，均以同一基线 dev 为 base。链接锁定文档或 PR；其后有新提交必须重新核对。本表不是 CI 或生产状态报告。
 
@@ -274,7 +274,7 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 
 上游需提供逐票原始报价时间和使用资格、独立来源冲突回执、当时时点有效的行业/多题材版本、权威账户与计划档案。引用必须能绑定原来源、代码、日期、首次可知时间及原记录指纹；未拿到的字段用缺项表示。题材首次观察不是正式公告生效时间，新闻标题也不是成交或风险解除证据。
 
-### 9.5 本次实际合并预检
+### 9.5 前轮实际合并预检（保留历史）
 
 以本组冻结源码的独立临时 Git index 快照运行 `git merge-tree --write-tree`；没有修改共享 index、工作区、HEAD、分支或远端，没有真正合并。文档仍在收尾，因此此结果是冲突定位，不能替代最终集成 SHA 验收。
 
@@ -283,6 +283,31 @@ runtime 留有只读 readStrategy 适配点，统一 builder 也可消费原 res
 与 #356 `d50395972e9ae693a37e934dab785234c654e250` 无文本冲突，但 advancedAccounts 仅由原 HTTP `?advanced=1` 返回；本组 runtime 直接读取原 readResearchRiskCenter，不会自动消费该 HTTP 投影。其 account / revision / checkedAt 缺本组 epoch / authoritySnapshotFingerprint，仍属显式适配依赖。原写锁升级独立保留，停写与同卷恢复另验；自动合并成功不等于语义已统一。
 
 供总管决定合并顺序的依赖约束：先确认最新主线的数据/账户/锁门禁及升级边界；本组提供统一权益与动作证据后，再接策略及高级研究消费者。#358 与本组的双端接线无强制先后，但六处冲突须合并保留、一起统一版本和缓存。#357 的纸面研究保持原独立语义。最后在总管选定的完整合并 SHA 验证全量、HTTP、双端、权限与账本一致性，再按既有唯一机制安排生产验收。
+
+### 9.6 续接最终源码与七个活动 PR 的只读预检
+
+本轮以本组冻结实现 `d1dabdb763d6348f8e1633db4a535f6f2327ce9f` 与下表精确 HEAD 执行 `git merge-tree --write-tree`。只生成临时树对象，没有修改 HEAD、index、分支或远端，没有实际合并。完整冲突路径及有界复现见 [机器预检](validation/fayo-risk-20261126/merge-preflight.json)。后续文档提交不改变这些实现，但最终集成仍须重新读取各 PR 最新 HEAD。
+
+| PR | 本次已核对 HEAD | 文本冲突及需要保留的内容 |
+| --- | --- | --- |
+| #353 | c3c26519b005db219265c5b9b5718d8d053d8928 | HANDOFF；研究新结果须按同一账户期间、修订、指纹和时点适配 |
+| #356 | fd3caeeef55b1cad63be14764a47e11a695c0b2e | workflow、DEPLOYMENT、HANDOFF；账户服务文本自动合并，但新增对账器存在下述数值代码兼容问题 |
+| #357 | 03d314dcec9c528d7fc46fe21c5a11939dc015d8 | workflow、index、terminal-workbench、sw；保留统一风险摘要、研究优先事项和可展开原风险证据 |
+| #358 | 1c5675e70fc48c1666894b5e17c6d6961660ba16 | workflow、DEPLOYMENT、HANDOFF、index、market、sw、fayo-browser-check；同时保留个股stockRisk与replay页签、所有缓存模块及双方浏览器场景 |
+| #361 | 5ea32ac70a753ecf6880757630d219c05c2417df | workflow、HANDOFF、TASK_MASTER、paper-application-service；保留原始报价15秒最终提交检查、通知身份修复和本组同股敞口/冻结/成交量匹配 |
+| #362 | a72f953c93e25a8a26ac784ecd7b68eaa7d71465 | HANDOFF；来源真实性改进不等于新增实时交易资格 |
+| #363 | d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49 | DEPLOYMENT、RELEASE_QUEUE、TASK_MASTER、index、sw、fayo-browser-check、server、WORK_LOG；保留风险与深度研究独立完整路由、授权复查及RUNNING_RELEASE |
+
+上述源码简称均位于既有 V6_BO 目录，精确路径见机器预检。原 #355 由 #358 承接；#360 是 #357 的测试夹具增量，核对当前 #357 是否已继承后处理，不能重复覆盖。
+
+**需要总管/原负责组修复的两处语义兼容问题：**
+
+1. **#356 新对账器** `account-safety-state.js` 以 raw `order.symbol` / `event.symbol` 建立 Map，且以严格类型比较关联买入批次。用本组原权威服务实际生成的隔离数值股票账户只读复现：字符串代码返回 consistent；数值代码在旧档报 `ORPHAN_PURCHASE_LOT`，带独立期初封存的新档还报 `POSITION_QUANTITY_FLOW_MISMATCH`。应在身份关联、冻结 Map、数量流水 Map 中统一读取代码，保留原字段和指纹、不重写账本。现有对账、防御、只读与锁升级机制均应保留；不能凭账户服务文本自动合并认定兼容。
+2. **#356 与 #361 的 publish 回调**：额外只读预检看到 `if(result.validateBeforeWrite)` 被放到 `publish(next, previousRevision)`，其中没有 `result` 作用域。总管须从 `mutate` 显式传递回调，在原锁内、紧邻 `atomicWrite` 前再次校验原报价；保留 #356 的 readOnly/对账/防御发布及停写升级要求。此项为静态拼接发现，未将该组合运行结果称为已验证。
+
+本组与 #361 的自动成交冲突块，必须同时保留 `requireCurrentAutomaticQuote`、`newExecutionQuotes.push(q)` 与本组按同股身份累加的已用成交量；不能择一整段覆盖。#361 workflow 移除路径过滤后，应继续让后端变更产生浏览器检查，同时保留每组新增场景和截图目录。
+
+以上是依赖和保留约束，不是本组决定的最终合并安排。总管先统一原账户/锁/数据提交边界及上述兼容，再接各组只读消费者；双端入口和缓存版本在完整组合中一次统一。最终必须验证总管选定的精确合并 SHA，不能沿用本组或其他组独立绿色结果。
 
 ## 10. 七项任务的代码与验证映射
 

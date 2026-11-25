@@ -6,11 +6,27 @@
 
 覆盖01/02/03/04/05/14/30；逐项代码、测试与尚未接通的跨组接口见 [合同](../../FAYO_RISK_INTEGRATION_CONTRACT_20261126.md)。最终提交的40位 SHA 与远端 CI 链接写入 PR 回执；本页的源码清单摘要、实测日志 hash 和 [机器摘要](results.json) 用于核对本地证据。不得引用前轮4996项、旧 HEAD 绿色或其他组结果作为本次精确提交验收。
 
-## 续接验证说明
+## 本次续接最终验证 · `20261126ab`
 
-本轮恢复 `7f8515dd9746d4d5d3289d1edb671b84c38c7275` 的有效成果后，追加修复同股代码类型差异造成的原门禁和派生证据漏算，以及断网后的旧风险保留/晚到回包。本轮新增原门禁8项修前0/8、修后8/8；原交易关联67/67、派生四模块62/62、风险双端离线与恢复检查通过。最终冻结源码全量、完整浏览器和精确HEAD CI结果将单独登记；下表保留上一检查点的真实证据，不作为后续改动已经通过的证明。
+本轮恢复 `7f8515dd9746d4d5d3289d1edb671b84c38c7275` 的有效成果，追加修复同股代码类型差异造成的原门禁/派生证据漏算，以及断网后的旧风险保留和晚到回包。冻结实现提交为 **`d1dabdb763d6348f8e1633db4a535f6f2327ce9f`**；其后仅补验证与交接记录。最终PR提交及远端CI以 [#359](https://github.com/solviq87-cpu/v6-stock-system/pull/359) 精确HEAD回执为准。
 
-原19个具名函数的历史保护记录保持其原范围。本轮定向修改 `paper-application-service`、`common-entry-risk` 和 `paper-plan-observer`，保留原字段、指纹、锁、提交路径和所有风险阈值；不能再泛称全部原权威账户和风控模块没有变化。
+| 本次验证 | 实际结果 |
+| --- | --- |
+| 原完整 `npm test` | **5141总项、5137通过、0失败、4原环境跳过**；296.513秒，退出码0，原TAP完整性检查通过 |
+| 新增原门禁复现 | 新8项修前全部失败、修后8/8；连同原交易关联67/67，原订单/成交/报价证据类型与幂等指纹保持 |
+| 权益、实际规则、动作和压力专项 | 62/62；含实际权威服务数值订单、部分成交、冻结、取消、重启和账本不变 |
+| 通知独立专项 | 42/42；生命周期、回执显示、持久预留和通知runtime，无真实外发 |
+| 完整服务隔离HTTP与双账户重启 | 11/11；在途撤权、只读/副本、epoch、CAS、损坏档案及账户间隔离 |
+| 完整服务启动与静态检查 | 隔离启动成功；`npm run check`通过，69个原生前端模块 |
+| 原完整浏览器流程 | **34/34条命令、36个脚本，首次运行全部exit0，无复跑**；包含时钟、research36及原WorkBuddy组合10/10 |
+| 本组双端风险 | 1366px `/`、390px `/m`；真实离线/重连、页面离开/恢复、旧请求失效、撤权、静音、原账本不变和真实外发0均通过；已目视核对本轮截图 |
+| 冻结来源 | 2333个源/测试/配置文件前后hash不变；清单SHA-256 `133f60a74d8402db0491c5e8d2dd306ba10ab79b1d5bd915b00dbc2371cb85cf` |
+
+本次完整机器摘要为 [resume-results.json](resume-results.json)，上一检查点机器摘要 `results.json` 保持原状。专项有交叉，不将各行通过数相加。浏览器本地总耗时718.819秒；远端原工作流的真实时限和结果仍须读精确HEAD，不用本地成功代替。运行环境Node24.22.3、固定Playwright1.57.0、Chromium158.0.8127.0及Noto Sans CJK SC；本地缺PowerShell、可选LightGBM/XGBoost造成原4项跳过，没有关闭或豁免测试。
+
+本次首轮完整5141项为5133通过、4失败、4跳过：测试临时目录位于工作树内，原私有发布验证器按既有规则拒绝有效夹具。将 `RUNNER_TEMP` 改为工作树外的真实私有临时目录后，原专项13/13，再用同一源码完整重跑得到上述0失败。没有修改生产验证器、测试断言或安全门禁。首轮日志SHA-256 `831550b4be29c3f461def085a4f26befb7467702c716c0ce543e7f4428ceb870`，其他日志hash保留于本次机器摘要。
+
+原19个具名函数的历史保护记录只覆盖其列出的函数。本轮明确修改 `paper-application-service`、`common-entry-risk` 和 `paper-plan-observer` 的同股身份比较，保留原持久协议、锁、提交路径与阈值；不能再泛称全部原权威账户和风控模块未改。跨组只读预检、数值对账兼容和预提交回调作用域问题见 [merge-preflight.json](merge-preflight.json) 及合同9.6节；这不是最终合并验收。
 
 ## 上一检查点实际验证（34e0c18 / 7f8515d）
 
@@ -48,7 +64,7 @@
 ```bash
 npm run context:resume
 npm run check
-RUNNER_TEMP=/path/to/private-real-temp V6_MODEL_PYTHON=/path/to/python V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test
+RUNNER_TEMP=/path/outside-any-worktree/private-real-temp V6_MODEL_PYTHON=/path/to/python V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test
 node --test V6_BO/tests/risk-workbench-http.test.js V6_BO/tests/risk-workbench-runtime-isolation.test.js
 node V6_BO/tests/full-server-isolated-smoke.js
 # 原工作流固定 Playwright 1.57.0；保持全部原脚本和时钟检查：
@@ -67,5 +83,7 @@ NODE_PATH=/path/to/playwright/node_modules V6_UI_BROWSER=/path/to/chrome node V6
 ## 恢复
 
 初轮源码bundle SHA-256 `9ff7ccc75186fbd27ebe660ad6bd4fdf07e956b0106c0e0936f0aff310a1a232` 与检查点 `checkpoint/fayo-risk-base-20261126` 保留。续接建立 `checkpoint/risk-start-20261126`，指向原 PR HEAD `86a5bf4787f2b5a1746fffc11b9a60a06b5e387f`；完整 `risk-start-20261126.bundle` 已 `git bundle verify`，SHA-256 `0884590518afde995ce321b6a9edce5bae2b0044e0517a51c1fae747d7db800d`。外置源码bundle不入Git；远端原基线/PR历史也可按精确SHA检出到独立恢复分支，不强推、不reset dev。
+
+本次恢复前还建立完整源码 `risk-resume-20261126.bundle`，检查点为 `7f8515dd9746d4d5d3289d1edb671b84c38c7275`，`git bundle verify`通过，SHA-256 `d86240c39938ae277175157a6b1d7cacce7c2278d635395a71c003deee0a72a4`。
 
 上述均不代表生产冷备。按HANDOFF停全部写者、保全新流水、保留完整程序和全部私有卷，再切回经过验证的旧程序；保留新 `risk-evidence` 派生档，不重放通知，不用旧账户文件覆盖新增成交。其他组提交逐块保留，不整文件回灌旧版。
