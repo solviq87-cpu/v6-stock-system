@@ -121,7 +121,9 @@ test('actual background collection and incomplete receipts use one bounded paren
  assert.ok(root&&stage);assert.equal(root.traceId,stage.traceId);assert.equal(stage.parentSpanId,root.spanId);
  assert.equal(stage.status,'unknown');assert.equal(root.status,'unknown');
  assert.equal(trace.read().active,0);
- assert.doesNotMatch(JSON.stringify(rows),/600000|must not enter trace/);
+ // Match the symbol as a field value, not digits inside a valid timestamp/hash.
+ assert.doesNotMatch(JSON.stringify(rows),/"600000"|must not enter trace|privatePayload/);
+ for(const row of rows){assert.deepEqual(row.refs,{});assert.deepEqual(row.versions,{});}
 });
 
 test('late history lookup cannot dispatch or advance its cursor across the trading-day boundary',async()=>{

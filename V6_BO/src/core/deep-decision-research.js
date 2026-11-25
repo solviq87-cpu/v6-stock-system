@@ -626,7 +626,9 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
           orders.push({date,symbol:id,side:'sell',quantity,price,fees:fee.total,status:'hypothetical-filled'});
           if(quantity<requested)block(date,id,'sell',capacity.reason||'可卖数量限制，剩余继续估值');
         }
-        for(const [id,weight] of targets){
+        // A frozen reduction authorizes only lower exposure. A later price gap
+        // can imply a larger share target at the same weight; never buy it back.
+        if(alternative.action!=='reduce')for(const [id,weight] of targets){
           if(weight<=0)continue;
           const stock=bySymbol.get(id),bar=stock.bars[d],prior=stock.bars[d-1],p=holdings.get(id)||{symbol:id,quantity:0,availableQuantity:0},lotSize=100;
           const requested=Math.floor(Math.max(0,weight*account.equity/bar.open-p.quantity)/lotSize)*lotSize;if(!requested)continue;

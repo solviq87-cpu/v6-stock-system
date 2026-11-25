@@ -120,10 +120,10 @@ test('76 can run a server-supplied replay for every frozen option and rejects a 
   assert.equal(calls,2);assert.equal(r.status,'compared');const o=outcome(f,f.alternatives[0]);assert.throws(()=>D.reviewDecisionAlternatives(f,[o,o],{asOf:now+2000}),/重复/);
 });
 
-function replayFixture(t){
+function replayFixture(t,extraAlternatives=[]){
   const root=setup(t),at=Date.parse('2026-11-10T09:00:00+08:00'),p=portfolio(at),input=freezeInput(at);input.horizonDays=2;
   input.sourceSnapshot={account:p.account,quotes:p.candidates.map(c=>({symbol:c.symbol,sector:c.sector,strategyId:c.strategyId,...c.quote})),constraints:{...p.constraints,riskPolicy:{version:'risk-1',maxPositionPct:50,maxGrossExposurePct:80,maxSectorPct:50}},costs:p.costs};
-  input.alternatives.push({id:'rotate',action:'candidate',weights:[{symbol:'600001',weight:.4}]});
+  input.alternatives.push({id:'rotate',action:'candidate',weights:[{symbol:'600001',weight:.4}]},...extraAlternatives);
   const frozen=D.freezeDecisionAlternatives(root,input,{requestId:'replay_freeze_001',expectedRevision:0,now:at}),dates=['2026-11-09','2026-11-10','2026-11-11','2026-11-12','2026-11-13'],knownAt=Date.parse('2026-11-12T16:00:00+08:00');
   const history={source:'dated-unadjusted-bars',knownAt,priceBasis:'unadjusted',corporateActionsComplete:true,calendar:{source:'dated-exchange-calendar',knownAt:at-86400000,dates},
     universeHistory:p.candidates.map(c=>({symbol:c.symbol,from:dates[0],through:dates.at(-1),eligible:true,sector:c.sector,source:'dated-security-status',knownAt:new Date(at-86400000).toISOString()})),
@@ -253,4 +253,28 @@ test('73 archive bridge retains missing amounts and corporate-action uncertainty
   const r=D.derivePortfolioArchiveEvidence(archive,events,p,{asOf:now});assert.equal(r.correlation,null);assert.equal(r.input.candidates[0].liquidity,undefined);
   assert.equal(r.liquidity.find(x=>x.symbol==='600000').averageDailyAmount,null);assert.ok(r.missing.some(x=>x.includes('人民币成交额')));
   const empty=D.derivePortfolioArchiveEvidence({scope:'demo',bars:archive.bars},events,p,{asOf:now});assert.equal(empty.correlation,null);assert.equal(empty.descriptiveBaseline.length,0);
+});
+
+// A weight is a target exposure, not permission to reverse a frozen sell-only intent.
+test('76 frozen reduction is sell-only even when the opening price gap makes the target imply more shares',t=>{
+  const {frozen,history,knownAt}=replayFixture(t,[{id:'reduce',action:'reduce',weights:[{symbol:'600000',weight:.38}]}]);
+  const bar=history.stocks[0].bars[2];Object.assign(bar,{open:9.1,low:9,high:10,close:9.5});
+  const before=copy({frozen,history}),r=D.replayDecisionAlternatives(frozen,history,{asOf:knownAt});
+  assert.equal(r.status,'compared');const detail=r.replayDetails.find(x=>x.alternativeId==='reduce');
+  assert.equal(detail.orders.some(o=>o.side==='buy'),false);
+  assert.equal(detail.finalHoldings.find(p=>p.symbol==='600000').quantity,4000);
+  assert.equal(r.actualExecutionClaim,false);assert.deepEqual({frozen,history},before);
+});
+test('76 reduction still sells available shares and retains blocked quantities without repurchasing',t=>{
+  const {frozen,history,knownAt}=replayFixture(t,[{id:'reduce',action:'reduce',weights:[{symbol:'600000',weight:.2}]}]);
+  const result=D.replayDecisionAlternatives(frozen,history,{asOf:knownAt});
+  const detail=result.replayDetails.find(x=>x.alternativeId==='reduce');
+  assert.equal(result.status,'compared');assert.equal(detail.finalHoldings.find(p=>p.symbol==='600000').quantity,2000);
+  assert.equal(detail.orders.filter(o=>o.side==='sell'&&o.status==='hypothetical-filled').reduce((n,o)=>n+o.quantity,0),2000);
+  assert.equal(detail.orders.some(o=>o.side==='buy'),false);
+  history.stocks[0].bars[2].lowerLimit=history.stocks[0].bars[2].open;
+  const blocked=D.replayDecisionAlternatives(frozen,history,{asOf:knownAt}).replayDetails.find(x=>x.alternativeId==='reduce');
+  assert.equal(blocked.finalHoldings.find(p=>p.symbol==='600000').quantity,4000);
+  assert.ok(blocked.orders.some(o=>o.side==='sell'&&o.status==='hypothetical-blocked'));
+  assert.equal(blocked.orders.some(o=>o.side==='buy'),false);
 });

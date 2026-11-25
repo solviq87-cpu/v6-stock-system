@@ -257,3 +257,11 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 - 父 `7b65f9679229ebd61415b2d6d4152f1329d57612`，源 #369 `d46767fd8439d56865b612633a3909c65184a9b0`。实际核对三份已有文件与源组旧基线blob相同，验证说明为新增；直接采用精确原blob，保留前一批异步采集/计划观察防护及全部其他组成果。
 - 源组7/7实测及语法检查见 [源组原验证](validation/fayo-health-receipt-integrity-20261126/README.md)；其精确SHA覆盖检查已通过、完整CI和浏览器仍待。新组合不能继承源组结论。原系统健康仅观察回执，不替代数据真实性、交易权或实际账户安全；未部署、未外发。
 - 用户明确提供原67—78标题及完整统一接续范围，历史审查表的未知标题不得继续作当前缺口；标题在原配置与最新交接增量已有证据。仍需原18/20/22/23/29/48/54/76/78等逐项核验、组合及真实运行。
+
+
+## 2026-11-26 · 原76减仓回放方向及48隐私断言，完整源码恢复
+- 基线 `4c2bdc6d8b763700cf7c0c09243784413349f81b`，复用原只读恢复工作流 [45691261563](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45691261563)，精确归档 artifact 15059620451，内层ZIP SHA256 `b0686b1417d554ba7eaea3ec4c927197789edb19abe82c09bdab514da3b98a24`。本地校验3963文件长度、SHA256、Git blob SHA、权限模式、完整目录及重建 tree `9d9ca7a186d49cde1637a9a16a43af0505b6fcf4`，原commit对象哈希和干净浅工作区均一致；非生产私有卷。普通 Git 下载仍DNS失败，已恢复完整可测试源码。
+- 原76：事前减仓方案在跳空低开时固定权重可能要求更高股数，实际新增反例复现买入，禁止减仓方案进入买入循环，仍保留原卖出量、T+1、流动性、涨跌停、费用、锁定和历史公司行为规则。新增低开与正常/受阻卖出两个测试；不改原冻结合同、候选买入、交易权限或账本。
+- 原48：原隐私测试在合法毫秒时间戳含600000时误判泄漏；改为匹配完整股票代码字段值、敏感字段名称/内容并检查refs/versions为空，保留实质脱敏断言。
+- Node v22.16.0，基线 npm run check 通过（只认证该基线）。原综合专项 86项/85通过/1失败（时间戳误判），新增76反例修前33项/32通过/1失败；修后实际执行 `TZ=Asia/Shanghai node --test tests/system-readiness.test.js tests/decision-center-background.test.js tests/decision-evidence-runtime.test.js tests/runtime-trace.test.js tests/deep-research-evidence-integrity.test.js tests/worker-admission-budget.test.js tests/worker-budget-jobs.test.js tests/runtime-acceptance.test.js tests/product-quality-evaluation.test.js tests/deep-decision-research.test.js`（V6_BO），119/119通过、0失败、0跳过、exit0，git diff --check通过。三份业务/测试修改后本地精确blob `3ccefbfd88d12ab1dab0e6adc0181fbfbae8bb58`、`8665f45395af0dc4d79aba93f33cd34863acc725`、`796461dfd38324433ee0f7b38cf56dd6df9fd46c`。TAP日志SHA256前 `a13150826592a0045bde87da1b3b584a32bafd405ef62c1f9b41b26367d3c0e6`，76反例 `80cab8acde3d002a1b5ead08636d0fb376563f3291d11001ad42fd7a9708f64c`，修后 `3e6520aee469f7fa7f2721b96a1c4e2e0621c8545827e2ebee31891f57101b39`。
+- 该专项不等于原78项完成。JS Playwright依赖未安装，仍需原CI真实浏览器、全量和正式运行验收。无生产发布、交易、真实外发、新锁或发布入口。
