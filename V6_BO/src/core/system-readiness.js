@@ -23,7 +23,7 @@ function component(id,label,status,affects,now,{attempt=null,success=null,reason
 }
 function quotes(rows,session,now){
  const list=Array.isArray(rows)?rows:[],observed=Math.min(cap,list.length);
- const stats={receivedRows:list.length,inspectedRows:observed,recentOriginal:0,observationOnly:0,datedHistorical:0,invalidOrUnknown:0,scope:'original-in-memory-stock-rows',universeCoverage:null};
+ const stats={receivedRows:list.length,inspectedRows:observed,recentOriginal:0,observationOnly:0,datedHistorical:0,invalidOrUnknown:0,conflictingRows:0,scope:'original-in-memory-stock-rows',universeCoverage:null};
  let latestQuoteAt=null,latestReceiptAt=null;
  for(let i=0;i<observed;i++){
   const row=list[i];let view;
@@ -31,6 +31,12 @@ function quotes(rows,session,now){
   const valid=view.quoteAt!==null&&view.receivedAt!==null&&view.quoteSource&&view.quoteAt<=view.receivedAt&&view.receivedAt<=now&&
    ['recent-unverified','stale'].includes(view.quoteStatus);
   if(!valid){stats.invalidOrUnknown++;continue;}
+  // A provider or upstream adapter can explicitly report a conflict even when
+  // both timestamps and the price are individually plausible. Never count it
+  // as an original observation or advance the last valid receipt.
+  if(row?.sourceConflict===true||row?.conflict===true||row?.evidenceStatus==='conflict'||row?.quoteStatus==='conflict'){
+   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
+  }
   // Read-only observations can be dated evidence but must never count as a fresh
   // execution-ready source. Source permissions and cross-feed independence are separate.
   if(!quoteSourceAllowsUse(row)){stats.observationOnly++;continue;}
@@ -42,7 +48,8 @@ function quotes(rows,session,now){
  const status=session?.trading===true?(all?'normal':observed?'missing-data':'unverified'):
   session?.trading===false&&(stats.recentOriginal+stats.datedHistorical)>0?'historical-snapshot':observed?'missing-data':'unverified';
  return component('quotes','原始行情时点',status,['盘面','策略输入','风控报价'],now,{success:latestReceiptAt,
-  reason:status==='normal'?'ORIGINAL_TIME_OBSERVED':status==='historical-snapshot'?'ORIGINAL_DATED_SNAPSHOT':'QUOTE_COVERAGE_OR_TIME_GAP',
+  reason:stats.conflictingRows?'QUOTE_SOURCE_CONFLICT':status==='normal'?'ORIGINAL_TIME_OBSERVED':status==='historical-snapshot'?'ORIGINAL_DATED_SNAPSHOT':'QUOTE_COVERAGE_OR_TIME_GAP',
+  ...(stats.conflictingRows?{missing:['原报价证据存在明确来源冲突；冲突行不计入当前或历史有效观察'],nextAction:'核对原来源与原始时间，等待无冲突的新证据'}:{}),
   extra:{coverage:stats,latestOriginalQuoteAt:latestQuoteAt,lastSuccessAtKind:'observed-receipt',tradePermissionCertified:false}});
 }
 function buildSystemReadiness({now=Date.now(),version=null,replica=false,session=null,quoteRows,taskRows,
@@ -51,14 +58,30 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
  const components=[quotes(quoteRows,session,now)];
  for(const [id,label] of Object.entries(TASKS)){
   const row=taskRows?.[id],attempt=ts(row?.lastAttemptAt,now);
-  const status=!attempt?'unverified':row.ok===false?'failed':row.ok===true&&row.done==='yield'&&ts(row.lastSuccessAt,now)?'normal':row.ok===true&&row.done==='empty'?'missing-data':'unverified';
-  components.push(component('task/'+id,label,status,['原周期任务','相关策略或研究'],now,{attempt,success:row?.lastSuccessAt,
-   reason:status==='missing-data'?'NO_OUTPUT_OR_COVERAGE_UNKNOWN':undefined}));
+  // taskSet records attempt and successful yield at the same writer time.
+  // A retained earlier success is useful history but cannot certify a newer
+  // attempt; a future or later-than-attempt success is inconsistent evidence.
+  const rawSuccess=row?.lastSuccessAt,validSuccess=ts(rawSuccess,now);
+  const timeConflict=rawSuccess!=null&&(!attempt||!validSuccess||validSuccess>attempt);
+  const success=timeConflict?null:validSuccess;
+  const yielded=row?.ok===true&&row.done==='yield';
+  const status=!attempt?'unverified':row.ok===false?'failed':yielded&&success===attempt?'normal':row.ok===true&&row.done==='empty'?'missing-data':'unverified';
+  components.push(component('task/'+id,label,status,['原周期任务','相关策略或研究'],now,{attempt,success,
+   reason:status==='failed'?undefined:timeConflict?'TASK_RECEIPT_TIME_CONFLICT':yielded&&status==='unverified'?'TASK_CURRENT_SUCCESS_UNVERIFIED':status==='missing-data'?'NO_OUTPUT_OR_COVERAGE_UNKNOWN':undefined,
+   ...(timeConflict?{missing:['原任务尝试与成功回执时点不一致，不能认证当前成功'],nextAction:'核对原任务的实际完成回执和运行时钟'}:{})}));
  }
  const riskError=Boolean(risk?.lastError||risk?.status==='unavailable'||Object.values(risk?.accountErrors||{}).some(Boolean));
- const riskStatus=replica?'unconfigured':riskError?'failed':ts(risk?.lastObservedAt,now)?'normal':'unverified';
+ // The runtime seals lastObservedAt only after both original accounts were
+ // checked without error. During a subsequent partial pass or after a clock
+ // inconsistency, retain history without claiming the current pass is healthy.
+ const riskSuccess=ts(risk?.lastObservedAt,now);
+ const completeRiskChecks=['pool','pre'].every(id=>{
+  const at=ts(risk?.accountChecks?.[id],now);return at!==null&&riskSuccess!==null&&at<=riskSuccess;
+ });
+ const riskStatus=replica?'unconfigured':riskError?'failed':completeRiskChecks?'normal':'unverified';
  components.push(component('risk-observation','原风险观察流程',riskStatus,['账户风险显示','风险提醒'],now,{
-  attempt:maxTime(Object.values(risk?.accountChecks||{}),now),success:risk?.lastObservedAt,
+  attempt:maxTime(Object.values(risk?.accountChecks||{}),now),success:riskSuccess,
+  ...(riskStatus==='unverified'&&riskSuccess?{reason:'RISK_ACCOUNT_RECEIPTS_UNVERIFIED',missing:['两类原账户检查未与本轮完成回执共同核验'],nextAction:'等待原风险观察完成，并核对两类账户回执'}:{}),
   extra:{riskSafetyCertified:false}}));
  const pstatus=replica?'unconfigured':plans?.status==='evidence-unavailable'||plans?.lastError?'failed':
   plans?.status==='observing'&&ts(plans.lastSuccessAt,now)?'normal':plans?.status==='missing-current-evidence'?'missing-data':'unverified';

@@ -246,3 +246,10 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 - 父 `866fa0daedb8f20489b6ddf1becf4fa8ec157edd`。修复实际复现的异股价格反应、撤回盘口和模拟题材成员。价反应必须同证券、未撤回且有限收益；撤回仅自当时可见版本生效；题材完整分母不变，污染成员不计有效覆盖。原策略、权威账本、15秒门禁、权限及发布机制不变。
 - 隔离运行包中目标原blob `5ec56c89f7fd59c5d1a8f8ed707f245d87751668` 与最新父树相同。实测 `TZ=Asia/Shanghai node --test tests/deep-research-evidence-integrity.test.js` 修前0通过/3失败、修后3通过/0失败/0跳过；`node --check src/core/deep-research-evidence.js` 通过。修改后源码blob `2af42b5eafc52f942ed2b8b62c88c9aee0f98c35`、专项blob `903fff384f1179adaee5f4e2ae06900cb6484be1`。原正向夹具补齐证券身份，原断言保留。日志SHA256：前 `9349615847c3b1d575d52fccdda69faebcb0f930d5831d95990b19ec8d7bbb30`，后 `ec48c86a597c74a075e03e72af1946fb5518fc1180a92d7ea4c97000bde9e98c`。
 - GitHub DNS仍不可达，未完整checkout，未运行整套原测试、全量或浏览器/真实HTTP。新候选精确CI待确认；未合入dev、未部署或外发。原76/78及其他缺口继续按本次全面进化方案推进。回退仅反向候选代码，不覆盖原数据。
+
+## 2026-11-26 · 全面进化方案第十条：健康回执完整性（映射原06/22/49，隔离候选）
+
+- 基线 `5810f1cdc8ecb8e1029aebfac9fb000da0a7fc6b`，复用原 `system-readiness.js` 与既有电脑/手机同源状态，不新增调度器、账户或诊断写入口。
+- 明确来源冲突行不能进入当前或休市有效观察，不能更新最后有效回执；周期任务的本次成功必须与原 taskSet 同次尝试时间绑定，旧成功仅作为历史，未来及矛盾回执不计成功；风险观察须同时核对原 pool/pre 两类账户检查与完成时点，当前观察未核对时保留未知，原明确故障不被掩盖。返回原因和恢复动作；原权限、报价15秒、模拟账本、发布门禁不变。
+- 本地实测 Node v22.16.0，`TZ=Asia/Shanghai node --test tests/system-readiness.test.js`：原4项通过/新增3项失败，修复后7通过、0失败、0跳过；`node --check src/core/system-readiness.js`退出0。运行子集取自已下载 CI 包 `0f6aa4b4377b09314a601068e3700b2373d3e425`，本次原核心与依赖 Git blob 分别核对为 71edad0417d908d1c87bd7944c26da932408ae47、6d947c25916ca7b39ef7e457f6b2ab6af7bb863c，原测试 e696e7449834e764dd89920cc7fa8ab7cb2f612e；修改后核心、测试 blob 分别为 9f2c125dd5131f6f749f236cb0b1bcc44a906041、cc131b7d8ad921f32076f7273b0a8b6ee12c6d1c。前后日志SHA256分别 e38d5541fd7e47400e57428edbf75d7544f782845c646ef62fccb082ffd397e1、13763108d659ead1c7deb8e21b62faff5390f43dd263f0a8e595d9c43d909702。
+- 完整 Git 工作区仍不可直接克隆（DNS）；尚未执行全量、HTTP、浏览器及真实运行验收，不宣称全部健康指标闭环。仅提交本候选，按精确 CI/组合验收后考虑纳入 #368；不修改自动任务、不部署。回退只撤销本增量，不更改任何权威数据。
