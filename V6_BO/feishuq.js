@@ -21,6 +21,7 @@
 //    实测复现：sendOnce 不回调 → 3 条消息只飞出去第 1 条，队列积压 2 条且 running 恒真。
 //    现在加看门狗：guardMs 内没有回音就按失败结算、强制放行队列，并计入 stats.guarded。
 'use strict';
+const runtimeTrace = require('./src/core/runtime-trace');
 
 // 判定是否属于「可以重试」的限频错误。
 // 飞书自定义机器人撞频时会返回 {"code":9499,"msg":"too many request"}，
@@ -32,6 +33,7 @@ const UNKNOWN = /结果未知|未确认|超时|未回调|timeout|timed?\s*out|ET
 
 function createQueue(sendOnce, opt) {
   const o = opt || {};
+  const trace = o.trace || runtimeTrace;
   const minGap = Number.isFinite(o.minGap) ? o.minGap : 1200;   // 两条之间最小间隔(ms)
   const maxQ = Math.max(1, o.maxQ || 200);                      // 队列上限
   const retry = Number.isFinite(o.retry) ? o.retry : 2;         // 限频补发次数
@@ -49,7 +51,8 @@ function createQueue(sendOnce, opt) {
     try { if (log && typeof log[level] === 'function') log[level](message); } catch {}
   }
   function notify(job, ok, info) {
-    try { if (typeof job.cb === 'function') job.cb(ok, info); }
+    // Restore the originating job even if the callback is invoked by a later timer.
+    try { job.queueSpan.run(() => { if (typeof job.cb === 'function') job.cb(ok, info); }); }
     catch { st.callbackErrors++; report('error', '发送结果回调异常，队列继续运行'); }
   }
 
@@ -64,9 +67,18 @@ function createQueue(sendOnce, opt) {
 
   // 真正发起一次发送。补发时会被再次调用（每次都重新上哨），因此"已结算"标记必须每次新建。
   function runJob(job) {
+    // Queue duration ends at its first dispatch, not at receiver confirmation.
+    // Every retry stays associated with the original enqueue, not a previous job.
+    job.queueSpan.end();
+    return job.queueSpan.run(() => {
+      const attempt = trace.begin('notification.attempt');
+      return attempt.run(() => runAttempt(job, attempt));
+    });
+  }
+  function runAttempt(job, attempt) {
     let settled = false;
     let guard = null;
-    const finish = (ok, info, noRetry = false) => {
+    const finish = (ok, info, noRetry = false, outcome = null) => {
       if (settled) return;                 // 只认第一次结果：真实回调与看门狗可能都来
       settled = true;
       if (guard !== null) { clearTimer(guard); guard = null; }
@@ -75,6 +87,7 @@ function createQueue(sendOnce, opt) {
       // message. Only a definite rejection can release this attempt for retry.
       const canRetry = !noRetry && !ok && !UNKNOWN.test(String(info)) && RETRYABLE.test(String(info));
       if (canRetry && (job.tries || 0) < retry) {
+        attempt.end('failed', 'DELIVERY_RETRY');
         job.tries = (job.tries || 0) + 1;
         st.retried++;
         const back = Math.max(minGap, 1500 * job.tries);
@@ -82,6 +95,13 @@ function createQueue(sendOnce, opt) {
         sleepFn(back, () => runJob(job));  // 插回最前：这条已经在用户"该收到"的时间窗里了
         return;
       }
+      // Only classify the original transport callback; do not record a
+      // notification.delivery span or claim that any receiver saw the message.
+      if (outcome === 'blocked') attempt.end('blocked', 'NOTIFICATION_BLOCKED');
+      else if (outcome === 'unknown' || (ok !== true && UNKNOWN.test(String(info)))) attempt.end('unknown', 'DELIVERY_UNKNOWN');
+      else if (ok === true) attempt.end('completed');
+      else if (ok === false) attempt.end('failed', 'DELIVERY_FAILED');
+      else attempt.end('unknown', 'DELIVERY_UNKNOWN');
       st.running = false;                  // ⛔ 唯一把互斥资源还回去的地方
       try { notify(job, ok, info); } finally { drain(); }
     };
@@ -90,8 +110,8 @@ function createQueue(sendOnce, opt) {
     if (typeof job.beforeSend === 'function') {
       try {
         const reviewed=job.beforeSend();
-        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false,reviewed&&reviewed.why||'派发前审核未通过',true);return; }
-      } catch (_) { finish(false,'派发前审核不可用',true);return; }
+        if(reviewed!==true && (!reviewed || reviewed.ok!==true)) { finish(false,reviewed&&reviewed.why||'派发前审核未通过',true,'blocked');return; }
+      } catch (_) { finish(false,'派发前审核不可用',true,'blocked');return; }
     }
     guard = setTimer(() => {
       if (settled) return;
@@ -102,18 +122,21 @@ function createQueue(sendOnce, opt) {
     try {
       sendOnce(job.text, finish);
     } catch (e) {
-      finish(false, (e && e.message) || String(e), true);   // 抛异常不能证明尚未外发，不据异常文本重试
+      finish(false, (e && e.message) || String(e), true, 'unknown');   // 抛异常不能证明尚未外发，不据异常文本重试
     }
   }
 
   function send(text, cb, opts) {
-    const job = { text, cb, priority: !!(opts && opts.priority),beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null };
+    // Do not pass message text, webhook credentials, OTPs or callback payloads
+    // into trace metadata. The existing bounded ring controls diagnostic cost.
+    const job = { text, cb, priority: !!(opts && opts.priority),beforeSend:opts&&typeof opts.beforeSend==='function'?opts.beforeSend:null,
+      queueSpan:trace.begin('notification.queue') };
     if (st.q.length >= maxQ) {
       const index = st.q.findIndex(item => !item.priority);
       st.dropped++;
       report('error', '发送队列已满，拒绝或移除一条尚未发送的消息');
       // Do not evict a pending OTP/risk alert to accommodate a routine bulletin.
-      if (index < 0) { notify(job, false, '发送队列已满，该条未发送'); return st.q.length; }
+      if (index < 0) { job.queueSpan.end('blocked','QUEUE_FULL');notify(job, false, '发送队列已满，该条未发送'); return st.q.length; }
       const [drop] = st.q.splice(index, 1);
       // Insert first, then notify: a reentrant callback must still see a bounded queue.
       job.droppedJob = drop;
@@ -123,7 +146,7 @@ function createQueue(sendOnce, opt) {
       const index = st.q.findIndex(item => !item.priority);
       st.q.splice(index < 0 ? st.q.length : index, 0, job);
     } else st.q.push(job);
-    if (job.droppedJob) { const drop = job.droppedJob; delete job.droppedJob; notify(drop, false, '发送队列已满，该条被丢弃'); }
+    if (job.droppedJob) { const drop = job.droppedJob; delete job.droppedJob; drop.queueSpan.end('blocked','QUEUE_FULL');notify(drop, false, '发送队列已满，该条被丢弃'); }
     drain();
     return st.q.length;
   }

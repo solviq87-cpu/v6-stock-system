@@ -63,3 +63,65 @@ test('invalid diagnostic clocks never change results or invent durations',()=>{
  const batch=trace2.batch('factor.evaluate');assert.equal(batch.run(()=>1),1);assert.equal(batch.run(()=>2),2);
  batch.end();assert.equal(trace2.read().spans[0].durationMs,null);assert.equal(trace2.read().spans[0].calls,2);
 });
+
+// The original transport owns delivery; observations must not leak message content
+// or confuse queue admission, transport callback and actual receiver confirmation.
+function tracedQueue(send,options={}){
+ const {createQueue}=require('../feishuq');
+ let now=1000,nextId=0;const timers=new Map();
+ const later=(ms,run)=>{const id=++nextId;timers.set(id,{at:now+ms,run});return id;};
+ const trace=options.trace||createRuntimeTrace({clock:()=>now,monotonic:()=>now});
+ const q=createQueue(send,{minGap:5,guardMs:50,now:()=>now,sleep:later,setTimer:(run,ms)=>later(ms,run),clearTimer:id=>timers.delete(id),...options,trace});
+ const step=()=>{const item=[...timers].sort((a,b)=>a[1].at-b[1].at||a[0]-b[0])[0];if(!item)return false;
+  timers.delete(item[0]);now=item[1].at;item[1].run();return true;};
+ return {trace,q,step,run:()=>{for(let i=0;timers.size;i++){assert.ok(i<100);step();}}};
+}
+test('48 original queued notifications preserve separate roots through wait, retry, and reentrant callbacks',()=>{
+ const sent=[],callbacks=[],counts=new Map();let h;
+ h=tracedQueue((message,cb)=>{sent.push(message);const count=(counts.get(message)||0)+1;counts.set(message,count);
+  if(message==='private-A'&&count===1)cb(false,'HTTP 429');else cb(true,'gateway accepted');});
+ const {trace,q}=h;
+ trace.sync('task.tick',()=>q.send('private-A',ok=>{callbacks.push(ok);q.send('private-C');}));
+ trace.sync('task.pool',()=>q.send('private-B'));
+ h.run();assert.deepEqual(sent,['private-A','private-A','private-B','private-C']);assert.deepEqual(callbacks,[true]);
+ const rows=trace.read().spans,tick=rows.find(r=>r.stage==='task.tick'),pool=rows.find(r=>r.stage==='task.pool');
+ const queue=rows.filter(r=>r.stage==='notification.queue'),attempt=rows.filter(r=>r.stage==='notification.attempt');
+ assert.equal(queue.length,3);assert.equal(attempt.length,4);
+ const a=queue.find(r=>r.parentSpanId===tick.spanId),b=queue.find(r=>r.parentSpanId===pool.spanId),c=queue.find(r=>r.parentSpanId===a.spanId);
+ assert.ok(a&&b&&c);assert.equal(a.traceId,c.traceId);assert.notEqual(a.traceId,b.traceId);
+ assert.deepEqual(attempt.filter(r=>r.parentSpanId===a.spanId).map(r=>[r.status,r.reasonCode]),[['failed','DELIVERY_RETRY'],['completed',null]]);
+ assert.ok(attempt.every(r=>queue.some(q=>q.spanId===r.parentSpanId&&q.traceId===r.traceId)));
+ assert.ok(b.durationMs>=1500);assert.equal(trace.read().active,0);
+ assert.equal(rows.some(r=>r.stage==='notification.delivery'),false);
+ assert.doesNotMatch(JSON.stringify(rows),/private-[ABC]|gateway accepted|HTTP 429/);
+});
+test('48 queue eviction and rejection are not attempts, and guard/late callbacks stay unknown',()=>{
+ const callbacks=[],sent=[];let late;
+ const h=tracedQueue((message,cb)=>{sent.push(message);if(message==='private-timeout')late=cb;else cb(true,'ok');},{maxQ:1});
+ h.q.send('private-timeout',ok=>callbacks.push(ok));
+ h.q.send('private-evicted');h.q.send('private-priority',null,{priority:true});h.q.send('private-rejected');
+ h.run();late(true,'late callback');
+ assert.deepEqual(sent,['private-timeout','private-priority']);assert.deepEqual(callbacks,[false]);
+ const rows=h.trace.read().spans,queue=rows.filter(r=>r.stage==='notification.queue'),attempt=rows.filter(r=>r.stage==='notification.attempt');
+ const blocked=queue.filter(r=>r.reasonCode==='QUEUE_FULL');assert.equal(queue.length,4);assert.equal(blocked.length,2);
+ assert.ok(blocked.every(r=>r.status==='blocked'&&!attempt.some(a=>a.parentSpanId===r.spanId)));
+ assert.deepEqual(attempt.map(r=>[r.status,r.reasonCode]),[['unknown','DELIVERY_UNKNOWN'],['completed',null]]);
+ assert.equal(h.trace.read().active,0);assert.equal(h.q.running,false);assert.equal(h.q.stats().retried,0);
+ assert.doesNotMatch(JSON.stringify(rows),/private-|late callback/);
+});
+test('48 pre-dispatch denial and thrown transport retain original callbacks without false delivery or retry',()=>{
+ const sent=[],done=[];const h=tracedQueue((message,cb)=>{sent.push(message);if(message==='private-throw')throw Error('sensitive HTTP 429');cb(false,'business rejected');});
+ h.q.send('private-denied',(ok,info)=>done.push([ok,info]),{beforeSend:()=>({ok:false,why:'private reason HTTP 429'})});
+ h.q.send('private-throw',(ok,info)=>done.push([ok,info]));h.q.send('private-reject',ok=>done.push([ok]));
+ h.run();assert.deepEqual(sent,['private-throw','private-reject']);assert.equal(done.length,3);assert.equal(h.q.stats().retried,0);
+ const rows=h.trace.read().spans,attempt=rows.filter(r=>r.stage==='notification.attempt');
+ assert.deepEqual(attempt.map(r=>[r.status,r.reasonCode]),[['blocked','NOTIFICATION_BLOCKED'],['unknown','DELIVERY_UNKNOWN'],['failed','DELIVERY_FAILED']]);
+ assert.equal(h.trace.read().active,0);assert.equal(rows.some(r=>r.stage==='notification.delivery'),false);
+ assert.doesNotMatch(JSON.stringify(rows),/private-|private reason|sensitive HTTP|business rejected/);
+});
+test('48 saturated diagnostic budget never changes queue behavior or leaves active spans',()=>{
+ const trace=createRuntimeTrace({maxActive:1,capacity:2}),sent=[];
+ const h=tracedQueue((message,cb)=>{sent.push(message);cb(true,'ok');},{trace});
+ trace.sync('task.tick',()=>{h.q.send('a');h.q.send('b');});h.run();
+ assert.deepEqual(sent,['a','b']);assert.equal(h.q.running,false);assert.equal(trace.read().active,0);assert.ok(trace.read().dropped>=2);
+});
