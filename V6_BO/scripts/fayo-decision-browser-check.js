@@ -18,15 +18,26 @@ function seedSource(){
  assert.equal(source.split(entry).length,2,'single disposable handle seed');
  assert.equal(source.split(projection).length,2,'single upstream weather projection');
  return source.replace(entry,entry+`
+    // The isolated boot disables normal jobs. Exercise only the actual readonly
+    // execution cache here; this timer and seed exist solely in this temp copy.
+    if(!S.decisionBrowserExecutionTimer){
+      S.decisionBrowserExecutionTimer=setInterval(()=>{void executionChecklistCache().tick().catch(()=>{});},50);
+      S.decisionBrowserExecutionTimer.unref();
+    }
     if(!S.decisionBrowserSeedRows){
       const day='${day}',at=Date.now();
       const rows=Array.from({length:3},(_,i)=>({code:String(600000+i),name:'隔离决策验证'+(i+1),price:10.4+i,pct:4,
         preClose:10+i,open:10.3+i,high:10.6+i,low:10.2+i,volume:1000000,amount:(10.4+i)*1000000,
-        score:88-i,paths:['横盘放量'],pathWhy:{横盘放量:'隔离验证中的原策略量价依据'},poolDay:day,sector:'芯片',
+        score:88-i,paths:['横盘放量'],pathWhy:{横盘放量:'隔离验证中的原策略量价依据'},poolDay:day,sector:i===1?'银行':'芯片',themes:i===1?['消费电子']:[],
         baziDims:{trend:82,fund:78},baziWhy:{trend:['原均线方向向上','原量价条件成立']},
         quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,quoteAt:at-1000,receivedAt:at-500}));
       S.decisionBrowserSeedRows=rows;S.stocks=rows;S.stocksAt=at-500;ingestPx(rows);
-      S.sectors=[{name:'芯片',pct:1.2,mainInflow:100000000,mainInflowYuan:100000000}];S.sectorsDay=day.replaceAll('-','');
+      S.sectors=[{code:'BK1034',name:'芯片',pct:1.2,mainInflow:300000000},
+        ...Array.from({length:20},(_,i)=>({code:'BK'+(3000+i),name:'其他板块'+i,pct:1,mainInflow:200000000-i*1000000})),
+        {code:'BK0475',name:'银行',pct:.8,mainInflow:126000000},{code:'BK0937',name:'消费电子',pct:-.4,mainInflow:-20000000}]
+        .map(row=>({...row,source:'eastmoney',upstream:'eastmoney',fundsUnit:'CNY',unit:'CNY',
+          fundsMethod:'vendor-order-size-estimate',retrievedAt:at-1000,sourceTimestamp:null,tradeDate:null}));
+      S.sectorsDay=day.replaceAll('-','');S.sectorsAt=at-1000;
       for(const [i,row] of rows.entries()){
         const bars=Array.from({length:30},(_,n)=>({date:new Date(Date.parse(day)-(29-n)*86400000).toISOString().slice(0,10),
           open:10.2+i,high:11+i,low:10+i,close:10.2+i,volume:100000,amount:(10.2+i)*100000}));
@@ -46,7 +57,7 @@ async function run(){
  const clockDir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-decision-clock-')),clockFile=path.join(clockDir,'clock');
  fs.writeFileSync(clockFile,String(now));
  let fixture,browser;
- const report={fixtureOnly:true,backend:'native decisionCenterInput / buildDecisionCenter',day,views:[],rejections:[],races:[],conditionalOrders:[]};
+ const report={fixtureOnly:true,backend:'native decisionCenterInput / buildDecisionCenter',day,views:[],rejections:[],races:[],conditionalOrders:[],privateViews:[]};
  try{
   fixture=await createFixture({count:3,serverSource:seedSource(),clockFile});
   fs.copyFileSync(path.join(root,'config/intelligence-center.json'),path.join(fixture.tmp,'config/intelligence-center.json'));
@@ -58,7 +69,21 @@ async function run(){
   const ledgers=ledgerPaths.map(file=>fs.readFileSync(file));
   const authority=(await fixture.request('/api/decision-center')).body;
   assert.equal(authority.authority,'fayo-decision-center');assert.equal(authority.cards.length,3,JSON.stringify(authority.reasons));
+  const brief=(await fixture.request('/api/state')).body;
+  assert.equal(brief.sectors.some(row=>row.name==='银行'),false,'selected bank is outside the original top-20 brief');
+  const complete=(await fixture.request('/api/decision-sector-context?date='+day)).body;
+  assert.equal(complete.rows.some(row=>row.name==='银行'&&row.mainInflow===126000000),true,'real readonly endpoint returns the complete same-day source rows');
+  const historical=(await fixture.request('/api/decision-sector-context?date=2026-11-13')).body;
+  assert.equal(historical.rows.length,0,'missing historical evidence never borrows today’s sector rows');
   const expected=new Map(authority.cards.map(card=>[card.code,card]));
+  async function waitExecution(state){
+   for(let attempt=0;attempt<100;attempt++){
+    const current=(await fixture.request('/api/decision-center')).body.executionChecklist;
+    if(current?.items?.some(item=>item.code==='600001'&&item.state===state))return;
+    await new Promise(resolve=>setTimeout(resolve,30));
+   }
+   assert.fail('real execution cache did not reach '+state);
+  }
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
   for(const viewport of [{width:1366,height:900,path:'/'},{width:390,height:844,path:'/m'}]){
    phase('valid');
@@ -96,6 +121,7 @@ async function run(){
     const elapsed=performance.now()-started;
     assert.ok(elapsed<5000,viewport.path+' actionable plans appear within five seconds: '+elapsed);
     assert.equal(await page.locator('.fy-decision-card').count(),3);
+    await page.locator('.fy-decision-checklist [data-execution-code="600000"][data-execution-state="not-planned"]').waitFor({timeout:7000});
     const shape=await page.locator('.fy-decision-card').first().evaluate(node=>{
      const plan=node.querySelector('.fy-decision-plan').getBoundingClientRect(),title=node.querySelector('.fy-decision-stock').getBoundingClientRect();
      const checklist=node.closest('.fy-decision-board').querySelector('.fy-decision-checklist li').getBoundingClientRect();
@@ -110,6 +136,9 @@ async function run(){
     assert.match(await page.locator('.fy-decision-board').innerText(),/未配置/);
     await page.screenshot({path:path.join(output,'decision-'+viewport.width+'-initial.png'),fullPage:true});
     const card=page.locator('.fy-decision-card[data-code="600001"]'),button=card.locator('.fy-decision-stock');
+    const quality=card.locator('[aria-label="五维数据质量"]');
+    assert.equal(await quality.count(),1,'five-dimensional quality is retained in the evidence disclosure');
+    if(expected.get('600001').centerQuality?.qScore==null)assert.match(await quality.textContent(),/数据质量 Q · 分量未齐/,'missing quality is not rendered as a zero score');
     await page.locator('#fy-decision-rules summary').click();
     await button.scrollIntoViewIfNeeded();const savedScroll=await page.evaluate(()=>scrollY);
     const savedHorizontal=await page.locator('.fy-decision-cards').evaluate(node=>node.scrollLeft);
@@ -124,6 +153,25 @@ async function run(){
     assert.equal(await drawer.locator('[data-conclusion]').getAttribute('data-conclusion'),'可关注');
     await drawer.getByRole('button',{name:'查看板块资金',exact:true}).click();
     await page.locator('.fy-main [data-decision-sector="600001"][data-day="'+day+'"]').waitFor();
+    const linked=page.locator('[data-sector-selection="600001"][data-day="'+day+'"]');
+    await linked.locator('[data-selected-sector="BK0475"]').waitFor();
+    assert.match(await linked.innerText(),/银行.*1\.26 亿/s);
+    assert.match(await linked.innerText(),/eastmoney/);assert.match(await linked.innerText(),/源端资金时刻\s*未提供/);
+    assert.equal(await linked.locator('[data-selected-sector] > dl').evaluate(node=>
+      [...node.querySelectorAll('dd')].every(value=>value.scrollWidth<=value.clientWidth+1)),true,'sector provenance fits its responsive columns');
+    const sectorPicker=linked.getByRole('combobox',{name:'当前股票对应板块'});
+    assert.deepEqual(await sectorPicker.locator('option').allTextContents(),['银行 · BK0475','消费电子 · BK0937']);
+    await sectorPicker.selectOption('BK0937');
+    await linked.locator('[data-selected-sector="BK0937"]').waitFor();
+    assert.match(await linked.innerText(),/-2,000\.00 万元/);
+    await linked.getByText('查看板块资金原始记录',{exact:true}).click();
+    const expanded=linked.locator('details');
+    assert.equal(await expanded.evaluate(node=>node.open),true);
+    await page.waitForResponse(response=>new URL(response.url()).pathname==='/api/state',{timeout:12000});
+    assert.equal(await expanded.evaluate(node=>node.open),true,'sector evidence stays expanded through background state reads');
+    assert.equal(await sectorPicker.inputValue(),'BK0937','background state does not reset the selected related sector');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:path.join(output,'decision-sector-'+viewport.width+'-linked.png'),fullPage:true});
     await page.locator('.fy-main').getByRole('button',{name:'查看模拟盘预填',exact:true}).click();
     const draft=page.locator('[data-paper-plan][data-code="600001"][data-day="'+day+'"]');
     await draft.waitFor();
@@ -156,6 +204,19 @@ async function run(){
     await pending.waitFor({timeout:10000});
     const orderId=await pending.getAttribute('data-conditional-id');
     assert.match(await page.locator('[data-conditional-orders]').innerText(),/私密飞书 · 未配置/);
+    await waitExecution('waiting-condition');
+    // Advance the browser's otherwise frozen test clock beyond the real 2.5 s
+    // shared read cache. Source timestamps stay fixed and within the 15 s gate.
+    await page.evaluate(()=>{window.__decisionTestNow+=3000;});
+    await draft.getByRole('button',{name:'返回今日作战台',exact:true}).click();
+    await page.locator('.fy-decision-checklist [data-execution-code="600001"][data-execution-state="waiting-condition"]').waitFor({timeout:10000});
+    await page.locator('#fy-execution-evidence summary').click();
+    const proof=page.locator('#fy-execution-evidence [data-execution-code="600001"][data-execution-state="waiting-condition"]').last();
+    assert.match(await proof.innerText(),/条件意图.*等待条件/);
+    assert.equal(await page.locator('#fy-execution-evidence h4').innerText(),'操作提示','static suggestions are distinct from backend execution state');
+    await page.locator('.fy-decision-card[data-code="600001"] .fy-decision-stock').click();
+    await drawer.getByRole('button',{name:'查看模拟盘预填',exact:true}).click();
+    await pending.waitFor();
     await pending.locator('[data-cancel-conditional]').click();
     await page.getByRole('alertdialog').getByRole('button',{name:'确认执行',exact:true}).click();
     await page.getByRole('alertdialog').waitFor({state:'detached',timeout:10000});
@@ -170,8 +231,10 @@ async function run(){
     for(const [i,file] of ledgerPaths.entries())assert.deepEqual(fs.readFileSync(file),ledgers[i],'intent create/cancel never changes original account ledger');
     report.conditionalOrders.push({path:viewport.path,code:'600001',day,status:savedOrder.status,
      explicitCreate:true,explicitCancel:true,originalAccountLedgerUnchanged:true,actions:mutations.map(r=>r.body.action)});
+    await waitExecution('frozen');await page.evaluate(()=>{window.__decisionTestNow+=3000;});
     await draft.getByRole('button',{name:'返回今日作战台',exact:true}).click();
     await page.locator('.fy-decision-card[data-code="600001"][data-selected="true"]').waitFor();
+    await page.locator('.fy-decision-checklist [data-execution-code="600001"][data-execution-state="frozen"]').waitFor({timeout:10000});
 
     // A late, aborted original-stock request may not repaint the newly selected
     // code/date or the linked sector and paper plan.
@@ -207,18 +270,46 @@ async function run(){
     await page.screenshot({path:path.join(output,'decision-'+viewport.width+'-empty.png'),fullPage:true});
     assert.deepEqual(errors,[],'no browser errors');assert.deepEqual(external,[],'no external browser requests');
     report.views.push({...viewport,firstPlanMs:Math.round(elapsed),shape,linkedCode:'600001',linkedDay:day,scrollRestored:true,horizontalScrollRestored:true,savedHorizontal,
-     reasoningRestored:true,linkingPaperMutations:0,paperMutations:writes.filter(r=>r.path==='/api/paper').length,errors});
+     reasoningRestored:true,sectorBeyondBrief:true,sectorPickerAligned:true,sectorDisclosurePreserved:true,
+     fundsOriginalTimeUnknown:true,executionStates:['not-planned','waiting-condition','frozen'],linkingPaperMutations:0,paperMutations:writes.filter(r=>r.path==='/api/paper').length,errors});
    }catch(error){
     fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText()+'\n'+JSON.stringify(errors));
     await page.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});throw error;
    }finally{if(held)try{await held.route.abort();}catch{}await context.close();}
+  }
+  const viewerDecision=(await fixture.request('/api/decision-center','GET',null,fixture.viewerToken)).body;
+  assert.equal(Object.hasOwn(viewerDecision,'executionChecklist'),false,'the real public decision endpoint omits private execution facts');
+  for(const endpoint of ['/api/paper/execution-score?date='+day,'/api/paper/execution-report?date='+day]){
+   const denied=await fixture.request(endpoint,'GET',null,fixture.viewerToken);
+   assert.equal(denied.body?.ok,false,'the original editor gate denies '+endpoint);
+   assert.equal(denied.body?.dailyReport,undefined);assert.equal(denied.body?.report,undefined);
+   assert.equal(denied.body?.checklist,undefined);assert.equal(denied.body?.paper,undefined);
+  }
+  for(const viewport of [{width:1366,height:900,path:'/'},{width:390,height:844,path:'/m'}]){
+   const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'});
+   await context.addInitScript(({token,at})=>{localStorage.setItem('qd_device',token);localStorage.setItem('qd_role','view');
+    const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:[at]));}static now(){return at;}};
+   },{token:fixture.viewerToken,at:now});
+   const page=await context.newPage(),privateReads=[];
+   page.on('request',request=>{if(new URL(request.url()).pathname.startsWith('/api/paper/'))privateReads.push(new URL(request.url()).pathname);});
+   await page.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
+   try{
+    await page.goto(origin+viewport.path,{waitUntil:'domcontentloaded'});
+    await page.getByText('编辑身份可查看执行状态',{exact:true}).waitFor();
+    assert.equal(await page.locator('[data-execution-code]').count(),0,'viewer home has no private stock states');
+    await page.goto(origin+viewport.path+'#/assets/paper',{waitUntil:'domcontentloaded'});
+    await page.getByText('这是你的私人工作区',{exact:true}).waitFor();
+    assert.equal(await page.locator('[data-execution-evidence]').count(),0);
+    assert.deepEqual(privateReads,[],'viewer navigation never requests private paper evidence');
+    report.privateViews.push({path:viewport.path,width:viewport.width,privateReads:0,privateExecutionRows:0});
+   }finally{await context.close();}
   }
   for(const [i,file] of ledgerPaths.entries())assert.deepEqual(fs.readFileSync(file),ledgers[i],'browser verification cannot change '+path.basename(file));
   report.ledgerUnchanged=true;report.passed=true;
   for(const width of [1366,390])for(const extension of ['txt','png'])fs.rmSync(path.join(output,'failure-'+width+'.'+extension),{force:true});
   fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify(report,null,2));
   process.stdout.write(JSON.stringify({passed:true,output,views:report.views,rejections:report.rejections.length,races:report.races.length,
-   conditionalOrders:report.conditionalOrders,ledgerUnchanged:true},null,2)+'\n');
+   conditionalOrders:report.conditionalOrders,privateViews:report.privateViews,ledgerUnchanged:true},null,2)+'\n');
  }catch(error){
   fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify({...report,passed:false,error:String(error.message||error)},null,2));
   throw error;

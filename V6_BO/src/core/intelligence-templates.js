@@ -2,6 +2,7 @@
 // New centre-only declarative observation. Existing 95 rules, strategy pools,
 // production weights, account permissions and order gates are never changed.
 const {groupPool, canonicalTheme} = require('../../public/nova/shortline/structure-core.js');
+const numeric = require('../../public/nova/shortline/numeric-factors.js');
 const {sourceLineage} = require('./data-source-lineage');
 const defaults = require('../../config/intelligence-center.json');
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -166,13 +167,57 @@ const templateDefinitions = [
   {id:'leader',name:'龙头战法',ruleIds:[1,50],identity:'complete-original-pattern'},
   {id:'emotion-timing',name:'情绪周期择时',ruleIds:[18,39,77,78,87],identity:'known-emotion-and-original-rule'}
 ];
-function ruleConditionEvidence(check,definition) {
+function templateRulePanel(check,catalog,dictionaryVersion) {
+  const panel=check.recognition?.ruleObservations;
+  if(panel===null||panel===undefined)return null;
+  let parsed;
+  try {
+    parsed=numeric.readRulePanel(panel,catalog,{code:check.code,day:check.date,
+      at:time(check.createdAt),recordedAt:check.createdAt});
+  } catch {
+    parsed={rejected:[{reason:'invalid-rule-observation-schema-or-time'}],coverage:{}};
+  }
+  const rejected=[...parsed.rejected];
+  if(dictionaryVersion&&panel.dictionaryVersion!==dictionaryVersion)rejected.push({reason:'rule-dictionary-version-mismatch'});
+  if(parsed.coverage.catalogRules!==95||parsed.coverage.recordedRules!==95)
+    rejected.push({reason:'incomplete-95-rule-panel'});
+  if(rejected.length)return {status:'invalid',rejected};
+  // readRulePanel omits numeric evidence for an otherwise valid rule containing
+  // '?'. Only expand its validated ordinal states when the original input
+  // provenance is also complete; a null numeric value never means failure.
+  const provenance=panel.inputs.length>0&&panel.inputs.every(row=>typeof row.source==='string'&&row.source.trim()&&
+    numeric.instant(row.knownAt)!==null&&numeric.instant(row.knownAt)<=numeric.instant(panel.cutoff)&&row.sourceTimesValid===true&&
+    Number.isSafeInteger(row.records)&&row.records>0&&/^[a-f0-9]{64}$/.test(row.evidenceFingerprint||'')&&
+    (row.sourceAt===null||numeric.instant(row.sourceAt)!==null&&numeric.instant(row.sourceAt)<=numeric.instant(row.knownAt)));
+  return {status:'validated',panel,parsed,provenance};
+}
+function ruleConditionEvidence(check,definition,panelEvidence) {
+  const ruleCode='YZ-'+String(definition.id).padStart(2,'0');
+  if(panelEvidence){
+    const unknown=()=>definition.factors.map((name,i)=>({ordinal:i+1,name,status:'unknown',source:null}));
+    if(panelEvidence.status==='invalid')return {ruleCode,name:definition.name,status:'missing-evidence',conditions:unknown(),
+      archiveCheckId:check.id,source:'original-archived-rule-observation-panel',knownAt:check.createdAt,
+      panelStatus:'invalid',rejected:panelEvidence.rejected.map(row=>({...row})),
+      reason:'完整95项规则面板未通过定义、来源或时点校验，已隔离本次规则证据'};
+    const {panel,parsed,provenance}=panelEvidence,measured=parsed.evidence[ruleCode];
+    const row=panel.rules.find(item=>item.factorCode===ruleCode);
+    const conditions=!provenance?unknown():measured?measured.conditions.map(item=>({...item})):
+      [...row.states].map((state,i)=>({ordinal:i+1,name:definition.factors[i],
+        status:state==='p'?'passed':state==='f'?'failed':'unknown',source:row.sources[i+1]||null}));
+    const missing=conditions.some(item=>item.status==='unknown'),failed=conditions.some(item=>item.status==='failed');
+    return {ruleCode,name:definition.name,status:missing?'missing-evidence':failed?'conditions-failed':'passed',conditions,
+      archiveCheckId:check.id,source:panel.source,knownAt:check.createdAt,observationCutoff:panel.cutoff,
+      panelStatus:'validated',dictionaryVersion:panel.dictionaryVersion,catalogFingerprint:panel.catalogFingerprint,
+      settingsVersion:panel.settingsVersion,settingsFingerprint:panel.settingsFingerprint,
+      reason:!provenance?'完整面板的原始输入缺少来源或有效可知时点':missing?'原识别面板仍有未知条件':
+        failed?'原始条件未全部通过':'原规则全部条件已有记录并通过'};
+  }
   const original=check.recognition?.candidates?.find(row=>row.name===definition.name);
   const missing=original?.missing,failed=original?.failed,total=definition.factors.length;
   const valid=original&&original.total===total&&Number.isSafeInteger(original.matched)&&original.matched>=0&&
     Array.isArray(missing)&&Array.isArray(failed)&&new Set([...missing,...failed]).size===missing.length+failed.length&&
     [...missing,...failed].every(name=>definition.factors.includes(name))&&original.matched+missing.length+failed.length===total;
-  return {ruleCode:'YZ-'+String(definition.id).padStart(2,'0'),name:definition.name,
+  return {ruleCode,name:definition.name,
     status:!valid?'missing-evidence':missing.length?'missing-evidence':failed.length?'conditions-failed':'passed',
     conditions:definition.factors.map(name=>({name,status:!valid||missing.includes(name)?'unknown':failed.includes(name)?'failed':'passed'})),
     archiveCheckId:check.id,source:'original-archived-automatic-condition-check',knownAt:check.createdAt,
@@ -187,10 +232,13 @@ function evaluateTemplateLibrary(archive,{day,now=Date.now(),calendar=null,catal
   const checks=safe?(archive.checks||[]).filter(check=>real(check)&&check.method==='行情自动识别'&&check.date===day&&
     /^\d{6}$/.test(check.code||'')&&check.id&&time(check.createdAt)!==null&&time(check.createdAt)<=now&&
     time(check.createdAt)>=closeAt(day)).sort((a,b)=>time(a.createdAt)-time(b.createdAt)):[];
+  // Validate the complete panel once per archived check, not once per template
+  // or related rule. Invalid panels never fall back to the top-eight display.
+  const panels=new Map(checks.map(check=>[check,templateRulePanel(check,catalog,archive.dictionaryVersion)]));
   return templateDefinitions.map(definition=>{
     const rules=definition.ruleIds.map(id=>catalog.find(row=>row.id===id)).filter(Boolean),evaluations=[];
     for(const check of checks){
-      const cutoff=time(check.createdAt),conditions=rules.map(rule=>ruleConditionEvidence(check,rule)),passed=conditions.filter(row=>row.status==='passed');
+      const cutoff=time(check.createdAt),conditions=rules.map(rule=>ruleConditionEvidence(check,rule,panels.get(check))),passed=conditions.filter(row=>row.status==='passed');
       let identity={status:'missing-evidence',reason:'缺少模板身份与原始时点证据',evidence:null};
       if(definition.identity==='complete-original-pattern')identity={status:'passed',
         reason:'形态身份按原完整战法条件核验，不以相近规则名代替',evidence:{checkId:check.id,knownAt:check.createdAt}};

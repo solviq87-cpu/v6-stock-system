@@ -179,6 +179,41 @@ export function decisionResonance(state={}, {day,now=Date.now(),ranked=[]}={}){
  return new Map([...byCode].map(([symbol,strategies])=>[symbol,[...strategies.values()]]));
 }
 
+export function rankDecisionCandidates(qualified,projection,{day,now}={}){
+ const original=(a,b)=>b.score-a.score||a.code.localeCompare(b.code);
+ const usable=projection?.protocol==='fayo-approved-factor-ranking-v1'&&projection.status==='ready'&&
+  projection.targetDay===day&&decisionDay(projection.signalDay)===projection.signalDay&&projection.signalDay<day&&
+  time(projection.loadedAt)&&projection.loadedAt<=now&&now-projection.loadedAt<=15*60000&&
+  Number.isSafeInteger(projection.modelVersion)&&projection.modelVersion>0&&/^[a-f0-9]{64}$/.test(projection.modelFingerprint||'')&&
+  projection.canTrade===false&&projection.changesOriginalGates===false&&projection.changesSelectionScore===false;
+ const observations=new Map();
+ if(usable)for(const row of array(projection.rows)){
+  if(!code(row?.code)||row.eligibleForNextSession!==true||row.targetDay!==day||row.signalDay!==projection.signalDay||row.day!==projection.signalDay||
+     row.modelVersion!==projection.modelVersion||row.modelFingerprint!==projection.modelFingerprint||!finite(row.score)||
+     !time(row.observationAt)||row.observationAt>now||chinaDay(row.observationAt)!==row.signalDay||!Array.isArray(row.missing)||row.missing.length)continue;
+  observations.set(row.code,observations.has(row.code)?null:row);
+ }
+ const groups=new Map();
+ for(const row of qualified){if(!groups.has(row.resonanceScore))groups.set(row.resonanceScore,[]);groups.get(row.resonanceScore).push(row);}
+ const ranked=[];
+ for(const [resonance,rows]of [...groups].sort((a,b)=>b[0]-a[0])){
+  // Use a single comparable basis for the whole tie group. Pairwise mixing of
+  // old and model scores would create a non-transitive sort with missing rows.
+  const complete=usable&&rows.every(row=>observations.get(row.code));
+  for(const row of rows){
+   const observation=observations.get(row.code);
+   if(observation)row.factorRanking={...observation,status:complete?'applied':'incomplete-peer-group',
+    rankingApplied:Boolean(complete),loadedAt:projection.loadedAt,approvedAt:projection.approvedAt,
+    trainCutoff:projection.trainCutoff,trainingLabelKnownAtMax:projection.trainingLabelKnownAtMax,
+    reason:complete?'同共振组使用同一已批数值模型排序，原精选分和所有交易门禁保持':
+      '同共振组尚有缺分标的，本组保留原精选排序',canTrade:false};
+  }
+  rows.sort(complete?(a,b)=>observations.get(b.code).score-observations.get(a.code).score||original(a,b):original);
+  ranked.push(...rows);
+ }
+ return ranked;
+}
+
 export function buildDecisionBoard(state={}, {now=Date.now()}={}){
  if(!time(now))throw Error('决策看板时钟无效');
  const day=chinaDay(now),sessionOpen=currentSession(state,day,now),weather=decisionWeather(state,{day,now});
@@ -209,8 +244,8 @@ export function buildDecisionBoard(state={}, {now=Date.now()}={}){
   qualified.push({...row,day,reason:reasons.slice(0,2).join('；'),themes:themesOf(row),plan,
    resonanceScore:strategies.length,resonanceStrategies:strategies,conclusion});
  }
- qualified.sort((a,b)=>b.resonanceScore-a.resonanceScore||b.score-a.score||a.code.localeCompare(b.code));
- const cards=sessionOpen&&weather.canConsider?qualified.slice(0,3):[];
+ const ranked=rankDecisionCandidates(qualified,state.decisionApprovedRanking,{day,now});
+ const cards=sessionOpen&&weather.canConsider?ranked.slice(0,3):[];
  const reasons=[];
  if(!sessionOpen)reasons.push('当前不在已确认的连续竞价时段，历史行情保留在研究区。');
  if(weather.missing.length)reasons.push(weather.summary);

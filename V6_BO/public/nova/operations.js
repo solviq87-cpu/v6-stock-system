@@ -2,6 +2,7 @@ import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
 import {renderManualLoop} from './manual-loop.js';
+import {executionDay,paperEvidenceDay,readExecutionChecklist,readExecutionReport,readExecutionReportHistory} from './execution-evidence.mjs';
 /* FAYO operations: independent presentation over the existing account authority.
    No old page, controller, stylesheet or account replica is embedded here. */
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -192,7 +193,7 @@ function conditionalOrdersRegion(ctx,host,onReload){
    data.replica?'副本只读，创建、撤销与执行由原主实例处理':engine.enabled?'主实例后台独立核验；关闭页面不会停止条件等待':'处理中心已暂停，已保存意图保留');
   head.dataset.conditionalOrders='true';
   head.append(notice('私密飞书 · '+(engine.privateChannel==='configured'?'已配置，逐条结果见记录':'未配置')+'；条件意图不冻结资金。'),
-   (data.notificationOwner||engine.notificationOwner)==='plan-observer'?notice('预警由计划观察统一处理；实际投递回执见原私密推送流水。'):null,
+   ...((data.notificationOwner||engine.notificationOwner)==='plan-observer'?[notice('预警由计划观察统一处理；实际投递回执见原私密推送流水。')]:[]),
    el('div',{class:'fy-toolbar'},action('刷新条件单',reload)));
   if(!orders.length){head.append(empty('暂无后台条件单','从今日作战台选择完整计划后，可创建当日模拟条件单。'));return head;}
   for(const order of orders){
@@ -220,9 +221,10 @@ function conditionalOrdersRegion(ctx,host,onReload){
   return head;
  });
 }
-function executionScorePanel(score,error,ctx,observer){
-  if(!score)return panel('收盘执行评分','与原模拟账户收益同时核对',notice(error||'执行证据尚未返回，保留未知。'));
-  return panel('收盘执行评分 · '+score.day,score.note,
+function executionScorePanel(score,error,ctx,observer,title='当前证据核对 · 尚未归档',showDay=true){
+  if(!score)return panel(title,'与原模拟账户收益同时核对',notice(error||'执行证据尚未返回，保留未知。'));
+  return panel(title+(showDay?' · '+score.day:''),showDay?score.note:'',
+    !showDay&&score.note?notice(score.note):null,
     el('div',{class:'fy-metrics'},metric('执行评分',score.score==null?score.status:score.score+' 分'),
       metric('已核验项目',score.assessed),metric('证据待补齐',score.unknown)),
     score.closed===false?notice('收盘后生成评分，盘中结果不作为当日最终成绩。'):null,
@@ -238,6 +240,56 @@ function executionScorePanel(score,error,ctx,observer){
       ['核验项',r=>r.fact.rule],['结论',r=>r.fact.status],['依据',r=>r.fact.evidence]],arr(score.rows).flatMap(r=>arr(r.facts).map(fact=>({...r,fact})))):
       notice('该日期没有可核对的事前冻结计划，不能据此生成满分。'));
 }
+function executionEvidencePanel(payload,ctx){
+  if(!editor(ctx))return privateView();
+  const day=paperEvidenceDay(ctx),aligned=executionDay(payload?.day)===day;
+  const data=aligned?payload||{}:{error:payload?.error||payload?.note||'执行回执与所选日期尚未对应'};
+  const saved=readExecutionReport(data.dailyReport,{day,role:ctx.role});
+  const versions=readExecutionReportHistory(data.reportHistory,{day,role:ctx.role});
+  const currentChecklist=data.checklist||saved.checklist||saved.report?.checklist;
+  const checklist=readExecutionChecklist(currentChecklist,{day,role:ctx.role,persisted:!data.checklist});
+  const box=panel('持久执行日报 · '+(day||'日期待核验'),'收盘证据与原模拟账户收益一起核对');
+  box.dataset.executionEvidence='true';box.dataset.day=day||'';box.dataset.reportStatus=saved.status;
+  if(saved.report){
+    box.dataset.reportVersion=String(saved.reportVersion);box.dataset.reportHash=saved.reportHash;
+    box.append(notice('已保存日报 v'+saved.reportVersion+' · 生成于 '+date(saved.recordedAt)),
+      executionScorePanel(saved.report.score,null,ctx,null,'执行评分',false),notice(saved.reason));
+    const labels={ledger:'原持久账本',plans:'事前冻结计划',observations:'原始报价观察',conditionalOrders:'原条件意图'};
+    box.append(el('details',{class:'fy-advanced',id:'fy-execution-report-sources-'+day},el('summary',{},'日报版本与数据来源'),
+      el('dl',{class:'fy-facts'},el('div',{},el('dt',{},'日报核验指纹'),el('dd',{},saved.reportHash)),
+       el('div',{},el('dt',{},'原始计算时点'),el('dd',{},date(saved.report.calculatedAt)))),
+      ...Object.entries(saved.report.sources||{}).map(([key,source])=>el('p',{},(labels[key]||key)+' · '+text(source.source)+
+        (Number.isSafeInteger(source.revision)?' · 版本 '+source.revision:'')+(Number.isSafeInteger(source.count)?' · '+source.count+' 条':'')+
+        (source.receivedAt?' · 读取 '+date(source.receivedAt):''))),
+      versions.status==='observed'?notice('该日已保存 '+versions.total+' 个版本；迟到或新增证据以新版本记录，既有版本保留。'):notice(versions.reason),
+      versions.versions.length?table([['版本',row=>'v'+row.reportVersion],['保存时点',row=>date(row.recordedAt)],
+       ['证据状态',row=>text(row.status)],['执行评分',row=>row.score==null?'证据未齐':fmt(row.score,1)+' 分']],versions.versions):null));
+  }else box.append(notice(data.error||saved.reason),notice('尚未取得所选日期的持久日报版本；当前读取结果不代表已归档。'));
+  const runtime=data.reportRuntime;
+  if(runtime){
+    const status={'waiting-close':'等待收盘后核对','disabled-or-replica':'需在已启用的原主实例生成','missing-session':'市场时钟待核对',
+      'missing-calendar':'交易日历待核对',backoff:'等待下一轮证据核对',reading:'正在读取原始证据',saved:'已保存新的日报版本',
+      unchanged:'证据未变化，沿用已存版本','evidence-unavailable':'原始证据未齐','daily-limit':'本轮核对次数已达原上限',
+      'target-daily-limit':'该日核对次数已达原上限'}[runtime.status]||'后台状态尚未明确';
+    box.append(notice('日报后台 · '+status+(runtime.lastResult?.day?' · 最近处理 '+runtime.lastResult.day:'')));
+    if(runtime.lastError)box.append(notice(runtime.lastError));
+  }
+  const states=el('section',{'data-execution-checklist':true,'data-day':day||''},el('h3',{},'计划执行状态'),
+    notice(checklist.reason),checklist.generatedAt?el('small',{},'后台核对 '+date(checklist.generatedAt)):null);
+  for(const item of checklist.items)states.append(el('article',{class:'fy-item','data-execution-code':item.code,'data-execution-state':item.state,'data-day':item.day},
+    el('strong',{},item.name+' '+item.code+' · '+item.label),el('p',{},item.reason),
+    item.entry?el('p',{},'原账本成交 · '+date(item.entry.executionAt)+' · '+yuan(item.entry.price)+' × '+fmt(item.entry.quantity,0)+' 股'):null,
+    item.intent?el('p',{},'条件意图 · '+({pending:'等待条件',executed:'已有成交引用',cancelled:'已撤销',expired:'已到期',unauthorized:'授权已失效'}[item.intent.status]||'未知')+
+      ' · '+(item.intent.reason||'尚无新的核验说明')):null,
+    ...item.risk.map(r=>el('p',{},(r.kind==='stop'?'计划止损':'计划目标')+' · '+yuan(r.price)+' · '+text(r.source)+' · '+date(r.quoteAt)+' · '+text(r.reason))),
+    item.review?el('p',{},'对应持久日报 v'+item.review.reportVersion+' · '+date(item.review.recordedAt)):null,
+    item.missing.length?el('ul',{},item.missing.map(reason=>el('li',{},reason))):null));
+  box.append(states);
+  const preview=executionDay(data.paper?.pool?.day)===day?data.paper.pool:null;
+  box.append(el('details',{class:'fy-advanced',id:'fy-execution-current-'+day},el('summary',{},'查看当前核对结果与观察记录'),
+    executionScorePanel(preview,data.error||'当前证据核对尚未返回',ctx,data.observer)));
+  return box;
+}
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
   let reloadAccounts=null,reloadConditions=null,scoreCache=null,scoreAt=0,scoreDay='';
@@ -246,26 +298,37 @@ function paper(ctx,ledger=false) {
   const load=async()=>{
     const data=await request(ctx,ledger?'/api/paper/ledger':'/api/paper');
     if(ledger)return data;
-    const day=ctx.decisionSelection?.day||ctx.state?.closeSession?.day||ctx.state?.marketClock?.day||new Date(Date.now()+28800000).toISOString().slice(0,10);
+    const day=paperEvidenceDay(ctx);
+    if(!day)return {...data,executionScore:{error:'模拟计划日期无效，未借用其他交易日的日报'}};
     if(!scoreCache||scoreDay!==day||Date.now()-scoreAt>30000){
-      try{scoreCache=await request(ctx,'/api/paper/execution-score?'+new URLSearchParams({date:day}));}
-      catch(error){scoreCache={error:error.message};}
+      try{
+        const response=await request(ctx,'/api/paper/execution-score?'+new URLSearchParams({date:day}));
+        if(executionDay(response.day)!==day&&!response.replica)throw Error('执行评分回执日期与本次请求不一致');
+        scoreCache=response;
+      }
+      catch(error){scoreCache={day,error:error.message};}
       scoreAt=Date.now();scoreDay=day;
     }
     return {...data,executionScore:scoreCache};
   };
   host.append(asyncRegion(ctx,load,(data,reload)=>{
     reloadAccounts=reload;
+    const opened=new Set([...host.querySelectorAll('[data-execution-evidence] details[open][id]')].map(node=>node.id));
     const records=data.paper||{};return el('div',{class:'fy-stack'},['pool','pre'].map(key=>{
       const account=records[key];if(!account)return panel(key==='pool'?'策略跟踪账户':'机会预选账户','',empty('账户数据尚未返回'));
       if(ledger)return renderLedgerAccount(account,key,ctx);
       const card=panel(account.name||(key==='pool'?'策略跟踪账户':'机会预选账户'),account.enabled===false?'自动跟踪已暂停':'保留策略、T+1与报价门禁');
-      const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账户权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))),quote&&notice(quote.note||quote.label||'账户估值沿用原始行情快照'));
-      card.append(el('div',{class:'fy-toolbar'},action(account.enabled===false?'恢复策略跟踪':'暂停策略跟踪',()=>review(ctx,host,'切换策略跟踪状态',account.enabled===false?'恢复后，现有策略将在满足服务端交易与风控门禁时继续模拟跟踪。':'暂停后不再由该模拟账户继续自动跟踪。',()=>mutation(ctx,'/api/paper',{account:key,action:'toggle'},reload)),'primary'),action('刷新账户',reload)));
+      const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账户权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))));
+      if(quote)card.append(notice(quote.note||quote.label||'账户估值沿用原始行情快照'));
+      card.append(el('div',{class:'fy-toolbar'},action(account.enabled===false?'恢复策略跟踪':'暂停策略跟踪',()=>review(ctx,host,'切换策略跟踪状态',account.enabled===false?'恢复后，现有策略将在满足服务端交易与风控门禁时继续模拟跟踪。':'暂停后不再由该模拟账户继续自动跟踪。',()=>mutation(ctx,'/api/paper',{account:key,action:'toggle'},reload)),'primary'),action('刷新账户',()=>{scoreCache=null;scoreAt=0;return reload();})));
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
       card.append(el('h3',{},'已实现收益曲线'),el('small',{},'按成交日累计，单位为元，未计持仓浮盈。'),
         curve.length?priceLine(curve,'模拟账户已实现收益曲线',{timeLabel:p=>p.day}):empty('暂无可核实的成交流水'));
-      if(key==='pool')card.append(executionScorePanel(data.executionScore?.paper?.[key],data.executionScore?.error||data.executionScore?.note,ctx,data.executionScore?.observer));
+      if(key==='pool'){
+        const evidence=executionEvidencePanel(data.executionScore,ctx);
+        for(const details of evidence.querySelectorAll('details[id]'))if(opened.has(details.id))details.open=true;
+        card.append(evidence);
+      }
       card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
       card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
       const audit=account.audit||{};card.append(notice(audit.replica?'当前是副本视图，账户以主实例为准。':audit.ok===true?'账户与流水核对通过':audit.incomplete?'对账证据不完整，保留未知。':audit.note||'账户对账状态待核验'));

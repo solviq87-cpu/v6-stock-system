@@ -7,6 +7,7 @@ import {ticker,quoteLabel,rowsFrom,summarizeReview,reviewCoverage,reviewDate,pro
 import {newsRows,stockReasons,limitReasonEvidence,reviewSupplier,recoveredMetric} from './market-evidence.js';
 import {createTradingHome,homeEmpty,adaptivePanel} from './home-layout.js';
 import {createDecisionHome} from './decision-view.mjs';
+import {projectSectorFlows} from './decision-sector-context.mjs';
 import {createIntelligenceCenter} from './intelligence-view.mjs';
 import {renderCloseReview} from './close-review.js';
 
@@ -14,6 +15,11 @@ const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
 const asDay = value => reviewDate(value)||'交易日待核验';
 const nameOf = row => row?.name||row?.code||'名称待核验';
+function sectorSources(rows,id){
+ return rows.length?h('details',{class:'fy-details',id},h('summary',{},'资金来源与时点'),h('ul',{class:'fy-evidence-list'},rows.map(row=>h('li',{},
+  row.name+' · '+row.source+' · 资金归属日 '+row.day+' · '+row.dateBasis+' · 取得 '+dateTime(row.retrievedAt)+
+  ' · '+(row.sourceTimestamp?'源端 '+dateTime(row.sourceTimestamp):'源端资金时刻未提供')+' · 人民币元，按订单大小估算。')))):null;
+}
 
 function stat(label,value,detail,kind='') {
  return h('article',{class:'fy-terminal-stat '+kind},
@@ -122,18 +128,13 @@ function renderPanels(state,summary,reviewDay,ctx,compact) {
    empty('没有可核验的同日板块分类','本次复盘 '+(reviewDay||'日期未知')+
     '，板块分类 '+(roleDay||'日期未知')+'；日期不一致时不混用。'),
   moduleButton('查看全部板块','pulse','sectors',ctx));
- const sectors=Array.isArray(state.sectors)?state.sectors:Array.isArray(state.sectors?.items)?state.sectors.items:[];
  // The retained client may preserve sectors from an earlier trading day while
  // the dashboard and review advance. Only the field's own original day can
  // authorize this preview; a fresh receivedAt or page refresh cannot.
  const sectorDay=reviewDate(state.snapshotFieldDays?.sectors||state.sectorsDay);
  const aligned=Boolean(sectorDay&&marketDay&&sectorDay===marketDay&&(!reviewDay||sectorDay===reviewDay));
- // Only explicitly Yuan-valued fields are converted to 亿/万. Never turn
- // missing units into money or show yesterday's funds as today's ranking.
- const capital=aligned?sectors.filter(row=>row&&typeof(row.name||row.sector)==='string'&&
-   (valid(row.mainInflowYuan)||valid(row.netInflowYuan))).map(row=>({
-    name:row.name||row.sector,value:valid(row.mainInflowYuan)?row.mainInflowYuan:row.netInflowYuan
-   })).sort((a,b)=>b.value-a.value).slice(0,5):[];
+ const sectorEvidence=projectSectorFlows(state,{day:reviewDay||marketDay});
+ const capital=aligned?sectorEvidence.rows.sort((a,b)=>b.value-a.value).slice(0,5):[];
  const max=Math.max(1,...capital.map(row=>Math.abs(row.value)));
  const dateIssue=!sectorDay?'板块资金原始交易日缺失':
   !marketDay?'大盘快照日期缺失，无法比较资金日期':
@@ -146,8 +147,10 @@ function renderPanels(state,summary,reviewDay,ctx,compact) {
     h('div',{class:'fy-terminal-flow'},
      h('span',{},row.name),
      h('span',{class:'fy-terminal-bar'},h('i',{style:'width:'+Math.max(3,100*Math.abs(row.value)/max).toFixed(1)+'%'})),
-     h('strong',{class:direction(row.value)},money(row.value))))):
-    empty('尚无单位明确的板块资金数据','原资金模块可能有其他单位或缺失项，请核验数据来源与字段。'),
+     h('strong',{class:direction(row.value)},money(row.value)+'元')))):
+    empty('尚无来源与单位完整的板块资金数据',sectorEvidence.missing.join('；')||
+     [...new Set(sectorEvidence.rejected.flatMap(row=>row.missing))].join('；')||'尚未取得当日板块资金记录。'),
+  sectorSources(capital,'fy-terminal-fund-sources'),
   moduleButton('查看资金证据','pulse','sectors',ctx));
  return h('div',{class:'fy-terminal-panels'},
   compact&&!groups.length?homeEmpty('市场主线','当期无已核对的题材',mainline):mainline,
@@ -371,9 +374,8 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
   // ranking: a newer review must never inherit older market/funds evidence.
   const marketDay=reviewDate(state.snapshotFieldDays?.dashboard||state.dashboard?.snapshotDay||state.snapshotDay);
   const aligned=Boolean(sectorDay&&marketDay&&sectorDay===marketDay&&(!day||sectorDay===day));
-  const sectorRows=Array.isArray(state.sectors)?state.sectors:Array.isArray(state.sectors?.items)?state.sectors.items:[];
-  const flows=aligned?sectorRows.filter(r=>r&&typeof(r.name||r.sector)==='string'&&(valid(r.mainInflowYuan)||valid(r.netInflowYuan)))
-   .map(r=>({name:r.name||r.sector,value:valid(r.mainInflowYuan)?r.mainInflowYuan:r.netInflowYuan}))
+  const sectorEvidence=projectSectorFlows(state,{day:day||marketDay});
+  const flows=aligned?sectorEvidence.rows
    .filter(r=>flowMode==='in'?r.value>0:r.value<0)
    .sort((a,b)=>flowMode==='in'?b.value-a.value:a.value-b.value).slice(0,5):[];
   const flowMax=Math.max(1,...flows.map(r=>Math.abs(r.value)));
@@ -384,7 +386,9 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
    ...(!aligned?[empty('资金日期尚未匹配','不能用旧日资金冒充今日排行。')]:
     flows.length?flows.map(r=>h('div',{class:'fy-reference-flow'},
       h('span',{},r.name),h('i',{class:'fy-reference-flow-track'},h('b',{style:'width:'+Math.max(3,Math.abs(r.value)/flowMax*100).toFixed(1)+'%'})),
-      h('strong',{class:direction(r.value)},money(r.value)))):[empty(flowMode==='in'?'暂无可展示的净流入':'暂无可展示的净流出','仅接受同日、单位明确的资金净额。')]));
+      h('strong',{class:direction(r.value)},money(r.value)+'元'))):[empty(flowMode==='in'?'暂无可展示的净流入':'暂无可展示的净流出',
+       sectorEvidence.missing.join('；')||[...new Set(sectorEvidence.rejected.flatMap(row=>row.missing))].join('；')||'仅接受同日、来源与人民币单位明确的资金净额。')]),
+   sectorSources(flows,'fy-reference-fund-sources'));
  }
  function paint() {
   if(ctx.signal?.aborted)return;

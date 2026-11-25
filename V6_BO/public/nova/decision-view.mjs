@@ -2,12 +2,14 @@ import {h,button,format,money,dateTime,updateReadout} from './ui.js';
 import {readDecisionBoard,stockConclusion} from './decision-model.mjs';
 import {createCommandSelection} from './command-selection.mjs';
 import {readDecisionMiniKline} from './decision-mini-kline.mjs';
+import {decisionSectorReader} from './decision-sector-context.mjs';
+import {readExecutionChecklist} from './execution-evidence.mjs';
 
-const dayOf=value=>typeof value==='string'?value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):'';
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const price=value=>finite(value)?format(value)+' 元':'缺少后台价位';
 function planEvidence(card){
- const lineage=card.lineage||{},council=card.council||{};
+ const lineage=card.lineage||{},council=card.council||{},quality=card.centerQuality||lineage.quality||{},ranking=card.factorRanking;
+ const components=Array.isArray(quality.quality?.components)?quality.quality.components:[];
  const fields=[['buyLow','买区下沿'],['buyHigh','买区上沿'],['stop','止损位'],['target','目标价'],['positionPct','仓位']];
  return h('details',{class:'fy-details fy-decision-evidence',id:'fy-card-proof-'+card.code},h('summary',{},'四视角会商与数字来源'),
   h('p',{},(council.conclusion||'缺少后台会商结论')+' · 证据置信度 '+(council.confidenceLevel||'未知')+'（证据覆盖度，非胜率）'),
@@ -15,6 +17,18 @@ function planEvidence(card){
    h('p',{},(view.evidence||[]).map(item=>item.text).join('；'))))),
   h('dl',{},fields.map(([key,label])=>h('div',{},h('dt',{},label),h('dd',{},[lineage[key]?.derivedBy,lineage[key]?.source,dateTime(lineage[key]?.sourceAt)].filter(Boolean).join(' · '))))),
   h('p',{},'策略依据时点 · '+dateTime(card.strategyAt)+'；共振来源 · '+(card.resonanceStrategies||card.strategies||[]).map(item=>typeof item==='string'?item:item.label||item.name||item.id).join(' / ')),
+  ranking?h('section',{'aria-label':'已批准因子模型依据'},h('p',{},
+   (ranking.rankingApplied===true?'已批准模型参与同共振组排序':'模型排序证据未齐')+' · '+(ranking.reason||'后台尚未返回具体依据')),
+   h('p',{},'模型版本 '+(ranking.modelVersion||'未返回')+(finite(ranking.score)?' · 净收益模型分 '+String(ranking.score)+'（原模型尺度）':'')),
+   h('small',{},'信号日 '+(ranking.signalDay||'未知')+' · 目标日 '+(ranking.targetDay||'未知')+' · 原始观察 '+dateTime(ranking.observationAt)+
+    ' · 计算 '+dateTime(ranking.scoredAt)+' · 批准 '+dateTime(ranking.approvedAt))):null,
+  components.length?h('section',{'aria-label':'五维数据质量'},h('strong',{},'数据质量 Q · '+(finite(quality.qScore)?format(quality.qScore,1)+' / 100':'分量未齐')),
+   h('p',{},quality.qReason||''),h('dl',{},components.map(component=>h('div',{},
+    h('dt',{},component.label+' · 权重 '+(finite(component.weight)?format(component.weight*100,0)+'%':'缺失')),
+    h('dd',{},finite(component.value)?format(component.value*100,1)+'%':'缺少分量证据',h('small',{},
+     [component.evidence?.source,component.evidence?.method,
+      component.evidence?.sourceAt?'源端 '+dateTime(component.evidence.sourceAt):component.evidence?.knownAt?'取得 '+dateTime(component.evidence.knownAt):null,
+      Array.isArray(component.evidence?.missing)?component.evidence.missing.join('、'):component.evidence?.missing].filter(Boolean).join(' · '))))))):null,
   h('p',{},'多源一致性 · '+(({'observed-agreement':'已有同日原始报价的一致性证据',conflict:'原始报价存在冲突',unknown:'缺少仍在有效期内的独立来源报价'})[lineage.quality?.status]||'缺少可核实的独立来源报价')+
    '；'+(lineage.quality?.qReason||'完整质量分还需五项可核验证据。')));
 }
@@ -23,28 +37,27 @@ function planEvidence(card){
 // It never substitutes a price or a trading permission from another surface.
 export function linkedDecisionPanel(ctx,{compact=false,when=()=>true}={}){
  const host=h('section',{class:'fy-decision-linked','aria-label':'决策联动'});
+ const sectors=decisionSectorReader(ctx);
  function paint(){
   const selected=ctx.decisionSelection;
   if(!selected||!when(selected)){host.hidden=true;return;}
   host.hidden=false;
-  const {code,day,row={}}=selected,state=ctx.state||{};
+  const {code,day,row={}}=selected;
   host.dataset.code=code;host.dataset.day=day;
-  const sourceDay=dayOf(state.sectorsDay||state.snapshotFieldDays?.sectors);
-  const names=[...new Set([row.sector,row.industry,...(Array.isArray(row.themes)?row.themes:[])].filter(x=>typeof x==='string'&&x))];
-  const rows=Array.isArray(state.sectors)?state.sectors:state.sectors?.items||[];
-  const sectors=sourceDay===day?rows.filter(r=>names.includes(r.name||r.sector)):[];
-  const amounts=sectors.map(r=>({name:r.name||r.sector,value:finite(r.mainInflowYuan)?r.mainInflowYuan:r.netInflowYuan})).filter(r=>finite(r.value));
+  const evidence=sectors.read(),amounts=evidence.rows;
   const info=amounts.length?amounts.map(r=>r.name+' · 主力净额 '+money(r.value)+'元').join('；'):
-   sourceDay&&sourceDay!==day?'板块资金日期 '+sourceDay+'，与本计划不一致':names.length?'该题材暂无同日、单位明确的资金记录':'本股题材尚未核实';
+   [evidence.loading?'正在读取 '+day+' 板块资金':null,...evidence.missing].filter(Boolean).join('；');
   updateReadout(host,h('header',{},h('strong',{},'当前联动 · '+(row.name||code)+' '+code),h('small',{},day)),
    h('p',{'data-decision-sector':code,'data-day':day},info),
+   ...amounts.map(r=>h('p',{class:'fy-muted','data-sector-source':r.code||r.name},r.name+' · '+r.source+' · '+r.day+' · 取得 '+dateTime(r.retrievedAt)+
+    ' · '+(r.sourceTimestamp?'源端 '+dateTime(r.sourceTimestamp):'源端资金时刻未提供'))),
    h('p',{'data-decision-paper':code,'data-day':day,class:'fy-muted'},'模拟计划 · 买入 '+price(selected.plan?.buyLow)+'～'+price(selected.plan?.buyHigh)+
     ' · 止损 '+price(selected.plan?.stop)),
    h('div',{class:'fy-inline'},button('查看板块资金',()=>{ctx.closeStock?.();ctx.navigate('pulse','sectors');},'quiet'),
     ctx.canEdit?button('查看模拟盘预填',()=>ctx.prefillPaper?.(selected),'quiet'):null,
     !compact?button('返回今日作战台',()=>ctx.returnToDecision?.(),'quiet'):null));
  }
- host.refresh=paint;paint();ctx.onDecisionSelection?.(paint);ctx.onState?.(paint);return host;
+ host.refresh=paint;sectors.subscribe(paint);paint();return host;
 }
 
 export function conclusionBar(row,{day,now=Date.now()}={}){
@@ -74,15 +87,37 @@ export function createDecisionHome(ctx){
  const weather=h('div',{class:'fy-decision-weather',role:'status'}),cards=h('div',{class:'fy-decision-cards','aria-label':'买入决策卡'});
  const count=h('small'),checklist=h('ol',{class:'fy-decision-checklist'}),coverage=h('p',{class:'fy-decision-coverage'});
  const rules=h('details',{class:'fy-details',id:'fy-decision-rules'},h('summary',{},'判断依据与未入选原因'));
+ const executionProof=h('details',{class:'fy-details',id:'fy-execution-evidence'},h('summary',{},'执行依据与操作提示'));
  const queries=createCommandSelection(ctx);queries.classList.add('fy-decision-query');queries.id='fy-decision-query';
  const links=linkedDecisionPanel(ctx,{compact:true});
  const host=h('section',{class:'fy-decision-board','aria-label':'今日作战台'},
   h('header',{},h('div',{},h('span',{class:'fy-decision-kicker'},'FAYO / TODAY'),h('h1',{},'今日作战台')),count),
-  weather,cards,h('div',{class:'fy-decision-execution'},h('strong',{},'今日执行清单'),checklist),coverage,rules,links,queries);
- let board=null,lastDay='',readError='',restoredCards=false;
+  weather,cards,h('div',{class:'fy-decision-execution'},h('strong',{},'今日执行清单'),checklist),executionProof,coverage,rules,links,queries);
+ let board=null,lastDay='',readError='',restoredCards=false,execution=null;
  const history=new Map(),pending=new Set();
  const active=()=>!ctx.signal?.aborted;
  const selected=card=>ctx.decisionSelection?.code===card.code&&ctx.decisionSelection?.day===card.day;
+ function paintExecutionProof(){
+  if(!active())return;
+  const summary=h('summary',{},'执行依据与操作提示');
+  if(!executionProof.open){updateReadout(executionProof,summary);return;}
+  const tips=board?.checklist||[];
+  updateReadout(executionProof,summary,
+   h('p',{},execution?.reason||'后台执行状态尚未返回'),
+   execution?.generatedAt?h('small',{},execution.day+' · 后台核对 '+dateTime(execution.generatedAt)):null,
+   ...(execution?.items||[]).map(item=>h('article',{'data-execution-code':item.code,'data-execution-state':item.state,'data-day':item.day,
+    id:'fy-execution-plan-'+(item.planId||item.code)+'-'+item.day},
+    h('strong',{},item.name+' '+item.code+' · '+item.label),h('p',{},item.reason),
+    item.frozenAt?h('p',{},'原计划冻结于 '+dateTime(item.frozenAt)):null,
+    item.entry?h('p',{},'原账本成交 · '+dateTime(item.entry.executionAt)+' · '+price(item.entry.price)+' × '+format(item.entry.quantity,0)+' 股'):null,
+    item.intent?h('p',{},'条件意图 · '+({pending:'等待条件',executed:'已有成交引用',cancelled:'已撤销',expired:'已到期',unauthorized:'授权已失效'}[item.intent.status]||'状态未知')+
+     ' · '+(item.intent.reason||'尚无新的核验说明')):null,
+    ...item.risk.map(r=>h('p',{},(r.kind==='stop'?'计划止损':'计划目标')+' · '+price(r.price)+' · '+(r.source||'来源缺失')+' · '+dateTime(r.quoteAt)+' · '+(r.reason||'可执行条件未知'))),
+    item.review?h('p',{},'对应持久日报 v'+item.review.reportVersion+' · '+dateTime(item.review.recordedAt)):null,
+    item.missing.length?h('ul',{},item.missing.map(reason=>h('li',{},reason))):null)),
+   h('h4',{},'操作提示'),h('ul',{},tips.map(item=>h('li',{},typeof item==='string'?item:(item.text||item.label||'')+(item.note?'：'+item.note:'')))));
+ }
+ executionProof.addEventListener('toggle',paintExecutionProof);
  function cardNode(card){
   const plan=card.plan||{},record=history.get(card.day+':'+card.code);
   const open=event=>ctx.chooseDecision?.(card,event.currentTarget);
@@ -140,8 +175,11 @@ export function createDecisionHome(ctx){
   updateReadout(weather,h('span',{class:'fy-weather-light','aria-hidden':'true'}),h('strong',{},w.label),
    h('p',{},w.summary+(finite(w.positionCapPct)?' · 单票仓位上限 '+format(w.positionCapPct,0)+'%':'')+(readError?' · '+readError:'')));
   paintCards();
-  const items=board.checklist||[];
-  updateReadout(checklist,...items.map(item=>h('li',{},typeof item==='string'?item:item.text||item.label)));
+  execution=readExecutionChecklist(ctx.decisionPayload?.executionChecklist,{day:board.day,role:ctx.role});
+  const items=[...execution.items].sort((a,b)=>Number(b.state==='risk-pending')-Number(a.state==='risk-pending')).slice(0,3);
+  updateReadout(checklist,...(items.length?items.map(item=>h('li',{'data-execution-code':item.code,'data-execution-state':item.state,'data-day':item.day,title:item.name+' · '+item.reason},item.code+' · '+item.label)):
+   [h('li',{'data-execution-state':execution.status},execution.status==='private'?'编辑身份可查看执行状态':execution.status==='no-plans'?'尚无执行计划':'执行状态未知')]));
+  paintExecutionProof();
   coverage.textContent='仅展示当前通过门禁的候选；共振按独立策略去重。私密飞书 · '+(ctx.state?.feishuSecReady?'已配置':'未配置');
   const lines=[...(w.basis||[]).map(item=>typeof item==='string'?item:
    [({breadth:'市场宽度',limits:'涨跌停',sealing:'封板率'})[item.kind],item.source,item.scope,item.day].filter(Boolean).join(' · ')),

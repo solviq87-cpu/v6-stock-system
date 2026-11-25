@@ -81,7 +81,9 @@ function candidateQuality(state,pool,now,config){
     sourceEvidence:[],canTrade:false,changesOriginalGates:false};
    row.decisionBlockReasons=[...list(row.decisionBlockReasons),'中心质量门禁配置未完成核验'];
   }
-  const quality={...gate,qScore:null,qReason:'当前核对仅覆盖多源一致性；完整 Q 仍需五项可核验证据。'};
+  let quality;
+  try{quality=require('./decision-quality').decisionQuality(row,gate,{day,now,history:state.decisionQualityHistory?.[row.code],config});}
+  catch{quality={...gate,qScore:null,qReason:'五维质量规则配置未完成核验，保留全部原交易门禁。'};}
   row.centerQuality=quality;byCode[row.code]=quality;
   if(gate.blocked)row.decisionBlockReasons=[...list(row.decisionBlockReasons),'同日原始多源报价存在冲突，已从中心候选剔除'];
  }
@@ -185,6 +187,8 @@ async function buildDecisionCenter(state={}, {now=Date.now(),config}={}){
   const council=buildCouncil(card,board.weather,now),lineage=planLineage(card,account,ruleVersion);
   const canonical={ruleVersion,day:card.day,code:card.code,strategyAt:card.strategyAt,source:card.quoteBasis.source,mode:card.quoteBasis.mode,
    plan:[card.plan.buyLow,card.plan.buyHigh,card.plan.stop,card.plan.target,card.plan.positionPct],positionCapPct:cap};
+  if(card.factorRanking?.rankingApplied)canonical.approvedFactorRanking={modelFingerprint:card.factorRanking.modelFingerprint,
+    sourceCheckId:card.factorRanking.sourceCheckId,signalDay:card.factorRanking.signalDay,targetDay:card.factorRanking.targetDay};
   const decisionId=crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
   const plan={...card.plan,authority:AUTHORITY,decisionId,asOf:now,derivedBy:ruleVersion,
    source:'现有策略、原始行情与原模拟账户',sourceAt:card.quoteAt,lineage};
@@ -192,6 +196,7 @@ async function buildDecisionCenter(state={}, {now=Date.now(),config}={}){
  });
  const evidenceByCode=Object.fromEntries(pool.map(row=>[row.code,{code:row.code,day:board.day,fundamental:row.fundamentalEvidence,factorScores:row.factorScores}]));
  return {...board,authority:AUTHORITY,schemaVersion:SCHEMA,calculatedAt:now,ruleVersion,resonanceByCode,conclusions,qualityByCode,evidenceByCode,
+  approvedFactorRanking:state.decisionApprovedRanking?{...state.decisionApprovedRanking,rows:undefined}:null,
   authorityNote:'价格、仓位、天气与会商由服务端生成；模拟成交仍通过原 paperBuy，前端只展示与校验。'};
 }
 

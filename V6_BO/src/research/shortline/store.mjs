@@ -172,7 +172,7 @@ export async function saveRecoveredMarket(root,rows,day){
 }
 // The main account keeps its original path. Named books and fixtures can never
 // select an upstream ledger or a filesystem path supplied by the client.
-export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan,centerFeedback,beforeCenterCommit}){
+export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan,centerFeedback,beforeCenterCommit,beforeDecisionCommit}){
   if(!bookIdOk(book))throw error('无效研究账户',400);
   const scope=book==='demo'?'demo':'live',main=book==='main';
   const master=load(root),books=booksOf(master),current=books.find(b=>b.id===book);
@@ -214,6 +214,7 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
   const apply=input.action==='v6:sync'?await syncAdapters():null;
   // Existing archive reads do not depend on the optional centre configuration.
   const center=input.action==='learn:center-feedback'&&centerFeedback?await import('./center-feedback.mjs'):null;
+  const decisionResearch=decisionPlan?(await import('../../core/decision-plan-research.js')).default:null;
   return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
     let state=load(dir,scope),retiredMinuteDir=null;
     if(input.revision!==state.revision)throw error('另一台设备已更改档案，请重新读取后再提交',409);
@@ -248,11 +249,22 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
       }else{
         if(centerFeedback)throw Error('中心反馈服务端上下文与操作不匹配');
         if(decisionPlan&&(!main||input.action!=='learn:plan'))throw Error('服务器决策计划只能冻结到原主研究档案');
-        result=mutate(state,input.action,p);
+        // Re-read and validate the exact preparation-time check under the
+        // original archive lock. A missing link stays missing; do not bind a
+        // check created after the card, or choose a replacement at commit.
+        const research=decisionPlan?decisionResearch.prepareDecisionPlanResearch(decisionPlan,
+          {...state,dictionaryVersion},{now:Date.now(),checkId:p.checkId??null}):null;
+        const planInput=research?{...p}:p;
+        if(research){
+          delete planInput.checkId;
+          if(research.payload.checkId)planInput.checkId=research.payload.checkId;
+        }
+        result=mutate(state,input.action,planInput);
         // Only the native paper adapter supplies this internal job argument.
         // The browser research route never accepts or forwards an authority flag.
         if(decisionPlan){
           decisionPlans.bindAuthoritativePlan(result,decisionPlan);
+          result.researchFactorReference={...research.researchReference,frozenAt:result.frozenAt};
         }
         const day=affectedDay(state,input.action,result);
         if(day)refreshDailyReview(state,day);
@@ -266,6 +278,11 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
       let authorized=false;
       try{authorized=typeof beforeCenterCommit==='function'&&beforeCenterCommit()===true;}catch{}
       if(!authorized)throw error('中心提案提交前编辑授权或主实例角色已变化，原档案保留',403);
+    }
+    if(decisionPlan){
+      let authorized=false;
+      try{authorized=typeof beforeDecisionCommit==='function'&&beforeDecisionCommit()===true;}catch{}
+      if(!authorized)throw error('冻结计划提交前编辑授权或主实例角色已变化，原档案保留',403);
     }
     // Optional fields of v1 archives are absent on older installations.
     persist(dir,state);

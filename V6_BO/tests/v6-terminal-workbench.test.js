@@ -242,13 +242,41 @@ test('all received review rows are available on desktop and on-demand mobile, wi
 test('fund bar is displayed only with an explicit Yuan unit and a matching original sector day',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(3);
  s.snapshotFieldDays.sectors='20261117';
- s.sectors=[{name:'算力资金',mainInflowYuan:126000000},{name:'无单位板块',mainInflow:970000000}];
+ s.sectors=[{name:'算力资金',mainInflow:126000000,source:'eastmoney',fundsUnit:'CNY',fundsMethod:'vendor-order-size-estimate',
+  retrievedAt:Date.parse('2026-11-17T15:00:00+08:00'),sourceTimestamp:null},{name:'无单位板块',mainInflow:970000000}];
  const ctx=context(s),view=renderTerminalOverview(ctx),t=textOf(view);
  assert.match(t,/资金来源交易日 2026-11-17/);
  assert.match(t,/算力资金/);
  assert.match(t,/1\.26 亿/);
+ assert.match(t,/eastmoney/);assert.match(t,/源端资金时刻未提供/);
  assert.doesNotMatch(t,/无单位板块/);
  await tick();ctx.controller.abort();
+});
+test('the sector main panel and picker follow the selected stock and date, including an absent historical day',async()=>{
+ dom();const {renderMarket}=await import('../public/nova/market.js'),day='2026-11-17',s=fixture(2);
+ const funds=(code,name,value)=>({code,name,mainInflow:value,source:'eastmoney',fundsUnit:'CNY',
+  fundsMethod:'vendor-order-size-estimate',retrievedAt:Date.parse(day+'T14:00:00+08:00'),sourceTimestamp:null});
+ const bank=funds('BK0475','银行',126000000),chip=funds('BK1034','芯片',200000000),other=funds('BK0937','消费电子',-20000000);
+ s.sectors=[chip];s.sectorsDay=day;
+ const ctx=context(s),changed=[];ctx.decisionSelection={code:'600001',day,row:{name:'所选股票',sector:'银行',themes:['消费电子']}};
+ ctx.onDecisionSelection=fn=>changed.push(fn);
+ ctx.api=async url=>{
+  if(!url.startsWith('/api/decision-sector-context?'))return {items:[]};
+  const date=new URL(url,'http://localhost').searchParams.get('date');
+  return {ok:true,day:date,sectorsDay:date,rows:date===day?[bank,chip,other]:[],missing:date===day?[]:['未留存该日板块资金']};
+ };
+ const view=renderMarket({sub:'sectors'},ctx),panel=()=>locate(view,n=>n.dataset?.sectorSelection==='600001');
+ await tick();
+ assert.match(textOf(panel()),/银行.*1\.26 亿/s);assert.doesNotMatch(textOf(panel()),/芯片/);
+ const picker=locate(panel(),n=>n['aria-label']==='当前股票对应板块');
+ assert.equal(picker.value,'BK0475');assert.deepEqual(picker.children.map(n=>textOf(n).trim()),['银行 · BK0475','消费电子 · BK0937']);
+ picker.value='BK0937';picker.listeners.change({currentTarget:picker});
+ assert.equal(locate(panel(),n=>n['data-selected-sector']==='BK0937')['data-day'],day);
+ assert.match(textOf(panel()),/-2,000\.00 万元/);
+ ctx.decisionSelection={...ctx.decisionSelection,day:'2026-11-16'};changed.forEach(fn=>fn());await tick();
+ assert.equal(panel().dataset.day,'2026-11-16');assert.match(textOf(panel()),/未留存该日板块资金/);
+ assert.doesNotMatch(textOf(panel()),/1\.26 亿|2\.00 亿|-2,000\.00 万/,'the linked main panel never shows the other date’s funds');
+ ctx.controller.abort();
 });
 test('mismatched, missing, and stale retained sector days never draw a false same-day fund bar',async()=>{
  dom();const {renderTerminalOverview}=await api;
@@ -307,7 +335,8 @@ test('homepage dates compact and full sector evidence without dating an undated 
  dom();const {renderTerminalOverview}=await api;
  const row={code:'000001',name:'已返回标的',sector:'源端板块',limitUpCount:2};
  const digest={trading:true,snapshotDay:'20261123',dashboard:{snapshotDay:'20261123'},sectorsDay:'20261123',
-  sectors:[{name:'同日资金',netInflowYuan:200000000}],ztPool:{day:'20261123',count:95,top:[row,row]}};
+  sectors:[{name:'同日资金',mainInflow:200000000,source:'eastmoney',fundsUnit:'CNY',fundsMethod:'vendor-order-size-estimate',
+   retrievedAt:Date.parse('2026-11-23T14:00:00+08:00'),sourceTimestamp:null}],ztPool:{day:'20261123',count:95,top:[row,row]}};
  const check=(s,assertions)=>{
   const ctx=context(s),view=renderTerminalOverview(ctx);
   try{assertions(textOf(locate(view,n=>n?.className==='fy-terminal-context')),textOf(locate(view,n=>n?.className==='fy-terminal-provenance')));}

@@ -4,6 +4,8 @@ import { settingsAt } from './settings.mjs';
 import { pressureLearningTags } from './pressure.mjs';
 import { isTestSample,sampleMatches } from './sample-quality.mjs';
 import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
+import {dictionaryVersion,factorDictionary} from './factor-dictionary.mjs';
+import {MODEL,readNumericCheck,fitNumericModel,numericScore,projectNumeric,validModel,fingerprint,stable} from './numeric-factors.mjs';
 export {stats,renderLearningSnapshot};
 
 const MINUTE = /^\d{4}-\d\d-\d\dT\d\d:\d\d$/;
@@ -61,12 +63,69 @@ function policyAt(state,asOf){
   const s=settingsAt(state,asOf);
   return {decayEnabled:s.decayEnabled===true,decayHalfLifeDays:s.decayHalfLifeDays||120,settingsVersion:s.version,asOf};
 }
+function settlementNumeric(state,row,check){
+  const entry=instant(row.entryTimestamp??row.entryTime),exit=instant(row.exitTimestamp??row.exitTime),recorded=instant(row.createdAt);
+  const plan=(state.plans||[]).find(item=>item.id===row.planId),frozen=instant(plan?.frozenAt);
+  const synthetic=item=>!item||isTestSample(item)||item.synthetic===true||item.mock===true||
+    /(?:^|[-_: /])(fixture|simulated|synthetic|mock|demo)(?:$|[-_: /])/i.test(String(item.source||''));
+  if(synthetic(row)||synthetic(plan)||synthetic(check)||!row.snapshotVerified||!plan||plan.code!==row.code||!check||check.code!==row.code||
+      !Number.isFinite(entry)||!Number.isFinite(exit)||!Number.isFinite(recorded)||!Number.isFinite(frozen)||
+      frozen>entry||exit<=entry||exit>recorded||asDate(localTime(exit))<=asDate(localTime(entry))||
+      ![row.entryPrice,row.exitPrice,row.shares,row.cost,row.pnl].every(Number.isFinite)||
+      row.entryPrice<=0||row.exitPrice<=0||!Number.isSafeInteger(row.shares)||row.shares<=0||row.cost<0)return null;
+  const amount=(row.exitPrice-row.entryPrice)*row.shares-row.cost,grossBasis=row.entryPrice*row.shares;
+  let returnBasis=grossBasis;
+  if(row.paperSettlement){
+    const proof=row.paperSettlement;
+    if(proof.symbol!==row.code||![proof.costBasisCents,proof.realizedCents,proof.exitGrossCents,proof.exitFeeCents].every(Number.isSafeInteger)||
+        !Number.isFinite(row.costBasis)||Math.abs(row.costBasis*100-proof.costBasisCents)>.001||
+        proof.costBasisCents<Math.round(grossBasis*100)||proof.costBasisCents<=0||
+        proof.exitGrossCents-proof.exitFeeCents-proof.costBasisCents!==proof.realizedCents||
+        Math.abs(amount*100-proof.realizedCents)>1||Math.abs(row.cost-(row.costBasis-grossBasis+proof.exitFeeCents/100))>.011)return null;
+    returnBasis=proof.costBasisCents/100;
+  }
+  const net=amount/returnBasis*100;
+  if(Math.abs(row.pnl-net)>.011||Number.isFinite(row.pnlAmount)&&Math.abs(row.pnlAmount-amount)>.011)return null;
+  let vector=readNumericCheck(check,state.catalog||[],entry);
+  const dictionary=factorDictionary(state.catalog||[]);
+  for(const id of Object.keys(vector.values))if(!dictionary.byCode.has(id)){
+    delete vector.values[id];delete vector.definitions[id];delete vector.evidence[id];
+  }
+  if(plan.decisionAuthority==='fayo-decision-center'){
+    // A workbench plan learns only from the exact observations frozen by its
+    // native preparation job. An old plan without this reference stays unknown;
+    // replacing the contents of a check with the same id cannot backfill it.
+    const ref=plan.researchFactorReference,point=instant(ref?.decisionAt),ids=ref?.factorIds;
+    if(ref?.schema!=='fayo-plan-factor-reference-v1'||ref.status!=='linked'||ref.code!==row.code||
+      ref.checkId!==check.id||ref.checkId!==plan.checkId||ref.checkId!==row.checkId||ref.signalDay!==check.date||
+      ref.targetDay!==plan.intendedDate||ref.decisionId!==plan.decisionId||ref.frozenAt!==plan.frozenAt||
+      ref.checkCreatedAt!==check.createdAt||ref.checkAsOf!==check.asOf||ref.dictionaryVersion!==dictionaryVersion||
+      !Number.isFinite(point)||point>frozen||instant(check.createdAt)>point||
+      plan.decisionEvidence?.calculatedAt!==ref.decisionAt||ref.checkFingerprint!==fingerprint(check)||
+      !Array.isArray(ids)||!ids.length||new Set(ids).size!==ids.length||!ref.numericFactors||
+      !ref.calendarEvidence||ref.calendarEvidence.from!==check.date||ref.calendarEvidence.to!==plan.intendedDate||
+      ref.calendarEvidenceFingerprint!==fingerprint(ref.calendarEvidence)||
+      ids.some(id=>!Number.isFinite(vector.values[id])||!vector.definitions[id]||!vector.evidence[id]))return null;
+    const values=Object.fromEntries(ids.map(id=>[id,vector.values[id]]));
+    const definitions=Object.fromEntries(ids.map(id=>[id,vector.definitions[id]]));
+    const evidence=Object.fromEntries(ids.map(id=>[id,vector.evidence[id]]));
+    if(ref.factorDefinitionFingerprint!==fingerprint(definitions)||
+      ref.observationFingerprint!==fingerprint({values,definitions,evidence})||
+      stable(ref.numericFactors)!==stable({values,definitions}))return null;
+    vector={values,definitions,evidence};
+  }
+  return Object.keys(vector.values).length?{values:vector.values,definitions:vector.definitions,evidence:vector.evidence,
+    checkId:check.id,knownAt:check.createdAt,signalDay:check.date,settlementKnownAt:Math.max(exit,recorded),
+    returnBasis:row.paperSettlement?'original-fee-inclusive-cost-basis':'recorded-entry-gross',
+    settlementFingerprint:fingerprint({entryPrice:row.entryPrice,exitPrice:row.exitPrice,shares:row.shares,cost:row.cost,pnl:row.pnl,
+      pnlAmount:row.pnlAmount,returnBasis,originalSettlement:row.paperSettlement||null})}:null;
+}
 function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includeTest=false}={}) {
   const cut=cutAt(asOf),end=instant(asOf);
   if(!cut||!Number.isFinite(end))return [];
   const allowTests=state.scope==='demo'||includeTest===true;
   const accept=r=>sampleMatches(r,selection)&&(allowTests||!isTestSample(r));
-  const manual=[],checks=new Map((state.checks||[]).map(c=>[c.id,c]));
+  const manual=[],checks=new Map((state.checks||[]).map(c=>[c.id,c])),numericSignals=new Set();
   for(const r of state.trades||[]){
     if(!accept(r)||strict&&r.snapshotVerified!==true)continue;
     const exit=cutAt(r.exitTime||(r.exitDate||r.date)+'T15:00');
@@ -74,7 +133,10 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
     if(!exit||!captured||instant(exit)>end||instant(original)>end)continue;
     const check=checks.get(r.checkId);
     const codes=check?.code===r.code?evidenceCodes(check,instant(r.entryTime)):[];
-    manual.push({...r,factors:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
+    const signalKey=check?.code+'/'+check?.id;
+    const numericFactors=numericSignals.has(signalKey)?null:settlementNumeric(state,r,check);
+    if(numericFactors)numericSignals.add(signalKey);
+    manual.push({...r,numericFactors,factors:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
   }
   const kr=kLearningRows(state,cut.replace('T',' '),{includeTests:allowTests,quality:selection});
   const k=kr.filter(r=>accept(r)&&cutAt(r.exitTime||r.exitDate+'T15:00')&&cutAt(r.exitTime||r.exitDate+'T15:00')<cut).map(r=>({...r,
@@ -95,10 +157,19 @@ export function predict(state,input={}) {
   const v=[...(state.versions||[])].reverse().find(v=>(state.scope==='demo'||v.sampleScope!=='demo')&&v.approvedAt && v.weights && Date.parse(v.approvedAt)<=instant(asOf));
   const rows=rowsFor(state,asOf,true).filter(r=>(!input.trend||input.trend===r.trend)&&(!scope.length||strategyList(r).some(s=>scope.includes(s)))&&factors.every(f=>known(r).includes(f)));
   const gate=v?.strategyThresholds?.[scope[0]]??v?.threshold??-Infinity;
-  const s=stats(rows,policyAt(state,cut)), score=weightedScore(v?.weights||{},factorSet(input));
+  const s=stats(rows,policyAt(state,cut));
+  const numericResult=v?.numericModel?numericScore(v.numericModel,input.numericFactors):null;
+  const modelValid=!v?.numericModel||v.numericModel.dictionaryVersion===dictionaryVersion&&validModel(v.numericModel)&&
+    stable(v.weights)===stable(v.numericModel.weights)&&v.scoringFingerprint===fingerprint(scoringState(v));
+  const score=numericResult?(modelValid&&Number.isFinite(numericResult.score)?round(numericResult.score):null):weightedScore(v?.weights||{},factorSet(input));
   const support=v?.minSupport||6;
-  return {...s,score,version:v?.number||0,risk:s.n<support?'同类样本不足':s.lossRate>=60?'同类组合亏损频率偏高':score<=gate?'低于已审批候选评分阈值':'历史样本可供参考'};
+  return {...s,score,version:v?.number||0,factorSchema:v?.numericModel?.schema||'legacy-presence-weights',
+    ...(numericResult?{modelFingerprint:v.numericModel.fingerprint,numericMissing:modelValid?numericResult.missing:['获批模型/词典/评分指纹不一致']}:{}),
+    risk:numericResult&&score===null?'已审批数值模型缺少同定义的当时观察':s.n<support?'同类样本不足':s.lossRate>=60?'同类组合亏损频率偏高':score<=gate?'低于已审批候选评分阈值':'历史样本可供参考'};
 }
+const scoringState=value=>({weights:value.weights,threshold:value.threshold,strategyThresholds:value.strategyThresholds,minSupport:value.minSupport,numericModel:value.numericModel||null});
+const validationState=value=>({...scoringState(value),baseVersion:value.baseVersion,sourceIds:value.sourceIds,
+  start:value.start,trainEnd:value.trainEnd,validationEnd:value.validationEnd,end:value.end,steps:value.steps});
 function attribution(t) {
   const keys=known(t);
   const choices=t.pnl>0 ? ['共振','发酵','辨识度','换手','承接'] : ['错配','利空','兑现','杀跌','流动性','退潮'];
@@ -266,10 +337,22 @@ function buildCandidate(state,automatic=false,centerProposal=null){
   const trainCut=new Date(Date.parse(a+'T00:00:00Z')-60000).toISOString().slice(0,16);
   const policy=policyAt(state,trainCut);
   const groups=groupStats(train,factorSet,policy).filter(g=>g.n>=4), baseline=stats(train,policy);
+  // A numeric model is fitted only to actual, reconciled net settlements whose
+  // frozen check was already known at entry. K-line return labels never enter it.
+  const numericModel=centerProposal?.numericModel?structuredClone(centerProposal.numericModel):!centerProposal&&state.scope!=='demo'?
+    fitNumericModel(train,{dictionaryVersion,trainCutoff:a+'T00:00:00+08:00'}):null;
+  if(numericModel&&(!validModel(numericModel)||numericModel.dictionaryVersion!==dictionaryVersion))throw Error('数值模型定义或冻结指纹无效');
+  if(!centerProposal&&lastVersion(state)?.numericModel&&!numericModel)return unavailable('数值模型缺少足够的同定义成熟成交，当前获批版本保持不变。');
+  if(numericModel){
+    const eligible=[train,validation,test].map(rows=>rows.filter(row=>row.numericFactors));
+    if(eligible.flat().length<36||unique(eligible.flat().map(row=>row.date)).length<15||eligible.some((rows,i)=>rows.length<(i===0?12:6)))
+      return unavailable('数值模型需至少36条已核对净费用的成熟成交、15个信号日及12/6/6独立样本；行情收益标签不计入。');
+  }
   // Priors shrink sparse factors back toward the training mean.
-  const weights=centerProposal?{...centerProposal.weights}:Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.effectiveN/(g.effectiveN+8))))]));
-  if(centerProposal&&centerProposal.changedFactorIds.some(key=>!groups.some(group=>group.key===key)))throw Error('中心调整因子缺少原训练集中的同名已观察特征，禁止猜测映射');
-  const reviewRefs=centerProposal?[]:(state.notes||[]).filter(n=>n.factor&&Object.hasOwn(weights,n.factor)&&n.tradeId&&n.createdAt&&localTime(Date.parse(n.createdAt))<a&&train.some(r=>r.id===n.tradeId&&factorSet(r).includes(n.factor)));
+  const weights=centerProposal?{...centerProposal.weights}:numericModel?{...numericModel.weights}:Object.fromEntries(groups.map(g=>[g.key,round(Math.max(-3,Math.min(3,(g.expectedReturn-baseline.expectedReturn)*g.effectiveN/(g.effectiveN+8))))]));
+  if(numericModel&&stable(weights)!==stable(numericModel.weights))throw Error('验证权重与数值模型权重不一致');
+  if(centerProposal&&centerProposal.changedFactorIds.some(key=>numericModel?!train.some(row=>Number.isFinite(row.numericFactors?.values[key])):!groups.some(group=>group.key===key)))throw Error('中心调整因子缺少原训练集中的同名已观察特征，禁止猜测映射');
+  const reviewRefs=centerProposal||numericModel?[]:(state.notes||[]).filter(n=>n.factor&&Object.hasOwn(weights,n.factor)&&n.tradeId&&n.createdAt&&localTime(Date.parse(n.createdAt))<a&&train.some(r=>r.id===n.tradeId&&factorSet(r).includes(n.factor)));
   // Review hypotheses count only if already recorded and backed by an actual training feature.
   for(const f of unique(reviewRefs.map(n=>n.factor))) {
     const linked=new Set(reviewRefs.filter(n=>n.factor===f).map(n=>n.tradeId));
@@ -278,14 +361,22 @@ function buildCandidate(state,automatic=false,centerProposal=null){
       weights[f]=round(weights[f]+Math.max(-0.25,Math.min(0.25,(score-baseline.expectedReturn)/10)));
     }
   }
-  const score=r=>weightedScore(weights,factorSet(r));
-  const threshold=Math.max(0,weightedQuartile(train,score,policy)),minSupport=6;
+  const scoreCache=new WeakMap();
+  const score=r=>{
+    if(!numericModel)return weightedScore(weights,factorSet(r));
+    if(scoreCache.has(r))return scoreCache.get(r);
+    const projected=projectNumeric(r.numericFactors?.values,numericModel,r.numericFactors?.definitions||{}),ids=numericModel.parameters.map(p=>p.factorId);
+    const value=ids.every(id=>Number.isFinite(projected[id]))?ids.reduce((sum,id)=>sum+projected[id]*weights[id],0)/Math.sqrt(ids.length):null;
+    scoreCache.set(r,value);return value;
+  };
+  const scorable=rows=>numericModel?rows.filter(row=>Number.isFinite(score(row))):rows;
+  const threshold=Math.max(0,weightedQuartile(scorable(train),score,policy)),minSupport=6;
   const strategyThresholds=Object.create(null);
   for (const strat of unique(train.flatMap(strategyList))) {
-    const group=train.filter(r=>strategyList(r).includes(strat));
+    const group=scorable(train.filter(r=>strategyList(r).includes(strat)));
     if(group.length>=12)strategyThresholds[strat]=Math.max(threshold,weightedQuartile(group,score,policy));
   }
-  const passRows=rows=>rows.filter(r=>weightedScore(weights,factorSet(r))>(strategyThresholds[r.strategy]??threshold));
+  const passRows=rows=>rows.filter(r=>Number.isFinite(score(r))&&score(r)>(strategyThresholds[r.strategy]??threshold));
   const steps=[];
   function gate(i,pass,evidence){
     steps.push({name:stages[i],status:pass?'通过':'未通过',evidence});
@@ -295,7 +386,7 @@ function buildCandidate(state,automatic=false,centerProposal=null){
   for(const [i,origin] of [train,validation,test].entries()){
     chosen=passRows(origin);
     const evaluation={...policy,asOf:i===0?trainCut:i===1?b:localTime(clock)};
-    const s=stats(chosen,evaluation),base=stats(origin,evaluation),dates=unique(chosen.map(r=>r.date));
+    const s=stats(chosen,evaluation),base=stats(numericModel?origin.filter(row=>row.numericFactors):origin,evaluation),dates=unique(chosen.map(r=>r.date));
     const pass=s.n>=minSupport&&dates.length>=3&&s.expectedReturn>0&&s.expectedReturn>=base.expectedReturn&&(i!==0||Object.values(weights).some(x=>x>0));
     if(!gate(i,pass,'选中 '+s.n+' / '+base.n+' 条，'+dates.length+' 个信号日，均值 '+val(s.expectedReturn,'%')+'，同期基准 '+val(base.expectedReturn,'%')+'。要求至少 6 条、3 日且均值为正并达到基准。'))break;
   }
@@ -310,11 +401,17 @@ function buildCandidate(state,automatic=false,centerProposal=null){
   }
   while(steps.length<stages.length)steps.push({name:stages[steps.length],status:'未运行',evidence:'等待前置环节通过'});
   const candidate={id:id('candidate'),sampleScope:state.scope==='demo'?'demo':'live',decay:policy,createdAt:now(),baseVersion:lastVersion(state)?.number||0,start:days[0],trainEnd:a,validationEnd:b,end:raw.map(r=>asDate(closedAt(r))).sort().at(-1),weights,threshold,strategyThresholds,minSupport,steps,status:steps.every(s=>s.status==='通过')?'待人工审批':'验证未通过',counts:[train.length,validation.length,test.length],sourceIds:[...train,...validation,...test].map(r=>r.id),reviewRefs:reviewRefs.map(n=>n.id)};
+  candidate.factorSchema=numericModel?MODEL:'legacy-presence-weights';
+  candidate.numericModel=numericModel;
+  candidate.numericCoverage={status:numericModel?'evaluated-by-same-five-gates':'missing-eligible-numeric-training-evidence',
+    scorableCounts:[train,validation,test].map(rows=>rows.filter(row=>numericModel?Number.isFinite(score(row)):row.numericFactors&&Object.keys(row.numericFactors.values).length).length),
+    klineLabelsUsed:false};
   if(centerProposal)candidate.centerFeedback={proposalFingerprint:centerProposal.proposalFingerprint,sourceFold:centerProposal.sourceFold,
     dictionaryVersion:centerProposal.dictionaryVersion,baselineFingerprint:centerProposal.baselineFingerprint,
     trainingFingerprint:centerProposal.trainingFingerprint,inputEvidenceFingerprint:centerProposal.inputEvidenceFingerprint,
     calendarEvidenceFingerprint:centerProposal.calendarEvidenceFingerprint,
     ranges:structuredClone(ranges),changedFactorIds:[...centerProposal.changedFactorIds],sameProposedWeights:true};
+  candidate.validationFingerprint=fingerprint(validationState(candidate));
   state.candidates.push(candidate);return candidate;
 }
 
@@ -332,6 +429,8 @@ export function validateCenterCandidate(state,proposal){
   }
   if(!(proposal.ranges.train.end<proposal.ranges.validation.start&&proposal.ranges.validation.end<proposal.ranges.test.start)||
       Object.values(proposal.weights).some(value=>typeof value!=='number'||!Number.isFinite(value)))throw Error('中心提案的权重或隔离窗口无效');
+  if(proposal.numericModel&&(proposal.factorSchema!==MODEL||!validModel(proposal.numericModel)||
+      stable(proposal.numericModel.weights)!==stable(proposal.weights)))throw Error('中心数值提案模型、定义或权重指纹不一致');
   for(const key of ['candidates','versions'])state[key]||=[];
   return buildCandidate(state,false,proposal);
 }
@@ -352,6 +451,7 @@ export function learningAction(state,action,p={}){
   if(action==='learn:decision'){
     const c=state.candidates.find(x=>x.id===p.id);
     if(!c || c.status!=='待人工审批'||c.steps.length!==5||!c.steps.every((s,i)=>s.name===stages[i]&&s.status==='通过'))throw Error('仅允许审批五项验证均已通过的候选');
+    if((c.validationFingerprint||c.numericModel)&&c.validationFingerprint!==fingerprint(validationState(c)))throw Error('候选模型、定义、权重或验证记录已变化，必须重新验证');
     const reviewer=required(p.reviewer,'审批人',50),reason=required(p.reason,'审批意见',2000);
     if(!['approve','reject'].includes(p.decision))throw Error('请选择审批结论');
     if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isTestSample(r)&&c.sourceIds?.includes(r.id))))throw Error('含测试样本的候选仅用于演示档案');
@@ -360,6 +460,7 @@ export function learningAction(state,action,p={}){
     c.decision={reviewer,reason,at:now()};
     if(p.decision==='reject'){c.status='人工驳回';return c;}
     const ver={id:id('version'),sampleScope:c.sampleScope||'live',decay:c.decay,number:prev+1,candidateId:c.id,approvedAt:c.decision.at,reviewer,reason,weights:{...c.weights},strategyThresholds:{...c.strategyThresholds},minSupport:c.minSupport,threshold:c.threshold};
+    if(c.numericModel){ver.numericModel=structuredClone(c.numericModel);ver.factorSchema=MODEL;ver.validationFingerprint=c.validationFingerprint;ver.scoringFingerprint=fingerprint(scoringState(ver));}
     state.versions.push(ver);c.status='已晋级';return ver;
   }
   throw Error('未知学习操作');
@@ -451,7 +552,7 @@ export function renderLearning(ui,mode='trades'){
     if(mode==='versions'){
       const ver=versions[0],latest=candidates[0];
       html+=metricsBar([['运行版本',ver?'V'+ver.number:'基础规则'],['候选方案',candidates.length],['待人工审批',candidates.filter(c=>c.status==='待人工审批').length],['已晋级版本',versions.length]]);
-      html+=panel('候选参数',button('candidate','生成并验证候选',true),table(['生成日期','训练 / 时间外 / 样本外','权重数量','状态','验证记录'],candidates.map(c=>[E(asDate(c.createdAt)),E(c.counts?.join(' / ')),Object.keys(c.weights||{}).length,E(c.status),link('candidate:'+c.id,'查看验证')]),'尚无可验证候选。需累积时点可核验的已成熟样本。'));
+      html+=panel('候选参数',button('candidate','生成并验证候选',true),table(['生成日期','训练 / 时间外 / 样本外','评分模型','权重数量','状态','验证记录'],candidates.map(c=>[E(asDate(c.createdAt)),E(c.counts?.join(' / ')),c.numericModel?'正交数值':'原标签',Object.keys(c.weights||{}).length,E(c.status),link('candidate:'+c.id,'查看验证')]),'尚无可验证候选。需累积时点可核验的已成熟样本。'));
       html+=panel('验证与审批顺序','',stages.map((l,i)=>'<div class="learn-stage"><b>'+E(l)+'</b><span class="tag">'+E(latest?.steps?.[i]?.status||'等待样本')+'</span><p>'+E(latest?.steps?.[i]?.evidence||['仅从训练段学习因子权重，冻结选样阈值和训练参数。','验证较晚时段的收益，清除跨越分界的未平仓样本。','在独立留出时段检验已冻结的候选参数。','逐笔增加双边成本与滑点，检验净收益。','检查单笔尾部损失、曲线回撤和标的集中度。'][i])+'</p></div>').join('')+'<p class="learn-hint">五项通过后进入人工审批。审批将保存操作人、意见和版本生效时间。</p>');
       html+=renderLearningSnapshot(perf());
       html+=panel('版本记录','',table(['版本','生效时间','审批人','审批意见'],versions.map(v=>['V'+E(v.number),E(localTime(Date.parse(v.approvedAt)).replace('T',' ')),E(v.reviewer),E(v.reason)]),'当前使用基础规则'));
@@ -502,7 +603,10 @@ export function renderLearning(ui,mode='trades'){
   }
   function candidateInfo(c){
     const audit=c.steps.map(step=>'<div class="learn-stage"><b>'+E(step.name)+'</b><span>'+E(step.status)+'</span><p>'+E(step.evidence)+'</p></div>').join('');
-    const body='<p>'+E(c.decay?.decayEnabled?'训练半衰期 '+c.decay.decayHalfLifeDays+' 天':'训练样本等权')+' · '+E(c.sampleScope==='demo'?'演示档案':'正式档案')+'</p><p>'+E(c.start)+' 至 '+E(c.end)+' · 基线 V'+E(c.baseVersion)+'</p><p class="learn-small">时间外起点 '+E(c.trainEnd)+'，样本外起点 '+E(c.validationEnd)+'</p>'+audit+fold('候选因子权重与阈值',table(['因子','候选权重'],Object.entries(c.weights).map(([k,v])=>[E(k),val(v)]))+table(['战法','专属评分门槛'],Object.entries(c.strategyThresholds||{}).map(([k,v])=>[E(k),val(v)]),'采用共用评分阈值')+'<p>选样要求评分大于 '+val(c.threshold)+'，最少 '+val(c.minSupport)+' 条。</p>')+(c.decision?'<p>审批记录 · '+E(c.decision.reviewer)+' · '+E(c.decision.reason)+'</p>':'');
+    const numericDetail=c.numericModel?'<p>正交数值模型 · '+E(c.numericModel.trainingRows)+' 条已核对净费用的训练成交。上方五项验证使用本模型评分；批准后用于研究预测，原交易门禁保持。</p>'+fold('数值定义与冻结基底',
+      table(['因子','数值含义 / 单位','训练均值','训练尺度','正交残差尺度'],c.numericModel.parameters.map(p=>[E(p.factorId),E(c.numericModel.definitions[p.factorId].semanticVersion)+' / '+E(c.numericModel.definitions[p.factorId].unit),val(round(p.center)),val(round(p.scale)),val(round(p.residualScale))]))+
+      '<p class="learn-small">模型指纹 '+E(c.numericModel.fingerprint)+'；训练截止 '+E(c.numericModel.trainCutoff)+'。</p>'):'<p class="learn-small">原标签出现模型；未建立数值因子获批基线。</p>';
+    const body='<p>'+E(c.decay?.decayEnabled?'训练半衰期 '+c.decay.decayHalfLifeDays+' 天':'训练样本等权')+' · '+E(c.sampleScope==='demo'?'演示档案':'正式档案')+'</p><p>'+E(c.start)+' 至 '+E(c.end)+' · 基线 V'+E(c.baseVersion)+'</p><p class="learn-small">时间外起点 '+E(c.trainEnd)+'，样本外起点 '+E(c.validationEnd)+'</p>'+numericDetail+audit+fold('候选因子权重与阈值',table(['因子','候选权重'],Object.entries(c.weights).map(([k,v])=>[E(k),val(v)]))+table(['战法','专属评分门槛'],Object.entries(c.strategyThresholds||{}).map(([k,v])=>[E(k),val(v)]),'采用共用评分阈值')+'<p>选样要求评分大于 '+val(c.threshold)+'，最少 '+val(c.minSupport)+' 条。</p>')+(c.decision?'<p>审批记录 · '+E(c.decision.reviewer)+' · '+E(c.decision.reason)+'</p>':'');
     if(c.status!=='待人工审批')return showInfo('候选验证记录',body);
     form('审核候选参数',body+grid(input('reviewer','审批人','','text',true)+sel('decision','人工决定',['驳回候选','批准晋级']))+textArea('reason','审批意见（必填）'),'learn:decision',p=>({...p,id:c.id,decision:p.decision==='批准晋级'?'approve':'reject'}));
   }

@@ -84,10 +84,10 @@ test('only the internal preparation job may attach an authoritative lineage to t
   const currentDay=new Date(Date.now()+28800000).toISOString().slice(0,10),card=authority({day:currentDay,calculatedAt:Date.now(),strategyAt:Date.now()-10000});
   const payload=decisionPlanPayload(card);
   await assert.rejects(shortlineJob({root:dir,input:{revision:0,action:'learn:plan',payload:{...payload,decisionAuthority:card.authority,decisionId:card.decisionId}}}),/服务端准备/);
-  const r=await shortlineJob({root:dir,decisionPlan:card,input:{revision:0,action:'learn:plan',payload}});
+  const r=await shortlineJob({root:dir,decisionPlan:card,beforeDecisionCommit:()=>true,input:{revision:0,action:'learn:plan',payload}});
   assert.equal(r.result.entryMin,9.8);assert.equal(r.result.decisionId,card.decisionId);assert.equal(r.state.revision,1);
   const reread=await shortlineJob({root:dir});assert.deepEqual(reread.state.plans[0],r.result);
-  await assert.rejects(shortlineJob({root:dir,decisionPlan:card,input:{revision:1,action:'learn:plan',payload:{...payload,entryMax:10.2}}}),/服务器决策/);
+  await assert.rejects(shortlineJob({root:dir,decisionPlan:card,beforeDecisionCommit:()=>true,input:{revision:1,action:'learn:plan',payload:{...payload,entryMax:10.2}}}),/服务器决策/);
   assert.equal((await shortlineJob({root:dir})).state.revision,1);
 });
 test('durable conditional intent invokes the original paperBuy and original authority ledger, then restart reconciles one fill',async t=>{

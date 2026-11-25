@@ -1,0 +1,62 @@
+{
+  "baseline": "d3585ff2e03300d303f502e3126d029650b0cdc6",
+  "appVersion": "20261125ad",
+  "frontendRevision": "center-20261125-3",
+  "localValidatedCommit": "be738c221f0220ffb31626a3f47415e2b4344c71",
+  "fullRegression": {
+    "tests": 4995,
+    "suites": 0,
+    "pass": 4991,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "todo": 0,
+    "duration_ms": 227920.443847,
+    "exitCode": 0,
+    "tapCompleteness": true,
+    "uncompressedSha256": "da93642eb574019f4f0dba82b240651bcd0c64259767505c656b3731694850f9",
+    "skippedTests": [
+      "ok 1222 - actual PowerShell wrapper handles paths with spaces, opens only a verified page, and cleans temporary controls # SKIP",
+      "ok 2201 - 五类模型通过同一研究入口、筛选条件和成本账本完成比较 # SKIP 需要 requirements-models-optional.txt",
+      "ok 2441 - 可选 lightgbm 对含负收益标签的固定数据产生确定性回归输出 # SKIP lightgbm 未安装；安装 tools/requirements-models-optional.txt 后运行",
+      "ok 2443 - 可选 xgboost 对含负收益标签的固定数据产生确定性回归输出 # SKIP xgboost 未安装；安装 tools/requirements-models-optional.txt 后运行"
+    ]
+  },
+  "syntax": {
+    "exitCode": 0,
+    "frontendModules": 68
+  },
+  "originalHttpContract": {
+    "tests": 13,
+    "passed": 13,
+    "failed": 0
+  },
+  "protectedFunctions": {
+    "count": 19,
+    "allUnchanged": true,
+    "record": "protected-functions.json"
+  },
+  "isolatedBrowser": {
+    "desktopFirstPlanMs": 458,
+    "mobileFirstPlanMs": 344,
+    "decisionLinkagePassed": true,
+    "persistentReportPassed": true,
+    "viewerPrivateReads": 0,
+    "ledgerChanged": false
+  },
+  "priorLocalArchive": {
+    "runtimeFiles": 1251,
+    "sourceFiles": 3785,
+    "productionDeployed": false,
+    "uploadedToGitHub": false
+  },
+  "sourceBackup": {
+    "baseCommit": "d3585ff2e03300d303f502e3126d029650b0cdc6",
+    "verified": true,
+    "sha256": "54f6585fcb344e8ee4c45f3c911a6065828e0ab4a42d2d5d4fa3be7e5dca9d7b",
+    "productionColdBackupPerformed": false
+  },
+  "submissionScope": "Modified source, necessary tests and concise handoff/validation documentation. Full archives, screenshots and raw log attachments are not part of the PR file tree.",
+  "remoteChecks": "https://github.com/solviq87-cpu/v6-stock-system/pull/351/checks",
+  "productionDeployed": false
+}
