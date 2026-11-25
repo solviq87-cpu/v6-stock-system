@@ -1,16 +1,14 @@
 {
   "schemaVersion": 1,
   "repository": "solviq87-cpu/v6-stock-system",
-  "purpose": "Single execution ownership for the unified FAYO 01–78 continuation; never a deployment controller.",
-  "state": "blocked",
+  "state": "disabled",
   "owner": null,
-  "generation": 3,
+  "generation": 4,
   "startedAt": null,
   "checkpointBranch": "fix/fayo-paused-account-safety-bridge-20261126",
   "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
   "blockedFingerprint": "inherited-checkout-unavailable:github-dns-failed:0f6aa4b4377b09314a601068e3700b2373d3e425",
   "completion": false,
-  "recovery": "Do not take ownership from a running or unknown owner based on elapsed time or lack of commits. Only the recorded owner may release through a content-SHA compare-and-swap, or a human may recover after proving the old execution stopped.",
   "manualRecovery": {
     "authorizedBy": "user",
     "reason": "User explicitly requested clearing the blocked development execution lock. This is a manual release, not a completion or production-release approval.",
@@ -26,5 +24,19 @@
   "checkpointNote": "Integrated exact latest #353 sealed-time review gate and original boundary test/evidence; #368 readback confirmed. Parent ffd80165 had 33 successful checks; new head 14 checks queued/in progress at readback, no final test or release claim. Current execution lacks inherited checkout and direct GitHub DNS; pause automatic execution per user instruction until a usable project work environment is restored. See docs/FAYO_INTEGRATION_WIP_20261126.md. No dev merge or production writes.",
   "runId": null,
   "lastCompletedAt": "2026-11-25T19:19:36Z",
-  "lastCompletedOwner": "fayo-auto-2fced35d-1c94-8325-a20d-a8d753849052"
+  "lastCompletedOwner": "fayo-auto-2fced35d-1c94-8325-a20d-a8d753849052",
+  "enabled": false,
+  "purpose": "Retired development coordination lock; historical checkpoint only. Never an editing, trading, account, or release gate.",
+  "recovery": "User has withdrawn the custom development execution-lock requirement. Do not acquire, release, recreate or require this file for editing. Preserve ordinary Git branch/head conflict checks and existing account, order, permissions, CI and production release safeguards. This record does not certify a usable development environment.",
+  "retirement": {
+    "authorizedBy": "user",
+    "reason": "User requires manual editing at any time without custom development execution locks.",
+    "previousState": "blocked",
+    "previousGeneration": 3,
+    "previousBlobSha": "b649b5678a818ccd20f1addfc3f617a04311eb31",
+    "previousRecovery": "Do not take ownership from a running or unknown owner based on elapsed time or lack of commits. Only the recorded owner may release through a content-SHA compare-and-swap, or a human may recover after proving the old execution stopped.",
+    "previousPurpose": "Single execution ownership for the unified FAYO 01–78 continuation; never a deployment controller.",
+    "checkpointSha": "0f6aa4b4377b09314a601068e3700b2373d3e425",
+    "environmentBlockerStillPresent": true
+  }
 }
