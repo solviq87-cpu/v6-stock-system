@@ -32,11 +32,11 @@ test('A→B→A on same day sends A only once across process restarts',()=>space
  assert.equal((await send('a-one',epoch+242000)).status,'deduplicated-gateway-accepted');
  assert.equal(calls,2);
  const state=JSON.parse(fs.readFileSync(stateFile,'utf8'));
- assert.equal(state.schemaVersion,2);assert.equal(state.history.length,2);
+ assert.equal(state.schemaVersion,3);assert.equal(state.history.length,2);
  assert.doesNotMatch(JSON.stringify(state),/600001|600002|a-one|b-two/);
- assert.equal(state.digest,sha({schemaVersion:2,mode:state.mode,history:state.history}));
+ assert.equal(state.digest,sha({schemaVersion:3,mode:state.mode,history:state.history}));
 }));
-test('v1 receipt remains reserved even after a different risk upgrades file to v2',()=>space(async root=>{
+test('v1 receipt remains reserved even after a different risk upgrades file to v3',()=>space(async root=>{
  const stateFile=path.join(root,'receipt.json'),summary=prepareRiskSummary(report('a-one',epoch),{now:epoch});
  const old={schemaVersion:1,mode:'v6-private-feishu-gateway-receipt',
   day:summary.day,fingerprint:summary.legacyFingerprint,status:'pending-unknown',at:epoch};
@@ -51,6 +51,100 @@ test('v1 receipt remains reserved even after a different risk upgrades file to v
  // category/severity. A new critical event migrates the old reserved record.
  assert.equal((await send('b-two',epoch+121000,'critical')).status,'gateway-accepted');
  assert.equal((await send('a-one',epoch+242000)).status,'deduplicated-pending-unknown');
+ assert.equal(requests,1);
+}));
+test('identity-aware writes use a new journal protocol and reserve unknown outcomes across restart',()=>space(async root=>{
+ for(const status of ['gateway-accepted','pending-unknown']){
+  const stateFile=path.join(root,status+'.json');
+  let requests=0;
+  const fetchImpl=async()=>{requests++;if(status==='pending-unknown')throw Error('lost response');return sender();};
+  const send=now=>sendPrivateRiskSummary({report:report('a-one',now,'critical'),
+   stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
+  assert.equal((await send(epoch)).status,status);
+  const stored=JSON.parse(fs.readFileSync(stateFile,'utf8'));
+  // v1/v2 senders reject this envelope before dispatch instead of accepting
+  // the new identity fingerprint as a previously unseen aggregate report.
+  assert.equal(stored.schemaVersion,3);
+  assert.equal(stored.history[0].eventIdentityVersion,2);
+  assert.equal(stored.digest,sha({schemaVersion:3,mode:stored.mode,history:stored.history}));
+  assert.equal((await send(epoch+121000)).status,'deduplicated-'+status);
+  assert.equal(requests,1);
+ }
+}));
+test('existing v2 identity receipts keep their exact reservation when migrated to v3',()=>space(async root=>{
+ for(const status of ['gateway-accepted','pending-unknown']){
+  const stateFile=path.join(root,status+'.json');
+  const input=report('a-one',epoch,'critical');
+  const events=input.alerts.map(({id,code,severity})=>({id,code,severity}));
+  const day='2026-11-09',counts={positions:1,critical:1,warning:0,unknown:0,validQuotes:0,conflicts:0};
+  const record={day,fingerprint:sha({day,counts,events}),status,at:epoch,critical:1,
+   eventIdentityVersion:2,criticalEventKeys:events.map(sha)};
+  const old={schemaVersion:2,mode:'v6-private-feishu-gateway-receipt',history:[record]};
+  fs.writeFileSync(stateFile,JSON.stringify({...old,digest:sha(old)}));
+  let requests=0;
+  const fetchImpl=async()=>{requests++;return sender();};
+  const send=(id,now)=>sendPrivateRiskSummary({report:report(id,now,'critical'),
+   stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
+  const prior=await send('a-one',epoch+121000);
+  assert.equal(prior.status,'deduplicated-'+status);
+  assert.equal(prior.legacyIdentityUnverified,false);
+  assert.equal(prior.gatewayAccepted,status==='gateway-accepted');
+  assert.equal(requests,0);
+  const dedupOnly=JSON.parse(fs.readFileSync(stateFile,'utf8'));
+  assert.equal(dedupOnly.schemaVersion,3);assert.deepEqual(dedupOnly.history,[record]);
+  assert.equal((await send('b-two',epoch+122000)).status,'gateway-accepted');
+  const migrated=JSON.parse(fs.readFileSync(stateFile,'utf8'));
+  assert.equal(migrated.schemaVersion,3);assert.deepEqual(migrated.history[0],record);
+  assert.equal((await send('a-one',epoch+243000)).status,'deduplicated-'+status);
+  assert.equal(requests,1);
+ }
+}));
+test('dry-run never migrates an existing identity-aware v2 journal',()=>space(async root=>{
+ const stateFile=path.join(root,'journal.json');
+ const input=report('a-one',epoch,'critical');
+ const events=input.alerts.map(({id,code,severity})=>({id,code,severity}));
+ const day='2026-11-09',counts={positions:1,critical:1,warning:0,unknown:0,validQuotes:0,conflicts:0};
+ const old={schemaVersion:2,mode:'v6-private-feishu-gateway-receipt',history:[{
+  day,fingerprint:sha({day,counts,events}),status:'pending-unknown',at:epoch,critical:1,
+  eventIdentityVersion:2,criticalEventKeys:events.map(sha)}]};
+ const bytes=JSON.stringify({...old,digest:sha(old)});
+ fs.writeFileSync(stateFile,bytes);
+ const result=await sendPrivateRiskSummary({report:input,now:epoch,stateFile,webhookUrl:URL,
+  fetchImpl:async()=>{throw Error('must not send');}});
+ assert.equal(result.status,'dry-run');assert.equal(fs.readFileSync(stateFile,'utf8'),bytes);
+ assert.equal(fs.existsSync(stateFile+'.lock'),false);
+}));
+test('aggregate identity uncertainty survives a v2 to v3 journal rewrite',()=>space(async root=>{
+ const stateFile=path.join(root,'journal.json');
+ const day='2026-11-09',counts={positions:1,critical:1,warning:0,unknown:0,validQuotes:0,conflicts:0};
+ const record={day,fingerprint:sha({day,counts,codes:['weight-critical'],privateEventIds:['a-one']}),
+  status:'gateway-accepted',at:epoch,critical:1};
+ const old={schemaVersion:2,mode:'v6-private-feishu-gateway-receipt',history:[record]};
+ fs.writeFileSync(stateFile,JSON.stringify({...old,digest:sha(old)}));
+ let requests=0;
+ const fetchImpl=async()=>{requests++;return sender();};
+ const send=(id,now)=>sendPrivateRiskSummary({report:report(id,now,'critical'),
+  stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
+ assert.equal((await send('b-two',epoch+121000)).status,'gateway-accepted');
+ assert.equal(JSON.parse(fs.readFileSync(stateFile,'utf8')).schemaVersion,3);
+ const prior=await send('a-one',epoch+242000);
+ assert.equal(prior.status,'deduplicated-gateway-accepted');
+ assert.equal(prior.legacyIdentityUnverified,true);
+ assert.equal(prior.previousGatewayAccepted,true);assert.equal(prior.gatewayAccepted,false);
+ assert.equal(prior.deliveredToDevice,false);assert.equal(requests,1);
+}));
+test('journal version participates in integrity validation and cannot be silently downgraded',()=>space(async root=>{
+ const stateFile=path.join(root,'journal.json');
+ let requests=0;
+ const fetchImpl=async()=>{requests++;return sender();};
+ const send=(id,now)=>sendPrivateRiskSummary({report:report(id,now,'critical'),
+  stateFile,webhookUrl:URL,fetchImpl,enableDelivery:true,now});
+ assert.equal((await send('a-one',epoch)).status,'gateway-accepted');
+ const stored=JSON.parse(fs.readFileSync(stateFile,'utf8'));
+ for(const schemaVersion of [2,4]){
+  fs.writeFileSync(stateFile,JSON.stringify({...stored,schemaVersion}));
+  await assert.rejects(()=>send('b-two',epoch+121000),/持久化提醒记录损坏/);
+ }
  assert.equal(requests,1);
 }));
 test('short-term duplicate changes have a cooldown; a new critical escalation can bypass',()=>space(async root=>{
