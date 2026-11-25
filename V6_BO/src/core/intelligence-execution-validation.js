@@ -48,6 +48,13 @@ function verifiedSettlement(trade,plan,now) {
     cycle:plan.frozenSnapshot?.emotion?.stage||trade.frozenLabels?.cycle||trade.frozenLabels?.emotion||'unknown',quality,
     fingerprint:trade.sourceFingerprint,canTrade:false}};
 }
+function settledPnlAttribution(rows,{slippageBps=0,feeMultiplier=1}={}) {
+ const sum=fn=>rows.reduce((a,r)=>a+fn(r),0);
+ const gross=sum(r=>r.exitGrossCents-r.entryGrossCents),fees=sum(r=>r.costCents),net=sum(r=>r.netCents);
+ const slip=sum(r=>(r.entryGrossCents+r.exitGrossCents)*slippageBps/10000),extra=fees*(feeMultiplier-1);
+ const cny=n=>rows.length?+(n/100).toFixed(8):null;
+ return {scope:'verified-original-simulation-settlements-only',samples:rows.length,actual:{grossPricePnlCny:cny(gross),recordedCostsCny:cny(fees),netPnlCny:cny(net),reconciliationResidualCny:cny(net-(gross-fees))},estimatedStress:{additionalSlippageCny:cny(slip),additionalFeesCny:cny(extra),netPnlCny:cny(net-slip-extra)},unattributed:{marketCny:null,industryCny:null,selectionCny:null,positionCny:null,actualSlippageCny:null,delayCny:null,unfilledCny:null},portfolioEquity:null,canTrade:false,note:'仅拆分已验证原模拟盘结算，实际费用和假设压力分开；缺少统一权益、基准、计划及委托时间证据的因素保持未知。'};
+}
 function summary(rows,{slippageBps=0,feeMultiplier=1}={}) {
   const ordered=[...rows].sort((a,b)=>a.exit-b.exit||a.id.localeCompare(b.id));
   let cumulative=0,peak=0,drawdown=0;
@@ -62,6 +69,7 @@ function summary(rows,{slippageBps=0,feeMultiplier=1}={}) {
     winRatePct:rows.length?round(positives.length/rows.length*100):null,netPnlCny:rows.length?round(cumulative/100):null,
     profitFactor:loss>0?round(wins/loss):null,maximumIndividualLossPct:rows.length?round(Math.max(0,...outcomes.map(row=>-row.returnPct))):null,
     maxSettledPnlDrawdownCny:rows.length?round(drawdown/100):null,portfolioDrawdownPct:null,
+    attribution:settledPnlAttribution(rows,{slippageBps,feeMultiplier}),
     slippageBps,feeMultiplier,executionBasis:'original-unadjusted-verified-simulation-fills',
     returnBasis:'per-settlement-cost-basis',riskBasis:'cumulative-settled-pnl; no-continuous-equity-series',
     note:'原账本费用已扣；压力只叠加额外双边滑点及费用。累计结算盈亏回撤不冒充全账户权益最大回撤。'};
@@ -107,4 +115,4 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     canTrade:false,canApprove:false,productionWeightsChanged:false,
     note:'只验证已经发生且与事前计划匹配的原模拟结算；hfq 次日标签 IC 不当作成交收益。正式晋级仍需原五项验证及人工批准。'};
 }
-module.exports={verifiedSettlement,buildExecutionValidation};
+module.exports={verifiedSettlement,buildExecutionValidation,settledPnlAttribution};
