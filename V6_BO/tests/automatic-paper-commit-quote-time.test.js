@@ -53,6 +53,33 @@ test('missing, future and conflicting original clocks fail without changing the 
  for(const change of variants){const x=setup(t),quote=x.quote();change(quote);rejectWithoutFinancialChange(x,quote);}
 });
 
+test('explicit read-only quotes reject both automatic buys and sells with a separate audit reason',t=>{
+ for(const side of ['buy','sell'])for(const patch of [{canTrade:false},{readOnlyBackup:true}]){
+  const x=setup(t,{side});rejectWithoutFinancialChange(x,{...x.quote(),...patch});
+  const audit=x.app.audit();assert.equal(audit.total,1);
+  assert.deepEqual(audit.events[0].reasonCodes,['AUTOMATIC_QUOTE_READ_ONLY']);
+ }
+});
+
+test('one read-only quote rolls back a whole automatic batch after an earlier fill was staged',t=>{
+ const x=setup(t),before=fs.readFileSync(x.file),remove=fs.rmSync;let staged=0;
+ t.mock.method(fs,'rmSync',(target,...args)=>{
+  const result=remove(target,...args);
+  if(typeof target==='string'&&path.basename(target).startsWith('.legacy-stage-'))staged++;
+  return result;
+ });
+ const second={...x.trade,code:'600001'},input={...x.input,cash:97990,
+  positions:{...x.input.positions,'600001':{...x.input.positions['600000'],code:'600001'}},
+  trades:[second,x.trade]};
+ assert.throws(()=>x.app.saveLegacy(input,x.app.read().revision,{quotes:{
+  '600000':x.quote(),'600001':{...x.quote(),symbol:'600001',readOnlyBackup:true}
+ }}),/自动成交行情只读/);
+ assert.equal(staged,1,'the first valid fill must reach staging before the second is rejected');
+ assert.deepEqual(fs.readFileSync(x.file),before);
+ assert.equal(x.make().read().account.events.length,0);assert.equal(x.make().read().account.cash,100000);
+ assert.deepEqual(x.app.audit().events[0].reasonCodes,['AUTOMATIC_QUOTE_READ_ONLY']);
+});
+
 test('the legacy timestamp alias is still original quote time when quoteAt was never present',t=>{
  const x=setup(t),quote=x.quote(15000);delete quote.quoteAt;
  const book=x.save(quote);assert.equal(book.account.events[0].fillEvidence.quoteAt,quote.timestamp);
