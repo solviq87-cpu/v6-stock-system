@@ -36,11 +36,15 @@ function scalarDetails(value,depth=0){
  return Object.entries(value).filter(([k])=>!/token|secret|password|credential|cookie|url/i.test(k)).slice(0,30).map(([k,v])=>k+'：'+scalarDetails(v,depth+1)).join('；');
 }
 const labels={title:'标题',status:'证据状态',type:'类型',sourceEventId:'源事件编号',sourceRevisionId:'源版本',originalPublishedAt:'原发布时间',receivedAt:'接收时间',revisedAt:'修订时间',bodyScope:'正文范围',associated:'当前版本关联',securities:'证券',subject:'主体证券',industry:'行业归属',effectiveAt:'生效时点',note:'说明',day:'交易日',tradeDate:'交易日',decisionId:'原决策编号',entryMin:'冻结买入下界',entryMax:'冻结买入上界',stop:'冻结止损',target:'冻结目标',maxPosition:'冻结仓位上限',planId:'计划引用',side:'方向',price:'原成交价',quantity:'数量',account:'原模拟账户',reportHash:'日报指纹',reason:'原依据',availability:'原可成交状态',observedAt:'观察时点',version:'策略版本',archiveHash:'归档指纹',missing:'证据缺失',systems:'原策略判断',runId:'研究版本'};
+Object.assign(labels,{current:'截点当前版本',supportStatus:'研究支持状态',supersedes:'被替代版本引用',eligibleForResearchSupport:'可交原研究流程核验'});
+const supportLabels={superseded:'已被后续版本替代','security-removed':'证券关联已移除',retracted:'已撤稿',unknown:'证据不足','source-declared-unverified':'来源声明，尚未独立核实'};
+const eventValue=(key,value)=>key==='supportStatus'?(supportLabels[value]||'未知'):['current','associated','eligibleForResearchSupport'].includes(key)?(value===true?'是':value===false?'否':'未知'):
+ (/At$/.test(key)&&stamp(value))?dateTime(value):scalarDetails(value);
 function showEvent(m,selectedDay){const d=m.detail||{},url=safe(d.url);
  return h('article',{class:'fy-item'},h('strong',{},(kindLabels[m.kind]||m.kind)+' · '+(d.title||d.type||d.side||d.day||'')),
  facts([[d.timeBasis==='archive-receipt'?'归档定位时点（原发生时点未知）':'发生时点（北京时间）',dateTime(m.at)],['首次可知/归档时点',dateTime(m.knownAt)],['原始来源',m.source],['证据引用',m.ref],
   ...(d.timeBasis?[['时点依据',d.timeBasis==='source-declared'?'来源声明原时点':'原发生时点未知，仅按归档定位']]:[]),
-  ...Object.entries(d).filter(([k])=>!['url','bodyExcerpt','title','timeBasis'].includes(k)).map(([k,v])=>[labels[k]||k,(/At$/.test(k)&&stamp(v))?dateTime(v):scalarDetails(v)])]),
+  ...Object.entries(d).filter(([k])=>!['url','bodyExcerpt','title','timeBasis'].includes(k)).map(([k,v])=>[labels[k]||k,eventValue(k,v)])]),
  selectedDay&&day(m.at)!==selectedDay?h('p',{class:'fy-muted'},'原发生日在可见回放窗口之外，本标记按归档日定位。'):null,
  d.bodyExcerpt?h('p',{},'原文节选：'+d.bodyExcerpt):null,url?h('a',{href:url,target:'_blank',rel:'noopener noreferrer'},'查看原始来源'):null);
 }
@@ -87,7 +91,7 @@ function replayResultValid(r,symbol,cutoff){
   Array.isArray(r.markers)&&r.markers.length<=500&&r.markers.every(m=>stamp(m.at)&&stamp(m.knownAt)&&m.at<=m.knownAt&&m.knownAt<=cutoff&&typeof m.ref==='string'&&noWrite(m));
 }
 export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=ctx.signal,memory=null}={}){
- const saved=memory?.replayContext;
+ const candidate=memory?.replayContext,saved=!code(symbol)||candidate?.symbol===symbol?candidate:null;
  const initial=code(symbol)?symbol:saved?.symbol||'';
  const stock=h('input',{type:'text',inputmode:'numeric',maxlength:'6','aria-label':'回放证券代码',value:initial,disabled:!!symbol});
  const at=h('input',{type:'datetime-local',step:'0.001','aria-label':'回放截点 北京时间',value:asOf?beijing(asOf):saved?.cutoff||''});
@@ -96,7 +100,7 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
  const window=select([[7,'7 日'],[14,'14 日'],[30,'30 日']],saved?.window||14,'回放窗口');
  const board=select([['','默认已归档板块']],boardValue,'回放板块');
  const display=h('div',{class:'fy-stack','aria-live':'polite'}),status=h('p',{class:'fy-note',role:'status'},'尚未读取历史档案。不会重新采集行情或使用回放价格下单。');
- const enabled=new Set(['stock','sector','index']),toggleBar=h('div',{class:'fy-inline'});
+ const enabled=new Set(['stock','sector','index']),toggleBar=h('div',{class:'fy-inline'}),toggleButtons=new Map();
  const zoom=h('input',{type:'range',min:2,max:14,step:1,value:14,'aria-label':'缩放可见日期范围'});
  const zoomText=h('small',{class:'fy-muted'});
  const loadButton=button('读取联动回放',()=>load(),'primary');
@@ -112,9 +116,16 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
   turn++;request?.abort();data=null;display.replaceChildren();selected.replaceChildren();selectedDay=null;loadButton.disabled=false;
   status.textContent='条件已改变，请重新读取；旧股票和旧日期的响应不会覆盖当前视图。';
  }
+ // Keep navigation preferences, never private evidence or execution prices.
+ // A return visit must reread and match the original archive before restoring.
+ function remember(){
+  if(memory&&data)memory.replayContext={symbol:data.symbol,cutoff:beijing(data.asOf),window:Number(window.value),board:boardValue,
+   runId:data.runId,zoom:Number(zoom.value),selectedDay,enabled:[...enabled]};
+ }
  function paintEvents(date){
   selectedDay=date;const dates=new Set(visibleRows().map(r=>r.date)),found=arr(data?.markers).filter(m=>markerDay(m,dates)===date);
   selected.replaceChildren(h('h3',{},date+' · '+found.length+' 条原档案标记'),...found.slice(0,100).map(m=>showEvent(m,date)));
+  remember();
  }
  function visibleRows(){return data.rows.slice(-Math.max(2,Math.min(data.rows.length,Number(zoom.value)||data.rows.length)));}
  function paint(){
@@ -129,11 +140,12 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
    details('逐日数值、数据源与原始时点',...visible.map(r=>details(r.date+' · '+(r.comparison==='same-window'?'同窗口':'非完整同口径'),
      ...['stock','sector','index','close'].map(k=>facts([[seriesLabels[k]||'未复权收盘价',r[k]?format(r[k].value,2)+(k==='close'?' 元':'%'):'未知'],['来源',r[k]?.source],['证券与口径',scalarDetails(r[k]?.identity)],['已知时点',r[k]?dateTime(r[k].knownAt):'未知'],['原研究引用',r[k]?.ref]]))))));
   if(selectedDay&&visible.some(r=>r.date===selectedDay))paintEvents(selectedDay);
-  else selected.replaceChildren();
+  else{selectedDay=null;selected.replaceChildren();}
+  remember();
  }
  for(const [key,label]of Object.entries(seriesLabels)){
   const b=button(label,()=>{if(enabled.has(key)&&enabled.size>1)enabled.delete(key);else enabled.add(key);b.setAttribute('aria-pressed',String(enabled.has(key)));paint();},'quiet');
-  b.setAttribute('aria-pressed','true');toggleBar.append(b);
+  b.setAttribute('aria-pressed','true');toggleButtons.set(key,b);toggleBar.append(b);
  }
  zoom.addEventListener('input',paint);
  at.addEventListener('input',()=>{pinned=null;invalidate();});stock.addEventListener('input',()=>{boardValue='';pinned=null;invalidate();});
@@ -142,20 +154,28 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
  if(signal){globalThis.addEventListener('offline',()=>{invalidate();status.textContent='连接已离线，私有回放已清空，请重新读取。';},{signal});globalThis.addEventListener('resize',paint,{signal});}
  async function load(){
   const requested=stock.value.trim(),cutoff=pinned??toTime(at.value),w=Number(window.value),id=++turn;
+  const prior=memory?.replayContext;
   request?.abort();request=new AbortController();const controller=request;
   if(invalidated()||!code(requested)||!stamp(cutoff)||cutoff>Date.now()){status.textContent='需要有效证券代码及不晚于现在的北京时间截点';return;}
   if(signal?.aborted)return;
   const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
   loadButton.disabled=true;display.replaceChildren();selected.replaceChildren();data=null;status.textContent='核对既有封存行情与证据…';
   try{
-   const query={mode:'replay',symbol:requested,asOf:String(cutoff),window:String(w),...(validHash(runId)&&pinned===asOf?{runId}:{}),...(boardValue?{board:boardValue}:{})};
+   const query={mode:'replay',symbol:requested,asOf:String(cutoff),window:String(w),...(validHash(runId)&&pinned&&pinned===asOf?{runId}:{}),...(boardValue?{board:boardValue}:{})};
    const r=await get(ctx,query,controller.signal);
    if(id!==turn||controller.signal.aborted||invalidated())return;
-   if(!replayResultValid(r,requested,cutoff))throw Error('回放结果身份或首次可知时点不一致');
+   if(!replayResultValid(r,requested,cutoff)||query.runId&&r.runId!==query.runId||query.board&&r.selectedBoard?.code!==query.board)
+    throw Error('回放结果身份、封存版本、板块或首次可知时点不一致');
    data=r;board.replaceChildren(h('option',{value:''},'默认已归档板块'),...arr(r.boards).map(b=>h('option',{value:b.code},b.name||b.code)));
-   boardValue=r.selectedBoard?.code||'';board.value=boardValue;zoom.max=String(Math.max(2,r.rows.length));zoom.value=String(Math.max(2,r.rows.length));
+   boardValue=r.selectedBoard?.code||'';board.value=boardValue;zoom.max=String(Math.max(2,r.rows.length));
+   const restore=prior?.symbol===requested&&toTime(prior.cutoff)===cutoff&&prior.window===w&&prior.board===boardValue&&prior.runId===r.runId;
+   zoom.value=String(restore&&Number.isInteger(prior.zoom)?Math.max(2,Math.min(Number(zoom.max),prior.zoom)):Number(zoom.max));
+   selectedDay=restore&&typeof prior.selectedDay==='string'?prior.selectedDay:null;
+   if(restore&&Array.isArray(prior.enabled)&&prior.enabled.some(k=>Object.hasOwn(seriesLabels,k))){
+    enabled.clear();for(const k of prior.enabled)if(Object.hasOwn(seriesLabels,k))enabled.add(k);
+    for(const [k,b]of toggleButtons)b.setAttribute('aria-pressed',String(enabled.has(k)));
+   }
    status.textContent='历史只读 · 截点 '+dateTime(cutoff)+' · '+requested+' · '+(r.runId||'尚无研究版本');
-   if(memory)memory.replayContext={symbol:requested,cutoff:at.value,window:w,board:boardValue};
    paint();
   }catch(error){if(id===turn&&!controller.signal.aborted&&!invalidated())status.textContent='回放未就绪：'+error.message;}
   finally{signal?.removeEventListener('abort',abort);if(id===turn&&!invalidated())loadButton.disabled=false;}
@@ -165,28 +185,37 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
 export function createModelTools(ctx,{run,asOf,question,alive=()=>true}={}){
  const output=h('div',{class:'fy-stack','aria-live':'polite'}),status=h('p',{class:'fy-muted'},'规则解释不依赖模型；外部模型状态未读取。');
  const valid=()=>alive()&&!ctx.signal?.aborted&&ctx.role==='edit';
- let turn=0,requested=null;const modeButton=button('检查模型配置',async()=>{
-  if(!valid())return;
-  const id=++turn;output.replaceChildren();
-  try{const r=await get(ctx,{mode:'model-status'});if(!valid()||id!==turn)return;status.textContent=r.configured?'已配置 '+r.model+'；尚未调用，真实可用性待核验':r.reason||'模型未配置';}
-  catch(error){if(valid()&&id===turn)status.textContent=error.message;}
+ let turn=0,requested=null,request=null;
+ function begin(){request?.abort();request=new AbortController();modeButton.disabled=true;modelButton.disabled=true;return {id:++turn,controller:request};}
+ function finish(id){if(id===turn){modeButton.disabled=!valid();modelButton.disabled=!valid();}}
+ const modeButton=button('检查模型配置',async()=>{
+  if(!valid()||modeButton.disabled)return;
+  const {id,controller}=begin();output.replaceChildren();
+  try{const r=await get(ctx,{mode:'model-status'},controller.signal);if(!valid()||id!==turn||controller.signal.aborted)return;status.textContent=r.configured?'已配置 '+r.model+'；尚未调用，真实可用性待核验':r.reason||'模型未配置';}
+  catch(error){if(valid()&&id===turn&&!controller.signal.aborted)status.textContent=error.message;}
+  finally{finish(id);}
  },'quiet');
  const modelButton=button('明确调用已授权模型',async()=>{
-  const q=question?.();if(!valid()||!q||!validHash(run?.id)||!stamp(asOf)){status.textContent='请先选择一个问题与封存版本，并核对编辑权限';return;}
-  const id=++turn;requested=q;modelButton.disabled=true;output.replaceChildren();status.textContent='正在请求已明确配置的研究模型，原规则解释继续保留…';
+  const q=question?.();if(!valid()||modelButton.disabled||!q||!validHash(run?.id)||!stamp(asOf)){status.textContent='请先选择一个问题与封存版本，并核对编辑权限';return;}
+  const {id,controller}=begin();requested=q;output.replaceChildren();status.textContent='正在请求已明确配置的研究模型，原规则解释继续保留…';
   try{
-   const response=await ctx.api(endpoint,{method:'POST',body:{action:'explain',symbol:run.symbol,runId:run.id,asOf,question:q},signal:ctx.signal,timeoutMs:25000}),r=response.result;
-   if(!valid()||id!==turn||requested!==question?.())return;
-   if(!noWrite(r)||r.symbol!==run.symbol||r.runId!==run.id||r.asOf!==asOf||r.question!==q)throw Error('模型回执身份或时点不一致');
+   const response=await ctx.api(endpoint,{method:'POST',body:{action:'explain',symbol:run.symbol,runId:run.id,asOf,question:q},signal:controller.signal,timeoutMs:25000}),r=response.result;
+   if(!valid()||id!==turn||controller.signal.aborted||requested!==question?.())return;
+   if(!response.ok||!noWrite(r)||r.symbol!==run.symbol||r.runId!==run.id||r.asOf!==asOf||r.question!==q)throw Error('模型回执身份或时点不一致');
+   if(r.status==='completed'&&(r.modelCalled!==true||typeof r.model!=='string'||!r.model.trim()||typeof r.answer!=='string'||!r.answer.trim()||!Array.isArray(r.citations)||!r.citations.length))
+    throw Error('模型回执缺少实际调用、模型标识、回答或条件引用');
    status.textContent=r.status==='completed'?'实际模型 '+r.model+' · 模型生成内容（未独立核实）':(r.reason||'模型未就绪')+(r.model?' · '+r.model:'');
    if(r.status==='completed'&&r.modelCalled===true&&typeof r.answer==='string')output.replaceChildren(h('p',{},r.answer),
-    ...arr(r.citations).map(c=>details(c.id+' · '+c.rule,facts([['原策略版本',c.version]]),...arr(c.refs).map(e=>facts([['原证据引用',e.ref],['来源',e.source],['已知时点',dateTime(e.knownAt)]])))));
-  }catch(error){if(valid()&&id===turn)status.textContent='模型调用失败；保留原规则解释。'+error.message;}
-  finally{if(valid()&&id===turn)modelButton.disabled=false;}
+    ...arr(r.citations).map(c=>details(c.id+' · '+c.rule,facts([['原策略版本',c.version],...(c.ruleId?[['原条件引用',c.ruleId]]:[])]),
+     ['missing','incomplete'].includes(c.evidenceStatus)||!arr(c.refs).length?note(c.missingReason||'此条件缺少可核对原始证据；引用的是原条件，不能当作已核实事实。'):null,
+     ...arr(c.refs).map(e=>facts([['原证据引用',e.ref],['来源',e.source],['已知时点',dateTime(e.knownAt)]])))));
+  }catch(error){if(valid()&&id===turn&&!controller.signal.aborted)status.textContent='模型调用失败；保留原规则解释。'+error.message;}
+  finally{finish(id);}
  },'quiet');
  modeButton.disabled=ctx.role!=='edit';modelButton.disabled=ctx.role!=='edit';
+ ctx.signal?.addEventListener('abort',()=>{turn++;request?.abort();output.replaceChildren();finish(turn);status.textContent='研究视图已关闭';},{once:true});
  return {node:h('div',{class:'fy-stack'},h('div',{class:'fy-inline'},modeButton,modelButton),status,output),
-  reset(){turn++;requested=null;output.replaceChildren();modelButton.disabled=!valid();status.textContent='已切换问题，旧模型响应不会替换当前规则解释。';}};
+  reset(){turn++;requested=null;request?.abort();output.replaceChildren();finish(turn);status.textContent='已切换问题，旧模型响应不会替换当前规则解释。';}};
 }
 export async function similarEvidence(ctx,{run,asOf,signal=ctx.signal}={}){
  if(ctx.role!=='edit'||signal?.aborted)throw Error('研究编辑权限已失效');
@@ -196,6 +225,40 @@ export async function similarEvidence(ctx,{run,asOf,signal=ctx.signal}={}){
  return h('div',{class:'fy-stack'},note(r.reason),r.similarCases?.reason?note(r.similarCases.reason):null,...arr(r.groups).map(g=>details(g.system+' / '+g.horizon+' 日 · '+g.status,
   facts([['策略版本',g.version],['相同条件签名',g.conditionSignature],['市场分组',g.regime],['来源',g.provider],['匹配研究数',g.matchedRuns],['成熟结果',g.matured],['具备成本估计',g.modeled],['独立信号日',g.independentDays],['独立股票数',g.distinctSymbols],['非重叠窗口',g.nonOverlappingWindows],['成本后平均变化',g.averageNetReturnPct==null?'未知':format(g.averageNetReturnPct,2)+'%'],['正收益样本比例（非个股概率）',g.positiveFractionPct==null?'未知':format(g.positiveFractionPct,2)+'%']]),
   ...arr(g.samples).map(x=>details(x.symbol+' · '+x.signalDate+' · '+x.status,facts([['原信号版本',x.runId],['信号归档',dateTime(x.signalRecordedAt)],['后续入场日',x.entryDate],['后续离场日',x.exitDate],['入场档案',x.entryOutcomeRunId],['离场档案',x.exitOutcomeRunId],['入场可知时点',dateTime(x.entryOutcomeRecordedAt)],['离场可知时点',dateTime(x.exitOutcomeRecordedAt)],['成本后估计',x.netReturnPct]]))))));
+}
+const nextPlanScope='read-archive-window-same-account-source-symbol';
+const nextPlanNote='仅在已读取原档案范围核对后续计划，不认证完整交易覆盖；保留原日事实，不证明用户看过建议或习惯改善。';
+function nextPlanDetails(original,asOf){
+ const next=original.nextPlanCheck,nonempty=v=>typeof v==='string'&&!!v.trim();
+ const panel=(status,label,...content)=>{const node=details('后续计划核对 · '+label,...content,note(nextPlanNote));node.dataset.nextPlanCheck=status;return node;};
+ const unavailable=reason=>panel('not-ready','未就绪',note(reason||'尚未取得可核对的后续计划原记录。'));
+ if(!next||next.status==='not-ready')return unavailable(next?.reason);
+ // A valid archive lookup may have no next plan yet. Preserve that bounded
+ // coverage result without treating null candidate fields as corrupt identity.
+ const noSelectedPlan=['planId','planVersion','planFrozenAt','knownAt','date','ref'].every(k=>next[k]===null)&&
+  Array.isArray(next.refs)&&next.refs.length===0&&next.evidence===null;
+ const originalBound=next.scope===nextPlanScope&&['pool','pre'].includes(original.accountId)&&next.accountId===original.accountId&&
+  code(original.code)&&next.code===original.code&&nonempty(original.source)&&next.source===original.source&&
+  nonempty(original.planId)&&validHash(original.planVersion)&&nonempty(original.ref)&&nonempty(original.rule)&&next.rule===original.rule&&
+  nonempty(original.ruleVersion)&&next.ruleVersion===original.ruleVersion&&stamp(asOf)&&stamp(original.planFrozenAt)&&stamp(original.knownAt)&&
+  original.planFrozenAt<=original.knownAt&&original.knownAt<=asOf;
+ if(next.status==='unknown'&&noSelectedPlan&&originalBound&&nonempty(next.reason))return panel('unknown','证据不足',note(next.reason));
+ // Validate only the identity and chronology of the backend's original fact.
+ // A different plan never rewrites the original incident or same-plan followup.
+ const bound=next.scope===nextPlanScope&&['pool','pre'].includes(original.accountId)&&next.accountId===original.accountId&&
+  code(original.code)&&next.code===original.code&&nonempty(original.source)&&next.source===original.source&&
+  nonempty(original.planId)&&nonempty(next.planId)&&next.planId!==original.planId&&validHash(original.planVersion)&&validHash(next.planVersion)&&
+  nonempty(original.rule)&&next.rule===original.rule&&nonempty(original.ruleVersion)&&nonempty(next.ruleVersion)&&
+  stamp(asOf)&&stamp(original.knownAt)&&stamp(original.planFrozenAt)&&original.planFrozenAt<=original.knownAt&&
+  stamp(next.planFrozenAt)&&stamp(next.knownAt)&&original.knownAt<next.planFrozenAt&&next.planFrozenAt<=next.knownAt&&next.knownAt<=asOf;
+ if(!bound)return unavailable('后续计划的账户、证券、来源、版本或可知时点未通过核对；原记录继续保留。');
+ const identity=[['同一原账户',next.accountId],['证券',next.code],['来源',next.source],['后续计划',next.planId],['后续计划版本',next.planVersion],
+  ['冻结时点',dateTime(next.planFrozenAt)],['规则',next.rule],['后续规则版本',next.ruleVersion],['核验日期',next.date],['首次可知时点',dateTime(next.knownAt)]];
+ if(next.status==='unknown')return panel('unknown','证据不足',facts(identity),note(next.reason||'后续计划证据或规则版本不足，不能判定是否符合原规则。'));
+ if(next.status!=='observed'||next.ruleVersion!==original.ruleVersion||!['后续计划原核验符合','后续计划原核验再次触发'].includes(next.label)||
+  !nonempty(next.ref)||!Array.isArray(next.refs)||!next.refs.length||next.refs.some(v=>!nonempty(v))||!nonempty(next.evidence))
+  return unavailable('后续计划的规则版本、原核验结论或证据引用未通过核对；原记录继续保留。');
+ return panel('observed',next.label,facts([...identity,['后续原记录',next.ref],['原证据引用',refs(next.refs)],['原核验依据',next.evidence]]));
 }
 export function createDisciplineWorkbench(ctx,{symbol='',memory=null}={}){
  const stock=h('input',{type:'text',inputmode:'numeric',maxlength:'6',value:code(symbol)?symbol:'','aria-label':'纪律复盘证券代码'});
@@ -211,7 +274,7 @@ export function createDisciplineWorkbench(ctx,{symbol='',memory=null}={}){
    if(r.asOf!==cutoff||r.symbol!==(requested||null)||arr(r.rows).some(x=>requested&&x.code!==requested))throw Error('纪律证据与所选证券/时点不一致');
    status.textContent='原档案 '+arr(r.rows).length+(Number.isSafeInteger(r.rowTotal)&&r.rowTotal>arr(r.rows).length?' / '+r.rowTotal:'')+' 项核验 · '+dateTime(cutoff);
    result.replaceChildren(note(r.scope),...arr(r.missing).map(x=>h('small',{class:'fy-muted'},x)),
-    h('h3',{},'下一次可核对的改进事项'),...arr(r.followups).map(f=>details(f.code+' · '+f.date+' · '+f.rule+' · '+(f.followup?.status||'待后续证据'),facts([['原记录',f.ref],['原计划',f.planId],['计划版本',f.planVersion],['规则版本',f.ruleVersion],['原结论',f.status],['原依据',f.evidence],['原证据引用',refs(f.refs)],['下次核对',f.nextCheck],['后续日期',f.followup?.date],['后续计划',f.followup?.planId],['后续计划版本',f.followup?.planVersion],['后续引用',f.followup?.ref],['后续证据',f.followup?.evidence],['后续含义',f.followup?.note]]))),
+    h('h3',{},'下一次可核对的改进事项'),...arr(r.followups).map(f=>details(f.code+' · '+f.date+' · '+f.rule+' · '+(f.followup?.status||'待后续证据'),facts([['原记录',f.ref],['原计划',f.planId],['计划版本',f.planVersion],['规则版本',f.ruleVersion],['原结论',f.status],['原依据',f.evidence],['原证据引用',refs(f.refs)],['下次核对',f.nextCheck],['后续日期',f.followup?.date],['后续计划',f.followup?.planId],['后续计划版本',f.followup?.planVersion],['后续引用',f.followup?.ref],['后续证据',f.followup?.evidence],['后续含义',f.followup?.note]]),nextPlanDetails(f,r.asOf))),
     details('全部纪律事实（原记录）',...arr(r.rows).map(f=>details(f.code+' · '+f.date+' · '+f.rule+' · '+f.status,facts([['来源',f.source],['原计划',f.planId],['计划版本',f.planVersion],['规则版本',f.ruleVersion],['原记录',f.ref],['原依据',f.evidence],['归因',f.attribution],['证据引用',refs(f.refs)]])))));
   }catch(error){if(id===turn&&!ctx.signal?.aborted)status.textContent='纪律复盘未就绪：'+error.message;}
   finally{if(id===turn&&!ctx.signal?.aborted)buttonRead.disabled=false;}

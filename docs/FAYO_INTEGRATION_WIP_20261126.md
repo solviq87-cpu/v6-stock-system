@@ -143,3 +143,25 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 - 实际在隔离V6_BO目录执行：`node --check server.js`、`node --check holdings.js` 均退出0；`TZ=Asia/Shanghai node --test tests/fayo-evidence-continuation-authority.test.js` 7通过/0失败/0跳过；`TZ=Asia/Shanghai node _test_fix0929.js` 18断言通过/0失败。后两者不是25个node测试用例，不折算78项完成率。测试原样使用临时目录、合成输入与模拟发送器，无真实消息、账户或生产写入。
 - 同步#358两个原测试夹具 fayo-news-action-boundary 和 paper-coherent-row 的精确blob，尚未在本地执行这两个文件；由新提交CI验证，不能沿用源分支绿灯。其余#358回放、模型、后续计划、双端及#357/#359/#361和#366前端等增量继续逐文件接线；原18/20/22/23/29/48和78采样等缺口保留。尚未运行本地全量和双端；最终dev精确SHA、真实5/20/60日及外部授权/数据/生产验收待核，不声称完成或部署。
 - 恢复：使用上述原CI包和精确Git blobs重建隔离测试，完整clone恢复后在统一候选精确SHA执行原check、全量与浏览器。需要回退时只反向应用本批候选增量，保留新业务数据及全部原组分支；不新增任务、发布入口或执行锁。
+
+## 2026-11-26 · #358剩余业务与双端增量（原11/15/16/17/19/27）
+- 父提交 `66cd8768d75ae7a6667d8df7bfdcb552c1700e7e`，源 `0d9ce25d1cc1927fccbac01ad7c384cb77d41c38`，相对旧已接入 `1c5675e70fc48c1666894b5e17c6d6961660ba16`。本批所有直接采用文件在候选父树与旧输入树blob一致（新文件此前不存在），因此不会覆盖其他组改动。保留原组交接与两份机器证据原字节。
+- 原新闻版本/证券关联、回放身份和恢复、中文条件单字“或”拒绝、模型五问/引用/缺证据/晚到保护、原纪律后续新计划核对与独立档案降级全部采用原实现；market.js只移植唯一匹配的回放memory参数，保留其他组个股风险入口；server四个业务hunk已在父提交接入。
+- 直接纳入的原文件blob：
+  - `V6_BO/public/nova/command-selection.mjs` `b3b7924daec943eac3ee31d02d27b53d25c08ac9`
+  - `V6_BO/public/nova/evidence-workbench.mjs` `7855a4a0144342e86ff573fd2e43a64000668f0c`
+  - `V6_BO/public/nova/research-review.mjs` `5408bf36fd0541b4223af46d1ebe0fad63c33c5d`
+  - `V6_BO/scripts/fayo-command-evidence-browser-check.js` `bbac22a044c8fe1cc55cf4a5868658822bc55a5e`
+  - `V6_BO/scripts/fayo-replay-boundaries-browser-check.js` `8c31bb1432dc428ae56c291cda5b90736215078b`
+  - `V6_BO/scripts/fayo-research-discipline-browser-check.js` `26c5548dc382a766908d13dea12b781b75e067b8`
+  - `V6_BO/src/core/research-interaction-workbench.js` `ab59b24be86fbab2913c543fb06064771228d4d4`
+  - `V6_BO/tests/fayo-evidence-continuation-backend.test.js` `a104837adce56373fca113c2287d24470f73262f`
+  - `V6_BO/tests/fayo-evidence-continuation-client.test.mjs` `edf49426fdee4036395cc17b207ec187d405a597`
+  - `V6_BO/tests/fayo-nextplan-checks.test.js` `e036ad532c7adae298d5d17b5defbb0beebd8ad7`
+  - `docs/FAYO_66_INTEGRATION_STATUS_20261126.md` `d61921435312134a1f53ca0c32d5f3a97ad32e19`
+  - `docs/FAYO_EVIDENCE_WORKBENCH_20261126.md` `313c975ac72ca3e79a34e192a486c33c8db0e608`
+  - `docs/validation/fayo-evidence-20261126/cross-pr-audit.json` `e517f437ff7feee6a8ff9ecd6c8c54ca401f2deb`
+  - `docs/validation/fayo-evidence-20261126/handoff-validation.json` `873ccfdebea0fdc10f7090f19ec0ebdc7be7f5d8`
+  - `V6_BO/public/nova/market.js` `348fab038f9e1a52b8e3c070eeb4817533fbcdf2`
+- 只保留原隔离组合版本标识、SW缓存和对应版本断言（源分支的独立版本号变更不移植），发布版本待最终统一；所有新增实际浏览器断言保留，不改CI workflow。前一批本地7项和18断言证据仅适用该批，不声称本批本地测试或全量已跑。源分支精确head原CI/UI均成功，源独立证据不认证组合。新组合必须按新精确SHA运行CI、全量、浏览器及后续真实验收。
+- 五维相似样本仍须与#357同标的同信号同档案版本绑定，#353结算证据、#356/#359风险合同、#361/#364/#365报价与通知保护及#363/#366增量继续保留；原18/20/22/23/29/48/78等缺口不因此关闭。真实运行、权限、源数据、物理设备及连续交易日验收未知。回退仅反向本批候选文件，保留原组分支、已有数据与原发布入口。

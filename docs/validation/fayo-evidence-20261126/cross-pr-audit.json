@@ -1,0 +1,390 @@
+{
+  "schemaVersion": 1,
+  "repository": "solviq87-cpu/v6-stock-system",
+  "sourceSha": "0fce9504e45777cb2d959da2f9b158e0166af581",
+  "sourceTreeSha": "d85c919624aa1303f702be0143376c3613fc0778",
+  "sourceTreeVerified": true,
+  "prHeadRecheckedAtUtc": "2026-11-25 18:14:02 UTC",
+  "prHeadRecheckedAtBeijing": "2026-11-26 02:14:02 +08:00",
+  "targetRefsRecheckedAtUtc": "2026-11-25 18:15:17 UTC",
+  "targetRefsRecheckedAtBeijing": "2026-11-26 02:15:17 +08:00",
+  "method": {
+    "command": "git merge-tree --write-tree --name-only <sourceSha> <headSha>",
+    "sourceWorkingTreeModified": false,
+    "worktreeMerged": false,
+    "commitCreated": false,
+    "pushed": false,
+    "testsRun": false,
+    "productionProbed": false
+  },
+  "summary": {
+    "prs": 10,
+    "allOpenDraftUnmerged": true,
+    "cleanPairwiseMerges": [
+      360
+    ],
+    "conflictedPairs": 9,
+    "totalConflictPathOccurrences": 37,
+    "uniqueConflictPaths": [
+      ".github/workflows/v6-ui-browser.yml",
+      "DEPLOYMENT.md",
+      "HANDOFF.md",
+      "V6_BO/public/nova/index.html",
+      "V6_BO/public/nova/market.js",
+      "V6_BO/public/nova/research.js",
+      "V6_BO/public/sw.js",
+      "V6_BO/scripts/fayo-browser-check.js",
+      "V6_BO/server.js",
+      "V6_BO/src/core/manual-decision-loop.js",
+      "V6_BO/src/core/research-workspace-store.js",
+      "V6_BO/src/server/research-workspace-job.js",
+      "V6_BO/tests/research-cache-version-parity.test.js"
+    ]
+  },
+  "prs": [
+    {
+      "pr": 353,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+      "headSha": "c3c26519b005db219265c5b9b5718d8d053d8928",
+      "headRef": "feat/fayo-research-governance-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:09:41Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "a51edd9616676fa0ad58f99b1d18c6c8b5e814a0",
+      "conflictPathCount": 1,
+      "conflictPaths": [
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 356,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+      "headSha": "ba4f2703715e58e676c62decbbe521731d073703",
+      "headRef": "feat/fayo-advanced-safety-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:10:51Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "fb66c4892e52e281cf00fe9adb8a0f548b769135",
+      "conflictPathCount": 3,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 357,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+      "headSha": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+      "headRef": "feat/fayo-intelligence-evolution-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:10:52Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "450962fd759fdda1de7591f37929fec449e47468",
+      "conflictPathCount": 7,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/nova/research.js",
+        "V6_BO/public/sw.js",
+        "V6_BO/src/core/manual-decision-loop.js",
+        "V6_BO/src/core/research-workspace-store.js",
+        "V6_BO/src/server/research-workspace-job.js"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 359,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+      "headSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+      "headRef": "feat/fayo-risk-center-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:10:53Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "87a15dae7a61ac555618850d4307387b19790118",
+      "conflictPathCount": 8,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/nova/market.js",
+        "V6_BO/public/sw.js",
+        "V6_BO/server.js",
+        "V6_BO/tests/research-cache-version-parity.test.js"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 360,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/360",
+      "headSha": "aecebd190075269cb5af588afc9ace4819954558",
+      "headRef": "fix/fayo-warmup-fixture-20261126",
+      "targetRef": "feat/fayo-intelligence-evolution-20261126",
+      "prBaseShaReported": "9a1132264a191091ea526cba698177f2b5d0c703",
+      "currentTargetRefSha": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T17:38:44Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 0,
+      "resultTreeSha": "2d62472542e00cfb879dc43c1456307ac82a8e07",
+      "conflictPathCount": 0,
+      "conflictPaths": [],
+      "stderr": ""
+    },
+    {
+      "pr": 361,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/361",
+      "headSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "headRef": "audit/fayo-risk-integration-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:11:56Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "115a617f8e04744031e0d4f38f777b2c0496a431",
+      "conflictPathCount": 3,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 362,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/362",
+      "headSha": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+      "headRef": "fix/fayo-source-truth-audit-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:09:54Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "510d2384d1bc6108bfbae9b2e23c530edca448c1",
+      "conflictPathCount": 1,
+      "conflictPaths": [
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 363,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "headSha": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "headRef": "feat/fayo-depth-decision-20261126",
+      "targetRef": "dev",
+      "prBaseShaReported": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "currentTargetRefSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:09:44Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "b1ac262e795a7617f6b6fb525cbf183de186e32e",
+      "conflictPathCount": 8,
+      "conflictPaths": [
+        "DEPLOYMENT.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js",
+        "V6_BO/server.js",
+        "V6_BO/src/core/research-workspace-store.js",
+        "V6_BO/src/server/research-workspace-job.js",
+        "V6_BO/tests/research-cache-version-parity.test.js"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 364,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/364",
+      "headSha": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+      "headRef": "fix/fayo-post-fsync-quote-20261126",
+      "targetRef": "audit/fayo-risk-integration-20261126",
+      "prBaseShaReported": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "currentTargetRefSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:08:01Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "99562d2a17a15c56ec4c9406e317408ea415bff9",
+      "conflictPathCount": 3,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    },
+    {
+      "pr": 365,
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/365",
+      "headSha": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+      "headRef": "fix/fayo-review-handoff-20261126",
+      "targetRef": "audit/fayo-risk-integration-20261126",
+      "prBaseShaReported": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "currentTargetRefSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "prUpdatedAt": "2026-11-25T18:11:54Z",
+      "mergeBaseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "mergeTreeExitCode": 1,
+      "resultTreeSha": "3065bc9c6937940103aa834a88fa0e7d2392deeb",
+      "conflictPathCount": 3,
+      "conflictPaths": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "stderr": ""
+    }
+  ],
+  "deltas": [
+    {
+      "pr": 356,
+      "fromHeadSha": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "toHeadSha": "ba4f2703715e58e676c62decbbe521731d073703",
+      "comparisonStatus": "ahead",
+      "aheadBy": 1,
+      "behindBy": 0,
+      "docsOnly": false,
+      "changedPaths": [
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "V6_BO/scripts/advanced-safety-operations.js",
+        "V6_BO/scripts/disaster-recovery.js",
+        "V6_BO/scripts/fayo-advanced-safety-browser-check.js",
+        "V6_BO/server.js",
+        "V6_BO/src/core/account-safety-state.js",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "V6_BO/src/core/advanced-portfolio-runtime.js",
+        "V6_BO/src/core/authority-audit-backup.js",
+        "V6_BO/src/core/paper-application-service.js",
+        "V6_BO/src/core/paper-plan-entry-check.js",
+        "V6_BO/src/core/paper-session.js",
+        "V6_BO/tests/advanced-portfolio-evidence.test.js",
+        "V6_BO/tests/advanced-safety-operations.test.js",
+        "V6_BO/tests/automatic-entry-preview.test.js",
+        "V6_BO/tests/disaster-recovery.test.js",
+        "V6_BO/tests/historical-evidence-append.test.js",
+        "V6_BO/tests/pending-buy-budget-consistency.test.js",
+        "docs/FAYO_ADVANCED_SAFETY_RUNTIME_20261126.md"
+      ],
+      "changesAffectingThisGroup": [
+        {
+          "paths": [
+            "V6_BO/server.js",
+            "V6_BO/src/core/paper-application-service.js",
+            "V6_BO/src/core/paper-plan-entry-check.js",
+            "V6_BO/src/core/advanced-portfolio-runtime.js"
+          ],
+          "change": "新增 previewAutomaticEntry 原账户只读预检及 isAutomaticEntryPreview 实例回执验证；inspectPaperPlanEntry 接收 previewAccount；server 注入原 authority 服务；回执绑定账户版本/指纹、政策指纹、证券/日期/数量/价格/费用及逐股估值报价，5秒观察回执有效性。主进程使用 WeakMap 阻止自由JSON伪造；跨 worker 后继续验证精确字段与指纹。canTrade/writesAccount/reservesCash 均 false；预检不调用 mutate/guarded、不锁存防御、不写拒单审计、不创建订单/冻结。前端只消费回执，不能将 allowed 当执行授权；自动策略归属保持 null，不把计划标签补为权威策略。"
+        },
+        {
+          "paths": [
+            "V6_BO/src/core/account-safety-state.js",
+            "V6_BO/src/core/paper-application-service.js"
+          ],
+          "change": "统一 pendingBuyOrderBudget：待买剩余数量、实际执行日费率和原部分成交证据用于对账、下单、成交、自动成交及权益结算。展示可用现金/执行偏差时消费原结果，不在本组重算冻结预算。"
+        },
+        {
+          "paths": [
+            "V6_BO/src/core/paper-session.js"
+          ],
+          "change": "新增 assertHistoricalContextAppend；已捕获交易日的 universeHistory、证券状态、feeSchedules、settlements 不得借追加K线改写。允许未来资料扩展，历史回放/个人复盘不可静默替换已封存上下文。"
+        },
+        {
+          "paths": [
+            "V6_BO/src/core/advanced-portfolio-evidence.js"
+          ],
+          "change": "同股新批次的策略资本单独归类；原政策预算未知或未满足条件时 previewBlocked=true；研究预演不成为仓位修改或执行资格。"
+        },
+        {
+          "paths": [
+            "V6_BO/src/core/authority-audit-backup.js",
+            "V6_BO/scripts/disaster-recovery.js",
+            "V6_BO/scripts/advanced-safety-operations.js"
+          ],
+          "change": "恢复工具新增来源大小/哈希绑定、锁内重检和磁盘峰值预算；RPO使用单调时钟并保留productionRpo/Rto未知。与本组恢复交接相关，不能把隔离演练或预检当生产切换验收。"
+        }
+      ]
+    },
+    {
+      "pr": 364,
+      "fromHeadSha": "e1e37db6c7a1f46922118913f14df9639ea98aa9",
+      "toHeadSha": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+      "comparisonStatus": "ahead",
+      "aheadBy": 1,
+      "behindBy": 0,
+      "docsOnly": false,
+      "changedPaths": [
+        ".github/workflows/v6-ci.yml",
+        ".github/workflows/v6-pr-commit-coverage.yml",
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "V6_BO/tests/commit-check-triggers.test.js",
+        "V6_BO/tests/fayo-integration-gates.test.js",
+        "docs/validation/fayo-post-fsync-quote-20261126/README.md"
+      ],
+      "changesAffectingThisGroup": [
+        {
+          "paths": [
+            ".github/workflows/v6-ci.yml",
+            ".github/workflows/v6-pr-commit-coverage.yml",
+            ".github/workflows/v6-ui-browser.yml",
+            "V6_BO/tests/commit-check-triggers.test.js",
+            "V6_BO/tests/fayo-integration-gates.test.js"
+          ],
+          "change": "相对 e1e37db…业务服务代码未变。三个workflow的pull_request目标增加audit/**、integration/**，UI另外补齐main/feat/chore等既有目标；更新触发与集成门禁回归。保留本组浏览器路径、作业和失败门禁；没有新增生产发布入口。"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "PR360目标仍为feat/fayo-intelligence-evolution-20261126；本次PR元数据base.sha保留9a1132264a191091ea526cba698177f2b5d0c703，但单独读取目标ref确认03d314dcec9c528d7fc46fe21c5a11939dc015d8。merge-tree使用PR自己的head，没有用滞后base替代head。",
+    "PR364和365以audit/fayo-risk-integration-20261126为目标；对本组源码的完整head比较包含PR361父链，不等同于各自parent-relative增量。",
+    "本表仅证明固定源码与各固定PR head的两两文本冲突。无冲突不证明业务兼容；未执行组合版本测试。",
+    "最终合并安排及顺序由绯曜 FAYO｜总管与最终交付统一，本审查不安排顺序。",
+    "本轮更新仅在仓库外保存QA报告；不接入其他组代码。"
+  ]
+}

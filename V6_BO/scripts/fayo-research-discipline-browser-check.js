@@ -18,7 +18,7 @@ const server=http.createServer((req,res)=>{
   const origin='http://127.0.0.1:'+server.address().port,report=[];
   if(output)fs.mkdirSync(output,{recursive:true});
   for(const width of [1366,390]){
-   const page=await browser.newPage({viewport:{width,height:900}}),errors=[],external=[],screenshots={};
+   const page=await browser.newPage({viewport:{width,height:900}}),errors=[],external=[],screenshots={},timings={};
    async function capture(name,locator,{region=false}={}){
     if(!output||process.env.V6_UI_SCREENSHOTS==='0')return;
     await locator.evaluate(async node=>{node.scrollIntoView({block:'start',behavior:'instant'});await new Promise(resolve=>requestAnimationFrame(resolve));});
@@ -37,9 +37,13 @@ const server=http.createServer((req,res)=>{
       version,status:'pass',evidenceIds:['original-evidence'],invalidation:'原评分低于门槛时复查'}],
      evidence:[{id:'original-evidence',symbol:'600000',field:'score',value:80,source:'隔离原档案',availableAt:now-30,receivedAt:now-20,sourceTimestamp:now-40,periodEnd:now-40,evidenceRef:'original-ref',status:'observed-unverified'}]};
     const view={asOf:now,selectedRun:run,runs:{total:1,rows:[run]},preferences:{revision:0,value:{},history:[]},screenRuns:[],presets:[]};
-    const row={code:'600000',source:'原模拟执行日报',date:'2026-11-06',knownAt:now-100,ref:'c'.repeat(64),planId:'plan-original',planVersion:version,
+    const row={code:'600000',source:'原模拟执行日报',date:'2026-11-06',accountId:'pool',knownAt:now-100,planFrozenAt:now-200,ref:'c'.repeat(64),planId:'plan-original',planVersion:version,
      ruleVersion:'original-paper-score-v1',rule:'按计划止损',status:'触发',evidence:'原日报止损窗口事实',refs:['original-fill','original-observation'],evidenceRefs:['original-fill','original-observation']};
-    window.calls=[];window.mode='failed';window.controller=new AbortController();
+    const nextPlanCheck={status:'observed',label:'后续计划原核验符合',scope:'read-archive-window-same-account-source-symbol',accountId:'pool',source:row.source,code:row.code,
+     planId:'plan-next',planVersion:'e'.repeat(64),planFrozenAt:now-50,rule:row.rule,ruleVersion:row.ruleVersion,date:'2026-11-10',knownAt:now-20,ref:'f'.repeat(64),
+     refs:['next-fill','next-observation'],evidence:'后续新计划按原冻结止损核验的原日报事实',reason:'同来源、账户与规则的原始核验',
+     note:'仅在已读取原档案范围核对后续计划，不认证完整交易覆盖；保留原日事实，不证明用户看过建议或习惯改善。'};
+    window.calls=[];window.mode='failed';window.disciplineMode='observed';window.controller=new AbortController();
     const ctx={role:'edit',stock:'600000',state:{},signal:window.controller.signal,onState:()=>{},notify:()=>{},api:async(p,o={})=>{
      window.calls.push({path:p,method:o.method||'GET',body:o.body});
      if(p.startsWith('/api/research/workspace?'))return {ok:true,result:view};
@@ -48,8 +52,16 @@ const server=http.createServer((req,res)=>{
      if(query.get('mode')==='similar')return {ok:true,result:{...flags,runId:hash,symbol:'600000',asOf:now,reason:'原前向条件分组，不是个股预测',similarCases:{status:'pending-integration',reason:'原五维相似样本接口待统一集成'},groups:[{
       system:'fourteen',version,regime:'回暖',provider:'tencent',horizon:5,conditionSignature:'d'.repeat(64),matchedRuns:2,matured:2,modeled:2,
       independentDays:2,distinctSymbols:1,nonOverlappingWindows:1,status:'descriptive-only',averageNetReturnPct:1,positiveFractionPct:50,samples:[]}]}};
-     if(query.get('mode')==='discipline')return {ok:true,result:{...flags,asOf:Number(query.get('asOf')),symbol:query.get('symbol')||null,scope:'最近20份原日报',rows:[row],rowTotal:1,
-      missing:['不同计划不能证明原问题已改善'],followups:[{...row,nextCheck:'核对原止损与可成交窗口',followup:null}]}};
+     if(query.get('mode')==='discipline'){
+      const asOf=Number(query.get('asOf')),next={...nextPlanCheck};
+      if(window.disciplineMode==='cross-account')next.accountId='pre';
+      if(window.disciplineMode==='future')next.knownAt=asOf+1;
+      if(window.disciplineMode==='different-rule-version'){next.status='unknown';next.ruleVersion='original-paper-score-v2';next.reason='后续计划采用不同规则版本，不能直接比较';}
+      if(window.disciplineMode==='not-observed-next-plan')Object.assign(next,{status:'unknown',planId:null,planVersion:null,planFrozenAt:null,knownAt:null,date:null,ref:null,refs:[],evidence:null,
+       reason:'已读取范围内没有在本条原核验记录之后冻结的后续计划；不推断范围外交易'});
+      return {ok:true,result:{...flags,asOf,symbol:query.get('symbol')||null,scope:'最近20份原日报',rows:[row],rowTotal:1,
+       missing:['不同计划不能证明原问题已改善'],followups:[{...row,nextCheck:'核对原止损与可成交窗口',followup:null,nextPlanCheck:next}]}};
+     }
      if(o.method==='POST'&&o.body.action==='explain'){
       if(window.mode==='delayed')return new Promise(resolve=>{window.resolveModel=()=>resolve({ok:true,result:{...flags,symbol:run.symbol,runId:run.id,asOf:now,question:o.body.question,
        status:'completed',modelCalled:true,model:'isolated-local',answer:'过期模型内容不应显示',citations:[]}});});
@@ -62,43 +74,71 @@ const server=http.createServer((req,res)=>{
     window.showDiscipline=role=>{ctx.role=role;document.querySelector('#mount').replaceChildren(createDisciplineWorkbench(ctx,{symbol:'600000'}));};
     window.showViewerModels=()=>{ctx.role='view';document.querySelector('#mount').replaceChildren(createModelTools(ctx,{run,asOf:now,question:()=> 'support'}).node);};
    });
-   await page.getByRole('button',{name:'读取研究档案',exact:true}).click();
+   let started=performance.now();await page.getByRole('button',{name:'读取研究档案',exact:true}).click();
    await page.getByRole('button',{name:'为什么入选？',exact:true}).click();
    assert.equal(await page.locator('[aria-live=polite]').filter({hasText:'原判断截点'}).count()>0,true);
+   timings.archiveAndRuleExplanationMs=Math.round(performance.now()-started);
    await page.locator('.fy-record-detail details').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
    const support=await page.locator('.fy-record-detail').innerText();
    assert.match(support,/original-ref/);assert.match(support,/原观察值/);assert.match(support,/当前是否失效\s*未知/);
    assert.equal(await page.evaluate(()=>window.calls.some(c=>c.method==='POST')),false,'opening rule evidence makes no model call');
-   await page.getByRole('button',{name:'检查模型配置',exact:true}).click();await page.getByText('隔离模型未配置',{exact:true}).waitFor();
-   await page.getByRole('button',{name:'明确调用已授权模型',exact:true}).click();
+   started=performance.now();await page.getByRole('button',{name:'检查模型配置',exact:true}).click();await page.getByText('隔离模型未配置',{exact:true}).waitFor();
+   timings.modelStatusMs=Math.round(performance.now()-started);
+   started=performance.now();await page.getByRole('button',{name:'明确调用已授权模型',exact:true}).click();
    await page.getByText('隔离调用失败，保留原规则解释 · isolated-local',{exact:true}).waitFor();
+   timings.failedModelFallbackMs=Math.round(performance.now()-started);
    assert.match(await page.locator('.fy-record-detail').innerText(),/original-ref/);
    const questions=page.getByRole('heading',{name:'研究证据五问',exact:true});
    await capture('research-questions',questions);
    await capture('research-questions-region',questions.locator('..'),{region:true});
    await page.evaluate(()=>{window.mode='delayed';});await page.getByRole('button',{name:'明确调用已授权模型',exact:true}).click();
    await page.waitForFunction(()=>typeof window.resolveModel==='function');
-   await page.getByRole('button',{name:'最强的反对理由是什么？',exact:true}).click();await page.evaluate(()=>window.resolveModel());
+   assert.equal(await page.getByRole('button',{name:'检查模型配置',exact:true}).isDisabled(),true,'configuration reads cannot invalidate a pending model request');
+   assert.equal(await page.getByRole('button',{name:'明确调用已授权模型',exact:true}).isDisabled(),true,'duplicate model calls are disabled while pending');
+   const pendingCalls=await page.evaluate(()=>window.calls.length);
+   await page.getByRole('button',{name:'检查模型配置',exact:true}).evaluate(node=>node.click());
+   assert.equal(await page.evaluate(()=>window.calls.length),pendingCalls,'disabled configuration check makes no request');
+   started=performance.now();await page.getByRole('button',{name:'最强的反对理由是什么？',exact:true}).click();
+   assert.equal(await page.getByRole('button',{name:'检查模型配置',exact:true}).isDisabled(),false,'changing question releases the previous operation');
+   assert.equal(await page.getByRole('button',{name:'明确调用已授权模型',exact:true}).isDisabled(),false,'model button cannot stay locked after invalidation');
+   await page.evaluate(()=>window.resolveModel());timings.changedQuestionMs=Math.round(performance.now()-started);
    assert.equal(await page.getByText('过期模型内容不应显示',{exact:true}).count(),0,'changed question excludes stale model response');
    await page.getByRole('button',{name:'同类历史样本后来怎样？',exact:true}).click();
    await page.getByText('原五维相似样本接口待统一集成',{exact:true}).waitFor();
    await page.locator('.fy-record-detail details').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
    assert.match(await page.locator('.fy-record-detail').innerText(),/非重叠窗口\s*1/);
    await page.evaluate(()=>window.showDiscipline('edit'));await page.locator('#mount>details').evaluate(n=>{n.open=true;});
-   await page.getByRole('button',{name:'读取个人纪律与后续落实',exact:true}).click();
+   started=performance.now();await page.getByRole('button',{name:'读取个人纪律与后续落实',exact:true}).click();
    await page.getByText('最近20份原日报',{exact:true}).waitFor();await page.locator('#mount details').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
+   timings.disciplineReadMs=Math.round(performance.now()-started);
    const discipline=await page.locator('#mount').innerText();assert.match(discipline,/original-observation/);assert.match(discipline,/计划版本/);assert.match(discipline,/规则版本/);assert.match(discipline,/待后续证据/);
+   assert.match(discipline,/原结论\s*触发/,'a later plan cannot replace the original incident');
+   const nextPlan=page.locator('[data-next-plan-check]');assert.equal(await nextPlan.getAttribute('data-next-plan-check'),'observed');
+   assert.match(await nextPlan.innerText(),/后续计划原核验符合/);assert.match(await nextPlan.innerText(),/next-observation/);
+   assert.match(await nextPlan.innerText(),/不认证完整交易覆盖/);assert.match(await nextPlan.innerText(),/不证明用户看过建议或习惯改善/);
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false,'no page overflow at '+width);
    await capture('discipline-review',page.locator('#mount>details'));
+   await capture('discipline-next-plan-region',nextPlan,{region:true});
+   for(const [mode,expected]of [['cross-account','not-ready'],['future','not-ready'],['different-rule-version','unknown'],['not-observed-next-plan','unknown']]){
+    await page.evaluate(value=>{window.disciplineMode=value;},mode);
+    await page.getByRole('button',{name:'读取个人纪律与后续落实',exact:true}).click();
+    await page.waitForFunction(value=>document.querySelector('[data-next-plan-check]')?.dataset.nextPlanCheck===value,expected);
+    await page.locator('#mount details').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
+    assert.doesNotMatch(await nextPlan.innerText(),/后续计划原核验符合|后续新计划按原冻结止损核验的原日报事实/,'unverified optional receipt cannot claim compliance: '+mode);
+    assert.match(await page.locator('#mount').innerText(),/原结论\s*触发/,'optional failure retains the original incident: '+mode);
+    assert.match(await page.locator('#mount').innerText(),/原日报止损窗口事实/);
+    if(mode==='different-rule-version')assert.match(await nextPlan.innerText(),/不同规则版本/);
+    if(mode==='not-observed-next-plan')assert.match(await nextPlan.innerText(),/已读取范围内没有在本条原核验记录之后冻结的后续计划；不推断范围外交易/);
+   }
    const count=await page.evaluate(()=>window.calls.length);await page.evaluate(()=>window.showDiscipline('view'));await page.locator('#mount>details').evaluate(n=>{n.open=true;});
    assert.equal(await page.getByRole('button',{name:'读取个人纪律与后续落实',exact:true}).isDisabled(),true);
    await page.evaluate(()=>window.showViewerModels());assert.equal(await page.getByRole('button',{name:'检查模型配置',exact:true}).isDisabled(),true);
    assert.equal(await page.evaluate(()=>window.calls.length),count,'viewer controls issue no private requests');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.method==='POST').every(c=>c.body.action==='explain')),true);
-   report.push({width,passed:true,screenshots});await page.close();
+   report.push({width,passed:true,timings,screenshots,nextPlanChecks:['original incident retained','separate later-plan original fact','same-account-source-symbol binding','future receipt rejected','different rule version stays unknown','no selected next plan retains the original coverage reason','no added mutation request']});await page.close();
   }
-  const result={scope:'native modules, synthetic read-only APIs and optional-model fixtures; no live evidence certification',report};
+  const result={scope:'native modules, synthetic read-only APIs and optional-model fixtures; timings are local interaction measurements, not production or live-model certification',report};
   if(output)fs.writeFileSync(path.join(output,'fayo-research-discipline-report.json'),JSON.stringify(result,null,2)+'\n');
   console.log(JSON.stringify(result));
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}

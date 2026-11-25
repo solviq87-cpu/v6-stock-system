@@ -1228,7 +1228,7 @@ export function createStockDrawer(ctx) {
    body.replaceChildren(section('信号后的真实观察','1 / 5 / 20 / 60 交易日与今日涨跌分开',note(tracking.note),tracked.length?h('div',{class:'fy-stack'},tracked):empty('尚无与该股匹配的有效跟踪证据','不会显示其他股票或未经协议验证的收益。')));
   }else if(tab==='replay'){
    if(body.firstChild?.dataset?.replayCode!==code){const cutoff=row?.historicalClose&&chartDay?Math.min(Date.now(),Date.parse(chartDay+'T23:59:59+08:00')):null;
-    const replay=createResearchReplay(ctx,{symbol:code,asOf:cutoff,signal:controller.signal});replay.dataset.replayCode=code;body.replaceChildren(replay);}
+    const replay=createResearchReplay(ctx,{symbol:code,asOf:cutoff,signal:controller.signal,memory:ctx.viewMemory});replay.dataset.replayCode=code;body.replaceChildren(replay);}
   }else if(tab==='marks'){
    const date=h('input',{type:'date','aria-label':'标记交易日'}),output=h('div');let markRequest=0;
    date.addEventListener('input',()=>{markRequest++;output.replaceChildren();});
