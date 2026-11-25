@@ -1,3 +1,4 @@
+import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
 import {renderManualLoop} from './manual-loop.js';
@@ -81,7 +82,7 @@ function holdingCards(ctx,host,items,reload,selected) {
   return el('div',{class:'fy-holding-grid'},items.map(item=>{
     const card=el('article',{class:'fy-holding-card','data-holding-code':item.code});
     const choose=input('pick-'+item.code,'','checkbox',{'aria-label':'选择'+text(item.name||item.code)});choose.checked=selected.has(item.code);choose.addEventListener('change',()=>choose.checked?selected.add(item.code):selected.delete(item.code));
-    card.append(el('div',{class:'fy-item-head'},choose,action(text(item.name||item.code),()=>ctx.selectStock(item.code),'text'),el('code',{},item.code),el('strong',{class:number(item.floatPct)>0?'fy-up':number(item.floatPct)<0?'fy-down':''},pct(item.floatPct))),el('div',{class:'fy-tagline'},arr(item.tags).map(tag=>el('span',{class:'fy-tag'},tag)),item.locked&&el('span',{class:'fy-tag'},'锁定'),item.muted&&el('span',{class:'fy-tag'},'静音'),item.valuationOnly&&el('span',{class:'fy-tag'},'仅估值')));
+    card.append(el('div',{class:'fy-item-head'},choose,action(text(item.name||item.code),()=>ctx.selectStock(item.code,item),'text'),el('code',{},item.code),el('strong',{class:number(item.floatPct)>0?'fy-up':number(item.floatPct)<0?'fy-down':''},pct(item.floatPct))),el('div',{class:'fy-tagline'},arr(item.tags).map(tag=>el('span',{class:'fy-tag'},tag)),item.locked&&el('span',{class:'fy-tag'},'锁定'),item.muted&&el('span',{class:'fy-tag'},'静音'),item.valuationOnly&&el('span',{class:'fy-tag'},'仅估值')));
     card.append(el('dl',{class:'fy-detail-grid'},[['当前估值',yuan(item.price)],['成本价',yuan(item.cost)],['持有股数',fmt(item.shares,0)],['仓位比例',pct(item.weight)],['浮动盈亏',yuan(item.profitAmt)],['当日盈亏',yuan(item.dayPnl)],['主力净额',yuan(item.mainIn)],['近高回撤',pct(item.drawdown)]].map(([label,value])=>el('div',{},el('dt',{},label),el('dd',{},value)))));
     if(item.note)card.append(el('p',{class:'fy-muted'},item.note));
     card.append(el('div',{class:'fy-action-reasons'},arr(item.acts).length?arr(item.acts).map(a=>el('p',{},el('strong',{},a.type||'观察'),a.text&&' · '+a.text,el('small',{},a.why||''))):notice('未触发持仓处理条件')));
@@ -116,12 +117,15 @@ function paper(ctx,ledger=false) {
   host.append(asyncRegion(ctx,()=>request(ctx,ledger?'/api/paper/ledger':'/api/paper'),(data,reload)=>{
     const records=data.paper||{};return el('div',{class:'fy-stack'},['pool','pre'].map(key=>{
       const account=records[key];if(!account)return panel(key==='pool'?'策略跟踪账户':'机会预选账户','',empty('账户数据尚未返回'));
-      if(ledger)return renderLedgerAccount(account,key);
+      if(ledger)return renderLedgerAccount(account,key,ctx);
       const card=panel(account.name||(key==='pool'?'策略跟踪账户':'机会预选账户'),account.enabled===false?'自动跟踪已暂停':'保留策略、T+1与报价门禁');
       const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账户权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))),quote&&notice(quote.note||quote.label||'账户估值沿用原始行情快照'));
       card.append(el('div',{class:'fy-toolbar'},action(account.enabled===false?'恢复策略跟踪':'暂停策略跟踪',()=>review(ctx,host,'切换策略跟踪状态',account.enabled===false?'恢复后，现有策略将在满足服务端交易与风控门禁时继续模拟跟踪。':'暂停后不再由该模拟账户继续自动跟踪。',()=>mutation(ctx,'/api/paper',{account:key,action:'toggle'},reload)),'primary'),action('刷新账户',reload)));
-      card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
-      card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>text(row.name||row.code)],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
+      const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
+      card.append(el('h3',{},'已实现收益曲线'),el('small',{},'按成交日累计，单位为元，未计持仓浮盈。'),
+        curve.length?priceLine(curve,'模拟账户已实现收益曲线',{timeLabel:p=>p.day}):empty('暂无可核实的成交流水'));
+      card.append(el('h3',{},'当前仓位'),table([['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['股数',row=>fmt(row.shares,0)],['买入价',row=>yuan(row.buyPrice)],['估值价',row=>yuan(row.lastPrice)],['盈亏',row=>el('span',{class:number(row.pnl)>0?'fy-up':'fy-down'},yuan(row.pnl))],['交易日',row=>fmt(row.days,0)],['报价状态',row=>text(row.valuationQuote?.status||row.valuationQuote?.note||'原始时点待核验')]],arr(account.positions)));
+      card.append(el('h3',{},'最近成交 · '+(account.tradesShown??arr(account.trades).length)+' / '+text(account.tradesTotal)),table([['成交时间',row=>date(row.t||row.ts||row.time||row.tradeDate||row.date)],['报价时点',row=>date(row.quoteAt||row.fillEvidence?.quoteAt)],['方向',row=>text(row.side||row.action||row.type)],['资产',row=>action(text(row.name||row.code),()=>ctx.selectStock(row.code,row),'text')],['成交价',row=>yuan(row.price)],['股数',row=>fmt(row.shares,0)],['依据',row=>text(row.reason||row.note||row.source)]],arr(account.trades)));
       const audit=account.audit||{};card.append(notice(audit.replica?'当前是副本视图，账户以主实例为准。':audit.ok===true?'账户与流水核对通过':audit.incomplete?'对账证据不完整，保留未知。':audit.note||'账户对账状态待核验'));
       const initial=input('amount',account.initial??'','number',{min:10000,max:1e9,step:1,required:true});
       const maintain=form('账户维护','调整本金或修复记录前，请核对将影响的账户。',[field('新本金（元）',initial)],'预览本金调整',async values=>{const amount=Number(values.get('amount'));review(ctx,host,'调整模拟账户本金',`将 ${account.name||key} 的本金改为 ${yuan(amount)}，保留当前持仓与流水。`,()=>mutation(ctx,'/api/paper',{account:key,action:'setInitialKeep',amount},reload));return{note:'请在上方预览中确认执行'};});
@@ -130,11 +134,11 @@ function paper(ctx,ledger=false) {
     }));
   }));return host;
 }
-function renderLedgerAccount(account,key) {
+function renderLedgerAccount(account,key,ctx) {
   const totals=account.accounting||account.summary||account.balance||account;const metrics=el('div',{class:'fy-metrics'},metric('可用现金',yuan(totals.cash??totals.availableCash)),metric('初始资金',yuan(totals.initialCash)),metric('已实现盈亏',yuan(totals.realized??totals.realizedPnl)),metric('对账状态',totals.auditStatus==='passed'||account.reconciliation?.ok===true||account.audit?.ok===true?'已核对':totals.auditStatus==='replica'?'副本 · 主实例为准':'待核验'));
   const positions=Array.isArray(totals.positions)?totals.positions:Array.isArray(account.positions)?account.positions:Object.values(account.positions||{});
   const events=arr(account.events||account.ledger||account.trades);
-  return panel(account.name||(key==='pool'?'策略跟踪账本':'机会预选账本'),'账务投影来自账户权威，不创建第二本账。',metrics,table([['资产',r=>text(r.name||r.code)],['持有股数',r=>fmt(r.shares??r.quantity,0)],['可售股数',r=>fmt(r.sellableShares??r.sellable,0)],['账面成本',r=>yuan(r.cost??r.basis)],['估值',r=>yuan(r.marketValue??r.market)]],positions),el('h3',{},'账务事件'),table([['事件时间',r=>date(r.t||r.at||r.ts||r.time||r.tradeDate)],['报价时点',r=>date(r.quoteAt)],['类型',r=>text(r.type||r.side)],['资产',r=>text(r.code||r.symbol)],['金额',r=>yuan(r.amount??r.value)],['说明',r=>text(r.reason||r.note)]],events));
+  return panel(account.name||(key==='pool'?'策略跟踪账本':'机会预选账本'),'账务投影来自账户权威，不创建第二本账。',metrics,table([['资产',r=>action(text(r.name||r.code||r.symbol),()=>ctx.selectStock(r.code||r.symbol,{...r,code:r.code||r.symbol}),'text')],['持有股数',r=>fmt(r.shares??r.quantity,0)],['可售股数',r=>fmt(r.sellableShares??r.sellable,0)],['账面成本',r=>yuan(r.cost??r.basis)],['估值',r=>yuan(r.marketValue??r.market)]],positions),el('h3',{},'账务事件'),table([['事件时间',r=>date(r.t||r.at||r.ts||r.time||r.tradeDate)],['报价时点',r=>date(r.quoteAt)],['类型',r=>text(r.type||r.side)],['资产',r=>text(r.code||r.symbol)],['金额',r=>yuan(r.amount??r.value)],['说明',r=>text(r.reason||r.note)]],events));
 }
 function newsFeed(ctx,kind) {
   let displayed='',pending=false;
@@ -165,6 +169,12 @@ function newsFeed(ctx,kind) {
   feed.addEventListener('focusout',()=>queueMicrotask(()=>{if(pending)render();}));
   render();
   host.append(panel(kind==='alerts'?'风险线索':kind==='signals'?'信号轨迹':'资讯时间线','公告、新闻与行情分别核验，不把标题线索直接当作买卖指令。',el('div',{class:'fy-toolbar'},search,action('刷新资讯',()=>ctx.refresh())),feed));
+  if(editor(ctx)&&kind==='all'){
+    const route=el('div',{'aria-live':'polite'});
+    const update=()=>{route.textContent='私密飞书 · '+(ctx.state?.feishuSecReady?'已配置':'未配置')+'。封板前哨和异动预警按原推送规则投递。';};
+    update();ctx.onState?.(update);
+    host.prepend(panel('行情提醒','',route,action('通知设置',()=>ctx.navigate('settings','channels')),action('查看投递记录',()=>ctx.navigate('inbox','push'))));
+  }
   if(editor(ctx))host.append(el('div',{class:'fy-toolbar'},action('补发新闻摘要',()=>review(ctx,host,'发送新闻摘要','这会向当前配置的通知通道发送一份新闻汇总。',()=>mutation(ctx,'/api/news-digest',{holiday:ctx.state?.trading===false})))));
   ctx.onState?.(render);return host;
 }
@@ -207,7 +217,7 @@ function preferences(ctx) {
 function channels(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'}),state=ctx.state||{};
   const pushRole=ctx.auth?.pushRole;
-  host.append(el('div',{class:'fy-metrics'},metric('公共通道',state.wecomReady||state.feishuReady?'已配置':'未就绪',state.feishuMask||''),metric('私密通道',state.feishuSecReady?'已配置':'待核对',state.feishuSecMask||''),metric('邮件通道',state.mailReady?'已配置':'待核对')));
+  host.append(el('div',{class:'fy-metrics'},metric('公共飞书',state.wecomReady||state.feishuReady?'已配置':'未配置'),metric('私密飞书',state.feishuSecReady?'已配置':'未配置','封板前哨、异动预警'),metric('邮件通道',state.mailReady?'已配置':'待核对')));
   if(pushRole==='replica')host.append(notice('当前是副本，自动飞书推送已停用。'));
   for(const [kind,label,hookKey,secretKey,verifyKey]of [['public','公共通知','feishuWebhook','feishuSecret','verify'],['private','私密通知','feishuSecWebhook','feishuSecSecret','secVerify']]){
     const hook=input('hook','','url',{required:true,autocomplete:'off',placeholder:'粘贴新的飞书机器人地址'}),secret=input('secret','','password',{autocomplete:'new-password'});

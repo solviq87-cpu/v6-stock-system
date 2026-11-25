@@ -293,7 +293,7 @@ test('decision panel shows real dated good/bad evidence, watch counts and no aut
  const display=textOf(panel);
  assert.match(display,/逐股决策仪表盘/);
  assert.match(display,/买入研究标签\s*0/);
- assert.match(display,/观望 \/ 待核验\s*1/);
+ assert.match(display,/仅供观察\s*1/);
  assert.match(display,/明确利空公告标题/);
  assert.match(display,/明确利好公告标题/);
  assert.match(display,/原始行情日 2026-11-17/);

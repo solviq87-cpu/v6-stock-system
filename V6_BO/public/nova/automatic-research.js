@@ -14,7 +14,7 @@ export function readAutomatic(ctx,symbol=researchCode(ctx)){
  const job=ctx.api('/api/research/automatic-evidence'+(symbol?'?symbol='+encodeURIComponent(symbol):''),{signal:ctx.signal,timeoutMs:55000})
   .then(data=>{
    const x=data?.result;
-   if(!x?.stock?.bars?.length||symbol&&x.symbol!==symbol)throw Error('此标的的行情正在同步');
+   if(!x?.stock?.bars?.length||symbol&&x.symbol!==symbol)throw Error('该标的本次没有返回可核实的日线');
    return x;
   }).catch(e=>{if(cache.get(key)?.job===job)cache.delete(key);throw e;});
  cache.set(key,{job,until:Date.now()+60000});if(cache.size>32)cache.delete(cache.keys().next().value);return job;

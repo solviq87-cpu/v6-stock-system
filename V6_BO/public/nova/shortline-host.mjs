@@ -107,7 +107,8 @@ export async function stockCheckAt(ctx,code,row,signal){
     c.status&&c.createdAt&&Number.isFinite(Date.parse(c.createdAt))&&Date.parse(c.createdAt)<=Date.now())
     .sort((a,b)=>b.date.localeCompare(a.date)||Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
   const quote=archivedStockQuote(state.bars,code,checkedDay||undefined);
-  return {code,date:checkedDay||record?.date||'',record,previousRecord,quote,recovery:state.marketRecovery,missing:result?.missing||[],replica:!!result?.replica};
+  const obs=state.v6Observation?.code===code&&state.v6Observation.day===checkedDay?state.v6Observation:null;
+  return {code,date:checkedDay||record?.date||'',minuteBars:obs?.minuteBars||[],themes:obs?.stock?.themes||[],record,previousRecord,quote,recovery:state.marketRecovery,missing:result?.missing||[],replica:!!result?.replica};
 }
 function download(name,content,type){
   const url=URL.createObjectURL(new Blob([content],{type:type||'text/plain;charset=utf-8'}));

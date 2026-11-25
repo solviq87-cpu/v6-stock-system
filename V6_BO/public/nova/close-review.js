@@ -337,7 +337,7 @@ export function renderCloseReview(ctx,additional){
      const filter=button(category,()=>{seatFilter=category;paint(true);[...cards.querySelectorAll('[data-seat-filter]')].find(node=>node.dataset.seatFilter===category)?.focus();},seatFilter===category?'active':'quiet');
      filter.dataset.seatFilter=category;filter.dataset.reviewControl='seat:'+category;filter.setAttribute('aria-pressed',String(seatFilter===category));return filter;
     })):null,seatRows.length?h('ul',{class:'fy-close-seats'},seatRows):
-     dbk.seats.length?null:empty(report.seatsStatus==='pending'?'龙虎榜待当日公布':'暂无可核实的同日席位','可从公开榜单核对上榜日期。'),
+     dbk.seats.length?null:empty(report.seatsStatus==='pending'?'该交易日龙虎榜尚未公布':'已读取，本期没有可核实的同日席位','可从公开榜单核对上榜日期。'),
     report.seatsStatus==='partial'?h('p',{class:'fy-muted'},'龙虎榜有部分明细尚未获取。'):null,
     sourceLinks(report,['seats','aliases'])),
    card(4,null,...dbk.risks,renderItems(report.risks),sourceLinks(report,['pools','ladder'])),

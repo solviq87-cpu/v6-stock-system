@@ -9,10 +9,11 @@ const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 test('the two original V6 references remain one authenticated desktop/mobile application',()=>{
  const app=read('app.js');
  assert.match(app,/const REFERENCE_TOP=/);
- for(const label of ['首页','行情','选股','策略','回测','复盘','资讯','资金流','风控','模拟盘','我的'])
-  assert.ok(app.includes("'"+label+"'"),'required desktop action: '+label);
- for(const label of ['首页','行情','选股','复盘','我的'])
-  assert.ok(app.includes("'"+label+"'"),'required mobile destination: '+label);
+ const primary=app.slice(app.indexOf('const REFERENCE_TOP='),app.indexOf('const REFERENCE_MOBILE='));
+ assert.deepEqual([...primary.matchAll(/\['([^']+)'/g)].map(x=>x[1]),['大盘','机会','我的票','提醒','复盘']);
+ assert.match(app,/const REFERENCE_MOBILE=REFERENCE_TOP/);
+ for(const sub of ['shortline-library','shortline-versions','backtest','scan','authority','release','history'])
+  assert.ok(app.includes("'"+sub+"'"),'preserve secondary route '+sub);
  assert.match(app,/data-fy-sub/);
  assert.match(app,/renderReferenceReview\(ctx\)/);
  assert.match(app,/renderDailyReview\(ctx\)/);

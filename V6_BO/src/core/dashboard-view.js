@@ -339,6 +339,8 @@ function dashboardView(state,mood=null,now=Date.now(),meta={}){
  const sectorCounts=new Map(Object.entries(state.ztBySector||{}).map(([name,list])=>[name,Array.isArray(list)?list.length:0]));
  const rows=pool.map(c=>({...quoteObservationView(c,now),code:text(c.code),name:text(c.name),price:number(c.price),pct:number(c.pct),score:number(c.score),
    volume:number(c.volume),amount:number(c.amount),turnover:number(c.turnover),mainInflow:number(c.mainInflow),mainPct:number(c.mainPct),
+   blocked:['excluded','blocked','riskBlocked','riskWarning','isST','halt','suspended','synthetic','simulated','fixture','mock','blacklisted','buyHeld','bad'].some(key=>c[key]===true)||
+     !!c.heldRecord||c.canOpen===false||c.cap==='空仓'||c.currentSourceConfirmed===false||c.decisionReview?.action==='sell',
    strategyVersion:text(c.strategyVersion||''),
    conditionEvidence:observedConditions(c,now,[['candidate_score','候选评分',c.score,c.quoteAt]],'candidate_pool'),
    sector:text(c.sector||c.industry||''),

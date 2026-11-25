@@ -106,10 +106,11 @@ function workbench(ctx,title,description,inputs=[]){
   function action(label,handler,options={}){
     let fingerprint='';
     const button=btn(label,async()=>{
-      const turn=++revision;button.disabled=true;if(!output.firstChild)status.textContent='正在读取研究数据…';
+      const turn=++revision;button.disabled=true;if(!output.firstChild)status.textContent='研究数据加载中…';
       try{const data=await handler({current:()=>current(turn)});if(!current(turn))return;const next=JSON.stringify(data);
         if(!options.auto||next!==fingerprint||!output.firstChild){output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));fingerprint=next;}
-        status.textContent=options.message||'已读取研究结果';}
+        const result=data?.result??data,rows=Array.isArray(result)?result:result?.items??result?.ranked??result?.rows;
+        status.textContent=result==null||result?.status==='empty'||Array.isArray(rows)&&!rows.length?'已读取，本期没有符合条件的记录。':options.message||'已读取研究结果';}
       catch(error){if(current(turn))status.textContent=error?.name==='AbortError'?'请求已停止。':(error?.message||'请求未完成。');}
       finally{if(!ctx.signal?.aborted)button.disabled=false;}
     },options.kind||'secondary');

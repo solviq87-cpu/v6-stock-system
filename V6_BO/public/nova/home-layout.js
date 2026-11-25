@@ -72,10 +72,11 @@ export function createTradingHome(ctx,accountPanel){
  const controls=new Map(channels.map(([key,label])=>[key,h('button',{type:'button',disabled:key==='relay-first'&&ctx.role!=='edit',
   onClick:()=>{chosen=key;paintSelection();}},label)]));
  tabList.append(...controls.values());
- const go=button('查看系统精选',()=>ctx.navigate('opportunities',active),'quiet');
+ const go=button('查看全部推荐 →',()=>ctx.navigate('opportunities','ranked'),'primary');
+ const featured=h('div',{class:'fy-home-featured','aria-label':'系统精选'});
  let active='ranked';
  const opportunity=h('section',{class:'fy-home-section fy-home-opportunity','aria-label':'今日机会'},
-  h('header',{},h('h2',{},'今日机会'),go),tabList,detail);
+  h('header',{},h('h2',{},'今日机会'),go),featured,tabList,detail);
  const riskFacts=h('div',{class:'fy-home-risk-facts'}),portfolio=h('div',{class:'fy-home-portfolio'});
  const positionCount=h('small',{class:'fy-home-position-count'});
  const risk=h('section',{class:'fy-home-section fy-home-risk','aria-label':'风险与持仓'},
@@ -87,7 +88,10 @@ export function createTradingHome(ctx,accountPanel){
    ['ranked','relay-first','auction','movement'];
   active=chosen||preferred.find(k=>lists[k].length)||preferred[0];
   for(const [key,tab] of controls)tab.setAttribute('aria-pressed',String(active===key));
-  const [,label,action]=channels.find(([key])=>key===active);go.textContent=action;
+  const [,label]=channels.find(([key])=>key===active);
+  if(active==='ranked' && lists.ranked.length && lists.ranked[0].row.pickSource!=='收盘观察精选'){
+   updateReadout(detail);return;
+  }
   const rows=lists[active];
   if(!rows.length){
    const notice={ranked:'本期无符合条件的标的',auction:'本期暂无已核实记录',movement:'本期暂无同日异动记录','relay-first':'本期暂无符合条件的首板标的'}[active];
@@ -115,14 +119,21 @@ export function createTradingHome(ctx,accountPanel){
   else updateReadout(indexHost,homeEmpty('三大指数','暂未收到当期报价',...parts.indices));
   positionCount.hidden=positions==null;
   positionCount.textContent=positions==null?'':'模拟持仓 '+positions+' 只';
-  updateReadout(climate,parts.hasSentiment?parts.sentiment:homeEmpty('市场情绪','多日证据核对中',parts.sentiment),
+  updateReadout(climate,parts.hasSentiment?parts.sentiment:homeEmpty('市场情绪','数据不足，暂不判断',parts.sentiment),
    parts.hasEnvironment?parts.environment:homeEmpty('市场环境','尚无同日判断',parts.environment));
   updateReadout(riskFacts,parts.hasRisk?parts.risk:homeEmpty('市场风险','本期暂无可核对指标',parts.risk));
   if(accountReady!==hasAccount){
-   portfolio.replaceChildren(hasAccount?accountPanel:homeEmpty('持仓记录',ctx.role==='edit'?'本期暂无账户估值':'仅研究账户可查看',accountPanel));
+   portfolio.replaceChildren(hasAccount?accountPanel:homeEmpty('我的账户 · 模拟盘',ctx.role==='edit'?'本期暂无账户估值':'仅研究账户可查看',accountPanel));
    accountReady=hasAccount;
   }
-  lastSession=session;lastLists=opportunityLists(state,picks,session,ctx.role==='edit');paintSelection();
+  lastSession=session;lastLists=opportunityLists(state,picks,session,ctx.role==='edit');
+  const selected=lastLists.ranked.filter(item=>item.row.pickSource==='V6 策略命中');
+  updateReadout(featured,h('h3',{},'系统精选 · '+selected.length+' 只'),
+   ...(selected.length?selected.map(({row,why})=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
+    onClick:event=>ctx.selectStock(row.code,row,event.currentTarget)},h('strong',{},row.name||row.code),h('small',{},row.code),
+    h('b',{class:'fy-home-pick-score'},Number.isFinite(row.score)?row.score+' 分':'源端未提供评分'),
+    h('span',{class:'fy-home-pick-why'},why))):[h('p',{class:'fy-muted'},'本期没有通过精选条件的标的。')]));
+  paintSelection();
  }
  return {market,opportunity,risk,paint};
 }

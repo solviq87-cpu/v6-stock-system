@@ -182,7 +182,7 @@ export function projectDecisionBrief(state,{now=Date.now(),limit=3}={}) {
     if(!fresh)risks.unshift('报价非当前可核验的15秒盘中价格，不得直接作为操作依据');
     if(items.length<bounded)items.push({
       code,name:clipped(row.name)||code,score:finite(row.score)&&row.score>=0&&row.score<=100?row.score:null,
-      action,label:action==='buy'?'服务端声明买入研究标签（非交易建议）':action==='sell'?'服务端声明卖出研究标签（非交易建议）':'观望 / 待核验',
+      action,label:action==='buy'?'服务端声明买入研究标签（非交易建议）':action==='sell'?'服务端声明卖出研究标签（非交易建议）':'仅供观察',
       day:rowDay,quoteAt:originalAt,
       quoteSource:source||'来源未知',
       quoteStatus:fresh?'供应商声明原时点在15秒内（未独立认证）':'历史 / 未知 / 异常时点',
