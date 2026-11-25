@@ -587,3 +587,8 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 ```
 
 **默认行为**：先读、查重、增量开发、测试、登记、再审核。不要让用户重复为同一任务耗费额度。
+
+
+## 补充增强（一）独立阶段记录（2026-11-26，未部署）
+
+只读资金及历史时点诊断阶段，基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，工作分支 `feat/fayo-advanced-safety-20261126`。实际范围、测试限制及后续接线见 [阶段记录](docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。不改变上方当前生产发布检查点；未通过完整回归及双端验收前不得部署。
