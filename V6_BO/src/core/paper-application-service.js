@@ -26,6 +26,10 @@ function requireCurrentAutomaticQuote(quote,now){
   const error=Error('自动成交行情缺失、过期或触及交易限制：原始报价必须在当前交易日15秒内');
   error.reasonCodes=['AUTOMATIC_QUOTE_NOT_CURRENT'];throw error;
  }
+ if(quote.canTrade===false||quote.readOnlyBackup===true){
+  const error=Error('自动成交行情只读：该原始报价不允许用于自动成交');
+  error.reasonCodes=['AUTOMATIC_QUOTE_READ_ONLY'];throw error;
+ }
 }
 function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=1,calendar=null,feePolicy={version:"research-default",feeBps:3,minFee:5,sellTaxBps:5}}={}){
  if(!file||!Number.isFinite(maxParticipationPct)||maxParticipationPct<=0||maxParticipationPct>100)throw Error('模拟交易服务配置无效');
