@@ -1,3 +1,4 @@
+import {projectDiscipline} from './research-review.mjs';
 import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
@@ -254,6 +255,12 @@ function executionEvidencePanel(payload,ctx){
     box.dataset.reportVersion=String(saved.reportVersion);box.dataset.reportHash=saved.reportHash;
     box.append(notice('已保存日报 v'+saved.reportVersion+' · 生成于 '+date(saved.recordedAt)),
       executionScorePanel(saved.report.score,null,ctx,null,'执行评分',false),notice(saved.reason));
+    const discipline=projectDiscipline(saved);
+    box.append(el('details',{class:'fy-advanced','data-discipline-review':true},el('summary',{},'个人执行纪律复盘'),
+      notice(discipline.reason),...discipline.rows.map(row=>el('article',{class:'fy-item'},el('strong',{},row.code+' · '+row.rule+' · '+row.classification),
+        el('p',{},'原计划 '+row.planId+' / '+row.planVersion+' · 日报 v'+row.reportVersion),
+        el('p',{},row.evidence),el('p',{},'原证据引用：'+(row.refs.join('、')||'未提供具体引用；保留原日报指纹')+' · '+row.reportHash),
+        row.nextCheck?el('p',{},'下次核对：'+row.nextCheck):null,el('p',{},'后续落实：'+row.followup)))));
     const labels={ledger:'原持久账本',plans:'事前冻结计划',observations:'原始报价观察',conditionalOrders:'原条件意图'};
     box.append(el('details',{class:'fy-advanced',id:'fy-execution-report-sources-'+day},el('summary',{},'日报版本与数据来源'),
       el('dl',{class:'fy-facts'},el('div',{},el('dt',{},'日报核验指纹'),el('dd',{},saved.reportHash)),

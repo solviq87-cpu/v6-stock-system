@@ -294,7 +294,7 @@ function evidence(ctx){
   w.action('读取新闻与公告证据',()=>{w.output.replaceChildren();return request(ctx,'/api/research/news-evidence'+(code.value.trim()?'?symbol='+symbolValue(code):''));},{kind:'primary',render:data=>{
     const r=data.result||data,root=n('div',undefined,'fy-stack'),s=r.summary||{};
     const now=Date.now(),asOf=cutoff.value?Date.parse(cutoff.value+':00+08:00'):now;
-    const projection=projectNewsEvents(arr(r.rows),asOf,now);
+    const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
     if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
     else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
     root.append(n('p',projection.missing.join('；'),'fy-muted'));

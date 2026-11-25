@@ -1,5 +1,5 @@
 // Read-only, point-in-time view of existing news journal receipts. No trade or notification API.
-export function projectNewsEvents(rows,asOf,now=Date.now()){
+export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={}){
   const validTime=(v)=>Number.isSafeInteger(v)&&v>0&&v<=now;
   const hash=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
   if(!validTime(asOf)||!Array.isArray(rows)||rows.length>200)return {status:'unknown',rows:[],missing:['截点或新闻证据范围无效'],canTrade:false};
@@ -41,6 +41,7 @@ export function projectNewsEvents(rows,asOf,now=Date.now()){
     const amounts=[...body.matchAll(/[+-]?\d+(?:\.\d+)?\s*(?:亿元|万元|元|万股|亿股|%|％)/g)].slice(0,8).map(m=>m[0]);
     const missing=['独立正式披露核验、主体名称及行业归属待核对','金额与有效时间必须由原文语境核验，不能由关键词认定','持仓、冻结计划及交易状态未接入本新闻投影'];
     if(!chainComplete)missing.push('返回范围内缺少完整修订链');
+    if(currentView&&asOf===now&&row.current===false)missing.push('此版本并非后台全档案的当前版本；可能存在筛选范围外修订，不能作为当前催化');
     if(!e.publishedAt)missing.push('原始发布时间未知');
     if(!body||e.bodyScope==='provider-summary')missing.push('完整原文待核对');
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,

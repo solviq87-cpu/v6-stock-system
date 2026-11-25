@@ -1,3 +1,4 @@
+import {questions,explainSealedResearch} from './research-review.mjs';
 import {onResearchRead} from './automatic-research.js';
 /* Native research archive: all writes keep the server's version and identity gates. */
 const list = value => Array.isArray(value) ? value : [];
@@ -92,6 +93,12 @@ export function renderRecords(ctx){
    const evidence=new Map(list(r.evidence).map(e=>[e.id,e]));
    const checks=list(r.conditions).map(c=>{const d=detail(`${c.name||c.field} · ${value(c.status)}`,facts({'条件':`${value(c.field)} ${value(c.op)} ${value(c.threshold)}`,'观察值':c.value,'判断理由':c.reason,'失效条件':c.invalidation}));
     for(const id of list(c.evidenceIds)){const e=evidence.get(id);if(e)d.append(facts({'证据来源':e.source,'来源原始时点':clock(e.sourceTimestamp),'覆盖期终点':clock(e.periodEnd),'首次可用':clock(e.availableAt),'接收时点':clock(e.receivedAt),'缺失原因':e.missingReason,'封存引用':e.evidenceRef}));}return d;});body.append(card('判断依据',...checks));
+   const answers=n('div',null,'detail-grid');answers.setAttribute('aria-live','polite');
+   const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,()=>{
+     const a=explainSealedResearch(view,key);answers.replaceChildren(n('p',a.reason,'muted'));
+     for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略版本':row.version,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'证据缺口':row.missing}),...row.evidence.map(e=>facts({'证据引用':e.evidenceRef,'来源':e.source,'原始时点':clock(e.sourceTimestamp),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
+   })));
+   body.append(card('研究证据五问',n('p','规则解释 · 本次未调用外部模型，模型配置及可用性未核验。只读原封存档案，不改变策略或交易。','muted'),ask,answers));
    const refs=detail('原始来源与版本');for(const ref of list(r.sourceRefs))refs.append(facts({'来源':ref.source,'内容指纹':ref.hash}),ref.url?link(ref.url,'打开原始来源'):n('span','来源地址未知'));body.append(refs);
   }else if(activeTab==='timeline'){
    body.append(card('判断轨迹',...list(view.timeline).map(item=>detail(`${item.tradeDate||'日期未知'} · ${clock(item.asOf)}`,facts({'来源':item.provider,'目标日':item.targetDate,'比较状态':item.changes?.status}),...list(item.changes?.systemChanges).map(c=>row(value(c.system),`${value(c.before)} → ${value(c.after)}`)),...list(item.changes?.changes).map(c=>row(c.name||c.condition,`${value(c.kind)} · ${value(c.before)} → ${value(c.after)}`))))));
