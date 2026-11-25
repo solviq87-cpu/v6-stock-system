@@ -188,9 +188,13 @@ function normalizeMetrics(input, now, collectionMs) {
 function summarizeDay(day, rows, now, criteria) {
   // Older records remain intact, but a prior boolean without the now-required
   // runtime calendar and quote audit evidence cannot certify a real day.
-  const live=rows.filter(row=>row.liveEligible&&row.calendar?.runtimeEligible===true&&
-    row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.freshQuotes>0),liveSet=new Set(live),slots=new Set(live.map(r=>r.slot));
-  const attempts=rows.filter(row=>liveSet.has(row)||row.attemptEligible===true&&row.calendar?.runtimeEligible===true&&SHA.test(row.sourceSha||'')&&row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.nonLiveQuotes===0&&Array.isArray(row.exclusions)&&row.exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded'].includes(reason)));
+  const attemptedReasons=['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded','quote-source-conflict','quote-input-limit-exceeded','quote-population-mismatch','invalid-quote-identity'];
+  const qualified=row=>row.calendar?.runtimeEligible===true&&SHA.test(row.sourceSha||'')&&row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.nonLiveQuotes===0;
+  const populationMismatch=m=>m.expectedSymbols!=null&&m.observedSymbols>m.expectedSymbols;
+  const live=rows.filter(row=>row.liveEligible&&qualified(row)&&row.metrics.market.freshQuotes>0&&
+    row.metrics.market.quoteEvidence.truncated!==true&&!(row.metrics.market.conflictingSymbols>0)&&!(row.metrics.market.invalidIdentities>0)&&
+    !populationMismatch(row.metrics.market)),liveSet=new Set(live),slots=new Set(live.map(r=>r.slot));
+  const attempts=rows.filter(row=>liveSet.has(row)||qualified(row)&&(row.attemptEligible===true||row.liveEligible===true)&&Array.isArray(row.exclusions)&&row.exclusions.every(reason=>attemptedReasons.includes(reason)));
   const morning = [...slots].filter(n => n < 24).length, afternoon = [...slots].filter(n => n >= 24).length;
   const ended = day < aShareCalendarDate(now) || day === aShareCalendarDate(now) && new Date(now + 8 * 3600000).getUTCHours() >= 16;
   const fullCoverage = slots.size >= criteria.minimumSlots && morning >= criteria.minimumSessionSlots && afternoon >= criteria.minimumSessionSlots &&
@@ -222,6 +226,7 @@ function summarizeDay(day, rows, now, criteria) {
   if (attempts.some(r=>r.metrics.market.conflictingSymbols>0)) failures.push('quote-source-conflict');
   if (attempts.some(r=>r.metrics.market.invalidIdentities>0)) failures.push('invalid-quote-identity');
   if (attempts.some(r=>r.metrics.market.quoteEvidence?.truncated===true)) failures.push('quote-input-limit-exceeded');
+  if (attempts.some(r=>populationMismatch(r.metrics.market))) failures.push('quote-population-mismatch');
   if (rows.some(r => r.collectFailed)) failures.push('collector-failure');
   if (rows.some(r => r.metrics.market.futureQuotes > 0)) failures.push('future-original-quote-time');
   if (rows.some(r => r.metrics.market.invalidPrice > 0)) failures.push('invalid-original-quote-price');
@@ -292,6 +297,11 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
       if (env.V6_ISOLATED_BOOT_SMOKE === '1' || env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT || !(snapshot?.mode === 'live'||collectFailed&&liveCollector===true)) exclusions.push('isolated-replay-or-unidentified-run');
       if (proof?.verifiedInstalled !== true || !SHA.test(proof?.sourceSha || '')) exclusions.push('verified-installation-required');
       if (!metrics.market.freshQuotes) exclusions.push('no-original-fresh-market-evidence');
+      if(metrics.market.nonLiveQuotes>0)exclusions.push('non-live-quote-input');
+      if(metrics.market.conflictingSymbols>0)exclusions.push('quote-source-conflict');
+      if(metrics.market.invalidIdentities>0)exclusions.push('invalid-quote-identity');
+      if(metrics.market.quoteEvidence.truncated===true)exclusions.push('quote-input-limit-exceeded');
+      if(metrics.market.expectedSymbols!=null&&metrics.market.observedSymbols>metrics.market.expectedSymbols)exclusions.push('quote-population-mismatch');
       if (collectFailed) exclusions.push('collector-failure');
       if (clock() < now || clock() - now > 15000) exclusions.push('collection-window-exceeded');
       if (canWrite() !== true) return {recorded:false,reason:'write-authorization-changed'};
@@ -311,7 +321,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
           releaseCheckedAt,liveEligible:exclusions.length===0,
           // A verified live collector may attempt and fail. Preserve the day in
           // the original review window without counting it as valid coverage.
-          attemptEligible:exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded'].includes(reason))&&metrics.market.nonLiveQuotes===0,
+          attemptEligible:exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded','quote-source-conflict','quote-input-limit-exceeded','quote-population-mismatch','invalid-quote-identity'].includes(reason))&&metrics.market.nonLiveQuotes===0,
           exclusions,collectFailed,metrics,businessRecordsMutated:false};
         const row = {...body,fingerprint:digest(body)}, bytes=JSON.stringify(row)+'\n', file=path.join(root,day+'.jsonl');
         if (Buffer.byteLength(bytes)>16384) throw Error('acceptance-record-limit');

@@ -200,3 +200,29 @@ test('later failed qualified attempt is preserved in the same day instead of ave
  assert.equal(d.minimumFreshCoverage,null);assert.ok(d.unknown.includes('marketCoverage'));
  assert.ok(d.unknown.includes('collectionSuccess'));assert.ok(d.failures.includes('collector-failure'));
 });
+
+// A known invalid population may be an attempted observation but not a live slot.
+test('78 a simulated duplicate or separate row cannot enter the live-day denominator',async t=>{
+ const now=at(days[0],9,30),a={code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now};
+ const simulated={...a,simulated:true},separate={...simulated,code:'000001'};
+ for(const rows of [[a,simulated],[simulated,a],[a,separate],[separate,a]]){
+  const f=fixture(t);f.setQuotes(rows);const receipt=await f.ops.tick();
+  assert.equal(receipt.liveEligible,false);assert.ok(receipt.exclusions.includes('non-live-quote-input'));
+  const r=await f.ops.report();assert.equal(r.elapsedTradingDays,0);assert.equal(r.observedTradingDays,0);
+  assert.equal(r.excludedDayEvidence[0].latest.market.nonLiveQuotes,1);
+ }
+});
+test('78 conflicting, truncated, malformed or over-denominator inputs cannot count as complete live slots',async t=>{
+ const now=at(days[0],9,30),a={code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now};
+ for(const [reason,quotes,expectedSymbols] of [
+  ['quote-source-conflict',[a,{...a,price:11},{...a,code:'000001'}],2],
+  ['invalid-quote-identity',[a,{...a,code:'invalid'}],2],
+  ['quote-population-mismatch',[a,{...a,code:'000001',quoteAt:now-16000}],1],
+  ['quote-input-limit-exceeded',Array.from({length:10001},(_,i)=>({...a,code:String(100000+i)})),10000]
+ ]){
+  const f=fixture(t,{collect:async()=>({mode:'live',market:{expectedSymbols,quotes}})});
+  const receipt=await f.ops.tick();assert.equal(receipt.liveEligible,false,reason);assert.ok(receipt.exclusions.includes(reason));
+  const report=await f.ops.report(),d=report.days[0];assert.equal(d.liveSamples,0);assert.equal(d.attemptSamples,1);assert.ok(d.failures.includes(reason));
+  if(reason==='quote-population-mismatch'||reason==='quote-input-limit-exceeded')assert.equal(d.latest.market.freshCoverage,null);
+ }
+});

@@ -150,6 +150,8 @@ test('queued non-plan price clearances recheck current missing, stale and confli
     const h=await harness(t);h.f.buy();h.quoteFields({sourceConflict:true});
     await h.runtime.tick();assert.equal(h.sent.length,0);
     h.quoteFields({});await h.runtime.tick();
+    assert.equal(h.sent.filter(row=>row.message.includes('解除观察')).length,0,'same-time quote cannot clear the observation');
+    h.f.setNow(h.f.now+1);await h.runtime.tick();
     const clearances=h.sent.filter(row=>row.message.includes('解除观察'));
     assert.ok(clearances.length>=2);assert.ok(clearances.every(row=>row.options.beforeSend().ok));
     if(change==='missing')h.missingQuotes(true);
@@ -196,6 +198,8 @@ test('queued rule breaches and clearances recheck the current installed version,
     assert.equal(notices.length,2);assert.ok(notices.every(row=>row.options.beforeSend().ok));
     if(change==='breached-again'){
       h.price(9.9);await h.runtime.tick();
+      assert.equal(h.sent.filter(row=>row.message.includes('单票集中度')&&row.message.includes('解除观察')).length,0,'same-time evidence cannot clear the breach');
+      h.f.setNow(h.f.now+120001);await h.runtime.tick();
       notices=h.sent.filter(row=>row.message.includes('单票集中度')&&row.message.includes('解除观察'));
       assert.equal(notices.length,2);assert.ok(notices.every(row=>row.options.beforeSend().ok));
       h.price(10);
