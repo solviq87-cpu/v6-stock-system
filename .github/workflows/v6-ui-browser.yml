@@ -11,6 +11,9 @@ on:
       - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-command-evidence-browser-check.js'
+      - 'V6_BO/scripts/fayo-replay-boundaries-browser-check.js'
+      - 'V6_BO/scripts/fayo-research-discipline-browser-check.js'
       - 'V6_BO/scripts/fayo-decision-browser-check.js'
       - 'V6_BO/scripts/fayo-execution-browser-check.js'
       - 'V6_BO/scripts/fayo-intelligence-browser-check.js'
@@ -53,6 +56,9 @@ on:
       - 'V6_BO/scripts/ui-unified-workspace-browser-check.js'
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
+      - 'V6_BO/scripts/fayo-command-evidence-browser-check.js'
+      - 'V6_BO/scripts/fayo-replay-boundaries-browser-check.js'
+      - 'V6_BO/scripts/fayo-research-discipline-browser-check.js'
       - 'V6_BO/scripts/fayo-decision-browser-check.js'
       - 'V6_BO/scripts/fayo-execution-browser-check.js'
       - 'V6_BO/scripts/fayo-intelligence-browser-check.js'
@@ -175,10 +181,14 @@ jobs:
           V6_UI_BROWSER: ${{ steps.browser.outputs.binary }}
           V6_UI_QA_DIR: ${{ runner.temp }}/v6-ui-report
           FAYO_EXECUTION_QA_DIR: ${{ runner.temp }}/v6-ui-report/execution
+          FAYO_COMMAND_QA_DIR: ${{ runner.temp }}/v6-ui-report/command-evidence
           V6_UI_SCREENSHOTS: '1'
         run: |
           set -euo pipefail
           node scripts/fayo-browser-check.js
+          node scripts/fayo-command-evidence-browser-check.js
+          node scripts/fayo-replay-boundaries-browser-check.js
+          node scripts/fayo-research-discipline-browser-check.js
           node scripts/fayo-decision-browser-check.js
           node scripts/fayo-execution-browser-check.js
           node scripts/fayo-intelligence-browser-check.js

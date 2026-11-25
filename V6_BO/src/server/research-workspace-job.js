@@ -8,7 +8,7 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evidence-workbench'].includes(payload.action);
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evidence-workbench','view'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback'||payload.action==='evidence-workbench'&&Boolean(payload.input);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
@@ -26,7 +26,7 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
+  const guarded=payload.guardWorkspaceWrite===true||['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
     payload.action==='shortline'&&Boolean(payload.decisionPlan)||payload.action==='evidence-workbench'&&Boolean(payload.input);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
@@ -129,10 +129,12 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     catch(e){return {ok:false,httpStatus:e.httpStatus||422,error:'研究证据请求未通过身份、时点、版本或档案校验；原记录保留'};}
   }
   if(p.action==='view'){const view=W.workspaceView(p.root,p.query,{accounts:p.accounts,quotes:new Map(p.quotes||[]),now:p.now});return {ok:true,result:p.export?W.exportResearch(view):view};}
-  if(p.action==='review')return await W.reviewStored(p.input,p.options);
-  if(p.action==='forecast')return W.saveModelForecast(p.root,p.input);
-  if(p.action==='settings'){const e=W.saveSettings(p.root,p.input);return {ok:true,revision:e.revision,recordId:e.hash,reused:e.reused,researchOnly:true};}
+  const commitOptions=p.guardWorkspaceWrite?{beforeCommit:authorizedCheckpoint}:{};
+  if(p.action==='review')return await W.reviewStored(p.input,p.options,commitOptions);
+  if(p.action==='forecast')return W.saveModelForecast(p.root,p.input,commitOptions);
+  if(p.action==='settings'){const e=await W.saveSettings(p.root,p.input,commitOptions);return {ok:true,revision:e.revision,recordId:e.hash,reused:e.reused,researchOnly:true};}
   throw Error('invalid job');
- }catch(e){return {ok:false,httpStatus:p.action==='settings'?409:422,error:p.action==='forecast'&&/^FORECAST_/.test(e.code||'')?e.message:p.action==='settings'?'设置无效或版本冲突，请重新读取后再保存':'研究查询、输入或私有档案校验失败，原档案保留'};}
+ }catch(e){return {ok:false,httpStatus:e?.code==='WORKSPACE_AUTHORIZATION'?403:p.action==='settings'?409:422,
+  error:e?.code==='WORKSPACE_AUTHORIZATION'?e.message:p.action==='forecast'&&/^FORECAST_/.test(e.code||'')?e.message:p.action==='settings'?'设置无效或版本冲突，请重新读取后再保存':'研究查询、输入或私有档案校验失败，原档案保留'};}
 }).then(value=>parentPort.postMessage(value)).catch(()=>parentPort.postMessage({ok:false,httpStatus:503,error:'研究任务未完成，原档案保留'}));}
 module.exports={runWorkspaceJob};

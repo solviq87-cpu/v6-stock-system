@@ -55,7 +55,15 @@ test('FAYO endpoint denies viewer, replica or cross-site writes, rejects unknown
  assert.equal((await call({method:'POST',url:'',body:'{"action":"buy"}'})).status,422);
  assert.equal((await call({url:'?mode=templates&mode=replay'})).status,422);
  let allowed=true;assert.equal((await call({authorize:()=>allowed,job:async()=>{allowed=false;return {ok:true,result:{private:true}};}})).status,403);
+  let primary=true;assert.equal((await call({method:'POST',url:'',body:'{"action":"explain"}',primary:()=>primary,
+   job:async()=>{primary=false;return {ok:true,result:{private:true}};}})).status,403);
  const read=await call();assert.equal(read.status,200);assert.match(read.headers['Cache-Control'],/no-store/);
+});
+test('shared template commit rechecks authorization inside the original journal lock',async t=>{
+ const {root}=setup(t);let checks=0;
+ await assert.rejects(W.saveTemplate(root,{action:'save-template',raw:'精选评分前5',expectedRevision:0,requestId:'template_revoked_at_lock'},
+  {authorize:()=>++checks<3}),/授权/);
+ assert.ok(checks>=3);assert.deepEqual(W.readTemplates(root).templates,[]);
 });
 test('FAYO headline paths cannot promote numerical scores or bypass original news risk review',()=>{
  const s=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');

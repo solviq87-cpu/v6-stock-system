@@ -263,7 +263,11 @@ export function createCommandSelection(ctx) {
     const cards=clauses.map((clause,index)=>{
       const editor=h('input',{type:'text','aria-label':'条件 '+(index+1),maxlength:'160'});
       editor.value=clause;
-      editor.addEventListener('change',()=>{const next=clauses.slice();next[index]=editor.value;setCommand(next.join('且'));});
+      editor.addEventListener('input',()=>{
+        clauses[index]=editor.value;input.value=clauses.join('且');
+        generation++;lastQuery=null;run.disabled=false;result.replaceChildren();
+      });
+      editor.addEventListener('change',()=>setCommand(clauses.join('且')));
       return h('label',{class:'fy-field'},h('span',{},'条件 '+(index+1)),editor);
     });
     preview.replaceChildren(note((day||'交易日未知')+' · '+(q.explicitAllMarket?'全市场未就绪，不执行候选池替代':'当前已接收候选池，非全市场')+

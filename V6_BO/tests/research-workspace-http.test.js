@@ -79,5 +79,12 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   const replay=await request(port,'/api/research/workspace?asOf='+(data.asOf+1000),editor);assert.equal(replay.body.result.forecastEvaluation.total,0);assert.equal(replay.body.result.forecastEvaluation.freezeAllowed,false);
   assert.equal(fs.existsSync(mutations),false);fs.unlinkSync(guard);
   const tooLate=await request(port,'/api/research/workspace',editor,{...body,requestId:'http_model_too_late_001'});assert.equal(tooLate.status,422);assert.match(tooLate.body.error,/开盘/);assert.equal(S.readEvents(F.rootFor(forecastRoot)).length,2);assert.equal(fs.existsSync(egress),false);
+  await stop();fs.writeFileSync(jobFile,jobCode);
+  fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({pushRole:'replica'}));port=await boot(root);
+  const original=S.readEvents(root),templateRoot=path.join(path.dirname(root),path.basename(root)+'-interactions'),originalTemplates=S.readEvents(templateRoot);
+  r=await request(port,'/api/research/workspace',editor);assert.equal(r.body.ok,true,'replica retains the original private editor read');
+  for(const command of [settings,review,body])assert.equal((await request(port,'/api/research/workspace',editor,command)).status,409,'replica refuses every workspace mutation');
+  assert.equal((await request(port,workbench,editor,{...template,expectedRevision:1,requestId:'replica_template_001'})).status,403);
+  assert.deepEqual(S.readEvents(root),original);assert.deepEqual(S.readEvents(templateRoot),originalTemplates);
  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
 });

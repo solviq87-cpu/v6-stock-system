@@ -25,6 +25,7 @@ async function handle(req,res,url,body,{authorize,primary,sameOrigin,roots,job})
   const {httpStatus,...result}=await job({action:'evidence-workbench',roots,query,input},
    {authorize:()=>authorize()&&primary()&&sameOrigin()});
   if(!authorize())return reply(403,{ok:false,error:'设备权限已变化，未返回私有资料'});
+  if(write&&(!primary()||!sameOrigin()))return reply(403,{ok:false,error:'主实例角色或同源授权已变化，请重新核对原记录'});
   return reply(httpStatus||(result.ok?200:422),result);
  }catch{return reply(422,{ok:false,error:'研究请求无效或原档案未就绪'});}
 }

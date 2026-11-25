@@ -1,4 +1,4 @@
-import {createResearchReplay} from './evidence-workbench.mjs';
+import {createResearchReplay,replayTime} from './evidence-workbench.mjs';
 import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
@@ -291,17 +291,19 @@ function memory(ctx){
 }
 function evidence(ctx){
   const code=symbolInput(ctx),cutoff=input('datetime-local',''),w=workbench(ctx,'原文证据室','发布、接收、修订与撤稿分别留痕；来源摘要与完整原文不混淆。',[field('证券代码（留空查看全部）',code),field('历史截点（北京时间，留空查看当前）',cutoff)]);
-  let offset=0,anchor=null;
-  for(const control of [code,cutoff])control.addEventListener('input',()=>{offset=0;anchor=null;w.output.replaceChildren();});
-  function fetchPage(){const now=Date.now(),asOf=anchor??(cutoff.value?Date.parse(cutoff.value+(cutoff.value.length===16?':00':'')+'+08:00'):now);
+  cutoff.step='0.001';let offset=0,anchor=null,requestedAsOf=null,replayController=null;
+  const clear=()=>{offset=0;anchor=null;requestedAsOf=null;replayController?.abort();w.output.replaceChildren();};
+  for(const control of [code,cutoff])control.addEventListener('input',clear);
+  function fetchPage(){const now=Date.now(),asOf=anchor??replayTime(cutoff.value,now);
     if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>now)throw Error('历史截点无效');
+    requestedAsOf=asOf;replayController?.abort();
     const q=new URLSearchParams({asOf:String(asOf),offset:String(offset),limit:'50'});
     if(code.value.trim())q.set('symbol',symbolValue(code));w.output.replaceChildren();return request(ctx,'/api/research/news-evidence?'+q);
   }
   const read=w.action('读取新闻与公告证据',fetchPage,{kind:'primary',render:data=>{
     const r=data.result||data,root=n('div',undefined,'fy-stack'),s=r.summary||{};
     const now=Date.now(),asOf=r.asOf;
-    if(!Number.isSafeInteger(asOf)||asOf>now||r.offset!==offset||anchor!==null&&anchor!==asOf)return empty('新闻回执未通过截点核验');anchor=asOf;
+    if(!Number.isSafeInteger(asOf)||asOf>now||asOf!==requestedAsOf||r.offset!==offset||anchor!==null&&anchor!==asOf)return empty('新闻回执未通过截点核验');anchor=asOf;
     const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
     if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
     else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
@@ -318,9 +320,11 @@ function evidence(ctx){
     if(!projection.rows.length)root.append(empty('尚无该截点可展示的归档事件','没有新闻证据不代表没有风险。'));
     root.append(toolbar(btn('刷新至最新',()=>{offset=0;anchor=null;read.click();}),...(offset>0?[btn('上一页',()=>{offset=Math.max(0,offset-50);read.click();})]:[]),
       ...(Number.isSafeInteger(r.nextOffset)?[btn('更早版本',()=>{offset=r.nextOffset;read.click();})]:[]),n('p','截点 '+clock(asOf)+' · 版本 '+(r.total??'未知')+' 条','fy-muted')));
-    if(/^\d{6}$/.test(code.value))root.append(createResearchReplay(ctx,{symbol:code.value,asOf,memory:ctx.viewMemory}));
+    if(/^\d{6}$/.test(code.value)){replayController=new AbortController();root.append(createResearchReplay(ctx,{symbol:code.value,asOf,memory:ctx.viewMemory,signal:replayController.signal}));}
     return root;
-  }});return w.body;
+  }});
+  if(ctx.signal){ctx.signal.addEventListener('abort',clear,{once:true});globalThis.addEventListener('offline',()=>{w.invalidate();clear();w.status.textContent='连接已离线，私有新闻及回放已清空，请重新读取。';},{signal:ctx.signal});}
+  return w.body;
 }
 function models(ctx){
   const root=n('div',undefined,'fy-stack'),search=input('search','',{placeholder:'名称、任务、许可或运行条件'}),category=select([['','所有任务']]),adoption=select([['','所有状态'],['implemented','已采用设计'],['candidate','待实测'],['reference-only','参考']]),cards=n('div',undefined,'fy-grid'),comparison=n('div',undefined,'fy-grid'),status=n('output','正在读取公开资料目录…','fy-note');status.setAttribute('role','status');

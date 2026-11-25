@@ -9,21 +9,17 @@ export const questions=Object.freeze([
  ['support','为什么入选？'],['opposition','最强的反对理由是什么？'],['missing','缺哪些证据？'],
  ['invalidation','哪些变化会使判断失效？'],['history','同类历史样本后来怎样？']
 ]);
-export function explainSealedResearch(view,question){
- const r=view?.selectedRun,cut=view?.asOf;
- const unavailable=reason=>({status:'unknown',kind:'规则解释',modelCalled:false,canTrade:false,reason,rows:[]});
- if(!questions.some(([key])=>key===question)||!code(r?.symbol)||!text(r?.id)||!time(cut,Date.now())||
-   !time(r.recordedAt,cut)||!time(r.asOf,r.recordedAt)||!Array.isArray(r.conditions)||!Array.isArray(r.evidence))
-   return unavailable('未取得匹配研究版本或有效历史截点');
- const scope={symbol:r.symbol,tradeDate:r.tradeDate,runId:r.id,asOf:cut,recordedAt:r.recordedAt};
+export function sealedResearchConditions(r){
+ if(!code(r?.symbol)||!time(r.asOf,Date.now())||!Array.isArray(r.conditions)||!Array.isArray(r.evidence))return [];
  const evidence=new Map(),duplicate=new Set();
  for(const e of r.evidence){
    if(!text(e?.id))continue;
    if(evidence.has(e.id))duplicate.add(e.id);
    evidence.set(e.id,e);
  }
- const rules=r.conditions.filter(c=>c&&text(c.id)).map(c=>{
-   const ids=array(c.evidenceIds),refs=ids.flatMap(id=>{
+ const counts=new Map();for(const c of r.conditions)if(text(c?.id))counts.set(c.id,(counts.get(c.id)||0)+1);
+ return r.conditions.filter(c=>c&&text(c.id)).map(c=>{
+   const ids=array(c.evidenceIds),refs=[...new Set(ids)].flatMap(id=>{
      const e=evidence.get(id);
      // A reference lacking either availability or receipt cannot prove a
      // point-in-time observation. Do not borrow a timestamp from the run.
@@ -31,14 +27,25 @@ export function explainSealedResearch(view,question){
        time(e.availableAt,r.asOf)&&time(e.receivedAt,r.asOf)&&
        [e.sourceTimestamp,e.periodEnd].every(v=>v==null||time(v,r.asOf))&&
        e.status!=='unknown'&&!e.missingReason&&text(e.evidenceRef)?
-       [{id,source:e.source,sourceTimestamp:e.sourceTimestamp??null,availableAt:e.availableAt,receivedAt:e.receivedAt,evidenceRef:e.evidenceRef}]:[];
+       [{id,source:e.source,field:e.field??null,value:e.value??null,sourceTimestamp:e.sourceTimestamp??null,periodEnd:e.periodEnd??null,availableAt:e.availableAt,receivedAt:e.receivedAt,evidenceRef:e.evidenceRef}]:[];
    });
-   const backed=ids.length>0&&refs.length===ids.length&&text(c.version)&&c.coverageOnly!==true;
+   const backed=ids.length>0&&refs.length===ids.length&&counts.get(c.id)===1&&text(c.version)&&c.coverageOnly!==true;
    return {id:c.id,name:c.name||c.field||c.id,system:c.system,version:c.version??null,
      status:backed&&['pass','fail'].includes(c.status)?c.status:'unknown',archivedStatus:c.status,
+     field:c.field??null,op:c.op??null,threshold:c.threshold??null,value:c.value??null,coverageOnly:c.coverageOnly===true,
      reason:c.reason??null,invalidation:c.invalidation??null,evidence:refs,
-     missing:backed?null:'原规则版本、有效证据引用、时点或独立判定不完整'};
+     currentValidity:'unknown',refs:[...(text(r.id)?['research:'+r.id]:[]),'condition:'+c.id,...refs.map(e=>e.evidenceRef)],
+     missing:backed&&['pass','fail'].includes(c.status)?null:'原规则版本、有效证据引用、时点或独立判定不完整'};
  });
+}
+export function explainSealedResearch(view,question){
+ const r=view?.selectedRun,cut=view?.asOf;
+ const unavailable=reason=>({status:'unknown',kind:'规则解释',modelCalled:false,canTrade:false,reason,rows:[]});
+ if(!questions.some(([key])=>key===question)||!code(r?.symbol)||!text(r?.id)||!time(cut,Date.now())||
+   !time(r.recordedAt,cut)||!time(r.asOf,r.recordedAt)||!Array.isArray(r.conditions)||!Array.isArray(r.evidence))
+   return unavailable('未取得匹配研究版本或有效历史截点');
+ const scope={symbol:r.symbol,tradeDate:r.tradeDate,runId:r.id,asOf:cut,recordedAt:r.recordedAt,decisionAt:r.asOf};
+ const rules=sealedResearchConditions(r);
  let rows=[],reason='';
  if(question==='support'){
    rows=rules.filter(c=>c.status==='pass');
@@ -55,7 +62,7 @@ export function explainSealedResearch(view,question){
  }else{
    // The original scorecard is aggregate by system/version/regime, not
    // proof of a matched historical cohort for this security.
-   return {...unavailable('同类样本匹配、样本区间及截点认证尚未接入；不可拿全体策略均值冒充相似样本结果。可查看原前向评测。'),...scope};
+   return {...unavailable('正在核对原前向评测的同版本、同条件历史分组；它不等于五维相似样本或个股预测。'),...scope};
  }
  return {status:rows.length?'observed':'unknown',kind:'规则解释',modelCalled:false,canTrade:false,...scope,reason,rows};
 }

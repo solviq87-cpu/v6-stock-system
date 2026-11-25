@@ -99,8 +99,8 @@ export function renderRecords(ctx){
    const model=createModelTools(ctx,{run:r,asOf:view.asOf,question:()=>question,alive:()=>answers.isConnected&&view?.selectedRun?.id===r.id});
    const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,async()=>{
      question=key;const turn=++questionTurn;model.reset();
-     const a=explainSealedResearch(view,key);answers.replaceChildren(n('p',a.reason,'muted'));
-     for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略版本':row.version,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'证据缺口':row.missing}),...row.evidence.map(e=>facts({'证据引用':e.evidenceRef,'来源':e.source,'原始时点':clock(e.sourceTimestamp),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
+     const a=explainSealedResearch(view,key);answers.replaceChildren(n('p',a.reason,'muted'),facts({'研究引用':a.runId,'原判断截点':clock(a.decisionAt),'查看截点':clock(a.asOf)}));
+     for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略体系':row.system,'原策略版本':row.version,'原条件':`${value(row.field)} ${value(row.op)} ${value(row.threshold)}`,'原观察值':row.value,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'当前是否失效':row.currentValidity,'证据缺口':row.missing,'原引用':row.refs}),...row.evidence.map(e=>facts({'证据引用':e.evidenceRef,'证据节点':e.id,'来源':e.source,'原字段':e.field,'原字段值':e.value,'原始时点':clock(e.sourceTimestamp),'覆盖期终点':clock(e.periodEnd),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
      if(key==='history')try{const result=await similarEvidence(ctx,{run:r,asOf:view.asOf});if(turn===questionTurn&&answers.isConnected&&!ctx.signal?.aborted&&view?.selectedRun?.id===r.id)answers.replaceChildren(result);}catch(error){if(turn===questionTurn&&answers.isConnected)answers.append(n('p','相似历史样本未就绪：'+error.message,'muted'));}
    })));
    body.append(card('研究证据五问',n('p','规则解释与实际模型调用严格分开。只读原封存档案，不改变策略或交易。','muted'),ask,answers,model.node));

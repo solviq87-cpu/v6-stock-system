@@ -29,7 +29,7 @@ function saveObservation(result,options,{requestId,stages=[]}={}){
 function saveDiagnostic(options,data){
  try{return store.appendEvent(rootOf(options),'diagnostic',{...data,asOf:Date.now()},{requestId:'job_'+crypto.randomBytes(16).toString('hex')}).hash;}catch{return null;}
 }
-async function reviewStored(input,options,{read}={}){
+async function reviewStored(input,options,{read,beforeCommit}={}){
  const {symbol,provider,requestId,nativeEvidence}=input||{};
  if(!/^\d{6}$/.test(symbol||'')||!['eastmoney','tencent'].includes(provider)||typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(requestId))throw Error('需要六位代码、明确档案来源和请求ID');
  if(nativeEvidence!==undefined&&(!nativeEvidence||Array.isArray(nativeEvidence)||Object.keys(nativeEvidence).some(k=>!['pythonEvidence','gptEvidence','fourteenEvidence','benchmarkEvidence','marketLinkageEvidence'].includes(k))))throw Error('原生策略证据字段无效');
@@ -43,15 +43,16 @@ async function reviewStored(input,options,{read}={}){
   });
   const data=t.syncStage('分析原有策略与证据',()=>decision.buildWorkspaceDecision(result,nativeEvidence||{}));
   data.codeVersion=codeVersion();data.requestFingerprint=fingerprint;data.diagnostics=t.stages;
-  const event=t.syncStage('封存研究结果',()=>store.appendEvent(root,'analysis',data,{requestId}));
+  const event=t.syncStage('封存研究结果',()=>store.appendEvent(root,'analysis',data,{requestId,beforeCommit}));
   let diagnosticsSaved=true;
-  try{store.appendEvent(root,'diagnostic',{symbol,provider,asOf:Date.now(),runId:event.hash,status:'completed',stages:t.stages},{requestId:'diag_'+requestId});}catch{diagnosticsSaved=false;}
+  try{store.appendEvent(root,'diagnostic',{symbol,provider,asOf:Date.now(),runId:event.hash,status:'completed',stages:t.stages},{requestId:'diag_'+requestId,beforeCommit});}catch{diagnosticsSaved=false;}
   return {ok:true,runId:event.hash,reused:event.reused,diagnostics:t.stages,diagnosticsSaved,...store.FLAGS};
- }catch{
-  let receipt=null;
+ }catch(error){
+  let receipt=null,denied=error?.code==='WORKSPACE_AUTHORIZATION';
   try{receipt=store.appendEvent(root,'diagnostic',{symbol,provider,asOf:Date.now(),status:'failed',stages:t.stages,
-    retry:'原观察档案保留；重新读取后用新请求ID继续，不执行交易或通知'}, {requestId:'failed_'+requestId}).hash;}catch{}
-  return {ok:false,runId:receipt,error:'研究未完成：'+(t.stages.at(-1)?.stage||'读取设置')+'失败；原档案保留',diagnostics:t.stages,...store.FLAGS};
+    retry:'原观察档案保留；重新读取后用新请求ID继续，不执行交易或通知'}, {requestId:'failed_'+requestId,beforeCommit}).hash;}catch(e){denied=denied||e?.code==='WORKSPACE_AUTHORIZATION';}
+  return {ok:false,...(denied?{httpStatus:403}:{}),runId:receipt,error:denied?'编辑授权或主实例角色已变化，原档案保留':
+    '研究未完成：'+(t.stages.at(-1)?.stage||'读取设置')+'失败；原档案保留',diagnostics:t.stages,...store.FLAGS};
  }
 }
 function saveScreen(root,result,provenance){
@@ -60,29 +61,29 @@ function saveScreen(root,result,provenance){
   return {status:'saved',runId:e.hash,sequence:e.sequence,...store.FLAGS};
  }catch{return {status:'failed',error:'筛选结果封存未完成，原扫描结果保留',...store.FLAGS};}
 }
-function saveSettings(root,input){
+function saveSettings(root,input,{beforeCommit}={}){
  const {action,requestId,expectedRevision}=input;
  if(!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw Error('设置写入需要预期版本');
- if(action==='preferences')return store.appendEvent(root,'preferences',store.preferenceInput(input.value),{requestId,expectedRevision});
+ if(action==='preferences')return store.appendEvent(root,'preferences',store.preferenceInput(input.value),{requestId,expectedRevision,beforeCommit});
  if(action==='restore-preferences'){
   const old=store.readEvents(root).find(e=>e.kind==='preferences'&&e.revision===input.revision);
   if(!old)throw Error('约束恢复版本不存在');
-  const {scope,...value}=old.data;return store.appendEvent(root,'preferences',store.preferenceInput(value),{requestId,expectedRevision});
+  const {scope,...value}=old.data;return store.appendEvent(root,'preferences',store.preferenceInput(value),{requestId,expectedRevision,beforeCommit});
  }
  if(action==='restore-preset'){
   const old=store.readEvents(root).find(e=>e.kind==='preset'&&e.data.name===input.name&&e.revision===input.revision);
   if(!old)throw Error('模板恢复版本不存在');
-  return store.appendEvent(root,'preset',old.data,{requestId,expectedRevision});
+  return store.appendEvent(root,'preset',old.data,{requestId,expectedRevision,beforeCommit});
  }
  if(action==='preset'){
   const v=input.value;if(!v||Object.keys(v).some(k=>!['name','symbol','status','minScore','horizon'].includes(k))||
     typeof v.name!=='string'||!/^[\p{L}\p{N} _-]{1,40}$/u.test(v.name)||v.symbol!==undefined&&!/^\d{6}$/.test(v.symbol)||
     !['all','selected','rejected','unknown'].includes(v.status??'all')||
     v.minScore!==undefined&&(!Number.isFinite(v.minScore)||v.minScore<0||v.minScore>100)||![1,5,20,60].includes(v.horizon??5))throw Error('筛选模板无效');
-  return store.appendEvent(root,'preset',{name:v.name,symbol:v.symbol??null,status:v.status??'all',minScore:v.minScore??0,horizon:v.horizon??5},{requestId,expectedRevision});
+  return store.appendEvent(root,'preset',{name:v.name,symbol:v.symbol??null,status:v.status??'all',minScore:v.minScore??0,horizon:v.horizon??5},{requestId,expectedRevision,beforeCommit});
  }throw Error('未知研究设置操作');
 }
-function saveModelForecast(root,input){return modelForecast.freezeForecast(root,store.readEvents(root),input);}
+function saveModelForecast(root,input,{beforeCommit}={}){return modelForecast.freezeForecast(root,store.readEvents(root),input,{beforeCommit});}
 function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now()}={}){
  const asOf=query.asOf??now,events=store.readEvents(root,{asOf});
  if(query.symbol!==undefined&&!/^\d{6}$/.test(query.symbol)||query.offset!==undefined&&(!Number.isSafeInteger(query.offset)||query.offset<0)||

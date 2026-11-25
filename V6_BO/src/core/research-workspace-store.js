@@ -46,11 +46,14 @@ function readEvents(root,{asOf=Date.now()}={}){
   previous=e;if(e.recordedAt<=asOf&&(!Number.isSafeInteger(e.data?.asOf)||e.data.asOf<=asOf))out.push(e);
  }return out;
 }
-function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}={}){
+function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now(),beforeCommit}={}){
  if(!['analysis','screen','preferences','preset','diagnostic','manual-loop'].includes(kind)||!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('研究记录类型或时点无效');
  if(typeof requestId!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(requestId))throw Error('需要有效的研究请求ID');
  const clean=canonical(data),inputHash=digest({kind,data:clean});
  if(Number.isSafeInteger(clean.asOf)&&clean.asOf>now)throw Error('禁止保存未来研究');
+ const authorized=()=>{if(beforeCommit!==undefined&&(typeof beforeCommit!=='function'||beforeCommit()!==true))
+  throw Object.assign(Error('编辑授权或主实例角色已变化，研究写入取消'),{code:'WORKSPACE_AUTHORIZATION',httpStatus:403});};
+ authorized();
  const dir=privateRoot(root,true);
  return withAccountLock(path.join(dir,'workspace'),()=>{
   const events=readEvents(dir),old=events.find(e=>e.requestId===requestId);
@@ -66,8 +69,11 @@ function appendEvent(root,kind,data,{requestId,expectedRevision,now=Date.now()}=
   const event={...body,hash:digest(body)},raw=encode(event);
   if(Buffer.byteLength(raw)>MAX_EVENT)throw Error('单次研究记录超过2MiB');
   if(events.reduce((n,e)=>n+Buffer.byteLength(encode(e)),0)+Buffer.byteLength(raw)>MAX_TOTAL)throw Error('研究档案超过128MiB');
+  authorized();
   const temp=path.join(dir,'.stage-'+crypto.randomBytes(12).toString('hex')),target=path.join(dir,String(event.sequence).padStart(6,'0')+'.json');let fd;
-  try{fd=fs.openSync(temp,'wx',0o600);fs.writeFileSync(fd,raw);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(temp,target);
+  try{fd=fs.openSync(temp,'wx',0o600);fs.writeFileSync(fd,raw);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
+   // Recheck after disk I/O, immediately before publishing the immutable event.
+   authorized();fs.linkSync(temp,target);
    const d=fs.openSync(dir,'r');try{fs.fsyncSync(d);}finally{fs.closeSync(d);}
   }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch(e){if(e.code!=='ENOENT')throw e;}}
   return {...event,reused:false};
