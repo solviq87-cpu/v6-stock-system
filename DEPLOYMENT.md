@@ -197,3 +197,6 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 ## 补充增强（一）独立阶段记录（2026-11-26，未部署）
 
 只读资金及历史时点诊断阶段，基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`，工作分支 `feat/fayo-advanced-safety-20261126`。实际范围、测试限制及后续接线见 [阶段记录](docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。不改变上方当前生产发布检查点；未通过完整回归及双端验收前不得部署。
+
+
+2026-11-26 #356 阶段二：原风险中心可选只读账户退出/对账观察与有界 worker，六组集成合同及验证边界见 [阶段记录](docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md)。保持现有生产检查点，最终统一版本由集成组核验；未部署。

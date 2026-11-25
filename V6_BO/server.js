@@ -22958,10 +22958,26 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(!requireEditor(res,req.__tok,req))return;
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
-    try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
-      state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
-      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
-    catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
+    try{
+      const result=require('./src/core/research-risk-center').readResearchRiskCenter({
+        state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+        agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')});
+      if(u.searchParams.get('advanced')!=='1')return reply(200,{ok:true,result});
+      // Add an optional read-only projection, using existing editor and role gates.
+      const requestAt=Date.now(),day=aShareCalendarDate(requestAt),replica=isReplica();
+      const codes=require('./src/core/monitor-capacity').heldCodes(PAPER);
+      const quotes=replica?{}:require('./src/core/advanced-account-risk').selectAdvancedRiskQuotes({
+        codes,stocks:S.stocks,lastPx:S.lastPx,now:requestAt,limitFor:limitPctOfCode});
+      return require('./src/server/advanced-account-risk-job').runAdvancedAccountRiskJob({
+        root:path.resolve(process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts')),
+        day,requestAt,replica,marketOpen:paperAuthorityCalendar.isOpen(day)===true,continuous:isContinuousTrading(),quotes})
+        .then(advancedAccounts=>{
+          if(!requireEditor(res,req.__tok,req))return;
+          // If the role changes while the read is in flight, discard private results.
+          result.advancedAccounts=isReplica()!==replica?{mode:'advanced-account-risk-readonly',status:'role-changed',accounts:[],canTrade:false,writesAccount:false}:advancedAccounts;
+          return reply(200,{ok:true,result});
+        }).catch(()=>reply(422,{ok:false,error:'账户风险证据不可用，原账本未修改'}));
+    }catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
   }
   if (p === '/api/research/learning-runtime') {
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
