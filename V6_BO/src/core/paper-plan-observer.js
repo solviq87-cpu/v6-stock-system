@@ -49,7 +49,9 @@ function ledgerEvents(book) {
 // Keep each purchase lot and reset period separate. An overlapping additional
 // purchase has no unambiguous FIFO plan attribution, so it cannot be graded.
 function planLedgerContext(book, plan, now, all = ledgerEvents(book)) {
-  const matches = all.filter(x => x.event.side === 'buy' && planIdOf(x.event.reason) === plan.id && x.event.symbol === plan.code);
+  // Normalize identity only while comparing. Original numeric fill fields and
+  // their recorded fingerprints must remain unchanged in every returned reference.
+  const matches = all.filter(x => x.event.side === 'buy' && planIdOf(x.event.reason) === plan.id && String(x.event.symbol) === plan.code);
   const entry = matches[0]?.event || null, first = matches[0];
   if (!entry) return {entry: null, entries: [], sells: [], remaining: 0, closedAt: null, ambiguous: null, current: true};
   const invalid = matches.length !== 1 || !stamp(first.at) || first.at < Date.parse(plan.frozenAt) || first.at > now ||
@@ -57,7 +59,7 @@ function planLedgerContext(book, plan, now, all = ledgerEvents(book)) {
   if (invalid) return {entry, entries: matches.map(x => x.event), sells: [], remaining: null,
     closedAt: null, ambiguous: '成交与事前冻结计划的时点或数量关联未完成核对', current: first.period === book};
   let remaining = entry.quantity, closedAt = null, ambiguous = null, previousAt = first.at;
-  const sells = [], rows = all.filter(x => x.periodIndex === first.periodIndex && x.event.symbol === plan.code);
+  const sells = [], rows = all.filter(x => x.periodIndex === first.periodIndex && String(x.event.symbol) === plan.code);
   const start = rows.findIndex(x => x.event.eventId === entry.eventId);
   for (const row of rows.slice(start + 1)) {
     if (remaining === 0) break; // A later round trip is a different position.
@@ -125,12 +127,12 @@ function sellEligibility(book, context, quote, day, now, original) {
   if (position.lots.reduce((sum, lot) => sum + lot.quantity, 0) !== position.quantity) return base;
   for (const item of Object.values(book.orders)) {
     if (!item?.order || typeof item.state?.terminal !== 'boolean') return base;
-    if (!item.state.terminal && item.order.side === 'sell' && item.order.symbol === quote.symbol) {
+    if (!item.state.terminal && item.order.side === 'sell' && String(item.order.symbol) === quote.symbol) {
       if (!quantity(item.state.remainingQuantity)) return base;
       reserved += item.state.remainingQuantity;
     }
   }
-  for (const event of book.account.events) if (event.symbol === quote.symbol && event.tradeDate === day) {
+  for (const event of book.account.events) if (String(event.symbol) === quote.symbol && event.tradeDate === day) {
     if (!quantity(event.quantity)) return base;
     used += event.quantity;
   }

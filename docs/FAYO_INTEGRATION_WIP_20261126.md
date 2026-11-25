@@ -196,3 +196,12 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
   - `docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md` `d5aadfc3afea8844f8ab2763727317c54cc8d142`
   - `docs/validation/fayo-evolution-20261126/README.md` `b3b3523dd978c10dc2976d2e28bf6fcfd692cc61`
 - 本批使用GitHub精确blob及唯一上下文hunk合并；本地仅前批隔离测试已实际执行，本批尚未本地运行，需新SHA CI/全量/浏览器。五维相似样本与#358原研究截点正式绑定仍待，#359/#361后续共享合同及原18/20/22/23/29/48/78采样保留未验收。生产、外部数据及真实运行未认证。回退只反向候选增量，不改原数据、分支、发布入口或执行锁。
+
+## 2026-11-26 · #359 / #356 原账户股票身份跨组修复
+
+- 父提交 `c0a6a34906c1d6757661a4d08fcc13fafa34a248`；源风险组 `ed3c3da16904714ee7a6ec02f62db90af18ac6a2`，旧已接入 `86a5bf4787f2b5a1746fffc11b9a60a06b5e387f`。本批只闭合其单股身份、参与率、冻结持仓、公司行为及原计划观察的相关风险缺口，不覆盖其他风险模块。#356新增对账的数字代码孤立持仓/期初数量流水假冲突在组合中实际复现。原自动预演也使用同一标的预算。
+- 对比时归一六位证券代码，保留原订单和成交字段类型及历史哈希/幂等索引；严格原订单与原成交类型核对、原账户revision、T+1、原quoteAt 15秒、只读拒绝、最终fsync后beforeRename、权限、防御锁存、审批与冻结预算均保持。不更换账户或增加写入口。
+- 精确隔离运行输入：Windows CI runtime payload来自 `0f6aa4b4377b09314a601068e3700b2373d3e425`；本批四个待改源码的原blob已与当前父树核对一致：paper-application-service 96ca55481f7b034dbfea48e6c5b67dcab8a60c5b、account-safety-state d3ad11d49ed917157f40c71f7e5d22a781cb061c、common-entry-risk 82c694db7a15e7481b45c05fc225bfcffca1e659、paper-plan-observer 07a22540f53016302a0760e3ca31bc91f51c7754。当前完整仓库仍无法clone（DNS），不将恢复的运行子集称作完整源码树或整个最新组合。
+- 实际本地执行 Node v22.16.0：`TZ=Asia/Shanghai node --test tests/paper-symbol-risk-integration.test.js` 修改前5失败、0通过，修改后5通过、0失败、0跳过。原对账伪冲突、单股集中度超限、卖单冻结绕过、原计划身份与预演参与率、公司行为及自动退出冻结均覆盖；重启、幂等、拒绝后账本字节不变、原证据类型与哈希合同保留。四个源码文件 `node --check` 退出0。前后日志SHA256：1a4009315d95e8048501cf8b50f830f8048988a17f4a49e9c908b213fffb27c1 / 9f5282d669dd03034bb746256d48a7131336d71358e9c8a412418c1bb0676171。原#359的paper-symbol-risk-boundaries.test.js完整源blob也纳入，尚未本地运行，由精确组合CI核验。
+- 修改后本地blob：common-entry-risk d0710dc370fc26f5ff0a518089f5fa598b7b29f6；paper-plan-observer c06d4fb215f2037553d08a8b60344d39c155401b；paper-application-service a154f09cede545ac2ff1fd41bf0134b0fcbbba05；account-safety-state e7784ad36b030b52eecdb078e8d3aa1e3f191dcb；新增专项测试 445972d47bcdd9fee7011df7595a85e793f5da6c。原#359测试blob d013fec49643d18b8829af74233361e71ff7bb70。
+- 待接#359/#366其余统一权益、动作与通知回执、双端四级状态和#361共享行情最终核对；18/20/22/23/29/48/78剩余及真实采样仍待。回退只反向本批候选增量，不更改原账户数据、原组分支、dev或发布机制。恢复用Git精确SHA及原CI包/完整工作区，执行原全量和浏览器。未运行完整最终CI，未合并dev，未发布、采购、发送真实通知或连接券商。

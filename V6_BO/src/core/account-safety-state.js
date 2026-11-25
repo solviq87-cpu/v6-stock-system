@@ -66,7 +66,9 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   }
   if(state.terminal)continue;
   if(state.remainingQuantity===0)fail('EMPTY_NONTERMINAL_ORDER');
-  if(order.side==='sell')reserved.set(order.symbol,(reserved.get(order.symbol)||0)+state.remainingQuantity);
+  // Aggregate by the string-keyed holding identity, not the raw request type.
+  // Keep strict order/fill identity and historical hashes unchanged above.
+  if(order.side==='sell'){const symbol=String(order.symbol);reserved.set(symbol,(reserved.get(symbol)||0)+state.remainingQuantity);}
   else if(order.side==='buy')try{
    reservedCash+=pendingBuyOrderBudget(book,item,tradeDate);
   }catch{restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
@@ -79,8 +81,8 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   for(const lot of position.lots){
    if(!quantity(lot?.quantity)||!day(lot.buyDate)||lot.sellableDate!=null&&(!day(lot.sellableDate)||lot.sellableDate<lot.buyDate)||!quantity(lot.reserved??0)||(lot.reserved||0)>lot.quantity||!finite(lot.price)||lot.price<0||!finite(lot.cost??lot.price*lot.quantity)||(lot.cost??lot.price*lot.quantity)<0||!finite(lot.fee??0)||(lot.fee??0)<0){fail('INVALID_HOLDING_LOT');continue;}
    total+=lot.quantity;lotReserved+=lot.reserved||0;
-   if(lot.sourceActionId){const source=corporate.get(lot.sourceActionId);if(!source||source.symbol!==symbol||source.shareDelta<=0)fail('ORPHAN_CORPORATE_LOT');}
-   else if(lot.sourceEventId!=='opening-'+symbol){const source=byEvent.get(lot.sourceEventId);if(!source||source.symbol!==symbol||source.side!=='buy')fail('ORPHAN_PURCHASE_LOT');}
+   if(lot.sourceActionId){const source=corporate.get(lot.sourceActionId);if(!source||String(source.symbol)!==symbol||source.shareDelta<=0)fail('ORPHAN_CORPORATE_LOT');}
+   else if(lot.sourceEventId!=='opening-'+symbol){const source=byEvent.get(lot.sourceEventId);if(!source||String(source.symbol)!==symbol||source.side!=='buy')fail('ORPHAN_PURCHASE_LOT');}
   }
   if(!quantity(total)||total!==position.quantity)fail('LOT_QUANTITY_MISMATCH');
   if((reserved.get(symbol)||0)>total-lotReserved)restrictions.push('PENDING_SELL_RESERVATION_MISMATCH');
@@ -92,8 +94,8 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   else {
    const expected=new Map();
    for(const [symbol,count] of Object.entries(opening.positions)){if(!/^\d{6}$/.test(symbol)||!quantity(count))fail('INVALID_RECONCILIATION_OPENING');else expected.set(symbol,count);}
-   for(const event of byEvent.values())expected.set(event.symbol,(expected.get(event.symbol)||0)+(event.side==='buy'?event.quantity:-event.quantity));
-   for(const event of corporate.values())expected.set(event.symbol,(expected.get(event.symbol)||0)+event.shareDelta);
+   for(const event of byEvent.values()){const symbol=String(event.symbol);expected.set(symbol,(expected.get(symbol)||0)+(event.side==='buy'?event.quantity:-event.quantity));}
+   for(const event of corporate.values()){const symbol=String(event.symbol);expected.set(symbol,(expected.get(symbol)||0)+event.shareDelta);}
    for(const symbol of new Set([...expected.keys(),...Object.keys(book.account.positions)]))if(expected.get(symbol)!==undefined&&(expected.get(symbol)<0||expected.get(symbol)!==(book.account.positions[symbol]?.quantity||0))||expected.get(symbol)===undefined&&book.account.positions[symbol]?.quantity)fail('POSITION_QUANTITY_FLOW_MISMATCH');
   }
  }
