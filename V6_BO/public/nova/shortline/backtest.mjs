@@ -9,6 +9,8 @@ import {addPatternEvidence,parsePatternColumns} from './pattern-evidence.mjs';
 import {addIndexEvidence} from './index-evidence.mjs';
 import {addPressureRiskFacts} from './pressure.mjs';
 import {addStockRiskEvidence,riskNumericFields,riskTextFields} from './stock-risk-evidence.mjs';
+import {dictionaryVersion} from './factor-dictionary.mjs';
+import {buildRulePanel} from './numeric-factors.mjs';
 
 function completeEvidence(input,facts){
   addPatternEvidence(input,facts);
@@ -514,9 +516,16 @@ export function deriveCheckInput(state,input){
  if(!bar)missing.push('当日可见的完整日 K');if(history.length<20)missing.push('至少 20 根之前的日 K');
  if(!knownFeature(b.sector))missing.push('标的所属题材');if(!market.date)missing.push('同日市场收盘快照');
  if(!selected.length)missing.push('足以识别战法的盘面证据');
+ const ruleInputs=[...history,...(bar?[bar]:[]),...marketSeries.map(row=>({...row,role:'market'})),...sectorRows,
+   ...minutes.filter(row=>knownBy(row,point)).map(row=>(!row.role||row.role==='stock')&&row.code!==code?
+     {...row,role:'sector-peer',subjectCode:code,sector:b.sector}:row)];
+ if(Object.keys(stock).length)ruleInputs.push({role:'trusted-close-snapshot',code,date,
+   source:'V6 已接收的同日收盘池与研究证据',knownAt:obs.observedAtMs});
+ const ruleObservations=buildRulePanel({catalog:state.catalog,facts,code,day:date,cutoff:knowledgeCutoff(point),
+   dictionaryVersion,inputs:ruleInputs,settingsVersion:settings.version??null,settings});
  return {code,date,stockEvidence:b,name:b.name,theme:b.sector||'',selected,mainline:stock.mainline??main,strongSector:stock.strongSector??strong,asOf,observedAtMs:typeof point==='number'?point:null,
  capture:current&&obs.latestClosed===true&&bar?{features:f,context:{sectorChange:sector.change??null,indexChange:market.indexChange??null}}:null,
- recognition:{evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8)}};
+ recognition:{evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8),ruleObservations}};
 }
 function knownFeature(v){return v!=null&&v!==''&&v!==MISSING}
 

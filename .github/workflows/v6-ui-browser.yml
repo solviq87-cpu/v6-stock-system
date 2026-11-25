@@ -12,6 +12,7 @@ on:
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
       - 'V6_BO/scripts/fayo-decision-browser-check.js'
+      - 'V6_BO/scripts/fayo-execution-browser-check.js'
       - 'V6_BO/scripts/fayo-intelligence-browser-check.js'
       - 'V6_BO/scripts/fayo-operations-browser-check.js'
       - 'V6_BO/scripts/fayo-manual-loop-browser-check.js'
@@ -53,6 +54,7 @@ on:
       - 'V6_BO/scripts/ui-original-workspace-browser-check.js'
       - 'V6_BO/scripts/fayo-browser-check.js'
       - 'V6_BO/scripts/fayo-decision-browser-check.js'
+      - 'V6_BO/scripts/fayo-execution-browser-check.js'
       - 'V6_BO/scripts/fayo-intelligence-browser-check.js'
       - 'V6_BO/scripts/fayo-operations-browser-check.js'
       - 'V6_BO/scripts/fayo-manual-loop-browser-check.js'
@@ -172,11 +174,13 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/v6-ui-driver/node_modules
           V6_UI_BROWSER: ${{ steps.browser.outputs.binary }}
           V6_UI_QA_DIR: ${{ runner.temp }}/v6-ui-report
+          FAYO_EXECUTION_QA_DIR: ${{ runner.temp }}/v6-ui-report/execution
           V6_UI_SCREENSHOTS: '1'
         run: |
           set -euo pipefail
           node scripts/fayo-browser-check.js
           node scripts/fayo-decision-browser-check.js
+          node scripts/fayo-execution-browser-check.js
           node scripts/fayo-intelligence-browser-check.js
           node scripts/fayo-operations-browser-check.js
           node scripts/fayo-source-review-browser-check.js

@@ -41,7 +41,9 @@ test('reference review is sourced from the same dashboard and preserves original
 test('a reference layout cannot convert missing market values into example trades',()=>{
  const source=read('terminal-workbench.js');
  assert.match(source,/state\.snapshotFieldDays\?\.sectors\|\|state\.sectorsDay/);
- assert.match(source,/r\.mainInflowYuan/);
+ assert.match(source,/import \{projectSectorFlows\} from '\.\/decision-sector-context\.mjs'/);
+ assert.match(source,/const flows=aligned\?sectorEvidence\.rows/);
+ assert.match(source,/money\(r\.value\)/);
  assert.match(source,/state\.trading===false/);
  assert.match(source,/不能用旧日资金冒充今日排行/);
  assert.match(source,/不会升格为交易信号/);
