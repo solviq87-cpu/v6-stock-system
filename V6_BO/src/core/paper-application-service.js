@@ -376,6 +376,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   return result;
  });
  return {initialize,read,configure,importRiskEvidence,importRiskEvidenceBatch,previewRiskEvidenceImport,riskEvidenceStatus,adoptLegacy,reconcile,setDefensiveControl,previewAutomaticEntry,legacy:()=>projectLegacy(read()),audit:options=>rejectionAudit.read(options),
+  executionLimits:()=>Object.freeze({maxParticipationPct}),
   settle:(event,expectedRevision)=>guarded('settle',{eventId:event?.eventId,symbol:event?.symbol},()=>settle(event,expectedRevision)),
   submit:(order,options={})=>guarded('submit',{order},()=>submit(order,options),options.riskContext),
   fill:(orderId,eventId,quote)=>guarded('fill',{orderId,eventId,quote},()=>fill(orderId,eventId,quote),quote?.riskContext),

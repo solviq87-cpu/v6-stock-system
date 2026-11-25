@@ -113,6 +113,7 @@ jobs:
           node scripts/fayo-risk-browser-check.js
           node scripts/fayo-advanced-safety-browser-check.js
           node scripts/fayo-intelligence-browser-check.js
+          node scripts/fayo-deep-research-browser-check.js
           node scripts/fayo-evolution-browser-check.js
           node scripts/fayo-operations-browser-check.js
           node scripts/fayo-source-review-browser-check.js

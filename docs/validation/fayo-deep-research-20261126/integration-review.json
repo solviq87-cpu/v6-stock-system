@@ -1,0 +1,73 @@
+{
+  "baseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "otherGroups": [
+    {
+      "pr": 353,
+      "headSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+      "mergedIntoThisBranch": false,
+      "sharedModifiedFiles": [
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "meaning": "Path overlap review; not a claim that a merge or integrated regression was performed."
+    },
+    {
+      "pr": 356,
+      "headSha": "d50395972e9ae693a37e934dab785234c654e250",
+      "mergedIntoThisBranch": false,
+      "sharedModifiedFiles": [
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "V6_BO/public/nova/research-extensions.js",
+        "V6_BO/server.js"
+      ],
+      "meaning": "Path overlap review; not a claim that a merge or integrated regression was performed."
+    },
+    {
+      "pr": 357,
+      "headSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+      "mergedIntoThisBranch": false,
+      "sharedModifiedFiles": [
+        "DEPLOYMENT.md",
+        "HANDOFF.md"
+      ],
+      "meaning": "Path overlap review; not a claim that a merge or integrated regression was performed."
+    },
+    {
+      "pr": 358,
+      "headSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+      "mergedIntoThisBranch": false,
+      "sharedModifiedFiles": [
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/scripts/fayo-browser-check.js",
+        "V6_BO/server.js",
+        "V6_BO/src/server/research-workspace-job.js",
+        "V6_BO/tests/research-cache-version-parity.test.js"
+      ],
+      "meaning": "Path overlap review; not a claim that a merge or integrated regression was performed."
+    },
+    {
+      "pr": 359,
+      "headSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+      "mergedIntoThisBranch": false,
+      "sharedModifiedFiles": [
+        ".github/workflows/v6-ui-browser.yml",
+        "DEPLOYMENT.md",
+        "HANDOFF.md",
+        "RELEASE_QUEUE.md",
+        "TASK_MASTER.md",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js",
+        "V6_BO/server.js",
+        "V6_BO/tests/research-cache-version-parity.test.js",
+        "WORK_LOG.md"
+      ],
+      "meaning": "Path overlap review; not a claim that a merge or integrated regression was performed."
+    }
+  ],
+  "finalMergeOwner": "绯曜 FAYO｜总管与最终交付",
+  "ownershipChange": "User transferred final integration, merge sequencing, acceptance and delivery tracking from the original first group; this group retains tasks 67–78 and does not arrange mainline merges."
+}

@@ -18,7 +18,7 @@ function request({method='GET',advanced=true,editor=true,replica=false,query=''}
   PAPER:{},S:{stocks:[],lastPx:new Map()},paperAuthorityCalendar:{isOpen:()=>true},isContinuousTrading:()=>true,
   advancedOriginalPortfolioContext:()=>({plans:{pool:[],pre:[]},planChecks:{pool:{},pre:{}},classifications:{}}),
   centerHistoryDir:()=>path.resolve(__dirname,'../data/intelligence-center-history'),
-  isReplica:()=>state.replica,limitPctOfCode:()=>.1,newsEvidenceVisibleState:()=>({}),
+  _deepResearchReport:null,isReplica:()=>state.replica,limitPctOfCode:()=>.1,newsEvidenceVisibleState:()=>({}),
   requireEditor:()=>{state.authChecks++;if(state.editor)return true;res.writeHead(403,{'Cache-Control':'no-store'});res.end(JSON.stringify({ok:false,locked:true}));return false;},
   require:name=>{
    if(name==='./src/core/research-risk-center')return {readResearchRiskCenter:()=>{state.reads++;return {mode:'research-risk-center-readonly',canTrade:false,canNotify:false,supports:[],contra:[],missing:[]};}};
