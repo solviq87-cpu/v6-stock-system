@@ -212,3 +212,13 @@ f40fd081 的真实 Chromium job 139433630084、139433579905 实际记录切换�
 - 修改后本地实测源码blob：account-equity-evidence.js `8ed5e98c1c994d69651084bed89c016805ee59c0`，portfolio-stress-evidence.js `89a72c6b1fc125ef9ebdbb20eaff16c85fa98837`，与原组冻结源码完全一致；原新增测试 `fayo-equity-stress-integration.test.js@9ca01702a9cf3c4c5900d34bc74cf9fafd1c62ac`；原共享测试夹具 `f7c0f9b0475adb514e644242af3de88d1ae764c5` 与父树一致。
 - 实测运行环境仍为已核验的隔离CI runtime子集（原 `0f6aa4b4377b09314a601068e3700b2373d3e425` 运行包与上一批账户修改），Node v22.16.0，非完整最新工作区。两个源码 node --check 退出0。V6_BO目录下 `TZ=Asia/Shanghai node --test tests/fayo-equity-stress-integration.test.js` 原两个模块4项失败、修后4通过0失败；组合命令 `TZ=Asia/Shanghai node --test tests/fayo-equity-stress-integration.test.js tests/paper-symbol-risk-integration.test.js tests/paper-symbol-risk-boundaries.test.js` 17通过0失败0跳过，退出0。三次日志SHA256（前/后/组合）：`7d816e2d738b704a85a5c2e15a6e88405e11defe0c44889ec6421aec312365aa` / `cdb233132e439c1bece89e7cb4722f9ef0eb0f9b0f55a7b6fa975d9a053528cb` / `f56e0feb07d0ecf0a42037d7ed2bf52d28738d86daf311e94da93c26734b4dd6`。
 - 原组 equity/action/effective-risk/stress 同源合同及risk-workbench/runtime、#366四级双端剩余继续整合；仍须#361原始行情门禁复核及18/20/22/23/29/48/78未完合同、固定组合完整回归/双端/真实运行验收。本批未本地完整回归、未合并dev或部署，不将专项数量当任务完成率。恢复以本次提交父SHA、上列源blob、现有隔离运行包及当前PR精确head为准；回退仅反向应用本批候选增量，不覆盖原数据。
+
+
+## 2026-11-26 · #359 原02/04实际规则及动作同源（隔离候选）
+- 父提交 `84fb1a26124a7d9ec750d5e5e8cad32a50362821`，源 #359 `ed3c3da16904714ee7a6ec02f62db90af18ac6a2`，对照已接入旧树 `86a5bf4787f2b5a1746fffc11b9a60a06b5e387f`。以下四个旧blob及文件模式与父树完全相同，因此采用源组的精确blob，不覆盖其他组源码或测试：
+- `V6_BO/src/core/effective-risk-evidence.js` `b8042a88e70a56bc029a776cba0f3db856453477`
+- `V6_BO/src/core/risk-action-evidence.js` `002f3bf894efe62c13ef1e5c5f5a36cde8242199`
+- `V6_BO/tests/effective-risk-evidence.test.js` `95b5c3a97959bd57f2b9350aba5e1e72c8a5509b`
+- `V6_BO/tests/risk-action-evidence.test.js` `c83cdfce711c6ee4d22d1fd6f946bcfd72360b6c`
+- 统一原估值时点和原账户身份/指纹；未核对的委托终态、自动规则启用、冻结数量与退出归属保持未知；退出动作复用原持仓可卖量，已结束计划不能关联之后同股交易；不新增执行权、账本、写接口或发布入口。保留原T+1、交易权限和提交门禁。
+- 当前容器未挂载完整源码，git ls-remote 实际DNS失败；本批只核对精确树、代码差异及原测试，尚未执行本地专项/全量，必须核对新候选CI。专项：从V6_BO运行 `TZ=Asia/Shanghai node --test tests/effective-risk-evidence.test.js tests/risk-action-evidence.test.js`。源组通过记录不替代新组合验收。原风险工作台/runtime/通知/四级双端、#361及原18/20/22/23/29/48/78剩余继续按现有编号处理。无dev合并、无生产发布。回退仅反向本批增量，保全历史及业务数据。
