@@ -109,3 +109,27 @@ test('persistence failure traces the failed original stage and never creates a d
  assert.equal(x.counts().sends,0);assert.equal(trace.read().active,0);
  assert.doesNotMatch(JSON.stringify(rows),/private persistence detail/);
 });
+
+test('invalidating an archive while a plan context is in flight prevents stale observation and persistence',async()=>{
+ let release,reads=0;
+ const x=setup({readContext:()=>++reads===1?new Promise(r=>{release=r;}):Promise.resolve({now:time})});
+ x.set({configured:true});const first=x.runtime.tick();await new Promise(setImmediate);
+ x.runtime.invalidate();release({now:time});await first;
+ assert.equal(x.counts().writes,0);assert.equal(x.counts().sends,0);assert.equal(x.observations.length,0);
+ await x.runtime.tick();assert.equal(x.counts().archiveReads,2);assert.equal(x.counts().writes,1);assert.equal(x.counts().sends,1);
+});
+test('committed alert with a missing or future original quote time never dispatches',async()=>{
+ for(const quoteAt of [undefined,null,NaN,time+1,time-15001]){
+  const x=setup({store:{async append(){return {alerts:[{id:'bad',day,quoteAt}]};}}});
+  x.set({configured:true});await x.runtime.tick();assert.equal(x.counts().sends,0);
+ }
+ const valid=setup({store:{async append(){return {alerts:[{id:'valid',day,quoteAt:time-15000}]};}}});
+ valid.set({configured:true});await valid.runtime.tick();assert.equal(valid.counts().sends,1);
+});
+test('invalidation during persistence retains committed records but blocks stale outbound reminders',async()=>{
+ let release;
+ const x=setup({store:{append:()=>new Promise(r=>{release=r;})}});
+ x.set({configured:true});const running=x.runtime.tick();await new Promise(setImmediate);
+ x.runtime.invalidate();release({alerts:[{id:'committed',day,quoteAt:time}]});
+ await running;assert.equal(x.counts().sends,0);assert.equal(x.observations.length,1);
+});
