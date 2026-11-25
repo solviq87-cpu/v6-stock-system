@@ -109,20 +109,22 @@ function readState(file){
    !Number.isSafeInteger(x.at)||x.at<=0)throw Error('持久化提醒记录损坏');
   return {history:[{day:x.day,fingerprint:x.fingerprint,status:x.status,at:x.at,critical:0,legacy:true}]};
  }
- if(x.schemaVersion!==2||!Array.isArray(x.history)||!x.history.length||
+ if(![2,3].includes(x.schemaVersion)||!Array.isArray(x.history)||!x.history.length||
    x.history.length>MAX_HISTORY||x.history.some(e=>!validateEvent(e))||
    typeof x.digest!=='string')throw Error('持久化提醒记录损坏');
  const keys=x.history.map(e=>e.day+'|'+e.fingerprint);
  if(new Set(keys).size!==keys.length||
-  sha({schemaVersion:2,mode,history:x.history})!==x.digest)
+  sha({schemaVersion:x.schemaVersion,mode,history:x.history})!==x.digest)
   throw Error('持久化提醒记录损坏');
- return {history:x.history};
+ return {schemaVersion:x.schemaVersion,history:x.history};
 }
 function writeState(file,history){
  const mode='v6-private-feishu-gateway-receipt';
  if(!Array.isArray(history)||history.length<1||history.length>MAX_HISTORY||
    history.some(x=>!validateEvent(x)))throw Error('风险去重历史无效');
- const base={schemaVersion:2,mode,history};
+ // Older senders must reject identity-aware journals: their aggregate
+ // fingerprint could miss a reservation and resend it after a code rollback.
+ const base={schemaVersion:3,mode,history};
  const body=JSON.stringify({...base,digest:sha(base)})+'\n';
  if(Buffer.byteLength(body)>MAX_STATE_BYTES)throw Error('风险去重记录超限');
  const tmp=file+'.'+process.pid+'.tmp';
@@ -148,7 +150,12 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
  let lockFd;
  try{
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
-  const prior=readState(file)?.history||[];
+  const priorState=readState(file),prior=priorState?.history||[];
+  // A deduplicated request may be the only operation after upgrading. Migrate
+  // identity-aware v2 receipts while holding the original lock so rollback
+  // cannot replay them merely because no new notification needed a write.
+  if(priorState?.schemaVersion===2&&prior.some(x=>x.eventIdentityVersion===2))
+   writeState(file,prior);
   const matching=prior.find(x=>x.day===summary.day&&
    (x.fingerprint===summary.fingerprint||
     x.eventIdentityVersion===undefined&&x.fingerprint===summary.aggregateFingerprint||
