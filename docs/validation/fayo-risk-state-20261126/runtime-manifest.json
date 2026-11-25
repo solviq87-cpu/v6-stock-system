@@ -1,0 +1,73 @@
+{
+  "base": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+  "branch": "fix/fayo-risk-status-supplement-20261126",
+  "runtimeFrozen": true,
+  "supersedes": "635efe18bbf74587b738734b8597a31116603ac3f63349871e5166ee7b9bd139",
+  "files": [
+    {
+      "path": "V6_BO/public/nova/index.html",
+      "sha256": "ac90f441e67347cdbc048d4eaeaa86a836457b830ffd14259e518b94cfd23a75",
+      "bytes": 1114
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "sha256": "6700fe86e8765233656bda49c2eae7716ec44c1773d5cd0b7ab2a8afec50f0e9",
+      "bytes": 26589
+    },
+    {
+      "path": "V6_BO/public/sw.js",
+      "sha256": "aeecec102393b034bbdc1815c2503b027ada50d5c713b60a4826b011700e0573",
+      "bytes": 5148
+    },
+    {
+      "path": "V6_BO/scripts/fayo-browser-check.js",
+      "sha256": "ecacbb445c77d4569e7d8e80079c6ddca0517bd8a75373f7ac7d564a7d9bb2c7",
+      "bytes": 79019
+    },
+    {
+      "path": "V6_BO/scripts/fayo-risk-browser-check.js",
+      "sha256": "eb05cf90f6331909a5a7488cf1f561183f5c3c4ee2349356fc029ace8c5176c8",
+      "bytes": 19162
+    },
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "sha256": "7539626a0e26ab16c4db50c38dcde23abb3e7890c34e0a27f441a62aa17feeb5",
+      "bytes": 31321
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "sha256": "153ca84a17f4c7b556fe2d1bb78f5a6d56f0e69b72170e4eaf5e2ce9b676b284",
+      "bytes": 8707
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sha256": "fda088f4086d28d854a84cb85600bdaba20c1a5ed4c5c4e2b2b62f3aaf8af561",
+      "bytes": 28770
+    },
+    {
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "sha256": "906f27633c5462f8fa79ad13db190d7268f03f69c9ef21925bec6db4c63efb5d",
+      "bytes": 21846
+    },
+    {
+      "path": "V6_BO/tests/fayo-vivid-style.test.js",
+      "sha256": "f5d502c60ffd50d28ca3bfe21f225ea761b0e0713ae43a35c36b68d322c2039e",
+      "bytes": 3405
+    },
+    {
+      "path": "V6_BO/tests/risk-alert-lifecycle.test.js",
+      "sha256": "05caff032ae42836d2db7ba5c1f2a7ed9ae11f01900e3ef73103ddf43a0ff457",
+      "bytes": 21372
+    },
+    {
+      "path": "V6_BO/tests/risk-state-contract.test.js",
+      "sha256": "984c102d110fd7acde5dd4de6e681cca09f3ef8743b1c8962ebff409445be99e",
+      "bytes": 17692
+    },
+    {
+      "path": "V6_BO/tests/risk-workbench-runtime-notifications.test.js",
+      "sha256": "1c46c81558715f42722520c88c8f013cfc2daaf688e18e7a01b662d4bf09c47f",
+      "bytes": 17533
+    }
+  ]
+}

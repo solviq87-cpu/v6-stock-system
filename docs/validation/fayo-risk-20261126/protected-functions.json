@@ -1,0 +1,141 @@
+{
+  "baseline": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "checkedAt": "2026-11-25T17:10:10.671Z",
+  "method": "Complete Acorn function declaration/declarator UTF-8 source bytes; no original-account functions rewritten",
+  "allEqual": true,
+  "functions": [
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperBuy",
+      "baselineSha256": "428e4be9e1a02acd00d5b69c413339c95b7859b16c70b1d9851c48a208c74436",
+      "currentSha256": "428e4be9e1a02acd00d5b69c413339c95b7859b16c70b1d9851c48a208c74436",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperCheck",
+      "baselineSha256": "bf5ed772f94442a30d20ec6659e161406536f856b172f2668eb61d2149f5bf5c",
+      "currentSha256": "bf5ed772f94442a30d20ec6659e161406536f856b172f2668eb61d2149f5bf5c",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperSell",
+      "baselineSha256": "01fa9c0538e6fde90d68b0d930a6fcab2d696be8b57231211da02a57848caa55",
+      "currentSha256": "01fa9c0538e6fde90d68b0d930a6fcab2d696be8b57231211da02a57848caa55",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "savePaper",
+      "baselineSha256": "f25337c680b0c5616c4671787b05d74c5df92408c0a0be290742df59967d2968",
+      "currentSha256": "f25337c680b0c5616c4671787b05d74c5df92408c0a0be290742df59967d2968",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "followSystemPicks",
+      "baselineSha256": "9a21c6a0ba8edd5b0f8ca236274088ea2fb4755ca933870c977a9419dd886b2f",
+      "currentSha256": "9a21c6a0ba8edd5b0f8ca236274088ea2fb4755ca933870c977a9419dd886b2f",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperCheckAll",
+      "baselineSha256": "faa2c7c3f6f3ffc327e55d908f3e9bcdb5f92af0ae9656d1d44271839475ea48",
+      "currentSha256": "faa2c7c3f6f3ffc327e55d908f3e9bcdb5f92af0ae9656d1d44271839475ea48",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperAuthorityQuotes",
+      "baselineSha256": "fc77211369aabef05656d31109e7c5bae7e6c8fef67e1a6384f9f1b7ffa0b65d",
+      "currentSha256": "fc77211369aabef05656d31109e7c5bae7e6c8fef67e1a6384f9f1b7ffa0b65d",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperPxFresh",
+      "baselineSha256": "1773af31d9f5c96303350a9a4080da8e4302b9f8cd893a80a66d626b3ea09fef",
+      "currentSha256": "1773af31d9f5c96303350a9a4080da8e4302b9f8cd893a80a66d626b3ea09fef",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperT1Locked",
+      "baselineSha256": "ac049d1802061607beef5870ec5c2efe8d9180166396926e8691f04c7f9c3a31",
+      "currentSha256": "ac049d1802061607beef5870ec5c2efe8d9180166396926e8691f04c7f9c3a31",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "paperFeeAmount",
+      "baselineSha256": "3065beb00df4a5cf05702c1c7fb3c7e7d06b5c016264ee58b8e9d885bae850eb",
+      "currentSha256": "3065beb00df4a5cf05702c1c7fb3c7e7d06b5c016264ee58b8e9d885bae850eb",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "refreshPaperAuthority",
+      "baselineSha256": "4357c7855f47760702b8e332be7b95f7bddcf09019509fd45fa313bfc2af66a3",
+      "currentSha256": "4357c7855f47760702b8e332be7b95f7bddcf09019509fd45fa313bfc2af66a3",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "requireEditor",
+      "baselineSha256": "71cc31240ad725f0ab501fb04d86156c7f66614b43e7c300ba06188be42db5e0",
+      "currentSha256": "71cc31240ad725f0ab501fb04d86156c7f66614b43e7c300ba06188be42db5e0",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/server.js",
+      "function": "isReplica",
+      "baselineSha256": "f0bb46f0d83d9bab8214f0a200b76d17ecfd6d6935f176d0cbc34774086d2b6d",
+      "currentSha256": "f0bb46f0d83d9bab8214f0a200b76d17ecfd6d6935f176d0cbc34774086d2b6d",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "function": "auditCenterInputs",
+      "baselineSha256": "4ea3271428e2c9f410bd2a17d5f4e422ddaaef9a0c6bc9deffbb9cf58e6c66b5",
+      "currentSha256": "4ea3271428e2c9f410bd2a17d5f4e422ddaaef9a0c6bc9deffbb9cf58e6c66b5",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "function": "decisionCrosscheckGate",
+      "baselineSha256": "e037c2424c6cdc0532e0c8c8ab2049320302a2648e5acbbe50a2223247a42498",
+      "currentSha256": "e037c2424c6cdc0532e0c8c8ab2049320302a2648e5acbbe50a2223247a42498",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "function": "qualityScore",
+      "baselineSha256": "403b6f1a9aea8ba506a79be65cf78fdf719ea1d0bddefaea863e621ce5c2051d",
+      "currentSha256": "403b6f1a9aea8ba506a79be65cf78fdf719ea1d0bddefaea863e621ce5c2051d",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "function": "executeDecisionPlan",
+      "baselineSha256": "d733d40d8f2f152777f71c187f4aa2c51a9e49dba3091e0cca63dd7381b85954",
+      "currentSha256": "d733d40d8f2f152777f71c187f4aa2c51a9e49dba3091e0cca63dd7381b85954",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "function": "validatePlan",
+      "baselineSha256": "e7e46847043e80040002e868d313a64d9441a9a5c5948056c5d5ef6c14d09cfa",
+      "currentSha256": "e7e46847043e80040002e868d313a64d9441a9a5c5948056c5d5ef6c14d09cfa",
+      "equal": true
+    },
+    {
+      "path": "V6_BO/public/nova/terminal-workbench.js",
+      "function": "homeReferenceDay",
+      "baselineSha256": "bd69ac77cab5c3392c3929ccc3aac65600ee0ff985aa493f2a767581b5753a8c",
+      "currentSha256": "bd69ac77cab5c3392c3929ccc3aac65600ee0ff985aa493f2a767581b5753a8c",
+      "equal": true
+    }
+  ]
+}

@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-26T02:05:33.053895+08:00",
+  "baselineDev": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "implementationCommit": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+  "pr": 359,
+  "branch": "feat/fayo-risk-center-20261126",
+  "taskIds": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "14",
+    "30"
+  ],
+  "sourceFreeze": {
+    "fileCount": 2333,
+    "manifestSha256": "133f60a74d8402db0491c5e8d2dd306ba10ab79b1d5bd915b00dbc2371cb85cf",
+    "changedFiles": []
+  },
+  "fullRegression": {
+    "log": "full-regression.tap",
+    "sha256": "5aabe3457f3210f9be408b29271e4f8cd9af7ad9a83c98ba3330d1ec75e8ebc2",
+    "totals": {
+      "tests": 5141,
+      "pass": 5137,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4
+    },
+    "exitCode": 0,
+    "seconds": 297.597,
+    "testConcurrency": 2,
+    "runnerTempOutsideWorktree": true,
+    "tapCompletenessCheckPassed": true
+  },
+  "environmentFailure": {
+    "log": "full-regression-worktree-temp.tap",
+    "sha256": "831550b4be29c3f461def085a4f26befb7467702c716c0ce543e7f4428ceb870",
+    "totals": {
+      "tests": 5141,
+      "pass": 5133,
+      "fail": 4,
+      "cancelled": 0,
+      "skipped": 4
+    },
+    "reason": "RUNNER_TEMP was inside a Git worktree; the unchanged private publisher verifier correctly rejected its fixtures."
+  },
+  "correctedTempTargeted": {
+    "log": "managed-runtime-temp-check.tap",
+    "sha256": "0d89468c75ae25d040261065082682a638e5f856235caa5d06aeffe09573b5ac",
+    "totals": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "isolatedHttp": {
+    "log": "isolated-http.tap",
+    "sha256": "b4427e24d1fe75af7b62b3835ebcd62155390110f4b0b44eae37f00db5c45877",
+    "totals": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "isolatedStartup": {
+    "log": "isolated-smoke.log",
+    "sha256": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1",
+    "totals": {},
+    "exitCode": 0
+  },
+  "staticCheck": {
+    "log": "static-check.log",
+    "sha256": "7d2069bb8c83efd48c04b69ce8d84b440815698d30490353ef3a6b931ec9a634",
+    "totals": {},
+    "exitCode": 0,
+    "nativeModuleCount": 69
+  },
+  "skippedTests": [
+    "ok 1255 - actual PowerShell wrapper handles paths with spaces, opens only a verified page, and cleans temporary controls # SKIP",
+    "ok 2234 - 五类模型通过同一研究入口、筛选条件和成本账本完成比较 # SKIP 需要 requirements-models-optional.txt",
+    "ok 2477 - 可选 lightgbm 对含负收益标签的固定数据产生确定性回归输出 # SKIP lightgbm 未安装；安装 tools/requirements-models-optional.txt 后运行",
+    "ok 2479 - 可选 xgboost 对含负收益标签的固定数据产生确定性回归输出 # SKIP xgboost 未安装；安装 tools/requirements-models-optional.txt 后运行"
+  ],
+  "browser": {
+    "commandCount": 34,
+    "scriptCount": 36,
+    "firstRunPassed": true,
+    "environment": {
+      "node": "v24.22.3",
+      "playwright": "1.57.0",
+      "browser": "Chromium 158.0.8127.0",
+      "font": "Noto Sans CJK SC"
+    },
+    "commandsLogSha256": "d2b0729caede4556f7347477c82f6ed31b96648a4b715f11b2bf8067fe247447",
+    "seconds": 718.819,
+    "results": [
+      {
+        "index": 1,
+        "command": "node scripts/verify-browser-clock.js",
+        "exitCode": 0,
+        "seconds": 0.116,
+        "logSha256": "8854095668c8d5690085509689eb46469624abf3a2712e6ef9eec43cf81ec5ea"
+      },
+      {
+        "index": 2,
+        "command": "node scripts/fayo-browser-check.js",
+        "exitCode": 0,
+        "seconds": 189.976,
+        "logSha256": "5b09797e5b2c3b0ee0a43e26bdab1d582adb04acce97c13ee4d1b8c639df199a"
+      },
+      {
+        "index": 3,
+        "command": "node scripts/fayo-decision-browser-check.js",
+        "exitCode": 0,
+        "seconds": 36.172,
+        "logSha256": "f33030587d2937335498e570d8da23ff747d5d4018e7d03c9c941fc20751f435"
+      },
+      {
+        "index": 4,
+        "command": "node scripts/fayo-execution-browser-check.js",
+        "exitCode": 0,
+        "seconds": 5.056,
+        "logSha256": "a1cd43e655532f3f7ef4c5856d24fbd38af103c65576e0b7a781a867ded9c6ec"
+      },
+      {
+        "index": 5,
+        "command": "node scripts/fayo-risk-browser-check.js",
+        "exitCode": 0,
+        "seconds": 11.392,
+        "logSha256": "d7436746b67cc3fd9d4a02054afb5fb5526e6b07245549035813be2aa341a52c"
+      },
+      {
+        "index": 6,
+        "command": "node scripts/fayo-intelligence-browser-check.js",
+        "exitCode": 0,
+        "seconds": 12.171,
+        "logSha256": "5c0e3a42e3669d623e28040e4a6196340aaf2ac8f93a29472429098c300253c6"
+      },
+      {
+        "index": 7,
+        "command": "node scripts/fayo-operations-browser-check.js",
+        "exitCode": 0,
+        "seconds": 6.958,
+        "logSha256": "9c740310ae29b2b2be5160018e5357fee4b9ee96a00b4471b2865d287877d29b"
+      },
+      {
+        "index": 8,
+        "command": "node scripts/fayo-source-review-browser-check.js",
+        "exitCode": 0,
+        "seconds": 17.57,
+        "logSha256": "2fdd10ec4c1c6c72cc238c0a1d9bdc0591c85bef1ddb3ec449a8c7c16602a98a"
+      },
+      {
+        "index": 9,
+        "command": "node scripts/fayo-manual-loop-browser-check.js",
+        "exitCode": 0,
+        "seconds": 37.577,
+        "logSha256": "a615cc995c4ec460525ed540b04925394371340528519fc5a0ba61f71f0c12f2"
+      },
+      {
+        "index": 10,
+        "command": "node scripts/fayo-kline-learning-browser-check.js",
+        "exitCode": 0,
+        "seconds": 28.024,
+        "logSha256": "c382461ced49e92ade267262a1e514c2a1ea14e448f8bd2ec14fb97655c23291"
+      },
+      {
+        "index": 11,
+        "command": "node scripts/fayo-close-freeze-browser-check.js",
+        "exitCode": 0,
+        "seconds": 4.816,
+        "logSha256": "eebadfd3c4e66efd099b8f9fd11670e4e9bdf8bd2bcf8b2f7131118d90c14c6a"
+      },
+      {
+        "index": 12,
+        "command": "node scripts/ui-unified-workspace-browser-check.js",
+        "exitCode": 0,
+        "seconds": 85.626,
+        "logSha256": "530610d83386766f634f2ac7f99bf41c72328359593431c49962af06a9879333"
+      },
+      {
+        "index": 13,
+        "command": "node scripts/ui-original-workspace-browser-check.js",
+        "exitCode": 0,
+        "seconds": 8.799,
+        "logSha256": "f945f58c261fdb7aaee94e4175c0fbed6f9866d370be3298bc2a53fd66228f5b"
+      },
+      {
+        "index": 14,
+        "command": "node scripts/ui-mobile-roles-browser-check.js",
+        "exitCode": 0,
+        "seconds": 7.211,
+        "logSha256": "970a5227893b927ab2a47a6e4aaaf6bc1088aeaffa8bd57f3d739588230ccd91"
+      },
+      {
+        "index": 15,
+        "command": "node scripts/ui-cache-upgrade-browser-check.js",
+        "exitCode": 0,
+        "seconds": 1.779,
+        "logSha256": "09dbd32e4c4a010fa1def8bca99b9c09a6d7858b06771daa1a086c6690d7151c"
+      },
+      {
+        "index": 16,
+        "command": "node scripts/ui-reference-browser-check.js",
+        "exitCode": 0,
+        "seconds": 8.452,
+        "logSha256": "5227085f7ec8835232662249053c3fcf841bba68255087aa96582d0562d2ca44"
+      },
+      {
+        "index": 17,
+        "command": "node scripts/ui-picks-three-k-browser-check.js",
+        "exitCode": 0,
+        "seconds": 13.989,
+        "logSha256": "1805bd63cc5a40d27fb30f9634d843852cc0cae2b052b6cc457d89e810d9e548"
+      },
+      {
+        "index": 18,
+        "command": "node scripts/ui-stream-recovery-browser-check.js",
+        "exitCode": 0,
+        "seconds": 4.526,
+        "logSha256": "dc2a9d20d9eb7bc2bf46bdf268d95b89e1673b8ef3b97b1f946030c5b256c1a9"
+      },
+      {
+        "index": 19,
+        "command": "node scripts/ui-stock-list-import-browser-check.js",
+        "exitCode": 0,
+        "seconds": 10.285,
+        "logSha256": "5f19fba12cd3f058469dceeb21c132947a8329cc32c624e48be08b2cbef8b504"
+      },
+      {
+        "index": 20,
+        "command": "node scripts/ui-research-decision-review-check.js",
+        "exitCode": 0,
+        "seconds": 6.586,
+        "logSha256": "e5cd6cf56694f4f81040d0f627f57ce9ff23c826ffad47ff9bf9496efeb2b31d"
+      },
+      {
+        "index": 21,
+        "command": "node scripts/ui-research-workspace-check.js",
+        "exitCode": 0,
+        "seconds": 17.546,
+        "logSha256": "d30f23e9b902300ba62d52c19f276c14b727ee8a6d4020b05319bf11debb64be"
+      },
+      {
+        "index": 22,
+        "command": "node scripts/ui-model-forecast-check.js",
+        "exitCode": 0,
+        "seconds": 7.901,
+        "logSha256": "abca9ddf53bb04e6379a85dbcc6d1c3c37a4ff4bda5a483ff6ac22b21d3ad9a8"
+      },
+      {
+        "index": 23,
+        "command": "node scripts/ui-model-library-check.js",
+        "exitCode": 0,
+        "seconds": 14.506,
+        "logSha256": "3bc3fbcbb2aaa4462a55db5a6af2c1b1a897eae2c8ff4d146611abc31bdbb20b"
+      },
+      {
+        "index": 24,
+        "command": "node scripts/ui-research-summary-cards-check.js",
+        "exitCode": 0,
+        "seconds": 19.13,
+        "logSha256": "0858633a3e5e4df7f0a807b1e97229d4f2a933a4fded0a80739f619cb17c70c5"
+      },
+      {
+        "index": 25,
+        "command": "node scripts/ui-research-selection-check.js",
+        "exitCode": 0,
+        "seconds": 34.382,
+        "logSha256": "c72158309f7b00d5c4e9d58c3a1eaa0ba14a1865ecdb7716250eb4eeacaf4b86"
+      },
+      {
+        "index": 26,
+        "command": "node scripts/ui-research-navigation-check.js",
+        "exitCode": 0,
+        "seconds": 14.034,
+        "logSha256": "2117ae9b1874804a11ef0681f6b26b0ae2c857687a86a7f0546fa6f1d47d2bf4"
+      },
+      {
+        "index": 27,
+        "command": "node scripts/ui-research-tab-race-check.js",
+        "exitCode": 0,
+        "seconds": 11.503,
+        "logSha256": "e66bb051aa539627de916b04392640b804cd4b12a30ed0ee8a13ec090a569b26"
+      },
+      {
+        "index": 28,
+        "command": "node scripts/ui-research-recovery-check.js",
+        "exitCode": 0,
+        "seconds": 23.36,
+        "logSha256": "02f2eb776300cede86b0745e90f7d63a651b63432434ac440ce39b0f9ac1ef83"
+      },
+      {
+        "index": 29,
+        "command": "node scripts/ui-research-context-check.js",
+        "exitCode": 0,
+        "seconds": 12.89,
+        "logSha256": "c98efc2d927be01a8b209c362e7e34e2197e51ae9350ee3261892f9c4aaa9252"
+      },
+      {
+        "index": 30,
+        "command": "node scripts/ui-market-linkage-check.js",
+        "exitCode": 0,
+        "seconds": 9.053,
+        "logSha256": "0caf6fde2f2f767e824594ca30bb122b4e530439d989f507f87bb2299d0dd281"
+      },
+      {
+        "index": 31,
+        "command": "node scripts/ui-learning-workbench-check.js",
+        "exitCode": 0,
+        "seconds": 18.614,
+        "logSha256": "6a94ab779433e146fa37ce8db4295b0bfd26fc77ddb61383625e22cf33c291be"
+      },
+      {
+        "index": 32,
+        "command": "node scripts/ui-model-library-context-check.js",
+        "exitCode": 0,
+        "seconds": 7.701,
+        "logSha256": "226305fabeb69eff32acfaab7ebed178064cfe37af7fc83466164c08930b580f"
+      },
+      {
+        "index": 33,
+        "command": "node scripts/ui-research36-check.js",
+        "exitCode": 0,
+        "seconds": 4.204,
+        "logSha256": "37d448ffd4036a7909dd9efe890b724061d2d2d05b9114cb6b607af275c94e1b"
+      },
+      {
+        "index": 34,
+        "command": "node --test scripts/workbuddy-static-browser-check.js scripts/workbuddy-module-browser-check.js scripts/workbuddy-news-browser-check.js",
+        "exitCode": 0,
+        "seconds": 26.844,
+        "logSha256": "743ecc58d75cede0a7646b42fb2476024c336e5cae1d39778fdd8b7671a51f41"
+      }
+    ],
+    "riskReportSha256": "383019a16a45f50528e2555eb77f4c3c77dad0db954a69d50ffb650568a0047b",
+    "visualReviewSha256": "a7018d4e3281a57fe52d41e80f7d1811ac5237b91f6fc55faf44a660eb634f15"
+  },
+  "restoredCommits": [
+    "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "34e0c18d27234c6b5aef491c3253b5a52e5bb4ee",
+    "7f8515dd9746d4d5d3289d1edb671b84c38c7275"
+  ],
+  "recovery": {
+    "sourceCheckpoint": "7f8515dd9746d4d5d3289d1edb671b84c38c7275",
+    "bundleSha256": "d86240c39938ae277175157a6b1d7cacce7c2278d635395a71c003deee0a72a4",
+    "bundleVerified": true,
+    "productionBackupVerified": false
+  },
+  "remoteCI": "Read exact final PR HEAD checks; local verification is not remote CI evidence.",
+  "production": {
+    "deployed": false,
+    "realNotificationsSent": 0,
+    "brokerEnabled": false,
+    "finalIntegrationPerformed": false
+  },
+  "remaining": [
+    "External cash-flow event adapter and continuous historical valuation coverage",
+    "Strategy and advanced-account adapters bound to account epoch/revision/fingerprint/asOf",
+    "PR356 numeric-symbol reconciliation compatibility and PR356/361 publish callback scope",
+    "Trusted receiver-confirmation adapter, production/private gateway evidence, iOS/Android device testing",
+    "Final coordinator combined SHA regression and existing sole release process"
+  ],
+  "implementationCommitScope": "local-git; exact tree verified against GitHub counterpart",
+  "githubImplementationCommit": "0a1d4db3579acf49c41414fcba126b36783ceb1c",
+  "implementationTree": "aa5e56d8ac89ff9cebba1a66533ff63ad5ed58af",
+  "pauseHandoff": "pause-handoff.json"
+}
