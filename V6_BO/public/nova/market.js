@@ -1,5 +1,6 @@
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
+import {decisionSectorReader,sectorDay} from './decision-sector-context.mjs';
 import {createDrawerRadar} from './intelligence-view.mjs';
 import {eligiblePick,pickReasons,topSystemPicks,systemPickDay} from './system-picks.mjs';
 import {sectorRoles,roleBadge,observedBadge} from './stock-roles.js';
@@ -330,11 +331,36 @@ function boardPicker(state,boardLink,pick){
  }).filter(Boolean);
  if(!entries.length)return null;
  const items=[...new Map(entries.map(r=>[r.key,r])).values()];
- const select=h('select',{'aria-label':'选择核对板块'},items.map(r=>h('option',{value:r.key},r.name+(r.rawCode?' · '+r.rawCode:''))));
+ const select=h('select',{id:'fy-sector-picker-'+encodeURIComponent(items.map(r=>r.key).join('|')),'aria-label':'选择核对板块'},items.map(r=>h('option',{value:r.key},r.name+(r.rawCode?' · '+r.rawCode:''))));
  const dest=h('span',{});const set=r=>{pick.key=r.key;select.value=r.key;dest.replaceChildren(externalQuoteLink(r.link));};
  set(items.find(r=>r.key===pick.key)||items[0]);
  select.addEventListener('change',()=>{const item=items.find(r=>r.key===select.value);if(item)set(item);});
  return h('div',{class:'fy-inline'},h('label',{},'板块行情 ',select),dest);
+}
+function linkedSectorDataset(ctx,reader,boardLink,pick,repaint){
+ const selection=ctx.decisionSelection,evidence=reader.read(),key=selection.code+':'+selection.day;
+ if(pick.selection!==key){pick.selection=key;pick.key='';}
+ const chosen=evidence.rows.find(row=>row.key===pick.key)||evidence.rows[0];
+ pick.key=chosen?.key||'';
+ const options=evidence.rows.length?evidence.rows.map(row=>h('option',{value:row.key},row.name+(row.code?' · '+row.code:''))):
+  [h('option',{value:''},evidence.membership.join(' / ')||'题材归属缺失')];
+ const control=h('select',{id:'fy-decision-sector-picker-'+encodeURIComponent(key+'|'+evidence.rows.map(row=>row.key).join('|')),
+  'aria-label':'当前股票对应板块',disabled:!evidence.rows.length,onChange:event=>{pick.key=event.currentTarget.value;repaint();}},options);
+ control.value=pick.key;
+ const link=chosen&&boardLink?.({name:chosen.name,kind:chosen.kind});
+ const title=(selection.row?.name||selection.code)+' '+selection.code+' · '+selection.day;
+ const content=chosen?h('article',{'data-selected-sector':chosen.code||chosen.key,'data-day':selection.day},
+  h('h3',{},chosen.name),h('p',{},'主力净额 ',h('strong',{class:direction(chosen.value)},money(chosen.value)+'元')),
+  h('dl',{class:'fy-facts'},h('div',{},h('dt',{},'板块涨跌幅'),h('dd',{},percent(chosen.pct))),
+   h('div',{},h('dt',{},'资金归属日'),h('dd',{},chosen.day,h('br'),h('small',{},chosen.dateBasis))),h('div',{},h('dt',{},'资金来源'),h('dd',{},chosen.source)),
+   h('div',{},h('dt',{},'实际取得'),h('dd',{},dateTime(chosen.retrievedAt))),
+   h('div',{},h('dt',{},'源端资金时刻'),h('dd',{},chosen.sourceTimestamp?dateTime(chosen.sourceTimestamp):'未提供'))),
+  h('p',{class:'fy-muted'},'供应商按订单大小估算的主力净额，单位为人民币元。'),
+  h('details',{class:'fy-details',id:'fy-sector-record-'+encodeURIComponent(key+'|'+chosen.key)},h('summary',{},'查看板块资金原始记录'),renderEvidence(chosen.raw,ctx))):
+  empty(evidence.loading?'正在读取所选交易日板块资金':'该股所选日期缺少板块资金',evidence.missing.join('；'));
+ const panel=section('联动板块资金',title,h('div',{class:'fy-inline'},field('对应题材与行业',control),externalQuoteLink(link)),content);
+ panel.dataset.sectorSelection=selection.code;panel.dataset.day=selection.day;
+ return panel;
 }
 export function renderMarket(route,ctx) {
  const sub=route.sub||'sectors';
@@ -368,11 +394,24 @@ export function renderMarket(route,ctx) {
  const datasetKeys=sub==='sectors'?[['板块强度','sectors'],['涨停题材','ztBySector'],['市场主线','mainline'],['板块联动','extLink']]:sub==='global'?[['全球市场','global'],['外部资金与商品','external'],['外围预选','preselect'],['资金异动','bigMoney']]:sub==='plans'?[['下一交易日计划','nextplan'],['十四条判定','myrules'],['启动前埋伏','pre'],['补涨线索','buzhang']]:[['复盘','review'],['历史学习','learn'],['学习记录','learnHistory'],['宽度与纪律','breadth']];
  const datasets=h('div',{class:'fy-grid two'});
  let pendingPaint=false;
- const boardPick={key:''};let boardLink=null;
- const paintDatasets=()=>{if(ctx.signal?.aborted)return;if(datasets.contains(document.activeElement)){pendingPaint=true;return;}pendingPaint=false;datasets.replaceChildren(...datasetKeys.map(([title,key])=>section(title,'同一份服务端市场状态',key==='sectors'&&boardLink?boardPicker(ctx.state||{},boardLink,boardPick):null,renderEvidence(ctx.state?.[key],ctx))));};
+ const memory=ctx.viewMemory||{},boardPick=memory.sectorBoardPick||(memory.sectorBoardPick={key:''});
+ const selectedPick=memory.decisionSectorPick||(memory.decisionSectorPick={selection:'',key:''});
+ const sectorReader=sub==='sectors'?decisionSectorReader(ctx):null;let boardLink=null;
+ const paintDatasets=()=>{
+  if(ctx.signal?.aborted)return;
+  const linked=sub==='sectors'&&ctx.decisionSelection;
+  if(!linked&&datasets.contains(document.activeElement)){pendingPaint=true;return;}
+  pendingPaint=false;
+  const all=datasetKeys.map(([title,key])=>section(title,'同一份服务端市场状态',key==='sectors'&&boardLink?boardPicker(ctx.state||{},boardLink,boardPick):null,renderEvidence(ctx.state?.[key],ctx)));
+  if(linked){
+   const day=sectorDay(ctx.state?.sectorsDay||ctx.state?.snapshotFieldDays?.sectors);
+   updateReadout(datasets,linkedSectorDataset(ctx,sectorReader,boardLink,selectedPick,paintDatasets),
+    h('details',{class:'fy-details',id:'fy-sector-global-context'},h('summary',{},'全市场背景 · '+(day||'板块日期缺失')),h('div',{class:'fy-grid two'},all)));
+  }else updateReadout(datasets,all);
+ };
  if(sub==='sectors')import('./shortline/quote-links.mjs').then(m=>{boardLink=m.thsBoardLink;paintDatasets();}).catch(()=>{});
  datasets.addEventListener('focusout',()=>queueMicrotask(()=>{if(pendingPaint)paintDatasets();}));
- paintDatasets();ctx.onState?.(paintDatasets);
+ paintDatasets();if(sectorReader)sectorReader.subscribe(paintDatasets);else ctx.onState?.(paintDatasets);
  view.append(h('header',{class:'fy-view-heading'},h('span',{class:'fy-eyebrow'},'FAYO / CONTEXT'),h('h1',{},labels.find(x=>x[0]===sub)?.[1]||'市场上下文')),
   sub==='sectors'?linkedDecisionPanel(ctx):null,datasets);
  if(sub==='sectors'){

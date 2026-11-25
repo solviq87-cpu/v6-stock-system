@@ -172,6 +172,7 @@ function feedbackValidation(report,ctx){
 function researchPanels(report,ctx){
  const q=report.quality||{},f=report.factors||{},w=report.walkforward||{},feedback=report.feedback||{},templates=report.templates||{};
  const intake=report.historyIntake||{},execution=report.executionValidation||{},overall=execution.overall||{};
+ const ruleCoverage=f.ruleCoverage||{},approved=f.approvedScoring||{},automation=feedback.automation;
  const qItems=list(q.components),metrics=Object.values(f.descriptive||{}),folds=list(w.folds);
  const gateText=gate=>gate?(({hfq:'后复权',qfq:'前复权'})[gate.expectedAdjustment]||'复权口径缺失')+' · '+(gate.admittedGroups??'未知')+' 组可用 / '+(gate.excludedRecords??'未知')+' 条被排除':'缺少可验证样本';
  return [
@@ -194,9 +195,22 @@ function researchPanels(report,ctx){
     evidenceDetails('采集时间、来源与隔离记录',report.historySupply))):null,
    evidenceDetails('逐源偏离、拒绝原因与原始时点',q)),
   panel('L2 · 因子有效性与去冗余',paragraph('原战法目录 '+(f.catalogRules??'未知')+' 项 · 已有量化观测 '+(f.measuredFactors??'未知')+' 项 · 对齐样本 '+(f.alignedSamples??'未知')+' 条'),
+   paragraph('完整规则观察 '+(ruleCoverage.fullPanelChecks??'未知')+' 批 · 历史部分观察 '+(ruleCoverage.legacyPartialChecks??'未知')+' 批 · 未通过校验 '+(ruleCoverage.invalidPanels??'未知')+' 批'),
+   list(ruleCoverage.rules).length?detail('逐项查看原 95 项规则覆盖',table([
+    {label:'规则',value:r=>r.factorId+' · '+r.name},{label:'已记录',value:r=>r.recordedChecks},
+    {label:'可量化',value:r=>r.measuredChecks},{label:'证据不足',value:r=>r.unknownChecks},
+    {label:'缺失条件',value:r=>r.missingConditions}],ruleCoverage.rules)):null,
    paragraph(f.label||'t 日因子预测 t+1 起收益；缺真实样本时不生成 IC。'),paragraph(f.note),
    metrics.length?table([{label:'因子',value:r=>r.factorId||r.id},{label:'平均 IC',value:r=>score(r.meanIC)},{label:'有效交易日',value:r=>r.days??r.icDays??'缺数据'}],metrics):paragraph('尚无满足时点、复权与跨源核验要求的因子 IC。'),
-   evidenceDetails('正交参数、相关性与因子原始统计',{orthogonalization:f.orthogonalization,redundancy:f.redundancy,descriptive:f.descriptive,rejectionReasons:f.rejectionReasons})),
+   evidenceDetails('正交参数、相关性与因子原始统计',{orthogonalization:f.orthogonalization,redundancy:f.redundancy,descriptive:f.descriptive,rejectionReasons:f.rejectionReasons}),
+   detail('获批数值模型与下一交易日评分',h('div',{},
+    paragraph(approved.modelVersion?'原批准版本 V'+approved.modelVersion+' · 批准于 '+dateTime(approved.approvedAt):'尚无通过原五项验证并人工批准的数值模型'),
+    paragraph('原观察日 '+(approved.day||'未返回')+'；分数沿用训练净收益模型尺度，与首页精选分分别展示。缺因子定义、批准时点或原日历时不参与候选排序。'),
+    list(approved.rows).length?table([
+     {label:'标的',value:r=>r.code},{label:'信号日 → 目标日',value:r=>(r.signalDay||r.day||'未知')+' → '+(r.targetDay||'未知')},
+     {label:'模型分',value:r=>finite(r.score)?format(r.score,4):'缺数据'},
+     {label:'依据',value:r=>r.eligibleForNextSession===true?'时点与同定义观察已核对':list(r.missing).join('；')||'尚无完整依据'}],approved.rows):paragraph('没有与该批准版本匹配的完整当日观察'),
+    evidenceDetails('模型定义、训练截止与原始观察时点',approved)))),
   panel('L2 · 滚动样本外验证',paragraph('已形成 '+folds.filter(fold=>fold.status==='evaluated').length+' 个可核验窗口；训练、验证、测试之间保留隔离交易日。'),
    paragraph(w.note||'使用后复权价格与真实日历；训练参数冻结后才应用到验证、测试。'),
    ...folds.map((fold,i)=>detail('窗口 '+(i+1)+' · '+fold.status,evidenceDetails('日期、IC 与分层结果',fold))),
@@ -217,7 +231,14 @@ function researchPanels(report,ctx){
     paragraph(group.note||group.missing?.join('；')||'沿用原战法条件与校验')))),
    paragraph(templates.scope),evidenceDetails('战法条件与已观察次数',templates)),
   panel('L5 · 复盘反馈',paragraph('成熟复盘 '+(feedback.matureTrades??'未知')+' 条 · 因子调整候选 '+list(feedback.candidates).length+' 条 · 数据质量复核 '+list(feedback.qualityCandidates).length+' 条'),
-   paragraph('反馈保留为待验证候选，沿用原权重验证与批准流程。当前生产因子权重没有被自动改写。'),
+   paragraph('收盘后的新证据可自动送入原五项验证；版本晋级仍沿用原人工审批。'),
+   automation?paragraph('自动反馈：'+(({'waiting-close':'等待收盘','disabled-or-replica':'当前节点或中心未启用',
+    'missing-calendar':'缺原交易日历','missing-session':'原市场时钟未对齐','reading':'正在读取原证据',
+    'insufficient-evidence':'证据不足','awaiting-approval':'已有候选等待人工审批','duplicate-proposal':'本次提案已有验证回执',
+    'submitted':'已送原验证','validation-rejected':'原验证拒绝','unavailable':'本次证据暂不可用','backoff':'等待下次有界复核',
+    'daily-limit':'今日复核额度已用完'})[automation.status]||'状态尚未确认')+(automation.lastResult?.validationStatus?' · '+automation.lastResult.validationStatus:'')+
+    (automation.lastResult?.recordedAt?' · 回执 '+dateTime(automation.lastResult.recordedAt):'')):paragraph('后台反馈调度尚未返回状态'),
+   list(automation?.missing).length?paragraph('缺项：'+automation.missing.join('；')):null,
    feedbackValidation(report,ctx),evidenceDetails('复盘依据与候选变更',feedback))
  ];
 }

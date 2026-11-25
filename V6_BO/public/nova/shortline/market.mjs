@@ -5,6 +5,7 @@ import {isTestSample} from './sample-quality.mjs';
 import {predict} from './learning.mjs';
 import {deriveCheckInput,applyLiveSignalWindow} from './backtest.mjs';
 import {settingsAt,blacklistReason,calendarWarnings} from './settings.mjs';
+import {readNumericCheck} from './numeric-factors.mjs';
 
 const metrics = [
   ['upLimit','涨停家数',0,10000,true], ['downLimit','跌停家数',0,10000,true],
@@ -241,7 +242,8 @@ export function validate(state,input,options={}) {
   // Providers can publish a closed snapshot after its signal day. Keep outcome learning
   // strictly before that signal close even when the fact snapshot has a later timestamp.
   const performanceCutoff=asOf<date+' 15:00'?asOf:date+' 15:00';
-  const prediction=options.skipPrediction===true?null:predict(state,{factors,strategy:eligible[0]?.name||matches[0]?.name||'',trend:market?.trend,asOf:performanceCutoff.replace(' ','T')});
+  const prediction=options.skipPrediction===true?null:predict(state,{factors,strategy:eligible[0]?.name||matches[0]?.name||'',trend:market?.trend,
+    numericFactors:options.numericFactors,asOf:performanceCutoff.replace(' ','T')});
   if(prediction?.risk && prediction.risk!=='历史样本可供参考' && prediction.risk!=='同类样本不足')add(String(prediction.risk));
   return {date,code,name,asOf,settingsVersion:settings.version,settingsPreset:settings.preset,theme:String(input.theme||market?.theme||'').trim().slice(0,80),selected:[...selected],factors,market:market?{...market}:null,emotion:em,risks,facts,...positions,mainline:input.mainline!==false,strongSector:input.strongSector===true,
     strategy:matches.map(r=>r.name).join('、')||'未匹配',matches:matches.map(r=>r.name),eligible:eligible.map(r=>r.name),position:Math.max(0,Math.floor(cap*100)/100),status:cap<=0?'暂缓开仓':cap<=10?'轻仓试错':'符合开仓条件',prediction,version:prediction?.version||activeParams.version||'基准规则'};
@@ -276,10 +278,12 @@ export function autoValidate(state,input) {
   const factorCodes=confirmedCodes(state,code,date);
   const evidence=state.v6Observation?.stock?.factorEvidence||{};
   const factorObservations=Object.fromEntries(factorCodes.filter(k=>evidence[k]).map(k=>[k,evidence[k]]));
+  const numericFactors=readNumericCheck({code,date,asOf:observed.observedAtMs||observed.asOf,recognition:observed.recognition,factorObservations},
+    state.catalog,observed.observedAtMs||observed.asOf,{requireRecorded:false});
   const result=validate(state,{
     ...query,name:observed.name||code,theme:observed.theme||'',
     selected:observed.selected||[],mainline:observed.mainline===true,strongSector:observed.strongSector===true
-  },{asOf:observed.observedAtMs||observed.asOf,stockEvidence:observed.stockEvidence,factorCodes});
+  },{asOf:observed.observedAtMs||observed.asOf,stockEvidence:observed.stockEvidence,factorCodes,numericFactors});
   return applyLiveSignalWindow(state,{
     ...result,factorCodes,factorObservations,
     strategy:result.matches.length?result.strategy:'未判定',

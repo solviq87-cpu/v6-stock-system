@@ -12,6 +12,7 @@ const {fuseMultiSourcePrices} = require('./multi-source-price-consensus');
 const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-templates');
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
+const numeric = require('../../public/nova/shortline/numeric-factors');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -340,6 +341,9 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
   const bars = (Array.isArray(archive.bars) ? archive.bars : []).filter(row => (row.role || 'stock') === 'stock' && dayOk(row.date));
   const catalog = (Array.isArray(archive.catalog) ? archive.catalog : installedCatalog).filter(row => Number.isSafeInteger(row.id) && row.id > 0 && row.id <= 95);
   const observations = [], rejected = [], checks = Array.isArray(archive.checks) ? archive.checks : [];
+  const ruleCoverage = {schema: numeric.PANEL, fullPanelChecks: 0, legacyPartialChecks: 0, invalidPanels: 0,
+    rules: catalog.map(row => ({factorId: 'YZ-' + String(row.id).padStart(2,'0'), kind: row.kind, name: row.name,
+      recordedChecks: 0, measuredChecks: 0, unknownChecks: 0, missingConditions: 0}))};
   if (bars.length > MAX_BARS || checks.length > MAX_CHECKS) throw Error('研究档案超过中心只读分析上限；请使用有明确范围的原档案切片');
   for (const check of checks) {
     const day = check.date, code = String(check.code || ''), recordedAt = instant(check.createdAt), asOf = instant(check.asOf);
@@ -347,6 +351,7 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
         recordedAt > now || asOf > recordedAt) { rejected.push({id: check.id || null, reason: 'invalid-or-unrecorded-check'}); continue; }
     const values = {}, evidence = {}, signalAt = Math.max(recordedAt, asOf);
     for (const [id, item] of Object.entries(check.factorObservations || {})) {
+      if (id.startsWith('YZ-') && check.recognition?.ruleObservations) continue;
       const knownAt = instant(item?.knownAt);
       if (!/^[A-Z]{2,12}-\d{2,3}$/.test(id) || !item || !real(item) || item.symbol !== code || item.tradeDate !== day ||
           item.factorCode !== id || !finite(item.value) || typeof item.unit !== 'string' || !item.unit ||
@@ -355,9 +360,30 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
       }
       values[id] = item.value; evidence[id] = {...item, archiveCheckId: check.id, recordedAt: check.createdAt};
     }
+    const panel = check.recognition?.ruleObservations;
+    if (check.method === '行情自动识别' && panel) {
+      const parsed = numeric.readRulePanel(panel, catalog, {code, day, at: signalAt, recordedAt: check.createdAt});
+      if (archive.dictionaryVersion && panel.dictionaryVersion !== archive.dictionaryVersion)
+        parsed.rejected.push({reason: 'rule-dictionary-version-mismatch'});
+      if (parsed.rejected.length) {
+        ruleCoverage.invalidPanels++;
+        rejected.push(...parsed.rejected.map(row => ({id: check.id, ...row})));
+      } else {
+        ruleCoverage.fullPanelChecks++;
+        for (const rule of panel.rules) {
+          const summary = ruleCoverage.rules.find(row => row.factorId === rule.factorCode);
+          summary.recordedChecks++; summary.missingConditions += [...rule.states].filter(value => value === '?').length;
+          if (Object.hasOwn(parsed.values, rule.factorCode)) summary.measuredChecks++; else summary.unknownChecks++;
+        }
+        Object.assign(values, parsed.values);
+        for (const [id, item] of Object.entries(parsed.evidence)) evidence[id] = {...item, archiveCheckId: check.id, recordedAt: check.createdAt};
+      }
+    }
     // Original 95 rules are observed only when an archived automatic check has
     // explicit complete condition statuses. Absence from matches means unknown.
-    if (check.method === '行情自动识别') for (const candidate of check.recognition?.candidates || []) {
+    if (check.method === '行情自动识别' && !panel) {
+      ruleCoverage.legacyPartialChecks++;
+      for (const candidate of check.recognition?.candidates || []) {
       const definition = catalog.find(row => row.name === candidate.name), total = definition?.factors?.length;
       if (!total || candidate.total !== total || !Number.isSafeInteger(candidate.matched) || candidate.matched < 0 ||
           !Array.isArray(candidate.failed) || !Array.isArray(candidate.missing) || candidate.missing.length ||
@@ -369,13 +395,14 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
       evidence[id] = {factorCode: id, symbol: code, tradeDate: day, value: values[id], unit: 'condition-match-percent',
         knownAt: check.createdAt, source: 'shortline-recorded-condition-status', archiveCheckId: check.id,
         matched: candidate.matched, failed: [...candidate.failed], total, sampleSet: 'real'};
+      }
     }
     if (Object.keys(values).length) observations.push({id: check.id, market: typeof check.market === 'string' ? check.market : 'CN', code, day,
       signalAt, recordedAt: check.createdAt, asOf: check.asOf, values, evidence,
       regime: check.market?.systemicSelloff === true ? 'systemic-selloff' : check.market?.systemicSelloff === false ? 'not-systemic-selloff' : null,
       cycle: check.emotion?.stage || 'unknown'});
   }
-  return {status: bars.length || observations.length ? 'observed' : 'missing-data', bars, observations, rejected, catalog};
+  return {status: bars.length || observations.length ? 'observed' : 'missing-data', bars, observations, rejected, catalog, ruleCoverage};
 }
 
 function alignFactorOutcomes(observations, gate, marketCalendars, {now = Date.now()} = {}) {
@@ -416,6 +443,11 @@ function factorMetrics(samples, ids, minRows) {
   const groups = new Map(), markets = [...new Set(samples.map(row => row.market))].sort();
   for (const row of samples) { const key = JSON.stringify([row.day, row.market]); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
   return Object.fromEntries(ids.map(id => {
+    const definitions = [...new Set(samples.filter(row => finite(row.values[id])).map(row =>
+      numeric.fingerprint(numeric.numericDefinition(id,row.evidence?.[id]))))];
+    if (definitions.length > 1) return [id,{factorId:id,status:'mixed-factor-definition-versions',meanIC:null,days:0,daily:[],
+      reliability:assessFactorReliability([]),byMarket:{},definitionVersions:definitions,minCrossSection:minRows,
+      note:'同名因子的量化定义或阈值版本变化，不能混为同一个有效IC。'}];
     const byDay = new Map();
     for (const [key, rows] of groups) {
       const [day, market] = JSON.parse(key), usable = rows.filter(row => finite(row.values[id]) && finite(row.returnPct));
@@ -435,7 +467,7 @@ function factorMetrics(samples, ids, minRows) {
     }));
     return [id, {factorId: id, status: measured.length ? 'observed' : 'insufficient-cross-section',
       meanIC: round(mean(measured.map(row => row.ic))), days: measured.length, daily: measured, reliability, byMarket,
-      excludedEarlierDays: Math.max(0, daily.length - 400), minCrossSection: minRows}];
+      excludedEarlierDays: Math.max(0, daily.length - 400), minCrossSection: minRows, definitionVersions:definitions}];
   }));
 }
 function rankPercent(values) {
@@ -486,10 +518,16 @@ function redundancyReport(train, ids, metrics, minRows, config) {
 
 /** Fit centering, scaling and projections using TRAIN data only. */
 function fitOrthogonalFactors(train, ids, {minRows = 5} = {}) {
-  const complete = train.filter(row => ids.every(id => finite(row.values[id]))), parameters = [], basis = [], suppressed = [];
+  const parameters = [], basis = [], suppressed = [], definitions = {};
+  const stableIds = ids.filter(id => {
+    const found = train.filter(row => finite(row.values[id])).map(row => numeric.numericDefinition(id,row.evidence?.[id]));
+    if (new Set(found.map(numeric.stable)).size > 1) { suppressed.push({factorId:id,reason:'definition-change-in-training'}); return false; }
+    if (found.length) definitions[id] = found[0]; return true;
+  });
+  const complete = train.filter(row => stableIds.every(id => finite(row.values[id])));
   if (!ids.length || complete.length < minRows) return {status: 'insufficient-complete-training-rows', parameters, suppressed,
     completeTrainingRows: complete.length, trainingRows: train.length, trainedThrough: null, trainingFingerprint: hash([])};
-  for (const id of ids) {
+  for (const id of stableIds) {
     const xs = complete.map(row => row.values[id]), center = mean(xs), scale = Math.sqrt(mean(xs.map(value => (value - center) ** 2)));
     if (!finite(center) || !finite(scale)) { suppressed.push({factorId: id, reason: 'unstable-training-moments'}); continue; }
     if (scale <= 1e-12) { suppressed.push({factorId: id, reason: 'constant-training-factor'}); continue; }
@@ -506,7 +544,7 @@ function fitOrthogonalFactors(train, ids, {minRows = 5} = {}) {
     parameters.push({factorId: id, center, scale, projections, residualScale});
     basis.push({id, values: residual.map(value => value / residualScale)});
   }
-  return {status: parameters.length ? 'frozen-training-fit' : 'no-varying-training-factors', parameters, suppressed,
+  return {status: parameters.length ? 'frozen-training-fit' : 'no-varying-training-factors', parameters, suppressed, definitions,
     completeTrainingRows: complete.length, trainingRows: train.length,
     trainedThrough: [...new Set(complete.map(row => row.day))].sort().at(-1),
     trainingFingerprint: hash({ids, rows: complete.map(row => ({id: row.id, market: row.market, code: row.code, day: row.day,
@@ -518,7 +556,8 @@ function applyOrthogonalFactors(rows, model) {
     const values = {};
     for (const parameter of model.parameters) {
       const id = parameter.factorId;
-      if (!finite(row.values[id]) || parameter.projections.some(p => !finite(values[p.factorId]))) continue;
+      if (!finite(row.values[id]) || model.definitions && numeric.stable(model.definitions[id]) !== numeric.stable(numeric.numericDefinition(id,row.evidence?.[id])) ||
+          parameter.projections.some(p => !finite(values[p.factorId]))) continue;
       let value = (row.values[id] - parameter.center) / parameter.scale;
       for (const projection of parameter.projections) value -= projection.coefficient * values[projection.factorId];
       const residual = value / parameter.residualScale;
@@ -589,7 +628,60 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
     note: '训练、验证、测试按交易日分层，边界清除 t→t+1 重叠标签；正交化与权重建议只拟合训练集；收益是未扣费标签 IC，既有账本回测及批准门禁仍生效。'};
 }
 
-function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
+function numericScoringState(version) {
+  return {weights: version.weights, threshold: version.threshold, strategyThresholds: version.strategyThresholds,
+    minSupport: version.minSupport, numericModel: version.numericModel || null};
+}
+function validApprovedNumeric(version, dictionaryVersion) {
+  return Boolean(version?.numericModel && numeric.validModel(version.numericModel) &&
+    (!dictionaryVersion || version.numericModel.dictionaryVersion === dictionaryVersion) &&
+    numeric.stable(version.weights) === numeric.stable(version.numericModel.weights) &&
+    version.scoringFingerprint === numeric.fingerprint(numericScoringState(version)));
+}
+function observationVector(row) {
+  return {values: row.values, definitions: Object.fromEntries(Object.keys(row.values).map(id => [id,numeric.numericDefinition(id,row.evidence?.[id])]))};
+}
+function buildApprovedScoring(archive, observations, {day, now, calendars}) {
+  const approved = [...(archive?.versions || [])].filter(row => real(row) && row.sampleScope !== 'demo' &&
+    instant(row.approvedAt) !== null && instant(row.approvedAt) <= now).sort((a,b) => instant(b.approvedAt)-instant(a.approvedAt))[0];
+  const valid = validApprovedNumeric(approved, archive?.dictionaryVersion), rows = [];
+  const report = {status: !approved?.numericModel ? 'missing-approved-numeric-model' : valid ? 'missing-current-observations' : 'invalid-approved-numeric-model',
+    factorSchema: numeric.MODEL, day, asOf: now, modelVersion: approved?.numericModel ? approved.number : null,
+    approvedAt: approved?.numericModel ? approved.approvedAt : null, modelFingerprint: valid ? approved.numericModel.fingerprint : null,
+    trainCutoff: valid ? approved.numericModel.trainCutoff : null,
+    trainingSignalStart: valid ? approved.numericModel.trainingSignalStart : null,
+    trainingSignalEnd: valid ? approved.numericModel.trainingSignalEnd : null,
+    trainingLabelKnownAtMax: valid ? approved.numericModel.trainingLabelKnownAtMax : null,
+    rows, canTrade: false, changesOriginalGates: false,
+    note: '仅使用人工批准且完整指纹匹配的数值模型；本次评分时刻与原观察时刻分开。缺定义或缺观测不补分。'};
+  if (!valid) return report;
+  const latest = new Map();
+  for (const row of observations) if (row.day === day && row.signalAt <= now && (!latest.has(row.code) || latest.get(row.code).signalAt < row.signalAt)) latest.set(row.code,row);
+  for (const row of latest.values()) {
+    const scored = numeric.numericScore(approved.numericModel,observationVector(row));
+    const calendar=calendarView(calendars?.[row.market],now,row.market),index=calendar.days.indexOf(row.day);
+    const edge=calendar.nextEvidenceByDay?.[row.day],targetDay=index<0?null:calendar.nextEvidenceByDay?edge?.nextTradingDay||null:calendar.days[index+1]||null;
+    const calendarKnownAt=instant(edge?edge.knownAt:calendar.knownAt),targetOpenAt=targetDay?marketOpen(calendar,row.market,targetDay):null;
+    const missing=[...scored.missing,
+      (!targetDay||targetDay!==calendar.days[index+1])&&'缺少原日历的相邻下一交易日',
+      (calendarKnownAt===null||calendarKnownAt>row.signalAt)&&'下一交易日日历在原观察后才取得',
+      (marketDay(row.signalAt,row.market)!==row.day||targetOpenAt===null||row.signalAt>=targetOpenAt)&&'观察时点不属于原信号日或已越过目标开盘',
+      instant(approved.approvedAt)>row.signalAt&&'数值模型在原信号后才批准',
+      (!finite(approved.numericModel.trainingLabelKnownAtMax)||approved.numericModel.trainingLabelKnownAtMax>=instant(approved.approvedAt))&&'缺少批准前已成熟的训练标签时点',
+      (instant(approved.numericModel.trainCutoff)===null||instant(approved.numericModel.trainCutoff)>instant(approved.approvedAt))&&'模型训练截止晚于批准时点'].filter(Boolean);
+    rows.push({code: row.code, day, signalDay:row.day,targetDay,targetOpenAt,calendarKnownAt,calendarSource:edge?.source||calendar.source,
+      eligibleForNextSession:!missing.length&&finite(scored.score),score: finite(scored.score) ? round(scored.score) : null,
+      threshold: approved.threshold ?? null, passesResearchThreshold: finite(scored.score) && finite(approved.threshold) ? scored.score > approved.threshold : null,
+      modelVersion: approved.number, modelFingerprint: approved.numericModel.fingerprint,
+      sourceCheckId: row.originCheckId || row.id, observationAt: row.signalAt, scoredAt: now, missing,
+      factorCount: approved.numericModel.parameters.length, canTrade: false});
+  }
+  if (rows.some(row => row.eligibleForNextSession)) report.status = 'ready';
+  else if (rows.length) report.status = 'missing-compatible-factor-observations';
+  return report;
+}
+
+function feedbackReport(archive, walkforward, gate, now, config, quality, day, samples = []) {
   const plans = new Map((archive?.plans || []).filter(row => real(row) && row.id).map(row => [row.id, row]));
   const trades = [], excluded = [];
   for (const trade of archive?.trades || []) {
@@ -603,17 +695,32 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
   const approved = [...(archive?.versions || [])].filter(row => real(row) && row.sampleScope !== 'demo' && instant(row.approvedAt) !== null &&
     instant(row.approvedAt) <= now && row.weights && typeof row.weights === 'object').sort((a, b) => instant(b.approvedAt) - instant(a.approvedAt))[0];
   const latest = walkforward.folds.filter(row => row.status === 'evaluated').at(-1), candidates = [];
-  if (latest) for (const [id, metric] of Object.entries(latest.raw.train)) {
-    const reliability = metric.reliability, validation = latest.raw.validation[id], test = latest.raw.test[id];
+  const numericBaseline = validApprovedNumeric(approved,archive?.dictionaryVersion);
+  let metrics = approved?.numericModel && !numericBaseline ? null : latest?.raw;
+  if (latest && numericBaseline) {
+    // A coefficient belongs to its approved basis. Re-fitting another basis and
+    // retaining the same code would silently change the meaning of that weight.
+    const ids = approved.numericModel.parameters.map(row => row.factorId);
+    metrics = Object.fromEntries(['train','validation','test'].map(phase => {
+      const range = latest.ranges[phase], cutoff = phase === 'train' ? instant(latest.trainLabelCutoff) : phase === 'validation' ? instant(latest.validationLabelCutoff) : now;
+      const eligible = samples.filter(row => row.day >= range.start && row.day <= range.end && row.labelKnownAt < cutoff &&
+        (phase === 'train' ? row.targetDay < latest.ranges.validation.start : phase === 'validation' ? row.targetDay < latest.ranges.test.start : true));
+      const transformed = eligible.map(row => ({...row,values:numeric.projectNumeric(row.values,approved.numericModel,observationVector(row).definitions)}));
+      return [phase,factorMetrics(transformed,ids,config.factors.minCrossSection)];
+    }));
+  }
+  if (latest && metrics) for (const [id, metric] of Object.entries(metrics.train)) {
+    const reliability = metric.reliability, validation = metrics.validation[id], test = metrics.test[id];
     if (!reliability.reliable || !finite(reliability.suggestedWeightMultiplier) || reliability.suggestedWeightMultiplier === 0) continue;
     if (Object.values(metric.byMarket || {}).some(row => !row.reliability.reliable || Math.sign(row.meanIC) !== Math.sign(metric.meanIC))) continue;
-    const duplicate = latest.redundancy.suppressedFactors.some(row => row.factorId === id);
+    const duplicate = !numericBaseline && latest.redundancy.suppressedFactors.some(row => row.factorId === id);
     const delta = Math.max(-config.factors.maxCandidateWeightChange, Math.min(config.factors.maxCandidateWeightChange,
       duplicate ? Math.min(-.02, reliability.suggestedWeightMultiplier) : reliability.suggestedWeightMultiplier));
-    const old = finite(approved?.weights[id]) ? approved.weights[id] : null;
+    const old = finite(approved?.weights[id]) && (!id.startsWith('YZ-') || numericBaseline) ? approved.weights[id] : null;
     candidates.push({factorId: id, status: 'pending-validation', multiplier: round(1 + delta),
       baselineVersion: approved?.number || null, baselineWeight: old, candidateWeight: old === null ? null : round(old * (1 + delta)),
-      baselineStatus: old === null ? 'missing-approved-factor-weight' : 'observed-approved-weight',
+      baselineStatus: old === null ? id.startsWith('YZ-') && approved && !numericBaseline ? 'incompatible-legacy-presence-weight' : 'missing-approved-factor-weight' : 'observed-approved-weight',
+      factorSchema: numericBaseline ? numeric.MODEL : 'legacy-presence-weights', metricBasis: numericBaseline ? 'approved-frozen-orthogonal-basis' : 'raw-factor-ic',
       sourceFold: latest.id, trainingFingerprint: latest.orthogonalization.trainingFingerprint,
       evidence: {trainingIC: metric.meanIC, validationIC: validation?.meanIC ?? null, testIC: test?.meanIC ?? null,
         matureRelatedTrades: trades.filter(row => (row.factors || []).includes(id)).length},
@@ -633,7 +740,8 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
     appliedToCenterQuality: true, changesOriginalGates: false, approvalRequired: false, productionWeightsChanged: false,
     note: '附本次原始审计复算的 Q 及各分量：可比较冲突进入一致性，OHLCV 异常进入异常分量，时点违规继续隔离。未知仍为空，不按策略输赢改分或改变固定权重。'}));
   const baseline = approved ? {number: approved.number, approvedAt: approved.approvedAt, weights: approved.weights,
-    threshold: approved.threshold, strategyThresholds: approved.strategyThresholds, minSupport: approved.minSupport} : null;
+    threshold: approved.threshold, strategyThresholds: approved.strategyThresholds, minSupport: approved.minSupport,
+    ...(approved.numericModel ? {numericModel:approved.numericModel,scoringFingerprint:approved.scoringFingerprint} : {})} : null;
   const compatible = candidates.filter(row => finite(row.baselineWeight) && finite(row.candidateWeight) && row.candidateWeight !== row.baselineWeight);
   const proposal = latest && compatible.length && baseline ? {schemaVersion: 1, day,
     dictionaryVersion: archive?.dictionaryVersion || null, catalogFingerprint: hash(installedCatalog),
@@ -645,10 +753,18 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
     matureTradeEvidenceFingerprint: hash(trades.map(row => ({trade: row, frozenPlan: plans.get(row.planId)}))),
     changes: compatible.map(row => ({factorId: row.factorId, baselineWeight: row.baselineWeight,
       candidateWeight: row.candidateWeight, multiplier: row.multiplier})), matureTradeIds: trades.map(row => row.id).sort()} : null;
+  if (proposal && numericBaseline) {
+    const weights={...approved.weights};for(const change of proposal.changes)weights[change.factorId]=change.candidateWeight;
+    proposal.factorSchema=numeric.MODEL;
+    proposal.numericModel=numeric.sealModel({...approved.numericModel,weights,
+      adjustment:{parentModelFingerprint:approved.numericModel.fingerprint,sourceFold:latest.id,
+        trainingFingerprint:latest.inputEvidenceFingerprint,method:'bounded-train-ic-on-approved-basis'}});
+  }
   const proposalFingerprint = proposal ? hash(proposal) : null;
   const missing = [!approved && '缺少原已审批权重基线', !latest && '缺少有效后复权 walk-forward 窗口',
     !compatible.length && '缺少与原获批因子同名且有实际调整的提案', !archive?.dictionaryVersion && '缺少因子词典版本',
-    trades.length < 36 && '需至少 36 条有事前冻结计划的成熟成交'].filter(Boolean);
+    trades.length < 36 && '需至少 36 条有事前冻结计划的成熟成交',
+    approved?.numericModel && !numericBaseline && '获批数值模型、词典或评分指纹不一致'].filter(Boolean);
   const strata = {standard: 0, blackSwan: 0, extreme: 0};
   for (const row of trades) { const key = row.blackSwan === true || row.quality === '黑天鹅' ? 'blackSwan' :
     row.extreme === true || row.repeatable === false || row.quality === '不可复制极端行情' ? 'extreme' : 'standard'; strata[key]++; }
@@ -664,7 +780,10 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day) {
       approvalAction: 'learn:decision', approveDecision: 'approve', requiresCurrentRevision: true, requiresEditorRole: true,
       proposalImportSupported: true, ready: Boolean(proposal) && !missing.length, missing,
       readReportWrites: false, originalAutomaticLoopChanged: false,
-      note: '只接受日期、档案版本和提案指纹；服务端从同一档案与历史证据复算全部权重，沿用原五项验证、留出期隔离和人工审批。缺少同名获批权重、成熟成交或独立窗口时阻断。'},
+      numericModelInitialization: {action:'learn:candidate',approvalAction:'learn:decision',
+        status:numericBaseline?'approved-numeric-baseline':'requires-real-settlement-training-and-five-gates',
+        note:'首份数值基线由原候选生成入口使用事前观察与真实净结算训练、五项验证、人工批准；旧boolean权重不映射为YZ数值权重。'},
+      note: '只接受日期、档案版本和提案指纹；服务端从同一档案与历史证据复算全部权重，沿用原五项验证、留出期隔离和人工审批。数值调权固定在同一获批正交基底；缺少同定义获批权重、成熟成交或独立窗口时阻断。'},
     approvalRequired: true, productionWeightsChanged: false, canTrade: false};
 }
 
@@ -793,6 +912,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   const factors = {status: aligned.samples.length ? 'observed' : 'missing-aligned-samples',
     dictionaryVersion: archive?.dictionaryVersion || null, catalogRules: extracted.catalog.length,
     measuredFactors: factorIds.length, factorIds, observationCount: observations.length, alignedSamples: aligned.samples.length,
+    ruleCoverage: extracted.ruleCoverage || null,
     sampleUniverse:{scope:'bounded-observed-research-subset',codes:historyCoverage?.codes||null,
       omittedCodes:historyCoverage?.omittedCodes||0,omittedEarlierObservations:historyCoverage?.omittedEarlierObservations||0,
       fullMarketCertification:false},
@@ -800,8 +920,9 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
     rejectedChecks: extracted.rejected.slice(0, 20), descriptive: factorMetrics(aligned.samples, factorIds, config.factors.minCrossSection),
     orthogonalization: walkforward.folds.at(-1)?.orthogonalization || {status: 'missing-training-window', parameters: [], suppressed: []},
     redundancy: walkforward.folds.at(-1)?.redundancy || {status: 'missing-training-window', pairs: [], suppressedFactors: []},
-    note: '95 战法按原档案条件证据接入；只分析已量化且当时可见的因子，不把未命中或缺项记为零。IC 限于本次有界研究样本子集，不代表全市场或全部95项认证；全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
-  const feedback = feedbackReport(archive, walkforward, backtest, now, config, quality, day);
+    note: '新校验完整保存95条规则的逐条件观察；仅来源、时点与全部条件可核对时形成数值，明确失败可以为0，未知不填0。旧top8档案单列为部分观察，不补历史。IC 限于本次有界研究样本子集，不代表全市场或全部95项有效；全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
+  factors.approvedScoring = buildApprovedScoring(archive, observations, {day,now,calendars});
+  const feedback = feedbackReport(archive, walkforward, backtest, now, config, quality, day, aligned.samples);
   if (historyCoverage?.rejectedRecords > 0) feedback.qualityCandidates.push({status:'source-evidence-recorded',type:'history-intake-quality-review',
     reason:'独立历史采集存在未通过多源准入的记录',affectedRecords:historyCoverage.rejectedRecords,
     evidence:historyCoverage.rejectionExamples || [],evidenceIsBoundedSample:true,proposedScore:quality.score,

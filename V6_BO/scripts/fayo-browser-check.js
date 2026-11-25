@@ -9,6 +9,10 @@ const releaseVersion=fs.readFileSync(path.join(publicRoot,'nova/index.html'),'ut
 const output=process.env.FAYO_QA_DIR||process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-browser-'));
 fs.mkdirSync(output,{recursive:true});
 const sourceAt=Date.parse('2026-11-13T07:00:00Z');
+// Model the server's original sector envelope; a receipt is not an upstream timestamp.
+const sectorFixture=(name,mainInflow,pct=null)=>({name,mainInflow,pct,source:'eastmoney',
+ fundsUnit:'CNY',fundsMethod:'vendor-order-size-estimate',tradeDate:'2026-11-13',
+ retrievedAt:sourceAt,sourceTimestamp:null});
 const stocks=Array.from({length:8},(_,i)=>({code:String(600101+i),name:'合成光谱'+(i+1),sector:i%2?'合成材料':'合成能源',price:12.3+i,pct:i%2?-1.2:2.1,score:86-i*3,quoteAt:sourceAt,vendorQuoteAt:sourceAt,quoteSource:'synthetic-friday-provider',source:'synthetic-friday-provider',signals:['合成趋势条件','合成资金条件'],hit:[{id:'fixture-trend',text:'合成趋势条件'},{id:'fixture-volume',text:'合成量能条件'}],hitIds:['fixture-trend','fixture-volume'],explanation:['仅用于隔离浏览器交互检查'],fourteen:i%2===0,bazi:i%2?{verdict:'仅研究'}:null,focused:i<3,riskLevel:'未评估'}));
 stocks[7].name='<img src=x onerror=window.fayoInjected=true>';
 const candles=Array.from({length:900},(_,i)=>{
@@ -49,7 +53,7 @@ function state(){
    return {date:bar.date,open,close,high:Math.max(open,close)+5,low:Math.min(open,close)-5};
   })}
  };
- return {...sourcePanels,now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[{name:'合成能源',pct:1.1,mainInflow:1e8,mainInflowYuan:1e8},{name:'合成材料',pct:-.3,mainInflow:-2e7,mainInflowYuan:-2e7}],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
+ return {...sourcePanels,now:Date.now(),role,trading:false,ready:true,isSnapshot:true,snapshotRetained:true,snapshotDay:phase==='empty'?'20261115':'20261113',dashboard,pool:rows,poolSize:rows.length,stocks:rows,global:[{name:'合成全球指数',price:3210.12,pct:.5}],external:{},auction:{stage:'收盘',strong:rows.slice(0,3),validCount:3,time:'2026-11-13 15:00'},sectors:[sectorFixture('合成能源',1e8,1.1),sectorFixture('合成材料',-2e7,-.3)],ztPool:rows.slice(0,2),ztPre:rows.slice(0,2),trendPool:rows.slice(2,5),trendScan:rows.slice(0,5),steadyUp:rows.slice(3),myrules:{items:rows.slice(0,4)},nextplan:{date:'20261113',applyDate:'20261116',plan:{picked:rows.slice(0,2)}},signals:rows.slice(0,2).map(row=>({...row,title:'合成研究提醒',time:sourceAt})),mainline:{time:sourceAt,items:[{name:'合成能源',pct:1.1,note:'仅合成测试'}]},review:{date:'20261113',ztN:3,items:stocks.slice(0,3).map(row=>({...row,limitUpCount:1,sealAmount:11000000,breakCount:0,turnover:4.2,reason:'合成涨停复盘样本'})),poolEvidence:[{source:'em',tradeDate:'20261113',reportedCount:phase==='coverage-gap'?37:3,returnedCount:phase==='coverage-gap'?33:3,uniqueCount:phase==='coverage-gap'?33:3}]},config:{},cfgSet:{},cfgRange:{},paper:role==='edit'?{pool:{positions:[],trades:[],capital:100000,equity:100000},pre:{positions:[],trades:[],capital:100000,equity:100000}}:{hidden:true},goodNews:{items:[{title:'合成周末公告继续更新',source:'synthetic-news',publishedAt:'2026-11-15T08:00:00+08:00',codes:['600101'],url:'https://example.invalid/synthetic-news'}]},badNews:{items:[]},news:{items:[]}};
 }
 const shortlineArchive={
  revision:0,scope:'live',market:[],marketHistory:[],checks:[],plans:[],trades:[],bars:[],notes:[],
@@ -194,7 +198,7 @@ async function navigate(page,view,sub='') {
  await page.waitForFunction(view=>location.hash.startsWith('#/'+view),view);
 }
 async function checkHomeUpdates(page){
- const result=await page.evaluate(async()=>{
+ const result=await page.evaluate(async sectorObservation=>{
   const {renderTerminalOverview}=await import('/nova/terminal-workbench.js');
   const callbacks=[],day='2026-11-13',at=Date.parse(day+'T09:25:00+08:00');
   const ctx={state:{trading:false,snapshotDay:day,sectors:[],dashboard:{snapshotDay:day}},
@@ -214,7 +218,9 @@ async function checkHomeUpdates(page){
   const stayedOpen=repeat();
   home.querySelector('.fy-home-tabs button').click();
   const chosenFold=find(home.querySelector('.fy-home-opportunity'),'精选');chosenFold.open=true;
-  ctx.state.sectorsDay=day;ctx.state.sectors=[{name:'资金校验样本',netInflowYuan:10000}];refresh();
+  ctx.state.sectorsDay=day;ctx.state.sectors=[{name:'资金校验样本',mainInflow:10000}];refresh();
+  const refusedUnproven=repeat()&&!home.querySelector('.fy-reference-flow');
+  ctx.state.sectors=[sectorObservation];refresh();
   const restored=!find(home,'板块资金')&&home.querySelector('.fy-reference-funds').textContent.includes('资金校验样本');
   const keptChoice=selected()==='精选'&&chosenFold.open&&chosenFold===find(home.querySelector('.fy-home-opportunity'),'精选');
   ctx.state.sectorsDay='2026-11-12';refresh();
@@ -228,9 +234,9 @@ async function checkHomeUpdates(page){
    const screen=renderTerminalOverview({...ctx,state,onState:()=>{}});
    return [screen.querySelector('.fy-home-stamp').textContent,screen.querySelector('.fy-home-tabs [aria-pressed=true]').textContent];
   };
-  return {emptyLabels,available,codes,stayedOpen,restored,keptChoice,staleFold,
+  return {emptyLabels,available,codes,stayedOpen,refusedUnproven,restored,keptChoice,staleFold,
    auction:phaseTab(true,'09:18',null),session:phaseTab(true,'10:30',null),lunch:phaseTab(false,'12:00',atTime('13:00'))};
- });
+ },sectorFixture('资金校验样本',10000));
  for(const name of ['精选','市场情绪','市场环境','板块资金','板块资金排行','市场主线','涨停板分类','收盘与策略精选'])
   assert.ok(result.emptyLabels.includes(name),'collapsed evidence status for '+name);
  assert.deepEqual(result.auction,['集合竞价 · 2026-11-13','竞价引力']);
@@ -239,6 +245,7 @@ async function checkHomeUpdates(page){
  assert.equal(result.available,'竞价引力');
  assert.deepEqual(result.codes,['000001'],'only a same-day observation already knowable is presented');
  assert.ok(result.stayedOpen&&result.restored&&result.keptChoice&&result.staleFold,'ordinary data updates preserve the disclosure and chosen channel, and show or collapse funds as evidence changes');
+ assert.ok(result.refusedUnproven,'a same-day amount without source, unit, method and receipt evidence never becomes a funds ranking');
 }
 
 async function geometry(page,label){
@@ -412,7 +419,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-2');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-3');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));

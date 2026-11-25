@@ -26,7 +26,8 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action);
+  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
+    payload.action==='shortline'&&Boolean(payload.decisionPlan);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
@@ -56,7 +57,8 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     return Atomics.load(control,0)===1;
   };
   if(p.action==='shortline'){
-    try{return await (await import('../research/shortline/store.mjs')).shortlineJob(p);}
+    try{return await (await import('../research/shortline/store.mjs')).shortlineJob({...p,
+      ...(p.decisionPlan?{beforeDecisionCommit:authorizedCheckpoint}:{})});}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
   }
   if(p.action==='intelligence-research'){

@@ -99,7 +99,7 @@ const server=http.createServer((req,res)=>{
       lastReason:'隔离展示回执',fill:{eventId:'isolated-fill',price:10,shares:100,tradeDate:initialDay},
       alerts:[{kind:'stop',day:initialDay,status:'delegated',owner:'plan-observer',recordedAt:Date.parse(initialDay+'T10:00:00+08:00')}],observations:[]
     }]}));
-  if(u.pathname==='/api/paper/execution-score')return reply(res,200,'application/json',JSON.stringify({ok:true,
+  if(u.pathname==='/api/paper/execution-score')return reply(res,200,'application/json',JSON.stringify({ok:true,day:initialDay,
     paper:{pool:{day:initialDay,closed:false,score:null,status:'awaiting-close',assessed:0,unknown:1,rows:[],note:'隔离执行观察'}},
     observer:{...(phase==='observer-zero-count'?{recordCount:0}:{}),privateChannel:'unconfigured',alerts:[],
       history:{coverage:{excludedSymbols:['920001']}},lastError:'隔离来源缺项：没有连续可成交窗口'}}));
@@ -188,6 +188,7 @@ async function run(){
         assert.deepEqual(await page.evaluate(()=>intelligenceHarness.navigations.at(-1)),{view:'lab',sub:'shortline-versions'});
         phase='observer-missing-count';await page.evaluate(()=>intelligenceHarness.showPaperObserver());
         const operations=page.locator('#operations-proof');
+        await operations.getByText('查看当前核对结果与观察记录',{exact:true}).click();
         await operations.getByText(/计划条件记录 数量未知/).waitFor();
         assert.match(await operations.innerText(),/隔离来源缺项：没有连续可成交窗口/);
         assert.match(await operations.innerText(),/920001/);
@@ -196,6 +197,7 @@ async function run(){
         assert.match(await operations.innerText(),/已交由计划观察统一处理/);
         assert.equal((await operations.innerText()).includes('私密通道接口已确认接收'),false,'delegated is not an accepted delivery receipt');
         phase='observer-zero-count';await page.evaluate(()=>intelligenceHarness.showPaperObserver());
+        await operations.getByText('查看当前核对结果与观察记录',{exact:true}).click();
         await operations.getByText(/计划条件记录 0 条/).waitFor();
         assert.equal((await operations.innerText()).includes('计划条件记录 数量未知'),false,'an original observed zero remains distinct from absence');
         await page.screenshot({path:path.join(output,'observer-'+viewport.width+'.png'),fullPage:true});
