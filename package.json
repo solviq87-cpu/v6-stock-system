@@ -46,7 +46,9 @@
     "research:sector:close:freeze": "npm --prefix V6_BO run research:sector:close:freeze --",
     "research:sector:pair:register": "npm --prefix V6_BO run research:sector:pair:register --",
     "news:evidence": "npm --prefix V6_BO run news:evidence --",
-    "research:learning:status": "npm --prefix V6_BO run research:learning:status --"
+    "research:learning:status": "npm --prefix V6_BO run research:learning:status --",
+    "quality:audit": "node V6_BO/scripts/audit-product-quality.js",
+    "test:critical-mutations": "node V6_BO/scripts/check-critical-mutations.js"
   },
   "engines": {
     "node": ">=22.6"

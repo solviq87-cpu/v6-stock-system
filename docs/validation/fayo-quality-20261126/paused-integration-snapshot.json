@@ -1,0 +1,3600 @@
+{
+  "schemaVersion": 1,
+  "state": "paused-wip-unverified",
+  "branch": "integration/fayo-validation-20261126",
+  "base": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "head": "ee2e9765188dd10890b7579174143048137cc956",
+  "tree": "5108b6319c9f21d59d3a640a7aef3886535b0bbd",
+  "workingTreeClean": true,
+  "inputs": [
+    {
+      "pr": 353,
+      "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 356,
+      "head": "ba4f2703715e58e676c62decbbe521731d073703",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 357,
+      "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 358,
+      "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 359,
+      "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 360,
+      "head": "aecebd190075269cb5af588afc9ace4819954558",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 361,
+      "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 362,
+      "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 364,
+      "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+      "ancestorOfSnapshot": true
+    },
+    {
+      "pr": 365,
+      "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+      "ancestorOfSnapshot": true
+    }
+  ],
+  "notIntegrated": [
+    {
+      "pr": 366,
+      "head": "0dbd214a21ec60c1d8d1062ab66d034ec0ef00e5",
+      "reason": "user-paused-before-merge"
+    },
+    {
+      "name": "quality-supplement",
+      "basePr": 361,
+      "head": null,
+      "reason": "final-sha-not-received-before-pause"
+    },
+    {
+      "pr": 363,
+      "head": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "reason": "known-counterexamples-under-owner-repair-not-selected"
+    }
+  ],
+  "summary": {
+    "changedFiles": 221,
+    "reusableFiles": 196,
+    "newOrComposedBlobFiles": 25,
+    "deletedFiles": 0,
+    "newOrComposedBytes": 2837872
+  },
+  "validation": {
+    "initialKeyTests": {
+      "tests": 60,
+      "pass": 60,
+      "fail": 0,
+      "skipped": 0,
+      "appliesTo": "earlier-integration"
+    },
+    "latestKeyTests": {
+      "tests": 86,
+      "pass": 86,
+      "fail": 0,
+      "skipped": 0,
+      "exit": 0,
+      "appliesTo": "e35163a652e8374997a7bfc419e9a9834b73acfe"
+    },
+    "defenseProjectionSubset": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "exit": 0
+    },
+    "defenseRuntimeCounterexample": {
+      "tests": 1,
+      "fail": 1,
+      "reason": "missing account/defensive-control projection"
+    },
+    "latestCheck": {
+      "status": "unconfirmed",
+      "exit": null,
+      "reason": "only-start-log-session-unavailable-no-retry-after-pause"
+    },
+    "finalFullRegression": "not-run",
+    "finalFullServer": "not-run",
+    "finalBrowser": "not-run"
+  },
+  "files": [
+    {
+      "status": "M",
+      "path": ".github/rulesets/v6-dev-required-checks.json",
+      "blob": "b8b860d694002ff8a8a62e27b37c11da8ba209a5",
+      "previousBlob": "6e8d919df0e25427a9ce9c94a66f016677204600",
+      "mode": "100644",
+      "bytes": 2470,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": ".github/rulesets/v6-dev-required-checks.json"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": ".github/rulesets/v6-dev-required-checks.json"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": ".github/rulesets/v6-dev-required-checks.json"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": ".github/workflows/v6-ci.yml",
+      "blob": "cff0c2d2e6e5a0849639b5f67a9bbc53348e5300",
+      "previousBlob": "ba8e2126f7cebc46fb85015afe5a8ac0284c514c",
+      "mode": "100644",
+      "bytes": 15299,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": ".github/workflows/v6-ci.yml"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": ".github/workflows/v6-pr-commit-coverage.yml",
+      "blob": "78c151f3171dd41ff7b76dfddddd8b2568bd50c9",
+      "previousBlob": "cc2270d915b803ffc128db30044cf99ed5336786",
+      "mode": "100644",
+      "bytes": 1645,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": ".github/workflows/v6-pr-commit-coverage.yml"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": ".github/workflows/v6-ui-browser.yml",
+      "blob": "748bad3a1a36e3d8e85eb651f9d477de96ab7829",
+      "previousBlob": "d19469866063b9777fec7b048c5522f6e759d4ef",
+      "mode": "100644",
+      "bytes": 9474,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "DEPLOYMENT.md",
+      "blob": "99d738bd2c99c0cf93d9290a6a3fbcae93fa976c",
+      "previousBlob": "c0f5f987d5d67c879b3de7a44526fa2c06cfd921",
+      "mode": "100644",
+      "bytes": 50928,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "HANDOFF.md",
+      "blob": "1183da7c7ca00753511c36c27f8590f5faf37036",
+      "previousBlob": "e68ef831912befbeb319dd7cd7b825c384fa7932",
+      "mode": "100644",
+      "bytes": 123043,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "RELEASE_QUEUE.md",
+      "blob": "d7a977ebac46ff01b8d4f9629ad80e3351a77e1f",
+      "previousBlob": "fd45d82baad0a310b2e023cda786a5d30f8aa0d1",
+      "mode": "100644",
+      "bytes": 11108,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "RELEASE_QUEUE.md"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "TASK_MASTER.md",
+      "blob": "fd853f1ad0d57116a6dc3f51cd12329611129ee9",
+      "previousBlob": "117221b8a5de7bff7d3abca6e22afe8ea7f6b163",
+      "mode": "100644",
+      "bytes": 16518,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/_test_auction.js",
+      "blob": "c1c1f272e8367d26b1498d3f0e35bb1f1b12f118",
+      "previousBlob": "ee8ecfd11d0b5950ebde9bf718e24b6912162d1f",
+      "mode": "100644",
+      "bytes": 8193,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/_test_auction.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/_test_fix0929.js",
+      "blob": "3b7bd6e517573e93e4e7a7848f742797c55a9d92",
+      "previousBlob": "87b0765e2d943887b9b27262e5e9a02cd07da2fe",
+      "mode": "100644",
+      "bytes": 6400,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/_test_fix0929.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/config/data-source-registry-2026.json",
+      "blob": "460ff80ad5e80931ef6903b7855d64bf668854ab",
+      "previousBlob": "9144050d2f4d9f2f1cf0a8239c840149ca06cb06",
+      "mode": "100644",
+      "bytes": 45787,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/config/data-source-registry-2026.json"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/config/six-photo-sources.json",
+      "blob": "ce663c00f7f3e18e37822d340a9e01702dd43d91",
+      "previousBlob": "ece57ae412db2fa50cd7c4f34b5e66d6507da758",
+      "mode": "100644",
+      "bytes": 6842,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/config/six-photo-sources.json"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/docs/SOURCE_READINESS_GOVERNANCE_20261115.md",
+      "blob": "ec2ff9bcef6832003bbea70729248edea96f20f9",
+      "previousBlob": "e2b776ec2777c23f7684142d876019648ffdaadb",
+      "mode": "100644",
+      "bytes": 4855,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/docs/SOURCE_READINESS_GOVERNANCE_20261115.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/docs/SOURCE_TRUTH_REVIEW_20261126.md",
+      "blob": "46025151da6800109799db840ef5c5768d49a51e",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 16815,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/docs/SOURCE_TRUTH_REVIEW_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/docs/validation/source-truth-20261126/official-14-channels.md",
+      "blob": "0c40f88352069dc1f84d9f538ed65cf82728e0dc",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 35238,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/docs/validation/source-truth-20261126/official-14-channels.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/docs/validation/source-truth-20261126/routes.json",
+      "blob": "8db6fd2896893b3ad892ba3a42ad50fab7ea1fa6",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 207671,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/docs/validation/source-truth-20261126/routes.json"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/docs/validation/source-truth-20261126/verification.json",
+      "blob": "71b06c73ac61ede820307f14f4e9efdd68246f6a",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4985,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/docs/validation/source-truth-20261126/verification.json"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/feishuq.js",
+      "blob": "0e4f4b8a13eba4c66426b9ea747fb897fad66304",
+      "previousBlob": "bfbe6e6a180bde55b1bec91ad177d7e555b5eed5",
+      "mode": "100644",
+      "bytes": 7982,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/feishuq.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/holdings.js",
+      "blob": "d8a56dd00013bed48306104ddb470d90b19259cd",
+      "previousBlob": "31d493b0de4114b8c3afafa8fddc2f88a5e21b98",
+      "mode": "100644",
+      "bytes": 69842,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/holdings.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/package.json",
+      "blob": "1f82d9f8bf4af3cbf12c16eb14a30148ecc18257",
+      "previousBlob": "e594295561da94d17beee0dd8ec1a958c075cd90",
+      "mode": "100644",
+      "bytes": 8241,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/advanced-risk-view.js",
+      "blob": "1bf6be43ef267608068359c0d835751e322135d2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 19325,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/public/nova/advanced-risk-view.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/app.js",
+      "blob": "5b0612c861d4b08b455fae4ee6474ada7e788786",
+      "previousBlob": "b3f218fc02d90fe2b6f6727b45b61ec067aefae2",
+      "mode": "100644",
+      "bytes": 40722,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/public/nova/app.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/close-review.js",
+      "blob": "73f22dc1c5017743b9fa957d59384b223b1a276a",
+      "previousBlob": "78dbad014be809c412d33a420cb44eaed5f8ac22",
+      "mode": "100644",
+      "bytes": 31436,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/close-review.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/command-selection.mjs",
+      "blob": "a0d275e145fac6c926c79958b29d1bcfd828b183",
+      "previousBlob": "b65e99da36c6c06cbf25646a222ead54bb35a965",
+      "mode": "100644",
+      "bytes": 27346,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/public/nova/command-selection.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/event-research.mjs",
+      "blob": "dc269a3129dd8a15e342fff1698cd3c6c264fc4d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5239,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/public/nova/event-research.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/evidence-workbench.mjs",
+      "blob": "7cc4569bde7f28647811de4c408b844657008ee2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 22961,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/public/nova/evidence-workbench.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/evolution-view.js",
+      "blob": "eebe8e7fe063888027bf9a58da150bb82c494d78",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 26848,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/public/nova/evolution-view.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/fayo.css",
+      "blob": "acfc7a8b1fba2a8d0e0c31ac7e38fac134692b41",
+      "previousBlob": "53d58b082fac7082f3cc36c0cdf6e4841dfff010",
+      "mode": "100644",
+      "bytes": 195774,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/index.html",
+      "blob": "376e2d8caafd688e92e58170b076fa9d71fd8f4b",
+      "previousBlob": "90f48e42544914b2e60815bb9c628f8760b4a116",
+      "mode": "100644",
+      "bytes": 1135,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/intelligence-view.mjs",
+      "blob": "2b4c7a187d96391d79745377bec68cddb2980944",
+      "previousBlob": "98b4a3edf9d71fc485868edcc80d08acd24d3041",
+      "mode": "100644",
+      "bytes": 34238,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/intelligence-view.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/manual-loop.js",
+      "blob": "1f7fc6a1cff8e23e34e0fdb8242af35529b6e7a8",
+      "previousBlob": "a99ef5d4700f7f89e68f2ff0741448719df6a5a3",
+      "mode": "100644",
+      "bytes": 22256,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/manual-loop.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/market.js",
+      "blob": "c7f6eadc544f336a91adc90e4727bb14704225e9",
+      "previousBlob": "2b67af80aeea81e854a53c9dc19c2c9b543b95be",
+      "mode": "100644",
+      "bytes": 133080,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/operations.js",
+      "blob": "b0b4af4ed56c7b9d86ec46d9237348e06c2ad970",
+      "previousBlob": "d74b9253d143985a757908f9d87e381b2087fbbc",
+      "mode": "100644",
+      "bytes": 83203,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/research-extensions.js",
+      "blob": "e13af0cc93041c48c34c0e392f3121418216fba2",
+      "previousBlob": "3f9357b5abc2fa23127ba1a705a50714c7ae7960",
+      "mode": "100644",
+      "bytes": 18860,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/public/nova/research-extensions.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/research-records.js",
+      "blob": "4be10af5777e3649e87b26695c5a811bc20be85b",
+      "previousBlob": "cb6e44675d48816efb2361977bc508d3f98c5a0a",
+      "mode": "100644",
+      "bytes": 34239,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/public/nova/research-records.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/research-review.mjs",
+      "blob": "958d915577ec4de3a787bf376febaca7d55e1b19",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7221,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/public/nova/research-review.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/research.js",
+      "blob": "46dfef145bd139a8668a225ea5ab0f6b8f39d14f",
+      "previousBlob": "12b78c9403b54c331400ecce82eeee069b337194",
+      "mode": "100644",
+      "bytes": 51731,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "blob": "efc038502a37b19cf5eb02fb747d5e245d0d1c28",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 23111,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/public/nova/risk-workbench-view.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/shortline/backtest-analytics.mjs",
+      "blob": "a6cd6342307f75b744c9bb37bba72f77a4cd282a",
+      "previousBlob": "0d69ca5afc093b0022716f03a18da3d762a1e80f",
+      "mode": "100644",
+      "bytes": 6822,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/public/nova/shortline/backtest-analytics.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/shortline/backtest.mjs",
+      "blob": "73ffaa48a0d84ce7ef019386d8542d6674030e7c",
+      "previousBlob": "22c0300409c57d98d780c002799438340ac8672b",
+      "mode": "100644",
+      "bytes": 86651,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/public/nova/shortline/backtest.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/shortline/learning.mjs",
+      "blob": "0676a6d11a296169fdedde686fb6dd8cb600c409",
+      "previousBlob": "a638c3eedfeb3ac391223e5ed9e9bb178cc6fd4f",
+      "mode": "100644",
+      "bytes": 68484,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/shortline/learning.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/shortline/overview.mjs",
+      "blob": "79c0f687fdde6b6ab879bb5c65bb41b5dfc4c793",
+      "previousBlob": "852a8ef4be7734b64be1d6b58541a0dd9389420a",
+      "mode": "100644",
+      "bytes": 14663,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/shortline/overview.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/shortline/review.mjs",
+      "blob": "7c80872ebd53d72ffc6262cb2fd0b4c48e8a0306",
+      "previousBlob": "630612afb7623b8cfa1d954459edec0b65c13b47",
+      "mode": "100644",
+      "bytes": 37770,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/shortline/review.mjs"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/stock-roles.js",
+      "blob": "902ff48d947a6bfd7402bf32e98a88e93e3cf555",
+      "previousBlob": "e3fc63f14f8b91b43da1809d7c2ea6295408fb17",
+      "mode": "100644",
+      "bytes": 5658,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/public/nova/stock-roles.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/nova/terminal-workbench.js",
+      "blob": "12b0fbff1c5fa046f0dba7fbedf7528c0da624c6",
+      "previousBlob": "f529a1ad0d7140658ea30804129ca1ac1e167260",
+      "mode": "100644",
+      "bytes": 47309,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/public/sw.js",
+      "blob": "ec3f6aa4b5aaecfd62494532df164a0ccc3885fc",
+      "previousBlob": "13a99eef0c8c4953ec1a5343e20c2b6c86e8ed09",
+      "mode": "100644",
+      "bytes": 5285,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/advanced-safety-operations.js",
+      "blob": "5846fe0d9266a9261c4bd7ead03e5c2cc26d62da",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 16807,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/scripts/advanced-safety-operations.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/audit-fayo-integration-gates.js",
+      "blob": "c0c2858ad0731fc0525cf44c4edf4d818b6732f2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9640,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "V6_BO/scripts/audit-fayo-integration-gates.js"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "V6_BO/scripts/audit-fayo-integration-gates.js"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "V6_BO/scripts/audit-fayo-integration-gates.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/scripts/disaster-recovery.js",
+      "blob": "b1f110ca3a453175a82918c239d45b02d4209f16",
+      "previousBlob": "a1bfa7b108ae1e97b68f0ea021239c2ee381bef6",
+      "mode": "100644",
+      "bytes": 8722,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/scripts/disaster-recovery.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-advanced-safety-browser-check.js",
+      "blob": "60cb710802cb79519cb10c411602bb35376ec5d1",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 14348,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/scripts/fayo-advanced-safety-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/scripts/fayo-browser-check.js",
+      "blob": "1e8aaa3c515ba68bd47a3bec66585065713866de",
+      "previousBlob": "fd6e63d8ec25c1a1226fd27754ac707baeaa7407",
+      "mode": "100644",
+      "bytes": 78523,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-command-evidence-browser-check.js",
+      "blob": "e70d4897d32497f81347f43bd38b8fa7620a1f11",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6807,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/scripts/fayo-command-evidence-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-evolution-browser-check.js",
+      "blob": "8987790110bed2a464133c6e2b9c6772682fe7a4",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10365,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/scripts/fayo-evolution-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/scripts/fayo-intelligence-browser-check.js",
+      "blob": "a3822991a7d6019b4e988f62128a07e42da0c722",
+      "previousBlob": "e4e3a954caa28557a79fc064a78a700d177d6bf6",
+      "mode": "100644",
+      "bytes": 23094,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/scripts/fayo-intelligence-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-replay-boundaries-browser-check.js",
+      "blob": "01955f15f3f8988e0c2293556d0ec62c1787fbb7",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11678,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/scripts/fayo-replay-boundaries-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-research-discipline-browser-check.js",
+      "blob": "e962847f1d8b9d72be16b3f7053b4f02efeffe18",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10741,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/scripts/fayo-research-discipline-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/fayo-risk-browser-check.js",
+      "blob": "96d2b0b2ca6b667c0d72099d28cf5275b6aa54d8",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 13783,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/scripts/fayo-risk-browser-check.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/scripts/private-risk-monitor.js",
+      "blob": "e9e5ca788882f76ebaf68c41c07e3867edf4a3ee",
+      "previousBlob": "230d23a26bdea767bf2594c0493d2db2d1745a8b",
+      "mode": "100644",
+      "bytes": 4653,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "V6_BO/scripts/private-risk-monitor.js"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "V6_BO/scripts/private-risk-monitor.js"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "V6_BO/scripts/private-risk-monitor.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/probability-reliability.js",
+      "blob": "100e1029990d813165347e1ea34411e707873bea",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2427,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/scripts/probability-reliability.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/scripts/review-data-quarantine.js",
+      "blob": "893fa953e32bdd20781fc450a074ae579e4dc63e",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4993,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/scripts/review-data-quarantine.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/scripts/six-photo-sources.py",
+      "blob": "d194ee8e9faa11a0fce849d603be67c70c312cd9",
+      "previousBlob": "fd33762b2de53b7599dedcbedf05fa3cc0ce6436",
+      "mode": "100644",
+      "bytes": 13483,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/scripts/six-photo-sources.py"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/server.js",
+      "blob": "f1bc2e8be649a111937d1ae147f6c058e42a625f",
+      "previousBlob": "cdd6191114d86578afaeac4c5fd6dce3025e4e4f",
+      "mode": "100644",
+      "bytes": 1810083,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/account-equity-evidence.js",
+      "blob": "4c4454587d3d80cc4dd2570d252dae673b467cfa",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 24275,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/account-equity-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/account-process-lock.js",
+      "blob": "9343f4994ed524f8e3ffad6712f76fd7be1e2a60",
+      "previousBlob": "9f87ee838267f4303657e7242dcda6f7ff063d5b",
+      "mode": "100644",
+      "bytes": 1418,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/account-process-lock.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/account-safety-risk-evidence.js",
+      "blob": "290366bab89e0203f74334b3b9fc2313c7ae21e5",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7595,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/account-safety-state.js",
+      "blob": "d3ad11d49ed917157f40c71f7e5d22a781cb061c",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11094,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/account-safety-state.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/advanced-account-risk.js",
+      "blob": "a4663edc6b75eefe4af673a0c0609816227d561a",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10777,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/advanced-account-risk.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/advanced-portfolio-evidence.js",
+      "blob": "5180ffb6082c03e3000b053f6f0d81d0104d8c03",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 28213,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/advanced-portfolio-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "blob": "7969aa528710073dc7f55383a843532666f19621",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 26657,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/advanced-portfolio-runtime.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/authority-audit-backup.js",
+      "blob": "34ede9e3021ed9ce74ef2cbf0a1045b861049213",
+      "previousBlob": "233594aabbd3858b57bad0583f400eece8429539",
+      "mode": "100644",
+      "bytes": 7291,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/authority-audit-backup.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/center-history.js",
+      "blob": "de021e5cf47f67487e689a0e8644d2e9b34f86c5",
+      "previousBlob": "404408171465fb77d4349c03845571ba0fd8cd53",
+      "mode": "100644",
+      "bytes": 45763,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/center-history.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/data-source-readiness-audit.js",
+      "blob": "caaebf1c3bd2adbc93b0a3949189b7dfd3a531e9",
+      "previousBlob": "c84f91a79d0f894175facfddc544e26041f4a167",
+      "mode": "100644",
+      "bytes": 9729,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/src/core/data-source-readiness-audit.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/effective-risk-evidence.js",
+      "blob": "453df19927ec1e0af6ddb37f38df793ab5979dac",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 14411,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/effective-risk-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/evolution-diagnostic-version.js",
+      "blob": "021e371d719a714f54748beda5d730cae695c2aa",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5861,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/evolution-diagnostic-version.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/evolution-market-evidence.js",
+      "blob": "f28ac0e7e899e07ee6b0e763396d67ae8858fdc9",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 30169,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/evolution-market-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/evolution-research-statistics.js",
+      "blob": "7f5e685ddc71d087dd869a450dc66d8cfde52f20",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 60961,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/evolution-research-statistics.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/evolution-workflow.js",
+      "blob": "a0d4714fdbac90c4c832e0806a7248b69435f643",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 39876,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/evolution-workflow.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/fayo-research-governance.js",
+      "blob": "9973c734b46b2a0a5e04cbe93106426bb732011a",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 32722,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/fayo-research-governance.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/historical-universe.js",
+      "blob": "a1f367eb6487efdef45f9a0cd382ffc328c23e86",
+      "previousBlob": "87c7ad815d4bfc214a554c80738744114bf08881",
+      "mode": "100644",
+      "bytes": 9115,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/historical-universe.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/historical-validation.js",
+      "blob": "087ad64d3dfe12e1695cbe09b03824ffe0658633",
+      "previousBlob": "992ec9f1adc1f3d86db6f81ed77c7b380f50b806",
+      "mode": "100644",
+      "bytes": 7981,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/historical-validation.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/independent-strategy-attribution.js",
+      "blob": "120aad6d0f040cad4f04d0d8067a9d01641446c4",
+      "previousBlob": "4a02fa1c9ef08cf34f68dbe5e597503e81deb6e5",
+      "mode": "100644",
+      "bytes": 5029,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/independent-strategy-attribution.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/intelligence-evolution.js",
+      "blob": "c9cfbaadbe3f52f5fe20b9ec7e783dab6e5e5571",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 17396,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/intelligence-evolution.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/intelligence-execution-validation.js",
+      "blob": "880e3a6f4907fcf7e825ed6bc5bdc4cd536eb522",
+      "previousBlob": "22a98e5c53d6ca8eb6ae0a3e5cbd762e2d1b205a",
+      "mode": "100644",
+      "bytes": 13424,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/intelligence-execution-validation.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "blob": "a85341bf27747ddeda57a35d33635dd3a3819ec0",
+      "previousBlob": "6d23dc8e13cd27a4ee0c374acb299645080b6049",
+      "mode": "100644",
+      "bytes": 84660,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/manual-decision-loop.js",
+      "blob": "a6f5f7d1fe4b36eb277b5c361b6f5e0971c142ff",
+      "previousBlob": "2661ce9a1de6bf06da888e301826e8c0ae3aa81b",
+      "mode": "100644",
+      "bytes": 20900,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/manual-decision-loop.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/market-data-center.js",
+      "blob": "98c6dbcc26764a9aae45482398837c2e8d28203e",
+      "previousBlob": "4a0087087968573b3437140d4af03708f4f3b6ef",
+      "mode": "100644",
+      "bytes": 12694,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "blob": "79235f889d7cd9d10335d05ed8a9152b72c5a6a9",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9566,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/market-data-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/model-forward-evaluation.js",
+      "blob": "fcf4e7ecf70222d92e8c679bea595709c9ee5b8c",
+      "previousBlob": "88514f4b54540b1b1d0699c9f571fb7bcdc153d6",
+      "mode": "100644",
+      "bytes": 18526,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/core/model-forward-evaluation.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/news-evidence-journal.js",
+      "blob": "239041d9ced09ef67b7f7fe70cb444a5d3a849b6",
+      "previousBlob": "8c4f69bd5eeca3994fc092a54d02fb5379d3d523",
+      "mode": "100644",
+      "bytes": 15745,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/core/news-evidence-journal.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/notification-delivery-view.js",
+      "blob": "95e3ac445560ecc940e2055d3d509df2889ed4d5",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2318,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/notification-delivery-view.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-account-ledger.js",
+      "blob": "e2594fbb13d66012c406ea2f222b14d49afd8eca",
+      "previousBlob": "c6e005776034e362bc83c9a9d0c5b25c2e536af4",
+      "mode": "100644",
+      "bytes": 8007,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/paper-account-ledger.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-application-service.js",
+      "blob": "94e06c839422099b268d5a016b751c39ba3330ce",
+      "previousBlob": "32fe1d5ea505f2dadf2bac87efedcb3045c00fc5",
+      "mode": "100644",
+      "bytes": 41881,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-execution-report-store.js",
+      "blob": "d002a8a1960a90f5bf9de365a21d5fb659ddbdc1",
+      "previousBlob": "53535b7aac79cb10a6ddf0e9f464359cbf7b6f88",
+      "mode": "100644",
+      "bytes": 12579,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/core/paper-execution-report-store.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-plan-entry-check.js",
+      "blob": "b17794ec76333a5677f1f336af027111ade5faad",
+      "previousBlob": "ef2eb761768253cefbd8abb7f5bd45165d883e49",
+      "mode": "100644",
+      "bytes": 6389,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/paper-plan-entry-check.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "blob": "07a22540f53016302a0760e3ca31bc91f51c7754",
+      "previousBlob": "db7abbed7a7df5251272e55398406354abb78347",
+      "mode": "100644",
+      "bytes": 22057,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/paper-plan-observer.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/paper-session.js",
+      "blob": "21f2c0daad53d3f114e2d8fc0547be2e599fc9c0",
+      "previousBlob": "27b33d447a02594e6327c376cb55cfcef1f0072f",
+      "mode": "100644",
+      "bytes": 10236,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/paper-session.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/portfolio-stress-evidence.js",
+      "blob": "857afc2c1e3852a37446c83873234e5ab79d1a66",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 13664,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/portfolio-stress-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/private-risk-feishu-delivery.js",
+      "blob": "2b698202db3af7748a3f44ebeaf128691d096f7e",
+      "previousBlob": "3d84b40c75d5ee85bcb8afa350dab9cf00144b7c",
+      "mode": "100644",
+      "bytes": 11910,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/probability-contract.js",
+      "blob": "070a5f77faa0de281e745f77efe3260f08549d05",
+      "previousBlob": "7e6c400092ebe6b733c81e0047a76618154fe10b",
+      "mode": "100644",
+      "bytes": 1683,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/probability-contract.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/probability-reliability-sources.js",
+      "blob": "6fd363f2e9e1d0faf594e5b0f394d96e0bafa4bc",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8918,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/probability-reliability-sources.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/probability-reliability-store.js",
+      "blob": "abeb9e29753d3586534a22efe6cdbe7a5d20d54d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 18861,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/probability-reliability-store.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/probability-reliability.js",
+      "blob": "6f7047f982d4798b9936eb42bbf667ad2de1168b",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9074,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/probability-reliability.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/process-file-lock.js",
+      "blob": "c347f7cc0184ce3bd6b4a74f669c669ecaf34406",
+      "previousBlob": "625c20ad8773843ddfefef406f03df386137f703",
+      "mode": "100644",
+      "bytes": 3202,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/process-file-lock.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/public-stock-financials.js",
+      "blob": "92ab5692963f71a7efcd1667316fb2e4eb7039a3",
+      "previousBlob": "3b2bfb889eb018c14a8cd2157023eab34d047537",
+      "mode": "100644",
+      "bytes": 9247,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/public-stock-financials.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/research-causal-diagnostics.js",
+      "blob": "ce7f715f852e61508f7193eebc628318e3f13907",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 15457,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/core/research-causal-diagnostics.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/research-governance-cache.js",
+      "blob": "d2c6affb882b679dffb22efd4113f34628cb606b",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4904,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/research-governance-cache.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/research-interaction-workbench.js",
+      "blob": "49590a16a0f73acd98f786db68c98287dda2b8bb",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 44098,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/core/research-interaction-workbench.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/research-risk-center.js",
+      "blob": "3f18513d1364df055d74e4a47729c15528c2158e",
+      "previousBlob": "beafe90769e25e30c09b3ff020f3116707dbb63c",
+      "mode": "100644",
+      "bytes": 7992,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/research-risk-center.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/research-workspace-store.js",
+      "blob": "c1029ca005955988b12cca458415fe344a0dda66",
+      "previousBlob": "70ef3e239f163a1c1418c96eecd3084176174473",
+      "mode": "100644",
+      "bytes": 7978,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/research-workspace.js",
+      "blob": "d46487e432a0c02657a5535a518f6f69bea48dc4",
+      "previousBlob": "372fad081a0320b0b901b1ddc3f8bf0424f3d29b",
+      "mode": "100644",
+      "bytes": 15095,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/risk-action-evidence.js",
+      "blob": "3238f2d6a8719ffa4209fbcad1bb956d5ee55f72",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 21491,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/risk-action-evidence.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "blob": "063710ed4eb1ccd99df81976f224a8ae06b23999",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 24553,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/risk-alert-lifecycle.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "blob": "52fa3213a0f946686f87e8302a6734e4c63c236f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 23408,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/core/risk-workbench.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/six-photo-backups.js",
+      "blob": "b1df504c4180b3616d6cb723a853c73ac9a1ee0a",
+      "previousBlob": "58933b2aabb3ace98806f731401e725c73e636dc",
+      "mode": "100644",
+      "bytes": 9477,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/src/core/six-photo-backups.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/stock-observation-store.js",
+      "blob": "ce0945100a69e9d6f2a0807d0a0cee56dc48dba5",
+      "previousBlob": "bedafbe4d3a62390bc6f9238ac3f9bbf4dfe5c0b",
+      "mode": "100644",
+      "bytes": 15683,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/stock-observation-store.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/strategy-evidence-replay.js",
+      "blob": "184689d37a16eca77b43d758d523c9a0015b8b8a",
+      "previousBlob": "1a14288274b90c7d357c31ac67526eac02b2488c",
+      "mode": "100644",
+      "bytes": 5039,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/strategy-evidence-replay.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/strategy-health-monitor.js",
+      "blob": "fa6591ee3e64fbbdea235c732ae71e24754bedef",
+      "previousBlob": "68dfa848aa019cab0bb4ca1e5cc5d14d879ee837",
+      "mode": "100644",
+      "bytes": 5520,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/strategy-health-monitor.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/trading-fees.js",
+      "blob": "58cd28995eac6401cc0ed7ad127b308023746b4f",
+      "previousBlob": "42ca37ea2f0ec0f82c817bd68e1defed2570f47a",
+      "mode": "100644",
+      "bytes": 4717,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/core/trading-fees.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/core/unified-strategy-project.js",
+      "blob": "30a52d3ba4815955d850106f805a1ce59ce89fbc",
+      "previousBlob": "96d70adfc92a24e307433d842f1fd47bbfd6bb51",
+      "mode": "100644",
+      "bytes": 2592,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/core/unified-strategy-project.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/research/shortline-paper-import.js",
+      "blob": "629d2711f133915ce6d20b8f36c2bde55c783d8f",
+      "previousBlob": "bf2cc30209e4a29c7d856e6f73294e2b242641b7",
+      "mode": "100644",
+      "bytes": 14266,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/research/shortline-paper-import.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/research/shortline/store.mjs",
+      "blob": "6627a035eb779fdfe151b4d2ff3fd4416091040d",
+      "previousBlob": "4f13c63cc522b1315b4ce3b1d6a18eb4173cfcf5",
+      "mode": "100644",
+      "bytes": 21313,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/src/research/shortline/store.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/server/advanced-account-risk-job.js",
+      "blob": "14fe041f25de6f9bb044eded0de3452c0bb67b3c",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8980,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/src/server/advanced-account-risk-job.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/server/evolution-http.js",
+      "blob": "b86f59801f1496f4b9ac9b7b76b86cb0d64908b1",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4187,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/src/server/evolution-http.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/server/research-interaction-http.js",
+      "blob": "bd0827874cd2e0c1bccb1390d728a210192053a2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2192,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/src/server/research-interaction-http.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/src/server/research-workspace-job.js",
+      "blob": "1ab2577d37da43bb15fcf82fa29ee72114f07026",
+      "previousBlob": "e8018004953d8711b0ae5c9e261c6a5918657350",
+      "mode": "100644",
+      "bytes": 11725,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "blob": "71ac89f2e181c66245e6afa74cfd4d63eadac83f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 19931,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/src/server/risk-workbench-runtime.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/account-equity-evidence.test.js",
+      "blob": "77d7ebd408e5aecb2ab89eb2979567891636e343",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11280,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/account-equity-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/account-safety-state.test.js",
+      "blob": "21c2b063d766e8872bd5d0406cdde14adc050976",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7988,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/account-safety-state.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-account-risk-http.test.js",
+      "blob": "a044632d967e7c62c476936c64c4e35396be1a07",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5290,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-account-risk-http.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-account-risk-job.test.js",
+      "blob": "684c07de9682de5562669597b9be0a38f4582a7e",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8350,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-account-risk-job.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-account-risk-live.test.js",
+      "blob": "397b40061855470454ec93050d6abcab80115724",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9753,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-account-risk-live.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-account-risk.test.js",
+      "blob": "bd7424f6874a00f9c39910daab63e40acb5249f0",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5335,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-account-risk.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-defense-concurrency.test.js",
+      "blob": "34a841bddf2c5d793704e2459c8d08014c37fa83",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2949,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-defense-concurrency.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-portfolio-evidence.test.js",
+      "blob": "b86f9d06f5604527b78e408904917b0ae4764c84",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7719,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-portfolio-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-portfolio-runtime.test.js",
+      "blob": "50cf916529abd3fe952bdb9688c8ce207562eec3",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 21110,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-portfolio-runtime.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/advanced-safety-operations.test.js",
+      "blob": "0f1ec438fa3e4f5eaef14591c3be893e0671b354",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 15176,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/advanced-safety-operations.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/automatic-entry-preview.test.js",
+      "blob": "fbfba6a0cb1b0e4f1dd84516c39b351ddae51798",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 15487,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/automatic-entry-preview.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/automatic-paper-commit-quote-time.test.js",
+      "blob": "340747e669b9a840ca2a91d81b9fec8c398c5d1f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11524,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/commit-check-triggers.test.js",
+      "blob": "36e9ed0abfb55eaf80e4b87ac89c160f5087dd83",
+      "previousBlob": "9cea2264d7f5fe4f783813e3d19d4dbbb490ced9",
+      "mode": "100644",
+      "bytes": 3148,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "V6_BO/tests/commit-check-triggers.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/data-governance-runtime.test.js",
+      "blob": "4d30b709d744fd82d15c3ff5df275d3efd0ce445",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 28664,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/data-governance-runtime.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/data-source-lineage.test.js",
+      "blob": "0a3cbc0386f11bc5239822d0e871083c4df0b774",
+      "previousBlob": "1316089ed2912bb3db871d6b810a2c6218f96c81",
+      "mode": "100644",
+      "bytes": 8816,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/tests/data-source-lineage.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/data-source-readiness-audit.test.js",
+      "blob": "b9d6337b38bdbee85d068ed9c32ee8fe28dba2a0",
+      "previousBlob": "77b0dd82403adc627f770cf1c330b292aad077bd",
+      "mode": "100644",
+      "bytes": 17272,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/tests/data-source-readiness-audit.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/decision-evidence-server-contract.test.js",
+      "blob": "3b1b6ec9d4da823d059d62fc7d48e361fa4e1e61",
+      "previousBlob": "c6ac0bec7b60afa13929b6d87300f1e6cbac86ac",
+      "mode": "100644",
+      "bytes": 27693,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/decision-evidence-server-contract.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/disaster-recovery.test.js",
+      "blob": "5013f38be731e6d6ef45a70f6b64fe74e9235ea6",
+      "previousBlob": "3cf17bc78108dcf6462fc81ae8bc894679e85066",
+      "mode": "100644",
+      "bytes": 8478,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/disaster-recovery.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/effective-risk-evidence.test.js",
+      "blob": "6e19e25c90f4066fa660b76a8c78f436345060f8",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9600,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/effective-risk-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-http.test.js",
+      "blob": "8727e2ac972928e75e96502dfae125b6b888f374",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4489,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-http.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-market-evidence.test.js",
+      "blob": "f715db1701241dc876d4cec914e81092c021708d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 13360,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-market-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-market-integration.test.js",
+      "blob": "707bb1d1178135cbb4e493850c964075db38a723",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10064,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-market-integration.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-market-similarity.test.js",
+      "blob": "dbbb0e438ef1ec0510f8bb6d4f167e6ace34fbee",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 3711,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-market-similarity.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-server-integration.test.js",
+      "blob": "dea1fcfddea7098d671ede041ffb67ba38a71b80",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4960,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-server-integration.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-statistics.test.js",
+      "blob": "c9fc50ee3a4b56ef9e3f31e7ea7a734d3625c786",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 31379,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-statistics.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-workflow-diagnostic-version.test.js",
+      "blob": "36c58c35dbb50ac95e7efdc4c25d54d83384c8f1",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4455,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-workflow-diagnostic-version.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-workflow-worker.test.js",
+      "blob": "96c2c0e45b8a5851dc200a788cb20331d6f22ae6",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2087,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-workflow-worker.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/evolution-workflow.test.js",
+      "blob": "cf334eca292aea5ccffc08e5615d7721f0f427c2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 24967,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/evolution-workflow.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-event-research.test.mjs",
+      "blob": "247bfdf77385ed5f44fcd91229d80936fce3b0f6",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2437,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-event-research.test.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-evidence-workbench.test.js",
+      "blob": "a9e0be089a41c8db1fc313a5a9d3a95b9c9f82d0",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7526,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-evidence-workbench.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-integration-gates.test.js",
+      "blob": "29bac4e71f5afee50567dfd553b3cb81b9f94765",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6547,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "V6_BO/tests/fayo-integration-gates.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-intelligence-evolution.test.js",
+      "blob": "c2edb8acd540f70660cadf0c940166e405a6790f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5314,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 360,
+          "head": "aecebd190075269cb5af588afc9ace4819954558",
+          "path": "V6_BO/tests/fayo-intelligence-evolution.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-model-governance-integration.test.js",
+      "blob": "aafd92738f139dbe1dc1c2102bd59d0b4df66bde",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 20478,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/fayo-model-governance-integration.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-news-action-boundary.test.js",
+      "blob": "55e0b3ee1a358a082de89bb20f953b2d04802c5a",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6827,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-news-action-boundary.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-replay-boundaries.test.js",
+      "blob": "c9f133f6a79ddc494f8f34b8081613d1003b6972",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6630,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-replay-boundaries.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-research-diagnosis.test.js",
+      "blob": "a2121a702ec3f4c502f935365f7cc947e3ff600f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2094,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/fayo-research-diagnosis.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-research-discipline-boundaries.test.js",
+      "blob": "708181f779599ce7d366dadbc729526f24e113d8",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11989,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-research-discipline-boundaries.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-research-governance-integration.test.js",
+      "blob": "b1381a9d6ec04b99d64de4ee411111c21e863da2",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10786,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/fayo-research-governance-integration.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-research-governance.test.js",
+      "blob": "9cdd0d82b1e5dc995c6c7780038e272d4f48a165",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4261,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/fayo-research-governance.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fayo-research-review.test.mjs",
+      "blob": "90c06a144fe70acaab834c778445e86bc8624200",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2867,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/fayo-research-review.test.mjs"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/fixtures/source-registry-120-ids.json",
+      "blob": "861dd2ca0bfe6aa9042e356a377dfa35c64cb7a5",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2379,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/tests/fixtures/source-registry-120-ids.json"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/helpers/account-equity-fixture.js",
+      "blob": "f7c0f9b0475adb514e644242af3de88d1ae764c5",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 1813,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/helpers/account-equity-fixture.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/helpers/advanced-portfolio-fixture.js",
+      "blob": "f2ab22a33ff955d6a5712faf6eaa7aa8df36ab75",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 5622,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/helpers/advanced-portfolio-fixture.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/helpers/fayo-replay-boundaries-fixture.js",
+      "blob": "5bfdae80e6cb563a8aa13241306570cf4eefad90",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7032,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/helpers/fayo-replay-boundaries-fixture.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/helpers/v6-studio-fixture.js",
+      "blob": "c570d269b8ad5ecb6600424b289b9aab4aea7da3",
+      "previousBlob": "dd4e1716e210e89c203b2b3200f43059e5aa801d",
+      "mode": "100644",
+      "bytes": 8563,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "V6_BO/tests/helpers/v6-studio-fixture.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/historical-evidence-append.test.js",
+      "blob": "3ea0f527b1e52ebe412ede0dc8054738772b83f7",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8571,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/historical-evidence-append.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/independent-strategy-attribution.test.js",
+      "blob": "97606e096173c7bf5eed369301888c29194a5589",
+      "previousBlob": "8c7b579f199c4b22146b926f1e3a13d62644fee5",
+      "mode": "100644",
+      "bytes": 3628,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/independent-strategy-attribution.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/intelligence-execution-validation.test.js",
+      "blob": "b0e7c1f8816df631b743eb65eccc9e13a838b5b4",
+      "previousBlob": "0ad74900b888e5c3cf2a3511812c18755fe67d20",
+      "mode": "100644",
+      "bytes": 11241,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/intelligence-execution-validation.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/managed-publisher-runtime.test.js",
+      "blob": "d3e851633e0580e7f7dc27c7eca4ef68e9d0d148",
+      "previousBlob": "087c57ff9b4a1250d01d2437ce347748112f7586",
+      "mode": "100644",
+      "bytes": 13564,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/managed-publisher-runtime.test.js"
+        },
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/managed-publisher-runtime.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/news-evidence-http.test.js",
+      "blob": "60943a33f1d510ed66f91b850c67188a9ab89261",
+      "previousBlob": "9deaa4b9c224669b53b4b468aa09af5934add169",
+      "mode": "100644",
+      "bytes": 9101,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/news-evidence-http.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/notification-delivery-view.test.js",
+      "blob": "aa8126777972e6e322366d50a68b0d3a1603e5e0",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2317,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/notification-delivery-view.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/pending-buy-budget-consistency.test.js",
+      "blob": "cb5338b05da90868f9259d062827696ee59dee83",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6808,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/pending-buy-budget-consistency.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/portfolio-stress-evidence.test.js",
+      "blob": "b69f7969d6d12198339d495d63a7de6c115ba347",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6274,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/portfolio-stress-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/private-risk-escalation-identity.test.js",
+      "blob": "3194b6a57a860f3b1f6e082285bbbb8702b12c05",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6579,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "V6_BO/tests/private-risk-escalation-identity.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/private-risk-journal-monitor.test.js",
+      "blob": "43ef3e1a86232ab479ceb7c361a0899d28450023",
+      "previousBlob": "dd7aa020504dfedb532531cecf025a85f0cd76b2",
+      "mode": "100644",
+      "bytes": 12899,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "V6_BO/tests/private-risk-journal-monitor.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/private-risk-monitor-identity.test.js",
+      "blob": "49951ae7409f0af89a5ee4ecd98c7826f5a7e803",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 1593,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "V6_BO/tests/private-risk-monitor-identity.test.js"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "V6_BO/tests/private-risk-monitor-identity.test.js"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "V6_BO/tests/private-risk-monitor-identity.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/probability-reliability-store.test.js",
+      "blob": "b8f248ca817f75d69673e0d51df62be2153241cc",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 23909,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/probability-reliability-store.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/probability-reliability.test.js",
+      "blob": "9962b76dc6ec4653aa0c01be5629e5ba94ffda70",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 3887,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/probability-reliability.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/process-file-lock-race.test.js",
+      "blob": "f3e92b50a90ba4ae717622e9112e5e7d9952c002",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4712,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "V6_BO/tests/process-file-lock-race.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/research-cache-version-parity.test.js",
+      "blob": "49b3d46fc3d3b9a6629635d7c8a233cb4078a7d1",
+      "previousBlob": "3f09aa425d376a6835a4bd7b3df2555771b1f628",
+      "mode": "100644",
+      "bytes": 2785,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/research-cache-version-parity.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/research-governance-cache.test.js",
+      "blob": "1d38549ab94dc77a881af35ee32be06ab8c9f54d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4288,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/research-governance-cache.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/research-workspace-authority.test.js",
+      "blob": "cc1c8ec02433ac1490bce4540e02b3db3a6bf0cb",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9826,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/research-workspace-authority.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/research-workspace-http.test.js",
+      "blob": "a63bb3140755274daa4131b250799b30c8e398f8",
+      "previousBlob": "719003a45453ccd3b5a063fc27a667a14ce34ecb",
+      "mode": "100644",
+      "bytes": 15923,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "V6_BO/tests/research-workspace-http.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-action-evidence.test.js",
+      "blob": "e54c8676f6bda1aa5403b6992484d5c24095434b",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 11952,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-action-evidence.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-alert-lifecycle.test.js",
+      "blob": "e7fdd9b595c1456225a905f4ffa10605654be87d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 19599,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-alert-lifecycle.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-workbench-account-safety-integration.test.js",
+      "blob": "7cd86089a8efec287082ff578015945e467daed5",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 10428,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-workbench-http.test.js",
+      "blob": "9dbff58818f5a187a0ccde6dd7943d30874c3851",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 17971,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-workbench-http.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-workbench-runtime-isolation.test.js",
+      "blob": "5520d81423134cd18635458b2f2ace4874c79136",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9516,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-workbench-runtime-isolation.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-workbench-runtime-notifications.test.js",
+      "blob": "dfa20b82ae74f25eb0609ee3bfe627cb177502f7",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 14020,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-workbench-runtime-notifications.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/risk-workbench.test.js",
+      "blob": "d62a71d1854f9186cbffdc8600d92dfdc1c08025",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 15345,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/risk-workbench.test.js"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "V6_BO/tests/six-photo-akshare-compatibility.test.js",
+      "blob": "fc1be3528d865781e232ad7cfdb1ba829df8b8e6",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8589,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "V6_BO/tests/six-photo-akshare-compatibility.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/stock-observation-store.test.js",
+      "blob": "973416c577d4435fffc7054cfc20fc76a1e68608",
+      "previousBlob": "4444a4f1fbdc014391d4d056342535294bcc2c90",
+      "mode": "100644",
+      "bytes": 24358,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/stock-observation-store.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/strategy-evidence-drawdown.test.js",
+      "blob": "5d13db8ad5bf67a1e56b25ce5f551679737cb5b7",
+      "previousBlob": "8e4f4c9cdc73b544a6996b63962f1cb37c47d40d",
+      "mode": "100644",
+      "bytes": 1858,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/strategy-evidence-drawdown.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/strategy-evidence-replay.test.js",
+      "blob": "3705a552ebdd18e2061c11447a43eae502998e32",
+      "previousBlob": "63568b7120ad812e434813152ed0d1144df4c223",
+      "mode": "100644",
+      "bytes": 2871,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "V6_BO/tests/strategy-evidence-replay.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "V6_BO/tests/v6-terminal-workbench.test.js",
+      "blob": "08a6509c1837fd8f67a1d1f9aae91ad53a530d0b",
+      "previousBlob": "34ed94deadcd885bdbf615b2efb6a0049208b773",
+      "mode": "100644",
+      "bytes": 24988,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "V6_BO/tests/v6-terminal-workbench.test.js"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "WORK_LOG.md",
+      "blob": "f1f69ae8ee37d4f1a74877b1ea00f0a1ac0c19e9",
+      "previousBlob": "cc5647c2b93c703d2f4ba7cc8eb330b4db375c6e",
+      "mode": "100644",
+      "bytes": 41511,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "WORK_LOG.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_66_INTEGRATION_STATUS_20261126.md",
+      "blob": "c82f89cb4cb968aed46d32d9cda9ee3808ff1786",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 19472,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "docs/FAYO_66_INTEGRATION_STATUS_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_78_TASK_AUDIT_20261126.md",
+      "blob": "a0e43c76a6ed496c9955c5558301c4fdd56d5f0f",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 62615,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "docs/FAYO_78_TASK_AUDIT_20261126.md"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "docs/FAYO_78_TASK_AUDIT_20261126.md"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/FAYO_78_TASK_AUDIT_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md",
+      "blob": "88f5e65cad7517dd6f8a772c678e5ed4837ee01e",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 7953,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "docs/FAYO_ADVANCED_SAFETY_PHASE1_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_ADVANCED_SAFETY_RUNTIME_20261126.md",
+      "blob": "799fcf2d2d75e27defa794d58ce70d967e4a5f8b",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 31251,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 356,
+          "head": "ba4f2703715e58e676c62decbbe521731d073703",
+          "path": "docs/FAYO_ADVANCED_SAFETY_RUNTIME_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_EVIDENCE_WORKBENCH_20261126.md",
+      "blob": "9c95b41a6689867af1a4a7cf56b5ddd6b2a5a102",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 16372,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 358,
+          "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+          "path": "docs/FAYO_EVIDENCE_WORKBENCH_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_INTEGRATION_WIP_20261126.md",
+      "blob": "a6e14e9709f8727e75e1cc631f35da5af6062f0d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 8055,
+      "reusableRemoteBlob": false,
+      "reuseEvidence": []
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md",
+      "blob": "f421689cd79c3c2a94fcb1f7f5bcdc7101514983",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 14729,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_RESEARCH_GOVERNANCE_20261126.md",
+      "blob": "b54ff8b96edfaded3da57e225b7b0d7757855473",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 28316,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 353,
+          "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+          "path": "docs/FAYO_RESEARCH_GOVERNANCE_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md",
+      "blob": "580107e5a1cf2223fa24e66902f8450760f1834b",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 32732,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_SUPPLEMENT_REVIEW_20261126.md",
+      "blob": "c4b57f73d432674a05c127c3b6dddbbe0e79b3c3",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 26940,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/FAYO_SUPPLEMENT_REVIEW_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/FAYO_WARMUP_FIXTURE_20261126.md",
+      "blob": "78ce5bb584044764d5eb4978bafc931e54f731a7",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 3918,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 360,
+          "head": "aecebd190075269cb5af588afc9ace4819954558",
+          "path": "docs/FAYO_WARMUP_FIXTURE_20261126.md"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "docs/V6_RULESET_ACTIVATION_20261115.md",
+      "blob": "bdf2878c650c6d554520c5ab0c552a029905e93d",
+      "previousBlob": "bf1605df411e8f06faf050ed9caf60dfe5cd8627",
+      "mode": "100644",
+      "bytes": 5572,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "docs/V6_RULESET_ACTIVATION_20261115.md"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "docs/V6_RULESET_ACTIVATION_20261115.md"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/V6_RULESET_ACTIVATION_20261115.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-evolution-20261126/README.md",
+      "blob": "560bc53b726259f5c0d467ca40399d3ed2f5e74c",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6345,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 357,
+          "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+          "path": "docs/validation/fayo-evolution-20261126/README.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-post-fsync-quote-20261126/README.md",
+      "blob": "7df75dfa30de6c6c979492a98aac23741ca6cbbb",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 6279,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "docs/validation/fayo-post-fsync-quote-20261126/README.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-risk-20261126/README.md",
+      "blob": "ad320cc5174000b9215a8921b8fccf2c402d8198",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 4069,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 359,
+          "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+          "path": "docs/validation/fayo-risk-20261126/README.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-supplement-20261126/README.md",
+      "blob": "cd93ec6303de489d3314c7143948dde90bc74690",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 9391,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/validation/fayo-supplement-20261126/README.md"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-supplement-20261126/continuation-evidence.json",
+      "blob": "91234559b23fbed0e8bbb1b6f52e86f7d1212259",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 14797,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/validation/fayo-supplement-20261126/continuation-evidence.json"
+        }
+      ]
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/fayo-supplement-20261126/evidence.json",
+      "blob": "ecb404a040d809ac90cf71755e60ed404c097f8d",
+      "previousBlob": null,
+      "mode": "100644",
+      "bytes": 2450,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 361,
+          "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "path": "docs/validation/fayo-supplement-20261126/evidence.json"
+        },
+        {
+          "pr": 364,
+          "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+          "path": "docs/validation/fayo-supplement-20261126/evidence.json"
+        },
+        {
+          "pr": 365,
+          "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+          "path": "docs/validation/fayo-supplement-20261126/evidence.json"
+        }
+      ]
+    },
+    {
+      "status": "M",
+      "path": "package.json",
+      "blob": "c5282289ec50772cc8b9d5129988b59308fa5c07",
+      "previousBlob": "f515e494c1490d92e1ed82e75d9c827eca937f73",
+      "mode": "100644",
+      "bytes": 3300,
+      "reusableRemoteBlob": true,
+      "reuseEvidence": [
+        {
+          "pr": 362,
+          "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+          "path": "package.json"
+        }
+      ]
+    }
+  ],
+  "localHistoryHead": "ee2e9765188dd10890b7579174143048137cc956",
+  "remoteSnapshot": {
+    "branch": "integration/fayo-validation-20261126",
+    "commit": "e2eb4130f423a85162939328f3b85beecb659ea6",
+    "tree": "5108b6319c9f21d59d3a640a7aef3886535b0bbd",
+    "base": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+    "url": "https://github.com/solviq87-cpu/v6-stock-system/tree/e2eb4130f423a85162939328f3b85beecb659ea6",
+    "note": "Exact local worktree tree preserved as a single WIP snapshot commit. The ancestor flags describe the preserved local integration history, not the remote snapshot parent graph. Existing source PR branches remain unchanged; no final dev merge PR created."
+  },
+  "localHistoryBundle": {
+    "path": "audit-inputs/integration-v2/paused-integration-history.bundle",
+    "bytes": 46933476,
+    "sha256": "4ba1e7569a3fec8e85c79a95d4908ac279a67f289f8840fe72f8d3f261a90699",
+    "status": "created locally; not additionally verified or attached to GitHub; existing original remote branches retained"
+  }
+}

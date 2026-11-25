@@ -94,7 +94,9 @@
     "data:official:sec": "node scripts/collect-sec-companyfact.js",
     "data:official:ecb": "node scripts/collect-ecb-fx.js",
     "test:data:official": "node --test tests/sec-companyfacts.test.js tests/ecb-fx-daily.test.js",
-    "test:data:sessions": "node --test tests/a-share-session-coverage.test.js tests/research-cross-source-history.test.js tests/research-calendar-source.test.js tests/multi-source-calendar-gate.test.js"
+    "test:data:sessions": "node --test tests/a-share-session-coverage.test.js tests/research-cross-source-history.test.js tests/research-calendar-source.test.js tests/multi-source-calendar-gate.test.js",
+    "quality:audit": "node scripts/audit-product-quality.js",
+    "test:critical-mutations": "node scripts/check-critical-mutations.js"
   },
   "engines": {
     "node": ">=22.6"

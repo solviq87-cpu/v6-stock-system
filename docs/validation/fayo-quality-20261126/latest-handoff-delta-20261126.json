@@ -1,0 +1,1022 @@
+{
+  "schemaVersion": 1,
+  "kind": "fixed-evidence-handoff-delta",
+  "documentDate": "2026-11-26",
+  "latestCapturedClockUtc": "2026-11-25T18:12:25Z",
+  "pause": {
+    "instruction": "用户最新指令：保存当前成果后暂停开发。本聊天停止后续开发、审查和测试，由用户选定的统一接续聊天接手。",
+    "successor": "user-selected-continuation-chat-not-yet-identified",
+    "historicalCoordinator": "绯曜 FAYO｜总管与最终交付",
+    "historicalNameDoesNotDetermineSuccessor": true,
+    "doesNotCreateSecondTaskMaster": true
+  },
+  "supersedes": [
+    "此前67—78标题/责任/分支PR未知由#363固定证据补齐；历史未知不回写成当时已知。",
+    "此前356/357旧head仅为历史快照；新头见observedPrs。",
+    "用户给364 e1e37db6，本次读取时已11cfd240；前者仅历史。",
+    "不得将仅指向dev的feat/fayo-research-evidence-20261126归为67—78；确证分支是feat/fayo-depth-decision-20261126。"
+  ],
+  "observedPrs": [
+    {
+      "number": 363,
+      "title": "FAYO 67—78项既有增量：六组交接、深度研究与真实运行验收",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "state": "open",
+      "draft": true,
+      "head": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "base": "dev",
+      "baseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "merged": false,
+      "updatedAt": "2026-11-25T17:47:20Z"
+    },
+    {
+      "number": 356,
+      "title": "绯曜 FAYO：原账户安全、组合风险与历史数据治理接线（37—42/48—58）",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+      "state": "open",
+      "draft": true,
+      "head": "ba4f2703715e58e676c62decbbe521731d073703",
+      "branch": "feat/fayo-advanced-safety-20261126",
+      "base": "dev",
+      "baseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "merged": false,
+      "updatedAt": "2026-11-25T18:06:30Z"
+    },
+    {
+      "number": 357,
+      "title": "FAYO 补充增强（二）：19项研究进化、双端工作台与验证闭环",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+      "state": "open",
+      "draft": true,
+      "head": "03d314dcec9c528d7fc46fe21c5a11939dc015d8",
+      "branch": "feat/fayo-intelligence-evolution-20261126",
+      "base": "dev",
+      "baseSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "merged": false,
+      "updatedAt": "2026-11-25T18:04:45Z"
+    },
+    {
+      "number": 364,
+      "title": "fix: #361最终fsync后再验原始报价，拒绝过期账户发布",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/364",
+      "state": "open",
+      "draft": true,
+      "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+      "branch": "fix/fayo-post-fsync-quote-20261126",
+      "base": "audit/fayo-risk-integration-20261126",
+      "baseSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "merged": false,
+      "updatedAt": "2026-11-25T18:07:16Z"
+    },
+    {
+      "number": 365,
+      "title": "fix: 只读报价、通知回滚防重发与总管交接（接续 #361）",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/365",
+      "state": "open",
+      "draft": true,
+      "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+      "branch": "fix/fayo-review-handoff-20261126",
+      "base": "audit/fayo-risk-integration-20261126",
+      "baseSha": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "merged": false,
+      "updatedAt": "2026-11-25T18:01:22Z"
+    }
+  ],
+  "originalTasks": [
+    {
+      "id": 67,
+      "title": "事件影响研究库",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildEventImpactStudy",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[67]"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "原始公告/新闻时点、完整历史日历、未复权价格和公司行为；观察关联不认证因果"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 68,
+      "title": "预期差分析",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildExpectationStudy",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[68]"
+      },
+      "stages": {
+        "code": {
+          "status": "partial-known-defect",
+          "knownDefect": "异股价格反应串接",
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "真实披露前同口径预期；异股价格反应串接在修"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 69,
+      "title": "产业与公司关系图谱",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [
+        "现有高级风控、资金管理、数据治理与系统安全补充第一组"
+      ],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildRelationshipGraph",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[69]"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "真实披露正文、有效时点与关系来源；第一补充组支持数据接入及质量"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 70,
+      "title": "盘口与竞价研究",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [
+        "现有高级风控、资金管理、数据治理与系统安全补充第一组"
+      ],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildDepthResearch",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[70]"
+      },
+      "stages": {
+        "code": {
+          "status": "partial-known-defect",
+          "knownDefect": "撤回盘口未排除",
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "合法授权的真实深度/逐笔/竞价；撤回盘口未排除在修"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 71,
+      "title": "交易时段策略适用性",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildSessionEffectiveness",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[71]"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "原成熟结算、四策略归属、同周期成本与执行约束"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 72,
+      "title": "主题拥挤与集中风险",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-research-evidence.js",
+        "method": "buildThemeCrowding",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-research-evidence.js",
+        "api": "GET /api/research/deep → research.modules[72]"
+      },
+      "stages": {
+        "code": {
+          "status": "partial-known-defect",
+          "knownDefect": "题材合成成员混入",
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "完整同一时点成员与行情；合成成员混入在修"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 73,
+      "title": "组合目标权重研究",
+      "owner": "现有高级风控、资金管理、数据治理与系统安全补充第一组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-decision-research.js",
+        "method": "researchPortfolioWeights",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-decision-research.js",
+        "api": "GET /api/research/deep → decisions.portfolio"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "成熟同周期收益估计、相关性、成本及原账户约束；只读研究"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 74,
+      "title": "换仓收益与成本门槛",
+      "owner": "现有高级风控、资金管理、数据治理与系统安全补充第一组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-decision-research.js",
+        "method": "evaluateRebalanceThreshold",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-decision-research.js",
+        "api": "GET /api/research/deep → decisions.rebalance"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "同周期收益改善与完整成本；不阻止原强制风控"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 75,
+      "title": "决策稳健性检查",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-decision-research.js",
+        "method": "checkDecisionRobustness",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-decision-research.js",
+        "api": "GET /api/research/deep → decisions.robustness"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "冻结原输入与成熟对照；扰动稳定不等于正确或收益有效"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 76,
+      "title": "事前决策对照复盘",
+      "owner": "现有智能选股、策略进化、AI与研究体验补充第二组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/deep-decision-research.js",
+        "method": "freezeDecisionAlternatives / replayDecisionAlternatives",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/deep-decision-research.js",
+        "api": "POST /api/research/deep/alternatives；GET /api/research/deep → alternatives.replay"
+      },
+      "stages": {
+        "code": {
+          "status": "partial-known-defect",
+          "knownDefect": "减仓对照回放反而买入",
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "减仓回放反而买入在修；成熟历史、公司行为、证券状态与成本待证"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 77,
+      "title": "交付来源与版本可信验证",
+      "owner": "现有高级风控、资金管理、数据治理与系统安全补充第一组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/release-provenance.js",
+        "method": "captureRunningRelease / inspectReleaseProvenanceAsync",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/release-provenance.js",
+        "api": "GET /api/research/deep/acceptance → acceptance.release"
+      },
+      "stages": {
+        "code": {
+          "status": "implementation-present-review-pending",
+          "knownDefect": null,
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "精确提交CI、实际安装/进程/终端回执；本地完整性不等于签名认证"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    },
+    {
+      "id": 78,
+      "title": "全系统真实运行验收",
+      "owner": "原数据可靠性、运行监测第一组",
+      "supportingOwners": [],
+      "titleSource": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/config/deep-research-tasks.json",
+      "ownerSource": "https://github.com/solviq87-cpu/v6-stock-system/pull/363",
+      "ownerEvidence": "已保存PR正文最新分工；不推断具体个人身份",
+      "branch": "feat/fayo-depth-decision-20261126",
+      "pr": 363,
+      "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+      "implementation": {
+        "path": "V6_BO/src/core/runtime-acceptance.js",
+        "method": "createRuntimeAcceptance.tick/report / buildUnifiedTaskStatus",
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/V6_BO/src/core/runtime-acceptance.js",
+        "api": "GET /api/research/deep/acceptance → acceptance.observation/tasks"
+      },
+      "stages": {
+        "code": {
+          "status": "partial-known-defect",
+          "knownDefect": "排除坏样本后质量指标偏高",
+          "evidence": "固定源码存在；不凭implemented声明认定整体完成"
+        },
+        "wiring": {
+          "status": "static-call-chain-present",
+          "evidence": "server→handler→worker→原研究/账户只读适配→原生同源/与/m已见；最终整合版本未验收"
+        },
+        "realData": {
+          "status": "conditional-not-independently-verified",
+          "remaining": "坏采样被排除后质量偏高在修；实际日历、分母、送达/对账/成熟样本及5/20/60日未认证"
+        },
+        "test": {
+          "status": "historical-evidence-present-current-fixes-pending",
+          "evidence": "固定文档记录96专项及5086预验收（5082通过、4跳过）；当前PR五边界在修。本轮未重跑其他组测试"
+        },
+        "merge": {
+          "status": "not-merged",
+          "evidence": "已读取open draft、merged=false，base dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9"
+        },
+        "deployment": {
+          "status": "not-deployed-per-pr",
+          "evidence": "PR与固定文档明确未部署；本轮无现场回执"
+        },
+        "runtime": {
+          "status": "not-certified",
+          "evidence": "启用时间、真实样本、中断与5/20/60日尚未认证；隔离测试不折算真实日"
+        }
+      },
+      "declaredConfigStatus": {
+        "code": "implemented",
+        "interface": "connected",
+        "realData": "unknown",
+        "validation": "passed",
+        "deployed": "not-deployed",
+        "observation": "waiting"
+      },
+      "nextStep": "由用户选定统一接续聊天按原负责人继续核验修复及精确提交；本聊天保存后暂停"
+    }
+  ],
+  "knownDefects": [
+    {
+      "task": 68,
+      "issue": "异股价格反应串接",
+      "method": "buildExpectationStudy",
+      "staticEvidence": "validReaction 检查时点/价格/复权但未绑定 reaction.symbol 与 actual.symbol",
+      "status": "PR作者报告已复现且在修，本次仅静态核对对应路径",
+      "reproducedByThisDelta": false
+    },
+    {
+      "task": 70,
+      "issue": "撤回盘口未排除",
+      "method": "buildDepthResearch",
+      "staticEvidence": "selected.rows 循环没有排除 retracted",
+      "status": "PR作者报告已复现且在修，本次仅静态核对对应路径",
+      "reproducedByThisDelta": false
+    },
+    {
+      "task": 72,
+      "issue": "题材合成成员混入",
+      "method": "buildThemeCrowding",
+      "staticEvidence": "成员有效性检查未完整过滤合成输入标记",
+      "status": "PR作者报告已复现且在修，本次仅静态核对对应路径",
+      "reproducedByThisDelta": false
+    },
+    {
+      "task": 76,
+      "issue": "减仓对照回放反而买入",
+      "method": "replayDecisionAlternatives",
+      "staticEvidence": "非hold分支同时运行卖出和目标买入循环",
+      "status": "PR作者报告已复现且在修，本次仅静态核对对应路径",
+      "reproducedByThisDelta": false
+    },
+    {
+      "task": 78,
+      "issue": "排除坏样本后质量指标偏高",
+      "method": "summarizeDay",
+      "staticEvidence": "若干指标、延迟与失败检查基于live子集",
+      "status": "PR作者报告已复现且在修，本次仅静态核对对应路径",
+      "reproducedByThisDelta": false
+    }
+  ],
+  "historicalValidation": {
+    "pr": 363,
+    "revision": "d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49",
+    "targeted": 96,
+    "preAcceptanceTotal": 5086,
+    "preAcceptancePassed": 5082,
+    "preAcceptanceSkipped": 4,
+    "currentFixesVerified": false,
+    "rerunByThisDelta": false,
+    "source": "https://github.com/solviq87-cpu/v6-stock-system/blob/d2b9b428f35e07bbe7cc6d6f5411d3a79e385d49/docs/validation/fayo-deep-research-20261126/README.md"
+  },
+  "qualityRelation": {
+    "state": "本聊天补充评价合同/显式输入只读CLI/四个有限内存变异；尚未与#363 sampler接通，不代表线上健康/首页/真实效果完成",
+    "metricCount": 30,
+    "metricIds": [
+      "task-completion",
+      "constraint-consistency",
+      "answer-coverage",
+      "source-time-lineage",
+      "required-field-coverage",
+      "honest-unknown-conflicts",
+      "oos-net-return",
+      "oos-drawdown",
+      "alert-review-coverage",
+      "alert-false-positive",
+      "alert-missed-event",
+      "probability-brier",
+      "permission-rejection",
+      "stale-quote-rejection",
+      "fill-idempotency",
+      "ledger-reconciliation",
+      "point-in-time-isolation",
+      "dual-device-completion",
+      "operation-duration",
+      "misoperation-rate",
+      "failure-recovery",
+      "scheduled-availability",
+      "valid-data-coverage",
+      "operation-failure",
+      "pipeline-latency",
+      "recovery-duration",
+      "heldout-improvement",
+      "regression-preservation",
+      "issue-recurrence",
+      "rollback-verification"
+    ],
+    "criticalMetrics": [
+      "permission-rejection",
+      "stale-quote-rejection",
+      "fill-idempotency",
+      "ledger-reconciliation",
+      "point-in-time-isolation"
+    ],
+    "taskLinks": [
+      {
+        "tasks": [
+          20,
+          43,
+          49,
+          50,
+          57
+        ],
+        "role": "评价输入合同、时点隔离、原账本/幂等/权限/恢复的证据消费及有限验证"
+      },
+      {
+        "tasks": [
+          44
+        ],
+        "role": "稳定性验证方法与#360预热夹具关联；30指标CLI没有实现指标预热主体"
+      },
+      {
+        "tasks": [
+          13,
+          25,
+          26,
+          46,
+          63
+        ],
+        "role": "消费原收益归因、样本隔离、成本回放、简单基线及成熟净期望证据，不重写估算器"
+      },
+      {
+        "tasks": [
+          66
+        ],
+        "role": "双端个性化工作台/易用性展示消费，不是收益计算权威"
+      },
+      {
+        "tasks": [
+          78
+        ],
+        "role": "质量合同关联，保留原数据运行组负责人及权威分钟采样器"
+      }
+    ],
+    "proposedAdapter": {
+      "status": "recommended-not-implemented",
+      "authority": "消费#363原主实例原始逐条哈希链；不新建采样器、账本或最终总表",
+      "requirements": [
+        "按运行sourceSha、窗口、scopeKind/population、预登记planVersion/planFingerprint分组，不混算不同版本。",
+        "保留应采样槽位和应取对象分母、失败、未知、缺失、中断及排除原因；不能将live子集均值或成功数量当全集。",
+        "现有server采样expectedSymbols=null，不能用observedSymbols或前10条抽样伪造完整覆盖。",
+        "collectionMs仅为采集耗时，不直接填pipeline-latency；每日收益/回撤摘要不冒充冻结样本外完整分布。",
+        "送达需原通知真实回执；账本、权限、幂等需原验证和对账证据，字段存在不代表满足要求。",
+        "#363 criteriaHash不自动等于quality预登记计划指纹；输入声明仍需独立复核。",
+        "五关键安全项已知失败保持blocked；未知不填零、不按已知项重归一。CLI不授权交易/部署或认证连续运行。",
+        "待#363五边界修复与接续聊天明确版本后再做只读导出适配；当前不继续开发。"
+      ]
+    }
+  },
+  "sharedDependencies": [
+    {
+      "prs": [
+        356,
+        363
+      ],
+      "files": [
+        "V6_BO/server.js",
+        "V6_BO/public/nova/research-extensions.js"
+      ],
+      "requirement": "保留advancedAccounts/deepResearch及原账户风控，按hunk整合"
+    },
+    {
+      "prs": [
+        357,
+        358,
+        363
+      ],
+      "files": [
+        "V6_BO/src/server/research-workspace-job.js",
+        "V6_BO/src/core/research-workspace-store.js",
+        "V6_BO/server.js",
+        "V6_BO/public/nova/index.html",
+        "V6_BO/public/sw.js"
+      ],
+      "requirement": "保留所有worker动作及权限/撤权/时点检查，统一最终版本和缓存"
+    },
+    {
+      "prs": [
+        359,
+        363
+      ],
+      "files": [
+        "V6_BO/server.js",
+        "V6_BO/public/nova/research-extensions.js"
+      ],
+      "requirement": "78仅消费原风险/权益/通知回执，不复制账本或发送器"
+    },
+    {
+      "prs": [
+        357,
+        360
+      ],
+      "files": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js"
+      ],
+      "requirement": "新357已修120/30夹具；保留360的125/25同初值反例及细分断言"
+    },
+    {
+      "prs": [
+        361,
+        364,
+        365,
+        356
+      ],
+      "files": [
+        "V6_BO/src/core/paper-application-service.js",
+        "V6_BO/src/core/market-data-center.js"
+      ],
+      "requirement": "364/365均依赖361；接356 publish时显式传递validateBeforeWrite至最终fsync/close后beforeRename；保留只读拒绝/对账/防御/原锁"
+    },
+    {
+      "prs": [
+        359,
+        365
+      ],
+      "files": [
+        "V6_BO/src/core/private-risk-feishu-delivery.js"
+      ],
+      "requirement": "保留严格回执分类与schema3身份/回滚防重发；不可降schema或删历史恢复"
+    }
+  ],
+  "limitations": [
+    "仅整理暂停前已得证据，没有新增代码或测试。",
+    "草稿、目录声明和历史测试不等于当前完整交付；本delta未核验新头远端CI全状态。",
+    "最终接续聊天由用户选定，不把此前总管名称擅定为接续聊天。"
+  ],
+  "evidenceFiles": [
+    "latest-delta-source/pr-snapshots.json",
+    "latest-delta-source/source-manifest.json",
+    "latest-delta-source/wiring-patches.json",
+    "latest-delta-source/FAYO_DEEP_RESEARCH_20261126.md",
+    "latest-delta-source/docs__validation__fayo-deep-research-20261126__README.md"
+  ]
+}
