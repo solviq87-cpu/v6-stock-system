@@ -76,7 +76,7 @@ function projectEcbCsv(csv,{currency,start,end,observedAt}){
   verifiedExternal:false,verifiedLive:false,canTrade:false,canNotify:false,
   warning:'ECB每日参考汇率并非可成交实时外汇价；观测日不是发布时间，不按15秒内实时报价使用。缺失观测保持null。'};
 }
-async function collectEcbFxRate({currency,start,end,now=Date.now(),timeoutMs=10000,fetchImpl=globalThis.fetch}={}){
+async function collectEcbFxRate({currency,start,end,clock=Date.now,now=clock(),timeoutMs=10000,fetchImpl=globalThis.fetch}={}){
  validate({currency,start,end,now,timeoutMs});
  if(typeof fetchImpl!=='function')throw Error('ECB采集器缺少合法fetch');
  const url=new URL('/service/data/EXR/D.'+currency+'.EUR.SP00.A',ENDPOINT);
@@ -100,6 +100,8 @@ async function collectEcbFxRate({currency,start,end,now=Date.now(),timeoutMs=100
  }else{
   raw=await response.text();if(Buffer.byteLength(raw)>512*1024)throw Error('ECB CSV超过512KiB');
  }
- return projectEcbCsv(raw,{currency,start,end,observedAt:now});
+ const observedAt=clock();
+ if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('ECB接收时钟无效或早于请求');
+ return {...projectEcbCsv(raw,{currency,start,end,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
 }
 module.exports={validate,parseCsv,projectEcbCsv,collectEcbFxRate};

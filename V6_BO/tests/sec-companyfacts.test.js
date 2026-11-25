@@ -82,3 +82,16 @@ test('429 denial, invalid JSON, wrong content-type and oversized responses fail 
   ok:true,headers:{get:k=>k==='content-length'?'50000000':'application/json'},body:Readable.from(['{}'])
  })}),/超过限制/);
 });
+
+test('18/22 SEC filing date remains distinct from actual local body receipt',async()=>{
+ let receiptClock=now;
+ const make=()=>({ok:true,headers:{get:()=> 'application/json'},text:async()=>{
+  receiptClock=now+2000;return JSON.stringify(payload([row()]));
+ }});
+ const r=await collectSecCompanyFact({...cfg,clock:()=>receiptClock,fetchImpl:async()=>make()});
+ assert.equal(r.requestStartedAt,now);assert.equal(r.observedAt,now+2000);
+ assert.equal(r.records[0].filedDate,'2026-02-02');assert.equal(r.records[0].firstPublicAvailableAt,null);
+ assert.equal(r.pointInTimeBacktestReady,false);assert.equal(r.canTrade,false);
+ for(const invalid of [now-1,NaN,Infinity])await assert.rejects(()=>collectSecCompanyFact({...cfg,
+  clock:()=>invalid,fetchImpl:async()=>make()}),/接收时钟/);
+});

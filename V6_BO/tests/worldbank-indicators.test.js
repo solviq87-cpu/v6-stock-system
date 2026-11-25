@@ -53,3 +53,19 @@ test('partial/paginated or inflated World Bank responses are not accepted',async
  await assert.rejects(()=>run([{pages:2},[]]),/分页/);
  await assert.rejects(()=>run(body([['2023',1],['2024',2],['2025',3],['2026',4]])),/分页/);
 });
+
+test('18/22 World Bank observation uses body receipt, not request start or data year',async()=>{
+ let receiptClock=now;
+ const make=()=>({ok:true,headers:{get:()=> 'application/json'},text:async()=>{
+  receiptClock=now+2000;return JSON.stringify(body([['2023',0],['2024',null]]));
+ }});
+ const r=await collectWorldBankIndicator({...cfg,clock:()=>receiptClock,fetchImpl:async()=>make()});
+ assert.equal(r.requestStartedAt,now);assert.equal(r.observedAt,now+2000);
+ assert.ok(r.rows.every(row=>row.collectorObservedAt===r.observedAt&&row.providerPublishedAt===null));
+ assert.deepEqual(r.rows.map(row=>row.value),[0,null]);assert.equal(r.publicationVintageVerified,false);
+ assert.equal(r.canTrade,false);
+ for(const invalid of [now-1,NaN,Infinity]){
+  await assert.rejects(()=>collectWorldBankIndicator({...cfg,clock:()=>invalid,fetchImpl:async()=>make()}),/接收时钟/);
+  assert.throws(()=>parseWorldBankResponse(body([['2023',0]]),{...cfg,observedAt:Number.isFinite(invalid)?0:invalid}),/接收时钟/);
+ }
+});

@@ -85,7 +85,8 @@ async function boundedJson(response,maxBytes=12*1024*1024){
  try{return JSON.parse(raw);}catch{throw Error('SEC返回无效JSON');}
 }
 async function collectSecCompanyFact(args={}){
- const opt=validate(args);
+ const clock=args.clock??Date.now;
+ const opt=validate({...args,now:args.now===undefined?clock():args.now});
  const fetchImpl=args.fetchImpl??globalThis.fetch;
  const timeoutMs=args.timeoutMs??12000;
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<250||timeoutMs>20000)
@@ -94,6 +95,8 @@ async function collectSecCompanyFact(args={}){
  const response=await fetchImpl(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(timeoutMs),
   headers:{Accept:'application/json','User-Agent':opt.userAgent}});
  const data=await boundedJson(response);
- return projectCompanyFact(data,opt);
+ const observedAt=clock();
+ if(!Number.isSafeInteger(observedAt)||observedAt<opt.now)throw Error('SEC接收时钟无效或早于请求');
+ return {...projectCompanyFact(data,{...opt,now:observedAt}),requestStartedAt:opt.now,observationTimeBasis:'local-body-receipt'};
 }
 module.exports={validate,projectCompanyFact,boundedJson,collectSecCompanyFact};

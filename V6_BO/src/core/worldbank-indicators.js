@@ -18,6 +18,7 @@ function validate({country,indicator,startYear,endYear,now=Date.now()}={}){
   throw Error('世界银行数据国家、指标、时间区间或采集时钟不合法');
 }
 function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,observedAt}){
+ if(!Number.isSafeInteger(observedAt)||observedAt<=0)throw Error('World Bank接收时钟无效');
  if(!Array.isArray(payload)||payload.length!==2||!Array.isArray(payload[1])||
   payload[1].length>endYear-startYear+1||Number(payload[0]?.pages)!==1)
   throw Error('World Bank指标响应结构或分页越界');
@@ -44,7 +45,7 @@ function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,obs
   tradable:false,canTrade:false,canNotify:false,verifiedLive:false,verifiedExternal:false,
   warning:'World Bank官方API的数值和年份不是市场实时行情，公布/修订历史未知；必须按数据集许可署名，不可用于回测中的未来信息'};
 }
-async function collectWorldBankIndicator({country,indicator,startYear,endYear,now=Date.now(),
+async function collectWorldBankIndicator({country,indicator,startYear,endYear,clock=Date.now,now=clock(),
  fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
  validate({country,indicator,startYear,endYear,now});
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<250||timeoutMs>20000)
@@ -72,6 +73,8 @@ async function collectWorldBankIndicator({country,indicator,startYear,endYear,no
   if(Buffer.byteLength(str)>128*1024)throw Error('World Bank响应超过128KiB');
   bytes=str;
  }
- return parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt:now});
+ const observedAt=clock();
+ if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('World Bank接收时钟无效或早于请求');
+ return {...parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
 }
 module.exports={validate,parseWorldBankResponse,collectWorldBankIndicator};
