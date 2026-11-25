@@ -6,7 +6,7 @@
   "owner": null,
   "generation": 2,
   "startedAt": null,
-  "checkpointBranch": "integration/fayo-unified-remaining-20261126",
+  "checkpointBranch": "fix/fayo-paused-account-safety-bridge-20261126",
   "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
   "blockedFingerprint": null,
   "completion": false,
@@ -20,5 +20,8 @@
     "previousStartedAt": "2026-11-25T18:13:12Z",
     "previousBlobSha": "289feb254d21491cf71160a39589ef96f4551769",
     "previousExecutionStoppedVerified": false
-  }
+  },
+  "checkpointSha": "3c1b7e4d3d0ec51a54df8a24d90b141e5b6a5dfc",
+  "checkpointPr": 368,
+  "checkpointNote": "Existing isolated integration candidate; CI and final dev merge pending. Continue by verifying current exact head and read-only recovery records. This does not authorize production release or take ownership."
 }
