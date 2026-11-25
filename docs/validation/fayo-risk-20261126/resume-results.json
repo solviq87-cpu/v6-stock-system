@@ -367,5 +367,9 @@
     "PR356 numeric-symbol reconciliation compatibility and PR356/361 publish callback scope",
     "Trusted receiver-confirmation adapter, production/private gateway evidence, iOS/Android device testing",
     "Final coordinator combined SHA regression and existing sole release process"
-  ]
+  ],
+  "implementationCommitScope": "local-git; exact tree verified against GitHub counterpart",
+  "githubImplementationCommit": "0a1d4db3579acf49c41414fcba126b36783ceb1c",
+  "implementationTree": "aa5e56d8ac89ff9cebba1a66533ff63ad5ed58af",
+  "pauseHandoff": "pause-handoff.json"
 }
