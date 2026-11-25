@@ -40,3 +40,46 @@ test('replica, absent inputs, future writer times and insufficient samples canno
  for(const id of ['risk-observation','plan-observer','history-financial','feedback'])assert.equal(row(r,id).status,'unconfigured');
  assert.equal(row(r,'task/trendScan').status,'unverified');assert.equal(row(r,'task/trendScan').lastAttemptAt,null);
 });
+
+test('explicit source conflicts cannot certify current or closed-session observations',()=>{
+ for(const flag of [{sourceConflict:true},{conflict:true},{evidenceStatus:'conflict'},{quoteStatus:'conflict'}]){
+  for(const trading of [true,false]){
+   const input={now,session:{trading},quoteRows:[quote(flag)]};
+   const actual=row(buildSystemReadiness(input),'quotes');
+   assert.equal(actual.status,'missing-data');assert.equal(actual.reasonCodes[0],'QUOTE_SOURCE_CONFLICT');
+   assert.equal(actual.coverage.conflictingRows,1);assert.equal(actual.coverage.invalidOrUnknown,1);
+   assert.equal(actual.coverage.recentOriginal,0);assert.equal(actual.coverage.datedHistorical,0);
+   assert.equal(actual.latestOriginalQuoteAt,null);assert.equal(actual.lastSuccessAt,null);
+   assert.equal(actual.tradePermissionCertified,false);
+  }
+ }
+ const mixed=row(buildSystemReadiness({now,session:{trading:true},quoteRows:[quote(),quote({sourceConflict:true,quoteAt:now-1,receivedAt:now})]}),'quotes');
+ assert.equal(mixed.status,'missing-data');assert.equal(mixed.coverage.recentOriginal,1);assert.equal(mixed.coverage.conflictingRows,1);
+ assert.equal(mixed.latestOriginalQuoteAt,now-15000);assert.equal(mixed.lastSuccessAt,now-100);
+});
+
+test('a completed yielding periodic task needs its own success receipt, not an older or impossible timestamp',()=>{
+ const inspect=patch=>row(buildSystemReadiness({now,taskRows:{trendScan:{ok:true,done:'yield',lastAttemptAt:now-10,lastSuccessAt:now-10,...patch}}}),'task/trendScan');
+ assert.equal(inspect({}).status,'normal');
+ const older=inspect({lastSuccessAt:now-100});assert.equal(older.status,'unverified');
+ assert.equal(older.lastSuccessAt,now-100);assert.equal(older.reasonCodes[0],'TASK_CURRENT_SUCCESS_UNVERIFIED');
+ for(const lastSuccessAt of [now-5,now+1]){
+  const bad=inspect({lastSuccessAt});assert.equal(bad.status,'unverified');assert.equal(bad.lastSuccessAt,null);
+  assert.equal(bad.reasonCodes[0],'TASK_RECEIPT_TIME_CONFLICT');
+ }
+ const missing=inspect({lastSuccessAt:null});assert.equal(missing.status,'unverified');assert.equal(missing.lastSuccessAt,null);
+ const failed=inspect({ok:false,done:'fail',lastSuccessAt:now-5});assert.equal(failed.status,'failed');assert.equal(failed.lastSuccessAt,null);
+ const empty=inspect({done:'empty',lastSuccessAt:now-100});assert.equal(empty.status,'missing-data');assert.equal(empty.lastSuccessAt,now-100);
+ const noAttempt=inspect({lastAttemptAt:null});assert.equal(noAttempt.status,'unverified');assert.equal(noAttempt.lastSuccessAt,null);
+});
+
+test('risk health requires both original account checks to belong to the completed observation',()=>{
+ const inspect=patch=>row(buildSystemReadiness({now,risk:{lastObservedAt:now-20,accountChecks:{pool:now-30,pre:now-25},...patch}}),'risk-observation');
+ assert.equal(inspect({}).status,'normal');
+ for(const checks of [{pool:now-30},{pool:now-10,pre:now-25},{pool:now-30,pre:now+1}]){
+  const actual=inspect({accountChecks:checks});assert.equal(actual.status,'unverified');
+  assert.equal(actual.reasonCodes[0],'RISK_ACCOUNT_RECEIPTS_UNVERIFIED');
+  assert.equal(actual.lastSuccessAt,now-20);assert.equal(actual.riskSafetyCertified,false);
+ }
+ assert.equal(inspect({accountErrors:{pre:'private /tmp/account'}}).status,'failed');
+});
