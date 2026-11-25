@@ -1,0 +1,718 @@
+{
+  "schemaVersion": 1,
+  "repository": "solviq87-cpu/v6-stock-system",
+  "pr": 358,
+  "tasks": [
+    11,
+    15,
+    16,
+    17,
+    19,
+    27
+  ],
+  "sourceCommit": "0fce9504e45777cb2d959da2f9b158e0166af581",
+  "sourceTree": "d85c919624aa1303f702be0143376c3613fc0778",
+  "baselineDev": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "previousPrHead": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+  "handoffState": "paused-by-user-after-saving-results",
+  "sourceEditedAfterFreeze": false,
+  "environment": {
+    "node": "24.22.3",
+    "chromium": "158.0.8127.0",
+    "viewports": "CSS viewports; not physical devices"
+  },
+  "scope": "Isolated source verification. Synthetic archives and model fixtures are not live market data, real fills or production model acceptance.",
+  "fullRegression": {
+    "command": "RUNNER_TEMP=/tmp V6_MODEL_PYTHON=\"$CODEX_PRIMARY_RUNTIME_PYTHON\" V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test",
+    "exitCode": 0,
+    "tapComplete": true,
+    "tests": 5072,
+    "pass": 5068,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "todo": 0,
+    "durationMs": 338207.195168,
+    "skippedCases": [
+      "ok 1280 - actual PowerShell wrapper handles paths with spaces, opens only a verified page, and cleans temporary controls # SKIP",
+      "ok 2259 - 五类模型通过同一研究入口、筛选条件和成本账本完成比较 # SKIP 需要 requirements-models-optional.txt",
+      "ok 2499 - 可选 lightgbm 对含负收益标签的固定数据产生确定性回归输出 # SKIP lightgbm 未安装；安装 tools/requirements-models-optional.txt 后运行",
+      "ok 2501 - 可选 xgboost 对含负收益标签的固定数据产生确定性回归输出 # SKIP xgboost 未安装；安装 tools/requirements-models-optional.txt 后运行"
+    ]
+  },
+  "targeted": {
+    "command": "node --test tests/fayo-evidence-continuation-authority.test.js tests/fayo-evidence-continuation-backend.test.js tests/fayo-evidence-continuation-client.test.mjs tests/fayo-nextplan-checks.test.js",
+    "tests": 27,
+    "pass": 27,
+    "fail": 0,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "otherChecks": [
+    {
+      "command": "npm run check",
+      "exitCode": 0
+    },
+    {
+      "command": "node V6_BO/tests/full-server-isolated-smoke.js",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run audit:password",
+      "exitCode": 0
+    }
+  ],
+  "nativeBrowser": {
+    "command": "node scripts/fayo-browser-check.js",
+    "exitCode": 0,
+    "scope": "real new FAYO modules and CSS; synthetic isolated HTTP only; no actual account/market/physical-device certification",
+    "scenarioCount": 8,
+    "requestCount": 520,
+    "resourceCount": 504,
+    "screenshotCount": 46,
+    "scenarios": [
+      {
+        "width": 320,
+        "metrics": {
+          "width": 320,
+          "scrollWidth": 320,
+          "duplicateIds": [],
+          "docks": 1,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [
+            {
+              "tag": "BUTTON",
+              "cls": "",
+              "right": 325,
+              "width": 58
+            },
+            {
+              "tag": "BUTTON",
+              "cls": "",
+              "right": 406,
+              "width": 95
+            }
+          ],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 10,
+            "right": 145,
+            "top": 0,
+            "bottom": 57,
+            "width": 135,
+            "height": 57
+          }
+        },
+        "requests": 46,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "width": 390,
+        "metrics": {
+          "width": 390,
+          "scrollWidth": 390,
+          "duplicateIds": [],
+          "docks": 1,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [
+            {
+              "tag": "BUTTON",
+              "cls": "",
+              "right": 406,
+              "width": 95
+            }
+          ],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 10,
+            "right": 215,
+            "top": 0,
+            "bottom": 57,
+            "width": 205,
+            "height": 57
+          }
+        },
+        "requests": 162,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "width": 402,
+        "metrics": {
+          "width": 402,
+          "scrollWidth": 402,
+          "duplicateIds": [],
+          "docks": 1,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [
+            {
+              "tag": "BUTTON",
+              "cls": "",
+              "right": 406,
+              "width": 95
+            }
+          ],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 10,
+            "right": 227,
+            "top": 0,
+            "bottom": 57,
+            "width": 217,
+            "height": 57
+          }
+        },
+        "requests": 53,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "width": 768,
+        "metrics": {
+          "width": 768,
+          "scrollWidth": 768,
+          "duplicateIds": [],
+          "docks": 0,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [
+            {
+              "tag": "TABLE",
+              "cls": "fy-table",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "THEAD",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TR",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TH",
+              "cls": "",
+              "right": 801,
+              "width": 52.59375
+            },
+            {
+              "tag": "TBODY",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TR",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TD",
+              "cls": "",
+              "right": 801,
+              "width": 52.59375
+            },
+            {
+              "tag": "BUTTON",
+              "cls": "fy-button quiet",
+              "right": 789.40625,
+              "width": 34
+            },
+            {
+              "tag": "TR",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TD",
+              "cls": "",
+              "right": 801,
+              "width": 52.59375
+            },
+            {
+              "tag": "BUTTON",
+              "cls": "fy-button quiet",
+              "right": 789.40625,
+              "width": 34
+            },
+            {
+              "tag": "TR",
+              "cls": "",
+              "right": 801,
+              "width": 760
+            },
+            {
+              "tag": "TD",
+              "cls": "",
+              "right": 801,
+              "width": 52.59375
+            },
+            {
+              "tag": "BUTTON",
+              "cls": "fy-button quiet",
+              "right": 789.40625,
+              "width": 34
+            }
+          ],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 10,
+            "right": 565,
+            "top": 0,
+            "bottom": 57,
+            "width": 555,
+            "height": 57
+          }
+        },
+        "requests": 42,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "width": 1366,
+        "metrics": {
+          "width": 1366,
+          "scrollWidth": 1366,
+          "duplicateIds": [],
+          "docks": 0,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 17,
+            "right": 166.765625,
+            "top": 9,
+            "bottom": 49.984375,
+            "width": 149.765625,
+            "height": 40.984375
+          }
+        },
+        "requests": 154,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "width": 1920,
+        "metrics": {
+          "width": 1920,
+          "scrollWidth": 1920,
+          "duplicateIds": [],
+          "docks": 0,
+          "iframeCount": 0,
+          "oldShells": 0,
+          "offenders": [],
+          "reviewOverflow": [],
+          "brand": "绯曜 FAYO\n投资研究空间\n大盘\n机会\n我的票\n提醒\n复盘",
+          "brandBox": {
+            "left": 17,
+            "right": 166.765625,
+            "top": 9,
+            "bottom": 49.984375,
+            "width": 149.765625,
+            "height": 40.984375
+          }
+        },
+        "requests": 45,
+        "checks": [
+          "new-native-shell",
+          "five-workspaces",
+          "workflow-board",
+          "source-date",
+          "three-period-chart",
+          "older-history",
+          "focus-return",
+          "local-filter",
+          "weekend-retention",
+          "accounting-schema",
+          "no-automatic-writes",
+          "revocation-clears",
+          "no-external-egress"
+        ]
+      },
+      {
+        "kind": "readonly",
+        "width": 390,
+        "checks": [
+          "restricted-features-explained",
+          "no-private-endpoint-attempt",
+          "valid-reader-session-retained",
+          "native-identity-switch",
+          "prior-session-and-views-cleared"
+        ]
+      },
+      {
+        "kind": "fresh-login",
+        "width": 390,
+        "checks": [
+          "new-gate",
+          "wrong-password-denied",
+          "real-login-form",
+          "token-only-persistence",
+          "password-cleared"
+        ]
+      }
+    ]
+  },
+  "decisionBrowser": {
+    "command": "node scripts/fayo-decision-browser-check.js",
+    "exitCode": 0,
+    "result": {
+      "fixtureOnly": true,
+      "backend": "native decisionCenterInput / buildDecisionCenter",
+      "day": "2026-11-16",
+      "environment": {
+        "node": "v24.22.3",
+        "timeZone": "America/Los_Angeles",
+        "tz": null
+      },
+      "views": [
+        {
+          "width": 1366,
+          "height": 900,
+          "path": "/",
+          "firstPlanMs": 1106,
+          "shape": {
+            "titleTop": 346.03125,
+            "planBottom": 590.265625,
+            "checklistTop": 827.25,
+            "checklistBottom": 845.390625,
+            "usableBottom": 900,
+            "height": 900,
+            "overflow": 0
+          },
+          "linkedCode": "600001",
+          "linkedDay": "2026-11-16",
+          "scrollRestored": true,
+          "horizontalScrollRestored": true,
+          "savedHorizontal": 0,
+          "reasoningRestored": true,
+          "sectorBeyondBrief": true,
+          "sectorPickerAligned": true,
+          "sectorDisclosurePreserved": true,
+          "fundsOriginalTimeUnknown": true,
+          "executionStates": [
+            "not-planned",
+            "waiting-condition",
+            "frozen"
+          ],
+          "linkingPaperMutations": 0,
+          "paperMutations": 3,
+          "errors": []
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "path": "/m",
+          "firstPlanMs": 685,
+          "shape": {
+            "titleTop": 337,
+            "planBottom": 549.578125,
+            "checklistTop": 752.15625,
+            "checklistBottom": 768.65625,
+            "usableBottom": 783.3125,
+            "height": 844,
+            "overflow": 0
+          },
+          "linkedCode": "600001",
+          "linkedDay": "2026-11-16",
+          "scrollRestored": true,
+          "horizontalScrollRestored": true,
+          "savedHorizontal": 326,
+          "reasoningRestored": true,
+          "sectorBeyondBrief": true,
+          "sectorPickerAligned": true,
+          "sectorDisclosurePreserved": true,
+          "fundsOriginalTimeUnknown": true,
+          "executionStates": [
+            "not-planned",
+            "waiting-condition",
+            "frozen"
+          ],
+          "linkingPaperMutations": 0,
+          "paperMutations": 3,
+          "errors": []
+        }
+      ],
+      "rejections": [
+        {
+          "path": "/",
+          "case": "tampered-plan",
+          "text": "今天空仓，等待信号\n\n后台候选的原始报价或完整计划未通过复核，等待更新。"
+        },
+        {
+          "path": "/",
+          "case": "stale-package",
+          "text": "今天空仓，等待信号\n\n后台决策日期或时点已失效，等待重新核验。"
+        },
+        {
+          "path": "/m",
+          "case": "tampered-plan",
+          "text": "今天空仓，等待信号\n\n后台候选的原始报价或完整计划未通过复核，等待更新。"
+        },
+        {
+          "path": "/m",
+          "case": "stale-package",
+          "text": "今天空仓，等待信号\n\n后台决策日期或时点已失效，等待重新核验。"
+        }
+      ],
+      "races": [
+        {
+          "path": "/",
+          "status": "old stock reply rejected; selected code and day retained"
+        },
+        {
+          "path": "/m",
+          "status": "old stock reply rejected; selected code and day retained"
+        }
+      ],
+      "conditionalOrders": [
+        {
+          "path": "/",
+          "code": "600001",
+          "day": "2026-11-16",
+          "status": "cancelled",
+          "createdAt": 1794808800000,
+          "explicitCreate": true,
+          "explicitCancel": true,
+          "originalAccountLedgerUnchanged": true,
+          "actions": [
+            "preparePlan",
+            "queuePlan",
+            "cancelConditionalOrder"
+          ]
+        },
+        {
+          "path": "/m",
+          "code": "600001",
+          "day": "2026-11-16",
+          "status": "cancelled",
+          "createdAt": 1794808807000,
+          "explicitCreate": true,
+          "explicitCancel": true,
+          "originalAccountLedgerUnchanged": true,
+          "actions": [
+            "preparePlan",
+            "queuePlan",
+            "cancelConditionalOrder"
+          ]
+        }
+      ],
+      "privateViews": [
+        {
+          "path": "/",
+          "width": 1366,
+          "privateReads": 0,
+          "privateExecutionRows": 0
+        },
+        {
+          "path": "/m",
+          "width": 390,
+          "privateReads": 0,
+          "privateExecutionRows": 0
+        }
+      ],
+      "ledgerUnchanged": true,
+      "passed": true
+    }
+  },
+  "researchBrowser": {
+    "command": "node scripts/fayo-research-discipline-browser-check.js",
+    "exitCode": 0,
+    "scope": "native modules, synthetic read-only APIs and optional-model fixtures; timings are local interaction measurements, not production or live-model certification",
+    "results": [
+      {
+        "width": 1366,
+        "passed": true,
+        "timings": {
+          "archiveAndRuleExplanationMs": 421,
+          "modelStatusMs": 115,
+          "failedModelFallbackMs": 114,
+          "changedQuestionMs": 74,
+          "disciplineReadMs": 81
+        },
+        "nextPlanChecks": [
+          "original incident retained",
+          "separate later-plan original fact",
+          "same-account-source-symbol binding",
+          "future receipt rejected",
+          "different rule version stays unknown",
+          "no selected next plan retains the original coverage reason",
+          "no added mutation request"
+        ]
+      },
+      {
+        "width": 390,
+        "passed": true,
+        "timings": {
+          "archiveAndRuleExplanationMs": 250,
+          "modelStatusMs": 83,
+          "failedModelFallbackMs": 50,
+          "changedQuestionMs": 65,
+          "disciplineReadMs": 73
+        },
+        "nextPlanChecks": [
+          "original incident retained",
+          "separate later-plan original fact",
+          "same-account-source-symbol binding",
+          "future receipt rejected",
+          "different rule version stays unknown",
+          "no selected next plan retains the original coverage reason",
+          "no added mutation request"
+        ]
+      }
+    ]
+  },
+  "visualReview": {
+    "method": "Read already-generated final screenshots; no new browser run",
+    "reviewed": [
+      "fayo-research-questions-region-1366.png",
+      "fayo-discipline-next-plan-region-390.png"
+    ],
+    "scope": "Native components on synthetic isolated pages; not production acceptance"
+  },
+  "priorStage": {
+    "localCommit": "94523ab3e0b8a5512fe1e08731591d026c4f2dbc",
+    "fullRegression": {
+      "tests": 5063,
+      "pass": 5059,
+      "fail": 0,
+      "skipped": 4
+    },
+    "commandTemplateBrowser": "1366/390 passed; actual temporary complete server and original CAS APIs",
+    "replayBrowser": "320/390/1440 passed; original read-only handlers and synthetic archives; 30 GET, 220px chart, zero page overflow/errors/egress",
+    "notRerunAtFinalSource": [
+      "fayo-command-evidence-browser-check.js",
+      "fayo-replay-boundaries-browser-check.js"
+    ]
+  },
+  "logDigests": [
+    {
+      "name": "full-regression-final.log",
+      "sha256": "7634ad0e17cceddbee1c221e63042a059b05c2830f890b68f88fcf7dd41cd226"
+    },
+    {
+      "name": "final-targeted.log",
+      "sha256": "55ec8e4dfb8e245288b52f3b94976c492f25bfde48c7edb800ecc6d3dc3624ad"
+    },
+    {
+      "name": "final-check.log",
+      "sha256": "43f526c8384773e831c5a33f8f1b9daa5547a75e93e33709433cf6bd79130ab8"
+    },
+    {
+      "name": "final-full-server-smoke.log",
+      "sha256": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1"
+    },
+    {
+      "name": "final-password-audit.log",
+      "sha256": "6567987074c6f60034ce1216b7be79f9ceff43e13ed40adeaf481d161127d2fb"
+    },
+    {
+      "name": "final-main-browser.log",
+      "sha256": "dba0e78e3e3f578032c6506d7b775912b8c88ad6209614fc34245597f22dd093"
+    },
+    {
+      "name": "final-decision-browser.log",
+      "sha256": "7e8ff2972d6f428de15fcaf4641287c2a372fedb1706b3ebf6b15787dda210b3"
+    },
+    {
+      "name": "final-research-browser.log",
+      "sha256": "cc84bedec5a995cdc4b77b94073dd4d04d4da3bbc92287d0fa1d266ff187395c"
+    }
+  ],
+  "remaining": [
+    "Final handoff-head GitHub checks must be read on the exact head; not borrowed from previous commits.",
+    "PR357 workspace runId / shortline target / archive revision / asOf binding remains pending-integration.",
+    "Final integrated 78-task regression, physical devices, live data, real model quality, production performance and private-volume recovery are not certified."
+  ],
+  "production": {
+    "mergedDev": false,
+    "deployed": false,
+    "realNotificationsSent": false,
+    "liveTradingEnabled": false,
+    "accountPermissionsChanged": false,
+    "existingPublisherChanged": false
+  },
+  "automationReview": "No dedicated development continuation automation found for this chat; existing automation states, including the unique publisher, were not changed."
+}
