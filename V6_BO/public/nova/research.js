@@ -187,7 +187,11 @@ function strategies(ctx){
   file.element.append(study.action('检验导入证据',async()=>request(ctx,'/api/research/strategy36',{...await file.read(),config})));root.append(study.body);
   const factors=importEvidence('公开因子输入'),factor=workbench(ctx,'因子与研究代理','展示本次行情的量价因子及可核对的输入。',[factors.element]);
   factor.action('读取代理状态',()=>request(ctx,'/api/research/agent-status'));
-  factor.action('计算公开因子',async()=>{if(factors.chosen())return request(ctx,'/api/research/public-factors',await factors.read());const x=await readAutomatic(ctx);const report=await request(ctx,'/api/research/public-factors',{schemaVersion:1,asOf:x.tradeDate,observedAt:x.asOf,tradingDates:x.tradeDates,stocks:[x.stock]});return {result:{...automaticSummary(x),adjustedFactors:report.result}};},{auto:true});root.append(factor.body);
+  // Switching into this workspace only reads the existing server observation.
+  // Explicit factor calculations, including imported evidence, remain available
+  // on the original button and use the original bounded research endpoint.
+  factor.action('读取当前因子依据',async()=>{const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),note:'已读取原始观察；点击计算公开因子执行一次研究计算'}};},{auto:true});
+  factor.action('计算公开因子',async()=>{if(factors.chosen())return request(ctx,'/api/research/public-factors',await factors.read());const x=await readAutomatic(ctx);const report=await request(ctx,'/api/research/public-factors',{schemaVersion:1,asOf:x.tradeDate,observedAt:x.asOf,tradingDates:x.tradeDates,stocks:[x.stock]});return {result:{...automaticSummary(x),adjustedFactors:report.result}};});root.append(factor.body);
   const adaptive=importEvidence('带来源与可用时点的自适应证据',1800*1024),ad=workbench(ctx,'自适应研究','比较不同市场状态下的研究表现，缺失原生证据不补造。',[adaptive.element]);
   ad.action('读取最新归档',async()=>{const a=await request(ctx,'/api/research/adaptive-latest');if(a.result)return a;const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),note:'当前量价观测 · 自适应研究按已归档样本计算'}};},{auto:true});
   ad.action('运行自适应研究',async()=>{if(adaptive.chosen())return request(ctx,'/api/research/adaptive-market',await adaptive.read());const x=await readAutomatic(ctx);return request(ctx,'/api/research/adaptive-market',{schemaVersion:1,source:'imported',version:'v6-observation-1',provider:x.provider,asOf:x.tradeDate,decisionAt:new Date(x.asOf).toISOString(),stocks:[{...x.stock,bars:x.stock.bars.map(b=>({...b,knownAt:new Date(b.knownAt).toISOString()}))}]});});root.append(ad.body);
