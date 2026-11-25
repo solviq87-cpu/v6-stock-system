@@ -4,11 +4,19 @@
 // transport. Prices are deliberately marked synthetic and never production.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+const {buildRiskWorkbench,filterRiskWorkbench}=require('../src/core/risk-workbench');
 const publicRoot=path.resolve(__dirname,'../public');
 const releaseVersion=fs.readFileSync(path.join(publicRoot,'nova/index.html'),'utf8').match(/<meta name="application-version" content="([^"]+)"/)[1];
 const output=process.env.FAYO_QA_DIR||process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-browser-'));
 fs.mkdirSync(output,{recursive:true});
 const sourceAt=Date.parse('2026-11-13T07:00:00Z');
+// A single explicitly synthetic API fixture for both native clients. The
+// authority-backed browser test lives in fayo-risk-browser-check.js.
+const riskFixture=accountId=>buildRiskWorkbench({accountId,now:sourceAt,
+ rules:{policyVersion:'synthetic-risk-policy-v1',generatedAt:sourceAt,
+  quoteEvidence:[{symbol:'600101',quoteAt:sourceAt}],rules:[{id:'maxGrossExposurePct',label:'合成总仓位',
+   enabled:true,configurationStatus:'active',limit:100,used:120,remaining:0,exceeded:true,unit:'%',evidenceStatus:'available',missing:[]}]},
+ system:{missing:['合成隔离验证；本次未取得其他真实行情、账户和研究证据']}});
 // Model the server's original sector envelope; a receipt is not an upstream timestamp.
 const sectorFixture=(name,mainInflow,pct=null)=>({name,mainInflow,pct,source:'eastmoney',
  fundsUnit:'CNY',fundsMethod:'vendor-order-size-estimate',tradeDate:'2026-11-13',
@@ -65,6 +73,8 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
+ if(p==='/api/risk-workbench')return role==='edit'&&req.headers.authorization?
+  {ok:true,synthetic:true,result:filterRiskWorkbench(riskFixture(url.searchParams.get('account')||'pool'),url.searchParams.get('code'))}:{ok:false,error:'私人风险仅编辑身份可读'};
  if(p==='/api/fast-stock-moves'){
   const fast=state().fastStockMoves;
   return {schemaVersion:1,servedAt:Date.now(),trading:false,isSnapshot:true,
@@ -439,6 +449,13 @@ const runChecks=async()=>{
    await page.keyboard.press('Escape');
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    if(width<500)assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5);
+   const summary=page.locator('.fy-home-layout > [data-risk-summary]');
+   const headlineRisk=summary.locator('[data-risk-root="rule/maxGrossExposurePct"]');
+   await headlineRisk.waitFor({state:'visible'});
+   assert.equal(await headlineRisk.getAttribute('data-risk-id'),riskFixture('pool').risks.find(r=>r.rootCauseId==='rule/maxGrossExposurePct').id);
+   assert.equal(await headlineRisk.getAttribute('data-risk-level'),'3');
+   assert.match(await headlineRisk.innerText(),/动作被阻止|原风险门禁限制新增敞口/);
+   assert.match(await summary.innerText(),/无法评估/,'missing inputs stay unknown in the same homepage summary');
    const metrics=await geometry(page,'pulse-'+width);
    const regions=await page.locator('.fy-home-layout').evaluate(home=>{
     const box=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width};};
@@ -891,7 +908,7 @@ const runChecks=async()=>{
   await readPage.waitForFunction(()=>document.querySelector('.fy-main')?.textContent.includes('需要开发者权限'));
   assert.equal(await readPage.locator('.fy-header').isVisible(),true,'a restricted tool does not log out an otherwise valid reader');
   const readerRequests=requests.slice(readerStart);
-  assert.equal(readerRequests.filter(r=>['/api/holdings','/api/config','/api/wash-trend','/api/paper','/api/lock/devices'].includes(r.path)).length,0,'viewer navigation never attempts protected operations');
+  assert.equal(readerRequests.filter(r=>['/api/holdings','/api/config','/api/wash-trend','/api/paper','/api/lock/devices','/api/risk-workbench'].includes(r.path)).length,0,'viewer navigation never attempts protected operations');
   await readPage.screenshot({path:path.join(output,'fayo-readonly-390.png'),fullPage:false});
   await readPage.getByRole('button',{name:'账户与授权',exact:true}).click();
   await readPage.getByRole('dialog',{name:'身份与访问',exact:true}).getByRole('button',{name:'切换登录身份',exact:true}).click();

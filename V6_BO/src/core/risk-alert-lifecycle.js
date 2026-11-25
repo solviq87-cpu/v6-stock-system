@@ -211,6 +211,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       const viewed = actorKey ? group.viewedBy[actorKey] || null : null;
       return {...clone(group), viewedBy: undefined, viewedAt: viewed?.at || null,
         viewed: Boolean(viewed && viewed.revision === group.revision), mutedUntil, muted: mutedUntil > now,
+        rootMutedUntil: group.mutedUntil || null, categoryMutedUntil: categoryMute || null,
         notificationEventId: event.id, notification: {...deliveryView(delivery, now),
           admissionStatus:admission?.status||null,admissionReason:admission?.reason||null,
           admissionAt:admission?.at||null,retryAt:admission?.retryAt||null,automaticTransportRetry:false},restrictionsStillApply: true,
