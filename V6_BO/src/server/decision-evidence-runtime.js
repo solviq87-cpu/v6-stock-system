@@ -21,7 +21,7 @@ function selectActivePlans(plans,book,day){
 function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArchive,readContext,
   observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory}) {
   let plans=[],loadedAt=0,epoch=0,observing=false,collecting=false,historyKey='',attempts=0,nextHistoryAt=0;
-  const state={status:'waiting',lastObservedAt:null,planCount:0,activePlanCount:0,lastError:null,
+  const state={status:'waiting',lastObservedAt:null,lastAttemptAt:null,lastSuccessAt:null,planCount:0,activePlanCount:0,lastError:null,
     history:{status:typeof collectHistory==='function'?'waiting':'delegated',owner:typeof collectHistory==='function'?'legacy-optional':'decision-center-background',day:null,attempts:0}};
   const status=()=>({...state,history:{...state.history},privateChannel:privateReady()?'configured':'unconfigured',
     observationOnly:true,accountMutated:false});
@@ -30,7 +30,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     if(observing||!isPrimary())return status();
     const initial=session(clock());
     if(!initial.continuous)return status();
-    observing=true;
+    observing=true;state.lastAttemptAt=clock();
     try{
       if(!loadedAt||clock()<loadedAt||clock()-loadedAt>=60000){
         const version=epoch,archive=await readArchive();
@@ -53,6 +53,7 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
       const committed=await store.append({records:result.records,alerts:result.alerts,now:observedAt});
       state.status=result.records.length?'observing':'missing-current-evidence';
       state.lastObservedAt=observedAt;state.lastError=null;
+      if(result.records.length)state.lastSuccessAt=observedAt;
       for(const alert of committed.alerts||[]){
         // Dedupe is committed before dispatch. Never replay an old condition
         // after restart, a missing webhook, a role change or an uncertain send.

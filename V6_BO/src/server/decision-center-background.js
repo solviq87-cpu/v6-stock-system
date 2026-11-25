@@ -7,7 +7,7 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
   let pending = false, nextAt = 0, day = '';
   let historyCache = {day:'',at:0,codes:[],cursor:0};
   const attempts = new Map();
-  const state = {running:false,lastAttempt:null,lastResult:null};
+  const state = {running:false,lastAttempt:null,lastResult:null,lastSuccessAt:null};
   const normalizeDay = value => String(value || '').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
   function due(kind, code, now) {
     const row = attempts.get(kind + '/' + code);
@@ -67,6 +67,7 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
       if(task.kind==='history'&&row.success)historyCache.codes=historyCache.codes.filter(code=>code!==task.code);
       state.lastResult={...state.lastAttempt,completedAt:clock(),status:row.success?'collected':'incomplete',
         reason:row.success?null:task.kind==='history'?'后复权独立来源或原时点证据未齐，保留原回执并退避重试':'财报原始回执未齐，保留缺项并退避重试'};
+      if(row.success)state.lastSuccessAt=state.lastResult.completedAt;
       return state.lastResult;
     } catch {
       state.lastResult={...state.lastAttempt,completedAt:clock(),status:'unavailable',reason:'研究采集暂不可用；原档案保留，15分钟后有限重试'};

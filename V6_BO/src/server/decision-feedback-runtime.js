@@ -84,7 +84,7 @@ function createDecisionFeedbackRuntime({clock=Date.now,isPrimary,enabled,session
   if([clock,isPrimary,enabled,session,readResearch,submit].some(fn=>typeof fn!=='function')||
      typeof calendar?.isOpen!=='function'||['read','reserve','complete'].some(key=>typeof store?.[key]!=='function'))
     throw Error('反馈调度缺少原研究验证接口');
-  const state={status:'waiting-close',running:false,day:null,lastAttempt:null,lastResult:null,missing:[],
+  const state={status:'waiting-close',running:false,day:null,lastAttempt:null,lastResult:null,lastSuccessAt:null,missing:[],
     automaticSubmission:true,automaticApproval:false,productionWeightsChanged:false,canTrade:false,canNotify:false};
   let busy=false,nextAt=0;
   const status=()=>({...state,missing:[...state.missing],lastAttempt:state.lastAttempt&&{...state.lastAttempt},lastResult:state.lastResult&&{...state.lastResult}});
@@ -134,6 +134,7 @@ function createDecisionFeedbackRuntime({clock=Date.now,isPrimary,enabled,session
       }
       guard();state.lastResult=store.complete(attempt,{...result,proposalFingerprint,now:clock()});
       state.status=result.status;state.missing=result.status==='insufficient-evidence'?[result.reason]:[];
+      if(result.status==='submitted')state.lastSuccessAt=state.lastResult.recordedAt;
     }catch(error){
       state.status=permitted()?'unavailable':'disabled-or-replica';state.missing=[safe(error.message||'原研究反馈暂不可用')];
       if(attempt?.reserved&&permitted()){

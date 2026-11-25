@@ -3,7 +3,7 @@
 // market observations, production accounts, or execution approvals are created.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {createPaperApplicationService,isAutomaticEntryPreview}=require('../src/core/paper-application-service');
-const {inspectPaperPlanEntry}=require('../src/core/paper-plan-entry-check');
+const {inspectPaperPlanEntry,boundedAutomaticEntryPreview}=require('../src/core/paper-plan-entry-check');
 const {observePaperPlans}=require('../src/core/paper-plan-observer');
 const {bindAuthoritativePlan}=require('../src/core/paper-decision-plan');
 const {createAutomaticInputProvenance}=require('../src/core/paper-input-provenance');
@@ -142,4 +142,30 @@ test('the worker consumer rejects changed held-stock source, original time, pric
  const x=setup(t),receipt=inspectPaperPlanEntry(x.makeInput(),x.options),copy=structuredClone(receipt);
  copy.accountPreview.riskBudget.estimatedConstraintsSatisfied=false;assert.equal(x.report(copy).previews[0].reason,'ORIGINAL_ACCOUNT_PREVIEW_UNBOUND');
  delete copy.accountPreview;assert.equal(x.report(copy).previews[0].reason,'ORIGINAL_ACCOUNT_PREVIEW_UNAVAILABLE');
+});
+
+test('each observer batch admits only bounded additional original-policy previews and preserves original plan gates',t=>{
+ const x=setup(t),before=x.files();let calls=0;
+ const options={...x.options,previewAccount:boundedAutomaticEntryPreview(input=>{calls++;return x.options.previewAccount(input);},{maxChecks:2,clock:()=>0})};
+ const excluded=x.makeInput();excluded.newsBlocked=true;
+ assert.equal(inspectPaperPlanEntry(excluded,options).allowed,false);assert.equal(calls,0);
+ for(let i=0;i<2;i++)assert.equal(inspectPaperPlanEntry(x.makeInput(),options).allowed,true);
+ for(let i=0;i<50;i++){
+  const receipt=inspectPaperPlanEntry(x.makeInput(),options);assert.equal(receipt.allowed,null);assert.match(receipt.reason,/观察预算已用尽/);
+ }
+ assert.equal(calls,2);assert.deepEqual(x.files(),before);
+ const next={...x.options,previewAccount:boundedAutomaticEntryPreview(x.options.previewAccount,{clock:()=>0})};
+ assert.equal(inspectPaperPlanEntry(x.makeInput(),next).allowed,true);assert.deepEqual(x.files(),before);
+});
+
+test('elapsed preview budget and monotonic clock failure stop further synchronous validation without changing the account',t=>{
+ for(const times of [[0,0,201],[0,10,9],[0,0,NaN]]){
+  const x=setup(t),before=x.files();let calls=0,index=0;
+  const options={...x.options,previewAccount:boundedAutomaticEntryPreview(input=>{calls++;return x.options.previewAccount(input);},
+   {clock:()=>times[Math.min(index++,times.length-1)]})};
+  assert.equal(inspectPaperPlanEntry(x.makeInput(),options).allowed,true);
+  assert.equal(inspectPaperPlanEntry(x.makeInput(),options).allowed,null);assert.equal(calls,1);assert.deepEqual(x.files(),before);
+ }
+ for(const options of [{maxChecks:21},{maxChecks:0},{maxElapsedMs:201},{maxElapsedMs:0}])
+  assert.throws(()=>boundedAutomaticEntryPreview(()=>{},options),/预算无效/);
 });

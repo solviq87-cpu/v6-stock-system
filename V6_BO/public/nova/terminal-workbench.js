@@ -355,6 +355,24 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
    h('span',{},'复盘、策略与同步')),researchBody);
   view.append(createDecisionHome(ctx),createRiskSummary(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),...(ctx.canEdit?[renderEvolutionPriority(ctx)]:[]),more);
   if(ctx.canEdit===true){
+   const readinessBody=h('div',{'aria-live':'polite'}),readinessPanel=h('details',{class:'fy-details','data-system-readiness':true},
+    h('summary',{},'系统运行就绪度'),readinessBody);
+   researchBody.append(readinessPanel);
+   const readinessLabels={normal:'本项有回执','missing-data':'数据缺项',unconfigured:'未配置／非负责实例',failed:'最近运行失败','historical-snapshot':'历史快照',unverified:'待核验'};
+   let readinessStamp='';
+   const paintReadiness=()=>{
+    if(ctx.canEdit!==true||ctx.signal?.aborted){readinessPanel.hidden=true;readinessBody.replaceChildren();readinessStamp='';return;}
+    const result=ctx.state?.systemReadiness;
+    const rows=result?.protocol==='fayo-system-readiness-v1'&&Array.isArray(result.components)?result.components:[];
+    const stamp=JSON.stringify(rows);if(stamp===readinessStamp)return;readinessStamp=stamp;
+    updateReadout(readinessBody,...(rows.length?[
+     h('p',{class:'fy-muted'},'本项运行回执不等于数据授权、策略有效或交易许可。'),
+     h('ul',{class:'fy-evidence-list'},...rows.map(row=>h('li',{},h('strong',{},row.label+' · '+(readinessLabels[row.status]||'待核验')),
+      h('small',{},'最近尝试 '+(row.lastAttemptAt?dateTime(row.lastAttemptAt):'未知')+'；最后正常回执 '+(row.lastSuccessAt?dateTime(row.lastSuccessAt):'未知')),
+      h('p',{},row.nextAction||'等待原回执'))))
+    ]:[empty('原运行回执尚未取得','当前版本或资料尚未接入；不把未知显示为正常。')]));
+   };
+   ctx.onState?.(paintReadiness);ctx.signal?.addEventListener('abort',paintReadiness,{once:true});paintReadiness();
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);
    const authorized=()=>ctx.canEdit===true&&!ctx.signal?.aborted;

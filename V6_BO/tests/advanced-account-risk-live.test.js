@@ -62,6 +62,18 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
    const denied=await request(port,'/api/research/risk-center?advanced=1',token);assert.notEqual(denied.body.ok,true);assert.equal(denied.body.result,undefined);
    const accountDenied=await request(port,'/api/research/order-account',token,'POST',{action:'reconcile',accountId:'pool'});assert.notEqual(accountDenied.body.ok,true);
   }
+  for(const token of ['',viewer]){
+   const denied=await request(port,'/api/system/readiness',token);assert.notEqual(denied.body.ok,true);assert.equal(denied.body.result,undefined);
+  }
+  assert.equal((await request(port,'/api/system/readiness',editor,'POST')).status,405);
+  const ready=await request(port,'/api/system/readiness',editor);
+  assert.equal(ready.status,200);assert.equal(ready.body.ok,true);assert.match(ready.headers['cache-control'],/no-store/);
+  assert.equal(ready.body.result.protocol,'fayo-system-readiness-v1');assert.equal(ready.body.result.canTrade,false);
+  assert.ok(ready.body.result.components.some(x=>x.id==='worker-budget'));
+  assert.ok(ready.body.result.dependencies.every(x=>x.ready===false));
+  const again=await request(port,'/api/system/readiness',editor);
+  assert.deepEqual(again.body.result.components.map(x=>x.lastSuccessAt),ready.body.result.components.map(x=>x.lastSuccessAt));
+  assert.doesNotMatch(JSON.stringify(ready.body),new RegExp(privateDir.replace(/[.*+?^${}()|[\]\\]/g,'\\  assert.equal((await request(port,'/api/research/risk-center?advanced=1',editor,'POST')).status,405);')));
   assert.equal((await request(port,'/api/research/risk-center?advanced=1',editor,'POST')).status,405);
   const read=await request(port,'/api/research/risk-center?advanced=1&root=/tmp/forged&historyRoot=/tmp/forged&portfolioContext=forged',editor);
   assert.equal(read.status,200,JSON.stringify(read.body));assert.match(read.headers['cache-control'],/no-store/);

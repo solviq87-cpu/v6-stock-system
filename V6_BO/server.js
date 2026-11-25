@@ -4571,6 +4571,9 @@ function taskSet(name, patch) {
     else { nx.done = 'empty'; if (!nx.empty) nx.empty = emptyWhyOf('unknown'); }
   } else if (nx.ok === false) { nx.done = 'fail'; nx.empty = ''; }
   else { nx.done = 'skip'; nx.empty = ''; }
+  // Record actual task outcomes at the original writer, never at a dashboard GET.
+  if(patch.ok===true||patch.ok===false)nx.lastAttemptAt=nx.t;
+  if(patch.ok===true&&nx.done==='yield')nx.lastSuccessAt=nx.t;
   _taskState[name] = nx;
 }
 function taskState() {
@@ -4578,7 +4581,8 @@ function taskState() {
   for (const k of Object.keys(TASK_RULE)) {
     const v = _taskState[k] || { ok: null, error: '', n: 0, ms: 0, t: 0, done: '', empty: '' };
     o[k] = { name: TASK_RULE[k], ok: v.ok, error: v.error, n: v.n, ms: v.ms, t: v.t,
-             done: v.done || '', empty: v.empty || '', mark: doneOf(v.done || '') };
+             done: v.done || '', empty: v.empty || '', mark: doneOf(v.done || ''),
+             lastAttemptAt:v.lastAttemptAt??null,lastSuccessAt:v.lastSuccessAt??null };
   }
   return o;
 }
@@ -11455,6 +11459,19 @@ function sessionAuctionDisplay(session,closedDay,recovery){
   return readAuctionDisplay({session,day,index:dabankeReview.peek(day,closedDay?'收盘':'盘中')?.index,
     previousDay,previousWatch:recovery?.closeWatch,previousIndex:dabankeReview.peek(previousDay)?.index,network});
 }
+// This projection reads original in-memory receipts only. Do not instantiate
+// a worker, scan supplier networks or write an archive during a readiness GET.
+function systemReadinessFor(now=Date.now()){
+  const readStatus=runtime=>{try{return runtime?.status?.()||null;}catch{return {status:'unavailable'};}};
+  let notificationConfigured=null;try{notificationConfigured=privReady()===true;}catch{}
+  return require('./src/core/system-readiness').buildSystemReadiness({
+    now,version:APP_VER,replica:isReplica(),session:marketDisplaySession(now),
+    quoteRows:S.stocks,taskRows:taskState(),notificationConfigured,
+    risk:readStatus(_riskWorkbenchRuntime),plans:readStatus(decisionEvidenceRuntime),
+    background:readStatus(_decisionBackground),feedback:readStatus(_decisionFeedbackRuntime),
+    model:readStatus(_approvedFactorCache),
+    worker:require('./src/server/worker-admission-budget').stats()});
+}
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();
   const day=require('./src/core/closing-card-snapshot').closeDisplayDay(session,previousResearchDay);
@@ -11473,6 +11490,8 @@ function sharedMarketRead(kind,edit) {
     }
   }
   state.marketClock={day:today,trading:session.trading,nextOpenAt:require('./src/core/closing-card-snapshot').nextMarketOpenAt(session,d=>nextTradeDay(d+'T12:00:00'))};
+  // Readiness belongs to the current runtime, not a frozen market card.
+  if(edit)state.systemReadiness=systemReadinessFor();else delete state.systemReadiness;
   if(!day){
     const latest=process.env.V6_ISOLATED_BOOT_SMOKE==='1'?null:workingDistribution(session);
     const parsed=dabankeReview.peek(state.marketClock.day,'盘中')?.index?.distribution;
@@ -11644,6 +11663,8 @@ function centerEvidenceRuntime(){
       const {heldCodes,MONITOR_CAPACITY}=require('./src/core/monitor-capacity');
       const entryEligibilityByPlan={},exitEligibilityByPlan={};
       const activePlans=require('./src/server/decision-evidence-runtime').selectActivePlans(plans,book,aShareCalendarDate(now));
+      const previewAccount=require('./src/core/paper-plan-entry-check').boundedAutomaticEntryPreview(
+        input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes}));
       for(const plan of activePlans){
         const candidate=S.candidatePool.find(row=>row.code===plan.code),quote=quotes[plan.code];
         const sealedUp=Boolean(S.ztCodes?.has(plan.code)||candidate&&candidate.pct!=null&&
@@ -11657,7 +11678,7 @@ function centerEvidenceRuntime(){
         },{sealedUp,heldCount:heldCodes({...PAPER,pool:account}).length,monitorCapacity:MONITOR_CAPACITY,lot:paperLotOf(plan.code),
           feeFor:(side,amount)=>require('./src/core/trading-fees').tradingFees({side,quantity:1,price:amount,tradeDate:aShareCalendarDate(now),
             policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total,
-          previewAccount:input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes})});
+          previewAccount});
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
@@ -23738,6 +23759,12 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       .catch(()=>reply(502,{ok:false,error:'收盘补充渠道暂不可用'}));
   }
 
+  if (p === '/api/system/readiness') {
+    res.setHeader('Cache-Control','private, no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    if(req.method!=='GET'){res.writeHead(405,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify({ok:false,error:'仅允许GET'}));}
+    return json(res,{ok:true,result:systemReadinessFor()},req);
+  }
   if (p === '/api/state') {
     return json(res, sharedMarketRead('state',isEditorReq(req,'')));
   }
