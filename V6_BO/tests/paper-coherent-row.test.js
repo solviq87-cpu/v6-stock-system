@@ -88,6 +88,7 @@ test('scheduled system picks commit once to A with the same three codes as the d
  const date='2026-11-06',prices=Array.from({length:7},(_,i)=>wire({code:'60000'+i,score:90-i,
   name:i===0?'*ST排除':'测试股票'+i,paths:['温和连阳'],...(i===1?{buyHeld:true}:i===2?{riskBlocked:true}:{})}));
  x.c.PAPER_CFG.pool.maxPos=3;x.c.loadSystemPickRules=async()=>rules;
+ x.c.reviewRecommendationNews=()=>({canRecommend:true,status:'available'});
  x.c.aShareCalendarDate=(at=now)=>serverRequire('./src/core/a-share-calendar').aShareCalendarDate(at);
  vm.runInContext(section('async function followSystemPicks','async function rebuildPool'),x.c);
  const expected=['600003','600004','600005'];

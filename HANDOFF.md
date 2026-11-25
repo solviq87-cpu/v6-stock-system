@@ -14,6 +14,8 @@
 
 [账户防御隔离续接候选（待CI，非最终交付）](docs/FAYO_INTEGRATION_WIP_20261126.md) · [风险补缺及78项复核](docs/FAYO_SUPPLEMENT_REVIEW_20261126.md) · [来源真实性](V6_BO/docs/SOURCE_TRUTH_REVIEW_20261126.md) · [部署入口](DEPLOYMENT.md)
 
+- 2026-11-26 #368 接续原27及11新闻证据边界：从精确SHA的Windows CI运行包恢复隔离运行源码，移植#358最新新闻证据权威、失效/撤稿、持仓和自动跟随门禁；原账户、原quoteAt 15秒门禁、通知发送者不变。实际定向7/7通过，原0929夹具18断言通过；新增组合CI、全量与真实验收待核，未合入dev、未部署。详见现有WIP最新记录。
+
 <!-- CURRENT_CHECKPOINT_END -->
 
 ## 本地集成继承记录

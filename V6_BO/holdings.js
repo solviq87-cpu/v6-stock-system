@@ -23,7 +23,18 @@ function badTitlesJoin(news, code) {
 module.exports = function createHoldings(dep) {
   // privReady：私密通道（只有本人的机器人）是否已配置。2026-10-05 用户要求：
   //   持仓推到单独机器人群里看不到，才敢把成本/金额/股数写出来；没配就必须继续脱敏。
-  const { fs, path, dir, S, em, sseSend, sseSendEdit, pushAll, privReady, isReplica, nowDate, dataWindow } = dep;
+  const { fs, path, dir, S, em, sseSend, sseSendEdit, pushAll, privReady, isReplica, nowDate, dataWindow, newsContext } = dep;
+  // Reuse the server's current journal projection. Legacy headline caches are
+  // not evidence: an out-of-band correction must take effect without a poll.
+  const readNewsContext = () => {
+    try {
+      const news = typeof newsContext === 'function' ? newsContext() : null;
+      if (news && Array.isArray(news.goodAll) && Array.isArray(news.badAll) &&
+          typeof news.goodCodes?.has === 'function' && typeof news.badCodes?.has === 'function' &&
+          ['available','unknown'].includes(news.evidenceStatus)) return news;
+    } catch {}
+    return {evidenceStatus:'unknown',goodAll:[],badAll:[],goodCodes:new Set(),badCodes:new Set()};
+  };
   // ⛔ 可注入时钟（默认真实 Date）：watch() 用 getDay() 判「周末跳过止盈/回撤提醒」，
   //    单测若不注入就被"今天星期几"绑架（周六周日恒红、工作日恒绿）—— MEMORY §9 mute 漂红根因。
   //    生产不传 nowDate → 回落真实 Date，行为零变化。
@@ -558,13 +569,14 @@ module.exports = function createHoldings(dep) {
     const aboveMa5 = ma5 ? price > ma5 : null; // 严格站上（超过）才算站稳
     const mainIn = num(snap && snap.mainInflow);
     const mainPct = num(snap && snap.mainPct);
-    const badNews = !!(S.news && S.news.badCodes && S.news.badCodes.has(code));
+    const news = ctx?.newsContext || readNewsContext();
+    const badNews = !!(news.badCodes && news.badCodes.has(code));
     // News remains inspectable context. Title keywords cannot relax an
     // existing stop, position constraint or other price-based risk rule.
-    const goodNews = !!(S.news && S.news.goodCodes && S.news.goodCodes.has(code));
+    const goodNews = !!(news.goodCodes && news.goodCodes.has(code));
     const goodTitles = [];
-    if (goodNews && S.news.goodAll) {
-      for (const g of S.news.goodAll) {
+    if (goodNews && news.goodAll) {
+      for (const g of news.goodAll) {
         if (g && Array.isArray(g.codes) && g.codes.includes(code) && g.title) {
           goodTitles.push(String(g.title).slice(0, 60));
           if (goodTitles.length >= 2) break;
@@ -600,7 +612,7 @@ module.exports = function createHoldings(dep) {
         }],
         floatPct, profitAmt, ma5, aboveMa5, mainIn, mainPct, badNews, isLimitUp,
         locked: !!it.locked, tags: it.tags || [], drawdown: 0, hiRef: price,
-        goodNews, goodNote, suspended: true
+        goodNews, goodNote, newsStatus:news.evidenceStatus, suspended: true
       };
     }
 
@@ -731,7 +743,7 @@ module.exports = function createHoldings(dep) {
       });
 
     // ⑦ 兜底结论：什么都没触发时也要说清楚"为什么没动"，让每张卡都有明确交代
-    if (!acts.length) {
+    if (!acts.some(a => a.type !== '利好在案')) {
       const st = [];
       st.push(`浮${floatPct > 0 ? '+' : ''}${floatPct}%`);
       st.push(aboveMa5 === true ? `站上5日线${ma5}` : aboveMa5 === false ? `跌破5日线${ma5}` : '5日线暂无');
@@ -743,6 +755,11 @@ module.exports = function createHoldings(dep) {
         why: `当前状态：${st.join(' · ')}；未越过止损 ${Math.abs(stop)}% / 减仓预警 ${Math.abs(reduce)}% / 止盈 ${take}% 任何一条线`
       });
     }
+
+    if (news.evidenceStatus !== 'available')
+      acts.push({type:'新闻待核实',urgent:false,quiet:true,canNotify:false,color:'info',
+        text:'新闻证据或采集覆盖未就绪，不能据此确认消息面风险已排除。',
+        why:'沿用原行情与账户风控；失效、撤稿和未绑定的标题缓存不参与加减仓判断'});
 
     // 🔒 锁仓处理：锁定的票只做「告知」，不再给卖出类建议，也不再打扰手机
     // 这样长线仓/打板仓不会被短线止损噪音干扰，但价格、浮盈、风险信号照常显示
@@ -771,11 +788,11 @@ module.exports = function createHoldings(dep) {
     // 否则一张赚钱的票会一直挂着一个提醒状态，等于变相的持续打扰。
     // 注意：止盈虽然会推送一次手机（once），但它属中性，不把卡片标黄——
     //      真正标黄的是「回撤提醒 / 回撤止盈」，那是利润在实打实缩水。
-    const NEUTRAL = new Set(['止盈', '持有', '加仓', '已锁仓', '锁仓提示', '利好在案', '持有观察', '停牌中', '复牌待办']);
+    const NEUTRAL = new Set(['止盈', '持有', '加仓', '已锁仓', '锁仓提示', '利好在案', '新闻待核实', '持有观察', '停牌中', '复牌待办']);
     const level = acts.some(a => a.color === 'danger') ? 'danger'
       : acts.some(a => a.urgent && !NEUTRAL.has(a.type)) ? 'warn'
         : acts.some(a => !NEUTRAL.has(a.type)) ? 'info' : 'ok';
-    return { level, acts, floatPct, profitAmt, ma5, aboveMa5, mainIn, mainPct, badNews, isLimitUp, locked: !!it.locked, tags: it.tags || [], drawdown, hiRef, goodNews, goodNote: goodNote || '', suspended: false };
+    return { level, acts, floatPct, profitAmt, ma5, aboveMa5, mainIn, mainPct, badNews, isLimitUp, locked: !!it.locked, tags: it.tags || [], drawdown, hiRef, goodNews, goodNote: goodNote || '', newsStatus:news.evidenceStatus, suspended: false };
   }
 
   // ---------- 汇总计算（20秒结果缓存：面板5秒轮询不会打爆行情接口） ----------
@@ -836,15 +853,15 @@ module.exports = function createHoldings(dep) {
     // 逐股取 K 线（5日线是减仓/加仓判断的关键依据），优先走缓存
     const rowMap = new Map();
     for (const h of items) rowMap.set(h.code, await klineOf(h.code));
+    const currentNews = readNewsContext();
     let _nameDirty = false;   // 是否补到了真实名称（补到就回写，避免下次再查）
     const list = items.map(h => {
       const snap = q.get(h.code) || {};
       const quoteQuality=quoteUseEligibility(snap,_nowDate().getTime());
       const rows = rowMap.get(h.code) || [];
-      const v = verdict(h.code, snap, rows, { positionPct });
+      const v = verdict(h.code, snap, rows, { positionPct, newsContext:currentNews });
       const researchRisk=holdingEvidence({code:h.code,bars:rows,quote:snap,
-        announcements:[...(Array.isArray(S.news?.badAll)?S.news.badAll:[]),
-          ...(Array.isArray(S.news?.goodAll)?S.news.goodAll:[])],
+        announcements:[...currentNews.badAll,...currentNews.goodAll],
         now:_nowDate().getTime()});
       const patternAct=asHoldingsAct(researchRisk,{locked:!!h.locked});
       // Unlike the established price-based rules, invalid/stale pattern signals
@@ -888,8 +905,8 @@ module.exports = function createHoldings(dep) {
         badNews: v.badNews, isLimitUp: v.isLimitUp,
         // 回撤：现价距近10日高点的回落幅度，止盈提醒的触发依据（3%提醒一次 / ≥5%每30分钟）
         drawdown: v.drawdown, hiRef: v.hiRef,
-        // 事实面：当日存在针对该股的利好/停牌，参与上面的建议判定（不是只看 K 线）
-        goodNews: !!v.goodNews, goodNote: v.goodNote || '', suspended: !!v.suspended,
+        // 新闻为当前有效版本的待核实线索；停牌来自原报价状态。
+        goodNews: !!v.goodNews, goodNote: v.goodNote || '', newsStatus:v.newsStatus, suspended: !!v.suspended,
         level:quoteQuality.canNotify?v.level:'info', researchRisk, acts
       };
     });

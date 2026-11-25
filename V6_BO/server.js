@@ -4748,7 +4748,7 @@ async function followSystemPicks(picked, poolDay) {
   const {pickReasons, topSystemPicks, systemPickDay} = await loadSystemPickRules();
   const now = Date.now();
   const ranked = topSystemPicks(picked.filter(row => systemPickDay(row,poolDay,now)===tradeDay &&
-    !S.news?.badCodes?.has?.(row.code) && pickReasons(row).length));
+    reviewRecommendationNews(row,now).canRecommend && pickReasons(row).length));
   if (!ranked.length) return;
   // Use committed primary fills as the durable day+symbol marker. A rejected
   // quote, full account or failed journal commit can be retried next scan.
@@ -15920,7 +15920,7 @@ async function refreshNews() {
     if (freshGood.length && newsSession) {
       for (const x of freshGood) S.news.goodPushed.add(x.id);
       const list = freshGood.slice(0, 8);
-      pushAll('═══ 📰 利好消息·关联个股 ═══\n' + list.map(x => {
+      pushAll('═══ 📰 利好消息·关联个股 ═══\n快讯正向分类线索，未经独立核实，不作为入选或买卖依据。\n' + list.map(x => {
         // 板块间接影响个股：新闻提到的板块成分股Top4（缓存有则显示）
         const ind = [];
         for (const nm of (x.sectors || [])) {
@@ -15933,8 +15933,8 @@ async function refreshNews() {
           }
           if (ind.length >= 4) break;
         }
-        return `▪ ${x.title}\n  关联: ${x.codes.map(c => (nameOf.get(c) || '') + '(' + c + ')').join('、')}\n  选股逻辑: ${x.why || '消息面利好'}` +
-          `${ind.length ? `\n  板块间接影响(${x.sectors.join('/')}): ${ind.map(s => `${s.name} ${s.pct > 0 ? '+' : ''}${s.pct}%`).join('、')}` : ''}` +
+        return `▪ ${x.title}\n  关联: ${x.codes.map(c => (nameOf.get(c) || '') + '(' + c + ')').join('、')}\n  关键词归类（待核实）: ${x.why || '正向关键词线索'}` +
+          `${ind.length ? `\n  板块关联线索（待核实）(${x.sectors.join('/')}): ${ind.map(s => `${s.name} ${s.pct > 0 ? '+' : ''}${s.pct}%`).join('、')}` : ''}` +
           `${x.summary ? '\n  摘要: ' + x.summary : ''}`;
       }).join('\n') + (freshGood.length > 8 ? `\n…另有${freshGood.length - 8}条见面板` : ''));
     }
@@ -19665,7 +19665,8 @@ function sseSendEdit(evt, data) { _write(SSE_EDIT, evt, data); }
 // privReady 注入：持仓模块据此决定推送里要不要写金额（私密机器人已配 → 写；否则抹掉）
 // isReplica 注入给持仓模块：清空这类"最重操作"的提醒【只由线上实例发】，
 // 副本那一份必须闭嘴（2026-10-06：副本连发导致手机一次操作收到两条）。
-const HD = createHoldings({ fs, path, dir: __dirname, S, em, sseSend, sseSendEdit, pushAll, privReady, isReplica, dataWindow: isDataWindow });
+const HD = createHoldings({ fs, path, dir: __dirname, S, em, sseSend, sseSendEdit, pushAll, privReady, isReplica, dataWindow: isDataWindow,
+  newsContext: () => ({...newsEvidenceVisibleState(S).news,evidenceStatus:newsRiskSnapshotView().status}) });
 // ⛔ lc 轮（2026-10-27）：上一行 dataWindow 注入是风控"盘外不推送"闸的唯一开关 —— la/lb 发布时
 //    并行会话没带上这行，线上只有落盘去重、没有数据窗口闸（holdings.js 里 _inDataWindow 恒放行），
 //    凌晨每 30 分钟重弹照旧。删这行 = 闸永久失效，守门 _test_holdings_watch_gate 只能测模块、测不到注入。
