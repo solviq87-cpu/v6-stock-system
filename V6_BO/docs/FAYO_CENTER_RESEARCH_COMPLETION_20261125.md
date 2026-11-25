@@ -1,6 +1,6 @@
 # FAYO L1/L2 代码补齐与验证记录
 
-记录时间：2026-11-25 11:39 UTC。基线：`7427debbcda37cbf6183af6e2627fc5fad02e301`。本次只完成代码及隔离验证，不发布、不接触生产数据。
+记录日期：2026-11-25（北京时间，含 PR #349 与 #350 整合）。基线：`7427debbcda37cbf6183af6e2627fc5fad02e301`。本次只完成代码及隔离验证，不发布、不接触生产数据。
 
 ## 真实调用链
 
@@ -19,7 +19,7 @@
 
 日线的 `periodEndAt` 只表示该日 K 线的区间结束，不能当作源端发布时间。`knownAt/observedAt` 均保存实际取得时刻，`sourceTimestamp=null` 明确供应商未提供历史首次发布时间。旧校验的冻结时点保持不变；当日历史实收后可另建一个当时真实冻结的中心观察，保留 `originCheckId/originalSignalAt`。它只能预测下一交易日起的标签。
 
-采集用跨进程 `flock` 覆盖完整请求过程；同票同日完整采集幂等、失败至少间隔 15 分钟、最多三次。写入沿用私有研究档案哈希链，不修改原行情库、账户、权限、账本或生产权重。后续来源修订不会覆盖首次保留值。
+采集用跨进程 `flock` 覆盖完整请求过程；同票同日完整采集幂等、失败至少间隔 15 分钟、最多三次。在联网前将尝试写入 `attempts/<code>/` 哈希链，中途退出或撤权也计入次数。BaoStock 日历须覆盖请求范围内的每个自然日；来源必须同时满足原私有研究及受控研究开关。worker 在异步来源请求及持久写入前后重新取得主线程授权，缺 `authorize` 回调立即拒绝。写入沿用私有研究档案哈希链，不修改原行情库、账户、权限、账本或生产权重。后续来源修订不会覆盖首次保留值。
 
 ## 落选股票的翌日标签
 
@@ -55,7 +55,9 @@ Q 保留五个固定权重；未知保持 `null`。历史接收快不算当前�
 
 最少五个真实核验结算才有成本压力布尔结论；不足为 `null`。累计已结算盈亏回撤单列人民币值，没有连续账户权益时，`portfolioDrawdownPct=null`、`portfolioRiskStatus=missing-continuous-equity-evidence`。这些报告不能批准模型。
 
-实际结算投影继续通过原 `store.mjs` 的 `learn:auto-candidate` 回流，使用原五项验证，再由带当前 revision 和编辑权限的 `learn:decision` 批准。中心 IC 权重提案本身不直写该流程，`feedback.validationBridge.proposalImportSupported=false` 明确这一点；没有新增绕过原批准的权重导入协议。
+实际结算投影继续通过原 `store.mjs` 的 `learn:auto-candidate` 回流，使用原五项验证，再由带当前 revision 和编辑权限的 `learn:decision` 批准。整合 PR #349 后，中心 IC 提案也可沿同一流程导入：`feedback.validationBridge.proposalImportSupported=true`，浏览器只提交 `day/revision/proposalFingerprint`。后端在原档案锁内重算同一提案、核对获批基线及字典同名因子，再通过原五项验证、8% 变化边界和留出期不可复用规则。是否准备好由 `ready/missing` 明确给出；通过验证仍要原人工批准，读取报告不会写档或修改生产权重。
+
+研究 GET 与反馈 POST 共用 `composeCenterResearchInputs()`，完整传入 `bars/marketCalendars/frozenObservations/historyCoverage`。后补资料不能丢掉新冻结上下文后又借旧校验通过指纹。PR #349 的手动历史 CLI 及 `receipts/` 保留诊断用途；源端时点为 `null` 的旧回执仍不能替代已准入价格和冻结观察，后台不会启用第二个自动采集器。
 
 ## 依赖与验证边界
 
@@ -66,10 +68,10 @@ Q 保留五个固定权重；未知保持 `null`。历史接收快不算当前�
 验证命令：
 
 ```sh
-node --test tests/center-history.test.js tests/center-hfq-python-collector.test.js tests/intelligence-execution-validation.test.js tests/intelligence-template-library.test.js tests/intelligence-research.test.js
+node --test tests/center-history.test.js tests/center-hfq-python-collector.test.js tests/intelligence-history.test.js tests/intelligence-research.test.js tests/intelligence-template-library.test.js tests/intelligence-execution-validation.test.js tests/intelligence-feedback-bridge.test.js tests/decision-feedback-http.test.js tests/shortline-learning-engine.test.js tests/shortline-learning-quality.test.js
 ```
 
-结果：55 项 Node 测试通过、0 失败、0 跳过；其中 Python 包装项实际执行 7 个无网假 SDK 测试。涵盖真实 worker 读取路径、落选翌日任务、时点反泄漏、跨源隔离、单位、进程锁、幂等、有限重试、首次值保护、损坏/符号链接拒绝、成本、分层、重复结算与条件证据缺项。五个相关 JS 模块语法检查及 `git diff --check` 通过。
+整合后结果：104 项 Node 测试通过、0 失败、0 跳过；其中 Python 包装项实际执行 7 + 4 个无网假 SDK 测试。涵盖真实 worker 读取/授权、落选翌日任务、时点反泄漏、完整日历、跨源隔离、单位、进程锁、幂等、崩溃及撤权后尝试计数、首次值保护、损坏/符号链接拒绝、成本、分层、重复结算、同提案导入与原学习/样本质量回归。六个相关 JS 模块语法检查及 `git diff --check` 通过。
 
 供应商字段依据：
 

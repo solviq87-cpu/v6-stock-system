@@ -27,7 +27,15 @@
       "missingFlowsLeftBlank": true,
       "observedFlowCount": 2,
       "updatedClickDay": "2026-11-26",
-      "apiReads": 8,
+      "apiReads": 16,
+      "netObservationsSeparate": true,
+      "historyIntakePreserved": true,
+      "ledgerCostPressurePreserved": true,
+      "observationUnknownPreserved": true,
+      "observationZeroPreserved": true,
+      "delegatedAlertNotDelivered": true,
+      "feedbackReferenceOnly": true,
+      "feedbackApprovalRoute": "shortline-versions",
       "overflow": 0,
       "errors": []
     },
@@ -53,14 +61,23 @@
       "missingFlowsLeftBlank": true,
       "observedFlowCount": 2,
       "updatedClickDay": "2026-11-26",
-      "apiReads": 8,
+      "apiReads": 16,
+      "netObservationsSeparate": true,
+      "historyIntakePreserved": true,
+      "ledgerCostPressurePreserved": true,
+      "observationUnknownPreserved": true,
+      "observationZeroPreserved": true,
+      "delegatedAlertNotDelivered": true,
+      "feedbackReferenceOnly": true,
+      "feedbackApprovalRoute": "shortline-versions",
       "overflow": 0,
       "errors": []
     }
   ],
   "viewerPrivateReads": 0,
   "passed": true,
-  "writes": 0,
+  "unexpectedWrites": 0,
+  "fixtureFeedbackSubmissions": 2,
   "projectionChecks": [
     {
       "kind": "visuals",
@@ -128,6 +145,16 @@
       "unchanged": true
     },
     {
+      "kind": "research",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
       "kind": "visuals",
       "day": "2026-11-26",
       "unchanged": true
@@ -140,6 +167,16 @@
     {
       "kind": "visuals",
       "day": "2026-11-26",
+      "unchanged": true
+    },
+    {
+      "kind": "visuals",
+      "day": "2026-11-25",
+      "unchanged": true
+    },
+    {
+      "kind": "research",
+      "day": "2026-11-25",
       "unchanged": true
     },
     {

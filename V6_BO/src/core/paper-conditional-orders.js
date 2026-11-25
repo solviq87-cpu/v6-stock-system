@@ -18,6 +18,7 @@ const cutoff=day=>Date.parse(day+'T14:57:00+08:00');
 const idOk=id=>typeof id==='string'&&/^cond-[a-f0-9-]{36}$/.test(id);
 const safeReason=value=>String(value||'原门禁未给出可执行回执').replace(/[\r\n\x00-\x1f]/g,' ').slice(0,240);
 const accountEpoch=book=>digest((book?.archives||[]).map(period=>({revision:period.revision??null,fingerprint:period.account?.fingerprint??null})));
+const monitoringEnded=order=>order.monitoringComplete===true&&['fully-exited','account-period-ended'].includes(order.monitoringEndReason);
 
 function quoteEvidence(quote,plan,now,day){
   const at=quote?.quoteAt??quote?.timestamp,source=quote?.quoteSource??quote?.provider??quote?.source;
@@ -37,7 +38,8 @@ function publicOrder(order,now){
   return {id:order.id,planId:order.planId,code:order.code,name:order.name,day:order.day,status:order.status,
     createdAt:order.createdAt,updatedAt:order.updatedAt,expiresAt:order.expiresAt,lastReason:order.lastReason,
     canCancel:order.status==='pending'&&now<order.expiresAt,fill:order.fill||null,
-    monitoringActive:order.status==='executed'&&order.monitoringComplete!==true,
+    monitoringActive:order.status==='executed'&&!monitoringEnded(order),remainingQuantity:order.remainingQuantity??order.fill?.shares??null,
+    notificationOwner:order.notificationOwner||'plan-observer',
     observations:clone(order.observations),coverage:clone(order.coverage),alerts:clone(order.alerts),
     note:'仅原模拟账户可成交；条件意图不冻结资金，不保证成交；计划止损为预警，退出仍按原账户规则。'};
 }
@@ -76,7 +78,7 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
   }
   function locked(operation){privateRoot(root,true);return withAccountLock(lock,()=>operation(load()));}
   function projection(state){const now=currentTime();return {revision:state.revision,orders:[...state.orders].reverse().map(order=>publicOrder(order,now)),
-    account:'pool',paperOnly:true,brokerConnected:false,ledgerOwned:false};}
+    account:'pool',paperOnly:true,brokerConnected:false,ledgerOwned:false,notificationOwner:'plan-observer'};}
   function read(){return projection(load());}
   function update(order,status,reason,now){
     const text=safeReason(reason);
@@ -151,15 +153,17 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
     item.maxGapMs=Math.max(item.maxGapMs,now-item.lastObservedAt);item.lastObservedAt=now;
     if(valid)item.observations++;else item.missing++;
   }
-  function tick({now=currentTime(),day=aShareCalendarDate(now),replica,continuous,authorized,planFor,quoteFor,readBook,execute,exitAllowedFor,notify}={}){
+  function tick({now=currentTime(),day=aShareCalendarDate(now),replica,continuous,authorized,planFor,quoteFor,readBook,execute,exitAllowedFor,
+    notificationOwner='plan-observer',notify}={}){
     if(!timestamp(now)||day!==aShareCalendarDate(now))throw Error('条件执行时点无效');
     if(replica)return {...read(),skipped:'replica'};
+    if(!['plan-observer','conditional-order'].includes(notificationOwner))throw Error('条件计划预警归属无效');
     if(typeof authorized!=='function'||typeof planFor!=='function'||typeof quoteFor!=='function'||typeof readBook!=='function'||typeof execute!=='function')throw Error('条件执行必须接入原授权、计划、报价与账本门禁');
     return locked(state=>{
       let dirty=false;const notifications=[];
       for(const order of state.orders){
         if(!['pending','executed'].includes(order.status))continue;
-        if(order.status==='executed'&&order.monitoringComplete===true)continue;
+        if(order.status==='executed'&&monitoringEnded(order))continue;
         const book=readBook();dirty=reconcile(order,book,now)||dirty;
         if(order.status==='pending'&&(day!==order.day||now>=order.expiresAt)){dirty=update(order,'expired','当日连续竞价结束，未成交意图已到期',now)||dirty;continue;}
         if(order.status==='pending'&&(order.accountEpoch!==accountEpoch(book)||
@@ -172,21 +176,38 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
         if(!continuous){if(order.status==='pending')dirty=update(order,'pending','非连续竞价时段暂停，原账户不会成交',now)||dirty;continue;}
         const quote=quoteFor(plan,order),evidence=quoteEvidence(quote,plan,now,day);
         if(order.status==='executed'){
-          const events=[...(book.archives||[]),book].flatMap(period=>period.account?.events||[]);
-          const sale=events.filter(event=>event.side==='sell'&&event.symbol===order.code&&executionTimeOf(event)>order.fill.executionAt&&executionTimeOf(event)<=now)
-            .sort((a,b)=>executionTimeOf(a)-executionTimeOf(b))[0];
-          // A later purchase of the same stock must never inherit this plan.
-          if(sale||!book.account?.positions?.[order.code]?.quantity){order.monitoringComplete=true;order.updatedAt=now;dirty=true;continue;}
+          const context=require('./paper-plan-observer').planLedgerContext(book,plan,now);
+          if(context.ambiguous||context.entry?.eventId!==order.fill.eventId){
+            dirty=update(order,'executed',context.ambiguous||'原买入批次关联未完成核验，暂停触发判断',now)||dirty;continue;
+          }
+          order.remainingQuantity=context.remaining;
+          // A partial sale is not a closed position. An old reset period and
+          // a later same-code round trip must not inherit this monitoring job.
+          if(!context.current||context.remaining===0){
+            order.monitoringComplete=true;order.monitoringEndReason=context.current?'fully-exited':'account-period-ended';
+            order.monitoringClosedAt=context.closedAt;order.updatedAt=now;dirty=true;continue;
+          }
+          order.monitoringComplete=false;delete order.monitoringEndReason;
+          if(!finite(book.account?.positions?.[order.code]?.quantity)||book.account.positions[order.code].quantity<context.remaining){
+            dirty=update(order,'executed','原剩余批次与当前持仓数量不一致，暂停触发判断',now)||dirty;continue;
+          }
           coverage(order,day,now,!!evidence);dirty=true;
           if(!evidence)continue;
           const allowed=typeof exitAllowedFor==='function'?exitAllowedFor(plan,order,book,quote,now):null;
           const sellable=allowed?.allowed===true&&order.fill.tradeDate<day&&quote.price>quote.lowerLimit;
           for(const kind of ['stop','target']){
             if(kind==='stop'?quote.price>plan.stop:quote.price<plan.target)continue;
-            const observed=recordObservation(order,evidence,kind,{entryEventId:order.fill.eventId,sellable,
+            const observed=recordObservation(order,evidence,kind,{entryEventId:order.fill.eventId,remainingQuantity:context.remaining,sellable,
               reason:sellable?'原T+1与报价卖出窗口已核对':safeReason(allowed?.reason||'原可卖窗口未核实')});
-            if(observed){const alert={id:'alert-'+digest([order.id,observed.fingerprint]).slice(0,32),kind,day,observation:observed.fingerprint,status:'pending',recordedAt:now};
-              order.alerts.push(alert);notifications.push({order,observed,alert});}
+            if(observed){
+              const version=require('./paper-plan-observer').planVersion(plan);
+              const alert={id:'alert-'+digest([order.id,observed.fingerprint]).slice(0,32),kind,day,planId:plan.id,
+                planVersion:version,entryEventId:order.fill.eventId,observation:observed.fingerprint,
+                observerAlertId:crypto.createHash('sha256').update(JSON.stringify([version,day,kind])).digest('hex'),
+                owner:notificationOwner,status:notificationOwner==='plan-observer'?'delegated':'pending',recordedAt:now};
+              order.notificationOwner=notificationOwner;order.alerts.push(alert);
+              if(notificationOwner==='conditional-order')notifications.push({order,observed,alert});
+            }
           }
           continue;
         }

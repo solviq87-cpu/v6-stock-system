@@ -36,7 +36,7 @@
         }
       },
       "workspaces": null,
-      "requests": 46,
+      "requests": 47,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -203,7 +203,7 @@
           ]
         }
       ],
-      "requests": 161,
+      "requests": 160,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -249,7 +249,7 @@
         }
       },
       "workspaces": null,
-      "requests": 54,
+      "requests": 53,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -373,7 +373,7 @@
         }
       },
       "workspaces": null,
-      "requests": 41,
+      "requests": 42,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -533,7 +533,7 @@
           ]
         }
       ],
-      "requests": 154,
+      "requests": 151,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -572,7 +572,7 @@
         }
       },
       "workspaces": null,
-      "requests": 41,
+      "requests": 42,
       "checks": [
         "new-native-shell",
         "five-workspaces",
@@ -637,7 +637,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "00127431-2cf0-42e9-a99b-ec2cfa00ed2a",
+        "dev": "027845b5-4f11-40fa-adb7-7d6129a55a91",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -1014,6 +1014,13 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
+      "path": "/api/holdings",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
       "path": "/api/paper/ledger",
       "query": {},
       "method": "GET",
@@ -1051,7 +1058,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "fbdcc427-6852-4c35-ab0d-c407682caa63",
+        "dev": "fe380b0e-ee39-4532-8e9d-15051252b455",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -1101,20 +1108,6 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
-      "path": "/api/research/shortline",
-      "query": {},
-      "method": "POST",
-      "body": {
-        "revision": 2,
-        "action": "v6:sync",
-        "payload": {
-          "code": "600103",
-          "day": "2026-11-13"
-        }
-      },
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
       "path": "/api/kline",
       "query": {
         "code": "600101",
@@ -1140,20 +1133,6 @@
       "query": {},
       "method": "GET",
       "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/research/shortline",
-      "query": {},
-      "method": "POST",
-      "body": {
-        "revision": 3,
-        "action": "v6:sync",
-        "payload": {
-          "code": "600101",
-          "day": "2026-11-13"
-        }
-      },
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -1203,7 +1182,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 4,
+        "revision": 2,
         "action": "v6:sync",
         "payload": {
           "code": "600103",
@@ -1270,7 +1249,7 @@
     {
       "path": "/api/close-review-evidence",
       "query": {
-        "list": "1"
+        "date": "2026-11-13"
       },
       "method": "GET",
       "body": null,
@@ -1279,7 +1258,7 @@
     {
       "path": "/api/close-review-evidence",
       "query": {
-        "date": "2026-11-13"
+        "list": "1"
       },
       "method": "GET",
       "body": null,
@@ -1320,7 +1299,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "fbdcc427-6852-4c35-ab0d-c407682caa63",
+        "dev": "fe380b0e-ee39-4532-8e9d-15051252b455",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -1402,7 +1381,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 5,
+        "revision": 3,
         "action": "v6:sync",
         "payload": {
           "code": "600101",
@@ -1594,6 +1573,23 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/quant-picks",
+      "query": {
+        "board": "all",
+        "max": "50"
+      },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
       "path": "/api/quant-picks",
       "query": {
         "board": "all",
@@ -1685,7 +1681,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 6,
+        "revision": 4,
         "action": "v6:sync",
         "payload": {
           "code": "600102"
@@ -1914,13 +1910,6 @@
           }
         ]
       },
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/holdings",
-      "query": {},
-      "method": "GET",
-      "body": null,
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -2304,6 +2293,13 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
       "path": "/api/research/shortline",
       "query": {},
       "method": "GET",
@@ -2365,13 +2361,6 @@
     },
     {
       "path": "/api/research/shortline",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/state",
       "query": {},
       "method": "GET",
       "body": null,
@@ -2484,7 +2473,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "45db7599-9864-46c6-ad42-e302d492edd6",
+        "dev": "b0a484ad-d613-47e8-bfc7-0aab89a58aa2",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -2531,6 +2520,20 @@
       "query": {},
       "method": "GET",
       "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 5,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -2595,7 +2598,7 @@
     {
       "path": "/api/close-review-evidence",
       "query": {
-        "list": "1"
+        "date": "2026-11-13"
       },
       "method": "GET",
       "body": null,
@@ -2604,7 +2607,7 @@
     {
       "path": "/api/close-review-evidence",
       "query": {
-        "date": "2026-11-13"
+        "list": "1"
       },
       "method": "GET",
       "body": null,
@@ -2632,13 +2635,6 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
-      "path": "/api/decision-center",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
       "path": "/api/state",
       "query": {},
       "method": "GET",
@@ -2651,13 +2647,6 @@
         "board": "all",
         "max": "50"
       },
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/state",
-      "query": {},
       "method": "GET",
       "body": null,
       "authorization": "Bearer fayo-synthetic-session"
@@ -2722,7 +2711,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 7,
+        "revision": 6,
         "action": "v6:sync",
         "payload": {
           "code": "600101"
@@ -2953,7 +2942,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "4c0953e2-20e1-4075-92b7-5d833771699f",
+        "dev": "5a9c1e46-60b4-4797-a35e-6b6798c9e90a",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -3007,7 +2996,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 8,
+        "revision": 7,
         "action": "v6:sync",
         "payload": {
           "code": "600103",
@@ -3125,7 +3114,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 9,
+        "revision": 8,
         "action": "v6:sync",
         "payload": {
           "code": "600101"
@@ -3274,6 +3263,13 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
       "path": "/api/decision-center",
       "query": {},
       "method": "GET",
@@ -3325,7 +3321,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "bbfd7505-d2be-4863-96be-974ba4340c1a",
+        "dev": "d8361e29-cadc-4659-b002-4296e31883fa",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -3379,7 +3375,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 10,
+        "revision": 9,
         "action": "v6:sync",
         "payload": {
           "code": "600103",
@@ -3482,7 +3478,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "bbfd7505-d2be-4863-96be-974ba4340c1a",
+        "dev": "d8361e29-cadc-4659-b002-4296e31883fa",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -3588,7 +3584,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 11,
+        "revision": 10,
         "action": "v6:sync",
         "payload": {
           "code": "600101"
@@ -3663,23 +3659,6 @@
         "code": "600101"
       },
       "method": "POST",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/state",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/quant-picks",
-      "query": {
-        "board": "all",
-        "max": "50"
-      },
-      "method": "GET",
       "body": null,
       "authorization": "Bearer fayo-synthetic-session"
     },
@@ -3843,7 +3822,7 @@
       "query": {},
       "method": "POST",
       "body": {
-        "revision": 12,
+        "revision": 11,
         "action": "v6:sync",
         "payload": {
           "code": "600102"
@@ -3876,6 +3855,13 @@
       },
       "method": "GET",
       "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/decision-pipeline",
+      "query": {},
+      "method": "POST",
+      "body": {},
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -3928,13 +3914,6 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
-      "path": "/api/state",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
       "path": "/api/research/automatic-evidence",
       "query": {
         "symbol": "600102"
@@ -3961,7 +3940,7 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
-      "path": "/api/auction-resonance",
+      "path": "/api/intraday-strong",
       "query": {
         "board": "all",
         "max": "50"
@@ -3971,7 +3950,7 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
-      "path": "/api/intraday-strong",
+      "path": "/api/auction-resonance",
       "query": {
         "board": "all",
         "max": "50"
@@ -4015,6 +3994,13 @@
         "board": "all",
         "max": "50"
       },
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/state",
+      "query": {},
       "method": "GET",
       "body": null,
       "authorization": "Bearer fayo-synthetic-session"
@@ -4154,20 +4140,6 @@
     },
     {
       "path": "/api/devices",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/lock/status",
-      "query": {},
-      "method": "GET",
-      "body": null,
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/state",
       "query": {},
       "method": "GET",
       "body": null,
@@ -4355,6 +4327,13 @@
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
+      "path": "/api/state",
+      "query": {},
+      "method": "GET",
+      "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
       "path": "/api/research/shortline",
       "query": {},
       "method": "GET",
@@ -4425,13 +4404,6 @@
           }
         ]
       },
-      "authorization": "Bearer fayo-synthetic-session"
-    },
-    {
-      "path": "/api/state",
-      "query": {},
-      "method": "GET",
-      "body": null,
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -4697,7 +4669,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "3d5d2eec-348a-4348-86ab-7ae7a623f7fd",
+        "dev": "44701aac-53b2-4c9f-b3c0-6b1ffaebe12c",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -4744,6 +4716,20 @@
       "query": {},
       "method": "GET",
       "body": null,
+      "authorization": "Bearer fayo-synthetic-session"
+    },
+    {
+      "path": "/api/research/shortline",
+      "query": {},
+      "method": "POST",
+      "body": {
+        "revision": 12,
+        "action": "v6:sync",
+        "payload": {
+          "code": "600103",
+          "day": "2026-11-13"
+        }
+      },
       "authorization": "Bearer fayo-synthetic-session"
     },
     {
@@ -5062,7 +5048,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "c5d7e1d2-03ba-4808-90a1-5ab7df72ea2a",
+        "dev": "55a6f6e2-b322-4abd-8e28-a828afb398e2",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -5083,7 +5069,7 @@
       "body": {
         "password": "wrong-synthetic-password",
         "role": "auto",
-        "fp": "6d4f646d-3d89-495b-851d-675817d2e5f2",
+        "fp": "7782dd18-686a-4df7-a416-a4424e8636a9",
         "name": "绯曜研究设备"
       },
       "authorization": ""
@@ -5095,7 +5081,7 @@
       "body": {
         "password": "synthetic-fayo-password",
         "role": "auto",
-        "fp": "6d4f646d-3d89-495b-851d-675817d2e5f2",
+        "fp": "7782dd18-686a-4df7-a416-a4424e8636a9",
         "name": "绯曜研究设备"
       },
       "authorization": ""
@@ -5124,7 +5110,7 @@
     {
       "path": "/api/stream",
       "query": {
-        "dev": "6d4f646d-3d89-495b-851d-675817d2e5f2",
+        "dev": "7782dd18-686a-4df7-a416-a4424e8636a9",
         "dname": "绯曜设备"
       },
       "method": "GET",
@@ -5159,12 +5145,12 @@
     "/nova/system-picks.mjs",
     "/nova/review-pool.js",
     "/nova/tactics-view.js",
-    "/nova/decision-model.mjs",
-    "/nova/command-selection.mjs",
-    "/nova/decision-mini-kline.mjs",
     "/nova/dabanke-view.js",
     "/nova/tactics.js",
     "/nova/automatic-research.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/decision-mini-kline.mjs",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
     "/nova/shortline/factor-dictionary.mjs",
@@ -5194,21 +5180,21 @@
     "/nova/client.js",
     "/nova/market.js",
     "/nova/terminal-workbench.js",
-    "/nova/decision-view.mjs",
-    "/nova/intelligence-view.mjs",
-    "/nova/system-picks.mjs",
     "/nova/stock-roles.js",
-    "/nova/review-pool.js",
-    "/nova/tactics-view.js",
     "/nova/market-evidence.js",
     "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
     "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
+    "/nova/dabanke-view.js",
     "/nova/tactics.js",
     "/nova/automatic-research.js",
-    "/nova/dabanke-view.js",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
     "/nova/shortline/factor-dictionary.mjs",
@@ -5232,9 +5218,9 @@
     "/nova/decision-view.mjs",
     "/nova/intelligence-view.mjs",
     "/nova/close-review.js",
+    "/nova/tactics-view.js",
     "/nova/system-picks.mjs",
     "/nova/review-pool.js",
-    "/nova/tactics-view.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
@@ -5304,6 +5290,50 @@
     "/nova/stock-timeline.js",
     "/nova/shortline/context.mjs",
     "/nova/ui.js",
+    "/nova/market.js",
+    "/nova/client.js",
+    "/nova/terminal-workbench.js",
+    "/nova/stock-roles.js",
+    "/nova/market-evidence.js",
+    "/nova/home-layout.js",
+    "/nova/decision-view.mjs",
+    "/nova/intelligence-view.mjs",
+    "/nova/close-review.js",
+    "/nova/system-picks.mjs",
+    "/nova/tactics-view.js",
+    "/nova/review-pool.js",
+    "/nova/decision-model.mjs",
+    "/nova/command-selection.mjs",
+    "/nova/decision-mini-kline.mjs",
+    "/nova/dabanke-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
+    "/nova/shortline/web-notices.mjs",
+    "/nova/shortline/book-session.mjs",
+    "/nova/shortline/factor-dictionary.mjs",
+    "/nova/shortline/home-performance.mjs",
+    "/nova/shortline/quote-links.mjs",
+    "/nova/shortline/ths-board-directory.mjs",
+    "/nova/shortline-host.mjs",
+    "/nova/research.js",
+    "/nova/research-records.js",
+    "/nova/operations.js",
+    "/nova/kline-learning-view.js",
+    "/nova/research-extensions.js",
+    "/nova/manual-loop.js",
+    "/nova/kline-factor-engine.js",
+    "/nova/kline-synced-history.js",
+    "/nova/workbook-view.js",
+    "/nova/shortline/signal-window.mjs",
+    "/nova/shortline/settings.mjs",
+    "/nova/workbook.js",
+    "/",
+    "/nova/fayo.css",
+    "/nova/app.js",
+    "/nova/mark.svg",
+    "/nova/stock-timeline.js",
+    "/nova/shortline/context.mjs",
+    "/nova/ui.js",
     "/nova/client.js",
     "/nova/market.js",
     "/nova/terminal-workbench.js",
@@ -5316,12 +5346,12 @@
     "/nova/system-picks.mjs",
     "/nova/review-pool.js",
     "/nova/tactics-view.js",
-    "/nova/dabanke-view.js",
-    "/nova/tactics.js",
-    "/nova/automatic-research.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
+    "/nova/dabanke-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
     "/nova/shortline/factor-dictionary.mjs",
@@ -5355,60 +5385,16 @@
     "/nova/market-evidence.js",
     "/nova/home-layout.js",
     "/nova/decision-view.mjs",
+    "/nova/review-pool.js",
+    "/nova/tactics-view.js",
     "/nova/intelligence-view.mjs",
     "/nova/system-picks.mjs",
     "/nova/close-review.js",
-    "/nova/review-pool.js",
-    "/nova/tactics-view.js",
+    "/nova/tactics.js",
+    "/nova/automatic-research.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
-    "/nova/dabanke-view.js",
-    "/nova/tactics.js",
-    "/nova/automatic-research.js",
-    "/nova/shortline/web-notices.mjs",
-    "/nova/shortline/book-session.mjs",
-    "/nova/shortline/factor-dictionary.mjs",
-    "/nova/shortline/home-performance.mjs",
-    "/nova/shortline/quote-links.mjs",
-    "/nova/shortline/ths-board-directory.mjs",
-    "/nova/shortline-host.mjs",
-    "/nova/research.js",
-    "/nova/research-records.js",
-    "/nova/operations.js",
-    "/nova/kline-learning-view.js",
-    "/nova/research-extensions.js",
-    "/nova/manual-loop.js",
-    "/nova/workbook-view.js",
-    "/nova/kline-factor-engine.js",
-    "/nova/kline-synced-history.js",
-    "/nova/workbook.js",
-    "/nova/shortline/signal-window.mjs",
-    "/nova/shortline/settings.mjs",
-    "/",
-    "/nova/fayo.css",
-    "/nova/app.js",
-    "/nova/mark.svg",
-    "/nova/stock-timeline.js",
-    "/nova/shortline/context.mjs",
-    "/nova/ui.js",
-    "/nova/client.js",
-    "/nova/market.js",
-    "/nova/terminal-workbench.js",
-    "/nova/decision-view.mjs",
-    "/nova/intelligence-view.mjs",
-    "/nova/system-picks.mjs",
-    "/nova/stock-roles.js",
-    "/nova/review-pool.js",
-    "/nova/tactics-view.js",
-    "/nova/market-evidence.js",
-    "/nova/home-layout.js",
-    "/nova/close-review.js",
-    "/nova/decision-model.mjs",
-    "/nova/command-selection.mjs",
-    "/nova/decision-mini-kline.mjs",
-    "/nova/tactics.js",
-    "/nova/automatic-research.js",
     "/nova/dabanke-view.js",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
@@ -5436,12 +5422,12 @@
     "/nova/system-picks.mjs",
     "/nova/review-pool.js",
     "/nova/tactics-view.js",
-    "/nova/dabanke-view.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
     "/nova/tactics.js",
     "/nova/automatic-research.js",
+    "/nova/dabanke-view.js",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
     "/nova/shortline/factor-dictionary.mjs",
@@ -5508,21 +5494,21 @@
     "/nova/client.js",
     "/nova/market.js",
     "/nova/terminal-workbench.js",
-    "/nova/stock-roles.js",
-    "/nova/market-evidence.js",
-    "/nova/home-layout.js",
     "/nova/decision-view.mjs",
     "/nova/intelligence-view.mjs",
-    "/nova/close-review.js",
     "/nova/system-picks.mjs",
+    "/nova/stock-roles.js",
     "/nova/review-pool.js",
     "/nova/tactics-view.js",
+    "/nova/home-layout.js",
+    "/nova/market-evidence.js",
+    "/nova/close-review.js",
     "/nova/decision-model.mjs",
     "/nova/command-selection.mjs",
     "/nova/decision-mini-kline.mjs",
-    "/nova/dabanke-view.js",
     "/nova/tactics.js",
     "/nova/automatic-research.js",
+    "/nova/dabanke-view.js",
     "/nova/shortline/web-notices.mjs",
     "/nova/shortline/book-session.mjs",
     "/nova/shortline/factor-dictionary.mjs",
@@ -5535,13 +5521,13 @@
     "/nova/operations.js",
     "/nova/kline-learning-view.js",
     "/nova/research-extensions.js",
+    "/nova/manual-loop.js",
     "/nova/kline-factor-engine.js",
     "/nova/kline-synced-history.js",
     "/nova/workbook-view.js",
-    "/nova/manual-loop.js",
+    "/nova/workbook.js",
     "/nova/shortline/signal-window.mjs",
     "/nova/shortline/settings.mjs",
-    "/nova/workbook.js",
     "/",
     "/nova/fayo.css",
     "/nova/app.js",

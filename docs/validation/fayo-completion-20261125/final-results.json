@@ -9,25 +9,62 @@
     "modelPython": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
     "testConcurrency": 2
   },
+  "liveDeploymentPerformed": false,
+  "productionDataReadOrWritten": false,
+  "externalNotificationSent": false,
+  "checkedAt": "2026-11-25T20:26:57.530959+08:00",
+  "integratedDev": "e20f6577440106585a9e56ac5ed69809909916ed",
+  "integratedEvidenceHead": "8657c7983bf032e74bec2402491353cc2ad7c5ee",
   "fullRegression": {
-    "tests": 4848,
-    "pass": 4844,
+    "tests": 4918,
+    "pass": 4914,
     "fail": 0,
     "cancelled": 0,
     "skipped": 4,
-    "durationMs": 235908.784156,
+    "durationMs": 221522.050424,
     "tapCompletenessPassed": true,
-    "logSha256": "adb9e5b214c26a69ffda37c64dac9db24207a4569c61a0b0cfeb9843fef44548"
+    "exitCode": 0,
+    "logSha256": "5ebb5c4050e5e795ac6c932b783c81597bb2243f49e670b47c995f06728ac102",
+    "compressedLogSha256": "557abf75e8121cad8a0fdb426dc2350fb14bb79a2471e7600d6869bcf227c5fc",
+    "log": "full-regression.tap.gz"
   },
-  "focused": {
-    "tests": 122,
-    "pass": 122,
+  "sourceHashManifest": "changed-source-sha256.json",
+  "protectedFunctionReport": "protected-functions.json",
+  "executionIntegration": {
+    "tests": 63,
+    "pass": 63,
     "fail": 0,
     "skipped": 0,
-    "durationMs": 12228.504415,
-    "logSha256": "59f13a1e61191e57ad9489579365d1b7bb2d43dc92794fae1412d04baae2c70a"
+    "durationMs": 12122,
+    "log": "execution-integration.tap"
   },
-  "liveDeploymentPerformed": false,
-  "productionDataReadOrWritten": false,
-  "externalNotificationSent": false
+  "browser": {
+    "passed": true,
+    "report": "browser-summary.json",
+    "desktopFirstPlanMs": 520,
+    "mobileFirstPlanMs": 303,
+    "productionPerformanceCertified": false
+  },
+  "preIntegration": {
+    "head": "2aff80b8419d7732e665dd5c8eb5e3a5f66305d5",
+    "fullRegression": {
+      "tests": 4848,
+      "pass": 4844,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "durationMs": 235908.784156,
+      "tapCompletenessPassed": true,
+      "logSha256": "adb9e5b214c26a69ffda37c64dac9db24207a4569c61a0b0cfeb9843fef44548"
+    },
+    "focused": {
+      "tests": 122,
+      "pass": 122,
+      "fail": 0,
+      "skipped": 0,
+      "durationMs": 12228.504415,
+      "logSha256": "59f13a1e61191e57ad9489579365d1b7bb2d43dc92794fae1412d04baae2c70a"
+    },
+    "scope": "Historical verification before integrating PR #349; not final integrated acceptance"
+  }
 }

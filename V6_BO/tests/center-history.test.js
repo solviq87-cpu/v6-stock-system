@@ -5,6 +5,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const H=require('../src/core/center-history');
 const {auditCenterInputs,buildIntelligenceResearch}=require('../src/core/intelligence-research');
 const {runWorkspaceJob}=require('../src/server/research-workspace-job');
+const journal=require('../src/core/research-workspace-store');
 const day='2026-11-23',next='2026-11-24',code='600001';
 const at=(d,clock='16:01:00')=>Date.parse(d+'T'+clock+'+08:00');
 const days=['2026-11-20',day,next,'2026-11-25','2026-11-26'];
@@ -15,13 +16,18 @@ function emRaw(dates,{prices={}}={}){
   })}}));
 }
 function baoRaw(dates,receivedAt,{prices={},adjustflag='1',calendar=days}={}){
+  const calendarRows=Array.from({length:(Date.parse('2026-11-26')-Date.parse('2026-01-01'))/86400000+1},(_,i)=>{
+    const date=new Date(Date.parse('2026-01-01')+i*86400000).toISOString().slice(0,10);
+    // An explicit complete fixture receipt, never a production holiday guess.
+    return {calendar_date:date,is_trading_day:calendar.includes(date)?'1':'0'};
+  });
   return Buffer.from(JSON.stringify({schemaVersion:1,source:'baostock',code,captureKind:'sdk-field-snapshot',
     startedAt:receivedAt-100,receivedAt,completedAt:receivedAt+50,
     request:{frequency:'d',adjustflag,start:'2026-01-01',end:dates.at(-1)},
     rows:dates.map(date=>{const p=prices[date]||10;return {date,code:'sh.'+code,open:String(p),high:String(p+.1),low:String(p-.1),
       close:String(p),volume:'100000',amount:'1000000',adjustflag,tradestatus:'1',turn:'1'};}),
     calendar:{source:'baostock:query_trade_dates',receivedAt:receivedAt+50,start:'2026-01-01',end:'2026-11-26',
-      rows:calendar.map(calendar_date=>({calendar_date,is_trading_day:'1'}))},canTrade:false,canNotify:false}));
+      rows:calendarRows},canTrade:false,canNotify:false}));
 }
 function providers(dates,now,{emPrices={},baoPrices={}}={}){
   return {
@@ -49,6 +55,34 @@ test('HFQ adapters explicitly request the provider adjustment and retain actual 
   assert.equal(report.admittedGroups,2);assert.equal(report.admitted[0].consensusKnownAt,at(day)+100);
 });
 
+test('typed HFQ history cannot enter live execution, relabelling fails, and original 15-second unadjusted gates remain exact',()=>{
+  const clock=at(day)+200;
+  const em=H.normalizeEastmoney(emRaw([day]),{code,day,historyDays:160,receivedAt:at(day)});
+  const bao=H.normalizeBaoStock(baoRaw([day],at(day)+100),{code,day,historyDays:160,receivedAt:clock});
+  const historical=[...em.bars,...bao.bars];
+  // Even a same-day receipt obtained less than a second ago is historical HFQ,
+  // never a source quote clock or an unadjusted execution price.
+  for(const [records,reason] of [[historical,'adjustment-mismatch'],
+    [historical.map(row=>({...row,adjustment:'none'})),'invalid-historical-receipt-evidence']]){
+    const report=auditCenterInputs(records,{purpose:'liveExecution',now:clock});
+    assert.equal(report.admittedGroups,0);assert.equal(report.expectedAdjustment,'none');
+    assert.deepEqual(report.rejected.map(row=>row.reason),[reason,reason]);
+    assert.equal(report.canTrade,false);assert.equal(report.changesOriginalGates,false);
+  }
+  // Independent legacy quote fixtures retain their original price and clocks.
+  const live=['eastmoney','tencent'].map(source=>({code,date:day,market:'CN',source,adjustment:'none',
+    knownAt:clock,observedAt:clock-15000,currency:'CNY',volumeUnit:'shares',amountUnit:'CNY',
+    open:10,high:10.1,low:9.9,close:10,volume:100000,amount:1000000,suspended:false,sampleSet:'real'}));
+  const fresh=auditCenterInputs(live,{purpose:'liveExecution',now:clock});
+  assert.equal(fresh.admittedGroups,1);assert.equal(fresh.rejected.length,0);assert.equal(fresh.canTrade,false);
+  for(const now of [clock+1,clock+86400000]){
+    const stale=auditCenterInputs(live,{purpose:'liveExecution',now});
+    assert.equal(stale.admittedGroups,0);
+    assert.deepEqual(stale.rejected.map(row=>row.reason),['stale-live-evidence','stale-live-evidence']);
+    assert.equal(stale.canTrade,false);
+  }
+});
+
 test('wrong securities, adjustment claims, unordered days, unknown amount and future receipts fail closed',()=>{
   const wrong=JSON.parse(emRaw([day]));wrong.data.code='600002';
   assert.throws(()=>H.normalizeEastmoney(Buffer.from(JSON.stringify(wrong)),{code,day,historyDays:160,receivedAt:at(day)}),/身份/);
@@ -60,6 +94,25 @@ test('wrong securities, adjustment claims, unordered days, unknown amount and fu
   const forged={...normalized[0],periodEndAt:at(day,'16:00:00')};
   assert.equal(auditCenterInputs([forged],{now:at(day)+200}).rejected[0].reason,'invalid-historical-receipt-evidence');
   assert.equal(auditCenterInputs(normalized,{now:at(day)-1}).rejected[0].reason,'future-or-backdated-time');
+});
+
+test('the provider calendar must include every queried natural date so missing days cannot skip a t+1 label',()=>{
+  for(const index of [0,200,-1]){
+    const receipt=JSON.parse(baoRaw([day],at(day)));
+    receipt.calendar.rows.splice(index,1);
+    assert.throws(()=>H.normalizeBaoStock(Buffer.from(JSON.stringify(receipt)),
+      {code,day,historyDays:160,receivedAt:at(day)+200}),/日历/);
+  }
+});
+
+test('the existing BaoStock access switch can still revoke a registered research route before any request',async t=>{
+  const root=path.join(directory(t),'untouched'),catalog=require('../config/data-source-catalog.json'),
+    row=catalog.sources.find(row=>row.id==='baostock'),before=row.access;
+  try{
+    row.access='registered-only';assert.equal(H.allowedSource('baostock'),false);
+    await assert.rejects(H.collectCenterHistory({root,code,day},providers([day],at(day))),/访问门禁/);
+    assert.equal(fs.existsSync(root),false);
+  }finally{row.access=before;}
 });
 
 test('the independent archive persists both sources, retains first values and exposes later revisions without overwriting',async t=>{
@@ -180,6 +233,36 @@ test('a process lock covers the physical collection so simultaneous callers cann
   assert.equal(second.status,'collection-in-progress');release();
   assert.equal((await first).status,'admitted');
   assert.equal(fs.readdirSync(path.join(root,code)).filter(name=>name.endsWith('.json')).length,1);
+});
+
+test('an interrupted collection consumes a durable attempt and revocation after one source prevents the second source and capture commit',async t=>{
+  const root=directory(t);let writable=true,emCalls=0,baoCalls=0;
+  for(const minutes of [0,16,32]){
+    writable=true;const deps=providers([day],at(day)+minutes*60000),fetch=deps.fetchEastmoney;
+    deps.canWrite=()=>writable;
+    deps.fetchEastmoney=async()=>{emCalls++;const value=await fetch();writable=false;return value;};
+    deps.fetchBaoStock=async()=>{baoCalls++;assert.fail('revocation must stop the later supplier');};
+    const result=await H.collectCenterHistory({root,code,day},deps);
+    assert.equal(result.status,'read-only-instance');
+  }
+  const starts=journal.readEvents(path.join(root,'attempts',code),{asOf:at(day)+60*60000});
+  assert.equal(starts.length,3);assert.ok(starts.every(row=>row.data.protocol===H.ATTEMPT_PROTOCOL));
+  assert.equal(fs.existsSync(path.join(root,code)),false);
+  assert.equal(emCalls,3);assert.equal(baoCalls,0);
+  writable=true;
+  const restarted=await H.collectCenterHistory({root,code,day},{clock:()=>at(day)+60*60000,canWrite:()=>writable,
+    fetchEastmoney:()=>assert.fail('restarting must not reset persisted failed attempts')});
+  assert.equal(restarted.status,'bounded-retry-wait');assert.equal(restarted.attempts,3);
+});
+
+test('the actual collection worker requires authorization and rechecks it before creating files or calling a provider',async t=>{
+  const root=directory(t),historyRoot=path.join(directory(t),'history'),payload={action:'intelligence-history-collect',root,historyRoot,code,day};
+  const denied=await runWorkspaceJob(payload);
+  assert.equal(denied.ok,false);assert.equal(denied.httpStatus,403);assert.equal(fs.existsSync(historyRoot),false);
+  let checks=0;
+  const revoked=await runWorkspaceJob(payload,{authorize:()=>++checks===1});
+  assert.equal(revoked.ok,true);assert.equal(revoked.result.status,'read-only-instance');assert.ok(checks>=2);
+  assert.equal(fs.existsSync(historyRoot),false);
 });
 
 test('hash corruption and symlink archives fail closed instead of silently returning empty research',async t=>{

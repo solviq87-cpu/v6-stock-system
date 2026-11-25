@@ -10,6 +10,7 @@ import contextlib
 import datetime
 import io
 import json
+import pathlib
 import re
 import sys
 import time
@@ -71,13 +72,20 @@ def main(argv=None):
     parser.add_argument("--start", required=True)
     parser.add_argument("--end", required=True)
     parser.add_argument("--calendar-end", required=True)
+    parser.add_argument("--allow-research-fetch", action="store_true")
     args = parser.parse_args(argv)
-    if not re.fullmatch(r"(?:60|68|00|30)\d{4}", args.code):
+    if not args.allow_research_fetch or not re.fullmatch(r"(?:60|68|00|30)\d{4}", args.code):
         raise ValueError("Unsupported A-share code")
     start, end, calendar_end = [datetime.date.fromisoformat(v) for v in
                                 (args.start, args.end, args.calendar_end)]
     if not 0 < (end - start).days <= 500 or not 0 <= (calendar_end - end).days <= 14:
         raise ValueError("Research interval out of bounds")
+    config = pathlib.Path(__file__).resolve().parent.parent / "config"
+    catalog = json.loads((config / "data-source-catalog.json").read_text())
+    registry = json.loads((config / "data-source-registry-2026.json").read_text())
+    if not any(row.get("id") == "baostock" and row.get("access") == "enabled-private-research" for row in catalog["sources"]) or \
+            not any(row.get("id") == "baostock" and row.get("access") == "guarded-research" for row in registry["sources"]):
+        raise ValueError("Research source access blocked")
     try:
         import baostock as bs
     except ImportError:

@@ -13,6 +13,7 @@ const {requestResearchBytes} = require('./research-curl-bytes');
 const {marketRequests} = require('./market-request-governor');
 const run = promisify(execFile);
 const PROTOCOL = 'center-hfq-history-v1', MAX_CODES = 20, MAX_DAYS = 400;
+const ATTEMPT_PROTOCOL = 'center-hfq-attempt-v1';
 const flags = {researchOnly:true, canTrade:false, canNotify:false, productionWeightsChanged:false};
 const codeOk = code => typeof code === 'string' && /^(?:60|68|00|30)\d{4}$/.test(code);
 const dayOk = day => typeof day === 'string' && /^\d{4}-\d\d-\d\d$/.test(day) &&
@@ -26,6 +27,15 @@ const number = value => typeof value === 'number' && Number.isFinite(value) ? va
 const addDays = (day, count) => new Date(Date.parse(day) + count * 86400000).toISOString().slice(0,10);
 const fields = ['open','high','low','close','volume','amount'];
 const endpoint = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
+
+function allowedSource(source) {
+  if(!['eastmoney-public-history','baostock'].includes(source)||sourceLineage(source)?.access!=='guarded-research')return false;
+  if(source==='baostock'){
+    try{return require('../../config/data-source-catalog.json').sources.some(row=>row.id===source&&row.access==='enabled-private-research');}
+    catch{return false;}
+  }
+  return true;
+}
 
 function requestUrl(code, day, historyDays) {
   if (!codeOk(code) || !dayOk(day) || !Number.isSafeInteger(historyDays) || historyDays < 2 || historyDays > MAX_DAYS)
@@ -101,12 +111,14 @@ function normalizeBaoStock(raw, {code,day,historyDays,receivedAt}) {
       c.receivedAt > receivedAt || !Array.isArray(c.rows) || c.rows.length > 550 || c.start !== request.start ||
       !dayOk(c.end) || c.end < day || c.end > addDays(day,14)) throw Error('BaoStock 原交易日历证据无效');
   previous = '';
-  const days = c.rows.filter(row => {
+  const days = c.rows.filter((row,index) => {
     if (!dayOk(row.calendar_date) || row.calendar_date <= previous || row.calendar_date < c.start ||
-        row.calendar_date > c.end || !['0','1'].includes(row.is_trading_day)) throw Error('BaoStock 日历缺失、重复或越界');
+        row.calendar_date > c.end || row.calendar_date!==addDays(c.start,index) ||
+        !['0','1'].includes(row.is_trading_day)) throw Error('BaoStock 日历缺失、重复或越界');
     previous = row.calendar_date;
     return row.is_trading_day === '1';
   }).map(row=>row.calendar_date);
+  if(previous!==c.end)throw Error('BaoStock 原交易日历查询尾部不完整');
   if (days.length < 2 || !days.includes(day) || bars.some(row=>!days.includes(row.date))) throw Error('BaoStock 日线未与原交易日历一致');
   return {...base,status:bars.length ? 'observed' : 'empty',bars,
     calendar:{days,source:c.source,knownAt:c.receivedAt,originalReceiptAt:c.receivedAt},
@@ -118,7 +130,7 @@ function normalizeBaoStock(raw, {code,day,historyDays,receivedAt}) {
 async function fetchBaoStock({code,day,historyDays}, {clock=Date.now,python=process.env.V6_PYTHON || 'python3',governor=marketRequests}={}) {
   const start = addDays(day,-Math.min(500,Math.ceil(historyDays*1.8))), end = addDays(day,14);
   const {stdout} = await governor.run('https://baostock.com/api/',()=>run(python,
-    [path.join(__dirname,'../../scripts/collect-center-hfq.py'),'--code',code,'--start',start,'--end',day,'--calendar-end',end],
+    [path.join(__dirname,'../../scripts/collect-center-hfq.py'),'--code',code,'--start',start,'--end',day,'--calendar-end',end,'--allow-research-fetch'],
     {timeout:24000,maxBuffer:1024*1024,encoding:'buffer'}));
   return normalizeBaoStock(stdout,{code,day,historyDays,receivedAt:clock()});
 }
@@ -133,6 +145,13 @@ function codeRoot(root, code, create=false) {
 }
 function captureEvents(root,code,now) {
   return store.readEvents(codeRoot(root,code),{asOf:now}).filter(event=>event.data?.protocol === PROTOCOL);
+}
+function attemptRoot(root,code,create=false) {
+  if(!codeOk(code))throw Error('中心历史尝试代码无效');
+  return store.privateRoot(path.join(archiveRoot(root,create),'attempts',code),create);
+}
+function attemptEvents(root,code,now) {
+  return store.readEvents(attemptRoot(root,code),{asOf:now}).filter(event=>event.data?.protocol===ATTEMPT_PROTOCOL);
 }
 async function withCaptureLock(root,code,operation) {
   const dir=archiveRoot(root,true),fd=fs.openSync(path.join(dir,'capture-'+code+'.guard'),
@@ -236,6 +255,29 @@ function readCenterHistory({root,codes,now=Date.now()}={}) {
     missing:!bars.length ? ['缺少通过独立来源一致性核对的真实后复权历史；查看逐源采集状态。'] : [],...flags},...flags};
 }
 
+/** GET and feedback POST must reconstruct exactly the same research inputs.
+ * The older manual-diagnostic receipts remain visible with their original null
+ * source clocks. They cannot replace admitted history or create a new freeze.
+ */
+function composeCenterResearchInputs(archive,root,{day,now=Date.now()}={}) {
+  const engine=require('./intelligence-research'),extracted=engine.extractArchiveResearchInputs(archive,{now});
+  const codes=[...new Set([...(archive?.checks||[]).slice(-100).reverse().map(row=>row.code),...(archive?.plans||[]).slice(-20).map(row=>row.code)])];
+  const history=readCenterHistory({root,now,codes:codes.length?codes:undefined});
+  let diagnostic;
+  try{diagnostic=require('./intelligence-history').readCenterHistory(root,{day,now,
+    maxBars:Math.min(12000,Math.max(0,20000-extracted.bars.length-history.bars.length))});}
+  catch{diagnostic={bars:[],calendar:null,summary:{status:'invalid-history-store',adjustment:'hfq',receipts:0,rows:0,
+    sources:[],lastReceivedAt:null,issues:[{reason:'private-history-integrity-or-permission-failed'}],
+    missing:['手动诊断历史回执完整性或权限核验失败，该库未纳入研究'],canTrade:false}};}
+  const marketCalendars={...history.marketCalendars};
+  if(!marketCalendars.CN){
+    const calendar=engine.extractArchiveCalendar(archive,{now})||diagnostic.calendar;
+    if(calendar)marketCalendars.CN=calendar;
+  }
+  return {research:{bars:[...extracted.bars,...history.bars,...diagnostic.bars],marketCalendars,
+    frozenObservations:history.frozenObservations,historyCoverage:history.coverage},historySupply:diagnostic.summary};
+}
+
 // Pending labels come from persisted signals, not today's selected pool. A
 // stock dropping out tomorrow must not silently lose its outcome observation.
 // Page through bounded code batches; callers retain unresolved codes between
@@ -294,6 +336,9 @@ function readPendingCenterHistory({root,archive=null,day,now=Date.now(),cursor=0
 async function collectCenterHistory({root,code,day,historyDays=160,replica=false,archive=null}={}, deps={}) {
   requestUrl(code,day,historyDays);
   if (replica) return {ok:false,status:'replica-read-only',code,day,...flags};
+  const canWrite=()=>{try{return !replica&&(!deps.canWrite||deps.canWrite()===true);}catch{return false;}};
+  const revoked=()=>({ok:false,status:'read-only-instance',code,day,...flags});
+  if(!canWrite())return revoked();
   const clock=deps.clock || Date.now, startedAt=clock();
   if (!timeOk(startedAt) || day > cnDay(startedAt)) throw Error('中心历史采集时点无效');
   // BaoStock's completed daily research feed is checked after 16:00. A task
@@ -301,19 +346,29 @@ async function collectCenterHistory({root,code,day,historyDays=160,replica=false
   if (day === cnDay(startedAt) && startedAt < Date.parse(day+'T16:00:00+08:00'))
     return {ok:false,status:'waiting-provider-close',code,day,nextEligibleAt:Date.parse(day+'T16:00:00+08:00'),...flags};
   for (const source of ['eastmoney-public-history','baostock'])
-    if (sourceLineage(source)?.access !== 'guarded-research') throw Error('中心历史来源未通过既有研究访问门禁');
+    if (!allowedSource(source)) throw Error('中心历史来源未通过既有研究访问门禁');
   return withCaptureLock(root,code,async()=>{
+  if(!canWrite())return revoked();
   const events=captureEvents(root,code,startedAt), sameDay=events.filter(event=>event.data.day===day);
   const complete=sameDay.find(event=>event.data.status==='admitted');
   if (complete) return {ok:true,status:'already-collected',code,day,reused:true,admittedGroups:complete.data.admittedGroups,...flags};
-  const prior=sameDay.at(-1);
-  if (sameDay.length >= 3 || prior && startedAt-prior.recordedAt < 15*60000)
-    return {ok:false,status:'bounded-retry-wait',code,day,attempts:sameDay.length,
-      nextEligibleAt:sameDay.length>=3 ? null : prior.recordedAt+15*60000,...flags};
+  const started=attemptEvents(root,code,startedAt).filter(event=>event.data.day===day);
+  // Old captures predate the attempt journal. Count those too, without counting
+  // a completed capture twice once it references its persisted start record.
+  const previous=[...started,...sameDay.filter(event=>!event.data.attemptId)].sort((a,b)=>a.recordedAt-b.recordedAt),prior=previous.at(-1);
+  if (previous.length >= 3 || prior && startedAt-prior.recordedAt < 15*60000)
+    return {ok:false,status:'bounded-retry-wait',code,day,attempts:previous.length,
+      nextEligibleAt:previous.length>=3 ? null : prior.recordedAt+15*60000,...flags};
+  if(!canWrite())return revoked();
+  const attempt=store.appendEvent(attemptRoot(root,code,true),'diagnostic',
+    {protocol:ATTEMPT_PROTOCOL,code,day,startedAt,historyDays,...flags},
+    {requestId:'hfq-start-'+code+'-'+startedAt,now:startedAt});
   const providers=[];
   for (const [source,fetcher] of [['eastmoney-public-history',deps.fetchEastmoney||fetchEastmoney],['baostock',deps.fetchBaoStock||fetchBaoStock]]) {
-    try { providers.push(await fetcher({code,day,historyDays},{clock})); }
-    catch(error) { providers.push({source,status:'source-failed',bars:[],calendar:null,receivedAt:clock(),
+    if(!canWrite())return revoked();
+    if(!allowedSource(source))return {ok:false,status:'source-access-blocked',source,code,day,...flags};
+    try { const provider=await fetcher({code,day,historyDays},{clock});if(!canWrite())return revoked();providers.push(provider); }
+    catch(error) { if(!canWrite())return revoked();providers.push({source,status:'source-failed',bars:[],calendar:null,receivedAt:clock(),
       reason:error.code==='MARKET_RESTRICTED' ? '供应商限流或拒绝访问，保持原退避门禁' : '供应商回执缺失或未通过身份、复权、时点、量价校验',...flags}); }
   }
   const capturedAt=clock();
@@ -334,8 +389,9 @@ async function collectCenterHistory({root,code,day,historyDays=160,replica=false
   }
   const comparisons=gate.comparisons.map(({code,day,market,adjustment,status,independentSources,supportingSources,excludedSources})=>
     ({code,day,market,adjustment,status,independentSources,supportingSources,excludedSources}));
-  const data={protocol:PROTOCOL,code,day,capturedAt,historyDays,status,providers,admittedBars,observations,comparisons,
+  const data={protocol:PROTOCOL,code,day,capturedAt,historyDays,status,providers,admittedBars,observations,comparisons,attemptId:attempt.hash,
     admittedGroups:gate.admittedGroups,rejected:gate.rejected,...flags};
+  if(!canWrite())return revoked();
   const event=store.appendEvent(codeRoot(root,code,true),'diagnostic',data,
     {requestId:'hfq-'+day.replaceAll('-','')+'-'+store.digest({providers,status}).slice(0,40),now:capturedAt});
   return {ok:true,status,code,day,reused:event.reused,admittedGroups:gate.admittedGroups,rejectedRecords:gate.excludedRecords,
@@ -344,5 +400,5 @@ async function collectCenterHistory({root,code,day,historyDays=160,replica=false
   });
 }
 
-module.exports={PROTOCOL,requestUrl,normalizeEastmoney,normalizeBaoStock,fetchEastmoney,fetchBaoStock,
-  collectCenterHistory,readCenterHistory,readPendingCenterHistory};
+module.exports={PROTOCOL,ATTEMPT_PROTOCOL,requestUrl,allowedSource,normalizeEastmoney,normalizeBaoStock,fetchEastmoney,fetchBaoStock,
+  collectCenterHistory,readCenterHistory,readPendingCenterHistory,composeCenterResearchInputs};

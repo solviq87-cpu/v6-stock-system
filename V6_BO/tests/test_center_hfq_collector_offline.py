@@ -15,7 +15,7 @@ module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 FIELDS = "date,code,open,high,low,close,volume,amount,adjustflag,tradestatus,turn".split(",")
 BAR = ["2026-06-08", "sh.600001", "10", "10.5", "9.5", "10.2", "10000", "101000", "1", "1", "1.2"]
-ARGS = ["--code", "600001", "--start", "2026-06-01", "--end", "2026-06-08", "--calendar-end", "2026-06-22"]
+ARGS = ["--code", "600001", "--start", "2026-06-01", "--end", "2026-06-08", "--calendar-end", "2026-06-22", "--allow-research-fetch"]
 
 
 class Query:
@@ -88,6 +88,8 @@ class CollectorContract(unittest.TestCase):
                 args[index] = value
                 with self.assertRaises(ValueError):
                     module.main(args)
+            with self.assertRaises(ValueError):
+                module.main(ARGS[:-1])
         provider.login.assert_not_called()
 
     def test_missing_sdk_returns_explicit_missing_dependency(self):

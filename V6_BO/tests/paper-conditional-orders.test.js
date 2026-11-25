@@ -10,7 +10,7 @@ function plan(){
   strategyBasis:{day,score:88},plan:{buyLow:9.8,buyHigh:10.1,stop:9,target:12,positionPct:19.6}};
  return bindAuthoritativePlan({id:'plan-00000000-0000-4000-8000-000000000001',sampleSet:'real',frozenAt:new Date(open-2000).toISOString(),...decisionPlanPayload(card)},card);
 }
-function setup(t){
+function setup(t,{shares=100}={}){
  const base=fs.mkdtempSync(path.join(os.tmpdir(),'conditional-order-')),root=path.join(base,'intent');
  t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
  let now=open,allowed=true,continuous=true,executions=0,notes=0,quotePatch={},executeError=null;
@@ -20,12 +20,12 @@ function setup(t){
   quoteAt:now-100,timestamp:now-100,receivedAt:now-50,quoteSource:'tencent',volume:100000,volumeUnit:'shares',
   lowerLimit:8,upperLimit:13,suspended:false,tradable:true,...quotePatch});
  const execute=()=>{executions++;if(executeError)throw Error(executeError);
-  const event={eventId:'original-fill',symbol:p.code,side:'buy',price:10,quantity:100,tradeDate:day,timestamp:now,
+  const event={eventId:'original-fill',symbol:p.code,side:'buy',price:10,quantity:shares,tradeDate:day,timestamp:now,
    reason:'作战台计划['+p.id+'] 原账户风控'};
-  book.account.events.push(event);book.account.positions[p.code]={quantity:100};return {status:'executed',eventId:event.eventId};};
+  book.account.events.push(event);book.account.positions[p.code]={quantity:shares};return {status:'executed',eventId:event.eventId};};
  const args=()=>({now,day:new Date(now+28800000).toISOString().slice(0,10),replica:false,continuous,authorized:()=>allowed,
   planFor:()=>p,quoteFor:wire,readBook,execute,exitAllowedFor:()=>({allowed:true,reason:'原账户可卖窗口'}),
-  notify:()=>{notes++;return {status:'queued'};}});
+  notificationOwner:'conditional-order',notify:()=>{notes++;return {status:'queued'};}});
  return {base,root,p,book,auth,store,readBook,wire,args,
   create:requestId=>store.create({requestId:requestId||'request-1234',plan:p,authorization:auth},{readBook}),
   tick:patch=>store.tick({...args(),...patch}),get executions(){return executions;},get notes(){return notes;},
@@ -129,17 +129,49 @@ test('two processes racing the same intent share the OS lock and produce one ori
 });
 test('a verified stop window plus original sale is scored; corrupted, blocked or absent observations stay unknown',t=>{
  const {paperExecutionScore}=require('../src/core/paper-decision-plan');
+ const {createFillEvidence}=require('../src/core/paper-fill-evidence');
  const x=setup(t);x.create();x.tick();const observedAt=Date.parse('2026-11-09T10:00:00+08:00');
  x.setTime(observedAt);x.setQuote({price:8.8});x.tick();
- x.book.account.events.push({eventId:'timely-stop',symbol:'600000',side:'sell',price:8.8,quantity:100,tradeDate:'2026-11-09',timestamp:observedAt+2000});
+ const sale={eventId:'timely-stop',symbol:'600000',side:'sell',price:8.8,quantity:100,tradeDate:'2026-11-09',timestamp:observedAt+2000};
+ sale.fillEvidence=createFillEvidence(x.wire(),{executionAt:sale.timestamp,executionKind:'automatic-paper',symbol:sale.symbol,tradeDate:sale.tradeDate,price:sale.price});
+ x.book.account.events.push(sale);x.book.account.positions={};
  const inputs={book:x.readBook(),plans:[x.p],conditionalOrders:x.store.read().orders,day:'2026-11-09',now:Date.parse('2026-11-09T15:01:00+08:00')};
  const score=paperExecutionScore(inputs);assert.equal(score.score,100);assert.equal(score.rows[0].facts[1].status,'符合');
  assert.equal(score.rows[0].facts[1].eventId,'timely-stop');
  const forged=structuredClone(inputs.conditionalOrders);forged[0].observations.find(p=>p.kind==='stop').price=1;
  assert.equal(paperExecutionScore({...inputs,conditionalOrders:forged}).score,null);
  assert.equal(paperExecutionScore({...inputs,conditionalOrders:[]}).score,null);
- const late=structuredClone(inputs.book);late.account.events.at(-1).timestamp=observedAt+20000;
+ assert.equal(score.rows[0].coverage.complete,false);assert.equal(score.rows[0].facts[1].sessionCoverageComplete,false);
+ const late=structuredClone(inputs.book),last=late.account.events.at(-1);last.timestamp=observedAt+20000;
+ last.fillEvidence=createFillEvidence({...x.wire(),quoteAt:last.timestamp-100,timestamp:last.timestamp-100,receivedAt:last.timestamp-50},
+  {executionAt:last.timestamp,executionKind:'automatic-paper',symbol:last.symbol,tradeDate:last.tradeDate,price:last.price});
  assert.equal(paperExecutionScore({...inputs,book:late}).score,null);
+});
+test('partial original sales keep the original remaining lot monitored and cannot score as a full stop exit',t=>{
+ const {paperExecutionScore}=require('../src/core/paper-decision-plan'),{createFillEvidence}=require('../src/core/paper-fill-evidence');
+ const x=setup(t,{shares:200});x.create();x.tick();const at=Date.parse('2026-11-09T10:00:00+08:00');
+ x.setTime(at);x.setQuote({price:8.8});x.tick();
+ const sale={eventId:'partial-original-sell',side:'sell',symbol:x.p.code,quantity:100,price:8.8,tradeDate:'2026-11-09',timestamp:at+1000};
+ sale.fillEvidence=createFillEvidence(x.wire(),{executionAt:sale.timestamp,executionKind:'automatic-paper',symbol:sale.symbol,tradeDate:sale.tradeDate,price:sale.price});
+ x.book.account.events.push(sale);x.book.account.positions[x.p.code].quantity=100;x.setTime(at+2000);x.tick();
+ let order=x.store.read().orders[0];assert.equal(order.monitoringActive,true);assert.equal(order.remainingQuantity,100);
+ const input={book:x.readBook(),plans:[x.p],conditionalOrders:[order],day:'2026-11-09',now:Date.parse('2026-11-09T15:01:00+08:00')};
+ assert.equal(paperExecutionScore(input).score,null);assert.equal(paperExecutionScore(input).rows[0].facts[1].status,'资料不足');
+ const last={...sale,eventId:'remaining-original-sell',timestamp:at+3000};
+ last.fillEvidence=createFillEvidence(x.wire(),{executionAt:last.timestamp,executionKind:'automatic-paper',symbol:last.symbol,tradeDate:last.tradeDate,price:last.price});
+ x.book.account.events.push(last);x.book.account.positions={};x.setTime(at+4000);x.tick();
+ order=x.store.read().orders[0];assert.equal(order.monitoringActive,false);assert.equal(order.remainingQuantity,0);
+ const complete=paperExecutionScore({...input,book:x.readBook(),conditionalOrders:[order]});
+ assert.equal(complete.score,100);assert.deepEqual(complete.rows[0].facts[1].eventIds,['partial-original-sell','remaining-original-sell']);
+});
+test('plan observer owns notifications by default even if a stale caller still passes notify',t=>{
+ const x=setup(t);x.create();x.tick();x.setQuote({price:8.8});
+ const args=x.args();delete args.notificationOwner;
+ x.store.tick(args);x.store.tick(args);
+ const order=x.store.read().orders[0];assert.equal(x.notes,0);assert.equal(order.notificationOwner,'plan-observer');
+ assert.equal(order.alerts.length,1);assert.equal(order.alerts[0].status,'delegated');
+ assert.equal(order.alerts[0].owner,'plan-observer');assert.equal(order.alerts[0].planId,x.p.id);
+ assert.equal(order.alerts[0].entryEventId,'original-fill');assert.match(order.alerts[0].observerAlertId,/^[a-f0-9]{64}$/);
 });
 test('damaged intent files, mismatched frozen plan and unsafe paths fail closed without invoking account execution',t=>{
  const x=setup(t);x.create();x.tick({planFor:()=>({...x.p,stop:8})});assert.equal(x.executions,0);
