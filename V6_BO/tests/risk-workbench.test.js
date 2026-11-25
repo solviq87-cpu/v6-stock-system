@@ -11,6 +11,9 @@ const {bindAuthoritativePlan,decisionPlanPayload}=require('../src/core/paper-dec
 const {createAutomaticInputProvenance}=require('../src/core/paper-input-provenance');
 const {observePaperPlans}=require('../src/core/paper-plan-observer');
 const {aShareCalendarDate}=require('../src/core/a-share-calendar');
+const {createRiskAlertLifecycle}=require('../src/core/risk-alert-lifecycle');
+const {fixture:equityFixture,sealBook}=require('./helpers/account-equity-fixture');
+const {fuseMultiSourcePrices}=require('../src/core/multi-source-price-consensus');
 
 const entryDay='2026-11-23',day='2026-11-24',code='600000';
 const at=(date,value='10:00:00')=>Date.parse(date+'T'+value+'+08:00');
@@ -43,7 +46,7 @@ function linked(t) {
       originalExitChecks:{[planId]:{allowed:true,reason:'原退出检查已核对',checkedAt:now,quoteAt:quotes[code]?.quoteAt}},...extra});
   }
   function inputs(extra={}) {
-    const book=service.read(),quotes=extra.quotes || {[code]:quote()};
+    const book=extra.book||service.read(),quotes=extra.quotes || {[code]:quote()};
     const equity=buildAccountEquityEvidence({book,accountId:'pool',quotes,now});
     const history=buildEquityHistory({observations:[equity],accountId:'pool',accountEpoch:equity.accountEpoch,now});
     const rules=buildEffectiveRiskEvidence({book,accountId:'pool',quotes,now,calendar,
@@ -51,7 +54,7 @@ function linked(t) {
     const stress=buildPortfolioStressEvidence({equity,now,classifications:[{symbol:code,themes:['AI'],source:'dabanke',
       sourceRecordId:'isolated-day',version:'isolated-classification-v1',day,knownAt:now-5000}]});
     return {accountId:'pool',now,equity,equityHistory:{accountId:'pool',accountEpoch:equity.accountEpoch,history},
-      rules,actions:actions(quotes),stress,system:{missing:[]},...extra};
+      rules,actions:actions(quotes,{book}),stress,system:{missing:[]},...extra};
   }
   function sell(quantity,price=9.3,volume=quantity*100) {
     const book=service.read();
@@ -128,7 +131,8 @@ test('an exit order and ledger mismatch stays pending reconciliation and cannot 
   const f=linked(t);
   f.service.submit({orderId:'exit',symbol:code,side:'sell',quantity:200,limitPrice:9.3,tradeDate:day});
   const book=f.service.read();book.orders.exit.state.filledQuantity=100;
-  const actions=f.actions({[code]:f.quote()},{book}),report=buildRiskWorkbench(f.inputs({actions}));
+  sealBook(book); // A valid envelope may still contain conflicting order/fill facts.
+  const actions=f.actions({[code]:f.quote()},{book}),report=buildRiskWorkbench(f.inputs({book,actions}));
   assert.equal(actions.items[0].status,'pending-reconciliation');
   const row=risk(report,planRootCause(planId,'stop'));
   assert.equal(row.status,'unknown');assert.notEqual(row.evidenceStatus,'available');
@@ -196,4 +200,125 @@ test('mixed account or reset epoch evidence cannot be relabeled as a different a
   const f=linked(t),input=f.inputs();
   assert.throws(()=>buildRiskWorkbench({...input,accountId:'pre'}),/账户/);
   assert.throws(()=>buildRiskWorkbench({...input,equityHistory:{...input.equityHistory,accountEpoch:'f'.repeat(64)}}),/阶段|期间|epoch|账户/);
+});
+
+test('a severe old plan alert cannot overwrite present order reconciliation or execution uncertainty',t=>{
+  const f=linked(t),input=f.inputs(),observed=f.observed();
+  const action=input.actions.items[0];
+  action.status='pending-reconciliation';
+  action.execution={...action.execution,allowed:null,evidenceStatus:'conflict',reason:'原退出订单与成交事件待核对'};
+  const report=buildRiskWorkbench({...input,planAlerts:observed.alerts});
+  const row=risk(report,planRootCause(planId,'stop'));
+  assert.equal(row.severity,'critical','the observed trigger remains visible');
+  assert.equal(row.evidenceStatus,'conflict');
+  assert.equal(row.executionStatus,'pending-reconciliation');
+  assert.equal(row.status,'unknown');
+  assert.ok(row.evidenceReferences.some(ref=>ref.observationId===observed.alerts[0].observationId));
+  assert.ok(row.evidenceReferences.some(ref=>Array.isArray(ref.orderIds)));
+  assert.match(row.facts.join(' '),/待核对/);
+});
+
+test('a numeric occupancy does not turn explicitly incomplete rule evidence into an enabled safe result',t=>{
+  const f=linked(t);
+  f.service.configure({expectedRevision:f.service.read().revision,riskPolicy:{version:'partial-rule-v1',maxPositionPct:20}});
+  const input=f.inputs(),rule=input.rules.rules.find(rule=>rule.id==='maxPositionPct');
+  assert.ok(Number.isFinite(rule.used));
+  rule.evidenceStatus='partial';rule.missing=['行业快照覆盖不完整'];
+  const row=risk(buildRiskWorkbench(input),'rule/maxPositionPct');
+  assert.equal(row.status,'unknown');assert.equal(row.evidenceStatus,'partial');
+  assert.notEqual(row.severity,'info');
+});
+
+test('current report refuses a different revision, epoch, snapshot, or sealed equity evidence',t=>{
+  const f=linked(t),input=f.inputs();
+  for(const name of ['rules','actions']){
+    assert.throws(()=>buildRiskWorkbench({...input,[name]:{...input[name],accountRevision:input.equity.source.accountRevision+1}}),/快照/);
+    assert.throws(()=>buildRiskWorkbench({...input,[name]:{...input[name],accountEpoch:'f'.repeat(64)}}),/快照/);
+    assert.throws(()=>buildRiskWorkbench({...input,[name]:{...input[name],authoritySnapshotFingerprint:'f'.repeat(64)}}),/快照/);
+    assert.throws(()=>buildRiskWorkbench({...input,[name]:{...input[name],generatedAt:f.now-1}}),/时点/);
+    for(const field of ['accountId','accountRevision','accountEpoch','authoritySnapshotFingerprint','generatedAt']){
+      const incomplete={...input[name]};delete incomplete[field];
+      assert.throws(()=>buildRiskWorkbench({...input,[name]:incomplete}),/快照|时点/);
+    }
+  }
+  assert.throws(()=>buildRiskWorkbench({...input,stress:{...input.stress,equityEvidenceId:'f'.repeat(64)}}),/权益证据/);
+  assert.throws(()=>buildRiskWorkbench({...input,equity:{...input.equity,cash:input.equity.cash+1}}),/指纹/);
+  assert.throws(()=>buildRiskWorkbench({...input,now:f.now+20000}),/同一时点/);
+  assert.doesNotThrow(()=>buildRiskWorkbench(input));
+});
+
+test('a disappeared source conflict stays unknown until the original independent-source gate verifies recovery',t=>{
+  const f=linked(t),first=buildRiskWorkbench(f.inputs({market:{conflicts:[{code,status:'source-conflict',checkedAt:f.now}]}}));
+  const old=risk(first,'quote/'+code),alerts={accountId:'pool',accountEpoch:first.accountEpoch,
+    groups:[{rootCauseId:old.rootCauseId,risks:[old]}]};
+  f.setNow(f.now+1);
+  const unknown=buildRiskWorkbench(f.inputs({alerts}));
+  assert.equal(risk(unknown,'quote/'+code).status,'unknown');
+  assert.equal(risk(unknown,'quote/'+code).evidenceStatus,'missing');
+  assert.match(risk(unknown,'quote/'+code).facts.join(' '),/单源价格恢复/);
+  const consensus=fuseMultiSourcePrices({code,now:f.now,tradingDates:[day],sources:['tencent','eastmoney'].map(id=>({
+    id,status:'fresh-unverified',quote:{code,exchange:'SH',currency:'CNY',adjustment:'unadjusted',status:'normal',
+      price:9.3,previousClose:10,quoteAt:f.now-1}}))});
+  assert.equal(consensus.status,'sources-agree-unverified');
+  const restored=buildRiskWorkbench(f.inputs({alerts,market:{conflicts:[consensus]}}));
+  const row=risk(restored,'quote/'+code);assert.equal(row.status,'resolved');assert.equal(row.evidenceStatus,'available');
+  assert.equal(row.references.kind,'source-consensus');assert.equal(row.references.sourceEvidence.length,2);
+  assert.equal(row.canTrade,false);
+  const closed={...alerts,groups:[{rootCauseId:row.rootCauseId,status:'resolved',risks:[row]}]};
+  const next=buildRiskWorkbench(f.inputs({alerts:closed}));
+  assert.equal(risk(next,'quote/'+code).status,'resolved','a missing diagnostic does not reopen an already resolved incident');
+});
+
+test('diagnostic generation time cannot make an old or missing source observation current',t=>{
+  const f=linked(t);
+  for(const diagnostic of [
+    {code,status:'source-conflict',generatedAt:f.now,checkedAt:f.now-3600000},
+    {code,status:'source-conflict',generatedAt:f.now},
+    {code,status:'source-conflict',generatedAt:f.now,checkedAt:'invalid',quoteAt:f.now}
+  ]){
+    const row=risk(buildRiskWorkbench(f.inputs({market:{conflicts:[diagnostic]}})),'quote/'+code);
+    assert.equal(row.status,'unknown');assert.notEqual(row.evidenceStatus,'available');
+  }
+});
+
+test('the common risk row retains unknown and invalid policy meaning on every surface',()=>{
+  for(const configurationStatus of ['unknown','invalid','not-configured']){
+    const report=buildRiskWorkbench({accountId:'pool',now:at(day),rules:{accountId:'pool',generatedAt:at(day),rules:[
+      {id:'maxPositionPct',label:'单票上限',enabled:false,configurationStatus,evidenceStatus:'unknown',used:null,missing:[]}
+    ]}});
+    const row=risk(report,'rule/maxPositionPct');assert.equal(row.status,'unknown');
+    assert.match(row.facts[0],configurationStatus==='unknown'?/配置未知/:configurationStatus==='invalid'?/未通过核验/:/未配置/);
+    if(configurationStatus!=='not-configured')assert.doesNotMatch(row.facts[0],/未配置|未启用/);
+  }
+});
+
+test('only verified absence of original exposure resolves a position valuation incident',t=>{
+  const f=linked(t),first=buildRiskWorkbench(f.inputs({quotes:{}})),old=risk(first,'quote/'+code);
+  const alerts={accountId:'pool',accountEpoch:first.accountEpoch,groups:[{rootCauseId:old.rootCauseId,firstSeenAt:f.now,risks:[old]}]};
+  f.setNow(f.now+1);f.sell(200);
+  const input=f.inputs({quotes:{},alerts}),closed=risk(buildRiskWorkbench(input),'quote/'+code);
+  assert.equal(closed.status,'resolved');assert.equal(closed.priceDependent,false);
+  assert.equal(closed.references.kind,'position-valuation');assert.match(closed.impact,/不证明市场报价/);
+  for(const activeOrderSymbols of [null,[code]]){
+    const blocked=buildRiskWorkbench({...input,rules:{...input.rules,occupancy:{...input.rules.occupancy,activeOrderSymbols}}});
+    assert.notEqual(risk(blocked,'quote/'+code)?.status,'resolved');
+  }
+  const conflicted=buildRiskWorkbench({...input,market:{conflicts:[{code,status:'source-conflict',checkedAt:f.now}]}});
+  assert.equal(risk(conflicted,'quote/'+code).status,'active');
+});
+
+test('large quote outages retain full equity gaps without overflowing the original notification journal limits',t=>{
+  const f=equityFixture(t);
+  for(let index=0;index<45;index++)f.buy(String(600000+index));
+  const book=f.service.read(),before=fs.readFileSync(path.join(f.root,'authority.json'),'utf8');
+  const equity=buildAccountEquityEvidence({book,accountId:'pool',quotes:{},now:f.now});
+  assert.equal(equity.missing.length,45);
+  const report=buildRiskWorkbench({accountId:'pool',now:f.now,equity});
+  const summary=risk(report,'account/valuation');
+  assert.equal(summary.facts.length,40);assert.equal(summary.summaryCoverage.facts.complete,false);
+  assert.match(summary.facts.at(-1),/另有/);assert.equal(report.equityMissingMessages.length,45);
+  const lifecycle=createRiskAlertLifecycle({root:path.join(f.root,'notifications'),clock:()=>f.now,canWrite:()=>true});
+  const observed=lifecycle.observe({accountId:'pool',accountEpoch:equity.accountEpoch,risks:report.risks,observedAt:f.now,complete:true});
+  assert.equal(observed.groups.filter(row=>row.rootCauseId.startsWith('quote/')).length,45);
+  assert.equal(fs.readFileSync(path.join(f.root,'authority.json'),'utf8'),before);
 });
