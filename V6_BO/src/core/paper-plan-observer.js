@@ -290,4 +290,5 @@ function hasObservedWindow(rows, predicate) {
 }
 
 module.exports = {observePaperPlans, validateObservation, alertsForRecord, planVersion, planLedgerContext,
-  ledgerEvents, observationCoverage, hasObservedWindow, sessions, MAX_GAP_MS, MAX_RECORDS, SCOPE};
+  ledgerEvents, observationCoverage, hasObservedWindow, sessions, MAX_GAP_MS, MAX_RECORDS, SCOPE,
+  quoteEvidence, sellEligibility};

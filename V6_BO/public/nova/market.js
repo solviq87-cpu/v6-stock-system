@@ -1,5 +1,6 @@
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
+import {createRiskSummary} from './risk-workbench-view.mjs';
 import {decisionSectorReader,sectorDay} from './decision-sector-context.mjs';
 import {createDrawerRadar} from './intelligence-view.mjs';
 import {eligiblePick,pickReasons,topSystemPicks,systemPickDay} from './system-picks.mjs';
@@ -1084,6 +1085,7 @@ export function createStockDrawer(ctx) {
  let leadershipKey='',historyPending=false,minutesPending=false,minutesError='',offlineTheme='',archived=new Map(),livePoints=new Map(),themes=[],chartDay='';
  const minuteSlot=h('div',{class:'fy-minute-slot'});
  const overview=h('section',{class:'fy-drawer-summary','aria-label':'个股概况'});
+ const stockRisk=createRiskSummary(ctx,{title:'个股风险与执行约束',autoload:false});stockRisk.hidden=true;
  const decisionLinks=linkedDecisionPanel(ctx,{compact:true,when:selected=>selected.code===code&&selected.day===chartDay&&!!row?.decisionPlan});
  const decisionRadar=createDrawerRadar(ctx,()=>({code,day:chartDay}));
  function paintSummary(){
@@ -1116,7 +1118,7 @@ export function createStockDrawer(ctx) {
  const sectorChip=h('div',{class:'fy-stock-role-summary',hidden:true});
  const close=()=>{
   shortline.replaceChildren();shortline.hidden=true;
-  generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
+  generation++;controller?.abort();stockRisk.clear();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
   // A shared-state refresh may replace the originating opportunity while the
   // drawer is open. Restore the same stock in the current DOM in that case.
   const origin=previousFocus?.isConnected&&previousFocus.getClientRects().length?previousFocus:
@@ -1126,7 +1128,7 @@ export function createStockDrawer(ctx) {
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
  for(const[key,label]of [['chart','走势'],['evidence','依据'],['leadership','带动性'],['company','公告'],['sources','核对'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
- drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,decisionLinks,decisionRadar,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
+ drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,decisionLinks,stockRisk,decisionRadar,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
  overlay.addEventListener('click',close);
  drawer.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();close();}
@@ -1420,6 +1422,7 @@ export function createStockDrawer(ctx) {
    if(!quote.hidden)meta.textContent='同标的独立报价 · '+meta.textContent;
   }
   overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();void loadMinutes();
+  stockRisk.clear();if(!row.historicalClose)void stockRisk.refresh({code:nextCode,signal:controller.signal});
   if(row.historicalClose){shortline.replaceChildren();shortline.hidden=true;}
   else void checkShortline(nextCode,row,controller.signal,generation);
  }

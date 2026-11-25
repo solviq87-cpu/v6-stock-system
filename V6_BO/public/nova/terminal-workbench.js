@@ -10,6 +10,7 @@ import {createDecisionHome} from './decision-view.mjs';
 import {projectSectorFlows} from './decision-sector-context.mjs';
 import {createIntelligenceCenter} from './intelligence-view.mjs';
 import {renderCloseReview} from './close-review.js';
+import {createRiskSummary} from './risk-workbench-view.mjs';
 
 const valid = value => typeof value==='number' && Number.isFinite(value);
 const number = value => valid(value)?format(value,0):'—';
@@ -348,10 +349,10 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
   view.classList.add('fy-home-layout');
   const researchBody=h('div',{class:'fy-home-research-body'},title,status,indexHost,statsHost,prioritiesHost,
    signalPanel,candidateSlot.host,fundsSlot.host,reviewHost,panelsHost,ladderPanel,newsPanel,chartPanel,
-   strategiesPanel,decisionsHost,riskPanel,syncPanel,mobileLinks,quick);
+   strategiesPanel,decisionsHost,riskPanel,home.risk,syncPanel,mobileLinks,quick);
   const more=h('details',{class:'fy-home-research'},h('summary',{},h('strong',{},'更多研究'),
    h('span',{},'复盘、策略与同步')),researchBody);
-  view.append(createDecisionHome(ctx),home.market,home.opportunity,home.risk,createIntelligenceCenter(ctx),more);
+  view.append(createDecisionHome(ctx),createRiskSummary(ctx),home.market,home.opportunity,createIntelligenceCenter(ctx),more);
   if(ctx.canEdit===true){
    const body=h('div',{'aria-live':'polite'}),research=section('分环境战法绩效','多头、震荡和空头下的成熟样本',body);
    research.setAttribute('data-home-research','performance');researchBody.append(research);
@@ -497,7 +498,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
      h('strong',{},button(nameOf(row),()=>ctx.selectStock(row.code,row),'quiet')),
      h('span',{class:'fy-terminal-mobile-board'},level+' 板'))):[empty('暂无连板梯队')]));
   const paper=ctx.role==='edit'&&state.paper?.hidden!==true?state.paper?.pool:null;
-  const accountValues=[['总权益',paper?.equity],['可用资金',paper?.cash],['持仓市值',paper?.marketValue],['累计盈亏',paper?.totalPnl]];
+  const accountValues=[['参考权益',paper?.equity],['可用资金',paper?.cash],['参考持仓市值',paper?.marketValue],['参考累计盈亏',paper?.totalPnl]];
   const hasPositions=Array.isArray(paper?.positions),hasAccount=hasPositions||accountValues.some(([,value])=>valid(value));
   updateReadout(accountContent,...(hasAccount?[
    h('small',{class:'fy-muted'},'A · 跟单盘'),

@@ -1,6 +1,6 @@
 # 天枢智策 V6 部署清单
 
-更新日期 2026-11-25（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
+更新日期 2026-11-26（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
 
 仓库首页、两级 `AGENTS.md`、`npm run context:resume` 和正式应用管理者首页都固定指向这份文档。应用首页打开 `dev` 上的当前文档，访问权限由 GitHub 私有仓库管理。
 
@@ -8,7 +8,7 @@
 
 | 用途 | 源码位置及发布方式 | 当前状态 |
 | --- | --- | --- |
-| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 完整运行包构建脚本可用；本轮20261125ad补齐联动、因子与执行闭环，未切换生产。现场冷备、原账户、手机连接和私密推送需由目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
+| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 完整运行包构建脚本可用；本工作分支20261126aa加入统一风险工作台与派生权益/提醒闭环，待最终集成验证，未切换生产。现场冷备、原账户、手机连接和私密推送需由目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
 | 指定 WorkBuddy 静态站 | 源码 `V6_WEB/workbuddy/index.html`，由 `V6_BO/scripts/build-workbuddy-static.js` 生成带源码版本的单文件 HTML。现有发布者负责发布并读回校验。 | 静态站承载浏览器页面。升级本次原生看板及其行情接口，请使用上方完整应用的部署入口。 [静态站发布](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md) |
 | 独立只读行情预览 | `streamlit_readonly/`。公开行情、教学筛选和回测的部署入口是 `streamlit-release` 分支的 `app.py`。 | 源码已补合入 `dev`。独立预览的线上状态以实际托管服务为准。 [预览部署](streamlit_readonly/README_RELEASE.md) |
 | Web 教学预览 | `V6_WEB/src/` 与 `V6_WEB/scripts/` 构建 `V6_WEB/dist/`。适合独立静态预览。 | 由本目录的构建脚本生成，正式 Node 应用使用上方原生页面入口。 |
@@ -16,6 +16,16 @@
 | 短线研究台 1.0.0 兼容归档 | `ashare-strategy-lab/` 保存原独立版、20 项测试及旧版部署说明。 | 旧版浏览器记录按原域名、端口、浏览器导出留档。[原版操作说明](ashare-strategy-lab/README.md) |
 
 运行包的完整文件列表以包内 `manifest.json` 为准。`source.json` 记录精确 Git 提交，`SHA256SUMS.txt` 可逐文件验证。部署前应在独立目录验包并验证启动。已有实例升级前备份运行目录，保留私有配置、设备授权、持仓、模拟盘、订单账本及推送流水，之后按既有更新器验收或回滚。 [更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)
+
+## 2026-11-26 风险中心、账户风险与提醒闭环 · `20261126aa`
+
+本组从 `dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9` 独立开发 `feat/fayo-risk-center-20261126`，负责 01、02、03、04、05、14、30。应用版本 **20261126aa**，原生双端修订 **risk-20261126-1**，SW 缓存后缀 **risk-center-1**。代码与接口已接入原后台；最终提交、PR、CI 与双端证据见 [本次验证](docs/validation/fayo-risk-20261126/README.md)，跨组接口与依赖见 [合同](docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md)。当前未合入 dev、未部署生产。
+
+新增私有派生目录默认为 `V6_BO/data/risk-evidence/`，可由 `V6_RISK_EVIDENCE_DIR` 指定原节点私有卷；`equity/` 保存按账户、期间、日期分隔的权益证据，`notifications/` 保存根因生命周期、查看、静音及投递预留。它们不是现金、持仓或成交账本。恢复、升级与迁移必须随原私有卷保留；损坏或容量超限时拒写并显示系统风险，不删除重建、不重放未知投递。GET 不创建或更新任何派生记录。原主实例每五秒调度，权益常规每分钟留样；观察缺档保留，采样回撤不是连续全历史最大回撤。
+
+通知仍由原私密 `pushAll` / Feishu 队列发送，活跃计划仍由原持久观察回调唯一发起。网关受理与接收端确认分开；当前没有新增真实接收端回执来源，因此不能将受理认作送达。原日志 `status` 保留给去重与归因，新增只读 `deliveryLabel` 在原通知页准确显示。静音不更改后端限制，也不隐藏站内风险。缺数据、过期报价和冲突不得触发新的价格判断或自动清仓。
+
+本组只提交源码、必要测试与精简文档。已有完整源码 bundle 已验证（SHA-256 `9ff7ccc75186fbd27ebe660ad6bd4fdf07e956b0106c0e0936f0aff310a1a232`），它不能代替现场程序、data、durable、权威账本及所有外部卷的停写冷备。本轮未取得生产私有卷、未发真实消息、未改变权限/角色/原风险配置。最终整合由第一组执行：保留各组小补丁，统一版本，再对合并后的精确 SHA 重跑全量、HTTP、双端、安全与账本一致性检查。
 
 ## 2026-11-25 联动与执行闭环 · `20261125ad`
 

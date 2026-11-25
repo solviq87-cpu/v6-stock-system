@@ -278,7 +278,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261125ad'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261126aa'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -10025,6 +10025,9 @@ function pushAll(text, force, opts) {
       forceHistoricalObservation:opts.forceHistoricalObservation||delivery.kind==='historical-trigger-observation',
       ...((delivery.newsRows)?{newsRecommendationRows:delivery.newsRows}:{}),
       beforeSend:_newsBeforeSend||undefined}).then(r => {
+      // Derived risk delivery evidence consumes the original queue receipt.
+      // A gateway acceptance never certifies the receiving device.
+      try{if(typeof opts.onReceipt==='function')opts.onReceipt(r);}catch{}
       if(r&&r.localReview){
         _pushLast={ret:false,sent:false,why:r.localReview.why||'派发前新闻审核未通过',t:Date.now()};
         _release(_pushLast.why);return;
@@ -10055,6 +10058,7 @@ function pushAll(text, force, opts) {
       pushLog('🔒 私密未送达·不外发', '[私密消息已隐藏]', _extra({ channel: '飞书·私密', note: '仅私密通道允许发送；未退回公共群' }));
       _release('私密通道拒收');
     }).catch(e => {
+      try{if(typeof opts.onReceipt==='function')opts.onReceipt({ok:false,status:'unknown',msg:String(e?.message||'通知结果待核对')});}catch{}
       // ⛔ fz 轮：同上，异常若是超时/断连也按「结果未知」处理，不退回群（否则重复 + 泄露）。
       //    代码级异常（如读不到配置）也不得公开发送。
       if (sendResultUnknown(e && e.message)) {
@@ -11560,6 +11564,42 @@ function executionChecklistCache(){
     readBook:()=>_paperAuthority.pool.read(),readConditionalOrders:()=>paperConditionalStore().read(),
     readDailyReport:input=>executionReportStore().read(input)});
 }
+let _riskWorkbenchRuntime=null;
+function riskWorkbenchRuntime(){
+  return _riskWorkbenchRuntime??=require('./src/server/risk-workbench-runtime').createRiskWorkbenchRuntime({
+    root:process.env.V6_RISK_EVIDENCE_DIR||path.join(__dirname,'data','risk-evidence'),
+    isPrimary:()=>!isReplica(),session:now=>({...marketDisplaySession(now),continuous:isContinuousTrading()}),calendar:paperAuthorityCalendar,
+    readBook:key=>{if(!_paperAuthority[key])throw Error('原权威账户不可用');return _paperAuthority[key].read();},
+    readQuotes:()=>{
+      const quotes=paperAuthorityQuotes(),now=Date.now();
+      // Preserve unusable observations as evidence of gaps, without ever
+      // returning them to paperAuthorityQuotes or the execution price cache.
+      for(const row of [...Array.from(S.lastPx?.values?.()||[],tick=>tick?.wireQuote),...(S.stocks||[])]){
+        if(!row||!/^\d{6}$/.test(row.code||'')||quotes[row.code])continue;
+        quotes[row.code]={...row,symbol:row.code,provider:row.quoteSource,mode:row.quoteMode||row.mode};
+      }
+      for(const [code,check] of decisionCrossChecks){
+        const at=typeof check.checkedAt==='number'?check.checkedAt:Date.parse(check.checkedAt||'');
+        if(quotes[code]&&/conflict|ambiguous/.test(check.status||'')&&Number.isFinite(at)&&at<=now&&now-at<=15000)
+          quotes[code]={...quotes[code],sourceConflict:true};
+      }
+      return quotes;
+    },
+    readResearch:now=>require('./src/core/research-risk-center').readResearchRiskCenter({state:newsEvidenceVisibleState(),now,
+      holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')}),
+    readPlans:()=>require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:isReplica()}),
+    readObservations:input=>planObservationStore().read(input),readAutomaticPolicy:key=>PAPER_CFG[key],
+    readOriginalExitChecks:(key,plans,book,quotes,now)=>Object.fromEntries([...plans,...Object.keys(book?.account?.positions||{}).map(code=>({id:code,code}))].map(plan=>{
+      const quote=quotes[plan.code];
+      const reason=book?.legacy?.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
+      return [plan.id,{allowed:reason?false:quote?true:null,reason:reason||'原账户启用及原跌停巡检；还须核对批次和当前报价',checkedAt:now,quoteAt:quote?.quoteAt??null}];
+    })),
+    readMarket:now=>{const current=marketDisplaySession(now),day=require('./src/core/limit-reason-evidence').normalizeDay(current.day);
+      return {conflicts:[...decisionCrossChecks.values()],classificationSnapshot:dabankeReview.summary(day,current.trading?'盘中':'收盘')};},
+    planEnabled:centerEvidenceEnabled,privateReady:privReady,sendPrivate:(message,options)=>pushAll(message,false,options)
+  });
+}
 let _decisionFeedbackRuntime=null,_approvedFactorCache=null;
 function decisionFeedbackRuntime(){
   if(_decisionFeedbackRuntime)return _decisionFeedbackRuntime;
@@ -11617,24 +11657,12 @@ function centerEvidenceRuntime(){
       const result=require('./src/core/paper-plan-observer').observePaperPlans(input);
       // This projection must never block original observation persistence.
       try{if(typeof _paperExecutionChecklistCache!=='undefined')_paperExecutionChecklistCache?.observe(result);}catch{}
+      try{riskWorkbenchRuntime().observePlans(result);}catch{}
       return result;
     },store:planObservationStore(),
     privateReady:privReady,
     sendPrivate:alert=>{
-      const label={entry:'进入计划买入区间',stop:'触及计划止损位',target:'触及计划目标价'}[alert.kind];
-      const beforeSend=()=>{
-        const now=Date.now(),session=marketDisplaySession(now);
-        return !isReplica()&&centerEvidenceEnabled()&&privReady()&&label&&
-          Number.isSafeInteger(alert.quoteAt)&&alert.quoteAt<=now&&now-alert.quoteAt<=15000&&
-          require('./src/core/limit-reason-evidence').normalizeDay(session.day)===alert.day&&isContinuousTrading()
-          ?{ok:true}:{ok:false,why:'计划条件观察的实例、启用状态、交易时段或原始报价已失效'};
-      };
-      if(!beforeSend().ok)return false;
-      const title=alert.kind!=='entry'&&alert.entryEventId?'持仓风控·计划条件观察':'计划条件观察';
-      return pushAll(`═══ ${title} ═══\n${alert.name||alert.code}(${alert.code}) · ${label}\n`+
-        `原始报价 ${alert.price} 元 · ${alert.source} · ${new Date(alert.quoteAt).toISOString()}\n`+
-        `${alert.reason}\n此消息仅记录条件观察，成交以原账本为准；原账户成交与退出门禁继续生效。`,false,
-        {private:true,sseEdit:true,beforeSend,signalRefs:[{code:alert.code,type:'plan-'+alert.kind,ts:alert.quoteAt,signalId:alert.id}]});
+      return riskWorkbenchRuntime().sendPlanAlert(alert);
     }
   });
 }
@@ -19648,6 +19676,7 @@ const _httpBootstrap = createDashboardServer({
       setInterval(()=>{void runPaperConditionalOrders().catch(()=>console.error('[paper-conditions] 原条件意图未完成校验，保留原账户并等待下轮'));},5000).unref();
       setInterval(()=>{void decisionBackground().tick().catch(()=>console.error('[decision-research] 采集未完成，原证据保留'));},60000).unref();
       setInterval(()=>{void centerEvidenceRuntime().tick().catch(()=>{});},5000).unref();
+      setInterval(()=>{void riskWorkbenchRuntime().tick().catch(()=>{});},5000).unref();
       setInterval(()=>{void executionChecklistCache().tick().catch(()=>{});void executionReportRuntime().tick().catch(()=>{});},5000).unref();
       setInterval(()=>{void approvedFactorCache().tick().catch(()=>{});void decisionFeedbackRuntime().tick().catch(()=>{});},5000).unref();
       const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
@@ -21199,7 +21228,7 @@ function handle(req, res, u, body) {
       }
     } catch {}
     return json(res, { ok: true, replica: isReplica(), count: PUSH_LOG.length, sentToday: _sentToday,
-      shown: Math.min(_log.length, _n), log: _log.slice(0, _n), gov: pushGovStat() });
+      shown: Math.min(_log.length, _n), log: _log.slice(0, _n).map(require('./src/core/notification-delivery-view').projectPushLogDelivery), gov: pushGovStat() });
   }
   // 次日作战计划：GET 看计划，POST 立即重算（手动补发/验证用）
   if (p === '/api/nextplan' && (req.method === 'GET' || req.method === 'POST')) {
@@ -22953,6 +22982,28 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return reply(200,{ok:true,...result});
     }catch(error){return reply(422,{ok:false,error:'冻结证据不存在、身份无效或完整性校验失败'});}
   }
+  if (p === '/api/risk-workbench' || p === '/api/risk-workbench/alerts') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    const accountId=u.searchParams.get('account')||'pool',code=u.searchParams.get('code');
+    if(!['pool','pre'].includes(accountId)||code!==null&&!/^\d{6}$/.test(code))return reply(400,{ok:false,error:'原账户或标的参数无效'});
+    // A durable device identity survives a short-lived session refresh without
+    // storing a reusable credential in the derived notification journal.
+    const actor=crypto.createHash('sha256').update('risk-viewer/'+String(_editSessionDevices.get(req.__tok)||req.__tok||'local-editor')).digest('hex');
+    if(p==='/api/risk-workbench'){
+      if(req.method!=='GET')return reply(405,{ok:false,error:'风险读取仅允许GET'});
+      return riskWorkbenchRuntime().read({accountId,code,actor}).then(result=>isEditorReq(req,req.__tok)?reply(200,{ok:true,result}):reply(403,{ok:false,locked:true,error:'授权已失效'}))
+        .catch(()=>reply(422,{ok:false,error:'风险证据不可用，当前风险未知'}));
+    }
+    if(req.method!=='POST')return reply(405,{ok:false,error:'提醒状态更新仅允许POST'});
+    if(isReplica())return reply(403,{ok:false,readOnly:true,error:'副本只读，原主实例负责提醒状态'});
+    let input;try{input=JSON.parse(body||'');}catch{return reply(400,{ok:false,error:'提醒状态参数无效'});}
+    if(!input||Array.isArray(input)||Object.keys(input).some(key=>!['action','accountId','accountEpoch','rootCauseId','classification','mutedUntil','expectedRevision'].includes(key)))
+      return reply(400,{ok:false,error:'仅允许查看状态或通知静音，不接受交易或接收端确认'});
+    return riskWorkbenchRuntime().update(input,{actor,authorized:()=>isEditorReq(req,req.__tok)}).then(result=>isEditorReq(req,req.__tok)?reply(200,{ok:true,result}):reply(403,{ok:false,locked:true,error:'授权已失效'}))
+      .catch(()=>reply(409,{ok:false,error:'提醒状态或账户期间已变化，请刷新后重试'}));
+  }
   if (p === '/api/research/risk-center') {
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
@@ -24109,6 +24160,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
           if(!saved.ok||!saved.result)throw Error(saved.error||'计划冻结回执尚未确认');
           if(!requireEditor(res,c.token,req))return;
           decisionEvidenceRuntime?.invalidate();
+          _riskWorkbenchRuntime?.invalidate();
           _paperExecutionChecklistCache?.invalidate();
           return json(res,{ok:true,plan:saved.result,reused:false,msg:'后端条件计划已冻结，尚未提交买入'});
         }catch(error){return json(res,{ok:false,error:'计划未准备：'+error.message});}})();

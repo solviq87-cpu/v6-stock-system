@@ -2435,3 +2435,16 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
  .fy-market-map svg g>text+text{display:none}
  .fy-flow-sankey svg text{font-size:26px}
 }
+
+/* Shared account risk evidence; the backend owns every permission and value. */
+.fy-risk-item{padding:16px;border:1px solid var(--border,rgba(217,145,193,.2));border-radius:14px;margin:10px 0;overflow-wrap:anywhere;background:rgba(148,69,127,.045)}
+.fy-risk-item[data-risk-severity="critical"]{border-left:3px solid #f274a3}
+.fy-risk-item[data-risk-severity="warning"]{border-left:3px solid #d5ac78}
+.fy-risk-item[data-risk-severity="unknown"]{border-left:3px solid #aaa1ca}
+.fy-risk-statuses{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted,#aaa0b8);margin-top:8px}
+.fy-risk-summary .fy-risk-item{padding:12px}.fy-risk-summary{min-width:0}
+[data-risk-workbench] .fy-detail-grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+[data-risk-workbench] .fy-panel,[data-risk-workbench] .fy-details{min-width:0}
+[data-risk-workbench] .fy-table-wrap{max-width:100%;overflow-x:auto}
+[data-risk-workbench] .fy-table td{overflow-wrap:anywhere;white-space:normal}
+@media(max-width:600px){.fy-risk-item{padding:12px}.fy-risk-item .fy-item-head{align-items:flex-start;flex-wrap:wrap}[data-risk-workbench] .fy-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}[data-risk-workbench] .fy-toolbar{flex-wrap:wrap}}

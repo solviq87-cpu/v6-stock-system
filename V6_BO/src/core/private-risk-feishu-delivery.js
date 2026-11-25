@@ -7,6 +7,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
+const {classifyFeishuReceipt}=require('./feishu-receipt');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const chinaDay=now=>new Date(now+8*3600000).toISOString().slice(0,10);
 const HOST='open.feishu.cn';
@@ -165,13 +166,10 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
     headers:{'content-type':'application/json'},
     body:JSON.stringify({msg_type:'text',content:{text:summary.message}}),
     signal:controller.signal,redirect:'error'});
-   if(response?.ok){
-    const payload=await response.json();
-    if(payload&&((payload.code===0)||(payload.StatusCode===0))){
-     status='gateway-accepted';accepted=true;
-    }else status='gateway-rejected';
-   }else if(response&&response.status>=400&&response.status<500)
-    status='gateway-rejected';
+   const payload=response?.ok?await response.json():null;
+   const receipt=classifyFeishuReceipt(response?.status,payload);
+   if(receipt.status==='accepted'){status='gateway-accepted';accepted=true;}
+   else if(receipt.status==='rejected')status='gateway-rejected';
    // 5xx / socket close / invalid JSON are unknown and must not be retried.
   }catch{/* unknown, do not automatically retry */}
   finally{clearTimeout(timer);}
