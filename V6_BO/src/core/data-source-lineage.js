@@ -13,13 +13,42 @@ function guardedCatalogue(file){
 }
 const registry=guardedCatalogue('../../config/data-source-registry-2026.json');
 const legacy=guardedCatalogue('../../config/data-source-catalog.json');
-const catalogAvailable=!!(registry&&legacy&&Array.isArray(registry.sources)&&Array.isArray(legacy.sources));
-function requireCatalogue(){
- if(!catalogAvailable)throw Error('原始行情上游目录缺失或损坏，禁止多源核对放行');
-}
 const safe=/^[a-z][a-z0-9-]{0,63}$/;
-const routes=new Map((registry?.sources||[]).map(x=>[x.id,Object.freeze({...x})]));
-const baseIds=new Set((legacy?.sources||[]).map(x=>x.id));
+const legalAccess=new Set(['guarded-research','registered-only','permission-review','credentials-required','client-required']);
+// Validate once before building the identity map. A syntactically valid JSON
+// file can still be corrupt; duplicate keys in the route array must not replace
+// canonical upstream identities. Keep unrelated services bootable on failure.
+function catalogueIssue(registry,legacy){
+ if(!registry||!legacy||!Array.isArray(registry.sources)||!Array.isArray(legacy.sources))return '目录结构无效';
+ if(registry.schemaVersion!==1||registry.productionEntitlementGranted!==false||
+   registry.autoEnableNewProviders!==false||registry.defaultCanTrade!==false||
+   registry.sources.length<14)return '数据源目录必须为不启用新服务、无交易权限的完整登记';
+ const ids=new Set(),baseIds=new Set();
+ for(const r of registry.sources){
+  if(!r||typeof r.id!=='string'||!safe.test(r.id)||typeof r.upstreamGroup!=='string'||
+     !(safe.test(r.upstreamGroup)||/^multi:[a-z][a-z0-9-]*$/.test(r.upstreamGroup))||
+     !legalAccess.has(r.access)||typeof r.dataClass!=='string'||!r.dataClass||
+     !['CN','HK','US','KR','JP','GLOBAL'].includes(r.market)||
+     typeof r.evidenceUrl!=='string'||!/^https:\/\//.test(r.evidenceUrl)||typeof r.adapter!=='string')
+   return '数据源目录字段非法';
+  if(ids.has(r.id))return '数据源目录包含重复身份';
+  ids.add(r.id);
+ }
+ for(const r of legacy.sources){
+  if(!r||typeof r.id!=='string'||!safe.test(r.id)||baseIds.has(r.id))return '原始数据源目录字段或身份非法';
+  baseIds.add(r.id);
+  if(!ids.has(r.id))return '原始14个数据源不允许删除';
+ }
+ if(baseIds.size<14)return '原始数据源目录不完整';
+ const enabled=registry.sources.filter(x=>x.access==='guarded-research').map(x=>x.id).sort();
+ if(JSON.stringify(enabled)!==JSON.stringify(['baostock','eastmoney-public-history']))return '新增来源不得擅自启用采集';
+ return null;
+}
+const issue=catalogueIssue(registry,legacy);
+function requireCatalogue(){
+ if(issue!==null)throw Error('原始行情上游目录缺失或损坏，禁止多源核对放行: '+issue);
+}
+const routes=new Map(issue===null?registry.sources.map(x=>[x.id,Object.freeze({...x})]):[]);
 function sourceLineage(id){
  if(typeof id!=='string'||!/^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/.test(id))return null;
  const r=routes.get(id);
@@ -53,7 +82,7 @@ function sourceSummary(){
  requireCatalogue();
  const upstreams=new Set();
  const byAccess={};const byClass={};
- for(const s of registry.sources){
+ for(const s of routes.values()){
   upstreams.add(s.upstreamGroup);
   byAccess[s.access]=(byAccess[s.access]||0)+1;
   byClass[s.dataClass]=(byClass[s.dataClass]||0)+1;
@@ -63,25 +92,7 @@ function sourceSummary(){
   autoEnableNewProviders:false,canTrade:false,byAccess,byClass};
 }
 function validateRegistry(){
- requireCatalogue();
- if(registry.schemaVersion!==1||registry.productionEntitlementGranted!==false||
-   registry.autoEnableNewProviders!==false||registry.defaultCanTrade!==false||
-   registry.sources.length<14||routes.size!==registry.sources.length)
-  throw Error('数据源目录必须为不启用新服务、无交易权限的完整登记');
- const legalAccess=new Set(['guarded-research','registered-only','permission-review','credentials-required','client-required']);
- for(const r of registry.sources){
-  if(!safe.test(r.id)||typeof r.upstreamGroup!=='string'||
-     !(safe.test(r.upstreamGroup)||/^multi:[a-z][a-z0-9-]*$/.test(r.upstreamGroup))||
-     !legalAccess.has(r.access)||typeof r.dataClass!=='string'||!r.dataClass||
-     !['CN','HK','US','KR','JP','GLOBAL'].includes(r.market)||
-     typeof r.evidenceUrl!=='string'||!/^https:\/\//.test(r.evidenceUrl)||typeof r.adapter!=='string')
-   throw Error('数据源目录字段非法: '+r.id);
- }
- for(const id of baseIds)if(!routes.has(id))throw Error('原始14个数据源不允许删除: '+id);
- // Existing enabled Boastock research is not a license for every other source.
- const enabled=registry.sources.filter(x=>x.access==='guarded-research').map(x=>x.id).sort();
- if(JSON.stringify(enabled)!==JSON.stringify(['baostock','eastmoney-public-history']))
-  throw Error('新增来源不得擅自启用采集');
+ // The same validated immutable snapshot is used for resolution and audit.
  return sourceSummary();
 }
 module.exports={sourceLineage,resolveUpstream,sourceSummary,validateRegistry};
