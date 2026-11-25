@@ -6,7 +6,6 @@ const {auditCenterInputs}=require('./intelligence-research');
 const {validatePlan}=require('./paper-decision-plan');
 const {tradingFees}=require('./trading-fees');
 const {quoteUseEligibility}=require('./quote-observation-view');
-const {consecutiveLosses}=require('./common-entry-risk');
 const {capacityScenarios,exitRisk,previewPosition,tailRisk,cashFlowPerformance,compareOpportunity}=require('./advanced-portfolio-evidence');
 const flags={canTrade:false,writesAccount:false,automaticSwitch:false};
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
@@ -94,19 +93,42 @@ function originalStrategy(book,position,eventMap){
  const strategies=position.lots.filter(l=>l.quantity>0).map(l=>book.orders[eventMap.get(l.sourceEventId)?.orderId]?.order?.strategyId);
  return strategies.length&&strategies.every(s=>label(s)&&s===strategies[0])?strategies[0]:null;
 }
-function originalRiskContext(book){
- if(!book.riskPolicy)return null;
- const pending=Object.values(book.orders).filter(x=>x.state?.terminal===false&&x.order?.side==='buy').map(x=>({symbol:x.order.symbol,quantity:x.state.remainingQuantity,price:x.order.limitPrice,strategyId:x.order.strategyId}));
- const losses=[...book.account.events.map((e,i)=>({...e,rank:e.accountRevision??i+1,date:e.tradeDate})),...(book.corporateEvents||[]).filter(e=>e.kind==='delisting-cash').map(e=>({...e,side:'sell',rank:e.accountRevision??0,date:e.effectiveDate}))].sort((a,b)=>a.date.localeCompare(b.date)||a.rank-b.rank);
- return {policy:book.riskPolicy,evidenceRef:book.fingerprint,pending,lossStreak:consecutiveLosses(losses)};
-}
-function originalReceipt(plan,receipt,{book,quote,now,day}){
+function originalReceipt(plan,receipt,{book,quote,quotes,diagnostic,now,day}){
  try{validatePlan(plan,now);}catch{return {status:'unknown',reason:'INVALID_OR_NONAUTHORITATIVE_PLAN'};}
  if(plan.intendedDate!==day)return {status:'blocked',reason:'PLAN_DAY_MISMATCH'};
  if(!receipt||receipt.scope!=='original-paper-account-observation'||receipt.planId!==plan.id||receipt.decisionId!==plan.decisionId||!stamp(receipt.checkedAt)||receipt.checkedAt>now||now-receipt.checkedAt>5000||receipt.accountRevision!==book.revision||!quote||receipt.quoteAt!==quote.quoteAt||receipt.quotePrice!==quote.price||receipt.quoteSource!==quote.quoteSource||!quoteUseEligibility(quote,now).canTrade)return {status:'unknown',reason:'ORIGINAL_PLAN_RECEIPTS_UNAVAILABLE'};
  if(receipt.allowed===false)return {status:'blocked',reason:label(receipt.reason)?receipt.reason:'ORIGINAL_PLAN_GATE_BLOCKED'};
  if(receipt.allowed!==true||!hashOk(book.fingerprint)||receipt.accountFingerprint!==book.fingerprint||!Number.isSafeInteger(receipt.quantity)||receipt.quantity<=0||receipt.quantity%lotOf(plan.code)!==0||!finite(receipt.fee)||receipt.fee<0||!positive(receipt.maxPositionPct)||receipt.maxPositionPct>plan.maxPosition)return {status:'unknown',reason:'ORIGINAL_PLAN_SIZING_UNAVAILABLE'};
- return {status:'allowed',reason:label(receipt.reason)?receipt.reason:null,evidenceRef:hash([plan.id,plan.decisionId,receipt.checkedAt,receipt.quoteAt,receipt.accountRevision,receipt.accountFingerprint,receipt.quantity,receipt.fee,receipt.maxPositionPct]),quantity:receipt.quantity,fee:receipt.fee,maxPositionPct:receipt.maxPositionPct};
+ let riskBudget=null;
+ if(book.riskPolicy){
+  // The main-process observer has already verified issuance by the original
+  // service. Across the worker boundary keep its exact immutable calculation,
+  // account version and individual quote bindings, never re-derive policy from
+  // optional display labels or omit the original imported prior-close evidence.
+  const proof=receipt.accountPreview;
+  if(!proof||typeof proof!=='object')return {status:'unknown',reason:'ORIGINAL_ACCOUNT_PREVIEW_UNAVAILABLE'};
+  const {fingerprint,...payload}=proof;
+  if(!hashOk(fingerprint)||fingerprint!==hash(payload)||proof.scope!=='original-automatic-entry-preview-v1'||proof.status!=='allowed'||proof.allowed!==true||
+    proof.canTrade!==false||proof.writesAccount!==false||proof.reservesCash!==false||!stamp(proof.checkedAt)||proof.checkedAt>now||now-proof.checkedAt>5000||
+    proof.accountRevision!==book.revision||proof.accountFingerprint!==book.fingerprint||proof.policyFingerprint!==hash(book.riskPolicy)||
+    proof.symbol!==plan.code||proof.tradeDate!==day||proof.quantity!==receipt.quantity||proof.fee!==receipt.fee||proof.price!==quote.price||
+    proof.quotePrice!==quote.price||proof.quoteAt!==quote.quoteAt||proof.quoteSource!==quote.quoteSource||proof.receivedAt!==(quote.receivedAt??null)||
+    proof.cash!==diagnostic.cash||proof.reservedCash!==diagnostic.reservedCash||proof.availableCash!==diagnostic.availableCash||
+    proof.strategyId!==null||proof.strategyAttribution!=='original-automatic-without-strategy-id'||!Array.isArray(proof.valuation))
+    return {status:'unknown',reason:'ORIGINAL_ACCOUNT_PREVIEW_UNBOUND'};
+  const held=Object.entries(book.account.positions).filter(([,position])=>position.quantity>0);
+  if(proof.valuation.length!==held.length||new Set(proof.valuation.map(row=>row.symbol)).size!==held.length||held.some(([code,position])=>{
+   const row=proof.valuation.find(value=>value.symbol===code),current=quotes[code]?.quote;
+   return !row||!current||!quoteUseEligibility(current,now).canTrade||row.quantity!==position.quantity||row.price!==current.price||
+    row.quoteAt!==current.quoteAt||row.quoteSource!==current.quoteSource||row.receivedAt!==(current.receivedAt??null);
+  }))return {status:'unknown',reason:'ORIGINAL_ACCOUNT_PREVIEW_VALUATION_CHANGED'};
+  if(!proof.riskBudget||proof.riskBudget.policyScope!=='original-account-readonly-preview'||proof.riskBudget.policyVersion!==book.riskPolicy.version||
+    proof.riskBudget.estimatedConstraintsSatisfied!==true||proof.riskBudget.canTrade!==false||proof.riskBudget.writesAccount!==false||
+    !finite(proof.riskBudget.originalEquityBasis)||Math.abs(proof.riskBudget.originalEquityBasis-diagnostic.equity)>.011)
+    return {status:'unknown',reason:'ORIGINAL_ACCOUNT_POLICY_BUDGET_UNAVAILABLE'};
+  riskBudget={...proof.riskBudget,evidenceRef:fingerprint};
+ }
+ return {status:'allowed',reason:label(receipt.reason)?receipt.reason:null,evidenceRef:hash([plan.id,plan.decisionId,receipt.checkedAt,receipt.quoteAt,receipt.accountRevision,receipt.accountFingerprint,receipt.quantity,receipt.fee,receipt.maxPositionPct]),quantity:receipt.quantity,fee:receipt.fee,maxPositionPct:receipt.maxPositionPct,riskBudget};
 }
 function performanceEvidence(e,{book,diagnostic,account,now}){
  const missing=reason=>({...unknown(reason),currentEquity:diagnostic.equity,currentCash:diagnostic.cash,externalNetFlow:null,investmentPnl:null,timeWeightedReturn:null,moneyWeightedAnnualReturn:null,benchmarkReturn:null,benchmarkExcess:null,riskAdjustedReturn:null,periodId:'original-period-'+(book.archives?.length||0),missing:['逐次外部入出金前后原权益边界','同一收益期起点和期末完整估值','同区间基准与连续交易日日历'],resetTreatment:'reset/setInitial starts a new original-account period; dividends are investment cash flows'});
@@ -158,12 +180,13 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  let verifiedPlanReceipts=0;
  const checkedPlans=[];
  const previews=plans.map(plan=>{
-  const quote=marks(plan?.code)?.quote,receipt=originalReceipt(plan,own(checks,plan?.id),{book,quote,now,day});
+  const quote=marks(plan?.code)?.quote,receipt=originalReceipt(plan,own(checks,plan?.id),{book,quote,quotes,diagnostic,now,day});
   if(receipt.status!=='allowed'){missing.push('ORIGINAL_PLAN_RECEIPTS_UNAVAILABLE');return {planId:plan?.id||null,symbol:plan?.code||null,...unknown(receipt.reason),originalGateStatus:receipt.status,previewBlocked:true};}
   verifiedPlanReceipts++;
-  const projection={evidenceRef:plan.id,symbol:plan.code,price:quote.price,quantity:receipt.quantity,fee:receipt.fee,...classification(context.classifications,plan.code,now),strategy:label(plan.strategyId)?plan.strategyId:null};
+  const projection={evidenceRef:plan.id,symbol:plan.code,price:quote.price,quantity:receipt.quantity,fee:receipt.fee,...classification(context.classifications,plan.code,now),strategy:null};
   checkedPlans.push({plan,receipt,projection});
-  const value=previewPosition({snapshot,plan:projection,gate:receipt,riskContext:originalRiskContext(book),observations:history.observations([...heldCodes,plan.code]),asOf:now,returnBasis:'adjusted-price'});
+  const value=previewPosition({snapshot,plan:projection,gate:receipt,observations:history.observations([...heldCodes,plan.code]),asOf:now,returnBasis:'adjusted-price'});
+  if(receipt.riskBudget)value.riskBudgetAfter=receipt.riskBudget;
   if(snapshot&&value.status!=='unknown'){
    const exposure=(snapshot.positions.find(p=>p.symbol===plan.code)?.marketValue||0)+projection.quantity*projection.price,limit=receipt.maxPositionPct;
    const budget={status:'observed-unverified',policyScope:'original-plan-effective-position-cap',policyVersion:'original-plan-'+plan.decisionId,evidenceRef:receipt.evidenceRef,originalEquityBasis:snapshot.equity,afterFeeEquity:value.equityAfter,estimatedConstraintsSatisfied:exposure<=snapshot.equity*limit/100+1e-9,reasonCodes:exposure>snapshot.equity*limit/100+1e-9?['ORIGINAL_PLAN_ALLOCATION_EXCEEDED']:[],budgets:[{kind:'single',limitPct:limit,exposureAfter:round(exposure),remainingAtOriginalEquity:round(snapshot.equity*limit/100-exposure),remainingAfterEstimatedFee:round(value.equityAfter*limit/100-exposure)}],...flags};

@@ -33,6 +33,8 @@ test('migration preflight validates original financial and segmented audit evide
  assert.equal(result.inventory.filter(x=>x.category==='rejection-audit').length,2);
  assert.equal(result.categories.find(x=>x.category==='model-artifact').status,'not-supplied');
  assert.equal(result.categories.find(x=>x.category==='configuration').files,1);
+ assert.deepEqual(result.recoveryObjectives,{rpoMs:null,rtoMs:null});
+ assert.equal(result.resourceBudget.spaceReserved,false);assert.ok(result.resourceBudget.estimatedPeakBytes>result.totalBytes);
  assert.deepEqual(bytesOf(x.source),before);assert.doesNotMatch(JSON.stringify(result),/PRIVATE_ACCESS_SENTINEL|"cash"|original\//);
 });
 test('isolated drill consumes the real encrypted backup and original restore tools with measured local RPO/RTO',t=>{
@@ -44,8 +46,11 @@ test('isolated drill consumes the real encrypted backup and original restore too
  assert.equal(result.artifacts.length,3);assert.equal(result.restored.find(x=>x.kind==='account').auditEvents,2);
  assert.equal(result.restored.find(x=>x.kind==='account').revision,3);assert.ok(result.restored.every(x=>x.byteMatch));
  assert.ok(result.measurements.rtoMs>0);assert.ok(result.measurements.backupMs>0);assert.ok(result.measurements.totalMs>=result.measurements.rtoMs);
- assert.equal(result.measurements.rpoMs,result.simulatedFailureAt-Math.min(...result.artifacts.map(x=>x.capturedFromAt)));
+ assert.ok(Math.abs(result.measurements.rpoMs-(result.simulatedFailureAfterStartMs-Math.min(...result.artifacts.map(x=>x.capturedAfterStartMs))))<=.002);
+ assert.match(result.measurements.rpoBasis,/monotonic/);
  assert.equal(result.measurements.productionRpoMs,null);assert.equal(result.measurements.productionRtoMs,null);
+ assert.equal(result.objectiveAssessment.status,'not-configured');assert.equal(result.objectiveAssessment.productionValidated,false);
+ assert.equal(result.resourceBudget.status,'available-at-preflight');
  assert.deepEqual(fs.readdirSync(destination).sort(),['report.json',...result.artifacts.map(x=>x.file)].sort());
  for(const artifact of result.artifacts){
   const file=path.join(destination,artifact.file);assert.equal(fs.statSync(file).mode&0o777,0o600);
@@ -90,4 +95,78 @@ test('CLI resolves only explicit manifest files, uses the environment password a
  assert.doesNotMatch(run.stdout+run.stderr,/PRIVATE_ACCESS_SENTINEL|isolated-fixture-password|"cash"/);
  const missing=spawnSync(process.execPath,[script,'drill',spec,path.join(x.dir,'no-password')],{env:{...process.env,V6_BACKUP_PASSWORD:''},encoding:'utf8',timeout:15000});
  assert.equal(missing.status,1);assert.match(missing.stderr,/BACKUP_PASSWORD_REQUIRED/);assert.equal(fs.existsSync(path.join(x.dir,'no-password')),false);
+});
+test('recovery objectives are operator targets, and a verified restore that misses its target exits nonzero',t=>{
+ const x=setup(t),before=bytesOf(x.source);
+ for(const recoveryObjectives of [{rpoMs:-1},{rtoMs:1.5},{rtoMs:'1000'},{rpoMs:Infinity},{rtoMs:1,productionValidated:true},[]]){
+  assert.throws(()=>preflight({...x.spec,recoveryObjectives}),/INVALID_RECOVERY_OBJECTIVES/);
+ }
+ const objectives={rpoMs:86400000,rtoMs:0},spec={...x.spec,recoveryObjectives:objectives};
+ assert.deepEqual(preflight(spec).recoveryObjectives,objectives);
+ const specFile=path.join(x.dir,'with-objectives.json'),destination=path.join(x.dir,'objective-drill');
+ fs.writeFileSync(specFile,JSON.stringify(spec));
+ const result=spawnSync(process.execPath,[require.resolve('../scripts/advanced-safety-operations'),'drill',specFile,destination],
+  {env:{...process.env,V6_BACKUP_PASSWORD:password},encoding:'utf8',timeout:15000});
+ assert.equal(result.status,2,result.stderr);const report=JSON.parse(result.stdout);
+ assert.equal(report.status,'verified-isolated');assert.equal(report.objectiveAssessment.status,'missed');
+ assert.equal(report.objectiveAssessment.rpo.status,'met');assert.equal(report.objectiveAssessment.rto.status,'missed');
+ assert.ok(report.objectiveAssessment.rto.measuredMs>0);assert.equal(report.objectiveAssessment.productionValidated,false);
+ assert.deepEqual(report.recoveryObjectives,objectives);assert.deepEqual(bytesOf(x.source),before);
+ assert.doesNotMatch(result.stdout+result.stderr,/PRIVATE_ACCESS_SENTINEL|isolated-fixture-password/);
+});
+test('insufficient or unknown disk capacity rejects before creating plaintext or changing original inputs',t=>{
+ const x=setup(t),before=bytesOf(x.source),destination=path.join(x.dir,'disk-rejected');
+ const capacity=t.mock.method(fs,'statfsSync',()=>({bavail:1n,bsize:4096n}));
+ assert.throws(()=>drill(x.spec,destination,password),/DRILL_DISK_BUDGET_EXCEEDED/);
+ assert.equal(fs.existsSync(destination),false);assert.deepEqual(bytesOf(x.source),before);
+ capacity.mock.mockImplementation(()=>{throw Error('private mount path must not escape');});
+ assert.throws(()=>drill(x.spec,destination,password),/DRILL_DISK_CAPACITY_UNAVAILABLE/);
+ assert.equal(fs.existsSync(destination),false);assert.deepEqual(bytesOf(x.source),before);
+});
+test('source growth after the disk preflight stops capture before encryption exceeds the original budget',t=>{
+ const x=setup(t),destination=path.join(x.dir,'changed-source-drill'),config=x.spec.files[0].file;
+ const secure=require('../scripts/secure-backup'),encrypt=secure.encrypt,encrypted=[];let grownBytes;
+ t.mock.method(fs,'statfsSync',()=>{
+  grownBytes=Buffer.alloc(8*1024*1024,65);fs.writeFileSync(config,grownBytes);
+  return {bavail:5120n,bsize:4096n}; // 20 MiB: enough for the fixed preflight only.
+ });
+ t.mock.method(secure,'encrypt',(...args)=>{encrypted.push(path.basename(args[1]));return encrypt(...args);});
+ const accountBefore=fs.readFileSync(x.file),result=drill(x.spec,destination,password);
+ assert.equal(result.status,'failed');assert.equal(result.phase,'capture');assert.equal(result.reason,'BACKUP_SOURCE_CHANGED');
+ assert.deepEqual(encrypted,['account-pool.v6backup']);assert.equal(result.artifacts.length,1);
+ assert.deepEqual(fs.readdirSync(destination).sort(),['account-pool.v6backup','report.json']);
+ assert.deepEqual(fs.readFileSync(x.file),accountBefore);assert.deepEqual(fs.readFileSync(config),grownBytes);
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE_ACCESS_SENTINEL|isolated-fixture-password/);
+});
+test('an account or audit inventory changed since preflight is rejected under the original writer locks',t=>{
+ const x=setup(t),destination=path.join(x.dir,'changed-audit-drill');let changedBytes;
+ t.mock.method(fs,'statfsSync',()=>{
+  x.audit.append({action:'submit',input:{orderId:'new-rejection'},at:Date.parse('2026-11-05T03:00:00Z'),reasonCodes:['FIXTURE_REJECTION']});
+  changedBytes=bytesOf(x.source);return {bavail:1024n*1024n,bsize:4096n};
+ });
+ const result=drill(x.spec,destination,password);
+ assert.equal(result.status,'failed');assert.equal(result.reason,'BACKUP_SOURCE_CHANGED');assert.equal(result.artifacts.length,0);
+ assert.deepEqual(fs.readdirSync(destination),['report.json']);assert.deepEqual(bytesOf(x.source),changedBytes);
+});
+test('clock rollback cannot turn the measured backup age into a negative met recovery objective',t=>{
+ const x=setup(t),destination=path.join(x.dir,'clock-rollback-drill'),before=bytesOf(x.source);
+ const secure=require('../scripts/secure-backup'),encrypt=secure.encrypt,wallClock=Date.now;let rolledBack=false;
+ t.mock.method(secure,'encrypt',(...args)=>{
+  const value=encrypt(...args);
+  if(!rolledBack){rolledBack=true;t.mock.method(Date,'now',()=>wallClock()-3600000);}
+  return value;
+ });
+ const result=drill({...x.spec,recoveryObjectives:{rpoMs:0,rtoMs:60000}},destination,password);
+ assert.equal(result.status,'verified-isolated');assert.ok(result.simulatedFailureAt<result.startedAt);
+ assert.ok(result.measurements.rpoMs>0);assert.equal(result.objectiveAssessment.rpo.status,'missed');
+ assert.equal(result.objectiveAssessment.status,'missed');assert.equal(result.objectiveAssessment.productionValidated,false);
+ assert.deepEqual(bytesOf(x.source),before);
+});
+test('missing or invalid monotonic measurements remain unknown rather than meeting configured objectives',t=>{
+ const x=setup(t),destination=path.join(x.dir,'unmeasured-drill'),before=bytesOf(x.source);
+ t.mock.method(require('node:perf_hooks').performance,'now',()=>NaN);
+ const result=drill({...x.spec,recoveryObjectives:{rpoMs:0,rtoMs:0}},destination,password);
+ assert.equal(result.status,'verified-isolated');assert.equal(result.measurements.rpoMs,null);assert.equal(result.measurements.rtoMs,null);
+ assert.equal(result.objectiveAssessment.rpo.status,'not-measured');assert.equal(result.objectiveAssessment.rto.status,'not-measured');assert.equal(result.objectiveAssessment.status,'not-measured');
+ assert.deepEqual(bytesOf(x.source),before);
 });

@@ -14,6 +14,21 @@ function openingReconciliationEvidence(account,{kind,at,sourceFingerprint}={}){
  return {version:1,kind,recordedAt:at,sourceFingerprint:sourceFingerprint||account.fingerprint,
   cash:account.cash,positions:Object.fromEntries(Object.entries(account.positions).map(([symbol,p])=>[symbol,p.quantity]))};
 }
+function pendingBuyOrderBudget(book,item,tradeDate=null){
+ const order=item?.order,state=item?.state;
+ if(!order||order.side!=='buy'||!state||typeof state.terminal!=='boolean')throw Error('待买委托冻结预算输入无效');
+ if(state.terminal)return 0;
+ if(!quantity(state.remainingQuantity)||!state.remainingQuantity||!day(order.tradeDate)||tradeDate!==null&&!day(tradeDate)||!Array.isArray(item.events))throw Error('待买委托冻结预算输入无效');
+ // Every writer and reconciliation use the same remaining order, execution-day
+ // fee schedule and original partial fills. An old order date cannot preserve
+ // yesterday's minimum commission credit after the next trading day starts.
+ const executionDay=tradeDate===null?order.tradeDate:[tradeDate,order.tradeDate].sort().at(-1);
+ const fees=tradingFees({side:'buy',quantity:state.remainingQuantity,price:order.limitPrice,tradeDate:executionDay,
+  policy:book.feePolicy,schedules:book.feeSchedules||null,priorFills:item.events.filter(event=>event?.type==='fill')});
+ const budget=state.remainingQuantity*order.limitPrice+fees.total;
+ if(!finite(budget)||budget<0)throw Error('待买委托冻结预算不可计算');
+ return budget;
+}
 function reconcileAccountSnapshot(book,{tradeDate=null}={}){
  const reasons=[],restrictions=[],fail=code=>{if(!reasons.includes(code))reasons.push(code);};
  const result=()=>({mode:'original-account-reconciliation',status:reasons.length?'mismatch':restrictions.length?'restricted':'consistent',
@@ -53,8 +68,7 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   if(state.remainingQuantity===0)fail('EMPTY_NONTERMINAL_ORDER');
   if(order.side==='sell')reserved.set(order.symbol,(reserved.get(order.symbol)||0)+state.remainingQuantity);
   else if(order.side==='buy')try{
-   const fees=tradingFees({side:'buy',quantity:state.remainingQuantity,price:order.limitPrice,tradeDate:day(tradeDate)?[tradeDate,order.tradeDate].sort().at(-1):order.tradeDate,policy:book.feePolicy,schedules:book.feeSchedules||null,priorFills:item.events});
-   reservedCash+=state.remainingQuantity*order.limitPrice+fees.total;
+   reservedCash+=pendingBuyOrderBudget(book,item,tradeDate);
   }catch{restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
  }
  if(fills.size!==byEvent.size)fail('ORPHAN_LEDGER_FILL');
@@ -110,4 +124,4 @@ function appendDefensiveEvent(book,{state,reason,reasonCodes=[],at,actor='origin
  book.defensiveControl={version:1,state,events:[...events,{...payload,hash:hash(payload)}]};
  return book;
 }
-module.exports={openingReconciliationEvidence,reconcileAccountSnapshot,assertAccountReconciliation,defensiveStatus,appendDefensiveEvent};
+module.exports={openingReconciliationEvidence,pendingBuyOrderBudget,reconcileAccountSnapshot,assertAccountReconciliation,defensiveStatus,appendDefensiveEvent};

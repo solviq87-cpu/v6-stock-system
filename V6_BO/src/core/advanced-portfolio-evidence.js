@@ -137,7 +137,10 @@ function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,retur
  const positions=snapshot.positions.map(p=>({...p}));
  const existing=positions.find(p=>p.symbol===plan.symbol);
  if(existing)existing.marketValue+=gross;else positions.push({symbol:plan.symbol,marketValue:gross,industry:plan.industry,theme:plan.theme,strategy:plan.strategy});
- const groups=field=>{const g=new Map();for(const p of positions){const key=label(p[field])?p[field]:"未分类";g.set(key,(g.get(key)||0)+p.marketValue);}return [...g.entries()].map(([group,value])=>({group,weight:round(value/afterEquity)}));};
+ // A new lot can use a different strategy even when the stock is already held.
+ // Keep that capital separate instead of assigning it to the old stock label.
+ const strategyPositions=[...snapshot.positions,{marketValue:gross,strategy:plan.strategy}];
+ const groups=field=>{const g=new Map();for(const p of field==="strategy"?strategyPositions:positions){const key=label(p[field])?p[field]:"未分类";g.set(key,(g.get(key)||0)+p.marketValue);}return [...g.entries()].map(([group,value])=>({group,weight:round(value/afterEquity)}));};
  const gateStatus=gate&&label(gate.evidenceRef)&&["allowed","blocked","unknown"].includes(gate.status)?gate.status:"unknown";
  let riskBudgetAfter=null;
  if(riskContext?.policy&&label(riskContext.evidenceRef))try{
@@ -157,7 +160,8 @@ function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,retur
    incrementalPortfolioRisk={status:"estimated-unverified",metrics,sampleCount:after.sampleCount,start:after.start,end:after.end,returnBasis,factorVersion:after.factorVersion,canTrade:false,writesAccount:false};
   }else incrementalPortfolioRisk=unknown(after.reason||before.reason||"INCOMPLETE_ALIGNED_POSITION_HISTORY");
  }
- return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed",assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
+ const policyBlocked=riskBudgetAfter!==null&&(riskBudgetAfter.status==="unknown"||riskBudgetAfter.estimatedConstraintsSatisfied!==true);
+ return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
 }
 // Paired, non-overlapping historical scenarios use the same capital, dates,
 // horizon and return basis. They are not forecasts or a switching instruction.

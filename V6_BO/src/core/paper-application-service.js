@@ -12,10 +12,17 @@ const {applySettlement}=require('./corporate-settlements');
 const {createRejectionAudit}=require('./rejection-audit');
 const {resolveEvidence,planEvidenceImport}=require('./imported-risk-evidence');
 const {createFillEvidence,fillEvidenceOf}=require('./paper-fill-evidence');
-const {openingReconciliationEvidence,assertAccountReconciliation,reconcileAccountSnapshot,defensiveStatus,appendDefensiveEvent}=require('./account-safety-state');
+const {openingReconciliationEvidence,pendingBuyOrderBudget,assertAccountReconciliation,reconcileAccountSnapshot,defensiveStatus,appendDefensiveEvent}=require('./account-safety-state');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const ledgerHash=a=>hash({cash:a.cash,positions:a.positions,events:a.events});
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
+// A plan observer may consume only the exact object produced by the original
+// service. JSON/request fields cannot manufacture an allowed observation.
+const automaticPreviews=new WeakMap();
+function isAutomaticEntryPreview(value){
+ try{const {fingerprint,...payload}=value;return automaticPreviews.get(value)===fingerprint&&fingerprint===hash(payload);}
+ catch{return false;}
+}
 function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=1,calendar=null,readOnly=false,feePolicy={version:"research-default",feeBps:3,minFee:5,sellTaxBps:5}}={}){
  if(!file||!Number.isFinite(maxParticipationPct)||maxParticipationPct<=0||maxParticipationPct>100)throw Error('模拟交易服务配置无效');
  if(!feePolicy||typeof feePolicy.version!=='string'||!['feeBps','minFee','sellTaxBps'].every(k=>Number.isFinite(feePolicy[k])&&feePolicy[k]>=0)||feePolicy.feeBps>100||feePolicy.sellTaxBps>100)throw Error('费用配置无效');
@@ -90,7 +97,90 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const pending=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').map(x=>({symbol:x.order.symbol,quantity:Math.max(0,x.state.remainingQuantity-(x.order.orderId===excludeId?order.quantity:0)),price:x.order.limitPrice,strategyId:x.order.strategyId})).filter(x=>x.quantity>0);
   const riskInput={policy:s.riskPolicy,side:order.side,symbol:order.symbol,strategyId:order.strategyId,quantity:order.quantity,price:order.limitPrice,cash:s.account.cash,positions,pending,marks:context?.marks||{},sectors:context?.sectors||{},lossStreak:consecutiveLosses([...s.account.events.map((e,i)=>({...e,rank:e.accountRevision??i+1,date:e.tradeDate})),...(s.corporateEvents||[]).filter(e=>e.kind==='delisting-cash').map(e=>({...e,side:'sell',rank:e.accountRevision??0,date:e.effectiveDate}))].sort((a,b)=>a.date.localeCompare(b.date)||a.rank-b.rank)),previousClose:context?.previousClose||null,evidenceRefs:context?.evidenceRefs||[]};
   const result=evaluateEntryRisk(riskInput);
-  if(!result.allowed){const error=Error('统一风控拒绝: '+result.reasonCodes.join(','));error.reasonCodes=result.reasonCodes;error.riskInput=riskInput;error.accountRevision=s.revision;throw error;}enforceDefense();return {...result,inputFingerprint:hash(context||{}),evidenceRefs:context?.evidenceRefs||[]};
+  if(!result.allowed){const error=Error('统一风控拒绝: '+result.reasonCodes.join(','));error.reasonCodes=result.reasonCodes;error.riskInput=riskInput;error.entryRisk={...result,inputFingerprint:hash(context||{}),evidenceRefs:context?.evidenceRefs||[]};error.accountRevision=s.revision;throw error;}enforceDefense();return {...result,inputFingerprint:hash(context||{}),evidenceRefs:context?.evidenceRefs||[]};
+ }
+ function previewAutomaticEntry(input={}){
+  // No mutate/guarded call: observations never acquire a write lock, latch a
+  // defense, append a rejection audit, or create an order or reservation.
+  const now=clock();let request={};
+  try{
+   if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!['expectedRevision','expectedFingerprint','symbol','quantity','price','tradeDate','fee','quote','valuationQuotes'].includes(key)))throw Error('invalid preview input');
+   request=JSON.parse(JSON.stringify(input));
+  }catch{request={};}
+  const {expectedRevision,expectedFingerprint,symbol,quantity,price,tradeDate,fee:expectedFee,quote,valuationQuotes={}}=request;
+  let s=null,reservedCash=null,fee=null,risk=null,valuation=[];
+  const finish=(status,reasonCodes,reason)=>{
+   try{const current=read();if(!s||current.revision!==s.revision||current.fingerprint!==s.fingerprint){status='unknown';reasonCodes=['ACCOUNT_PREVIEW_VERSION_CHANGED'];reason='原账户版本已变化，请重新观察';}}
+   catch{status='unknown';reasonCodes=['ACCOUNT_PREVIEW_UNAVAILABLE'];reason='原账户快照尚未完成核验';}
+   const finishedAt=clock();
+   if(!Number.isSafeInteger(now)||!Number.isSafeInteger(finishedAt)||finishedAt<now||finishedAt-now>5000){status='unknown';reasonCodes=['ACCOUNT_PREVIEW_EXPIRED'];reason='原账户预检时间已失效';}
+   const equity=valuation.every(row=>Number.isFinite(row.price))&&s?s.account.cash+valuation.reduce((sum,row)=>sum+row.quantity*row.price,0):null;
+   let riskBudget=null;
+   if(s?.riskPolicy&&risk){
+    const budgets=[];
+    for(const [field,kind] of [['maxPositionPct','single'],['maxGrossExposurePct','gross'],['maxSectorPct','sector'],['maxStrategyPct','strategy']])if(s.riskPolicy[field]!=null){
+     const exposure=risk.exposure?.[kind],known=Number.isFinite(exposure)&&Number.isFinite(risk.exposure?.equity);
+     budgets.push({kind,limitPct:s.riskPolicy[field],exposureAfter:known?exposure:null,
+      remainingAtOriginalEquity:known?risk.exposure.equity*s.riskPolicy[field]/100-exposure:null,
+      remainingAfterEstimatedFee:known&&Number.isFinite(fee)?(risk.exposure.equity-fee)*s.riskPolicy[field]/100-exposure:null});
+    }
+    riskBudget={status:'observed-unverified',policyScope:'original-account-readonly-preview',policyVersion:risk.policyVersion,
+     originalEquityBasis:equity,afterFeeEquity:Number.isFinite(equity)&&Number.isFinite(fee)?equity-fee:null,
+     estimatedConstraintsSatisfied:status==='allowed'&&risk.allowed===true,reasonCodes:[...reasonCodes],budgets,
+     evidenceRefs:risk.evidenceRefs||[],canTrade:false,writesAccount:false};
+   }
+   const payload=JSON.parse(JSON.stringify({scope:'original-automatic-entry-preview-v1',status,allowed:status==='allowed'?true:status==='blocked'?false:null,
+    checkedAt:now,accountRevision:s?.revision??null,accountFingerprint:s?.fingerprint??null,symbol:symbol??null,tradeDate:tradeDate??null,
+    quantity:quantity??null,price:price??null,fee,quoteAt:quote?.quoteAt??quote?.timestamp??null,quotePrice:quote?.price??null,
+    quoteSource:quote?.quoteSource??quote?.provider??null,receivedAt:quote?.receivedAt??null,quoteFingerprint:quote?hash(quote):null,
+    policyFingerprint:s?hash(s.riskPolicy||null):null,cash:s?.account.cash??null,reservedCash,
+    availableCash:s&&Number.isFinite(reservedCash)?s.account.cash-reservedCash:null,valuation,
+    strategyId:null,strategyAttribution:'original-automatic-without-strategy-id',riskBudget,reasonCodes,reason,
+    canTrade:false,writesAccount:false,reservesCash:false}));
+   const receipt=Object.freeze({...payload,fingerprint:hash(payload)});automaticPreviews.set(receipt,receipt.fingerprint);return receipt;
+  };
+  const unknown=(code,reason)=>finish('unknown',[code],reason),blocked=(code,reason)=>finish('blocked',[code],reason);
+  try{
+   if(!Number.isSafeInteger(expectedRevision)||expectedRevision<1||typeof expectedFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(expectedFingerprint))
+    return unknown('ACCOUNT_PREVIEW_INPUT_INVALID','原账户预检绑定信息无效');
+   s=read();
+   if(s.revision!==expectedRevision||s.fingerprint!==expectedFingerprint)return unknown('ACCOUNT_PREVIEW_VERSION_CHANGED','原账户版本已变化，请重新观察');
+   if(!s.legacy||s.legacy.enabled!==true)return blocked('AUTOMATIC_ACCOUNT_DISABLED','原自动模拟账户尚未启用');
+   if(!/^\d{6}$/.test(symbol||'')||!Number.isSafeInteger(quantity)||quantity<=0||quantity%100||!Number.isFinite(price)||price<=0||
+     !Number.isFinite(expectedFee)||expectedFee<0||!validDate(tradeDate)||tradeDate!==require('./a-share-calendar').aShareCalendarDate(now)||!calendar?.isOpen(tradeDate))
+    return unknown('ACCOUNT_PREVIEW_INPUT_INVALID','原账户预检日期、数量或费用尚未核验');
+   const quoteAt=quote?.quoteAt??quote?.timestamp;
+   if(!quote||quote.symbol!==symbol||quote.price!==price||quote.tradeDate!==tradeDate||!Number.isSafeInteger(quoteAt)||quoteAt>now||now-quoteAt>15000)
+    return unknown('ACCOUNT_PREVIEW_QUOTE_INVALID','原账户预检报价缺失、过期或不一致');
+   createFillEvidence(quote,{executionAt:now,executionKind:'automatic-paper',symbol,tradeDate,price});
+   const context={...(quote.riskContext||{observedAt:quote.timestamp,marks:quote.marks||{}}),requireImportedEvidence:true};
+   const positions=Object.entries(s.account.positions).filter(([,position])=>position.quantity>0);
+   if(positions.length>220)return unknown('ACCOUNT_PREVIEW_VALUATION_LIMIT','原持仓估值超过观察预算');
+   valuation=positions.map(([code,position])=>({symbol:code,quantity:position.quantity,price:context.marks?.[code]??null,
+    quoteAt:valuationQuotes[code]?.quoteAt??valuationQuotes[code]?.timestamp??null,
+    quoteSource:valuationQuotes[code]?.quoteSource??valuationQuotes[code]?.provider??null,receivedAt:valuationQuotes[code]?.receivedAt??null}));
+   for(const row of valuation){const evidence=valuationQuotes[row.symbol];
+    if(!evidence||evidence.symbol!==row.symbol||!Number.isFinite(row.price)||row.price<=0||evidence.price!==row.price||
+      !Number.isSafeInteger(row.quoteAt)||row.quoteAt>now||now-row.quoteAt>15000||
+      typeof row.quoteSource!=='string'||!row.quoteSource.trim()||!Number.isSafeInteger(row.receivedAt)||row.receivedAt<row.quoteAt||row.receivedAt>now)
+     return unknown('ACCOUNT_PREVIEW_VALUATION_UNKNOWN','原持仓逐股估值与报价时点未完成核验');
+   }
+   reservedCash=Object.values(s.orders).filter(item=>!item.state.terminal&&item.order.side==='buy').reduce((sum,item)=>sum+pendingBuyOrderBudget(s,item,tradeDate),0);
+   fee=feeFor(s,'buy',quantity,price,tradeDate).total;
+   if(Math.abs(fee-expectedFee)>.011)return unknown('ACCOUNT_PREVIEW_FEE_MISMATCH','原账户费用与预演数量不一致');
+   if(quantity*price+fee>s.account.cash-reservedCash)return blocked('ACCOUNT_PREVIEW_CASH_LIMIT','原账户可用资金不足或待买冻结限制');
+   const used=s.account.events.filter(event=>event.symbol===symbol&&event.tradeDate===tradeDate).reduce((sum,event)=>sum+event.quantity,0);
+   if(used+quantity>quote.volume*maxParticipationPct/100)return blocked('ACCOUNT_PREVIEW_VOLUME_LIMIT','超过原账户成交量参与率');
+   // Automatic legacy execution does not assign a strategyId. A plan label or
+   // a browser-supplied strategy must not turn missing attribution into proof.
+   try{risk=checkRisk(s,{side:'buy',symbol,quantity,limitPrice:price,tradeDate},context);}
+   catch(error){
+    risk=error.entryRisk||null;const codes=error.reasonCodes||['ACCOUNT_PREVIEW_EVIDENCE_UNKNOWN'];
+    const uncertain=codes.some(code=>/^(MISSING_|INVALID_|AMBIGUOUS_|STALE_|RISK_CALENDAR_|PENDING_BUY_BUDGET_UNKNOWN|ACCOUNT_PREVIEW_EVIDENCE_UNKNOWN)/.test(code));
+    return finish(uncertain?'unknown':'blocked',codes,uncertain?'原统一风控证据尚未齐备':'原统一风控限制新增风险');
+   }
+   return finish('allowed',[],'原账户同版本只读预检通过；不构成委托或成交授权');
+  }catch{return unknown('ACCOUNT_PREVIEW_EVIDENCE_UNKNOWN','原账户、费用或报价证据尚未完成核验');}
  }
  function riskEvidenceStatus({tradeDate,symbol,observedAt=clock()}={}){
   if(!validDate(tradeDate)||!/^\d{6}$/.test(symbol||''))throw Error('证据检查交易日或股票代码无效');
@@ -136,9 +226,9 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   s.policyChanges=[...(s.policyChanges||[]),{at:clock(),revision:s.revision,before,after}];return {snapshot:s};
  });}
  function submit(order,{riskContext=null}={}){return mutate(s=>{if(!s)throw Error('账户未创建');if(!order||!/^[A-Za-z0-9_-]{1,80}$/.test(order.orderId)||!Number.isFinite(order.limitPrice)||order.limitPrice<=0||!validDate(order.tradeDate))throw Error('委托输入无效');if(order.strategyId!==undefined&&!(typeof order.strategyId==='string'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(order.strategyId)))throw Error('策略归因ID无效');const state=reducePaperOrderEvents(order,[]);const old=s.orders[order.orderId];if(old){if(hash(old.order)!==hash(order))throw Error('订单ID内容冲突');return {snapshot:s,noChange:true};}
-  const budget=o=>o.quantity*o.limitPrice+feeFor(s,'buy',o.quantity,o.limitPrice,[o.tradeDate,require('./a-share-calendar').aShareCalendarDate(clock())].sort().at(-1),s.orders[o.orderId]?.events||[]).total;
-  const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+budget({...x.order,quantity:x.state.remainingQuantity}),0);
-  if(order.side==='buy'&&budget(order)>s.account.cash-reserved)throw Error('可用资金不足（含待成交订单冻结）');
+  const budgetDay=require('./a-share-calendar').aShareCalendarDate(clock());
+  const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+pendingBuyOrderBudget(s,x,budgetDay),0);
+  if(order.side==='buy'&&pendingBuyOrderBudget(s,{order,state,events:[]},budgetDay)>s.account.cash-reserved)throw Error('可用资金不足（含待成交订单冻结）');
   if(order.side==='sell'){
    if(order.liquidateOddLot===true&&order.quantity!==(s.account.positions[order.symbol]?.quantity||0))throw Error('零股清仓必须覆盖全部剩余持仓');
    const lots=s.account.positions[order.symbol]?.lots||[];
@@ -160,7 +250,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const capacity=quote.volume*maxParticipationPct/100-used;const quantity=item.order.side==='sell'&&item.order.liquidateOddLot===true&&capacity>=item.state.remainingQuantity?item.state.remainingQuantity:Math.min(item.state.remainingQuantity,Math.floor(capacity/100)*100);if(quantity<=0)throw Error('成交量参与率不足');
   const entryRisk=checkRisk(s,{...item.order,tradeDate:quote.tradeDate,quantity,limitPrice:quote.price},quote.riskContext||{observedAt:quote.timestamp,marks:quote.marks||{}},orderId);
   const feeEvidence=feeFor(s,side,quantity,quote.price,quote.tradeDate,item.events.filter(e=>e.type==='fill')),fee=feeEvidence.total;
-  if(side==='buy'){const others=Object.values(s.orders).filter(x=>x.order.orderId!==orderId&&!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,[x.order.tradeDate,quote.tradeDate].sort().at(-1),x.events).total,0);if(quantity*quote.price+fee>s.account.cash-others+.001)throw Error('成交不能使用其他委托冻结资金');}
+  if(side==='buy'){const others=Object.values(s.orders).filter(x=>x.order.orderId!==orderId&&!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+pendingBuyOrderBudget(s,x,quote.tradeDate),0);if(quantity*quote.price+fee>s.account.cash-others+.001)throw Error('成交不能使用其他委托冻结资金');}
   const fillEvidence=createFillEvidence(quote,{executionAt:now,executionKind:'research-manual',symbol:item.order.symbol,tradeDate:quote.tradeDate,price:quote.price});
   evidenceFormat(s);
   const event={eventId,orderId,sequence:item.events.length+1,type:'fill',quantity,price:quote.price,fee,date:quote.tradeDate,requestHash,feeEvidence,entryRisk,accountRevision:s.revision+1,timestamp:now,fillEvidence};
@@ -192,7 +282,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    const used=s.account.events.filter(e=>e.symbol===t.code&&e.tradeDate===date).reduce((n,e)=>n+e.quantity,0);
    if(used+t.shares>q.volume*maxParticipationPct/100)throw Error('自动成交超过量参与率');
    const order={orderId:id,symbol:t.code,side:t.side==='买入'?'buy':'sell',quantity:t.shares,limitPrice:t.price,tradeDate:date};
-   const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,x.order.tradeDate).total,0);
+   const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+pendingBuyOrderBudget(s,x,date),0);
    if(order.side==='buy'&&t.price*t.shares+t.fee>s.account.cash-reserved)throw Error('自动成交侵犯挂单冻结资金');
    if(order.side==='sell'){
     const frozen=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='sell'&&x.order.symbol===t.code).reduce((n,x)=>n+x.state.remainingQuantity,0);
@@ -220,7 +310,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   if(s.revision!==expectedRevision)throw Error('权益结算账户版本冲突');
   if(event.effectiveDate!==(require('./a-share-calendar').aShareCalendarDate(clock()))||event.effectiveDate<(s.lastTradeDate||''))throw Error('主账户权益只能按当前日期顺序入账');
   if(Object.values(s.orders).some(x=>!x.state.terminal&&x.order.symbol===event.symbol))throw Error('权益结算前必须撤销该股票未完成委托');
-  const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+x.state.remainingQuantity*x.order.limitPrice+feeFor(s,'buy',x.state.remainingQuantity,x.order.limitPrice,x.order.tradeDate,x.events).total,0);
+  const reserved=Object.values(s.orders).filter(x=>!x.state.terminal&&x.order.side==='buy').reduce((n,x)=>n+pendingBuyOrderBudget(s,x,event.effectiveDate),0);
   if(s.account.cash+event.cashDelta<reserved)throw Error('权益认购不能使用冻结资金');
   if(event.cashDelta<0&&defensiveStatus(s).state==='restricted')throw Error('防御状态禁止新增认购支出');
   const result=applySettlement(s.account,event,{now:clock()});s.account=result.account;s.account.fingerprint=ledgerHash(s.account);s.corporateEvents=[...(s.corporateEvents||[]),{...result.record,accountRevision:s.revision+1}];s.lastTradeDate=event.effectiveDate;return {snapshot:s};
@@ -254,11 +344,11 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    catch(auditError){throw Error(error.message+'；拒单审计写入失败：'+auditError.message);}
    throw error;
   }}
- return {initialize,read,configure,importRiskEvidence,importRiskEvidenceBatch,previewRiskEvidenceImport,riskEvidenceStatus,adoptLegacy,reconcile,setDefensiveControl,legacy:()=>projectLegacy(read()),audit:options=>rejectionAudit.read(options),
+ return {initialize,read,configure,importRiskEvidence,importRiskEvidenceBatch,previewRiskEvidenceImport,riskEvidenceStatus,adoptLegacy,reconcile,setDefensiveControl,previewAutomaticEntry,legacy:()=>projectLegacy(read()),audit:options=>rejectionAudit.read(options),
   settle:(event,expectedRevision)=>guarded('settle',{eventId:event?.eventId,symbol:event?.symbol},()=>settle(event,expectedRevision)),
   submit:(order,options={})=>guarded('submit',{order},()=>submit(order,options),options.riskContext),
   fill:(orderId,eventId,quote)=>guarded('fill',{orderId,eventId,quote},()=>fill(orderId,eventId,quote),quote?.riskContext),
   cancel:(orderId,eventId)=>guarded('cancel',{orderId,eventId},()=>cancel(orderId,eventId)),
   saveLegacy:(legacy,revision,options)=>guarded('legacy',{action:options?.action,inputFingerprint:hash(legacy)},()=>saveLegacy(legacy,revision,options))};
 }
-module.exports={createPaperApplicationService};
+module.exports={createPaperApplicationService,isAutomaticEntryPreview};

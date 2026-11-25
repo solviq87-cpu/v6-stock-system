@@ -11,10 +11,12 @@ const recovery=require('./disaster-recovery'),secure=require('./secure-backup');
 const CATEGORIES=['authoritative-account','rejection-audit','configuration','access-control','model-artifact','market-source-evidence','research','cache'];
 const EXTRA_CATEGORIES=new Set(CATEGORIES.slice(2));
 const BUNDLE_LIMIT=32*1024*1024,TOTAL_LIMIT=128*1024*1024;
+const DISK_RESERVE=16*1024*1024;
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&[Object.prototype,null].includes(Object.getPrototypeOf(x));
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const idOk=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$/.test(x);
-const elapsed=start=>Math.round((performance.now()-start)*1000)/1000;
+const duration=(start,end)=>Number.isFinite(start)&&Number.isFinite(end)&&end>=start?Math.round((end-start)*1000)/1000:null;
+const elapsed=start=>duration(start,performance.now());
 function fail(code){const error=Error(code);error.code=code;throw error;}
 function noLinks(target){
  let current=path.resolve(target);
@@ -33,6 +35,41 @@ function sourceFile(file){
  if(!stat.isFile()||stat.size>BUNDLE_LIMIT)fail('SOURCE_FILE_INVALID_OR_OVER_BUDGET');
  return file;
 }
+function recoveryObjectives(value){
+ if(value===undefined)return {rpoMs:null,rtoMs:null};
+ if(!plain(value)||Object.keys(value).some(key=>!['rpoMs','rtoMs'].includes(key)))fail('INVALID_RECOVERY_OBJECTIVES');
+ const result={};
+ for(const key of ['rpoMs','rtoMs']){
+  const target=value[key]??null;
+  if(target!==null&&(!Number.isSafeInteger(target)||target<0))fail('INVALID_RECOVERY_OBJECTIVES');
+  result[key]=target;
+ }
+ return result;
+}
+function assessObjectives(objectives,measurements){
+ const result={scope:'isolated-drill-only',productionValidated:false};
+ for(const [key,label] of [['rpoMs','rpo'],['rtoMs','rto']]){
+  const targetMs=objectives[key],raw=measurements[key],measuredMs=Number.isFinite(raw)&&raw>=0?raw:null;
+  result[label]={targetMs,measuredMs,status:targetMs===null?'not-configured':measuredMs===null?'not-measured':measuredMs<=targetMs?'met':'missed'};
+ }
+ const statuses=[result.rpo.status,result.rto.status];
+ result.status=statuses.includes('missed')?'missed':statuses.includes('not-measured')?'not-measured':statuses.includes('met')?'met':'not-configured';
+ return result;
+}
+function diskBudget(totalBytes,bundles){
+ // Plain capture + double-base64 encrypted envelope + decrypt + restored copy
+ // coexist. This conservative estimate also allows per-bundle metadata. It is
+ // a preflight observation, not a reservation against concurrent disk writers.
+ return {inputBytes:totalBytes,estimatedPeakBytes:6*totalBytes+bundles*1024*1024,
+  reserveBytes:DISK_RESERVE,scope:'isolated-drill-temporary-files',spaceReserved:false};
+}
+function verifyDiskBudget(parent,budget){
+ let space;try{space=fs.statfsSync(parent,{bigint:true});}catch{fail('DRILL_DISK_CAPACITY_UNAVAILABLE');}
+ if(typeof space.bavail!=='bigint'||typeof space.bsize!=='bigint'||space.bavail<0n||space.bsize<=0n)fail('DRILL_DISK_CAPACITY_UNAVAILABLE');
+ const available=space.bavail*space.bsize,required=BigInt(budget.estimatedPeakBytes+budget.reserveBytes);
+ if(available<required)fail('DRILL_DISK_BUDGET_EXCEEDED');
+ return {...budget,availableBytes:Number(available>BigInt(Number.MAX_SAFE_INTEGER)?BigInt(Number.MAX_SAFE_INTEGER):available),checkedAt:Date.now(),status:'available-at-preflight'};
+}
 function normalize(spec){
  if(!plain(spec)||spec.schemaVersion!==1||!Array.isArray(spec.accounts)||!spec.accounts.length||spec.accounts.length>20||
   spec.files!==undefined&&(!Array.isArray(spec.files)||spec.files.length>64))fail('INVALID_OPERATIONS_SPEC');
@@ -42,11 +79,12 @@ function normalize(spec){
   const file=sourceFile(entry.file);if(paths.has(file))fail('DUPLICATE_SOURCE_PATH');
   ids.add(entry.id);paths.add(file);return {id:entry.id,file,...(kind==='file'?{category:entry.category}:{})};
  };
- return {schemaVersion:1,accounts:spec.accounts.map(x=>item(x,'account')),files:(spec.files||[]).map(x=>item(x,'file'))};
+ return {schemaVersion:1,accounts:spec.accounts.map(x=>item(x,'account')),files:(spec.files||[]).map(x=>item(x,'file')),
+  recoveryObjectives:recoveryObjectives(spec.recoveryObjectives)};
 }
 function record(file,id,category){
  sourceFile(file);
- const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+ const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
  try{
   const st=fs.fstatSync(fd);if(!st.isFile()||st.size>BUNDLE_LIMIT)fail('SOURCE_FILE_INVALID_OR_OVER_BUDGET');
   const bytes=fs.readFileSync(fd);if(bytes.length!==st.size||bytes.length>BUNDLE_LIMIT)fail('SOURCE_CHANGED_DURING_READ');
@@ -80,6 +118,7 @@ function inspect(spec){
  const report={schemaVersion:1,kind:'advanced-safety-preflight',scope:'existing-local-files',checkedAt:Date.now(),
   readyForIsolatedDrill:true,productionReady:false,fullSiteBackup:false,mutatesOriginalAccounts:false,
   requiresStoppedWritersForCutover:true,accounts,inventory,totalBytes,
+  recoveryObjectives:input.recoveryObjectives,resourceBudget:diskBudget(totalBytes,input.accounts.length+input.files.length),
   categories:CATEGORIES.map(category=>{const rows=inventory.filter(x=>x.category===category);return {category,status:rows.length?'supplied':'not-supplied',files:rows.length,bytes:rows.reduce((n,row)=>n+row.size,0)};}),
   consistency:'Per-file preflight; the drill uses the original account-and-audit locks for each consistent bundle.'};
  return {input,records,report};
@@ -98,6 +137,7 @@ function drill(spec,destination,password){
  try{fs.lstatSync(destination);fail('DRILL_DESTINATION_ALREADY_EXISTS');}catch(error){if(error.code!=='ENOENT')throw error;}
  for(const row of before.records)if(contains(path.dirname(row.file),destination)||contains(destination,row.file))fail('DRILL_DESTINATION_MUST_BE_ISOLATED');
  const parent=fs.statSync(path.dirname(destination));if(!parent.isDirectory())fail('DRILL_PARENT_UNAVAILABLE');
+ const resourceBudget=verifyDiskBudget(path.dirname(destination),before.report.resourceBudget);
  fs.mkdirSync(destination,{mode:0o700});
  const work=fs.mkdtempSync(path.join(destination,'.isolated-'));
  const startedAt=Date.now(),start=performance.now(),captures=[],restored=[],artifacts=[];
@@ -105,15 +145,19 @@ function drill(spec,destination,password){
  try{
   const sources=[...before.input.accounts.map(entry=>({...entry,kind:'account'})),...before.input.files.map(entry=>({...entry,kind:'file'}))];
   for(const entry of sources){
-   const label=entry.kind+'-'+entry.id,bundle=path.join(work,label+'-bundle'),capturedFromAt=Date.now();
-   if(entry.kind==='account')backupAccountWithAudit(entry.file,bundle);else recovery.backup([entry.file],bundle);
+   const label=entry.kind+'-'+entry.id,bundle=path.join(work,label+'-bundle'),capturedFromAt=Date.now(),capturedFromMonotonic=performance.now();
+   const expectedFiles=before.records.filter(row=>row.id===entry.id).map(({name,size,sha256})=>({name,size,sha256}));
+   // Bind each capture to the exact inputs used to calculate disk demand. The
+   // original backup tools check these sizes before reading or writing bytes.
+   const captureOptions={maxTotalBytes:expectedFiles.reduce((n,row)=>n+row.size,0),expectedFiles};
+   if(entry.kind==='account')backupAccountWithAudit(entry.file,bundle,captureOptions);else recovery.backup([entry.file],bundle,captureOptions);
    const manifest=recovery.verify(bundle);
    if(manifest.files.reduce((n,row)=>n+row.size,0)>BUNDLE_LIMIT)fail('CAPTURE_BUNDLE_OVER_BUDGET');
    const artifact=label+'.v6backup',encrypted=path.join(destination,artifact);
    secure.encrypt(bundle,encrypted,password);
-   artifacts.push({id:entry.id,kind:entry.kind,category:entry.category||'authoritative-account',file:artifact,capturedFromAt,manifestCreatedAt:Date.parse(manifest.createdAt),
+   artifacts.push({id:entry.id,kind:entry.kind,category:entry.category||'authoritative-account',file:artifact,capturedFromAt,capturedAfterStartMs:duration(start,capturedFromMonotonic),manifestCreatedAt:Date.parse(manifest.createdAt),
     size:fs.statSync(encrypted).size,sha256:sha(fs.readFileSync(encrypted)),encrypted:true});
-   captures.push({entry,label,bundle,encrypted,manifest,capturedFromAt});
+   captures.push({entry,label,bundle,encrypted,manifest,capturedFromAt,capturedFromMonotonic});
   }
   backupMs=elapsed(start);simulatedFailureAt=Date.now();recoveryStart=performance.now();phase='restore';
   for(const capture of captures){
@@ -143,19 +187,21 @@ function drill(spec,destination,password){
   const rtoMs=elapsed(recoveryStart),finishedAt=Date.now();
   report={schemaVersion:1,kind:'advanced-safety-drill',status:'verified-isolated',scope:'local-isolated-encrypted-restore',
    productionExercise:false,productionReady:false,fullSiteBackup:false,cutoverPerformed:false,mutatesOriginalAccounts:false,
-   originalInputsUnchanged:true,plaintextRetained:false,startedAt,simulatedFailureAt,finishedAt,
-   preflight:before.report,artifacts,restored,
-   measurements:{backupMs,rtoMs,rpoMs:simulatedFailureAt-Math.min(...captures.map(x=>x.capturedFromAt)),
-    rpoBasis:'Conservative measured backup age: simulated failure minus earliest capture start; not a production data-loss guarantee.',
+   originalInputsUnchanged:true,plaintextRetained:false,startedAt,simulatedFailureAt,simulatedFailureAfterStartMs:duration(start,recoveryStart),finishedAt,
+   preflight:before.report,resourceBudget,artifacts,restored,
+   measurements:{backupMs,rtoMs,rpoMs:duration(Math.min(...captures.map(x=>x.capturedFromMonotonic)),recoveryStart),
+    rpoBasis:'Conservative monotonic backup age from earliest capture start to simulated failure; wall-clock timestamps are audit context only, not a production data-loss guarantee.',
     rtoBasis:'Measured monotonic time from decrypt start through original-service, byte and source revalidation.',
     totalMs:elapsed(start),productionRpoMs:null,productionRtoMs:null},
    limitations:['No live cutover, cross-host recovery, full-site restoration or real outage was exercised.','Only the supplied source files and referenced audit segments are covered.']};
  }catch(error){
   report={schemaVersion:1,kind:'advanced-safety-drill',status:'failed',scope:'local-isolated-encrypted-restore',productionExercise:false,
    productionReady:false,cutoverPerformed:false,mutatesOriginalAccounts:false,plaintextRetained:false,startedAt,finishedAt:Date.now(),phase,
-   reason:typeof error.code==='string'&&/^[A-Z_]{3,64}$/.test(error.code)?error.code:'ORIGINAL_TOOL_REJECTED',artifacts,
+   reason:typeof error.code==='string'&&/^[A-Z_]{3,64}$/.test(error.code)?error.code:'ORIGINAL_TOOL_REJECTED',resourceBudget,artifacts,
    measurements:{backupMs,rtoMs:null,rpoMs:null,totalMs:elapsed(start),productionRpoMs:null,productionRtoMs:null}};
  }finally{fs.rmSync(work,{recursive:true,force:true});}
+ report.recoveryObjectives=before.input.recoveryObjectives;
+ report.objectiveAssessment=assessObjectives(before.input.recoveryObjectives,report.measurements);
  writeReport(destination,report);return report;
 }
 function readSpec(file){
@@ -175,7 +221,7 @@ function execute(args,{password=process.env.V6_BACKUP_PASSWORD}={}){
  fail('USAGE: advanced-safety-operations.js preflight <spec.json> | drill <spec.json> <new-isolated-dir>; password: V6_BACKUP_PASSWORD');
 }
 if(require.main===module){
- try{const result=execute(process.argv.slice(2));console.log(JSON.stringify(result,null,2));if(result.status==='failed')process.exitCode=1;}
+ try{const result=execute(process.argv.slice(2));console.log(JSON.stringify(result,null,2));if(result.status==='failed')process.exitCode=1;else if(result.objectiveAssessment?.status==='missed')process.exitCode=2;}
  catch(error){console.error(JSON.stringify({ok:false,error:typeof error.code==='string'&&/^(?:[A-Z_]{3,64}|USAGE:)/.test(error.code)?error.code:'OPERATIONS_REJECTED'}));process.exitCode=1;}
 }
 module.exports={preflight,drill,execute};

@@ -29,6 +29,28 @@ test("preview fails closed, cash and classifications do not mutate source",()=>{
   const x=api.previewPosition({snapshot,plan,gate:{status:"allowed",evidenceRef:"gate1"}});equal(x.cashAfter,299);equal(x.availableCashAfter,199);equal(x.previewBlocked,false);equal(x.canTrade,false);equal(snapshot.positions.length,1);equal(x.industry.length,1);
   equal(api.previewPosition({snapshot,plan}).previewBlocked,true);equal(api.previewPosition({snapshot,plan:{...plan,quantity:60},gate:{status:"allowed",evidenceRef:"gate1"}}).previewBlocked,true);equal(api.previewPosition({snapshot:{...snapshot,equity:1001},plan}).status,"unknown");
  });
+test("same-symbol additions preserve each strategy's actual projected capital",()=>{
+  const snapshot={evidenceRef:"original-book",equity:10000,cash:6000,availableCash:6000,positions:[{symbol:"600000",marketValue:4000,strategy:"first",industry:"bank"}]};
+  const plan={evidenceRef:"plan",symbol:"600000",price:10,quantity:100,fee:5,strategy:"second",industry:"bank"};
+  const input={snapshot,plan,gate:{status:"allowed",evidenceRef:"original-gate"}},before=JSON.stringify(input);
+  const result=api.previewPosition(input),strategies=new Map(result.strategy.map(x=>[x.group,x.weight]));
+  equal(strategies.size,2);ok(Math.abs(strategies.get("first")-4000/9995)<1e-8);ok(Math.abs(strategies.get("second")-1000/9995)<1e-8);
+  ok(Math.abs(result.strategy.reduce((n,x)=>n+x.weight,0)-result.totalWeight)<2e-8);
+  equal(result.industry.length,1);equal(result.previewBlocked,false);equal(JSON.stringify(input),before);
+  const unknown=api.previewPosition({...input,snapshot:{...snapshot,positions:[{...snapshot.positions[0],strategy:null}]}});
+  equal(unknown.strategy.find(x=>x.group==="未分类").weight,Math.round(4000/9995*1e8)/1e8);
+  equal(unknown.strategy.find(x=>x.group==="second").weight,Math.round(1000/9995*1e8)/1e8);
+ });
+test("an allowed original receipt does not hide rejected or unverified current risk budgets",()=>{
+  const input={snapshot:{evidenceRef:"book",equity:10000,cash:6000,availableCash:6000,positions:[{symbol:"600000",marketValue:4000}]},plan:{evidenceRef:"plan",symbol:"600001",price:10,quantity:100,fee:5},gate:{status:"allowed",evidenceRef:"original-gate"}};
+  const blocked=api.previewPosition({...input,riskContext:{evidenceRef:"risk",policy:{version:"v1",maxGrossExposurePct:45}}});
+  equal(blocked.riskBudgetAfter.estimatedConstraintsSatisfied,false);ok(blocked.riskBudgetAfter.reasonCodes.includes("GROSS_EXPOSURE_LIMIT"));equal(blocked.previewBlocked,true);equal(blocked.originalGateStatus,"allowed");equal(blocked.canTrade,false);
+  const unverified=api.previewPosition({...input,riskContext:{evidenceRef:"risk",policy:{version:"v2",maxDailyLossPausePct:5}}});
+  ok(unverified.riskBudgetAfter.reasonCodes.includes("MISSING_PRIOR_CLOSE_EVIDENCE"));equal(unverified.previewBlocked,true);
+  const invalid=api.previewPosition({...input,riskContext:{evidenceRef:"risk",policy:{version:"v3",maxGrossExposurePct:101}}});
+  equal(invalid.riskBudgetAfter.status,"unknown");equal(invalid.previewBlocked,true);
+  equal(api.previewPosition({...input,riskContext:{evidenceRef:"risk",policy:{version:"v4",maxGrossExposurePct:60}}}).previewBlocked,false);
+ });
 test("late revisions do not overwrite historical as-of and duplicate conflicts fail",()=>{
   const a={source:"p",id:"security-field",dataVersion:"v1",factorVersion:"f1",version:1,eventAt:1000,originalAt:2000,receivedAt:3000,firstAvailableAt:4000,revisedAt:null,payloadHash:"a".repeat(64)};
   const b={...a,version:2,dataVersion:"v2",receivedAt:6000,firstAvailableAt:7000,revisedAt:5000,payloadHash:"b".repeat(64)};

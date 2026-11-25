@@ -18,22 +18,26 @@ async function run(){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-advanced-account-')),file=path.join(root,'pool.json');
  const service=createPaperApplicationService({file,clock:()=>now,calendar:{isOpen:()=>true}});
  service.adoptLegacy({enabled:true,initial:20000,cash:10000,realized:0,positions:{'600000':{code:'600000',name:'隔离样本持仓',shares:1000,buyPrice:10,basis:10000,buyTs:Date.parse(priorDay+'T10:00:00+08:00')}},trades:[]});
+ service.configure({expectedRevision:service.read().revision,riskPolicy:{version:'isolated-original-policy',maxPositionPct:50,maxGrossExposurePct:100}});
  const fixture=withEquityEvidence(),plan=fixture.plan;
  const card={authority:'fayo-decision-center',decisionId:plan.decisionId,code:plan.code,day,strategyAt:now-10000,calculatedAt:now-3000,quoteBasis:{source:'tencent',quoteAt:now-1000},plan:{buyLow:9,buyHigh:11,stop:8,target:12,positionPct:50}};
  bindAuthoritativePlan(plan,card);
  const stocks=['600000','600001'].map(code=>({code,name:'隔离历史输入 '+code,price:10,preClose:10,high:10.5,quoteAt:now-1000,receivedAt:now-500,quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,suspended:false,tradable:true,volume:10000}));
  const quotes=selectAdvancedRiskQuotes({codes:stocks.map(x=>x.code),stocks,lastPx:new Map(),now,limitFor:()=>.1}),row=stocks[1];
- const quote={symbol:row.code,price:10,quoteSource:'tencent',provider:'tencent',quoteAt:row.quoteAt,timestamp:row.quoteAt,receivedAt:row.receivedAt,tradeDate:day,mode:'public-live-unverified',volumeUnit:'shares',volume:1000000,upperLimit:11,lowerLimit:9,suspended:false,tradable:true,inputProvenance:createAutomaticInputProvenance({stock:row,observation:row,stockOrigin:'S.lastPx.wireQuote',priceOrigin:'S.lastPx.wireQuote',limitPct:.1})};
+ const authorityQuotes=Object.fromEntries(stocks.map(stock=>[stock.code,{symbol:stock.code,price:10,quoteSource:'tencent',provider:'tencent',quoteAt:stock.quoteAt,timestamp:stock.quoteAt,receivedAt:stock.receivedAt,tradeDate:day,mode:'public-live-unverified',volumeUnit:'shares',volume:1000000,upperLimit:11,lowerLimit:9,suspended:false,tradable:true,riskContext:{observedAt:stock.quoteAt,marks:{'600000':10,'600001':10},requireImportedEvidence:true},inputProvenance:createAutomaticInputProvenance({stock,observation:stock,stockOrigin:'S.lastPx.wireQuote',priceOrigin:'S.lastPx.wireQuote',limitPct:.1})}]));
+ const quote=authorityQuotes[row.code];
  const report=()=>{
   const book=service.read(),account=service.legacy(),context=structuredClone(fixture.input.portfolioContext);
   context.plans.pool=[plan];
-  const receipt=inspectPaperPlanEntry({input:{action:'executePlan',account:'pool',planId:plan.id},plan,now,day,replica:false,continuous:true,candidate:row,eligiblePick:()=>true,systemPickDay:()=>day,poolDay:null,newsBlocked:false,account,policy:{maxPos:2},equity:20000,quote,book,authoritative:card},{sealedUp:false,heldCount:1,monitorCapacity:220,lot:100,feeFor:(side,amount)=>tradingFees({side,quantity:1,price:amount,tradeDate:day,policy:book.feePolicy}).total});
+  const receipt=inspectPaperPlanEntry({input:{action:'executePlan',account:'pool',planId:plan.id},plan,now,day,replica:false,continuous:true,candidate:row,eligiblePick:()=>true,systemPickDay:()=>day,poolDay:null,newsBlocked:false,account,policy:{maxPos:2},equity:20000,quote,book,authoritative:card},{sealedUp:false,heldCount:1,monitorCapacity:220,lot:100,feeFor:(side,amount)=>tradingFees({side,quantity:1,price:amount,tradeDate:day,policy:book.feePolicy}).total,previewAccount:input=>service.previewAutomaticEntry({...input,valuationQuotes:authorityQuotes})});
   context.planChecks={pool:{[plan.id]:receipt}};
   context.equityEvidence.pool.accountRevision=book.revision;context.equityEvidence.pool.bookFingerprint=book.fingerprint;
   const diagnostic=accountExitDiagnostics(book,{...fixture.input,quotes,portfolioContext:context});
   return {mode:'advanced-account-risk-readonly',status:'observed',canTrade:false,writesAccount:false,accounts:[diagnostic],telemetry:{sampleCount:1,p50Ms:1,p95Ms:1}};
  };
  const first=report();assert.equal(first.accounts[0].reconciliation.internallyConsistent,true);assert.equal(first.accounts[0].portfolioEvidence.previews[0].originalGateStatus,'allowed');
+ assert.equal(first.accounts[0].portfolioEvidence.previews[0].riskBudgetAfter.policyScope,'original-account-readonly-preview');
+ assert.equal(first.accounts[0].portfolioEvidence.previews[0].riskBudgetAfter.policyVersion,'isolated-original-policy');
  assert.ok(first.accounts[0].portfolioEvidence.tail.historicalES!==null);assert.ok(first.accounts[0].portfolioEvidence.performance.riskAdjustedReturn.sharpe!==null);
  let delayRisk=0,rejectMutation=false;
  const requests=[],server=http.createServer(async(req,res)=>{
@@ -58,7 +62,7 @@ async function run(){
   if(!/^\/nova\/[\w./-]+$/.test(p)||p.includes('..')){res.writeHead(404);return res.end();}
   try{res.setHeader('Content-Type',p.endsWith('.css')?'text/css':'text/javascript');return res.end(fs.readFileSync(path.join(publicRoot,p)));}catch{res.writeHead(404);res.end();}
  });
- let browser;const summary={fixtureOnly:true,realOriginalAccount:true,realPlanInspector:true,productionActions:false,views:[]};
+ let browser;const summary={fixtureOnly:true,realOriginalAccount:true,realPlanInspector:true,configuredOriginalPolicyPreview:true,productionActions:false,views:[]};
  try{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -81,6 +85,7 @@ async function run(){
     await page.getByRole('heading',{name:'现金流调整后的绩效',exact:true}).waitFor();
     const text=await page.locator('#mount').innerText();assert.match(text,/时间加权收益 TWR/);assert.match(text,/夏普比率/);assert.match(text,/历史 ES/);assert.doesNotMatch(text,/(?:^|\n)(?:null|undefined|NaN)(?:\n|$)/);
     await page.getByText('600001 · 计划预演',{exact:true}).click();assert.match(await page.locator('#mount').innerText(),/假设数量/);
+    await page.getByText('原风险额度',{exact:true}).click();assert.match(await page.locator('#mount').innerText(),/isolated-original-policy/);
     await page.getByText('600000 · 容量情景',{exact:true}).click();assert.match(await page.locator('#mount').innerText(),/容量内估计股数/);
     await page.getByText('逐股风险贡献',{exact:true}).click();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow at '+view.width);

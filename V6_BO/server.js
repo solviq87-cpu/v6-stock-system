@@ -11616,7 +11616,8 @@ function centerEvidenceRuntime(){
           account,policy,equity,quote,book,authoritative:decisions.cards.find(card=>card.code===plan.code&&card.day===plan.intendedDate)
         },{sealedUp,heldCount:heldCodes({...PAPER,pool:account}).length,monitorCapacity:MONITOR_CAPACITY,lot:paperLotOf(plan.code),
           feeFor:(side,amount)=>require('./src/core/trading-fees').tradingFees({side,quantity:1,price:amount,tradeDate:aShareCalendarDate(now),
-            policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total});
+            policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total,
+          previewAccount:input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes})});
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
