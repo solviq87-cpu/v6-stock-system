@@ -1,14 +1,20 @@
 # 天枢智策 V6 部署清单
 
-更新日期 2026-11-25（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
+更新日期 2026-11-26（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
 
 仓库首页、两级 `AGENTS.md`、`npm run context:resume` 和正式应用管理者首页都固定指向这份文档。应用首页打开 `dev` 上的当前文档，访问权限由 GitHub 私有仓库管理。
+
+## 本轮增量 · 2026-11-26 · 第 67—78 项深度研究与真实验收
+
+基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；独立分支 `feat/fayo-depth-decision-20261126`，目标 `dev`。本组增量复用原新闻/短线/研究日志/权威账户/风险中心与原生双端；新增能力、接口、真实条件、其他组 PR、回退与逐项状态见 [交付说明](docs/FAYO_DEEP_RESEARCH_20261126.md)，实际验证见 [验证记录](docs/validation/fayo-deep-research-20261126/README.md)。
+
+目标 appVer `20261126ab`、frontend-revision `depth-20261126-1`、SW 后缀 `deep-research-1`。要部署需使用精确已验证提交的完整运行包，启动后核对进程绑定/产物哈希、原权限与 `/`、`/m`；当前未部署，真实观察仍为 0 日，5/20/60 日验收未通过。用户已将最终集成、合并安排、任务总表、验收及交付跟踪转交“绯曜 FAYO｜总管与最终交付”聊天；本组只负责67—78开发、修复、测试和交接，不独立安排最终主线合并，也不以本组测试替代六组总验收。回退保全新账户、订单、通知和研究/运行记录，只回切程序。
 
 ## 可以部署的内容
 
 | 用途 | 源码位置及发布方式 | 当前状态 |
 | --- | --- | --- |
-| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 完整运行包构建脚本可用；本轮20261125ad补齐联动、因子与执行闭环，未切换生产。现场冷备、原账户、手机连接和私密推送需由目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
+| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 完整运行包构建脚本可用；本轮20261126ab追加第67—78项研究、决策与真实验收接线，未切换生产。现场冷备、原账户、手机连接和私密推送需由目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
 | 指定 WorkBuddy 静态站 | 源码 `V6_WEB/workbuddy/index.html`，由 `V6_BO/scripts/build-workbuddy-static.js` 生成带源码版本的单文件 HTML。现有发布者负责发布并读回校验。 | 静态站承载浏览器页面。升级本次原生看板及其行情接口，请使用上方完整应用的部署入口。 [静态站发布](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md) |
 | 独立只读行情预览 | `streamlit_readonly/`。公开行情、教学筛选和回测的部署入口是 `streamlit-release` 分支的 `app.py`。 | 源码已补合入 `dev`。独立预览的线上状态以实际托管服务为准。 [预览部署](streamlit_readonly/README_RELEASE.md) |
 | Web 教学预览 | `V6_WEB/src/` 与 `V6_WEB/scripts/` 构建 `V6_WEB/dist/`。适合独立静态预览。 | 由本目录的构建脚本生成，正式 Node 应用使用上方原生页面入口。 |

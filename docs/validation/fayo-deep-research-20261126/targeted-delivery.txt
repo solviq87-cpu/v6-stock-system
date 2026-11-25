@@ -1,0 +1,104 @@
+77/78 targeted validation — 2026-11-26
+Working tree: /workspace/scratch/e8edfbdb0b5e/v6-stock-system
+Base commit: b9b44474be7fd27732e37d868ed64dbfddd3e8e9
+Branch: feat/fayo-depth-decision-20261126
+These are isolated deterministic fixtures. They establish no production deployment,
+actual market-data availability, trading results or real observation days.
+
+Command:
+node --test V6_BO/tests/release-provenance.test.js V6_BO/tests/runtime-acceptance.test.js
+Result: 17 passed, 0 failed, 0 skipped. Exit 0. 1243.29 ms reported by node:test.
+Coverage: source/manifest/hash and version mismatch; dependency-version pollution;
+symlink/unmanifested-code rejection; bounded worker validation; real-day coverage
+criteria; single-tick incompleteness; synthetic/replay/smoke exclusion; original
+quoteAt freshness; no client backfill; missing days and changed SHA; write-role,
+calendar and deployment gates; corruption/truncation; release check cache;
+separate warning/queued/delivered/intent/order/paper/actual-fill counters; 78 rows
+with six distinct evidence states.
+
+Command:
+python3 -m unittest tests/test_windows_host_bundle.py
+Result: 15 passed, 0 failed. Exit 0. Final recorded rerun 0.548 s.
+Coverage: preserved existing exact-Git packaging and deterministic ZIP gates,
+SBOM/lockfile/source tree/builder hashes, external build timestamp receipt,
+credential omission from SBOM/provenance, malformed dependency integrity rejection.
+
+Command:
+node --check V6_BO/src/core/runtime-acceptance.js && node --check V6_BO/src/core/release-provenance.js
+Result: Exit 0.
+
+Command:
+git diff --check
+Result: Exit 0 at targeted validation checkpoint.
+
+Full integrated repository regression and final-commit CI belong to the root
+integration run; these targeted results are not substitutes for that final run.
+
+Integration review fixes / latest targeted run:
+node --test V6_BO/tests/release-provenance.test.js V6_BO/tests/runtime-acceptance.test.js V6_BO/tests/deep-research-workspace.test.js
+Result: 25 passed, 0 failed, 0 skipped. Exit 0. 1876.12 ms.
+Added coverage: preserved runtime startup source binding vs disk-only upgrade;
+simulated/imported/nontrade quote flags and missing receivedAt cannot contribute
+live ticks; same-content import retry and concurrent-winner idempotency; changed
+content rejected; authorization rechecked under the existing store lock;
+authority quote projection values holdings without inventing canTrade; known
+secret fields, Basic authorization values and private webhook URLs rejected.
+
+Latest syntax and whitespace gate:
+git diff --check
+node --check V6_BO/src/core/release-provenance.js
+node --check V6_BO/src/core/runtime-acceptance.js
+node --check V6_BO/src/core/deep-research-workspace.js
+All exit 0.
+
+Authority order-reservation and artifact integration follow-up:
+node --test V6_BO/tests/release-provenance.test.js V6_BO/tests/runtime-acceptance.test.js V6_BO/tests/deep-research-workspace.test.js
+Result: 28 passed, 0 failed, 0 skipped. Exit 0. 3586.09 ms.
+Coverage added: T+1 and per-lot reservation plus remaining quantity on nonterminal
+sell orders; pending order counts; total cash remains distinct from available
+cash; open buy reservation fees are not recalculated in research; references to
+historical PRs can be kept while original task contents/completion stay unknown.
+
+python3 -m unittest tests/test_windows_host_bundle.py
+Result: 16 passed, 0 failed. Exit 0. 2.096 s.
+Added actual builder ZIP -> extracted installation -> Node inspector test:
+source/lock/manifest match, altered executable rejection, old startup binding
+rejection after disk source SHA changes. Isolated artifact fixture only.
+
+Browser check first attempt: /usr/bin/chromium wrapper was present but its
+/usr/lib/chromium/chromium binary was missing (exit 127). No UI success claimed.
+Existing /tmp/chromium then exercised both widths through all write/read and
+revocation checks; final viewer control locator required opening its details.
+Final browser rerun:
+NODE_PATH="$CODEX_PRIMARY_RUNTIME_NODE_MODULES" V6_UI_BROWSER=/tmp/chromium FAYO_DEEP_RESEARCH_QA_DIR=/workspace/scratch/e8edfbdb0b5e/validation/deep-research-browser node V6_BO/scripts/fayo-deep-research-browser-check.js
+Result: Exit 0; passed=true, 1536x1000 / and 390x844 /m.
+Actual native module -> deepResearchHttp -> workspace worker -> private journal:
+each viewport imports one declared event and freezes one hold/cash comparison;
+original server receipt time preserved and account input unchanged. Actual
+acceptance/release functions render 78 task rows with all previous 66 unknown;
+5/20/60 stages remain unpassed and real observation days remain zero. Both
+viewports deny a revoked in-flight read, abort and clear private state, produce
+zero page JS errors and zero page overflow. Viewer reads: 0, including selecting
+the acceptance view. Unexpected writes: 0.
+Machine report: validation/deep-research-browser/deep-research-browser-report.json
+Four screenshots: deep-{1536,390}-{freeze,acceptance}-isolated.png.
+Screenshots were opened and reviewed; narrow task table scrolls within its own
+container, not the page. These remain isolated fixtures, not deployment proof.
+
+Final independent-review runtime gate fixes:
+node --test V6_BO/tests/runtime-acceptance.test.js V6_BO/tests/release-provenance.test.js V6_BO/tests/deep-research-workspace.test.js
+Result: 33 passed, 0 failed, 0 skipped. Exit 0. 2054.69 ms.
+Added valid original price requirement through quoteObservationView; invalidPrice
+is separate and missing/0/NaN/Infinity/negative/string values cannot count live.
+Calendar metadata.runtimeEligible must explicitly be true; research-only or
+missing qualification retains excluded observations without adding real days.
+The original authority calendar can be injected without claiming source signing.
+Each JSONL record keeps at most 10 explicitly sampled quote/source/price/original
+quoteAt/receivedAt/reason rows, and hashes all whitelisted inputs within the
+10,000-row bound with totalSeen/truncation/digest-scope fields. Extra credentials
+are omitted; 10,001-input regression proves nonsampled values affect the hash,
+original quote times stay unchanged, and the record stays under 16 KiB.
+Legacy live booleans without these evidence gates remain intact but excluded.
+
+Final runtime-only rerun follows the strict timestamp/sourceAllowed digest
+normalization update; syntax and git diff --check gates exit 0.

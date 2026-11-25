@@ -8,8 +8,8 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
- const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback';
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','deep-research'].includes(payload.action);
+ const edit=payload.action==='shortline'&&Boolean(payload.input)||['intelligence-feedback','deep-import','deep-freeze'].includes(payload.action);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
  const canQueueEdit=edit&&!waitingEdit&&reads.size>0;
@@ -26,7 +26,7 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
+  const guarded=['intelligence-feedback','intelligence-history-collect','deep-import','deep-freeze'].includes(payload.action)||
     payload.action==='shortline'&&Boolean(payload.decisionPlan);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
@@ -60,6 +60,24 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob({...p,
       ...(p.decisionPlan?{beforeDecisionCommit:authorizedCheckpoint}:{})});}
     catch(e){return {ok:false,httpStatus:e.httpStatus||503,error:e.httpStatus?e.message:'私有研究档案正忙或暂不可用，请重新读取'};}
+  }
+  if(p.action==='deep-research')return {ok:true,result:await require('../core/deep-research-workspace').runDeepResearch(p)};
+  if(p.action==='deep-import'||p.action==='deep-freeze'){
+    if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'原主实例编辑授权已失效'};
+    try{
+      const deep=require('../core/deep-research-workspace'),decision=require('../core/deep-decision-research');
+      let result;
+      if(p.action==='deep-import')result=deep.importDeepEvidence(p.root,p.input,{now:Date.now(),authorize:authorizedCheckpoint});
+      else{
+        result=decision.resolveFrozenRequest(p.root,p.input.requestId,p.input.publicIntent,{authorize:authorizedCheckpoint,beforeCommit:authorizedCheckpoint});
+        if(!result){
+          const input=deep.freezeInputFromSnapshot(p.root,{snapshot:p.snapshot,publicIntent:p.input.publicIntent,requestId:p.input.requestId,now:p.now});
+          result=decision.freezeDecisionAlternatives(p.root,input,
+            {requestId:p.input.requestId,expectedRevision:p.input.revision,now:Date.now(),authorize:authorizedCheckpoint,beforeCommit:authorizedCheckpoint});
+        }
+      }
+      return {ok:true,result,revision:result.revision};
+    }catch(error){return {ok:false,httpStatus:error.httpStatus||(/版本|冲突/.test(error.message)?409:422),error:error.message};}
   }
   if(p.action==='intelligence-research'){
     const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});

@@ -8,7 +8,7 @@ const text=(v,max=240)=>typeof v==='string'?v.slice(0,max):null;
 const count=v=>Number.isSafeInteger(v)&&v>=0?v:null;
 const timestamp=v=>Number.isSafeInteger(v)&&v>0&&v<=8e15?v:null;
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
-function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,agentDir=null,
+function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,agentDir=null,deepResearch=null,
  newsRoot=path.resolve(__dirname,'../../data/news-evidence'),readNews}={}){
  if(!Number.isSafeInteger(now)||now<=0||now>8e15)throw Error('研究风险中心时钟无效');
  const supports=[],contra=[],missing=[];
@@ -87,6 +87,9 @@ function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,a
   status:supports.length?'observed-concerns-unverified':'unknown',riskScore:null,
   researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,productionWeightsChanged:false,
   evidenceMeaning:{supports:'已有证据支持的观察事项，非交易建议',contra:'限制结论或表明证据冲突的事项',missing:'缺失、未认证或无法校验的证据'},
-  supports,contra,missing,market,manualHoldings,news,researchAgent,strategyDecay};
+  supports,contra,missing,market,manualHoldings,news,researchAgent,strategyDecay,
+  deepResearch:{status:deepResearch?'observed':'not-read',generatedAt:deepResearch?.generatedAt??null,
+    levels:require('./deep-research-workspace').RISK_LEVELS,
+    observations:require('./deep-research-workspace').projectDeepRisks(deepResearch?.riskObservations,{now,generatedAt:deepResearch?.generatedAt??now})}};
 }
 module.exports={readResearchRiskCenter};

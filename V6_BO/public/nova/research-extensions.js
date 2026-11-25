@@ -1,5 +1,6 @@
 import {readAutomatic,automaticSummary} from './automatic-research.js';
 import { tacticsCenter } from './tactics-view.js';
+import {renderDeepResearch,renderDeepRiskObservations} from './deep-research.js';
 /* Additional native research paths. Every action is explicit and uses the
    existing service contract; no legacy page/controller is loaded. */
 import {h,button,section,field,note,empty,table,format,dateTime,safeLink} from './ui.js';
@@ -53,7 +54,7 @@ function riskCenter(ctx){
   const q=r.market?.quotes,summary=metric([['近期原始报价',q?q.recent+' / '+q.total:'未知'],['过期报价',q?.stale??'未知'],['未来时点',q?.future??'未知'],['缺失时点',q?.unknown??'未知']]);
   const holdings=r.manualHoldings||{},news=r.news||{};
   const items=h('div',{class:'fy-grid'},...[[r.supports,'已有观察'],[r.contra,'冲突与限制'],[r.missing,'缺失证据']].map(([rows,title])=>section(title,'',rows.length?h('ul',{},rows.map(row=>h('li',{},row.message||'证据说明未知'))):empty('尚无充分证据'))));
-  return h('div',{class:'fy-stack'},summary,items,section('手工持仓观察','成本和权重来自手工申报，不表示已读取真实账户。',table([{label:'代码',value:x=>x.symbol},{label:'成本涨跌',value:x=>finite(x.drawdownFromCostPct)?format(x.drawdownFromCostPct)+'%':'未知'},{label:'申报仓位',value:x=>finite(x.weightPct)?format(x.weightPct)+'%':'未知'}],arr(holdings.positions))),section('新闻证据修订','撤稿和已替代版本不能继续作为支持依据。',facts([['当前事件',news.summary?.currentEvents],['已撤稿',news.summary?.retractedEvents],['未知事件',news.summary?.unknownEvents]]),...arr(news.rows).map(row=>h('article',{class:'fy-item'},h('strong',{},row.title||'标题未知'),h('p',{},val(row.source)+' · '+(row.current?'当前版本':'已被后续替代')+' · '+dateTime(row.publishedAt)),row.url&&safeLink(row.url,'原始来源')))),facts([['研究代理',r.researchAgent?.status],['代理资料日',r.researchAgent?.sourceDay],['策略衰减',r.strategyDecay?.reason||'证据不足，保持未知'],['生成',dateTime(r.generatedAt)]]));
+  return h('div',{class:'fy-stack'},summary,items,renderDeepRiskObservations(r.deepResearch),section('手工持仓观察','成本和权重来自手工申报，不表示已读取真实账户。',table([{label:'代码',value:x=>x.symbol},{label:'成本涨跌',value:x=>finite(x.drawdownFromCostPct)?format(x.drawdownFromCostPct)+'%':'未知'},{label:'申报仓位',value:x=>finite(x.weightPct)?format(x.weightPct)+'%':'未知'}],arr(holdings.positions))),section('新闻证据修订','撤稿和已替代版本不能继续作为支持依据。',facts([['当前事件',news.summary?.currentEvents],['已撤稿',news.summary?.retractedEvents],['未知事件',news.summary?.unknownEvents]]),...arr(news.rows).map(row=>h('article',{class:'fy-item'},h('strong',{},row.title||'标题未知'),h('p',{},val(row.source)+' · '+(row.current?'当前版本':'已被后续替代')+' · '+dateTime(row.publishedAt)),row.url&&safeLink(row.url,'原始来源')))),facts([['研究代理',r.researchAgent?.status],['代理资料日',r.researchAgent?.sourceDay],['策略衰减',r.strategyDecay?.reason||'证据不足，保持未知'],['生成',dateTime(r.generatedAt)]]));
  },{needEdit:true});return p.root;
 }
 function legacyBacktest(ctx){
@@ -111,6 +112,6 @@ export function appendResearchExtensions(root,route,ctx){
  if(route.sub==='strategies')root.append(tacticsCenter(ctx),referenceStats(ctx),strategyDashboard(ctx));
  if(route.sub==='backtest')root.append(legacyBacktest(ctx),nativeReplay(ctx));
  if(route.sub==='sources')root.append(renderWorkbookImport(ctx),sectorRelations(ctx));
- if(route.sub==='desk')root.append(riskCenter(ctx));
+ if(route.sub==='desk')root.append(renderDeepResearch(ctx),riskCenter(ctx));
  return root;
 }

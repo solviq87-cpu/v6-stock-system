@@ -1,0 +1,52 @@
+{
+  "fixtureOnly": true,
+  "productionDeployed": false,
+  "longTermAccepted": false,
+  "realObservationDays": 0,
+  "backend": [
+    "deepResearchHttp",
+    "runWorkspaceJob",
+    "deepAccountProjection",
+    "runtimeAcceptance.report",
+    "inspectReleaseProvenanceAsync"
+  ],
+  "views": [
+    {
+      "width": 1536,
+      "height": 1000,
+      "path": "/",
+      "importedRecords": 1,
+      "frozenComparisons": 1,
+      "taskRows": 78,
+      "unknownOriginalTasks": 66,
+      "observedTradingDays": 0,
+      "completeObservationDays": 0,
+      "longTermAccepted": false,
+      "revokedReadDenied": true,
+      "abortedPrivateStateCleared": true,
+      "authorityAccountUnchanged": true,
+      "overflow": 0,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "path": "/m",
+      "importedRecords": 1,
+      "frozenComparisons": 1,
+      "taskRows": 78,
+      "unknownOriginalTasks": 66,
+      "observedTradingDays": 0,
+      "completeObservationDays": 0,
+      "longTermAccepted": false,
+      "revokedReadDenied": true,
+      "abortedPrivateStateCleared": true,
+      "authorityAccountUnchanged": true,
+      "overflow": 0,
+      "errors": []
+    }
+  ],
+  "viewerPrivateReads": 0,
+  "passed": true,
+  "unexpectedWrites": 0
+}

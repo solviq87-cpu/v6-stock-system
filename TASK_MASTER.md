@@ -1,5 +1,12 @@
 # 天枢智策 V6｜统一任务总表
 
+## 本轮增量 · 2026-11-26 · 第 67—78 项深度研究与真实验收
+
+基线 `b9b44474be7fd27732e37d868ed64dbfddd3e8e9`；独立分支 `feat/fayo-depth-decision-20261126`，目标 `dev`。本组增量复用原新闻/短线/研究日志/权威账户/风险中心与原生双端；新增能力、接口、真实条件、其他组 PR、回退与逐项状态见 [交付说明](docs/FAYO_DEEP_RESEARCH_20261126.md)，实际验证见 [验证记录](docs/validation/fayo-deep-research-20261126/README.md)。
+
+目标 appVer `20261126ab`、frontend-revision `depth-20261126-1`、SW 后缀 `deep-research-1`。要部署需使用精确已验证提交的完整运行包，启动后核对进程绑定/产物哈希、原权限与 `/`、`/m`；当前未部署，真实观察仍为 0 日，5/20/60 日验收未通过。用户已将最终集成、合并安排、任务总表、验收及交付跟踪转交“绯曜 FAYO｜总管与最终交付”聊天；本组只负责67—78开发、修复、测试和交接，不独立安排最终主线合并，也不以本组测试替代六组总验收。回退保全新账户、订单、通知和研究/运行记录，只回切程序。
+
+
 > 2026-11-15 新授权覆盖双主页冻结：完整正式 UI、Windows/WSL 安全更新与免费私网访问的当前验收入口是 [UI_REDESIGN_ACCEPTANCE.md](UI_REDESIGN_ACCEPTANCE.md)、[ZERO_COST_HOST_DEPLOYMENT.md](ZERO_COST_HOST_DEPLOYMENT.md)、[SAFE_AUTO_UPDATE_OPERATIONS.md](SAFE_AUTO_UPDATE_OPERATIONS.md)。下文是历史任务账，不代表本次生产已上线；真实用户设备、账户迁移与重启恢复仍待现场验收。
 
 **研究恢复与成绩单（2026-11-15北京时间）**：[草稿、导入文件与证据一致性](V6_BO/docs/RESEARCH_RECOVERY_INTEGRITY_20261115.md)：清除/改选文件后旧读取不再复活；偏好重读保留本页修改，冲突显式核对并保留服务端CAS；成绩单固定首次接收的信号，行情窗口滚动不删除已有合格结果。本地全量3779通过/0失败/3可选跳过，最终精确head CI与合并见本分支PR；未发布生产。
