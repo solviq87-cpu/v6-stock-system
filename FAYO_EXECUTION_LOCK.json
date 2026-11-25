@@ -2,13 +2,23 @@
   "schemaVersion": 1,
   "repository": "solviq87-cpu/v6-stock-system",
   "purpose": "Single execution ownership for the unified FAYO 01–78 continuation; never a deployment controller.",
-  "state": "running",
-  "owner": "fayo-unified-root-20261126T021312+0800",
-  "generation": 1,
-  "startedAt": "2026-11-25T18:13:12Z",
+  "state": "idle",
+  "owner": null,
+  "generation": 2,
+  "startedAt": null,
   "checkpointBranch": "integration/fayo-unified-remaining-20261126",
   "baselineSha": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
   "blockedFingerprint": null,
   "completion": false,
-  "recovery": "Do not take ownership from a running or unknown owner based on elapsed time or lack of commits. Only the recorded owner may release through a content-SHA compare-and-swap, or a human may recover after proving the old execution stopped."
+  "recovery": "Do not take ownership from a running or unknown owner based on elapsed time or lack of commits. Only the recorded owner may release through a content-SHA compare-and-swap, or a human may recover after proving the old execution stopped.",
+  "manualRecovery": {
+    "authorizedBy": "user",
+    "reason": "User explicitly requested clearing the blocked development execution lock. This is a manual release, not a completion or production-release approval.",
+    "previousState": "running",
+    "previousOwner": "fayo-unified-root-20261126T021312+0800",
+    "previousGeneration": 1,
+    "previousStartedAt": "2026-11-25T18:13:12Z",
+    "previousBlobSha": "289feb254d21491cf71160a39589ef96f4551769",
+    "previousExecutionStoppedVerified": false
+  }
 }
