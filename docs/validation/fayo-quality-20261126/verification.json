@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "handoffTo": "用户选定的统一接续聊天",
+  "branch": "fix/fayo-product-quality-20261126",
+  "baseCommit": "5ea32ac70a753ecf6880757630d219c05c2417df",
+  "revisionBinding": "Pre-commit local regression is bound by all listed source/test/package SHA-256 hashes. Final remote Git commit and exact-head workflow results are recorded in the PR. Baseline commit is not the new implementation commit.",
+  "environment": {
+    "node": "24.22.3",
+    "npm": "11.19.1",
+    "python": "3.12.14",
+    "optionalModelDependencies": "installed, including LightGBM and XGBoost",
+    "browser": "No frontend change in this incremental patch; final integrated actual browser verification and exact-head UI workflow are separate."
+  },
+  "fullRegression": {
+    "mode": "isolated-test",
+    "baseCommit": "5ea32ac70a753ecf6880757630d219c05c2417df",
+    "command": "V6_MODEL_PYTHON=/workspace/scratch/75d99b6e6e9b/test-python/bin/python3 V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 RUNNER_TEMP=/tmp npm test",
+    "startedAt": "2026-11-25T18:02:24.712890+00:00",
+    "sourceHashes": {
+      "V6_BO/src/core/product-quality-evaluation.js": "fff78a86be5d2a8d61428312f3a37f10ccc1a72f980ce53d6646e231a820dba2",
+      "V6_BO/scripts/audit-product-quality.js": "61fad3a475259ccd3af9cb826c9db64f7b301c5152f96dfb7cf42fac20d73950",
+      "V6_BO/scripts/check-critical-mutations.js": "56b61eec955eed75f082da362f6b011e132c54782ce56562978447307f8c711d",
+      "V6_BO/tests/product-quality-evaluation.test.js": "5730752a29cec8c8383559278875e3f9e371450ad3b108117de7959c70caf729",
+      "V6_BO/tests/critical-mutation-classification.test.js": "05080a7bce85e2f40ba52f0231361d2ba5bf73d03038382a2384bf3704cb4832",
+      "V6_BO/package.json": "7f38195b6adcd144f89d3934eb45edebf2919ae02e08094b9ab01d9930ab0873",
+      "package.json": "b7e04c2abb3babbf3bb6fdfaf91865fd7382557eb0bce93d47c88b4b37e662db"
+    },
+    "exitCode": 0,
+    "completedAt": "2026-11-25T18:06:36.394890+00:00",
+    "logSha256": "98545d267ee0b95038b00a9dc8c9a8c1da9b0e2f53a6aa8337663df975d89332",
+    "sourceUnchanged": true,
+    "summary": [
+      "# tests 5050",
+      "# pass 5049",
+      "# fail 0",
+      "# skipped 1",
+      "# duration_ms 251043.376822"
+    ]
+  },
+  "targeted": {
+    "command": "node --test V6_BO/tests/product-quality-evaluation.test.js V6_BO/tests/critical-mutation-classification.test.js",
+    "tests": 23,
+    "pass": 23,
+    "fail": 0,
+    "skip": 0,
+    "exitCode": 0,
+    "logSha256": "236c10ff9ca61eed7cb9c093011404b709124cc6bb849dcb990cacc0f0f4aa45"
+  },
+  "checks": [
+    {
+      "name": "check",
+      "command": "npm run check",
+      "startedAt": "2026-11-25T18:06:44.464360+00:00",
+      "completedAt": "2026-11-25T18:06:51.510722+00:00",
+      "exitCode": 0,
+      "logSha256": "3b689a221d672157d64d082f55d1b89f71c1611d857e313bade267b101c58ef1"
+    },
+    {
+      "name": "default-quality",
+      "command": "node V6_BO/scripts/audit-product-quality.js",
+      "startedAt": "2026-11-25T18:06:51.510933+00:00",
+      "completedAt": "2026-11-25T18:06:51.591387+00:00",
+      "exitCode": 0,
+      "logSha256": "d84642ee6a8a9f5dd54494b25dcf99b5e1b42ad7ca9f9e17d96c4f3d48b02acf"
+    }
+  ],
+  "smoke": {
+    "command": "node V6_BO/tests/full-server-isolated-smoke.js",
+    "startedAt": "2026-11-25T18:07:07.445589+00:00",
+    "completedAt": "2026-11-25T18:07:08.176592+00:00",
+    "exitCode": 0,
+    "logSha256": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1"
+  },
+  "mutation": {
+    "command": "node V6_BO/scripts/check-critical-mutations.js",
+    "exitCode": 0,
+    "report": "critical-mutations.json",
+    "sha256": "e28ac8b690e2f2aa9c881dac3fce572688043b45a2ef6ff87788cad76b855e46",
+    "counts": {
+      "total": 4,
+      "killed": 4,
+      "survived": 0,
+      "inconclusive": 0,
+      "equivalent": null
+    },
+    "scope": "仅四个预定义变异；不代表全部权限路径、故障组合或系统无缺陷"
+  },
+  "realQualityEvaluation": {
+    "evidenceInput": "not provided",
+    "coverage": {
+      "total": 30,
+      "evaluated": 0,
+      "passed": 0,
+      "failed": 0,
+      "unknown": 30,
+      "notApplicable": 0,
+      "ratio": 0
+    },
+    "criticalReview": {
+      "state": "unverified",
+      "failed": [],
+      "unverified": [
+        "permission-rejection",
+        "stale-quote-rejection",
+        "fill-idempotency",
+        "ledger-reconciliation",
+        "point-in-time-isolation"
+      ]
+    },
+    "overallScore": null,
+    "probability": null,
+    "productionDeployed": false,
+    "continuousObservationCertified": false
+  },
+  "supersededRuns": [
+    {
+      "tests": 5049,
+      "pass": 5048,
+      "fail": 0,
+      "skipped": 1,
+      "reason": "The final TAP classifier consistency assertion was added while that run was in progress. Do not attribute its green result to the final frozen scripts/tests. The 5050 final rerun supersedes it.",
+      "logSha256": "c00a991e5f33193334e3c771bef9f0b1c7d9c1cf9aa9f91c9d4eb004032933ec"
+    },
+    {
+      "command": "node V6_BO/scripts/full-server-isolated-smoke.js",
+      "exitCode": 1,
+      "reason": "Operator used scripts/ instead of tests/; MODULE_NOT_FOUND before service startup. Correct repository command separately passed.",
+      "logSha256": "0ef852ac86bead5d32ba81d13e1c67e45cc2bccd34bf2e7529110794b6cb29fb"
+    }
+  ],
+  "remaining": [
+    "No real product-quality inputs independently certified (0/30 evaluated; unknown is not a zero score).",
+    "No online health/HTTP/home/personal memory integration delivered by this CLI patch.",
+    "Final composition with other active PRs is separate and must bind its own SHA.",
+    "No production deployment, supplier license/continuous feed or actual device delivery certified.",
+    "No 5/20/60 trading-day observation window completed by these isolated tests."
+  ],
+  "workState": "saved-for-handoff; development paused; no further tests/merge/deploy initiated",
+  "relatedOriginalTasks": [
+    "20",
+    "43",
+    "49",
+    "50",
+    "57",
+    "78"
+  ],
+  "methodOnlyTaskRelations": [
+    "44"
+  ],
+  "integration": "Separate WIP snapshot; product-quality and risk #366 not yet integrated when user paused. No final-composition claim."
+}
