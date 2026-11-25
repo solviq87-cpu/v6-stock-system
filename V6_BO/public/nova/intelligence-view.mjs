@@ -5,6 +5,10 @@ const list=value=>Array.isArray(value)?value:[];
 const score=value=>finite(value)?format(value,1):'缺数据';
 const templateStatus=value=>({'related-existing-rules':'已有相关战法','implemented-evidence-evaluator':'证据核验已接入',
  'missing-catalog-rules':'缺少对应战法目录'})[value]||'等待专项证据';
+const templateEvidence=value=>({'observed-unvalidated':'已有原始条件记录，尚未通过样本外认证','missing-original-checks':'缺少原战法逐项核验记录',
+ 'missing-evidence':'缺少必要原始依据','conditions-failed':'当前原始条件未通过','missing-data':'样本数据不足','no-matching-observation':'尚无匹配观察'})[value]||'证据尚未齐备';
+const historyStatus=row=>row?.status==='missing-dependency'?'BaoStock Python 依赖未安装'+(row.reason?' · '+row.reason:''):
+ row?.reason||({'captured':'已采集原始回执','observed':'已取得原始记录','unavailable':'来源暂不可用','failed':'本次采集失败','source-failed':'供应商采集失败','empty':'供应商返回记录为空'})[row?.status]||row?.status||'结果未确认';
 const sourceLine=value=>[value?.source,value?.knownAt||value?.sourceAt?dateTime(value.knownAt||value.sourceAt):null].filter(Boolean).join(' · ');
 const svgNode=(name,attrs={})=>{
  const node=document.createElementNS('http://www.w3.org/2000/svg',name);
@@ -94,12 +98,19 @@ export function nineAxisRadar(data){
  return h('div',{class:'fy-nine-radar','data-code':data.code,'data-day':data.day},svg,
   paragraph((data.name||data.code)+' · '+data.day+' · '+data.known+'/9 维有证据。'+data.note),
   detail('九维评分与依据',h('dl',{},axes.map(axis=>h('div',{},h('dt',{},axis.label+' · '+score(axis.value)),h('dd',{},axis.reason,
+   axis.formula?paragraph('计算规则：'+axis.formula):null,
    ...(list(axis.sourceTimes).length?axis.sourceTimes.map(item=>paragraph(sourceLine(item))):[paragraph(sourceLine(axis))])))))));
 }
 
 function flowSankey(data){
  const links=list(data?.links);
- if(!links.length)return paragraph(data?.note||'缺少可追溯的真实资金去向明细。');
+ if(!links.length)return h('div',{},paragraph(data?.note||'缺少可追溯的真实资金去向明细。'),
+  list(data?.netObservations).length?detail('已取得的板块净额 · 不代表跨板块转移',h('div',{},
+   paragraph('净流入、净流出分别列示；没有来源与去向对应记录时不生成桑基连线。'),table([
+    {label:'板块',value:r=>r.name},{label:'主力净额（元）',value:r=>money(r.value)},
+    {label:'资金归属日',value:r=>r.day||'供应商未提供'},
+    {label:'原始来源与时点',value:r=>r.source+' · '+(r.sourceAt?dateTime(r.sourceAt):'资金源端时点缺失')+' · 取得于 '+dateTime(r.knownAt)}
+   ],data.netObservations))):paragraph('尚无带人民币单位、来源和实际取得时点的板块净额。'));
  const total=links.reduce((sum,row)=>sum+row.amount,0),left=new Map(),right=new Map();
  if(!finite(total)||total<=0)return paragraph('资金流向金额缺失。');
  for(const row of links){left.set(row.from,(left.get(row.from)||0)+row.amount);right.set(row.to,(right.get(row.to)||0)+row.amount);}
@@ -132,12 +143,21 @@ function evidenceDetails(label,value){
 }
 function researchPanels(report,ctx){
  const q=report.quality||{},f=report.factors||{},w=report.walkforward||{},feedback=report.feedback||{},templates=report.templates||{};
+ const intake=report.historyIntake||{},execution=report.executionValidation||{},overall=execution.overall||{};
  const qItems=list(q.components),metrics=Object.values(f.descriptive||{}),folds=list(w.folds);
  const gateText=gate=>gate?(({hfq:'后复权',qfq:'前复权'})[gate.expectedAdjustment]||'复权口径缺失')+' · '+(gate.admittedGroups??'未知')+' 组可用 / '+(gate.excludedRecords??'未知')+' 条被排除':'缺少可验证样本';
  return [
   panel('L1 · 数据质量',h('strong',{class:'fy-intelligence-number'},finite(q.score)?'Q '+format(q.score,1):'Q 尚未完整'),
    paragraph(q.formula),h('ul',{},qItems.map(item=>h('li',{},item.label+' '+(finite(item.value)?format(item.value*100,1)+'%':'缺数据')+' · 权重 '+format(item.weight*100,0)+'%'))),
    paragraph(q.note),paragraph('看盘：'+gateText(q.gates?.display)+'；回测：'+gateText(q.gates?.backtest)),
+   paragraph('原始历史采集：'+(Array.isArray(intake.codes)?intake.codes.length+' 只股票':finite(intake.codes)?intake.codes+' 只股票':'股票范围未确认')+' · '+
+    (finite(intake.admittedRows)?intake.admittedRows+' 条通过核验':'尚无通过核验的后复权样本')),
+   list(intake.missing).length?paragraph('仍缺：'+intake.missing.join('、')):null,
+   list(intake.sourceStatus).length?detail('后复权原始来源与采集回执',table([
+    {label:'股票/交易日',value:r=>r.code+' · '+(r.day||'归属日未提供')},{label:'来源',value:r=>r.source},
+    {label:'实际取得',value:r=>r.receivedAt?dateTime(r.receivedAt):'未取得回执'},
+    {label:'状态与缺项',value:historyStatus}],intake.sourceStatus)):null,
+   evidenceDetails('历史采集、排除与修订冲突',intake),
    evidenceDetails('逐源偏离、拒绝原因与原始时点',q)),
   panel('L2 · 因子有效性与去冗余',paragraph('原战法目录 '+(f.catalogRules??'未知')+' 项 · 已有量化观测 '+(f.measuredFactors??'未知')+' 项 · 对齐样本 '+(f.alignedSamples??'未知')+' 条'),
    paragraph(f.label||'t 日因子预测 t+1 起收益；缺真实样本时不生成 IC。'),paragraph(f.note),
@@ -147,8 +167,20 @@ function researchPanels(report,ctx){
    paragraph(w.note||'使用后复权价格与真实日历；训练参数冻结后才应用到验证、测试。'),
    ...folds.map((fold,i)=>detail('窗口 '+(i+1)+' · '+fold.status,evidenceDetails('日期、IC 与分层结果',fold))),
    evidenceDetails('样本、日期交集与窗口依据',{alignment:report.crossMarket,coverage:report.coverage,walkforward:w})),
+  panel('L2 · 原账本执行与成本压力',
+   paragraph('已接收 '+(execution.acceptedTrades??'未知')+' 笔 · 标准样本 '+(execution.standardTrades??'未知')+' 笔 · 隔离或排除 '+(execution.excludedCount??'未知')+' 笔'),
+   paragraph('依据已核对的模拟成交流水评估费用与滑点压力；尚无连续账户权益证据时，不生成账户最大回撤。'),
+   list(overall.scenarios).length?table([
+    {label:'费用倍数',value:r=>score(r.feeMultiplier)},{label:'滑点（基点）',value:r=>score(r.slippageBps)},
+    {label:'有效成交',value:r=>r.trades??'缺数据'},{label:'平均净收益',value:r=>finite(r.meanTradeNetReturnPct)?format(r.meanTradeNetReturnPct)+'%':'缺数据'},
+    {label:'胜率',value:r=>finite(r.winRatePct)?format(r.winRatePct)+'%':'缺数据'},
+    {label:'净盈亏（元）',value:r=>finite(r.netPnlCny)?money(r.netPnlCny):'缺数据'}],overall.scenarios):paragraph('尚无满足原账本、计划、交易时点及成本核验要求的执行样本。'),
+   paragraph('成本压力：'+(overall.costStressPassed===true?'已通过当前样本检验':overall.costStressPassed===false?'当前样本未通过':'证据不足')+
+    '；单笔风险：'+(overall.individualRiskPassed===true?'已通过当前样本检验':overall.individualRiskPassed===false?'当前样本未通过':'证据不足')),
+   evidenceDetails('原始样本、分环境结果与风险边界',execution)),
   panel('L2 · 六类战法模板',h('ul',{},list(templates.groups).map(group=>h('li',{},h('strong',{},group.name||group.label),
-    ' · '+templateStatus(group.status),paragraph(group.note||group.missing?.join('；')||'沿用原战法条件与校验')))),
+    ' · '+templateStatus(group.status),paragraph(templateEvidence(group.evidenceStatus)+' · 原条件观察 '+(group.observationCount??list(group.observations).length)+' 条'),
+    paragraph(group.note||group.missing?.join('；')||'沿用原战法条件与校验')))),
    paragraph(templates.scope),evidenceDetails('战法条件与已观察次数',templates)),
   panel('L5 · 复盘反馈',paragraph('成熟复盘 '+(feedback.matureTrades??'未知')+' 条 · 因子调整候选 '+list(feedback.candidates).length+' 条 · 数据质量复核 '+list(feedback.qualityCandidates).length+' 条'),
    paragraph('反馈保留为待验证候选，沿用原权重验证与批准流程。当前生产因子权重没有被自动改写。'),

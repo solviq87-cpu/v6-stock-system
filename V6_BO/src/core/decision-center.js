@@ -6,7 +6,7 @@ const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const validTime=value=>Number.isSafeInteger(value)&&value>0&&value<8e15;
 const list=value=>Array.isArray(value)?value:[];
 const chinaDay=at=>new Date(at+28800000).toISOString().slice(0,10);
-const quoteKeys=['price','pct','volume','amount','high','low','open','preClose','quoteAt','vendorQuoteAt','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','quoteFreshness','quoteStatus','tradeDate'];
+const quoteKeys=['price','pct','volume','amount','amountUnit','quoteUnits','turnover','mktcap','floatCap','high','low','open','preClose','quoteAt','vendorQuoteAt','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','quoteFreshness','quoteStatus','tradeDate'];
 const model=()=>import('./decision-model.mjs');
 
 function centerConfig(given){
@@ -99,10 +99,11 @@ function councilView(id,label,score,evidence,missing=[]){
 
 function buildCouncil(row,weather,now){
  const day=chinaDay(now),strategyDay=row.strategyBasis?.day,dated=strategyDay===day&&validTime(row.strategyAt)&&row.strategyAt<=now;
- const fact=row.fundamentalEvidence,validFact=fact&&fact.day===day&&typeof fact.source==='string'&&fact.source&&validTime(fact.knownAt)&&fact.knownAt<=now&&finite(fact.score)&&fact.score>=0&&fact.score<=100;
+ const fact=row.fundamentalEvidence,validFact=fact&&fact.code===row.code&&fact.day===day&&typeof fact.source==='string'&&fact.source&&validTime(fact.knownAt)&&fact.knownAt<=now&&finite(fact.score)&&fact.score>=0&&fact.score<=100&&!fact.missing?.length;
  const fundamentals=councilView('fundamental','基本面',validFact?fact.score:null,[
-  {label:'已有基本面评分',known:Boolean(validFact&&finite(fact.score)),source:validFact?fact.source:null,sourceAt:validFact?fact.knownAt:null,text:validFact?(fact.reason||'沿用已归因的基本面评分'):'原接口没有带来源和日期的基本面评分'}
- ],validFact&&finite(fact.score)?[]:['基本面评分与来源']);
+  {label:'已封存财报规则',known:Boolean(validFact),source:fact?.source||null,sourceAt:fact?.knownAt||null,
+   sourceTimes:fact?.sourceTimes||[],text:fact?.reason||'缺少已封存财报、报告期与原始回执',formula:fact?.formula||null,inputs:fact?.inputs||[]}
+ ],validFact?[]:fact?.missing?.length?fact.missing:['基本面评分与来源']);
  const trend=dated&&finite(row.baziDims?.trend)&&row.baziDims.trend>=0&&row.baziDims.trend<=100?row.baziDims.trend:null;
  const trendReasons=Array.isArray(row.baziWhy?.trend)?row.baziWhy.trend:[row.baziWhy?.trend];
  const why=trendReasons.filter(value=>typeof value==='string'&&value.trim()).join('；');
@@ -151,8 +152,11 @@ function planLineage(card,account,ruleVersion){
 
 async function buildDecisionCenter(state={}, {now=Date.now(),config}={}){
  const engine=await model(),policy=centerConfig(config||state.decisionPolicy),ruleVersion=policy.ruleVersion||'fayo-center-v1';
- const pool=currentCandidates(state,now,engine.decisionDay,engine.systemPickDay),prepared={...state,pool};
  const account=accountEvidence(state,now);
+ const {enrichDecisionEvidence}=require('./decision-evidence');
+ const pool=currentCandidates(state,now,engine.decisionDay,engine.systemPickDay).map(row=>enrichDecisionEvidence(row,{
+  financials:state.decisionFinancials?.byCode?.[row.code],financialMissing:state.decisionFinancials?.missingByCode?.[row.code],
+  day:chinaDay(now),now,account:state.paper?.pool,accountEvidence:account})),prepared={...state,pool};
  if(!account)for(const row of pool)row.decisionBlockReasons=[...list(row.decisionBlockReasons),'仓位计划缺少原模拟账户快照时点'];
  const qualityByCode=candidateQuality(state,pool,now,policy);
  const board=engine.buildDecisionBoard(prepared,{now});
@@ -186,7 +190,8 @@ async function buildDecisionCenter(state={}, {now=Date.now(),config}={}){
    source:'现有策略、原始行情与原模拟账户',sourceAt:card.quoteAt,lineage};
   return {...card,authority:AUTHORITY,decisionId,calculatedAt:now,plan,authoritativePlan:plan,lineage,council,conclusion:conclusions[card.code]};
  });
- return {...board,authority:AUTHORITY,schemaVersion:SCHEMA,calculatedAt:now,ruleVersion,resonanceByCode,conclusions,qualityByCode,
+ const evidenceByCode=Object.fromEntries(pool.map(row=>[row.code,{code:row.code,day:board.day,fundamental:row.fundamentalEvidence,factorScores:row.factorScores}]));
+ return {...board,authority:AUTHORITY,schemaVersion:SCHEMA,calculatedAt:now,ruleVersion,resonanceByCode,conclusions,qualityByCode,evidenceByCode,
   authorityNote:'价格、仓位、天气与会商由服务端生成；模拟成交仍通过原 paperBuy，前端只展示与校验。'};
 }
 

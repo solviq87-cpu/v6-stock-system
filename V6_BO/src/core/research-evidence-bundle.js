@@ -86,7 +86,7 @@ function loadObject(dir,name,id){const loaded=readJson(path.join(dir,name+'.json
  const {schemaVersion,mode,recordedAt,...rest}=body;for(const key of Object.keys(flags))delete rest[key];const clean=cleanInput(rest);
  if(clean.symbol!==id.symbol||clean.provider!==id.provider||encode(clean)!==encode(rest))throw Error('invalid evidence projection');return object;
 }
-function readState(root,id,{asOf,hash:wantedHash}={}){
+function readState(root,id,{asOf,hash:wantedHash,financialsOnly=false}={}){
  const dirs=directories(root,id),receipts=listing(dirs.receipts,'receipts',MAX_RECEIPT),objects=listing(dirs.objects,'objects',MAX_OBJECT),totalBytes=receipts.bytes+objects.bytes;
  if(fs.existsSync(dirs.dir)&&fs.readdirSync(dirs.dir).some(n=>!['objects','receipts'].includes(n)))throw Error('invalid evidence identity directory');
  if(receipts.committed.length>MAX_EVENTS||objects.committed.length>1000||totalBytes>MAX_TOTAL)throw Error('evidence archive capacity');
@@ -97,7 +97,9 @@ function readState(root,id,{asOf,hash:wantedHash}={}){
   const object=loadObject(dirs.objects,r.hash,id),{hash,schemaVersion,mode,recordedAt,...input}=object;for(const key of Object.keys(flags))delete input[key];
   if(sha(input)!==r.intakeHash||r.decisionAt!==object.decisionAt||r.recordedAt!==object.recordedAt||previous&&r.recordedAt<previous.recordedAt)throw Error('invalid evidence receipt linkage');
   referenced.add(r.hash);metadata.push(r);previous=r;
-  if(asOf!==undefined&&r.decisionAt<=asOf&&r.recordedAt<=asOf&&(!wantedHash||r.hash===wantedHash)&&(!latest||r.decisionAt>latest.decisionAt||r.decisionAt===latest.decisionAt&&r.recordedAt>=latest.recordedAt))latest={...object,revision:r.revision};
+  if(asOf!==undefined&&r.decisionAt<=asOf&&r.recordedAt<=asOf&&(!wantedHash||r.hash===wantedHash)&&
+    (!financialsOnly||object.marketContext?.financials!==undefined&&object.marketContext.financials!==null)&&
+    (!latest||r.decisionAt>latest.decisionAt||r.decisionAt===latest.decisionAt&&r.recordedAt>=latest.recordedAt))latest={...object,revision:r.revision};
  }
  // Crash/concurrency can leave a valid unreferenced object. It is not published
  // evidence, but still consumes quota and must not conceal corrupt/symlink data.
@@ -124,4 +126,10 @@ function freezeResearchEvidenceBundle(root,input){
 function readResearchEvidenceBundle(root,{symbol,provider,asOf=Date.now(),hash}={}){
  try{const id=identity(symbol,provider);if(!instant(asOf)||hash!==undefined&&!hex.test(hash))throw Error('invalid evidence query');return readState(root,id,{asOf,hash}).latest;}catch{throw Error('研究证据私有存储或完整性校验失败');}
 }
-module.exports={freezeResearchEvidenceBundle,readResearchEvidenceBundle};
+// A later price-only capture must not hide an earlier financial receipt. This
+// filters only the returned projection: the bounded full chain, including later
+// and unreferenced objects, still goes through the original integrity checks.
+function readResearchFinancialEvidenceBundle(root,{symbol,provider,asOf=Date.now(),hash}={}){
+ try{const id=identity(symbol,provider);if(!instant(asOf)||hash!==undefined&&!hex.test(hash))throw Error('invalid evidence query');return readState(root,id,{asOf,hash,financialsOnly:true}).latest;}catch{throw Error('研究证据私有存储或完整性校验失败');}
+}
+module.exports={freezeResearchEvidenceBundle,readResearchEvidenceBundle,readResearchFinancialEvidenceBundle};

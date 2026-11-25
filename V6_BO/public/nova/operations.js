@@ -114,14 +114,14 @@ function holdings(ctx,risk=false) {
 function holdingHistory(ctx) {if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});host.append(asyncRegion(ctx,()=>request(ctx,'/api/holdings/ops?n=100'),(data,reload)=>el('div',{class:'fy-stack'},panel('资产变更轨迹','服务端留存的变更与备份，恢复前可先核对时间。',table([['发生时间',row=>date(row.at||row.ts||row.time)],['操作',row=>text(row.action||row.type||row.op)],['资产',row=>text(row.code||arr(row.codes).join('、'))],['记录',row=>text(row.note||row.msg||row.detail)]],arr(data.ops))),panel('可恢复快照','恢复会替换当前资产簿，操作前需要确认。',arr(data.snapshots).length?el('div',{class:'fy-list'},arr(data.snapshots).map(snapshot=>{const file=typeof snapshot==='string'?snapshot:snapshot.file||snapshot.name;return el('article',{class:'fy-item'},el('strong',{},text(file)),el('span',{},date(snapshot.at||snapshot.ts||snapshot.time)),action('恢复这一份',()=>review(ctx,host,'恢复资产簿快照',text(file)+' 将替换当前资产簿，请核对快照日期与账户。',()=>mutation(ctx,'/api/holdings/restore',{file},reload)),'danger'));})):empty('当前没有可恢复快照')))));return host;}
 function paperPlanDraft(ctx,host,onExecuted) {
   const box=el('section',{class:'fy-panel fy-paper-plan','aria-label':'条件计划预填','data-paper-plan':true});
-  let signature='',frozen=null;
+  let signature='',frozen=null,queueRequestId=null;
   const back=()=>typeof ctx.returnToDecision==='function'?ctx.returnToDecision():ctx.navigate('pulse','overview');
   const keyOf=selection=>JSON.stringify([selection?.code,selection?.day,selection?.decisionId,selection?.plan]);
   const current=key=>!ctx.signal?.aborted&&keyOf(ctx.decisionSelection)===key;
   function paint(){
     const selection=ctx.decisionSelection,plan=selection?.plan,key=keyOf(selection);
     if(key===signature)return;
-    signature=key;frozen=null;host.querySelector('[data-operation-review]')?.remove();
+    signature=key;frozen=null;queueRequestId=null;host.querySelector('[data-operation-review]')?.remove();
     if(!selection?.code||!plan){
       box.replaceChildren(el('h2',{},'条件计划预填'),notice('在今日作战台选择标的，即可在这里核对同股、同日计划。'),
         action('回到今日作战台',back));return;
@@ -155,12 +155,69 @@ function paperPlanDraft(ctx,host,onExecuted) {
         return response;
       });
     },'primary',{disabled:!good||ctx.state?.paper?.mirror===true});
+    const queue=action('创建当日模拟条件单',()=>{
+      if(!current(key))return ctx.notify('已切换标的，请核对当前计划','info');
+      // Keep the same identifier across transport failures and confirmation
+      // retries. A lost reply must not create a second durable intent.
+      if(!queueRequestId){
+        if(!globalThis.crypto?.randomUUID)return ctx.notify('当前连接无法生成安全请求编号，请使用 HTTPS 后重试','error');
+        queueRequestId=globalThis.crypto.randomUUID();
+      }
+      review(ctx,host,'创建 '+(selection.row?.name||selection.code)+' 的当日模拟条件单',
+        `${selection.day} · ${selection.code} · 冻结买入区间 ${plan.buyLow}–${plan.buyHigh} 元，仓位上限 ${fmt(plan.positionPct)}%。确认后由主实例后台等待条件，关闭页面也继续核验；午休暂停，14:57未成交意图到期，可撤销。条件单不冻结资金，不保证成交。计划止损和目标仅作预警，实际退出仍遵守原账户规则及T+1。`,async()=>{
+        if(!current(key))throw Error('页面或所选标的已变化，请重新核对');
+        if(!frozen){
+          const saved=await mutation(ctx,'/api/paper',{action:'preparePlan',account:'pool',code:selection.code,day:selection.day,decisionId:selection.decisionId});
+          frozen=saved.plan;
+        }
+        if(!current(key)||!frozen?.id)throw Error('冻结计划已保留，本次尚未创建条件单；请核对当前标的');
+        const response=await mutation(ctx,'/api/paper',{action:'queuePlan',account:'pool',planId:frozen.id,requestId:queueRequestId});
+        if(current(key)){queue.disabled=true;queue.textContent='当日条件单已创建';await onExecuted?.();}
+        return response;
+      });
+    },'secondary',{disabled:!good||ctx.state?.paper?.mirror===true,'data-create-conditional':true});
     box.replaceChildren(el('h2',{},'条件计划预填 · 待确认'),fields,
       notice('计划止损用于事后核对；实际自动退出仍按原账户 ATR / 移动止损。'),
       ...(!good?[notice('计划条件不完整，请回到作战台等待完整信号。')]:[]),
-      el('div',{class:'fy-toolbar'},submit,action('返回今日作战台',back)));
+      el('div',{class:'fy-toolbar'},submit,queue,action('返回今日作战台',back)));
   }
   ctx.onDecisionSelection?.(paint);paint();return box;
+}
+function conditionalOrdersRegion(ctx,host,onReload){
+ const labels={pending:'等待条件',executed:'已按原门禁模拟成交',cancelled:'已撤销',expired:'已到期',unauthorized:'原授权已失效'};
+ const alertLabels={pending:'已记录，待投递',queued:'已进入原私密通道队列',sent:'私密通道接口已确认接收',unconfigured:'私密通道未配置',failed:'投递失败',unknown:'投递结果未知'};
+ return asyncRegion(ctx,()=>request(ctx,'/api/paper/conditional-orders'),(data,reload)=>{
+  onReload?.(reload);
+  const engine=data.engine||{},orders=arr(data.orders),head=panel('后台模拟条件单',
+   data.replica?'副本只读，创建、撤销与执行由原主实例处理':engine.enabled?'主实例后台独立核验；关闭页面不会停止条件等待':'处理中心已暂停，已保存意图保留');
+  head.dataset.conditionalOrders='true';
+  head.append(notice('私密飞书 · '+(engine.privateChannel==='configured'?'已配置，逐条结果见记录':'未配置')+'；条件意图不冻结资金。'),
+   el('div',{class:'fy-toolbar'},action('刷新条件单',reload)));
+  if(!orders.length){head.append(empty('暂无后台条件单','从今日作战台选择完整计划后，可创建当日模拟条件单。'));return head;}
+  for(const order of orders){
+   const card=el('article',{class:'fy-item','data-conditional-id':order.id,'data-conditional-status':order.status},
+    el('header',{class:'fy-item-head'},el('strong',{},(order.name||order.code)+' '+order.code),el('span',{class:'fy-tag'},labels[order.status]||'状态未识别')),
+    el('p',{},order.lastReason||'尚无后台核验回执'),
+    el('small',{},order.day+' · 创建 '+date(order.createdAt)+' · 当日意图到期 '+date(order.expiresAt)),
+    order.monitoringActive?notice('原持仓仍在跟踪计划止损与目标；实际退出采用原账户规则。'):null,
+    order.fill?notice('原成交引用 '+text(order.fill.eventId)+' · '+yuan(order.fill.price)+' × '+fmt(order.fill.shares,0)+' 股'):null);
+   if(order.canCancel===true&&!data.replica)card.append(action('撤销此条件单',()=>review(ctx,host,'撤销 '+(order.name||order.code)+' 的条件单',
+    '停止这一笔尚未成交的条件意图。已发生的模拟成交及账本保持。',async()=>{
+      const latest=await request(ctx,'/api/paper/conditional-orders'),live=arr(latest.orders).find(item=>item.id===order.id);
+      if(!live||live.canCancel!==true||latest.replica){await reload();throw Error('条件单状态已变化，请查看最新结果；未强行撤销已成交记录');}
+      const result=await mutation(ctx,'/api/paper',{action:'cancelConditionalOrder',account:'pool',orderId:order.id,expectedRevision:latest.revision});
+      await reload();return {...result,msg:'该条件意图已撤销，原账户与流水保留'};
+    }),'secondary',{'data-cancel-conditional':order.id}));
+   if(arr(order.alerts).length)card.append(el('details',{class:'fy-details'},el('summary',{},'计划预警与私密通道回执'),
+    table([['触发',a=>a.kind==='stop'?'计划止损':a.kind==='target'?'计划目标':'计划观察'],['日期',a=>a.day],
+     ['投递状态',a=>alertLabels[a.status]||'投递结果未知'],['记录时点',a=>date(a.recordedAt)]],arr(order.alerts))));
+   if(arr(order.observations).length)card.append(el('details',{class:'fy-details'},el('summary',{},'原始触发依据'),
+    table([['日期',o=>o.day],['条件',o=>({entry:'买入区间',stop:'计划止损',target:'计划目标'})[o.kind]||'观察'],
+     ['原始价',o=>yuan(o.price)],['来源',o=>o.source],['源端时点',o=>date(o.quoteAt)],['执行依据',o=>o.reason]],arr(order.observations).slice(-20))));
+   head.append(card);
+  }
+  return head;
+ });
 }
 function executionScorePanel(score,error,ctx){
   if(!score)return panel('收盘执行评分','与原模拟账户收益同时核对',notice(error||'执行证据尚未返回，保留未知。'));
@@ -174,8 +231,9 @@ function executionScorePanel(score,error,ctx){
 }
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
-  let reloadAccounts=null,scoreCache=null,scoreAt=0,scoreDay='';
-  if(!ledger)host.append(paperPlanDraft(ctx,host,async()=>{scoreCache=null;scoreAt=0;await reloadAccounts?.();ctx.refresh?.();}));
+  let reloadAccounts=null,reloadConditions=null,scoreCache=null,scoreAt=0,scoreDay='';
+  if(!ledger)host.append(paperPlanDraft(ctx,host,async()=>{scoreCache=null;scoreAt=0;await reloadAccounts?.();await reloadConditions?.();ctx.refresh?.();}));
+  if(!ledger)host.append(conditionalOrdersRegion(ctx,host,reload=>{reloadConditions=reload;}));
   const load=async()=>{
     const data=await request(ctx,ledger?'/api/paper/ledger':'/api/paper');
     if(ledger)return data;

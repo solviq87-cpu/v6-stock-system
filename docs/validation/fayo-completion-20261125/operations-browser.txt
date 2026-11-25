@@ -1,0 +1,1 @@
+FAYO operations: 19 native views, 6 live state projections, changed-only preference writes, viewer privacy, navigation zero-writes, 4 frozen confirmation plans, authority context invalidation, first-password setup, weekend news refresh, dirty-form retention, and 38 narrow-screen route layouts passed.

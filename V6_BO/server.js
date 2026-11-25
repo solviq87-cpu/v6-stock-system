@@ -278,7 +278,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261123ab'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261125ac'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -13799,7 +13799,8 @@ function decisionCenterInput(includePrivate=false) {
     if(levels)decisionLevels[candidate.code]={levels,code:quote.code,price:quote.price,quoteAt:quote.quoteAt,
       source,sourceAt,asOf:now,throughDay:bars.at(-1).date,adjustment:'qfq'};
   }
-  return {...state,decisionQuotes,decisionLevels,crossChecksByCode:Object.fromEntries(decisionCrossChecks),
+  const decisionFinancials=includePrivate?decisionFinancialReader().read(state.pool.slice(0,10).map(row=>row.code),{now}):null;
+  return {...state,decisionQuotes,decisionLevels,decisionFinancials,crossChecksByCode:Object.fromEntries(decisionCrossChecks),
     decisionAccountEvidence:includePrivate&&state.paper?.pool&&Number.isSafeInteger(state.now)?
       {source:'原模拟账户服务端快照',sourceAt:state.now,kind:'server-account-snapshot'}:null,
     decisionPools:{auction:_auctionResonanceCache.get('all')?.data||state.closeSession?.cards?.auction||null}};
@@ -13807,6 +13808,101 @@ function decisionCenterInput(includePrivate=false) {
 async function decisionCenterFor(includePrivate=false) {
   const input=decisionCenterInput(includePrivate);
   return require('./src/core/decision-center').buildDecisionCenter(input,{now:Date.now()});
+}
+
+function decisionCenterEnabled(){
+  try{return JSON.parse(fs.readFileSync(path.join(__dirname,'config','intelligence-center.json'),'utf8')).enabled===true;}
+  catch{return false;}
+}
+function centerHistoryDir(){return process.env.V6_CENTER_HISTORY_DIR||path.join(__dirname,'data','intelligence-center-history');}
+let _decisionFinancialReader=null,_decisionBackground=null;
+function decisionFinancialReader(){
+  return _decisionFinancialReader||(_decisionFinancialReader=require('./src/server/decision-financial-cache').createDecisionFinancialCache({
+    evidenceRoot:stockObservationOptions().evidenceRoot,observationRoot:stockObservationOptions().observationRoot,ttlMs:30000}));
+}
+function decisionBackground(){
+  return _decisionBackground||(_decisionBackground=require('./src/server/decision-center-background').createDecisionCenterBackground({
+    enabled:decisionCenterEnabled,isPrimary:()=>!isReplica()&&researchPrimary(),session:marketDisplaySession,
+    candidates:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],
+    historyCandidates:({day,now,cursor})=>require('./src/server/research-workspace-job').runWorkspaceJob({
+      action:'intelligence-history-pending',root:shortlineResearchDir(),historyRoot:centerHistoryDir(),day,now,cursor,replica:isReplica()}),
+    collectHistory:({code,day})=>require('./src/server/research-workspace-job').runWorkspaceJob({
+      action:'intelligence-history-collect',root:shortlineResearchDir(),historyRoot:centerHistoryDir(),code,day,replica:isReplica()}),
+    collectFinancials:async({code})=>{
+      const result=await require('./src/server/stock-observation-job').runStockObservationJob({symbol:code,provider:'auto',historyDays:120,
+        includeContext:false,includeFinancials:true,trigger:'decision-center-financial-refresh'},
+        {...stockObservationOptions(),jobGroup:'automatic'});
+      decisionFinancialReader().invalidate(code);return result;
+    }
+  }));
+}
+
+let _paperConditionalStore=null,_paperConditionalAuth=null,_paperConditionalBusy=false;
+function paperConditionalStore(){
+  return _paperConditionalStore||(_paperConditionalStore=require('./src/core/paper-conditional-orders').createConditionalOrderStore({
+    root:process.env.V6_PAPER_CONDITIONAL_DIR||path.join(__dirname,'data','paper-conditional-orders')}));
+}
+function paperConditionalAuth(){
+  return _paperConditionalAuth||(_paperConditionalAuth=require('./src/core/paper-conditional-authorization').createConditionalAuthorizer({
+    getAccess:()=>accessSecret,getMachineKey:machineKey,isCloud:()=>process.env.QD_CLOUD==='1',
+    liveSession:(principal,generation,expiresAt,now)=>[..._tokens].some(([token,expiry])=>expiry===expiresAt&&expiry>now&&
+      devDigest(token)===principal&&_passwordOnlyEditSessions.get(token)===generation)
+  }));
+}
+function paperConditionalAuthorization(req,token,planId){
+  const credential=token||req.__tok||'',editor=isEditorReq(req,credential),local=isLocalReq(req);
+  const bound=_editSessionDevices.get(credential);
+  const direct=credential&&accessSecret?.devices?.[devDigest(credential)]?devDigest(credential):null;
+  return paperConditionalAuth().issue({planId,editor,local,deviceDigest:bound||direct,
+    sessionToken:_passwordOnlyEditSessions.has(credential)?credential:'',sessionExpiresAt:_tokens.get(credential)||null});
+}
+function executePaperCenterPlan(input,plan,rules,decisions){
+  refreshPaperAuthority();
+  const candidate=S.candidatePool.find(value=>value.code===plan?.code);
+  return require('./src/core/paper-decision-plan').executeDecisionPlan({input,plan,
+    now:Date.now(),day:aShareCalendarDate(),replica:isReplica(),continuous:isContinuousTrading(),
+    candidate,eligiblePick:row=>rules.eligiblePick(row)&&rules.pickReasons(row).length>0,
+    systemPickDay:rules.systemPickDay,poolDay:null,newsBlocked:plan?newsWarnsCode(plan.code):true,
+    account:PAPER.pool,policy:PAPER_CFG.pool,equity:paperEquity('pool',paperPrices()),
+    authoritative:decisions.cards.find(value=>value.code===plan?.code&&value.day===plan?.intendedDate),
+    quote:paperAuthorityQuotes()[plan?.code],readBook:()=>_paperAuthority.pool.read(),
+    buy:(row,reason)=>paperBuy('pool',[row],paperPrices(),()=>reason)});
+}
+function notifyPaperConditional(order,observation,alertId){
+  if(isReplica()||process.env.V6_ISOLATED_BOOT_SMOKE==='1'||!feishuSecReady())return {status:'unconfigured'};
+  const before=_pushLast;
+  const label=observation.kind==='stop'?'止损观察':'目标价观察';
+  const message=`模拟计划${label} · ${order.name}(${order.code})\n原始报价 ${observation.price} 元 · ${observation.source}\n`+
+    `报价时点 ${new Date(observation.quoteAt).toISOString()}\n`+
+    `${observation.sellable?'已核对原 T+1 可卖窗口':'原可卖条件尚未满足'}；退出仍按原账户规则，观察不代表成交。\n回执 ${alertId}`;
+  const accepted=pushAll(message,false,{private:true});
+  if(accepted===false||(_pushLast!==before&&_pushLast?.sent===false&&_pushLast?.why))return {status:'failed'};
+  return {status:'queued'}; // Original private delivery log owns the final receipt.
+}
+async function runPaperConditionalOrders(){
+  if(_paperConditionalBusy||isReplica()||!decisionCenterEnabled())return null;
+  const store=paperConditionalStore(),current=store.read();
+  if(!current.orders.some(order=>order.status==='pending'||order.status==='executed'&&order.monitoringActive!==false))return current;
+  _paperConditionalBusy=true;
+  try{
+    const archive=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false});
+    if(!archive.ok||!archive.state||isReplica()||!decisionCenterEnabled())return null;
+    const rules=await loadSystemPickRules(),decisions=await decisionCenterFor(true);
+    if(isReplica()||!decisionCenterEnabled())return null;
+    refreshPaperAuthority();const now=Date.now(),day=aShareCalendarDate(now);
+    return store.tick({now,day,replica:isReplica(),continuous:isContinuousTrading(),
+      authorized:(authorization,order)=>!isReplica()&&decisionCenterEnabled()&&paperConditionalAuth().verify(authorization,order.planId),
+      planFor:id=>archive.state.plans.find(plan=>plan.id===id),quoteFor:plan=>paperAuthorityQuotes()[plan.code],
+      readBook:()=>_paperAuthority.pool.read(),execute:plan=>executePaperCenterPlan({action:'executePlan',account:'pool',planId:plan.id},plan,rules,decisions),
+      exitAllowedFor:(plan,order,book,quote)=>{
+        const position=PAPER.pool.positions?.[plan.code],lots=book.account?.positions?.[plan.code]?.lots;
+        const available=Array.isArray(lots)?lots.filter(lot=>lot.sourceEventId===order.fill?.eventId&&
+          (lot.sellableDate?lot.sellableDate<=day:lot.buyDate<day)).reduce((sum,lot)=>sum+lot.quantity-(lot.reserved||0),0):0;
+        const allowed=!isReplica()&&isContinuousTrading()&&!!position&&!paperT1Locked(position)&&available>0&&
+          quote.price>quote.lowerLimit&&quote.price<quote.upperLimit;
+        return {allowed,reason:allowed?'原持仓批次、T+1与报价窗口已核对':'原持仓批次、T+1或涨跌停窗口尚未满足'};
+      },notify:notifyPaperConditional});
+  }finally{_paperConditionalBusy=false;}
 }
 
 function buildMobileDigest(includePrivate = false) {
@@ -19387,6 +19483,8 @@ const _httpBootstrap = createDashboardServer({
       readSessionIndices();
       setInterval(readSessionIndices,5000).unref();
       setInterval(()=>{void sampleDecisionCrossChecks().catch(()=>{});},30000).unref();
+      setInterval(()=>{void runPaperConditionalOrders().catch(()=>console.error('[paper-conditions] 原条件意图未完成校验，保留原账户并等待下轮'));},5000).unref();
+      setInterval(()=>{void decisionBackground().tick().catch(()=>console.error('[decision-research] 采集未完成，原证据保留'));},60000).unref();
       const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
         session:marketDisplaySession,isReplica:()=>!researchPrimary(),pool:()=>[...(S.candidatePool||[]),...(S.trendPool||[])],requirePressure:true,
         readSource:readShortlineSource,job:require('./src/server/research-workspace-job').runWorkspaceJob,
@@ -23370,7 +23468,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const input=decisionCenterInput(true),day=input.closeSession?.day||input.marketClock?.day;
     res.setHeader('Cache-Control','private, no-store');
     return require('./src/server/research-workspace-job').runWorkspaceJob({action:'intelligence-research',root:shortlineResearchDir(),
-      book:'main',replica:isReplica(),day,now:Date.now(),quotes:Object.values(input.crossChecksByCode||{})}).then(result=>{
+      historyRoot:centerHistoryDir(),book:'main',replica:isReplica(),day,now:Date.now(),quotes:Object.values(input.crossChecksByCode||{})}).then(result=>{
       if(!requireEditor(res,req.__tok,req))return;
       return json(res,result,req);
     });
@@ -23714,6 +23812,14 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return json(res, { ok: false, error: '账务证据不完整，已拒绝生成可能误导的统一视图' });
     }
   }
+  if (p === '/api/paper/conditional-orders' && req.method === 'GET') {
+    res.setHeader('Cache-Control','private, no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    try{
+      return json(res,{ok:true,...paperConditionalStore().read(),replica:isReplica(),
+        engine:{enabled:decisionCenterEnabled(),intervalMs:5000,privateChannel:feishuSecReady()?'configured':'unconfigured'}},req);
+    }catch{return json(res,{ok:false,error:'条件计划记录尚未通过完整性校验，原账户与意图保持'},req);}
+  }
   if (p === '/api/paper/execution-score' && req.method === 'GET') {
     res.setHeader('Cache-Control','private, no-store');
     if (!requireEditor(res,req.__tok,req)) return;
@@ -23729,8 +23835,9 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if (isReplica()) throw Error('实例角色已变化，请重新读取主实例');
       refreshPaperAuthority();
       const score=require('./src/core/paper-decision-plan').paperExecutionScore,now=Date.now();
+      const conditionalOrders=paperConditionalStore().read().orders;
       return json(res,{ok:true,day,paper:Object.fromEntries(['pool','pre'].map(key=>[key,
-        score({book:_paperAuthority[key].read(),plans:key==='pool'?archive.state.plans:[],day,now})]))});
+        score({book:_paperAuthority[key].read(),plans:key==='pool'?archive.state.plans:[],conditionalOrders:key==='pool'?conditionalOrders:[],day,now})]))});
     } catch(error) { return json(res,{ok:false,error:'执行评分不可用：'+error.message}); }
     })();
   }
@@ -23746,6 +23853,30 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       if(!requireEditor(res,c.token,req))return;
       refreshPaperAuthority();
       const key = c.account === 'pre' ? 'pre' : 'pool';
+      if(c.action==='queuePlan'||c.action==='cancelConditionalOrder'){
+        return (async()=>{try{
+          if(isReplica())throw Error('副本不能创建或撤销主实例条件单');
+          if(c.account!=='pool')throw Error('条件计划仅使用原 A 模拟账户');
+          const store=paperConditionalStore();
+          if(c.action==='cancelConditionalOrder'){
+            if(Object.keys(c).some(k=>!['action','account','orderId','expectedRevision','token'].includes(k)))throw Error('撤单参数包含未支持字段');
+            return json(res,{ok:true,...store.cancel({orderId:c.orderId,expectedRevision:c.expectedRevision},{readBook:()=>_paperAuthority.pool.read()})},req);
+          }
+          if(!decisionCenterEnabled())throw Error('智能处理中心已暂停，原条件意图保留');
+          if(Object.keys(c).some(k=>!['action','account','planId','requestId','token'].includes(k))||
+             !/^plan-[a-f0-9-]{36}$/.test(c.planId||'')||!/^[A-Za-z0-9_-]{8,100}$/.test(c.requestId||''))
+            throw Error('条件计划只接受冻结计划编号与幂等请求编号，不接受客户端价格');
+          const archive=await require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:false});
+          if(!archive.ok||!archive.state)throw Error('原冻结计划档案暂不可用');
+          if(!requireEditor(res,c.token,req))return;
+          if(isReplica()||!decisionCenterEnabled())throw Error('实例角色或中心状态已变化，未创建条件意图');
+          const plan=archive.state.plans.find(value=>value.id===c.planId);
+          const authorization=paperConditionalAuthorization(req,c.token,c.planId);
+          refreshPaperAuthority();
+          const result=store.create({requestId:c.requestId,plan,authorization},{readBook:()=>_paperAuthority.pool.read()});
+          return json(res,{ok:true,...result,msg:'已保存当日条件意图；后台等待原报价和全部门禁，不冻结资金或保证成交'},req);
+        }catch(error){return json(res,{ok:false,error:'条件计划未变更：'+error.message},req);}})();
+      }
       if (c.action === 'preparePlan') {
         return (async()=>{try {
           if(isReplica())throw Error('副本不可冻结模拟计划，请在原主实例核对');
@@ -23777,17 +23908,8 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
         const rules=await loadSystemPickRules();
         const decisions=await decisionCenterFor(true);
         if (!requireEditor(res,c.token,req)) return;
-        refreshPaperAuthority();
         const plan=archive.state.plans.find(value=>value.id===c.planId);
-        const candidate=S.candidatePool.find(value=>value.code===plan?.code);
-        const result=require('./src/core/paper-decision-plan').executeDecisionPlan({input:c,plan,
-          now:Date.now(),day:aShareCalendarDate(),replica:isReplica(),continuous:isContinuousTrading(),
-          candidate,eligiblePick:row=>rules.eligiblePick(row)&&rules.pickReasons(row).length>0,
-          systemPickDay:rules.systemPickDay,poolDay:null,newsBlocked:plan?newsWarnsCode(plan.code):true,
-          account:PAPER.pool,policy:PAPER_CFG.pool,equity:paperEquity('pool',paperPrices()),
-          authoritative:decisions.cards.find(value=>value.code===plan?.code&&value.day===plan?.intendedDate),
-          quote:paperAuthorityQuotes()[plan?.code],readBook:()=>_paperAuthority.pool.read(),
-          buy:(row,reason)=>paperBuy('pool',[row],paperPrices(),()=>reason)});
+        const result=executePaperCenterPlan(c,plan,rules,decisions);
         return json(res,result);
         }catch(error){return json(res,{ok:false,error:'模拟计划未成交：'+error.message});}})();
       }

@@ -4,6 +4,7 @@
 // can only call the existing paperBuy path, then report its committed fill.
 const {aShareCalendarDate} = require('./a-share-calendar');
 const {executionTimeOf} = require('./paper-fill-evidence');
+const {digest}=require('./research-workspace-store');
 const PLAN_PREFIX = '作战台计划[';
 const planIdOk = value => typeof value === 'string' && /^plan-[0-9a-f-]{36}$/.test(value);
 const reasonOf = plan => `${PLAN_PREFIX}${plan.id}] ${plan.code} · 原账户风控`;
@@ -104,7 +105,34 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
     price:committed.price,shares:committed.quantity,msg:'已通过原模拟门禁并核对持久成交；退出仍按原账户止损规则'};
 }
 
-function paperExecutionScore({book,plans=[],day,now=Date.now()}) {
+function observedStopExecution({plan,entry,sell,conditionalOrders,day,now}){
+  const at=executionTimeOf(entry),points=[];
+  for(const order of conditionalOrders||[]){
+    if(order.planId!==plan.id||order.code!==plan.code||order.fill?.eventId!==entry.eventId)continue;
+    for(const observation of order.observations||[]){
+      const {fingerprint,...payload}=observation;
+      if(fingerprint!==digest(payload)||payload.kind!=='stop'||payload.planId!==plan.id||payload.code!==plan.code||
+        payload.entryEventId!==entry.eventId||payload.day!==day||payload.originalFreshGate!==true||payload.continuous!==true||
+        payload.sellable!==true||!Number.isSafeInteger(payload.observedAt)||payload.observedAt<at||payload.observedAt>now||
+        !Number.isSafeInteger(payload.quoteAt)||payload.quoteAt>payload.observedAt||payload.observedAt-payload.quoteAt>15000||
+        aShareCalendarDate(payload.quoteAt)!==day||!finite(payload.price)||payload.price>plan.stop||
+        typeof payload.source!=='string'||!payload.source||/mock|synthetic|fixture|demo/i.test(payload.source))continue;
+      points.push(payload);
+    }
+  }
+  points.sort((a,b)=>a.observedAt-b.observedAt);
+  const soldAt=sell?executionTimeOf(sell):null;
+  const matched=sell?.tradeDate===day&&points.find(point=>soldAt>=point.observedAt&&soldAt-point.observedAt<=15000);
+  if(matched)return {rule:'按计划止损',status:'符合',eventId:sell.eventId,
+    evidence:`原报价 ${matched.price} 元于 ${new Date(matched.quoteAt).toISOString()} 触及冻结止损；原可卖窗口已核对，${soldAt-matched.observedAt} 毫秒后有持久卖出成交 ${sell.price} 元`,
+    trigger:{source:matched.source,quoteAt:matched.quoteAt,observedAt:matched.observedAt,price:matched.price}};
+  if(points.length)return {rule:'按计划止损',status:'资料不足',
+    evidence:`已记录 ${points.length} 个原报价止损触发与可卖窗口；未取得该窗口内的持久卖出回执，未观测时段不推断为及时或延误`,
+    trigger:{source:points[0].source,quoteAt:points[0].quoteAt,observedAt:points[0].observedAt,price:points[0].price}};
+  return null;
+}
+
+function paperExecutionScore({book,plans=[],conditionalOrders=[],day,now=Date.now()}) {
   if (!dateOk(day)) throw Error('执行评分日期无效');
   const closed = now >= Date.parse(day+'T15:00:00+08:00');
   const rows=[], index=new Map(plans.filter(p=>{
@@ -134,7 +162,7 @@ function paperExecutionScore({book,plans=[],day,now=Date.now()}) {
       evidence:`原账本成交 ${entry.price} 元；冻结区间 ${plan.entryMin}–${plan.entryMax} 元`,eventId:entry.eventId});
     if(!entry)facts.push({rule:'按计划止损',status:'不适用',evidence:'该计划没有买入成交'});
     else if(entry.tradeDate===day)facts.push({rule:'按计划止损',status:'不适用',evidence:'当日开仓受原 A 股 T+1 限制，不要求当日卖出'});
-    else facts.push({rule:'按计划止损',status:'资料不足',evidence:sell?
+    else facts.push(observedStopExecution({plan,entry,sell,conditionalOrders,day,now})||{rule:'按计划止损',status:'资料不足',evidence:sell?
       `原账户已于 ${sell.tradeDate} 以 ${sell.price} 元卖出；缺少计划止损触发及可成交窗口证据，不能推断执行及时性`:
       '仍按原账户 ATR / 移动止损巡检；缺少计划止损触发及可成交窗口证据'});
     rows.push({planId:plan.id,code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,facts});

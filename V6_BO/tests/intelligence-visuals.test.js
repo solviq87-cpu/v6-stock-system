@@ -73,6 +73,17 @@ test('emotion stages and money flows only appear with actual attributed evidence
   const result=build(state);assert.equal(result.emotion.phase,'回暖');assert.equal(result.emotion.originalPhase,'修复');
   assert.equal(result.emotion.knownAt,now-10000);assert.equal(result.sankey.links.length,1);
   assert.equal(result.sankey.links[0].amount,100000);assert.equal(result.sankey.links[0].knownAt,now-2000);
-  for(const patch of [{day:'2026-11-24'},{knownAt:now+1},{unit:'USD'},{kind:'sector-net'}])
+  for(const patch of [{day:'2026-11-24'},{knownAt:now+1},{unit:'USD'},{kind:'sector-net'},{synthetic:true},{source:'mock demo'}])
     assert.equal(build({...state,fundFlowLinks:{...state.fundFlowLinks,...patch}}).sankey.links.length,0);
+  assert.equal(build({...state,marketRecovery:{emotion:{...state.marketRecovery.emotion,synthetic:true}}}).emotion.phase,null);
+  assert.equal(build({...state,fundFlowLinks:{...state.fundFlowLinks,links:[{from:'来源甲',to:'去向乙',amount:100000,fixture:true}]}}).sankey.links.length,0);
+});
+test('attributed sector net observations are shown separately without inventing transfers or a source trading day',()=>{
+  const state={sectorsInd:[{name:'芯片',mainInflow:0,source:'eastmoney',unit:'CNY',retrievedAt:now-1000,sourceTimestamp:null,tradeDate:null},
+    {name:'材料',mainInflow:1e8,source:'eastmoney',unit:'CNY',retrievedAt:now-1000,tradeDate:day},
+    {name:'错误单位',mainInflow:2e8,source:'eastmoney',unit:'USD',retrievedAt:now-1000,tradeDate:day},
+    {name:'旧日',mainInflow:3e8,source:'eastmoney',unit:'CNY',retrievedAt:now-1000,tradeDate:'2026-11-24'}]};
+  const result=build(state);assert.deepEqual(result.sankey.links,[]);assert.equal(result.sankey.netObservations.length,2);
+  const zero=result.sankey.netObservations.find(r=>r.name==='芯片');assert.equal(zero.value,0);assert.equal(zero.day,null);
+  assert.equal(zero.sourceAt,null);assert.equal(zero.dateStatus,'missing-source-day');assert.equal(zero.knownAt,now-1000);
 });

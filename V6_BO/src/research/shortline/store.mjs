@@ -143,14 +143,14 @@ export async function syncManualLedger(root,ledgerRoot,accountDir){
     const state=load(dir);
     const result=manualPresent?importManualDecisionLoop(state,{root:ledgerRoot}):{changed:false,imported:0,exitDays:[]};
     const paper=accountDir?importSettledPaperTrades(state,{accountDir}):{imported:0,exitDays:[],issues:[]};
-    const changed=result.changed||paper.imported>0;
+    const changed=result.changed||paper.imported>0||paper.updated>0;
     if(changed){
       state.catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
       for(const day of new Set([...(result.exitDays||[]),...paper.exitDays]))refreshDailyReview(state,day);
       mutate(state,'learn:auto-candidate',{});
       persist(dir,state);
     }
-    return {changed,revision:state.revision,imported:result.imported+paper.imported,retry:!!(result.issues?.length||paper.issues.length)};
+    return {changed,revision:state.revision,imported:result.imported+paper.imported,updated:paper.updated||0,retry:!!(result.issues?.length||paper.issues.length)};
   });
 }
 // Market-only recovery also runs when the user's research and candidate pools are empty.

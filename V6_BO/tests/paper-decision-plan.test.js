@@ -90,3 +90,15 @@ test('only the internal preparation job may attach an authoritative lineage to t
   await assert.rejects(shortlineJob({root:dir,decisionPlan:card,input:{revision:1,action:'learn:plan',payload:{...payload,entryMax:10.2}}}),/服务器决策/);
   assert.equal((await shortlineJob({root:dir})).state.revision,1);
 });
+test('durable conditional intent invokes the original paperBuy and original authority ledger, then restart reconciles one fill',async t=>{
+  const x=await setup(t),{createConditionalOrderStore}=require('../src/core/paper-conditional-orders');
+  const root=path.join(path.dirname(x.file),'conditional-intents'),store=createConditionalOrderStore({root,clock:()=>now});
+  const input={requestId:'native-paper-round-trip',plan:x.frozen,authorization:{mode:'local',principal:null,generation:0}};
+  const readBook=()=>x.app.read();store.create(input,{readBook});
+  const run={now,day,replica:false,continuous:true,authorized:()=>true,planFor:()=>x.frozen,
+    quoteFor:()=>x.context.paperAuthorityQuotes()['600000'],readBook,execute:()=>x.run()};
+  const result=store.tick(run);assert.equal(result.orders[0].status,'executed');
+  assert.equal(result.orders[0].fill.eventId,x.app.read().account.events[0].eventId);
+  const before=fs.readFileSync(x.file);createConditionalOrderStore({root,clock:()=>now}).tick(run);
+  assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.app.read().account.events.length,1);assert.equal(x.notices.length,1);
+});

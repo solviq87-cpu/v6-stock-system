@@ -159,4 +159,86 @@ function evaluateThreeToFour(archive, {day, now = Date.now(), calendar = null, c
   return out;
 }
 
-module.exports = {threeToFourDefinition, evaluateThreeToFour};
+const templateDefinitions = [
+  {id:'first-board',name:'首板挖掘',ruleIds:[8],identity:'same-day-first-board'},
+  {id:'one-to-two',name:'一进二接力',ruleIds:[45],identity:'prior-one-current-two'},
+  {id:'weak-to-strong-reversal',name:'弱转强反包',ruleIds:[2,10,29],identity:'complete-original-pattern'},
+  {id:'leader',name:'龙头战法',ruleIds:[1,50],identity:'complete-original-pattern'},
+  {id:'emotion-timing',name:'情绪周期择时',ruleIds:[18,39,77,78,87],identity:'known-emotion-and-original-rule'}
+];
+function ruleConditionEvidence(check,definition) {
+  const original=check.recognition?.candidates?.find(row=>row.name===definition.name);
+  const missing=original?.missing,failed=original?.failed,total=definition.factors.length;
+  const valid=original&&original.total===total&&Number.isSafeInteger(original.matched)&&original.matched>=0&&
+    Array.isArray(missing)&&Array.isArray(failed)&&new Set([...missing,...failed]).size===missing.length+failed.length&&
+    [...missing,...failed].every(name=>definition.factors.includes(name))&&original.matched+missing.length+failed.length===total;
+  return {ruleCode:'YZ-'+String(definition.id).padStart(2,'0'),name:definition.name,
+    status:!valid?'missing-evidence':missing.length?'missing-evidence':failed.length?'conditions-failed':'passed',
+    conditions:definition.factors.map(name=>({name,status:!valid||missing.includes(name)?'unknown':failed.includes(name)?'failed':'passed'})),
+    archiveCheckId:check.id,source:'original-archived-automatic-condition-check',knownAt:check.createdAt,
+    reason:!valid?'缺少原规则逐项完整识别记录':missing.length?'原识别记录仍有未知条件':failed.length?'原始条件未全部通过':'原规则全部条件已有记录并通过'};
+}
+/** Evaluate existing rule conditions, not just a list of related rule names.
+ * Identity transitions use original frozen pools. These are research pattern
+ * observations and never enlarge the existing live strategy candidate pools.
+ */
+function evaluateTemplateLibrary(archive,{day,now=Date.now(),calendar=null,catalog=[]}={}) {
+  const safe=archive&&archive.scope!=='demo'&&dayOk(day)&&Number.isSafeInteger(now)&&now>=closeAt(day);
+  const checks=safe?(archive.checks||[]).filter(check=>real(check)&&check.method==='行情自动识别'&&check.date===day&&
+    /^\d{6}$/.test(check.code||'')&&check.id&&time(check.createdAt)!==null&&time(check.createdAt)<=now&&
+    time(check.createdAt)>=closeAt(day)).sort((a,b)=>time(a.createdAt)-time(b.createdAt)):[];
+  return templateDefinitions.map(definition=>{
+    const rules=definition.ruleIds.map(id=>catalog.find(row=>row.id===id)).filter(Boolean),evaluations=[];
+    for(const check of checks){
+      const cutoff=time(check.createdAt),conditions=rules.map(rule=>ruleConditionEvidence(check,rule)),passed=conditions.filter(row=>row.status==='passed');
+      let identity={status:'missing-evidence',reason:'缺少模板身份与原始时点证据',evidence:null};
+      if(definition.identity==='complete-original-pattern')identity={status:'passed',
+        reason:'形态身份按原完整战法条件核验，不以相近规则名代替',evidence:{checkId:check.id,knownAt:check.createdAt}};
+      if(definition.identity==='known-emotion-and-original-rule'){
+        const emotion=check.emotion,market=check.market;
+        const knownStage=['冰点','修复','回暖','发酵','高潮','分歧','退潮'].includes(emotion?.stage);
+        if(knownStage&&Array.isArray(emotion.evidence)&&emotion.evidence.length&&Array.isArray(emotion.missing)&&
+            !emotion.missing.length&&market?.date===day&&known(market,cutoff,closeAt(day)))
+          identity={status:'passed',reason:'情绪阶段及同期盘面均来自原冻结校验',
+            evidence:{stage:emotion.stage,explanations:emotion.evidence,source:market.source,knownAt:market.knownAt}};
+      }
+      if(['same-day-first-board','prior-one-current-two'].includes(definition.identity)){
+        const marketRows=[...(archive.marketHistory||[]),...(archive.market||[])],current=latestMarket(marketRows,day,cutoff);
+        const matching=frames(current,cutoff).filter(frame=>frame.sealed.some(stock=>stock.code===check.code));
+        if(matching.length===1){
+          const frame=matching[0],stock=frame.sealed.find(row=>row.code===check.code);
+          if(definition.identity==='same-day-first-board')identity={status:stock.level===1?'passed':'conditions-failed',
+            reason:stock.level===1?'原同日完整涨停池确认首板':'原同日涨停池不是首板',evidence:{...evidence(frame,check.code),level:stock.level}};
+          else if(dayOk(frame.previousDay)){
+            const prior=latestMarket(marketRows,frame.previousDay,openAt(day)),priorFrames=frames(prior,openAt(day)).filter(row=>
+              row.provider===frame.provider&&row.scope===frame.scope&&row.sealed.some(stock=>stock.code===check.code));
+            const edge=calendarEdge(calendar,frame.previousDay,day,openAt(day));
+            if(priorFrames.length===1&&edge){
+              const old=priorFrames[0].sealed.find(row=>row.code===check.code),pass=old.level===1&&stock.level===2;
+              identity={status:pass?'passed':'conditions-failed',reason:pass?'原冻结首板与下一交易日二板逐股对应':'原冻结梯队不符合一进二',
+                evidence:{previous:{...evidence(priorFrames[0],check.code),level:old.level},current:{...evidence(frame,check.code),level:stock.level},calendar:edge}};
+            }
+          }
+        }
+      }
+      const status=identity.status==='conditions-failed'?'conditions-failed':
+        identity.status!=='passed'||!passed.length&&conditions.some(row=>row.status==='missing-evidence')?'missing-evidence':
+        passed.length?'observed-unvalidated':'conditions-failed';
+      evaluations.push({templateId:definition.id,code:check.code,name:check.name||check.code,day,checkId:check.id,
+        knownAt:check.createdAt,status,identity,rules:conditions,matchedRuleCodes:passed.map(row=>row.ruleCode),
+        validationStatus:'not-oos-validated',canTrade:false,canNotify:false,affectsResonance:false});
+    }
+    // Several versions of one day's check remain traceable. The latest eligible
+    // version supplies the current observation; it cannot add duplicate votes.
+    const byCode=new Map(evaluations.map(row=>[row.code,row])),current=[...byCode.values()],observations=current.filter(row=>row.status==='observed-unvalidated');
+    const missing=current.flatMap(row=>[...(row.identity.status==='missing-evidence'?[row.identity.reason]:[]),
+      ...row.rules.filter(rule=>rule.status==='missing-evidence').map(rule=>rule.name+'：'+rule.reason)]);
+    return {definition:{...definition,version:1,ruleMode:'any-complete-original-rule-with-required-identity',
+        changesOriginal95Rules:false,canTrade:false},status:observations.length?'observed-unvalidated':
+        !checks.length?'missing-original-checks':current.some(row=>row.status==='missing-evidence')?'missing-evidence':'conditions-failed',
+      evaluations:current,observations,missing:[...new Set(missing.length?missing:!checks.length?['缺少当日真实行情自动校验及完整条件回执']:[])],
+      validationStatus:'not-oos-validated',canTrade:false,canNotify:false,affectsResonance:false};
+  });
+}
+
+module.exports = {threeToFourDefinition, evaluateThreeToFour, evaluateTemplateLibrary};

@@ -8,7 +8,7 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research'].includes(payload.action);
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
@@ -43,8 +43,27 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
   if(p.action==='intelligence-research'){
     const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});
     if(!archive.ok)return archive;
-    const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes});
+    const codes=[...new Set([...(archive.state.checks||[]).slice(-100).reverse().map(row=>row.code),...(archive.state.plans||[]).slice(-20).map(row=>row.code)])];
+    const history=require('../core/center-history').readCenterHistory({root:p.historyRoot||require('node:path').join(p.root,'center-history'),now:p.now,
+      codes:codes.length?codes:undefined});
+    const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes,
+      bars:[...(archive.state.bars||[]),...history.bars],marketCalendars:history.marketCalendars,
+      frozenObservations:history.frozenObservations,historyCoverage:history.coverage});
     return {ok:true,result};
+  }
+  if(p.action==='intelligence-history-collect'){
+    if(p.replica)return {ok:false,httpStatus:403,error:'副本不能采集或写入中心研究历史'};
+    const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:false});
+    if(!archive.ok)return archive;
+    const result=await require('../core/center-history').collectCenterHistory({root:p.historyRoot,code:p.code,day:p.day,
+      historyDays:p.historyDays,replica:false,archive:archive.state});
+    return {ok:true,result};
+  }
+  if(p.action==='intelligence-history-pending'){
+    const archive=await (await import('../research/shortline/store.mjs')).shortlineJob({root:p.root,book:'main',replica:p.replica});
+    if(!archive.ok)return archive;
+    return require('../core/center-history').readPendingCenterHistory({root:p.historyRoot,archive:archive.state,
+      day:p.day,now:p.now,cursor:p.cursor});
   }
   if(p.action==='shortline-web-notices'){
     const {runBookNotices}=await import('../research/shortline/store.mjs');

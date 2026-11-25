@@ -23,27 +23,45 @@ function buildIntelligenceVisuals(state,decision,{day,now=Date.now(),code=''}={}
  for(const symbol of conflicts)byCode.delete(symbol);
  const stocks=[...byCode.values()].sort((a,b)=>b.marketCapYuan-a.marketCapYuan||a.code.localeCompare(b.code));
  const cycle=state.marketRecovery?.emotion||state.marketRecovery?.metrics?.emotion;
- const cycleOk=cycle&&dayOf(cycle.date)===day&&time(cycle.knownAt)&&cycle.knownAt<=now&&typeof cycle.source==='string'&&cycle.source;
+ const cycleOk=real(cycle)&&dayOf(cycle.date)===day&&time(cycle.knownAt)&&cycle.knownAt<=now&&typeof cycle.source==='string'&&cycle.source;
  const stages={'冰点':'冰点','回暖':'回暖','修复':'回暖','高潮':'高潮','退潮':'退潮'};
  const phase=cycleOk?stages[cycle.value]||null:null;
  const raw=state.fundFlowLinks,flows=[];
- if(raw&&dayOf(raw.day)===day&&raw.unit==='CNY'&&raw.kind==='observed-transfer'&&time(raw.knownAt)&&raw.knownAt<=now&&raw.source){
+ if(real(raw)&&dayOf(raw.day)===day&&raw.unit==='CNY'&&raw.kind==='observed-transfer'&&time(raw.knownAt)&&raw.knownAt<=now&&typeof raw.source==='string'&&raw.source){
   for(const link of Array.isArray(raw.links)?raw.links:[]){
-   if(typeof link.from!=='string'||!link.from.trim()||typeof link.to!=='string'||!link.to.trim()||link.from===link.to||!finite(link.amount)||link.amount<=0)continue;
+   if(!real(link)||typeof link.from!=='string'||!link.from.trim()||typeof link.to!=='string'||!link.to.trim()||link.from===link.to||!finite(link.amount)||link.amount<=0)continue;
    flows.push({from:link.from.slice(0,60),to:link.to.slice(0,60),amount:link.amount,unit:'CNY',day,source:raw.source,knownAt:raw.knownAt});
   }
  }
+ // Net amounts are useful observations, but do not identify any transfer from
+ // one sector to another. Keep them in a separately labelled table, not links.
+ const sectorRows=Array.isArray(state.sectorsInd)?state.sectorsInd:Array.isArray(state.sectors)?state.sectors:[];
+ const netObservations=[],seenSectors=new Set();
+ for(const row of sectorRows){
+  const source=row?.fundsSource||row?.source,knownAt=row?.fundsRetrievedAt||row?.retrievedAt||row?.knownAt;
+  const sourceAt=row?.fundsSourceTimestamp??row?.sourceTimestamp??null;
+  const value=finite(row?.mainInflowYuan)?row.mainInflowYuan:finite(row?.netInflowYuan)?row.netInflowYuan:row?.mainInflow;
+  const originalDay=dayOf(row?.tradeDate||row?.sourceTradeDate||row?.day)||null;
+  const name=row?.name||row?.sector,unit=row?.fundsUnit||row?.unit;
+  if(!real(row)||typeof name!=='string'||!name||seenSectors.has(name)||typeof source!=='string'||!source||
+   !time(knownAt)||knownAt>now||unit!=='CNY'||!finite(value)||originalDay&&originalDay!==day||
+   sourceAt!==null&&(!time(sourceAt)||sourceAt>knownAt||originalDay&&chinaDay(sourceAt)!==originalDay))continue;
+  seenSectors.add(name);netObservations.push({name,value,unit:'CNY',source,knownAt,sourceAt,day:originalDay,
+   dateStatus:originalDay?'source-day':'missing-source-day',kind:'sector-net-observation'});
+ }
+ netObservations.sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)||a.name.localeCompare(b.name));
  const matches=(Array.isArray(state.candidatePool)?state.candidatePool:[]).filter(r=>r.code===code);
  const selected=matches.length===1?matches[0]:null;
  const card=(decision?.cards||[]).find(r=>r.code===code&&r.day===day);
  const strategy=card?.strategyBasis;
  const sourceAt=strategy?.calculatedAt||strategy?.quoteAt||selected?.quoteAt;
  const dated=selected&&observed(selected,day,now)&&time(sourceAt)&&sourceAt<=now&&chinaDay(sourceAt)===day;
- const facts=selected?.factorScores||{};
+ const bridge=decision?.evidenceByCode?.[code];
+ const facts={...(selected?.factorScores||{}),...(bridge?.code===code&&bridge.day===day?bridge.factorScores||{}:{})};
  const axes=[['trend','趋势',selected?.baziDims?.trend,selected?.baziWhy?.trend],['fund','资金',selected?.baziDims?.fund,selected?.baziWhy?.fund],
   ['position','位置',selected?.baziDims?.position,selected?.baziWhy?.position],['support','承接',selected?.baziDims?.support,selected?.baziWhy?.support],
   ['selection','精选',selected?.score,'原候选精选评分'],['fundamental','基本面',null,null],['sentiment','情绪',null,null],
-  ['liquidity','流动性',null,null],['risk','风险控制',null,null]].map(([id,label,value,reason])=>{
+  ['liquidity','流动性',null,null],['risk','计划风险',null,null]].map(([id,label,value,reason])=>{
    const view=card?.council?.views?.find(v=>v.id===id),fact=facts[id];
    let source=dated?'V6 原策略 '+label:null,at=dated?sourceAt:null,score=dated?value:null;
    let sourceTimes=dated?[{source:selected.quoteSource,sourceAt}]:[];
@@ -53,12 +71,14 @@ function buildIntelligenceVisuals(state,decision,{day,now=Date.now(),code=''}={}
     score=view.score;source=[...new Set(originalTimes.map(e=>e.source))].join(' / ');at=Math.max(...originalTimes.map(e=>e.sourceAt));
     sourceTimes=originalTimes;reason=view.evidence.filter(x=>x.known).map(x=>x.text).join('；');
    }
-   if(dated&&real(fact)&&dayOf(fact.day)===day&&time(fact.knownAt)&&fact.knownAt<=now&&chinaDay(fact.knownAt)<=day&&fact.source){
+   if(dated&&real(fact)&&fact.code===code&&dayOf(fact.day)===day&&time(fact.knownAt)&&fact.knownAt<=now&&chinaDay(fact.knownAt)<=day&&fact.source){
     score=fact.value;source=fact.source;at=fact.knownAt;reason=fact.reason;sourceTimes=[{source:fact.source,sourceAt:fact.knownAt}];
+    if(Array.isArray(fact.sourceTimes)&&fact.sourceTimes.length)sourceTimes=fact.sourceTimes;
    }
    const known=finite(score)&&score>=0&&score<=100&&source&&time(at);
    return {id,label,value:known?score:null,source:known?source:null,knownAt:known?at:null,sourceTimes:known?sourceTimes:[],day,
-    reason:known?(Array.isArray(reason)?reason.join('；'):typeof reason==='string'?reason:'原评分依据'):'缺少同日、带来源的'+label+'评分'};
+    formula:known?fact?.formula||null:null,inputs:known?fact?.inputs||null:null,
+    reason:known?(Array.isArray(reason)?reason.join('；'):typeof reason==='string'?reason:'原评分依据'):fact?.reason||'缺少同日、带来源的'+label+'评分'};
   });
  return {ok:true,authority:'fayo-intelligence-visuals',schemaVersion:1,day,generatedAt:now,canTrade:false,
   heatmap:{status:stocks.length?'observed':'missing-data',items:stocks,inputCount:rows.length,observedCount:stocks.length,
@@ -66,7 +86,8 @@ function buildIntelligenceVisuals(state,decision,{day,now=Date.now(),code=''}={}
    note:stocks.length?'面积按总市值（元），红涨绿跌；缺证据的股票不进入图中。':'缺少同日股票报价、总市值或原始时间，未生成热力图。'},
   emotion:{status:phase?'observed':'missing-data',phase,originalPhase:cycleOk?cycle.value:null,day,
    source:cycleOk?cycle.source:null,knownAt:cycleOk?cycle.knownAt:null,note:phase?'沿用原多日情绪引擎结论':cycleOk?'原周期结论为'+cycle.value+'，不强行归入四阶段':'缺少该交易日已归因的多日情绪证据'},
-  sankey:{status:flows.length?'observed':'missing-data',links:flows,day,note:flows.length?'真实来源与去向明细；金额单位为元':'现有板块净额不能证明资金来源与去向；缺少实际流向明细，未连出示意资金链。'},
+  sankey:{status:flows.length?'observed':'missing-data',links:flows,day,netObservations:netObservations.slice(0,20),
+   note:flows.length?'真实来源与去向明细；金额单位为元':'现有板块净额不能证明资金来源与去向；缺少实际流向明细，未连出示意资金链。'},
   radar:{code,name:selected?.name||code,day,axes,known:axes.filter(a=>a.value!==null).length,total:9,
    note:code?'缺失维度留空，不补零、不闭合成完整评分。':'选择决策卡后读取同股、同日九维证据。'}};
 }

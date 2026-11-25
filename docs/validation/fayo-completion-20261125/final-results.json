@@ -1,0 +1,33 @@
+{
+  "fixtureOnly": true,
+  "appVersion": "20261125ac",
+  "frontendRevision": "center-20261125-2",
+  "baseline": "7427debbcda37cbf6183af6e2627fc5fad02e301",
+  "environment": {
+    "node": "24.22.3",
+    "nativePython": "/usr/bin/python3",
+    "modelPython": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "testConcurrency": 2
+  },
+  "fullRegression": {
+    "tests": 4848,
+    "pass": 4844,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "durationMs": 235908.784156,
+    "tapCompletenessPassed": true,
+    "logSha256": "adb9e5b214c26a69ffda37c64dac9db24207a4569c61a0b0cfeb9843fef44548"
+  },
+  "focused": {
+    "tests": 122,
+    "pass": 122,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 12228.504415,
+    "logSha256": "59f13a1e61191e57ad9489579365d1b7bb2d43dc92794fae1412d04baae2c70a"
+  },
+  "liveDeploymentPerformed": false,
+  "productionDataReadOrWritten": false,
+  "externalNotificationSent": false
+}

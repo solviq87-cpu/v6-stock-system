@@ -46,7 +46,7 @@ async function run(){
  const clockDir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-decision-clock-')),clockFile=path.join(clockDir,'clock');
  fs.writeFileSync(clockFile,String(now));
  let fixture,browser;
- const report={fixtureOnly:true,backend:'native decisionCenterInput / buildDecisionCenter',day,views:[],rejections:[],races:[]};
+ const report={fixtureOnly:true,backend:'native decisionCenterInput / buildDecisionCenter',day,views:[],rejections:[],races:[],conditionalOrders:[]};
  try{
   fixture=await createFixture({count:3,serverSource:seedSource(),clockFile});
   fs.copyFileSync(path.join(root,'config/intelligence-center.json'),path.join(fixture.tmp,'config/intelligence-center.json'));
@@ -139,6 +139,40 @@ async function run(){
     assert.equal(await page.locator('#fy-decision-rules').evaluate(node=>node.open),true,'expanded reasoning restored');
     assert.equal(writes.filter(r=>r.path==='/api/paper').length,0,'linking and prefilling do not purchase or freeze a plan');
 
+    // These are explicit, reversible intentions in this disposable server.
+    // Creation must not immediately call executePlan/paperBuy or touch either
+    // account. Cancellation uses the latest returned store revision.
+    await button.click();
+    await drawer.getByRole('button',{name:'查看模拟盘预填',exact:true}).click();
+    await draft.locator('[data-create-conditional]').waitFor();
+    await page.locator('[data-conditional-orders]').waitFor();
+    await draft.locator('[data-create-conditional]').click();
+    const queueReview=page.getByRole('alertdialog');
+    assert.match(await queueReview.innerText(),/14:57/);
+    assert.match(await queueReview.innerText(),/实际退出仍遵守原账户规则及T\+1/);
+    await queueReview.getByRole('button',{name:'确认执行',exact:true}).click();
+    await queueReview.waitFor({state:'detached',timeout:10000});
+    const pending=page.locator('[data-conditional-id][data-conditional-status="pending"]').last();
+    await pending.waitFor({timeout:10000});
+    const orderId=await pending.getAttribute('data-conditional-id');
+    assert.match(await page.locator('[data-conditional-orders]').innerText(),/私密飞书 · 未配置/);
+    await pending.locator('[data-cancel-conditional]').click();
+    await page.getByRole('alertdialog').getByRole('button',{name:'确认执行',exact:true}).click();
+    await page.getByRole('alertdialog').waitFor({state:'detached',timeout:10000});
+    await page.locator('[data-conditional-id="'+orderId+'"][data-conditional-status="cancelled"]').waitFor();
+    const conditionalState=(await fixture.request('/api/paper/conditional-orders')).body;
+    const savedOrder=conditionalState.orders.find(row=>row.id===orderId);
+    assert.equal(savedOrder.status,'cancelled');assert.equal(savedOrder.fill,null);
+    const mutations=writes.filter(r=>r.path==='/api/paper');
+    assert.deepEqual(mutations.map(r=>r.body.action),['preparePlan','queuePlan','cancelConditionalOrder']);
+    assert.match(mutations[1].body.requestId,/^[A-Za-z0-9_-]{8,100}$/);
+    assert.ok(Number.isSafeInteger(mutations[2].body.expectedRevision),'cancellation carries the live store revision');
+    for(const [i,file] of ledgerPaths.entries())assert.deepEqual(fs.readFileSync(file),ledgers[i],'intent create/cancel never changes original account ledger');
+    report.conditionalOrders.push({path:viewport.path,code:'600001',day,status:savedOrder.status,
+     explicitCreate:true,explicitCancel:true,originalAccountLedgerUnchanged:true,actions:mutations.map(r=>r.body.action)});
+    await draft.getByRole('button',{name:'返回今日作战台',exact:true}).click();
+    await page.locator('.fy-decision-card[data-code="600001"][data-selected="true"]').waitFor();
+
     // A late, aborted original-stock request may not repaint the newly selected
     // code/date or the linked sector and paper plan.
     const lateHistory=(await fixture.request('/api/kline?code=600000&n=28&end=2026-11-17')).body;
@@ -173,7 +207,7 @@ async function run(){
     await page.screenshot({path:path.join(output,'decision-'+viewport.width+'-empty.png'),fullPage:true});
     assert.deepEqual(errors,[],'no browser errors');assert.deepEqual(external,[],'no external browser requests');
     report.views.push({...viewport,firstPlanMs:Math.round(elapsed),shape,linkedCode:'600001',linkedDay:day,scrollRestored:true,horizontalScrollRestored:true,savedHorizontal,
-     reasoningRestored:true,paperMutations:writes.filter(r=>r.path==='/api/paper').length,errors});
+     reasoningRestored:true,linkingPaperMutations:0,paperMutations:writes.filter(r=>r.path==='/api/paper').length,errors});
    }catch(error){
     fs.writeFileSync(path.join(output,'failure-'+viewport.width+'.txt'),String(error.stack)+'\n'+await page.locator('body').innerText()+'\n'+JSON.stringify(errors));
     await page.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});throw error;
@@ -183,7 +217,8 @@ async function run(){
   report.ledgerUnchanged=true;report.passed=true;
   for(const width of [1366,390])for(const extension of ['txt','png'])fs.rmSync(path.join(output,'failure-'+width+'.'+extension),{force:true});
   fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify(report,null,2));
-  process.stdout.write(JSON.stringify({passed:true,output,views:report.views,rejections:report.rejections.length,races:report.races.length,ledgerUnchanged:true},null,2)+'\n');
+  process.stdout.write(JSON.stringify({passed:true,output,views:report.views,rejections:report.rejections.length,races:report.races.length,
+   conditionalOrders:report.conditionalOrders,ledgerUnchanged:true},null,2)+'\n');
  }catch(error){
   fs.writeFileSync(path.join(output,'decision-browser-report.json'),JSON.stringify({...report,passed:false,error:String(error.message||error)},null,2));
   throw error;

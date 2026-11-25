@@ -1,6 +1,6 @@
 # 天枢智策 V6 部署清单
 
-更新日期 2026-11-23（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
+更新日期 2026-11-25（北京时间）。查文件用途、发布入口和线上状态时以本页为入口。
 
 仓库首页、两级 `AGENTS.md`、`npm run context:resume` 和正式应用管理者首页都固定指向这份文档。应用首页打开 `dev` 上的当前文档，访问权限由 GitHub 私有仓库管理。
 
@@ -8,7 +8,7 @@
 
 | 用途 | 源码位置及发布方式 | 当前状态 |
 | --- | --- | --- |
-| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 本轮运行包已构建。已有账户迁移、手机私网连接和正式推送需在目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
+| 完整后台与电脑、手机网页 | `V6_BO/`。Node 后端以 `server.js` 和 `src/` 为主，原生页面在 `public/nova/`，默认入口为 `/` 和 `/m`。Windows/WSL 使用 `V6_BO/scripts/build-windows-host-bundle.py` 打出的完整运行包，包内有一键安装入口、文件清单和 SHA-256。 | 完整运行包构建脚本可用；本轮20261125ac补齐代码，未切换生产。现场冷备、原账户、手机连接和私密推送需由目标设备验收。 [Windows/WSL 部署](ZERO_COST_HOST_DEPLOYMENT.md) |
 | 指定 WorkBuddy 静态站 | 源码 `V6_WEB/workbuddy/index.html`，由 `V6_BO/scripts/build-workbuddy-static.js` 生成带源码版本的单文件 HTML。现有发布者负责发布并读回校验。 | 静态站承载浏览器页面。升级本次原生看板及其行情接口，请使用上方完整应用的部署入口。 [静态站发布](V6_BO/docs/AUTO_UPDATE_WORKBUDDY_20261113.md) |
 | 独立只读行情预览 | `streamlit_readonly/`。公开行情、教学筛选和回测的部署入口是 `streamlit-release` 分支的 `app.py`。 | 源码已补合入 `dev`。独立预览的线上状态以实际托管服务为准。 [预览部署](streamlit_readonly/README_RELEASE.md) |
 | Web 教学预览 | `V6_WEB/src/` 与 `V6_WEB/scripts/` 构建 `V6_WEB/dist/`。适合独立静态预览。 | 由本目录的构建脚本生成，正式 Node 应用使用上方原生页面入口。 |
@@ -17,7 +17,17 @@
 
 运行包的完整文件列表以包内 `manifest.json` 为准。`source.json` 记录精确 Git 提交，`SHA256SUMS.txt` 可逐文件验证。部署前应在独立目录验包并验证启动。已有实例升级前备份运行目录，保留私有配置、设备授权、持仓、模拟盘、订单账本及推送流水，之后按既有更新器验收或回滚。 [更新与回滚](SAFE_AUTO_UPDATE_OPERATIONS.md)
 
-## 2026-11-25 智能选股处理中心增量
+## 2026-11-25 处理中心补齐 · `20261125ac`
+
+本轮补齐后复权多源采集与次日标签队列、财报原始字节核验和异步读取、六类模板/执行成本压力、复合筛选、持久模拟条件意图及原结算反馈。应用版本 **20261125ac**、双端前端修订 **center-20261125-2**、SW缓存后缀 **decision-center-2**。目标dev，开发分支feat/fayo-completion-20261125，改前基线7427debbcda37cbf6183af6e2627fc5fad02e301。具体发布SHA以本轮交付回执和最终必需检查为准。
+
+**现有20261123aa/ab都必须升级同一SHA的完整V6_BO，不能只覆盖nova与sw.js。** 新私有状态默认位于data/intelligence-center-history、data/paper-conditional-orders；财报沿用原stock-observations和evidence目录，原权威账本仍在原处。所有外置路径也须纳入节点停写冷备。新队列只保存用户条件意图及证据，不另记现金/持仓，不修改原paperBuy及原权限。
+
+本轮按用户要求只交代码及验收，没有替生产实例冷备、部署、成交或外发。已备份并验证可访问源码；源码备份不等于生产卷备份。部署操作、两个入口、标题/修订、无review.date日期兜底、条件单/账本门禁、回滚和现场回执均有可复制的五步说明。
+
+[当前检查点](HANDOFF.md) · [五步部署交接](docs/FAYO_COMPLETION_HANDOFF_20261125.md) · [本轮验证证据](docs/validation/fayo-completion-20261125/README.md)
+
+## 此前 2026-11-25 智能选股处理中心增量（PR #348）
 
 此轮将两份 20261123ab 任务合并，首页修订升为 **center-20261125-1**，应用版本仍为 20261123ab。部署内容包含新的后端权威决策、中心配置/研究计算与双端原生页面，必须按最终通过 CI 的同一 Git SHA 安装完整程序。旧纸面账户、持久账本、主副角色、设备授权及原交易门禁保持。[当前部署交接](HANDOFF.md) · [逐项实现与边界](docs/FAYO_INTELLIGENCE_CENTER_20261125.md)
 

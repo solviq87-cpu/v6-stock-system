@@ -1,4 +1,4 @@
-import {h, button, money, note} from './ui.js';
+import {h, button, money, note, dateTime} from './ui.js';
 import {eligiblePick, systemPickDay} from './system-picks.mjs';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -19,7 +19,7 @@ const unsupported = error => ({ok: false, status: 'unsupported', error});
 
 // A deliberately bounded grammar makes every accepted condition reviewable.
 // Unrecognized clauses must not silently disappear from the user's request.
-export function parseSelectionCommand(input) {
+function parseRankingCommand(input) {
   if (typeof input !== 'string' || !input.trim()) return unsupported('请输入选股条件。');
   let text = digits(input).trim().replace(/[\s，,。！!？?]+$/g, '').replace(/\s+/g, '');
   if (text.length > 100) return unsupported('指令过长，请使用一个排序指标和一个题材。');
@@ -51,6 +51,44 @@ export function parseSelectionCommand(input) {
     return unsupported('题材格式未识别，请试“近5日主力净流入前5的芯片股”。');
   return {ok: true, metric, days, limit, theme: ['全部', '全市场', '所有', 'A', 'A股'].includes(theme) ? '' : theme,
     explicitAllMarket: theme === '全市场', raw: input.trim()};
+}
+
+const filterLabels={score:'精选评分',resonance:'共振分',pct:'涨幅',turnover:'换手率',price:'股价',amount:'成交额',mktcap:'总市值',notST:'排除ST',notHalted:'排除停牌'};
+const filterMetric={精选评分:'score',评分:'score',共振次数:'resonance',共振分:'resonance',共振:'resonance',涨跌幅:'pct',涨幅:'pct',换手率:'turnover',股价:'price',价格:'price',成交额:'amount',总市值:'mktcap',市值:'mktcap'};
+const comparator={'不低于':'>=','至少':'>=','大于等于':'>=','≥':'>=','>=':'>=','不高于':'<=','至多':'<=','小于等于':'<=','≤':'<=','<=':'<=','大于':'>','超过':'>','>':'>','小于':'<','低于':'<','<':'<','等于':'=','=':'='};
+function parseFilter(text){
+ if(/^(?:排除|不含|剔除)ST$|^非ST$/i.test(text))return {metric:'notST',op:'exclude',label:'排除ST'};
+ if(/^(?:排除|不含|剔除)停牌(?:股)?$/.test(text))return {metric:'notHalted',op:'exclude',label:'排除停牌'};
+ const m=/^(精选评分|评分|共振次数|共振分|共振|涨跌幅|涨幅|换手率|股价|价格|成交额|总市值|市值)(不低于|大于等于|小于等于|不高于|至少|至多|超过|大于|小于|低于|等于|>=|<=|≥|≤|>|<|=)([+-]?\d+(?:\.\d+)?)(亿元|万元|亿|万|元|％|%|分|个策略|个|次)?$/.exec(text);
+ if(!m)return null;
+ const metric=filterMetric[m[1]],unit=m[4]||'',raw=Number(m[3]);
+ const allowed=metric==='score'?['','分']:metric==='resonance'?['','个策略','个','次']:['pct','turnover'].includes(metric)?['','%','％']:
+  metric==='price'?['','元']:['','元','万元','亿元','万','亿'];
+ if(!allowed.includes(unit)||!finite(raw)||Math.abs(raw)>1e12||metric==='resonance'&&!Number.isInteger(raw)||
+  ['score','resonance','turnover','price','amount','mktcap'].includes(metric)&&raw<0||metric==='score'&&raw>100)return null;
+ const value=raw*(/亿/.test(unit)?1e8:/万/.test(unit)?1e4:1),op=comparator[m[2]],displayUnit=['pct','turnover'].includes(metric)?'%':
+  ['amount','mktcap','price'].includes(metric)?'元':metric==='score'?'分':'个策略';
+ return {metric,op,value,unit:displayUnit,label:filterLabels[metric]+' '+op+' '+value+' '+displayUnit};
+}
+
+export function parseSelectionCommand(input){
+ if(typeof input!=='string'||!input.trim())return unsupported('请输入选股条件。');
+ const normalized=digits(input).trim().replace(/[。！!？?]+$/g,'').replace(/\s+/g,'');
+ if(normalized.length>160)return unsupported('指令最多160字，可使用一个排序条件和至多6个筛选条件。');
+ if(/或者|或是|\|\||\bOR\b|明天|明日|保证|必涨|自动买|自动卖/i.test(normalized))return unsupported('暂不解析“或”、未来涨幅或自动买卖要求；可用“且”连接可核验条件。');
+ const clauses=normalized.split(/并且|而且|同时|且|[，,；;]/).filter(Boolean);
+ if(clauses.length===1)return parseRankingCommand(input);
+ if(clauses.length>7)return unsupported('一次最多包含一个排序条件与6个筛选条件。');
+ let ranking=null;const filters=[];
+ for(const clause of clauses){
+  const filter=parseFilter(clause);
+  if(filter){filters.push(filter);continue;}
+  const candidate=parseRankingCommand(clause);
+  if(candidate.ok&&!ranking){ranking=candidate;continue;}
+  return unsupported('未识别完整条件：“'+clause+'”。支持评分、共振、涨幅、换手率、股价、成交额、市值比较及排除ST/停牌；未执行其余条件。');
+ }
+ if(!ranking)return unsupported('请指定排序，例如“精选评分前5”，再用“且”连接筛选条件。');
+ return {...ranking,filters,raw:input.trim()};
 }
 
 function candidateRows(state, day, now) {
@@ -115,15 +153,42 @@ function resonanceValue(row, day, resonanceByCode) {
   return {value: strategies.length, strategies, source: '同日独立策略命中'};
 }
 
+function conditionEvidence(row,filter,{day,now,resonanceByCode}){
+  const metric=filter.metric;
+  if(metric==='score')return finite(row.score)&&row.score>=0&&row.score<=100?
+    {value:row.score,source:'原候选精选评分',sourceAt:row.strategyAt||row.quoteAt,knownAt:row.receivedAt||null}:null;
+  if(metric==='resonance')return resonanceValue(row,day,resonanceByCode);
+  if(metric==='notST')return typeof row.name==='string'&&row.name.trim()||typeof row.isST==='boolean'?
+    {value:!(row.isST===true||/^(?:S\*?ST|\*+\s*ST|ST)|退市/i.test(row.name||'')),source:row.quoteSource,sourceAt:row.quoteAt}:null;
+  if(metric==='notHalted')return typeof row.suspended==='boolean'||typeof row.halt==='boolean'||['normal','trading','suspended','halted'].includes(row.tradeStatus)?
+    {value:row.suspended!==true&&row.halt!==true&&!['suspended','halted'].includes(row.tradeStatus),source:row.quoteSource,sourceAt:row.quoteAt}:null;
+  if(!['pct','turnover','price','amount','mktcap'].includes(metric)||!finite(row[metric])||
+    !Number.isSafeInteger(row.quoteAt)||row.quoteAt<=0||row.quoteAt>now||new Date(row.quoteAt+28800000).toISOString().slice(0,10)!==day||
+    !Number.isSafeInteger(row.receivedAt)||row.receivedAt<row.quoteAt||row.receivedAt>now)return null;
+  if(['amount','mktcap'].includes(metric)&&row[metric]<0)return null;
+  if(['amount','mktcap'].includes(metric)){
+    const unit=row[metric+'Unit'];
+    if(unit!=null?unit!=='CNY':!(/^(eastmoney|tencent|sina)$/.test(row.quoteSource||'')&&row.quoteMode==='public-live-unverified'))return null;
+  }
+  return {value:row[metric],source:row.quoteSource,sourceAt:row.quoteAt,knownAt:row.receivedAt,unit:filter.unit};
+}
+const compares=(value,filter)=>filter.op==='exclude'?value===true:filter.op==='>'?value>filter.value:filter.op==='>='?value>=filter.value:
+ filter.op==='<'?value<filter.value:filter.op==='<='?value<=filter.value:filter.op==='='?value===filter.value:false;
+
 export function evaluateSelectionCommand(command, {state = {}, flowContext = null, day = selectionCommandDay(state), now = Date.now(), resonanceByCode = null} = {}) {
   const query = typeof command === 'string' ? parseSelectionCommand(command) : command;
   if (!query?.ok) return {...query, items: []};
   if (!dayOf(day) || day > new Date(now + 28800000).toISOString().slice(0, 10))
     return {ok: false, status: 'data-missing', query, day: null, items: [], message: '当前没有可核实的候选交易日。'};
   const rows = candidateRows(state, day, now), matched = rows.filter(row => themeMatch(row, query.theme));
-  let missing = 0;
+  let missing = 0,filtered = 0;
+  const missingConditions={},filters=Array.isArray(query.filters)?query.filters:[];
   const ranked = [];
   for (const row of matched) {
+    const checked=filters.map(filter=>({filter,evidence:conditionEvidence(row,filter,{day,now,resonanceByCode})}));
+    if(checked.some(({filter,evidence})=>evidence&&!compares(evidence.value,filter))){filtered++;continue;}
+    const absent=checked.filter(item=>!item.evidence);
+    if(absent.length){missing++;for(const {filter}of absent)missingConditions[filterLabels[filter.metric]||filter.metric]=(missingConditions[filterLabels[filter.metric]||filter.metric]||0)+1;continue;}
     let evidence;
     if (query.metric === 'flow') evidence = historyFunds(row.code, flowContext, query.days, day, now) ||
       (query.days === 1 ? ownFunds(row, day, now) : null);
@@ -133,29 +198,32 @@ export function evaluateSelectionCommand(command, {state = {}, flowContext = nul
     if (query.metric === 'flow' && evidence.value <= 0) continue;
     const themes = themesOf(row), label = query.metric === 'flow' ? `近 ${query.days} 个交易日主力净流入` : metricNames[query.metric];
     const amount = query.metric === 'flow' ? money(evidence.value) + ' 元' : String(evidence.value) + (query.metric === 'score' ? ' 分' : ' 个策略');
+    const conditionReasons=checked.map(({filter,evidence})=>filter.label+'（实际 '+evidence.value+(evidence.unit||'')+'；'+evidence.source+
+      (evidence.sourceAt?'；原时点 '+dateTime(evidence.sourceAt):'')+'）');
     const reason = [query.theme && '题材命中：' + themes.join(' / '),
-      label + ' ' + amount, evidence.from && evidence.from + ' 至 ' + evidence.to, evidence.source].filter(Boolean).join(' · ');
+      label + ' ' + amount, evidence.from && evidence.from + ' 至 ' + evidence.to, evidence.source,...conditionReasons].filter(Boolean).join(' · ');
     ranked.push({...row, poolDay: day, selectionWhy: reason, commandEvidence: evidence, commandMetric: query.metric,
+      commandConditions:checked.map(({filter,evidence})=>({condition:filter,...evidence})),
       commandValue: evidence.value, commandDay: day, canTrade: false, commandObservation: true});
   }
   ranked.sort((a, b) => b.commandValue - a.commandValue || a.code.localeCompare(b.code));
   const items = ranked.slice(0, query.limit);
   const status = items.length ? (missing ? 'partial' : 'observed') : matched.length && missing ? 'data-missing' : 'no-match';
   const base = `${day} · 已接收候选 ${rows.length} 只 · 题材匹配 ${matched.length} 只 · 依据完整 ${matched.length - missing} 只`;
-  const missingText = missing ? `；${missing} 只缺少${query.metric === 'flow' ? '完整 ' + query.days + ' 个交易日的资金日期、数值或来源' : metricNames[query.metric] + '依据'}` : '';
-  return {ok: true, status, query, day, items, coverage: {observed: rows.length, matched: matched.length, missing, ranked: ranked.length},
-    message: base + missingText + (items.length ? `；在依据完整的样本中返回前 ${items.length} 只。` : status === 'data-missing' ? '，暂不生成排名。' : '；没有满足本次条件的标的。'),
+  const missingText = missing ? `；${missing} 只缺少${Object.keys(missingConditions).length?Object.keys(missingConditions).join('、')+'的原值、单位或时点':query.metric === 'flow' ? '完整 ' + query.days + ' 个交易日的资金日期、数值或来源' : metricNames[query.metric] + '依据'}` : '';
+  return {ok: true, status, query, day, items, coverage: {observed: rows.length, matched: matched.length, missing, filtered,missingConditions,ranked: ranked.length},
+    message: base + missingText +(filters.length?'；已逐项核对 '+filters.length+' 个附加条件，排除 '+filtered+' 只':'')+ (items.length ? `；在依据完整的样本中返回前 ${items.length} 只。` : status === 'data-missing' ? '，暂不生成排名。' : '；没有满足本次条件的标的。'),
     scope: '当前已接收候选池，非全市场排名', canTrade: false};
 }
 
 export function createCommandSelection(ctx) {
   const result = h('div', {class: 'fy-command-results', 'aria-live': 'polite'});
-  const input = h('input', {type: 'text', maxlength: '100', placeholder: '近5日主力净流入前5的芯片股', 'aria-label': '一句话选股指令'});
+  const input = h('input', {type: 'text', maxlength: '160', placeholder: '近5日主力净流入前5的芯片股，评分至少80且涨幅小于5%', 'aria-label': '一句话选股指令'});
   const run = h('button', {type: 'submit', class: 'fy-button primary'}, '筛选股票');
   const form = h('form', {class: 'fy-toolbar', onSubmit: event => {event.preventDefault();submit();}}, input, run);
   const host = h('details', {class: 'fy-details fy-command-selection'}, h('summary', {}, '一句话选股'),
-    h('p', {class: 'fy-muted'}, '在已接收候选中按主力净流入、精选评分或共振分排序，可限定一个题材。'), form,
-    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3', '共振分前3'].map(example => button(example, () => {input.value = example;input.focus?.();}, 'quiet'))), result);
+    h('p', {class: 'fy-muted'}, '在已接收候选中排序，可用“且”连接评分、共振、涨幅、换手率、股价、成交额、市值及排除ST/停牌条件。缺少任一条件的依据就不纳入结果。'), form,
+    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => {input.value = example;input.focus?.();}, 'quiet'))), result);
   let generation = 0, lastQuery = null, history = null, historyAt = 0;
   const alive = () => !ctx.signal?.aborted;
   function paint(query) {
@@ -173,15 +241,14 @@ export function createCommandSelection(ctx) {
     run.disabled = false;
     lastQuery = query;
     if (!query.ok) {paint(query);return;}
-    if (query.metric === 'resonance' && !ctx.decisionResonance && ctx.loadDecisionCenter) {
+    if ((query.metric === 'resonance'||query.filters?.some(filter=>filter.metric==='resonance')) && !ctx.decisionResonance && ctx.loadDecisionCenter) {
       run.disabled = true;result.replaceChildren(note('正在核对同日策略共振…'));
       try {
         await ctx.loadDecisionCenter();
-        if (alive() && turn === generation) paint(query);
+        if (!alive() || turn !== generation)return;
       } catch (error) {
         if (alive() && turn === generation) {paint(query);result.prepend(note('共振回执读取未完成：' + error.message));}
       } finally {if (turn === generation) run.disabled = false;}
-      return;
     }
     if (query.metric !== 'flow') {paint(query);return;}
     const day = selectionCommandDay(ctx.state || {}), now = Date.now();
