@@ -116,7 +116,7 @@ function respond(url,req,body){
   {provider:'eastmoney',status:'eligible-for-comparison',observedPrice:13,observedPreviousClose:12,quoteAt:sourceAt}]};
  if(p==='/api/stock-news-risk')return {ok:true,code:url.searchParams.get('code'),status:'blocked',matches:[{association:'explicit-sector',sectors:['合成能源'],publishedAt:sourceAt,source:'合成快讯'}]};
  if(p==='/api/holdings')return {ok:true,items:[],summary:{capital:100000,totalCost:0,equity:100000},cfg:{stopPct:7,reducePct:4,takePct:15,maxPosPct:30},allTags:[],time:sourceAt};
- if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
+ if(p==='/api/paper')return {ok:true,paper:{pool:{...state().paper.pool,name:'合成策略跟踪',realizedSeries:[{day:'2026-11-12',value:0},{day:'2026-11-13',value:345.67}],cash:88888.88,initial:100000,totalPnl:345.67,totalPct:.35,enabled:true,positions:[],trades:[]},pre:{...state().paper.pre,name:'合成机会预选',cash:50000,initial:50000,totalPnl:0,totalPct:0,enabled:true,positions:[],trades:[]}}};
  if(p==='/api/paper/ledger')return {ok:true,paper:{pool:{schemaVersion:1,mode:'authoritative-paper-readonly-projection',accountId:'pool',paperOnly:true,canSubmitOrders:false,canCancelOrders:false,accounting:{initialCash:100000,cash:88888.88,realizedPnl:345.67,positions:[{code:'600101',shares:100,basis:1230}],tradeCount:1,auditStatus:'passed'},events:[{type:'FILL_RECORDED',side:'BUY',code:'600101',shares:100,price:12.3,amount:1230,fee:5,t:sourceAt,tradeDate:'2026-11-13',timeQuality:'known'}]},pre:{accountId:'pre',accounting:{initialCash:50000,cash:50000,realizedPnl:0,positions:[],tradeCount:0,auditStatus:'passed'},events:[]}}};
  if(p==='/api/push-log')return {ok:true,items:[]};
  if(p==='/api/lock/devices'||p==='/api/devices')return {ok:true,items:[],devices:[],online:[]};
@@ -332,6 +332,11 @@ async function checkWorkspaceTabs(page,width){
      !!document.querySelector('.fy-main>:not(.fy-loading)'),child);
     assert.ok(['lab/strategies','settings/channels','opportunities/scan'].includes(child)||await tabs.locator('[data-current="true"]').getAttribute('data-workspace-tab')===label);
     assert.doesNotMatch(await page.locator('.fy-main').innerText(),/该工作空间暂时未能打开/);
+    if(child==='assets/paper'){
+     await page.getByRole('img',{name:'模拟账户已实现收益曲线'}).waitFor();
+     assert.match(await page.locator('.fy-observed-line figcaption').first().innerText(),/345.67/);
+    }
+    if(child==='inbox/all')await page.getByText(/私密飞书 · 未配置/).waitFor();
     if(child==='lab/strategies'){
      const rules=page.locator('.fy-strategy-workbenches>section').first();
      await rules.getByText('自动采集测试股票',{exact:false}).first().waitFor();

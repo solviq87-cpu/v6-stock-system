@@ -220,7 +220,8 @@ export function marketOverviewParts(state,{homeDay}={}){
   const today=new Date(Date.now()+28800000).toISOString().slice(0,10);
   const actual=useQuote?stamp:series?.day;
   const lastSession=reviewDate(state.marketClock?.previousDay||state.marketClock?.lastTradingDay||state.marketRecovery?.referenceDay||state.closeSession?.day);
-  const quoteKind=useQuote&&!target?'今日盘中':actual===today?'今日收盘':actual&&actual===lastSession?'上一交易日收盘':'最近有效收盘';
+  const intradayQuote=useQuote&&at<Date.parse(stamp+'T15:00:00+08:00');
+  const quoteKind=useQuote&&(!target||intradayQuote)?(actual===today?'今日盘中':'历史盘中报价'):actual===today?'今日收盘':actual&&actual===lastSession?'上一交易日收盘':'最近有效收盘';
   const provider=useQuote?indexProvider(quoteSource(quote)):series?.source;
   indexAvailability.push({name,ready:Number.isFinite(price)});
   const compactTime=useQuote&&homeDay&&stamp===homeDay;
@@ -1224,15 +1225,16 @@ export function createStockDrawer(ctx) {
      quote.hidden=false;meta.hidden=false;quote.textContent=format(daily.at(-1).close);
      meta.textContent=[cutoff,'收盘价',historySource].filter(Boolean).join(' · ');
     }
-    if(!cutoff&&quote.hidden&&historySource){
-     const received=result.dataQuality?.receivedAt,asOf=Math.min(Date.now(),Number.isSafeInteger(received)?received:Date.now());
+    const received=result.dataQuality?.receivedAt;
+    if(!cutoff&&quote.hidden&&historySource&&!result.dataQuality?.missingReason&&(!received||received<=Date.now())){
+     const asOf=Number.isSafeInteger(received)?received:Date.now();
      const closed=daily.filter(b=>b.date<new Date(asOf+28800000).toISOString().slice(0,10)||
-      received&&Date.parse(b.date+'T15:00:00+08:00')<=asOf);
+      received&&Date.parse(b.date+'T15:10:00+08:00')<=asOf);
      const last=closed.at(-1),prev=closed.at(-2);
      if(last?.close>0){
       const pct=prev?.close>0?(last.close/prev.close-1)*100:null;
       quote.hidden=false;meta.hidden=false;quote.replaceChildren(h('strong',{},format(last.close)),Number.isFinite(pct)?h('span',{class:direction(pct)},percent(pct)):h('small',{},'缺同口径前收'));
-      meta.textContent=last.date+' · 最近收盘 · '+historySource;
+      meta.textContent=last.date+' · 最近收盘 · '+historySource+(prev?.date?' · 较 '+prev.date+' 收盘':'');
      }
     }
     if(daily.length===previous)break;
