@@ -13,6 +13,7 @@ const {createRejectionAudit}=require('./rejection-audit');
 const {resolveEvidence,planEvidenceImport}=require('./imported-risk-evidence');
 const {createFillEvidence,fillEvidenceOf}=require('./paper-fill-evidence');
 const {openingReconciliationEvidence,pendingBuyOrderBudget,assertAccountReconciliation,reconcileAccountSnapshot,defensiveStatus,appendDefensiveEvent}=require('./account-safety-state');
+const runtimeTrace=require('./runtime-trace');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const ledgerHash=a=>hash({cash:a.cash,positions:a.positions,events:a.events});
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
@@ -364,6 +365,16 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    catch(auditError){throw Error(error.message+'；拒单审计写入失败：'+auditError.message);}
    throw error;
   }}
+ // Only observe the original calls. Lock, validation, serialization,
+ // fsync-before-rename, authority and rejection semantics stay in them.
+ checkRisk=runtimeTrace.wrapSync('risk.entry',checkRisk,s=>({versions:{riskPolicy:s?.riskPolicy?.version},refs:{account:s?.fingerprint}}));
+ mutate=runtimeTrace.wrapSync('paper.transaction',mutate);
+ const originalPublish=publish;
+ publish=(...args)=>runtimeTrace.sync('paper.publish',span=>{
+  const result=originalPublish(...args);
+  try{span.annotate({refs:{account:result?.fingerprint},versions:{feePolicy:result?.feePolicy?.version,riskPolicy:result?.riskPolicy?.version}});}catch{}
+  return result;
+ });
  return {initialize,read,configure,importRiskEvidence,importRiskEvidenceBatch,previewRiskEvidenceImport,riskEvidenceStatus,adoptLegacy,reconcile,setDefensiveControl,previewAutomaticEntry,legacy:()=>projectLegacy(read()),audit:options=>rejectionAudit.read(options),
   settle:(event,expectedRevision)=>guarded('settle',{eventId:event?.eventId,symbol:event?.symbol},()=>settle(event,expectedRevision)),
   submit:(order,options={})=>guarded('submit',{order},()=>submit(order,options),options.riskContext),

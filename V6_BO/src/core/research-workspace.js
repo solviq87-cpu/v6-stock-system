@@ -1,5 +1,5 @@
 'use strict';
-const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto'),{performance}=require('node:perf_hooks');
+const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto');
 const store=require('./research-workspace-store'),decision=require('./research-workspace-decision'),analytics=require('./research-workspace-analytics');
 const checks=require('./research-workspace-diagnostics');
 const modelForecast=require('./model-forward-evaluation');
@@ -8,17 +8,11 @@ const {enrichMarketLinkageHistory}=require('./market-linkage-history');
 const array=x=>Array.isArray(x)?x:[];
 const rootOf=options=>options.workspaceRoot||path.join(path.dirname(options.observationRoot),'research-workspace');
 function codeVersion(){
- const files=['research-workspace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','market-sector-stock-linkage.js','market-linkage-history.js','model-forward-evaluation.js','../strategy/rule-comparison.js'];
+ const files=['research-workspace.js','runtime-trace.js','research-workspace-store.js','research-workspace-decision.js','research-workspace-analytics.js','research-workspace-diagnostics.js','market-sector-stock-linkage.js','market-linkage-history.js','model-forward-evaluation.js','../strategy/rule-comparison.js'];
  return {fingerprint:store.digest(files.map(f=>({file:f,sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,f))).digest('hex')}))),
   commit:/^[a-f0-9]{40}$/.test(process.env.V6_SOURCE_COMMIT||'')?process.env.V6_SOURCE_COMMIT:null};
 }
-function trace(){
- const stages=[];
- return {stages,async asyncStage(name,fn){const startedAt=Date.now(),start=performance.now();try{const v=await fn();stages.push({stage:name,status:'completed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2)});return v;}
-  catch(e){stages.push({stage:name,status:'failed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2),errorCode:'STAGE_FAILED'});throw e;}},
- syncStage(name,fn){const startedAt=Date.now(),start=performance.now();try{const v=fn();stages.push({stage:name,status:'completed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2)});return v;}
-  catch(e){stages.push({stage:name,status:'failed',startedAt,finishedAt:Date.now(),durationMs:+(performance.now()-start).toFixed(2),errorCode:'STAGE_FAILED'});throw e;}}};
-}
+function trace(){return require('./runtime-trace').createStageTrace();}
 function saveObservation(result,options,{requestId,stages=[]}={}){
  const data=decision.buildWorkspaceDecision(result),root=rootOf(options);
  data.codeVersion=codeVersion();data.diagnostics=[...stages,...data.diagnostics];
