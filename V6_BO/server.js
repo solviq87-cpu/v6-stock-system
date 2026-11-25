@@ -11584,7 +11584,8 @@ function runtimeAcceptance(){
     canWrite:()=>!isReplica(),liveCollector:process.env.V6_ISOLATED_BOOT_SMOKE!=='1',collect:()=>{
       const now=Date.now(),quotes=(S.stocks||[]).filter(row=>row&&/^\d{6}$/.test(row.code)).map(row=>({
         code:row.code,price:row.price??null,source:row.quoteSource||null,quoteSource:row.quoteSource||null,quoteAt:row.quoteAt??null,receivedAt:row.receivedAt??null,
-        quoteMode:row.quoteMode,mode:row.mode,canTrade:row.canTrade,simulated:row.simulated,imported:row.imported,fixture:row.fixture,mock:row.mock,synthetic:row.synthetic,readOnlyBackup:row.readOnlyBackup,tradable:row.tradable,suspended:row.suspended}));
+        quoteMode:row.quoteMode,mode:row.mode,canTrade:row.canTrade,simulated:row.simulated,imported:row.imported,fixture:row.fixture,mock:row.mock,synthetic:row.synthetic,readOnlyBackup:row.readOnlyBackup,tradable:row.tradable,suspended:row.suspended,
+        sourceConflict:row.sourceConflict,conflict:row.conflict,evidenceStatus:row.evidenceStatus,quoteStatus:row.quoteStatus,tradeDate:row.tradeDate}));
       // Verify the original two account books, not merely successful reads.
       let execution={};
       if(!isReplica())try{

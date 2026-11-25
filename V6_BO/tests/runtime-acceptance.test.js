@@ -163,3 +163,40 @@ test('a failed isolated collector never starts the real trading-day window',asyn
  f.setNow(at(days[4],16,0));const report=await f.ops.report();
  assert.equal(report.observedTradingDays,0);assert.equal(report.elapsedTradingDays,0);assert.equal(report.excludedDayEvidence[0].attemptSamples,0);
 });
+
+
+test('explicit source conflicts and contradictory duplicate quotes cannot earn fresh runtime coverage',async t=>{
+ for(const flags of [{sourceConflict:true},{conflict:true},{evidenceStatus:'conflict'},{quoteStatus:'conflict'}]){
+  const f=fixture(t),now=at(days[0],9,30);
+  f.setQuotes([{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now,...flags}]);
+  const receipt=await f.ops.tick();assert.equal(receipt.recorded,true);assert.equal(receipt.liveEligible,false);
+  f.setNow(at(days[0],16,0));const report=await f.ops.report(),d=report.days[0];
+  assert.equal(d.liveSamples,0);assert.equal(d.attemptSamples,1);
+  assert.equal(d.latest.market.freshQuotes,0);assert.equal(d.latest.market.conflictingSymbols,1);
+  assert.equal(d.latest.market.quoteEvidence.samples[0].reason,'source-conflict');
+  assert.ok(d.failures.includes('quote-source-conflict'));
+ }
+ const f=fixture(t),now=at(days[0],9,30),q={code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now};
+ f.setQuotes([q,{...q,price:11},{...q,code:'000001'}]);
+ const receipt=await f.ops.tick();assert.equal(receipt.recorded,true);
+ f.setNow(at(days[0],16,0));const report=await f.ops.report(),d=report.days[0];
+ assert.equal(d.latest.market.observedSymbols,2);assert.equal(d.latest.market.freshQuotes,1);
+ assert.equal(d.latest.market.conflictingSymbols,1);assert.equal(d.latest.market.duplicateInputs,1);
+ assert.equal(d.latest.market.freshCoverage,.5);assert.ok(d.failures.includes('quote-source-conflict'));
+ assert.equal(d.latest.market.quoteEvidence.samples[0].reason,'duplicate-quote-conflict');
+ const g=fixture(t);g.setQuotes([q,{...q},{...q,code:'000001'}]);await g.ops.tick();
+ const same=(await g.ops.report()).days[0].latest.market;assert.equal(same.freshQuotes,2);assert.equal(same.conflictingSymbols,0);assert.equal(same.duplicateInputs,1);
+});
+
+test('later failed qualified attempt is preserved in the same day instead of averaging only successes',async t=>{
+ let failing=false;const f=fixture(t,{liveCollector:true,collect:async({now})=>{
+  if(failing)throw Error('source unavailable');
+  return {mode:'live',market:{expectedSymbols:1,attempts:1,successes:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]},execution:{reconciled:true}};
+ }});
+ await f.ops.tick();failing=true;f.setNow(at(days[0],9,31));await f.ops.tick();
+ f.setNow(at(days[0],16,0));const d=(await f.ops.report()).days[0];
+ assert.equal(d.attemptSamples,2);assert.equal(d.liveSamples,1);
+ assert.equal(d.latest.market.freshQuotes,0);assert.equal(d.latestLive.market.freshQuotes,1);
+ assert.equal(d.minimumFreshCoverage,null);assert.ok(d.unknown.includes('marketCoverage'));
+ assert.ok(d.unknown.includes('collectionSuccess'));assert.ok(d.failures.includes('collector-failure'));
+});
