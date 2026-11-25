@@ -149,7 +149,17 @@ async function run(){
     const elapsed=performance.now()-started;
     assert.ok(elapsed<5000,viewport.path+' actionable plans appear within five seconds: '+elapsed);
     assert.equal(await page.locator('.fy-decision-card').count(),3);
-    await page.locator('.fy-decision-checklist [data-execution-code="600000"][data-execution-state="not-planned"]').waitFor({timeout:7000});
+    try{
+     await page.locator('.fy-decision-checklist [data-execution-code="600000"][data-execution-state="not-planned"]').waitFor({timeout:7000});
+    }catch(error){
+     const reply=await fixture.request('/api/decision-center'),check=reply.body?.executionChecklist;
+     const diagnostic={status:reply.status,checklistStatus:check?.status,missing:check?.missing,cache:check?.cache,
+      items:check?.items?.map(item=>({code:item.code,state:item.state,reason:item.reason})),browserErrors:errors,
+      rendered:await page.locator('.fy-decision-checklist').innerText()};
+     fs.writeFileSync(path.join(output,'initial-checklist-failure-'+viewport.width+'.json'),JSON.stringify(diagnostic,null,2));
+     console.error('Initial checklist diagnostic (isolated fixture): '+JSON.stringify(diagnostic));
+     throw error;
+    }
     const shape=await page.locator('.fy-decision-card').first().evaluate(node=>{
      const plan=node.querySelector('.fy-decision-plan').getBoundingClientRect(),title=node.querySelector('.fy-decision-stock').getBoundingClientRect();
      const checklist=node.closest('.fy-decision-board').querySelector('.fy-decision-checklist li').getBoundingClientRect();

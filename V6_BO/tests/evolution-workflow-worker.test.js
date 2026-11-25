@@ -14,11 +14,17 @@ test('real queued preference worker rechecks revoked authority before starting',
  assert.equal(result.httpStatus,403);assert.equal(calls,1);assert.deepEqual(store.readEvents(workspaceRoot),[]);assert.equal(fs.existsSync(workspaceRoot),false);
 });
 
-test('real worker refuses a revocation at the locked final commit checkpoint',{timeout:15000},async t=>{
- const root=storage(t),workspaceRoot=path.join(root,'workspace');let calls=0;
- const result=await runWorkspaceJob(command(workspaceRoot,'commit-preference-0001'),{authorize:()=>++calls<3});
- assert.equal(result.httpStatus,403);assert.equal(calls,3);assert.deepEqual(store.readEvents(workspaceRoot),[]);
- assert.equal(fs.readdirSync(workspaceRoot).some(n=>n.endsWith('.json')||n.startsWith('.stage-')),false);
- const saved=await runWorkspaceJob(command(workspaceRoot,'commit-preference-0002'),{authorize:()=>true});
- assert.equal(saved.ok,true);assert.equal(saved.result.revision,1);assert.equal(store.readEvents(workspaceRoot).length,1);
+test('real worker refuses revocation before creating the archive, under its original lock, and after fsync',{timeout:15000},async t=>{
+ const root=storage(t);
+ // Parent queue admission, worker admission, pre-directory authorization,
+ // locked pre-stage authorization, and final authorization after fsync.
+ for(const deniedAt of [3,4,5]){
+  const workspaceRoot=path.join(root,'workspace-'+deniedAt);let calls=0;
+  const result=await runWorkspaceJob(command(workspaceRoot,'commit-preference-000'+deniedAt),{authorize:()=>++calls<deniedAt});
+  assert.equal(result.httpStatus,403);assert.equal(calls,deniedAt);assert.deepEqual(store.readEvents(workspaceRoot),[]);
+  if(deniedAt===3)assert.equal(fs.existsSync(workspaceRoot),false);
+  else assert.deepEqual(fs.readdirSync(workspaceRoot),['workspace.guard'],'original lock remains; no event or staged data survives revocation');
+  const saved=await runWorkspaceJob(command(workspaceRoot,'approved-preference-000'+deniedAt),{authorize:()=>true});
+  assert.equal(saved.ok,true);assert.equal(saved.result.revision,1);assert.equal(store.readEvents(workspaceRoot).length,1);
+ }
 });

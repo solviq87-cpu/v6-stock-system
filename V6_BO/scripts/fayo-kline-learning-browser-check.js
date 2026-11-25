@@ -163,7 +163,8 @@ async function geometry(page, label) {
       assert.ok(!report.samples.find(item => item.date === dates[59]).signals.some(item => item.name === '弱转强'));
       assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/shortline'),
         'native historical learning reads the authorized shortline archive');
-      assert.equal(calls.filter(call => call.method !== 'GET').length, 0,
+      const unexpectedWrites=calls.filter(call=>call.method!=='GET').map(call=>({method:call.method,path:call.path}));
+      assert.deepEqual(unexpectedWrites,[],
         'local import, corrections and tab changes never write an account or upload CSV');
       await Promise.all(responses);
       assert.deepEqual(errors, [], 'no browser errors at ' + width);

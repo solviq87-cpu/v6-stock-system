@@ -213,7 +213,11 @@ test('home previews three candidates from the same system picks list and links t
  const summary=view.children.find(el=>el?.classList?.contains('fy-risk-summary'));
  const research=locate(view,el=>el?.tag==='details'&&el?.className==='fy-home-research');
  assert.ok(summary,'the shared backend risk summary remains visible on the homepage');
- assert.ok(locate(research,el=>el?.classList?.contains('fy-home-risk')),'original research risk and account evidence remain in the research disclosure');
+ const regions=view.children.filter(el=>el?.classList?.contains('fy-home-section'));
+ assert.deepEqual(regions.map(el=>el['aria-label']),['大盘一眼看','今日机会','风险与持仓'],'original three-region contract remains intact on the homepage');
+ const holding=regions.find(el=>el?.classList?.contains('fy-home-risk'));
+ assert.ok(holding,'original risk and holding evidence remain directly reachable');
+ assert.ok(!locate(research,el=>el?.classList?.contains('fy-home-risk')),'do not duplicate original holdings under additional research');
  assert.equal(!!research.open,false,'additional research evidence starts collapsed');
  const host=locate(view,el=>el?.className==='fy-terminal-preview-cards');
  const cards=locate(host,el=>el?.className==='fy-stock-grid');

@@ -7,7 +7,8 @@ const workerBudget=require('./worker-admission-budget');
 // foreground notification poll; its revision is still checked in the worker.
 const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
-const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
+const busyResult=()=>({ok:false,httpStatus:503,code:'WORKSPACE_BUSY',error:'研究档案任务正在运行，请稍后重试'});
+const busy=()=>Promise.resolve(busyResult());
 function runWorkspaceJob(payload,{authorize}={}){
  const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evidence-workbench','view','evolution'].includes(payload.action);
  const edit=payload.action==='shortline'&&Boolean(payload.input)||['intelligence-feedback','evolution-preferences','evolution-diagnostics'].includes(payload.action)||payload.action==='evidence-workbench'&&Boolean(payload.input);
@@ -32,7 +33,7 @@ function runWorker(payload,authorize){
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
   const lease=workerBudget.tryAcquire('research-workspace');
-  if(!lease)return resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
+  if(!lease)return resolve(busyResult());
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
   const finish=async value=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();resolve(value);};
   try{worker=lease.watch(new Worker(__filename,lease.options({...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})})));
