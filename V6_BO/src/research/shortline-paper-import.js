@@ -93,7 +93,8 @@ function linkDecisionPlan(sample, state, events, now) {
   const within=legs.every(leg=>leg.price>=plan.entryMin&&leg.price<=plan.entryMax);
   const facts=[
     {rule:'计划外交易',status:'符合',evidence:'原账本买入事件关联事前冻结计划 '+plan.id},
-    {rule:'追高',status:within?'符合':'触发',evidence:'各买入批次与冻结区间 '+plan.entryMin+'–'+plan.entryMax+' 元逐笔核对'},
+    {rule:'追高',status:legs.every(leg=>leg.price<=plan.entryMax)?'符合':'触发',evidence:'各买入批次与冻结买入上界 '+plan.entryMax+' 元逐笔核对'},
+    {rule:'买入区间偏离',status:within?'符合':'触发',evidence:'各买入批次与冻结区间 '+plan.entryMin+'–'+plan.entryMax+' 元逐笔核对'},
     {rule:'超仓',status:'资料不足',evidence:'原结算记录没有买入前权益快照，不用当前权益反推历史仓位'},
     {rule:'违反止损',status:'资料不足',evidence:'需关联当时原始报价触发与可成交窗口，卖出结果不证明及时止损'},
     {rule:'过早离场',status:plan.holdUntil?'资料不足':'不适用',evidence:plan.holdUntil?'需核对离场时点与原计划豁免条件':'冻结计划未限制最早离场时间'}

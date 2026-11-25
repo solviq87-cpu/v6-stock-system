@@ -39,14 +39,20 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
       ['事件类型线索',/重大合同|订单|中标|并购|重组|回购|减持|增持|业绩预告|立案|处罚|停牌|复牌|分红/]
     ].flatMap(([label,re])=>{const match=clueText.match(re);return match?[{label,quote:match[0]}]:[];});
     const amounts=[...body.matchAll(/[+-]?\d+(?:\.\d+)?\s*(?:亿元|万元|元|万股|亿股|%|％)/g)].slice(0,8).map(m=>m[0]);
+    const officialHosts=new Set(['cninfo.com.cn','www.cninfo.com.cn','sse.com.cn','www.sse.com.cn','szse.cn','www.szse.cn','bse.cn','www.bse.cn']);
+    let originalHost='';try{originalHost=new URL(e.url).hostname;}catch{}
+    const disclosure=officialHosts.has(originalHost)&&e.bodyScope==='declared-body'?'正式披露来源声明（未独立核实）':'未独立核实';
+    const declaredDates=e.bodyScope==='declared-body'?[...body.matchAll(/(?:自\s*(\d{4})年(\d{1,2})月(\d{1,2})日(?:起)?(?:生效|实施|执行)|(?:生效日期|生效日|实施日期)[：:]?\s*(\d{4})年(\d{1,2})月(\d{1,2})日)/g)].map(m=>{const d=(m[1]||m[4])+'-'+(m[2]||m[5]).padStart(2,'0')+'-'+(m[3]||m[6]).padStart(2,'0');return Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d?{date:d,quote:m[0]}:null;}).filter(Boolean):[];
+    const effective=new Set(declaredDates.map(d=>d.date)).size===1?declaredDates[0]:null;
     const missing=['独立正式披露核验、主体名称及行业归属待核对','金额与有效时间必须由原文语境核验，不能由关键词认定','持仓、冻结计划及交易状态未接入本新闻投影'];
     if(!chainComplete)missing.push('返回范围内缺少完整修订链');
-    if(currentView&&asOf===now&&row.current===false)missing.push('此版本并非后台全档案的当前版本；可能存在筛选范围外修订，不能作为当前催化');
+    if(row.current===false)missing.push('此版本在服务器所选截点已被后续版本替代；不能作为该截点的新催化');
+    if(row.associated===false)missing.push('该截点的最新修订已移除此证券关联');
     if(!e.publishedAt)missing.push('原始发布时间未知');
     if(!body||e.bodyScope==='provider-summary')missing.push('完整原文待核对');
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,
-      effectiveAt:null,formalDisclosure:'未独立核实',chainComplete,missing,
-      revisionStatus:e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
+      effectiveAt:null,effectiveDate:effective?.date??null,effectiveQuote:effective?.quote??null,formalDisclosure:disclosure,chainComplete,missing,
+      revisionStatus:row.current===false?'已被后续版本替代':row.associated===false?'证券关联已移除':e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
       researchOnly:true,canTrade:false,canNotify:false});
   }
   return {status:'bounded-evidence',rows:projected.sort((a,b)=>b.row.sequence-a.row.sequence),excluded,

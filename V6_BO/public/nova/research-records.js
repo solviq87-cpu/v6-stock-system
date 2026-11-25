@@ -1,3 +1,4 @@
+import {createResearchReplay,createModelTools,similarEvidence} from './evidence-workbench.mjs';
 import {questions,explainSealedResearch} from './research-review.mjs';
 import {onResearchRead} from './automatic-research.js';
 /* Native research archive: all writes keep the server's version and identity gates. */
@@ -39,7 +40,7 @@ export function renderRecords(ctx){
  let view=null,offset=0,selectedId='',activeTab='evidence',generation=0,busy=false,nativeEvidence=null,prediction=null,undo=null;
  let preferenceRevision=null,preferenceDirty=false,preferenceConflict=false;
  const canEdit=ctx.role==='edit';
- const tabs=[['evidence','封存证据'],['timeline','判断轨迹'],['systems','体系分歧'],['screening','筛选去向'],['market','市场位置'],['scorecard','前向评测'],['defense','持仓防守'],['diagnostics','数据诊断']];
+ const tabs=[['evidence','封存证据'],['replay','证据联动回放'],['timeline','判断轨迹'],['systems','体系分歧'],['screening','筛选去向'],['market','市场位置'],['scorecard','前向评测'],['defense','持仓防守'],['diagnostics','数据诊断']];
  const tabButtons=[];
  const historical=()=>Boolean(at.value);
  const alive=id=>id===generation&&!ctx.signal?.aborted;
@@ -94,12 +95,18 @@ export function renderRecords(ctx){
    const checks=list(r.conditions).map(c=>{const d=detail(`${c.name||c.field} · ${value(c.status)}`,facts({'条件':`${value(c.field)} ${value(c.op)} ${value(c.threshold)}`,'观察值':c.value,'判断理由':c.reason,'失效条件':c.invalidation}));
     for(const id of list(c.evidenceIds)){const e=evidence.get(id);if(e)d.append(facts({'证据来源':e.source,'来源原始时点':clock(e.sourceTimestamp),'覆盖期终点':clock(e.periodEnd),'首次可用':clock(e.availableAt),'接收时点':clock(e.receivedAt),'缺失原因':e.missingReason,'封存引用':e.evidenceRef}));}return d;});body.append(card('判断依据',...checks));
    const answers=n('div',null,'detail-grid');answers.setAttribute('aria-live','polite');
-   const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,()=>{
+   let question=null,questionTurn=0;
+   const model=createModelTools(ctx,{run:r,asOf:view.asOf,question:()=>question,alive:()=>answers.isConnected&&view?.selectedRun?.id===r.id});
+   const ask=append(n('div',null,'toolbar'),...questions.map(([key,label])=>button(label,async()=>{
+     question=key;const turn=++questionTurn;model.reset();
      const a=explainSealedResearch(view,key);answers.replaceChildren(n('p',a.reason,'muted'));
      for(const row of a.rows)answers.append(detail(row.name+' · '+value(row.status),facts({'原策略版本':row.version,'原条件状态':row.archivedStatus,'原判断理由':row.reason,'原失效条件':row.invalidation,'证据缺口':row.missing}),...row.evidence.map(e=>facts({'证据引用':e.evidenceRef,'来源':e.source,'原始时点':clock(e.sourceTimestamp),'首次可用':clock(e.availableAt),'实际接收':clock(e.receivedAt)}))));
+     if(key==='history')try{const result=await similarEvidence(ctx,{run:r,asOf:view.asOf});if(turn===questionTurn&&answers.isConnected&&!ctx.signal?.aborted&&view?.selectedRun?.id===r.id)answers.replaceChildren(result);}catch(error){if(turn===questionTurn&&answers.isConnected)answers.append(n('p','相似历史样本未就绪：'+error.message,'muted'));}
    })));
-   body.append(card('研究证据五问',n('p','规则解释 · 本次未调用外部模型，模型配置及可用性未核验。只读原封存档案，不改变策略或交易。','muted'),ask,answers));
+   body.append(card('研究证据五问',n('p','规则解释与实际模型调用严格分开。只读原封存档案，不改变策略或交易。','muted'),ask,answers,model.node));
    const refs=detail('原始来源与版本');for(const ref of list(r.sourceRefs))refs.append(facts({'来源':ref.source,'内容指纹':ref.hash}),ref.url?link(ref.url,'打开原始来源'):n('span','来源地址未知'));body.append(refs);
+  }else if(activeTab==='replay'){
+   body.append(createResearchReplay(ctx,{symbol:r?.symbol||symbol.value,runId:r?.id,asOf:view.asOf,memory:ctx.viewMemory}));
   }else if(activeTab==='timeline'){
    body.append(card('判断轨迹',...list(view.timeline).map(item=>detail(`${item.tradeDate||'日期未知'} · ${clock(item.asOf)}`,facts({'来源':item.provider,'目标日':item.targetDate,'比较状态':item.changes?.status}),...list(item.changes?.systemChanges).map(c=>row(value(c.system),`${value(c.before)} → ${value(c.after)}`)),...list(item.changes?.changes).map(c=>row(c.name||c.condition,`${value(c.kind)} · ${value(c.before)} → ${value(c.after)}`))))));
   }else if(activeTab==='systems'){
@@ -162,5 +169,5 @@ export function renderRecords(ctx){
  const offline=()=>clear('连接已断开，私有研究视图已清空。',true);
  if(ctx.signal){globalThis.addEventListener('offline',offline,{signal:ctx.signal});ctx.signal.addEventListener('abort',()=>clear('工作区已关闭，私有资料已清空。',true),{once:true});}
  root.append(card('研究档案柜',n('p','从一次判断出发，追溯原始证据、版本差异与后续表现。','muted'),filters,toolbar,status),detailTabs,main,pagination,privateTools);
- render();if(canEdit)onResearchRead(ctx,()=>{if(!busy&&!historical()&&!preferenceDirty&&!prediction&&!nativeEvidence&&!root.matches(':focus-within'))void read();});if(!canEdit)notice('当前身份可浏览公开市场，私有研究档案需要编辑权限。');return root;
+ render();if(canEdit)onResearchRead(ctx,()=>{if(!busy&&!historical()&&activeTab!=='replay'&&!preferenceDirty&&!prediction&&!nativeEvidence&&!root.matches(':focus-within'))void read();});if(!canEdit)notice('当前身份可浏览公开市场，私有研究档案需要编辑权限。');return root;
 }

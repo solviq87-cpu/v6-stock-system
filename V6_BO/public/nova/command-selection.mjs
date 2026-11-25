@@ -225,9 +225,36 @@ export function createCommandSelection(ctx) {
   const preview = h('div',{class:'fy-stack','aria-live':'polite','data-selection-preview':'true'});
   const memory = ctx.viewMemory || {};
   const saved = h('div',{class:'fy-inline'});
-  const save = button('保存本次条件（当前会话）',()=>{const q=parseSelectionCommand(input.value);if(!q.ok){preview.replaceChildren(note(q.error));return;}memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);paintSaved();},'quiet');
+  const sharedStatus=h('small',{class:'fy-muted','aria-live':'polite'},'共享模板由原研究服务器保存；主动读取。');
+  let shared=[],templateTurn=0;
+  async function readShared(){
+    if(ctx.role!=='edit')return;
+    const id=++templateTurn;
+    try{const reply=await ctx.api('/api/research/evidence-workbench?mode=templates',{signal:ctx.signal});
+      if(ctx.signal?.aborted||id!==templateTurn||ctx.role!=='edit')return;
+      const r=reply.result;
+      if(!reply.ok||r?.researchOnly!==true||r.canTrade!==false||!Array.isArray(r.templates)||r.templates.length>50)throw Error('共享模板合同无效');
+      shared=r.templates.filter(t=>typeof t.raw==='string'&&parseSelectionCommand(t.raw).ok&&Number.isSafeInteger(t.revision));
+      sharedStatus.textContent='服务器已保存 '+shared.length+' 项模板；双端同源。';paintSaved();
+    }catch(error){if(id===templateTurn&&!ctx.signal?.aborted){shared=[];paintSaved();sharedStatus.textContent='共享模板未就绪：'+error.message;}}
+  }
+  const readTemplates=button('读取共享模板',readShared,'quiet');readTemplates.disabled=ctx.role!=='edit';
+  const save=button('保存本次条件',async()=>{
+    const q=parseSelectionCommand(input.value);if(!q.ok||q.explicitAllMarket){preview.replaceChildren(note(q.error||'全市场范围未接通'));return;}
+    if(ctx.role!=='edit'){sharedStatus.textContent='保存共享模板需要编辑权限。';return;}
+    save.disabled=true;
+    try{
+      const prior=shared.find(x=>x.raw===q.raw),requestId=globalThis.crypto?.randomUUID?.()||'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+      const reply=await ctx.api('/api/research/evidence-workbench',{method:'POST',body:{action:'save-template',raw:q.raw,expectedRevision:prior?.revision||0,requestId},signal:ctx.signal});
+      if(ctx.signal?.aborted||ctx.role!=='edit')return;
+      if(!reply.ok||reply.result?.raw!==q.raw||reply.result.canTrade!==false)throw Error('保存回执未核验');
+      memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);
+      await readShared();sharedStatus.textContent='已取得服务器持久化回执；另一设备可读取。';
+    }catch(error){if(!ctx.signal?.aborted)sharedStatus.textContent='保存未完成：'+error.message+'；请读取服务器模板后重试。';}
+    finally{if(!ctx.signal?.aborted)save.disabled=false;}
+  },'quiet');save.disabled=ctx.role!=='edit';
   function setCommand(value){input.value=value;invalidateCommand();input.focus?.();}
-  function paintSaved(){saved.replaceChildren(...(memory.commandTemplates||[]).map(value=>button(value,()=>setCommand(value),'quiet')));}
+  function paintSaved(){const values=[...new Set([...shared.map(t=>t.raw),...(memory.commandTemplates||[])])];saved.replaceChildren(...values.map(value=>button(value,()=>setCommand(value),'quiet')));}
   function previewCommand(){
     const q=parseSelectionCommand(input.value);
     if(!q.ok){preview.replaceChildren(note(q.error));return;}
@@ -248,7 +275,7 @@ export function createCommandSelection(ctx) {
   const form = h('form', {class: 'fy-toolbar', onSubmit: event => {event.preventDefault();submit();}}, input, run);
   const host = h('details', {class: 'fy-details fy-command-selection'}, h('summary', {}, '一句话选股'),
     h('p', {class: 'fy-muted'}, '在已接收候选中排序，可用“且”连接评分、共振、涨幅、换手率、股价、成交额、市值及排除ST/停牌条件。缺少任一条件的依据就不纳入结果。'), form,
-    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => setCommand(example), 'quiet')),save), saved, preview, result);
+    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => setCommand(example), 'quiet')),readTemplates,save),sharedStatus,saved, preview, result);
   let generation = 0, lastQuery = null, history = null, historyAt = 0;
   const alive = () => !ctx.signal?.aborted;
   input.addEventListener('input',invalidateCommand);paintSaved();
@@ -296,6 +323,6 @@ export function createCommandSelection(ctx) {
     if (history && history.day !== selectionCommandDay(ctx.state || {})) history = null;
     if(!preview.matches?.(':focus-within'))previewCommand();paint(lastQuery);
   });
-  ctx.signal?.addEventListener('abort', () => {generation++;history = null;}, {once: true});
+  ctx.signal?.addEventListener('abort', () => {generation++;templateTurn++;shared=[];history = null;saved.replaceChildren();}, {once: true});
   return host;
 }

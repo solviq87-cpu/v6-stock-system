@@ -273,7 +273,7 @@ function sourceList(workspaceRoot) {
   }
 }
 function view(root, options = {}) {
-  const events = S.readEvents(root),
+  const events = S.readEvents(root,{asOf:options.asOf??Date.now()}),
     plans = project(events);
   return {
     research: sourceList(options.workspaceRoot),

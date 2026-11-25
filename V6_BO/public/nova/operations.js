@@ -1,3 +1,4 @@
+import {createDisciplineWorkbench} from './evidence-workbench.mjs';
 import {projectDiscipline} from './research-review.mjs';
 import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
@@ -299,6 +300,7 @@ function executionEvidencePanel(payload,ctx){
 }
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
+  if(!ledger)host.append(createDisciplineWorkbench(ctx,{symbol:ctx.decisionSelection?.code||'',memory:ctx.viewMemory}));
   let reloadAccounts=null,reloadConditions=null,scoreCache=null,scoreAt=0,scoreDay='';
   if(!ledger)host.append(paperPlanDraft(ctx,host,async()=>{scoreCache=null;scoreAt=0;await reloadAccounts?.();await reloadConditions?.();ctx.refresh?.();}));
   if(!ledger)host.append(conditionalOrdersRegion(ctx,host,reload=>{reloadConditions=reload;}));

@@ -8,8 +8,8 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
- const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback';
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evidence-workbench'].includes(payload.action);
+ const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback'||payload.action==='evidence-workbench'&&Boolean(payload.input);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
  const canQueueEdit=edit&&!waitingEdit&&reads.size>0;
@@ -27,7 +27,7 @@ function runWorkspaceJob(payload,{authorize}={}){
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
   const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
-    payload.action==='shortline'&&Boolean(payload.decisionPlan);
+    payload.action==='shortline'&&Boolean(payload.decisionPlan)||payload.action==='evidence-workbench'&&Boolean(payload.input);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
@@ -123,6 +123,10 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
       }
       return {ok:true,result};
     }catch(e){return {ok:false,httpStatus:e.code==='LOOP_CONFLICT'?409:422,error:/^LOOP_/.test(e.code||'')?e.message:'闭环输入或私有档案校验失败，原记录保留'};}
+  }
+  if(p.action==='evidence-workbench'){
+    try{return {ok:true,result:await require('../core/research-interaction-workbench').run(p.roots,p.query,p.input,{authorize:authorizedCheckpoint})};}
+    catch(e){return {ok:false,httpStatus:e.httpStatus||422,error:'研究证据请求未通过身份、时点、版本或档案校验；原记录保留'};}
   }
   if(p.action==='view'){const view=W.workspaceView(p.root,p.query,{accounts:p.accounts,quotes:new Map(p.quotes||[]),now:p.now});return {ok:true,result:p.export?W.exportResearch(view):view};}
   if(p.action==='review')return await W.reviewStored(p.input,p.options);

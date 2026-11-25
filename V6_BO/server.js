@@ -278,7 +278,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261125ad'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261126aa'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -5936,7 +5936,7 @@ function auctionScoreOf(x, ctx) {
     // ①-2 板块共振闸：同板块昨日涨停 <2 只 → 孤板高开易一日游，共振弱则扣分（已有共振加分的反面约束）
     if ((r.secZT || 0) < 2) { s += auctionResonanceAdj(r.secZT); risk.push('板块共振弱·孤板高开易一日游'); factors.push('板块共振弱'); }
   }
-  if (S.news && S.news.goodCodes && newsSupportsCode(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
+  // Positive news labels are research context only, not a candidate score input.
   const fc = x.floatCap || 0;
   // ① 选股纪律：市值曲线更陡——大票显著罚、小盘显著奖（ik 轮实证候选中位 75→98亿漂移拖累命中）
   // ⛔ kv 轮（2026-10-24）实证补档：旧曲线在 300亿~1000亿 区间是**零惩罚的洞**（旧 -14/-9/-4 三档
@@ -6400,10 +6400,10 @@ async function tick() {
           turnover: numNeutral('turnover', s.turnover), inflowStreakMin: streakMin
         });
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
-        // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
+        // Positive news never lowers the original model threshold; preserve the negative safety gate.
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
         const badHit = newsWarnsCode(s.code);
-        const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
+        const pushTh = probThreshold() * 100 * (badHit ? 1.15 : 1);
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
         // ⛔ 2026-10-08 修：gap>0.2%太松，回调到0.5%（比原来严格、但不至于一票难求）
         if (bullishIntent && probC > pushTh && gap != null && gap > 0.5 && !(badHit && probC < 92)) {
@@ -6510,7 +6510,7 @@ async function tick() {
             signalCondition('sector-or-flow','板块梯队或资金背书',secZT>=2||s.mainPct>=3?1:0,1,'>=',now)],
           ruleInputs:{sectorCount:secZT,mainPct:s.mainPct,limitPct:A.limitPctOf(s.code,s.name),tolerance:0.25},
           logic: `封板：触及涨停价 + 板块【${sec}】(${secZT}只涨停) + 主力净占比${(s.mainPct || 0).toFixed(1)}%`,
-          risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 命中利空雷达（有负面消息，慎追）' : ''}`,
+          risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 负面资讯线索（原避险流程，未独立核实）' : ''}`,
           stopRef: stopRefOf(s),invalidWhen:'价格离开原涨停容差区间，或原板块梯队和资金背书同时不再成立时，本次封板观察依据失效。',
           msg: `【涨停】${s.name}(${s.code}) 封板！板块:${sec}(${secZT}只涨停) 主力净占比${(s.mainPct || 0).toFixed(1)}%`
         });
@@ -10407,8 +10407,8 @@ function riseProbOf(s, opt) {
   else if ((s.pct || 0) >= 5) p -= 4;
   if (o.up3) p += 6;                             // 连续 3 日上涨（趋势惯性）
   if (o.fund3d) p += 5;                          // 三日资金净流入
-  if (o.goodHit) p += 6;                         // 利好催化
-  if (o.badHit) p -= 12;                         // 利空压制
+  // A headline/summary classification is not a calibrated probability input.
+  // Negative clues remain in the original risk gates, not the numerical estimate.
   return Math.max(15, Math.min(92, Math.round(p)));
 }
 // 风险提示：把"追高前该知道的事"直接写进推送
@@ -10420,7 +10420,7 @@ function riskNoteOf(s, opt) {
   else if ((s.pct || 0) >= 5) r.push('涨幅偏高，注意回落');
   if (o.gap != null && o.gap > 0 && o.gap < 1) r.push(`距涨停仅${o.gap.toFixed(1)}%，封板不确定`);
   if ((s.mainPct || 0) < 0) r.push('主力净流出');
-  if (o.goodHit) r.push('✅ 利好关联');
+  if (o.goodHit) r.push('正面资讯线索（仅研究，不加分）');
   return r.length ? r.join(' | ') : '暂无特殊风险';
 }
 // 参考止损：现价 -3%，跌破即离场
@@ -15792,7 +15792,7 @@ async function refreshNews() {
     S.news.bad = S.news.badAll.slice(0, 40);
     S.news.good = S.news.goodAll.slice(0, 40);
     S.news.badCodes = new Set(S.news.badAll.flatMap(x => x.codes));
-    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 利好关联股（推送门槛降低=加推）
+    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 正面关联线索仅供研究
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
@@ -17005,7 +17005,7 @@ function scanYiEr() {
     const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
     const _mainPct = snap ? (snap.mainPct || 0) : 0;
     if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-    if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 3; why.push('利好催化'); }
+    // Positive news classification does not change the probability estimate.
     // ⛔ 主线强度接入（2026-10-08 重构）：主线强则票强，主线弱则个体难独活
     //    按主线聚合统计，不再被「电池/电池技术/储能概念/锂电池概念」多个板块名拆散
     const secStrength = themeStrengthOf(z);
@@ -17200,7 +17200,7 @@ function scanLianbanRelay() {
       const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
       const _mainPct = snap ? (snap.mainPct || 0) : 0;
       if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-      if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 2; why.push('利好'); }
+      // Positive news classification does not change the probability estimate.
       if (level >= 3 && maxLb < 7) { prob -= 10; why.push('高度不足·谨慎'); }
       // ⛔ 主线强度接入（2026-10-08 重构）：按主线聚合，不再被多个板块名拆散
       const secStrength = themeStrengthOf(z);
@@ -22765,6 +22765,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/evidence-workbench'){
+    return require('./src/server/research-interaction-http').handle(req,res,u,body,{
+      authorize:()=>roleOf(sessionHeaderToken(req),clientIp(req))==='edit',
+      primary:()=>researchPrimary()&&!isReplica(),sameOrigin:()=>sameOriginOk(req),
+      roots:{root:stockObservationOptions().workspaceRoot,shortlineRoot:shortlineResearchDir(),
+        newsRoot:NEWS_EVIDENCE_ROOT,manualRoot:manualResearchLedgerDir(),
+        signalRoot:process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence')},
+      job:require('./src/server/research-workspace-job').runWorkspaceJob});
+  }
   if(p==='/api/research/manual-loop'){
     const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     const bearer=sessionHeaderToken(req);
@@ -22850,10 +22859,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(!requireEditor(res,req.__tok,req))return;
     const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET；新闻证据导入使用显式本地CLI'});
-    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token'].includes(k)))return reply(400,{ok:false,error:'未知查询参数'});
+    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token','asOf','offset'].includes(k)||u.searchParams.getAll(k).length!==1))return reply(400,{ok:false,error:'未知或重复查询参数'});
     try{
-      const result=require('./src/core/news-evidence-journal').query(NEWS_EVIDENCE_ROOT,{
-        symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50});
+      const journal=require('./src/core/news-evidence-journal'),now=Date.now();
+      const historical=u.searchParams.has('asOf')||u.searchParams.has('offset');
+      for(const key of ['limit','asOf','offset'])if(u.searchParams.has(key)&&!/^\d+$/.test(u.searchParams.get(key)))throw Error('新闻查询数值无效');
+      const query={symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50,now};
+      const result=historical?journal.queryAt(NEWS_EVIDENCE_ROOT,{...query,
+        asOf:u.searchParams.has('asOf')?Number(u.searchParams.get('asOf')):now,
+        offset:u.searchParams.has('offset')?Number(u.searchParams.get('offset')):0}):journal.query(NEWS_EVIDENCE_ROOT,query);
       return reply(200,{ok:true,result});
     }catch{return reply(422,{ok:false,status:'unknown',error:'新闻证据不可用、完整性校验失败或查询参数无效'});}
   }
