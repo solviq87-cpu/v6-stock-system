@@ -9,10 +9,14 @@ const {aShareCalendarDate,assessDailyBarFinality}=require('./a-share-calendar');
 const {compareMarketFeeds}=require('./market-feed-consensus');
 const digest=x=>crypto.createHash('sha256').update(x).digest('hex');
 const stable=x=>JSON.stringify(x);
-function atomicWrite(file,content){
+function atomicWrite(file,content,{beforeRename}={}){
  const dest=path.resolve(file),dir=path.dirname(dest);fs.mkdirSync(dir,{recursive:true});
  const tmp=path.join(dir,'.'+path.basename(dest)+'.'+crypto.randomBytes(8).toString('hex')+'.tmp');
- let fd;try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,content);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.renameSync(tmp,dest);
+ let fd;try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,content);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
+ // Recheck time-sensitive invariants after staging I/O, while the authoritative
+ // destination is still untouched. A rejected synchronous guard uses the same cleanup.
+ if(beforeRename!==undefined)beforeRename();
+ fs.renameSync(tmp,dest);
  try{const d=fs.openSync(dir,'r');fs.fsyncSync(d);fs.closeSync(d);}catch{}}
  finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(tmp);}catch{}}
 }

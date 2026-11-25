@@ -6,7 +6,7 @@ on:
     branches: ['**', '!archive/**']
   pull_request:
     # Stacked correctness PRs must run the same gates before reaching dev.
-    branches: [main, dev, "feat/**", "chore/**", "fix/**"]
+    branches: [main, dev, "feat/**", "chore/**", "fix/**", "audit/**", "integration/**"]
   workflow_dispatch:
 
 jobs:

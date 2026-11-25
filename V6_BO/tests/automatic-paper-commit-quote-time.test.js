@@ -83,6 +83,65 @@ test('processing a staged fill cannot publish after its quote expires',t=>{
  rejectWithoutFinancialChange(x,quote);
 });
 
+function delayFinalSnapshotSync(t,x,delay){
+ const open=fs.openSync,sync=fs.fsyncSync;let snapshotFd,delayed=false;
+ t.mock.method(fs,'openSync',(file,...args)=>{
+  const fd=open(file,...args);
+  if(typeof file==='string'&&path.dirname(file)===path.dirname(x.file)&&
+    path.basename(file).startsWith('.'+path.basename(x.file)+'.')&&file.endsWith('.tmp'))snapshotFd=fd;
+  return fd;
+ });
+ t.mock.method(fs,'fsyncSync',fd=>{
+  const result=sync(fd);
+  if(fd===snapshotFd&&!delayed){delayed=true;x.advance(delay);}
+  return result;
+ });
+ return ()=>assert.equal(delayed,true,'the delay must occur in the final authoritative snapshot fsync');
+}
+function assertNoStagedSnapshot(x){
+ assert.deepEqual(fs.readdirSync(path.dirname(x.file)).filter(name=>name.endsWith('.tmp')||name.startsWith('.legacy-stage-')),[]);
+}
+
+for(const side of ['buy','sell']){
+ test('automatic '+side+' remains eligible at exactly 15 seconds after final snapshot fsync',t=>{
+  const x=setup(t,{side}),quote=x.quote(1000),assertDelayed=delayFinalSnapshotSync(t,x,14000);
+  const result=x.save(quote);assertDelayed();
+  assert.equal(x.now()-quote.quoteAt,15000);assert.equal(result.account.events.length,1);
+  assert.equal(result.account.cash,x.input.cash);assertNoStagedSnapshot(x);
+ });
+ test('automatic '+side+' cannot publish when final snapshot fsync takes the quote to 15001 ms',t=>{
+  const x=setup(t,{side}),quote=x.quote(1000),assertDelayed=delayFinalSnapshotSync(t,x,14001);
+  rejectWithoutFinancialChange(x,quote);assertDelayed();
+  assert.equal(x.now()-quote.quoteAt,15001);assertNoStagedSnapshot(x);
+  const audit=x.app.audit();assert.deepEqual(audit.events[0].reasonCodes,['AUTOMATIC_QUOTE_NOT_CURRENT']);
+  // The failed publication releases its account lock and remains readable after restart.
+  const restarted=x.make(),before=restarted.read();
+  assert.equal(before.account.events.length,0);
+  assert.equal(restarted.saveLegacy(restarted.legacy(),before.revision).account.events.length,0);
+ });
+ test('automatic '+side+' cannot publish across midnight during final snapshot fsync',t=>{
+  const x=setup(t,{side,at:Date.parse('2026-11-05T23:59:59.500+08:00')}),quote=x.quote(100),
+   assertDelayed=delayFinalSnapshotSync(t,x,501);
+  rejectWithoutFinancialChange(x,quote);assertDelayed();
+  assert.equal(x.now()-quote.quoteAt,601);assertNoStagedSnapshot(x);
+ });
+}
+
+test('a final snapshot fsync failure preserves the old account and removes the temporary file',t=>{
+ const x=setup(t),quote=x.quote(),open=fs.openSync,sync=fs.fsyncSync;let snapshotFd,failed=false;
+ t.mock.method(fs,'openSync',(file,...args)=>{
+  const fd=open(file,...args);
+  if(typeof file==='string'&&path.dirname(file)===path.dirname(x.file)&&
+    path.basename(file).startsWith('.'+path.basename(x.file)+'.')&&file.endsWith('.tmp'))snapshotFd=fd;
+  return fd;
+ });
+ t.mock.method(fs,'fsyncSync',fd=>{
+  if(fd===snapshotFd&&!failed){failed=true;throw Object.assign(Error('injected final snapshot fsync failure'),{code:'EIO'});}
+  return sync(fd);
+ });
+ rejectWithoutFinancialChange(x,quote,/injected final snapshot fsync failure/);assertNoStagedSnapshot(x);
+});
+
 test('restarting and retrying an already committed event does not require a fresh quote or duplicate cash',t=>{
  const x=setup(t),first=x.save(x.quote()),event=first.account.events[0];x.advance(3*86400000);
  const reopened=x.make(),before=reopened.read();

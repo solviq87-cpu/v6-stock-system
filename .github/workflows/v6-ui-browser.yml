@@ -8,7 +8,7 @@ on:
   push:
     branches: ['**', '!archive/**']
   pull_request:
-    branches: [dev, "fix/**"]
+    branches: [main, dev, "feat/**", "chore/**", "fix/**", "audit/**", "integration/**"]
   workflow_dispatch:
 
 permissions:
