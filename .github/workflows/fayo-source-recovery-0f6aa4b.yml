@@ -1,0 +1,46 @@
+# One-shot development environment recovery. Not a release or deployment.
+name: FAYO Exact Source Recovery
+on:
+  push:
+    branches: [ops/fayo-source-recovery-0f6aa4b]
+    paths:
+      - .github/workflows/fayo-source-recovery-0f6aa4b.yml
+permissions:
+  contents: read
+jobs:
+  recover:
+    if: github.repository == 'solviq87-cpu/v6-stock-system'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SOURCE_SHA: 0f6aa4b4377b09314a601068e3700b2373d3e425
+      SOURCE_TREE: e9c35f79a996737db401883ef51dc7ce2c45ad97
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 0f6aa4b4377b09314a601068e3700b2373d3e425
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Reuse the existing full-source builder and verify the exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          out="$RUNNER_TEMP/fayo-source-recovery"
+          mkdir -p "$out"
+          archive="$out/V6_FULL_${SOURCE_SHA:0:12}.zip"
+          python3 V6_BO/scripts/build-complete-engineering-bundle.py build --repo "$GITHUB_WORKSPACE" --sha "$SOURCE_SHA" --output "$archive" > "$out/build-result.json"
+          python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo "$GITHUB_WORKSPACE" --sha "$SOURCE_SHA" --output "$archive" > "$out/verification.json"
+          cmp "$out/build-result.json" "$out/verification.json"
+          rm "$out/build-result.json"
+          git cat-file commit "$SOURCE_SHA" > "$out/source-commit.raw"
+          test "$(git hash-object -t commit "$out/source-commit.raw")" = "$SOURCE_SHA"
+          printf '%s\n' "$SOURCE_TREE" > "$out/source-tree.txt"
+          cat "$out/verification.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fayo-exact-source-0f6aa4b
+          path: ${{ runner.temp }}/fayo-source-recovery/
+          if-no-files-found: error
+          retention-days: 7
