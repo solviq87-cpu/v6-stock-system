@@ -13,7 +13,6 @@ const section = (src, from, to) => {
   assert.ok(start >= 0 && end > start, 'Missing GitHub event ' + from + ' or ' + to);
   return src.slice(start, end);
 };
-const paths = block => Array.from(block.matchAll(/^      - '([^']+)'$/gm), match => match[1]);
 
 test('every push of a nonarchive V6 code branch invokes full CI', () => {
   const src = workflow('v6-ci.yml');
@@ -32,10 +31,9 @@ test('UI changes on any code branch get a browser check per push', () => {
   const push = section(src, 'push', 'pull_request');
   const pr = section(src, 'pull_request', 'workflow_dispatch');
   assert.match(push, /branches:\s*\['\*\*',\s*'!archive\/\*\*'\]/);
-  assert.deepEqual(paths(push), paths(pr));
-  assert.ok(paths(push).includes('V6_BO/public/**'));
-  assert.ok(paths(push).includes('V6_WEB/workbuddy/**'));
-  assert.ok(paths(push).includes('.github/workflows/v6-ui-browser.yml'));
+  assert.doesNotMatch(push, /^\s+paths(?:-ignore)?:/m, 'A required browser check must run for backend-only pushes too');
+  assert.doesNotMatch(pr, /^\s+paths(?:-ignore)?:/m, 'A required browser check must not leave non-UI PRs pending');
+  assert.match(pr, /branches:\s*\[[^\n]*\bdev\b/);
   assert.match(src, /^  visual-geometry:\s*$/m);
 });
 
@@ -45,4 +43,17 @@ test('publisher ownership and release safety checks are unchanged', () => {
   assert.equal(owner.publisher, 'managed-task');
   assert.match(release, /workflows:\s*\[V6 CI\]/);
   assert.match(release, /branches:\s*\[dev\]/);
+});
+
+test('stacked audit and integration fixes run the full PR gate set on the target branch', () => {
+  for (const name of ['v6-ci.yml', 'v6-pr-commit-coverage.yml', 'v6-ui-browser.yml']) {
+    const src = workflow(name);
+    const event = src.match(/\n  pull_request:\n([\s\S]*?)(?=\n(?:  [A-Za-z_]+:|[A-Za-z_]+:)|$)/)?.[1];
+    assert.ok(event, name + ': pull_request configuration missing');
+    const names = event.match(/branches:\s*\[([^\]]+)\]/)?.[1].split(',').map(value => value.trim().replace(/^['"]|['"]$/g, ''));
+    assert.ok(names, name + ': reviewed branch list missing');
+    for (const target of ['dev', 'main', 'feat/**', 'fix/**', 'chore/**', 'audit/**', 'integration/**'])
+      assert.ok(names.includes(target), name + ': required PR gate omits ' + target);
+    assert.doesNotMatch(event, /^\s+paths(?:-ignore)?:/m, name + ': stacked backend fixes must not omit checks');
+  }
 });

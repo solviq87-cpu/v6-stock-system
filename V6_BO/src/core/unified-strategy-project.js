@@ -19,7 +19,7 @@ function runUnifiedStrategyProject(history,options={}){
  const marketQuality=auditMarketData(history,options.marketQuality||{});
  const nativeSignals=native.signals;
  const independentPortfolios=replayStrategyPortfolios(history,nativeSignals,{config:options.portfolioConfig||{}});
- const strategyDiagnostics=strategyHealth(native,independentPortfolios,options.strategyHealth||{});
+ const strategyDiagnostics=strategyHealth(native,independentPortfolios,{...(options.strategyHealth||{}),sessionDates:history.stocks[0].bars.map(b=>b.date),universeCount:history.stocks.length,marketQuality});
  const blockers=['未核验真实行情供应商与公司行为','没有独立模拟盘持续样本外验收'];
  for(const [system,v] of Object.entries(coverage))if(!v.evaluated)blockers.push(`${system}无可评估原生信号`);
  return {schemaVersion:1,mode:'unified-offline-strategy-project',canTrade:false,verifiedLive:false,

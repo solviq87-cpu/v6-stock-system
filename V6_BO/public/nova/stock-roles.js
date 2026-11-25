@@ -78,7 +78,12 @@ export function roleBadge(info){
 }
 export function observedBadge(row,fact){
  if(Number.isFinite(row.score))return {value:String(Math.round(row.score*10)/10),caption:'评分'};
- if(Number.isFinite(row.prob))return {value:String(Math.round(row.prob*10)/10),caption:'原概率'};
+ if(Number.isFinite(row.prob)){
+  const kind=row.probKind;
+  const caption=kind==='score'||kind==='ranking-score'?'规则评分':kind==='historical-event-frequency'?'历史事件频率':
+   kind==='model-estimate'?'模型估计（未校准）':'研究值（类型待核验）';
+  return {value:String(Math.round(row.prob*10)/10),caption};
+ }
  if(fact?.status==='炸板'||fact?.status==='未晋级'||fact?.status==='停牌')return {value:fact.status,caption:fact.tier};
  const boards=level(row);
  if(Number.isInteger(boards)&&boards>0)return {value:boards===1?'首板':boards+'连板',caption:fact?.performance||'收盘记录'};

@@ -74,6 +74,7 @@ function parseFilter(text){
 export function parseSelectionCommand(input){
  if(typeof input!=='string'||!input.trim())return unsupported('请输入选股条件。');
  const normalized=digits(input).trim().replace(/[。！!？?]+$/g,'').replace(/\s+/g,'');
+ if(/^(?:并且|而且|同时|且|[，,；;])|(?:并且|而且|同时|且|[，,；;])$|(?:并且|而且|同时|且|[，,；;])(?:并且|而且|同时|且|[，,；;])/.test(normalized))return unsupported('存在空白条件，请补齐或删除后再执行。');
  if(normalized.length>160)return unsupported('指令最多160字，可使用一个排序条件和至多6个筛选条件。');
  if(/或者|或是|\|\||\bOR\b|明天|明日|保证|必涨|自动买|自动卖/i.test(normalized))return unsupported('暂不解析“或”、未来涨幅或自动买卖要求；可用“且”连接可核验条件。');
  const clauses=normalized.split(/并且|而且|同时|且|[，,；;]/).filter(Boolean);
@@ -180,6 +181,7 @@ export function evaluateSelectionCommand(command, {state = {}, flowContext = nul
   if (!query?.ok) return {...query, items: []};
   if (!dayOf(day) || day > new Date(now + 28800000).toISOString().slice(0, 10))
     return {ok: false, status: 'data-missing', query, day: null, items: [], message: '当前没有可核实的候选交易日。'};
+  if (query.explicitAllMarket) return {ok:false,status:'unsupported-scope',query,day,items:[],message:'全市场覆盖尚未接入本工作台；请明确改为当前候选池后执行。',canTrade:false};
   const rows = candidateRows(state, day, now), matched = rows.filter(row => themeMatch(row, query.theme));
   let missing = 0,filtered = 0;
   const missingConditions={},filters=Array.isArray(query.filters)?query.filters:[];
@@ -192,7 +194,7 @@ export function evaluateSelectionCommand(command, {state = {}, flowContext = nul
     let evidence;
     if (query.metric === 'flow') evidence = historyFunds(row.code, flowContext, query.days, day, now) ||
       (query.days === 1 ? ownFunds(row, day, now) : null);
-    else if (query.metric === 'score') evidence = finite(row.score) ? {value: row.score, source: '原候选精选评分'} : null;
+    else if (query.metric === 'score') evidence = finite(row.score) && row.score >= 0 && row.score <= 100 ? {value: row.score, source: '原候选精选评分'} : null;
     else evidence = resonanceValue(row, day, resonanceByCode);
     if (!evidence) { missing++; continue; }
     if (query.metric === 'flow' && evidence.value <= 0) continue;
@@ -220,12 +222,67 @@ export function createCommandSelection(ctx) {
   const result = h('div', {class: 'fy-command-results', 'aria-live': 'polite'});
   const input = h('input', {type: 'text', maxlength: '160', placeholder: '近5日主力净流入前5的芯片股，评分至少80且涨幅小于5%', 'aria-label': '一句话选股指令'});
   const run = h('button', {type: 'submit', class: 'fy-button primary'}, '筛选股票');
+  const preview = h('div',{class:'fy-stack','aria-live':'polite','data-selection-preview':'true'});
+  const memory = ctx.viewMemory || {};
+  const saved = h('div',{class:'fy-inline'});
+  const sharedStatus=h('small',{class:'fy-muted','aria-live':'polite'},'共享模板由原研究服务器保存；主动读取。');
+  let shared=[],templateTurn=0;
+  async function readShared(){
+    if(ctx.role!=='edit')return;
+    const id=++templateTurn;
+    try{const reply=await ctx.api('/api/research/evidence-workbench?mode=templates',{signal:ctx.signal});
+      if(ctx.signal?.aborted||id!==templateTurn||ctx.role!=='edit')return;
+      const r=reply.result;
+      if(!reply.ok||r?.researchOnly!==true||r.canTrade!==false||!Array.isArray(r.templates)||r.templates.length>50)throw Error('共享模板合同无效');
+      shared=r.templates.filter(t=>typeof t.raw==='string'&&parseSelectionCommand(t.raw).ok&&Number.isSafeInteger(t.revision));
+      sharedStatus.textContent='服务器已保存 '+shared.length+' 项模板；双端同源。';paintSaved();
+    }catch(error){if(id===templateTurn&&!ctx.signal?.aborted){shared=[];paintSaved();sharedStatus.textContent='共享模板未就绪：'+error.message;}}
+  }
+  const readTemplates=button('读取共享模板',readShared,'quiet');readTemplates.disabled=ctx.role!=='edit';
+  const save=button('保存本次条件',async()=>{
+    const q=parseSelectionCommand(input.value);if(!q.ok||q.explicitAllMarket){preview.replaceChildren(note(q.error||'全市场范围未接通'));return;}
+    if(ctx.role!=='edit'){sharedStatus.textContent='保存共享模板需要编辑权限。';return;}
+    save.disabled=true;
+    try{
+      const prior=shared.find(x=>x.raw===q.raw),requestId=globalThis.crypto?.randomUUID?.()||'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+      const reply=await ctx.api('/api/research/evidence-workbench',{method:'POST',body:{action:'save-template',raw:q.raw,expectedRevision:prior?.revision||0,requestId},signal:ctx.signal});
+      if(ctx.signal?.aborted||ctx.role!=='edit')return;
+      if(!reply.ok||reply.result?.raw!==q.raw||reply.result.canTrade!==false)throw Error('保存回执未核验');
+      memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);
+      await readShared();sharedStatus.textContent='已取得服务器持久化回执；另一设备可读取。';
+    }catch(error){if(!ctx.signal?.aborted)sharedStatus.textContent='保存未完成：'+error.message+'；请读取服务器模板后重试。';}
+    finally{if(!ctx.signal?.aborted)save.disabled=false;}
+  },'quiet');save.disabled=ctx.role!=='edit';
+  function setCommand(value){input.value=value;invalidateCommand();input.focus?.();}
+  function paintSaved(){const values=[...new Set([...shared.map(t=>t.raw),...(memory.commandTemplates||[])])];saved.replaceChildren(...values.map(value=>button(value,()=>setCommand(value),'quiet')));}
+  function previewCommand(){
+    const q=parseSelectionCommand(input.value);
+    if(!q.ok){preview.replaceChildren(note(q.error));return;}
+    const day=selectionCommandDay(ctx.state||{});
+    const clauses=digits(q.raw).trim().replace(/[。！!？?]+$/g,'').split(/并且|而且|同时|且|[，,；;]/).filter(Boolean);
+    const cards=clauses.map((clause,index)=>{
+      const editor=h('input',{type:'text','aria-label':'条件 '+(index+1),maxlength:'160'});
+      editor.value=clause;
+      editor.addEventListener('input',()=>{
+        clauses[index]=editor.value;input.value=clauses.join('且');
+        generation++;lastQuery=null;run.disabled=false;result.replaceChildren();
+      });
+      editor.addEventListener('change',()=>setCommand(clauses.join('且')));
+      return h('label',{class:'fy-field'},h('span',{},'条件 '+(index+1)),editor);
+    });
+    preview.replaceChildren(note((day||'交易日未知')+' · '+(q.explicitAllMarket?'全市场未就绪，不执行候选池替代':'当前已接收候选池，非全市场')+
+      ' · '+metricNames[q.metric]+'降序 · '+q.days+'个交易日 · 前'+q.limit+'只 · 题材：'+(q.theme||'不限')),
+      ...((q.filters||[]).map(f=>h('small',{class:'fy-muted'},f.label))),...cards);
+  }
+  function invalidateCommand(){generation++;lastQuery=null;run.disabled=false;result.replaceChildren();previewCommand();}
+
   const form = h('form', {class: 'fy-toolbar', onSubmit: event => {event.preventDefault();submit();}}, input, run);
   const host = h('details', {class: 'fy-details fy-command-selection'}, h('summary', {}, '一句话选股'),
     h('p', {class: 'fy-muted'}, '在已接收候选中排序，可用“且”连接评分、共振、涨幅、换手率、股价、成交额、市值及排除ST/停牌条件。缺少任一条件的依据就不纳入结果。'), form,
-    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => {input.value = example;input.focus?.();}, 'quiet'))), result);
+    h('div', {class: 'fy-inline'}, ...['近5日主力净流入前5的芯片股', '精选评分前3且涨幅小于5%', '共振分前3且评分至少80'].map(example => button(example, () => setCommand(example), 'quiet')),readTemplates,save),sharedStatus,saved, preview, result);
   let generation = 0, lastQuery = null, history = null, historyAt = 0;
   const alive = () => !ctx.signal?.aborted;
+  input.addEventListener('input',invalidateCommand);paintSaved();
   function paint(query) {
     const state = {...(ctx.state || {}), ...(ctx.decisionPools ? {decisionPools: ctx.decisionPools} : {})};
     const value = evaluateSelectionCommand(query, {state, flowContext: history, resonanceByCode: ctx.decisionResonance});
@@ -239,15 +296,15 @@ export function createCommandSelection(ctx) {
   async function submit() {
     const query = parseSelectionCommand(input.value), turn = ++generation;
     run.disabled = false;
-    lastQuery = query;
-    if (!query.ok) {paint(query);return;}
+    lastQuery = query;previewCommand();
+    if (!query.ok || query.explicitAllMarket) {paint(query);return;}
     if ((query.metric === 'resonance'||query.filters?.some(filter=>filter.metric==='resonance')) && !ctx.decisionResonance && ctx.loadDecisionCenter) {
       run.disabled = true;result.replaceChildren(note('正在核对同日策略共振…'));
       try {
         await ctx.loadDecisionCenter();
         if (!alive() || turn !== generation)return;
       } catch (error) {
-        if (alive() && turn === generation) {paint(query);result.prepend(note('共振回执读取未完成：' + error.message));}
+        if (alive() && turn === generation) {paint(query);result.prepend(note('共振回执读取未完成：' + error.message));}return;
       } finally {if (turn === generation) run.disabled = false;}
     }
     if (query.metric !== 'flow') {paint(query);return;}
@@ -268,8 +325,8 @@ export function createCommandSelection(ctx) {
   ctx.onState?.(() => {
     if (!lastQuery?.ok || !alive() || run.disabled) return;
     if (history && history.day !== selectionCommandDay(ctx.state || {})) history = null;
-    paint(lastQuery);
+    if(!preview.matches?.(':focus-within'))previewCommand();paint(lastQuery);
   });
-  ctx.signal?.addEventListener('abort', () => {generation++;history = null;}, {once: true});
+  ctx.signal?.addEventListener('abort', () => {generation++;templateTurn++;shared=[];history = null;saved.replaceChildren();}, {once: true});
   return host;
 }

@@ -28,6 +28,7 @@
 // 重试多少次都一样，必须立即回调失败，别把队列堵死。
 // A bare business code is not proof of rate limiting (9499 can be a bad request).
 const RETRYABLE = /too many requests?|\b429\b|\b11232\b/i;
+const UNKNOWN = /结果未知|未确认|timeout|timed?\s*out|socket|ECONNRESET|断连|回执.*矛盾/i;
 
 function createQueue(sendOnce, opt) {
   const o = opt || {};
@@ -70,7 +71,9 @@ function createQueue(sendOnce, opt) {
       settled = true;
       if (guard !== null) { clearTimer(guard); guard = null; }
       st.lastAt = now();
-      const canRetry = !noRetry && !ok && RETRYABLE.test(String(info));
+      // An uncertain transport outcome may include a copied 429/rate-limit
+      // message. Only a definite rejection can release this attempt for retry.
+      const canRetry = !noRetry && !ok && !UNKNOWN.test(String(info)) && RETRYABLE.test(String(info));
       if (canRetry && (job.tries || 0) < retry) {
         job.tries = (job.tries || 0) + 1;
         st.retried++;
@@ -99,7 +102,7 @@ function createQueue(sendOnce, opt) {
     try {
       sendOnce(job.text, finish);
     } catch (e) {
-      finish(false, (e && e.message) || String(e));   // 同步抛异常同样要结算，不能把队列带走
+      finish(false, (e && e.message) || String(e), true);   // 抛异常不能证明尚未外发，不据异常文本重试
     }
   }
 

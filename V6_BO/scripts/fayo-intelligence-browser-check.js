@@ -33,7 +33,9 @@ function chartPayload(code='600000'){
 }
 function researchPayload(){
   const {day,now}=evidence(),archive={scope:'live',checks:[],plans:[],trades:[],versions:[],candidates:[]};
-  const before=JSON.stringify(archive),result=buildIntelligenceResearch({day,now,archive});
+  const probabilityResearch=require('../src/core/probability-reliability-store').readProbabilityResearch(
+    path.join(output,'absent-probability-evidence'),{scope:'formal',asOf:Math.min(now,Date.now())});
+  const before=JSON.stringify(archive),result=buildIntelligenceResearch({day,now,archive,probabilityResearch});
   assert.equal(JSON.stringify(archive),before,'research projection is read only');
   assert.equal(result.authority,'fayo-intelligence-research');
   assert.equal(result.quality.score,null);assert.equal(result.templates.groups.length,6);
@@ -146,8 +148,14 @@ async function run(){
         assert.equal(await page.getByRole('button',{name:'验证本次反馈提案',exact:true}).isDisabled(),true,'missing research cannot submit a proposal');
         await page.getByText('后复权历史采集依据',{exact:true}).click();
         assert.match(await page.locator('.fy-intelligence-research').innerText(),/逐日源端原始时刻/);
-        for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 原账本执行与成本压力','L2 · 六类战法模板','L5 · 复盘反馈'])
+        for(const heading of ['L1 · 数据质量','L2 · 因子有效性与去冗余','L2 · 滚动样本外验证','L2 · 原账本执行与成本压力','L2 · 策略健康与模型治理','L2 · 概率可靠性存证','L2 · 六类战法模板','L5 · 复盘反馈'])
           assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:heading,exact:true}).count(),1);
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/尚无事前登记的正式概率研究/);
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/当前无已认证的生产概率/);
+        await page.getByText('当前模型与前瞻候选对照',{exact:true}).click();
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/升级证据：尚未齐备/);
+        assert.match(await page.locator('.fy-intelligence-research').innerText(),/未成交、未平仓与无效引用计入覆盖缺口/);
+        assert.equal(fs.existsSync(path.join(output,'absent-probability-evidence')),false,'reading probability evidence never creates an archive');
         assert.equal(await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L2 · 六类战法模板'}).locator('..').locator('ul > li').count(),6);
         assert.equal((await page.locator('.fy-intelligence-research').innerText()).includes('undefined'),false);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);assert.ok(overflow<=1,'no page-level horizontal overflow');
@@ -206,6 +214,7 @@ async function run(){
           missingFlowsLeftBlank:true,observedFlowCount:widths.length,updatedClickDay:clicked.row.poolDay,
           apiReads:await page.evaluate(()=>intelligenceHarness.reads.filter(row=>row.method==='GET').length),
           netObservationsSeparate:true,historyIntakePreserved:true,ledgerCostPressurePreserved:true,
+          governanceEvidenceReadOnly:true,missingProbabilityJournalKeptUnknown:true,modelUpgradeEvidenceRequired:true,
           observationUnknownPreserved:true,observationZeroPreserved:true,delegatedAlertNotDelivered:true,
           feedbackReferenceOnly:true,feedbackApprovalRoute:'shortline-versions',overflow,errors});
       }catch(error){

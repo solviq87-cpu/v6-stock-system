@@ -8,8 +8,8 @@ const reads=new Map();
 let tail=null,waitingEdit=false,epoch=0;
 const busy=()=>Promise.resolve({ok:false,httpStatus:503,error:'研究档案任务正在运行，请稍后重试'});
 function runWorkspaceJob(payload,{authorize}={}){
- const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending'].includes(payload.action);
- const edit=payload.action==='shortline'&&Boolean(payload.input)||payload.action==='intelligence-feedback';
+ const readOnly=!payload.input&&['shortline','manual-loop','intelligence-research','intelligence-history-pending','evidence-workbench','view','evolution'].includes(payload.action);
+ const edit=payload.action==='shortline'&&Boolean(payload.input)||['intelligence-feedback','evolution-preferences','evolution-diagnostics'].includes(payload.action)||payload.action==='evidence-workbench'&&Boolean(payload.input);
  const key=readOnly?epoch+'/'+JSON.stringify(payload):null;
  if(key&&reads.has(key))return reads.get(key);
  const canQueueEdit=edit&&!waitingEdit&&reads.size>0;
@@ -26,8 +26,8 @@ function runWorkspaceJob(payload,{authorize}={}){
 }
 function runWorker(payload,authorize){
  return new Promise(resolve=>{let worker,timer,done=false;
-  const guarded=['intelligence-feedback','intelligence-history-collect'].includes(payload.action)||
-    payload.action==='shortline'&&Boolean(payload.decisionPlan);
+  const guarded=payload.guardWorkspaceWrite===true||['intelligence-feedback','intelligence-history-collect','evolution-preferences','evolution-diagnostics'].includes(payload.action)||
+    payload.action==='shortline'&&Boolean(payload.decisionPlan)||payload.action==='evidence-workbench'&&Boolean(payload.input);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
   if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
@@ -56,6 +56,19 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     Atomics.wait(control,0,0,5000);
     return Atomics.load(control,0)===1;
   };
+  if(p.action==='evolution')return require('../core/intelligence-evolution').readEvolutionReport(p);
+  if(p.action==='evolution-preferences'){
+    if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存偏好'};
+    try{
+      const result=require('../core/evolution-workflow').saveEvolutionPreferences(p.workspaceRoot,p.input,{now:Date.now(),beforeCommit:authorizedCheckpoint});
+      return {ok:true,result,researchOnly:true};
+    }catch(error){return {ok:false,httpStatus:error.code==='WORKSPACE_AUTH_REVOKED'?403:/版本冲突|conflict/i.test(error.message)?409:422,error:error.message};}
+  }
+  if(p.action==='evolution-diagnostics'){
+    if(p.replica||!authorizedCheckpoint())return {ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未保存诊断'};
+    try{return await require('../core/intelligence-evolution').runStoredEvolutionDiagnostics(p,{beforeCommit:authorizedCheckpoint});}
+    catch(error){return {ok:false,httpStatus:error.code==='WORKSPACE_AUTH_REVOKED'?403:422,error:error.message};}
+  }
   if(p.action==='shortline'){
     try{return await (await import('../research/shortline/store.mjs')).shortlineJob({...p,
       ...(p.decisionPlan?{beforeDecisionCommit:authorizedCheckpoint}:{})});}
@@ -66,8 +79,14 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
     if(!archive.ok)return archive;
     const input=require('../core/center-history').composeCenterResearchInputs(archive.state,
       p.historyRoot||require('node:path').join(p.root,'center-history'),{day:p.day,now:p.now});
+    let probabilityResearch;
+    try{probabilityResearch=require('../core/probability-reliability-store').readProbabilityResearch(
+      require('node:path').join(p.root,'probability-research'),{scope:'formal',asOf:p.now});}
+    catch{probabilityResearch={schemaVersion:1,mode:'fayo-probability-journal-v1',scope:'formal',asOf:p.now,status:'unavailable',
+      plans:[],reason:'概率研究存证不可读或完整性校验失败，不能判断校准效果',researchOnly:true,
+      calibrationCertified:false,canTrade:false,canApprove:false,canNotify:false,productionWeightsChanged:false};}
     const result=await require('../core/intelligence-research').buildIntelligenceResearch({day:p.day,now:p.now,archive:archive.state,quotes:p.quotes,
-      ...input.research});
+      ...input.research,probabilityResearch});
     result.historySupply=input.historySupply;
     return {ok:true,result};
   }
@@ -124,11 +143,17 @@ if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerDat
       return {ok:true,result};
     }catch(e){return {ok:false,httpStatus:e.code==='LOOP_CONFLICT'?409:422,error:/^LOOP_/.test(e.code||'')?e.message:'闭环输入或私有档案校验失败，原记录保留'};}
   }
+  if(p.action==='evidence-workbench'){
+    try{return {ok:true,result:await require('../core/research-interaction-workbench').run(p.roots,p.query,p.input,{authorize:authorizedCheckpoint})};}
+    catch(e){return {ok:false,httpStatus:e.httpStatus||422,error:'研究证据请求未通过身份、时点、版本或档案校验；原记录保留'};}
+  }
   if(p.action==='view'){const view=W.workspaceView(p.root,p.query,{accounts:p.accounts,quotes:new Map(p.quotes||[]),now:p.now});return {ok:true,result:p.export?W.exportResearch(view):view};}
-  if(p.action==='review')return await W.reviewStored(p.input,p.options);
-  if(p.action==='forecast')return W.saveModelForecast(p.root,p.input);
-  if(p.action==='settings'){const e=W.saveSettings(p.root,p.input);return {ok:true,revision:e.revision,recordId:e.hash,reused:e.reused,researchOnly:true};}
+  const commitOptions=p.guardWorkspaceWrite?{beforeCommit:authorizedCheckpoint}:{};
+  if(p.action==='review')return await W.reviewStored(p.input,p.options,commitOptions);
+  if(p.action==='forecast')return W.saveModelForecast(p.root,p.input,commitOptions);
+  if(p.action==='settings'){const e=await W.saveSettings(p.root,p.input,commitOptions);return {ok:true,revision:e.revision,recordId:e.hash,reused:e.reused,researchOnly:true};}
   throw Error('invalid job');
- }catch(e){return {ok:false,httpStatus:p.action==='settings'?409:422,error:p.action==='forecast'&&/^FORECAST_/.test(e.code||'')?e.message:p.action==='settings'?'设置无效或版本冲突，请重新读取后再保存':'研究查询、输入或私有档案校验失败，原档案保留'};}
+ }catch(e){return {ok:false,httpStatus:e?.code==='WORKSPACE_AUTHORIZATION'?403:p.action==='settings'?409:422,
+  error:e?.code==='WORKSPACE_AUTHORIZATION'?e.message:p.action==='forecast'&&/^FORECAST_/.test(e.code||'')?e.message:p.action==='settings'?'设置无效或版本冲突，请重新读取后再保存':'研究查询、输入或私有档案校验失败，原档案保留'};}
 }).then(value=>parentPort.postMessage(value)).catch(()=>parentPort.postMessage({ok:false,httpStatus:503,error:'研究任务未完成，原档案保留'}));}
 module.exports={runWorkspaceJob};

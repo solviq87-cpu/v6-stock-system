@@ -31,7 +31,14 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   for(const token of ['',viewer]){const r=await request(port,'/api/research/workspace',token);assert.notEqual(r.body.ok,true);assert.equal(r.body.result,undefined);}
   let r=await request(port,'/api/research/workspace',editor);assert.equal(r.body.ok,true);assert.equal(r.body.result.runs.total,0);assert.match(r.headers['cache-control'],/no-store/);assert.equal(fs.existsSync(root),false);
   for(const url of ['?root=/etc','?symbol=../../etc','?limit=101','?offset=-1','?asOf=NaN','?symbol=600000&symbol=600001','?export=9','?screenId='+'a'.repeat(64)])assert.equal((await request(port,'/api/research/workspace'+url,editor)).status,422);
-  assert.equal((await request(port,'/api/research/workspace',editor,undefined,'DELETE')).status,405);assert.equal(fs.existsSync(mutations),false);fs.unlinkSync(guard);
+  assert.equal((await request(port,'/api/research/workspace',editor,undefined,'DELETE')).status,405);assert.equal(fs.existsSync(mutations),false);
+  const workbench='/api/research/evidence-workbench';
+  for(const token of ['',viewer])assert.notEqual((await request(port,workbench+'?mode=templates',token)).body.ok,true);
+  const sharedTemplates=await request(port,workbench+'?mode=templates',editor);assert.equal(sharedTemplates.body.ok,true);assert.deepEqual(sharedTemplates.body.result.templates,[]);assert.match(sharedTemplates.headers['cache-control'],/no-store/);assert.equal(fs.existsSync(mutations),false);fs.unlinkSync(guard);
+  const template={action:'save-template',raw:'精选评分前5且股价低于20元',requestId:'http_template_001',expectedRevision:0};
+  assert.notEqual((await request(port,workbench,viewer,template)).body.ok,true);
+  const savedTemplate=await request(port,workbench,editor,template);assert.equal(savedTemplate.body.ok,true,JSON.stringify(savedTemplate.body));assert.equal(savedTemplate.body.result.revision,1);assert.equal(savedTemplate.body.result.canTrade,false);
+  assert.notEqual((await request(port,workbench,editor,{...template,requestId:'http_template_002',order:{quantity:100}})).body.ok,true);
   const settings={action:'preferences',requestId:'http_settings_001',expectedRevision:0,value:{objective:'跨重启保留研究约束',horizonDays:20,excludedSymbols:['600001'],unresolved:['补公司行动时点']}};
   assert.notEqual((await request(port,'/api/research/workspace',viewer,settings)).body.ok,true);
   r=await request(port,'/api/research/workspace',editor,settings);assert.equal(r.status,200);assert.equal(r.body.revision,1);assert.equal((await request(port,'/api/research/workspace',editor,settings)).body.reused,true);
@@ -44,6 +51,8 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   const review={action:'review',symbol:'600000',provider:'tencent',requestId:'http_review_0001'};r=await request(port,'/api/research/workspace',editor,review);assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.ok,true);const runId=r.body.runId;
   assert.equal((await request(port,'/api/research/workspace',editor,review)).body.reused,true);
   await stop();port=await boot();fs.writeFileSync(guard,'read/export/replay');
+  const persistedTemplates=await request(port,workbench+'?mode=templates',editor);assert.equal(persistedTemplates.body.result.templates[0].raw,template.raw);
+  const evidenceReplay=await request(port,workbench+'?mode=replay&symbol=600000&asOf='+Date.now()+'&window=7',editor);assert.equal(evidenceReplay.body.ok,true,JSON.stringify(evidenceReplay.body));assert.equal(evidenceReplay.body.result.canTrade,false);assert.equal(evidenceReplay.body.result.rows.length,7);
   r=await request(port,'/api/research/workspace?symbol=600000&runId='+runId,editor);assert.equal(r.body.result.runs.total,1);assert.equal(r.body.result.screening.inputTotal,1);assert.equal(r.body.result.screening.rows[0].symbol,'600000');assert.equal(r.body.result.preferences.value.objective,settings.value.objective);assert.equal(r.body.result.preferences.revision,1);assert.equal(r.body.result.diagnostics.at(-1).stages.at(-1).stage,'封存研究结果');
   const ex=await request(port,'/api/research/workspace?symbol=600000&export=1',editor);assert.equal(ex.body.result.run.id,runId);for(const text of [editor,viewer,root,observations,'"positions"'])assert.ok(!JSON.stringify(ex.body).includes(text));
   fs.writeFileSync(slow,'hold archive worker');let completed=false;const pending=request(port,'/api/research/workspace',editor).then(r=>{completed=true;return r;});
@@ -70,5 +79,12 @@ const open=fs.openSync;fs.openSync=function(file,flags,...args){if(exists(guard)
   const replay=await request(port,'/api/research/workspace?asOf='+(data.asOf+1000),editor);assert.equal(replay.body.result.forecastEvaluation.total,0);assert.equal(replay.body.result.forecastEvaluation.freezeAllowed,false);
   assert.equal(fs.existsSync(mutations),false);fs.unlinkSync(guard);
   const tooLate=await request(port,'/api/research/workspace',editor,{...body,requestId:'http_model_too_late_001'});assert.equal(tooLate.status,422);assert.match(tooLate.body.error,/开盘/);assert.equal(S.readEvents(F.rootFor(forecastRoot)).length,2);assert.equal(fs.existsSync(egress),false);
+  await stop();fs.writeFileSync(jobFile,jobCode);
+  fs.writeFileSync(path.join(dir,'config.json'),JSON.stringify({pushRole:'replica'}));port=await boot(root);
+  const original=S.readEvents(root),templateRoot=path.join(path.dirname(root),path.basename(root)+'-interactions'),originalTemplates=S.readEvents(templateRoot);
+  r=await request(port,'/api/research/workspace',editor);assert.equal(r.body.ok,true,'replica retains the original private editor read');
+  for(const command of [settings,review,body])assert.equal((await request(port,'/api/research/workspace',editor,command)).status,409,'replica refuses every workspace mutation');
+  assert.equal((await request(port,workbench,editor,{...template,expectedRevision:1,requestId:'replica_template_001'})).status,403);
+  assert.deepEqual(S.readEvents(root),original);assert.deepEqual(S.readEvents(templateRoot),originalTemplates);
  }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
 });

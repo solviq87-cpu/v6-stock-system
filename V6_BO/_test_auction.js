@@ -10,7 +10,7 @@ function grab(name) {
 }
 // auctionBlocked 现在复用顶层 listedDaysAgo 判定上市天数，抽取时必须一起带上，
 // 否则 new Function 里缺这个依赖会 ReferenceError（注入清单漏项的典型症状）。
-const names = ['listedDaysAgo', 'auctionPhase', 'auctionPxOf', 'auctionBlocked', 'auctionScoreOf'];
+const names = ['listedDaysAgo', 'auctionPhase', 'auctionPxOf', 'auctionBlocked', 'auctionScoreOf', 'aucztProbClamp'];
 const code = names.map(grab).join('\n');
 
 let S = { news: { goodCodes: new Set(['300001']) } };
@@ -30,10 +30,12 @@ const isTradeDay = d => {
 //    改成按涨停池归属日 ztDayTag(secZTDay) 说话。漏注入 = 整个套件 ReferenceError 崩掉，
 //    症状不是断言变红而是根本跑不到断言（沙箱切片新增外部依赖的第 5 次）。
 const ztDayTag = d => (d === '20260928' ? '今日' : (d ? '昨日' : ''));
-const fn = new Function('S', 'A', 'isTradeDay', 'ztDayTag', code + '\nreturn {' + names.join(',') + '};');
-const A = fn(S, require('./analysis.js'), isTradeDay, ztDayTag);
+const ceiling = Number(src.join('\n').match(/const AUCZT_PROB_CEIL = (\d+);/)[1]);
+const fn = new Function('S', 'A', 'isTradeDay', 'ztDayTag', 'newsSupportsCode', 'auctionResonanceAdj', 'AUCZT_PROB_CEIL', code + '\nreturn {' + names.join(',') + '};');
+const A = fn(S, require('./analysis.js'), isTradeDay, ztDayTag, code => S.news.goodCodes.has(code), () => -5, ceiling);
 
-const ok = (label, cond, got) => console.log((cond ? '✅ ' : '❌ ') + label + (got != null ? '  → ' + got : ''));
+let failures = 0;
+const ok = (label, cond, got) => { if (!cond) failures++; console.log((cond ? '✅ ' : '❌ ') + label + (got != null ? '  → ' + got : '')); };
 
 console.log('── 1. 竞价阶段判定 ──');
 const mk = (h, m, s) => new Date(2026, 8, 28, h, m, s || 0); // 2026-09-28 周一
@@ -80,7 +82,10 @@ console.log('   依据:', a.why.join(' + '));
 const b = A.auctionScoreOf(mkItem('600001', 9.5, -3, 1e6), ctx);
 ok('近一字+主力流出+额靠后 → 低分且有风险', b.score < 25 && b.risk.length >= 2, `分 ${b.score} | ${b.risk.join('|')}`);
 const c = A.auctionScoreOf(mkItem('300001', 4, 2, 1e8), ctx);
-ok('利好催化加分', c.factors.includes('利好催化'), c.factors.join(','));
+S.news.goodCodes.clear();
+const cWithoutNews = A.auctionScoreOf(mkItem('300001', 4, 2, 1e8), ctx);
+ok('新闻不增加模型分或因子', c.score === cWithoutNews.score &&
+  JSON.stringify(c.factors) === JSON.stringify(cWithoutNews.factors), c.factors.join(','));
 const d = A.auctionScoreOf(mkItem('600002', 4, 2, 1e8, 8e11), ctx);
 ok('超大流通盘扣分', d.factors.includes('大盘股折价'), `分 ${d.score}`);
 const e = A.auctionScoreOf(mkItem('600003', 4, 2, 1e8, 3e9), ctx);
@@ -91,9 +96,8 @@ const f2 = A.auctionScoreOf(mkItem('600000', 3.5, 6, 3e8), ctxBad);
 ok('非竞价窗口成交额权重减半', f2.score < f1.score, `${f1.score} → ${f2.score}`);
 ok('评分恒在 0~100', [a, b, c, d, e, f1, f2].every(x => x.score >= 0 && x.score <= 100), 'OK');
 
-console.log('\n── 5. 竞价分 → 涨停概率映射 ──');
-for (const s of [20, 40, 55, 65, 75, 90]) {
-  const raw = 18 + s * 0.62;
-  const bk = s >= 90 ? null : null;
-  console.log(`   竞价分 ${s} → 概率 ${Math.round(raw)}%`);
-}
+console.log('\n── 5. 现行涨停推断封顶函数（合成输入） ──');
+ok('超过原封顶的估计被截断', A.aucztProbClamp(ceiling + 10) === ceiling, ceiling);
+ok('缺失估计仍保持未知', A.aucztProbClamp(null) === null);
+ok('原范围内估计保持原舍入口径', A.aucztProbClamp(20.4) === 20);
+process.exitCode = failures ? 1 : 0;

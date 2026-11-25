@@ -78,6 +78,16 @@ function createPaperExecutionReportStore({root, clock = Date.now, canWrite = () 
       recordedAt:event.recordedAt,reportHash:event.hash,previousReportHash:event.data.previousReportHash,
       inputFingerprint:event.data.report.inputFingerprint,status:event.data.report.score.status,score:event.data.report.score.score}))};
   }
+  // Bounded, read-only version payloads for evidence replay. Validate once so
+  // earliest receipt lookup does not rescan the complete journal per version.
+  function snapshots({day,asOf=clock(),limit=20}={}) {
+    asOf=nowOf(asOf);
+    if (!dayOk(day) || day>aShareCalendarDate(asOf) || !Number.isSafeInteger(limit) || limit<1 || limit>MAX_VERSIONS)
+      throw Error('执行日报版本快照范围无效');
+    const events=reports(day,asOf);
+    return {day,asOf,total:events.length,complete:events.length<=limit,
+      versions:events.slice(-limit).map(event=>view(event,day,asOf))};
+  }
   function save(input={}) {
     const now=nowOf(input.now),day=input.day;
     if (!dayOk(day) || now<closeAt(day) || clock()-now>60000) throw Error('执行日报只能以本次实际时点保存已收盘日期');
@@ -168,7 +178,7 @@ function createPaperExecutionReportStore({root, clock = Date.now, canWrite = () 
       return {status,reused:false};
     });
   }
-  return {read,history,save,days:()=>days('days'),schedule,reserve,complete};
+  return {read,history,snapshots,save,days:()=>days('days'),schedule,reserve,complete};
 }
 
 module.exports = {createPaperExecutionReportStore,MAX_VERSIONS,MAX_RUNS_PER_DAY,MAX_TARGET_RUNS_PER_DAY,MIN_RUN_GAP,MIN_TARGET_GAP};

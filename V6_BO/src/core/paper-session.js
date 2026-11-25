@@ -9,6 +9,63 @@ const {replayPaperAccount}=require('./paper-replay');
 const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const clone=x=>JSON.parse(JSON.stringify(x));
+const canonical=x=>Array.isArray(x)?x.map(canonical):x&&typeof x==='object'?
+ Object.fromEntries(Object.keys(x).sort().map(key=>[key,canonical(x[key])])):x;
+const contextHash=x=>sha(canonical(x));
+/** Candles alone do not freeze a historical decision. Membership/security
+ * state, dated fees and settlements can change old results without touching
+ * OHLCV. Compare only already captured dates: extending an interval or adding
+ * a future status/fee/action remains lawful. The importer keeps rejected raw
+ * revisions in its original quarantine; a review cannot replace frozen facts.
+ */
+function assertHistoricalContextAppend(previous,next){
+ const dates=previous.stocks[0].bars.map(bar=>bar.date).filter(date=>typeof date==='string');
+ if(!dates.length)return;
+ if(contextHash(previous.universeHistory??null)!==contextHash(next.universeHistory??null)){
+  const index=rows=>{
+   const grouped=new Map();
+   for(const row of rows||[]){
+    const {from,through,...state}=row;
+    if(!grouped.has(row.symbol))grouped.set(row.symbol,[]);
+    grouped.get(row.symbol).push({from,through,hash:contextHash(state)});
+   }
+   for(const list of grouped.values())list.sort((a,b)=>a.from.localeCompare(b.from));
+   return grouped;
+  };
+  const before=index(previous.universeHistory),after=index(next.universeHistory);
+  const reader=(rows,declared)=>{
+   let cursor=0;
+   return date=>{
+    if(!declared)return 'legacy-undeclared';
+    while(cursor<rows.length&&rows[cursor].through<date)cursor++;
+    const row=rows[cursor];return row&&row.from<=date?row.hash:'no-dated-membership';
+   };
+  };
+  for(const stock of previous.stocks){
+   const symbol=String(stock.symbol||stock.code),oldState=reader(before.get(symbol)||[],previous.universeHistory!=null),
+    newState=reader(after.get(symbol)||[],next.universeHistory!=null);
+   for(const date of dates)if(oldState(date)!==newState(date))throw Error('历史证券状态或历史股票池证据被改写，拒绝更新: '+symbol+' '+date);
+  }
+ }
+ if(contextHash(previous.feeSchedules??null)!==contextHash(next.feeSchedules??null)){
+  const {validateFeeSchedules}=require('./trading-fees');
+  validateFeeSchedules(previous.feeSchedules);validateFeeSchedules(next.feeSchedules);
+  const reader=rows=>{
+   let cursor=-1;const hashes=(rows||[]).map(contextHash);
+   return date=>{
+    if(rows==null)return 'legacy-policy';
+    while(cursor+1<rows.length&&rows[cursor+1].effectiveFrom<=date)cursor++;
+    return cursor<0?'no-dated-fee-policy':hashes[cursor];
+   };
+  };
+  const before=reader(previous.feeSchedules),after=reader(next.feeSchedules);
+  for(const date of dates)if(before(date)!==after(date))throw Error('历史费用或费率来源证据被改写，拒绝更新: '+date);
+ }
+ const settlements=data=>(data.settlements||[]).filter(event=>event.effectiveDate<=dates.at(-1))
+  .slice().sort((a,b)=>a.effectiveDate.localeCompare(b.effectiveDate));
+ if(contextHash(settlements(previous))!==contextHash(settlements(next)))
+  throw Error('历史公司行为或历史权益结算证据被改写，拒绝更新');
+}
 function normalize(history){
  validateDataset(history);
  assertUnadjustedExecutionPriceBasis(history);
@@ -28,6 +85,7 @@ function assertAppend(oldData,next){
  }
  const growth=oldData.stocks.map(s=>map.get(String(s.symbol||s.code)).bars.length-s.bars.length);
  if(growth.some(n=>n!==growth[0]))throw Error('股票历史追加交易日数量不一致');
+ assertHistoricalContextAppend(oldData,next);
  if(growth[0]===0){
   if(sha(next)!==sha(oldData))throw Error('历史数据变动但未追加新交易日');
   return false;

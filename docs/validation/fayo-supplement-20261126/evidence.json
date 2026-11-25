@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "baseline": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "scope": "local isolated executable source verification; not deployment or final integration",
+  "sourceSha256": {
+    ".github/rulesets/v6-dev-required-checks.json": "a6c91c5fcc660789a1f7acc74dd180828f6287c193ea926f604e138eb1196549",
+    ".github/workflows/v6-ui-browser.yml": "cb8d51aabf686e9de40a30f86a639129f621c85d4943f24b5a7ca9dd8883df43",
+    "V6_BO/package.json": "4f928b05d642936df2bfcd9fce9b73f71d6f141884756397228df5f19249d8ff",
+    "V6_BO/src/core/paper-application-service.js": "df1c54a88ffd36bb764d7101bcf8d9fc9f69da3f738e35d76a13f194010d3268",
+    "V6_BO/src/core/private-risk-feishu-delivery.js": "804cfd245acc31818ccaaace003b29fe1411f24bafc49e23c74d62e33b1aefb5",
+    "V6_BO/scripts/private-risk-monitor.js": "2a4b44ef13fb4855482fda794f9c4e03566ed503406952da9d0c6e67e87bc29e",
+    "V6_BO/scripts/audit-fayo-integration-gates.js": "118a220d93b6874f3c28e5fdfb862a21f9a0b7aa323f8ae8b1732d59a272eaae",
+    "V6_BO/tests/automatic-paper-commit-quote-time.test.js": "ea876bf69d9c571ebf10a22026387eafb2e051122b3a2d932705a699549156c5",
+    "V6_BO/tests/private-risk-escalation-identity.test.js": "35ba4f78c41701cd98f5e909593b4d7abd0f6d144b42533a3b66448877e84676",
+    "V6_BO/tests/private-risk-monitor-identity.test.js": "bdb31c2b90a9f1e260491cf222b21099046a9c52771cc96a78be4809d7a2e441",
+    "V6_BO/tests/fayo-integration-gates.test.js": "4e28bb6b98ac7c3dba8ffeba5e3f1277d253c4982f48067f5a31c343dde30e29",
+    "V6_BO/tests/commit-check-triggers.test.js": "d02c253220a57d2f6e28a0654c9f1c1bf365d8ce2d14cd56e7d5e4adfb81e8b5"
+  },
+  "logSha256": {
+    "patch-full-regression.tap": "72f6b3623e9f64b287c031024eba41f36b9d3df02282490da2d15f2033e38595",
+    "patch-full-regression-final.tap": "d76102ed6013c6d21ede25ae3b4ca34affe975086473882fe0d3cfc47043f4a2",
+    "patch-targeted-final.tap": "c81348c9edd3b91f2cd091c6f2276729d28fb7918713405a81d9095ba42248a9",
+    "patch-server-smoke.log": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1",
+    "patch-product-ui-npm.log": "da90e9d43ee6e7f4f82eeaaa4ceb927e84ffd9c9ef735d9d794d9309f4a70883"
+  },
+  "fullRegression": {
+    "tests": 5027,
+    "pass": 5026,
+    "fail": 0,
+    "skip": 1,
+    "skipReason": "PowerShell executable unavailable",
+    "exitCode": 0,
+    "durationMs": 560498.832066
+  },
+  "targeted": {
+    "tests": 35,
+    "pass": 35,
+    "fail": 0,
+    "skip": 0,
+    "exitCode": 0
+  }
+}

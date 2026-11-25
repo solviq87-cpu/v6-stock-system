@@ -24,6 +24,20 @@ test('repeat receipts and refreshed provenance timestamps do not consume revisio
  assert.equal(again.changed,false);assert.equal(again.revision,1);assert.equal(again.observationHash,first.observationHash);assert.equal(again.stock.observedAt,baseTime);assert.equal(again.stock.bars[0].knownAt,baseTime);assert.equal(files(root).length,1);
  const returned=retain(root,{stock:first.stock,observedAt:baseTime+2000});assert.equal(returned.changed,false);
 })));
+test('read-only scope classification retains raw markers, unknown legacy scope and prior nonstandard labels without changing old price records',()=>temp(root=>clock(setTime=>{
+ const input=stock({scope:'demo',synthetic:true}),first=retain(root,{stock:input,observedAt:baseTime}),[file]=files(root),bytes=fs.readFileSync(file);
+ const view=read(root,'600001',choice);assert.equal(view.stock.scope,undefined);assert.equal(view.sampleClassification.rows[0].status,'nonstandard');
+ assert.equal(view.sampleClassification.providerAuthenticated,false);assert.deepEqual(view.stock,first.stock);assert.deepEqual(fs.readFileSync(file),bytes);
+ const opaque='private-context-token-must-not-leak';setTime(baseTime+2000);
+ const newer=stock({scope:'formal'});newer.bars.push({...newer.bars[0],date:'2026-01-06'});
+ retain(root,{stock:newer,observedAt:baseTime+2000,context:{private:opaque}});
+ const current=read(root,'600001',choice);assert.deepEqual(current.sampleClassification.rows,[{date:'2026-01-05',status:'nonstandard'},{date:'2026-01-06',status:'standard-declared'}]);
+ assert.equal(JSON.stringify(current.sampleClassification).includes(opaque),false);
+ const before=read(root,'600001',{...choice,asOf:baseTime+1000});assert.deepEqual(before.sampleClassification.rows,[{date:'2026-01-05',status:'nonstandard'}]);
+ const legacy=stock({provider:'legacy'});retain(root,{stock:legacy,observedAt:baseTime+2000});assert.equal(read(root,'600001',{...choice,provider:'legacy'}).sampleClassification.rows[0].status,'unknown');
+ const nested=stock({provider:'nested',scope:'formal'});nested.bars[0].provenance={isTest:true};retain(root,{stock:nested,observedAt:baseTime+2000});assert.equal(read(root,'600001',{...choice,provider:'nested'}).sampleClassification.rows[0].status,'nonstandard');
+ const context=stock({provider:'context',scope:'formal'});retain(root,{stock:context,observedAt:baseTime+2000,context:{scope:'demo'}});assert.equal(read(root,'600001',{...choice,provider:'context'}).sampleClassification.rows[0].status,'nonstandard');
+})));
 test('new amount and corrections advance aggregate knownAt while retaining price availability and old versions',()=>temp(root=>clock(setTime=>{
  const input=stock();retain(root,{stock:input,observedAt:baseTime});setTime(baseTime+2000);input.bars[0].amount=12345;
  const amount=retain(root,{stock:input,observedAt:baseTime+2000});assert.equal(amount.stock.bars[0].knownAt,baseTime+2000);assert.equal(amount.stock.bars[0].priceKnownAt,baseTime);assert.equal(amount.stock.bars[0].amountKnownAt,baseTime+2000);

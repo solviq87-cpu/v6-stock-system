@@ -38,6 +38,9 @@ function parseFinancials(raw,{symbol,kind,receivedAt,period}){
     reportDate>today||!updatedDate||updatedDate>today||updatedDate<publicationDate||dates.has(reportDate))throw Error('财报日期、重复修订或可得性不明');
   dates.add(reportDate);
   const values=Object.fromEntries(['ROEJQ','ZCFZL','PARENTNETPROFITTZ','TOTALOPERATEREVETZ','NCO_NETPROFIT'].map(k=>[k,finite(r[k])?r[k]:null]));
+  // Optional F10 fields retain supplier units and the exact same revision
+  // receipt. Never infer a missing cash-flow/profit ratio from another field.
+  for(const k of ['XSMLL','XSJLL','EPSJB','MGJYXJJE','YSZKZZTS','CHZZTS','LD','SD'])if(Object.hasOwn(r,k))values[k]=finite(r[k])?r[k]:null;
   records.push({reportDate,publicationDate,updatedDate,periodKind:kind,currency:'CNY',publicationBasis:kind==='quarter'?'same-report-period-receipt':'supplier-row',values});
  }
  records.sort((a,b)=>a.reportDate.localeCompare(b.reportDate));
@@ -68,13 +71,15 @@ function financialFeatures(financials,{code,asOf}){
  if(financials?.symbol!==code||financials.source!=='eastmoney-financials'||financials.simulated===true||financials.retracted===true)return {};
  const output={},valid=d=>d&&d.simulated!==true&&d.retracted!==true&&d.symbol===code&&d.status==='observed-unverified'&&d.source==='eastmoney-financials'&&
   /^[a-f0-9]{64}$/.test(d.rawHash||'')&&Number.isSafeInteger(d.receivedAt)&&d.receivedAt>0&&d.receivedAt<=asOf&&Array.isArray(d.records)&&d.records.length<=12&&d.records.every((r,i)=>r&&day(r.reportDate)&&day(r.publicationDate)&&day(r.updatedDate)&&r.publicationDate>=r.reportDate&&r.updatedDate>=r.publicationDate&&r.updatedDate<=new Date(d.receivedAt+28800000).toISOString().slice(0,10)&&r.values&&typeof r.values==='object'&&(!i||r.reportDate>d.records[i-1].reportDate));
- const put=(field,value,d,r)=>{if(finite(value))output[field]={code,value,unit:field==='operatingCashToProfit'?'ratio':'percent',source:'eastmoney-financials',
+ const units={operatingCashToProfit:'ratio',basicEps:'CNY/share',operatingCashPerShare:'CNY/share',receivableDays:'days',inventoryDays:'days',currentRatio:'ratio',quickRatio:'ratio'};
+ const put=(field,value,d,r)=>{if(finite(value))output[field]={code,value,unit:units[field]||'percent',source:'eastmoney-financials',
   evidenceId:d.rawHash+':'+(d.periodRawHash||'')+':'+r.reportDate+':'+field,observedAt:Date.parse(r.reportDate+'T23:59:59+08:00'),availableAt:d.receivedAt,recordedAt:d.receivedAt,
   reportDate:r.reportDate,publicationDate:r.publicationDate,updatedDate:r.updatedDate,periodKind:d.kind,verifiedExternal:false};};
  const period=financials.datasets?.period,quarter=financials.datasets?.quarter;
  if(valid(period)&&period.kind==='period'&&period.records.length){
   const r=period.records.at(-1),prior=period.records.find(p=>p.reportDate===String(Number(r.reportDate.slice(0,4))-1)+r.reportDate.slice(4));
   put('roePct',r.values.ROEJQ,period,r);put('debtAssetsPct',r.values.ZCFZL,period,r);
+  for(const [field,raw] of [['grossMarginPct','XSMLL'],['netMarginPct','XSJLL'],['basicEps','EPSJB'],['operatingCashPerShare','MGJYXJJE'],['receivableDays','YSZKZZTS'],['inventoryDays','CHZZTS'],['currentRatio','LD'],['quickRatio','SD']])put(field,r.values[raw],period,r);
   if(prior)put('roePriorYearPct',prior.values.ROEJQ,period,prior);
   // ROE is the actual report-period cumulative percentage, never annualized.
   // NCO_NETPROFIT and FCFF fields remain unmapped until source unit semantics are verified.

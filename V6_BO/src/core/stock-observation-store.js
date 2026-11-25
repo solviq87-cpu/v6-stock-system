@@ -104,11 +104,29 @@ function project(raw,observedAt,prior){
  return {symbol:String(raw.symbol||raw.code),name:raw.name===undefined?(prior?.name||''):String(raw.name).slice(0,64),source:raw.source.trim(),provider:raw.provider.trim(),priceBasis:raw.priceBasis,observedAt,bars:[...bars.values()].sort((a,b)=>a.date.localeCompare(b.date))};
 }
 function content(stock){const {observedAt,...values}=stock;return values;}
+// Additive read projection only: raw declarations can exclude a sample but do
+// not authenticate its supplier. Preserve unknown legacy scope and every old
+// journal byte; later declarations cannot relabel an earlier unclassified bar.
+function sampleClass(raw,context,bar){
+ const {bars,...metadata}=raw;let visited=0;
+ const marked=(value,depth=0)=>{
+  if(!value||typeof value!=='object')return false;
+  if(depth>16||++visited>10000)return true;
+  if(['scope','sampleSet','sampleScope'].some(k=>['test','demo','synthetic'].includes(value[k]))||
+    ['testSample','isTest','synthetic','mock','demo','simulated','blackSwan','extreme'].some(k=>[true,1,'true','1','是'].includes(value[k]))||
+    value.repeatable===false||['教学样本','黑天鹅','不可复制极端行情','black-swan','extreme'].includes(value.quality)||
+    /^合成教学样本/.test(value.name||'')||/(?:^|[-_: /])(fixture|simulated|synthetic|mock|demo|test)(?:$|[-_: /])/i.test(String(value.source||'')))return true;
+  return Object.values(value).some(v=>marked(v,depth+1));
+ };
+ if([metadata,context,bar].some(v=>marked(v)))return 'nonstandard';
+ const declared=[metadata,context,bar].some(v=>v&&['scope','sampleSet','sampleScope'].some(k=>['formal','real'].includes(v[k])));
+ return declared?'standard-declared':'unknown';
+}
 function readChain(root,id,{asOf}={}){
  // Validate the complete immutable chain, but retain only the projection needed
  // for the next revision and small query metadata. Full historical events can
  // exceed the research worker's heap even while the archive is below its cap.
- const state={lastEvent:null,latestVisibleEvent:null,observations:[],count:0,totalBytes:0};
+ const state={lastEvent:null,latestVisibleEvent:null,observations:[],sampleClasses:new Map(),count:0,totalBytes:0};
  const dir=location(root,id);if(!fs.existsSync(dir))return state;
  const names=fs.readdirSync(dir).filter(n=>!/^\d{6}\.json\.[a-f0-9]{16}\.tmp$/.test(n));
  if(names.length>MAX_REVISIONS||names.some(n=>!/^\d{6}\.json$/.test(n)))throw Error('观察历史目录损坏或超过上限');
@@ -126,6 +144,11 @@ function readChain(root,id,{asOf}={}){
    const {revision,observedAt,recordedAt,observationHash}=event;
    state.observations.push({revision,observedAt,recordedAt,observationHash});
    state.latestVisibleEvent={revision,stock:event.stock};
+   for(const bar of event.rawStock.bars){
+    const current=sampleClass(event.rawStock,event.context,bar),prior=state.sampleClasses.get(bar.date);
+    state.sampleClasses.set(bar.date,prior==='nonstandard'||current==='nonstandard'?'nonstandard':
+      prior==='unknown'||current==='unknown'?'unknown':current);
+   }
   }
  }
  return state;
@@ -158,6 +181,8 @@ function retainStockObservation(root,{stock,observedAt,context={}}={}){
 function readObservedStock(root,symbol,{provider,priceBasis,asOf=Date.now()}={}){
  const id=identity(symbol,provider,priceBasis);if(!Number.isSafeInteger(asOf)||asOf<=0)throw Error('观察查询时点无效');
  const state=readChain(root,id,{asOf}),latest=state.latestVisibleEvent;
- return {stock:latest?.stock||null,revision:latest?.revision||0,observationCount:state.observations.length,observations:state.observations,...flags};
+ return {stock:latest?.stock||null,revision:latest?.revision||0,observationCount:state.observations.length,observations:state.observations,
+  sampleClassification:{schemaVersion:1,basis:'original-raw-stock-and-context-declarations',providerAuthenticated:false,
+   rows:(latest?.stock?.bars||[]).map(bar=>({date:bar.date,status:state.sampleClasses.get(bar.date)||'unknown'}))},...flags};
 }
 module.exports={retainStockObservation,readObservedStock};

@@ -195,4 +195,29 @@ function captureProviderBatch(root=ROOT,raw,{now=Date.now()}={}){
  for(let offset=0;offset<inputs.length;offset+=200)imported+=appendBatch(root,inputs.slice(offset,offset+200),{now}).results.filter(r=>!r.reused).length;
  return {captured:imported,rejected,rejectedEventIds,...FLAGS};
 }
-module.exports={ROOT,FLAGS,hash,safePath,safeUrl,normalize,readJournal,appendBatch,query,sourceTime,providerInput,captureProviderBatch};
+// Explicit history query: validate the full original chain at the actual read
+// clock, then select only events recorded at/before the requested cutoff.
+// A removed-security revision belongs to the same event, never today's state.
+function queryAt(root=ROOT,{symbol=null,limit=50,offset=0,asOf=Date.now(),now=Date.now()}={}){
+ if(symbol!==null&&!/^\d{6}$/.test(symbol)||!Number.isSafeInteger(limit)||limit<1||limit>200||
+    !Number.isSafeInteger(offset)||offset<0||offset>MAX_EVENTS||!timestamp(asOf)||!timestamp(now)||asOf>now)
+  throw Error('INVALID_NEWS_HISTORY_QUERY');
+ const all=readJournal(root,{now}).filter(e=>e.recordedAt<=asOf);
+ const relevant=new Set(all.filter(e=>symbol===null||e.evidence.securities.includes(symbol)).map(e=>key(e.evidence)));
+ const latest=new Map(all.map(e=>[key(e.evidence),e.eventHash]));
+ const rows=all.filter(e=>relevant.has(key(e.evidence))).map(e=>{
+  const x=e.evidence,current=latest.get(key(x))===e.eventHash,associated=symbol===null||x.securities.includes(symbol);
+  const unknown=x.uncertainty.some(s=>s.startsWith('UNKNOWN_')||s.startsWith('MISSING_')||s==='SUMMARY_ONLY');
+  const usable=current&&associated&&x.kind!=='retracted'&&!unknown;
+  return {...e,current,associated,eligibleForResearchSupport:usable,usableAsResearchSupport:usable,
+   supportStatus:!current?'superseded':!associated?'security-removed':x.kind==='retracted'?'retracted':unknown?'unknown':'source-declared-unverified'};
+ });
+ const current=rows.filter(e=>e.current);
+ return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,
+   nextOffset:offset+limit<rows.length?offset+limit:null,rows:rows.slice().reverse().slice(offset,offset+limit),
+   summary:{totalRevisions:rows.length,currentEvents:current.length,retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
+   eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,unknownEvents:current.filter(e=>e.supportStatus==='unknown').length},
+   headHash:all.at(-1)?.eventHash||null,readonly:true,...FLAGS};
+}
+
+module.exports={ROOT,FLAGS,hash,safePath,safeUrl,normalize,readJournal,appendBatch,query,queryAt,sourceTime,providerInput,captureProviderBatch};

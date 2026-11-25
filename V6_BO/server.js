@@ -278,7 +278,7 @@ function _clampInt(v, lo, hi, dflt) {
 // 正式电脑/手机入口均由下方路由映射至 public/nova/index.html；服务、原生入口与 SW 同步升版。
 // public/index.html、mobile.html 与 assets/app.js 保留恢复证据原字节及历史版本。
 // 手机微信内置浏览器常缓存旧页，页面启动会比对服务端这个值，不一致就强制刷新，从根本上杜绝缓存旧页。
-const APP_VER = '20261125ad'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
+const APP_VER = '20261126ab'; // mv 轮（2026-10-29，10-28 抽查遗留清尾）：启动扫描不再卡死面板——scanZtPre/scanTrendUniverse/scanSteadyUp/runZtpreIngest/runLearnallIngest/seedLearnFromHistory 六处全市场同步循环每 SCAN_YIELD_EVERY=10 只 await setImmediate 让出（10-28 实测 [trendscan] 193.6s、[ztpre] 11.5s 独占事件循环=启动期面板白屏主因，kdc 轮同款事故第二批；让出点在读盘前，批量不许放大回几百）。守门 _test_scan_yield 38 断言（六循环删让出行必红+批量上界≤20+宏任务让出真跑·微任务 await null 反证）。同轮版本注释链瘦身：近 3 轮留 mv/mu/mt，ms 及更早原样挪 CHANGELOG.md 第二批。｜ // mu 轮（2026-10-28，用户「有问题就修修完后发布」）：S.fundDays 启动竞态修复——原先只在精选池重建里懒初始化，池还没重建完就有接口裸调 S.fundDays.get → TypeError 把请求打崩（22:18 日志实证 Cannot read properties of undefined (reading 'get')），改为与 klines/inflowHistory 同款在 S 初始化器落地 new Map()，懒初始化行保留作幂等兜底；配套守门 _test_funddays_init 7 断言（含「删掉初始化行必红」反证）。同类懒初始化已全库普查：ztSentLog 读点均有 || [] 兜底、extCache 自带 !S.extCache 判空、bigMoney/nextplan/myrules/secStocks/stockBoards 均在模块顶层初始化，无第二处同类隐患。｜ // mt 轮（本轮，用户「有问题就修修完后发布」）：数据源三修+并行空间合并发布——①fetchBoardStocks 多源链补齐：原两条通道都是 push2 同 host 两种传输，host 挂了全挂（10-28 实测整域拒连，补涨龙/启动前埋伏双双 0 条），东财失败后走 stockBoards.json 反查兜底（2314 只反转，BK0567 可查 91 只，随包落盘重启不丢）标注 stale；②financials.updated 未来日期钳到今天（东财 UPDATE_DATE 是隔夜批次生效日，实测 10-28 返回 10-29）原始值留 updatedSrc；③_test_datasource_fallback 断言漂移修（固定字符窗口→按函数体钉语义）。守门 13 套 327 断言全绿。
 const CFG_FILE = path.join(__dirname, 'config.json');
 const KLINE_CACHE = path.join(__dirname, '.kline_cache');
 if (!fs.existsSync(KLINE_CACHE)) fs.mkdirSync(KLINE_CACHE);
@@ -1903,7 +1903,7 @@ const PROB_KIND = {
   pre:   { kind: 'score', label: '埋伏研究排序分', why: '手工条件与形态排序分（20~88），不是封板概率' }
 };
 function probKindOf(type) { const d = PROB_KIND[type]; return d ? d.kind : 'prob'; }
-function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型概率'; }
+function probKindLabel(type) { const d = PROB_KIND[type]; return d ? d.label : '模型事件估计（未独立校准）'; }
 // 实测档的键：概率类与评分类各一套（键结构兼容旧表，评分类另起前缀）
 // ⛔⛔ B1 轮（2026-10-17）：auczt 用【自己的类型键】，不共用族群键。
 //    它的回验目标是【当日封板】（hx 口径例外）、prob 是诚实刻度（ig 起 9/20 两档），
@@ -5936,7 +5936,7 @@ function auctionScoreOf(x, ctx) {
     // ①-2 板块共振闸：同板块昨日涨停 <2 只 → 孤板高开易一日游，共振弱则扣分（已有共振加分的反面约束）
     if ((r.secZT || 0) < 2) { s += auctionResonanceAdj(r.secZT); risk.push('板块共振弱·孤板高开易一日游'); factors.push('板块共振弱'); }
   }
-  if (S.news && S.news.goodCodes && newsSupportsCode(x.code)) { s += 10; why.push('利好催化'); factors.push('利好催化'); }
+  // Positive news labels are research context only, not a candidate score input.
   const fc = x.floatCap || 0;
   // ① 选股纪律：市值曲线更陡——大票显著罚、小盘显著奖（ik 轮实证候选中位 75→98亿漂移拖累命中）
   // ⛔ kv 轮（2026-10-24）实证补档：旧曲线在 300亿~1000亿 区间是**零惩罚的洞**（旧 -14/-9/-4 三档
@@ -6400,10 +6400,10 @@ async function tick() {
           turnover: numNeutral('turnover', s.turnover), inflowStreakMin: streakMin
         });
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
-        // 利好关联股加推（推送门槛×0.88更易触发）；利空关联股减推（门槛×1.15 且概率<92%直接抑制不推）
+        // Positive news never lowers the original model threshold; preserve the negative safety gate.
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
         const badHit = newsWarnsCode(s.code);
-        const pushTh = probThreshold() * 100 * (goodHit ? 0.88 : badHit ? 1.15 : 1);
+        const pushTh = probThreshold() * 100 * (badHit ? 1.15 : 1);
         // 严格大于：面板设 80% 就必须"超过80%"才推，等于不算（所有用户门槛统一为 >）
         // ⛔ 2026-10-08 修：gap>0.2%太松，回调到0.5%（比原来严格、但不至于一票难求）
         if (bullishIntent && probC > pushTh && gap != null && gap > 0.5 && !(badHit && probC < 92)) {
@@ -6510,7 +6510,7 @@ async function tick() {
             signalCondition('sector-or-flow','板块梯队或资金背书',secZT>=2||s.mainPct>=3?1:0,1,'>=',now)],
           ruleInputs:{sectorCount:secZT,mainPct:s.mainPct,limitPct:A.limitPctOf(s.code,s.name),tolerance:0.25},
           logic: `封板：触及涨停价 + 板块【${sec}】(${secZT}只涨停) + 主力净占比${(s.mainPct || 0).toFixed(1)}%`,
-          risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 命中利空雷达（有负面消息，慎追）' : ''}`,
+          risk: `炸板风险（封单不牢会被打开，追高易被套）${_bad ? ' | 负面资讯线索（原避险流程，未独立核实）' : ''}`,
           stopRef: stopRefOf(s),invalidWhen:'价格离开原涨停容差区间，或原板块梯队和资金背书同时不再成立时，本次封板观察依据失效。',
           msg: `【涨停】${s.name}(${s.code}) 封板！板块:${sec}(${secZT}只涨停) 主力净占比${(s.mainPct || 0).toFixed(1)}%`
         });
@@ -10025,6 +10025,9 @@ function pushAll(text, force, opts) {
       forceHistoricalObservation:opts.forceHistoricalObservation||delivery.kind==='historical-trigger-observation',
       ...((delivery.newsRows)?{newsRecommendationRows:delivery.newsRows}:{}),
       beforeSend:_newsBeforeSend||undefined}).then(r => {
+      // Derived risk delivery evidence consumes the original queue receipt.
+      // A gateway acceptance never certifies the receiving device.
+      try{if(typeof opts.onReceipt==='function')opts.onReceipt(r);}catch{}
       if(r&&r.localReview){
         _pushLast={ret:false,sent:false,why:r.localReview.why||'派发前新闻审核未通过',t:Date.now()};
         _release(_pushLast.why);return;
@@ -10055,6 +10058,7 @@ function pushAll(text, force, opts) {
       pushLog('🔒 私密未送达·不外发', '[私密消息已隐藏]', _extra({ channel: '飞书·私密', note: '仅私密通道允许发送；未退回公共群' }));
       _release('私密通道拒收');
     }).catch(e => {
+      try{if(typeof opts.onReceipt==='function')opts.onReceipt({ok:false,status:'unknown',msg:String(e?.message||'通知结果待核对')});}catch{}
       // ⛔ fz 轮：同上，异常若是超时/断连也按「结果未知」处理，不退回群（否则重复 + 泄露）。
       //    代码级异常（如读不到配置）也不得公开发送。
       if (sendResultUnknown(e && e.message)) {
@@ -10407,8 +10411,8 @@ function riseProbOf(s, opt) {
   else if ((s.pct || 0) >= 5) p -= 4;
   if (o.up3) p += 6;                             // 连续 3 日上涨（趋势惯性）
   if (o.fund3d) p += 5;                          // 三日资金净流入
-  if (o.goodHit) p += 6;                         // 利好催化
-  if (o.badHit) p -= 12;                         // 利空压制
+  // A headline/summary classification is not a calibrated probability input.
+  // Negative clues remain in the original risk gates, not the numerical estimate.
   return Math.max(15, Math.min(92, Math.round(p)));
 }
 // 风险提示：把"追高前该知道的事"直接写进推送
@@ -10420,7 +10424,7 @@ function riskNoteOf(s, opt) {
   else if ((s.pct || 0) >= 5) r.push('涨幅偏高，注意回落');
   if (o.gap != null && o.gap > 0 && o.gap < 1) r.push(`距涨停仅${o.gap.toFixed(1)}%，封板不确定`);
   if ((s.mainPct || 0) < 0) r.push('主力净流出');
-  if (o.goodHit) r.push('✅ 利好关联');
+  if (o.goodHit) r.push('正面资讯线索（仅研究，不加分）');
   return r.length ? r.join(' | ') : '暂无特殊风险';
 }
 // 参考止损：现价 -3%，跌破即离场
@@ -11535,6 +11539,15 @@ function centerEvidenceEnabled(){
   catch{return false;}
 }
 let decisionEvidenceRuntime,decisionPlanObservationStore;
+// A bounded projection of receipts already produced by the original plan
+// observer. The risk GET never starts a second archive scan or execution path.
+let advancedOriginalPlanReceipts=null;
+function advancedOriginalPortfolioContext(now){
+  const current=advancedOriginalPlanReceipts;
+  if(!current||isReplica()||!isContinuousTrading()||current.day!==aShareCalendarDate(now)||
+    current.checkedAt>now||now-current.checkedAt>5000)return {plans:{pool:[],pre:[]},planChecks:{pool:{},pre:{}},classifications:{}};
+  return {plans:{pool:current.plans,pre:[]},planChecks:{pool:current.checks,pre:{}},classifications:{}};
+}
 function planObservationStore(){
   return decisionPlanObservationStore??=require('./src/core/paper-plan-observation-store').createPaperPlanObservationStore({
     root:path.join(shortlineResearchDir(),'plan-observations'),canWrite:()=>!isReplica()&&centerEvidenceEnabled()});
@@ -11559,6 +11572,42 @@ function executionChecklistCache(){
       action:'shortline',root:shortlineResearchDir(),book:'main',replica:isReplica()}),
     readBook:()=>_paperAuthority.pool.read(),readConditionalOrders:()=>paperConditionalStore().read(),
     readDailyReport:input=>executionReportStore().read(input)});
+}
+let _riskWorkbenchRuntime=null;
+function riskWorkbenchRuntime(){
+  return _riskWorkbenchRuntime??=require('./src/server/risk-workbench-runtime').createRiskWorkbenchRuntime({
+    root:process.env.V6_RISK_EVIDENCE_DIR||path.join(__dirname,'data','risk-evidence'),
+    isPrimary:()=>!isReplica(),session:now=>({...marketDisplaySession(now),continuous:isContinuousTrading()}),calendar:paperAuthorityCalendar,
+    readBook:key=>{if(!_paperAuthority[key])throw Error('原权威账户不可用');return _paperAuthority[key].read();},
+    readQuotes:()=>{
+      const quotes=paperAuthorityQuotes(),now=Date.now();
+      // Preserve unusable observations as evidence of gaps, without ever
+      // returning them to paperAuthorityQuotes or the execution price cache.
+      for(const row of [...Array.from(S.lastPx?.values?.()||[],tick=>tick?.wireQuote),...(S.stocks||[])]){
+        if(!row||!/^\d{6}$/.test(row.code||'')||quotes[row.code])continue;
+        quotes[row.code]={...row,symbol:row.code,provider:row.quoteSource,mode:row.quoteMode||row.mode};
+      }
+      for(const [code,check] of decisionCrossChecks){
+        const at=typeof check.checkedAt==='number'?check.checkedAt:Date.parse(check.checkedAt||'');
+        if(quotes[code]&&/conflict|ambiguous/.test(check.status||'')&&Number.isFinite(at)&&at<=now&&now-at<=15000)
+          quotes[code]={...quotes[code],sourceConflict:true};
+      }
+      return quotes;
+    },
+    readResearch:now=>require('./src/core/research-risk-center').readResearchRiskCenter({state:newsEvidenceVisibleState(),now,
+      holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')}),
+    readPlans:()=>require('./src/server/research-workspace-job').runWorkspaceJob({action:'shortline',root:shortlineResearchDir(),book:'main',replica:isReplica()}),
+    readObservations:input=>planObservationStore().read(input),readAutomaticPolicy:key=>PAPER_CFG[key],
+    readOriginalExitChecks:(key,plans,book,quotes,now)=>Object.fromEntries([...plans,...Object.keys(book?.account?.positions||{}).map(code=>({id:code,code}))].map(plan=>{
+      const quote=quotes[plan.code];
+      const reason=book?.legacy?.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
+      return [plan.id,{allowed:reason?false:quote?true:null,reason:reason||'原账户启用及原跌停巡检；还须核对批次和当前报价',checkedAt:now,quoteAt:quote?.quoteAt??null}];
+    })),
+    readMarket:now=>{const current=marketDisplaySession(now),day=require('./src/core/limit-reason-evidence').normalizeDay(current.day);
+      return {conflicts:[...decisionCrossChecks.values()],classificationSnapshot:dabankeReview.summary(day,current.trading?'盘中':'收盘')};},
+    planEnabled:centerEvidenceEnabled,privateReady:privReady,sendPrivate:(message,options)=>pushAll(message,false,options)
+  });
 }
 let _decisionFeedbackRuntime=null,_approvedFactorCache=null;
 function decisionFeedbackRuntime(){
@@ -11607,34 +11656,25 @@ function centerEvidenceRuntime(){
           account,policy,equity,quote,book,authoritative:decisions.cards.find(card=>card.code===plan.code&&card.day===plan.intendedDate)
         },{sealedUp,heldCount:heldCodes({...PAPER,pool:account}).length,monitorCapacity:MONITOR_CAPACITY,lot:paperLotOf(plan.code),
           feeFor:(side,amount)=>require('./src/core/trading-fees').tradingFees({side,quantity:1,price:amount,tradeDate:aShareCalendarDate(now),
-            policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total});
+            policy:book.feePolicy||{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},schedules:book.feeSchedules||null}).total,
+          previewAccount:input=>_paperAuthority.pool.previewAutomaticEntry({...input,valuationQuotes:quotes})});
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
+      advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
+        checks:Object.fromEntries(activePlans.slice(0,20).map(plan=>[plan.id,entryEligibilityByPlan[plan.id]]))};
       return {book,quotes,calendar:paperAuthorityCalendar,entryEligibilityByPlan,exitEligibilityByPlan,now};
     },
     observe:input=>{
       const result=require('./src/core/paper-plan-observer').observePaperPlans(input);
       // This projection must never block original observation persistence.
       try{if(typeof _paperExecutionChecklistCache!=='undefined')_paperExecutionChecklistCache?.observe(result);}catch{}
+      try{riskWorkbenchRuntime().observePlans(result);}catch{}
       return result;
     },store:planObservationStore(),
     privateReady:privReady,
     sendPrivate:alert=>{
-      const label={entry:'进入计划买入区间',stop:'触及计划止损位',target:'触及计划目标价'}[alert.kind];
-      const beforeSend=()=>{
-        const now=Date.now(),session=marketDisplaySession(now);
-        return !isReplica()&&centerEvidenceEnabled()&&privReady()&&label&&
-          Number.isSafeInteger(alert.quoteAt)&&alert.quoteAt<=now&&now-alert.quoteAt<=15000&&
-          require('./src/core/limit-reason-evidence').normalizeDay(session.day)===alert.day&&isContinuousTrading()
-          ?{ok:true}:{ok:false,why:'计划条件观察的实例、启用状态、交易时段或原始报价已失效'};
-      };
-      if(!beforeSend().ok)return false;
-      const title=alert.kind!=='entry'&&alert.entryEventId?'持仓风控·计划条件观察':'计划条件观察';
-      return pushAll(`═══ ${title} ═══\n${alert.name||alert.code}(${alert.code}) · ${label}\n`+
-        `原始报价 ${alert.price} 元 · ${alert.source} · ${new Date(alert.quoteAt).toISOString()}\n`+
-        `${alert.reason}\n此消息仅记录条件观察，成交以原账本为准；原账户成交与退出门禁继续生效。`,false,
-        {private:true,sseEdit:true,beforeSend,signalRefs:[{code:alert.code,type:'plan-'+alert.kind,ts:alert.quoteAt,signalId:alert.id}]});
+      return riskWorkbenchRuntime().sendPlanAlert(alert);
     }
   });
 }
@@ -15792,7 +15832,7 @@ async function refreshNews() {
     S.news.bad = S.news.badAll.slice(0, 40);
     S.news.good = S.news.goodAll.slice(0, 40);
     S.news.badCodes = new Set(S.news.badAll.flatMap(x => x.codes));
-    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 利好关联股（推送门槛降低=加推）
+    S.news.goodCodes = new Set(S.news.goodAll.flatMap(x => x.codes)); // 正面关联线索仅供研究
     S.news.badSectors = new Set(S.news.badAll.flatMap(x => x.sectors));
     S.news.time = new Date().toLocaleTimeString('zh-CN');
     // 利好消息推送：新出现且带A股代码的利好聚合推送（每条只推一次）
@@ -17005,7 +17045,7 @@ function scanYiEr() {
     const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
     const _mainPct = snap ? (snap.mainPct || 0) : 0;
     if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-    if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 3; why.push('利好催化'); }
+    // Positive news classification does not change the probability estimate.
     // ⛔ 主线强度接入（2026-10-08 重构）：主线强则票强，主线弱则个体难独活
     //    按主线聚合统计，不再被「电池/电池技术/储能概念/锂电池概念」多个板块名拆散
     const secStrength = themeStrengthOf(z);
@@ -17200,7 +17240,7 @@ function scanLianbanRelay() {
       const _mainInflow = snap ? (snap.mainInflow || 0) : 0;
       const _mainPct = snap ? (snap.mainPct || 0) : 0;
       if (snap && _mainPct > 0) { prob += 2; why.push('主力正向'); }
-      if (S.news && S.news.goodCodes && newsSupportsCode(z.code)) { prob += 2; why.push('利好'); }
+      // Positive news classification does not change the probability estimate.
       if (level >= 3 && maxLb < 7) { prob -= 10; why.push('高度不足·谨慎'); }
       // ⛔ 主线强度接入（2026-10-08 重构）：按主线聚合，不再被多个板块名拆散
       const secStrength = themeStrengthOf(z);
@@ -19648,6 +19688,7 @@ const _httpBootstrap = createDashboardServer({
       setInterval(()=>{void runPaperConditionalOrders().catch(()=>console.error('[paper-conditions] 原条件意图未完成校验，保留原账户并等待下轮'));},5000).unref();
       setInterval(()=>{void decisionBackground().tick().catch(()=>console.error('[decision-research] 采集未完成，原证据保留'));},60000).unref();
       setInterval(()=>{void centerEvidenceRuntime().tick().catch(()=>{});},5000).unref();
+      setInterval(()=>{void riskWorkbenchRuntime().tick().catch(()=>{});},5000).unref();
       setInterval(()=>{void executionChecklistCache().tick().catch(()=>{});void executionReportRuntime().tick().catch(()=>{});},5000).unref();
       setInterval(()=>{void approvedFactorCache().tick().catch(()=>{});void decisionFeedbackRuntime().tick().catch(()=>{});},5000).unref();
       const runShortlineClose=require('./src/research/shortline-close-runner').createShortlineCloseRunner({
@@ -21199,7 +21240,7 @@ function handle(req, res, u, body) {
       }
     } catch {}
     return json(res, { ok: true, replica: isReplica(), count: PUSH_LOG.length, sentToday: _sentToday,
-      shown: Math.min(_log.length, _n), log: _log.slice(0, _n), gov: pushGovStat() });
+      shown: Math.min(_log.length, _n), log: _log.slice(0, _n).map(require('./src/core/notification-delivery-view').projectPushLogDelivery), gov: pushGovStat() });
   }
   // 次日作战计划：GET 看计划，POST 立即重算（手动补发/验证用）
   if (p === '/api/nextplan' && (req.method === 'GET' || req.method === 'POST')) {
@@ -22754,6 +22795,20 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return json(res, { ok: true, role: hit.role, deviceToken: _dt, token: _tk });
   }
 
+  if(p==='/api/research/evolution'){
+    const paths={...stockObservationOptions(),manualLedgerRoot:manualResearchLedgerDir(),factorConfigFile:process.env.V6_FACTOR_AGENT_CONFIG_FILE||undefined};
+    return require('./src/server/evolution-http').evolutionHttp(req,res,{body,url:u,paths,
+      root:shortlineResearchDir(),workspaceRoot:paths.workspaceRoot,
+      authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica:()=>!researchPrimary(),
+      job:require('./src/server/research-workspace-job').runWorkspaceJob,
+      calendarFor:asOf=>{
+        const result=require('./src/core/research-calendar-source').readResearchCalendar({asOf,calendarFile:paths.calendarFile});
+        const day=new Date(asOf+8*3600000).toISOString().slice(0,10),knownAt=Date.parse(result.metadata?.knowledgeAvailableAt);
+        return {status:result.status,day,tradeDates:result.tradeDates,source:result.metadata?.source||null,from:result.metadata?.from,to:result.metadata?.to,
+          knownAt:Number.isSafeInteger(knownAt)?knownAt:null,isOpen:result.status==='available'?result.tradeDates.includes(day):null,
+          tradingDay:day,reason:result.reason||null};
+      }});
+  }
   if(p==='/api/research/shortline'){
     const options={body,url:u,root:process.env.V6_SHORTLINE_DIR||path.join(__dirname,'data','shortline-research'),
       authenticate:(bearer,request)=>roleOf(bearer,clientIp(request)),isReplica:()=>!researchPrimary(),
@@ -22765,6 +22820,15 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
   // Research endpoints never accept unbounded JSON; validate before expensive strategy evaluation.
   if (p.startsWith('/api/research/') && Buffer.byteLength(body || '', 'utf8') > 2 * 1024 * 1024)
     return json(res,{ok:false,error:'研究请求超过2MB限制'});
+  if(p==='/api/research/evidence-workbench'){
+    return require('./src/server/research-interaction-http').handle(req,res,u,body,{
+      authorize:()=>roleOf(sessionHeaderToken(req),clientIp(req))==='edit',
+      primary:()=>researchPrimary()&&!isReplica(),sameOrigin:()=>sameOriginOk(req),
+      roots:{root:stockObservationOptions().workspaceRoot,shortlineRoot:shortlineResearchDir(),
+        newsRoot:NEWS_EVIDENCE_ROOT,manualRoot:manualResearchLedgerDir(),
+        signalRoot:process.env.V6_SIGNAL_EVIDENCE_DIR||path.join(__dirname,'data','signal-evidence')},
+      job:require('./src/server/research-workspace-job').runWorkspaceJob});
+  }
   if(p==='/api/research/manual-loop'){
     const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     const bearer=sessionHeaderToken(req);
@@ -22785,7 +22849,13 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     const reply=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
     if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'私有研究记录需要编辑权限'},403);
     const options=stockObservationOptions(),workspace=require('./src/core/research-workspace'),root=workspace.rootOf(options);
-    const job=payload=>require('./src/server/research-workspace-job').runWorkspaceJob(payload).then(result=>{const {httpStatus,...value}=result;reply(value,httpStatus||(result.ok?200:422));}).catch(()=>reply({ok:false,error:'研究档案任务未完成，原档案保留'},503));
+    const job=payload=>require('./src/server/research-workspace-job').runWorkspaceJob(
+      {...payload,...(req.method==='POST'?{guardWorkspaceWrite:true}:{})},
+      {authorize:()=>isEditorReq(req,req.__tok)&&!isReplica()}
+    ).then(result=>{
+      if(!isEditorReq(req,req.__tok))return reply({ok:false,error:'研究授权已失效，请重新登录'},403);
+      const {httpStatus,...value}=result;reply(value,httpStatus||(result.ok?200:422));
+    }).catch(()=>reply({ok:false,error:'研究档案任务未完成，原档案保留'},503));
     if(req.method==='GET'){
       try{
         const allowed=['symbol','runId','compareId','screenId','asOf','offset','limit','status','minScore','export','token'];
@@ -22799,6 +22869,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       }catch{return reply({ok:false,error:'研究查询无效或私有档案校验失败，未改写历史'},422);}
     }
     if(req.method!=='POST')return reply({ok:false,error:'仅允许GET或POST'},405);
+    if(isReplica())return reply({ok:false,error:'副本实例禁止写入研究档案，请在原主实例保存'},409);
     if(Buffer.byteLength(body||'','utf8')>64*1024)return reply({ok:false,error:'研究操作超过64KiB'},413);
     let input;try{input=JSON.parse(body||'{}');if(!input||Array.isArray(input)||typeof input!=='object')throw Error();}catch{return reply({ok:false,error:'研究参数格式无效'},400);}
     if(input.action==='review'){
@@ -22850,21 +22921,29 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     if(!requireEditor(res,req.__tok,req))return;
     const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET；新闻证据导入使用显式本地CLI'});
-    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token'].includes(k)))return reply(400,{ok:false,error:'未知查询参数'});
+    if([...u.searchParams.keys()].some(k=>!['symbol','limit','token','asOf','offset'].includes(k)||u.searchParams.getAll(k).length!==1))return reply(400,{ok:false,error:'未知或重复查询参数'});
     try{
-      const result=require('./src/core/news-evidence-journal').query(NEWS_EVIDENCE_ROOT,{
-        symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50});
+      const journal=require('./src/core/news-evidence-journal'),now=Date.now();
+      const historical=u.searchParams.has('asOf')||u.searchParams.has('offset');
+      for(const key of ['limit','asOf','offset'])if(u.searchParams.has(key)&&!/^\d+$/.test(u.searchParams.get(key)))throw Error('新闻查询数值无效');
+      const query={symbol:u.searchParams.get('symbol')||null,limit:u.searchParams.has('limit')?Number(u.searchParams.get('limit')):50,now};
+      const result=historical?journal.queryAt(NEWS_EVIDENCE_ROOT,{...query,
+        asOf:u.searchParams.has('asOf')?Number(u.searchParams.get('asOf')):now,
+        offset:u.searchParams.has('offset')?Number(u.searchParams.get('offset')):0}):journal.query(NEWS_EVIDENCE_ROOT,query);
       return reply(200,{ok:true,result});
     }catch{return reply(422,{ok:false,status:'unknown',error:'新闻证据不可用、完整性校验失败或查询参数无效'});}
   }
   if(p==='/api/research/order-account'){
-    if(req.method!=='POST')return json(res,{ok:false,error:'仅允许POST'},405);
+    res.setHeader('Cache-Control','no-store');
+    const reply=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    if(req.method!=='POST')return reply(405,{ok:false,error:'仅允许POST'});
     if(!requireEditor(res,req.__tok,req))return;
     try{
       const b=JSON.parse(body||'{}');if(!/^[A-Za-z0-9_-]{1,40}$/.test(b.accountId||''))throw Error('账户ID无效');
-      if(isReplica()&&!['read','audit','risk-evidence-status','preview-risk-evidence-import'].includes(b.action))throw Error('副本实例禁止写入权威订单账户');
+      const readOnly=['read','audit','reconcile','risk-evidence-status','preview-risk-evidence-import'].includes(b.action);
+      if(isReplica()&&!readOnly)throw Error('副本实例禁止写入权威订单账户');
       const file=path.join(process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts'),b.accountId+'.json');
-      const service=require('./src/core/paper-application-service').createPaperApplicationService({file,calendar:paperAuthorityCalendar});
+      const service=require('./src/core/paper-application-service').createPaperApplicationService({file,calendar:paperAuthorityCalendar,readOnly});
       let result;
       if(b.action==='initialize')result=service.initialize(b.initialCash);
       else if(b.action==='submit')result=service.submit(b.order,{riskContext:b.riskContext});
@@ -22876,11 +22955,17 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       else if(b.action==='configure')result=service.configure(b.configuration);
       else if(b.action==='settle')result=service.settle(b.settlement,b.expectedRevision);
       else if(b.action==='audit')result=service.audit(b.pagination);
+      else if(b.action==='reconcile')result=service.reconcile();
+      else if(b.action==='set-defense'){
+        if(Buffer.byteLength(body||'','utf8')>4096)throw Error('防御审批请求过大');
+        const actor='editor-'+require('node:crypto').createHash('sha256').update(String(req.__tok||'original-local-editor')).digest('hex').slice(0,20);
+        result=service.setDefensiveControl({expectedRevision:b.expectedRevision,state:b.state,reason:b.reason,acknowledge:b.acknowledge,actor});
+      }
       else if(b.action==='cancel')result=service.cancel(b.orderId,b.eventId);
       else if(b.action==='read')result=service.read();
       else throw Error('未知账户操作');
-      return json(res,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
-    }catch(e){return json(res,{ok:false,error:String(e.message).slice(0,200)},400);}
+      return reply(200,{ok:true,paperOnly:true,verifiedLive:false,brokerConnected:false,result});
+    }catch(e){return reply(400,{ok:false,error:String(e.message).slice(0,200)});}
   }
   if (p==='/api/research/stock-observation-status') {
     if(!requireEditor(res,req.__tok,req))return;
@@ -22953,15 +23038,56 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
       return reply(200,{ok:true,...result});
     }catch(error){return reply(422,{ok:false,error:'冻结证据不存在、身份无效或完整性校验失败'});}
   }
+  if (p === '/api/risk-workbench' || p === '/api/risk-workbench/alerts') {
+    res.setHeader('Cache-Control','no-store');
+    if(!requireEditor(res,req.__tok,req))return;
+    const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
+    const accountId=u.searchParams.get('account')||'pool',code=u.searchParams.get('code');
+    if(!['pool','pre'].includes(accountId)||code!==null&&!/^\d{6}$/.test(code))return reply(400,{ok:false,error:'原账户或标的参数无效'});
+    // A durable device identity survives a short-lived session refresh without
+    // storing a reusable credential in the derived notification journal.
+    const actor=crypto.createHash('sha256').update('risk-viewer/'+String(_editSessionDevices.get(req.__tok)||req.__tok||'local-editor')).digest('hex');
+    if(p==='/api/risk-workbench'){
+      if(req.method!=='GET')return reply(405,{ok:false,error:'风险读取仅允许GET'});
+      return riskWorkbenchRuntime().read({accountId,code,actor}).then(result=>isEditorReq(req,req.__tok)?reply(200,{ok:true,result}):reply(403,{ok:false,locked:true,error:'授权已失效'}))
+        .catch(()=>reply(422,{ok:false,error:'风险证据不可用，当前风险未知'}));
+    }
+    if(req.method!=='POST')return reply(405,{ok:false,error:'提醒状态更新仅允许POST'});
+    if(isReplica())return reply(403,{ok:false,readOnly:true,error:'副本只读，原主实例负责提醒状态'});
+    let input;try{input=JSON.parse(body||'');}catch{return reply(400,{ok:false,error:'提醒状态参数无效'});}
+    if(!input||Array.isArray(input)||Object.keys(input).some(key=>!['action','accountId','accountEpoch','rootCauseId','classification','mutedUntil','expectedRevision'].includes(key)))
+      return reply(400,{ok:false,error:'仅允许查看状态或通知静音，不接受交易或接收端确认'});
+    return riskWorkbenchRuntime().update(input,{actor,authorized:()=>isEditorReq(req,req.__tok)}).then(result=>isEditorReq(req,req.__tok)?reply(200,{ok:true,result}):reply(403,{ok:false,locked:true,error:'授权已失效'}))
+      .catch(()=>reply(409,{ok:false,error:'提醒状态或账户期间已变化，请刷新后重试'}));
+  }
   if (p === '/api/research/risk-center') {
     res.setHeader('Cache-Control','no-store');
     if(!requireEditor(res,req.__tok,req))return;
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(req.method!=='GET')return reply(405,{ok:false,error:'仅允许GET'});
-    try{return reply(200,{ok:true,result:require('./src/core/research-risk-center').readResearchRiskCenter({
-      state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
-      agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')})});}
-    catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
+    try{
+      const result=require('./src/core/research-risk-center').readResearchRiskCenter({
+        governance:require('./src/core/research-governance-cache').read(),
+        state:newsEvidenceVisibleState(),now:Date.now(),holdingWatchFile:process.env.V6_MANUAL_HOLDING_WATCH_FILE||process.env.V6_HOLDING_WATCH_FILE||null,
+        agentDir:process.env.V6_FACTOR_AGENT_DIR||null,newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence')});
+      if(u.searchParams.get('advanced')!=='1')return reply(200,{ok:true,result});
+      // Add an optional read-only projection, using existing editor and role gates.
+      const requestAt=Date.now(),day=aShareCalendarDate(requestAt),replica=isReplica();
+      const portfolioContext=replica?{}:advancedOriginalPortfolioContext(requestAt);
+      const codes=[...new Set([...require('./src/core/monitor-capacity').heldCodes(PAPER),...(portfolioContext.plans?.pool||[]).map(plan=>plan.code)])].slice(0,220);
+      const quotes=replica?{}:require('./src/core/advanced-account-risk').selectAdvancedRiskQuotes({
+        codes,stocks:S.stocks,lastPx:S.lastPx,now:requestAt,limitFor:limitPctOfCode});
+      return require('./src/server/advanced-account-risk-job').runAdvancedAccountRiskJob({
+        root:path.resolve(process.env.V6_ORDER_ACCOUNTS_DIR||path.join(__dirname,'data','order-accounts')),
+        historyRoot:path.resolve(centerHistoryDir()),portfolioContext,
+        day,requestAt,replica,marketOpen:paperAuthorityCalendar.isOpen(day)===true,continuous:isContinuousTrading(),quotes})
+        .then(advancedAccounts=>{
+          if(!requireEditor(res,req.__tok,req))return;
+          // If the role changes while the read is in flight, discard private results.
+          result.advancedAccounts=isReplica()!==replica?{mode:'advanced-account-risk-readonly',status:'role-changed',accounts:[],canTrade:false,writesAccount:false}:advancedAccounts;
+          return reply(200,{ok:true,result});
+        }).catch(()=>reply(422,{ok:false,error:'账户风险证据不可用，原账本未修改'}));
+    }catch{return reply(422,{ok:false,error:'风险证据不可用，无法判断当前风险'});}
   }
   if (p === '/api/research/learning-runtime') {
     const reply=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
@@ -23649,6 +23775,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return require('./src/server/research-workspace-job').runWorkspaceJob({action:'intelligence-research',root:shortlineResearchDir(),
       historyRoot:centerHistoryDir(),book:'main',replica:isReplica(),day,now:Date.now(),quotes:Object.values(input.crossChecksByCode||{})}).then(result=>{
       if(!requireEditor(res,req.__tok,req))return;
+      require('./src/core/research-governance-cache').remember(result.ok===true?result.result:null);
       if(result.ok===true&&result.result?.feedback)result.result.feedback.automation=decisionFeedbackRuntime().status();
       return json(res,result,req);
     });
@@ -24109,6 +24236,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
           if(!saved.ok||!saved.result)throw Error(saved.error||'计划冻结回执尚未确认');
           if(!requireEditor(res,c.token,req))return;
           decisionEvidenceRuntime?.invalidate();
+          _riskWorkbenchRuntime?.invalidate();
           _paperExecutionChecklistCache?.invalidate();
           return json(res,{ok:true,plan:saved.result,reused:false,msg:'后端条件计划已冻结，尚未提交买入'});
         }catch(error){return json(res,{ok:false,error:'计划未准备：'+error.message});}})();

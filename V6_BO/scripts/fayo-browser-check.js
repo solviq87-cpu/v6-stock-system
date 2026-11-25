@@ -145,6 +145,11 @@ function respond(url,req,body){
    observations:[{name:'收盘价',value:12,unit:'元'}],systems:['十四条','八字口诀','GPT 五策略','Python 三轮'].map(label=>({label,known:2,total:4,support:[{label:'服务回包中的规则依据'}]})),
    research36:{evaluations:[],status:'测试观察已读取'},tradeDates:[tradeDate]}};
  }
+ if(p==='/api/research/evidence-workbench'&&url.searchParams.get('mode')==='replay'){
+  const asOf=Number(url.searchParams.get('asOf')),symbol=url.searchParams.get('symbol'),window=Number(url.searchParams.get('window')),flags={researchOnly:true,canTrade:false,canNotify:false,accountMutated:false,productionWeightsChanged:false},ref='a'.repeat(64),day=ms=>new Date(ms+28800000).toISOString().slice(0,10);
+  const rows=Array.from({length:window},(_,i)=>({date:day(asOf-(window-i-1)*86400000),stock:{value:i*.1,source:'synthetic-replay-fixture',knownAt:asOf,ref,kind:'daily'},sector:null,index:null,close:null,comparison:'partial'}));
+  return {ok:true,result:{protocol:'fayo-evidence-replay-v1',symbol,asOf,scope:'historical-readonly',rows,boards:[],missing:['合成验证：板块指数缺失'],markers:[{kind:'news',ref,at:asOf,knownAt:asOf,source:'synthetic-replay-fixture',detail:{title:'隔离合成新闻标记'},...flags}],...flags}};
+ }
  if(p==='/api/research/workspace')return {ok:true,result:{runs:[],total:0,items:[],selectedRun:null,preferences:{revision:0,value:{}},presets:[],timeline:[]}};
  if(p==='/api/learn-status')return {ok:true,status:{counts:{total:0,pending:0,matured:0},operation:{state:'idle'}}};
  if(p==='/api/research/learning-runtime')return {ok:true,result:{mode:'v6-learning-runtime-preflight',configuration:{status:'unconfigured'},overall:'unconfigured',current:{status:'unconfigured'},model:{status:'disabled'},lastRun:null}};
@@ -419,7 +424,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-3');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'integration-audit-20261126-2');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
@@ -732,6 +737,15 @@ const runChecks=async()=>{
    await drawer.getByRole('button',{name:'读取推送避险状态',exact:true}).click();
    await drawer.getByText(/当前利空命中/).waitFor();
    assert.match(await drawer.innerText(),/板块关联 合成能源/);
+   await drawer.locator('[data-detail-tab="replay"]').click();
+   const replayBefore=requests.length;
+   await drawer.getByRole('button',{name:'读取联动回放',exact:true}).click();
+   await drawer.getByRole('img',{name:'个股板块指数同期价格变动与事件时间轴'}).waitFor();
+   await drawer.getByRole('button',{name:/\d{4}-\d\d-\d\d 证据/}).click();
+   await drawer.getByText(/隔离合成新闻标记/).waitFor();
+   assert.match(await drawer.innerText(),/历史只读/);
+   assert.ok(requests.slice(replayBefore).some(r=>r.path==='/api/research/evidence-workbench'&&r.query.symbol==='600101'&&r.method==='GET'));
+   assert.ok(!requests.slice(replayBefore).some(r=>r.method==='POST'&&r.path==='/api/research/evidence-workbench'));
    await drawer.locator('[data-detail-tab="chart"]').click();
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');

@@ -66,7 +66,7 @@ function validatePrediction(input,prediction,now){
  });
  return {model,forecasts};
 }
-function freezeForecast(workspace,events,request,{now=Date.now()}={}){
+function freezeForecast(workspace,events,request,{now=Date.now(),beforeCommit}={}){
  if(!fields(request,['action','runId','requestId','prediction'])||request.action!=='freeze-forecast'||!sha(request.runId)||typeof request.requestId!=='string'||!/^[\w-]{8,100}$/.test(request.requestId))fail('REQUEST');
  const fingerprint=S.digest({runId:request.runId,prediction:request.prediction}),root=rootFor(workspace);
  let old;try{old=S.readEvents(root).find(e=>e.requestId===request.requestId);}catch{fail('ARCHIVE');}
@@ -78,7 +78,14 @@ function freezeForecast(workspace,events,request,{now=Date.now()}={}){
   generatedAt:request.prediction.generatedAt,freezeDeadline:input.freezeDeadline,requestFingerprint:fingerprint,
   provenance:'explicit-import-unverified',contextRows:input.bars.length,lastClose:input.bars.at(-1).close,tradeDates:input.tradeDates,
   inputAvailability:'recorded-closed-prices-only',modelExecutionVerified:false,costReportsVerified:false};
- let saved;try{saved=S.appendEvent(root,'analysis',data,{requestId:request.requestId,now});}catch{fail('ARCHIVE');}
+ const beforeForecastCommit=beforeCommit===undefined?undefined:()=>{
+  const allowed=typeof beforeCommit==='function'&&beforeCommit()===true;
+  // A worker authorization handshake or disk sync can cross the import deadline.
+  if(allowed&&Date.now()>=input.freezeDeadline)fail('LATE');
+  return allowed;
+ };
+ let saved;try{saved=S.appendEvent(root,'analysis',data,{requestId:request.requestId,now,beforeCommit:beforeForecastCommit});}
+ catch(error){if(['WORKSPACE_AUTHORIZATION','FORECAST_LATE'].includes(error?.code))throw error;fail('ARCHIVE');}
  return {ok:true,forecastId:saved.hash,reused:saved.reused,...S.FLAGS};
 }
 function observations(events,asOf){

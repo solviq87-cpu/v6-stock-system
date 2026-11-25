@@ -121,4 +121,4 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
   }
   return Object.freeze({ transact, read });
 }
-module.exports = { createPaperAccountLedger };
+module.exports = { createPaperAccountLedger, validateAccount };

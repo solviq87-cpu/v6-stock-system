@@ -29,7 +29,10 @@ function cleanup(directory) {
 function fixture(t) {
   // /tmp in some shared test environments contains another worktree's .git;
   // fixtures must actually live outside a worktree, just like deployments.
-  const root = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || '/var/tmp', 'managed-runtime-'));
+  // Resolve platform temp aliases before creating the fixture so its valid
+  // release uses a canonical path; explicit symlink rejection stays tested.
+  const temporaryRoot = fs.realpathSync(process.env.RUNNER_TEMP || '/var/tmp');
+  const root = fs.mkdtempSync(path.join(temporaryRoot, 'managed-runtime-'));
   t.after(() => { cleanup(root); fs.rmSync(root, { recursive: true, force: true }); });
   const releaseDir = path.join(root, 'releases', SHA), manifestFile = path.join(releaseDir, 'manifest.json');
   const configFile = path.join(root, 'private-config.json'), markerFile = path.join(root, 'publisher-loaded');

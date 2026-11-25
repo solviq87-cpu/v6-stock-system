@@ -1,16 +1,24 @@
 'use strict';
 // Observation only: reaching a plan condition does not submit or reserve an order.
 // Reuse the actual plan adapter up to its original buy callback, then describe
-// only default-account windows whose remaining legacy gates can be evidenced.
+// windows whose remaining original account gates can be evidenced.
 const {executeDecisionPlan} = require('./paper-decision-plan');
 const {createFillEvidence} = require('./paper-fill-evidence');
+const {isAutomaticEntryPreview} = require('./paper-application-service');
+const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot, feeFor} = {}) {
+function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot, feeFor, previewAccount} = {}) {
   const {now, quote, book, account, policy, equity, plan} = input;
   const result = (allowed, reason, extra = {}) => ({allowed, reason, checkedAt: now,
-    quoteAt: quote?.quoteAt ?? null, accountRevision: book?.revision ?? null,
-    scope: 'original-paper-account-observation', ...extra});
+    quoteAt: quote?.quoteAt ?? null,quotePrice:quote?.price??null,quoteSource:quote?.quoteSource??null,accountRevision: book?.revision ?? null,
+    planId:plan?.id??null,decisionId:plan?.decisionId??null,
+    maxPositionPct:Number.isFinite(plan?.maxPosition)&&Number.isFinite(input.authoritative?.plan?.positionPct)?Math.min(plan.maxPosition,input.authoritative.plan.positionPct):null,
+    scope: 'original-paper-account-observation',canTrade:false,writesAccount:false,reservesCash:false,...extra});
   if (!book || typeof feeFor !== 'function') return result(null, '原账户预检资料尚未齐备');
+  try {
+    if(require('./account-safety-state').defensiveStatus(book).state==='restricted')
+      return result(false,'原账户防御状态限制新增风险，尚未取得明确解除审批');
+  } catch { return result(null,'原账户防御状态完整性尚未核验'); }
   const reachedBuy = Symbol('original-plan-adapter-accepted');
   try {
     const checked = executeDecisionPlan({...input, readBook: () => book, buy() { throw reachedBuy; }});
@@ -31,9 +39,9 @@ function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot
       !Number.isFinite(quote.upperLimit) || !Number.isFinite(quote.lowerLimit) ||
       quote.price >= quote.upperLimit || quote.price <= quote.lowerLimit)
     return result(false, '原模拟成交行情不完整、停牌或触及涨跌停限制');
-  // A configured unified policy needs the original atomic order transaction's
-  // evidence resolution. A quote observer cannot certify it by copying a subset.
-  if (book.riskPolicy) return result(null, '统一风控已启用；仅价格触发，未取得完整原事务预检回执');
+  // A policy cannot be certified from copied fields. Only the original service
+  // can produce the read-only receipt consumed after all existing plan gates.
+  if (book.riskPolicy && typeof previewAccount !== 'function') return result(null, '统一风控已启用；仅价格触发，未取得完整原事务预检回执');
   if (Object.values(book.orders || {}).some(value => value?.state?.terminal !== true))
     return result(null, '原账户存在未终结委托，不能仅凭报价确认可用资金');
   try {
@@ -50,8 +58,22 @@ function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot
       return result(false, '超过原模拟账户成交量参与率');
     createFillEvidence(quote, {executionAt: now, executionKind: 'automatic-paper',
       symbol: plan.code, tradeDate: input.day, price: quote.price});
-    return result(true, '同一原始报价满足当前计划及原默认模拟账户可核对约束；不代表真实盘口可成交',
-      {quantity, fee, accountFingerprint: book.fingerprint || null});
+    let accountPreview=null;
+    if(book.riskPolicy){
+      accountPreview=previewAccount({expectedRevision:book.revision,expectedFingerprint:book.fingerprint,
+        symbol:plan.code,quantity,price:quote.price,tradeDate:input.day,fee,quote});
+      if(!isAutomaticEntryPreview(accountPreview)||accountPreview.scope!=='original-automatic-entry-preview-v1'||
+        accountPreview.accountRevision!==book.revision||accountPreview.accountFingerprint!==book.fingerprint||
+        accountPreview.symbol!==plan.code||accountPreview.tradeDate!==input.day||accountPreview.quantity!==quantity||
+        accountPreview.price!==quote.price||accountPreview.fee!==fee||accountPreview.quoteFingerprint!==digest(quote)||
+        accountPreview.policyFingerprint!==digest(book.riskPolicy)||!Number.isSafeInteger(accountPreview.checkedAt)||
+        Math.abs(accountPreview.checkedAt-now)>5000||accountPreview.canTrade!==false||accountPreview.writesAccount!==false||accountPreview.reservesCash!==false)
+        return result(null,'未取得与本次原账户和报价一致的只读预检回执');
+      if(accountPreview.allowed!==true)return result(accountPreview.allowed,accountPreview.reason,
+        {quantity,fee,accountFingerprint:book.fingerprint,accountPreview});
+    }
+    return result(true, '同一原始报价满足当前计划及原模拟账户可核对约束；不代表真实盘口可成交',
+      {quantity, fee, accountFingerprint: book.fingerprint || null,...(accountPreview?{accountPreview}:{})});
   } catch {
     return result(null, '原费用或报价血缘未完成核验，不能确认可成交窗口');
   }

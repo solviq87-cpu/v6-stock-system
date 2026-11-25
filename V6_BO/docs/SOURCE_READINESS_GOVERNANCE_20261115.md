@@ -32,3 +32,9 @@ node --test tests/data-source-readiness-audit.test.js
 - 两张锁定 PC/手机主页、四体系策略、真实账户、资金与授权、15秒执行报价门禁、唯一WorkBuddy静态发布者均不更改。
 - `dev` 目前尚未启用 GitHub 分支保护（`protected=false`）；仓库 CI 能运行不等于能强制禁止未测试直接提交。须由仓库管理设置 GitHub ruleset / required checks；本轮没有权限通过GitHub connector修改该仓库设置，绝不伪称已开通。
 - 有任何专项/全量 CI 失败不得合并。回滚用 PR 关闭或 Git revert，禁止旧 ZIP 覆盖已有工程。
+
+## 2026-11-26 修正：报告行与实际尝试分开
+
+以上为 2026-11-15 历史记录。当前 schema 2 已修复休市 `not-requested` 行被算作观察的错误：`reportedExactRoutes` 计报告行，`attemptedExactRoutes` / `observedExactRoutes` 只计实际尝试，单次合法报价与审核时仍新鲜的报价分别计数。持续可用、授权和生产启用缺证据时保持 `unknown` / `null`，不是否定或安全结论。原 120 条保留，新增 TickFlow/AShareAPI 两条只登记候选，当前总数 122；任何数量均不代表连接或授权数量。
+
+仓库根与 `V6_BO` 均提供 `npm run data:sources:readiness --silent [-- /private/one-shot.json]`，复用原离线 CLI，不采集行情。接口改名兼容、精确统计定义、定向验证、真实运行限制及恢复见 [本轮来源真实性复核](SOURCE_TRUTH_REVIEW_20261126.md)。

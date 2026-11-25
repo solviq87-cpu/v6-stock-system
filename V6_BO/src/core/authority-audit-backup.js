@@ -1,6 +1,6 @@
 'use strict';
 // An offline consistent account + rejection-evidence bundle, not whole-site DR.
-const fs=require('node:fs'),path=require('node:path');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {withAccountLock}=require('./account-process-lock');
 const {createPaperApplicationService}=require('./paper-application-service');
 const {createRejectionAudit}=require('./rejection-audit');
@@ -9,13 +9,27 @@ const META='V6_AUTHORITY_AUDIT_BUNDLE.json';
 const safe=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.-]{0,126}$/.test(x)&&x!==META&&x!=='manifest.json';
 function noLinks(target){let current=path.resolve(target);while(true){try{if(fs.lstatSync(current).isSymbolicLink())throw Error('备份/恢复路径不得包含符号链接');}catch(e){if(e.code!=='ENOENT')throw e;}const parent=path.dirname(current);if(parent===current)break;current=parent;}}
 function syncDirectory(dir){const fd=fs.openSync(dir,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
-function backupAccountWithAudit(accountFile,destination){
+function captureFailure(code){const error=Error(code);error.code=code;throw error;}
+function backupAccountWithAudit(accountFile,destination,{maxTotalBytes=256*1024*1024,expectedFiles}={}){
+ if(!Number.isSafeInteger(maxTotalBytes)||maxTotalBytes<0||maxTotalBytes>256*1024*1024)captureFailure('INVALID_BACKUP_CAPTURE_OPTIONS');
+ if(expectedFiles!==undefined&&(!Array.isArray(expectedFiles)||!expectedFiles.length||expectedFiles.some(row=>!row||!safe(row.name)||!Number.isSafeInteger(row.size)||row.size<0||typeof row.sha256!=='string'||!/^[a-f0-9]{64}$/.test(row.sha256))||new Set(expectedFiles.map(row=>row.name)).size!==expectedFiles.length))captureFailure('INVALID_BACKUP_CAPTURE_OPTIONS');
  accountFile=path.resolve(accountFile);destination=path.resolve(destination);noLinks(accountFile);noLinks(destination);const name=path.basename(accountFile),auditFile=accountFile+'.audit.json';if(!safe(name)||!safe(path.basename(auditFile)))throw Error('账户备份文件名无效');
  return withAccountLock(accountFile,()=>withAccountLock(auditFile,()=>{
+  if(expectedFiles){
+   if(!expectedFiles.some(row=>row.name===name)||fs.existsSync(auditFile)&&!expectedFiles.some(row=>row.name===path.basename(auditFile)))captureFailure('BACKUP_EXPECTED_FILES_MISMATCH');
+   // The preflight inventory is checked under both original writer locks,
+   // before the account/audit readers can consume a grown source file.
+   for(const row of expectedFiles){
+    const file=row.name===name?accountFile:row.name===path.basename(auditFile)?auditFile:path.join(auditFile+'.segments',row.name);
+    noLinks(file);let stat;try{stat=fs.lstatSync(file);}catch{captureFailure('BACKUP_SOURCE_CHANGED');}
+    if(!stat.isFile()||stat.size!==row.size)captureFailure('BACKUP_SOURCE_CHANGED');
+   }
+  }
   createPaperApplicationService({file:accountFile}).read();const state=createRejectionAudit(auditFile).storageFiles();for(const f of state.files)noLinks(f);
-  const files=[accountFile,...state.files];const totalBytes=files.reduce((n,f)=>n+fs.statSync(f).size,0);if(totalBytes>256*1024*1024)throw Error('账户审计快照超过256MiB本地工具上限');
+  const files=[accountFile,...state.files];const totalBytes=files.reduce((n,f)=>n+fs.statSync(f).size,0);if(totalBytes>maxTotalBytes)captureFailure('BACKUP_BYTE_BUDGET_EXCEEDED');
+  if(expectedFiles&&JSON.stringify(files.map(f=>path.basename(f)).sort())!==JSON.stringify(expectedFiles.map(row=>row.name).sort()))captureFailure('BACKUP_EXPECTED_FILES_MISMATCH');
   const parent=path.dirname(destination);fs.mkdirSync(parent,{recursive:true});noLinks(parent);const temp=fs.mkdtempSync(path.join(parent,'.audit-bundle-'));
-  try{const meta={schemaVersion:1,kind:'v6-authority-audit',accountName:name,auditName:path.basename(auditFile),auditPresent:state.files.includes(auditFile),archiveNames:state.files.filter(f=>f!==auditFile).map(f=>path.basename(f)),total:state.total,head:state.head};const metadata=path.join(temp,META);fs.writeFileSync(metadata,JSON.stringify(meta)+'\n',{mode:0o600});const manifest=recovery.backup([...files,metadata],destination);return {verified:true,files:manifest.files.length,auditEvents:state.total,auditHead:state.head};}
+  try{const meta={schemaVersion:1,kind:'v6-authority-audit',accountName:name,auditName:path.basename(auditFile),auditPresent:state.files.includes(auditFile),archiveNames:state.files.filter(f=>f!==auditFile).map(f=>path.basename(f)),total:state.total,head:state.head};const metadata=path.join(temp,META),bytes=Buffer.from(JSON.stringify(meta)+'\n');if(bytes.length>1024*1024)captureFailure('BACKUP_METADATA_OVER_BUDGET');fs.writeFileSync(metadata,bytes,{mode:0o600});const manifest=recovery.backup([...files,metadata],destination,{maxTotalBytes:maxTotalBytes+bytes.length,...(expectedFiles?{expectedFiles:[...expectedFiles,{name:META,size:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex')}]}:{})});return {verified:true,files:manifest.files.length,auditEvents:state.total,auditHead:state.head};}
   finally{fs.rmSync(temp,{recursive:true,force:true});}
  }));
 }

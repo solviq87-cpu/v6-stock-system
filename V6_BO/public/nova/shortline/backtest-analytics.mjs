@@ -15,15 +15,30 @@ function keys(s){
   return [...(s.strategies||[s.strategy]).filter(Boolean).map(n=>'战法 · '+n),...(s.analysisFactors||s.factors||[]).map(n=>'因子 · '+n)];
 }
 export function analysisSelectors(rows){return [...new Set(rows.flatMap(keys))].sort((a,b)=>a.localeCompare(b,'zh-CN'));}
-function studyCohort(signals,{selector='',start='',end,asOf=end,horizon=5,quality='all',sampleSet='all'}){
-  if(!end || !windows.has(horizon)||!asOf||start>end)return [];
-  const cutoff=asOf.length===10?asOf+' 23:59':asOf;
-  const selected=[];
+const validDate=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
+const point=x=>{
+  if(typeof x!=='string'||!validDate(x.slice(0,10)))return null;
+  const text=x.length===10?x+'T23:59:59+08:00':/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?$/.test(x)?x.replace(' ','T')+(x.length===16?':00':'')+'+08:00':x;
+  const value=Date.parse(text);return Number.isFinite(value)?value:null;
+};
+function studyCohort(signals,{selector='',start='',end,asOf=end,horizon=5,quality='standard',sampleSet='real'}){
+  if(!Array.isArray(signals)||signals.length>100000)throw Error('纸面统计样本需为有界数组');
+  if(!validDate(end)||start&&!validDate(start)||!windows.has(horizon)||point(asOf)===null||start>end)return [];
+  const cutoff=point(asOf),selected=[],seen=new Map(),conflicts=new Set();
   for(const s of signals){
+    if(!s||typeof s.id!=='string'||!s.id)continue;
+    const key=[s.id,s.code,s.decisionAt||s.date,horizon].join('|'),signature=JSON.stringify(s);
+    if(seen.has(key)&&seen.get(key)!==signature)conflicts.add(key);else seen.set(key,signature);
+  }
+  seen.clear();
+  for(const s of signals){
+    if(!s||typeof s.id!=='string'||!s.id||typeof s.date!=='string'||!validDate(s.date.slice(0,10))||typeof s.code!=='string')continue;
+    const key=[s.id,s.code,s.decisionAt||s.date,horizon].join('|');
+    if(conflicts.has(key)||seen.has(key))continue;seen.set(key,true);
     const day=s.date.slice(0,10),decision=s.decisionAt||(s.date.length===10?s.date+' 15:00':s.date);
-    if(day<start||day>end||decision>cutoff||decision.slice(0,10)>end||reasons.has(s.type)||selector&&!keys(s).includes(selector))continue;
+    if(day<start||day>end||point(decision)===null||point(decision)>cutoff||decision.slice(0,10)>end||reasons.has(s.type)||selector&&!keys(s).includes(selector))continue;
     const o=s.outcomes?.[horizon];
-    if(!finite(o?.close)||o.end>end||!o.availableAt||o.availableAt>cutoff||!o.entry||o.entry<=decision.slice(0,10))continue;
+    if(!finite(o?.close)||o.close< -100||!validDate(o.end)||o.end>end||!validDate(o.entry)||o.end<o.entry||point(o.availableAt)===null||point(o.availableAt)>cutoff||point(o.availableAt)<point(o.end+' 15:00')||o.entry<=decision.slice(0,10))continue;
     const flags={blackSwan:s.blackSwan||o.blackSwan,extreme:s.extreme||o.extreme,sampleSet:isTestSample(s)||isTestSample(o)?'test':'real'};
     if(!sampleMatches(flags,quality)||sampleSet!=='all'&&sampleSet!==flags.sampleSet)continue;
     selected.push({id:s.id,code:s.code,decision,entry:o.entry,exit:o.end,gross:o.close});
@@ -37,7 +52,7 @@ function netAfterCost(gross,costBps,slipBps){
   const fee=costBps/20000,slip=slipBps/10000;
   return ((1+gross/100)*(1-fee)*(1-slip)/((1+fee)*(1+slip))-1)*100;
 }
-export function returnStudy(signals,options){
+export function returnStudy(signals,options={}){
   const {costBps=12,slipBps=5}=options;
   if(![costBps,slipBps].every(x=>finite(x)&&x>=0&&x<=1000))throw Error('费用与滑点需为 0 至 1000 个基点');
   const cohort=studyCohort(signals,options).sort((a,b)=>a.entry.localeCompare(b.entry)||a.decision.localeCompare(b.decision)||a.code.localeCompare(b.code)||a.id.localeCompare(b.id));
@@ -55,8 +70,18 @@ export function returnStudy(signals,options){
     free=r.exit;settled++;
   }
   const gross=mean(cohort.map(r=>r.gross)),net=mean(returns),n=cohort.length;
-  return {n,settled,gross,net,friction:n?gross-net:null,winRate:n?100*wins/n:null,
-    totalReturn:settled?(funds-1)*100:null,maxDrawdown:settled?maxDrawdown:null,bins,costBps,slipBps};
+  const gains=returns.filter(x=>x>1e-10),losses=returns.filter(x=>x< -1e-10);
+  const averageWin=mean(gains),averageLoss=mean(losses);
+  const tailCount=n?Math.ceil(n*.05):0;
+  // Conditional signal-level estimates, not fills or portfolio statistics.
+  const expectation={averageWin,averageLoss,payoff:averageWin!==null&&averageLoss!==null?averageWin/Math.abs(averageLoss):null,
+    netExpectancy:net,tailMean5Pct:tailCount?mean([...returns].sort((x,y)=>x-y).slice(0,tailCount)):null,tailCount,
+    distinctEntryDays:new Set(cohort.map(r=>r.entry)).size,lossCount:losses.length,flatCount:n-gains.length-losses.length};
+  return {n,settled,gross,net,friction:n?gross-net:null,winRate:n?100*wins/n:null,expectation,
+    totalReturn:settled&&finite(funds)?(funds-1)*100:null,maxDrawdown:settled&&finite(funds)?maxDrawdown:null,bins,costBps,slipBps,
+    researchOnly:true,canTrade:false,source:'mature-signal-paper-labels',executionVerified:false,
+    settledMeaning:'non-overlapping-modeled-label-windows-not-account-fills',costConvention:'round-trip-fee-bps-and-per-side-slippage',
+    limitations:['纸面持有窗口不是已成交或已结算交易','未知、未成熟、冲突重复和不可核对日期均不补零','默认隔离演示、黑天鹅与不可复制极端样本']};
 }
 export function stressStudies(signals,options,selectors){
   const selected=[...new Set(selectors)];
