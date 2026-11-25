@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {buildAccountEquityEvidence}=require('../src/core/account-equity-evidence');
 const {buildPortfolioStressEvidence:stress,DEFAULT_ASSUMPTIONS}=require('../src/core/portfolio-stress-evidence');
-const {fixture,BASE}=require('./helpers/account-equity-fixture');
+const {fixture,BASE,sealBook}=require('./helpers/account-equity-fixture');
 function prepare(t) {
   const f=fixture(t);f.buy('600000',100,10);f.buy('600001',100,20);
   const equity=buildAccountEquityEvidence({book:f.service.read(),accountId:'pool',quotes:{600000:f.quote(),600001:f.quote('600001',20)},now:f.now});
@@ -68,12 +68,38 @@ test('stale current valuations and missing classification never display safe or 
   assert.equal(result.classificationCoverage.positionPct,0);
 });
 
+test('a recent equity report never refreshes the original quote lifetime for current stress estimates',t=>{
+  const {f,classification}=prepare(t);
+  const equity=buildAccountEquityEvidence({book:f.service.read(),accountId:'pool',now:f.now,quotes:{
+    600000:f.quote('600000',10,{quoteAt:f.now-15000}),600001:f.quote('600001',20,{quoteAt:f.now-15000})}});
+  assert.equal(equity.status,'complete');
+  const classifications=[classification('600000',['AI']),classification('600001',['AI'])];
+  const edge=stress({equity,now:f.now,classifications});assert.equal(edge.current,true);
+  const expired=stress({equity,now:f.now+1,classifications});
+  assert.equal(expired.current,false);assert.equal(expired.status,'partial');
+  assert.ok(expired.scenarios.every(row=>row.estimatedLoss===null));
+  assert.equal(expired.scenarios.find(row=>row.id==='opening-gap').coveredLossEstimate,300);
+  assert.equal(expired.asOf,equity.observedAt);assert.equal(expired.equityEvidenceId,equity.fingerprint);
+});
+
 test('partial price coverage preserves observed loss while total remains unknown',t=>{
   const {f,classification}=prepare(t);
   const equity=buildAccountEquityEvidence({book:f.service.read(),accountId:'pool',quotes:{600000:f.quote()},now:f.now});
   const result=stress({equity,now:f.now,classifications:[classification('600000',['AI']),classification('600001',['AI'])]});
   const gap=result.scenarios.find(s=>s.id==='opening-gap');assert.equal(gap.estimatedLoss,null);assert.equal(gap.coveredLossEstimate,100);
   assert.deepEqual(gap.missingSymbols,['600001']);assert.equal(result.classificationCoverage.marketValuePct,null);
+});
+
+test('conflicting original position quantities cannot become a numeric complete scenario despite a fresh quote',t=>{
+  const {f,classification}=prepare(t),book=f.service.read();
+  book.account.positions['600000'].lots[0].quantity=200;sealBook(book);
+  const equity=buildAccountEquityEvidence({book,accountId:'pool',now:f.now,quotes:{600000:f.quote(),600001:f.quote('600001',20)}});
+  assert.equal(equity.equity,null);assert.equal(equity.positions[0].marketValue,null);
+  assert.equal(equity.positions[0].evidenceStatus,'unknown');assert.equal(equity.coverage.pricedPositions,1);
+  const result=stress({equity,now:f.now,classifications:[classification('600000',['AI']),classification('600001',['AI'])]});
+  const gap=result.scenarios.find(s=>s.id==='opening-gap');
+  assert.equal(gap.estimatedLoss,null);assert.equal(gap.coveredLossEstimate,200);
+  assert.ok(gap.missingSymbols.includes('600000'));
 });
 
 test('fixed research assumptions have version and source; changed thresholds cannot reuse the version',t=>{

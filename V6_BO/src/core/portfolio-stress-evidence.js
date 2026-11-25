@@ -66,9 +66,11 @@ function buildPortfolioStressEvidence({equity,classifications=[],now=Date.now(),
   if (!timeOk(now) || equity.observedAt>now || !Array.isArray(classifications) || classifications.length>20000)
     throw Error('组合压力证据时点或分类输入无效');
   const policy=validateAssumptions(assumptions),asOf=equity.observedAt,day=equity.day;
-  const current=now-asOf<=15000 && aShareCalendarDate(now)===day;
   const positions=equity.positions,byCode=new Map(positions.map(p=>[p.symbol,p]));
   if (byCode.size!==positions.length) throw Error('压力组合存在重复持仓对象');
+  // A newly built or recently stored report does not renew its source quotes.
+  const current=now-asOf<=15000 && aShareCalendarDate(now)===day && positions.every(p=>
+    p.marketValue===null || timeOk(p.quote?.quoteAt) && p.quote.quoteAt<=now && now-p.quote.quoteAt<=15000);
   const classes=positions.map(p=>classifyAt(p.symbol,classifications,asOf,day)),classMap=new Map(classes.map(c=>[c.symbol,c]));
   const missing=[];
   for (const p of positions) {

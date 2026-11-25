@@ -42,6 +42,41 @@ test('sellability uses original lots and active sell reservations, preserving a 
   assert.equal(e.source.fillCount,2);assert.equal(e.settledPnl,-7.17);
 });
 
+test('numeric order symbols retain frozen quantities through real partial fills, cancellation and restart',t=>{
+  for (const symbol of ['600000',600000]) {
+    const f=fixture(t);f.buy('600000',300,10);f.setNow(BASE+86400000);
+    const file=path.join(f.root,'authority.json');
+    f.service.submit({orderId:'typed-exit',symbol,side:'sell',quantity:200,limitPrice:10,tradeDate:'2026-11-24'});
+    const pending=observe(f).positions[0];
+    assert.equal(pending.frozenQuantity,200);assert.equal(pending.sellableQuantity,100);
+    f.service.fill('typed-exit','typed-partial',{symbol,source:'simulated',provider:'isolated-equity-test',tradeDate:'2026-11-24',timestamp:f.now,
+      price:10,volumeUnit:'shares',volume:10000,upperLimit:11,lowerLimit:9,suspended:false,tradable:true});
+    const partial=observe(f).positions[0];
+    assert.equal(partial.quantity,200);assert.equal(partial.frozenQuantity,100);assert.equal(partial.sellableQuantity,100);
+    f.service.cancel('typed-exit','typed-cancel');
+    const before=fs.readFileSync(file,'utf8'),book=f.service.read(),after=observe(f);
+    assert.equal(book.orders['typed-exit'].order.symbol,symbol);
+    assert.equal(book.account.events.at(-1).symbol,symbol);
+    assert.equal(after.positions[0].quantity,200);assert.equal(after.positions[0].frozenQuantity,0);
+    assert.equal(after.positions[0].sellableQuantity,200);
+    const restarted=require('../src/core/paper-application-service').createPaperApplicationService({file,clock:()=>f.now,calendar:{isOpen:()=>true}});
+    assert.deepEqual(observe(f,{book:restarted.read()}),after);
+    assert.equal(fs.readFileSync(file,'utf8'),before);
+  }
+});
+
+test('frozen lot totals retain same-day restrictions and malformed order states make availability unknown',t=>{
+  const f=fixture(t);f.buy('600000',300,10);
+  const book=f.service.read();book.account.positions['600000'].lots[0].reserved=100;sealBook(book);
+  const e=observe(f,{book});
+  assert.equal(e.positions[0].sellableQuantity,0);assert.equal(e.positions[0].todayBlockedQuantity,300);
+  assert.equal(e.positions[0].frozenQuantity,100);
+  delete book.orders['buy-1'].state.terminal;sealBook(book);
+  const unknown=observe(f,{book}).positions[0];
+  assert.equal(unknown.sellableQuantity,null);assert.equal(unknown.frozenQuantity,null);
+  assert.ok(unknown.reasons.includes('FROZEN_SELL_STATE_UNVERIFIED'));
+});
+
 test('corporate dividend is settled investment income, not an external deposit adjustment',t=>{
   const f=fixture(t);f.buy();f.setNow(BASE+86400000);let book=f.service.read();
   f.service.settle({eventId:'dividend-1',actionId:'company-action-1',sourceRecordId:'statement-1',kind:'cash-dividend',symbol:'600000',
@@ -68,6 +103,8 @@ test('observed drawdown is based on total equity and labels gaps independently f
   assert.equal(h.status,'observed');assert.equal(h.points[1].equity,b.equity);
   const late=buildEquityHistory({observations:[a,b],accountId:'pool',accountEpoch:a.accountEpoch,now:f.now+MAX_GAP_MS+1});
   assert.equal(late.status,'gaps');assert.ok(late.gaps.some(g=>g.code==='OBSERVATION_NOT_CURRENT'));
+  assert.equal(late.currentObservedDrawdownPct,null);assert.equal(late.latestObservedDrawdownPct,h.currentObservedDrawdownPct);
+  assert.equal(late.points[1].drawdownPct,h.points[1].drawdownPct);
 });
 
 test('missing valuation breaks the observed segment and does not silently connect through unavailable samples',t=>{

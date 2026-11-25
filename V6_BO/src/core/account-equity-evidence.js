@@ -36,31 +36,44 @@ function authorityOf(book, accountId) {
   return {accountEpoch,account};
 }
 
+function accountEpochOf(book, accountId) {
+  return authorityOf(book,accountId).accountEpoch;
+}
+
 function positionAvailability(position, symbol, orders, day) {
-  let eligible=0, todayBlocked=0, reserved=0;
-  const reasons=[];
-  if (!Array.isArray(position.lots) || position.lots.reduce((n,l)=>n+l.quantity,0)!==position.quantity)
+  let eligible=0, todayBlocked=0, reserved=0, reservedTotal=0;
+  const reasons=[],lots=Array.isArray(position?.lots) ? position.lots : [];
+  if (!Number.isSafeInteger(position?.quantity) || position.quantity<0 || !Array.isArray(position?.lots) ||
+      lots.some(l=>!l || !Number.isSafeInteger(l.quantity)) || lots.reduce((n,l)=>n+(l?.quantity || 0),0)!==position.quantity)
     reasons.push('POSITION_LOT_QUANTITY_UNVERIFIED');
-  for (const lot of position.lots || []) {
-    if (!Number.isSafeInteger(lot.quantity) || lot.quantity<0 || !dayOk(lot.buyDate) || lot.buyDate>day ||
+  for (const lot of lots) {
+    if (!lot || !Number.isSafeInteger(lot.quantity) || lot.quantity<0 || !dayOk(lot.buyDate) || lot.buyDate>day ||
         lot.sellableDate != null && (!dayOk(lot.sellableDate) || lot.sellableDate<lot.buyDate) ||
         lot.reserved != null && (!Number.isSafeInteger(lot.reserved) || lot.reserved<0 || lot.reserved>lot.quantity)) {
       reasons.push('POSITION_LOT_SELLABILITY_UNVERIFIED'); continue;
     }
+    reservedTotal+=lot.reserved || 0;
     const usable=lot.sellableDate ? lot.sellableDate<=day : lot.buyDate<day;
     if (usable) { eligible+=lot.quantity; reserved+=lot.reserved || 0; }
     else todayBlocked+=lot.quantity;
   }
   let frozen=0;
-  for (const item of Object.values(orders)) {
-    if (item.order?.symbol!==symbol || item.order?.side!=='sell' || item.state?.terminal===true) continue;
+  const orderRows=orders && typeof orders==='object' && !Array.isArray(orders) ? Object.values(orders) : [];
+  if (!orders || typeof orders!=='object' || Array.isArray(orders)) reasons.push('FROZEN_SELL_STATE_UNVERIFIED');
+  for (const item of orderRows) {
+    if (!item?.order || typeof item.state?.terminal!=='boolean') {
+      reasons.push('FROZEN_SELL_STATE_UNVERIFIED');continue;
+    }
+    // The original order reducer accepts six-digit numeric symbols but retains
+    // their input type. Compare identities without rewriting authority records.
+    if (String(item.order?.symbol)!==String(symbol) || item.order?.side!=='sell' || item.state?.terminal===true) continue;
     const quantity=item.state?.remainingQuantity;
     if (!Number.isSafeInteger(quantity) || quantity<0) reasons.push('FROZEN_SELL_QUANTITY_UNVERIFIED');
     else frozen+=quantity;
   }
   if (frozen+reserved>eligible) reasons.push('FROZEN_SELL_QUANTITY_CONFLICT');
   return {sellableQuantity:reasons.length ? null : eligible-reserved-frozen,
-    todayBlockedQuantity:reasons.length ? null : todayBlocked,frozenQuantity:frozen+reserved,
+    todayBlockedQuantity:reasons.length ? null : todayBlocked,frozenQuantity:reasons.length ? null : frozen+reservedTotal,
     sellabilityStatus:reasons.length ? 'unknown' : 'observed-lots',sellabilityReasons:[...new Set(reasons)]};
 }
 
@@ -98,10 +111,11 @@ function buildAccountEquityEvidence({book,accountId,quotes={},now=Date.now()}={}
     if (mark.reason) reasons.push(mark.reason);
     if (costBasis===null) reasons.push('POSITION_COST_BASIS_MISSING');
     reasons.push(...availability.sellabilityReasons);
-    const marketValue=mark.price===null ? null : money(mark.price*p.quantity);
+    const marketValue=mark.price===null || availability.sellabilityReasons.includes('POSITION_LOT_QUANTITY_UNVERIFIED')
+      ? null : money(mark.price*p.quantity);
     positions.push({symbol,quantity:p.quantity,costBasis,price:mark.price,marketValue,
       unrealizedPnl:marketValue===null || costBasis===null ? null : money(marketValue-costBasis),
-      quote:mark.quote,...availability,evidenceStatus:mark.price===null ? 'unknown' : 'available',reasons});
+      quote:mark.quote,...availability,evidenceStatus:marketValue===null ? 'unknown' : 'available',reasons});
     for (const reason of reasons) missing.push({symbol,code:reason});
   }
   const ids=new Set(),flowReasons=[];
@@ -241,11 +255,13 @@ function buildEquityHistory({observations=[],accountId,accountEpoch,now=Date.now
     if (drawdownPct!==null) maxDrawdown=Math.max(maxDrawdown,drawdownPct);
     points.push({at:row.observedAt,equity:row.equity,index,drawdownPct,segment,evidenceId:row.fingerprint});previous=row;
   }
-  if (rows.length && now-rows.at(-1).observedAt>maxGapMs) gaps.push({from:rows.at(-1).observedAt,to:now,code:'OBSERVATION_NOT_CURRENT'});
+  const latestCurrent=rows.length>0 && now-rows.at(-1).observedAt<=maxGapMs;
+  if (rows.length && !latestCurrent) gaps.push({from:rows.at(-1).observedAt,to:now,code:'OBSERVATION_NOT_CURRENT'});
   return {protocol:'fayo-observed-equity-history-v1',accountId,accountEpoch,status:rows.length<2 ? 'insufficient' : gaps.length ? 'gaps' : 'observed',
     sampleCount:rows.length,completeSampleCount:completeCount,from:rows[0]?.observedAt || null,to:rows.at(-1)?.observedAt || null,
     samplingIntervalMs:MIN_SAMPLE_MS,maxObservationGapMs:maxGapMs,truncated,points,gaps,comparisonCount,observedMaxDrawdownPct:comparisonCount ? maxDrawdown : null,
-    currentObservedDrawdownPct:points.at(-1)?.drawdownPct ?? null,
+    currentObservedDrawdownPct:latestCurrent ? points.at(-1)?.drawdownPct ?? null : null,
+    latestObservedDrawdownPct:points.at(-1)?.drawdownPct ?? null,
     continuousAccountMaxDrawdownPct:null,
     note:'回撤来自真实账户权益观察；最大值仅覆盖已观察时点，未观测区间和采样间极值未知，不使用累计已结算盈亏替代连续账户最大回撤。',
     cashFlowTreatment:'original-fill-and-corporate-cash-reconciliation; reset-separated; unexplained-capital-change-unknown',
@@ -317,4 +333,4 @@ function createAccountEquityEvidenceStore({root,clock=Date.now,canWrite=()=>fals
 }
 
 module.exports={PROTOCOL,MAX_GAP_MS,MIN_SAMPLE_MS,buildAccountEquityEvidence,buildEquityHistory,createAccountEquityEvidenceStore,
-  validateEquityEvidence,positionAvailability};
+  validateEquityEvidence,positionAvailability,accountEpochOf,valuationMarkOf:markOf};
