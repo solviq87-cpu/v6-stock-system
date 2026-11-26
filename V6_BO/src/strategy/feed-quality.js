@@ -2,6 +2,14 @@
 const {barsToIndicators}=require('./historical-indicators');
 const SOURCES=new Set(['eastmoney','tonghuashun','akshare','simulated','imported']);
 const num=x=>typeof x==='number'&&Number.isFinite(x);
+// The feed timestamp is not a certification of the date or origin of every bar.
+const validTime=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
+const marketDay=x=>new Date(x+8*3600000).toISOString().slice(0,10);
+const tags=x=>[x?.source,x?.mode,x?.quoteMode,x?.dataMode,x?.feedMode];
+const syntheticTag=/(?:^|[-_:/\.\s])(?:simulat(?:ed|ion)?|fixture|mock|synthetic|test|backtest|demo)(?:$|[-_:/\.\s])/i;
+const historicalTag=/(?:^|[-_:/\.\s])(?:import(?:ed)?|histor(?:y|ical)|read[-_ ]?only)(?:$|[-_:/\.\s])/i;
+const tagged=(row,pattern)=>tags(row).some(v=>typeof v==='string'&&pattern.test(v));
+const flagged=(row,keys)=>keys.some(k=>row?.[k]===true);
 function validateHistoricalBars(bars,{requireDates=false}={}){
  const errors=[];
  if(!Array.isArray(bars)||bars.length<2)return {usable:false,errors:['历史K线数量不足']};
@@ -26,13 +34,21 @@ function validateHistoricalBars(bars,{requireDates=false}={}){
 }
 function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={}){
  const errors=[],warnings=[],safeStock=stock&&typeof stock==='object'?stock:{},feed=safeStock.feed&&typeof safeStock.feed==='object'?safeStock.feed:{},bars=safeStock.bars;
- const validClock=num(now)&&now>0&&Number.isFinite(new Date(now).getTime());
+ const validClock=validTime(now);
+ const validTimestamp=validTime(feed.timestamp);
+ const simulated=[safeStock,feed].some(row=>flagged(row,['simulated','synthetic','mock','fixture','test'])||tagged(row,syntheticTag));
+ const historical=[safeStock,feed].some(row=>flagged(row,['imported','readOnlyBackup'])||tagged(row,historicalTag));
+ let barDate=null,barAgeDays=null;
  const validAge=num(maxAgeMs)&&maxAgeMs>=0;
  if(!validClock||!validAge)errors.push('行情校验时间或新鲜度阈值无效');
  if(!SOURCES.has(feed.source))errors.push('缺少受支持的行情来源');
- if(requireReal&&['simulated','imported'].includes(feed.source))errors.push('不允许将模拟或导入行情标为真实行情');
- if(!num(feed.timestamp)||feed.timestamp<=0||!Number.isFinite(new Date(feed.timestamp).getTime()))errors.push('缺少有效毫秒时间戳');
- else if(validClock&&validAge){if(feed.timestamp>now+60000)errors.push('行情时间戳超前');if(now-feed.timestamp>maxAgeMs)warnings.push('行情超过允许延迟');}
+ if(requireReal&&(simulated||historical))errors.push('不允许将模拟或导入行情标为真实行情');
+ if(!validTimestamp)errors.push('缺少有效毫秒时间戳');
+ else if(validClock&&validAge){
+  if(feed.timestamp>now+(requireReal?0:60000))errors.push('行情时间戳超前');
+  if(feed.timestamp>now)warnings.push('行情时间位于未来');
+  if(now-feed.timestamp>maxAgeMs)warnings.push('行情超过允许延迟');
+ }
  if(!Array.isArray(bars)||bars.length<27)errors.push('历史K线少于27根');
  const ind=barsToIndicators(bars);
  if(!ind.valid)errors.push(ind.reason);
@@ -47,6 +63,7 @@ function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={
   // can incorrectly accept an impossible date (e.g. September 31).
   const dated=bars.filter(b=>b.date!==undefined&&b.date!==null&&b.date!=='').length;
   if(dated>0&&dated!==bars.length)errors.push('历史K线日期字段不一致');
+  if(requireReal&&dated!==bars.length)errors.push('真实行情研究缺少完整K线日期');
   if(dated>0){
    let previous=null;
    for(let i=0;i<bars.length;i++){
@@ -57,14 +74,22 @@ function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={
      errors.push('历史K线日期无效');break;
     }
     if(previous!==null&&date<=previous){errors.push('历史K线日期重复或倒序');break;}
+    if(requireReal&&validClock&&validTimestamp&&date>marketDay(Math.min(now,feed.timestamp))){
+     errors.push('K线日期晚于行情原观察日期');break;
+    }
     previous=date;
+   }
+   if(dated===bars.length&&previous===last.date){
+    barDate=previous;
+    if(validClock)barAgeDays=(Date.parse(marketDay(now)+'T00:00:00Z')-Date.parse(barDate+'T00:00:00Z'))/86400000;
    }
   }
  }
  if(safeStock.isST||safeStock.suspended||safeStock.tradable===false)warnings.push('风险或不可交易标的');
- if(feed.source==='simulated')warnings.push('模拟行情，禁止作为实盘信号');
- if(feed.source==='imported')warnings.push('导入历史数据，非实时行情');
- return {usable:errors.length===0,fresh:!warnings.includes('行情超过允许延迟'),source:feed.source||null,
-  timestamp:num(feed.timestamp)?feed.timestamp:null,simulated:feed.source==='simulated',errors,warnings,indicatorReady:ind.valid&&ind.ready};
+ if(simulated)warnings.push('模拟行情，禁止作为实盘信号');
+ if(historical)warnings.push('导入历史数据，非实时行情');
+ return {usable:errors.length===0,fresh:errors.length===0&&validClock&&validAge&&validTimestamp&&feed.timestamp<=now&&now-feed.timestamp<=maxAgeMs,
+  source:feed.source||null,timestamp:validTimestamp?feed.timestamp:null,simulated,historical,
+  barDate,barAgeDays,freshnessBasis:'feed-timestamp-only',errors,warnings,indicatorReady:ind.valid&&ind.ready};
 }
 module.exports={validateFeed,validateHistoricalBars,SOURCES};
