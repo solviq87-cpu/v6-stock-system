@@ -23,7 +23,7 @@ function scenario(){
   acceptedWeights:old,registeredAt,packFingerprint:packHash,
   parentAcceptedFingerprint:'p'.repeat(64),parentTrialFingerprint:null});
  const sorted=[...frozen,future].map(f=>({
-  day:f.signalDay,featureFingerprint:f.fingerprint
+  day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt
  }));
  const context={sorted,ids,packFingerprint:packHash,oldWeights:old,
   previousFingerprint:'p'.repeat(64),previousTrialFingerprint:null,
