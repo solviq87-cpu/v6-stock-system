@@ -178,8 +178,11 @@ test('overlapping labels are never compounded as reusable capital and short path
   assert.equal(short.nonOverlappingPeriods, 1); assert.equal(short.periodVolatilityPct, null);
   assert.equal(short.stability.status, 'not-evaluated'); assert.equal(short.stability.halfMeanDifferencePct, null);
   const invalid = rows(1); invalid.forEach(r => { r.netReturnPct = -101; r.priceReturnPct = -99; });
-  const unavailable = S.strategyCompetition(invalid, { asOf: at(80) }).groups[0].systems[0].pathStatistics;
-  assert.equal(unavailable.status, 'not-evaluated'); assert.equal(unavailable.maxDrawdownPct, null);
+  const unavailable = S.strategyCompetition(invalid, { asOf: at(80) });
+  // Strengthened contract: impossible outcomes never enter even descriptive
+  // means, not just the compounding path.
+  assert.equal(unavailable.status, 'not-evaluated'); assert.equal(unavailable.commonSamples, 0);
+  assert.equal(unavailable.exclusions['impossible-paper-outcome'], 1); assert.deepEqual(unavailable.groups, []);
 });
 test('DSR matches an independent Python statistics.NormalDist oracle and deflates increasing trial search', () => {
   const returns = Array.from({ length: 20 }, () => [-.02, .01, .03, -.01, .04, .005]).flat();
