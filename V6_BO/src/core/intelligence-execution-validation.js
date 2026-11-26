@@ -5,7 +5,10 @@
  */
 const {createHash}=require('node:crypto');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
-const time=x=>Number.isSafeInteger(x)&&x>0?x:typeof x==='string'&&Number.isFinite(Date.parse(x))?Date.parse(x):null;
+const time=x=>{
+ const t=typeof x==='string'?Date.parse(x):x;
+ return Number.isSafeInteger(t)&&t>0&&t<8e15?t:null;
+};
 const day=at=>new Date(at+28800000).toISOString().slice(0,10);
 const money=n=>Math.round((n+Number.EPSILON)*100);
 const precise=n=>finite(n)&&Number.isSafeInteger(money(n))&&Math.abs(n*100-money(n))<.0001;
@@ -31,12 +34,50 @@ function settlementContent(proof,planId){
       ({eventId,orderId,time,price,quantity,grossCents,costCents}))};
 }
 
+// Historical attribution may use only the prior plan and the receipt
+// actually visible at the report cutoff. Exact native links disambiguate
+// old plan revisions; legacy declarations cannot select a conflicting copy.
+function priorPlan(plan,trade){
+ const frozen=time(plan?.frozenAt),entry=time(trade?.entryTimestamp);
+ return real(plan)&&identity(plan.id)&&trade?.planId===plan.id&&trade.code===plan.code&&
+  frozen!==null&&entry!==null&&frozen<=entry&&
+  ['createdAt','recordedAt','knownAt'].every(k=>!Object.hasOwn(plan,k)||
+   (time(plan[k])!==null&&time(plan[k])<=entry));
+}
+function selectPriorPlan(plans,trade){
+ const candidates=new Map();
+ const linked=Object.hasOwn(trade||{},'decisionLink');
+ for(const plan of plans||[]){
+  if(!priorPlan(plan,trade))continue;
+  const fingerprint=digest(plan);
+  if(linked&&trade.decisionLink?.planFingerprint!==fingerprint)continue;
+  candidates.set(fingerprint,plan);
+ }
+ if(candidates.size>1)return {reason:'conflicting-prior-plan-evidence'};
+ if(!candidates.size)return {reason:linked?'missing-or-inconsistent-original-plan-link':'missing-prior-verified-plan'};
+ return {plan:candidates.values().next().value};
+}
+function futureReceipt(trade,now){
+ // A not-yet-visible correction cannot invalidate an already visible exit.
+ // Unknown/malformed timestamps remain subject to the normal conflict gate.
+ return [trade?.createdAt,trade?.exitTimestamp,trade?.paperSettlement?.exitTimestamp,
+  trade?.planLinkedAt,trade?.decisionLink?.knownAt].some(v=>time(v)!==null&&time(v)>now);
+}
 function verifiedSettlement(trade,plan,now) {
   if(!trade||typeof trade!=='object')return {reason:'missing-prior-verified-plan'};
   const p=trade.paperSettlement,entry=time(trade.entryTimestamp),exit=time(trade.exitTimestamp),recorded=time(trade.createdAt),frozen=time(plan?.frozenAt);
-  if(!real(trade)||!real(plan)||!identity(trade.id)||!identity(plan?.id)||trade.planVerified!==true||trade.snapshotVerified!==true||!plan||trade.code!==plan.code||
-      trade.planId!==plan.id||frozen===null||entry===null||frozen>entry)return {reason:'missing-prior-verified-plan'};
-  if(exit===null||recorded===null||exit<=entry||recorded<exit||recorded>now)return {reason:'unmatured-or-unrecorded-settlement'};
+  if(!real(trade)||!identity(trade.id)||trade.planVerified!==true||trade.snapshotVerified!==true||
+      !priorPlan(plan,trade))return {reason:'missing-prior-verified-plan'};
+  if(exit===null||recorded===null||exit<=entry||recorded<exit||futureReceipt(trade,now))return {reason:'unmatured-or-unrecorded-settlement'};
+  const planFingerprint=digest(plan);
+  const linked=Object.hasOwn(trade,'decisionLink'),link=trade.decisionLink;
+  const linkKnown=linked?time(link?.knownAt):null;
+  const linkedAt=Object.hasOwn(trade,'planLinkedAt')?time(trade.planLinkedAt):null;
+  if(Object.hasOwn(trade,'planLinkedAt')&&(linkedAt===null||linkedAt<exit)||
+     linked&&(!link||linkKnown===null||linkKnown<exit||link.planId!==plan.id||
+      !identity(plan.decisionId)||link.decisionId!==plan.decisionId||link.planFingerprint!==planFingerprint||
+      (linkedAt!==null&&linkedAt!==linkKnown)))
+    return {reason:'missing-or-inconsistent-original-plan-link'};
   if(!p||!['pool','pre'].includes(p.accountId)||!identity(p.exitEventId)||!identity(p.exitOrderId)||
       p.tradeDate!==day(exit)||p.symbol!==trade.code||p.exitTimestamp!==exit||trade.sourceFingerprint!==digest(p)||
       !Array.isArray(p.entryFills)||!p.entryFills.length||p.entryFills.length>500||
@@ -53,6 +94,9 @@ function verifiedSettlement(trade,plan,now) {
       p.entryFills.reduce((sum,row)=>sum+row.quantity,0)!==p.exitQuantity||
       p.entryFills.reduce((sum,row)=>sum+row.costCents,0)!==p.costBasisCents)
     return {reason:'settlement-quantity-basis-or-t-plus-one-mismatch'};
+  if(linked&&(!Array.isArray(link.entryEventIds)||link.entryEventIds.length!==p.entryFills.length||
+      new Set(link.entryEventIds).size!==p.entryFills.length||p.entryFills.some(f=>!link.entryEventIds.includes(f.eventId))))
+    return {reason:'missing-or-inconsistent-original-plan-link'};
   const entryGross=p.entryFills.reduce((sum,row)=>sum+row.grossCents,0),cost=p.costBasisCents-entryGross+p.exitFeeCents,
     net=p.exitGrossCents-p.exitFeeCents-p.costBasisCents;
   if(![entryGross,cost,net].every(Number.isSafeInteger)||net!==p.realizedCents||!precise(trade.cost)||money(trade.cost)!==cost||!precise(trade.pnlAmount)||money(trade.pnlAmount)!==net||
@@ -60,12 +104,14 @@ function verifiedSettlement(trade,plan,now) {
     return {reason:'recorded-cost-or-net-pnl-mismatch'};
   const quality=trade.blackSwan===true||trade.quality==='黑天鹅'?'black-swan':
     trade.extreme===true||trade.repeatable===false||trade.quality==='不可复制极端行情'?'extreme':'standard';
-  return {row:{id:trade.id,planId:plan.id,code:trade.code,signalDay:day(frozen),entry,exit,recorded,knownAt:Math.max(recorded,exit),
+  const strategy=plan.strategy||trade.strategy||'unknown',regime=plan.trend||trade.trend||'unknown',
+    cycle=plan.frozenSnapshot?.emotion?.stage||trade.frozenLabels?.cycle||trade.frozenLabels?.emotion||'unknown';
+  return {row:{id:trade.id,planId:plan.id,planFingerprint,planEvidenceBasis:linked?'original-plan-link-reconciled':'legacy-plan-declaration',
+    code:trade.code,signalDay:day(frozen),entry,exit,recorded,knownAt:Math.max(recorded,exit,linkKnown||0,linkedAt||0),
     entryGrossCents:entryGross,exitGrossCents:p.exitGrossCents,costBasisCents:p.costBasisCents,costCents:cost,netCents:net,
-    strategy:plan.strategy||trade.strategy||'unknown',regime:plan.trend||trade.trend||'unknown',
-    cycle:plan.frozenSnapshot?.emotion?.stage||trade.frozenLabels?.cycle||trade.frozenLabels?.emotion||'unknown',quality,
+    strategy,regime,cycle,quality,
     fingerprint:trade.sourceFingerprint,settlementIdentity:digest([p.accountId,p.exitEventId]),
-    settlementContentFingerprint:digest(settlementContent(p,plan.id)),
+    settlementContentFingerprint:digest({settlement:settlementContent(p,plan.id),planFingerprint,strategy,regime,cycle,quality}),
     entryPriceEvidence:p.entryFills.every(leg=>centPrice(leg.price))?'exact-cent-price-reconciled':'fifo-allocation-not-replayed',canTrade:false}};
 }
 function settledPnlAttribution(rows,{slippageBps=0,feeMultiplier=1}={}) {
@@ -109,14 +155,24 @@ function stress(rows,config=settings) {
     productionPromotionAllowed:false};
 }
 function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
-  if(!Number.isSafeInteger(now)||now<=0)throw Error('执行验证时钟无效');
-  const plans=new Map((archive?.plans||[]).filter(real).map(row=>[row.id,row])),accepted=[],excluded=[],seen=new Set(),attempts=[],events=new Map(),claims=new Map(),verifiedCounts=new Map();
+  if(!Number.isSafeInteger(now)||time(now)===null)throw Error('执行验证时钟无效');
+  const plans=new Map(),accepted=[],excluded=[],seen=new Set(),attempts=[],events=new Map(),claims=new Map(),verifiedCounts=new Map();
+  for(const plan of (archive?.plans||[]).filter(real)){
+    if(!identity(plan.id))continue;
+    if(!plans.has(plan.id))plans.set(plan.id,[]);
+    plans.get(plan.id).push(plan);
+  }
   for(const trade of real(archive)?archive.trades||[]:[]) {
     const p=trade?.paperSettlement;
+    if(real(trade)&&futureReceipt(trade,now)){
+      attempts.push({id:trade?.id||null,reason:'unmatured-or-unrecorded-settlement'});
+      continue;
+    }
     if(real(trade)&&p&&['pool','pre'].includes(p.accountId)&&identity(p.exitEventId)){
       const key=digest([p.accountId,p.exitEventId]);claims.set(key,(claims.get(key)||0)+1);
     }
-    const result=verifiedSettlement(trade,plans.get(trade?.planId),now);
+    const selected=selectPriorPlan(plans.get(trade?.planId),trade);
+    const result=selected.reason?selected:verifiedSettlement(trade,selected.plan,now);
     attempts.push({id:trade?.id||null,...result});
     if(result.reason)continue;
     const row=result.row;
@@ -150,7 +206,12 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     method:'frozen-plan-and-original-ledger-cost-validation',acceptedTrades:accepted.length,standardTrades:standard.length,
     excludedCount:excluded.length,excluded:excluded.slice(-40),settings:{...settings,stressSlippageBps:[...settings.stressSlippageBps],
       stressFeeMultipliers:[...settings.stressFeeMultipliers]},strata,byRegime:groups('regime'),byCycle:groups('cycle'),byStrategy:groups('strategy'),
-    overall:stress(standard),folds,fingerprint:digest(accepted.map(row=>({id:row.id,planId:row.planId,fingerprint:row.fingerprint}))),
+    overall:stress(standard),folds,
+    planEvidence:{originalLinkReconciled:accepted.filter(row=>row.planEvidenceBasis==='original-plan-link-reconciled').length,
+      legacyDeclarationOnly:accepted.filter(row=>row.planEvidenceBasis==='legacy-plan-declaration').length},
+    fingerprint:digest(accepted.map(row=>({id:row.id,planId:row.planId,planFingerprint:row.planFingerprint,
+      fingerprint:row.fingerprint,knownAt:row.knownAt,contentFingerprint:row.settlementContentFingerprint,
+      planEvidenceBasis:row.planEvidenceBasis}))),
     canTrade:false,canApprove:false,productionWeightsChanged:false,
     note:'只验证已经发生且与事前计划匹配的原模拟结算；hfq 次日标签 IC 不当作成交收益。正式晋级仍需原五项验证及人工批准。'};
 }
