@@ -1,16 +1,20 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const {createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot}=require('../src/core/runtime-acceptance');
+const {createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot,observeOriginalAccountReconciliation}=require('../src/core/runtime-acceptance');
 const sha='a'.repeat(40),days=['2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27','2026-11-30'];
 const at=(day,hour,minute)=>Date.parse(day+'T'+String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')+':00+08:00');
 function fixture(t,options={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-runtime-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  let now=at(days[0],9,30),sourceSha=sha,enabled=true,mode='live',quotes=null,calls=0;
+ const {createPaperApplicationService}=require('../src/core/paper-application-service');
+ const ledgerRoot=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-runtime-ledgers-'));t.after(()=>fs.rmSync(ledgerRoot,{recursive:true,force:true}));
+ const books=Object.fromEntries(['pool','pre'].map(id=>[id,createPaperApplicationService({file:path.join(ledgerRoot,id+'.json'),clock:()=>now})]));
+ for(const book of Object.values(books))book.initialize(100000);
  const state={setNow:n=>now=n,setSha:s=>sourceSha=s,setEnabled:v=>enabled=v,setMode:v=>mode=v,setQuotes:v=>quotes=v,calls:()=>calls};
  const collect=async()=>({mode,market:{expectedSymbols:2,attempts:1,successes:1,quotes:quotes||[
    {code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now},{code:'000001',source:'provider',price:20,quoteAt:now-15000,receivedAt:now}]},
    risk:{observed:2,queued:2,delivered:1,resolved:1,falsePositives:0,falseNegatives:0,deliveryDelayMs:200},
-   execution:{intents:3,submittedOrders:2,confirmedFills:0,paperFills:1,reconciled:true,recoveryVerified:true},
+   execution:{intents:3,submittedOrders:2,confirmedFills:0,paperFills:1,reconciled:true,recoveryVerified:true,reconciliationReceipt:observeOriginalAccountReconciliation({now,clock:()=>now,readBook:id=>books[id].read()}).reconciliationReceipt},
    strategy:{matureSamples:50,netReturnPct:-1,maxDrawdownPct:3,calibrationError:.1},
    clients:{desktopVersion:'v1',mobileVersion:'v1',apiVersion:'v1',permissionsConsistent:true,featuresConsistent:true}});
  const ops=createRuntimeAcceptance({root,canWrite:()=>enabled,collect,clock:()=>now,env:{NODE_ENV:'production'},

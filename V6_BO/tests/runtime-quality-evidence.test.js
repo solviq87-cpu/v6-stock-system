@@ -96,3 +96,13 @@ test('missing opening, unavailable second account, late and malformed receipts c
  assert.doesNotMatch(fs.readFileSync(path.join(f.root,day+'.jsonl'),'utf8'),/private original location/);
  assert.equal(observeOriginalAccountReconciliation({now:at(day,0),readBook:key=>b.books[key].read(),clock:()=>at(day,0)+15001}).reconciliationReceipt,null);
 });
+
+test('daily and long-window reports preserve unknown legacy positive checks and unsuccessful checks instead of promoting the newest good result',async t=>{
+ const f=fixture(t),b=originalBooks(t);
+ await f.ops.tick();f.setNow(at(day,1));f.setReconciled(false);await f.ops.tick();
+ f.setNow(at(day,2));f.setAccountObserver(now=>b.observe(now));await f.ops.tick();
+ f.setNow(Date.parse(day+'T16:00:00+08:00'));const d=(await f.ops.report()).days[0];
+ assert.deepEqual(d.accountReconciliation,{scope:'original-paper-local-joint-reconciliation-v1',attempted:3,verifiedLocal:1,unsuccessful:1,unknown:1,verifiedExternal:false});
+ assert.ok(d.unknown.includes('accountReconciliation'));assert.ok(d.failures.includes('account-reconciliation-failed'));
+ assert.equal(d.latest.execution.reconciled,true);assert.equal(d.latest.execution.reconciliationReceipt.verifiedExternal,false);
+});

@@ -260,6 +260,7 @@ function summarizeDay(day, rows, now, criteria) {
   const latencies = metric(r => r.metrics.system.collectionMs).sort((a,b) => a-b);
   const latestLive=live.at(-1)?.metrics||null;
   const latest=attempts.at(-1)?.metrics||rows.at(-1)?.metrics||null;
+  const accountOutcomes=attempts.map(r=>jointReconciliationOutcome(r.metrics?.execution,r.observedAt,now));
   const unknown = [], failures = [];
   for (const [name, present] of [
     ['marketCoverage',attempts.length > 0 && attempts.every(r => r.metrics.market.freshCoverage != null)],
@@ -267,7 +268,7 @@ function summarizeDay(day, rows, now, criteria) {
     ['quoteConflictReview',attempts.length > 0 && attempts.every(r=>r.metrics.market.quoteEvidence?.conflictPolicy==='explicit-and-duplicate-v1')],
     ['riskEffectiveness',latest?.risk.falsePositives !== null && latest?.risk.falsePositives !== undefined && latest?.risk.falseNegatives !== null && latest?.risk.falseNegatives !== undefined],
     ['notificationDelivery',latest?.risk.delivered !== null && latest?.risk.delivered !== undefined && latest?.risk.deliveryDelayMs !== null && latest?.risk.deliveryDelayMs !== undefined],
-    ['accountReconciliation',latest?.execution.reconciled !== null && latest?.execution.reconciled !== undefined],
+    ['accountReconciliation',accountOutcomes.length>0&&accountOutcomes.every(value=>value!=='unknown')],
     ['recoveryEvidence',latest?.execution.recoveryVerified !== null && latest?.execution.recoveryVerified !== undefined],
     ['strategyOutcomes',latest?.strategy.matureSamples > 0 && latest?.strategy.netReturnPct !== null && latest?.strategy.maxDrawdownPct !== null],
     ['modelCalibration',latest?.strategy.calibrationError !== null && latest?.strategy.calibrationError !== undefined],
@@ -287,7 +288,7 @@ function summarizeDay(day, rows, now, criteria) {
   if (p95 !== null && p95 > criteria.maximumCollectionP95Ms) failures.push('collection-latency');
   if (live.some(r => r.metrics.risk.falseNegatives > 0)) failures.push('risk-false-negative-observed');
   if (live.some(r => r.metrics.risk.deliveryDelayMs > criteria.maximumDeliveryDelayMs)) failures.push('notification-delay');
-  if (attempts.some(r => r.metrics.execution.reconciled === false)) failures.push('account-reconciliation-failed');
+  if (accountOutcomes.includes('failed')) failures.push('account-reconciliation-failed');
   if (live.some(r => r.metrics.execution.recoveryVerified === false)) failures.push('recovery-not-verified');
   if (live.some(r => r.metrics.clients.permissionsConsistent === false || r.metrics.clients.featuresConsistent === false ||
       r.metrics.clients.desktopVersion && r.metrics.clients.mobileVersion && r.metrics.clients.apiVersion &&
@@ -301,6 +302,8 @@ function summarizeDay(day, rows, now, criteria) {
     firstObservedAt:rows[0]?.observedAt || null,lastObservedAt:rows.at(-1)?.observedAt || null,
     collectionP95Ms:p95,minimumFreshCoverage:attempts.length&&attempts.every(r=>r.metrics.market.freshCoverage!=null)?Math.min(...attempts.map(r=>r.metrics.market.freshCoverage)):null,
     unknown,failures:[...new Set(failures)],latest,latestLive,
+    accountReconciliation:{scope:JOINT_RECONCILIATION_SCOPE,attempted:accountOutcomes.length,verifiedLocal:accountOutcomes.filter(v=>v==='verified-local').length,
+      unsuccessful:accountOutcomes.filter(v=>v==='failed').length,unknown:accountOutcomes.filter(v=>v==='unknown').length,verifiedExternal:false},
     exclusionReasons:[...new Set(rows.flatMap(r=>[...r.exclusions,
       ...(r.liveEligible&&!liveSet.has(r)?['legacy-observation-evidence-not-revalidated']:[])]))],head:rows.at(-1)?.fingerprint || null};
 }
