@@ -64,6 +64,27 @@ function assessFactorMarginalContribution({
     throw Error('因子反事实研究日期必须严格递增');
   }
  }
+ // Keep the three declared phases independent before invoking any scorer.
+ // Empty phases retain their original insufficient-sample handling.
+ const phases=sets.map(([,days])=>days).filter(days=>days.length);
+ for(let i=1;i<phases.length;i++)
+  if(phases[i-1].at(-1).day>=phases[i][0].day)
+   throw Error('因子反事实研究阶段日期重叠或顺序无效');
+ // Native matured cross-sections supply targetDate. Check every declared
+ // label date and reject any that reaches a later research phase. Older
+ // date-only diagnostic inputs remain descriptive and explicitly unverified.
+ const hasLabelDates=phases.some(days=>days.some(row=>Object.hasOwn(row,'targetDate')));
+ if(hasLabelDates){
+  for(let i=0;i<phases.length;i++){
+   const cutoff=phases[i+1]?.[0]?.day;
+   for(const row of phases[i]){
+    if(!validDate(row.targetDate)||row.targetDate<=row.day)
+     throw Error('因子反事实收益标签日期无效或缺失');
+    if(cutoff&&row.targetDate>=cutoff)
+     throw Error('因子反事实收益标签跨越研究阶段');
+   }
+  }
+ }
  const factors=[];
  for(const id of ids){
   if(acceptedWeights[id]===proposedWeights[id])continue;
@@ -92,6 +113,7 @@ function assessFactorMarginalContribution({
    incomparableFactorIds.length?'incomparable-evidence':
    harmfulFactorIds.length?'harmful-factor-change-detected':'paired-evaluated',
   evidenceBasis:'frozen-factor-training-and-time-isolated-forward-observation',
+  labelTimeEvidence:hasLabelDates?'provided-and-checked':'not-provided',
   counterfactual:'revert-one-factor-to-accepted-weight-others-stay-proposed',
   changedFactorCount:factors.length,factors,
   harmfulFactorIds,supportedFactorIds,incomparableFactorIds,
