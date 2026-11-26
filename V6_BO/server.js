@@ -5767,6 +5767,10 @@ async function captureAuction(force) {
       code: s.code, name: s.name,
       auctionPct: +(((pxo.px - s.preClose) / s.preClose) * 100).toFixed(2),
       auctionAmount: s.amount || 0,
+      // Preserve original receipt and monetary value separately from the legacy display.
+      fourteenAuctionEvidence: { code:s.code, quoteAt:s.quoteAt, receivedAt:s.receivedAt,
+        quoteSource:s.quoteSource, quoteMode:s.quoteMode, amount:s.amount,
+        pct:+(((pxo.px - s.preClose) / s.preClose) * 100).toFixed(2) },
       floatCap: s.floatCap || 0, turnover: s.turnover || 0,
       pct: s.pct, price: pxo.px, pxSrc: pxo.src,
       mainInflow: s.mainInflow || 0, mainPct: s.mainPct || 0,
@@ -10881,6 +10885,8 @@ function nextPlanUniverse() {
       reason: s.reason || '',   // ⛔ 供主线归并识别当日真实驱动（themeKeyOf 优先看 reason）
       limitUpCount: s.limitUpCount || 0, sealAmount: s.sealAmount || 0,
       floatCap: s.floatCap || 0, amount: s.amount || 0, breakCount: s.breakCount,
+      // Retain the uncoerced original input for fourteen-rule research only.
+      fourteenRaw: { ...s },
     });
   };
   (S.ztPool || []).forEach(s => add(s, '涨停'));
@@ -11063,6 +11069,8 @@ async function lhbMapCached() {
 }
 
 async function computeMyRules(limitN) {
+  const inputGate = require('./src/core/live-fourteen-evidence');
+  const targetDate = latestTradeDate();
   const cands = nextPlanUniverse().slice(0, limitN || 120);
   if (!cands.length) {
     // ⛔ 同上：数据源没回来时保留上一次的自定义规则结果，别显示"候选池为空"
@@ -11071,8 +11079,7 @@ async function computeMyRules(limitN) {
     return S.myrules;
   }
   // 竞价快照只在 9:15~9:25 有，其它时段天然没有 → ⑥⑧ 会标「缺数据」，这是对的
-  const aucMap = new Map();
-  for (const s of ((S.auction && S.auction.strong) || [])) if (s && s.code) aucMap.set(s.code, s);
+  const auctionSnapshot = S.auction;
   // ⑫ 龙虎榜（东财）+ 涨停原因（同花顺）。
   // ⚠️ 龙虎榜收盘后才公布 → 拉【最近一个已公布交易日】的榜；盘中拉当日会拿到空表，
   //    那就整片变"缺数据"，等于白接。缓存 30 分钟，别每分钟打一次东财。
@@ -11080,35 +11087,35 @@ async function computeMyRules(limitN) {
   try { lhbMap = await lhbMapCached(); } catch (e) { console.error('[myrules] 龙虎榜拉取失败:', e && e.message); }
   const built = await em.pool(cands, async c => {
     const rows = await klineRows(c.code);
-    if (!rows || rows.length < 60) return null;   // ③⑩⑬ 都要 60 根以上才判得准
+    if (!inputGate.usableKline(rows, _klineReadMeta.get(c.code), targetDate, Date.now())) return null;
     const secName = (c.sector && c.sector !== '未知') ? c.sector : sectorOfStock({ code: c.code, name: c.name });
-    const sec = (S.sectors || []).find(x => x.name === secName);
-    const sector = (secName && secName !== '未知') ? {
-      name: secName, ztCount: ((S.ztBySector || {})[secName] || []).length,
-      pct: sec ? +sec.pct || 0 : 0, mainInflow: sec ? +sec.mainInflow || 0 : 0,
-    } : null;
+    const sector = inputGate.projectSector(secName, S.sectors, S.ztBySector, S.ztDay,
+      S.ztReviewPoolMeta, targetDate, Date.now(), MYRULES.DEFAULTS.secZtMin);
     let pr = null;
     try { pr = A.calcProfitRatio(rows); } catch {}
-    const au = aucMap.get(c.code);
+    const au = inputGate.projectAuction(auctionSnapshot, c.code, targetDate, Date.now());
     let ticks = null;
-    try { ticks = await auctionTicksFor(c.code); } catch (e) { console.error('[myrules] 竞价分时拉取失败 ' + c.code + ':', e && e.message); }
+    try { ticks = await auctionTicksFor(c.code, targetDate); } catch (e) { console.error('[myrules] 竞价分时拉取失败 ' + c.code + ':', e && e.message); }
     return {
-      stock: {
-        code: c.code, name: c.name, price: c.price, pct: c.pct, floatCap: c.floatCap,
-        amount: c.amount, sealAmount: c.sealAmount, limitUpCount: c.limitUpCount, breakCount: c.breakCount,
-        preClose: c.preClose,
-      },
+      stock: inputGate.projectStock(c, targetDate, Date.now()),
       rows, sector,
-      auction: au ? { auctionAmount: au.auctionAmount, auctionPct: au.auctionPct } : null,
+      auction: au,
       profitRatio: pr,
       lhb: lhbMap.get(c.code) || null,
-      aucTicks: ticks,
+      aucTicks: inputGate.projectTicks(ticks, c.code, targetDate, Date.now()),
     };
   }, 8);
   const list = built.filter(Boolean);
+  // A failed/lagging K-line read or a new session is not a confirmed empty scan.
+  if (!list.length || latestTradeDate() !== targetDate) {
+    staleMark('myrules', 'held');
+    return S.myrules;
+  }
   const r = MYRULES.scan(list, {});
   S.myrules = {
-    date: NP.localDate(), time: new Date().toLocaleTimeString('zh-CN'),
+    date: targetDate, generatedDate: NP.localDate(), time: new Date().toLocaleTimeString('zh-CN'),
+    observationMode: Date.now() < Date.parse(targetDate+'T15:10:00+08:00') ? 'intraday-research' : 'dated-research',
+    canTrade: false, canNotify: false,
     count: r.count, scanned: list.length,
     items: r.all.filter(x => x.pass).slice(0, 12),
     all: r.all.slice(0, 30),
