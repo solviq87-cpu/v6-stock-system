@@ -22,6 +22,8 @@ jobs:
           script: |
             const {owner,repo}=context.repo;
             const before=context.payload.before,after=context.sha;
+            // The PR coverage cap is 64; a merge commit adds one more SHA.
+            const MAX_PUSH_COMMITS=65;
             const valid=s=>typeof s==='string'&&/^[a-f0-9]{40}$/.test(s);
             if(!valid(after)||after!==context.payload.after||context.payload.forced)throw Error('unsafe-or-forced-push');
             let shas;
@@ -32,11 +34,11 @@ jobs:
               if(!valid(before))throw Error('invalid-previous-sha');
               const res=await github.rest.repos.compareCommits({owner,repo,base:before,head:after,per_page:100,page:1});
               const cmp=res.data;
-              if(cmp.status!=='ahead'||!Number.isSafeInteger(cmp.ahead_by)||cmp.ahead_by<1||cmp.ahead_by>32)throw Error('nonforward-or-over-32-commit-push');
+              if(cmp.status!=='ahead'||!Number.isSafeInteger(cmp.ahead_by)||cmp.ahead_by<1||cmp.ahead_by>MAX_PUSH_COMMITS)throw Error('nonforward-or-over-65-commit-push');
               shas=(cmp.commits||[]).map(x=>x.sha);
               if(shas.length!==cmp.ahead_by||shas[shas.length-1]!==after)throw Error('incomplete-or-wrong-commit-range');
             }
-            if(!shas.length||shas.length>32||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-sha-matrix');
+            if(!shas.length||shas.length>MAX_PUSH_COMMITS||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-sha-matrix');
             core.setOutput('matrix',JSON.stringify({include:shas.map(sha=>({sha}))}));
             core.setOutput('shas',JSON.stringify(shas));
             await core.summary.addRaw('检测新增 SHA：'+shas.length+'。每条独立快速测试，完整 V6 CI 另行执行。').write();
@@ -95,8 +97,10 @@ jobs:
           script: |
             const {owner,repo}=context.repo;
             const shas=JSON.parse(process.env.COVERAGE_SHAS||'[]');
+            // The PR coverage cap is 64; a merge commit adds one more SHA.
+            const MAX_PUSH_COMMITS=65;
             const valid=s=>typeof s==='string'&&/^[a-f0-9]{40}$/.test(s);
-            if(!shas.length||shas.length>32||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-coverage-targets');
+            if(!shas.length||shas.length>MAX_PUSH_COMMITS||new Set(shas).size!==shas.length||!shas.every(valid))throw Error('invalid-coverage-targets');
             const attempt=Number(process.env.GITHUB_RUN_ATTEMPT||'1');
             if(!Number.isSafeInteger(attempt)||attempt<1)throw Error('invalid-run-attempt');
             const response=await github.rest.actions.listJobsForWorkflowRunAttempt({

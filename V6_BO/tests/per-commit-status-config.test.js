@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'../..');
 const source=()=>fs.readFileSync(path.join(root,'.github/workflows/v6-per-commit-smoke.yml'),'utf8');
 test('whole forward range selected with strict cap and SHA identity',()=>{
  const s=source();
- for(const term of ["name: V6 Per-Commit Smoke","compareCommits","cmp.ahead_by>32",
+ for(const term of ["name: V6 Per-Commit Smoke","compareCommits","cmp.ahead_by>MAX_PUSH_COMMITS","const MAX_PUSH_COMMITS=65",
  "incomplete-or-wrong-commit-range","context.payload.forced","fail-fast: false",
  "fromJSON(needs.select.outputs.matrix)"])assert.ok(s.includes(term),term);
  assert.match(s,/branches:\s*\['\*\*',\s*'!archive\/\*\*'\]/);
