@@ -25,7 +25,9 @@ function monitor(n, respond = requested => requested.map(code => ({ code, price:
   const a = source.indexOf('const observeFastStockMoves =');
   const b = source.indexOf('    const alerts = [];', a);
   assert.ok(a >= 0 && b > a);
-  vm.runInContext(source.slice(a, b) + '\n} finally { S.loop.running = false; } }', c);
+  // Close the original try block and tracing callback without executing the
+  // later signal/account/notification code; keep the real collection prefix.
+  vm.runInContext(source.slice(a, b) + '\n} finally { strategies.end(); S.loop.running = false; } }); }', c);
   return { c, requests, ingested, watch, run: () => c.tick() };
 }
 
