@@ -230,3 +230,50 @@ test('78 conflicting, truncated, malformed or over-denominator inputs cannot cou
   if(reason==='quote-population-mismatch'||reason==='quote-input-limit-exceeded')assert.equal(d.latest.market.freshCoverage,null);
  }
 });
+
+test('78 isolated same-day failures and criteria do not pollute genuine acceptance evidence',async t=>{
+ const f=fixture(t);await f.ops.tick();
+ let now=at(days[0],9,31),failing=true;
+ const isolated=createRuntimeAcceptance({root:f.root,canWrite:()=>true,clock:()=>now,liveCollector:true,
+  env:{NODE_ENV:'production',V6_ISOLATED_BOOT_SMOKE:'1'},
+  calendar:()=>({status:'available',tradeDates:days,metadata:{source:'test-explicit-calendar',runtimeEligible:true,sha256:'b'.repeat(64),from:days[0],to:days.at(-1)}}),
+  release:()=>({verifiedInstalled:true,sourceSha:'c'.repeat(40)}),criteria:{minimumMatureSamples:99},
+  collect:async()=>{if(failing)throw Error('isolated failure');return {mode:'replay',market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:0,quoteAt:now+1000,receivedAt:now}]}};}});
+ assert.equal((await isolated.tick()).recorded,true);
+ failing=false;now=at(days[0],9,32);assert.equal((await isolated.tick()).recorded,true);
+ f.setNow(at(days[0],16,0));const d=(await f.ops.report()).days[0];
+ assert.equal(d.samples,3);assert.equal(d.attemptSamples,1);assert.equal(d.liveSamples,1);assert.equal(d.criteriaHashes.length,1);
+ for(const reason of ['collector-failure','future-original-quote-time','invalid-original-quote-price','version-or-criteria-changed-within-day'])assert.ok(!d.failures.includes(reason),reason);
+ for(const reason of ['collector-failure','future-original-quote-time','invalid-original-quote-price','isolated-replay-or-unidentified-run'])assert.ok(d.exclusionReasons.includes(reason),reason);
+ assert.equal(d.latest.risk.queued,2);
+});
+test('78 isolated positive snapshots are diagnostic only, never business acceptance evidence',async t=>{
+ const f=fixture(t);f.setMode('replay');await f.ops.tick();
+ const report=await f.ops.report(),d=report.excludedDayEvidence[0];
+ assert.equal(d.latest.risk.delivered,1);assert.equal(d.attemptSamples,0);assert.deepEqual(d.criteriaHashes,[]);
+ for(const axis of ['riskEffectiveness','notificationDelivery','recoveryEvidence','strategyOutcomes','modelCalibration','dualClientParity'])assert.ok(d.unknown.includes(axis),axis);
+});
+test('78 late positive snapshots cannot establish timely business acceptance evidence',async t=>{
+ let now=at(days[0],9,30);const f=fixture(t,{clock:()=>now,collect:async({now:observedAt})=>{
+  now+=16000;
+  return {mode:'live',market:{expectedSymbols:1,attempts:1,successes:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:observedAt-1000,receivedAt:observedAt}]},
+   risk:{falsePositives:0,falseNegatives:0,delivered:1,deliveryDelayMs:200},execution:{recoveryVerified:true},
+   strategy:{matureSamples:50,netReturnPct:1,maxDrawdownPct:3,calibrationError:.1},
+   clients:{desktopVersion:'v1',mobileVersion:'v1',apiVersion:'v1',permissionsConsistent:true,featuresConsistent:true}};
+ }});
+ const receipt=await f.ops.tick();assert.equal(receipt.recorded,true);assert.equal(receipt.liveEligible,false);
+ now=at(days[0],16,0);const d=(await f.ops.report()).days[0];
+ assert.equal(d.attemptSamples,1);assert.equal(d.liveSamples,0);assert.equal(d.latest.risk.delivered,1);
+ assert.ok(d.failures.includes('collection-window-exceeded'));
+ for(const axis of ['riskEffectiveness','notificationDelivery','recoveryEvidence','strategyOutcomes','modelCalibration','dualClientParity'])assert.ok(d.unknown.includes(axis),axis);
+});
+test('78 contradictory historical eligibility cannot earn live coverage',async t=>{
+ const f=fixture(t);await f.ops.tick();
+ const file=path.join(f.root,days[0]+'.jsonl'),{fingerprint,...body}=JSON.parse(fs.readFileSync(file,'utf8'));
+ body.exclusions=['collection-window-exceeded'];body.attemptEligible=true;
+ const raw=JSON.stringify({...body,fingerprint:require('node:crypto').createHash('sha256').update(JSON.stringify(body)).digest('hex')})+'\n';
+ fs.writeFileSync(file,raw);f.setNow(at(days[0],16,0));
+ const report=await f.ops.report();assert.equal(report.observedTradingDays,0);assert.equal(report.days[0].attemptSamples,1);
+ assert.ok(report.days[0].exclusionReasons.includes('legacy-observation-evidence-not-revalidated'));
+ assert.equal(fs.readFileSync(file,'utf8'),raw);
+});

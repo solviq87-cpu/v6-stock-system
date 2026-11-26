@@ -259,7 +259,7 @@ function summarizeDay(day, rows, now, criteria) {
   // runtime calendar and quote audit evidence cannot certify a real day.
 
   const populationMismatch=m=>m.expectedSymbols!=null&&m.observedSymbols>m.expectedSymbols;
-  const live=rows.filter(row=>row.liveEligible&&qualifiedRuntimeRow(row)&&row.metrics.market.freshQuotes>0&&
+  const live=rows.filter(row=>row.liveEligible===true&&runtimeQualityAttempt(row)&&row.exclusions.length===0&&row.collectFailed===false&&row.metrics.market.freshQuotes>0&&
     row.metrics.market.quoteEvidence.truncated!==true&&!(row.metrics.market.conflictingSymbols>0)&&!(row.metrics.market.invalidIdentities>0)&&
     !(row.metrics.market.futureQuotes>0)&&!(row.metrics.market.invalidPrice>0)&&!populationMismatch(row.metrics.market)),liveSet=new Set(live),slots=new Set(live.map(r=>r.slot));
   const attempts=rows.filter(row=>liveSet.has(row)||runtimeQualityAttempt(row));
@@ -267,7 +267,7 @@ function summarizeDay(day, rows, now, criteria) {
   const ended = day < aShareCalendarDate(now) || day === aShareCalendarDate(now) && new Date(now + 8 * 3600000).getUTCHours() >= 16;
   const fullCoverage = slots.size >= criteria.minimumSlots && morning >= criteria.minimumSessionSlots && afternoon >= criteria.minimumSessionSlots &&
     slots.has(0) && slots.has(23) && slots.has(24) && slots.has(47);
-  const sourceShas = [...new Set(attempts.map(r => r.sourceSha))], profileHashes = [...new Set(rows.map(r => r.criteriaHash))];
+  const sourceShas = [...new Set(attempts.map(r => r.sourceSha))], profileHashes = [...new Set(attempts.map(r => r.criteriaHash))];
   const calendarVersions=[...new Map(attempts.map(r=>[JSON.stringify([r.calendar?.source??null,r.calendar?.hash??null]),{source:r.calendar?.source??null,hash:r.calendar?.hash??null}])).values()];
   const metric = (fn, values = attempts) => values.map(fn).filter(v => v !== null && v !== undefined);
   // A failed but qualified live attempt is part of the observation population.
@@ -275,7 +275,12 @@ function summarizeDay(day, rows, now, criteria) {
   // the newest failed attempt or omit failed timings from latency statistics.
   const latencies = metric(r => r.metrics.system.collectionMs).sort((a,b) => a-b);
   const latestLive=live.at(-1)?.metrics||null;
-  const latest=attempts.at(-1)?.metrics||rows.at(-1)?.metrics||null;
+  // Preserve the latest excluded snapshot for diagnostics, but never use it
+  // as positive acceptance evidence. A late qualified attempt is retained as
+  // a failure and cannot establish timely business evidence either.
+  const lastAttempt=attempts.at(-1),latestAttempt=lastAttempt?.metrics||null;
+  const latest=latestAttempt||rows.at(-1)?.metrics||null;
+  const latestEvidence=lastAttempt&&!lastAttempt.exclusions.includes('collection-window-exceeded')?latestAttempt:null;
   const accountOutcomes=attempts.map(r=>{
     const outcome=jointReconciliationOutcome(r.metrics?.execution,r.observedAt,now);
     return outcome==='verified-local'&&r.exclusions.includes('collection-window-exceeded')?'unknown':outcome;
@@ -288,13 +293,13 @@ function summarizeDay(day, rows, now, criteria) {
     ['marketCoverage',attempts.length > 0 && attempts.every(r => r.metrics.market.freshCoverage != null)],
     ['collectionSuccess',attempts.length > 0 && attempts.every(r => r.metrics.market.collectionSuccess != null)],
     ['quoteConflictReview',attempts.length > 0 && attempts.every(r=>r.metrics.market.quoteEvidence?.conflictPolicy==='explicit-and-duplicate-v1')],
-    ['riskEffectiveness',latest?.risk.falsePositives !== null && latest?.risk.falsePositives !== undefined && latest?.risk.falseNegatives !== null && latest?.risk.falseNegatives !== undefined],
-    ['notificationDelivery',latest?.risk.delivered !== null && latest?.risk.delivered !== undefined && latest?.risk.deliveryDelayMs !== null && latest?.risk.deliveryDelayMs !== undefined],
+    ['riskEffectiveness',latestEvidence?.risk.falsePositives !== null && latestEvidence?.risk.falsePositives !== undefined && latestEvidence?.risk.falseNegatives !== null && latestEvidence?.risk.falseNegatives !== undefined],
+    ['notificationDelivery',latestEvidence?.risk.delivered !== null && latestEvidence?.risk.delivered !== undefined && latestEvidence?.risk.deliveryDelayMs !== null && latestEvidence?.risk.deliveryDelayMs !== undefined],
     ['accountReconciliation',accountOutcomes.length>0&&accountOutcomes.every(value=>value!=='unknown')],
-    ['recoveryEvidence',latest?.execution.recoveryVerified !== null && latest?.execution.recoveryVerified !== undefined],
-    ['strategyOutcomes',latest?.strategy.matureSamples > 0 && latest?.strategy.netReturnPct !== null && latest?.strategy.maxDrawdownPct !== null],
-    ['modelCalibration',latest?.strategy.calibrationError !== null && latest?.strategy.calibrationError !== undefined],
-    ['dualClientParity',latest?.clients.permissionsConsistent !== null && latest?.clients.permissionsConsistent !== undefined && latest?.clients.featuresConsistent !== null && latest?.clients.featuresConsistent !== undefined && !!latest?.clients.desktopVersion && !!latest?.clients.mobileVersion && !!latest?.clients.apiVersion]
+    ['recoveryEvidence',latestEvidence?.execution.recoveryVerified !== null && latestEvidence?.execution.recoveryVerified !== undefined],
+    ['strategyOutcomes',latestEvidence?.strategy.matureSamples > 0 && latestEvidence?.strategy.netReturnPct !== null && latestEvidence?.strategy.maxDrawdownPct !== null],
+    ['modelCalibration',latestEvidence?.strategy.calibrationError !== null && latestEvidence?.strategy.calibrationError !== undefined],
+    ['dualClientParity',latestEvidence?.clients.permissionsConsistent !== null && latestEvidence?.clients.permissionsConsistent !== undefined && latestEvidence?.clients.featuresConsistent !== null && latestEvidence?.clients.featuresConsistent !== undefined && !!latestEvidence?.clients.desktopVersion && !!latestEvidence?.clients.mobileVersion && !!latestEvidence?.clients.apiVersion]
   ]) if (!present) unknown.push(name);
   if (!fullCoverage) failures.push('insufficient-session-coverage');
   if (sourceShas.length > 1 || profileHashes.length > 1) failures.push('version-or-criteria-changed-within-day');
@@ -304,9 +309,9 @@ function summarizeDay(day, rows, now, criteria) {
   if (attempts.some(r=>r.metrics.market.quoteEvidence?.truncated===true)) failures.push('quote-input-limit-exceeded');
   if (attempts.some(r=>populationMismatch(r.metrics.market))) failures.push('quote-population-mismatch');
   if (attempts.some(r=>r.exclusions.includes('collection-window-exceeded'))) failures.push('collection-window-exceeded');
-  if (rows.some(r => r.collectFailed)) failures.push('collector-failure');
-  if (rows.some(r => r.metrics.market.futureQuotes > 0)) failures.push('future-original-quote-time');
-  if (rows.some(r => r.metrics.market.invalidPrice > 0)) failures.push('invalid-original-quote-price');
+  if (attempts.some(r => r.collectFailed)) failures.push('collector-failure');
+  if (attempts.some(r => r.metrics.market.futureQuotes > 0)) failures.push('future-original-quote-time');
+  if (attempts.some(r => r.metrics.market.invalidPrice > 0)) failures.push('invalid-original-quote-price');
   const p95 = latencies.length ? latencies[Math.min(latencies.length-1,Math.ceil(latencies.length * .95)-1)] : null;
   if (p95 !== null && p95 > criteria.maximumCollectionP95Ms) failures.push('collection-latency');
   // A qualified failed market sample cannot certify positive evidence, but
@@ -319,9 +324,9 @@ function summarizeDay(day, rows, now, criteria) {
   if (attempts.some(r => r.metrics.clients.permissionsConsistent === false || r.metrics.clients.featuresConsistent === false ||
       r.metrics.clients.desktopVersion && r.metrics.clients.mobileVersion && r.metrics.clients.apiVersion &&
       new Set([r.metrics.clients.desktopVersion,r.metrics.clients.mobileVersion,r.metrics.clients.apiVersion]).size > 1)) failures.push('dual-client-mismatch');
-  if (criteria.minimumMatureSamples !== null && (latest?.strategy.matureSamples ?? 0) < criteria.minimumMatureSamples) failures.push('insufficient-mature-samples');
-  if (criteria.maximumDrawdownPct !== null && latest?.strategy.maxDrawdownPct > criteria.maximumDrawdownPct) failures.push('drawdown-limit');
-  if (criteria.maximumCalibrationError !== null && latest?.strategy.calibrationError > criteria.maximumCalibrationError) failures.push('calibration-limit');
+  if (criteria.minimumMatureSamples !== null && (latestAttempt?.strategy.matureSamples ?? 0) < criteria.minimumMatureSamples) failures.push('insufficient-mature-samples');
+  if (criteria.maximumDrawdownPct !== null && latestAttempt?.strategy.maxDrawdownPct > criteria.maximumDrawdownPct) failures.push('drawdown-limit');
+  if (criteria.maximumCalibrationError !== null && latestAttempt?.strategy.calibrationError > criteria.maximumCalibrationError) failures.push('calibration-limit');
   return {day,status:!rows.length?'missing':!ended?'in-progress':!live.length?'excluded':!fullCoverage?'observed-partial':failures.length?'observed-with-failures':unknown.length?'observed-awaiting-evidence':'observed-reviewable',
     samples:rows.length,liveSamples:live.length,attemptSamples:attempts.length,excludedSamples:rows.length-live.length,slots:slots.size,morningSlots:morning,afternoonSlots:afternoon,
     completeObservation:ended && fullCoverage,sourceShas,criteriaHashes:profileHashes,calendarVersions,
