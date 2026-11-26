@@ -40,14 +40,17 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    });
    if(hasQuoteRedirect(response,requestUrl))
     return reason('redirect-refused',Number.isInteger(response?.status)&&response.status>=300&&response.status<400?response.status:null);
-   if(!response||!Number.isInteger(response.status))
+   if(!response||!Number.isInteger(response.status)||response.status<100||response.status>599)
     return reason('transport-error');
    const httpStatus=response.status;
    if(httpStatus===401||httpStatus===403)
     return reason('access-denied',httpStatus);
    if(httpStatus===429)
     return reason('rate-limited',httpStatus);
-   if(!response.ok)return reason('http-error',httpStatus);
+   if(httpStatus>=400)return reason('http-error',httpStatus);
+   if(httpStatus<200||httpStatus>=300||response.ok!==true)return reason('transport-error');
+   // Partial/empty/other success codes are not the expected complete quote.
+   if(httpStatus!==200)return reason('invalid-response',httpStatus);
    let raw;
    try{raw=await boundedBody(response);}
    catch(e){return reason(e.message==='body-too-large'?'response-too-large':'invalid-response',httpStatus);}

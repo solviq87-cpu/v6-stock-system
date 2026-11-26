@@ -82,6 +82,7 @@ function inspectProbe(snapshot,now){
     snapshot.providerLicensed!==false||snapshot.verifiedLive!==false||
     snapshot.exchangeCalendarVerified!==false||
     snapshot.canTrade!==false||snapshot.canNotify!==false||
+    ['synthetic','mock','fixture','testSample'].some(k=>snapshot[k]===true)||
     typeof snapshot.code!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(snapshot.code)||
     !Array.isArray(snapshot.providers)||snapshot.providers.length<1||snapshot.providers.length>3||
     !['completed-unverified','outside-weekday-session-window','clock-regressed'].includes(snapshot.status))

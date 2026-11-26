@@ -345,3 +345,7 @@ test('regressed publication may retain a dated quote for diagnosis but must not 
  assert.equal(r.routes.find(x=>x.id==='tencent').lastProbeStatus,'dated-snapshot');
  assert.equal(r.routes.find(x=>x.id==='tencent').observationState,'clock-regressed');
 });
+
+test('a fixture-marked report is not evidence of an actual provider call',()=>{
+ for(const flag of ['synthetic','mock','fixture','testSample'])assert.throws(()=>audit({asOf:NOW,snapshot:{...snapshot(),[flag]:true}}),/快照/);
+});
