@@ -23,10 +23,14 @@ function quoteObservationView(row,now=Date.now()){
 }
 // Explicit observation/simulation sources cannot enter automatic execution.
 // This predicate alone does not certify timing or grant use permissions.
+// A preferred display alias must not erase an explicit negative mode.
+function quoteModesAllowUse(row){
+ return [row?.quoteMode,row?.mode].every(mode=>mode==null||
+  typeof mode==='string'&&!/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode));
+}
 function quoteSourceAllowsUse(row){
- const mode=typeof (row?.quoteMode||row?.mode)==='string'?String(row.quoteMode||row.mode):'';
  const source=typeof row?.quoteSource==='string'?row.quoteSource:'';
- return row?.canTrade!==false&&!/simulat|research|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(mode)&&
+ return row?.canTrade!==false&&quoteModesAllowUse(row)&&
    !/simulat|readOnlyBackup/i.test(source)&&!/(?:^|[-_:/\.\s])(?:import(?:ed)?|fixture|mock|test|synthetic)(?:$|[-_:/\.\s])/i.test(source)&&
    !['simulated','readOnlyBackup','imported','fixture','mock','synthetic'].some(flag=>row?.[flag]===true)&&
    row?.tradable!==false&&row?.suspended!==true;
@@ -47,15 +51,18 @@ function quoteUseEligibility(row,now=Date.now()){
 // Never look up a different snapshot by code or grant execution permission.
 function quoteSnapshotFields(row){
  const validPrice=typeof row?.price==='number'&&Number.isFinite(row.price)&&row.price>0;
- const quoteAt=validPrice&&Number.isSafeInteger(row?.quoteAt)&&row.quoteAt>0?row.quoteAt:null;
+ const quoteAt=validPrice&&Number.isSafeInteger(row?.quoteAt)&&row.quoteAt>0&&row.quoteAt<=8e15?row.quoteAt:null;
  const source=validPrice&&typeof row?.quoteSource==='string'?row.quoteSource.trim().slice(0,100):'';
  const receivedAt=Number.isSafeInteger(row?.receivedAt)&&row.receivedAt>0?row.receivedAt:null;
  const flags=Object.fromEntries(['simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']
    .filter(flag=>typeof row?.[flag]==='boolean').map(flag=>[flag,row[flag]]));
- return {quoteAt,quoteSource:source||null,receivedAt,...(row?.canTrade===false?{canTrade:false}:{}),
-   ...flags,...(explicitQuoteConflict(row)?{sourceConflict:true}:{}),...(typeof (row?.quoteMode||row?.mode)==='string'?{quoteMode:row.quoteMode||row.mode}:{}),
+ const blockedMode=!quoteModesAllowUse(row);
+ return {quoteAt,quoteSource:source||null,receivedAt,...(row?.canTrade===false||blockedMode?{canTrade:false}:{}),
+   ...flags,...(explicitQuoteConflict(row)||row?.tradeDate!=null&&typeof row.tradeDate!=='string'?{sourceConflict:true}:{}),
+   ...(typeof (row?.quoteMode||row?.mode)==='string'?{quoteMode:row.quoteMode||row.mode}:{}),
+   ...(typeof row?.mode==='string'&&typeof row?.quoteMode==='string'&&row.mode!==row.quoteMode?{mode:row.mode}:{}),
    ...(typeof row?.tradeDate==='string'?{tradeDate:row.tradeDate}:{}),
-   ...(typeof row?.canNotify==='boolean'?{canNotify:row.canNotify}:{})};
+   ...(blockedMode?{canNotify:false}:typeof row?.canNotify==='boolean'?{canNotify:row.canNotify}:{})};
 }
 function fundsObservationView(row,now=Date.now()){
  const value=typeof row?.mainInflow==='number'&&Number.isFinite(row.mainInflow)?row.mainInflow:null;

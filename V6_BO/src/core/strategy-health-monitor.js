@@ -7,22 +7,51 @@ const round=n=>Math.round(n*10000)/10000;
 function rollingPaperDiagnosis(rows, {sessionDates, splitDate, universeCount, marketQuality}={}) {
  const policy={windowSessions:20,purgeSessions:2,minTradeDays:10,minTrades:20,minEvaluatedCoverage:0.8,negativeChangePp:1};
  const empty={status:'unknown',reason:'insufficient-samples',evidenceScope:'offline-paper-estimate',verifiedDecay:false,canTrade:false,policy,previous:null,recent:null,changePp:null,causalEvidence:{factorDrift:null,marketRegime:null,executionDeviation:null,observedCost:null}};
- if(!Array.isArray(sessionDates)||!splitDate||!Number.isSafeInteger(universeCount)||universeCount<1||sessionDates.some((d,i)=>typeof d!=='string'||(i>0&&d<=sessionDates[i-1])))return empty;
+ const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
+ if(!Array.isArray(rows)||!Array.isArray(sessionDates)||!validDay(splitDate)||!Number.isSafeInteger(universeCount)||universeCount<1||
+  !Number.isSafeInteger(universeCount*policy.windowSessions)||sessionDates.some((d,i)=>!validDay(d)||(i>0&&d<=sessionDates[i-1])))return empty;
+ const index=new Map(sessionDates.map((d,i)=>[d,i]));
  const dates=sessionDates.slice(0,-policy.purgeSessions).filter(d=>d>=splitDate);
  if(dates.length<2*policy.windowSessions+policy.purgeSessions)return empty;
  const recentDates=dates.slice(-policy.windowSessions),priorDates=dates.slice(-2*policy.windowSessions-policy.purgeSessions,-policy.windowSessions-policy.purgeSessions);
  const stats=ds=>{
-  const dateSet=new Set(ds),items=rows.filter(r=>dateSet.has(r.signalDate));
-  const done=items.filter(r=>r.outcome?.status==='paper-estimate'&&Number.isFinite(r.outcome.netReturnPct)&&r.outcome.exitDate<=sessionDates.at(-1));
+  const dateSet=new Set(ds),items=rows.filter(r=>dateSet.has(r?.signalDate)),byKey=new Map(),bySession=new Map();
+  let invalidRows=0,duplicateRows=0,invalidOutcomes=0;
+  for(const row of items){
+   if(typeof row.symbol!=='string'||!row.symbol.trim()||!['pass','fail','unknown'].includes(row.verdict)){invalidRows++;continue;}
+   const key=JSON.stringify([row.signalDate,row.symbol]),bucket=byKey.get(key)||[];
+   bucket.push(row);byKey.set(key,bucket);
+  }
+  const unique=[];
+  for(const bucket of byKey.values()){
+   const row=bucket[0];bySession.set(row.signalDate,(bySession.get(row.signalDate)||0)+1);
+   // Duplicate evidence cannot inflate coverage, and conflicting copies cannot
+   // be silently resolved by choosing the more attractive result.
+   if(bucket.length!==1){duplicateRows+=bucket.length;continue;}
+   unique.push(row);
+  }
+  const overfullSessions=[...bySession.values()].filter(n=>n>universeCount).length;
+  const done=unique.filter(r=>{
+   if(r.outcome?.status!=='paper-estimate')return false;
+   const i=index.get(r.signalDate);
+   const ok=r.verdict==='pass'&&Number.isFinite(r.outcome.netReturnPct)&&r.outcome.exitDate===sessionDates[i+policy.purgeSessions]&&
+    typeof r.outcome.exitDate==='string'&&(r.outcome.entryDate==null||r.outcome.entryDate===sessionDates[i+1]);
+   if(!ok)invalidOutcomes++;
+   return ok;
+  });
   const byDate=new Map();
   for(const row of done){const bucket=byDate.get(row.signalDate)||[];bucket.push(row.outcome.netReturnPct);byDate.set(row.signalDate,bucket);}
   const dailyMeans=[...byDate.values()].map(xs=>xs.reduce((a,b)=>a+b,0)/xs.length);
-  const coverage=items.filter(r=>r.verdict==='pass'||r.verdict==='fail').length/(ds.length*universeCount);
-  return {startDate:ds[0],endDate:ds.at(-1),sessions:ds.length,expectedRows:ds.length*universeCount,evaluatedCoverage:coverage,passedSignals:items.filter(r=>r.verdict==='pass').length,blockedSignals:items.filter(r=>r.outcome?.status==='blocked').length,estimatedTrades:done.length,tradeDays:dailyMeans.length,meanDailySignalReturnPct:dailyMeans.length?dailyMeans.reduce((a,b)=>a+b,0)/dailyMeans.length:null};
+  const coverage=unique.filter(r=>r.verdict==='pass'||r.verdict==='fail').length/(ds.length*universeCount);
+  return {startDate:ds[0],endDate:ds.at(-1),sessions:ds.length,expectedRows:ds.length*universeCount,evaluatedCoverage:coverage,
+   invalidRows,duplicateRows,invalidOutcomes,overfullSessions,passedSignals:unique.filter(r=>r.verdict==='pass').length,
+   blockedSignals:unique.filter(r=>r.outcome?.status==='blocked').length,estimatedTrades:done.length,tradeDays:dailyMeans.length,
+   meanDailySignalReturnPct:dailyMeans.length?dailyMeans.reduce((a,b)=>a+b,0)/dailyMeans.length:null};
  };
  const previous=stats(priorDates),recent=stats(recentDates);
  const base={...empty,previous,recent};
- if(!marketQuality?.reviewReady)return {...base,reason:'data-quality-unverified'};
+ if(marketQuality?.reviewReady!==true)return {...base,reason:'data-quality-unverified'};
+ if([previous,recent].some(x=>x.invalidRows||x.duplicateRows||x.invalidOutcomes||x.overfullSessions))return {...base,reason:'inconsistent-window-evidence'};
  if([previous,recent].some(x=>x.evaluatedCoverage<policy.minEvaluatedCoverage||x.evaluatedCoverage>1||x.tradeDays<policy.minTradeDays||x.estimatedTrades<policy.minTrades))return base;
  const changePp=recent.meanDailySignalReturnPct-previous.meanDailySignalReturnPct;
  return {...base,status:changePp<=-policy.negativeChangePp&&recent.meanDailySignalReturnPct<0?'paper-deterioration-review':'paper-observed-no-threshold-breach',reason:'factor-regime-cost-and-fill-evidence-not-linked',changePp};

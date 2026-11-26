@@ -224,3 +224,32 @@ test('command UI loads only on submit, reuses same-day history and exposes no mu
   updates[0]();assert.equal(calls.length, 1);
   controller.abort();
 });
+
+test('shared template controls delete through the original endpoint and do not revive stale device shortcuts',async()=>{
+ global.Node=El;
+ global.document={createElement:tag=>new El(tag),createTextNode:textContent=>Object.assign(new El('text'),{textContent})};
+ const controller=new AbortController(),raw='精选评分前5且股价低于20元',id='a'.repeat(64),calls=[],updates=[];
+ let active=true,delay=null;
+ const ctx={role:'edit',state:{},signal:controller.signal,viewMemory:{commandTemplates:['旧设备模板']},
+  api:async(url,options={})=>{
+   calls.push({url,options});
+   if(options.method==='POST'){
+    assert.equal(options.body.action,'delete-template');assert.equal(options.body.id,id);assert.equal(options.body.expectedRevision,1);
+    active=false;return {ok:true,result:{id,revision:2,removed:true,canTrade:false}};
+   }
+   if(delay)await delay;
+   return {ok:true,result:{researchOnly:true,canTrade:false,templates:active?[{id,raw,revision:1}]:[],
+    removed:active?[]:[{id,revision:2}]}};
+  },onState:fn=>updates.push(fn),selectStock(){}};
+ const view=createCommandSelection(ctx),read=find(view,n=>n.tag==='button'&&text(n).trim()==='读取共享模板');
+ assert.equal(calls.length,0);assert.equal(text(view).includes('旧设备模板'),false);
+ await read.listeners.click({});assert.ok(text(view).includes(raw));
+ const remove=find(view,n=>n.tag==='button'&&text(n).trim()==='删除模板');assert.ok(remove);
+ await remove.listeners.click({});assert.ok(calls.some(c=>c.options.method==='POST'));
+ assert.equal(text(view).includes(raw),false);assert.deepEqual(ctx.viewMemory.commandTemplates,[]);
+ active=true;await read.listeners.click({});assert.ok(text(view).includes(raw));
+ let resume;delay=new Promise(resolve=>{resume=resolve;});const pending=read.listeners.click({});
+ ctx.role='view';updates.forEach(fn=>fn());assert.equal(text(view).includes(raw),false);
+ resume();await pending;assert.equal(text(view).includes(raw),false);assert.deepEqual(ctx.viewMemory.commandTemplates,[]);
+ controller.abort();
+});
