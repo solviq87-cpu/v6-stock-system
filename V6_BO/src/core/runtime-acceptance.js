@@ -339,19 +339,60 @@ function summarizeDay(day, rows, now, criteria) {
 
 function buildUnifiedTaskStatus(evidence = []) {
   const axes = ['code','interface','realData','validation','deployed','observation'];
-  const allowed = new Set(['unknown','missing','partial','implemented','connected','available','passed','failed','deployed','not-deployed','waiting','blocked','observing','verified']);
+  const common = ['unknown','missing','partial','failed','blocked'];
+  const states = {
+    code:new Set([...common,'implemented']),
+    interface:new Set([...common,'connected']),
+    realData:new Set([...common,'available']),
+    validation:new Set([...common,'passed']),
+    deployed:new Set([...common,'deployed','not-deployed']),
+    observation:new Set([...common,'waiting','observing','verified'])
+  };
+  const terminal = {code:'implemented',interface:'connected',realData:'available',validation:'passed',deployed:'deployed',observation:'verified'};
   const safeRef = value => typeof value==='string'&&value.length<=300&&(
     /^https:\/\/github\.com\/solviq87-cpu\/v6-stock-system\/(?:pull\/[1-9]\d*|commit\/[a-f0-9]{40}|actions\/runs\/[1-9]\d*(?:\/attempts\/[1-9]\d*)?)(?:#[A-Za-z0-9_-]+)?$/.test(value)||
-    /^(?:V6_BO|docs|tests)\//.test(value)&&!/[\\?:#\x00-\x20]/.test(value)&&value.split('/').every(part=>part&&part!=='.'&&part!=='..'));
+    /^(?:V6_BO|docs|tests)\//.test(value)&&!/[\\?:#%\x00-\x20\x7f]/.test(value)&&value.split('/').every(part=>part&&part!=='.'&&part!=='..'));
+  const exactSha = value => typeof value==='string'&&SHA.test(value)?value:null;
+  const refsFor = value => Array.isArray(value?.evidence)?value.evidence.filter(safeRef):[];
+  // These are reference-shape checks, not network verification or a grant
+  // of acceptance. Generic PRs and source paths alone do not establish live
+  // data, deployment or observation receipts.
+  const receiptRef = ref => /^(?:V6_BO\/)?docs\/validation\/.+\.(?:json|md|txt|log|tap)$/i.test(ref);
+  const runRef = ref => /^https:\/\/github\.com\/solviq87-cpu\/v6-stock-system\/actions\/runs\//.test(ref);
+  const completionRef = (axis,ref,sha) => {
+    if(axis==='code')return /^V6_BO\/(?:src\/|scripts\/|public\/|strategies\/|config\/|deploy\/)/.test(ref)&&
+      !/\/(?:tests|fixtures|docs)\//.test(ref)&&/\.(?:js|cjs|mjs|json|py|ts|tsx|css|html|sh|ps1|ya?ml)$/i.test(ref)||
+      ref==='https://github.com/solviq87-cpu/v6-stock-system/commit/'+sha;
+    if(axis==='interface'||axis==='validation')return runRef(ref)||receiptRef(ref);
+    return receiptRef(ref);
+  };
   const byId = new Map();
-  for (const item of Array.isArray(evidence) ? evidence : []) if (Number.isInteger(item?.id) && item.id >= 1 && item.id <= 78 && !byId.has(item.id)) byId.set(item.id,item);
+  for (const item of Array.isArray(evidence) ? evidence : []) {
+    if(!Number.isInteger(item?.id)||item.id<1||item.id>78)continue;
+    const group=byId.get(item.id)||[];group.push(item);byId.set(item.id,group);
+  }
   return Array.from({length:78},(_,index) => {
-    const id = index + 1, item = byId.get(id);
+    const id=index+1,group=byId.get(id)||[],duplicate=group.length>1,item=group.length===1?group[0]:null;
     const row = {id,title:TASK_TITLES[id] || null,source:item?.sourceState==='integrated-candidate-inventory'?'integrated-candidate-inventory':id <= 66?'existing-six-group-evidence-required':'depth-decision-increment',
-      sourceSha:SHA.test(item?.sourceSha || '')?item.sourceSha:null};
+      sourceSha:exactSha(item?.sourceSha)};
+    if(duplicate)row.issues=['duplicate-task-id'];
     for (const axis of axes) {
-      const value = item?.[axis], refs = Array.isArray(value?.evidence) ? value.evidence.filter(safeRef).slice(0,12) : [];
-      row[axis] = {status:allowed.has(value?.status) && refs.length ? value.status:'unknown', evidence:refs};
+      const value=item?.[axis],refs=[...new Set(group.flatMap(entry=>refsFor(entry?.[axis])))];
+      if(duplicate)refs.sort();
+      const retained=refs.slice(0,12);
+      let status='unknown',reason=null;
+      if(duplicate)reason='duplicate-task-id';
+      else if(value!=null){
+        if(!states[axis].has(value.status))reason='invalid-stage-status';
+        else if(!retained.length&&value.status!=='unknown')reason='missing-stage-evidence';
+        else if(value.status===terminal[axis]){
+          if(!row.sourceSha)reason='missing-source-version';
+          else if(value.evidence.some(ref=>!safeRef(ref)))reason='invalid-stage-evidence';
+          else if(!retained.some(ref=>completionRef(axis,ref,row.sourceSha)))reason='missing-stage-completion-receipt';
+          else status=value.status;
+        }else if(retained.length)status=value.status;
+      }
+      row[axis]={status,evidence:retained,...(reason?{reason}:{})};
     }
     return row;
   });

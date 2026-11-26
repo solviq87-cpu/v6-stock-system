@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {diagnosticImplementationFingerprint:fingerprint,diagnosticImplementationManifest:manifest,SEEDS}=require('../src/core/evolution-diagnostic-version');
+const {diagnosticImplementationFingerprint:fingerprint,diagnosticImplementationManifest:manifest,assertDiagnosticImplementationFingerprint:assertFingerprint,SEEDS}=require('../src/core/evolution-diagnostic-version');
 function sources(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'evolution-diagnostic-source-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -35,4 +35,64 @@ test('source links, private imports, and excessive files cannot create a reusabl
  fs.unlinkSync(path.join(root,'src/core/trading-fees.js'));write('src/core/trading-fees.js','// restored source');
  write('src/core/evolution-research-statistics.js',"require('../../data/private-research.json');");write('data/private-research.json','{}');assert.throws(()=>fingerprint({root}),/不可核验/);
  write('src/core/evolution-research-statistics.js','// restored source');write('src/core/trading-fees.js',Buffer.alloc(8*1024*1024+1));assert.throws(()=>fingerprint({root}),/不可核验/);
+});
+
+const unavailable=e=>e.code==='DIAGNOSTIC_IMPLEMENTATION_UNAVAILABLE'&&!/\/tmp\/|private-fixture/.test(e.message);
+test('content identity detects same-size edits, stable atomic replacement and the new protocol without depending on inode or mtime',t=>{
+ const {root,write}=sources(t),rel='src/core/trading-fees.js',file=path.join(root,rel);
+ write(rel,'// fee:1\n');const before=fingerprint({root}),st=fs.statSync(file);
+ assert.equal(manifest({root}).protocol,'evolution-diagnostic-implementation-v2');
+ write(rel,'// fee:2\n');fs.utimesSync(file,st.atime,st.mtime);
+ const changed=fingerprint({root});assert.notEqual(changed,before);
+ assert.throws(()=>assertFingerprint(before,{root}),unavailable);
+ write(rel+'.tmp','// fee:3\n');fs.renameSync(file+'.tmp',file);
+ const replaced=fingerprint({root});assert.notEqual(replaced,changed);
+ write(rel+'.tmp','// fee:3\n');fs.renameSync(file+'.tmp',file);
+ assert.equal(fingerprint({root}),replaced,'identical stable content has portable identity');
+ assert.equal(assertFingerprint(replaced,{root}),replaced);
+ assert.throws(()=>assertFingerprint(null,{root}),unavailable);
+});
+test('a descriptor opened before an atomic source replacement cannot return a reusable manifest',t=>{
+ const {root,write}=sources(t),rel='src/core/trading-fees.js',file=path.join(root,rel),open=fs.openSync;let injected=false;
+ t.mock.method(fs,'openSync',(name,...args)=>{const fd=open.call(fs,name,...args);if(name===file&&!injected){injected=true;write(rel+'.tmp','// replacement');fs.renameSync(file+'.tmp',file);}return fd;});
+ assert.throws(()=>fingerprint({root}),unavailable);assert.equal(injected,true);
+});
+test('during-read rewrites, short reads, growth and read errors fail closed and close the descriptor',t=>{
+ const read=fs.readSync,close=fs.closeSync;
+ for(const mode of ['same-size','short-read','grow','error']){
+  const {root,write}=sources(t),rel='src/core/trading-fees.js',file=path.join(root,rel),stat=fs.statSync(file,{bigint:true});
+  let injected=false,affected=null,closed=false;
+  const reader=t.mock.method(fs,'readSync',(fd,...args)=>{
+   if(!injected&&fs.fstatSync(fd,{bigint:true}).ino===stat.ino){
+    injected=true;affected=fd;
+    if(mode==='short-read')return 0;
+    if(mode==='error')throw Object.assign(Error('/private-fixture/secret'),{code:'EIO'});
+    const n=read.call(fs,fd,...args);
+    if(mode==='same-size')write(rel,Buffer.alloc(Number(stat.size),65));else fs.appendFileSync(file,'extra');
+    return n;
+   }
+   return read.call(fs,fd,...args);
+  });
+  const closer=t.mock.method(fs,'closeSync',fd=>{if(fd===affected)closed=true;return close.call(fs,fd);});
+  try{assert.throws(()=>fingerprint({root}),unavailable);assert.equal(injected,true,mode);assert.equal(closed,true,mode);}
+  finally{reader.mock.restore();closer.mock.restore();}
+ }
+});
+test('manifest rechecks previously read files and resolution priority before publishing the fingerprint',t=>{
+ const read=fs.readSync;
+ for(const mode of ['earlier-file','new-resolution']){
+  const {root,write}=sources(t),last=path.join(root,'strategies/extended-factor-pack.json');
+  if(mode==='new-resolution'){
+   write('src/core/evolution-research-statistics.js',"require('../../public/nova/optional-dependency');\n");
+   write('public/nova/optional-dependency.json','{}');
+  }
+  const stat=fs.statSync(last,{bigint:true});let injected=false;
+  const reader=t.mock.method(fs,'readSync',(fd,...args)=>{const n=read.call(fs,fd,...args);
+   if(!injected&&fs.fstatSync(fd,{bigint:true}).ino===stat.ino){injected=true;
+    if(mode==='earlier-file')fs.appendFileSync(path.join(root,'analysis.js'),'// changed earlier\n');
+    else write('public/nova/optional-dependency.js','// new dependency\n');
+   }return n;});
+  try{assert.throws(()=>fingerprint({root}),unavailable);assert.equal(injected,true,mode);}
+  finally{reader.mock.restore();}
+ }
 });

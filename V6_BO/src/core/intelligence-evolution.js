@@ -175,6 +175,9 @@ async function buildEvolutionReport({archive={},events=[],code,asOf=Date.now(),c
  const observed=observations(visible,point,{all:true,causal:true});
  const selected=observed.filter(r=>r.code===code).sort((a,b)=>String(b.decisionAt||b.date).localeCompare(String(a.decisionAt||a.date)))[0];
  const similar=selected?similarCases(visible,selected,point):{status:'not-evaluated',reason:'尚无当时已取得证据的历史观察',neighbours:[],success:[],failure:[],neutral:[],missing:[]};
+ // A report may await research/model work after selecting a saved result.
+ // Do not publish a diagnosis selected under an implementation that has changed.
+ require('./evolution-diagnostic-version').assertDiagnosticImplementationFingerprint(implementationFingerprint);
  const sources={archiveRevision:archive.revision??0,visibleBars:visible.bars.length,visibleChecks:visible.checks.length,visibleEvents:visibleEvents.length,
   observedThrough:visible.bars.reduce((d,b)=>b.date>d?b.date:d,''),selectedCode:code,day:chinaDay(asOf),barEvidence:visible.bars.evidenceDiagnostics,
   implementationFingerprint,modelInputsFingerprint,pythonIdentity:trustedPython.identity,diagnosticRecord:diagnostic?.hash||null};
@@ -215,6 +218,9 @@ async function runStoredEvolutionDiagnostics({root,workspaceRoot,query={},input=
  if(previous){
   if(previous.kind!=='diagnostic'||previous.data.protocol!=='evolution-diagnostics-v1'||previous.data.commandFingerprint!==commandFingerprint)throw Error('同请求ID内容冲突');
   if(beforeCommit&&beforeCommit()!==true){const e=Error('编辑授权已撤销');e.code='WORKSPACE_AUTH_REVOKED';throw e;}
+  // Preserve the immutable old receipt, but an idempotent retry must not
+  // bypass implementation identity or present an obsolete result as current.
+  require('./evolution-diagnostic-version').assertDiagnosticImplementationFingerprint(previous.data.implementationFingerprint);
   return {ok:true,result:previous.data.result,recordedAt:previous.recordedAt,recordId:previous.hash,reused:true,...flags};
  }
  const asOf=query.asOf??now,events=store.readEvents(workspaceRoot,{asOf});
@@ -233,8 +239,12 @@ async function runStoredEvolutionDiagnostics({root,workspaceRoot,query={},input=
  const trustedPython=require('./evolution-model-causality').readTrustedPythonConfig();
  const modelInputsFingerprint=await modelDiagnosticIdentity(stored.state,asOf,trustedPython,history);
  const result=await statistics.runEvolutionDiagnostics({history:history?{...history,holdDays:horizon}:null,archive,trustedPython,asOf,...nativeInputs});
+ const verifyImplementation=()=>{require('./evolution-diagnostic-version').assertDiagnosticImplementationFingerprint(implementationFingerprint);return true;};
+ // Recheck after async diagnostics and immediately before the original CAS
+ // publishes the receipt. Reuse the existing journal guard, not another lock.
+ verifyImplementation();
  const event=store.appendEvent(workspaceRoot,'diagnostic',{protocol:'evolution-diagnostics-v1',code,asOf,horizon,commandFingerprint,historyFingerprint,nativeInputsFingerprint,modelInputsFingerprint,implementationFingerprint,result},
-  {requestId:input.requestId,now:Date.now(),beforeCommit});
+  {requestId:input.requestId,now:Date.now(),beforeCommit,beforeCommitLocked:verifyImplementation});
  return {ok:true,result,recordedAt:event.recordedAt,recordId:event.hash,reused:event.reused,...flags};
 }
 module.exports={buildEvolutionReport,readEvolutionReport,runStoredEvolutionDiagnostics,causalArchive,evidenceBars,historyFrom,causalQuote,modelDiagnosticArchive,modelDiagnosticIdentity};

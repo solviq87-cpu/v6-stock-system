@@ -45,18 +45,38 @@ function sourceDependencies(code){
  for(const pattern of patterns)for(const match of code.matchAll(pattern))if(local(match[2]))names.add(match[2]);
  return [...names].sort();
 }
+// File metadata is a read-stability guard, not part of the portable content
+// fingerprint. Nanosecond change times and inode identity catch replacements
+// even when the byte count or mtime has been deliberately preserved.
+const statOptions={bigint:true};
+const directoryIdentity=stat=>[stat.dev,stat.ino,stat.mode].join(':');
+const fileIdentity=stat=>[stat.dev,stat.ino,stat.mode,stat.nlink,stat.size,stat.mtimeNs,stat.ctimeNs].join(':');
 function diagnosticImplementationManifest({root=ROOT}={}){
  if(typeof root!=='string'||!path.isAbsolute(root)||root.includes('\0'))throw Error('诊断实现需要明确源码根目录');
- const base=path.resolve(root);
- if(fs.realpathSync(base)!==base||!fs.lstatSync(base).isDirectory())throw Error('诊断源码根目录禁止链接');
- let total=0;const files=new Map(),pending=[...SEEDS];
+ const base=path.resolve(root),rootStat=fs.lstatSync(base,statOptions);
+ if(fs.realpathSync(base)!==base||!rootStat.isDirectory()||rootStat.isSymbolicLink())throw Error('诊断源码根目录禁止链接');
+ const rootIdentity=directoryIdentity(rootStat);
+ let total=0;const files=new Map(),snapshots=new Map(),edges=[],pending=[...SEEDS];
  function relative(filename){const rel=path.relative(base,filename).split(path.sep).join('/');if(!rel||rel==='..'||rel.startsWith('../')||path.isAbsolute(rel)||!permitted(rel))throw Error('诊断依赖越出允许的源码范围');return rel;}
+ function assertRoot(){
+  const stat=fs.lstatSync(base,statOptions);
+  if(!stat.isDirectory()||stat.isSymbolicLink()||directoryIdentity(stat)!==rootIdentity||fs.realpathSync(base)!==base)throw Error('诊断源码根目录已变化');
+ }
  function inspect(filename){
-  const rel=relative(filename);let at=base;
-  for(const part of rel.split('/')){at=path.join(at,part);const stat=fs.lstatSync(at);if(stat.isSymbolicLink())throw Error('诊断源码依赖禁止符号链接');}
-  const stat=fs.statSync(filename);if(!stat.isFile())return null;
-  if(stat.size>MAX_FILE||total+stat.size>MAX_TOTAL)throw Error('诊断源码依赖超过容量边界');
-  return {rel,stat};
+  const rel=relative(filename),parts=rel.split('/'),parents=[];let at=base,stat;
+  assertRoot();
+  for(const [index,part] of parts.entries()){
+   at=path.join(at,part);stat=fs.lstatSync(at,statOptions);
+   if(stat.isSymbolicLink())throw Error('诊断源码依赖禁止符号链接');
+   if(index<parts.length-1){if(!stat.isDirectory())return null;parents.push(directoryIdentity(stat));}
+  }
+  if(!stat.isFile())return null;
+  if(stat.size<0n||stat.size>BigInt(MAX_FILE))throw Error('诊断源码依赖超过容量边界');
+  return {rel,stat,identity:fileIdentity(stat),parents:parents.join('/')};
+ }
+ function assertUnchanged(filename,expected){
+  const current=inspect(filename);
+  if(!current||current.identity!==expected.identity||current.parents!==expected.parents)throw Error('诊断源码在读取期间变化');
  }
  function resolve(from,name){
   const filename=path.resolve(base,path.dirname(from),name);
@@ -71,19 +91,45 @@ function diagnosticImplementationManifest({root=ROOT}={}){
   const rel=pending.shift();if(files.has(rel))continue;
   if(files.size>=MAX_FILES)throw Error('诊断源码依赖数量超过边界');
   const filename=path.join(base,rel),info=inspect(filename);if(!info)throw Error('诊断实现依赖不是普通文件');
-  const fd=fs.openSync(filename,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));let bytes;
-  try{const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size>MAX_FILE||total+stat.size>MAX_TOTAL)throw Error('诊断源码读取容量无效');bytes=fs.readFileSync(fd);total+=bytes.length;}finally{fs.closeSync(fd);}
-  // Bind the adapter's receipt/cutoff semantics by bytes. Its unrelated archive
-  // and UI readers are outside the calculation graph; calculation roots above
-  // still receive the full recursive dependency walk.
-  const dependencies=/\.(?:js|cjs|mjs)$/.test(rel)&&rel!=='src/core/intelligence-evolution.js'?sourceDependencies(bytes.toString('utf8')).map(name=>resolve(rel,name)):[];
+  const size=Number(info.stat.size);
+  if(total+size>MAX_TOTAL)throw Error('诊断源码读取容量无效');
+  const fd=fs.openSync(filename,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));let bytes;
+  try{
+   const before=fs.fstatSync(fd,statOptions);
+   if(!before.isFile()||fileIdentity(before)!==info.identity)throw Error('诊断源码打开时已变化');
+   // Read only the inspected size plus one byte, never an unbounded growing
+   // file or replaced FIFO. A short read or added byte invalidates the result.
+   const buffer=Buffer.alloc(size+1);let offset=0;
+   while(offset<buffer.length){const n=fs.readSync(fd,buffer,offset,buffer.length-offset,offset);if(n===0)break;offset+=n;}
+   const after=fs.fstatSync(fd,statOptions);
+   if(offset!==size||!after.isFile()||fileIdentity(after)!==info.identity)throw Error('诊断源码在读取期间变化');
+   assertUnchanged(filename,info);bytes=buffer.subarray(0,size);total+=size;
+  }finally{fs.closeSync(fd);}
+  snapshots.set(rel,info);
+  // Bind the adapter receipt/cutoff semantics by bytes, retaining the original
+  // calculation graph and exclusion of unrelated archive/UI readers.
+  const dependencies=/\.(?:js|cjs|mjs)$/.test(rel)&&rel!=='src/core/intelligence-evolution.js'?sourceDependencies(bytes.toString('utf8')).map(name=>{
+   const target=resolve(rel,name);edges.push({from:rel,name,target});return target;
+  }):[];
   files.set(rel,{path:rel,bytes:bytes.length,sha256:sha(bytes),dependencies:dependencies.sort()});pending.push(...dependencies);
  }
- const manifest={schemaVersion:1,protocol:'evolution-diagnostic-implementation-v1',runtime:{node:process.versions.node},files:[...files.values()].sort((a,b)=>a.path.localeCompare(b.path))};
+ // The closure must still resolve the same paths, including a newly created
+ // higher-priority extension candidate. Recheck all source identities after
+ // traversing the graph, not only the file most recently read.
+ for(const edge of edges)if(resolve(edge.from,edge.name)!==edge.target)throw Error('诊断源码依赖解析已变化');
+ for(const [rel,info] of snapshots)assertUnchanged(path.join(base,rel),info);
+ assertRoot();
+ const manifest={schemaVersion:2,protocol:'evolution-diagnostic-implementation-v2',runtime:{node:process.versions.node},files:[...files.values()].sort((a,b)=>a.path.localeCompare(b.path))};
  return {...manifest,fingerprint:sha(JSON.stringify(manifest))};
 }
+function unavailable(){const error=Error('诊断实现版本不可核验，不能复用或保存旧诊断');error.code='DIAGNOSTIC_IMPLEMENTATION_UNAVAILABLE';return error;}
+
 function diagnosticImplementationFingerprint(options){
  try{return diagnosticImplementationManifest(options).fingerprint;}
- catch{const error=Error('诊断实现版本不可核验，不能复用或保存旧诊断');error.code='DIAGNOSTIC_IMPLEMENTATION_UNAVAILABLE';throw error;}
+ catch{throw unavailable();}
 }
-module.exports={diagnosticImplementationFingerprint,diagnosticImplementationManifest,SEEDS};
+function assertDiagnosticImplementationFingerprint(expected,options){
+ if(typeof expected!=='string'||!/^[a-f0-9]{64}$/.test(expected)||diagnosticImplementationFingerprint(options)!==expected)throw unavailable();
+ return expected;
+}
+module.exports={diagnosticImplementationFingerprint,diagnosticImplementationManifest,assertDiagnosticImplementationFingerprint,SEEDS};
