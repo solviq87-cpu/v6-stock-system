@@ -6,6 +6,8 @@
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const safeInt=x=>Number.isSafeInteger(x)&&x>=0;
 const round=x=>Number(x.toFixed(2));
+const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
+ Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
 function evaluateRuleWeightReview(audit){
  const base={schemaVersion:1,mode:'rule-weight-manual-review',status:'unavailable',
   evaluatedHorizon:5,sourceStatus:'unverified',
@@ -23,13 +25,18 @@ function evaluateRuleWeightReview(audit){
    !finite(config.slippageBps)||config.slippageBps<10||
    !finite(config.sellTaxBps)||config.sellTaxBps<5||
    !Array.isArray(audit.rules)||!Array.isArray(audit.events)||
+   audit.events.some(e=>!e||typeof e!=='object'||Array.isArray(e))||
    audit.sampleIntegrity?.eventsRetained!==audit.events.length||
    !audit.temporalOverlapDiagnostics?.byHorizon?.[5]||
    !audit.overlapDiagnostics?.byRule||
-   folds.some(f=>f.frozenRuleParameters!==true||
-    f.optimizedOnTraining!==false||!safeInt(f.embargoSessions)||f.embargoSessions<1||
-    typeof f.trainEndDate!=='string'||typeof f.testStartDate!=='string'||
-    f.trainEndDate>=f.testStartDate))
+   // The original producer emits ordered, disjoint signal windows and
+   // the same configured embargo on each fold. These are structural checks,
+   // not independent trading-calendar or prospective-signal certification.
+   folds.some((f,i)=>!f||f.fold!==i+1||f.frozenRuleParameters!==true||
+    f.optimizedOnTraining!==false||f.embargoSessions!==config.gapDays||
+    ![f.trainEndDate,f.testStartDate,f.testEndDate].every(validDay)||
+    f.trainEndDate>=f.testStartDate||f.testEndDate<f.testStartDate||
+    (i>0&&folds[i-1].testEndDate>=f.testStartDate)))
   return base;
  const genuine=audit.source==='imported'&&typeof audit.provider==='string'&&
   audit.provider.trim().length>0&&
@@ -43,7 +50,7 @@ function evaluateRuleWeightReview(audit){
   let invalid=false,blocked=0,unknown=0;
   for(const r of all){
    if(!r||!/^[0-9]{6}$/.test(r.symbol||'')||
-      !/^\d{4}-\d{2}-\d{2}$/.test(r.signalDate||'')||
+      !validDay(r.signalDate)||
       !safeInt(r.fold)||r.fold<1||r.fold>folds.length||
       typeof r.status!=='string'||!r.status||
       r.signalDate<folds[r.fold-1]?.testStartDate||
@@ -54,7 +61,7 @@ function evaluateRuleWeightReview(audit){
    if(matched.has(key)){invalid=true;break;}
    matched.add(key);
    if(r.status==='modeled'){
-    if(!finite(r.netReturnPct)){invalid=true;break;}
+    if(!finite(r.netReturnPct)||r.netReturnPct< -100){invalid=true;break;}
     foldRows.get(r.fold).push(r.netReturnPct);
     if(!r.marketRegime||r.marketRegime==='unknown')unknown++;
    }else blocked++;
@@ -67,7 +74,8 @@ function evaluateRuleWeightReview(audit){
   if(invalid||!m||m.signals!==all.length||m.modeled!==totalModeled||
      !serial||!overlap||!safeInt(serial.nonoverlapEpisodes)||
      !safeInt(serial.signalDays)||!safeInt(overlap.sameFamilyOverlapDays)||
-     serial.signalDays!==all.length)blockers.push('样本与去重或指标摘要无法一致核对');
+     serial.signalDays!==all.length||serial.nonoverlapEpisodes>all.length||
+     overlap.sameFamilyOverlapDays>all.length)blockers.push('样本与去重或指标摘要无法一致核对');
   if(!genuine)blockers.push('当前并非具有来源声明的导入历史样本');
   if(all.length<40||totalModeled<30)blockers.push('原始或可模拟的样本量不足');
   if(serial?.nonoverlapEpisodes<15)blockers.push('连续信号去重后的研究分段不足');
@@ -82,8 +90,11 @@ function evaluateRuleWeightReview(audit){
     values.reduce((a,b)=>a+b,0)/values.length:null);
   if([...foldRows.values()].some(values=>values.length<8))
    blockers.push('至少一个冻结样本外窗口的有效观察不足');
-  if(m&&(m.averageNetReturnPct!==null&&!finite(m.averageNetReturnPct)||
-    m.winRatePct!==null&&!finite(m.winRatePct)))blockers.push('净收益或胜率无效');
+  // A nonempty modeled sample needs both original summaries. Null is a
+  // valid absence only for an empty modeled sample, not a consistency bypass.
+  if(m&&(totalModeled>0?(!finite(m.averageNetReturnPct)||m.averageNetReturnPct< -100||
+    !finite(m.winRatePct)||m.winRatePct<0||m.winRatePct>100):
+    m.averageNetReturnPct!==null||m.winRatePct!==null))blockers.push('净收益或胜率无效');
   const mean=!invalid&&totalModeled?
    modeledRows.reduce((sum,r)=>sum+r.netReturnPct,0)/totalModeled:null;
   const win=!invalid&&totalModeled?100*modeledRows.filter(r=>r.netReturnPct>0).length/totalModeled:null;

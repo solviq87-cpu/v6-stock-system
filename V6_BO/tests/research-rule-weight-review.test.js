@@ -107,3 +107,41 @@ test('original event order and negative/blocked cases are not silently removed',
  assert.equal(r.modeledEvents,x.events.filter(e=>e.status==='modeled').length);
  assert.equal(r.review,'insufficient-evidence');
 });
+
+test('frozen review windows must be real, ordered, distinct and consistent with their declared embargo',()=>{
+ for(const change of [
+  d=>d.folds[0].trainEndDate='2025-02-30',
+  d=>d.folds[1].testEndDate='2026-02-30',
+  d=>d.folds[0].testEndDate=d.folds[1].testStartDate,
+  d=>d.folds[0].fold=2,
+  d=>d.folds[0].embargoSessions=1,
+  d=>d.folds[0].testEndDate=undefined
+ ]){
+  const x=mock();change(x);const r=review(x);
+  assert.equal(r.status,'unavailable');assert.deepEqual(r.byRule,{});
+  assert.equal(r.weightsChanged,false);assert.equal(r.canTrade,false);
+ }
+});
+test('the original modeled sample count cannot support impossible independent episode counts',()=>{
+ const x=mock();x.temporalOverlapDiagnostics.byHorizon[5].byRule['rule-a'].nonoverlapEpisodes=x.events.length+1;
+ const r=review(x).byRule['rule-a'];
+ assert.equal(r.review,'insufficient-evidence');assert.ok(r.blockers.some(b=>b.includes('无法一致核对')));
+ assert.equal(r.totalSignalDays,x.events.length);assert.equal(r.modeledEvents,x.events.length);
+});
+test('a populated modeled sample must retain a finite and consistent original return and win-rate summary',()=>{
+ for(const field of ['averageNetReturnPct','winRatePct'])for(const value of [null,undefined,Infinity]){
+  const x=mock();x.rules[0].byHorizon[5][field]=value;
+  const r=review(x).byRule['rule-a'];assert.equal(r.review,'insufficient-evidence',field+': '+String(value));
+  assert.equal(r.modeledEvents,x.events.length);assert.equal(r.weightsChanged,false);
+ }
+});
+test('impossible long-only modeled losses cannot become evidence for decreasing a rule weight',()=>{
+ const x=mock('down');for(const e of x.events)e.netReturnPct=-101;
+ Object.assign(x.rules[0].byHorizon[5],{averageNetReturnPct:-101,winRatePct:0});
+ const r=review(x).byRule['rule-a'];assert.equal(r.review,'insufficient-evidence');assert.equal(r.averageModeledNetPct,null);
+ assert.equal(r.recommendedDeltaPct,null);assert.equal(r.weightsChanged,false);
+});
+test('a missing event is a rejected audit rather than a crash or a partial review',()=>{
+ const x=mock();x.events.push(null);x.sampleIntegrity.eventsRetained++;
+ const r=review(x);assert.equal(r.status,'unavailable');assert.deepEqual(r.byRule,{});
+});
