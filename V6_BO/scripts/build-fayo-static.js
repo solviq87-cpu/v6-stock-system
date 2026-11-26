@@ -11,7 +11,10 @@ const FRONTEND=path.join(ROOT,'V6_BO/public/nova');
 const CATALOG=path.join(ROOT,'V6_BO/public/assets/model-library-catalog.json');
 const PINNED_ESBUILD='0.25.12';
 const SCOPE='frontend-only-backend-required';
-const MAX_BYTES=2*1024*1024;
+const {MAX_BYTES}=require('./build-workbuddy-static');
+// The existing publisher adds a release attestation inside the HTML. Reserve
+// space before writing, without changing the publisher's hard size limit.
+const RELEASE_HEADROOM=1024;
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const inside=(root,file)=>file===root||file.startsWith(root+path.sep);
 const safeJSON=value=>JSON.stringify(value).replace(/[<>&\u2028\u2029]/g,char=>({'<':'\\u003c','>':'\\u003e','&':'\\u0026','\u2028':'\\u2028','\u2029':'\\u2029'}[char]));
@@ -77,7 +80,9 @@ async function buildFayoStatic({frontendDir=FRONTEND,catalogFile=CATALOG,outputF
   const build=await esbuild.build({
     entryPoints:[path.join(sourceRoot,'app.js')],absWorkingDir:sourceRoot,
     bundle:true,write:false,metafile:true,format:'iife',platform:'browser',target:'es2020',
-    charset:'utf8',sourcemap:false,legalComments:'none',minify:false,logLevel:'silent',
+    // Only compact whitespace/comments in the standalone artifact. Keep identifiers,
+    // expressions and native sources intact for review and credential validation.
+    charset:'utf8',sourcemap:false,legalComments:'none',minifyWhitespace:true,minifyIdentifiers:false,minifySyntax:false,logLevel:'silent',
     plugins:[{name:'fayo-standalone-source',setup(builder){
       builder.onLoad({filter:/\.m?js$/},args=>{
         const real=fs.realpathSync(args.path);
@@ -125,6 +130,7 @@ async function buildFayoStatic({frontendDir=FRONTEND,catalogFile=CATALOG,outputF
     // execute only after the root element and boot markup have been parsed.
     .replace(/<\/body\s*>/i,'<script data-fayo-inline="application">\n'+script+'\n</script>\n</body>');
   validateArtifact(html);
+  if(Buffer.byteLength(html)>MAX_BYTES-RELEASE_HEADROOM)throw Error('FAYO artifact leaves insufficient release metadata headroom');
   if(outputFile){
     const output=path.resolve(outputFile);
     // Never overwrite the source, including through an existing hard link.

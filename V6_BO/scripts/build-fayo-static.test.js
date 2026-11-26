@@ -6,7 +6,7 @@ const path=require('node:path');
 const os=require('node:os');
 const vm=require('node:vm');
 const {buildFayoStatic,validateArtifact,SCOPE}=require('./build-fayo-static');
-const {buildWorkBuddyStatic,parseStaticRelease}=require('./build-workbuddy-static');
+const {buildWorkBuddyStatic,parseStaticRelease,MAX_BYTES}=require('./build-workbuddy-static');
 function fixture(){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-artifact-')),frontend=path.join(dir,'nova');fs.mkdirSync(frontend);
  const source='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>绯曜 FAYO · 独立研究空间</title><link rel="icon" href="/nova/mark.svg"><link rel="manifest" href="/manifest.json"><link rel="stylesheet" href="/nova/fayo.css"><script type="module" src="/nova/app.js"></script></head><body><main><img src="/nova/mark.svg" alt="绯曜"></main></body></html>';
@@ -103,11 +103,20 @@ test('source files and hard links to canonical bytes cannot be used as output ta
  }finally{f.close();}
 });
 
+test('standalone review reserves publisher attestation space before replacing output',async()=>{
+ const f=fixture();try{
+  const original=await buildFayoStatic(f);
+  fs.appendFileSync(path.join(f.frontendDir,'fayo.css'),'/*'+'x'.repeat(MAX_BYTES-original.sizeBytes-512-4)+'*/');
+  await assert.rejects(buildFayoStatic(f),/insufficient release metadata headroom/);
+  assert.equal(fs.readFileSync(f.outputFile,'utf8'),original.html);
+ }finally{f.close();}
+});
+
 test('the actual native FAYO source passes the unchanged static publisher validation',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-real-artifact-'));
  try{
   const outputFile=path.join(dir,'fayo.html'),built=await buildFayoStatic({outputFile});
-  assert.match(built.html,/<title>绯曜 FAYO/);assert.equal(built.embeddedCatalogCount,53);assert.ok(built.sizeBytes<2*1024*1024);
+  assert.match(built.html,/<title>绯曜 FAYO/);assert.equal(built.embeddedCatalogCount,53);assert.ok(built.sizeBytes<=MAX_BYTES-1024,'standalone must reserve release metadata space');
   assert.ok(built.sources.every(s=>s.file==='../assets/model-library-catalog.json'||!s.file.includes('..')));
   assert.ok(built.sources.some(s=>s.file==='research.js'));assert.ok(built.sources.some(s=>s.file==='operations.js'));
   for (const resource of ['shortline-sheet.css','shortline/overview.css','shortline/sample-kline.csv']) {
