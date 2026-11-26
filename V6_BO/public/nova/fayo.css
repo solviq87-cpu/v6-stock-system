@@ -2484,3 +2484,38 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 [data-risk-workbench] .fy-table-wrap{max-width:100%;overflow-x:auto}
 [data-risk-workbench] .fy-table td{overflow-wrap:anywhere;white-space:normal}
 @media(max-width:600px){.fy-risk-item{padding:12px}.fy-risk-item .fy-item-head{align-items:flex-start;flex-wrap:wrap}[data-risk-workbench] .fy-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}[data-risk-workbench] .fy-toolbar{flex-wrap:wrap}}
+
+/* FAYO shared pink-purple interaction palette (desktop + phone).
+   Keep reference surface geometry and all market/risk semantic colors. */
+.fy-reference-shell {
+ --fy-action-fill:#713b68;
+ --fy-action-hover:#7b4674;
+ --fy-action-active:#663452;
+ --fy-action-text:#fff1fa;
+ --fy-action-border:#ed9bc8;
+ --fy-action-focus:#ffd0ee;
+}
+:is(.fy-reference-shell,.fy-reference-shell[data-terminal-view],.fy-reference-shell[data-workspace])
+ :is(.fy-reference-topnav,.fy-business-nav,.fy-workspace-nav,.fy-dock,.fy-subnav,.fy-tabs)
+ :is(button,a):is([data-current="true"],[aria-current="page"],[aria-current="true"],[aria-selected="true"],[aria-pressed="true"],.active) {
+ background:var(--fy-action-active);color:var(--fy-action-text);
+ border-color:var(--fy-action-border);box-shadow:inset 0 -2px var(--fy-action-border);
+}
+:is(.fy-reference-shell,.fy-reference-shell[data-terminal-view],.fy-reference-shell[data-workspace])
+ :is(.fy-reference-topnav,.fy-business-nav,.fy-workspace-nav,.fy-dock,.fy-subnav,.fy-tabs)
+ :is(button,a):is([data-current="true"],[aria-current="page"],[aria-current="true"],[aria-selected="true"],[aria-pressed="true"],.active) svg {
+ color:var(--fy-action-text);
+}
+.fy-reference-shell :is(.fy-button.primary,.fy-button-primary),
+.fy-reference-shell .fy-home-opportunity>header .fy-button.primary,
+.fy-reference-shell .fy-decision-actions .primary {
+ background:var(--fy-action-fill);color:var(--fy-action-text);border-color:var(--fy-action-border);
+}
+.fy-reference-shell :is(.fy-button.primary,.fy-button-primary):hover:not(:disabled),
+.fy-reference-shell .fy-home-opportunity>header .fy-button.primary:hover:not(:disabled),
+.fy-reference-shell .fy-decision-actions .primary:hover:not(:disabled) {
+ background:var(--fy-action-hover);color:var(--fy-action-text);border-color:var(--fy-action-focus);
+}
+.fy-reference-shell :is(button,a,summary,input,select,textarea):focus-visible {
+ outline:2px solid var(--fy-action-focus);outline-offset:2px;
+}
