@@ -28,7 +28,7 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
   if(!symbol){quality.errors.push('股票代码缺失');quality.usable=false;}
   if(seen.has(symbol)){quality.errors.push('重复股票代码');quality.usable=false;}
   seen.add(symbol);
-  const evaluated=quality.usable?evaluateCandidate({stock,market}):null;
+  const evaluated=quality.usable?evaluateCandidate({stock,market,requireLiquidityEvidence:requireReal}):null;
   const ladder=quality.usable?classifyLimitLadder(stock):null;
   const tradable=!!(evaluated&&evaluated.pass&&!stock.isST&&!stock.suspended&&stock.tradable!==false&&quality.fresh);
   const patterns=quality.usable?detectPatterns(stock):null;

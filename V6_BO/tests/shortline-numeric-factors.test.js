@@ -236,7 +236,9 @@ test('原权威模拟结算沿用含买入费用的收益分母，不能被普�
     row.exitPrice=Number(row.code)-600000>=3?11:9.8;row.cost=30;row.costBasis=1020;
     row.pnlAmount=Math.round(((row.exitPrice-row.entryPrice)*row.shares-row.cost)*100)/100;
     row.pnl=Math.round(row.pnlAmount/row.costBasis*10000)/100;
-    row.paperSettlement={accountId:'pool',symbol:row.code,costBasisCents:102000,realizedCents:Math.round(row.pnlAmount*100),
+    // This isolated fixture models one distinct original exit event per trade.
+    // Production uses the account ledger's original exitEventId, not a derived alias.
+    row.paperSettlement={accountId:'pool',exitEventId:'fixture-exit:'+row.id,symbol:row.code,costBasisCents:102000,realizedCents:Math.round(row.pnlAmount*100),
       exitGrossCents:Math.round(row.exitPrice*row.shares*100),exitFeeCents:1000,
       entryFills:[{quantity:100,costCents:102000,grossCents:100000,time:at(row.date,'09:32:00')}]};
   }

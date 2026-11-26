@@ -27,20 +27,23 @@ function captureOptions(options){
  }
  return {maxTotalBytes,expected};
 }
+function sameFile(a,b){return a.isFile()&&b.isFile()&&['dev','ino','size','mtimeMs','ctimeMs','mode'].every(key=>a[key]===b[key])}
 function captureBytes(file,expected,remaining){
- const initial=regularFile(file);
+ const initial=regularFile(file);noSymlinkAncestors(file);
  if(expected&&initial.size!==expected.size)captureFailure('BACKUP_SOURCE_CHANGED');
  if(initial.size>remaining)captureFailure('BACKUP_BYTE_BUDGET_EXCEEDED');
  const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
  try{
   const opened=fs.fstatSync(fd);
-  if(!opened.isFile()||opened.dev!==initial.dev||opened.ino!==initial.ino||opened.size!==initial.size)captureFailure('BACKUP_SOURCE_CHANGED');
+  if(!sameFile(initial,opened))captureFailure('BACKUP_SOURCE_CHANGED');
   // Read exactly the prechecked length. readFileSync could follow a growing
   // file past the disk/memory budget before a later manifest check rejects it.
   const bytes=Buffer.alloc(opened.size);let offset=0;
   while(offset<bytes.length){const count=fs.readSync(fd,bytes,offset,bytes.length-offset,offset);if(!count)captureFailure('BACKUP_SOURCE_CHANGED');offset+=count;}
-  const after=fs.fstatSync(fd);
-  if(after.size!==opened.size||fs.readSync(fd,Buffer.alloc(1),0,1,opened.size)!==0)captureFailure('BACKUP_SOURCE_CHANGED');
+  if(fs.readSync(fd,Buffer.alloc(1),0,1,opened.size)!==0)captureFailure('BACKUP_SOURCE_CHANGED');
+  const after=fs.fstatSync(fd);let current;
+  try{noSymlinkAncestors(file);current=fs.lstatSync(file);}catch{captureFailure('BACKUP_SOURCE_CHANGED');}
+  if(!sameFile(opened,after)||!sameFile(opened,current))captureFailure('BACKUP_SOURCE_CHANGED');
   if(expected&&sha(bytes)!==expected.sha256)captureFailure('BACKUP_SOURCE_CHANGED');
   return bytes;
  }finally{fs.closeSync(fd);}
@@ -56,10 +59,14 @@ function backup(files,backupDir,options={}){
  try{for(let i=0;i<records.length;i++)writeAtomic(path.join(dir,records[i].name),contents[i]);const manifest={schema:1,createdAt:new Date().toISOString(),files:records};writeAtomic(path.join(dir,'manifest.json'),Buffer.from(JSON.stringify(manifest,null,2)+'\n'));return manifest}
  catch(e){fs.rmSync(dir,{recursive:true,force:true});throw e}
 }
+function checkedBackupBytes(directory,item){
+ try{return captureBytes(path.join(directory,item.name),item,item.size);}
+ catch(error){throw Error('backup integrity mismatch: '+item.name,{cause:error});}
+}
 function verify(backupDir){
  const dir=path.resolve(backupDir),manifestFile=path.join(dir,'manifest.json');noSymlinkAncestors(dir);regularFile(manifestFile);
- const manifest=JSON.parse(fs.readFileSync(manifestFile,'utf8'));if(manifest.schema!==1||!Array.isArray(manifest.files)||!manifest.files.length||typeof manifest.createdAt!=='string'||!Number.isFinite(Date.parse(manifest.createdAt))||new Date(manifest.createdAt).toISOString()!==manifest.createdAt)throw Error('invalid backup manifest');
- const seen=new Set();for(const item of manifest.files){if(!item||!safeName(item.name)||item.name==='manifest.json'||seen.has(item.name)||!Number.isSafeInteger(item.size)||item.size<0||item.size>64*1024*1024||typeof item.sha256!=='string'||!/^[a-f0-9]{64}$/.test(item.sha256))throw Error('unsafe or duplicate backup entry');seen.add(item.name);const file=path.join(dir,item.name);const stat=regularFile(file);if(stat.size!==item.size||sha(fs.readFileSync(file))!==item.sha256)throw Error('backup integrity mismatch: '+item.name)}
+ const manifest=JSON.parse(captureBytes(manifestFile,null,64*1024*1024).toString('utf8'));if(manifest.schema!==1||!Array.isArray(manifest.files)||!manifest.files.length||typeof manifest.createdAt!=='string'||!Number.isFinite(Date.parse(manifest.createdAt))||new Date(manifest.createdAt).toISOString()!==manifest.createdAt)throw Error('invalid backup manifest');
+ const seen=new Set();for(const item of manifest.files){if(!item||!safeName(item.name)||item.name==='manifest.json'||seen.has(item.name)||!Number.isSafeInteger(item.size)||item.size<0||item.size>64*1024*1024||typeof item.sha256!=='string'||!/^[a-f0-9]{64}$/.test(item.sha256))throw Error('unsafe or duplicate backup entry');seen.add(item.name);checkedBackupBytes(dir,item)}
  const actual=fs.readdirSync(dir).sort();const expected=['manifest.json',...seen].sort();if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('unexpected backup contents');
  return manifest;
 }
@@ -72,9 +79,12 @@ function restore(backupDir,destination,{apply=false}={}){
  const stage=path.join(parent,'.'+base+'.restore-'+crypto.randomBytes(8).toString('hex'));
  fs.mkdirSync(stage,{recursive:false,mode:0o700});
  try{
-  for(const item of manifest.files)writeAtomic(path.join(stage,item.name),fs.readFileSync(path.join(backupDir,item.name)));
+  // Verify each bounded read against the exact earlier manifest. A source
+  // replaced after verify() must not be copied as an unchecked payload.
+  for(const item of manifest.files)writeAtomic(path.join(stage,item.name),checkedBackupBytes(path.resolve(backupDir),item));
   const stagedNames=fs.readdirSync(stage).sort(),expected=manifest.files.map(x=>x.name).sort();
   if(JSON.stringify(stagedNames)!==JSON.stringify(expected))throw Error('staged restore contents mismatch');
+  for(const item of manifest.files)checkedBackupBytes(stage,item);
   syncDirectory(stage);
   if(fs.existsSync(dest)){const st=fs.lstatSync(dest);if(st.isSymbolicLink()||!st.isDirectory()||fs.readdirSync(dest).length)throw Error('restore destination must be empty');fs.rmdirSync(dest)}
   fs.renameSync(stage,dest);syncDirectory(parent);

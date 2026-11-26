@@ -103,6 +103,7 @@ function sanitizeKnown(value,at){
 }
 function nativePointInTime({history,snapshots={},pythonEvidence={},announcements=[]},cutoff){
  const {runNativeDaily}=require('./native-strategy-daily-runner');
+ const {projectFourteenEvidence}=require('./native-fourteen-evidence');
  if(typeof cutoff!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(cutoff))throw Error('原生因果审计缺少有效截断日');
  const at=Date.parse(cutoff+'T23:59:59.999+08:00');
  const trimmed={...history,asOf:cutoff,stocks:history.stocks.map(stock=>({...stock,bars:stock.bars.filter(b=>b.date<=cutoff).map(b=>sanitizeKnown(b,Date.parse(b.date+'T23:59:59.999+08:00')))}))};
@@ -113,12 +114,29 @@ function nativePointInTime({history,snapshots={},pythonEvidence={},announcements
   if(!bar)throw Error('历史价格首次取得时间晚于该交易日，缺少可用因果历史');
   const symbol=String(stock.symbol||stock.code),key=symbol+'/'+bar.date,close=Date.parse(bar.date+'T23:59:59.999+08:00');
   const extra=snapshots[key],python=pythonEvidence[key];
-  if(extra&&availability(extra)!==null&&availability(extra)<=close)visibleSnapshots[key]=sanitizeKnown(extra,close);
+  if(extra&&availability(extra)!==null&&availability(extra)<=close){
+   const projected=sanitizeKnown(extra,close);
+   if(projected){
+    // Validate the raw frozen child BEFORE recursive filtering. Removing a
+    // late section must not make the remaining bundle look timely.
+    delete projected.fourteenEvidence;
+    if(projectFourteenEvidence(extra,{symbol,date:bar.date,cutoff:close,
+       allowSynthetic:['fixture','simulated'].includes(history.source)}))
+     projected.fourteenEvidence=structuredClone(extra.fourteenEvidence);
+    visibleSnapshots[key]=projected;
+   }
+  }
   if(python&&availability(python)!==null&&availability(python)<=close)visiblePython[key]=sanitizeKnown(python,close);
   // Optional announcement-derived factors have separate publication AND receipt times.
   // Late reports never overwrite the context visible at that historical close.
   const docs=announcements.filter(d=>d.symbol===symbol&&d.observedThrough===bar.date&&Number.isSafeInteger(d.availableAt)&&Number.isSafeInteger(d.receivedAt)&&Math.max(d.availableAt,d.receivedAt)<=close).sort((a,b)=>Math.max(a.availableAt,a.receivedAt)-Math.max(b.availableAt,b.receivedAt));
-  for(const doc of docs)if(doc.snapshot&&typeof doc.snapshot==='object')visibleSnapshots[key]={...(visibleSnapshots[key]||{}),...sanitizeKnown(doc.snapshot,close),symbol,observedThrough:bar.date};
+  for(const doc of docs)if(doc.snapshot&&typeof doc.snapshot==='object'){
+   const projected=sanitizeKnown(doc.snapshot,close);
+   if(!projected)continue;
+   // Announcement-derived features are not the original close/streak bundle.
+   delete projected.fourteenEvidence;
+   visibleSnapshots[key]={...(visibleSnapshots[key]||{}),...projected,symbol,observedThrough:bar.date};
+  }
  }
  const output=runNativeDaily(trimmed,{snapshots:visibleSnapshots,pythonEvidence:visiblePython,generatedAt:new Date(at).toISOString()});
  const ranks=[];

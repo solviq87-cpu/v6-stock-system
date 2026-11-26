@@ -80,6 +80,30 @@ function planLedgerContext(book, plan, now, all = ledgerEvents(book)) {
     current: first.period === book, period: first.period};
 }
 
+// A fresh receipt can still contain a quote from before the actual purchase.
+function assertPostEntryQuote(context, quoteAt) {
+  if (!context.entry) return;
+  const at = executionTimeOf(context.entry);
+  if (!stamp(at) || !stamp(quoteAt) || quoteAt < at)
+    throw Error('持仓报价早于原买入成交或成交时点未知');
+}
+
+// Bind an observation to the original lot at its own observation time.
+function assertObservationLedger(record, context) {
+  const at = context.entry ? executionTimeOf(context.entry) : null;
+  if (context.entry && !stamp(at)) throw Error('原买入成交时点未知');
+  const entry = context.entry && at <= record.observedAt ? context.entry : null;
+  const remaining = entry ? entry.quantity - context.sells.filter(s => {
+    const soldAt = executionTimeOf(s);
+    if (!stamp(soldAt)) throw Error('原退出成交时点未知');
+    return soldAt <= record.observedAt;
+  }).reduce((n,s)=>n+s.quantity,0) : 0;
+  if (record.entryEventId !== (entry?.eventId || null) || record.remainingQuantity !== remaining)
+    throw Error('计划观察与原账户成交批次或剩余数量不一致');
+  if (entry) assertPostEntryQuote({entry},record.quoteAt);
+  return record;
+}
+
 function quoteEvidence(quote, code, day, now) {
   if (!quote || quote.symbol !== code || quote.tradeDate !== day || quote.timestamp !== quote.quoteAt ||
       quote.provider !== quote.quoteSource || !textOk(quote.quoteSource, 80) || !textOk(quote.mode, 80))
@@ -197,6 +221,7 @@ function observePaperPlans({plans = [], book, quotes = {}, day, now = Date.now()
       if (context.ambiguous) throw Error(context.ambiguous);
       const quote = quotes[plan.code], evidence = quoteEvidence(quote, plan.code, day, now);
       if (quote.quoteAt < Date.parse(plan.frozenAt)) throw Error('报价早于计划冻结时点');
+      assertPostEntryQuote(context, quote.quoteAt);
       const record = seal({schemaVersion: 1, kind: 'paper-plan-observation', account: 'pool', day,
         planId: plan.id, planVersion: planVersion(plan), decisionId: plan.decisionId,
         code: plan.code, name: String(plan.name || plan.code).slice(0, 80), intendedDate: plan.intendedDate,
@@ -291,6 +316,6 @@ function hasObservedWindow(rows, predicate) {
   return null;
 }
 
-module.exports = {observePaperPlans, validateObservation, alertsForRecord, planVersion, planLedgerContext,
+module.exports = {observePaperPlans, validateObservation, assertPostEntryQuote, assertObservationLedger, alertsForRecord, planVersion, planLedgerContext,
   ledgerEvents, observationCoverage, hasObservedWindow, sessions, MAX_GAP_MS, MAX_RECORDS, SCOPE,
   quoteEvidence, sellEligibility};

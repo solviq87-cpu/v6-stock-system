@@ -507,12 +507,17 @@ function boardQualityOf(pool) {
 }
 
 function marketMood() {
-  if (!S.global.length) return null;
-  const us = S.global.filter(g => g.code.startsWith('us'));
-  const cn = S.global.filter(g => g.code.startsWith('hk'));
-  const usAvg = us.length ? us.reduce((s, g) => s + g.pct, 0) / us.length : 0;
-  const cnAvg = cn.length ? cn.reduce((s, g) => s + g.pct, 0) / cn.length : 0;
-  const extTotal = usAvg * 0.6 + cnAvg * 0.4;
+  const globalRows=Array.isArray(S.global)?S.global:[];
+  if(!globalRows.length&&!Array.isArray(S.stocks))return null;
+  // The currently connected public international sources do not establish
+  // comparable original session times. Keep their descriptive values only.
+  const avg=codes=>{
+    const rows=globalRows.filter(g=>g&&codes.includes(g.code)&&Number.isFinite(g.pct)&&g.pct>=-100);
+    const valid=rows.filter(g=>globalRows.filter(x=>x?.code===g.code).length===1);
+    return valid.length?valid.reduce((sum,g)=>sum+g.pct,0)/valid.length:null;
+  };
+  const usAvg=avg(['usIXIC','usINX','usDJI']),cnAvg=avg(['hkHSI','hkHSTECH']);
+  const externalDecisionEligible=false,externalEvidenceStatus=globalRows.length?'unverified-session-display-only':'unknown';
   // ⛔ 真正的全市场温度：基于全A实时快照，不是精选池前60只的删减版
   const stocks = S.stocks || [];
   const valid = stocks.filter(s => s && s.pct != null);
@@ -541,17 +546,18 @@ function marketMood() {
   // 综合温度：外围(30%) + 全A涨跌比(40%) + 资金(30%)；
   // ⛔ 资金缺数据时按「外围+涨跌比」重新归一化（缺项不是 0 分，也不是照原权重少算一项）
   const upRatio = valid.length ? upN / valid.length : 0.5;
-  const wExt = mktFlow != null ? 0.3 : 3 / 7;
-  const wBrd = mktFlow != null ? 0.4 : 4 / 7;
-  const tempScore = extTotal * wExt + (upRatio - 0.5) * 100 * wBrd
-    + (mktFlow != null ? Math.min(mktFlow, 50) / 50 * 10 * 0.3 : 0);
+  // Remove the unavailable external component, preserving the original 4:3
+  // relative domestic breadth/flow weights, not an invented flat observation.
+  if(!valid.length)return null;
+  const wBrd=mktFlow!=null?4/7:1,wFlow=mktFlow!=null?3/7:0;
+  const tempScore=(upRatio-0.5)*100*wBrd
+    +(mktFlow!=null?Math.min(mktFlow,50)/50*10*wFlow:0);
   const mood = tempScore > 3 ? '偏暖' : tempScore < -3 ? '偏冷' : '中性';
   // ── 市场情绪操作建议（盘面总览卡片用）──
   let advice = '观望';
   const evidence = [];
-  const _us = (usAvg > 0 ? '+' : '') + usAvg.toFixed(2);
-  const _hk = (cnAvg > 0 ? '+' : '') + cnAvg.toFixed(2);
-  evidence.push(`外围情绪：美股${_us}% · 港股${_hk}%`);
+  const fmtExternal=x=>x===null?'未知':(x>0?'+':'')+x.toFixed(2)+'%';
+  evidence.push(`外围观察：美股${fmtExternal(usAvg)} · 港股${fmtExternal(cnAvg)}（原交易时段未核验，不参与当前温度评分）`);
   evidence.push(`全A涨跌：涨${upN} / 跌${downN} / 平${flatN}（涨跌比 ${valid.length ? Math.round(upRatio * 100) : 0}%）`);
   evidence.push(`涨跌停：涨停${ztN}家 · 跌停${dtN}家（${dtSrc}）`);
   // ── 涨停池封板质量（硬板/开板回封）—— 只作情绪展示，不进 envCold 降级判据（不放宽/收紧推送闸门）──
@@ -579,7 +585,8 @@ function marketMood() {
   const verdict = _verdictMap[advice] || '今天观望';
   const why = [mood, upN >= downN ? '涨多跌少' : '跌多涨少', mktFlow != null ? (mktFlow > 0 ? '资金净流入' : mktFlow < 0 ? '资金净流出' : '资金净额为零') : '', '涨停' + ztN + '家'].filter(Boolean).join('，');
   return {
-    usAvg: +usAvg.toFixed(2), cnAvg: +cnAvg.toFixed(2), mood,
+    usAvg:usAvg===null?null:+usAvg.toFixed(2),cnAvg:cnAvg===null?null:+cnAvg.toFixed(2),mood,
+    externalDecisionEligible,externalEvidenceStatus,usAnalysisAvg:null,cnAnalysisAvg:null,temperatureBasis:'domestic-evidence-only',
     upN, downN, flatN, ztN, dtN, dtSrc,
     avgPct: +avgPct.toFixed(2), medPct: +medPct.toFixed(2),
     mktFlow: displayedMktFlow,mktFlowAnalysisValue:mktFlow,mktFlowStatus:_mf?.status??'unknown',
@@ -624,7 +631,8 @@ function pushMinProbEff() {
 function computePreselect() {
   const mood = marketMood();
   if (!S.candidatePool.length) return null;
-  const moodBoost = mood ? (mood.usAvg > 0.5 ? 0.06 : mood.usAvg < -0.5 ? -0.08 : 0) : 0;
+  const moodBoost=mood?.externalDecisionEligible===true&&Number.isFinite(mood.usAnalysisAvg)?
+    (mood.usAnalysisAvg>0.5?0.06:mood.usAnalysisAvg< -0.5?-0.08:0):0;
   const flowBoost = mood?.bullish===true ? 0.05 : mood?.mktFlowAnalysisValue<0 ? -0.1 : 0; // 未知不等于净流出
   const items = S.candidatePool.filter(c => (c.mainInflow || 0) > 0).slice(0, 60).map(c => {
     const prob = A.limitUpProbability({
@@ -641,7 +649,7 @@ function computePreselect() {
         (c.paths || []).join('+'),
         `获利筹码${c.profitRatio != null ? c.profitRatio + '%' : '-'}`,
         c.mainPct > 0 ? `主力净流入${(c.mainPct).toFixed(1)}%` : null,
-        mood ? `外盘${mood.mood}` : null
+        mood ? `市场温度${mood.mood}` : null
       ].filter(Boolean).join(' · ')
     };
   }).sort((a, b) => b.prob - a.prob).slice(0, 12);
@@ -697,13 +705,23 @@ const EXT_PUSH_GAP = 2 * 60 * 60 * 1000; // 同一联动组推送间隔2小时
 async function refreshExtLink({notify=true}={}) {
   try {
     // 合并外围指数（10国）+ 美股代表个股：指数与联动预选深度联动
-    const local = (S.global || []).map(g => ({ code: g.code, name: g.name, pct: g.pct }));
-    const remote = await em.fetchExtQuotes();
-    const seen = new Set();
-    const quotes = [...local, ...remote].filter(q => { if (seen.has(q.code)) return false; seen.add(q.code); return true; });
-    if (!quotes.length) return;
-    const base = quotes.filter(q => ['usIXIC', 'usINX', 'usDJI'].includes(q.code));
-    const basePct = base.length ? base.reduce((s, q) => s + q.pct, 0) / base.length : 0;
+    const local=Array.isArray(S.global)?S.global:[];
+    let remote=[];try{remote=await em.fetchExtQuotes();}catch(e){console.warn('[extlink] 外围代表行情未取得',e.message);}
+    const seen=new Map(),conflicts=new Set();
+    for(const q of [...local,...(Array.isArray(remote)?remote:[])]){
+      if(!q||typeof q.code!=='string'||!Number.isFinite(q.pct)||q.pct< -100||conflicts.has(q.code))continue;
+      const prior=seen.get(q.code);
+      if(prior&&prior.pct!==q.pct){seen.delete(q.code);conflicts.add(q.code);}
+      else if(!prior)seen.set(q.code,q);
+    }
+    const quotes=[...seen.values()];
+    if(!quotes.length){
+      S.extLink={time:new Date().toLocaleTimeString('zh-CN'),status:'unknown',basePct:null,groups:[],picks:[],
+        conflicts:[...conflicts],researchOnly:true,canTrade:false,canNotify:false};
+      return;
+    }
+    const base=quotes.filter(q=>['usIXIC','usINX','usDJI'].includes(q.code));
+    const basePct=base.length===3?base.reduce((s,q)=>s+q.pct,0)/3:null;
     // 板块列表缓存30分钟
     S.extCache = S.extCache || { at: 0, sectors: null, stocks: new Map() };
     if (!S.extCache.sectors || Date.now() - S.extCache.at > 30 * 60 * 1000) {
@@ -716,10 +734,12 @@ async function refreshExtLink({notify=true}={}) {
       const qs = g.exts.map(c => quotes.find(q => q.code === c)).filter(Boolean);
       if (!qs.length) return null;
       const extPct = +(qs.reduce((s, q) => s + q.pct, 0) / qs.length).toFixed(2);
-      const strength = +(extPct - basePct).toFixed(2); // 相对大盘超额
-      const matched = sectors.filter(s => g.keys.some(k => s.name.includes(k))).sort((a, b) => b.pct - a.pct);
-      return { name: g.name, extPct, strength, sectors: matched.slice(0, 3), extTag: qs.map(q => `${q.name}${q.pct > 0 ? '+' : ''}${q.pct}%`).join(' ') };
-    }).filter(Boolean).sort((a, b) => b.strength - a.strength);
+      // A mixed-market descriptive average is not a same-period excess return.
+      const matched=sectors.filter(s=>s&&typeof s.name==='string'&&Number.isFinite(s.pct)&&g.keys.some(k=>s.name.includes(k))).sort((a,b)=>b.pct-a.pct);
+      return {name:g.name,extPct,strength:null,decisionEligible:false,referenceCount:qs.length,expectedReferences:g.exts.length,
+        evidenceStatus:'unverified-session-display-only',sectors:matched.slice(0,3),
+        extTag:qs.map(q=>`${q.name}${q.pct>0?'+':''}${q.pct}%`).join(' ')};
+    }).filter(Boolean).sort((a,b)=>b.extPct-a.extPct||a.name.localeCompare(b.name));
     // 对最强3组：取首个匹配板块成分股（缓存于板块列表刷新周期内），挑较强标的
     const picks = [];
     for (const g of groups.slice(0, 3)) {
@@ -731,11 +751,11 @@ async function refreshExtLink({notify=true}={}) {
       }
       const sel = (stocks || []).filter(s => !A.isJunkName(s.name) && !s.code.startsWith('30') && !s.code.startsWith('68') && s.pct > 0 && !capTooSmall(s))
         .sort((a, b) => ((b.turnover || 0) * (b.pct || 0)) - ((a.turnover || 0) * (a.pct || 0))).slice(0, 3)
-        .map(s => ({ ...reviewSnapshotFields(s), code: s.code, name: s.name, price: s.price, pct: s.pct, group: g.name, sector: sec.name }));
+        .map(s => ({ ...reviewSnapshotFields(s), code: s.code, name: s.name, price: s.price, pct: s.pct, group: g.name, sector: sec.name,researchOnly:true,canTrade:false,canNotify:false }));
       picks.push(...sel);
       // 外围指数显著上涨(≥1%) → 推送同板块最佳个股（盘中有效，每组2小时一次，夜间静默自动拦截）
       const notifySel = reviewedRows(sel);
-      if (notify && g.extPct >= 1 && notifySel.length && isTradingTime()) {
+      if (notify && g.decisionEligible===true && g.extPct >= 1 && notifySel.length && isTradingTime()) {
         const last = (S.extPushed || new Map());
         S.extPushed = last;
         if (Date.now() - (last.get(g.name) || 0) > EXT_PUSH_GAP) {
@@ -745,13 +765,18 @@ async function refreshExtLink({notify=true}={}) {
         }
       }
     }
-    S.extLink = { time: new Date().toLocaleTimeString('zh-CN'), basePct: +basePct.toFixed(2), groups, picks };
-  } catch (e) { console.error('[extlink]', e.message); }
+    S.extLink={time:new Date().toLocaleTimeString('zh-CN'),basePct:basePct===null?null:+basePct.toFixed(2),groups,picks,
+      status:'unverified-session-display-only',conflicts:[...conflicts],researchOnly:true,canTrade:false,canNotify:false,
+      note:'跨市场交易时段和原始数据时间未核验；仅描述性板块映射，不作为因果、超额、推荐或推送证据'};
+  } catch(e){
+    S.extLink={time:new Date().toLocaleTimeString('zh-CN'),status:'unknown',basePct:null,groups:[],picks:[],researchOnly:true,canTrade:false,canNotify:false};
+    console.error('[extlink]',e.message);
+  }
 }
 
 async function refreshGlobalForDisplay() {
   const quotes=await em.fetchGlobal();
-  if(quotes&&quotes.length)S.global=quotes;
+  S.global=Array.isArray(quotes)?quotes:[];
   await refreshExtLink({notify:false});
   const preselect=computePreselect();
   if(preselect&&Array.isArray(preselect.items)&&preselect.items.length)S.preselect=preselect;

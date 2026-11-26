@@ -2,7 +2,7 @@ import { kLearningRows } from './backtest.mjs';
 import { emotion,marketAsOf } from './market.mjs';
 import { settingsAt } from './settings.mjs';
 import { pressureLearningTags } from './pressure.mjs';
-import { isTestSample,sampleMatches } from './sample-quality.mjs';
+import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,uniqueEvidenceRows } from './sample-quality.mjs';
 import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
 import {dictionaryVersion,factorDictionary} from './factor-dictionary.mjs';
 import {MODEL,readNumericCheck,fitNumericModel,numericScore,projectNumeric,validModel,fingerprint,stable} from './numeric-factors.mjs';
@@ -125,23 +125,37 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
   if(!cut||!Number.isFinite(end))return [];
   const allowTests=state.scope==='demo'||includeTest===true;
   const accept=r=>sampleMatches(r,selection)&&(allowTests||!isTestSample(r));
-  const manual=[],checks=new Map((state.checks||[]).map(c=>[c.id,c])),numericSignals=new Set();
-  for(const r of state.trades||[]){
-    if(!accept(r)||strict&&r.snapshotVerified!==true)continue;
-    const exit=cutAt(r.exitTime||(r.exitDate||r.date)+'T15:00');
-    const original=r.createdAt??r.recordedAt??'',captured=cutAt(original);
-    if(!exit||!captured||instant(exit)>end||instant(original)>end)continue;
-    const check=checks.get(r.checkId);
-    const codes=check?.code===r.code?evidenceCodes(check,instant(r.entryTime)):[];
+  const manual=[],checks=new Map(),numericSignals=new Set();
+  for(const c of state.checks||[]){
+    if(!c||typeof c.id!=='string')continue;
+    if(!checks.has(c.id))checks.set(c.id,[]);
+    checks.get(c.id).push(c);
+  }
+  const visibleTrades=(state.trades||[]).filter(r=>accept(r)&&(!strict||r.snapshotVerified===true)&&
+    settlementObservation(r,end,{requireReceipt:true})!==null);
+  const settled=uniqueEvidenceRows(visibleTrades,{requireIdentity:true,settlements:true});
+  for(const r of settled.rows){
+    const observation=settlementObservation(r,end,{requireReceipt:true});
+    const knownMinute=localTime(Math.ceil(observation.knownAt/60000)*60000);
+    const matching=observation.entry===null?[]:uniqueEvidenceRows((checks.get(r.checkId)||[]).filter(c=>
+      c.code===r.code&&isTestSample(c)===isTestSample(r)&&evidenceVisibleAt(c,observation.entry)),{requireIdentity:true}).rows;
+    const check=matching.length===1?matching[0]:null;
+    const codes=check?evidenceCodes(check,observation.entry):[];
     const signalKey=check?.code+'/'+check?.id;
     const numericFactors=numericSignals.has(signalKey)?null:settlementNumeric(state,r,check);
     if(numericFactors)numericSignals.add(signalKey);
-    manual.push({...r,numericFactors,factors:numericOnly?[]:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
+    manual.push({...r,numericFactors,factors:numericOnly?[]:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:knownMinute,
+      learningOutcomeBasis:'recorded-settlement',...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
   }
   if(numericOnly)return manual.filter(row=>row.numericFactors);
   const kr=kLearningRows(state,cut.replace('T',' '),{includeTests:allowTests,quality:selection});
-  const k=kr.filter(r=>accept(r)&&cutAt(r.exitTime||r.exitDate+'T15:00')&&cutAt(r.exitTime||r.exitDate+'T15:00')<cut).map(r=>({...r,
-    labelKnownAt:cutAt(r.exitTime||r.exitDate+'T15:00'),trend:r.trend||r.indexTrend||r.environment,factors:unique([...words(r.factors),...pressureLearningTags(state,r,r.decisionAt)])}));
+  const k=uniqueEvidenceRows(kr.filter(r=>{
+    const at=sampleEvidenceTime(r.exitTime??r.exitDate,{dateAtClose:true});
+    return accept(r)&&typeof r.pnl==='number'&&Number.isFinite(r.pnl)&&at!==null&&at<end&&
+      cutAt(r.exitTime||r.exitDate+'T15:00')<cut;
+  }),{requireIdentity:true}).rows.map(r=>({...r,
+    labelKnownAt:cutAt(r.exitTime||r.exitDate+'T15:00'),learningOutcomeBasis:'historical-kline-return',
+    trend:r.trend||r.indexTrend||r.environment,factors:unique([...words(r.factors),...pressureLearningTags(state,r,r.decisionAt)])}));
   return [...manual,...k];
 }
 // Read-only diagnostics use the same settlement provenance and time gates as
@@ -167,7 +181,20 @@ export function predict(state,input={}) {
     stable(v.weights)===stable(v.numericModel.weights)&&v.scoringFingerprint===fingerprint(scoringState(v));
   const score=numericResult?(modelValid&&Number.isFinite(numericResult.score)?round(numericResult.score):null):weightedScore(v?.weights||{},factorSet(input));
   const support=v?.minSupport||6;
-  return {...s,score,version:v?.number||0,factorSchema:v?.numericModel?.schema||'legacy-presence-weights',
+  const experience={asOf:Number.isFinite(instant(asOf))?instant(asOf):null,mode:'historical-conditional-review',
+    mixedOutcomeBases:true,calibratedProbability:null,canTrade:false,canPromote:false,
+    cohorts:['recorded-settlement','historical-kline-return'].map(basis=>{
+      const sample=rows.filter(r=>r.learningOutcomeBasis===basis);
+      const result=stats(sample,policyAt(state,cut));
+      const references=sample.slice().sort((a,b)=>String(b.labelKnownAt).localeCompare(String(a.labelKnownAt))||String(a.id).localeCompare(String(b.id))).slice(0,12)
+        .map(r=>({id:r.id,code:r.code,signalDay:r.date,knownAt:r.labelKnownAt,
+          outcome:r.pnl>0?'positive':r.pnl<0?'negative':'flat',returnPct:r.pnl}));
+      return {basis,...result,flat:sample.length-result.wins-result.losses,
+        supportSufficient:sample.length>=support,references,referenceLimit:12};
+    }),
+    note:'原汇总保留历史兼容；结算与K线纸面收益分别披露，不视为同一收益口径、校准概率或因果证据'};
+  experience.mixedOutcomeBases=experience.cohorts.every(c=>c.n>0);
+  return {...s,score,experience,version:v?.number||0,factorSchema:v?.numericModel?.schema||'legacy-presence-weights',
     ...(numericResult?{modelFingerprint:v.numericModel.fingerprint,numericMissing:modelValid?numericResult.missing:['获批模型/词典/评分指纹不一致']}:{}),
     risk:numericResult&&score===null?'已审批数值模型缺少同定义的当时观察':s.n<support?'同类样本不足':s.lossRate>=60?'同类组合亏损频率偏高':score<=gate?'低于已审批候选评分阈值':'历史样本可供参考'};
 }
@@ -331,7 +358,8 @@ function buildCandidate(state,automatic=false,centerProposal=null){
   const a=ranges?.validation.start||days[Math.floor(days.length*0.55)], b=ranges?.test.start||days[Math.floor(days.length*0.78)];
   if(centerProposal&&(instant(centerProposal.baselineApprovedAt)>=instant(a)||!Number.isFinite(centerProposal.maxTrainingLabelKnownAt)||centerProposal.maxTrainingLabelKnownAt>=instant(a)))
     throw Error('中心拟合或获批基线晚于首个留出日，不能把后来可知的权重用于该验证窗口');
-  const availableBefore=(r,boundary)=>asDate(closedAt(r))<boundary&&(!r.createdAt||localTime(Date.parse(r.createdAt))<boundary);
+  const availableBefore=(r,boundary)=>asDate(closedAt(r))<boundary&&(!r.createdAt||localTime(Date.parse(r.createdAt))<boundary)&&
+    typeof r.labelKnownAt==='string'&&r.labelKnownAt<boundary;
   const inRange=(r,phase)=>!ranges||r.date>=ranges[phase].start&&r.date<=ranges[phase].end;
   const train=raw.filter(r=>r.date<a&&inRange(r,'train')&&availableBefore(r,a));
   const validation=raw.filter(r=>r.date>=a&&r.date<b&&inRange(r,'validation')&&availableBefore(r,b));

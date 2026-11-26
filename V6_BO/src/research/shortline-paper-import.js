@@ -7,6 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
+const {quoteSourceAllowsUse} = require('../core/quote-observation-view');
 const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
@@ -80,16 +81,33 @@ function linkDecisionPlan(sample, state, events, now) {
   if(matches.length!==1)return sample;
   const plan=matches[0],at=Math.min(...legs.map(leg=>leg.time)),basis=plan.decisionEvidence;
   try{validatePlan(plan,now);}catch{return sample;}
-  const frozen=Date.parse(plan.frozenAt);
-  if(plan.code!==sample.code||frozen>at||entries.some(event=>event.tradeDate!==plan.intendedDate)||
-    !Number.isSafeInteger(basis?.calculatedAt)||basis.calculatedAt>frozen||
-    !Number.isSafeInteger(basis?.strategyAt)||basis.strategyAt<=0||basis.strategyAt>frozen||
-    !Number.isSafeInteger(basis?.quoteBasis?.quoteAt)||basis.quoteBasis.quoteAt<=0||basis.quoteBasis.quoteAt>frozen||
-    typeof basis?.quoteBasis?.source!=='string'||!basis.quoteBasis.source)return sample;
-  const frozenCheck=(state.checks||[]).find(check=>check.id===plan.checkId&&check.code===plan.code&&
-    Number.isFinite(Date.parse(check.createdAt))&&Date.parse(check.createdAt)<=frozen);
+  const frozen=Date.parse(plan.frozenAt),q=basis?.quoteBasis;
+  const stamp=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
+  // A valid settlement proves cash and shares, not a causal research plan.
+  // Preserve that settlement if the original decision clocks do not agree.
+  if(plan.code!==sample.code||frozen>at||wall(frozen).slice(0,10)!==plan.intendedDate||
+    entries.some(event=>event.tradeDate!==plan.intendedDate)||
+    !stamp(basis?.calculatedAt)||basis.calculatedAt>frozen||
+    !stamp(basis?.strategyAt)||basis.strategyAt>basis.calculatedAt||
+    !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
+    typeof q.source!=='string'||!q.source.trim()||
+     /mock|synthetic|fixture|demo/i.test(q.source)||/demo/i.test(q.mode||'')||
+     !quoteSourceAllowsUse({...q,quoteSource:q.source})||
+     entries.some(event=>event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||
+       event.fillEvidence.mode!=='public-live-unverified'))||
+    q.code!==undefined&&q.code!==plan.code||
+    q.price!==undefined&&(!Number.isFinite(q.price)||q.price<=0)||
+    q.receivedAt!==undefined&&(!stamp(q.receivedAt)||q.receivedAt<q.quoteAt||q.receivedAt>basis.calculatedAt)||
+    basis.strategyBasis?.day!==undefined&&basis.strategyBasis.day!==plan.intendedDate)return sample;
+  // Do not choose one of several conflicting check records or borrow its
+  // factors. A valid frozen plan may still be linked without that optional check.
+  const checks=plan.checkId?(state.checks||[]).filter(check=>check.id===plan.checkId):[];
+  const check=checks.length===1?checks[0]:null,checkAt=Date.parse(check?.createdAt);
+  const frozenCheck=check&&check.code===plan.code&&stamp(checkAt)&&checkAt<=frozen&&
+    (check.sampleSet===undefined||check.sampleSet===plan.sampleSet)?check:null;
   const strings=value=>[...new Set((Array.isArray(value)?value:[]).filter(item=>typeof item==='string'&&item&&item.length<=100))].slice(0,64);
   const codes=strings(frozenCheck?.factorCodes).filter(code=>/^[A-Z]{2,6}-\d{2,4}$/.test(code));
+  const factors=strings([...strings(plan.factors),...codes]);
   const within=legs.every(leg=>leg.price>=plan.entryMin&&leg.price<=plan.entryMax);
   const facts=[
     {rule:'计划外交易',status:'符合',evidence:'原账本买入事件关联事前冻结计划 '+plan.id},
@@ -102,12 +120,12 @@ function linkDecisionPlan(sample, state, events, now) {
   return {...sample,sampleSet:'real',planId:plan.id,planStatus:'已冻结',planVerified:true,
     planLinkedAt:new Date(now).toISOString(),entryTimestamp:at,exitTimestamp:sample.paperSettlement.exitTimestamp,
     strategy:plan.strategy,strategies:[plan.strategy],trend:plan.trend||'未判定',
-    factors:strings([...(plan.factors||[]),...codes]),knownRiskFactors:strings(plan.knownRiskFactors),
+    factors,knownRiskFactors:strings(plan.knownRiskFactors),
     checkId:frozenCheck?.id||null,customTags:strings(plan.customTags),
     frozenLabels:structuredClone(plan.labels||{}),labels:{...sample.labels,...structuredClone(plan.labels||{})},
     snapshotVerified:true,reviewable:true,disciplineFacts:facts,violations:facts.filter(f=>f.status==='触发').map(f=>f.rule),
     decisionLink:{planId:plan.id,decisionId:plan.decisionId,planFingerprint:digest(plan),
-      entryEventIds:entries.map(event=>event.eventId),knownAt:now,factorsMissing:!strings([...(plan.factors||[]),...codes]).length}};
+      entryEventIds:entries.map(event=>event.eventId),knownAt:now,factorsMissing:!factors.length}};
 }
 
 // Rebuild FIFO exactly at the ledger's cent precision. Unknown opening lots,

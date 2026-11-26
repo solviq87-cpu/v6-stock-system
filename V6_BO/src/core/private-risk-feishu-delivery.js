@@ -7,9 +7,11 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
+const {performance}=require('node:perf_hooks');
 const {classifyFeishuReceipt}=require('./feishu-receipt');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const chinaDay=now=>new Date(now+8*3600000).toISOString().slice(0,10);
+const validClock=at=>Number.isSafeInteger(at)&&at>0&&at<8e15;
 const HOST='open.feishu.cn';
 const MAX_HISTORY=64,MAX_DAILY_SENDS=12,COOLDOWN_MS=120000;
 // Only opaque per-event hashes are retained. Bound the journal even when all
@@ -17,7 +19,7 @@ const MAX_HISTORY=64,MAX_DAILY_SENDS=12,COOLDOWN_MS=120000;
 const MAX_STATE_BYTES=1024*1024;
 
 function prepareRiskSummary(report,{now=Date.now()}={}){
- if(!Number.isSafeInteger(now)||now<=0||!report||
+ if(!validClock(now)||!report||
    report.mode!=='manual-holding-risk-readonly'||report.schemaVersion!==1||
    report.status!=='evaluated'||report.canTrade!==false||
    report.canNotify!==false||report.verifiedLive!==false||
@@ -138,8 +140,21 @@ function writeState(file,history){
  }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(tmp);}catch{}}
 }
 async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
- fetchImpl=globalThis.fetch,now=Date.now(),enableDelivery=false}={}){
+ fetchImpl=globalThis.fetch,now,enableDelivery=false,clock=Date.now,monotonic=()=>performance.now()}={}){
+ const wallStart=clock(),monoStart=monotonic();
+ if(now===undefined)now=wallStart;
+ if(!validClock(wallStart)||!Number.isFinite(monoStart))throw Error('风险提醒发送时钟无效');
  const summary=prepareRiskSummary(report,{now});
+ // Explicit now remains the original research/test clock. On real sends,
+ // both elapsed wall and monotonic time consume the original 15s validity.
+ // Never turn a refreshed receipt clock into a new risk evaluation.
+ function assertFresh(){
+  const wall=clock(),mono=monotonic();
+  if(!validClock(wall)||wall<wallStart||!Number.isFinite(mono)||mono<monoStart)throw Error('风险提醒发送时钟回退或无效，未外发');
+  const at=now+Math.ceil(Math.max(wall-wallStart,mono-monoStart));
+  const checked=prepareRiskSummary(report,{now:at});
+  if(checked.fingerprint!==summary.fingerprint)throw Error('风险评估内容已变化，未外发');
+ }
  if(!summary.actionable)return {status:'no-actionable-risk',canTrade:false,
    gatewayAccepted:false,deliveredToDevice:false,counts:summary.counts};
  if(!enableDelivery)return {status:'dry-run',canTrade:false,
@@ -152,6 +167,9 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
  try{
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
   const priorState=readState(file),prior=priorState?.history||[];
+  assertFresh();
+  if(prior.some((x,i)=>!validClock(x.at)||chinaDay(x.at)!==x.day||x.at>now||i&&x.at<prior[i-1].at))
+   throw Error('风险去重历史时间倒退、日期矛盾或位于未来，未外发');
   // A deduplicated request may be the only operation after upgrading. Migrate
   // identity-aware v2 receipts while holding the original lock so rollback
   // cannot replay them merely because no new notification needed a write.
@@ -185,7 +203,11 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
   // Retain today's complete history. Drop only older days when space is needed.
   const older=prior.filter(x=>x.day!==summary.day).slice(-(MAX_HISTORY-1-today.length));
   const history=[...older,...today,record];
+  assertFresh();
   writeState(file,history);
+  // Disk/lock delays can consume the remaining validity. Keep the persisted
+  // reservation on denial, so restart cannot resend the same expired alert.
+  assertFresh();
   let status='pending-unknown',accepted=false;
   const controller=new AbortController();
   let timer;

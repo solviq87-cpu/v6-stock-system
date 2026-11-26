@@ -104,13 +104,28 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
   return {schemaVersion:1,scope:'this-process-observed-stages',capacity:limit,active:active.size,dropped,evicted,
    spans:clone(count?rows.slice(-count):[]),canTrade:false,writesAccount:false};}
  function summary(){
-  const describe=(stage,values)=>{const times=values.map(row=>row.durationMs).filter(Number.isFinite).sort((a,b)=>a-b);
+  // Aggregate the bounded ring once. Keep each exact duration for the
+  // existing percentiles; neither sampling nor history retention changes.
+  const accumulator=()=>({samples:0,completed:0,failed:0,blocked:0,unknown:0,skipped:0,times:[]});
+  const groups=new Map(GROUPS.map(stage=>[stage,accumulator()]));
+  const byHook=new Map([...STAGES].map(stage=>[stage,accumulator()]));
+  function add(value,row){
+   if(!value)return;
+   value.samples++;value[row.status]++;
+   if(Number.isFinite(row.durationMs))value.times.push(row.durationMs);
+  }
+  for(const row of rows){
+   add(groups.get(row.stage.slice(0,row.stage.indexOf('.'))),row);
+   add(byHook.get(row.stage),row);
+  }
+  const describe=(stage,{times,samples,completed,failed,blocked,unknown,skipped})=>{
+   times.sort((a,b)=>a-b);
    const percentile=p=>times.length?times[Math.ceil(times.length*p)-1]:null;
-   return {stage,status:values.length?'observed':'not-observed',samples:values.length,completed:values.filter(r=>r.status==='completed').length,
-    failed:values.filter(r=>r.status==='failed').length,blocked:values.filter(r=>r.status==='blocked').length,
-    unknown:values.filter(r=>r.status==='unknown').length,skipped:values.filter(r=>r.status==='skipped').length,timedSamples:times.length,p50Ms:percentile(.5),p95Ms:percentile(.95)};};
-  const stages=GROUPS.map(stage=>describe(stage,rows.filter(row=>row.stage.startsWith(stage+'.'))));
-  const hooks=[...STAGES].map(stage=>describe(stage,rows.filter(row=>row.stage===stage)));
+   return {stage,status:samples?'observed':'not-observed',samples,completed,failed,blocked,unknown,skipped,
+    timedSamples:times.length,p50Ms:percentile(.5),p95Ms:percentile(.95)};
+  };
+  const stages=[...groups].map(([stage,value])=>describe(stage,value));
+  const hooks=[...byHook].map(([stage,value])=>describe(stage,value));
   return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,coverage:'only executed hooks; unobserved stages are not inferred'};
  }
  // Only internal workerData may carry this small envelope. Main-thread callers

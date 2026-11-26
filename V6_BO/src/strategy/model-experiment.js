@@ -12,6 +12,18 @@ const {validateUniverseHistory,universeObservation}=require('../core/historical-
 const {validateExecutionRisk,executionCapacity}=require('../core/execution-risk');
 const {validateModelFilters,evaluateModelFilters}=require('./model-selection-conditions');
 const {scanUniverse}=require('./research-v2-universe-scanner');
+const {assertUnadjustedExecutionPriceBasis}=require('../core/historical-execution-price-basis');
+
+// Explicit availability of a complete raw daily bar is causal evidence.
+// Omitted metadata is the original legacy research contract, not a verified
+// observation. Invalid or contradictory declared clocks must stay unknown.
+function rawAvailableAt(bar){
+  if(!Object.hasOwn(bar,'availableAt'))return -Infinity;
+  const v=bar.availableAt;
+  const at=typeof v==='number'&&Number.isSafeInteger(v)?v:
+    typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)?Date.parse(v):NaN;
+  return Number.isFinite(at)&&at>=Date.parse(bar.date+'T15:00:00+08:00')&&at<=8e15?at:Infinity;
+}
 
 const defaultModels=['ridge','extraTrees','histBoost'];
 const supportedModels=[...defaultModels,'lightgbm','xgboost'];
@@ -36,13 +48,28 @@ function modelExperiment(options) {
       stocks.some(s=>!Array.isArray(s.bars)||s.bars.length<=end)) throw Error('训练或评估区间不足');
   const dates=stocks[0].bars.slice(0,end+1).map(b=>b?.date);
   assertAligned(stocks,end,options.tradingDates??dates);
+  // Raw execution prices are shared by model targets and all comparison
+  // ledgers. Adjusted factorHistory remains a separate, research-only input.
+  assertUnadjustedExecutionPriceBasis(options);
+  const rawAvailability=new Map();
+  let declaredRawBars=0,legacyRawBars=0;
+  const labelCutoff=Date.parse(dates[splitDay]+'T00:00:00+08:00');
   for(const stock of stocks){
+    assertUnadjustedExecutionPriceBasis(stock);
+    const availability=[];
     for(const bar of stock.bars.slice(0,end+1)){
+      assertUnadjustedExecutionPriceBasis(bar);
+      const known=rawAvailableAt(bar);
+      availability.push(known);
+      if(known===-Infinity)legacyRawBars++;else declaredRawBars++;
       if(![bar.open,bar.high,bar.low,bar.close,bar.volume].every(Number.isFinite) ||
         bar.low<=0 || bar.low>Math.min(bar.open,bar.close) || bar.high<Math.max(bar.open,bar.close) || bar.volume<0)
         throw Error('历史 OHLCV 不完整，请先完成质量核对');
     }
+    rawAvailability.set(stock,availability);
   }
+  const signalCutoffs=dates.map(date=>Date.parse(date+'T23:59:59.999+08:00'));
+  const rawWindowReady=(stock,day)=>rawAvailability.get(stock).slice(day-60,day+1).every(at=>at<=signalCutoffs[day]);
   const x=[],y=[],test=[],rows=[];
   const trainingDays=new Set();
   const sampleAudit={training:{considered:0,accepted:0,rejected:{}},evaluation:{considered:0,accepted:0,rejected:{}}};
@@ -57,6 +84,9 @@ function modelExperiment(options) {
       audit.considered++;
       const symbol=String(stock.symbol||stock.code);
       const bar=stock.bars[day];
+      if(!rawWindowReady(stock,day)){
+        reject(audit,['RAW_WINDOW_NOT_KNOWN']);continue;
+      }
       if(!universeObservation(options.universeHistory,symbol,bar.date).eligible){
         reject(audit,['NO_POINT_IN_TIME_MEMBERSHIP']);continue;
       }
@@ -94,7 +124,15 @@ function modelExperiment(options) {
         if(![entry,exit].every(b=>Number.isFinite(b.open)&&b.open>0&&b.volume>0&&!b.suspended)){
           reject(audit,['LABEL_UNAVAILABLE']);continue;
         }
-        x.push(vector);y.push(exit.open/entry.open-1);trainingDays.add(day);lastLabelDay=day+2;
+        // Even a date-purged label can be published or restated after the
+        // first evaluation date. Do not fit on that explicitly late evidence.
+        const available=rawAvailability.get(stock);
+        if(available[day+1]>=labelCutoff||available[day+2]>=labelCutoff){
+          reject(audit,['LABEL_NOT_KNOWN_BEFORE_SPLIT']);continue;
+        }
+        const target=exit.open/entry.open-1;
+        if(!Number.isFinite(target)){reject(audit,['NONFINITE_LABEL']);continue;}
+        x.push(vector);y.push(target);trainingDays.add(day);lastLabelDay=day+2;
       }
       audit.accepted++;
     }
@@ -129,9 +167,12 @@ function modelExperiment(options) {
   if(valueSignalDays)strategies.push('chinaValue');
   const base={...options,source,start:splitDay,end,selectCandidates:null};
   const hasFilters=Object.keys(modelFilters).length>0||options.minPriorTurnover!=null;
-  const originalSelector=hasFilters?(input,day)=>{
-    const eligible=new Set((byDay.get(day)||[]).map(row=>row.symbol));
-    return scanUniverse({stocks:input.filter(stock=>eligible.has(String(stock.symbol||stock.code))),
+  const originalSelector=hasFilters||declaredRawBars?(input,day)=>{
+    const eligible=hasFilters?new Set((byDay.get(day)||[]).map(row=>row.symbol)):null;
+    return scanUniverse({stocks:input.filter(stock=>{
+      const symbol=String(stock.symbol||stock.code);
+      return (!eligible||eligible.has(symbol))&&rawWindowReady(stockMap.get(symbol),day);
+    }),
       now:Date.UTC(2020,0,1)+day*86400000,maxAgeMs:options.maxAgeMs??86400000})
       .items.filter(stock=>stock.tradable).map(stock=>stock.symbol);
   }:null;
@@ -154,7 +195,11 @@ function modelExperiment(options) {
   return {source,verifiedLive:false,autoTrade:false,sklearn:version,modelVersions,features:names,
     protocol:{featureSet,featureInputTransforms:extraNames.includes('amihud_illiq20_rmb')?{amihud_illiq20_rmb:{multiplier:1e8,unit:'per-100-million-CNY'}}:{},publicFactorCatalogFingerprint:extraNames.length?catalogFingerprint:null,models:[...models],modelFilters:{...modelFilters},minPriorTurnover:options.minPriorTurnover??null,
       datasetSha256,universeMode:options.universeHistory?'provided-unverified':'legacy-unverified',
-      target:'next-open-to-following-open-gross-return',splitDay,end,backtest},sampleAudit,
+      target:'next-open-to-following-open-gross-return',splitDay,end,backtest,
+      rawAvailability:{declaredBars:declaredRawBars,legacyUndeclaredBars:legacyRawBars,
+        scope:'declared-daily-evidence-unverified',signalCutoff:'same-market-day-end',
+        trainingLabelCutoff:new Date(labelCutoff).toISOString(),purgedSignalSessions:2,
+        verifiedExternal:false}},sampleAudit,
     valueSignalDays,trainingRows:x.length,trainingDays:trainingDays.size,lastTrainingLabelDate:dates[lastLabelDay],
     firstEvaluationDate:dates[splitDay],asOf:dates[end],latest:byDay.get(end)||[],summaries,
     note:'回归模型预测未扣费的次日至再次日开盘收益，仅用于排序而非胜率或可实现收益。规则对照和原V6使用同一研究条件与账本参数；成交限制和费用由各组账本独立执行。'};

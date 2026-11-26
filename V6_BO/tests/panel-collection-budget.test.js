@@ -28,7 +28,7 @@ test('two real desktop startup blocks read cloud state without triggering suppli
  assert.equal(reads,2);assert.equal(posts,0);
 });
 
-test('display-only external linkage suppresses an otherwise eligible notification without consuming its send marker',async()=>{
+test('display-only and scheduled unverified external linkage cannot consume a notification marker',async()=>{
  const start=source.indexOf('async function refreshExtLink('),end=source.indexOf('\nasync function refreshGlobalForDisplay(',start);
  assert.ok(start>0&&end>start);
  let sends=0;
@@ -41,7 +41,8 @@ test('display-only external linkage suppresses an otherwise eligible notificatio
   sign:value=>value>0?'+':'',recommendationSendOptions:()=>({}),pushAll:()=>{sends++;}});
  vm.runInContext(source.slice(start,end),c);
  await c.refreshExtLink({notify:false});assert.equal(sends,0);assert.equal(c.S.extPushed,undefined);
- await c.refreshExtLink();assert.equal(sends,1);assert.ok(c.S.extPushed.has('fixture'));
+ await c.refreshExtLink();assert.equal(sends,0);assert.equal(c.S.extPushed,undefined);
+ assert.equal(c.S.extLink.groups[0].decisionEligible,false);assert.equal(c.S.extLink.groups[0].strength,null);
 });
 
 test('real HTTP refresh aliases and two clients share cached recollection without invoking the trading hook',async t=>{

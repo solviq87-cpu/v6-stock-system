@@ -303,3 +303,79 @@ test('well-formed input keeps the existing recovery gate and immutable observati
  assert.equal(recovery.productionWeightsChanged,false);assert.equal(recovery.canTrade,false);
  assert.equal(JSON.stringify(data),before);
 });
+
+test('newest incomplete tail cannot hide a full trailing reversal behind old complete blocks',()=>{
+ for(const direction of [1,-1]){
+  const d=rows([...Array(15).fill(.5*direction),...Array(4).fill(-.2*direction)]);
+  const r=assessFactorReliability(d);
+  assert.equal(r.completeBlockCount,3);
+  assert.equal(r.latestBlockMeanIC,.5*direction);
+  assert.equal(r.incompleteTailDays,4);
+  assert.ok(r.latestRollingFiveMeanIC*direction<0);
+  assert.ok(r.reasons.includes('latest-five-observation-rolling-reversal'));
+  assert.equal(r.reliable,false);assert.equal(r.suggestedWeightMultiplier,0);
+ }
+});
+test('latest rolling five is not an extra independent block, and known zero remains zero',()=>{
+ const r=assessFactorReliability(rows([...Array(15).fill(.3),0,0]));
+ assert.equal(r.completeBlockCount,3);assert.equal(r.incompleteTailDays,2);
+ assert.equal(r.incompleteTailMeanIC,0);assert.equal(r.latestRollingFiveMeanIC,.18);
+ assert.equal(r.observationBlocksProveIndependence,false);assert.equal(r.reliable,true);
+});
+test('within-regime reversal cannot hide in an otherwise positive market average',()=>{
+ const d=[...Array.from({length:16},(_,i)=>({ic:i<8?.30:-.12,regime:'systemic-selloff'})),
+  ...Array.from({length:30},()=>({ic:.45,regime:'not-systemic-selloff'}))]
+  .map((x,i)=>({...x,day:fixtureDay(i)}));
+ const r=assessFactorReliability(d);
+ assert.equal(r.opposingRegimeEffects,false);
+ assert.equal(r.regimeStability['systemic-selloff'].earlyDays,8);
+ assert.equal(r.regimeStability['systemic-selloff'].recentDays,8);
+ assert.equal(r.regimeStability['systemic-selloff'].reversal,true);
+ assert.deepEqual(r.regimeReversals,['systemic-selloff']);
+ assert.equal(r.reliable,false);assert.equal(r.suggestedWeightMultiplier,0);
+});
+test('insufficient regime halves remain descriptive and unknown labels are not a regime',()=>{
+ const d=rows(Array(30).fill(.3));
+ for(let i=0;i<7;i++)d[i].regime='systemic-selloff';
+ const r=assessFactorReliability(d);
+ assert.equal(r.regimeCoverageDays,7);
+ assert.equal(r.regimeStability['systemic-selloff'].comparable,false);
+ assert.equal(r.regimeStability['not-systemic-selloff'].earlyMeanIC,null);
+ assert.deepEqual(r.regimeReversals,[]);
+ assert.equal(r.reliable,true);assert.equal(r.canTrade,false);
+});
+test('paired sample omissions cannot turn a partially observed window into an upgrade gate',()=>{
+ const d=pairedDays().map((x,i)=>({...x,missing:i>=5}));
+ const score=(sample,_ids,w)=>sample[0].missing?{days:0,meanIC:null}:pairedScore(sample,_ids,w);
+ const r=pairedStability(d,['a','b'],{a:1,b:1},{a:2,b:1},score);
+ assert.equal(r.comparableDays,5);assert.equal(r.missingDays,5);
+ assert.equal(r.requestedDays,10);assert.equal(r.coverageComplete,false);
+ assert.equal(r.halfPeriodsConsistent,false);
+ assert.ok(r.earlyDeltaIC>0);assert.ok(r.recentDeltaIC>0);
+});
+test('partial monitoring cannot claim no decay, but genuine negative alert stays visible',()=>{
+ const d=pairedDays().map((x,i)=>({...x,missing:i>=5}));
+ const score=(sample,_ids,w)=>sample[0].missing?{days:0,meanIC:null}:pairedScore(sample,_ids,w);
+ const r=assessShadowDecay(d,['a','b'],{a:1,b:1},{a:2,b:1},score);
+ assert.equal(r.assessedDays,5);assert.equal(r.missingDays,5);
+ assert.equal(r.coverageComplete,false);assert.equal(r.status,'insufficient-fresh-evidence');
+ const bad=d.map(x=>({...x,base:.15,shadow:-.2}));
+ const alert=assessShadowDecay(bad,['a','b'],{a:1,b:1},{a:2,b:1},score);
+ assert.equal(alert.alert,true);assert.equal(alert.status,'decay-alert-unverified');
+});
+test('cooldown recovery discloses missing pairs and never certifies recovery early',()=>{
+ const d=pairedDays().map((x,i)=>({...x,missing:i===9}));
+ const score=(sample,_ids,w)=>sample[0].missing?{days:0,meanIC:null}:pairedScore(sample,_ids,w);
+ const r=assessShadowRecovery(d,['a','b'],{a:1,b:1},{a:2,b:1},score);
+ assert.equal(r.assessedDays,9);assert.equal(r.missingDays,1);
+ assert.equal(r.coverageComplete,false);assert.equal(r.recovered,false);
+ assert.equal(r.productionWeightsChanged,false);
+});
+test('full paired coverage preserves the existing valid research gate',()=>{
+ const d=pairedDays(),before=JSON.stringify(d);
+ const [s,decay,recovery]=compareAll(d,pairedScore).map(fn=>fn());
+ assert.equal(s.coverageComplete,true);assert.equal(s.halfPeriodsConsistent,true);
+ assert.equal(decay.coverageComplete,true);assert.equal(decay.status,'no-decay-detected');
+ assert.equal(recovery.coverageComplete,true);assert.equal(recovery.recovered,true);
+ assert.equal(JSON.stringify(d),before);
+});

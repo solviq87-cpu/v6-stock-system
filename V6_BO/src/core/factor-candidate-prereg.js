@@ -11,6 +11,36 @@ const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex'
 const SEED_MODE='v6-shadow-candidate-seed-prereg-v1';
 const SEED_POLICY='pack-order-alternating-two-percent-v1';
 const seal=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&
+ [Object.prototype,null].includes(Object.getPrototypeOf(x));
+const validId=id=>typeof id==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$/.test(id)&&
+ !['__proto__','constructor','prototype'].includes(id);
+const exactKeys=(row,ids)=>plain(row)&&Object.keys(row).length===ids.length&&ids.every(id=>Object.hasOwn(row,id));
+const validIds=ids=>Array.isArray(ids)&&ids.length>=2&&ids.every(validId)&&new Set(ids).size===ids.length;
+const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
+function declaredDefinitions(defs,ids){
+ if(!Array.isArray(defs)||defs.length!==ids.length||!validIds(ids)||
+    defs.some((d,i)=>!plain(d)||d.id!==ids[i]||!positive(d.baseWeight)))return null;
+ return defs;
+}
+function canonicalDefinitions(ids,packFingerprint){
+ if(packFingerprint!==hash(factorPack))return null;
+ return ids.map(id=>{const f=factorPack.factors.find(x=>x.id===id);
+  return f?{id,baseWeight:f.weight}:null;});
+}
+// Recheck the SAME bounded research policy when reading a sealed record.
+// A content hash does not prove the candidate still satisfies that policy.
+function weightsValid(candidate,accepted,ids,definitions=null){
+ if(!validIds(ids)||!exactKeys(candidate,ids)||!exactKeys(accepted,ids)||
+    definitions!==null&&!declaredDefinitions(definitions,ids))return false;
+ return ids.every((id,i)=>{
+  const c=candidate[id],a=accepted[id],base=definitions?.[i].baseWeight;
+  if(!positive(c)||!positive(a)||c<a*.92-1e-7||c>a*1.08+1e-7)return false;
+  if(base!==undefined&&(!positive(base*.5)||!positive(base*1.5)||
+     a<base*.5||a>base*1.5||c<base*.5||c>base*1.5))return false;
+  return true;
+ });
+}
 const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -148,8 +178,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  if(!Array.isArray(features)||features.length<36||features.length>400||
     !Number.isSafeInteger(registeredAt)||registeredAt<=0||
     !/^[0-9a-f]{64}$/.test(packFingerprint||'')||
-    typeof candidateWeights!=='object'||!candidateWeights||
-    typeof acceptedWeights!=='object'||!acceptedWeights||
+    !plain(candidateWeights)||!plain(acceptedWeights)||
     (autoSourceFingerprint!==null&&
      !/^[a-f0-9]{64}$/.test(autoSourceFingerprint)))
   throw Error('候选预注册输入协议无效');
@@ -158,32 +187,30 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
   throw Error('候选预注册存在无效冻结信号日期');
  ordered.sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
  const latest=ordered.at(-1);
- const ids=ordered[0]?.factors?.map(x=>x.id);
- if(!Array.isArray(ids)||ids.length<2||new Set(ids).size!==ids.length||
-    Object.keys(candidateWeights).length!==ids.length||
-    Object.keys(acceptedWeights).length!==ids.length||
+ const defs=ordered[0]?.factors;
+ const ids=Array.isArray(defs)?defs.map(x=>x?.id):null;
+ const canonical=validIds(ids)?canonicalDefinitions(ids,packFingerprint):null;
+ if(!validIds(ids)||!declaredDefinitions(defs,ids)||
+    !weightsValid(candidateWeights,acceptedWeights,ids,defs)||
+    (canonical!==null&&(!weightsValid(candidateWeights,acceptedWeights,ids,canonical)||
+      defs.some((d,i)=>d.baseWeight!==canonical[i]?.baseWeight)))||
     new Set(ordered.map(f=>f.fingerprint)).size!==ordered.length||
     ordered.some((f,i)=>!date(f?.signalDay)||
      (i>0&&ordered[i-1].signalDay===f.signalDay)||
      !/^[0-9a-f]{64}$/.test(f?.fingerprint||'')||
      f.packFingerprint!==packFingerprint||
-     hash(f.factors)!==hash(ordered[0].factors)||
-     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt)||
-    ids.some(id=>{
-     const candidate=candidateWeights[id],accepted=acceptedWeights[id],
-      base=ordered[0].factors.find(x=>x.id===id)?.baseWeight;
-     return !Number.isFinite(candidate)||!Number.isFinite(accepted)||
-      !Number.isFinite(base)||candidate<=0||accepted<=0||
-      candidate<base*.5||candidate>base*1.5||
-      candidate<accepted*.92-1e-7||candidate>accepted*1.08+1e-7;
-    }))
+     hash(f.factors)!==hash(defs)||
+     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt))
   throw Error('候选预注册冻结样本、权重边界或完整性无效');
  const payload={schemaVersion:1,mode:'v6-shadow-candidate-prereg-v1',
   registeredAt,latestFrozenSignalDay:latest.signalDay,
   lastFrozenCapturedAt:latest.capturedAt,
   frozenPrefixFingerprints:ordered.map(x=>x.fingerprint),
   factorIds:ids,packFingerprint,algorithmFingerprint:currentResearchCodeFingerprint(),
-  acceptedWeights,candidateWeights,
+  // Bind the absolute base envelope as part of new ordinary registrations.
+  // Old records remain readable; the current pack supplies canonical bounds.
+  factorDefinitions:defs.map(d=>({id:d.id,baseWeight:d.baseWeight})),
+  acceptedWeights:{...acceptedWeights},candidateWeights:{...candidateWeights},
   parentAcceptedFingerprint,parentTrialFingerprint,
   ...(autoSourceFingerprint===null?{}:{
    candidateOrigin:'sealed-historical-training-reliability-v1',
@@ -195,12 +222,15 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
 function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
  oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={}){
  if(!reg||typeof reg!=='object'||!Array.isArray(sorted)||
-    !Array.isArray(ids)||!Array.isArray(freshTest))
+    !validIds(ids)||!Array.isArray(freshTest))
   throw Error('缺少不可变候选预注册，拒绝事后试验');
  if(reg.mode===SEED_MODE)return verifySeedCandidate(reg,{
   sorted,ids,packFingerprint,oldWeights,previousFingerprint,previousTrialFingerprint,freshTest});
  const {fingerprint,...payload}=reg;
  const first=freshTest[0],prefix=reg.frozenPrefixFingerprints;
+ const canonical=canonicalDefinitions(ids,packFingerprint);
+ const sealedDefinitions=Object.hasOwn(reg,'factorDefinitions')?declaredDefinitions(reg.factorDefinitions,ids):null;
+ const envelope=canonical??sealedDefinitions;
  if(fingerprint!==hash(payload)||reg.mode!=='v6-shadow-candidate-prereg-v1'||
     reg.schemaVersion!==1||reg.canTrade!==false||
     reg.productionWeightsChanged!==false||
@@ -214,10 +244,13 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
      !/^[a-f0-9]{64}$/.test(reg.autoSourceFingerprint||'')||
      ![previousTrialFingerprint,previousFingerprint].includes(reg.autoSourceFingerprint)))||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
+    (Object.hasOwn(reg,'factorDefinitions')&&!sealedDefinitions)||
+    (canonical!==null&&sealedDefinitions!==null&&hash(canonical)!==hash(sealedDefinitions))||
+    !weightsValid(reg.candidateWeights,reg.acceptedWeights,ids,envelope)||
+    !exactKeys(oldWeights,ids)||
+    (reg.candidateOrigin===undefined&&Object.hasOwn(reg,'autoSourceFingerprint'))||
     !Array.isArray(prefix)||prefix.length<36||
-    !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt)||
-    ids.some(id=>!Number.isFinite(reg.candidateWeights?.[id])||
-     reg.candidateWeights[id]<=0))
+    !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
  return {status:'candidate-committed-before-new-signal',
   registrationFingerprint:fingerprint,registeredAt:reg.registeredAt,

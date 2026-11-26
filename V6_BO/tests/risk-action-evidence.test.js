@@ -322,3 +322,53 @@ test('two real same-stock round trips retain the closed plan and expose only act
   const replay=buildRiskActionEvidence({book:restarted.read(),plans:[p],quotes:{},now:clockNow,calendar,continuous:true});
   assert.deepEqual(replay.items.find(x=>x.planId===p.id),complete);assert.equal(fs.readFileSync(file,'utf8'),before);
 });
+
+function resealPlanObservation(record, patch) {
+  const {fingerprint,...original}=record, payload={...original,...patch};
+  return {...payload,fingerprint:require('node:crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex')};
+}
+test('post-entry risk cannot use a still-fresh quote from before the original buy',()=>{
+  const b=book(),at=time(entryDay,'10:00:05'),before=JSON.stringify(b),q=quote(time(entryDay,'09:59:59'));
+  const x=view(b,{now:at,quotes:{[code]:q}}).items[0];
+  assert.equal(x.entryEventId,'buy-event');assert.equal(x.condition.status,'unknown');assert.equal(x.condition.kind,null);
+  assert.equal(x.constraints.price.current,null);assert.notEqual(x.execution.allowed,true);
+  assert.ok(x.missing.some(reason=>/早于原买入成交/.test(reason)),JSON.stringify(x.missing));
+  const sampled=observePaperPlans({plans:[plan()],book:b,quotes:{[code]:q},day:entryDay,now:at,calendar,continuous:true});
+  assert.equal(sampled.records.length,0);assert.equal(sampled.alerts.length,0);assert.match(sampled.rejected[0].reason,/早于原买入成交/);
+  const edge=view(b,{now:at,quotes:{[code]:quote(time(entryDay))}}).items[0];
+  assert.equal(edge.condition.status,'triggered');assert.equal(edge.execution.allowed,false);
+  assert.equal(JSON.stringify(b),before);
+});
+test('historical stop trigger cannot reuse a pre-purchase price under a later entry identity',()=>{
+  const b=book(),at=time(entryDay,'10:00:05'),q=quote(time(entryDay)),p=plan();
+  const sampled=observePaperPlans({plans:[p],book:b,quotes:{[code]:q},day:entryDay,now:at,calendar,continuous:true});
+  const record=sampled.records[0];assert.ok(record,JSON.stringify(sampled.rejected));assert.equal(record.entryEventId,'buy-event');
+  const early=time(entryDay,'09:59:59'),invalid=resealPlanObservation(record,{quoteAt:early,receivedAt:early});
+  const before=JSON.stringify({b,invalid}),r=view(b,{now:at,observations:[invalid]}).items[0];
+  assert.equal(r.historicalTriggers.length,0);assert.equal(r.observationCoverage.count,0);
+  assert.ok(r.missing.some(reason=>/观察未通过/.test(reason)));
+  const {paperExecutionScore}=require('../src/core/paper-decision-plan');
+  assert.throws(()=>paperExecutionScore({book:b,plans:[p],observations:[invalid],day:entryDay,now:at}),/早于原买入成交/);
+  assert.equal(view(b,{now:at,observations:[record]}).items[0].historicalTriggers.length,1);
+  assert.equal(JSON.stringify({b,invalid}),before);
+});
+test('partial sale history validates remaining original shares at the exact sample time',()=>{
+  const b=sellOrder(book(),{filled:100,terminal:'cancel',at:now-5000}),p=plan();
+  const sampled=observePaperPlans({plans:[p],book:b,quotes:{[code]:quote()},day,now,calendar,continuous:true});
+  const record=sampled.records[0];assert.ok(record,JSON.stringify(sampled.rejected));assert.equal(record.remainingQuantity,100);
+  const forged=resealPlanObservation(record,{remainingQuantity:200,exit:{...record.exit,quantity:200}});
+  const x=view(b,{observations:[forged]}).items[0];
+  assert.equal(x.observationCoverage.count,0);assert.equal(x.historicalTriggers.length,0);
+  assert.ok(x.missing.some(reason=>/观察未通过/.test(reason)));
+  assert.equal(view(b,{observations:[record]}).items[0].historicalTriggers.length,1);
+});
+test('an actual pre-entry sample remains attributable as an entry observation, not a stop',()=>{
+  const p=plan(),b=book(),empty=book(),at=time(entryDay,'09:59:55');
+  empty.account.events=[];empty.account.positions={};empty.orders={};sealBook(empty);
+  const sampled=observePaperPlans({plans:[p],book:empty,quotes:{[code]:quote(at,10)},day:entryDay,now:at,calendar,continuous:true});
+  const record=sampled.records[0];assert.ok(record,JSON.stringify(sampled.rejected));assert.equal(record.entryEventId,null);assert.equal(record.remainingQuantity,0);
+  const {paperExecutionScore}=require('../src/core/paper-decision-plan');
+  const result=paperExecutionScore({book:b,plans:[p],observations:[record],day:entryDay,now:time(entryDay,'10:01:00')});
+  assert.equal(result.rows.length,1);assert.equal(result.observation.records,1);
+  assert.equal(result.rows[0].facts.find(f=>f.rule==='按计划买入').status,'符合');
+});

@@ -62,14 +62,22 @@ function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REF
   day=dayOf(day);const now=clock();
   if(!/^\d{6}$/.test(code||'')||!day||!Number.isSafeInteger(days)||days<1||days>10||!validTime(now)||
    day>new Date(now+28800000).toISOString().slice(0,10))throw Error('资金历史的代码、日期或窗口无效');
-  if(pending.has(code)){await pending.get(code);return read(code,{day,days});}
+  // A current provider window cannot answer a historical cutoff before its
+  // last session. The original endpoint fetches the latest fixed window, not
+  // a historical page. Do not start work which cannot answer that request.
   const previous=cache.get(code),valid=verifiedRows(previous,{day,now}),attempt=attempts.get(code);
+  const latest=valid||verifiedRows(previous,{day:currentDay(now),now});
+  if(latest?.length&&dayOf(latest.at(-1).date)>day)return null;
+  // Share one in-flight retrieval. Revalidate the stored receipt against each
+  // waiter's own day and clock, but never recursively start a second request
+  // just because the first has consumed the refresh interval.
+  if(pending.has(code)){await pending.get(code);return retained(code,day,clock());}
   const knownAt=valid?.length?Math.max(...valid.map(row=>row.retrievedAt)):null;
   const complete=valid?.length>=days&&dayOf(valid.at(-1).date)===day&&valid.slice(-days).every(row=>finite(row.main));
   if(complete&&knownAt<=now&&now-knownAt<refreshMs)return previous;
   // Failed/partial responses use the same retry budget. A new trade day must
   // not inherit yesterday's successful cache, but cannot bypass live backoff.
-  if(attempt&&now>=attempt.at&&now-attempt.at<refreshMs)return valid?previous:null;
+  if(attempt&&(now<attempt.at||now-attempt.at<refreshMs))return valid?previous:null;
   attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'loading',missing:[]});
   const request=(async()=>{
    try{

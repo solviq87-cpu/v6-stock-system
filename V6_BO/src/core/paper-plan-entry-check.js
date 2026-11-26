@@ -53,7 +53,7 @@ function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot
     return result(false, '原封板或观察策略限制未通过');
   if (input.candidate?.cap === '空仓') return result(false, '原策略要求空仓');
   if (quote.suspended !== false || quote.tradable !== true || quote.volumeUnit !== 'shares' ||
-      !Number.isFinite(quote.volume) || quote.volume <= 0 ||
+      !Number.isSafeInteger(quote.volume) || quote.volume <= 0 ||
       !Number.isFinite(quote.upperLimit) || !Number.isFinite(quote.lowerLimit) ||
       quote.price >= quote.upperLimit || quote.price <= quote.lowerLimit)
     return result(false, '原模拟成交行情不完整、停牌或触及涨跌停限制');
@@ -70,7 +70,7 @@ function inspectPaperPlanEntry(input, {sealedUp, heldCount, monitorCapacity, lot
     if (!Number.isSafeInteger(quantity) || quantity < lot || !Number.isFinite(fee) || fee < 0 ||
         cost + fee > account.cash || cost + fee > book.account?.cash)
       return result(false, '原等权预算、申报单位或含费资金不足');
-    const used = (book.account?.events || []).filter(e => e.symbol === plan.code && e.tradeDate === input.day)
+    const used = (book.account?.events || []).filter(e => String(e.symbol) === String(plan.code) && e.tradeDate === input.day)
       .reduce((n, e) => n + e.quantity, 0);
     if (!Number.isFinite(used) || used + quantity > quote.volume * .01)
       return result(false, '超过原模拟账户成交量参与率');

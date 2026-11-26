@@ -1762,6 +1762,29 @@ async function fetchAllStocksSina() {
   console.error('[em] 新浪全A：' + out.length + ' 只');
   return out;
 }
+// International layouts lack an authenticated market-local time convention.
+function externalObservedNumber(value) {
+  if(typeof value!=='string'||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value.trim()))return null;
+  const n=Number(value);return Number.isFinite(n)?n:null;
+}
+function externalQuoteRow(code,name,price,pct,source,receivedAt,providerTimeRaw=null){
+  if(!Number.isFinite(price)||price<=0||typeof name!=='string'||!name.trim()||!Number.isSafeInteger(receivedAt)||receivedAt<=0)return null;
+  return {code,name:name.trim(),price,pct:Number.isFinite(pct)&&pct>=-100?pct:null,
+    quoteSource:source,receivedAt,providerTimeRaw:typeof providerTimeRaw==='string'&&providerTimeRaw.trim()?providerTimeRaw.slice(0,80):null,
+    quoteAt:null,tradeDate:null,sourceTimeZone:null,sourceTimeStatus:'unknown-provider-time-contract',
+    quoteMode:'external-descriptive-unverified',verifiedLive:false,canTrade:false,canNotify:false,decisionEligible:false};
+}
+function uniqueExternalQuotes(rows){
+  const seen=new Map(),blocked=new Set();
+  for(const row of rows){
+    if(blocked.has(row.code))continue;
+    const previous=seen.get(row.code);
+    if(previous&&['price','pct','quoteSource','providerTimeRaw','name'].some(k=>previous[k]!==row[k])){
+      seen.delete(row.code);blocked.add(row.code);
+    }else if(!previous)seen.set(row.code,row);
+  }
+  return [...seen.values()];
+}
 async function fetchGlobal() {
   const codes = ['usDJI', 'usIXIC', 'usINX', 'hkHSI', 'hkHSTECH'];
   const out = [];
@@ -1769,10 +1792,12 @@ async function fetchGlobal() {
     const buf = await txGet(`https://qt.gtimg.cn/q=${codes.join(',')}`);
     const text = new TextDecoder('gbk').decode(buf);
     const re = /v_(\w+)="([^"]*)"/g;
-    let m;
+    let m;const receivedAt=Date.now();
     while ((m = re.exec(text))) {
-      const f = m[2].split('~');
-      if (f.length > 32 && f[3]) out.push({ code: m[1], name: f[1], price: +f[3], pct: +f[32] });
+      if(!codes.includes(m[1]))continue;
+      const f=m[2].split('~');
+      const row=externalQuoteRow(m[1],f[1],externalObservedNumber(f[3]),externalObservedNumber(f[32]),'tencent-global',receivedAt,f[30]);
+      if(row)out.push(row);
     }
   } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     // ⛔ 铁律③：外围行情（美股/港股）整条腾讯通道挂了原来一行日志没有，
@@ -1786,17 +1811,17 @@ async function fetchGlobal() {
     const text2 = new TextDecoder('gbk').decode(buf2);
     const re2 = /hq_str_(?:int|znb)_(\w+)="([^"]*)"/g;
     const NAME = { nikkei: '日经225', KOSPI: '韩国KOSPI', dax30: '德国DAX', ftse: '英国富时100', SENSEX: '印度SENSEX' };
-    let m2;
+    let m2;const receivedAt=Date.now();
     while ((m2 = re2.exec(text2))) {
-      const f = m2[2].split(',');
-      const price = +f[1], chg = +f[3];
-      if (!price || !NAME[m2[1]]) continue;
-      out.push({ code: m2[1], name: NAME[m2[1]], price, pct: +chg.toFixed(2) });
+      if(!Object.hasOwn(NAME,m2[1]))continue;
+      const f=m2[2].split(','),chg=externalObservedNumber(f[3]);
+      const row=externalQuoteRow(m2[1],NAME[m2[1]],externalObservedNumber(f[1]),chg===null?null:+chg.toFixed(2),'sina-global',receivedAt);
+      if(row)out.push(row);
     }
   } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     _srcWarn('外围行情·新浪国际指数失败', `hq.sinajs.cn 拉取失败：${(e && e.message) || e} —— 日/韩/德/英/印行本轮为空`);
   }
-  return out;
+  return uniqueExternalQuotes(out);
 }
 
 // ⛔ if 轮：A股四大指数实时快讯（qt.gtimg.cn 单请求，15s 刷新也不心疼）。
@@ -1839,13 +1864,15 @@ async function fetchExtQuotes() {
   const out = [];
   const re = /v_(us\w+|hk\w+)="([^"]*)"/g;
   let m;
+  const receivedAt=Date.now();
   while ((m = re.exec(text))) {
-    const f = m[2].split('~');
-    const price = +f[3], pre = +f[4];
-    if (!price || !pre) continue;
-    out.push({ code: m[1], name: f[1], price, pct: +(((price - pre) / pre) * 100).toFixed(2) });
+    if(!codes.includes(m[1]))continue;
+    const f=m[2].split('~'),price=externalObservedNumber(f[3]),pre=externalObservedNumber(f[4]);
+    const delta=price!==null&&pre!==null&&price>0&&pre>0?(price/pre-1)*100:null;
+    const row=externalQuoteRow(m[1],f[1],price,Number.isFinite(delta)?+delta.toFixed(2):null,'tencent-global',receivedAt,f[30]);
+    if(row)out.push(row);
   }
-  return out;
+  return uniqueExternalQuotes(out);
 }
 
 // 新浪行业板块列表（含板块涨跌幅）

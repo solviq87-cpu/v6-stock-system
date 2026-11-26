@@ -356,12 +356,12 @@ function pricePatterns(b,history,f,market,set){
   set('21:4',finite(b.activeSellPct)&&finite(b.lockedRatio)&&b.activeSellPct>=0&&b.activeSellPct<=100,
     b.activeSellPct<=40&&b.lockedRatio<=15,'供应商主动卖出成交占比 '+fmt(b.activeSellPct)+'%，上方套牢盘 '+fmt(b.lockedRatio)+'%');
   const frozen=b.frozenPlan;
-  if(frozen && frozen.code===b.code && finite(frozen.entryPrice)&&finite(frozen.stopPrice)&&finite(frozen.targetPrice)&&
+  if(frozen&&frozen.code===b.code&&[frozen.entryPrice,frozen.stopPrice,frozen.targetPrice].every(x=>finite(x)&&x>0)&&
       frozen.entryPrice>frozen.stopPrice&&frozen.targetPrice>frozen.entryPrice){
     set('10:0',time(frozen.frozenAt)<time(dateOf(b.date)+' 09:25')&&finite(frozen.expectedAuctionGap)&&finite(b.auctionGap),
       b.auctionGap<frozen.expectedAuctionGap,'冻结计划预期竞价 '+fmt(frozen.expectedAuctionGap)+'%，实际 '+fmt(b.auctionGap)+'%');
     const reward=(frozen.targetPrice-frozen.entryPrice)/(frozen.entryPrice-frozen.stopPrice);
-    set('18:3',true,reward>=2,'冻结计划以入场 '+frozen.entryPrice+'、止损 '+frozen.stopPrice+'、止盈 '+frozen.targetPrice+' 测得风险收益比 '+fmt(reward));
+    set('18:3',finite(reward),reward>=2,'冻结计划以入场 '+frozen.entryPrice+'、止损 '+frozen.stopPrice+'、止盈 '+frozen.targetPrice+' 测得名义收益/风险比 '+fmt(reward)+'（未扣成本，不是预期收益或可成交保证）');
     set('48:4',known(frozen.exitStyle),frozen.exitStyle==='反弹止盈','冻结离场规则 '+frozen.exitStyle);
   }
 }
@@ -498,8 +498,32 @@ export function addPatternEvidence({b,history=[],f={},market={},stage,sector={},
   marketPatterns({b,f,market:m,sector:s,marketSeries,stage,cutoff},set);
   intraPatterns(b,hist,f,s,intraday,cutoff,set);
   // K-line windows and plan times are independently gated for each observation.
-  const plan=b.frozenPlan,freeze=time(plan?.frozenAt);
-  pricePatterns({...b,frozenPlan:finite(freeze)&&freeze<=cutoff?plan:null},hist,f,m,set);
+  const plan=b.frozenPlan,freeze=time(plan?.frozenAt),d=dateOf(b.date);
+  const dayOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
+  const clockOK=x=>Number.isSafeInteger(x)&&x>0&&x<8e15;
+  const strictTime=v=>{
+    const at=time(v);
+    if(!clockOK(at))return null;
+    if(typeof v==='string'){
+      const s=v.replace(' ','T');
+      if(!dayOK(s.slice(0,10))||!/^.{10}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(s))return null;
+    }
+    return at;
+  };
+  const declaredDate=[plan?.intendedDate,plan?.tradeDate].filter(v=>v!=null);
+  const datesOK=declaredDate.every(v=>v===d&&dayOK(v));
+  const clocksOK=['knownAt','availableAt','recordedAt','receivedAt'].every(k=>{
+    if(plan?.[k]==null)return true;
+    const at=strictTime(plan[k]);return at!==null&&at>=freeze&&at<=cutoff;
+  });
+  const negative=plan&&(['simulated','synthetic','testSample','mock','retracted','superseded'].some(k=>plan[k]===true)||
+    ['cancelled','retracted','superseded','invalid'].includes(plan.status));
+  // Explicit intended day is authoritative. Legacy plans without a day must
+  // at least have been frozen on the observation day (China time).
+  const dated=clockOK(freeze)&&(declaredDate.length||new Date(freeze+28800000).toISOString().slice(0,10)===d);
+  const validPlan=plan&&strictTime(plan.frozenAt)!==null&&freeze<=cutoff&&dated&&datesOK&&clocksOK&&!negative&&
+    (plan.priceBasis==null||b.priceBasis==null||plan.priceBasis===b.priceBasis);
+  pricePatterns({...b,frozenPlan:validPlan?plan:null},hist,f,m,set);
   disclosurePatterns(b,cutoff,set);
   verifiedPatterns(b,s,m,cutoff,set);
   return facts;

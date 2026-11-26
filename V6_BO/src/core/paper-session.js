@@ -108,10 +108,10 @@ function buildSession(history,config={},previous=null){
  return {session,updated:true};
 }
 function validateSession(s){
- const fail=()=>{throw Error('模拟账户文件完整性校验失败');};
+ const fail=()=>{throw Object.assign(Error('模拟账户文件完整性校验失败'),{code:INVALID_CONTENT});};
  if(!s||s.schemaVersion!==1||s.mode!=='offline-paper-session'||s.canTrade!==false||s.verifiedLive!==false||
    !Number.isSafeInteger(s.revision)||s.revision<1||!s.config||typeof s.config!=='object'||Array.isArray(s.config)||
-   sha(s.history)!==s.historyHash||sha(s.report)!==s.reportHash)fail();
+   !s.history||!s.report||sha(s.history)!==s.historyHash||sha(s.report)!==s.reportHash)fail();
  if(s.configHash!==undefined&&sha(s.config)!==s.configHash)fail();
  const ds=validateDataset(s.history),r=s.report;
  try{assertUnadjustedExecutionPriceBasis(s.history);}catch{fail();}
@@ -124,60 +124,106 @@ function validateSession(s){
  if(r.cashFlows)reconcileAccount(r);
  return s;
 }
-function loadSession(filename){
- const raw=fs.readFileSync(filename,'utf8');
- if(Buffer.byteLength(raw)>60*1024*1024)throw Error('账户文件超过60MB');
- const s=JSON.parse(raw);
- validateSession(s);
- return s;
+const MAX_SESSION_BYTES=60*1024*1024;
+const INVALID_CONTENT='PAPER_SESSION_INVALID_CONTENT';
+function statTarget(target){
+ try{const st=fs.lstatSync(target);if(!st.isFile()||st.isSymbolicLink())throw Error('拒绝读取或覆盖非普通账户文件或符号链接');return st;}
+ catch(e){if(e.code==='ENOENT')return null;throw e;}
 }
-function writeAtomic(target,contents){
+function sameStat(a,b){return a&&b&&['dev','ino','size','mtimeMs','ctimeMs','mode'].every(key=>a[key]===b[key]);}
+function assertUnchanged(target,expected){
+ const actual=statTarget(target);
+ if(expected?!sameStat(expected,actual):actual!==null)throw Error('账户或备份文件已变化，拒绝覆盖');
+}
+function readSnapshot(filename){
+ const expected=statTarget(filename),fd=fs.openSync(filename,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
+ try{
+  const stat=fs.fstatSync(fd);
+  if(!stat.isFile()||!sameStat(expected,stat))throw Error('账户文件读取期间已变化');
+  if(stat.size>MAX_SESSION_BYTES)throw Error('账户文件超过60MB');
+  // Bound even a concurrently growing file; do not allocate from its new size.
+  const bytes=Buffer.allocUnsafe(stat.size+1);let offset=0;
+  while(offset<bytes.length){const n=fs.readSync(fd,bytes,offset,bytes.length-offset,null);if(!n)break;offset+=n;}
+  if(offset!==stat.size||!sameStat(stat,fs.fstatSync(fd)))throw Error('账户文件读取期间已变化');
+  return {raw:bytes.subarray(0,offset),stat};
+ }finally{fs.closeSync(fd);}
+}
+function decodeSession(raw){
+ let value;
+ try{value=JSON.parse(raw.toString('utf8'));}
+ catch(error){throw Object.assign(Error('模拟账户文件完整性校验失败: '+error.message,{cause:error}),{code:INVALID_CONTENT});}
+ // A newly unsupported historical policy or runtime validation error is not
+ // proof of damaged bytes. Only the explicit integrity failures are restorable.
+ return validateSession(value);
+}
+function optionalSnapshot(target){return statTarget(target)?readSnapshot(target):null;}
+function loadSession(filename){return decodeSession(readSnapshot(filename).raw);}
+function syncDirectory(dir){const fd=fs.openSync(dir,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
+function writeAtomic(target,contents,{beforeRename,exclusive=false,strictDirectorySync=false}={}){
  const dir=path.dirname(target);
  fs.mkdirSync(dir,{recursive:true});
  const tmp=path.join(dir,'.'+path.basename(target)+'.'+crypto.randomBytes(8).toString('hex')+'.tmp');
- let fd;
+ let fd,owned=false;
  try{
-  fd=fs.openSync(tmp,'wx',0o600);
+  fd=fs.openSync(tmp,'wx',0o600);owned=true;
   fs.writeFileSync(fd,contents);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
-  fs.renameSync(tmp,target);
-  try{const d=fs.openSync(dir,'r');fs.fsyncSync(d);fs.closeSync(d);}catch{}
- }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(tmp);}catch{}}
+  beforeRename?.();
+  if(exclusive)fs.linkSync(tmp,target);else fs.renameSync(tmp,target);
+  if(strictDirectorySync)syncDirectory(dir);else try{syncDirectory(dir);}catch{}
+ }finally{if(fd!==undefined)fs.closeSync(fd);if(owned)try{fs.unlinkSync(tmp);}catch{}}
 }
-function assertRegularTarget(target){
- try{const st=fs.lstatSync(target);if(!st.isFile()||st.isSymbolicLink())throw Error('拒绝覆盖非普通账户文件或符号链接');}
- catch(e){if(e.code!=='ENOENT')throw e;}
-}
-/** Backups are verified snapshots, never silently substituted for a corrupt live account. */
+/** All original offline-session writers share the existing kernel guard. A
+ * verified backup is never silently substituted for, or overwritten by, a
+ * corrupt snapshot. The original schema and explicit recovery entry remain. */
 function saveSession(filename,session){
  validateSession(session);
- const target=path.resolve(filename);
- if(!session||session.mode!=='offline-paper-session'||session.canTrade!==false||session.verifiedLive!==false||sha(session.history)!==session.historyHash||sha(session.report)!==session.reportHash)throw Error('拒绝保存完整性校验失败的账户');
- assertRegularTarget(target);
- if(fs.existsSync(target)){
-  const previous=loadSession(target); // refuse to overwrite corruption
-  if(session.revision<=previous.revision)throw Error('账户版本必须递增');
-  if(session.revision!==previous.revision+1)throw Error('账户版本不连续');
-  if(sha(session.config)!==sha(previous.config))throw Error('账户交易参数不可更改');
-  assertAppend(previous.history,session.history);
-  const backup=target+'.bak';assertRegularTarget(backup);
-  writeAtomic(backup,fs.readFileSync(target));
- }
- writeAtomic(target,JSON.stringify(session,null,2)+'\n');
+ const target=path.resolve(filename),backup=target+'.bak',raw=Buffer.from(JSON.stringify(session,null,2)+'\n');
+ if(raw.length>MAX_SESSION_BYTES)throw Error('账户文件超过60MB，拒绝覆盖');
+ fs.mkdirSync(path.dirname(target),{recursive:true});
+ return require('./account-process-lock').withAccountLock(target,()=>{
+  const current=optionalSnapshot(target),saved=optionalSnapshot(backup);
+  if(!current&&saved)throw Error('原账户缺失但备份存在，请先显式恢复，禁止初始化覆盖');
+  if(current){
+   const previous=decodeSession(current.raw);
+   if(session.revision<=previous.revision)throw Error('账户版本必须递增');
+   if(session.revision!==previous.revision+1)throw Error('账户版本不连续');
+   if(sha(session.config)!==sha(previous.config))throw Error('账户交易参数不可更改');
+   assertAppend(previous.history,session.history);
+   if(saved){
+    const old=decodeSession(saved.raw);
+    if(old.revision>previous.revision||sha(old.config)!==sha(previous.config)||
+       old.revision===previous.revision&&(old.historyHash!==previous.historyHash||old.reportHash!==previous.reportHash))
+     throw Error('账户备份版本或来源不一致，拒绝覆盖');
+    if(old.revision<previous.revision)assertAppend(old.history,previous.history);
+   }
+   writeAtomic(backup,current.raw,{beforeRename:()=>{assertUnchanged(target,current.stat);assertUnchanged(backup,saved?.stat??null);}});
+  }
+  writeAtomic(target,raw,{beforeRename:()=>assertUnchanged(target,current?.stat??null)});
+ });
 }
 function recoverSession(filename,{dryRun=true}={}){
+ if(typeof dryRun!=='boolean')throw Error('账户恢复必须显式指定检查或恢复');
  const target=path.resolve(filename),backup=target+'.bak';
- assertRegularTarget(target);assertRegularTarget(backup);
- const recovered=loadSession(backup);
- let currentValid=false,currentRevision=null;
- try{const current=loadSession(target);currentValid=true;currentRevision=current.revision;}catch{}
- if(currentValid)throw Error('当前账户有效，禁止用旧备份覆盖');
- if(dryRun)return {restorable:true,revision:recovered.revision,lastDate:recovered.lastDate,backup,restored:false};
- if(fs.existsSync(target)){
-  const damaged=target+'.corrupt.'+crypto.randomBytes(6).toString('hex');
-  fs.renameSync(target,damaged);
- }
- writeAtomic(target,fs.readFileSync(backup));
- return {restorable:true,revision:recovered.revision,lastDate:recovered.lastDate,restored:true};
+ const operation=()=>{
+  const saved=readSnapshot(backup),recovered=decodeSession(saved.raw),current=optionalSnapshot(target);
+  if(current){
+   let valid=true;
+   try{decodeSession(current.raw);}catch(error){if(error.code!==INVALID_CONTENT)throw error;valid=false;}
+   if(valid)throw Error('当前账户有效，禁止用旧备份覆盖');
+  }
+  const receipt={restorable:true,revision:recovered.revision,lastDate:recovered.lastDate,backup,restored:false};
+  if(dryRun)return receipt;
+  // Preserve the damaged bytes first, without moving the authoritative name.
+  // A failed archive or final rename leaves that name untouched.
+  if(current){
+   const damaged=target+'.corrupt.'+crypto.randomBytes(6).toString('hex');
+   writeAtomic(damaged,current.raw,{exclusive:true,strictDirectorySync:true,beforeRename:()=>assertUnchanged(target,current.stat)});
+  }
+  // Publish the exact bytes that passed validation, not a second backup read.
+  writeAtomic(target,saved.raw,{beforeRename:()=>{assertUnchanged(target,current?.stat??null);assertUnchanged(backup,saved.stat);}});
+  return {...receipt,restored:true};
+ };
+ return dryRun?operation():require('./account-process-lock').withAccountLock(target,operation);
 }
 function summary(s){return {mode:s.mode,revision:s.revision,lastDate:s.lastDate,source:s.history.source,verifiedLive:false,canTrade:false,metrics:s.report.metrics,historyHash:s.historyHash,reportHash:s.reportHash};}
 module.exports={buildSession,loadSession,saveSession,recoverSession,summary,assertAppend,validateSession};
