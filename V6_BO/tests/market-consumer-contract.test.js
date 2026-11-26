@@ -253,3 +253,18 @@ test('a fresh same-row allowed holding quote preserves the established risk acti
  assert.ok(row.acts.some(a=>a.type==='止损'&&a.canNotify));
  assert.ok((await api.checkNow()).fired>0);assert.equal(messages.length,1);
 });
+
+test('valuation cache retains explicit conflicting source and trade date evidence even when price matches',()=>{
+ const base={p:9,t:now,quoteAt:now-1000,receivedAt:now,quoteSource:'tencent',mode:'public-live-unverified'};
+ const valid=contract.valuationObservation({lastPx:new Map([['000001',base]])},'000001',9,{},true,now);
+ assert.equal(valid.quoteStatus,'recent-unverified');
+ for(const patch of [{sourceConflict:true},{conflict:true},{quoteStatus:'conflict'},{evidenceStatus:'conflict'},{tradeDate:'2026-11-12'}]){
+  const cache={...base,...patch},state={lastPx:new Map([['000001',cache]]),stocks:[quote()]};
+  const actual=contract.valuationObservation(state,'000001',9,{},true,now);
+  assert.equal(actual.quoteStatus,'unknown',JSON.stringify(patch));
+  assert.equal(actual.missingReason,'conflicting-quote-evidence');
+  assert.equal(actual.quoteAt,base.quoteAt);assert.equal(actual.receivedAt,base.receivedAt);
+  assert.equal(actual.canTrade,false);assert.equal(actual.canNotify,false);
+  assert.deepEqual(cache,{...base,...patch});
+ }
+});

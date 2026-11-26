@@ -103,3 +103,30 @@ test('historical completion receipts cannot certify an in-flight or mismatched c
  assert.equal(inspect('feedback',{...feedback,lastAttempt:{...feedback.lastAttempt,attemptHash:'b'.repeat(64)}},'feedback').status,'unverified');
  assert.equal(inspect('feedback',{...feedback,lastResult:{status:'unrecorded-next-day'}},'feedback').status,'unverified');
 });
+
+test('eight receipt groups retain missing, fault, degraded and unconfigured states without certifying production',()=>{
+ const empty=buildSystemReadiness({now});
+ const summary=empty.selfCheck;
+ assert.equal(summary.scope,'original-runtime-receipts-only');
+ assert.equal(summary.modules.length,8);
+ assert.equal(new Set(summary.modules.map(m=>m.id)).size,8);
+ assert.deepEqual(summary.counts,{normal:0,degraded:0,fault:0,unconfigured:0,unchecked:8});
+ assert.equal(summary.status,'unchecked');assert.equal(summary.productionCertified,false);
+ assert.equal(summary.tradePermissionCertified,false);
+ const componentIds=summary.modules.flatMap(m=>m.componentIds);
+ assert.equal(new Set(componentIds).size,componentIds.length);
+ assert.deepEqual([...componentIds].sort(),empty.components.map(c=>c.id).sort());
+ const get=(input,id)=>buildSystemReadiness({now,...input}).selfCheck.modules.find(m=>m.id===id);
+ assert.equal(get({session:{trading:true},quoteRows:[quote()]},'market').status,'normal');
+ assert.equal(get({session:{trading:false},quoteRows:[quote()]},'market').status,'degraded');
+ assert.equal(get({session:{trading:true},quoteRows:[quote({sourceConflict:true})]},'market').status,'fault');
+ assert.equal(get({replica:true},'risk').status,'unconfigured');
+ assert.equal(get({notificationConfigured:false},'notifications').status,'unconfigured');
+ assert.equal(get({taskRows:{trendScan:{ok:false,done:'fail',lastAttemptAt:now}}},'strategy').status,'fault');
+ assert.equal(get({taskRows:{trendScan:{ok:true,done:'yield',lastAttemptAt:now,lastSuccessAt:now}}},'strategy').status,'unchecked');
+ const fault=buildSystemReadiness({now,session:{trading:true},quoteRows:[quote({sourceConflict:true})],replica:true});
+ assert.equal(fault.selfCheck.status,'fault');assert.equal(fault.canTrade,false);
+ assert.equal(fault.selfCheck.counts.fault,1);
+ assert.equal(Object.values(fault.selfCheck.counts).reduce((a,b)=>a+b,0),8);
+ assert.equal(fault.writesAccount,false);
+});
