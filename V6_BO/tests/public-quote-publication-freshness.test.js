@@ -47,7 +47,19 @@ test('a regressed publication clock cannot preserve fresh statuses',async()=>{
  assert.equal(out.status,'clock-regressed');
  assert.deepEqual(out.providers.map(x=>x.status),[
   'invalid-quote-time','invalid-quote-time']);
- assert.deepEqual(out.providers.map(x=>x.quoteAgeMs),[-1000,-1000]);
+ // A failed receipt cannot expose a future quote as usable data. Keep the
+ // clock-regressed report and HTTP attempt, but clear every quote field.
+ for(const row of out.providers){
+  assert.equal(row.httpStatus,200);
+  for(const key of ['quoteAt','quoteAgeMs','price','previousClose'])assert.equal(row[key],null,key);
+ }
+ const {auditRegisteredSourceReadiness:audit}=require('../src/core/data-source-readiness-audit');
+ const result=audit({asOf:now,snapshot:out});
+ assert.equal(result.summary.attemptedExactRoutes,2);
+ assert.equal(result.summary.successfulQuoteObservations,0);
+ assert.equal(result.summary.recentQuotesAtAudit,0);
  assert.equal(out.providerLicensed,false);
+ assert.equal(out.verifiedLive,false);
+ assert.equal(out.canNotify,false);
  assert.equal(out.canTrade,false);
 });
