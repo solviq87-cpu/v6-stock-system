@@ -309,11 +309,14 @@ function summarizeDay(day, rows, now, criteria) {
   if (rows.some(r => r.metrics.market.invalidPrice > 0)) failures.push('invalid-original-quote-price');
   const p95 = latencies.length ? latencies[Math.min(latencies.length-1,Math.ceil(latencies.length * .95)-1)] : null;
   if (p95 !== null && p95 > criteria.maximumCollectionP95Ms) failures.push('collection-latency');
-  if (live.some(r => r.metrics.risk.falseNegatives > 0)) failures.push('risk-false-negative-observed');
-  if (live.some(r => r.metrics.risk.deliveryDelayMs > criteria.maximumDeliveryDelayMs)) failures.push('notification-delay');
+  // A qualified failed market sample cannot certify positive evidence, but
+  // known business safety failures must not disappear because quotes are stale.
+  // Isolated/replay observations are not in attempts.
+  if (attempts.some(r => r.metrics.risk.falseNegatives > 0)) failures.push('risk-false-negative-observed');
+  if (attempts.some(r => r.metrics.risk.deliveryDelayMs > criteria.maximumDeliveryDelayMs)) failures.push('notification-delay');
   if (accountOutcomes.includes('failed')) failures.push('account-reconciliation-failed');
-  if (live.some(r => r.metrics.execution.recoveryVerified === false)) failures.push('recovery-not-verified');
-  if (live.some(r => r.metrics.clients.permissionsConsistent === false || r.metrics.clients.featuresConsistent === false ||
+  if (attempts.some(r => r.metrics.execution.recoveryVerified === false)) failures.push('recovery-not-verified');
+  if (attempts.some(r => r.metrics.clients.permissionsConsistent === false || r.metrics.clients.featuresConsistent === false ||
       r.metrics.clients.desktopVersion && r.metrics.clients.mobileVersion && r.metrics.clients.apiVersion &&
       new Set([r.metrics.clients.desktopVersion,r.metrics.clients.mobileVersion,r.metrics.clients.apiVersion]).size > 1)) failures.push('dual-client-mismatch');
   if (criteria.minimumMatureSamples !== null && (latest?.strategy.matureSamples ?? 0) < criteria.minimumMatureSamples) failures.push('insufficient-mature-samples');
