@@ -114,6 +114,9 @@ async function run(){
     await page.screenshot({path:path.join(output,'deep-'+viewport.width+'-freeze-isolated.png'),fullPage:true});
     await page.getByLabel('深度研究主题',{exact:true}).selectOption('acceptance');
     await page.getByText('逐项交付状态（78项）',{exact:true}).waitFor();
+    await page.getByRole('heading',{name:'运行观察与持仓覆盖',exact:true}).waitFor();
+    await page.getByText('尚无真实观察回执',{exact:true}).waitFor();
+    assert.match(await page.locator('#research').innerText(),/完整范围待核|范围已核对/);
     await page.getByText('逐项交付状态（78项）',{exact:true}).click();
     const checklist=page.locator('details').filter({has:page.locator('summary').filter({hasText:'逐项交付状态（78项）'})});
     assert.equal(await checklist.locator('tbody tr').count(),78);

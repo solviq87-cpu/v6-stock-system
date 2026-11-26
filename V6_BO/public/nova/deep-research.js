@@ -56,6 +56,37 @@ export function renderDeepRiskObservations(result){
     facts([['原始时点',dateTime(r.dataAt)],['触发',r.triggerCondition],['升级',r.escalationCondition],['解除',r.releaseCondition],['限制',arr(r.restrictions).join('；')]]),evidence(r.evidence))}],observations):empty('尚无新增风险证据，不能据此认定没有风险'));
 }
 
+// Runtime summaries are observation evidence, not full-market coverage. Keep
+// missing receipts and unknown calendar population visible on both clients.
+const countValue=n=>Number.isSafeInteger(n)&&n>=0?n:null;
+function observationCounts(data,names){
+ if(!data||typeof data!=='object')return null;
+ const result=Object.fromEntries(names.map(name=>[name,countValue(data[name])]));
+ return Object.values(result).some(n=>n===null)?null:result;
+}
+export function renderRuntimeObservationCoverage(observation){
+ const confirmed=observation?.elapsedTradingDaysComplete===true;
+ const calendar=observation?.calendar||{};
+ const coverageRows=arr(observation?.days).slice(-60).map(d=>{
+  let held=observationCounts(d.heldMonitorCoverage,['attemptedMinutes','observedMinutes','missingMinutes','observedExpectedSymbolMinutes','observedFreshSymbolMinutes']);
+  if(held&&(d.heldMonitorCoverage.scope!=='original-monitor-held-symbols-v1'||held.observedMinutes+held.missingMinutes!==held.attemptedMinutes||held.observedFreshSymbolMinutes>held.observedExpectedSymbolMinutes||!held.observedMinutes&&held.observedExpectedSymbolMinutes!==0))held=null;
+  let account=observationCounts(d.accountReconciliation,['attempted','verifiedLocal','unsuccessful','unknown']);
+  if(account&&(d.accountReconciliation.scope!=='original-paper-local-joint-reconciliation-v1'||account.verifiedLocal+account.unsuccessful+account.unknown!==account.attempted))account=null;
+  return {day:d.day,held,account};
+ });
+ const receiptLabel=r=>r.held&&r.held.attemptedMinutes?`${format(r.held.observedMinutes,0)} / ${format(r.held.attemptedMinutes,0)}（缺 ${format(r.held.missingMinutes,0)}）`:'未知';
+ const coverageLabel=r=>r.held&&r.held.observedMinutes&&r.held.observedExpectedSymbolMinutes>0?`${format(r.held.observedFreshSymbolMinutes,0)} / ${format(r.held.observedExpectedSymbolMinutes,0)} · ${format(100*r.held.observedFreshSymbolMinutes/r.held.observedExpectedSymbolMinutes)}%`:'未知';
+ const accountLabel=r=>r.account&&r.account.attempted?`本地一致 ${format(r.account.verifiedLocal,0)} · 未成功 ${format(r.account.unsuccessful,0)} · 未知 ${format(r.account.unknown,0)}`:'未知';
+ return section('运行观察与持仓覆盖','只展示原持仓巡检和原双账户的已取得回执；不代表全市场覆盖或外部券商对账。',
+  facts([['交易日窗口',confirmed?'范围已核对':'完整范围待核'],['已知结束交易日',countValue(observation?.elapsedTradingDays)],
+   ['历史观察日被当前日历漏列',Array.isArray(calendar.omittedAttemptDays)?calendar.omittedAttemptDays.length:null],
+   ['日历版本变化日',Array.isArray(calendar.versionMismatchDays)?calendar.versionMismatchDays.length:null]]),
+  coverageRows.length?table([{label:'交易日',value:r=>r.day||'未知'},{label:'持仓回执分钟（取得 / 应观测）',value:receiptLabel},
+   {label:'已取得股票×分钟有效覆盖',value:coverageLabel},{label:'原双账户本地检查',value:accountLabel}],coverageRows):empty('尚无真实观察回执','等待已验证安装和真实交易日采样。'),
+  arr(observation?.days).length>60?note('仅显示最近60个已知交易日，完整记录可导出。'):null,
+  note('缺失分钟没有进入已取得覆盖率的分母；完整窗口评价仍需保留缺失样本。没有原回执时保持未知。'));
+}
+
 export function renderDeepResearch(ctx){
  const status=note('读取现有事件、研究档案与原账户证据。'),output=h('div',{class:'fy-stack'});
  const choices=[['events','事件与预期'],['relations','关系与拥挤'],['sessions','盘口与时段'],['portfolio','组合与稳健性'],['review','对照复盘'],['acceptance','版本与运行']];
@@ -74,8 +105,9 @@ export function renderDeepResearch(ctx){
    const release=acceptance.release||{},observation=acceptance.observation||{};
    output.append(facts([['安装核验',release.status],['精确提交',release.sourceSha],['双端与接口版本',release.versions?.compatible],['依赖清单',release.sbom?.status],
     ['实际有采样交易日',observation.observedTradingDays],['完整观察交易日',observation.completeObservationDays],['长期验收',observation.longTermAccepted?'已通过':'尚未通过']]),
-    table([{label:'观察窗口',value:r=>r.tradingDays+'个交易日'},{label:'已到交易日',value:r=>r.elapsedTradingDays},{label:'完整观察日',value:r=>r.completeObservationDays},
+    table([{label:'观察窗口',value:r=>r.tradingDays+'个交易日'},{label:observation.elapsedTradingDaysComplete===true?'已到交易日':'已知交易日（范围待核）',value:r=>r.elapsedTradingDays},{label:'完整观察日',value:r=>r.completeObservationDays},
      {label:'状态',value:r=>value(r.status)},{label:'待核对',value:r=>arr(r.blockers).join('；')}],arr(observation.stages)),
+    renderRuntimeObservationCoverage(observation),
     h('details',{class:'fy-details'},h('summary',{},'逐项交付状态（78项）'),table([{label:'编号',value:r=>r.id},{label:'任务与依据',value:r=>h('details',{class:'fy-details'},
      h('summary',{},r.title||'沿用原任务，等待对应组证据'),evidence(r))},
      ...[['code','代码'],['interface','接线'],['realData','真实数据'],['validation','验证'],['deployed','部署'],['observation','观察']].map(([key,label])=>({label,value:r=>value(r[key]?.status)}))],arr(acceptance.tasks||observation.tasks))),
