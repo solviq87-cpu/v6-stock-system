@@ -7,9 +7,13 @@ const root=path.resolve(__dirname,'../..');
 const source=()=>fs.readFileSync(path.join(root,'.github/workflows/v6-per-commit-smoke.yml'),'utf8');
 test('whole forward range selected with strict cap and SHA identity',()=>{
  const s=source();
- for(const term of ["name: V6 Per-Commit Smoke","compareCommits","cmp.ahead_by>32",
+ for(const term of ["name: V6 Per-Commit Smoke","compareCommits","cmp.ahead_by>MAX_PUSH_COMMITS",
  "incomplete-or-wrong-commit-range","context.payload.forced","fail-fast: false",
  "fromJSON(needs.select.outputs.matrix)"])assert.ok(s.includes(term),term);
+ const {MAX_COMMITS}=require('../scripts/verify-pr-commit-statuses');
+ const limits=[...s.matchAll(/const MAX_PUSH_COMMITS=(\d+);/g)].map(m=>Number(m[1]));
+ assert.deepEqual(limits,[MAX_COMMITS+1,MAX_COMMITS+1]);
+ assert.equal(s.split('shas.length>MAX_PUSH_COMMITS').length-1,2);
  assert.match(s,/branches:\s*\['\*\*',\s*'!archive\/\*\*'\]/);
  assert.match(s, /matrix: \$\{\{ fromJSON\(needs\.select\.outputs\.matrix\) \}\}/);
  assert.ok(!/\$\{(?!\{)[^}\n]+\}/.test(s),'invalid GitHub expression placeholder');

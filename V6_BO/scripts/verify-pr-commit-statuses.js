@@ -1,7 +1,7 @@
 'use strict';
 // Read-only PR coverage verifier. Full V6 CI is a separate required gate.
-// A PR can accumulate several independently verified pushes. Keep the per-push
-// smoke limit at 32; a PR may verify up to 64 exact commits in one API page.
+// A PR may verify up to 64 exact commits in one API page. The push smoke
+// workflow accepts those commits plus the generated merge commit (65 total).
 const CONTEXT='v6/per-commit-smoke', MAX_COMMITS=64;
 const REPO='solviq87-cpu/v6-stock-system';
 const HASH=/^[a-f0-9]{40}$/;
