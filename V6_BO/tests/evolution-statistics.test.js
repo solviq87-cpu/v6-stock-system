@@ -33,6 +33,12 @@ function nativeInputs(h) {
     const symbol = stock.code, key = symbol + '/' + bar.date;
     snapshots[key] = { symbol, observedThrough: bar.date, knownAt: at(i, '15:00:00'), name: '原生隔离测试', floatCap: 5e9, profitRatio: 40,
       sector: { pct: 3 }, auction: { pct: 1 }, mainInflow: 2e8, sectorInfo: { secZT: 8, streak: 3, leaderPct: 8 },
+      // Isolated synthetic fixture: observed zero is explicit, not inferred
+      // from OHLC. These rule inputs are not a provider or live signal claim.
+      fourteenEvidence: { symbol, date: bar.date, source: 'isolated-native-contract-fixture', knownAt: at(i, '15:00:00'),
+        stock: { limitUpCount: 0, breakCount: 0, amount: bar.amount, sealAmount: 0 },
+        sector: { pct: 3, ztCount: 5 }, auction: { auctionAmount: 5e7, auctionPct: 4.5 },
+        lhb: { whale: true, whaleNet: 1e7, why: 'isolated fixture' } },
       gptSnapshotObservedThrough: bar.date, gptSnapshot: Object.fromEntries(fields.map(k => [k, k === 'riskScore' ? 0 : i % 2 ? 90 : 30])),
       market: { breadthScore: 70, indexTrendScore: 70, marketVolumeScore: 70, riskScore: 0, volatilityScore: 20, sentimentScore: 70 } };
     pythonEvidence[key] = { symbol, date: bar.date, observedThrough: bar.date, knownAt: at(i, '15:00:00'),

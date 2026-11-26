@@ -9,6 +9,7 @@ const pack=require('../../strategies/a-share-strategy-pack.json');
 const {replayStrategyEvidence}=require('./strategy-evidence-replay');
 const crypto=require('node:crypto');
 const {evaluatePythonEvidence}=require('./python-three-round-evidence');
+const {projectFourteenEvidence}=require('./native-fourteen-evidence');
 const fingerprint=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generatedAt='1970-01-01T00:00:00Z'}={}){
  const ds=validateDataset(history);
@@ -36,13 +37,18 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // Never infer free-float, order flow, auction, sector or fundamentals from OHLCV.
    const context=extra||{};
    const rows=bars.map((b,j)=>({...b,pct:j?100*(b.close/bars[j-1].close-1):0}));
-   const stockInfo={code:symbol,name:context.name||symbol,price:last.close,...(context.floatCap===undefined?{}:{floatCap:context.floatCap})};
+   const four=projectFourteenEvidence(context,{symbol,date,cutoff:Date.parse(date+'T23:59:59.999+08:00'),
+    allowSynthetic:['fixture','simulated'].includes(history.source)});
+   const stockInfo={code:symbol,name:context.name||symbol,price:last.close,...(context.floatCap===undefined?{}:{floatCap:context.floatCap}),...(four?.stock||{})};
    const results={};
    try{
-    const r=fourteen.evaluateOne({stock:stockInfo,rows,sector:context.sector,auction:context.auction,profitRatio:context.profitRatio},undefined);
+    const r=fourteen.evaluateOne({stock:stockInfo,rows,sector:context.sector,auction:context.auction,profitRatio:context.profitRatio,...(four?.sections||{})},undefined);
     const excludedKnown=r.items.some(x=>x.i===11&&!x.unknown);
-    const sufficientlyObserved=excludedKnown && r.known>=6;
-    results.fourteen={verdict:sufficientlyObserved?(r.pass?'pass':'fail'):'unknown',hits:r.hits,known:r.known,unknown:r.unknown,excluded:r.excluded};
+    const sufficientlyObserved=excludedKnown&&r.known>=6;
+    const verdict=r.excluded.length?'fail':sufficientlyObserved?r.verdict:'unknown';
+    results.fourteen={verdict,hits:r.hits,known:r.known,unknown:r.unknown,excluded:r.excluded,
+     exclusionPending:r.exclusionPending,evaluatorVersion:r.evaluatorVersion,
+     snapshotEvidence:four?{status:'declared-same-session',source:four.source,knownAt:four.knownAt}:null};
    }catch(err){results.fourteen={verdict:'unknown',reason:'原生评估异常: '+err.message};}
    try{
     const r=bazi.evaluate({code:symbol,rows,price:last.close,...context});
@@ -64,7 +70,7 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
     coverage[system][r.verdict==='unknown'?'unknown':'evaluated']++;
     signals.push({system,symbol,date,observedThrough:date,verdict:r.verdict,
      provenance:system==='python'&&r.provenance?r.provenance:`native-daily/${system}/${fingerprint({key,system,rows,context}).slice(0,20)}`,
-     evaluatorVersion:system==='python'&&r.evaluatorVersion?r.evaluatorVersion:'v6-native-daily-1'});
+     evaluatorVersion:system==='fourteen'?'v6-fourteen-native-2':system==='python'&&r.evaluatorVersion?r.evaluatorVersion:'v6-native-daily-1'});
    }
    details.push({symbol,date,results});
   }

@@ -3,6 +3,7 @@
 const crypto=require('node:crypto');
 const {runNativeDaily}=require('./native-strategy-daily-runner');
 const {evaluatePythonEvidence}=require('./python-three-round-evidence');
+const {projectFourteenEvidence}=require('./native-fourteen-evidence');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const SYSTEMS=['fourteen','bazi','gpt','python'];
 function timestamp(s){
@@ -39,11 +40,15 @@ function adaptNativeStrategies(input,stocks){
     if(typeof e.provider!=='string'||!e.provider.trim()||typeof e.version!=='string'||!e.version.trim())throw Error('快照缺来源或版本');
     // The native evaluator spreads context into its arguments. Restrict it so a
     // snapshot cannot replace date-bounded bars, symbol or computed prices.
-    const fields=['symbol','observedThrough','knownAt','provider','version','name','floatCap','sector','auction','profitRatio','gptSnapshot','gptSnapshotObservedThrough','market'];
+    const fields=['symbol','observedThrough','knownAt','provider','version','name','floatCap','sector','auction','profitRatio','gptSnapshot','gptSnapshotObservedThrough','market','fourteenEvidence'];
     if(Object.keys(e).some(k=>!fields.includes(k)))throw Error('快照包含不支持的字段');
    }else evaluatePythonEvidence(e,{symbol:e.symbol,date:row.bar.date});
    if(known>row.cut){omitted.push({key,kind,reason:'NOT_KNOWN_AT_DAILY_DECISION'});continue;}
-   out[key]=e;
+   if(kind==='快照'&&Object.hasOwn(e,'fourteenEvidence')&&!projectFourteenEvidence(e,{
+     symbol:e.symbol,date:row.bar.date,cutoff:row.cut,allowSynthetic:['fixture','simulated'].includes(input.source)})){
+    const {fourteenEvidence,...rest}=e;out[key]=rest;
+    omitted.push({key,kind:'十四条原始证据',reason:'FOURTEEN_EVIDENCE_NOT_KNOWN_AT_DAILY_DECISION'});
+   }else out[key]=e;
   }
   return out;
  };
