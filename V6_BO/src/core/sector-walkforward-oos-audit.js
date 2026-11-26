@@ -61,6 +61,7 @@ function validObservation(c,o,calendar,asOf){
   o.frozenFingerprint!==c.fingerprint||o.classificationVersion!==c.classificationVersion||
   o.source!==c.source||o.priceBasis!==c.priceBasis||
   o.returnMethod!==c.sectorReturnMethod||
+  o.corporateActionEvidence!=='operator-imported-unverified'||
   !validTime(o.asOf)||o.asOf<c.frozenAt||o.asOf>asOf||
   !flags.every(f=>o[f]===false)||o.netReturnsAvailable!==false||
   !Array.isArray(o.horizons)||o.horizons.length!==HORIZONS.length)return false;
@@ -150,6 +151,9 @@ function auditSectorWalkForward({episodes,tradeDates,trainThrough,testFrom,
   identity=id;
   accepted.push({cohort:c,observation:o,index:tradeDates.indexOf(c.tradeDate)});
  }
+ // The outcome date alone does not prove the report was known before
+ // the holdout. Use the original receipt clock, not the current audit time.
+ const testCutoff=Date.parse(testFrom+'T00:00:00+08:00');
  const panels=HORIZONS.map((h,i)=>{
   const train=[],test=[],purged=[],incompleteTrain=[],incompleteTest=[];
   let gapCount=0;
@@ -160,6 +164,10 @@ function auditSectorWalkForward({episodes,tradeDates,trainThrough,testFrom,
    // and cannot influence any fitting or threshold choice for the test window.
    if(training&&e.index+h>=testIndex){
     purged.push(e.cohort.tradeDate);continue;
+   }
+   if(training&&e.observation.asOf>=testCutoff){
+    incompleteTrain.push({tradeDate:e.cohort.tradeDate,reason:'training-observation-not-known-before-test'});
+    continue;
    }
    const sample=contrast(e.cohort,e.observation.horizons[i]);
    if(!sample){
@@ -202,6 +210,6 @@ function auditSectorWalkForward({episodes,tradeDates,trainThrough,testFrom,
    'certified-trading-calendar','verified-prospective-signal-times',
    'preregistered-model-versions-and-parameters'],
   ...safe,
-  note:'只完成冻结时间切分和最长20交易日结果交叠隔离。领导行业对同行业的未复权盘中毛价格差，不是可实现的市场超额净收益、统计显著性或获准学习的标签'};
+  note:'只完成冻结时间切分、训练回执时点核对和最长20交易日结果交叠隔离。领导行业对同行业的未复权盘中毛价格差，不是可实现的市场超额净收益、统计显著性或获准学习的标签'};
 }
 module.exports={auditSectorWalkForward};
