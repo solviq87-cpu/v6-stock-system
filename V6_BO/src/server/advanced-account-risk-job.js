@@ -59,12 +59,12 @@ function boundedContext(input,now){
    if(value!==undefined&&value!==null&&(key==='price'?typeof value!=='number'||!Number.isFinite(value):!stamp(value)))return null;
    if(value!==undefined)quote[key]=value;
   }
-  for(const [key,max] of [['quoteSource',100],['quoteMode',80],['mode',80],['tradeDate',10]]){
+  for(const [key,max] of [['quoteSource',100],['quoteMode',80],['mode',80],['tradeDate',10],['evidenceStatus',80],['quoteStatus',80]]){
    const value=raw[key];
    if(value!==undefined&&value!==null&&(typeof value!=='string'||value.length>max))return null;
    if(value!==undefined)quote[key]=value;
   }
-  for(const key of ['canTrade','canNotify','simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']){
+  for(const key of ['canTrade','canNotify','simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended','sourceConflict','conflict']){
    const value=raw[key];
    if(value!==undefined&&value!==null&&typeof value!=='boolean')return null;
    if(value!==undefined)quote[key]=value;
@@ -97,6 +97,20 @@ function portfolioFor(book,input,account,now){
  }catch{context.history={coverage:{status:'unavailable',reason:'ORIGINAL_HISTORY_READ_UNAVAILABLE'}};}
  return context;
 }
+// Reuse the existing risk workbench's private equity journal, with no new
+// writer, schedule, or HTTP-supplied path. The original account is read only.
+function observedPerformanceFor(book,input,account,now,diagnostic){
+ const E=require('../core/account-equity-evidence');
+ try{
+  const root=path.join(process.env.V6_RISK_EVIDENCE_DIR||path.join(__dirname,'../../data','risk-evidence'),'equity');
+  const quotes=Object.fromEntries(Object.entries(input.quotes).map(([code,row])=>[code,row.quote]));
+  const current=E.buildAccountEquityEvidence({book,accountId:account,quotes,now});
+  if(current.status!=='complete'||!Number.isFinite(diagnostic.equity)||Math.abs(current.equity-diagnostic.equity)>.011)
+   return {scope:'original-observed-equity-window-v1',status:'unknown',reason:'CURRENT_EQUITY_UNAVAILABLE',fullPeriodCertified:false,canTrade:false,accountMutated:false};
+  const stored=E.createAccountEquityEvidenceStore({root}).read({accountId:account,accountEpoch:current.accountEpoch,now,limit:120});
+  return E.buildObservedEquityPerformance({observations:stored.observations,current,now,truncated:stored.truncated});
+ }catch{return {scope:'original-observed-equity-window-v1',status:'unknown',reason:'ORIGINAL_EQUITY_HISTORY_UNAVAILABLE',fullPeriodCertified:false,canTrade:false,accountMutated:false};}
+}
 function readBooks(input){
  const now=Date.now(),day=aShareCalendarDate(now);
  if(day!==input.day)return {mode,status:'clock-changed',accounts:[],canTrade:false,writesAccount:false};
@@ -111,8 +125,13 @@ function readBooks(input){
    governance[account]=portfolioContext.history?.coverage?.governance??null;
    const checkedAt=Date.now();
    if(aShareCalendarDate(checkedAt)!==day)return unavailable(account,'CLOCK_CHANGED');
-   return accountExitDiagnostics(book,{...input,portfolioContext,account,now:checkedAt,
+   const diagnostic=accountExitDiagnostics(book,{...input,portfolioContext,account,now:checkedAt,
     continuous:input.continuous&&checkedAt-input.requestAt<=5000});
+   if(diagnostic.status==='observed-unverified'&&diagnostic.portfolioEvidence?.mode==='original-account-portfolio-evidence'){
+    const observed=observedPerformanceFor(book,input,account,checkedAt,diagnostic);
+    diagnostic.portfolioEvidence.observedEquityPerformance=observed;
+   }
+   return diagnostic;
   }catch{return unavailable(account,'ORIGINAL_READ_REJECTED_OR_UNAVAILABLE');}
  });
  return {mode,status:accounts.every(x=>x.status==='observed-unverified')?'observed':'incomplete',accounts,governance,canTrade:false,writesAccount:false};

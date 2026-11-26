@@ -268,6 +268,42 @@ function buildEquityHistory({observations=[],accountId,accountEpoch,now=Date.now
     canTrade:false,accountMutated:false};
 }
 
+// Latest contiguous observed equity window, not the full investment period.
+// No external cash-flow receipt exists in the original authority; do not
+// synthesize zero deposits, TWR, annualized returns, or independent proof.
+function buildObservedEquityPerformance({observations=[],current,now,truncated=false}={}) {
+  const base={scope:'original-observed-equity-window-v1',status:'unknown',reason:null,from:null,to:null,sampleCount:0,
+    equityChange:null,returnRatio:null,observedMaxDrawdownPct:null,externalNetFlow:null,externalFlowStatus:'not-exposed-by-authority',
+    fullPeriodCertified:false,truncated:truncated===true,canTrade:false,accountMutated:false};
+  const unknown=reason=>({...base,reason});
+  try {
+    validateEquityEvidence(current);
+    if (!timeOk(now) || current.observedAt!==now || current.status!=='complete' || !finite(current.equity) || current.equity<0 || current.cashMovements.status!=='reconciled')
+      return unknown('CURRENT_EQUITY_UNAVAILABLE');
+    if (!Array.isArray(observations) || !observations.length || observations.length>MAX_READ || observations.some(row=>row.observedAt>now))
+      return unknown('MISSING_OBSERVED_EQUITY_WINDOW');
+    const history=buildEquityHistory({observations:[...observations,current],accountId:current.accountId,accountEpoch:current.accountEpoch,now,truncated});
+    const points=history.points, end=points.length-1, latest=points[end];
+    if (latest?.evidenceId!==current.fingerprint || latest.segment===null) return unknown('CURRENT_EQUITY_UNAVAILABLE');
+    // Select only the most recent contiguous suffix, independently of returns.
+    // Never bridge a missing valuation, reset, incompatible event history or a
+    // sampling interruption. A new suffix is not a replacement for old data.
+    let first=end;
+    while (first>0 && points[first-1].segment===latest.segment && points[first-1].equity>0 &&
+      points[first].at-points[first-1].at<=MAX_GAP_MS) first--;
+    if (first===end) return unknown('NO_CONTIGUOUS_EQUITY_COMPARISON');
+    const start=points[first];let peak=start.equity,drawdown=0;
+    for (const point of points.slice(first)) {peak=Math.max(peak,point.equity);drawdown=Math.max(drawdown,(peak-point.equity)/peak*100);}
+    const change=money(latest.equity-start.equity),ratio=latest.equity/start.equity-1;
+    if (![change,ratio,drawdown].every(finite)) return unknown('EQUITY_WINDOW_NUMERIC_RANGE');
+    return {...base,status:'observed-unverified',from:start.at,to:latest.at,sampleCount:end-first+1,
+      equityChange:change,returnRatio:ratio,observedMaxDrawdownPct:drawdown,initialEvidenceRef:start.evidenceId,finalEvidenceRef:latest.evidenceId,
+      accountEpoch:current.accountEpoch,accountRevision:current.source.accountRevision,accountFingerprint:current.source.snapshotFingerprint,
+      earlierSamplesExcluded:first>0,source:'original-account-equity-journal-and-current-read',
+      note:'仅限原本地现金、成交和公司行为可对账的最近连续观察区间；不是完整收益期、外部资金流证明或连续账户回撤。'};
+  } catch {return unknown('ORIGINAL_EQUITY_HISTORY_UNAVAILABLE');}
+}
+
 function createAccountEquityEvidenceStore({root,clock=Date.now,canWrite=()=>false}={}) {
   journal.privateRoot(root);
   if (typeof clock!=='function' || typeof canWrite!=='function') throw Error('权益观察存储配置无效');
@@ -333,4 +369,4 @@ function createAccountEquityEvidenceStore({root,clock=Date.now,canWrite=()=>fals
 }
 
 module.exports={PROTOCOL,MAX_GAP_MS,MIN_SAMPLE_MS,buildAccountEquityEvidence,buildEquityHistory,createAccountEquityEvidenceStore,
-  validateEquityEvidence,positionAvailability,accountEpochOf,valuationMarkOf:markOf};
+  validateEquityEvidence,positionAvailability,accountEpochOf,valuationMarkOf:markOf,buildObservedEquityPerformance};

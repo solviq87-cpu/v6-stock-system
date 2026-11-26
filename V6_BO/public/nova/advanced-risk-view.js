@@ -60,7 +60,13 @@ function defensiveControls(ctx,account,onChanged){
 
 function portfolioView(r){
  if(r?.mode!=='original-account-portfolio-evidence'||r.canTrade!==false||r.writesAccount!==false)return section('组合证据','',note(reason(r?.reason)));
- const root=h('div',{class:'fy-stack'}),coverage=r.coverage||{},tail=r.tail||{},performance=r.performance||{};
+ const root=h('div',{class:'fy-stack'}),coverage=r.coverage||{},tail=r.tail||{},performance=r.performance||{},observed=r.observedEquityPerformance;
+ if(observed?.scope==='original-observed-equity-window-v1'&&observed.canTrade===false&&observed.accountMutated===false&&observed.fullPeriodCertified===false){
+  const known=observed.status==='observed-unverified';
+  root.append(section('最近连续权益观察','只比较原模拟账本已对账的连续采样区间；外部入出金、完整收益期仍未知。',
+   facts([['开始',known?dateTime(observed.from):'未知'],['结束',known?dateTime(observed.to):'未知'],['权益变动',known?num(observed.equityChange):'未知'],['区间权益变动率',known?pct(observed.returnRatio):'未知'],['观察点最大回撤',known&&finite(observed.observedMaxDrawdownPct)?num(observed.observedMaxDrawdownPct)+'%':'未知'],['样本数',known?observed.sampleCount:'未知']]),
+   known?note('只显示最近连续区间，不代表完整收益期或连续账户最大回撤。'):note(reason(observed.reason))));
+ }
  root.append(section('历史风险与证据覆盖','按当前持仓权重分析同日历史场景。后复权价格变动单独标注，不能替代账户实际净值或总收益。',
   facts([['对齐样本',tail.sampleCount??coverage.alignedSamples],['样本区间',coverage.start&&coverage.end?coverage.start+' 至 '+coverage.end:'未知'],['已核对计划回执',val(coverage.verifiedPlanReceipts)+' / '+val(coverage.planCount)],['日波动',pct(tail.dailyVolatility)],['日下行偏差',pct(tail.dailyDownsideDeviation)],['历史 VaR',pct(tail.historicalVaR)],['历史 ES',pct(tail.historicalES)],['尾部样本',tail.tailCount],['置信水平',pct(tail.confidence)]]),
   tail.reason||tail.tailReason?note(reason(tail.reason||tail.tailReason)):null,gaps(coverage.missing),
