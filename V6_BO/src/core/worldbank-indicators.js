@@ -46,7 +46,7 @@ function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,obs
   warning:'World Bank官方API的数值和年份不是市场实时行情，公布/修订历史未知；必须按数据集许可署名，不可用于回测中的未来信息'};
 }
 async function collectWorldBankIndicator({country,indicator,startYear,endYear,clock=Date.now,now=clock(),
- fetchImpl=globalThis.fetch,timeoutMs=10000}={}){
+ fetchImpl=globalThis.fetch,timeoutMs=10000,archiveRoot}={}){
  validate({country,indicator,startYear,endYear,now});
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<250||timeoutMs>20000)
   throw Error('采集器参数无效');
@@ -60,21 +60,22 @@ async function collectWorldBankIndicator({country,indicator,startYear,endYear,cl
  const type=response.headers?.get?.('content-type');
  if(type&&!/^(?:application\/json|application\/[\w.+-]+\+json)(?:;|\s*$)/i.test(type))
   throw Error('World Bank返回非JSON结构');
- let bytes;
+ let bytes,rawBytes,byteBasis;
  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
   let total=0;const chunks=[];
   for await(const chunk of response.body){
    total+=chunk.length;if(total>128*1024)throw Error('World Bank响应超过128KiB');
    chunks.push(chunk);
   }
-  bytes=Buffer.concat(chunks).toString('utf8');
+  rawBytes=Buffer.concat(chunks);bytes=rawBytes.toString('utf8');byteBasis='response-body';
  }else{
   const str=await response.text();
   if(Buffer.byteLength(str)>128*1024)throw Error('World Bank响应超过128KiB');
-  bytes=str;
+  bytes=str;rawBytes=Buffer.from(str,'utf8');byteBasis='decoded-body-text';
  }
  const observedAt=clock();
  if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('World Bank接收时钟无效或早于请求');
- return {...parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+ const result={...parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+ return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw:rawBytes,byteBasis,scope:{country,indicator,startYear,endYear}});
 }
 module.exports={validate,parseWorldBankResponse,collectWorldBankIndicator};

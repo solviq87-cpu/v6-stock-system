@@ -67,23 +67,24 @@ function projectCompanyFact(payload,{cik,tag,unit,asOf,now}){
   verifiedLive:false,verifiedExternal:false,canTrade:false,canNotify:false,
   warning:'SEC申报日不是EDGAR实际受理/公开的精确时间；修订/重报保留多记录，不得使用未来申报的信息回测。非A股实时行情或交易数据。'};
 }
-async function boundedJson(response,maxBytes=12*1024*1024){
+async function boundedJsonEvidence(response,maxBytes=12*1024*1024){
  if(!response?.ok)throw Error('SEC EDGAR HTTP '+String(response?.status??'no-response'));
  const contentType=response.headers?.get?.('content-type');
  if(contentType&&!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|\s*$)/i.test(contentType))
   throw Error('SEC响应的Content-Type不是JSON');
  const size=Number(response.headers?.get?.('content-length'));
  if(Number.isFinite(size)&&size>maxBytes)throw Error('SEC返回内容超过限制');
- let raw;
+ let raw,rawBytes,byteBasis;
  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
   let total=0;const chunks=[];
   for await(const chunk of response.body){total+=chunk.length;if(total>maxBytes)throw Error('SEC响应超过限制');chunks.push(chunk);}
-  raw=Buffer.concat(chunks).toString('utf8');
+  rawBytes=Buffer.concat(chunks);raw=rawBytes.toString('utf8');byteBasis='response-body';
  }else{
   raw=await response.text();if(Buffer.byteLength(raw)>maxBytes)throw Error('SEC响应超过限制');
  }
- try{return JSON.parse(raw);}catch{throw Error('SEC返回无效JSON');}
+ try{return {data:JSON.parse(raw),rawBytes,byteBasis};}catch{throw Error('SEC返回无效JSON');}
 }
+async function boundedJson(response,maxBytes){return (await boundedJsonEvidence(response,maxBytes)).data;}
 async function collectSecCompanyFact(args={}){
  const clock=args.clock??Date.now;
  const opt=validate({...args,now:args.now===undefined?clock():args.now});
@@ -94,9 +95,10 @@ async function collectSecCompanyFact(args={}){
  const url=ENDPOINT+'/api/xbrl/companyfacts/CIK'+opt.padded+'.json';
  const response=await fetchImpl(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(timeoutMs),
   headers:{Accept:'application/json','User-Agent':opt.userAgent}});
- const data=await boundedJson(response);
+ const {data,rawBytes,byteBasis}=await boundedJsonEvidence(response);
  const observedAt=clock();
  if(!Number.isSafeInteger(observedAt)||observedAt<opt.now)throw Error('SEC接收时钟无效或早于请求');
- return {...projectCompanyFact(data,{...opt,now:observedAt}),requestStartedAt:opt.now,observationTimeBasis:'local-body-receipt'};
+ const result={...projectCompanyFact(data,{...opt,now:observedAt}),requestStartedAt:opt.now,observationTimeBasis:'local-body-receipt'};
+ return args.archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:args.archiveRoot,raw:rawBytes,byteBasis,scope:{cik:opt.cik,tag:opt.tag,unit:opt.unit,asOf:opt.asOf}});
 }
 module.exports={validate,projectCompanyFact,boundedJson,collectSecCompanyFact};

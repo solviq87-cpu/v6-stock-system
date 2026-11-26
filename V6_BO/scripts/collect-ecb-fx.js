@@ -4,12 +4,12 @@
 const fs=require('node:fs'),path=require('node:path');
 const {collectEcbFxRate}=require('../src/core/ecb-fx-daily');
 async function main(args){
- if(args.length!==4)throw Error('usage: collect-ecb-fx.js <USD|JPY|CNY|...> <YYYY-MM-DD-from> <YYYY-MM-DD-to> <new-file.json>');
- const [currency,start,end,destination]=args;
+ if(args.length!==4&&args.length!==5)throw Error('usage: collect-ecb-fx.js <USD|JPY|CNY|...> <YYYY-MM-DD-from> <YYYY-MM-DD-to> <new-file.json> [private-archive-root]');
+ const [currency,start,end,destination,archiveRoot]=args;
  const output=path.resolve(destination);
  if(!fs.existsSync(path.dirname(output)))throw Error('目标目录不存在');
  if(fs.existsSync(output))throw Error('拒绝覆盖原有ECB数据证据');
- const result=await collectEcbFxRate({currency,start,end});
+ const result=await collectEcbFxRate({currency,start,end,archiveRoot});
  let fd;
  try{
   fd=fs.openSync(output,'wx',0o600);

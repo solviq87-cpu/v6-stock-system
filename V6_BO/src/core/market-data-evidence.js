@@ -117,4 +117,114 @@ function readMarketDataAsOf({root,decisionAt,provider,datasetId}={}){
  return {status:'available-research-snapshot',data,decisionAt,archiveHash:selected.hash,version:selected.data.version,
   dataVersion:selected.data.dataVersion,receivedAt:selected.data.receivedAt,availableAt:selected.recordedAt,...store.FLAGS};
 }
-module.exports={PROTOCOL,readRaw,readReceipts,appendReceipt,readMarketDataEvidence,readMarketDataAsOf};
+// Official background receipts are a second *kind of record* in the existing
+// evidence journal and blob directory, not a second store or market feed.
+const BACKGROUND_PROTOCOL='fayo-event-data-v1';
+const day=value=>typeof value==='string'&&/^\d{4}-\d\d-\d\d$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+function backgroundScope(provider,value){
+ if(!value||Array.isArray(value)||typeof value!=='object')throw Error('背景数据范围无效');
+ let keys,scope;
+ if(provider==='ecb'){
+  keys=['currency','start','end'];scope={currency:value.currency,start:value.start,end:value.end};
+  if(typeof scope.currency!=='string'||!day(scope.start)||!day(scope.end))throw Error('ECB背景数据范围无效');
+ }else if(provider==='sec-edgar'){
+  keys=['cik','tag','unit','asOf'];scope={cik:value.cik,tag:value.tag,unit:value.unit,asOf:value.asOf};
+  if(!Number.isSafeInteger(scope.cik)||scope.cik<1||scope.cik>9999999999||typeof scope.tag!=='string'||!/^[A-Za-z][A-Za-z0-9]{1,63}$/.test(scope.tag)||!['USD','shares','USD/shares'].includes(scope.unit)||!day(scope.asOf)||scope.asOf<'1994-01-01')throw Error('SEC背景数据范围无效');
+ }else if(provider==='worldbank'){
+  keys=['country','indicator','startYear','endYear'];scope={country:value.country,indicator:value.indicator,startYear:value.startYear,endYear:value.endYear};
+ }else throw Error('未登记的官方背景数据来源');
+ if(Object.keys(value).length!==keys.length||Object.keys(value).some(k=>!keys.includes(k)))throw Error('背景数据范围存在未知字段');
+ return scope;
+}
+function backgroundProjection(provider,scope,raw,observedAt){
+ if(!Buffer.isBuffer(raw)||!raw.length||!validTime(observedAt))throw Error('背景数据原回执无效');
+ const text=raw.toString('utf8');
+ if(!Buffer.from(text,'utf8').equals(raw))throw Error('背景数据原响应不是有效UTF-8');
+ if(provider==='ecb'){
+  require('./ecb-fx-daily').validate({...scope,now:observedAt});
+  return require('./ecb-fx-daily').projectEcbCsv(text,{...scope,observedAt});
+ }
+ if(provider==='sec-edgar'){
+  if(raw.length>12*1024*1024||scope.asOf>new Date(observedAt).toISOString().slice(0,10))throw Error('SEC背景数据范围或响应超限');
+  return require('./sec-companyfacts').projectCompanyFact(JSON.parse(text),{...scope,now:observedAt});
+ }
+ if(raw.length>128*1024)throw Error('World Bank背景数据响应超限');
+ require('./worldbank-indicators').validate({...scope,now:observedAt});
+ return require('./worldbank-indicators').parseWorldBankResponse(JSON.parse(text),{...scope,observedAt});
+}
+function backgroundRoot(root){
+ const dir=store.privateRoot(root);
+ if(dir.split(path.sep).some(x=>['www','htdocs'].includes(x.toLowerCase())))throw Error('禁止公开背景数据存储');
+ return dir;
+}
+const backgroundScopeId=(provider,scope)=>store.digest({provider,scope});
+function backgroundEvents(root,asOf=Date.now()){
+ const events=store.readEvents(roots(backgroundRoot(root)).events,{asOf}).filter(e=>e.data?.protocol===BACKGROUND_PROTOCOL);
+ const latest=new Map(),first=new Map(),observations=new Set();
+ for(const e of events){
+  const d=e.data,scope=backgroundScope(d.provider,d.scope),scopeId=backgroundScopeId(d.provider,scope),p=latest.get(scopeId),versionKey=scopeId+':'+d.dataVersion;
+  const same=p?.data.dataVersion===d.dataVersion,known=first.get(versionKey)??e.recordedAt;
+  const observationKey=scopeId+':'+d.observedAt;
+  if(d.scopeId!==scopeId||d.upstreamGroup!==d.provider||!validTime(d.requestStartedAt)||!validTime(d.observedAt)||d.requestStartedAt>d.observedAt||d.observedAt>e.recordedAt||d.availableAt!==e.recordedAt||
+     d.sourcePublishedAt!==null||d.sourceRevisedAt!==null||d.sourceRevisionKnown!==false||d.firstKnownAt!==known||d.version!==(same?p.data.version:(p?.data.version??0)+1)||
+     d.previousReceipt!==(p?.hash??null)||d.revisionDetectedAt!==(p&&!same?d.observedAt:null)||p&&p.data.observedAt>=d.observedAt||observations.has(observationKey)||
+     !HASH.test(d.dataVersion||'')||d.dataVersion!==d.rawEvidence?.sha256||!HASH.test(d.projectionHash||'')||!['response-body','decoded-body-text'].includes(d.byteBasis)||
+     Object.keys(store.FLAGS).some(k=>d[k]!==store.FLAGS[k]))throw Error('背景数据版本或时点链完整性无效');
+  observations.add(observationKey);latest.set(scopeId,e);if(!first.has(versionKey))first.set(versionKey,e.recordedAt);
+ }
+ return events;
+}
+function readBackgroundReceipt(root,event){
+ const d=event.data,raw=readRaw(root,d.rawEvidence),scope=backgroundScope(d.provider,d.scope);
+ const data=backgroundProjection(d.provider,scope,raw,d.observedAt);
+ if(store.digest(data)!==d.projectionHash)throw Error('背景数据投影哈希不一致');
+ return data;
+}
+function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,requestStartedAt,observedAt}={}){
+ root=backgroundRoot(root);const scope=backgroundScope(provider,input),scopeId=backgroundScopeId(provider,scope);
+ const lineage=require('./data-source-lineage').resolveUpstream(provider);
+ if(!lineage.known||lineage.group!==provider||!validTime(requestStartedAt)||!validTime(observedAt)||requestStartedAt>observedAt||!['response-body','decoded-body-text'].includes(byteBasis))throw Error('背景数据来源或时点无效');
+ const projection=backgroundProjection(provider,scope,raw,observedAt),dataVersion=sha(raw),projectionHash=store.digest(projection);
+ // Validate the existing original journal/raw references before extending it.
+ // The per-series predecessor is rechecked inside the original store lock.
+ readReceipts(root,{verifyRaw:true});
+ const events=backgroundEvents(root);for(const e of events)readBackgroundReceipt(root,e);
+ const series=events.filter(e=>e.data.scopeId===scopeId),previous=series.at(-1),sameObservation=series.find(e=>e.data.observedAt===observedAt);
+ if(sameObservation){
+  const d=sameObservation.data;
+  if(d.dataVersion!==dataVersion||d.projectionHash!==projectionHash||d.requestStartedAt!==requestStartedAt||d.byteBasis!==byteBasis)throw Error('同一背景数据观察时点存在冲突');
+  return {...sameObservation,reused:true};
+ }
+ if(previous&&previous.data.observedAt>=observedAt)throw Error('背景数据观察时钟回退');
+ const rawEvidence=saveRaw(root,raw),availableAt=Date.now();
+ if(!validTime(availableAt)||availableAt<observedAt)throw Error('背景数据归档时钟回退');
+ const same=previous?.data.dataVersion===dataVersion,first=series.find(e=>e.data.dataVersion===dataVersion);
+ const data={protocol:BACKGROUND_PROTOCOL,provider,upstreamGroup:provider,scope,scopeId,rawEvidence,dataVersion,projectionHash,byteBasis,
+  requestStartedAt,observedAt,availableAt,firstKnownAt:first?.recordedAt??availableAt,sourcePublishedAt:null,sourceRevisedAt:null,sourceRevisionKnown:false,
+  revisionDetectedAt:previous&&!same?observedAt:null,version:same?previous.data.version:(previous?.data.version??0)+1,previousReceipt:previous?.hash??null,
+  sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+ const requestId='background-'+store.digest({scopeId,observedAt,dataVersion}).slice(0,64);
+ return store.appendEvent(roots(root,true).events,'diagnostic',data,{now:availableAt,requestId,beforeCommitLocked:({events:current,reused})=>{
+  if(reused)return true;
+  const last=current.filter(e=>e.data?.protocol===BACKGROUND_PROTOCOL&&e.data.scopeId===scopeId).at(-1);
+  return (last?.hash??null)===(previous?.hash??null);
+ }});
+}
+function readBackgroundAsOf({root,provider,scope:input,decisionAt}={}){
+ root=backgroundRoot(root);if(!validTime(decisionAt))throw Error('背景数据历史查询时点无效');
+ const scope=backgroundScope(provider,input),scopeId=backgroundScopeId(provider,scope),events=backgroundEvents(root,decisionAt);
+ const series=events.filter(e=>e.data.scopeId===scopeId);
+ // Verify the visible immutable raw receipt chain; future records must not
+ // become available merely because their reporting dates are earlier.
+ let data=null;for(const e of series)data=readBackgroundReceipt(root,e);
+ const selected=series.at(-1);
+ return {schemaVersion:1,protocol:BACKGROUND_PROTOCOL,status:selected?'available-research-snapshot':'unavailable-at-decision',provider,scope,decisionAt,
+  receipt:selected?{hash:selected.hash,...selected.data}:null,data,visibleReceipts:series.length,verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+}
+function archiveBackgroundResult(result,{root,raw,byteBasis,scope}={}){
+ if(root===undefined)return result;
+ const e=appendBackgroundReceipt({root,provider:result.provider,scope,raw,byteBasis,requestStartedAt:result.requestStartedAt,observedAt:result.observedAt});
+ return {...result,archiveReceipt:{hash:e.hash,scopeId:e.data.scopeId,dataVersion:e.data.dataVersion,version:e.data.version,availableAt:e.recordedAt,firstKnownAt:e.data.firstKnownAt,sourceRevisionKnown:false}};
+}
+
+module.exports={PROTOCOL,BACKGROUND_PROTOCOL,readRaw,readReceipts,appendReceipt,readMarketDataEvidence,readMarketDataAsOf,appendBackgroundReceipt,readBackgroundAsOf,archiveBackgroundResult};

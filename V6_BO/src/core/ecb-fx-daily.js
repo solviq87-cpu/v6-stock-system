@@ -76,7 +76,7 @@ function projectEcbCsv(csv,{currency,start,end,observedAt}){
   verifiedExternal:false,verifiedLive:false,canTrade:false,canNotify:false,
   warning:'ECB每日参考汇率并非可成交实时外汇价；观测日不是发布时间，不按15秒内实时报价使用。缺失观测保持null。'};
 }
-async function collectEcbFxRate({currency,start,end,clock=Date.now,now=clock(),timeoutMs=10000,fetchImpl=globalThis.fetch}={}){
+async function collectEcbFxRate({currency,start,end,clock=Date.now,now=clock(),timeoutMs=10000,fetchImpl=globalThis.fetch,archiveRoot}={}){
  validate({currency,start,end,now,timeoutMs});
  if(typeof fetchImpl!=='function')throw Error('ECB采集器缺少合法fetch');
  const url=new URL('/service/data/EXR/D.'+currency+'.EUR.SP00.A',ENDPOINT);
@@ -90,18 +90,20 @@ async function collectEcbFxRate({currency,start,end,clock=Date.now,now=clock(),t
  const ct=response.headers?.get?.('content-type');
  if(ct&&!/^(?:text\/csv|application\/vnd\.ecb\.data\+csv)(?:\s*;|\s*$)/i.test(ct))
   throw Error('ECB返回不是CSV');
- let raw;
+ let raw,rawBytes,byteBasis;
  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
   let total=0;const chunks=[];
   for await(const part of response.body){
    total+=part.length;if(total>512*1024)throw Error('ECB CSV超过512KiB');chunks.push(part);
   }
-  raw=Buffer.concat(chunks).toString('utf8');
+  rawBytes=Buffer.concat(chunks);raw=rawBytes.toString('utf8');byteBasis='response-body';
  }else{
   raw=await response.text();if(Buffer.byteLength(raw)>512*1024)throw Error('ECB CSV超过512KiB');
+  rawBytes=Buffer.from(raw,'utf8');byteBasis='decoded-body-text';
  }
  const observedAt=clock();
  if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('ECB接收时钟无效或早于请求');
- return {...projectEcbCsv(raw,{currency,start,end,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+ const result={...projectEcbCsv(raw,{currency,start,end,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+ return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw:rawBytes,byteBasis,scope:{currency,start,end}});
 }
 module.exports={validate,parseCsv,projectEcbCsv,collectEcbFxRate};

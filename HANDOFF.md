@@ -783,3 +783,8 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 - 完整恢复基线 `4c2bdc6d8b763700cf7c0c09243784413349f81b`，经3963文件、Git tree与提交校验；本地后续7处运行/测试文件与 `cc34632da912d4f284860e3a694033f79c1fb374` 对应blob一致。先前首轮5791项的两项通知失败已闭环；修订后 `TZ=Asia/Shanghai npm run check` exit0，检查日志SHA256 `e3b4f00cd4e67f251091b44d85138adda6736c84aec5f1625c730dcff45e27bf`。
 - 在该恢复源码副本实际执行 `TZ=Asia/Shanghai V6_NATIVE_PYTHON=/usr/bin/python3 V6_MODEL_PYTHON=/opt/pyvenv/bin/python3 V6_TEST_CONCURRENCY=6 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test`：5795项，5794通过、0失败、1跳过、0取消、exit0，178.561s，TAP日志SHA256 `155ddb739fccd4543a2e83fcf21b01103506da7e977c38f92a6a2e221e019639`；唯一跳过为实际PowerShell wrapper环境依赖。该回执为固定候选业务源码/测试回归，不冒充部署或后续并行提交已覆盖。`19ac3a5b`、`6f30d601` 的通知与健康新增代码及 `7d3698be` 样式/历史证据补缺需由其对应精确版本CI复核；本地样式新增测试另5/5。原本地浏览器回环访问被环境管理限制，须核对原GitHub双端检查。
 - 原78项六轴证据仍独立；完整新组合、真实行情授权与真实运行、30指标权威证据及5/20/60交易日未完，不填写虚假完成比例。未将草稿合入dev，未部署、未外发、未恢复开发锁或新增自动任务。
+
+
+## 2026-11-26 接续：原18/22/23官方背景档案与历史证据
+- 原18/22/23：ECB、SEC EDGAR、World Bank沿用原市场证据journal及raw blob，增加fayo-event-data-v1记录类型；原响应字节哈希、请求/接收/入档时点、首次本地已知、修订版本及历史as-of读取，缺真实发布时间保持null，拒绝未来时点、冲突、损坏哈希和公开目录。保持原接口默认不归档、不增加调度器；三个原手动采集命令可追加私有档案根参数。原market-data-sync.js支持只读 --background-as-of <private-archive-root> <provider> <scope-json> <ISO时点>。
+- 本地从4c2bdc6d已验证3963文件完整基线恢复，14个变化业务源码按f2e1e448的Git blob逐个覆盖核验；新增专项5/5、基线相关回归32/32、8个改动业务文件node --check通过。专项模拟供应商响应，未执行真实供应商采集；没有宣称历史外部可用性、真实行情授权或完整78项验收。新版本全量CI及真实观察仍待验证。回退：仅回退本次源码增量，保留已有私有原始档案及hash链，不删除数据，不改dev、不部署、不新增自动任务或开发锁。
