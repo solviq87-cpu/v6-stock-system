@@ -29,16 +29,23 @@ export function createQuoteTrail(){
 }
 
 export function archivePoints(bars,code,day,now=Date.now()){
- const groups=new Map();
- for(const b of bars||[]){
+ const groups=new Map(),conflicts=new Set();
+ for(const b of Array.isArray(bars)?bars:[]){
+  if(!b||typeof b!=='object'||typeof b.date!=='string')continue;
   if(b.code!==code||b.role!=='stock'||!['1m','5m'].includes(b.period)||!b.date?.startsWith(day+' ')||
-     !Number.isSafeInteger(b.knownAt)||b.knownAt>now||!b.source)continue;
+     !Number.isSafeInteger(b.knownAt)||b.knownAt>now||b.knownAt<Date.parse(day+'T15:00:00+08:00')||typeof b.source!=='string'||!b.source.trim()||
+     (b.priceBasis!=null&&b.priceBasis!=='unadjusted')||(b.volumeUnit!=null&&b.volumeUnit!=='shares')||
+     (b.secid!=null&&b.secid!==(code.startsWith('6')?'1.':'0.')+code)||!/^\d{4}-\d\d-\d\d \d\d:\d\d$/.test(b.date))continue;
+  const hm=b.date.slice(11),m=Number(hm.slice(0,2))*60+Number(hm.slice(3)),origin=m>570&&m<=690?570:m>780&&m<=900?780:null;
+  if(origin===null||Number(hm.slice(3))>59||(m-origin)%(b.period==='5m'?5:1)!==0)continue;
   const at=Date.parse(b.date.replace(' ','T')+':00+08:00');
   const point=minutePoint({quoteAt:at,quoteSource:b.source,price:b.close},day,b.knownAt);
   if(!point)continue;
   const key=b.source+' / '+b.period;
   if(!groups.has(key))groups.set(key,new Map());
-  groups.get(key).set(point.minute,{...point,source:key});
+  const series=groups.get(key),id=JSON.stringify([key,point.minute]),prior=series.get(point.minute);
+  if(prior&&prior.value!==point.value){conflicts.add(id);series.delete(point.minute);}
+  if(!conflicts.has(id)&&!prior)series.set(point.minute,{...point,source:key});
  }
  return [...groups.values()].sort((a,b)=>b.size-a.size)[0]||new Map();
 }
