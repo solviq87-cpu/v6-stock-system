@@ -28,15 +28,13 @@ function quotes(rows,session,now){
  for(let i=0;i<observed;i++){
   const row=list[i];let view;
   try{view=quoteObservationView(row,now);}catch{stats.invalidOrUnknown++;continue;}
+  // Classify the shared conflict reason before generic invalid/unknown coverage.
+  if(view.missingReason==='conflicting-quote-evidence'){
+   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
+  }
   const valid=view.quoteAt!==null&&view.receivedAt!==null&&view.quoteSource&&view.quoteAt<=view.receivedAt&&view.receivedAt<=now&&
    ['recent-unverified','stale'].includes(view.quoteStatus);
   if(!valid){stats.invalidOrUnknown++;continue;}
-  // A provider or upstream adapter can explicitly report a conflict even when
-  // both timestamps and the price are individually plausible. Never count it
-  // as an original observation or advance the last valid receipt.
-  if(row?.sourceConflict===true||row?.conflict===true||row?.evidenceStatus==='conflict'||row?.quoteStatus==='conflict'){
-   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
-  }
   // Read-only observations can be dated evidence but must never count as a fresh
   // execution-ready source. Source permissions and cross-feed independence are separate.
   if(!quoteSourceAllowsUse(row)){stats.observationOnly++;continue;}
