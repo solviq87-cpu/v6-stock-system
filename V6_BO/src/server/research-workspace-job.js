@@ -2,6 +2,7 @@
 // Archive validation and aggregation must not block quote polling on the server.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
 const workerBudget=require('./worker-admission-budget');
+const observation=require('./worker-runtime-trace');
 // Desktop/mobile can open the same private archive concurrently. Share only
 // identical reads. One private edit can wait behind a hydration read or
 // foreground notification poll; its revision is still checked in the worker.
@@ -42,16 +43,16 @@ function runWorkspaceJob(payload,{authorize}={}){
  return task;
 }
 function runWorker(payload,authorize){
- return new Promise(resolve=>{let worker,timer,done=false;
+ return observation.trace.async('research.worker-dispatch',span=>new Promise(resolve=>{let worker,timer,done=false;
   const guarded=payload.guardWorkspaceWrite===true||['intelligence-feedback','intelligence-history-collect','evolution-preferences','evolution-diagnostics','deep-import','deep-freeze'].includes(payload.action)||
     payload.action==='shortline'&&Boolean(payload.decisionPlan)||payload.action==='evidence-workbench'&&Boolean(payload.input);
   const allowed=()=>{try{return typeof authorize==='function'&&authorize()===true;}catch{return false;}};
-  if(guarded&&!allowed())return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});
+  if(guarded&&!allowed()){span.mark('blocked','BUSINESS_REJECTED');return resolve({ok:false,httpStatus:403,error:'编辑授权或主实例角色已变化，未开始研究写入'});}
   const lease=workerBudget.tryAcquire('research-workspace');
-  if(!lease)return resolve(busyResult());
+  if(!lease){span.mark('skipped','ALREADY_RUNNING');return resolve(busyResult());}
   const permit=guarded?new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT):null;
-  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();resolve(value);};
-  try{worker=lease.watch(new Worker(__filename,lease.options({...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})})));
+  const finish=async value=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();resolve(observation.receive(span.context,'research.worker-execute',value,span));};
+  try{worker=lease.watch(new Worker(__filename,lease.options(observation.payload({...payload,__v6ResearchWorkspaceJob:true,...(permit?{__v6CenterCommitPermit:permit}:{})}))));
    worker.on('message',value=>{
     if(guarded&&value?.__v6CenterCommitAuthorization===true){
       const control=new Int32Array(permit);Atomics.store(control,0,!done&&allowed()?1:-1);Atomics.notify(control,0);return;
@@ -61,9 +62,9 @@ function runWorker(payload,authorize){
    worker.once('exit',()=>finish({ok:false,httpStatus:503,error:'研究档案任务已停止，原档案保留'}));
    timer=setTimeout(()=>finish({ok:false,httpStatus:503,error:'研究档案任务超过55秒，原档案保留'}),55000);
   }catch{void finish({ok:false,httpStatus:503,error:'研究档案任务无法启动'});}
- });
+ }));
 }
-if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerData,W=require('../core/research-workspace');Promise.resolve().then(async()=>{
+if(!isMainThread&&workerData?.__v6ResearchWorkspaceJob===true){const p=workerData,W=require('../core/research-workspace'),parent=observation.take(p);observation.execute(parent,'research.worker-execute',async()=>{
  try{
   const authorizedCheckpoint=()=>{
     if(!(p.__v6CenterCommitPermit instanceof SharedArrayBuffer))return false;

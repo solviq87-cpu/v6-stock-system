@@ -364,7 +364,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
     if(ctx.canEdit!==true||ctx.signal?.aborted){readinessPanel.hidden=true;readinessBody.replaceChildren();readinessStamp='';return;}
     const result=ctx.state?.systemReadiness;
     const rows=result?.protocol==='fayo-system-readiness-v1'&&Array.isArray(result.components)?result.components:[];
-    const trace=result?.runtimeTrace,hookLabels={'task.tick':'盘中巡检','task.pool':'候选池重建','market.snapshot':'原报价采集','market.universe':'股票范围读取','market.history':'历史数据读取','factor.evaluate':'因子计算','strategy.evaluate':'策略计算','candidate.publish':'候选池发布','risk.entry':'推荐风控','risk.notification':'风险通知','paper.transaction':'模拟账户事务','paper.publish':'模拟账户发布','paper.buy':'模拟买入','paper.sell':'模拟卖出','notification.digest':'快报合并','notification.queue':'通知排队','notification.attempt':'发送尝试','notification.delivery':'接收端回执','research.stage':'研究阶段','task.decision-background':'背景研究','task.decision-evidence':'决策观察','market.financials':'财务读取','risk.plan-context':'计划上下文','risk.plan-observation':'计划观察','risk.plan-persist':'计划存证','notification.dispatch':'通知派发'};
+    const trace=result?.runtimeTrace,hookLabels={'task.tick':'盘中巡检','task.pool':'候选池重建','market.snapshot':'原报价采集','market.universe':'股票范围读取','market.history':'历史数据读取','factor.evaluate':'因子计算','strategy.evaluate':'策略计算','candidate.publish':'候选池发布','risk.entry':'推荐风控','risk.notification':'风险通知','paper.transaction':'模拟账户事务','paper.publish':'模拟账户发布','paper.buy':'模拟买入','paper.sell':'模拟卖出','notification.digest':'快报合并','notification.queue':'通知排队','notification.attempt':'发送尝试','notification.delivery':'接收端回执','research.stage':'研究阶段','research.worker-dispatch':'研究线程派发','research.worker-execute':'研究线程执行','factor.worker-dispatch':'因子线程派发','factor.worker-execute':'因子线程执行','task.decision-background':'背景研究','task.decision-evidence':'决策观察','market.financials':'财务读取','risk.plan-context':'计划上下文','risk.plan-observation':'计划观察','risk.plan-persist':'计划存证','notification.dispatch':'通知派发'};
     const hooks=trace?.scope==='this-process-observed-stages'&&Array.isArray(trace.hooks)?trace.hooks.filter(r=>Object.hasOwn(hookLabels,r.stage)):[];
     const stamp=JSON.stringify([rows,hooks,trace?.active,trace?.dropped,trace?.evicted]);if(stamp===readinessStamp)return;readinessStamp=stamp;
     updateReadout(readinessBody,...(rows.length?[
@@ -373,7 +373,7 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
       h('small',{},'最近尝试 '+(row.lastAttemptAt?dateTime(row.lastAttemptAt):'未知')+'；最后正常回执 '+(row.lastSuccessAt?dateTime(row.lastSuccessAt):'未知')),
       h('p',{},row.nextAction||'等待原回执'))))
     ]:[empty('原运行回执尚未取得','当前版本或资料尚未接入；不把未知显示为正常。')]),
-     ...(hooks.length?[h('h4',{},'实际运行链路'),h('p',{class:'fy-muted'},'仅当前进程已执行的阶段；计时为阶段耗时或同批实际调用耗时之和，不是端到端延迟。未观察不等于正常，发送尝试不等于用户接收。'),
+     ...(hooks.length?[h('h4',{},'实际运行链路'),h('p',{class:'fy-muted'},'仅当前进程及已收到关联回执的工作线程阶段；计时为阶段耗时或同批实际调用耗时之和，不是端到端延迟。未观察不等于正常，发送尝试不等于用户接收。'),
       h('p',{class:'fy-muted'},'运行中 '+(trace.active??'未知')+'；容量丢弃 '+(trace.dropped??'未知')+'；旧记录淘汰 '+(trace.evicted??'未知')),
       h('ul',{class:'fy-evidence-list'},...hooks.map(row=>h('li',{},h('strong',{},hookLabels[row.stage]+' · '+(row.status==='observed'?'已观察':'待观察')),
        h('small',{},'样本 '+row.samples+'；完成 '+row.completed+'；失败 '+row.failed+'；拦截 '+row.blocked+'；未知 '+row.unknown+'；跳过 '+row.skipped),

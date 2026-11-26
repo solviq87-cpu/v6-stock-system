@@ -125,7 +125,7 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
  components.push(component('worker-budget','共享研究线程声明预算',workerOk?'normal':'unverified',['后台研究','独立账户风险查询'],now,{
   extra:{scope:'declared-worker-v8-old-generation-only',lanes,processRssCertified:false,productionLoadCertified:false}}));
  // Only allowlisted process-local counts and monotonic durations cross this read boundary.
- const hookNames=['task.tick','task.pool','market.snapshot','market.universe','market.history','factor.evaluate','strategy.evaluate','candidate.publish','risk.entry','risk.notification','paper.transaction','paper.publish','paper.buy','paper.sell','notification.digest','notification.queue','notification.attempt','notification.delivery','research.stage','task.decision-background','task.decision-evidence','market.financials','risk.plan-context','risk.plan-observation','risk.plan-persist','notification.dispatch'];
+ const hookNames=['task.tick','task.pool','market.snapshot','market.universe','market.history','factor.evaluate','strategy.evaluate','candidate.publish','risk.entry','risk.notification','paper.transaction','paper.publish','paper.buy','paper.sell','notification.digest','notification.queue','notification.attempt','notification.delivery','research.stage','research.worker-dispatch','research.worker-execute','factor.worker-dispatch','factor.worker-execute','task.decision-background','task.decision-evidence','market.financials','risk.plan-context','risk.plan-observation','risk.plan-persist','notification.dispatch'];
  const count=(x,max=1024)=>Number.isSafeInteger(x)&&x>=0&&x<=max?x:null;
  const duration=x=>Number.isFinite(x)&&x>=0?x:null;
  const hooks=hookNames.map(stage=>{

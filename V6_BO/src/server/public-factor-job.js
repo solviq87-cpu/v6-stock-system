@@ -1,6 +1,7 @@
 'use strict';
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
 const workerBudget=require('./worker-admission-budget');
+const observation=require('./worker-runtime-trace');
 function analyzePublicFactors(input){
  if(input?.schemaVersion!==1||!Array.isArray(input.stocks)||input.stocks.length<1||input.stocks.length>100)
   throw Error('需要1至100只股票的带来源历史');
@@ -14,23 +15,27 @@ function analyzePublicFactors(input){
 }
 let active=false;
 function runPublicFactorJob(payload){
- if(active)return Promise.resolve({ok:false,error:'研究任务正在运行'});
+ return observation.trace.async('factor.worker-dispatch',span=>{
+ if(active){span.mark('skipped','ALREADY_RUNNING');return {ok:false,error:'研究任务正在运行'};}
  const lease=workerBudget.tryAcquire('public-factor');
- if(!lease)return Promise.resolve({ok:false,error:'研究任务正在运行'});
+ if(!lease){span.mark('skipped','ALREADY_RUNNING');return {ok:false,error:'研究任务正在运行'};}
  active=true;
  return new Promise(resolve=>{
   let worker,timer,done=false;
-  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();active=false;resolve(result);};
+  const finish=async result=>{if(done)return;done=true;clearTimeout(timer);await lease.stop();active=false;resolve(observation.receive(span.context,'factor.worker-execute',result,span));};
   try{
-   worker=lease.watch(new Worker(__filename,lease.options({kind:'public-factor-job',payload})));
+   worker=lease.watch(new Worker(__filename,lease.options(observation.payload({kind:'public-factor-job',payload}))));
    worker.once('message',finish);worker.once('error',()=>finish({ok:false,error:'因子计算失败'}));
    worker.once('exit',()=>finish({ok:false,error:'因子计算已停止'}));
    timer=setTimeout(()=>finish({ok:false,error:'因子计算超过时限'}),10000);
   }catch{finish({ok:false,error:'无法启动因子研究'});}
  });
+ });
 }
 if(!isMainThread&&workerData?.kind==='public-factor-job'){
- try{parentPort.postMessage({ok:true,result:analyzePublicFactors(workerData.payload)});}
- catch{parentPort.postMessage({ok:false,error:'因子输入协议无效'});}
+ const parent=observation.take(workerData);
+ observation.execute(parent,'factor.worker-execute',()=>{
+  try{return {ok:true,result:analyzePublicFactors(workerData.payload)};}catch{return {ok:false,error:'因子输入协议无效'};}
+ }).then(value=>parentPort.postMessage(value)).catch(()=>parentPort.postMessage({ok:false,error:'因子输入协议无效'}));
 }
 module.exports={analyzePublicFactors,runPublicFactorJob};

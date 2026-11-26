@@ -9,6 +9,7 @@ const STAGES=new Set(['task.tick','task.pool','market.snapshot','market.universe
  'factor.evaluate','strategy.evaluate','candidate.publish','risk.entry','risk.notification',
  'paper.transaction','paper.publish','paper.buy','paper.sell','notification.digest',
  'notification.queue','notification.attempt','notification.delivery','research.stage',
+ 'research.worker-dispatch','research.worker-execute','factor.worker-dispatch','factor.worker-execute',
  'task.decision-background','task.decision-evidence','market.financials','risk.plan-context',
  'risk.plan-observation','risk.plan-persist','notification.dispatch']);
 const GROUPS=['task','market','factor','strategy','candidate','risk','paper','notification','research'];
@@ -42,7 +43,7 @@ function metadata(input){
 function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=()=>performance.now()}={}){
  const limit=Number.isSafeInteger(capacity)?Math.max(1,Math.min(1024,capacity)):256;
  const activeLimit=Number.isSafeInteger(maxActive)?Math.max(1,Math.min(128,maxActive)):64;
- const storage=new AsyncLocalStorage(),issued=new WeakSet(),associations=new WeakMap(),controls=new WeakMap(),active=new Map(),rows=[];
+ const storage=new AsyncLocalStorage(),issued=new WeakSet(),associations=new WeakMap(),controls=new WeakMap(),received=new WeakSet(),active=new Map(),rows=[];
  let dropped=0,evicted=0;
  const stamp=()=>{const n=safeCall(clock,null);return Number.isSafeInteger(n)&&n>0?n:null;};
  const mono=()=>{const n=safeCall(monotonic,null);return Number.isFinite(n)?n:null;};
@@ -120,6 +121,37 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
   const versions={};for(const key of ['application','source','strategy','factor','riskPolicy','feePolicy'])if(HASH.test(value.versions?.[key]||''))versions[key]=value.versions[key];
   return storage.run(issue({traceId:value.traceId,spanId:value.spanId,versions:Object.freeze(versions),links:[]}),fn);
  }
+ // One bounded receipt per issued active dispatch. Reject disconnected or replayed
+ // spans rather than turning malformed/missing worker evidence into a success.
+ function workerReceipt(parent){
+  if(isMainThread||dropped||evicted||!parent||!ID.test(parent.traceId||'')||!ID.test(parent.spanId||''))return null;
+  const spans=rows.filter(row=>row.traceId===parent.traceId);
+  return spans.length&&spans.length<=64?{version:1,spans:clone(spans)}:null;
+ }
+ function importWorkerReceipt(parent,receipt,executionStage){return safeCall(()=>{
+  if(!isMainThread||!trusted(parent)||!active.has(parent.spanId)||received.has(parent)||receipt?.version!==1||
+   !['research.worker-execute','factor.worker-execute'].includes(executionStage)||
+   active.get(parent.spanId)?.stage!==executionStage.replace('execute','dispatch')||!Array.isArray(receipt.spans)||!receipt.spans.length||receipt.spans.length>64)return false;
+  const clean=[],ids=new Set(),existing=new Set([...rows.map(row=>row.spanId),...active.keys()]);
+  const ts=value=>value===null||Number.isSafeInteger(value)&&value>0;
+  const duration=value=>value===null||Number.isFinite(value)&&value>=0;
+  const hashes=(value,keys)=>Object.fromEntries(keys.filter(key=>typeof value?.[key]==='string'&&HASH.test(value[key])).map(key=>[key,value[key]]));
+  for(const row of receipt.spans){
+   if(!row||row.traceId!==parent.traceId||typeof row.spanId!=='string'||!ID.test(row.spanId)||existing.has(row.spanId)||ids.has(row.spanId)||
+    typeof row.parentSpanId!=='string'||!ID.test(row.parentSpanId)||![executionStage,'research.stage','factor.evaluate'].includes(row.stage)||
+    !OUTCOMES.has(row.status)||!(row.reasonCode===null||CODES.has(row.reasonCode))||!ts(row.startedAt)||!ts(row.finishedAt)||!duration(row.durationMs))return false;
+   ids.add(row.spanId);clean.push({traceId:parent.traceId,spanId:row.spanId,parentSpanId:row.parentSpanId,links:[],stage:row.stage,
+    startedAt:row.startedAt,finishedAt:row.finishedAt,durationMs:row.durationMs,status:row.status,reasonCode:row.reasonCode,origin:'worker-thread',
+    versions:hashes(row.versions,['application','source','strategy','factor','riskPolicy','feePolicy']),refs:hashes(row.refs,['signal','decision','input','account','event'])});
+  }
+  const roots=clean.filter(row=>row.parentSpanId===parent.spanId);
+  if(roots.length!==1||roots[0].stage!==executionStage||clean.filter(row=>row.stage===executionStage).length!==1)return false;
+  const byId=new Map(clean.map(row=>[row.spanId,row]));
+  for(const row of clean){let next=row,visited=new Set();while(next.parentSpanId!==parent.spanId){
+   if(visited.has(next.spanId))return false;visited.add(next.spanId);next=byId.get(next.parentSpanId);if(!next)return false;
+  }}
+  received.add(parent);for(const row of clean){rows.push(row);if(rows.length>limit){rows.shift();evicted++;}}return true;
+ },false);}
  function createStageTrace(){
   const stages=[],parent=current()||safeCall(()=>issue({traceId:crypto.randomBytes(16).toString('hex'),spanId:null,versions:{},links:[]}),null);
   // Preserve the original independently-owned stage journal even if the global
@@ -139,6 +171,6 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  }
  const wrapSync=(stage,fn,meta)=>function(...args){return sync(stage,()=>fn.apply(this,args),typeof meta==='function'?safeCall(()=>meta(...args),{}):meta);};
  const wrapAsync=(stage,fn,meta)=>function(...args){return asyncStage(stage,()=>fn.apply(this,args),typeof meta==='function'?safeCall(()=>meta(...args),{}):meta);};
- return {begin,sync,async:asyncStage,wrapSync,wrapAsync,batch,capture,markCurrent,annotateCurrent,resume,detached,withLinks,associate,contextOf,read,summary,workerContext,inWorker,createStageTrace};
+ return {begin,sync,async:asyncStage,wrapSync,wrapAsync,batch,capture,markCurrent,annotateCurrent,resume,detached,withLinks,associate,contextOf,read,summary,workerContext,inWorker,workerReceipt,importWorkerReceipt,createStageTrace};
 }
 module.exports={...createRuntimeTrace(),createRuntimeTrace};
