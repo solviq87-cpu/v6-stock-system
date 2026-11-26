@@ -309,3 +309,11 @@
 - 完整恢复基线 `4c2bdc6d8b763700cf7c0c09243784413349f81b`，经3963文件、Git tree与提交校验；本地后续7处运行/测试文件与 `cc34632da912d4f284860e3a694033f79c1fb374` 对应blob一致。先前首轮5791项的两项通知失败已闭环；修订后 `TZ=Asia/Shanghai npm run check` exit0，检查日志SHA256 `e3b4f00cd4e67f251091b44d85138adda6736c84aec5f1625c730dcff45e27bf`。
 - 在该恢复源码副本实际执行 `TZ=Asia/Shanghai V6_NATIVE_PYTHON=/usr/bin/python3 V6_MODEL_PYTHON=/opt/pyvenv/bin/python3 V6_TEST_CONCURRENCY=6 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test`：5795项，5794通过、0失败、1跳过、0取消、exit0，178.561s，TAP日志SHA256 `155ddb739fccd4543a2e83fcf21b01103506da7e977c38f92a6a2e221e019639`；唯一跳过为实际PowerShell wrapper环境依赖。该回执为固定候选业务源码/测试回归，不冒充部署或后续并行提交已覆盖。`19ac3a5b`、`6f30d601` 的通知与健康新增代码及 `7d3698be` 样式/历史证据补缺需由其对应精确版本CI复核；本地样式新增测试另5/5。原本地浏览器回环访问被环境管理限制，须核对原GitHub双端检查。
 - 原78项六轴证据仍独立；完整新组合、真实行情授权与真实运行、30指标权威证据及5/20/60交易日未完，不填写虚假完成比例。未将草稿合入dev，未部署、未外发、未恢复开发锁或新增自动任务。
+
+
+## 2026-11-26 · 原77/78：统一合并后的逐提交验证容量修复
+
+- PR #368 已于北京时间16:17:42合入 dev，合并SHA `1474cfff32269e0093d00748efd70040e6c922d3`，候选 `9c949f77878409c5f61e09c15e5a1716002d545a`。旧PR覆盖失败 `pr-head-or-base-changed` 已被同候选、正确目标的 [45780553309](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45780553309) 成功检查替代，保留历史记录。
+- 合并后 [45781953372](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45781953372) 实际失败 `nonforward-or-over-32-commit-push`。GitHub compare 确认原dev至合并SHA为完整58个新增提交，behind=0，直接双亲分别为原dev和已核对的PR头。原PR允许64提交，旧逐push上限32未考虑合并提交。复用原工作流，仅直接双亲合并上限65（64+1）；普通push仍32，拒绝强推、非前进、错误父关系、缺页、重复或超限；选择及状态写入一致，逐SHA真实测试和原官方回执检查全部保留。无业务、账户、数据、发布owner、自动任务或开发锁变更。
+- 本地恢复旧包的工作流和原测试与当前dev目标blob逐字相同；所依赖的四个其他workflow及发布owner配置也与当前dev一致。Node22.16.0，`node --test V6_BO/tests/commit-check-triggers.test.js` 修前6/9（新增容量反例3失败），修后9/9、0失败0跳过。实测workflow blob `635650db382a5a2aebd2b06dfc6afbb951a028a3`，测试blob `edb7e3858bff30f55470b5f5ee9237ef42a10eec`；TAP SHA256 修前 `269f872d5fe5ed4613f2ba648310faf5eb5f98a1d56df545db949823d0c4bb98`，修后 `7e579cc76dfea30f6025109e54ff1015e77b54af7e2887466a54617bfe5ffb0d`。当前环境直接Git DNS仍不通，仅核对目标文件与运行专项，未声称完整最新工程测试已执行。
+- 从精确已合并SHA建立本修复分支，既有新分支push检查会对该SHA单独产生真实回执；不改写原失败workflow或主线历史。后续独立修复PR以最新head和dev验证，实际CI和部署另验；不以修复容量或局部测试替代78项完整验收。回退只反向本次工作流和测试/说明，不动业务数据。
