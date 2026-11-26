@@ -12,20 +12,33 @@ const dayOk=day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&
   Number.isFinite(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day;
 const real=numeric.realEvidence;
 
-function originalEdges(archive,cutoff){
+// A calendar statement inside a check is not independently available before
+// the owning check was archived. Keep the provider's original time as well.
+const arr=value=>Array.isArray(value)?value:[];
+function originalEdges(archive,cutoff,checks){
   const pairs=new Map(),conflicts=new Set();
-  const records=[...(archive.marketHistory||[]),...(archive.market||[]),
-    ...(archive.checks||[]).map(check=>check?.market).filter(Boolean)];
-  for(const row of records){
+  const records=[...arr(archive.marketHistory),...arr(archive.market)].map(row=>({row,ownerAt:null}));
+  for(const check of checks){
+    const ownerAt=instant(check?.createdAt);
+    if(ownerAt!==null&&ownerAt<=cutoff&&real(check)&&check.market)records.push({row:check.market,ownerAt});
+  }
+  const receiptAt=edge=>edge.archiveKnownAt??instant(edge.recordKnownAt);
+  for(const {row,ownerAt} of records){
     if(!row||typeof row!=='object')continue;
     const known=instant(row.calendarKnownAt),recorded=instant(row.knownAt);
     if(!real(row)||!dayOk(row.date)||!dayOk(row.nextTradingDay)||row.nextTradingDay<=row.date||
-      known===null||recorded===null||known>recorded||recorded>cutoff||
+      known===null||recorded===null||known>recorded||recorded>cutoff||ownerAt!==null&&recorded>ownerAt||
       typeof row.calendarSource!=='string'||!row.calendarSource.trim()||!real({source:row.calendarSource}))continue;
+    const edge={kind:'original-next-trading-day',from:row.date,to:row.nextTradingDay,
+      source:row.calendarSource,knownAt:row.calendarKnownAt,recordKnownAt:row.knownAt,
+      ...(ownerAt!==null&&ownerAt>recorded?{archiveKnownAt:ownerAt}:{})};
     const previous=pairs.get(row.date);
-    if(previous&&previous.to!==row.nextTradingDay){conflicts.add(row.date);continue;}
-    if(!previous||known<instant(previous.knownAt))pairs.set(row.date,{kind:'original-next-trading-day',
-      from:row.date,to:row.nextTradingDay,source:row.calendarSource,knownAt:row.calendarKnownAt,recordKnownAt:row.knownAt});
+    if(previous&&previous.to!==edge.to){conflicts.add(row.date);continue;}
+    // Prefer the earliest actual available receipt, not a later row's
+    // earlier declared provider time. Ties are independent of archive order.
+    if(!previous||receiptAt(edge)<receiptAt(previous)||receiptAt(edge)===receiptAt(previous)&&
+      (known<instant(previous.knownAt)||known===instant(previous.knownAt)&&numeric.stable(edge)<numeric.stable(previous)))
+      pairs.set(row.date,edge);
   }
   for(const date of conflicts)pairs.delete(date);
   return {pairs,conflicts};
@@ -54,7 +67,8 @@ function inspectCheck(check,{card,catalog,dictionaryVersion,cutoff,edges,counts}
   else{
     const edge=edges.pairs.get(check.date);
     if(edges.conflicts.has(check.date))return fail('原档案相邻交易日声明冲突');
-    if(!edge||edge.to!==card.day||instant(edge.knownAt)>observationAt)
+    if(!edge||edge.to!==card.day||instant(edge.knownAt)>observationAt||
+      (edge.archiveKnownAt??instant(edge.recordKnownAt))>createdAt)
       return fail('缺少事前可核验的原相邻交易日声明');
     calendarEvidence={...edge};
   }
@@ -91,12 +105,18 @@ function prepareDecisionPlanResearch(card,archive={},options={}){
   if(!real(archive))return absent(['演示、测试或合成档案不能成为正式计划的因子依据']);
   if(now===null||decisionAt===null||decisionAt>now||!dayOk(card.day)||chinaDay(decisionAt)!==card.day)
     return absent(['后端决策时点或交易日无效，未关联研究记录']);
-  const checks=Array.isArray(archive.checks)?archive.checks:[],counts=new Map();
+  // A later-created duplicate cannot retroactively change an earlier
+  // decision. Unknown creation time is not proof of lateness: retain it as
+  // a potentially conflicting identity so malformed records fail closed.
+  const checks=arr(archive.checks).filter(check=>{
+    const createdAt=instant(check?.createdAt);
+    return createdAt===null||createdAt<=decisionAt;
+  }),counts=new Map();
   for(const check of checks)counts.set(check?.id,(counts.get(check?.id)||0)+1);
   const pinned=Object.hasOwn(options,'checkId');
   if(pinned&&(typeof options.checkId!=='string'||!options.checkId))return absent(['准备时没有合规事前校验；未在提交时补绑其他记录']);
   const catalog=Array.isArray(archive.catalog)?archive.catalog:installedCatalog;
-  const edges=originalEdges(archive,decisionAt),preferred=card.factorRanking?.sourceCheckId;
+  const edges=originalEdges(archive,decisionAt,checks),preferred=card.factorRanking?.sourceCheckId;
   const candidates=checks.filter(check=>pinned?check?.id===options.checkId:check?.code===card.code&&check?.date<=card.day);
   candidates.sort((a,b)=>Number(b.id===preferred)-Number(a.id===preferred)||String(b.date).localeCompare(String(a.date))||
     (instant(b.createdAt)||0)-(instant(a.createdAt)||0)||String(a.id).localeCompare(String(b.id)));

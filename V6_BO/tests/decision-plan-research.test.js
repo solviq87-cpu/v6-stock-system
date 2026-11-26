@@ -173,3 +173,67 @@ test('真实worker计算后在提交点撤权或原档案revision变化均拒写
   const conflict=await runWorkspaceJob({...request,input:{...request.input,revision:0}},{authorize:()=>true});
   assert.equal(conflict.httpStatus,409);assert.deepEqual(fs.readFileSync(dir.file),before);
 });
+
+test('决策后才创建的重复checkId不得污染原冻结校验或其锁内固定引用',async()=>{
+ const x=await fixture(),before=prepareDecisionPlanResearch(x.card,x.state,{now:x.now});
+ const late={...structuredClone(x.check),createdAt:new Date(x.card.calculatedAt+1).toISOString()};
+ x.state.checks.push(late);
+ for(const options of [{now:x.now},{now:x.now,checkId:x.check.id}]){
+  const result=prepareDecisionPlanResearch(x.card,x.state,options);
+  assert.equal(result.payload.checkId,x.check.id);assert.equal(result.researchReference.checkFingerprint,before.researchReference.checkFingerprint);
+ }
+ late.createdAt=new Date(x.card.calculatedAt).toISOString();
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+ late.createdAt='unknown';
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+});
+test('旧决策不能借用后来归档的其他校验内嵌日历，即使声明时点很早',async()=>{
+ const x=await fixture(),edge=structuredClone(x.state.marketHistory[0]);x.state.marketHistory=[];
+ const later={...structuredClone(x.check),id:'later-calendar-holder',code:'600001',createdAt:new Date(x.card.calculatedAt+1).toISOString(),market:edge};
+ x.state.checks.push(later);
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+ // Even a check received before the decision cannot reconstruct the earlier
+ // check's own archive-time calendar receipt.
+ later.createdAt=new Date(x.now-3000).toISOString();
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+ x.check.market=edge;
+ const valid=prepareDecisionPlanResearch(x.card,x.state,{now:x.now});
+ assert.equal(valid.payload.checkId,x.check.id);
+ assert.equal(valid.researchReference.calendarEvidence.archiveKnownAt,Date.parse(x.check.createdAt));
+ assert.equal(valid.researchReference.calendarEvidence.recordKnownAt,edge.knownAt);
+});
+test('原独立日历收件晚于校验归档时间时，不得用旧发布时间补造事前关联',async()=>{
+ const x=await fixture(),edge=x.state.marketHistory[0];
+ edge.knownAt=Date.parse(x.check.createdAt)+1;
+ const result=prepareDecisionPlanResearch(x.card,x.state,{now:x.now});
+ assert.equal(result.researchReference.status,'missing');
+ assert.match(result.researchReference.missing.join(' '),/交易日/);
+ edge.knownAt=Date.parse(x.check.createdAt);
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).payload.checkId,x.check.id);
+});
+test('同向日历以后到的更早声明不得替换原首次收到的证据指纹',async()=>{
+ const x=await fixture(),before=prepareDecisionPlanResearch(x.card,x.state,{now:x.now});
+ const first=structuredClone(x.state.marketHistory[0]);
+ const repeat={...first,calendarSource:'后来收到的另一来源',calendarKnownAt:first.calendarKnownAt-1000,knownAt:Date.parse(x.check.createdAt)+1};
+ x.state.marketHistory.push(repeat);
+ for(const order of [[first,repeat],[repeat,first]]){
+  x.state.marketHistory=order;
+  const result=prepareDecisionPlanResearch(x.card,x.state,{now:x.now});
+  assert.equal(result.payload.checkId,x.check.id);
+  assert.equal(result.researchReference.calendarEvidenceFingerprint,before.researchReference.calendarEvidenceFingerprint);
+ }
+ // A contradiction actually received by decision time still blocks.
+ repeat.nextTradingDay='2026-11-27';
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+});
+test('教学校验内嵌日历不能支撑正式决策，未来校验也不得污染已知日历冲突',async()=>{
+ const x=await fixture(),edge=structuredClone(x.state.marketHistory[0]);x.state.marketHistory=[];
+ const teaching={...structuredClone(x.check),id:'teaching-calendar',code:'600001',sampleSet:'test',market:edge};
+ x.state.checks.push(teaching);
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).researchReference.status,'missing');
+ x.state.marketHistory=[edge];
+ const future={...structuredClone(x.check),id:'future-conflict',code:'600001',createdAt:new Date(x.card.calculatedAt+1).toISOString(),
+  market:{...edge,nextTradingDay:'2026-11-27'}};
+ x.state.checks.push(future);
+ assert.equal(prepareDecisionPlanResearch(x.card,x.state,{now:x.now}).payload.checkId,x.check.id);
+});
