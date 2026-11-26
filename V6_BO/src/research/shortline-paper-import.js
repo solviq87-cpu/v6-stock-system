@@ -201,9 +201,19 @@ function accountSamples(book,key,now,report,state){
     }
     const events=new Map(ledger.events.map(event=>[event.eventId,event]));
     for(const [symbol,rows] of groups)result.push(...projectSymbol(period,key,symbol,rows,actions.get(symbol)||[],now,report,names)
-      .map(sample=>linkDecisionPlan(sample,state,events,now)));
+      .map(settlement=>({settlement,sample:linkDecisionPlan(settlement,state,events,now)})));
   }
   return result;
+}
+
+// Compare only the causal link and frozen learning inputs, not the collection clock.
+function samePlanProjection(a,b){
+  if(!a||!b||a.planVerified!==true||b.planVerified!==true||!a.decisionLink?.planFingerprint||!b.decisionLink?.planFingerprint)return false;
+  const basis=row=>({planId:row.planId,decisionId:row.decisionLink?.decisionId,planFingerprint:row.decisionLink?.planFingerprint,
+    entryEventIds:row.decisionLink?.entryEventIds,checkId:row.checkId??null,factors:row.factors,
+    knownRiskFactors:row.knownRiskFactors,customTags:row.customTags,frozenLabels:row.frozenLabels,
+    strategy:row.strategy,trend:row.trend});
+  return digest(basis(a))===digest(basis(b));
 }
 
 function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNTS_DIR||path.resolve(__dirname,'../../data/order-accounts'),now=Date.now()}={}){
@@ -221,15 +231,32 @@ function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNT
       if(e.code==='ENOENT'){report.missing++;continue;}
       report.issues.push(key+' 模拟账本未通过完整性核对');continue;
     }
-    for(const sample of samples){
+    for(const {settlement,sample} of samples){
       if(state.ledgerStartAt&&sample.paperSettlement.entryFills.some(f=>f.time<=state.ledgerStartAt))continue;
       const old=records.get(sample.id);
       if(old){
         if(old.source===source&&old.sourceFingerprint===sample.sourceFingerprint){
-          if(!old.planVerified&&sample.planVerified){
-            // Repair only this derived projection; retain its first collection
-            // time and use today's knowledge time for the newly linked evidence.
-            const next={...sample,firstCollectedAt:old.firstCollectedAt||old.createdAt};
+          const review=old.planEvidenceReview,active=old.planVerified===true||old.snapshotVerified===true;
+          const firstCollectedAt=old.firstCollectedAt||old.createdAt;
+          let next=null;
+          if(active&&!samePlanProjection(old,sample)){
+            // Revalidate old learning links too. Keep the original settlement and
+            // the first verified projection for audit, but no stale factors in the
+            // current sample. A changed plan with the same ID is not new evidence.
+            const {planEvidenceReview:previousReview,...previousProjection}=old;
+            next={...settlement,firstCollectedAt,planEvidenceReview:{
+              status:'quarantined',firstQuarantinedAt:review?.firstQuarantinedAt||settlement.createdAt,
+              lastQuarantinedAt:settlement.createdAt,priorProjection:review?.priorProjection||previousProjection,
+              reason:sample.planVerified?'frozen-link-changed':'frozen-link-not-verifiable'}};
+          }else if(!active&&sample.planVerified&&(!review||samePlanProjection(review.priorProjection,sample))){
+            // A first link can be added; after quarantine only the exact original
+            // attribution may be restored, not a replacement frozen plan.
+            next={...sample,firstCollectedAt,...(review?{planEvidenceReview:{...review,status:'revalidated',revalidatedAt:sample.createdAt}}:{})};
+          }
+          if(next){
+            if(!Number.isFinite(Date.parse(old.createdAt))||Date.parse(old.createdAt)>now){
+              report.skipped++;report.issues.push(key+' 学习关联复核时间无效或回退');continue;
+            }
             state.trades[state.trades.indexOf(old)]=next;records.set(next.id,next);
             report.updated++;days.add(next.exitDate);
           }else report.existing++;

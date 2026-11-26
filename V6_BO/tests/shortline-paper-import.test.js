@@ -186,3 +186,36 @@ test('同股多计划合并卖出不套用单一计划，已导入衍生记录�
  assert.equal(linked.firstCollectedAt,initial.createdAt);assert.ok(linked.createdAt>initial.createdAt);assert.equal(linked.planId,p.id);
  assert.equal(y.run().existing,1);assert.deepEqual(fs.readFileSync(y.file),ledger);
 });
+
+test('native plan adapter, persistent account, T+1 settlement and repeated learning review share the original evidence',t=>{
+ const x=setup(t),at=Date.parse('2026-11-04T10:00:15+08:00'),plan=automaticPlan(x,{at}),day=aShareCalendarDate(at),code='600000';
+ const {executeDecisionPlan}=require('../src/core/paper-decision-plan');
+ x.service.adoptLegacy({initial:100000,cash:100000,enabled:true,positions:{},trades:[],realized:0});
+ x.setTime(at);x.state.plans.push(plan);
+ const quote={symbol:code,price:10,quoteAt:at-1000,timestamp:at-1000,receivedAt:at-500,quoteSource:'tencent',provider:'tencent',
+  mode:'public-live-unverified',tradeDate:day,volume:1000000,volumeUnit:'shares',upperLimit:20,lowerLimit:5,suspended:false,tradable:true,canTrade:true};
+ let calls=0;
+ const input={input:{action:'executePlan',account:'pool',planId:plan.id},plan,now:at,day,replica:false,continuous:true,
+  candidate:{code},eligiblePick:()=>true,systemPickDay:()=>day,poolDay:day,newsBlocked:false,account:x.service.legacy(),
+  policy:{maxPos:5},equity:100000,quote,authoritative:plan.decisionEvidence,readBook:()=>x.service.read(),
+  buy(row,reason){calls++;assert.equal(row.code,code);assert.equal(reason,'作战台计划['+plan.id+'] '+code+' · 原账户风控');nativeBuy(x,plan,at);}};
+ const opened=fs.readFileSync(x.file);
+ assert.throws(()=>executeDecisionPlan({...input,quote:{...quote,symbol:'600001'}}),/只读、来源冲突或时点不一致/);
+ assert.equal(calls,0);assert.deepEqual(fs.readFileSync(x.file),opened);
+ const executed=executeDecisionPlan(input);assert.equal(executed.status,'executed');assert.equal(calls,1);
+ const bought=fs.readFileSync(x.file),retry=executeDecisionPlan(input);assert.equal(retry.status,'already-executed');
+ assert.equal(retry.eventId,executed.eventId);assert.equal(calls,1);assert.deepEqual(fs.readFileSync(x.file),bought);
+ x.fill('integrated-exit','sell',11,100,'2026-11-05T11:00:00');
+ const settled=fs.readFileSync(x.file),book=x.service.read();
+ assert.equal(x.run().imported,1);const original=structuredClone(x.state.trades[0]);
+ assert.equal(original.planId,plan.id);assert.equal(original.snapshotVerified,true);
+ assert.equal(original.decisionLink.entryEventIds[0],executed.eventId);
+ assert.equal(original.pnlAmount,book.account.events.at(-1).realizedPnl);
+ // Model a previously accepted but no longer eligible saved research projection.
+ // The original durable account bytes are never rewritten by this importer.
+ plan.decisionEvidence.quoteBasis.mode='historical-replay';
+ assert.equal(x.run().updated,1);const row=x.state.trades[0];assert.equal(row.snapshotVerified,false);
+ assert.equal(row.planId,null);assert.deepEqual(row.factors,[]);assert.equal(row.pnlAmount,original.pnlAmount);
+ assert.deepEqual(row.planEvidenceReview.priorProjection,original);assert.equal(x.run().existing,1);
+ assert.deepEqual(fs.readFileSync(x.file),settled);
+});
