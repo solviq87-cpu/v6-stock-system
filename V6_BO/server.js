@@ -168,22 +168,25 @@ function fundsObservationDay(at) {
   return new Date(at + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 function fundsHistoryObservation(stock, now) {
+  const evidence=require('./src/core/quote-observation-view').fundsObservationView(stock,now);
   return { t: now, mainInflow: fundsNumber(stock.mainInflow), pct: stock.pct,
     fundsSource: stock.fundsSource || null, fundsMethod: stock.fundsMethod || null,
-    fundsRetrievedAt: fundsNumber(stock.fundsRetrievedAt),
+    fundsUnit:evidence.unit,fundsAnalysisEligible:evidence.receiptAnalysisEligible&&stock.fundsSource===evidence.source,
+    fundsReceiptBasis:evidence.receiptBasis,
+    fundsRetrievedAt: evidence.receivedAt,
     // An unknown vendor timestamp stays unknown; price time is not funds time.
-    fundsSourceTimestamp: stock.fundsSourceTimestamp ?? null };
+    fundsSourceTimestamp: evidence.quoteAt };
 }
 function fundsHistoryValid(row) {
-  if (!row || fundsNumber(row.mainInflow) === null || !fundsObservationDay(row.t) ||
+  if (!row || row.fundsAnalysisEligible!==true || row.fundsUnit!=='CNY' || fundsNumber(row.mainInflow) === null || !fundsObservationDay(row.t) ||
       typeof row.fundsSource !== 'string' || !row.fundsSource.trim() ||
-      typeof row.fundsMethod !== 'string' || !row.fundsMethod.trim()) return false;
+      !['vendor-order-size-estimate','vendor-active-order-estimate'].includes(row.fundsMethod)) return false;
   const received = row.fundsRetrievedAt;
   if (!fundsObservationDay(received) || received > row.t || row.t - received > FUNDS_CONTINUITY_MAX_GAP_MS ||
       fundsObservationDay(received) !== fundsObservationDay(row.t)) return false;
   const original = row.fundsSourceTimestamp;
   return original === null || (fundsObservationDay(original) !== null && original <= received &&
-    received - original <= FUNDS_CONTINUITY_MAX_GAP_MS &&
+    row.t - original <= FUNDS_CONTINUITY_MAX_GAP_MS &&
     fundsObservationDay(original) === fundsObservationDay(received));
 }
 function fundsHistoryContinuous(previous, current) {
@@ -211,6 +214,7 @@ function applyObservedFunds(stock, flow) {
   for (const field of ['superNet', 'bigNet', 'midNet', 'smallNet']) stock[field] = fundsNumber(flow[field]);
   stock.fundsSource = flow.upstream === 'eastmoney' ? 'eastmoney' : null;
   stock.fundsMethod = flow.fundsMethod || null;
+  stock.fundsUnit=flow.fundsUnit!=null&&flow.unit!=null&&flow.fundsUnit!==flow.unit?null:(flow.fundsUnit??flow.unit??null);
   stock.fundsRetrievedAt = fundsNumber(flow.retrievedAt);
   stock.fundsSourceTimestamp = fundsNumber(flow.sourceTimestamp);
 }

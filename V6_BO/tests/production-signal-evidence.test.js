@@ -190,7 +190,7 @@ test('actual tick freezes a causal funds condition, raw provenance and archive b
  const newsVersion=news.appendBatch(path.join(dir,'news-evidence'),[newsInput()],{now:at-3000}).results[0];
  const stock={code:'000001',name:'测试',price:10,pct:1,mainPct:2,mainInflow:12e7,floatCap:1e10,
    quoteSource:'eastmoney',quoteAt:at-1000,receivedAt:at,canTrade:true,mode:'public-live-unverified',canNotify:true,amount:2e8,
-   fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsRetrievedAt:at,fundsSourceTimestamp:null};
+   fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsUnit:'CNY',fundsRetrievedAt:at,fundsSourceTimestamp:null};
  Object.assign(c,{PAPER:{pool:{positions:{}},pre:{positions:{}}},monitorCodes:[],
    em:{fetchBatchSnapshot:async()=>[stock]},ingestPx(){},numNeutral:(_,v)=>v,sectorZTCountFor:()=>0,numGapRaw:()=>2,
    calibratedProb:v=>v,probThreshold:()=>.9,riseProbOf:()=>70,riskNoteOf:()=> '风险需复核',stopRefOf:()=> '9',

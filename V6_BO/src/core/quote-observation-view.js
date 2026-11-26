@@ -115,7 +115,17 @@ function fundsObservationView(row,now=Date.now()){
    unsupportedSource?'observation-only-funds-source':
    !['vendor-order-size-estimate','vendor-active-order-estimate'].includes(row?.fundsMethod)?'unknown-funds-method':
    tradeDate!==day(now)?'different-trade-date':null);
+ // A recent local retrieval of a cumulative estimate is a distinct use from
+ // a recent vendor timestamp. Only the existing bounded funds monitor can opt
+ // into this lesser evidence; never label it as source-verified real time.
+ const receiptEligible=!conflict&&value!==null&&!!source&&!unsupportedSource&&unit==='CNY'&&
+   ['vendor-order-size-estimate','vendor-active-order-estimate'].includes(row?.fundsMethod)&&
+   receivedAt!==null&&receivedAt<=now&&now-receivedAt<=15000&&day(receivedAt)===day(now)&&
+   (row?.fundsTradeDate==null||row.fundsTradeDate===day(receivedAt))&&
+   (rawAt==null||analysisMissingReason===null);
  return {value,source,quoteAt,receivedAt,tradeDate,mode:row?.fundsMethod||'unverified-funds',unit,freshness,
+   receiptAnalysisEligible:receiptEligible,receiptAnalysisValue:receiptEligible?value:null,
+   receiptBasis:receiptEligible?(quoteAt===null?'local-receipt-only':'original-time-and-receipt'):null,
    missingReason,analysisValue:analysisMissingReason===null?value:null,analysisEligible:analysisMissingReason===null,analysisMissingReason,
    canTrade:false,canNotify:false,verifiedLive:false};
 }

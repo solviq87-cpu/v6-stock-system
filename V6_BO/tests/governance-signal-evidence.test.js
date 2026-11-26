@@ -148,7 +148,7 @@ test('real tick archives its later reservation before enqueue while keeping the 
   later=news.appendBatch(newsRoot,[{...original,sourceRevisionId:'two',kind:'revised',supersedes:before.eventHash,
    title:'审核期间收到修订',body:'较晚正文',receivedAt:at+6,revisedAt:at+6}],{now:at+7}).results[0];
  };
- const stock=live({mainPct:2,mainInflow:12e7,floatCap:1e10,fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsRetrievedAt:at,fundsSourceTimestamp:null});
+ const stock=live({mainPct:2,mainInflow:12e7,floatCap:1e10,fundsSource:'eastmoney',fundsMethod:'vendor-order-size-estimate',fundsUnit:'CNY',fundsRetrievedAt:at,fundsSourceTimestamp:null});
  Object.assign(c,{PAPER:{pool:{positions:{}},pre:{positions:{}}},monitorCodes:[],em:{fetchBatchSnapshot:async()=>[stock]},ingestPx(){},
   numNeutral:(_,value)=>value,sectorZTCountFor:()=>0,numGapRaw:()=>2,calibratedProb:value=>value,probThreshold:()=>.9,
   riseProbOf:()=>70,riskNoteOf:()=> 'fixture risk',stopRefOf:()=> '9',isStrongAlert:()=>false,modDayTake:()=>true,
