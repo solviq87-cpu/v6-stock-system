@@ -8,30 +8,75 @@ const round=x=>finite(x)?+x.toFixed(4):null;
 const day=at=>new Date(at+28800000).toISOString().slice(0,10);
 function analysisEvents(events,asOf){return events.filter(e=>e.kind==='analysis'&&e.recordedAt<=asOf&&e.data.asOf<=asOf).sort((a,b)=>a.data.asOf-b.data.asOf||a.sequence-b.sequence);}
 function marketPosition(events,symbol,asOf){
- const eligible=analysisEvents(events,asOf),own=eligible.filter(e=>e.data.symbol===symbol),latest=own.at(-1)?.data;
+ const clock=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
+ const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(Date.parse(d)).toISOString().slice(0,10)===d;
+ const validCode=x=>typeof x==='string'&&/^\d{6}$/.test(x);
+ const eligible=clock(asOf)?analysisEvents(events,asOf).filter(e=>clock(e.recordedAt)&&clock(e.data.asOf)&&e.data.asOf<=e.recordedAt):[];
+ const own=eligible.filter(e=>e.data.symbol===symbol),latest=own.at(-1)?.data;
  const out={status:'unknown',role:'unknown',phase:'unknown',boards:[],scope:'selected-frozen-boards-only',...FLAGS};
  if(!latest)return {...out,reason:'尚无该股封存观察'};
- for(const board of array(latest.context?.sectorContext?.current?.boards)){
-  if(!board.membershipComplete||!array(board.members).includes(symbol)||new Set(board.members).size!==board.members.length||board.quoteDate!==latest.tradeDate||
-   !Number.isSafeInteger(board.quoteAt)||board.quoteAt>latest.asOf||day(board.quoteAt)!==board.quoteDate||board.quoteAt<Date.parse(board.quoteDate+'T15:00:00+08:00')||!Number.isSafeInteger(board.membersObservedAt)||board.membersObservedAt>latest.asOf)continue;
-  const memberHash=digest([...board.members].sort()),history=new Map();
-  for(const e of own){const b=array(e.data.context?.sectorContext?.current?.boards).find(b=>b.category===board.category&&b.code===board.code);
-   if(b?.membershipComplete&&array(b.members).length&&digest([...b.members].sort())===memberHash&&b.quoteDate===e.data.tradeDate&&Number.isSafeInteger(b.quoteAt)&&day(b.quoteAt)===b.quoteDate&&b.quoteAt>=Date.parse(b.quoteDate+'T15:00:00+08:00')&&b.quoteAt<=e.data.asOf&&Number.isSafeInteger(b.membersObservedAt)&&b.membersObservedAt<=e.data.asOf&&finite(b.changePct))history.set(b.quoteDate,{date:b.quoteDate,changePct:b.changePct,evidence:e.hash});}
-  const last3=[...history.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-3),dates=latest.tradeDates;
-  const consecutive=last3.length===3&&last3.every((r,i)=>!i||dates.indexOf(r.date)===dates.indexOf(last3[i-1].date)+1)&&dates.includes(last3[0]?.date);
+ const dates=latest.tradeDates,calendarOK=Array.isArray(dates)&&dates.every((d,i)=>validDay(d)&&(!i||d>dates[i-1]))&&dates.includes(latest.tradeDate);
+ const currentOf=d=>d.context?.sectorContext?.current;
+ const boardsOf=d=>array(currentOf(d)?.boards);
+ const comparableBoard=(d,b)=>b&&b.membershipComplete===true&&Array.isArray(b.members)&&b.members.length>0&&
+  b.members.every(validCode)&&new Set(b.members).size===b.members.length&&b.members.includes(symbol)&&
+  ['industry','concept'].includes(b.category)&&typeof b.code==='string'&&!!b.code.trim()&&
+  validDay(d.tradeDate)&&b.quoteDate===d.tradeDate&&clock(b.quoteAt)&&b.quoteAt<=d.asOf&&
+  day(b.quoteAt)===b.quoteDate&&b.quoteAt>=Date.parse(b.quoteDate+'T15:00:00+08:00')&&
+  clock(b.membersObservedAt)&&b.membersObservedAt<=d.asOf&&day(b.membersObservedAt)===d.tradeDate&&
+  b.simulated!==true&&b.retracted!==true;
+ const boardIdentity=(d,b)=>JSON.stringify([d.provider,b.source??currentOf(d)?.source??currentOf(d)?.provider??null,
+  b.classificationVersion??currentOf(d)?.classificationVersion??null,b.category,b.code]);
+ const validClose=(bar,date,d,e)=>bar&&bar.date===date&&finite(bar.close)&&bar.close>0&&clock(bar.knownAt)&&
+  bar.knownAt>=Date.parse(date+'T15:10:00+08:00')&&bar.knownAt<=Math.min(asOf,d.asOf,e.recordedAt)&&
+  bar.closed!==false&&bar.isClosed!==false&&bar.simulated!==true&&bar.retracted!==true&&
+  (bar.priceBasis==null||bar.priceBasis===d.priceBasis)&&(bar.source==null||bar.source===d.provider);
+ for(const board of boardsOf(latest)){
+  if(!comparableBoard(latest,board)||boardsOf(latest).filter(b=>b?.category===board.category&&b?.code===board.code).length!==1)continue;
+  const memberHash=digest([...board.members].sort()),history=new Map(),identity=boardIdentity(latest,board);
+  for(const e of own){
+   const d=e.data,matching=boardsOf(d).filter(b=>b?.category===board.category&&b?.code===board.code);
+   const b=matching.length===1?matching[0]:null;
+   if(comparableBoard(d,b)&&boardIdentity(d,b)===identity&&digest([...b.members].sort())===memberHash&&finite(b.changePct)&&b.changePct>=-100)
+    history.set(b.quoteDate,{date:b.quoteDate,changePct:b.changePct,evidence:e.hash});
+  }
+  const end=calendarOK?dates.indexOf(latest.tradeDate):-1;
+  const expected=end>=2?dates.slice(end-2,end+1):[];
+  const last3=expected.map(d=>history.get(d)).filter(Boolean);
+  const consecutive=expected.length===3&&last3.length===3;
   const phase=consecutive?last3[2].changePct>last3[1].changePct&&last3[1].changePct>last3[0].changePct?'warming':
    last3[2].changePct<last3[1].changePct&&last3[1].changePct<last3[0].changePct?'cooling':'mixed':'unknown';
-  const members=new Map();for(const e of eligible){const s=e.data;if(board.members.includes(s.symbol)&&s.tradeDate===latest.tradeDate&&s.provider===latest.provider&&s.bars.length>=2){const b=s.bars.at(-1),p=s.bars.at(-2),i=latest.tradeDates.indexOf(b.date);if(i>0&&p.date===latest.tradeDates[i-1]&&p.close>0&&b.knownAt<=asOf)members.set(s.symbol,{symbol:s.symbol,changePct:100*(b.close/p.close-1),evidence:e.hash});}}
+  const members=new Map();
+  if(end>0)for(const e of eligible){
+   const s=e.data;
+   if(board.members.includes(s.symbol)&&s.tradeDate===latest.tradeDate&&s.provider===latest.provider&&
+      s.priceBasis==='unadjusted'&&latest.priceBasis==='unadjusted'&&Array.isArray(s.bars)&&s.bars.length>=2){
+    const b=s.bars.at(-1),p=s.bars.at(-2);
+    if(validClose(b,latest.tradeDate,s,e)&&validClose(p,dates[end-1],s,e)){
+     const changePct=100*(b.close/p.close-1);
+     if(finite(changePct))members.set(s.symbol,{symbol:s.symbol,changePct,evidence:e.hash});
+    }
+   }
+  }
   const ranked=[...members.values()].sort((a,b)=>b.changePct-a.changePct||a.symbol.localeCompare(b.symbol));
-  const coverage=ranked.length/board.members.length,rank=ranked.findIndex(r=>r.symbol===symbol)+1;
-  const role=ranked.length>=5&&coverage>=.8&&rank?rank<=Math.max(1,Math.ceil(ranked.length*.2))?'relative-front':rank>ranked.length*.8?'relative-back':'relative-middle':'unknown';
+  const coverage=ranked.length/board.members.length,target=members.get(symbol);
+  const eligibleRank=ranked.length>=5&&coverage>=.8&&!!target;
+  const equal=x=>Math.abs(x.changePct-target.changePct)<=1e-8;
+  const best=eligibleRank?ranked.filter(x=>!equal(x)&&x.changePct>target.changePct).length+1:null;
+  const worst=eligibleRank?best+ranked.filter(equal).length-1:null;
+  const classify=n=>n<=Math.max(1,Math.ceil(ranked.length*.2))?'relative-front':n>ranked.length*.8?'relative-back':'relative-middle';
+  const role=eligibleRank&&classify(best)===classify(worst)?classify(best):'unknown';
   out.boards.push({code:board.code,name:board.name,category:board.category,tradeDate:board.quoteDate,quoteAt:board.quoteAt,membersObservedAt:board.membersObservedAt,
-   memberHash,memberCount:board.members.length,observedMembers:ranked.length,coveragePct:round(coverage*100),rank:role==='unknown'?null:rank,
-   phase,role,history:last3,phaseBasis:'同成员连续3个交易日涨幅变化，仅描述性观察',roleBasis:'已封存同日成员涨幅相对位置，不认证龙头',
-   changePct:finite(board.changePct)?board.changePct:null,mainNetInflow:finite(board.mainNetInflow)?board.mainNetInflow:null});
+   memberHash,memberCount:board.members.length,observedMembers:ranked.length,coveragePct:round(coverage*100),
+   rank:role==='unknown'||best!==worst?null:best,rankRange:eligibleRank?{best,worst}:null,
+   phase,role,history:last3,phaseBasis:'截止最新交易日同身份同成员连续3个交易日涨幅变化，仅描述性观察',
+   roleBasis:'已封存同日同价基成员涨幅相对位置，并列跨分位时保持未知，不认证龙头或补涨',
+   changePct:finite(board.changePct)&&board.changePct>=-100?board.changePct:null,
+   mainNetInflow:finite(board.mainNetInflow)?board.mainNetInflow:null});
  }
  out.status=out.boards.length?'observed-unverified':'unknown';
- out.role=out.boards.find(b=>b.role!=='unknown')?.role||'unknown';out.phase=out.boards.find(b=>b.phase!=='unknown')?.phase||'unknown';
+ const aggregate=key=>{const values=[...new Set(out.boards.map(b=>b[key]).filter(x=>x!=='unknown'))];return values.length===1?values[0]:'unknown';};
+ out.role=aggregate('role');out.phase=aggregate('phase');
  out.reason=out.boards.length?'按明确选择的板块展示，不代表全市场主线或因果关系':'缺少同日成员和板块时点';return out;
 }
 function timeline(events,symbol,asOf){

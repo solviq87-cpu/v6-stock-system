@@ -6,8 +6,12 @@ const finite = x => typeof x === 'number' && Number.isFinite(x);
 const text = x => typeof x === 'string' && x.trim().length > 0 && x.length <= 200;
 const dayOK = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) &&
   Number.isFinite(Date.parse(x + 'T00:00:00Z')) && new Date(x + 'T00:00:00Z').toISOString().slice(0, 10) === x;
-const timestamp = x => Number.isSafeInteger(x) && x > 0 && x <= 8640000000000000 - 8 * 3600000 ? x :
-  typeof x === 'string' && /T.*(?:Z|[+-]\d{2}:\d{2})$/.test(x) && Number.isFinite(Date.parse(x)) ? Date.parse(x) : null;
+const validClock = x => Number.isSafeInteger(x) && x > 0 && x <= 8640000000000000 - 8 * 3600000;
+const timestamp = x => {
+  if (validClock(x)) return x;
+  if (typeof x !== 'string' || !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(x) || !dayOK(x.slice(0, 10))) return null;
+  const n = Date.parse(x); return validClock(n) ? n : null;
+};
 const marketDay = t => new Date(t + 8 * 3600000).toISOString().slice(0, 10);
 const order = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const identity = (r, s) => JSON.stringify([r.source, r.classificationVersion, s.category, s.code]);
@@ -15,6 +19,28 @@ const membersOf = s => Array.isArray(s?.members) && s.members.length > 0 && s.me
   s.members.every(x => typeof x === 'string' && /^\d{6}$/.test(x)) && new Set(s.members).size === s.members.length ? [...s.members].sort() : null;
 const sameMembers = (a, b) => a !== null && b !== null && a.length === b.length && a.every((x, i) => x === b[i]);
 const unknown = (reason, extra = {}) => ({ status: 'unknown', reason, ...extra });
+const method = (r,k) => r[k] == null ? null : text(r[k]) ? r[k] : false;
+const memberUsable = (r,s) => s.membershipComplete !== false &&
+  (s.membersObservedAt == null || timestamp(s.membersObservedAt) !== null &&
+   timestamp(s.membersObservedAt) <= timestamp(r.observedAt) &&
+   marketDay(timestamp(s.membersObservedAt)) === r.tradeDate);
+const quoteUsable = (r,s) => (s.quoteDate == null || s.quoteDate === r.tradeDate) &&
+  (s.quoteAt == null || timestamp(s.quoteAt) !== null &&
+   timestamp(s.quoteAt) <= timestamp(r.observedAt) && marketDay(timestamp(s.quoteAt)) === r.tradeDate);
+const validReturn = n => finite(n) && n >= -100;
+const returnKnown = (r,s) => !!s && quoteUsable(r,s) && validReturn(s.changePct);
+const flowKnown = (r,s) => !!s && quoteUsable(r,s) && finite(s.mainNetInflow) &&
+  [r.fundsUnit,r.unit,s.fundsUnit,s.unit,s.amountUnit].every(u => u == null || u === 'CNY') &&
+  [r.fundsMethod,s.fundsMethod].every(m => m == null || m === 'vendor-order-size-estimate') &&
+  [r,s].every(x => x.partial !== true && x.simulated !== true && x.retracted !== true &&
+    x.fundsConflict !== true && x.dailyResearchEligible !== false) &&
+  (s.mainInflow == null || s.mainInflow === s.mainNetInflow);
+const amountKnown = (r,s) => quoteUsable(r,s) && finite(s.amountCny) && s.amountCny > 0 &&
+  [r.unit,r.fundsUnit,s.unit,s.fundsUnit,s.amountUnit].every(u => u == null || u === 'CNY');
+// Include all metadata affecting comparability in the current/archive equality check.
+const evidenceMetadata = x => ['membershipComplete','membersObservedAt','quoteAt','quoteDate',
+  'unit','fundsUnit','amountUnit','fundsMethod','partial','simulated','retracted','fundsConflict',
+  'dailyResearchEligible','mainInflow'].map(k=>x[k]??null);
 
 function pearson(a, b) {
   if (a.length < 2 || a.length !== b.length || !a.every(finite) || !b.every(finite)) return null;
@@ -59,9 +85,9 @@ function analyzeSectorRelations(options = {}) {
     return memberCache.get(s);
   };
   const fingerprint = row => JSON.stringify([row.source, row.classificationVersion,
-    timestamp(row.observedAt), row.marketChangePct,
+    timestamp(row.observedAt), row.marketChangePct, method(row,'returnMethod'), method(row,'benchmarkMethod'), evidenceMetadata(row),
     row.sectors.map(s => [s.category, s.code, s.name, s.changePct,
-      s.mainNetInflow, s.amountCny, membership(s)]).sort((a, b) => order(JSON.stringify(a), JSON.stringify(b)))]);
+      s.mainNetInflow, s.amountCny, membership(s), evidenceMetadata(s)]).sort((a, b) => order(JSON.stringify(a), JSON.stringify(b)))]);
   const result = {
     schemaVersion: 1, mode: 'research-only', status: 'unknown', reason: null,
     asOf: clock, tradeDates: [], sources: [], classificationVersions: [],
@@ -96,7 +122,9 @@ function analyzeSectorRelations(options = {}) {
     if (!observedAt || observedAt > clock || marketDay(observedAt) < row.tradeDate) {
       reject(row, observedAt > clock ? 'future-observation' : 'invalid-observation-time'); continue;
     }
-    if (!text(row.source) || !text(row.classificationVersion) || !Array.isArray(row.sectors) ||
+    if (!text(row.source) || !text(row.classificationVersion) ||
+      method(row,'returnMethod') === false || method(row,'benchmarkMethod') === false ||
+      row.simulated === true || row.retracted === true || !Array.isArray(row.sectors) ||
       row.sectors.length > LIMITS.sectors || row.sectors.length === 0) {
       reject(row, 'missing-identity-or-sector-bound-exceeded'); continue;
     }
@@ -138,14 +166,15 @@ function analyzeSectorRelations(options = {}) {
     if (evidence.some(e => e.row.classificationVersion !== latest.classificationVersion)) return 'classification-version-changed';
     if (evidence.some(e => !e.sector)) return 'missing-sector-session';
     const reference = membership(evidence.at(-1).sector);
-    if (!reference || evidence.some(e => !membership(e.sector))) return 'membership-unknown';
+    if (!reference || evidence.some(e => !membership(e.sector) || !memberUsable(e.row,e.sector))) return 'membership-unknown';
+    if (evidence.some(e => !quoteUsable(e.row,e.sector))) return 'quote-date-or-time-conflict';
     if (evidence.some(e => !sameMembers(membership(e.sector), reference))) return 'membership-changed';
     return null;
   }
 
   function flowHorizon(evidence, n) {
     const window = evidence.slice(-n), dates = tradeDates.slice(-n);
-    const count = window.filter(e => validIdentity(e.row) && e.sector && finite(e.sector.mainNetInflow)).length;
+    const count = window.filter(e => validIdentity(e.row) && flowKnown(e.row,e.sector)).length;
     const base = { sessions: n, tradeDates: dates, knownMatchedCount: count,
       netInflowCny: null, positiveSessions: null, negativeSessions: null, direction: 'unknown', observations: [] };
     if (dates.length !== n) return unknown('insufficient-explicit-sessions', base);
@@ -165,18 +194,19 @@ function analyzeSectorRelations(options = {}) {
   }
 
   result.nodes = latest.sectors.map(s => {
-    const evidence = evidenceFor(s), members = membership(s);
-    const flow = finite(s.mainNetInflow) ? s.mainNetInflow : null;
-    const amount = finite(s.amountCny) && s.amountCny > 0 ? s.amountCny : null;
+    const evidence = evidenceFor(s), members = memberUsable(latest,s) ? membership(s) : null;
+    const flow = flowKnown(latest,s) ? s.mainNetInflow : null;
+    const amount = amountKnown(latest,s) ? s.amountCny : null;
     return { id: identity(latest, s), code: s.code, name: s.name, category: s.category,
       source: latest.source, classificationVersion: latest.classificationVersion,
       tradeDate: latest.tradeDate, observedAt: latest.observedAt,
-      status: 'descriptive-unverified', changePct: finite(s.changePct) ? s.changePct : null,
+      status: 'descriptive-unverified', changePct: returnKnown(latest,s) ? s.changePct : null,
+      returnMethod: method(latest,'returnMethod'), benchmarkMethod: method(latest,'benchmarkMethod'),
       mainNetInflow: flow, amountCny: amount,
       flowIntensity: flow !== null && amount !== null && finite(flow / amount) ? flow / amount : null,
       members, memberCount: members ? members.length : null,
       coverage: { expectedSessions: tradeDates.length,
-        knownMatchedCount: evidence.filter(e => validIdentity(e.row) && e.sector && finite(e.sector.changePct)).length,
+        knownMatchedCount: evidence.filter(e => validIdentity(e.row) && returnKnown(e.row,e.sector)).length,
         reason: comparability(evidence, tradeDates) },
       flowContinuity: { threeSession: flowHorizon(evidence, 3), fiveSession: flowHorizon(evidence, 5) }
     };
@@ -187,14 +217,16 @@ function analyzeSectorRelations(options = {}) {
       const a = result.nodes[i], b = result.nodes[j];
       const ea = evidenceFor(a), eb = evidenceFor(b);
       const matched = ea.map((e, k) => ({ a: e, b: eb[k], date: tradeDates[k] }))
-        .filter(e => validIdentity(e.a.row) && e.a.sector && e.b.sector && finite(e.a.sector.changePct) && finite(e.b.sector.changePct));
+        .filter(e => validIdentity(e.a.row) && returnKnown(e.a.row,e.a.sector) && returnKnown(e.b.row,e.b.sector));
       let reason = comparability(ea, tradeDates) || comparability(eb, tradeDates);
+      if (!reason && rows.some(r => method(r,'returnMethod') !== method(latest,'returnMethod'))) reason = 'return-method-changed';
       if (!reason && matched.length < 20) reason = 'insufficient-matched-sessions';
       if (!reason && matched.length !== tradeDates.length) reason = 'missing-contiguous-return-session';
       const base = { knownMatchedCount: matched.length, requiredMatchedCount: 20,
         expectedSessions: tradeDates.length, tradeDates: matched.map(e => e.date), coefficient: null };
       let correlation = unknown(reason || 'constant-return-series', base);
-      const marketMatched = matched.filter(e => finite(e.a.row.marketChangePct));
+      const marketMatched = matched.filter(e => validReturn(e.a.row.marketChangePct) &&
+        method(e.a.row,'benchmarkMethod') === method(latest,'benchmarkMethod'));
       let marketResidualCorrelation = unknown(reason || 'missing-market-return', { ...base,
         knownMatchedCount: marketMatched.length, tradeDates: marketMatched.map(e => e.date), betaA: null, betaB: null });
       if (!reason) {
@@ -202,10 +234,14 @@ function analyzeSectorRelations(options = {}) {
         const coefficient = pearson(av, bv);
         if (coefficient !== null) correlation = { ...base, status: 'descriptive-unverified', reason: null, coefficient };
         const market = matched.map(e => e.a.row.marketChangePct);
-        const marketCount = market.filter(finite).length;
+        const marketCount = market.filter(validReturn).length;
         marketResidualCorrelation.knownMatchedCount = marketCount;
-        marketResidualCorrelation.tradeDates = matched.filter(e => finite(e.a.row.marketChangePct)).map(e => e.date);
-        if (market.every(finite)) {
+        marketResidualCorrelation.tradeDates = matched.filter(e => validReturn(e.a.row.marketChangePct)).map(e => e.date);
+        if (rows.some(r => method(r,'benchmarkMethod') !== method(latest,'benchmarkMethod'))) {
+          marketResidualCorrelation.reason = 'benchmark-method-changed';
+          marketResidualCorrelation.knownMatchedCount = marketMatched.length;
+          marketResidualCorrelation.tradeDates = marketMatched.map(e=>e.date);
+        } else if (market.every(validReturn)) {
           const ar = residuals(av, market), br = residuals(bv, market);
           const r = ar && br ? pearson(ar.values, br.values) : null;
           marketResidualCorrelation = { ...base, betaA: ar?.beta ?? null, betaB: br?.beta ?? null,
