@@ -31,14 +31,25 @@ const close=d=>Date.parse(d+'T15:00:00+08:00');
 const official=new Set(['cninfo.com.cn','www.cninfo.com.cn','sse.com.cn','www.sse.com.cn','szse.cn','www.szse.cn','bse.cn','www.bse.cn']);
 function only(v,keys){if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!keys.includes(k)))throw Error('研究参数无效');}
 function settingsRoot(root){return path.join(path.dirname(root),path.basename(root)+'-interactions');}
-function readTemplates(root,{now=Date.now()}={}){
- const events=S.readEvents(settingsRoot(root),{asOf:now}),latest=new Map();
+function projectTemplates(events){
+ const latest=new Map();
  for(const e of events){
-  if(e.kind!=='preset'||e.data.scope!=='command-v1'||!hash(e.data.name)||typeof e.data.raw!=='string'||e.data.raw.length>160||S.digest(e.data.raw)!==e.data.name)
+  const d=e.data;
+  if(e.kind!=='preset'||d?.scope!=='command-v1'||!hash(d.name))throw Error('选股模板档案校验失败');
+  if(d.removed===true){
+   if(Object.keys(d).some(k=>!['scope','name','removed'].includes(k))||
+     !latest.has(d.name)||latest.get(d.name).data.removed===true)throw Error('选股模板删除回执无效');
+  }else if(d.removed!==undefined||typeof d.raw!=='string'||!d.raw.trim()||d.raw.length>160||S.digest(d.raw)!==d.name){
    throw Error('选股模板档案校验失败');
-  latest.set(e.data.name,e);
+  }
+  latest.set(d.name,e);
  }
- return {templates:[...latest.values()].reverse().map(e=>({id:e.data.name,raw:e.data.raw,revision:e.revision,recordedAt:e.recordedAt})),...flags};
+ const ordered=[...latest.values()].sort((a,b)=>b.sequence-a.sequence);
+ return {templates:ordered.filter(e=>e.data.removed!==true).map(e=>({id:e.data.name,raw:e.data.raw,revision:e.revision,recordedAt:e.recordedAt})),
+  removed:ordered.filter(e=>e.data.removed===true).map(e=>({id:e.data.name,revision:e.revision,recordedAt:e.recordedAt})),...flags};
+}
+function readTemplates(root,{now=Date.now()}={}){
+ return projectTemplates(S.readEvents(settingsRoot(root),{asOf:now}));
 }
 async function saveTemplate(root,input,{authorize=()=>false}={}){
  only(input,['action','raw','requestId','expectedRevision']);
@@ -48,11 +59,28 @@ async function saveTemplate(root,input,{authorize=()=>false}={}){
  const q=parseSelectionCommand(input.raw);
  if(!q.ok||q.explicitAllMarket)throw Error(q.error||'全市场范围未接通，不能保存成候选池替代模板');
  if(!Number.isSafeInteger(input.expectedRevision)||input.expectedRevision<0)throw Error('需核对原模板版本');
- const raw=q.raw,id=S.digest(raw),templates=readTemplates(root).templates,prior=templates.find(t=>t.id===id);
- if(!prior&&templates.length>=50)throw Error('模板数量已达50项，请归档后继续');
+ const raw=q.raw,id=S.digest(raw);
  if(!authorize())throw Object.assign(Error('设备授权或主实例角色已变化'),{httpStatus:403});
- const e=S.appendEvent(settingsRoot(root),'preset',{scope:'command-v1',name:id,raw},{expectedRevision:input.expectedRevision,requestId:input.requestId,beforeCommit:authorize});
+ const e=S.appendEvent(settingsRoot(root),'preset',{scope:'command-v1',name:id,raw},
+  {expectedRevision:input.expectedRevision,requestId:input.requestId,beforeCommit:authorize,beforeCommitLocked:({events,reused})=>{
+   const {templates}=projectTemplates(events);
+   if(!reused&&!templates.some(t=>t.id===id)&&templates.length>=50)throw Error('模板数量已达50项，请归档后继续');
+   return true;
+  }});
  return {id,raw,revision:e.revision,recordedAt:e.recordedAt,reused:e.reused,...flags};
+}
+function deleteTemplate(root,input,{authorize=()=>false}={}){
+ only(input,['action','id','requestId','expectedRevision']);
+ if(!hash(input.id)||!Number.isSafeInteger(input.expectedRevision)||input.expectedRevision<1)throw Error('需核对原模板标识及版本');
+ if(!authorize())throw Object.assign(Error('设备授权或主实例角色已变化'),{httpStatus:403});
+ // An explicit tombstone removes the shared shortcut, not the original audit.
+ const e=S.appendEvent(settingsRoot(root),'preset',{scope:'command-v1',name:input.id,removed:true},
+  {expectedRevision:input.expectedRevision,requestId:input.requestId,beforeCommit:authorize,beforeCommitLocked:({events,reused})=>{
+   const {templates}=projectTemplates(events);
+   if(!reused&&!templates.some(t=>t.id===input.id))throw Error('模板不存在或已删除，请重新读取');
+   return true;
+  }});
+ return {id:input.id,removed:true,revision:e.revision,recordedAt:e.recordedAt,reused:e.reused,...flags};
 }
 function readRuns(root,symbol,runId,asOf){
  if(!code(symbol)||runId!==undefined&&!hash(runId)||!time(asOf,Date.now()))throw Error('研究身份或截点无效');
@@ -599,7 +627,7 @@ async function explain(root,input,{authorize=()=>false,adapter=localAdapter()}={
  }catch{return {...base,status:'failed',modelCalled:true,model:model.status().model,reason:'模型调用或引用核验失败，保留原规则解释'};}
 }
 async function run(roots,query,input,{authorize=()=>false}={}){
- if(input){if(input.action==='save-template')return saveTemplate(roots.root,input,{authorize});if(input.action==='explain')return explain(roots.root,input,{authorize});throw Error('未知研究操作');}
+ if(input){if(input.action==='save-template')return saveTemplate(roots.root,input,{authorize});if(input.action==='delete-template')return deleteTemplate(roots.root,input,{authorize});if(input.action==='explain')return explain(roots.root,input,{authorize});throw Error('未知研究操作');}
  if(query.mode==='templates'){only(query,['mode']);return readTemplates(roots.root);}
  if(query.mode==='model-status'){only(query,['mode']);return modelStatus();}
  const {mode,...q}=query;
@@ -608,4 +636,4 @@ async function run(roots,query,input,{authorize=()=>false}={}){
  if(mode==='discipline'){only(q,['symbol','asOf']);return readDiscipline(roots,q);}
  throw Error('未知证据工作台读取');
 }
-module.exports={run,readTemplates,saveTemplate,readReplay,dailySeries,newsMarkers,tradeMarkers,similarSamples,disciplineRows,reportDisciplineRows,followups,readDiscipline,modelStatus,localAdapter,explain,flags};
+module.exports={run,readTemplates,saveTemplate,deleteTemplate,readReplay,dailySeries,newsMarkers,tradeMarkers,similarSamples,disciplineRows,reportDisciplineRows,followups,readDiscipline,modelStatus,localAdapter,explain,flags};

@@ -51,7 +51,10 @@ test('FAYO endpoint denies viewer, replica or cross-site writes, rejects unknown
  const call=async({method='GET',url='?mode=templates',body='',authorize=()=>true,primary=()=>true,sameOrigin=()=>true,job=async()=>({ok:true,result:{canTrade:false}})}={})=>{
   let status,headers,value;await handle({method},{writeHead:(c,h)=>{status=c;headers=h;},end:x=>{value=JSON.parse(x)}},new URL('http://localhost/api/research/evidence-workbench'+url),body,{authorize,primary,sameOrigin,roots:{},job});return {status,headers,value};};
  assert.equal((await call({authorize:()=>false})).status,403);
- for(const gate of [{primary:()=>false},{sameOrigin:()=>false}])assert.equal((await call({method:'POST',url:'',body:'{"action":"save-template"}',...gate})).status,403);
+ for(const gate of [{primary:()=>false},{sameOrigin:()=>false}])for(const action of ['save-template','delete-template'])assert.equal((await call({method:'POST',url:'',body:JSON.stringify({action}),...gate})).status,403);
+ let observedDelete=null;
+ const remove=await call({method:'POST',url:'',body:'{"action":"delete-template","id":"test"}',job:async p=>{observedDelete=p.input;return {ok:true,result:{removed:true,canTrade:false}};}});
+ assert.equal(remove.status,200);assert.equal(observedDelete.action,'delete-template');
  assert.equal((await call({method:'POST',url:'',body:'{"action":"buy"}'})).status,422);
  assert.equal((await call({url:'?mode=templates&mode=replay'})).status,422);
  let allowed=true;assert.equal((await call({authorize:()=>allowed,job:async()=>{allowed=false;return {ok:true,result:{private:true}};}})).status,403);
@@ -72,4 +75,28 @@ test('FAYO headline paths cannot promote numerical scores or bypass original new
  assert.doesNotMatch(s,/goodHit\s*\?\s*0\.88/);
  assert.match(s,/badHit\s*\?\s*1\.15/);
  assert.match(s,/function reviewRecommendationNews\(/);
+});
+
+test('shared template deletion keeps the original CAS and audit, rejects stale devices and permits explicit restoration',async t=>{
+ const {root}=setup(t),authorize=()=>true,raw='精选评分前5且股价低于20元';
+ const saved=await W.saveTemplate(root,{action:'save-template',raw,expectedRevision:0,requestId:'template_create_001'},{authorize});
+ const command={action:'delete-template',id:saved.id,expectedRevision:1,requestId:'template_delete_001'};
+ assert.throws(()=>W.deleteTemplate(root,command),/授权/);
+ assert.throws(()=>W.deleteTemplate(root,{...command,id:'x'} ,{authorize}),/标识/);
+ const deleted=W.deleteTemplate(root,command,{authorize});assert.equal(deleted.revision,2);assert.equal(deleted.removed,true);assert.equal(deleted.canTrade,false);
+ assert.equal(W.deleteTemplate(root,command,{authorize}).reused,true);
+ const view=W.readTemplates(root);assert.deepEqual(view.templates,[]);assert.equal(view.removed[0].id,saved.id);assert.equal(view.removed[0].revision,2);
+ assert.equal(JSON.stringify(view).includes(raw),false,'removed raw is not returned in current shared projection');
+ await assert.rejects(W.saveTemplate(root,{action:'save-template',raw,expectedRevision:1,requestId:'template_old_device'},{authorize}),/版本冲突/);
+ assert.throws(()=>W.deleteTemplate(root,{...command,expectedRevision:2,requestId:'template_repeat_del'},{authorize}),/不存在|已删除/);
+ const restored=await W.saveTemplate(root,{action:'save-template',raw,expectedRevision:2,requestId:'template_restore_001'},{authorize});
+ assert.equal(restored.revision,3);assert.equal(W.readTemplates(root).templates[0].raw,raw);
+ assert.deepEqual(W.readTemplates(root).removed,[]);
+ assert.throws(()=>W.deleteTemplate(root,{...command,requestId:'template_stale_del'},{authorize}),/版本冲突/);
+ const history=S.readEvents(path.join(path.dirname(root),path.basename(root)+'-interactions'));
+ assert.equal(history.length,3);assert.equal(history[0].data.raw,raw);assert.equal(history[1].data.removed,true);
+ assert.equal(history[2].data.raw,raw);assert.equal(fs.existsSync(root),false);
+ let checks=0;assert.throws(()=>W.deleteTemplate(root,{...command,expectedRevision:3,requestId:'template_revoked_del'},
+  {authorize:()=>++checks<3}),/授权/);
+ assert.equal(W.readTemplates(root).templates[0].revision,3);
 });
