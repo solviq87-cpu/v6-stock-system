@@ -3,7 +3,8 @@
 // gates remain authoritative; this module cannot grant execution permission.
 const S = require('./research-workspace-store');
 const {quoteObservationView, quoteSourceAllowsUse} = require('./quote-observation-view');
-const {tradingFees, validateFeePolicy, maxAffordableQuantity} = require('./trading-fees');
+const {tradingFees, validateFeePolicy, maxAffordableQuantity, paperBuyLotSize} = require('./trading-fees');
+const {boundQuoteValuationMark} = require('./account-equity-evidence');
 const {atLockedLimit, assertAligned} = require('../strategy/historical-session');
 const {executionCapacity} = require('./execution-risk');
 const {corporateAction, entitlement} = require('./corporate-actions');
@@ -65,13 +66,16 @@ function portfolioInput(input,asOf) {
     let view;try{view=quoteObservationView(q,asOf);}catch{view={quoteStatus:'unknown',missingReason:'invalid-time'};}
     need(view.quoteStatus==='recent-unverified'&&view.missingReason===null,'原始报价不满足15秒门槛 '+String(r?.symbol));
     need(quoteSourceAllowsUse(q),'报价为只读、历史、合成或不可交易来源 '+String(r?.symbol));
+    need(boundQuoteValuationMark(q,r?.symbol,asOf).price!==null,'原始报价标的、来源或时点不一致 '+String(r?.symbol));
+    const lotSize=paperBuyLotSize(r?.symbol);
+    need(r?.lotSize==null||r.lotSize===lotSize,'导入手数与原模拟盘规则不一致 '+String(r?.symbol));
     need(evidence(e,asOf)&&e.horizonDays===input.horizonDays&&Number.isSafeInteger(e.sampleCount)&&e.sampleCount>=20,'预期收益缺少事前来源、同周期或20个成熟样本 '+String(r?.symbol));
     need(finite(e.expectedReturn)&&Math.abs(e.expectedReturn)<=2&&nonnegative(e.standardError)&&e.standardError<=2&&finite(e.volatility)&&e.volatility>0&&e.volatility<=2,'收益不确定性或波动估计无效 '+String(r?.symbol));
     need(evidence(l,asOf)&&finite(l.averageDailyAmount)&&l.averageDailyAmount>0,'缺少可核验历史流动性 '+String(r?.symbol));
     need(text(r?.sector),'缺少持仓行业分类 '+String(r?.symbol));
     return {symbol:r?.symbol,sector:text(r?.sector),strategyId:text(r?.strategyId)||null,quantity:p.quantity,availableQuantity:p.availableQuantity,
       price:q.price,currentWeight:p.quantity*q.price/a.equity,minimumWeight:(p.quantity-p.availableQuantity)*q.price/a.equity,
-      estimate:e,liquidity:l,quote:view,lotSize:Number.isSafeInteger(r?.lotSize)&&r.lotSize>0&&r.lotSize<=10000?r.lotSize:100};
+      estimate:e,liquidity:l,quote:view,lotSize};
   });
   if(finite(a.equity)&&a.equity>0&&normalized.every(r=>nonnegative(r.currentWeight)))need(Math.abs(a.cash/a.equity+normalized.reduce((n,r)=>n+r.currentWeight,0)-1)<1e-6,'账户权益与现金及全部持仓估值不一致');
   need(evidence(co,asOf)&&co.horizonDays===input.horizonDays&&Number.isSafeInteger(co.sampleCount)&&co.sampleCount>=20,'相关性缺少事前来源、同周期或20个对齐样本');
@@ -268,7 +272,7 @@ function cleanSourceSnapshot(raw,input) {
   const noExposure=positions.every(p=>p.quantity===0)&&arr(input.alternatives).every(a=>arr(a.weights).every(w=>w.weight===0));
   if(!q.length&&!noExposure||q.length>12||new Set(q.map(r=>r?.symbol)).size!==q.length)throw Error('冻结报价身份无效');
   const quotes=q.map(row=>{
-    const v=quoteObservationView(row,input.informationCutoff);if(!symbol(row?.symbol)||v.quoteStatus!=='recent-unverified'||v.missingReason!==null||!quoteSourceAllowsUse(row))throw Error('冻结报价未满足原15秒门禁');
+    const v=quoteObservationView(row,input.informationCutoff);if(!symbol(row?.symbol)||v.quoteStatus!=='recent-unverified'||v.missingReason!==null||!quoteSourceAllowsUse(row)||boundQuoteValuationMark(row,row.symbol,input.informationCutoff).price===null)throw Error('冻结报价未满足原15秒门禁或标的来源一致性');
     return {symbol:row.symbol,price:row.price,quoteAt:row.quoteAt,receivedAt:row.receivedAt,quoteSource:text(row.quoteSource),sector:text(row.sector)||null,strategyId:text(row.strategyId)||null,market:text(row.market,40)||null};
   });
   const marks=new Map(quotes.map(row=>[row.symbol,row.price]));
@@ -630,7 +634,7 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
         // can imply a larger share target at the same weight; never buy it back.
         if(alternative.action!=='reduce')for(const [id,weight] of targets){
           if(weight<=0)continue;
-          const stock=bySymbol.get(id),bar=stock.bars[d],prior=stock.bars[d-1],p=holdings.get(id)||{symbol:id,quantity:0,availableQuantity:0},lotSize=100;
+          const stock=bySymbol.get(id),bar=stock.bars[d],prior=stock.bars[d-1],p=holdings.get(id)||{symbol:id,quantity:0,availableQuantity:0},lotSize=paperBuyLotSize(id);
           const requested=Math.floor(Math.max(0,weight*account.equity/bar.open-p.quantity)/lotSize)*lotSize;if(!requested)continue;
           if(p.quantity===0&&[...holdings.values()].filter(h=>h.quantity>0).length>=c.maxPositions){block(date,id,'buy','原后台持仓数量上限');continue;}
           const lock=atLockedLimit(bar,prior,stock,'buy'),membership=universeObservation(history.universeHistory,id,date,{at:'open'});

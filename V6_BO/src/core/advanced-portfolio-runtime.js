@@ -4,7 +4,7 @@
 const crypto=require('node:crypto');
 const {auditCenterInputs}=require('./intelligence-research');
 const {validatePlan}=require('./paper-decision-plan');
-const {tradingFees}=require('./trading-fees');
+const {tradingFees,paperBuyLotSize:lotOf}=require('./trading-fees');
 const {quoteUseEligibility}=require('./quote-observation-view');
 const {capacityScenarios,exitRisk,previewPosition,tailRisk,cashFlowPerformance,compareOpportunity}=require('./advanced-portfolio-evidence');
 const flags={canTrade:false,writesAccount:false,automaticSwitch:false};
@@ -20,7 +20,6 @@ const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex'
 const unknown=reason=>({status:'unknown',reason,...flags});
 const own=(value,key)=>value&&typeof value==='object'&&Object.hasOwn(value,key)?value[key]:undefined;
 const close=day=>Date.parse(day+'T15:00:00+08:00');
-const lotOf=code=>/^(688|689)/.test(code)?200:100; // Original paperLotOf sizing, never an exchange certification.
 const policyVersion='fayo-portfolio-pressure-v1';
 
 function scenarioPolicy(input){

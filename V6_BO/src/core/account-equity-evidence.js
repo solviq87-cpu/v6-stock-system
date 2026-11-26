@@ -97,6 +97,16 @@ function markOf(input, symbol, now) {
     ...(conflict ? {quoteStatus:'conflict',missingReason:'conflicting-price-sources'} : {}),canTrade:false,canNotify:false},reason};
 }
 
+// The original authority quote map binds its key to the symbol. Older read-only
+// projections may omit that redundant identity; explicit conflicting identities,
+// provider aliases or timestamps are never replaced by the key.
+function boundQuoteValuationMark(quote,symbol,now) {
+  if (!quote || typeof quote!=='object' || Array.isArray(quote)) return markOf(null,symbol,now);
+  const bound={...quote,symbol:quote.symbol??quote.code??symbol,quoteSource:quote.quoteSource||quote.source||null};
+  if (quote.source!=null && quote.source!==bound.quoteSource) bound.sourceConflict=true;
+  return markOf(bound,symbol,now);
+}
+
 function buildAccountEquityEvidence({book,accountId,quotes={},now=Date.now()}={}) {
   if (!timeOk(now)) throw Error('权益观察时点无效');
   const {account,accountEpoch}=authorityOf(book,accountId),day=aShareCalendarDate(now),missing=[];
@@ -369,4 +379,4 @@ function createAccountEquityEvidenceStore({root,clock=Date.now,canWrite=()=>fals
 }
 
 module.exports={PROTOCOL,MAX_GAP_MS,MIN_SAMPLE_MS,buildAccountEquityEvidence,buildEquityHistory,createAccountEquityEvidenceStore,
-  validateEquityEvidence,positionAvailability,accountEpochOf,valuationMarkOf:markOf,buildObservedEquityPerformance};
+  validateEquityEvidence,positionAvailability,accountEpochOf,valuationMarkOf:markOf,boundQuoteValuationMark,buildObservedEquityPerformance};

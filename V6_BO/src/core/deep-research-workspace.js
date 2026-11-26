@@ -2,7 +2,7 @@
 // Adapters into the existing private research journal. No collector, account
 // writer, notification sender or alternative execution path lives here.
 const Store=require('./research-workspace-store');
-const {quoteObservationView,quoteSourceAllowsUse}=require('./quote-observation-view');
+const {positionAvailability,boundQuoteValuationMark}=require('./account-equity-evidence');
 const TYPES=['events','eventOutcomes','expectations','actuals','relations','depth','themes','portfolio'];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const SUBTYPE='deep-research-evidence-v1';
@@ -101,22 +101,19 @@ function deepAccountProjection(book,quotes,{now=Date.now(),day}={}){
   // paperAuthorityQuotes already projects the original backend's gate and
   // intentionally omits canTrade. Requiring that flag here would reject every
   // real holding; observation freshness grants no new execution permission.
-  const observed=quote?quoteObservationView({...quote,quoteSource:quote.quoteSource||quote.source},now):null;
-  const fresh=!!quote&&observed.quoteStatus==='recent-unverified'&&observed.missingReason===null&&quoteSourceAllowsUse(quote);
+  const mark=boundQuoteValuationMark(quote,symbol,now);
+  const fresh=mark.price!==null;
   if(!Number.isSafeInteger(quantity)||quantity<0||quantity>0&&!fresh)equity=null;
   else if(equity!==null&&quantity>0)equity+=quantity*quote.price;
-  const lots=Array.isArray(position.lots)?position.lots:[];
-  const pendingSells=Object.values(book.orders||{}).filter(item=>item?.order?.side==='sell'&&item.order.symbol===symbol&&item.state?.terminal!==true);
+  const pendingSells=Object.values(book.orders||{}).filter(item=>item?.order?.side==='sell'&&String(item.order.symbol)===symbol&&item.state?.terminal!==true);
   const pendingSellQuantity=pendingSells.every(item=>Number.isSafeInteger(item.state?.remainingQuantity)&&item.state.remainingQuantity>=0)
    ?pendingSells.reduce((sum,item)=>sum+item.state.remainingQuantity,0):null;
-  // Match the authority ledger's T+1 lots and open-order reservation rule. A
-  // partial fill reduces remainingQuantity; completed/cancelled orders no
-  // longer reserve shares. Invalid reservation evidence stays unknown.
-  const eligibleLots=typeof day==='string'?lots.filter(lot=>lot.sellableDate?lot.sellableDate<=day:lot.buyDate<day):[];
-  const lotsKnown=lots.length&&eligibleLots.every(lot=>Number.isSafeInteger(lot.quantity)&&lot.quantity>=0&&
-   (lot.reserved==null||Number.isSafeInteger(lot.reserved)&&lot.reserved>=0&&lot.reserved<=lot.quantity));
-  const availableQuantity=quantity===0?0:typeof day==='string'&&lotsKnown&&pendingSellQuantity!==null&&Number.isSafeInteger(quantity)&&quantity>=0
-   ?Math.max(0,Math.min(quantity,eligibleLots.reduce((sum,lot)=>sum+lot.quantity-(lot.reserved||0),0)-pendingSellQuantity)):null;
+  // Reuse the original account's lot and sell-reservation validation. The
+  // historical projection conservatively displayed zero for over-reservation;
+  // other invalid or incomplete authority evidence remains unknown.
+  const availability=typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)?positionAvailability(position,symbol,book.orders||{},day):null;
+  const availableQuantity=quantity===0?0:availability?.sellabilityReasons.length===1&&availability.sellabilityReasons[0]==='FROZEN_SELL_QUANTITY_CONFLICT'
+   ?0:availability?.sellableQuantity??null;
   positions.push({symbol,quantity,shares:quantity,availableQuantity,pendingSellQuantity,quote:fresh?quote:null});
  }
  return {authorityRef:book.accountId||'pool',accountId:'pool',source:'v6-authoritative-ledger',sourceAt:now,

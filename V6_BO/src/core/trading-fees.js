@@ -30,3 +30,8 @@ function maxAffordableQuantity({budget,price,lotSize=100,tradeDate,policy,schedu
  return lo*lotSize;
 }
 module.exports.maxAffordableQuantity=maxAffordableQuantity;
+// Match the original server paperLotOf sizing contract. Research deliberately
+// keeps its conservative 200-share increment for 688/689, not a new exchange
+// or broker execution rule.
+function paperBuyLotSize(code){return /^(688|689)/.test(String(code||''))?200:100;}
+module.exports.paperBuyLotSize=paperBuyLotSize;
