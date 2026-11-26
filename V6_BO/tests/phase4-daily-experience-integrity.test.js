@@ -91,3 +91,32 @@ test('historical mistake counts do not double count or import tomorrow’s known
  const result=mistakeSummary({trades:[row,row,late]},day);
  assert.deepEqual(result.map(x=>x.count),[1,1]);
 });
+
+test('automatic historical review shows late settlement and check only as retrospective archive additions',()=>{
+ const row=t({name:'历史成交补录',createdAt:'2026-11-21T01:00:00Z'}),c=check({name:'历史校验补录',createdAt:'2026-11-21T01:00:00Z'});
+ const state={trades:[row],checks:[c]};
+ const out=buildReview(state,{date:day,depth:'deep'}),group=out.groups.find(g=>g.title.startsWith('事后补录'));
+ assert.equal(out.totals.trades,0);assert.equal(out.totals.checks,0);
+ assert.ok(group.lines.some(x=>x.includes(row.name)));assert.ok(group.lines.some(x=>x.includes(c.name)));
+ assert.ok(!out.tags.includes(row.name));assert.ok(!out.groups.find(g=>g.title==='下一交易日预案').lines.some(x=>x.includes(c.name)));
+ assert.ok(!report(state).groups.some(g=>g.title.startsWith('事后补录')));
+ assert.equal(readLearningRows(state,cutoff).length,0);
+});
+test('settlement aliases and later receipt boundaries do not backdate the experience label',()=>{
+ const exit=Date.parse(day+'T14:00:00+08:00');
+ assert.equal(settlementObservation(t({exitTimestamp:exit-60000}),cutoff),null);
+ assert.equal(settlementObservation(t({exitDate:'2026-11-19'}),cutoff),null);
+ assert.equal(settlementObservation(t({recordedAt:day+'T05:59:59Z'}),cutoff),null);
+ const row=t({exitTimestamp:exit+30000,recordedAt:day+'T07:00:01Z'});
+ const obs=settlementObservation(row,cutoff,{requireReceipt:true});
+ assert.equal(obs.knownAt,Date.parse(day+'T07:00:01Z'));
+ assert.equal(readLearningRows({trades:[row]},cutoff)[0].labelKnownAt,day+'T15:01');
+});
+test('same ID teaching check or later correction cannot replace the pre-entry dictionary observation',()=>{
+ const row=t({checkId:'c1'}),c=check({createdAt:day+'T01:20:00Z',asOf:day+' 09:19',factorCodes:['TL-02']});
+ const late={...c,createdAt:day+'T07:00:00Z',factorCodes:['GG-01']};
+ const demo={...c,sampleSet:'test',factorCodes:['GG-01']};
+ const f=checks=>readLearningRows({trades:[row],checks},cutoff)[0].factors;
+ assert.ok(f([c,late,demo]).includes('TL-02'));assert.ok(!f([c,late,demo]).includes('GG-01'));
+ assert.ok(!f([c,{...c,factorCodes:['GG-01']}]).includes('TL-02'));
+});

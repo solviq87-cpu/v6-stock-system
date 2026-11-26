@@ -78,7 +78,7 @@ function periodRows(s,date,period,visible,at,quality,set){
 function nameTags(t) {
   return distinct([...labels(t.strategies),...labels(t.strategy),...labels(t.trend),...labels(t.knownRiskFactors),...labels(t.attribution),...labels(t.violations),t.theme,t.name,t.code]);
 }
-function signalRows(state,date,at){
+function signalRows(state,date,at=reviewCutoff(date)){
   return list(state.bars).length?signals(state,localMinute(at)).filter(r=>day(r.date)<=date&&decisionClock(r)!==null&&decisionClock(r)<=at):[];
 }
 function reviewContext(s,date,period,deep,quality,set,asOf){
@@ -224,6 +224,22 @@ export function buildReview(state,{date,period='day',depth='brief',quality='all'
     noEntry?'暂缓新开仓，先复核情绪证据、指数与风险项。':'逐项复核量能、题材助攻和承接，再按冻结计划观察。',
     blocked.length?'暂停战法 · '+distinct(blocked).join('、'):(noEntry?'暂停战法 · 所有开仓模式':'暂停未通过当日校验的战法。'),
     ...(today.length?today.map(c=>'观察 '+idText(c)+' · '+(labels(c.risks).length?'跟踪风险 '+labels(c.risks).join('、')+' 的变化':'观察题材和指数是否共振，重新核验 '+value(c.strategy))):['观察清单暂无标的，可从战法校验模块记录候选。'])]);
+  // Ordinary archive browsing and auto-refresh must still show later
+  // registered transactions. They are retrospective, never used above for
+  // counts, tags, risk frequency, similarities or next-session position.
+  if(asOf===undefined){
+    const viewAt=Date.now();
+    const within=d=>vDate(day(d))&&day(d)>=start&&day(d)<=end;
+    const laterTrades=uniqueEvidenceRows(list(state.trades).filter(t=>t&&within(tradeEnd(t))&&
+      selectedSample(t,quality,set)&&settlementObservation(t,viewAt,{requireReceipt:true})!==null),{settlements:true}).rows
+      .filter(t=>!settlementObservation(t,cutoff));
+    const laterChecks=uniqueEvidenceRows(list(state.checks).filter(c=>c&&within(c.date)&&
+      selectedSample(c,quality,set)&&recordedCheck(c,viewAt))).rows.filter(c=>!evidenceVisibleAt(c,cutoff));
+    const additions=[...laterTrades.map(t=>idText(t)+' ｜ 事后登记成交 '+value(t.exitTime||t.exitDate)+' ｜ '+pct(t.pnl)+
+      ' ｜ 登记 '+value(t.createdAt||t.recordedAt)),
+      ...laterChecks.map(c=>idText(c)+' ｜ 事后登记校验 '+value(c.date)+' ｜ 登记 '+value(c.createdAt||c.recordedAt))];
+    if(additions.length)add('事后补录（仅归档，不参与当时判断或绩效）',additions);
+  }
   const annotations=list(state.notes).filter(n=>['annotation','mistake'].includes(n.kind)&&n.date>=start&&n.date<=end);
   if(annotations.length)add('人工批注',annotations.map(n=>n.date+
     (evidenceVisibleAt(n,cutoff)&&sampleEvidenceTime(n.createdAt)!==null?' · 主观批注 · ':' · 事后或时点待核批注 · ')+n.text));

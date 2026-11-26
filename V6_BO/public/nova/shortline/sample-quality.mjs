@@ -35,7 +35,7 @@ export function sampleEvidenceTime(value,{dateAtClose=false}={}){
   at=Date.parse(s+(/(?:Z|[+-]\d{2}:\d{2})$/.test(s)?'':'+08:00'));
  return Number.isSafeInteger(at)&&at>0&&at<8e15?at:null;
 }
-const clocks=['createdAt','recordedAt','availableAt','knownAt','receivedAt','observedAt','observedAtMs','asOf'];
+const clocks=['createdAt','recordedAt','availableAt','knownAt','receivedAt','observedAt','observedAtMs','asOf','updatedAt','revisedAt'];
 export function evidenceVisibleAt(row,cutoff){
  if(!row||typeof row!=='object'||Array.isArray(row)||sampleEvidenceTime(cutoff)===null)return false;
  return clocks.every(k=>{
@@ -48,10 +48,20 @@ export function settlementObservation(row,cutoff,{requireReceipt=false}={}){
  const exit=sampleEvidenceTime(row.exitTimestamp??row.exitTime??row.sellTime??row.exitDate,{dateAtClose:true});
  const entryRaw=row.entryTimestamp??row.entryTime,entry=entryRaw==null?null:sampleEvidenceTime(entryRaw);
  if(exit===null||exit>cutoff||entryRaw!=null&&(entry===null||entry>=exit))return null;
- const receiptRaw=row.createdAt??row.recordedAt;
- const receipt=receiptRaw==null?null:sampleEvidenceTime(receiptRaw);
- if(receiptRaw!=null&&(receipt===null||receipt<exit||receipt>cutoff)||requireReceipt&&receipt===null)return null;
- return {exit,entry,receipt,knownAt:receipt===null?null:Math.max(exit,receipt)};
+ // Exact native timestamps and legacy wall-minute aliases must refer to
+ // the same minute. A later archive time cannot repair an earlier receipt.
+ for(const [precise,alias] of [['entryTimestamp','entryTime'],['exitTimestamp','exitTime']]){
+  if(row[precise]!=null&&row[alias]!=null){
+   const a=sampleEvidenceTime(row[precise]),b=sampleEvidenceTime(row[alias]);
+   if(a===null||b===null||Math.floor(a/60000)!==Math.floor(b/60000))return null;
+  }
+ }
+ if(row.exitDate!=null&&row.exitDate!==new Date(exit+28800000).toISOString().slice(0,10))return null;
+ const receipts=['createdAt','recordedAt','receivedAt','updatedAt','revisedAt'].filter(k=>row[k]!=null&&row[k]!=='').map(k=>sampleEvidenceTime(row[k]));
+ if(receipts.some(t=>t===null||t<exit||t>cutoff)||requireReceipt&&!receipts.length)return null;
+ const receipt=receipts.length?Math.max(...receipts):null;
+ const knownAt=receipt===null?null:Math.max(exit,receipt,...clocks.filter(k=>row[k]!=null&&row[k]!=='').map(k=>sampleEvidenceTime(row[k],{dateAtClose:k==='asOf'})));
+ return {exit,entry,receipt,knownAt};
 }
 // Resolve only already-visible, same-purpose records. Exact retries collapse;
 // conflicting records sharing either identity are quarantined together.

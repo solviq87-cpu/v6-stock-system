@@ -125,20 +125,26 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
   if(!cut||!Number.isFinite(end))return [];
   const allowTests=state.scope==='demo'||includeTest===true;
   const accept=r=>sampleMatches(r,selection)&&(allowTests||!isTestSample(r));
-  const manual=[],checks=new Map(uniqueEvidenceRows((state.checks||[]).filter(c=>evidenceVisibleAt(c,end)&&
-    (allowTests||!isTestSample(c))),{requireIdentity:true}).rows.map(c=>[c.id,c])),numericSignals=new Set();
+  const manual=[],checks=new Map(),numericSignals=new Set();
+  for(const c of state.checks||[]){
+    if(!c||typeof c.id!=='string')continue;
+    if(!checks.has(c.id))checks.set(c.id,[]);
+    checks.get(c.id).push(c);
+  }
   const visibleTrades=(state.trades||[]).filter(r=>accept(r)&&(!strict||r.snapshotVerified===true)&&
     settlementObservation(r,end,{requireReceipt:true})!==null);
   const settled=uniqueEvidenceRows(visibleTrades,{requireIdentity:true,settlements:true});
   for(const r of settled.rows){
     const observation=settlementObservation(r,end,{requireReceipt:true});
-    const exit=localTime(observation.exit),captured=localTime(observation.receipt);
-    const check=checks.get(r.checkId);
-    const codes=check?.code===r.code&&evidenceVisibleAt(check,observation.entry)?evidenceCodes(check,observation.entry):[];
+    const knownMinute=localTime(Math.ceil(observation.knownAt/60000)*60000);
+    const matching=observation.entry===null?[]:uniqueEvidenceRows((checks.get(r.checkId)||[]).filter(c=>
+      c.code===r.code&&isTestSample(c)===isTestSample(r)&&evidenceVisibleAt(c,observation.entry)),{requireIdentity:true}).rows;
+    const check=matching.length===1?matching[0]:null;
+    const codes=check?evidenceCodes(check,observation.entry):[];
     const signalKey=check?.code+'/'+check?.id;
     const numericFactors=numericSignals.has(signalKey)?null:settlementNumeric(state,r,check);
     if(numericFactors)numericSignals.add(signalKey);
-    manual.push({...r,numericFactors,factors:numericOnly?[]:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:exit>captured?exit:captured,
+    manual.push({...r,numericFactors,factors:numericOnly?[]:unique([...words(r.factors),...codes,...pressureLearningTags(state,r,r.entryTime)]),labelKnownAt:knownMinute,
       learningOutcomeBasis:'recorded-settlement',...(strict?{strategies:[r.strategy],labels:r.frozenLabels||{}}:{})});
   }
   if(numericOnly)return manual.filter(row=>row.numericFactors);
@@ -352,7 +358,8 @@ function buildCandidate(state,automatic=false,centerProposal=null){
   const a=ranges?.validation.start||days[Math.floor(days.length*0.55)], b=ranges?.test.start||days[Math.floor(days.length*0.78)];
   if(centerProposal&&(instant(centerProposal.baselineApprovedAt)>=instant(a)||!Number.isFinite(centerProposal.maxTrainingLabelKnownAt)||centerProposal.maxTrainingLabelKnownAt>=instant(a)))
     throw Error('中心拟合或获批基线晚于首个留出日，不能把后来可知的权重用于该验证窗口');
-  const availableBefore=(r,boundary)=>asDate(closedAt(r))<boundary&&(!r.createdAt||localTime(Date.parse(r.createdAt))<boundary);
+  const availableBefore=(r,boundary)=>asDate(closedAt(r))<boundary&&(!r.createdAt||localTime(Date.parse(r.createdAt))<boundary)&&
+    typeof r.labelKnownAt==='string'&&r.labelKnownAt<boundary;
   const inRange=(r,phase)=>!ranges||r.date>=ranges[phase].start&&r.date<=ranges[phase].end;
   const train=raw.filter(r=>r.date<a&&inRange(r,'train')&&availableBefore(r,a));
   const validation=raw.filter(r=>r.date>=a&&r.date<b&&inRange(r,'validation')&&availableBefore(r,b));
