@@ -36,7 +36,8 @@ function snapshotTime(snapshot,day,asOf,source){
   return null;
  const quotes=new Map();let valid=0;
  for(const s of snapshot.stocks){
-  if(!symbolOK(s?.code)||quotes.has(s.code))return null;
+  if(!symbolOK(s?.code)||quotes.has(s.code)||
+   (s.source!==undefined&&s.source!==snapshot.source))return null;
   const q=classifyQuoteTime(s,{requestDate:day,retrievedAt:end,maxAgeMs:300000});
   if(q.quoteTimeStatus==='recent-source-unverified')valid++;
   quotes.set(s.code,{...s,quoteTimeStatus:q.quoteTimeStatus});
@@ -127,7 +128,8 @@ function validActions(actions,cohort,asOf){
   !textOK(actions.provider)||!textOK(actions.datasetId)||
   actions.completed!==true||!timeOK(actions.observedAt)||
   actions.observedAt>asOf||!dayOK(actions.completeThrough)||
-  actions.completeThrough>aShareCalendarDate(asOf)||
+  // Completion through a day cannot have been observed before that day.
+  actions.completeThrough>aShareCalendarDate(actions.observedAt)||
   !Array.isArray(actions.coveredSymbols)||actions.coveredSymbols.length>10000||
   !Array.isArray(actions.events)||actions.events.length>10000)return null;
  const covered=new Set();
