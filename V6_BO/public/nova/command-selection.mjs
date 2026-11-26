@@ -120,10 +120,19 @@ function themeMatch(row, theme) {
 function ownFunds(row, day, now) {
   const source = row.fundsSource, method = row.fundsMethod, at = row.fundsSourceTimestamp;
   const received = row.fundsRetrievedAt, unit = row.fundsUnit || row.unit;
+  const aliases=[row.fundsSource,row.upstream,...(row.source===row.quoteSource?[]:[row.source])].filter(v=>v!=null);
+  const units=[row.fundsUnit,row.unit].filter(v=>v!=null);
+  if(aliases.some(v=>typeof v!=='string'||v!==source)||units.some(v=>v!=='CNY')||
+    [row.mainInflowYuan,row.netInflowYuan].filter(v=>v!=null).some(v=>!finite(v)||v!==row.mainInflow)||
+    /simulat|mock|fixture|synthetic|demo|import/i.test(source||'')||
+    ['simulated','mock','fixture','synthetic','imported','fundsConflict','fundsSourceConflict'].some(k=>row[k]===true)||
+    row.sourceTimestamp!=null&&row.sourceTimestamp!==at||row.retrievedAt!=null&&row.retrievedAt!==received||
+    row.fundsTradeDate!=null&&dayOf(row.fundsTradeDate)!==day)return null;
   if (!finite(row.mainInflow) || typeof source !== 'string' || !source.trim() ||
       method !== 'vendor-order-size-estimate' || unit !== 'CNY' ||
       !Number.isSafeInteger(at) || at <= 0 || at > now || dayOf(new Date(at + 28800000).toISOString().slice(0, 10)) !== day ||
-      !Number.isSafeInteger(received) || received < at || received > now) return null;
+      !Number.isSafeInteger(received) || received < at || received > now ||
+      day===dayOf(new Date(now+28800000).toISOString().slice(0,10))&&now-at>15000) return null;
   return {value: row.mainInflow, source, knownAt: received, from: day, to: day, days: 1};
 }
 function historyFunds(code, context, days, day, now) {

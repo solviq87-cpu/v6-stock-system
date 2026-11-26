@@ -18,6 +18,16 @@ function projectSectors(snapshot,{day,now=Date.now()}={}){
  let rejected=0,unknownSourceTime=0;
  for(const original of sourceRows){
   const source=original?.source||original?.upstream,at=original?.retrievedAt,declared=original?.tradeDate||original?.sourceTradeDate;
+  const aliases=[original?.source,original?.upstream,original?.fundsSource].filter(v=>v!=null);
+  const units=[original?.fundsUnit,original?.unit].filter(v=>v!=null);
+  const amountAliases=[original?.mainInflowYuan,original?.netInflowYuan].filter(v=>v!=null);
+  const inconsistent=aliases.some(v=>typeof v!=='string'||v!==source)||units.some(v=>v!=='CNY')||
+   amountAliases.some(v=>!finite(v)||v!==original?.mainInflow)||
+   original?.fundsConflict===true||original?.fundsSourceConflict===true||
+   original?.tradeDate!=null&&original?.sourceTradeDate!=null&&normalizeDay(original.tradeDate)!==normalizeDay(original.sourceTradeDate)||
+   original?.fundsSourceTimestamp!=null&&original.fundsSourceTimestamp!==original.sourceTimestamp||
+   original?.fundsRetrievedAt!=null&&original.fundsRetrievedAt!==at;
+  if(inconsistent){rejected++;continue;}
   if(!original||typeof original.name!=='string'||!original.name.trim()||
    typeof source!=='string'||!source.trim()||/mock|synthetic|fixture|simulated|demo/i.test(source)||
    ['mock','synthetic','fixture','simulated'].some(key=>original[key]===true)||

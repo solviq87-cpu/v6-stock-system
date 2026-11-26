@@ -34,13 +34,16 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
   let day=null,epoch=0,lastClock=null,quotes=new Map(),books=new Map(),channels=new Map(),nextCloseCheck=0;
   const providers=['tencent-index','sina-index'];
   const validTime=at=>Number.isSafeInteger(at)&&at>0&&at<=8e15;
-  function reset(nextDay){
+  function reset(nextDay,at=null){
+    const hadQuotes=quotes.size>0;
     day=nextDay;epoch++;quotes=new Map();books=new Map();channels=new Map();nextCloseCheck=0;
+    // The server's shared index projection must lose old rows too, not just this reader.
+    if(hadQuotes)onUpdate({at:validTime(at)?at:null,items:[]});
   }
   function sampleClock(){
     const now=clock();
     if(!validTime(now)){reset(day);lastClock=null;return null;}
-    if(lastClock!==null&&now<lastClock){reset(day);lastClock=now;return null;}
+    if(lastClock!==null&&now<lastClock){reset(day,now);lastClock=now;return null;}
     lastClock=now;return now;
   }
   function timed(row,now,startedAt){

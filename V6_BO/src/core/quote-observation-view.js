@@ -5,7 +5,7 @@ function conflictingQuoteIdentity(row){
  const source=providerFamily(row?.quoteSource),alias=providerFamily(row?.source);
  // A generic source may describe a separate funds stream or strategy, rather than a price.
  return !!(row?.quoteProvider!=null&&(typeof row.quoteProvider!=='string'||!row.quoteProvider.trim()||
-   (providerFamily(row.quoteProvider)||row.quoteProvider.trim())!==(source||row?.quoteSource?.trim()))||
+   (providerFamily(row.quoteProvider)||row.quoteProvider.trim())!==(source||(typeof row?.quoteSource==='string'?row.quoteSource.trim():null)))||
    source&&alias&&source!==alias&&row?.source!==row?.fundsSource);
 }
 // A conflict is not an eligible original observation, even if its timestamp is fresh.
