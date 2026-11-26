@@ -79,3 +79,62 @@ test('近期异动留存三分钟并保留事件时点，采集诊断区分失�
  const nextOpen=Date.parse('2026-11-23T09:15:05+08:00');
  assert.deepEqual(observe(codes,[],nextOpen).sessionTotals.map(row=>row.phase),['auction-revocable']);
 });
+
+test('同源更正异动终点或比较基准时撤销旧线索并重建观察窗口',()=>{
+ for(const correctedAt of [base,base+5000]){
+  const observe=createFastStockMoves();
+  observe(codes,[row(base,100)],base+500);
+  assert.equal(observe(codes,[row(base+5000,102)],base+5500).count,1);
+  const corrected=observe(codes,[row(correctedAt,101)],base+6500);
+  assert.equal(corrected.count,0);
+  assert.equal(corrected.recentItems.length,0);
+  assert.equal(corrected.comparable,0);
+  assert.equal(observe(codes,[row(base+12000,103)],base+12500).count,1);
+ }
+});
+
+test('同源明确冲突和重复批次中的更正不能留下被推翻的异动',()=>{
+ for(const rows of [[row(base+5000,102,{sourceConflict:true})],
+                    [row(base+5000,102),row(base+5000,101)]]){
+  const observe=createFastStockMoves();
+  observe(codes,[row(base,100)],base+500);
+  assert.equal(observe(codes,[row(base+5000,102)],base+5500).count,1);
+  const result=observe(codes,rows,base+6500);
+  assert.equal(result.observed,0);
+  assert.equal(result.recentItems.length,0);
+  assert.equal(observe(codes,[row(base+12000,104)],base+12500).comparable,0);
+ }
+});
+
+test('独立来源变化和普通失败不撤销有效的历史线索',()=>{
+ const observe=createFastStockMoves();
+ observe(codes,[row(base,100)],base+500);
+ observe(codes,[row(base+5000,102)],base+5500);
+ const switched=observe(codes,[row(base+5000,101,{quoteSource:'eastmoney'})],base+6500);
+ assert.equal(switched.recentItems[0].price,102);
+ assert.equal(observe(codes,[],base+8500,{failed:true}).recentItems[0].detectedAt,base+5500);
+});
+
+test('本地时钟回拨不展示未来异动或继承未来比较和计数',()=>{
+ const observe=createFastStockMoves();
+ observe(codes,[row(base,100)],base+500);
+ assert.equal(observe(codes,[row(base+5000,102)],base+5500).count,1);
+ const result=observe(codes,[row(base,100)],base+700);
+ assert.equal(result.count,0);
+ assert.equal(result.recentItems.length,0);
+ assert.equal(result.comparable,0);
+ assert.equal(result.sessionTotals[0].rounds,1);
+ const resumed=observe(codes,[row(base+5000,101.2)],base+5700);
+ assert.equal(resumed.count,1);
+ assert.equal(resumed.items[0].baseAt,base);
+});
+
+test('缺少来源的行不能形成异动，也不撤销已留存的同源线索',()=>{
+ const observe=createFastStockMoves();
+ assert.equal(observe(codes,[row(base,100,{quoteSource:undefined})],base+500).observed,0);
+ observe(codes,[row(base,100)],base+1000);
+ assert.equal(observe(codes,[row(base+5000,102)],base+5500).count,1);
+ const result=observe(codes,[row(base+5000,99,{quoteSource:undefined})],base+6500);
+ assert.equal(result.observed,0);
+ assert.equal(result.recentItems[0].price,102);
+});
