@@ -122,7 +122,7 @@ function sampleClass(raw,context,bar){
  const declared=[metadata,context,bar].some(v=>v&&['scope','sampleSet','sampleScope'].some(k=>['formal','real'].includes(v[k])));
  return declared?'standard-declared':'unknown';
 }
-function readChain(root,id,{asOf}={}){
+function readChain(root,id,{asOf,adverseDates}={}){
  // Validate the complete immutable chain, but retain only the projection needed
  // for the next revision and small query metadata. Full historical events can
  // exceed the research worker's heap even while the archive is below its cap.
@@ -149,6 +149,11 @@ function readChain(root,id,{asOf}={}){
     state.sampleClasses.set(bar.date,prior==='nonstandard'||current==='nonstandard'?'nonstandard':
       prior==='unknown'||current==='unknown'?'unknown':current);
    }
+  }else if(asOf===undefined&&adverseDates?.size){
+   // Writers only need the prior negative classification of the incoming
+   // adverse dates. Do not reclassify the full archive on ordinary repeats.
+   for(const bar of event.rawStock.bars)if(adverseDates.has(bar.date)&&state.sampleClasses.get(bar.date)!=='nonstandard'&&
+     sampleClass(event.rawStock,event.context,bar)==='nonstandard')state.sampleClasses.set(bar.date,'nonstandard');
   }
  }
  return state;
@@ -158,11 +163,17 @@ function retainStockObservation(root,{stock,observedAt,context={}}={}){
  const {id,raw}=validateStock(stock,observedAt),safeContext=canonical(context);
  if(Buffer.byteLength(encode(safeContext))>32768)throw Error('观察上下文超过上限');
  const dir=location(root,id,true);
+ const adverseDates=new Set(raw.bars.filter(bar=>sampleClass(raw,safeContext,bar)==='nonstandard').map(bar=>bar.date));
  for(let attempt=0;attempt<5;attempt++){
-  const state=readChain(root,id),last=state.lastEvent;
+  const state=readChain(root,id,{adverseDates}),last=state.lastEvent;
   if(last&&observedAt<last.observedAt)throw Error('观察时点不得倒退');
   const next=project(raw,observedAt,last?.stock);
-  if(last&&encode(content(next))===encode(content(last.stock)))return {stock:last.stock,changed:false,revision:last.revision,observationHash:last.observationHash,...flags};
+  // Numeric/provenance projection may be unchanged even when the raw source
+  // explicitly disqualifies a date. Retain the first such adverse declaration
+  // in the original chain; ordinary repeat receipts still deduplicate, and a
+  // later formal claim cannot erase a known nonstandard classification.
+  const newAdverseClass=[...adverseDates].some(date=>state.sampleClasses.get(date)!=='nonstandard');
+  if(last&&!newAdverseClass&&encode(content(next))===encode(content(last.stock)))return {stock:last.stock,changed:false,revision:last.revision,observationHash:last.observationHash,...flags};
   if(state.count>=MAX_REVISIONS)throw Error('观察版本达到500上限');
   const recordedAt=Date.now();if(last&&recordedAt<last.recordedAt)throw Error('记录时钟倒退');
   const payload={schemaVersion:1,...flags,identity:id,revision:state.count+1,previousHash:last?.observationHash||null,observedAt,recordedAt,rawStock:raw,stock:next,context:safeContext};

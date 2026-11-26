@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -10,7 +10,8 @@
         "V6_BO/src/core/risk-workbench.js",
         "V6_BO/src/server/risk-workbench-runtime.js",
         "V6_BO/public/nova/risk-workbench-view.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -30,7 +31,8 @@
       "evidence": [
         "V6_BO/tests/risk-workbench.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -57,7 +59,7 @@
   },
   {
     "id": 2,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -66,7 +68,8 @@
         "V6_BO/src/core/effective-risk-evidence.js",
         "V6_BO/src/core/common-entry-risk.js",
         "V6_BO/src/core/portfolio-risk-gate.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -86,7 +89,8 @@
       "evidence": [
         "V6_BO/tests/effective-risk-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -113,7 +117,7 @@
   },
   {
     "id": 3,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -121,7 +125,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/account-equity-evidence.js",
         "V6_BO/src/server/risk-workbench-runtime.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -141,7 +146,8 @@
       "evidence": [
         "V6_BO/tests/account-equity-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -168,7 +174,7 @@
   },
   {
     "id": 4,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -176,7 +182,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/risk-action-evidence.js",
         "V6_BO/src/core/paper-plan-observer.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -196,7 +203,8 @@
       "evidence": [
         "V6_BO/tests/risk-action-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -223,7 +231,7 @@
   },
   {
     "id": 5,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -232,7 +240,8 @@
         "V6_BO/src/core/risk-alert-lifecycle.js",
         "V6_BO/src/core/private-risk-feishu-delivery.js",
         "V6_BO/feishuq.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -252,7 +261,8 @@
       "evidence": [
         "V6_BO/tests/risk-alert-lifecycle.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -279,7 +289,7 @@
   },
   {
     "id": 6,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -288,7 +298,8 @@
         "V6_BO/server.js",
         "V6_BO/src/core/market-data-center.js",
         "V6_BO/src/core/system-readiness.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -309,7 +320,8 @@
         "V6_BO/tests/system-readiness.test.js",
         "V6_BO/tests/decision-evidence-runtime.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -336,7 +348,7 @@
   },
   {
     "id": 7,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -344,7 +356,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/strategy-health-monitor.js",
         "V6_BO/src/core/unified-strategy-project.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -364,7 +377,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-diagnosis.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -391,7 +405,7 @@
   },
   {
     "id": 8,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -400,7 +414,8 @@
         "V6_BO/src/core/probability-reliability.js",
         "V6_BO/scripts/probability-reliability.js",
         "V6_BO/src/core/probability-reliability-store.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -420,7 +435,9 @@
       "evidence": [
         "V6_BO/tests/probability-reliability.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -447,7 +464,7 @@
   },
   {
     "id": 9,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -456,7 +473,8 @@
         "V6_BO/src/core/fayo-research-governance.js",
         "V6_BO/src/core/factor-health.js",
         "V6_BO/src/core/intelligence-research.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -476,7 +494,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-governance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -503,7 +522,7 @@
   },
   {
     "id": 10,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -512,7 +531,8 @@
         "V6_BO/src/core/observed-market-regime.js",
         "V6_BO/src/core/sector-h5-market-regime-stress.js",
         "V6_BO/src/core/fayo-research-governance.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -532,7 +552,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-governance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -559,7 +580,7 @@
   },
   {
     "id": 11,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -568,7 +589,8 @@
         "V6_BO/src/core/news-evidence-journal.js",
         "V6_BO/src/core/research-interaction-workbench.js",
         "V6_BO/public/nova/evidence-workbench.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -588,7 +610,8 @@
       "evidence": [
         "V6_BO/tests/fayo-evidence-workbench.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -615,7 +638,7 @@
   },
   {
     "id": 12,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -624,7 +647,8 @@
         "V6_BO/src/core/factor-model-comparison.js",
         "V6_BO/src/core/fayo-research-governance.js",
         "V6_BO/src/research/shortline/store.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -644,7 +668,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-governance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -671,7 +696,7 @@
   },
   {
     "id": 13,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -679,7 +704,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/intelligence-execution-validation.js",
         "V6_BO/public/nova/intelligence-view.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -699,7 +725,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-diagnosis.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -726,7 +753,7 @@
   },
   {
     "id": 14,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -734,7 +761,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/portfolio-stress-evidence.js",
         "V6_BO/src/core/account-equity-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -754,7 +782,8 @@
       "evidence": [
         "V6_BO/tests/portfolio-stress-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -781,7 +810,7 @@
   },
   {
     "id": 15,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -790,7 +819,8 @@
         "V6_BO/public/nova/event-research.mjs",
         "V6_BO/public/nova/market.js",
         "V6_BO/public/nova/research-records.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -810,7 +840,8 @@
       "evidence": [
         "V6_BO/tests/fayo-event-research.test.mjs",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -837,7 +868,7 @@
   },
   {
     "id": 16,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -846,7 +877,8 @@
         "V6_BO/public/nova/command-selection.mjs",
         "V6_BO/src/core/research-interaction-workbench.js",
         "V6_BO/src/server/research-interaction-http.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -866,7 +898,8 @@
       "evidence": [
         "V6_BO/tests/research-workspace-http.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -893,7 +926,7 @@
   },
   {
     "id": 17,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -901,7 +934,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/public/nova/evidence-workbench.mjs",
         "V6_BO/src/core/research-interaction-workbench.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -921,7 +955,8 @@
       "evidence": [
         "V6_BO/tests/fayo-evidence-workbench.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -948,7 +983,7 @@
   },
   {
     "id": 18,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -957,7 +992,8 @@
         "V6_BO/src/core/research-calendar-source.js",
         "V6_BO/src/core/news-evidence-journal.js",
         "V6_BO/src/core/market-data-evidence.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -977,7 +1013,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1004,7 +1041,7 @@
   },
   {
     "id": 19,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1013,7 +1050,8 @@
         "V6_BO/public/nova/research-review.mjs",
         "V6_BO/public/nova/operations.js",
         "V6_BO/src/research/shortline-paper-import.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1033,7 +1071,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-review.test.mjs",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1060,7 +1099,7 @@
   },
   {
     "id": 20,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1069,7 +1108,8 @@
         "V6_BO/server.js",
         "V6_BO/src/core/market-data-center.js",
         "V6_BO/src/core/system-readiness.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1089,7 +1129,8 @@
       "evidence": [
         "V6_BO/tests/advanced-account-risk.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1116,7 +1157,7 @@
   },
   {
     "id": 21,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1124,7 +1165,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/probability-contract.js",
         "V6_BO/public/nova/intelligence-view.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1144,7 +1186,8 @@
       "evidence": [
         "V6_BO/tests/probability-reliability.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1171,7 +1214,7 @@
   },
   {
     "id": 22,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1181,7 +1224,8 @@
         "V6_BO/src/core/market-data-center.js",
         "V6_BO/server.js",
         "V6_BO/src/core/quote-observation-view.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1201,7 +1245,9 @@
       "evidence": [
         "V6_BO/tests/quote-observation-view.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -1228,7 +1274,7 @@
   },
   {
     "id": 23,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1237,7 +1283,8 @@
         "V6_BO/src/core/data-source-lineage.js",
         "V6_BO/src/core/feed-discrepancy-quarantine.js",
         "V6_BO/src/core/market-data-evidence.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1257,7 +1304,9 @@
       "evidence": [
         "V6_BO/tests/data-source-lineage.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -1284,7 +1333,7 @@
   },
   {
     "id": 24,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1293,7 +1342,8 @@
         "V6_BO/src/core/factor-redundancy.js",
         "V6_BO/src/core/factor-marginal-contribution.js",
         "V6_BO/src/core/fayo-research-governance.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1313,7 +1363,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-governance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1340,7 +1391,7 @@
   },
   {
     "id": 25,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1349,7 +1400,8 @@
         "V6_BO/src/core/strategy-evidence-replay.js",
         "V6_BO/src/core/factor-global-trial-budget.js",
         "V6_BO/src/core/probability-reliability-store.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1370,7 +1422,9 @@
         "V6_BO/tests/strategy-evidence-replay.test.js",
         "V6_BO/tests/probability-reliability.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -1397,7 +1451,7 @@
   },
   {
     "id": 26,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1405,7 +1459,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/independent-strategy-attribution.js",
         "V6_BO/src/strategy/historical-session.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1425,7 +1480,8 @@
       "evidence": [
         "V6_BO/tests/independent-strategy-attribution.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1452,7 +1508,7 @@
   },
   {
     "id": 27,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1460,7 +1516,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/server.js",
         "V6_BO/src/core/manual-decision-loop.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1480,7 +1537,8 @@
       "evidence": [
         "V6_BO/tests/fayo-evidence-workbench.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1507,7 +1565,7 @@
   },
   {
     "id": 28,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1515,7 +1573,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/research/shortline/store.mjs",
         "V6_BO/src/core/fayo-research-governance.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1535,7 +1594,8 @@
       "evidence": [
         "V6_BO/tests/fayo-research-governance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1562,7 +1622,7 @@
   },
   {
     "id": 29,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1572,7 +1632,8 @@
         "V6_BO/src/server/decision-evidence-runtime.js",
         "V6_BO/server.js",
         "V6_BO/src/core/runtime-trace.js",
-        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1592,7 +1653,8 @@
       "evidence": [
         "V6_BO/tests/decision-evidence-runtime.test.js",
         "docs/FAYO_DEEP_RESEARCH_20261126.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1619,7 +1681,7 @@
   },
   {
     "id": 30,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1628,7 +1690,8 @@
         "V6_BO/src/core/risk-alert-lifecycle.js",
         "V6_BO/src/core/risk-workbench.js",
         "V6_BO/public/nova/risk-workbench-view.mjs",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1648,7 +1711,8 @@
       "evidence": [
         "V6_BO/tests/risk-alert-lifecycle.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1675,7 +1739,7 @@
   },
   {
     "id": 31,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1683,7 +1747,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/strategy/sector-cohort-rps.js",
         "V6_BO/src/core/evolution-market-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1703,7 +1768,8 @@
       "evidence": [
         "V6_BO/tests/evolution-market-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1730,7 +1796,7 @@
   },
   {
     "id": 32,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1738,7 +1804,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/public/nova/shortline/backtest.mjs",
         "V6_BO/src/core/evolution-market-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1759,7 +1826,8 @@
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "V6_BO/tests/evolution-market-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1786,7 +1854,7 @@
   },
   {
     "id": 33,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1794,7 +1862,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/public/nova/shortline/backtest.mjs",
         "V6_BO/src/core/evolution-market-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1814,7 +1883,8 @@
       "evidence": [
         "V6_BO/tests/evolution-market-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1841,7 +1911,7 @@
   },
   {
     "id": 34,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1849,7 +1919,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/strategy/signal-pool-lifecycle.js",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1869,7 +1940,8 @@
       "evidence": [
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1896,7 +1968,7 @@
   },
   {
     "id": 35,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1904,7 +1976,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/research-workspace-decision.js",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1924,7 +1997,8 @@
       "evidence": [
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -1951,7 +2025,7 @@
   },
   {
     "id": 36,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -1959,7 +2033,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/independent-strategy-attribution.js",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -1979,7 +2054,8 @@
       "evidence": [
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2006,14 +2082,15 @@
   },
   {
     "id": 37,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2033,7 +2110,8 @@
       "evidence": [
         "V6_BO/tests/advanced-portfolio-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2060,7 +2138,7 @@
   },
   {
     "id": 38,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2068,7 +2146,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
         "V6_BO/src/core/advanced-account-risk.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2088,7 +2167,8 @@
       "evidence": [
         "V6_BO/tests/advanced-account-risk.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2115,7 +2195,7 @@
   },
   {
     "id": 39,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2124,7 +2204,8 @@
         "V6_BO/src/core/advanced-account-risk.js",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
         "V6_BO/public/nova/research-extensions.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2144,7 +2225,8 @@
       "evidence": [
         "V6_BO/tests/advanced-account-risk.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2171,7 +2253,7 @@
   },
   {
     "id": 40,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2180,7 +2262,8 @@
         "V6_BO/src/core/common-entry-risk.js",
         "V6_BO/src/core/portfolio-risk-gate.js",
         "V6_BO/src/core/account-safety-state.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2200,7 +2283,8 @@
       "evidence": [
         "V6_BO/tests/account-safety-state.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2227,7 +2311,7 @@
   },
   {
     "id": 41,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2235,7 +2319,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/research-workspace-decision.js",
         "V6_BO/src/core/deep-decision-research.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2255,7 +2340,8 @@
       "evidence": [
         "V6_BO/tests/deep-decision-research.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2282,14 +2368,15 @@
   },
   {
     "id": 42,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2309,7 +2396,8 @@
       "evidence": [
         "V6_BO/tests/advanced-portfolio-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2336,7 +2424,7 @@
   },
   {
     "id": 43,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2344,7 +2432,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/research-causal-diagnostics.js",
         "V6_BO/src/core/evolution-model-causality.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2364,7 +2453,8 @@
       "evidence": [
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2391,7 +2481,7 @@
   },
   {
     "id": 44,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2399,7 +2489,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/research-causal-diagnostics.js",
         "V6_BO/src/core/evolution-model-causality.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2419,7 +2510,8 @@
       "evidence": [
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2446,7 +2538,7 @@
   },
   {
     "id": 45,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2454,7 +2546,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/intelligence-execution-validation.js",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2474,7 +2567,8 @@
       "evidence": [
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2501,7 +2595,7 @@
   },
   {
     "id": 46,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2510,7 +2604,8 @@
         "V6_BO/public/nova/shortline/backtest.mjs",
         "V6_BO/public/nova/shortline/backtest-analytics.mjs",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2531,7 +2626,8 @@
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2558,7 +2654,7 @@
   },
   {
     "id": 47,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2566,7 +2662,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/intelligence-execution-validation.js",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2586,7 +2683,8 @@
       "evidence": [
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2613,7 +2711,7 @@
   },
   {
     "id": 48,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2621,7 +2719,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/server/advanced-account-risk-job.js",
         "V6_BO/src/core/runtime-trace.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2641,7 +2740,8 @@
       "evidence": [
         "V6_BO/tests/advanced-account-risk.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2668,7 +2768,7 @@
   },
   {
     "id": 49,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2677,7 +2777,8 @@
         "V6_BO/src/core/advanced-account-risk.js",
         "V6_BO/src/core/paper-application-service.js",
         "V6_BO/src/core/account-safety-state.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2698,7 +2799,8 @@
         "V6_BO/tests/advanced-account-risk.test.js",
         "V6_BO/tests/account-safety-state.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2725,7 +2827,7 @@
   },
   {
     "id": 50,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2734,7 +2836,8 @@
         "V6_BO/src/core/process-file-lock.js",
         "V6_BO/src/server/advanced-account-risk-job.js",
         "V6_BO/server.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2754,7 +2857,8 @@
       "evidence": [
         "V6_BO/tests/process-file-lock-race.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2781,7 +2885,7 @@
   },
   {
     "id": 51,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2789,7 +2893,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
         "V6_BO/src/core/market-data-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2810,7 +2915,9 @@
         "V6_BO/tests/advanced-portfolio-evidence.test.js",
         "V6_BO/tests/deep-research-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -2837,7 +2944,7 @@
   },
   {
     "id": 52,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2845,7 +2952,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/historical-universe.js",
         "V6_BO/src/core/trading-fees.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2866,7 +2974,8 @@
         "V6_BO/tests/historical-corporate-pit.test.js",
         "V6_BO/tests/point-in-time-universe-policy.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2893,7 +3002,7 @@
   },
   {
     "id": 53,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2902,7 +3011,8 @@
         "V6_BO/src/core/feed-discrepancy-quarantine.js",
         "V6_BO/src/core/market-data-center.js",
         "V6_BO/src/core/quote-observation-view.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2922,7 +3032,8 @@
       "evidence": [
         "V6_BO/tests/feed-discrepancy-quarantine.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -2949,7 +3060,7 @@
   },
   {
     "id": 54,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -2957,7 +3068,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/server/advanced-account-risk-job.js",
         "V6_BO/src/core/account-process-lock.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -2977,7 +3089,8 @@
       "evidence": [
         "V6_BO/tests/advanced-account-risk.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3004,7 +3117,7 @@
   },
   {
     "id": 55,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3012,7 +3125,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/public/sw.js",
         "V6_BO/src/core/release-provenance.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3032,7 +3146,8 @@
       "evidence": [
         "V6_BO/tests/release-provenance.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3059,14 +3174,15 @@
   },
   {
     "id": 56,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/authority-audit-backup.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3087,7 +3203,8 @@
         "V6_BO/tests/mainline-backup-model.test.js",
         "V6_BO/tests/cloud-records-backup-preflight.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3114,7 +3231,7 @@
   },
   {
     "id": 57,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3122,7 +3239,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/account-process-lock.js",
         "V6_BO/src/core/process-file-lock.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3142,7 +3260,8 @@
       "evidence": [
         "V6_BO/tests/process-file-lock-race.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3169,14 +3288,15 @@
   },
   {
     "id": 58,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/advanced-portfolio-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3196,7 +3316,8 @@
       "evidence": [
         "V6_BO/tests/advanced-portfolio-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3223,7 +3344,7 @@
   },
   {
     "id": 59,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3231,7 +3352,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/intelligence-research.js",
         "V6_BO/src/core/evolution-market-evidence.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3251,7 +3373,8 @@
       "evidence": [
         "V6_BO/tests/evolution-market-evidence.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3278,7 +3401,7 @@
   },
   {
     "id": 60,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3286,7 +3409,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/paper-conditional-orders.js",
         "V6_BO/src/core/paper-plan-observer.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3306,7 +3430,8 @@
       "evidence": [
         "V6_BO/tests/paper-conditional-orders.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3333,7 +3458,7 @@
   },
   {
     "id": 61,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3341,7 +3466,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/factor-global-trial-budget.js",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3361,7 +3487,8 @@
       "evidence": [
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3388,7 +3515,7 @@
   },
   {
     "id": 62,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3396,7 +3523,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/unified-strategy-project.js",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3416,7 +3544,8 @@
       "evidence": [
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3443,7 +3572,7 @@
   },
   {
     "id": 63,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3452,7 +3581,8 @@
         "V6_BO/public/nova/shortline/backtest-analytics.mjs",
         "V6_BO/public/nova/shortline/backtest.mjs",
         "V6_BO/src/core/evolution-research-statistics.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3473,7 +3603,9 @@
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "V6_BO/tests/evolution-statistics.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
       ]
     },
     "deployed": {
@@ -3500,7 +3632,7 @@
   },
   {
     "id": 64,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3508,7 +3640,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/src/core/research-workspace-decision.js",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3528,7 +3661,8 @@
       "evidence": [
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3555,7 +3689,7 @@
   },
   {
     "id": 65,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3564,7 +3698,8 @@
         "V6_BO/src/server/decision-evidence-runtime.js",
         "V6_BO/src/server/decision-center-background.js",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3584,7 +3719,8 @@
       "evidence": [
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3611,7 +3747,7 @@
   },
   {
     "id": 66,
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory",
     "code": {
       "status": "partial",
@@ -3619,7 +3755,8 @@
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
         "V6_BO/public/nova/shortline/backtest.mjs",
         "V6_BO/src/core/evolution-workflow.js",
-        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3640,7 +3777,8 @@
         "V6_BO/tests/fayo-intelligence-evolution.test.js",
         "V6_BO/tests/evolution-workflow.test.js",
         "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3672,7 +3810,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3693,7 +3832,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3717,7 +3857,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -3727,7 +3867,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3748,7 +3889,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3772,7 +3914,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -3782,7 +3924,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3803,7 +3946,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3827,7 +3971,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -3837,7 +3981,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3858,7 +4003,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3882,7 +4028,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -3892,7 +4038,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3913,7 +4060,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3937,7 +4085,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -3947,7 +4095,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-research-evidence.js"
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -3968,7 +4117,8 @@
       "evidence": [
         "V6_BO/tests/deep-research-evidence.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -3992,7 +4142,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4002,7 +4152,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-decision-research.js"
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4023,7 +4174,8 @@
       "evidence": [
         "V6_BO/tests/deep-decision-research.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4047,7 +4199,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4057,7 +4209,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-decision-research.js"
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4078,7 +4231,8 @@
       "evidence": [
         "V6_BO/tests/deep-decision-research.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4102,7 +4256,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4112,7 +4266,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-decision-research.js"
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4133,7 +4288,8 @@
       "evidence": [
         "V6_BO/tests/deep-decision-research.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4157,7 +4313,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4167,7 +4323,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/deep-decision-research.js"
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4188,7 +4345,8 @@
       "evidence": [
         "V6_BO/tests/deep-decision-research.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4212,7 +4370,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4222,7 +4380,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/release-provenance.js"
+        "V6_BO/src/core/release-provenance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4243,7 +4402,8 @@
       "evidence": [
         "V6_BO/tests/release-provenance.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4267,7 +4427,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   },
   {
@@ -4277,7 +4437,8 @@
       "status": "partial",
       "evidence": [
         "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
-        "V6_BO/src/core/runtime-acceptance.js"
+        "V6_BO/src/core/runtime-acceptance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
       ]
     },
     "interface": {
@@ -4298,7 +4459,8 @@
       "evidence": [
         "V6_BO/tests/runtime-acceptance.test.js",
         "docs/validation/fayo-deep-research-20261126/README.md",
-        "docs/FAYO_INTEGRATION_WIP_20261126.md"
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
       ]
     },
     "deployed": {
@@ -4322,7 +4484,7 @@
         "docs/validation/fayo-deep-research-20261126/README.md"
       ]
     },
-    "sourceSha": "8c73335b744202de406755b15c783e5d73fb3ea4",
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
     "sourceState": "integrated-candidate-inventory"
   }
 ]
