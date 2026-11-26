@@ -64,8 +64,15 @@ function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
  const fit=rows.calibration,holdout=rows.validation,ready=enough(fit)&&enough(holdout)&&now>=p.validationEndAt;
  const bins=Array.from({length:POLICY.bins},()=>[]);for(const r of fit)bins[bin(r.p)].push(r.y);
  const calibrated=ready?holdout.filter(r=>bins[bin(r.p)].length>=POLICY.minBin).map(r=>({...r,p:average(bins[bin(r.p)])})):[];
- const expectedValidation=[...byId.values()].filter(f=>f.phase==='validation').length;
+ const frozen=[...byId.values()],expectedValidation=frozen.filter(f=>f.phase==='validation').length;
+ // Structural overlap is determined from the preregistered calendar and
+ // target horizon, not from whether a favorable label was supplied later.
+ const calibrationFrozen=frozen.filter(f=>f.phase==='calibration');
+ const scheduledPurgedCalibration=calibrationFrozen.filter(f=>close(f.targetDay)>=p.validationStartAt).length;
+ const expectedCalibration=calibrationFrozen.length-scheduledPurgedCalibration;
+ const calibrationCoverage=expectedCalibration?fit.length/expectedCalibration:null;
+ const completeCalibrationEvidence=expectedCalibration>0&&fit.length===expectedCalibration;
  const comparable=calibrated.length===holdout.length&&calibrated.length>0&&holdout.length===expectedValidation;
- return {schemaVersion:1,mode:'probability-reliability-research',scope:p.scope,target:p.target,targetLabel:TARGETS[p.target],modelVersion:p.modelVersion,modelFingerprint:p.modelFingerprint,planFingerprint:plan.fingerprint,asOf:now,policy:POLICY,status:p.scope==='test'?'fixture-only':ready&&comparable?'descriptive-holdout-evaluated':'insufficient-or-incomplete-evidence',exclusions,expectedValidation,calibration:metrics(fit),validationRaw:metrics(holdout),validationCalibrated:metrics(calibrated),calibratedCoverage:holdout.length?calibrated.length/holdout.length:null,comparisonOnIdenticalRows:comparable,uncertaintyMethod:'leave-one-signal-day-out sensitivity, not a confidence interval',calibrationCertified:false,canTrade:false,canApprove:false,productionWeightsChanged:false,note:'源端真实性及登记存证独立核验尚需原实例；规则分、频率与模型概率不得混用。'};
+ return {schemaVersion:1,mode:'probability-reliability-research',scope:p.scope,target:p.target,targetLabel:TARGETS[p.target],modelVersion:p.modelVersion,modelFingerprint:p.modelFingerprint,planFingerprint:plan.fingerprint,asOf:now,policy:POLICY,status:p.scope==='test'?'fixture-only':ready&&comparable&&completeCalibrationEvidence?'descriptive-holdout-evaluated':'insufficient-or-incomplete-evidence',exclusions,expectedValidation,expectedCalibration,scheduledPurgedCalibration,calibrationCoverage,completeCalibrationEvidence,calibration:metrics(fit),validationRaw:metrics(holdout),validationCalibrated:metrics(calibrated),calibratedCoverage:holdout.length?calibrated.length/holdout.length:null,comparisonOnIdenticalRows:comparable,uncertaintyMethod:'leave-one-signal-day-out sensitivity, not a confidence interval',calibrationCertified:false,canTrade:false,canApprove:false,productionWeightsChanged:false,note:'源端真实性及登记存证独立核验尚需原实例；规则分、频率与模型概率不得混用。'};
 }
 module.exports={TARGETS,POLICY,register,freezePrediction,evaluate};

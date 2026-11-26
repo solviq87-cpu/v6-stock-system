@@ -226,35 +226,96 @@ export function createCommandSelection(ctx) {
   const memory = ctx.viewMemory || {};
   const saved = h('div',{class:'fy-inline'});
   const sharedStatus=h('small',{class:'fy-muted','aria-live':'polite'},'共享模板由原研究服务器保存；主动读取。');
-  let shared=[],templateTurn=0;
-  async function readShared(){
-    if(ctx.role!=='edit')return;
-    const id=++templateTurn;
-    try{const reply=await ctx.api('/api/research/evidence-workbench?mode=templates',{signal:ctx.signal});
-      if(ctx.signal?.aborted||id!==templateTurn||ctx.role!=='edit')return;
-      const r=reply.result;
-      if(!reply.ok||r?.researchOnly!==true||r.canTrade!==false||!Array.isArray(r.templates)||r.templates.length>50)throw Error('共享模板合同无效');
-      shared=r.templates.filter(t=>typeof t.raw==='string'&&parseSelectionCommand(t.raw).ok&&Number.isSafeInteger(t.revision));
-      sharedStatus.textContent='服务器已保存 '+shared.length+' 项模板；双端同源。';paintSaved();
-    }catch(error){if(id===templateTurn&&!ctx.signal?.aborted){shared=[];paintSaved();sharedStatus.textContent='共享模板未就绪：'+error.message;}}
+  let shared=[],removedTemplates=[],templateTurn=0,sharedReady=false,templateBusy=false;
+  const templateAllowed=()=>ctx.role==='edit'&&!ctx.signal?.aborted;
+  let hadTemplatePermission=templateAllowed();
+  const templateId=t=>typeof t?.id==='string'&&/^[a-f0-9]{64}$/.test(t.id);
+  const revisionValid=t=>Number.isSafeInteger(t?.revision)&&t.revision>0;
+  const requestId=()=>globalThis.crypto?.randomUUID?.()||'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+  function clearShared(){
+    templateTurn++;shared=[];removedTemplates=[];sharedReady=false;
+    memory.commandTemplates=[];saved.replaceChildren();
   }
-  const readTemplates=button('读取共享模板',readShared,'quiet');readTemplates.disabled=ctx.role!=='edit';
+  async function readShared(){
+    if(!templateAllowed())return false;
+    const turn=++templateTurn;
+    try{
+      const reply=await ctx.api('/api/research/evidence-workbench?mode=templates',{signal:ctx.signal});
+      if(!templateAllowed()||turn!==templateTurn)return false;
+      const r=reply.result,removed=r?.removed??[];
+      if(!reply.ok||r?.researchOnly!==true||r.canTrade!==false||!Array.isArray(r.templates)||r.templates.length>50||
+        !Array.isArray(removed)||removed.length>2000||removed.some(t=>!templateId(t)||!revisionValid(t)))throw Error('共享模板合同无效');
+      shared=r.templates.filter(t=>typeof t.raw==='string'&&parseSelectionCommand(t.raw).ok&&revisionValid(t));
+      removedTemplates=removed;sharedReady=true;
+      // The authoritative read replaces stale device-local shortcuts.
+      memory.commandTemplates=shared.map(t=>t.raw).slice(0,6);
+      sharedStatus.textContent='服务器已保存 '+shared.length+' 项模板；双端同源。';paintSaved();
+      return true;
+    }catch(error){
+      if(turn===templateTurn&&templateAllowed()){
+        clearShared();paintSaved();sharedStatus.textContent='共享模板未就绪：'+error.message;
+      }
+      return false;
+    }
+  }
+  const readTemplates=button('读取共享模板',readShared,'quiet');readTemplates.disabled=!templateAllowed();
+  function busyState(value){
+    templateBusy=value;save.disabled=value||!templateAllowed();readTemplates.disabled=value||!templateAllowed();
+    paintSaved();
+  }
+  async function expectedFor(raw){
+    const prior=shared.find(x=>x.raw===raw);
+    if(prior)return prior.revision;
+    if(removedTemplates.length&&globalThis.crypto?.subtle&&typeof TextEncoder==='function'){
+      const bytes=await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(raw)));
+      const id=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
+      return removedTemplates.find(x=>x.id===id)?.revision||0;
+    }
+    return 0;
+  }
   const save=button('保存本次条件',async()=>{
     const q=parseSelectionCommand(input.value);if(!q.ok||q.explicitAllMarket){preview.replaceChildren(note(q.error||'全市场范围未接通'));return;}
-    if(ctx.role!=='edit'){sharedStatus.textContent='保存共享模板需要编辑权限。';return;}
-    save.disabled=true;
+    if(!templateAllowed()||templateBusy){if(!templateAllowed())sharedStatus.textContent='保存共享模板需要编辑权限。';return;}
+    busyState(true);
     try{
-      const prior=shared.find(x=>x.raw===q.raw),requestId=globalThis.crypto?.randomUUID?.()||'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-      const reply=await ctx.api('/api/research/evidence-workbench',{method:'POST',body:{action:'save-template',raw:q.raw,expectedRevision:prior?.revision||0,requestId},signal:ctx.signal});
-      if(ctx.signal?.aborted||ctx.role!=='edit')return;
+      if(!sharedReady&&!(await readShared()))throw Error('请先核对服务器模板');
+      const turn=++templateTurn,expectedRevision=await expectedFor(q.raw);
+      if(!templateAllowed()||turn!==templateTurn)return;
+      const reply=await ctx.api('/api/research/evidence-workbench',{method:'POST',body:{action:'save-template',raw:q.raw,expectedRevision,requestId:requestId()},signal:ctx.signal});
+      if(!templateAllowed()||turn!==templateTurn)return;
       if(!reply.ok||reply.result?.raw!==q.raw||reply.result.canTrade!==false)throw Error('保存回执未核验');
-      memory.commandTemplates=[q.raw,...(memory.commandTemplates||[]).filter(x=>x!==q.raw)].slice(0,6);
-      await readShared();sharedStatus.textContent='已取得服务器持久化回执；另一设备可读取。';
-    }catch(error){if(!ctx.signal?.aborted)sharedStatus.textContent='保存未完成：'+error.message+'；请读取服务器模板后重试。';}
-    finally{if(!ctx.signal?.aborted)save.disabled=false;}
-  },'quiet');save.disabled=ctx.role!=='edit';
+      if(await readShared())sharedStatus.textContent='已取得服务器持久化回执；另一设备可读取。';
+    }catch(error){if(templateAllowed())sharedStatus.textContent='保存未完成：'+error.message+'；请读取服务器模板后重试。';}
+    finally{busyState(false);}
+  },'quiet');save.disabled=!templateAllowed();
+  async function removeTemplate(template){
+    if(!templateAllowed()||templateBusy||!sharedReady||!templateId(template)||
+      !shared.some(t=>t.id===template.id&&t.revision===template.revision))return;
+    busyState(true);
+    const turn=++templateTurn;
+    try{
+      const reply=await ctx.api('/api/research/evidence-workbench',{method:'POST',body:{action:'delete-template',id:template.id,
+        expectedRevision:template.revision,requestId:requestId()},signal:ctx.signal});
+      if(!templateAllowed()||turn!==templateTurn)return;
+      if(!reply.ok||reply.result?.id!==template.id||reply.result.removed!==true||reply.result.canTrade!==false||
+        reply.result.revision!==template.revision+1)throw Error('删除回执未核验');
+      shared=shared.filter(t=>t.id!==template.id);
+      memory.commandTemplates=shared.map(t=>t.raw).slice(0,6);
+      paintSaved();
+      if(await readShared())sharedStatus.textContent='已删除共享模板；另一设备重新读取后同步，原审计记录保留。';
+    }catch(error){if(templateAllowed())sharedStatus.textContent='删除未完成或结果未知：'+error.message+'；请重新读取，不自动重试。';}
+    finally{busyState(false);}
+  }
   function setCommand(value){input.value=value;invalidateCommand();input.focus?.();}
-  function paintSaved(){const values=[...new Set([...shared.map(t=>t.raw),...(memory.commandTemplates||[])])];saved.replaceChildren(...values.map(value=>button(value,()=>setCommand(value),'quiet')));}
+  function paintSaved(){
+    if(!templateAllowed()){saved.replaceChildren();return;}
+    saved.replaceChildren(...shared.map(template=>{
+      const use=button(template.raw,()=>setCommand(template.raw),'quiet');
+      const remove=button('删除模板',()=>removeTemplate(template),'quiet');
+      remove.setAttribute('aria-label','删除 '+template.raw);remove.disabled=templateBusy||!sharedReady||!templateId(template);
+      return h('div',{class:'fy-inline','data-command-template':template.id||''},use,remove);
+    }));
+  }
   function previewCommand(){
     const q=parseSelectionCommand(input.value);
     if(!q.ok){preview.replaceChildren(note(q.error));return;}
@@ -323,10 +384,16 @@ export function createCommandSelection(ctx) {
     } finally {if (turn === generation) run.disabled = false;}
   }
   ctx.onState?.(() => {
+    const allowed=templateAllowed();
+    if(!allowed){
+      if(hadTemplatePermission||sharedReady||shared.length||removedTemplates.length||memory.commandTemplates?.length)clearShared();
+      save.disabled=true;readTemplates.disabled=true;sharedStatus.textContent='共享模板需要编辑权限。';
+    }else if(!templateBusy){save.disabled=false;readTemplates.disabled=false;}
+    hadTemplatePermission=allowed;
     if (!lastQuery?.ok || !alive() || run.disabled) return;
     if (history && history.day !== selectionCommandDay(ctx.state || {})) history = null;
     if(!preview.matches?.(':focus-within'))previewCommand();paint(lastQuery);
   });
-  ctx.signal?.addEventListener('abort', () => {generation++;templateTurn++;shared=[];history = null;saved.replaceChildren();}, {once: true});
+  ctx.signal?.addEventListener('abort', () => {generation++;clearShared();history = null;save.disabled=true;readTemplates.disabled=true;}, {once: true});
   return host;
 }

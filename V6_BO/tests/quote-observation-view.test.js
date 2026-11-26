@@ -49,3 +49,17 @@ test('explicit conflicts survive quote snapshots and never grant automatic trade
  assert.equal(use({...valid,sourceConflict:false,conflict:false},now).canTrade,true);
  assert.equal(use({...valid,tradeDate:'2026-11-06'},now).canTrade,true);
 });
+
+test('negative quote mode aliases and malformed supplied date survive candidate projection',()=>{
+ const {quoteUseEligibility:use,quoteSnapshotFields:snapshot}=require('../src/core/quote-observation-view');
+ const valid={...row,receivedAt:now,canTrade:true,canNotify:true,quoteMode:'public-live-unverified'};
+ for(const patch of [{mode:'synthetic-market'},{mode:'backtest'},{mode:{kind:'unknown'}},{tradeDate:20261106}]){
+  const original={...valid,...patch},copied={...valid,...snapshot(original)};
+  for(const q of [original,copied]){
+   assert.equal(use(q,now).canTrade,false,JSON.stringify(patch));
+   assert.equal(use(q,now).canNotify,false,JSON.stringify(patch));
+  }
+ }
+ assert.equal(use({...valid,mode:'public-live-unverified'},now).canTrade,true);
+ assert.equal(use({...valid,mode:'public-unverified'},now).canNotify,true);
+});

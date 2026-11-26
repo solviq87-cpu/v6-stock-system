@@ -15,3 +15,24 @@ test('target, model, late input and repeat signal cannot cross the contract',()=
 test('labels overlapping the split or arriving late are purged',()=>{const a=prediction(29),b=prediction(28);const r=evaluate(plan,[a,b],[label(a),label(b,true,{availableAt:time(30)})],calendar,{now:time(70)});assert.equal(r.exclusions['purged-overlapping-or-late-calibration-label'],2);assert.equal(r.calibration.samples,0);});
 test('calibration uses earlier labels only; metrics compare identical holdout rows',()=>{const fs=[];for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++)fs.push(prediction(i,j));const ys=fs.map(f=>label(f,f.phase==='calibration'?f.code!=='000005':f.code==='000001'));const r=evaluate(plan,fs,ys,calendar,{now:time(70)});assert.equal(r.calibration.samples,100);assert.equal(r.validationRaw.samples,100);assert.equal(r.validationCalibrated.samples,100);assert.equal(r.comparisonOnIdenticalRows,true);assert.ok(r.validationCalibrated.brier>r.validationRaw.brier);assert.equal(r.calibrationCertified,false);assert.equal(r.canApprove,false);const altered=evaluate(plan,fs,ys.map(y=>y.predictionId.startsWith('32-')?{...y,value:!y.value}:y),calendar,{now:time(70)});assert.deepEqual(altered.calibration,r.calibration);});
 test('test labels cannot become formal or net settlement labels',()=>{assert.throws(()=>register({...spec,scope:'formal'},{now:time(0,'16:00')}),/登记/);const f=prediction(31);const r=evaluate(plan,[f],[label(f,true,{scope:'formal'})],calendar,{now:time(70)});assert.equal(r.validationRaw.samples,0);assert.equal(r.exclusions['invalid-or-unmatured-label'],1);});
+
+test('missing eligible calibration labels cannot be hidden by a sufficient holdout or by scheduled purge',()=>{
+ const formal=register({...spec,scope:'formal',source:'unit-research-source'},{now:time(0,'16:00')});
+ const fs=[];
+ for(const [start,count] of [[2,21],[32,20],[29,1]])for(let i=start;i<start+count;i++)for(let j=0;j<5;j++){
+  const t=time(i,'10:00');fs.push(freezePrediction(formal,{scope:'formal',source:'unit-research-source',id:i+'-'+j,
+   code:String(j+1).padStart(6,'0'),sourceFingerprint,target:spec.target,modelVersion:spec.modelVersion,
+   modelFingerprint,value:.55,predictedAt:t,observedAt:t},calendar,{now:t}));
+ }
+ const labels=fs.map(f=>label(f,f.phase==='calibration'?f.code!=='000005':f.code==='000001',
+   {scope:'formal',source:'unit-research-source'}));
+ const complete=evaluate(formal,fs,labels,calendar,{now:time(70)});
+ assert.equal(complete.expectedCalibration,105);assert.equal(complete.scheduledPurgedCalibration,5);
+ assert.equal(complete.completeCalibrationEvidence,true);assert.equal(complete.calibrationCoverage,1);
+ assert.equal(complete.status,'descriptive-holdout-evaluated');
+ const partial=evaluate(formal,fs,labels.filter(y=>y.predictionId!=='2-0'),calendar,{now:time(70)});
+ assert.equal(partial.calibration.samples,104);assert.equal(partial.expectedCalibration,105);
+ assert.equal(partial.validationRaw.samples,100);assert.equal(partial.comparisonOnIdenticalRows,true);
+ assert.equal(partial.completeCalibrationEvidence,false);assert.equal(partial.calibrationCoverage,104/105);
+ assert.equal(partial.status,'insufficient-or-incomplete-evidence');assert.equal(partial.canApprove,false);
+});
