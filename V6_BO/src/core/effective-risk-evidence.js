@@ -8,7 +8,7 @@ const {validateEntryPolicy, consecutiveLosses} = require('./common-entry-risk');
 const {evaluatePreviousCloseRisk} = require('./portfolio-risk-gate');
 const {resolveEvidence, validateEvidence} = require('./imported-risk-evidence');
 const {accountEpochOf, valuationMarkOf} = require('./account-equity-evidence');
-const {tradingFees} = require('./trading-fees');
+const {pendingBuyOrderBudget} = require('./account-safety-state');
 
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const quantity = n => Number.isSafeInteger(n) && n >= 0;
@@ -45,7 +45,7 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
   let policyValid = true;
   try { validateEntryPolicy(policy); } catch (error) { policyValid = false; missing.push(error.message); }
   if (!known) missing.push('缺少通过原账户服务读取的权威账户快照');
-  const events = known ? book.account.events : [], orderRows = known ? Object.values(book.orders) : [];
+  const events = known ? book.account.events : [], orderRows = known ? Object.entries(book.orders) : [];
   const strategyByEntry = new Map(events.map(e => [e.eventId, book.orders[e.orderId]?.order?.strategyId || null]));
   let heldValue = 0, pendingBuyValue = 0, reservedCash = 0, lotsKnown = known, ordersKnown = known, feesKnown = known;
   const marks = {}, quoteEvidence = [], pendingOrderIds = [], seenOrderIds = new Set(), activeOrderSymbols = new Set();
@@ -63,33 +63,45 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
     for (const lot of lots) if (lot.quantity > 0) positions.push({symbol, quantity: lot.quantity,
       value: mark.usable ? lot.quantity * mark.price : null, strategyId: strategyByEntry.get(lot.sourceEventId) || null});
   }
-  for (const item of orderRows) {
+  for (const [orderKey, item] of orderRows) {
     if (!plain(item?.order) || !plain(item.state) || typeof item.state.terminal !== 'boolean' ||
         !['pending','partial','filled','canceled','rejected'].includes(item.state.status) ||
         item.state.terminal !== ['filled','canceled','rejected'].includes(item.state.status) ||
-        !item.order.orderId || seenOrderIds.has(item.order.orderId)) {
+        typeof item.order.orderId !== 'string' || !item.order.orderId || orderKey !== item.order.orderId || seenOrderIds.has(item.order.orderId)) {
       ordersKnown = false; missing.push('原未终结委托状态或唯一编号缺失'); continue;
     }
     seenOrderIds.add(item.order.orderId);
-    if (!/^\d{6}$/.test(item.order.symbol) || !['buy','sell'].includes(item.order.side)) {
+    if (!(typeof item.order.symbol === 'string' || Number.isSafeInteger(item.order.symbol)) ||
+        !/^\d{6}$/.test(item.order.symbol) || !['buy','sell'].includes(item.order.side)) {
       ordersKnown = false; missing.push('原委托代码或方向尚未核对：' + item.order.orderId); continue;
     }
-    if (!item.state.terminal) activeOrderSymbols.add(String(item.order.symbol));
-    if (item.state.terminal || item.order.side !== 'buy') continue;
+    if (item.state.terminal) continue;
     const order = item.order, remaining = item.state.remainingQuantity;
-    if (!quantity(remaining) || !finite(order.limitPrice) || order.limitPrice <= 0 || !/^\d{6}$/.test(order.symbol)) {
-      ordersKnown = false; missing.push('原买单剩余数量或委托价无效：' + order.orderId); continue;
+    // A nonterminal order must have a positive, consistent remainder and its
+    // original event collection. Do not turn a broken reservation into zero.
+    if (!quantity(order.quantity) || !quantity(remaining) || remaining === 0 || remaining > order.quantity ||
+        (item.state.status === 'pending' ? remaining !== order.quantity : remaining >= order.quantity) ||
+        !Array.isArray(item.events)) {
+      ordersKnown = false; missing.push('原未终结委托数量或事件证据无效：' + order.orderId); continue;
     }
-    if (!remaining) continue;
+    activeOrderSymbols.add(String(order.symbol));
+    if (order.side !== 'buy') continue;
+    if (!finite(order.limitPrice) || order.limitPrice <= 0) {
+      ordersKnown = false; missing.push('原买单委托价无效：' + order.orderId); continue;
+    }
     const value = remaining * order.limitPrice;
+    if (!finite(value) || !finite(pendingBuyValue + value)) {
+      ordersKnown = false; missing.push('原待买敞口不可计算：' + order.orderId); continue;
+    }
     pendingBuyValue += value; pendingOrderIds.push(order.orderId);
     pending.push({symbol: String(order.symbol), quantity: remaining, price: order.limitPrice, value,
       strategyId: order.strategyId || null, orderId: order.orderId});
     try {
-      const fee = tradingFees({side: 'buy', quantity: remaining, price: order.limitPrice,
-        tradeDate: [order.tradeDate, day].sort().at(-1), policy: book.feePolicy,
-        schedules: book.feeSchedules || null, priorFills: item.events || []}).total;
-      reservedCash += value + fee;
+      // Use the exact original account budget, including execution-day fee
+      // policy and actual fill-only commission credit.
+      const budget = pendingBuyOrderBudget(book, item, day);
+      if (!finite(reservedCash + budget)) throw Error('原冻结资金合计不可计算');
+      reservedCash += budget;
     } catch { feesKnown = false; missing.push('未成交买单缺少原生效费率：' + order.orderId); }
   }
   const cash = known && finite(book.account.cash) && book.account.cash >= 0 ? book.account.cash : null;

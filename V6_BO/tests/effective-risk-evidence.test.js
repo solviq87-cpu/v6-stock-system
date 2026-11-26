@@ -242,3 +242,88 @@ test('the original account gate rechecks pending exposure on submit and fill, in
   assert.equal(fs.readFileSync(file,'utf8'),before);assert.equal(report(restarted.read()).occupancy.pendingBuyValue,2000);
   assert.equal(rule(report(restarted.read()),'maxPositionPct').exceeded,true);
 });
+
+
+test('broken active order remainder is unknown rather than zero or normal reserved exposure',()=>{
+  for (const corrupt of [
+    item=>item.state.remainingQuantity=0,
+    item=>item.state.remainingQuantity=item.order.quantity+100,
+    item=>item.state.remainingQuantity=item.order.quantity-1,
+    item=>item.state.status='partial',
+    item=>delete item.order.quantity
+  ]) {
+    const b=pending(book({version:'budget-integrity',maxPositionPct:20}));
+    corrupt(b.orders.pending);
+    const r=report(b);
+    for (const key of ['pendingBuyValue','reservedCash','availableCash','activeOrderSymbols']) assert.equal(r.occupancy[key],null,key);
+    assert.equal(rule(r,'maxPositionPct').used,null);
+    assert.equal(rule(r,'maxPositionPct').exceeded,null);
+  }
+});
+
+test('missing or mismatched original order identity and event collection cannot certify cash',()=>{
+  for (const corrupt of [
+    b=>{b.orders.other=b.orders.pending;delete b.orders.pending;},
+    b=>{b.orders.pending.order.symbol=['600000'];},
+    b=>{delete b.orders.pending.events;},
+    b=>{b.orders.pending.events={};}
+  ]) {
+    const b=pending(book({version:'budget-identity',maxGrossExposurePct:40}));
+    corrupt(b);
+    const r=report(b);
+    assert.equal(r.occupancy.pendingBuyValue,null);
+    assert.equal(r.occupancy.availableCash,null);
+    assert.equal(r.occupancy.activeOrderSymbols,null);
+    assert.equal(rule(r,'maxGrossExposurePct').remaining,null);
+  }
+});
+
+test('invalid active sell remainder also keeps the original active order inventory unknown',()=>{
+  const b=pending(book({version:'sell-inventory',maxPositionPct:20}));
+  b.orders.pending.order.side='sell';
+  b.orders.pending.state.remainingQuantity=0;
+  const r=report(b);
+  assert.equal(r.occupancy.activeOrderSymbols,null);
+  assert.equal(r.occupancy.pendingBuyValue,null);
+  assert.equal(r.occupancy.availableCash,null);
+});
+
+test('only original fill events reduce order-day commission in the displayed frozen budget',()=>{
+  const b=pending(book({version:'budget-fees',maxPositionPct:20}));
+  b.feePolicy={...feePolicy,commissionScope:'order-day'};
+  const feeEvidence={version:b.feePolicy.version,gross:1000,commission:5,tax:0,transfer:0,total:5};
+  b.orders.pending.events=[{type:'not-a-fill',date:day,feeEvidence}];
+  const original=require('../src/core/account-safety-state').pendingBuyOrderBudget(b,b.orders.pending,day);
+  const r=report(b);
+  assert.equal(original,1005);
+  assert.equal(r.occupancy.reservedCash,original);
+  assert.equal(r.occupancy.availableCash,9000-original);
+});
+
+test('valid partial reservation reuses original fee budget for current and later calendar day',()=>{
+  const b=pending(book({version:'budget-partial',maxGrossExposurePct:40}),300);
+  b.feePolicy={...feePolicy,commissionScope:'order-day'};
+  b.orders.pending.state={terminal:false,status:'partial',remainingQuantity:200};
+  const feeEvidence={version:b.feePolicy.version,gross:1000,commission:5,tax:0,transfer:0,total:5};
+  b.orders.pending.events=[{type:'fill',date:day,feeEvidence}];
+  const budget=require('../src/core/account-safety-state').pendingBuyOrderBudget;
+  for(const instant of [now,now+86400000]){
+    const d=require('../src/core/a-share-calendar').aShareCalendarDate(instant);
+    const r=report(b,{now:instant,quotes:{600000:quote('600000',{quoteAt:instant,timestamp:instant,receivedAt:instant})}});
+    assert.equal(r.occupancy.pendingBuyValue,2000);
+    assert.equal(r.occupancy.reservedCash,budget(b,b.orders.pending,d));
+    assert.equal(r.occupancy.availableCash,b.account.cash-budget(b,b.orders.pending,d));
+    assert.deepEqual(r.occupancy.activeOrderSymbols,['600000']);
+    assert.equal(r.canTrade,false);
+  }
+});
+
+test('fee schedule unavailable leaves observed principal but not frozen or available cash known',()=>{
+  const b=pending(book({version:'budget-unknown-fee',maxPositionPct:20}));
+  b.feeSchedules=[{...feePolicy,effectiveFrom:'2026-11-27'}];
+  const r=report(b);
+  assert.equal(r.occupancy.pendingBuyValue,1000);
+  assert.equal(r.occupancy.reservedCash,null);
+  assert.equal(r.occupancy.availableCash,null);
+  assert.ok(r.missing.length);
+});
