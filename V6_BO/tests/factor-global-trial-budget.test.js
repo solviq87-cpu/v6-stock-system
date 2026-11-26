@@ -154,3 +154,47 @@ test('cooldown and recovered monitor-only archives cannot be newer than the rest
  assert.throws(()=>assessGlobalTrialBudget([legacy],restored,pack),
   /全局监控档案晚于当前研究清单，历史交易日倒退/);
 });
+
+test('monitoring cannot claim a viewed holdout while avoiding its trial budget charge',()=>{
+ const ds=days(100);
+ const valid={...record(ds,0),status:'shadow-recovered',trialAudit:{
+  schemaVersion:1,status:'not-evaluated',firstHoldoutDay:null,lastHoldoutDay:null,holdoutDays:0}};
+ assert.equal(assessGlobalTrialBudget([valid],ds,pack).usedTrials,0);
+ for(const patch of [{holdoutDays:5},{holdoutDays:null},{firstHoldoutDay:ds[1]},{lastHoldoutDay:ds[5]}]){
+  assert.throws(()=>assessGlobalTrialBudget([{...valid,trialAudit:{...valid.trialAudit,...patch}}],ds,pack),/已查看保留集证据/);
+ }
+});
+test('every archived report needs a unique syntactically valid fingerprint, including monitors',()=>{
+ const ds=days(100),a=record(ds,1),b=record(ds,2);
+ for(const fingerprint of [undefined,null,'bad','A'.repeat(64),123]){
+  assert.throws(()=>assessGlobalTrialBudget([{...a,fingerprint}],ds,pack),/指纹缺失、无效或重复/);
+ }
+ assert.throws(()=>assessGlobalTrialBudget([a,{...b,fingerprint:a.fingerprint}],ds,pack),/指纹缺失、无效或重复/);
+ const monitor={...b,status:'paused-shadow-cooldown',trialAudit:{schemaVersion:1,status:'not-evaluated'},fingerprint:a.fingerprint};
+ assert.throws(()=>assessGlobalTrialBudget([a,monitor],ds,pack),/指纹缺失、无效或重复/);
+});
+test('holdout count cannot exceed its calendar interval or explicitly available signal days',()=>{
+ const ds=days(100),r=record(ds,2);
+ assert.throws(()=>assessGlobalTrialBudget([{...r,trialAudit:{...r.trialAudit,holdoutDays:6}}],ds,pack),/保留集天数与原日期范围不一致/);
+ const sparse=ds.filter(d=>d!==ds[12]);
+ assert.throws(()=>assessGlobalTrialBudget([r],sparse,pack),/保留集天数与原日期范围不一致/);
+});
+test('known manifest span rejects a missing trial or monitoring endpoint rather than counting mismatched evidence',()=>{
+ const ds=days(100),r=record(ds,3);
+ for(const d of [r.trialAudit.firstHoldoutDay,r.trialAudit.lastHoldoutDay]){
+  assert.throws(()=>assessGlobalTrialBudget([r],ds.filter(x=>x!==d),pack),/日期不在当前研究清单/);
+ }
+ const monitor={...r,status:'paused-shadow-cooldown',trialAudit:{schemaVersion:1,status:'not-evaluated'}};
+ assert.throws(()=>assessGlobalTrialBudget([monitor],ds.filter(d=>d!==r.lastObservationDay),pack),/日期不在当前研究清单/);
+});
+test('older out-of-span archives and sparse but valid holdouts remain counted conservatively',()=>{
+ const ds=days(160),old=record(ds,0),recent=record(ds,20);
+ const sparse=ds.slice(60).filter(d=>d!==ds[103]);
+ recent.trialAudit.firstHoldoutDay=ds[100];
+ const result=assessGlobalTrialBudget([old,recent],sparse,pack);
+ assert.equal(result.allTimeTrialCount,2);
+ assert.equal(result.usedTrials,1);
+ assert.equal(result.remainingTrials,5);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.productionWeightsChanged,false);
+});
