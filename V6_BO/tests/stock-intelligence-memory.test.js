@@ -210,3 +210,37 @@ test('raw history without availability/status metadata is retained, while unsafe
  const mixed=structuredClone(f);mixed.stock.bars[0].priceBasis='adjusted';assert.throws(()=>appendSnapshot(root,{stock:mixed.stock,decisionAt:f.asOf}),/口径/);
  const provider=structuredClone(f);provider.stock.bars[0].source='another-provider';assert.throws(()=>appendSnapshot(root,{stock:provider.stock,decisionAt:f.asOf}),/提供者/);
 }));
+
+test('v2 publication must be strictly before target open, and rollback cannot append a revision',t=>temp(root=>{
+ const f=fixture(),next=fixture(131),targetOpen=Date.parse(f.tradeDates[130]+'T09:30:00+08:00');
+ let clock=targetOpen;const decisionAt=targetOpen-1000,forecast=analyze(f,{asOf:decisionAt});
+ t.mock.method(Date,'now',()=>clock);
+ appendSnapshot(root,{stock:f.stock,forecast,decisionAt});
+ const saved=fs.readFileSync(path.join(root,'600001','000001.json'));
+ clock=targetOpen-500;
+ assert.throws(()=>appendSnapshot(root,{stock:f.stock,forecast,decisionAt,context:{note:'backward publication clock'}}),/历史记录时钟倒退/);
+ assert.deepEqual(fs.readFileSync(path.join(root,'600001','000001.json')),saved);
+ assert.deepEqual(fs.readdirSync(path.join(root,'600001')),['000001.json']);
+ clock=next.asOf;appendSnapshot(root,{stock:next.stock,decisionAt:clock});
+ assert.equal(readStockMemory(root,'600001').newProtocolForwardValidation.direction.evaluated,0);
+}));
+test('v2 missing limit evidence may mature later without rewriting an existing directional score',t=>temp(root=>{
+ const f=fixture(),forecast=analyze(f);let clock=f.asOf;t.mock.method(Date,'now',()=>clock);
+ appendSnapshot(root,{stock:f.stock,forecast,decisionAt:clock});
+ const next=fixture(131),first=structuredClone(next);delete first.stock.bars.at(-1).limitKnownAt;
+ clock=first.asOf;appendSnapshot(root,{stock:first.stock,decisionAt:clock});
+ const cutoff=clock,initial=readStockMemory(root,'600001');
+ const dir=initial.frozenPredictionOutcomes.find(o=>o.kind==='direction');
+ assert.ok(dir);assert.equal(initial.newProtocolForwardValidation.limitUp.evaluated,0);
+ clock+=60000;next.stock.observedAt=clock;appendSnapshot(root,{stock:next.stock,decisionAt:clock});
+ const after=readStockMemory(root,'600001');
+ assert.deepEqual(after.frozenPredictionOutcomes.find(o=>o.kind==='direction'),dir);
+ const limit=after.frozenPredictionOutcomes.find(o=>o.kind==='limitUp');
+ assert.equal(limit.labelRevision,3);assert.equal(limit.probability,forecast.limitUp.probability);
+ assert.equal(after.newProtocolForwardValidation.limitUp.evaluated,1);
+ assert.deepEqual(readStockMemory(root,'600001',{asOf:cutoff}).frozenPredictionOutcomes,initial.frozenPredictionOutcomes);
+ clock+=1000;next.stock.observedAt=clock;next.stock.bars.at(-1).close=next.stock.bars.at(-1).limitUpPrice;
+ next.stock.bars.at(-1).high=next.stock.bars.at(-1).limitUpPrice;
+ appendSnapshot(root,{stock:next.stock,decisionAt:clock});
+ assert.deepEqual(readStockMemory(root,'600001').frozenPredictionOutcomes,after.frozenPredictionOutcomes);
+}));

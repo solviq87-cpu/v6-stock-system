@@ -108,36 +108,45 @@ function readEvents(root,symbol){
  });
 }
 function frozenOutcomes(events,asOf){
- const outcomes=[],scoredTargets=new Set();
- for(const frozen of events){
+ const outcomes=[],scoredTargets=new Set(),pendingLimits=[];
+ // Preserve the existing first-outcome scores. A second pass can fill only
+ // an unresolved v2 limit label, without replacing any previously scored target.
+ for(const recoverMissingLimit of [false,true])for(const frozen of recoverMissingLimit?pendingLimits:events){
   const f=frozen.forecast;if(!f||!f.targetDate)continue;
   const legacy=f.featureVersion==='stock-trend-momentum20-v1';
   if(!legacy&&f.featureVersion!==VERSION)continue;
+  const targetKey=kind=>JSON.stringify([f.featureVersion,kind,f.targetDate,frozen.stock.source,frozen.stock.provider,frozen.stock.priceBasis]);
+  if(recoverMissingLimit&&(legacy||!finite(f.limitUp?.probability)||scoredTargets.has(targetKey('limitUp'))))continue;
   if(legacy){
    if(f.lastBarDate!==chinaDay(frozen.decisionAt)||frozen.recordedAt>Math.min(endAt(f.lastBarDate),frozen.decisionAt+60000))continue;
   }else{
    const dates=f.tradeDates,index=Array.isArray(dates)?dates.indexOf(f.lastBarDate):-1,targetOpen=Date.parse(f.targetDate+'T09:30:00+08:00');
    // Genuine overnight/weekend decisions precede the next declared session.
    // Local publication time prevents a late historical import backdating one.
-   if(index<0||dates[index+1]!==f.targetDate||!finite(targetOpen)||frozen.decisionAt<closeAt(f.lastBarDate)||frozen.decisionAt>=targetOpen||frozen.recordedAt>Math.min(targetOpen,frozen.decisionAt+60000))continue;
+   if(index<0||dates[index+1]!==f.targetDate||!finite(targetOpen)||frozen.decisionAt<closeAt(f.lastBarDate)||frozen.decisionAt>=targetOpen||
+      !Number.isSafeInteger(frozen.recordedAt)||frozen.recordedAt<frozen.decisionAt||frozen.recordedAt>=targetOpen||frozen.recordedAt>frozen.decisionAt+60000)continue;
   }
   const entry=frozen.stock.bars.find(b=>b.date===f.lastBarDate);if(!entry)continue;
   for(const later of events){
    if(later.revision<=frozen.revision||later.recordedAt<=frozen.recordedAt||later.decisionAt>asOf||later.stock.priceBasis!==frozen.stock.priceBasis||later.stock.source!==frozen.stock.source||later.stock.provider!==frozen.stock.provider)continue;
+   if(!legacy&&(!Number.isSafeInteger(later.recordedAt)||later.recordedAt<later.decisionAt))continue;
    const b=later.stock.bars.find(b=>b.date===f.targetDate),known=b?(legacy?stamp(b.knownAt):evidenceAt(b)):NaN,observed=stamp(later.stock.observedAt);
    // Preserve an explicitly versioned historical protocol's reported score.
    // Its absence of an action-availability clock is disclosed, never upgraded
    // to v2 evidence or used by analyzeStockHistory's current training path.
    const eligible=b&&(legacy?(b.volume>0&&b.suspended===false&&b.tradable===true&&b.isST===false&&finite(stamp(b.statusKnownAt))&&stamp(b.statusKnownAt)<=Math.min(asOf,closeAt(b.date))&&b.corporateAction===false):tradable(b,Math.min(asOf,later.decisionAt,observed)));
    if(!b||!finite(known)||!finite(observed)||known>observed||known<=frozen.decisionAt||known>later.decisionAt||known>asOf||stamp(b.knownAt)<closeAt(b.date)||!eligible)continue;
-   for(const kind of ['direction','limitUp']){
+   for(const kind of recoverMissingLimit?['limitUp']:['direction','limitUp']){
     const p=f[kind]?.probability,y=kind==='direction'?(b.close>entry.close?1:0):limitLabel(b,later.stock.priceBasis,entry.close);
-    const key=JSON.stringify([f.featureVersion,kind,b.date,frozen.stock.source,frozen.stock.provider,frozen.stock.priceBasis]);
+    const key=targetKey(kind);
+    if(!legacy&&!recoverMissingLimit&&kind==='limitUp'&&finite(p)&&y===null&&!scoredTargets.has(key))pendingLimits.push(frozen);
     // Re-saving context or correcting the same forecast is not a new outcome.
     // Keep every revision, but score the first frozen prediction once per target.
     if(finite(p)&&y!==null&&!scoredTargets.has(key)){scoredTargets.add(key);outcomes.push({revision:frozen.revision,labelRevision:later.revision,kind,targetDate:b.date,probability:p,outcome:y,brier:(p-y)**2,knownAt:known,featureVersion:f.featureVersion,evidenceProtocol:legacy?'legacy-v1-action-clock-unproven':'post-close-research-v2',legacyEvidenceUnproven:legacy,researchOnly:true,canTrade:false});}
    }
-   break; // First observed outcome is immutable; later corrections remain in history.
+   // Preserve the first eligible outcome for existing scores. Only an
+   // as-yet-unscored v2 limit label can use a later complete receipt.
+   if(!recoverMissingLimit||scoredTargets.has(targetKey('limitUp')))break;
   }
  }
  return outcomes;
@@ -161,7 +170,9 @@ function appendSnapshot(root,{stock,context={},forecast=null,decisionAt}={}){
  const events=readEvents(root,s.symbol),intakeHash=hash({stock:s,context,forecast,decisionAt});
   const same=events.find(e=>e.intakeHash===intakeHash);if(same)return {revision:same.revision,eventHash:same.eventHash,reused:true,...flags};
   if(events.length>=MAX_EVENTS||decisionAt<(events.at(-1)?.decisionAt||0))throw Error('历史达到上限或决策时点倒退');
-  const payload={schemaVersion:1,...flags,revision:events.length+1,previousHash:events.at(-1)?.eventHash||null,intakeHash,recordedAt:Date.now(),decisionAt,stock:s,context,forecast},event={...payload,eventHash:hash(payload)},raw=encode(event);
+  const recordedAt=Date.now();
+  if(!Number.isSafeInteger(recordedAt)||recordedAt<decisionAt||recordedAt<(events.at(-1)?.recordedAt??0))throw Error('历史记录时钟倒退或无效');
+  const payload={schemaVersion:1,...flags,revision:events.length+1,previousHash:events.at(-1)?.eventHash||null,intakeHash,recordedAt,decisionAt,stock:s,context,forecast},event={...payload,eventHash:hash(payload)},raw=encode(event);
   if(Buffer.byteLength(raw)>MAX_FILE)throw Error('历史快照超过大小上限');
   const file=path.join(dir,String(event.revision).padStart(6,'0')+'.json'),temp=file+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';let dest;
   // Atomic no-overwrite publication is the compare-and-swap: concurrent writers
