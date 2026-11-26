@@ -2,7 +2,7 @@
 /** Read-only preflight for paper-order intents. Never writes account state or submits orders. */
 const crypto = require('node:crypto');
 const SYSTEMS = new Set(['fourteen', 'bazi', 'gpt', 'python']);
-const n = v => Number.isFinite(Number(v)) ? Number(v) : null;
+const n = v => (typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isFinite(Number(v)) ? Number(v) : null;
 function preflightPaperExecution(plan, snapshot, account = {}) {
   if (!plan || plan.mode !== 'paper-order-intent-plan' || plan.canTrade !== false || plan.executed !== false || !/^[a-f0-9]{64}$/i.test(String(plan.datasetFingerprint || ''))) throw new Error('委托计划无效');
   if (!snapshot || !/^[a-f0-9]{64}$/i.test(String(snapshot.datasetFingerprint || '')) || snapshot.datasetFingerprint !== plan.datasetFingerprint) throw new Error('行情快照与策略计划数据指纹不一致');
@@ -28,9 +28,10 @@ function preflightPaperExecution(plan, snapshot, account = {}) {
     else if (row.atUpperLimit === true) reason = '涨停不可买入';
     else if (row.atLowerLimit === true) reason = '跌停状态需人工复核';
     else if (row.complete !== true || row.stale === true) reason = '行情不完整或过期';
-    else if (n(row.price) === null || n(row.price) <= 0 || Math.abs(n(row.price) - n(intent.referencePrice)) / n(intent.referencePrice) > 0.03) reason = '最新参考价缺失或偏离计划价格超过3%';
-    else if (!Number.isInteger(intent.quantity) || intent.quantity < 100 || intent.quantity % 100 !== 0) reason = '委托数量不符合A股整手规则';
-    else if (Number(positions[intent.symbol]?.sellable || 0) < 0) reason = '持仓可卖数量无效';
+    else if (n(row.price) === null || n(row.price) <= 0 || n(intent.referencePrice) === null || n(intent.referencePrice) <= 0 || Math.abs(n(row.price) - n(intent.referencePrice)) / n(intent.referencePrice) > 0.03) reason = '最新参考价缺失或偏离计划价格超过3%';
+    else if (!Number.isSafeInteger(intent.quantity) || intent.quantity < 100 || intent.quantity % 100 !== 0) reason = '委托数量不符合A股整手规则';
+    else if (positions[intent.symbol]?.sellable!=null && (n(positions[intent.symbol].sellable)===null || n(positions[intent.symbol].sellable)<0)) reason = '持仓可卖数量无效';
+    if(!reason&&!Number.isSafeInteger(Math.round(intent.quantity*n(row.price)*100)))reason='委托估算金额超出安全精度';
     const gross = reason ? 0 : Math.round(intent.quantity * n(row.price) * 100) / 100;
     const fee = reason ? 0 : Math.max(5, gross * 0.0003);
     if (!reason && reserved + gross + fee > cash) reason = '可用现金不足（含估算佣金）';
