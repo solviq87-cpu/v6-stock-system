@@ -5,7 +5,8 @@ const {METRICS,evaluateProductQuality,fingerprintPlan,summarize}=require('../src
 const {readInput}=require('../scripts/audit-product-quality');
 const revision='a'.repeat(40),window={start:'2026-11-01T00:00:00Z',end:'2026-11-20T00:00:00Z'};
 const base=()=>({revision,window,asOf:'2026-11-26T00:00:00Z',scope:{kind:'isolated-test',population:'frozen-test-cases'},plan:{version:'q1',registeredAt:'2026-10-31T00:00:00Z',criteria:{}},observations:[]});
-function add(x,id,overrides={}){const m=METRICS.find(m=>m.id===id);x.plan.criteria[id]={operator:'gte',threshold:m.kind==='rate'?1:0,minimumSamples:2};x.observations.push({metricId:id,revision,planVersion:'q1',window,scopeKind:x.scope.kind,population:x.scope.population,unit:m.unit,evidenceRefs:[{id:'fixture',sha256:'b'.repeat(64)}],...(m.kind==='rate'?{numerator:2,denominator:2,sampleCount:2}:{samples:[1,2],expectedCount:2}),...overrides});for(const o of x.observations)o.planFingerprint=fingerprintPlan(x.plan);return x;}
+const lowerIsBetter=new Set(["oos-drawdown","alert-false-positive","alert-missed-event","probability-brier","operation-duration","misoperation-rate","operation-failure","pipeline-latency","recovery-duration","issue-recurrence"]);
+function add(x,id,overrides={}){const m=METRICS.find(m=>m.id===id);x.plan.criteria[id]={operator:lowerIsBetter.has(id)?'lte':'gte',threshold:lowerIsBetter.has(id)?0:m.kind==='rate'?1:0,minimumSamples:2};x.observations.push({metricId:id,revision,planVersion:'q1',window,scopeKind:x.scope.kind,population:x.scope.population,unit:m.unit,evidenceRefs:[{id:'fixture',sha256:'b'.repeat(64)}],...(m.kind==='rate'?{numerator:2,denominator:2,sampleCount:2}:{samples:[1,2],expectedCount:2}),...overrides});for(const o of x.observations)o.planFingerprint=fingerprintPlan(x.plan);return x;}
 const row=(report,id)=>report.dimensions.flatMap(d=>d.metrics).find(m=>m.id===id);
 test('empty evidence preserves all seven dimensions and full denominator without a score',()=>{const x=base(),r=evaluateProductQuality(x);assert.equal(r.dimensions.length,7);assert.equal(r.coverage.total,METRICS.length);assert.equal(r.coverage.unknown,METRICS.length);assert.equal(r.coverage.ratio,0);assert.equal(r.overallScore,null);assert.equal(r.probability,null);assert.equal(r.canTrade,false);assert.equal(r.canDeploy,false);assert.equal(r.criticalReview.state,'unverified');});
 test('one known success is not renormalized to a complete score',()=>{const r=evaluateProductQuality(add(base(),'task-completion'));assert.equal(r.coverage.evaluated,1);assert.equal(r.coverage.ratio,1/METRICS.length);assert.equal(row(r,'task-completion').status,'pass');assert.equal(r.continuousOperationCertified,false);});
@@ -26,3 +27,50 @@ test('finite extreme samples never serialize a passing Infinity as null',()=>{as
 test('late, missing or changed plans cannot hide a current version safety failure',()=>{for(const alter of [x=>x.plan.registeredAt='2026-11-02T00:00:00Z',x=>delete x.plan.criteria['permission-rejection'],x=>x.plan=null,x=>x.observations[0].planFingerprint='c'.repeat(64)]){const x=add(base(),'permission-rejection',{numerator:1});alter(x);assert.equal(evaluateProductQuality(x).criticalReview.state,'blocked');}});
 test('editing a threshold under the same version cannot inherit frozen observations',()=>{const x=add(base(),'task-completion',{numerator:1});assert.equal(row(evaluateProductQuality(x),'task-completion').status,'fail');x.plan.criteria['task-completion'].threshold=.5;assert.equal(row(evaluateProductQuality(x),'task-completion').status,'unknown');});
 test('FIFO and device files are rejected before a blocking read',t=>{if(process.platform==='win32')return t.skip('requires POSIX FIFO');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'quality-fifo-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'pipe');const made=spawnSync('mkfifo',[file]);assert.equal(made.status,0);const out=spawnSync(process.execPath,[path.join(__dirname,'../scripts/audit-product-quality.js'),'--input',file],{encoding:'utf8',timeout:1000});assert.equal(out.error,undefined);assert.equal(out.status,1);assert.match(out.stderr,/普通JSON/);assert.throws(()=>readInput('/dev/zero'),/普通JSON/);});
+
+test('metric semantics reject reversed comparators across all thirty definitions',()=>{
+ for(const m of METRICS){
+  const x=add(base(),m.id);const c=x.plan.criteria[m.id];c.operator=lowerIsBetter.has(m.id)?'gte':'lte';
+  x.observations[0].planFingerprint=fingerprintPlan(x.plan);
+  assert.throws(()=>evaluateProductQuality(x),/方向|放宽/,m.id);
+ }
+});
+test('ratio and latency sample thresholds must match their units, while net improvement can be negative',()=>{
+ for(const [id,threshold] of [['oos-drawdown',1.01],['probability-brier',-0.1],['pipeline-latency',-1],['recovery-duration',-1]]){
+  const x=add(base(),id);x.plan.criteria[id].threshold=threshold;x.observations[0].planFingerprint=fingerprintPlan(x.plan);
+  assert.throws(()=>evaluateProductQuality(x),/阈值/,id);
+ }
+ const x=add(base(),'heldout-improvement',{samples:[-.03,-.01],costBasis:'net-after-fees-slippage'});
+ x.plan.criteria['heldout-improvement'].threshold=-.03;x.observations[0].planFingerprint=fingerprintPlan(x.plan);
+ assert.equal(row(evaluateProductQuality(x),'heldout-improvement').status,'pass');
+ const y=add(base(),'probability-brier',{samples:[.04,.16],independentCalibrationSample:true});
+ y.plan.criteria['probability-brier'].threshold=.15;y.observations[0].planFingerprint=fingerprintPlan(y.plan);
+ assert.equal(row(evaluateProductQuality(y),'probability-brier').status,'pass');
+});
+test('a partial zero failure ratio is only a lower bound, not a certified zero rate',()=>{
+ const partial=row(evaluateProductQuality(add(base(),'operation-failure',{numerator:0,sampleCount:2,denominator:3})),'operation-failure');
+ assert.equal(partial.status,'unknown');assert.equal(partial.value,0);assert.deepEqual(partial.rateBounds,{min:0,max:1/3});
+ assert.equal(partial.valueBasis,'observed-numerator-over-expected-denominator-lower-bound');
+ const complete=row(evaluateProductQuality(add(base(),'operation-failure',{numerator:0,sampleCount:3,denominator:3})),'operation-failure');
+ assert.equal(complete.status,'pass');assert.deepEqual(complete.rateBounds,{min:0,max:0});assert.equal(complete.valueBasis,'complete-rate');
+ const absent=row(evaluateProductQuality(add(base(),'operation-failure',{numerator:0,sampleCount:0,denominator:3})),'operation-failure');
+ assert.equal(absent.value,null);assert.equal(absent.rateBounds,null);assert.equal(absent.valueBasis,null);
+});
+test('as-of earlier than the observation window cannot claim future critical failures',()=>{
+ const x=add(base(),'permission-rejection',{numerator:1});x.asOf='2026-10-30T00:00:00Z';
+ const r=evaluateProductQuality(x),m=row(r,'permission-rejection');
+ assert.equal(r.criticalReview.state,'unverified');assert.equal(m.status,'unknown');assert.equal(m.value,null);assert.deepEqual(m.evidenceRefs,[]);
+ x.asOf='2026-11-02T00:00:00Z';assert.equal(evaluateProductQuality(x).criticalReview.state,'blocked');
+});
+test('conflicting hashes for one evidence identity cannot certify a result',()=>{
+ const x=add(base(),'task-completion',{evidenceRefs:[{id:'same',sha256:'b'.repeat(64)},{id:'same',sha256:'c'.repeat(64)}]});
+ const m=row(evaluateProductQuality(x),'task-completion');assert.equal(m.status,'unknown');assert.equal(m.value,null);assert.match(m.reason,/哈希/);
+ x.observations[0].evidenceRefs[1].sha256='b'.repeat(64);
+ const r=row(evaluateProductQuality(x),'task-completion');assert.equal(r.status,'pass');assert.equal(r.evidenceRefs.length,1);
+});
+test('sparse sample arrays are invalid and incomplete distributions are explicitly labelled',()=>{
+ const x=add(base(),'pipeline-latency',{samples:new Array(2),expectedCount:2});
+ const m=row(evaluateProductQuality(x),'pipeline-latency');assert.equal(m.status,'unknown');assert.equal(m.distribution,null);
+ x.observations[0].samples=[1];x.observations[0].expectedCount=2;
+ const partial=row(evaluateProductQuality(x),'pipeline-latency');assert.equal(partial.status,'unknown');assert.equal(partial.valueBasis,'partial-sample-statistic');
+});
