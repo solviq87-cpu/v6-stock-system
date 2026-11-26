@@ -116,7 +116,7 @@ function conditionalStopEvidence({plan,context,conditionalOrders,day,now}){
       if(fingerprint!==digest(payload)||payload.kind!=='stop'||payload.planId!==plan.id||payload.code!==plan.code||
         payload.entryEventId!==entry.eventId||payload.day!==day||payload.originalFreshGate!==true||payload.continuous!==true||
         payload.sellable!==true||!Number.isSafeInteger(payload.observedAt)||payload.observedAt<at||payload.observedAt>now||
-        !Number.isSafeInteger(payload.quoteAt)||payload.quoteAt<Date.parse(plan.frozenAt)||payload.quoteAt>payload.observedAt||payload.observedAt-payload.quoteAt>15000||
+        !Number.isSafeInteger(payload.quoteAt)||!Number.isSafeInteger(at)||payload.quoteAt<at||payload.quoteAt<Date.parse(plan.frozenAt)||payload.quoteAt>payload.observedAt||payload.observedAt-payload.quoteAt>15000||
         !Number.isSafeInteger(payload.receivedAt)||payload.receivedAt<payload.quoteAt||payload.receivedAt>payload.observedAt||
         aShareCalendarDate(payload.quoteAt)!==day||!finite(payload.price)||payload.price>plan.stop||
         !finite(payload.lowerLimit)||!finite(payload.upperLimit)||payload.price<=payload.lowerLimit||payload.price>=payload.upperLimit||
@@ -167,10 +167,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
     const samples=validObservations.filter(r=>r.planId===plan.id).sort((a,b)=>a.observedAt-b.observedAt||a.quoteAt-b.quoteAt);
     for(const record of samples){
       observer.validateObservation(record,{now,day,plan});
-      const expectedEntry=entry&&at<=record.observedAt?entry:null;
-      const remaining=expectedEntry?entry.quantity-context.sells.filter(s=>executionTimeOf(s)<=record.observedAt).reduce((n,s)=>n+s.quantity,0):0;
-      if(record.entryEventId!==(expectedEntry?.eventId||null)||record.remainingQuantity!==remaining)
-        throw Error('计划观察与原账户成交批次或剩余数量不一致');
+      observer.assertObservationLedger(record,context);
     }
     const facts=[];
     const begin=Math.max(Date.parse(plan.frozenAt),observer.sessions(day)[0][0]);
