@@ -7,7 +7,10 @@ const time=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
 const text=value=>typeof value==='string'?value.trim().slice(0,500):'';
 const day=at=>new Date(at+28800000).toISOString().slice(0,10);
 const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
-const simulated=value=>/simulat|synthetic|mock|模拟/i.test(text(value));
+const simulated=value=>/simulat|synthetic|mock|模拟/i.test(text(value))||
+ /(?:^|[-_.:/\s])(?:fixture|test|testing|backtest|backtesting|demo)(?:$|[-_.:/\s])/i.test(text(value));
+const conflicting=value=>value?.sourceConflict===true||value?.conflict===true||
+ value?.evidenceStatus==='conflict'||value?.quoteStatus==='conflict';
 const activeFlag=value=>value===true||value===1||(typeof value==='string'&&!!text(value)&&!/^(false|none|normal|no|0|无|正常|否)$/i.test(text(value)));
 
 // Copy provenance alongside the originating price. It never manufactures a source,
@@ -37,16 +40,20 @@ function reviewRecommendationEvidence(row,{purpose,now=Date.now()}={}){
   if(!evidence||typeof evidence!=='object'||Array.isArray(evidence)){addMissing('MISSING_'+label+'_EVIDENCE','缺少此用途的原始日期和来源证据。');return false;}
   const source=text(evidence.source),date=evidence.tradeDate,at=evidence[timeField];
   if(!source)addMissing('MISSING_'+label+'_SOURCE','缺少此用途证据的来源。');
-  const isSimulated=simulated(source)||simulated(evidence.mode)||evidence.simulated===true||input.simulated===true||
+  // A preferred mode alias cannot hide another explicit simulation marker.
+  // A fact's own evidence is independent of its optional attached quote.
+  const isSimulated=[source,evidence.mode,evidence.quoteMode].some(simulated)||evidence.simulated===true||input.simulated===true||
     ['fixture','mock','synthetic'].some(field=>evidence[field]===true||input[field]===true)||
-    (label==='RESEARCH'&&(simulated(input.quoteSource)||simulated(input.quoteMode||input.mode)));
+    (label==='RESEARCH'&&[input.quoteSource,input.quoteMode,input.mode].some(simulated));
+  const hasConflict=conflicting(evidence)||(label==='RESEARCH'&&conflicting(input));
   if(isSimulated)addContra('SIMULATED_'+label+'_EVIDENCE','模拟来源不能作为真实观察或事实播报依据。');
+  if(hasConflict)addContra('CONFLICTING_'+label+'_EVIDENCE','同一用途的原始证据存在明确冲突，须核对后使用。');
   if(!validDate(date))addMissing('INVALID_'+label+'_DATE','缺少合法的 YYYY-MM-DD 证据日期。');
   else if(date>day(now))addContra('FUTURE_'+label+'_DATE','证据日期晚于当前北京时间日期。',{tradeDate:date});
   if(!time(at))addMissing('MISSING_'+label+'_TIME','缺少合法的证据接收或观察时点。');
   else if(at>now)addContra('FUTURE_'+label+'_TIME','证据接收或观察时点晚于当前时点。',{[timeField]:at});
   else if(validDate(date)&&date>day(at))addContra('MISORDERED_'+label+'_TIME','证据日期晚于其接收或观察时点，因果顺序无效。',{tradeDate:date,[timeField]:at});
-  return !!source&&validDate(date)&&date<=day(now)&&time(at)&&at<=now&&date<=day(at)&&!isSimulated;
+  return !!source&&validDate(date)&&date<=day(now)&&time(at)&&at<=now&&date<=day(at)&&!isSimulated&&!hasConflict;
  };
 
  if(!PURPOSES.has(purpose))addMissing('UNKNOWN_PURPOSE','必须明确即时推荐、带日期观察或事实播报用途。');
