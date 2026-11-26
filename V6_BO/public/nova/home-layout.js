@@ -46,7 +46,7 @@ const channels=[
 
 function opportunityLists(state,picks,session,editor){
  const day=session.day,now=Date.now(),tape=state.auctionObservations,moves=state.fastStockMoves;
- const select=p=>p.day===day&&day?p.items.map(row=>({row,why:row.selectionWhy,source:[p.label,p.day].join(' · ')})):[];
+ const select=p=>p?.day===day&&day&&Array.isArray(p.items)?p.items.map(row=>({row,why:row.selectionWhy,source:[p.label,p.day].join(' · ')})):[];
  const before=tape?.phase==='before-match';
  const auction=tape?.day===day&&day?(before?tape.indicative:tape.items)||[]:[];
  const opening=auction.filter(r=>r?.day===day&&/^\d{6}$/.test(r.code)&&(r.source||r.sealSource)&&
@@ -68,11 +68,19 @@ export function createTradingHome(ctx,accountPanel){
  const market=h('section',{class:'fy-home-section fy-home-market','aria-label':'大盘一眼看'},
   h('header',{},h('h2',{},'大盘一眼看'),stamp),indexHost,climate);
  const detail=h('div',{class:'fy-home-opportunity-detail'}),tabList=h('div',{class:'fy-home-tabs',role:'group','aria-label':'机会类型'});
- let chosen=ctx.viewMemory?.homeChannel||null,lastLists=null,lastSession=null;
+ // View memory belongs to this mounted route, not whichever route is active later.
+ const memory=ctx.viewMemory;
+ const live=()=>!ctx.signal?.aborted;
+ const permitted=key=>channels.some(([id])=>id===key)&&(key!=='relay-first'||ctx.role==='edit');
+ let chosen=memory?.homeChannel||null,lastLists=null,lastSession=null,lastRole=null,rankedScope=false;
+ function remember(key){
+  if(!live()||!permitted(key))return false;
+  chosen=key;if(memory)memory.homeChannel=key;return true;
+ }
  const controls=new Map(channels.map(([key,label])=>[key,h('button',{type:'button',disabled:key==='relay-first'&&ctx.role!=='edit',
-  title:({auction:'开盘前集合竞价的同批观测',movement:'盘中短时间价格变动', 'relay-first':'前一交易日首板，观察能否接续第二板'})[key],onClick:()=>{chosen=key;if(ctx.viewMemory)ctx.viewMemory.homeChannel=key;paintSelection();}},label)]));
+  title:({auction:'开盘前集合竞价的同批观测',movement:'盘中短时间价格变动', 'relay-first':'前一交易日首板，观察能否接续第二板'})[key],onClick:()=>{if(remember(key))paintSelection();}},label)]));
  tabList.append(...controls.values());
- const go=button('查看全部推荐 →',()=>ctx.navigate('opportunities','ranked'),'primary');
+ const go=button('查看全部推荐 →',()=>{if(live())ctx.navigate('opportunities','ranked');},'primary');
  const featured=h('div',{class:'fy-home-featured','aria-label':'系统精选'});
  let active='ranked';
  const opportunity=h('section',{class:'fy-home-section fy-home-opportunity','aria-label':'今日机会'},
@@ -80,21 +88,26 @@ export function createTradingHome(ctx,accountPanel){
  const riskFacts=h('div',{class:'fy-home-risk-facts'}),portfolio=h('div',{class:'fy-home-portfolio'});
  const positionCount=h('small',{class:'fy-home-position-count'});
  const risk=h('section',{class:'fy-home-section fy-home-risk','aria-label':'风险与持仓'},
-  h('header',{},h('h2',{},'风险与持仓'),positionCount,ctx.role==='edit'?button('查看风控',()=>ctx.navigate('assets','risk'),'quiet'):null),riskFacts,portfolio);
+  h('header',{},h('h2',{},'风险与持仓'),positionCount,ctx.role==='edit'?button('查看风控',()=>{if(live()&&ctx.role==='edit')ctx.navigate('assets','risk');},'quiet'):null),riskFacts,portfolio);
  let accountReady;
  function paintSelection(){
-  const mode=lastSession.mode,lists=lastLists;
-  const preferred=mode==='auction'?['auction','ranked','movement','relay-first']:mode==='market'?['movement','ranked','auction','relay-first']:
-   ['ranked','relay-first','auction','movement'];
-  active=chosen||preferred.find(k=>lists[k].length)||preferred[0];
-  for(const [key,tab] of controls)tab.setAttribute('aria-pressed',String(active===key));
+  if(!live())return;
+  if(chosen&&!permitted(chosen)){if(memory?.homeChannel===chosen)delete memory.homeChannel;chosen=null;}
+  // Never reuse an earlier role's opportunity rows while the next view is loading.
+  if(lastLists&&lastRole!==ctx.role){lastLists=null;lastSession=null;rankedScope=false;updateReadout(featured);}
+  const mode=lastSession?.mode,lists=lastLists;
+  const preferred=(mode==='auction'?['auction','ranked','movement','relay-first']:mode==='market'?['movement','ranked','auction','relay-first']:
+   ['ranked','relay-first','auction','movement']).filter(permitted);
+  active=chosen||preferred.find(k=>lists?.[k]?.length)||preferred[0];
+  for(const [key,tab] of controls){tab.disabled=!permitted(key);tab.setAttribute('aria-pressed',String(active===key));}
+  if(!lastSession||!lists){updateReadout(detail,h('p',{class:'fy-muted',role:'status'},'正在读取本期机会…'));return;}
   const [,label]=channels.find(([key])=>key===active);
   if(active==='ranked' && lists.ranked.length && lists.ranked[0].row.pickSource!=='收盘观察精选'){
    updateReadout(detail);return;
   }
   const rows=lists[active];
   if(!rows.length){
-   const notice={ranked:'本期无符合条件的标的',auction:'本期暂无已核实记录',movement:'本期暂无同日异动记录','relay-first':'本期暂无符合条件的首板标的'}[active];
+   const notice={ranked:rankedScope?'本期无符合条件的标的':'尚无同日可核验的精选结果',auction:'本期暂无已核实记录',movement:'本期暂无同日异动记录','relay-first':'本期暂无符合条件的首板标的'}[active];
    const fold=homeEmpty(label,notice,h('p',{},[lastSession.day,'打开'+label+'可查看当期来源和筛选范围。'].filter(Boolean).join(' · ')));
    fold.id='fy-home-empty-'+active;
    updateReadout(detail,fold);
@@ -102,16 +115,17 @@ export function createTradingHome(ctx,accountPanel){
   }
   const channel=active;
   const stock=({row,why,source},i)=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
-   onClick:event=>{chosen=channel;ctx.selectStock(row.code,row,event.currentTarget);}},
+   onClick:event=>{if(lastRole===ctx.role&&active===channel&&remember(channel))ctx.selectStock(row.code,row,event.currentTarget);}},
    h('strong',{},row.name||row.code),h('small',{},row.code),i===0?h('span',{class:'fy-home-pick-source'},source):null,
    h('span',{class:'fy-home-pick-why'},why));
   const others=rows.slice(1,3);
   const more=others.length?h('details',{class:'fy-home-other',id:'fy-home-other-'+channel,
-   onToggle:event=>{if(event.currentTarget.open)chosen=channel;}},
+   onToggle:event=>{if(lastRole===ctx.role&&active===channel&&event.currentTarget.open)remember(channel);}},
    h('summary',{},'更多同类观察 · '+others.length+' 只'),others.map((r,i)=>stock(r,i+1))):null;
   updateReadout(detail,stock(rows[0],0),more);
  }
  function paint(state,picks,hasAccount,positions){
+  if(!live())return;
   const session=sessionOf(state),parts=marketOverviewParts(state,{homeDay:session.day});
   stamp.textContent=[session.label,session.day].filter(Boolean).join(' · ');
   const quotes=parts.indexAvailability;
@@ -126,15 +140,17 @@ export function createTradingHome(ctx,accountPanel){
    portfolio.replaceChildren(hasAccount?accountPanel:homeEmpty('我的账户 · 模拟盘',ctx.role==='edit'?'本期暂无账户估值':'仅研究账户可查看',accountPanel));
    accountReady=hasAccount;
   }
-  lastSession=session;lastLists=opportunityLists(state,picks,session,ctx.role==='edit');
+  lastSession=session;lastRole=ctx.role;lastLists=opportunityLists(state,picks,session,lastRole==='edit');
+  rankedScope=!!session.day&&picks?.day===session.day&&Array.isArray(picks.items);
   const selected=lastLists.ranked.filter(item=>item.row.pickSource==='V6 策略命中');
-  updateReadout(featured,h('h3',{},'系统精选 · '+selected.length+' 只 ',
+  updateReadout(featured,h('h3',{},rankedScope?'系统精选 · '+selected.length+' 只 ':'系统精选 · 待核验 ',
     h('abbr',{class:'fy-term',tabindex:'0',title:'评分用于比较候选排序，最高展示三只。','aria-label':'什么是精选评分','data-help':'评分用于比较候选排序，最高展示三只。'},'?')),
    ...(selected.length?selected.map(({row,why})=>h('button',{type:'button',class:'fy-stock-card fy-home-stock','data-code':row.code,
-    onClick:event=>ctx.selectStock(row.code,row,event.currentTarget)},h('strong',{},row.name||row.code),h('small',{},row.code),
+    onClick:event=>{if(live()&&lastRole===ctx.role)ctx.selectStock(row.code,row,event.currentTarget);}},h('strong',{},row.name||row.code),h('small',{},row.code),
     h('b',{class:'fy-home-pick-score'},Number.isFinite(row.score)?row.score+' 分':'源端未提供评分'),
-    h('span',{class:'fy-home-pick-why'},why))):[h('p',{class:'fy-muted'},'本期没有通过精选条件的标的。')]));
+    h('span',{class:'fy-home-pick-why'},why))):[h('p',{class:'fy-muted'},rankedScope?'本期没有通过精选条件的标的。':'尚无同日可核验的精选结果。')]));
   paintSelection();
  }
+ paintSelection();
  return {market,opportunity,risk,paint};
 }

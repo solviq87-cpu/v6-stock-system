@@ -2,17 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {renderRuntimeObservationCoverage,renderBackgroundArchive} from '../public/nova/deep-research.js';
 class Element {
- constructor(tag){this.tagName=tag;this.children=[];this.dataset={};this.attrs={};this.text='';}
+ constructor(tag){this.tagName=tag;this.children=[];this.dataset={};this.attrs={};this.text='';this.listeners={};}
+ replaceChildren(...nodes){this.children=nodes;this.text='';}
+ addEventListener(name,handler){this.listeners[name]=handler;}
+ dispatch(name){this.listeners[name]?.({currentTarget:this,target:this});}
  append(...nodes){this.children.push(...nodes);}
  setAttribute(key,value){this.attrs[key]=value;}
  get textContent(){return this.text+this.children.map(child=>child instanceof Element?child.textContent:String(child)).join(' ');}
  set textContent(value){this.text=String(value);this.children=[];}
 }
-function render(t,observation,renderer=renderRuntimeObservationCoverage){
+function renderElement(t,observation,renderer=renderRuntimeObservationCoverage){
  const saved={document:globalThis.document,Node:globalThis.Node};
  globalThis.Node=Element;globalThis.document={createElement:tag=>new Element(tag),createTextNode:text=>Object.assign(new Element('#text'),{textContent:text})};
- t.after(()=>{globalThis.document=saved.document;globalThis.Node=saved.Node;});return renderer(observation).textContent;
+ t.after(()=>{globalThis.document=saved.document;globalThis.Node=saved.Node;});return renderer(observation);
 }
+function render(t,observation,renderer=renderRuntimeObservationCoverage){return renderElement(t,observation,renderer).textContent;}
 const day='2026-11-26';
 const held={scope:'original-monitor-held-symbols-v1',attemptedMinutes:3,observedMinutes:2,missingMinutes:1,observedExpectedSymbolMinutes:442,observedFreshSymbolMinutes:440,fullMarketCertified:false};
 const account={scope:'original-paper-local-joint-reconciliation-v1',attempted:3,verifiedLocal:1,unsuccessful:1,unknown:1,verifiedExternal:false};
@@ -39,4 +43,41 @@ test('unverified background rows do not show a numeric value and archive absence
  const text=render(t,{...overview,status:'partial',rows:[{provider:'worldbank',status:'unavailable',scope:null,records:[{period:'2024',value:999999}]}]},renderBackgroundArchive);
  assert.match(text,/部分范围待校验/);assert.match(text,/尚无已复核数值/);assert.doesNotMatch(text,/999999/);
  const missing=render(t,{...overview,status:'unconfigured',rows:[],totalScopes:null},renderBackgroundArchive);assert.match(missing,/尚未配置原背景档案/);
+});
+
+// The task inventory is a fixed 78-row evidence ledger, not a weighted project score.
+const taskModule=await import('../public/nova/deep-research.js');
+const positive={code:'implemented',interface:'connected',realData:'available',validation:'passed',deployed:'deployed',observation:'verified'};
+const taskAxis=(status,evidence=['docs/FAYO_78_TASK_AUDIT_20261126.md'])=>({status,evidence});
+const fullTask=id=>({id,title:'任务'+id,...Object.fromEntries(Object.entries(positive).map(([key,status])=>[key,taskAxis(status)]))});
+test('task delivery summary keeps the fixed 78 denominator, six separate axes, and unknown deployment/observation',()=>{
+ const rows=Array.from({length:78},(_,i)=>({...fullTask(i+1),code:taskAxis('partial'),deployed:taskAxis('unknown'),observation:taskAxis('waiting')}));
+ const x=taskModule.summarizeTaskDelivery(rows);
+ assert.equal(x.total,78);assert.equal(x.received,78);assert.equal(x.allPositive,0);
+ assert.deepEqual(x.axes.find(a=>a.key==='code'),{key:'code',label:'代码',positive:0,partial:78,failed:0,pending:0});
+ assert.equal(x.axes.find(a=>a.key==='validation').positive,78);
+ assert.equal(x.axes.find(a=>a.key==='deployed').pending,78);assert.equal(x.axes.find(a=>a.key==='observation').pending,78);
+});
+test('missing, duplicate and invalid task identities never shrink the denominator or promote a positive declaration',()=>{
+ const x=taskModule.summarizeTaskDelivery([fullTask(1),fullTask(1),fullTask(2),{...fullTask(3),deployed:taskAxis('passed'),observation:taskAxis('verified',[])},null,fullTask(79)]);
+ assert.equal(x.received,2);assert.deepEqual(x.duplicateIds,[1]);assert.equal(x.missingIds.length,75);assert.equal(x.invalidRows,2);
+ assert.equal(x.allPositive,1);assert.equal(x.rows[0].recordState,'duplicate');assert.equal(x.rows[2].statuses.deployed,'unknown');assert.equal(x.rows[2].statuses.observation,'unknown');
+ for(const axis of x.axes)assert.equal(axis.positive+axis.partial+axis.failed+axis.pending,78);
+});
+test('known failures and partial progress are independent, with evidence required for positive declarations',()=>{
+ const x=taskModule.summarizeTaskDelivery([{...fullTask(4),code:taskAxis('partial'),validation:taskAxis('failed'),deployed:taskAxis('blocked'),realData:taskAxis('available',[' '])}]);
+ assert.equal(x.axes.find(a=>a.key==='validation').failed,1);assert.equal(x.axes.find(a=>a.key==='deployed').failed,1);assert.equal(x.axes.find(a=>a.key==='realData').positive,0);assert.equal(x.allPositive,0);
+});
+test('task panel presents the six-axis denominator and explicitly avoids overall acceptance or deployment claims',t=>{
+ const text=render(t,[{...fullTask(1),code:taskAxis('partial'),validation:taskAxis('failed'),deployed:taskAxis('not-deployed'),observation:taskAxis('observing')}],taskModule.renderTaskDeliveryStatus);
+ assert.match(text,/逐项交付状态（78项）/);assert.match(text,/收到唯一任务编号\s+1/);assert.match(text,/缺少任务编号\s+77/);assert.match(text,/不是整体完成率/);assert.match(text,/验证失败/);assert.match(text,/尚未部署/);assert.match(text,/观察积累中/);
+});
+test('task panel filters failed/blocked tasks and can restore all 78 entries without dropping missing identifiers',t=>{
+ const root=renderElement(t,[fullTask(1),{...fullTask(2),title:'失败任务',validation:taskAxis('failed')}],taskModule.renderTaskDeliveryStatus);
+ const walk=n=>[n,...n.children.filter(x=>x instanceof Element).flatMap(walk)];
+ const select=walk(root).find(n=>n.attrs['aria-label']==='筛选任务交付状态');
+ assert.ok(select);assert.match(root.textContent,/当前显示 78 \/ 78 项/);
+ select.value='blocked';select.dispatch('change');assert.match(root.textContent,/当前显示 1 \/ 78 项/);assert.match(root.textContent,/失败任务/);assert.doesNotMatch(root.textContent,/缺少该编号回执/);
+ select.value='missing';select.dispatch('change');assert.match(root.textContent,/当前显示 76 \/ 78 项/);assert.match(root.textContent,/缺少该编号回执/);
+ select.value='all';select.dispatch('change');assert.match(root.textContent,/当前显示 78 \/ 78 项/);
 });
