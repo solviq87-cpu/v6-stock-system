@@ -23,19 +23,27 @@ const DIRECT = Object.freeze({
   oversoldScore: ['oversoldScore', '超跌评分'],
   reversalScore: ['reversalScore', '反转评分']
 });
-const isObserved = value => (typeof value === 'number' ||
-  (typeof value === 'string' && value.trim() !== '')) && Number.isFinite(Number(value));
+const numeric=value=>(typeof value==='number'||typeof value==='string'&&value.trim()!=='')&&Number.isFinite(Number(value));
+const isObserved = value => numeric(value)&&Number(value)>=0&&Number(value)<=100;
+const missing=value=>value==null||typeof value==='string'&&value.trim()==='';
+function inspectStrategyScore(raw,field){
+  const aliases=DIRECT[field]||[];
+  const present=aliases.filter(k=>Object.prototype.hasOwnProperty.call(raw,k)&&!missing(raw[k]));
+  if(!present.length)return {status:'default_or_derived',sourceField:null,reason:'missing',value:null};
+  if(present.some(k=>!isObserved(raw[k])))return {status:'default_or_derived',sourceField:null,reason:'invalid',value:null};
+  if(present.some(k=>Number(raw[k])!==Number(raw[present[0]])))return {status:'default_or_derived',sourceField:null,reason:'conflict',value:null};
+  return {status:'raw_observed',sourceField:present[0],reason:null,value:Number(raw[present[0]])};
+}
 function auditStrategyInputProvenance(raw = {}) {
   const stock = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const fields = {};
   for (const [field, aliases] of Object.entries(DIRECT)) {
-    const key = aliases.find(k => Object.prototype.hasOwnProperty.call(stock, k) && isObserved(stock[k]));
-    fields[field] = key ? { status: 'raw_observed', sourceField: key } :
-      { status: 'default_or_derived', sourceField: null };
+    const {value,...evidence}=inspectStrategyScore(stock,field);
+    fields[field]=evidence;
   }
   const missing = Object.entries(fields).filter(([,v]) => v.status !== 'raw_observed').map(([k]) => k);
   return { fields, rawObserved: Object.keys(fields).length - missing.length,
     total: Object.keys(fields).length, missingDirectEvidence: missing,
     note: '只读原始字段来源诊断；派生字段需要独立数据血缘证明，不能将默认值当作已观测数据' };
 }
-module.exports = { auditStrategyInputProvenance };
+module.exports = { auditStrategyInputProvenance, inspectStrategyScore };
