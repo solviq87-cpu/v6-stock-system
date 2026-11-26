@@ -7,6 +7,10 @@
 const crypto=require('node:crypto');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
+const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+const validId=id=>typeof id==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$/.test(id)&&
+ !['__proto__','constructor','prototype'].includes(id);
+const exactKeys=(x,ids)=>object(x)&&Object.keys(x).length===ids.length&&ids.every(id=>Object.hasOwn(x,id));
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number(s.slice(0,4))>0&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
@@ -19,23 +23,30 @@ function proposeFromSealedResearch({source,definitions,acceptedWeights,
     source.mode!=='v6-factor-shadow-evolution-v1'||
     !['shadow-updated','shadow-retained','paused-market-shock'].includes(source.status)||
     source.canTrade!==false||source.productionWeightsChanged!==false||
+    typeof packFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(packFingerprint)||
     source.packFingerprint!==packFingerprint||
     !validDate(source.lastObservationDay)||!validDate(latestFrozenDay)||
     source.lastObservationDay>latestFrozenDay||
-    !Array.isArray(definitions)||definitions.length<2||
-    !acceptedWeights||typeof acceptedWeights!=='object')
+    !Array.isArray(definitions)||definitions.length<2||definitions.length>100||
+    definitions.some(d=>!object(d))||!object(acceptedWeights))
   throw Error('自动预注册缺少有效的历史封存训练报告或因子定义');
  const ids=definitions.map(d=>d.id);
- if(new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!id)||
+ if(new Set(ids).size!==ids.length||ids.some(id=>!validId(id))||
     JSON.stringify(source.factorIds)!==JSON.stringify(ids)||
-    !source.factorLearning||typeof source.factorLearning!=='object'||
-    ids.some(id=>!finite(acceptedWeights[id])||acceptedWeights[id]<=0||
-     !finite(definitions.find(d=>d.id===id)?.baseWeight)))
+    !exactKeys(source.factorLearning,ids)||!exactKeys(acceptedWeights,ids))
   throw Error('自动预注册的历史因子训练血缘不一致');
- const duplicates=new Set(source.factorRedundancy?.suppressedFactorIds||[]);
+ const suppressed=source.factorRedundancy?.suppressedFactorIds??[];
+ if(!Array.isArray(suppressed)||new Set(suppressed).size!==suppressed.length||suppressed.some(id=>!ids.includes(id)))
+  throw Error('自动预注册的冗余因子证据无效');
+ const duplicates=new Set(suppressed);
  const proposal={},audit=[];
  for(const def of definitions){
   const id=def.id,old=acceptedWeights[id],original=def.baseWeight;
+  const lo=Math.max(original*.5,old*.92),hi=Math.min(original*1.5,old*1.08);
+  if(!finite(original)||original<=0||!finite(old)||old<=0||
+     !finite(original*.5)||original*.5<=0||!finite(original*1.5)||
+     old<original*.5||old>original*1.5||!finite(lo)||!finite(hi)||lo>hi)
+   throw Error('自动预注册的基础及已接受权重边界无效');
   const learning=source.factorLearning[id];
   if(!learning||!finite(learning.suggestedWeightMultiplier)||
      Math.abs(learning.suggestedWeightMultiplier)>.08+1e-9)
@@ -43,9 +54,9 @@ function proposeFromSealedResearch({source,definitions,acceptedWeights,
   const adjustment=duplicates.has(id)?
    Math.min(learning.suggestedWeightMultiplier,-.02):
    learning.suggestedWeightMultiplier;
-  const next=+clamp(old*(1+adjustment),
-   Math.max(original*.5,old*.92),
-   Math.min(original*1.5,old*1.08)).toFixed(8);
+  // Round only the candidate, not its safety envelope. A zero change must
+  // preserve the exact accepted value instead of consuming a trial by rounding.
+  const next=adjustment===0?old:clamp(+clamp(old*(1+adjustment),lo,hi).toFixed(8),lo,hi);
   if(!finite(next)||next<=0)throw Error('自动预注册计算出无效研究权重');
   proposal[id]=next;
   audit.push({factorId:id,sourceMultiplier:learning.suggestedWeightMultiplier,
