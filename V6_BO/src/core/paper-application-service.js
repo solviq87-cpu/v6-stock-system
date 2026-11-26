@@ -33,6 +33,22 @@ function requireCurrentAutomaticQuote(quote,now){
   error.reasonCodes=['AUTOMATIC_QUOTE_READ_ONLY'];throw error;
  }
 }
+// Guard new executions only. Historical evidence and idempotent retries retain
+// their original timestamps, including old date-only records.
+function requireExecutionClock(book,executionAt,now){
+ const day=require('./a-share-calendar').aShareCalendarDate;
+ const valid=at=>Number.isSafeInteger(at)&&at>0&&at<=8e15;
+ const date=valid(executionAt)?day(executionAt):null;
+ if(date===null||!valid(now)||executionAt>now||date!==day(now)||
+    date<(book.lastTradeDate||'')||
+    book.account.events.some(event=>{
+     const at=event.fillEvidence?.executionAt??event.timestamp??event.executionAt;
+     return event.tradeDate>date||(event.tradeDate===date&&valid(at)&&at>executionAt);
+    })){
+  const error=Error('成交时钟倒退或交易日期不一致，拒绝新增成交');
+  error.reasonCodes=['ACCOUNT_EXECUTION_CLOCK_ROLLBACK'];throw error;
+ }
+}
 // A plan observer may consume only the exact object produced by the original
 // service. JSON/request fields cannot manufacture an allowed observation.
 const automaticPreviews=new WeakMap();
@@ -264,6 +280,8 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   if(existing){if(item.events.find(e=>e.eventId===eventId)?.requestHash!==requestHash)throw Error('成交事件ID内容冲突');return {snapshot:s,noChange:true};}
   if(!calendar||typeof calendar.isOpen!=='function'||!calendar.isOpen(quote?.tradeDate))throw Error('缺少有效交易日历或当日休市');
   const now=clock();if(!quote||quote.symbol!==item.order.symbol||!['imported','simulated'].includes(quote.source)||!validDate(quote.tradeDate)||quote.tradeDate!==require('./a-share-calendar').aShareCalendarDate(quote.timestamp)||quote.tradeDate<item.order.tradeDate||quote.tradeDate< (s.lastTradeDate||'')||!Number.isFinite(quote.timestamp)||quote.timestamp>now||now-quote.timestamp>180000||quote.suspended!==false||quote.tradable!==true||quote.volumeUnit!=='shares'||!Number.isFinite(quote.volume)||quote.volume<=0||![quote.price,quote.upperLimit,quote.lowerLimit].every(v=>Number.isFinite(v)&&v>0)||quote.lowerLimit>=quote.upperLimit||quote.price<=quote.lowerLimit||quote.price>=quote.upperLimit)throw Error('行情过期、不完整或触及交易限制');
+  requireExecutionClock(s,now,now);
+  if(!Number.isSafeInteger(quote.volume))throw Error('成交量必须为有效整数股数');
   if(item.state.terminal)throw Error('终态订单不可成交');
   const side=item.order.side;if(side==='buy'&&quote.price>item.order.limitPrice||side==='sell'&&quote.price<item.order.limitPrice)throw Error('价格超出委托保护');
   const used=s.account.events.filter(e=>String(e.symbol)===item.state.symbol&&e.tradeDate===quote.tradeDate).reduce((n,e)=>n+e.quantity,0);
@@ -279,7 +297,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   // Only the final combined snapshot is authoritative; a crash cannot publish half a fill.
   const stage=fs.mkdtempSync(path.join(path.dirname(file),'.paper-stage-'));
   try{const accountFile=path.join(stage,'account.json');fs.writeFileSync(accountFile,JSON.stringify(s.account),{mode:0o600});s.account=createPaperAccountLedger(accountFile).transact(item.order,event,quote.tradeDate);s.account.events.at(-1).feeEvidence=feeEvidence;s.account.events.at(-1).entryRisk=entryRisk;s.account.events.at(-1).accountRevision=s.revision+1;s.account.fingerprint=ledgerHash(s.account);}finally{fs.rmSync(stage,{recursive:true,force:true});}
-  item.events=events;item.state=state;s.lastTradeDate=quote.tradeDate;return {snapshot:s};});}
+  item.events=events;item.state=state;s.lastTradeDate=quote.tradeDate;return {snapshot:s,validateBeforeWrite:()=>requireExecutionClock(s,now,clock())};});}
  function adoptLegacy(legacy){return mutate(s=>{if(s){if(!s.legacy)throw Error('同名账户不是历史迁入账户，拒绝覆盖');return {snapshot:s,noChange:true};}const account=openingAccount(legacy);return {snapshot:{schemaVersion:1,initialCash:account.cash,feePolicy:{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},account,orders:{},reconciliationOpening:openingReconciliationEvidence(account,{kind:'legacy-adoption',at:clock(),sourceFingerprint:hash(legacy)}),legacy,legacyOpeningTrades:legacy.trades,legacyOpeningRealized:legacy.realized||0,paperOnly:true,brokerConnected:false}};});}
  function saveLegacy(legacy,expectedRevision,{action='sync',quotes={}}={}){return mutate(s=>{
   if(!s||!s.legacy)throw Error('历史账户尚未迁入权威账本');
@@ -290,7 +308,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   }
   const known=new Set(s.legacy.trades.map(t=>hash(t)));
   const incoming=legacy.trades.filter(t=>!t.eventId&&!known.has(hash(t))).reverse();
-  const newExecutionQuotes=[];
+  const newExecutionQuotes=[];let latestExecutionAt=null;
   for(const t of incoming){
    const id='legacy_'+hash(t).slice(0,30);
    if(s.orders[id]){
@@ -300,7 +318,10 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    if(!['买入','卖出'].includes(t.side)||!Number.isSafeInteger(t.shares)||t.shares<=0||t.shares%100||!Number.isFinite(t.price)||t.price<=0||!Number.isFinite(t.fee)||t.fee<0||!Number.isFinite(t.t)||t.t>clock()||clock()-t.t>180000)throw Error('新成交记录缺少可靠时点，禁止重放历史修改');
    const date=require('./a-share-calendar').aShareCalendarDate(t.t),q=quotes[t.code];
    if(!q||!Number.isFinite(q.price)||Math.abs(t.price-q.price)>Math.max(.01,q.price*.001)||q.tradeDate!==date||!calendar?.isOpen(date)||q.suspended!==false||q.tradable!==true||q.volumeUnit!=='shares'||!Number.isFinite(q.volume)||q.volume<=0||!Number.isFinite(q.timestamp)||q.timestamp>clock()||clock()-q.timestamp>180000||!Number.isFinite(q.upperLimit)||!Number.isFinite(q.lowerLimit)||t.price>=q.upperLimit||t.price<=q.lowerLimit)throw Error('自动成交行情缺失、过期或触及交易限制');
-   requireCurrentAutomaticQuote(q,clock());newExecutionQuotes.push(q);
+   requireCurrentAutomaticQuote(q,clock());
+   requireExecutionClock(s,t.t,clock());
+   if(!Number.isSafeInteger(q.volume))throw Error('自动成交量必须为有效整数股数');
+   newExecutionQuotes.push(q);latestExecutionAt=t.t;
    const used=s.account.events.filter(e=>String(e.symbol)===String(t.code)&&e.tradeDate===date).reduce((n,e)=>n+e.quantity,0);
    if(used+t.shares>q.volume*maxParticipationPct/100)throw Error('自动成交超过量参与率');
    const order={orderId:id,symbol:t.code,side:t.side==='买入'?'buy':'sell',quantity:t.shares,limitPrice:t.price,tradeDate:date};
@@ -325,7 +346,7 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   const quantities=x=>JSON.stringify(Object.entries(x.positions).filter(([,p])=>p.shares>0).map(([c,p])=>[c,p.shares]).sort());
   if(quantities(projected)!==quantities(legacy))throw Error('自动成交持仓与权威账本不符，禁止旁路修复');
   s.legacy={...legacy,positions:{...legacy.positions},trades:projected.trades};
-  return {snapshot:s,validateBeforeWrite:()=>{const now=clock();for(const quote of newExecutionQuotes)requireCurrentAutomaticQuote(quote,now);}};
+  return {snapshot:s,validateBeforeWrite:()=>{const now=clock();for(const quote of newExecutionQuotes)requireCurrentAutomaticQuote(quote,now);if(latestExecutionAt!==null)requireExecutionClock(s,latestExecutionAt,now);}};
  });}
  function settle(event,expectedRevision){return mutate(s=>{
   if(!s)throw Error('账户未创建');const old=(s.corporateEvents||[]).find(e=>e.eventId===event?.eventId);
