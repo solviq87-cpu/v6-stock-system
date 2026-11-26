@@ -123,3 +123,13 @@ test('bad code, duplicate providers, hostile provider names and invalid timeout 
  }
  assert.equal(requests,0);
 });
+
+test('a quote later than the final regressed publication clock is stripped and accepted only as a failed audit attempt',async()=>{
+ const times=[now,now+1000,now-1000],r=await inspect({code:'600519',providers:['eastmoney'],
+  clock:()=>times.shift(),fetchImpl:async()=>new Response(raw('eastmoney',now))});
+ assert.equal(r.status,'clock-regressed');
+ const row=r.providers[0];assert.equal(row.status,'invalid-quote-time');
+ for(const k of ['price','previousClose','quoteAt','quoteAgeMs'])assert.equal(row[k],null);
+ const report=require('../src/core/data-source-readiness-audit').auditRegisteredSourceReadiness({asOf:now,snapshot:r});
+ assert.equal(report.summary.attemptedExactRoutes,1);assert.equal(report.summary.successfulQuoteObservations,0);
+});
