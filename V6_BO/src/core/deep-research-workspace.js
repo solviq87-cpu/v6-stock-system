@@ -148,14 +148,27 @@ function projectDeepRisks(observations,{now=Date.now(),generatedAt=now}={}){
 
 function deepPortfolioInput(materials,snapshot){
  const declared=(materials.portfolio||[]).at(-1)||{};
+ // The receipt belongs to the existing private journal entry, not a
+ // source timestamp supplied inside a candidate. Project it without
+ // rewriting the immutable declaration or pretending it verifies a forecast.
+ const bindReceipt=value=>{
+  if(!value||typeof value!=='object'||Array.isArray(value)||declared.inputOrigin!=='explicit-private-import')return value;
+  return {...value,inputOrigin:'explicit-private-import',independentlyVerified:false,
+   archiveReceivedAt:declared.recordedAt??null,archiveHash:declared.archiveHash??null};
+ };
  const researchParticipation=declared.constraints?.maxParticipation,originalParticipation=snapshot.constraints?.maxParticipation;
  const validParticipation=value=>finite(value)&&value>0&&value<=1;
  return {...declared,account:snapshot.account||null,constraints:{...(declared.constraints||{}),
   riskPolicy:snapshot.constraints?.riskPolicy??null,maxPositions:snapshot.constraints?.maxPositions??null,
   maxParticipation:validParticipation(researchParticipation)&&validParticipation(originalParticipation)
    ?Math.min(researchParticipation,originalParticipation):null},
-  candidates:(declared.candidates||[]).map(row=>({...row,quote:snapshot.quotes?.[row.symbol]||null})),
-  costs:{...(declared.costs||{}),feePolicy:snapshot.feePolicy||null}};
+  candidates:(declared.candidates||[]).map(row=>({...row,quote:snapshot.quotes?.[row.symbol]||null,
+   ...(row.estimate==null?{}:{estimate:bindReceipt(row.estimate)}),...(row.liquidity==null?{}:{liquidity:bindReceipt(row.liquidity)})})),
+  ...(declared.correlation==null?{}:{correlation:bindReceipt(declared.correlation)}),
+  ...(declared.rebalance==null?{}:{rebalance:{...declared.rebalance,
+   ...(declared.rebalance.improvement==null?{}:{improvement:bindReceipt(declared.rebalance.improvement)}),
+   ...(declared.rebalance.costs==null?{}:{costs:bindReceipt(declared.rebalance.costs)})}}),
+  costs:{...bindReceipt(declared.costs||{}),feePolicy:snapshot.feePolicy||null}};
 }
 
 function freezeInputFromSnapshot(root,{snapshot={},publicIntent={},requestId,now}){
@@ -184,7 +197,6 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
  try{news=require('./news-evidence-journal').readJournal(newsRoot,{now});}catch{missing.push('原新闻证据档案暂不可读或完整性校验失败');}
  const background=require('./market-data-evidence').readBackgroundOverview({root:backgroundRoot,asOf:now});
  if(['missing-archive','unavailable','partial'].includes(background.status))missing.push('官方背景档案未全部取得或校验，保留未知');
- const latestPortfolio=materials.portfolio.at(-1)||{};
  const {input:portfolio,...archiveEvidence}=D.derivePortfolioArchiveEvidence(archive||{},stored.events,
   deepPortfolioInput(materials,snapshot),{asOf:now});
  const research=E.buildDeepResearchEvidence({...materials,archive,newsJournalRows:news,workspaceEvents:stored.events,
@@ -192,7 +204,7 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
   account:snapshot.account,positions:snapshot.account?.positions||[],depth:[...materials.depth,...(snapshot.depth||[])],themes:[...materials.themes,...(snapshot.themes||[])]},{asOf:now});
  // A research declaration cannot assert that the original compulsory risk
  // process has fired. That process remains independently authoritative.
- const {forcedRisk:ignoredForcedRisk,...rebalance}=latestPortfolio.rebalance||{};
+ const {forcedRisk:ignoredForcedRisk,...rebalance}=portfolio.rebalance||{};
  const decisions=D.buildDeepDecisionResearch({portfolio,rebalance,robustness:{portfolio}},{asOf:now});
  decisions.archiveEvidence=archiveEvidence;
  const frozen=D.listDecisionAlternatives(root,{asOf:now});

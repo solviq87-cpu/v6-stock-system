@@ -25,6 +25,57 @@ const chinaDay = at => new Date(at+28800000).toISOString().slice(0,10);
 const clone = value => S.canonical(value);
 const atTime = x => { if(!instant(x))throw Error('研究需要明确的信息截止时间'); return x; };
 const evidence = (x,at) => !!text(x?.source) && known(x?.knownAt,at);
+const realResearchEvidence=require('../../public/nova/shortline/numeric-factors').realEvidence;
+const nonRealTag=/(?:^|[-_: /\s])(?:test|fixture|mock|synthetic|simulated|simulation|demo|teaching)(?:$|[-_: /\s])/i;
+const probabilityTag=/(?:ztToday|ztNext|up3Next|limit[-_ ]?up|probability|ranking[-_ ]?score)/i;
+const declarationScope=x=>!!x&&typeof x==='object'&&!Array.isArray(x)&&realResearchEvidence(x)&&
+ !['sampleSet','sampleScope','scope','dataMode','mode','source'].some(k=>nonRealTag.test(String(x[k]??'')))&&
+ !['fixture','simulated','teaching','sourceConflict','conflict'].some(k=>x[k]===true)&&
+ !['invalid','conflict','rejected','unknown','missing','stale'].includes(x.evidenceStatus);
+const evidenceTimeFields=['knownAt','availableAt','receivedAt','recordedAt','firstKnownAt','sourceKnownAt','evaluatedAt','archiveReceivedAt'];
+function researchEvidenceAt(x,at){
+ if(!declarationScope(x)||!evidence(x,at))return null;
+ const times=evidenceTimeFields.filter(k=>Object.hasOwn(x,k)).map(k=>x[k]);
+ if(times.some(t=>!known(t,at)))return null;
+ if(x.inputOrigin==='explicit-private-import'&&
+    (!known(x.archiveReceivedAt,at)||typeof x.archiveHash!=='string'||!/^[a-f0-9]{64}$/.test(x.archiveHash)||x.independentlyVerified!==false))return null;
+ return Math.max(...times);
+}
+const returnTargets=['return','expected-return','horizon-return','portfolio-return','portfolio-horizon-return','return-before-rebalance-costs'];
+const fractionUnits=['fraction','ratio','decimal','return-fraction'];
+const declaredValue=(x,key,allowed)=>!Object.hasOwn(x,key)||allowed.includes(x[key]);
+const positiveSamples=(x)=>Number.isSafeInteger(x.sampleCount)&&x.sampleCount>=20&&
+ ['matureSamples','matureSampleCount','effectiveSamples','effectiveSampleCount'].every(k=>!Object.hasOwn(x,k)||
+  (Number.isSafeInteger(x[k])&&x[k]>=20&&x[k]<=x.sampleCount));
+function returnEstimateValid(x,id,horizon,at){
+ return researchEvidenceAt(x,at)!==null&&x.horizonDays===horizon&&positiveSamples(x)&&
+  x.mature!==false&&(!Object.hasOwn(x,'symbol')||x.symbol===id)&&(!Object.hasOwn(x,'code')||x.code===id)&&
+  !probabilityTag.test(String(x.source))&&declaredValue(x,'target',returnTargets)&&
+  declaredValue(x,'unit',fractionUnits)&&declaredValue(x,'returnUnit',fractionUnits)&&
+  declaredValue(x,'valueKind',['return','return-estimate','expected-return','model-estimate'])&&
+  (x.valueKind!=='model-estimate'||returnTargets.includes(x.target)&&(fractionUnits.includes(x.unit)||fractionUnits.includes(x.returnUnit)))&&
+  declaredValue(x,'returnBasis',['before-rebalance-costs','before-incremental-rebalance-costs','gross-of-rebalance-costs'])&&
+  x.rebalanceCostsIncluded!==true&&x.includesRebalanceCosts!==true&&
+  finite(x.expectedReturn)&&x.expectedReturn>=-1&&x.expectedReturn<=2&&
+  nonnegative(x.standardError)&&x.standardError<=2&&finite(x.volatility)&&x.volatility>0&&x.volatility<=2;
+}
+function returnEvidenceView(rows,at){
+ return {status:'unverified-research-declarations',forecastVerified:false,rows:rows.map(r=>{
+  const e=r.estimate;
+  return {symbol:r.symbol,source:text(e.source),sourceKnownAt:e.knownAt,archiveReceivedAt:e.archiveReceivedAt??null,
+   effectiveKnownAt:researchEvidenceAt(e,at),archiveHash:e.inputOrigin==='explicit-private-import'?e.archiveHash:null,
+   target:e.target??null,unit:e.unit??e.returnUnit??null,returnBasis:e.returnBasis??null,
+   semanticBasis:e.target&&(e.unit||e.returnUnit)&&e.returnBasis?'typed-declaration':'legacy-or-partial-declaration',
+   declaredSampleCount:e.sampleCount,declaredMatureEffectiveCount:Math.min(e.sampleCount,...['matureSamples','matureSampleCount','effectiveSamples','effectiveSampleCount'].filter(k=>Object.hasOwn(e,k)).map(k=>e[k])),
+   sampleCountVerified:false};
+ })};
+}
+function monetaryImprovementValid(x,at){
+ return researchEvidenceAt(x,at)!==null&&!probabilityTag.test(String(x.source))&&
+  declaredValue(x,'target',['expected-improvement','rebalance-improvement','expected-improvement-cny'])&&
+  declaredValue(x,'unit',['CNY','yuan'])&&declaredValue(x,'valueKind',['amount-estimate','expected-improvement'])&&
+  nonnegative(x.uncertainty)&&finite(x.expectedAmount);
+}
 const noAdjust = (missing,extra={}) => ({schemaVersion:1,status:'no-adjust',action:'不调整',missing:[...new Set(missing)],...extra,...FLAGS});
 
 function positiveSemidefinite(matrix) {
@@ -40,6 +91,7 @@ function positiveSemidefinite(matrix) {
 function portfolioInput(input,asOf) {
   const missing=[],a=input?.account||{},rows=arr(input?.candidates),c=input?.constraints||{},cost=input?.costs||{},co=input?.correlation||{};
   const need=(ok,message)=>{if(!ok)missing.push(message);};
+  need(declarationScope(input),'组合研究声明含非正式或冲突样本标记');
   need(rows.length>0&&rows.length<=12,'需要1至12只候选，且包含全部现有持仓');
   need(text(a.authorityRef)&&Number.isSafeInteger(a.revision)&&a.revision>=0,'缺少原权威账户引用或版本');
   need(known(a.observedAt,asOf)&&asOf-a.observedAt<=15000,'账户投影时点未知、未来或超过15秒');
@@ -58,7 +110,7 @@ function portfolioInput(input,asOf) {
   need(finite(c.maxVolatility)&&c.maxVolatility>0&&c.maxVolatility<=2,'缺少同周期风险预算');
   need(finite(c.riskAversion)&&c.riskAversion>=0&&c.riskAversion<=100,'缺少有界研究风险偏好');
   if(c.riskPolicy){try{validateEntryPolicy(c.riskPolicy);}catch{missing.push('原后台风险策略无效');}}
-  need(evidence(cost,asOf),'缺少事前费用与滑点来源');
+  need(researchEvidenceAt(cost,asOf)!==null,'缺少事前费用与滑点来源或收件证据');
   try{validateFeePolicy(cost.feePolicy);}catch{missing.push('缺少原版本费用规则');}
   for(const key of ['slippageBps','impactBps','uncertaintyBps'])need(nonnegative(cost[key])&&cost[key]<=1000,'成本分项缺失 '+key);
   const normalized=rows.map(r=>{
@@ -69,16 +121,15 @@ function portfolioInput(input,asOf) {
     need(boundQuoteValuationMark(q,r?.symbol,asOf).price!==null,'原始报价标的、来源或时点不一致 '+String(r?.symbol));
     const lotSize=paperBuyLotSize(r?.symbol);
     need(r?.lotSize==null||r.lotSize===lotSize,'导入手数与原模拟盘规则不一致 '+String(r?.symbol));
-    need(evidence(e,asOf)&&e.horizonDays===input.horizonDays&&Number.isSafeInteger(e.sampleCount)&&e.sampleCount>=20,'预期收益缺少事前来源、同周期或20个成熟样本 '+String(r?.symbol));
-    need(finite(e.expectedReturn)&&Math.abs(e.expectedReturn)<=2&&nonnegative(e.standardError)&&e.standardError<=2&&finite(e.volatility)&&e.volatility>0&&e.volatility<=2,'收益不确定性或波动估计无效 '+String(r?.symbol));
-    need(evidence(l,asOf)&&finite(l.averageDailyAmount)&&l.averageDailyAmount>0,'缺少可核验历史流动性 '+String(r?.symbol));
+    need(declarationScope(r)&&returnEstimateValid(e,r?.symbol,input.horizonDays,asOf),'预期收益声明的目标、单位、费用口径、事前来源、时点或成熟样本无效 '+String(r?.symbol));
+    need(researchEvidenceAt(l,asOf)!==null&&finite(l.averageDailyAmount)&&l.averageDailyAmount>0,'缺少可核验历史流动性 '+String(r?.symbol));
     need(text(r?.sector),'缺少持仓行业分类 '+String(r?.symbol));
     return {symbol:r?.symbol,sector:text(r?.sector),strategyId:text(r?.strategyId)||null,quantity:p.quantity,availableQuantity:p.availableQuantity,
       price:q.price,currentWeight:p.quantity*q.price/a.equity,minimumWeight:(p.quantity-p.availableQuantity)*q.price/a.equity,
       estimate:e,liquidity:l,quote:view,lotSize};
   });
   if(finite(a.equity)&&a.equity>0&&normalized.every(r=>nonnegative(r.currentWeight)))need(Math.abs(a.cash/a.equity+normalized.reduce((n,r)=>n+r.currentWeight,0)-1)<1e-6,'账户权益与现金及全部持仓估值不一致');
-  need(evidence(co,asOf)&&co.horizonDays===input.horizonDays&&Number.isSafeInteger(co.sampleCount)&&co.sampleCount>=20,'相关性缺少事前来源、同周期或20个对齐样本');
+  need(researchEvidenceAt(co,asOf)!==null&&co.horizonDays===input.horizonDays&&positiveSamples(co),'相关性缺少事前来源、同周期或20个对齐样本');
   const matrix=co.matrix,n=rows.length;
   const matrixOK=Array.isArray(co.symbols)&&co.symbols.length===n&&co.symbols.every((s,i)=>s===ids[i])&&Array.isArray(matrix)&&matrix.length===n&&matrix.every(row=>Array.isArray(row)&&row.length===n&&row.every(x=>finite(x)&&Math.abs(x)<=1))&&matrix.every((row,i)=>Math.abs(row[i]-1)<1e-8&&row.every((x,j)=>Math.abs(x-matrix[j][i])<1e-8));
   need(matrixOK&&positiveSemidefinite(matrix),'相关性矩阵顺序、对称性或半正定校验失败');
@@ -139,10 +190,11 @@ function quantize(weights,p) {
 function researchPortfolioWeights(input={}, {asOf=Date.now()}={}) {
   atTime(asOf);const p=portfolioInput(input,asOf);
   if(p.missing.length)return noAdjust(p.missing,{asOf,task:73,current:null,equalWeight:null,candidate:null});
+  const estimateEvidence=returnEvidenceView(p.rows,asOf);
   const currentWeights=p.rows.map(r=>r.currentWeight),minimum=p.rows.map(r=>r.minimumWeight),n=p.rows.length;
   const current=weightMetrics(currentWeights,p),equalWeight=weightMetrics(quantize(p.rows.map(r=>Math.max(r.minimumWeight,Math.min(p.bounds.maxSingleWeight,p.bounds.maxGrossWeight/n))),p),p);
   const seeds=[minimum,currentWeights,equalWeight.weights.map(r=>r.weight)].map(w=>({weights:w,metrics:weightMetrics(w,p)})).filter(v=>v.metrics.constraintsSatisfied);
-  if(!seeds.length)return noAdjust(['可卖数量、流动性或风险约束暂不能同时满足'],{asOf,task:73,current,equalWeight,candidate:null,constraintsVersion:p.bounds.version});
+  if(!seeds.length)return noAdjust(['可卖数量、流动性或风险约束暂不能同时满足'],{asOf,task:73,current,equalWeight,candidate:null,constraintsVersion:p.bounds.version,estimateEvidence});
   let best=seeds.sort((a,b)=>b.metrics.objective-a.metrics.objective)[0],evaluations=seeds.length;
   // A bounded discrete coordinate search, explicitly a candidate rather than
   // a claim of a globally optimal or executable portfolio.
@@ -158,7 +210,7 @@ function researchPortfolioWeights(input={}, {asOf=Date.now()}={}) {
   const useful=best.metrics.turnoverWeight>1e-8&&(!current.constraintsSatisfied||best.metrics.objective>current.objective+1e-8);
   return {schemaVersion:1,task:73,status:useful?'research-candidate':'no-adjust',action:useful?'候选权重，待原流程核验':'不调整',asOf,
     accountRef:text(p.account.authorityRef),accountRevision:p.account.revision,constraintsVersion:p.bounds.version,costVersion:p.cost.feePolicy.version,
-    horizonDays:p.horizonDays,uncertaintyMethod:'1.96倍标准误压力情景，未认证覆盖概率',cashReturnAssumption:0,current,equalWeight,candidate:useful?best.metrics:current,missing:[],
+    horizonDays:p.horizonDays,estimateEvidence,uncertaintyMethod:'1.96倍标准误压力情景，未认证覆盖概率',cashReturnAssumption:0,current,equalWeight,candidate:useful?best.metrics:current,missing:[],
     comparison:{objectiveImprovement:round(best.metrics.objective-current.objective),volatilityChange:round(best.metrics.volatility-current.volatility),evaluations},
     limitations:['有界离散研究，不保证全局最优或未来收益','权重为研究候选；原账户、权限、行情、风控、批准及成交门禁仍需重新校验','1.96倍标准误仅作压力情景，未经独立验证不能称为置信覆盖率；现金收益假定为0'],...FLAGS};
 }
@@ -169,8 +221,8 @@ function evaluateRebalanceThreshold(input={}, {asOf=Date.now()}={}) {
   if(input.forcedRisk?.triggered===true)return {schemaVersion:1,task:74,status:'risk-action-priority',action:'交回原强制风险处置流程',filterMayBlock:false,
     riskRef:text(input.forcedRisk.reference)||null,missing:[],asOf,...FLAGS};
   const missing=[],improvement=input.improvement||{},costs=input.costs||{};
-  if(!evidence(improvement,asOf)||!nonnegative(improvement.uncertainty)||!finite(improvement.expectedAmount))missing.push('缺少可追溯的同周期收益改善与不确定性');
-  if(!evidence(costs,asOf))missing.push('缺少成本来源与事前时点');
+  if(!declarationScope(input)||!monetaryImprovementValid(improvement,asOf))missing.push('缺少可追溯的同周期人民币收益改善与不确定性');
+  if(researchEvidenceAt(costs,asOf)===null)missing.push('缺少成本来源与事前时点');
   for(const key of ['fees','slippage','impact','executionUncertainty','incrementalRisk'])if(!nonnegative(costs[key]))missing.push('缺少成本分项 '+key);
   if(!text(input.baselineRef)||!text(input.candidateRef)||input.baselineRef===input.candidateRef)missing.push('缺少不同的原方案和候选方案引用');
   if(!Number.isSafeInteger(input.horizonDays)||input.horizonDays<1||input.horizonDays>60||improvement.horizonDays!==input.horizonDays)missing.push('改善证据与比较周期不一致');
@@ -188,17 +240,18 @@ function deriveRebalanceThresholdInput(input={},report={}, {asOf=Date.now()}={})
   atTime(asOf);
   if(report.status!=='research-candidate'||!report.current||!report.candidate||arr(report.missing).length)return {};
   const a=input.account||{},cost=input.costs||{},rows=arr(input.candidates),current=new Map(report.current.weights.map(r=>[r.symbol,r.weight])),next=new Map(report.candidate.weights.map(r=>[r.symbol,r.weight]));
-  if(!nonnegative(a.equity)||!evidence(cost,asOf)||!rows.length||rows.some(r=>!evidence(r.estimate,asOf))||!nonnegative(input.constraints?.riskAversion))return {};
+  if(!declarationScope(input)||!nonnegative(a.equity)||researchEvidenceAt(cost,asOf)===null||!rows.length||rows.some(r=>!declarationScope(r)||!returnEstimateValid(r.estimate,r.symbol,input.horizonDays,asOf))||!nonnegative(input.constraints?.riskAversion))return {};
   const uncertainty=rows.reduce((sum,r)=>sum+Math.abs((next.get(r.symbol)||0)-(current.get(r.symbol)||0))*r.estimate.standardError*a.equity,0);
   const notional=report.candidate.turnoverWeight*a.equity;
   const incrementalRisk=Math.max(0,report.candidate.volatility**2-report.current.volatility**2)*input.constraints.riskAversion*a.equity;
-  const sources=[...new Set(rows.map(r=>text(r.estimate.source)).concat(text(cost.source)))],knownAt=Math.max(cost.knownAt,...rows.map(r=>r.estimate.knownAt));
-  const source='original-portfolio-comparison/'+S.digest({account:a.authorityRef,revision:a.revision,weights:report.candidate.weights,sources}).slice(0,32);
+  const sources=[...new Set(rows.map(r=>text(r.estimate.source)).concat(text(cost.source)))],knownAt=Math.max(researchEvidenceAt(cost,asOf),...rows.map(r=>researchEvidenceAt(r.estimate,asOf)));
+  const estimateEvidence=returnEvidenceView(rows,asOf);
+  const source='original-portfolio-comparison/'+S.digest({account:a.authorityRef,revision:a.revision,weights:report.candidate.weights,estimateEvidence,estimates:rows.map(r=>({expectedReturn:r.estimate.expectedReturn,standardError:r.estimate.standardError,volatility:r.estimate.volatility})),sources}).slice(0,32);
   return {baselineRef:text(a.authorityRef)+'@'+a.revision+'/current',candidateRef:source,horizonDays:input.horizonDays,
-    improvement:{expectedAmount:(report.candidate.expectedReturn-report.current.expectedReturn)*a.equity,uncertainty,horizonDays:input.horizonDays,source,knownAt},
+    improvement:{expectedAmount:(report.candidate.expectedReturn-report.current.expectedReturn)*a.equity,uncertainty,horizonDays:input.horizonDays,source,knownAt,unit:'CNY',target:'expected-improvement-cny',valueKind:'amount-estimate'},
     costs:{fees:report.candidate.fees,slippage:notional*cost.slippageBps/10000,impact:notional*cost.impactBps/10000,
-      executionUncertainty:notional*cost.uncertaintyBps/10000,incrementalRisk,source:text(cost.source),knownAt:cost.knownAt},
-    derivation:{sources,method:'same-candidate-and-account-comparison',uncertaintyMethod:'权重差绝对值乘各估计标准误之和；未假定估计误差独立',
+      executionUncertainty:notional*cost.uncertaintyBps/10000,incrementalRisk,source:text(cost.source),knownAt:researchEvidenceAt(cost,asOf)},
+    derivation:{sources,estimateEvidence,method:'same-candidate-and-account-comparison',uncertaintyMethod:'权重差绝对值乘各估计标准误之和；未假定估计误差独立',
       incrementalRiskMethod:'max(候选方差−当前方差,0)×原研究风险偏好×账户权益；属于效用成本假设，不是实际损失',scoreUsedAsProbability:false},...FLAGS};
 }
 
@@ -253,9 +306,10 @@ function checkDecisionRobustness(input={}, {asOf=Date.now(),evaluate}={}) {
     const gateApplied=s.expectedGate&&(error||['rejected','blocked','not-evaluated'].includes(result.status)||['no-adjust','unknown'].includes(result.status)&&result.missing.length>0);
     return {id:s.id,label:s.label,result,changed,maxWeightChange:round(maxWeightChange),gateExpected:s.expectedGate,expectedGate:Boolean(gateApplied),error};
   });
-  const sensitive=scenarios.filter(s=>s.changed&&!s.expectedGate),gateChanges=scenarios.filter(s=>s.changed&&s.expectedGate);
+  const failedExpectedGates=scenarios.filter(s=>s.gateExpected&&!s.expectedGate);
+  const sensitive=scenarios.filter(s=>s.changed&&!s.expectedGate||s.gateExpected&&!s.expectedGate),gateChanges=scenarios.filter(s=>s.changed&&s.expectedGate);
   return {schemaVersion:1,task:75,status:sensitive.length?'sensitive':'stable-in-tested-range',asOf,baseline,scenarios,
-    sensitiveFactors:sensitive.map(s=>s.label),expectedGateChanges:gateChanges.length,missing:[],
+    sensitiveFactors:sensitive.map(s=>s.label),expectedGateChanges:gateChanges.length,failedExpectedGates:failedExpectedGates.map(s=>s.id),missing:[],
     meaning:'只说明指定扰动范围内的敏感性；稳定不等于正确或保证收益。缺因子和过期输入触发原门禁属于预期退化。',...FLAGS};
 }
 
