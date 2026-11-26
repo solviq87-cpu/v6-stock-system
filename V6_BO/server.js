@@ -459,13 +459,22 @@ function guard(name, fn) {
 //    ⛔ 概念板块互相重叠，绝不并入；⛔ 一条行业板块都取不到 → 返回 null（数据暂缺），
 //    绝不返回 0 —— 0 是测量值，「没有」不是 0。
 function sectorMktFlow() {
-  const ind = S.sectorsInd || [];
-  let sum = 0, n = 0;
-  for (const s of ind) {
-    if (s && typeof s.mainInflow === 'number' && isFinite(s.mainInflow)) { sum += s.mainInflow; n++; }
-  }
-  if (!n) return null;
-  return { v: +(sum / 1e8).toFixed(1), day: S.sectorsDay || '', at: S.sectorsAt || 0 };
+  const ind=Array.isArray(S.sectorsInd)?S.sectorsInd:[],now=Date.now(),day=S.sectorsDay||'';
+  if(!ind.length)return null;
+  // Historical vendor estimates are display evidence, not current scores.
+  const projection=require('./src/core/decision-sector-context').projectSectors({day,rows:ind,ind},{day,now});
+  if(projection.rows.length!==ind.length||projection.rows.some(r=>!Number.isFinite(r.mainInflow))||
+     new Set(projection.rows.map(r=>r.source)).size!==1||new Set(projection.rows.map(r=>r.name)).size!==ind.length)return null;
+  const sum=projection.rows.reduce((n,r)=>n+r.mainInflow,0);
+  if(!Number.isFinite(sum))return null;
+  const {fundsObservationView}=require('./src/core/quote-observation-view');
+  const observations=ind.map(r=>fundsObservationView(r,now));
+  const normalizedDay=String(day).replace(/-/g,'');
+  const current=normalizedDay===fundsObservationDay(now)?.replace(/-/g,'')&&observations.every(v=>v.analysisEligible);
+  return {v:+(sum/1e8).toFixed(1),day:normalizedDay,at:Math.max(...projection.rows.map(r=>r.retrievedAt)),
+    analysisValue:current?sum/1e8:null,validUntil:current?Math.min(...observations.map(v=>v.quoteAt+15000)):null,
+    status:current?'recent-unverified':'dated-or-unqualified',scope:'observed-industry-rows',
+    observedIndustries:projection.rows.length,fullMarketCertified:false};
 }
 
 // 指数按供应商原时点判新鲜度；本地刚收到旧包也不能标为当前报价。
@@ -525,8 +534,10 @@ function marketMood() {
   const medPct = valid.length ? valid.sort((a, b) => a.pct - b.pct)[Math.floor(valid.length / 2)].pct : 0;
   // ⛔ if 轮：主力净流入改走行业板块合计（见 sectorMktFlow），null=数据暂缺
   const _mf = sectorMktFlow();
-  const mktFlow = _mf ? _mf.v : null;
-  const bullish = mktFlow != null && mktFlow > 0;
+  const displayedMktFlow = _mf?.v ?? null;
+  const mktFlow = _mf?.analysisValue ?? null;
+  const bullish = mktFlow === null ? null : mktFlow > 0;
+  const bearish = mktFlow !== null && mktFlow < 0;
   // 综合温度：外围(30%) + 全A涨跌比(40%) + 资金(30%)；
   // ⛔ 资金缺数据时按「外围+涨跌比」重新归一化（缺项不是 0 分，也不是照原权重少算一项）
   const upRatio = valid.length ? upN / valid.length : 0.5;
@@ -547,15 +558,17 @@ function marketMood() {
   const _bq = boardQualityOf(S.ztPool);
   if (_bq.hardRate != null) evidence.push(`涨停池封板：硬板${_bq.hard}只 · 开板回封${_bq.weak}只${_bq.missing ? `（${_bq.missing}只缺炸板数据）` : ''} · 硬板率${_bq.hardRate}%`);
   const _mfStale = _mf && _mf.day && _mf.day !== todayStr();
-  evidence.push(`主力流向：${mktFlow != null
-    ? (mktFlow > 0 ? '净流入 +' : '净流出 ') + Math.abs(mktFlow) + '亿' + (_mfStale ? `（${_mf.day.slice(4, 6)}-${_mf.day.slice(6, 8)} 收盘累计·非今日）` : '')
+  evidence.push(`主力流向：${displayedMktFlow != null
+    ? (displayedMktFlow > 0 ? '净流入 +' : displayedMktFlow < 0 ? '净流出 ' : '净额 ') + Math.abs(displayedMktFlow) + '亿' +
+      (_mfStale ? `（${_mf.day.slice(4, 6)}-${_mf.day.slice(6, 8)} 历史累计·非今日）` : '') +
+      (mktFlow===null?'（原始时点或新鲜度未满足，未参与当前评分）':'（已观测行业估算，非全市场认证）')
     : '数据暂缺'}`);
   evidence.push(`个股均幅：${avgPct > 0 ? '+' : ''}${avgPct.toFixed(2)}%（中位${medPct > 0 ? '+' : ''}${medPct.toFixed(2)}%）`);
   const _idx = idxRtLine();
   if (_idx) evidence.push(_idx);
   if (mood === '偏暖' && bullish && upRatio > 0.45 && ztN >= dtN) {
     advice = '加仓';
-  } else if (mood === '偏冷' && !bullish && upRatio < 0.35) {
+  } else if (mood === '偏冷' && bearish && upRatio < 0.35) {
     advice = '空仓';
   } else if (mood === '偏冷' || (mood === '中性' && !bullish && upRatio < 0.4)) {
     advice = '减仓';
@@ -564,12 +577,13 @@ function marketMood() {
   // ⛔ 只做展示层翻译，不改 advice 判定逻辑（那是仓位/推送闸门口径，另案处理）。
   const _verdictMap = { '加仓': '今天能做', '减仓': '今天谨慎', '空仓': '今天别做', '观望': '今天观望' };
   const verdict = _verdictMap[advice] || '今天观望';
-  const why = [mood, upN >= downN ? '涨多跌少' : '跌多涨少', mktFlow != null ? (mktFlow > 0 ? '资金净流入' : '资金净流出') : '', '涨停' + ztN + '家'].filter(Boolean).join('，');
+  const why = [mood, upN >= downN ? '涨多跌少' : '跌多涨少', mktFlow != null ? (mktFlow > 0 ? '资金净流入' : mktFlow < 0 ? '资金净流出' : '资金净额为零') : '', '涨停' + ztN + '家'].filter(Boolean).join('，');
   return {
     usAvg: +usAvg.toFixed(2), cnAvg: +cnAvg.toFixed(2), mood,
     upN, downN, flatN, ztN, dtN, dtSrc,
     avgPct: +avgPct.toFixed(2), medPct: +medPct.toFixed(2),
-    mktFlow: mktFlow == null ? null : +mktFlow.toFixed(1),
+    mktFlow: displayedMktFlow,mktFlowAnalysisValue:mktFlow,mktFlowStatus:_mf?.status??'unknown',
+    mktFlowValidUntil:_mf?.validUntil??null,mktFlowScope:_mf?.scope??null,
     mktFlowDay: _mf ? _mf.day : '',   // ⛔ if 轮：资金数据的归属日（跨天=另一周期的累计值）
     bullish, advice, verdict, why, evidence,
     boardHard: _bq.hard, boardWeak: _bq.weak, boardBrkMissing: _bq.missing, boardHardRate: _bq.hardRate,
@@ -588,15 +602,18 @@ function marketMood() {
 // 两档降级（都可解释、都写进拦因文案）：
 //   ① 胜率门 +8（pushMinProbEff）—— 候选自然变少，宁可不报；
 //   ② 每日总条数与各类条数减半（下限 1）—— 同样的信号量只放行一半。
-let _envColdCache = { t: 0, v: false };
-function envCold() {
-  const now = Date.now();
-  if (now - _envColdCache.t < 60000) return _envColdCache.v;   // 60s memo：govFilter 逐候选调用，不能每次都全A遍历
-  let v = false;
-  try { const m = marketMood(); v = !!(m && m.mood === '偏冷'); } catch (e) { v = false; }
-  _envColdCache = { t: now, v };
+let _envColdCache={t:0,until:0,v:false};
+function envCold(){
+  const now=Date.now();
+  if(now>=_envColdCache.t&&now<_envColdCache.until&&_envColdCache.sectors===S.sectorsInd&&_envColdCache.sectorsAt===S.sectorsAt)return _envColdCache.v;
+  let v=false,until=now+60000;
+  try{const m=marketMood();v=!!(m&&m.mood==='偏冷');
+    if(Number.isSafeInteger(m?.mktFlowValidUntil))until=Math.min(until,m.mktFlowValidUntil+1);
+  }catch{v=false;}
+  _envColdCache={t:now,until,v,sectors:S.sectorsInd,sectorsAt:S.sectorsAt};
   return v;
 }
+
 const ENV_COLD_UPLIFT = 8;   // 偏冷环境胜率门抬升（百分点）；改这个值=改降级力度，只此一处
 function pushMinProbEff() {
   const base = pushMinProb();
@@ -608,7 +625,7 @@ function computePreselect() {
   const mood = marketMood();
   if (!S.candidatePool.length) return null;
   const moodBoost = mood ? (mood.usAvg > 0.5 ? 0.06 : mood.usAvg < -0.5 ? -0.08 : 0) : 0;
-  const flowBoost = mood && mood.bullish ? 0.05 : -0.1; // 做多意愿总开关
+  const flowBoost = mood?.bullish===true ? 0.05 : mood?.mktFlowAnalysisValue<0 ? -0.1 : 0; // 未知不等于净流出
   const items = S.candidatePool.filter(c => (c.mainInflow || 0) > 0).slice(0, 60).map(c => {
     const prob = A.limitUpProbability({
       score: numNeutral('score', c.score), mainPct: numNeutral('mainPct', c.mainPct), profitRatio: numNeutral('profitRatio', c.profitRatio),
@@ -6811,18 +6828,36 @@ const GEO_BOARD_RE = new RegExp('^' + GEO_PREFIX + GEO_SUFFIX + '?$');
 // 银行/石油/地产权重股（大盘股净占比天然高，与板块有没有行情无关）。
 // 冷热两条硬证据（有一条算热）：① 板块内有涨停 ② 板块进当日资金流前 25。
 // 冷门不删除、只标注+降权：一刀切过滤会在全是权重股的行情时让面板直接空掉。
-let _secRankCache = { t: 0, map: new Map() };
-function sectorRankMap() {
-  const now = Date.now();
-  if (now - _secRankCache.t < 60 * 1000 && _secRankCache.map.size) return _secRankCache.map;
-  const m = new Map();
-  try {
-    [...(S.sectors || [])].sort((a, b) => (b.mainInflow || 0) - (a.mainInflow || 0))
-      .forEach((s, i) => { if (s && s.name) m.set(s.name, i + 1); });
-  } catch {}
-  _secRankCache = { t: now, map: m };
+let _secRankCache={t:0,until:0,map:new Map()};
+function sectorRankMap(){
+  const now=Date.now(),rows=S.sectors,day=String(S.sectorsDay||'').replace(/-/g,'');
+  if(now>=_secRankCache.t&&now<_secRankCache.until&&_secRankCache.rows===rows&&
+     _secRankCache.at===S.sectorsAt&&_secRankCache.day===day)return _secRankCache.map;
+  const m=new Map(),byName=new Map(),byCode=new Map(),conflicts=new Set();
+  let until=now+1000;
+  try{
+    if(day===fundsObservationDay(now)?.replace(/-/g,'')&&Array.isArray(rows)){
+      const {fundsObservationView}=require('./src/core/quote-observation-view');
+      for(const row of rows){
+        if(typeof row?.name!=='string'||!row.name.trim())continue;
+        const name=row.name,code=typeof row.code==='string'&&row.code.trim()?row.code:null,v=fundsObservationView(row,now);
+        const validDate=[row.tradeDate,row.sourceTradeDate].every(d=>d==null||typeof d==='string'&&d.replace(/-/g,'')===day);
+        const value=code&&validDate?v.analysisValue:null;
+        const key=JSON.stringify([code,v.source,value,v.quoteAt,v.receivedAt,v.unit,v.mode]);
+        const prior=byName.get(name);
+        if(prior&&prior.key!==key)conflicts.add(name);
+        if(!prior)byName.set(name,{name,key,value,at:v.quoteAt});
+        if(code){const other=byCode.get(code);if(other&&other!==name){conflicts.add(name);conflicts.add(other);}byCode.set(code,name);}
+      }
+      [...byName.values()].filter(r=>r.value!==null&&!conflicts.has(r.name))
+        .sort((x,y)=>y.value-x.value||x.name.localeCompare(y.name))
+        .forEach((r,i)=>{m.set(r.name,i+1);until=Math.min(until,r.at+15001);});
+    }
+  }catch{m.clear();}
+  _secRankCache={t:now,until,map:m,rows,at:S.sectorsAt,day};
   return m;
 }
+
 // 一只票同时属于好几个板块是常态（东财个股题材动辄 5~10 个）。要从中挑一个当"归属"时，
 // ⛔ 不许默认"数据里排第一个的就是最相关的"（2026-10-07 修，本轮角度：默认是对的假设）：
 //    boardsOf 返回的是东财自己的顺序、S.secStocks 的迭代顺序是**缓存写入顺序** —— 两者都跟
