@@ -9,16 +9,26 @@ function limitPct(stock) {
 
 // A later intraday unlock is unavailable to a simulated opening order.
 function atLockedLimit(bar, prior, stock, side) {
+  if (!['buy','sell'].includes(side)) return {blocked:true, reason:'委托方向无效'};
   if (!(Number.isFinite(bar?.open) && bar.open > 0)) return {blocked:true, reason:'开盘价无效'};
   let boundary = side === 'buy' ? bar.upperLimit : bar.lowerLimit;
   if (boundary === undefined) {
-    const limit = limitPct({...stock, isST:bar.isST ?? stock.isST, limitPct:bar.limitPct ?? stock.limitPct});
+    const limit = limitPct({...stock, isST:bar.isST ?? stock?.isST, limitPct:bar.limitPct ?? stock?.limitPct});
     const reference=bar.corporateAction?.referenceClose??prior?.close;
     if (!limit || !Number.isFinite(reference) || reference <= 0) return {blocked:true, reason:'缺少涨跌停制度或前收盘价'};
     const pct = side === 'buy' ? limit : -limit;
     boundary = Math.round(reference * (100 + pct) + 1e-9) / 100;
   }
   if (!Number.isFinite(boundary) || boundary <= 0) return {blocked:true, reason:'涨跌停价格无效'};
+  // Validate explicitly supplied opposite bounds, even when the requested
+  // side is known. The opposite boundary itself is not a queue restriction;
+  // a price outside it or a contradictory pair is impossible evidence.
+  const opposite = side === 'buy' ? bar.lowerLimit : bar.upperLimit;
+  if (opposite !== undefined && (!Number.isFinite(opposite) || opposite <= 0 ||
+      (side === 'buy' ? opposite >= boundary : opposite <= boundary)))
+    return {blocked:true, reason:'涨跌停上下界无效或矛盾'};
+  if (opposite !== undefined && (side === 'buy' ? bar.open < opposite : bar.open > opposite))
+    return {blocked:true, reason:'开盘价超出明确的涨跌停区间'};
   const blocked = side === 'buy' ? bar.open >= boundary : bar.open <= boundary;
   return {blocked, boundary, reason:blocked ? '开盘触及涨跌停，无法确认排队成交' : null};
 }
